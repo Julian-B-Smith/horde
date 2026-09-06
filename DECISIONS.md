@@ -4828,3 +4828,33 @@ fix (design bug, caught by T3) and two probe fixes (T6's absolute floor was
 aspirational against a 10 Hz / Q≈20 ring's physics; instantaneous tail
 samples land on arbitrary ring phase — windowed peaks measure the envelope).
 verify full untouched: the core is unwired, zero shipped-path changes.
+
+
+## ADR-154 — 2026-09-05: autonomous notice-001 taken at intake — frozen identifiers reaffirmed, brand adoption deferred to /retrofit, cleanup sequenced
+
+**Context.** autonomous (Decision 69) filed the inventory of Ableton sets a
+param-ID cleanup would break and the sequencing ruling: rename first, two
+identifiers never move, cleanup last with a migrator decision. Filed as a
+notice (`ball: none`); relayed by the human 2026-09-05.
+
+**Decisions.**
+1. **Intake, not just receipt.** Every checkable claim was verified against
+   our tree before commit and the cites are affirmed in the frontmatter:
+   ADR-002 (frozen CLAP id → VST3 UID), ADR-114 (the device rename kept every
+   identifier), CMakeLists.txt (`LfTk`/`Hsaw`/`aumu` exactly as stated).
+2. **Reaffirmed as invariant:** the VST3 class ID and the AU triple
+   `LfTk`/`aumu`/`Hsaw` do not move in ANY rename, brand included. This was
+   already ADR-002's freeze; it is now also an upstream ruling with a
+   28-set inventory behind it.
+3. **Brand adoption ("Mind Lathe", `com.mind-lathe.<plugin>`) is DEFERRED to
+   the next `/retrofit`** and gated on the synced CONVENTIONS §Audio plugins
+   actually changing — at intake it still reads "Lifted Truck". Only the
+   manufacturer NAME and bundle prefix change then; per (2) the binding
+   identifiers do not, so shipped sets keep loading (the HYPERSAW→horde
+   precedent).
+4. **The cleanup is a compatibility event** (B98), opened only after the
+   account rename and autonomous's K5 routines; migrate vs version vs accept
+   is decided then, against the inventory.
+
+**Evidence.** notice-001 read in full; CMakeLists.txt lines 128-143 and 164;
+CONVENTIONS.md §Audio plugins as synced on 2026-09-05.
