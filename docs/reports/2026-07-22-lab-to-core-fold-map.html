@@ -36,7 +36,7 @@
 </head>
 <body>
 <h1>SWARM<span class="star">✱</span> · detune lab → reference → core · fold map</h1>
-<div class="sub">2026-07-22 · what the audition lab (docs/design/detune-lab.html) produced, and how each piece folds into swarmsaw.html (the reference/oracle) → swarm_core.h (parity port). For review + posterity. <em>Fold status updated 2026-07-23: ADR-060..066 landed, parity 54/54 → 102/102.</em></div>
+<div class="sub">2026-07-22 · what the audition lab (docs/design/detune-lab.html) produced, and how each piece folds into reference/swarmsaw.html (the reference/oracle) → swarm_core.h (parity port). For review + posterity. <em>Fold status updated 2026-07-23: ADR-060..066 landed, parity 54/54 → 102/102.</em></div>
 
 <div class="legend">
   <span><i class="dot b-green" style="background:var(--green)"></i> superset · default bit-exact → low parity risk</span>
@@ -88,7 +88,7 @@
 <div class="seq">
 <ol>
 <li><b>Supersets first</b> — tone tilt/HPF/hi-tame, drift modes + centre-pin, freq smoothing, keep-phase, pan-motion, comp/limiter. Each: reference edit → parity holds (default bit-exact) → one increment. Lowest risk, biggest surface.</li>
-<li><b>New detune laws</b> — harmonic+reach, stretch, golden, spread/anchor. Each is a reference law-table addition → new golden → ADR. Inert when unselected, but each is a spec change to swarmsaw.html.</li>
+<li><b>New detune laws</b> — harmonic+reach, stretch, golden, spread/anchor. Each is a reference law-table addition → new golden → ADR. Inert when unselected, but each is a spec change to reference/swarmsaw.html.</li>
 <li><b>Divergences needing a decision</b> — <em>root-pivot topology</em> (keep both; ADR), <em>pan default image</em> (ADR — it changes existing patches' stereo), <em>saw-shape retarget</em> (supersede ADR-058; needs measured synth-saw profiles for the base bank).</li>
 <li><b>New modules</b> — polyphonic KS comb (as an FX-rack slot, reusing the filter/notch/time-core precedent).</li>
 <li><b>Face &amp; naming</b> — the visual language + name-by-feel glossary (K→"cooperation", swarm→"horde"), Phase 5.</li>

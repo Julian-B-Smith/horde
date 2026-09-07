@@ -5,7 +5,7 @@
  * here; this file is the CLAP adapter: note/param events in, audio out, state
  * save/load. Parameter IDs are frozen once shipped (host automation lanes and
  * saved sessions reference them); append new params, never renumber. Ranges
- * mirror the prototype UI (swarmsaw.html) — notably dissolve is exposed in
+ * mirror the prototype UI (reference/swarmsaw.html) — notably dissolve is exposed in
  * SECONDS (the prototype knob is log10 s), driftDepth in cents.
  *
  * Real-time rules (charter): process() allocates nothing, no locks, no
@@ -128,7 +128,7 @@ static const char *const kRatioNames[13] = {"1/1", "16/15", "9/8", "6/5", "5/4",
 
 /* ADR-115: the engine is SWARM SAW. Renamed SAW -> HYPERSAW (ADR-091), and now
    -> SWARM SAW, which returns it to the lineage its own prototype never left
-   (swarmsaw.html / SwarmSynth). With the device named horde, "HYPERSAW" now
+   (reference/swarmsaw.html / SwarmSynth). With the device named horde, "HYPERSAW" now
    survives ONLY as the repo name and the frozen plugin id — it is off the
    product surface entirely. The VALUE and the state key are untouched, as in
    ADR-091: a label is not an identity, and every stored patch keeps loading. */

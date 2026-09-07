@@ -1,7 +1,7 @@
 # HORDE — Swarm Glitch Modules
 
 **Spec v0.1 — DECOHERE · STALE FIELD · NECROSIS**
-Status: validated in browser prototype (`horde_decoherence_lab.html`, Aug 2026). This document is the handoff spec for implementation inside the SWARM engine. These are **state-tier glitches**: they operate on the Kuramoto voice-swarm's dynamical state, not on the audio buffer. They cannot live in the FX rack; they must be implemented where the coupling law runs.
+Status: validated in browser prototype (`reference/decoherence-lab.html`, Aug 2026). This document is the handoff spec for implementation inside the SWARM engine. These are **state-tier glitches**: they operate on the Kuramoto voice-swarm's dynamical state, not on the audio buffer. They cannot live in the FX rack; they must be implemented where the coupling law runs.
 
 ---
 
@@ -86,7 +86,7 @@ Audio-thread only; parameter changes via the existing atomic/event path; no allo
 
 Telemetry for UI: expose `r̄`, `ψ̄`, per-voice `θ_i` and state at control rate. The prototype's phase-circle + r-history visualization is the reference UI concept and doubles as the debugging view; strongly recommend building it early — every behavior in this spec is legible on it.
 
-Prototype relationship: `horde_decoherence_lab.html` is the behavioral reference for DECOHERE (chaotic variant), STALE FIELD (haunt = 1), and the three failure models. It is **not** a bit-parity oracle — the K convention differs (§0) and NECROSIS §3 supersedes its button-based interface. Acceptance is behavioral: splay/heal trajectory shape, stale-field note-conflict beating, deterministic necrosis ordering, and bypass bit-transparency.
+Prototype relationship: `reference/decoherence-lab.html` is the behavioral reference for DECOHERE (chaotic variant), STALE FIELD (haunt = 1), and the three failure models. It is **not** a bit-parity oracle — the K convention differs (§0) and NECROSIS §3 supersedes its button-based interface. Acceptance is behavioral: splay/heal trajectory shape, stale-field note-conflict beating, deterministic necrosis ordering, and bypass bit-transparency.
 
 ## 5. Acceptance tests
 

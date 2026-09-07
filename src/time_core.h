@@ -1,6 +1,6 @@
 /*
  * time_core.h — Track E2 time engines (SPEC-EFFECTS §5/§6), transcribed
- * VERBATIM from swarmtime.html's TimeLab. Two modes on the shared force core
+ * VERBATIM from reference/swarmtime.html's TimeLab. Two modes on the shared force core
  * (forcecore, ADR-034), the population here being DELAY TIMES (log2 seconds):
  *   - ECHO (mode 0): tap-swarm delay — N read taps on one buffer, feedback of
  *     the tap sum, DC-blocked + damped. Gravity attractors = rhythmic ratios

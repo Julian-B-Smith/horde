@@ -1,5 +1,5 @@
 // SPECTRA golden generator (Phase 4): render SpectraSynth (sliced live from
-// swarmspectra.html — the HTML stays the source of truth) and write raw f32
+// reference/swarmspectra.html — the HTML stays the source of truth) and write raw f32
 // stereo streams for tools/spectra_check.cpp L0-1-style parity.
 //
 // Protocol: params applied via setParam in manifest order; one note
@@ -14,10 +14,10 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const html = readFileSync(join(root, 'swarmspectra.html'), 'utf8').split('\n');
+const html = readFileSync(join(root, 'reference/swarmspectra.html'), 'utf8').split('\n');
 const start = html.findIndex(l => l.includes('const P_MAX'));
 const end = html.findIndex(l => l.includes('= Audio graph'));
-if (start < 0 || end <= start) throw new Error('swarmspectra.html: slice markers not found');
+if (start < 0 || end <= start) throw new Error('reference/swarmspectra.html: slice markers not found');
 const SpectraSynth = new Function(html.slice(start, end).join('\n') + '\nreturn SpectraSynth;')();
 
 const SR = 44100, BLOCK = 512, SECONDS = 1;

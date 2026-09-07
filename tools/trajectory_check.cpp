@@ -1,7 +1,7 @@
 /*
  * trajectory_check — L0-2..5 + L0-13 on the C++ SwarmCore.
  *
- * Numbers come from ACCEPTANCE.md verbatim; where a criterion is stated
+ * Numbers come from specs/ACCEPTANCE.md verbatim; where a criterion is stated
  * qualitatively ("steady", "oscillating", "hunting") the formalization used
  * here is written next to the check and stays within the stated tolerances
  * (regime classification blocking, R values ±0.08). Never tighten silently,

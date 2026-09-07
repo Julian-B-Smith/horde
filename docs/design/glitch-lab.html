@@ -55,7 +55,7 @@
 <div class="rev" title="the file's modification time and a fingerprint of its code, both read at load — neither is hand-maintained, so neither can drift. If the fingerprint does not change after a reload you are still on a cached copy (hard-reload: Cmd+Shift+R).">rev <span id="revdate">…</span> &middot; fp <span id="revfp">…</span></div>
 
 <h1>horde <span class="star">·</span> glitch lab</h1>
-<div class="tagline">The three <b>state-tier</b> glitch modules of <code>SPEC_swarm_glitch_modules.md</code> — DECOHERE, STALE FIELD, NECROSIS — auditioned together on a swarm source. They are not an FX rack: they have no buffer to insert into, they rewrite the Kuramoto coupling law and the per-oscillator state it runs over, so they live INSIDE the oscillator. Seeded from the first line (mulberry32, visible seed) — unlike the ingested reference <code>horde_decoherence_lab.html</code>, so "same seed → identical output" is a claim this lab can actually run: the SELF-TEST panel checks bypass-null, determinism and the spec's decohere/LIFO trajectories offline. Audition lab, spec-in-code — NOT a parity reference.</div>
+<div class="tagline">The three <b>state-tier</b> glitch modules of <code>specs/SPEC-GLITCH-MODULES.md</code> — DECOHERE, STALE FIELD, NECROSIS — auditioned together on a swarm source. They are not an FX rack: they have no buffer to insert into, they rewrite the Kuramoto coupling law and the per-oscillator state it runs over, so they live INSIDE the oscillator. Seeded from the first line (mulberry32, visible seed) — unlike the ingested reference <code>reference/decoherence-lab.html</code>, so "same seed → identical output" is a claim this lab can actually run: the SELF-TEST panel checks bypass-null, determinism and the spec's decohere/LIFO trajectories offline. Audition lab, spec-in-code — NOT a parity reference.</div>
 
 <div class="top">
   <button id="power">POWER ON</button>
@@ -147,7 +147,7 @@
    plain swarm the bypass path renders (self-test 1 proves the two are
    bit-identical, which is spec §5 test 1).
 
-   Interaction ordering is fixed by SPEC_swarm_glitch_modules.md §0:
+   Interaction ordering is fixed by specs/SPEC-GLITCH-MODULES.md §0:
      (1) NECROSIS mutates per-voice state
      (2) STALE FIELD selects the field the coupling term sees
      (3) DECOHERE overrides the effective K

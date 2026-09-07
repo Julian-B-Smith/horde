@@ -2,7 +2,7 @@
 
 **Project:** HORDE (engine type)
 **Status:** Approved for implementation
-**Reference prototype:** `station.html` (browser, Web Audio, validated by Julian 2026-08)
+**Reference prototype:** `reference/station.html` (browser, Web Audio, validated by Julian 2026-08)
 **Version:** 1.0
 
 ---
@@ -157,7 +157,7 @@ Default patch = prototype boot patch (soft EP: OP2 2:1 idx 2.6, OP3 14:1 idx 1.1
 
 ## 11. Prototype parity and deliberate divergences
 
-`station.html` is the parity oracle for: waveform shapes (raw and pure branches), phase-quantization behavior, matrix/feedback semantics including the one-sample delay, envelope segment shapes and loop behavior, LFSR sequences (both taps), pitch-env curve, algorithm preset values, default patch.
+`reference/station.html` is the parity oracle for: waveform shapes (raw and pure branches), phase-quantization behavior, matrix/feedback semantics including the one-sample delay, envelope segment shapes and loop behavior, LFSR sequences (both taps), pitch-env curve, algorithm preset values, default patch.
 
 **Deliberate divergences (do NOT replicate the prototype here):**
 

@@ -1,7 +1,7 @@
-# CHANGE-NOTE · swarmsaw.html — splay legibility update (dual order parameters, seats, formation polygon)
+# CHANGE-NOTE · reference/swarmsaw.html — splay legibility update (dual order parameters, seats, formation polygon)
 
 **Date:** 2026-07-17
-**Scope:** visualization + one new engine readout in the SAW reference implementation (`swarmsaw.html`). No audio-path changes. Kit copy refreshed; treat this file as an amendment to `SPEC.md §5.6` and a parity note for Phase 1/5.
+**Scope:** visualization + one new engine readout in the SAW reference implementation (`reference/swarmsaw.html`). No audio-path changes. Kit copy refreshed; treat this file as an amendment to `specs/SPEC.md §5.6` and a parity note for Phase 1/5.
 
 ## 1. The defect
 
@@ -10,7 +10,7 @@ The phase circle displayed only the first-harmonic order parameter R₁ ("how cl
 - **Free** — no coupling, voices drifting independently (disorder)
 - **Locked splay** — negative K, voices held in a rigid, evenly-spaced rotating formation (maximal *non-clumped* order)
 
-So the display could not distinguish the instrument's most novel state from the absence of coupling. This was a spec defect, not just prototype polish: `SPEC.md §5.6` specified the phase circle with only the R·e^{iψ} vector, under-specifying in exactly the same way.
+So the display could not distinguish the instrument's most novel state from the absence of coupling. This was a spec defect, not just prototype polish: `specs/SPEC.md §5.6` specified the phase circle with only the R·e^{iψ} vector, under-specifying in exactly the same way.
 
 ## 2. Conceptual background (why a second order parameter)
 
@@ -28,7 +28,7 @@ Under perfect splay (θ_i = θ_anchor + i/N cycles), the factor N·θ_i makes al
 | Free | 0.0 | 0.39 | 0.16 |
 | Splay | −1.0 | 0.04 | 0.84 |
 
-The two meters are therefore **orthogonal regime indicators**: R₁ high = sync; R₁ low + R_N high = splay; both low = free. These three rows are new acceptance data — add to `ACCEPTANCE.md` as **L0-3 extension**: R_N regime classification must match this table, values ±0.08 (the splay R_N ≥ 0.75 criterion already existed; the sync-side R_N ≈ 0.07 and free-side values are new regression anchors).
+The two meters are therefore **orthogonal regime indicators**: R₁ high = sync; R₁ low + R_N high = splay; both low = free. These three rows are new acceptance data — add to `specs/ACCEPTANCE.md` as **L0-3 extension**: R_N regime classification must match this table, values ±0.08 (the splay R_N ≥ 0.75 criterion already existed; the sync-side R_N ≈ 0.07 and free-side values are new regression anchors).
 
 ## 3. What changed (implementation)
 

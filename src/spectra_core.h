@@ -1,6 +1,6 @@
 /*
  * spectra_core.h — SPECTRA engine: per-partial spectral swarm, transcribed
- * VERBATIM from swarmspectra.html's SpectraSynth (ADR-003: the prototype is
+ * VERBATIM from reference/swarmspectra.html's SpectraSynth (ADR-003: the prototype is
  * the spec-in-code). P partials × M cloud voices; each partial carries its
  * own Kuramoto cloud with cascade gating (zipper) and splay-narrowing
  * (interference gate, wmix). Correctness = L0-1-style parity with the JS
@@ -52,7 +52,7 @@ class SpectraCore
            retrig = 1;
     // ADSR (ADR-055): parity-safe superset of the reference AR, exactly as
     // ADR-021 did for the SAW core — BUT the defaults are SPECTRA's OWN
-    // reference constants (attack 4 ms, release 180 ms; swarmspectra.html AR),
+    // reference constants (attack 4 ms, release 180 ms; reference/swarmspectra.html AR),
     // which DIFFER from the SAW core's 3 ms / 160 ms. At sustainL >= 1 the
     // render loop takes the reference's exact expressions (decay never
     // engages) so the spectra goldens are the regression proof; sustainL < 1

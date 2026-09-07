@@ -2,7 +2,7 @@
  * gen_goldens.mjs — L0-1 golden generator (SAW core, Phase 1).
  *
  * Renders the parity scenario matrix on the JS reference (SwarmSynth,
- * extracted live from swarmsaw.html — see extract_core.mjs) and writes
+ * extracted live from reference/swarmsaw.html — see extract_core.mjs) and writes
  * Float32LE stereo-interleaved renders + a manifest to build-golden/.
  * Binaries are build artifacts, never committed (ROADMAP Phase 1); this
  * generator is the checked-in source of truth for what a golden IS.
@@ -192,10 +192,10 @@ function sha256(f32) {
 }
 
 const selfcheck = process.argv.includes('--selfcheck');
-const SwarmSynth = extractCore(join(repo, 'swarmsaw.html'), 'SwarmSynth');
-const DynSynth = extractCore(join(repo, 'swarmdynamics.html'), 'DynSynth');
+const SwarmSynth = extractCore(join(repo, 'reference/swarmsaw.html'), 'SwarmSynth');
+const DynSynth = extractCore(join(repo, 'reference/swarmdynamics.html'), 'DynSynth');
 
-const manifest = { generated_by: 'tools/golden/gen_goldens.mjs', reference: 'swarmsaw.html',
+const manifest = { generated_by: 'tools/golden/gen_goldens.mjs', reference: 'reference/swarmsaw.html',
                    sr: SR, seconds: SECONDS, note: MIDI, note_off_at: NOTE_OFF_AT, entries: [] };
 let failures = 0;
 

@@ -1,5 +1,5 @@
 // Swarmalator golden generator (new engine): render the JS Swarmalator core
-// (sliced live from swarmalator.html) to raw f32 STEREO for
+// (sliced live from reference/swarmalator.html) to raw f32 STEREO for
 // tools/swarmalator_check.cpp L0-1-style parity. Fully deterministic (seeded
 // mulberry32, no Math.random in the audio path) — so parity is bit-exact.
 //
@@ -14,10 +14,10 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const html = readFileSync(join(root, 'swarmalator.html'), 'utf8').split('\n');
+const html = readFileSync(join(root, 'reference/swarmalator.html'), 'utf8').split('\n');
 const start = html.findIndex(l => l.includes('const NU_MAX'));
 const end = html.findIndex((l, i) => i > start && (/^\s*const \$ =/.test(l) || l.includes('function powerOn()')));
-if (start < 0 || end <= start) throw new Error('swarmalator.html: core slice markers not found');
+if (start < 0 || end <= start) throw new Error('reference/swarmalator.html: core slice markers not found');
 const Swarmalator = new Function(html.slice(start, end).join('\n') + '\nreturn Swarmalator;')();
 
 const SR = 44100, BLOCK = 512, SECONDS = 1;

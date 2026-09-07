@@ -28,6 +28,6 @@ export function extractLab(htmlFile, className) {
   return new Function(`${src}\nreturn ${className};`)();
 }
 
-export const FilterLab = extractLab('swarmfilter.html', 'FilterLab');
-export const PhaserLab = extractLab('swarmphaser.html', 'PhaserLab');
-export const TimeLab = extractLab('swarmtime.html', 'TimeLab');
+export const FilterLab = extractLab('reference/swarmfilter.html', 'FilterLab');
+export const PhaserLab = extractLab('reference/swarmphaser.html', 'PhaserLab');
+export const TimeLab = extractLab('reference/swarmtime.html', 'TimeLab');

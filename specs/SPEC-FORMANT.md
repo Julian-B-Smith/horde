@@ -1,5 +1,5 @@
 # HORDE — Formant Engine (working name: CANTO)
-## Specification v0.1 — derived from browser prototype `horde_formant_pulsar_fof.html`
+## Specification v0.1 — derived from browser prototype `reference/formant-pulsar-fof.html`
 
 **Status:** prototype validated by ear; this document is the handoff to implementation.
 **Prototype is the oracle.** As with the SAW engine, correctness of the plugin engine is defined as parity with the prototype's DSP core (`FormantCore` class) at matched sample rate, up to the stochastic sources (masking RNG), which must be seedable for verification.

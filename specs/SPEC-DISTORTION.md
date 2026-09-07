@@ -1,5 +1,5 @@
 # HORDE — Distortion Engine (working name: WARP)
-## Specification v0.1 — derived from browser prototype `horde_distortion_engine.html`
+## Specification v0.1 — derived from browser prototype `reference/distortion-engine.html`
 
 **Status:** prototype validated by ear (known issue: intermittent clicks, see §10); this document is the handoff to implementation.
 **Prototype is the oracle.** Correctness of the plugin stage is defined as parity with the prototype's `WarpCore` class at matched sample rate, up to stochastic sources (quantum walk RNG), which must be seedable.

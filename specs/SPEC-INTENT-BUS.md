@@ -2,7 +2,7 @@
 
 **Project:** HORDE
 **Status:** Recommendation for implementation. Numbering follows the QM-0…3 series; renumber if it collides.
-**Parity oracle:** `horde-intent-bus-prototype.html` (browser prototype, 4 corners, 8 parameters, 1 structural parameter, 1 corner-level modulator, 1 global modulator). The prototype defines the *behavior* this spec describes; where the spec and the prototype disagree, the spec wins and the discrepancy should be logged as an ADR.
+**Parity oracle:** `reference/intent-bus.html` (browser prototype, 4 corners, 8 parameters, 1 structural parameter, 1 corner-level modulator, 1 global modulator). The prototype defines the *behavior* this spec describes; where the spec and the prototype disagree, the spec wins and the discrepancy should be logged as an ADR.
 
 ---
 

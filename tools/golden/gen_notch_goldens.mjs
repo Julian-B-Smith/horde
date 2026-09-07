@@ -1,5 +1,5 @@
 // Notch swarm golden generator (Track E1.2): render the JS PhaserLab (sliced
-// live from swarmphaser.html) to raw f32 for tools/notch_check.cpp L0-1-style
+// live from reference/swarmphaser.html) to raw f32 for tools/notch_check.cpp L0-1-style
 // audio parity. noise=0 every scenario (Math.random dither is not bit-checkable
 // — see notch_core.h). One held A3, 1 s, 512-sample blocks; 'seed' applied LAST
 // so the pre-render state is a pure function of the final params (this also

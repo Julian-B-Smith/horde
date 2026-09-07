@@ -403,7 +403,7 @@ striking:
 *Prior-art note: the Scrumulator reference (frequent.audio) is recorded as the
 human's pointer and has NOT been researched yet — the family description above
 is from the named techniques, not from that product. Research before any public
-claim (PRIOR-ART.md discipline).*
+claim (docs/PRIOR-ART.md discipline).*
 
 ## Modulation-class (unchanged)
 

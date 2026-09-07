@@ -1,7 +1,7 @@
 ---
 authoring-project: HYPERSAW (github.com/Lifted-Truck/HYPERSAW)
 filed: 2026-07-18
-motivating-decisions: HYPERSAW ADR-008 (consonance gravity is an audio-engine force), ADR-010(d) (brief obligation before gravity ships), ADR-028 (gravity shipped 2026-07-18 on its default 13-ratio placeholder); SPEC.md Layer 3; traces/2026-07-18-dynamics-surface.md
+motivating-decisions: HYPERSAW ADR-008 (consonance gravity is an audio-engine force), ADR-010(d) (brief obligation before gravity ships), ADR-028 (gravity shipped 2026-07-18 on its default 13-ratio placeholder); specs/SPEC.md Layer 3; traces/2026-07-18-dynamics-surface.md
 id: HYPERSAW-001
 status: filed
 ball: provider

@@ -67,7 +67,7 @@ private_name_gate() {
 fast() {
   # ---- Layer-0: seconds, not minutes. CI-blocking. -------------------------
   # Honestly-scoped day-zero oracle: structure + manifest sanity. The real L0
-  # suite (L0-1 parity vs JS reference, L0-2..13 trajectories — ACCEPTANCE.md)
+  # suite (L0-1 parity vs JS reference, L0-2..13 trajectories — specs/ACCEPTANCE.md)
   # lands in Phase 1 and REPLACES nothing here; it adds. Never weaken without
   # a human decision recorded in ROADMAP.md.
   local ok=0
@@ -116,11 +116,11 @@ fast() {
 
   # Structure: the canonical docs and the reference implementations exist.
   local f
-  for f in SPEC.md ACCEPTANCE.md ROADMAP.md DECISIONS.md README.md CLAUDE.md \
+  for f in specs/SPEC.md specs/ACCEPTANCE.md ROADMAP.md DECISIONS.md README.md CLAUDE.md \
            INDEX.md LIBRARY.md project.manifest.json \
-           swarmsaw.html swarmspectra.html swarmdynamics.html \
-           swarmfilter.html swarmphaser.html swarmtime.html SPEC-EFFECTS.md \
-           swarmalator.html SPEC-SWARMALATOR.md; do
+           reference/swarmsaw.html reference/swarmspectra.html reference/swarmdynamics.html \
+           reference/swarmfilter.html reference/swarmphaser.html reference/swarmtime.html specs/SPEC-EFFECTS.md \
+           reference/swarmalator.html specs/SPEC-SWARMALATOR.md; do
     [ -f "$f" ] || { echo "verify: MISSING $f" >&2; ok=1; }
   done
 
@@ -183,7 +183,7 @@ full() {
   # Phase 1 oracle chain: golden generator determinism -> fresh goldens ->
   # L0-1 parity (C++ vs JS reference, eps=1e-6) -> L0-2..5 + L0-13
   # trajectories. Goldens are regenerated every run so the JS reference in
-  # swarmsaw.html stays the live source of truth.
+  # reference/swarmsaw.html stays the live source of truth.
   command -v node >/dev/null || { echo "verify[full]: node required for golden self-check" >&2; return 1; }
   node tools/golden/gen_goldens.mjs --selfcheck || return 1
   node tools/golden/gen_goldens.mjs > /dev/null || return 1
@@ -343,25 +343,25 @@ full() {
   "$build_dir/force_check" "$(dirname "$build_dir")/build-golden/force" || return 1
 
   # Phase 4 oracle chain: SPECTRA goldens (JS reference live from
-  # swarmspectra.html) -> spectra_check (L0-1-style parity + L0-6/7).
+  # reference/swarmspectra.html) -> spectra_check (L0-1-style parity + L0-6/7).
   node tools/golden/gen_spectra_goldens.mjs --selfcheck || return 1
   node tools/golden/gen_spectra_goldens.mjs > /dev/null || return 1
   "$build_dir/spectra_check" "$(dirname "$build_dir")/build-golden/spectra" || return 1
 
   # Track E1 oracle chain: resonator-bank audio goldens (JS FilterLab live from
-  # swarmfilter.html, noise=0) -> filter_check (L0-1-style parity + L0-14).
+  # reference/swarmfilter.html, noise=0) -> filter_check (L0-1-style parity + L0-14).
   node tools/golden/gen_filter_goldens.mjs --selfcheck || return 1
   node tools/golden/gen_filter_goldens.mjs > /dev/null || return 1
   "$build_dir/filter_check" "$(dirname "$build_dir")/build-golden/filter" || return 1
 
   # Track E1.2 oracle chain: notch-swarm audio goldens (JS PhaserLab live from
-  # swarmphaser.html, noise=0) -> notch_check (L0-1-style parity + L0-16).
+  # reference/swarmphaser.html, noise=0) -> notch_check (L0-1-style parity + L0-16).
   node tools/golden/gen_notch_goldens.mjs --selfcheck || return 1
   node tools/golden/gen_notch_goldens.mjs > /dev/null || return 1
   "$build_dir/notch_check" "$(dirname "$build_dir")/build-golden/notch" || return 1
 
   # Swarmalator engine oracle: stereo goldens (JS Swarmalator live from
-  # swarmalator.html) -> swarmalator_check (L0-1 stereo parity + §5 anchors).
+  # reference/swarmalator.html) -> swarmalator_check (L0-1 stereo parity + §5 anchors).
   node tools/golden/gen_swarmalator_goldens.mjs --selfcheck || return 1
   node tools/golden/gen_swarmalator_goldens.mjs > /dev/null || return 1
   "$build_dir/swarmalator_check" "$(dirname "$build_dir")/build-golden/swarmalator" || return 1
@@ -376,7 +376,7 @@ full() {
   "$build_dir/glide_check" "$(dirname "$build_dir")/build-golden/glide" || return 1
 
   # Track E2 time-engine oracle: echo+room goldens (JS TimeLab live from
-  # swarmtime.html, noise=0) -> time_check (L0-1 parity + L0-19/20/21).
+  # reference/swarmtime.html, noise=0) -> time_check (L0-1 parity + L0-19/20/21).
   node tools/golden/gen_time_goldens.mjs --selfcheck || return 1
   node tools/golden/gen_time_goldens.mjs > /dev/null || return 1
   "$build_dir/time_check" "$(dirname "$build_dir")/build-golden/time" || return 1

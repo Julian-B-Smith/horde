@@ -4,7 +4,7 @@
 
 Supersedes `SPEC-FILTER.md` (ADR-031). Four engines on **one shared force system**, applying swarm dynamics to filter frequencies and delay times at control rate. All four accept external audio in the VST — this is the project's effect product line. State-domain coupling (ring phases/amplitudes; Stuart–Landau) remains parked behind the physical-modeling bridge.
 
-Reference implementations: `swarmfilter.html` (FilterLab), `swarmphaser.html` (PhaserLab), `swarmtime.html` (TimeLab, echo + room modes).
+Reference implementations: `reference/swarmfilter.html` (FilterLab), `reference/swarmphaser.html` (PhaserLab), `reference/swarmtime.html` (TimeLab, echo + room modes).
 
 ## 1. The shared force system
 

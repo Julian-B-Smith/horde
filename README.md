@@ -83,7 +83,7 @@ envelopes: velocity, mod wheel, pressure, pitch wheel (ADR-149).
 ## Eight things that work differently
 
 Where one of these resembles a category that already exists, the comparison is named in italics
-rather than skipped; `PRIOR-ART.md` carries the full accounting.
+rather than skipped; `docs/PRIOR-ART.md` carries the full accounting.
 
 ### Voices that listen to each other
 
@@ -390,7 +390,8 @@ is kept building so the escape hatch stays real.
 |---|---|
 | `ROADMAP.md` | Phase-gated plan — **the single source of truth for status** |
 | `DECISIONS.md` | ADR log, append-only |
-| `SPEC*.md` · `ACCEPTANCE.md` | One spec per engine-family member; measured acceptance criteria |
+| `specs/` — `SPEC.md`, `SPEC-<NAME>.md`, `ACCEPTANCE.md` | One spec per engine-family member; measured acceptance criteria. Moved 2026-09-07 (ADR-155) |
+| `reference/` | The spec-in-code prototypes the parity oracles extract from — protected; an edit there is a spec change. Design labs stay in `docs/design/` |
 | `src/*_core.h` | The engines: header-only, pure, framework-free |
 | `src/hypersaw_clap.cpp` | CLAP shell: params, state, notes/MPE, the morph field, viz feed |
 | `src/gui/gui2.html` · `src/param_presentation.tsv` | The interface, and the table 119 of its controls are generated from |

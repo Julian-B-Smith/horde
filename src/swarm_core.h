@@ -1,6 +1,6 @@
 /*
  * swarm_core.h — C++ port of the SAW reference core (SwarmSynth in
- * swarmsaw.html, ADR-003). Correctness = L0-1 parity (ε = 1e-6 RMS vs the JS
+ * reference/swarmsaw.html, ADR-003). Correctness = L0-1 parity (ε = 1e-6 RMS vs the JS
  * renders), NOT plausible audio — so this is a statement-by-statement
  * transcription, and every deviation from the obvious C++ idiom below is
  * load-bearing:
@@ -61,7 +61,7 @@ constexpr int kTick = 16;
 // closed. Expressed in seconds it obeys ADR-009 like every other time constant.
 // The value is exactly 256/44100 so `gravGridSamples()` returns exactly 256 at
 // 44.1 kHz and every golden stays bit-identical.
-/* SAW SHAPE (glass) banks — ported verbatim from swarmsaw.html, ADR-094.
+/* SAW SHAPE (glass) banks — ported verbatim from reference/swarmsaw.html, ADR-094.
    Contents are the lab's PLACEHOLDER profiles (its own comment says the real
    ones are to be measured from synths); a fold moves code, it does not improve
    it, or parity stops meaning anything. */
@@ -147,7 +147,7 @@ struct Params
   // goldens are the regression proof; change defaults only with an ADR.
   double attackS = 0.003, decayS = 0.16, sustainL = 1.0, releaseS = 0.16;
   // Tempo-grid law (law == 3; ADR-005/ADR-022): ported expression-for-
-  // expression from the DYNAMICS reference (swarmdynamics.html beatQ path).
+  // expression from the DYNAMICS reference (reference/swarmdynamics.html beatQ path).
   // bpm is host-owned (CLAP transport), beatMult is cycles-per-beat.
   double bpm = 120, beatMult = 1;
   // Dynamics layer (Phase 3, ADR-023): topology / Sakaguchi lag / Daido
@@ -210,7 +210,7 @@ struct Params
   double panScatter = 0;
   // Waveshape morph (ADR-058): 0 = saw (bit-inert), 1 = band-limited square.
   double shape = 0;
-  // Tone tilt (ADR-060, folded from swarmsaw.html): bipolar per-voice one-pole.
+  // Tone tilt (ADR-060, folded from reference/swarmsaw.html): bipolar per-voice one-pole.
   // 0 = inert; >0 darkens (LP), <0 thins (HP). cutoff rises as sqrt(f/f0).
   double tilt = 0;
   // Hi-tame (ADR-061): equal-loudness per-voice roll-off, gain (f0/f)^hiTame.
@@ -831,14 +831,14 @@ private:
     const bool glideOn = p.freqGlide > 0;
     const double gCoefS = glideOn ? 1 - std::exp(-1 / (p.freqGlide * 0.25 * sr)) : 0;
     for (int i = 0; i < frames; i++) { outL[i] = 0.0f; outR[i] = 0.0f; }
-    // pan motion (ADR-064, parity with swarmsaw.html): slow LFOs sweep the base pan
+    // pan motion (ADR-064, parity with reference/swarmsaw.html): slow LFOs sweep the base pan
     // once per block. mode 0 = independent per-voice drift, 1 = one shared sweep.
     // Centre pin scales the offset by distance from the fundamental.
     // ADR-086: pan motion is advanced ONCE PER CALL by advancePanMotion(),
     // not here. It is also a per-render-call integrator (phase += rate * dtB,
     // sampled once and held across the block), so segmenting the render for
     // gravity silently changed its update rate too — which broke parity on
-    // nine SAW pan scenarios whose reference (swarmsaw.html) was never part of
+    // nine SAW pan scenarios whose reference (reference/swarmsaw.html) was never part of
     // this ADR. Gravity was ratified for a fixed grid; pan motion was not.
     // Keeping it per-call is what confines this change to what was approved.
     const double *PL = panMotionOn ? panLm : panL;
@@ -919,7 +919,7 @@ private:
           }
           /* ADR-094 saw shape (glass). Placed HERE — immediately after the BLEP
              and BEFORE the ADR-058 shape morph — because that is where
-             swarmsaw.html puts it. ADR-058 is a C++-only superset with no
+             reference/swarmsaw.html puts it. ADR-058 is a C++-only superset with no
              reference, so it is the stage that must yield position; putting it
              first would order the reference-defined stages differently from the
              reference and parity would only notice once both were non-zero. */
@@ -949,7 +949,7 @@ private:
           // (bit-exact, guarded); shape 1 = a band-limited square (the two
           // half-cycle-offset saws' difference). Both saws carry the SAME
           // polyBLEP correction, so the morph stays anti-aliased. C++-only
-          // superset — no swarmsaw.html reference for shape>0 (like ADR-025).
+          // superset — no reference/swarmsaw.html reference for shape>0 (like ADR-025).
           if (p.shape > 0)
           {
             double ph2 = ph + 0.5;
@@ -1293,7 +1293,7 @@ public:
       }
       else
       {
-        // GOLDEN (ADR-067, parity with swarmsaw.html): low-discrepancy irrational
+        // GOLDEN (ADR-067, parity with reference/swarmsaw.html): low-discrepancy irrational
         // placement, (i+1)*phi^-1 mod 1 — even-but-inharmonic, no rng draws.
         // std::fmod == JS % here (both operands positive).
         xv = 2 * std::fmod((i + 1) * 0.6180339887498949, 1.0) - 1;
@@ -1343,7 +1343,7 @@ public:
     else
     {
       // ALTERNATING PITCH-RANKED FAN (ADR-070, the new DEFAULT — parity with
-      // swarmsaw.html): rank by pitch (by index when harmonic), rank r steps out
+      // reference/swarmsaw.html): rank by pitch (by index when harmonic), rank r steps out
       // from centre on alternating sides, distance reshaped by panCurve; invert
       // flips the triangle. Rank 0 (the fundamental) sits exactly centre.
       // std::stable_sort, NOT std::sort: JS Array.sort is stable (ES2019), and
@@ -1361,7 +1361,7 @@ public:
       const double gamma = std::pow(6, 0.5 - p.panCurve) * steep;
       for (int r = 0; r < n; r++)
       {
-        // PARITY FORK (ADR-073, parity with swarmsaw.html): odd n keeps rank 0
+        // PARITY FORK (ADR-073, parity with reference/swarmsaw.html): odd n keeps rank 0
         // at dead centre (ADR-070's image); EVEN n has no centre seat — pairs
         // sit symmetrically at ±(k+0.5)/(n/2). The old law degenerated at n=2
         // to centre + hard side, lopsided at any width.
@@ -1443,7 +1443,7 @@ public:
     if (std::fabs(s.pressSm - s.press) < 1e-6) s.pressSm = s.press;
     const int n = (int)p.n;
     const double dt = kTick / sr;
-    // ADR-063 frequency glide (parity with swarmsaw.html): seconds -> coefficient.
+    // ADR-063 frequency glide (parity with reference/swarmsaw.html): seconds -> coefficient.
     const bool firstTick = !s.vfInit;
     const bool glideOn = p.freqGlide > 0;
     const double gCoefT = glideOn ? 1 - std::exp(-dt / p.freqGlide) : 0;
@@ -1481,7 +1481,7 @@ public:
     s.Kenv *= std::exp(-dt / std::max(0.01, p.dissolve));
     if (p.driftDepth > 0)
     {
-      // ADR-062 drift modes (0 walk = original 1/f; 1 sine; 2 sample&hold), parity with swarmsaw.html
+      // ADR-062 drift modes (0 walk = original 1/f; 1 sine; 2 sample&hold), parity with reference/swarmsaw.html
       const int dm = (int)p.driftMode;
       const double rate = (0.2 + p.driftRate * 8);
       for (int i = 0; i < n; i++)
@@ -1528,13 +1528,13 @@ public:
         const double df = f0c * (std::pow(2, (xv * dep * 100) / 1200) - 1);
         f = f0c + std::round(df / u) * u;
       }
-      // HARMONIC (ADR-065, parity with swarmsaw.html): voice i morphs from unison
+      // HARMONIC (ADR-065, parity with reference/swarmsaw.html): voice i morphs from unison
       // (dep 0) up to its partial — at dep 1, f0*(1 + harmReach*i). The voice
       // INDEX is the rung, so this law ignores the distribution (xv) and anchor
       // (inherently root-anchored); spread still scales it (ADR-068).
       // NOTE law 3 is the tempo-grid law (ADR-022), hence harmonic takes index 4.
       else if (p.law == 4) { f = f0c * (1 + dep * p.harmReach * i); }
-      // STRETCH (ADR-066, parity with swarmsaw.html): cents placement with the
+      // STRETCH (ADR-066, parity with reference/swarmsaw.html): cents placement with the
       // offset stretched by (1 + stretchB*x^2) — outer voices spread further,
       // piano/bell inharmonicity. Law index 5: 3 is tempo-grid, 4 is harmonic.
       else if (p.law == 5)
@@ -1569,7 +1569,7 @@ public:
       varsum += d * d;
     }
     s.sigma = std::max(0.08, std::sqrt(varsum / n));
-    // per-voice tone tilt (ADR-060, parity with swarmsaw.html): pitch-tracked
+    // per-voice tone tilt (ADR-060, parity with reference/swarmsaw.html): pitch-tracked
     // one-pole. >0 darken (LP), <0 thin (HP); cutoff rises as sqrt(f/f0). 0 = inert.
     const double tm = std::fabs(p.tilt);
     tiltHP = p.tilt < 0;
@@ -1580,7 +1580,7 @@ public:
       if (Ht <= 0) s.vlpc[i] = 1;
       else { const double fc = std::min(nyqt * 0.98, Ht * s.f0 * std::sqrt(std::max(1.0, s.vf[i] / s.f0))); s.vlpc[i] = 1 - std::exp(-kTau * fc / sr); }
     }
-    // hi-tame (ADR-061, parity with swarmsaw.html): equal-loudness roll-off,
+    // hi-tame (ADR-061, parity with reference/swarmsaw.html): equal-loudness roll-off,
     // gain (f0/f)^hiTame turns the higher voices down. hiTame 0 → inert.
     if (p.hiTame > 0) for (int i = 0; i < n; i++) s.hg[i] = std::pow(s.f0 / std::max(s.f0, s.vf[i]), p.hiTame);
     // ADR-094 per-voice roundness: how far this voice morphs toward the profile
@@ -1661,7 +1661,7 @@ public:
       else
       {
         s.RQ = 0;
-        // ROOT-PINNED PACEMAKER (ADR-069, parity with swarmsaw.html): pivotMode 1
+        // ROOT-PINNED PACEMAKER (ADR-069, parity with reference/swarmsaw.html): pivotMode 1
         // entrains every voice to the FUNDAMENTAL (voice nearest f0); sin(root-self)
         // is zero for the root, so it stays and the swarm folds onto the played
         // pitch. Applies on THIS path only (topo 0, poles 1 — the lab has neither

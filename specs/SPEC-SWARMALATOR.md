@@ -5,9 +5,9 @@
 
 # horde — swarmalator engine specification (position ↔ phase coupling)
 
-Companion to `SPEC.md` and `SPEC-EFFECTS.md`. The first engine to couple **two** quantities *to each other* rather than coupling one quantity across a population. Each unit carries an audio **phase** θ (→ the tone) and a **spatial angle** ξ on a ring (→ stereo position); a single cross-coupling law makes each pull on the other, so the swarm is simultaneously a spectral object and a stereo-spatial object and the two are one structure, not two. Ingested and ported 2026-07-19 (ADR-048); swarmalator.html is the parity oracle. Marked EXPERIMENTAL — may not survive testing.
+Companion to `SPEC.md` and `SPEC-EFFECTS.md`. The first engine to couple **two** quantities *to each other* rather than coupling one quantity across a population. Each unit carries an audio **phase** θ (→ the tone) and a **spatial angle** ξ on a ring (→ stereo position); a single cross-coupling law makes each pull on the other, so the swarm is simultaneously a spectral object and a stereo-spatial object and the two are one structure, not two. Ingested and ported 2026-07-19 (ADR-048); reference/swarmalator.html is the parity oracle. Marked EXPERIMENTAL — may not survive testing.
 
-Reference implementation: `swarmalator.html` (`Swarmalator` core, headless-testable).
+Reference implementation: `reference/swarmalator.html` (`Swarmalator` core, headless-testable).
 
 ## 1. Thesis
 
@@ -57,7 +57,7 @@ W₊ = ⟨e^{i(ξ + θ)}⟩ = R₊ e^{iψ₊}      W₋ = ⟨e^{i(ξ − θ)}⟩
 
 K normalization reuses ADR-004: K_Hz = 4·K·|K|·σ (squared taper, σ = frequency spread), so the sync transition sits mid-knob regardless of detune. J is scaled by a fixed angular rate (prototype 7 rad/s at |J|=1); the VST should expose or tune this against the spatial timescale.
 
-## 5. Measured behaviors (acceptance anchors — reference `swarmalator.html`, 12 units, 220 Hz)
+## 5. Measured behaviors (acceptance anchors — reference `reference/swarmalator.html`, 12 units, 220 Hz)
 
 | State | Setting | R | R₊ | R₋ | Note |
 |---|---|---|---|---|---|

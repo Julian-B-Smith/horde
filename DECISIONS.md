@@ -4858,3 +4858,41 @@ notice (`ball: none`); relayed by the human 2026-09-05.
 
 **Evidence.** notice-001 read in full; CMakeLists.txt lines 128-143 and 164;
 CONVENTIONS.md §Audio plugins as synced on 2026-09-05.
+
+
+## ADR-155 — 2026-09-07: repo layout — reference implementations and specs get their folders; names standardised
+
+**Context.** The human: "the spec sheets and labs should be put in organized
+folders, and should probably have their names standardized if that wouldn't
+be too destructive." Twenty-four tracked files sat at the root beside the
+harness docs, in three naming styles (`SPEC-X.md`, `X-SPEC.md`, `SPEC_x.md`;
+`horde_x.html`, `horde-x.html`, `x.html`).
+
+**Decisions.**
+1. **`reference/`** holds the spec-in-code prototypes — the files the parity
+   oracles extract cores from (protected paths). Named for their ROLE, which
+   is what distinguishes them from the design labs that already live in
+   `docs/design/` with their own generated index. Basenames standardised to
+   hyphens with the redundant `horde_`/`horde-` prefix dropped (the repo is
+   horde): `decoherence-lab`, `distortion-engine`, `formant-pulsar-fof`,
+   `intent-bus`. The `swarm*` names are untouched — 27 historical citations
+   and the ADR-011/012 lineage hang off them.
+2. **`specs/`** holds every spec plus ACCEPTANCE.md, all as `SPEC-<NAME>.md`:
+   `STATION-SPEC` → `SPEC-STATION`, `QM-4-intent-bus-spec` → `SPEC-INTENT-BUS`
+   (the QM-4 numbering stays in the document's own title), `SPEC_swarm_glitch_modules`
+   → `SPEC-GLITCH-MODULES`. `PRIOR-ART.md` and `PARKED.md` (design records, not
+   specs) go to `docs/`.
+3. **History is not rewritten.** `traces/`, DECISIONS.md, `audits/`,
+   `briefs/`, `integrations/` keep the paths as they were when written — a
+   trace citing `swarmsaw.html` at the root is a true statement about that
+   date. Every LIVE reference (47 files: tools, `./verify`'s structure list,
+   CLAUDE.md's protected list, README, ROADMAP, LIBRARY, the specs' own
+   cross-refs, core comments, the design labs' links, `index.html`) was
+   rewritten in the same change, root-relative; files inside a target folder
+   refer to siblings by bare name so relative links keep resolving.
+4. **`git mv` throughout** — every file keeps its blame and log.
+
+**Evidence.** `./verify full` exit 0 after the move (every parity chain found
+its reference at the new path — the goldens regenerate from `reference/`);
+lab_load 26/0; zero old-name hits remain in live files; zero double
+prefixes; git reports 24 renames.
