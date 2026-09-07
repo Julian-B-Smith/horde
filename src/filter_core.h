@@ -1,6 +1,6 @@
 /*
  * filter_core.h — Track E1 resonator bank (SPEC-EFFECTS §3), transcribed
- * VERBATIM from swarmfilter.html's FilterLab. The population dynamics (filter
+ * VERBATIM from reference/swarmfilter.html's FilterLab. The population dynamics (filter
  * frequencies herded by home/sync/splay/gravity) are the shared force system
  * — this core consumes forcecore (ADR-034) for them and adds only the
  * filter-specific audio path: a polyBLEP saw exciter, an N-band TPT SVF

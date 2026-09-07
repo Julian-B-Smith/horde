@@ -1,5 +1,5 @@
 // Time-engine golden generator (Track E2): render the JS TimeLab (sliced live
-// from swarmtime.html) to raw f32 for tools/time_check.cpp L0-1-style parity.
+// from reference/swarmtime.html) to raw f32 for tools/time_check.cpp L0-1-style parity.
 // Both modes (echo / room). noise=0 (Math.random dither not bit-checkable);
 // 'seed' applied LAST so the pre-render state is a clean function of the final
 // params (wipes the reference's construction-time controlTick — time_core has
@@ -12,10 +12,10 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const html = readFileSync(join(root, 'swarmtime.html'), 'utf8').split('\n');
+const html = readFileSync(join(root, 'reference/swarmtime.html'), 'utf8').split('\n');
 const start = html.findIndex(l => l.includes('const NB_MAX'));
 const end = html.findIndex((l, i) => i > start && (/^\s*const \$ =/.test(l) || l.includes('function powerOn()')));
-if (start < 0 || end <= start) throw new Error('swarmtime.html: core slice markers not found');
+if (start < 0 || end <= start) throw new Error('reference/swarmtime.html: core slice markers not found');
 const TimeLab = new Function(html.slice(start, end).join('\n') + '\nreturn TimeLab;')();
 
 const SR = 44100, BLOCK = 512, SECONDS = 1.5;

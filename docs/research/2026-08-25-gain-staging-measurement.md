@@ -36,8 +36,8 @@ for polyphony and a second oscillator that a held single note never spends.
 
 ## Where the level goes — three factors, all inherited verbatim
 
-All three are the JS reference's, at `swarmsaw.html:210` (the defaults object)
-and `swarmsaw.html:583` (`const gain = p.vol * 0.9 / Math.pow(n, p.normExp)`),
+All three are the JS reference's, at `reference/swarmsaw.html:210` (the defaults object)
+and `reference/swarmsaw.html:583` (`const gain = p.vol * 0.9 / Math.pow(n, p.normExp)`),
 mirrored at `src/swarm_core.h:143,796`:
 
 | factor | cost at the default patch | note |
@@ -98,7 +98,7 @@ is the one that bites.
 **No golden sets `vol` or `normExp` explicitly** — verified against
 `tools/golden/gen_goldens.mjs`; every case including `{ name: 'defaults', p: {} }`
 inherits them from the reference. So changing either default is a **reference
-change on a protected path** (`swarmsaw.html`), requires an ADR, and regenerates
+change on a protected path** (`reference/swarmsaw.html`), requires an ADR, and regenerates
 every golden. It is a human gate, not an optimisation commit.
 
 ### Options, ranked

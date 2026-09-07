@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <title>HYPERSAW</title>
 <style>
-  /* Design language lifted from swarmsaw.html (the reference face, ADR-013/019).
+  /* Design language lifted from reference/swarmsaw.html (the reference face, ADR-013/019).
      Webfonts omitted deliberately: the plugin webview is offline by design, so
      the prototype's Space Grotesk / IBM Plex Mono fall back to system stacks. */
   :root {
@@ -918,7 +918,7 @@ xy.addEventListener('pointermove', e => { if (xyDown) xyApply(e); });
 xy.addEventListener('pointerup', e => { xyDown = false; bridge.gesture(effId(xAxisId()), false); bridge.gesture(effId(K_ID), false); });
 
 let kSmX = 0, kSmY = 0, kSmR = 0;  // smoothed display state of the pink K vector
-/* ---- phase circle: ported verbatim from swarmsaw.html drawPhase(), fed by
+/* ---- phase circle: ported verbatim from reference/swarmsaw.html drawPhase(), fed by
        the engine snapshot instead of the in-page synth ---- */
 const pc = $('#phaseCanvas'), pctx = pc.getContext('2d');
 function drawPhase(s) {
@@ -1004,7 +1004,7 @@ function drawPhase(s) {
     : '';
 }
 
-// Chimera/phase carpet — ported verbatim from swarmdynamics.html drawCarpet:
+// Chimera/phase carpet — ported verbatim from reference/swarmdynamics.html drawCarpet:
 // trail-fade columns, cluster B in amber under two-cluster topology. This is
 // where ring waves and broken-symmetry states are legible (SPEC §5.6).
 const cc2 = $('#carpetCanvas'), cctx2 = cc2.getContext('2d');
@@ -1300,7 +1300,7 @@ function drawCarpet(s) {
   }
 }
 
-// Partial strips — ported from swarmspectra.html drawStrips(): one column per
+// Partial strips — ported from reference/swarmspectra.html drawStrips(): one column per
 // partial, cloud phase dots up the strip (brightness = partial amplitude),
 // a magenta per-partial R bar along the bottom. Under cascade, watch the lock
 // bars climb the series low→high — the zipper made visible.

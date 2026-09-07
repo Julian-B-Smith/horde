@@ -27,17 +27,17 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 # (reference, port, why-this-pairing)
 PAIRS = [
-    ("swarmsaw.html",      "src/swarm_core.h",      "SAW oscillator (ADR-011/012 lineage)", {}),
-    ("swarmdynamics.html", "src/swarm_core.h",      "dynamics layer, same core", {
+    ("reference/swarmsaw.html",      "src/swarm_core.h",      "SAW oscillator (ADR-011/012 lineage)", {}),
+    ("reference/swarmdynamics.html", "src/swarm_core.h",      "dynamics layer, same core", {
         # RESOLVED, not ignored: each of these IS in the port, under another name.
         "beatQ":  "became detune law 3, not a flag — swarm_core.h:93 ports the beatQ path",
         "swidth": "renamed `width`; same expression, pan = x[i]*width — swarm_core.h:138",
     }),
-    ("swarmspectra.html",  "src/spectra_core.h",    "SPECTRA per-partial sibling", {}),
-    ("swarmfilter.html",   "src/filter_core.h",     "Track E filter", {}),
-    ("swarmphaser.html",   "src/notch_core.h",      "Track E phaser/notch", {}),
-    ("swarmtime.html",     "src/time_core.h",       "Track E time", {}),
-    ("swarmalator.html",   "src/swarmalator_core.h","experimental swarmalator (ADR-048)", {}),
+    ("reference/swarmspectra.html",  "src/spectra_core.h",    "SPECTRA per-partial sibling", {}),
+    ("reference/swarmfilter.html",   "src/filter_core.h",     "Track E filter", {}),
+    ("reference/swarmphaser.html",   "src/notch_core.h",      "Track E phaser/notch", {}),
+    ("reference/swarmtime.html",     "src/time_core.h",       "Track E time", {}),
+    ("reference/swarmalator.html",   "src/swarmalator_core.h","experimental swarmalator (ADR-048)", {}),
     # ADDED 2026-08-27. morph_core.h's own header names this lab as its
     # reference -- "ported from docs/design/quantum-morph-lab.html. The lab is
     # the reference" -- but the pair was never registered here, so nothing

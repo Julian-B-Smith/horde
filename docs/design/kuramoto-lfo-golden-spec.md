@@ -10,7 +10,7 @@ graduates it.
 
 All measured numbers below are **PROVISIONAL** — taken from the current concept
 test to ground the anchors in real behavior. Every one is re-measured on the
-hardened reference and only *then* written into ACCEPTANCE.md (L0002: an
+hardened reference and only *then* written into specs/ACCEPTANCE.md (L0002: an
 acceptance number encodes a measurement protocol; it comes from measuring the
 reference, never from aspiration).
 
@@ -77,7 +77,7 @@ the golden reference pins and the port must reproduce:
    ported `kuramoto_lfo.h`, RMS-compares against the golden log. Reports per-scenario
    RMS (like `parity_check`). MSVC-safe (no `M_PI` — local `constexpr double kPi`;
    L0003).
-3. **ACCEPTANCE.md rows** — the §7 behavioural anchors as new L0 numbers (next free
+3. **specs/ACCEPTANCE.md rows** — the §7 behavioural anchors as new L0 numbers (next free
    L0-2x), each stating its measurement protocol. *Protected-path edit — human gate
    at that time.*
 4. **`./verify` wiring** — a tenth oracle chain (`kuramotolfo`) in `full`; the

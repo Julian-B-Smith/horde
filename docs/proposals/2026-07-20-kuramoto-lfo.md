@@ -28,7 +28,7 @@ This is a distinct instrument from the carrier-coupling engines (SAW/SPECTRA/dyn
 
 ## 2. Prior art (posture per ADR-018/048 [repo: ADR-044])
 
-Two finds bracket this work, both recorded in PRIOR-ART.md:
+Two finds bracket this work, both recorded in docs/PRIOR-ART.md:
 - **Lem/Kuroscillator** (research): coupled oscillators for synthesis, including trigger clocks. Research prior art for the base idea.
 - **Chiral Audio "Foxfire"** (product): couples 16 modulator *phases* with one *unipolar* Coupling macro, hardwired to chorus delay taps. Closest product-level precedent.
 

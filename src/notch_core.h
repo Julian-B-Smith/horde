@@ -1,6 +1,6 @@
 /*
  * notch_core.h — Track E1 notch swarm (SPEC-EFFECTS §4), transcribed VERBATIM
- * from swarmphaser.html's PhaserLab. Sibling of filter_core.h: the same shared
+ * from reference/swarmphaser.html's PhaserLab. Sibling of filter_core.h: the same shared
  * force system (forcecore, ADR-034) herds the population — here of NOTCH
  * frequencies — and the same polyBLEP exciter feeds it. The audio path differs:
  * a feedback allpass→**true-notch** cascade (SVF y = x − k·v1, exact null at

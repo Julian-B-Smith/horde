@@ -74,19 +74,19 @@ engines with dynamical characteristics, oriented toward the sounds of hyperpop
 coupled-oscillator system (Kuramoto swarm over a kernel — "the supersaw taken
 seriously as physics"); **SPECTRA** is its per-partial sibling; the first new
 member is the **formant engine** (working name CANTO — FOF/pulsar grains, formants
-as masses on springs, a register state R; `SPEC-FORMANT.md`, prototype
-`horde_formant_pulsar_fof.html`, not yet in the shell). A second CANDIDATE arrived
-2026-08-18: **WARP** (`horde_distortion_engine.html`, `SPEC-DISTORTION.md`) — NOT a
+as masses on springs, a register state R; `specs/SPEC-FORMANT.md`, prototype
+`reference/formant-pulsar-fof.html`, not yet in the shell). A second CANDIDATE arrived
+2026-08-18: **WARP** (`reference/distortion-engine.html`, `specs/SPEC-DISTORTION.md`) — NOT a
 fourth engine but the prototype for **FX-C**, the morphing waveshaper with
 hysteresis; it is a shared post-stage every source hands off to (ADR-092), and
 carries the same unseeded-RNG blocker CANTO does. A third CANDIDATE arrived
-2026-08-25: **STATION** (`station.html`, `STATION-SPEC.md`, ADR-122) — a
+2026-08-25: **STATION** (`reference/station.html`, `specs/SPEC-STATION.md`, ADR-122) — a
 3-operator PM engine with LFSR noise, the traditional-synthesis workhorse; same
 unseeded-RNG blocker (Wave RAM randomize, one sanctioned edit: seed it). CLAP-native instrument
 plugin, VST3 via clap-wrapper (ADR-002). The DEVICE is **horde** (ADR-114,
 settled 2026-08-23); HYPERSAW is the founding ENGINE, the repo name, and the
-frozen plugin id. Design docs: SPEC.md (the instrument), ACCEPTANCE.md (the
-oracle contract), PRIOR-ART.md, PARKED.md.
+frozen plugin id. Design docs: specs/SPEC.md (the instrument), specs/ACCEPTANCE.md (the
+oracle contract), docs/PRIOR-ART.md, docs/PARKED.md.
 
 **Stack & entrypoints.** C++20 CLAP-first plugin: impl in `src/hypersaw_clap.cpp`
 (static lib + exported entry, clap-first idiom), wrapped to VST3/AUv2 by
@@ -94,12 +94,12 @@ clap-wrapper (`libs/` submodules pinned: clap 1.2.10, clap-wrapper v0.15.1).
 Build: `cmake -S . -B build-release -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release`
 then `cmake --build <abs>/build-release -j` (absolute path — sandbox resets cwd).
 Reference implementation: seven single-file HTML prototypes plus one CANDIDATE
-(`horde_formant_pulsar_fof.html`, `FormantCore` — a candidate until its masking
+(`reference/formant-pulsar-fof.html`, `FormantCore` — a candidate until its masking
 RNG is seeded, ADR-091) — three oscillator
-labs `swarmsaw.html` (SAW; v2 lineage, see ADR-011/012), `swarmspectra.html`,
-`swarmdynamics.html` (cores `SwarmSynth` / `SpectraSynth` / `DynSynth`), the
-Track E effects labs `swarmfilter.html`, `swarmphaser.html`, `swarmtime.html`
-(`FilterLab` / `PhaserLab` / `TimeLab`), and the experimental `swarmalator.html`
+labs `reference/swarmsaw.html` (SAW; v2 lineage, see ADR-011/012), `reference/swarmspectra.html`,
+`reference/swarmdynamics.html` (cores `SwarmSynth` / `SpectraSynth` / `DynSynth`), the
+Track E effects labs `reference/swarmfilter.html`, `reference/swarmphaser.html`, `reference/swarmtime.html`
+(`FilterLab` / `PhaserLab` / `TimeLab`), and the experimental `reference/swarmalator.html`
 (`Swarmalator`, ADR-048) — all spec-in-code (ADR-003). Ported C++ cores so far:
 `swarm_core.h` (SAW+dynamics), `spectra_core.h` (SPECTRA), `force_core.h`
 (shared force system, ADR-034), `filter_core.h` / `notch_core.h` (E1 effects),
@@ -123,7 +123,7 @@ the global CLAUDE.md audio-plugin section before any build/install/validate.
   per-tick constants are banned — ADR-009 records the trap.
 - Real-time thread allocates nothing, calls no external provider (doctrine:
   hot paths never call the provider).
-- Acceptance numbers in ACCEPTANCE.md are measured, not aspirational; they
+- Acceptance numbers in specs/ACCEPTANCE.md are measured, not aspirational; they
   change only with a re-measurement on the reference implementation.
 
 **Alias note.** This repo is public. Private sibling projects are referred to
@@ -131,15 +131,15 @@ by alias in all tracked files ("terrain sibling", …); the alias→name map
 lives in `PRIVATE-NOTES.md` (untracked, local-only — ADR-014). Never write a
 private sibling's real name into a tracked file.
 
-**Protected paths** (human gate to modify): `SPEC.md`, `SPEC-EFFECTS.md`,
-`SPEC-SWARMALATOR.md`, `SPEC-FORMANT.md`, `SPEC-DISTORTION.md`, `ACCEPTANCE.md`, `PRIOR-ART.md`, the prototype HTMLs —
+**Protected paths** (human gate to modify): `specs/SPEC.md`, `specs/SPEC-EFFECTS.md`,
+`specs/SPEC-SWARMALATOR.md`, `specs/SPEC-FORMANT.md`, `specs/SPEC-DISTORTION.md`, `specs/ACCEPTANCE.md`, `docs/PRIOR-ART.md`, the prototype HTMLs —
 now seven: the three oscillator labs, swarmfilter/swarmphaser/swarmtime (Track
-E, ingested 2026-07-18), and swarmalator.html (experimental swarmalator engine,
-ingested 2026-07-19, ADR-048), and `horde_formant_pulsar_fof.html` (formant
+E, ingested 2026-07-18), and reference/swarmalator.html (experimental swarmalator engine,
+ingested 2026-07-19, ADR-048), and `reference/formant-pulsar-fof.html` (formant
 engine, ingested 2026-08-17, ADR-091; one sanctioned edit outstanding: seed its
-masking RNG), and `station.html` + `STATION-SPEC.md` (STATION engine, ingested
+masking RNG), and `reference/station.html` + `specs/SPEC-STATION.md` (STATION engine, ingested
 2026-08-25, ADR-122; one sanctioned edit: seed the Wave RAM randomize), and
-`QM-4-intent-bus-spec.md` + `horde-intent-bus-prototype.html` (intent bus,
+`specs/SPEC-INTENT-BUS.md` + `reference/intent-bus.html` (intent bus,
 ingested 2026-09-01, ADR-152; one sanctioned edit: seed `reshuffle()`) — (they ARE the reference — an edit there is a spec change), `./verify`, golden render fixtures once they exist.
 
 **Verify targets.** `fast`: leak gate + structure/manifest sanity now; grows

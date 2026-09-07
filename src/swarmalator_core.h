@@ -1,7 +1,7 @@
 /*
  * swarmalator_core.h — SWARMALATOR engine: audio phase θ ↔ spatial angle ξ
  * coupled to each other (SPEC-SWARMALATOR §2), transcribed VERBATIM from
- * swarmalator.html's Swarmalator core. The first engine where moving in space
+ * reference/swarmalator.html's Swarmalator core. The first engine where moving in space
  * changes the timbre and changing the timbre moves the sound in space — pan is
  * a STATE VARIABLE of the same dynamical system that makes the tone.
  *

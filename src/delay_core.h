@@ -4,7 +4,7 @@
  * THIS CORE HAS NO HTML LAB, AND THAT IS DELIBERATE. Every other core here is
  * a port of a prototype (ADR-003 spec-in-code), and correctness means parity
  * with that prototype. There is no delay lab, and writing one first would
- * reproduce the exact thing the human rejected: `swarmtime.html`'s feedback
+ * reproduce the exact thing the human rejected: `reference/swarmtime.html`'s feedback
  * law is what "didn't really work very well". So this file IS the spec, and
  * its oracle is `tools/delay_check.cpp` — impulse-response invariants
  * (spacing, per-generation ratio, boundedness, ping-pong alternation, sync

@@ -1,5 +1,5 @@
 // Filter (resonator bank) golden generator (Track E1): render the JS FilterLab
-// (sliced live from swarmfilter.html) to raw f32 for tools/filter_check.cpp
+// (sliced live from reference/swarmfilter.html) to raw f32 for tools/filter_check.cpp
 // L0-1-style audio parity.
 //
 // Protocol: noise = 0 for EVERY scenario — FilterLab's exciter mixes
