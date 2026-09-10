@@ -58,28 +58,32 @@ struct HypersawGui::Impl
 
   explicit Impl(GuiHost h) : host(std::move(h))
   {
-    web = detail::makeWebView(host);
-    // B79: throttle/suppression off as early as possible; the retina override
-    // is re-applied at attach, when the real window (and its scale) exists.
-    configureSurfaceForPluginWindow((__bridge NSView *)web->getViewHandle());
     // Hosts often do not hand the plugin view keyboard focus on click; the
     // GUI's text-entry path requests it explicitly (2026-07-18 report: edit
     // boxes lost focus instantly in Live — the INVERSE of the classic
-    // webview-steals-keys problem).
-    web->bind("hzGrabKeys", [this](const choc::value::ValueView &) -> choc::value::Value {
-      NSView *v = (__bridge NSView *)web->getViewHandle();
-      if (v && v.window)
-      {
-        // makeFirstResponder on a non-key window never receives keys — Live
-        // keeps key status on its main window, so claim it first. Live also
-        // re-takes it moments later (2026-07-18 report: "focus for a split
-        // second"), which is why the JS side re-grabs for the edit's lifetime
-        // rather than trusting one call.
-        if (![v.window isKeyWindow]) [v.window makeKeyWindow];
-        [v.window makeFirstResponder:v];
-      }
-      return {};
+    // webview-steals-keys problem). Bound from the ready callback, which on
+    // macOS fires synchronously inside makeWebView — before `web` is assigned,
+    // which is why the bind uses `w` and only the BODY (invoked from JS later)
+    // reads `web`.
+    web = detail::makeWebView(host, [this](choc::ui::WebView &w) {
+      w.bind("hzGrabKeys", [this](const choc::value::ValueView &) -> choc::value::Value {
+        NSView *v = (__bridge NSView *)web->getViewHandle();
+        if (v && v.window)
+        {
+          // makeFirstResponder on a non-key window never receives keys — Live
+          // keeps key status on its main window, so claim it first. Live also
+          // re-takes it moments later (2026-07-18 report: "focus for a split
+          // second"), which is why the JS side re-grabs for the edit's lifetime
+          // rather than trusting one call.
+          if (![v.window isKeyWindow]) [v.window makeKeyWindow];
+          [v.window makeFirstResponder:v];
+        }
+        return {};
+      });
     });
+    // B79: throttle/suppression off as early as possible; the retina override
+    // is re-applied at attach, when the real window (and its scale) exists.
+    configureSurfaceForPluginWindow((__bridge NSView *)web->getViewHandle());
   }
 };
 

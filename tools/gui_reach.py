@@ -23,7 +23,7 @@ it got this far. A number nobody sees is prose with extra steps.
 import re, sys, pathlib
 
 root = pathlib.Path(__file__).resolve().parent.parent
-decl = (root / "src/hypersaw_clap.cpp").read_text()
+decl = (root / "src/hypersaw_clap.cpp").read_text(encoding="utf-8")
 rows = re.findall(r'\{\s*(\d+),\s*"([A-Za-z0-9_]+)",\s*"([^"]*)"', decl)
 params = {int(i): (k, n) for i, k, n in rows if int(i) < 1000}
 
@@ -36,7 +36,7 @@ EXEMPT = {
 
 guis = {}
 for p in sorted((root / "src/gui").glob("*.html")):
-    guis[p.name] = {int(x) for x in re.findall(r'data-p="(\d+)"', p.read_text())}
+    guis[p.name] = {int(x) for x in re.findall(r'data-p="(\d+)"', p.read_text(encoding="utf-8"))}
 
 # ---- PATCH-SCOPE PINNING -------------------------------------------------
 # Some params are dispatched by RAW id in the shell (`id == 43`,
@@ -54,7 +54,7 @@ for p in sorted((root / "src/gui").glob("*.html")):
 #
 # The ranges are PARSED FROM THE SHELL, not hardcoded, so a new raw-id family is
 # covered the day it is written rather than the day someone remembers this.
-shell = (root / "src/hypersaw_clap.cpp").read_text().split("\n")
+shell = (root / "src/hypersaw_clap.cpp").read_text(encoding="utf-8").split("\n")
 patch_scope = set()
 for n, line in enumerate(shell):
     ranges = re.findall(r'id >= (\d+) && id <= (\d+)', line)
@@ -83,7 +83,7 @@ patch_scope &= set(params)
 
 unpinned = []
 for name, path in [(p.name, p) for p in sorted((root / "src/gui").glob("*.html"))]:
-    text = path.read_text()
+    text = path.read_text(encoding="utf-8")
     for i in sorted(patch_scope):
         if re.search(r'data-p="%d"(?![^>]*data-fixed)' % i, text):
             unpinned.append((name, i))

@@ -512,3 +512,25 @@ endif()
 if(APPLE)
   target_link_libraries(renderer_bench PRIVATE "-framework Accelerate")
 endif()
+
+# MSVC gives a process a 1 MB main-thread stack; macOS and Linux give 8 MB. A
+# SwarmCore is 651 KB (sizeof, MSVC 14.51, 2026-09-09) and the host-side
+# oracles put cores on the stack freely: trajectory_check keeps two live at
+# once and waveshape_check inlines several render() frames, and both died
+# with STATUS_STACK_OVERFLOW (0xC00000FD) on the first native Windows run
+# while every other oracle was green. The plugin itself is unaffected — its
+# cores are members of the heap-allocated Plugin. 8 MB (the POSIX default)
+# was NOT enough: trajectory_check's main() holds ~25 cores in nested scopes
+# and MSVC does not overlap the slots of non-trivial locals, so its frame is
+# ~16 MB where clang's is one core deep. 64 MB is a virtual RESERVE (pages
+# commit on touch), so it costs nothing; set it for every host tool rather
+# than heap-patching two and leaving the trap for the next one (L0003).
+if(MSVC)
+  get_property(_hs_exes DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
+  foreach(_t IN LISTS _hs_exes)
+    get_target_property(_ty ${_t} TYPE)
+    if(_ty STREQUAL "EXECUTABLE")
+      target_link_options(${_t} PRIVATE /STACK:67108864)
+    endif()
+  endforeach()
+endif()

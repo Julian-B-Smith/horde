@@ -77,7 +77,7 @@ def card(name, title, desc):
 def main():
     entries = list(labs())
     out = HEAD + "".join(card(*e) for e in entries) + FOOT
-    (D / "index.html").write_text(out)
+    (D / "index.html").open("w", encoding="utf-8", newline="\n").write(out)
     print(f"gen_lab_index: wrote docs/design/index.html with {len(entries)} lab(s)")
     return 0
 

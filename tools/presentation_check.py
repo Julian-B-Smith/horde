@@ -43,7 +43,7 @@ def shell_addresses():
     """The address set, derived from the shell — the same source the registry
     derives from, so this check compares the table against reality rather than
     against another copy of the table."""
-    src = SHELL.read_text()
+    src = SHELL.read_text(encoding="utf-8")
     decl = src.split("kParams[] = {", 1)[1].split("\n};", 1)[0]
     rows = re.findall(r'\{\s*(\d+),\s*"([A-Za-z0-9_]+)"', decl)
     gl = src.split("kGlobalIds[] = {", 1)[1].split("};", 1)[0]
@@ -72,7 +72,7 @@ def check_select_ranges():
     option values must be exactly the declared range. Generated controls are
     exempt -- the generator derives them and cannot drift by construction.
     """
-    src = SHELL.read_text()
+    src = SHELL.read_text(encoding="utf-8")
     decl = src.split("kParams[] = {", 1)[1].split("\n};", 1)[0]
     ranges = {}
     for m in re.finditer(
@@ -81,7 +81,7 @@ def check_select_ranges():
         pid, lo, hi, _d, stepped = m.groups()
         if stepped == "true":
             ranges[int(pid)] = (int(float(lo)), int(float(hi)))
-    gui = (ROOT / "src/gui/gui2.html").read_text()
+    gui = (ROOT / "src/gui/gui2.html").read_text(encoding="utf-8")
     bad = 0
     for m in re.finditer(r'<select data-p="(\d+)"[^>]*>(.*?)</select>', gui, re.S):
         pid = int(m.group(1))
@@ -106,7 +106,7 @@ def main():
     if not TSV.exists():
         print(f"presentation_check: FAILED — {TSV} missing", file=sys.stderr)
         return 1
-    lines = [l for l in TSV.read_text().splitlines() if l and not l.startswith("#")]
+    lines = [l for l in TSV.read_text(encoding="utf-8").splitlines() if l and not l.startswith("#")]
     header, body = lines[0].split("\t"), [l.split("\t") for l in lines[1:]]
 
     fail = []

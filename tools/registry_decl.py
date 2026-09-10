@@ -16,7 +16,7 @@ defect in ours.
 import re, sys, pathlib
 
 src = pathlib.Path(__file__).resolve().parent.parent / "src" / "hypersaw_clap.cpp"
-s = src.read_text()
+s = src.read_text(encoding="utf-8")
 params = re.search(r'static const ParamDef kParams\[\] = \{(.*?)\n\};', s, re.S).group(1)
 gblk = re.search(r'constexpr clap_id kGlobalIds\[\] = \{(.*?)\};', s, re.S).group(1)
 globals_ = set(re.findall(r'\b\d+\b', re.sub(r'//[^\n]*', '', gblk)))

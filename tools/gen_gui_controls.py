@@ -45,7 +45,7 @@ def patch_scope_ids():
     raises SystemExit, which we surface rather than swallow — generating markup
     from a shell whose own gate is failing would be building on sand."""
     ns = {"__file__": str((ROOT / "tools/gui_reach.py").resolve()), "__name__": "_gr"}
-    src = (ROOT / "tools/gui_reach.py").read_text()
+    src = (ROOT / "tools/gui_reach.py").read_text(encoding="utf-8")
     try:
         with contextlib.redirect_stdout(io.StringIO()):
             exec(compile(src, "gui_reach.py", "exec"), ns)
@@ -65,7 +65,7 @@ def patch_scope_ids():
 
 
 def shell_params():
-    src = SHELL.read_text()
+    src = SHELL.read_text(encoding="utf-8")
     decl = src.split("kParams[] = {", 1)[1].split("\n};", 1)[0]
     rows = re.findall(
         r'\{\s*(\d+),\s*"([A-Za-z0-9_]+)",\s*"([^"]*)",\s*([^,]+),\s*([^,]+),\s*([^,]+),\s*(true|false),\s*([A-Za-z0-9_]+)\s*\}',
@@ -102,11 +102,11 @@ def shell_params():
 
 
 def main():
-    rows = [l.split("\t") for l in TSV.read_text().splitlines()
+    rows = [l.split("\t") for l in TSV.read_text(encoding="utf-8").splitlines()
             if l and not l.startswith("#")][1:]
     shell = shell_params()
     fixed = patch_scope_ids()
-    gui = GUI.read_text()
+    gui = GUI.read_text(encoding="utf-8")
     # "Already placed" must mean HAND-placed, so the GEN blocks are stripped before
     # asking. Computing it from the whole file was a checks-that-cannot-fire bug in
     # this very gate: after one run every id is present, so every param is skipped,
@@ -296,14 +296,14 @@ def main():
         # yesterday's declarations — a silent, invisible-to-every-oracle failure
         # of exactly the kind generation exists to abolish. So the check is that
         # regenerating changes nothing.
-        if gui != GUI.read_text():
+        if gui != GUI.read_text(encoding="utf-8"):
             print("gen_gui_controls: FAILED — generated controls are stale.\n"
                   "  src/param_presentation.tsv changed without regenerating.\n"
                   "  Run: python3 tools/gen_gui_controls.py", file=sys.stderr)
             return 1
         print(f"gen_gui_controls: GREEN ({total} generated control(s), gui2 markup current)")
         return 0
-    GUI.write_text(gui)
+    GUI.open("w", encoding="utf-8", newline="\n").write(gui)
     print(f"gen_gui_controls: generated {total} control(s) across {len(per_page)} page(s)")
     return 0
 
