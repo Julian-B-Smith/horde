@@ -115,8 +115,40 @@ each oracle with UBSan set to halt on the first report. The CI job `sanitize`
 |---|---|---|
 | UBSan (`-fsanitize=undefined`, halt_on_error) | MEASURED here (AppleClang) | **GREEN — 25/25 oracles**, zero `runtime error` lines (`tools/sanitize_oracles.sh undefined build-ubsan`; parity 156/156, glide worst 3.5e-08, time worst 5.6e-12 — the same numbers as the unsanitized gate) |
 | TSan (`-fsanitize=thread`) | NOT MEASURABLE here (AppleClang) | every oracle **segfaults at start**, and so does a hello world — see below; the verdict is CI's |
-| ASan+UBSan (`address,undefined`) | MEASURED in CI (Linux, gcc) | CI_ASAN_PLACEHOLDER |
-| TSan (`thread`) | MEASURED in CI (Linux, gcc) | CI_TSAN_PLACEHOLDER |
+| ASan+UBSan (`address,undefined`) | MEASURED in CI (Linux, gcc 13; verdicts in run 34481570813, job GREEN in run 34482366205) | **23/24 oracles GREEN**, zero ASan/UBSan reports in them; `state_check` NOT BUILT on Linux; `rtsafety_probe` not run under sanitizers (both explained below) |
+| TSan (`thread`) | MEASURED in CI (Linux, gcc 13; same two runs) | **23/24 oracles GREEN**, zero TSan reports; same two exceptions |
+
+**Two things the Linux runs surfaced that this PR could not fix (both
+outside its scope; recorded for the lead):**
+
+1. **`state_check` does not link on Linux.** It calls `hypersaw_debug_state`
+   / `_apply` / `_exempt` / `_cornervals` / `_exemptjson`, which
+   `src/hypersaw_clap.cpp` defines (lines 4755-4768) inside the
+   `#if defined(__APPLE__) || defined(_WIN32)` GUI block opened at line 4729.
+   `corner_probe` has the same dependency. Until those hooks compile on Linux,
+   the sanitizer job cannot cover the state oracle; the driver prints
+   `DOES NOT BUILD on this platform — SKIPPED` and counts it, and its verdict
+   remains the unsanitized `./verify full` on macOS/Windows.
+2. **`rtsafety_probe` cannot run under a sanitizer, and its ASan report points
+   at a real blind spot.** The probe replaces the global `operator new(size_t)`
+   / `new[]` / `delete` with malloc-backed counters — the operators libasan and
+   libtsan interpose — so under ASan it aborts with `alloc-dealloc-mismatch
+   (operator new vs free)` and under TSan it reports `allocations 0 / frees 9`
+   and goes RED. The mismatched buffer is `std::stable_sort`'s temporary
+   buffer in `SwarmCore::finishRebuild` (`src/swarm_core.h:1355`), obtained
+   through libstdc++'s `get_temporary_buffer`, i.e. the **nothrow**
+   `operator new`, which the probe does NOT replace. `finishRebuild` runs from
+   `rebuild()`, which `setParam` calls for `n`/`dist`/`seed`/`width`/`topo`/…
+   (`swarm_core.h:421-424`) — on the audio thread whenever a host param event
+   changes one of them. So: (a) the gate has a blind spot for nothrow
+   allocations; (b) on **libstdc++** that sort heap-allocates on every rebuild
+   (the 9 frees are 9 rebuilds inside armed `process()` windows), while on the
+   two shipped platforms it happens to be allocation-free by library detail —
+   libc++ sorts small trivially-copyable ranges in place and MSVC keeps a
+   small temporary buffer on the stack (hypothesis for the mechanism; the
+   measured fact is 0/0 on macOS and on MSVC, trace 2026-09-09). Allocation-free
+   by construction would be a fixed-size stable sort over the ≤ 32 voice
+   indices; that is a `src/` change and a gate change, both human-gated.
 
 **ASan and TSan cannot be measured on this Mac**, and this is an environment
 fact, not a finding about the code. With AppleClang 16.0.0 on macOS 26.6.2 a
