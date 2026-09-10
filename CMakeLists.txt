@@ -370,6 +370,17 @@ target_link_libraries(ratchet_probe PRIVATE ${PROJECT_NAME}-impl)
 add_executable(combguard_check tools/combguard_check.cpp)
 target_link_libraries(combguard_check PRIVATE ${PROJECT_NAME}-impl)
 
+# robustness_matrix: the table docs/ROBUSTNESS.md publishes (B101), measured
+# rather than typed — the real plugin at 44.1/48/96/192 k x 32..2048 frames:
+# allocation-free process() (rtsafety_probe's counter), no NaN/Inf, tail
+# decays, plus the denormal-stall section with its own can-fire control.
+# Diagnostic, not a gate; ./verify does not run it.
+add_executable(robustness_matrix tools/robustness_matrix.cpp)
+target_link_libraries(robustness_matrix PRIVATE ${PROJECT_NAME}-impl)
+if(NOT MSVC)
+  target_compile_options(robustness_matrix PRIVATE -O2)
+endif()
+
 # morphscope_probe: WHERE does an edit land under the morph (mode x arm x
 # puck position), read back corner by corner. Diagnostic for the 2026-09-03
 # "globals act like corner params" report; prints, never judges.
@@ -533,4 +544,33 @@ if(MSVC)
       target_link_options(${_t} PRIVATE /STACK:67108864)
     endif()
   endforeach()
+endif()
+
+# HYPERSAW_SANITIZE (B101): OFF, or a -fsanitize= list — "address,undefined"
+# or "thread" — applied to the HOST-SIDE EXECUTABLES only: the oracles and
+# probes above, never the plugin libraries. tools/sanitize_oracles.sh and the
+# CI `sanitize` job build with it ON into their own tree; the shipped build is
+# OFF, and OFF is bit-inert by construction — nothing here runs unless the
+# value is set. The header-only cores (swarm_core.h, filter_core.h, ...) are
+# compiled INTO each oracle that includes them, so they are instrumented
+# there; the impl static library (the shell) is linked uninstrumented, and
+# what ASan sees of it is heap misuse at malloc/free boundaries only. A
+# STRING rather than option() so the list itself is the value; MSVC has
+# /fsanitize=address but a different flag shape, so it is not attempted.
+set(HYPERSAW_SANITIZE OFF CACHE STRING
+    "OFF, or a -fsanitize= list (address,undefined | thread) for host-side executables only")
+if(HYPERSAW_SANITIZE)
+  if(MSVC)
+    message(WARNING "HYPERSAW_SANITIZE is not wired for MSVC; ignored")
+  else()
+    get_property(_hs_san_exes DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
+    foreach(_t IN LISTS _hs_san_exes)
+      get_target_property(_ty ${_t} TYPE)
+      if(_ty STREQUAL "EXECUTABLE")
+        target_compile_options(${_t} PRIVATE -fsanitize=${HYPERSAW_SANITIZE} -fno-omit-frame-pointer -g)
+        target_link_options(${_t} PRIVATE -fsanitize=${HYPERSAW_SANITIZE})
+      endif()
+    endforeach()
+    message(STATUS "HYPERSAW_SANITIZE=${HYPERSAW_SANITIZE} on host-side executables")
+  endif()
 endif()
