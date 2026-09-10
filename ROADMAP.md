@@ -8,6 +8,74 @@ Gates are blocking. "Green" = `./verify fast` passes + phase acceptance subset +
 
 *(Historical status, 2026-07-17 evening:)* Phase 0 largely complete — skeleton builds (CLAP + VST3 + AUv2 via clap-wrapper, pinned submodules), pluginval SUCCESS at strictness 10 (gate asks ≥5), auval SUCCEEDED, all three formats installed locally with intact codesign seals; ADR-006 spike run (bank 66× / iFFT 216× realtime at 2560 osc on M3) with close proposed as ADR-018 (bank); GUI stack proposed as ADR-019 (choc webview). CI matrix (macOS + Windows build + pluginval) GREEN on both platforms (run for 3283ae9; Windows needed static-MSVC-runtime + M_PI portability fixes). **PHASE 0 GATE CLOSED 2026-07-17:** ADR-018 (bank), ADR-019 (webview, with the swappability amendment), and the E-6 envelope ratified by the human; Live load test passed (VST3 loads, plays sine on MIDI input — no GUI yet, as designed). **Recorded residual (human-accepted):** Reaper/Bitwig load evidence deferred — neither host is installed on this machine; CI pluginval on both platforms is the standing proxy; do a real load check when either host is available, no later than the Phase 2 gate. **Windows runtime work deferred (human, 2026-07-18):** the WebView2 backend stays CI-compile-verified only until desktop-coordination begins; Windows runtime validation moves out of the Phase 2 gate to that milestone. Phase 1 (SwarmCore port + parity oracle) is now in progress. Proposed E-6 envelope: min-spec = Apple M1 base / 4-core 2018-class Intel ultrabook, Windows x64 AVX2; 44.1 kHz @ 128-sample buffer; E-6 patch must hold < 50% of one core on min-spec. Deferred ecosystem briefs: Tonality intake brief due at Phase 3 before consonance gravity ships; terrain-sibling intake brief due at Phase 4 with the kernel abstraction (ADR-010(d) — placeholders in the meantime).
 
+
+## 1.0 — DEFINITION OF DONE (PROPOSED 2026-09-10 — PENDING HUMAN RATIFICATION)
+
+Drafted from an external audit's recommendation the human relayed 2026-09-10,
+after every checkable claim in it was verified against the tree (scorecard in
+the 2026-09-10 trace). **Nothing below is ruled until the human strikes the
+PROPOSED marker.** The lead's job here was to reconcile it with the human's
+own PRIORITY TRACKS (2026-09-05), and the reconciliation leaves FOUR
+COLLISIONS for the human — listed last, on purpose.
+
+**1.0 roster (ships):** SWARM SAW · two oscillators · mixer · FX rack with
+REAL Drive and Filter (B81 inc 2 slice 2 provides the SVF + drive stage; the
+placeholders do not ship) · morph grid · MAIN · mod matrix with **two or
+three LFOs** (the Kuro LFO — inertial by construction, which IS the
+differentiator the audit asks for — B16 / task 19) · **SPECTRA exposed or
+removed** (today param 43 has zero gui2 controls: a hidden engine; lead
+recommends EXPOSE — one select — because it has its own parity oracle and is
+the founding sibling) · **30–50 categorised factory presets** built to
+demonstrate the coupling laws (B102) · **state header** (schema +
+engine_revision + build hash, B100) · LICENSE decided, CHANGELOG, tagged
+semver releases with CI-built artifacts, notarized macOS installer, Windows
+binary (B101) · robustness matrix published (B101).
+
+**Parked for 1.0 (each with a one-line why, to docs/PARKED.md on
+ratification):** SPECTRA-as-second-engine polish beyond exposure · swarmalator
+· CANTO · WARP/FX-C · STATION · glitch modules · arps · FOUNDATIONS
+extraction · resynthesis. Criterion: not on the roster above.
+
+**The evidence layer (1.0 deliverables, not code):** aliasing spectra at 3–4
+notes with the saw-shape section engaged, CPU per voice count, a listening
+note — published in docs/ so "parity isn't correctness" is answered before
+the goldens-v2 workshop; a one-page engineering writeup (how correctness is
+defined, the RULING/ENCODING taxonomy, how the agentic process was governed,
+the goldens problem and the v2 plan); the landing README; the video (90 s
+sound, 2 min process). B103.
+
+**Sequencing:** Phase 0 this definition → Phase 1 the five-minute gaps (LFOs,
+real Drive/Filter, SPECTRA, presets) → Phase 2 release engineering (state
+header FIRST — before anyone but the human saves a set) → Phase 3 evidence →
+Phase 4 outside users; then goldens v2 as 1.1 on the B100 mechanism.
+
+**Already true, so not on the list:** CLAP param ids frozen and append-only
+since ADR-082 (the audit asked for an ADR — it exists); state blob carries
+`schema` 3 with a working migrator (ADR-103, ADR-138); plugin identity frozen
+(ADR-002/154); repo layout done 2026-09-07 (ADR-155 — do NOT churn it again
+into `prototypes/` + `docs/specs/`; the audit predates it).
+
+**THE FOUR COLLISIONS (human rules):**
+1. **"No FX matrix rework"** vs PRIORITY TRACK 1 (FX final form, B50 visual
+   routing matrix FIRST). Lead's reconciliation: 1.0 = the bounded-pool
+   POLICY ruled (B95) + the singleton guard (shipped) + real Drive/Filter;
+   the visual routing matrix and the pool UI are **1.1**.
+2. **"No new engines / modules"** vs TRACK 4 (reverb, kuro-chorus, standard
+   delay [shipped], distortion/waveshaping, TBA). Lead: Delay already
+   shipped; the rest are 1.1 — EXCEPT that "real Drive" for 1.0 may borrow
+   WARP's waveshaper only if its RNG is seeded first (the standing blocker).
+3. **QM-4 intent bus (B89, TRACK 2)** is unmentioned by the audit and is a
+   multi-week architecture. Lead: 1.1. The ADR-152 interim (macro suspension
+   under morph) is the 1.0 behaviour.
+4. **Saw-shape lab port (TRACK 7)** and **morph-lab-comes-home (B97, TRACK
+   6)**: 1.1 by the roster criterion, unless the human wants one as a 1.0
+   differentiator.
+
+**The cut list, verbatim from the audit, for the human to affirm or amend:**
+for the next six weeks no new engines, no FOUNDATIONS extraction, no FX
+matrix rework, no arp engines, no resynthesis experiments; nothing new enters
+the C++ tree until 1.0 is tagged and in five other people's hands.
+
 ## STATION INGESTED — the traditional-synthesis workhorse arrives as a CANDIDATE (2026-08-25, ADR-122)
 
 The human delivered a complete intake set: `specs/SPEC-STATION.md` (approved spec,
@@ -7014,6 +7082,10 @@ this list rendered with statuses.
 | B96 | **Mod-matrix mapping shortcuts — save/load named route sets** (human 2026-09-05). A named bundle of routes (source, dest, depth, scope) stored in app-support like presets, loaded additively or replacing; the canonical (src,dest) route identity (ADR-138) is the merge key. Rides the QM-4 tiering once B89 lands (a shortcut then carries corner-scope vs device-scope per route) | § ADR-138 · § ADR-141 · § B89 |
 | B97 | **Morph interface fill — the morph lab comes home** (human 2026-09-05: "move all the morph features from the morph lab into horde, with the full table and editable distribution grids per-parameter"). The per-parameter table (owner, exempt, lead group, hold state — B93's held marker is the first cell of it), editable per-parameter flip-distribution (seed/salience, QM-1), temperature/coupling/glide already present. Rides B89's classification PR: the table's rows ARE the classification | § B89 · § ADR-108 · § ADR-110 · § ADR-111 · § B93 |
 | B98 | **Param-ID / tech-debt cleanup — a COMPATIBILITY EVENT, sequenced after the brand rename** (autonomous notice-001, 2026-09-05, Decision 69; `integrations/autonomous/notice-001.md` is the inventory: 28 Ableton sets / 39 instances bind Horde by the VST3 class ID `-147791410|1757829083|-2016262866|657183375`, one AU by manufacturer, all under `Music/Ableton/OLD SYSTEM/`). Sequence ruled upstream: (1) brand rename FIRST — manufacturer "Mind Lathe", bundle prefix `com.mind-lathe.<plugin>`, adopted at our next `/retrofit` once CONVENTIONS §Audio plugins syncs (autonomous PR #7; at intake the synced copy still reads "Lifted Truck", so nothing moves yet); (2) **never move** the VST3 class ID or the AU codes `LfTk`/`aumu`/`Hsaw` in any rename — Ableton binds by those (ADR-002/ADR-114 already froze them; reaffirmed); (3) the cleanup branch opens after the GitHub account rename and autonomous's K5 routines, and it DOES break the 28 sets unless a state migrator ships with it — migrate / version the state chunk / accept the break is the resident's call when it opens, decided against the list, not against "nothing to preserve". Lead lean: version the chunk + migrate (state_check already round-trips every chunk kind; a versioned loader is the same oracle with one more fixture) | § ADR-002 · § ADR-114 · § ADR-082 · § notice-001 |
+| B100 | **State header + per-patch engine revision — the compatibility mechanism, BEFORE strangers save sets** (audit 2026-09-10; converges with the lead's 2026-09-09 answer). Today: `"schema":3` + append-only ids + tolerant load + one exercised migrator (ADR-103). Build: (1) header `{schema, engine_revision, build}` on every blob (build hash already exists for the GUI corner — stamp it); (2) **`engine_revision` pins DSP behaviour per patch** — sets saved under rev 1 load pinned to rev-1 laws, new patches default to latest, a patch-level control opts an old patch forward (the u-he/Surge pattern); the repo's existing parity-safe-superset discipline (new law behind a default-old switch) becomes the rev-1 path by construction; (3) **the oracle carries TWO golden sets, both gated**: v1 goldens become a LEGACY-CONFORMANCE test (rev-1 must not drift — shipped sessions depend on it, which makes it a RULING), v2 goldens — workshopped against measurement + listening, not the JS — become correctness going forward (the goldens-v2 workshop the human has asked for, as 1.1); (4) **a state-fixture corpus**: real blobs per schema/revision, asserted load+render bit-identical forever — the notice-001 inventory is where fixtures come from; without it a migrator is a promise. ADR before the workshop; cited in the engineering writeup | § ADR-082 · § ADR-103 · § ADR-138 · § B98 · § ADR-142 |
+| B101 | **Release engineering** (audit 2026-09-10; verified absent: no LICENSE, no CHANGELOG, zero tags, no CI artifacts, no notarization, no sanitizer runs). LICENSE is a HUMAN decision (open-source vs source-available — either; undecided = all-rights-reserved by default and reviewers notice); CHANGELOG from the traces; tagged semver releases with CI-built artifacts — notarized macOS installer, Windows binary (build-windows exists; artifacts do not); robustness matrix PUBLISHED: ASan/UBSan/TSan runs of the oracles, denormal handling verified, 44.1/48/96/192 k × buffers 32–2048 (samplerate_check + rtsafety_probe already exist — this is turning them into a table), Reaper + Bitwig loads. CI's Windows pluginval step still targets a bundle name that no longer exists (B99) — fix rides here | § B99 · § ADR-002 · § L0045 |
+| B102 | **Factory bank — 30–50 categorised, named presets that DEMONSTRATE the coupling law** (audit 2026-09-10; B20 shipped the preset TIERS, not the content — docs/presets holds two files, neither a bank). Required exemplars: a cloud-to-lock sweep, a consonance-gravity chord, a splay-interference patch, a quantum-morph patch with four deliberately different corners; every bank patch captured through the ADR-152 flatten so it is self-contained. Ships in app-support via the existing preset store (B99(b) must land first or Windows users get none) | § B20 · § ADR-152 · § B99 |
+| B103 | **The evidence layer — measurements, writeup, landing page, video** (audit 2026-09-10: "the part your instincts will tell you to skip"). Measurements in docs/: aliasing spectra at 3–4 notes with saw shape engaged, CPU per voice count, a listening note — the direct answer to "parity isn't correctness" ahead of goldens v2; a one-page engineering writeup (correctness definition, RULING/ENCODING taxonomy, agentic-process governance, the goldens problem + v2 plan — B100 is its centrepiece); README as landing page (pitch, three clips, screenshots, download, link to the writeup); the video — 90 s sound (coupling sweep, gravity settling a chord, morph patchwork), 2 min process (the oracle running, the gaps, an ADR). Repo description + topics; the account rename is sequenced by autonomous Decision 69 (B98) | § B100 · § B98 · § README |
 | B99 | **Windows runtime residuals after the first native run** (2026-09-09, Live 12.3 Beta on Windows 11 — trace `2026-09-09-windows-first-run.md`). The plugin builds, every oracle is GREEN on MSVC, it loads and plays, and the GUI renders once the bridge installs from choc's ready callback. Three things are still Mac-shaped: **(a)** computer-keyboard MIDI dies WHILE a control is being dragged (human: *"ableton stops hearing the keyboard while parameters are being moved around"*) — the release hook fires on pointerup/click only, so during a drag WebView2's Chromium HWND holds focus; candidates are releasing on pointerdown too, or never taking focus for non-text controls; measure against Live before choosing, and check whether Live's plugin window is on the webview's thread (SetFocus is thread-local). **(b)** the disk preset store and the note-trace dump build their paths from `$HOME/Library/...`, absent on Windows — presets silently no-op; use `%APPDATA%` there through ONE path helper. **(c)** CI's Windows pluginval step still searches for `HYPERSAW.vst3` and so validates nothing since the bundle became `horde.vst3` (2026-08-27); it needs the new name, and a failed search must fail the step. Also open: `./verify full` is hard-coded to `build-release` + Unix Makefiles (protected path — human decision to make it build-dir-aware); the `.mm` change in the same PR needs a Mac build before merge. | § ADR-019 · § B79 · § traces/2026-09-09 |
 | B82 | **Per-note modulation — the build** (human 2026-08-29: *"worth a build in any case"*). The brainstorm, recorded: kPerNote scope already exists in mod_core and evaluate() segregates by it — what is missing is (a) PER-VOICE SOURCE VALUES: ENV 1 currently publishes the loudest-voice projection; per-note means evaluating routes once per sounding voice with that voice's env/velocity/key as the source vector; (b) PER-VOICE DESTINATIONS: a global param has one value, so per-note dests need per-voice shadow values at the point of use — pitch has this shape already (per-voice tuning), filter cutoff (B81) is the flagship, per-voice level/pan are cheap follow-ons; start with an explicit whitelist of per-note-capable dests rather than pretending every param can fan out; (c) COMBINATION LAW: per-note delta ADDS to the global delta for the same dest (two scopes, one sum, no special cases). Sources to publish per-voice: env, velocity, key position (normalized), per-voice random (seeded at note-on — mulberry32, SPEC §5.7). Suggested order: build against B81's filter env first since the seam work overlaps | § B69 · § B34 · § B81 |
 | B83 | **Per-slot FX meters + internal headroom** (human 2026-08-29: the space FX *"seem to have a tendency to clip a little and may need their own subtle internal compressors"*). Two halves: (a) a peak tap per rack slot (post-slot, pre-next) riding the viz snapshot like oscPeak does, with a meter per slot cluster in the GUI — makes gain staging VISIBLE through the chain; (b) audit Echo/Room output levels at high regen and, if confirmed hot, give the time engines a gentle internal soft-knee (the DelayCore softLimit precedent — feedback-path only, never the dry). Meters first: measure before compressing | § B24 · § ADR-131 · § ADR-142 |
