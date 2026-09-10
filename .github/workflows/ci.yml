@@ -7,17 +7,30 @@
 #     post-merge net — so a branch push doesn't double-run alongside its PR);
 #   - cancels superseded runs (concurrency);
 #   - keeps the CHEAP + can't-do-locally coverage on every PR (Linux verify-fast
-#     + the Windows build/validate, which this dev Mac cannot produce);
+#     + the Linux sanitizer runs + the Windows build/validate, which this dev
+#     Mac cannot produce);
 #   - defers the 10x macOS job to post-merge on main only — PR-time macOS is
 #     redundant with the maintainer's local build + pluginval-10 + auval + install.
 # pluginval stays strictness 10 (the strong bar). Windows uses --skip-gui-tests:
 # its WebView2 GUI runtime is an explicitly-deferred residual (see CLAUDE.md
 # §Domain), so gating CI on a headless editor test there would validate an
 # environment we don't ship — the DSP/param/state/fuzz bar still runs at 10.
+#
+# RELEASES (B101, 2026-09-10): a `v*` tag runs the same push jobs and then the
+# `release` job drafts a GitHub release carrying the CI-built artifacts —
+# macOS zip + .pkg installer, Windows zip. Tagging is a HUMAN act; CI never
+# tags. Notarization is a skeleton gated on the Apple secrets being present
+# (APPLE_ID / APPLE_TEAM_ID / APPLE_APP_PASSWORD plus the Developer ID
+# certificate pair) — absent, the bundles ship ad-hoc signed and the step
+# says so. The bundle name is `horde` (OUTPUT_NAME in CMakeLists.txt, ADR-114):
+# both pluginval steps searched for HYPERSAW.vst3 from 2026-08-27 until this
+# revision and validated nothing / failed post-merge (B99(c)). A missing
+# bundle now FAILS the step instead of validating nothing.
 name: ci
 on:
   push:
     branches: [main]
+    tags: ['v*']
     paths-ignore: ['**.md', 'docs/**', 'traces/**']
   pull_request:
     paths-ignore: ['**.md', 'docs/**', 'traces/**']
@@ -34,6 +47,24 @@ jobs:
       - name: verify fast
         run: ./verify fast
 
+  # ASan+UBSan and TSan over every compiled oracle ./verify runs, parsed from
+  # ./verify itself (tools/sanitize_oracles.sh) so the list cannot drift.
+  # Linux is the 1x runner, so this rides on every PR. The oracles are
+  # single-threaded by construction, so TSan's verdict covers the DSP and the
+  # shell's event path only — the GUI<->audio parameter queue is not exercised.
+  sanitize:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        sanitizer: ['address,undefined', 'thread']
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: oracles under -fsanitize=${{ matrix.sanitizer }}
+        run: tools/sanitize_oracles.sh "${{ matrix.sanitizer }}" build-sanitize
+
   build-windows:
     runs-on: windows-latest
     steps:
@@ -49,14 +80,37 @@ jobs:
         run: |
           Invoke-WebRequest -Uri https://github.com/Tracktion/pluginval/releases/download/v1.0.4/pluginval_Windows.zip -OutFile pluginval.zip
           Expand-Archive pluginval.zip -DestinationPath pv
-          $vst3 = Get-ChildItem -Recurse -Filter HYPERSAW.vst3 build | Select-Object -First 1
+          # Shortest match first: the bundle folder when clap-wrapper builds one,
+          # the single-file .vst3 otherwise (the current layout).
+          $vst3 = Get-ChildItem -Recurse -Filter horde.vst3 build | Sort-Object { $_.FullName.Length } | Select-Object -First 1
+          if (-not $vst3) { throw "horde.vst3 not found under build/ — the bundle name is OUTPUT_NAME in CMakeLists.txt" }
           & pv/pluginval.exe --strictness-level 10 --skip-gui-tests --validate $vst3.FullName
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: package
+        shell: pwsh
+        run: |
+          $v = if ($env:GITHUB_REF -like 'refs/tags/v*') { $env:GITHUB_REF_NAME.Substring(1) } else { "0.0.0-" + (git rev-parse --short HEAD) }
+          New-Item -ItemType Directory -Force dist, stage/VST3, stage/CLAP | Out-Null
+          $vst3 = Get-ChildItem -Recurse -Filter horde.vst3 build | Sort-Object { $_.FullName.Length } | Select-Object -First 1
+          $clap = Get-ChildItem -Recurse -File -Filter horde.clap build | Select-Object -First 1
+          if (-not $clap) { throw "horde.clap not found under build/" }
+          Copy-Item -Recurse $vst3.FullName stage/VST3/
+          Copy-Item $clap.FullName stage/CLAP/
+          Compress-Archive -Path stage/* -DestinationPath "dist/horde-windows-x64-$v.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: horde-windows
+          path: dist/
+          if-no-files-found: error
 
-  # macOS is the 10x runner: post-merge net only (push to main). PR-time macOS
-  # is covered by the maintainer's local build + pluginval 10 + auval + install.
+  # macOS is the 10x runner: post-merge net only (push to main, and tags). PR-time
+  # macOS is covered by the maintainer's local build + pluginval 10 + auval + install.
   build-macos:
     if: github.event_name == 'push'
     runs-on: macos-latest
+    env:
+      # `secrets` is not readable in a step-level `if`; surfaced here as a bool.
+      HAS_APPLE_CREDENTIALS: ${{ secrets.APPLE_ID != '' && secrets.APPLE_TEAM_ID != '' && secrets.APPLE_APP_PASSWORD != '' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -67,8 +121,96 @@ jobs:
         run: cmake --build "$GITHUB_WORKSPACE/build" -j3
       - name: pluginval (VST3, strictness 10)
         run: |
+          set -euo pipefail
+          test -d build/HYPERSAW_assets/horde.vst3 || { echo "build/HYPERSAW_assets/horde.vst3 missing — OUTPUT_NAME in CMakeLists.txt is the bundle name" >&2; exit 1; }
           curl -sL -o pluginval.zip https://github.com/Tracktion/pluginval/releases/download/v1.0.4/pluginval_macOS.zip
           unzip -q pluginval.zip
-          ./pluginval.app/Contents/MacOS/pluginval --strictness-level 10 --validate build/HYPERSAW_assets/HYPERSAW.vst3
+          ./pluginval.app/Contents/MacOS/pluginval --strictness-level 10 --validate build/HYPERSAW_assets/horde.vst3
       - name: bench (informational)
         run: ./build/renderer_bench || true
+      - name: package (ad-hoc seal, zip, unsigned .pkg installer)
+        run: |
+          set -euo pipefail
+          A=build/HYPERSAW_assets
+          for b in horde.vst3 horde.component horde.clap; do
+            test -e "$A/$b" || { echo "missing $A/$b" >&2; exit 1; }
+            # Sign LAST, after every build step has touched the bundle: a seal
+            # broken by a post-sign write is silently skipped by DAW scanners.
+            codesign --force --deep -s - "$A/$b"
+            codesign --verify --deep --strict "$A/$b"
+          done
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then VERSION="${GITHUB_REF_NAME#v}"; else VERSION="0.0.0-$(git rev-parse --short HEAD)"; fi
+          mkdir -p dist stage/VST3 stage/Components stage/CLAP
+          cp -R "$A/horde.vst3" stage/VST3/
+          cp -R "$A/horde.component" stage/Components/
+          cp -R "$A/horde.clap" stage/CLAP/
+          # ditto keeps bundle permissions and resource forks; upload-artifact's own zip does not.
+          ditto -c -k --sequesterRsrc stage "dist/horde-macos-universal-$VERSION.zip"
+          pkgbuild --root stage --install-location /Library/Audio/Plug-Ins \
+                   --identifier com.lifted-truck.horde --version "$VERSION" \
+                   "dist/horde-macos-universal-$VERSION.pkg"
+          echo "PKG=dist/horde-macos-universal-$VERSION.pkg" >> "$GITHUB_ENV"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+      # NOTARIZATION SKELETON. Runs only when the Apple secrets exist; until
+      # then the previous step's ad-hoc seal is what ships and this says so.
+      # Requires, beyond the three notarytool credentials, a Developer ID
+      # certificate (DEVELOPER_ID_CERT_P12 base64 + DEVELOPER_ID_CERT_PASSWORD):
+      # Apple rejects submissions that are not Developer-ID signed.
+      - name: notarize (skipped — Apple secrets absent)
+        if: env.HAS_APPLE_CREDENTIALS != 'true'
+        run: echo "notarization SKIPPED — APPLE_ID / APPLE_TEAM_ID / APPLE_APP_PASSWORD not configured; artifacts are ad-hoc signed"
+      - name: notarize
+        if: env.HAS_APPLE_CREDENTIALS == 'true'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          DEVELOPER_ID_CERT_P12: ${{ secrets.DEVELOPER_ID_CERT_P12 }}
+          DEVELOPER_ID_CERT_PASSWORD: ${{ secrets.DEVELOPER_ID_CERT_PASSWORD }}
+        run: |
+          set -euo pipefail
+          KEYCHAIN="$RUNNER_TEMP/notary.keychain-db"
+          security create-keychain -p "" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "" "$KEYCHAIN"
+          echo "$DEVELOPER_ID_CERT_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -P "$DEVELOPER_ID_CERT_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN"
+          security list-keychain -d user -s "$KEYCHAIN"
+          for b in stage/VST3/horde.vst3 stage/Components/horde.component stage/CLAP/horde.clap; do
+            codesign --force --deep --timestamp --options runtime -s "Developer ID Application" "$b"
+          done
+          pkgbuild --root stage --install-location /Library/Audio/Plug-Ins \
+                   --identifier com.lifted-truck.horde --version "$VERSION" unsigned.pkg
+          productsign --sign "Developer ID Installer" unsigned.pkg "$PKG"
+          xcrun notarytool submit "$PKG" --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" \
+                --password "$APPLE_APP_PASSWORD" --wait
+          xcrun stapler staple "$PKG"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: horde-macos
+          path: dist/
+          if-no-files-found: error
+
+  # A `v*` tag drafts the release with the artifacts above attached. DRAFT on
+  # purpose: publishing is the human's click, after reading the CHANGELOG cut.
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [verify-fast, sanitize, build-windows, build-macos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          ls -l dist
+          gh release create "$GITHUB_REF_NAME" --draft --title "horde $GITHUB_REF_NAME" \
+             --notes "Draft cut by CI from tag $GITHUB_REF_NAME. Notes: CHANGELOG.md at this tag. Artifacts are ad-hoc signed unless the notarize step ran (see the build-macos job log)." \
+             dist/*
