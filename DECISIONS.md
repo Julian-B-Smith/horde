@@ -4920,3 +4920,33 @@ macro pad instead of three, no suspension-induced patch breakage on morph
 toggle, and no floor defaults lying under musical rests. B104 carries the
 build, including the oracle re-alignment and the pad-axis alias sources'
 fate. ADR-137 stands for MAIN's pad and for the matrix vocabulary.
+
+
+## ADR-091 / ADR-122 / ADR-152 — Amendment 2026-09-10: the three sanctioned RNG seeds are done
+
+**What landed** (PR #531, Sonnet implementer under a lead brief): each
+protected prototype's one sanctioned edit — `reference/intent-bus.html`
+`reshuffle()`, `reference/formant-pulsar-fof.html` `FormantCore` masking
+draw, `reference/station.html` Wave RAM `RND` — now draws from a mulberry32
+stream (the byte-identical form the design labs carry) seeded from a
+persisted `seed` field with a UI control. No other line in those files
+changed; only explanatory comments still mention `Math.random`. Determinism
+proven by a vm harness that extracts the shipped lines by number: same seed →
+identical, different seed → different, in all three.
+
+**What this does NOT change.** Candidate status for CANTO and STATION is a
+human ruling, not a consequence of the seed — and both are parked for 1.0
+regardless (§"1.0 — DEFINITION OF DONE"). The sanction is spent; the
+protected-paths list in CLAUDE.md should drop the "one sanctioned edit
+outstanding" clauses at the next touch.
+
+**Two findings for the human.** (1) `specs/SPEC-INTENT-BUS.md` §12 T9 reads
+"Reshuffle: flip points change" as unconditional; under a seeded reshuffle,
+clicking again with an unchanged seed reproduces the topology by design — the
+spec (protected) wants one sentence: "with an unchanged seed, Reshuffle
+reproduces the topology; change the seed for a new one." (2) The lab-load
+sandbox never covered `reference/` (its default sweep is `docs/design/` +
+the GUIs), and two of the three prototypes fail it on missing browser globals
+(`Option`, `devicePixelRatio`) — pre-existing, confirmed against pre-edit
+files. Adding those globals to the sandbox stub and `reference/` to the
+sweep is a gate edit: ROADMAP B108, human-gated.
