@@ -1,6 +1,6 @@
 # horde
 
-**A synthesizer built from coupled-oscillator engines — the supersaw taken seriously as physics.**
+**A coupled-oscillator synthesizer — the supersaw taken seriously as physics.**
 
 Every supersaw you have used picks a fixed detune recipe and hides it. horde makes the swarm
 itself the instrument: its voices are Kuramoto-coupled oscillators you can herd into lock,
@@ -12,7 +12,7 @@ drift as a loose cloud; raised, they herd, shimmer, then lock; negative, they pu
 multiply harmonics. **Inertia** gives the swarm weight, so lock is arrived at rather than set.
 **Gravity** lets a held chord settle into just intonation — you hear the beating slow and stop.
 It ships as a CLAP-native instrument (VST3 and AU through clap-wrapper) with two oscillators,
-an FX rack and a morph grid, and its C++ engines are held to parity (1e-6 RMS) against the
+an FX rack and a morph grid, and its C++ engine is held to parity (1e-6 RMS) against the
 browser prototypes they were designed in — every run, by the oracle, not by ear.
 
 ### Hear it
@@ -52,10 +52,9 @@ The two shots directly below the rule are real and current — MAIN on both chas
 
 ---
 
-*Names: the **device** is **horde**; its founding **engine** is **SWARM SAW**, with **SPECTRA**
-as its per-partial sibling. "HYPERSAW" is now only the repository's name and the frozen plugin
-id hosts use to re-find saved sessions — so that id will keep saying `hypersaw` long after
-nothing on screen does.*
+*Names: the **device** is **horde**; its **engine** is **SWARM SAW**. "HYPERSAW" is now only
+the repository's name and the frozen plugin id hosts use to re-find saved sessions — so that id
+will keep saying `hypersaw` long after nothing on screen does.*
 
 ![horde — MAIN, dark chassis](docs/img/gui-hero.png)
 *MAIN on the **dark** chassis with the **TUBE** screen: the XY pad, patch storage, the bend
@@ -322,30 +321,30 @@ And the authoring side:
 
 ---
 
-## Coming through the pipeline
+## What is deliberately not here
 
-Ported and oracle-covered, but not yet reachable in the shipped interface, or still in design:
+Other engines and modules exist in the tree as parked, parity-gated candidates. None of them
+is part of 1.0, none is reachable from the shipped interface, and none is a feature of this
+instrument until the human re-opens it explicitly — `docs/PARKED.md` is the register, with a
+revisit trigger per entry. This README describes what ships.
 
-| | |
-|---|---|
-| **SPECTRA** | The per-partial sibling: a coupled *cloud on every partial*, so lock can cascade up the harmonic series and splay can erase partials by interference. Finished and parity-covered; gated behind the engine-roster decision. |
-| **Swarmalator** | Oscillators whose phase and *position* are coupled to each other — synchronisation and spatialisation as one system. Ported, gated, deliberately parked. |
-| **CANTO** | A formant engine (FOF/pulsar grains) where the formants are **masses on springs** rather than filter settings. |
-| **WARP** | A morphing waveshaper with **hysteresis** — the shape depends on where the signal has been, not only where it is. Destined for the shared post-stage. |
-| **STATION** | The dependable one: 3-operator phase modulation with an LFSR noise channel. Explicitly maximal coverage per CPU cycle. |
-| **The FX rework** | Set modules behind a crosspoint matrix with feedback, ruled to carry a **one-sample** delay rather than a block-rate one, so a patch cannot sound different at a different buffer size. |
+## Where it is going — the road to 1.0
 
-## Where it is going
-
-`ROADMAP.md` is the authoritative plan; the short version of what is queued:
+`ROADMAP.md` is the authoritative plan (its §"1.0 — DEFINITION OF DONE" was ratified
+2026-09-10); the short version of what stands between here and a tagged 1.0:
 
 | | |
 |---|---|
-| **Modulation** | The instrument has no LFOs yet — nothing moves unless you move the morph pad. The modulator lab is built and the routing matrix is ruled with two increments already in the audio path. The largest musical gap. |
-| **The FX rework** | The live workstream. Variable slots become *set modules* behind a crosspoint routing matrix with feedback and bypass — which dissolves two open problems rather than patching them, since a module's presence becomes a coefficient and a coefficient of zero *is* "not connected". Existing patches port non-destructively. `docs/proposals/fx-matrix-rework.md`. |
-| **Filters** | A filter page with routing owned at both ends (each oscillator chooses its destination, each filter chooses series/parallel/out), plus a simplified filter in the FX rack. The consolidated roster is settled; the external design gate lifted on 2026-08-11. |
-| **Corner randomize** | A randomize button drawing on a bell curve around each parameter's default, with an initialize-corner inverse, so a corner is somewhere you can explore and get back from. |
-| **The engine roster** | Which engines ship is an open decision — SPECTRA is finished but unreachable in the current interface, the swarmalator is ported and gated but never wired in, and the formant engine's future is genuinely undecided. Evidence: `docs/research/2026-08-23-engine-roster-decision.md`. |
+| **Modulation** | The instrument has no LFOs yet — nothing moves unless you move the morph pad or the wheels. Two or three inertial LFOs through the existing mod matrix is the single largest gap. |
+| **Real Drive and Filter** | Two FX slots are still labelled placeholders. The per-voice SVF core exists and is oracle-covered; wiring it into the rack and a FILT page is the next audio lane. |
+| **The FX routing you can see** | A visual routing matrix in front of the rack, and a ruled module policy (a bounded pool: every module a permanent node, absent = coefficient zero) so morphing between corners never hard-cuts a signal path. |
+| **The XY pads, made honest** | Each oscillator's pad now writes its own detune and K directly; only MAIN's pad is a macro pad. Landed 2026-09-10. |
+| **MAIN shows both oscillators** | Two waveforms, two phase carpets, nothing that quietly refers to "the active one". |
+| **A second modulator on one knob** | Send another modulator to an already-routed parameter, and pick destinations from the MOD page directly. |
+| **State that survives its own future** | A header on every saved blob — schema, engine revision, build — plus a fixture corpus asserted to load and render identically forever. Before anyone but the author saves a session. |
+| **Release engineering** | A licence, a changelog, tagged releases with CI-built macOS and Windows artifacts, a published robustness matrix. |
+| **Factory presets** | Thirty to fifty named, categorised patches built to demonstrate the coupling law, not to fill a menu. |
+| **The evidence layer** | Aliasing and CPU measurements published (`docs/MEASUREMENTS.md`), a five-minute engineering writeup (`docs/ENGINEERING.md`, draft), a landing page and a short video. |
 
 ---
 
@@ -439,30 +438,32 @@ is kept building so the escape hatch stays real.
 | `reference/` | The spec-in-code prototypes the parity oracles extract from — protected; an edit there is a spec change. Design labs stay in `docs/design/` |
 | `src/*_core.h` | The engines: header-only, pure, framework-free |
 | `src/hypersaw_clap.cpp` | CLAP shell: params, state, notes/MPE, the morph field, viz feed |
-| `src/gui/gui2.html` · `src/param_presentation.tsv` | The interface, and the table 119 of its controls are generated from |
+| `src/gui/gui2.html` · `src/param_presentation.tsv` | The interface, and the table 197 of its controls are generated from |
 | `tools/` | The oracle: golden generator, parity/trajectory/invariant checks |
-| `docs/design/` | 22 labs — where behaviour is auditioned before it becomes code |
+| `docs/design/` | 23 labs — where behaviour is auditioned before it becomes code |
 | `traces/` | Provenance log — one entry per merged change set |
 
 ## Status and known gaps
 
-*Last verified: **2026-08-28** — every claim below re-checked against the gates on that date.
+*Last verified: **2026-09-10** — every claim below re-checked against the gates on that date.
 If this date is old, trust `ROADMAP.md` over this file.*
 
 Stated rather than omitted:
 
-- **SPECTRA — the second engine — is unreachable in the shipped interface.** All 17 of its
-  parameters, including the engine selector, exist only in the legacy GUI. Deliberately parked
-  pending the engine-roster decision above; it is not a bug to be fixed in passing.
-- **`gui_reach` is an either-GUI check**, so it stays green while that gap exists. Recorded
-  here because a green gate is exactly where a gap like this hides.
-- **Six test-table rows have no oracle yet** — counted by the gate rather than quietly carried
-  (`test_table_check` prints the number every run, which is why this line can be trusted to be
-  current rather than remembered).
-- **Two probes are built but not gated** (`mixer_check`, `corner_probe`) — a pending call on
-  gate scope.
+- **A parked engine's parameters exist in the parameter table but not in the shipped
+  interface** — by ruling, not by accident (`docs/PARKED.md`; the engine source carries a
+  STATUS header saying so). `gui_reach` is an either-GUI check and stays green across that
+  gap; recorded here because a green gate is exactly where a gap like this hides.
+- **Fourteen test-table rows have no oracle yet** — counted by the gate rather than quietly
+  carried (`test_table_check` prints the number every run, which is why this line can be
+  trusted to be current rather than remembered).
+- **Five standalone oracles are green but not wired into `./verify`** (delay, STRATA,
+  voice-tap, SVF, comb-guard) — wiring them is a standing human decision on gate scope.
 - **In-page WebAudio health readouts are untrustworthy**, and the labs deliberately show none:
   an analyser taps the graph rather than the device, and `ctx.currentTime` advances straight
   through an underrun. Both reported healthy audio through three rounds while a human heard the
   output cutting out.
-- **Deferred by choice:** Windows runtime testing, Reaper/Bitwig loads.
+- **Windows had its first native run on 2026-09-09** (builds, every oracle green, loads and
+  plays in Live); residuals are listed in ROADMAP B99 — keys still die while a control is
+  dragged, and the preset store's path is not yet portable there. Reaper and Bitwig loads
+  remain deferred by choice.
