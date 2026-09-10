@@ -25,7 +25,7 @@
  */
 #pragma once
 
-#include <algorithm>  // std::stable_sort — the ADR-070 pan fan; stability is parity-relevant
+#include <algorithm>  // std::max/min etc.; the ADR-070 pan fan's stable sort is now in-place (B111)
 #include <cstdint>
 #include <cmath>
 #include <cstring>
@@ -1346,13 +1346,28 @@ public:
       // reference/swarmsaw.html): rank by pitch (by index when harmonic), rank r steps out
       // from centre on alternating sides, distance reshaped by panCurve; invert
       // flips the triangle. Rank 0 (the fundamental) sits exactly centre.
-      // std::stable_sort, NOT std::sort: JS Array.sort is stable (ES2019), and
+      // STABLE sort, NOT std::sort: JS Array.sort is stable (ES2019), and
       // gaussian/cauchy clamp at +/-1 so ties are REACHABLE — an unstable sort
       // would order ties differently and break parity.
+      // Insertion sort, not std::stable_sort (2026-09-10, B111): this runs on
+      // the AUDIO THREAD (setParam -> rebuild), and libstdc++'s stable_sort
+      // heap-allocates its scratch (get_temporary_buffer) on every call —
+      // the first Linux sanitizer run counted 9 frees inside process(). On
+      // libc++/MSVC it happened to be allocation-free by library detail, not
+      // by construction. n <= 32, so O(n^2) in place is ~500 compares at
+      // worst and zero bytes; insertion sort is stable by construction, so
+      // the ordering — ties included — is identical (parity 156/156 proves
+      // it). No <algorithm> dependency remains for this path.
       int idx[kMaxV];
       for (int i = 0; i < n; i++) idx[i] = i;
       if ((int)p.law != 4)
-        std::stable_sort(idx, idx + n, [&](int a, int b) { return x[a] < x[b]; });
+        for (int i = 1; i < n; i++)
+        {
+          const int v = idx[i];
+          int j = i - 1;
+          while (j >= 0 && x[v] < x[idx[j]]) { idx[j + 1] = idx[j]; j--; }
+          idx[j + 1] = v;
+        }
       // ADR-074 mode F seat steepening: width > 1 pushes seats outward via a
       // curve exponent (audition law from the width lab). 1.0 at width <= 1 or
       // in other modes, so the reference regime is bit-untouched.
