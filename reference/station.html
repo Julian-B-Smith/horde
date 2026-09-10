@@ -106,7 +106,7 @@ footer{margin-top:10px;font-size:8.5px;color:var(--ink-soft);display:flex;justif
     </div>
     <div class="module">
       <h3>WAVE RAM <span class="sub">32 × 4-bit · shared by ops on DRW</span><span class="push"></span>
-        <span class="btnrow" id="wave-presets" style="margin:0"></span></h3>
+        <span class="btnrow" id="wave-presets" style="margin:0"></span><label style="font-weight:400">seed</label><input id="rndSeed" type="number" step="1" value="1024" style="width:60px"></h3>
       <div class="lcd-frame">
         <canvas id="wavlcd" width="160" height="80"></canvas>
         <div class="lcd-cap">DRAW WITH POINTER</div>
@@ -158,13 +158,21 @@ const state={
 };
 state.matrix[1][0]=2.6;
 state.matrix[2][0]=1.1;
+state.seed=1024;   // Wave RAM randomize seed (ADR-122) — persists with device state
 
+// mulberry32 — the house stream (SPEC §5.7: seeded RNG only, no wall-clock);
+// copied verbatim from the form the labs already share (e.g. docs/design/morph-law-bench.html).
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+// Reseeded from state.seed right before each RND click (see wave-presets wiring
+// below), so one click draws one reproducible stream instead of one free call
+// per cell — was Math.floor(Math.random()*16) per cell, unseeded.
+let rndStream=mulberry32(state.seed>>>0);
 const TP={
   SIN:i=>Math.round((Math.sin(i/32*TAU)*.5+.5)*15),
   SAW:i=>Math.round(i/31*15),
   SQR:i=>i<16?15:0,
   BELL:i=>Math.round(((Math.sin(i/32*TAU)+.55*Math.sin(i/32*3*TAU))*.42+.5)*15),
-  RND:i=>Math.floor(Math.random()*16),
+  RND:i=>Math.floor(rndStream()*16),
 };
 state.table=state.table.map((_,i)=>TP.BELL(i));
 
@@ -496,9 +504,13 @@ wcv.addEventListener('pointerup',()=>wdrag=false);
 wcv.addEventListener('pointercancel',()=>wdrag=false);
 Object.keys(TP).forEach(k=>{
   const b=document.createElement('button'); b.className='mini'; b.textContent=k;
-  b.addEventListener('click',()=>{state.table=state.table.map((_,i)=>TP[k](i));drawTable();});
+  b.addEventListener('click',()=>{
+    if(k==='RND') rndStream=mulberry32(state.seed>>>0);   // one reproducible draw per click
+    state.table=state.table.map((_,i)=>TP[k](i));drawTable();
+  });
   $('#wave-presets').appendChild(b);
 });
+$('#rndSeed').addEventListener('input',e=>{state.seed=(+e.target.value)|0;});
 
 /* scope */
 const scv=$('#scope'), sctx=scv.getContext('2d');

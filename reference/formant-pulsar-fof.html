@@ -100,7 +100,8 @@ input[type=range]{width:100%;accent-color:var(--pink);height:18px}
       <div class="row"><label>drop prob</label><input id="mask" type="range" min="0" max="0.95" step="0.01" value="0"><output>0%</output></div>
       <div class="row"><label>burst on</label><input id="bon" type="range" min="1" max="16" step="1" value="8"><output>8</output></div>
       <div class="row"><label>burst off</label><input id="boff" type="range" min="0" max="16" step="1" value="0"><output>0</output></div>
-      <p class="hint">Grains are dropped per-formant with a random hazard, and by a periodic on/off burst pattern counted in fundamental periods — sub-audio rhythm emerging from an audio-rate process.</p>
+      <div class="row"><label>seed</label><input id="seed" type="range" min="1" max="99999" step="1" value="1024"><output>1024</output></div>
+      <p class="hint">Grains are dropped per-formant with a random hazard, and by a periodic on/off burst pattern counted in fundamental periods — sub-audio rhythm emerging from an audio-rate process. The hazard draw is a seeded mulberry32 stream: same seed → identical drop pattern.</p>
     </div>
 
     <div class="card">
@@ -134,10 +135,16 @@ const VOWELS = {
 
 // ---------- worklet source ----------
 const CORE = `
+// mulberry32 — the house stream (SPEC §5.7: seeded RNG only, no wall-clock);
+// copied verbatim from the form the labs already share (e.g. docs/design/morph-law-bench.html).
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
 class FormantCore {
   constructor(sr,post){
     this.sr=sr; this.post=post;
-    this.p={mode:'fof',tex:1.5,bws:1,cyc:3,shift:0,rate:6,zeta:0.9,K:0,mask:0,bon:8,boff:0,glide:12,drive:1.4,rel:220,regMan:0,regFollow:1,regLag:4};
+    this.p={mode:'fof',tex:1.5,bws:1,cyc:3,shift:0,rate:6,zeta:0.9,K:0,mask:0,bon:8,boff:0,glide:12,drive:1.4,rel:220,regMan:0,regFollow:1,regLag:4,seed:1024};
+    // masking RNG: own stream, seeded (ADR-091) — was Math.random(), which made
+    // "same seed -> same drop pattern" impossible to claim or test.
+    this.rnd=mulberry32(this.p.seed>>>0);
     this.vowel={f:[600,1040,2250,2450,2750],bw:[60,70,110,120,130],db:[0,-7,-9,-9,-20]};
     this.N=5;
     this.x=this.vowel.f.map(f=>Math.log(f)); this.v=[0,0,0,0,0];
@@ -149,7 +156,7 @@ class FormantCore {
     this.events=[]; this.blockN=0;
   }
   msg(m){
-    if(m.type==='param'){this.p[m.k]=m.v;}
+    if(m.type==='param'){this.p[m.k]=m.v; if(m.k==='seed') this.rnd=mulberry32(m.v>>>0);}
     else if(m.type==='vowel'){this.vowel=m.v;}
     else if(m.type==='note'){this.f0target=m.f;this.gate=1;}
     else if(m.type==='off'){this.gate=0;}
@@ -194,7 +201,7 @@ class FormantCore {
         this.phase-=1; this.periodCount++;
         const burstOn = (this.periodCount % (p.bon+p.boff)) < p.bon;
         if(burstOn) for(let i=0;i<this.N;i++){
-          if(Math.random()<p.mask) continue;
+          if(this.rnd()<p.mask) continue;
           const fc=Math.exp(this.x[i]);
           const db=this.vowel.db[i] + reg.tilt*(i/(this.N-1));
           const amp=Math.pow(10,db/20)*this.env;
@@ -276,7 +283,7 @@ async function start(){
 }
 $('#start').onclick=start;
 
-const FMT={tex:v=>v+' ms',bws:v=>(+v).toFixed(2)+'×',cyc:v=>v,shift:v=>v+' st',rate:v=>v+' Hz',zeta:v=>'ζ '+(+v).toFixed(2),K:v=>(+v).toFixed(2),regFollow:v=>(+v).toFixed(2),regMan:v=>(+v).toFixed(2),regLag:v=>v+' Hz',mask:v=>Math.round(v*100)+'%',bon:v=>v,boff:v=>v,glide:v=>v+' Hz',drive:v=>(+v).toFixed(2),rel:v=>v+' ms'};
+const FMT={tex:v=>v+' ms',bws:v=>(+v).toFixed(2)+'×',cyc:v=>v,shift:v=>v+' st',rate:v=>v+' Hz',zeta:v=>'ζ '+(+v).toFixed(2),K:v=>(+v).toFixed(2),regFollow:v=>(+v).toFixed(2),regMan:v=>(+v).toFixed(2),regLag:v=>v+' Hz',mask:v=>Math.round(v*100)+'%',bon:v=>v,boff:v=>v,glide:v=>v+' Hz',drive:v=>(+v).toFixed(2),rel:v=>v+' ms',seed:v=>v};
 function pushParam(el){
   const k=el.id, v=parseFloat(el.value);
   el.parentElement.querySelector('output').textContent=FMT[k]?FMT[k](el.value):el.value;
