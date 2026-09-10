@@ -7,6 +7,51 @@ itself the instrument: its voices are Kuramoto-coupled oscillators you can herd 
 dissolve into cloud, splay into harmonic multiplication, or erase by interference. Everything
 is deterministic and seeded — the same patch and the same notes produce the same samples.
 
+One knob — **coupling** — turns a stack of detuned voices into a dynamical system: low, they
+drift as a loose cloud; raised, they herd, shimmer, then lock; negative, they push apart and
+multiply harmonics. **Inertia** gives the swarm weight, so lock is arrived at rather than set.
+**Gravity** lets a held chord settle into just intonation — you hear the beating slow and stop.
+It ships as a CLAP-native instrument (VST3 and AU through clap-wrapper) with two oscillators,
+an FX rack and a morph grid, and its C++ engines are held to parity (1e-6 RMS) against the
+browser prototypes they were designed in — every run, by the oracle, not by ear.
+
+### Hear it
+
+> **TODO(human) — three audio clips, 20–30 s each.** Nothing here can be rendered by the tree;
+> the clips need a DAW and ears, and none must be fabricated. Wanted, matching the video plan
+> in `ROADMAP.md` B103: (1) a **coupling sweep** on a held chord, K from −1 through 0 to +1;
+> (2) **gravity settling a chord** — strike, hold, and let the beating stop; (3) a **morph
+> patchwork** across the grid. Drop them under `docs/audio/`, name each with its patch and the
+> build stamp that rendered it (the corner of every GUI shot says which code drew it — the same
+> rule for sound), and link them here.
+
+### See it
+
+The two shots directly below the rule are real and current — MAIN on both chassis, from the
+2026-08-26 set in `docs/img/` — and OSC and the morph grid appear further down.
+
+> **TODO(human) — the rest of the screenshot set.** `docs/img/README.md` lists what is still
+> owed (labs gallery, chassis/screen schemes, a green `./verify`, FX and MIX) and notes that
+> none of the four existing shots has the build stamp in frame. Same width for every shot.
+
+### Download
+
+> **TODO(human) — no release exists yet.** There are no git tags and CI builds no artifacts;
+> tagged semver releases, CI-built artifacts, a notarized macOS installer and a Windows binary
+> are `ROADMAP.md` B101. Until B101 ships one, the only route is to build from source (see
+> **Build**, below). Do not put a link here that points at nothing.
+
+### Read the engineering
+
+- **[docs/ENGINEERING.md](docs/ENGINEERING.md)** — how correctness is defined here, the
+  RULING / ENCODING taxonomy, how an agentic process was governed, and the goldens problem
+  with its v2 plan. Five minutes.
+- **[docs/MEASUREMENTS.md](docs/MEASUREMENTS.md)** — aliasing at four notes with the saw-shape
+  section engaged, CPU per voice count, and the listening note. The direct answer to "parity
+  isn't correctness".
+
+---
+
 *Names: the **device** is **horde**; its founding **engine** is **SWARM SAW**, with **SPECTRA**
 as its per-partial sibling. "HYPERSAW" is now only the repository's name and the frozen plugin
 id hosts use to re-find saved sessions — so that id will keep saying `hypersaw` long after

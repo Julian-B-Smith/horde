@@ -408,6 +408,21 @@ if(NOT MSVC)
   target_compile_options(svf_check PRIVATE -O2)
 endif()
 
+# measure_alias / measure_cpu: the evidence layer's two tables (B103,
+# docs/MEASUREMENTS.md). Measurements, not gates — they print, never judge —
+# and they drive the shipped plugin through the factory. Standalone, unwired.
+add_executable(measure_alias tools/measure_alias.cpp)
+target_link_libraries(measure_alias PRIVATE ${PROJECT_NAME}-impl)
+add_executable(measure_cpu tools/measure_cpu.cpp)
+target_link_libraries(measure_cpu PRIVATE ${PROJECT_NAME}-impl)
+# Both print HYPERSAW_BUILD_STAMP so a table names the code that produced it (L0020).
+target_include_directories(measure_alias PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/generated)
+target_include_directories(measure_cpu PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/generated)
+if(NOT MSVC)
+  target_compile_options(measure_alias PRIVATE -O2)
+  target_compile_options(measure_cpu PRIVATE -O2)
+endif()
+
 # strata_check: STRATA's six properties, as the human's own spec states them
 # (B77 increment 1). Core + oracle land together, unwired -- the glide_core /
 # mod_core order. Wiring it into ./verify is a human decision (charter).
