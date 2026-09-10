@@ -337,6 +337,39 @@ int main()
     jp->get_value(j, 4, &a); jp->get_value(j, 1004, &bb);
     check(applied && std::fabs(a - 0.111) < 1e-9, "JSON state: base param round-trips");
     check(std::fabs(bb - 0.222) < 1e-9, "JSON state: oscillator 2 TWIN round-trips");
+    /* B110 (found by B100's fixture generator, 2026-09-10): a FULL preset has
+       ~323 keys plus the twins and the migrators' own writes, and applyStateJson
+       pushes every one through the param queue — which DROPS on overflow. With
+       the queue at 256 the tail of the table vanished silently, including
+       osc 2's enable. Late-table ids are the canaries: masterVol (100), the
+       osc-2 enable twin (1150) and the osc-2 continuous pitch (1181). Set
+       them, snapshot the FULL state, scramble them, apply the snapshot, and
+       they must all come back. Calibrated: with kQCap = 256 this reads RED. */
+    auto setIds = [&](std::initializer_list<std::pair<clap_id, double>> kv) {
+      EvList e3;
+      e3.list.ctx = &e3; e3.list.size = ev_size; e3.list.get = ev_get;
+      for (auto pr : kv)
+      {
+        clap_event_param_value_t ev{};
+        ev.header.size = sizeof(ev);
+        ev.header.type = CLAP_EVENT_PARAM_VALUE;
+        ev.header.space_id = CLAP_CORE_EVENT_SPACE_ID;
+        ev.param_id = pr.first; ev.note_id = -1; ev.port_index = -1;
+        ev.channel = -1; ev.key = -1; ev.value = pr.second;
+        e3.evs.push_back(ev);
+      }
+      jp->flush(j, &e3.list, &kOut);
+    };
+    setIds({{100, 0.333}, {1150, 0}, {1181, 7.5}});
+    static char full[65536];
+    hypersaw_debug_state(j, full, sizeof full);
+    setIds({{100, 1.0}, {1150, 1}, {1181, 0}});
+    const bool fullOk = hypersaw_debug_apply(j, full);
+    drain();
+    double mv = -1, en2 = -1, op2 = -1;
+    jp->get_value(j, 100, &mv); jp->get_value(j, 1150, &en2); jp->get_value(j, 1181, &op2);
+    char bd[200]; std::snprintf(bd, sizeof bd, "B110: a FULL preset applies to the last key — no queue truncation (masterVol %.3f want 0.333, enable2 %.0f want 0, pitch2 %.2f want 7.5)", mv, en2, op2);
+    check(fullOk && std::fabs(mv - 0.333) < 1e-9 && en2 == 0.0 && std::fabs(op2 - 7.5) < 1e-9, bd);
     /* B100 on the preset path. The header is asserted in TEXT on the dump;
        the revision is read back through the debug export, which is the same
        accessor a gated law will consult. With kEngineRevision == 1 every case

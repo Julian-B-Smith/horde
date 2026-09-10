@@ -1127,7 +1127,14 @@ struct Plugin
     double value;
     uint8_t kind;  // 0=value, 1=gesture begin, 2=gesture end
   };
-  static constexpr uint32_t kQCap = 256;
+  /* 1024, not 256 (B110, 2026-09-10): a FULL preset applied through
+     applyStateJson enqueues ~323 keys plus the osc-2 twins plus the
+     migrators' own writes in ONE burst, and enqueueParam DROPS on overflow —
+     so at 256 the tail of the table (osc 2's enable among it) silently never
+     landed, on the exact path the GUI's preset LOAD uses. Found by B100's
+     fixture generator, pinned by state_check's B110 assertion (RED at 256).
+     Static array, 16 KB, RT-safe; headroom for two full loads in flight. */
+  static constexpr uint32_t kQCap = 1024;
   ParamMsg queue[kQCap];
   std::atomic<uint32_t> qHead{0}, qTail{0};
 
