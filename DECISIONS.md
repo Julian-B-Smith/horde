@@ -4896,3 +4896,27 @@ harness docs, in three naming styles (`SPEC-X.md`, `X-SPEC.md`, `SPEC_x.md`;
 its reference at the new path — the goldens regenerate from `reference/`);
 lab_load 26/0; zero old-name hits remain in live files; zero double
 prefixes; git reports 24 renames.
+
+
+## ADR-156 — 2026-09-10: per-osc XY pads control their parameters directly; only MAIN's pad is a macro (reversal of ADR-137's osc-pad half)
+
+**Context.** ADR-137 made every XY pad a macro controller; ADR-150 gave MAIN
+its own; ADR-152 suspended the macro family under morph to protect corner
+identity. The human's 2026-09-10 report is the composite failure: OSC 2's pad
+does nothing by default, MAIN's pad drives detune and K for both oscillators,
+and turning the morph on "often breaks the patch" because the workflow sets
+K and detune via the pad — which under ADR-152 means the values were macro
+offsets on floor defaults, and suspension dropped them to the floor.
+
+**Decision (human).** Per-osc pads write their parameters directly (K and
+detune for that oscillator) — they are ordinary parameter edits, so corners
+capture them and the morph carries them. MAIN's pad remains the one macro
+pad (assignable, ADR-150). The floor defaults and the default M1/M2 routes
+that existed only to give macro-driven pads a rest are reversed. The human's
+STRATA nested-macro system is deferred to a later release by their own call.
+
+**Consequences.** Simpler than what it replaces (reduce, never invent): one
+macro pad instead of three, no suspension-induced patch breakage on morph
+toggle, and no floor defaults lying under musical rests. B104 carries the
+build, including the oracle re-alignment and the pad-axis alias sources'
+fate. ADR-137 stands for MAIN's pad and for the matrix vocabulary.
