@@ -15,6 +15,7 @@
 #include <sstream>  // generated: kGuiHtml_data / kGuiHtml_size
 
 #include <cstdio>
+#include <functional>
 #include <memory>
 
 namespace hypersaw::detail
@@ -128,36 +129,41 @@ inline choc::value::Value vizToValue(const VizSnapshot &v)
   return obj;
 }
 
-inline std::unique_ptr<choc::ui::WebView> makeWebView(GuiHost &host)
+/* Every binding and the page load run from installBridge, which choc calls
+   through Options::webviewIsReady. On macOS that callback fires synchronously
+   inside the WebView constructor, so this is the old straight-line code in a
+   different coat. On Windows the WebView2 controller is created ASYNCHRONOUSLY
+   on the host's message loop, and until it exists choc's bind()/setHTML()
+   return false and register NOTHING — no queue, no retry. The first native
+   Windows load (Live 12.3, 2026-09-09) showed exactly that: audio fine, GUI a
+   black rectangle, every bind and the setHTML dropped before the controller
+   existed. The per-backend binding (hzGrabKeys) goes through platformBinds for
+   the same reason; binding after makeWebView returns is the trap. */
+inline void installBridge(choc::ui::WebView &web, GuiHost &host)
 {
-  choc::ui::WebView::Options opts;
-  opts.enableDebugMode = false;
-  opts.acceptsFirstMouseClick = true;  // click-through focus in hosts
-  auto web = std::make_unique<choc::ui::WebView>(opts);
-
-  web->bind("hzGetViz", [&host](const choc::value::ValueView &) -> choc::value::Value {
+  web.bind("hzGetViz", [&host](const choc::value::ValueView &) -> choc::value::Value {
     return vizToValue(host.getViz());
   });
-  web->bind("hzPanic", [&host](const choc::value::ValueView &) -> choc::value::Value {
+  web.bind("hzPanic", [&host](const choc::value::ValueView &) -> choc::value::Value {
     if (host.panic) host.panic();
     return choc::value::createInt32(1);
   });
-  web->bind("hzGetBuild", [&host](const choc::value::ValueView &) -> choc::value::Value {
+  web.bind("hzGetBuild", [&host](const choc::value::ValueView &) -> choc::value::Value {
     return choc::value::createString(host.getBuildId ? host.getBuildId() : std::string("?"));
   });
-  web->bind("hzReleaseKeyFocus", [&host](const choc::value::ValueView &) -> choc::value::Value {
+  web.bind("hzReleaseKeyFocus", [&host](const choc::value::ValueView &) -> choc::value::Value {
     if (host.releaseKeyFocus) host.releaseKeyFocus();
     return choc::value::createInt32(1);
   });
-  web->bind("hzGetHostHint", [&host](const choc::value::ValueView &) -> choc::value::Value {
+  web.bind("hzGetHostHint", [&host](const choc::value::ValueView &) -> choc::value::Value {
     // Empty, not "?": absent hint means NOTHING TO SAY. A placeholder here would
     // render as a permanent warning badge on every load.
     return choc::value::createString(host.getHostHint ? host.getHostHint() : std::string());
   });
-  web->bind("hzGetParams", [&host](const choc::value::ValueView &) -> choc::value::Value {
+  web.bind("hzGetParams", [&host](const choc::value::ValueView &) -> choc::value::Value {
     return choc::value::createString(host.getParamsJson());
   });
-  web->bind("hzGetBendCurve", [&host](const choc::value::ValueView &) -> choc::value::Value {
+  web.bind("hzGetBendCurve", [&host](const choc::value::ValueView &) -> choc::value::Value {
     return choc::value::createString(host.getBendCurveJson ? host.getBendCurveJson()
                                                            : std::string("{}"));
   });
@@ -168,7 +174,7 @@ inline std::unique_ptr<choc::ui::WebView> makeWebView(GuiHost &host)
      app support instead (the global CLAUDE.md plugin-state rule: a stable
      app-support folder, never state-chunk bloat). These binds run on the GUI
      thread — filesystem and allocation are fine here, never in process(). */
-  web->bind("hzPresetList", [](const choc::value::ValueView &) -> choc::value::Value {
+  web.bind("hzPresetList", [](const choc::value::ValueView &) -> choc::value::Value {
     namespace fs = std::filesystem;
     auto listDir = [](const fs::path &d) {
       std::string out = "[";
@@ -187,7 +193,7 @@ inline std::unique_ptr<choc::ui::WebView> makeWebView(GuiHost &host)
     return choc::value::createString("{\"presets\":" + listDir(base / "presets") +
                                      ",\"corners\":" + listDir(base / "corners") + "}");
   });
-  web->bind("hzPresetSave", [](const choc::value::ValueView &args) -> choc::value::Value {
+  web.bind("hzPresetSave", [](const choc::value::ValueView &args) -> choc::value::Value {
     namespace fs = std::filesystem;
     if (!args.isArray() || args.size() < 3) return choc::value::createBool(false);
     std::string kind = args[0].getWithDefault<std::string>("");
@@ -211,7 +217,7 @@ inline std::unique_ptr<choc::ui::WebView> makeWebView(GuiHost &host)
     f << json;
     return choc::value::createBool(f.good());
   });
-  web->bind("hzPresetLoad", [](const choc::value::ValueView &args) -> choc::value::Value {
+  web.bind("hzPresetLoad", [](const choc::value::ValueView &args) -> choc::value::Value {
     namespace fs = std::filesystem;
     if (!args.isArray() || args.size() < 2) return choc::value::createString("");
     std::string kind = args[0].getWithDefault<std::string>("");
@@ -225,7 +231,7 @@ inline std::unique_ptr<choc::ui::WebView> makeWebView(GuiHost &host)
     ss << f.rdbuf();
     return choc::value::createString(ss.str());
   });
-  web->bind("hzPresetDelete", [](const choc::value::ValueView &args) -> choc::value::Value {
+  web.bind("hzPresetDelete", [](const choc::value::ValueView &args) -> choc::value::Value {
     namespace fs = std::filesystem;
     if (!args.isArray() || args.size() < 2) return choc::value::createBool(false);
     std::string kind = args[0].getWithDefault<std::string>("");
@@ -236,88 +242,88 @@ inline std::unique_ptr<choc::ui::WebView> makeWebView(GuiHost &host)
     std::error_code ec;
     return choc::value::createBool(fs::remove(fp, ec));
   });
-  web->bind("hzMorphToggleExempt", [&host](const choc::value::ValueView &args) -> choc::value::Value {
+  web.bind("hzMorphToggleExempt", [&host](const choc::value::ValueView &args) -> choc::value::Value {
     bool on = false;
     if (host.morphToggleExempt && args.isArray() && args.size() >= 1)
       on = host.morphToggleExempt((uint32_t)args[0].getWithDefault<int64_t>(0));
     return choc::value::createBool(on);
   });
-  web->bind("hzMorphCornerVals", [&host](const choc::value::ValueView &args) -> choc::value::Value {
+  web.bind("hzMorphCornerVals", [&host](const choc::value::ValueView &args) -> choc::value::Value {
     int k = -1;
     if (args.isArray() && args.size() >= 1) k = (int)args[0].getWithDefault<int64_t>(-1);
     return choc::value::createString(host.morphCornerValsJson ? host.morphCornerValsJson(k) : std::string("{}"));
   });
-  web->bind("hzModRoutes", [&host](const choc::value::ValueView &) -> choc::value::Value {
+  web.bind("hzModRoutes", [&host](const choc::value::ValueView &) -> choc::value::Value {
     return choc::value::createString(host.modRoutesJson ? host.modRoutesJson() : std::string("[]"));
   });
-  web->bind("hzModLive", [&host](const choc::value::ValueView &) -> choc::value::Value {
+  web.bind("hzModLive", [&host](const choc::value::ValueView &) -> choc::value::Value {
     return choc::value::createString(host.modLiveJson ? host.modLiveJson() : std::string("[]"));
   });
-  web->bind("hzModAdd", [&host](const choc::value::ValueView &args) -> choc::value::Value {
+  web.bind("hzModAdd", [&host](const choc::value::ValueView &args) -> choc::value::Value {
     bool ok = false;
     if (host.modAddRoute && args.isArray() && args.size() >= 2)
       ok = host.modAddRoute((uint32_t)args[0].getWithDefault<int64_t>(0),
                             (uint32_t)args[1].getWithDefault<int64_t>(0));
     return choc::value::createBool(ok);
   });
-  web->bind("hzModDepth", [&host](const choc::value::ValueView &args) -> choc::value::Value {
+  web.bind("hzModDepth", [&host](const choc::value::ValueView &args) -> choc::value::Value {
     if (host.modSetDepth && args.isArray() && args.size() >= 2)
       host.modSetDepth((int)args[0].getWithDefault<int64_t>(-1),
                        args[1].getWithDefault<double>(0.0));
     return choc::value::createBool(true);
   });
-  web->bind("hzModWheel", [&host](const choc::value::ValueView &args) -> choc::value::Value {
+  web.bind("hzModWheel", [&host](const choc::value::ValueView &args) -> choc::value::Value {
     if (host.setModWheel && args.isArray() && args.size() >= 1)
       host.setModWheel(args[0].getWithDefault<double>(0.0));
     return choc::value::createBool(true);
   });
-  web->bind("hzModSource", [&host](const choc::value::ValueView &args) -> choc::value::Value {
+  web.bind("hzModSource", [&host](const choc::value::ValueView &args) -> choc::value::Value {
     bool ok = false;
     if (host.modSetSource && args.isArray() && args.size() >= 2)
       ok = host.modSetSource((int)args[0].getWithDefault<int64_t>(-1),
                              (uint32_t)args[1].getWithDefault<int64_t>(0));
     return choc::value::createBool(ok);
   });
-  web->bind("hzModRemove", [&host](const choc::value::ValueView &args) -> choc::value::Value {
+  web.bind("hzModRemove", [&host](const choc::value::ValueView &args) -> choc::value::Value {
     if (host.modRemoveRoute && args.isArray() && args.size() >= 1)
       host.modRemoveRoute((int)args[0].getWithDefault<int64_t>(-1));
     return choc::value::createBool(true);
   });
-  web->bind("hzMorphOwners", [&host](const choc::value::ValueView &) -> choc::value::Value {
+  web.bind("hzMorphOwners", [&host](const choc::value::ValueView &) -> choc::value::Value {
     return choc::value::createString(host.morphOwnersJson ? host.morphOwnersJson() : std::string("{}"));
   });
-  web->bind("hzMorphExemptJson", [&host](const choc::value::ValueView &) -> choc::value::Value {
+  web.bind("hzMorphExemptJson", [&host](const choc::value::ValueView &) -> choc::value::Value {
     return choc::value::createString(host.morphExemptJson ? host.morphExemptJson() : std::string("{}"));
   });
-  web->bind("hzMorphLiveJson", [&host](const choc::value::ValueView &) -> choc::value::Value {
+  web.bind("hzMorphLiveJson", [&host](const choc::value::ValueView &) -> choc::value::Value {
     return choc::value::createString(host.morphLiveJson ? host.morphLiveJson() : std::string("{}"));
   });
-  web->bind("hzMorphCornerJson", [&host](const choc::value::ValueView &args) -> choc::value::Value {
+  web.bind("hzMorphCornerJson", [&host](const choc::value::ValueView &args) -> choc::value::Value {
     if (host.morphCornerJson && args.isArray() && args.size() >= 1)
       return choc::value::createString(host.morphCornerJson((uint32_t)args[0].getWithDefault<int64_t>(0)));
     return choc::value::createString("{}");
   });
-  web->bind("hzMorphCornerApply", [&host](const choc::value::ValueView &args) -> choc::value::Value {
+  web.bind("hzMorphCornerApply", [&host](const choc::value::ValueView &args) -> choc::value::Value {
     bool ok = false;
     if (host.morphCornerApply && args.isArray() && args.size() >= 2)
       ok = host.morphCornerApply((uint32_t)args[0].getWithDefault<int64_t>(0),
                                  args[1].getWithDefault<std::string>(""));
     return choc::value::createBool(ok);
   });
-  web->bind("hzMorphCapture", [&host](const choc::value::ValueView &args) -> choc::value::Value {
+  web.bind("hzMorphCapture", [&host](const choc::value::ValueView &args) -> choc::value::Value {
     if (host.morphCapture && args.isArray() && args.size() >= 1)
       host.morphCapture((uint32_t)args[0].getWithDefault<int64_t>(0));
     return {};
   });
-  web->bind("hzGetShapeWave", [&host](const choc::value::ValueView &) -> choc::value::Value {
+  web.bind("hzGetShapeWave", [&host](const choc::value::ValueView &) -> choc::value::Value {
     return choc::value::createString(host.getShapeWaveJson ? host.getShapeWaveJson()
                                                            : std::string("{}"));
   });
-  web->bind("hzGetDefaults", [&host](const choc::value::ValueView &) -> choc::value::Value {
+  web.bind("hzGetDefaults", [&host](const choc::value::ValueView &) -> choc::value::Value {
     return choc::value::createString(host.getDefaultsJson ? host.getDefaultsJson()
                                                           : std::string("{}"));
   });
-  web->bind("hzSetParam", [&host](const choc::value::ValueView &args) -> choc::value::Value {
+  web.bind("hzSetParam", [&host](const choc::value::ValueView &args) -> choc::value::Value {
     if (args.isArray() && args.size() >= 2)
       host.setParam((uint32_t)args[0].getWithDefault<int64_t>(0),
                     args[1].getWithDefault<double>(0.0));
@@ -328,12 +334,12 @@ inline std::unique_ptr<choc::ui::WebView> makeWebView(GuiHost &host)
   // the build was green, and window.hzSetVizOsc simply did not exist — so every
   // tab click threw and the viz stayed pinned to oscillator 0. A callback with
   // no bind is invisible to the compiler.
-  web->bind("hzSetVizOsc", [&host](const choc::value::ValueView &args) -> choc::value::Value {
+  web.bind("hzSetVizOsc", [&host](const choc::value::ValueView &args) -> choc::value::Value {
     if (host.setVizOsc && args.isArray() && args.size() >= 1)
       host.setVizOsc((uint32_t)args[0].getWithDefault<int64_t>(0));
     return {};
   });
-  web->bind("hzGesture", [&host](const choc::value::ValueView &args) -> choc::value::Value {
+  web.bind("hzGesture", [&host](const choc::value::ValueView &args) -> choc::value::Value {
     if (args.isArray() && args.size() >= 2)
       host.gesture((uint32_t)args[0].getWithDefault<int64_t>(0),
                    args[1].getWithDefault<bool>(false));
@@ -343,7 +349,7 @@ inline std::unique_ptr<choc::ui::WebView> makeWebView(GuiHost &host)
   // 2048-point FFT — ~1024 usable magnitudes — so 96 log bins were throwing
   // away most of what had already been computed; the cost of more bins is the
   // array marshal, not the transform.
-  web->bind("hzGetSpec", [&host](const choc::value::ValueView &) -> choc::value::Value {
+  web.bind("hzGetSpec", [&host](const choc::value::ValueView &) -> choc::value::Value {
     constexpr int kBins = 256;
     float bins[kBins];
     host.getSpectrum(bins, kBins);
@@ -351,7 +357,7 @@ inline std::unique_ptr<choc::ui::WebView> makeWebView(GuiHost &host)
     for (int i = 0; i < kBins; i++) arr.addArrayElement(bins[i]);
     return arr;
   });
-  web->bind("hzGetScope", [&host](const choc::value::ValueView &) -> choc::value::Value {
+  web.bind("hzGetScope", [&host](const choc::value::ValueView &) -> choc::value::Value {
     // 1536, not 512: at D2 one period is ~604 samples, so a 512-sample window
     // cannot even hold one — there was nothing for a trigger to lock onto.
     constexpr int kN = 1536;
@@ -382,7 +388,7 @@ inline std::unique_ptr<choc::ui::WebView> makeWebView(GuiHost &host)
      with a DataView. Int16 is not an audio path: 96 dB of display dynamic
      range on a ~300 px canvas, quantization invisible by construction. The
      spectrum rides the same way as uint8 (the GUI smooths it anyway). */
-  web->bind("hzFrame", [&host](const choc::value::ValueView &args) -> choc::value::Value {
+  web.bind("hzFrame", [&host](const choc::value::ValueView &args) -> choc::value::Value {
     static const char *kB64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     auto b64 = [](const unsigned char *d, size_t n) {
       std::string o;
@@ -435,18 +441,32 @@ inline std::unique_ptr<choc::ui::WebView> makeWebView(GuiHost &host)
     }
     return obj;
   });
-  web->bind("hzGetState", [&host](const choc::value::ValueView &) -> choc::value::Value {
+  web.bind("hzGetState", [&host](const choc::value::ValueView &) -> choc::value::Value {
     return choc::value::createString(host.getStateJson());
   });
-  web->bind("hzApplyState", [&host](const choc::value::ValueView &args) -> choc::value::Value {
+  web.bind("hzApplyState", [&host](const choc::value::ValueView &args) -> choc::value::Value {
     bool ok = false;
     if (args.isArray() && args.size() >= 1)
       ok = host.applyStateJson(std::string(args[0].getWithDefault<std::string_view>("")));
     return choc::value::createBool(ok);
   });
 
-  web->setHTML(std::string(reinterpret_cast<const char *>(kGuiHtml_data), kGuiHtml_size));
-  return web;
+}
+
+inline std::unique_ptr<choc::ui::WebView>
+makeWebView(GuiHost &host, std::function<void(choc::ui::WebView &)> platformBinds)
+{
+  choc::ui::WebView::Options opts;
+  opts.enableDebugMode = false;
+  opts.acceptsFirstMouseClick = true;  // click-through focus in hosts
+  // Bindings before the page: they install document-created scripts, so the
+  // page must be navigated to AFTER they exist (the order the old code had).
+  opts.webviewIsReady = [&host, platformBinds](choc::ui::WebView &w) {
+    installBridge(w, host);
+    if (platformBinds) platformBinds(w);
+    w.setHTML(std::string(reinterpret_cast<const char *>(kGuiHtml_data), kGuiHtml_size));
+  };
+  return std::make_unique<choc::ui::WebView>(opts);
 }
 
 }  // namespace hypersaw::detail

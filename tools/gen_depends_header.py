@@ -2,7 +2,7 @@ import re
 
 # 1. emit the graph as a C++ header the shell can consult, generated from the
 #    same table the GUI reads -- one declaration, two consumers.
-rows = [l.split('\t') for l in open('src/param_presentation.tsv').read().split('\n')
+rows = [l.split('\t') for l in open('src/param_presentation.tsv', encoding='utf-8').read().split('\n')
         if l and not l.startswith('#')]
 hdr = rows[0]
 di = hdr.index('depends')
@@ -15,7 +15,7 @@ for r in rows[1:]:
         deps[r[ai]] = r[di].strip()
 
 # resolve addresses to ids using the shell's own param table
-src = open('src/hypersaw_clap.cpp').read()
+src = open('src/hypersaw_clap.cpp', encoding='utf-8').read()
 ids = {}
 for m in re.finditer(r'\{(\d+), "([A-Za-z0-9_]+)"', src):
     ids[m.group(2)] = int(m.group(1))
@@ -78,5 +78,5 @@ hdr_txt += table
 hdr_txt.append('};')
 hdr_txt.append('static const int kNumDepRules = %d;' % len(table))
 hdr_txt.append('}  // namespace hypersaw')
-open('src/depends_graph.h', 'w').write('\n'.join(hdr_txt) + '\n')
+open('src/depends_graph.h', 'w', encoding='utf-8', newline='\n').write('\n'.join(hdr_txt) + '\n')
 print("depends_graph.h:", len(table), "rules")

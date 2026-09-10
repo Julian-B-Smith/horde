@@ -47,7 +47,7 @@ LEGAL_KIND = {"agentic", "human"}
 def known_oracles():
     """Parsed from ./verify, never hardcoded — a list that drifts from the gates
     it names is the same fiction this file exists to catch, one level up."""
-    v = VERIFY.read_text()
+    v = VERIFY.read_text(encoding="utf-8")
     compiled = set(re.findall(r'"\$build_dir/([a-z_0-9]+)"', v))
     python = {p.rsplit("/", 1)[-1].removesuffix(".py")
               for p in re.findall(r"python3 (tools/[a-z_0-9]+\.py)", v)}
@@ -56,7 +56,7 @@ def known_oracles():
 
 def gui_features():
     feats = set()
-    for line in PRES.read_text().splitlines():
+    for line in PRES.read_text(encoding="utf-8").splitlines():
         if line.startswith("#") or line.startswith("address\t"):
             continue
         f = line.split("\t")
@@ -69,7 +69,7 @@ def main():
     if not TSV.exists():
         print(f"test_table_check: FAILED — {TSV} missing", file=sys.stderr)
         return 1
-    lines = [l for l in TSV.read_text().splitlines() if l and not l.startswith("#")]
+    lines = [l for l in TSV.read_text(encoding="utf-8").splitlines() if l and not l.startswith("#")]
     body = [l.split("\t") for l in lines[1:]]
 
     oracles = known_oracles()

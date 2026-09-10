@@ -36,12 +36,12 @@ HDR = ROOT / "src/depends_graph.h"
 CORE = ROOT / "src/swarm_core.h"
 
 fail = []
-rows = [l.split("\t") for l in TSV.read_text().split("\n")
+rows = [l.split("\t") for l in TSV.read_text(encoding="utf-8").split("\n")
         if l and not l.startswith("#")]
 hdr = rows[0]
 di, ai = hdr.index("depends"), hdr.index("address")
 
-src = CLAP.read_text()
+src = CLAP.read_text(encoding="utf-8")
 params = {}
 for m in re.finditer(r'\{(\d+), "([A-Za-z0-9_]+)", "[^"]*", ([-0-9.]+), ([-0-9.]+)', src):
     params[m.group(2)] = (int(m.group(1)), float(m.group(3)), float(m.group(4)))
@@ -72,14 +72,14 @@ for r in rows[1:]:
                 if fv < lo - 1e-9 or fv > hi + 1e-9:
                     fail.append(f"{r[ai]}: {key}={v} is outside [{lo:g}, {hi:g}]")
 
-before = HDR.read_text() if HDR.exists() else ""
+before = HDR.read_text(encoding="utf-8") if HDR.exists() else ""
 subprocess.run([sys.executable, str(ROOT / "tools/gen_depends_header.py")],
                capture_output=True, cwd=ROOT)
-if HDR.read_text() != before:
+if HDR.read_text(encoding="utf-8") != before:
     fail.append("depends_graph.h was stale -- run tools/gen_depends_header.py")
 
 # 3. advisory drift: engine mode-guards with no declaration
-core = CORE.read_text()
+core = CORE.read_text(encoding="utf-8")
 guarded = set(re.findall(r'p\.law == (\d+)', core))
 advisory = []
 if guarded:
