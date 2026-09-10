@@ -957,9 +957,9 @@
     <div class="row"><label>OSC1 y</label><select data-p="175" data-fixed="1"><option value="0">Macro 1</option><option value="1" selected>Macro 2</option><option value="2">Macro 3</option><option value="3">Macro 4</option><option value="4">Macro 5</option><option value="5">Macro 6</option><option value="6">Macro 7</option><option value="7">Macro 8</option><option value="8">None</option></select><output></output></div>
     <div class="row"><label>OSC2 x</label><select data-p="176" data-fixed="1"><option value="0">Macro 1</option><option value="1">Macro 2</option><option value="2" selected>Macro 3</option><option value="3">Macro 4</option><option value="4">Macro 5</option><option value="5">Macro 6</option><option value="6">Macro 7</option><option value="7">Macro 8</option><option value="8">None</option></select><output></output></div>
     <div class="row"><label>OSC2 y</label><select data-p="177" data-fixed="1"><option value="0">Macro 1</option><option value="1">Macro 2</option><option value="2">Macro 3</option><option value="3" selected>Macro 4</option><option value="4">Macro 5</option><option value="5">Macro 6</option><option value="6">Macro 7</option><option value="7">Macro 8</option><option value="8">None</option></select><output></output></div>
-    <div class="note">Which macro each XY pad axis drives, per oscillator. The
-      pads' own selects are the same four values seen through the active
-      oscillator.</div>
+    <div class="note">RETIRED (ADR-156): the OSC pads write detune and K
+      directly, so these assignments drive nothing. Kept so saved sessions
+      still load; MAIN's pad is the one macro pad.</div>
   </div>
   <div class="cluster"><h2>Diagnostics — lag bisect</h2>
     <div class="note">Each switch kills one periodic subsystem LIVE — no reinstall,
@@ -1195,15 +1195,10 @@
     <div id="vmapScope2"><div class="vlabel">Voice map · pan × pitch</div>
       <canvas id="vmapC" width="256" height="96"></canvas></div>
   </div>
-<div class="cluster"><h2>XY — macro pad</h2>
-    <!-- The SAME pad as MAIN, not a copy of its picture: both are `canvas.xy`,
-         both are painted from the one macro pair and both write the same two
-         params, so they cannot drift apart the way two hand-maintained pads
-         would. The assignment selects repeat here for the same reason — every
-         `.xyAX`/`.xyAY` is synced from the one ASN mirror. -->
+<div class="cluster"><h2>XY — detune × K</h2>
+    <!-- ADR-156: this pad writes THIS oscillator's detune (x) and pull K (y)
+         directly. It is not a macro pad — MAIN's is the only one of those. -->
     <canvas id="xy2" class="xy" width="340" height="212"></canvas>
-    <div class="row xyAsnRow"><label>x drives</label><select class="xyAX"></select><output></output></div>
-    <div class="row xyAsnRow"><label>y drives</label><select class="xyAY"></select><output></output></div>
     <div class="note xyRouteNote" id="xyOscRoutes"></div>
   </div>
   </div>
@@ -1290,7 +1285,7 @@
     <div class="row kcell" data-addr="osc1.roundHi"><label>Round x Pitch <span class="sc">osc1</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="132" min="-1" max="1" step="0.005" value="0"><span class="kmnow"></span></span><output></output></div>
   </div>
   <div class="cluster"><h2>The coupling</h2>
-    <div class="row kcell" data-addr="osc1.K"><label>Pull K <span class="sc">osc1</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="6" min="-1" max="1" step="0.005" value="-1"><span class="kmnow"></span></span><output></output></div>
+    <div class="row kcell" data-addr="osc1.K"><label>Pull K <span class="sc">osc1</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="6" min="-1" max="1" step="0.005" value="0"><span class="kmnow"></span></span><output></output></div>
     <div class="row kcell" data-addr="osc1.onset"><label>Onset Lock <span class="sc">osc1</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="7" min="-1" max="1" step="0.005" value="0"><span class="kmnow"></span></span><output></output></div>
     <div class="row kcell" data-addr="osc1.dissolve"><label>Dissolve (s) <span class="sc">osc1</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="8" data-log10="1" min="-1.301" max="0.8998" step="0.001" value="-0.2007"><span class="kmnow"></span></span><output></output></div>
     <div class="row kcell" data-addr="inertia"><label>Inertia</label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="11" min="0" max="1" step="0.005" value="0"><span class="kmnow"></span></span><output></output></div>
@@ -1302,7 +1297,7 @@
     <div class="row kcell" data-addr="osc1.n"><label>Voices <span class="sc">osc1</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="1" min="1" max="32" step="1" value="7"><span class="kmnow"></span></span><output></output></div>
     <div class="row" data-addr="osc1.dist"><label>Distribution <span class="sc">osc1</span></label><select data-p="2"><option value="0">even spread</option><option value="1" selected>JP-8000 curve</option><option value="2">gaussian (seeded)</option><option value="3">cauchy (seeded)</option><option value="4">golden (irrational)</option></select><output></output></div>
     <div class="row kcell" data-addr="osc1.seed"><label>Seed <span class="sc">osc1</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="3" min="0" max="999999" step="1" value="1234"><span class="kmnow"></span></span><output></output></div>
-    <div class="row kcell" data-addr="osc1.detune"><label>Detune <span class="sc">osc1</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="4" min="0" max="1" step="0.005" value="0"><span class="kmnow"></span></span><output></output></div>
+    <div class="row kcell" data-addr="osc1.detune"><label>Detune <span class="sc">osc1</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="4" min="0" max="1" step="0.005" value="0.28"><span class="kmnow"></span></span><output></output></div>
     <div class="row" data-addr="osc1.law"><label>Detune Law <span class="sc">osc1</span></label><select data-p="5"><option value="0" selected>cents-constant</option><option value="1">Hz-constant</option><option value="2">ERB-flat</option><option value="3">tempo-grid</option><option value="4">harmonic (series)</option><option value="5">stretch (inharmonic)</option></select><output></output></div>
     <div class="row" data-addr="osc1.beatMult" data-when="law=3"><label>Grid Cycles/Beat <span class="sc">osc1</span></label><input type="range" data-p="23" min="0.25" max="8" step="0.005" value="1"><output></output></div>
     <div class="row kcell" data-addr="osc1.harmReach" data-when="law=4"><label>Harmonic Reach <span class="sc">osc1</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="79" min="0.25" max="4" step="0.005" value="1"><span class="kmnow"></span></span><output></output></div>
@@ -1878,9 +1873,8 @@ function setControl(id, v) {
   // ADR-137: the pad renders the assigned macros; assignment echoes re-sync
   // the selects (host automation of 174-177 must move the panel too).
   if (base >= 166 && base <= 173) xyDirty = true;
-  if (base >= 174 && base <= 177) {
-    ASN[base - 174] = v; syncXYAsnSelects(); xyDirty = true;
-  }
+  // 174-177 (osc pad macro assignments) are RETIRED by ADR-156 — stored for
+  // session compatibility, driving nothing.
   if (base === 178) specimenSync(v > 0.5);   // ADR-140: swap specimen/phase circle
   if (base === 57 || base === 59 || base === 61 || base === 63) paintFxCaps();   // singleton types
   if (base === 179 || base === 180) { xyDirty = true; try { updateXYRouteNotes(); } catch (_) {} }   // ADR-150: MAIN pad re-aimed
@@ -2312,7 +2306,7 @@ const MOD_SRC_NAMES = ['ENV 1', 'ENV 2', 'Macro 1', 'Macro 2', 'Macro 3', 'Macro
                        // slots 10-13 (ADR next): a pad AXIS as a first-class
                        // source — it reads whatever macro the axis drives, so
                        // routing "XY1 X" follows the assignment
-                       'XY1 X', 'XY1 Y', 'XY2 X', 'XY2 Y',
+                       'XY1 X (retired)', 'XY1 Y (retired)', 'XY2 X (retired)', 'XY2 Y (retired)',   // ADR-156: read 0
                        // slots 14-17 (ADR-149): MIDI/MPE performance signals
                        'Velocity', 'Mod Wheel', 'Pressure', 'Pitch Wheel'];
 /* Internal ids never reach the UI (human 2026-08-28: the pitch route rendered
@@ -2705,7 +2699,7 @@ document.querySelectorAll('[data-p]').forEach(el => {
     lastParams[id_()] = v;
     if (baseId >= 166 && baseId <= 173) xyDirty = true;   // macro knob moves the pad
     if (baseId >= 174 && baseId <= 177) {                 // fixed SET rows re-aim the pads
-      ASN[baseId - 174] = v; syncXYAsnSelects(); xyDirty = true;
+      /* 174-177 retired (ADR-156) */
     }
     if (baseId === 178) specimenSync(v > 0.5);            // instant, before the echo
   });
@@ -2945,13 +2939,19 @@ for (const [name, live] of PAGES) {
    params 179/180, never remapped by the osc selection (the human: "the main
    XY needs to be its own XY separate from the OSC XYs"). The OSC pad keeps
    the active-osc behaviour (174-177). Same controller, different id source. */
-const ASN = [0, 1, 2, 3];       // [osc0 X, osc0 Y, osc1 X, osc1 Y] → macro index
+/* ADR-156: the OSC pad writes ITS OSCILLATOR'S detune (x, 0..1) and pull K
+   (y, -1..1) directly — ordinary parameter edits, captured into corners and
+   carried by the morph like any other. Only MAIN's pad is a macro pad
+   (assignable through 179/180, ADR-150). One controller, two id sources and
+   a per-axis value map; the unit interval is the pad's coordinate space. */
 const asnPid = a => (a >= 0 && a < 8) ? 166 + a : -1;   // 8 = None -> no target
-const xyMacroIds = () => [asnPid(ASN[editOsc * 2]), asnPid(ASN[editOsc * 2 + 1])];
 const mainMacroIds = () => [asnPid(+(lastParams[179] ?? 0)), asnPid(+(lastParams[180] ?? 1))];
+const oscDirectIds = () => [effId(4), effId(6)];
+const unit = { toVal: (axis, u) => u, toUnit: (axis, v) => v };
+const detK = { toVal: (axis, u) => axis ? 2 * u - 1 : u, toUnit: (axis, v) => axis ? (v + 1) / 2 : v };
 const PADS = [
-  { sel: '#xyMain', ids: mainMacroIds, lastX: -1, lastY: -1, dirty: true },
-  { sel: '#xy2',    ids: xyMacroIds,   lastX: -1, lastY: -1, dirty: true },
+  { sel: '#xyMain', ids: mainMacroIds, map: unit, lastX: -1, lastY: -1, dirty: true },
+  { sel: '#xy2',    ids: oscDirectIds, map: detK, lastX: -1, lastY: -1, dirty: true },
 ];
 let xyDirty = true;   // legacy flag: any write marks BOTH pads (cheap, correct)
 function wirePad(pad) {
@@ -2964,8 +2964,9 @@ function wirePad(pad) {
     const x = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
     const y = Math.min(1, Math.max(0, 1 - (e.clientY - r.top) / r.height));
     const [ix, iy] = pad.ids();
-    if (ix >= 0) { bridge.setParam(ix, x); lastParams[ix] = x; setControl(ix, x); }
-    if (iy >= 0) { bridge.setParam(iy, y); lastParams[iy] = y; setControl(iy, y); }
+    const vx = pad.map.toVal(0, x), vy = pad.map.toVal(1, y);
+    if (ix >= 0) { bridge.setParam(ix, vx); lastParams[ix] = vx; setControl(ix, vx); }
+    if (iy >= 0) { bridge.setParam(iy, vy); lastParams[iy] = vy; setControl(iy, vy); }
     xyDirty = true;
   };
   cv.addEventListener('pointerdown', e => { down = true; cv.setPointerCapture(e.pointerId);
@@ -3020,34 +3021,13 @@ function drawMorphMini() {
     try { window.hzModWheel && hzModWheel(+w.value); } catch (e) {}
   });
 })();
-/* The assignment selects. Every .xyAX/.xyAY on any page is synced from the one
-   ASN mirror — the same one-state-many-renderings discipline the pads use. */
-function syncXYAsnSelects() {
-  document.querySelectorAll('select.xyAX').forEach(s => { s.value = ASN[editOsc * 2]; });
-  document.querySelectorAll('select.xyAY').forEach(s => { s.value = ASN[editOsc * 2 + 1]; });
-}
-document.querySelectorAll('select.xyAX, select.xyAY').forEach(sel => {
-  for (let i = 0; i < 8; i++) sel.add(new Option('Macro ' + (i + 1), i));
-  sel.add(new Option('None', 8));
-  sel.addEventListener('change', () => {
-    const axis = sel.classList.contains('xyAX') ? 0 : 1;
-    const pid = 174 + editOsc * 2 + axis;
-    ASN[editOsc * 2 + axis] = +sel.value;
-    bridge.setParam(pid, +sel.value); lastParams[pid] = +sel.value;
-    syncXYAsnSelects(); xyDirty = true;
-  });
-});
-syncXYAsnSelects();
 /* What does this pad actually TOUCH? Each axis line = the macro it drives plus
    every matrix route riding that macro (and, for the osc pad, routes on the
    pad-axis alias slots 10-13). Rendered from MODROUTES — no second copy. */
 function padRouteLine(axisName, asn, aliasSlot) {
   if (asn >= 8 || asn < 0) return axisName + ' → none';
   const dests = [];
-  for (const r of (MODROUTES || [])) {
-    if (r.src === 2 + asn || (aliasSlot >= 0 && r.src === aliasSlot))
-      dests.push(modDestLabel(r.dest));
-  }
+  for (const r of (MODROUTES || [])) if (r.src === 2 + asn) dests.push(modDestLabel(r.dest));
   const sus = (+(lastParams[151] ?? 0)) > 0.5 ? ' (suspended: morph on)' : '';
   return axisName + ' → Macro ' + (asn + 1) + (dests.length ? ' → ' + dests.join(', ') + sus : '');
 }
@@ -3057,14 +3037,14 @@ function updateXYRouteNotes() {
   const osc = document.getElementById('xyOscRoutes');
   const mTxt = padRouteLine('x', +(lastParams[179] ?? 0), -1) + '\n'
              + padRouteLine('y', +(lastParams[180] ?? 1), -1);
-  const oTxt = padRouteLine('x', ASN[editOsc * 2], 10 + editOsc * 2) + '\n'
-             + padRouteLine('y', ASN[editOsc * 2 + 1], 11 + editOsc * 2);
+  const oTxt = 'x → Detune · y → Pull K — this oscillator, directly (ADR-156)';
   const both = mTxt + '|' + oTxt;
   if (both === lastRouteNotes) return;
   lastRouteNotes = both;
   if (main) main.textContent = mTxt;
   if (osc) osc.textContent = oTxt;
 }
+try { updateXYRouteNotes(); } catch (_) {}   // the osc pad's line needs no routes to be true
 let frameNo = 0;
 /* ============ FEED GATING (ADR-143) ============
    Every one of these feeds crosses the BRIDGE, and the bridge is the expensive
@@ -3199,8 +3179,8 @@ function frameBody() {
   for (const pad of PADS) {   // each pad follows ITS OWN assigned macros
     if (!pad.cv) continue;
     const [mix, miy] = pad.ids();
-    const mx = mix >= 0 ? +(lastParams[mix] ?? 0) : 0.5;   // None: rest centred
-    const my = miy >= 0 ? +(lastParams[miy] ?? 0) : 0.5;
+    const mx = mix >= 0 ? pad.map.toUnit(0, +(lastParams[mix] ?? 0)) : 0.5;   // None: rest centred
+    const my = miy >= 0 ? pad.map.toUnit(1, +(lastParams[miy] ?? 0)) : 0.5;
     if (mx !== pad.lastX || my !== pad.lastY || xyDirty) {
       pad.lastX = mx; pad.lastY = my;
       const xyctx = pad.cv.getContext('2d');

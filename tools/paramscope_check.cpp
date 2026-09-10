@@ -308,10 +308,11 @@ int main()
        which silently assumed a near-unison default — a beating detuned swarm
        peaks mid-render and reads "slow" regardless of its actual attack.
        That assumption became false on 2026-08-30 when the macros started
-       defaulting centred (detune rests at 0.5 through the default routes).
-       Zeroing the macros here pins the swarm to unison, which is the probe
-       stating the assumption it always held. The detector-shares-assumption
-       trap, caught by its own failure. */
+       defaulting centred (detune rested at 0.5 through default routes).
+       ADR-156 removed those routes (detune rests at 0.28 with no macro on
+       it), so the pins below are inert today — kept as the probe stating
+       its assumption, so a future default route cannot silently re-break
+       it. The detector-shares-assumption trap, caught by its own failure. */
     const double a1 = timeTo90(renderSolo(0, {{166, 0}, {167, 0}, {19, LONG}}));
     const double a2 = timeTo90(renderSolo(1, {{166, 0}, {167, 0}, {19, LONG}}));
     std::snprintf(d, sizeof(d), "id 19 alone -> osc1 90%% at %.3f s, osc2 at %.3f s", a1, a2);
