@@ -282,9 +282,9 @@ int main()
   double kv = 0, det = 0;
   paramsC->get_value(c, 6, &kv);
   paramsC->get_value(c, 4, &det);
-  // det 0.0, not 0.28: the human moved detune's default to the FLOOR
-  // (2026-08-30) so the unipolar M1 route can sweep the whole knob.
-  check(kv == 0.5 && det == 0.0, "missing keys keep defaults; unknown keys ignored");
+  // det 0.28 again (ADR-156, 2026-09-10): the 2026-08-30 floor defaults were
+  // reversed when the osc pads went back to writing detune/K directly.
+  check(kv == 0.5 && det == 0.28, "missing keys keep defaults; unknown keys ignored");
 
   a->destroy(a);
   /* THE JSON STATE PATH (2026-08-21) — the preset system's path, previously
