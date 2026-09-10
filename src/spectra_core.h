@@ -1,4 +1,18 @@
 /*
+ * ┌──────────────────────────────────────────────────────────────────────────┐
+ * │ STATUS: PARKED — NOT IN 1.0, INDEFINITELY (human ruling).                 │
+ * │ Standing since ROADMAP §"SPECTRA PARKED" (2026-08-18); restated           │
+ * │ 2026-09-10: "not impressed with the spectra engine as it exists ... not   │
+ * │ sure it will make it into the 1.0 release ... indefinitely postponed."    │
+ * │ On 2026-09-10 an external audit's "expose or remove" framing led the      │
+ * │ lead to recommend exposing it — a regression of the ruling, retracted    │
+ * │ the same day. This header exists so that never happens again:            │
+ * │   - engine param 43 keeps its frozen id and stays UNEXPOSED in gui2;      │
+ * │   - the core keeps building and spectra_check keeps it parity-gated;      │
+ * │   - NO roster, audit, or "hidden engine" argument re-opens it — only the  │
+ * │     human, explicitly. Check the ledger before proposing otherwise.       │
+ * └──────────────────────────────────────────────────────────────────────────┘
+ *
  * spectra_core.h — SPECTRA engine: per-partial spectral swarm, transcribed
  * VERBATIM from reference/swarmspectra.html's SpectraSynth (ADR-003: the prototype is
  * the spec-in-code). P partials × M cloud voices; each partial carries its

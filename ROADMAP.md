@@ -22,17 +22,19 @@ COLLISIONS for the human — listed last, on purpose.
 REAL Drive and Filter (B81 inc 2 slice 2 provides the SVF + drive stage; the
 placeholders do not ship) · morph grid · MAIN · mod matrix with **two or
 three LFOs** (the Kuro LFO — inertial by construction, which IS the
-differentiator the audit asks for — B16 / task 19) · **SPECTRA exposed or
-removed** (today param 43 has zero gui2 controls: a hidden engine; lead
-recommends EXPOSE — one select — because it has its own parity oracle and is
-the founding sibling) · **30–50 categorised factory presets** built to
+differentiator the audit asks for — B16 / task 19) · **SPECTRA stays PARKED — indefinitely, not 1.0** (human, standing since
+§"SPECTRA PARKED" 2026-08-18 and restated 2026-09-10: "not impressed with the
+spectra engine as it exists"; the lead's 2026-09-10 "expose" recommendation
+was a regression of that ruling, retracted same day — engine param 43 keeps
+its frozen id, stays unexposed in gui2, and `src/spectra_core.h` now carries a
+STATUS header so no audit's "expose or remove" framing re-opens it) · **30–50 categorised factory presets** built to
 demonstrate the coupling laws (B102) · **state header** (schema +
 engine_revision + build hash, B100) · LICENSE decided, CHANGELOG, tagged
 semver releases with CI-built artifacts, notarized macOS installer, Windows
 binary (B101) · robustness matrix published (B101).
 
 **Parked for 1.0 (each with a one-line why, to docs/PARKED.md on
-ratification):** SPECTRA-as-second-engine polish beyond exposure · swarmalator
+ratification):** SPECTRA (the engine itself — indefinitely) · swarmalator
 · CANTO · WARP/FX-C · STATION · glitch modules · arps · FOUNDATIONS
 extraction · resynthesis. Criterion: not on the roster above.
 
@@ -45,7 +47,7 @@ the goldens problem and the v2 plan); the landing README; the video (90 s
 sound, 2 min process). B103.
 
 **Sequencing:** Phase 0 this definition → Phase 1 the five-minute gaps (LFOs,
-real Drive/Filter, SPECTRA, presets) → Phase 2 release engineering (state
+real Drive/Filter, presets) → Phase 2 release engineering (state
 header FIRST — before anyone but the human saves a set) → Phase 3 evidence →
 Phase 4 outside users; then goldens v2 as 1.1 on the B100 mechanism.
 
