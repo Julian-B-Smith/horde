@@ -784,9 +784,10 @@
        `wavosc` class is what the ADR-143 feed gate reads to ask for the
        per-oscillator scope instead of the single active one. -->
   <div class="cluster"><h2>Viz</h2>
-    <canvas id="phaseC" class="phase" width="220" height="220" style="display:none;margin:0 auto;max-width:232px"></canvas>
-    <div class="vizline vRead">R —</div>
-    <div class="vlabel gravline"></div>
+    <!-- The R line, the gravity line and the ADR-140 phase-circle fallback left
+         MAIN 2026-09-10 (B106 follow-up): every one of them read the ACTIVE
+         oscillator with no label, and the human ruled MAIN shows nothing that
+         refers only to the active one. They live on OSC ("The swarm, seen"). -->
     <div class="note">Log spectrum &middot; MASTER bus</div>
     <canvas id="specC" class="spec" width="330" height="70" style="width:100%"></canvas>
     <div class="note" style="margin-top:6px">OSC 1 &middot; waveform &middot; L over R &middot; click to freeze</div>
@@ -992,7 +993,7 @@
   </div>
   <div class="cluster"><h2>Visualizers</h2>
     <div class="row"><label>Specimen</label><input type="checkbox" data-p="178" checked><output></output></div>
-    <div class="note">Shows CHROME-002 on MAIN in place of the phase circle. The
+    <div class="note">Shows CHROME-002 on MAIN (the phase circle lives on OSC). The
       specimen was exonerated by the excision experiment (the lag was the
       param-sync repaint, ADR-147) and is fully live again — create-on-show,
       so OFF means no GL context exists at all.</div>
@@ -3411,10 +3412,10 @@ const chrome = { gl: null, u: {}, cv: null, yaw: 0.55, pit: 0.18, yawT: 0.55, pi
    phase circle takes the viz slot back — the human's redundancy ruling still
    holds, so the two never share the page. */
 function specimenSync(on) {
+  // show/hide, no longer a swap: the phase-circle fallback left MAIN (B106
+  // follow-up) because it was an unlabelled active-osc readout.
   const box = document.getElementById('specimenBox');
-  const p = document.getElementById('phaseC');
   if (box) box.style.display = on ? '' : 'none';
-  if (p) p.style.display = on ? 'none' : 'block';
   if (on) { chrome.w = 0; chrome.plate = false; chrome.lastAct = performance.now(); }
 }
 /* WHY-IT-FAILED IS PART OF THE FEATURE (L0046 pending). ADR-139 shipped "no
@@ -3844,9 +3845,10 @@ function paintVizSnapshot(s) {
        as ruled: "only have the visuals turn off when oscillators are
        themselves off." */
     if (s && s.active && s.oscEnabled === false) {
-      // ADR-140: phaseC is back on MAIN (specimen off by default). chromeC
-      // stays out — a 2D getContext on the WebGL canvas returns null anyway.
-      for (const cv of [document.getElementById('phaseC'), document.getElementById('phaseC2')]) {
+      // OSC's phase circle only (MAIN's fallback circle left with B106's
+      // follow-up); chromeC stays out — a 2D getContext on the WebGL canvas
+      // returns null anyway.
+      for (const cv of [document.getElementById('phaseC2')]) {
         if (!cv || !cv.offsetWidth) continue;
         const g = cv.getContext('2d');
         g.fillStyle = TOK('--scr-tube'); g.fillRect(0, 0, cv.width, cv.height);
