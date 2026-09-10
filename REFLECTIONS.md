@@ -16,3 +16,4 @@
   Aug-26 answer; round1 acked). Nothing owed either direction. Kept one fact:
   cite their DECISIONS #61 (edge gain / node constants / ordering) when the
   B50 visual routing matrix starts.
+- [2026-09-10] I recommended exposing SPECTRA for 1.0 because an external audit framed it as "expose or remove" — and never checked the ledger, where the human had parked it on 2026-08-18. A binary framing from outside is not evidence about a standing ruling; check ROADMAP/DECISIONS for the ruling BEFORE recommending on any audit item. Candidate library lesson (evidence: this regression, retracted same day; falsifier: an audit item where the ledger is silent and the framing was the right call).

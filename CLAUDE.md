@@ -72,7 +72,7 @@ lists as protected.
 engines with dynamical characteristics, oriented toward the sounds of hyperpop
 (ADR-091). The founding engine — **SWARM SAW** (formerly SAW, then HYPERSAW; ADR-115) — is a
 coupled-oscillator system (Kuramoto swarm over a kernel — "the supersaw taken
-seriously as physics"); **SPECTRA** is its per-partial sibling; the first new
+seriously as physics"); **SPECTRA** is its per-partial sibling (PARKED indefinitely by the human, not 1.0 — see the STATUS header in `src/spectra_core.h`); the first new
 member is the **formant engine** (working name CANTO — FOF/pulsar grains, formants
 as masses on springs, a register state R; `specs/SPEC-FORMANT.md`, prototype
 `reference/formant-pulsar-fof.html`, not yet in the shell). A second CANDIDATE arrived
