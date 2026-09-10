@@ -2476,7 +2476,12 @@ function modDestOptions() {
         ? [base]
         : Array.from({ length: numOsc }, (_, k) => g + k * OSC_STRIDE);
       for (const id of ids) {
-        if (id >= 161 && id <= 178) continue;   // the matrix's own controls (ADR-141)
+        /* The matrix's own controls (ADR-141), tested on the BASE so the fan-out
+           above cannot smuggle a twin past it. Measured in the browser probe:
+           the raw-id test let thirteen phantoms through — "M1 · osc 2",
+           "Env > Pitch · osc 2" and the four P.Env twins — addresses that mean
+           nothing, because 161-177 are global by construction. */
+        if (g >= 161 && g <= 178) continue;
         if (seen.has(id)) continue;             // MIX carries fixed twins of OSC rows
         seen.add(id);
         out.push({ id, label: modDestLabel(id), page: pname });

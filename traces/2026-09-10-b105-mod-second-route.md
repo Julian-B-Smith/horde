@@ -74,9 +74,21 @@
   exactly once; no duplicate ids; an impossible search matches nothing; an
   unrouted param still reads "Send to mod matrix").
 
-  **Calibrated** per L0032: an isolated copy of the tree with the removed
-  duplicate guard re-planted reports `PROBE-END RED`, while the shipped tree
-  reports GREEN in the same beat.
+  **Calibrated** per L0032, twice, each against an isolated copy of the tree:
+  re-planting the removed duplicate guard reports `PROBE-END RED`; reverting
+  the base-id test below to a raw-id test reports `PROBE-END RED` naming all
+  thirteen phantoms. The shipped tree reports GREEN.
+
+  **The probe found a defect in this very change, which is the point of running
+  it.** The first draft excluded the matrix's own controls by testing the RAW
+  id (`id >= 161 && id <= 178`), so the per-osc fan-out happily manufactured
+  thirteen `· osc 2` twins of global controls — "M1 · osc 2", "Env > Pitch ·
+  osc 2", the four P.Env twins. Every one is an address that means nothing;
+  161-177 are global by construction. The shell would have refused them
+  (`findParam` returns null), so no oracle in `./verify` and no audio test could
+  ever have seen it — it was purely a list of thirteen lies in a menu. The test
+  is now on the base id (`g`), and the probe asserts it on the base id too.
+  Destination count 233 → 220.
 
   **A harness bug worth recording, because it nearly became the finding.** The
   first runner wrote every artifact to one `dom.html`, and Chrome writes its
@@ -102,6 +114,14 @@
   - 233 destinations in one `<select>` is usable with the search box but is not
     a *good* browse. If the human wants it grouped further (page → cluster), the
     cluster `<h2>` is already in the DOM and one line away.
+  - **The macro knobs 166-173 on MAIN carry no `data-fixed`** (`gui2.html:846`).
+    They are patch-scope by every other sign (the shell dispatches 161-177 by
+    raw id, and `modAddRoute` refuses that range as global), so `effId` remaps
+    them to 1166-1173 whenever oscillator 2 is being edited — the exact
+    29-dead-controls shape `gui_reach.py`'s patch-scope pin exists to catch.
+    That is how the phantom destinations were reachable at all. NOT touched:
+    out of scope, and it is a shell-addressing question, not a picker one.
+    Worth its own queue row.
   - The probe reports a THROW as a single line, so the planted run shows only
     `THREW TypeError … reading 'click'` — the assertions that passed before the
     throw are lost. Enough to prove the plant fires, not enough to localise a
