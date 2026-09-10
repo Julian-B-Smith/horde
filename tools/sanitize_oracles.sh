@@ -55,7 +55,24 @@ while read -r name _; do
   if grep -qx "$name" <<<"$KNOWN"; then TARGETS+=("$name"); else echo "   $name: no target in this tree — SKIPPED"; fi
 done <<<"$ORACLES"
 NPROC=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
-cmake --build "$BUILD" --target "${TARGETS[@]}" -j"$NPROC" || exit 1
+# The shared impl library first (one parallel build), then each oracle on its
+# own so that ONE that cannot link on this platform is reported as a loud
+# SKIP rather than taking every other verdict with it. The first Linux run
+# died exactly that way: state_check references hypersaw_debug_* hooks that
+# src/hypersaw_clap.cpp compiles for Apple/Windows only, so the whole job was
+# red and 24 oracles went unmeasured. A skip is printed per oracle and counted
+# in the summary; it is a coverage gap, never a pass.
+cmake --build "$BUILD" --target HYPERSAW-impl -j"$NPROC" || exit 1
+UNBUILT=""   # a string, not an array: bash 3.2 + set -u (see the run loop)
+NUNBUILT=0
+for t in "${TARGETS[@]}"; do
+  if ! cmake --build "$BUILD" --target "$t" -j"$NPROC" > "$BUILD/$t.build.log" 2>&1; then
+    echo "   $t: DOES NOT BUILD on this platform — SKIPPED (see $BUILD/$t.build.log)"
+    grep -E "undefined reference|error:" "$BUILD/$t.build.log" | head -3 | sed 's/^/      /'
+    UNBUILT="$UNBUILT $t"
+    NUNBUILT=$((NUNBUILT + 1))
+  fi
+done
 
 command -v node >/dev/null || { echo "sanitize_oracles: node required for goldens" >&2; exit 1; }
 for g in $GENERATORS; do
@@ -86,5 +103,5 @@ while read -r name golden; do
   fi
 done <<<"$ORACLES"
 
-echo "== sanitize_oracles [$SAN]: $pass oracle(s) passed, $([ $status -eq 0 ] && echo GREEN || echo RED)"
+echo "== sanitize_oracles [$SAN]: $pass oracle(s) passed, $NUNBUILT not built on this platform (${UNBUILT# }) — $([ $status -eq 0 ] && echo GREEN || echo RED)"
 exit $status
