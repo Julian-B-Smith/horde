@@ -3012,12 +3012,46 @@ struct Plugin
     return out;
   }
 
+  /* B100 STATE HEADER. Every blob — host chunk and JSON preset — carries
+     {schema, engine_revision, build}. `schema` is the WIRE format (the chunk's
+     version line, the preset's "schema"), `build` is provenance only (written,
+     never read back), and `engine_revision` PINS DSP BEHAVIOUR PER PATCH: a
+     sound-changing law lands behind a revision gate, so a patch saved under
+     revision N keeps rendering with revision-N laws until the patch itself is
+     opted forward (the u-he/Surge pattern — the opt-forward control is a
+     patch-level act, never a build-level one). New instances start at the
+     latest; a blob with no header predates the mechanism and is revision 1 BY
+     DEFINITION — every session saved before 2026-09-10 renders with the laws
+     it was saved under. kEngineRevision moves only with the ADR that adds a
+     gated law; no revision-2 law exists yet, so the only observable today is
+     the round-trip (tools/state_check.cpp, tools/statefix_check.cpp).
+     A revision this build cannot honour clamps to the latest it knows: a
+     value with no laws behind it is never stored, and the re-save then
+     records what actually rendered. engineRevision() is the ONE read site —
+     a future gated law consults it there, never a copy, so a law cannot fork
+     on a stale snapshot. Atomic because the read site will be the audio
+     thread and the write site is state_load on the main thread. */
+  static constexpr int kEngineRevision = 1;
+  std::atomic<int> patchEngineRevision{kEngineRevision};
+  int engineRevision() const { return patchEngineRevision.load(std::memory_order_relaxed); }
+  void setEngineRevision(long rev)
+  {
+    const long r = std::max(1L, std::min((long)kEngineRevision, rev));
+    patchEngineRevision.store((int)r, std::memory_order_relaxed);
+  }
+
   std::string stateJson() const
   {
     // The debug dump IS the preset format (ROADMAP Phase 2 design position):
-    // one schema, provenance included (SPEC §5.7).
-    std::string out = "{\"plugin\":\"HYPERSAW\",\"schema\":3,\"params\":{";   // 2: ADR-103 glideMode split · 3: ADR-138 modRoutes
-    char buf[64];
+    // one schema, provenance included (SPEC §5.7). B100: the header is the
+    // first three keys; "schema" stays 3 — the header adds keys, it does not
+    // change what any existing key means, and every reader ignores keys it
+    // does not know.
+    std::string out = "{\"plugin\":\"HYPERSAW\",\"schema\":3";   // 2: ADR-103 glideMode split · 3: ADR-138 modRoutes
+    char buf[96];
+    std::snprintf(buf, sizeof(buf), ",\"engine_revision\":%d,\"build\":\"%s\",\"params\":{",
+                  engineRevision(), HYPERSAW_BUILD_ID);
+    out += buf;
     bool first = true;
     for (const auto &d : kParams)
     {
@@ -3133,6 +3167,18 @@ struct Plugin
         if (gm != std::string::npos && std::atof(json.c_str() + gm + 1) >= 0.5)
           enqueueParam(90, 2, 0);
       }
+      // B100: the patch's engine revision, pinned from the header; a preset
+      // without one (any schema-3-or-earlier file) is revision 1. Set
+      // unconditionally — a load is a load, and the previous patch's
+      // revision must not bleed into a header-less one.
+      size_t er = json.find("\"engine_revision\"");
+      long rev = 1;
+      if (er != std::string::npos)
+      {
+        er = json.find(':', er);
+        if (er != std::string::npos) rev = std::atol(json.c_str() + er + 1);
+      }
+      setEngineRevision(rev);
     }
     /* Pre-ADR-100 patches have no "enable" key and were saved when every
        oscillator always rendered — restore them that way, whatever the new
@@ -4576,6 +4622,13 @@ bool state_save(const clap_plugin_t *p, const clap_ostream_t *stream)
   // bytes, header included — which is the point of increment 1.
   std::string blob = kNumOsc > 1 ? "hypersaw-state 2\n" : "hypersaw-state 1\n";
   char line[80];
+  // B100 header: the version line above IS the chunk's schema; these two lines
+  // complete {schema, engine_revision, build}. Plain key=value so every
+  // pre-B100 build reads them as unknown keys and ignores them — the chunk
+  // version does not move, and a session round-trips through an old build.
+  std::snprintf(line, sizeof(line), "engine_revision=%d\nbuild=%s\n",
+                self(p)->engineRevision(), HYPERSAW_BUILD_ID);
+  blob += line;
   for (const auto &d : kParams)
   {
     std::snprintf(line, sizeof(line), "%s=%.17g\n", d.coreKey, self(p)->readParam(d.id));
@@ -4631,6 +4684,9 @@ bool state_load(const clap_plugin_t *p, const clap_istream_t *stream)
   // instead of inheriting whatever the previous patch had. A present key
   // then replaces this empty set.
   pl->applyModRoutesChunk("");
+  // B100: a chunk without the header predates it and is revision 1 by
+  // definition; a present `engine_revision=` line below overrides this.
+  pl->setEngineRevision(1);
   while (pos < blob.size())
   {
     const size_t eol = blob.find('\n', pos);
@@ -4640,6 +4696,12 @@ bool state_load(const clap_plugin_t *p, const clap_istream_t *stream)
     const size_t eq = line.find('=');
     if (eq == std::string::npos) continue;
     std::string key = line.substr(0, eq);
+    if (key == "engine_revision")   // B100: the patch's pinned revision
+    {
+      pl->setEngineRevision(std::atol(line.c_str() + eq + 1));
+      continue;
+    }
+    if (key == "build") continue;   // B100: provenance only, never read back
     if (key == "morph")   // ADR-112 A3: the field's chunk, shared parser
     {
       pl->applyMorphChunk(line.substr(eq + 1));
@@ -4762,6 +4824,17 @@ extern "C" const char *hypersaw_debug_exemptjson(const clap_plugin_t *p)
 extern "C" bool hypersaw_debug_apply(const clap_plugin_t *p, const char *json)
 {
   return self(p)->applyStateJson(json ? json : "");
+}
+/* B100: the patch's pinned engine revision, and the opt-forward hook the
+   patch-level GUI control will bind (Plugin::setEngineRevision — the GUI
+   wiring is a follow-up; this is the shell side only). */
+extern "C" int hypersaw_debug_engine_revision(const clap_plugin_t *p)
+{
+  return self(p)->engineRevision();
+}
+extern "C" void hypersaw_debug_set_engine_revision(const clap_plugin_t *p, int rev)
+{
+  self(p)->setEngineRevision(rev);
 }
 
 bool gui_create(const clap_plugin_t *p, const char *api, bool is_floating)
