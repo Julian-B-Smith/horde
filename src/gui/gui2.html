@@ -671,6 +671,22 @@
   .row.modrow > input[type=range] { grid-area:depth; min-width:0; }
   .row.modrow > output { grid-area:val; text-align:right; }
   .row.modrow > button { grid-area:x; }
+  /* B105(b): the manual destination picker, under the route list. Four
+     stacked bands rather than one line, for the same measured reason the
+     route row above is two lines — a search box, a grouped destination list
+     and a source select cannot share 88px-and-the-rest without the
+     destination collapsing to an anonymous control. `hidden` has to be
+     re-stated because a display rule outranks the attribute. */
+  .modadd { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:5px 6px;
+    margin-top:8px; padding-top:8px; border-top:1px dashed var(--line); }
+  .modadd[hidden] { display:none; }
+  .modadd > input, .modadd > select.wide, .modadd > .note { grid-column:1 / -1; min-width:0; }
+  .modadd > select { min-width:0; font-size:10px; }
+  /* The result line and the standing help text are both .note, and without a
+     rule between them the refusal reads as the first sentence of the help
+     (measured in the probe render). The rule is the only thing separating a
+     transient answer from permanent prose. */
+  .modadd > #modAddMsg { border-left:2px solid var(--line); padding-left:6px; }
   .pmenu { position:fixed; z-index:9999; min-width:172px; padding:4px;
            background:var(--panel,#FCFAF4); border:var(--stroke) solid var(--line);
            border-radius:var(--r); box-shadow:var(--shadow); font-size:11px; }
@@ -945,13 +961,29 @@
   <div class="ctlcol">
   <div class="cluster"><h2>Routes</h2>
     <div id="modList"></div>
+    <!-- B105(b): the manual destination picker. Every option in #modAddDest is
+         DERIVED from the panel's own [data-p] controls at open time (see
+         modDestOptions) — this markup deliberately holds no destination names,
+         because a typed list here would be a second presentation table free to
+         drift from the one that draws the panel. Stays hidden without an
+         engine, exactly as #modList renders nothing without one. -->
+    <div id="modAdd" class="modadd" hidden>
+      <input id="modAddFind" type="search" placeholder="find a destination…" autocomplete="off"
+             title="filter by name, page or #id">
+      <select id="modAddDest" class="wide" title="the parameter this route will move"></select>
+      <select id="modAddSrc" title="which modulator drives it"></select>
+      <button id="modAddGo" type="button" title="add the route at depth 0.25">Add route</button>
+      <div id="modAddMsg" class="note" hidden></div>
+    </div>
     <div class="note">Right-click any knob or slider and choose “Send to mod
       matrix”; the route arrives on <b>ENV 1</b> and the select re-aims it at any
       source. Depth is ±1 of the destination's full range; the destination's own
-      bounds always clamp the result. Right-click a routed parameter again to
-      <b>release</b> it. The <b>Env &gt; Pitch</b> knob on OSC owns the Pitch row
-      — its depth is in semitones, its source is fixed, and edits in either place
-      stay in step.</div>
+      bounds always clamp the result. A parameter can carry <b>more than one</b>
+      modulator — right-click it again for “Send another”, or pick it above; the
+      depths sum. Right-click a routed parameter to <b>release</b> it (releasing
+      lets go of all of its modulators at once). The <b>Env &gt; Pitch</b> knob on
+      OSC owns the Pitch row — its depth is in semitones, its source is fixed, and
+      edits in either place stay in step.</div>
   </div>
   <div class="cluster"><h2>Sources</h2>
     <div class="note"><b>ENV 1</b> — the amp envelope (loudest voice).
@@ -2296,13 +2328,26 @@ const PARAM_MENU = [
      pending row would be a second route representation needing its own
      persistence, refusal rules and halo semantics — all cost, no sound.
      Continuous params only (the shell refuses stepped dests and the menu
-     mirrors it by absence); the matrix's own controls 161-178 never appear. */
+     mirrors it by absence); the matrix's own controls 161-178 never appear.
+
+     B105 AMENDMENT (human 2026-09-10: "there's currently no way to send a
+     second instance of the param to the mod matrix"). The already-routed guard
+     is GONE: it was a GUI-only refusal of something the shell always allowed —
+     modAddRoute has no duplicate check and ModCore::evaluate SUMS every route
+     per destination (src/mod_core.h evaluate), which is what two modulators on
+     one parameter means. Only the LABEL changes when the dest is already
+     routed, so the menu still reads as one verb rather than growing a second
+     entry. The halos were already duplicate-ready (modHaloFrame accumulates
+     lo/hi across every route with the same dest), so nothing downstream had to
+     move. */
   { id: 'modSend',
     show: ctx => !!window.hzModAdd && ctx.el && ctx.el.type === 'range'
-                 && !(ctx.id >= 161 && ctx.id <= 178)
-                 && !MODROUTES.some(r => r.dest === ctx.id),
-    label: () => 'Send to mod matrix',
-    hint: () => 'starts on ENV 1 — pick the modulator on the MOD page',
+                 && !(ctx.id >= 161 && ctx.id <= 178),
+    label: ctx => MODROUTES.some(r => r.dest === ctx.id)
+      ? 'Send another to mod matrix' : 'Send to mod matrix',
+    hint: ctx => MODROUTES.some(r => r.dest === ctx.id)
+      ? 'a second modulator on the same parameter — the depths sum'
+      : 'starts on ENV 1 — pick the modulator on the MOD page',
     run: async ctx => { if (await window.hzModAdd(0, ctx.id)) renderModRoutes().catch(() => {}); } },
   { id: 'modRelease',
     show: ctx => !!window.hzModRemove && MODROUTES.some(r => r.dest === ctx.id),
@@ -2356,6 +2401,10 @@ async function renderModRoutes() {
   let routes = [];
   try { routes = JSON.parse(await window.hzModRoutes()); } catch (_) { return; }
   MODROUTES = routes;   // the halos read reach from the same parse
+  /* B105: the picker refreshes HERE, before the early return below — its
+     "(n routed)" tags read the table we just parsed, and the no-routes branch
+     is exactly when the picker is the only way in. One call site, every path. */
+  refreshModAdd();
   box.textContent = '';
   if (!routes.length) {
     const p = document.createElement('div');
@@ -2403,6 +2452,121 @@ async function renderModRoutes() {
     box.appendChild(row);
   }
 }
+
+/* ============ MANUAL DESTINATION PICKER (B105(b)) ==========================
+   The other half of the human's 2026-09-10 ask: "in addition to 'send to mod
+   matrix,' there should be a way to manually select parameters from the mod
+   page." Right-click reaches a parameter you can SEE; this reaches one you
+   cannot — the other oscillator's twin, or anything three pages away.
+
+   THE LIST IS DERIVED, NEVER TYPED. Options come from the panel's own
+   [data-p] controls and the page each one sits on, and the panel's controls
+   are themselves generated from src/param_presentation.tsv. A hand-written
+   destination list would be a second presentation table with nothing keeping
+   it honest — the duplicated-key-chain failure L0005 records, and the reason
+   the ROADMAP row says "the address is the presentation table's, so nothing
+   is a second list".
+
+   LEGALITY IS THE SHELL'S CALL, NOT OURS. We offer what the right-click menu
+   offers — a range control that is not the matrix's own 161-178 — and then
+   simply CALL hzModAdd. Stepped parameters look exactly like continuous ones
+   from here (octave and pitch are <input type=range step=1>); only the shell
+   knows, in modAddRoute's `pd->stepped` test. Re-deriving that rule GUI-side
+   would be a second copy of it, free to drift, so the refusal is SHOWN rather
+   than pre-empted. The one filter we do apply is the widget's own type, which
+   is a DOM fact and already ADR-141's rule. */
+function modDestOptions() {
+  const out = [], seen = new Set();
+  for (const page of document.querySelectorAll('.page')) {
+    const pname = (page.id || '').replace(/^pg-/, '') || '?';
+    for (const el of page.querySelectorAll('input[type=range][data-p]')) {
+      const base = +el.dataset.p;
+      if (!Number.isFinite(base)) continue;
+      /* PER-OSC FAN-OUT. A non-fixed control addresses whichever oscillator is
+         being edited (effId), so the page can only ever show ONE of its twins
+         — and the twin you cannot see is precisely what a manual picker is
+         for. Offer every twin by id. data-fixed rows already carry a literal
+         address and are listed as-is; globalIds says which base ids have no
+         twin at all. */
+      const g = base % OSC_STRIDE;
+      const ids = (el.dataset.fixed || !globalIds || globalIds.has(g))
+        ? [base]
+        : Array.from({ length: numOsc }, (_, k) => g + k * OSC_STRIDE);
+      for (const id of ids) {
+        /* The matrix's own controls (ADR-141), tested on the BASE so the fan-out
+           above cannot smuggle a twin past it. Measured in the browser probe:
+           the raw-id test let thirteen phantoms through — "M1 · osc 2",
+           "Env > Pitch · osc 2" and the four P.Env twins — addresses that mean
+           nothing, because 161-177 are global by construction. */
+        if (g >= 161 && g <= 178) continue;
+        if (seen.has(id)) continue;             // MIX carries fixed twins of OSC rows
+        seen.add(id);
+        out.push({ id, label: modDestLabel(id), page: pname });
+      }
+    }
+  }
+  return out;
+}
+function refreshModAdd() {
+  const box = document.getElementById('modAdd');
+  if (!box) return;
+  box.hidden = !window.hzModAdd;
+  if (box.hidden) return;
+  const dest = document.getElementById('modAddDest');
+  const src = document.getElementById('modAddSrc');
+  const find = document.getElementById('modAddFind');
+  if (!dest || !src || !find) return;
+  if (!src.options.length)                      // MOD_SRC_NAMES, not a second source list
+    for (let i = 0; i < MOD_SRC_NAMES.length; i++) src.add(new Option(MOD_SRC_NAMES[i], i));
+  const q = (find.value || '').trim().toLowerCase();
+  const keep = dest.value;   // a rebuild must not silently re-aim what is already picked
+  dest.textContent = '';
+  const groups = new Map();
+  let n = 0;
+  for (const d of modDestOptions()) {
+    if (q && !`${d.label} ${d.page} #${d.id}`.toLowerCase().includes(q)) continue;
+    let g = groups.get(d.page);
+    if (!g) { g = document.createElement('optgroup'); g.label = d.page; groups.set(d.page, g); dest.appendChild(g); }
+    const routed = MODROUTES.filter(r => r.dest === d.id).length;
+    g.appendChild(new Option(routed ? `${d.label} — ${routed} routed` : d.label, String(d.id)));
+    n++;
+  }
+  if (!n) {
+    const o = new Option(q ? 'nothing matches that' : 'no destinations', '');
+    o.disabled = true; dest.appendChild(o);
+  }
+  if (keep) dest.value = keep;                  // silently drops to the first if it was filtered out
+}
+/* Wired once: the picker's elements are static markup, so setup has nothing to
+   build. Deliberately calls NOTHING here — refreshModAdd reads MODROUTES, whose
+   `let` lives further down this file, and a setup-time call reaching forward
+   into a TDZ is the trap L0026/L0041 record (and lab_load_check gates). The
+   first refresh comes from renderModRoutes, i.e. when MOD is revealed. */
+(function wireModAdd() {
+  const dest = document.getElementById('modAddDest');
+  const src = document.getElementById('modAddSrc');
+  const find = document.getElementById('modAddFind');
+  const go = document.getElementById('modAddGo');
+  const msg = document.getElementById('modAddMsg');
+  if (!dest || !src || !find || !go || !msg) return;
+  find.addEventListener('input', () => refreshModAdd());
+  go.addEventListener('click', async () => {
+    const id = +dest.value;
+    if (!dest.value || !Number.isFinite(id)) return;
+    const name = modDestLabel(id);
+    const ok = await window.hzModAdd(+src.value, id);
+    msg.hidden = false;
+    /* The refusal is the SHELL's, reported as such: modAddRoute turns down
+       stepped destinations, its own 161-177 controls, and a full table. We do
+       not claim to know which — saying "stepped" about a full table would be a
+       confident lie, and the honest message names the possibilities. */
+    msg.textContent = ok
+      ? `${MOD_SRC_NAMES[+src.value]} → ${name}, depth 0.25.`
+      : `Refused: ${name} cannot be a destination — stepped parameters are not `
+        + `modulation targets, the matrix cannot modulate itself, and the table holds 64 routes.`;
+    if (ok) renderModRoutes().catch(() => {});
+  });
+})();
 
 /* ============ LIVE MOD HALOS (ADR-137, per the UI Spec §4) ============
    The knob/handle NEVER moves under modulation — it holds the BASE (what the
