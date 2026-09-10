@@ -24,7 +24,12 @@ namespace hypersaw::detail
 constexpr uint32_t kGuiWidth = 980;
 constexpr uint32_t kGuiHeight = 720;
 
-inline choc::value::Value vizToValue(const VizSnapshot &v)
+/* `withOscPanes` gates the B106 per-oscillator block. ADR-143's rule is that a
+   feed is carried only where a consumer for it is on screen, and MAIN's carpets
+   are the only consumer — so the pages that draw one oscillator keep exactly
+   the bytes they had. Default true: the per-feed fallback (dev server, lab
+   harness) serves whoever asks and has no want-bits to trim with. */
+inline choc::value::Value vizToValue(const VizSnapshot &v, bool withOscPanes = true)
 {
   // Structured choc::value crosses the bridge as a native JS object — no JSON
   // string on the C++ side, no JSON.parse per frame on the JS side. (The
@@ -126,6 +131,27 @@ inline choc::value::Value vizToValue(const VizSnapshot &v)
     obj.addMember("partAmp", pa);
     obj.addMember("partPhase", pp);  // flat [partial*cloud + voice]
   }
+  /* B106 — the per-oscillator pane feed, indexed by OSCILLATOR. MAIN draws a
+     carpet per oscillator and labels them OSC 1 / OSC 2, so this cannot be
+     "the active one and the other one" — a label resolved from "active" is a
+     label that can lie. ~2x32 numbers per frame, carried only where MAIN's
+     carpets are on screen (see `withOscPanes`). */
+  if (!withOscPanes) return obj;
+  auto oscs = choc::value::createEmptyArray();
+  for (int k = 0; k < VizSnapshot::kVizOsc; k++)
+  {
+    auto o = choc::value::createObject("VizOsc");
+    o.addMember("active", v.oscActive[k]);
+    o.addMember("on", v.oscOn[k]);
+    o.addMember("n", (int32_t)v.oscN[k]);
+    o.addMember("topo", (int32_t)v.oscTopo[k]);
+    o.addMember("f0", v.oscF0[k]);
+    auto ph = choc::value::createEmptyArray();
+    for (int i = 0; i < v.oscN[k] && i < 32; i++) ph.addArrayElement(v.oscPhase[k][i]);
+    o.addMember("phase", ph);
+    oscs.addArrayElement(o);
+  }
+  obj.addMember("oscs", oscs);
   return obj;
 }
 
@@ -378,7 +404,11 @@ inline void installBridge(choc::ui::WebView &web, GuiHost &host)
      call whose payload the ADR-143 consumer gate trims per page. The per-feed
      binds above STAY — they are the fallback for a page served outside the
      plugin (dev server, lab harness) and the seam other callers already use.
-     `want` bits: 1 viz · 2 spec · 4 scope. */
+     `want` bits: 1 viz · 2 spec · 4 scope · 8 per-osc scope · 16 per-osc
+     carpets. The last two are B106's: each has its OWN bit because each has
+     its own DOM-derived consumer (MAIN's `canvas.wavosc` / `canvas.carpetM`),
+     and folding them into one would make either page pay for the other's
+     feed. */
   /* B76 part 2 — THE TOKENS, NOT THE CALLS. Collapsing three calls into one
      (part 1) moved the DAW's raf number not at all (44 ms before and after),
      which killed the call-count theory and convicted the payload: every bind
@@ -406,7 +436,7 @@ inline void installBridge(choc::ui::WebView &web, GuiHost &host)
     const int want = args.isArray() && args.size() >= 1
                          ? (int)args[0].getWithDefault<int64_t>(7) : 7;
     auto obj = choc::value::createObject("Frame");
-    if (want & 1) obj.addMember("viz", vizToValue(host.getViz()));
+    if (want & 1) obj.addMember("viz", vizToValue(host.getViz(), (want & 16) != 0));
     if (want & 2)
     {
       constexpr int kBins = 256;
@@ -420,23 +450,43 @@ inline void installBridge(choc::ui::WebView &web, GuiHost &host)
       }
       obj.addMember("spec8", b64(q, kBins));
     }
-    if (want & 4)
+    /* B106 — TWO scope shapes, never both on one page. Bit 4 is the ACTIVE
+       oscillator's block (what the OSC pages ask for, byte-for-byte what they
+       asked for before). Bit 8 is one block PER OSCILLATOR, which is what MAIN
+       asks for INSTEAD of bit 4 — so MAIN's frame grows by exactly one
+       oscillator's worth of samples and no page ever carries three blocks. */
+    if (want & 12)
     {
       constexpr int kN = 1536;   // matches hzGetScope, same reason (D2 period)
-      float l[kN], r[kN];
-      if (host.getScope) host.getScope(l, r, kN);
-      else { for (int i = 0; i < kN; i++) { l[i] = 0; r[i] = 0; } }
       // little-endian int16, L block then R block — the JS DataView mirrors this
-      unsigned char pk[kN * 4];
-      auto put = [&](int idx, float v) {
-        const float c = v < -1 ? -1.0f : (v > 1 ? 1.0f : v);
-        const int16_t q = (int16_t)(c * 32767.0f);
-        pk[idx * 2] = (unsigned char)(q & 0xFF);
-        pk[idx * 2 + 1] = (unsigned char)((q >> 8) & 0xFF);
+      auto pack = [&](auto &&fill) {
+        float l[kN], r[kN];
+        for (int i = 0; i < kN; i++) { l[i] = 0; r[i] = 0; }
+        fill(l, r, kN);
+        unsigned char pk[kN * 4];
+        auto put = [&](int idx, float v) {
+          const float c = v < -1 ? -1.0f : (v > 1 ? 1.0f : v);
+          const int16_t q = (int16_t)(c * 32767.0f);
+          pk[idx * 2] = (unsigned char)(q & 0xFF);
+          pk[idx * 2 + 1] = (unsigned char)((q >> 8) & 0xFF);
+        };
+        for (int i = 0; i < kN; i++) put(i, l[i]);
+        for (int i = 0; i < kN; i++) put(kN + i, r[i]);
+        return b64(pk, sizeof pk);
       };
-      for (int i = 0; i < kN; i++) put(i, l[i]);
-      for (int i = 0; i < kN; i++) put(kN + i, r[i]);
-      obj.addMember("scope16", b64(pk, sizeof pk));
+      if (want & 4)
+        obj.addMember("scope16", pack([&](float *l, float *r, int n) {
+          if (host.getScope) host.getScope(l, r, n);
+        }));
+      if (want & 8)
+      {
+        auto arr = choc::value::createEmptyArray();
+        for (int k = 0; k < VizSnapshot::kVizOsc; k++)
+          arr.addArrayElement(pack([&](float *l, float *r, int n) {
+            if (host.getScopeFor) host.getScopeFor(k, l, r, n);
+          }));
+        obj.addMember("oscScope16", arr);
+      }
       obj.addMember("scopeN", (int32_t)kN);
     }
     return obj;

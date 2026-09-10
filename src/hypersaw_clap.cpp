@@ -1146,8 +1146,12 @@ struct Plugin
   // point of a scope here is watching L against R (super-width's polarity
   // modes are invisible in a sum). Write-only on the audio thread.
   double outPeakViz = 0;   // peak since the last viz publish (see publishViz)
-  float scopeL[2048] = {0}, scopeR[2048] = {0};
-  std::atomic<uint32_t> scopePos{0};
+  /* B106: one ring PER OSCILLATOR, not one for whichever osc the viz followed.
+     MAIN draws both waves, so both taps must exist at once. Fixed-size member
+     arrays — preallocated by construction, so the audio-thread write below is
+     still a ring store and nothing else. */
+  float scopeL[kMaxOsc][2048] = {{0}}, scopeR[kMaxOsc][2048] = {{0}};
+  std::atomic<uint32_t> scopePos[kMaxOsc] = {};
   uint32_t guiW = 980, guiH = 720;  // resizable (clamped in gui_adjust_size)
   std::atomic<bool> processing{false};
   // ADR-024: the inertia KNOB value (params/state domain). The core holds
@@ -1217,14 +1221,17 @@ struct Plugin
     }
     oscGainSm[k] = g;
     oscPeakViz[k] = peak;
-    // ADR-100 A4: scope tap — this oscillator's own post-gain signal, when it
-    // is the one the viz follows. Ring write only; RT-safe.
-    if (k == vizOsc.load(std::memory_order_relaxed))
+    /* ADR-100 A4: scope tap — this oscillator's own post-gain signal. B106
+       dropped the `k == vizOsc` gate: MAIN draws every oscillator's waveform,
+       so every oscillator has to be tapped, not just the followed one. Each
+       osc writes only its OWN ring, so the per-osc cost is what it always was.
+       Ring write only; RT-safe. */
+    if (k < kMaxOsc)
     {
-      uint32_t sw = scopePos.load(std::memory_order_relaxed);
+      uint32_t sw = scopePos[k].load(std::memory_order_relaxed);
       for (int i = 0; i < n; i++)
-      { scopeL[(sw + i) & 2047] = bL[i]; scopeR[(sw + i) & 2047] = bR[i]; }
-      scopePos.store(sw + (uint32_t)n, std::memory_order_release);
+      { scopeL[k][(sw + i) & 2047] = bL[i]; scopeR[k][(sw + i) & 2047] = bR[i]; }
+      scopePos[k].store(sw + (uint32_t)n, std::memory_order_release);
     }
   }
 
@@ -2439,6 +2446,42 @@ struct Plugin
     qTail.store(tail, std::memory_order_release);
   }
 
+  /* B106: the per-oscillator carpet block, addressed by INDEX. Filled last, at
+     both publish exits, because the engine branches above wipe the snapshot
+     (`v = VizSnapshot{}`) and a block written before them would be silently
+     erased. In SPECTRA mode oscillator 0's pane carries the partial-0 cloud —
+     the same phases the active block gets — because that is what is actually
+     sounding; the swarm cores are not, so the other pane reads inactive rather
+     than animating a swarm nobody can hear. */
+  void fillOscPanes(hypersaw::VizSnapshot &v)
+  {
+    for (int k = 0; k < hypersaw::VizSnapshot::kVizOsc; k++)
+    {
+      v.oscOn[k] = (uint32_t)k < kNumOsc && oscEnabled[k] != 0;
+      v.oscActive[k] = false;
+      v.oscN[k] = 0;
+      v.oscTopo[k] = 0;
+      v.oscF0[k] = 0;
+      if ((uint32_t)k >= kNumOsc) continue;
+      if (spectraMode())
+      {
+        const auto *fs = k == 0 ? spectra.focus() : nullptr;
+        if (!fs) continue;
+        v.oscActive[k] = true;
+        v.oscN[k] = (int)spectra.p.cloud;
+        for (int i = 0; i < v.oscN[k] && i < 32; i++) v.oscPhase[k][i] = fs->phase[i];
+        continue;
+      }
+      const auto *s = cores[k].focus();
+      if (!s) continue;
+      v.oscActive[k] = true;
+      v.oscN[k] = (int)cores[k].p.n;
+      v.oscTopo[k] = (int)cores[k].p.topo;
+      v.oscF0[k] = s->f0cur * cores[k].p.tune;
+      for (int i = 0; i < v.oscN[k] && i < 32; i++) v.oscPhase[k][i] = s->phase[i];
+    }
+  }
+
   void publishViz()
   {
     // THE INTERMEDIARY (human, 2026-08-07): every per-swarm visual reads the
@@ -2514,6 +2557,7 @@ struct Plugin
             v.partPhase[k * 7 + m] = fs->phase[k * hypersaw::SpectraCore::kMMax + m];
         }
       }
+      fillOscPanes(v);
       vizPublished.store(writeIdx, std::memory_order_release);
       return;
     }
@@ -2602,6 +2646,7 @@ struct Plugin
         v.gridLockWarn = coupled && coherent;
       }
     }
+    fillOscPanes(v);
     vizPublished.store(writeIdx, std::memory_order_release);
   }
 
@@ -4847,11 +4892,22 @@ bool gui_create(const clap_plugin_t *p, const char *api, bool is_floating)
     return pl->vizBuf[pl->vizPublished.load(std::memory_order_acquire)];
   };
   hostIf.getSpectrum = [pl](float *out, int n) { pl->computeSpectrum(out, n); };
-  hostIf.getScope = [pl](float *l, float *r, int n) {
-    const uint32_t w = pl->scopePos.load(std::memory_order_acquire);
+  // B106: one reader, two entry points — getScope resolves the ACTIVE
+  // oscillator (the OSC pages' view, unchanged), getScopeFor names one.
+  hostIf.getScopeFor = [pl](int osc, float *l, float *r, int n) {
+    const uint32_t o = (uint32_t)osc < kNumOsc ? (uint32_t)osc : 0;
+    const uint32_t w = pl->scopePos[o].load(std::memory_order_acquire);
     for (int i = 0; i < n; i++)
     { const uint32_t k = (w - (uint32_t)n + (uint32_t)i) & 2047;
-      l[i] = pl->scopeL[k]; r[i] = pl->scopeR[k]; }
+      l[i] = pl->scopeL[o][k]; r[i] = pl->scopeR[o][k]; }
+  };
+  hostIf.getScope = [pl](float *l, float *r, int n) {
+    const uint32_t o = pl->vizOsc.load(std::memory_order_relaxed);
+    const uint32_t v = o < kNumOsc ? o : 0;
+    const uint32_t w = pl->scopePos[v].load(std::memory_order_acquire);
+    for (int i = 0; i < n; i++)
+    { const uint32_t k = (w - (uint32_t)n + (uint32_t)i) & 2047;
+      l[i] = pl->scopeL[v][k]; r[i] = pl->scopeR[v][k]; }
   };
   hostIf.getParamsJson = [pl]() { return pl->paramsJson(); };
   hostIf.getDefaultsJson = [pl]() { return pl->defaultsJson(); };
