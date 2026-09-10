@@ -2208,8 +2208,14 @@ function paintMorphField(fx, w, h) {
       ld.title = 'load a corner preset into this corner';
       const fill = async () => { const names = await presetStore.list('corners');
         if (names === null) return;          // read failed: keep the last good list
+        /* Replacing innerHTML resets the select to its first option, so every
+           refresh (a save pushes to all four; focus pulls) blanked whatever
+           corner preset this row was showing (B107, human 2026-09-10). Keep
+           the shown name if the store still has it. */
+        const shown = ld.value;
         ld.innerHTML = '<option value="">load\u2026</option>' +
-          names.map(n => `<option>${n}</option>`).join(''); };
+          names.map(n => `<option>${n}</option>`).join('');
+        if (shown && names.includes(shown)) ld.value = shown; };
       fill();
       /* PUSH, not pull. `fill` is async, so refreshing on focus loses a race it
          cannot win: the browser paints the open dropdown with whatever options
