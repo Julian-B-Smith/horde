@@ -169,7 +169,7 @@ Exit 0. `.harness/last-verify.json`: `{"target":"fast","exit":0,"git":"638dfcc",
 made after this trace).
 
 ### Machine identity / alias discipline
-`git diff | grep -in "julian|machinepriest|/Users/|terrane|\.local"` — no
+`git diff | grep -in "<author-name>|<machine-user>|/Users/|<terrain-sibling>|\.local"` — no
 matches. No tracked-file leak introduced.
 
 ## Alternatives rejected
