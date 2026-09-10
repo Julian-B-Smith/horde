@@ -293,6 +293,19 @@ if(NOT MSVC)
   target_compile_options(state_check PRIVATE -O2)
 endif()
 
+# B100 state-fixture corpus (tests/state_fixtures): gen_state_fixtures writes
+# blobs + goldens (append-only, never overwrites); statefix_check loads every
+# fixture and requires a bit-identical render. Not in ./verify — that is a
+# protected path and a human decision (see the corpus README).
+add_executable(gen_state_fixtures tools/gen_state_fixtures.cpp)
+target_link_libraries(gen_state_fixtures PRIVATE ${PROJECT_NAME}-impl)
+add_executable(statefix_check tools/statefix_check.cpp)
+target_link_libraries(statefix_check PRIVATE ${PROJECT_NAME}-impl)
+if(NOT MSVC)
+  target_compile_options(gen_state_fixtures PRIVATE -O2)
+  target_compile_options(statefix_check PRIVATE -O2)
+endif()
+
 # Note-lifecycle oracle (ADR-038): seeded random note streams through the
 # CLAP process path (poly/mono/legato + MIDI vel-0 note-off convention);
 # output must decay to silence after all keys are up.

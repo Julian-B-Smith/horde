@@ -31,6 +31,7 @@ extern "C" bool hypersaw_debug_apply(const clap_plugin_t *, const char *);
 extern "C" bool hypersaw_debug_exempt(const clap_plugin_t *, uint32_t);
 extern "C" const char *hypersaw_debug_cornervals(const clap_plugin_t *, int);
 extern "C" const char *hypersaw_debug_exemptjson(const clap_plugin_t *);
+extern "C" int hypersaw_debug_engine_revision(const clap_plugin_t *);
 
 int g_failures = 0;
 void check(bool ok, const char *what)
@@ -234,6 +235,12 @@ int main()
   check(saved.data.rfind("hypersaw-state 1\n", 0) == 0 ||
             saved.data.rfind("hypersaw-state 2\n", 0) == 0,
         "state blob is versioned (1 or 2)");
+  // B100: the header rides every blob. engine_revision pins the patch's DSP
+  // laws, build is provenance. Pinned in TEXT (not via the parser) so a
+  // symmetric writer/parser no-op cannot pass.
+  check(saved.data.find("\nengine_revision=1\n") != std::string::npos,
+        "B100: host chunk carries engine_revision=1");
+  check(saved.data.find("\nbuild=") != std::string::npos, "B100: host chunk carries build");
 
   // Fresh instance, load, compare every value exactly.
   const clap_plugin_t *b = makePlugin();
@@ -330,7 +337,64 @@ int main()
     jp->get_value(j, 4, &a); jp->get_value(j, 1004, &bb);
     check(applied && std::fabs(a - 0.111) < 1e-9, "JSON state: base param round-trips");
     check(std::fabs(bb - 0.222) < 1e-9, "JSON state: oscillator 2 TWIN round-trips");
+    /* B100 on the preset path. The header is asserted in TEXT on the dump;
+       the revision is read back through the debug export, which is the same
+       accessor a gated law will consult. With kEngineRevision == 1 every case
+       reads 1 — these are pinned NOW so the revision-2 bump cannot skip them,
+       and the clamp case bites today: a preset from a future build must load
+       and must not store a value this build has no laws for. */
+    check(std::strstr(snap, "\"engine_revision\":1") != nullptr &&
+              std::strstr(snap, "\"build\":\"") != nullptr,
+          "B100: JSON preset carries engine_revision + build");
+    const bool hl = hypersaw_debug_apply(
+        j, "{\"plugin\":\"HYPERSAW\",\"schema\":3,\"params\":{\"detune\":0.5}}");
+    check(hl && hypersaw_debug_engine_revision(j) == 1, "B100: header-less JSON loads as revision 1");
+    const bool st = hypersaw_debug_apply(
+        j, "{\"plugin\":\"HYPERSAW\",\"schema\":3,\"engine_revision\":1,\"build\":\"abc123+\","
+           "\"future_header\":7,\"params\":{\"detune\":0.4}}");
+    drain();
+    double dj = -1;
+    jp->get_value(j, 4, &dj);
+    check(st && hypersaw_debug_engine_revision(j) == 1, "B100: revision-1 JSON round-trips its revision");
+    check(std::fabs(dj - 0.4) < 1e-9, "B100: unknown JSON header keys ignored, params still apply");
+    const bool fu = hypersaw_debug_apply(
+        j, "{\"plugin\":\"HYPERSAW\",\"schema\":3,\"engine_revision\":99,\"params\":{\"detune\":0.4}}");
+    check(fu && hypersaw_debug_engine_revision(j) == 1,
+          "B100: future JSON revision loads, clamps to latest");
     j->stop_processing(j); j->deactivate(j); j->destroy(j);
+  }
+
+  {
+    /* B100 on the host-chunk path — same four cases, the loader that every
+       DAW session goes through. The re-save case is the one that matters for
+       the 28 sets that already bind (ADR-154): a pinned revision must survive
+       a load+save cycle, or the header is decoration. */
+    const clap_plugin_t *r = makePlugin();
+    auto *rs = (const clap_plugin_state_t *)r->get_extension(r, CLAP_EXT_STATE);
+    auto *rp = (const clap_plugin_params_t *)r->get_extension(r, CLAP_EXT_PARAMS);
+    check(hypersaw_debug_engine_revision(r) == 1, "B100: fresh instance is the latest revision (1)");
+    auto loadText = [&](const char *text) {
+      IStr s;
+      s.s.ctx = &s; s.s.read = istr_read; s.data = text;
+      return rs->load(r, &s.s);
+    };
+    check(loadText("hypersaw-state 2\nK=0.4\n") && hypersaw_debug_engine_revision(r) == 1,
+          "B100: header-less chunk loads as revision 1");
+    check(loadText("hypersaw-state 2\nengine_revision=1\nbuild=abc123+\nK=0.4\n") &&
+              hypersaw_debug_engine_revision(r) == 1,
+          "B100: revision-1 chunk round-trips its revision");
+    OStr re;
+    re.s.ctx = &re; re.s.write = ostr_write;
+    check(rs->save(r, &re.s) && re.data.find("\nengine_revision=1\n") != std::string::npos,
+          "B100: re-save keeps the pinned revision");
+    double kv2 = 0;
+    const bool uk = loadText("hypersaw-state 2\nengine_revision=1\nbuild=zzz\nfuture_header=7\nK=0.45\n");
+    rp->get_value(r, 6, &kv2);
+    check(uk && kv2 == 0.45, "B100: unknown chunk header keys ignored, params still apply");
+    check(loadText("hypersaw-state 2\nengine_revision=99\nK=0.4\n") &&
+              hypersaw_debug_engine_revision(r) == 1,
+          "B100: future chunk revision loads, clamps to latest");
+    r->destroy(r);
   }
 
   {
