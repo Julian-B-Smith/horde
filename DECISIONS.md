@@ -4950,3 +4950,33 @@ the GUIs), and two of the three prototypes fail it on missing browser globals
 (`Option`, `devicePixelRatio`) — pre-existing, confirmed against pre-edit
 files. Adding those globals to the sandbox stub and `reference/` to the
 sweep is a gate edit: ROADMAP B108, human-gated.
+## ADR-157 — 2026-09-10: state header and per-patch engine revision (ACCEPTED, from the B100 stream's draft)
+
+Every state blob carries `{schema, engine_revision, build}`. `schema` is the
+wire format (the chunk's version line; the preset's `"schema"`); `build` is
+provenance only. **`engine_revision` pins DSP behaviour per patch:** a
+sound-changing law lands behind a revision gate consulted at ONE site
+(`Plugin::engineRevision()`); a patch keeps rendering under the revision it
+was saved with until opted forward by a patch-level control (the u-he/Surge
+pattern; the GUI control is a follow-up, the shell hook exists). A blob with
+no header is revision 1 by definition — every session saved before
+2026-09-10. A revision above the latest a build knows CLAMPS to the latest
+(never store a value with no laws behind it; the re-save records what
+rendered). `kEngineRevision` moves only with the ADR that introduces a gated
+law; the parity-safe-superset discipline (new law behind a default-old
+switch) is the revision-1 path by construction. Adding the header bumps
+neither transport's schema.
+
+**Corpus.** `tests/state_fixtures/` is append-only: a fixture turning red is a
+finding, never a regen. `statefix_check` asserts load + 1 s render
+bit-identical per fixture (`gen_state_fixtures` is manual — it writes tracked
+files). Wiring `statefix_check` into `./verify full` after `state_check` is
+recommended by the stream and is the human's gate decision (B100 row).
+
+**Consequences.** Goldens v2 (1.1) become a second gated set beside the
+rev-1 legacy-conformance goldens. The JSON preset path must stop truncating
+full patches (B110) before its fixtures land — the stream refused to render
+a golden that would have pinned the truncation, which is the corpus rule
+working on its first day. Accepted as filed by the lead 2026-09-10; the
+stream's three scope additions (a shared `statefix_common.h`, clamp-not-
+preserve, two headless debug exports) are ratified here.
