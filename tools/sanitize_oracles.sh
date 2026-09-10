@@ -83,11 +83,25 @@ export ASAN_OPTIONS="${ASAN_OPTIONS:-detect_leaks=0:abort_on_error=1}"
 export UBSAN_OPTIONS="${UBSAN_OPTIONS:-print_stacktrace=1:halt_on_error=1}"
 export TSAN_OPTIONS="${TSAN_OPTIONS:-halt_on_error=1}"
 
+# NOT RUN UNDER A SANITIZER, by mechanism: rtsafety_probe REPLACES the global
+# operator new/delete with malloc-backed counting versions — the very
+# operators ASan and TSan interpose. Under ASan the pairing breaks
+# (alloc-dealloc-mismatch: the runtime's operator new vs the probe's free);
+# under TSan the runtime's own interceptor allocations land inside the armed
+# window and the probe reports the sanitizer, not the plugin ("RED (the audio
+# thread allocates)", first Linux run 2026-09-10). Its verdict is the
+# UNSANITIZED gate in ./verify full, unchanged. Printed, never silent.
+NOT_UNDER_SANITIZER="rtsafety_probe"
+
 status=0
 pass=0
 while read -r name golden; do
   exe="$BUILD/$name"
   [ -x "$exe" ] || continue
+  if [ "$name" = "$NOT_UNDER_SANITIZER" ]; then
+    echo "== $name: NOT RUN under -fsanitize (replaces the allocation operators the sanitizer interposes; verdict is ./verify full's)"
+    continue
+  fi
   # A plain string, not an array: macOS ships bash 3.2, where an empty array
   # under `set -u` is an "unbound variable" (the first run died on every
   # golden-less oracle that way).
