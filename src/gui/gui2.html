@@ -709,7 +709,7 @@
   .note { color:var(--dim); font-size:10.5px; }
   canvas.xy { aspect-ratio:1.6; border:var(--stroke) solid var(--line);
               width:100%; touch-action:none; }
-  #carpetC, #stripC, #vmapC { width:100%;
+  #carpetC, #stripC, #vmapC, .carpetM { width:100%;
                               border:var(--stroke) solid var(--line); display:block; }
   .vlabel { color:var(--t2); font-size:10px; margin:6px 0 3px; }
   /* the phase-circle readout: FIXED format, tabular digits, reserved height —
@@ -775,17 +775,33 @@
       sustained level makes it quiver, the envelope blooms the film, coherence
       pulls the lobes together. Drag orbits · click strikes.</div>
   </div>
-  <div class="cluster"><h2>Viz — <span id="vizWho">OSC 1</span></h2>
+  <!-- B106: MAIN is OSC-SYMMETRIC. It used to inherit the OSC page's
+       active-oscillator feed and label it "OSC 1" whatever was selected — a
+       label resolved from "active" is a label that can lie. Every pane below
+       is addressed BY OSCILLATOR INDEX (`data-viz-osc`) and fed from
+       `viz.oscs[k]` / `oscScope16[k]`, so the label and the data cannot come
+       apart, and nothing on this page names the edited oscillator. The
+       `wavosc` class is what the ADR-143 feed gate reads to ask for the
+       per-oscillator scope instead of the single active one. -->
+  <div class="cluster"><h2>Viz</h2>
     <canvas id="phaseC" class="phase" width="220" height="220" style="display:none;margin:0 auto;max-width:232px"></canvas>
     <div class="vizline vRead">R —</div>
     <div class="vlabel gravline"></div>
+    <div class="note">Log spectrum &middot; MASTER bus</div>
     <canvas id="specC" class="spec" width="330" height="70" style="width:100%"></canvas>
-    <div class="note">Waveform &middot; <span class="whoOsc">OSC 1</span> &middot; L over R &middot; click to freeze</div>
-    <canvas id="wavC2" class="wavscope" width="330" height="80" style="width:100%"></canvas>
-    <div class="note" style="margin-top:4px">Phase circle + K vector show
-      <b id="vizWho2">OSC 1</b>; the spectrum is the MASTER bus — what leaves the
-      plugin. SET → Visualizers swaps in CHROME-001: notes strike the metal, the
-      envelope blooms the pearl, coherence pulls the lobes together.</div>
+    <div class="note" style="margin-top:6px">OSC 1 &middot; waveform &middot; L over R &middot; click to freeze</div>
+    <canvas id="wavC2" class="wavscope wavosc" data-viz-osc="0" width="330" height="80" style="width:100%"></canvas>
+    <div class="note">OSC 1 &middot; phase carpet &middot; voice × phase</div>
+    <canvas id="carpetM0" class="carpetM" data-viz-osc="0" width="330" height="58"></canvas>
+    <div class="note" style="margin-top:6px">OSC 2 &middot; waveform &middot; L over R &middot; click to freeze</div>
+    <canvas id="wavC2b" class="wavscope wavosc" data-viz-osc="1" width="330" height="80" style="width:100%"></canvas>
+    <div class="note">OSC 2 &middot; phase carpet &middot; voice × phase</div>
+    <canvas id="carpetM1" class="carpetM" data-viz-osc="1" width="330" height="58"></canvas>
+    <div class="note" style="margin-top:4px">Waveforms and carpets are PER
+      OSCILLATOR, tapped post-level and pre-FX; the spectrum is the MASTER bus —
+      what leaves the plugin. SET → Visualizers swaps in CHROME-001: notes strike
+      the metal, the envelope blooms the pearl, coherence pulls the lobes
+      together.</div>
   </div>
 
   </div>
@@ -2827,8 +2843,9 @@ function paintOscTabs(ps) {
     // Class, not an id list: every element that names the edited osc updates,
     // so adding one to a new cluster is markup and nothing else. (The id list
     // this replaces already had a collision waiting — a second cluster reusing
-    // #vizWho2 would have been silently skipped by getElementById.)
-    for (const el of document.querySelectorAll('#vizWho, #vizWho2, .whoOsc')) {
+    // #vizWho2 would have been silently skipped by getElementById.) B106
+    // retired the two ids with MAIN's active-osc heading; the class remains.
+    for (const el of document.querySelectorAll('.whoOsc')) {
       if (el.textContent !== who) el.textContent = who;
     }
     const vol = ps[k === 0 ? 17 : 17 + k * OSC_STRIDE];
@@ -3068,7 +3085,7 @@ let frameNo = 0;
 const FEED_CONSUMERS = {
   // .meter is here because oscPeak/outPeak ride the viz snapshot: MIX needs
   // the feed for its strip meters even though it draws no phase circle.
-  viz:   'canvas.phase, #vmapC, #carpetC, #stripC, .vizline, .vlabel, #chromeC, .meter',
+  viz:   'canvas.phase, #vmapC, #carpetC, canvas.carpetM, #stripC, .vizline, .vlabel, #chromeC, .meter',
   spec:  'canvas.spec',
   /* canvas.wavscope, NOT #wavC2 (the 2026-08-29 waveform bug): #wavC2 is the
      RENDER SOURCE that happens to live on MAIN; OSC's copy carries only the
@@ -3077,8 +3094,16 @@ const FEED_CONSUMERS = {
      intermittent. One-state-many-renderings applies to the GATE too: name the
      class every rendering shares, never one rendering's id. */
   scope: 'canvas.wavscope',
+  /* B106: MAIN's per-oscillator panes carry `wavosc` / `carpetM` and nothing
+     else does, so the page that needs BOTH oscillators asks for both and every
+     other page keeps asking for one. Two entries, not one, because they are two
+     consumers: a page could carry either alone, and folding them would make it
+     pay for the feed it does not draw. Same DOM-derived rule as the gates above
+     — put a `canvas.wavosc` on a new page and it feeds itself. */
+  scope2: 'canvas.wavosc',
+  carpet2: 'canvas.carpetM',
 };
-const FEED = { viz: true, spec: true, scope: true };
+const FEED = { viz: true, spec: true, scope: true, scope2: false, carpet2: false };
 function recomputeFeeds() {
   const pg = document.querySelector('.page.on');
   for (const k in FEED_CONSUMERS) FEED[k] = !!(pg && pg.querySelector(FEED_CONSUMERS[k]));
@@ -3127,8 +3152,13 @@ function b64ToBytes(str) {
   return u;
 }
 async function frameFetch() {
-  const want = (FEED.viz && DIAG.viz ? 1 : 0) | (FEED.spec && DIAG.spec ? 2 : 0)
-             | (FEED.scope && DIAG.scope && wvC && !scopeFrozen ? 4 : 0);
+  // B106: bit 8 REPLACES bit 4 where both panes are on screen — never both at
+  // once, so MAIN's frame grows by one oscillator's samples, not two.
+  const wantScope = FEED.scope && DIAG.scope && wvC && !scopeFrozen;
+  const wantViz = FEED.viz && DIAG.viz;
+  const want = (wantViz ? 1 : 0) | (FEED.spec && DIAG.spec ? 2 : 0)
+             | (wantScope ? (FEED.scope2 ? 8 : 4) : 0)
+             | (wantViz && FEED.carpet2 ? 16 : 0);
   if (!want || frameBusy) return;
   frameBusy = true;
   try {
@@ -3136,8 +3166,8 @@ async function frameFetch() {
     const f = await window.hzFrame(want);
     fetchEma = fetchEma * 0.9 + (performance.now() - t0) * 0.1;
     SCOPEDIAG = !FEED.scope ? 'nofeed' : !DIAG.scope ? 'toggled-off'
-              : scopeFrozen ? 'frozen' : !(want & 4) ? 'nowant'
-              : f.scope16 ? 'ok' : (f.scope ? 'raw' : 'ABSENT');
+              : scopeFrozen ? 'frozen' : !(want & 12) ? 'nowant'
+              : (f.oscScope16 || f.scope16) ? 'ok' : (f.scope ? 'raw' : 'ABSENT');
     if (f.viz) { try { paintVizSnapshot(f.viz); } catch (e) {} }
     if (f.spec8) {
       try {
@@ -3147,16 +3177,21 @@ async function frameFetch() {
         paintSpec(bins);
       } catch (e) {}
     } else if (f.spec) { try { paintSpec(f.spec); } catch (e) {} }
-    if (f.scope16) {
-      try {
-        const u = b64ToBytes(f.scope16);
-        const dv = new DataView(u.buffer);
-        const n = f.scopeN || (u.length >> 2);
-        const l = new Float32Array(n), r = new Float32Array(n);
-        for (let i = 0; i < n; i++) l[i] = dv.getInt16(i * 2, true) / 32768;
-        for (let i = 0; i < n; i++) r[i] = dv.getInt16((n + i) * 2, true) / 32768;
-        paintScope({ l, r });
-      } catch (e) {}
+    // One decoder, two arrivals: `oscScope16` is an array indexed by
+    // oscillator (MAIN), `scope16` the single active-oscillator block.
+    const unpackScope = (b64s) => {
+      const u = b64ToBytes(b64s);
+      const dv = new DataView(u.buffer);
+      const n = f.scopeN || (u.length >> 2);
+      const l = new Float32Array(n), r = new Float32Array(n);
+      for (let i = 0; i < n; i++) l[i] = dv.getInt16(i * 2, true) / 32768;
+      for (let i = 0; i < n; i++) r[i] = dv.getInt16((n + i) * 2, true) / 32768;
+      return { l, r };
+    };
+    if (f.oscScope16) {
+      try { paintScopeOscs(f.oscScope16.map(unpackScope)); } catch (e) {}
+    } else if (f.scope16) {
+      try { paintScope(unpackScope(f.scope16)); } catch (e) {}
     } else if (f.scope) { try { paintScope(f.scope); } catch (e) {} }
   } finally { frameBusy = false; }
 }
@@ -3851,6 +3886,10 @@ function paintVizSnapshot(s) {
     // phase circle did — the whole per-swarm family follows the switch.
     if (s && s.active && s.oscEnabled === false) { /* off state drawn above */ }
     else if (spectraOn) drawStrips(s); else { drawCarpet(s); drawVmap(s); }
+    // B106: MAIN's per-oscillator carpets stand OUTSIDE that active-osc gate —
+    // each pane owns its oscillator's switch, so osc 1 being off must not
+    // freeze osc 2's picture (which is exactly what an active-osc gate does).
+    drawOscCarpets(s);
   }
 }
 /* ============ OSCILLOSCOPE — transplanted whole from gui.html ============
@@ -3859,22 +3898,41 @@ function paintVizSnapshot(s) {
    and human-tested in GUI 1 across three attempts; gui2 gets the organ, not a
    re-derivation. Only the bindings differ: canvas id, and f0/sr fed from
    gui2's vizFrame. */
+/* B106: MAIN carries ONE WAVEFORM PANE PER OSCILLATOR, so the painter takes a
+   pane instead of writing to the single #wavC2. The pane list is DERIVED from
+   the markup (`canvas.wavosc`, `data-viz-osc`) — a third oscillator is a
+   canvas and nothing else. wvC stays osc 0's pane so the per-feed fallback and
+   the DIAG line keep their existing handle. */
+const wavPanes = [...document.querySelectorAll('canvas.wavosc')]
+  .map(c => ({ c, x: c.getContext('2d'), k: +c.dataset.vizOsc || 0 }));
 const wvC = document.getElementById('wavC2'), wvx = wvC ? wvC.getContext('2d') : null;
 let scopeF0 = 0, scopeSR = 44100, lastVizOscEnabled = true;
 let scopeFrozen = false;
-const scopeCopies = () => [...document.querySelectorAll('canvas.wavscope')].filter(c => c !== wvC);
+const activePane = () => wavPanes.find(p => p.k === editOsc) || wavPanes[0] || null;
+/* Copies are every OTHER .wavscope — i.e. the OSC page's, which keeps its
+   single ACTIVE-oscillator view by blitting whichever MAIN pane that osc owns.
+   (2026-08-29 bug, still binding: gate and select on the class every rendering
+   shares, never on one rendering's id.) */
+const scopeCopies = () => [...document.querySelectorAll('canvas.wavscope')]
+  .filter(c => !wavPanes.some(p => p.c === c));
 function blitScope() {
+  const src = (activePane() || {}).c || wvC;
+  if (!src) return;
   for (const c of scopeCopies())
-    if (c.offsetWidth) c.getContext('2d').drawImage(wvC, 0, 0);
+    if (c.offsetWidth) c.getContext('2d').drawImage(src, 0, 0);
 }
 for (const c of document.querySelectorAll('canvas.wavscope')) {
   c.style.cursor = 'pointer';
   c.title = 'click to freeze / unfreeze — a detuned swarm never repeats exactly, so freeze to study a shape';
   c.onclick = () => {
     scopeFrozen = !scopeFrozen;
-    if (scopeFrozen && wvx) { wvx.fillStyle = TOK('--badge-bg'); wvx.fillRect(wvC.width - 34, 3, 31, 11);
-      wvx.fillStyle = TOK('--text'); wvx.font = '9px monospace';
-      wvx.fillText('HOLD', wvC.width - 31, 12); blitScope(); }
+    if (!scopeFrozen) return;
+    for (const p of wavPanes) {
+      p.x.fillStyle = TOK('--badge-bg'); p.x.fillRect(p.c.width - 34, 3, 31, 11);
+      p.x.fillStyle = TOK('--text'); p.x.font = '9px monospace';
+      p.x.fillText('HOLD', p.c.width - 31, 12);
+    }
+    blitScope();
   };
 }
 let scopeBusy = false;
@@ -3884,17 +3942,39 @@ async function drawScope() {   // B76: per-feed FALLBACK; the plugin path is fra
   try { paintScope(await bridge.getScope()); } catch (e) {}
   scopeBusy = false;
 }
-function paintScope(s) {
-  if (!wvC || scopeFrozen) return;
-  // ADR-100 A4: the scope follows the viz osc; a switched-off osc taps nothing,
-  // so the ring is stale — show the OFF state instead of a frozen wave.
-  if (lastVizOscEnabled === false) {
+/* B106: the drawing below is unchanged; only its BINDINGS became arguments —
+   pane (canvas + context), the pane's own f0 for the trigger filter, and the
+   pane's own on/off. Two callers: paintScope, the single ACTIVE-oscillator
+   entry the per-feed fallback and the OSC pages use, and paintScopeOscs, which
+   feeds MAIN's panes from the per-oscillator blocks. Neither blits — the
+   caller does, once, after every pane it owns has been painted. */
+function paintScope(s) {   // ACTIVE oscillator, one pane (OSC pages, fallback)
+  const pane = activePane();
+  if (!pane || scopeFrozen) return;
+  paintScopeInto(pane, s, scopeF0, lastVizOscEnabled);
+  blitScope();
+}
+function paintScopeOscs(blocks) {   // MAIN: one block per oscillator, by index
+  if (scopeFrozen) return;
+  const oscs = (lastViz && lastViz.oscs) || [];
+  for (const p of wavPanes) {
+    const b = blocks[p.k];
+    if (!b || !p.c.offsetWidth) continue;
+    const d = oscs[p.k];
+    paintScopeInto(p, b, (d && d.f0) || 0, !d || d.on !== false);
+  }
+  blitScope();
+}
+function paintScopeInto(pane, s, paneF0, oscOn) {
+  const wvC = pane.c, wvx = pane.x;
+  // ADR-100 A4: a switched-off osc taps nothing, so its ring is stale — show
+  // the OFF state instead of a frozen wave.
+  if (oscOn === false) {
     SCOPEDIAG = 'osc-off';
     const w2 = wvC.width, h2 = wvC.height;
     wvx.fillStyle = TOK('--scr-tube'); wvx.fillRect(0, 0, w2, h2);
     wvx.fillStyle = TOKA('--scr-grid', 0.75); wvx.font = '10px monospace';
     wvx.fillText('osc off', 8, h2 / 2);
-    blitScope();
     return;
   }
   {
@@ -3926,7 +4006,7 @@ function paintScope(s) {
       // leaves a clean near-sine at f0 to trigger on. This is exactly a scope's
       // trigger-filter / HF-reject coupling. Period and cutoff come from the
       // engine's own f0 and sample rate, so it tracks the note being played.
-      const f0 = scopeF0, sr = scopeSR;
+      const f0 = paneF0, sr = scopeSR;
       let trig = 0, span = Math.floor(N * 0.6);
       if (f0 > 0 && sr > 0) {
         const per = sr / f0;
@@ -3985,7 +4065,6 @@ function paintScope(s) {
       }
     }
   }
-  blitScope();
 }
 
 async function specFrame() {   // B76: per-feed FALLBACK; the plugin path is frameFetch
@@ -4192,19 +4271,46 @@ const VM_RANGES = [50/1200, 100/1200, 200/1200, 1, 2.5, 5, 10];
 const VM_LABELS = ['\u00b150 \u00a2', '\u00b1100 \u00a2', '\u00b1200 \u00a2', '\u00b11 oct', '\u00b12.5 oct', '\u00b15 oct', '\u00b110 oct'];
 let vmZoom = 4, vmShrink = 0;
 
-function drawCarpet(s) {
-  const w = cc2.width, h = cc2.height;
-  cctx2.fillStyle = TOKA('--scr-tube', 0.25);
-  cctx2.fillRect(0, 0, w, h);
-  scan(cctx2, w, h, scanA() * 0.25);
-  if (!s || !s.active) return;
-  const n = s.n, twoClu = s.topo === 2, half = n >> 1;
+/* B106: the drawing is GUI1's, unchanged — only its canvas and context became
+   arguments, so MAIN can draw one carpet PER OSCILLATOR while the OSC page
+   keeps drawing the active-oscillator snapshot into #carpetC. `d` is anything
+   carrying {active, n, topo, phase}: the viz snapshot and the per-oscillator
+   block both do, which is why no adapter is needed between them. */
+function paintCarpet(cv, ctx, d) {
+  const w = cv.width, h = cv.height;
+  ctx.fillStyle = TOKA('--scr-tube', 0.25);
+  ctx.fillRect(0, 0, w, h);
+  scan(ctx, w, h, scanA() * 0.25);
+  if (!d || !d.active) return;
+  const n = d.n, twoClu = d.topo === 2, half = n >> 1;
   const colW = w / n;
   for (let i = 0; i < n; i++) {
-    const y = 4 + s.phase[i] * (h - 8);
+    const y = 4 + d.phase[i] * (h - 8);
     // data dimension (cluster membership), NOT corner identity
-    cctx2.fillStyle = (twoClu && i >= half) ? TOKA('--scr-meter', 0.75) : TOK('--scr-value');
-    cctx2.beginPath(); cctx2.arc(i * colW + colW / 2, y, 2.6, 0, Math.PI * 2); cctx2.fill();
+    ctx.fillStyle = (twoClu && i >= half) ? TOKA('--scr-meter', 0.75) : TOK('--scr-value');
+    ctx.beginPath(); ctx.arc(i * colW + colW / 2, y, 2.6, 0, Math.PI * 2); ctx.fill();
+  }
+}
+function drawCarpet(s) { paintCarpet(cc2, cctx2, s); }
+/* MAIN's carpets, addressed by oscillator index and derived from the markup
+   the same way the waveform panes are. Each pane reads its OWN oscillator's
+   switch, so one osc being off never freezes the other's picture. */
+const carpetPanes = [...document.querySelectorAll('canvas.carpetM')]
+  .map(c => ({ c, x: c.getContext('2d'), k: +c.dataset.vizOsc || 0 }));
+function drawOscCarpets(s) {
+  const oscs = (s && s.oscs) || [];
+  for (const p of carpetPanes) {
+    if (!p.c.offsetWidth) continue;
+    const d = oscs[p.k];
+    if (d && d.on === false) {
+      const w = p.c.width, h = p.c.height;
+      p.x.fillStyle = TOK('--scr-tube'); p.x.fillRect(0, 0, w, h);
+      scan(p.x, w, h, scanA());
+      p.x.fillStyle = TOKA('--scr-grid', 0.75); p.x.font = '10px monospace';
+      p.x.fillText('osc off', 8, h / 2);
+      continue;
+    }
+    paintCarpet(p.c, p.x, d);
   }
 }
 

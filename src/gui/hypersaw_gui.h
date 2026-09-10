@@ -77,6 +77,22 @@ struct VizSnapshot
   int nmMidi[16] = {0};
   int nmGate[16] = {0};
   double nmEnv[16] = {0};
+  /* B106 — PER-OSCILLATOR PANES. Everything above describes the ACTIVE
+     oscillator (whichever setVizOsc last named) and still feeds the OSC pages
+     unchanged. This block is addressed BY OSCILLATOR INDEX instead, because
+     MAIN shows both at once and a pane labelled "OSC 2" must be fed by osc 2
+     whatever the OSC page happens to be editing — a label resolved from
+     "active" is a label that can lie (L0028: address the role, and LABEL the
+     resolved instance). Carpet data only: phase grid, its count, the cluster
+     topology that colours it, the switch, and the pane's own f0 for the
+     waveform trigger. */
+  static constexpr int kVizOsc = 2;   // mirrors the shell's kNumOsc
+  bool oscActive[kVizOsc] = {false, false};
+  bool oscOn[kVizOsc] = {true, true};
+  int oscN[kVizOsc] = {0, 0};
+  int oscTopo[kVizOsc] = {0, 0};
+  double oscF0[kVizOsc] = {0, 0};
+  double oscPhase[kVizOsc][32] = {{0}, {0}};
 };
 
 struct GuiHost
@@ -84,6 +100,9 @@ struct GuiHost
   std::function<VizSnapshot()> getViz;
   std::function<void(float *, int)> getSpectrum;  // log-spaced 0..1 bins
   std::function<void(float *, float *, int)> getScope;  // raw L/R tail, newest last
+  // B106: the same tail for a NAMED oscillator, so MAIN can draw both waves.
+  // getScope above stays the active-oscillator tap the OSC pages use.
+  std::function<void(int, float *, float *, int)> getScopeFor;
   std::function<std::string()> getParamsJson;            // {"<id>":value,...}
   // Defaults live in the SHELL, not in GUI markup. A GUI that reads a default out
   // of its own HTML loses it the moment that GUI is replaced — and can already
