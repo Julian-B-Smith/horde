@@ -4980,3 +4980,38 @@ a golden that would have pinned the truncation, which is the corpus rule
 working on its first day. Accepted as filed by the lead 2026-09-10; the
 stream's three scope additions (a shared `statefix_common.h`, clamp-not-
 preserve, two headless debug exports) are ratified here.
+
+## ADR-158 — The quantiser starts over when its anchor moves (2026-09-11)
+
+**Context.** The wheel lane (`bendGlide`, `src/hypersaw_clap.cpp` bend grid
+tick) steps with `base = lastNoteKey` and its emitted offset multiplies
+every voice. `GlideCore::quantise` keeps three pieces of state in ABSOLUTE
+pitch — the committed step `qStep`, the hysteresis latch on it, and the time
+gate's clock `qT`, which resets on COMMIT. None of them knew the anchor could
+move. With Step Timing engaged (ids 146–148) a second key struck inside the
+window could not commit its own step, so the lane emitted `oldStep − newKey`
+and every held voice transposed by the interval between the two notes until
+the window elapsed. Chromatic, wheel at rest, no scale involved — the
+human's "randomly wandering S&H on pitch" when playing chords. Measured by
+`tools/anchor_check.cpp` (worst 12 st). The reference (`docs/design/bend-lab.html`)
+carries the identical latch and never meets a base change: it is a
+single-note bench, so this is L0031's blind spot once more.
+
+**Decision.** In `GlideCore::quantise`, a change of `base` re-arms the
+quantiser exactly as `reset()` does (`qArmed = false`, gate open): the new
+anchor commits immediately and the gate's clock restarts at the note-on. A
+note-on is not a wheel gesture; the gate exists to turn a WHEEL move into a
+glissando run, and it still does (anchor_check T2 is the must-read-non-zero
+control). Implemented in the core, not the shell, because the latch's
+coordinate system is the core's own and any future consumer that moves its
+anchor (a per-note lane on slot reuse, an arp) inherits the rule.
+
+**Parity.** Every golden runs `base` constant (bench: single note), so the
+new branch never executes there — parity-safe superset, `./verify full`
+green including the glide chain. Not a revision-gated law (ADR-157): no
+session could have relied on a chord transposing by accident.
+
+**Consequences.** `anchor_check` is standalone and unwired (human gate to
+wire it beside `glide_check`). The lane's idle commit at A4 (lastNoteKey's
+initial 69) before any note is harmless now: the first note re-arms it.
+
