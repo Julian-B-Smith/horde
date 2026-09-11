@@ -5015,3 +5015,40 @@ session could have relied on a chord transposing by accident.
 wire it beside `glide_check`). The lane's idle commit at A4 (lastNoteKey's
 initial 69) before any note is harmless now: the first note re-arms it.
 
+## ADR-159 — The morph field's array layout is frozen; late per-osc rows append last (2026-09-11)
+
+**Context.** ADR-104 promised "morphIds is APPEND-ONLY (like param ids)" and
+kept it for the FX, law, global and scale tails — each appended. The per-osc
+PREFIX, however, is built by walking the param table, so a per-osc row added
+to the table is inserted into the prefix. `oscPitch` (181, ADR-150,
+2026-08-31) did that: 222 entries became 224 with the two new slots before
+the tail, and every corner/exempt array saved between ADR-104 A2 (2026-08-21)
+and 2026-08-31 has since been read two slots off in the tail — the bend and
+note laws. `bendQTimeHz` at 8 landed on `bendQTime` via the slot shift and
+a spring law acquired a 2-second chromatic step gate; the note lane parked
+each new note at the previous pitch (the "second note plays the first note"
+report) and the wheel lane transposed chords (B114 sharpened it). The
+promise was a comment, not a test, and B110 unmasked it: `morphOn` used to
+be truncated out of the preset load, so the misread corners never engaged.
+
+**Decision.** (1) The prefix is frozen at the 2026-08-22 order: per-osc rows
+added after it are listed in `kMorphLateIds` and APPENDED after every earlier
+block, twin beside base. Adding a per-osc row now means adding it to that
+list — a build-time act with a test behind it. (2) The writer stamps
+`"morphLayout":2`. (3) The parser reads layout 1 (absent marker) arrays of
+exactly 224 entries as the 2026-08-31 order and remaps them by id; every
+other layout-1 array is the frozen prefix and maps 1:1 (shorter arrays fill
+the prefix; the late slots take defaults). 224 is unambiguous because the
+tail was complete (222) nine days before 181 arrived. (4) `morphlayout_check`
+pins the frozen order and both remaps, with a control that reads the legacy
+array as layout 2 and must land on the wrong id.
+
+**Not done.** No re-save migration of the human's files: the remap runs on
+every load, so the files stay as they are. Not a revision-gated law
+(ADR-157): nothing rendered correctly under the misread.
+
+**Consequences.** B110 was correct and stays; its side-effect was to reveal
+this. The Ableton chunk path (`applyMorphChunk` is shared) heals the same
+way. Lesson filed in REFLECTIONS: an append-only promise on a derived order
+needs an oracle on the order, not a comment.
+
