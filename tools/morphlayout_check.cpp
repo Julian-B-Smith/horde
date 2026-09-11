@@ -22,6 +22,7 @@
 #include "../src/hypersaw_clap_entry.h"
 extern "C" bool hypersaw_debug_apply(const clap_plugin_t *, const char *);
 extern "C" const char *hypersaw_debug_cornervals(const clap_plugin_t *, int);
+extern "C" bool hypersaw_debug_cornerapply(const clap_plugin_t *, int, const char *);
 namespace {
 #include "notefuzz_scaffold.inc"
 const char *kFrozen = "1,1001,2,1002,3,1003,4,1004,5,1005,6,1006,7,1007,8,1008,9,1009,10,1010,12,1012,13,1013,14,1014,16,1016,17,1017,18,1018,19,1019,20,1020,21,1021,22,1022,23,1023,24,1024,25,1025,26,1026,27,1027,28,1028,29,1029,30,1030,31,1031,35,1035,36,1036,37,1037,39,1039,42,1042,43,1043,44,1044,45,1045,46,1046,47,1047,48,1048,49,1049,50,1050,51,1051,52,1052,53,1053,54,1054,55,1055,56,1056,65,1065,66,1066,67,1067,68,1068,69,1069,71,1071,72,1072,73,1073,74,1074,76,1076,77,1077,78,1078,79,1079,80,1080,81,1081,82,1082,83,1083,84,1084,85,1085,86,1086,87,1087,91,1091,92,1092,93,1093,94,1094,95,1095,104,1104,105,1105,129,1129,130,1130,131,1131,132,1132,150,1150,57,58,59,60,61,62,63,64,96,97,98,99,133,134,135,136,33,106,107,108,109,110,111,112,113,114,115,137,138,139,140,141,142,143,144,145,146,147,148,149,11,70,32,34,38,90,75,116,117,118,119,120,121,122,123,124,125,126,127,128";
@@ -61,5 +62,16 @@ int main() {
   { std::vector<double> a(224, 0.0); a[idx(live, "107")] = 121.5; a[idx(live, "1181")] = -3.5;
     hypersaw_debug_apply(r.p, cornersJson(2, a).c_str()); const char *c = hypersaw_debug_cornervals(r.p, 0);
     expect(valueOf(c, "107") == 121.5 && valueOf(c, "1181") == -3.5, "T4 layout-2 array is identity"); }
+  // T6: the corner-preset FILE path (corners/*.json) takes the same remaps.
+  auto cornerFile = [&](int layout, const std::vector<double> &arr) { std::string s = "{"; if (layout) s += "\"morphLayout\":" + std::to_string(layout) + ","; s += "\"cornerPreset\":[";
+    for (size_t i = 0; i < arr.size(); i++) { char b[32]; std::snprintf(b, sizeof b, i ? ",%.6g" : "%.6g", arr[i]); s += b; } return s + "]}"; };
+  { std::vector<double> a(224, 0.0); a[idx(legacy, "107")] = 122.5; a[idx(legacy, "181")] = 6.5;
+    hypersaw_debug_cornerapply(r.p, 1, cornerFile(0, a).c_str()); const char *c = hypersaw_debug_cornervals(r.p, 1);
+    expect(valueOf(c, "107") == 122.5 && valueOf(c, "181") == 6.5, "T6a corner-preset file, 224-entry layout-1: remapped by id");
+    std::vector<double> b(222, 0.0); b[idx(frozen, "107")] = 123.5;
+    hypersaw_debug_cornerapply(r.p, 2, cornerFile(0, b).c_str()); c = hypersaw_debug_cornervals(r.p, 2);
+    expect(valueOf(c, "107") == 123.5, "T6b corner-preset file, 222-entry layout-1: frozen prefix 1:1");
+    hypersaw_debug_cornerapply(r.p, 3, cornerFile(2, a).c_str()); c = hypersaw_debug_cornervals(r.p, 3);
+    expect(valueOf(c, "109") == 122.5, "T6c control: the 224 array read as layout 2 lands on 109"); }
   std::printf("morphlayout_check: %s\n", fails ? "FAIL" : "PASS"); r.kill(); hypersaw_entry_deinit(); return fails ? 1 : 0;
 }

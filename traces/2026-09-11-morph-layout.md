@@ -39,3 +39,5 @@ must-read-wrong control). Standalone, unwired.
 Aug 21–30); `git log -S` for rows 129–132, 150, 181 and the tail blocks.
 
 **Oracle.** `./verify full` — pasted in the PR body.
+
+**Addendum (same day).** The corner-preset FILES (`corners/*.json`, `{"cornerPreset":[…]}`) are the same positional array; `cornerApply` now takes the same remap and `cornerJson` stamps `morphLayout`. `morphlayout_check` T6a–c cover that path.

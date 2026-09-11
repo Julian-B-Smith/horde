@@ -2960,7 +2960,7 @@ struct Plugin
   {
     if (k < 0 || k > 3) return "{}";
     morphInit();
-    std::string out = "{\"cornerPreset\":[";
+    std::string out = "{\"morphLayout\":2,\"cornerPreset\":[";   // ADR-159
     char buf[32];
     for (size_t i = 0; i < morphIds.size(); i++)
     {
@@ -2977,11 +2977,14 @@ struct Plugin
     if (cp == std::string::npos) return false;
     const char *c = std::strchr(json.c_str() + cp, '[');
     if (!c) return false;
+    // ADR-159: a corner-preset FILE is the same positional array as a corner
+    // chunk, so it takes the same remap (the human's corners/*.json, Aug 21-30).
+    const std::vector<size_t> map = morphSlotMap(parseMorphLayout(json), countArray(c));
     c++;
     morphCornersAuthored = true;
-    for (size_t i = 0; i < morphIds.size(); i++)
+    for (size_t j = 0; j < map.size(); j++)
     {
-      morphCorner[k][i] = std::atof(c);
+      if (map[j] != SIZE_MAX) morphCorner[k][map[j]] = std::atof(c);
       const char *nx = std::strchr(c, ',');
       const char *cl = std::strchr(c, ']');
       if (!nx || (cl && cl < nx)) break;
@@ -2998,7 +3001,7 @@ struct Plugin
   std::string liveCornerJson()
   {
     morphInit();
-    std::string out = "{\"cornerPreset\":[";
+    std::string out = "{\"morphLayout\":2,\"cornerPreset\":[";   // ADR-159
     char buf[32];
     for (size_t i = 0; i < morphIds.size(); i++)
     {
@@ -4981,6 +4984,7 @@ extern "C" void hypersaw_debug_notelaw(const clap_plugin_t *p, char *out, uint32
                 q.model, q.tau, q.gtime, q.rate, q.springF, q.damp, q.distOver, q.retMul, q.quant, q.qhyst, q.qTime,
                 self(p)->noteLink, self(p)->bendLaw.model, self(p)->bendLaw.springF);
 }
+extern "C" bool hypersaw_debug_cornerapply(const clap_plugin_t *p, int k, const char *json) { return self(p)->cornerApply(k, json ? json : ""); }
 extern "C" void hypersaw_debug_voices(const clap_plugin_t *p, char *out, uint32_t cap)
 {
   auto &core = self(p)->cores[0]; uint32_t n = 0; out[0] = 0;
