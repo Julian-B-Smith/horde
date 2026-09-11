@@ -3,6 +3,7 @@
    scale is set to chromatic"). Drives the shipped plugin through the CLAP
    factory, renders one note at a time, measures the fundamental by
    autocorrelation over the last 0.5 s, and prints played vs heard. Diagnostic. */
+#include <algorithm>   // notefuzz_scaffold.inc uses std::stable_sort; MSVC does not pull it in transitively
 #include <cmath>
 #include <cstdio>
 #include <vector>
