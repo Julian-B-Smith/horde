@@ -35,7 +35,7 @@ struct Rig {
   void run(double s) { for (int i = 0; i < Math_blocks(s); i++) { EvList e; step(e); } }
   void note(int m, bool on, int id) { EvList e; e.notes.push_back(mkNote(on ? CLAP_EVENT_NOTE_ON : CLAP_EVENT_NOTE_OFF, 0, (int16_t)m, id, on ? 0.8 : 0)); step(e); }
   double t() const { return blocks * (double)kBlock / kSR; }
-  void voices(const char *tag) { if (!hypersaw_debug_voices) return; char b[512]; hypersaw_debug_voices(p, b, sizeof b); std::printf("    %-8s t=%.3f voices[slot,midi,gate,f0,f0cur,glide]: %s\n", tag, t(), b); }
+  void voices(const char *tag) { char b[512]; hypersaw_debug_voices(p, b, sizeof b); std::printf("    %-8s t=%.3f voices[slot,midi,gate,f0,f0cur,glide]: %s\n", tag, t(), b); }
   // autocorrelation pitch of the last `sec` seconds of mono, in MIDI (fractional)
   double pitchMidi(double sec) const { const int win = (int)(sec * kSR); if ((int)mono.size() < win) return 0; const size_t s0 = mono.size() - win;
     int lo = (int)(kSR / 2000), hi = (int)(kSR / 40); double best = -1; int bl = lo;
@@ -53,8 +53,8 @@ int main(int argc, char **argv) {
   int bad = 0;
   // ---- A: second note while the first is held --------------------------------
   { Rig r; r.boot(); if (!json.empty()) { if (!hypersaw_debug_apply(r.p, json.c_str())) std::printf("  apply FAILED\n"); r.run(0.2); }
-    if (hypersaw_debug_cornervals) { const char *c = hypersaw_debug_cornervals(r.p, 0); int n = 0; for (const char *q = c; *q; q++) n += (*q == ','); std::printf("    live corner 0: %d entries; all: %s\n", n + 1, c); }
-    if (hypersaw_debug_notelaw) { char b[400]; hypersaw_debug_notelaw(r.p, b, sizeof b); std::printf("    notelaw: %s\n", b); }
+    { const char *c = hypersaw_debug_cornervals(r.p, 0); int n = 0; for (const char *q = c; *q; q++) n += (*q == ','); std::printf("    live corner 0: %d entries; all: %s\n", n + 1, c); }
+    { char b[400]; hypersaw_debug_notelaw(r.p, b, sizeof b); std::printf("    notelaw: %s\n", b); }
     r.note(60, true, 1); r.run(0.4); r.voices("held60");
     r.note(64, true, 2); r.run(0.05); r.voices("+64@50ms"); r.note(60, false, 1);
     for (int k = 1; k <= 4; k++) { r.run(0.25); char tag[24]; std::snprintf(tag, sizeof tag, "%.2fs", 0.05 + 0.25 * k); r.voices(tag);
@@ -64,7 +64,7 @@ int main(int argc, char **argv) {
   // ---- B: chord, wheel lane readout ------------------------------------------
   { Rig r; r.boot(); if (!json.empty()) { hypersaw_debug_apply(r.p, json.c_str()); r.run(0.2); }
     double lastPb = -1e9; int lastKey = -1; int events = 0;
-    auto lane = [&]() { if (!hypersaw_debug_pitchbend) return; const double pb = hypersaw_debug_pitchbend(r.p); const int k = hypersaw_debug_lastnotekey(r.p);
+    auto lane = [&]() { const double pb = hypersaw_debug_pitchbend(r.p); const int k = hypersaw_debug_lastnotekey(r.p);
       if (pb != lastPb || k != lastKey) { if (events++ < 12) std::printf("    B  lane @%.3fs anchor=%d emitted=%+.3f st\n", r.t(), k, pb); if (std::fabs(pb) > 0.01) bad++; lastPb = pb; lastKey = k; } };
     r.note(60, true, 1); lane(); r.note(64, true, 2); lane(); r.note(67, true, 3); lane();
     for (int i = 0; i < Math_blocks(1.0); i++) { r.run(256.0 / kSR); lane(); }
