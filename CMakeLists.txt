@@ -608,3 +608,11 @@ endif()
 # unwired (human gate).
 add_executable(anchor_check tools/anchor_check.cpp)
 target_link_libraries(anchor_check PRIVATE ${PROJECT_NAME}-impl)
+
+# preset_probe: load a saved preset, run the 2026-09-11 two-note + chord symptoms. Diagnostic, unwired.
+add_executable(preset_probe tools/preset_probe.cpp)
+target_link_libraries(preset_probe PRIVATE ${PROJECT_NAME}-impl)
+
+# morphlayout_check: the morph field array layout is append-only (ADR-159). Standalone, unwired.
+add_executable(morphlayout_check tools/morphlayout_check.cpp)
+target_link_libraries(morphlayout_check PRIVATE ${PROJECT_NAME}-impl)

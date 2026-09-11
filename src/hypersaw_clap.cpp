@@ -1501,15 +1501,42 @@ struct Plugin
   uint32_t morphSeed = 1024;
   int morphAccum = 0;
 
-  void morphInit()
+  /* ADR-159 — THE PREFIX IS FROZEN. The per-osc block below is built by
+     walking the param table, so a per-osc row added to the table lands INSIDE
+     the prefix and shifts every entry after it: `oscPitch` (181, ADR-150,
+     2026-08-31) did exactly that, and every corner/exempt array saved between
+     ADR-104 A2 (the bend/note tail, 2026-08-21) and 2026-08-31 read its bend
+     law two slots off — bendSpringF as bendRate, bendQuant as bendDistOver,
+     bendQTimeHz as … — a spring-quantised 2 s step gate on patches that had
+     none. Hidden until B110 let `morphOn` land on preset load. Per-osc rows
+     added after the freeze are listed here and APPENDED after every earlier
+     block, twin beside base, so append-only is true by construction again.
+     `applyMorphChunk` remaps arrays saved under the 2026-08-31..09-11 layout. */
+  static constexpr clap_id kMorphLateIds[] = {181};
+  static constexpr size_t kMorphAdr150Size = 224;   // the only layout that ever had 181 in the prefix
+  static bool isMorphLateId(clap_id id)
   {
-    if (!morphIds.empty()) return;
+    for (clap_id l : kMorphLateIds) if (l == id) return true;
+    return false;
+  }
+  // One builder for both the live order and the 2026-08-31 legacy order.
+  static std::vector<clap_id> buildMorphOrder(bool lateInPrefix)
+  {
+    std::vector<clap_id> ids;
     for (const auto &d : kParams)
     {
       if (isGlobalId(d.id)) continue;
-      morphIds.push_back(d.id);
-      morphIds.push_back(d.id + 1000);    // the twin — each osc morphs its own
+      if (!lateInPrefix && isMorphLateId(d.id)) continue;
+      ids.push_back(d.id);
+      ids.push_back(d.id + 1000);    // the twin — each osc morphs its own
     }
+    return ids;
+  }
+
+  void morphInit()
+  {
+    if (!morphIds.empty()) return;
+    morphIds = buildMorphOrder(/*lateInPrefix=*/false);
     /* ADR-104 Amendment 1: the FX rack joins the field — slot type, amount,
        tone, mix. This is what makes "off in this corner, driven in that one"
        a rack story and not only an oscillator story, and it is the
@@ -1549,6 +1576,8 @@ struct Plugin
     const size_t scaleFirst = morphIds.size();
     for (clap_id id = 116; id <= 128; id++) morphIds.push_back(id);
     const size_t scaleLast = morphIds.size() - 1;
+    // ADR-159: the late per-osc rows, appended last (see kMorphLateIds).
+    for (clap_id id : kMorphLateIds) { morphIds.push_back(id); morphIds.push_back(id + 1000); }
 
     /* THE LEAD MAP. Identity, then the groups.
        FX SLOTS (B49, measured 2026-08-26): type and amount were drawn
@@ -2931,7 +2960,7 @@ struct Plugin
   {
     if (k < 0 || k > 3) return "{}";
     morphInit();
-    std::string out = "{\"cornerPreset\":[";
+    std::string out = "{\"morphLayout\":2,\"cornerPreset\":[";   // ADR-159
     char buf[32];
     for (size_t i = 0; i < morphIds.size(); i++)
     {
@@ -2948,11 +2977,14 @@ struct Plugin
     if (cp == std::string::npos) return false;
     const char *c = std::strchr(json.c_str() + cp, '[');
     if (!c) return false;
+    // ADR-159: a corner-preset FILE is the same positional array as a corner
+    // chunk, so it takes the same remap (the human's corners/*.json, Aug 21-30).
+    const std::vector<size_t> map = morphSlotMap(parseMorphLayout(json), countArray(c));
     c++;
     morphCornersAuthored = true;
-    for (size_t i = 0; i < morphIds.size(); i++)
+    for (size_t j = 0; j < map.size(); j++)
     {
-      morphCorner[k][i] = std::atof(c);
+      if (map[j] != SIZE_MAX) morphCorner[k][map[j]] = std::atof(c);
       const char *nx = std::strchr(c, ',');
       const char *cl = std::strchr(c, ']');
       if (!nx || (cl && cl < nx)) break;
@@ -2969,7 +3001,7 @@ struct Plugin
   std::string liveCornerJson()
   {
     morphInit();
-    std::string out = "{\"cornerPreset\":[";
+    std::string out = "{\"morphLayout\":2,\"cornerPreset\":[";   // ADR-159
     char buf[32];
     for (size_t i = 0; i < morphIds.size(); i++)
     {
@@ -2987,8 +3019,53 @@ struct Plugin
      nothing ("sessions don't save the morph", human 2026-08-23). The writer
      (morphJson) and this parser stay adjacent twins on purpose: the JSON
      state-twins bug was two copies drifting apart. */
+  /* ADR-159: where stored slot j lands in the live order. Layout 1 arrays of
+     exactly kMorphAdr150Size were written with 181/1181 inside the prefix;
+     every other layout-1 array (<= 222 entries) is the frozen prefix and maps
+     1:1. Returns SIZE_MAX for a slot the live order does not carry. */
+  std::vector<size_t> morphSlotMap(int layout, size_t storedLen) const
+  {
+    std::vector<size_t> map(storedLen);
+    for (size_t j = 0; j < storedLen; j++) map[j] = j < morphIds.size() ? j : SIZE_MAX;
+    if (layout >= 2 || storedLen != kMorphAdr150Size) return map;
+    std::vector<clap_id> legacy = buildMorphOrder(/*lateInPrefix=*/true);
+    // the legacy order is the live order with the late rows in the prefix and
+    // nothing appended; its tail (FX, laws, globals, scale) follows the prefix
+    // exactly as morphInit appends it, so rebuild it the same way.
+    std::vector<clap_id> live = buildMorphOrder(false);
+    const size_t livePrefix = live.size();
+    for (size_t i = livePrefix; i < morphIds.size(); i++)
+      if (!isMorphLateId(morphIds[i]) && !isMorphLateId(morphIds[i] >= 1000 ? morphIds[i] - 1000 : morphIds[i]))
+        legacy.push_back(morphIds[i]);
+    for (size_t j = 0; j < storedLen; j++)
+    {
+      map[j] = SIZE_MAX;
+      if (j >= legacy.size()) continue;
+      for (size_t i = 0; i < morphIds.size(); i++)
+        if (morphIds[i] == legacy[j]) { map[j] = i; break; }
+    }
+    return map;
+  }
+  static int parseMorphLayout(const std::string &json)
+  {
+    const size_t lp = json.find("\"morphLayout\"");
+    if (lp == std::string::npos) return 1;
+    const size_t colon = json.find(':', lp);
+    return colon == std::string::npos ? 1 : std::atoi(json.c_str() + colon + 1);
+  }
+  // Count the numbers in the bracketed array starting at `c` (which points at '[').
+  static size_t countArray(const char *c)
+  {
+    const char *cl = std::strchr(c, ']');
+    if (!cl || cl == c + 1) return 0;
+    size_t n = 1;
+    for (const char *q = c; q < cl; q++) n += (*q == ',');
+    return n;
+  }
+
   void applyMorphChunk(const std::string &json)
   {
+    const int layout = parseMorphLayout(json);
     {
       size_t ep = json.find("\"morphExempt\"");
       if (ep != std::string::npos)
@@ -2997,10 +3074,11 @@ struct Plugin
         const char *c = std::strchr(json.c_str() + ep, '[');
         if (c)
         {
+          const std::vector<size_t> map = morphSlotMap(layout, countArray(c));
           c++;
-          for (size_t i = 0; i < morphExempt.size(); i++)
+          for (size_t j = 0; j < map.size(); j++)
           {
-            morphExempt[i] = (uint8_t)(std::atoi(c) != 0);
+            if (map[j] != SIZE_MAX) morphExempt[map[j]] = (uint8_t)(std::atoi(c) != 0);
             const char *nx = std::strchr(c, ',');
             const char *cl = std::strchr(c, ']');
             if (!nx || (cl && cl < nx)) break;
@@ -3022,10 +3100,11 @@ struct Plugin
           c = std::strchr(c, '[');
           if (!c) break;
           if (k == 0) { c = std::strchr(c + 1, '['); if (!c) break; }   // outer, then inner
+          const std::vector<size_t> map = morphSlotMap(layout, countArray(c));   // ADR-159
           c++;
-          for (size_t i = 0; i < morphIds.size(); i++)
+          for (size_t j = 0; j < map.size(); j++)
           {
-            morphCorner[k][i] = std::atof(c);
+            if (map[j] != SIZE_MAX) morphCorner[k][map[j]] = std::atof(c);
             morphCornersAuthored = true;
             const char *nx = std::strchr(c, ',');
             const char *cl = std::strchr(c, ']');
@@ -3040,7 +3119,9 @@ struct Plugin
   std::string morphJson()
   {
     if (morphIds.empty()) return "";
-    std::string out = ",\"morphCorners\":[";
+    // ADR-159: the array layout version. 2 = late per-osc rows appended last;
+    // absent = 1 (pre-2026-09-11), where a 224-entry array is the ADR-150 order.
+    std::string out = ",\"morphLayout\":2,\"morphCorners\":[";
     char buf[32];
     for (int k = 0; k < 4; k++)
     {
@@ -4893,6 +4974,28 @@ extern "C" void hypersaw_debug_set_engine_revision(const clap_plugin_t *p, int r
    these between blocks; nothing in the audio thread changes. */
 extern "C" double hypersaw_debug_pitchbend(const clap_plugin_t *p) { return self(p)->pitchBend; }
 extern "C" int hypersaw_debug_lastnotekey(const clap_plugin_t *p) { return self(p)->lastNoteKey; }
+/* Per-voice pitch state of oscillator 0: "slot,midi,gate,f0,f0cur,glideActive;…"
+   for every gated or ringing voice. Read between blocks by a probe. */
+/* The note law as oscillator 0's core holds it (2026-09-11 stuck-glide hunt). */
+extern "C" void hypersaw_debug_notelaw(const clap_plugin_t *p, char *out, uint32_t cap)
+{
+  const auto &q = self(p)->cores[0].p.noteLaw;
+  std::snprintf(out, cap, "model=%g tau=%g gtime=%g rate=%g springF=%g damp=%g distOver=%g retMul=%g quant=%g qhyst=%g qTime=%g | link=%g bend.model=%g bend.springF=%g",
+                q.model, q.tau, q.gtime, q.rate, q.springF, q.damp, q.distOver, q.retMul, q.quant, q.qhyst, q.qTime,
+                self(p)->noteLink, self(p)->bendLaw.model, self(p)->bendLaw.springF);
+}
+extern "C" bool hypersaw_debug_cornerapply(const clap_plugin_t *p, int k, const char *json) { return self(p)->cornerApply(k, json ? json : ""); }
+extern "C" void hypersaw_debug_voices(const clap_plugin_t *p, char *out, uint32_t cap)
+{
+  auto &core = self(p)->cores[0]; uint32_t n = 0; out[0] = 0;
+  for (int i = 0; i < hypersaw::kPoly; i++)
+  {
+    const auto &v = core.voiceAt(i);
+    if (!v.gate && v.env < 1e-4) continue;
+    n += (uint32_t)std::snprintf(out + n, cap > n ? cap - n : 0, "%d,%d,%d,%.3f,%.3f,%d;", i, v.midi, v.gate, v.f0, v.f0cur, v.glideActive);
+    if (n >= cap) break;
+  }
+}
 
 bool gui_create(const clap_plugin_t *p, const char *api, bool is_floating)
 {
