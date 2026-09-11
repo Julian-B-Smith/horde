@@ -3,7 +3,8 @@
    again": hold 60, strike 64, release 60, measure what the remaining voice
    sounds at; (B) chord: the wheel lane's emitted value per block. Works on any
    commit since 2026-08-21 (hypersaw_debug_apply); the per-voice / lane exports
-   are WEAK so the probe still links where they do not exist. Usage:
+   are plain externs (they were weak for the 2026-09-11 bisect; MSVC has no
+   __attribute__, and the exports now exist on every branch that builds this). Usage:
    preset_probe [preset.json] */
 #include <algorithm>
 #include <cmath>
@@ -16,11 +17,11 @@
 #include <clap/clap.h>
 #include "../src/hypersaw_clap_entry.h"
 extern "C" bool hypersaw_debug_apply(const clap_plugin_t *, const char *);
-extern "C" const char *hypersaw_debug_cornervals(const clap_plugin_t *, int) __attribute__((weak));
-extern "C" double hypersaw_debug_pitchbend(const clap_plugin_t *) __attribute__((weak));
-extern "C" int hypersaw_debug_lastnotekey(const clap_plugin_t *) __attribute__((weak));
-extern "C" void hypersaw_debug_voices(const clap_plugin_t *, char *, uint32_t) __attribute__((weak));
-extern "C" void hypersaw_debug_notelaw(const clap_plugin_t *, char *, uint32_t) __attribute__((weak));
+extern "C" const char *hypersaw_debug_cornervals(const clap_plugin_t *, int);
+extern "C" double hypersaw_debug_pitchbend(const clap_plugin_t *);
+extern "C" int hypersaw_debug_lastnotekey(const clap_plugin_t *);
+extern "C" void hypersaw_debug_voices(const clap_plugin_t *, char *, uint32_t);
+extern "C" void hypersaw_debug_notelaw(const clap_plugin_t *, char *, uint32_t);
 namespace {
 #include "notefuzz_scaffold.inc"
 struct Rig {
