@@ -178,6 +178,20 @@ class GlideCore
   {
     const int qm = (int)p.quant;
     if (!qm) { q = x; return x; }
+    /* ANCHOR MOVED -> START OVER. qStep, the hysteresis latch and the time
+       gate all live in ABSOLUTE pitch (qStep = base + step), so they describe
+       a gesture on the OLD anchor. Carrying them across a base change made the
+       wheel lane emit (oldStep − newBase): a second key struck inside the gate
+       window inherited the first key's step and every held voice was
+       transposed by the interval between the two notes until the window
+       elapsed — "playing several notes makes them glide to other notes at
+       random intervals" (human, 2026-09-11; chromatic, wheel at rest). A note-on
+       is not a wheel gesture: the new anchor commits at once and the gate's
+       clock restarts there, exactly as reset() arms a fresh lane. The reference
+       carries the same latch and never meets a base change (single-note
+       bench), so every golden runs base constant and this is inert there. */
+    if (qArmed && base != qBase) { qArmed = false; qT = 1e9; }
+    qBase = base;
     const double semis = base + x;   // ABSOLUTE pitch, not the offset — the reference's own comment
     /* ONE CANDIDATE SEARCH FOR BOTH MODES, mirroring the reference exactly.
        Chromatic used std::lround here while the reference used Math.round, and
@@ -260,6 +274,7 @@ class GlideCore
   double x = 0, vel = 0, y = 0, D = 0, q = 0;
   long qStep = 0;
   double qT = 1e9;
+  double qBase = 0;   // the anchor qStep was committed against
   bool qArmed = false;
   int qFlips = 0;
 };

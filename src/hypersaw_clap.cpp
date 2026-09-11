@@ -4888,6 +4888,11 @@ extern "C" void hypersaw_debug_set_engine_revision(const clap_plugin_t *p, int r
 {
   self(p)->setEngineRevision(rev);
 }
+/* 2026-09-11 chord-transposition hunt: the wheel lane's EMITTED value (what
+   updateTuneAll multiplies every voice by) and its anchor key. A probe reads
+   these between blocks; nothing in the audio thread changes. */
+extern "C" double hypersaw_debug_pitchbend(const clap_plugin_t *p) { return self(p)->pitchBend; }
+extern "C" int hypersaw_debug_lastnotekey(const clap_plugin_t *p) { return self(p)->lastNoteKey; }
 
 bool gui_create(const clap_plugin_t *p, const char *api, bool is_floating)
 {

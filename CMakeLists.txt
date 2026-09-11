@@ -602,3 +602,9 @@ if(HYPERSAW_SANITIZE)
     message(STATUS "HYPERSAW_SANITIZE=${HYPERSAW_SANITIZE} on host-side executables")
   endif()
 endif()
+
+# anchor_check: the wheel lane must not transpose held notes when its anchor
+# (lastNoteKey) moves — the 2026-09-11 chord-transposition report. Standalone,
+# unwired (human gate).
+add_executable(anchor_check tools/anchor_check.cpp)
+target_link_libraries(anchor_check PRIVATE ${PROJECT_NAME}-impl)
