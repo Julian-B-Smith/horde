@@ -394,6 +394,11 @@ if(NOT MSVC)
   target_compile_options(robustness_matrix PRIVATE -O2)
 endif()
 
+# pitch_probe: played vs heard MIDI per new note across quantise setups
+# (2026-09-11 "random note in a scale" report). Diagnostic, unwired.
+add_executable(pitch_probe tools/pitch_probe.cpp)
+target_link_libraries(pitch_probe PRIVATE ${PROJECT_NAME}-impl)
+
 # morphscope_probe: WHERE does an edit land under the morph (mode x arm x
 # puck position), read back corner by corner. Diagnostic for the 2026-09-03
 # "globals act like corner params" report; prints, never judges.
