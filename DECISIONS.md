@@ -5170,3 +5170,25 @@ buried (id kept for state compat, GUI control removed) or exposed as a
 setting. Nothing here pre-empts the pool; a pool node's presence coefficient
 is the same idea made structural.
 
+### ADR-163 Amendment 1 — as built (2026-09-13, PR #556)
+
+Ids 264/265. The shadow is a preallocated `Slot` per rack slot; `setType`
+arms it BEFORE storing the new type so it captures the outgoing module, and a
+type change mid-fade overwrites the shadow, which is what bounds a slot to two
+modules by construction. `typeAllowed` counts a fading shadow as holding its
+type. The default is inert by one never-taken branch. **Declared hole:**
+Echo ↔ Room share one `TimeCore` per slot and a mode write clears its
+buffers, so that pair stays atomic until a second time engine per slot is
+budgeted (~1.8 MB × 4) — the human's ruling, filed on B117 beside the
+bury/expose ruling.
+
+### ADR-162 Amendment 1 — as built (2026-09-13, PR #555)
+
+The two per-note pitch offsets (MPE bend, ENV 2) compose in ONE function;
+`setNoteExprAll` has exactly one caller. The global source (slot 1) is the
+max over ALL slots including releasing ones — the lead's ruling on the
+stream's open question, so it releases over env2R at last-key-up as the
+shared envelope did. `penv_check`'s T4 was rewritten by the stream after it
+passed vacuously against the old build (it measured the lane being added,
+not the lane the bug lived in); it now measures the total applied offset.
+
