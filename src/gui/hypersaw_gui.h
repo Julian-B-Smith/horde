@@ -147,6 +147,21 @@ struct GuiHost
   std::function<void()> releaseKeyFocus;
   std::function<std::string()> getStateJson;             // full provenance dump
   std::function<bool(const std::string &)> applyStateJson;
+  /* UNDO HISTORY (B84 / ADR-160). The tree is SHELL state — a GUI-side history
+     dies with the window and never sees a preset change made while the editor
+     was shut. Four calls, all main-thread:
+       undoService  — pump. The shell defers each snapshot until its param
+                      queue has drained, so something must ask; hzFrame does,
+                      once per frame, before anything else.
+       undoTreeJson — {"cur":i,"cap":n,"nodes":[{i,parent,tick,label}]}
+       undoRestore  — go to node i (navigation; the next edit forks from it)
+       undoStep     — -1 undo, +1 redo. One function, not two: the only
+                      difference is the direction, and two would be two
+                      places to fix the same bug. */
+  std::function<void()> undoService;
+  std::function<std::string()> undoTreeJson;
+  std::function<bool(int)> undoRestore;
+  std::function<bool(int)> undoStep;
 };
 
 class HypersawGui

@@ -723,6 +723,25 @@
   .oscPow.on { color:var(--bg); background:var(--text); border-color:var(--text);
                opacity:1; box-shadow:var(--shadow); }   /* §3 bans blur — hard offset only */
   .note { color:var(--dim); font-size:10.5px; }
+  /* HISTORY (B84). DEPTH COLUMNS, not a timeline: the thing a player needs to
+     see is that restoring an old state and editing BRANCHED, and a single
+     ordered list is exactly the drawing that hides a branch. Column = distance
+     from a root, so siblings sit level and a fork reads as two entries in the
+     same column. Horizontal scroll rather than wrapping: a wrapped column is a
+     depth that lies. */
+  .histbar { display:flex; gap:8px; align-items:center; margin-bottom:8px; }
+  .histbar output { margin-left:auto; color:var(--dim); font-size:10.5px; }
+  #histTree { display:flex; gap:8px; overflow-x:auto; align-items:flex-start;
+              padding-bottom:4px; }
+  .histcol { display:flex; flex-direction:column; gap:4px; min-width:120px; }
+  .histcol > .hd { font-size:9.5px; color:var(--dim); letter-spacing:.1em; }
+  .histnode { text-align:left; font:inherit; font-size:10.5px; cursor:pointer;
+    background:var(--well); color:var(--t2); padding:4px 7px; border-radius:6px;
+    border:var(--stroke) solid var(--line); min-width:0; }
+  .histnode:hover { border-color:var(--pull); }
+  .histnode.on { background:var(--line); color:var(--bg); font-weight:600; }
+  .histnode.root { border-left-width:3px; }   /* a forest root after eviction */
+  .histnode .t { display:block; font-size:9px; opacity:.6; }
   canvas.xy { aspect-ratio:1.6; border:var(--stroke) solid var(--line);
               width:100%; touch-action:none; }
   #carpetC, #stripC, #vmapC, .carpetM { width:100%;
@@ -1105,6 +1124,28 @@
     <div class="row" data-addr="morphArm" data-when="never"><label>Edit Corner</label><select data-p="159"><option value="0" selected>live (owning corner)</option><option value="1">A</option><option value="2">B</option><option value="3">C</option><option value="4">D</option></select><output></output></div>
   </div>
   <!--/GEN:MORPH-->
+  </div>
+</div>
+
+<div class="page" id="pg-HIST">
+  <div class="cluster"><h2>History</h2>
+    <div class="histbar">
+      <button id="histUndo" title="Cmd/Ctrl+Z">UNDO</button>
+      <button id="histRedo" title="Shift+Cmd/Ctrl+Z">REDO</button>
+      <output id="histNow"></output>
+    </div>
+    <div id="histTree"></div>
+    <div class="note">One entry per GESTURE, not per parameter write: a morph-pad
+      drag that rewrites every owned parameter is one step, as is a preset load,
+      a corner capture or apply, and the morph toggle. Click any entry to go back
+      to it — the next edit then BRANCHES from there, so nothing you pass through
+      is destroyed. Columns are depth from a root.</div>
+    <div class="note">Host automation is deliberately absent: this records the
+      states YOU made, and an automation lane keeps writing over the top after a
+      restore exactly as it does after any edit. The last 200 states are kept,
+      in memory, for this session — the oldest is dropped as new ones arrive and
+      its children become roots of their own, which is why more than one column
+      can start at the left.</div>
   </div>
 </div>
 
@@ -3067,13 +3108,119 @@ async function syncFromEngine() {
   // ADR-137: the pad reads the assigned macros out of lastParams every frame,
   // so the poll needs no pad-specific line — Object.assign above is enough.
 }
+/* ============ HISTORY (B84 / ADR-160) =====================================
+   The tree is SHELL state — this page only draws it. Everything here is one of
+   four binds: hzUndoTree (read), hzUndoRestore, hzUndo, hzRedo.
+
+   WHY THE PAGE POLLS ITSELF. hzFrame pumps the shell's undo service, but
+   frameFetch returns early when the visible page wants no feed (`!want`) — and
+   HISTORY wants none, being all DOM. So the page asks for the tree on its own
+   cadence while it is showing, and not at all while it is hidden. Every undo
+   bind pumps the service shell-side too, so a node is never owed at the moment
+   someone actually asks for one. */
+let histSig = '';
+function histDepths(nodes) {
+  const by = new Map(nodes.map(n => [n.i, n]));
+  const d = new Map();
+  const depth = (i, guard) => {
+    if (d.has(i)) return d.get(i);
+    const n = by.get(i);
+    // A parent that is not in the list means it was EVICTED: this node is a
+    // root of its own now, which is what a forest looks like.
+    const v = (!n || n.parent < 0 || !by.has(n.parent) || guard > 256)
+            ? 0 : depth(n.parent, guard + 1) + 1;
+    d.set(i, v);
+    return v;
+  };
+  for (const n of nodes) depth(n.i, 0);
+  return d;
+}
+async function renderHistory(force) {
+  const host = document.getElementById('histTree');
+  if (!host) return;
+  if (!window.hzUndoTree) { host.textContent = 'no engine'; return; }
+  let t;
+  try { t = JSON.parse(await window.hzUndoTree()); } catch (_) { return; }
+  const nodes = t.nodes || [];
+  // Redraw only on a real change: this runs a few times a second and a blind
+  // rebuild would throw away the scroll position and the hover every time.
+  const sig = t.cur + '|' + nodes.map(n => n.i + ':' + n.parent + ':' + n.tick).join(',');
+  if (!force && sig === histSig) return;
+  histSig = sig;
+
+  const d = histDepths(nodes);
+  const cols = [];
+  for (const n of nodes) {
+    const k = d.get(n.i) || 0;
+    (cols[k] = cols[k] || []).push(n);
+  }
+  host.textContent = '';
+  cols.forEach((col, k) => {
+    col.sort((a, b) => a.tick - b.tick);
+    const c = document.createElement('div');
+    c.className = 'histcol';
+    const hd = document.createElement('div');
+    hd.className = 'hd';
+    hd.textContent = k === 0 ? 'START' : 'STEP ' + k;
+    c.appendChild(hd);
+    for (const n of col) {
+      const b = document.createElement('button');
+      b.className = 'histnode' + (n.i === t.cur ? ' on' : '') + (n.parent < 0 ? ' root' : '');
+      b.textContent = n.label || '(state)';
+      b.title = 'restore this state — the next edit branches from it';
+      const tk = document.createElement('span');
+      tk.className = 't';
+      tk.textContent = '#' + n.tick;
+      b.appendChild(tk);
+      b.addEventListener('click', async () => {
+        await window.hzUndoRestore(n.i);
+        await syncFromEngine().catch(() => {});
+        renderHistory(true).catch(() => {});
+      });
+      c.appendChild(b);
+    }
+    host.appendChild(c);
+  });
+  const now = document.getElementById('histNow');
+  if (now) {
+    const cur = nodes.find(n => n.i === t.cur);
+    now.textContent = nodes.length + ' / ' + (t.cap || 200) + ' states'
+                    + (cur ? ' — at "' + (cur.label || 'state') + '"' : '');
+  }
+}
+async function histStep(back) {
+  if (!window.hzUndo) return;
+  await (back ? window.hzUndo() : window.hzRedo());
+  await syncFromEngine().catch(() => {});
+  renderHistory(true).catch(() => {});
+}
+document.getElementById('histUndo')?.addEventListener('click', () => histStep(true).catch(() => {}));
+document.getElementById('histRedo')?.addEventListener('click', () => histStep(false).catch(() => {}));
+/* Cmd/Ctrl+Z anywhere in the editor, Shift for redo. Only while OUR webview has
+   focus — which is the whole condition: this listener cannot fire otherwise,
+   and the key-focus passthrough above deliberately hands focus back to the host
+   after clicks, so an undo typed at the DAW stays the DAW's undo. Text fields
+   keep their own native undo. */
+document.addEventListener('keydown', e => {
+  if ((e.key !== 'z' && e.key !== 'Z') || !(e.metaKey || e.ctrlKey)) return;
+  const a = document.activeElement;
+  if (a && (a.tagName === 'TEXTAREA' || (a.tagName === 'INPUT' && a.type === 'text'))) return;
+  e.preventDefault();
+  histStep(!e.shiftKey).catch(() => {});
+});
+function histFrame() {
+  const pg = document.getElementById('pg-HIST');
+  if (!pg || !pg.classList.contains('on')) return;   // never poll a hidden page
+  renderHistory().catch(() => {});
+}
 /* ============ page shell ================================================== */
 // OSC sits second: it is where the instrument is SHAPED, and MIX is where a
 // finished sound is balanced — so the order follows the order of work rather
 // than the order the pages happened to be built in (human, 2026-08-19).
 const PAGES = [['MAIN', true], ['OSC', true], ['MIX', true], ['FX', true],
                ['MOD', true], ['MORPH', true],
-               ['SET', true]];   // SPACE retired 2026-08-24; SET added 2026-08-25
+               ['SET', true],
+               ['HIST', true]];  // SPACE retired 2026-08-24; SET 2026-08-25; HIST B84
 const tabs = $('#tabs');
 const pgTabs = document.createElement('div');
 pgTabs.className = 'pgtabs';
@@ -3088,6 +3235,7 @@ for (const [name, live] of PAGES) {
     document.querySelectorAll('.page').forEach(x => x.classList.remove('on'));
     t.classList.add('on');
     if (name === 'MOD') renderModRoutes().catch(() => {});   // routes are shell state
+    if (name === 'HIST') renderHistory().catch(() => {});   // so is the undo tree
     // REVEAL FIRST, THEN PAINT. These draws used to run before the line below,
     // so every one of them measured the canvas while the page was still
     // display:none — zero CSS size, and the ink lands outside the bitmap.
@@ -3381,6 +3529,7 @@ function frameBody() {
   }
   if (frameNo % 6 === 0 && MODE !== 1 && DIAG.halos) modHaloFrame().catch(() => {});   // halos: 10 Hz
   if (frameNo % 3 === 0) chromeFrame();                  // CHROME-002, ~20 Hz
+  if (frameNo % 12 === 0) histFrame();                   // B84 history, ~5 Hz, visible only
   if (!DIAG.xy) return;   // DIAG: pad paint disabled
   for (const pad of PADS) {   // each pad follows ITS OWN assigned macros
     if (!pad.cv) continue;

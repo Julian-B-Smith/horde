@@ -33,6 +33,7 @@
 #include "depends_graph.h"
 #include "fx_rack.h"
 #include "routing_core.h"
+#include "undo_tree.h"
 #include "hypersaw_clap_entry.h"
 #include "build_stamp.h"   // generated every build (CMake target)
 
@@ -1138,6 +1139,18 @@ struct Plugin
   ParamMsg queue[kQCap];
   std::atomic<uint32_t> qHead{0}, qTail{0};
 
+  /* B84 / ADR-160 — UNDO HISTORY, main thread only. The tree, the pending
+     MARK (a node is owed, and what to call it), and the monotone counter that
+     orders nodes for display. `undoTick` is a counter, never a clock
+     (SPEC 5.7). `undoRestoring` suppresses marking while a restore replays a
+     snapshot through applyStateJson — a restore is navigation, not an edit,
+     and without the guard every undo would create the node it just left. */
+  hypersaw::UndoTree undo;
+  std::string undoPendingLabel;
+  bool undoPending = false;
+  bool undoRestoring = false;
+  uint64_t undoTick = 0;
+
   // Engine -> GUI viz feed: classic double buffer; writer alternates, reader
   // only ever copies the published side.
   hypersaw::VizSnapshot vizBuf[2];
@@ -1755,6 +1768,7 @@ struct Plugin
       morphCorner[k][i] = v;
     }
     morphCornersAuthored = true;
+    undoMarkCorner(k);   // B84
   }
 
   /* One morph step, on the 256-sample gravity grid (heavier than the bend grid
@@ -2990,7 +3004,17 @@ struct Plugin
       if (!nx || (cl && cl < nx)) break;
       c = nx + 1;
     }
+    undoMarkCorner(k);   // B84
     return true;
+  }
+
+  // Both corner writes name the corner they touched; the tick tells two visits
+  // to the same corner apart, so one label serves capture and apply alike.
+  void undoMarkCorner(int k)
+  {
+    char lb[24];
+    std::snprintf(lb, sizeof lb, "corner %d", k + 1);
+    undoMark(lb);
   }
 
   /* ADR-105 A3: the LIVE settings as a corner preset, no capture required.
@@ -3321,7 +3345,128 @@ struct Plugin
       enqueueParam(150, 1, 0);
       enqueueParam(1150, 1, 0);
     }
+    undoMark("load");   // B84: a preset load is ONE history node
     return any;
+  }
+
+  /* ================= UNDO HISTORY (B84 / ADR-160) =========================
+     Main thread only. The audio thread is not read, not written, and not
+     synchronised with beyond the two atomic loads undoService already needs in
+     order to ask "has the queue drained?".
+
+     A MARK says a node is owed and what to call it; it does NOT snapshot.
+     Every GUI write reaches the engine through the param QUEUE, so a snapshot
+     taken at the mark would photograph the state BEFORE the edit that mark
+     names. undoService takes it at the first main-thread pump (hzFrame, or any
+     undo bind) once qTail has caught qHead. Two properties fall out for free:
+     marks arriving while nothing drains (transport stopped, editor closed)
+     COLLAPSE into the single node the resume produces, and a mark whose
+     snapshot equals the current node's is dropped by UndoTree::push.
+
+     ADR-160 (3): host parameter events and automation never mark. They reach
+     applyParam on the audio thread and nothing on that path calls undoMark —
+     the exclusion is structural, not a filter that could be forgotten. */
+  void undoMark(const char *label)
+  {
+    if (undoRestoring) return;   // replaying a snapshot is navigation, not an edit
+    undoPending = true;
+    undoPendingLabel.assign(label ? label : "");
+  }
+
+  // The gesture-END label: the parameter's display name plus which oscillator
+  // it belongs to, so the two strips are told apart in the list.
+  void undoMarkParam(clap_id id)
+  {
+    const ParamDef *d = findParam(id);
+    if (!d) return;
+    char lb[96];
+    const uint32_t k = oscOfId(id);
+    if (kNumOsc > 1 && !isGlobalId(baseIdOf(id)))
+      std::snprintf(lb, sizeof lb, "%s (osc %u)", d->name, (unsigned)(k + 1));
+    else
+      std::snprintf(lb, sizeof lb, "%s", d->name);
+    undoMark(lb);
+  }
+
+  void undoService()
+  {
+    /* The ROOT. Without it the first edit's node has no parent and Undo is
+       dead until the second one — the history would begin one state too late,
+       and that state is exactly the one a player wants back. Taken at the
+       first pump with a drained queue; a mark already pending dedups against
+       this same snapshot, so an editor opened onto a just-loaded patch shows
+       one node, not two. */
+    const bool seed = undo.size() == 0;
+    if (!seed && !undoPending) return;
+    if (qHead.load(std::memory_order_acquire) != qTail.load(std::memory_order_acquire)) return;
+    const std::string snap = stateJson();
+    if (seed) undo.push("start", snap, ++undoTick);
+    if (undoPending)
+    {
+      undo.push(undoPendingLabel.c_str(), snap, ++undoTick);
+      undoPending = false;
+    }
+  }
+
+  bool undoGoTo(int i)
+  {
+    undoService();   // the edit in hand becomes a node BEFORE we walk away from it
+    if (!undo.liveAt(i)) return false;
+    undoRestoring = true;
+    applyStateJson(undo.node(i).json);
+    undoRestoring = false;
+    undo.restore(i);
+    undoPending = false;
+    return true;
+  }
+
+  bool undoStep(int dir)
+  {
+    undoService();
+    const int i = dir < 0 ? undo.undo() : undo.redo();
+    if (i == hypersaw::UndoTree::kNone) return false;
+    undoRestoring = true;
+    applyStateJson(undo.node(i).json);
+    undoRestoring = false;
+    undoPending = false;
+    return true;
+  }
+
+  std::string undoTreeJson()
+  {
+    undoService();
+    char buf[192];
+    std::snprintf(buf, sizeof buf, "{\"cur\":%d,\"cap\":%d,\"nodes\":[", undo.current(),
+                  undo.capacity());
+    std::string out = buf;
+    bool first = true;
+    for (int i = 0; i < undo.capacity(); i++)
+    {
+      if (!undo.liveAt(i)) continue;
+      const auto &n = undo.node(i);
+      std::snprintf(buf, sizeof buf, "%s{\"i\":%d,\"parent\":%d,\"tick\":%llu,\"label\":\"",
+                    first ? "" : ",", i, n.parent, (unsigned long long)n.tick);
+      out += buf;
+      out += jsonEscape(n.label);
+      out += "\"}";
+      first = false;
+    }
+    return out + "]}";
+  }
+
+  // The labels are ours (parameter names, "corner 2"), but they cross into a
+  // webview as JSON — escape rather than trust the table to stay quote-free.
+  static std::string jsonEscape(const std::string &in)
+  {
+    std::string o;
+    o.reserve(in.size() + 8);
+    for (char c : in)
+    {
+      if (c == '"' || c == '\\') { o += '\\'; o += c; }
+      else if ((unsigned char)c < 0x20) o += ' ';
+      else o += c;
+    }
+    return o;
   }
 
   void applyParam(clap_id id, double value)
@@ -4907,6 +5052,7 @@ bool state_load(const clap_plugin_t *p, const clap_istream_t *stream)
       if (!known) continue;  // unknown/future keys ignored (state_check pins this)
     }
   }
+  pl->undoMark("host load");   // B84: main thread, per the CLAP state contract
   return true;
 }
 
@@ -4985,6 +5131,31 @@ extern "C" void hypersaw_debug_notelaw(const clap_plugin_t *p, char *out, uint32
                 self(p)->noteLink, self(p)->bendLaw.model, self(p)->bendLaw.springF);
 }
 extern "C" bool hypersaw_debug_cornerapply(const clap_plugin_t *p, int k, const char *json) { return self(p)->cornerApply(k, json ? json : ""); }
+/* B84: the undo tree without a webview. One export, op-dispatched, so the
+   check drives exactly the calls the GUI binds drive — a second entry point
+   would be a second implementation of the thing under test.
+     service | tree | json <i> | restore <i> | undo | redo | mark <label-id>
+   Everything returns a string because two of the ops return JSON; the numeric
+   ops return a decimal. */
+extern "C" const char *hypersaw_debug_undo(const clap_plugin_t *p, const char *op, int arg)
+{
+  static std::string r;
+  auto *pl = self(p);
+  const std::string o = op ? op : "";
+  if (o == "service") { pl->undoService(); r = "1"; }
+  else if (o == "tree") r = pl->undoTreeJson();
+  else if (o == "json") r = pl->undo.liveAt(arg) ? pl->undo.node(arg).json : std::string();
+  else if (o == "label") r = pl->undo.liveAt(arg) ? pl->undo.node(arg).label : std::string();
+  else if (o == "parent") r = std::to_string(pl->undo.liveAt(arg) ? pl->undo.node(arg).parent : -1);
+  else if (o == "size") r = std::to_string(pl->undo.size());
+  else if (o == "current") r = std::to_string(pl->undo.current());
+  else if (o == "restore") r = pl->undoGoTo(arg) ? "1" : "0";
+  else if (o == "undo") r = pl->undoStep(-1) ? "1" : "0";
+  else if (o == "redo") r = pl->undoStep(1) ? "1" : "0";
+  else if (o == "mark") { char lb[32]; std::snprintf(lb, sizeof lb, "probe %d", arg); pl->undoMark(lb); r = "1"; }
+  else r = "?";
+  return r.c_str();
+}
 extern "C" void hypersaw_debug_voices(const clap_plugin_t *p, char *out, uint32_t cap)
 {
   auto &core = self(p)->cores[0]; uint32_t n = 0; out[0] = 0;
@@ -5047,8 +5218,24 @@ bool gui_create(const clap_plugin_t *p, const char *api, bool is_floating)
   hostIf.modRemoveRoute = [pl](int i) { pl->mod.removeRoute(i); };
   hostIf.morphCornerValsJson = [pl](int k) { return pl->morphCornerValsJson(k); };
   hostIf.morphCornerApply = [pl](uint32_t k, const std::string &j) { return pl->cornerApply((int)k, j); };
-  hostIf.setParam = [pl](uint32_t id, double v) { pl->enqueueParam(id, v, 0); };
-  hostIf.gesture = [pl](uint32_t id, bool begin) { pl->enqueueParam(id, 0, begin ? 1 : 2); };
+  hostIf.setParam = [pl](uint32_t id, double v) {
+    pl->enqueueParam(id, v, 0);
+    /* B84 — the morph toggle gets its own label. Marked HERE and not in the
+       morphOn branch of applyParam, which is the audio thread and is also
+       where host automation lands: a mark there would both touch the RT path
+       and give automation a node, and ADR-160 (3) forbids the second. This
+       seam is main-thread and reachable only from the editor. The checkbox's
+       own pointerup already marked via the gesture latch; undoMark keeps the
+       LAST label, so the pair still collapses into one node. */
+    if (id == 151) pl->undoMark(v > 0.5 ? "morph on" : "morph off");
+  };
+  /* B84 rides the ADR-121 latch rather than adding a second one: the END of a
+     bracket is exactly "one drag = one undo step", and a morph-pad drag that
+     rewrites 224 owners ends once. Nothing else about the latch changes. */
+  hostIf.gesture = [pl](uint32_t id, bool begin) {
+    pl->enqueueParam(id, 0, begin ? 1 : 2);
+    if (!begin) pl->undoMarkParam((clap_id)id);
+  };
   // Stamp carries hash AND build time: a hash alone cannot distinguish "the
   // binary I just built" from "a binary built from the same commit last week",
   // which is precisely the stale-install question (L0020).
@@ -5062,6 +5249,10 @@ bool gui_create(const clap_plugin_t *p, const char *api, bool is_floating)
   hostIf.setVizOsc = [pl](uint32_t k) { pl->vizOsc.store(k, std::memory_order_relaxed); };
   hostIf.getStateJson = [pl]() { return pl->stateJson(); };
   hostIf.applyStateJson = [pl](const std::string &s) { return pl->applyStateJson(s); };
+  hostIf.undoService = [pl]() { pl->undoService(); };
+  hostIf.undoTreeJson = [pl]() { return pl->undoTreeJson(); };
+  hostIf.undoRestore = [pl](int i) { return pl->undoGoTo(i); };
+  hostIf.undoStep = [pl](int dir) { return pl->undoStep(dir); };
   pl->gui = new hypersaw::HypersawGui(std::move(hostIf));
   return true;
 }
