@@ -2089,7 +2089,8 @@ struct Plugin
          - PER VOICE, route 0 only: depth * penv[s] semitones, handed to the
            note-expression composer. This is the whole point — a strike shapes
            the note struck and leaves the held notes alone.
-         - GLOBAL, every other route: the max over GATED slots (mod.src[1]).
+         - GLOBAL, every other route: the max over ALL slots, release tails
+           included (mod.src[1]).
        Bit-identity at depth 0 is structural, not incidental: with the pitch
        knob at 0 `noteExprSetPenv` is handed exactly 0.0, the composer's sum is
        unchanged, and it never reaches a core. */
@@ -2120,7 +2121,12 @@ struct Plugin
           // ear finds long before an oracle does.
           if (pe.stage == 0 && std::fabs(pe.level) < 1e-6) pe.level = 0.0;
         }
-        if (gated && pe.level > gatedMax) { gatedMax = pe.level; gatedStage = pe.stage; }
+        /* Lead ruling 2026-09-13 on the stream's open question: the global
+           source counts EVERY slot, releasing ones included, so at last-key-up
+           it releases over env2R exactly as the shared envelope did instead of
+           snapping to 0 — "behaves as before" is the criterion's reason and it
+           outranks its "gated" wording. */
+        if (pe.level > gatedMax) { gatedMax = pe.level; gatedStage = pe.stage; }
         // OQ-30 bounding at APPLICATION, the same rule the global lane obeys.
         const double semis = std::max(-48.0, std::min(48.0, penvDepth * pe.level));
         noteExprSetPenv(s, semis);

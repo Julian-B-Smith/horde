@@ -162,6 +162,23 @@ int main() {
   std::snprintf(b, sizeof b, "T6 control: at depth 0 no voice's noteTune moves (max |noteTune-1| %.3e == 0 over %d voice reads)", tuneDev, seenT6);
   expect(tuneDev == 0.0 && seenT6 > 0, b);
 
+  /* T7 — the global source RELEASES at last-key-up (lead ruling 2026-09-13):
+     it must decay over env2R, never snap to 0 in one block. Sustain is raised
+     first so the leg cannot pass vacuously: at the default sustain 0 a settled
+     note already reads 0 and a snap is invisible. */
+  r.set(164, 0.6); r.set(165, 0.4);
+  r.note(60, true, 300); watch(0.6);
+  double before; { double st, ps; hypersaw_debug_penv(r.p, &before, &st, &ps); }
+  r.note(60, false, 300);
+  double after0, maxDrop = 0, prevL = before; int rises = 0;
+  { double st, ps; hypersaw_debug_penv(r.p, &after0, &st, &ps); }
+  for (int i = 0; i < Math_blocks(0.3); i++) { EvList e; r.step(e); double a, st, ps; hypersaw_debug_penv(r.p, &a, &st, &ps);
+    maxDrop = std::max(maxDrop, prevL - a); if (a > prevL + 1e-12) rises++; prevL = a; }
+  std::snprintf(b, sizeof b, "T7 anchor: the note was sustaining above 0 before key-up (%.3f >= 0.5)", before); expect(before >= 0.5, b);
+  std::snprintf(b, sizeof b, "T7 source slot 1 releases over env2R at last-key-up (largest one-block drop %.4f < 0.1 of %.3f; still %.3f after 0.3 s of a 0.4 s release)", maxDrop, before, prevL);
+  expect(maxDrop < 0.1 * before && prevL > 0.05, b);
+  std::snprintf(b, sizeof b, "T7 control: the release never rises (%d rises == 0)", rises); expect(rises == 0, b);
+
   std::printf("penv_check: %s\n", fails ? "FAIL" : "PASS");
   r.kill(); hypersaw_entry_deinit(); return fails ? 1 : 0;
 }
