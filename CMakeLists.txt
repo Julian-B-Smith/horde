@@ -297,6 +297,16 @@ endif()
 # blobs + goldens (append-only, never overwrites); statefix_check loads every
 # fixture and requires a bit-identical render. Not in ./verify — that is a
 # protected path and a human decision (see the corpus README).
+# undo_check: the B84/ADR-160 history oracle. Reuses the fixture corpus above
+# for its bit-identity half, which is why it sits here. NOT in ./verify —
+# standing ruling: wiring a gate is the human's decision (charter), proposed in
+# the PR that adds this.
+add_executable(undo_check tools/undo_check.cpp)
+target_link_libraries(undo_check PRIVATE ${PROJECT_NAME}-impl)
+if(NOT MSVC)
+  target_compile_options(undo_check PRIVATE -O2)
+endif()
+
 add_executable(gen_state_fixtures tools/gen_state_fixtures.cpp)
 target_link_libraries(gen_state_fixtures PRIVATE ${PROJECT_NAME}-impl)
 add_executable(statefix_check tools/statefix_check.cpp)

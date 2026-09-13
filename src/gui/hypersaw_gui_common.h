@@ -433,6 +433,12 @@ inline void installBridge(choc::ui::WebView &web, GuiHost &host)
       }
       return o;
     };
+    /* B84: FIRST, before any feed. The undo snapshot is owed the moment the
+       param queue drains, and this bind is the only main-thread tick the
+       plugin is guaranteed to get — a mark serviced a frame late is a node
+       that photographs the NEXT edit as well as its own. Costs two atomic
+       loads and a bool on the overwhelmingly common no-mark-pending frame. */
+    if (host.undoService) host.undoService();
     const int want = args.isArray() && args.size() >= 1
                          ? (int)args[0].getWithDefault<int64_t>(7) : 7;
     auto obj = choc::value::createObject("Frame");
@@ -499,6 +505,26 @@ inline void installBridge(choc::ui::WebView &web, GuiHost &host)
     if (args.isArray() && args.size() >= 1)
       ok = host.applyStateJson(std::string(args[0].getWithDefault<std::string_view>("")));
     return choc::value::createBool(ok);
+  });
+  /* B84 undo history. hzUndo/hzRedo are the SAME shell call with opposite
+     signs — see GuiHost::undoStep for why that is one function. Guarded on the
+     std::function like the newer seams above: a GUI served outside the plugin
+     (dev server, lab harness) has no shell behind it. */
+  web.bind("hzUndoTree", [&host](const choc::value::ValueView &) -> choc::value::Value {
+    return choc::value::createString(host.undoTreeJson ? host.undoTreeJson()
+                                                       : std::string("{\"cur\":-1,\"nodes\":[]}"));
+  });
+  web.bind("hzUndoRestore", [&host](const choc::value::ValueView &args) -> choc::value::Value {
+    bool ok = false;
+    if (host.undoRestore && args.isArray() && args.size() >= 1)
+      ok = host.undoRestore((int)args[0].getWithDefault<int64_t>(-1));
+    return choc::value::createBool(ok);
+  });
+  web.bind("hzUndo", [&host](const choc::value::ValueView &) -> choc::value::Value {
+    return choc::value::createBool(host.undoStep ? host.undoStep(-1) : false);
+  });
+  web.bind("hzRedo", [&host](const choc::value::ValueView &) -> choc::value::Value {
+    return choc::value::createBool(host.undoStep ? host.undoStep(1) : false);
   });
 
 }
