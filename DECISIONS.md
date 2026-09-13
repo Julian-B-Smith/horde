@@ -5128,3 +5128,45 @@ polysynth behaviour and a larger build; B116 asks which 1.0 gets.
 **Also recorded here:** `undo_check` joins `./verify full` beside
 `state_check` (human ruling 2026-09-13).
 
+## ADR-162 — ENV 2 is per-note (2026-09-13)
+
+**Context.** ADR-135 made the pitch envelope one shared ADSR; ADR-161 made it
+restart on every strike, which also blips every held note. Human 2026-09-13:
+"Pitch envelope should be per-note."
+
+**Decision.** ENV 2 runs per voice slot (`penv[kPoly]`, preallocated,
+advanced at the mod grid on the audio thread: attack on that slot's strike
+from its current level, decay to sustain while gated, release on note-off).
+Route 0 — the Env > Pitch knob — applies per voice through the per-note
+expression multiplier, composed with the MPE per-note bend in ONE place so
+the two per-note pitch offsets can never overwrite each other. For every
+other route ENV 2 remains a global source equal to the MAX over gated
+voices' envelopes — the convention ENV 1 already uses — so existing
+ENV 2 → filter patches keep their meaning with one note and take the
+loudest-shaped voice with a chord. ADR-161's every-strike restart is
+subsumed: per-note, every strike IS a fresh envelope.
+
+**Not gated by revision.** Patches with Env > Pitch engaged change from a
+shared blip to a per-note blip; the shared blip was the bug the human
+reported, not a law anyone composed against.
+
+## ADR-163 — FX presence under morph: a dev toggle as the ruling's instrument (2026-09-13)
+
+**Context.** Module TYPE is stepped, so under both morph modes a slot's module
+flips atomically (B49) — a tail cut, an entrance with no lead-in. The bounded
+pool (B95, 1.1) makes presence a continuous matrix coefficient and dissolves
+the question; for 1.0 the human wants to HEAR the alternative before ruling:
+"the FX ruling needs a toggle we can test; once I rule on it, we can bury the
+toggle unless both modes seem worth keeping exposed."
+
+**Decision.** Two dev parameters (append-only ids, "(dev)" labels): `fxXfade`
+{atomic, crossfade} default atomic — bit-identical to today — and
+`fxXfadeMs`. Under crossfade a slot's outgoing module keeps rendering from
+its own state in a preallocated shadow while an equal-power fade hands over
+to the incoming one; Comb rides its existing declick gate and its singleton
+guard counts a fading shadow as holding the type. The toggle is an
+instrument for a ruling, not a feature: after the human rules it is either
+buried (id kept for state compat, GUI control removed) or exposed as a
+setting. Nothing here pre-empts the pool; a pool node's presence coefficient
+is the same idea made structural.
+
