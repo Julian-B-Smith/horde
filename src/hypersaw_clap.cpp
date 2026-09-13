@@ -1502,6 +1502,14 @@ struct Plugin
   double srcPress = 0;    // latest pressure (channel AT or any note expression)
   double srcPitchW = 0;   // plain pitch wheel, -1..1 (bipolar source)
   bool env2Gate = false;
+  /* ADR-161 (human 2026-09-13: "consecutive notes bring the pitch peak closer
+     and closer to the destination until there's no longer a noticeable
+     spike"): the stage machine restarted only on the GATE edge — first key
+     down after all keys up — so with one note held every further strike got no
+     attack at all, and what the player heard as a shrinking spike was the first
+     note's decay tail. Set by the note-on handler (same thread as the mod
+     grid), consumed once per tick. */
+  bool env2Retrig = false;
   hypersaw::MorphCore morph;
   std::vector<clap_id> morphIds;          // id order = persistence order (stable)
   std::vector<double> morphCorner[4];     // snapshots, aligned to morphIds
@@ -2006,7 +2014,8 @@ struct Plugin
        stage. Time constants are the knobs' SECONDS converted per tick
        (ADR-009's rule — never hand-tuned per-tick constants). */
     {
-      if (anyGate && !env2Gate) { env2Stage = 1; }             // fresh gate: attack
+      if ((anyGate && !env2Gate) || env2Retrig) { env2Stage = 1; }   // fresh gate OR any strike: attack (ADR-161)
+      env2Retrig = false;
       if (!anyGate) env2Stage = 0;                              // all keys up: release
       env2Gate = anyGate;
       double target, tau;
@@ -4123,6 +4132,7 @@ struct Plugin
           const int slot = spectra.noteOn(n->key, freq);
           retireTag(slot);
           lastNoteKey = n->key;
+          env2Retrig = true;   // ADR-161: every strike restarts ENV 2's attack
           tags[slot] = {n->note_id, n->port_index, n->channel, n->key, true, (float)n->velocity};
           srcVel = n->velocity;   // ADR-149: matrix source 14
           break;
@@ -4216,6 +4226,7 @@ struct Plugin
           }
           retireTag(monoSlot);
           lastNoteKey = n->key;
+          env2Retrig = true;   // ADR-161: every strike restarts ENV 2's attack
           tags[monoSlot] = {n->note_id, n->port_index, n->channel, n->key, true, (float)n->velocity};
           struck = monoSlot;
         }
@@ -4232,6 +4243,7 @@ struct Plugin
           }
           retireTag(slot);
           lastNoteKey = n->key;
+          env2Retrig = true;   // ADR-161: every strike restarts ENV 2's attack
           tags[slot] = {n->note_id, n->port_index, n->channel, n->key, true, (float)n->velocity};
           srcVel = n->velocity;   // ADR-149: matrix source 14
           struck = slot;
@@ -5155,6 +5167,12 @@ extern "C" const char *hypersaw_debug_undo(const clap_plugin_t *p, const char *o
   else if (o == "mark") { char lb[32]; std::snprintf(lb, sizeof lb, "probe %d", arg); pl->undoMark(lb); r = "1"; }
   else r = "?";
   return r.c_str();
+}
+/* ENV 2 (pitch envelope) and the smoothed matrix pitch offset, read between
+   blocks — the 2026-09-13 "pitch peak shrinks on consecutive notes" report. */
+extern "C" void hypersaw_debug_penv(const clap_plugin_t *p, double *env2, double *stage, double *pitchSm)
+{
+  *env2 = self(p)->env2; *stage = self(p)->env2Stage; *pitchSm = self(p)->modPitchSm;
 }
 extern "C" void hypersaw_debug_voices(const clap_plugin_t *p, char *out, uint32_t cap)
 {

@@ -190,6 +190,10 @@ full() {
   "$build_dir/parity_check" "$(dirname "$build_dir")/build-golden" || return 1
   "$build_dir/trajectory_check" || return 1
   "$build_dir/state_check" || return 1
+  # B84 undo history (ADR-160): tree semantics, restore bit-identical through
+  # the fixture corpus, and the control that host automation never marks.
+  # Sub-second, no golden. Wired here by the human's ruling 2026-09-13.
+  "$build_dir/undo_check" || return 1
   # Note-lifecycle guard (ADR-038): seeded note on/off streams must decay to
   # silence — the oracle for the 2026-07-18 "doesn't stop when you let go" hang.
   # Statically linked like state_check; no goldens. (Was built but ungated.)
