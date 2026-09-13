@@ -376,3 +376,5 @@ mainAsnX	global	Main x	SET	XY assignment	select		mod-matrix
 mainAsnY	global	Main y	SET	XY assignment	select		mod-matrix			
 osc1.oscPitch	osc1	Pitch (st)	OSC	Pitch	knob	st	the-swarm			
 osc2.oscPitch	osc2	Pitch (st)	OSC	Pitch	knob	st	the-swarm			
+fxXfade	global	FX Type Crossfade (dev)	SET	FX crossfade (dev)	select		fx-crossfade
+fxXfadeMs	global	Crossfade Time	SET	FX crossfade (dev)	knob	ms	fx-crossfade

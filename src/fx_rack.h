@@ -103,6 +103,46 @@ constexpr int kCombLines = 8;
 
 class FxRack
 {
+ private:
+  /* THE PER-SLOT RECORD, declared up here rather than beside the members
+     because B117's render helpers take it BY REFERENCE: a parameter type must
+     be complete where the function is DECLARED, unlike a function body. It is
+     the state a fading module carries with it (fx_rack's shadow), which is why
+     it is one struct and not a scatter of parallel arrays. */
+  struct Slot
+  {
+    // Rack-owned dry/wet. Defaults to 1 (fully wet) so every patch predating the
+    // contract renders bit-identically; 0 is a universal, guaranteed bypass.
+    double mix = 1.0;
+    FxType type = FxType::Off;
+    double amount = 0.5;
+    // Second per-slot axis (2026-08-03). ADR-071 fixed the comb's resonance at
+    // the lab default "until the rack grows per-slot param pages" — this is
+    // that page, kept to ONE generic knob rather than a comb-specific param so
+    // the next slot type that wants a second control costs no new ids. Only
+    // Comb reads it today; 0.5 reproduces the previously hardcoded fb = 0.79
+    // exactly, so the default is bit-inert.
+    double tone = 0.5;
+    double zL = 0, zR = 0;  // one-pole filter memory (Filter type)
+  };
+  struct Comb
+  {
+    std::vector<float> bufL, bufR;  // sized at setSampleRate (main thread)
+    int key = -1, dly = 100, w = 0;
+    long age = -1;
+    double lpL = 0, lpR = 0;
+    // Declick (2026-08-03). A line is retuned while it may still be RINGING,
+    // and both the old code's memset and the delay-length jump are step
+    // discontinuities in a signal that is audibly nonzero — the human's "tiny
+    // amount of clicking". `g` gates this line's contribution so a retune can
+    // be deferred until it is silent: retuning -> ramp g to 0 -> apply pendDly
+    // at the bottom -> ramp back. Fading DOWN first is the whole point; a
+    // ramp-up alone cannot hide a discontinuity that already happened.
+    double g = 0;
+    int pendDly = 0;
+    bool retuning = false;
+  };
+
  public:
   // Construction is main-thread: allocate at the default rate immediately so a
   // shell that never calls setSampleRate still has valid comb buffers (an empty
@@ -158,6 +198,9 @@ class FxRack
     combRamp = 1.0 - std::exp(-1.0 / (6.0e-3 * sr));
     combNorm = 1.0 - std::exp(-1.0 / (3.0e-2 * sr));
     normSm = 1.0;
+    // A fade length is derived from seconds at THIS rate (ADR-009), so a rate
+    // change invalidates one in flight; drop it rather than let it run long.
+    for (int k = 0; k < kRackSlots; k++) fadeLeft[k] = 0;
   }
 
   // Note feed for note-context slots (ADR-071 comb). Called from the shell's
@@ -233,13 +276,76 @@ class FxRack
     if (type < 0 || type >= 10) return false;
     int held = 0;
     for (int k = 0; k < kRackSlots; k++)
-      if (k != slot && (int)slots[k].type == type) held++;
+    {
+      if (k == slot) continue;
+      /* B117: a module fading OUT still renders and still writes the
+         rack-shared bank, so it HOLDS its type until the fade ends — else a
+         slot could leave Comb and another claim it during the handover, which
+         is the double-write the cap exists to prevent, merely delayed by
+         fxXfadeMs. `else if` keeps each slot worth AT MOST ONE instance, so a
+         shadow can never push a non-singleton past its kRackSlots sentinel.
+         A slot's OWN shadow is not counted (the `continue` above): arming a
+         new fade overwrites it, so it never coexists with that slot's
+         incoming module. */
+      if ((int)slots[k].type == type) held++;
+      else if (fadeLeft[k] > 0 && (int)shadow[k].type == type) held++;
+    }
     return held < kSlotMaxInstances[type];
   }
+
+  /* ---- B117 / ADR-163: FX PRESENCE CROSSFADE ------------------------------
+   * A DEV TOGGLE, an instrument for a ruling — not a feature. Module TYPE is
+   * stepped, so under both morph modes a slot's module flips atomically (B49):
+   * a tail cut, an entrance with no lead-in. With `fxXfade = 1` the OUTGOING
+   * module keeps rendering from its own state in a preallocated per-slot
+   * SHADOW while an equal-power fade hands over to the incoming one. The
+   * bounded pool (B95) is the structural answer at 1.1; this previews it so
+   * the human can HEAR both before ruling.
+   *
+   * Default OFF, and that default is load-bearing: with `xfadeOn == false`
+   * nothing here is reachable and every rendered sample is bit-identical to
+   * the pre-B117 rack (fxxfade_check T1 is the proof).
+   */
+  void setXfade(bool on) { xfadeOn = on; }
+  void setXfadeMs(double ms) { xfadeMs = ms < 5.0 ? 5.0 : (ms > 500.0 ? 500.0 : ms); }
+  double getXfade() const { return xfadeOn ? 1.0 : 0.0; }
+  double getXfadeMs() const { return xfadeMs; }
+  // Readback for the oracle and the guard: is this slot mid-handover, and what
+  // is the outgoing module while it is?
+  bool fading(int slot) const
+  {
+    return slot >= 0 && slot < kRackSlots && fadeLeft[slot] > 0;
+  }
+  int shadowTypeOf(int slot) const
+  {
+    return (slot < 0 || slot >= kRackSlots || fadeLeft[slot] <= 0) ? 0
+                                                                  : (int)shadow[slot].type;
+  }
+
   void setType(int slot, int type)
   {
     if (slot < 0 || slot >= kRackSlots) return;
     const FxType prev = slots[slot].type;
+    /* ARM BEFORE THE STORE, so the shadow captures the OUTGOING slot — its
+       amount/tone/mix and its one-pole memory — rather than the incoming one.
+       A type change during a running fade OVERWRITES the shadow, which is
+       ADR-163's "drop the current shadow and start a new fade from the
+       then-outgoing module" and is also what keeps "at most two modules per
+       slot" true by construction rather than by counting.
+       A redundant write of the SAME type must not re-arm (a blend morph writes
+       the picked corner's type every tick, and re-arming there would re-fade
+       forever — fxxfade_check T3). */
+    if ((FxType)type != prev)
+    {
+      if (xfadeOn && !sharesCore(prev, (FxType)type))
+      {
+        shadow[slot] = slots[slot];
+        fadeLen[slot] = (int)std::lround(xfadeMs * 1e-3 * sr);
+        if (fadeLen[slot] < 1) fadeLen[slot] = 1;
+        fadeLeft[slot] = fadeLen[slot];
+      }
+      else fadeLeft[slot] = 0;   // atomic: the default, and the shared-core pair
+    }
     slots[slot].type = (FxType)type;
     /* ADR-142: selecting Delay is a LOAD, not a knob move — snap the read head
        to the patch's time instead of gliding to it from whatever the slot held
@@ -359,6 +465,7 @@ class FxRack
   void reset()
   {
     for (auto &s : slots) { s.zL = 0; s.zR = 0; }
+    for (int k = 0; k < kRackSlots; k++) fadeLeft[k] = 0;   // B117: no fade survives a reset
   }
 
   // Process the stereo bus in place, slot 0 → kRackSlots-1. All-Off is a
@@ -393,9 +500,31 @@ class FxRack
   void processSlot(int idx, float *L, float *R, int n)
   {
     if (idx < 0 || idx >= kRackSlots) return;
-    const double mix = slots[idx].mix;
-    if (mix <= 0.0) return;                                     // guaranteed bypass
-    if (mix >= 1.0) { processSlotWet(idx, L, R, n); return; }   // today's path, exactly
+    // B117: the ONLY new branch on the default path, and it is never taken
+    // while fxXfade = 0 — so the pre-B117 render is reached by the same code
+    // it always was, sample for sample.
+    if (fadeLeft[idx] > 0) { renderCrossfade(idx, L, R, n); return; }
+    renderSlot(idx, slots[idx], L, R, n);
+  }
+
+  void processSlotWet(int idx, float *L, float *R, int n)
+  {
+    if (idx < 0 || idx >= kRackSlots) return;
+    renderWet(idx, slots[idx], L, R, n);
+  }
+
+ private:
+  /* THE SAME DSP, ADDRESSED BY SLOT RECORD RATHER THAN BY INDEX (B117). `idx`
+     still selects the per-slot CORES (notch/time/delay), because those are
+     what the outgoing module must keep rendering from; `s` carries the state a
+     shadow copies. The switch body below is untouched — only `slots[idx]`
+     became the parameter `s`, which is what lets a shadow render without a
+     second copy of any of it. */
+  void renderSlot(int idx, Slot &s, float *L, float *R, int n)
+  {
+    const double mix = s.mix;
+    if (mix <= 0.0) return;                                  // guaranteed bypass
+    if (mix >= 1.0) { renderWet(idx, s, L, R, n); return; }  // today's path, exactly
 
     /* Partial blend. Chunked over a fixed stack buffer: no allocation on the audio
      * thread. Only reachable once a patch sets an intermediate mix, so nothing that
@@ -407,7 +536,7 @@ class FxRack
       const int m = n - off < kFxBlend ? n - off : kFxBlend;
       std::memcpy(dl, L + off, (size_t)m * sizeof(float));
       std::memcpy(dr, R + off, (size_t)m * sizeof(float));
-      processSlotWet(idx, L + off, R + off, m);
+      renderWet(idx, s, L + off, R + off, m);
       for (int i = 0; i < m; i++)
       {
         L[off + i] = (float)(dl[i] + (L[off + i] - dl[i]) * mix);
@@ -416,11 +545,58 @@ class FxRack
     }
   }
 
-  void processSlotWet(int idx, float *L, float *R, int n)
+  /* THE HANDOVER. Both modules see the SAME dry input — the slot's input bus —
+     so the outgoing one keeps feeding its own tail while the incoming one
+     builds its own from scratch, and an equal-power pair of gains hands over
+     across fadeLen samples. Chunked over fixed stack buffers, so at most two
+     modules run for at most fxXfadeMs and nothing allocates (the RT rule).
+     Comb needs nothing special here: its wet is already gated by the per-line
+     declick ramp `g`, so a slot LEAVING Comb fades through that gate and the
+     equal-power pair on top of it. */
+  void renderCrossfade(int idx, float *L, float *R, int n)
+  {
+    constexpr int kFxBlend = 256;
+    constexpr double kHalfPi = 1.5707963267948966;   // no M_PI: undefined under MSVC
+    float aL[kFxBlend], aR[kFxBlend];
+    const int len = fadeLen[idx] < 1 ? 1 : fadeLen[idx];
+    const int done0 = len - fadeLeft[idx];
+    for (int off = 0; off < n; off += kFxBlend)
+    {
+      const int m = n - off < kFxBlend ? n - off : kFxBlend;
+      std::memcpy(aL, L + off, (size_t)m * sizeof(float));
+      std::memcpy(aR, R + off, (size_t)m * sizeof(float));
+      renderSlot(idx, shadow[idx], aL, aR, m);           // outgoing, from its own state
+      renderSlot(idx, slots[idx], L + off, R + off, m);  // incoming
+      for (int i = 0; i < m; i++)
+      {
+        const int done = done0 + off + i;
+        const double th = done >= len ? kHalfPi : kHalfPi * ((double)done / (double)len);
+        L[off + i] = (float)(aL[i] * std::cos(th) + L[off + i] * std::sin(th));
+        R[off + i] = (float)(aR[i] * std::cos(th) + R[off + i] * std::sin(th));
+      }
+    }
+    fadeLeft[idx] = fadeLeft[idx] > n ? fadeLeft[idx] - n : 0;
+  }
+
+  /* THE ONE PAIR OF TYPES THAT CANNOT HAND OVER. Echo and Room are ONE
+     TimeCore per slot in two modes, and writing `mode` CLEARS both of that
+     core's buffers (time_core.h setParam) — so there is no outgoing state left
+     to fade, and running both modes on one core would re-clear it every block.
+     That flip stays atomic, exactly as it is today. Every other pair owns
+     disjoint state: Filter's one-pole lives in the Slot the shadow copies,
+     Notch / Delay / the time engines each have their own per-slot core, and
+     Comb's bank is rack-shared but only one module of a slot can be Comb. */
+  static bool sharesCore(FxType a, FxType b)
+  {
+    const bool ta = (a == FxType::Echo || a == FxType::Room);
+    const bool tb = (b == FxType::Echo || b == FxType::Room);
+    return ta && tb;
+  }
+
+  void renderWet(int idx, Slot &s, float *L, float *R, int n)
   {
     if (idx < 0 || idx >= kRackSlots) return;
     {
-      auto &s = slots[idx];
       switch (s.type)
       {
         case FxType::Off:
@@ -622,40 +798,15 @@ class FxRack
   }
 
  private:
-  struct Slot
-  {
-    // Rack-owned dry/wet. Defaults to 1 (fully wet) so every patch predating the
-    // contract renders bit-identically; 0 is a universal, guaranteed bypass.
-    double mix = 1.0;
-    FxType type = FxType::Off;
-    double amount = 0.5;
-    // Second per-slot axis (2026-08-03). ADR-071 fixed the comb's resonance at
-    // the lab default "until the rack grows per-slot param pages" — this is
-    // that page, kept to ONE generic knob rather than a comb-specific param so
-    // the next slot type that wants a second control costs no new ids. Only
-    // Comb reads it today; 0.5 reproduces the previously hardcoded fb = 0.79
-    // exactly, so the default is bit-inert.
-    double tone = 0.5;
-    double zL = 0, zR = 0;  // one-pole filter memory (Filter type)
-  };
-  struct Comb
-  {
-    std::vector<float> bufL, bufR;  // sized at setSampleRate (main thread)
-    int key = -1, dly = 100, w = 0;
-    long age = -1;
-    double lpL = 0, lpR = 0;
-    // Declick (2026-08-03). A line is retuned while it may still be RINGING,
-    // and both the old code's memset and the delay-length jump are step
-    // discontinuities in a signal that is audibly nonzero — the human's "tiny
-    // amount of clicking". `g` gates this line's contribution so a retune can
-    // be deferred until it is silent: retuning -> ramp g to 0 -> apply pendDly
-    // at the bottom -> ramp back. Fading DOWN first is the whole point; a
-    // ramp-up alone cannot hide a discontinuity that already happened.
-    double g = 0;
-    int pendDly = 0;
-    bool retuning = false;
-  };
   Slot slots[kRackSlots];
+  /* B117: the OUTGOING module's record, preallocated per slot — never
+     constructed on the audio thread. `fadeLeft > 0` is the only "is there a
+     shadow" flag there is; at fxXfade = 0 it is always zero. */
+  Slot shadow[kRackSlots];
+  int fadeLeft[kRackSlots] = {0, 0, 0, 0};   // samples of handover remaining
+  int fadeLen[kRackSlots] = {0, 0, 0, 0};    // samples the current handover spans
+  bool xfadeOn = false;                      // ADR-163 dev toggle; OFF is today
+  double xfadeMs = 80;
   Comb combs[kCombLines];
   // One NotchCore per slot (main-thread constructed, see setSampleRate). A
   // slot never in Notch mode still owns a live core doing nothing — cheap
