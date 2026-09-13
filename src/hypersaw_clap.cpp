@@ -891,6 +891,60 @@ struct Plugin
     if (slot < 0) return;
     for (uint32_t k = 0; k < kNumOsc; k++) cores[k].setNoteExpr(slotOf[slot][k], v);
   }
+  // Is this logical voice still keyed down? Per OSCILLATOR slot, because
+  // slotOf is the only thing that says which physical voice is ours (a core's
+  // own index i is NOT the logical slot — see the comment above).
+  bool slotGated(int slot)
+  {
+    if (slot < 0 || slot >= (int)hypersaw::kPoly) return false;
+    for (uint32_t k = 0; k < kNumOsc; k++)
+      if (oscEnabled[k] && cores[k].voiceAt(slotOf[slot][k]).gate) return true;
+    return false;
+  }
+  /* THE PER-NOTE PITCH COMPOSER (ADR-162). `noteTune` is ONE multiplier per
+     voice, and there are now TWO independent per-note pitch offsets: the MPE
+     bend lane and ENV 2. Either one calling setNoteExprAll directly would
+     erase the other's contribution — the classic last-writer-wins bug, and it
+     would present as "MPE bend works until you turn up the pitch envelope".
+     So both write a COMPONENT here and only emitNoteExpr() reaches a core;
+     `setNoteExprAll` has exactly one caller, which is what makes the rule
+     checkable rather than remembered (L0029's one-routing-layer rule). */
+  struct NoteExprParts { double bend = 0, penv = 0, emitted = 0; };
+  NoteExprParts noteExpr[hypersaw::kPoly];
+  void emitNoteExpr(int slot, bool force)
+  {
+    if (slot < 0 || slot >= (int)hypersaw::kPoly) return;
+    NoteExprParts &ne = noteExpr[slot];
+    const double v = ne.bend + ne.penv;
+    if (!force && v == ne.emitted) return;
+    ne.emitted = v;
+    setNoteExprAll(slot, v);
+  }
+  // The bend lane's writes stay UNCONDITIONAL (force) — the historical
+  // law-off path wrote every time, and byte-identity is the contract.
+  void noteExprSetBend(int slot, double semis)
+  {
+    if (slot < 0 || slot >= (int)hypersaw::kPoly) return;
+    noteExpr[slot].bend = semis;
+    emitNoteExpr(slot, true);
+  }
+  void noteExprSetPenv(int slot, double semis)
+  {
+    if (slot < 0 || slot >= (int)hypersaw::kPoly) return;
+    noteExpr[slot].penv = semis;
+    emitNoteExpr(slot, false);
+  }
+  /* A fresh strike resets noteTune to 1.0 inside the core (ADR-036/038), so
+     the composer's cache must return to the same zero — otherwise the cached
+     `emitted` says "already written" about a value the core has thrown away,
+     and a stale bend from the PREVIOUS note on this slot would be added back
+     under the new note's pitch envelope. Called at every note-on, before
+     seedNoteBend re-applies the channel's latched bend. */
+  void resetNoteExpr(int slot)
+  {
+    if (slot < 0 || slot >= (int)hypersaw::kPoly) return;
+    noteExpr[slot] = NoteExprParts{};
+  }
   void setNotePressureAll(int slot, double v)
   {
     if (slot < 0) return;
@@ -1474,14 +1528,33 @@ struct Plugin
       if (!d.active) { d.id = id; d.base = readParam(id); d.lastApplied = 1e300; d.active = true; return &d; }
     return nullptr;
   }
-  /* ADR-135: ENV 2, a shell-side ADSR advanced at the mod grid. One-pole
-     approaches per stage (attack -> 1, decay -> sustain, release -> 0), gated
-     by "any voice gated across enabled oscillators" — a global paraphrase,
-     stated plainly: per-note ENV 2 is the per-note fan-out increment, not
-     this one. env2Gate tracks the edge so attack restarts on the first new
-     gate after silence, matching how a player reads a monophonic envelope. */
-  double env2 = 0, env2A = 0.003, env2D = 0.16, env2S = 0.0, env2R = 0.16;
-  int env2Stage = 0;   // 0 idle, 1 attack, 2 decay/sustain
+  /* ADR-135/162: ENV 2, a shell-side ADSR advanced at the mod grid — now one
+     envelope PER NOTE SLOT, which is the per-note fan-out increment ADR-135
+     named and ADR-161 deferred. One-pole approaches per stage (attack -> 1,
+     decay -> sustain, release -> 0); the times (162-165) are shared, the
+     STATE is not. Preallocated, advanced on the audio thread, no allocation.
+
+     Stage transitions are per slot: `retrig` (set by every note-on for that
+     slot — fresh strike, retarget, steal) restarts the attack FROM THE CURRENT
+     LEVEL, so a re-strike mid-decay rises from where it is rather than from
+     zero; losing the gate is the release. ADR-161's every-strike restart is
+     subsumed — per note, every strike IS a fresh envelope, and a strike can no
+     longer blip the notes already held (the bug the human reported). */
+  struct PitchEnv
+  {
+    double level = 0;
+    int stage = 0;       // 0 idle/release, 1 attack, 2 decay/sustain
+    bool retrig = false; // set at note-on (audio thread), consumed once per tick
+  };
+  PitchEnv penv[hypersaw::kPoly];
+  double env2A = 0.003, env2D = 0.16, env2S = 0.0, env2R = 0.16;
+  /* The GLOBAL projection of ENV 2 — mod source slot 1, what every route
+     OTHER than the pitch route reads. Max over GATED slots, ENV 1's
+     convention, so an ENV 2 -> filter patch keeps its meaning with one note
+     and takes the loudest-shaped voice with a chord (ADR-162). Diagnostic
+     companion: the stage of whichever slot won the max, -1 if none. */
+  double env2 = 0;
+  int env2Stage = -1;
   // ADR-137: macro values (mod source slots 2-9) and the XY axis assignment
   // [osc0 X, osc0 Y, osc1 X, osc1 Y], each an index into macroVal.
   double macroVal[8] = {0.5, 0.5, 0, 0, 0, 0, 0, 0};   // 1/2 match their 0.5 table default (paramscope sweep)
@@ -1501,15 +1574,12 @@ struct Plugin
   double srcWheel = 0;    // CC1, 0..1 (was previously DROPPED entirely)
   double srcPress = 0;    // latest pressure (channel AT or any note expression)
   double srcPitchW = 0;   // plain pitch wheel, -1..1 (bipolar source)
-  bool env2Gate = false;
-  /* ADR-161 (human 2026-09-13: "consecutive notes bring the pitch peak closer
-     and closer to the destination until there's no longer a noticeable
-     spike"): the stage machine restarted only on the GATE edge — first key
-     down after all keys up — so with one note held every further strike got no
-     attack at all, and what the player heard as a shrinking spike was the first
-     note's decay tail. Set by the note-on handler (same thread as the mod
-     grid), consumed once per tick. */
-  bool env2Retrig = false;
+  /* RETIRED (ADR-162): env2Gate (the shared gate EDGE) and env2Retrig (the
+     shared every-strike flag, ADR-161). Both were properties of ONE envelope
+     shared by every voice; per slot the gate and the retrigger are properties
+     of that slot — `penv[s].retrig` and `slotGated(s)`. The bug ADR-161 fixed
+     (a held note's spike shrinking under each new strike) and the bug it left
+     behind (a strike blipping the held notes) were both the sharing. */
   hypersaw::MorphCore morph;
   std::vector<clap_id> morphIds;          // id order = persistence order (stable)
   std::vector<double> morphCorner[4];     // snapshots, aligned to morphIds
@@ -2000,30 +2070,63 @@ struct Plugin
     const double dt = (double)modAccum / sampleRate;
     modAccum = 0;
     double envMax = 0;
-    bool anyGate = false;
+    // ENV 1 (slot 0) stays the max amp envelope over every voice. The `anyGate`
+    // companion retired with the SHARED ENV 2 (ADR-162) — the gate is a
+    // property of a slot now, and slotGated() asks per slot.
     for (uint32_t k = 0; k < kNumOsc; k++)
       if (oscEnabled[k])
         for (int i = 0; i < (int)hypersaw::kPoly; i++)
         {
-          const auto &v = cores[k].voiceAt(i);
-          if (v.env > envMax) envMax = v.env;
-          if (v.gate) anyGate = true;
+          const double e = cores[k].voiceAt(i).env;
+          if (e > envMax) envMax = e;
         }
     mod.src[0] = envMax;
-    /* ADR-135: ENV 2. Stage machine on the gate edge, one-pole approaches per
-       stage. Time constants are the knobs' SECONDS converted per tick
-       (ADR-009's rule — never hand-tuned per-tick constants). */
+    /* ADR-135/162: ENV 2, one envelope PER NOTE SLOT. Stage machine per slot
+       (strike -> attack from the current level, gate held -> decay to sustain,
+       gate lost -> release), one-pole approaches. Time constants are the
+       knobs' SECONDS converted per tick (ADR-009's rule — never hand-tuned
+       per-tick constants). Two outputs, deliberately different:
+         - PER VOICE, route 0 only: depth * penv[s] semitones, handed to the
+           note-expression composer. This is the whole point — a strike shapes
+           the note struck and leaves the held notes alone.
+         - GLOBAL, every other route: the max over GATED slots (mod.src[1]).
+       Bit-identity at depth 0 is structural, not incidental: with the pitch
+       knob at 0 `noteExprSetPenv` is handed exactly 0.0, the composer's sum is
+       unchanged, and it never reaches a core. */
     {
-      if ((anyGate && !env2Gate) || env2Retrig) { env2Stage = 1; }   // fresh gate OR any strike: attack (ADR-161)
-      env2Retrig = false;
-      if (!anyGate) env2Stage = 0;                              // all keys up: release
-      env2Gate = anyGate;
-      double target, tau;
-      if (env2Stage == 1) { target = 1.0; tau = env2A; }
-      else if (env2Stage == 2) { target = env2S; tau = env2D; }
-      else { target = 0.0; tau = env2R; }
-      env2 += (target - env2) * (1.0 - std::exp(-dt / std::max(1e-4, tau)));
-      if (env2Stage == 1 && env2 > 0.99) { env2 = 1.0; env2Stage = 2; }
+      const int pr = modPitchRouteIdx();
+      const double penvDepth = pr >= 0 ? mod.routes[pr].depth : 0.0;
+      double gatedMax = 0;
+      int gatedStage = -1;
+      for (int s = 0; s < (int)hypersaw::kPoly; s++)
+      {
+        PitchEnv &pe = penv[s];
+        const bool gated = slotGated(s);
+        if (pe.retrig) pe.stage = 1;
+        pe.retrig = false;
+        if (!gated) pe.stage = 0;   // this slot's key is up: release
+        // An idle slot at rest costs nothing: no exp(), no pow() in setNoteExpr.
+        if (pe.stage != 0 || pe.level != 0.0)
+        {
+          double target, tau;
+          if (pe.stage == 1) { target = 1.0; tau = env2A; }
+          else if (pe.stage == 2) { target = env2S; tau = env2D; }
+          else { target = 0.0; tau = env2R; }
+          pe.level += (target - pe.level) * (1.0 - std::exp(-dt / std::max(1e-4, tau)));
+          if (pe.stage == 1 && pe.level > 0.99) { pe.level = 1.0; pe.stage = 2; }
+          // SNAP TO EXACTLY ZERO at the end of a release (the modPitchSm rule):
+          // a one-pole only approaches 0, and "approaches" would leave a dead
+          // slot's noteTune a hair off 1.0 forever — a permanent detune the
+          // ear finds long before an oracle does.
+          if (pe.stage == 0 && std::fabs(pe.level) < 1e-6) pe.level = 0.0;
+        }
+        if (gated && pe.level > gatedMax) { gatedMax = pe.level; gatedStage = pe.stage; }
+        // OQ-30 bounding at APPLICATION, the same rule the global lane obeys.
+        const double semis = std::max(-48.0, std::min(48.0, penvDepth * pe.level));
+        noteExprSetPenv(s, semis);
+      }
+      env2 = gatedMax;
+      env2Stage = gatedStage;
       mod.src[1] = env2;
     }
     // ADR-137: macros feed source slots 2-9 every tick. A macro with no route
@@ -2063,7 +2166,13 @@ struct Plugin
     double pitch = 0;
     for (int i = 0; i < n; i++)
     {
-      if (dests[i] == kModDestPitch) { pitch = deltas[i]; continue; }
+      /* ADR-162: the pitch route is applied PER VOICE above (depth * that
+         slot's own ENV 2, through the note-expression composer), so it no
+         longer feeds the global lane — a shared offset is exactly what made a
+         strike blip every held note. The lane itself stays: it is the generic
+         "global semitone offset" seam, and with no contributor it settles to
+         exactly 0 and releases updateTuneAll. */
+      if (dests[i] == kModDestPitch) continue;
       if (dests[i] & kModDestSynthetic) continue;      // unknown synthetic: inert
       /* Generic param destination (ADR-136). depth*src is normalized; scale by
          the param's own range and clamp to its bounds — OQ-30's rule applied
@@ -2342,7 +2451,7 @@ struct Plugin
       nb.g.reset(semis);
       nb.emitted = semis;
       nb.live = false;
-      setNoteExprAll(slot, semis);
+      noteExprSetBend(slot, semis);
       return;
     }
     nb.live = true;
@@ -2358,7 +2467,7 @@ struct Plugin
     noteBend[slot].target = semis;
     noteBend[slot].emitted = semis;
     noteBend[slot].live = false;
-    setNoteExprAll(slot, semis);
+    noteExprSetBend(slot, semis);
   }
 
   // One grid step for every travelling note. Called from the same boundary that
@@ -2370,7 +2479,7 @@ struct Plugin
       NoteBendLane &nb = noteBend[i];
       if (!nb.live || !tags[i].active) continue;
       const double v = nb.g.step(nb.target, bendLaw, (double)tags[i].key);
-      if (v != nb.emitted) { nb.emitted = v; setNoteExprAll(i, v); }
+      if (v != nb.emitted) { nb.emitted = v; noteExprSetBend(i, v); }
     }
   }
 
@@ -4132,7 +4241,11 @@ struct Plugin
           const int slot = spectra.noteOn(n->key, freq);
           retireTag(slot);
           lastNoteKey = n->key;
-          env2Retrig = true;   // ADR-161: every strike restarts ENV 2's attack
+          // ADR-162: this slot's pitch envelope restarts (from its current
+          // level); the notes already held are untouched. The composer's cache
+          // is cleared with it — the core just reset this voice's noteTune.
+          penv[slot].retrig = true;
+          resetNoteExpr(slot);
           tags[slot] = {n->note_id, n->port_index, n->channel, n->key, true, (float)n->velocity};
           srcVel = n->velocity;   // ADR-149: matrix source 14
           break;
@@ -4226,7 +4339,11 @@ struct Plugin
           }
           retireTag(monoSlot);
           lastNoteKey = n->key;
-          env2Retrig = true;   // ADR-161: every strike restarts ENV 2's attack
+          // ADR-162: this monoSlot's pitch envelope restarts (from its current
+          // level); the notes already held are untouched. The composer's cache
+          // is cleared with it — the core just reset this voice's noteTune.
+          penv[monoSlot].retrig = true;
+          resetNoteExpr(monoSlot);
           tags[monoSlot] = {n->note_id, n->port_index, n->channel, n->key, true, (float)n->velocity};
           struck = monoSlot;
         }
@@ -4243,7 +4360,11 @@ struct Plugin
           }
           retireTag(slot);
           lastNoteKey = n->key;
-          env2Retrig = true;   // ADR-161: every strike restarts ENV 2's attack
+          // ADR-162: this slot's pitch envelope restarts (from its current
+          // level); the notes already held are untouched. The composer's cache
+          // is cleared with it — the core just reset this voice's noteTune.
+          penv[slot].retrig = true;
+          resetNoteExpr(slot);
           tags[slot] = {n->note_id, n->port_index, n->channel, n->key, true, (float)n->velocity};
           srcVel = n->velocity;   // ADR-149: matrix source 14
           struck = slot;
@@ -5169,10 +5290,25 @@ extern "C" const char *hypersaw_debug_undo(const clap_plugin_t *p, const char *o
   return r.c_str();
 }
 /* ENV 2 (pitch envelope) and the smoothed matrix pitch offset, read between
-   blocks — the 2026-09-13 "pitch peak shrinks on consecutive notes" report. */
+   blocks — the 2026-09-13 "pitch peak shrinks on consecutive notes" report.
+   Since ADR-162 `env2` is the GLOBAL PROJECTION (mod source slot 1: the max
+   over gated slots) and `stage` is the stage of the slot that won that max,
+   -1 when nothing is gated. `pitchSm` is the global pitch lane, which the
+   pitch route no longer feeds — it reading 0 while a note bends IS the
+   per-note evidence. Per-slot state: hypersaw_debug_penv_slot. */
 extern "C" void hypersaw_debug_penv(const clap_plugin_t *p, double *env2, double *stage, double *pitchSm)
 {
   *env2 = self(p)->env2; *stage = self(p)->env2Stage; *pitchSm = self(p)->modPitchSm;
+}
+/* ONE slot's pitch envelope and the semitone offset it is contributing to that
+   voice's noteTune through the composer (ADR-162). Diagnostic only. */
+extern "C" void hypersaw_debug_penv_slot(const clap_plugin_t *p, int slot, double *level,
+                                         double *stage, double *semis)
+{
+  if (slot < 0 || slot >= hypersaw::kPoly) { *level = 0; *stage = -1; *semis = 0; return; }
+  *level = self(p)->penv[slot].level;
+  *stage = self(p)->penv[slot].stage;
+  *semis = self(p)->noteExpr[slot].penv;
 }
 extern "C" void hypersaw_debug_voices(const clap_plugin_t *p, char *out, uint32_t cap)
 {
@@ -5181,7 +5317,11 @@ extern "C" void hypersaw_debug_voices(const clap_plugin_t *p, char *out, uint32_
   {
     const auto &v = core.voiceAt(i);
     if (!v.gate && v.env < 1e-4) continue;
-    n += (uint32_t)std::snprintf(out + n, cap > n ? cap - n : 0, "%d,%d,%d,%.3f,%.3f,%d;", i, v.midi, v.gate, v.f0, v.f0cur, v.glideActive);
+    // noteTune last (ADR-162): the per-note pitch multiplier is what carries
+    // the pitch envelope now, so the voice table has to show it or the
+    // per-note claim is unfalsifiable from outside. Appended, never inserted —
+    // preset_probe prints this line positionally.
+    n += (uint32_t)std::snprintf(out + n, cap > n ? cap - n : 0, "%d,%d,%d,%.3f,%.3f,%d,%.6f;", i, v.midi, v.gate, v.f0, v.f0cur, v.glideActive, v.noteTune);
     if (n >= cap) break;
   }
 }
