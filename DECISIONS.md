@@ -5052,3 +5052,42 @@ this. The Ableton chunk path (`applyMorphChunk` is shared) heals the same
 way. Lesson filed in REFLECTIONS: an append-only promise on a derived order
 needs an oracle on the order, not a comment.
 
+## ADR-160 — Undo history: shell-owned snapshot tree, gesture-level nodes, fork on restore (2026-09-13)
+
+**Context.** Human 2026-09-11: "we desperately need an undo history", added to
+the 1.0 definition of done (B84 carries the human's 2026-08-29 outline: tree,
+History tab, restore forks). B43 recorded the four instrument-specific traps
+(a)–(e) and left two rulings to the human — ownership and host automation.
+Recommended 2026-09-12, human 2026-09-13: "let's proceed".
+
+**Decisions.** (1) **Shell-owned.** GUI-side dies with the window and cannot
+see a preset change made while the editor is closed; the shell already
+produces the snapshot (`stateJson`) and receives every gesture bracket
+(ADR-121). (2) **Unit = the gesture, not the write.** One node per gesture
+end, preset load, corner apply/capture, morph toggle, host state load. A morph
+pad drag that rewrites 224 owners is one node. (3) **Host automation never
+marks.** History records the player's states; an undo restores the player's
+last state and automation keeps writing over it exactly as after any edit —
+no refusal while transport rolls, no fighting. Host parameter events are
+therefore invisible to the tree by construction. (4) **Snapshots, not
+deltas.** The field's own layout bug (ADR-159) showed positional deltas are
+fragile; a snapshot restore is one existing call and bit-identical by the
+fixture corpus. B43(b)'s warning stands where it was aimed: nothing enters the
+host chunk. (5) **In-memory, preallocated, capped at 200.** ~35 KB × 200 on
+the main thread; no allocation after construction; the audio thread is not
+involved (the drain check is two atomic loads on the main thread).
+App-support persistence — history surviving a session — is a follow-up the
+human turns on, not a default. (6) **Restore forks.** Restoring an old node
+makes it current; the next edit becomes its child. Redo follows the branch
+most recently created from the current node. A full ring evicts the oldest
+node and re-parents its children, so the tree may become a forest; the tab
+shows it as such rather than pretending.
+
+**Not decided here.** Whether the same component ships to other plugins (the
+human's "all my plugins" ambition) — a core-library brief AFTER it works here,
+with evidence (B84's own rule).
+
+**Consequences.** B35's randomize/initialize pairing becomes optional once
+this exists. `undo_check` is standalone; wiring beside `state_check` is the
+human's gate decision.
+
