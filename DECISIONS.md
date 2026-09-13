@@ -5091,3 +5091,18 @@ with evidence (B84's own rule).
 this exists. `undo_check` is standalone; wiring beside `state_check` is the
 human's gate decision.
 
+### ADR-160 Amendment 1 — as built (2026-09-13, PR #551)
+
+Two deviations from the B84 acceptance text, ratified by the lead on review:
+(1) the morph-toggle mark lives at the main-thread `hostIf.setParam` seam,
+not in the `morphOn` param handler — that handler runs inside `applyParam`
+on the audio thread and is also where host automation lands, so a mark there
+would have broken both the thread rule and the automation-never-marks rule;
+(2) a root node "start" is taken at the first main-thread pump, because every
+mark's snapshot is the state AFTER the edit it names and the first edit needs
+a parent for UNDO to mean anything; a pending mark dedups against the root,
+so opening the editor on a loaded patch yields one node. Correction: the
+snapshot is 5–11 KB, not ~35 KB (measured; `undo_check` prints and asserts
+the fit on every run). Nothing in `process()`, `drainQueue` or any RT header
+changed; `state_check`, `rtsafety_probe` and `statefix_check` green.
+
