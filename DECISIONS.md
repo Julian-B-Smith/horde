@@ -5106,3 +5106,25 @@ snapshot is 5–11 KB, not ~35 KB (measured; `undo_check` prints and asserts
 the fit on every run). Nothing in `process()`, `drainQueue` or any RT header
 changed; `state_check`, `rtsafety_probe` and `statefix_check` green.
 
+## ADR-161 — ENV 2 restarts its attack on every strike (2026-09-13)
+
+**Context.** ADR-135 gave the pitch envelope its own ADSR, advanced at the
+mod grid as one shared source, with a stage machine that restarted on the
+GATE edge — the first key down after all keys up. With one note held, every
+further strike therefore got no attack; the player heard the first note's
+decay tail shrinking under each new note (human 2026-09-13; `penv_check`
+measured strike peaks 0.044 → 0.004 → 0.000).
+
+**Decision.** Every note-on sets `env2Retrig` (note handler, same thread as
+the mod grid), consumed once per tick: the attack restarts from the CURRENT
+level, so a re-strike mid-decay rises from where it is rather than from
+zero — no click. Gate-edge restart is kept as the silence case.
+
+**Left to the human.** ENV 2 stays ONE envelope for all voices (ADR-135's
+choice), so a strike now also blips the held notes. Per-voice ENV 2 through
+`setNoteExpr` — the per-note fan-out increment ADR-135 named — is the correct
+polysynth behaviour and a larger build; B116 asks which 1.0 gets.
+
+**Also recorded here:** `undo_check` joins `./verify full` beside
+`state_check` (human ruling 2026-09-13).
+

@@ -631,3 +631,7 @@ target_link_libraries(preset_probe PRIVATE ${PROJECT_NAME}-impl)
 # morphlayout_check: the morph field array layout is append-only (ADR-159). Standalone, unwired.
 add_executable(morphlayout_check tools/morphlayout_check.cpp)
 target_link_libraries(morphlayout_check PRIVATE ${PROJECT_NAME}-impl)
+
+# penv_check: ENV 2 restarts its attack on every strike (ADR-161). Standalone, unwired.
+add_executable(penv_check tools/penv_check.cpp)
+target_link_libraries(penv_check PRIVATE ${PROJECT_NAME}-impl)
