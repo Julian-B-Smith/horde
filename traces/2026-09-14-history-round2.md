@@ -26,3 +26,5 @@ the history page poll). Windows counterpart owed (B99).
 **Verification.** `lab_load_check` GREEN (26 labs); full Release build clean;
 `./verify fast` exit 0. The monitor is host-delivered behaviour: the human's
 DAW test. Installed for audition.
+
+**Addendum 2026-09-14 (off-by-one).** Human: "clicking an option selects the one below, and clicking dropdown options doesn't seem to work." Reproduced in the browser pane with a stubbed tree: clicking row 1 restored node 3. Cause: the path loop reassigned its `let` variable at the bottom of the body, so each row's click handler and dropdown captured the NEXT node. Fix: `const n = walk` per row. Re-test in the pane: click restores the clicked row; a dropdown choice redirects the list below it.

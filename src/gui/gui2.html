@@ -3237,7 +3237,11 @@ async function renderHistory(force) {
     host.appendChild(sel);
   }
   let passedCur = false;
-  for (let n = by.get(root), g = 0; n && g < 512; g++) {
+  for (let walk = by.get(root), g = 0; walk && g < 512; g++) {
+    // `walk` is reassigned at the bottom of this body; the handlers below
+    // must capture THIS row's node, not the next one (the 2026-09-14
+    // off-by-one: every click restored the row below).
+    const n = walk;
     const row = document.createElement('div');
     row.className = 'histrow' + (n.i === t.cur ? ' on' : '') + (passedCur ? ' ahead' : '');
     const b = document.createElement('button');
@@ -3269,7 +3273,7 @@ async function renderHistory(force) {
     }
     host.appendChild(row);
     if (n.i === t.cur) passedCur = true;
-    n = nx;
+    walk = nx;
   }
   const now = document.getElementById('histNow');
   if (now) {
