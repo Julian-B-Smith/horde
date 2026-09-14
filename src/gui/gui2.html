@@ -731,7 +731,13 @@
      depth that lies. */
   .histbar { display:flex; gap:8px; align-items:center; margin-bottom:8px; }
   .histbar output { margin-left:auto; color:var(--dim); font-size:10.5px; }
-  #histTree { display:flex; gap:8px; overflow-x:auto; align-items:flex-start;
+  #histTree { display:flex; flex-direction:column; gap:3px; max-height:420px; overflow-y:auto;
+    padding:4px 0; }
+  .histrow { display:flex; gap:8px; align-items:center; }
+  .histrow.ahead { opacity:.5; }
+  .histrow.on .histnode { background:var(--line); color:var(--bg); font-weight:600; }
+  .histbranch, .histroot { font:inherit; font-size:10px; max-width:220px; }
+  #histTree.legacy { display:flex; gap:8px; overflow-x:auto; align-items:flex-start;
               padding-bottom:4px; }
   .histcol { display:flex; flex-direction:column; gap:4px; min-width:120px; }
   .histcol > .hd { font-size:9.5px; color:var(--dim); letter-spacing:.1em; }
@@ -1157,13 +1163,16 @@
       drag that rewrites every owned parameter is one step, as is a preset load,
       a corner capture or apply, and the morph toggle. Click any entry to go back
       to it — the next edit then BRANCHES from there, so nothing you pass through
-      is destroyed. Columns are depth from a root.</div>
+      is destroyed. The list is one path from a root through the current state;
+      where a state has several branches, the dropdown picks which one the list
+      follows (• marks the branch the current state is on). Dimmed rows below
+      the current state are the redo path.</div>
     <div class="note">Host automation is deliberately absent: this records the
       states YOU made, and an automation lane keeps writing over the top after a
       restore exactly as it does after any edit. The last 200 states are kept,
       in memory, for this session — the oldest is dropped as new ones arrive and
-      its children become roots of their own, which is why more than one column
-      can start at the left.</div>
+      its children become roots of their own, which is when a root picker
+      appears at the top.</div>
   </div>
 </div>
 
@@ -2296,9 +2305,15 @@ function paintMorphField(fx, w, h) {
       dragY = Math.min(1, Math.max(0, (e.clientY - r.top) / r.height));
       bridge.setParam(152, dragX); bridge.setParam(153, dragY);
     };
-    pad.addEventListener('pointerdown', e => { dragging = true; pad.setPointerCapture(e.pointerId); send(e); });
+    // B118: the drag is ONE gesture — bracketed like the MAIN mini pad, so the
+    // morph position gets exactly one history node per drag (human 2026-09-14:
+    // "the morph position needs to have history... without overloading the
+    // memory with parameter changes"). The snapshot is taken at gesture END.
+    pad.addEventListener('pointerdown', e => { dragging = true; pad.setPointerCapture(e.pointerId);
+      bridge.gesture(152, true); bridge.gesture(153, true); send(e); });
     pad.addEventListener('pointermove', e => { if (dragging) send(e); });
-    pad.addEventListener('pointerup', () => { dragging = false; });
+    pad.addEventListener('pointerup', () => { if (!dragging) return; dragging = false;
+      bridge.gesture(152, false); bridge.gesture(153, false); });
   }
   const host = document.getElementById('mcorners');
   if (host) {
@@ -3161,6 +3176,15 @@ function histDepths(nodes) {
   for (const n of nodes) depth(n.i, 0);
   return d;
 }
+/* B118: ONE VERTICAL PATH, branches as dropdowns (human 2026-09-14: columns by
+   depth could not tell two branches off one base from branches off two
+   consecutive nodes). The list is a single root-to-leaf path through the
+   current node; wherever a node has several children a dropdown picks which
+   child the list continues with (default: the child on the way to the current
+   node, else the most recently created). Rows below the current node are the
+   redo path, dimmed. A forest shows a root picker at the top. */
+const histChoice = new Map();   // node id -> chosen child id (viewer-side UI state)
+let histRootChoice = -1;
 async function renderHistory(force) {
   const host = document.getElementById('histTree');
   if (!host) return;
@@ -3168,45 +3192,85 @@ async function renderHistory(force) {
   let t;
   try { t = JSON.parse(await window.hzUndoTree()); } catch (_) { return; }
   const nodes = t.nodes || [];
-  // Redraw only on a real change: this runs a few times a second and a blind
-  // rebuild would throw away the scroll position and the hover every time.
-  const sig = t.cur + '|' + nodes.map(n => n.i + ':' + n.parent + ':' + n.tick).join(',');
+  const sig = t.cur + '|' + histRootChoice + '|' + [...histChoice].join(';') + '|'
+            + nodes.map(n => n.i + ':' + n.parent + ':' + n.tick).join(',');
   if (!force && sig === histSig) return;
   histSig = sig;
-
-  const d = histDepths(nodes);
-  const cols = [];
+  const by = new Map(nodes.map(n => [n.i, n]));
+  const kids = new Map();
   for (const n of nodes) {
-    const k = d.get(n.i) || 0;
-    (cols[k] = cols[k] || []).push(n);
+    const pk = (n.parent >= 0 && by.has(n.parent)) ? n.parent : -1;
+    if (!kids.has(pk)) kids.set(pk, []);
+    kids.get(pk).push(n);
   }
+  for (const arr of kids.values()) arr.sort((a, b) => a.tick - b.tick);
+  const roots = kids.get(-1) || [];
+  // the current node's ancestry decides the default path
+  const onPath = new Set();
+  let rootOfCur = -1;
+  for (let n = by.get(t.cur), g = 0; n && g < 512; g++) {
+    onPath.add(n.i);
+    if (n.parent < 0 || !by.has(n.parent)) { rootOfCur = n.i; break; }
+    n = by.get(n.parent);
+  }
+  let root = by.has(histRootChoice) && roots.some(r => r.i === histRootChoice) ? histRootChoice : rootOfCur;
+  if (root < 0 && roots.length) root = roots[roots.length - 1].i;
+  const nextOf = (n) => {
+    const c = kids.get(n.i) || [];
+    if (!c.length) return null;
+    const chosen = histChoice.get(n.i);
+    if (chosen !== undefined && c.some(k => k.i === chosen)) return by.get(chosen);
+    const viaCur = c.find(k => onPath.has(k.i));
+    return viaCur || c[c.length - 1];
+  };
   host.textContent = '';
-  cols.forEach((col, k) => {
-    col.sort((a, b) => a.tick - b.tick);
-    const c = document.createElement('div');
-    c.className = 'histcol';
-    const hd = document.createElement('div');
-    hd.className = 'hd';
-    hd.textContent = k === 0 ? 'START' : 'STEP ' + k;
-    c.appendChild(hd);
-    for (const n of col) {
-      const b = document.createElement('button');
-      b.className = 'histnode' + (n.i === t.cur ? ' on' : '') + (n.parent < 0 ? ' root' : '');
-      b.textContent = n.label || '(state)';
-      b.title = 'restore this state — the next edit branches from it';
-      const tk = document.createElement('span');
-      tk.className = 't';
-      tk.textContent = '#' + n.tick;
-      b.appendChild(tk);
-      b.addEventListener('click', async () => {
-        await window.hzUndoRestore(n.i);
-        await syncFromEngine().catch(() => {});
-        renderHistory(true).catch(() => {});
-      });
-      c.appendChild(b);
+  if (roots.length > 1) {
+    const sel = document.createElement('select');
+    sel.className = 'histroot';
+    for (const r of roots) {
+      const o = document.createElement('option');
+      o.value = r.i; o.textContent = 'root: ' + (r.label || 'state') + ' #' + r.tick;
+      if (r.i === root) o.selected = true;
+      sel.appendChild(o);
     }
-    host.appendChild(c);
-  });
+    sel.addEventListener('change', () => { histRootChoice = +sel.value; renderHistory(true).catch(() => {}); });
+    host.appendChild(sel);
+  }
+  let passedCur = false;
+  for (let n = by.get(root), g = 0; n && g < 512; g++) {
+    const row = document.createElement('div');
+    row.className = 'histrow' + (n.i === t.cur ? ' on' : '') + (passedCur ? ' ahead' : '');
+    const b = document.createElement('button');
+    b.className = 'histnode';
+    b.textContent = n.label || '(state)';
+    b.title = passedCur ? 'redo to this state' : (n.i === t.cur ? 'current state' : 'restore this state — the next edit branches from it');
+    const tk = document.createElement('span');
+    tk.className = 't'; tk.textContent = '#' + n.tick; b.appendChild(tk);
+    b.addEventListener('click', async () => {
+      await window.hzUndoRestore(n.i);
+      await syncFromEngine().catch(() => {});
+      renderHistory(true).catch(() => {});
+    });
+    row.appendChild(b);
+    const c = kids.get(n.i) || [];
+    const nx = nextOf(n);
+    if (c.length > 1) {
+      const sel = document.createElement('select');
+      sel.className = 'histbranch';
+      sel.title = c.length + ' branches from here — pick the one to follow';
+      for (const k of c) {
+        const o = document.createElement('option');
+        o.value = k.i; o.textContent = '↳ ' + (k.label || 'state') + ' #' + k.tick + (onPath.has(k.i) ? ' •' : '');
+        if (nx && k.i === nx.i) o.selected = true;
+        sel.appendChild(o);
+      }
+      sel.addEventListener('change', () => { histChoice.set(n.i, +sel.value); renderHistory(true).catch(() => {}); });
+      row.appendChild(sel);
+    }
+    host.appendChild(row);
+    if (n.i === t.cur) passedCur = true;
+    n = nx;
+  }
   const now = document.getElementById('histNow');
   if (now) {
     const cur = nodes.find(n => n.i === t.cur);
