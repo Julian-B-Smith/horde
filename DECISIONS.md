@@ -5206,3 +5206,29 @@ fills the ring. The structure stays a forest on purpose. `undo_check`'s
 eviction legs were rewritten under this ruling (a wired gate; the change is
 the human's). The cap stays at 200 pending a memory ruling.
 
+## ADR-164 — Negative K in two-cluster mode is repulsive coupling (2026-09-14, PROPOSED)
+
+**Context.** The DYN reference's pull K is unipolar (slider 0..1, target
+4K²σ), so its two-cluster Abrams–Strogatz branch never had a meaning for
+K < 0; ADR-051 recorded that "K-sign × balance corners collapse to two". The
+port gave the SAW engine a bipolar knob and routed K < 0 to the SAW splay
+smoother, which only the mean-field path reads (ADR-001 Phase 3: "splay
+exists only on the mean-field path"). In two-cluster mode the knob's left
+half was therefore inert — the human's report.
+
+**Decision (proposed; the human ratifies by merge).** A signed smoother
+`KsmD` with target (4·K·|K| + Kenv)·σ feeds the two-cluster branch. Negative
+K is REPULSIVE within a cluster — exactly what `kB = −1` already does to
+cluster B — so K sign and balance compose: −K/balance 1 is A dissolved and B
+synced, the mirror of +K/balance 1. For K ≥ 0 and onset ≥ 0 the target is
+the sync target term-for-term, so every DYN golden is bit-identical; the
+mean-field and ring paths keep the SAW splay reading.
+
+**Alternative not taken.** A per-cluster SAW splay lattice (each cluster
+fanning to its own rank lattice at K < 0). It would be a third coupling law
+inside one topology; repulsion reuses the branch's own gain and is what the
+balance knob already means.
+
+**Oracle.** `twocluster_check`, standalone. Wiring beside `trajectory_check`
+is the human's gate decision.
+

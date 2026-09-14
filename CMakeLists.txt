@@ -647,3 +647,7 @@ target_link_libraries(penv_check PRIVATE ${PROJECT_NAME}-impl)
 # fxxfade_plugin_check: B117 through the plugin param path (2026-09-14). Standalone, unwired.
 add_executable(fxxfade_plugin_check tools/fxxfade_plugin_check.cpp)
 target_link_libraries(fxxfade_plugin_check PRIVATE ${PROJECT_NAME}-impl)
+
+# twocluster_check: negative K in two-cluster mode (ADR-164). Standalone, unwired.
+add_executable(twocluster_check tools/twocluster_check.cpp)
+target_link_libraries(twocluster_check PRIVATE ${PROJECT_NAME}-impl)
