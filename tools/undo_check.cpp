@@ -110,32 +110,75 @@ void treeChecks()
   }
 
   {
-    /* EVICTION RE-PARENTS. Root a with two children (b, and a fork d); push
-       until a's slot — the oldest — is the one reused. Both children must
-       survive as ROOTS, and neither may end up pointing at whatever now
-       occupies a's slot.
-
-       Note what this case ALSO proves about the general one: a parent is
-       always created before its child, slots are handed out in creation order,
-       and eviction takes the oldest slot — so a node's parent is always
-       evicted first, and by the time any node is evicted its own parent field
-       has already been rewritten to kNone. "Re-parent to the grandparent"
-       therefore always resolves to "become a root" in this ring. That is not a
-       shortcut; it is why ADR-160 says the structure is a forest. The
-       invariant worth asserting is the one below: no live node ever points at
-       a recycled slot. */
+    /* EVICTION PROTECTS THE SPINE (ADR-160 A2, human ruling 2026-09-14). Root
+       a, a fork d off a, then a straight run from a's other child b until the
+       ring is full plus one. The only node off the spine is d, so d — not a,
+       the oldest — is the one evicted; the spine keeps its root. */
     UndoTree t;
     const int a = t.push("a", payload(0), 0);
-    const int b = t.push("b", payload(1), 1);
     t.restore(a);
     const int d = t.push("d", payload(2), 2);
-    check(a == 0, "tree: the first node takes slot 0 (eviction test's premise)");
-    for (int i = 3; i < 201; i++) t.push("fill", payload(i), (uint64_t)i);   // cursor 3..200
-    check(t.liveAt(a) && t.node(a).label == "fill", "tree: the OLDEST slot is the one reused");
-    check(t.node(b).parent == UndoTree::kNone && t.node(d).parent == UndoTree::kNone,
-          "tree: an evicted root's children become roots (a forest is legal)");
-    check(t.node(b).parent != a && t.node(d).parent != a,
-          "tree: children never inherit the node that REPLACED their parent");
+    t.restore(a);
+    const int b = t.push("b", payload(1), 1);
+    for (int i = 3; i < 201; i++) t.push("fill", payload(i), (uint64_t)i);   // a + d + b + 198 = 201 -> ONE eviction
+    check(!t.liveAt(d) || t.node(d).label != "d", "tree: the off-spine fork is evicted, not the oldest");
+    check(t.liveAt(a) && t.node(a).label == "a" && t.node(a).parent == UndoTree::kNone,
+          "tree: the spine's root survives eviction");
+    check(t.liveAt(b) && t.node(b).parent == a, "tree: the spine's edges are intact after eviction");
+  }
+
+  {
+    /* THE HUMAN'S SCENARIO (2026-09-14): a trunk of 189 edits, then edits
+       190-220 as four branches off edit 6, the player standing on the last.
+       220 states in a ring of 200 = 20 evictions. Under oldest-first, edit 6
+       went at push 206 and the branches became unrelated roots; under the
+       spine rule the abandoned trunk 7..26 goes and every branch still
+       reaches edit 6. */
+    UndoTree t;
+    int slotOfEdit[221];
+    for (int e = 1; e <= 189; e++) slotOfEdit[e] = t.push("trunk", payload(e), (uint64_t)e);
+    const int base = slotOfEdit[6];
+    int e = 190;
+    for (int br = 0; br < 4; br++)
+    {
+      t.restore(base);
+      for (int k = 0; k < 8 && e <= 220; k++, e++) slotOfEdit[e] = t.push("branch", payload(e), (uint64_t)e);
+    }
+    check(t.size() == 200, "scenario: the ring holds 200 after 220 edits");
+    check(t.liveAt(base) && t.node(base).label == "trunk" && t.node(base).tick == 6,
+          "scenario: edit 6 (the shared base) survives");
+    bool spineOk = true;
+    for (int k = 1; k <= 5; k++) spineOk = spineOk && t.liveAt(slotOfEdit[k]) && t.node(slotOfEdit[k]).tick == (uint64_t)k;
+    check(spineOk, "scenario: edits 1-5 (the spine above the base) survive");
+    bool trunkGone = true;
+    for (int k = 7; k <= 26; k++) trunkGone = trunkGone && !(t.liveAt(slotOfEdit[k]) && t.node(slotOfEdit[k]).tick == (uint64_t)k);
+    check(trunkGone, "scenario: the abandoned trunk 7-26 is what was evicted");
+    bool reach = true;
+    for (int k = 190; k <= 220; k++)
+    {
+      int n = slotOfEdit[k], g = 0;
+      while (t.liveAt(n) && n != base && g++ < 300) n = t.node(n).parent;
+      reach = reach && n == base;
+    }
+    check(reach, "scenario: every recent branch still reaches edit 6 — siblings keep their shared base");
+    // CONTROL: the rule is real — an oldest-first ring would have taken edit 1.
+    check(t.liveAt(slotOfEdit[1]) && t.node(slotOfEdit[1]).tick == 1, "scenario control: edit 1 is live (oldest-first would have evicted it)");
+  }
+
+  {
+    /* The parent edge can never point at a slot whose occupant is YOUNGER than
+       the child — the only way a recycled slot could masquerade as a parent. */
+    UndoTree t;
+    for (int i = 0; i < 400; i++)
+    {
+      t.push("x", payload(i), (uint64_t)i);
+      if (i % 5 == 0) t.restore(i % t.capacity());
+    }
+    bool ok = true;
+    for (int i = 0; i < t.capacity(); i++)
+      if (t.liveAt(i) && t.node(i).parent != UndoTree::kNone)
+        ok = ok && t.liveAt(t.node(i).parent) && t.node(t.node(i).parent).born < t.node(i).born;
+    check(ok, "tree: no parent edge points at a slot recycled after the child was born");
   }
 
   {

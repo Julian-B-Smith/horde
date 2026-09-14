@@ -13,12 +13,19 @@
  * then editing FORKS — the next push becomes that node's child, which is the
  * whole reason this is a tree and not a stack.
  *
- * EVICTION MAKES A FOREST, ON PURPOSE. When the ring wraps, the oldest node is
- * overwritten and its children are re-parented to ITS parent. If that parent
- * was already gone the children become roots, so the structure is a forest,
- * not a tree. The alternative — dropping the whole subtree — would delete
- * states the player can still see in the list, and pretending the survivors
- * share a root would draw an edge that does not exist.
+ * EVICTION PROTECTS THE SPINE (ADR-160 A2, human 2026-09-14). When the ring is
+ * full the victim is the OLDEST node that is not on the path from a root to
+ * `current` — never an ancestor of where the player stands. Its children are
+ * re-parented to its parent, so a subtree survives its ancestor and becomes a
+ * root only when the ancestor was one. Oldest-first (the 2026-09-13 rule) had
+ * the wrong priority: with recent edits 190–220 all branching off edit 6, it
+ * evicted edit 6 at push 206 and the siblings lost their shared base while
+ * the abandoned trunk after 6 lived on. Now the trunk goes first and the base
+ * stays as long as the player works below it. Only when the spine itself
+ * fills the ring does its own root go. The structure is still a forest, on
+ * purpose: dropping a whole subtree would delete states the player can see,
+ * and pretending survivors share a root would draw an edge that does not
+ * exist.
  *
  * NO CLOCK. `tick` is a counter the shell supplies (SPEC §5.7 bans wall-clock
  * reads anywhere in the core). It orders nodes for display; `born` orders them
@@ -83,12 +90,15 @@ class UndoTree
   {
     if (cur_ != kNone && nodes_[cur_].json == json) return cur_;
 
-    const int slot = (int)(next_ % (uint64_t)kUndoCap);
     int parent = cur_;
-    if (nodes_[slot].live)
+    int slot = kNone;
+    for (int i = 0; i < kUndoCap && slot == kNone; i++)
+      if (!nodes_[i].live) slot = i;
+    if (slot == kNone)
     {
-      // Evict the oldest: its children adopt its parent, so a subtree survives
-      // its ancestor (and becomes a root when the ancestor was one).
+      slot = victim();
+      // Its children adopt its parent, so a subtree survives its ancestor
+      // (and becomes a root when the ancestor was one).
       const int gp = nodes_[slot].parent;
       for (int i = 0; i < kUndoCap; i++)
         if (nodes_[i].live && nodes_[i].parent == slot) nodes_[i].parent = gp;
@@ -105,9 +115,17 @@ class UndoTree
     n.label.assign(label ? label : "");
     n.json.assign(json);
     count_++;
-    next_++;
     cur_ = slot;
     return slot;
+  }
+
+  // True when `i` is `current` or one of its ancestors — the protected spine.
+  bool onSpine(int i) const
+  {
+    int d = 0;
+    for (int k = cur_; liveAt(k) && d < kUndoCap; d++, k = nodes_[k].parent)
+      if (k == i) return true;
+    return false;
   }
 
   // Move to the parent. No-op (returns kNone) at a root or on an empty tree.
@@ -150,7 +168,26 @@ class UndoTree
     return best;
   }
 
-  // Depth from the node's root, for the GUI's depth columns. Bounded by the
+  /* The eviction victim: the oldest LIVE node (by birth) off the spine. When
+     every live node IS the spine — a 200-deep straight run — the spine's own
+     root goes, and the player's oldest reachable state becomes the next one
+     down: the only honest answer with nothing else to give up. */
+  int victim() const
+  {
+    int best = kNone;
+    uint64_t bestBorn = 0;
+    for (int i = 0; i < kUndoCap; i++)
+    {
+      if (!nodes_[i].live || onSpine(i)) continue;
+      if (best == kNone || nodes_[i].born < bestBorn) { best = i; bestBorn = nodes_[i].born; }
+    }
+    if (best != kNone) return best;
+    for (int i = 0; i < kUndoCap; i++)
+      if (nodes_[i].live && (best == kNone || nodes_[i].born < bestBorn)) { best = i; bestBorn = nodes_[i].born; }
+    return best;
+  }
+
+  // Depth from the node's root, for the GUI. Bounded by the
   // node count so a cycle (impossible by construction) cannot hang the loop.
   int depthOf(int i) const
   {
@@ -163,7 +200,6 @@ class UndoTree
   Node nodes_[kUndoCap];
   int cur_ = kNone;
   int count_ = 0;
-  uint64_t next_ = 0;     // write cursor; next_ % kUndoCap is always the oldest slot
   uint64_t births_ = 0;
 };
 
