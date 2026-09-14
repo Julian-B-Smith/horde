@@ -78,7 +78,16 @@ struct HypersawGui::Impl
       if (![k isEqualToString:@"z"]) return e;
       NSView *v = web ? (__bridge NSView *)web->getViewHandle() : nil;
       if (!v || !v.window) return e;
-      if ([v.window firstResponder] == v) return e;   // the page's listener owns it
+      /* Cmd+Z is a MENU key equivalent in every host: with our view as first
+         responder the window offers it to the views, WKWebView declines, and
+         the host's Edit > Undo takes it before the page ever sees a keydown —
+         so Ctrl+Z reached the page and Cmd+Z did not (human 2026-09-14: "ctrl+z
+         works instead of cmd+z"). Claim Cmd+Z here whenever the pointer is over
+         us; defer to the page only for Ctrl+Z, which no host menu owns. The
+         one cost: Cmd+Z inside one of our own text fields steps history rather
+         than the field's text — Ctrl+Z still does the native thing there. */
+      const bool isCmd = (mods & NSEventModifierFlagCommand) != 0;
+      if (!isCmd && [v.window firstResponder] == v) return e;   // the page's listener owns Ctrl+Z
       const NSPoint p = [v convertPoint:[v.window mouseLocationOutsideOfEventStream] fromView:nil];
       if (!NSPointInRect(p, v.bounds)) return e;      // pointer over the host: the host's undo
       if (host.undoStep) host.undoStep((mods & NSEventModifierFlagShift) ? +1 : -1);
