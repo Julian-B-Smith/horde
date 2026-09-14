@@ -5192,3 +5192,17 @@ shared envelope did. `penv_check`'s T4 was rewritten by the stream after it
 passed vacuously against the old build (it measured the lane being added,
 not the lane the bug lived in); it now measures the total applied offset.
 
+### ADR-160 Amendment 2 — the rail graph and spine-protected eviction (2026-09-14)
+
+Human, after the six-layout sheet: the rail graph is the clearest, and the
+spine rule is agreed. (1) The HISTORY page draws the tree as a commit-log
+rail: newest first, lane 0 = the path to the current state, fork points
+marked, other branches in their own lanes; consecutive drags of one
+parameter coalesce into one row with a count. (2) Eviction no longer takes
+the oldest node: it takes the oldest node OFF the path from a root to the
+current state, so the base a player keeps branching from survives and the
+abandoned run goes first; the spine's own root is evicted only when the spine
+fills the ring. The structure stays a forest on purpose. `undo_check`'s
+eviction legs were rewritten under this ruling (a wired gate; the change is
+the human's). The cap stays at 200 pending a memory ruling.
+
