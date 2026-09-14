@@ -1594,8 +1594,16 @@ function hzMaybeRelease(ev) {
   if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')) return;
   bridge.releaseKeyFocus().catch(() => {});
 }
-document.addEventListener('pointerup', hzMaybeRelease, true);
-document.addEventListener('click', hzMaybeRelease, true);
+/* THE KEYBOARD FOLLOWS THE MOUSE (2026-09-14, human: "make sure cmd/ctrl+z
+   and cmd/ctrl+shift+z trigger undo and redo"). Releasing on every click meant
+   the undo shortcut could never reach us right after the tweak it was meant
+   to undo — focus had already gone back to the host. Now focus stays with the
+   editor while the pointer is over it (shortcuts work), and is handed back the
+   moment the pointer LEAVES the editor — which is where the host's computer
+   keyboard is being played from. The passthrough toggle still disables the
+   hand-back entirely for the A/B. */
+document.documentElement.addEventListener('mouseleave', hzMaybeRelease);
+document.addEventListener('pointerleave', hzMaybeRelease);
 { const tabs = document.getElementById('tabs');
   const lab = document.createElement('label');
   lab.style.cssText = 'margin-left:10px;font-size:10px;opacity:.75;cursor:pointer';
@@ -3215,10 +3223,10 @@ async function histStep(back) {
 document.getElementById('histUndo')?.addEventListener('click', () => histStep(true).catch(() => {}));
 document.getElementById('histRedo')?.addEventListener('click', () => histStep(false).catch(() => {}));
 /* Cmd/Ctrl+Z anywhere in the editor, Shift for redo. Only while OUR webview has
-   focus — which is the whole condition: this listener cannot fire otherwise,
-   and the key-focus passthrough above deliberately hands focus back to the host
-   after clicks, so an undo typed at the DAW stays the DAW's undo. Text fields
-   keep their own native undo. */
+   focus — which is the whole condition: this listener cannot fire otherwise.
+   The key-focus passthrough hands focus back when the pointer leaves the
+   editor, so an undo typed with the mouse over the DAW stays the DAW's undo,
+   and one typed over the editor is ours. Text fields keep their own undo. */
 document.addEventListener('keydown', e => {
   if ((e.key !== 'z' && e.key !== 'Z') || !(e.metaKey || e.ctrlKey)) return;
   const a = document.activeElement;
