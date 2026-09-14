@@ -55,6 +55,40 @@ struct HypersawGui::Impl
   GuiHost host;
   std::unique_ptr<choc::ui::WebView> web;
   void *parentView = nullptr;
+  /* B118 (human 2026-09-14: "the history hotkeys still aren't working"). The
+     page's keydown listener only fires while the webview is first responder,
+     and hosts keep key status on their own window — Live answers Cmd+Z with
+     ITS undo before our view ever sees a key. This process-local monitor sees
+     the event first. It claims Cmd/Ctrl+Z and Shift+Cmd/Ctrl+Z ONLY while the
+     pointer is over our view (the "keyboard follows the mouse" rule the GUI
+     already applies), steps the shell's history directly, and swallows the
+     event so the host's undo does not fire as well. When our view IS first
+     responder the event is left alone: the page's own listener handles it and
+     keeps text-field undo native. */
+  id keyMonitor = nil;
+  void installKeyMonitor()
+  {
+    if (keyMonitor || !web) return;
+    keyMonitor = [NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskKeyDown
+                                                       handler:^NSEvent *(NSEvent *e) {
+      const NSEventModifierFlags mods = e.modifierFlags & NSEventModifierFlagDeviceIndependentFlagsMask;
+      const bool cmd = (mods & NSEventModifierFlagCommand) || (mods & NSEventModifierFlagControl);
+      if (!cmd || (mods & NSEventModifierFlagOption)) return e;
+      NSString *k = [e.charactersIgnoringModifiers lowercaseString];
+      if (![k isEqualToString:@"z"]) return e;
+      NSView *v = web ? (__bridge NSView *)web->getViewHandle() : nil;
+      if (!v || !v.window) return e;
+      if ([v.window firstResponder] == v) return e;   // the page's listener owns it
+      const NSPoint p = [v convertPoint:[v.window mouseLocationOutsideOfEventStream] fromView:nil];
+      if (!NSPointInRect(p, v.bounds)) return e;      // pointer over the host: the host's undo
+      if (host.undoStep) host.undoStep((mods & NSEventModifierFlagShift) ? +1 : -1);
+      return nil;
+    }];
+  }
+  ~Impl()
+  {
+    if (keyMonitor) { [NSEvent removeMonitor:keyMonitor]; keyMonitor = nil; }
+  }
 
   explicit Impl(GuiHost h) : host(std::move(h))
   {
@@ -113,6 +147,7 @@ bool HypersawGui::attachToParent(void *parentView)
   [child setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
   [parent addSubview:child];
   configureSurfaceForPluginWindow(child);   // B79: now the window's scale is real
+  impl->installKeyMonitor();                // B118: undo/redo keys, host-independent
 
   /* THE FIX for the 2026-08-12 lingering-note report. A WKWebView becomes first
      responder on click and then keeps it, so every subsequent keystroke goes to
