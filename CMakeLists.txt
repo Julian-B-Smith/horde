@@ -643,3 +643,7 @@ target_link_libraries(morphlayout_check PRIVATE ${PROJECT_NAME}-impl)
 # penv_check: ENV 2 restarts its attack on every strike (ADR-161). Standalone, unwired.
 add_executable(penv_check tools/penv_check.cpp)
 target_link_libraries(penv_check PRIVATE ${PROJECT_NAME}-impl)
+
+# fxxfade_plugin_check: B117 through the plugin param path (2026-09-14). Standalone, unwired.
+add_executable(fxxfade_plugin_check tools/fxxfade_plugin_check.cpp)
+target_link_libraries(fxxfade_plugin_check PRIVATE ${PROJECT_NAME}-impl)
