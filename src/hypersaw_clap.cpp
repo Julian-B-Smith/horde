@@ -3133,6 +3133,7 @@ struct Plugin
     // ADR-159: a corner-preset FILE is the same positional array as a corner
     // chunk, so it takes the same remap (the human's corners/*.json, Aug 21-30).
     const std::vector<size_t> map = morphSlotMap(parseMorphLayout(json), countArray(c));
+    resetCorner(k);   // B124
     c++;
     morphCornersAuthored = true;
     for (size_t j = 0; j < map.size(); j++)
@@ -3193,6 +3194,11 @@ struct Plugin
     const char *c = std::strchr(json.c_str() + cp, '[');
     if (!c) return false;
     const std::vector<size_t> map = morphSlotMap(parseMorphLayout(json), countArray(c));
+    // B124: slots the preset does not carry load as defaults, so they must READ as defaults to match
+    std::vector<char> carried(morphIds.size(), 0);
+    for (size_t j = 0; j < map.size(); j++) if (map[j] != SIZE_MAX) carried[map[j]] = 1;
+    for (size_t i = 0; i < morphIds.size(); i++)
+      if (!carried[i] && std::fabs(morphCorner[k][i] - cornerSlotDefault(i)) > 1e-9) return false;
     c++;
     for (size_t j = 0; j < map.size(); j++)
     {
@@ -3231,6 +3237,22 @@ struct Plugin
      nothing ("sessions don't save the morph", human 2026-08-23). The writer
      (morphJson) and this parser stay adjacent twins on purpose: the JSON
      state-twins bug was two copies drifting apart. */
+  /* B124 (human 2026-09-14: a corner "semi-permanently messed up until I
+     reload the plugin"): a stored array SHORTER than the live order — every
+     patch and corner preset saved before a later append (202-, 222-entry files
+     beside 224-entry ones) — only overwrote the slots it carried, so the
+     previous load's values survived in the rest: a pitch offset from one
+     preset, or the whole bend/scale tail from a 202-entry file, outlived
+     every later load. Before filling, every slot goes back to its default. */
+  double cornerSlotDefault(size_t i) const
+  {
+    const ParamDef *d = findParam(morphIds[i]);
+    return d ? defaultFor(*d, morphIds[i] / 1000) : 0.0;
+  }
+  void resetCorner(int k)
+  {
+    for (size_t i = 0; i < morphIds.size(); i++) morphCorner[k][i] = cornerSlotDefault(i);
+  }
   /* ADR-159: where stored slot j lands in the live order. Layout 1 arrays of
      exactly kMorphAdr150Size were written with 181/1181 inside the prefix;
      every other layout-1 array (<= 222 entries) is the frozen prefix and maps
@@ -3312,6 +3334,7 @@ struct Plugin
         if (c)
         {
           const std::vector<size_t> map = morphSlotMap(layout, countArray(c));
+          for (size_t i = 0; i < morphExempt.size(); i++) morphExempt[i] = 0;   // B124: uncarried slots = not exempt
           c++;
           for (size_t j = 0; j < map.size(); j++)
           {
@@ -3338,6 +3361,7 @@ struct Plugin
           if (!c) break;
           if (k == 0) { c = std::strchr(c + 1, '['); if (!c) break; }   // outer, then inner
           const std::vector<size_t> map = morphSlotMap(layout, countArray(c));   // ADR-159
+          resetCorner(k);   // B124: what the file does not carry is the default, never the previous load
           c++;
           for (size_t j = 0; j < map.size(); j++)
           {
