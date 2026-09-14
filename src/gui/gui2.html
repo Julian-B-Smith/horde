@@ -737,7 +737,10 @@
   #carpetC { width:256px; height:58px; }
   .histbar { display:flex; gap:8px; align-items:center; margin-bottom:8px; }
   .histbar output { margin-left:auto; color:var(--dim); font-size:10.5px; }
-  .cdirty { color:var(--value); font-weight:700; margin-left:4px; }
+  .cdirty { color:var(--value); font-weight:700; }
+  /* B122 rows: label · CAPTURE · dropdown · asterisk on ONE line (the generic
+     3-track row wrapped the star to a second line, human 2026-09-14) */
+  #mcorners .row { grid-template-columns:64px auto minmax(0,1fr) 12px; }
   .histchk { display:inline-flex; gap:5px; align-items:center; color:var(--t2); font-size:10.5px; cursor:pointer; }
   #histTree { display:grid; grid-template-columns:auto 1fr; column-gap:6px; max-height:440px;
     overflow-y:auto; padding:4px 0; align-items:start; }
@@ -811,7 +814,7 @@
      shipped, and no audio oracle can see the difference. Reported by the human
      2026-08-12 as "I'm not seeing a panic button anywhere", while hunting a
      stuck note that panic is precisely the escape hatch for. -->
-<div class="hdr"><canvas class="brand" id="brand" width="292" height="192" aria-label="horde" role="img"></canvas><div class="tabs" id="tabs"><button id="panicBtn" class="panic" title="all notes off — clears both engines, every note tag, the mono held-stack and the FX tails, and writes a forensic dump">PANIC</button></div></div>
+<div class="hdr"><canvas class="brand" id="brand" width="292" height="192" aria-label="horde" role="img"></canvas><div class="tabs" id="tabs"></div></div>
 
 <div class="page on" id="pg-MAIN">
   <!-- The Editing bar left MAIN (human 2026-08-29: "I don't think the main
@@ -876,6 +879,18 @@
     PATCH / PASTE in the tab bar remains the export path; a disk browser is the
     roadmapped next step.</div>
 </div>
+  <!-- B123 (human 2026-09-14): the mini morph sits DIRECTLY under Presets. The
+       control column is a CSS multi-column layout that rebalances as clusters
+       change height, so with the box further down, the Bend cluster's gated
+       rows moved it around under the cursor mid-morph. The first items of the
+       column are the only ones balancing never moves. -->
+  <div class="cluster" id="morphMiniBox" data-selfgate hidden><h2>Morph</h2>
+    <!-- B85 first landing: a light morph pad — the four corner colours as a
+         bilinear ground and the live (152,153) puck; drag writes both params.
+         The full baked-field pad stays the MORPH page's signature; this is
+         the position control, everywhere the hand wants it. -->
+    <canvas id="morphMini" width="340" height="212" style="display:block;width:100%;cursor:crosshair;touch-action:none;border:var(--stroke) solid var(--line);border-radius:var(--r)"></canvas>
+  </div>
   <!-- ADR-150: MAIN's XY is its OWN pad — its own assignment pair (179/180,
        fixed selects: this pad never remaps with the osc selection), placed
        under Presets per the human's layout ruling. Rests centred: macros 1/2
@@ -885,13 +900,6 @@
     <div class="row xyAsnRow"><label>x drives</label><select data-p="179" data-fixed="1"><option value="0" selected>Macro 1</option><option value="1">Macro 2</option><option value="2">Macro 3</option><option value="3">Macro 4</option><option value="4">Macro 5</option><option value="5">Macro 6</option><option value="6">Macro 7</option><option value="7">Macro 8</option><option value="8">None</option></select><output></output></div>
     <div class="row xyAsnRow"><label>y drives</label><select data-p="180" data-fixed="1"><option value="0">Macro 1</option><option value="1" selected>Macro 2</option><option value="2">Macro 3</option><option value="3">Macro 4</option><option value="4">Macro 5</option><option value="5">Macro 6</option><option value="6">Macro 7</option><option value="7">Macro 8</option><option value="8">None</option></select><output></output></div>
     <div class="note xyRouteNote" id="xyMainRoutes"></div>
-  </div>
-  <div class="cluster" id="morphMiniBox" data-selfgate hidden><h2>Morph</h2>
-    <!-- B85 first landing: a light morph pad — the four corner colours as a
-         bilinear ground and the live (152,153) puck; drag writes both params.
-         The full baked-field pad stays the MORPH page's signature; this is
-         the position control, everywhere the hand wants it. -->
-    <canvas id="morphMini" width="340" height="212" style="display:block;width:100%;cursor:crosshair;touch-action:none;border:var(--stroke) solid var(--line);border-radius:var(--r)"></canvas>
   </div>
   <div class="cluster"><h2>Wheels</h2>
     <div id="wheelsMount"></div>
@@ -1813,15 +1821,13 @@ function paintArm(v) {
   document.body.classList.toggle('arming', v > 0);
   if (v > 0) document.body.style.setProperty('--armc', MCOLORS[v - 1]);
 }
-{ const pb = document.getElementById('panicBtn');
-  if (pb) pb.addEventListener('click', () => { bridge.panic().catch(() => {}); pb.blur(); });
-  /* A SECOND panic on the SET page, sharing the handler rather than the
-     element: the bar copy is for emergencies and this one is for finding it
-     where the other utilities live. Two buttons, one behaviour. */
+{ /* The tab-bar PANIC left the header (human 2026-09-14: "still omnipresent");
+     the SET page's button is THE panic, and Escape stays the keyboard route
+     (ADR-032) while the editor has focus. */
   const sp = document.getElementById('setPanic');
   if (sp) { const b = document.createElement('button');
     b.textContent = 'PANIC'; b.className = 'panic';
-    b.title = pb ? pb.title : 'all notes off';
+    b.title = 'all notes off — clears both engines, every note tag, the mono held-stack and the FX tails, and writes a forensic dump';
     b.addEventListener('click', () => { bridge.panic().catch(() => {}); b.blur(); });
     sp.appendChild(b); } }
 /* COPY / PASTE PATCH (human 2026-08-20: "add to gui2 an ability to copy the
@@ -1875,6 +1881,21 @@ function learnOscLayout(params) {
   while (ids.some(i => Math.floor(i / OSC_STRIDE) === numOsc)) numOsc++;
   globalIds = new Set(ids.filter(i => i < OSC_STRIDE && !have.has(i + OSC_STRIDE)));
 }
+// B123 helpers: the other oscillator, an id's base, the per-osc ids of the
+// cluster a row sits in (only those the shell would accept for THIS osc).
+const otherOsc = () => (editOsc + 1) % Math.max(2, numOsc);
+const baseIdOf = (id) => id >= OSC_STRIDE ? id % OSC_STRIDE : id;
+function sectionIds(row) {
+  const cl = row && row.closest('.cluster'); if (!cl || !globalIds) return [];
+  const out = [];
+  for (const el of cl.querySelectorAll('[data-p]')) {
+    if (el.dataset.fixed) continue;
+    const b = +el.dataset.p; if (globalIds.has(b)) continue;
+    out.push(effId(b));
+  }
+  return [...new Set(out)];
+}
+function fmtVal(el, v) { const n = +v; return Number.isFinite(n) ? (Math.abs(n) >= 100 ? n.toFixed(0) : n.toFixed(3).replace(/\.?0+$/, '')) : String(v); }
 function effId(base) {
   if (!globalIds || editOsc === 0) return base;
   return globalIds.has(base) ? base : base + editOsc * OSC_STRIDE;
@@ -2497,6 +2518,25 @@ const PARAM_MENU = [
      entry. The halos were already duplicate-ready (modHaloFrame accumulates
      lo/hi across every route with the same dest), so nothing downstream had to
      move. */
+  /* B123 (human 2026-09-14): "copy parameter from [other OSC]" and "copy
+     section from [other OSC]". Per-osc params only; the other oscillator's
+     value is the twin id in lastParams (every id is echoed). Each copy is ONE
+     gesture, so it is one history node and one edit to undo. "Section" is the
+     cluster the row sits in — the same grouping the page shows. */
+  { id: 'copyParam',
+    show: ctx => numOsc > 1 && globalIds && !globalIds.has(baseIdOf(ctx.id)) && !ctx.el.dataset.fixed,
+    label: ctx => 'Copy from OSC ' + (otherOsc() + 1),
+    hint: ctx => { const v = lastParams[baseIdOf(ctx.id) + otherOsc() * OSC_STRIDE]; return v === undefined ? 'no value yet' : 'sets this to ' + fmtVal(ctx.el, v); },
+    run: async ctx => { const src = baseIdOf(ctx.id) + otherOsc() * OSC_STRIDE; const v = lastParams[src]; if (v === undefined) return;
+      bridge.gesture(ctx.id, true); bridge.setParam(ctx.id, v); setControl(ctx.id, v); bridge.gesture(ctx.id, false); } },
+  { id: 'copySection',
+    show: ctx => numOsc > 1 && globalIds && !globalIds.has(baseIdOf(ctx.id)) && !ctx.el.dataset.fixed && sectionIds(ctx.row).length > 1,
+    label: ctx => 'Copy section from OSC ' + (otherOsc() + 1),
+    hint: ctx => sectionIds(ctx.row).length + ' parameters in this section',
+    run: async ctx => { const ids = sectionIds(ctx.row); if (!ids.length) return;
+      bridge.gesture(ctx.id, true);
+      for (const id of ids) { const v = lastParams[baseIdOf(id) + otherOsc() * OSC_STRIDE]; if (v === undefined) continue; bridge.setParam(id, v); setControl(id, v); }
+      bridge.gesture(ctx.id, false); } },
   { id: 'modSend',
     show: ctx => !!window.hzModAdd && ctx.el && ctx.el.type === 'range'
                  && !(ctx.id >= 161 && ctx.id <= 178),
