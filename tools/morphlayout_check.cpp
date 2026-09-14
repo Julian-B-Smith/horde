@@ -114,27 +114,28 @@ int main() {
     std::vector<double> pa(224, 0.0); pa[idx(live, "1181")] = 5.5; hypersaw_debug_apply(r.p, cornersJson(2, pa).c_str());
     std::vector<double> pb(222, 0.0); hypersaw_debug_apply(r.p, cornersJson(0, pb).c_str()); c = hypersaw_debug_cornervals(r.p, 0);
     expect(valueOf(c, "1181") == 0.0, "T8 a 222-entry PATCH resets the late corner slots too"); }
-  /* T9 (B125, the "reverted corner becomes corner A" report): a LOAD with morph
-     ON, corner B ARMED and the pad parked on A must leave corner B exactly as
-     the patch says. Before the fix the load's queued parameter writes were
-     routed into the armed corner as edits, so corner B took the live values —
-     which, on A, are corner A's. The control re-runs the same load with the
-     pad on B and quantum mode, where the winning corner was the victim. */
-  { auto patch = [&](double armed, double x, double y, int mode) {
+  /* T9 (B125, the "reverted corner becomes corner A" report): with morph
+     ALREADY ON from the previous state (the DAW case — a fresh instance has
+     morph off at drain time and never routes), a LOAD's parameter writes must
+     not be routed into corners. Sequence: load patch 1 (morph on, corner B
+     armed, pad on A) and drain; load patch 2 with different corners and
+     drain; corner B must be patch 2's, not patch 2's live values (= its
+     corner A). Control: quantum mode with the pad on B, nothing armed, where
+     the winning corner was the victim. Both legs FAIL with the bypass line
+     disabled — run as the control before this landed. */
+  { auto patch = [&](double armed, double x, double y, int mode, double base) {
       std::vector<std::vector<double>> cs(4, std::vector<double>(224, 0.0));
-      for (int k = 0; k < 4; k++) { cs[k][idx(live, "107")] = 100 + 10 * k; cs[k][idx(live, "4")] = 0.1 * (k + 1); }
-      std::string s = "{\"schema\":3,\"params\":{\"morphOn\":1,\"morphArm\":" + std::to_string((int)armed) + ",\"morphX\":" + std::to_string(x) + ",\"morphY\":" + std::to_string(y) + ",\"morphMode\":" + std::to_string(mode) + "},\"morphLayout\":2,\"morphCorners\":[";
+      for (int k = 0; k < 4; k++) { cs[k][idx(live, "107")] = base + 10 * k; cs[k][idx(live, "4")] = 0.1 * (k + 1); }
+      std::string s = "{\"schema\":3,\"params\":{\"morphOn\":1,\"morphArm\":" + std::to_string((int)armed) + ",\"morphX\":" + std::to_string(x) + ",\"morphY\":" + std::to_string(y) + ",\"morphMode\":" + std::to_string(mode) + ",\"bendTime\":" + std::to_string(base) + "},\"morphLayout\":2,\"morphCorners\":[";
       for (int k = 0; k < 4; k++) { s += k ? ",[" : "["; for (size_t i = 0; i < 224; i++) { char b[32]; std::snprintf(b, sizeof b, i ? ",%.6g" : "%.6g", cs[k][i]); s += b; } s += "]"; }
       return s + "]}"; };
-    hypersaw_debug_apply(r.p, patch(2, 0, 0, 1).c_str()); r.run(8);   // blend, B armed, pad on A
+    hypersaw_debug_apply(r.p, patch(2, 0, 0, 1, 100).c_str()); r.run(8);   // morph on, B armed, pad on A — the prior state
+    hypersaw_debug_apply(r.p, patch(2, 0, 0, 1, 300).c_str()); r.run(8);   // the load under test
     const char *c = hypersaw_debug_cornervals(r.p, 1);
-    expect(valueOf(c, "107") == 110 && std::fabs(valueOf(c, "4") - 0.2) < 1e-9, "T9 a load with morph on and corner B armed leaves corner B as the patch says");
-    c = hypersaw_debug_cornervals(r.p, 0);
-    expect(valueOf(c, "107") == 100, "T9 ...and corner A too");
-    hypersaw_debug_apply(r.p, patch(0, 1, 0, 0).c_str()); r.run(8);   // quantum, nothing armed, pad on B
+    expect(valueOf(c, "107") == 310, "T9 a load with morph already on and corner B armed leaves corner B as the patch says (310, not the live 300)");
+    hypersaw_debug_apply(r.p, patch(0, 1, 0, 0, 500).c_str()); r.run(8);   // quantum, pad on B, nothing armed
+    hypersaw_debug_apply(r.p, patch(0, 1, 0, 0, 700).c_str()); r.run(8);
     c = hypersaw_debug_cornervals(r.p, 1);
-    expect(valueOf(c, "107") == 110 && std::fabs(valueOf(c, "4") - 0.2) < 1e-9, "T9 control: quantum mode, pad on B, nothing armed — corner B still as the patch says");
-    // and a plain GUI-style write while B is armed STILL lands in B (routing itself is untouched)
-    hypersaw_debug_apply(r.p, patch(2, 0, 0, 1).c_str()); r.run(8); }
+    expect(valueOf(c, "107") == 710, "T9 control: quantum mode, pad on B — the winning corner is not overwritten by the load's live value"); }
   std::printf("morphlayout_check: %s\n", fails ? "FAIL" : "PASS"); r.kill(); hypersaw_entry_deinit(); return fails ? 1 : 0;
 }

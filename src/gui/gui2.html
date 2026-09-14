@@ -2405,7 +2405,10 @@ function paintMorphField(fx, w, h) {
            corner preset this row was showing (B107, human 2026-09-10). Keep
            the shown name if the store still has it. */
         const shown = ld.value;
-        ld.innerHTML = '<option value="">load\u2026</option>' +
+        // B125 (human 2026-09-14): a corner with no preset reads "custom", and a
+        // global preset carries the corner names (B122), so the dropdown is a
+        // statement of what the corner holds, not only a loader.
+        ld.innerHTML = '<option value="">custom</option>' +
           names.map(n => `<option>${n}</option>`).join('');
         if (shown && names.includes(shown)) ld.value = shown; };
       fill();
