@@ -123,6 +123,10 @@ static const char *const kPolesLabels[] = {"1 — classic", "2 — pair", "3 —
 static const char *const kDelaySyncLabels[] = {"free (ms)", "tempo sync"};
 static const char *const kFxTypeLabels[] = {"Off",  "Drive", "Filter", "Gain",
                                             "Comp", "Comb",  "Notch", "Echo", "Room", "Delay"};
+/* B117 / ADR-163. "atomic" is what the rack has always done — module type is
+   stepped, so it flips at a grid tick with the outgoing tail cut — and it is
+   the default, so naming it is a description, not a new mode. */
+static const char *const kFxXfadeLabels[] = {"atomic (flip)", "crossfade"};
 // Display names for the gravity ratio readout (indices match core kRatios)
 static const char *const kRatioNames[13] = {"1/1", "16/15", "9/8", "6/5", "5/4", "4/3", "7/5",
                                             "3/2", "8/5", "5/3", "16/9", "15/8", "2/1"};
@@ -642,6 +646,16 @@ static const ParamDef kParams[] = {
     {261, "d4cross", "D4 Crossfeed", 0, 1, 0, false, nullptr},
     {262, "d4damp", "D4 Damp", 0, 1, 0.35, false, nullptr},
     {263, "d4hp", "D4 Loop HP (Hz)", 0, 500, 60, false, nullptr},
+    /* B117 / ADR-163 — the FX-presence ruling's INSTRUMENT, not a feature.
+       Under both morph modes a slot's type flips atomically (B49), so a tail is
+       cut and a module enters with no lead-in; the bounded pool (B95) fixes
+       that structurally at 1.1. These two let the human HEAR the alternative
+       first. Default 0 = atomic = today, to the bit. "(dev)" is the established
+       label for a control that is not product surface (id 70 is the precedent);
+       after the ruling the control is either buried — id kept so stored state
+       still loads — or promoted to a setting. */
+    {264, "fxXfade", "FX Type Crossfade (dev)", 0, 1, 0, true, kFxXfadeLabels},
+    {265, "fxXfadeMs", "FX Crossfade Time (dev)", 5, 500, 80, false, nullptr},
 };
 
 // THE DEFAULT OF A PARAMETER, DEFINED ONCE. Both CLAP (`clap_param_info.
@@ -753,6 +767,7 @@ constexpr clap_id kGlobalIds[] = {
     240, 241, 242, 243, 244, 245, 246, 247,      // ADR-142 Delay slot 2
     248, 249, 250, 251, 252, 253, 254, 255,      // ADR-142 Delay slot 3
     256, 257, 258, 259, 260, 261, 262, 263,      // ADR-142 Delay slot 4
+    264, 265,                                    // B117 FX crossfade (dev) — the rack is ONE object
     // ADR-131 per-slot time-engine params: 200..231, four blocks of 8.
     200, 201, 202, 203, 204, 205, 206,
     208, 209, 210, 211, 212, 213, 214,
@@ -4002,6 +4017,11 @@ struct Plugin
         else rack.setAmount(slot, applied);
         return;
       }
+      /* B117 / ADR-163. Written straight through to the rack, which owns the
+         handover; nothing else in the shell knows about it. Both are patch
+         scope (the rack is ONE object), hence data-fixed on their controls. */
+      if (id == 264) { rack.setXfade(applied >= 0.5); return; }
+      if (id == 265) { rack.setXfadeMs(applied); return; }
       if (id >= 96 && id <= 99)  // per-slot second axis (comb resonance today)
       {
         rack.setTone((int)(id - 96), applied);
@@ -4116,6 +4136,8 @@ struct Plugin
         return rack.getTimeParam((int)((d->id - 200) / 8), (int)((d->id - 200) % 8));
       if (d->id >= 232 && d->id <= 263)
         return rack.getDelayParam((int)((d->id - 232) / 8), (int)((d->id - 232) % 8));
+      if (d->id == 264) return rack.getXfade();      // B117: the rack owns both
+      if (d->id == 265) return rack.getXfadeMs();    // (clamped there, so readback is the truth)
       if (d->id == 161)
       {
         const int pr = modPitchRouteIdx();

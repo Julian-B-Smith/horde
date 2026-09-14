@@ -392,6 +392,14 @@ target_link_libraries(ratchet_probe PRIVATE ${PROJECT_NAME}-impl)
 # instance caps, refused at the shell's choke point). Standalone, unwired.
 add_executable(combguard_check tools/combguard_check.cpp)
 target_link_libraries(combguard_check PRIVATE ${PROJECT_NAME}-impl)
+# fxxfade_check: B117/ADR-163 FX presence crossfade — the default is inert, a
+# tail is faded rather than cut, one switch makes one fade, and the singleton
+# guard counts a fading shadow. Standalone, unwired (the rack-probe ruling).
+add_executable(fxxfade_check tools/fxxfade_check.cpp)
+target_link_libraries(fxxfade_check PRIVATE ${PROJECT_NAME}-impl)
+if(NOT MSVC)
+  target_compile_options(fxxfade_check PRIVATE -O2)
+endif()
 
 # robustness_matrix: the table docs/ROBUSTNESS.md publishes (B101), measured
 # rather than typed — the real plugin at 44.1/48/96/192 k x 32..2048 frames:

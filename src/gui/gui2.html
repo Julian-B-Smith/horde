@@ -1074,6 +1074,24 @@
       is audible: at &minus;40&nbsp;dB a tail is still present in a quiet mix.
       &minus;80&nbsp;dB is the shipped behaviour.</div>
   </div>
+  <div class="cluster"><h2>FX crossfade (dev)</h2>
+    <div class="row" data-addr="fxXfade"><label>FX Type Crossfade (dev)</label><select data-p="264" data-fixed="1"><option value="0" selected>atomic (flip)</option><option value="1">crossfade</option></select><output></output></div>
+    <div class="row kcell" data-addr="fxXfadeMs" data-when="fxXfade=1"><label>Crossfade Time <span class="u">ms</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="265" data-fixed="1" min="5" max="500" step="0.005" value="80"><span class="kmnow"></span></span><output></output></div>
+    <div class="note">A slot's module TYPE is a stepped parameter, so under either
+      morph mode it flips at a grid tick: the outgoing module's tail is cut and the
+      incoming one starts from nothing. <b>crossfade</b> instead keeps the outgoing
+      module rendering from its own state for the time below while an equal-power
+      fade hands over. <b>atomic</b> is the shipped behaviour and is bit-identical
+      to it — the default changes nothing.</div>
+    <div class="note" style="margin-top:6px">This pair exists so the choice can be
+      HEARD before it is ruled on (ADR-163); it is not a finished setting, and after
+      the ruling it is either buried or promoted. Echo&nbsp;&harr;&nbsp;Room stays
+      atomic either way: those two are one time engine in two modes, and switching
+      the mode clears its buffers, so there is no outgoing tail left to fade.
+      <b>data-fixed is load-bearing here</b> — the rack is ONE object shared by the
+      patch and the shell dispatches these by raw id, so without the pin selecting
+      oscillator 2 would remap them and the controls would silently do nothing.</div>
+  </div>
   <div class="cluster"><h2>Panic</h2>
     <div class="btnline" id="setPanic"></div>
     <div class="note">Also permanently in the tab bar: it is the control you
