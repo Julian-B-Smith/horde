@@ -96,5 +96,20 @@ int main() {
     expect(hypersaw_debug_cornermatches(r.p, 0, cornerFile(2, b).c_str()), "T7d a corner freshly loaded from a preset MATCHES it");
     b[idx(live, "4")] = 0.31;
     expect(!hypersaw_debug_cornermatches(r.p, 0, cornerFile(2, b).c_str()), "T7e control: a preset differing in one value does NOT match (the asterisk fires)"); }
+  // T8 (the 2026-09-14 "corner semi-permanently messed up" report): a corner
+  // array SHORTER than the live layout must reset the slots it does not carry
+  // to their defaults — it used to leave the previous load's values there, so
+  // a pitch offset (181/1181) from one preset outlived every later load.
+  { std::vector<double> a(224, 0.0); a[idx(live, "181")] = 7.25; a[idx(live, "1181")] = -3.0; a[idx(live, "107")] = 120;
+    hypersaw_debug_cornerapply(r.p, 1, cornerFile(2, a).c_str());
+    const char *c = hypersaw_debug_cornervals(r.p, 1);
+    expect(valueOf(c, "181") == 7.25, "T8 anchor: a 224-entry corner sets oscPitch to 7.25");
+    std::vector<double> b(222, 0.0); b[idx(frozen, "107")] = 121;
+    hypersaw_debug_cornerapply(r.p, 1, cornerFile(0, b).c_str()); c = hypersaw_debug_cornervals(r.p, 1);
+    expect(valueOf(c, "107") == 121 && valueOf(c, "181") == 0.0 && valueOf(c, "1181") == 0.0, "T8 a 222-entry corner preset RESETS the late slots (oscPitch back to its default 0)");
+    // same through the patch path: a 224 patch with a pitch offset, then a 222-entry patch
+    std::vector<double> pa(224, 0.0); pa[idx(live, "1181")] = 5.5; hypersaw_debug_apply(r.p, cornersJson(2, pa).c_str());
+    std::vector<double> pb(222, 0.0); hypersaw_debug_apply(r.p, cornersJson(0, pb).c_str()); c = hypersaw_debug_cornervals(r.p, 0);
+    expect(valueOf(c, "1181") == 0.0, "T8 a 222-entry PATCH resets the late corner slots too"); }
   std::printf("morphlayout_check: %s\n", fails ? "FAIL" : "PASS"); r.kill(); hypersaw_entry_deinit(); return fails ? 1 : 0;
 }
