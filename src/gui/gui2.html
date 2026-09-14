@@ -3278,12 +3278,15 @@ async function renderHistory(force) {
   };
   for (const n of nodes) laneOf(n);
   const rowH = 26, laneW = 16, W = (free + 1) * laneW, H = Math.max(rowH, rows.length * rowH);
-  const css = getComputedStyle(document.documentElement);
-  // light ground: --dim is too faint for a 1.2px lane on cream (human
-  // 2026-09-14), so the off-spine lanes take --t2 there; dark keeps --dim.
-  const ink = css.getPropertyValue('--line'), panel = css.getPropertyValue('--panel');
-  const dim = css.getPropertyValue(document.body.classList.contains('dark') ? '--dim' : '--t2');
-  const hot = css.getPropertyValue('--value'), mark = css.getPropertyValue('--marker');
+  /* Tokens via TOK(), which resolves on BODY: the dark palette is `body.dark`,
+     so a read on the document root returned the cream palette's ink in dark
+     mode and the spine drew near-black on near-black (human 2026-09-14: "the
+     central strands are in black, which is nearly invisible"). Light ground:
+     --dim is too faint for a 1.2px lane on cream, so off-spine lanes take
+     --t2 there; dark keeps --dim. */
+  const ink = TOK('--line'), panel = TOK('--panel');
+  const dim = TOK(document.body.classList.contains('dark') ? '--dim' : '--t2');
+  const hot = TOK('--value'), mark = TOK('--marker');
   const NS = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(NS, 'svg');
   svg.setAttribute('width', W); svg.setAttribute('height', H); svg.setAttribute('class', 'histrail');
