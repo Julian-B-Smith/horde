@@ -35,7 +35,7 @@ struct Rig {
   void run(double s) { for (int i = 0; i < Math_blocks(s); i++) { EvList e; step(e); } }
   void note(int m, bool on, int id) { EvList e; e.notes.push_back(mkNote(on ? CLAP_EVENT_NOTE_ON : CLAP_EVENT_NOTE_OFF, 0, (int16_t)m, id, on ? 0.8 : 0)); step(e); }
   double t() const { return blocks * (double)kBlock / kSR; }
-  void voices(const char *tag) { char b[512]; hypersaw_debug_voices(p, b, sizeof b); std::printf("    %-8s t=%.3f voices[slot,midi,gate,f0,f0cur,glide]: %s\n", tag, t(), b); }
+  void voices(const char *tag) { char b[512]; hypersaw_debug_voices(p, b, sizeof b); std::printf("    %-8s t=%.3f voices[slot,midi,gate,f0,f0cur,glide,noteTune]: %s\n", tag, t(), b); }
   // autocorrelation pitch of the last `sec` seconds of mono, in MIDI (fractional)
   double pitchMidi(double sec) const { const int win = (int)(sec * kSR); if ((int)mono.size() < win) return 0; const size_t s0 = mono.size() - win;
     int lo = (int)(kSR / 2000), hi = (int)(kSR / 40); double best = -1; int bl = lo;
