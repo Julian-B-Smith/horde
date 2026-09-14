@@ -376,7 +376,7 @@ inline void installBridge(choc::ui::WebView &web, GuiHost &host)
   // away most of what had already been computed; the cost of more bins is the
   // array marshal, not the transform.
   web.bind("hzGetSpec", [&host](const choc::value::ValueView &) -> choc::value::Value {
-    constexpr int kBins = 256;
+    constexpr int kBins = 512;   // B120: 512 of the ~1024 usable magnitudes (was 256)
     float bins[kBins];
     host.getSpectrum(bins, kBins);
     auto arr = choc::value::createEmptyArray();
@@ -445,7 +445,7 @@ inline void installBridge(choc::ui::WebView &web, GuiHost &host)
     if (want & 1) obj.addMember("viz", vizToValue(host.getViz(), (want & 16) != 0));
     if (want & 2)
     {
-      constexpr int kBins = 256;
+      constexpr int kBins = 512;   // B120: 512 of the ~1024 usable magnitudes (was 256)
       float bins[kBins];
       host.getSpectrum(bins, kBins);
       unsigned char q[kBins];
