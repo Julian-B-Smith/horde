@@ -1195,7 +1195,7 @@ struct Plugin
   {
     uint32_t id;
     double value;
-    uint8_t kind;  // 0=value, 1=gesture begin, 2=gesture end
+    uint8_t kind;  // 0=value, 1=gesture begin, 2=gesture end, 3=load value (B125)
   };
   /* 1024, not 256 (B110, 2026-09-10): a FULL preset applied through
      applyStateJson enqueues ~323 keys plus the osc-2 twins plus the
@@ -1452,6 +1452,15 @@ struct Plugin
   std::vector<uint8_t> morphExempt;
   double morphArm = 0;
   bool morphFromField = false;   // ADR-109 re-entry guard, see the hook
+  /* B125 (human 2026-09-14: a reverted corner "might become whatever the corner
+     A preset is"): a STATE LOAD — preset, history restore, host chunk — is a
+     whole-state replace whose corners arrive in the morph chunk. Its parameter
+     writes are the loaded state's LIVE values and must never be routed into a
+     corner as edits; before this flag they were, through the ADR-109 choke
+     point, so with morph on the queued writes rewrote the armed / winning /
+     weighted corners with the live values — with the pad parked on A, corner B
+     became A. Set for the duration of a load's writes only. */
+  bool loadingState = false;
   /* ATOMIC GROUP (ADR-109 A1): indices in [first, last] share ONE corner
      decision, taken on the group's first index. Today the scale is the only
      group; the mechanism is general because the next one (a chord voicing, an
@@ -1905,7 +1914,7 @@ struct Plugin
      forcing it live would lie about which corner you just changed. */
   bool morphRouteEdit(clap_id id, double v)
   {
-    if (morphOn <= 0.5) return true;
+    if (morphOn <= 0.5 || loadingState) return true;   // B125: a load is not an edit
     size_t idx = morphIds.size();
     for (size_t i = 0; i < morphIds.size(); i++)
       if (morphIds[i] == id) { idx = i; break; }
@@ -2599,9 +2608,11 @@ struct Plugin
     while (tail != head)
     {
       const ParamMsg &m = queue[tail % kQCap];
-      if (m.kind == 0)
+      if (m.kind == 0 || m.kind == 3)   // 3 = a LOAD's value (B125): bypasses corner routing
       {
+        loadingState = m.kind == 3;
         applyParam(m.id, m.value);
+        loadingState = false;
         if (out)
         {
           clap_event_param_value_t ev{};
@@ -3511,7 +3522,7 @@ struct Plugin
       if (pos == std::string::npos) continue;
       pos = json.find(':', pos + needle.size());
       if (pos == std::string::npos) continue;
-      enqueueParam(d.id, std::atof(json.c_str() + pos + 1), 0);
+      enqueueParam(d.id, std::atof(json.c_str() + pos + 1), 3);   // B125: load kind
       any = true;
     }
     // the twins, by the state_save convention
@@ -3525,7 +3536,7 @@ struct Plugin
         if (pos == std::string::npos) continue;
         pos = json.find(':', pos + std::strlen(nb));
         if (pos == std::string::npos) continue;
-        enqueueParam(d.id + k * 1000, std::atof(json.c_str() + pos + 1), 0);
+        enqueueParam(d.id + k * 1000, std::atof(json.c_str() + pos + 1), 3);
         any = true;
       }
     /* PRE-NOTE-LANE PATCH MIGRATION. `noteLawLink` ships FOLLOW as of 2026-08-20,
@@ -3539,8 +3550,8 @@ struct Plugin
     if (json.find("\"noteLawLink\"") == std::string::npos &&
         json.find("\"glide\"") != std::string::npos)
     {
-      enqueueParam(137, 0, 0);                                  // own settings
-      enqueueParam(138, hypersaw::GlideCore::kLag, 0);          // lag, as it always was
+      enqueueParam(137, 0, 3);                                  // own settings
+      enqueueParam(138, hypersaw::GlideCore::kLag, 3);          // lag, as it always was
     }
     applyMorphChunk(json);
     /* ADR-103: schema<2 patches saved glideMode=1 when that option behaved as
@@ -3579,8 +3590,8 @@ struct Plugin
        defaults ship as. */
     if (json.find("\"enable\"") == std::string::npos)
     {
-      enqueueParam(150, 1, 0);
-      enqueueParam(1150, 1, 0);
+      enqueueParam(150, 1, 3);
+      enqueueParam(1150, 1, 3);
     }
     undoMark("load");   // B84: a preset load is ONE history node
     return any;
@@ -5291,7 +5302,7 @@ bool state_load(const clap_plugin_t *p, const clap_istream_t *stream)
         if (key == d.coreKey)
         {
           if (keyOsc && isGlobalId(d.id)) break;   // globals have no per-osc mirror
-          pl->enqueueParam((clap_id)(d.id + idOff), val, 0);
+          pl->enqueueParam((clap_id)(d.id + idOff), val, 3);   // B125
           break;
         }
     }
@@ -5304,7 +5315,9 @@ bool state_load(const clap_plugin_t *p, const clap_istream_t *stream)
         if (key == d.coreKey)
         {
           if (keyOsc && isGlobalId(d.id)) break;   // globals have no per-osc mirror
+          pl->loadingState = true;                  // B125: a load is not an edit
           pl->applyParam((clap_id)(d.id + idOff), val);
+          pl->loadingState = false;
           known = true;
           break;
         }
