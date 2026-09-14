@@ -1861,7 +1861,7 @@ struct Plugin
       morphCorner[k][i] = v;
     }
     morphCornersAuthored = true;
-    undoMarkCorner(k);   // B84
+    undoMarkCorner(k, "captured", nullptr); cornerName[k] = "";   // B84 / B122
   }
 
   /* One morph step, on the 256-sample gravity grid (heavier than the bend grid
@@ -3143,17 +3143,66 @@ struct Plugin
       if (!nx || (cl && cl < nx)) break;
       c = nx + 1;
     }
-    undoMarkCorner(k);   // B84
+    undoMarkCorner(k, "loaded", nullptr);   // B84 / B122: the GUI names it next
     return true;
   }
 
   // Both corner writes name the corner they touched; the tick tells two visits
   // to the same corner apart, so one label serves capture and apply alike.
-  void undoMarkCorner(int k)
+  /* B122: corner preset NAMES live in the shell (human 2026-09-14: history
+     "doesn't handle presets elegantly" — the name of what a corner holds was
+     GUI-only, so an undo restored the values and left the dropdown lying).
+     Stamped into the morph chunk, so a patch, a set and every history
+     snapshot carry which preset each corner came from; "" = captured / none. */
+  std::string cornerName[4];
+  static const char *cornerLetter(int k) { static const char *L[] = {"A", "B", "C", "D"}; return L[k & 3]; }
+  void undoMarkCorner(int k, const char *verb, const char *name)
   {
-    char lb[24];
-    std::snprintf(lb, sizeof lb, "corner %d", k + 1);
+    char lb[96];
+    if (name && *name) std::snprintf(lb, sizeof lb, "corner %s %s %s", cornerLetter(k), verb, name);
+    else std::snprintf(lb, sizeof lb, "corner %s %s", cornerLetter(k), verb);
     undoMark(lb);
+  }
+  // The GUI names the corner right after a load; the load's own mark is still
+  // pending (the snapshot waits for the next frame), so the label is amended
+  // in place and the node reads "corner B ← Squids", not "corner B loaded".
+  void setCornerName(int k, const std::string &name)
+  {
+    if (k < 0 || k > 3) return;
+    cornerName[k] = name.substr(0, 60);
+    if (undoPending && undoPendingLabel.rfind("corner ", 0) == 0)
+      undoPendingLabel = cornerName[k].empty()
+          ? std::string("corner ") + cornerLetter(k) + " captured"
+          : std::string("corner ") + cornerLetter(k) + " \xe2\x86\x90 " + cornerName[k];   // "←" as UTF-8: labels show raw
+  }
+  std::string cornerNamesJson() const
+  {
+    std::string out = "[";
+    for (int k = 0; k < 4; k++) { out += k ? ",\"" : "\""; out += jsonEscape(cornerName[k]); out += "\""; }
+    return out + "]";
+  }
+  /* Would applying this corner-preset JSON change corner k? Runs the preset
+     through the same layout remap the loader uses (ADR-159) and compares —
+     the GUI's "edited since load" asterisk (human 2026-09-14). */
+  bool cornerMatches(int k, const std::string &json)
+  {
+    if (k < 0 || k > 3) return false;
+    morphInit();
+    const size_t cp = json.find("\"cornerPreset\"");
+    if (cp == std::string::npos) return false;
+    const char *c = std::strchr(json.c_str() + cp, '[');
+    if (!c) return false;
+    const std::vector<size_t> map = morphSlotMap(parseMorphLayout(json), countArray(c));
+    c++;
+    for (size_t j = 0; j < map.size(); j++)
+    {
+      if (map[j] != SIZE_MAX && std::fabs(morphCorner[k][map[j]] - std::atof(c)) > 1e-9) return false;
+      const char *nx = std::strchr(c, ',');
+      const char *cl = std::strchr(c, ']');
+      if (!nx || (cl && cl < nx)) break;
+      c = nx + 1;
+    }
+    return true;
   }
 
   /* ADR-105 A3: the LIVE settings as a corner preset, no capture required.
@@ -3229,6 +3278,31 @@ struct Plugin
   void applyMorphChunk(const std::string &json)
   {
     const int layout = parseMorphLayout(json);
+    /* B122: corner names. Key present -> all four are set from it; absent (a
+       patch from before names) -> all four cleared, so a stale name can never
+       outlive the values it described. */
+    for (int k = 0; k < 4; k++) cornerName[k].clear();
+    {
+      const size_t np = json.find("\"cornerNames\"");
+      if (np != std::string::npos)
+      {
+        const char *c = std::strchr(json.c_str() + np + 13, '[');
+        for (int k = 0; c && k < 4; k++)
+        {
+          const char *q = std::strchr(c + 1, '"');
+          if (!q) break;
+          std::string v;
+          for (const char *e = q + 1; *e && *e != '"'; e++) { if (*e == '\\' && e[1]) { v += e[1]; e++; } else v += *e; }
+          cornerName[k] = v.substr(0, 60);
+          c = std::strchr(q + 1 + v.size() + (v.size() ? 0 : 0), '"');   // the closing quote
+          if (!c) break;
+          const char *cl = std::strchr(c, ']');
+          const char *nx = std::strchr(c, ',');
+          if (!nx || (cl && cl < nx)) break;
+          c = nx;
+        }
+      }
+    }
     {
       size_t ep = json.find("\"morphExempt\"");
       if (ep != std::string::npos)
@@ -3284,7 +3358,7 @@ struct Plugin
     if (morphIds.empty()) return "";
     // ADR-159: the array layout version. 2 = late per-osc rows appended last;
     // absent = 1 (pre-2026-09-11), where a 224-entry array is the ADR-150 order.
-    std::string out = ",\"morphLayout\":2,\"morphCorners\":[";
+    std::string out = ",\"morphLayout\":2,\"cornerNames\":" + cornerNamesJson() + ",\"morphCorners\":[";
     char buf[32];
     for (int k = 0; k < 4; k++)
     {
@@ -5292,6 +5366,9 @@ extern "C" void hypersaw_debug_notelaw(const clap_plugin_t *p, char *out, uint32
                 self(p)->noteLink, self(p)->bendLaw.model, self(p)->bendLaw.springF);
 }
 extern "C" bool hypersaw_debug_cornerapply(const clap_plugin_t *p, int k, const char *json) { return self(p)->cornerApply(k, json ? json : ""); }
+extern "C" const char *hypersaw_debug_cornernames(const clap_plugin_t *p) { static std::string j; j = self(p)->cornerNamesJson(); return j.c_str(); }
+extern "C" void hypersaw_debug_cornername(const clap_plugin_t *p, int k, const char *n) { self(p)->setCornerName(k, n ? n : ""); }
+extern "C" bool hypersaw_debug_cornermatches(const clap_plugin_t *p, int k, const char *json) { return self(p)->cornerMatches(k, json ? json : ""); }
 /* B84: the undo tree without a webview. One export, op-dispatched, so the
    check drives exactly the calls the GUI binds drive — a second entry point
    would be a second implementation of the thing under test.
@@ -5404,6 +5481,9 @@ bool gui_create(const clap_plugin_t *p, const char *api, bool is_floating)
   hostIf.modRemoveRoute = [pl](int i) { pl->mod.removeRoute(i); };
   hostIf.morphCornerValsJson = [pl](int k) { return pl->morphCornerValsJson(k); };
   hostIf.morphCornerApply = [pl](uint32_t k, const std::string &j) { return pl->cornerApply((int)k, j); };
+  hostIf.morphCornerNamesJson = [pl]() { return pl->cornerNamesJson(); };                      // B122
+  hostIf.morphCornerSetName = [pl](int k, const std::string &n) { pl->setCornerName(k, n); };  // B122
+  hostIf.morphCornerMatches = [pl](int k, const std::string &j) { return pl->cornerMatches(k, j); };   // B122
   hostIf.setParam = [pl](uint32_t id, double v) {
     pl->enqueueParam(id, v, 0);
     /* B84 — the morph toggle gets its own label. Marked HERE and not in the

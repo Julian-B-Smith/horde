@@ -737,6 +737,7 @@
   #carpetC { width:256px; height:58px; }
   .histbar { display:flex; gap:8px; align-items:center; margin-bottom:8px; }
   .histbar output { margin-left:auto; color:var(--dim); font-size:10.5px; }
+  .cdirty { color:var(--value); font-weight:700; margin-left:4px; }
   .histchk { display:inline-flex; gap:5px; align-items:center; color:var(--t2); font-size:10.5px; cursor:pointer; }
   #histTree { display:grid; grid-template-columns:auto 1fr; column-gap:6px; max-height:440px;
     overflow-y:auto; padding:4px 0; align-items:start; }
@@ -2351,6 +2352,9 @@ function paintMorphField(fx, w, h) {
   const host = document.getElementById('mcorners');
   if (host) {
     const names = ['A', 'B', 'C', 'D'];
+    // B122 state (declared here, before the rows that fill it — a later `const`
+    // is a TDZ error at this point in the script)
+    window.cornerRows = window.cornerRows || []; window.cornerPresetCache = window.cornerPresetCache || new Map();
     for (let k = 0; k < 4; k++) {
       const row = document.createElement('div');
       row.className = 'row';
@@ -2363,15 +2367,18 @@ function paintMorphField(fx, w, h) {
       const b = document.createElement('button');
       b.textContent = 'CAPTURE';
       b.title = 'store the current patch into this corner';
-      b.addEventListener('click', () => {
-        if (window.hzMorphCapture) window.hzMorphCapture(k);
+      b.addEventListener('click', async () => {
+        if (window.hzMorphCapture) await window.hzMorphCapture(k);
+        if (window.hzMorphCornerName) await window.hzMorphCornerName(k, '');   // B122: a capture is not a preset
         b.textContent = 'STORED'; setTimeout(() => { b.textContent = 'CAPTURE'; }, 900);
+        syncCornerNames().catch(() => {});
       });
       row.appendChild(b);
       const ld = document.createElement('select');
       ld.title = 'load a corner preset into this corner';
       const fill = async () => { const names = await presetStore.list('corners');
         if (names === null) return;          // read failed: keep the last good list
+        cornerPresetCache.clear();           // B122: a save may have changed a named preset
         /* Replacing innerHTML resets the select to its first option, so every
            refresh (a save pushes to all four; focus pulls) blanked whatever
            corner preset this row was showing (B107, human 2026-09-10). Keep
@@ -2394,12 +2401,47 @@ function paintMorphField(fx, w, h) {
         const n = ld.value; if (!n) return;
         const j = await presetStore.load('corners', n);
         if (j && window.hzMorphCornerApply) await window.hzMorphCornerApply(k, j);
-        // The dropdown KEEPS the loaded name — resetting it to blank left the
-        // sound as the only evidence a load happened (human 2026-08-21).
+        // B122: the NAME goes to the shell too, so a patch, a set and every
+        // history snapshot know which preset this corner came from — and an
+        // undo of the load brings the dropdown back with the values.
+        if (j && window.hzMorphCornerName) await window.hzMorphCornerName(k, n);
+        cornerPresetCache.set(n, j);
+        syncCornerNames().catch(() => {});
       });
       row.appendChild(ld);
+      const star = document.createElement('span');
+      star.className = 'cdirty'; star.textContent = '*'; star.hidden = true;
+      star.title = 'this corner has been edited since the preset was loaded';
+      row.appendChild(star);
+      cornerRows[k] = { ld, star };
       host.appendChild(row);
     }
+  }
+}
+/* B122: the corner dropdowns FOLLOW THE SHELL (human 2026-09-14: undo a corner
+   load / capture; asterisk when the corner drifts from its preset). Names come
+   from the shell's morph chunk; "dirty" is the shell's own answer to "would
+   applying this preset change the corner?", so the asterisk means exactly one
+   thing and cannot disagree with a load. Preset JSON is cached per name and
+   dropped whenever the store is refreshed. */
+async function syncCornerNames() {
+  if (!window.hzMorphCornerNames || !window.cornerRows || !cornerRows.length) return;
+  let names;
+  try { names = JSON.parse(await window.hzMorphCornerNames()); } catch (_) { return; }
+  for (let k = 0; k < 4; k++) {
+    const r = cornerRows[k]; if (!r) continue;
+    const n = names[k] || '';
+    if (n && ![...r.ld.options].some(o => o.value === n)) {   // named after a store change: show it anyway
+      const o = document.createElement('option'); o.value = o.textContent = n; r.ld.appendChild(o);
+    }
+    if (r.ld.value !== n) r.ld.value = n;
+    let dirty = false;
+    if (n && window.hzMorphCornerDirty) {
+      let j = cornerPresetCache.get(n);
+      if (j === undefined) { j = await presetStore.load('corners', n); cornerPresetCache.set(n, j || ''); }
+      if (j) { try { dirty = !!(await window.hzMorphCornerDirty(k, j)); } catch (_) {} }
+    }
+    r.star.hidden = !(n && dirty);
   }
 }
 // The shape stages are per-osc: the wave follows the echoed params AND the
@@ -3174,6 +3216,7 @@ function paintLive(ps) {
   }
 }
 async function syncFromEngine() {
+  syncCornerNames().catch(() => {});   // B122: names + asterisks follow the shell
   const ps = JSON.parse(await bridge.getParams());
   if (!globalIds) { learnOscLayout(ps); buildOscSelectors(); }
   Object.assign(lastParams, ps);

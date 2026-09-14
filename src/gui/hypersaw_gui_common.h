@@ -336,6 +336,19 @@ inline void installBridge(choc::ui::WebView &web, GuiHost &host)
                                  args[1].getWithDefault<std::string>(""));
     return choc::value::createBool(ok);
   });
+  web.bind("hzMorphCornerNames", [&host](const choc::value::ValueView &) -> choc::value::Value {
+    return choc::value::createString(host.morphCornerNamesJson ? host.morphCornerNamesJson() : "[\"\",\"\",\"\",\"\"]");
+  });
+  web.bind("hzMorphCornerName", [&host](const choc::value::ValueView &args) -> choc::value::Value {
+    if (host.morphCornerSetName && args.isArray() && args.size() >= 2)
+      host.morphCornerSetName((int)args[0].getWithDefault<int64_t>(0), args[1].getWithDefault<std::string>(""));
+    return {};
+  });
+  web.bind("hzMorphCornerDirty", [&host](const choc::value::ValueView &args) -> choc::value::Value {
+    if (!host.morphCornerMatches || !args.isArray() || args.size() < 2) return choc::value::createBool(false);
+    return choc::value::createBool(!host.morphCornerMatches((int)args[0].getWithDefault<int64_t>(0),
+                                                            args[1].getWithDefault<std::string>("")));
+  });
   web.bind("hzMorphCapture", [&host](const choc::value::ValueView &args) -> choc::value::Value {
     if (host.morphCapture && args.isArray() && args.size() >= 1)
       host.morphCapture((uint32_t)args[0].getWithDefault<int64_t>(0));

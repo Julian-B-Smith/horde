@@ -131,6 +131,11 @@ struct GuiHost
   std::function<std::string()> morphOwnersJson;             // ADR-110 colour coding
   std::function<std::string(int)> morphCornerValsJson;     // ADR-111 armed corner view
   std::function<bool(uint32_t, const std::string &)> morphCornerApply;
+  // B122: corner preset names live in the shell; "matches" = would applying
+  // this preset JSON change corner k (the GUI's edited-since-load asterisk).
+  std::function<std::string()> morphCornerNamesJson;
+  std::function<void(int, const std::string &)> morphCornerSetName;
+  std::function<bool(int, const std::string &)> morphCornerMatches;
   std::function<void(double)> setModWheel;               // ADR-150: GUI mod wheel -> matrix source 15
   std::function<void(uint32_t, double)> setParam;        // by frozen CLAP id
   std::function<void(uint32_t, bool)> gesture;           // id, begin
