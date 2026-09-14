@@ -328,6 +328,7 @@ class SwarmCore
     int midi = -1, gate = 0;
     double vel = 1.0, press = 1.0, pressSm = 1.0;   // ADR-084 (1.0 = inert)
     double env = 0, Kenv = 0, KsmS = 0, KsmP = 0;
+    double KsmD = 0;   // ADR-164: the SIGNED coupling the two-cluster branch reads
     double R = 0, RN = 0, psi = 0, sigma = 0, RA = 0, RB = 0, RQ = 0;
     long age = -1;
     uint32_t rngState = 1;
@@ -531,6 +532,7 @@ class SwarmCore
     s.Kenv = 8 * p.onset * std::fabs(p.onset);
     s.KsmS = 0;
     s.KsmP = 0;
+    s.KsmD = 0;
     s.fresh = 1;
     s.inAttack = 1;
     s.lpL = 0;
@@ -1628,6 +1630,19 @@ public:
     const double splayT = (std::max(0.0, -km) * 3 + std::max(0.0, -s.Kenv) * 3) * sigmaU;
     s.KsmS += (syncT - s.KsmS) * 0.08;
     s.KsmP += (splayT - s.KsmP) * 0.08;
+    /* ADR-164 (human 2026-09-14: "in two-cluster mode, with A/B balance turned
+       on, it doesn't seem like K is actually going negative"): the DYN
+       reference's K is unipolar (4K²σ), so its two-cluster branch had no
+       meaning for K < 0 and the port's sync-only smoother silently zeroed it —
+       the knob's whole left half was inert there. This SIGNED smoother carries
+       the sign through: negative K is REPULSIVE mean-field coupling within a
+       cluster (the exact thing kB = −1 already does to cluster B), so the
+       K-sign × balance corners are four distinct states instead of two. For
+       km ≥ 0 and Kenv ≥ 0 the target equals syncT term-for-term (max(0,x) is
+       x), so every DYN golden is bit-identical; only the mean-field and ring
+       paths keep the SAW splay reading of a negative K. */
+    const double signedT = (km + s.Kenv) * sigmaU;
+    s.KsmD += (signedT - s.KsmD) * 0.08;
     double sx = 0, sy = 0;
     for (int i = 0; i < n; i++)
     {
@@ -1763,7 +1778,7 @@ public:
         double kGain;
         if (i < h) { c = (RA * std::sin(psiA - ti - alphaR) + m * RB * std::sin(psiB - ti - alphaR)) / norm; kGain = 1; }
         else { c = (RB * std::sin(psiB - ti - alphaR) + m * RA * std::sin(psiA - ti - alphaR)) / norm; kGain = kB; }
-        s.couple[i] = s.KsmS * kGain * c;
+        s.couple[i] = s.KsmD * kGain * c;   // ADR-164: signed, see the smoother
       }
     }
     const double w = p.inertia;
