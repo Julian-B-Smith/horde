@@ -23,9 +23,9 @@
  *
  * Exemplars, each through hypersaw_debug_viz — the same R / RA / RB the GUI's
  * phase circle draws:
- *   demo/cloud-to-lock-sweep        K 1 -> R past 0.9 within 2 s of a strike;
+ *   demo/MISC - Cloud To Lock Sweep        K 1 -> R past 0.9 within 2 s of a strike;
  *                                   K 0 -> R stays under 0.3
- *   demo/consonance-gravity-chord   C4 + G4 settle within +/-1 cent of 3/2 by
+ *   demo/MISC - Consonance Gravity Chord   C4 + G4 settle within +/-1 cent of 3/2 by
  *                                   3 s; with Gravity at 0 they must NOT.
  *                                   MEASURED CORRECTION to B130's wording: the
  *                                   equal-tempered fifth is 1.96 c NARROW of
@@ -33,11 +33,11 @@
  *                                   against the closed-form 1200*log2(1.5) =
  *                                   701.955 vs 700). Same magnitude, opposite
  *                                   sign; the assertion is |error| either way.
- *   demo/splay-interference         K -1 -> R under 0.1; the same patch at K +1
+ *   demo/MISC - Splay Interference         K -1 -> R under 0.1; the same patch at K +1
  *                                   must read R over 0.9 (the probe can see
  *                                   coherence, so a zero means splay and not a
  *                                   dead meter)
- *   morph/quantum-morph             the four corners' (R, RA, RB) signatures
+ *   morph/MO - Quantum Morph             the four corners' (R, RA, RB) signatures
  *                                   differ pairwise by >= 0.4
  *   fx (every category)             every FX module the rack ships today (types
  *                                   1..9) is used by at least one patch
@@ -401,8 +401,8 @@ int main(int argc, char **argv)
 
   // ---- exemplar: cloud-to-lock sweep ----------------------------------
   {
-    const fs::path f = root / "demo" / "cloud-to-lock-sweep.json";
-    check(fs::exists(f), "demo/cloud-to-lock-sweep ships");
+    const fs::path f = root / "demo" / "MISC - Cloud To Lock Sweep.json";
+    check(fs::exists(f), "demo/MISC - Cloud To Lock Sweep ships");
     if (fs::exists(f))
     {
       const std::string blob = readAll(f);
@@ -442,8 +442,8 @@ int main(int argc, char **argv)
 
   // ---- exemplar: consonance-gravity chord -----------------------------
   {
-    const fs::path f = root / "demo" / "consonance-gravity-chord.json";
-    check(fs::exists(f), "demo/consonance-gravity-chord ships");
+    const fs::path f = root / "demo" / "MISC - Consonance Gravity Chord.json";
+    check(fs::exists(f), "demo/MISC - Consonance Gravity Chord ships");
     if (fs::exists(f))
     {
       const std::string blob = readAll(f);
@@ -478,8 +478,8 @@ int main(int argc, char **argv)
 
   // ---- exemplar: splay interference -----------------------------------
   {
-    const fs::path f = root / "demo" / "splay-interference.json";
-    check(fs::exists(f), "demo/splay-interference ships");
+    const fs::path f = root / "demo" / "MISC - Splay Interference.json";
+    check(fs::exists(f), "demo/MISC - Splay Interference ships");
     if (fs::exists(f))
     {
       const std::string blob = readAll(f);
@@ -510,8 +510,8 @@ int main(int argc, char **argv)
 
   // ---- exemplar: quantum morph ----------------------------------------
   {
-    const fs::path f = root / "morph" / "quantum-morph.json";
-    check(fs::exists(f), "morph/quantum-morph ships");
+    const fs::path f = root / "morph" / "MO - Quantum Morph.json";
+    check(fs::exists(f), "morph/MO - Quantum Morph ships");
     if (fs::exists(f))
     {
       const std::string blob = readAll(f);
