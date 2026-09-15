@@ -5332,3 +5332,17 @@ coefficients under horde's own three laws and the divergence dissolves; the
 FDN reverb is its own node beside it. The morph model is on B127 for the
 human to strike; the spin-up survey carries the spec deltas.
 
+### ADR-165 Amendment 2 — the lab edits landed (2026-09-15)
+
+At the human's request, three edits to `reference/gravity-modulator.html`
+and the matching rows in `specs/SPEC-ORBITAL.md`: (1) the EDGE CUSHION
+(`cushK`, `cushW`; velocity decay exp(−12·cushK·u²·dt) inside the band,
+u = max(0, 1 − d/w); default off; inert in wrap mode) — a damping, not a
+potential, so interior orbits are untouched; (2) per-body x/y position
+graphs on every body card (240-frame ring, x solid / y dashed, preallocated);
+(3) the sanctioned seed: the add-body draw is a mulberry32 stream (the house
+form from `reference/station.html`), seed 1024. Verified in the browser pane:
+loads clean, four graphs painted, sim advancing, sliders bound. The golden is
+still not cut; these are the last law changes before it unless the human
+adds more.
+
