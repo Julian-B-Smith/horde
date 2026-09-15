@@ -5369,3 +5369,15 @@ NAMED oscillator rather than the published snapshot, which follows the GUI's
 `vizOsc`. (5) Finding deferred to B131: R cannot separate a cloud from a
 splay; `RN` can, and belongs in the export.
 
+### ADR-166 Amendment 2 — spun up as its own project (2026-09-15)
+
+The human ruled the standalone build ("get another agent building the NETWORK
+standalone"). `synthetic-worlds/Network/` exists with the spec and lab copied
+from this repo's intake snapshot and a provenance-headed spin-up brief whose
+first act is the kit's survey; the human creates the remote. This repo's
+`specs/SPEC-FX-NETWORK.md` becomes the intake record; the evolving spec lives
+in Network. FOUNDATIONS notified that its `shell/` row's first FX consumer
+exists. horde's side of option C — adopting the loop-plumbing rules, the
+module ABI shape and stable-id patch JSON into the B50 rebuild — stays on B127
+and happens in horde's own tree when B50 starts.
+
