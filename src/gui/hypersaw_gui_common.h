@@ -9,10 +9,12 @@
 #include "hypersaw_gui.h"
 
 #include "../../libs/choc/choc/gui/choc_WebView.h"
-#include "gui_html.h"
+#include "gui_html.h"      // generated: kGuiHtml_data / kGuiHtml_size
+#include "factory_bank.h"  // generated: kFactoryBank / _count / _version (B129)
+#include "preset_store.h"
 #include <filesystem>
 #include <fstream>
-#include <sstream>  // generated: kGuiHtml_data / kGuiHtml_size
+#include <sstream>
 
 #include <cstdio>
 #include <functional>
@@ -199,11 +201,21 @@ inline void installBridge(choc::ui::WebView &web, GuiHost &host)
      it: presets no-opped in the plugin while working on localhost. Files in
      app support instead (the global CLAUDE.md plugin-state rule: a stable
      app-support folder, never state-chunk bloat). These binds run on the GUI
-     thread — filesystem and allocation are fine here, never in process(). */
+     thread — filesystem and allocation are fine here, never in process().
+
+     WHERE the store lives is preset_store.h's business and nowhere else
+     (B129/B99(b)): four hand-built copies of "$HOME/Library/..." is what made
+     the whole store a silent no-op on Windows, where that path does not
+     exist. Every path below comes from hypersaw::storeFile/kindDir. */
+  hypersaw::installFactoryBank(hypersaw::presetRoot(), kFactoryBank, kFactoryBank_count,
+                               kFactoryBank_version);
   web.bind("hzPresetList", [](const choc::value::ValueView &) -> choc::value::Value {
     namespace fs = std::filesystem;
+    // NON-recursive on purpose: presets/factory/ is a child of presets/, and
+    // the two tiers must not merge into one flat list.
     auto listDir = [](const fs::path &d) {
       std::string out = "[";
+      if (d.empty()) return out + "]";
       bool first = true;
       std::error_code ec;
       for (auto &e : fs::directory_iterator(d, ec))
@@ -214,10 +226,19 @@ inline void installBridge(choc::ui::WebView &web, GuiHost &host)
         }
       return out + "]";
     };
-    const fs::path base = fs::path(std::getenv("HOME") ? std::getenv("HOME") : "")
-                          / "Library/Application Support/LiftedTruck/HYPERSAW";
-    return choc::value::createString("{\"presets\":" + listDir(base / "presets") +
-                                     ",\"corners\":" + listDir(base / "corners") + "}");
+    const fs::path root = hypersaw::presetRoot();
+    std::string factory = "[";
+    bool first = true;
+    for (const auto &rel : hypersaw::listFactory(root))
+    {
+      factory += (first ? "\"" : ",\"") + rel + "\"";
+      first = false;
+    }
+    factory += "]";
+    return choc::value::createString(
+        "{\"presets\":" + listDir(hypersaw::kindDir(root, "presets")) +
+        ",\"corners\":" + listDir(hypersaw::kindDir(root, "corners")) +
+        ",\"factory\":" + factory + "}");
   });
   web.bind("hzPresetSave", [](const choc::value::ValueView &args) -> choc::value::Value {
     namespace fs = std::filesystem;
@@ -225,32 +246,27 @@ inline void installBridge(choc::ui::WebView &web, GuiHost &host)
     std::string kind = args[0].getWithDefault<std::string>("");
     std::string name = args[1].getWithDefault<std::string>("");
     std::string json = args[2].getWithDefault<std::string>("");
-    // sanitise: the name becomes a filename
-    std::string safe;
-    for (char c : name)
-      if (std::isalnum((unsigned char)c) || c == ' ' || c == '-' || c == '_') safe += c;
     // "prefs": machine-local GUI settings (scheme/mode). The scheme chip was
     // "session-only on purpose — an audition" until 2026-08-29, when the human
     // reported the non-persistence as a bug: the audition graduated.
-    if (safe.empty() || (kind != "presets" && kind != "corners" && kind != "prefs") || json.empty())
-      return choc::value::createBool(false);
-    const fs::path dir = fs::path(std::getenv("HOME") ? std::getenv("HOME") : "")
-                         / "Library/Application Support/LiftedTruck/HYPERSAW" / kind;
+    // "factory" is refused here — the shipped bank is the plugin's, and a
+    // user's variation of one belongs in presets/ under its own name.
+    if (json.empty() || !hypersaw::saveAllowed(kind)) return choc::value::createBool(false);
+    const fs::path fp = hypersaw::storeFile(hypersaw::presetRoot(), kind, name);
+    if (fp.empty()) return choc::value::createBool(false);
     std::error_code ec;
-    fs::create_directories(dir, ec);
-    std::ofstream f(dir / (safe + ".json"), std::ios::trunc);
+    fs::create_directories(fp.parent_path(), ec);
+    std::ofstream f(fp, std::ios::trunc);
     if (!f) return choc::value::createBool(false);
     f << json;
     return choc::value::createBool(f.good());
   });
   web.bind("hzPresetLoad", [](const choc::value::ValueView &args) -> choc::value::Value {
-    namespace fs = std::filesystem;
     if (!args.isArray() || args.size() < 2) return choc::value::createString("");
-    std::string kind = args[0].getWithDefault<std::string>("");
-    std::string name = args[1].getWithDefault<std::string>("");
-    const fs::path fp = fs::path(std::getenv("HOME") ? std::getenv("HOME") : "")
-                        / "Library/Application Support/LiftedTruck/HYPERSAW" / kind
-                        / (name + ".json");
+    const auto fp = hypersaw::storeFile(hypersaw::presetRoot(),
+                                        args[0].getWithDefault<std::string>(""),
+                                        args[1].getWithDefault<std::string>(""));
+    if (fp.empty()) return choc::value::createString("");
     std::ifstream f(fp);
     if (!f) return choc::value::createString("");
     std::ostringstream ss;
@@ -260,11 +276,13 @@ inline void installBridge(choc::ui::WebView &web, GuiHost &host)
   web.bind("hzPresetDelete", [](const choc::value::ValueView &args) -> choc::value::Value {
     namespace fs = std::filesystem;
     if (!args.isArray() || args.size() < 2) return choc::value::createBool(false);
-    std::string kind = args[0].getWithDefault<std::string>("");
-    std::string name = args[1].getWithDefault<std::string>("");
-    const fs::path fp = fs::path(std::getenv("HOME") ? std::getenv("HOME") : "")
-                        / "Library/Application Support/LiftedTruck/HYPERSAW" / kind
-                        / (name + ".json");
+    // DELETE of a factory file is allowed: it is the user's copy on their
+    // disk, and the install ledger remembers the deletion so a later bank
+    // does not put it back. Only SAVE into the tier is refused.
+    const auto fp = hypersaw::storeFile(hypersaw::presetRoot(),
+                                        args[0].getWithDefault<std::string>(""),
+                                        args[1].getWithDefault<std::string>(""));
+    if (fp.empty()) return choc::value::createBool(false);
     std::error_code ec;
     return choc::value::createBool(fs::remove(fp, ec));
   });

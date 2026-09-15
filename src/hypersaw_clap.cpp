@@ -26,6 +26,7 @@
 
 #include "swarm_core.h"
 #include "gui/hypersaw_gui.h"
+#include "gui/preset_store.h"   // presetRoot(): the ONE store path (B129)
 #include "spectra_core.h"
 #include "glide_core.h"
 #include "mod_core.h"
@@ -1062,10 +1063,13 @@ struct Plugin
   {
     namespace fs = std::filesystem;
     std::error_code ec;
-    fs::path dir;
-#ifdef __APPLE__
-    if (const char *home = std::getenv("HOME")) dir = fs::path(home) / "Library" / "Logs" / "HYPERSAW";
-#endif
+    /* One store root for the whole plugin (B129): the dump lands beside the
+       presets rather than in a second, differently-derived place. The old
+       `$HOME/Library/Logs` branch was macOS-only and silently fell through to
+       the temp dir everywhere else — which is still the fallback, but now only
+       when the platform's home variable is genuinely unset. */
+    fs::path dir = hypersaw::presetRoot();
+    if (!dir.empty()) dir /= "logs";
     if (dir.empty()) dir = fs::temp_directory_path(ec) / "HYPERSAW";
     fs::create_directories(dir, ec);
     // Named by the trace counter, not by a clock: the charter bans wall-clock

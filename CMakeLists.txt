@@ -52,6 +52,24 @@ add_custom_command(
   DEPENDS ${GUI_HTML_SOURCE} tools/embed_file.py
   COMMENT "Embedding GUI: ${GUI_HTML_SOURCE}")
 
+# FACTORY BANK (B129). Every docs/presets/factory/**/*.json embedded as one
+# FactoryFile array; the shell copies them into the per-user store on first
+# open. CONFIGURE_DEPENDS so ADDING a preset file re-runs the glob — a plain
+# GLOB would ship a stale bank until someone happened to re-configure. The
+# directory may be EMPTY or ABSENT (the bank content is B130, in flight): the
+# glob then yields nothing, the generated array is inert, and the install is a
+# no-op. Do not "fix" that into a hard dependency on the folder existing.
+set(FACTORY_BANK_DIR ${CMAKE_CURRENT_SOURCE_DIR}/docs/presets/factory)
+set(FACTORY_BANK_HEADER ${CMAKE_CURRENT_BINARY_DIR}/generated/factory_bank.h)
+file(GLOB_RECURSE FACTORY_BANK_FILES CONFIGURE_DEPENDS ${FACTORY_BANK_DIR}/*.json)
+add_custom_command(
+  OUTPUT ${FACTORY_BANK_HEADER}
+  COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/generated
+  COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/embed_file.py
+          --bank ${FACTORY_BANK_DIR} ${FACTORY_BANK_HEADER} kFactoryBank
+  DEPENDS ${FACTORY_BANK_FILES} tools/embed_file.py
+  COMMENT "Embedding factory bank: ${FACTORY_BANK_DIR}")
+
 # clap-first idiom (see libs/clap-wrapper/tests/clap-first-example): a static
 # impl lib carrying the factory, wrapped per-format by make_clapfirst_plugins.
 # The webview GUI module (ADR-019) compiles on macOS only for now; elsewhere
@@ -84,16 +102,22 @@ add_custom_target(hypersaw_build_stamp ALL
 add_library(${PROJECT_NAME}-impl STATIC src/hypersaw_clap.cpp)
 target_compile_definitions(${PROJECT_NAME}-impl PRIVATE HYPERSAW_BUILD_ID="${HS_GIT_HASH}")
 add_dependencies(${PROJECT_NAME}-impl hypersaw_build_stamp)
-target_include_directories(${PROJECT_NAME}-impl PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/generated)
+# ${CMAKE_CURRENT_SOURCE_DIR}/src is load-bearing for the GENERATED headers:
+# generated/factory_bank.h includes "gui/preset_store.h", and a quoted include
+# from a generated file has no src/ to be relative to.
+target_include_directories(${PROJECT_NAME}-impl PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/generated
+                                                        ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(${PROJECT_NAME}-impl PUBLIC clap clap-wrapper-extensions)
 if(APPLE)
-  target_sources(${PROJECT_NAME}-impl PRIVATE src/gui/hypersaw_gui.mm ${GUI_HTML_HEADER})
+  target_sources(${PROJECT_NAME}-impl PRIVATE src/gui/hypersaw_gui.mm ${GUI_HTML_HEADER}
+                                              ${FACTORY_BANK_HEADER})
   target_include_directories(${PROJECT_NAME}-impl PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/generated)
   target_link_libraries(${PROJECT_NAME}-impl PUBLIC "-framework WebKit" "-framework Cocoa")
 elseif(WIN32)
   # WebView2 via choc (COM declarations embedded — no external SDK).
   # CI-compile-verified; runtime validation is a recorded residual.
-  target_sources(${PROJECT_NAME}-impl PRIVATE src/gui/hypersaw_gui_win.cpp ${GUI_HTML_HEADER})
+  target_sources(${PROJECT_NAME}-impl PRIVATE src/gui/hypersaw_gui_win.cpp ${GUI_HTML_HEADER}
+                                              ${FACTORY_BANK_HEADER})
   target_include_directories(${PROJECT_NAME}-impl PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/generated)
   target_link_libraries(${PROJECT_NAME}-impl PUBLIC ole32 shlwapi version)
 endif()
@@ -651,3 +675,14 @@ target_link_libraries(fxxfade_plugin_check PRIVATE ${PROJECT_NAME}-impl)
 # twocluster_check: negative K in two-cluster mode (ADR-164). Standalone, unwired.
 add_executable(twocluster_check tools/twocluster_check.cpp)
 target_link_libraries(twocluster_check PRIVATE ${PROJECT_NAME}-impl)
+
+# presetstore_check: the B129 store path helper and the factory install —
+# per-platform roots, first open installs, second open writes nothing, a user's
+# edit or deletion survives a newer bank. Links nothing (preset_store.h is
+# header-only and choc-free) but DOES consume the generated bank, so it also
+# proves the real embedded array installs. Standalone, unwired (human gate).
+add_executable(presetstore_check tools/presetstore_check.cpp ${FACTORY_BANK_HEADER})
+target_include_directories(presetstore_check PRIVATE src ${CMAKE_CURRENT_BINARY_DIR}/generated)
+if(NOT MSVC)
+  target_compile_options(presetstore_check PRIVATE -O2)
+endif()

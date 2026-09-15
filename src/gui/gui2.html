@@ -2159,6 +2159,10 @@ const presetStore = {
         return o[kind] || [];
       } catch (_) { return null; }
     }
+    /* No factory tier without the host store: the bank is installed on disk by
+       the plugin (B129), and the lab has no disk. [] not null -- "genuinely
+       empty", not "I failed to ask". */
+    if (kind === 'factory') return [];
     try { return Object.keys(lsGet(kind === 'presets' ? PRESET_KEY : CORNER_KEY)).sort(); }
     catch (_) { return null; }
   },
@@ -2177,26 +2181,48 @@ const presetStore = {
     const o = lsGet(k); delete o[name]; lsPut(k, o); return true;
   },
 };
+/* The dropdown holds TWO tiers, so an option's value carries its tier: a
+   factory entry is "factory:<category>/<name>", a user preset is its bare name
+   (unchanged, so `list.value = n` after a save still selects it). One prefix
+   beats a parallel "which tier is selected" variable that the DOM can
+   contradict. */
+const FACTORY_PREFIX = 'factory:';
+const selTier = (v) => (v || '').startsWith(FACTORY_PREFIX)
+  ? { kind: 'factory', name: v.slice(FACTORY_PREFIX.length) }
+  : { kind: 'presets', name: v || '' };
 {
   const list = document.getElementById('presetList');
   const name = document.getElementById('presetName');
+  const esc = (t) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
   const refresh = async () => {
     if (!list) return;
     const names = await presetStore.list('presets');
     /* null = the store could not be read. Keep the options already on screen:
        blanking them here is what made a transient failure look like deletion. */
     if (names === null) return;
+    const factory = (await presetStore.list('factory')) || [];
     /* The first real preset must not LOOK loaded when nothing is (human,
        2026-08-22). The placeholder is disabled so it can be departed from but
        never chosen; save/load re-select the real name explicitly. */
-    list.innerHTML = '<option value="" disabled selected>Load\u2026</option>' +
-                     names.map(n => `<option>${n}</option>`).join('');
+    let html = '<option value="" disabled selected>Load\u2026</option>';
+    if (names.length) html += '<optgroup label="yours">' +
+      names.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('') + '</optgroup>';
+    if (factory.length) html += '<optgroup label="factory">' +
+      factory.map(n => `<option value="${esc(FACTORY_PREFIX + n)}">${esc(n)}</option>`).join('') +
+      '</optgroup>';
+    list.innerHTML = html;
   };
   refresh();
   const flash = (b, t) => { const o = b.textContent; b.textContent = t; setTimeout(() => { b.textContent = o; }, 900); };
   document.getElementById('presetSave')?.addEventListener('click', async (e) => {
     const n = (name.value || '').trim();
     if (!n) { flash(e.target, 'NAME?'); return; }
+    /* A '/' is how a name addresses the factory tier (category/name), and the
+       shipped bank is READ-ONLY from the plugin's side -- hzPresetSave refuses
+       kind 'factory' outright. Refuse here too, with a message, rather than
+       let it save something surprising: a variation on a factory preset is
+       saved as your own, under its own name. */
+    if (n.includes('/')) { flash(e.target, 'FACTORY: RO'); return; }
     try {
       const j = await bridge.getState();
       const ok = await presetStore.save('presets', n, j);
@@ -2204,15 +2230,26 @@ const presetStore = {
     } catch (_) { flash(e.target, 'NO ENGINE'); }
   });
   document.getElementById('presetLoad')?.addEventListener('click', async (e) => {
-    const n = list.value; if (!n) return;
-    const j = await presetStore.load('presets', n);
+    const sel = selTier(list.value); if (!sel.name) return;
+    const j = await presetStore.load(sel.kind, sel.name);
     if (!j) { flash(e.target, 'EMPTY'); return; }
-    try { await bridge.applyState(j); flash(e.target, 'LOADED'); }
+    try {
+      await bridge.applyState(j);
+      /* Prefill the name box with the bare name after loading a factory
+         preset, so "save a copy of this into my own presets" is one click --
+         which is the only route the read-only tier leaves open. */
+      if (sel.kind === 'factory' && name && !name.value)
+        name.value = sel.name.split('/').pop();
+      flash(e.target, 'LOADED');
+    }
     catch (_) { flash(e.target, 'NO ENGINE'); }
   });
   document.getElementById('presetDel')?.addEventListener('click', async (e) => {
-    const n = list.value; if (!n) return;
-    await presetStore.del('presets', n);
+    /* Deleting a factory file IS allowed: it is the user's copy on their own
+       disk, and the install ledger remembers the deletion so a newer bank does
+       not put it back. Only SAVE into the tier is refused. */
+    const sel = selTier(list.value); if (!sel.name) return;
+    await presetStore.del(sel.kind, sel.name);
     await refresh(); flash(e.target, 'GONE');
   });
 }
