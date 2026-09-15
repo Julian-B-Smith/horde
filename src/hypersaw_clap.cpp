@@ -5456,6 +5456,28 @@ extern "C" void hypersaw_debug_penv_slot(const clap_plugin_t *p, int slot, doubl
   *stage = self(p)->penv[slot].stage;
   *semis = self(p)->noteExpr[slot].penv;
 }
+/* B130: the phase circle's own numbers, headless. R (order parameter: 1 =
+   locked, ~0 = a cloud or an even splay lattice), RA/RB (the two-cluster
+   orders) and n (swarm size) are read from the SAME place publishViz copies
+   them from — `cores[osc].focus()` — so a factory-bank assertion and the GUI
+   can never disagree about what a preset does. Reading the core directly
+   rather than the published VizSnapshot is deliberate: the snapshot follows
+   `vizOsc` (the oscillator the editor is looking at), and a probe that had to
+   write vizOsc to name an oscillator would be mutating GUI state to measure.
+   Zero voices sounding -> all four read 0, which is the honest "nothing to
+   observe" rather than a stale last value. Not part of the CLAP surface. */
+extern "C" void hypersaw_debug_viz(const clap_plugin_t *p, int osc, double *R, double *RA,
+                                   double *RB, int *n)
+{
+  auto *pl = self(p);
+  const uint32_t o = (osc > 0 && (uint32_t)osc < kNumOsc) ? (uint32_t)osc : 0;
+  const auto &core = pl->cores[o];
+  const auto *s = core.focus();
+  if (R) *R = s ? s->R : 0.0;
+  if (RA) *RA = s ? s->RA : 0.0;
+  if (RB) *RB = s ? s->RB : 0.0;
+  if (n) *n = s ? (int)core.p.n : 0;
+}
 extern "C" void hypersaw_debug_voices(const clap_plugin_t *p, char *out, uint32_t cap)
 {
   auto &core = self(p)->cores[0]; uint32_t n = 0; out[0] = 0;

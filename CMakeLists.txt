@@ -686,3 +686,17 @@ target_include_directories(presetstore_check PRIVATE src ${CMAKE_CURRENT_BINARY_
 if(NOT MSVC)
   target_compile_options(presetstore_check PRIVATE -O2)
 endif()
+
+# B130 factory bank. gen_factory_bank WRITES docs/presets/factory/** from the
+# table held in its own source; bank_check reads the SHIPPED FILES back and
+# asserts the acceptance contract (loads, re-saves identically, makes sound, and
+# the named exemplars still demonstrate the coupling laws). Both standalone and
+# unwired — the standing ruling: wiring a gate is the human's decision.
+add_executable(gen_factory_bank tools/gen_factory_bank.cpp)
+target_link_libraries(gen_factory_bank PRIVATE ${PROJECT_NAME}-impl)
+add_executable(bank_check tools/bank_check.cpp)
+target_link_libraries(bank_check PRIVATE ${PROJECT_NAME}-impl)
+if(NOT MSVC)
+  target_compile_options(gen_factory_bank PRIVATE -O2)
+  target_compile_options(bank_check PRIVATE -O2)
+endif()
