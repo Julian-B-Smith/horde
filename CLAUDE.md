@@ -82,7 +82,12 @@ hysteresis; it is a shared post-stage every source hands off to (ADR-092), and
 carries the same unseeded-RNG blocker CANTO does. A third CANDIDATE arrived
 2026-08-25: **STATION** (`reference/station.html`, `specs/SPEC-STATION.md`, ADR-122) — a
 3-operator PM engine with LFSR noise, the traditional-synthesis workhorse; same
-unseeded-RNG blocker (Wave RAM randomize, one sanctioned edit: seed it). CLAP-native instrument
+unseeded-RNG blocker (Wave RAM randomize, one sanctioned edit: seed it — the three
+seeds landed 2026-09-10, ADR-091/122/152 amendment). A fourth CANDIDATE arrived
+2026-09-14: **ORBITAL** (`reference/gravity-modulator.html`, `specs/SPEC-ORBITAL.md`,
+ADR-165) — an N-body gravity field whose observables are modulation sources; a
+modulator, not an engine, queued for the modulation lab (B126); one sanctioned
+edit: seed the add-body draw. CLAP-native instrument
 plugin, VST3 via clap-wrapper (ADR-002). The DEVICE is **horde** (ADR-114,
 settled 2026-08-23); HYPERSAW is the founding ENGINE, the repo name, and the
 frozen plugin id. Design docs: specs/SPEC.md (the instrument), specs/ACCEPTANCE.md (the
@@ -136,11 +141,13 @@ private sibling's real name into a tracked file.
 now seven: the three oscillator labs, swarmfilter/swarmphaser/swarmtime (Track
 E, ingested 2026-07-18), and reference/swarmalator.html (experimental swarmalator engine,
 ingested 2026-07-19, ADR-048), and `reference/formant-pulsar-fof.html` (formant
-engine, ingested 2026-08-17, ADR-091; one sanctioned edit outstanding: seed its
-masking RNG), and `reference/station.html` + `specs/SPEC-STATION.md` (STATION engine, ingested
-2026-08-25, ADR-122; one sanctioned edit: seed the Wave RAM randomize), and
+engine, ingested 2026-08-17, ADR-091), and `reference/station.html` + `specs/SPEC-STATION.md` (STATION engine, ingested
+2026-08-25, ADR-122), and
 `specs/SPEC-INTENT-BUS.md` + `reference/intent-bus.html` (intent bus,
-ingested 2026-09-01, ADR-152; one sanctioned edit: seed `reshuffle()`) — (they ARE the reference — an edit there is a spec change), `./verify`, golden render fixtures once they exist.
+ingested 2026-09-01, ADR-152) — their three sanctioned RNG seeds landed 2026-09-10 and the
+sanctions are spent — and `reference/gravity-modulator.html` + `specs/SPEC-ORBITAL.md`
+(ORBITAL modulator, ingested 2026-09-14, ADR-165; one sanctioned edit outstanding: seed the
+add-body draw) — (they ARE the reference — an edit there is a spec change), `./verify`, golden render fixtures once they exist.
 
 **Verify targets.** `fast`: leak gate + structure/manifest sanity now; grows
 the L0 suite (parity + trajectories) from Phase 1 — seconds-to-minutes,

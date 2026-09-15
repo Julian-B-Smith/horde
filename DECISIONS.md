@@ -5232,3 +5232,34 @@ balance knob already means.
 **Oracle.** `twocluster_check`, standalone. Wiring beside `trajectory_check`
 is the human's gate decision.
 
+## ADR-165 — ORBITAL ingested as a CANDIDATE modulator (2026-09-14)
+
+**Context.** The human dropped `gravity-modulator.html` (a Web Audio
+prototype) and `orbital-modulator-spec.md` at the repo root: an N-body
+gravity field (2–8 bodies, softened Newtonian gravity, velocity Verlet) whose
+observables — per body x/y/speed/accel/near/angle, per field energy/spread —
+are modulation sources. "The user never draws a modulation shape; they set up
+a physical system and route what it does." The spec is the human's own; it
+already names its divergences from the prototype (§11: dt 1/960 with
+sample-count accumulation, double in the force loop, matrix routing instead
+of per-body dropdowns, full observable set, intent-bus grab, reset policies)
+and its open questions (§12).
+
+**Decision.** Ingested by the ADR-091/122 pattern: `reference/gravity-modulator.html`
+and `specs/SPEC-ORBITAL.md` are protected reference paths; the prototype is a
+BEHAVIOURAL oracle (same orbit family, period within ~1 %, identical bounce
+and close-approach counts over 30 s), not a bit-parity oracle — the spec
+says so and the dt change makes it so. One sanctioned edit outstanding: the
+"add body" click draws its position from `Math.random` (line 430) — an
+initial condition, therefore patch state, therefore a seeded mulberry32 draw
+(the standing RNG sanction). CANDIDATE, not on the 1.0 roster: the
+definition of done names the modulation lab's Kuro LFO and conventional
+LFOs; ORBITAL joins that lab's queue (B126) and its placement collides with
+the matrix's fixed 24 source slots, which is the design question to answer
+before any port.
+
+**Consequences.** `lab_load_check` globs `docs/design` and `src/gui`, not
+`reference/`, so this prototype is not load-gated; extending the gate is the
+human's call (noted on B126). The spec's §12 questions are the human's to
+rule; the lead's recommendations are on the row.
+
