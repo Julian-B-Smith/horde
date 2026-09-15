@@ -5346,3 +5346,26 @@ loads clean, four graphs painted, sim advancing, sliders bound. The golden is
 still not cut; these are the last law changes before it unless the human
 adds more.
 
+## ADR-167 — The factory bank is generated, and the bank check reads the files (2026-09-15, PROPOSED)
+
+**Context.** B130 asked for 30–50 factory presets captured through the
+headless rig. A factory patch is a DERIVED blob — 325 parameter keys, four
+224-entry corner arrays in `morphIds` order, the B100 header, the ADR-159
+layout stamp — and ADR-159 is the standing record of what a derived order
+costs when it is promised in prose instead of produced by code.
+
+**Decision (proposed; the human ratifies by merging #579).** (1) The bank is
+generated: `tools/gen_factory_bank.cpp` holds the only hand-authored data (a
+parameter table per patch, corner sets, teaching lines) and writes every
+shipped byte through the shell's own writers over the host parameter path,
+idempotently; the generated files are committed because they ARE the bank,
+and a parameter-table change regenerates them. (2) `tools/bank_check.cpp`
+reads the shipped files and never the generator's table, with calibrated
+controls (a planted change must break the re-save comparison; Gravity off
+must leave the fifth tempered; the splay meter must read lock at K +1).
+(3) The re-save comparison excludes the `build` key (provenance, B100).
+(4) One shell export, `hypersaw_debug_viz`, reads the focused voice of a
+NAMED oscillator rather than the published snapshot, which follows the GUI's
+`vizOsc`. (5) Finding deferred to B131: R cannot separate a cloud from a
+splay; `RN` can, and belongs in the export.
+
