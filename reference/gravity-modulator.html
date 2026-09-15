@@ -60,6 +60,7 @@
   .node .map{display:grid;grid-template-columns:14px 1fr;gap:4px 8px;align-items:center;font-size:12px;color:var(--ink-dim)}
   .node .row{grid-template-columns:40px 1fr 40px}
   .node .out{display:grid;grid-template-columns:14px 1fr 40px;gap:4px 8px;font-size:12px;color:var(--ink-dim);align-items:center}
+  .node .xyg{display:block;width:100%;height:44px;border-radius:4px;background:rgba(128,128,128,.08)}
   .bar{height:4px;background:var(--line);border-radius:2px;overflow:hidden}
   .bar i{display:block;height:100%;width:0;background:var(--c)}
 </style>
@@ -90,6 +91,11 @@
     <div class="row"><span>Softening</span><input id="eps" type="range" min="0.01" max="0.3" step="0.005" value="0.06"><output id="eps-o"></output></div>
     <div class="row"><span>Time scale</span><input id="ts" type="range" min="0" max="3" step="0.01" value="1"><output id="ts-o"></output></div>
     <div class="row"><span>Drag</span><input id="damp" type="range" min="0" max="1" step="0.01" value="0"><output id="damp-o"></output></div>
+    <!-- ADR-165 A1 (2026-09-15): the EDGE CUSHION — a drag band that rises
+         smoothly toward each wall and slows orbits that get too extreme. A
+         damping, not a potential: it only touches what reaches the band. -->
+    <div class="row"><span>Cushion</span><input id="cushK" type="range" min="0" max="1" step="0.01" value="0"><output id="cushK-o"></output></div>
+    <div class="row"><span>Cushion width</span><input id="cushW" type="range" min="0.02" max="0.3" step="0.005" value="0.1"><output id="cushW-o"></output></div>
     <div class="row"><span>Edges</span><select id="bounds"><option value="reflect">Bounce, elastic</option><option value="wrap">Wrap around</option><option value="open">Open, output clamped</option></select><span></span></div>
     <label class="chk"><input id="com" type="checkbox" checked> Keep center of mass at center</label>
     <label class="chk"><input id="trails" type="checkbox" checked> Show trails</label>
@@ -169,11 +175,11 @@ const COLORS=['--node-a','--node-b','--node-c','--node-d','--node-e','--node-f']
 const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 let nodes=[];            // {id,name,color,m,x,y,vx,vy,pinned,tx,ty,trail:[]}
 let uid=0, simTime=0, paused=false, lastFrame=null;
-const P={G:0.025,eps:0.06,ts:1,damp:0,bounds:'reflect',com:true,trails:true};
+const P={G:0.025,eps:0.06,ts:1,damp:0,bounds:'reflect',com:true,trails:true,cushW:0.1,cushK:0};   // cushK 0 = off (ADR-165 A1)
 const MAXV=3.0;
 
 function mk(o){
-  const n=Object.assign({id:uid++,name:'Node',m:1,x:0.5,y:0.5,vx:0,vy:0,pinned:false,tx:'none',ty:'none',trail:[]},o);
+  const n=Object.assign({id:uid++,name:'Node',m:1,x:0.5,y:0.5,vx:0,vy:0,pinned:false,tx:'none',ty:'none',trail:[],hx:new Float32Array(240),hy:new Float32Array(240),hp:0},o);
   n.color=n.color||COLORS[nodes.length%COLORS.length];
   n.name=o.name||'Node '+(nodes.length+1);
   return n;
@@ -244,6 +250,11 @@ function step(dt){
     if(b.pinned||b.drag)continue;
     b.vx+=0.5*b.ax*dt; b.vy+=0.5*b.ay*dt;
     if(P.damp>0){const k=Math.exp(-P.damp*3*dt);b.vx*=k;b.vy*=k;}
+    if(P.cushK>0 && P.bounds!=='wrap'){
+      // edge cushion: distance to the nearest wall, quadratic ramp inside the band
+      const d=Math.min(b.x,1-b.x,b.y,1-b.y), u=Math.max(0,1-d/P.cushW);
+      if(u>0){const k=Math.exp(-P.cushK*12*u*u*dt);b.vx*=k;b.vy*=k;}
+    }
     const s=Math.hypot(b.vx,b.vy); if(s>MAXV){b.vx*=MAXV/s;b.vy*=MAXV/s;}
     if(P.bounds==='reflect'){
       if(b.x<0){b.x=-b.x;b.vx=Math.abs(b.vx);} else if(b.x>1){b.x=2-b.x;b.vx=-Math.abs(b.vx);}
@@ -365,7 +376,8 @@ function frame(t){
     let n=0;
     while(acc>=DT && n<200){step(DT);acc-=DT;n++;}
     if(n>=200)acc=0;
-    for(const b of nodes){ b.trail.push([b.x,b.y]); if(b.trail.length>220)b.trail.shift(); }
+    for(const b of nodes){ b.trail.push([b.x,b.y]); if(b.trail.length>220)b.trail.shift();
+      b.hx[b.hp]=outX(b); b.hy[b.hp]=outY(b); b.hp=(b.hp+1)%b.hx.length; }   // per-body x/y history (2026-09-15)
   }
   applyModulation();
   draw();
@@ -416,18 +428,26 @@ const showers=[
   bind('eps','eps',v=>v,v=>v.toFixed(3)),
   bind('ts','ts',v=>v,v=>v.toFixed(2)+'×'),
   bind('damp','damp',v=>v,v=>v.toFixed(2)),
+  bind('cushK','cushK',v=>v,v=>v.toFixed(2)),
+  bind('cushW','cushW',v=>v,v=>v.toFixed(3)),
 ];
 $('bounds').addEventListener('change',e=>P.bounds=e.target.value);
 $('com').addEventListener('change',e=>P.com=e.target.checked);
 $('trails').addEventListener('change',e=>P.trails=e.target.checked);
 function syncControls(){
   $('G').value=Math.log10(P.G); $('eps').value=P.eps; $('ts').value=P.ts; $('damp').value=P.damp;
+  $('cushK').value=P.cushK; $('cushW').value=P.cushW;
   $('bounds').value=P.bounds; $('com').checked=P.com; $('trails').checked=P.trails;
   showers.forEach(f=>f());
 }
 $('pause').addEventListener('click',e=>{paused=!paused;e.target.textContent=paused?'Resume':'Pause';});
 $('reset').addEventListener('click',()=>load(currentPreset));
-$('add').addEventListener('click',()=>{nodes.push(mk({x:0.2+Math.random()*0.6,y:0.2+Math.random()*0.6,m:0.8}));renderNodeList();});
+/* ADR-165's one sanctioned edit: the add-body position is an INITIAL
+   CONDITION (patch state), so it draws from a seeded mulberry32 stream —
+   the byte-identical form the design labs carry — not Math.random. */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;}}
+let addSeed=1024, addRng=mulberry32(addSeed);
+$('add').addEventListener('click',()=>{nodes.push(mk({x:0.2+addRng()*0.6,y:0.2+addRng()*0.6,m:0.8}));renderNodeList();});
 let currentPreset='sun';
 document.querySelectorAll('[data-preset]').forEach(b=>b.addEventListener('click',()=>{currentPreset=b.dataset.preset;load(currentPreset);}));
 $('audio').addEventListener('click',async e=>{
@@ -454,7 +474,8 @@ function renderNodeList(){
       <div class="row"><span>Mass</span><input data-act="mass" type="range" min="-1" max="1.2" step="0.01" value="${Math.log10(b.m)}"><output>${b.m.toFixed(2)}</output></div>
       <div class="map"><span>x</span><select data-act="tx">${targetOptions(b.tx)}</select><span>y</span><select data-act="ty">${targetOptions(b.ty)}</select></div>
       <div class="out"><span>x</span><div class="bar"><i data-bar="x"></i></div><span data-val="x"></span>
-                       <span>y</span><div class="bar"><i data-bar="y"></i></div><span data-val="y"></span></div>`;
+                       <span>y</span><div class="bar"><i data-bar="y"></i></div><span data-val="y"></span></div>
+      <canvas class="xyg" width="240" height="44" title="x (solid) and y (dashed) over the last few seconds"></canvas>`;
     el.querySelector('.name').addEventListener('input',e=>b.name=e.target.textContent.trim()||'Node');
     el.querySelector('[data-act=mass]').addEventListener('input',e=>{b.m=Math.pow(10,+e.target.value);e.target.nextElementSibling.textContent=b.m.toFixed(2);});
     el.querySelector('[data-act=tx]').addEventListener('change',e=>b.tx=e.target.value);
@@ -464,6 +485,23 @@ function renderNodeList(){
     host.appendChild(el);
   });
 }
+/* Per-body x/y position graphs (human 2026-09-15): the two observables as
+   strips over the last 240 frames, x solid, y dashed, in the body's colour —
+   the visible link between the orbit and the modulation it emits. */
+function drawXYGraph(cv, b){
+  if(!cv) return;
+  const g=cv.getContext('2d'), w=cv.width, h=cv.height, n=b.hx.length;
+  g.clearRect(0,0,w,h);
+  g.strokeStyle='rgba(128,128,128,.25)'; g.lineWidth=1;
+  g.beginPath(); g.moveTo(0,h/2+.5); g.lineTo(w,h/2+.5); g.stroke();
+  const c=css(b.color);
+  for(const [arr,dash] of [[b.hx,[]],[b.hy,[3,3]]]){
+    g.setLineDash(dash); g.strokeStyle=c; g.lineWidth=1.4; g.beginPath();
+    for(let i=0;i<n;i++){ const v=arr[(b.hp+i)%n]; const x=i/(n-1)*w, y=h-2-v*(h-4); if(i)g.lineTo(x,y); else g.moveTo(x,y); }
+    g.stroke();
+  }
+  g.setLineDash([]);
+}
 function updateReadouts(){
   for(const el of $('nodes').children){
     const b=nodes.find(n=>n.id==el.dataset.id); if(!b)continue;
@@ -471,6 +509,7 @@ function updateReadouts(){
     el.querySelector('.xy').textContent=x.toFixed(2)+', '+y.toFixed(2);
     el.querySelector('[data-bar=x]').style.width=(x*100)+'%';
     el.querySelector('[data-bar=y]').style.width=(y*100)+'%';
+    drawXYGraph(el.querySelector('.xyg'), b);
     el.querySelector('[data-val=x]').textContent=TARGETS[b.tx].fmt?TARGETS[b.tx].fmt(x):'';
     el.querySelector('[data-val=y]').textContent=TARGETS[b.ty].fmt?TARGETS[b.ty].fmt(y):'';
   }

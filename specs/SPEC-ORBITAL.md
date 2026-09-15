@@ -37,6 +37,8 @@ Scope: instantiate at **global** scope by default (one field per plugin instance
 | Drag | 0 – 1 | 0 | Velocity decay, exp(−3·drag·dt). 0 is the vacuum. Nonzero makes the system converge to a static configuration — useful as a "settle after a kick" behaviour. |
 | Edges | bounce / wrap / open | bounce | See §8. |
 | Centre-of-mass lock | on/off | on | Subtracts COM position and velocity each step (free bodies only; disabled automatically when any body is pinned). Prevents the whole system drifting off the pad. |
+| Edge cushion | 0 – 1 | 0 (off) | *(Added 2026-09-15, ADR-165 A1/A2.)* A drag band that rises smoothly toward each wall: with d the distance to the nearest wall and w the cushion width, velocity decays by exp(−12·cushion·u²·dt), u = max(0, 1 − d/w). A damping, not a potential — it only touches what reaches the band, so interior orbits are unchanged; it slows orbits that get too extreme before they bounce. Inert in wrap mode. |
+| Cushion width | 0.02 – 0.3 | 0.1 | Width of the band, in field units. |
 | Max speed | fixed constant | 3.0 units/s | Safety clamp, not user-facing. |
 | Body count | 2 – 8 | 3 | |
 
@@ -135,6 +137,7 @@ The field view is the module. Recommendations from the prototype that should sur
 - Bodies drawn with radius ∝ √mass, each in its own colour, name adjacent. Pinned bodies show a hollow centre.
 - Trails (last ~220 steps, alpha ramp) and force lines (alpha ∝ force) — these are not decoration; they are the only way to read the system's state at a glance. Toggle, default on.
 - Projection ticks on the bottom and left edges showing each body's current x and y — this is the visible link between the picture and the modulation values.
+- *(Added 2026-09-15.)* A small x/y position graph on every body's card — the two observables as strips over the last few seconds (x solid, y dashed, in the body's colour) — so the modulation a body emits is readable beside the orbit that makes it. In the plugin this is the body card's live readout.
 - HUD: simulation time and total energy. Total energy drift is the health check.
 - Drag / throw / double-click-to-add exactly as prototyped.
 
@@ -157,6 +160,7 @@ Preset mass normalisation: when the user changes body count on a loaded preset, 
 | Prototype | Plugin | Reason |
 |---|---|---|
 | dt = 1/480 s, wall-clock accumulation | dt = 1/960 s, sample-count accumulation | Determinism (§6.2) and finer slingshot resolution. |
+| "Add node" position from `Math.random` | seeded mulberry32 (lab: seeded 2026-09-15, ADR-165's sanctioned edit) | Initial conditions are patch state; SPEC §5.7. |
 | Float64 in JS (implicit) | Double, explicit | Parity stability. |
 | Per-body target dropdowns | Matrix routing | Architecture (§2). |
 | Only `x`, `y` exported | Full observable set (§4) | Speed/accel are where the gestures are. |
