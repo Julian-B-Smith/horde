@@ -87,7 +87,12 @@ seeds landed 2026-09-10, ADR-091/122/152 amendment). A fourth CANDIDATE arrived
 2026-09-14: **ORBITAL** (`reference/gravity-modulator.html`, `specs/SPEC-ORBITAL.md`,
 ADR-165) — an N-body gravity field whose observables are modulation sources; a
 modulator, not an engine, queued for the modulation lab (B126); one sanctioned
-edit: seed the add-body draw. CLAP-native instrument
+edit: seed the add-body draw. A fifth CANDIDATE arrived 2026-09-14: **NETWORK**
+(`reference/network-lab-v0.html`, `specs/SPEC-FX-NETWORK.md`, ADR-166) — a
+morphable FX network (rack VM of shifters/delays/allpasses/combs/filters in a
+feedback graph); written as a pre-spin-up spec for its OWN project, its
+placement (horde's FX rebuild vs a sibling project horde consumes) is the
+human's open ruling on B127; four unseeded draws to seed. CLAP-native instrument
 plugin, VST3 via clap-wrapper (ADR-002). The DEVICE is **horde** (ADR-114,
 settled 2026-08-23); HYPERSAW is the founding ENGINE, the repo name, and the
 frozen plugin id. Design docs: specs/SPEC.md (the instrument), specs/ACCEPTANCE.md (the
@@ -147,7 +152,8 @@ engine, ingested 2026-08-17, ADR-091), and `reference/station.html` + `specs/SPE
 ingested 2026-09-01, ADR-152) — their three sanctioned RNG seeds landed 2026-09-10 and the
 sanctions are spent — and `reference/gravity-modulator.html` + `specs/SPEC-ORBITAL.md`
 (ORBITAL modulator, ingested 2026-09-14, ADR-165; one sanctioned edit outstanding: seed the
-add-body draw) — (they ARE the reference — an edit there is a spec change), `./verify`, golden render fixtures once they exist.
+add-body draw), and `reference/network-lab-v0.html` + `specs/SPEC-FX-NETWORK.md` (NETWORK,
+ingested 2026-09-14, ADR-166; sanctioned edits: seed its four draws) — (they ARE the reference — an edit there is a spec change), `./verify`, golden render fixtures once they exist.
 
 **Verify targets.** `fast`: leak gate + structure/manifest sanity now; grows
 the L0 suite (parity + trajectories) from Phase 1 — seconds-to-minutes,

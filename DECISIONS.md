@@ -5263,3 +5263,51 @@ before any port.
 human's call (noted on B126). The spec's §12 questions are the human's to
 rule; the lead's recommendations are on the row.
 
+## ADR-166 — NETWORK (morphable FX network) ingested as a CANDIDATE; the placement decision is the human's (2026-09-14, PROPOSED)
+
+**Context.** The human dropped `network-lab-v0.html` (a browser studio: rack
+VM in an AudioWorklet, eight modules — freq shift, ratio shift, delay,
+allpass, diffuser, comb bank, SVF, disperser — one global feedback bus with
+DC blocker, clamp and a loop saturator, A/B morph, presets that reproduce
+Bode / freeverb / shimmer as points in one patch space) and
+`SPEC-fx-network.md` (draft v0.1, 2026-08-28, written as a PRE-SPIN-UP spec:
+three product surfaces — S1 `netcore` library, S2 standalone plugin, S3 the
+lab as R&D twin — milestones M0–M4, FOUNDATIONS seams, its own `./verify`).
+It dates from the same day as `docs/proposals/fx-matrix-rework.md` Part 2
+and describes the same shape from the other side: a rack VM of always-present
+operators behind a feedback-capable graph, morphed as a whole.
+
+**What is settled.** Files live at `reference/network-lab-v0.html` and
+`specs/SPEC-FX-NETWORK.md`, protected — with one intake edit: §9.9 named
+three private siblings; the leak gate refused the commit and the line now
+carries the ADR-014 aliases. Candidate, not on the 1.0 roster. Four
+unseeded draws in the lab, three of them determinism blockers (the S&H LFO's
+held value is a mod source; the randomize is state; the two test-signal
+noise bursts feed goldens) — sanctioned edits, the standing pattern.
+
+**What is NOT settled — the human's ruling, three options laid out on B127.**
+(A) NETWORK is horde's FX rebuild: adopt its rack VM and roster as the B50/B95
+implementation. (B) NETWORK is its own project: spin-up survey, own repo
+(`netcore` + plugin + lab, the spec's §13.5), horde consumes `netcore` later
+through the seam the spec itself names (§9.9, "netcore as importable FX").
+(C) Both, in order: spin up NETWORK as its own project now, and have horde
+adopt immediately the parts B50 needs anyway and that cost nothing to align —
+the feedback plumbing rules (DC blocker in every loop, NaN flush + ±4 clamp,
+the loop nonlinearity as a declared element), the module ABI shape and the
+three smoothing classes, and patch-as-JSON with stable per-module ids (which
+the B50 migration algorithm needs). **Lead's recommendation: C.** The spec is
+a product with three surfaces and five milestones — the doctrine's shape for
+a spin-up survey, not a queue row; horde's 1.0 FX ruling (bounded pool +
+routing matrix) is a scope horde can finish, and NETWORK's flagship work (PV
+remapper, FDN core, structural morph) is 1.1+ either way; horde then becomes
+netcore's first consumer, the "drop a reverb I like into an existing synth"
+doctrine test the spec asks for.
+
+**Divergences to reconcile before any shared core** (on B127): horde rules
+one instance per type (fixed sockets kill the stepped-identity chimera, B49);
+NETWORK composes freely with multiple instances (freeverb is four combs and
+four allpasses). Both are per-sample with a one-sample feedback delay
+(ADR-128 ✓). Horde's morph is four corners with three ruled laws; NETWORK
+ships A/B slots and defers XY. Horde's Comb is the per-note Karplus–Strong
+swarm; NETWORK's comb bank is freeverb's — different modules, both keep.
+
