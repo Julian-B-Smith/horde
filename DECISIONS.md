@@ -5311,3 +5311,24 @@ four allpasses). Both are per-sample with a one-sample feedback delay
 ships A/B slots and defers XY. Horde's Comb is the per-note Karplus–Strong
 swarm; NETWORK's comb bank is freeverb's — different modules, both keep.
 
+### ADR-165 Amendment 1 — §12 ratified; edge cushion before the golden (2026-09-15)
+
+The lead's answers to the spec's five open questions are ratified by the human
+(global scope by default, fixed accel ceiling, mass rate-limit on with a
+per-body instant flag, x/y unchanged across edge modes plus sin/cos
+observables, the name ORBITAL). Not on the 1.0 roster for now. The human adds
+an EDGE CUSHION option — a drag band near the walls that slows extreme orbits
+— to land in the lab before any golden is cut, since the golden freezes the
+law; ported as one more field parameter.
+
+### ADR-166 Amendment 1 — the human's steer: one module among siblings (2026-09-15)
+
+The human wants NETWORK as one FX module among siblings, with a second
+instance possible, and is open to revisiting one-instance-per-type if it
+broadens sound design; "points to B or C". The lead's reading (B127): C with
+the module framing — NETWORK is a pool node type whose interior is a fixed
+operator roster behind a coefficient matrix, so its topology morphs as
+coefficients under horde's own three laws and the divergence dissolves; the
+FDN reverb is its own node beside it. The morph model is on B127 for the
+human to strike; the spin-up survey carries the spec deltas.
+
