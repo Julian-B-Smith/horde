@@ -5394,3 +5394,35 @@ splay leg asserts the lattice directly. The lesson is L0032's again: the
 proposed observable was named from theory; the measurement chose the real
 one.
 
+## ADR-168 — Modulation polarity is a property of the route (2026-09-16)
+
+**Context.** Human: "all mods need a bipolar toggle." A source's polarity was
+whatever the source emitted (envelopes, macros, velocity, wheel, pressure
+0..1; the pitch wheel ±1) and a route could only scale it.
+
+**Decision.** Each route carries `polarity ∈ {as-is, unipolar, bipolar,
+inverted}`, applied to the source value BEFORE depth in `ModCore::evaluate`;
+the core receives the shell's per-source natural-polarity flags and stays
+framework-free. `as-is` is the default and returns the untouched double, so
+every pre-existing patch renders bit-identically (the check's control is an
+exact equality, not a tolerance). Per route, not per source: one modulator
+may drive a filter unipolar and a pan bipolar in the same patch. Nothing
+clamps in the map; the destination's own range does (OQ-30).
+
+**State.** The `modroutes` chunk writes one entry per route with an optional
+fourth field `src:dest:depth:pol;`. The previous writer summed duplicate
+(src, dest) routes into one entry, which cannot carry per-route polarity;
+both forms load. Halos draw the mapped span, which also corrects a
+pre-existing lie: a bipolar source's halo used to show a band it could not
+reach.
+
+**Oracle.** `polarity_check` standalone; wiring is the human's gate decision.
+
+### ADR-166 Amendment 3 — NETWORK is Sluice (2026-09-16)
+
+Their notices (our mailbox `integrations/sluice/`, ball none): the human named
+the project Sluice; directory and private remote renamed; survey ratified;
+the three B127 deltas ratified as their spec v0.2 §14; their lab is under
+test, not the reference, until their test-and-fix pass is ratified. Where
+this ledger says NETWORK, read Sluice; nothing is rewritten.
+
