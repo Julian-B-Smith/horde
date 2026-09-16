@@ -328,6 +328,16 @@ inline void installBridge(choc::ui::WebView &web, GuiHost &host)
                              (uint32_t)args[1].getWithDefault<int64_t>(0));
     return choc::value::createBool(ok);
   });
+  /* B134: the route row's polarity cell. Returns the shell's verdict rather
+     than assuming success — the pitch route refuses, and the cell re-renders
+     from the table instead of from its own optimism. */
+  web.bind("hzModPolarity", [&host](const choc::value::ValueView &args) -> choc::value::Value {
+    bool ok = false;
+    if (host.modSetPolarity && args.isArray() && args.size() >= 2)
+      ok = host.modSetPolarity((int)args[0].getWithDefault<int64_t>(-1),
+                               (int)args[1].getWithDefault<int64_t>(0));
+    return choc::value::createBool(ok);
+  });
   web.bind("hzModRemove", [&host](const choc::value::ValueView &args) -> choc::value::Value {
     if (host.modRemoveRoute && args.isArray() && args.size() >= 1)
       host.modRemoveRoute((int)args[0].getWithDefault<int64_t>(-1));

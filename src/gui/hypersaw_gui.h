@@ -126,6 +126,7 @@ struct GuiHost
   std::function<bool(uint32_t, uint32_t)> modAddRoute;      // (srcSlot, destParamId)
   std::function<void(int, double)> modSetDepth;             // (routeIndex, depth)
   std::function<bool(int, uint32_t)> modSetSource;          // ADR-141: (routeIndex, srcSlot)
+  std::function<bool(int, int)> modSetPolarity;             // B134: (routeIndex, 0..3)
   std::function<void(int)> modRemoveRoute;
   std::function<std::string()> morphExemptJson;
   std::function<std::string()> morphOwnersJson;             // ADR-110 colour coding

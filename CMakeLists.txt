@@ -331,6 +331,15 @@ if(NOT MSVC)
   target_compile_options(undo_check PRIVATE -O2)
 endif()
 
+# B134 per-route modulation polarity (polarity_check). STANDALONE and NOT in
+# ./verify — wiring a gate is the human's decision (charter), proposed in the
+# PR that adds it. Reuses statefix_common.h's stub host + render.
+add_executable(polarity_check tools/polarity_check.cpp)
+target_link_libraries(polarity_check PRIVATE ${PROJECT_NAME}-impl)
+if(NOT MSVC)
+  target_compile_options(polarity_check PRIVATE -O2)
+endif()
+
 add_executable(gen_state_fixtures tools/gen_state_fixtures.cpp)
 target_link_libraries(gen_state_fixtures PRIVATE ${PROJECT_NAME}-impl)
 add_executable(statefix_check tools/statefix_check.cpp)
