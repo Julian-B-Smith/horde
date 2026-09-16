@@ -101,7 +101,7 @@ struct PresetDef
    and is ALREADY in VizSnapshot — but B130 fixes hypersaw_debug_viz's signature
    at (R, RA, RB, n), so widening it is the lead's call, not this tool's. */
 const std::vector<CornerDef> kCorners = {
-    {"MISC - Cloud", {{1, 3}, {4, 0.55}, {6, 0.0}, {8, 0.35}, {39, 1.0}, {14, 1.0}}},
+    {"MISC - Cloud", {{1, 16}, {4, 0.55}, {6, 0.0}, {8, 0.35}, {39, 1.0}, {14, 1.0}}},   // B131: a FULL cloud; RN now tells it from the splay
     {"MISC - Lock", {{1, 16}, {4, 0.30}, {6, 1.0}, {8, 0.35}, {39, 1.0}, {14, 1.0}}},
     {"MISC - Splay", {{1, 16}, {4, 0.30}, {6, -1.0}, {8, 0.35}, {39, 1.0}, {14, 1.0}}},
     {"MISC - Two Cluster",

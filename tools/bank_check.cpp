@@ -66,7 +66,8 @@ extern "C" bool hypersaw_debug_apply(const clap_plugin_t *, const char *);
 extern "C" void hypersaw_debug_state(const clap_plugin_t *, char *, uint32_t);
 extern "C" bool hypersaw_debug_cornermatches(const clap_plugin_t *, int, const char *);
 extern "C" void hypersaw_debug_voices(const clap_plugin_t *, char *, uint32_t);
-extern "C" void hypersaw_debug_viz(const clap_plugin_t *, int, double *, double *, double *, int *);
+extern "C" void hypersaw_debug_viz(const clap_plugin_t *, int, double *, double *, double *, int *, double *);
+extern "C" int hypersaw_debug_phases(const clap_plugin_t *, int, double *, int);
 
 namespace fs = std::filesystem;
 
@@ -202,8 +203,16 @@ struct Rig
     run(0.05);   // the apply is QUEUED; process() is what drains it
     return ok;
   }
-  double R0() const { double r, a, b; int n; hypersaw_debug_viz(p, 0, &r, &a, &b, &n); return r; }
-  void viz(double &r, double &a, double &b, int &n) const { hypersaw_debug_viz(p, 0, &r, &a, &b, &n); }
+  double R0() const { double r, a, b, rn; int n; hypersaw_debug_viz(p, 0, &r, &a, &b, &n, &rn); return r; }
+  double RN0() const { double r, a, b, rn; int n; hypersaw_debug_viz(p, 0, &r, &a, &b, &n, &rn); return rn; }
+  void viz(double &r, double &a, double &b, double &rn, int &n) const { hypersaw_debug_viz(p, 0, &r, &a, &b, &n, &rn); }
+  /* Gap uniformity U = 1 - std(gap)/mean(gap) over the sorted phase gaps:
+     an even lattice reads ~1, a lock ~0 (one big gap, the rest ~0), a cloud
+     in between. The discriminator RN cannot be (B131). */
+  double gapU() const { double ph[64]; const int n = hypersaw_debug_phases(p, 0, ph, 64); if (n < 2) return 0;
+    std::vector<double> v(ph, ph + n); for (double &x : v) x = x - std::floor(x); std::sort(v.begin(), v.end());
+    double mean = 1.0 / n, var = 0; for (int i = 0; i < n; i++) { const double g = (i + 1 < n ? v[i + 1] : v[0] + 1.0) - v[i]; var += (g - mean) * (g - mean); }
+    const double sd = std::sqrt(var / n); return std::max(0.0, 1.0 - sd / mean); }
   double rmsDb() const
   {
     if (!nSamp) return -999;
@@ -226,6 +235,7 @@ std::string saveState(const clap_plugin_t *p)
 struct RTrace
 {
   double peakR = 0, lateMaxR = 0, lateMinR = 1, lateMeanR = 0;
+  double lateMinRN = 1, lateMinU = 1;   // B131: lattice observables' floors in the late window
   double tCross = -1;
   long lateN = 0;
 };
@@ -245,6 +255,8 @@ RTrace strikeAndFollow(Rig &r, double sec, double want, double lateFrom)
     {
       t.lateMaxR = std::max(t.lateMaxR, R);
       t.lateMinR = std::min(t.lateMinR, R);
+      t.lateMinRN = std::min(t.lateMinRN, r.RN0());
+      t.lateMinU = std::min(t.lateMinU, r.gapU());
       t.lateMeanR += R;
       t.lateN++;
     }
@@ -492,6 +504,13 @@ int main(int argc, char **argv)
                     "splay: K -1 -> R under 0.1 after 1 s (max %.4f, mean %.4f)", t.lateMaxR,
                     t.lateMeanR);
       check(t.lateMaxR < 0.1, m);
+      // B131: the lattice asserted DIRECTLY — an even splay has RN = 1, a cloud ~1/sqrt(n)
+      std::printf("     splay lattice: RN min %.3f, gap uniformity U min %.3f\n", t.lateMinRN, t.lateMinU);
+      // B131: the lattice asserted DIRECTLY through gap uniformity (an even
+      // lattice ~0.8 here; a cloud ~0.1; a lock 0). RN cannot do this job: a
+      // lock's finite phase spread scatters e^{i n theta} (measured 0.21).
+      std::snprintf(m, sizeof m, "splay: the lattice's gap uniformity stays over 0.7 through the late window (min %.3f)", t.lateMinU);
+      check(t.lateMinU > 0.7, m);
       sp.kill();
 
       Rig pos;
@@ -518,7 +537,7 @@ int main(int argc, char **argv)
       // A=(0,0) B=(1,0) C=(0,1) D=(1,1) — MorphCore::weights
       const double xy[4][2] = {{0, 0}, {1, 0}, {0, 1}, {1, 1}};
       const char *lbl[4] = {"A cloud", "B lock", "C splay", "D two-cluster"};
-      double sig[4][3] = {{0}};
+      double sig[4][4] = {{0}};   // R, RA, RB, RN (B131: RN separates a cloud from a splay)
       for (int k = 0; k < 4; k++)
       {
         Rig r;
@@ -533,16 +552,17 @@ int main(int argc, char **argv)
            is a fluctuating quantity, and a single sample would make the
            pairwise-separation assertion a coin toss on an unlucky block.
            min/max are printed so the fluctuation stays visible. */
-        double lo[3] = {1, 1, 1}, hi[3] = {0, 0, 0};
+        double lo[4] = {1, 1, 1, 1}, hi[4] = {0, 0, 0, 0};
         int n = 0;
         long m = 0;
         for (int i = 0; i < Math_blocks(2.0); i++)
         {
           EvList e;
           r.step(e);
-          double v[3];
-          r.viz(v[0], v[1], v[2], n);
-          for (int c = 0; c < 3; c++)
+          double v[4], rn;
+          r.viz(v[0], v[1], v[2], rn, n);
+          v[3] = r.gapU();
+          for (int c = 0; c < 4; c++)
           {
             sig[k][c] += v[c];
             lo[c] = std::min(lo[c], v[c]);
@@ -550,16 +570,16 @@ int main(int argc, char **argv)
           }
           m++;
         }
-        for (int c = 0; c < 3; c++) sig[k][c] /= (double)(m ? m : 1);
-        std::printf("     corner %-14s R %.3f [%.3f..%.3f]  RA %.3f  RB %.3f  (n %d)\n", lbl[k],
-                    sig[k][0], lo[0], hi[0], sig[k][1], sig[k][2], n);
+        for (int c = 0; c < 4; c++) sig[k][c] /= (double)(m ? m : 1);
+        std::printf("     corner %-14s R %.3f [%.3f..%.3f]  RA %.3f  RB %.3f  U %.3f [%.3f..%.3f]  (n %d)\n", lbl[k],
+                    sig[k][0], lo[0], hi[0], sig[k][1], sig[k][2], sig[k][3], lo[3], hi[3], n);
         r.kill();
       }
       for (int a = 0; a < 4; a++)
         for (int b = a + 1; b < 4; b++)
         {
           double d = 0;
-          for (int c = 0; c < 3; c++) d = std::max(d, std::fabs(sig[a][c] - sig[b][c]));
+          for (int c = 0; c < 4; c++) d = std::max(d, std::fabs(sig[a][c] - sig[b][c]));
           char m[160];
           std::snprintf(m, sizeof m, "quantum-morph: %s vs %s differ by %.3f (>= 0.4)", lbl[a],
                         lbl[b], d);

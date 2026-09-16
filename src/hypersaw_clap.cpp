@@ -5467,7 +5467,7 @@ extern "C" void hypersaw_debug_penv_slot(const clap_plugin_t *p, int slot, doubl
    Zero voices sounding -> all four read 0, which is the honest "nothing to
    observe" rather than a stale last value. Not part of the CLAP surface. */
 extern "C" void hypersaw_debug_viz(const clap_plugin_t *p, int osc, double *R, double *RA,
-                                   double *RB, int *n)
+                                   double *RB, int *n, double *RN)
 {
   auto *pl = self(p);
   const uint32_t o = (osc > 0 && (uint32_t)osc < kNumOsc) ? (uint32_t)osc : 0;
@@ -5477,6 +5477,23 @@ extern "C" void hypersaw_debug_viz(const clap_plugin_t *p, int osc, double *R, d
   if (RA) *RA = s ? s->RA : 0.0;
   if (RB) *RB = s ? s->RB : 0.0;
   if (n) *n = s ? (int)core.p.n : 0;
+  // B131: the n-th order parameter — 1 for an even lattice (splay), ~1/sqrt(n)
+  // for a cloud — the observable R cannot give, appended to the signature.
+  if (RN) *RN = s ? s->RN : 0.0;
+}
+/* B131: the voice phases themselves (0..1), so a check can compute any
+   statistic — gap uniformity separates an even lattice from a cloud where
+   neither R nor RN can (RN is scattered by a lock's finite phase spread). */
+extern "C" int hypersaw_debug_phases(const clap_plugin_t *p, int osc, double *out, int cap)
+{
+  auto *pl = self(p);
+  const uint32_t o = (osc > 0 && (uint32_t)osc < kNumOsc) ? (uint32_t)osc : 0;
+  const auto &core = pl->cores[o];
+  const auto *s = core.focus();
+  if (!s || !out) return 0;
+  const int n = std::min(cap, (int)core.p.n);
+  for (int i = 0; i < n; i++) out[i] = s->phase[i];
+  return n;
 }
 extern "C" void hypersaw_debug_voices(const clap_plugin_t *p, char *out, uint32_t cap)
 {
