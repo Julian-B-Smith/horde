@@ -5567,3 +5567,38 @@ and nothing is ported from it. WARP's one idea Maw lacks — hysteresis in the
 transfer curve — is recorded in docs/PARKED.md as a candidate fifteenth Maw
 curve, not as a reason to keep the engine. B50's roster loses the separate
 Waveshaper slot; Saturator = Maw carries both roles.
+
+### ADR-169 Amendment 1 — RATIFIED with the five rulings; slot ids reserved (2026-09-16)
+
+Human (2026-09-16): "Global slots as mod targets ratified." Then, on the
+spec's open decisions: (1) yes — a global-tier slot is a mod-matrix
+destination through the existing route path; (2) locked-global by default,
+per-corner preset identity opt-in — "while I definitely want to be able to
+morph between presets at different corners, I see the value in having that
+be opt-in"; (3) two live instances per host "for now, while testing may
+reveal a different answer" — the cap is a budget, not a law, and the
+crossfade dev toggle (ADR-163) is the instrument that would lift it; (4) four
+slots with ids reserved for eight; (5) Save As only. ADR-169 is RATIFIED;
+`specs/SPEC-MODULE-MACROS.md` is the rule.
+
+**Id reservation (ruling 4).** Global parameter ids in use end at 265
+(`src/hypersaw_clap.cpp` param table; per-osc twins live at +1000 under
+`kOscStride`). Reserved now, unused until B136 lands: **ids 300–331 = module
+macro slots, `300 + 8·host + role`** for host 0..3 (`kRackSlots` = 4,
+`src/fx_rack.h`) and role 0..7 (Amount, Tone, Motion, Regen, four spare).
+Nothing else may take an id in 300–331; the presentation table gains the rows
+when B136 does. Position-independent by construction, which is what
+ADR-MM-3 asks.
+
+### ADR-170 Amendment 1 — named MAW; the five rulings taken (2026-09-16)
+
+Human (2026-09-16): "I like Maw" — MAW is the name, no longer a placeholder
+(the spec's "Name status" line stays as written; this amendment supersedes
+it). Bus-level instantiation; ship drive-ref and drop tracked auto-gain; no
+output clamp; fold curves default to a pre-curve lowpass around 700 Hz;
+ecology stays in the build, its panel slot waits for a programme-material
+A/B. With R1 (Maw eats WARP, ADR-092 amendment) that closes every ruling in
+the packet's §8 except none — D7, D8 and D10 were the lead's and are taken.
+MAW stays a CANDIDATE until B50's rack exists to host it and the two oracles
+(§9) are written; its macro roles are declared under ADR-169 (Amount = drive,
+Tone = shape/cutoff, Motion = inertia/flux, Regen = feedback).

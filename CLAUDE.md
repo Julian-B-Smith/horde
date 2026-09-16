@@ -94,8 +94,8 @@ feedback graph); written as a pre-spin-up spec for its OWN project, its
 placement (horde's FX rebuild vs a sibling project horde consumes) is the
 human's open ruling on B127; four unseeded draws to seed. A sixth CANDIDATE arrived
 2026-09-16: **MAW** (`reference/maw/`, `specs/SPEC-MAW.md`, ADR-170) — the Roar-class
-three-stage saturator for the FX rebuild (B50's Saturator slot), fully seeded on
-arrival, name open. Also ingested 2026-09-16: **module macro tiers**
+three-stage saturator for the FX rebuild (B50's Saturator slot, and FX-C since WARP was
+parked), fully seeded on arrival, named MAW 2026-09-16. Also ingested 2026-09-16: **module macro tiers**
 (`specs/SPEC-MODULE-MACROS.md`, `reference/horde-module-macros.html`, ADR-169
 PROPOSED) — the rule for how a hosted FX module's presets carry role-keyed macros
 under the intent bus; one sanctioned edit: seed `quantumPick`. CLAP-native instrument
