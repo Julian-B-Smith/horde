@@ -137,7 +137,7 @@ The field view is the module. Recommendations from the prototype that should sur
 - Bodies drawn with radius ∝ √mass, each in its own colour, name adjacent. Pinned bodies show a hollow centre.
 - Trails (last ~220 steps, alpha ramp) and force lines (alpha ∝ force) — these are not decoration; they are the only way to read the system's state at a glance. Toggle, default on.
 - Projection ticks on the bottom and left edges showing each body's current x and y — this is the visible link between the picture and the modulation values.
-- *(Added 2026-09-15.)* A small x/y position graph on every body's card — the two observables as strips over the last few seconds (x solid, y dashed, in the body's colour) — so the modulation a body emits is readable beside the orbit that makes it. In the plugin this is the body card's live readout.
+- *(Added 2026-09-15.)* A small position graph on every body's card — two observables as strips over the last few seconds (solid / dashed, in the body's colour) — so the modulation a body emits is readable beside the orbit that makes it. A field-level toggle switches the pair between Cartesian (x, y) and polar (`angle` about the field centre, wrapping, and radius from it). In the plugin this is the body card's live readout.
 - HUD: simulation time and total energy. Total energy drift is the health check.
 - Drag / throw / double-click-to-add exactly as prototyped.
 

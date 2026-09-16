@@ -102,6 +102,9 @@
     <div class="row"><span>Edges</span><select id="bounds"><option value="reflect">Bounce, elastic</option><option value="wrap">Wrap around</option><option value="open">Open, output clamped</option></select><span></span></div>
     <label class="chk"><input id="com" type="checkbox" checked> Keep center of mass at center</label>
     <label class="chk"><input id="trails" type="checkbox" checked> Show trails</label>
+    <!-- 2026-09-15 (human): the body graphs in polar — angle about the field
+         centre (the spec's `angle` observable) and radius from it — or x/y. -->
+    <label class="chk"><input id="polar" type="checkbox"> Polar graphs (angle · radius)</label>
   </div>
 
   <div class="group">
@@ -178,11 +181,11 @@ const COLORS=['--node-a','--node-b','--node-c','--node-d','--node-e','--node-f']
 const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 let nodes=[];            // {id,name,color,m,x,y,vx,vy,pinned,tx,ty,trail:[]}
 let uid=0, simTime=0, paused=false, lastFrame=null;
-const P={G:0.025,eps:0.06,ts:1,damp:0,bounds:'reflect',com:true,trails:true,cushW:0.1,cushK:0};   // cushK 0 = off (ADR-165 A1)
+const P={G:0.025,eps:0.06,ts:1,damp:0,bounds:'reflect',com:true,trails:true,cushW:0.1,cushK:0,polar:false};   // cushK 0 = off (ADR-165 A1)
 const MAXV=3.0;
 
 function mk(o){
-  const n=Object.assign({id:uid++,name:'Node',m:1,x:0.5,y:0.5,vx:0,vy:0,pinned:false,tx:'none',ty:'none',trail:[],hx:new Float32Array(240),hy:new Float32Array(240),hp:0},o);
+  const n=Object.assign({id:uid++,name:'Node',m:1,x:0.5,y:0.5,vx:0,vy:0,pinned:false,tx:'none',ty:'none',trail:[],hx:new Float32Array(240),hy:new Float32Array(240),ha:new Float32Array(240),hr:new Float32Array(240),hp:0},o);
   n.color=n.color||COLORS[nodes.length%COLORS.length];
   n.name=o.name||'Node '+(nodes.length+1);
   return n;
@@ -291,6 +294,10 @@ function energy(){
 /* ---------------------------------------------------------------- output */
 const clamp01=v=>Math.max(0,Math.min(1,v));
 function outX(b){return clamp01(b.x)}
+// polar observables about the field centre: angle 0..1 wrapping (the spec's
+// `angle`), radius 0..1 with 1 = the corner distance (sqrt(0.5))
+function outAngle(b){return (Math.atan2(0.5-b.y,b.x-0.5)/(2*Math.PI)+1)%1}
+function outRadius(b){return clamp01(Math.hypot(b.x-0.5,b.y-0.5)/Math.SQRT1_2)}
 function outY(b){return clamp01(1-b.y)}   // up on screen = higher value
 
 function applyModulation(){
@@ -380,7 +387,7 @@ function frame(t){
     while(acc>=DT && n<200){step(DT);acc-=DT;n++;}
     if(n>=200)acc=0;
     for(const b of nodes){ b.trail.push([b.x,b.y]); if(b.trail.length>220)b.trail.shift();
-      b.hx[b.hp]=outX(b); b.hy[b.hp]=outY(b); b.hp=(b.hp+1)%b.hx.length; }   // per-body x/y history (2026-09-15)
+      b.hx[b.hp]=outX(b); b.hy[b.hp]=outY(b); b.ha[b.hp]=outAngle(b); b.hr[b.hp]=outRadius(b); b.hp=(b.hp+1)%b.hx.length; }   // per-body histories (2026-09-15)
   }
   applyModulation();
   draw();
@@ -437,10 +444,11 @@ const showers=[
 $('bounds').addEventListener('change',e=>P.bounds=e.target.value);
 $('com').addEventListener('change',e=>P.com=e.target.checked);
 $('trails').addEventListener('change',e=>P.trails=e.target.checked);
+$('polar').addEventListener('change',e=>P.polar=e.target.checked);
 function syncControls(){
   $('G').value=Math.log10(P.G); $('eps').value=P.eps; $('ts').value=P.ts; $('damp').value=P.damp;
   $('cushK').value=P.cushK; $('cushW').value=P.cushW;
-  $('bounds').value=P.bounds; $('com').checked=P.com; $('trails').checked=P.trails;
+  $('bounds').value=P.bounds; $('com').checked=P.com; $('trails').checked=P.trails; $('polar').checked=P.polar;
   showers.forEach(f=>f());
 }
 $('pause').addEventListener('click',e=>{paused=!paused;e.target.textContent=paused?'Resume':'Pause';});
@@ -498,9 +506,13 @@ function drawXYGraph(cv, b){
   g.strokeStyle='rgba(128,128,128,.25)'; g.lineWidth=1;
   g.beginPath(); g.moveTo(0,h/2+.5); g.lineTo(w,h/2+.5); g.stroke();
   const c=css(b.color);
-  for(const [arr,dash] of [[b.hx,[]],[b.hy,[3,3]]]){
+  cv.title=P.polar?'angle (solid, wraps) and radius (dashed) about the field centre':'x (solid) and y (dashed) over the last few seconds';
+  for(const [arr,dash] of (P.polar?[[b.ha,[]],[b.hr,[3,3]]]:[[b.hx,[]],[b.hy,[3,3]]])){
     g.setLineDash(dash); g.strokeStyle=c; g.lineWidth=1.4; g.beginPath();
-    for(let i=0;i<n;i++){ const v=arr[(b.hp+i)%n]; const x=i/(n-1)*w, y=h-2-v*(h-4); if(i)g.lineTo(x,y); else g.moveTo(x,y); }
+    let pv=null;
+    for(let i=0;i<n;i++){ const v=arr[(b.hp+i)%n]; const x=i/(n-1)*w, y=h-2-v*(h-4);
+      const seam=P.polar&&arr===b.ha&&pv!==null&&Math.abs(v-pv)>0.5;   // the angle wrapped: lift the pen
+      if(i&&!seam)g.lineTo(x,y); else g.moveTo(x,y); pv=v; }
     g.stroke();
   }
   g.setLineDash([]);
