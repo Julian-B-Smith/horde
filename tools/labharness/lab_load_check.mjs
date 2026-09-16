@@ -26,6 +26,11 @@ import vm from 'node:vm';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const labDir = join(root, 'docs/design');
+// B138 (2026-09-16): the reference prototypes were never in the sweep — the
+// 2026-09-07 layout move put the spec-in-code labs under reference/ and this
+// gate kept reading only docs/design, so fifteen labs loaded unchecked while
+// it printed GREEN. reference/ and its one packet directory are swept now.
+const refDirs = [join(root, 'reference'), join(root, 'reference/maw')];
 
 // A value that can be called, constructed, indexed, iterated and coerced
 // without ever throwing — so the ONLY errors that surface are the lab's own.
@@ -52,7 +57,13 @@ function checkFile(file) {
   const blocks = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]);
   if (!blocks.length) return { file, skipped: 'no inline script' };
   const sandbox = {
-    document: stub(), window: stub(), navigator: stub(), location: stub(),
+    document: stub(), window: stub(), location: stub(),
+    // navigator is a stub EXCEPT requestMIDIAccess, which must look like a
+    // promise: the generic stub deliberately has no `then` (so an awaited stub
+    // resolves instead of hanging), and `.then(...)` on it is a TypeError the
+    // checker would pin on the lab (the MAW prototype, B138).
+    navigator: new Proxy({ requestMIDIAccess: () => ({ then: () => ({ catch() {} }) }) },
+                         { get: (t, p) => (p in t ? t[p] : stub()) }),
     AudioContext: function () { return stub(); },
     webkitAudioContext: function () { return stub(); },
     requestAnimationFrame: () => 0, cancelAnimationFrame: () => {},
@@ -68,6 +79,11 @@ function checkFile(file) {
     KeyboardEvent: class { constructor(t) { this.type = t; } },
     MouseEvent: class { constructor(t) { this.type = t; } },
     Image: class {}, Blob: class {}, URL: { createObjectURL: () => '', revokeObjectURL() {} },
+    // Four more the reference labs read at setup (B138): without them the
+    // checker blamed five labs for its OWN missing globals — the cry-wolf case.
+    Option: class { constructor(text, value) { this.text = text; this.value = value; } },
+    getComputedStyle: () => stub(), devicePixelRatio: 1,
+    matchMedia: () => ({ matches: false, addEventListener() {}, addListener() {} }),
   };
   sandbox.globalThis = sandbox; sandbox.self = sandbox;
   sandbox.window = sandbox;
@@ -94,6 +110,7 @@ const args = process.argv.slice(2);
 const guiDir = join(root, 'src/gui');
 const files = args.length ? args.map(a => resolve(a))
   : [...readdirSync(labDir).filter(f => f.endsWith('.html')).sort().map(f => join(labDir, f)),
+     ...refDirs.flatMap(d => readdirSync(d).filter(f => f.endsWith('.html')).sort().map(f => join(d, f))),
      ...readdirSync(guiDir).filter(f => f.endsWith('.html')).sort().map(f => join(guiDir, f))];
 
 let bad = 0, skipped = 0;

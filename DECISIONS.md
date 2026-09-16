@@ -5602,3 +5602,45 @@ the packet's §8 except none — D7, D8 and D10 were the lead's and are taken.
 MAW stays a CANDIDATE until B50's rack exists to host it and the two oracles
 (§9) are written; its macro roles are declared under ADR-169 (Amount = drive,
 Tone = shape/cutoff, Motion = inertia/flux, Regen = feedback).
+
+## ADR-171 — Nine standalone checks join `verify full`; the lab loader sweeps `reference/` (2026-09-16)
+
+**Context.** Ten behavioural checks had accumulated as standalone binaries
+(each written as a stream's oracle, each left unwired because adding a gate
+is the human's call): statefix, presetstore, bank, anchor, penv, twocluster,
+morphlayout, fxxfade, polarity — undo_check was wired 2026-09-13. Human
+(2026-09-16): "Gates ratified." Separately, the B135 agent found that
+`tools/labharness/lab_load_check.mjs` had never swept `reference/` — the
+2026-09-07 layout move put the spec-in-code prototypes there and the sweep
+kept reading only `docs/design` (which still holds the older design labs)
+and `src/gui` — so fifteen reference labs loaded unchecked while the gate
+printed GREEN (B138). Human: "Please patch."
+
+**Decision.** (1) The nine checks run in `full` after `undo_check`, state
+fixtures first; the two that take a directory get it repo-relative
+(`tests/state_fixtures`, `docs/presets/factory`). All nine are
+guaranteed-layer — exact equalities or eps-bounded measurements against the
+C++ build, no model calls — so nothing measured was promoted to blocking.
+Cost: sub-second each; bank_check about one second here. (2) The lab loader
+sweeps `docs/design`, `reference/`, `reference/maw/` and `src/gui`. Five
+labs failed the first sweep on the checker's own missing globals
+(`Option`, `getComputedStyle`, `devicePixelRatio`, `matchMedia`) and the MAW
+prototype on a sixth: the generic stub has no `then` by design (an awaited
+stub must resolve, not hang), so `navigator.requestMIDIAccess().then(...)`
+was a TypeError pinned on the lab. `navigator` is now a stub whose
+`requestMIDIAccess` returns a thenable. Control: a copy of the gravity lab
+with a use-before-declaration injected goes RED (the cry-wolf control the
+file's comments ask for). Result: 43 labs loaded, 0 broken.
+
+**Consequence.** `verify full` is the first run in which every factory
+patch, every state fixture and every reference lab is checked on each pass.
+A future check earns its wire by the same route: standalone first, ruling
+second.
+
+### ADR-137 Amendment — the morph rail wins over host XY automation (2026-09-16)
+
+B133's owed ruling. Human (2026-09-16): "rail wins." With `rail on`,
+`morphX`/`morphY` (152/153) are outputs of the rail evaluator; host
+automation lanes on them are ignored while the rail is on and the pad shows
+a visible badge saying so. Recorded ahead of the build so the B133 brief
+carries it as a criterion, not a question.
