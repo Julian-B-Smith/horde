@@ -92,7 +92,13 @@ edit: seed the add-body draw. A fifth CANDIDATE arrived 2026-09-14: **NETWORK**
 morphable FX network (rack VM of shifters/delays/allpasses/combs/filters in a
 feedback graph); written as a pre-spin-up spec for its OWN project, its
 placement (horde's FX rebuild vs a sibling project horde consumes) is the
-human's open ruling on B127; four unseeded draws to seed. CLAP-native instrument
+human's open ruling on B127; four unseeded draws to seed. A sixth CANDIDATE arrived
+2026-09-16: **MAW** (`reference/maw/`, `specs/SPEC-MAW.md`, ADR-170) — the Roar-class
+three-stage saturator for the FX rebuild (B50's Saturator slot), fully seeded on
+arrival, name open. Also ingested 2026-09-16: **module macro tiers**
+(`specs/SPEC-MODULE-MACROS.md`, `reference/horde-module-macros.html`, ADR-169
+PROPOSED) — the rule for how a hosted FX module's presets carry role-keyed macros
+under the intent bus; one sanctioned edit: seed `quantumPick`. CLAP-native instrument
 plugin, VST3 via clap-wrapper (ADR-002). The DEVICE is **horde** (ADR-114,
 settled 2026-08-23); HYPERSAW is the founding ENGINE, the repo name, and the
 frozen plugin id. Design docs: specs/SPEC.md (the instrument), specs/ACCEPTANCE.md (the
@@ -153,7 +159,10 @@ ingested 2026-09-01, ADR-152) — their three sanctioned RNG seeds landed 2026-0
 sanctions are spent — and `reference/gravity-modulator.html` + `specs/SPEC-ORBITAL.md`
 (ORBITAL modulator, ingested 2026-09-14, ADR-165; one sanctioned edit outstanding: seed the
 add-body draw), and `reference/network-lab-v0.html` + `specs/SPEC-FX-NETWORK.md` (NETWORK,
-ingested 2026-09-14, ADR-166; sanctioned edits: seed its four draws) — (they ARE the reference — an edit there is a spec change), `./verify`, golden render fixtures once they exist.
+ingested 2026-09-14, ADR-166; sanctioned edits: seed its four draws), and
+`specs/SPEC-MODULE-MACROS.md` + `reference/horde-module-macros.html` (module macro tiers,
+ingested 2026-09-16, ADR-169; one sanctioned edit: seed `quantumPick`), and `specs/SPEC-MAW.md`
++ `reference/maw/**` (MAW, ingested 2026-09-16, ADR-170; nothing outstanding) — (they ARE the reference — an edit there is a spec change), `./verify`, golden render fixtures once they exist.
 
 **Verify targets.** `fast`: leak gate + structure/manifest sanity now; grows
 the L0 suite (parity + trajectories) from Phase 1 — seconds-to-minutes,

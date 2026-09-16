@@ -5426,3 +5426,131 @@ the three B127 deltas ratified as their spec v0.2 §14; their lab is under
 test, not the reference, until their test-and-fix pass is ratified. Where
 this ledger says NETWORK, read Sluice; nothing is rewritten.
 
+## ADR-169 — Module macro tiers ingested: role-keyed slots on every hosted FX module, under the intent bus (2026-09-16, PROPOSED)
+
+**Context.** Human (2026-09-16): modular FX like Sluice and Maw "will benefit
+from their own presets having their own intent-bussed macros (that can be
+nested within the broader forthcoming intent bus)"; a spec worked out with
+another agent arrived at root for triage. Ingested as
+`specs/SPEC-MODULE-MACROS.md` (the rule) and
+`reference/horde-module-macros.html` (its parity oracle: slot resolution,
+tier flips, the three preset-identity modes), both protected.
+
+**Decision (the spec's, restated; PROPOSED until the human rules).** Every
+hosted module exposes a fixed N_SLOTS = 4 macro slots keyed by a fixed
+cross-module role enum {Amount, Tone, Motion, Regen}, extensible only by
+ADR. A slot is global-tier (a host parameter — CLAP-exposed, automatable,
+position-independent id and name `FX1 Regen`) or corner-tier (a per-corner
+base plus intent bindings, resolved per block by the algorithm in §5). The
+MODULE preset supplies, per role it implements, a display label and the
+internal bindings (internal param → [lo, hi] over 0..1); it never supplies
+values. A role the loaded preset does not implement is drawn, inert and
+labelled unbound — never hidden. Module presets embed by value in the horde
+preset with an origin reference. Preset identity across corners is a
+discrete corner parameter resolved by crossfade, flip or quantum, instances
+keyed by preset. The spec's five ADR-MM entries are adopted as clauses of
+this ADR.
+
+**Where it sits.** This is the sub-module tier of the intent bus (ADR-152,
+B89): the spec's "global intents" and "corner bindings" ARE the bus's
+vocabulary, so nothing here is a second macro system — the module slots are
+targets the existing tiers reach. It sequences after B89's classification
+PR. It is also the contract every hosted module's preset format must satisfy
+before it ships: Sluice (ADR-166 A3, B127 — notice filed in their mailbox)
+and Maw (ADR-170, its D9 already defers to this rule).
+
+**Lead's recommendations on the spec's open decisions (the human rules).**
+1. Global-tier slots as mod targets: yes, through the existing global
+   mod-target path — a global slot is a global param. The pad double-ownership
+   worry is answered by ADR-152's rule that the pad writes intents and intents
+   write params through bindings; the pad never owns the param directly
+   (same shape as SPEC-ORBITAL's grab intent).
+2. Preset identity default locked-global with per-corner opt-in: yes.
+   Cross-preset morph is the exotic case and costs a second instance.
+3. Cap live instances at two per host, refuse a third distinct preset with UI
+   feedback: yes for v1. Note this is the same class of question as ADR-163's
+   FX presence under morph — the crossfade dev toggle is the instrument for
+   hearing whether two instances are enough.
+4. N_SLOTS = 4, ids reserved for 8: yes — and the ids come from the frozen-id
+   discipline (a contiguous reserved block allocated now; ADR-159 recorded
+   what a late insertion into a frozen order costs).
+5. Save-As module preset only, no write-back shortcut in v1: yes.
+
+**Sanctioned edit.** The oracle draws `Math.random` for `quantumPick` (line
+~497); its own acceptance says quantum resolve is bit-reproducible under a
+fixed seed. One sanctioned edit: seed it (mulberry32, seed on the device
+state), as the three 2026-09-10 seeds were done.
+
+**Oracle.** §14 of the spec verbatim; slot resolution ported to a C++ check
+at 1e-6 over a fixture (morph, macros, corners, tiers) including an
+unbound-role and a global-tier case; the exposed CLAP list byte-identical
+across morph positions for fixed tiers.
+
+## ADR-170 — MAW ingested as a CANDIDATE: the three-stage saturator for the FX rebuild (2026-09-16)
+
+**Context.** Human (2026-09-16): "I just dropped a spec packet for Maw (the
+drive module) I've been working on into the root. Please triage its
+contents." The packet — spec, browser prototype, `core.js` (the parity
+core), `fidelity.js` property battery with its shipped report, `tail.js`,
+`presets.js` + `preset-test.js`, README — is ingested as `specs/SPEC-MAW.md`
+and `reference/maw/` (protected). MAW is a placeholder name; naming is the
+human's (D1).
+
+**What it is.** A Roar-class distortion device for the FX chain, not a voice
+engine: three identical stages (input gain → floor crossfade → morph between
+two of fourteen static curves → DC blocker → measured auto-gain and
+drive-reference → tone SVF pre or post → dry/wet) arranged in five
+topologies (series, parallel, LR4 multiband, mid/side, pitch-tracked
+feedback with a unity-normalised loop), with three horde behaviours: inertia
+(mass-spring on every stage target), ecology (stages starve or feed each
+other by output envelope) and flux (an OU walk on morph). It fills B50 rev
+A's Saturator slot. Its relation to WARP (FX-C, ADR-092, the hysteresis
+waveshaper) is ruling R1 below.
+
+**Determinism at arrival.** Zero `Math.random` in the packet — one
+xorshift32 per instance seeded 0x51ED drives flux and the noise curve, the
+shard table is a fixed LCG table, no wall-clock. Two clauses: (a) the C++
+port uses mulberry32 streams (SPEC §5.7 — "mulberry32 streams only") in
+place of xorshift32; this does not touch parity because the packet's own
+§9 keeps flux = 0 and excludes the noise curve from the bit-parity set, so
+the RNG never reaches a golden; (b) the reference stays as shipped — no
+sanctioned edit is outstanding.
+
+**Adopted as findings, not re-derived (§13 of the spec).** Static 1/√g
+auto-gain is wrong for saturating curves; stage coefficients interpolate per
+sample between control ticks (block-held coefficients staircase under a
+10 Hz LFO); the polynomial curve's wiggle is tapered or notes ring 400 ms
+long; a silently disconnected parameter survived two rounds of property
+tests, hence the parameter-connectivity check is in `fast`. The packet's
+ADR-1…ADR-8 are adopted as clauses. Anti-aliasing is the constraint: horde's
+global 2× is the ceiling, ADAA per closed-form curve, a pre-fold lowpass for
+fold, and wrap/cheby/polynomial/shards declared dirty-by-design — reported,
+never gated (ADR-3 of the packet).
+
+**Not ported (§10 of the spec).** The per-stage windowed-sinc oversampler
+and its latency, the internal oscillator and sample sources, the worklet
+fallback chain, the visuals, the 32-sample control block, the fixed-depth
+mod matrix, the ±1 clamp, the −12…+48 dB UI range.
+
+**Rulings.** Owed by the human: D1 name; D2 bus-level instantiation (lead:
+yes — the rack is post-mix and mid/side, feedback and ecology assume a sum);
+D3 ship drive-ref and drop tracked auto-gain (lead: yes — the input level is
+known inside horde); D4 no output clamp (lead: yes — the hard clamp
+reintroduced DC on asymmetric signals); D5 fold defaults LP-pre ~700 Hz on
+when a fold curve is loaded (lead: yes, measured in §5); D6 keep ecology
+pending a programme-material A/B; R1 whether Maw subsumes WARP's FX-C slot
+or both survive (the human said "the saturator/drive/waveshaper module",
+singular). Taken by the lead as the packet's `ball: horde-agent`: D7
+feedback tap default after stage 1 (yes); D8 inertia primitive — horde has
+no mass-spring primitive (the swarm's KsmS/KsmP/KsmD are one-pole smoothers,
+GlideCore is a slew), so the port implements the spec's mass-spring at
+control rate with ω and ζ in seconds per ADR-009 and matches the §7
+overshoot table; D10 ADAA off when floor > 0 (yes, documented).
+
+**Macros.** D9 defers to ADR-169: Amount = drive, Tone = shape/cutoff,
+Motion = inertia/flux, Regen = feedback — declared in the four roles, no
+private role.
+
+**Oracle.** §11 of the spec verbatim: bit-parity with `core.js` at the §9
+settings and the connectivity check in `fast`; the property battery, tail
+and preset tests in `full`.

@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>MAW — Horde distortion prototype</title>
+<style>
+:root{--bg:#0d0e10;--panel:#15171b;--ink:#d8d6cf;--dim:#7a7e88;--line:#2a2d34;--hot:#ff5c1a;--cold:#4fd1c5;--warn:#ffd23f}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:12px/1.35 ui-monospace,Menlo,Consolas,monospace;padding:12px 14px 40px}
+h1{font-size:15px;margin:0;letter-spacing:.12em}h1 span{color:var(--hot)}
+header{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+button,select,input[type=file]{background:#1e2127;color:var(--ink);border:1px solid var(--line);border-radius:3px;padding:4px 8px;font:inherit;cursor:pointer}
+button.hot{background:var(--hot);color:#000;border-color:var(--hot);font-weight:700}
+button.tog.on{background:var(--cold);color:#000;border-color:var(--cold)}
+.row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:5px;padding:8px 10px;min-width:150px}
+.panel h2{margin:0 0 6px;font-size:11px;color:var(--dim);letter-spacing:.14em;text-transform:uppercase;display:flex;justify-content:space-between;align-items:center}
+.stage{flex:1 1 300px}.stage.off{opacity:.45}
+.ctl{display:grid;grid-template-columns:78px 1fr 58px;gap:6px;align-items:center;margin:3px 0}
+.ctl label{color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ctl .v{text-align:right;color:var(--cold);font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;height:14px;accent-color:var(--hot);margin:0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+canvas.curve{width:100%;height:90px;background:#0a0b0d;border:1px solid var(--line);border-radius:3px;display:block;margin:4px 0}
+canvas.scope{width:100%;height:120px;background:#0a0b0d;border:1px solid var(--line);border-radius:4px;display:block}
+.hint{color:var(--dim)}.status{color:var(--warn)}
+.diagram{color:var(--cold);white-space:pre;font-size:11px;margin:6px 0;line-height:1.3}
+.kbd{position:fixed;bottom:0;left:0;right:0;background:#111318;border-top:1px solid var(--line);padding:5px 14px;color:var(--dim);font-size:11px}
+</style></head><body>
+<header>
+ <h1>MAW <span>//</span> horde distortion prototype</h1>
+ <button id="start" class="hot">▶ start audio</button>
+ <span id="status" class="status">audio off</span>
+ <select id="preset"></select>
+ <button id="panic">panic</button>
+</header>
+
+<div class="row">
+ <div class="panel" id="p-src"><h2>source</h2></div>
+ <div class="panel" id="p-route"><h2>routing</h2><div class="diagram" id="diagram"></div></div>
+ <div class="panel" id="p-horde"><h2>horde</h2></div>
+ <div class="panel" id="p-mod"><h2>modulation</h2><div class="grid2" id="p-modgrid"></div></div>
+</div>
+<div class="row" id="stages"></div>
+<div class="row">
+ <div class="panel" style="flex:1"><h2>scope</h2><canvas class="scope" id="scope"></canvas></div>
+ <div class="panel" style="flex:1"><h2>spectrum</h2><canvas class="scope" id="spec"></canvas></div>
+</div>
+<div class="kbd">keys: A W S E D F T G Y H U J K O L P ; play (Ableton layout) · Z/X octave · MIDI in auto-connects · drop a wav/mp3 in the source panel to loop a sample instead</div>
+
+<script>
+function defineCore(){
+'use strict';
+const PI=Math.PI, TAU=2*Math.PI;
+const clamp=(x,a,b)=>x<a?a:(x>b?b:x);
+const dB2g=d=>Math.pow(10,d/20);
+const wrap=x=>{x=(x+1)%2;if(x<0)x+=2;return x-1;};
+class RNG{constructor(seed){this.s=(seed>>>0)||0x9e3779b9;}
+  next(){let x=this.s;x^=x<<13;x>>>=0;x^=x>>>17;x^=x<<5;x>>>=0;this.s=x;return x/4294967296;} // xorshift32, [0,1)
+  bi(){return this.next()*2-1;}
+  gauss(){let u=0,v=0;while(u===0)u=this.next();v=this.next();return Math.sqrt(-2*Math.log(u))*Math.cos(TAU*v);}}
+
+// ---------- primitives ----------
+class SVF{ // Zavalishin TPT state-variable filter
+  constructor(){this.ic1=0;this.ic2=0;this.lp=0;this.bp=0;this.hp=0;this.k=1;this.a1=0;this.a2=0;this.a3=0;}
+  set(fc,q,sr){const g=Math.tan(PI*clamp(fc,10,sr*0.45)/sr);const k=1/Math.max(q,0.1);this.k=k;this.a1=1/(1+g*(g+k));this.a2=g*this.a1;this.a3=g*this.a2;}
+  p(v0){const v3=v0-this.ic2;const v1=this.a1*this.ic1+this.a2*v3;const v2=this.ic2+this.a2*this.ic1+this.a3*v3;this.ic1=2*v1-this.ic1;this.ic2=2*v2-this.ic2;this.lp=v2;this.bp=v1;this.hp=v0-this.k*v1-v2;return v2;}
+}
+class LR4{ // Linkwitz-Riley 4th-order crossover: lo+hi is allpass
+  constructor(){this.l1=new SVF();this.l2=new SVF();this.h1=new SVF();this.h2=new SVF();this.lo=0;this.hi=0;}
+  set(fc,sr){this.l1.set(fc,0.7071,sr);this.l2.set(fc,0.7071,sr);this.h1.set(fc,0.7071,sr);this.h2.set(fc,0.7071,sr);}
+  split(x){this.l1.p(x);this.lo=this.l2.p(this.l1.lp);this.h1.p(x);this.h2.p(this.h1.hp);this.hi=this.h2.hp;}
+}
+class DCB{constructor(sr){this.R=1-TAU*10/sr;this.x1=0;this.y1=0;} p(x){const y=x-this.x1+this.R*this.y1;this.x1=x;this.y1=y;return y;}}
+class OnePole{constructor(){this.y=0;this.a=0.1;} set(fc,sr){this.a=1-Math.exp(-TAU*clamp(fc,5,sr*0.45)/sr);} p(x){this.y+=this.a*(x-this.y);return this.y;}}
+class Delay{
+  constructor(n){this.b=new Float32Array(n);this.n=n;this.w=0;}
+  write(x){this.b[this.w]=x;this.w++;if(this.w>=this.n)this.w=0;}
+  read(t){const n=this.n;t=clamp(t,2,n-3);const r=this.w-t;const i=Math.floor(r),fr=r-i;const b=this.b;
+    const i0=((i-1)%n+n)%n,i1=(i0+1)%n,i2=(i1+1)%n,i3=(i2+1)%n;const y0=b[i0],y1=b[i1],y2=b[i2],y3=b[i3];
+    const c1=0.5*(y2-y0),c2=y0-2.5*y1+2*y2-0.5*y3,c3=0.5*(y3-y0)+1.5*(y1-y2);return ((c3*fr+c2)*fr+c1)*fr+y1;}
+}
+// Inertia: every knob is a mass on a spring. inertia 0 = instant, 1 = heavy, ringing.
+class Spring{
+  constructor(v){this.x=v;this.v=0;this.t=v;}
+  set(t){this.t=t;}
+  step(I,dt){ if(I<=0.001){this.x=this.t;this.v=0;return this.x;}
+    const w=TAU*(30*Math.pow(0.02,I)); const z=1-0.85*I;
+    const a=w*w*(this.t-this.x)-2*z*w*this.v; this.v+=a*dt; this.x+=this.v*dt; return this.x; }
+}
+// N× oversampling wrapper for a memoryless nonlinearity (windowed-sinc FIR up/down, direct form — fine for a prototype)
+const OS_TAPS={};
+function osTaps(f){if(OS_TAPS[f])return OS_TAPS[f];const N=12*f-1,M=(N-1)/2,fc=0.5/f;const h=new Float64Array(N);let s=0;
+  for(let i=0;i<N;i++){const k=i-M;const sinc=k===0?1:Math.sin(2*PI*fc*k)/(2*PI*fc*k);const w=0.54-0.46*Math.cos(TAU*i/(N-1));h[i]=2*fc*sinc*w;s+=h[i];}
+  for(let i=0;i<N;i++)h[i]/=s;return OS_TAPS[f]=h;}
+class OSn{
+  constructor(){this.f=0;this.setFactor(2);}
+  setFactor(f){if(f===this.f)return;this.f=f;this.h=osTaps(f);this.N=this.h.length;this.b1=new Float64Array(this.N);this.b2=new Float64Array(this.N);this.i1=0;this.i2=0;}
+  fir(buf,idx){const h=this.h,N=this.N;let acc=0,j=idx;for(let i=0;i<N;i++){acc+=h[i]*buf[j];j--;if(j<0)j=N-1;}return acc;}
+  run(x,fn){const f=this.f,N=this.N;let out=0;
+    for(let k=0;k<f;k++){this.i1++;if(this.i1>=N)this.i1=0;this.b1[this.i1]=k===0?f*x:0;const u=this.fir(this.b1,this.i1);
+      this.i2++;if(this.i2>=N)this.i2=0;this.b2[this.i2]=fn(u);}
+    return this.fir(this.b2,this.i2);}
+}
+
+// ---------- transfer curves ----------  x = driven+biased input, s = per-stage "shape" 0..1
+// classic overdrive (Doidic piecewise), small-signal slope 1
+function od(x){const u=x*0.5,a=Math.abs(u),sg=u<0?-1:1;if(a<1/3)return 2*u;if(a<2/3)return sg*(3-(2-3*a)*(2-3*a))/3;return sg;}
+function trifold(x){let u=(x+1)%4;if(u<0)u+=4;return 1-Math.abs(u-2);} // continuous fold of R onto [-1,1]
+function tri(u){u=u-Math.floor(u);return 4*Math.abs(u-0.5)-1;}
+// deterministic shard table (same on main thread and in the worklet)
+const SHARDS=(()=>{let seed=1337;const r=()=>{seed=(seed*1103515245+12345)&0x7fffffff;return seed/0x7fffffff;};const t=[];
+  for(let j=0;j<32;j++)t.push({p:r()*2-1,w:0.015+0.08*r()*r(),h:(r()<0.5?-1:1)*(0.15+0.3*r())});return t;})();
+const logcosh=x=>{const a=Math.abs(x);return a>20?a-Math.LN2:Math.log(Math.cosh(x));};
+const clipAD=x=>{const a=Math.abs(x);return a<=1?0.5*x*x:a-0.5;};
+const wrapAD=x=>{const w=wrap(x);return 0.5*w*w;};
+const AD={ // antiderivative F(x,s) with F' = f; only for curves where it is closed-form
+  0:(x,s)=>(1-s)*logcosh(x)+s*clipAD(x),
+  5:(x,s)=>{let u=(x+1)%4;if(u<0)u+=4;const triAD=u<=2?0.5*(u-1)*(u-1):1-0.5*(3-u)*(3-u);return (1-s)*(-2/PI)*Math.cos(0.5*PI*x)+s*triAD;},
+  8:(x,s)=>(1-s)*clipAD(x)+s*wrapAD(x),
+};
+const SHAPERS=[
+ {name:'soft (tanh→clip)', f:(x,s)=>(1-s)*Math.tanh(x)+s*clamp(x,-1,1)},
+ {name:'hard clip (knee↑)', f:(x,s)=>{const k=0.9*s,a=Math.abs(x),sg=x<0?-1:1;if(k<1e-4||a<=1-k)return clamp(x,-1,1);if(a>=1+k)return sg;const d=a-(1-k);return sg*(a-d*d/(4*k));}},
+ {name:'overdrive (bite↑)', f:(x,s)=>{const y=od(x);return y*(1+1.5*s*(1-y*y));}},
+ {name:'tube (cubic+even)', f:(x,s)=>{const c=clamp(x,-1,1);return 1.5*(c-c*c*c/3)+s*0.5*c*c;}},
+ {name:'diode (asym ceiling)', f:(x,s)=>{const k=1+6*s;return x>0?Math.tanh(x):Math.tanh(x*k)/k;}},
+ {name:'fold (sine→triangle)', f:(x,s)=>(1-s)*Math.sin(0.5*PI*x)+s*trifold(x)},
+ {name:'rectify (half→full)', f:(x,s)=>{const y=(1-s)*x+s*Math.abs(x);return clamp(y*(1+s),-1,1);}},
+ {name:'crush (bits↓)', f:(x,s)=>{const L=Math.pow(2,8-7*s);return clamp(Math.round(x*L)/L,-1,1);}},
+ {name:'clip→wrap', f:(x,s)=>(1-s)*clamp(x,-1,1)+s*wrap(x)},
+ {name:'cheby (harmonic n)', f:(x,s)=>Math.cos((1+4*s)*Math.acos(trifold(x)))},
+ // wiggle whose phase advances fastest near zero, so ridges crowd toward the centre and go chaotic as s rises
+ {name:'polynomial (wiggle↑)', f:(x,s)=>{const c=clamp(x,-1,1),a=Math.abs(c),sg=c<0?-1:1;const N=1+9*s,p=1-0.75*s;return clamp(c+0.45*s*sg*Math.sin(PI*N*Math.pow(a,p))*(1-a*a*a*a)*Math.tanh(6*a),-1,1);}},
+ // triangle-wave octaves: shape adds octaves AND raises ridge amplitude; octaves decay slowly (0.8) so the fine ridges stay strong
+ {name:'fractal (ridges↑)', f:(x,s)=>{const c=clamp(x,-1,1);const K=1+7*s,kf=Math.floor(K),fr=K-kf;let y=0,amp=1,norm=0;
+   for(let k=1;k<=kf+1;k++){const g=k<=kf?1:fr;y+=g*amp*tri(Math.pow(2,k-1)*c*0.5+0.25);norm+=g*amp;amp*=0.8;}
+   return trifold((1-0.5*s)*c+1.6*s*y/norm);}},
+ // fixed pseudorandom smattering of narrow pulse offsets along the curve; s adds more of them
+ {name:'shards (count↑)', f:(x,s)=>{const c=clamp(x,-1,1);const J=Math.min(32,Math.round(s*32));let y=c;for(let j=0;j<J;j++){const sh=SHARDS[j];const d=(c-sh.p)/sh.w;if(d>-1&&d<1)y+=sh.h*(0.5+0.5*Math.cos(PI*d));}return clamp(y,-1,1);}},
+ // signal-dependent white noise disturbance (silent when silent)
+ {name:'noise (amount↑)', f:(x,s,r)=>{const c=clamp(x,-1,1);return clamp(c+s*(r?r.bi():0)*Math.abs(c),-1,1);}},
+];
+
+const ROUTES=['series','parallel','multiband','mid/side','feedback'];
+
+function defaultStage(){return {on:true,drive:12,bias:0,a:0,b:5,morph:0,shape:0.3,floor:0,ft:0,fpos:1,cut:2000,res:0.15,level:0,mix:1};}
+function defaultParams(){return {
+  src:'super',spread:14,inGain:0,latch:false,
+  route:0,os:2,adaa:false,auto:0.7,autoMode:0,driveRef:0,inertia:0,eco:0,flux:0,wet:1,out:-6,
+  xo1:200,xo2:2000,
+  fbAmt:0.3,fbMode:0,fbSemi:0,fbMs:8,fbDamp:5000,fbHp:80,fbTap:2,
+  envA:5,envR:80,lfoRate:2,
+  mod:{ed:0,ec:0,em:0,ld:0,lc:0,lb:0},
+  stages:[defaultStage(),defaultStage(),defaultStage()],
+};}
+
+// ---------- one distortion stage ----------
+class Stage{
+  constructor(sr,G,p){this.sr=sr;this.G=G;this.p=p;
+    this.f=[new SVF(),new SVF()];this.dc=[new DCB(sr),new DCB(sr)];this.os=[new OSn(),new OSn()];this.u1=[0,0];this.F1=[0,0];this.adaaOK=false;
+    this.drive=new Spring(p.drive);this.bias=new Spring(p.bias);this.cut=new Spring(Math.log2(p.cut));this.morph=new Spring(p.morph);
+    this.g=1;this.bs=0;this.m=0;this.walk=0;this.env=0;this.envIn=0;this.lvl=1;this.comp=1;this.g1=1;this.bs1=0;this.m1=0;this.comp1=1;this.g0=1;this.bs0=0;this.m0=0;this.comp0=1;this.pk=1;this.pk0=1;this.pk1=1;this.fa=SHAPERS[0].f;this.fb=SHAPERS[1].f;
+    this.sd=this.shapeDriven.bind(this);this.sdA=(v)=>this.shapeADAA(v,this._ch);this._ch=0;this.tmp=new Float64Array(32);}
+  control(mod){const p=this.p,G=this.G,dt=32/this.sr,I=G.inertia;
+    this.drive.set(p.drive+mod.drive);this.bias.set(p.bias+mod.bias);this.cut.set(Math.log2(p.cut)+mod.cut);this.morph.set(p.morph+mod.morph+this.walk);
+    this.g0=this.g1;this.bs0=this.bs1;this.m0=this.m1;this.comp0=this.comp1;this.pk0=this.pk1;
+    this.g1=dB2g(clamp(this.drive.step(I,dt),-12,60));const pk=clamp(this.envIn*0.5*PI,0.02,1.5);this.pk1=G.driveRef?pk:1;if(G.driveRef)this.g1/=pk; /* drive-ref: y = pk·f(g·x/pk) — position on the curve, dynamics preserved */
+    this.bs1=clamp(this.bias.step(I,dt),-1,1);this.m1=clamp(this.morph.step(I,dt),0,1);
+    this.g=this.g1;this.bs=this.bs1;this.m=this.m1; // used by the reference-sine measurement below
+    const fc=Math.pow(2,clamp(this.cut.step(I,dt),4.3,14.3));const q=0.7071*Math.pow(20,p.res);
+    this.f[0].set(fc,q,this.sr);this.f[1].set(fc,q,this.sr);
+    this.lvl=dB2g(p.level);this.fa=SHAPERS[p.a].f;this.fb=SHAPERS[p.b].f;
+    const osf=G.os===true?2:(G.os|0)||1;if(osf>1){this.os[0].setFactor(osf);this.os[1].setFactor(osf);}
+    this.adaaOK=!!G.adaa&&p.floor<=0&&((this.m1<=0&&!!AD[p.a])||(this.m1>=1&&!!AD[p.b])||(!!AD[p.a]&&!!AD[p.b]));this.FA=AD[p.a];this.FB=AD[p.b];
+    // measured auto-gain: RMS of a 0.5-amplitude reference sine through the current curve vs its input RMS
+    const N=32,t=this.tmp;const A=(G.autoMode||G.driveRef)?clamp(this.envIn*0.5*PI,0.02,1.2):0.5;let mean=0,si=0,so=0;for(let i=0;i<N;i++){const u=A*Math.sin(TAU*i/N);const y=this.shape(u*this.g+this.bs)*this.pk1;t[i]=y;mean+=y;si+=u*u;}
+    mean/=N;for(let i=0;i<N;i++){const d=t[i]-mean;so+=d*d;}
+    const target=clamp(Math.pow(Math.sqrt(si/Math.max(so,1e-9)),G.auto),0.05,20);this.comp1+=0.25*(target-this.comp1);this.g=this.g0;this.bs=this.bs0;this.m=this.m0;this.comp=this.comp0;}
+  tick(t){this.g=this.g0+(this.g1-this.g0)*t;this.bs=this.bs0+(this.bs1-this.bs0)*t;this.m=this.m0+(this.m1-this.m0)*t;this.comp=this.comp0+(this.comp1-this.comp0)*t;this.pk=this.pk0+(this.pk1-this.pk0)*t;}
+  shape(u){const s=this.p.shape,m=this.m,r=this.rnd;if(m<=0)return this.fa(u,s,r);if(m>=1)return this.fb(u,s,r);return (1-m)*this.fa(u,s,r)+m*this.fb(u,s,r);}
+  shapeDriven(v){const fl=this.p.floor;const y=this.shape(v*this.g+this.bs);if(fl<=0)return y;
+    const t=clamp((Math.abs(v)-fl)/fl,0,1),w=t*t*(3-2*t);return v*this.g+w*(y-v*this.g);} // below floor: clean gain, smoothstep crossfade over [floor, 2·floor]
+  shapeAD(u){const s=this.p.shape,m=this.m;if(m<=0)return this.FA(u,s);if(m>=1)return this.FB(u,s);return (1-m)*this.FA(u,s)+m*this.FB(u,s);}
+  // first-order antiderivative anti-aliasing: y = (F(u)-F(u1))/(u-u1), falling back to f(midpoint) when the step is tiny
+  shapeADAA(v,ch){const u=v*this.g+this.bs;const u1=this.u1[ch];const F=this.shapeAD(u);const d=u-u1;let y;
+    if(Math.abs(d)<1e-4)y=this.shape(0.5*(u+u1));else y=(F-this.F1[ch])/d;this.u1[ch]=u;this.F1[ch]=F;return y;}
+  filt(x,ch){const f=this.f[ch];f.p(x);const t=this.p.ft;return t===1?f.lp:t===2?f.bp:f.hp;}
+  process(x,ch){const p=this.p;if(!p.on)return x;const dry=x;if(ch===0){const ax=Math.abs(x);this.envIn+=0.0003*(ax-this.envIn);}
+    if(p.ft&&p.fpos===0)x=this.filt(x,ch);
+    const osf=this.G.os===true?2:(this.G.os|0)||1;let y;
+    if(this.adaaOK){this._ch=ch;y=osf>1?this.os[ch].run(x,this.sdA):this.shapeADAA(x,ch);}
+    else y=osf>1?this.os[ch].run(x,this.sd):this.shapeDriven(x);
+    y=this.dc[ch].p(y)*this.comp*this.pk;
+    if(p.ft&&p.fpos===1)y=this.filt(y,ch);
+    y=(dry*(1-p.mix)+y*p.mix)*this.lvl;
+    const a=Math.abs(y);this.env+=(a>this.env?0.02:0.0015)*(a-this.env);
+    return y;}
+}
+
+// ---------- the device ----------
+class MawCore{
+  constructor(sr){this.sr=sr;this.P=defaultParams();
+    this.stages=this.P.stages.map(p=>new Stage(sr,this.P,p));
+    this.xo=[[new LR4(),new LR4()],[new LR4(),new LR4()]]; // [ch][xo]
+    this.dl=[new Delay(Math.ceil(sr)),new Delay(Math.ceil(sr))];this.fbLP=[new OnePole(),new OnePole()];this.fbHP=[new SVF(),new SVF()];this.fbT=100;this.fbTarget=100;this.fbNorm=1;
+    this.voices=[];for(let i=0;i<8;i++)this.voices.push({on:false,gate:false,note:0,f:110,ph:[0,0,0],env:0,age:0});
+    this.lastF=110;this.smp=null;this.spos=0;this.k=0;this.envF=0;this.aA=0.1;this.aR=0.01;this.lfoPh=0;this.lfo=0;
+    this.sL=0;this.sR=0;this.age=0;this.mods=[{},{},{}];this.ig=1;this.og=1;this.wet=1;this.rng=new RNG(0x51ED);for(const s of this.stages)s.rnd=this.rng;}
+  msg(d){if(d.t==='p')this.setParams(d.P);else if(d.t==='on')this.noteOn(d.n,d.v);else if(d.t==='off')this.noteOff(d.n);
+    else if(d.t==='smp'){this.smp={L:d.L,R:d.R,n:d.L.length};this.spos=0;}else if(d.t==='panic'){for(const v of this.voices){v.on=false;v.gate=false;}}}
+  setParams(P){const latchWas=this.P.latch;Object.assign(this.P,P);for(let i=0;i<3;i++){Object.assign(this.P.stages[i],P.stages[i]);this.stages[i].p=this.P.stages[i];}
+    if(latchWas&&!this.P.latch)for(const v of this.voices)v.gate=false;}
+  noteOn(n,vel){let v=this.voices.find(v=>v.on&&v.note===n)||this.voices.find(v=>!v.on);
+    if(!v){v=this.voices.reduce((a,b)=>a.age<b.age?a:b);}
+    v.on=true;v.gate=true;v.note=n;v.f=440*Math.pow(2,(n-69)/12);v.age=++this.age;v.vel=vel||1;this.lastF=v.f;}
+  noteOff(n){if(this.P.latch)return;for(const v of this.voices)if(v.on&&v.note===n)v.gate=false;}
+  control(){const P=this.P,sr=this.sr,dt=32/sr;
+    this.ig=dB2g(P.inGain);this.og=dB2g(P.out);this.wet=P.wet;
+    this.aA=1-Math.exp(-1/(P.envA*0.001*sr));this.aR=1-Math.exp(-1/(P.envR*0.001*sr));
+    this.lfoPh=(this.lfoPh+P.lfoRate*dt)%1;this.lfo=Math.sin(TAU*this.lfoPh);
+    const envs=this.stages.map(s=>s.env),sum=envs[0]+envs[1]+envs[2];
+    for(let i=0;i<3;i++){const s=this.stages[i];
+      s.walk+=2*(0-s.walk)*dt+P.flux*0.8*Math.sqrt(dt)*this.rng.gauss();s.walk=clamp(s.walk,-0.6,0.6);
+      const other=(sum-envs[i])*0.5; const eco=-P.eco*36*other;
+      const m=this.mods[i];m.drive=P.mod.ed*24*this.envF+P.mod.ld*24*this.lfo+eco;m.cut=P.mod.ec*4*this.envF+P.mod.lc*3*this.lfo;
+      m.morph=P.mod.em*this.envF;m.bias=P.mod.lb*0.6*this.lfo;s.control(m);}
+    if(P.route===2){for(const c of this.xo){c[0].set(P.xo1,sr);c[1].set(Math.max(P.xo2,P.xo1*1.5),sr);}}
+    if(P.route===4){this.fbTarget=P.fbMode===0?sr/(this.lastF*Math.pow(2,P.fbSemi/12)):P.fbMs*0.001*sr;
+      this.fbLP[0].set(P.fbDamp,sr);this.fbLP[1].set(P.fbDamp,sr);this.fbHP[0].set(P.fbHp,0.7071,sr);this.fbHP[1].set(P.fbHp,0.7071,sr);
+      // normalise the loop so fbAmt=100% ≈ unity small-signal loop gain regardless of how hot the stages are
+      let gain=1;for(let i=0;i<=P.fbTap;i++){const s=this.stages[i];if(!s.p.on)continue;
+        const sl=Math.max(0.25,Math.abs((s.shape(s.bs+1e-3)-s.shape(s.bs-1e-3))*500));gain*=s.p.mix*sl*s.g*s.comp*s.lvl+(1-s.p.mix)*s.lvl;}
+      this.fbNorm=1/clamp(gain,0.05,400);}}
+  source(){const P=this.P,sr=this.sr;let L=0,R=0;
+    if(P.src==='sample'){if(this.smp){const s=this.smp;L=s.L[this.spos];R=s.R[this.spos];this.spos++;if(this.spos>=s.n)this.spos=0;}this.sL=L;this.sR=R;return;}
+    const attA=1-Math.exp(-1/(0.003*sr)),relA=1-Math.exp(-1/(0.15*sr));
+    for(const v of this.voices){if(!v.on)continue;
+      v.env+=(v.gate?attA:relA)*((v.gate?1:0)-v.env);if(!v.gate&&v.env<1e-4){v.on=false;continue;}
+      const dt=v.f/sr;let y=0,l=0,r=0;
+      if(P.src==='sine'){v.ph[0]=(v.ph[0]+dt)%1;y=Math.sin(TAU*v.ph[0]);l=r=y;}
+      else if(P.src==='saw'){v.ph[0]=(v.ph[0]+dt)%1;y=saw(v.ph[0],dt);l=r=y;}
+      else if(P.src==='square'){v.ph[0]=(v.ph[0]+dt)%1;y=sqr(v.ph[0],dt);l=r=y;}
+      else if(P.src==='pulse'){v.ph[0]=(v.ph[0]+dt)%1;y=0.5*(saw(v.ph[0],dt)-saw((v.ph[0]+0.12)%1,dt));l=r=y;}
+      else{const d=Math.pow(2,P.spread/1200);const d0=dt,d1=dt/d,d2=dt*d;
+        v.ph[0]=(v.ph[0]+d0)%1;v.ph[1]=(v.ph[1]+d1)%1;v.ph[2]=(v.ph[2]+d2)%1;
+        const c=saw(v.ph[0],d0),a=saw(v.ph[1],d1),b=saw(v.ph[2],d2);
+        l=0.45*c+0.6*a+0.2*b;r=0.45*c+0.2*a+0.6*b;}
+      L+=l*v.env*0.35*v.vel;R+=r*v.env*0.35*v.vel;}
+    this.sL=L;this.sR=R;}
+  process(outL,outR,n){const S=this.stages,P=this.P;
+    for(let i=0;i<n;i++){
+      if((this.k&31)===0)this.control();const tt=(this.k&31)/32;S[0].tick(tt);S[1].tick(tt);S[2].tick(tt);this.k++;
+      this.source();const xL=this.sL*this.ig,xR=this.sR*this.ig;
+      const a=Math.abs(xL+xR)*0.5;this.envF+=(a>this.envF?this.aA:this.aR)*(a-this.envF);
+      let yL,yR;
+      switch(P.route){
+        case 0:yL=S[2].process(S[1].process(S[0].process(xL,0),0),0);yR=S[2].process(S[1].process(S[0].process(xR,1),1),1);break;
+        case 1:yL=S[0].process(xL,0)+S[1].process(xL,0)+S[2].process(xL,0);yR=S[0].process(xR,1)+S[1].process(xR,1)+S[2].process(xR,1);break;
+        case 2:{const c=this.xo[0];c[0].split(xL);c[1].split(c[0].hi);yL=S[0].process(c[0].lo,0)+S[1].process(c[1].lo,0)+S[2].process(c[1].hi,0);
+                const d=this.xo[1];d[0].split(xR);d[1].split(d[0].hi);yR=S[0].process(d[0].lo,1)+S[1].process(d[1].lo,1)+S[2].process(d[1].hi,1);break;}
+        case 3:{let m=S[0].process((xL+xR)*0.5,0),s=S[1].process((xL-xR)*0.5,1);yL=S[2].process(m+s,0);yR=S[2].process(m-s,1);break;}
+        default:{this.fbT+=0.003*(this.fbTarget-this.fbT);const k=P.fbAmt*this.fbNorm;
+                this.fbHP[0].p(this.fbLP[0].p(this.dl[0].read(this.fbT)));this.fbHP[1].p(this.fbLP[1].p(this.dl[1].read(this.fbT)));
+                const fL=this.fbHP[0].hp,fR=this.fbHP[1].hp;
+                let tL=S[0].process(xL+k*fL,0),tR=S[0].process(xR+k*fR,1);if(P.fbTap===0){this.dl[0].write(Math.tanh(tL));this.dl[1].write(Math.tanh(tR));}
+                tL=S[1].process(tL,0);tR=S[1].process(tR,1);if(P.fbTap===1){this.dl[0].write(Math.tanh(tL));this.dl[1].write(Math.tanh(tR));}
+                yL=S[2].process(tL,0);yR=S[2].process(tR,1);if(P.fbTap===2){this.dl[0].write(Math.tanh(yL));this.dl[1].write(Math.tanh(yR));}}}
+      const w=this.wet;
+      outL[i]=clamp((xL*(1-w)+yL*w)*this.og,-1,1);outR[i]=clamp((xR*(1-w)+yR*w)*this.og,-1,1);}}
+}
+function blep(t,dt){if(t<dt){t/=dt;return t+t-t*t-1;}if(t>1-dt){t=(t-1)/dt;return t*t+t+t+1;}return 0;}
+function saw(t,dt){return 2*t-1-blep(t,dt);}
+function sqr(t,dt){let y=t<0.5?1:-1;y+=blep(t,dt);y-=blep((t+0.5)%1,dt);return y;}
+return {MawCore,SHAPERS,AD,ROUTES,defaultParams,defaultStage,clamp,dB2g,RNG};
+}
+
+const CORE=defineCore();
+const {SHAPERS,ROUTES}=CORE;
+let P=CORE.defaultParams();
+let ctx=null,node=null,analyser=null,send=()=>{};
+const $=s=>document.querySelector(s);
+
+// ---------- param path helpers ----------
+const get=(o,path)=>path.split('.').reduce((a,k)=>a[k],o);
+const set=(o,path,v)=>{const ks=path.split('.');const last=ks.pop();ks.reduce((a,k)=>a[k],o)[last]=v;};
+const fmt={db:v=>v.toFixed(1)+' dB',pct:v=>Math.round(v*100)+'%',hz:v=>v>=1000?(v/1000).toFixed(2)+'k':Math.round(v)+' Hz',ms:v=>v.toFixed(0)+' ms',x:v=>v.toFixed(2),ct:v=>v.toFixed(0)+' ct',st:v=>(v>0?'+':'')+v+' st',f:v=>v.toFixed(2)+' Hz'};
+const inputs=[];
+function ctl(parent,o){
+  const d=document.createElement('div');d.className='ctl';
+  const lab=document.createElement('label');lab.textContent=o.label;d.appendChild(lab);
+  let el,vv=null;
+  if(o.type==='select'){el=document.createElement('select');o.opts.forEach((t,i)=>{const op=document.createElement('option');op.value=o.strVals?t:(o.vals?o.vals[i]:i);op.textContent=t;el.appendChild(op);});
+    el.value=get(P,o.key);d.style.gridTemplateColumns='78px 1fr';d.appendChild(el);
+    el.oninput=()=>{set(P,o.key,o.strVals?el.value:+el.value);changed(o.key);};
+    inputs.push(()=>{el.value=get(P,o.key);});}
+  else if(o.type==='check'){el=document.createElement('button');el.className='tog';el.textContent=o.text||'on';d.style.gridTemplateColumns='78px 1fr';d.appendChild(el);
+    const paint=()=>el.classList.toggle('on',!!get(P,o.key));paint();
+    el.onclick=()=>{set(P,o.key,!get(P,o.key));paint();changed(o.key);};inputs.push(paint);}
+  else{el=document.createElement('input');el.type='range';el.min=o.min;el.max=o.max;el.step=o.step||0.01;
+    const log=o.log;const toS=v=>log?Math.log(v):v,fromS=v=>log?Math.exp(v):v;
+    if(log){el.min=Math.log(o.min);el.max=Math.log(o.max);el.step=0.001;}
+    vv=document.createElement('span');vv.className='v';d.appendChild(el);d.appendChild(vv);
+    const paint=()=>{el.value=toS(get(P,o.key));vv.textContent=(o.fmt||fmt.x)(get(P,o.key));};paint();
+    el.oninput=()=>{set(P,o.key,fromS(+el.value));vv.textContent=(o.fmt||fmt.x)(get(P,o.key));changed(o.key);};
+    el.ondblclick=()=>{set(P,o.key,o.def!==undefined?o.def:0);paint();changed(o.key);};
+    inputs.push(paint);}
+  parent.appendChild(d);return d;
+}
+function changed(key){send({t:'p',P});if(key.startsWith('stages')||key==='auto')drawCurves();if(key==='route')paintRoute();if(key.startsWith('stages')&&key.endsWith('.on'))paintStages();}
+function refreshUI(){inputs.forEach(f=>f());drawCurves();paintRoute();paintStages();send({t:'p',P});}
+
+// ---------- build panels ----------
+const S=$('#p-src');
+ctl(S,{key:'src',label:'osc',type:'select',opts:['super','saw','square','pulse','sine','sample'],strVals:true});
+ctl(S,{key:'spread',label:'spread',min:0,max:60,step:1,fmt:fmt.ct,def:14});
+ctl(S,{key:'inGain',label:'input',min:-24,max:24,step:0.5,fmt:fmt.db,def:0});
+ctl(S,{key:'latch',label:'latch',type:'check',text:'hold notes'});
+ctl(S,{key:'wet',label:'dry/wet',min:0,max:1,fmt:fmt.pct,def:1});
+ctl(S,{key:'out',label:'output',min:-36,max:12,step:0.5,fmt:fmt.db,def:-6});
+const fi=document.createElement('input');fi.type='file';fi.accept='audio/*';fi.style.marginTop='4px';fi.style.width='100%';S.appendChild(fi);
+fi.onchange=async()=>{if(!ctx)await start();const buf=await ctx.decodeAudioData(await fi.files[0].arrayBuffer());
+  const L=buf.getChannelData(0).slice(),R=(buf.numberOfChannels>1?buf.getChannelData(1):buf.getChannelData(0)).slice();send({t:'smp',L,R});P.src='sample';refreshUI();};
+
+const Rt=$('#p-route');
+ctl(Rt,{key:'route',label:'topology',type:'select',opts:ROUTES});
+const mb=document.createElement('div');Rt.appendChild(mb);
+ctl(mb,{key:'xo1',label:'xover lo',min:40,max:2000,log:true,fmt:fmt.hz,def:200});
+ctl(mb,{key:'xo2',label:'xover hi',min:400,max:12000,log:true,fmt:fmt.hz,def:2000});
+const fb=document.createElement('div');Rt.appendChild(fb);
+ctl(fb,{key:'fbAmt',label:'feedback',min:0,max:1.2,fmt:fmt.pct,def:0.3});
+ctl(fb,{key:'fbMode',label:'delay',type:'select',opts:['pitch-tracked','free (ms)']});
+ctl(fb,{key:'fbSemi',label:'interval',min:-24,max:24,step:1,fmt:fmt.st,def:0});
+ctl(fb,{key:'fbMs',label:'time',min:0.1,max:200,log:true,fmt:v=>v.toFixed(1)+' ms',def:8});
+ctl(fb,{key:'fbDamp',label:'damp (lp)',min:200,max:16000,log:true,fmt:fmt.hz,def:5000});
+ctl(fb,{key:'fbHp',label:'loop hp',min:20,max:1000,log:true,fmt:fmt.hz,def:80});
+ctl(fb,{key:'fbTap',label:'tap after',type:'select',opts:['stage 1','stage 2','stage 3']});
+fb.insertAdjacentHTML('beforeend','<div class="hint">loop is normalised: 100% ≈ unity loop gain</div>');
+const DIAG=[
+ 'in → [1] → [2] → [3] → out',
+ 'in ┬→ [1] ┐\n   ├→ [2] ┼→ Σ → out\n   └→ [3] ┘',
+ 'in ┬ lo  → [1] ┐\n   ├ mid → [2] ┼→ Σ → out\n   └ hi  → [3] ┘',
+ 'in ┬ M → [1] ┐\n   └ S → [2] ┴→ L/R → [3] → out',
+ '  ┌── delay·damp ◄─────┐\n  ▼                     │\nin ⊕ → [1] → [2] → [3] ┴→ out'];
+function paintRoute(){$('#diagram').textContent=DIAG[P.route];mb.style.display=P.route===2?'':'none';fb.style.display=P.route===4?'':'none';}
+
+const H=$('#p-horde');
+ctl(H,{key:'os',label:'oversample',type:'select',opts:['1×','2×','4×','8×'],vals:[1,2,4,8]});
+ctl(H,{key:'adaa',label:'ADAA',type:'check',text:'antiderivative AA (soft/fold/wrap)'});
+ctl(H,{key:'auto',label:'auto-gain',min:0,max:1,fmt:fmt.pct,def:0.7});
+ctl(H,{key:'autoMode',label:'gain ref',type:'select',opts:['static (0.5)','tracks input']});
+ctl(H,{key:'driveRef',label:'drive ref',type:'select',opts:['absolute','input peak = 0 dB']});
+ctl(H,{key:'inertia',label:'inertia',min:0,max:1,fmt:fmt.pct,def:0});
+ctl(H,{key:'eco',label:'ecology',min:-1,max:1,fmt:v=>(v>0?'+':'')+Math.round(v*100)+'%',def:0});
+ctl(H,{key:'flux',label:'flux',min:0,max:1,fmt:fmt.pct,def:0});
+H.insertAdjacentHTML('beforeend','<div class="hint" style="margin-top:6px">auto-gain: measured per stage, 100% = unity at nominal level<br>inertia: knobs are masses on springs (ring when high)<br>ecology: + stages starve each other · − stages feed each other<br>flux: OU random walk on each stage\'s morph</div>');
+
+const M=$('#p-modgrid');
+ctl(M,{key:'envA',label:'env attack',min:0.5,max:200,log:true,fmt:fmt.ms,def:5});
+ctl(M,{key:'envR',label:'env release',min:5,max:2000,log:true,fmt:fmt.ms,def:80});
+ctl(M,{key:'lfoRate',label:'lfo rate',min:0.05,max:40,log:true,fmt:fmt.f,def:2});
+M.appendChild(document.createElement('div'));
+ctl(M,{key:'mod.ed',label:'env→drive',min:-1,max:1,fmt:fmt.pct});
+ctl(M,{key:'mod.ld',label:'lfo→drive',min:-1,max:1,fmt:fmt.pct});
+ctl(M,{key:'mod.ec',label:'env→cutoff',min:-1,max:1,fmt:fmt.pct});
+ctl(M,{key:'mod.lc',label:'lfo→cutoff',min:-1,max:1,fmt:fmt.pct});
+ctl(M,{key:'mod.em',label:'env→morph',min:-1,max:1,fmt:fmt.pct});
+ctl(M,{key:'mod.lb',label:'lfo→bias',min:-1,max:1,fmt:fmt.pct});
+
+const stagePanels=[],curves=[];
+for(let i=0;i<3;i++){const k='stages.'+i+'.';
+  const d=document.createElement('div');d.className='panel stage';d.innerHTML='<h2><span>stage '+(i+1)+'</span></h2>';$('#stages').appendChild(d);stagePanels.push(d);
+  const on=document.createElement('button');on.className='tog';on.textContent='on';d.querySelector('h2').appendChild(on);
+  const paintOn=()=>on.classList.toggle('on',!!P.stages[i].on);paintOn();on.onclick=()=>{P.stages[i].on=!P.stages[i].on;paintOn();changed(k+'on');};inputs.push(paintOn);
+  const cv=document.createElement('canvas');cv.className='curve';d.appendChild(cv);curves.push(cv);
+  const g=document.createElement('div');g.className='grid2';d.appendChild(g);
+  ctl(g,{key:k+'a',label:'curve A',type:'select',opts:SHAPERS.map(s=>s.name)});
+  ctl(g,{key:k+'b',label:'curve B',type:'select',opts:SHAPERS.map(s=>s.name)});
+  ctl(g,{key:k+'morph',label:'morph A↔B',min:0,max:1,fmt:fmt.pct,def:0});
+  ctl(g,{key:k+'shape',label:'shape',min:0,max:1,fmt:fmt.pct,def:0.3});
+  ctl(g,{key:k+'drive',label:'drive',min:-12,max:48,step:0.5,fmt:fmt.db,def:12});
+  ctl(g,{key:k+'bias',label:'bias',min:-1,max:1,fmt:fmt.x,def:0});
+  ctl(g,{key:k+'floor',label:'floor',min:0,max:0.3,step:0.001,fmt:v=>v<=0?'off':(20*Math.log10(v)).toFixed(0)+' dB',def:0});
+  ctl(g,{key:k+'ft',label:'filter',type:'select',opts:['off','lowpass','bandpass','highpass']});
+  ctl(g,{key:k+'fpos',label:'position',type:'select',opts:['pre-shaper','post-shaper']});
+  ctl(g,{key:k+'cut',label:'cutoff',min:20,max:18000,log:true,fmt:fmt.hz,def:2000});
+  ctl(g,{key:k+'res',label:'resonance',min:0,max:1,fmt:fmt.pct,def:0.15});
+  ctl(g,{key:k+'level',label:'level',min:-24,max:12,step:0.5,fmt:fmt.db,def:0});
+  ctl(g,{key:k+'mix',label:'mix',min:0,max:1,fmt:fmt.pct,def:1});
+}
+function paintStages(){stagePanels.forEach((d,i)=>d.classList.toggle('off',!P.stages[i].on));}
+function drawCurves(){curves.forEach((cv,i)=>{const s=P.stages[i];const W=cv.width=cv.clientWidth*2||600,Hh=cv.height=180;const c=cv.getContext('2d');
+  c.clearRect(0,0,W,Hh);c.strokeStyle='#22252c';c.beginPath();c.moveTo(W/2,0);c.lineTo(W/2,Hh);c.moveTo(0,Hh/2);c.lineTo(W,Hh/2);c.stroke();
+  const g=CORE.dB2g(s.drive),fa=SHAPERS[s.a].f,fb=SHAPERS[s.b].f,m=s.morph;const sh=u=>(1-m)*fa(u,s.shape)+m*fb(u,s.shape);
+  let mean=0,si=0,so=0;const t=[];for(let i=0;i<32;i++){const u=0.5*Math.sin(Math.PI*2*i/32);const y=sh(u*g+s.bias);t.push(y);mean+=y;si+=u*u;}mean/=32;for(const y of t){so+=(y-mean)*(y-mean);}
+  const comp=CORE.clamp(Math.pow(Math.sqrt(si/Math.max(so,1e-9)),P.auto),0.05,20);
+  c.strokeStyle='#ff5c1a';c.lineWidth=2;c.beginPath();
+  for(let px=0;px<=W;px++){const x=(px/W*2-1)*1.5;const u=x*g+s.bias;const y=((1-m)*fa(u,s.shape)+m*fb(u,s.shape))*comp;const py=Hh/2-CORE.clamp(y,-1.6,1.6)*Hh/3.2;px?c.lineTo(px,py):c.moveTo(px,py);}
+  c.stroke();c.fillStyle='#7a7e88';c.font='18px monospace';c.fillText('in ±1.5  /  out ±1.6',8,20);});}
+
+// ---------- presets ----------
+// Presets reference curves by name; stage fields not listed fall back to defaults.
+const PRESETS={
+ 'init':{},
+ 'roar growl · sine → tube → diode, env→cutoff':{src:'sine',stages:[{a:'tube',b:'polynomial',morph:0.15,shape:0.5,drive:20,ft:1,fpos:1,cut:900,res:0.5},{a:'diode',drive:14,bias:0.2,shape:0.5,ft:2,fpos:0,cut:1400,res:0.4},{on:false}],mod:{ec:0.6,ed:0.3},envA:3,envR:120,eco:0.3},
+ 'cheby ladder · drive-ref on, 0 dB = pure 12th':{src:'sine',driveRef:1,stages:[{a:'cheby',shape:0.5,drive:-3,mix:0.8},{a:'soft',drive:6,shape:0.3},{on:false}],mod:{ld:0.25},lfoRate:0.15,adaa:true},
+ 'fold · pre-fold lowpass, shape = ridge hardness':{src:'saw',stages:[{a:'fold',shape:0.25,drive:14,ft:1,fpos:0,cut:700,res:0.2},{a:'soft',drive:4,shape:0.2},{on:false}],mod:{ed:0.4},envA:5,envR:150,adaa:true},
+ 'polynomial screech · env→morph':{src:'sine',stages:[{a:'soft',b:'polynomial',morph:0.7,shape:0.8,drive:18,floor:0.01,ft:1,fpos:1,cut:3000,res:0.3},{a:'overdrive',drive:8,shape:0.4},{on:false}],mod:{em:-0.5,ec:0.5},envA:2,envR:200},
+ 'fractal grit · multiband':{route:2,src:'super',xo1:180,xo2:2400,stages:[{a:'tube',drive:10,shape:0.6,ft:1,fpos:1,cut:400},{a:'fractal',shape:0.8,drive:6,floor:0.01},{a:'shards',b:'crush',morph:0.3,shape:0.6,drive:8,floor:0.01,level:-4}],eco:0.4},
+ 'pitch-tracked feedback · tamed':{route:4,src:'saw',fbAmt:0.75,fbSemi:7,fbDamp:3500,fbHp:120,fbTap:0,stages:[{a:'overdrive',drive:10,shape:0.3},{a:'hard clip',shape:0.5,drive:6,ft:3,fpos:1,cut:200},{a:'diode',drive:4,ft:1,cut:5000}],out:-10},
+ 'mid/side · clean centre, wrapped sides':{route:3,src:'super',spread:35,stages:[{a:'soft',drive:4,shape:0.2},{a:'clip→wrap',shape:0.7,drive:28,ft:3,fpos:1,cut:200},{a:'diode',drive:6,shape:0.3}]},
+ 'inertia sweep · lfo→cutoff rings':{src:'pulse',stages:[{a:'fold',shape:0.6,drive:12,ft:2,fpos:1,cut:1200,res:0.6},{a:'diode',drive:10,bias:0.1},{on:false}],mod:{lc:0.8,ld:0.3},lfoRate:0.3,inertia:0.7},
+ 'flux chaos · parallel, stages feed each other':{route:1,src:'square',flux:0.8,stages:[{a:'fold',b:'rectify',morph:0.5,drive:12,level:-6},{a:'clip→wrap',b:'cheby',morph:0.5,shape:0.5,drive:6,level:-6},{a:'polynomial',b:'fractal',morph:0.5,shape:0.7,drive:12,floor:0.01,level:-6}],eco:-0.4},
+};
+function applyPresetTo(base,pr,SHAPERS){const idx=v=>typeof v==='string'?SHAPERS.findIndex(s=>s.name.startsWith(v)):v;
+  for(const k in pr){if(k==='stages'){pr.stages.forEach((s,i)=>{const t=Object.assign({},s);if('a'in t)t.a=idx(t.a);if('b'in t)t.b=idx(t.b);Object.assign(base.stages[i],t);});}
+    else if(k==='mod')Object.assign(base.mod,pr.mod);else base[k]=pr[k];}return base;}
+
+const ps=$('#preset');Object.keys(PRESETS).forEach(k=>{const o=document.createElement('option');o.textContent=k;ps.appendChild(o);});
+function applyPreset(name){P=applyPresetTo(CORE.defaultParams(),PRESETS[name],SHAPERS);refreshUI();}
+ps.onchange=()=>applyPreset(ps.value);
+
+// ---------- audio ----------
+async function start(){if(ctx)return;ctx=new (window.AudioContext||window.webkitAudioContext)();
+  const src='('+defineCore.toString()+')';
+  const worklet=`const {MawCore}=${src}();class Proc extends AudioWorkletProcessor{constructor(){super();this.core=new MawCore(sampleRate);this.port.onmessage=e=>this.core.msg(e.data);}process(i,o){const c=o[0];this.core.process(c[0],c[1]||c[0],c[0].length);return true;}}registerProcessor('maw',Proc);`;
+  let mode='';
+  const tryUrl=async url=>{await ctx.audioWorklet.addModule(url);node=new AudioWorkletNode(ctx,'maw',{numberOfInputs:0,numberOfOutputs:1,outputChannelCount:[2]});send=m=>node.port.postMessage(m);};
+  try{await tryUrl(URL.createObjectURL(new Blob([worklet],{type:'application/javascript'})));mode='AudioWorklet';}
+  catch(e1){try{await tryUrl('data:application/javascript;base64,'+btoa(unescape(encodeURIComponent(worklet))));mode='AudioWorklet (data:)';}
+  catch(e2){const core=new CORE.MawCore(ctx.sampleRate);node=ctx.createScriptProcessor(1024,0,2);
+    node.onaudioprocess=e=>core.process(e.outputBuffer.getChannelData(0),e.outputBuffer.getChannelData(1),e.outputBuffer.length);send=m=>core.msg(m);mode='ScriptProcessor fallback';}}
+  analyser=ctx.createAnalyser();analyser.fftSize=2048;analyser.smoothingTimeConstant=0.6;node.connect(analyser);analyser.connect(ctx.destination);
+  send({t:'p',P});$('#status').textContent='running · '+mode+' · '+ctx.sampleRate+' Hz';$('#start').style.display='none';draw();}
+$('#start').onclick=start;$('#panic').onclick=()=>send({t:'panic'});
+
+// ---------- keys + midi ----------
+const KEYS={a:0,w:1,s:2,e:3,d:4,f:5,t:6,g:7,y:8,h:9,u:10,j:11,k:12,o:13,l:14,p:15,';':16};let oct=3;const held={};
+window.addEventListener('keydown',e=>{if(e.repeat||e.target.tagName==='SELECT'||e.target.tagName==='INPUT')return;const k=e.key.toLowerCase();
+  if(k==='z')oct=Math.max(0,oct-1);else if(k==='x')oct=Math.min(7,oct+1);
+  else if(k in KEYS){if(!ctx)start();const n=12*(oct+1)+KEYS[k];held[k]=n;send({t:'on',n,v:1});}});
+window.addEventListener('keyup',e=>{const k=e.key.toLowerCase();if(k in held){send({t:'off',n:held[k]});delete held[k];}});
+if(navigator.requestMIDIAccess)navigator.requestMIDIAccess().then(m=>{for(const i of m.inputs.values())i.onmidimessage=ev=>{const [s,n,v]=ev.data;const st=s&0xf0;if(!ctx)start();if(st===0x90&&v>0)send({t:'on',n,v:v/127});else if(st===0x80||(st===0x90&&v===0))send({t:'off',n});};}).catch(()=>{});
+
+// ---------- visuals ----------
+function draw(){requestAnimationFrame(draw);if(!analyser)return;
+  const sc=$('#scope'),W=sc.width=sc.clientWidth*2,Hh=sc.height=240,c=sc.getContext('2d');const td=new Float32Array(analyser.fftSize);analyser.getFloatTimeDomainData(td);
+  c.clearRect(0,0,W,Hh);c.strokeStyle='#22252c';c.beginPath();c.moveTo(0,Hh/2);c.lineTo(W,Hh/2);c.stroke();
+  let st=0;for(let i=1;i<td.length-W;i++)if(td[i-1]<0&&td[i]>=0){st=i;break;}
+  c.strokeStyle='#4fd1c5';c.lineWidth=2;c.beginPath();for(let x=0;x<W;x++){const y=Hh/2-td[st+x]*Hh/2.2;x?c.lineTo(x,y):c.moveTo(x,y);}c.stroke();
+  const sp=$('#spec'),W2=sp.width=sp.clientWidth*2,H2=sp.height=240,c2=sp.getContext('2d');const fd=new Float32Array(analyser.frequencyBinCount);analyser.getFloatFrequencyData(fd);
+  c2.clearRect(0,0,W2,H2);c2.fillStyle='#ff5c1a';const nyq=ctx.sampleRate/2;
+  for(let x=0;x<W2;x++){const f=20*Math.pow(nyq/20,x/W2);const b=Math.min(fd.length-1,Math.floor(f/nyq*fd.length));const v=CORE.clamp((fd[b]+100)/100,0,1);c2.fillRect(x,H2-v*H2,1,v*H2);}
+  c2.fillStyle='#7a7e88';c2.font='16px monospace';[100,1000,10000].forEach(f=>{const x=Math.log(f/20)/Math.log(nyq/20)*W2;c2.fillText(f>=1000?f/1000+'k':f,x,H2-6);});}
+
+refreshUI();
+</script></body></html>

@@ -1,0 +1,172 @@
+
+== 1. bypass / identity ==
+  PASS all stages off → out == in                                max err 7.45e-9
+  PASS stage on, mix=0 → dry path bit-exact                      max err 7.44e-9
+
+== 2. routing sums (all stages on, mix=0 = pure topology) ==
+  PASS multiband (LR4 sum) magnitude flat                        dev -0.09..0.02 dB
+  PASS mid/side stereo recombine identity                        max err 7.45e-9
+  PASS parallel sums 3× dry                                      max err 1.49e-8
+
+== 3. harmonic purity / symmetry (sine @ bin 100, drive 6 dB → peak 1.0, auto 0, OS on) ==
+  PASS cheby n=2 from sine → 100.0% of harmonic energy in H2     
+  PASS cheby n=3 from sine → 100.0% of harmonic energy in H3     
+  PASS cheby n=4 from sine → 100.0% of harmonic energy in H4     
+  PASS full-wave rectify → octave up, fundamental gone           H1/H2 = -180.5 dB
+  odd/even symmetry at bias=0 (even-harmonic energy relative to odd):
+    soft (tanh→clip)        even/odd -182.8 dB      (pure odd)              
+    hard clip (knee↑)       even/odd -179.1 dB      (pure odd)              
+    overdrive (bite↑)       even/odd -178.3 dB      (pure odd)              
+    tube (cubic+even)       even/odd -24.7 dB       (has even)              
+    diode (asym ceiling)    even/odd -14.9 dB       (has even)              
+    fold (sine→triangle)    even/odd -179.8 dB      (pure odd)              
+    rectify (half→full)     even/odd -18.6 dB       (has even)              
+    crush (bits↓)           even/odd -180.4 dB      (pure odd)              
+    clip→wrap               even/odd -176.4 dB      (pure odd)              
+    cheby (harmonic n)      even/odd 9.7 dB         (has even)              
+    polynomial (wiggle↑)    even/odd -179.5 dB      (pure odd)              
+    fractal (ridges↑)       even/odd -180.2 dB      (pure odd)              
+    shards (count↑)         even/odd -32.0 dB       (has even)              
+
+== 4. aliasing ladder: sine @ 4688 Hz, drive 24 dB, shape 0.5 — non-harmonic energy / total (lower = cleaner) ==
+    curve                   1×                      2×                      4×                      8×                      ADAA 1×                 ADAA 2×                 
+    soft (tanh→clip)        -18.1                   -39.4                   -54.9                   -63.6                   -28.4                   -53.5                   
+    hard clip (knee↑)       -17.4                   -40.0                   -64.9                   -67.9                   —                       —                       
+    overdrive (bite↑)       -14.7                   -26.2                   -46.6                   -66.6                   —                       —                       
+    tube (cubic+even)       -15.2                   -28.1                   -45.2                   -53.9                   —                       —                       
+    diode (asym ceiling)    -16.1                   -29.1                   -43.7                   -47.0                   —                       —                       
+    fold (sine→triangle)    -1.4                    -19.8                   -28.8                   -37.2                   -5.1                    -34.7                   
+    rectify (half→full)     -13.1                   -21.1                   -33.3                   -43.6                   —                       —                       
+    crush (bits↓)           -16.8                   -36.8                   -47.6                   -52.3                   —                       —                       
+    clip→wrap               -6.8                    -8.5                    -15.9                   -23.1                   -21.1                   -24.5                   
+    cheby (harmonic n)      -1.1                    -2.1                    -7.2                    -16.0                   —                       —                       
+    polynomial (wiggle↑)    -16.4                   -30.4                   -39.7                   -41.3                   —                       —                       
+    fractal (ridges↑)       -15.5                   -22.8                   -26.2                   -29.2                   —                       —                       
+    shards (count↑)         -17.3                   -29.9                   -31.6                   -35.5                   —                       —                       
+  target: ≤ −40 dB for "clean", ≤ −30 dB acceptable for a distortion device
+
+== 4a. aliasing at a bass fundamental: sine @ 234 Hz (bin 40), drive 24 dB, shape 0.5 ==
+    curve                   1×                      2×                      4×                      8×                      ADAA 2×                 
+    soft                    -61.3                   -73.1                   -74.5                   -74.6                   -75.3                   
+    fold                    -47.6                   -57.2                   -59.8                   -60.2                   -60.9                   
+    clip→wrap               -17.2                   -22.8                   -29.1                   -32.3                   -32.9                   
+    cheby                   -24.0                   -33.6                   -36.2                   -36.6                   —                       
+    polynomial              -32.0                   -40.8                   -40.8                   -40.7                   —                       
+    shards                  -28.7                   -33.2                   -43.3                   -47.1                   —                       
+
+== 4b. aliasing inside the feedback route (delay = 1/f so comb peaks are harmonic; fbAmt 0.7, tap after stage 1) ==
+    curve                   1× no fb                1× fb                   4× fb                   ADAA 2× fb              
+    soft                    -18.1                   -18.1                   -51.2                   -52.6                   
+    fold                    -1.4                    -1.3                    -18.9                   -21.7                   
+    hard clip               -17.4                   -17.4                   -53.0                   —                       
+    overdrive               -14.7                   -14.7                   -46.1                   —                       
+
+== 5. auto-gain flatness: output RMS vs drive per curve (auto=1, sine bin 100 amp 0.5) ==
+    curve                   0dB                     12dB                    24dB                    48dB                    spread                  
+    soft (tanh→clip)        -15.0                   -15.0                   -15.0                   -14.8                   0.2 dB                  
+    hard clip (knee↑)       -15.0                   -15.0                   -15.0                   -14.8                   0.2 dB                  
+    overdrive (bite↑)       -15.0                   -15.0                   -14.9                   -14.8                   0.2 dB                  
+    tube (cubic+even)       -15.0                   -15.0                   -14.9                   -14.8                   0.2 dB                  
+    diode (asym ceiling)    -15.0                   -15.0                   -15.0                   -14.8                   0.2 dB                  
+    fold (sine→triangle)    -15.0                   -15.0                   -14.9                   -15.4                   0.5 dB                  
+    rectify (half→full)     -15.0                   -15.0                   -15.0                   -14.8                   0.3 dB                  
+    crush (bits↓)           -15.0                   -15.0                   -15.0                   -14.8                   0.3 dB                  
+    clip→wrap               -15.0                   -14.8                   -14.4                   -15.2                   0.8 dB                  
+    cheby (harmonic n)      -15.0                   -14.9                   -14.6                   -17.7                   3.1 dB                  
+    polynomial (wiggle↑)    -15.0                   -15.0                   -15.0                   -14.8                   0.2 dB                  
+    fractal (ridges↑)       -15.0                   -15.1                   -15.0                   -14.8                   0.3 dB                  
+    shards (count↑)         -15.2                   -15.1                   -15.0                   -14.8                   0.4 dB                  
+
+== 5b. input-level dependence: gain (out/in, dB) vs input amplitude at drive 12 dB, auto=1 — the "programme material" question ==
+    curve                   in 0.05                 in 0.15                 in 0.5                  in 1.0                  range                   
+    soft (tanh→clip)        4.6                     4.2                     0.0                     -5.0                    9.6 dB                  tracked:                0.3 dB                  
+    hard clip (knee↑)       4.1                     4.1                     0.0                     -5.4                    9.5 dB                  tracked:                0.3 dB                  
+    overdrive (bite↑)       7.0                     6.3                     0.0                     -5.5                    12.5 dB                 tracked:                0.3 dB                  
+    tube (cubic+even)       7.2                     6.5                     0.0                     -5.6                    12.8 dB                 tracked:                0.3 dB                  
+    diode (asym ceiling)    7.4                     5.7                     0.0                     -5.1                    12.6 dB                 tracked:                0.2 dB                  
+    fold (sine→triangle)    10.4                    9.8                     0.0                     -5.6                    16.0 dB                 tracked:                0.6 dB                  
+    rectify (half→full)     4.1                     4.1                     0.0                     -5.0                    9.0 dB                  tracked:                0.3 dB                  
+    crush (bits↓)           4.1                     4.1                     0.0                     -5.4                    9.5 dB                  tracked:                0.3 dB                  
+    clip→wrap               7.7                     7.7                     0.3                     -5.0                    12.7 dB                 tracked:                0.5 dB                  
+    cheby (harmonic n)      4.0                     5.9                     0.2                     -5.7                    11.6 dB                 tracked:                0.9 dB                  
+    polynomial (wiggle↑)    5.3                     5.0                     0.1                     -5.4                    10.7 dB                 tracked:                0.4 dB                  
+    fractal (ridges↑)       1.9                     -0.6                    -0.0                    -5.4                    7.4 dB                  tracked:                0.5 dB                  
+    shards (count↑)         4.0                     3.9                     -0.0                    -5.4                    9.4 dB                  tracked:                0.3 dB                  
+  (positive = louder than input; "tracked" = range with envelope-tracked auto-gain reference)
+
+== 5c. CPU: ms of compute per second of stereo audio, one stage, node/V8 ==
+    curve                   1×                      2×                      4×                      8×                      ADAA 1×                 
+    soft                    20                      40                      74                      177                     22                      
+    fold                    18                      37                      68                      165                     20                      
+    tube                    15                      29                      56                      147                     —                       
+    shards                  22                      44                      80                      187                     —                       
+    fractal                 35                      63                      120                     264                     —                       
+    polynomial              31                      62                      116                     261                     —                       
+    (all 3 stages off)      13                      
+
+== 6. DC / silence / determinism ==
+  PASS tube + bias 0.6 → DC removed                              mean 3.09e-7
+  PASS noise curve, silence in → exact silence out               
+  PASS feedback 120%, silence in → silence out (no self-oscillation from nothing)
+  PASS deterministic: two runs bit-identical                     max diff 0
+  PASS flux>0: two runs bit-identical (seeded RNG)               max diff 0.00e+0
+  PASS noise curve: two runs bit-identical (seeded RNG)          max diff 0
+
+== 7. control-rate staircase: 5 Hz sine (≈DC within a block), lfo→drive 24 dB @ 10 Hz, inertia 0 ==
+  FAIL block-held coefficients: |Δ| at block boundaries vs insideratio 28.5× (1 = no staircase)
+  PASS per-sample interpolated: |Δ| at block boundaries vs insideratio 1.0× (1 = no staircase)
+
+== 7b. morph linearity: morph 0.5 == ½(A) + ½(B) (post-shaper path is linear) ==
+  PASS morph is a linear blend of curve outputs                  max err 2.24e-8
+
+== 7b2. every stage parameter must audibly change the output (guards against a parameter silently disconnected) ==
+  PASS stage.morph changes output                                -17.0 dB rel. to signal
+  PASS stage.shape changes output                                -26.3 dB rel. to signal
+  PASS stage.drive changes output                                -8.2 dB rel. to signal
+  PASS stage.bias changes output                                 -11.9 dB rel. to signal
+  PASS stage.cut changes output                                  0.5 dB rel. to signal
+  PASS stage.res changes output                                  4.5 dB rel. to signal
+  PASS stage.level changes output                                -6.0 dB rel. to signal
+  PASS stage.mix changes output                                  -1.7 dB rel. to signal
+  PASS stage.floor changes output                                -24.8 dB rel. to signal
+  PASS stage.a changes output                                    -13.3 dB rel. to signal
+  PASS stage.b changes output                                    -6.2 dB rel. to signal
+  PASS stage.ft changes output                                   8.7 dB rel. to signal
+  PASS stage.fpos changes output                                 -13.0 dB rel. to signal
+
+== 7c. latency: impulse through 1 vs 3 oversampled stages (linear-ish curve, tiny drive) ==
+    1 stage(s) OS on        peak at 110 → latency 10 samples
+    3 stage(s) OS on        peak at 131 → latency 31 samples
+    1 stage OS off          latency 0 samples       
+
+== 8. inertia spring step response (control rate 32 samples) ==
+    inertia 0.1             overshoot 0%            ~settle 52 ms           
+    inertia 0.3             overshoot 3%            ~settle 115 ms          
+    inertia 0.6             overshoot 17%           ~settle 359 ms          
+    inertia 0.9             overshoot 47%           ~settle 2020 ms         
+
+== 9. feedback loop-gain normalisation: burst decay should not depend on stage drive (fbAmt 0.6, tap after stage 1) ==
+    drive 0 dB              60ms -30.7 dB           160ms -109.9 dB         300ms -219.6 dB         decay 188.9 dB/240ms    
+    drive 20 dB             60ms -24.3 dB           160ms -103.2 dB         300ms -194.0 dB         decay 169.7 dB/240ms    
+    drive 40 dB             60ms -22.8 dB           160ms -96.4 dB          300ms -176.0 dB         decay 153.3 dB/240ms    
+
+== 10. oversampling FIR (23-tap Hamming sinc) frequency response ==
+    f (of base fs)          gain                    
+    0.05·fs (2.4 kHz)       0.0 dB                  
+    0.15·fs (7.2 kHz)       0.0 dB                  
+    0.2·fs (9.6 kHz)        0.0 dB                  
+    0.25·fs (12.0 kHz)      0.0 dB                  
+    0.3·fs (14.4 kHz)       0.0 dB                  
+    0.4·fs (19.2 kHz)       -0.5 dB                 
+    0.5·fs (24.0 kHz)       -6.0 dB                 
+    0.6·fs (28.8 kHz)       -24.7 dB                
+    0.75·fs (36.0 kHz)      -54.1 dB                
+    1·fs (48.0 kHz)         -53.1 dB                
+    latency: 11 taps @2× ×2 stages = 11 base samples per oversampled stage
+
+== 11. sample-rate invariance: tube harmonic amplitudes, sine 500 Hz ==
+    sr                      H1                      H2                      H3                      H4                      H5                      
+    44100                   62.1                    40.1                    50.7                    37.0                    42.1                    
+    48000                   62.1                    40.1                    50.7                    37.0                    42.1                    
+    96000                   62.1                    40.1                    50.7                    37.0                    42.0                    
+  PASS harmonic amplitudes invariant across 44.1/48/96k          max dev 0.03 dB
