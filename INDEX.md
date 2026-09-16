@@ -57,3 +57,4 @@ swarm-dynamics · parity-oracle · plugin-platform · realtime-perf
 - [L0045] A running DAW keeps the old plugin image — verify the mapped inode or the in-GUI stamp, never the disk alone
 - L0046 substring-anchored HTML cuts + tag-count-balance blindness → exact-line anchors; DOM parentage is the nesting oracle (tooling, editing)
 - L0047 a compile-verified platform backend shares its sibling's NAMES, not its fixes; async-ready webviews drop early bind/setHTML silently — install from the ready callback, enumerate host hooks per backend (plugin-platform, gui)
+- [L0048] Scratch artifacts are evidence only when namespaced per stream (verification · agents)
