@@ -194,6 +194,20 @@ full() {
   # the fixture corpus, and the control that host automation never marks.
   # Sub-second, no golden. Wired here by the human's ruling 2026-09-13.
   "$build_dir/undo_check" || return 1
+  # Nine standalone checks wired by the human's ruling 2026-09-16 ("Gates
+  # ratified"; ADR-171). Each is guaranteed-layer (exact or eps-bounded, no
+  # model calls), sub-second except bank_check (~1 s here, reads the 40
+  # factory files). Order: state fixtures first because every later check
+  # assumes a loadable state; the two directory arguments are repo-relative.
+  "$build_dir/statefix_check"    tests/state_fixtures   || return 1   # B100 fixtures load bit-identically
+  "$build_dir/presetstore_check"                        || return 1   # B129 store round-trip + factory ledger
+  "$build_dir/bank_check"        docs/presets/factory   || return 1   # B102 every factory patch hits its regime
+  "$build_dir/anchor_check"                             || return 1   # B114 quantiser re-arms on anchor change
+  "$build_dir/penv_check"                               || return 1   # B116 ENV 2 per-note, retriggers
+  "$build_dir/twocluster_check"                         || return 1   # ADR-164 negative K repels
+  "$build_dir/morphlayout_check"                        || return 1   # B124 layout-1 remap, corner reset
+  "$build_dir/fxxfade_check"                            || return 1   # B117 crossfade handover as measured
+  "$build_dir/polarity_check"                           || return 1   # B134 polarity before depth, as-is exact
   # Note-lifecycle guard (ADR-038): seeded note on/off streams must decay to
   # silence — the oracle for the 2026-07-18 "doesn't stop when you let go" hang.
   # Statically linked like state_check; no goldens. (Was built but ungated.)
