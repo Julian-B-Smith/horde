@@ -58,3 +58,5 @@ swarm-dynamics · parity-oracle · plugin-platform · realtime-perf
 - L0046 substring-anchored HTML cuts + tag-count-balance blindness → exact-line anchors; DOM parentage is the nesting oracle (tooling, editing)
 - L0047 a compile-verified platform backend shares its sibling's NAMES, not its fixes; async-ready webviews drop early bind/setHTML silently — install from the ready callback, enumerate host hooks per backend (plugin-platform, gui)
 - [L0048] Scratch artifacts are evidence only when namespaced per stream (verification · agents)
+- [L0049] A scale that reaches into the integrator is a physics change in a view's clothes — one function downstream of the state makes bit-identity the gate (labs · oracles)
+- [L0050] A draft filing in a sibling's tree turns our verify red — deliver as a PR on their repo, return their checkout to main (integrations · verify)
