@@ -71,6 +71,8 @@
   .node .ic .v0{grid-column:2/4;text-align:right;font-variant-numeric:tabular-nums;opacity:.8}
   .node .icb{display:flex;gap:6px}
   .node .icb button{flex:1;padding:1px 7px;font-size:12px;color:var(--ink-dim)}
+  /* field-level mean-speed strip (B126) — same visual idiom as the body strips */
+  #vstrip{display:block;width:100%;height:40px;border-radius:4px;background:rgba(128,128,128,.08)}
   .bar{height:4px;background:var(--line);border-radius:2px;overflow:hidden}
   .bar i{display:block;height:100%;width:0;background:var(--c)}
 </style>
@@ -106,6 +108,20 @@
          damping, not a potential: it only touches what reaches the band. -->
     <div class="row"><span>Cushion</span><input id="cushK" type="range" min="0" max="1" step="0.01" value="0"><output id="cushK-o"></output></div>
     <div class="row"><span>Cushion width</span><input id="cushW" type="range" min="0.02" max="0.3" step="0.005" value="0.1"><output id="cushW-o"></output></div>
+    <!-- B126 (human 2026-09-16, "we should probably test both and see how they
+         feel"): two ENERGY REGULATORS, each independently switchable and OFF by
+         default, answering "some force or process counteracting drag … a
+         consistent mean magnitude over a certain time scale". They are separate
+         experiments, not one feature: after the listening test one of them gets
+         deleted. A: the THERMOSTAT holds a mean speed. B: the VAN DER POL BAND
+         flips the cushion's sign in the interior. -->
+    <label class="chk"><input id="thermoOn" type="checkbox"> Thermostat — hold a mean speed</label>
+    <div class="row"><span>Target speed</span><input id="thermoV" type="range" min="0.01" max="2" step="0.01" value="0.4"><output id="thermoV-o"></output></div>
+    <div class="row"><span>Settle time</span><input id="thermoTau" type="range" min="-1.3" max="0.7" step="0.01" value="-0.3"><output id="thermoTau-o"></output></div>
+    <canvas id="vstrip" width="300" height="40" title="mean speed of the free bodies over the last few seconds of simulation; the dashed line is the thermostat's target"></canvas>
+    <label class="chk"><input id="vdpOn" type="checkbox"> Van der Pol band — drag at the walls, gain in the core</label>
+    <div class="row"><span>Band gain</span><input id="vdpG" type="range" min="-1" max="1" step="0.01" value="0"><output id="vdpG-o"></output></div>
+    <div class="row"><span>Core radius</span><input id="vdpR0" type="range" min="0.05" max="0.5" step="0.005" value="0.2"><output id="vdpR0-o"></output></div>
     <!-- B135 (human 2026-09-16): DISTANCE SCALE is a READOUT transform, never a
          physics change — sim space maps to the grid as 0.5 + (u-0.5)·scale,
          clamped to 0..1. Nothing in step() reads it, so the trajectory is
@@ -195,7 +211,14 @@ const COLORS=['--node-a','--node-b','--node-c','--node-d','--node-e','--node-f']
 const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 let nodes=[];            // {id,name,color,m,x,y,vx,vy,hx0,hy0,vx0,vy0,pinned,tx,ty,trail:[]}
 let uid=0, simTime=0, paused=false, lastFrame=null;
-const P={G:0.025,eps:0.06,ts:1,damp:0,bounds:'reflect',com:true,trails:true,cushW:0.1,cushK:0,polar:false,scale:1};   // cushK 0 = off (ADR-165 A1); scale 1 = 1:1 readout (B135)
+/* cushK 0 = off (ADR-165 A1); scale 1 = 1:1 readout (B135); BOTH energy
+   regulators off (B126) — with thermoOn and vdpOn false the integrator is the
+   pre-B126 one step for step, which is the gate, not a hope. */
+const P={G:0.025,eps:0.06,ts:1,damp:0,bounds:'reflect',com:true,trails:true,cushW:0.1,cushK:0,polar:false,scale:1,
+         thermoOn:false,thermoV:0.4,thermoTau:0.5,vdpOn:false,vdpG:0,vdpR0:0.2};
+/* Field-level mean-speed strip (B126). Same ring-buffer shape and the same
+   sim-time cadence as the body strips, so a throttled tab cannot distort it. */
+const vbarHist=new Float32Array(240); let vbarP=0;
 const MAXV=3.0;
 
 function mk(o){
@@ -257,6 +280,11 @@ function load(name){
   if(name==='figure8'){P.G=0.05;P.eps=0.01;P.bounds='open';P.com=true;}
   else {P.G=0.025;P.eps=0.06;P.bounds='reflect';P.com=name!=='sun';}
   P.scale=1;   // the scale is patch state like any other; every built-in ships at 1x (B135)
+  /* The regulators are patch state too, and every built-in ships with both OFF
+     (B126) — the lab has no preset serialisation, so "recorded in the preset"
+     is realised the way the scale is: load() states it. Their knob values are
+     left where the user put them, as cushK and cushW are. */
+  P.thermoOn=false; P.vdpOn=false;
   syncControls(); simTime=0; renderNodeList();
 }
 
@@ -279,6 +307,78 @@ function accel(){
   }
 }
 
+/* Mean speed over the FREE bodies — what the thermostat regulates and what the
+   strip plots. Pinned and dragged bodies are excluded from both: a pinned body
+   is scenery and a dragged one is the user's hand, and neither should move the
+   target or be moved by it. */
+function meanSpeed(){
+  let n=0,s=0;
+  for(const b of nodes){ if(b.pinned||b.drag)continue; n++; s+=Math.hypot(b.vx,b.vy); }
+  return n?s/n:0;
+}
+
+/* ENERGY REGULATOR A — THERMOSTAT (B126; human 2026-09-16 "test both").
+   Berendsen velocity rescaling: ONE scalar λ per step applied to every free
+   body, so orbit SHAPES survive untouched and only the tempo of the whole field
+   is regulated — |v_i|/|v_j| is invariant, and that invariance is the gate.
+
+       λ = sqrt(1 + (dt/τ)(K* / K − 1))
+
+   K* / K is written as (v* / v̄)²: K* is the energy this same velocity PROFILE would
+   carry at mean speed v*. The request was "a consistent mean magnitude over a
+   certain time scale", and a plain energy target does NOT pin the mean speed —
+   energy is mass-weighted and quadratic, so it fixes the mass-weighted RMS,
+   which sits strictly above the arithmetic mean whenever bodies differ. v̄ is
+   therefore the arithmetic mean over free bodies and the fixed point is v̄ = v*.
+   τ is in SECONDS and enters only as dt/τ (ADR-009: no per-step constants). v²
+   relaxes with time constant τ, so the SPEED relaxes with 2τ and is inside 1 %
+   of v* after 4τ.
+   Two guards, both about the same fact — λ is MULTIPLICATIVE, so a field at rest
+   stays at rest (that is what regulator B is for): v̄ ≈ 0 returns instead of
+   dividing by it, and λ is held to [0.5, 1.5] so a nearly-dead field asks for a
+   finite kick. At these knob ranges dt/τ ≤ 1/24 and λ sits within parts per
+   thousand of 1 except on exactly those pathological states. */
+function thermostat(dt){
+  const vbar=meanSpeed();
+  if(vbar<=1e-9)return;
+  const r=P.thermoV/vbar;
+  const lam=Math.min(1.5,Math.sqrt(Math.max(0.25,1+(dt/P.thermoTau)*(r*r-1))));
+  for(const b of nodes){ if(b.pinned||b.drag)continue; b.vx*=lam; b.vy*=lam; }
+}
+
+/* ENERGY REGULATOR B — VAN DER POL BAND (B126; human 2026-09-16 "test both").
+   The edge cushion with its sign flipped in the interior: drag in the wall band
+   as today, ANTI-drag inside a core radius r0 about the field centre. One
+   bipolar knob g over the cushion's own band structure (it shares the cushion's
+   width w):
+
+       wall leg  ρw = |g|·12·u² , u = max(0, 1 − d/w), d = distance to the nearest wall
+       core leg  ρc =  g ·12·c² , c = max(0, 1 − r/r0), r = distance from the centre,
+                                  present only when g > 0
+       v *= exp(−(ρw − ρc)·dt)
+
+   At g ≤ 0 the core leg is identically absent and the wall leg is the cushion
+   formula with |g| in place of cushK — BIT-identical to the existing cushion
+   path, which is the control that makes a sign error unable to pass (the
+   harness compares the two raw trajectories, and the same comparison at +g must
+   differ). Inert in wrap mode for the same reason the cushion is: "distance to
+   the nearest wall" has no meaning on a torus.
+   At g > 0 an orbit that decays sinks into the core and is pumped, one that
+   grows reaches the wall band and is damped, and the annulus between them is
+   untouched — a limit cycle of a characteristic size from any initial
+   condition, which is what a modulator that must never die and never explode
+   wants. Multiplicative like every other damping here, so it cannot start a
+   body that is exactly at rest; gravity does that. */
+function vdpBand(b,dt){
+  const g=P.vdpG;
+  const d=Math.min(b.x,1-b.x,b.y,1-b.y), u=Math.max(0,1-d/P.cushW);
+  const drag=Math.abs(g)*12*u*u;
+  let gain=0;
+  if(g>0){ const r=Math.hypot(b.x-0.5,b.y-0.5), c=Math.max(0,1-r/P.vdpR0); gain=g*12*c*c; }
+  const rate=drag-gain;
+  if(rate!==0){ const k=Math.exp(-rate*dt); b.vx*=k; b.vy*=k; }
+}
+
 function step(dt){
   // velocity Verlet (kick–drift–kick)
   accel();
@@ -297,6 +397,17 @@ function step(dt){
       const d=Math.min(b.x,1-b.x,b.y,1-b.y), u=Math.max(0,1-d/P.cushW);
       if(u>0){const k=Math.exp(-P.cushK*12*u*u*dt);b.vx*=k;b.vy*=k;}
     }
+    if(P.vdpOn && P.bounds!=='wrap') vdpBand(b,dt);   // regulator B: per body
+  }
+  /* Regulator A is FIELD-level — one λ from the whole field's mean speed — so it
+     needs every body's post-damping velocity, which is why the damping pass
+     ends here and the clamp/bounds pass follows it. Splitting the one old loop
+     in two is bit-identical: nothing in it couples a body to any other. Proven,
+     not asserted: the harness runs this file against the pre-B126 one with both
+     regulators off and compares raw trajectories. */
+  if(P.thermoOn) thermostat(dt);
+  for(const b of nodes){
+    if(b.pinned||b.drag)continue;
     const s=Math.hypot(b.vx,b.vy); if(s>MAXV){b.vx*=MAXV/s;b.vy*=MAXV/s;}
     if(P.bounds==='reflect'){
       if(b.x<0){b.x=-b.x;b.vx=Math.abs(b.vx);} else if(b.x>1){b.x=2-b.x;b.vx=-Math.abs(b.vx);}
@@ -455,7 +566,8 @@ function frame(t){
          at 1 fps is four minutes of wall time in which the sim barely moved
          (human 2026-09-16: "straight lines that rise and fall"). */
       if((++histStep)>=HIST_EVERY){ histStep=0;
-        for(const b of nodes){ b.hx[b.hp]=outX(b); b.hy[b.hp]=outY(b); b.ha[b.hp]=outAngle(b); b.hr[b.hp]=outRadius(b); b.hp=(b.hp+1)%b.hx.length; } }
+        for(const b of nodes){ b.hx[b.hp]=outX(b); b.hy[b.hp]=outY(b); b.ha[b.hp]=outAngle(b); b.hr[b.hp]=outRadius(b); b.hp=(b.hp+1)%b.hx.length; }
+        vbarHist[vbarP]=meanSpeed(); vbarP=(vbarP+1)%vbarHist.length; }   // the field strip rides the same sim-time cadence (B126)
     }
     if(n>=200)acc=0;
     for(const b of nodes){ b.trail.push([b.x,b.y]); if(b.trail.length>220)b.trail.shift(); }
@@ -522,15 +634,23 @@ const showers=[
   bind('cushK','cushK',v=>v,v=>v.toFixed(2)),
   bind('cushW','cushW',v=>v,v=>v.toFixed(3)),
   bind('scale','scale',v=>Math.pow(2,v),v=>v.toFixed(2)+'×'),   // log2 slider: -2..2 hits 0.25 and 4 exactly
+  bind('thermoV','thermoV',v=>v,v=>v.toFixed(2)),
+  bind('thermoTau','thermoTau',v=>Math.pow(10,v),v=>v.toFixed(2)+' s'),   // log10 slider: 0.05 s .. 5 s
+  bind('vdpG','vdpG',v=>v,v=>(v>0?'+':'')+v.toFixed(2)),
+  bind('vdpR0','vdpR0',v=>v,v=>v.toFixed(3)),
 ];
 $('bounds').addEventListener('change',e=>P.bounds=e.target.value);
 $('com').addEventListener('change',e=>P.com=e.target.checked);
 $('trails').addEventListener('change',e=>P.trails=e.target.checked);
 $('polar').addEventListener('change',e=>P.polar=e.target.checked);
+$('thermoOn').addEventListener('change',e=>P.thermoOn=e.target.checked);
+$('vdpOn').addEventListener('change',e=>P.vdpOn=e.target.checked);
 function syncControls(){
   $('G').value=Math.log10(P.G); $('eps').value=P.eps; $('ts').value=P.ts; $('damp').value=P.damp;
   $('cushK').value=P.cushK; $('cushW').value=P.cushW; $('scale').value=Math.log2(P.scale);
   $('bounds').value=P.bounds; $('com').checked=P.com; $('trails').checked=P.trails; $('polar').checked=P.polar;
+  $('thermoOn').checked=P.thermoOn; $('thermoV').value=P.thermoV; $('thermoTau').value=Math.log10(P.thermoTau);
+  $('vdpOn').checked=P.vdpOn; $('vdpG').value=P.vdpG; $('vdpR0').value=P.vdpR0;
   showers.forEach(f=>f());
 }
 $('pause').addEventListener('click',e=>{paused=!paused;e.target.textContent=paused?'Resume':'Pause';});
@@ -680,6 +800,33 @@ function drawXYGraph(cv, b){
   const frozen=paused?'paused':(P.ts===0?'time scale 0':(b.pinned?'pinned':''));
   if(frozen){ g.fillStyle='rgba(255,255,255,.55)'; g.font='10px system-ui,sans-serif'; g.textAlign='left'; g.fillText(frozen,4,11); }
 }
+/* The mean-speed strip (B126 criterion 5): |v̄| over the last few seconds of
+   SIM time with the thermostat's target as a dashed line, so "it settles" is
+   something you can see rather than a number you have to watch. Autoscaled, and
+   the top of the scale is printed — a strip whose scale is invisible is a lie
+   about its own shape. */
+function drawVbar(){
+  const el=$('vstrip'); if(!el)return;
+  const g=el.getContext('2d'), w=el.width, h=el.height, n=vbarHist.length;
+  g.clearRect(0,0,w,h);
+  let mx=P.thermoOn?P.thermoV:0;
+  for(let i=0;i<n;i++) if(vbarHist[i]>mx) mx=vbarHist[i];
+  const top=Math.max(0.05,mx*1.25), yOf=v=>h-2-(v/top)*(h-16);
+  if(P.thermoOn){   // the target, and the ±5 % band the settling is judged against
+    g.fillStyle='rgba(127,211,230,.10)'; g.fillRect(0,yOf(P.thermoV*1.05),w,yOf(P.thermoV*0.95)-yOf(P.thermoV*1.05));
+    g.strokeStyle='rgba(127,211,230,.7)'; g.lineWidth=1; g.setLineDash([4,3]);
+    g.beginPath(); g.moveTo(0,yOf(P.thermoV)+.5); g.lineTo(w,yOf(P.thermoV)+.5); g.stroke(); g.setLineDash([]);
+  }
+  g.strokeStyle=css('--ink'); g.lineWidth=1.4; g.beginPath();
+  for(let i=0;i<n;i++){ const v=vbarHist[(vbarP+i)%n], x=i/(n-1)*w, y=yOf(v); if(i)g.lineTo(x,y); else g.moveTo(x,y); }
+  g.stroke();
+  const cur=vbarHist[(vbarP+n-1)%n];
+  g.fillStyle=css('--ink'); g.beginPath(); g.arc(w-3,yOf(cur),2.5,0,6.2832); g.fill();
+  g.font='10px system-ui,sans-serif'; g.globalAlpha=.75;
+  g.textAlign='left';  g.fillText('mean |v| '+cur.toFixed(3)+(P.thermoOn?'   v* '+P.thermoV.toFixed(3)+'   '+(cur>=P.thermoV?'+':'−')+(Math.abs(cur/P.thermoV-1)*100).toFixed(1)+' %':''),4,11);
+  g.textAlign='right'; g.fillText(top.toFixed(2),w-4,h-3);
+  g.globalAlpha=1;
+}
 function updateReadouts(){
   for(const el of $('nodes').children){
     const b=nodes.find(n=>n.id==el.dataset.id); if(!b)continue;
@@ -693,7 +840,11 @@ function updateReadouts(){
   }
   $('hud-t').textContent=simTime.toFixed(1);
   const {K,U}=energy();
-  $('hud-e').textContent='kinetic '+K.toFixed(3)+'  potential '+U.toFixed(3)+'  total '+(K+U).toFixed(3);
+  /* K is computed from the post-step velocities, so it is the REGULATED kinetic
+     energy whenever a regulator is on; the mean speed beside it is the
+     thermostat's own variable (B126 criterion 5). */
+  $('hud-e').textContent='kinetic '+K.toFixed(3)+'  potential '+U.toFixed(3)+'  total '+(K+U).toFixed(3)+'  mean |v| '+meanSpeed().toFixed(3);
+  drawVbar();
   $('hud-fps').textContent=fpsEma?(Math.round(fpsEma)+' fps · strips = last '+(240/60).toFixed(0)+' s of sim'):'';
 }
 
