@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HORDE — module macro tiers</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#1b2130; --panel:#232b3c; --panel2:#2a3447; --line:#36415a;
+  --ink:#e7ebf3; --ink2:#a8b2c7; --ink3:#71809c;
+  --global:#f2b64c; --global-dim:rgba(242,182,76,.16);
+  --corner:#57d3c8; --corner-dim:rgba(87,211,200,.14);
+  --a:#57d3c8; --b:#c78bff;
+  --danger:#ff8a7a;
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="light"]){
+    --bg:#1b2130; --panel:#232b3c; --panel2:#2a3447;
+  }
+}
+:root[data-theme="dark"]{ --bg:#1b2130; }
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 "IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif}
+body{padding:18px 20px 40px}
+h1{font-size:20px;font-weight:600;margin:0 0 4px}
+h2{font-size:14px;font-weight:600;margin:0 0 2px}
+p{margin:0}
+.lead{color:var(--ink2);max-width:72ch;margin-bottom:14px}
+.top{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-bottom:14px}
+button{font:inherit;color:var(--ink);background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:6px 12px;cursor:pointer}
+button:hover{border-color:var(--ink3)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--global);outline-offset:2px}
+button.on{background:var(--global-dim);border-color:var(--global);color:var(--global)}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:16px}
+@media (max-width:980px){.grid{grid-template-columns:1fr}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:16px}
+.panel .sub{color:var(--ink3);font-size:12.5px;margin-bottom:12px;max-width:60ch}
+.panel.tier-global{border-top:3px solid var(--global)}
+.panel.tier-corner{border-top:3px solid var(--corner)}
+.row{display:grid;grid-template-columns:120px 1fr 56px;align-items:center;gap:10px;padding:5px 0}
+.row label{color:var(--ink2)}
+.row .val{color:var(--ink2);text-align:right;font-variant-numeric:tabular-nums}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:22px;background:transparent;margin:0}
+input[type=range]::-webkit-slider-runnable-track{height:4px;background:var(--line);border-radius:2px}
+input[type=range]::-moz-range-track{height:4px;background:var(--line);border-radius:2px}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--ink);margin-top:-5px;border:2px solid var(--panel)}
+input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--ink);border:2px solid var(--panel)}
+input[type=range].g::-webkit-slider-thumb{background:var(--global)}
+input[type=range].g::-moz-range-thumb{background:var(--global)}
+input[type=range].c::-webkit-slider-thumb{background:var(--corner)}
+input[type=range].c::-moz-range-thumb{background:var(--corner)}
+input[type=range].bip::-webkit-slider-runnable-track{background:linear-gradient(90deg,var(--line) 0 49%,var(--ink3) 49% 51%,var(--line) 51%)}
+input[type=range]:disabled{opacity:.3}
+select{font:inherit;color:var(--ink);background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:4px 8px}
+.morph{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;margin:8px 0 4px}
+.morph .ca{color:var(--a);font-weight:600}.morph .cb{color:var(--b);font-weight:600}
+.pill{display:inline-block;border-radius:4px;padding:1px 7px;font-size:11.5px;font-weight:500;line-height:1.5}
+.pill.g{background:var(--global-dim);color:var(--global)}
+.pill.c{background:var(--corner-dim);color:var(--corner)}
+.pill.a{background:var(--corner-dim);color:var(--a)}
+.pill.b{background:rgba(199,139,255,.14);color:var(--b)}
+.pill.off{background:var(--panel2);color:var(--ink3)}
+
+/* DAW view */
+.daw{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-variant-numeric:tabular-nums}
+.daw .p{display:grid;grid-template-columns:150px 1fr 48px 74px;gap:10px;align-items:center;padding:5px 0;border-bottom:1px dashed var(--line)}
+.daw .p:last-child{border-bottom:0}
+.daw .id{color:var(--global);font-weight:500}
+.daw .bar{height:6px;background:var(--line);border-radius:3px;overflow:hidden}
+.daw .bar i{display:block;height:100%;background:var(--global);width:0}
+.daw .p.new{animation:flash 900ms ease-out}
+@keyframes flash{from{background:var(--global-dim)}to{background:transparent}}
+.daw .empty{color:var(--ink3);padding:6px 0}
+.count{color:var(--ink3);font-size:12.5px;margin-top:8px}
+
+/* module */
+.slot{display:grid;grid-template-columns:74px 1fr 64px;gap:10px;align-items:center;padding:9px 0;border-top:1px solid var(--line)}
+.slot:first-of-type{border-top:0}
+.slot .role{font-weight:600}
+.slot .name{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:3px}
+.slot .name .lab{font-weight:500}
+.slot .name .lab.dim{color:var(--ink3);font-weight:400}
+.slot .arrow{color:var(--ink3)}
+.slot .meter{height:6px;background:var(--line);border-radius:3px;position:relative;overflow:hidden;margin:4px 0 3px}
+.slot .meter i{position:absolute;left:0;top:0;bottom:0;background:var(--corner)}
+.slot .meter i.g{background:var(--global)}
+.slot .meter b{position:absolute;top:-2px;width:2px;height:10px;background:var(--ink)}
+.slot .math{color:var(--ink3);font-size:12px;font-variant-numeric:tabular-nums}
+.tier{display:flex;flex-direction:column;gap:4px}
+.tier button{padding:3px 0;font-size:12px;border-radius:5px}
+.tier button.g.on{background:var(--global-dim);border-color:var(--global);color:var(--global)}
+.tier button.c.on{background:var(--corner-dim);border-color:var(--corner);color:var(--corner)}
+.internals{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.inst{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12.5px}
+.inst h3{margin:0 0 4px;font-size:12.5px;font-weight:600;display:flex;justify-content:space-between}
+.inst .ip{display:flex;justify-content:space-between;color:var(--ink2);font-variant-numeric:tabular-nums}
+.inst .ip span:last-child{color:var(--ink)}
+.inst.quiet{opacity:.45}
+
+/* corner editor */
+.tabs{display:flex;gap:6px;margin-bottom:10px;align-items:center}
+.tabs button.ta.on{background:var(--corner-dim);border-color:var(--a);color:var(--a)}
+.tabs button.tb.on{background:rgba(199,139,255,.14);border-color:var(--b);color:var(--b)}
+.tabs .sp{flex:1}
+.matrix{width:100%;border-collapse:collapse;margin-top:10px;font-size:12.5px}
+.matrix th,.matrix td{padding:4px 6px;text-align:left}
+.matrix th{color:var(--ink2);font-weight:500}
+.matrix thead th{border-bottom:1px solid var(--line)}
+.matrix td input{width:100%;height:18px}
+.matrix th.g{color:var(--global)}
+.matrix th.dead{color:var(--ink3)}
+.matrix .lock{color:var(--ink3);font-size:11px}
+.kbd{color:var(--ink3);font-size:12.5px;margin-top:10px}
+kbd{font:inherit;background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:0 5px}
+.note{color:var(--ink2);font-size:12.5px;margin-top:10px;max-width:64ch}
+.try{color:var(--ink2);font-size:13px;max-width:70ch}
+.try li{margin:3px 0}
+@media (prefers-reduced-motion: reduce){.daw .p.new{animation:none}}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <div>
+    <h1>Module macro tiers</h1>
+    <p class="lead">One FX slot with four fixed macro slots. Each slot is either <span class="pill g">global</span> (one value, exposed to the DAW) or <span class="pill c">corner</span> (a value per corner, reached only through intents). Morph position never changes what the DAW sees.</p>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+    <button id="power">Power on audio</button>
+    <span class="kbd">Play: <kbd>A</kbd>–<kbd>K</kbd> row, <kbd>Z</kbd>/<kbd>X</kbd> octave</span>
+  </div>
+</div>
+
+<div class="grid">
+<div>
+
+  <div class="panel tier-global">
+    <h2>Global tier</h2>
+    <p class="sub">Macro knobs write to intents. Morph blends the two corners. All of this is DAW-addressable.</p>
+    <div class="morph">
+      <span class="ca">Corner A</span>
+      <input type="range" id="morph" class="g" min="0" max="1" step="0.001" value="0">
+      <span class="cb">Corner B</span>
+    </div>
+    <div class="row"><label>Preset resolve</label>
+      <select id="resolve">
+        <option value="crossfade">Crossfade the two module instances</option>
+        <option value="flip">Hard flip at 50%</option>
+        <option value="quantum">Quantum: stochastic per-tick pick</option>
+      </select><span class="val" id="pick"></span></div>
+    <div id="macros"></div>
+  </div>
+
+  <div class="panel tier-global">
+    <h2>What the DAW sees</h2>
+    <p class="sub">The exposed parameter list. It changes only when a slot's tier changes — never with morph. Tick a lane to fake DAW automation on it.</p>
+    <div class="daw" id="daw"></div>
+    <p class="count" id="dawcount"></p>
+  </div>
+
+  <div class="panel">
+    <h2>Things to try</h2>
+    <ul class="try">
+      <li>Sweep morph. The Amount slot's label walks from Size to Depth; the DAW list is unmoved.</li>
+      <li>Flip Regen to global. It appears in the DAW list as FX1 Regen, its corner bindings grey out, and its value stops following the morph.</li>
+      <li>Automate morph from the DAW panel, then turn Space. Corner-level offsets still land coherently mid-morph because they ride the interpolated bindings.</li>
+      <li>Set both corners to the same module preset. The crossfade collapses to one instance; nothing else changes.</li>
+      <li>Motion is bound to a role that Diffuse doesn't implement. The knob still exists — it just does nothing on the A side.</li>
+    </ul>
+  </div>
+
+</div>
+<div>
+
+  <div class="panel tier-corner">
+    <h2>FX1 · allpass / delay rack</h2>
+    <p class="sub">Four fixed slots, keyed by role. The module preset supplies each slot's name and internal bindings; the corner supplies the base value. Internal parameters are never exposed.</p>
+    <div id="slots"></div>
+    <div class="internals" id="internals"></div>
+  </div>
+
+  <div class="panel tier-corner">
+    <div class="tabs">
+      <h2 style="margin-right:6px">Corner editor</h2>
+      <button class="ta" id="tabA">A</button>
+      <button class="tb" id="tabB">B</button>
+      <span class="sp"></span>
+      <label style="color:var(--ink2);font-size:12.5px">Module preset
+        <select id="preset"><option value="diffuse">Diffuse</option><option value="comb">Comb</option></select>
+      </label>
+    </div>
+    <div id="bases"></div>
+    <table class="matrix" id="matrix"></table>
+    <p class="note" id="mnote">Depth is bipolar. A global slot can't take corner bindings — the DAW owns it directly.</p>
+  </div>
+
+</div>
+</div>
+
+<script>
+// ---------- model ----------
+const ROLES = ['Amount','Tone','Motion','Regen'];
+const INTENTS = ['Drive','Space','Motion','Color'];
+const SYNTH = ['Cutoff','Detune'];
+const TARGETS = [...SYNTH, ...ROLES];
+
+const PRESETS = {
+  diffuse: {
+    name:'Diffuse',
+    internal:{ diff:900, delay:0.08, damp:4000, fb:0.5 },
+    fmt:{ diff:v=>v.toFixed(0)+' Hz', delay:v=>(v*1000).toFixed(0)+' ms', damp:v=>v.toFixed(0)+' Hz', fb:v=>v.toFixed(2) },
+    slots:{
+      Amount:{ label:'Size',  bind:{ delay:[0.015,0.22], diff:[1800,350] } },
+      Tone:  { label:'Damp',  bind:{ damp:[1200,9000] } },
+      Regen: { label:'Regen', bind:{ fb:[0,0.88] } }
+    }
+  },
+  comb: {
+    name:'Comb',
+    internal:{ base:0.004, depth:0.002, rate:0.3, fb:0.5 },
+    fmt:{ base:v=>(v*1000).toFixed(2)+' ms', depth:v=>(v*1000).toFixed(2)+' ms', rate:v=>v.toFixed(2)+' Hz', fb:v=>v.toFixed(2) },
+    slots:{
+      Amount:{ label:'Depth',    bind:{ depth:[0,0.0035] } },
+      Tone:  { label:'Base',     bind:{ base:[0.0008,0.012] } },
+      Motion:{ label:'Rate',     bind:{ rate:[0.05,6] } },
+      Regen: { label:'Feedback', bind:{ fb:[0,0.92] } }
+    }
+  }
+};
+
+const S = {
+  morph:0, resolve:'crossfade', quantumPick:'A',
+  macros:{Drive:0,Space:0,Motion:0,Color:0},
+  slots:{
+    Amount:{tier:'corner', global:0.5},
+    Tone:  {tier:'corner', global:0.5},
+    Motion:{tier:'global', global:0.35},
+    Regen: {tier:'corner', global:0.5}
+  },
+  corners:{
+    A:{ preset:'diffuse', slotBase:{Amount:0.35,Tone:0.45,Motion:0.2,Regen:0.5}, synth:{Cutoff:0.5,Detune:0.3},
+        bind:{ Drive:{Cutoff:0.6,Detune:0.3}, Space:{Amount:0.7,Regen:0.4}, Motion:{Motion:0.8}, Color:{Tone:-0.6} } },
+    B:{ preset:'comb', slotBase:{Amount:0.6,Tone:0.3,Motion:0.5,Regen:0.6}, synth:{Cutoff:0.8,Detune:0.6},
+        bind:{ Drive:{Cutoff:0.3,Regen:0.5}, Space:{Amount:0.5}, Motion:{Motion:1.0,Detune:0.4}, Color:{Tone:0.7} } }
+  },
+  edit:'A',
+  lanes:{}   // paramId -> {period, phase}
+};
+
+const lerp=(a,b,t)=>a+(b-a)*t, clamp=v=>Math.min(1,Math.max(0,v));
+const bindOf=(c,i,t)=>(S.corners[c].bind[i]&&S.corners[c].bind[i][t])||0;
+
+function resolve(){
+  const t=S.morph, A=S.corners.A, B=S.corners.B, out={synth:{},slots:{},detail:{}};
+  for(const p of SYNTH){
+    const base=lerp(A.synth[p],B.synth[p],t);
+    let off=0; for(const i of INTENTS) off+=lerp(bindOf('A',i,p),bindOf('B',i,p),t)*S.macros[i];
+    out.synth[p]=clamp(base+off);
+  }
+  for(const r of ROLES){
+    const s=S.slots[r];
+    if(s.tier==='global'){ out.slots[r]=s.global; out.detail[r]={base:s.global,off:0,value:s.global}; continue; }
+    const base=lerp(A.slotBase[r],B.slotBase[r],t);
+    let off=0; for(const i of INTENTS) off+=lerp(bindOf('A',i,r),bindOf('B',i,r),t)*S.macros[i];
+    const v=clamp(base+off); out.slots[r]=v; out.detail[r]={base,off,value:v};
+  }
+  // module internal params for each preset instance, from the same slot values
+  out.internal={};
+  for(const k in PRESETS){
+    const P=PRESETS[k], ip={...P.internal};
+    for(const r of ROLES){ const sl=P.slots[r]; if(!sl) continue;
+      for(const name in sl.bind){ const [lo,hi]=sl.bind[name]; ip[name]=lerp(lo,hi,out.slots[r]); } }
+    out.internal[k]=ip;
+  }
+  // instance weights
+  let wA, wB;
+  if(S.resolve==='crossfade'){ wA=Math.cos(t*Math.PI/2); wB=Math.sin(t*Math.PI/2); }
+  else if(S.resolve==='flip'){ wA=t<0.5?1:0; wB=1-wA; }
+  else { wA=S.quantumPick==='A'?1:0; wB=1-wA; }
+  out.weights={diffuse:0,comb:0};
+  if(A.preset===B.preset){ out.weights[A.preset]=1; }
+  else { out.weights[A.preset]+=wA; out.weights[B.preset]+=wB; }
+  return out;
+}
+
+function exposedParams(){
+  const list=[{id:'morph',label:'Morph'}];
+  for(const i of INTENTS) list.push({id:'macro.'+i,label:'Macro · '+i});
+  for(const r of ROLES) if(S.slots[r].tier==='global') list.push({id:'fx1.'+r,label:'FX1 '+r});
+  return list;
+}
+function getParam(id){
+  if(id==='morph') return S.morph;
+  if(id.startsWith('macro.')) return S.macros[id.slice(6)];
+  if(id.startsWith('fx1.')) return S.slots[id.slice(4)].global;
+}
+function setParam(id,v){
+  if(id==='morph'){ S.morph=v; $('#morph').value=v; }
+  else if(id.startsWith('macro.')){ S.macros[id.slice(6)]=v; const el=document.querySelector('[data-macro="'+id.slice(6)+'"]'); if(el) el.value=v; }
+  else if(id.startsWith('fx1.')){ S.slots[id.slice(4)].global=v; const el=document.querySelector('[data-gslot="'+id.slice(4)+'"]'); if(el) el.value=v; }
+}
+
+// ---------- UI ----------
+const $=s=>document.querySelector(s);
+
+// macros
+(function(){
+  const box=$('#macros');
+  for(const i of INTENTS){
+    const row=document.createElement('div'); row.className='row';
+    row.innerHTML=`<label>${i}</label><input type="range" class="g" data-macro="${i}" min="0" max="1" step="0.001" value="0"><span class="val" data-mval="${i}">0.00</span>`;
+    box.appendChild(row);
+    row.querySelector('input').addEventListener('input',e=>{S.macros[i]=+e.target.value;});
+  }
+})();
+$('#morph').addEventListener('input',e=>{S.morph=+e.target.value;});
+$('#resolve').addEventListener('change',e=>{S.resolve=e.target.value;});
+
+// DAW list
+let dawKey='';
+function renderDaw(){
+  const list=exposedParams(), key=list.map(p=>p.id).join('|');
+  if(key!==dawKey){
+    const prev=new Set(dawKey.split('|'));
+    dawKey=key;
+    for(const id in S.lanes) if(!list.find(p=>p.id===id)) delete S.lanes[id];
+    const box=$('#daw'); box.innerHTML='';
+    for(const p of list){
+      const d=document.createElement('div'); d.className='p'+(prev.has(p.id)?'':' new'); d.dataset.id=p.id;
+      d.innerHTML=`<span class="id">${p.label}</span><div class="bar"><i></i></div><span class="val" style="color:var(--ink2);text-align:right"></span>
+        <label style="color:var(--ink2);font-size:12px"><input type="checkbox" ${S.lanes[p.id]?'checked':''}> lane</label>`;
+      d.querySelector('input').addEventListener('change',e=>{ if(e.target.checked) S.lanes[p.id]={period:p.id==='morph'?6:3.5,phase:0}; else delete S.lanes[p.id]; });
+      box.appendChild(d);
+    }
+    $('#dawcount').textContent=`${list.length} parameters exposed. Corner-level slots are absent by design — they are reached through Macro intents.`;
+  }
+  for(const d of $('#daw').children){ const v=getParam(d.dataset.id); d.querySelector('.bar i').style.width=(v*100)+'%'; d.querySelector('.val').textContent=v.toFixed(2); }
+}
+
+// module slots
+(function(){
+  const box=$('#slots');
+  for(const r of ROLES){
+    const d=document.createElement('div'); d.className='slot'; d.dataset.role=r;
+    d.innerHTML=`<div class="role">${r}</div>
+      <div><div class="name" data-name></div>
+        <div class="meter"><i data-fill></i><b data-base></b></div>
+        <div class="math" data-math></div>
+        <input type="range" class="g" data-gslot="${r}" min="0" max="1" step="0.001" value="${S.slots[r].global}" style="display:none">
+      </div>
+      <div class="tier"><button class="g" data-tier="global">global</button><button class="c" data-tier="corner">corner</button></div>`;
+    box.appendChild(d);
+    d.querySelectorAll('[data-tier]').forEach(b=>b.addEventListener('click',()=>{ S.slots[r].tier=b.dataset.tier; renderCornerEditor(); }));
+    d.querySelector('[data-gslot]').addEventListener('input',e=>{S.slots[r].global=+e.target.value;});
+  }
+})();
+
+function renderSlots(R){
+  const t=S.morph, A=S.corners.A, B=S.corners.B;
+  for(const d of $('#slots').children){
+    const r=d.dataset.role, s=S.slots[r], det=R.detail[r];
+    d.querySelectorAll('[data-tier]').forEach(b=>b.classList.toggle('on',b.dataset.tier===s.tier));
+    const la=PRESETS[A.preset].slots[r], lb=PRESETS[B.preset].slots[r];
+    const name=d.querySelector('[data-name]');
+    if(s.tier==='global'){
+      name.innerHTML=`<span class="lab">FX1 ${r}</span><span class="pill g">DAW param</span>
+        <span class="lab dim">${la?la.label:'unbound'} in ${PRESETS[A.preset].name}, ${lb?lb.label:'unbound'} in ${PRESETS[B.preset].name}</span>`;
+    } else {
+      const domA=t<=0.5;
+      const sa=`<span class="lab ${domA?'':'dim'}">${la?la.label:'unbound'}</span>`;
+      const sb=`<span class="lab ${domA?'dim':''}">${lb?lb.label:'unbound'}</span>`;
+      name.innerHTML= (la&&lb&&la.label===lb.label) ? `<span class="lab">${la.label}</span>` : `${sa}<span class="arrow">→</span>${sb}`;
+      name.innerHTML+=`<span class="pill c">corner</span>`;
+    }
+    d.querySelector('[data-fill]').style.width=(det.value*100)+'%';
+    d.querySelector('[data-fill]').className=s.tier==='global'?'g':'';
+    d.querySelector('[data-base]').style.left=`calc(${det.base*100}% - 1px)`;
+    d.querySelector('[data-math]').textContent= s.tier==='global'
+      ? `value ${det.value.toFixed(3)} — DAW-owned, morph-independent`
+      : `base ${det.base.toFixed(3)} (A ${A.slotBase[r].toFixed(2)} → B ${B.slotBase[r].toFixed(2)}) + intents ${det.off>=0?'+':''}${det.off.toFixed(3)} = ${det.value.toFixed(3)}`;
+    d.querySelector('[data-gslot]').style.display=s.tier==='global'?'':'none';
+  }
+  // internals
+  const box=$('#internals');
+  if(!box.children.length){ for(const k in PRESETS){ const el=document.createElement('div'); el.className='inst'; el.dataset.k=k; box.appendChild(el);} }
+  for(const el of box.children){
+    const k=el.dataset.k, P=PRESETS[k], w=R.weights[k], ip=R.internal[k];
+    el.classList.toggle('quiet',w<0.02);
+    let h=`<h3><span>${P.name} instance</span><span>${(w*100).toFixed(0)}%</span></h3>`;
+    for(const name in ip) h+=`<div class="ip"><span>${name}</span><span>${P.fmt[name](ip[name])}</span></div>`;
+    el.innerHTML=h;
+  }
+  $('#pick').textContent= S.resolve==='quantum' ? 'picked '+S.quantumPick : '';
+}
+
+// corner editor
+function renderCornerEditor(){
+  const c=S.edit, C=S.corners[c];
+  $('#tabA').classList.toggle('on',c==='A'); $('#tabB').classList.toggle('on',c==='B');
+  $('#preset').value=C.preset;
+  const P=PRESETS[C.preset];
+  const bases=$('#bases'); bases.innerHTML='';
+  const mk=(label,cls,get,set,extra='')=>{
+    const row=document.createElement('div'); row.className='row';
+    row.innerHTML=`<label>${label}</label><input type="range" class="${cls}" min="0" max="1" step="0.001" value="${get()}" ${extra}><span class="val">${get().toFixed(2)}</span>`;
+    row.querySelector('input').addEventListener('input',e=>{set(+e.target.value); row.querySelector('.val').textContent=(+e.target.value).toFixed(2);});
+    bases.appendChild(row);
+  };
+  for(const p of SYNTH) mk(p,'c',()=>C.synth[p],v=>C.synth[p]=v);
+  for(const r of ROLES){
+    const s=S.slots[r], sl=P.slots[r];
+    const label = s.tier==='global' ? `<span class="pill g">${r}</span> global` : `${r} <span style="color:var(--ink3)">· ${sl?sl.label:'unbound in '+P.name}</span>`;
+    mk(label,'c',()=>C.slotBase[r],v=>C.slotBase[r]=v, s.tier==='global'?'disabled title="Global slot — the corner has no base value"':'');
+  }
+  const m=$('#matrix');
+  let h='<thead><tr><th>Intent →</th>'+TARGETS.map(tg=>{
+    const isRole=ROLES.includes(tg); const g=isRole&&S.slots[tg].tier==='global'; const dead=isRole&&!P.slots[tg];
+    return `<th class="${g?'g':dead?'dead':''}">${tg}${g?'<div class="lock">global</div>':dead?'<div class="lock">unbound here</div>':''}</th>`;}).join('')+'</tr></thead><tbody>';
+  for(const i of INTENTS){
+    h+=`<tr><th>${i}</th>`+TARGETS.map(tg=>{
+      const g=ROLES.includes(tg)&&S.slots[tg].tier==='global';
+      return `<td><input type="range" class="c bip" min="-1" max="1" step="0.01" value="${bindOf(c,i,tg)}" data-i="${i}" data-t="${tg}" ${g?'disabled':''}></td>`;}).join('')+'</tr>';
+  }
+  m.innerHTML=h+'</tbody>';
+  m.querySelectorAll('input').forEach(inp=>inp.addEventListener('input',e=>{ (C.bind[inp.dataset.i]||(C.bind[inp.dataset.i]={}))[inp.dataset.t]=+e.target.value; }));
+}
+$('#tabA').addEventListener('click',()=>{S.edit='A';renderCornerEditor();});
+$('#tabB').addEventListener('click',()=>{S.edit='B';renderCornerEditor();});
+$('#preset').addEventListener('change',e=>{S.corners[S.edit].preset=e.target.value; renderCornerEditor();});
+renderCornerEditor();
+
+// ---------- audio ----------
+let ctx=null, nodes=null;
+function buildAudio(){
+  ctx=new (window.AudioContext||window.webkitAudioContext)();
+  const master=ctx.createGain(); master.gain.value=0.5;
+  const comp=ctx.createDynamicsCompressor(); comp.threshold.value=-12; comp.ratio.value=4;
+  master.connect(comp).connect(ctx.destination);
+  const filt=ctx.createBiquadFilter(); filt.type='lowpass'; filt.Q.value=2;
+  const synthOut=ctx.createGain(); synthOut.gain.value=0.35;
+  synthOut.connect(filt);
+
+  // Diffuse instance: sum -> ap1..ap4 -> delay -> damp LP -> fb -> sum ; out = damp LP (+ dry)
+  const D={}; D.sum=ctx.createGain(); D.aps=[1,1.7,2.6,3.9].map(m=>{const b=ctx.createBiquadFilter();b.type='allpass';b.Q.value=0.6;b.frequency.value=900*m;return b;});
+  D.delay=ctx.createDelay(1); D.damp=ctx.createBiquadFilter(); D.damp.type='lowpass'; D.fb=ctx.createGain(); D.out=ctx.createGain(); D.wet=ctx.createGain(); D.wet.gain.value=0.9;
+  let prev=D.sum; for(const ap of D.aps){ prev.connect(ap); prev=ap; }
+  prev.connect(D.delay).connect(D.damp).connect(D.fb).connect(D.sum);
+  D.damp.connect(D.wet).connect(D.out); filt.connect(D.sum); filt.connect(D.out); D.out.connect(master);
+
+  // Comb instance: sum -> delay -> fb -> sum ; out = delay (+ dry). LFO -> delayTime.
+  const K={}; K.sum=ctx.createGain(); K.delay=ctx.createDelay(0.05); K.fb=ctx.createGain(); K.out=ctx.createGain(); K.wet=ctx.createGain(); K.wet.gain.value=0.8;
+  K.lfo=ctx.createOscillator(); K.lfo.type='sine'; K.lfoG=ctx.createGain(); K.lfoG.gain.value=0; K.lfo.connect(K.lfoG).connect(K.delay.delayTime); K.lfo.start();
+  K.sum.connect(K.delay).connect(K.fb).connect(K.sum); K.delay.connect(K.wet).connect(K.out); filt.connect(K.sum); filt.connect(K.out); K.out.connect(master);
+
+  nodes={master,filt,synthOut,D,K,voices:{}};
+}
+function applyAudio(R){
+  if(!ctx) return; const n=nodes, now=ctx.currentTime, T=0.03;
+  n.filt.frequency.setTargetAtTime(120*Math.pow(2,R.synth.Cutoff*6.5),now,T);
+  const det=R.synth.Detune*40;
+  for(const k in n.voices){ const v=n.voices[k]; v.oscs[1].detune.setTargetAtTime(det,now,T); v.oscs[2].detune.setTargetAtTime(-det,now,T); }
+  const d=R.internal.diffuse, D=n.D;
+  D.aps.forEach((ap,i)=>ap.frequency.setTargetAtTime(d.diff*[1,1.7,2.6,3.9][i],now,T));
+  D.delay.delayTime.setTargetAtTime(d.delay,now,T); D.damp.frequency.setTargetAtTime(d.damp,now,T); D.fb.gain.setTargetAtTime(d.fb,now,T);
+  D.out.gain.setTargetAtTime(R.weights.diffuse,now,T);
+  const c=R.internal.comb, K=n.K;
+  K.delay.delayTime.setTargetAtTime(c.base+c.depth,now,T); K.lfoG.gain.setTargetAtTime(c.depth,now,T); K.lfo.frequency.setTargetAtTime(c.rate,now,T); K.fb.gain.setTargetAtTime(c.fb,now,T);
+  K.out.gain.setTargetAtTime(R.weights.comb,now,T);
+}
+let octave=0;
+const KEYS={a:0,w:1,s:2,e:3,d:4,f:5,t:6,g:7,y:8,h:9,u:10,j:11,k:12,o:13,l:14,p:15,';':16};
+function noteOn(k){
+  if(!ctx||nodes.voices[k]) return;
+  const midi=48+octave*12+KEYS[k], f=440*Math.pow(2,(midi-69)/12), now=ctx.currentTime;
+  const g=ctx.createGain(); g.gain.setValueAtTime(0,now); g.gain.linearRampToValueAtTime(0.33,now+0.01); g.connect(nodes.synthOut);
+  const det=S.macros&&resolve().synth.Detune*40;
+  const oscs=[0,det,-det].map(dt=>{const o=ctx.createOscillator();o.type='sawtooth';o.frequency.value=f;o.detune.value=dt;o.connect(g);o.start();return o;});
+  nodes.voices[k]={g,oscs};
+}
+function noteOff(k){
+  const v=nodes&&nodes.voices[k]; if(!v) return; delete nodes.voices[k];
+  const now=ctx.currentTime; v.g.gain.cancelScheduledValues(now); v.g.gain.setValueAtTime(v.g.gain.value,now); v.g.gain.linearRampToValueAtTime(0,now+0.25);
+  v.oscs.forEach(o=>o.stop(now+0.3));
+}
+window.addEventListener('keydown',e=>{ if(e.repeat||e.target.tagName==='INPUT'||e.target.tagName==='SELECT') return; const k=e.key.toLowerCase();
+  if(k==='z') octave=Math.max(-2,octave-1); else if(k==='x') octave=Math.min(3,octave+1); else if(k in KEYS){ noteOn(k); e.preventDefault(); } });
+window.addEventListener('keyup',e=>{ const k=e.key.toLowerCase(); if(k in KEYS) noteOff(k); });
+$('#power').addEventListener('click',()=>{ if(!ctx){ buildAudio(); $('#power').textContent='Audio on'; $('#power').classList.add('on'); } else if(ctx.state==='suspended') ctx.resume(); });
+
+// ---------- loop ----------
+let last=performance.now(), qTimer=0;
+function frame(now){
+  const dt=(now-last)/1000; last=now;
+  for(const id in S.lanes){ const L=S.lanes[id]; L.phase=(L.phase+dt/L.period)%1; const tri=L.phase<0.5?L.phase*2:2-L.phase*2; setParam(id,tri); }
+  qTimer+=dt; if(qTimer>0.18){ qTimer=0; S.quantumPick=Math.random()<S.morph?'B':'A'; }
+  for(const i of INTENTS){ const el=document.querySelector('[data-mval="'+i+'"]'); if(el) el.textContent=S.macros[i].toFixed(2); }
+  const R=resolve();
+  renderSlots(R); renderDaw(); applyAudio(R);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
