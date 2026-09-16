@@ -77,9 +77,9 @@ member is the **formant engine** (working name CANTO — FOF/pulsar grains, form
 as masses on springs, a register state R; `specs/SPEC-FORMANT.md`, prototype
 `reference/formant-pulsar-fof.html`, not yet in the shell). A second CANDIDATE arrived
 2026-08-18: **WARP** (`reference/distortion-engine.html`, `specs/SPEC-DISTORTION.md`) — NOT a
-fourth engine but the prototype for **FX-C**, the morphing waveshaper with
-hysteresis; it is a shared post-stage every source hands off to (ADR-092), and
-carries the same unseeded-RNG blocker CANTO does. A third CANDIDATE arrived
+fourth engine but the prototype for **FX-C**, the shared post-stage every source hands
+off to (ADR-092); PARKED 2026-09-16 — MAW is FX-C now (ADR-092 amendment, "Maw eats
+it"), the files stay as history, nothing is ported. A third CANDIDATE arrived
 2026-08-25: **STATION** (`reference/station.html`, `specs/SPEC-STATION.md`, ADR-122) — a
 3-operator PM engine with LFSR noise, the traditional-synthesis workhorse; same
 unseeded-RNG blocker (Wave RAM randomize, one sanctioned edit: seed it — the three
