@@ -39,6 +39,8 @@ Scope: instantiate at **global** scope by default (one field per plugin instance
 | Centre-of-mass lock | on/off | on | Subtracts COM position and velocity each step (free bodies only; disabled automatically when any body is pinned). Prevents the whole system drifting off the pad. |
 | Edge cushion | 0 – 1 | 0 (off) | *(Added 2026-09-15, ADR-165 A1/A2.)* A drag band that rises smoothly toward each wall: with d the distance to the nearest wall and w the cushion width, velocity decays by exp(−12·cushion·u²·dt), u = max(0, 1 − d/w). A damping, not a potential — it only touches what reaches the band, so interior orbits are unchanged; it slows orbits that get too extreme before they bounce. Inert in wrap mode. |
 | Cushion width | 0.02 – 0.3 | 0.1 | Width of the band, in field units. |
+| Distance scale | 0.25 – 4, log | 1 | *(Added 2026-09-16, B135.)* A **readout transform, not a physics change**: observables, strips and the field drawing map sim space to the grid as `0.5 + (u − 0.5)·scale`, clamped to 0..1. Nothing in the integrator reads it, so the trajectory is bit-identical at every scale **by construction** — that is the gate, not a tolerance. Use it when a relative equilibrium you like occupies too little of the grid. Pointer input is mapped back through the inverse, so grabs and throws stay in sim units. Bodies past the grid clamp at 0/1 in the observables; the drawing instead lets them leave the view and outlines the simulation box, so the walls remain findable. |
+| Bake scale into bodies | action | — | *(Added 2026-09-16, B135.)* The **physical** alternative to the scale, applied once: positions and velocities ×s about the **field centre**, `G` ×s³, softening `ε` ×s (it is a length) — a period-preserving similarity, so orbit shape and rhythm survive and the first frame after the bake reads exactly as the view did before it. The walls, the cushion band and the max-speed clamp live at the grid edge and do **not** scale, so anything that reaches them behaves differently: that is why this is a button and not the slider. `G` and `ε` are held to their knob ranges, so an extreme bake clamps rather than going silently off-knob. |
 | Max speed | fixed constant | 3.0 units/s | Safety clamp, not user-facing. |
 | Body count | 2 – 8 | 3 | |
 
@@ -48,8 +50,8 @@ Scope: instantiate at **global** scope by default (one field per plugin instance
 |---|---|---|---|
 | Mass | 0.1 – 16, log | 1 | Modulatable (§7). Mass 0 is not permitted; a massless test particle can be approximated by 0.1 with G scaled. |
 | Pinned | on/off | off | Fixed in space; still exerts gravity. A pinned body is a gravity well. |
-| Home position (x₀, y₀) | 0 – 1 each | preset | Initial condition. Also the target for "return home" (§7). |
-| Initial velocity (vx₀, vy₀) | ±2 each | preset | Initial condition. Store as polar (speed, angle) in the UI; keep Cartesian internally. |
+| Home position (x₀, y₀) | 0 – 1 each | preset | Initial condition, stored in the preset. Editable on the body card, and the target for "Return home" (§6.3). |
+| Initial velocity (speed, heading) | speed 0 – 3, heading 0 – 360° | preset | Initial condition, stored in the preset. **Entered in polar** — a trajectory is designed as "this fast, that way" — with the Cartesian pair (vx₀, vy₀) shown beside it; Cartesian is what is stored and integrated. Heading 0° = +x (right), 90° = up, matching the y flip of the `y` observable and the `angle` source. At speed 0 the heading is undefined and reads 0°. |
 | Output smoothing | 0 – 50 ms | 5 ms | One-pole on the observables at control rate. |
 
 Bodies are indexed 1..N; the matrix addresses sources as `ORBITAL.body[i].x`, etc.
@@ -104,6 +106,11 @@ The system is chaotic: two runs differing in the last bit diverge. Determinism t
 
 Reset means: positions ← home, velocities ← initial velocity, trails cleared, smoothing filters primed to the new observable values (no glide from the old position).
 
+*(Added 2026-09-16, B135.)* Reset reads each body's **stored initial conditions**, never the preset literal: a body that was moved, added, or re-homed survives a reset, and so do the field parameters the user set — re-instantiating a preset is a separate action. Two per-body actions feed it, on the body card:
+
+- **Set home = here** — capture this body's live position **and** velocity as its initial condition. The round trip (set, run on, return home) is bit-exact: the frame after the return is the frame after the set.
+- **Return home** — apply the reset above to this body alone.
+
 ## 7. Reflexive and performance modulation
 
 The module's own parameters are legitimate matrix targets. Recommended exposure, in order of usefulness:
@@ -117,7 +124,7 @@ The module's own parameters are legitimate matrix targets. Recommended exposure,
 Two trigger inputs, addressable from the matrix or MIDI:
 
 - **Kick** — add an impulse to a chosen body (magnitude × direction; direction random, toward centre, or fixed). Note-on → kick is the single best default for per-note life in a global-scope field.
-- **Reset** — as §6.3.
+- **Reset** — as §6.3: to the stored initial conditions, whole field or one body ("Return home").
 
 Performance surface: a body can be **grabbed** by a controller. In HORDE this should go through the intent bus — the XY pad writes an intent `ORBITAL.grab[i]` = (x, y); while an intent is active the body follows it (as the prototype's drag), and on release inherits the pad's recent velocity (throw). Do not bind the pad directly to position; the intent layer is what allows the pad's home-offset semantics and corner scoping to apply.
 
@@ -138,6 +145,7 @@ The field view is the module. Recommendations from the prototype that should sur
 - Trails (last ~220 steps, alpha ramp) and force lines (alpha ∝ force) — these are not decoration; they are the only way to read the system's state at a glance. Toggle, default on.
 - Projection ticks on the bottom and left edges showing each body's current x and y — this is the visible link between the picture and the modulation values.
 - *(Added 2026-09-15.)* A small position graph on every body's card — two observables as strips over the last few seconds (solid / dashed, in the body's colour) — so the modulation a body emits is readable beside the orbit that makes it. A field-level toggle switches the pair between Cartesian (x, y) and polar (`angle` about the field centre, wrapping, and radius from it). In the plugin this is the body card's live readout.
+- *(Added 2026-09-16, B135.)* The body card carries its **initial conditions**, not just its live readouts: home x/y, the throw as speed + heading with the Cartesian pair beside it, and the two buttons of §6.3. When the distance scale is not 1, the field draws a dashed outline of the simulation box — without it, a body bouncing off nothing (scale < 1) or leaving the view (scale > 1) reads as a bug rather than as the walls being elsewhere.
 - HUD: simulation time and total energy. Total energy drift is the health check.
 - Drag / throw / double-click-to-add exactly as prototyped.
 
