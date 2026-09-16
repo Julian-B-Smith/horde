@@ -408,6 +408,12 @@ function frame(t){
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
+/* rAF FALLBACK (2026-09-16, the same shape gui2 carries): a tab that is
+   hidden, throttled, or shown as a static snapshot never gets animation
+   frames, and the lab then "doesn't move at all". This timer steps a frame
+   whenever the last one is older than 45 ms; on a healthy surface it never
+   fires. Timers are throttled in background tabs too, but they still tick. */
+setInterval(()=>{ const now=performance.now(); if(lastFrame!=null && now-lastFrame>45) frame(now); }, 33);
 
 /* ---------------------------------------------------------------- interaction */
 let dragging=null, dragHist=[];
