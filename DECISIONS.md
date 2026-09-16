@@ -5381,3 +5381,16 @@ exists. horde's side of option C — adopting the loop-plumbing rules, the
 module ABI shape and stable-id patch JSON into the B50 rebuild — stays on B127
 and happens in horde's own tree when B50 starts.
 
+### ADR-167 Amendment 1 — the discriminator is gap uniformity, not RN (2026-09-16)
+
+B131 proposed `RN` (the n-th order parameter) to tell a cloud from a splay.
+Measured, it cannot: a locked swarm is phase-locked with a finite spread, and
+multiplying the phase by n scatters it (lock RN 0.21); the shipped splay
+lattice is ragged enough to read 0.36. Gap uniformity over the sorted phases
+does the job (splay 0.80, cloud 0.11, lock 0.00, two-cluster 0.00). The viz
+export gained `RN` and a phases export; `bank_check`'s quantum-morph
+signature is (R, RA, RB, U), corner A is a full sixteen-voice cloud, and the
+splay leg asserts the lattice directly. The lesson is L0032's again: the
+proposed observable was named from theory; the measurement chose the real
+one.
+
