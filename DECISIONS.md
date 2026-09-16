@@ -5554,3 +5554,16 @@ private role.
 **Oracle.** §11 of the spec verbatim: bit-parity with `core.js` at the §9
 settings and the connectivity check in `fast`; the property battery, tail
 and preset tests in `full`.
+
+### ADR-092 Amendment — Maw eats WARP: MAW is FX-C, the WARP prototype is parked (2026-09-16)
+
+Human (2026-09-16), on ADR-170's R1: "I think Maw is overall better than Warp
+so we can say Maw eats it." Ruled: FX-C — the shared post-stage every source
+hands off to — is MAW (ADR-170). WARP (`reference/distortion-engine.html`,
+`specs/SPEC-DISTORTION.md`) stops being FX-C's prototype and is PARKED: the
+files stay in the tree as history (protected as they are, an edit there is
+now pointless rather than a spec change), its unseeded-RNG sanction is void,
+and nothing is ported from it. WARP's one idea Maw lacks — hysteresis in the
+transfer curve — is recorded in docs/PARKED.md as a candidate fifteenth Maw
+curve, not as a reason to keep the engine. B50's roster loses the separate
+Waveshaper slot; Saturator = Maw carries both roles.
