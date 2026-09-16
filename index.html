@@ -9,8 +9,12 @@
      drifting out of step with the generated one — the same two-copies rot the
      state twins and the corner map each cost us. The labs' index is generated;
      this page links to it and lists only what nothing else indexes: the two
-     GUIs and the root-level reference prototypes (a protected, slow-changing
-     set — an edit there IS a spec change, per CLAUDE.md §Domain). -->
+     GUIs and the root-level reference prototypes (a protected set — an edit
+     there IS a spec change, per CLAUDE.md §Domain). "Slow-changing" was the
+     original premise and it failed: six prototypes arrived in the three weeks
+     after 2026-08-23 and none reached this page until the human noticed ORBITAL
+     missing (2026-09-16). Every ingest ADR now adds its card here in the same
+     PR that adds the file to CLAUDE.md's protected list — same beat, one PR. -->
 <style>
   :root { --bg:#0b0e13; --panel:#11151f; --line:#2a3040; --dim:#7f8899;
           --text:#cdd6e4; --pull:#5ff2e0; --amber:#ffc24b; }
@@ -93,11 +97,40 @@ prototypes that <em>are</em> the spec, and the design labs.</div>
   <a class="card" href="reference/formant-pulsar-fof.html"><h3>CANTO<span class="tag">CANDIDATE</span></h3>
     <div class="file">reference/formant-pulsar-fof.html · FormantCore</div>
     <p>The formant engine — FOF/pulsar grains, formants as masses on springs
-       (ADR-091). A candidate until its masking RNG is seeded.</p></a>
-  <a class="card" href="reference/distortion-engine.html"><h3>WARP<span class="tag">CANDIDATE</span></h3>
-    <div class="file">reference/distortion-engine.html</div>
-    <p>Not a fourth engine — the prototype for FX-C, the morphing waveshaper with
-       hysteresis every source hands off to (ADR-092). Same unseeded-RNG blocker.</p></a>
+       (ADR-091). Masking RNG seeded 2026-09-10; a candidate until it enters the shell.</p></a>
+  <a class="card" href="reference/station.html"><h3>STATION<span class="tag">CANDIDATE</span></h3>
+    <div class="file">reference/station.html · specs/SPEC-STATION.md</div>
+    <p>The 3-operator PM engine with LFSR noise — the traditional-synthesis
+       workhorse (ADR-122). Wave RAM randomize seeded 2026-09-10.</p></a>
+  <a class="card" href="reference/intent-bus.html"><h3>intent bus</h3>
+    <div class="file">reference/intent-bus.html · specs/SPEC-INTENT-BUS.md</div>
+    <p>QM-4 — corner-owned bindings and modulation tiers, the architecture that
+       retires pad aliases (ADR-152, B89). Reshuffle seeded 2026-09-10.</p></a>
+  <a class="card" href="reference/gravity-modulator.html"><h3>ORBITAL<span class="tag">CANDIDATE</span></h3>
+    <div class="file">reference/gravity-modulator.html · specs/SPEC-ORBITAL.md</div>
+    <p>N-body gravity as a modulator: body observables are mod sources; bound
+       orbits, slingshots, three-body structure from one law (ADR-165, B126).
+       Per-body initial conditions, readout scale, edge cushion, regulators.</p></a>
+  <a class="card" href="reference/network-lab-v0.html"><h3>Sluice<span class="tag">INTAKE</span></h3>
+    <div class="file">reference/network-lab-v0.html · specs/SPEC-FX-NETWORK.md</div>
+    <p>The morphable FX network's intake record (ADR-166; formerly NETWORK). Now
+       its own sibling project; horde is its first consumer. This copy is the
+       v0 lab as ingested, not their live reference.</p></a>
+  <a class="card" href="reference/horde-module-macros.html"><h3>module macro tiers<span class="tag">ORACLE</span></h3>
+    <div class="file">reference/horde-module-macros.html · specs/SPEC-MODULE-MACROS.md</div>
+    <p>Parity oracle for role-keyed macro slots on every hosted FX module —
+       global vs corner tier, embedded module presets, preset identity across
+       corners (ADR-169, ratified; B136). One sanctioned edit: seed quantumPick.</p></a>
+  <a class="card" href="reference/maw/maw-horde-distortion-prototype.html"><h3>MAW<span class="tag">CANDIDATE</span></h3>
+    <div class="file">reference/maw/ · specs/SPEC-MAW.md</div>
+    <p>The three-stage saturator: fourteen curves, five topologies, inertia /
+       ecology / flux (ADR-170, B137). FX-C since WARP was parked. The packet
+       beside it — core.js, fidelity battery, tail and preset tests — is the
+       port's oracle set.</p></a>
+  <a class="card" href="reference/distortion-engine.html"><h3>WARP<span class="tag">PARKED</span></h3>
+    <div class="file">reference/distortion-engine.html · specs/SPEC-DISTORTION.md</div>
+    <p>Was FX-C's prototype, the morphing waveshaper with hysteresis (ADR-092).
+       Parked 2026-09-16 — MAW eats it; kept as history, nothing ported.</p></a>
   <a class="card" href="reference/decoherence-lab.html"><h3>decoherence<span class="tag">UNSEEDED</span></h3>
     <div class="file">reference/decoherence-lab.html</div>
     <p>The ingested glitch-module reference. Its RNG is unseeded, so the
@@ -108,7 +141,7 @@ prototypes that <em>are</em> the spec, and the design labs.</div>
   Reference prototypes are a protected path: an edit there is a spec change, not
   a tweak (CLAUDE.md §Domain). Serve this tree with the <strong>labs</strong>
   configuration in <code>.claude/launch.json</code>.<br>
-  Last verified against the tree: <strong>2026-08-23</strong>.
+  Last verified against the tree: <strong>2026-09-16</strong>.
 </div>
 
 </body></html>
