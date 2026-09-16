@@ -72,7 +72,7 @@
 
 <div id="stage">
   <canvas id="field"></canvas>
-  <div id="hud"><b id="hud-t">0.0</b> s &nbsp; <span id="hud-e"></span></div>
+  <div id="hud"><b id="hud-t">0.0</b> s &nbsp; <span id="hud-e"></span> &nbsp; <span id="hud-fps" title="animation frames per second — under ~30 the browser is throttling this tab; the strips are sim-time windows and stay honest regardless"></span></div>
   <div id="hint">Drag a node to move it, release with motion to throw it. Double-click empty space to add a node there.</div>
 </div>
 
@@ -379,16 +379,28 @@ function draw(){
 
 /* ---------------------------------------------------------------- loop */
 let acc=0; const DT=1/480;
+const HIST_EVERY=Math.round(1/60/DT);   // physics steps per strip sample (8 at DT = 1/480)
+let histStep=0, fpsEma=0;
 function frame(t){
   if(lastFrame==null)lastFrame=t;
   let real=Math.min(0.05,(t-lastFrame)/1000); lastFrame=t;
+  if(real>0) fpsEma = fpsEma ? fpsEma*0.9 + (1/real)*0.1 : 1/real;
   if(!paused){
     acc+=real*P.ts;
     let n=0;
-    while(acc>=DT && n<200){step(DT);acc-=DT;n++;}
+    while(acc>=DT && n<200){
+      step(DT);acc-=DT;n++;
+      /* The strips are a window of SIMULATION time — one sample per 1/60 s of
+         sim, taken here between physics steps — never a window of animation
+         frames. Recording per frame made a throttled tab (background window,
+         low-power display) draw a flat line drifting up and down: 240 frames
+         at 1 fps is four minutes of wall time in which the sim barely moved
+         (human 2026-09-16: "straight lines that rise and fall"). */
+      if((++histStep)>=HIST_EVERY){ histStep=0;
+        for(const b of nodes){ b.hx[b.hp]=outX(b); b.hy[b.hp]=outY(b); b.ha[b.hp]=outAngle(b); b.hr[b.hp]=outRadius(b); b.hp=(b.hp+1)%b.hx.length; } }
+    }
     if(n>=200)acc=0;
-    for(const b of nodes){ b.trail.push([b.x,b.y]); if(b.trail.length>220)b.trail.shift();
-      b.hx[b.hp]=outX(b); b.hy[b.hp]=outY(b); b.ha[b.hp]=outAngle(b); b.hr[b.hp]=outRadius(b); b.hp=(b.hp+1)%b.hx.length; }   // per-body histories (2026-09-15)
+    for(const b of nodes){ b.trail.push([b.x,b.y]); if(b.trail.length>220)b.trail.shift(); }
   }
   applyModulation();
   draw();
@@ -541,6 +553,7 @@ function updateReadouts(){
   $('hud-t').textContent=simTime.toFixed(1);
   const {K,U}=energy();
   $('hud-e').textContent='kinetic '+K.toFixed(3)+'  potential '+U.toFixed(3)+'  total '+(K+U).toFixed(3);
+  $('hud-fps').textContent=fpsEma?(Math.round(fpsEma)+' fps · strips = last '+(240/60).toFixed(0)+' s of sim'):'';
 }
 
 load('sun');
