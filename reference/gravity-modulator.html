@@ -64,6 +64,13 @@
   .node .out{display:grid;grid-template-columns:14px 1fr 64px;gap:4px 8px;font-size:12px;color:var(--ink-dim);align-items:center}
   .node .out [data-val]{white-space:nowrap;text-align:right;font-variant-numeric:tabular-nums}
   .node .xyg{display:block;width:100%;height:44px;border-radius:4px;background:rgba(128,128,128,.08)}
+  /* initial-conditions block (B135): home x/y and the throw as speed + heading */
+  .node .ic{display:grid;grid-template-columns:52px 1fr 1fr;gap:4px 8px;align-items:center;font-size:12px;color:var(--ink-dim)}
+  .node .ic input{width:100%;font:inherit;font-size:12px;color:var(--ink);background:var(--sky);
+    border:1px solid var(--line);border-radius:3px;padding:1px 4px;font-variant-numeric:tabular-nums}
+  .node .ic .v0{grid-column:2/4;text-align:right;font-variant-numeric:tabular-nums;opacity:.8}
+  .node .icb{display:flex;gap:6px}
+  .node .icb button{flex:1;padding:1px 7px;font-size:12px;color:var(--ink-dim)}
   .bar{height:4px;background:var(--line);border-radius:2px;overflow:hidden}
   .bar i{display:block;height:100%;width:0;background:var(--c)}
 </style>
@@ -99,6 +106,13 @@
          damping, not a potential: it only touches what reaches the band. -->
     <div class="row"><span>Cushion</span><input id="cushK" type="range" min="0" max="1" step="0.01" value="0"><output id="cushK-o"></output></div>
     <div class="row"><span>Cushion width</span><input id="cushW" type="range" min="0.02" max="0.3" step="0.005" value="0.1"><output id="cushW-o"></output></div>
+    <!-- B135 (human 2026-09-16): DISTANCE SCALE is a READOUT transform, never a
+         physics change — sim space maps to the grid as 0.5 + (u-0.5)·scale,
+         clamped to 0..1. Nothing in step() reads it, so the trajectory is
+         bit-identical at every scale by construction. The physical alternative
+         is the Bake button below: a period-preserving similarity applied once. -->
+    <div class="row"><span>Distance scale</span><input id="scale" type="range" min="-2" max="2" step="0.01" value="0"><output id="scale-o"></output></div>
+    <div class="btns"><button id="bake" title="Make the current view the real geometry: positions and velocities ×scale about the centre, gravity ×scale³, softening ×scale. Same orbit shape and period — but the walls stay at the grid edge, so anything that touches them behaves differently.">Bake scale into bodies</button></div>
     <div class="row"><span>Edges</span><select id="bounds"><option value="reflect">Bounce, elastic</option><option value="wrap">Wrap around</option><option value="open">Open, output clamped</option></select><span></span></div>
     <label class="chk"><input id="com" type="checkbox" checked> Keep center of mass at center</label>
     <label class="chk"><input id="trails" type="checkbox" checked> Show trails</label>
@@ -179,18 +193,38 @@ function buildAudio(){
 /* ---------------------------------------------------------------- state */
 const COLORS=['--node-a','--node-b','--node-c','--node-d','--node-e','--node-f'];
 const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
-let nodes=[];            // {id,name,color,m,x,y,vx,vy,pinned,tx,ty,trail:[]}
+let nodes=[];            // {id,name,color,m,x,y,vx,vy,hx0,hy0,vx0,vy0,pinned,tx,ty,trail:[]}
 let uid=0, simTime=0, paused=false, lastFrame=null;
-const P={G:0.025,eps:0.06,ts:1,damp:0,bounds:'reflect',com:true,trails:true,cushW:0.1,cushK:0,polar:false};   // cushK 0 = off (ADR-165 A1)
+const P={G:0.025,eps:0.06,ts:1,damp:0,bounds:'reflect',com:true,trails:true,cushW:0.1,cushK:0,polar:false,scale:1};   // cushK 0 = off (ADR-165 A1); scale 1 = 1:1 readout (B135)
 const MAXV=3.0;
 
 function mk(o){
   const n=Object.assign({id:uid++,name:'Node',m:1,x:0.5,y:0.5,vx:0,vy:0,pinned:false,tx:'none',ty:'none',trail:[],hx:new Float32Array(240),hy:new Float32Array(240),ha:new Float32Array(240),hr:new Float32Array(240),hp:0},o);
   n.color=n.color||COLORS[nodes.length%COLORS.length];
   n.name=o.name||'Node '+(nodes.length+1);
-  n.hx.fill(outX(n)); n.hy.fill(outY(n)); n.ha.fill(outAngle(n)); n.hr.fill(outRadius(n));   // primed, so a fresh strip is flat at the truth, not a step from 0
+  /* INITIAL CONDITIONS (B135). A body remembers where it started and how fast
+     it was thrown: Reset and "Return home" restore THESE, never the preset
+     literal, so an arrangement you found by dragging survives a reset. A preset
+     seeds them from its own x/y/vx/vy, so the built-ins behave as they did.
+     Named hx0/hy0 — hx/hy are the strip ring buffers, do not collide. */
+  if(n.hx0===undefined){n.hx0=n.x; n.hy0=n.y;}
+  if(n.vx0===undefined){n.vx0=n.vx; n.vy0=n.vy;}
+  primeStrips(n);
   return n;
 }
+
+// primed, so a fresh strip is flat at the truth, not a step from 0
+function primeStrips(b){ b.hx.fill(outX(b)); b.hy.fill(outY(b)); b.ha.fill(outAngle(b)); b.hr.fill(outRadius(b)); b.hp=0; }
+
+/* Reset semantics, SPEC-ORBITAL §6.3: positions <- home, velocities <- initial
+   velocity, trails cleared, strips primed to the new observables (no step from
+   the old position). Per body, so Reset and the card's button share one path. */
+function returnHome(b){
+  b.x=b.hx0; b.y=b.hy0; b.vx=b.vx0; b.vy=b.vy0;
+  if(b.pinned){b.vx=0;b.vy=0;}      // a pinned body holds still, as the Pin button does
+  b.trail=[]; primeStrips(b);
+}
+function setHomeHere(b){ b.hx0=b.x; b.hy0=b.y; b.vx0=b.vx; b.vy0=b.vy; }
 
 const PRESETS={
   binary(){ return [
@@ -222,6 +256,7 @@ function load(name){
   nodes=[]; nodes=PRESETS[name]();
   if(name==='figure8'){P.G=0.05;P.eps=0.01;P.bounds='open';P.com=true;}
   else {P.G=0.025;P.eps=0.06;P.bounds='reflect';P.com=name!=='sun';}
+  P.scale=1;   // the scale is patch state like any other; every built-in ships at 1x (B135)
   syncControls(); simTime=0; renderNodeList();
 }
 
@@ -294,12 +329,23 @@ function energy(){
 
 /* ---------------------------------------------------------------- output */
 const clamp01=v=>Math.max(0,Math.min(1,v));
-function outX(b){return clamp01(b.x)}
+/* DISTANCE SCALE (B135): sim space maps to the grid as 0.5 + (u-0.5)·scale.
+   This is the ONE place the scale exists — nothing in step() reads P.scale, so
+   the trajectory is bit-identical at every scale by construction, which is the
+   gate rather than a tolerance. Everything that leaves the sim (observables,
+   strips, drawing, pointer hit-testing) goes through gu/gx/gy; the sim state
+   stays raw, and the inverse toSim() takes pointer input back. */
+function gu(u){return 0.5+(u-0.5)*P.scale}
+function gx(b){return gu(b.x)}
+function gy(b){return gu(b.y)}
+function outX(b){return clamp01(gx(b))}
 // polar observables about the field centre: angle 0..1 wrapping (the spec's
-// `angle`), radius 0..1 with 1 = the corner distance (sqrt(0.5))
-function outAngle(b){return (Math.atan2(0.5-b.y,b.x-0.5)/(2*Math.PI)+1)%1}
-function outRadius(b){return clamp01(Math.hypot(b.x-0.5,b.y-0.5)/Math.SQRT1_2)}
-function outY(b){return clamp01(1-b.y)}   // up on screen = higher value
+// `angle`), radius 0..1 with 1 = the corner distance (sqrt(0.5)). Angle is
+// scale-invariant — a uniform scaling about the centre cannot rotate anything,
+// only the last bits of atan2 move — so only radius visibly scales and clamps.
+function outAngle(b){return (Math.atan2(0.5-gy(b),gx(b)-0.5)/(2*Math.PI)+1)%1}
+function outRadius(b){return clamp01(Math.hypot(gx(b)-0.5,gy(b)-0.5)/Math.SQRT1_2)}
+function outY(b){return clamp01(1-gy(b))}   // up on screen = higher value
 
 function applyModulation(){
   if(!A)return;
@@ -331,6 +377,15 @@ function draw(){
   cx.strokeStyle=css('--ink-dim'); cx.globalAlpha=0.35;
   cx.beginPath();cx.moveTo(S/2+0.5,0);cx.lineTo(S/2+0.5,S);cx.moveTo(0,S/2+0.5);cx.lineTo(S,S/2+0.5);cx.stroke();
   cx.globalAlpha=1;
+  /* Where the WALLS are, once the readout is scaled (B135). The simulation box
+     is always 0..1 in sim space; at scale != 1 that box no longer coincides
+     with the grid, and without this outline a body bouncing off nothing (scale
+     < 1) or leaving the view (scale > 1) reads as a bug. */
+  if(P.scale!==1){
+    const a=gu(0)*S, w=(gu(1)-gu(0))*S;
+    cx.setLineDash([4,4]); cx.strokeStyle=css('--ink-dim'); cx.globalAlpha=0.45; cx.lineWidth=1;
+    cx.strokeRect(a+0.5,a+0.5,w,w); cx.setLineDash([]); cx.globalAlpha=1;
+  }
 
   // force lines
   for(let i=0;i<nodes.length;i++)for(let j=i+1;j<nodes.length;j++){
@@ -341,7 +396,7 @@ function draw(){
     const al=Math.min(0.5,f*2.2);
     if(al<0.02)continue;
     cx.strokeStyle=css('--ink'); cx.globalAlpha=al; cx.lineWidth=0.5+al*2;
-    cx.beginPath();cx.moveTo(a.x*S,a.y*S);cx.lineTo(b.x*S,b.y*S);cx.stroke();
+    cx.beginPath();cx.moveTo(gx(a)*S,gy(a)*S);cx.lineTo(gx(b)*S,gy(b)*S);cx.stroke();
   }
   cx.globalAlpha=1;
 
@@ -354,14 +409,17 @@ function draw(){
       const p=t[i-1],q=t[i];
       if(Math.abs(p[0]-q[0])>0.5||Math.abs(p[1]-q[1])>0.5)continue;
       cx.globalAlpha=(i/t.length)*0.55;
-      cx.beginPath();cx.moveTo(p[0]*S,p[1]*S);cx.lineTo(q[0]*S,q[1]*S);cx.stroke();
+      cx.beginPath();cx.moveTo(gu(p[0])*S,gu(p[1])*S);cx.lineTo(gu(q[0])*S,gu(q[1])*S);cx.stroke();
     }
   }
   cx.globalAlpha=1;
 
   // nodes
   for(const b of nodes){
-    const col=css(b.color), r=radius(b), X=b.x*S, Y=b.y*S;
+    /* Bodies draw at the SCALED position. Unlike the observables they are not
+       clamped to the grid: a body past the edge leaves the view (the canvas
+       clips it) rather than piling up against a wall it is not touching. */
+    const col=css(b.color), r=radius(b), X=gx(b)*S, Y=gy(b)*S;
     // glow
     const g=cx.createRadialGradient(X,Y,r*0.5,X,Y,r*4);
     g.addColorStop(0,col); g.addColorStop(1,'rgba(0,0,0,0)');
@@ -417,16 +475,20 @@ setInterval(()=>{ const now=performance.now(); if(lastFrame!=null && now-lastFra
 
 /* ---------------------------------------------------------------- interaction */
 let dragging=null, dragHist=[];
+/* toNorm gives GRID coordinates (what the user sees); toSim is the inverse of
+   the scale transform, so a grab lands on the body under the cursor and a
+   throw is in sim units at every scale (B135). */
 function toNorm(e){const r=cv.getBoundingClientRect();return [(e.clientX-r.left)/r.width,(e.clientY-r.top)/r.height]}
+const toSim=u=>0.5+(u-0.5)/P.scale;
 cv.addEventListener('pointerdown',e=>{
   const [x,y]=toNorm(e);
   let best=null,bd=1e9;
-  for(const b of nodes){const d=Math.hypot(b.x-x,b.y-y)*S; if(d<radius(b)+8 && d<bd){bd=d;best=b;}}
+  for(const b of nodes){const d=Math.hypot(gx(b)-x,gy(b)-y)*S; if(d<radius(b)+8 && d<bd){bd=d;best=b;}}
   if(best){dragging=best;best.drag=true;dragHist=[[x,y,performance.now()]];cv.setPointerCapture(e.pointerId);cv.style.cursor='grabbing';}
 });
 cv.addEventListener('pointermove',e=>{
   if(!dragging)return;
-  const [x,y]=toNorm(e); dragging.x=x; dragging.y=y;
+  const [x,y]=toNorm(e); dragging.x=toSim(x); dragging.y=toSim(y);
   dragHist.push([x,y,performance.now()]); if(dragHist.length>6)dragHist.shift();
 });
 cv.addEventListener('pointerup',e=>{
@@ -434,14 +496,14 @@ cv.addEventListener('pointerup',e=>{
   const h=dragHist; 
   if(h.length>=2){
     const a=h[0],b=h[h.length-1]; const dt=(b[2]-a[2])/1000;
-    if(dt>0.005 && !dragging.pinned){dragging.vx=(b[0]-a[0])/dt*0.6;dragging.vy=(b[1]-a[1])/dt*0.6;}
+    if(dt>0.005 && !dragging.pinned){dragging.vx=(b[0]-a[0])/dt*0.6/P.scale;dragging.vy=(b[1]-a[1])/dt*0.6/P.scale;}
   }
   dragging.drag=false; dragging.trail=[]; dragging=null; cv.style.cursor='crosshair';
 });
 cv.addEventListener('dblclick',e=>{
   const [x,y]=toNorm(e);
-  if(nodes.some(b=>Math.hypot(b.x-x,b.y-y)*S<radius(b)+8))return;
-  nodes.push(mk({x,y,m:0.8})); renderNodeList();
+  if(nodes.some(b=>Math.hypot(gx(b)-x,gy(b)-y)*S<radius(b)+8))return;
+  nodes.push(mk({x:toSim(x),y:toSim(y),m:0.8})); renderNodeList();
 });
 
 /* ---------------------------------------------------------------- controls */
@@ -459,6 +521,7 @@ const showers=[
   bind('damp','damp',v=>v,v=>v.toFixed(2)),
   bind('cushK','cushK',v=>v,v=>v.toFixed(2)),
   bind('cushW','cushW',v=>v,v=>v.toFixed(3)),
+  bind('scale','scale',v=>Math.pow(2,v),v=>v.toFixed(2)+'×'),   // log2 slider: -2..2 hits 0.25 and 4 exactly
 ];
 $('bounds').addEventListener('change',e=>P.bounds=e.target.value);
 $('com').addEventListener('change',e=>P.com=e.target.checked);
@@ -466,12 +529,41 @@ $('trails').addEventListener('change',e=>P.trails=e.target.checked);
 $('polar').addEventListener('change',e=>P.polar=e.target.checked);
 function syncControls(){
   $('G').value=Math.log10(P.G); $('eps').value=P.eps; $('ts').value=P.ts; $('damp').value=P.damp;
-  $('cushK').value=P.cushK; $('cushW').value=P.cushW;
+  $('cushK').value=P.cushK; $('cushW').value=P.cushW; $('scale').value=Math.log2(P.scale);
   $('bounds').value=P.bounds; $('com').checked=P.com; $('trails').checked=P.trails; $('polar').checked=P.polar;
   showers.forEach(f=>f());
 }
 $('pause').addEventListener('click',e=>{paused=!paused;e.target.textContent=paused?'Resume':'Pause';});
-$('reset').addEventListener('click',()=>load(currentPreset));
+/* Reset returns every body to ITS OWN initial condition (SPEC-ORBITAL §6.3),
+   never to the preset literal: a body you moved, added, or gave a new home
+   survives it, and so do the universe knobs. Re-loading a preset is the other
+   button. (B135, human 2026-09-16.) */
+function resetAll(){ for(const b of nodes) returnHome(b); simTime=0; renderNodeList(); }
+$('reset').addEventListener('click',resetAll);
+/* BAKE (B135): the PHYSICAL alternative to the readout scale — a
+   period-preserving similarity about the field centre, applied once. Positions
+   and velocities ×s, G ×s³, softening ×s (it is a LENGTH; leaving it fixed
+   would change the very orbit shape the bake claims to preserve). Scaled about
+   the CENTRE, the same fixed point the readout map uses, so the first frame
+   after the bake reads exactly as the view did before it. What does NOT scale:
+   the walls, the cushion band and the max-speed clamp all live at the grid
+   edge — which is precisely why this is a button and not the slider. G and ε
+   are held to their knob ranges: a value the slider cannot show would be a lie
+   about the patch, so an extreme bake is clamped rather than silently off-knob. */
+function bakeScale(){
+  const s=P.scale; if(s===1)return;
+  for(const b of nodes){
+    b.x=gu(b.x); b.y=gu(b.y); b.vx*=s; b.vy*=s;
+    b.hx0=gu(b.hx0); b.hy0=gu(b.hy0); b.vx0*=s; b.vy0*=s;
+    b.trail=[];
+  }
+  P.G=Math.min(1,Math.max(0.001,P.G*s*s*s));
+  P.eps=Math.min(0.3,Math.max(0.01,P.eps*s));
+  P.scale=1;
+  for(const b of nodes) primeStrips(b);
+  syncControls(); renderNodeList();
+}
+$('bake').addEventListener('click',bakeScale);
 /* ADR-165's one sanctioned edit: the add-body position is an INITIAL
    CONDITION (patch state), so it draws from a seeded mulberry32 stream —
    the byte-identical form the design labs carry — not Math.random. */
@@ -487,6 +579,23 @@ $('audio').addEventListener('click',async e=>{
 });
 
 /* ---------------------------------------------------------------- node list */
+/* The throw is entered in POLAR — a trajectory is designed as "this fast, that
+   way" — and stored cartesian. Heading matches the on-screen y flip and the
+   `angle` observable: 0° = +x (right), 90° = up. At speed 0 the heading is
+   undefined and reads 0°; typing a heading then only takes effect once the
+   speed is non-zero. (B135.) */
+const spd0=b=>Math.hypot(b.vx0,b.vy0);
+const hdg0=b=>((Math.atan2(-b.vy0,b.vx0)*180/Math.PI)%360+360)%360;
+function setPolar0(b,spd,deg){const r=deg*Math.PI/180;b.vx0=spd*Math.cos(r);b.vy0=-spd*Math.sin(r);}
+function showIC(el,b,inputs){
+  if(inputs){
+    el.querySelector('[data-act=hx0]').value=b.hx0.toFixed(3);
+    el.querySelector('[data-act=hy0]').value=b.hy0.toFixed(3);
+    el.querySelector('[data-act=spd]').value=spd0(b).toFixed(3);
+    el.querySelector('[data-act=hdg]').value=hdg0(b).toFixed(1);
+  }
+  el.querySelector('.v0').textContent='vx₀ '+b.vx0.toFixed(3)+'   vy₀ '+b.vy0.toFixed(3);
+}
 function targetOptions(sel){
   return Object.entries(TARGETS).map(([k,t])=>`<option value="${k}"${k===sel?' selected':''}>${t.label}</option>`).join('');
 }
@@ -502,12 +611,38 @@ function renderNodeList(){
         <button data-act="del" title="Remove">×</button>
       </div>
       <div class="row"><span>Mass</span><input data-act="mass" type="range" min="-1" max="1.2" step="0.01" value="${Math.log10(b.m)}"><output>${b.m.toFixed(2)}</output></div>
+      <div class="ic">
+        <span title="Initial position — where Reset and Return home put this body">home</span>
+        <input data-act="hx0" type="number" step="0.01" min="0" max="1" title="home x" value="${b.hx0.toFixed(3)}">
+        <input data-act="hy0" type="number" step="0.01" min="0" max="1" title="home y" value="${b.hy0.toFixed(3)}">
+        <span title="Initial velocity as speed and heading: 0° is right, 90° is up">throw</span>
+        <input data-act="spd" type="number" step="0.01" min="0" max="${MAXV}" title="initial speed, field units per second" value="${spd0(b).toFixed(3)}">
+        <input data-act="hdg" type="number" step="1" title="initial heading in degrees: 0 = right, 90 = up" value="${hdg0(b).toFixed(1)}">
+        <span class="v0" title="the same velocity as a cartesian pair"></span>
+      </div>
+      <div class="icb">
+        <button data-act="sethome" title="Capture this body's live position AND velocity as its initial condition">Set home = here</button>
+        <button data-act="gohome" title="Put this body back at its home with its initial velocity">Return home</button>
+      </div>
       <div class="map"><span>x</span><select data-act="tx">${targetOptions(b.tx)}</select><span>y</span><select data-act="ty">${targetOptions(b.ty)}</select></div>
       <div class="out"><span>x</span><div class="bar"><i data-bar="x"></i></div><span data-val="x"></span>
                        <span>y</span><div class="bar"><i data-bar="y"></i></div><span data-val="y"></span></div>
       <canvas class="xyg" width="240" height="44" title="x (solid) and y (dashed) over the last few seconds"></canvas>`;
     el.querySelector('.name').addEventListener('input',e=>b.name=e.target.textContent.trim()||'Node');
     el.querySelector('[data-act=mass]').addEventListener('input',e=>{b.m=Math.pow(10,+e.target.value);e.target.nextElementSibling.textContent=b.m.toFixed(2);});
+    // Home/throw edits never rewrite the field being typed into — only the
+    // cartesian readout beside it — or the caret jumps mid-number.
+    const num=(e,f)=>{const v=parseFloat(e.target.value); if(Number.isFinite(v))f(v);};
+    el.querySelector('[data-act=hx0]').addEventListener('input',e=>num(e,v=>b.hx0=clamp01(v)));
+    el.querySelector('[data-act=hy0]').addEventListener('input',e=>num(e,v=>b.hy0=clamp01(v)));
+    const polar=()=>{const sp=parseFloat(el.querySelector('[data-act=spd]').value),
+                           hd=parseFloat(el.querySelector('[data-act=hdg]').value);
+      if(Number.isFinite(sp)&&Number.isFinite(hd)){setPolar0(b,Math.min(MAXV,Math.max(0,sp)),hd);showIC(el,b,false);}};
+    el.querySelector('[data-act=spd]').addEventListener('input',polar);
+    el.querySelector('[data-act=hdg]').addEventListener('input',polar);
+    el.querySelector('[data-act=sethome]').addEventListener('click',()=>{setHomeHere(b);showIC(el,b,true);});
+    el.querySelector('[data-act=gohome]').addEventListener('click',()=>returnHome(b));
+    showIC(el,b,false);
     el.querySelector('[data-act=tx]').addEventListener('change',e=>b.tx=e.target.value);
     el.querySelector('[data-act=ty]').addEventListener('change',e=>b.ty=e.target.value);
     el.querySelector('[data-act=pin]').addEventListener('click',e=>{b.pinned=!b.pinned;if(b.pinned){b.vx=b.vy=0;}e.target.textContent=b.pinned?'Pinned':'Pin';});
