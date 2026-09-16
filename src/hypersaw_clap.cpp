@@ -1525,7 +1525,34 @@ struct Plugin
      destinations are added one at a time. modPitchSm is slewed at the grid
      rate (~8 ms one-pole, the gainSmoothCoef feel) because env * depth at
      48 st moves fast enough to zipper otherwise. */
-  hypersaw::ModCore mod;
+  /* B134 — THE SOURCE POLARITY TABLE. What each slot naturally emits, in the
+     same slot order the source-slot comments in modStep() and gui2.html's
+     MOD_SRC_NAMES use. It lives HERE rather than in ModCore because knowing
+     that slot 17 is the pitch wheel is shell knowledge; the core is handed a
+     flag array and stays framework-free.
+       0    ENV 1        unipolar   (amp envelope)
+       1    ENV 2        unipolar   (pitch envelope)
+       2-9  Macros 1-8   unipolar
+       10-13 XY aliases  BIPOLAR    (retired, ADR-156: they read 0 — declared
+                                     so a saved route's halo does not lie
+                                     about the span it would have had)
+       14   Velocity     unipolar
+       15   Mod wheel    unipolar
+       16   Pressure     unipolar
+       17   Pitch wheel  BIPOLAR
+       18+  unassigned   unipolar   (the default a new source inherits)
+     Installed through a member initializer, not a call in the factory: a
+     construction path that forgot the call would give that instance a silently
+     all-unipolar table, which is exactly the kind of init-order trap this file
+     already carries scars from. */
+  static hypersaw::ModCore makeModCore()
+  {
+    hypersaw::ModCore m;
+    for (int i = 10; i <= 13; i++) m.srcPol[i] = hypersaw::ModCore::kSrcBipolar;
+    m.srcPol[17] = hypersaw::ModCore::kSrcBipolar;
+    return m;
+  }
+  hypersaw::ModCore mod = makeModCore();
   double modPitchSt = 0, modPitchSm = 0;
   /* ADR-136: generic destinations. For every param the matrix targets, the
      shell owns the BASE here — the value the player/host/morph authored — and
@@ -1997,15 +2024,36 @@ struct Plugin
     mod.routes[idx].src = srcSlot;
     return true;
   }
+  /* B134: the route's polarity, the table's second verb. The pitch route is
+     refused for the same reason modSetSource refuses it — knob 161 owns that
+     route's whole meaning (ADR-135), and a polarity on it would be a second,
+     invisible author of the semitone offset. */
+  bool modSetPolarity(int idx, int pol)
+  {
+    if (idx < 0 || idx >= mod.nRoutes) return false;
+    if (pol < hypersaw::ModCore::kAsIs || pol > hypersaw::ModCore::kInverted) return false;
+    if (mod.routes[idx].dest & kModDestSynthetic) return false;
+    mod.routes[idx].polarity = pol;
+    return true;
+  }
+  /* The GUI's view of the table. `srcPol` rides each ROUTE rather than arriving
+     as a second top-level array, so this stays a JSON ARRAY — every consumer
+     (renderModRoutes, the halo pass, refreshModAdd's "n routed" tags) treats
+     the parse as a list, and an object wrapper would be a shape change for
+     four of them to pay for one. The GUI never guesses a source's polarity:
+     the halo's reach depends on it, and a second copy of the table in JS is
+     the duplicated-key-chain failure L0005 records. */
   std::string modRoutesJson()
   {
     std::string out = "[";
-    char buf[128];
+    char buf[160];
     for (int r = 0; r < mod.nRoutes; r++)
     {
       const auto &q = mod.routes[r];
-      std::snprintf(buf, sizeof buf, "%s{\"i\":%d,\"src\":%u,\"dest\":%u,\"depth\":%.6g}",
-                    r ? "," : "", r, q.src, q.dest, q.depth);
+      std::snprintf(buf, sizeof buf,
+                    "%s{\"i\":%d,\"src\":%u,\"dest\":%u,\"depth\":%.6g,\"pol\":%d,\"srcPol\":%d}",
+                    r ? "," : "", r, q.src, q.dest, q.depth, q.polarity,
+                    q.src < (uint32_t)hypersaw::ModCore::kMaxSources ? mod.srcPol[q.src] : 0);
       out += buf;
     }
     return out + "]";
@@ -2038,31 +2086,35 @@ struct Plugin
     return -1;
   }
   /* ADR-138: route persistence, keyed on B72's deterministic link identity.
-     One line, generic routes only: `src:dest:depth;…`. The pitch route is
+     One line, generic routes only: `src:dest:depth[:pol];…`. The pitch route is
      param 161's and persists as that param — writing it here too would double
-     it on load. Serialization CANONICALIZES: one entry per (src, dest) with
-     summed depth, which the SUM law already makes indistinguishable from the
-     un-merged form — this is the identity B72's morph interpolation will key
-     on, established at the serialization boundary first. */
+     it on load.
+
+     B134 RETIRED THE (src, dest) MERGE. ADR-138 canonicalised by summing the
+     depths of duplicate (src, dest) pairs, which the SUM law made
+     indistinguishable from the un-merged form. Polarity breaks that identity:
+     ENV1→detune at +0.5 bipolar and ENV1→detune at +0.5 as-is do not sum to
+     one entry of any depth, so merging would silently discard one route's
+     setting. One entry per ROUTE now — the loader already created one route
+     per entry, so nothing on the read side changes, and B72 can still key on
+     (src, dest) when it gets there.
+
+     POLARITY IS OMITTED WHEN 0, deliberately: a patch with no polarity set
+     serialises to exactly the bytes ADR-138 wrote, so every stored chunk,
+     preset and fixture golden stays byte-identical instead of gaining a `:0`
+     that would make "bit-inert" a claim about behaviour only. */
   std::string modRoutesChunk() const
   {
-    uint32_t ks[hypersaw::ModCore::kMaxRoutes], kd[hypersaw::ModCore::kMaxRoutes];
-    double dep[hypersaw::ModCore::kMaxRoutes];
-    int n = 0;
+    std::string out;
+    char buf[80];
     for (int r = 0; r < mod.nRoutes; r++)
     {
       const auto &q = mod.routes[r];
       if (q.dest & kModDestSynthetic) continue;
-      int j = 0;
-      while (j < n && !(ks[j] == q.src && kd[j] == q.dest)) j++;
-      if (j == n) { ks[n] = q.src; kd[n] = q.dest; dep[n] = q.depth; n++; }
-      else dep[j] += q.depth;
-    }
-    std::string out;
-    char buf[64];
-    for (int j = 0; j < n; j++)
-    {
-      std::snprintf(buf, sizeof buf, "%u:%u:%.6g;", ks[j], kd[j], dep[j]);
+      if (q.polarity == hypersaw::ModCore::kAsIs)
+        std::snprintf(buf, sizeof buf, "%u:%u:%.6g;", q.src, q.dest, q.depth);
+      else
+        std::snprintf(buf, sizeof buf, "%u:%u:%.6g:%d;", q.src, q.dest, q.depth, q.polarity);
       out += buf;
     }
     return out;
@@ -2082,11 +2134,17 @@ struct Plugin
       pos = semi == std::string::npos ? chunk.size() : semi + 1;
       unsigned src = 0, dest = 0;
       double depth = 0;
-      if (std::sscanf(ent.c_str(), "%u:%u:%lf", &src, &dest, &depth) != 3) continue;
+      int pol = hypersaw::ModCore::kAsIs;   // B134: an ABSENT fourth field is as-is,
+      // which is what makes every pre-B134 chunk load to exactly what it meant
+      const int got = std::sscanf(ent.c_str(), "%u:%u:%lf:%d", &src, &dest, &depth, &pol);
+      if (got < 3) continue;
+      if (got < 4 || pol < hypersaw::ModCore::kAsIs || pol > hypersaw::ModCore::kInverted)
+        pol = hypersaw::ModCore::kAsIs;     // a garbage field degrades, never poisons
       // Through the shipped refusal path — a chunk naming a stepped dest, the
       // matrix's own controls, or a bad source is dropped, never trusted.
       if (!modAddRoute(src, dest)) continue;
       mod.routes[mod.nRoutes - 1].depth = std::max(-1.0, std::min(1.0, depth));
+      mod.routes[mod.nRoutes - 1].polarity = pol;
     }
   }
   int modAccum = 0;
@@ -5376,6 +5434,13 @@ extern "C" const char *hypersaw_debug_ownersjson(const clap_plugin_t *p)
 { static std::string j; j = self(p)->morphOwnersJson(); return j.c_str(); }
 extern "C" const char *hypersaw_debug_exemptjson(const clap_plugin_t *p)
 { static std::string j; j = self(p)->morphExemptJson(); return j.c_str(); }
+/* B134: the GUI's own view of the route table, headless. polarity_check needs
+   the SHELL's answer — that slot 17 is declared bipolar and slot 2 unipolar —
+   and the bridge that normally carries it is a webview no oracle can drive. */
+extern "C" const char *hypersaw_debug_modroutes(const clap_plugin_t *p)
+{ static std::string j; j = self(p)->modRoutesJson(); return j.c_str(); }
+extern "C" bool hypersaw_debug_modpolarity(const clap_plugin_t *p, int idx, int pol)
+{ return self(p)->modSetPolarity(idx, pol); }
 extern "C" bool hypersaw_debug_apply(const clap_plugin_t *p, const char *json)
 {
   return self(p)->applyStateJson(json ? json : "");
@@ -5540,6 +5605,7 @@ bool gui_create(const clap_plugin_t *p, const char *api, bool is_floating)
     if (i >= 0 && i < pl->mod.nRoutes) pl->mod.routes[i].depth = v;
   };
   hostIf.modSetSource = [pl](int i, uint32_t src) { return pl->modSetSource(i, src); };
+  hostIf.modSetPolarity = [pl](int i, int pol) { return pl->modSetPolarity(i, pol); };
   hostIf.setModWheel = [pl](double v) { pl->srcWheel = v < 0 ? 0 : (v > 1 ? 1 : v); };
   hostIf.modRemoveRoute = [pl](int i) { pl->mod.removeRoute(i); };
   hostIf.morphCornerValsJson = [pl](int k) { return pl->morphCornerValsJson(k); };

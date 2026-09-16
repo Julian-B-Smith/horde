@@ -661,8 +661,12 @@
      and the row read as an anonymous slider), so the row is TWO LINES: what the
      route IS on top, what it DOES underneath. It also leaves the natural place
      for B70's depth-mod control to land on line two. */
-  .row.modrow { grid-template-columns:88px minmax(0,1fr) 24px;
-    grid-template-areas:"src dest x" "depth depth val"; gap:4px 6px;
+  /* B134 added a fourth cell on line one. A <select> would have cost ~14px of
+     dropdown chrome on a row ADR-141 already measured as full, so polarity is
+     a 30px cycling BUTTON carrying its own state as text; the source select
+     gives up 16px to pay for it and the destination label ellipsizes as before. */
+  .row.modrow { grid-template-columns:72px 30px minmax(0,1fr) 24px;
+    grid-template-areas:"src pol dest x" "depth depth depth val"; gap:4px 6px;
     padding:4px 0 6px; border-bottom:1px dashed var(--line); }
   .row.modrow:last-child { border-bottom:0; }
   .row.modrow > select { grid-area:src; font-size:10px; min-width:0; }
@@ -671,6 +675,10 @@
   .row.modrow > input[type=range] { grid-area:depth; min-width:0; }
   .row.modrow > output { grid-area:val; text-align:right; }
   .row.modrow > button { grid-area:x; }
+  /* after the rule above, and more specific than it — order alone would not
+     be enough if either is ever moved */
+  .row.modrow > button.modpol { grid-area:pol; font-size:9px; padding:0 1px;
+    min-height:22px; letter-spacing:0; }
   /* B105(b): the manual destination picker, under the route list. Four
      stacked bands rather than one line, for the same measured reason the
      route row above is two lines — a search box, a grouped destination list
@@ -1029,7 +1037,11 @@
       source. Depth is ±1 of the destination's full range; the destination's own
       bounds always clamp the result. A parameter can carry <b>more than one</b>
       modulator — right-click it again for “Send another”, or pick it above; the
-      depths sum. Right-click a routed parameter to <b>release</b> it (releasing
+      depths sum. The cell beside each source sets that route's <b>polarity</b> —
+      <i>as-is</i> (the source's own), <i>uni</i> (0…1), <i>bi</i> (±1) or
+      <i>inv</i> (negated); it is a property of the route, so one modulator can
+      drive one destination unipolar and another bipolar.
+      Right-click a routed parameter to <b>release</b> it (releasing
       lets go of all of its modulators at once). The <b>Env &gt; Pitch</b> knob on
       OSC owns the Pitch row — its depth is in semitones, its source is fixed, and
       edits in either place stay in step.</div>
@@ -2614,6 +2626,26 @@ const MOD_SRC_NAMES = ['ENV 1', 'ENV 2', 'Macro 1', 'Macro 2', 'Macro 3', 'Macro
                        'XY1 X (retired)', 'XY1 Y (retired)', 'XY2 X (retired)', 'XY2 Y (retired)',   // ADR-156: read 0
                        // slots 14-17 (ADR-149): MIDI/MPE performance signals
                        'Velocity', 'Mod Wheel', 'Pressure', 'Pitch Wheel'];
+/* B134 — PER-ROUTE POLARITY. The vocabulary is the ROADMAP's: as-is (whatever
+   the source naturally emits) · uni (0…1) · bi (−1…+1) · inv (negated). The
+   source's OWN polarity is not listed here on purpose — it arrives per route
+   as `srcPol` from the shell, which owns the table; a second copy in JS is the
+   duplicated-key-chain failure L0005 records. */
+const MOD_POL_NAMES = ['as-is', 'uni', 'bi', 'inv'];
+const MOD_POL_HINT = ['as-is — the source\u2019s own polarity',
+                      'unipolar — the source is mapped to 0…1',
+                      'bipolar — the source is mapped to −1…+1',
+                      'inverted — the source is negated'];
+/* The span a route's MAPPED source covers, in source units, which is what the
+   halo's reach is depth × of. Pre-B134 the reach was always [0, depth] — true
+   for an envelope, a lie for the pitch wheel, and no longer either's guess. */
+function modSrcSpan(pol, srcPol) {
+  const bi = srcPol === 1;
+  if (pol === 1) return [0, 1];
+  if (pol === 2) return [-1, 1];
+  if (pol === 3) return bi ? [-1, 1] : [-1, 0];
+  return bi ? [-1, 1] : [0, 1];
+}
 /* Internal ids never reach the UI (human 2026-08-28: the pitch route rendered
    as "#2147483649"). Synthetic dests get their names here; per-osc twins strip
    the stride and borrow the base control's label with an osc tag. */
@@ -2672,6 +2704,26 @@ async function renderModRoutes() {
     src.addEventListener('change', async () => {
       if (await window.hzModSource(r.i, +src.value)) { r.src = +src.value; renderModRoutes().catch(() => {}); }
     });
+    /* B134: the polarity cell. A cycling button, not a select — see the CSS
+       note on .modrow. It deliberately does NOT re-render the list on success:
+       `r` IS the MODROUTES entry the halo pass reads, so mutating it is the
+       refresh, and a rebuild would take the focus off a control whose whole
+       interaction is clicking it repeatedly. The pitch route is disabled for
+       the same reason its source select is — knob 161 owns it (ADR-135). */
+    const pol = document.createElement('button');
+    pol.type = 'button'; pol.className = 'modpol';
+    const paintPol = () => {
+      const k = r.pol | 0;
+      pol.textContent = MOD_POL_NAMES[k];
+      pol.dataset.pol = String(k);
+      pol.title = MOD_POL_HINT[k] + (pol.disabled ? '' : ' — click to cycle');
+    };
+    pol.disabled = pitchRoute || !window.hzModPolarity;
+    paintPol();
+    pol.addEventListener('click', async () => {
+      const next = ((r.pol | 0) + 1) % MOD_POL_NAMES.length;
+      if (await window.hzModPolarity(r.i, next)) { r.pol = next; paintPol(); }
+    });
     const lab = document.createElement('label');
     lab.textContent = '→ ' + modDestLabel(r.dest);
     lab.title = modDestLabel(r.dest);
@@ -2685,7 +2737,8 @@ async function renderModRoutes() {
     x.type = 'button'; x.textContent = '×'; x.title = 'remove this route';
     x.style.minHeight = '22px';
     x.addEventListener('click', async () => { await window.hzModRemove(r.i); renderModRoutes(); });
-    row.appendChild(src); row.appendChild(lab); row.appendChild(sl); row.appendChild(out); row.appendChild(x);
+    row.appendChild(src); row.appendChild(pol); row.appendChild(lab);
+    row.appendChild(sl); row.appendChild(out); row.appendChild(x);
     box.appendChild(row);
   }
 }
@@ -2908,7 +2961,14 @@ async function modHaloFrame() {
       const el = haloEls && haloEls.get(d.id);
       if (!el) continue;                       // the other osc's twin: no visible control
       let lo = 0, hi = 0;
-      for (const r of generic) if (r.dest === d.id) { lo += Math.min(0, r.depth); hi += Math.max(0, r.depth); }
+      /* B134: reach is depth × the MAPPED source's span, not depth × [0,1] —
+         a bipolar route on a macro reaches below the base, and the drawing
+         has to say so or the halo contradicts the sound. */
+      for (const r of generic) if (r.dest === d.id) {
+        const sp = modSrcSpan(r.pol | 0, r.srcPol | 0);
+        const a = r.depth * sp[0], b = r.depth * sp[1];
+        lo += Math.min(a, b); hi += Math.max(a, b);
+      }
       if (lo === 0 && hi === 0) continue;
       seen.add(el);
       const prev = haloLast.get(el);
