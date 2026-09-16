@@ -188,6 +188,7 @@ function mk(o){
   const n=Object.assign({id:uid++,name:'Node',m:1,x:0.5,y:0.5,vx:0,vy:0,pinned:false,tx:'none',ty:'none',trail:[],hx:new Float32Array(240),hy:new Float32Array(240),ha:new Float32Array(240),hr:new Float32Array(240),hp:0},o);
   n.color=n.color||COLORS[nodes.length%COLORS.length];
   n.name=o.name||'Node '+(nodes.length+1);
+  n.hx.fill(outX(n)); n.hy.fill(outY(n)); n.ha.fill(outAngle(n)); n.hr.fill(outRadius(n));   // primed, so a fresh strip is flat at the truth, not a step from 0
   return n;
 }
 
@@ -516,6 +517,15 @@ function drawXYGraph(cv, b){
     g.stroke();
   }
   g.setLineDash([]);
+  // the live value, marked at the right edge — the strip visibly moves
+  const cur=(arr)=>arr[(b.hp+n-1)%n];
+  const [va,vb]=P.polar?[cur(b.ha),cur(b.hr)]:[cur(b.hx),cur(b.hy)];
+  g.fillStyle=c; g.beginPath(); g.arc(w-3,h-2-va*(h-4),2.5,0,6.2832); g.fill();
+  g.beginPath(); g.arc(w-3,h-2-vb*(h-4),2.5,0,6.2832); g.fill();
+  /* A frozen simulation draws flat lines that look like a broken graph (human
+     2026-09-16: "the graphs broke" — Time scale at 0 or Pause). Say so. */
+  const frozen=paused?'paused':(P.ts===0?'time scale 0':(b.pinned?'pinned':''));
+  if(frozen){ g.fillStyle='rgba(255,255,255,.55)'; g.font='10px system-ui,sans-serif'; g.textAlign='left'; g.fillText(frozen,4,11); }
 }
 function updateReadouts(){
   for(const el of $('nodes').children){
