@@ -5809,3 +5809,50 @@ and `verify full` proves it.
 
 **Consequence.** The table grows only when a class bites or is certain to;
 it is not a general IWYU tool and does not claim to be.
+
+## ADR-175 — A cyclic FX topology is processed sample by sample, modules included (2026-09-17, PROPOSED — B139, PR #618)
+
+**Context.** ADR-128 ruled that a backwards routing edge carries ONE SAMPLE
+of delay. `process()` honoured it; `processBlock()` — the path the shell
+calls — gathered a whole block per slot, so a cycle edge would have read the
+previous BLOCK: a delay equal to the host's buffer size, buffer-dependent
+output, the exact defect ADR-128 rejected. Latent while only acyclic cells
+are exposed (B50 phase 1); B139 is the fix that gates every feedback cell.
+
+**Decision (as built, for ratification at merge).** (1) When a topology
+carries a live cycle edge (detected once per block through the existing
+`connected()`/`edgeForward()` predicates — no third copy of the liveness
+rule), the whole pass runs sample by sample and every slot's module is
+called with n = 1, so the loop closes at sample rate. ADR-128's one-sample
+promise is a promise about the ENGINE, not about the scalar path. (2) A
+topology without a live cycle edge keeps the block-wise gather verbatim and
+stays bit-identical (parity 156/156, routing assertion 7's 0/1024, no golden
+regenerated). (3) `zPrevR` joins `zPrev` (a mono scalar path and a stereo
+block path cannot share one carry); `resetFeedback()` clears both;
+`processBlock` loses `const` because the carry is matrix state. (4) Oracle:
+routing_check 17–19 — block sizes 1/7/64/256 and the scalar path agree on 0
+samples (the plant that reads the current block disagrees on 3,071);
+silence in → 0 non-zero samples out at loop gain 1.2 while an impulse into
+the same loop reaches 1.55e20 (the loop cannot self-start); a 5 ms loop at
+0.6 decays to −208 dB inside 240 ms. Assertion 19 does not fire under
+either plant — a decay measurement cannot see a wrong-sample read;
+recorded as a coverage boundary (L0033), not retried.
+
+**Cost.** Acyclic default unchanged within noise (8.7 vs 8.9 ns/sample,
+±5 % spread). One-cycle topology 12.45 ns/sample, ≈1.44× — charged only
+while a cycle edge is live, which is the rework's "audibility costs" rule.
+
+**Consequences carried into B50 phase 2 (rulings, not inherited
+silently).** (a) A module inside a cycle receives n = 1 calls up to 44,100×
+per second: `FxRack::processSlot` is fine today, but any slot type that
+assumes a minimum block length — lookahead, block-FFT — is broken by
+construction, which is the proposal's "lookahead modules are refused loops
+as a RULE" arriving with teeth: the refusal must be a declared module
+property the shell checks, not a glitch. (b) The acyclic branch does not
+latch `zPrev`, so the first sample after a cycle edge goes live reads a
+stale carry — unobservable today; phase 2 rules whether the presence bit
+flips exactly as the coefficient leaves 0. (c) The regime switch is per
+block (an edge going live mid-block takes effect at the next boundary),
+consistent with every topology write, asserted nowhere. (d) Cycle
+accumulation runs in doubles, the acyclic gather in floats — a stated
+boundary, not a defect.
