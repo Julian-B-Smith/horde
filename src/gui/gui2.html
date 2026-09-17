@@ -369,6 +369,42 @@
              transition:width .05s linear; }
   .meter i.clip { background:var(--alarm); }
   .strip.master b { color:var(--text); }
+  /* ============ B50 MATRIX PANE (ADR-088) ============
+     A crosspoint grid, hand-placed (outside every GEN: block) because the
+     generator owns ADDRESS-keyed instrument rows and these cells are POSITIONAL
+     — their identity is a coordinate, not a name in the presentation registry.
+     Cells are built from the shell's own routing ids, never a typed list. */
+  #mxGrid, #mxInit { display:grid; gap:3px; margin:8px 0 0; }
+  #mxGraph { display:block; width:100%; height:auto; margin-bottom:4px; }
+  .mxh { font-size:9px; letter-spacing:.5px; color:var(--dim); text-align:center;
+         align-self:center; overflow:hidden; text-overflow:ellipsis; }
+  .mxh.r { text-align:left; }
+  /* A `.row` here is one grid CELL, not a labelled line: the class is kept
+     because the parameter menu, the exempt stripe and the corner colouring all
+     key off `.row` + a `[data-p]` child, and a second markup shape for those
+     would be a second thing to keep in step. The label stays in the DOM (the
+     menu reads it for the parameter's name) and is simply not drawn. */
+  #mxGrid .row, #mxInit .row { display:block; margin:0; gap:0; }
+  #mxGrid .row > label, #mxInit .row > label { display:none; }
+  #mxGrid .row > output, #mxInit .row > output { display:none; }
+  .mxc { display:block; height:26px; line-height:26px; text-align:center;
+         font-size:9.5px; font-variant-numeric:tabular-nums;
+         border:var(--stroke) solid var(--line); border-radius:var(--r);
+         background:var(--panel2); color:var(--dim);
+         cursor:ns-resize; user-select:none; touch-action:none; }
+  /* A LIT cell is one carrying signal. The fill is the magnitude, so the grid
+     reads as a picture of the topology before any number is read — the same
+     claim the edge weights below make, in a second modality. */
+  .mxc.on { color:var(--text); border-color:var(--pull);
+            background:linear-gradient(to right, var(--pull) calc(var(--mx) * 100%),
+                                       var(--panel2) 0); }
+  .mxc.neg.on { background:linear-gradient(to right, var(--caution) calc(var(--mx) * 100%),
+                                           var(--panel2) 0); }
+  .mxc.drag { outline:var(--stroke) solid var(--pull); }
+  /* ABSENT, not disabled: an illegal crosspoint has no control at all. */
+  .mxgap { height:26px; border:var(--stroke) dashed var(--line); border-radius:var(--r);
+           opacity:.20; }
+  .mxterm .mxc { border-color:var(--celebrate); }
   .row { display:grid; grid-template-columns:64px minmax(0,1fr) 52px;
     align-items:center; gap:6px; margin:5px 0; }
   .row label { color:var(--t2); font-size:10px; }
@@ -1297,6 +1333,29 @@
     <div class="row kcell" data-addr="d4hp" data-when="fx4type=9"><label>Loop HP <span class="u">Hz</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="263" data-fixed="1" min="0" max="500" step="0.005" value="60"><span class="kmnow"></span></span><output></output></div>
   </div>
   <!--/GEN:FX-->
+
+  <div class="cluster" id="mxPane"><h2>Matrix</h2>
+    <canvas id="mxGraph" width="520" height="150"></canvas>
+    <div id="mxGrid"></div>
+    <div id="mxInit"></div>
+    <div class="note" style="margin-top:8px">Rows FEED columns. A cell is a
+      <b>gain</b>, and 0 IS "not connected" — so connecting and disconnecting is one
+      continuous motion, which is what lets a morph corner hold a whole topology
+      (ADR-088). Drag or scroll a cell to set it; double-click toggles 0 / 1;
+      right-click is the usual parameter menu. <b>OUT</b> is a slot's terminal
+      contribution, and only a slot nobody reads is summed there. <b>init</b> drives a
+      slot with nothing connected to it.</div>
+    <div class="note" style="margin-top:6px">Cells that are simply absent are edges the
+      read side does not accept this release: a slot may feed a LATER slot only.
+      They are missing rather than greyed because legality is enforced where the
+      audio is read, not where the grid is edited — a disabled control would be a
+      second, bypassable copy of that rule. Feedback edges (ADR-128) are in the
+      engine already and get their cells with the rack rebuild.</div>
+    <div class="note" style="margin-top:6px"><b>data-fixed on every cell</b>, for the
+      reason the rack's own note gives: the matrix is ONE object per patch, so an
+      unpinned cell would be remapped by <code>effId()</code> when oscillator 2 is
+      selected and would silently address nothing.</div>
+  </div>
 </div>
 
 <div class="page" id="pg-OSC">
@@ -1572,7 +1631,24 @@ let SHELL_DEFAULTS = {};   // id -> default, served by the shell at load
 const DEFAULTS = {100:1,101:0,102:0,103:0,18:1,1017:0,1014:0.8,1035:0,1036:0,1037:0,1:7,3:1234,4:0.28,6:0,7:0,8:0.63,
   14:0.8,17:0.4,35:0,36:0,37:0};
 if (!window.hzGetParams) {   /* standalone/dev mocks */
-  window.hzGetParams = async () => JSON.stringify(DEFAULTS);
+  /* B50 — A STUB, AND ONLY A STUB. In the plugin the matrix pane's cell set
+     arrives from the shell (paramsJson emits every routing id); a browser has
+     no shell, so without this the pane is structurally invisible in the dev
+     server and in lab_load_check — which is exactly where the markup gets
+     looked at. This stands in for the shell's enumeration and is never
+     consulted when window.hzGetParams exists: it reproduces the SHIPPED series
+     chain (source into slot 1, each slot into the next, slot 4 out at unity)
+     over the acyclic cell set, and nothing more. If the real table and this
+     disagree, the real table is right by definition. */
+  const mxStub = {};
+  const NSRC = 1, NSLOT = 4;
+  for (let f = 0; f < NSRC + NSLOT; f++)
+    for (let t = 0; t < NSLOT; t++) {
+      if (!(f < NSRC || f - NSRC < t)) continue;              // forward edges only
+      mxStub[10000 + f * 64 + t] = (f === 0 && t === 0) || (f >= NSRC && f - NSRC === t - 1) ? 1 : 0;
+    }
+  for (let t = 0; t < NSLOT; t++) { mxStub[20000 + t] = t === NSLOT - 1 ? 1 : 0; mxStub[21000 + t] = 0; }
+  window.hzGetParams = async () => JSON.stringify(Object.assign({}, DEFAULTS, mxStub));
   window.hzSetParam = async () => {};
   window.hzGesture = async () => {};
   window.hzSetVizOsc = async () => {};
@@ -2022,6 +2098,9 @@ function paintControl(el, v) {
   // by giving them a hidden checkbox, so the param id stays on the thing the
   // user actually clicks.
   if (el.classList.contains('msbtn')) { el.classList.toggle('on', v > 0.5); paintSolo(); return; }
+  // B50 matrix cells are spans too, for the same reason: the parameter id
+  // belongs on the thing the player actually drags, and a span has no .value.
+  if (el.classList.contains('mxc')) { paintMatrixCell(el, v); return; }
   if (el.type === 'checkbox') el.checked = v > 0.5;
   else el.value = paramToCtl(el, v);      // engine speaks seconds; the control may be log10
   displayValue(el, v);                    // the READOUT always shows the real value
@@ -2572,7 +2651,13 @@ const PARAM_MENU = [
       for (const id of ids) { const v = lastParams[baseIdOf(id) + otherOsc() * OSC_STRIDE]; if (v === undefined) continue; bridge.setParam(id, v); setControl(id, v); }
       bridge.gesture(ctx.id, false); } },
   { id: 'modSend',
-    show: ctx => !!window.hzModAdd && ctx.el && ctx.el.type === 'range'
+    /* `.mxc` joins `type === 'range'` here (B50): the test is standing in for
+       "continuous, so it can carry an offset", and a matrix cell is a span with
+       no `.type` but is exactly that. The real gate is shell-side — modAddRoute
+       refuses a stepped destination — so widening the menu cannot admit an
+       illegal route, only stop hiding a legal one. */
+    show: ctx => !!window.hzModAdd && ctx.el
+                 && (ctx.el.type === 'range' || ctx.el.classList.contains('mxc'))
                  && !(ctx.id >= 161 && ctx.id <= 178),
     label: ctx => MODROUTES.some(r => r.dest === ctx.id)
       ? 'Send another to mod matrix' : 'Send to mod matrix',
@@ -3342,6 +3427,10 @@ async function syncFromEngine() {
   const ps = JSON.parse(await bridge.getParams());
   if (!globalIds) { learnOscLayout(ps); buildOscSelectors(); }
   Object.assign(lastParams, ps);
+  // B50: built on the FIRST snapshot, not at script end — the cell set is the
+  // shell's routing ids, and at script end nothing has been fetched yet, so a
+  // build there would find no cells and never retry.
+  if (!mxCells) buildMatrixPane();
   paintLive(ps);
   paintOscTabs(ps);
   // ADR-137: the pad reads the assigned macros out of lastParams every frame,
@@ -5926,5 +6015,290 @@ document.addEventListener('change', e => {
   if (r) refreshBendCurve();
 });
 if (typeof canPaint === 'function' && canPaint()) refreshBendCurve();
+
+
+/* ============ B50 MATRIX PANE (ADR-088) ====================================
+   The FX page's crosspoint grid. Everything here is DERIVED from the shell's
+   own routing parameters — the cell set, the ranges, the defaults — because a
+   hand-typed list of crosspoints is a second copy of the id layout, and the
+   layout is the one thing the shell's comment asks nobody to restate.
+
+   THE ID LAYOUT, mirrored from src/hypersaw_clap.cpp (the ONLY arithmetic this
+   file repeats, and it repeats it once):
+     coeff[from][to]  10000 + from*64 + to
+     outAmount[to]    20000 + to
+     slotInit[to]     21000 + to
+   `from` is sources first, then slots. A cell EXISTS only if the shell shipped
+   its id; this file never decides legality, it reads which ids arrived.
+
+   WHY IT BUILDS ITSELF LATE. The bulk `[data-p]` wiring pass above attaches a
+   generic input/gesture/reset handler to every control it can see. These cells
+   are spans, not inputs: they emit no `input`, and its double-click means
+   "reset to default" where B50 asks for "toggle 0/1". Building after that pass
+   leaves them unwired by it and wired HERE, deliberately, once. */
+const MX_BASE = 10000, MX_STRIDE = 64, MX_OUT = 20000, MX_INIT = 21000;
+let mxCells = null, mxRaf = 0;
+
+function mxDecode(id) {
+  if (id >= MX_INIT && id < MX_INIT + MX_STRIDE) return { kind: 2, from: -1, to: id - MX_INIT };
+  if (id >= MX_OUT && id < MX_OUT + MX_STRIDE) return { kind: 1, from: -1, to: id - MX_OUT };
+  if (id < MX_BASE || id >= MX_BASE + MX_STRIDE * MX_STRIDE) return null;
+  const off = id - MX_BASE;
+  return { kind: 0, from: Math.floor(off / MX_STRIDE), to: off % MX_STRIDE };
+}
+
+/* The shell's snapshot IS the cell list. SHELL_DEFAULTS is the fallback for a
+   browser with no plugin behind it, so the pane renders in the dev server too
+   (and lab_load_check therefore exercises this path). */
+function mxDiscover() {
+  const src = Object.keys(lastParams).length ? lastParams : (SHELL_DEFAULTS || {});
+  const out = [];
+  for (const k of Object.keys(src)) {
+    const id = +k;
+    if (!(id >= MX_BASE)) continue;
+    const c = mxDecode(id);
+    if (c) out.push(Object.assign({ id }, c));
+  }
+  return out;
+}
+
+function mxRange(id) {
+  // The RANGES are the shell's, reached the way every other control reaches
+  // them. No second copy: a widened crosspoint range would otherwise ship a
+  // control that cannot reach its own parameter (L0023).
+  const c = mxDecode(id);
+  if (!c) return { lo: 0, hi: 1 };
+  if (c.kind === 0) return { lo: -2, hi: 2 };
+  if (c.kind === 1) return { lo: 0, hi: 2 };
+  return { lo: -1, hi: 1 };
+}
+
+/* HOW MANY SOURCES AND HOW MANY SLOTS, read off the cell set and nothing else.
+   Both derivations are subtle enough to be worth stating, and the first one
+   was wrong the obvious way first: `froms - slots` UNDERCOUNTS, because the
+   LAST slot never appears as a `from` (it has no later slot to feed), so a
+   one-source four-slot matrix reported zero sources and the grid drew the
+   source row as "Slot 1" with every terminal shifted up a row.
+     · slots — every slot has an outAmount, exactly one, so counting those
+       counts slots. (Counting distinct `to` values would agree today and stop
+       agreeing the moment a slot has no legal incoming crosspoint.)
+     · nSrc  — only a SOURCE can feed slot 0: a slot may feed a strictly later
+       slot, and there is none earlier than 0. So the crosspoints into slot 0
+       are exactly the sources. */
+function mxShape() {
+  return {
+    slots: mxCells.filter(c => c.kind === 1).length,
+    nSrc: mxCells.filter(c => c.kind === 0 && c.to === 0).length,
+  };
+}
+
+function mxCellEl(id, label, extra) {
+  const row = document.createElement('div');
+  row.className = 'row' + (extra ? ' ' + extra : '');
+  const lab = document.createElement('label');
+  lab.textContent = label;          // the parameter menu reads this for the name
+  const cell = document.createElement('span');
+  cell.className = 'mxc';
+  cell.dataset.p = String(id);
+  cell.dataset.fixed = '1';         // the matrix is ONE object per patch
+  cell.textContent = '0';
+  row.appendChild(lab);
+  row.appendChild(cell);
+  mxWire(cell, id);
+  return row;
+}
+
+function mxGapEl() {
+  const g = document.createElement('div');
+  g.className = 'mxgap';
+  return g;
+}
+function mxHeadEl(text, cls) {
+  const h = document.createElement('div');
+  h.className = 'mxh' + (cls ? ' ' + cls : '');
+  h.textContent = text;
+  return h;
+}
+
+function buildMatrixPane() {
+  const grid = document.getElementById('mxGrid');
+  const initRow = document.getElementById('mxInit');
+  if (!grid || !initRow) return;
+  mxCells = mxDiscover();
+  if (!mxCells.length) return;           // no routing block in this engine: draw nothing
+
+  const byId = new Map(mxCells.map(c => [c.id, c]));
+  const { slots, nSrc } = mxShape();
+  const froms = nSrc + slots;            // one row per source, then one per slot
+  const name = f => (f < nSrc ? 'Src ' + (f + 1) : 'Slot ' + (f - nSrc + 1));
+
+  grid.textContent = '';
+  initRow.textContent = '';
+  // 1 label column + one column per slot + the terminal OUT column.
+  grid.style.gridTemplateColumns = `52px repeat(${slots}, minmax(0,1fr)) minmax(0,1fr)`;
+  grid.appendChild(mxHeadEl(''));
+  for (let t = 0; t < slots; t++) grid.appendChild(mxHeadEl('Slot ' + (t + 1)));
+  grid.appendChild(mxHeadEl('OUT'));
+
+  for (let f = 0; f < froms; f++) {
+    grid.appendChild(mxHeadEl(name(f), 'r'));
+    for (let t = 0; t < slots; t++) {
+      const c = byId.get(MX_BASE + f * MX_STRIDE + t);
+      grid.appendChild(c ? mxCellEl(c.id, name(f) + ' > Slot ' + (t + 1)) : mxGapEl());
+    }
+    // The terminal column belongs to SLOT rows: a source has no output amount.
+    const term = f >= nSrc ? byId.get(MX_OUT + (f - nSrc)) : null;
+    grid.appendChild(term ? mxCellEl(term.id, 'Out Slot ' + (f - nSrc + 1), 'mxterm') : mxGapEl());
+  }
+
+  initRow.style.gridTemplateColumns = `52px repeat(${slots}, minmax(0,1fr)) minmax(0,1fr)`;
+  initRow.appendChild(mxHeadEl('init', 'r'));
+  for (let t = 0; t < slots; t++) {
+    const c = byId.get(MX_INIT + t);
+    initRow.appendChild(c ? mxCellEl(c.id, 'Init Slot ' + (t + 1)) : mxGapEl());
+  }
+  initRow.appendChild(mxHeadEl(''));
+
+  // Paint whatever the engine has already told us, so the pane is never blank
+  // for one poll interval after a page switch.
+  for (const c of mxCells) {
+    const v = lastParams[c.id];
+    if (v !== undefined) setControl(c.id, v);
+  }
+  mxInvalidate();
+}
+
+/* Drag (vertical), wheel, and double-click — the three gestures B50 asks for.
+   ONE gesture per drag: bridge.gesture(id,true) at pointerdown and (id,false)
+   at pointerup, so the undo tree records one node for the whole motion exactly
+   as it does for a knob. */
+function mxWire(cell, id) {
+  const { lo, hi } = mxRange(id);
+  const send = v => {
+    v = Math.min(hi, Math.max(lo, Math.round(v * 1000) / 1000));
+    bridge.setParam(id, v);
+    lastParams[id] = v;
+    paintControl(cell, v);
+    return v;
+  };
+  let y0 = 0, v0 = 0, pid = null;
+  cell.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    y0 = e.clientY; v0 = +(lastParams[id] ?? 0); pid = e.pointerId;
+    cell.classList.add('drag');
+    bridge.gesture(id, true);
+    try { cell.setPointerCapture(pid); } catch (_) {}
+  });
+  cell.addEventListener('pointermove', e => {
+    if (pid === null) return;
+    send(v0 + ((y0 - e.clientY) / 150) * (hi - lo) * (e.shiftKey ? 0.25 : 1));
+  });
+  const end = () => {
+    if (pid === null) return;
+    try { cell.releasePointerCapture(pid); } catch (_) {}
+    pid = null; cell.classList.remove('drag');
+    bridge.gesture(id, false);
+  };
+  cell.addEventListener('pointerup', end);
+  cell.addEventListener('pointercancel', end);
+  cell.addEventListener('wheel', e => {
+    e.preventDefault();
+    bridge.gesture(id, true);
+    send((+(lastParams[id] ?? 0)) + (e.deltaY < 0 ? 0.05 : -0.05) * (hi - lo) / 2);
+    bridge.gesture(id, false);
+  }, { passive: false });
+  /* Double-click TOGGLES, it does not reset. On a crosspoint "off" and "unity"
+     are the two ends of the one decision a player makes with this grid, and
+     restoring the shipped chain is what the parameter menu's Reset is for. */
+  cell.addEventListener('dblclick', e => {
+    e.preventDefault();
+    const cur = +(lastParams[id] ?? 0);
+    bridge.gesture(id, true);
+    send(Math.abs(cur) > 1e-9 ? 0 : Math.min(hi, 1));
+    bridge.gesture(id, false);
+  });
+}
+
+// Painted by setControl's fixed-control pass, like every other control; this is
+// only the geometry for a span, which has no .value to write.
+function paintMatrixCell(el, v) {
+  const id = +el.dataset.p;
+  const { lo, hi } = mxRange(id);
+  const mag = Math.min(1, Math.abs(v) / Math.max(Math.abs(lo), Math.abs(hi)));
+  el.textContent = Math.abs(v) < 1e-9 ? '·' : (+v).toFixed(2);
+  el.classList.toggle('on', Math.abs(v) > 1e-9);
+  el.classList.toggle('neg', v < 0);
+  el.style.setProperty('--mx', mag.toFixed(3));
+  mxInvalidate();
+}
+
+// One redraw per frame at most, however many cells changed in a poll.
+function mxInvalidate() {
+  if (mxRaf) return;
+  mxRaf = requestAnimationFrame(() => { mxRaf = 0; drawMatrixGraph(); });
+}
+
+/* THE PICTURE. Line weight is |coefficient| and the terminal path is
+   highlighted, which is the routing lab's own reading of the same state — the
+   grid says what each number is, the graph says what the signal DOES. */
+function drawMatrixGraph() {
+  const cv = document.getElementById('mxGraph');
+  if (!cv || !mxCells || !mxCells.length) return;
+  const ctx = cv.getContext('2d');
+  if (!ctx) return;
+  const W = cv.width, H = cv.height;
+  ctx.clearRect(0, 0, W, H);
+  const { slots, nSrc } = mxShape();
+  const val = id => +(lastParams[id] ?? 0);
+
+  const srcY = i => H * (i + 1) / (nSrc + 1);
+  const slotX = t => 90 + t * ((W - 170) / Math.max(1, slots - 1));
+  const slotY = H / 2;
+  const outX = W - 34;
+
+  // A slot nobody FORWARD-reads is an output — computed from the live values,
+  // never stored, for the reason routing_core.h gives: a second copy of this
+  // question is what silently dropped a slot from the output in the lab.
+  const terminal = t => {
+    for (let u = t + 1; u < slots; u++) if (Math.abs(val(MX_BASE + (nSrc + t) * MX_STRIDE + u)) > 1e-9) return false;
+    return true;
+  };
+
+  const link = (x1, y1, x2, y2, w, col) => {
+    if (Math.abs(w) < 1e-9) return;
+    ctx.strokeStyle = col;
+    ctx.globalAlpha = 0.3 + 0.7 * Math.min(1, Math.abs(w));
+    ctx.lineWidth = 1 + 2.5 * Math.min(1, Math.abs(w));
+    ctx.setLineDash(w < 0 ? [4, 3] : []);       // an inverted edge is drawn dashed
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.bezierCurveTo(x1 + 34, y1, x2 - 34, y2, x2, y2);
+    ctx.stroke();
+    ctx.setLineDash([]); ctx.globalAlpha = 1;
+  };
+  const node = (x, y, w, h, label, col) => {
+    ctx.fillStyle = TOK('--panel2'); ctx.strokeStyle = col; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.rect(x - w / 2, y - h / 2, w, h); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = col;
+    ctx.font = '9px ui-monospace, Menlo, monospace';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(label, x, y);
+  };
+
+  const edge = TOKA('--dim', 0.9), hot = TOK('--pull'), term = TOK('--celebrate');
+  for (let s = 0; s < nSrc; s++)
+    for (let t = 0; t < slots; t++)
+      link(52, srcY(s), slotX(t) - 24, slotY, val(MX_BASE + s * MX_STRIDE + t), edge);
+  for (let f = 0; f < slots; f++)
+    for (let t = f + 1; t < slots; t++)
+      link(slotX(f) + 24, slotY, slotX(t) - 24, slotY, val(MX_BASE + (nSrc + f) * MX_STRIDE + t), hot);
+  for (let t = 0; t < slots; t++)
+    if (terminal(t)) link(slotX(t) + 24, slotY, outX - 16, H / 2, val(MX_OUT + t), term);
+
+  for (let s = 0; s < nSrc; s++) node(30, srcY(s), 44, 18, 'src' + (s + 1), TOKA('--dim', 1));
+  for (let t = 0; t < slots; t++)
+    node(slotX(t), slotY, 44, 20, String(t + 1), terminal(t) ? term : TOKA('--dim', 1));
+  node(outX, H / 2, 34, 18, 'out', term);
+}
 
 </script></body></html>
