@@ -340,6 +340,17 @@ if(NOT MSVC)
   target_compile_options(polarity_check PRIVATE -O2)
 endif()
 
+# B89 phase 1 parameter classification (paramclass_check). STANDALONE and NOT
+# in ./verify — wiring a gate is the human's decision, proposed in the PR that
+# adds it. Prints the full class table before it asserts: the classification is
+# a judgement the human reviews, and a green exit says only that the rule is
+# self-consistent. Reuses statefix_common.h's stub host.
+add_executable(paramclass_check tools/paramclass_check.cpp)
+target_link_libraries(paramclass_check PRIVATE ${PROJECT_NAME}-impl)
+if(NOT MSVC)
+  target_compile_options(paramclass_check PRIVATE -O2)
+endif()
+
 add_executable(gen_state_fixtures tools/gen_state_fixtures.cpp)
 target_link_libraries(gen_state_fixtures PRIVATE ${PROJECT_NAME}-impl)
 add_executable(statefix_check tools/statefix_check.cpp)

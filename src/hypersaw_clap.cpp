@@ -816,6 +816,141 @@ const ParamDef *findParam(clap_id id)
   return nullptr;
 }
 
+/* ---- PARAMETER CLASS (QM-4 §3.2 / ADR-152; B89 phase 1) --------------------
+   Every parameter is morphable, structural, or device:
+
+     morphable  lives in a corner, blends/flips per-parameter
+     structural lives at device level with a per-corner REQUEST; resolves
+                atomically, never blended (§8)
+     device     not part of the morph at all — sources, not destinations
+
+   THE CLASS IS DEFINITION, NOT STATE. It is never persisted, never reaches the
+   host (no CLAP flag; phase 2 decides what a host sees), and never varies per
+   instance. That is the whole reason it is DERIVED here rather than stored as
+   a ninth column on 243 frozen rows:
+     - a column means editing all 243 rows, and every one of those rows carries
+       a frozen id, range and default — a diff that touches them all to add a
+       field that no row's behaviour depends on is risk with no payment;
+     - a column states the rule 243 times and therefore has 243 chances to
+       disagree with it, with nowhere the rule itself is written down. §9's
+       instruction is to classify by rule, so the rule is the artifact;
+     - a derived class means the 244th parameter is classified the day it is
+       appended, instead of silently inheriting whatever enum value is 0.
+   The cost accepted in exchange: the exceptions are a lookup table, so an
+   exception is invisible at the row it applies to. kParamClassOverrides is
+   therefore ordered by id and every entry carries its reason.
+
+   THE RULE, WRITTEN ONCE:
+     1. an id in kParamClassOverrides takes the class stated there;
+     2. otherwise STEPPED -> structural. A stepped value cannot be blended, so
+        the morph already ARGMAX-jumps it (ADR-150's note on octave/semi) —
+        "resolves atomically" is a description of shipped behaviour, not a new
+        rule;
+     3. otherwise CONTINUOUS -> morphable.
+   §8's carve-out ("including continuous-valued ones that select structure") is
+   exactly what the override table's structural entries are for: rule 2 already
+   catches every STEPPED structure selector (Voices, Engine, FX type, Osc On,
+   Mute/Solo, D*Sync), so only a continuous one needs naming.
+
+   KEYED ON THE BASE ID. An oscillator and its +1000 twin share one ParamDef,
+   so they share a class by construction — a class that differed between twins
+   would be a property of the instance, not of the parameter.
+
+   DELIBERATELY DOES NOT CONSULT morphIds. The morph field is built separately
+   (morphInit), so `no morphIds member is device` is a real cross-check between
+   two independently authored lists — paramclass_check asserts it. Derive the
+   class FROM the field and that assertion certifies nothing (L0032). */
+/* The numbers ARE the exported contract (hypersaw_debug_paramclass returns
+   them); paramclass_check anchors one id per class so a reorder cannot pass
+   silently. Display strings live at the reader, not here — the definition owes
+   a class, not a caption. */
+enum class ParamClass
+{
+  Morphable = 0,
+  Structural = 1,
+  Device = 2
+};
+
+struct ParamClassRule
+{
+  clap_id id;
+  ParamClass cls;
+  const char *reason;
+};
+
+/* THE EXCEPTIONS, and only the exceptions. Ordered by id. */
+static const ParamClassRule kParamClassOverrides[] = {
+    // (dev) vestigial: ADR-102 took it out of the DSP; it exists so stored
+    // state still loads. Nothing reads it, so it is in no corner's gift.
+    {89, ParamClass::Device, "(dev) not read by the DSP (ADR-102); state compat only"},
+    // §3.2 names master volume as the device-class example.
+    {100, ParamClass::Device, "master volume — §3.2's own device example"},
+    // 151-158: the morph controls. The field must not morph its own position.
+    {151, ParamClass::Device, "morph control — the field cannot morph itself"},
+    {152, ParamClass::Device, "morph position — §3.2: a source, not a destination"},
+    {153, ParamClass::Device, "morph position — §3.2: a source, not a destination"},
+    {154, ParamClass::Device, "morph control — shapes the resolver itself"},
+    {155, ParamClass::Device, "morph control — shapes the resolver itself"},
+    {156, ParamClass::Device, "morph control — the field's flip topology"},
+    {157, ParamClass::Device, "morph control — how the field resolves"},
+    {158, ParamClass::Device, "morph control — the field's own rate"},
+    // ADR-109: an edit-routing mode that morphed would change where your edits
+    // land as you move the pad. Its row says so already.
+    {159, ParamClass::Device, "drives the morph — corner-edit arming (ADR-109)"},
+    // Continuous, but it is the voice-retirement threshold: §8's structure
+    // selector (voice count), and its row already declares it non-morphable.
+    {160, ParamClass::Structural, "selects VOICE COUNT (continuous §8 selector)"},
+    // A mod ROUTE's depth. §6 tiers routings; a route is not a corner value.
+    {161, ParamClass::Device, "mod-matrix route depth — tiered by §6, not a corner value"},
+    // ENV 2 is a global modulation SOURCE; §3.2 puts global mod sources here.
+    {162, ParamClass::Device, "ENV 2 is a global mod source (§3.2)"},
+    {163, ParamClass::Device, "ENV 2 is a global mod source (§3.2)"},
+    {164, ParamClass::Device, "ENV 2 is a global mod source (§3.2)"},
+    {165, ParamClass::Device, "ENV 2 is a global mod source (§3.2)"},
+    // The macros ARE the intents. §3.2: intent values are device; ADR-137 had
+    // already ruled all twelve out of the morph field for the same reason.
+    {166, ParamClass::Device, "macro = intent value (§3.2; ADR-137)"},
+    {167, ParamClass::Device, "macro = intent value (§3.2; ADR-137)"},
+    {168, ParamClass::Device, "macro = intent value (§3.2; ADR-137)"},
+    {169, ParamClass::Device, "macro = intent value (§3.2; ADR-137)"},
+    {170, ParamClass::Device, "macro = intent value (§3.2; ADR-137)"},
+    {171, ParamClass::Device, "macro = intent value (§3.2; ADR-137)"},
+    {172, ParamClass::Device, "macro = intent value (§3.2; ADR-137)"},
+    {173, ParamClass::Device, "macro = intent value (§3.2; ADR-137)"},
+    // Which macro a pad axis writes — intent plumbing, not a timbre.
+    {174, ParamClass::Device, "intent assignment — which macro an axis writes (ADR-137)"},
+    {175, ParamClass::Device, "intent assignment — which macro an axis writes (ADR-137)"},
+    {176, ParamClass::Device, "intent assignment — which macro an axis writes (ADR-137)"},
+    {177, ParamClass::Device, "intent assignment — which macro an axis writes (ADR-137)"},
+    // GUI renderer on/off (ADR-140). No audio path at all.
+    {178, ParamClass::Device, "GUI renderer toggle (ADR-140) — outside the audio path"},
+    {179, ParamClass::Device, "intent assignment — MAIN pad's axes (ADR-150)"},
+    {180, ParamClass::Device, "intent assignment — MAIN pad's axes (ADR-150)"},
+    // (dev) B117/ADR-163: buried, ids kept so saved state loads.
+    {264, ParamClass::Device, "(dev) buried rack policy (B117/ADR-163)"},
+    {265, ParamClass::Device, "(dev) buried rack policy (B117/ADR-163)"},
+};
+
+/* The class of `id` and the one-line reason it has that class. False for an id
+   that is not a parameter (including a global's non-existent +1000 twin). */
+inline bool paramClassOf(clap_id id, ParamClass &cls, const char *&reason)
+{
+  const ParamDef *d = findParam(id);
+  if (!d) return false;
+  const clap_id base = baseIdOf(id);
+  for (const auto &r : kParamClassOverrides)
+    if (r.id == base)
+    {
+      cls = r.cls;
+      reason = r.reason;
+      return true;
+    }
+  cls = d->stepped ? ParamClass::Structural : ParamClass::Morphable;
+  reason = d->stepped ? "stepped: cannot blend, resolves atomically"
+                      : "continuous DSP value: blends inside its corner";
+  return true;
+}
+
 // Grid cycles/beat quantizes to musical (rational) divisions — the param
 // stores the actual cycles-per-beat value (state stays forward-compatible),
 // but applyParam snaps and value_to_text names the fraction.
@@ -5424,6 +5559,21 @@ bool gui_get_preferred_api(const clap_plugin_t *, const char **api, bool *is_flo
    shipped unobserved. These are the same two calls the GUI buttons make,
    exported so a probe can make them without a webview. Not part of the CLAP
    surface; not for hosts. */
+/* B89 phase 1 — the classification, readable from a tool. NO plugin handle:
+   the class is definition, not instance state, so an export that took one
+   would imply it could differ between instances. Returns the ParamClass as an
+   int, or -1 if `id` is not a parameter. `keyOut`/`reasonOut` may be null. */
+extern "C" int hypersaw_debug_paramclass(uint32_t id, const char **keyOut,
+                                         const char **reasonOut)
+{
+  ParamClass cls;
+  const char *reason = nullptr;
+  if (!paramClassOf((clap_id)id, cls, reason)) return -1;
+  if (keyOut) *keyOut = findParam((clap_id)id)->coreKey;
+  if (reasonOut) *reasonOut = reason;
+  return (int)cls;
+}
+
 extern "C" void hypersaw_debug_state(const clap_plugin_t *p, char *out, uint32_t cap)
 {
   const std::string j = self(p)->stateJson();
