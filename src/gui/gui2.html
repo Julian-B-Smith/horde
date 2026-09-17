@@ -6246,6 +6246,18 @@ function buildMatrixPane() {
    ONE gesture per drag: bridge.gesture(id,true) at pointerdown and (id,false)
    at pointerup, so the undo tree records one node for the whole motion exactly
    as it does for a knob. */
+// The shipped series chain, as a function of the cell's coordinates (see the
+// id-layout comment in the shell): coeff Src→Slot 1 and slot k → slot k+1 are
+// unity, the last slot's OUT amount is unity, everything else — including every
+// slotInit — is 0. nSrc/nSlots come from the discovered cell set, not a literal.
+function mxDefault(id) {
+  const c = mxCells.find(x => x.id === id); if (!c) return 0;
+  const nSrc = mxCells.filter(x => x.kind === 0 && x.to === 0).length;
+  const nSlots = mxCells.filter(x => x.kind === 1).length;
+  if (c.kind === 0) return (c.from === 0 && c.to === 0) || (c.from >= nSrc && c.from - nSrc === c.to - 1) ? 1 : 0;
+  if (c.kind === 1) return c.to === nSlots - 1 ? 1 : 0;
+  return 0;
+}
 function mxWire(cell, id) {
   const { lo, hi } = mxRange(id);
   const send = v => {
@@ -6281,14 +6293,16 @@ function mxWire(cell, id) {
     send((+(lastParams[id] ?? 0)) + (e.deltaY < 0 ? 0.05 : -0.05) * (hi - lo) / 2);
     bridge.gesture(id, false);
   }, { passive: false });
-  /* Double-click TOGGLES, it does not reset. On a crosspoint "off" and "unity"
-     are the two ends of the one decision a player makes with this grid, and
-     restoring the shipped chain is what the parameter menu's Reset is for. */
+  /* Double-click RESETS TO DEFAULT, like every knob (resetToDefault) — human
+     2026-09-17: "revert the feeds to 0, unless they're along the main diagonal".
+     The default table IS that sentence: the series chain (Src→Slot 1, each slot
+     → the next, the last slot → OUT) is 1, every other cell 0. Derived from the
+     cell's own from/to, never a stored number, so it cannot drift from the
+     shell's defaults (which reproduce the same chain — routing_check T10). */
   cell.addEventListener('dblclick', e => {
     e.preventDefault();
-    const cur = +(lastParams[id] ?? 0);
     bridge.gesture(id, true);
-    send(Math.abs(cur) > 1e-9 ? 0 : Math.min(hi, 1));
+    send(Math.min(hi, mxDefault(id)));
     bridge.gesture(id, false);
   });
 }
