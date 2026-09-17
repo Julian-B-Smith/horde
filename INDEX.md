@@ -62,3 +62,4 @@ swarm-dynamics · parity-oracle · plugin-platform · realtime-perf
 - [L0050] A draft filing in a sibling's tree turns our verify red — deliver as a PR on their repo, return their checkout to main (integrations · verify)
 - [L0051] A background oracle's exit code is the wrapper's — chain the commit to the oracle in one shell line; grep the log for RED before git (verify · process)
 - [L0052] A correctness sandbox is not a timing harness — vm globals cost ~56×; time in the main context, cite the tree an oracle ran on (labs · profiling)
+- [L0053] A fresh worktree has empty submodules — `git submodule update --init --recursive` before cmake; say it in the brief (agents · build)
