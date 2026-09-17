@@ -655,7 +655,10 @@ static const ParamDef kParams[] = {
        label for a control that is not product surface (id 70 is the precedent);
        after the ruling the control is either buried — id kept so stored state
        still loads — or promoted to a setting. */
-    {264, "fxXfade", "FX Type Crossfade (dev)", 0, 1, 0, true, kFxXfadeLabels},
+    // B117 RULED 2026-09-16 (ADR-163 A2): the toggle is BURIED — no control in any
+    // GUI, ids kept so saved state loads, default flipped to crossfade so the
+    // ruled behaviour is what a patch that never wrote the id gets.
+    {264, "fxXfade", "FX Type Crossfade (dev)", 0, 1, 1, true, kFxXfadeLabels},
     {265, "fxXfadeMs", "FX Crossfade Time (dev)", 5, 500, 80, false, nullptr},
 };
 
