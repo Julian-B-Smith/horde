@@ -5678,3 +5678,32 @@ made trajectory bit-identity the gate. Step rate: the spec's 1/960 s is the
 port's; the lab runs 1/480 s and the port's oracle is behavioural (period
 ±1 %), so the two rates are not a parity claim against each other — the
 lab is not edited to match.
+
+## ADR-172 — FX final form: one instance per module type at 1.0; faces first, deep pages on evidence (2026-09-17)
+
+**Context.** `docs/proposals/fx-matrix-rework.md` Part 2 left two trade-offs
+to the human: instance policy and how much of each module's deep set exists
+at 1.0. Since it was written: MAW is the Saturator rebuild and FX-C (ADR-170,
+ADR-092 amendment); WARP is parked; Sluice is a hosted module with an ABI
+that exports its interior coefficient set (ADR-166 A1–A3); and ADR-169 gives
+every hosted module the same four-role macro face (Amount, Tone, Motion,
+Regen) with a two-instance cap per host for cross-preset morph.
+
+**Decision.** Human (2026-09-17): "I'll ratify the one-instance per module
+type at 1.0." Module identity is structural; "two Drives" is not
+expressible; the roster grows a second flavour of a popular module before it
+grows sockets. The ADR-169 two-instance cap is not a contradiction: those
+are the SAME type's two presets crossfading inside one host, not two
+modules. On the deep set, the human is unsure and rules a TEST, not a
+policy: "I'm not sure how I feel about faces only but we can test it to
+start." So 1.0 ships every module with its four-role face and nothing else
+host-exposed; a module earns a deep page by evidence — a patch the face
+cannot express, named in a ROADMAP row — and the architecture does not
+change when it does (deep pages hang off the same host, ADR-169 §4's
+embedded module preset carries their values). Revisit trigger recorded on
+B50, not on a date.
+
+**Roster corrections carried into B50.** Distortion/colour = MAW (one
+module, subsuming Saturator and WARP); Sluice hosted, its coefficient set is
+what the crosspoint reads; the "macro face" of Part 2 §4 IS the ADR-169 slot
+set — B50 gains no second face design.
