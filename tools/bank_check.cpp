@@ -379,7 +379,7 @@ int main(int argc, char **argv)
     // D: cornerNames name shipped corner presets, and the corners agree
     const std::vector<std::string> names = cornerNamesOf(blob);
     check(names.size() == 4, tag + ": carries cornerNames");
-    check(blob.find("\"morphLayout\":3") != std::string::npos, tag + ": carries morphLayout 3");   // 3 since B50 phase 1 (routing block appended)
+    check(blob.find("\"morphLayout\":4") != std::string::npos, tag + ": carries morphLayout 4");   // 4 since B50 phase 1c (dry-path cells appended); 3 = phase 1
     check(blob.find("\"schema\":3") != std::string::npos, tag + ": carries the state header");
     for (size_t k = 0; k < names.size(); k++)
     {
