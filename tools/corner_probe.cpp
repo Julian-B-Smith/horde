@@ -12,6 +12,7 @@ extern "C" const char *hypersaw_debug_exemptjson(const clap_plugin_t*);
 extern "C" const char *hypersaw_debug_ownersjson(const clap_plugin_t*);
 extern "C" const char *hypersaw_debug_cornervals(const clap_plugin_t*, int);
 #include <string>
+#include <cstdlib>
 namespace { 
 #include "notefuzz_scaffold.inc"
 }

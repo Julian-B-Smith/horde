@@ -24,6 +24,11 @@
  */
 
 #include <filesystem>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <string>
+#include <vector>
 #include "statefix_common.h"
 
 namespace fs = std::filesystem;

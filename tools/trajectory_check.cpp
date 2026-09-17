@@ -16,6 +16,8 @@
 #include <cmath>
 #include <vector>
 #include <string>
+#include <algorithm>
+#include <cstring>
 
 #include "../src/swarm_core.h"
 #include "../src/morph_core.h"

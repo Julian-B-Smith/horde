@@ -7,6 +7,7 @@
 
 #import <Cocoa/Cocoa.h>
 
+#include <memory>
 #include "hypersaw_gui_common.h"
 
 namespace hypersaw

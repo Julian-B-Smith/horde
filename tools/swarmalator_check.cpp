@@ -17,6 +17,8 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <algorithm>
+#include <cstdlib>
 
 #include "../src/swarmalator_core.h"
 

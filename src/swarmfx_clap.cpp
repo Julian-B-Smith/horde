@@ -17,6 +17,8 @@
 #include <cstring>
 #include <string>
 #include <clap/clap.h>
+#include <algorithm>
+#include <cstdlib>
 
 #include "filter_core.h"
 #include "notch_core.h"

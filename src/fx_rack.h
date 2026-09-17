@@ -25,6 +25,7 @@
 #include <cstring>
 #include <memory>
 #include <vector>
+#include <algorithm>
 
 #include "notch_core.h"
 #include "time_core.h"

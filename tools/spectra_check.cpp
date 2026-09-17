@@ -19,6 +19,8 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <algorithm>
+#include <cstdlib>
 
 #include "../src/spectra_core.h"
 #include "../src/swarm_core.h"

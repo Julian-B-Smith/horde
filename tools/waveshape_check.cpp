@@ -10,6 +10,7 @@
 #include <cstdio>
 #include <cmath>
 #include <vector>
+#include <algorithm>
 #include "../src/swarm_core.h"
 #include "../src/fx_rack.h"
 using namespace hypersaw;

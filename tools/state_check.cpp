@@ -20,6 +20,8 @@
 #include <string>
 #include <vector>
 #include <clap/clap.h>
+#include <algorithm>
+#include <cstdlib>
 
 #include "../src/hypersaw_clap_entry.h"
 

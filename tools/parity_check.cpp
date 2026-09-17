@@ -21,6 +21,7 @@
 #include <vector>
 #include <fstream>
 #include <sstream>
+#include <algorithm>
 
 #include "../src/swarm_core.h"
 
