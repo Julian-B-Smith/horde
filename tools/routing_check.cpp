@@ -12,6 +12,7 @@
  */
 #include <cmath>
 #include <cstdio>
+#include <string>    // MSVC: std::string is not reachable transitively (CI build-windows, PR #607)
 #include <vector>
 
 #include <cstring>
