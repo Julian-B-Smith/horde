@@ -28,6 +28,7 @@ extern "C" double hypersaw_debug_routing(const clap_plugin_t *, int from, int to
 extern "C" bool hypersaw_debug_routing_on(const clap_plugin_t *, int from, int to);
 extern "C" double hypersaw_debug_routing_out(const clap_plugin_t *, int to);
 extern "C" double hypersaw_debug_routing_init(const clap_plugin_t *, int to);
+extern "C" double hypersaw_debug_routing_srcout(const clap_plugin_t *, int from);
 extern "C" const char *hypersaw_debug_routing_ids(void);
 
 constexpr double kPi = 3.141592653589793;
@@ -81,6 +82,23 @@ static const clap_event_header_t *evGet(const clap_input_events_t *l, uint32_t i
 static bool outPush(const clap_output_events_t *, const clap_event_header_t *) { return true; }
 
 struct Cell { unsigned id; int kind, from, to; };
+
+/* ONE reader for a cell's live value, whatever kind it is — assertion 8 and
+   matrixEqual both go through here. Two copies of this switch is how a new
+   kind gets read as 0 by one of them and correctly by the other, which reads
+   as a shell bug and is not one: when kRoutingSrcOut (kind 3) was added, the
+   copy inside assertion 8 fell through to the slotInit reader with to = -1 and
+   reported "wrote 0.73 got 0" while the parameter had in fact arrived. */
+static double cellValue(const clap_plugin_t *p, const Cell &c)
+{
+  switch (c.kind)
+  {
+    case 0: return hypersaw_debug_routing(p, c.from, c.to);
+    case 1: return hypersaw_debug_routing_out(p, c.to);
+    case 3: return hypersaw_debug_routing_srcout(p, c.from);
+    default: return hypersaw_debug_routing_init(p, c.to);
+  }
+}
 
 /* The cell list comes FROM the shell (hypersaw_debug_routing_ids). Re-deriving
    the id layout here would be a second copy of decodeRoutingId, and a probe
@@ -187,13 +205,7 @@ static bool matrixEqual(const clap_plugin_t *a, const clap_plugin_t *b,
 {
   for (const Cell &c : cells)
   {
-    const double x = c.kind == 0 ? hypersaw_debug_routing(a, c.from, c.to)
-                   : c.kind == 1 ? hypersaw_debug_routing_out(a, c.to)
-                                 : hypersaw_debug_routing_init(a, c.to);
-    const double y = c.kind == 0 ? hypersaw_debug_routing(b, c.from, c.to)
-                   : c.kind == 1 ? hypersaw_debug_routing_out(b, c.to)
-                                 : hypersaw_debug_routing_init(b, c.to);
-    if (x != y) return false;
+    if (cellValue(a, c) != cellValue(b, c)) return false;
     if (c.kind == 0 && hypersaw_debug_routing_on(a, c.from, c.to)
                            != hypersaw_debug_routing_on(b, c.from, c.to))
       return false;   // the presence bit is part of the topology, not a detail
@@ -453,9 +465,7 @@ int main()
       const double want = inf.min_value
                           + (inf.max_value - inf.min_value) * (0.13 + 0.047 * (seen % 13));
       r.set(c.id, want);
-      const double got = c.kind == 0 ? hypersaw_debug_routing(r.p, c.from, c.to)
-                       : c.kind == 1 ? hypersaw_debug_routing_out(r.p, c.to)
-                                     : hypersaw_debug_routing_init(r.p, c.to);
+      const double got = cellValue(r.p, c);
       if (std::fabs(got - want) > 1e-9)
       {
         if (!bad) { badId = c.id; badWrote = want; badGot = got; }
@@ -652,6 +662,171 @@ int main()
                   cut, want, fed);
     check(std::fabs(cut - want) < 1e-12 && std::fabs(fed - cut) > 1e-9,
           "a slot fed by nothing contributes nothing", d);
+  }
+
+  /* ======================================================================
+     B50 PHASE 1c — THE DRY PATH (assertions 14-16).
+     The brief numbers these (16)-(18); they are blocks 14-16 here, because the
+     file's own blocks run 1-13. Recorded so the two numberings are not read as
+     three missing assertions.
+     ====================================================================== */
+
+  // ---- 14. Src->OUT = 1 with the rack cut out IS the dry input -------------
+  /* The claim phase 1c exists for: a fully bypassed rack must be expressible as
+     an EDGE. Measured on the BLOCK path over the real rack, with `outL/outR`
+     ALIASING the source buffers exactly as the shell passes them — that
+     aliasing is why the dry term had to initialise the output instead of being
+     added to a zeroed one, and a test that used separate buffers would not see
+     the difference.
+     TWO MUST-FAIL CONTROLS, because "the output equals the input" is also what
+     a matrix that never touched the buffer would produce:
+       · srcOut 0 in the SAME cut shape must render SILENCE, not the input —
+         that is what proves the buffer is written rather than left alone;
+       · srcOut 0.5 must render exactly half, so the coefficient is a gain and
+         not a presence flag. */
+  {
+    const int N = 1024;
+    std::vector<float> refL(N), refR(N);
+    for (int i = 0; i < N; i++)
+    {
+      const double t = (double)i / 44100.0;
+      refL[i] = (float)(0.3 * std::sin(2 * kPi * 220 * t));
+      refR[i] = (float)(0.3 * std::sin(2 * kPi * 331 * t));
+    }
+
+    // Every slot ACTIVE, so "the rack contributed nothing" is a fact about the
+    // ROUTING and not about an idle rack that could not have contributed.
+    hypersaw::FxRack rack;
+    const int types[hypersaw::kRackSlots] = {1, 2, 4, 5};
+    for (int i = 0; i < hypersaw::kRackSlots; i++)
+    { rack.setType(i, types[i]); rack.setAmount(i, 0.4 + 0.1 * i); }
+
+    // The rack cut out of the graph entirely: no crosspoint, no out amount, no
+    // slot init. The ONLY route to the output is the dry path.
+    auto cutMatrix = [](double dry) {
+      hypersaw::RoutingMatrix<1, hypersaw::kRackSlots> m;
+      for (int t = 0; t < hypersaw::kRackSlots; t++)
+      {
+        m.inFrom[t] = 0; m.outAmount[t] = 0; m.slotInit[t] = 0;
+        for (int f = 0; f < 1 + hypersaw::kRackSlots; f++) m.coeff[f][t] = 0;
+      }
+      m.srcOut[0] = dry;
+      return m;
+    };
+    auto render = [&](double dry, std::vector<float> &L, std::vector<float> &R) {
+      auto m = cutMatrix(dry);
+      float sL[hypersaw::kRackSlots][256], sR[hypersaw::kRackSlots][256];
+      float *pL[hypersaw::kRackSlots], *pR[hypersaw::kRackSlots];
+      for (int t = 0; t < hypersaw::kRackSlots; t++) { pL[t] = sL[t]; pR[t] = sR[t]; }
+      for (int off = 0; off < N; off += 256)
+      {
+        const int n = N - off < 256 ? N - off : 256;
+        const float *srcL[1] = {L.data() + off};
+        const float *srcR[1] = {R.data() + off};
+        // out ALIASES src, the shell's own call shape (the mix bus is both).
+        m.processBlock(srcL, srcR, pL, pR, L.data() + off, R.data() + off, n,
+                       [&](int slot, float *l, float *r, int k) { rack.processSlot(slot, l, r, k); });
+      }
+    };
+
+    std::vector<float> oneL = refL, oneR = refR;      // srcOut = 1
+    std::vector<float> zeroL = refL, zeroR = refR;    // srcOut = 0  (control)
+    std::vector<float> halfL = refL, halfR = refR;    // srcOut = 0.5 (control)
+    render(1.0, oneL, oneR);
+    render(0.0, zeroL, zeroR);
+    render(0.5, halfL, halfR);
+
+    int diff = 0, quiet = 0, halfBad = 0;
+    double energy = 0;
+    for (int i = 0; i < N; i++)
+    {
+      if (oneL[i] != refL[i] || oneR[i] != refR[i]) diff++;
+      if (zeroL[i] == 0.0f && zeroR[i] == 0.0f) quiet++;
+      if (halfL[i] != (float)(0.5 * refL[i]) || halfR[i] != (float)(0.5 * refR[i])) halfBad++;
+      energy += (double)refL[i] * refL[i] + (double)refR[i] * refR[i];
+    }
+    std::snprintf(d, sizeof(d),
+                  "dry=1: %d/%d samples differ from the input (energy %.4g); "
+                  "control dry=0 silent on %d/%d; control dry=0.5 exact on %d/%d",
+                  diff, N, energy, quiet, N, N - halfBad, N);
+    check(diff == 0 && energy > 1e-3 && quiet == N && halfBad == 0,
+          "Src->OUT alone renders the dry input, sample for sample", d);
+  }
+
+  // ---- 15. the dry path is INERT at its default ---------------------------
+  /* B50 (b) extended to phase 1c: srcOut defaults to 0, so the terminal sum
+     gains a term that contributes nothing and every existing golden, fixture
+     and parity chain still renders what it rendered. Spelled out by hand, like
+     assertion 1, rather than by running a second matrix — a comparison of the
+     implementation against itself would pass with the term wired backwards.
+     MUST-FAIL CONTROL: a non-zero srcOut must move the output by EXACTLY
+     srcOut x src, so the term is present and is a gain on the source, not on
+     something else that happens to be near it. */
+  {
+    Matrix m;
+    m.setSerialChain();
+    const double src[2] = {0.3, 0.2};
+    const double got = m.process(src, slotProc);
+    const double want = slotProc(3, slotProc(2, slotProc(1, slotProc(0, 0.3 + 0.2))));
+
+    Matrix wet;
+    wet.setSerialChain();
+    wet.srcOut[0] = 0.25; wet.srcOut[1] = -0.5;
+    const double dry = wet.process(src, slotProc);
+    const double wantDry = want + 0.25 * 0.3 + (-0.5) * 0.2;
+
+    /* and the third clause: setSerialChain must RESET a dry path someone set,
+       or "the chain is the default" stops being true for a reused matrix. */
+    wet.setSerialChain();
+    const bool reset = wet.srcOut[0] == 0.0 && wet.srcOut[1] == 0.0;
+
+    std::snprintf(d, sizeof(d),
+                  "default %.12g == hand-computed chain %.12g; control srcOut "
+                  "(0.25,-0.5) gives %.12g, closed form %.12g; setSerialChain resets %s",
+                  got, want, dry, wantDry, reset ? "yes" : "no");
+    check(got == want && std::fabs(dry - wantDry) < 1e-12 && dry != got && reset,
+          "the dry path is inert at 0 and exactly srcOut x src when set", d);
+  }
+
+  // ---- 16. the dry path rides the `routing` chunk -------------------------
+  /* Same three claims assertion 12 makes, asked of the NEW cell specifically:
+     a chunk saved on the chain must still name no `routing` key (so phase 1c
+     costs no existing preset a byte), a non-zero dry path must survive
+     save -> load into a fresh instance, and a chunk whose SILENCE omits the
+     cell must return it to 0 rather than leaving the previous patch's dry
+     path in place. The last is the ADR-138 scar, which is about what a chunk
+     fails to undo and not about what it says. */
+  {
+    Rig a(factory);
+    auto *stA = (const clap_plugin_state_t *)a.p->get_extension(a.p, CLAP_EXT_STATE);
+    OStr plain{{nullptr, ostrWrite}, {}};
+    stA->save(a.p, &plain.s);
+    const bool quietOnChain = plain.data.find("\nrouting=") == std::string::npos;
+
+    a.set(22000 + 0, 0.625);
+    const bool live = hypersaw_debug_routing_srcout(a.p, 0) == 0.625;
+    OStr wet{{nullptr, ostrWrite}, {}};
+    stA->save(a.p, &wet.s);
+    const bool named = wet.data.find("22000:") != std::string::npos;
+
+    Rig b(factory);
+    auto *stB = (const clap_plugin_state_t *)b.p->get_extension(b.p, CLAP_EXT_STATE);
+    IStr in{{nullptr, istrRead}, wet.data, 0};
+    stB->load(b.p, &in.s);
+    const bool carried = hypersaw_debug_routing_srcout(b.p, 0) == 0.625;
+
+    IStr back{{nullptr, istrRead}, plain.data, 0};
+    stB->load(b.p, &back.s);
+    const bool restored = hypersaw_debug_routing_srcout(b.p, 0) == 0.0;
+
+    std::snprintf(d, sizeof(d),
+                  "host write reached the matrix %s; chain chunk names routing= %s "
+                  "(must be no); wet chunk names 22000 %s; round-trip carried %s; "
+                  "keyless load returned it to 0 %s",
+                  live ? "yes" : "no", quietOnChain ? "no" : "yes", named ? "yes" : "no",
+                  carried ? "yes" : "no", restored ? "yes" : "no");
+    check(live && quietOnChain && named && carried && restored,
+          "the dry path persists in the routing chunk and defaults to 0", d);
   }
 
   /* CALIBRATION, recorded because a green suite proves nothing on its own.

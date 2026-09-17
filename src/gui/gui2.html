@@ -6098,6 +6098,7 @@ if (typeof canPaint === 'function' && canPaint()) refreshBendCurve();
      coeff[from][to]  10000 + from*64 + to
      outAmount[to]    20000 + to
      slotInit[to]     21000 + to
+     srcOut[from]     22000 + from        (B50 1c, the dry path)
    `from` is sources first, then slots. A cell EXISTS only if the shell shipped
    its id; this file never decides legality, it reads which ids arrived.
 
@@ -6106,10 +6107,13 @@ if (typeof canPaint === 'function' && canPaint()) refreshBendCurve();
    are spans, not inputs: they emit no `input`, and its double-click means
    "reset to default" where B50 asks for "toggle 0/1". Building after that pass
    leaves them unwired by it and wired HERE, deliberately, once. */
-const MX_BASE = 10000, MX_STRIDE = 64, MX_OUT = 20000, MX_INIT = 21000;
+const MX_BASE = 10000, MX_STRIDE = 64, MX_OUT = 20000, MX_INIT = 21000, MX_SRCOUT = 22000;
 let mxCells = null, mxRaf = 0;
 
 function mxDecode(id) {
+  // The dry path names a SOURCE, so it fills `from` and leaves `to` at -1 —
+  // the mirror of outAmount/slotInit, which name a slot and leave `from` at -1.
+  if (id >= MX_SRCOUT && id < MX_SRCOUT + MX_STRIDE) return { kind: 3, from: id - MX_SRCOUT, to: -1 };
   if (id >= MX_INIT && id < MX_INIT + MX_STRIDE) return { kind: 2, from: -1, to: id - MX_INIT };
   if (id >= MX_OUT && id < MX_OUT + MX_STRIDE) return { kind: 1, from: -1, to: id - MX_OUT };
   if (id < MX_BASE || id >= MX_BASE + MX_STRIDE * MX_STRIDE) return null;
@@ -6139,7 +6143,9 @@ function mxRange(id) {
   const c = mxDecode(id);
   if (!c) return { lo: 0, hi: 1 };
   if (c.kind === 0) return { lo: -2, hi: 2 };
-  if (c.kind === 1) return { lo: 0, hi: 2 };
+  // kind 3 (the dry path) shares the OUT amounts' range: it sits in the same
+  // column of the well and answers the same question, so one range, not two.
+  if (c.kind === 1 || c.kind === 3) return { lo: 0, hi: 2 };
   return { lo: -1, hi: 1 };
 }
 
@@ -6220,9 +6226,13 @@ function buildMatrixPane() {
       const c = byId.get(MX_BASE + f * MX_STRIDE + t);
       grid.appendChild(c ? mxCellEl(c.id, name(f) + ' > Slot ' + (t + 1)) : mxGapEl());
     }
-    // The terminal column belongs to SLOT rows: a source has no output amount.
-    const term = f >= nSrc ? byId.get(MX_OUT + (f - nSrc)) : null;
-    grid.appendChild(term ? mxCellEl(term.id, 'Out Slot ' + (f - nSrc + 1), 'mxterm') : mxGapEl());
+    /* THE TERMINAL COLUMN, now for SOURCE rows too (B50 phase 1c): a slot row
+       holds its outAmount, a source row its dry path. Before 1c the source
+       rows had a gap here and a fully bypassed rack was not expressible as an
+       edge — the thing ADR-088 says bypass is. */
+    const term = f >= nSrc ? byId.get(MX_OUT + (f - nSrc)) : byId.get(MX_SRCOUT + f);
+    const termName = f >= nSrc ? 'Out Slot ' + (f - nSrc + 1) : 'Out Src ' + (f + 1);
+    grid.appendChild(term ? mxCellEl(term.id, termName, 'mxterm') : mxGapEl());
   }
 
   initRow.style.gridTemplateColumns = `52px repeat(${slots}, minmax(0,1fr)) minmax(0,1fr)`;
@@ -6256,7 +6266,7 @@ function mxDefault(id) {
   const nSlots = mxCells.filter(x => x.kind === 1).length;
   if (c.kind === 0) return (c.from === 0 && c.to === 0) || (c.from >= nSrc && c.from - nSrc === c.to - 1) ? 1 : 0;
   if (c.kind === 1) return c.to === nSlots - 1 ? 1 : 0;
-  return 0;
+  return 0;   // slotInit AND the dry path: the shipped chain routes through the slots
 }
 function mxWire(cell, id) {
   const { lo, hi } = mxRange(id);
@@ -6472,6 +6482,16 @@ function drawMatrixGraph() {
     if (terminal(t))
       ribbon(slotX(t) + bw / 2, midY, outX - bw / 2, midY,
              val(MX_OUT + t), MX_OUT + t, reaches(t), 0);
+  /* THE DRY PATH (B50 phase 1c): a source straight to OUT, arced like the
+     slot-to-slot SKIPS and for the same reason — it passes over every card
+     between, so an arc is what stops it reading as the hop it lies on top of.
+     It skips the whole rack, so it takes the widest lift of any edge here.
+     `onPath` is true unconditionally: an edge that ENDS at OUT reaches OUT, and
+     a zero one never gets drawn (ribbon() returns early). */
+  for (let s = 0; s < nSrc; s++)
+    ribbon(srcX + bw / 2, srcY(s), outX - bw / 2, midY,
+           val(MX_SRCOUT + s), MX_SRCOUT + s, true,
+           -Math.min(midY - 16 * V, 30 * V * slots));
   cv._ribbons = ribbons;
   /* PILLS AFTER EVERY RIBBON, never inline with the one they label: a pill
      drawn during the loop is crossed out by any ribbon drawn after it, which is

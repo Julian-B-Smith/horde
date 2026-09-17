@@ -51,6 +51,15 @@ struct RoutingMatrix
   double slotInit[NSLOT] = {0};                // the `in_i` term
   double outAmount[NSLOT] = {0};               // terminal contribution
 
+  /* THE DRY PATH (B50 phase 1c). A source's own contribution to the output,
+     bypassing every slot: `y += Σ_s srcOut[s]·src[s]`. Without it a source can
+     reach OUT only THROUGH a slot, so a fully bypassed rack is not expressible
+     as an edge — which contradicts this matrix's own premise that bypass is an
+     edge property and not a module duty (ADR-088: a coefficient of 0 *is* "not
+     connected"). Zero on the serial chain, so the default renders bit
+     identically to the pre-1c engine. */
+  double srcOut[NSRC] = {0};
+
   /* A default-constructed matrix connects nothing, and "nothing connected"
      means every outAmount is 0 — i.e. SILENCE. That is the worst possible
      way for an initialization slip to fail, so the constructor establishes the
@@ -105,7 +114,7 @@ struct RoutingMatrix
       outAmount[t] = (t == NSLOT - 1) ? 1.0 : 0.0;
       for (int f = 0; f < NSRC + NSLOT; f++) coeff[f][t] = 0.0;
     }
-    for (int s = 0; s < NSRC; s++) { inFrom[0] |= (1u << s); coeff[s][0] = 1.0; }
+    for (int s = 0; s < NSRC; s++) { srcOut[s] = 0.0; inFrom[0] |= (1u << s); coeff[s][0] = 1.0; }
     for (int t = 1; t < NSLOT; t++)
     {
       inFrom[t] |= (1u << (NSRC + t - 1));
@@ -160,6 +169,7 @@ struct RoutingMatrix
     double y = 0;
     for (int t = 0; t < NSLOT; t++)
       if (isTerminal(t)) y += outAmount[t] * slotOut[t];
+    for (int s = 0; s < NSRC; s++) y += srcOut[s] * src[s];   // the dry path
     return y;
   }
 
@@ -203,7 +213,23 @@ struct RoutingMatrix
       }
       proc(t, slotL[t], slotR[t], n);
     }
-    for (int i = 0; i < n; i++) { outL[i] = 0.0f; outR[i] = 0.0f; }
+    /* THE DRY PATH INITIALISES THE OUTPUT rather than being added after it, and
+       that ordering is forced by the aliasing note above: `outL/outR` may BE a
+       source buffer, so a zero-then-add-the-sources pass would clear the very
+       samples it then reads. Every source is read at index i before outL[i] is
+       written, and no later iteration revisits index i, so the fused form is
+       safe under aliasing where two passes are not. With srcOut all zero (the
+       serial chain) this writes the same zeros the old loop did. */
+    for (int i = 0; i < n; i++)
+    {
+      double dl = 0, dr = 0;
+      for (int s = 0; s < NSRC; s++)
+      {
+        dl += srcOut[s] * srcL[s][i];
+        dr += srcOut[s] * srcR[s][i];
+      }
+      outL[i] = (float)dl; outR[i] = (float)dr;
+    }
     for (int t = 0; t < NSLOT; t++)
     {
       if (!isTerminal(t)) continue;

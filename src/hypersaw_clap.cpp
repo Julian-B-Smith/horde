@@ -809,6 +809,7 @@ inline clap_id baseIdOf(clap_id id) { return (clap_id)((uint32_t)id % kOscStride
      coeff[from][to]   10000 + from*64 + to     -> 10000 .. 14095
      outAmount[to]     20000 + to               -> 20000 .. 20063
      slotInit[to]      21000 + to               -> 21000 .. 21063
+     srcOut[from]      22000 + from             -> 22000 .. 22063   (B50 1c)
 
    `from` indexes SOURCES first ([0, NSRC)) then SLOTS (NSRC + slot), exactly as
    routing_core.h's `coeff[from][to]` does — one indexing scheme, not two.
@@ -839,12 +840,17 @@ constexpr uint32_t kRoutingFromStride = 64;
 constexpr uint32_t kRoutingCoeffBase = 10000;
 constexpr uint32_t kRoutingOutBase = 20000;
 constexpr uint32_t kRoutingInitBase = 21000;
+constexpr uint32_t kRoutingSrcOutBase = 22000;   // B50 phase 1c, the dry path
 
 enum RoutingKind
 {
   kRoutingCoeff = 0,
   kRoutingOut = 1,
-  kRoutingInit = 2
+  kRoutingInit = 2,
+  // APPENDED, never inserted: the kind is written into the debug cell list and
+  // read by routing_check, so renumbering the three above would silently
+  // re-label every cell the oracle enumerates.
+  kRoutingSrcOut = 3
 };
 
 /* Id -> cell. False for any id in the block that names no cell THIS build
@@ -866,6 +872,17 @@ inline bool decodeRoutingId(clap_id id, int &kind, int &from, int &to)
     from = -1;
     to = (int)(u - kRoutingInitBase);
     return to < kRoutingNSlot;
+  }
+  /* The dry path is keyed on the SOURCE, so it fills `from` and leaves `to` at
+     -1 — the mirror of outAmount/slotInit, which name a slot and leave `from`
+     at -1. Reading either coordinate without checking the kind is therefore an
+     out-of-range index, which is why every consumer switches on the kind. */
+  if (u >= kRoutingSrcOutBase && u < kRoutingSrcOutBase + kRoutingFromStride)
+  {
+    kind = kRoutingSrcOut;
+    from = (int)(u - kRoutingSrcOutBase);
+    to = -1;
+    return from < kRoutingNSrc;
   }
   if (u < kRoutingCoeffBase || u >= kRoutingCoeffBase + kRoutingFromStride * kRoutingFromStride)
     return false;
@@ -911,6 +928,10 @@ static RoutingParamTable makeRoutingTable()
     }
   for (int t = 0; t < kRoutingNSlot; t++) ids.push_back((clap_id)(kRoutingOutBase + t));
   for (int t = 0; t < kRoutingNSlot; t++) ids.push_back((clap_id)(kRoutingInitBase + t));
+  /* LAST, and that position is the contract: this order is the order the cells
+     enter `morphIds`, so the dry path appends to the field AFTER the whole
+     phase-1 routing block instead of displacing any of it (ADR-159). */
+  for (int s = 0; s < kRoutingNSrc; s++) ids.push_back((clap_id)(kRoutingSrcOutBase + s));
 
   // Reserve before filling: ParamDef keeps raw pointers into these vectors, so
   // a reallocation mid-build would leave earlier rows pointing at freed storage.
@@ -940,6 +961,16 @@ static RoutingParamTable makeRoutingTable()
       std::snprintf(nb, sizeof(nb), "Out Slot%d", to + 1);
       std::snprintf(kb, sizeof(kb), "rt.out.%d", to);
       lo = 0.0; hi = 2.0; dv = def.outAmount[to];
+    }
+    else if (kind == kRoutingSrcOut)
+    {
+      std::snprintf(nb, sizeof(nb), "Out Src%d", from + 1);
+      std::snprintf(kb, sizeof(kb), "rt.srcout.%d", from);
+      // THE SAME RANGE THE OUT AMOUNTS ALREADY HAVE, deliberately: this cell
+      // sits in the well's OUT column beside them and answers the same
+      // question ("how much of this reaches the output"), so a second range
+      // would make one column mean two things.
+      lo = 0.0; hi = 2.0; dv = def.srcOut[from];
     }
     else
     {
@@ -4204,6 +4235,7 @@ struct Plugin
       else routing.inFrom[to] &= ~(1u << from);
     }
     else if (kind == kRoutingOut) routing.outAmount[to] = v;
+    else if (kind == kRoutingSrcOut) routing.srcOut[from] = v;
     else routing.slotInit[to] = v;
   }
   double getRoutingParam(clap_id id) const
@@ -4212,6 +4244,7 @@ struct Plugin
     if (!decodeRoutingId(id, kind, from, to)) return 0.0;
     if (kind == kRoutingCoeff) return routing.coeff[from][to];
     if (kind == kRoutingOut) return routing.outAmount[to];
+    if (kind == kRoutingSrcOut) return routing.srcOut[from];
     return routing.slotInit[to];
   }
 
@@ -5963,6 +5996,12 @@ extern "C" double hypersaw_debug_routing_init(const clap_plugin_t *p, int to)
    re-deriving the layout: `id,kind,from,to;` per cell. Re-deriving it would be
    a second copy of decodeRoutingId, which is the one thing the id-layout
    comment asks nobody to make. */
+/* B50 phase 1c: the dry path, read off the live matrix like every other cell. */
+extern "C" double hypersaw_debug_routing_srcout(const clap_plugin_t *p, int from)
+{
+  if (from < 0 || from >= kRoutingNSrc) return 0.0;
+  return self(p)->routing.srcOut[from];
+}
 extern "C" const char *hypersaw_debug_routing_ids(void)
 {
   static std::string s;
