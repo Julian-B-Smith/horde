@@ -369,16 +369,41 @@
              transition:width .05s linear; }
   .meter i.clip { background:var(--alarm); }
   .strip.master b { color:var(--text); }
-  /* ============ B50 MATRIX PANE (ADR-088) ============
+  /* ============ B50 MATRIX PANE (ADR-088) — WELL + RAIL, COUPLED ============
      A crosspoint grid, hand-placed (outside every GEN: block) because the
      generator owns ADDRESS-keyed instrument rows and these cells are POSITIONAL
      — their identity is a coordinate, not a name in the presentation registry.
-     Cells are built from the shell's own routing ids, never a typed list. */
-  #mxGrid, #mxInit { display:grid; gap:3px; margin:8px 0 0; }
-  #mxGraph { display:block; width:100%; height:auto; margin-bottom:4px; }
-  .mxh { font-size:9px; letter-spacing:.5px; color:var(--dim); text-align:center;
+     Cells are built from the shell's own routing ids, never a typed list.
+
+     PHASE 1B replaces the LOOK, not the plumbing (human 2026-09-17, choosing
+     view 3 of four): the WELL is the editor and the RAIL is the readout, with
+     one hover state shared between them. The two defects named with the choice
+     are both fixed here — the number now lives INSIDE the cell's top edge
+     (it used to be the whole 26px line and the next row's border crowded it),
+     and the rail canvas is DPR-scaled through fitViz()/VS() like every other
+     visualiser instead of being a 520px bitmap stretched to fit.
+
+     WHY THE WELL STAYS DOM. Its cells are `.row` + `[data-p]`, and FOUR
+     independent passes key off exactly that shape: the context menu
+     (`ev.target.closest('.row')`), paintOwners' corner stripe, paintExempt,
+     and the armed-corner ghost view. Moving the cells onto a canvas would mean
+     re-implementing all four against a hit map — a second copy of each rule.
+     So only the RAIL is a canvas, and the well is styled DOM. */
+  #mxPane { column-span:all; -webkit-column-span:all; }
+  /* Side by side at width, stacked when the page is narrow. The pane spans the
+     FX page's columns because a 240px column cannot hold six slot cards left to
+     right; nothing else on the page changes size. */
+  #mxBody { display:flex; gap:10px; align-items:flex-start; flex-wrap:wrap; }
+  #mxWell { flex:1 1 300px; min-width:250px; background:var(--well);
+            border:var(--stroke) solid var(--line); border-radius:var(--r);
+            padding:8px 9px 9px; }
+  #mxGraph { flex:2 1 380px; min-width:280px; width:auto; height:170px;
+             display:block; margin:0; }
+  #mxGrid, #mxInit { display:grid; gap:5px; margin:0; }
+  #mxInit { margin-top:7px; }
+  .mxh { font-size:9px; letter-spacing:.5px; color:var(--t2); text-align:center;
          align-self:center; overflow:hidden; text-overflow:ellipsis; }
-  .mxh.r { text-align:left; }
+  .mxh.r { text-align:right; padding-right:4px; }
   /* A `.row` here is one grid CELL, not a labelled line: the class is kept
      because the parameter menu, the exempt stripe and the corner colouring all
      key off `.row` + a `[data-p]` child, and a second markup shape for those
@@ -387,22 +412,47 @@
   #mxGrid .row, #mxInit .row { display:block; margin:0; gap:0; }
   #mxGrid .row > label, #mxInit .row > label { display:none; }
   #mxGrid .row > output, #mxInit .row > output { display:none; }
-  .mxc { display:block; height:26px; line-height:26px; text-align:center;
+  /* `.row.owned`'s inset LEFT stripe is a row-shaped mark; on a square well
+     cell it reads as a stray edge, so it is cancelled here and re-drawn as the
+     halo below — same state, same colour token, a shape that fits the cell. */
+  #mxWell .row.owned, #mxWell .row.ghost { box-shadow:none; padding-left:0; }
+  /* THE WELL CELL. Fill rises from the BOTTOM in --value (the coefficient is an
+     authored value, so it takes the authored-value token), and the number sits
+     inside the TOP edge where no fill and no neighbouring border can cover it. */
+  .mxc { position:relative; display:block; aspect-ratio:1 / 1;
+         min-height:24px; max-height:44px;
+         line-height:1; padding-top:4px; text-align:center;
          font-size:9.5px; font-variant-numeric:tabular-nums;
          border:var(--stroke) solid var(--line); border-radius:var(--r);
          background:var(--panel2); color:var(--dim);
          cursor:ns-resize; user-select:none; touch-action:none; }
   /* A LIT cell is one carrying signal. The fill is the magnitude, so the grid
      reads as a picture of the topology before any number is read — the same
-     claim the edge weights below make, in a second modality. */
-  .mxc.on { color:var(--text); border-color:var(--pull);
-            background:linear-gradient(to right, var(--pull) calc(var(--mx) * 100%),
+     claim the ribbon weights beside it make, in a second modality. */
+  .mxc.on { color:var(--text);
+            background:linear-gradient(to top, var(--value) calc(var(--mx) * 100%),
                                        var(--panel2) 0); }
-  .mxc.neg.on { background:linear-gradient(to right, var(--caution) calc(var(--mx) * 100%),
+  .mxc.neg.on { background:linear-gradient(to top, var(--caution) calc(var(--mx) * 100%),
                                            var(--panel2) 0); }
-  .mxc.drag { outline:var(--stroke) solid var(--pull); }
+  /* CORNER-TIER HALO — from `--own`, which paintOwners writes on the row from
+     the shell's own ownership table. It is the SAME state the knobs read: no
+     second flag, and no second lookup. The colour is this cell's corner out of
+     MCOLORS; painting all four would claim the field applies four corners here,
+     which paintOwners knows to be false. */
+  #mxWell .row.owned .mxc { box-shadow:0 0 0 2px var(--own); }
+  /* MODULATED — the violet ring, from MODROUTES (the same table the parameter
+     menu's Send/Release guards ask). Dashed and outside the halo, so a cell can
+     be owned AND modulated and still say both. */
+  #mxWell .row.mxmod .mxc::after { content:''; position:absolute; inset:-4px;
+         border:2px dashed var(--physics); border-radius:calc(var(--r) + 3px);
+         pointer-events:none; }
+  /* THE SHARED HOVER STATE — `.mxhi` is set by the cell's own pointerenter AND
+     by the rail's ribbon hit test, so one class serves both directions. */
+  .mxc:hover, .mxc.mxhi { outline:2.5px solid var(--physics); outline-offset:3px; }
+  .mxc.drag { outline:var(--stroke) solid var(--value); }
   /* ABSENT, not disabled: an illegal crosspoint has no control at all. */
-  .mxgap { height:26px; border:var(--stroke) dashed var(--line); border-radius:var(--r);
+  .mxgap { aspect-ratio:1 / 1; min-height:24px; max-height:44px;
+           border:var(--stroke) dashed var(--line); border-radius:var(--r);
            opacity:.20; }
   .mxterm .mxc { border-color:var(--celebrate); }
   .row { display:grid; grid-template-columns:64px minmax(0,1fr) 52px;
@@ -1335,14 +1385,26 @@
   <!--/GEN:FX-->
 
   <div class="cluster" id="mxPane"><h2>Matrix</h2>
-    <canvas id="mxGraph" width="520" height="150"></canvas>
-    <div id="mxGrid"></div>
-    <div id="mxInit"></div>
+    <!-- The WELL edits, the RAIL reads out, and they share one hover state.
+         Well first in the DOM because it is the interactive half: tab order
+         reaches the cells before it reaches the picture of them. The canvas
+         carries no width/height attributes — fitViz() owns the backing store
+         and CSS owns the box, and an attribute here would be a third opinion. -->
+    <div id="mxBody">
+      <div id="mxWell">
+        <div id="mxGrid"></div>
+        <div id="mxInit"></div>
+      </div>
+      <canvas id="mxGraph"></canvas>
+    </div>
     <div class="note" style="margin-top:8px">Rows FEED columns. A cell is a
       <b>gain</b>, and 0 IS "not connected" — so connecting and disconnecting is one
       continuous motion, which is what lets a morph corner hold a whole topology
       (ADR-088). Drag or scroll a cell to set it; double-click toggles 0 / 1;
-      right-click is the usual parameter menu. <b>OUT</b> is a slot's terminal
+      right-click is the usual parameter menu. Every edit lands on a WELL cell —
+      the rail beside it is a readout and takes no gesture but hover, which
+      lights the matching cell (and hovering a cell lights its ribbon).
+      <b>OUT</b> is a slot's terminal
       contribution, and only a slot nobody reads is summed there. <b>init</b> drives a
       slot with nothing connected to it.</div>
     <div class="note" style="margin-top:6px">Cells that are simply absent are edges the
@@ -6105,6 +6167,10 @@ function mxCellEl(id, label, extra) {
   row.appendChild(lab);
   row.appendChild(cell);
   mxWire(cell, id);
+  // Half of the shared hover state; the rail's hit test is the other half, and
+  // both write the one variable so neither can hold a highlight the other lost.
+  cell.addEventListener('pointerenter', () => mxSetHover(id));
+  cell.addEventListener('pointerleave', () => mxSetHover(null));
   return row;
 }
 
@@ -6232,29 +6298,75 @@ function paintMatrixCell(el, v) {
   mxInvalidate();
 }
 
-// One redraw per frame at most, however many cells changed in a poll.
-function mxInvalidate() {
-  if (mxRaf) return;
-  mxRaf = requestAnimationFrame(() => { mxRaf = 0; drawMatrixGraph(); });
+/* THE SHARED HOVER STATE. One crosspoint id, or null. A cell's pointerenter
+   writes it and so does the rail's ribbon hit test, so "cell ⇄ ribbon" is one
+   variable rather than two that can disagree — and the class it paints is the
+   same one either side reads. */
+let mxHover = null;
+function mxSetHover(id) {
+  if (id === mxHover) return;
+  mxHover = id;
+  const well = document.getElementById('mxWell');
+  if (well) for (const el of well.querySelectorAll('.mxc'))
+    el.classList.toggle('mxhi', +el.dataset.p === id);
+  mxInvalidate();
 }
 
-/* THE PICTURE. Line weight is |coefficient| and the terminal path is
-   highlighted, which is the routing lab's own reading of the same state — the
-   grid says what each number is, the graph says what the signal DOES. */
+/* THE MODULATED MARK. Derived from MODROUTES — the same table the parameter
+   menu's Send/Release guards ask and the halo pass parses — so a route added
+   anywhere shows up here without anything telling the pane about it. The
+   corner-tier halo needs no pass at all: paintOwners already writes `.owned`
+   and `--own` on these rows, because they are `.row` + `[data-p]` like every
+   other control, and the CSS draws the halo straight off that. */
+function mxMarkMod() {
+  const well = document.getElementById('mxWell');
+  if (!well) return;
+  for (const el of well.querySelectorAll('.mxc')) {
+    const id = +el.dataset.p;
+    const on = (MODROUTES || []).some(r => r.dest === id);
+    el.parentElement.classList.toggle('mxmod', on);
+  }
+}
+
+/* One redraw per frame at most, however many cells changed in a poll — and a
+   repaint happens ONLY from here: a routing value changed (paintMatrixCell), a
+   hover moved (mxSetHover), the box resized, or the theme changed. There is no
+   per-frame loop and hzFrame knows nothing about this pane (ADR-143). */
+function mxInvalidate() {
+  if (mxRaf) return;
+  mxRaf = requestAnimationFrame(() => { mxRaf = 0; mxMarkMod(); drawMatrixGraph(); });
+}
+
+/* THE RAIL. Slots as cards left to right, edges as ribbons weighted by
+   |coefficient|; the path that reaches OUT is full ink and everything else is
+   faint, because "what does this patch actually DO" is the one question the
+   grid of numbers cannot answer at a glance.
+
+   TOKENS: a canvas in this file is a PHOSPHOR TUBE (the global `canvas` rule
+   gives every one of them --scr-tube as its ground), so the painter reads the
+   --scr-* set, not the chrome set. That is also what makes it correct in both
+   modes without a branch: light/dark swap the scheme, TOK() re-reads on body,
+   and the scheme change flushes the token cache.
+
+   GEOMETRY: drawing is in BITMAP pixels and every stroke width, radius and font
+   multiplies by VS(), which is the rule fitViz() exists to serve (B120). */
 function drawMatrixGraph() {
   const cv = document.getElementById('mxGraph');
   if (!cv || !mxCells || !mxCells.length) return;
+  if (!cv.clientWidth || !cv.clientHeight) return;   // page hidden: nothing to draw ON
   const ctx = cv.getContext('2d');
   if (!ctx) return;
-  const W = cv.width, H = cv.height;
+  fitViz(cv);
+  const V = VS(), W = cv.width, H = cv.height;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = TOK('--scr-tube'); ctx.fillRect(0, 0, W, H);
+
   const { slots, nSrc } = mxShape();
   const val = id => +(lastParams[id] ?? 0);
-
-  const srcY = i => H * (i + 1) / (nSrc + 1);
-  const slotX = t => 90 + t * ((W - 170) / Math.max(1, slots - 1));
-  const slotY = H / 2;
-  const outX = W - 34;
+  const INK = TOK('--scr-grid'), VAL = TOK('--scr-value'), PHY = TOK('--scr-physics');
+  const FAINT = TOKA('--scr-grid', 0.35), WASH = TOKA('--scr-grid', 0.14),
+        SHADOW = TOKA('--scr-grid', 0.30);
 
   // A slot nobody FORWARD-reads is an output — computed from the live values,
   // never stored, for the reason routing_core.h gives: a second copy of this
@@ -6263,42 +6375,124 @@ function drawMatrixGraph() {
     for (let u = t + 1; u < slots; u++) if (Math.abs(val(MX_BASE + (nSrc + t) * MX_STRIDE + u)) > 1e-9) return false;
     return true;
   };
+  /* REACHABILITY, the same recursion the demo used, over the same derivation as
+     `terminal`: a terminal slot reaches OUT iff its outAmount is non-zero, and
+     any other slot reaches OUT through a live forward edge. The graph is acyclic
+     by construction (a slot may feed a strictly LATER slot), so this terminates
+     without a visited set. */
+  const reachMemo = new Map();
+  const reaches = t => {
+    if (reachMemo.has(t)) return reachMemo.get(t);
+    let r = false;
+    if (terminal(t)) r = Math.abs(val(MX_OUT + t)) > 1e-9;
+    else for (let u = t + 1; u < slots && !r; u++)
+      if (Math.abs(val(MX_BASE + (nSrc + t) * MX_STRIDE + u)) > 1e-9 && reaches(u)) r = true;
+    reachMemo.set(t, r);
+    return r;
+  };
 
-  const link = (x1, y1, x2, y2, w, col) => {
-    if (Math.abs(w) < 1e-9) return;
-    ctx.strokeStyle = col;
-    ctx.globalAlpha = 0.3 + 0.7 * Math.min(1, Math.abs(w));
-    ctx.lineWidth = 1 + 2.5 * Math.min(1, Math.abs(w));
-    ctx.setLineDash(w < 0 ? [4, 3] : []);       // an inverted edge is drawn dashed
+  /* CARD WIDTH IS SOLVED, NOT PICKED: the gap between two cards has to hold a
+     ribbon's coefficient label, so the width is whatever is left after ~22px of
+     gap per step, floored so a narrow pane degrades to small cards rather than
+     to overlapping ones. */
+  const pad = 8 * V, bh = 20 * V;
+  const bw = Math.max(30 * V, Math.min(50 * V, (W - 2 * pad) / (slots + 2) - 22 * V));
+  const srcX = pad + bw / 2;
+  const outX = W - pad - bw / 2;
+  const span = outX - srcX;
+  const slotX = t => srcX + span * (t + 1) / (slots + 1);
+  const midY = H / 2;
+  const srcY = s => nSrc <= 1 ? midY : (H - 2 * pad) * (s + 0.5) / nSrc + pad;
+
+  ctx.font = (9 * V) + 'px ui-monospace, Menlo, monospace';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+
+  /* RIBBONS FIRST, cards over them: a ribbon ends at a card's edge, and drawing
+     the cards last is what hides the two pixels of overshoot a bezier leaves. */
+  const ribbons = [];
+  const ribbon = (x1, y1, x2, y2, v, id, onPath, lift) => {
+    if (Math.abs(v) < 1e-9) return;
+    const hot = mxHover === id;
+    const mag = Math.min(1, Math.abs(v));
+    ctx.strokeStyle = hot ? PHY : (onPath ? INK : FAINT);
+    ctx.lineWidth = ((hot ? 2.6 : 0.9) + 2.2 * mag) * V;
+    ctx.setLineDash(v < 0 ? [4 * V, 3 * V] : []);   // an inverted edge is drawn dashed
     ctx.beginPath();
     ctx.moveTo(x1, y1);
-    ctx.bezierCurveTo(x1 + 34, y1, x2 - 34, y2, x2, y2);
+    ctx.bezierCurveTo(x1 + 26 * V, y1 + lift, x2 - 26 * V, y2 + lift, x2, y2);
     ctx.stroke();
-    ctx.setLineDash([]); ctx.globalAlpha = 1;
-  };
-  const node = (x, y, w, h, label, col) => {
-    ctx.fillStyle = TOK('--panel2'); ctx.strokeStyle = col; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.rect(x - w / 2, y - h / 2, w, h); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = col;
-    ctx.font = '9px ui-monospace, Menlo, monospace';
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(label, x, y);
+    ctx.setLineDash([]);
+    const mx = (x1 + x2) / 2, my = (y1 + y2) / 2 + lift * 0.75;
+    ctx.fillStyle = hot ? PHY : VAL;
+    ctx.fillText(v.toFixed(2), mx, my - 8 * V);   // same precision the cell prints
+    ribbons.push({ id, x: mx, y: my });
   };
 
-  const edge = TOKA('--dim', 0.9), hot = TOK('--pull'), term = TOK('--celebrate');
   for (let s = 0; s < nSrc; s++)
     for (let t = 0; t < slots; t++)
-      link(52, srcY(s), slotX(t) - 24, slotY, val(MX_BASE + s * MX_STRIDE + t), edge);
+      ribbon(srcX + bw / 2, srcY(s), slotX(t) - bw / 2, midY,
+             val(MX_BASE + s * MX_STRIDE + t), MX_BASE + s * MX_STRIDE + t, reaches(t), 0);
   for (let f = 0; f < slots; f++)
     for (let t = f + 1; t < slots; t++)
-      link(slotX(f) + 24, slotY, slotX(t) - 24, slotY, val(MX_BASE + (nSrc + f) * MX_STRIDE + t), hot);
+      // A SKIP edge arcs over the cards it passes, so it cannot be mistaken for
+      // the neighbouring hop it would otherwise lie on top of.
+      ribbon(slotX(f) + bw / 2, midY, slotX(t) - bw / 2, midY,
+             val(MX_BASE + (nSrc + f) * MX_STRIDE + t), MX_BASE + (nSrc + f) * MX_STRIDE + t,
+             reaches(t), -Math.min(midY - 16 * V, 30 * V * (t - f - 1)));
   for (let t = 0; t < slots; t++)
-    if (terminal(t)) link(slotX(t) + 24, slotY, outX - 16, H / 2, val(MX_OUT + t), term);
+    if (terminal(t))
+      ribbon(slotX(t) + bw / 2, midY, outX - bw / 2, midY,
+             val(MX_OUT + t), MX_OUT + t, reaches(t), 0);
+  cv._ribbons = ribbons;
 
-  for (let s = 0; s < nSrc; s++) node(30, srcY(s), 44, 18, 'src' + (s + 1), TOKA('--dim', 1));
-  for (let t = 0; t < slots; t++)
-    node(slotX(t), slotY, 44, 20, String(t + 1), terminal(t) ? term : TOKA('--dim', 1));
-  node(outX, H / 2, 34, 18, 'out', term);
+  /* THE CARDS, each with the hard offset shadow the chassis uses everywhere —
+     in the tube's own ink, since --line is a chrome colour and would be
+     invisible on one ground and glaring on the other. */
+  const card = (x, y, w, h, label, lit) => {
+    const col = lit ? INK : FAINT;
+    ctx.fillStyle = SHADOW; ctx.fillRect(x - w / 2 + 1.5 * V, y - h / 2 + 1.5 * V, w, h);
+    ctx.fillStyle = TOK('--scr-tube'); ctx.fillRect(x - w / 2, y - h / 2, w, h);
+    ctx.fillStyle = WASH; ctx.fillRect(x - w / 2, y - h / 2, w, h);
+    ctx.strokeStyle = col; ctx.lineWidth = 1.5 * V;
+    ctx.strokeRect(x - w / 2, y - h / 2, w, h);
+    ctx.fillStyle = col; ctx.fillText(label, x, y);
+  };
+  for (let s = 0; s < nSrc; s++) card(srcX, srcY(s), bw, bh, nSrc > 1 ? 'SRC' + (s + 1) : 'SRC', true);
+  for (let t = 0; t < slots; t++) card(slotX(t), midY, bw, bh, 'S' + (t + 1), reaches(t));
+  card(outX, midY, bw, bh, 'OUT', true);
 }
+
+/* HOVER FROM THE RAIL SIDE — nearest ribbon label within a small radius, which
+   is the demo's own hit rule and needs no per-ribbon geometry. */
+(function mxRailHover() {
+  const cv = document.getElementById('mxGraph');
+  if (!cv || !cv.addEventListener) return;
+  cv.addEventListener('mousemove', e => {
+    const r = cv.getBoundingClientRect();
+    const V = VS(), x = (e.clientX - r.left) * V, y = (e.clientY - r.top) * V;
+    let best = null, bd = 26 * V;
+    for (const rb of (cv._ribbons || [])) {
+      const d = Math.hypot(rb.x - x, rb.y - y);
+      if (d < bd) { bd = d; best = rb.id; }
+    }
+    mxSetHover(best);
+  });
+  cv.addEventListener('mouseleave', () => mxSetHover(null));
+  /* TWO EVENT-DRIVEN REDRAWS, no poll. The box changes size when the FX page is
+     shown or the window resizes — and while the page is hidden clientWidth is 0,
+     so the first paint has to be triggered by the box GAINING a size rather than
+     by a frame loop. The body's class is how both the theme and the screen
+     scheme change; applyScheme() clears every canvas to the new ground and
+     repaints only the gviz set, so without this the rail would sit blank on the
+     tube until the next routing edit (the history rail's 2026-09-13 bug, in its
+     canvas form). */
+  if (typeof ResizeObserver === 'function')
+    try { new ResizeObserver(() => mxInvalidate()).observe(cv); } catch (_) {}
+  if (typeof MutationObserver === 'function' && document.body)
+    try {
+      new MutationObserver(() => mxInvalidate())
+        .observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    } catch (_) {}
+})();
 
 </script></body></html>
