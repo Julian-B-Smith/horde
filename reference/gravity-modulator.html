@@ -208,7 +208,16 @@ function buildAudio(){
 
 /* ---------------------------------------------------------------- state */
 const COLORS=['--node-a','--node-b','--node-c','--node-d','--node-e','--node-f'];
-const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+/* The palette is resolved ONCE per custom property and memoised. Each
+   getComputedStyle() here is a forced style resolution against the document
+   element, and the uncached version cost 65 of them PER FRAME at N = 8 —
+   inside the O(N^2) force-line loop, once per trail, three times per body
+   (B126 profile section 4). The palette is static: one :root block, no theme
+   switch anywhere in this file. If one is ever added, it must call
+   refreshPalette() — the cache is the only thing that would not follow it. */
+const cssCache=new Map();
+const css=v=>{let c=cssCache.get(v); if(c===undefined){c=getComputedStyle(document.documentElement).getPropertyValue(v).trim(); cssCache.set(v,c);} return c;};
+const refreshPalette=()=>cssCache.clear();
 let nodes=[];            // {id,name,color,m,x,y,vx,vy,hx0,hy0,vx0,vy0,pinned,tx,ty,trail:[]}
 let uid=0, simTime=0, paused=false, lastFrame=null;
 /* cushK 0 = off (ADR-165 A1); scale 1 = 1:1 readout (B135); BOTH energy
@@ -219,6 +228,12 @@ const P={G:0.025,eps:0.06,ts:1,damp:0,bounds:'reflect',com:true,trails:true,cush
 /* Field-level mean-speed strip (B126). Same ring-buffer shape and the same
    sim-time cadence as the body strips, so a throttled tab cannot distort it. */
 const vbarHist=new Float32Array(240); let vbarP=0;
+/* Bumped by EVERY write to a body's strip ring — the sampling tick below and
+   primeStrips. The lazy redraw (B4) keys on it rather than on b.hp, because hp
+   is a ring pointer: primeStrips resets it to 0, so a prime that happened to
+   land while hp was already 0 would leave the strip showing the old curve with
+   no way for the gate to know. A revision counter cannot alias that way. */
+let stripRev=0;
 const MAXV=3.0;
 
 function mk(o){
@@ -237,7 +252,7 @@ function mk(o){
 }
 
 // primed, so a fresh strip is flat at the truth, not a step from 0
-function primeStrips(b){ b.hx.fill(outX(b)); b.hy.fill(outY(b)); b.ha.fill(outAngle(b)); b.hr.fill(outRadius(b)); b.hp=0; }
+function primeStrips(b){ b.hx.fill(outX(b)); b.hy.fill(outY(b)); b.ha.fill(outAngle(b)); b.hr.fill(outRadius(b)); b.hp=0; stripRev++; }
 
 /* Reset semantics, SPEC-ORBITAL §6.3: positions <- home, velocities <- initial
    velocity, trails cleared, strips primed to the new observables (no step from
@@ -408,7 +423,13 @@ function step(dt){
   if(P.thermoOn) thermostat(dt);
   for(const b of nodes){
     if(b.pinned||b.drag)continue;
-    const s=Math.hypot(b.vx,b.vy); if(s>MAXV){b.vx*=MAXV/s;b.vy*=MAXV/s;}
+    /* Max-speed clamp. Compare SQUARED and take the root only when it fires:
+       the root was an unconditional Math.hypot per body per step (15.0 % of the
+       whole step at N = 8) guarding a threshold nothing reaches in normal play
+       (B126 profile control C, peak 1.61 against MAXV 3.0). Math.hypot is kept
+       for the scaling itself, NOT replaced by sqrt(x*x+y*y), so a clamp that
+       DOES fire scales by the bit-identical factor. */
+    if(b.vx*b.vx+b.vy*b.vy>MAXV*MAXV){const s=Math.hypot(b.vx,b.vy); b.vx*=MAXV/s;b.vy*=MAXV/s;}
     if(P.bounds==='reflect'){
       if(b.x<0){b.x=-b.x;b.vx=Math.abs(b.vx);} else if(b.x>1){b.x=2-b.x;b.vx=-Math.abs(b.vx);}
       if(b.y<0){b.y=-b.y;b.vy=Math.abs(b.vy);} else if(b.y>1){b.y=2-b.y;b.vy=-Math.abs(b.vy);}
@@ -480,6 +501,14 @@ window.addEventListener('resize',resize); resize();
 
 function radius(b){return 4+Math.sqrt(b.m)*5}
 
+/* Trail fade quantisation (A2). 8 buckets over a 0..0.55 alpha ramp is a
+   0.034 step — below the alpha resolution of a 1.2 px line against the field
+   background, and the bucket boundary moves along the trail every frame as
+   samples shift, so there is no fixed seam to see. The bucket's alpha is its
+   MIDPOINT, so the ramp keeps its mean, not just its ends. */
+const TRAIL_FADE_STEPS=8;
+const trailAlpha=k=>((k+0.5)/TRAIL_FADE_STEPS)*0.55;
+
 function draw(){
   cx.fillStyle=css('--sky-deep'); cx.fillRect(0,0,S,S);
   // grid
@@ -511,17 +540,27 @@ function draw(){
   }
   cx.globalAlpha=1;
 
-  // trails
+  /* Trails, batched by alpha bucket (B126 profile A2). The fade is what used
+     to cost, not the trail: a per-SEGMENT globalAlpha cannot share a path, so
+     220 segments x 8 bodies paid a full beginPath/moveTo/lineTo/stroke each —
+     8,776 of 13,533 canvas calls per frame. Quantising the fade to
+     TRAIL_FADE_STEPS buckets makes each bucket one path with one stroke. The
+     alpha is monotone in i, so a bucket is a contiguous run and the polyline
+     survives; the wrap seam still lifts the pen. */
   if(P.trails) for(const b of nodes){
     const col=css(b.color);
     cx.strokeStyle=col; cx.lineWidth=1.2;
     const t=b.trail; if(t.length<2)continue;
+    let bk=-1, pen=false;
     for(let i=1;i<t.length;i++){
       const p=t[i-1],q=t[i];
-      if(Math.abs(p[0]-q[0])>0.5||Math.abs(p[1]-q[1])>0.5)continue;
-      cx.globalAlpha=(i/t.length)*0.55;
-      cx.beginPath();cx.moveTo(gu(p[0])*S,gu(p[1])*S);cx.lineTo(gu(q[0])*S,gu(q[1])*S);cx.stroke();
+      const k=(i*TRAIL_FADE_STEPS/t.length)|0;
+      if(k!==bk){ if(bk>=0){cx.globalAlpha=trailAlpha(bk);cx.stroke();} cx.beginPath(); bk=k; pen=false; }
+      if(Math.abs(p[0]-q[0])>0.5||Math.abs(p[1]-q[1])>0.5){pen=false;continue;}
+      if(!pen){cx.moveTo(gu(p[0])*S,gu(p[1])*S);pen=true;}
+      cx.lineTo(gu(q[0])*S,gu(q[1])*S);
     }
+    if(bk>=0){cx.globalAlpha=trailAlpha(bk);cx.stroke();}
   }
   cx.globalAlpha=1;
 
@@ -567,7 +606,7 @@ function frame(t){
          (human 2026-09-16: "straight lines that rise and fall"). */
       if((++histStep)>=HIST_EVERY){ histStep=0;
         for(const b of nodes){ b.hx[b.hp]=outX(b); b.hy[b.hp]=outY(b); b.ha[b.hp]=outAngle(b); b.hr[b.hp]=outRadius(b); b.hp=(b.hp+1)%b.hx.length; }
-        vbarHist[vbarP]=meanSpeed(); vbarP=(vbarP+1)%vbarHist.length; }   // the field strip rides the same sim-time cadence (B126)
+        vbarHist[vbarP]=meanSpeed(); vbarP=(vbarP+1)%vbarHist.length; stripRev++; }   // the field strip rides the same sim-time cadence (B126)
     }
     if(n>=200)acc=0;
     for(const b of nodes){ b.trail.push([b.x,b.y]); if(b.trail.length>220)b.trail.shift(); }
@@ -719,8 +758,22 @@ function showIC(el,b,inputs){
 function targetOptions(sel){
   return Object.entries(TARGETS).map(([k,t])=>`<option value="${k}"${k===sel?' selected':''}>${t.label}</option>`).join('');
 }
+/* Row visibility for the lazy strips (B4). An off-screen strip is 505 canvas
+   ops per frame drawn for nobody. IntersectionObserver rather than
+   getBoundingClientRect: the rect read is a forced layout per row per frame,
+   which is the same cost A1 just removed from the palette. Rows start assumed
+   visible so the first frames are never blank; the observer corrects within a
+   frame or two. */
+let rowObserver=null;
+function observeRow(el){
+  if(typeof IntersectionObserver!=='function'){el._vis=true;return;}
+  rowObserver||=new IntersectionObserver(es=>{for(const e of es){e.target._vis=e.isIntersecting; if(!e.isIntersecting)e.target._sk=null;}},
+                                         {root:null,rootMargin:'160px'});
+  el._vis=true; rowObserver.observe(el);
+}
 function renderNodeList(){
   const host=$('nodes'); host.innerHTML='';
+  if(rowObserver){rowObserver.disconnect(); rowObserver=null;}
   nodes.forEach(b=>{
     const el=document.createElement('div'); el.className='node'; el.style.setProperty('--c',css(b.color)); el.dataset.id=b.id;
     el.innerHTML=`
@@ -767,9 +820,14 @@ function renderNodeList(){
     el.querySelector('[data-act=ty]').addEventListener('change',e=>b.ty=e.target.value);
     el.querySelector('[data-act=pin]').addEventListener('click',e=>{b.pinned=!b.pinned;if(b.pinned){b.vx=b.vy=0;}e.target.textContent=b.pinned?'Pinned':'Pin';});
     el.querySelector('[data-act=del]').addEventListener('click',()=>{nodes=nodes.filter(n=>n!==b);renderNodeList();});
-    host.appendChild(el);
+    host.appendChild(el); observeRow(el);
   });
 }
+/* Everything drawXYGraph puts on the canvas that is NOT a strip sample: which
+   pair of series is drawn, and the frozen-state caption. Folded into the redraw
+   key so a polar/pause/time-scale/pin change repaints immediately even though no
+   new sample arrived. */
+const stripKey=b=>stripRev+'|'+(P.polar?1:0)+'|'+(paused?'p':(P.ts===0?'t':(b.pinned?'n':'')));
 /* Per-body x/y position graphs (human 2026-09-15): the two observables as
    strips over the last 240 frames, x solid, y dashed, in the body's colour —
    the visible link between the orbit and the modulation it emits. */
@@ -834,7 +892,14 @@ function updateReadouts(){
     el.querySelector('.xy').textContent=x.toFixed(2)+', '+y.toFixed(2);
     el.querySelector('[data-bar=x]').style.width=(x*100)+'%';
     el.querySelector('[data-bar=y]').style.width=(y*100)+'%';
-    drawXYGraph(el.querySelector('.xyg'), b);
+    /* The strip redraws on its OWN cadence, not the animation frame's: its
+       content changes only when a new sample is recorded (b.hp advances once
+       per HIST_EVERY physics steps = 60/s of SIM time) or when something the
+       strip prints changes. On a 120 Hz display, at time scale < 1, or while
+       paused, that is strictly fewer redraws and never a different picture.
+       Hidden rows draw nothing and are marked dirty so they redraw on return. */
+    if(el._vis===false){ el._sk=null; }
+    else { const k=stripKey(b); if(k!==el._sk){ el._sk=k; drawXYGraph(el.querySelector('.xyg'), b); } }
     el.querySelector('[data-val=x]').textContent=TARGETS[b.tx].fmt?TARGETS[b.tx].fmt(x):'';
     el.querySelector('[data-val=y]').textContent=TARGETS[b.ty].fmt?TARGETS[b.ty].fmt(y):'';
   }
