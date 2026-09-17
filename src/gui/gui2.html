@@ -450,11 +450,19 @@
      by the rail's ribbon hit test, so one class serves both directions. */
   .mxc:hover, .mxc.mxhi { outline:2.5px solid var(--physics); outline-offset:3px; }
   .mxc.drag { outline:var(--stroke) solid var(--value); }
-  /* ABSENT, not disabled: an illegal crosspoint has no control at all. */
-  .mxgap { aspect-ratio:1 / 1; min-height:24px; max-height:44px;
-           border:var(--stroke) dashed var(--line); border-radius:var(--r);
-           opacity:.20; }
-  .mxterm .mxc { border-color:var(--celebrate); }
+  /* ABSENT, not disabled — and absent means NOTHING IS DRAWN. An illegal
+     crosspoint has no control, no ghost and no placeholder: the empty
+     staircase IS the acyclicity rule made visible. Legality is enforced on the
+     read side (ADR-088), so a dashed box here would be a second copy of the
+     rule, drawn in the one place it cannot be edited. The element survives
+     only to hold the grid slot, which is why it keeps the sizing and nothing
+     else — no border, no background, no outline, no hover. */
+  .mxgap { aspect-ratio:1 / 1; min-height:24px; max-height:44px; }
+  /* `.mxterm` marks the terminal (OUT) column's rows for the DOM only. It gets
+     NO colour of its own: every named colour in this file is a status, and the
+     OK/meter green in particular would read as "this edge is fine" — a status
+     a routing coefficient does not have. The OUT column is distinguished by its
+     header and its position, exactly as the well in the demo distinguishes it. */
   .row { display:grid; grid-template-columns:64px minmax(0,1fr) 52px;
     align-items:center; gap:6px; margin:5px 0; }
   .row label { color:var(--t2); font-size:10px; }
@@ -6409,7 +6417,7 @@ function drawMatrixGraph() {
 
   /* RIBBONS FIRST, cards over them: a ribbon ends at a card's edge, and drawing
      the cards last is what hides the two pixels of overshoot a bezier leaves. */
-  const ribbons = [];
+  const ribbons = [], pills = [];
   const ribbon = (x1, y1, x2, y2, v, id, onPath, lift) => {
     if (Math.abs(v) < 1e-9) return;
     const hot = mxHover === id;
@@ -6422,9 +6430,16 @@ function drawMatrixGraph() {
     ctx.bezierCurveTo(x1 + 26 * V, y1 + lift, x2 - 26 * V, y2 + lift, x2, y2);
     ctx.stroke();
     ctx.setLineDash([]);
+    /* THE VALUE SITS IN ITS OWN PILL, 16px ABOVE the ribbon — never ON it. A
+       heavy edge is a 4px stroke, and a label drawn on the stroke is struck
+       through by it; 8px of clearance put the label against the card edge
+       instead. So: ground-coloured fill to punch a hole in whatever is behind
+       (the stroke, a crossing ribbon, a card's shadow), a hairline outline to
+       give the hole an edge, then the number. The pill and its number take the
+       hover colour TOGETHER, so the highlight is one object either way you
+       came at it — from the cell or from the ribbon. */
     const mx = (x1 + x2) / 2, my = (y1 + y2) / 2 + lift * 0.75;
-    ctx.fillStyle = hot ? PHY : VAL;
-    ctx.fillText(v.toFixed(2), mx, my - 8 * V);   // same precision the cell prints
+    pills.push({ lbl: v.toFixed(2), x: mx, y: my - 16 * V, hot });  // cell's precision
     ribbons.push({ id, x: mx, y: my });
   };
 
@@ -6444,6 +6459,20 @@ function drawMatrixGraph() {
       ribbon(slotX(t) + bw / 2, midY, outX - bw / 2, midY,
              val(MX_OUT + t), MX_OUT + t, reaches(t), 0);
   cv._ribbons = ribbons;
+  /* PILLS AFTER EVERY RIBBON, never inline with the one they label: a pill
+     drawn during the loop is crossed out by any ribbon drawn after it, which is
+     the same unreadable label the treatment exists to prevent — just struck by a
+     neighbour instead of by its own stroke. Two passes, so the punched hole
+     holds against all of them. (Still before the cards, which stay on top.) */
+  for (const p of pills) {
+    const pw = ctx.measureText(p.lbl).width + 9 * V, ph = 13 * V;
+    ctx.fillStyle = TOK('--scr-tube');
+    ctx.fillRect(p.x - pw / 2, p.y - ph / 2, pw, ph);
+    ctx.strokeStyle = p.hot ? PHY : INK; ctx.lineWidth = 1 * V;
+    ctx.strokeRect(p.x - pw / 2, p.y - ph / 2, pw, ph);
+    ctx.fillStyle = p.hot ? PHY : VAL;
+    ctx.fillText(p.lbl, p.x, p.y);
+  }
 
   /* THE CARDS, each with the hard offset shadow the chassis uses everywhere —
      in the tube's own ink, since --line is a chrome colour and would be
