@@ -5766,3 +5766,24 @@ no per-internal CLAP parameter, no automation lane, no mod-matrix
 destination — until a named patch shows a knob-plus-preset cannot express
 it (the revisit trigger of ADR-172). Recorded so B50's brief carries the
 panel as in-scope and the lanes as out.
+
+### ADR-172 Amendment 2 — the pool counts are TYPE counts; drive at both ends of the chain is two drive types (2026-09-17)
+
+The contradiction the lead surfaced (one instance per type vs B95's "delay 2 ·
+distortion 2") was not a counter-proposal — the lead had not cross-checked
+B95 when writing the trade-off. Talked through with the human: "For now, one
+should probably be enough even though it limits certain things. … maybe we can
+have both a simple drive module and MAW, the way Serum has both a reverb and a
+convolution reverb." Resolved: B95's counts are counts of distinct module
+TYPES in the roster, never two nodes of one type. Distortion 2 = a light
+DRIVE (the one-knob soft-clip + tone that today's placeholder becomes, cheap
+enough to sit at the head of a thirteen-module chain) and MAW (the deep
+three-stage saturator); delay 2 = Delay and Echo. The sound the human feared
+losing — drive at the start AND the end of the chain — is expressible as
+Drive → … → MAW or the reverse, which is a topology, not a second socket.
+The principle, stated once: **be bold by growing TYPES, never sockets** — a
+new type is an append-only roster line with its own face; a second socket
+of one type reintroduces the stepped-identity chimera B49 measured. The
+human's own framing is recorded because it is the design stance: stop
+measuring a pre-1.0 experimental instrument against Serum's modularity and
+treat horde as its own sound-design space.
