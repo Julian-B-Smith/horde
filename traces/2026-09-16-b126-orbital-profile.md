@@ -441,9 +441,17 @@ for deletion on cost grounds**, because no control is expensive enough to justif
 
 ## Verify
 
-`./verify fast` — **exit 0**, git `b9ee065` (`.harness/last-verify.json`:
-`{"target":"fast","exit":0,"git":"b9ee065","ts":"2026-09-17T03:53:18Z"}`).
+`./verify fast` — **exit 0**, tree `278393e` (`.harness/last-verify.json`:
+`{"target":"fast","exit":0,"git":"278393e","ts":"2026-09-17T03:55:51Z"}`).
 This change set is one new trace file; no code, gate or lab is touched by it.
+
+**Two runs, and the first did not cover this file.** The output below was first taken at tree
+`b9ee065` (`{"target":"fast","exit":0,"git":"b9ee065","ts":"2026-09-17T03:53:18Z"}`) — *before*
+the trace was assembled, so it verified a tree that did not yet contain the change set. The
+repo's Stop hook caught exactly that ("edits exist that have not been verified") and was right
+to. Re-run against the committed tree at `278393e`: identical output, exit 0. Both hashes are
+recorded rather than the stale one quietly swapped, because which tree an oracle actually ran
+against is the entire content of the claim.
 
 ```
 verify: .leakcheck-names absent — private-name leak check SKIPPED (expected off this Mac)
