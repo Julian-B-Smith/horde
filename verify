@@ -27,6 +27,9 @@ fi
 # was. --untracked is load-bearing here for the same reason as in leak_gate: git
 # grep skips new files otherwise, and a brand-new tool file is exactly the case.
 portability_gate() {
+  # B140 (human ruling 2026-09-17): the second MSVC class — a std symbol used
+  # without its header in the same file. tools/include_check.py owns the table.
+  python3 tools/include_check.py || return 1
   local hits
   hits=$(git grep --untracked -nI 'M_PI' -- '*.cpp' '*.h' '*.hpp' 2>/dev/null \
          | grep -vE '(//|/\*|\*).*M_PI' || true)

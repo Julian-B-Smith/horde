@@ -35,6 +35,7 @@
 #include <cstdlib>
 #include <string>
 #include <vector>
+#include <cmath>
 
 #include "statefix_common.h"
 #include "../src/mod_core.h"

@@ -29,6 +29,7 @@
 
 #ifdef __APPLE__
 #include <Accelerate/Accelerate.h>
+#include <algorithm>
 #endif
 
 namespace

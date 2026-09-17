@@ -39,6 +39,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <algorithm>
 
 #include "force_core.h"
 

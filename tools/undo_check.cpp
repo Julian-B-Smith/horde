@@ -33,6 +33,8 @@
 #include <filesystem>
 #include <string>
 #include <vector>
+#include <cstdio>
+#include <cstdlib>
 
 #include "statefix_common.h"
 #include "../src/undo_tree.h"

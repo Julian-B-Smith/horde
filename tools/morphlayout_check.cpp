@@ -19,6 +19,7 @@
 #include <string>
 #include <vector>
 #include <clap/clap.h>
+#include <cstdlib>
 #include "../src/hypersaw_clap_entry.h"
 extern "C" bool hypersaw_debug_apply(const clap_plugin_t *, const char *);
 extern "C" const char *hypersaw_debug_cornervals(const clap_plugin_t *, int);

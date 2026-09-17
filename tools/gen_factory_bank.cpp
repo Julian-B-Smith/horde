@@ -36,6 +36,7 @@
 #include <vector>
 
 #include <clap/clap.h>
+#include <cstdlib>
 #include "../src/hypersaw_clap_entry.h"
 
 extern "C" void hypersaw_debug_state(const clap_plugin_t *, char *, uint32_t);

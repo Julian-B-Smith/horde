@@ -19,6 +19,7 @@
 #include <cstdio>
 #include <functional>
 #include <memory>
+#include <string>
 
 namespace hypersaw::detail
 {

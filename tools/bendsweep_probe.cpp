@@ -17,6 +17,7 @@
 #include <cmath>
 #include <cstdio>
 #include <vector>
+#include <algorithm>
 #include "../src/glide_core.h"
 
 using hypersaw::GlideCore;

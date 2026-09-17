@@ -23,6 +23,8 @@
 #include <filesystem>
 #include <clap/clap.h>
 #include <clapwrapper/vst3.h>
+#include <algorithm>
+#include <vector>
 
 #include "swarm_core.h"
 #include "gui/hypersaw_gui.h"

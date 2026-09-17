@@ -5787,3 +5787,25 @@ of one type reintroduces the stepped-identity chimera B49 measured. The
 human's own framing is recorded because it is the design stance: stop
 measuring a pre-1.0 experimental instrument against Serum's modularity and
 treat horde as its own sound-design space.
+
+## ADR-174 — Include what you use: the local portability gate checks every std symbol's header (2026-09-17)
+
+**Context.** The Windows CI build is the only MSVC compile and runs after a
+push; the local `portability_gate` knew one MSVC trap (`M_PI`). PR #607's
+`routing_check.cpp` used `std::string` without `<string>` — reachable
+transitively under clang's library, not under MSVC's — and reached CI red
+with every local gate green. Human (2026-09-17): "Portability gate
+recommendation ratified."
+
+**Decision.** `tools/include_check.py` runs first in `portability_gate`: for
+every `tools/*.cpp`, `src/*.h|cpp`, `src/gui/*` file, every `std::X` used
+(comments stripped) must have a header from its table entry in THAT file.
+The rule is strict on purpose — "compiles on MSVC today" is one upstream
+refactor from red — so false positives are impossible by construction and
+the file's own include list is always the fix. The 31 files that relied on
+transitive reach were swept mechanically in the same PR (a missing header
+added after each file's last angle-bracket include); nothing else changed,
+and `verify full` proves it.
+
+**Consequence.** The table grows only when a class bites or is certain to;
+it is not a general IWYU tool and does not claim to be.

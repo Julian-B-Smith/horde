@@ -18,6 +18,8 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <algorithm>
+#include <cstdlib>
 
 #include "../src/time_core.h"
 

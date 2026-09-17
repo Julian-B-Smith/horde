@@ -8,6 +8,7 @@
 #include <cmath>
 #include <vector>
 #include <clap/clap.h>
+#include <string>
 #include "../src/hypersaw_clap_entry.h"
 namespace {
 #include "notefuzz_scaffold.inc"

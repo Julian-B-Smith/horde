@@ -16,6 +16,7 @@
 #include <vector>
 
 #include <cstring>
+#include <algorithm>
 #include "../src/routing_core.h"
 #include "../src/fx_rack.h"
 #include "../src/hypersaw_clap_entry.h"

@@ -38,6 +38,7 @@
 #include <complex>
 #include <vector>
 #include <string>
+#include <algorithm>
 #include "../src/swarm_core.h"
 using namespace hypersaw;
 

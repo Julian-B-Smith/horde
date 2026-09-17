@@ -16,6 +16,8 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <algorithm>
+#include <cstdlib>
 
 #include "../src/filter_core.h"
 
