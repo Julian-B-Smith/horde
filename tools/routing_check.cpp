@@ -162,6 +162,23 @@ struct Rig
   }
 };
 
+/* ---- string-backed CLAP streams, so a state round-trip needs no file ---- */
+struct OStr { clap_ostream_t s; std::string data; };
+static int64_t ostrWrite(const clap_ostream_t *s, const void *b, uint64_t n)
+{
+  ((OStr *)s)->data.append((const char *)b, (size_t)n);
+  return (int64_t)n;
+}
+struct IStr { clap_istream_t s; std::string data; size_t pos = 0; };
+static int64_t istrRead(const clap_istream_t *s, void *b, uint64_t n)
+{
+  auto *i = (IStr *)s;
+  const size_t take = n < i->data.size() - i->pos ? (size_t)n : i->data.size() - i->pos;
+  std::memcpy(b, i->data.data() + i->pos, take);
+  i->pos += take;
+  return (int64_t)take;
+}
+
 // The whole matrix, read off the live doubles — the comparison B50 (b) needs.
 static bool matrixEqual(const clap_plugin_t *a, const clap_plugin_t *b,
                         const std::vector<Cell> &cells)
@@ -458,17 +475,29 @@ int main()
      id 0 (what 10000 aliases to under `% kOscStride`) must stay unknown too. A
      probe that only asserted "10000 exists" would also pass on a shell that
      accepted every integer. */
+  /* `get_value`, NOT `get_info`, and that distinction is this assertion's whole
+     content. params_get_info walks the routing table BY INDEX and never calls
+     findParam, so it keeps reporting every routing id even with the dispatch
+     branch deleted — measured: removing the branch left this assertion green
+     while three others went red, which is a probe testing the wrong door.
+     params_get_value's first line is `if (!findParam(id)) return false;`, so it
+     is the id-resolution path and the only honest witness here. */
   {
     Rig r(factory);
-    clap_param_info_t inf{};
-    const bool live = r.info(10000, inf);
-    clap_param_info_t junk{};
-    const bool ghost = r.info(14095, junk);     // 10000 + 63*64 + 63: in block, no cell
     double v = 0;
-    const bool zero = r.par->get_value(r.p, 0, &v);
+    const bool live = r.par->get_value(r.p, 10000, &v);
+    // 10000 + 63*64 + 63: inside the block, past every cell this build exposes.
+    double junk = 0;
+    const bool ghost = r.par->get_value(r.p, 14095, &junk);
+    // and the other half of the same trap: 10000 % kOscStride is 0, so if the
+    // block were resolved by the derivation instead of dispatched, id 0 is what
+    // it would alias onto. It must stay unknown.
+    double z = 0;
+    const bool zero = r.par->get_value(r.p, 0, &z);
     std::snprintf(d, sizeof(d),
-                  "id 10000 known=%s (osc-10 derivation would say no); "
-                  "id 14095 known=%s (control, must be no); id 0 known=%s (control, must be no)",
+                  "get_value(10000)=%s (the osc-10 derivation would say no); "
+                  "get_value(14095)=%s (control, must be no); "
+                  "get_value(0)=%s (control, must be no)",
                   live ? "yes" : "no", ghost ? "yes" : "no", zero ? "yes" : "no");
     check(live && !ghost && !zero,
           "routing ids dispatch before the id/kOscStride derivation", d);
@@ -548,7 +577,55 @@ int main()
     check(corners && blended, "a morph blends crosspoint coefficients as values", d);
   }
 
-  // ---- 12. a slot fed by nothing is silent (reachability) ------------------
+  // ---- 12. the `routing` chunk carries the topology, and only when it must --
+  /* B50 (c), in three claims that have to hold together:
+       · a rerouted matrix survives save -> load into a FRESH instance;
+       · a chunk saved on the series chain names no `routing` key at all — this
+         is what keeps every existing preset, fixture and golden byte-identical,
+         and it is the claim B50 (b) actually rests on;
+       · a load with no key returns a rerouted instance TO the chain, rather
+         than leaving it holding the previous patch's topology. That third one
+         is the ADR-138 scar restated: the bug is not in what a chunk says, it
+         is in what a chunk's SILENCE fails to undo. */
+  {
+    Rig a(factory);
+    auto *stA = (const clap_plugin_state_t *)a.p->get_extension(a.p, CLAP_EXT_STATE);
+
+    OStr plain{{nullptr, ostrWrite}, {}};
+    stA->save(a.p, &plain.s);
+    const bool quietOnChain = plain.data.find("\nrouting=") == std::string::npos;
+
+    // Reroute: source straight into slot 4, slot 1 muted out of the chain.
+    a.set(10000 + 0 * 64 + 3, 0.75);
+    a.set(10000 + 0 * 64 + 0, 0.0);
+    a.set(20000 + 0, 0.5);
+    a.set(21000 + 2, -0.25);
+    OStr routed{{nullptr, ostrWrite}, {}};
+    stA->save(a.p, &routed.s);
+    const bool speaksWhenRerouted = routed.data.find("\nrouting=") != std::string::npos;
+
+    Rig b(factory);
+    auto *stB = (const clap_plugin_state_t *)b.p->get_extension(b.p, CLAP_EXT_STATE);
+    IStr in{{nullptr, istrRead}, routed.data, 0};
+    stB->load(b.p, &in.s);
+    const bool carried = matrixEqual(a.p, b.p, cells);
+
+    // The silence test: b is rerouted now; loading the CHAIN chunk must undo it.
+    IStr back{{nullptr, istrRead}, plain.data, 0};
+    stB->load(b.p, &back.s);
+    Rig c(factory);
+    const bool restored = matrixEqual(b.p, c.p, cells);
+
+    std::snprintf(d, sizeof(d),
+                  "chain chunk names routing= %s (must be no); rerouted chunk does %s; "
+                  "round-trip carried %s; keyless load returned to the chain %s",
+                  quietOnChain ? "no" : "yes", speaksWhenRerouted ? "yes" : "no",
+                  carried ? "yes" : "no", restored ? "yes" : "no");
+    check(quietOnChain && speaksWhenRerouted && carried && restored,
+          "the routing chunk persists a topology and stays silent on the default", d);
+  }
+
+  // ---- 13. a slot fed by nothing is silent (reachability) ------------------
   /* The read-side rule made audible: cut every edge into slot 0 and what it
      contributes downstream must be exactly what a zero input produces — not
      "small". Measured on the core with the trivial stand-ins, so what is read
@@ -588,7 +665,36 @@ int main()
      NB: these plants must be run with the object file deleted. CMake did not
      track `src/routing_core.h` as a dependency of this target, and the first
      calibration pass read a stale binary and reported two identical failures
-     that were one failure twice. */
+     that were one failure twice.
+
+     ---- B50 PHASE 1 CALIBRATION (assertions 8-13, 2026-09-17) --------------
+     Four plants in the SHELL, each fired by the assertion written for it:
+
+       1. findParam's routing dispatch deleted (ids fall through to the
+          `id / kOscStride` derivation, resolve to oscillator 10 and vanish)
+          -> 8, 9, 10 and 11 RED.
+       2. setRoutingParam writes `coeff[0][to]` instead of `coeff[from][to]`
+          -> 8 RED (6/18 cells), 10 RED, 11 RED.
+       3. the routing ParamDefs declared `stepped` (so the morph ARGMAXes them
+          instead of blending) -> 11 RED, and 8 RED because the apply path
+          rounds. This is the ADR-125 claim's own plant.
+       4. applyRoutingChunk's reset-to-default loop removed -> 12 RED on
+          exactly one of its four clauses ("keyless load returned to the chain
+          no"), the others untouched.
+
+     THE PLANT THAT TAUGHT SOMETHING. Plant 1 was run first against an
+     assertion 9 that asked `params_get_info`, and 9 stayed GREEN while three
+     others went red — because get_info walks the routing table BY INDEX and
+     never calls findParam. The probe was testing a door the bug does not go
+     through. It now asks `params_get_value`, whose first line IS the findParam
+     call, and plant 1 fires it. Recorded because a green assertion next to red
+     ones is the most expensive kind of pass: it looks like coverage.
+
+     Also confirmed the hard way and worth restating: the failed build during
+     that pass left the PREVIOUS binary in place and it ran and reported, so the
+     numbers on screen described a plant that was no longer in the source
+     (L0032's stale-object case). Read the compile result before the assertions,
+     every time. */
   std::printf("routing_check: %s (%d failures)\n", failures ? "RED" : "GREEN", failures);
   return failures ? 1 : 0;
 }
