@@ -5707,3 +5707,43 @@ B50, not on a date.
 module, subsuming Saturator and WARP); Sluice hosted, its coefficient set is
 what the crosspoint reads; the "macro face" of Part 2 §4 IS the ADR-169 slot
 set — B50 gains no second face design.
+
+## ADR-173 — Parameter classes are derived, not columnar; the device set; definition queries are instance-free (2026-09-17, PROPOSED — B89 phase 1, PR #602)
+
+**Context.** SPEC-INTENT-BUS §9 step 1: classify every parameter
+(morphable / structural / device) in the engine definition before anything
+else lands. 243 frozen `kParams` rows.
+
+**Decision (as built, for ratification at merge).** (1) The class is a
+DERIVATION with an override table, not a ninth column: `paramClassOf(id)`
+applies one written-once rule — override → stepped ⇒ structural →
+continuous ⇒ morphable — keyed on the base id so per-osc twins share a class
+by construction; the diff to `kParams` is empty. The derivation deliberately
+never reads `morphIds`, so "no morph-field member is device" is a cross-check
+between two independently authored lists, not a tautology. (2) The device
+set: 89 polyGlide (dead id, ADR-102), 100 masterVol (§3.2's own example),
+151–159 (morph position, controls, arm), 161–180 (mod-source and intent
+plumbing, specimen), 264/265 (buried B117). Counts: 137 morphable, 73
+structural, 33 device over the 243 rows; 191/101/33 over the 325 host-exposed
+ids. (3) `voiceCull` (160) is the single CONTINUOUS structural parameter
+(§8: it selects voice count) — lead's recommendation for the human's ruling
+below. (4) `inertiaCurve` (70) stays morphable despite its "(dev)" label
+because ADR-109 A1 put it in the field on purpose; the "dev toggles" clause
+is read narrowly. (5) `hypersaw_debug_paramclass(id)` takes NO plugin
+handle — a class that could differ between instances would not be a
+definition; a new precedent: definition queries are instance-free.
+(6) `paramclass_check` is standalone (eleven properties incl. a must-fire
+control and a pinned refusal; prints the full table into the trace for the
+human's review); wiring is the human's gate call.
+
+**Rulings owed (human).** R1 `voiceCull` structural (lead: yes — structural
+still morphs, atomically, which is what a voice count should do; "device"
+would take it out of every corner's gift). R2 `modEnvPitch` (161) is device
+under the acceptance's route clause but §6.2/§6.3 make routings
+corner-scope — phase 2 revisits it; it must not be inherited silently.
+R3 wire `paramclass_check` into `verify full` (lead: yes, same route as
+ADR-171).
+
+**Named limit.** T6 checks the printed table, not the override list; a
+duplicated override id shadowed by the first match would read as
+consistent. Phase 2's resolver test will see it; recorded, not hidden.
