@@ -5182,6 +5182,17 @@ buffers, so that pair stays atomic until a second time engine per slot is
 budgeted (~1.8 MB × 4) — the human's ruling, filed on B117 beside the
 bury/expose ruling.
 
+### ADR-163 Amendment 2 — buried: crossfade is the behaviour (2026-09-16)
+
+Human (2026-09-16): "Let's bury the control, re: B117", on the lead's
+recommendation (crossfade at 80 ms as the silent behaviour; the Echo/Room
+hole left declared rather than spend ~7 MB on a 1.0-only instrument). Done:
+no control in any GUI (the SET cluster removed, presentation rows moved to a
+page no GEN marker emits, `gui_reach` exempts 264/265 by name), ids kept so
+saved state loads, default of 264 flipped 0 → 1, `fxxfade_check` T1 now
+asserts that an instance which never wrote the id renders like crossfade.
+Not bit-identical to before at a type flip — that is the ruling.
+
 ### ADR-162 Amendment 1 — as built (2026-09-13, PR #555)
 
 The two per-note pitch offsets (MPE bend, ENV 2) compose in ONE function;

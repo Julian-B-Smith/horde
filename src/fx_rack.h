@@ -302,9 +302,11 @@ class FxRack
    * bounded pool (B95) is the structural answer at 1.1; this previews it so
    * the human can HEAR both before ruling.
    *
-   * Default OFF, and that default is load-bearing: with `xfadeOn == false`
-   * nothing here is reachable and every rendered sample is bit-identical to
-   * the pre-B117 rack (fxxfade_check T1 is the proof).
+   * Default ON since the B117 ruling (2026-09-16, ADR-163 A2): the toggle is
+   * buried, crossfade at 80 ms is the shipped behaviour, and fxxfade_check T1
+   * proves an instance that never writes id 264 renders exactly like one told
+   * fxXfade = 1. The atomic path stays reachable (a saved fxXfade = 0 loads),
+   * which is what keeps the pre-B117 render as the T1 control.
    */
   void setXfade(bool on) { xfadeOn = on; }
   void setXfadeMs(double ms) { xfadeMs = ms < 5.0 ? 5.0 : (ms > 500.0 ? 500.0 : ms); }
@@ -805,7 +807,7 @@ class FxRack
   Slot shadow[kRackSlots];
   int fadeLeft[kRackSlots] = {0, 0, 0, 0};   // samples of handover remaining
   int fadeLen[kRackSlots] = {0, 0, 0, 0};    // samples the current handover spans
-  bool xfadeOn = false;                      // ADR-163 dev toggle; OFF is today
+  bool xfadeOn = true;   // B117 ruled 2026-09-16 (ADR-163 A2): crossfade IS the behaviour                      // ADR-163 dev toggle; OFF is today
   double xfadeMs = 80;
   Comb combs[kCombLines];
   // One NotchCore per slot (main-thread constructed, see setSampleRate). A

@@ -32,6 +32,8 @@ params = {int(i): (k, n) for i, k, n in rows if int(i) < 1000}
 # not a silent omission.
 EXEMPT = {
     70: "inertiaCurve — dev-only, labelled (dev) in the param table",
+    264: "fxXfade — buried by ruling B117 (ADR-163 A2); id kept for state",
+    265: "fxXfadeMs — buried with 264; 80 ms is the behaviour",
 }
 
 guis = {}

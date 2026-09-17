@@ -277,8 +277,10 @@ int main()
   const std::vector<float> atomic = flipRender(0);
   const std::vector<float> crossfaded = flipRender(1);
   std::snprintf(d, sizeof d, "%zu samples compared", untouched.size());
-  ok(!untouched.empty() && untouched == atomic,
-     "T1 fxXfade=0 is bit-identical to never writing the param", d);
+  // B117 ruled 2026-09-16: the default IS crossfade, so "inert default" now
+  // means an instance that never heard of the id renders like fxXfade = 1.
+  ok(!untouched.empty() && untouched == crossfaded,
+     "T1 fxXfade=1 is bit-identical to never writing the param (buried default)", d);
   ok(crossfaded != atomic,
      "T1 CONTROL fxXfade=1 renders differently (the comparison can see a difference)",
      crossfaded != atomic ? "diverged, as it must" : "identical — T1 proves nothing");
