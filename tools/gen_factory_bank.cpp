@@ -430,7 +430,7 @@ std::string cornerPresetJson(const std::vector<PV> &order, const CornerDef &c, s
       err += std::string("corner '") + c.name + "': id " + std::to_string(s.id) +
              " is not in the morph field (global or non-morphable) — put it in the patch\n";
   }
-  std::string out = "{\"morphLayout\":2,\"cornerPreset\":[";
+  std::string out = "{\"morphLayout\":3,\"cornerPreset\":[";
   char buf[32];
   for (size_t i = 0; i < vals.size(); i++)
   {

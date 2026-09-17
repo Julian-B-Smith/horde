@@ -3592,7 +3592,7 @@ struct Plugin
   {
     if (k < 0 || k > 3) return "{}";
     morphInit();
-    std::string out = "{\"morphLayout\":2,\"cornerPreset\":[";   // ADR-159
+    std::string out = "{\"morphLayout\":3,\"cornerPreset\":[";   // ADR-159; 3 = routing block appended (B50 phase 1)
     char buf[32];
     for (size_t i = 0; i < morphIds.size(); i++)
     {
@@ -3698,7 +3698,7 @@ struct Plugin
   std::string liveCornerJson()
   {
     morphInit();
-    std::string out = "{\"morphLayout\":2,\"cornerPreset\":[";   // ADR-159
+    std::string out = "{\"morphLayout\":3,\"cornerPreset\":[";   // ADR-159
     char buf[32];
     for (size_t i = 0; i < morphIds.size(); i++)
     {
@@ -3861,7 +3861,7 @@ struct Plugin
     if (morphIds.empty()) return "";
     // ADR-159: the array layout version. 2 = late per-osc rows appended last;
     // absent = 1 (pre-2026-09-11), where a 224-entry array is the ADR-150 order.
-    std::string out = ",\"morphLayout\":2,\"cornerNames\":" + cornerNamesJson() + ",\"morphCorners\":[";
+    std::string out = ",\"morphLayout\":3,\"cornerNames\":" + cornerNamesJson() + ",\"morphCorners\":[";
     char buf[32];
     for (int k = 0; k < 4; k++)
     {

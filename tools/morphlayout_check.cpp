@@ -50,9 +50,17 @@ int main() {
   Rig r; r.boot();
   const std::vector<std::string> frozen = split(kFrozen);
   const std::vector<std::string> live = liveOrder(hypersaw_debug_cornervals(r.p, 0));
-  bool prefixOk = live.size() == frozen.size() + 2;
+  /* T1 is a PREFIX clause, not a length pin (human ruling 2026-09-17, B50 phase 1):
+     the invariant ADR-159 states is the ORDER of what was already stored — the
+     frozen 222, then 181/1181 — never the field's total length. Anything after
+     that prefix must be a later append-only block (today: the routing cells,
+     ids >= 10000), so a stray insertion still fails here. */
+  bool prefixOk = live.size() >= frozen.size() + 2;
   for (size_t i = 0; prefixOk && i < frozen.size(); i++) prefixOk = live[i] == frozen[i];
-  expect(prefixOk && live[frozen.size()] == "181" && live[frozen.size() + 1] == "1181", "T1 frozen 222-entry prefix, then 181/1181 last");
+  bool tailOk = true;
+  for (size_t i = frozen.size() + 2; i < live.size(); i++) tailOk = tailOk && std::atoi(live[i].c_str()) >= 10000;
+  expect(prefixOk && live[frozen.size()] == "181" && live[frozen.size() + 1] == "1181", "T1 frozen 222-entry prefix, then 181/1181");
+  expect(tailOk, "T1b everything after the ADR-159 prefix is an appended block (ids >= 10000)");
   auto idx = [&](const std::vector<std::string> &o, const char *id) { return (size_t)(std::find(o.begin(), o.end(), id) - o.begin()); };
   // T2: 222-entry layout-1 array, 120.5 at the frozen slot of 107
   { std::vector<double> a(222, 0.0); a[idx(frozen, "107")] = 120.5; a[idx(frozen, "4")] = 0.31;
