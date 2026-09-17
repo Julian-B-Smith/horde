@@ -61,3 +61,4 @@ swarm-dynamics · parity-oracle · plugin-platform · realtime-perf
 - [L0049] A scale that reaches into the integrator is a physics change in a view's clothes — one function downstream of the state makes bit-identity the gate (labs · oracles)
 - [L0050] A draft filing in a sibling's tree turns our verify red — deliver as a PR on their repo, return their checkout to main (integrations · verify)
 - [L0051] A background oracle's exit code is the wrapper's — chain the commit to the oracle in one shell line; grep the log for RED before git (verify · process)
+- [L0052] A correctness sandbox is not a timing harness — vm globals cost ~56×; time in the main context, cite the tree an oracle ran on (labs · profiling)
