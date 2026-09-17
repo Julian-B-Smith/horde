@@ -453,6 +453,18 @@
   #mxWell .row.mxmod .mxc::after { content:''; position:absolute; inset:-4px;
          border:2px dashed var(--physics); border-radius:calc(var(--r) + 3px);
          pointer-events:none; }
+  /* THE BIPOLAR MARK (B50). `Bipolar feeds` (SET) bounds what the well lets
+     you EDIT, never what a cell may HOLD: the parameter stays bipolar, so a
+     patch authored with the preference on — or a morph blend — can leave a
+     negative value in a cell the mouse can no longer take below 0. The glyph
+     says so in the corner, because a value the preference hides from the mouse
+     must not be hidden from the eye. `::before` deliberately: `::after` above
+     is the modulation ring, and a cell can be marked and modulated at once.
+     BOTTOM-left, not top: the number lives inside the TOP edge (see above) and
+     an 8 px glyph beside it crowded the minus sign at the shipped cell width. */
+  #mxWell .mxc.mxbip::before { content:'±'; position:absolute; bottom:2px; left:3px;
+         font-size:8px; line-height:1; color:var(--text); opacity:.85;
+         pointer-events:none; }
   /* THE SHARED HOVER STATE — `.mxhi` is set by the cell's own pointerenter AND
      by the rail's ribbon hit test, so one class serves both directions. */
   .mxc:hover, .mxc.mxhi { outline:2.5px solid var(--physics); outline-offset:3px; }
@@ -1197,6 +1209,15 @@
     <div class="note">Off keeps focus in this window, which is what makes
       computer-keyboard notes linger in Live. On hands focus back to the host
       after every click.</div>
+  </div>
+  <div class="cluster"><h2>Routing</h2>
+    <div class="row"><label>Bipolar feeds</label><input type="checkbox" id="setBipolar"><output></output></div>
+    <div class="note">Off (the default): the FX page's matrix well edits feeds from
+      0 upward, because a negative feed inverts polarity and is rarely what you
+      want. Nothing is hidden either way — a cell that already holds a negative
+      value (a patch authored with this on, or a morph blend) still shows it,
+      marked <b>±</b>, and renders exactly the same. A preference of this
+      INSTALLATION: saved with the interface, never with the patch.</div>
   </div>
   <div class="cluster"><h2>Patch transfer</h2>
     <div class="btnline" id="setPatch"></div>
@@ -2331,6 +2352,40 @@ const presetStore = {
     const o = lsGet(k); delete o[name]; lsPut(k, o); return true;
   },
 };
+/* ============ SET-PAGE DEVICE PREFERENCES (B50) ============
+   A device preference is NOT patch state: it belongs to this installation's
+   interface rather than to the sound, so it never enters the patch and never
+   enters the morph field. It rides the store the theme chips already use —
+   kind "prefs" in the host's app-support directory when the binds exist,
+   localStorage only in the lab, the same split presetStore makes and for the
+   same reason (ADR-105 A2: the plugin's webview is loaded via setHTML, an
+   OPAQUE ORIGIN, where localStorage throws SecurityError and a swallowed throw
+   reads as "saving doesn't do anything"). Its own record name, so the theme's
+   record and this one cannot clobber each other's fields — and SETPREFS keeps
+   the whole record, so a SECOND preference added later merges instead of
+   overwriting the first.
+
+   BIPOLAR FEEDS, default OFF (human 2026-09-17: a negative feed is a polarity
+   inversion and "it's going to be rare for someone to actually want them").
+   It bounds what the matrix WELL will let you edit and nothing else: no
+   parameter range moves, so every patch loads, morphs and renders identically
+   whatever this is set to. */
+const SETPREF_KEY = 'hz.setPrefs.v1', SETPREF_REC = 'set';
+let SETPREFS = {};
+let BIPOLAR_FEEDS = false;
+async function setPrefsLoad() {
+  try {
+    if (hostStore()) return JSON.parse((await window.hzPresetLoad('prefs', SETPREF_REC)) || '{}');
+  } catch (_) { return {}; }
+  return lsGet(SETPREF_KEY);
+}
+function setPrefsSave(o) {
+  if (hostStore()) {
+    try { window.hzPresetSave('prefs', SETPREF_REC, JSON.stringify(o)); } catch (_) {}
+    return;
+  }
+  lsPut(SETPREF_KEY, o);
+}
 /* The dropdown holds TWO tiers, so an option's value carries its tier: a
    factory entry is "factory:<category>/<name>", a user preset is its bare name
    (unchanged, so `list.value = n` after a save still selects it). One prefix
@@ -5755,6 +5810,30 @@ document.querySelectorAll('.knob').forEach(wireKnob);
 document.querySelectorAll('input[data-diag]').forEach(cb => {
   cb.addEventListener('change', () => { DIAG[cb.dataset.diag] = cb.checked; });
 });
+/* BIPOLAR FEEDS — hand-placed on purpose: it is a PREFERENCE, not a parameter.
+   It has no id, never reaches the shell, and must not appear in the
+   presentation table (gen_gui_controls owns nothing here, and gui_reach has
+   nothing to reach). The restore is async because the host store is a file
+   read; that is harmless — OFF is already what is on screen, and the well
+   re-marks itself when the answer lands. */
+{
+  const cb = document.getElementById('setBipolar');
+  if (cb) {
+    cb.checked = BIPOLAR_FEEDS;
+    cb.addEventListener('change', () => {
+      BIPOLAR_FEEDS = cb.checked;
+      SETPREFS.bipolarFeeds = BIPOLAR_FEEDS;
+      setPrefsSave(SETPREFS);
+      mxMarkBipAll();
+    });
+    setPrefsLoad().then(p => {
+      SETPREFS = p || {};
+      BIPOLAR_FEEDS = !!SETPREFS.bipolarFeeds;
+      cb.checked = BIPOLAR_FEEDS;
+      mxMarkBipAll();
+    }).catch(() => {});
+  }
+}
 /* Knob cells flow in one grid per cluster. Done at runtime rather than in the
    generator because the generator emits per PARAMETER and this is a property
    of the GROUP — and because a hidden cell must still be a `.row` child of the
@@ -6156,6 +6235,18 @@ function mxRange(id) {
   return { lo: -1, hi: 1 };
 }
 
+/* THE EDITABLE FLOOR — the ONE place the `Bipolar feeds` preference acts, and
+   the only thing it changes. mxRange stays the PARAMETER's range and is what
+   the drag scale and the fill magnitude keep reading; this is the bound the
+   well's write path applies, so a cell can still HOLD (and render, and morph
+   to) a value this would not let the mouse author. A preference that moved the
+   declared range instead would make the same patch sound different on two
+   installations, which is the one thing the design forbids. */
+function mxEditLo(id) {
+  const { lo } = mxRange(id);
+  return BIPOLAR_FEEDS ? lo : Math.max(0, lo);
+}
+
 /* HOW MANY SOURCES AND HOW MANY SLOTS, read off the cell set and nothing else.
    Both derivations are subtle enough to be worth stating, and the first one
    was wrong the obvious way first: `froms - slots` UNDERCOUNTS, because the
@@ -6278,7 +6369,10 @@ function mxDefault(id) {
 function mxWire(cell, id) {
   const { lo, hi } = mxRange(id);
   const send = v => {
-    v = Math.min(hi, Math.max(lo, Math.round(v * 1000) / 1000));
+    // ONE clamp for every gesture — drag, wheel and the double-click reset all
+    // funnel through here, so `Bipolar feeds` is honoured once rather than
+    // three times (and cannot be honoured in two of the three).
+    v = Math.min(hi, Math.max(mxEditLo(id), Math.round(v * 1000) / 1000));
     bridge.setParam(id, v);
     lastParams[id] = v;
     paintControl(cell, v);
@@ -6287,7 +6381,10 @@ function mxWire(cell, id) {
   let y0 = 0, v0 = 0, pid = null;
   cell.addEventListener('pointerdown', e => {
     e.preventDefault();
-    y0 = e.clientY; v0 = +(lastParams[id] ?? 0); pid = e.pointerId;
+    /* The drag starts from the CLAMPED position, so a cell already holding
+       -1.5 with the preference off moves on the first pixel instead of
+       spending 1.5 units of travel inside a dead zone the well cannot draw. */
+    y0 = e.clientY; v0 = Math.max(mxEditLo(id), +(lastParams[id] ?? 0)); pid = e.pointerId;
     cell.classList.add('drag');
     bridge.gesture(id, true);
     try { cell.setPointerCapture(pid); } catch (_) {}
@@ -6307,7 +6404,8 @@ function mxWire(cell, id) {
   cell.addEventListener('wheel', e => {
     e.preventDefault();
     bridge.gesture(id, true);
-    send((+(lastParams[id] ?? 0)) + (e.deltaY < 0 ? 0.05 : -0.05) * (hi - lo) / 2);
+    send(Math.max(mxEditLo(id), +(lastParams[id] ?? 0))
+         + (e.deltaY < 0 ? 0.05 : -0.05) * (hi - lo) / 2);
     bridge.gesture(id, false);
   }, { passive: false });
   /* Double-click RESETS TO DEFAULT, like every knob (resetToDefault) — human
@@ -6333,6 +6431,7 @@ function paintMatrixCell(el, v) {
   el.textContent = Math.abs(v) < 1e-9 ? '·' : (+v).toFixed(2);
   el.classList.toggle('on', Math.abs(v) > 1e-9);
   el.classList.toggle('neg', v < 0);
+  mxMarkBip(el, v);
   el.style.setProperty('--mx', mag.toFixed(3));
   mxInvalidate();
 }
@@ -6365,6 +6464,22 @@ function mxMarkMod() {
     const on = (MODROUTES || []).some(r => r.dest === id);
     el.parentElement.classList.toggle('mxmod', on);
   }
+}
+
+/* THE BIPOLAR MARK. A cell holding a value the well will not let the mouse
+   author — a negative one, while `Bipolar feeds` is off — carries the ± glyph.
+   Set per cell as it paints (so a value arriving from the shell, a preset or a
+   morph is marked without anything telling this pane about it), and swept over
+   the whole well when the PREFERENCE itself moves, which changes no value and
+   therefore repaints nothing on its own. */
+function mxMarkBip(el, v) {
+  el.classList.toggle('mxbip', !BIPOLAR_FEEDS && v < -1e-9);
+}
+function mxMarkBipAll() {
+  const well = document.getElementById('mxWell');
+  if (!well) return;
+  for (const el of well.querySelectorAll('.mxc'))
+    mxMarkBip(el, +(lastParams[+el.dataset.p] ?? 0));
 }
 
 /* One redraw per frame at most, however many cells changed in a poll — and a
