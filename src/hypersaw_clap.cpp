@@ -930,16 +930,24 @@ static RoutingParamTable makeRoutingTable()
                     src ? from + 1 : from - kRoutingNSrc + 1, to + 1);
       std::snprintf(kb, sizeof(kb), "rt.c.%s%d.%d", src ? "s" : "m",
                     src ? from : from - kRoutingNSrc, to);
-      // Bipolar and past unity: a crosspoint is a gain, so inversion and a
-      // little make-up are both topology moves, and +-1 must sit INSIDE the
-      // range rather than on its rail.
-      lo = -2.0; hi = 2.0; dv = def.coeff[from][to];
+      /* 0…1, AN AMOUNT — not bipolar (B50 phase 1c; human 2026-09-17: "the
+         paths from Src allow negative values, which seems incorrect"). The
+         two jobs the released -2…+2 range was reasoned for both belong
+         elsewhere: polarity inversion is a per-edge toggle or a module face
+         control, and make-up gain belongs to the modules. A negative feed is
+         also a shape the well cannot draw — the cell's fill height IS the
+         value, so a bipolar range shipped a number with no picture.
+         NARROWING A RELEASED RANGE is safe here and would not be later: the
+         ids shipped two days ago and no saved patch holds a value outside
+         0…1 (the factory bank was regenerated at defaults), which is what
+         bank_check and statefix_check staying green on this change prove. */
+      lo = 0.0; hi = 1.0; dv = def.coeff[from][to];
     }
     else if (kind == kRoutingOut)
     {
       std::snprintf(nb, sizeof(nb), "Out Slot%d", to + 1);
       std::snprintf(kb, sizeof(kb), "rt.out.%d", to);
-      lo = 0.0; hi = 2.0; dv = def.outAmount[to];
+      lo = 0.0; hi = 1.0; dv = def.outAmount[to];   // same rule as a crosspoint
     }
     else
     {

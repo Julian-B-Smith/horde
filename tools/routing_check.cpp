@@ -524,7 +524,15 @@ int main()
 
     clap_param_info_t one{};
     told.info(cells[0].id, one);
-    told.set(cells[0].id, one.default_value + 0.5);
+    // Move the cell HALF ITS RANGE, in whichever direction stays inside it.
+    // `default + 0.5` was enough while a crosspoint was -2…+2; at 0…1 (B50
+    // phase 1c) cell 0's default IS the top rail, so applyParam's clamp put it
+    // straight back on its default and the control silently stopped
+    // controlling. The range is asked for, never assumed.
+    const double span = one.max_value - one.min_value;
+    told.set(cells[0].id, one.default_value - one.min_value > span * 0.5
+                              ? one.default_value - span * 0.5
+                              : one.default_value + span * 0.5);
     const bool differs = !matrixEqual(fresh.p, told.p, cells);
 
     bool chain = hypersaw_debug_routing(fresh.p, 0, 0) == 1.0
@@ -556,7 +564,7 @@ int main()
     Rig r(factory);
     const clap_id cell = 10000 + 0 * 64 + 2;   // source -> slot 3: 0 in the chain,
                                                // so both corner values are authored
-    const double A = 0.25, B = 1.75;
+    const double A = 0.25, B = 0.75;   // both inside the 0…1 crosspoint range
     r.set(151, 1);      // morph on
     r.set(157, 1);      // blend mode, not the quantum flip
     r.set(158, 0);      // no morph glide: the field lands, it does not creep

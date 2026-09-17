@@ -6138,8 +6138,12 @@ function mxRange(id) {
   // control that cannot reach its own parameter (L0023).
   const c = mxDecode(id);
   if (!c) return { lo: 0, hi: 1 };
-  if (c.kind === 0) return { lo: -2, hi: 2 };
-  if (c.kind === 1) return { lo: 0, hi: 2 };
+  // A FEED IS AN AMOUNT, 0…1 (B50 phase 1c) — for crosspoints and for both
+  // terminal kinds. slotInit stays bipolar: it is an offset, not a feed, which
+  // is also what keeps `.mxc.neg` and the dashed ribbon reachable.
+  if (c.kind === 0) return { lo: 0, hi: 1 };
+  if (c.kind === 1) return { lo: 0, hi: 1 };
+  if (c.kind === 3) return { lo: 0, hi: 1 };
   return { lo: -1, hi: 1 };
 }
 
