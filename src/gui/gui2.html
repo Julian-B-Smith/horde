@@ -393,10 +393,17 @@
   /* Side by side at width, stacked when the page is narrow. The pane spans the
      FX page's columns because a 240px column cannot hold six slot cards left to
      right; nothing else on the page changes size. */
-  #mxBody { display:flex; gap:10px; align-items:flex-start; flex-wrap:wrap; }
+  /* The body clears the <h2> by the same 8px the note below it uses, so the
+     pane breathes equally above and below (human 2026-09-17: "the matrix top
+     padding is too small"). Both halves are flex children, so the well and the
+     rail take it together — the header row and the first slot card line up. */
+  #mxBody { display:flex; gap:10px; align-items:flex-start; flex-wrap:wrap; margin-top:8px; }
+  /* Even 9px inside: the column headers sat a pixel tighter to the top edge
+     than to the sides, which on a header row reads as a crop. Same number the
+     sides and the bottom already used — no new spacing value enters the sheet. */
   #mxWell { flex:1 1 300px; min-width:250px; background:var(--well);
             border:var(--stroke) solid var(--line); border-radius:var(--r);
-            padding:8px 9px 9px; }
+            padding:9px; }
   #mxGraph { flex:2 1 380px; min-width:280px; width:auto; height:170px;
              display:block; margin:0; }
   #mxGrid, #mxInit { display:grid; gap:5px; margin:0; }
