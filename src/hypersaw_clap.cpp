@@ -799,8 +799,181 @@ inline uint32_t perOscParamCount()
 inline uint32_t oscOfId(clap_id id) { return (uint32_t)id / kOscStride; }
 inline clap_id baseIdOf(clap_id id) { return (clap_id)((uint32_t)id % kOscStride); }
 
+/* ---- ADR-088 ROUTING BLOCK — THE ID LAYOUT, WRITTEN DOWN ONCE -------------
+   The crosspoint matrix's own parameter namespace, deliberately far above the
+   instrument's 1..999 x kOscStride space and POSITIONAL rather than curated:
+   an id is COMPUTED from the cell it names, never assigned by hand.
+
+     coeff[from][to]   10000 + from*64 + to     -> 10000 .. 14095
+     outAmount[to]     20000 + to               -> 20000 .. 20063
+     slotInit[to]      21000 + to               -> 21000 .. 21063
+
+   `from` indexes SOURCES first ([0, NSRC)) then SLOTS (NSRC + slot), exactly as
+   routing_core.h's `coeff[from][to]` does — one indexing scheme, not two.
+
+   WHY POSITIONAL, AND WHY 64. Ids are append-only from this release, and the
+   thing that grows here is the matrix's SHAPE, not a list of features: B23
+   increment 3 adds per-oscillator sources and the FX rework adds up to ~13
+   modules. A sequentially-assigned block would have to renumber every cell to
+   widen by one slot; a positional one simply lights up ids that were always
+   reserved for those coordinates. 64 is double the ceiling routing_core.h's own
+   `NSRC + NSLOT <= 32` static_assert imposes, so the layout cannot be outgrown
+   before the crosspoint mask is — and the mask is the harder limit.
+
+   PHASE 1 EXPOSES THE ACYCLIC SUBSET ONLY (B50 (f)). `edgeLive()` was widened
+   by ADR-128 to accept every edge (cycle edges read zPrev, one sample late), so
+   legality alone no longer names the forward graph. The predicate for "does
+   this cell get a parameter today" is therefore `edgeLive && edgeForward` —
+   BOTH from routing_core.h, because the shell owning its own copy of "which
+   edges are live" is the exact duplication that header forbids. When feedback
+   cells are exposed they take the ids this layout already reserves for them;
+   nothing renumbers. */
+using RoutingMatrixT = hypersaw::RoutingMatrix<1, hypersaw::kRackSlots>;
+constexpr int kRoutingNSrc = 1;
+constexpr int kRoutingNSlot = hypersaw::kRackSlots;
+
+constexpr uint32_t kRoutingIdBase = 10000;     // every routing id is >= this
+constexpr uint32_t kRoutingFromStride = 64;
+constexpr uint32_t kRoutingCoeffBase = 10000;
+constexpr uint32_t kRoutingOutBase = 20000;
+constexpr uint32_t kRoutingInitBase = 21000;
+
+enum RoutingKind
+{
+  kRoutingCoeff = 0,
+  kRoutingOut = 1,
+  kRoutingInit = 2
+};
+
+/* Id -> cell. False for any id in the block that names no cell THIS build
+   exposes: out of range, or a crosspoint that is not a live forward edge.
+   Every reader goes through here, so "which cells exist" is one function. */
+inline bool decodeRoutingId(clap_id id, int &kind, int &from, int &to)
+{
+  const uint32_t u = (uint32_t)id;
+  if (u >= kRoutingOutBase && u < kRoutingOutBase + kRoutingFromStride)
+  {
+    kind = kRoutingOut;
+    from = -1;
+    to = (int)(u - kRoutingOutBase);
+    return to < kRoutingNSlot;
+  }
+  if (u >= kRoutingInitBase && u < kRoutingInitBase + kRoutingFromStride)
+  {
+    kind = kRoutingInit;
+    from = -1;
+    to = (int)(u - kRoutingInitBase);
+    return to < kRoutingNSlot;
+  }
+  if (u < kRoutingCoeffBase || u >= kRoutingCoeffBase + kRoutingFromStride * kRoutingFromStride)
+    return false;
+  const uint32_t off = u - kRoutingCoeffBase;
+  kind = kRoutingCoeff;
+  from = (int)(off / kRoutingFromStride);
+  to = (int)(off % kRoutingFromStride);
+  if (from >= kRoutingNSrc + kRoutingNSlot || to >= kRoutingNSlot) return false;
+  return RoutingMatrixT::edgeLive(from, to) && RoutingMatrixT::edgeForward(from, to);
+}
+
+inline clap_id routingCoeffId(int from, int to)
+{
+  return (clap_id)(kRoutingCoeffBase + (uint32_t)from * kRoutingFromStride + (uint32_t)to);
+}
+
+/* The routing parameter table. Built ONCE at load time — not lazily — because
+   applyParam/readParam run on the audio thread when the param queue drains, and
+   a function-local static would put its one allocating construction there.
+
+   THE DEFAULTS ARE READ OFF A DEFAULT-CONSTRUCTED MATRIX, never retyped. The
+   ctor IS setSerialChain (routing_core.h), so "the defaults reproduce today's
+   series chain" is true by construction rather than by a table someone kept in
+   step — which is what makes B50 (b)'s bit-identity claim structural. */
+struct RoutingParamTable
+{
+  std::vector<std::string> names;   // storage: ParamDef holds const char* into these
+  std::vector<std::string> keys;
+  std::vector<ParamDef> defs;
+};
+
+static RoutingParamTable makeRoutingTable()
+{
+  RoutingParamTable r;
+  const RoutingMatrixT def{};   // ctor == setSerialChain
+  std::vector<clap_id> ids;
+  for (int f = 0; f < kRoutingNSrc + kRoutingNSlot; f++)
+    for (int t = 0; t < kRoutingNSlot; t++)
+    {
+      int k = 0, ff = 0, tt = 0;
+      const clap_id id = routingCoeffId(f, t);
+      if (decodeRoutingId(id, k, ff, tt)) ids.push_back(id);
+    }
+  for (int t = 0; t < kRoutingNSlot; t++) ids.push_back((clap_id)(kRoutingOutBase + t));
+  for (int t = 0; t < kRoutingNSlot; t++) ids.push_back((clap_id)(kRoutingInitBase + t));
+
+  // Reserve before filling: ParamDef keeps raw pointers into these vectors, so
+  // a reallocation mid-build would leave earlier rows pointing at freed storage.
+  r.names.reserve(ids.size());
+  r.keys.reserve(ids.size());
+  r.defs.reserve(ids.size());
+  char nb[64], kb[32];
+  for (clap_id id : ids)
+  {
+    int kind = 0, from = 0, to = 0;
+    decodeRoutingId(id, kind, from, to);
+    double lo = 0, hi = 0, dv = 0;
+    if (kind == kRoutingCoeff)
+    {
+      const bool src = from < kRoutingNSrc;
+      std::snprintf(nb, sizeof(nb), "Route %s%d > Slot%d", src ? "Src" : "Slot",
+                    src ? from + 1 : from - kRoutingNSrc + 1, to + 1);
+      std::snprintf(kb, sizeof(kb), "rt.c.%s%d.%d", src ? "s" : "m",
+                    src ? from : from - kRoutingNSrc, to);
+      // Bipolar and past unity: a crosspoint is a gain, so inversion and a
+      // little make-up are both topology moves, and +-1 must sit INSIDE the
+      // range rather than on its rail.
+      lo = -2.0; hi = 2.0; dv = def.coeff[from][to];
+    }
+    else if (kind == kRoutingOut)
+    {
+      std::snprintf(nb, sizeof(nb), "Out Slot%d", to + 1);
+      std::snprintf(kb, sizeof(kb), "rt.out.%d", to);
+      lo = 0.0; hi = 2.0; dv = def.outAmount[to];
+    }
+    else
+    {
+      std::snprintf(nb, sizeof(nb), "Init Slot%d", to + 1);
+      std::snprintf(kb, sizeof(kb), "rt.in.%d", to);
+      lo = -1.0; hi = 1.0; dv = def.slotInit[to];
+    }
+    r.names.emplace_back(nb);
+    r.keys.emplace_back(kb);
+    // stepped = false on every row, and that IS the ADR-173 classification:
+    // continuous -> morphable, so a corner holds a topology and the field
+    // BLENDS the coefficients as values (ADR-125: argmax is for structure).
+    r.defs.push_back(ParamDef{id, r.keys.back().c_str(), r.names.back().c_str(), lo, hi, dv,
+                              false, nullptr});
+  }
+  return r;
+}
+
+static const RoutingParamTable g_routingTable = makeRoutingTable();
+
+inline const ParamDef *findRoutingParam(clap_id id)
+{
+  for (const auto &d : g_routingTable.defs)
+    if (d.id == id) return &d;
+  return nullptr;
+}
+inline uint32_t routingParamCount() { return (uint32_t)g_routingTable.defs.size(); }
+
 const ParamDef *findParam(clap_id id)
 {
+  /* ROUTING BLOCK FIRST, and this ordering is load-bearing. The line below
+     derives the oscillator as `id / kOscStride`, so 10000 resolves to
+     oscillator 10, fails `osc >= kNumOsc` and returns nullptr — every routing
+     id would simply not exist, silently, with every gate green. routing_check's
+     dispatch probe asserts this branch rather than trusting the reading. */
+  if ((uint32_t)id >= kRoutingIdBase) return findRoutingParam(id);
   const uint32_t osc = oscOfId(id);
   if (osc == 0)
   {
@@ -937,6 +1110,19 @@ inline bool paramClassOf(clap_id id, ParamClass &cls, const char *&reason)
 {
   const ParamDef *d = findParam(id);
   if (!d) return false;
+  /* ROUTING BLOCK BEFORE `baseIdOf`, the SECOND place the id/kOscStride
+     derivation would silently mis-resolve a routing id — and here it would not
+     merely fail, it would ALIAS: 10064 (Slot1 > Slot1) reduces to base 64,
+     which is a real instrument id and could carry an override. Classed by the
+     rule rather than by the table: every cell is continuous, so ADR-173 rule 3
+     makes it morphable, and that is what lets a corner hold a topology while
+     the field blends the coefficients as VALUES (ADR-125). */
+  if ((uint32_t)id >= kRoutingIdBase)
+  {
+    cls = ParamClass::Morphable;
+    reason = "ADR-088 crosspoint: a continuous gain, blended never argmax'd";
+    return true;
+  }
   const clap_id base = baseIdOf(id);
   for (const auto &r : kParamClassOverrides)
     if (r.id == base)
@@ -1862,6 +2048,19 @@ struct Plugin
     const size_t scaleLast = morphIds.size() - 1;
     // ADR-159: the late per-osc rows, appended last (see kMorphLateIds).
     for (clap_id id : kMorphLateIds) { morphIds.push_back(id); morphIds.push_back(id + 1000); }
+    /* ADR-088 crosspoints, APPENDED AFTER EVERYTHING (ADR-159's rule: never
+       inserted — the corner chunk's order IS this order, so an insertion would
+       silently re-read every stored corner against the wrong parameters).
+
+       A corner may therefore hold a whole TOPOLOGY, and the field blends the
+       coefficients as VALUES (ADR-125) — no argmax, because a crosspoint is
+       continuous and 0 already means "not connected", so connecting and
+       disconnecting is one continuous motion (ADR-088's founding argument).
+       Nothing STRUCTURAL is added, so ADR-124's atomic groups are untouched:
+       there is no "which module" here to draw from one corner, only gains.
+       Legality is enforced on the READ side, so a corner holding any table at
+       all stays correct by construction — which is exactly why this is safe. */
+    for (const auto &d : g_routingTable.defs) morphIds.push_back(d.id);
 
     /* THE LEAD MAP. Identity, then the groups.
        FX SLOTS (B49, measured 2026-08-26): type and amount were drawn
@@ -2241,6 +2440,54 @@ struct Plugin
      serialises to exactly the bytes ADR-138 wrote, so every stored chunk,
      preset and fixture golden stays byte-identical instead of gaining a `:0`
      that would make "bit-inert" a claim about behaviour only. */
+  /* ---- ADR-088 `routing` CHUNK (B50 (c)) ----------------------------------
+     SPARSE BY DESIGN, and that is what keeps B50 (b) true. Only cells that
+     DIFFER from the series default are emitted, so a patch nobody has rerouted
+     produces an empty chunk, the key is omitted entirely, and the saved bytes
+     of every existing preset and fixture are what they were. The precedent is
+     ADR-138's `modroutes`, for the same reason.
+
+     Keyed on the numeric id, not on the coreKey string: the id IS the cell's
+     coordinates (see the id-layout comment), so a chunk stays readable across a
+     matrix that grows, while a key list would have to be kept in step by hand.
+     An id this build does not expose is skipped on load, which is how a patch
+     saved by a wider future build stays loadable here. */
+  std::string routingChunk() const
+  {
+    std::string out;
+    char buf[64];
+    for (const auto &d : g_routingTable.defs)
+    {
+      const double v = getRoutingParam(d.id);
+      if (v == d.defV) continue;
+      std::snprintf(buf, sizeof(buf), "%s%u:%.17g", out.empty() ? "" : ",", (unsigned)d.id, v);
+      out += buf;
+    }
+    return out;
+  }
+  /* A load is a load: EVERY cell returns to its default first, so a patch
+     without the key loads the series chain rather than inheriting whatever the
+     previous patch was routed to. Written through applyParam so the presence
+     bits, the morph hooks and the mod base all see the load exactly as they see
+     any other write — one write path, no second one to drift. */
+  void applyRoutingChunk(const std::string &chunk)
+  {
+    for (const auto &d : g_routingTable.defs) applyParam(d.id, d.defV);
+    size_t pos = 0;
+    while (pos < chunk.size())
+    {
+      const size_t comma = chunk.find(',', pos);
+      const std::string tok = chunk.substr(pos, comma == std::string::npos ? std::string::npos
+                                                                           : comma - pos);
+      pos = comma == std::string::npos ? chunk.size() : comma + 1;
+      const size_t colon = tok.find(':');
+      if (colon == std::string::npos) continue;
+      const clap_id id = (clap_id)std::strtoul(tok.c_str(), nullptr, 10);
+      if (!findRoutingParam(id)) continue;   // a cell this build does not expose
+      applyParam(id, std::atof(tok.c_str() + colon + 1));
+    }
+  }
+
   std::string modRoutesChunk() const
   {
     std::string out;
@@ -3129,6 +3376,14 @@ struct Plugin
                       defaultFor(d, k));
         out += buf;
       }
+    // ADR-088 routing cells. Their default IS the series chain, read off a
+    // default-constructed matrix — so the pane's double-click-to-default and a
+    // host's "reset to defaults" both restore 1 -> 2 -> 3 -> 4 and nothing else.
+    for (const auto &d : g_routingTable.defs)
+    {
+      std::snprintf(buf, sizeof(buf), ",\"%u\":%.6g", (unsigned)d.id, d.defV);
+      out += buf;
+    }
     out += "}";
     return out;
   }
@@ -3310,6 +3565,19 @@ struct Plugin
                       readParam(id));
         out += buf;
       }
+    /* ADR-088: the routing cells ride the SAME snapshot every other parameter
+       does, so the matrix pane repaints on the existing poll and needs no bind
+       of its own (ADR-143: one hzFrame per frame, and this is not on it). It is
+       also how the pane learns WHICH cells exist — it decodes the ids rather
+       than carrying a hand-typed list of crosspoints.
+       Safe for learnOscLayout: these ids are all >= 10000, so they are outside
+       both `i < OSC_STRIDE` (the globals test) and `floor(i/1000) == numOsc`
+       (the oscillator count walk, which stops at 2). */
+    for (const auto &d : g_routingTable.defs)
+    {
+      std::snprintf(buf, sizeof(buf), ",\"%u\":%.6g", (unsigned)d.id, readParam(d.id));
+      out += buf;
+    }
     return out + "}";
   }
 
@@ -3917,6 +4185,34 @@ struct Plugin
     return o;
   }
 
+  /* THE ONE WRITER of the matrix from the parameter side (ADR-088).
+     The presence bit is DERIVED from the coefficient, never set separately:
+     routing_core.h's header says "a coefficient of 0 *is* not connected", and
+     that is only true if the two cannot disagree. Deriving it is also what
+     keeps `isTerminal` honest — morph a slot's only outgoing coefficient to
+     zero and that slot becomes an output, continuously, with no edge to add. */
+  void setRoutingParam(clap_id id, double v)
+  {
+    int kind = 0, from = 0, to = 0;
+    if (!decodeRoutingId(id, kind, from, to)) return;
+    if (kind == kRoutingCoeff)
+    {
+      routing.coeff[from][to] = v;
+      if (v != 0.0) routing.inFrom[to] |= (1u << from);
+      else routing.inFrom[to] &= ~(1u << from);
+    }
+    else if (kind == kRoutingOut) routing.outAmount[to] = v;
+    else routing.slotInit[to] = v;
+  }
+  double getRoutingParam(clap_id id) const
+  {
+    int kind = 0, from = 0, to = 0;
+    if (!decodeRoutingId(id, kind, from, to)) return 0.0;
+    if (kind == kRoutingCoeff) return routing.coeff[from][to];
+    if (kind == kRoutingOut) return routing.outAmount[to];
+    return routing.slotInit[to];
+  }
+
   void applyParam(clap_id id, double value)
   {
     if (const ParamDef *d = findParam(id))
@@ -3954,6 +4250,12 @@ struct Plugin
          modulation feels like dragging the base. */
       if (!modFromMatrix)
         if (ModDest *md = modDestFor(id, false)) md->base = applied;
+      /* ADR-088 routing block. Placed AFTER the morph/mod hooks above (a
+         crosspoint is morphable, so a corner edit has to route like any other
+         parameter) and BEFORE every `baseIdOf` test below, which would alias a
+         routing id onto an instrument one. Handles and RETURNS: the fallthrough
+         at the end of this function hands the id to cores[].setParam. */
+      if ((uint32_t)id >= kRoutingIdBase) { setRoutingParam(id, applied); return; }
       if (id == 32)
       {
         if (applied != voiceMono)
@@ -4368,6 +4670,10 @@ struct Plugin
       // SAME key map setParam uses — no parallel chain to drift (the
       // 2026-07-18 state bug: dynamics params were missing from a duplicated
       // read chain, so get_value fell through to 0 and state saved lies).
+      // ADR-088: read the MATRIX, not a shadow copy — the state chunk, the
+      // host readback and the GUI all land on the same numbers the audio pass
+      // multiplies by, so a readback cannot report a topology that is not live.
+      if ((uint32_t)id >= kRoutingIdBase) return getRoutingParam(id);
       if (d->id == 11) return inertiaKnob;  // ADR-024 knob domain
       if (d->id == 70) return inertiaCurve;  // ADR-059 dev taper exponent
       if (d->id == 32) return voiceMono;
@@ -5203,14 +5509,27 @@ const clap_plugin_note_ports_t s_note_ports = {nports_count, nports_get};
 // Higher oscillators append their per-osc params after it.
 uint32_t params_count(const clap_plugin_t *)
 {
-  return kNumParams + (kNumOsc - 1) * perOscParamCount();
+  // The ADR-088 routing block enumerates AFTER the oscillator blocks, so every
+  // index a host already knows keeps its parameter. It has to be enumerated
+  // explicitly: this loop walks kParams, and the routing table is deliberately
+  // NOT in kParams (its ids are positional, not curated, and the presentation
+  // registry is address-keyed over the instrument's params).
+  return kNumParams + (kNumOsc - 1) * perOscParamCount() + routingParamCount();
 }
 
 bool params_get_info(const clap_plugin_t *, uint32_t index, clap_param_info_t *info)
 {
   uint32_t osc = 0;
   const ParamDef *dp = nullptr;
-  if (index < kNumParams) { dp = &kParams[index]; }
+  const uint32_t oscEnd = kNumParams + (kNumOsc - 1) * perOscParamCount();
+  if (index >= oscEnd)
+  {
+    const uint32_t r = index - oscEnd;
+    if (r >= routingParamCount()) return false;
+    dp = &g_routingTable.defs[r];
+    // osc stays 0, so `d.id + osc * kOscStride` below is the routing id itself.
+  }
+  else if (index < kNumParams) { dp = &kParams[index]; }
   else
   {
     uint32_t rest = index - kNumParams;
@@ -5228,12 +5547,13 @@ bool params_get_info(const clap_plugin_t *, uint32_t index, clap_param_info_t *i
   info->flags = CLAP_PARAM_IS_AUTOMATABLE;
   if (d.stepped) info->flags |= CLAP_PARAM_IS_STEPPED;
   info->cookie = nullptr;
+  const bool isRouting = (uint32_t)d.id >= kRoutingIdBase;
   if (osc == 0)
     std::snprintf(info->name, sizeof(info->name), "%s", d.name);
   else
     std::snprintf(info->name, sizeof(info->name), "Osc%u %s", osc + 1, d.name);
   std::snprintf(info->module, sizeof(info->module), "%s",
-                osc == 0 ? "" : (osc == 1 ? "Osc 2" : "Osc 3"));
+                isRouting ? "Routing" : osc == 0 ? "" : (osc == 1 ? "Osc 2" : "Osc 3"));
   info->min_value = d.minV;
   info->max_value = d.maxV;
   // Oscillators above the first default to SILENT (vol = 0). Without this the
@@ -5401,6 +5721,14 @@ bool state_save(const clap_plugin_t *p, const clap_ostream_t *stream)
     const std::string routes = self(p)->modRoutesChunk();
     if (!routes.empty()) blob += "modroutes=" + routes + "\n";
   }
+  // ADR-088 (B50): the crosspoint topology, emitted ONLY when some cell has
+  // left its default — a patch on the series chain writes no key at all and its
+  // bytes are unchanged, which is what keeps state_check and the fixtures the
+  // regression proof for this change rather than a casualty of it.
+  {
+    const std::string rt = self(p)->routingChunk();
+    if (!rt.empty()) blob += "routing=" + rt + "\n";
+  }
   int64_t written = 0;
   while (written < (int64_t)blob.size())
   {
@@ -5432,6 +5760,10 @@ bool state_load(const clap_plugin_t *p, const clap_istream_t *stream)
   // instead of inheriting whatever the previous patch had. A present key
   // then replaces this empty set.
   pl->applyModRoutesChunk("");
+  // ADR-088, same rule and the same reason: a chunk with no `routing=` key was
+  // saved on the series chain (or predates the block), so it loads on the
+  // series chain. A present key then replaces this default set.
+  pl->applyRoutingChunk("");
   // B100: a chunk without the header predates it and is revision 1 by
   // definition; a present `engine_revision=` line below overrides this.
   pl->setEngineRevision(1);
@@ -5458,6 +5790,11 @@ bool state_load(const clap_plugin_t *p, const clap_istream_t *stream)
     if (key == "modroutes")   // ADR-138: generic routes, canonical (src,dest,depth)
     {
       pl->applyModRoutesChunk(line.substr(eq + 1));
+      continue;
+    }
+    if (key == "routing")     // ADR-088: crosspoint cells that left their default
+    {
+      pl->applyRoutingChunk(line.substr(eq + 1));
       continue;
     }
     /* ADR-147: the specimen's visibility is a GUI preference, NOT patch state,
@@ -5594,6 +5931,52 @@ extern "C" const char *hypersaw_debug_modroutes(const clap_plugin_t *p)
 { static std::string j; j = self(p)->modRoutesJson(); return j.c_str(); }
 extern "C" bool hypersaw_debug_modpolarity(const clap_plugin_t *p, int idx, int pol)
 { return self(p)->modSetPolarity(idx, pol); }
+/* ADR-088 (B50) — a window onto the LIVE MATRIX, not onto readParam.
+   Deliberately not `readParam`: a round-trip through one accessor agrees with
+   itself (the state_check trap, L0032), so the round-trip probe would certify
+   nothing. These read the very doubles `processBlock` multiplies by. */
+extern "C" double hypersaw_debug_routing(const clap_plugin_t *p, int from, int to)
+{
+  auto *pl = self(p);
+  if (from < 0 || from >= kRoutingNSrc + kRoutingNSlot || to < 0 || to >= kRoutingNSlot) return 0.0;
+  return pl->routing.coeff[from][to];
+}
+extern "C" bool hypersaw_debug_routing_on(const clap_plugin_t *p, int from, int to)
+{
+  auto *pl = self(p);
+  if (from < 0 || from >= kRoutingNSrc + kRoutingNSlot || to < 0 || to >= kRoutingNSlot) return false;
+  return pl->routing.connected(from, to);
+}
+extern "C" double hypersaw_debug_routing_out(const clap_plugin_t *p, int to)
+{
+  if (to < 0 || to >= kRoutingNSlot) return 0.0;
+  return self(p)->routing.outAmount[to];
+}
+extern "C" double hypersaw_debug_routing_init(const clap_plugin_t *p, int to)
+{
+  if (to < 0 || to >= kRoutingNSlot) return 0.0;
+  return self(p)->routing.slotInit[to];
+}
+/* The id list the oracle (and any future consumer) enumerates instead of
+   re-deriving the layout: `id,kind,from,to;` per cell. Re-deriving it would be
+   a second copy of decodeRoutingId, which is the one thing the id-layout
+   comment asks nobody to make. */
+extern "C" const char *hypersaw_debug_routing_ids(void)
+{
+  static std::string s;
+  if (s.empty())
+  {
+    char b[48];
+    for (const auto &d : g_routingTable.defs)
+    {
+      int kind = 0, from = 0, to = 0;
+      decodeRoutingId(d.id, kind, from, to);
+      std::snprintf(b, sizeof(b), "%u,%d,%d,%d;", (unsigned)d.id, kind, from, to);
+      s += b;
+    }
+  }
+  return s.c_str();
+}
 extern "C" bool hypersaw_debug_apply(const clap_plugin_t *p, const char *json)
 {
   return self(p)->applyStateJson(json ? json : "");

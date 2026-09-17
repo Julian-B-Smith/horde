@@ -223,6 +223,10 @@ endif()
 # path — core + oracle first, same order the glide and swarmalator ports used.
 add_executable(routing_check tools/routing_check.cpp)
 target_include_directories(routing_check PRIVATE src)
+# B50 phase 1: assertions 8-12 drive the matrix through the SHELL's parameter
+# surface (ids, morph field, state chunk), so the oracle needs the impl library.
+# Assertions 1-7 still measure the core alone and are unaffected by the link.
+target_link_libraries(routing_check PRIVATE ${PROJECT_NAME}-impl)
 if(NOT MSVC)
   target_compile_options(routing_check PRIVATE -O2)
 endif()
