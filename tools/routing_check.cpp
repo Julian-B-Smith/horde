@@ -213,6 +213,97 @@ static bool matrixEqual(const clap_plugin_t *a, const clap_plugin_t *b,
   return true;
 }
 
+/* ---- B139: a stand-in slot that can DELAY --------------------------------
+   Assertions 17-19 are about loop TIME — the one-sample delay a cycle edge
+   carries, and the 5 ms a real loop is made of — and a memoryless gain cannot
+   express either. Still a stand-in and not an effect: a gain and a ring, so
+   what is measured stays the routing rule (L0030/L0031).
+   The scalar ring holds doubles and the block ring floats, on purpose: that is
+   the actual asymmetry between the two paths, and hiding it behind one type
+   would let assertion 17 pass on a similarity it invented. */
+struct LoopSlots
+{
+  static constexpr int kN = 4;
+  int d[kN] = {0, 0, 0, 0};             // delay, samples
+  double g[kN] = {1.0, 1.0, 1.0, 1.0};  // gain
+  std::vector<double> zs[kN];
+  std::vector<float> zl[kN], zr[kN];
+  int ws[kN] = {0, 0, 0, 0}, wb[kN] = {0, 0, 0, 0};
+
+  void arm()
+  {
+    for (int t = 0; t < kN; t++)
+    {
+      const int len = d[t] > 0 ? d[t] : 1;
+      zs[t].assign((size_t)len, 0.0);
+      zl[t].assign((size_t)len, 0.0f);
+      zr[t].assign((size_t)len, 0.0f);
+      ws[t] = wb[t] = 0;
+    }
+  }
+
+  double scalar(int t, double x)
+  {
+    if (d[t] <= 0) return g[t] * x;
+    const double y = zs[t][(size_t)ws[t]];
+    zs[t][(size_t)ws[t]] = x;
+    ws[t] = (ws[t] + 1) % d[t];
+    return g[t] * y;
+  }
+
+  void block(int t, float *L, float *R, int n)
+  {
+    for (int i = 0; i < n; i++)
+    {
+      if (d[t] <= 0) { L[i] = (float)(g[t] * L[i]); R[i] = (float)(g[t] * R[i]); continue; }
+      const float yl = zl[t][(size_t)wb[t]], yr = zr[t][(size_t)wb[t]];
+      zl[t][(size_t)wb[t]] = L[i];
+      zr[t][(size_t)wb[t]] = R[i];
+      wb[t] = (wb[t] + 1) % d[t];
+      L[i] = (float)(g[t] * yl); R[i] = (float)(g[t] * yr);
+    }
+  }
+};
+
+/* The one cycle topology all three assertions share: the default serial chain
+   (src -> 0 -> 1 -> 2 -> 3 -> out) plus ONE backwards edge, slot 2 -> slot 1.
+   The loop is therefore slot 1 -> slot 2 -> slot 1, one sample per trip plus
+   whatever delay the stand-in carries. */
+static Matrix cycleMatrix(double loopGain)
+{
+  Matrix m;                            // ctor == setSerialChain
+  m.inFrom[1] |= (1u << (2 + 2));      // slot 2 -> slot 1, backwards
+  m.coeff[2 + 2][1] = loopGain;
+  return m;
+}
+
+/* One block render at a chosen block size, through the shipped block path. */
+static void renderBlock(Matrix m, LoopSlots &sl, const std::vector<float> &inL,
+                        const std::vector<float> &inR, int bs,
+                        std::vector<float> &outL, std::vector<float> &outR)
+{
+  const int N = (int)inL.size();
+  outL.assign((size_t)N, 0.0f);
+  outR.assign((size_t)N, 0.0f);
+  m.resetFeedback();
+  sl.arm();
+  float sL[4][256], sR[4][256];
+  float *pL[4], *pR[4];
+  for (int t = 0; t < 4; t++) { pL[t] = sL[t]; pR[t] = sR[t]; }
+  for (int off = 0; off < N; off += bs)
+  {
+    const int n = N - off < bs ? N - off : bs;
+    // Source 1 is silent in every topology below — it is passed anyway so the
+    // two-source matrix is driven exactly as the shell drives its one-source
+    // one, and so an edge that read the wrong source index would show.
+    static const float kSilent[256] = {0.0f};
+    const float *srcL[2] = {inL.data() + off, kSilent};
+    const float *srcR[2] = {inR.data() + off, kSilent};
+    m.processBlock(srcL, srcR, pL, pR, outL.data() + off, outR.data() + off, n,
+                   [&](int slot, float *L, float *R, int k) { sl.block(slot, L, R, k); });
+  }
+}
+
 int main()
 {
   char d[192];
@@ -827,6 +918,166 @@ int main()
                   carried ? "yes" : "no", restored ? "yes" : "no");
     check(live && quietOnChain && named && carried && restored,
           "the dry path persists in the routing chunk and defaults to 0", d);
+  }
+
+  /* ======================================================================
+     B139 — THE BLOCK PATH HONOURS THE ONE-SAMPLE DELAY (assertions 17-19).
+     The brief numbers these (19)-(21); they are blocks 17-19 here, continuing
+     the offset the phase-1c note above records.
+
+     WHY THEY EXIST. `process()` has read `zPrev` per sample since ADR-128, but
+     `processBlock` — the path the shell actually calls — gathered a whole block
+     per slot, so a backwards edge read the previous BLOCK. Nothing was red:
+     phase 1 exposes only the acyclic cell subset, so the disagreement was
+     latent and would have surfaced as "the loop sounds different in the plugin
+     than in the oracle" at the first exposed feedback cell. These three are the
+     gate on phase 2.
+     ====================================================================== */
+
+  // ---- 17. one cycle edge: both paths agree and the BLOCK SIZE does not
+  //          enter the answer -----------------------------------------------
+  /* Two legs, because the two claims have different evidence:
+     (a) block-size invariance is compared float-path-against-float-path, so it
+         owes nothing to exact arithmetic and is asked on a real sine;
+     (b) scalar-against-block is a double path against a float one, so it is
+         asked where both types are EXACT — an impulse through power-of-two
+         coefficients, where every value in the loop is 2^-k. Any other input
+         would measure float-vs-double accumulation and report it as a routing
+         disagreement. The claim under test is which SAMPLE each edge reads.
+     Two controls: the loop must be audible at all (or every block size agrees
+     on an answer the cycle never touched), and the cycle BRANCH with a zero
+     coefficient must render the serial chain bit-exactly (or the per-sample
+     regime is a second engine rather than a routing rule). */
+  {
+    const int N = 1024;
+    const int sizes[4] = {1, 7, 64, 256};
+    std::vector<float> sigL(N), sigR(N);
+    for (int i = 0; i < N; i++)
+    {
+      const double t = (double)i / 44100.0;
+      sigL[i] = (float)(0.3 * std::sin(2 * kPi * 220 * t));
+      sigR[i] = (float)(0.25 * std::sin(2 * kPi * 331 * t));
+    }
+
+    LoopSlots sl;                    // memoryless: the loop time IS the edge
+    std::vector<float> refL, refR, gotL, gotR;
+    renderBlock(cycleMatrix(0.5), sl, sigL, sigR, sizes[0], refL, refR);
+    int sizeDiff = 0;
+    for (int k = 1; k < 4; k++)
+    {
+      renderBlock(cycleMatrix(0.5), sl, sigL, sigR, sizes[k], gotL, gotR);
+      for (int i = 0; i < N; i++)
+        if (gotL[i] != refL[i] || gotR[i] != refR[i]) sizeDiff++;
+    }
+
+    std::vector<float> plainL, plainR;
+    renderBlock(Matrix(), sl, sigL, sigR, 64, plainL, plainR);   // no cycle edge
+    int audible = 0;
+    for (int i = 0; i < N; i++) if (plainL[i] != refL[i]) audible++;
+
+    std::vector<float> zgL, zgR;
+    renderBlock(cycleMatrix(0.0), sl, sigL, sigR, 64, zgL, zgR);
+    bool branchSame = true;
+    for (int i = 0; i < N; i++)
+      if (zgL[i] != plainL[i] || zgR[i] != plainR[i]) branchSame = false;
+
+    std::vector<float> impL(N, 0.0f), impR(N, 0.0f), scal(N);
+    impL[0] = 1.0f; impR[0] = 1.0f;
+    Matrix ms = cycleMatrix(0.5);
+    ms.resetFeedback();
+    LoopSlots ss;
+    ss.arm();
+    for (int i = 0; i < N; i++)
+    {
+      const double src[2] = {(double)impL[i], 0.0};
+      scal[i] = (float)ms.process(src, [&](int t, double x) { return ss.scalar(t, x); });
+    }
+    int pathDiff = 0;
+    for (int k = 0; k < 4; k++)
+    {
+      renderBlock(cycleMatrix(0.5), sl, impL, impR, sizes[k], gotL, gotR);
+      for (int i = 0; i < N; i++)
+        if (gotL[i] != scal[i] || gotR[i] != scal[i]) pathDiff++;
+    }
+
+    std::snprintf(d, sizeof(d),
+                  "block 1/7/64/256 disagree on %d samples; scalar vs block %d; "
+                  "loop audible on %d (control); zero-gain cycle == chain %s",
+                  sizeDiff, pathDiff, audible, branchSame ? "yes" : "no");
+    check(sizeDiff == 0 && pathDiff == 0 && audible > 0 && branchSame,
+          "a cycle edge reads one SAMPLE late in the block path too", d);
+  }
+
+  // ---- 18. an unstable loop cannot SELF-START -----------------------------
+  /* Silence in, exact silence out, at a loop gain of 1.2 — the cheapest test
+     that the feedback path adds nothing of its own (an uninitialised carry, a
+     denormal seeded by the gather, a slot buffer read before it is written).
+     "Exact" is the whole assertion: at gain 1.2 anything non-zero is amplified
+     without bound, so an approximate version of this would pass on a defect one
+     second from full scale.
+     MUST-READ-NONZERO CONTROL: the same loop fed one impulse must run away, or
+     "silent" is a statement about a loop that is not connected (L0032). */
+  {
+    const int N = 4096;
+    std::vector<float> quiet((size_t)N, 0.0f), oL, oR;
+    LoopSlots sl;
+    renderBlock(cycleMatrix(1.2), sl, quiet, quiet, 64, oL, oR);
+    int loud = 0;
+    for (int i = 0; i < N; i++) if (oL[i] != 0.0f || oR[i] != 0.0f) loud++;
+
+    const int M = 256;
+    std::vector<float> impL((size_t)M, 0.0f), impR((size_t)M, 0.0f), gL, gR;
+    impL[0] = 1.0f; impR[0] = 1.0f;
+    renderBlock(cycleMatrix(1.2), sl, impL, impR, 64, gL, gR);
+    double peak = 0;
+    for (int i = 0; i < M; i++) peak = std::max(peak, (double)std::fabs(gL[i]));
+
+    std::snprintf(d, sizeof(d),
+                  "gain 1.2, 4096 samples of silence: %d non-zero output samples; "
+                  "control impulse into the same loop reaches %.3g", loud, peak);
+    check(loud == 0 && peak > 1e6, "an unstable loop cannot self-start from silence", d);
+  }
+
+  // ---- 19. a 5 ms loop at 0.6 decays by 100 dB inside 240 ms ---------------
+  /* The Maw packet's own stability criterion, asked of the routing loop rather
+     than of an effect: the delay is a stand-in ring, so what is measured is the
+     feedback path and not a filter. 220 samples at 44.1 kHz plus the edge's own
+     sample is a 5.01 ms trip, 0.6 per trip, ~48 trips in 240 ms.
+     MUST-NOT-DECAY CONTROL: the same loop at gain 1.0 must still be at full
+     scale in the same window, or "decayed" is what this measurement says about
+     a loop that never circulated. */
+  {
+    const double sr = 44100.0;
+    const int D = 220;                        // 4.99 ms; the trip is D + 1
+    const int N = (int)(0.250 * sr);          // 240 ms + a 10 ms measurement window
+    const int mark = (int)(0.240 * sr);
+    std::vector<float> impL((size_t)N, 0.0f), impR((size_t)N, 0.0f), oL, oR, hL, hR;
+    impL[0] = 1.0f; impR[0] = 1.0f;
+
+    LoopSlots decay;
+    decay.d[2] = D;                           // the delay sits INSIDE the loop
+    renderBlock(cycleMatrix(0.6), decay, impL, impR, 64, oL, oR);
+    double peak = 0, tail = 0;
+    for (int i = 0; i < N; i++)
+    {
+      const double a = std::fabs((double)oL[i]);
+      if (a > peak) peak = a;
+      if (i >= mark && a > tail) tail = a;
+    }
+    const double decayDb = 20.0 * std::log10((tail > 0 ? tail : 1e-300) / peak);
+
+    LoopSlots hold;
+    hold.d[2] = D;
+    renderBlock(cycleMatrix(1.0), hold, impL, impR, 64, hL, hR);
+    double held = 0;
+    for (int i = mark; i < N; i++) held = std::max(held, (double)std::fabs(hL[i]));
+    const double holdDb = 20.0 * std::log10(held > 0 ? held : 1e-300);
+
+    std::snprintf(d, sizeof(d),
+                  "peak %.4g; tail after 240 ms %.4g (%.1f dB, need <= -100); "
+                  "control gain 1.0 holds at %.1f dB", peak, tail, decayDb, holdDb);
+    check(peak > 0.5 && decayDb <= -100.0 && holdDb > -1.0,
+          "a 5 ms loop at 0.6 decays 100 dB inside 240 ms", d);
   }
 
   /* CALIBRATION, recorded because a green suite proves nothing on its own.

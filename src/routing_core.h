@@ -95,7 +95,13 @@ struct RoutingMatrix
      byte-identical to the forward-only engine — which is what keeps every
      golden and all nine routing invariants green. */
   double zPrev[NSLOT] = {0};
-  void resetFeedback() { for (int t = 0; t < NSLOT; t++) zPrev[t] = 0.0; }
+  /* The block pass is STEREO, so it needs a second channel of exactly the same
+     carry. `zPrev` is the scalar path's state AND the block path's LEFT
+     channel: a matrix is driven by one path at a time (the shell uses the
+     block path; the oracle exercises each with a `resetFeedback()` between),
+     so one array serving both is a shared meaning, not a shared owner. */
+  double zPrevR[NSLOT] = {0};
+  void resetFeedback() { for (int t = 0; t < NSLOT; t++) zPrev[t] = zPrevR[t] = 0.0; }
 
   bool connected(int from, int to) const
   {
@@ -189,30 +195,87 @@ struct RoutingMatrix
 
      `outL/outR` may alias a source buffer (the shell passes the mix bus as both
      source and destination). Safe because the output is not written until every
-     slot has gathered; keep that ordering if this is ever restructured. */
+     slot has gathered; keep that ordering if this is ever restructured.
+
+     BOTH PATHS NOW SHARE THE PER-SAMPLE RULE (B139). ADR-128 fixed the delay of
+     a cycle edge at ONE SAMPLE, and `process()` implements that literally — it
+     reads `zPrev` inside its sample loop. A slot-at-a-time block gather cannot
+     express the same rule: slot 1's input at sample i needs slot 2's output at
+     sample i-1, and slot 2 is not computed until after slot 1, so gathering a
+     whole block per slot makes a backwards edge read the previous BLOCK. That
+     is a delay of the host's buffer size — the flanger-not-a-routing-primitive
+     failure ADR-128 rejected by name — and it would put the two paths in
+     disagreement at the first exposed cycle edge. So a topology carrying a live
+     cycle edge runs the whole pass sample by sample, calling `proc` with n = 1
+     so the loop closes at sample rate; a topology WITHOUT one keeps the
+     block-wise gather VERBATIM and therefore stays bit-identical to the
+     pre-B139 engine. Every golden, and the rack comparison in routing_check,
+     rest on that second branch being untouched.
+
+     ONE DELIBERATE ASYMMETRY. `process()` latches `zPrev` on every sample; the
+     acyclic branch here latches nothing, because nothing reads it and a write
+     no oracle can observe is a claim that rots. The cost is that the first
+     sample after a cycle edge goes live reads a stale carry. That is phase 2's
+     to rule on (the edge is not exposed yet), not a silent choice: recorded in
+     traces/2026-09-17-b139-block-cycle-edge.md. */
   template <class Proc>
   void processBlock(const float *const *srcL, const float *const *srcR,
                     float *const *slotL, float *const *slotR,
-                    float *outL, float *outR, int n, Proc &&proc) const
+                    float *outL, float *outR, int n, Proc &&proc)
   {
-    for (int t = 0; t < NSLOT; t++)
-    {
-      const float init = (float)slotInit[t];
-      for (int i = 0; i < n; i++) { slotL[t][i] = init; slotR[t][i] = init; }
-      for (int f = 0; f < NSRC + NSLOT; f++)
+    /* Asked once per block, not per sample: the topology cannot change inside a
+       block, and the answer selects the regime for the whole of it. */
+    bool cyclic = false;
+    for (int t = 0; t < NSLOT && !cyclic; t++)
+      for (int f = NSRC; f < NSRC + NSLOT; f++)
+        if (connected(f, t) && !edgeForward(f, t)) { cyclic = true; break; }
+
+    if (!cyclic)
+      for (int t = 0; t < NSLOT; t++)
       {
-        if (!connected(f, t)) continue;
-        const double g = coeff[f][t];
-        const float *aL = f < NSRC ? srcL[f] : slotL[f - NSRC];
-        const float *aR = f < NSRC ? srcR[f] : slotR[f - NSRC];
-        for (int i = 0; i < n; i++)
+        const float init = (float)slotInit[t];
+        for (int i = 0; i < n; i++) { slotL[t][i] = init; slotR[t][i] = init; }
+        for (int f = 0; f < NSRC + NSLOT; f++)
         {
-          slotL[t][i] += (float)(g * aL[i]);
-          slotR[t][i] += (float)(g * aR[i]);
+          if (!connected(f, t)) continue;
+          const double g = coeff[f][t];
+          const float *aL = f < NSRC ? srcL[f] : slotL[f - NSRC];
+          const float *aR = f < NSRC ? srcR[f] : slotR[f - NSRC];
+          for (int i = 0; i < n; i++)
+          {
+            slotL[t][i] += (float)(g * aL[i]);
+            slotR[t][i] += (float)(g * aR[i]);
+          }
         }
+        proc(t, slotL[t], slotR[t], n);
       }
-      proc(t, slotL[t], slotR[t], n);
-    }
+    else
+      /* The cycle regime: `process()`'s body, twice for stereo, over a block.
+         Gathering accumulates in DOUBLE — the same type and the same term order
+         the scalar path uses — so that the two paths differ only where float
+         storage of a slot's output differs from double, and an oracle asking
+         them for bit-identity is asking about the ROUTING RULE rather than
+         about two accumulation orders. The acyclic branch keeps its float
+         accumulation, because changing that would move every golden.
+         Allocation-free: the per-sample state is `zPrev/zPrevR`, preallocated. */
+      for (int i = 0; i < n; i++)
+      {
+        for (int t = 0; t < NSLOT; t++)
+        {
+          double xl = slotInit[t], xr = slotInit[t];
+          for (int f = 0; f < NSRC + NSLOT; f++)
+          {
+            if (!connected(f, t)) continue;
+            const double g = coeff[f][t];
+            if (f < NSRC)                { xl += g * srcL[f][i];          xr += g * srcR[f][i]; }
+            else if (edgeForward(f, t))  { xl += g * slotL[f - NSRC][i];  xr += g * slotR[f - NSRC][i]; }
+            else                         { xl += g * zPrev[f - NSRC];     xr += g * zPrevR[f - NSRC]; }
+          }
+          slotL[t][i] = (float)xl; slotR[t][i] = (float)xr;
+          proc(t, slotL[t] + i, slotR[t] + i, 1);
+        }
+        for (int t = 0; t < NSLOT; t++) { zPrev[t] = slotL[t][i]; zPrevR[t] = slotR[t][i]; }
+      }
     /* THE DRY PATH INITIALISES THE OUTPUT rather than being added after it, and
        that ordering is forced by the aliasing note above: `outL/outR` may BE a
        source buffer, so a zero-then-add-the-sources pass would clear the very
