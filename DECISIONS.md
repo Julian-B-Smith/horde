@@ -5747,3 +5747,22 @@ ADR-171).
 **Named limit.** T6 checks the printed table, not the override list; a
 duplicated override id shadowed by the first match would read as
 consistent. Phase 2's resolver test will see it; recorded, not hidden.
+
+### ADR-172 Amendment 1 — what "faces first" does and does not withhold (2026-09-17)
+
+Human: "We definitely need at least the macros exposed for the faces. They
+aren't much use without some control knobs, but which ones can be up to our
+discretion based on the nature of the preset." That IS the face: the four
+ADR-169 role knobs (Amount, Tone, Motion, Regen) are the module's exposed
+controls, host-automatable per tier, and the module PRESET decides what each
+knob reaches inside (labels + bindings per role; a role a preset does not use
+is drawn inert). Clarified so nobody reads "faces only" as "no knobs" or as
+"no way to edit the internals": (1) the four knobs ship for every module;
+(2) the module's internal parameters are edited in its own panel in the
+plugin UI and saved in the module preset (ADR-169 §4, embedded by value) —
+that panel is 1.0 work, because presets cannot be authored without it;
+(3) what "faces first" withholds is only HOST exposure of the internals —
+no per-internal CLAP parameter, no automation lane, no mod-matrix
+destination — until a named patch shows a knob-plus-preset cannot express
+it (the revisit trigger of ADR-172). Recorded so B50's brief carries the
+panel as in-scope and the lanes as out.
