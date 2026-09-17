@@ -127,3 +127,109 @@ measurement is the open item.
      the first suspect.
   3. The frame-cost criterion is entailed, not measured. Closing it needs a real
      browser (or the plugin) rather than headless virtual time.
+
+---
+
+## Review fixes — 2026-09-17 (appended; the sections above stand as written)
+
+The lead reviewed the pane above against the human's chosen demo view (updated
+after the first pass read it) and named three deviations. All three are in the
+`#mxPane` cluster and its CSS block; nothing else moved.
+
+1. **Illegal cells are ABSENT, not ghosted.** `.mxgap` drew a dashed box at
+   `opacity:.20`, so the upper-left triangle read as a lattice of ghosts. The
+   rule now carries the SIZING ONLY — no border, no background, no outline, no
+   hover — because the element exists only to hold the grid slot. Legality is
+   enforced on the read side (ADR-088); the empty staircase IS the rule, and a
+   drawn placeholder would be a second copy of it in the one place it cannot be
+   edited.
+2. **The OUT column is no longer green.** `.mxterm .mxc { border-color:
+   var(--celebrate) }` is deleted, not recoloured. `--celebrate` is "meters in
+   the green" (README.md:366) — an OK status, which a routing coefficient does
+   not have. Terminal cells take the same ink border as every other cell; the
+   column is distinguished by its `OUT` header and its position, as the demo's
+   well distinguishes it. `.mxterm` stays on the row as a DOM marker with no
+   colour, and a comment where the rule was says why it must not get one.
+3. **Rail values sit in a pill above the ribbon.** The label was drawn on the
+   stroke at `my - 8*V`, where a heavy edge (up to ~3.1*V wide) struck it
+   through. Now: measure the label, punch a `--scr-tube` hole `16*V` above the
+   ribbon's midpoint (above the apex for a skip edge), a `1*V` outline in the
+   ribbon's ink, then the number. Pill outline and number take the hover colour
+   TOGETHER, so the highlight is one object from either direction.
+
+**One structural departure from the demo, deliberate.** The demo draws each
+pill inline in its edge loop, which leaves a pill crossed out by any ribbon
+drawn AFTER it — measured in the first shot of this fix: the `0.80` pill had the
+`0.60` skip arc through it, the same unreadable label one neighbour removed. So
+the pills are a SECOND pass over a collected list, after every ribbon and still
+before the cards. Same treatment, one draw-order change inside the one painter.
+
+**One interpretive call, flagged.** The brief says the pill outline takes "the
+ribbon's colour" and "the text in the same colour" (the demo uses ink for both).
+The outline is `hot ? PHY : INK` as asked; the NUMBER keeps `--scr-value`, the
+authored-value token the well's fill and the cell's number already use, because
+recolouring the coefficient was not one of the three defects and "nothing else
+changes" protects it. On hover both go `--scr-physics`, which is the clause with
+teeth. A one-word change if the lead meant ink.
+
+**Not done, and not silently.** The brief also states "the corner-tier halo and
+the mod ring ON THE RAIL wrap the PILL … not the stroke". There is no halo and
+no mod ring on the rail to move: `drawMatrixGraph` has never drawn either (the
+section above records why — `paintOwners` and `MODROUTES` paint them on the DOM
+well, and the rail carries no second copy). Adding two new painters is not a
+correction of a deviation, so it is left for the lead to queue if the rail is
+meant to carry them too.
+
+### Evidence — the FX page after the fix, both themes
+
+Probe: the SHIPPED `src/gui/gui2.html` + the same boot script the section above
+used (`mkpreview.py --split --marks`, the split patch reported through
+`hzGetParams` and the marks through `hzMorphOwners` / `hzModRoutes`), plus an
+isolate pass that hides the pane's siblings so the shot frames the pane. Chrome
+headless, `--force-device-scale-factor=2`, `file://`.
+
+```
+========== LIGHT (body.scr-orchid) ==========
+<canvas id="mxGraph" width="1100" height="334">   title: MX 1100x334 css 550x167 dpr 2
+  Src 1 > Slot 1     p=10000  row="row"               cell="mxc on" mx=0.500 own=-       text='1.00'
+  Slot 1 > Slot 2    p=10065  row="row owned"         cell="mxc on" mx=0.400 own=#FF2E88 text='0.80'
+  Slot 1 > Slot 3    p=10066  row="row mxmod"         cell="mxc on" mx=0.300 own=-       text='0.60'
+  Slot 2 > Slot 4    p=10131  row="row"               cell="mxc on" mx=0.500 own=-       text='1.00'
+  Out Slot 2         p=20001  row="row mxterm"        cell="mxc on" mx=0.150 own=-       text='0.30'
+  Out Slot 4         p=20003  row="row mxterm owned"  cell="mxc on" mx=0.500 own=#A6F219 text='1.00'
+  .mxgap elements: 11
+  .mxgap CSS   : .mxgap { aspect-ratio:1 / 1; min-height:24px; max-height:44px; }
+  .mxterm .mxc CSS rule present: False        .mxterm rows in DOM: 4
+
+========== DARK (body.dark) ==========
+<canvas id="mxGraph" width="1100" height="334">   title: MX 1104x334 css 552x167 dpr 2
+  ... byte-identical cell table, same 11 bare .mxgap slots, same absent rule.
+```
+
+Read off the screenshots: the upper-left triangle and the sources' OUT cell are
+EMPTY (fix 1); the two terminal cells carry the ordinary ink border, and the
+only green on the pane is `Out Slot 4`'s `--own` halo, which is corner D's own
+colour from the ownership table (fix 2); every coefficient on the rail sits in
+an outlined pill clear of its ribbon and of the crossing arc, magenta on the
+tube ground, and the hovered edge's pill outline AND number turn violet with
+its ribbon (fix 3, and the shared hover still couples both ways).
+
+The LIGHT dump needed a 30 s virtual-time budget: at 14 s it snapshotted an
+undrawn canvas (no `width` attribute, title still `HYPERSAW`) while DARK came
+back drawn — the same rAF-vs-dump race the section above hit, and the reason the
+backing store is read off the title stamp rather than the attribute.
+
+- **Verify:** `fast`, exit 0, git `0f7f93b` (`.harness/last-verify.json`, the
+  tree this change sits on — commit `319e5de`). `node tools/labharness/lab_load_check.mjs` GREEN (42 labs,
+  0 broken); `python3 tools/gen_gui_controls.py --check` GREEN (197 controls,
+  gui2 markup current). `./verify full` not re-run: no C++ moved, and the
+  earlier sections' hash stands for the C++ tree this sits on.
+- **Open questions:**
+  1. The pill's number colour (`--scr-value` vs ink) — the interpretive call above.
+  2. Whether the rail should carry a corner halo / mod ring at all. It does not
+     today, so the brief's clause about them wrapping the pill has nothing to act
+     on; the lead's ruling decides whether that is a gap or the design.
+  3. At the pane's minimum width (`#mxGraph min-width:280px`) the gap between two
+     cards is narrower than a pill, so the cards (drawn last) clip the pill's
+     ends. Pre-existing — the bare label overlapped there before — and unchanged
+     by this fix, but it is the shape the narrow-pane degradation now takes.
