@@ -393,10 +393,17 @@
   /* Side by side at width, stacked when the page is narrow. The pane spans the
      FX page's columns because a 240px column cannot hold six slot cards left to
      right; nothing else on the page changes size. */
-  #mxBody { display:flex; gap:10px; align-items:flex-start; flex-wrap:wrap; }
+  /* The body clears the <h2> by the same 8px the note below it uses, so the
+     pane breathes equally above and below (human 2026-09-17: "the matrix top
+     padding is too small"). Both halves are flex children, so the well and the
+     rail take it together — the header row and the first slot card line up. */
+  #mxBody { display:flex; gap:10px; align-items:flex-start; flex-wrap:wrap; margin-top:8px; }
+  /* Even 9px inside: the column headers sat a pixel tighter to the top edge
+     than to the sides, which on a header row reads as a crop. Same number the
+     sides and the bottom already used — no new spacing value enters the sheet. */
   #mxWell { flex:1 1 300px; min-width:250px; background:var(--well);
             border:var(--stroke) solid var(--line); border-radius:var(--r);
-            padding:8px 9px 9px; }
+            padding:9px; }
   #mxGraph { flex:2 1 380px; min-width:280px; width:auto; height:170px;
              display:block; margin:0; }
   #mxGrid, #mxInit { display:grid; gap:5px; margin:0; }
@@ -6098,6 +6105,7 @@ if (typeof canPaint === 'function' && canPaint()) refreshBendCurve();
      coeff[from][to]  10000 + from*64 + to
      outAmount[to]    20000 + to
      slotInit[to]     21000 + to
+     srcOut[from]     22000 + from        (B50 1c, the dry path)
    `from` is sources first, then slots. A cell EXISTS only if the shell shipped
    its id; this file never decides legality, it reads which ids arrived.
 
@@ -6106,10 +6114,13 @@ if (typeof canPaint === 'function' && canPaint()) refreshBendCurve();
    are spans, not inputs: they emit no `input`, and its double-click means
    "reset to default" where B50 asks for "toggle 0/1". Building after that pass
    leaves them unwired by it and wired HERE, deliberately, once. */
-const MX_BASE = 10000, MX_STRIDE = 64, MX_OUT = 20000, MX_INIT = 21000;
-let mxCells = null, mxRaf = 0;
+const MX_BASE = 10000, MX_STRIDE = 64, MX_OUT = 20000, MX_INIT = 21000, MX_SRCOUT = 22000;
+let mxCells = null, mxRaf = 0, mxDrawn = null;
 
 function mxDecode(id) {
+  // The dry path names a SOURCE, so it fills `from` and leaves `to` at -1 —
+  // the mirror of outAmount/slotInit, which name a slot and leave `from` at -1.
+  if (id >= MX_SRCOUT && id < MX_SRCOUT + MX_STRIDE) return { kind: 3, from: id - MX_SRCOUT, to: -1 };
   if (id >= MX_INIT && id < MX_INIT + MX_STRIDE) return { kind: 2, from: -1, to: id - MX_INIT };
   if (id >= MX_OUT && id < MX_OUT + MX_STRIDE) return { kind: 1, from: -1, to: id - MX_OUT };
   if (id < MX_BASE || id >= MX_BASE + MX_STRIDE * MX_STRIDE) return null;
@@ -6139,7 +6150,9 @@ function mxRange(id) {
   const c = mxDecode(id);
   if (!c) return { lo: 0, hi: 1 };
   if (c.kind === 0) return { lo: -2, hi: 2 };
-  if (c.kind === 1) return { lo: 0, hi: 2 };
+  // kind 3 (the dry path) shares the OUT amounts' range: it sits in the same
+  // column of the well and answers the same question, so one range, not two.
+  if (c.kind === 1 || c.kind === 3) return { lo: 0, hi: 2 };
   return { lo: -1, hi: 1 };
 }
 
@@ -6220,9 +6233,13 @@ function buildMatrixPane() {
       const c = byId.get(MX_BASE + f * MX_STRIDE + t);
       grid.appendChild(c ? mxCellEl(c.id, name(f) + ' > Slot ' + (t + 1)) : mxGapEl());
     }
-    // The terminal column belongs to SLOT rows: a source has no output amount.
-    const term = f >= nSrc ? byId.get(MX_OUT + (f - nSrc)) : null;
-    grid.appendChild(term ? mxCellEl(term.id, 'Out Slot ' + (f - nSrc + 1), 'mxterm') : mxGapEl());
+    /* THE TERMINAL COLUMN, now for SOURCE rows too (B50 phase 1c): a slot row
+       holds its outAmount, a source row its dry path. Before 1c the source
+       rows had a gap here and a fully bypassed rack was not expressible as an
+       edge — the thing ADR-088 says bypass is. */
+    const term = f >= nSrc ? byId.get(MX_OUT + (f - nSrc)) : byId.get(MX_SRCOUT + f);
+    const termName = f >= nSrc ? 'Out Slot ' + (f - nSrc + 1) : 'Out Src ' + (f + 1);
+    grid.appendChild(term ? mxCellEl(term.id, termName, 'mxterm') : mxGapEl());
   }
 
   initRow.style.gridTemplateColumns = `52px repeat(${slots}, minmax(0,1fr)) minmax(0,1fr)`;
@@ -6256,7 +6273,7 @@ function mxDefault(id) {
   const nSlots = mxCells.filter(x => x.kind === 1).length;
   if (c.kind === 0) return (c.from === 0 && c.to === 0) || (c.from >= nSrc && c.from - nSrc === c.to - 1) ? 1 : 0;
   if (c.kind === 1) return c.to === nSlots - 1 ? 1 : 0;
-  return 0;
+  return 0;   // slotInit AND the dry path: the shipped chain routes through the slots
 }
 function mxWire(cell, id) {
   const { lo, hi } = mxRange(id);
@@ -6354,9 +6371,45 @@ function mxMarkMod() {
    repaint happens ONLY from here: a routing value changed (paintMatrixCell), a
    hover moved (mxSetHover), the box resized, or the theme changed. There is no
    per-frame loop and hzFrame knows nothing about this pane (ADR-143). */
-function mxInvalidate() {
+/* WHAT THE RAIL LAST *DREW* — every routing value the painter reads, plus the
+   hover. THE DEFECT (human 2026-09-17: "the visual bridges disappear once
+   you're no longer editing them"), traced and then reproduced by a harness:
+
+     · the FX page is HIDDEN at boot (MAIN is the page that is on), so the
+       first paint — scheduled by buildMatrixPane on the first poll — reaches
+       drawMatrixGraph with clientWidth 0 and returns without drawing;
+     · the old guard was `if (mxRaf) return` ALONE, so that frame consumed the
+       request and no record survived that the rail had never been painted;
+     · on reveal, paintLive's `lastPainted` cache skips every routing id
+       (nothing moved), so the bulk sync reaches setControl for none of them
+       and the rail is never invalidated again;
+     · a DRAG repaints it (paintMatrixCell -> mxInvalidate), which is exactly
+       "they come back only while you're editing them".
+
+   Keyed on the last LANDED paint, a dropped frame leaves the signature stale,
+   so the next invalidate from any source repaints. The no-per-frame-repaint
+   rule (ADR-143) is unchanged: a repeat invalidate with nothing moved still
+   costs one string and no draw. */
+function mxSignature() {
+  if (!mxCells) return null;
+  let s = String(mxHover);
+  for (const c of mxCells) s += ',' + (+(lastParams[c.id] ?? 0));
+  return s;
+}
+/* `force` = the canvas GROUND changed under the drawing (a scheme swap clears
+   every canvas, a resize reallocates the backing store, a reveal hands the box
+   its first size), so the last paint is gone even though no value moved and the
+   signature would otherwise match. */
+function mxInvalidate(force) {
+  if (force) mxDrawn = null;
   if (mxRaf) return;
-  mxRaf = requestAnimationFrame(() => { mxRaf = 0; mxMarkMod(); drawMatrixGraph(); });
+  mxRaf = requestAnimationFrame(() => {
+    mxRaf = 0;
+    const sig = mxSignature();
+    if (sig !== null && sig === mxDrawn) return;   // nothing moved since the last LANDED paint
+    mxMarkMod();
+    if (drawMatrixGraph()) mxDrawn = sig;
+  });
 }
 
 /* THE RAIL. Slots as cards left to right, edges as ribbons weighted by
@@ -6372,12 +6425,15 @@ function mxInvalidate() {
 
    GEOMETRY: drawing is in BITMAP pixels and every stroke width, radius and font
    multiplies by VS(), which is the rule fitViz() exists to serve (B120). */
+// RETURNS whether the paint actually LANDED. Every early return here is a paint
+// that did not happen, and mxInvalidate has to tell those apart from a completed
+// one or it records a signature for a drawing that is not on the screen.
 function drawMatrixGraph() {
   const cv = document.getElementById('mxGraph');
-  if (!cv || !mxCells || !mxCells.length) return;
-  if (!cv.clientWidth || !cv.clientHeight) return;   // page hidden: nothing to draw ON
+  if (!cv || !mxCells || !mxCells.length) return false;
+  if (!cv.clientWidth || !cv.clientHeight) return false;   // page hidden: nothing to draw ON
   const ctx = cv.getContext('2d');
-  if (!ctx) return;
+  if (!ctx) return false;
   fitViz(cv);
   const V = VS(), W = cv.width, H = cv.height;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -6472,6 +6528,16 @@ function drawMatrixGraph() {
     if (terminal(t))
       ribbon(slotX(t) + bw / 2, midY, outX - bw / 2, midY,
              val(MX_OUT + t), MX_OUT + t, reaches(t), 0);
+  /* THE DRY PATH (B50 phase 1c): a source straight to OUT, arced like the
+     slot-to-slot SKIPS and for the same reason — it passes over every card
+     between, so an arc is what stops it reading as the hop it lies on top of.
+     It skips the whole rack, so it takes the widest lift of any edge here.
+     `onPath` is true unconditionally: an edge that ENDS at OUT reaches OUT, and
+     a zero one never gets drawn (ribbon() returns early). */
+  for (let s = 0; s < nSrc; s++)
+    ribbon(srcX + bw / 2, srcY(s), outX - bw / 2, midY,
+           val(MX_SRCOUT + s), MX_SRCOUT + s, true,
+           -Math.min(midY - 16 * V, 30 * V * slots));
   cv._ribbons = ribbons;
   /* PILLS AFTER EVERY RIBBON, never inline with the one they label: a pill
      drawn during the loop is crossed out by any ribbon drawn after it, which is
@@ -6503,6 +6569,7 @@ function drawMatrixGraph() {
   for (let s = 0; s < nSrc; s++) card(srcX, srcY(s), bw, bh, nSrc > 1 ? 'SRC' + (s + 1) : 'SRC', true);
   for (let t = 0; t < slots; t++) card(slotX(t), midY, bw, bh, 'S' + (t + 1), reaches(t));
   card(outX, midY, bw, bh, 'OUT', true);
+  return true;
 }
 
 /* HOVER FROM THE RAIL SIDE — nearest ribbon label within a small radius, which
@@ -6529,12 +6596,32 @@ function drawMatrixGraph() {
      repaints only the gviz set, so without this the rail would sit blank on the
      tube until the next routing edit (the history rail's 2026-09-13 bug, in its
      canvas form). */
+  /* All three FORCE: a resize reallocates the backing store, a scheme swap
+     clears every canvas, and a reveal hands the box its first non-zero size —
+     in each case the drawing is gone while every value it drew is unchanged,
+     which is precisely the case a signature compare would otherwise skip. */
   if (typeof ResizeObserver === 'function')
-    try { new ResizeObserver(() => mxInvalidate()).observe(cv); } catch (_) {}
+    try { new ResizeObserver(() => mxInvalidate(true)).observe(cv); } catch (_) {}
   if (typeof MutationObserver === 'function' && document.body)
     try {
-      new MutationObserver(() => mxInvalidate())
+      new MutationObserver(() => mxInvalidate(true))
         .observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    } catch (_) {}
+  /* THE PAGE REVEAL, and it needs its own trigger rather than leaning on the
+     ResizeObserver above. The tab handler repaints the gviz set BY NAME on
+     reveal (drawEnvelope / drawScatter / drawBendStep / drawBendVib /
+     drawShapeWave) for the documented reason that a canvas measured while its
+     page is display:none has no size — the rail is the one canvas that was left
+     out of that list, and this file already records that a ResizeObserver is
+     not dependable in every host ("the measured preview browser fires none at
+     all", the pad's own note). Watching the page's own class keeps the trigger
+     in this block instead of adding a sixth name to a list on the far side of
+     the file. */
+  const fxPage = document.getElementById('pg-FX');
+  if (typeof MutationObserver === 'function' && fxPage)
+    try {
+      new MutationObserver(() => mxInvalidate(true))
+        .observe(fxPage, { attributes: true, attributeFilter: ['class'] });
     } catch (_) {}
 })();
 
