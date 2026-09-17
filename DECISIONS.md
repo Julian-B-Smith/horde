@@ -5655,3 +5655,26 @@ B133's owed ruling. Human (2026-09-16): "rail wins." With `rail on`,
 automation lanes on them are ignored while the rail is on and the pad shows
 a visible badge saying so. Recorded ahead of the build so the B133 brief
 carries it as a criterion, not a question.
+
+### ADR-166 Amendment 4 — Sluice confirms the four macro roles (2026-09-16, read 2026-09-17)
+
+Their response (`integrations/hypersaw/response-module-macros.md` in THEIR
+tree, seq 4, ball none): "The four roles fit." Their mapping: Regen = global
+feedback gain (the bifurcation control), Motion = LFO depth / the loop's
+time variation, Amount = wet mix, Tone = filter cutoff or loop damp,
+preset-dependent; no private role. On ADR-169's ratification they will
+declare per-role label + bindings in their preset cards (their spec §7) in
+the same change that adds their energy-envelope class (their F-003). ADR-169
+IS ratified (A1) — the ask is theirs to pick up when B136's brief lands; no
+further notice owed until then.
+
+### ADR-165 Amendment — ORBITAL: the profile's rulings and the two step rates (2026-09-17)
+
+Human ratified the lead's profile recommendations (B126 row). Render wins
+A1–A3 + B4 are a sanctioned lab edit with the simulation's bit-identity as
+the gate; B1 (carry the acceleration across the step) is a port design
+note; B2/B3 are refused because they move a CANDIDATE's trajectory and B135
+made trajectory bit-identity the gate. Step rate: the spec's 1/960 s is the
+port's; the lab runs 1/480 s and the port's oracle is behavioural (period
+±1 %), so the two rates are not a parity claim against each other — the
+lab is not edited to match.
