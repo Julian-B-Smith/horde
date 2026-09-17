@@ -219,8 +219,8 @@ undrawn canvas (no `width` attribute, title still `HYPERSAW`) while DARK came
 back drawn — the same rAF-vs-dump race the section above hit, and the reason the
 backing store is read off the title stamp rather than the attribute.
 
-- **Verify:** `fast`, exit 0, git hash recorded in `.harness/last-verify.json`
-  for this commit. `node tools/labharness/lab_load_check.mjs` GREEN (42 labs,
+- **Verify:** `fast`, exit 0, git `0f7f93b` (`.harness/last-verify.json`, the
+  tree this change sits on — commit `319e5de`). `node tools/labharness/lab_load_check.mjs` GREEN (42 labs,
   0 broken); `python3 tools/gen_gui_controls.py --check` GREEN (197 controls,
   gui2 markup current). `./verify full` not re-run: no C++ moved, and the
   earlier sections' hash stands for the C++ tree this sits on.
