@@ -339,8 +339,8 @@ double onePoleSimDb(double a, double f, double sr)
 int main()
 {
   std::printf("sr_check — sample-rate independence in SECONDS (B147 layer 2)\n");
-  std::printf("Bars are the 2026-09-18 audit's measured drifts plus a stated margin, NOT the\n");
-  std::printf("0.3%% samplerate_check bar: shrinking them is ruling B150, not this file's.\n\n");
+  std::printf("Bars are MEASURED drifts plus a stated margin, never an aspiration. B150 (human,\n");
+  std::printf("2026-09-18) moved three of them down; the output pole is STOPPED, see the source.\n\n");
 
   double kstep[kNR], lock02[kNR], lock05[kNR], lock30[kNR], pole10k[kNR], atk[kNR], sampleQty[kNR];
   double inertFull[kNR], inertWander[kNR];
