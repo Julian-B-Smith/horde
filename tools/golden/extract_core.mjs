@@ -13,21 +13,39 @@
  *     /* ================= Audio graph =================
  * Line numbers drift across reference updates; the banners have been stable
  * across v1→v2 of two prototypes. If a banner disappears, fail loudly.
+ *
+ * TWO BANNER CONVENTIONS EXIST, so the pair is a named argument rather than a
+ * constant (B152). The reference/ prototypes use `DSP: <name>` … `Audio graph`;
+ * nine of the ten docs/design labs — bend, cooperator, ensemble, filter, mod,
+ * reverb, shape, spectra, width — use `DSP` … `UI`. The tool takes both
+ * because the labs' own naming is the majority house convention there and is
+ * reasonable; renaming a lab's banners to fit the tool would edit the artefact
+ * to suit its instrument. Default is `reference`, so existing callers are
+ * unchanged. The two start patterns are mutually exclusive by construction
+ * (`DSP:` cannot match `DSP =`), so a mis-named pair fails loudly rather than
+ * silently slicing the wrong span.
  */
 
 import { readFileSync } from 'node:fs';
 
-export function extractCore(htmlPath, className) {
+export const BANNERS = {
+  reference: { start: /\/\* =+ DSP:/,   end: /\/\* =+ Audio graph/, name: 'DSP:/Audio graph' },
+  design:    { start: /\/\* =+ DSP =+/, end: /\/\* =+ UI\b/,        name: 'DSP/UI' },
+};
+
+export function extractCore(htmlPath, className, bannerSet = 'reference') {
   const html = readFileSync(htmlPath, 'utf8');
 
-  const dspBanner = /\/\* =+ DSP:/;
-  const endBanner = /\/\* =+ Audio graph/;
+  const b = BANNERS[bannerSet];
+  if (!b) throw new Error(`extract_core: unknown banner set '${bannerSet}' — ` +
+                          `known: ${Object.keys(BANNERS).join(', ')}`);
 
-  const start = html.search(dspBanner);
-  const end = html.search(endBanner);
+  const start = html.search(b.start);
+  const end = html.search(b.end);
   if (start < 0 || end < 0 || end <= start) {
-    throw new Error(`extract_core: DSP/Audio-graph banners not found in ${htmlPath} — ` +
-                    `the reference's structure changed; update the extraction markers deliberately.`);
+    throw new Error(`extract_core: ${b.name} banners not found in ${htmlPath} — ` +
+                    `the reference's structure changed, or it uses the other banner set; ` +
+                    `update the extraction markers deliberately.`);
   }
 
   const src = html.slice(start, end);
