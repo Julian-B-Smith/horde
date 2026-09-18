@@ -5940,3 +5940,9 @@ order M1…M8: **Space, Timbre, Motion, Grit, Time, Character, Tension,
 Pressure** — Pressure is the lead's eighth (drive, compression, density:
 the push of a sound), the one name the human has not yet ruled on. All
 eight are defaults the user renames per patch; the names are patch state.
+
+### ADR-176 Amendment 3 — the eight names, final (2026-09-18)
+
+Human: Pressure and Tension are too similar; Pressure is the better one;
+Tension becomes Brightness. Defaults M1…M8: **Space, Timbre, Motion, Grit,
+Time, Character, Brightness, Pressure.** Patch state; the user renames.
