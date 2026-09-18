@@ -412,6 +412,13 @@ class SwarmCore
     double *slot = paramSlot(k);
     if (!slot) return false;
     *slot = v;
+    // B148: `n` is the one param whose VALUE IS AN ARRAY BOUND, so it is
+    // clamped on the way in as well as at every read (voiceCount()) —
+    // otherwise getParam("n") and the state chunk would report a swarm size
+    // the engine does not run. Clamped, not truncated: 7.5 stays 7.5 (the
+    // reads already floor it), so every legal value is bit-identical. NaN
+    // lands on 1 by std::max's (a<b)?b:a ordering — the safe end.
+    if (k == "n") *slot = std::min((double)kMaxV, std::max(1.0, v));
     // `glide` IS the lag law's time constant at the core level — that is what
     // ADR-026 defined it as, and trajectory_check drives SwarmCore directly with
     // it. The shell resolves the link and calls setNoteLaw() AFTERWARDS, so a
@@ -419,10 +426,36 @@ class SwarmCore
     // on its own terms. (Caught by ADR-026 non-legato going red when the core
     // stopped reading it: 220 -> 274.8 Hz, an 8x-fast glide.)
     if (k == "glide") p.noteLaw.tau = v * 1000.0;   // seconds -> ms
+    /* B148/O4: rebuild only when rebuild()'s OWN INPUTS moved. applyParam
+       drains the CLAP queue per EVENT on the audio thread with no coalescing,
+       so sample-accurate automation of any of these keys paid a full rebuild
+       per event — 503 ns at n = 32, measured at +31 % of the block's own cost
+       under a 128-event block (audit §2.5).
+
+       Skipping is exactly bit-identical because rebuild() + finishRebuild()
+       read nothing but `sr` and these twelve values, and `sr` is fixed at
+       construction (no setter): re-running with an identical key reproduces
+       the state already written, grng included — it is reset from p.seed at
+       the top of every call.
+
+       NOT keyed on "did this setParam move its own slot", which is the
+       obvious form and is WRONG here: `p` is public, and plug_activate
+       (hypersaw_clap.cpp) reseats a core by assigning the whole Params struct
+       and then calling setParam("seed", saved.seed) purely to force the
+       rebuild. That is a same-value write whose entire intent is the rebuild,
+       and the slot-delta form skipped it — caught by statefix_check, all
+       three fixtures diverging at frame 0. Keying on the real inputs honours
+       that call by construction and still collapses an automation storm.
+       memcmp, not ==, so a repeated NaN counts as unchanged (safe: rebuild is
+       deterministic in its input bits) and +0 vs -0 counts as changed. */
     if (k == "n" || k == "dist" || k == "seed" || k == "width" || k == "topo" ||
         k == "panScatter" || k == "law" || k == "panLayout" || k == "panCurve" ||
         k == "panInvert" || k == "superMode" || k == "oversample")
-      rebuild();  // law/pan* added by ADR-070 (fan ranks by pitch); idempotent
+    {   // law/pan* added by ADR-070 (fan ranks by pitch); idempotent
+      double now[kRebuildKeyN];
+      loadRebuildKey(now);
+      if (std::memcmp(now, rebuildKey, sizeof(now)) != 0) rebuild();
+    }
     return true;
   }
 
@@ -546,7 +579,7 @@ class SwarmCore
     const bool perVoice = (p.onsetScatter > 0) || (p.voiceEnv > 0.5);
     if (perVoice)
     {
-      const int n = (int)p.n;
+      const int n = voiceCount();   // B148: never past kMaxV
       for (int i = 0; i < n; i++)
       {
         s.onsD[i] = 0;
@@ -772,7 +805,7 @@ private:
   // Per-CALL, deliberately — see the note in renderSeg.
   void advancePanMotion(int frames)
   {
-    const int n = (int)p.n;
+    const int n = voiceCount();   // B148: never past kMaxV
     const double pmv = p.panMotion;
     if (pmv > 0.001)
     {
@@ -812,7 +845,7 @@ private:
     // O(gated^2) per step, and a 16-sample grid measured +66% CPU to buy a
     // settling difference of 0.001 cents. 256 costs +2%.
 
-    const int n = (int)p.n;
+    const int n = voiceCount();   // B148: never past kMaxV
     // ADR-101 hoists: anchor index + blend fraction are pure functions of the
     // params, invariant across the segment.
     const bool sawBaseOn = p.sawBase > 0.001;
@@ -832,6 +865,33 @@ private:
     // control-rate time constant, seconds -> coefficient. 0 leaves the path alone.
     const bool glideOn = p.freqGlide > 0;
     const double gCoefS = glideOn ? 1 - std::exp(-1 / (p.freqGlide * 0.25 * sr)) : 0;
+    /* B148/O2: RN is a VIZ observable — grep the tree and it is WRITTEN in
+       controlTick and read nowhere inside the core, only by the shell's viz
+       snapshot, hypersaw_debug_viz (bank_check) and trajectory_check, all of
+       which read it AFTER render() returns. So the only RN value that is ever
+       observable is the LAST one written in the call, and the 2n
+       transcendentals every earlier tick spends are thrown away unread — the
+       audit measured that at ~26 % of controlTick, 6.6-7.4 % of total CPU.
+       Computing it only on the segment's final tick is therefore exactly
+       bit-identical, not approximately: same expression, same phases, same n.
+
+       (The audit proposed the focus voice ONLY. Measured here and REJECTED:
+       focus() at read time is not focus() at tick time. Forcing eight
+       BACKWARD handovers — a held note that regains focus when a newer stab
+       dies — makes the focus-only variant report an RN from the last block
+       the held voice HAD focus, which is a different number. Evidence:
+       scratchpad handover probe, hash 0bfa58f2a09f1eb3 baseline vs
+       cb91e56c96cdf5d6 focus-only, at n = 1/7/32. This form has no such
+       window, and still takes 8/8 of the win at a 128-frame block, 64/64 at
+       1024.)
+
+       lastTick is the sample index of the final control tick in this segment,
+       or -1 if the segment straddles none. `this->tick` is shared by every
+       voice (advanced once per segment, below), so it is resolved here. */
+    const int firstTick = (kTick - this->tick) & (kTick - 1);
+    const int lastTick = firstTick >= frames
+                             ? -1
+                             : firstTick + ((frames - 1 - firstTick) / kTick) * kTick;
     for (int i = 0; i < frames; i++) { outL[i] = 0.0f; outR[i] = 0.0f; }
     // pan motion (ADR-064, parity with reference/swarmsaw.html): slow LFOs sweep the base pan
     // once per block. mode 0 = independent per-voice drift, 1 = one shared sweep.
@@ -887,7 +947,7 @@ private:
       int tick = this->tick;
       for (int smp = 0; smp < frames; smp++)
       {
-        if (tick == 0) controlTick(s);
+        if (tick == 0) controlTick(s, smp == lastTick);
         tick = (tick + 1) & (kTick - 1);
         if (glideOn) for (int i = 0; i < n; i++) s.fRun[i] += gCoefS * (s.eff[i] - s.fRun[i]);
         double l = 0, r = 0;
@@ -1161,6 +1221,30 @@ public:
  private:
   static int32_t toInt32(double v) { return (int32_t)(int64_t)v; }
 
+  /* B148: THE swarm size, clamped to the array bound. `kMaxV` is the extent of
+     every per-oscillator buffer (x[], phase[], panL[], itdSamp[], …), and
+     `p.n` is a PUBLIC double that any caller can write directly — the shell's
+     param row (1..32) was the only cap in the system and every tool in tools/
+     drives the core past it. Measured before the fix (audit
+     docs/audits/2026-09-18-saw-engine-audit.md §1.2): n = 33 wrote one double
+     past x[32] and rendered corrupted audio silently; n >= 40 segfaulted in
+     rebuild(). The cap lives at the READ, not only at setParam, because
+     setParam is not the only writer. Legal values (1..32) pass through
+     unchanged, so every golden is bit-identical. */
+  int voiceCount() const { return std::min(kMaxV, std::max(1, (int)p.n)); }
+
+  /* B148/O4: the COMPLETE input set of rebuild() + finishRebuild() — grep
+     them and `p` is read nowhere else in either — single-sourced here so the
+     setParam trigger list above and the skip test can never disagree about
+     what a rebuild depends on. Order is the trigger list's order. */
+  static constexpr int kRebuildKeyN = 12;
+  void loadRebuildKey(double *o) const
+  {
+    o[0] = p.n;         o[1] = p.dist;      o[2] = p.seed;      o[3] = p.width;
+    o[4] = p.topo;      o[5] = p.panScatter; o[6] = p.law;      o[7] = p.panLayout;
+    o[8] = p.panCurve;  o[9] = p.panInvert; o[10] = p.superMode; o[11] = p.oversample;
+  }
+
   // mulberry32 shared with the Track E force system (ADR-034 unification —
   // the one piece of arithmetic the two dynamics families genuinely share).
   // Parity 51/51 proves the delegation is bit-neutral.
@@ -1247,7 +1331,7 @@ public:
 
   void rebuild()
   {
-    const int n = (int)p.n;
+    const int n = voiceCount();   // B148: never past kMaxV
     grng = (uint32_t)(toInt32(p.seed) + 1);
     if ((int)p.topo == 2)
     {
@@ -1308,6 +1392,8 @@ public:
 
   void finishRebuild(int n)
   {
+    rebuildGen++;   // B148/O3: the only thing that moves x[] / xmin
+    loadRebuildKey(rebuildKey);   // B148/O4: what this rebuild consumed
     centerIdx = 0;
     for (int i = 1; i < n; i++)
       if (std::fabs(x[i]) < std::fabs(x[centerIdx])) centerIdx = i;
@@ -1453,12 +1539,14 @@ public:
 
   static double erb(double f) { return 24.7 * (4.37 * f / 1000 + 1); }
 
-  void controlTick(Voice &s)
+  // `lastOfSeg` marks the final control tick of this render segment — the only
+  // one whose RN survives to be read (B148/O2, see renderSeg).
+  void controlTick(Voice &s, bool lastOfSeg)
   {
     // ADR-084: ~20 ms pressure smoothing, seconds -> per-tick coefficient
     s.pressSm += (s.press - s.pressSm) * (1 - std::exp(-(kTick / sr) / 0.02));
     if (std::fabs(s.pressSm - s.press) < 1e-6) s.pressSm = s.press;
-    const int n = (int)p.n;
+    const int n = voiceCount();   // B148: never past kMaxV
     const double dt = kTick / sr;
     // ADR-063 frequency glide (parity with reference/swarmsaw.html): seconds -> coefficient.
     const bool firstTick = !s.vfInit;
@@ -1529,11 +1617,34 @@ public:
     // (including tempo-grid, which the lab lacks — uniform placement semantics,
     // recorded in the ADR). Defaults bit-inert: detune*1 == detune, x - 0 == x.
     const double dep = p.detune * p.spread;
+    /* B148/O3: law 0's pow(2, xv*dep*100/1200) is a function of x[], anchor,
+       detune and spread ONLY — nothing per-voice and nothing per-tick — yet it
+       ran n times per voice per control tick (n `pow` calls, the single
+       heaviest term in the audit's controlTick breakdown). Cached here per
+       (rebuildGen, dep, anchor, n): the expression is copied verbatim, so a
+       cache hit returns the same double the call would have, and the
+       invalidation is by VALUE, not by setParam, because `p` is public and a
+       tool can write p.detune directly. x[] and xmin move only in
+       finishRebuild(), which is what rebuildGen counts. */
+    const double *lawR = nullptr;
+    if (p.law == 0)
+    {
+      if (lawN != n || lawGen != rebuildGen || lawDep != dep || lawAnchor != p.anchor)
+      {
+        for (int i = 0; i < n; i++)
+          lawRatio[i] = std::pow(2, ((x[i] - p.anchor * xmin) * dep * 100) / 1200);
+        lawN = n;
+        lawGen = rebuildGen;
+        lawDep = dep;
+        lawAnchor = p.anchor;
+      }
+      lawR = lawRatio;
+    }
     for (int i = 0; i < n; i++)
     {
       double f;
       const double xv = x[i] - p.anchor * xmin;
-      if (p.law == 0) { f = f0c * std::pow(2, (xv * dep * 100) / 1200); }
+      if (p.law == 0) { f = f0c * lawR[i]; }
       else if (p.law == 1) { f = f0c + xv * dep * 20; }
       else if (p.law == 3)
       {
@@ -1654,14 +1765,20 @@ public:
     sy /= n;
     s.R = std::sqrt(sx * sx + sy * sy);
     s.psi = std::atan2(sy, sx);
-    double nx = 0, ny = 0;
-    for (int i = 0; i < n; i++)
+    // B148/O2: the n-th order parameter — only on the segment's final tick,
+    // because every earlier one is overwritten before anything can read it.
+    // See the derivation at lastTick in renderSeg.
+    if (lastOfSeg)
     {
-      const double a = s.phase[i] * kTau * n;
-      nx += std::cos(a);
-      ny += std::sin(a);
+      double nx = 0, ny = 0;
+      for (int i = 0; i < n; i++)
+      {
+        const double a = s.phase[i] * kTau * n;
+        nx += std::cos(a);
+        ny += std::sin(a);
+      }
+      s.RN = std::sqrt(nx * nx + ny * ny) / n;
     }
-    s.RN = std::sqrt(nx * nx + ny * ny) / n;
     // Topology / Sakaguchi / Daido (ADR-023, DYN reference exact). SAW
     // defaults (topo 0, alpha 0, poles 1) reduce every expression to the SAW
     // reference's own: sin(psi - theta - 0.0) is bit-equal to sin(psi -
@@ -1863,6 +1980,16 @@ public:
   int centerIdx = 0;
   double xmin = 0;  // lowest raw x, for the root anchor (ADR-068)
   bool tiltHP = false;  // tone-tilt sign (ADR-060), set each control tick
+  // B148/O3: law-0 detune-ratio cache and its invalidation key. lawN = -1 and
+  // lawGen = 0 (rebuildGen starts at 1) force a miss on the first tick.
+  double lawRatio[kMaxV] = {0};
+  double lawDep = 0, lawAnchor = 0;
+  int lawN = -1;
+  long lawGen = 0, rebuildGen = 1;
+  // B148/O4: rebuild()'s inputs as of the last rebuild. Zero here only until
+  // the constructor's own rebuild() fills it — member init runs first, so no
+  // setParam can ever read it uninitialised.
+  double rebuildKey[kRebuildKeyN] = {};
   uint32_t grng = 1;
   Voice voices[kPoly];
 };

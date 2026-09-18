@@ -344,6 +344,16 @@ if(NOT MSVC)
   target_compile_options(polarity_check PRIVATE -O2)
 endif()
 
+# B148 the swarm size never indexes past kMaxV (ncap_check). Core-direct — it
+# includes swarm_core.h and links nothing, because the defect it pins is
+# exactly the one the SHELL's param row hid from every core-direct tool.
+# STANDALONE and NOT in ./verify — wiring a gate is the human's decision
+# (charter), proposed in the PR that adds it.
+add_executable(ncap_check tools/ncap_check.cpp)
+if(NOT MSVC)
+  target_compile_options(ncap_check PRIVATE -O2)
+endif()
+
 # B89 phase 1 parameter classification (paramclass_check). STANDALONE and NOT
 # in ./verify — wiring a gate is the human's decision, proposed in the PR that
 # adds it. Prints the full class table before it asserts: the classification is
