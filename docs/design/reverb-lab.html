@@ -269,6 +269,7 @@ class SwarmVerb {
     // swarm_core.h / time_core.h. Deliberately NOT cleared in reset(): it is a
     // clock, not state, and the NaN watchdog must not re-phase the modulation.
     this.tickCtr = 0;
+    this.outs = new Float64Array(NLINE);   // per-sample FDN scratch, see process()
     this.dcx = 0; this.dcy = 0;
   }
   setParam(k, v) { this.p[k] = v; if (k === 'mixTimeMs') this.scaleToMixTime(); }
@@ -492,7 +493,12 @@ class SwarmVerb {
         a.w = (a.w + 1) % a.buf.length;
       }
       // --- FDN tail
-      const outs = new Array(NLINE);
+      // Scratch, allocated once (it was `new Array(NLINE)` per SAMPLE). V8
+      // scalar-replaces it, so this is free in the lab — but the charter's
+      // "real-time thread allocates nothing" is the rule the port inherits, and
+      // an allocation in the inner loop is the shape rtsafety_probe exists to
+      // catch. Every element is written before it is read on each sample.
+      const outs = this.outs;
       let sum = 0;
       for (let i = 0; i < NLINE; i++) {
         const wobble = Math.sin(TAU * this.modPh[i]) * modSamp;
