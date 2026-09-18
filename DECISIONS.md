@@ -5966,3 +5966,38 @@ morph layout marker steps to 5; the factory bank regenerates; no fixture
 carries a routing. This is the one exception to append-only, taken two
 days after the ids were released in dev builds and before any user patch
 exists. After it, no future source or slot ever moves an id.
+
+### ADR-169 Amendment 2 — the face is a DISTILLATION, not a reduction; bindings may be relative (2026-09-18)
+
+Human (2026-09-18): "I don't just want four knobs exposed in the UI; I just
+want a preset for one of the modular FX modules like MAW to be able to
+distill its essential controls to four knobs, even while the rest of the
+parameters are accessible. … there will be instances in which multiple
+controls need to move together, like consecutive allpasses with a fixed Hz
+distance or ratio."
+
+Clarified, and the lead's earlier phrasing ("faces only", "host exposure
+withheld") is superseded where it implied hiding: (1) every internal
+parameter of a hosted module is ALWAYS accessible in the module's own panel
+— the four role knobs sit above them as the preset author's distillation of
+what matters for that preset, so a player sees the essentials and a designer
+sees everything; the face never hides, it summarises. (2) A slot's bindings
+are one knob → N internals, and a binding may be RELATIVE, not only a
+lo…hi span: `offset` (the target tracks another target plus a fixed
+difference in the parameter's own unit — Hz, semitones, ms) and `ratio` (a
+fixed multiple), so consecutive allpasses keep a fixed distance or ratio
+while one knob moves them; the spec's binding record gains `rel: {to,
+kind, value}`. (3) Host exposure of internals (CLAP params, automation
+lanes, mod destinations) remains the separate ADR-172 test question; it is
+about the DAW's surface, not the plugin's panel. Sluice's notice seq 5
+("one macro with N bindings") already matches (2); the relative form is an
+addition they may adopt. The spec (protected) is amended at the human's
+word; this amendment is the ruling.
+
+### ADR-171 Amendment 1 — the SAW fidelity suite joins `verify full` (2026-09-18)
+
+Human: "Gate wiring ratified." Five of the six checks from PR #635 run in
+`full` after the nine of ADR-171: alias, sr, blocksize, stability (at a
+60-second simulated default; the 600-second run by hand), denormal.
+`cpu_check` stays standalone: a timing measurement must not gate CI; its
+numbers go to ACCEPTANCE as measured, not aspirational.
