@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SUB OSC — the honest sub, a source-module lab</title>
+<style>
+  /* ============================================================
+     DESIGN TOKENS — the `:root` block of src/gui/gui2.html:26-185, copied
+     BYTE-VERBATIM (B155 brief). Verbatim rather than trimmed on purpose: a
+     hand-pruned subset is a second colour vocabulary that drifts the first
+     time gui2 re-tunes a hex, and the whole point of a design lab is that
+     what you audition here is what the device will paint. Unused names cost
+     nothing; a divergent one costs a re-skin.
+     ============================================================ */
+  :root {
+    /* ground */
+    --bg:#F2EDE2;        /* page ground (cream)                    */
+    --panel:#FCFAF4;     /* module cards                           */
+    --well:#FFFFFF;      /* DATA surfaces: viz, pads, keyboards     */
+    --panel2:#E9E3D4;    /* well-alt: control tracks, empty meters  */
+    --line:#191521;      /* ink — ALL outlines                     */
+    --hair:#E5DFD0;      /* in-well gridlines ONLY, never borders   */
+    --div:#D8D1C0;       /* dashed intra-card separators           */
+    /* text */
+    --text:#191521;      /* primary (ink)                          */
+    --t2:#494356;        /* secondary                              */
+    --dim:#9A93A3;       /* hint                                   */
+    --dis:#B6AFA0;       /* disabled                               */
+    /* signal — one job each, never borrowed */
+    --value:#F5169C;     /* the user's authored value              */
+    --pull:#F5169C;      /* legacy name for the accent = value      */
+    --physics:#6431F0;   /* order parameter, K vector, rotor lead   */
+    --meter:#00D5C8;     /* analyzers, R rim arc                   */
+    --marker:#FFD702;    /* attention: root, overshoot, lock front  */
+    --celebrate:#A6F219; /* OK / meters in the green               */
+    --caution:#F5A300;   --caution-bg:#FBE9BD; --caution-tx:#6D570B;
+    --amber:#F5A300;     /* legacy name for caution                 */
+    --alarm:#C2261A;     /* PANIC, clip, mute — NOTHING else        */
+    --ghost:#C9C2FF;     /* dry/reference traces behind wet         */
+    /* corners — preset identity (fill / dark text pair) */
+    --cA:#FFD702; --cAtx:#D4A900;
+    --cB:#FF2E88; --cBtx:#FF2E88;
+    --cC:#00D5C8; --cCtx:#00B3A8;
+    --cD:#A6F219; --cDtx:#6FB200;
+    /* canvas-only names from ADR-118 A2, re-pointed at spec roles */
+    --text-hi:#191521;   /* was "brighter than text" on dark; on cream that is ink */
+    --dim2:#494356;      /* canvas axis labels — secondary, per §2   */
+    --grid:#E5DFD0;      /* gridlines = hairline                    */
+    --grid2:#E5DFD0;     /* second gridline variant collapses in    */
+    --hot:#F5169C;       /* live-value marks = value                */
+    --bad:#C2261A;       /* a measured cost worth flagging = alarm   */
+    --badge-bg:rgba(245,163,0,.9);   /* caution at badge alpha      */
+    /* SCREEN TOKENS — vaporwave phosphor (ADR-119, docs/design-system/
+       HORDE-Vaporwave-Phosphor.dc.html). The chrome stays cream; only the DATA
+       WELLS become phosphor tubes, so canvases read these while every CSS
+       control keeps the chrome set. Semantics carry 1:1 — value/meter/physics/
+       marker keep their MEANINGS, the hexes re-tune for emission. */
+    /* TUBE, back to a PURPLE ground (human 2026-08-24, reversing their own
+       earlier push-back). The lime meter stays — that was a separate request
+       and was not withdrawn. Physics lifts from #9D6CFF to #B48CFF because a
+       violet mark on a violet ground would re-create, by the back door, the
+       exact collision ADR-118 removed when grid and physics shared one hex. */
+    --scr-tube:#1B0733;      /* the tube ground — deep violet            */
+    --scr-value:#FF5ECF;     /* your value, as hot-pink phosphor        */
+    --scr-meter:#B8F227;     /* meter/measure, as LIME                  */
+    --scr-physics:#B48CFF;   /* the system's own state                  */
+    --scr-marker:#FFB86B;    /* attention/root, as amber                */
+    --scr-grid:#4FD8BE;      /* in-tube structure — painted at low alpha */
+    --scr-scan:0.22;         /* scanline strength — retuned per scheme     */
+    --scr-alpha:1;           /* multiplier on every TOKA() alpha. 1 on the
+                                tube; pale schemes raise it, because a low-alpha
+                                mark that glows on near-black washes out on
+                                near-white and the ~40 alphas in the painters
+                                were every one of them tuned on the dark ground. */
+    /* geometry */
+    /* ONE roundness (human 2026-08-24: "make all the corners rounder on all
+       the objects (so they all have the same roundness) ... including the
+       visualizer screens"). --r-well is kept as an ALIAS rather than deleted so
+       the spec's own vocabulary still reads, but it resolves to the same value:
+       a second radius token is a second chance to disagree. Capsules (pills,
+       toggles, chips) stay 999 — that is a shape, not a corner radius. */
+    --r-card:10px; --r-well:var(--r-card); --r:var(--r-card); --stroke:1.5px;
+    --shadow:1.5px 1.5px 0 var(--line);
+    --shadow-hover:2.5px 2.5px 0 var(--line);
+    --focus:0 0 0 2.5px rgba(245,22,156,.45); }     /* a measured cost worth flagging (vibrato loss)   */
+  * { box-sizing:border-box; margin:0; }
+  /* ADR-119 A2: every canvas is a phosphor tube, and a tube gets the same ink
+     border language as the cards — that shared border IS the congruity element
+     (human: "these new phosphor panels need an element that makes them more
+     congruous with the surrounding aesthetic, like some sort of border").
+     No shadow: §3 says shadows are for interactive elements, never wells. */
+  canvas { border:var(--stroke) solid var(--line); border-radius:var(--r-well);
+           background:var(--scr-tube); }
+  /* SCREEN SCHEMES — AUDITIONS, not rulings. The SCR chip cycles them and
+     names the one you are looking at. Each redefines the same seven roles and
+     nothing else; no painter knows a scheme exists. Inks on the pale grounds
+     are darkened to stay legible — a phosphor hue that glows on a black tube
+     is invisible on a white one, so these are re-derived per ground rather
+     than reused. All four are mine to audition; replace freely.
+       (none)     TUBE  — deep teal, the shipped vaporwave phosphor
+       scr-frost  FROST — near-white cyan
+       scr-lumen  LUMEN — near-white warm yellow
+       scr-paper  PAPER — plain white                                        */
+  /* THE LIGHT GROUNDS (human 2026-08-24: "the yellow of the light mode is way
+     too harsh. Maybe that should be a very light purplish or cyan or orange
+     tint instead"). LUMEN's saturated yellow is gone; these three are TINTS —
+     a hint of hue on near-white, not a colour field.
+
+     They share ONE vivid ink family (value / meter / physics identical across
+     all three) and differ only in GROUND, GRID and MARKER. That is deliberate
+     and it is the point: the ground is the variable under audition, the
+     hyperpop ink set is what carries the world, and picking a winner therefore
+     does not re-open the ink question — which is the part that already
+     measured well. Inks stay maximum-chroma at the lightness contrast demands;
+     every role clears 4.4:1 on every one of the three grounds. */
+  /* DUSK -- the ground that can actually carry the neon set (human: "more
+     vibrant foreground colors aiming toward hot pink, cyan, electric yellow,
+     lime green"). MEASURED, because this is physics rather than taste: on any
+     near-white ground those four read at 1.10-1.41:1 against it -- invisible,
+     not merely dull -- and only hot pink clears the 3:1 floor at all, barely.
+     They are HIGH-LUMINANCE hues, so they need a ground to glow against; there
+     is no near-white palette that makes them legible. DUSK is the compromise
+     the numbers allow: a mid violet, lighter and warmer than the tube, dark
+     enough that all four clear 4.3:1 or better.
+       hot pink 4.32 · cyan 9.82 · electric yellow 11.84 · lime 11.03
+     Hues are nudged off the CORNER hexes on purpose -- see the note on
+     --cA..--cD, which already own this exact family. */
+  body.scr-dusk   { --scr-tube:#2A2140; --scr-value:#FF4FA3; --scr-meter:#C8FF3D;
+    --scr-physics:#3DE8FF; --scr-marker:#FFE94A; --scr-grid:#8A6FD4;
+    --scr-scan:0.16; --scr-alpha:1; }
+  body.scr-orchid { --scr-tube:#F3EBFF; --scr-value:#D6006B; --scr-meter:#007A73;
+    --scr-physics:#6E14E8; --scr-marker:#C43A00; --scr-grid:#5A3FA8;
+    --scr-scan:0.05; --scr-alpha:1.6; }
+  body.scr-frost  { --scr-tube:#E6F8FF; --scr-value:#D6006B; --scr-meter:#007A73;
+    --scr-physics:#6E14E8; --scr-marker:#C43A00; --scr-grid:#00618C;
+    --scr-scan:0.05; --scr-alpha:1.6; }
+  body.scr-ember  { --scr-tube:#FFF0E4; --scr-value:#D6006B; --scr-meter:#007A73;
+    --scr-physics:#6E14E8; --scr-marker:#B03000; --scr-grid:#8A5A2E;
+    --scr-scan:0.05; --scr-alpha:1.6; }
+  /* ---- DARK CHASSIS ---- the flat-ink idiom inverted, not merely darkened.
+     Ink becomes light and the ground goes near-black with a violet bias, which
+     keeps it inside the instrument's own hyperpop world instead of landing on
+     a neutral grey nobody chose. The one structural inversion worth naming:
+     on cream, DATA WELLS are LIGHTER than their card (--well #FFFFFF on
+     --panel #FCFAF4); on dark they must be DARKER (--well #0E0C16 under
+     --panel #1F1B2E), because "recessed" is what the well means and depth
+     reads by contrast direction, not by lightness. Flipping the tokens without
+     flipping that relationship would make every well read as raised. */
+  /* LIGHT-CHASSIS LEGIBILITY (measured 2026-08-24). Yellow and lime are the
+     two spec hues that cannot survive a light ground: --marker reads 1.20:1 on
+     --bg and --celebrate 1.17:1, where the graphical floor is 3:1. Both are
+     line/mark roles -- they draw strokes, glyphs and meter fills, not filled
+     shapes with their own border -- so low contrast makes them disappear
+     rather than merely soften. Darkened here to clear 4.5:1 while holding the
+     hue, so "attention is amber" and "OK is green" still read as themselves. */
+  body:not(.dark) {
+    --marker:#8A6A00;      /* was #FFD702 at 1.20:1 -> 5.6:1               */
+    --celebrate:#4E7A00;   /* was #A6F219 at 1.17:1 -> 5.3:1               */
+    /* THE LOGO'S four corner colours. It cycles through corner identity, so it
+       needs the corner HUES -- but measured on cream the raw corner set reads
+       A 1.20 : B 3.00 : C 1.58 : D 1.17, i.e. the mark would vanish for three
+       quarters of its cycle. Same hues, lightness moved until each clears the
+       ground. Re-lightened 2026-08-24 (human: "in light mode, the text appears
+       a little too dark"): a logo is DISPLAY type, so the governing floor is
+       3:1 for graphics, not the 4.5:1 body-text one that produced the first,
+       muddier set. Each hue was solved down to ~3.30:1 rather than eyeballed
+       -- 4.34/5.05/5.10/4.38 became 3.30 across the board, which is as bright
+       as the cream ground allows while still separating from it. Dark mode
+       uses the corner colours themselves, where they measure 5.27-13.46. */
+    /* the TRUE corner colours, full value and saturation -- legibility is the
+       outline's job now, not theirs. --lg-edge is what turns it on. */
+    --lgA:#FFD702; --lgB:#FF2E88; --lgC:#00D5C8; --lgD:#A6F219;
+    --lg-edge:#191521;
+  }
+
+  /* ---- lab chrome. Cream ground, ink outlines, phosphor tubes: ADR-118/119
+     as gui2 states them. Every colour below is a var() from the block above —
+     no literal hex outside :root, which is what makes a re-skin a :root edit. */
+  * { box-sizing: border-box; margin: 0; }
+  html, body { background: var(--bg); color: var(--text);
+               font: 13px/1.45 ui-monospace, Menlo, Consolas, monospace; }
+  body { padding: 14px 16px 40px; }
+  header { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin-bottom: 10px; }
+  h1 { font-size: 17px; letter-spacing: 0.10em; font-weight: 700; }
+  h1 .sub { color: var(--t2); font-weight: 400; letter-spacing: 0.04em; }
+  .tagline { color: var(--t2); font-size: 11px; flex-basis: 100%; }
+  .rev { position: fixed; top: 6px; right: 8px; z-index: 99; font-size: 10px;
+         color: var(--dim); background: var(--panel); border: 1px solid var(--line);
+         border-radius: 3px; padding: 2px 6px; opacity: 0.8; }
+  button { font: inherit; background: var(--panel); color: var(--text);
+           border: 2px solid var(--line); border-radius: 4px; padding: 6px 14px;
+           cursor: pointer; box-shadow: 2px 2px 0 var(--line); }
+  button:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0 var(--line); }
+  button.on { background: var(--value); color: var(--panel); }
+  #panic.armed { background: var(--alarm); color: var(--panel); }
+  .wrap { display: grid; grid-template-columns: 340px 1fr; gap: 14px; align-items: start; }
+  .card { background: var(--panel); border: 2px solid var(--line); border-radius: 6px;
+          padding: 10px 12px; box-shadow: 3px 3px 0 var(--line); }
+  .card + .card { margin-top: 12px; }
+  .card h2 { font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+             color: var(--t2); margin-bottom: 8px; }
+  .row { display: grid; grid-template-columns: 82px 1fr 64px; align-items: center;
+         gap: 8px; margin: 5px 0; }
+  .row label { font-size: 11px; color: var(--t2); }
+  .row output { font-size: 11px; text-align: right; color: var(--value); }
+  .row.wide { grid-template-columns: 82px 1fr; }
+  .chk { display: flex; align-items: center; gap: 7px; }
+  input[type=range] { width: 100%; accent-color: var(--value); }
+  input[type=number], select { font: inherit; font-size: 11px; background: var(--well);
+      color: var(--text); border: 1.5px solid var(--line); border-radius: 3px; padding: 2px 4px; }
+  input[type=checkbox] { accent-color: var(--value); width: 15px; height: 15px; }
+  .note { color: var(--dim); font-size: 10px; margin-top: 7px; line-height: 1.5; }
+  .note b { color: var(--t2); font-weight: 500; }
+  .note code { color: var(--t2); }
+  .lab-only { color: var(--caution-tx); background: var(--caution-bg);
+              border-radius: 2px; padding: 0 4px; font-size: 9px; letter-spacing: .06em; }
+  /* tubes: canvases are phosphor wells, bordered like the cards (ADR-119 A2) */
+  canvas { display: block; width: 100%; border: 2px solid var(--line);
+           border-radius: 5px; background: var(--scr-tube); }
+  .keys { display: flex; height: 92px; position: relative; user-select: none;
+          touch-action: none; margin-top: 4px; }
+  .key { flex: 1; background: var(--well); border: 1.5px solid var(--line);
+         border-radius: 0 0 4px 4px; position: relative; cursor: pointer; }
+  /* 3.6% ~ half a white key across the two-octave bed; the JS offset below is
+     half of that, so a black key straddles the seam it belongs to. */
+  .key.black { position: absolute; width: 3.6%; height: 58%; background: var(--line);
+               z-index: 2; border-radius: 0 0 4px 4px; }
+  .key.held { background: var(--value); }
+  .key.black.held { background: var(--physics); }
+  .key span { position: absolute; bottom: 3px; left: 0; right: 0; text-align: center;
+              font-size: 9px; color: var(--dim); pointer-events: none; }
+  .key.black span { color: var(--panel2); }
+  .key em { position: absolute; top: 4px; left: 0; right: 0; text-align: center;
+            font-size: 9px; font-style: normal; color: var(--dis); pointer-events: none; }
+  .key.black em { color: var(--dim); }
+  .addr { color: var(--dim); font-size: 9px; letter-spacing: .04em; }
+</style>
+</head>
+<body>
+<header>
+  <h1>SUB OSC <span class="sub">· source-module lab</span></h1>
+  <div class="rev" title="the file's modification time and a fingerprint of its code, both read at load — neither is hand-maintained, so neither can drift. If the fingerprint does not change after a reload you are still on a cached copy (hard-reload: Cmd+Shift+R, Safari Cmd+Opt+R).">rev <span id="revdate">…</span> &middot; fp <span id="revfp">…</span></div>
+  <button id="power">POWER ON</button>
+  <button id="panic">PANIC</button>
+  <div class="tagline">design lab · B155 · the honest sub: one voice, six shapes (sine / triangle / square / saw / pulse / seeded noise), octave −2…0 plus semitones and fine, a one-pole tone, hard sync to a master phase, no swarm and no coupling · every control names the parameter address it will carry · the AR envelope here is scaffolding, the shell supplies the voice envelope</div>
+</header>
+
+<div class="wrap">
+  <div class="col">
+    <div class="card">
+      <h2>Shape</h2>
+      <div class="row"><label>waveform</label>
+        <select id="wave" data-addr="subosc.wave">
+          <option value="0">sine</option><option value="1">triangle</option>
+          <option value="2">square</option><option value="3" selected>saw</option>
+          <option value="4">pulse</option><option value="5">noise</option>
+        </select><output id="wave_o">saw</output></div>
+      <div class="row"><label>pulse width</label>
+        <input type="range" id="width" data-addr="subosc.width" min="0.05" max="0.95" step="0.001" value="0.5"><output id="width_o"></output></div>
+      <div class="note"><b>structural</b> waveform (stepped, ADR-173) · <b>morphable</b> width.
+        polyBLEP on saw / square / pulse only — the idiom is the one the repo already
+        trusts, <code>reference/swarmsaw.html:626-633</code>, not a second BLEP.</div>
+    </div>
+
+    <div class="card">
+      <h2>Pitch</h2>
+      <div class="row"><label>octave</label>
+        <select id="octave" data-addr="subosc.octave">
+          <option value="-2">−2</option><option value="-1" selected>−1</option><option value="0">0</option>
+        </select><output id="octave_o"></output></div>
+      <div class="row"><label>semitones</label>
+        <input type="range" id="semis" data-addr="subosc.semis" min="-12" max="12" step="1" value="0"><output id="semis_o"></output></div>
+      <div class="row"><label>fine</label>
+        <input type="range" id="fine" data-addr="subosc.fine" min="-100" max="100" step="0.1" value="0"><output id="fine_o"></output></div>
+      <div class="row wide"><label>keytrack</label>
+        <span class="chk"><input type="checkbox" id="keytrack" data-addr="subosc.keytrack" checked>
+        <span class="addr">off ⇒ pinned to C2 (MIDI 36)</span></span></div>
+      <div class="note">running frequency <b id="f0read">—</b>. Octave and semitones are
+        stepped ⇒ <b>structural</b>; fine is continuous ⇒ <b>morphable</b> (ADR-173's
+        derivation, not a new column).</div>
+    </div>
+
+    <div class="card">
+      <h2>Tone · level</h2>
+      <div class="row"><label>tone</label>
+        <input type="range" id="tone" data-addr="subosc.tone" min="30" max="20000" step="1" value="20000"><output id="tone_o"></output></div>
+      <div class="row"><label>level</label>
+        <input type="range" id="level" data-addr="subosc.level" min="0" max="1" step="0.001" value="0.8"><output id="level_o"></output></div>
+      <div class="row"><label>start phase</label>
+        <input type="range" id="phase" data-addr="subosc.phase" min="0" max="1" step="0.001" value="0"><output id="phase_o"></output></div>
+      <div class="note">one-pole TPT lowpass: the cutoff is a FREQUENCY and its
+        coefficient is re-derived from the current sample rate whenever either
+        changes. The naive <code>1−exp(−2π·fc/sr)</code> form warps its response
+        with the rate — measured −1.34 dB → −5.53 dB at Nyquist across 44.1…96 k,
+        <code>docs/audits/2026-09-18-saw-engine-audit.md</code> §3.6. Not inherited here.</div>
+    </div>
+
+    <div class="card">
+      <h2>Sync</h2>
+      <div class="row wide"><label>hard sync</label>
+        <span class="chk"><input type="checkbox" id="sync" data-addr="subosc.sync">
+        <span class="addr">reset to start phase on a master wrap</span></span></div>
+      <div class="row"><label>master ×</label>
+        <input type="range" id="masterRatio" min="0.25" max="8" step="0.01" value="1"><output id="masterRatio_o"></output></div>
+      <div class="note"><span class="lab-only">LAB ONLY</span> the master is a
+        <b>phase input</b> the shell will supply (oscillator 1's phase). This page
+        feeds it from a second internal saw so sync is auditionable before the
+        routing exists — <code>masterRatio</code> is not a parameter and does not
+        survive the port. Named limit: the reset discontinuity is <b>not</b>
+        band-limited in v0 (spec draft §6).</div>
+    </div>
+
+    <div class="card">
+      <h2>Envelope <span class="lab-only">SCAFFOLD</span></h2>
+      <div class="row"><label>attack</label>
+        <input type="range" id="attack" data-addr="subosc.attack" min="0.0005" max="0.5" step="0.0005" value="0.005"><output id="attack_o"></output></div>
+      <div class="row"><label>release</label>
+        <input type="range" id="release" data-addr="subosc.release" min="0.002" max="2" step="0.002" value="0.08"><output id="release_o"></output></div>
+      <div class="row"><label>seed</label>
+        <input type="number" id="seed" data-addr="subosc.seed" min="0" max="4294967295" step="1" value="1"><output id="seed_o"></output></div>
+      <div class="note">A short linear AR in <b>seconds</b> (ADR-009), here only so
+        notes do not click. <b>The shell replaces it with the voice envelope</b> —
+        it is not part of the module's identity, and the spec draft marks it
+        provisional. The seed drives the noise shape's mulberry32 stream and is
+        re-drawn at every note-on, so a bounce is reproducible (the SAW engine's
+        unseeded ensemble stream, audit finding A3, is the trap being avoided).</div>
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="card">
+      <h2>Scope · one block, exactly as the core rendered it</h2>
+      <canvas id="scope" width="720" height="210"></canvas>
+      <h2 style="margin-top:12px">Spectrum · 0…<span id="nyq">—</span> Hz · log magnitude</h2>
+      <canvas id="spec" width="720" height="180"></canvas>
+      <div class="note">peak <b id="peakread">−∞ dB</b> · env <b id="envread">0.000</b>
+        · <b id="statusread">idle</b></div>
+    </div>
+    <div class="card">
+      <h2>Keyboard · <span id="octlbl">octave</span></h2>
+      <div class="keys" id="keys"></div>
+      <div class="note">computer keys <b>A W S E D F T G Y H U J K</b> · <b>Z / X</b>
+        shift the octave · <b>space</b> holds a drone at C2. Sub range is where this
+        module lives: the harness measures its aliasing floor at MIDI 24 / 36 / 48 / 60.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ================= DSP: SubOsc =================
+ *
+ * SubOscCore — the honest sub. One voice, six shapes, pitch offsets, a one-pole
+ * tone, optional hard sync to a master phase. No swarm, no coupling: the whole
+ * point of this module is that it is the thing the SWARM oscillators are not.
+ *
+ * This section is the parity core (ADR-003 spec-in-code) and is sliced out
+ * verbatim by tools/golden/extract_core.mjs between the two banner comments,
+ * so it MUST stay DOM-free and self-contained. Everything below the "Audio
+ * graph" banner is lab scaffolding and never ports.
+ *
+ * Contract:  new SubOscCore(sampleRate)
+ *            setParam(key, value)   — the ONLY writer; clamps, never trusts
+ *            noteOn(midi, vel)      — vel defaults to 1
+ *            noteOff()              — monophonic: one voice, no argument
+ *            render(outL, outR, n[, master]) — master is an optional per-sample
+ *                                     phase input in [0,1); the shell supplies
+ *                                     oscillator 1's phase, the lab fakes it
+ *            freqHz()               — the running frequency (observable)
+ *            .env, .peak            — read-only observables for the UI
+ *
+ * House rules this core is built to, and the expedients it deliberately does
+ * NOT inherit from the SAW lab (docs/audits/2026-09-18-saw-engine-audit.md):
+ *
+ *  - ADR-009 / audit A1: every time constant is a NUMBER OF SECONDS converted
+ *    to a per-sample coefficient at the current sample rate. There is not one
+ *    hand-tuned per-tick literal here. The SAW engine's 0.08 coupling smoother
+ *    drifts 54.9 % across 44.1–96 kHz because it is one.
+ *  - Audit A2: every parameter enters through one clamped table. `setParam`
+ *    throws on an unknown key and clamps every known one, so an out-of-range
+ *    value has no route in — the SAW core's uncapped `n` segfaults at n>=40
+ *    precisely because the only cap lives in the shell's param row.
+ *  - Audit A3 / SPEC 5.7: the noise stream is mulberry32 seeded from `seed`
+ *    and RE-SEEDED AT EVERY NOTE-ON, so it is a pure function of (seed, note)
+ *    and not of session history. No Math.random, no wall-clock, anywhere.
+ *  - Audit A7 / 3.6: the tone filter is a TPT (bilinear-prewarped) one-pole,
+ *    not the naive 1-exp(-2*pi*fc/sr), whose magnitude response warps with the
+ *    sample rate.
+ *  - Audit A10: nothing in `render` is a per-render-call integrator, so the
+ *    output is bit-identical under any block subdivision.
+ *  - RT rule: no allocation after construction. The PRNG state is a uint32
+ *    field stepped in place (the swarm core's rngNext idiom), not a closure.
+ */
+
+// Waveform ids. Stepped ⇒ structural under ADR-173's derivation.
+const SUB_SINE = 0, SUB_TRI = 1, SUB_SQUARE = 2, SUB_SAW = 3, SUB_PULSE = 4, SUB_NOISE = 5;
+const SUB_WAVE_NAMES = ['sine', 'triangle', 'square', 'saw', 'pulse', 'noise'];
+
+// Keytrack OFF pins the module to C2 — a sub that ignores the keyboard still
+// has to sound at SOME pitch, and C2 is the centre of the range this module is
+// measured over. A line for the human to strike in the spec draft.
+const SUB_KEYTRACK_OFF_MIDI = 36;
+
+// Flush-to-zero threshold for the tone filter state. -400 dB: inaudible by
+// four orders of magnitude, and the reason the release tail cannot decay into
+// float32 subnormals. The harness plants SUB_FLUSH = 0 as its must-fail
+// control and the subnormal count goes non-zero, which is how we know the
+// detector can see the defect at all.
+const SUB_FLUSH = 1e-20;
+
+const SUB_TWO_PI = 6.283185307179586;
+
+/* polyBLEP — one period of the correction, the exact idiom the repo already
+   trusts: reference/swarmsaw.html:626-633 (ported at src/swarm_core.h:974-981).
+   Copied rather than re-derived on purpose: a second BLEP in the tree is a
+   second thing to keep in agreement, and the alias floors below are only
+   comparable to the SAW engine's if the correction is the same one. */
+function subBlep(ph, dph) {
+  const d = Math.max(dph, 1e-6);
+  if (ph < d) { const t = ph / d; return t + t - t * t - 1; }
+  if (ph > 1 - d) { const t = (ph - 1) / d; return t * t + t + t + 1; }
+  return 0;
+}
+
+/* Pulse of duty w as the DIFFERENCE OF TWO BLEP SAWS. Both edges therefore
+   carry the same correction the saw does, which is what keeps the pulse
+   anti-aliased at every width (the construction src/swarm_core.h:1010-1029
+   uses for its shape morph). w = 0.5 is the square. */
+function subPulse(ph, dph, w) {
+  let p2 = ph - w;
+  p2 -= Math.floor(p2);
+  const s1 = (2 * ph - 1) - subBlep(ph, dph);
+  const s2 = (2 * p2 - 1) - subBlep(p2, dph);
+  return (2 * w - 1) - (s1 - s2);
+}
+
+/* The parameter table IS the contract: range, quantisation and default in one
+   place, with no second copy in the UI (the UI reads the same ids). `step`
+   present ⇒ the parameter is stepped ⇒ structural under ADR-173. */
+const SUB_PARAMS = {
+  wave:     { min: 0,      max: 5,          step: 1, def: 3 },
+  width:    { min: 0.05,   max: 0.95,                def: 0.5 },
+  octave:   { min: -2,     max: 0,          step: 1, def: -1 },
+  semis:    { min: -12,    max: 12,         step: 1, def: 0 },
+  fine:     { min: -100,   max: 100,                 def: 0 },
+  level:    { min: 0,      max: 1,                   def: 0.8 },
+  phase:    { min: 0,      max: 1,                   def: 0 },
+  keytrack: { min: 0,      max: 1,          step: 1, def: 1 },
+  tone:     { min: 30,     max: 20000,               def: 20000 },
+  sync:     { min: 0,      max: 1,          step: 1, def: 0 },
+  attack:   { min: 0.0005, max: 0.5,                 def: 0.005 },
+  release:  { min: 0.002,  max: 2,                   def: 0.08 },
+  seed:     { min: 0,      max: 4294967295, step: 1, def: 1 },
+};
+
+const SUB_IDLE = 0, SUB_ATTACK = 1, SUB_SUSTAIN = 2, SUB_RELEASE = 3;
+
+class SubOscCore {
+  constructor(sampleRate) {
+    // A stubbed or absent rate must not silently produce NaN coefficients, so
+    // the fallback is explicit rather than `|| 44100` (which accepts anything
+    // truthy, including a DOM stub).
+    this.sr = (typeof sampleRate === 'number' && sampleRate > 0) ? sampleRate : 44100;
+    this.p = {};
+    for (const k in SUB_PARAMS) this.p[k] = SUB_PARAMS[k].def;
+
+    this._ph = 0;        // oscillator phase in [0,1)
+    this._z = 0;         // tone filter state
+    this._stage = SUB_IDLE;
+    this._midi = 60;
+    this._vel = 1;
+    this._mPrev = -1;    // last master phase; <0 = no edge yet this note
+    this._rs = 1;        // mulberry32 state (uint32), stepped in place
+    this.env = 0;        // observable: current envelope value
+    this.peak = 0;       // observable: peak since the UI last cleared it
+
+    this._recalc();
+  }
+
+  // Coefficients derived from SECONDS and HERTZ at the current sample rate.
+  // Called from setParam only — never from render, which is why there is no
+  // transcendental in the sample loop.
+  _recalc() {
+    const p = this.p;
+    // Clamped BELOW Nyquist as well as at 20 kHz: tan(pi*fc/sr) diverges at
+    // fc = sr/2, and a cutoff the user cannot reach is cheaper than a filter
+    // that can blow up. Safety by construction, not by vigilance.
+    const fc = Math.min(p.tone, 0.45 * this.sr);
+    const g = Math.tan(Math.PI * fc / this.sr);
+    this._G = g / (1 + g);
+    this._atkInc = 1 / Math.max(1, p.attack * this.sr);
+    this._relInc = 1 / Math.max(1, p.release * this.sr);
+  }
+
+  setParam(key, v) {
+    const d = SUB_PARAMS[key];
+    // A pinned refusal (LIBRARY L0036): an unknown address is an error, not a
+    // silent no-op. A silently-ignored setParam is how a control ships wired
+    // to nothing and no audio oracle ever sees it (L0023).
+    if (!d) throw new Error('SubOscCore.setParam: unknown parameter "' + key + '"');
+    let x = +v;
+    if (!Number.isFinite(x)) x = d.def;
+    if (d.step) x = Math.round(x / d.step) * d.step;
+    this.p[key] = Math.min(d.max, Math.max(d.min, x));
+    this._recalc();
+  }
+
+  // Running frequency. Recomputed per render call, never integrated, so it is
+  // a pure function of the parameters and cannot make the output depend on
+  // the block size.
+  freqHz() {
+    const p = this.p;
+    const base = p.keytrack ? this._midi : SUB_KEYTRACK_OFF_MIDI;
+    const m = base + 12 * p.octave + p.semis;
+    return 440 * Math.pow(2, (m - 69) / 12) * Math.pow(2, p.fine / 1200);
+  }
+
+  noteOn(midi, vel) {
+    this._midi = midi;
+    this._vel = (vel === undefined || vel === null) ? 1 : Math.min(1, Math.max(0, +vel));
+    this._ph = this.p.phase;
+    this._mPrev = -1;
+    // Re-seeded per note: (seed, note sequence) determines the noise exactly,
+    // with no dependence on how many notes came before. The SAW engine's
+    // ensemble stream is the counter-example (audit A3: same seed, different
+    // history, RMS diff 0.137 — a completely different render).
+    this._rs = this.p.seed >>> 0;
+    this._stage = SUB_ATTACK;
+  }
+
+  noteOff() {
+    if (this._stage !== SUB_IDLE) this._stage = SUB_RELEASE;
+  }
+
+  // Hard reset. Not a note event: for a host stop / voice steal.
+  allOff() {
+    this._stage = SUB_IDLE;
+    this.env = 0;
+    this._z = 0;
+    this._ph = this.p.phase;
+    this._mPrev = -1;
+  }
+
+  // mulberry32, state in a uint32 field (src/swarm_core.h's rngNext idiom).
+  // SPEC 5.7 permits this stream and no other.
+  _rngNext() {
+    let a = (this._rs + 0x6D2B79F5) >>> 0;
+    this._rs = a;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  }
+
+  render(outL, outR, n, master) {
+    const p = this.p;
+    const G = this._G, atk = this._atkInc, rel = this._relInc;
+    const wave = p.wave, w = p.width, start = p.phase;
+    const gain = p.level * this._vel;
+    const syncOn = (p.sync === 1 && master) ? 1 : 0;
+    // Phase increment from the running frequency, capped just under Nyquist so
+    // a fine/semis/octave combination can never run the phase backwards.
+    const dph = Math.min(this.freqHz(), 0.49 * this.sr) / this.sr;
+    let ph = this._ph, z = this._z, env = this.env, stage = this._stage;
+    let mPrev = this._mPrev, peak = this.peak;
+
+    for (let i = 0; i < n; i++) {
+      ph += dph;
+      ph -= Math.floor(ph);
+      if (syncOn) {
+        const m = master[i];
+        if (mPrev >= 0 && m < mPrev) ph = start;   // master wrapped: hard reset
+        mPrev = m;
+      }
+
+      let v;
+      switch (wave) {
+        case SUB_SINE:   v = Math.sin(SUB_TWO_PI * ph); break;
+        case SUB_TRI: {  // quarter-turn offset so the shape starts at 0 rising,
+                         // like the sine — a sub that starts at full scale is a
+                         // click the start-phase control cannot remove.
+          let t = ph + 0.25; t -= Math.floor(t);
+          v = 1 - 4 * Math.abs(t - 0.5); break; }
+        case SUB_SQUARE: v = subPulse(ph, dph, 0.5); break;
+        case SUB_SAW:    v = (2 * ph - 1) - subBlep(ph, dph); break;
+        case SUB_PULSE:  v = subPulse(ph, dph, w); break;
+        default:         v = 2 * this._rngNext() - 1; break;   // SUB_NOISE
+      }
+
+      // Linear AR in seconds. Linear (not exponential) because a linear ramp
+      // reaches exactly 0 and exactly 1 in exactly attack/release seconds at
+      // every sample rate — no time-constant tail to drift, no denormal floor.
+      if (stage === SUB_ATTACK) { env += atk; if (env >= 1) { env = 1; stage = SUB_SUSTAIN; } }
+      else if (stage === SUB_RELEASE) { env -= rel; if (env <= 0) { env = 0; stage = SUB_IDLE; } }
+
+      v *= env * gain;
+
+      // TPT one-pole lowpass. The envelope is applied BEFORE the filter so the
+      // filter's own decay is what rings after the note ends — which is the
+      // tail the denormal check exercises.
+      const dv = (v - z) * G;
+      const y = dv + z;
+      z = y + dv;
+      if (z < SUB_FLUSH && z > -SUB_FLUSH) z = 0;
+
+      outL[i] = y;
+      outR[i] = y;          // mono source; the shell owns pan and width
+      const a = y < 0 ? -y : y;
+      if (a > peak) peak = a;
+    }
+
+    this._ph = ph; this._z = z; this.env = env; this._stage = stage;
+    this._mPrev = mPrev; this.peak = peak;
+  }
+}
+
+/* ================= Audio graph =================
+   Everything below is lab scaffolding: the browser audio path, the master
+   phase source that stands in for oscillator 1, the tubes and the keyboard.
+   None of it ports. */
+
+const $ = id => document.getElementById(id);
+const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
+const BLK = 512;
+
+let ctx = null, spn = null, analyser = null, specData = null;
+const AC = (typeof AudioContext !== 'undefined') ? AudioContext
+         : (typeof webkitAudioContext !== 'undefined') ? webkitAudioContext : null;
+if (AC) ctx = new AC();
+
+const core = new SubOscCore(ctx ? ctx.sampleRate : 44100);
+
+const bufL = new Float32Array(BLK), bufR = new Float32Array(BLK);
+const masterBuf = new Float32Array(BLK), scopeBuf = new Float32Array(BLK);
+let masterRatio = 1, mPh = 0, lastMidi = 36;
+
+function ensureAudio() {
+  if (!ctx) return;
+  if (ctx.state === 'suspended') ctx.resume();
+  if (spn) return;
+  spn = ctx.createScriptProcessor(BLK, 0, 2);
+  spn.onaudioprocess = e => {
+    const oL = e.outputBuffer.getChannelData(0), oR = e.outputBuffer.getChannelData(1);
+    // The MASTER PHASE. In the device this is oscillator 1's phase, handed to
+    // the sub by the voice; here it is a plain saw at masterRatio x the note so
+    // sync is auditionable before that routing exists.
+    const d = Math.min(mtof(lastMidi) * masterRatio, 0.49 * ctx.sampleRate) / ctx.sampleRate;
+    for (let i = 0; i < BLK; i++) { mPh += d; mPh -= Math.floor(mPh); masterBuf[i] = mPh; }
+    core.render(bufL, bufR, BLK, masterBuf);
+    oL.set(bufL);
+    oR.set(bufR);
+    scopeBuf.set(bufL);
+  };
+  analyser = ctx.createAnalyser();
+  analyser.fftSize = 4096;
+  analyser.smoothingTimeConstant = 0.6;
+  specData = new Float32Array(analyser.frequencyBinCount);
+  spn.connect(analyser);
+  analyser.connect(ctx.destination);
+  const nyq = $('nyq');
+  if (nyq) nyq.textContent = (ctx.sampleRate / 2).toFixed(0);
+}
+
+/* ---- controls. Every id IS the parameter key, and the same id is the
+   data-addr the markup carries, so there is no second map to drift. */
+const FMT = {
+  wave: v => SUB_WAVE_NAMES[v | 0],
+  width: v => (v * 100).toFixed(1) + '%',
+  octave: v => (v > 0 ? '+' : '') + v,
+  semis: v => (v > 0 ? '+' : '') + v + ' st',
+  fine: v => (v > 0 ? '+' : '') + v.toFixed(1) + ' c',
+  level: v => v.toFixed(3),
+  phase: v => v.toFixed(3),
+  keytrack: v => (v ? 'on' : 'C2'),
+  tone: v => (v >= 1000 ? (v / 1000).toFixed(2) + ' k' : v.toFixed(0)) + 'Hz',
+  sync: v => (v ? 'on' : 'off'),
+  attack: v => (v * 1000).toFixed(1) + ' ms',
+  release: v => (v * 1000).toFixed(0) + ' ms',
+  seed: v => String(v >>> 0),
+};
+
+function wire(id) {
+  const el = $(id), out = $(id + '_o');
+  if (!el) return;
+  const apply = () => {
+    const raw = (el.type === 'checkbox') ? (el.checked ? 1 : 0) : +el.value;
+    core.setParam(id, raw);
+    const v = core.p[id];
+    if (out) out.textContent = FMT[id] ? FMT[id](v) : String(v);
+    if (id === 'octave' || id === 'semis' || id === 'fine' || id === 'keytrack') showFreq();
+  };
+  el.addEventListener('input', apply);
+  el.addEventListener('change', apply);
+  apply();
+}
+
+function showFreq() {
+  const el = $('f0read');
+  if (el) el.textContent = core.freqHz().toFixed(2) + ' Hz';
+}
+
+for (const k in SUB_PARAMS) wire(k);
+
+{
+  const el = $('masterRatio'), out = $('masterRatio_o');
+  if (el) {
+    const apply = () => { masterRatio = +el.value; if (out) out.textContent = '×' + masterRatio.toFixed(2); };
+    el.addEventListener('input', apply);
+    apply();
+  }
+}
+
+const powerBtn = $('power'), panicBtn = $('panic');
+if (powerBtn) powerBtn.addEventListener('click', () => {
+  ensureAudio();
+  if (ctx && ctx.state === 'running') { powerBtn.classList.add('on'); powerBtn.textContent = 'RUNNING'; }
+});
+if (panicBtn) panicBtn.addEventListener('click', () => {
+  core.allOff();
+  held.length = 0;
+  droneOn = false;
+  paintKeys();
+  if (ctx && ctx.suspend) ctx.suspend();
+  panicBtn.classList.add('armed');
+  panicBtn.textContent = 'SILENCED — POWER ON to resume';
+});
+
+/* ---- keyboard: two octaves, on-screen and computer, monophonic with
+   last-note priority (the core holds ONE voice, so the UI must decide). */
+const WHITE = [0, 2, 4, 5, 7, 9, 11];
+const BLACK = [1, 3, null, 6, 8, 10, null];
+const NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+const CAPS = { 0: 'A', 1: 'W', 2: 'S', 3: 'E', 4: 'D', 5: 'F', 6: 'T', 7: 'G', 8: 'Y', 9: 'H', 10: 'U', 11: 'J', 12: 'K' };
+const KMAP = { a: 0, w: 1, s: 2, e: 3, d: 4, f: 5, t: 6, g: 7, y: 8, h: 9, u: 10, j: 11, k: 12 };
+const keysEl = $('keys');
+let octaveBase = 36;
+const held = [];
+let droneOn = false;
+
+function buildKeys() {
+  if (!keysEl) return;
+  keysEl.innerHTML = '';
+  const whites = [];
+  for (let o = 0; o < 2; o++) for (let i = 0; i < 7; i++) whites.push(octaveBase + o * 12 + WHITE[i]);
+  whites.push(octaveBase + 24);
+  whites.forEach(m => {
+    const k = document.createElement('div');
+    k.className = 'key';
+    k.dataset.midi = m;
+    const off = m - octaveBase;
+    const cap = CAPS[off] !== undefined ? '<em>' + CAPS[off] + '</em>' : '';
+    k.innerHTML = cap + '<span>' + NAMES[m % 12] + (Math.floor(m / 12) - 1) + '</span>';
+    keysEl.appendChild(k);
+  });
+  const nW = whites.length;
+  whites.forEach((m, idx) => {
+    const w = WHITE.indexOf(m % 12);
+    if (w === -1 || BLACK[w] === null || idx >= nW - 1) return;
+    const mb = m + (BLACK[w] - WHITE[w]);
+    const b = document.createElement('div');
+    b.className = 'key black';
+    b.dataset.midi = mb;
+    b.style.left = ((idx + 1) / nW * 100 - 1.8) + '%';
+    const off = mb - octaveBase;
+    const cap = CAPS[off] !== undefined ? '<em>' + CAPS[off] + '</em>' : '';
+    b.innerHTML = cap + '<span>' + NAMES[mb % 12] + '</span>';
+    keysEl.appendChild(b);
+  });
+  const lo = Math.floor(octaveBase / 12) - 1;
+  const lbl = $('octlbl');
+  if (lbl) lbl.textContent = 'C' + lo + '–C' + (lo + 2) + '  (Z − / X +)';
+}
+
+function paintKeys() {
+  if (!keysEl || !keysEl.querySelectorAll) return;
+  const list = keysEl.querySelectorAll('.key');
+  if (!list || !list.forEach) return;
+  list.forEach(k => k.classList.toggle('held', held.indexOf(+k.dataset.midi) !== -1));
+}
+
+function noteOn(m) {
+  if (held.indexOf(m) !== -1) return;
+  held.push(m);
+  lastMidi = m;
+  ensureAudio();
+  core.noteOn(m, 1);
+  paintKeys();
+  showFreq();
+}
+
+function noteOff(m) {
+  const i = held.indexOf(m);
+  if (i === -1) return;
+  held.splice(i, 1);
+  if (held.length) { lastMidi = held[held.length - 1]; core.noteOn(lastMidi, 1); }
+  else core.noteOff();
+  paintKeys();
+  showFreq();
+}
+
+if (keysEl && keysEl.addEventListener) {
+  keysEl.addEventListener('pointerdown', e => {
+    const k = e.target && e.target.closest ? e.target.closest('.key') : null;
+    if (!k) return;
+    noteOn(+k.dataset.midi);
+  });
+  keysEl.addEventListener('pointerup', e => {
+    const k = e.target && e.target.closest ? e.target.closest('.key') : null;
+    if (!k) return;
+    noteOff(+k.dataset.midi);
+  });
+  keysEl.addEventListener('pointerleave', () => { held.slice().forEach(noteOff); });
+}
+
+addEventListener('keydown', e => {
+  if (e.repeat) return;
+  const tag = e.target && e.target.tagName;
+  if (tag === 'INPUT' || tag === 'SELECT') return;
+  if (e.code === 'Space') {
+    if (e.preventDefault) e.preventDefault();
+    droneOn = !droneOn;
+    if (droneOn) noteOn(36); else noteOff(36);
+    return;
+  }
+  const k = String(e.key || '').toLowerCase();
+  if (k === 'z') { held.slice().forEach(noteOff); octaveBase = Math.max(12, octaveBase - 12); buildKeys(); return; }
+  if (k === 'x') { held.slice().forEach(noteOff); octaveBase = Math.min(96, octaveBase + 12); buildKeys(); return; }
+  const off = KMAP[k];
+  if (off === undefined) return;
+  noteOn(octaveBase + off);
+});
+addEventListener('keyup', e => {
+  const off = KMAP[String(e.key || '').toLowerCase()];
+  if (off === undefined) return;
+  noteOff(octaveBase + off);
+});
+
+buildKeys();
+showFreq();
+
+/* ---- tubes. Colours come from the :root screen tokens, never from a literal,
+   so a re-skin of gui2 re-skins this lab too (ADR-119). */
+let TOKS = null;
+function tok(name, alpha) {
+  if (!TOKS) TOKS = getComputedStyle(document.documentElement);
+  const raw = String(TOKS.getPropertyValue(name) || '').trim() || '#FF5ECF';
+  if (alpha === undefined || raw[0] !== '#' || raw.length !== 7) return raw;
+  const r = parseInt(raw.slice(1, 3), 16), g = parseInt(raw.slice(3, 5), 16), b = parseInt(raw.slice(5, 7), 16);
+  return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
+}
+
+function scanlines(g, w, h) {
+  g.fillStyle = 'rgba(0,0,0,0.22)';
+  for (let y = 0; y < h; y += 3) g.fillRect(0, y, w, 1);
+}
+
+function drawScope() {
+  const c = $('scope');
+  if (!c || !c.getContext) return;
+  const g = c.getContext('2d'), w = c.width, h = c.height;
+  g.fillStyle = tok('--scr-tube');
+  g.fillRect(0, 0, w, h);
+  g.strokeStyle = tok('--scr-grid', 0.25);
+  g.lineWidth = 1;
+  for (let i = 1; i < 8; i++) { const x = w * i / 8; g.beginPath(); g.moveTo(x, 0); g.lineTo(x, h); g.stroke(); }
+  for (let i = 1; i < 4; i++) { const y = h * i / 4; g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke(); }
+  g.strokeStyle = tok('--scr-grid', 0.55);
+  g.beginPath(); g.moveTo(0, h / 2); g.lineTo(w, h / 2); g.stroke();
+  g.strokeStyle = tok('--scr-value');
+  g.lineWidth = 1.8;
+  g.beginPath();
+  for (let i = 0; i < BLK; i++) {
+    const x = i / (BLK - 1) * w;
+    const y = h / 2 - scopeBuf[i] * (h / 2 - 4);
+    if (i === 0) g.moveTo(x, y); else g.lineTo(x, y);
+  }
+  g.stroke();
+  scanlines(g, w, h);
+}
+
+function drawSpec() {
+  const c = $('spec');
+  if (!c || !c.getContext) return;
+  const g = c.getContext('2d'), w = c.width, h = c.height;
+  g.fillStyle = tok('--scr-tube');
+  g.fillRect(0, 0, w, h);
+  g.strokeStyle = tok('--scr-grid', 0.25);
+  for (let i = 1; i < 6; i++) { const y = h * i / 6; g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke(); }
+  if (!analyser || !specData) { scanlines(g, w, h); return; }
+  analyser.getFloatFrequencyData(specData);
+  const n = specData.length;
+  g.fillStyle = tok('--scr-meter', 0.9);
+  for (let i = 0; i < n; i++) {
+    const db = specData[i];
+    const v = Math.max(0, Math.min(1, (db + 110) / 110));
+    const x = Math.round(i / n * w);
+    g.fillRect(x, h - v * h, Math.max(1, Math.ceil(w / n)), v * h);
+  }
+  scanlines(g, w, h);
+}
+
+function frame() {
+  drawScope();
+  drawSpec();
+  const pk = $('peakread'), ev = $('envread'), st = $('statusread');
+  if (pk) pk.textContent = core.peak > 0 ? (20 * Math.log10(core.peak)).toFixed(1) + ' dB' : '−∞ dB';
+  if (ev) ev.textContent = core.env.toFixed(3);
+  if (st) st.textContent = !ctx ? 'no audio context'
+    : ctx.state !== 'running' ? 'suspended — POWER ON'
+    : held.length ? ('holding ' + held.length + ' key' + (held.length > 1 ? 's' : ''))
+    : core.env > 0 ? 'releasing' : 'idle';
+  core.peak *= 0.93;
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+/* ---- provenance badge (LIBRARY L0020): mtime + a fingerprint of the page's
+   own code, both READ at load so neither can drift from what you are running. */
+(() => {
+  let h = 0x811c9dc5;
+  for (const s of document.querySelectorAll('script')) {
+    const t = s.textContent;
+    for (let i = 0; i < t.length; i++) { h ^= t.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+  }
+  const el = $('revfp');
+  if (el) el.textContent = (h >>> 0).toString(16).padStart(8, '0').slice(0, 6);
+  const dt = $('revdate');
+  if (dt) {
+    const m = new Date(document.lastModified), p = v => String(v).padStart(2, '0');
+    dt.textContent = isNaN(m.getTime()) ? '?'
+      : m.getFullYear() + '-' + p(m.getMonth() + 1) + '-' + p(m.getDate()) +
+        ' ' + p(m.getHours()) + ':' + p(m.getMinutes());
+  }
+})();
+</script>
+</body>
+</html>
