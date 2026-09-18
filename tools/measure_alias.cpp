@@ -40,6 +40,49 @@
  *
  * Deterministic: the plugin's seeded streams only; the tool reads no clock.
  * Standalone, registered in CMake beside svf_check, NOT in ./verify.
+ *
+ * ---------------------------------------------------------------------------
+ * ALIAS_JUDGE (B147 layer 2) — the same source, built a second time as the
+ * target `alias_check`, with a swarm section and a judging section appended.
+ * The B147 layer-1 audit (docs/audits/2026-09-18-saw-engine-audit.md §3.1)
+ * found "Gate: none. `tools/measure_alias.cpp` exists (B103) and is calibrated
+ * to closed form, but `./verify` never runs it — it 'prints, never judges'",
+ * and its reduction note is explicit: "Resist writing a new FFT:
+ * `measure_alias` and `blep_alias_incommensurate_probe` already carry the
+ * calibrated one." So the judgement lives here, beside the FFT it judges.
+ * With ALIAS_JUDGE undefined — i.e. as `measure_alias` — the exit code and the
+ * existing two tables are unchanged; only the third table is new, and it is a
+ * measurement like the others.
+ *
+ * THE SWARM SECTION covers what the n=1 tables structurally cannot: the audit's
+ * §3.1 "Misses: every n>1 patch". Its metric is NOT the midpoint/integral pair
+ * above — a detuned stack has no single harmonic comb to exclude around — but
+ * the SUB-FUNDAMENTAL ratio the audit's §1.4 built and calibrated: energy in
+ * [20 Hz, 0.7*f0] over total energy, n=7, detune 0.28, at `vol 0.05` (low
+ * enough that the output tanh is near-linear; at the shipped 0.4 the same
+ * figure is ~36 dB worse and the content is intermodulation, not aliasing —
+ * §1.4 struck the tanh as an aliasing source and this file does not reopen it).
+ *
+ * THE SWARM CONTROLS ARE NOT THE ENGINE'S LAYOUT, deliberately. They are a
+ * clean and a dirty signal of the same CHARACTER — seven detuned saws, one
+ * stack additive and band-limited (no fold-back and, being a linear sum, no
+ * difference tones, so it must read the FFT floor), one stack naive 2*frac-1
+ * (fold-back everywhere, so it must read large). Reproducing the engine's
+ * exact frequency layout would make the control share the engine's
+ * assumptions, which is the failure this repo keeps re-finding (L0032); what
+ * a control has to establish is that the DETECTOR can read both ways. The
+ * consequence is that the audit's -159.7 dB floor figure does NOT transfer to
+ * this control and is not asserted on it — see the comment at the assertion.
+ *
+ * THE BARS, and why they are where they are. Each is the measured figure plus
+ * 6.02 dB — a factor of two in amplitude, i.e. the check goes red when the
+ * aliasing or sub-fundamental content DOUBLES. That is a real engineering
+ * quantity rather than a round number, and it is the smallest margin that is
+ * still clearly not measurement jitter (these renders read no clock and draw
+ * from seeded streams only, so they repeat bit for bit). Rows whose measured
+ * figure is below -150 dB get a bar AT -150 dB instead: below that the 2^17
+ * double-precision FFT is reporting its own floor, and gating it would be
+ * gating arithmetic noise, not the oscillator.
  */
 #include <algorithm>
 #include <cmath>
@@ -223,6 +266,85 @@ std::vector<double> naiveSaw(double sr, double f0)
 }
 
 double midiHz(int m) { return 440.0 * std::pow(2.0, (m - 69) / 12.0); }
+
+// ---- the swarm section (B147 layer 2) --------------------------------------
+// Sub-fundamental energy ratio: everything in [20 Hz, 0.7*f0] over everything.
+// 0.7*f0 is -618 cents, far below any partial a +-28-cent detune spread can
+// produce, so a linear sum of band-limited saws has nothing down there by
+// construction and whatever IS there came from fold-back or a nonlinearity.
+double subFundamentalDb(const std::vector<double> &x, double sr, double f0)
+{
+  auto mag = spectrum(x);
+  const double binHz = sr / kN;
+  double sub = 0, total = 0;
+  for (int b = 1; b <= kN / 2; b++)
+  {
+    const double hz = b * binHz, e = mag[b] * mag[b];
+    total += e;
+    if (hz >= 20.0 && hz <= 0.7 * f0) sub += e;
+  }
+  return 10 * std::log10(std::max(sub, 1e-300) / std::max(total, 1e-300));
+}
+
+// Seven voices spread over +-28 cents — the shape `detune 0.28` produces, not
+// the engine's exact law (see the header: a control must not inherit the
+// engine's assumptions).
+void swarmFreqs(double f0, double *f)
+{
+  for (int i = 0; i < 7; i++)
+  {
+    const double xv = (i - 3) / 3.0;           // -1 .. +1
+    f[i] = f0 * std::pow(2.0, xv * 28.0 / 1200.0);
+  }
+}
+std::vector<double> additiveSwarm(double sr, double f0)
+{
+  double f[7]; swarmFreqs(f0, f);
+  std::vector<double> x(kN, 0.0);
+  for (int v = 0; v < 7; v++)
+  {
+    const int kmax = (int)((sr / 2 - 1.0) / f[v]);
+    for (int k = 1; k <= kmax; k++)
+      for (int i = 0; i < kN; i++) x[i] += std::sin(2 * kPi * k * f[v] * i / sr) / (k * 7.0);
+  }
+  return x;
+}
+std::vector<double> naiveSwarm(double sr, double f0)
+{
+  double f[7]; swarmFreqs(f0, f);
+  std::vector<double> x(kN, 0.0);
+  for (int v = 0; v < 7; v++)
+    for (int i = 0; i < kN; i++) x[i] += (2 * std::fmod(f[v] * i / sr, 1.0) - 1) / 7.0;
+  return x;
+}
+
+// The shipped engine, n=7, at the low volume that keeps the output tanh out of
+// the measurement (audit §1.4).
+std::vector<double> renderSwarm(double sr, int key)
+{
+  Probe pr; pr.boot(sr);
+  pr.set({{1, 7}, {4, 0.28}, {14, 0}, {6, 0}, {9, 0}, {16, 1}, {88, 0}, {17, 0.05}});
+  { EvList e; e.notes.push_back(mkNote(CLAP_EVENT_NOTE_ON, 0, (int16_t)key, 1, 0.9)); pr.step(e); }
+  const int skip = (int)(kSettleS * sr);
+  std::vector<double> o; o.reserve(skip + kN + kBlock);
+  while ((int)o.size() < skip + kN)
+  { EvList q; pr.step(q); for (int j = 0; j < kBlock; j++) o.push_back(pr.L[j]); }
+  { EvList e; e.notes.push_back(mkNote(CLAP_EVENT_NOTE_OFF, 0, (int16_t)key, 1, 0)); pr.step(e); }
+  pr.kill();
+  return std::vector<double>(o.begin() + skip, o.begin() + skip + kN);
+}
+
+#if defined(ALIAS_JUDGE) && ALIAS_JUDGE
+int g_failures = 0;
+void judge(bool ok, const char *what, const char *detail)
+{
+  std::printf("%-6s %s  (%s)\n", ok ? "PASS" : "FAIL", what, detail);
+  if (!ok) g_failures++;
+}
+// bar = measured + 6.02 dB (a doubling), floored at -150 dB where the FFT's
+// own noise takes over. See the header.
+double barFor(double measured) { return std::max(measured + 6.02, -150.0); }
+#endif
 }  // namespace
 
 int main()
@@ -264,6 +386,89 @@ int main()
       }
   std::printf("\nBuild %s. FFT 2^%d, Kaiser beta %.0f, harmonic exclusion +-%d bins, %.0f s settle.\n",
               HYPERSAW_BUILD_STAMP, kLogN, kKaiserBeta, kExcl, kSettleS);
+
+  // ---- the swarm, n=7 (B147 layer 2) ---------------------------------------
+  // Sub-fundamental energy, 44.1 kHz, vol 0.05. Its own two controls first, in
+  // the same table, because a row is only readable next to them.
+  const int swarmKeys[] = {36, 60, 84};
+  double swAdd[3], swNaive[3], swEngine[3];
+  std::printf("\n### The swarm, n=7 — sub-fundamental energy in [20 Hz, 0.7*f0] (44.1 kHz, vol 0.05)\n\n");
+  std::printf("| note | f0 Hz | additive stack (must read the floor) | naive stack (must read large) | shipped swarm |\n");
+  std::printf("|---|---|---|---|---|\n");
+  for (int i = 0; i < 3; i++)
+  {
+    const int k = swarmKeys[i];
+    const double f0 = midiHz(k);
+    swAdd[i] = subFundamentalDb(additiveSwarm(44100.0, f0), 44100.0, f0);
+    swNaive[i] = subFundamentalDb(naiveSwarm(44100.0, f0), 44100.0, f0);
+    swEngine[i] = subFundamentalDb(renderSwarm(44100.0, k), 44100.0, f0);
+    std::printf("| %d | %.2f | %.1f dB | %.1f dB | **%.1f dB** |\n", k, f0, swAdd[i], swNaive[i], swEngine[i]);
+  }
+
+#if defined(ALIAS_JUDGE) && ALIAS_JUDGE
+  std::printf("\n-- alias_check: controls --------------------------------------------\n");
+  char d[240];
+  /* The detector is shown BOTH ways before any row is trusted (L0016/L0032).
+     The naive control must FAIL the bar the shipped swarm passes — that is the
+     assertion, not merely "it reads a big number": a control that reads large
+     but would still clear the bar has not shown the bar can fire. */
+  /* WHAT THE FLOOR CONTROL IS ASSERTED AGAINST, and why it is not the audit's
+     -159.7. That figure belongs to the audit's OWN additive control, which was
+     built to the engine's exact frequency layout; this one deliberately is not
+     (see the header), and a number measured on one construction is not a
+     threshold for another. What the control has to establish is the two things
+     it is for: the detector reads at the FFT's floor on a signal with no
+     sub-fundamental content, and it reads far enough below the engine's figure
+     that the engine's figure is signal rather than floor. So: below -150 dB,
+     and at least 30 dB clear of the engine at the same note.
+
+     The residual difference is understood rather than waved at. This stack
+     reads -158.6 / -167.1 / -173.8 dB at MIDI 36 / 60 / 84 — monotone in note,
+     which is the Kaiser-leakage signature: MIDI 36 carries 336 harmonics per
+     voice against MIDI 84's 20, and more harmonics leak more energy into the
+     band. It is the window's floor moving with the signal, not the swarm. */
+  for (int i = 0; i < 3; i++)
+  {
+    const double clear = swEngine[i] - swAdd[i];
+    std::snprintf(d, sizeof(d), "MIDI %d: additive %.1f dB (must be under -150) and %.1f dB clear of the engine (must exceed 30)",
+                  swarmKeys[i], swAdd[i], clear);
+    judge(swAdd[i] <= -150.0 && clear >= 30.0, "CONTROL must-read-floor: an alias-free additive stack", d);
+    std::snprintf(d, sizeof(d), "MIDI %d: naive %.1f dB must FAIL the bar %.1f dB the engine passes",
+                  swarmKeys[i], swNaive[i], barFor(swEngine[i]));
+    judge(swNaive[i] > barFor(swEngine[i]), "CONTROL must-fail: a naive (aliasing) stack", d);
+  }
+
+  std::printf("\n-- alias_check: bars (measured + 6.02 dB, floored at -150) -----------\n");
+  /* EVERY BAR IS A CONSTANT DERIVED FROM THE AUDIT'S RECORDED FIGURE, never
+     from the number measured seconds earlier in this same run. A bar computed
+     as `measured + 6.02` at runtime passes by construction and can never fail;
+     that is the shape of a gate that looks green forever. The audit's n=1
+     polyBLEP worst-bin row at 44.1 kHz, shape off: MIDI 36 -88.0, 60 -149.2,
+     84 -185.9, 96 -187.1 dB — this build re-measures all four bit for bit. */
+  const double n1AuditDb[4] = {-88.0, -149.2, -185.9, -187.1};
+  for (int i = 0; i < 4; i++)
+  {
+    const int k = keys[i];
+    const double f0 = midiHz(k);
+    const auto r = measure(renderPlugin(44100.0, k, false, 1, 0), 44100.0, f0);
+    const double bar = barFor(n1AuditDb[i]);
+    std::snprintf(d, sizeof(d), "MIDI %d worst bin %.1f dB, audit %.1f, bar %.1f dB",
+                  k, r.worstDb, n1AuditDb[i], bar);
+    judge(r.worstDb <= bar, "polyBLEP n=1 aliasing floor holds", d);
+  }
+  const double swarmAuditDb[3] = {-117.8, -107.7, -96.6};
+  for (int i = 0; i < 3; i++)
+  {
+    const double bar = barFor(swarmAuditDb[i]);
+    std::snprintf(d, sizeof(d), "MIDI %d sub-fundamental %.1f dB, audit %.1f, bar %.1f dB",
+                  swarmKeys[i], swEngine[i], swarmAuditDb[i], bar);
+    judge(swEngine[i] <= bar, "swarm n=7 sub-fundamental floor holds", d);
+  }
+  std::printf("\nalias_check: %s (%d failures)\n", g_failures ? "RED" : "GREEN", g_failures);
+  hypersaw_entry_deinit();
+  return g_failures ? 1 : 0;
+#else
   hypersaw_entry_deinit();
   return 0;
+#endif
 }
