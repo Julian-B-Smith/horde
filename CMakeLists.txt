@@ -482,6 +482,15 @@ if(NOT MSVC)
   target_compile_options(mod_check PRIVATE -O2)
 endif()
 
+# intent_check: the intent-bus resolver's oracle (B89 phase 2a, ADR-176) --
+# parity against reference/intent-bus.html over generated fixtures, plus
+# invariants for the coupling blend the prototype does not span. Header-only
+# (src/intent_core.h), links nothing. Unwired, same standing ruling as the rest.
+add_executable(intent_check tools/intent_check.cpp)
+if(NOT MSVC)
+  target_compile_options(intent_check PRIVATE -O2)
+endif()
+
 # voicetap_check: the per-voice seam's bit-identity proof (B81/B82 inc 1,
 # ADR-148). Core-direct, like mod_check. Wiring into ./verify: human decision.
 add_executable(voicetap_check tools/voicetap_check.cpp)
