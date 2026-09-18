@@ -405,13 +405,6 @@ int main()
                 *std::min_element(lock30, lock30 + kNR));
   check(interior, "CONTROL the onset-lock probe sees an interior R peak at all", d);
 
-  // The inertia probe's own control, and the reason its bar is loose: the
-  // quantity wanders at a FIXED rate. This does not fail the run — it BOUNDS
-  // what the cross-rate number is allowed to mean, and it prints either way.
-  std::snprintf(d, sizeof(d), "same-rate wander %.3f%% vs cross-rate spread %.3f%% — the bar (%.1f%%) must clear the wander",
-                100 * wander, 100 * spread(inertFull), 18.04);
-  check(wander < 0.1804 / 3.0, "CONTROL inertia bar stands at least 3x clear of its own wander", d);
-
   /* The engine's seconds constant is a LITERAL (std::log is not constexpr in
      C++20), so it is pinned here: the derivation is recomputed and compared,
      and the ROUND TRIP is asserted to MISS 0.08 — which is what makes the
@@ -470,13 +463,45 @@ int main()
         dissolve 0.30   5.739 % -> 0.536 %   <- the gated row, worst of the three
      Bar = 0.536 % + the file's standing 20 %. */
   const double kBarLock  = 0.0064;    // B150: 0.536 % + 20 % (was 0.0667)
-  const double kBarInert = 0.1804;    // audit 15.03 % + 20 % (see inertiaR's header)
+  /* B150 moved this one only as far as its own RESOLUTION allows, and the
+     honest reading is that this bar is set by the probe, not by the engine.
+     The cross-rate spread now reads 0.763 % (was 2.103 %), but the SAME-RATE
+     control below reads 4.915 %: nothing under 3x the wander is a measurement.
+     The file's own control asserts exactly that (wander < bar/3), so the bar
+     goes to 16.0 % — the tightest value that keeps the control true — and not
+     to 0.763 % + 20 %, which would be a gate on noise.
+
+     WHY THE QUANTITY WANDERS AT ALL, measured for B150 (scratch probe, 4
+     rates x 2 settings x before/after; numbers in
+     traces/2026-09-18-b150-smoother-seconds.md). `inertia` here is the CORE
+     value 0.7. The shell does not hand the core the knob: it applies the
+     ADR-059 taper, core = pow(knob, inertiaCurve), default curve 2.5 — so a
+     player's knob at 0.7 reaches the core as 0.41, and 0.7 at the core is
+     knob 0.867, a much stiffer spring. At core 0.41 the same quantity is
+     rock-solid: cross-rate spread 0.038 %, same-rate control 1.47 %. At core
+     0.7 it is chaotic and reads 20.6 % over the audit's 10-12 s window beside
+     a 15.4 % same-rate control. So the audit's 15.03 % (A6) is a CHAOTIC-
+     REGIME artefact of the setting, not a sample-rate defect — and the
+     spring's rate reproducibility in the regime a knob actually reaches has
+     never been in question. Left for a ruling, NOT done here (this brief
+     sanctions moving thresholds, not changing what the gate measures): add a
+     second inertia row at core 0.41, where a 0.1 % bar would have real teeth. */
+  const double kBarInert = 0.160;     // B150: 3x the 4.915 % same-rate wander (was 0.1804)
   const double kBarPole  = 0.480;     // audit 0.40 dB + 20 %
 
   std::snprintf(d, sizeof(d), "%.3f%% today, audit 54.9%%, bar %.1f%%", 100 * worstDrift(kstep), 100 * kBarKStep);
   check(worstDrift(kstep) <= kBarKStep, "K-step settling drift has not grown", d);
   std::snprintf(d, sizeof(d), "%.3f%% today, audit 5.56%%, bar %.2f%%", 100 * worstDrift(lock30), 100 * kBarLock);
   check(worstDrift(lock30) <= kBarLock, "onset-lock peak drift has not grown (dissolve 0.30)", d);
+  /* The inertia probe's own control, and the reason its bar stays loose: the
+     quantity wanders at a FIXED rate. It does not merely print — it BOUNDS
+     what the cross-rate number below is allowed to mean. B150 moved it here
+     from the controls block above, where it carried the bar as a DUPLICATED
+     LITERAL; a threshold written twice is a threshold that will one day
+     disagree with itself, and B150 moving the bar is exactly that day. */
+  std::snprintf(d, sizeof(d), "same-rate wander %.3f%% vs cross-rate spread %.3f%% — the bar (%.1f%%) must clear the wander",
+                100 * wander, 100 * spread(inertFull), 100 * kBarInert);
+  check(wander < kBarInert / 3.0, "CONTROL inertia bar stands at least 3x clear of its own wander", d);
   std::snprintf(d, sizeof(d), "%.3f%% today, audit 15.03%%, bar %.2f%% (wander %.2f%%)",
                 100 * spread(inertFull), 100 * kBarInert, 100 * wander);
   check(spread(inertFull) <= kBarInert, "inertia steady-state R spread has not grown", d);
