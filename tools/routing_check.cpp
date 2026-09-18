@@ -30,6 +30,11 @@ extern "C" double hypersaw_debug_routing_out(const clap_plugin_t *, int to);
 extern "C" double hypersaw_debug_routing_init(const clap_plugin_t *, int to);
 extern "C" double hypersaw_debug_routing_srcout(const clap_plugin_t *, int from);
 extern "C" const char *hypersaw_debug_routing_ids(void);
+/* B142: which corner owns each morph-field parameter right now — the SAME
+   export the GUI's colour coding reads (ADR-110), not a second one written for
+   the oracle: a report only this check can see would not be the report the
+   player is shown. */
+extern "C" const char *hypersaw_debug_ownersjson(const clap_plugin_t *);
 
 constexpr double kPi = 3.141592653589793;
 
@@ -114,6 +119,27 @@ static std::vector<Cell> parseCells(const char *s)
     const char *semi = std::strchr(s, ';');
     if (!semi) break;
     s = semi + 1;
+  }
+  return out;
+}
+
+/* `{"11":2,"12":-1,…}` — id -> owning corner, -1 unowned, -2 held (ADR-110).
+   Same shape-follows-the-shell rule as parseCells: the key set is whatever the
+   field contains, never a list restated here. */
+struct Owner { unsigned id; int k; };
+static std::vector<Owner> parseOwners(const char *s)
+{
+  std::vector<Owner> out;
+  while (s && *s)
+  {
+    const char *q = std::strchr(s, '"');
+    if (!q) break;
+    Owner o{};
+    if (std::sscanf(q, "\"%u\":%d", &o.id, &o.k) != 2) break;
+    out.push_back(o);
+    const char *comma = std::strchr(q, ',');   // values carry none; the last ends in '}'
+    if (!comma) break;
+    s = comma + 1;
   }
   return out;
 }
@@ -1078,6 +1104,141 @@ int main()
                   "control gain 1.0 holds at %.1f dB", peak, tail, decayDb, holdDb);
     check(peak > 0.5 && decayDb <= -100.0 && holdDb > -1.0,
           "a 5 ms loop at 0.6 decays 100 dB inside 240 ms", d);
+  }
+
+  /* ======================================================================
+     B142 — THE ROUTING BLOCK IS ONE ATOM UNDER QUANTUM (assertions 20-21).
+     The brief numbers these (22)-(23); they are blocks 20-21 here, continuing
+     the offset the phase-1c note above records.
+
+     WHY THEY EXIST. Assertion 11 above pins the BLEND law and sets `157 = 1`
+     to do it, so the shipped default — quantum, 157 = 0 — had no assertion at
+     all. Under it `morphInit` left `morphLead` at identity for the routing
+     block, so every crosspoint drew its own corner: a live table assembled
+     from up to four corners, which is a topology none of them authored and,
+     under ADR-175, can carry a cycle two acyclic corners do not. ADR-176 §3
+     rules the block ONE atomic group under quantum; these two are its gate.
+
+     ONE SWEEP, TWO CLAIMS. Both read the same 200 pad positions — the owner
+     REPORT (20) and the live MATRIX (21) — deliberately: if they were two
+     sweeps, a disagreement between what the field reports and what it
+     multiplies by would read as two green assertions.
+     ====================================================================== */
+  {
+    /* Distinct per (corner, cell) BY CONSTRUCTION: corners are 0.2 apart and a
+       whole table spans at most 0.09, so no two corners can hold the same
+       value for any cell and "which corner is this table?" has one answer.
+       Inside every kind's range (coeff ±2, out/srcout 0..2, init ±1). */
+    auto authored = [](int corner, size_t cell) {
+      return 0.1 + 0.2 * (double)corner + 0.005 * (double)cell;
+    };
+    const size_t nCells = cells.size();
+    std::vector<std::vector<double>> table(4, std::vector<double>(nCells, 0.0));
+    for (int k = 0; k < 4; k++)
+      for (size_t c = 0; c < nCells; c++) table[(size_t)k][c] = authored(k, c);
+
+    /* Which corner's table is this, or none? -1 for a chimera. 1e-9, not bit
+       equality: the morph glide computes `a + (b - a) * coef` and at coef 1
+       that is not exactly `b` — while 1e-9 is eight orders below the 0.2 that
+       separates two corners, so nothing a chimera could do hides under it. */
+    auto matchCorner = [&](const std::vector<double> &live) {
+      for (int k = 0; k < 4; k++)
+      {
+        bool all = true;
+        for (size_t c = 0; c < nCells && all; c++)
+          all = std::fabs(live[c] - table[(size_t)k][c]) < 1e-9;
+        if (all) return k;
+      }
+      return -1;
+    };
+
+    Rig r(factory);
+    r.set(151, 1);      // morph on
+    r.set(158, 0);      // no morph glide: the field lands, it does not creep
+    // 157 is left at its DEFAULT (0 = quantum), and 154/155 (temperature,
+    // coupling) too: the shipped field is the thing under test.
+    for (int k = 0; k < 4; k++)
+    {
+      r.set(159, (double)(k + 1));   // arm corner k, author its whole table
+      for (size_t c = 0; c < nCells; c++) r.set(cells[c].id, authored(k, c));
+    }
+    r.set(159, 0);      // disarm: edits go live again
+
+    int splitPositions = 0;      // routing cells disagreeing — must stay 0
+    int ctrlSplitPositions = 0;  // identity-lead params disagreeing — control
+    int unmatched = 0;           // live tables matching no corner — must stay 0
+    bool blockCorner[4] = {false, false, false, false};
+    int worstSplit = 1;
+    std::vector<double> live(nCells, 0.0);
+    for (int i = 0; i < 200; i++)
+    {
+      const double x = (double)(i % 20) / 19.0, y = (double)(i / 20) / 9.0;
+      r.set(152, x); r.set(153, y); r.render(2);
+
+      /* Membership comes from the SHELL's cell list, never from a second copy
+         of "an id >= 10000 is a routing id" (L0032). */
+      bool seen[4] = {false, false, false, false};
+      bool ctrlSeen[4] = {false, false, false, false};
+      for (const Owner &o : parseOwners(hypersaw_debug_ownersjson(r.p)))
+      {
+        if (o.k < 0 || o.k > 3) continue;   // -1 not owned, -2 held
+        bool isCell = false;
+        for (const Cell &c : cells) if (c.id == o.id) { isCell = true; break; }
+        (isCell ? seen : ctrlSeen)[o.k] = true;
+      }
+      int nOwners = 0, nCtrl = 0;
+      for (int k = 0; k < 4; k++)
+      {
+        if (seen[k]) { nOwners++; blockCorner[k] = true; }
+        if (ctrlSeen[k]) nCtrl++;
+      }
+      if (nOwners > 1) splitPositions++;
+      if (nOwners > worstSplit) worstSplit = nOwners;
+      if (nCtrl > 1) ctrlSplitPositions++;
+
+      for (size_t c = 0; c < nCells; c++) live[c] = cellValue(r.p, cells[c]);
+      if (matchCorner(live) < 0) unmatched++;
+    }
+    int blockCorners = 0;
+    for (int k = 0; k < 4; k++) if (blockCorner[k]) blockCorners++;
+
+    /* MUST-FAIL CONTROLS, both halves (L0032).
+       (a) The identity-lead parameters — the same picker, the same report, the
+           same 200 positions — must SPLIT somewhere, or "the block agrees" is
+           a statement about a picker that returns one corner for everything
+           and the fix is unproven. Identity leads are what the routing block
+           had before this change, so this control IS the planted map, read off
+           the parameters that still carry it.
+       (b) The block must take at least two DIFFERENT corners across the pad,
+           or the cells agree only because nothing ever flips. */
+    std::snprintf(d, sizeof(d),
+                  "200 positions, 4 different corner tables: cells split at %d "
+                  "(worst %d owners); control (identity-lead params, same picker) "
+                  "splits at %d; block takes %d corners across the pad",
+                  splitPositions, worstSplit, ctrlSplitPositions, blockCorners);
+    check(splitPositions == 0 && ctrlSplitPositions > 0 && blockCorners >= 2,
+          "under quantum every routing cell reports ONE owner", d);
+
+    // ---- 21. and the live matrix is that corner's table, not a chimera ----
+    /* The owner report is a claim; the doubles `processBlock` multiplies by are
+       the fact (the reason `hypersaw_debug_routing` exists at all). One owner
+       per cell with a matrix that still mixed corners would be a lie the GUI
+       would paint confidently.
+       DETECTOR CALIBRATION, both directions: `matchCorner` must HIT a real
+       corner table and MISS a hand-built chimera — corner 0's table with one
+       cell taken from corner 1, which is precisely the shape the identity lead
+       map produced. Without the miss half, "every position matched" would also
+       be true of a predicate that matches anything. */
+    std::vector<double> chimera = table[0];
+    chimera[0] = table[1][0];
+    const bool detectorHits = matchCorner(table[2]) == 2;
+    const bool detectorMisses = matchCorner(chimera) < 0;
+    std::snprintf(d, sizeof(d),
+                  "%d of 200 live tables matched no corner (must be 0); detector hits a "
+                  "real corner table %s, misses a one-cell chimera %s (control)",
+                  unmatched, detectorHits ? "yes" : "no", detectorMisses ? "yes" : "no");
+    check(unmatched == 0 && detectorHits && detectorMisses,
+          "under quantum the live matrix IS one corner's table", d);
   }
 
   /* CALIBRATION, recorded because a green suite proves nothing on its own.

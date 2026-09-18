@@ -2085,12 +2085,17 @@ struct Plugin
        inserted — the corner chunk's order IS this order, so an insertion would
        silently re-read every stored corner against the wrong parameters).
 
-       A corner may therefore hold a whole TOPOLOGY, and the field blends the
-       coefficients as VALUES (ADR-125) — no argmax, because a crosspoint is
-       continuous and 0 already means "not connected", so connecting and
-       disconnecting is one continuous motion (ADR-088's founding argument).
-       Nothing STRUCTURAL is added, so ADR-124's atomic groups are untouched:
-       there is no "which module" here to draw from one corner, only gains.
+       A corner may therefore hold a whole TOPOLOGY. Under BLEND (157 = 1) the
+       cells interpolate as VALUES, cell by cell — a crosspoint is continuous
+       and 0 already means "not connected", so connecting and disconnecting is
+       one continuous motion (ADR-088's founding argument). Under QUANTUM (the
+       default) the whole block draws ONE corner: the lead map below, not this
+       append, is where that is decided.
+       The comment that stood here until 2026-09-18 cited ADR-125 for "no
+       argmax", which is the OPPOSITE of what ADR-125 rules — "ARGMAX over
+       topology means every route coefficient draws the same corner ... all
+       route ids point at one lead index" — and the identity lead map that
+       matched the comment shipped as the default (B142, ADR-176 §3).
        Legality is enforced on the READ side, so a corner holding any table at
        all stays correct by construction — which is exactly why this is safe. */
     for (const auto &d : g_routingTable.defs) morphIds.push_back(d.id);
@@ -2121,6 +2126,27 @@ struct Plugin
       for (clap_id want : ids)
         for (size_t i = 0; i < morphIds.size(); i++)
           if (morphIds[i] == want) morphLead[i] = (uint32_t)lead;
+    }
+    /* THE ROUTING BLOCK IS ONE THING (ADR-125, restated as the ruling in
+       ADR-176 §3 after B142 found the shipped default contradicting it).
+       Identity leads here meant every crosspoint, out amount, slot init and
+       dry-path cell drew its OWN corner under quantum, so the live table was
+       assembled from up to four corners at once: a topology no corner
+       authored (ADR-124's chimera, now with feedback in front of it), and
+       under ADR-175 a mixture of two acyclic tables can carry a CYCLE — which
+       flips the whole FX pass to sample-by-sample, a processing mode no corner
+       declared. Same mechanism as the scale and the FX slots: one lead index
+       for every id `decodeRoutingId` names, so the block flips and exempts as
+       a unit. BLEND is untouched by construction — morphStep's blend branch
+       never consults the lead map, so cell-wise interpolation survives exactly
+       as ADR-088 argued for it (routing_check 11 is that claim's gate). */
+    {
+      size_t routeLead = morphIds.size();
+      int kind = 0, from = 0, to = 0;
+      for (size_t i = 0; i < morphIds.size(); i++)
+        if (decodeRoutingId(morphIds[i], kind, from, to)) { routeLead = i; break; }
+      for (size_t i = routeLead; i < morphIds.size(); i++)
+        if (decodeRoutingId(morphIds[i], kind, from, to)) morphLead[i] = (uint32_t)routeLead;
     }
 
     for (int k = 0; k < 4; k++) morphCorner[k].assign(morphIds.size(), 0.0);
