@@ -105,6 +105,14 @@ static double cellValue(const clap_plugin_t *p, const Cell &c)
   }
 }
 
+/* The id layout's ROW coordinates (ADR-088 amendment, 2026-09-18): rows 0..7
+   are reserved for SOURCES and the slots begin at row 8, so a `from` read off
+   the cell list is NOT routing_core.h's matrix index. These two let an
+   assertion NAME a cell it wants to drive; the cell LIST and every membership
+   test still come from the shell, so this is not a second decodeRoutingId. */
+constexpr int kSlotRow0 = 8;
+static unsigned coeffId(int row, int to) { return 10000u + (unsigned)row * 64u + (unsigned)to; }
+
 /* The cell list comes FROM the shell (hypersaw_debug_routing_ids). Re-deriving
    the id layout here would be a second copy of decodeRoutingId, and a probe
    that restates the implementation cannot disagree with it (L0032). */
@@ -121,6 +129,18 @@ static std::vector<Cell> parseCells(const char *s)
     s = semi + 1;
   }
   return out;
+}
+
+/* How many SOURCES this build exposes, read off the shell's own cell list: one
+   `srcOut` cell (kind 3) per source, by construction of makeRoutingTable. Never
+   a literal — increment 3 exists because the source count grows, and an oracle
+   carrying its own copy of it would keep passing after the shell moved on. */
+static int srcCount(const std::vector<Cell> &cells)
+{
+  int n = 0;
+  for (const Cell &c : cells)
+    if (c.kind == 3) n++;
+  return n;
 }
 
 /* `{"11":2,"12":-1,…}` — id -> owning corner, -1 unowned, -2 held (ADR-110).
@@ -671,17 +691,24 @@ int main()
     told.set(cells[0].id, one.default_value + 0.5);
     const bool differs = !matrixEqual(fresh.p, told.p, cells);
 
-    bool chain = hypersaw_debug_routing(fresh.p, 0, 0) == 1.0
+    /* EVERY source feeds slot 1 at unity: with two sources that IS the old
+       summed bus (B23 increment 3), and the source count is read off the cell
+       list rather than written here. The slot rows start at kSlotRow0, not at
+       the source count — `from` is a ROW (ADR-088 amendment). */
+    const int nSrc = srcCount(cells);
+    bool chain = nSrc > 0
                  && hypersaw_debug_routing_out(fresh.p, 3) == 1.0
                  && hypersaw_debug_routing_out(fresh.p, 0) == 0.0
                  && hypersaw_debug_routing_out(fresh.p, 1) == 0.0
                  && hypersaw_debug_routing_out(fresh.p, 2) == 0.0;
+    for (int s = 0; s < nSrc; s++)       // every source -> slot 1 at unity
+      chain = chain && hypersaw_debug_routing(fresh.p, s, 0) == 1.0;
     for (int t = 1; t < 4; t++)          // slot t-1 -> slot t at unity
-      chain = chain && hypersaw_debug_routing(fresh.p, 1 + (t - 1), t) == 1.0;
+      chain = chain && hypersaw_debug_routing(fresh.p, kSlotRow0 + (t - 1), t) == 1.0;
     std::snprintf(d, sizeof(d),
                   "told==fresh %s; control (one cell moved) differs %s; "
-                  "src->1->2->3->4->out at unity %s",
-                  same ? "yes" : "no", differs ? "yes" : "no", chain ? "yes" : "no");
+                  "%d src->1->2->3->4->out at unity %s",
+                  same ? "yes" : "no", differs ? "yes" : "no", nSrc, chain ? "yes" : "no");
     check(same && differs && chain, "routing defaults ARE today's series chain", d);
   }
 
@@ -1352,6 +1379,136 @@ int main()
     check(energy > 1e-3 && side > 1e-4 && bypassDiff == 0.0 && bothDiff > 1e-6
               && driveDiff > 1e-6 && offDiff == 0.0,
           "bassMonoPos: pre == post with the rack bypassed, != with Drive between", d);
+  }
+
+  /* ---- B23 INCREMENT 3: THE SECOND SOURCE (assertions 23-24) --------------
+     The shell now hands the matrix one buffer PER OSCILLATOR instead of the
+     summed bus. Both assertions are asked of the shipped audio path, because
+     the core has been generic in NSRC since day one and every core-level
+     assertion above was green while the shell still summed — the exact
+     coverage gap L0031 describes. */
+
+  /* ---- 23. two sources feeding DIFFERENT slots keep their signals apart ---
+     osc 1 -> slot 1 only, osc 2 -> slot 3 only, and slot 1 is DRIVE at 0.9.
+     The nonlinearity is the whole measurement: if osc 2's samples reached slot
+     1's gather, the slot would compute f(a+b) where the topology says f(a), and
+     f(a+b) - f(a) - f(b) + f(0) is large for a saturator and identically zero
+     for any linear slot. A linear slot would pass this test whether the sources
+     were split or summed, which is why one is not used.
+
+     FOUR RENDERS, not two. f(0) need not be 0 (a shaper may carry DC), so the
+     superposition residual is taken as
+         both - only1 - only2 + neither
+     which cancels the constant path exactly. `neither` doubles as the anchor:
+     every clause here is vacuous on silence.
+
+     MUST-FAIL CONTROL, the same four renders with one cell changed: open
+     osc 2 -> slot 1 as well, and the residual must go large. Without it
+     "the residual is small" is also what a probe measuring nothing reports. */
+  {
+    auto capture = [&](bool o1, bool o2, double leak,
+                       std::vector<float> &L, std::vector<float> &R) {
+      Rig r(factory);
+      r.set(150, o1 ? 1 : 0);        // osc 1 on/off
+      r.set(1150, o2 ? 1 : 0);       // osc 2 on/off (the +1000 twin)
+      r.set(1017, 0.4);              // osc 2 ships silent — give it a voice
+      r.set(1036, 7);                // …a fifth up, so the two tones are distinct
+      r.set(57, 1); r.set(58, 0.9); r.set(133, 1);   // slot 1 = Drive, hard, fully wet
+      // The topology: src1 -> slot 1 -> OUT and src2 -> slot 3 -> OUT, with the
+      // serial chain between the slots cut so the two paths never meet.
+      r.set(coeffId(0, 0), 1.0);                     // osc 1 -> slot 1
+      r.set(coeffId(1, 0), leak);                    // osc 2 -> slot 1 (0, or the control)
+      r.set(coeffId(1, 2), 1.0);                     // osc 2 -> slot 3
+      r.set(coeffId(kSlotRow0 + 0, 1), 0.0);         // slot 1 -> slot 2, cut
+      r.set(coeffId(kSlotRow0 + 1, 2), 0.0);         // slot 2 -> slot 3, cut
+      r.set(coeffId(kSlotRow0 + 2, 3), 0.0);         // slot 3 -> slot 4, cut
+      r.set(20000 + 0, 1.0);                         // slot 1 out
+      r.set(20000 + 2, 1.0);                         // slot 3 out
+      r.set(20000 + 3, 0.0);                         // slot 4 out, off
+      r.render(2);
+      r.noteOn(36);
+      r.render(24);
+      L = r.L; R = r.R;
+    };
+    auto residual = [&](double leak) {
+      std::vector<float> bL, bR, o1L, o1R, o2L, o2R, nL, nR;
+      capture(true, true, leak, bL, bR);
+      capture(true, false, leak, o1L, o1R);
+      capture(false, true, leak, o2L, o2R);
+      capture(false, false, leak, nL, nR);
+      double m = 0, e = 0;
+      for (size_t i = 0; i < bL.size(); i++)
+      {
+        m = std::fmax(m, std::fabs((double)bL[i] - o1L[i] - o2L[i] + nL[i]));
+        m = std::fmax(m, std::fabs((double)bR[i] - o1R[i] - o2R[i] + nR[i]));
+        e += (double)o2L[i] * o2L[i] + (double)o2R[i] * o2R[i];
+      }
+      return std::pair<double, double>{m, e};
+    };
+    const auto split = residual(0.0);
+    const auto leaked = residual(1.0);
+    std::snprintf(d, sizeof(d),
+                  "osc2-alone energy %.4g (anchor); separate paths residual %.3g "
+                  "(must be ~0); control (osc 2 ALSO into the drive) %.3g (must be > 0)",
+                  split.second, split.first, leaked.first);
+    check(split.second > 1e-3 && split.first < 1e-6 && leaked.first > 1e-3,
+          "two sources feeding different slots keep their signals separate", d);
+  }
+
+  /* ---- 24. the default topology renders the OLD SUMMED BUS ----------------
+     B23 (c): every existing patch must render bit-identically up to float
+     summation order. With the rack at its default (every slot Off, so each is a
+     bit-exact passthrough) the output IS slot 1's gather, and the claim is
+     exact, not approximate: `0.0f + 1.0*osc1 + 1.0*osc2` rounds once per add,
+     which is what `outL[i] += tL[i]` did before increment 3. Asked as
+     `both[i] == (float)(only1[i] + only2[i])` for every sample — EQUALITY, no
+     tolerance, because a tolerance here would hide exactly the re-ordering the
+     acceptance criterion is about.
+     MUST-FAIL CONTROL: osc 2's crosspoint at 0.5 in the COMBINED render only —
+     the parts stay at unity, so the sum they predict is the unity sum and the
+     equality must break. The first draft moved the gain in all three renders
+     and the control did not fire: at 0.5 everywhere, `both` and `only2` scale
+     together and the identity still holds exactly. Recorded rather than quietly
+     re-rolled (L0033) — the degenerate form measured the crosspoint's linearity,
+     which is assertion 8's job, not the summation order. */
+  {
+    auto capture = [&](bool o1, bool o2, double srcGain,
+                       std::vector<float> &L, std::vector<float> &R) {
+      Rig r(factory);
+      r.set(150, o1 ? 1 : 0);
+      r.set(1150, o2 ? 1 : 0);
+      r.set(1017, 0.4);
+      r.set(1036, 7);
+      r.set(coeffId(1, 0), srcGain);   // osc 2 -> slot 1: 1.0 default, 0.5 control
+      r.render(2);
+      r.noteOn(36);
+      r.render(24);
+      L = r.L; R = r.R;
+    };
+    std::vector<float> o1L, o1R, o2L, o2R;
+    capture(true, false, 1.0, o1L, o1R);      // the parts, both at unity
+    capture(false, true, 1.0, o2L, o2R);
+    auto mismatches = [&](double srcGain) {
+      std::vector<float> bL, bR;
+      capture(true, true, srcGain, bL, bR);
+      int bad = 0;
+      for (size_t i = 0; i < bL.size(); i++)
+      {
+        if (bL[i] != (float)((double)o1L[i] + (double)o2L[i])) bad++;
+        if (bR[i] != (float)((double)o1R[i] + (double)o2R[i])) bad++;
+      }
+      return bad;
+    };
+    const int sum = mismatches(1.0);
+    const int ctl = mismatches(0.5);
+    double e = 0;
+    for (size_t i = 0; i < o2L.size(); i++) e += (double)o2L[i] * o2L[i] + (double)o2R[i] * o2R[i];
+    std::snprintf(d, sizeof(d),
+                  "osc2-alone energy %.4g (anchor); default: %d of %d samples differ from "
+                  "the float sum (must be 0); control (osc 2 crosspoint 0.5) %d (must be > 0)",
+                  e, sum, 2 * Rig::kBlk, ctl);
+    check(e > 1e-3 && sum == 0 && ctl > 0,
+          "the two-source default renders the old summed bus, sample for sample", d);
   }
 
   /* CALIBRATION, recorded because a green suite proves nothing on its own.
