@@ -399,7 +399,17 @@ class SwarmVerb {
       }
       // --- pre-delay
       this.pd[this.pdW] = mono;
+      // TWO-SIDED GUARD, the idiom of src/time_core.h:167. One `+= length` is
+      // not enough on either side: a read distance that is -1 ULP short of an
+      // integer wraps to EXACTLY length (the double spacing near 16384 is
+      // 3.6e-12, so the sum rounds onto the boundary), and a distance longer
+      // than the buffer leaves the index negative after a single wrap. Either
+      // way the integer part indexes outside the array — undefined -> NaN here,
+      // but a finite garbage read in C++, where the NaN watchdog below cannot
+      // see it. Guard both ends and clamp the distance; do not rely on the
+      // watchdog (B152 audit R1).
       let rp = this.pdW - pdSamp; if (rp < 0) rp += this.pd.length;
+      if (rp >= this.pd.length) rp -= this.pd.length;
       const i0 = rp | 0, fr = rp - i0, i1 = (i0 + 1) % this.pd.length;
       const pre = this.pd[i0] * (1 - fr) + this.pd[i1] * fr;
       this.pdW = (this.pdW + 1) % this.pd.length;
@@ -416,8 +426,13 @@ class SwarmVerb {
         // spread so no two taps move together (that would just be vibrato).
         const spin = p.spinDepth > 0
           ? Math.sin(TAU * this.spinPh[t]) * p.spinDepth * 0.001 * sr : 0;
-        const d = Math.max(1, this.tapT[t] * p.erSize * 2 * sr + spin);
+        // The clamp is the other half of the R1 fix: the longest tap is
+        // 0.081 * erSize * 2 * sr, which passes the 16384-sample buffer once
+        // sr * erSize > ~101k, and the pre-delay/FDN reads already carry their
+        // own. Without it no wrap count is sufficient.
+        const d = Math.max(1, Math.min(this.erBufL.length - 4, this.tapT[t] * p.erSize * 2 * sr + spin));
         let r2 = this.erW - d; if (r2 < 0) r2 += this.erBufL.length;
+        if (r2 >= this.erBufL.length) r2 -= this.erBufL.length;
         const j0 = r2 | 0, f2 = r2 - j0, j1 = (j0 + 1) % this.erBufL.length;
         const v = (this.erBufL[j0] * (1 - f2) + this.erBufL[j1] * f2) * this.tapG[t] * Math.pow(p.erDecay, t * 0.4);
         // CLAMP IS LOAD-BEARING: tapP is already +-1, so any width > 1 pushes
@@ -449,6 +464,7 @@ class SwarmVerb {
         const wobble = Math.sin(TAU * this.modPh[i]) * modSamp;
         const d = Math.max(2, Math.min(this.LBUF - 4, this.baseLen[i] * sizeScale + wobble));
         let r4 = this.lw - d; if (r4 < 0) r4 += this.LBUF;
+        if (r4 >= this.LBUF) r4 -= this.LBUF;   // two-sided, as above (R1)
         const k0 = r4 | 0, f4 = r4 - k0, k1 = (k0 + 1) % this.LBUF;
         let o = this.line[i][k0] * (1 - f4) + this.line[i][k1] * f4;
         this.lp[i] += this.dampCi[i] * (o - this.lp[i]); o = this.lp[i];   // HF damping
