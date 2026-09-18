@@ -5930,3 +5930,13 @@ per-atom draws, so enabling or changing coupling leaves every atom's own
 seed bit-identical — the same argument `morph_core.h` already makes for
 its shared Gumbel vector. Ratified by the lead on the plan's authority;
 the human's word at merge.
+
+### ADR-176 Amendment 2 — the eight default intent names (2026-09-18)
+
+Human: Depth and Width "are probably too specific to be worth
+differentiating in most cases"; Character and Tension "are broad enough
+without being as weirdly specific as something like Air". Defaults, in slot
+order M1…M8: **Space, Timbre, Motion, Grit, Time, Character, Tension,
+Pressure** — Pressure is the lead's eighth (drive, compression, density:
+the push of a sound), the one name the human has not yet ruled on. All
+eight are defaults the user renames per patch; the names are patch state.
