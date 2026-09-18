@@ -487,7 +487,42 @@ int main()
      sanctions moving thresholds, not changing what the gate measures): add a
      second inertia row at core 0.41, where a 0.1 % bar would have real teeth. */
   const double kBarInert = 0.160;     // B150: 3x the 4.915 % same-rate wander (was 0.1804)
-  const double kBarPole  = 0.480;     // audit 0.40 dB + 20 %
+  /* B150 STOPPED on this one and the bar does NOT move. The ruling was
+     "express the rate-bound constant in seconds"; this constant already IS in
+     seconds, and exactly so. The coefficient is a = 1 - exp(-2*pi*fc/sr)
+     (swarm_core.h, the `s.lpc` line), whose time constant is
+     -1/(sr*ln(1-a)) = 1/(2*pi*fc) = 8.842 us at fc = 18 kHz — independent of
+     `sr` in CLOSED FORM, not approximately. So this is not an ADR-009 defect
+     at all: the 0.40 dB is impulse-invariant ALIASING. At 44.1 kHz the pole
+     sits so far outside the accurate region that the filter's response is
+     shaped by its own mirror image, and that mirror is a function of the
+     sample rate, not of the time constant.
+
+     A partial correction exists and was measured for B150 (scratch, numbers in
+     traces/2026-09-18-b150-smoother-seconds.md): keep the topology, and at
+     rates != 44.1 kHz solve the coefficient that reproduces |H_44.1k| at a
+     fixed anchor frequency. Worst |dB| error over 20 Hz - 20 kHz (restricted
+     to where |H_44.1k| > -30 dB), 44.1-96 k, at the default fc = 18 kHz:
+
+        current law                        1.488 dB   (0.400 dB at 10 kHz)
+        anchored at 18 kHz                 0.177 dB   (0.166 dB at 10 kHz)
+        the BEST single pole at each rate  0.149 dB   <- the topology's floor
+
+     It is not taken here, for three reasons and none of them is effort.
+     (1) It is a NEW DESIGN LAW, not the re-expression of an existing constant
+         that B150 ruled on — ADR territory (an intentional divergence from
+         reference/swarmsaw.html), and the charter says the human rules.
+     (2) It is partial BY CONSTRUCTION. The 0.149 dB row is the floor for ANY
+         choice of one-pole coefficient: the 44.1 kHz response is periodic in
+         f with period 44100, a 96 kHz filter's is periodic with period 96000,
+         and no one-pole can hold both.
+     (3) It costs three transcendentals per voice per control tick in the
+         routine the audit already measured at 23-34 % of all CPU, to buy
+         0.23 dB at 10 kHz at rates the shipped default is not.
+     The bar therefore stays where the audit put it, and the number it pins is
+     unchanged by B150 (0.400 dB before, 0.400 dB after — this quantity does
+     not touch the coupling smoother). */
+  const double kBarPole  = 0.480;     // audit 0.40 dB + 20 % — B150 STOPPED here, see above
 
   std::snprintf(d, sizeof(d), "%.3f%% today, audit 54.9%%, bar %.1f%%", 100 * worstDrift(kstep), 100 * kBarKStep);
   check(worstDrift(kstep) <= kBarKStep, "K-step settling drift has not grown", d);
