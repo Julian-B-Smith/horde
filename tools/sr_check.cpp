@@ -460,7 +460,16 @@ int main()
      0.00992 is non-monotonic, i.e. the 0.2 ms probe grid and the swarm's own
      sigma, not the smoother. Bar = 1.252 % + the file's standing 20 %. */
   const double kBarKStep = 0.0150;    // B150: 1.252 % + 20 % (was 0.659)
-  const double kBarLock  = 0.0667;    // audit 5.56 %  + 20 %
+  /* B150 moved this one, and NO ENGINE LINE WAS TOUCHED FOR IT. The onset
+     lock's own decay was already in seconds (`s.Kenv *= exp(-dt/dissolve)`,
+     swarm_core.h, dt = kTick/sr); the snap's rate dependence was entirely the
+     coupling smoother it feeds, so the B150/1 commit closed it. Before /
+     after, all three dissolve settings:
+        dissolve 0.02   4.415 % -> 0.197 %
+        dissolve 0.05   5.400 % -> 0.454 %
+        dissolve 0.30   5.739 % -> 0.536 %   <- the gated row, worst of the three
+     Bar = 0.536 % + the file's standing 20 %. */
+  const double kBarLock  = 0.0064;    // B150: 0.536 % + 20 % (was 0.0667)
   const double kBarInert = 0.1804;    // audit 15.03 % + 20 % (see inertiaR's header)
   const double kBarPole  = 0.480;     // audit 0.40 dB + 20 %
 
