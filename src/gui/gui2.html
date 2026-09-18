@@ -6603,8 +6603,59 @@ function drawMatrixGraph() {
   /* RIBBONS FIRST, cards over them: a ribbon ends at a card's edge, and drawing
      the cards last is what hides the two pixels of overshoot a bezier leaves. */
   const ribbons = [], pills = [];
-  const ribbon = (x1, y1, x2, y2, v, id, onPath, lift) => {
+
+  /* THE RAIL IS ONE NODE LINE — Src (every source shares column 0) · Slot 1 …
+     Slot n · OUT — and an edge's HOPS is the distance along it. The arc rule is
+     written against that number and not against the edge's KIND, so a rack that
+     grows a slot or a shell that grows a source (nSrc is read off the cell set,
+     B23 increment 3) needs no second derivation:
+
+       hops 1   the neighbouring step: a straight line, the rail itself;
+       hops > 1 an arc, because a straight line would pass THROUGH every card
+                between and lie exactly on top of the hops it skips.
+
+     That last case is the defect the rule exists to fix (human 2026-09-18: "all
+     rails from SRC and along the main diagonal hide behind each other in a
+     straight line"). Before this, only SLOT→SLOT skips arced — every Src→Slot
+     edge was drawn flat, so on a one-source rack Src→Slot 3 lay on the rail on
+     top of Src→Slot 1, Slot 1→Slot 2 and Slot 2→Slot 3 at once. */
+  const NODE_OUT = slots + 1, nodeOfSlot = t => t + 1;
+
+  /* THE LIFT LADDER: one base per node SKIPPED, so height reads as hops and the
+     Src→OUT dry path — which skips the whole rack — is the tallest arc on the
+     pane (the lead's demo rail, at its own scale).
+
+     THE CAP IS STRUCTURAL, NOT VALUE-DEPENDENT. It is computed from the tallest
+     edge the SHAPE can hold (Src→OUT, `slots` nodes skipped), never from the
+     tallest edge currently non-zero — otherwise an arc would change height when
+     a NEIGHBOURING cell was edited, and the picture would stop being readable as
+     "how many slots does this jump". When the cap binds, every arc scales by the
+     same factor: the ladder compresses, the ordering survives, nothing clips.
+
+     WHY COMPRESS RATHER THAN GROW THE BOX: the canvas height is a CSS rule
+     (`#mxGraph { height:170px }`, constant at the pane's 280px min-width) that
+     lives outside this painter, and a painter that writes its own height feeds
+     the ResizeObserver watching it — paint → resize → paint. At today's four
+     slots the ladder fits unscaled; the cap starts binding at five, and then the
+     arcs get shorter rather than the box getting taller. */
+  const LIFT = 18 * V;
+  const LIFT_CAP = midY - 12 * V;        // apex + half a pill + a hair of margin
+  const liftK = slots > 0 ? Math.min(1, LIFT_CAP / (LIFT * slots)) : 1;
+
+  /* EDGES ARE COLLECTED BEFORE ANYTHING IS DRAWN, because an arc's height
+     depends on what ELSE is on the rail: two edges of equal span over the same
+     column have to be told apart, and that cannot be decided one edge at a
+     time. A ZERO edge is neither drawn nor collected — an invisible ribbon that
+     consumed an above/below lane would push a visible one to the wrong side of
+     the rail for no reason a reader could see. */
+  const edges = [];
+  const edge = (x1, y1, x2, y2, v, id, onPath, hops) => {
     if (Math.abs(v) < 1e-9) return;
+    edges.push({ x1, y1, x2, y2, v, id, onPath, hops, lift: 0 });
+  };
+
+  const ribbon = e => {
+    const { x1, y1, x2, y2, v, id, onPath, lift } = e;
     const hot = mxHover === id;
     const mag = Math.min(1, Math.abs(v));
     ctx.strokeStyle = hot ? PHY : (onPath ? INK : FAINT);
@@ -6615,44 +6666,74 @@ function drawMatrixGraph() {
     ctx.bezierCurveTo(x1 + 26 * V, y1 + lift, x2 - 26 * V, y2 + lift, x2, y2);
     ctx.stroke();
     ctx.setLineDash([]);
-    /* THE VALUE SITS IN ITS OWN PILL, 16px ABOVE the ribbon — never ON it. A
-       heavy edge is a 4px stroke, and a label drawn on the stroke is struck
-       through by it; 8px of clearance put the label against the card edge
-       instead. So: ground-coloured fill to punch a hole in whatever is behind
-       (the stroke, a crossing ribbon, a card's shadow), a hairline outline to
-       give the hole an edge, then the number. The pill and its number take the
-       hover colour TOGETHER, so the highlight is one object either way you
-       came at it — from the cell or from the ribbon. */
+    /* THE VALUE SITS IN ITS OWN PILL: ground-coloured fill to punch a hole in
+       whatever is behind (the stroke, a crossing ribbon, a card's shadow), a
+       hairline outline to give the hole an edge, then the number. What it must
+       never be is STRUCK THROUGH — a heavy edge is a 4px stroke and a bare
+       label on it is unreadable — and the punched hole plus the second pass
+       below is what guarantees that, not the offset.
+
+       WHERE: `my` is the cubic's value at t = 0.5, i.e. the ribbon's APEX
+       (P(.5) = (y1 + y2)/2 + 0.75·lift for control points at y+lift), which is
+       why 0.75 and not 0.5. An ARC's pill sits ON that apex — the ladder's rungs
+       are one LIFT apart, so a pill standing off its own arc would instead be
+       punched through the arc one rung ABOVE it and label the wrong ribbon. A
+       STRAIGHT edge keeps the 16px standoff it has always had: there is no rung
+       above the rail to confuse it with, and on the rail the pill would sit
+       against the card edges.
+
+       The pill and its number take the hover colour TOGETHER, so the highlight
+       is one object either way you came at it — from the cell or the ribbon. */
     const mx = (x1 + x2) / 2, my = (y1 + y2) / 2 + lift * 0.75;
-    pills.push({ lbl: v.toFixed(2), x: mx, y: my - 16 * V, hot });  // cell's precision
+    pills.push({ lbl: v.toFixed(2), x: mx, y: my - (lift ? 0 : 16 * V), hot });  // cell's precision
     ribbons.push({ id, x: mx, y: my });
   };
 
+  // Src → Slot t lands on node t+1, so it clears t cards on the way.
   for (let s = 0; s < nSrc; s++)
     for (let t = 0; t < slots; t++)
-      ribbon(srcX + bw / 2, srcY(s), slotX(t) - bw / 2, midY,
-             val(MX_BASE + s * MX_STRIDE + t), MX_BASE + s * MX_STRIDE + t, reaches(t), 0);
+      edge(srcX + bw / 2, srcY(s), slotX(t) - bw / 2, midY,
+           val(MX_BASE + s * MX_STRIDE + t), MX_BASE + s * MX_STRIDE + t, reaches(t),
+           nodeOfSlot(t));
   for (let f = 0; f < slots; f++)
     for (let t = f + 1; t < slots; t++)
-      // A SKIP edge arcs over the cards it passes, so it cannot be mistaken for
-      // the neighbouring hop it would otherwise lie on top of.
-      ribbon(slotX(f) + bw / 2, midY, slotX(t) - bw / 2, midY,
-             val(MX_BASE + (nSrc + f) * MX_STRIDE + t), MX_BASE + (nSrc + f) * MX_STRIDE + t,
-             reaches(t), -Math.min(midY - 16 * V, 30 * V * (t - f - 1)));
+      edge(slotX(f) + bw / 2, midY, slotX(t) - bw / 2, midY,
+           val(MX_BASE + (nSrc + f) * MX_STRIDE + t), MX_BASE + (nSrc + f) * MX_STRIDE + t,
+           reaches(t), nodeOfSlot(t) - nodeOfSlot(f));
+  /* A terminal slot's OUT edge is a SKIP whenever it is not the last slot — a
+     Slot 1 that goes straight out passes over Slots 2–4, and drawing it flat put
+     it on top of the whole chain. It was flat until 2026-09-18. */
   for (let t = 0; t < slots; t++)
     if (terminal(t))
-      ribbon(slotX(t) + bw / 2, midY, outX - bw / 2, midY,
-             val(MX_OUT + t), MX_OUT + t, reaches(t), 0);
-  /* THE DRY PATH (B50 phase 1c): a source straight to OUT, arced like the
-     slot-to-slot SKIPS and for the same reason — it passes over every card
-     between, so an arc is what stops it reading as the hop it lies on top of.
-     It skips the whole rack, so it takes the widest lift of any edge here.
-     `onPath` is true unconditionally: an edge that ENDS at OUT reaches OUT, and
-     a zero one never gets drawn (ribbon() returns early). */
+      edge(slotX(t) + bw / 2, midY, outX - bw / 2, midY,
+           val(MX_OUT + t), MX_OUT + t, reaches(t), NODE_OUT - nodeOfSlot(t));
+  /* THE DRY PATH (B50 phase 1c): a source straight to OUT. It skips the whole
+     rack, so it is the longest span the rail can hold and therefore the tallest
+     arc on it. `onPath` is true unconditionally: an edge that ENDS at OUT
+     reaches OUT, and a zero one is never collected (edge() returns early). */
   for (let s = 0; s < nSrc; s++)
-    ribbon(srcX + bw / 2, srcY(s), outX - bw / 2, midY,
-           val(MX_SRCOUT + s), MX_SRCOUT + s, true,
-           -Math.min(midY - 16 * V, 30 * V * slots));
+    edge(srcX + bw / 2, srcY(s), outX - bw / 2, midY,
+         val(MX_SRCOUT + s), MX_SRCOUT + s, true, NODE_OUT);
+
+  /* ABOVE OR BELOW — the one collision the ladder alone cannot resolve: two
+     edges of the SAME span whose apex falls in the SAME column, which is what
+     two sources feeding one slot (or two dry paths) produce. Those alternate
+     sides of the rail, so no two ribbons share a path. Nothing else alternates:
+     a lone skip always arcs ABOVE, which keeps the pane's default reading the
+     demo's. A third and fourth of one span step out by a further 35 % each, so
+     the rule survives a source count the rack does not have yet, and the step is
+     clamped to the same cap the ladder obeys. */
+  const lanes = new Map();
+  for (const e of edges) {
+    const level = e.hops - 1;
+    if (level <= 0) continue;                     // a one-hop edge IS the rail
+    const key = e.hops + '@' + Math.round((e.x1 + e.x2) / 2);
+    const lane = lanes.get(key) || 0;
+    lanes.set(key, lane + 1);
+    const h = Math.min(LIFT_CAP, LIFT * liftK * level * (1 + 0.35 * Math.floor(lane / 2)));
+    e.lift = (lane % 2 ? 1 : -1) * h;             // even lanes above, odd below
+  }
+  for (const e of edges) ribbon(e);
   cv._ribbons = ribbons;
   /* PILLS AFTER EVERY RIBBON, never inline with the one they label: a pill
      drawn during the loop is crossed out by any ribbon drawn after it, which is
