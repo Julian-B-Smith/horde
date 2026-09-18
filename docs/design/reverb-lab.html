@@ -239,6 +239,15 @@ class SwarmVerb {
     this.lineSide = [0, 1, 1, 0, 0, 1, 1, 0];
     this.modPh = new Float64Array(NLINE);
     for (let i = 0; i < NLINE; i++) this.modPh[i] = i / NLINE;
+    // CONTROL-TICK COUNTER, in instance state. It must NOT be derived from the
+    // index within the block: the block boundary would re-phase it, so the
+    // 16-sample control rate would become a function of the host's buffer size
+    // (measured 16.000x too fast at block 1, 2.286x at block 7 — B152 audit R2).
+    // Block 1 is not hypothetical: ADR-175 processes any topology carrying a
+    // live cycle edge sample by sample, modules included. Same idiom as
+    // swarm_core.h / time_core.h. Deliberately NOT cleared in reset(): it is a
+    // clock, not state, and the NaN watchdog must not re-phase the modulation.
+    this.tickCtr = 0;
     this.dcx = 0; this.dcy = 0;
   }
   setParam(k, v) { this.p[k] = v; if (k === 'mixTimeMs') this.scaleToMixTime(); }
@@ -377,7 +386,8 @@ class SwarmVerb {
     const pdSamp = Math.max(1, Math.min(this.pd.length - 4, p.preDelay * sr));
     const modSamp = p.modDepth * 26;   // up to ~26 samples of wander
     for (let smp = 0; smp < N; smp++) {
-      if ((smp & (TICK - 1)) === 0) this.stepMod(dt * TICK);
+      if (this.tickCtr === 0) this.stepMod(dt * TICK);
+      this.tickCtr = (this.tickCtr + 1) & (TICK - 1);
       const dryL = inL[smp], dryR = inR[smp];
       let mono = 0.5 * (dryL + dryR) * preG;
       // --- INPUT FILTER. Bandpass on what is SENT to the room, leaving the dry
