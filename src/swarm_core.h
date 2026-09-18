@@ -839,6 +839,33 @@ private:
     // control-rate time constant, seconds -> coefficient. 0 leaves the path alone.
     const bool glideOn = p.freqGlide > 0;
     const double gCoefS = glideOn ? 1 - std::exp(-1 / (p.freqGlide * 0.25 * sr)) : 0;
+    /* B148/O2: RN is a VIZ observable — grep the tree and it is WRITTEN in
+       controlTick and read nowhere inside the core, only by the shell's viz
+       snapshot, hypersaw_debug_viz (bank_check) and trajectory_check, all of
+       which read it AFTER render() returns. So the only RN value that is ever
+       observable is the LAST one written in the call, and the 2n
+       transcendentals every earlier tick spends are thrown away unread — the
+       audit measured that at ~26 % of controlTick, 6.6-7.4 % of total CPU.
+       Computing it only on the segment's final tick is therefore exactly
+       bit-identical, not approximately: same expression, same phases, same n.
+
+       (The audit proposed the focus voice ONLY. Measured here and REJECTED:
+       focus() at read time is not focus() at tick time. Forcing eight
+       BACKWARD handovers — a held note that regains focus when a newer stab
+       dies — makes the focus-only variant report an RN from the last block
+       the held voice HAD focus, which is a different number. Evidence:
+       scratchpad handover probe, hash 0bfa58f2a09f1eb3 baseline vs
+       cb91e56c96cdf5d6 focus-only, at n = 1/7/32. This form has no such
+       window, and still takes 8/8 of the win at a 128-frame block, 64/64 at
+       1024.)
+
+       lastTick is the sample index of the final control tick in this segment,
+       or -1 if the segment straddles none. `this->tick` is shared by every
+       voice (advanced once per segment, below), so it is resolved here. */
+    const int firstTick = (kTick - this->tick) & (kTick - 1);
+    const int lastTick = firstTick >= frames
+                             ? -1
+                             : firstTick + ((frames - 1 - firstTick) / kTick) * kTick;
     for (int i = 0; i < frames; i++) { outL[i] = 0.0f; outR[i] = 0.0f; }
     // pan motion (ADR-064, parity with reference/swarmsaw.html): slow LFOs sweep the base pan
     // once per block. mode 0 = independent per-voice drift, 1 = one shared sweep.
@@ -894,7 +921,7 @@ private:
       int tick = this->tick;
       for (int smp = 0; smp < frames; smp++)
       {
-        if (tick == 0) controlTick(s);
+        if (tick == 0) controlTick(s, smp == lastTick);
         tick = (tick + 1) & (kTick - 1);
         if (glideOn) for (int i = 0; i < n; i++) s.fRun[i] += gCoefS * (s.eff[i] - s.fRun[i]);
         double l = 0, r = 0;
@@ -1472,7 +1499,9 @@ public:
 
   static double erb(double f) { return 24.7 * (4.37 * f / 1000 + 1); }
 
-  void controlTick(Voice &s)
+  // `lastOfSeg` marks the final control tick of this render segment — the only
+  // one whose RN survives to be read (B148/O2, see renderSeg).
+  void controlTick(Voice &s, bool lastOfSeg)
   {
     // ADR-084: ~20 ms pressure smoothing, seconds -> per-tick coefficient
     s.pressSm += (s.press - s.pressSm) * (1 - std::exp(-(kTick / sr) / 0.02));
@@ -1673,14 +1702,20 @@ public:
     sy /= n;
     s.R = std::sqrt(sx * sx + sy * sy);
     s.psi = std::atan2(sy, sx);
-    double nx = 0, ny = 0;
-    for (int i = 0; i < n; i++)
+    // B148/O2: the n-th order parameter — only on the segment's final tick,
+    // because every earlier one is overwritten before anything can read it.
+    // See the derivation at lastTick in renderSeg.
+    if (lastOfSeg)
     {
-      const double a = s.phase[i] * kTau * n;
-      nx += std::cos(a);
-      ny += std::sin(a);
+      double nx = 0, ny = 0;
+      for (int i = 0; i < n; i++)
+      {
+        const double a = s.phase[i] * kTau * n;
+        nx += std::cos(a);
+        ny += std::sin(a);
+      }
+      s.RN = std::sqrt(nx * nx + ny * ny) / n;
     }
-    s.RN = std::sqrt(nx * nx + ny * ny) / n;
     // Topology / Sakaguchi / Daido (ADR-023, DYN reference exact). SAW
     // defaults (topo 0, alpha 0, poles 1) reduce every expression to the SAW
     // reference's own: sin(psi - theta - 0.0) is bit-equal to sin(psi -
