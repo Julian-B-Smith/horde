@@ -354,6 +354,17 @@ if(NOT MSVC)
   target_compile_options(ncap_check PRIVATE -O2)
 endif()
 
+# B149 the ensemble-timing stream is seeded and survives the chunk
+# (tseed_check). Links the impl because sections D-E assert on the SHIPPED
+# state extension — the chunk is the shell's, so a core-only stand-in would
+# certify the wrong thing. STANDALONE and NOT in ./verify — wiring a gate is
+# the human's decision (charter), proposed in the PR that adds it.
+add_executable(tseed_check tools/tseed_check.cpp)
+target_link_libraries(tseed_check PRIVATE ${PROJECT_NAME}-impl)
+if(NOT MSVC)
+  target_compile_options(tseed_check PRIVATE -O2)
+endif()
+
 # B89 phase 1 parameter classification (paramclass_check). STANDALONE and NOT
 # in ./verify — wiring a gate is the human's decision, proposed in the PR that
 # adds it. Prints the full class table before it asserts: the classification is

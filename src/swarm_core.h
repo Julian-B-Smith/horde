@@ -459,6 +459,51 @@ class SwarmCore
     return true;
   }
 
+  /* B149: the ADR-077/078 ensemble-timing state, exposed so the shell's state
+     chunk can carry it. It is the only core state that deliberately outlives a
+     note — each note's onset offsets are corrected FROM the previous notes —
+     so an instance restored without it restarts the phrase's timing history.
+
+     Carries the seed it was derived under so the restore is ORDER-INDEPENDENT:
+     state_load applies parameters directly when idle (seed first, then this
+     key) but queues them to the audio thread while processing (this key first,
+     then seed), and rebuild() must not re-roll a stream that was just
+     restored. Matching seeds means "already derived", in either order. */
+  struct EnsembleTiming
+  {
+    double off[kMaxV];
+    uint32_t rng;
+    double seed;
+  };
+  EnsembleTiming ensembleTiming() const
+  {
+    EnsembleTiming e;
+    std::memcpy(e.off, tOff, sizeof(tOff));
+    e.rng = tRng;
+    e.seed = ensSeed;
+    return e;
+  }
+  void setEnsembleTiming(const EnsembleTiming &e)
+  {
+    std::memcpy(tOff, e.off, sizeof(tOff));
+    tRng = e.rng;
+    ensSeed = e.seed;
+    ensSeeded = true;
+  }
+  /* Exactly the state a fresh core at this seed is in: the stream has never
+     been drawn from and no note has corrected the ensemble. The state chunk
+     omits its key in that case, so every patch that uses neither onset scatter
+     nor per-voice envelopes serialises to the bytes it always did —
+     statefix_check, state_check and the factory bank stay the regression proof
+     for this change instead of casualties of it. */
+  bool ensembleIsInitial() const
+  {
+    if (!ensSeeded || ensSeed != p.seed || tRng != ensembleSeed(p.seed)) return false;
+    for (int i = 0; i < kMaxV; i++)
+      if (tOff[i] != 0.0) return false;
+    return true;
+  }
+
   // Returns the swarm slot index so the shell can track host note identity
   // (CLAP NOTE_END bookkeeping). DSP behavior unchanged — parity-neutral.
   int noteOn(int midi, double f)
@@ -1250,6 +1295,25 @@ public:
   // Parity 51/51 proves the delegation is bit-neutral.
   static double rngNext(uint32_t &state) { return forcecore::rngNext(state); }
 
+  /* B149: the STARTING STATE of the ADR-077/078 ensemble-timing stream.
+     mulberry32 is the repo's one RNG (SPEC §5.7) and rngNext() above is its
+     one implementation; a separate stream is a separate starting state, not a
+     separate algorithm.
+
+     Distinct from the geometry stream for EVERY seed, by construction and not
+     by inspection: grng is `s + 1` (rebuild(), below) and this is `s*C + K`
+     with C odd and K even, so coincidence would need s*(C-1) == 1-K (mod
+     2^32) — and s*(C-1) is always even while 1-K is odd. No solution exists.
+     The per-voice phase stream (`s + age*7919 + 1`, initVoice) is re-seeded on
+     every note while this one free-runs ACROSS notes (that persistence is the
+     whole of ADR-077), so the two cannot draw in lockstep even from an equal
+     state at one instant — the exact claim is "never the same sequence", and
+     only the grng half of it is a proof. */
+  static uint32_t ensembleSeed(double seed)
+  {
+    return (uint32_t)((int64_t)toInt32(seed) * 2654435761LL + 0x9E3779B8LL);
+  }
+
   double *paramSlot(const std::string &k)
   {
     if (k == "n") return &p.n;
@@ -1333,6 +1397,20 @@ public:
   {
     const int n = voiceCount();   // B148: never past kMaxV
     grng = (uint32_t)(toInt32(p.seed) + 1);
+    /* B149: the ensemble stream re-derives on a SEED CHANGE only, where grng
+       re-derives on every call. The difference is deliberate: grng is
+       re-consumed from the top by this very function, while `tOff` is memory
+       the swarm accumulates across notes (ADR-077), and rebuild() also fires
+       on width/topo/pan/law automation — rewinding the ensemble there would
+       make a pan sweep silently reset the timing history. A seed change is the
+       one edit that means "re-roll this swarm", so it re-rolls this too. */
+    if (!ensSeeded || ensSeed != p.seed)
+    {
+      ensSeeded = true;
+      ensSeed = p.seed;
+      tRng = ensembleSeed(p.seed);
+      std::memset(tOff, 0, sizeof(tOff));
+    }
     if ((int)p.topo == 2)
     {
       // bimodal placement tied to the two-cluster topology (DYN reference
@@ -1956,7 +2034,17 @@ public:
   // ADR-077: the ensemble's timing state persists ACROSS notes — the whole
   // point is that each note's offsets are corrected from the previous ones.
   double tOff[kMaxV] = {0};
-  uint32_t tRng = 12345;
+  /* B149: the ensemble-timing stream. Until 2026-09-18 this was the literal
+     `uint32_t tRng = 12345`, which `p.seed` never reached (the audit measured
+     seed 1234 vs 999999 at RMS diff EXACTLY 0.0 — the seed knob was inert for
+     every patch with onsetScatter/voiceEnv on) and which no state chunk
+     carried (a restored instance restarted the ensemble: 0.137 RMS on the
+     five-note scenario, the same magnitude as a completely different render).
+     Both halves of ACCEPTANCE L0-13 failed. Seeded in rebuild() beside grng,
+     zero here only until the constructor's own rebuild() fills it. */
+  uint32_t tRng = 0;
+  double ensSeed = 0;      // the p.seed the stream above was derived from
+  bool ensSeeded = false;  // false only before the constructor's own rebuild()
   double gaussT()
   {   // Box-Muller from the core's own stream; no wall clock, seeded, portable
     double u = rngNext(tRng); if (u < 1e-9) u = 1e-9;

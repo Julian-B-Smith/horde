@@ -2574,6 +2574,58 @@ struct Plugin
     }
   }
 
+  /* B149: the ADR-077/078 ensemble-timing state of oscillator `k`, as one
+     line of the state chunk. EMITTED ONLY when the stream has left its seeded
+     initial state — i.e. only for a patch that has actually played notes with
+     onset scatter or per-voice envelopes on — so every other patch's bytes are
+     exactly what they were before this key existed, and statefix_check /
+     bank_check / state_check remain the regression proof rather than three
+     fixtures to regenerate.
+
+     Carries the seed it was derived under (see SwarmCore::setEnsembleTiming):
+     that is what makes the restore independent of whether state_load applied
+     the parameters before this key (idle) or queues them for after it
+     (processing). %.17g throughout — a round-trip that loses a bit is a
+     continuation that is no longer bit-identical, which is the whole point. */
+  std::string ensembleChunk(uint32_t k) const
+  {
+    if (k >= kNumOsc || cores[k].ensembleIsInitial()) return {};
+    const auto e = cores[k].ensembleTiming();
+    char buf[48];
+    std::snprintf(buf, sizeof buf, "%.17g;%u;", e.seed, (unsigned)e.rng);
+    std::string out = buf;
+    for (int i = 0; i < hypersaw::kMaxV; i++)
+    {
+      std::snprintf(buf, sizeof buf, "%s%.17g", i ? "," : "", e.off[i]);
+      out += buf;
+    }
+    return out;
+  }
+  /* A malformed or short line leaves the missing offsets at 0 rather than
+     refusing the load: the chunk is append-only and a future build may write
+     more of them, and a patch that half-loads its timing history is still a
+     patch that loads. */
+  void applyEnsembleChunk(uint32_t k, const std::string &chunk)
+  {
+    if (k >= kNumOsc) return;
+    const size_t s1 = chunk.find(';');
+    if (s1 == std::string::npos) return;
+    const size_t s2 = chunk.find(';', s1 + 1);
+    if (s2 == std::string::npos) return;
+    hypersaw::SwarmCore::EnsembleTiming e{};
+    e.seed = std::atof(chunk.c_str());
+    e.rng = (uint32_t)std::strtoul(chunk.c_str() + s1 + 1, nullptr, 10);
+    size_t pos = s2 + 1;
+    for (int i = 0; i < hypersaw::kMaxV && pos <= chunk.size(); i++)
+    {
+      const size_t comma = chunk.find(',', pos);
+      e.off[i] = std::atof(chunk.c_str() + pos);
+      if (comma == std::string::npos) break;
+      pos = comma + 1;
+    }
+    cores[k].setEnsembleTiming(e);
+  }
+
   std::string modRoutesChunk() const
   {
     std::string out;
@@ -5561,10 +5613,21 @@ bool plug_activate(const clap_plugin_t *p, double sr, uint32_t, uint32_t)
   // is trivial; activate is main-thread and never concurrent with process).
   for (uint32_t k = 0; k < kNumOsc; k++)
   {
+    /* B149: the ensemble-timing state is carried across the replacement for the
+       same reason `p` is — activate() DESTROYS the core, and the host's order
+       is setState() then activate(), so a restored timing history that is not
+       carried here never survives to the first render. Measured: without this
+       line the chunk round-trip passes its own assertion and changes nothing
+       (tseed_check D3 read 0.000e+00 — a false green, the
+       detector-shares-the-assumption trap). Read before, written after
+       setParam("seed") — that call's rebuild() is exactly what re-rolls the
+       stream. Rate-independent by construction: tOff is in SECONDS. */
+    const auto ens = pl->cores[k].ensembleTiming();
     hypersaw::Params saved = pl->cores[k].p;
     pl->cores[k] = hypersaw::SwarmCore(sr);
     pl->cores[k].p = saved;
     pl->cores[k].setParam("seed", saved.seed);  // re-trigger rebuild() with saved state
+    pl->cores[k].setEnsembleTiming(ens);
   }
   hypersaw::SpectraCore::SParams sp = pl->spectra.p;
   pl->spectra = hypersaw::SpectraCore(sr);
@@ -5869,6 +5932,19 @@ bool state_save(const clap_plugin_t *p, const clap_ostream_t *stream)
     const std::string rt = self(p)->routingChunk();
     if (!rt.empty()) blob += "routing=" + rt + "\n";
   }
+  // B149: the ADR-077/078 ensemble-timing state, per oscillator, and LAST in
+  // the blob on purpose — state_load's idle path applies keys in file order, so
+  // arriving after `seed` means the rebuild that re-rolls the stream has
+  // already run. (The processing path reverses that order; the key carries its
+  // own seed so both orders restore the same state.) Emitted only for a patch
+  // that has actually drawn from the stream, so a chunk that had no key before
+  // this change still has none.
+  for (uint32_t k = 0; k < kNumOsc; k++)
+  {
+    const std::string ens = self(p)->ensembleChunk(k);
+    if (ens.empty()) continue;
+    blob += (k == 0 ? std::string("ens=") : "o" + std::to_string(k) + ".ens=") + ens + "\n";
+  }
   int64_t written = 0;
   while (written < (int64_t)blob.size())
   {
@@ -5966,6 +6042,10 @@ bool state_load(const clap_plugin_t *p, const clap_istream_t *stream)
       }
     }
     if (keyOsc >= kNumOsc && keyOsc != 0) continue;   // block this build lacks
+    // B149: the one non-parameter key that takes the `o<k>.` prefix, so it is
+    // read here rather than beside morph/routing above — the prefix split is
+    // this loop's, and a second copy of it is a second thing to keep in step.
+    if (key == "ens") { pl->applyEnsembleChunk(keyOsc, line.substr(eq + 1)); continue; }
     const clap_id idOff = (clap_id)(keyOsc * kOscStride);
     // Thread safety (2026-07-18): state_load is main-thread and MAY run while
     // the audio thread is in process() — a direct setParam would race
