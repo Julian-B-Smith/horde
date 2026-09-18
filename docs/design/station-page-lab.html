@@ -1,0 +1,1378 @@
+<!doctype html>
+<!-- station-page-lab — B154: the STATION engine's PAGE, in horde's design system.
+     HYPERSAW, 2026-09-18. Spec-in-code per ADR-003.
+
+     WHAT THIS IS. The page frame an engine occupies inside the shell — not the
+     whole plugin (no tab bar, no morph panel, no master chain). Everything the
+     engine spec (specs/SPEC-STATION.md) says a player touches is here, laid out
+     the way the human's own mock (docs/design-system/HORDE-STATION-Page.dc.html)
+     laid it out — three operator cards + noise across the top, matrix / wave RAM
+     / scope along the bottom — and drawn ONLY in gui2's token set, which that
+     mock predates.
+
+     WHAT THIS IS NOT. Not a parity oracle and not a port. The core below is the
+     LAB'S OWN (see the `text/x-station-core` block): it follows the prototype's
+     DSP (reference/station.html, the parity oracle per §11) and adds the three
+     controls the spec says the build adds and the prototype lacks — FREE phase,
+     RING, STEPPED envelopes — plus continuous RATIO. It does NOT implement §5's
+     band-limited DRW resynthesis or §8's 16-voice release-fade stealing to the
+     letter; those are build-side, and a lab that claimed them would be claiming
+     measurements it never made.
+
+     EVERY CONTROL CARRIES ITS ADDRESS. `data-addr` on each control row is the
+     §10 parameter ID with {n} expanded, so the eventual port can generate this
+     page from the presentation table instead of from this file's markup. The
+     page counts its own coverage at load and prints it under the tagline — a
+     mapping claim that audits itself is one that cannot quietly rot.
+
+     TOKENS ARE COPIED, NOT LINKED. A design lab is self-contained (it opens from
+     the filesystem with nothing built), so the :root block below is copied from
+     src/gui/gui2.html:26-96 — cited inline. Copy, therefore drift: if gui2's
+     tokens move, this file is stale until someone re-copies them, which is the
+     price of a lab that opens standalone.
+
+     L0026: all state above all wiring; nothing at setup time reaches forward to
+     a const declared below it. No Math.random anywhere (mulberry32 only, §5.7).
+     No wall-clock in the render path — the core counts samples; only painters
+     read performance.now(). -->
+<html><head><meta charset="utf-8">
+<title>STATION page lab — the engine page in horde's design system</title>
+<style>
+  /* ============================================================
+     TOKENS — copied VERBATIM from src/gui/gui2.html:26-96 (:root),
+     :103-105 (the canvas-is-a-phosphor-tube rule), :142-144
+     (body.scr-orchid, the light theme's screen pairing), :167-185
+     (body:not(.dark) legibility overrides) and :186-212 (body.dark).
+     The multi-paragraph derivations behind these values live at those
+     lines and are not duplicated here; the VALUES are what a lab must
+     not paraphrase, and they are exact.
+     ============================================================ */
+  :root {
+    /* ground */
+    --bg:#F2EDE2;        /* page ground (cream)                    */
+    --panel:#FCFAF4;     /* module cards                           */
+    --well:#FFFFFF;      /* DATA surfaces: viz, pads, keyboards     */
+    --panel2:#E9E3D4;    /* well-alt: control tracks, empty meters  */
+    --line:#191521;      /* ink — ALL outlines                     */
+    --hair:#E5DFD0;      /* in-well gridlines ONLY, never borders   */
+    --div:#D8D1C0;       /* dashed intra-card separators           */
+    /* text */
+    --text:#191521;      /* primary (ink)                          */
+    --t2:#494356;        /* secondary                              */
+    --dim:#9A93A3;       /* hint                                   */
+    --dis:#B6AFA0;       /* disabled                               */
+    /* signal — one job each, never borrowed */
+    --value:#F5169C;     /* the user's authored value              */
+    --pull:#F5169C;      /* legacy name for the accent = value      */
+    --physics:#6431F0;   /* order parameter, K vector, rotor lead   */
+    --meter:#00D5C8;     /* analyzers, R rim arc                   */
+    --marker:#FFD702;    /* attention: root, overshoot, lock front  */
+    --celebrate:#A6F219; /* OK / meters in the green               */
+    --caution:#F5A300;   --caution-bg:#FBE9BD; --caution-tx:#6D570B;
+    --amber:#F5A300;     /* legacy name for caution                 */
+    --alarm:#C2261A;     /* PANIC, clip, mute — NOTHING else        */
+    --ghost:#C9C2FF;     /* dry/reference traces behind wet         */
+    /* corners — preset identity (fill / dark text pair) */
+    --cA:#FFD702; --cAtx:#D4A900;
+    --cB:#FF2E88; --cBtx:#FF2E88;
+    --cC:#00D5C8; --cCtx:#00B3A8;
+    --cD:#A6F219; --cDtx:#6FB200;
+    /* canvas-only names from ADR-118 A2, re-pointed at spec roles */
+    --text-hi:#191521;
+    --dim2:#494356;      /* canvas axis labels — secondary          */
+    --grid:#E5DFD0;      /* gridlines = hairline                    */
+    --grid2:#E5DFD0;
+    --hot:#F5169C;       /* live-value marks = value                */
+    --bad:#C2261A;
+    --badge-bg:rgba(245,163,0,.9);
+    /* SCREEN TOKENS — vaporwave phosphor (ADR-119). The chrome stays cream;
+       only the DATA WELLS become phosphor tubes, so canvases read these while
+       every CSS control keeps the chrome set. */
+    --scr-tube:#1B0733;      /* the tube ground — deep violet            */
+    --scr-value:#FF5ECF;     /* your value, as hot-pink phosphor        */
+    --scr-meter:#B8F227;     /* meter/measure, as LIME                  */
+    --scr-physics:#B48CFF;   /* the system's own state                  */
+    --scr-marker:#FFB86B;    /* attention/root, as amber                */
+    --scr-grid:#4FD8BE;      /* in-tube structure — painted at low alpha */
+    --scr-scan:0.22;         /* scanline strength                        */
+    --scr-alpha:1;           /* multiplier on every TOKA() alpha         */
+    /* geometry */
+    --r-card:10px; --r-well:var(--r-card); --r:var(--r-card); --stroke:1.5px;
+    --shadow:1.5px 1.5px 0 var(--line);
+    --shadow-hover:2.5px 2.5px 0 var(--line);
+    --focus:0 0 0 2.5px rgba(245,22,156,.45); }
+  * { box-sizing:border-box; margin:0; }
+  /* gui2:103 — every canvas is a phosphor tube, and a tube gets the same ink
+     border language as the cards. No shadow: shadows are for interactive
+     elements, never wells. */
+  canvas { border:var(--stroke) solid var(--line); border-radius:var(--r-well);
+           background:var(--scr-tube); display:block; }
+  /* gui2:142 — ORCHID is the screen scheme the LIGHT chassis pairs with
+     (gui2:1654-1657: LIGHT/ORCHID, DARK/TUBE). A lab with two themes carries
+     both pairings or it is showing a chassis nobody ships. */
+  body:not(.dark) { --scr-tube:#F3EBFF; --scr-value:#D6006B; --scr-meter:#007A73;
+    --scr-physics:#6E14E8; --scr-marker:#C43A00; --scr-grid:#5A3FA8;
+    --scr-scan:0.05; --scr-alpha:1.6;
+    /* gui2:167 — yellow and lime cannot survive a light ground (measured
+       1.20:1 and 1.17:1 against --bg, where the graphical floor is 3:1). */
+    --marker:#8A6A00; --celebrate:#4E7A00; }
+  body.dark {
+    --bg:#151220; --panel:#1F1B2E; --well:#0E0C16; --panel2:#2C2740;
+    --line:#EFE9FA; --hair:#312B47; --div:#3B3455;
+    --text:#EFE9FA; --t2:#BDB4D4; --dim:#8A82A3; --dis:#514A6B;
+    --value:#FF3DAD; --pull:#FF3DAD; --physics:#A07CFF; --meter:#2DF2E2;
+    --marker:#FFE04D; --celebrate:#C2F53E;
+    --caution:#FFB627; --caution-bg:#4A3A12; --caution-tx:#FFD98A;
+    --amber:#FFB627; --alarm:#FF5A4D;
+    --ghost:#5B4E8F;
+    --cA:#FFD702; --cAtx:#FFE566;
+    --cB:#FF2E88; --cBtx:#FF6FAE;
+    --cC:#00D5C8; --cCtx:#4DEDE3;
+    --cD:#A6F219; --cDtx:#C6F86A;
+    --text-hi:#FFFFFF; --dim2:#9A93A8; --grid:#312B47; --grid2:#312B47;
+    --hot:#FF3DAD; --bad:#FF5A4D; --badge-bg:rgba(255,182,39,.9);
+    --focus:0 0 0 2.5px rgba(255,61,173,.45); }
+
+  /* ============ CHROME — gui2's markup idiom, same declarations ============ */
+  body { background:var(--bg); color:var(--text);
+    font:12px/1.45 ui-monospace,Menlo,monospace; padding:10px 12px; }
+  .hdr { display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap;
+         margin-bottom:8px; }
+  h1 { font-size:34px; line-height:1; letter-spacing:-1px; font-weight:800; }
+  .badges { display:flex; align-items:center; gap:8px; margin-top:4px; }
+  .badge { font-size:9.5px; letter-spacing:.1em; padding:2px 7px;
+           border:var(--stroke) solid var(--line); border-radius:3px;
+           background:var(--cA); color:var(--line); }
+  /* The corner hues are IDENTICAL in both chassis by design (gui2:196 — "corner
+     identity stays recognisably itself"), but --line and --text both INVERT. A
+     badge filled with --cA therefore needs a different token for the same dark
+     ink on each ground: --line on cream, --bg on the dark chassis. Measured
+     the wrong way first — light ink on yellow at 1.3:1, which is the failure
+     gui2:167 catalogues for exactly these two hues. */
+  body.dark .badge { color:var(--bg); }
+  .sub { color:var(--t2); font-size:10.5px; letter-spacing:.12em; }
+  .hdrctl { display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+            margin-left:auto; }
+  .grp { display:flex; align-items:center; gap:7px; }
+  .lbl { font-size:10px; font-weight:700; letter-spacing:.1em; color:var(--t2); }
+  /* gui2:277 — the capsule. `on` inverts to ink fill, which is the one state
+     this file's chips, algorithm recalls and waveform selectors all share. */
+  .pill { padding:3px 10px; border:var(--stroke) solid var(--line);
+    border-radius:999px; min-height:26px; cursor:pointer; color:var(--dim);
+    background:var(--panel); font:inherit; font-size:10px; letter-spacing:.06em; }
+  .pill:hover { box-shadow:var(--shadow); }
+  .pill.on { color:var(--bg); background:var(--line); font-weight:600; }
+  .pill.panic { border-color:var(--alarm); color:var(--alarm); font-weight:700; }
+  .pill.panic:hover { background:var(--alarm); color:var(--bg); }
+  .pills { display:flex; gap:4px; flex-wrap:wrap; }
+  .chip { padding:4px 8px; border:0; background:none; border-radius:var(--r);
+    cursor:pointer; font:inherit; font-size:10px; letter-spacing:.06em;
+    color:var(--dim); min-height:26px; }
+  .chip:hover { background:var(--panel2); }
+  .chip b { color:var(--t2); font-weight:600; letter-spacing:.1em; }
+  .tagline { color:var(--t2); font-size:11px; max-width:112ch; margin-bottom:6px; }
+  .tagline b { color:var(--text); }
+  .audit { font-size:10px; color:var(--t2); margin-bottom:10px;
+           border-left:3px solid var(--meter); padding-left:8px; }
+  .audit.bad { border-left-color:var(--alarm); color:var(--alarm); }
+  .audit b { color:var(--value); }
+
+  /* ============ CLUSTERS AND ROWS — gui2:345, :485 ============ */
+  .cluster { background:var(--panel); border:var(--stroke) solid var(--line);
+    border-radius:var(--r); padding:8px 10px; min-width:0; }
+  h2 { font-size:11px; color:var(--pull); letter-spacing:1px; margin-bottom:6px; }
+  .row { display:grid; grid-template-columns:52px minmax(0,1fr) 46px;
+    align-items:center; gap:6px; margin:5px 0; }
+  .row label { color:var(--t2); font-size:10px; }
+  .row output { font-size:10px; text-align:right; color:var(--text);
+                font-variant-numeric:tabular-nums; }
+  /* gui2:764 — GHOST: a row that is present but not in force. Dimmed content,
+     never a removed control: this page's whole claim is that every §10 address
+     has a reachable control, and hiding the three tuning rows the current mode
+     does not use would make that claim false four times over. */
+  .row.ghost > * { opacity:.5; }
+  .row.wide { grid-template-columns:52px minmax(0,1fr); }
+  .row.full { display:block; }
+  .note { color:var(--t2); font-size:10px; line-height:1.5; margin-top:6px; }
+  .note b { color:var(--text); }
+  .sep { border-top:1px dashed var(--div); margin:8px 0 6px; }
+  .cap { font-size:9px; letter-spacing:.12em; color:var(--dim); margin:6px 0 3px; }
+
+  /* SLIDER — gui2:490. --pct carries the fill, because a native range cannot
+     paint its own; anything that never sets it renders an EMPTY track rather
+     than a wrong one. */
+  input[type=range] {
+    -webkit-appearance:none; appearance:none; width:100%; min-width:0;
+    height:24px; background:transparent; cursor:pointer; }
+  input[type=range]::-webkit-slider-runnable-track {
+    height:6px; border-radius:3px; border:var(--stroke) solid var(--line);
+    background:linear-gradient(to right,
+      var(--value) 0 calc(var(--pct, 0) * 100%),
+      var(--panel2) calc(var(--pct, 0) * 100%) 100%); }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance:none; appearance:none;
+    width:13px; height:13px; border-radius:4px; margin-top:-3.5px;
+    background:var(--panel); border:var(--stroke) solid var(--line);
+    box-shadow:var(--shadow); }
+  input[type=range]:hover::-webkit-slider-thumb { box-shadow:var(--shadow-hover); }
+  input[type=range]:active::-webkit-slider-thumb {
+    background:var(--value); box-shadow:none; }
+  /* TOGGLE — gui2:513 */
+  input[type=checkbox] {
+    -webkit-appearance:none; appearance:none; margin:0;
+    width:32px; height:17px; border-radius:999px; cursor:pointer;
+    background:var(--panel2); border:var(--stroke) solid var(--line);
+    position:relative; transition:background .12s linear; }
+  input[type=checkbox]::after {
+    content:''; position:absolute; top:1px; left:1px;
+    width:11px; height:11px; border-radius:999px;
+    background:var(--panel); border:var(--stroke) solid var(--line);
+    transition:transform .12s ease; }
+  input[type=checkbox]:checked { background:var(--value); }
+  input[type=checkbox]:checked::after { transform:translateX(15px); }
+  /* ENUM — gui2:538 */
+  select {
+    -webkit-appearance:none; appearance:none;
+    font:inherit; font-size:10px; padding:3px 18px 3px 9px; min-width:0;
+    border-radius:999px; border:var(--stroke) solid var(--line);
+    background:var(--panel); color:var(--t2); cursor:pointer; min-height:26px;
+    background-image:linear-gradient(45deg,transparent 50%,var(--t2) 50%),
+                     linear-gradient(135deg,var(--t2) 50%,transparent 50%);
+    background-position:calc(100% - 11px) 50%, calc(100% - 7px) 50%;
+    background-size:4px 4px, 4px 4px; background-repeat:no-repeat; }
+  select:hover { box-shadow:var(--shadow); }
+  input[type=text], input[type=number] {
+    font:inherit; font-size:10px; padding:3px 8px; border-radius:999px;
+    min-height:26px; border:var(--stroke) solid var(--line);
+    background:var(--panel); color:var(--text); min-width:0; width:100%; }
+
+  /* ============ PAGE SHAPE — the human's mock, re-tokenised ============
+     Mock (HORDE-STATION-Page.dc.html:67): four equal columns of operator +
+     noise across the top; (:158) matrix / geometry / wave RAM / scope along
+     the bottom. Kept, with the geometry pane folded into the matrix note —
+     one crosspoint well says the topology once. */
+  .ops { display:grid; grid-template-columns:repeat(4, minmax(215px,1fr));
+         gap:10px; align-items:start; }
+  .bottom { display:grid; grid-template-columns:minmax(250px,320px)
+            minmax(250px,340px) minmax(300px,1fr); gap:10px; margin-top:10px;
+            align-items:start; }
+  @media (max-width:1180px) {
+    .ops { grid-template-columns:repeat(2, minmax(215px,1fr)); }
+    .bottom { grid-template-columns:1fr; } }
+  .ohead { display:flex; align-items:center; gap:6px; margin-bottom:6px; }
+  .ohead b { font-size:12px; letter-spacing:.06em; }
+  .ohead .oname { color:var(--dim); font-size:9.5px; letter-spacing:.1em;
+                  margin-right:auto; }
+  .envviz { width:100%; height:62px; }
+
+  /* ============ MATRIX WELL — gui2:404 (#mxWell) and :429 (.mxc) ============
+     The well EDITS; fill rises from the bottom in --value because the index is
+     an authored value, and the number sits inside the TOP edge where no fill
+     and no neighbouring border can cover it. */
+  #mxWell { background:var(--well); border:var(--stroke) solid var(--line);
+            border-radius:var(--r); padding:9px; }
+  #mxGrid { display:grid; grid-template-columns:34px repeat(3, minmax(0,1fr));
+            gap:5px; align-items:center; }
+  .mxh { font-size:9px; letter-spacing:.5px; color:var(--t2); text-align:center;
+         align-self:center; overflow:hidden; text-overflow:ellipsis; }
+  .mxh.r { text-align:right; padding-right:4px; }
+  .mxc { position:relative; display:block; aspect-ratio:1 / 1;
+         min-height:24px; max-height:44px;
+         line-height:1; padding-top:4px; text-align:center;
+         font-size:9.5px; font-variant-numeric:tabular-nums;
+         border:var(--stroke) solid var(--line); border-radius:var(--r);
+         background:var(--panel2); color:var(--dim);
+         cursor:ns-resize; user-select:none; touch-action:none; }
+  .mxc.on { color:var(--text);
+            background:linear-gradient(to top, var(--value) calc(var(--mx) * 100%),
+                                       var(--panel2) 0); }
+  .mxc:hover { outline:2.5px solid var(--physics); outline-offset:3px; }
+  .mxc.drag { outline:var(--stroke) solid var(--value); }
+  /* FEEDBACK is the diagonal, and it is a different KIND of edge, not a
+     different magnitude — so it is marked by a glyph in the corner, the same
+     move gui2:465 makes for the bipolar mark, rather than by a second colour
+     (every named colour in the set is a status, and self-modulation is not
+     a status). */
+  .mxc.fb::before { content:'FB'; position:absolute; bottom:2px; left:3px;
+         font-size:7.5px; line-height:1; color:var(--text); opacity:.75;
+         pointer-events:none; }
+
+  /* ============ WAVE RAM + VIZ ============ */
+  #ramC { width:100%; height:124px; cursor:crosshair; touch-action:none; }
+  #scopeC { width:100%; height:96px; }
+  #specC { width:100%; height:86px; margin-top:6px; }
+  /* KEYBOARD — a data surface, so it sits on --well with ink outlines
+     (gui2's token comment: "DATA surfaces: viz, pads, keyboards"). */
+  #kbd { display:flex; margin-top:8px; height:64px; user-select:none;
+         border:var(--stroke) solid var(--line); border-radius:var(--r);
+         background:var(--well); overflow:hidden; }
+  .key { flex:1 1 0; border-right:1px solid var(--line); background:var(--well);
+         position:relative; cursor:pointer; min-width:0; }
+  .key:last-child { border-right:0; }
+  .key.blk { background:var(--line); flex:0 0 0; width:0; margin:0 -7px;
+             z-index:2; height:62%; border-radius:0 0 3px 3px; border:0;
+             box-shadow:0 0 0 1px var(--line); }
+  .key.blk { flex:0 0 14px; width:14px; }
+  .key.on { background:var(--value); }
+  .key span { position:absolute; bottom:3px; left:0; right:0; text-align:center;
+              font-size:8px; color:var(--dim); pointer-events:none; }
+  .key.blk span { display:none; }
+  .err { color:var(--alarm); font-size:10px; margin-top:6px; }
+</style></head><body>
+
+<div class="hdr">
+  <div>
+    <h1>station</h1>
+    <div class="badges">
+      <span class="badge">ENGINE 02</span>
+      <span class="sub">PM · SUBTRACTIVE · CHIP — THE ENGINE PAGE, AS IT WOULD SIT IN THE SHELL</span>
+    </div>
+  </div>
+  <div class="hdrctl">
+    <div class="grp"><span class="lbl">ALG</span><div class="pills" id="algPills"></div></div>
+    <div class="grp"><span class="lbl">MASTER</span>
+      <input id="master" type="range" min="0" max="1" step="0.005" value="0.75"
+             style="width:120px" data-lab="monitoring gain — §11.5 says the engine output is clean">
+      <output id="masterOut" style="font-size:10px;width:34px;text-align:right"></output></div>
+    <button class="pill" id="pwr" data-lab="audio context — a lab affordance, not a parameter">POWER</button>
+    <button class="chip" id="themeBtn" data-lab="theme audition">theme <b>LIGHT</b></button>
+    <button class="pill panic" id="panic" data-lab="all notes off">PANIC</button>
+  </div>
+</div>
+
+<div class="tagline">The <b>STATION</b> engine page (specs/SPEC-STATION.md) drawn entirely in gui2's token set —
+cream ground, ink outlines, magenta for the value you authored, violet for the system's own state, and every
+canvas a phosphor tube. Three operator cards carry tuning (§3.1), waveform (§3.2), the pure↔raw continuum
+(§3.3) and phase/sync/ring (§3.4); the PM matrix (§4) is a crosspoint well in the FX-matrix idiom, where fill
+is the index and 0 IS "not connected"; the Wave RAM (§5) is a drawable 32×4-bit carpet; the noise channel (§6)
+is the fourth card; each slot's envelope (§7) is drawn the way the plugin draws its envelopes, in the
+milliseconds the spec states. <b>It sounds</b> — POWER, then play the on-screen keys or A..L on the computer
+keyboard — through the lab's own core, extracted at load from the block below by the same marker-slice the
+golden generator uses. Every control names its §10 address, and the page audits that mapping itself.</div>
+
+<div class="audit" id="audit">mapping audit: pending</div>
+
+<div class="page">
+  <div class="ops" id="ops"></div>
+
+  <div class="bottom">
+    <div class="cluster" id="mxPane"><h2>PM Matrix</h2>
+      <div id="mxWell"><div id="mxGrid"></div></div>
+      <div class="note">Rows FEED columns; a cell is a PM <b>index</b> (0–8) and 0 IS "not connected", so
+        connecting and disconnecting is one continuous motion. Drag a cell vertically or scroll it;
+        double-click restores the boot patch. The diagonal is self-<b>FB</b>. Every tap reads the
+        <b>previous sample</b> (§2), which is what makes any cycle stable. <b>NS has no column</b>: noise
+        receives no PM, so the destination does not exist — absent, not disabled (gui2:473).</div>
+      <div class="sep"></div>
+      <div class="cap">PITCH ENVELOPE (§7)</div>
+      <div id="penvRows"></div>
+    </div>
+
+    <div class="cluster" id="ramPane"><h2>Wave RAM</h2>
+      <canvas id="ramC"></canvas>
+      <div class="cap" style="margin-top:7px">PRESETS</div>
+      <div class="pills" id="ramPresets"></div>
+      <div class="row" style="margin-top:6px" data-lab="randomize seed — ADR-122, persists with device state">
+        <label>Seed</label><input id="ramSeed" type="number" value="1024" step="1"><output></output></div>
+      <div class="note">One shared 32×4-bit table per patch (Game Boy wave-channel semantics); every op set to
+        <b>DRW</b> reads it. Draw with the pointer. <b>RND</b> draws one reproducible stream per click from the
+        seed — seeded mulberry32, never Math.random (ADR-122).</div>
+    </div>
+
+    <div class="cluster" id="vizPane"><h2>Output</h2>
+      <canvas id="scopeC"></canvas>
+      <canvas id="specC"></canvas>
+      <div class="cap" id="audioStat" style="margin-top:6px">AUDIO — OFF</div>
+      <div id="kbd"></div>
+      <div class="note">Keys <b>A</b>..<b>L</b> (W/E/T/Y/U/O for the black keys), <b>Z</b>/<b>X</b> octave.
+        The scope and spectrum are fed by the lab's own core; the spectrum is the analyser's, in log bands with
+        the level-mapped sunset and peak caps (gui2:5036).</div>
+      <div class="err" id="coreErr"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ======================================================================
+     THE LAB'S CORE. `type` is deliberately not JavaScript: the browser does
+     not execute this block, the loader below SLICES it by the same two banner
+     regexes tools/golden/extract_core.mjs uses (`/\* =+ DSP:` … `/\* =+ Audio
+     graph`) and evaluates the slice with `new Function`. Same discipline as
+     the golden generator — the DSP is read out of the document rather than
+     hand-copied into the wiring, so "the core the page runs" and "the core the
+     page shows" cannot drift apart.
+
+     NOTE FOR THE PORT: reference/station.html CANNOT be read by
+     extract_core.mjs today. Its core is delimited by
+     `/* ===== STATION — 3-op PM + LFSR noise ===== */` and it has no
+     `Audio graph` banner at all (reference/station.html:141; compare
+     reference/swarmsaw.html:203/:670), so both marker searches fail. That is a
+     finding about the reference, not a licence to edit it — reference/ is a
+     protected path (CLAUDE.md §Domain) and this lab slices its OWN block.
+     ====================================================================== -->
+<script type="text/x-station-core" id="coreSrc">
+/* ================= DSP: STATION lab core ================= */
+/* Self-contained by contract: constants + pure class, no DOM, no wall clock.
+   Follows reference/station.html's DSP (the §11 parity oracle) and adds the
+   three controls SPEC-STATION §3.4/§7 say the build adds — FREE phase, RING,
+   STEPPED envelopes — plus §3.1's continuous ratio. It does NOT implement §5's
+   band-limited DRW resynthesis (the prototype's linear interpolation stands) or
+   §8's release-fade voice stealing beyond a short fade; those are build-side.
+   `qnt` is a STEP COUNT here (0 = OFF), not an index into a list, so the core
+   needs no copy of the UI's enum tables. */
+const TAU = 6.283185307179586;
+const MAXV = 16;                     /* §8 target polyphony */
+
+function blep(t, dt) {
+  if (t < dt) { t /= dt; return t + t - t * t - 1; }
+  if (t > 1 - dt) { t = (t - 1) / dt; return t * t + t + t + 1; }
+  return 0;
+}
+function opFreq(o, base) {
+  if (o.mode === 0) return base * o.ratio * Math.pow(2, o.fine / 1200);
+  if (o.mode === 1) return base * Math.pow(2, (o.semis + o.fine / 100) / 12);
+  return o.fixed;
+}
+function envStep(e, p, gate, sr) {
+  /* a/d/r are MILLISECONDS (§7: A 1–2000, D 5–3000, R 5–4000); the 4.6 is the
+     prototype's constant — one-pole toward target, segment done in ~the stated
+     time. Expressed in seconds and converted here, never as a per-tick
+     constant (ADR-009). */
+  if (!gate && e.stage < 3) e.stage = 3;
+  switch (e.stage) {
+    case 0: { const t = Math.max(0.0005, p.a / 1000) * sr; e.lvl += 1 / t;
+              if (e.lvl >= 1) { e.lvl = 1; e.stage = 1; } break; }
+    case 1: { const t = Math.max(0.001, p.d / 1000) * sr; e.lvl += (p.s - e.lvl) * (4.6 / t);
+              if (Math.abs(e.lvl - p.s) < 0.004) { e.lvl = p.s; e.stage = p.loop ? 0 : 2; } break; }
+    case 2: e.lvl = p.s; break;
+    case 3: { const t = Math.max(0.001, p.r / 1000) * sr; e.lvl += (0 - e.lvl) * (4.6 / t);
+              if (e.lvl < 0.0005) { e.lvl = 0; e.stage = 4; } break; }
+  }
+  /* STEPPED (§7): quantize the OUTPUT, not the state — a quantized state would
+     stall the one-pole at its own step and never reach the target. */
+  const n = p.step | 0;
+  return n > 1 ? Math.round(e.lvl * (n - 1)) / (n - 1) : e.lvl;
+}
+function waveOut(o, p, dt, tbl) {
+  const q = o.qnt > 1 ? (Math.floor(p * o.qnt) / o.qnt) : p;
+  let raw = 0, pure = 0;
+  switch (o.wave) {
+    case 0: raw = Math.sin(q * TAU); pure = Math.sin(p * TAU); break;
+    case 1: { const tr = x => 1 - 4 * Math.abs(x - 0.5); raw = tr(q); pure = tr(p); break; }
+    case 2: raw = 2 * q - 1; pure = 2 * p - 1 - blep(p, dt); break;
+    case 3: { const pw = o.pw; raw = q < pw ? 1 : -1;
+              pure = (p < pw ? 1 : -1) + blep(p, dt) - blep((p - pw + 1) % 1, dt); break; }
+    case 4: { const tr = x => 1 - 4 * Math.abs(x - 0.5);
+              raw = Math.round((tr(q) * .5 + .5) * 15) / 7.5 - 1; pure = tr(p); break; }
+    case 5: { const i = Math.floor(q * 32) & 31; raw = tbl[i] / 7.5 - 1;
+              const fi = p * 32, i0 = Math.floor(fi) & 31, i1 = (i0 + 1) & 31, fr = fi - Math.floor(fi);
+              pure = (tbl[i0] * (1 - fr) + tbl[i1] * fr) / 7.5 - 1; break; }
+  }
+  return raw + (pure - raw) * o.pure;
+}
+
+class StationCore {
+  constructor(sr, state) {
+    this.sr = sr || 48000;
+    this.state = state;
+    this.voices = [];
+    this.seq = 0;
+    this.free = [0, 0, 0];      /* §3.4 FREE: the phase the last voice left at */
+    this.scope = new Float32Array(1024);
+    this.si = 0; this.sdec = 0;
+    this.peak = 0;
+  }
+  static freqOf(n) { return 440 * Math.pow(2, (n - 69) / 12); }
+  noteOn(note) {
+    const s = this.state;
+    /* §8: oldest-voice stealing with a short release fade, never a hard shift. */
+    if (this.voices.length >= MAXV) {
+      let old = this.voices[0];
+      for (const v of this.voices) if (v.seq < old.seq) old = v;
+      old.gate = false; old.fade = old.fade === undefined ? 1 : old.fade;
+      old.stealing = true;
+    }
+    const ph = [0, 0, 0];
+    for (let i = 0; i < 3; i++) {
+      const o = s.ops[i];
+      ph[i] = o.retrig ? (o.phase / 360) % 1 : this.free[i];
+    }
+    this.voices.push({
+      note, freq: StationCore.freqOf(note), gate: true, seq: this.seq++,
+      ph, prev: [0, 0, 0, 0],
+      env: [{ stage: 0, lvl: 0 }, { stage: 0, lvl: 0 }, { stage: 0, lvl: 0 }, { stage: 0, lvl: 0 }],
+      pT: 0, lfsr: 0x7FFF, nphase: 0, nout: 0, dead: false,
+      fade: 1, stealing: false,
+    });
+  }
+  noteOff(note) { for (const v of this.voices) if (v.note === note && v.gate) v.gate = false; }
+  panic() { this.voices.length = 0; }
+  render(L, R, N) {
+    const s = this.state, tbl = s.table, sr = this.sr;
+    const fadeStep = 1 / (0.005 * sr);          /* §8 release fade, 5 ms */
+    for (let n = 0; n < N; n++) {
+      let ml = 0, mr = 0;
+      for (let vi = 0; vi < this.voices.length; vi++) {
+        const v = this.voices[vi];
+        let pmul = 1;
+        if (s.penv.amt !== 0) {
+          const dec = Math.max(0.005, s.penv.dec / 1000) * sr;
+          pmul = Math.pow(2, s.penv.amt * Math.exp(-v.pT / dec * 4.6) / 12);
+        }
+        v.pT++;
+        const base = v.freq * pmul;
+        /* --- noise slot (§6): own envelope, no PM in, a PM source out ------ */
+        let nSig = 0;
+        const nEnv = envStep(v.env[3], s.ns.env, v.gate, sr);
+        if (s.ns.on) {
+          let nf = s.ns.rate * sr * 0.5;
+          if (s.ns.ktrk) nf *= base / 261.63;
+          v.nphase += nf / sr;
+          let guard = 0;
+          while (v.nphase >= 1 && guard++ < 64) {
+            v.nphase -= 1;
+            const b0 = v.lfsr & 1, tap = s.ns.mode ? ((v.lfsr >> 6) & 1) : ((v.lfsr >> 1) & 1);
+            v.lfsr = (v.lfsr >> 1) | (((b0 ^ tap) & 1) << 14);
+            v.nout = (v.lfsr & 1) ? 0.7 : -0.7;
+          }
+          if (v.nphase >= 1) v.nphase = 0;      /* rate above nyquist: hold */
+          nSig = v.nout * nEnv;
+        }
+        /* --- operators (§3) ------------------------------------------------ */
+        const dt0 = Math.min(opFreq(s.ops[0], base) / sr, 0.45);
+        const wrapped = (v.ph[0] + dt0) >= 1;
+        const outs = [0, 0, 0];
+        for (let i = 0; i < 3; i++) {
+          const o = s.ops[i];
+          if (!o.on) { outs[i] = 0; envStep(v.env[i], o.env, v.gate, sr); continue; }
+          const dt = Math.min(opFreq(o, base) / sr, 0.45);
+          /* §3.4: hard sync resets to the op's PHASE OFFSET, not to 0 — a
+             deliberate divergence from the prototype, which resets to 0. */
+          if (i > 0 && o.sync && wrapped) v.ph[i] = (o.phase / 360) % 1;
+          v.ph[i] += dt; if (v.ph[i] >= 1) v.ph[i] -= 1;
+          const pm = s.mtx[0][i] * v.prev[0] + s.mtx[1][i] * v.prev[1]
+                   + s.mtx[2][i] * v.prev[2] + s.mtx[3][i] * v.prev[3];
+          let p = v.ph[i] + pm * 0.1591549;     /* index applied as cell·out/2π */
+          p -= Math.floor(p);
+          outs[i] = waveOut(o, p, dt, tbl) * envStep(v.env[i], o.env, v.gate, sr);
+        }
+        /* The matrix taps read the PRE-ring outputs (§3.4: ring is mix-path
+           only) and are stored for the NEXT sample (§2, one-sample delay). */
+        v.prev[0] = outs[0]; v.prev[1] = outs[1]; v.prev[2] = outs[2]; v.prev[3] = nSig;
+        if (v.stealing) { v.fade -= fadeStep; if (v.fade <= 0) { v.fade = 0; v.dead = true; } }
+        const fade = v.fade;
+        for (let i = 0; i < 3; i++) {
+          const o = s.ops[i]; if (!o.on || o.lvl <= 0) continue;
+          let y = outs[i];
+          if (o.ring > 0) y *= outs[o.ring - 1];
+          const g = y * o.lvl * 0.35 * fade;
+          ml += g * (1 - Math.max(0, o.pan)); mr += g * (1 - Math.max(0, -o.pan));
+        }
+        if (s.ns.on && s.ns.lvl > 0) {
+          const g = nSig * s.ns.lvl * 0.35 * fade;
+          ml += g * (1 - Math.max(0, s.ns.pan)); mr += g * (1 - Math.max(0, -s.ns.pan));
+        }
+        for (let i = 0; i < 3; i++) if (!s.ops[i].retrig) this.free[i] = v.ph[i];
+        if (!v.gate && !v.stealing) {
+          let alive = false;
+          for (let i = 0; i < 3; i++) if (s.ops[i].on && v.env[i].stage < 4) alive = true;
+          if (s.ns.on && v.env[3].stage < 4) alive = true;
+          if (!alive) v.dead = true;
+        }
+      }
+      for (let i = this.voices.length - 1; i >= 0; i--) if (this.voices[i].dead) this.voices.splice(i, 1);
+      /* §11.5: the master tanh is MONITORING convenience. The engine output is
+         clean; saturation belongs to the downstream chain. */
+      const g = s.master;
+      const l = Math.tanh(ml * g * 1.4), r = Math.tanh(mr * g * 1.4);
+      L[n] = l; R[n] = r;
+      const m = (l + r) * 0.5;
+      const a = m < 0 ? -m : m; if (a > this.peak) this.peak = a;
+      if ((this.sdec++ & 1) === 0) { this.scope[this.si] = m; this.si = (this.si + 1) % this.scope.length; }
+    }
+  }
+}
+/* ================= Audio graph ================= */
+/* Deliberately empty: the audio graph is the PAGE's job (below), not the
+   core's — the slice above ends here, exactly as it does in the prototypes. */
+</script>
+
+<script>
+"use strict";
+/* ============ BLOCK A — state and vocabulary, above all wiring (L0026) ======
+   The page owns the PATCH; the core owns the DSP. Keeping the state factory
+   here (rather than inside the extracted slice) is what lets every control
+   build and bind even when extraction fails — the load checker has no DOM to
+   slice from, and a page that silently skipped its whole UI build under the
+   checker would be unchecked exactly where the checker exists to look. */
+const WAVES = ['SIN', 'TRI', 'SAW', 'PLS', 'QTR', 'DRW'];
+const MODES = ['RATIO', 'PITCH', 'FIXED'];
+const RINGS = ['OFF', '×OP1', '×OP2'];
+const QSTEPS = [0, 4, 8, 16, 32, 64];              /* §3.3 phase steps/cycle */
+const STEPS = [0, 2, 3, 4, 5, 6, 8, 12, 16];       /* §7 STEPPED levels */
+const SRC = ['OP1', 'OP2', 'OP3', 'NS'];           /* matrix rows (§4) */
+const DST = ['OP1', 'OP2', 'OP3'];                 /* matrix columns (§4) */
+const KEYMAP = { a: 0, w: 1, s: 2, e: 3, d: 4, f: 5, t: 6, g: 7, y: 8, h: 9, u: 10, j: 11, k: 12, o: 13, l: 14 };
+
+// mulberry32 — the house stream (SPEC §5.7: seeded RNG only, no wall-clock).
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+let rndStream = mulberry32(1024);
+const TP = {
+  SIN: i => Math.round((Math.sin(i / 32 * 6.283185307179586) * .5 + .5) * 15),
+  SAW: i => Math.round(i / 31 * 15),
+  SQR: i => i < 16 ? 15 : 0,
+  BELL: i => Math.round(((Math.sin(i / 32 * 6.283185307179586) + .55 * Math.sin(i / 32 * 3 * 6.283185307179586)) * .42 + .5) * 15),
+  RND: i => Math.floor(rndStream() * 16),
+};
+
+/* THE BOOT PATCH — §10's closing line: "Default patch = prototype boot patch
+   (soft EP: OP2 2:1 idx 2.6, OP3 14:1 idx 1.1 -> OP1)". */
+function defaultState() {
+  const op = (ratio, fixed, lvl, env) => ({
+    on: 1, wave: 0, mode: 0, ratio, semis: 0, fine: 0, fixed,
+    lvl, pan: 0, pw: 0.5, pure: 1, qnt: 0, phase: 0, retrig: 1,
+    sync: 0, ring: 0, env,
+  });
+  return {
+    master: 0.75,
+    penv: { amt: 0, dec: 80 },
+    table: new Array(32).fill(0).map((_, i) => TP.BELL(i)),
+    mtx: [[0, 0, 0], [2.6, 0, 0], [1.1, 0, 0], [0, 0, 0]],
+    ops: [
+      op(1, 220, 0.85, { a: 3, d: 420, s: 0.55, r: 260, loop: 0, step: 0 }),
+      op(2, 440, 0, { a: 2, d: 180, s: 0, r: 120, loop: 0, step: 0 }),
+      op(14, 880, 0, { a: 2, d: 60, s: 0, r: 60, loop: 0, step: 0 }),
+    ],
+    ns: { on: 0, mode: 0, rate: 0.35, ktrk: 1, lvl: 0.5, pan: 0,
+          env: { a: 1, d: 120, s: 0, r: 80, loop: 0, step: 0 } },
+    seed: 1024,
+  };
+}
+const S = defaultState();
+
+/* §4: "Algorithm presets are stored patches over (matrix values + op levels),
+   nothing more." The six from the prototype (reference/station.html:463). */
+const ALGS = {
+  'STACK': { m: [], lv: [0.8, 0.8, 0.8] },
+  '2→1': { m: [[1, 0, 2.6]], lv: [0.9, 0, 0] },
+  '3→2→1': { m: [[2, 1, 2.4], [1, 0, 2.8]], lv: [0.9, 0, 0] },
+  '2+3→1': { m: [[1, 0, 2.4], [2, 0, 2.4]], lv: [0.9, 0, 0] },
+  '3→1+2': { m: [[2, 0, 2.4], [2, 1, 2.4]], lv: [0.75, 0.75, 0] },
+  'FB CH': { m: [[2, 2, 1.4], [2, 1, 2.4], [1, 0, 2.8]], lv: [0.9, 0, 0] },
+};
+
+/* §10's rows, verbatim keys. The page checks ITSELF against this list at load:
+   a mapping claim nobody re-derives is a mapping claim that rots. */
+const SPEC10_ROWS = [
+  'op{n}.on', 'op{n}.wave', 'op{n}.mode', 'op{n}.ratio', 'op{n}.semis', 'op{n}.fine',
+  'op{n}.fixed', 'op{n}.lvl', 'op{n}.pan', 'op{n}.pw', 'op{n}.pure', 'op{n}.qnt',
+  'op{n}.phase', 'op{n}.retrig', 'op{2,3}.sync', 'op{2,3}.ring', 'op{n}.env.*',
+  'ns.on/mode/rate/ktrk/lvl/pan/env.*', 'mtx[src][dst]', 'penv.amt', 'penv.dec',
+];
+function rowOf(addr) {
+  if (/^mtx\./.test(addr)) return 'mtx[src][dst]';
+  if (/^op[123]\.env\./.test(addr)) return 'op{n}.env.*';
+  if (/^op[23]\.sync$/.test(addr)) return 'op{2,3}.sync';
+  if (/^op[23]\.ring$/.test(addr)) return 'op{2,3}.ring';
+  const m = /^op[123]\.(\w+)$/.exec(addr);
+  if (m) return 'op{n}.' + m[1];
+  if (/^ns\./.test(addr)) return 'ns.on/mode/rate/ktrk/lvl/pan/env.*';
+  if (addr === 'penv.amt' || addr === 'penv.dec') return addr;
+  return null;                       /* off-table: §5's wave RAM lives here */
+}
+</script>
+
+<script>
+"use strict";
+/* ============ BLOCK B — token reader, DPR, painters, wiring ============ */
+
+/* gui2:1627/:1709 — the cache is keyed by token NAME, so a theme change
+   invalidates all of it. Read from BODY, not documentElement: the screen
+   schemes override at body level and html's computed style never sees them. */
+const _tok = {};
+function TOK(name, fallback) {
+  if (_tok[name] === undefined) {
+    let v = '';
+    try { v = getComputedStyle(document.body || document.documentElement).getPropertyValue(name).trim(); }
+    catch (_) { v = ''; }
+    _tok[name] = (typeof v === 'string' && v) ? v : (fallback || '#000');
+  }
+  return _tok[name];
+}
+function RGBA(hex, a) {
+  const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(hex).trim());
+  if (!m) return hex;
+  return `rgba(${parseInt(m[1], 16)},${parseInt(m[2], 16)},${parseInt(m[3], 16)},${a})`;
+}
+function TOKA(name, a, fallback) {
+  const m = parseFloat(TOK('--scr-alpha', '1')) || 1;
+  return RGBA(TOK(name, fallback), Math.min(1, a * m));
+}
+function scanA() { return parseFloat(TOK('--scr-scan', '0.22')) || 0.22; }
+/* gui2:1665 — VS() is the bitmap-per-CSS-pixel factor; fitViz() sizes a
+   canvas's bitmap to its CSS box times that factor, so painters keep drawing
+   in bitmap pixels and only stroke widths and fonts multiply by VS(). */
+const VS = () => Math.min(window.devicePixelRatio || 1, 2);
+function fitViz(cv) {
+  const dpr = VS();
+  const w = Math.max(1, Math.round(cv.clientWidth * dpr)), h = Math.max(1, Math.round(cv.clientHeight * dpr));
+  if (!w || !h || (cv.width === w && cv.height === h)) return false;
+  cv.width = w; cv.height = h;
+  return true;
+}
+function scan(g, w, h, a) {
+  const v = VS();
+  g.fillStyle = `rgba(0,0,0,${a})`;
+  for (let y = v; y < h; y += 3 * v) g.fillRect(0, y, w, v);
+}
+/* gui2:1682 — the ONE gradient in the theme, quarantined to spectrum bars and
+   mapped to LEVEL so it means something: violet floor -> pink -> amber sun. */
+function sunset(v) {
+  const stops = [[157, 108, 255], [255, 94, 207], [255, 184, 107]];
+  const t = Math.min(1, Math.max(0, v)) * 2;
+  const a = stops[t < 1 ? 0 : 1], b = stops[t < 1 ? 1 : 2], f = t < 1 ? t : t - 1;
+  return `rgb(${Math.round(a[0] + (b[0] - a[0]) * f)},${Math.round(a[1] + (b[1] - a[1]) * f)},${Math.round(a[2] + (b[2] - a[2]) * f)})`;
+}
+function ground(cv) {
+  if (!cv || !cv.getContext) return null;
+  fitViz(cv);
+  const g = cv.getContext('2d');
+  const w = cv.width, h = cv.height;
+  g.fillStyle = TOK('--scr-tube'); g.fillRect(0, 0, w, h);
+  scan(g, w, h, scanA());
+  return { g, w, h, v: VS() };
+}
+
+/* ---- CORE EXTRACTION — tools/golden/extract_core.mjs, in the page ---------
+   Marker-based, not line-based, and it fails LOUDLY rather than silently
+   degrading: a page that quietly ran no DSP would look identical to one that
+   ran it. The one concession to the headless load checker is that the failure
+   lands in a status line instead of an uncaught throw, because a lab whose
+   entire wiring is skipped is a lab the checker cannot check. */
+function extractCore(text, className) {
+  if (typeof text !== 'string' || !text.length) {
+    throw new Error('core block carries no text (headless stub, or the block moved)');
+  }
+  const start = text.search(/\/\* =+ DSP:/);
+  const end = text.search(/\/\* =+ Audio graph/);
+  if (start < 0 || end < 0 || end <= start) {
+    throw new Error('DSP / Audio-graph banners not found — the core block’s structure changed');
+  }
+  const src = text.slice(start, end);
+  if (!src.indexOf || src.indexOf('class ' + className) < 0) {
+    throw new Error(className + ' is not inside the DSP section');
+  }
+  return new Function(`"use strict";\n${src}\nreturn ${className};`)();
+}
+let CORE_ERR = '';
+let StationCore = null;
+try {
+  const el = document.getElementById('coreSrc');
+  StationCore = extractCore(el && el.textContent, 'StationCore');
+} catch (e) { CORE_ERR = String((e && e.message) || e); }
+const core = StationCore ? new StationCore(48000, S) : null;
+
+/* ---- audio graph (the PAGE's job; the core is graph-free) ----------------
+   `blocks` is not decoration. An analyser reading silence and a render callback
+   that stopped firing look identical on a scope, so the page COUNTS its render
+   callbacks and shows the count: a stalled audio thread is then a number that
+   stops moving rather than a picture you have to interpret. */
+let ac = null, spn = null, ana = null, specBuf = null, blocks = 0;
+function power() {
+  if (!core) return;
+  if (ac) { if (ac.state === 'suspended') ac.resume(); return; }
+  try {
+    ac = new (window.AudioContext || window.webkitAudioContext)();
+    core.sr = ac.sampleRate;
+    spn = ac.createScriptProcessor(512, 0, 2);
+    spn.onaudioprocess = ev => {
+      const L = ev.outputBuffer.getChannelData(0), R = ev.outputBuffer.getChannelData(1);
+      core.render(L, R, L.length);
+      blocks++;
+    };
+    ana = ac.createAnalyser();
+    ana.fftSize = 2048; ana.smoothingTimeConstant = 0.6;
+    specBuf = new Float32Array(ana.frequencyBinCount);
+    spn.connect(ana); ana.connect(ac.destination);
+  } catch (e) { CORE_ERR = 'audio: ' + String((e && e.message) || e); paintErr(); }
+}
+function paintErr() {
+  const el = document.getElementById('coreErr');
+  if (el) el.textContent = CORE_ERR ? ('core: ' + CORE_ERR) : '';
+}
+
+/* ---- small builders (gui2's .row grid, one control per row) -------------- */
+const $ = s => document.querySelector(s);
+function el(tag, cls, txt) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (txt !== undefined) e.textContent = txt;
+  return e;
+}
+const REPAINT = [];                 /* value readouts, re-run on any change */
+function setPct(inp, min, max) {
+  const v = (parseFloat(inp.value) - min) / (max - min || 1);
+  inp.style.setProperty('--pct', String(Math.min(1, Math.max(0, v))));
+}
+function slider(host, addr, label, min, max, step, get, set, fmt) {
+  const row = el('div', 'row'); row.dataset.addr = addr;
+  const lb = el('label', null, label);
+  const inp = el('input'); inp.type = 'range';
+  inp.min = String(min); inp.max = String(max); inp.step = String(step);
+  inp.value = String(get());
+  const out = el('output');
+  const show = () => { out.textContent = fmt(get()); inp.value = String(get()); setPct(inp, min, max); };
+  inp.addEventListener('input', () => { set(parseFloat(inp.value)); show(); onEdit(); });
+  row.appendChild(lb); row.appendChild(inp); row.appendChild(out);
+  host.appendChild(row);
+  REPAINT.push(show); show();
+  return row;
+}
+function toggle(host, addr, label, get, set) {
+  const row = el('div', 'row'); row.dataset.addr = addr;
+  const inp = el('input'); inp.type = 'checkbox'; inp.checked = !!get();
+  const out = el('output');
+  const show = () => { inp.checked = !!get(); out.textContent = get() ? 'ON' : 'OFF'; };
+  inp.addEventListener('change', () => { set(inp.checked ? 1 : 0); show(); onEdit(); });
+  row.appendChild(el('label', null, label)); row.appendChild(inp); row.appendChild(out);
+  host.appendChild(row); REPAINT.push(show); show();
+  return row;
+}
+function picker(host, addr, label, opts, get, set) {
+  const row = el('div', 'row wide'); row.dataset.addr = addr;
+  const sel = el('select');
+  opts.forEach((o, i) => { const op = el('option', null, String(o)); op.value = String(i); sel.appendChild(op); });
+  const show = () => { sel.value = String(get()); };
+  sel.addEventListener('change', () => { set(parseInt(sel.value, 10)); show(); onEdit(); });
+  row.appendChild(el('label', null, label)); row.appendChild(sel);
+  host.appendChild(row); REPAINT.push(show); show();
+  return row;
+}
+function pillRow(host, addr, names, get, set) {
+  const box = el('div', 'pills'); box.dataset.addr = addr;
+  const btns = [];
+  names.forEach((nm, i) => {
+    const b = el('button', 'pill', nm);
+    b.addEventListener('click', () => { set(i); show(); onEdit(); });
+    box.appendChild(b); btns.push(b);
+  });
+  const show = () => { const v = get(); btns.forEach((b, i) => b.classList.toggle('on', i === v)); };
+  host.appendChild(box); REPAINT.push(show); show();
+  return box;
+}
+const f2 = x => (Math.round(x * 100) / 100).toFixed(2);
+const fInt = x => String(Math.round(x));
+const fMs = x => Math.round(x) + 'ms';
+const fPan = x => x === 0 ? 'C' : (x < 0 ? 'L' : 'R') + Math.round(Math.abs(x) * 100);
+
+/* ---- envelope drawing — gui2:5930 drawEnvelope, in STATION's units --------
+   PER-STAGE BANDS, not a shared time axis: time-linear layout collapses at real
+   settings (a 3 ms attack gets 0.1% of the width against a 3 s decay). Each
+   stage owns a band sized by sqrt(seconds) with a fixed shelf between decay and
+   release, and draws its curve in LOCAL time — the picture answers "what SHAPE
+   is each stage", and the readouts answer "how long". */
+function drawEnv(cv, p) {
+  const G = ground(cv); if (!G) return;
+  const { g, w, h, v } = G;
+  const A = Math.max(1, p.a) / 1000, D = Math.max(5, p.d) / 1000, R = Math.max(5, p.r) / 1000;
+  const Sv = p.s, HOLD = 0.16;
+  const rt = Math.sqrt(A), rd = Math.sqrt(D), rr = Math.sqrt(R);
+  const total = rt + rd + rr || 1, avail = 1 - HOLD;
+  const bA = rt / total * avail, bD = rd / total * avail, bR = rr / total * avail;
+  const x0 = 2 * v, x1 = w - 3 * v;
+  const px = f => x0 + f * (x1 - x0);
+  const n = p.step | 0;
+  const Q = y => (n > 1 ? Math.round(y * (n - 1)) / (n - 1) : y);
+  const Y = y => h - 3 * v - Q(y) * (h - 8 * v);
+  const xAtk = px(bA), xDec = px(bA + bD), xSus = px(bA + bD + HOLD);
+  g.strokeStyle = TOK('--scr-value'); g.lineWidth = 1.5 * v; g.beginPath();
+  g.moveTo(x0, Y(0));
+  const N = 48;
+  for (let i = 1; i <= N; i++) { const t = i / N * 5; g.lineTo(x0 + (xAtk - x0) * i / N, Y(1 - Math.exp(-t))); }
+  for (let i = 1; i <= N; i++) { const t = i / N * 5; g.lineTo(xAtk + (xDec - xAtk) * i / N, Y(Sv + (1 - Sv) * Math.exp(-t))); }
+  if (p.loop) {
+    /* §7 LOOP: while gated it cycles A->D->A->D, so the shelf is a lie here —
+       the picture draws the second cycle instead of a sustain that never comes. */
+    for (let i = 1; i <= N; i++) { const t = i / N * 5; g.lineTo(xDec + (xSus - xDec) * i / N, Y(Sv + (1 - Sv) * (1 - Math.exp(-t)))); }
+  } else {
+    g.lineTo(xSus, Y(Sv));
+  }
+  const last = p.loop ? 1 : Sv;
+  for (let i = 1; i <= N; i++) { const t = i / N * 5; g.lineTo(xSus + (x1 - xSus) * i / N, Y(last * Math.exp(-t))); }
+  g.stroke();
+  g.strokeStyle = TOKA('--scr-grid', 0.35); g.lineWidth = v;
+  for (const gx of [xAtk, xDec, xSus]) { g.beginPath(); g.moveTo(gx, 0); g.lineTo(gx, h); g.stroke(); }
+  if (p.loop) {
+    g.fillStyle = TOKA('--scr-marker', 0.9);
+    g.font = (8 * v) + 'px ui-monospace,Menlo,monospace';
+    g.fillText('LOOP', x0 + 3 * v, 11 * v);
+  }
+  if (n > 1) {
+    g.fillStyle = TOKA('--scr-physics', 0.9);
+    g.font = (8 * v) + 'px ui-monospace,Menlo,monospace';
+    g.fillText('STEP ' + n, x0 + 3 * v, 21 * v);
+  }
+}
+
+/* ---- wave RAM carpet ----------------------------------------------------- */
+function drawRam() {
+  const cv = document.getElementById('ramC');
+  const G = ground(cv); if (!G) return;
+  const { g, w, h, v } = G;
+  const slot = w / 32, barW = slot * 0.8;
+  g.strokeStyle = TOKA('--scr-grid', 0.28); g.lineWidth = v;
+  for (let k = 1; k < 4; k++) {
+    const y = h * k / 4;
+    g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke();
+  }
+  for (let i = 0; i < 32; i++) {
+    const val = S.table[i] / 15;
+    const bh = Math.max(1.5 * v, val * (h - 4 * v));
+    const x = i * slot + (slot - barW) / 2;
+    g.fillStyle = TOKA('--scr-value', 0.85);
+    g.fillRect(x, h - 2 * v - bh, barW, bh);
+    g.fillStyle = TOK('--scr-marker');
+    g.fillRect(x, h - 2 * v - bh, barW, 2 * v);
+  }
+  g.fillStyle = TOKA('--scr-grid', 0.6); g.fillRect(0, h - 2 * v, w, 2 * v);
+}
+
+/* ---- scope + spectrum ---------------------------------------------------- */
+function drawScope() {
+  const cv = document.getElementById('scopeC');
+  const G = ground(cv); if (!G) return;
+  const { g, w, h, v } = G;
+  g.strokeStyle = TOKA('--scr-grid', 0.3); g.lineWidth = v;
+  g.beginPath(); g.moveTo(0, h / 2); g.lineTo(w, h / 2); g.stroke();
+  /* An idle tube must SAY it is idle. A flat line reads as a broken page, and
+     "the scope was empty" is exactly the report that cannot distinguish a dead
+     core from an unpowered one. */
+  if (!core || !ac) {
+    g.fillStyle = TOKA('--scr-grid', 0.9); g.font = (10 * v) + 'px ui-monospace,Menlo,monospace';
+    g.fillText(core ? 'POWER, then play' : 'no core — see the error below', 8 * v, h / 2 - 6 * v);
+    if (!core) return;
+  }
+  const buf = core.scope, n = buf.length;
+  g.strokeStyle = TOK('--scr-value'); g.lineWidth = 1.5 * v; g.beginPath();
+  for (let i = 0; i < n; i++) {
+    const s = buf[(core.si + i) % n];
+    const x = i / (n - 1) * w, y = h / 2 - s * (h / 2 - 3 * v);
+    if (i === 0) g.moveTo(x, y); else g.lineTo(x, y);
+  }
+  g.stroke();
+}
+const SPEC_BANDS = [30, 60, 120, 240, 480, 960, 1920, 3840, 7680, 16000];
+const specPeak = new Float32Array(SPEC_BANDS.length - 1);
+const specPeakAt = new Float64Array(SPEC_BANDS.length - 1);
+function drawSpec() {
+  const cv = document.getElementById('specC');
+  const G = ground(cv); if (!G) return;
+  const { g, w, h, v } = G;
+  const nb = SPEC_BANDS.length - 1, slot = w / nb, barW = slot * 0.75;
+  const floorY = h - 2 * v;
+  if (!ana || !specBuf) {
+    g.fillStyle = TOKA('--scr-grid', 0.9); g.font = (10 * v) + 'px ui-monospace,Menlo,monospace';
+    g.fillText('POWER, then play', 8 * v, h / 2);
+    return;
+  }
+  ana.getFloatFrequencyData(specBuf);
+  const sr = ac ? ac.sampleRate : 48000, bins = specBuf.length;
+  const now = (typeof performance !== 'undefined') ? performance.now() : 0;
+  for (let b = 0; b < nb; b++) {
+    const i0 = Math.max(0, Math.round(SPEC_BANDS[b] / (sr / 2) * bins));
+    const i1 = Math.min(bins - 1, Math.round(SPEC_BANDS[b + 1] / (sr / 2) * bins));
+    let db = -120;
+    for (let i = i0; i <= i1; i++) if (specBuf[i] > db) db = specBuf[i];
+    const val = Math.min(1, Math.max(0, (db + 90) / 90));
+    const x = b * slot + (slot - barW) / 2, bh = val * (h - 6 * v);
+    g.fillStyle = sunset(val);
+    g.fillRect(x, floorY - bh, barW, bh);
+    if (val >= specPeak[b]) { specPeak[b] = val; specPeakAt[b] = now; }
+    else if (now - specPeakAt[b] > 1500) specPeak[b] = Math.max(val, specPeak[b] - 0.012);
+    const py = floorY - specPeak[b] * (h - 6 * v);
+    g.fillStyle = specPeak[b] >= 0.999 ? TOK('--alarm') : TOK('--scr-meter');
+    g.fillRect(x, py - 2.5 * v, barW, 2.5 * v);
+  }
+  g.fillStyle = TOKA('--scr-grid', 0.55); g.fillRect(0, floorY, w, 2 * v);
+}
+
+/* ---- the operator cards (§3) --------------------------------------------- */
+const ENV_CANVAS = [];
+/* The tuning rows the current mode does not use stay PRESENT and go ghost —
+   see the .row.ghost note in the stylesheet: hiding them would break the page's
+   own claim that every §10 address has a reachable control. */
+const GHOSTS = [];
+function envRows(host, addr, p) {
+  const cv = el('canvas', 'envviz');
+  host.appendChild(cv);
+  ENV_CANVAS.push({ cv, p });
+  slider(host, addr + '.a', 'A', 1, 2000, 1, () => p.a, x => p.a = x, fMs);
+  slider(host, addr + '.d', 'D', 5, 3000, 1, () => p.d, x => p.d = x, fMs);
+  slider(host, addr + '.s', 'S', 0, 1, 0.005, () => p.s, x => p.s = x, f2);
+  slider(host, addr + '.r', 'R', 5, 4000, 1, () => p.r, x => p.r = x, fMs);
+  toggle(host, addr + '.loop', 'Loop', () => p.loop, x => p.loop = x);
+  picker(host, addr + '.step', 'Step', STEPS.map(n => n ? String(n) : 'OFF'),
+         () => Math.max(0, STEPS.indexOf(p.step)), i => p.step = STEPS[i]);
+}
+function buildOps() {
+  const host = document.getElementById('ops');
+  if (!host) return;
+  for (let i = 0; i < 3; i++) {
+    const o = S.ops[i], n = i + 1, a = 'op' + n;
+    const card = el('div', 'cluster');
+    const head = el('div', 'ohead');
+    head.appendChild(el('b', null, 'OP' + n));
+    head.appendChild(el('span', 'oname', 'operator'));
+    const onBox = el('div', 'row wide'); onBox.dataset.addr = a + '.on';
+    const onIn = el('input'); onIn.type = 'checkbox'; onIn.checked = !!o.on;
+    onIn.addEventListener('change', () => { o.on = onIn.checked ? 1 : 0; onEdit(); });
+    onBox.appendChild(el('label', null, 'On')); onBox.appendChild(onIn);
+    head.appendChild(onBox);
+    card.appendChild(head);
+
+    card.appendChild(el('div', 'cap', 'WAVEFORM § 3.2'));
+    pillRow(card, a + '.wave', WAVES, () => o.wave, v => o.wave = v);
+
+    card.appendChild(el('div', 'cap', 'TUNING § 3.1'));
+    pillRow(card, a + '.mode', MODES, () => o.mode, v => { o.mode = v; modeGhost(); });
+    const rRatio = slider(card, a + '.ratio', 'Ratio', 0.25, 16, 0.01, () => o.ratio, x => o.ratio = x, f2);
+    const rSemis = slider(card, a + '.semis', 'Pitch', -24, 24, 1, () => o.semis, x => o.semis = x, x => (x > 0 ? '+' : '') + fInt(x) + 'st');
+    const rFine = slider(card, a + '.fine', 'Fine', -50, 50, 1, () => o.fine, x => o.fine = x, x => (x > 0 ? '+' : '') + fInt(x) + 'c');
+    const rFixed = slider(card, a + '.fixed', 'Fixed', 20, 4000, 1, () => o.fixed, x => o.fixed = x, x => fInt(x) + 'Hz');
+    GHOSTS.push({ op: o, rows: [rRatio, rSemis, rFine, rFixed] });
+
+    card.appendChild(el('div', 'cap', 'PURE ↔ RAW § 3.3'));
+    slider(card, a + '.pure', 'Pure', 0, 1, 0.005, () => o.pure, x => o.pure = x, f2);
+    picker(card, a + '.qnt', 'Quant', QSTEPS.map(q => q ? String(q) : 'OFF'),
+           () => Math.max(0, QSTEPS.indexOf(o.qnt)), ix => o.qnt = QSTEPS[ix]);
+    slider(card, a + '.pw', 'Width', 0.05, 0.95, 0.005, () => o.pw, x => o.pw = x, x => Math.round(x * 100) + '%');
+    const snaps = el('div', 'pills');
+    [0.125, 0.25, 0.5].forEach(v => {
+      const b = el('button', 'pill', (v * 100) + '%');
+      b.dataset.lab = 'PW snap — a UI affordance, not a parameter (§ 3.2)';
+      b.addEventListener('click', () => { o.pw = v; onEdit(); });
+      snaps.appendChild(b);
+    });
+    card.appendChild(snaps);
+
+    card.appendChild(el('div', 'cap', 'PHASE · SYNC · RING § 3.4'));
+    slider(card, a + '.phase', 'Phase', 0, 360, 1, () => o.phase, x => o.phase = x, x => fInt(x) + '°');
+    picker(card, a + '.retrig', 'Mode', ['FREE', 'RETRIG'], () => o.retrig, v => o.retrig = v);
+    if (i > 0) {
+      toggle(card, a + '.sync', 'Sync', () => o.sync, x => o.sync = x);
+      picker(card, a + '.ring', 'Ring', RINGS, () => o.ring, v => o.ring = v);
+    }
+
+    card.appendChild(el('div', 'cap', 'MIX'));
+    slider(card, a + '.lvl', 'Level', 0, 1, 0.005, () => o.lvl, x => o.lvl = x, f2);
+    slider(card, a + '.pan', 'Pan', -1, 1, 0.01, () => o.pan, x => o.pan = x, fPan);
+
+    card.appendChild(el('div', 'sep'));
+    card.appendChild(el('div', 'cap', 'ENVELOPE § 7 — ms'));
+    envRows(card, a + '.env', o.env);
+    host.appendChild(card);
+  }
+  /* ---- the noise card (§6) ---- */
+  const ns = S.ns;
+  const card = el('div', 'cluster');
+  const head = el('div', 'ohead');
+  head.appendChild(el('b', null, 'NS'));
+  head.appendChild(el('span', 'oname', 'LFSR noise'));
+  const onBox = el('div', 'row wide'); onBox.dataset.addr = 'ns.on';
+  const onIn = el('input'); onIn.type = 'checkbox'; onIn.checked = !!ns.on;
+  onIn.addEventListener('change', () => { ns.on = onIn.checked ? 1 : 0; onEdit(); });
+  onBox.appendChild(el('label', null, 'On')); onBox.appendChild(onIn);
+  head.appendChild(onBox);
+  card.appendChild(head);
+  card.appendChild(el('div', 'cap', 'LFSR § 6'));
+  pillRow(card, 'ns.mode', ['LONG', 'SHORT'], () => ns.mode, v => ns.mode = v);
+  slider(card, 'ns.rate', 'Rate', 0, 1, 0.005, () => ns.rate, x => ns.rate = x, f2);
+  toggle(card, 'ns.ktrk', 'Keytrk', () => ns.ktrk, x => ns.ktrk = x);
+  card.appendChild(el('div', 'cap', 'MIX'));
+  slider(card, 'ns.lvl', 'Level', 0, 1, 0.005, () => ns.lvl, x => ns.lvl = x, f2);
+  slider(card, 'ns.pan', 'Pan', -1, 1, 0.01, () => ns.pan, x => ns.pan = x, fPan);
+  card.appendChild(el('div', 'sep'));
+  card.appendChild(el('div', 'cap', 'ENVELOPE § 7 — ms'));
+  envRows(card, 'ns.env', ns.env);
+  card.appendChild(el('div', 'note',
+    'Feedback bit0⊕bit1 (LONG, 32767 steps) or bit0⊕bit6 (SHORT, 93 steps — metallic, pitched). '
+    + 'No PM input; it IS a PM source — matrix row NS.'));
+  host.appendChild(card);
+}
+function modeGhost() {
+  for (const gset of GHOSTS) {
+    /* rows are [ratio, semis, fine, fixed]; §3.1: RATIO uses ratio + fine,
+       PITCH uses semitones + fine, FIXED uses the frequency alone. */
+    const m = gset.op.mode;
+    const on = m === 0 ? [1, 0, 1, 0] : m === 1 ? [0, 1, 1, 0] : [0, 0, 0, 1];
+    gset.rows.forEach((r, i) => { if (r && r.classList) r.classList.toggle('ghost', !on[i]); });
+  }
+}
+
+/* ---- the PM matrix well (§4) --------------------------------------------- */
+const MXCELLS = [];
+function buildMatrix() {
+  const grid = document.getElementById('mxGrid');
+  if (!grid) return;
+  grid.appendChild(el('div', 'mxh'));
+  for (const d of DST) grid.appendChild(el('div', 'mxh', d));
+  for (let r = 0; r < SRC.length; r++) {
+    grid.appendChild(el('div', 'mxh r', SRC[r]));
+    for (let c = 0; c < DST.length; c++) {
+      const cell = el('div', 'mxc' + (r === c ? ' fb' : ''));
+      cell.dataset.addr = 'mtx.' + SRC[r].toLowerCase() + '.' + DST[c].toLowerCase();
+      cell.title = SRC[r] + ' → ' + DST[c] + (r === c ? '  (self-feedback)' : '');
+      const show = () => {
+        const v = S.mtx[r][c];
+        cell.textContent = v ? f2(v) : '–';
+        cell.style.setProperty('--mx', String(v / 8));
+        cell.classList.toggle('on', v > 0);
+      };
+      let drag = false, y0 = 0, v0 = 0;
+      cell.addEventListener('pointerdown', e => {
+        drag = true; y0 = e.clientY; v0 = S.mtx[r][c];
+        cell.classList.add('drag');
+        if (cell.setPointerCapture) cell.setPointerCapture(e.pointerId);
+      });
+      cell.addEventListener('pointermove', e => {
+        if (!drag) return;
+        const v = Math.min(8, Math.max(0, v0 + (y0 - e.clientY) * 0.04));
+        S.mtx[r][c] = Math.round(v * 100) / 100; show(); onEdit();
+      });
+      const up = () => { drag = false; cell.classList.remove('drag'); };
+      cell.addEventListener('pointerup', up);
+      cell.addEventListener('pointercancel', up);
+      cell.addEventListener('wheel', e => {
+        e.preventDefault();
+        const v = Math.min(8, Math.max(0, S.mtx[r][c] - Math.sign(e.deltaY) * 0.1));
+        S.mtx[r][c] = Math.round(v * 100) / 100; show(); onEdit();
+      }, { passive: false });
+      cell.addEventListener('dblclick', () => {
+        const boot = defaultState().mtx;
+        S.mtx[r][c] = boot[r][c]; show(); onEdit();
+      });
+      grid.appendChild(cell);
+      MXCELLS.push(show); show();
+    }
+  }
+}
+
+/* ---- wiring -------------------------------------------------------------- */
+function onEdit() {
+  for (const f of REPAINT) f();
+  for (const f of MXCELLS) f();
+  for (const e of ENV_CANVAS) drawEnv(e.cv, e.p);
+  drawRam();
+  const mo = document.getElementById('masterOut');
+  if (mo) mo.textContent = f2(S.master);
+}
+function buildAlgs() {
+  const host = document.getElementById('algPills');
+  if (!host) return;
+  Object.keys(ALGS).forEach(name => {
+    const b = el('button', 'pill', name);
+    b.dataset.lab = '§4 algorithm preset — a stored PATCH over matrix + levels, not a parameter';
+    b.addEventListener('click', () => {
+      const alg = ALGS[name];
+      S.mtx = [[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]];
+      alg.m.forEach(t => { S.mtx[t[0]][t[1]] = t[2]; });
+      alg.lv.forEach((v, i) => { S.ops[i].lvl = v; });
+      onEdit();
+    });
+    host.appendChild(b);
+  });
+}
+function buildRamPresets() {
+  const host = document.getElementById('ramPresets');
+  if (!host) return;
+  Object.keys(TP).forEach(k => {
+    const b = el('button', 'pill', k);
+    b.dataset.lab = '§5 factory table — patch data, not a parameter';
+    b.addEventListener('click', () => {
+      // One reproducible draw per click: reseeded from S.seed, never one free
+      // call per cell (ADR-122's sanctioned seed, kept).
+      if (k === 'RND') rndStream = mulberry32(S.seed >>> 0);
+      for (let i = 0; i < 32; i++) S.table[i] = TP[k](i);
+      onEdit();
+    });
+    host.appendChild(b);
+  });
+}
+function buildPenv() {
+  const host = document.getElementById('penvRows');
+  if (!host) return;
+  slider(host, 'penv.amt', 'Amount', -24, 24, 0.1, () => S.penv.amt, x => S.penv.amt = x,
+         x => (x > 0 ? '+' : '') + f2(x) + 'st');
+  slider(host, 'penv.dec', 'Decay', 5, 800, 1, () => S.penv.dec, x => S.penv.dec = x, fMs);
+}
+function wireRam() {
+  const cv = document.getElementById('ramC');
+  if (!cv || !cv.addEventListener) return;
+  cv.dataset.addr = 'wave.table';
+  let drawing = false;
+  const paint = e => {
+    const r = cv.getBoundingClientRect();
+    const x = Math.floor((e.clientX - r.left) / r.width * 32);
+    const y = 15 - Math.floor((e.clientY - r.top) / r.height * 16);
+    if (x >= 0 && x < 32) { S.table[x] = Math.min(15, Math.max(0, y)); drawRam(); }
+  };
+  cv.addEventListener('pointerdown', e => {
+    drawing = true; paint(e);
+    if (cv.setPointerCapture) cv.setPointerCapture(e.pointerId);
+  });
+  cv.addEventListener('pointermove', e => { if (drawing) paint(e); });
+  cv.addEventListener('pointerup', () => { drawing = false; });
+  cv.addEventListener('pointercancel', () => { drawing = false; });
+  const seed = document.getElementById('ramSeed');
+  if (seed && seed.addEventListener) {
+    seed.dataset.addr = 'wave.seed';
+    seed.addEventListener('input', () => { S.seed = (parseInt(seed.value, 10) || 0) | 0; });
+  }
+}
+
+/* ---- keyboard ------------------------------------------------------------ */
+const BLACK = { 1: 1, 3: 1, 6: 1, 8: 1, 10: 1 };
+let baseNote = 48;
+const KEYEL = {};
+const held = {};
+function press(n) {
+  if (held[n]) return;
+  held[n] = 1; power();
+  if (core) core.noteOn(n);
+  if (KEYEL[n] && KEYEL[n].classList) KEYEL[n].classList.add('on');
+}
+function release(n) {
+  if (!held[n]) return;
+  delete held[n];
+  if (core) core.noteOff(n);
+  if (KEYEL[n] && KEYEL[n].classList) KEYEL[n].classList.remove('on');
+}
+function buildKbd() {
+  const host = document.getElementById('kbd');
+  if (!host) return;
+  host.innerHTML = '';
+  for (const k in KEYEL) delete KEYEL[k];
+  for (let i = 0; i < 25; i++) {
+    const n = baseNote + i;
+    const k = el('div', 'key' + (BLACK[n % 12] ? ' blk' : ''));
+    k.dataset.lab = 'on-screen keyboard — a lab affordance';
+    const kc = Object.keys(KEYMAP).filter(c => baseNote + KEYMAP[c] === n)[0];
+    k.appendChild(el('span', null, n % 12 === 0 ? 'C' + (Math.floor(n / 12) - 1) : (kc ? kc.toUpperCase() : '')));
+    k.addEventListener('pointerdown', () => press(n));
+    k.addEventListener('pointerup', () => release(n));
+    k.addEventListener('pointerleave', () => release(n));
+    host.appendChild(k);
+    KEYEL[n] = k;
+  }
+}
+
+/* ---- the mapping audit (requirement (h), checked by the page itself) ------ */
+function auditMapping() {
+  const box = document.getElementById('audit');
+  if (!box) return;
+  const nodes = [];
+  try { for (const e of document.querySelectorAll('[data-addr]')) nodes.push(e); } catch (_) { /* headless */ }
+  const addrs = nodes.map(e => (e.dataset && e.dataset.addr) || '');
+  const covered = {};
+  let off = 0;
+  for (const a of addrs) {
+    const row = rowOf(a);
+    if (row) covered[row] = (covered[row] || 0) + 1; else off++;
+  }
+  const missing = SPEC10_ROWS.filter(r => !covered[r]);
+  let labOnly = 0;
+  try { for (const e of document.querySelectorAll('[data-lab]')) labOnly++; } catch (_) { /* headless */ }
+  box.classList.toggle('bad', missing.length > 0);
+  box.innerHTML = 'mapping audit — <b>§10 rows ' + (SPEC10_ROWS.length - missing.length)
+    + '/' + SPEC10_ROWS.length + '</b> covered by <b>' + (addrs.length - off)
+    + '</b> addressed controls; <b>' + off + '</b> off-table (§5 Wave RAM: the table is patch data, '
+    + 'which §10 does not list); <b>' + labOnly + '</b> lab-only affordances (marked <code>data-lab</code>, '
+    + 'never a parameter)'
+    + (missing.length ? ' — MISSING: ' + missing.join(', ') : '.');
+}
+
+/* ---- theme --------------------------------------------------------------- */
+/* `?theme=dark` opens in the dark chassis. A deep link, not a convenience: it
+   is how a headless screenshot of the second theme is a LOAD rather than a
+   synthetic click, and a click a screenshotter has to fake is a click that can
+   silently fail to land. */
+let dark = false;
+try {
+  const q = window.location && window.location.search;
+  if (typeof q === 'string' && /theme=dark/.test(q)) dark = true;
+} catch (_) { /* headless: no location */ }
+function applyTheme() {
+  document.body.classList.toggle('dark', dark);
+  const b = document.getElementById('themeBtn');
+  if (b) b.innerHTML = 'theme <b>' + (dark ? 'DARK · TUBE' : 'LIGHT · ORCHID') + '</b>';
+  /* The cache is keyed by token NAME, so a theme change invalidates all of it
+     (gui2:1896). Canvases are then repainted explicitly: a trail-fade canvas
+     with nothing feeding it holds a stale ground forever otherwise. */
+  for (const k in _tok) delete _tok[k];
+  onEdit(); drawScope(); drawSpec();
+}
+
+/* ---- frame loop ---------------------------------------------------------- */
+function audioStat() {
+  const el2 = document.getElementById('audioStat');
+  if (!el2) return;
+  if (!core) { el2.textContent = 'AUDIO — NO CORE'; return; }
+  if (!ac) { el2.textContent = 'AUDIO — OFF'; return; }
+  const pk = core.peak; core.peak = 0;
+  el2.textContent = 'AUDIO — ' + Math.round(ac.sampleRate) + ' Hz · blocks ' + blocks
+    + ' · voices ' + core.voices.length + ' · peak ' + pk.toFixed(3);
+}
+function frame() {
+  drawScope(); drawSpec(); audioStat();
+  if (window.requestAnimationFrame) window.requestAnimationFrame(frame);
+}
+
+/* ============ SETUP — everything above is declared; nothing here reaches
+   forward to a const below it (L0026). ============ */
+buildOps();
+buildMatrix();
+buildAlgs();
+buildRamPresets();
+buildPenv();
+wireRam();
+buildKbd();
+modeGhost();
+auditMapping();
+paintErr();
+
+const masterIn = document.getElementById('master');
+if (masterIn && masterIn.addEventListener) {
+  masterIn.addEventListener('input', () => { S.master = parseFloat(masterIn.value); onEdit(); });
+}
+const pwrBtn = document.getElementById('pwr');
+if (pwrBtn && pwrBtn.addEventListener) {
+  pwrBtn.addEventListener('click', () => { power(); if (pwrBtn.classList) pwrBtn.classList.add('on'); });
+}
+const panicBtn = document.getElementById('panic');
+if (panicBtn && panicBtn.addEventListener) {
+  panicBtn.addEventListener('click', () => {
+    if (core) core.panic();
+    for (const n in held) release(+n);
+  });
+}
+const themeBtn = document.getElementById('themeBtn');
+if (themeBtn && themeBtn.addEventListener) {
+  themeBtn.addEventListener('click', () => { dark = !dark; applyTheme(); });
+}
+if (window.addEventListener) {
+  window.addEventListener('keydown', e => {
+    if (e.repeat) return;
+    const k = String(e.key || '').toLowerCase();
+    if (k === 'z') { baseNote = Math.max(24, baseNote - 12); buildKbd(); return; }
+    if (k === 'x') { baseNote = Math.min(84, baseNote + 12); buildKbd(); return; }
+    if (KEYMAP[k] !== undefined) press(baseNote + KEYMAP[k]);
+  });
+  window.addEventListener('keyup', e => {
+    const k = String(e.key || '').toLowerCase();
+    if (KEYMAP[k] !== undefined) release(baseNote + KEYMAP[k]);
+  });
+  window.addEventListener('resize', () => { onEdit(); drawScope(); drawSpec(); });
+}
+applyTheme();
+frame();
+</script>
+</body></html>
