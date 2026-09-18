@@ -11,7 +11,7 @@
  * because the classification is a judgement the human reviews — a green exit
  * code says the rule is self-consistent, not that the rule is right.
  *
- *   T1  every parameter is classified: 243 base rows, every twin, no -1.
+ *   T1  every parameter is classified: 244 base rows, every twin, no -1.
  *   T2  no morphIds member is device. This is the load-bearing cross-check:
  *       paramClassOf never reads morphIds and morphInit never reads the class,
  *       so the two lists are independently authored. Derive one from the other
@@ -23,6 +23,11 @@
  *   T4  per-osc twins (id, id+1000) share a class. True by construction today
  *       — they share one ParamDef — so this pins the construction rather than
  *       discovering it, and fails the day an override is keyed on a twin id.
+ *       ROUTING IDS ARE NOT TWINS and are excluded: the crosspoint block is a
+ *       positional namespace of its own (`decodeRoutingId`, hypersaw_clap.cpp),
+ *       so `id - 1000` under 10000+ names no parameter at all — 14 of the 24
+ *       compared against a non-parameter and reported a class disagreement
+ *       that was an artefact of the subtraction, not a classification fault.
  *   T4r THE REFUSAL (L0036): a global has no +1000 twin, so its twin is not a
  *       parameter and has no class at all (-1), not a defaulted one.
  *   T5  the B49 atomic FX groups are internally consistent: slot type is
@@ -131,7 +136,7 @@ int main()
 
   std::map<uint32_t, int> tableClass;   // id -> class, as printed
   int counts[3] = {0, 0, 0};            // every host-exposed id, twins included
-  int baseCounts[3] = {0, 0, 0};        // the 243 kParams rows — the definition
+  int baseCounts[3] = {0, 0, 0};        // the 244 kParams rows — the definition
   int unclassified = 0, duplicated = 0, baseRows = 0;
   std::vector<uint32_t> allIds;
 
@@ -146,7 +151,7 @@ int main()
     const int c = hypersaw_debug_paramclass(info.id, &key, &reason);
     if (c < 0) unclassified++;
     else counts[c]++;
-    if (info.id >= 1000) continue;   // the 243 kParams rows ARE the definition
+    if (info.id >= 1000) continue;   // the 244 kParams rows ARE the definition
     baseRows++;
     if (c >= 0) baseCounts[c]++;
     if (tableClass.count(info.id)) duplicated++;
@@ -163,7 +168,9 @@ int main()
               morphable, structural, device);
 
   /* ---- the assertions ---- */
-  check(baseRows == 243, "T1a the table is the 243 frozen kParams rows");
+  // 244 since B146 appended bassMonoPos (id 267). The pin is the point: it is
+  // meant to be moved deliberately, by the change that adds the row.
+  check(baseRows == 244, "T1a the table is the 244 frozen kParams rows");
   check(unclassified == 0, "T1b every host-exposed id carries a class (no -1)");
 
   const std::vector<uint32_t> field = morphFieldIds(p);
@@ -185,11 +192,16 @@ int main()
   for (uint32_t id = 151; id <= 158; id++) morphCtlDevice = morphCtlDevice && classOf(id) == 2;
   check(morphCtlDevice, "T3 ids 151-158 (morph position + controls) are device");
 
+  /* The ROUTING block's base (`kRoutingIdBase` in the shell). Restated here
+     rather than included because this tool links the entry, not the shell's
+     internals; it is a bound, not a second decoder — every cell's membership
+     still comes from the host's own id list. */
+  constexpr uint32_t kRoutingIdBase = 10000;
   int twinsChecked = 0;
   bool twinsAgree = true;
   for (uint32_t id : allIds)
   {
-    if (id < 1000) continue;
+    if (id < 1000 || id >= kRoutingIdBase) continue;   // routing ids are not twins
     twinsChecked++;
     if (classOf(id) != classOf(id - 1000)) twinsAgree = false;
   }
