@@ -1354,6 +1354,7 @@ public:
 
   void finishRebuild(int n)
   {
+    rebuildGen++;   // B148/O3: the only thing that moves x[] / xmin
     centerIdx = 0;
     for (int i = 1; i < n; i++)
       if (std::fabs(x[i]) < std::fabs(x[centerIdx])) centerIdx = i;
@@ -1577,11 +1578,34 @@ public:
     // (including tempo-grid, which the lab lacks — uniform placement semantics,
     // recorded in the ADR). Defaults bit-inert: detune*1 == detune, x - 0 == x.
     const double dep = p.detune * p.spread;
+    /* B148/O3: law 0's pow(2, xv*dep*100/1200) is a function of x[], anchor,
+       detune and spread ONLY — nothing per-voice and nothing per-tick — yet it
+       ran n times per voice per control tick (n `pow` calls, the single
+       heaviest term in the audit's controlTick breakdown). Cached here per
+       (rebuildGen, dep, anchor, n): the expression is copied verbatim, so a
+       cache hit returns the same double the call would have, and the
+       invalidation is by VALUE, not by setParam, because `p` is public and a
+       tool can write p.detune directly. x[] and xmin move only in
+       finishRebuild(), which is what rebuildGen counts. */
+    const double *lawR = nullptr;
+    if (p.law == 0)
+    {
+      if (lawN != n || lawGen != rebuildGen || lawDep != dep || lawAnchor != p.anchor)
+      {
+        for (int i = 0; i < n; i++)
+          lawRatio[i] = std::pow(2, ((x[i] - p.anchor * xmin) * dep * 100) / 1200);
+        lawN = n;
+        lawGen = rebuildGen;
+        lawDep = dep;
+        lawAnchor = p.anchor;
+      }
+      lawR = lawRatio;
+    }
     for (int i = 0; i < n; i++)
     {
       double f;
       const double xv = x[i] - p.anchor * xmin;
-      if (p.law == 0) { f = f0c * std::pow(2, (xv * dep * 100) / 1200); }
+      if (p.law == 0) { f = f0c * lawR[i]; }
       else if (p.law == 1) { f = f0c + xv * dep * 20; }
       else if (p.law == 3)
       {
@@ -1917,6 +1941,12 @@ public:
   int centerIdx = 0;
   double xmin = 0;  // lowest raw x, for the root anchor (ADR-068)
   bool tiltHP = false;  // tone-tilt sign (ADR-060), set each control tick
+  // B148/O3: law-0 detune-ratio cache and its invalidation key. lawN = -1 and
+  // lawGen = 0 (rebuildGen starts at 1) force a miss on the first tick.
+  double lawRatio[kMaxV] = {0};
+  double lawDep = 0, lawAnchor = 0;
+  int lawN = -1;
+  long lawGen = 0, rebuildGen = 1;
   uint32_t grng = 1;
   Voice voices[kPoly];
 };
