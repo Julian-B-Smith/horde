@@ -513,7 +513,18 @@ class SwarmVerb {
       }
       // per-line feedback for the requested RT60: g = 10^(-3 * len / (rt60*sr))
       const rt = Math.max(0.15, p.decay);
-      // Householder mixing (negated: the all-ones eigenchannel must carry +1)
+      // HOUSEHOLDER MIXING, PLAIN I-(2/N)J: with every outs[i] = 1, sum = N, so
+      // hh = 2 and `outs[i] - hh` = -1. THE ALL-ONES EIGENCHANNEL CARRIES -1,
+      // not +1 — the previous comment here claimed the opposite of what this
+      // line does, and `dif` is fed identically to all eight lines below, so
+      // this IS the eigenchannel the input excites. ADR-030(a) requires that
+      // statement of any matrix work, and this is the module that owes it.
+      // The divergence from src/time_core.h:179 (h*s - outs[i], all-ones +1) is
+      // left in place deliberately: +1 combs at k/L, which the Room wants as its
+      // tuned-resonance feature and a diffuser does not. Measured cost of the
+      // sign either way is <= 1.2 % in T30 and within noise on comb content
+      // (B152 audit R7), so correcting the COMMENT is the fix; changing the code
+      // would change the shipped sound and is the human's call, not a tidy-up.
       const hh = 2 * sum / NLINE;
       for (let i = 0; i < NLINE; i++) {
         const len = this.baseLen[i] * sizeScale;
