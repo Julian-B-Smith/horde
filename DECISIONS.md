@@ -5922,3 +5922,11 @@ control (swap the ranges: the shallow corner must then go deep).
 **Consequences.** R5/R8–R12/R14 of the plan stand as the lead's. The
 planner's Gumbel-max recommendation is superseded by decision 1 on the
 human's criterion; the plan document is the record of why.
+
+### ADR-176 Amendment 1 — the shared seed is drawn after the per-atom seeds (2026-09-18, PR #629)
+
+`morphCoup`'s shared seed is one extra mulberry32 draw APPENDED after the
+per-atom draws, so enabling or changing coupling leaves every atom's own
+seed bit-identical — the same argument `morph_core.h` already makes for
+its shared Gumbel vector. Ratified by the lead on the plan's authority;
+the human's word at merge.
