@@ -426,10 +426,36 @@ class SwarmCore
     // on its own terms. (Caught by ADR-026 non-legato going red when the core
     // stopped reading it: 220 -> 274.8 Hz, an 8x-fast glide.)
     if (k == "glide") p.noteLaw.tau = v * 1000.0;   // seconds -> ms
+    /* B148/O4: rebuild only when rebuild()'s OWN INPUTS moved. applyParam
+       drains the CLAP queue per EVENT on the audio thread with no coalescing,
+       so sample-accurate automation of any of these keys paid a full rebuild
+       per event — 503 ns at n = 32, measured at +31 % of the block's own cost
+       under a 128-event block (audit §2.5).
+
+       Skipping is exactly bit-identical because rebuild() + finishRebuild()
+       read nothing but `sr` and these twelve values, and `sr` is fixed at
+       construction (no setter): re-running with an identical key reproduces
+       the state already written, grng included — it is reset from p.seed at
+       the top of every call.
+
+       NOT keyed on "did this setParam move its own slot", which is the
+       obvious form and is WRONG here: `p` is public, and plug_activate
+       (hypersaw_clap.cpp) reseats a core by assigning the whole Params struct
+       and then calling setParam("seed", saved.seed) purely to force the
+       rebuild. That is a same-value write whose entire intent is the rebuild,
+       and the slot-delta form skipped it — caught by statefix_check, all
+       three fixtures diverging at frame 0. Keying on the real inputs honours
+       that call by construction and still collapses an automation storm.
+       memcmp, not ==, so a repeated NaN counts as unchanged (safe: rebuild is
+       deterministic in its input bits) and +0 vs -0 counts as changed. */
     if (k == "n" || k == "dist" || k == "seed" || k == "width" || k == "topo" ||
         k == "panScatter" || k == "law" || k == "panLayout" || k == "panCurve" ||
         k == "panInvert" || k == "superMode" || k == "oversample")
-      rebuild();  // law/pan* added by ADR-070 (fan ranks by pitch); idempotent
+    {   // law/pan* added by ADR-070 (fan ranks by pitch); idempotent
+      double now[kRebuildKeyN];
+      loadRebuildKey(now);
+      if (std::memcmp(now, rebuildKey, sizeof(now)) != 0) rebuild();
+    }
     return true;
   }
 
@@ -1207,6 +1233,18 @@ public:
      unchanged, so every golden is bit-identical. */
   int voiceCount() const { return std::min(kMaxV, std::max(1, (int)p.n)); }
 
+  /* B148/O4: the COMPLETE input set of rebuild() + finishRebuild() — grep
+     them and `p` is read nowhere else in either — single-sourced here so the
+     setParam trigger list above and the skip test can never disagree about
+     what a rebuild depends on. Order is the trigger list's order. */
+  static constexpr int kRebuildKeyN = 12;
+  void loadRebuildKey(double *o) const
+  {
+    o[0] = p.n;         o[1] = p.dist;      o[2] = p.seed;      o[3] = p.width;
+    o[4] = p.topo;      o[5] = p.panScatter; o[6] = p.law;      o[7] = p.panLayout;
+    o[8] = p.panCurve;  o[9] = p.panInvert; o[10] = p.superMode; o[11] = p.oversample;
+  }
+
   // mulberry32 shared with the Track E force system (ADR-034 unification —
   // the one piece of arithmetic the two dynamics families genuinely share).
   // Parity 51/51 proves the delegation is bit-neutral.
@@ -1355,6 +1393,7 @@ public:
   void finishRebuild(int n)
   {
     rebuildGen++;   // B148/O3: the only thing that moves x[] / xmin
+    loadRebuildKey(rebuildKey);   // B148/O4: what this rebuild consumed
     centerIdx = 0;
     for (int i = 1; i < n; i++)
       if (std::fabs(x[i]) < std::fabs(x[centerIdx])) centerIdx = i;
@@ -1947,6 +1986,10 @@ public:
   double lawDep = 0, lawAnchor = 0;
   int lawN = -1;
   long lawGen = 0, rebuildGen = 1;
+  // B148/O4: rebuild()'s inputs as of the last rebuild. Zero here only until
+  // the constructor's own rebuild() fills it — member init runs first, so no
+  // setParam can ever read it uninitialised.
+  double rebuildKey[kRebuildKeyN] = {};
   uint32_t grng = 1;
   Voice voices[kPoly];
 };
