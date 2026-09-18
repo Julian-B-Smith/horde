@@ -5871,3 +5871,54 @@ one knob is one macro with N bindings. Consequence for B136: the host-side
 mapper reads a hosted module's preset macros by role hint when present and
 falls back to an unbound slot when absent; nothing in ADR-169 changes.
 Nothing asked; nothing owed.
+
+## ADR-176 — The intent-bus resolver: owner law, atoms, intents, pads, the flag (2026-09-18, RATIFIED)
+
+**Context.** B89 phase 2 plan (`docs/proposals/b89-phase2-intent-resolver.md`);
+the human ruled in two rounds on 2026-09-18 with the criterion "optimally
+musical, lightweight, and understandable", and a stated next step: exposing
+the parameter distribution and editing boundaries by hand.
+
+**Decisions.**
+1. **Owner law = the spec's cumulative walk** (SPEC-INTENT-BUS §4.3): one
+   seed per atom, walk A→B→C→D, first corner whose cumulative sharpened
+   weight exceeds the seed. Same ownership statistics as the shell's
+   Gumbel-max (not audibly distinct), same cost, but one seed = ONE
+   editable boundary per atom — the property the boundary editor needs.
+   `morphCoup` (155) survives as a shared-seed blend, s_a' = (1−c)·s_a +
+   c·s_shared. `steepness = 1/morphTemp`. Existing patches' flip maps
+   change once, pre-1.0; the bank is regenerated. Replaces `MorphCore::
+   pickCorner`'s Gumbel draw when the resolver flag is on; bit-identical
+   when off.
+2. **Atoms are lead groups, not parameters**: the distinct values of
+   `morphLead[]` (the scale = one atom of 13, ADR-109 A1; each FX slot's
+   type+amount+tone = one atom, ADR-124), plus `home`, plus (later) each
+   `macroRest`. Human: "I can't think of any cases in which a different
+   policy would make better sense."
+3. **The routing block is ONE atom under quantum morph** (B142): all cells
+   ≥ 10000 share one lead index; cell-wise blend under BLEND mode. A
+   half-owned crosspoint table is a topology neither corner authored, and
+   under ADR-175 a mixture of two acyclic tables can be cyclic.
+4. **Intents are ten slots — X, Y, and the eight macros (166–173) re-read —
+   named by the user per patch, with suggestive defaults.** Ratified names
+   so far: Space, Timbre, Motion, Grit, Time. Three remain to propose in
+   plain words. Names are patch state in the `intent=` chunk; the slot
+   order is append-only (a stored `intentOrder`).
+5. **The MAIN XY is the performance pad; the morph pad never is** — B133's
+   rail drives the morph pad; the performance pad's `home` is an atom.
+6. **The flag** is param 266 `intentBus (dev)`, default off, the ADR-163
+   instrument shape; it does nothing with morph off; the morph glide still
+   carries the resolved value (a logged divergence from §4.5's
+   instantaneous evaluation).
+
+**A test the human named (for 2c/2d).** "Time" as an intent, two corners
+with different envelopes AND different modulation ranges on them: under the
+ratified law the intent acts through each owner's own bindings and clamps
+to each owner's range (§4.5), so a corner that binds Time shallow stays
+shallow while the morph passes — the scenario is elegant exactly because
+ranges are corner-owned. Written as intent_check T10 with a must-fail
+control (swap the ranges: the shallow corner must then go deep).
+
+**Consequences.** R5/R8–R12/R14 of the plan stand as the lead's. The
+planner's Gumbel-max recommendation is superseded by decision 1 on the
+human's criterion; the plan document is the record of why.
