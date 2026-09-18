@@ -537,6 +537,49 @@ if(NOT MSVC)
   target_compile_options(measure_cpu PRIVATE -O2)
 endif()
 
+# ---- B147 layer 2: the SWARM SAW engine fidelity suite --------------------
+# Six checks closing the six oracle gaps docs/audits/2026-09-18-saw-engine-audit.md
+# §3 enumerated. ALL SIX ARE STANDALONE AND UNWIRED: ./verify is a protected
+# path and wiring a gate is the human's decision (charter; the route is
+# ADR-171), proposed in the PR that adds them. `subdiv_check` and
+# `samplerate_check` — the two gates whose blind spots these cover — are not
+# touched.
+#
+# alias_check and cpu_check are the SAME SOURCE as measure_alias / measure_cpu,
+# built a second time with the judging section switched on. The audit's
+# "reduction note" is explicit that these two gaps are closed by making two
+# already-calibrated binaries JUDGE, not by writing a third FFT or a second
+# stopwatch — so the judgement lives beside the measurement it judges, and
+# measure_alias / measure_cpu keep their "print, never judge" contract byte for
+# byte (their exit code and output are unchanged; only the extra table rows the
+# audit asked for are shared).
+add_executable(alias_check tools/measure_alias.cpp)
+target_link_libraries(alias_check PRIVATE ${PROJECT_NAME}-impl)
+target_include_directories(alias_check PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/generated)
+target_compile_definitions(alias_check PRIVATE ALIAS_JUDGE=1)
+add_executable(cpu_check tools/measure_cpu.cpp)
+target_link_libraries(cpu_check PRIVATE ${PROJECT_NAME}-impl)
+target_include_directories(cpu_check PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/generated)
+target_compile_definitions(cpu_check PRIVATE CPU_JUDGE=1)
+if(NOT MSVC)
+  target_compile_options(alias_check PRIVATE -O2)
+  target_compile_options(cpu_check PRIVATE -O2)
+endif()
+
+# The other four are core-direct (no shell link): they measure SwarmCore's own
+# behaviour, and the shell would only add a layer between the probe and the
+# quantity.
+add_executable(sr_check tools/sr_check.cpp)
+add_executable(blocksize_check tools/blocksize_check.cpp)
+add_executable(stability_check tools/stability_check.cpp)
+add_executable(denormal_check tools/denormal_check.cpp)
+foreach(t sr_check blocksize_check stability_check denormal_check)
+  target_include_directories(${t} PRIVATE src)
+  if(NOT MSVC)
+    target_compile_options(${t} PRIVATE -O2)
+  endif()
+endforeach()
+
 # strata_check: STRATA's six properties, as the human's own spec states them
 # (B77 increment 1). Core + oracle land together, unwired -- the glide_core /
 # mod_core order. Wiring it into ./verify is a human decision (charter).
