@@ -152,6 +152,18 @@ class MiniSwarm {
 class SwarmVerb {
   constructor(sr) {
     this.sr = sr;
+    // EVERY LENGTH IS A TIME. The FDN lines, the diffusion allpasses and the
+    // modulation depth were written as constants in SAMPLES at 44.1 kHz, so the
+    // modelled room shrank with the sample rate: measured FDN build-up 50.52 ms
+    // at 44.1 k against 23.21 ms at 96 k, a ratio of 2.177 = 96000/44100 to four
+    // figures, and the modulation wobble halved in cents over the same span
+    // (B152 audit R3/R4). That is ADR-009's banned "hand-tuned per-tick
+    // constant" in the length domain. The ER taps (seconds) and the pre-delay
+    // (p.preDelay * sr) were already right; these three now are too.
+    // srScale is EXACTLY 1.0 at 44.1 kHz and x * 1.0 == x in IEEE754, so this
+    // costs no re-baseline of the 44.1 kHz renders — which is why it is done
+    // before any golden exists and not after (ADR-027/036 lean on the same).
+    this.srScale = sr / 44100;
     // SPLIT AXES (2026-07-29 space research). Apparent source WIDTH and
     // ENVELOPMENT are driven by physically different cues, so they are
     // independently controllable and should not share one "space" amount:
@@ -202,20 +214,16 @@ class SwarmVerb {
     // on every sample (symptom: silence the moment spin leaves zero).
     this.spinPh = new Float64Array(this.NTAP);
     for (let i = 0; i < this.NTAP; i++) this.spinPh[i] = (i * 0.6180339887498949) % 1;
-    // diffusion allpasses (lengths in samples at 44.1k, scaled at run time)
-    this.apLen = [142, 107, 379, 277];
-    this.ap = this.apLen.map(L => ({ buf: new Float64Array(2048), w: 0, len: L }));
-    this.apR = this.apLen.map(L => ({ buf: new Float64Array(2048), w: 0, len: (L * 1.17) | 0 }));
+    // diffusion allpasses (lengths quoted at 44.1k, scaled by RATE here and by
+    // SIZE at run time — the old comment said "scaled at run time" but meant
+    // size only, which is exactly how R3 hid)
+    this.apLen = [142, 107, 379, 277].map(L => L * this.srScale);
+    // The buffer has to grow with the lengths or the `% a.buf.length` on the
+    // read turns the scaling back into a wrap at high rates.
+    const apBuf = Math.max(2048, 1 << Math.ceil(Math.log2(Math.max(...this.apLen) * 3.05 + 64)));
+    this.ap = this.apLen.map(L => ({ buf: new Float64Array(apBuf), w: 0, len: L }));
+    this.apR = this.apLen.map(L => ({ buf: new Float64Array(apBuf), w: 0, len: (L * 1.17) | 0 }));
     // FDN
-    // 1<<14, not 1<<13. The size range now reaches 3.05x, and the longest base
-    // line at that scale is 9720 samples — past the old 8192 buffer, where the
-    // per-sample Math.min clamp would have silently held every long line at the
-    // same length. That is not graceful degradation: equal lengths collapse the
-    // mode structure into a single comb, so the reverb would have got MORE
-    // metallic as you asked for a bigger room.
-    this.LBUF = 1 << 14;
-    this.line = []; for (let i = 0; i < NLINE; i++) this.line.push(new Float64Array(this.LBUF));
-    this.lw = 0;
     // Base lengths are coprime-ish so the modes do not collide. Their MEAN is
     // now derivable rather than guessed: an FDN's echo density grows as a
     // polynomial in time whose coefficients follow from the delay lengths, so
@@ -224,9 +232,22 @@ class SwarmVerb {
     // growth estimate — an APPROXIMATION of their closed form, not the exact
     // expression, which I could not obtain (the paper is paywalled). It is
     // still the difference between specifying the density transition and
-    // eyeballing it.
-    this.baseLen0 = [1237, 1451, 1733, 1979, 2287, 2593, 2861, 3187];
+    // eyeballing it. Quoted at 44.1 kHz and rate-scaled (R3); the read is
+    // fractional and interpolated, so they need no rounding.
+    this.baseLen0 = [1237, 1451, 1733, 1979, 2287, 2593, 2861, 3187].map(L => L * this.srScale);
     this.baseLen = this.baseLen0.slice();
+    // 1<<14, not 1<<13. The size range now reaches 3.05x, and the longest base
+    // line at that scale is 9720 samples — past the old 8192 buffer, where the
+    // per-sample Math.min clamp would have silently held every long line at the
+    // same length. That is not graceful degradation: equal lengths collapse the
+    // mode structure into a single comb, so the reverb would have got MORE
+    // metallic as you asked for a bigger room. Derived from the lengths rather
+    // than written down, so rate-scaling them cannot walk back into that clamp
+    // (at 96 kHz the longest line at size 1 is 21 161 samples); 1<<14 at
+    // 44.1 kHz exactly as before.
+    this.LBUF = Math.max(1 << 14, 1 << Math.ceil(Math.log2(Math.max(...this.baseLen0) * 3.05 + 64)));
+    this.line = []; for (let i = 0; i < NLINE; i++) this.line.push(new Float64Array(this.LBUF));
+    this.lw = 0;
     this.lp = new Float64Array(NLINE);
     this.hp = new Float64Array(NLINE);
     this.dampCi = new Float64Array(NLINE);
@@ -384,7 +405,10 @@ class SwarmVerb {
       this.hpCi[i] = 1 - Math.exp(-TAU * (fc0 * Math.sqrt(rl)) / sr);
     }
     const pdSamp = Math.max(1, Math.min(this.pd.length - 4, p.preDelay * sr));
-    const modSamp = p.modDepth * 26;   // up to ~26 samples of wander
+    // Up to ~26 samples of wander AT 44.1 kHz — the audible quantity is cents,
+    // not samples, so the depth is rate-scaled with the lengths (R4: the peak
+    // wobble was 23.73 c at 44.1 k and 10.86 c at 96 k for identical settings).
+    const modSamp = p.modDepth * 26 * this.srScale;
     for (let smp = 0; smp < N; smp++) {
       if (this.tickCtr === 0) this.stepMod(dt * TICK);
       this.tickCtr = (this.tickCtr + 1) & (TICK - 1);
