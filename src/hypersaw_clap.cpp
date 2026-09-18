@@ -102,6 +102,18 @@ static const char *const kSuperModeLabels[] = {"wide (clean)", "pulse (M/S)", "s
 static const char *const kGlideModeLabels[] = {"held note (legato)", "last note (ringing)",
                                                "always"};
 static const char *const kOffOn[] = {"off", "on"};
+/* B146 (human 2026-09-18, "Bass mono toggle ratified"): WHERE the ADR-035
+   bass-mono stage sits relative to the FX rack.
+     pre  — before the rack, which is where the stage has always run, so the
+            default renders every existing patch to the bit;
+     post — after the rack, the placement nothing downstream can undo. It is
+            not redundant with `pre`: a LINEAR stereo-symmetric slot commutes
+            with the side high-pass (measured on Comb — the reorder was dropped
+            in 2026-08 for exactly that reason), but a NONLINEAR one does not.
+            Drive is per-channel, so f(L)-f(R) makes side content out of MID,
+            below the crossover, that a pre-only stage never saw;
+     both — the two in series, at the cost of a second filter state. */
+static const char *const kBassMonoPosLabels[] = {"pre (before FX)", "post (after FX)", "both"};
 static const char *const kNoteNames[] = {"C", "C#", "D", "D#", "E", "F",
                                         "F#", "G", "G#", "A", "A#", "B"};
 static const char *const kMorphArmLabels[] = {"live (owning corner)", "A", "B", "C", "D"};
@@ -662,6 +674,13 @@ static const ParamDef kParams[] = {
     // ruled behaviour is what a patch that never wrote the id gets.
     {264, "fxXfade", "FX Type Crossfade (dev)", 0, 1, 1, true, kFxXfadeLabels},
     {265, "fxXfadeMs", "FX Crossfade Time (dev)", 5, 500, 80, false, nullptr},
+    /* B146 bass-mono placement, RATIFIED 2026-09-18. Id 267, not 266: 266 is
+       reserved for the intent flag, and an id skipped on purpose is cheaper
+       than an id claimed twice. Default 0 = pre = the stage's only placement
+       until today, so a patch that never writes this renders bit-identically.
+       Device class (kParamClassOverrides) — it selects where a stage runs, not
+       a timbre a morph corner should hold. */
+    {267, "bassMonoPos", "Bass Mono Position", 0, 2, 0, true, kBassMonoPosLabels},
 };
 
 // THE DEFAULT OF A PARAMETER, DEFINED ONCE. Both CLAP (`clap_param_info.
@@ -739,7 +758,7 @@ constexpr clap_id kGlobalIds[] = {
     // are already per-oscillator — so an oscillator could pick the law but not
     // its own grid. bpm stays host-owned and global; beatMult is the per-source
     // ratio to it.
-    15, 40, 41,                                  // output & image
+    15, 40, 41, 267,                             // output & image (267 = B146 placement)
     // NB: 14 "width" left this list 2026-08-07 (A12, human-ruled: "oscillators
     // will independently need their own width controls"). It is a SwarmCore
     // param, so each oscillator always had its own copy — global classification
@@ -1135,6 +1154,14 @@ static const ParamClassRule kParamClassOverrides[] = {
     // (dev) B117/ADR-163: buried, ids kept so saved state loads.
     {264, ParamClass::Device, "(dev) buried rack policy (B117/ADR-163)"},
     {265, ParamClass::Device, "(dev) buried rack policy (B117/ADR-163)"},
+    /* B146. Rule 2 would make it STRUCTURAL (it is stepped, and it does change
+       the graph), and the ruling overrides that to DEVICE: the placement is an
+       output-stage policy of the instance, like master volume (id 100), not
+       something a corner authors. Device means it is not in the morph field at
+       all — so it never flips, argmax or otherwise, and paramclass_check's
+       "no morphIds member is device" cross-check holds because morphInit never
+       appends it. */
+    {267, ParamClass::Device, "bass-mono placement — an output-stage policy (B146)"},
 };
 
 /* The class of `id` and the one-line reason it has that class. False for an id
@@ -2878,12 +2905,22 @@ struct Plugin
   // SIDE channel (L = M + HP(S), R = M − HP(S)) — lows collapse to mid with
   // no crossover phase mismatch, the classic vinyl-elliptic routing.
   double bassMonoOn = 0, bassMonoHz = 120;
+  // B146: 0 = pre (the historical placement), 1 = post, 2 = both. Held as the
+  // stepped integer the label array indexes, so the render branch is a compare
+  // and not a rounding decision taken once per block.
+  int bassMonoPos = 0;
   double masterVol = 1.0, masterVolSm = 1.0;   // B24: target + smoothed
   // Which oscillator the visuals describe. GUI-owned (follows the OSC tab),
   // audio-thread-read. The visuals were hardwired to oscillator 0 — the
   // intermediary the human asked for is this one index.
   std::atomic<uint32_t> vizOsc{0};
-  double bmIc1 = 0, bmIc2 = 0;
+  /* The bass-mono SVF's two integrator states — one PAIR PER PLACEMENT. Under
+     `both` the two stages run in series over the same block, so a shared pair
+     would have the post stage read the pre stage's history and neither filter
+     would be the 2nd-order Butterworth it claims to be. Plain members:
+     preallocated, and the audio thread allocates nothing. */
+  double bmIc1 = 0, bmIc2 = 0;             // pre  — before the rack
+  double bmIc1Post = 0, bmIc2Post = 0;     // post — after the rack
 
   void updateTune(uint32_t k)
   {
@@ -4638,13 +4675,28 @@ struct Plugin
       }
       if (id == 40)
       {
-        if (applied != 0 && bassMonoOn == 0) bmIc1 = bmIc2 = 0;  // clean engage
+        // Clean engage, both placements: a stage that has been idle holds the
+        // history of whenever it was last switched off, and B146 gave the
+        // output stage a second one to forget.
+        if (applied != 0 && bassMonoOn == 0) bmIc1 = bmIc2 = bmIc1Post = bmIc2Post = 0;
         bassMonoOn = applied;
         return;
       }
       if (id == 41)
       {
         bassMonoHz = applied;
+        return;
+      }
+      if (id == 267)
+      {
+        /* B146. Moving the stage is an engage for whichever placement was not
+           running, and the same clean-engage rule applies — otherwise
+           switching pre -> post -> pre resumes a filter from a block that is
+           now minutes old. Cheaper and more honest to clear both than to
+           reason about which one survives the move. */
+        const int want = (int)std::lround(applied);
+        if (want != bassMonoPos) bmIc1 = bmIc2 = bmIc1Post = bmIc2Post = 0;
+        bassMonoPos = want;
         return;
       }
       if (id == 100)
@@ -4835,6 +4887,7 @@ struct Plugin
         return d->id == 116 ? scale.root : (double)scale.mask[d->id - 117];
       if (d->id == 40) return bassMonoOn;
       if (d->id == 41) return bassMonoHz;
+      if (d->id == 267) return (double)bassMonoPos;   // B146
       if (d->id == 100) return masterVol;
       if (d->id == 101) return gSemi;
       if (d->id == 102) return gFine;
@@ -5260,6 +5313,38 @@ struct Plugin
     }
   }
 
+  /* ADR-035's bass-mono stage: ONE 2nd-order TPT SVF high-pass on the SIDE
+     channel (L = M + HP(S), R = M − HP(S)). Extracted for B146, which runs it
+     in TWO places, and extracted rather than copied for the reason renderSpan
+     states: two copies of a mix stage is how they disagree.
+
+     THE STATE IS THE CALLER'S. Both placements are the same filter and must
+     never be the same filter INSTANCE — under `both` they run in series inside
+     one block, so a shared pair would feed the post stage the pre stage's
+     integrator history. Passing the state in makes that structural instead of
+     remembered. */
+  void bassMonoStage(float *L, float *R, uint32_t n, double &ic1, double &ic2) const
+  {
+    constexpr double kPi = 3.141592653589793;
+    const double fc = std::min(bassMonoHz, 0.45 * sampleRate);
+    const double g = std::tan(kPi * fc / sampleRate);
+    const double k = 1.4142135623730951;  // Butterworth 2nd order
+    const double a0 = 1.0 / (1.0 + g * (g + k));
+    for (uint32_t i = 0; i < n; i++)
+    {
+      const double m = 0.5 * (L[i] + R[i]);
+      const double sIn = 0.5 * (L[i] - R[i]);
+      const double hp = (sIn - (g + k) * ic1 - ic2) * a0;
+      const double v1 = g * hp;
+      const double bp = v1 + ic1;
+      ic1 = bp + v1;
+      const double v2 = g * bp;
+      ic2 = v2 + ic2 + v2;
+      L[i] = (float)(m + hp);
+      R[i] = (float)(m - hp);
+    }
+  }
+
   clap_process_status process(const clap_process_t *p)
   {
     // Host tempo drives the grid law (ADR-022); fallback stays at the last
@@ -5340,42 +5425,28 @@ struct Plugin
     }
 
     // ADR-035 bass mono: runs BEFORE the spectrum feed so the visualizer
-    // shows what actually leaves the plugin.
-    if (bassMonoOn != 0)
-    {
-      constexpr double kPi = 3.141592653589793;
-      const double fc = std::min(bassMonoHz, 0.45 * sampleRate);
-      const double g = std::tan(kPi * fc / sampleRate);
-      const double k = 1.4142135623730951;  // Butterworth 2nd order
-      const double a0 = 1.0 / (1.0 + g * (g + k));
-      for (uint32_t i = 0; i < nframes; i++)
-      {
-        const double m = 0.5 * (outL[i] + outR[i]);
-        const double sIn = 0.5 * (outL[i] - outR[i]);
-        const double hp = (sIn - (g + k) * bmIc1 - bmIc2) * a0;
-        const double v1 = g * hp;
-        const double bp = v1 + bmIc1;
-        bmIc1 = bp + v1;
-        const double v2 = g * bp;
-        bmIc2 = v2 + bmIc2 + v2;
-        outL[i] = (float)(m + hp);
-        outR[i] = (float)(m - hp);
-      }
-    }
+    // shows what actually leaves the plugin. B146 made the PLACEMENT a
+    // parameter; `pre` (the default) is this call and nothing else, so the
+    // shipped chain is the one it always was.
+    if (bassMonoOn != 0 && bassMonoPos != 1) bassMonoStage(outL, outR, nframes, bmIc1, bmIc2);
 
     // Internal FX rack (ADR-054), now driven THROUGH the B23 crosspoint matrix
     // (ADR-088) rather than as a hardcoded series. Post-oscillator,
     // post-bass-mono; runs before the spectrum feed so the visualizer reflects
     // post-FX output.
     //
-    // Bass-mono stays UPSTREAM of the rack. The reorder was considered and
-    // dropped: the argument for moving it was that a decorrelating slot
-    // downstream could undo the mono guarantee, and measurement refuted it —
-    // Comb at amount 0.9 scales the sub-crossover channel difference by 2.2x
-    // whether bass-mono is on or off, leaving the same ~11% residual either
-    // way, because it is a stereo-SYMMETRIC filter. No current slot type
-    // decorrelates, so there is no correctness case, and an audible reorder
-    // with no oracle behind it is not one to make on taste.
+    // BASS-MONO DEFAULTS UPSTREAM AND IS NOW MOVABLE (B146, ratified
+    // 2026-09-18). The measurement that once argued against a forced reorder
+    // still stands and is why `pre` is the DEFAULT: Comb at amount 0.9 scales
+    // the sub-crossover channel difference by 2.2x whether bass-mono is on or
+    // off — same ~11% residual either way — because it is a stereo-SYMMETRIC
+    // filter, and a linear symmetric slot commutes with the side high-pass.
+    // What that measurement did not cover is a NONLINEAR slot: Drive runs
+    // per channel, so f(L)-f(R) manufactures side content out of the mid below
+    // the crossover, which no upstream stage ever saw. So the reorder stayed
+    // un-forced and became a choice — the player's, not taste exercised on
+    // their behalf. routing_check's bass-mono probe is the oracle for both
+    // halves (they commute with the rack bypassed; they do not with Drive).
     //
     // The default topology is setSerialChain(), which reproduces the old
     // `rack.processStereo` chain BIT-EXACTLY: every live edge carries a
@@ -5408,6 +5479,14 @@ struct Plugin
                              });
       }
     }
+
+    /* B146: the POST placement, immediately after the rack and before the
+       master volume. Master volume is a scalar gain and commutes with a linear
+       filter, so "after the rack" and "after the gain" are the same audio —
+       this side of it keeps the stage inside the FX chain, where the ruling
+       put it, rather than downstream of the instrument's output trim.
+       Its own state pair: see bassMonoStage. */
+    if (bassMonoOn != 0 && bassMonoPos != 0) bassMonoStage(outL, outR, nframes, bmIc1Post, bmIc2Post);
 
     // MASTER VOLUME (B24): last in the chain, before the visualizer feed so
     // the meters show what leaves the plugin. One-pole smoothed (~8 ms) with a
