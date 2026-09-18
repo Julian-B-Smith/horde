@@ -412,6 +412,13 @@ class SwarmCore
     double *slot = paramSlot(k);
     if (!slot) return false;
     *slot = v;
+    // B148: `n` is the one param whose VALUE IS AN ARRAY BOUND, so it is
+    // clamped on the way in as well as at every read (voiceCount()) —
+    // otherwise getParam("n") and the state chunk would report a swarm size
+    // the engine does not run. Clamped, not truncated: 7.5 stays 7.5 (the
+    // reads already floor it), so every legal value is bit-identical. NaN
+    // lands on 1 by std::max's (a<b)?b:a ordering — the safe end.
+    if (k == "n") *slot = std::min((double)kMaxV, std::max(1.0, v));
     // `glide` IS the lag law's time constant at the core level — that is what
     // ADR-026 defined it as, and trajectory_check drives SwarmCore directly with
     // it. The shell resolves the link and calls setNoteLaw() AFTERWARDS, so a
@@ -546,7 +553,7 @@ class SwarmCore
     const bool perVoice = (p.onsetScatter > 0) || (p.voiceEnv > 0.5);
     if (perVoice)
     {
-      const int n = (int)p.n;
+      const int n = voiceCount();   // B148: never past kMaxV
       for (int i = 0; i < n; i++)
       {
         s.onsD[i] = 0;
@@ -772,7 +779,7 @@ private:
   // Per-CALL, deliberately — see the note in renderSeg.
   void advancePanMotion(int frames)
   {
-    const int n = (int)p.n;
+    const int n = voiceCount();   // B148: never past kMaxV
     const double pmv = p.panMotion;
     if (pmv > 0.001)
     {
@@ -812,7 +819,7 @@ private:
     // O(gated^2) per step, and a 16-sample grid measured +66% CPU to buy a
     // settling difference of 0.001 cents. 256 costs +2%.
 
-    const int n = (int)p.n;
+    const int n = voiceCount();   // B148: never past kMaxV
     // ADR-101 hoists: anchor index + blend fraction are pure functions of the
     // params, invariant across the segment.
     const bool sawBaseOn = p.sawBase > 0.001;
@@ -1161,6 +1168,18 @@ public:
  private:
   static int32_t toInt32(double v) { return (int32_t)(int64_t)v; }
 
+  /* B148: THE swarm size, clamped to the array bound. `kMaxV` is the extent of
+     every per-oscillator buffer (x[], phase[], panL[], itdSamp[], …), and
+     `p.n` is a PUBLIC double that any caller can write directly — the shell's
+     param row (1..32) was the only cap in the system and every tool in tools/
+     drives the core past it. Measured before the fix (audit
+     docs/audits/2026-09-18-saw-engine-audit.md §1.2): n = 33 wrote one double
+     past x[32] and rendered corrupted audio silently; n >= 40 segfaulted in
+     rebuild(). The cap lives at the READ, not only at setParam, because
+     setParam is not the only writer. Legal values (1..32) pass through
+     unchanged, so every golden is bit-identical. */
+  int voiceCount() const { return std::min(kMaxV, std::max(1, (int)p.n)); }
+
   // mulberry32 shared with the Track E force system (ADR-034 unification —
   // the one piece of arithmetic the two dynamics families genuinely share).
   // Parity 51/51 proves the delegation is bit-neutral.
@@ -1247,7 +1266,7 @@ public:
 
   void rebuild()
   {
-    const int n = (int)p.n;
+    const int n = voiceCount();   // B148: never past kMaxV
     grng = (uint32_t)(toInt32(p.seed) + 1);
     if ((int)p.topo == 2)
     {
@@ -1458,7 +1477,7 @@ public:
     // ADR-084: ~20 ms pressure smoothing, seconds -> per-tick coefficient
     s.pressSm += (s.press - s.pressSm) * (1 - std::exp(-(kTick / sr) / 0.02));
     if (std::fabs(s.pressSm - s.press) < 1e-6) s.pressSm = s.press;
-    const int n = (int)p.n;
+    const int n = voiceCount();   // B148: never past kMaxV
     const double dt = kTick / sr;
     // ADR-063 frequency glide (parity with reference/swarmsaw.html): seconds -> coefficient.
     const bool firstTick = !s.vfInit;
