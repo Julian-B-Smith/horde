@@ -5946,3 +5946,23 @@ eight are defaults the user renames per patch; the names are patch state.
 Human: Pressure and Tension are too similar; Pressure is the better one;
 Tension becomes Brightness. Defaults M1…M8: **Space, Timbre, Motion, Grit,
 Time, Character, Brightness, Pressure.** Patch state; the user renames.
+
+### ADR-088 Amendment — the routing id layout reserves eight source rows; one renumbering, taken while it costs nothing (2026-09-18)
+
+**Context.** The crosspoint id is positional, `10000 + from*64 + to`, with
+`from` indexing sources then slots. Widening by a SOURCE shifts every slot's
+row, so adding the second oscillator as a source would move ids 10064–10195
+(PR #636 measured it: 10065 changes meaning from Slot 1 → Slot 2 to
+Src 2 → Slot 2). The layout comment's append-only promise was true for
+slots and false for sources.
+
+**Decision.** Human (2026-09-18): "Let's renumber now, I haven't built any
+new presets or saved any files that would lean on them." `from` 0…7 are
+reserved for SOURCES (kMaxSources = 8: two swarm oscillators, the sub, and
+five for the future), slots begin at `from` = 8. Coefficient ids become
+`10000 + from*64 + to` under that table; out amounts (20000 + to), slot
+inits (21000 + to) and the dry path (22000 + src) are unchanged. The
+morph layout marker steps to 5; the factory bank regenerates; no fixture
+carries a routing. This is the one exception to append-only, taken two
+days after the ids were released in dev builds and before any user patch
+exists. After it, no future source or slot ever moves an id.
