@@ -5856,3 +5856,18 @@ block (an edge going live mid-block takes effect at the next boundary),
 consistent with every topology write, asserted nowhere. (d) Cycle
 accumulation runs in doubles, the acyclic gather in floats — a stated
 boundary, not a defect.
+
+### ADR-166 Amendment 5 — Sluice presets carry `macros` with optional role hints; horde reads them as recommendations (2026-09-17, read 2026-09-18)
+
+Their notice seq 5 (`integrations/sluice/notice-preset-macros.md`, ball none,
+their DECISIONS D-018 proposed): Sluice presets gain
+`macros: [{label, value, role?, bindings: [{target: "id:param", lo, hi, curve?}]}]`,
+evaluated ABOVE their engine (strip the field and nothing audible changes);
+`role?` is an optional hint from ADR-169's vocabulary, at most one macro per
+role, so horde can map their macros onto its four slots without Sluice
+implementing our contract — their human's instruction: "horde uses our
+choices as recommendations; don't bake it in deep". Several params pinned to
+one knob is one macro with N bindings. Consequence for B136: the host-side
+mapper reads a hosted module's preset macros by role hint when present and
+falls back to an unbound slot when absent; nothing in ADR-169 changes.
+Nothing asked; nothing owed.
