@@ -5,18 +5,25 @@
  * audit (docs/audits/2026-09-18-saw-engine-audit.md §3.2) measured four more
  * that it is structurally blind to, and every one of them drifts:
  *
- *   K-step settling (0 -> 1, to 90 %)   54.9 %   <- the 0.08 per-tick smoother
- *   onset-lock t(R peak), dissolve 0.30  5.56 %
- *   inertia steady-state R              15.03 %
- *   default output pole at 10 kHz        0.40 dB
+ *                                        audit    this probe   after B150
+ *   K-step settling (0 -> 1, to 90 %)   54.9 %      54.876 %      1.252 %
+ *   onset-lock t(R peak), dissolve 0.30  5.56 %      5.739 %      0.536 %
+ *   inertia steady-state R              15.03 %      2.103 %      0.763 %
+ *   default output pole at 10 kHz        0.40 dB     0.400 dB     0.400 dB
  *
- * THIS FILE DOES NOT PRE-EMPT THE FIX. The bars below are TODAY'S measured
- * drifts plus a margin, not the 0.3 % `samplerate_check` bar. That is
- * deliberate: whether these drifts should shrink is a human ruling (queue row
- * B150), and a check that went red on arrival would be pressure on that ruling
- * rather than evidence for it. What this file buys today is the other half —
- * the drifts cannot GROW unnoticed, and the numbers are on the record. When
- * B150 rules, the bars move down in the same change that moves the engine.
+ * The first two were ONE defect: both are set by the coupling smoother, and
+ * expressing its 0.08 in seconds (swarm_core.h kKsmTauSeconds) closed both.
+ * The last one is STOPPED, not fixed — see the bar comment.
+ *
+ * B150 HAS NOW RULED (human, 2026-09-18, option a): express the rate-bound
+ * constants in seconds with 44.1 kHz special-cased bit-frozen, so every other
+ * rate is corrected to match 44.1 k. That ruling is the ONE sanction under
+ * which the bars in this file move DOWN — a gate threshold is never otherwise
+ * edited without a recorded human decision (charter, Oracle discipline). Each
+ * bar below therefore carries its own before/after pair and the commit that
+ * moved it. The file's original posture — "the bars are today's drifts plus a
+ * margin, never the aspiration" — is unchanged; what changed is which day
+ * "today" is.
  *
  * STANDALONE AND UNWIRED. Wiring a gate into ./verify is the human's decision
  * (charter); this is proposed, not wired. `samplerate_check` is untouched.
@@ -72,6 +79,11 @@ namespace
 
 // M_PI is undefined under MSVC (L0003); every tool in this tree carries its own.
 constexpr double kPi = 3.14159265358979323846;
+// ULP of the two constants the kKsmTauSeconds control compares. Written as
+// literals rather than std::nextafter so the bar in the printout is a fixed
+// number a reader can check by hand.
+constexpr double kUlp = 8.673617379884035e-19;    // ulp(0.00435122...)
+constexpr double kUlp08 = 1.3877787807814457e-17; // ulp(0.08)
 
 int g_failures = 0;
 void check(bool ok, const char *what, const char *detail)
@@ -400,6 +412,24 @@ int main()
                 100 * wander, 100 * spread(inertFull), 18.04);
   check(wander < 0.1804 / 3.0, "CONTROL inertia bar stands at least 3x clear of its own wander", d);
 
+  /* The engine's seconds constant is a LITERAL (std::log is not constexpr in
+     C++20), so it is pinned here: the derivation is recomputed and compared,
+     and the ROUND TRIP is asserted to MISS 0.08 — which is what makes the
+     44.1 kHz special case in SwarmCore's constructor load-bearing rather than
+     decorative. If a future edit ever makes the round trip exact, this control
+     fails and says so, and the branch can go. */
+  {
+    const double derived = -((double)hypersaw::kTick / 44100.0) / std::log(0.92);
+    const double err = std::fabs(hypersaw::kKsmTauSeconds - derived);
+    std::snprintf(d, sizeof(d), "literal %.17g vs derived %.17g (|d| = %.3g, 4 ULP = %.3g)",
+                  hypersaw::kKsmTauSeconds, derived, err, 4 * kUlp);
+    check(err <= 4 * kUlp, "CONTROL kKsmTauSeconds is the seconds form of the reference's 0.08", d);
+    const double trip = 1 - std::exp(-((double)hypersaw::kTick / 44100.0) / hypersaw::kKsmTauSeconds);
+    std::snprintf(d, sizeof(d), "round trip is %.17g, %d ULP from 0.08 — hence the 44.1 kHz branch",
+                  trip, (int)std::lround((trip - 0.08) / kUlp08));
+    check(trip != 0.08, "CONTROL the 44.1 kHz special case is load-bearing (round trip misses 0.08)", d);
+  }
+
   // The closed-form pole magnitude against the recurrence it describes, and
   // against a coefficient that is deliberately wrong.
   {
@@ -424,7 +454,12 @@ int main()
      probe-to-probe disagreement, and it is NOT headroom for the engine: a
      20 % growth in any of these is a change in the engine and this check is
      built to see it. */
-  const double kBarKStep = 0.659;     // audit 54.9 %  + 20 %
+  /* B150 moved this one. Before: 54.876 % (bar 0.659 = audit 54.9 % + 20 %).
+     After the seconds-expressed coupling smoother: 1.252 %, and the residual
+     is NOT a rate law — 44.1 k 0.00992 s, 48 k 0.01001, 88.2 k 0.01005, 96 k
+     0.00992 is non-monotonic, i.e. the 0.2 ms probe grid and the swarm's own
+     sigma, not the smoother. Bar = 1.252 % + the file's standing 20 %. */
+  const double kBarKStep = 0.0150;    // B150: 1.252 % + 20 % (was 0.659)
   const double kBarLock  = 0.0667;    // audit 5.56 %  + 20 %
   const double kBarInert = 0.1804;    // audit 15.03 % + 20 % (see inertiaR's header)
   const double kBarPole  = 0.480;     // audit 0.40 dB + 20 %
