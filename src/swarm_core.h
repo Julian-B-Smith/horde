@@ -29,6 +29,7 @@
 #include <cstdint>
 #include <cmath>
 #include <cstring>
+#include <limits>    // std::numeric_limits<float>::min() — the mode-D allpass snap bound (B156)
 #include <string>
 
 #include "force_core.h"
@@ -700,6 +701,14 @@ class SwarmCore
   // live, the base seat otherwise (the motion block only writes panEffV while
   // panMotion > 0.001, so panEffV would go stale the moment motion stops).
   double panEffAt(int i) const { return p.panMotion > 0.001 ? panEffV[i] : panBase[i]; }
+  // B156: the last two pieces of core state with no way in from outside — the
+  // ADR-074 mode-D allpass pole and the ADR-075 halfband kernel. Added for
+  // tools/denormal_check, which could previously only infer `apZ` from the
+  // output and so could not tell a decaying state from a stuck one. Same
+  // read-only, parity-neutral contract as the accessors above.
+  double allpassZ() const { return apZ; }
+  static constexpr int halfbandTapCount() { return kHbTaps; }
+  double halfbandTapAt(int i) const { return hb[i]; }
 
   const Voice *focus() const
   {
@@ -1194,11 +1203,46 @@ private:
         // character status as mode A.
         const double apc = 1 - std::exp(-kTau * 700.0 / sr);
         const double sideGain = 1 + (p.width - 1) * 1.2;
+        /* B156: the pole is snapped to exactly zero once it can no longer
+           reach a NORMAL float32 output sample.
+
+           THE DEFECT. Once every voice is culled the mix above is exactly 0,
+           so both `mid` and the input `side` are 0 and the recursion below
+           degenerates to apZ *= (1 - apc) — a geometric decay (0.905/sample
+           at 700 Hz, 44.1 kHz) with no floor. It sweeps the whole float32
+           subnormal band on the way down and then STALLS a few ULP above
+           zero forever, because `apc * apZ` underflows to 0 while `apZ`
+           itself does not. That leaves a denormal operand in this multiply on
+           every sample for the life of the instance: free on Apple silicon,
+           a per-sample microcode trap on the ACCEPTANCE L0-6 min-spec x86,
+           which has no FTZ. Measured before the fix (tools/denormal_check):
+           334 subnormal OUTPUT samples per 30 s tail, and a state that never
+           arrives at 0.
+
+           THE THRESHOLD IS DERIVED FROM THE TWO STORES BELOW, not tuned. With
+           `mid == 0` and the input `side == 0` this stage writes exactly
+           +/- 2*apZ*sideGain, so requiring that magnitude to be below the
+           smallest NORMAL float32 gives |apZ| < FLT_MIN / (2*sideGain): every
+           output sample the snap can change in the tail was already subnormal
+           (or zero) before it. The bound rescales itself with `sideGain`
+           rather than being a pasted constant, and it is pure output
+           arithmetic — no per-tick term is involved, so ADR-009 does not
+           apply. `sideGain > 1` here (the branch guard is `width > 1`), so
+           the divide is safe.
+
+           RESIDUE, stated rather than argued away: when `mid != 0` the snap
+           perturbs the double sum by at most FLT_MIN before the float store,
+           which could in principle flip a result sitting on an exact rounding
+           tie. Bit-identity is therefore WITNESSED, not assumed — parity
+           156/156, waveshape_check's render hash and a 164-item corpus are
+           unchanged across this change (traces/2026-09-18-b156-apz-snap.md). */
+        const double apSnap = (double)std::numeric_limits<float>::min() / (2 * sideGain);
         for (int smp = 0; smp < frames; smp++)
         {
           const double mid = ((double)outL[smp] + (double)outR[smp]) * 0.5;
           double side = ((double)outL[smp] - (double)outR[smp]) * 0.5;
           apZ += apc * (side - apZ);
+          if (std::fabs(apZ) < apSnap) apZ = 0;
           side = (2 * apZ - side) * sideGain;
           outL[smp] = (float)(mid + side);
           outR[smp] = (float)(mid - side);
