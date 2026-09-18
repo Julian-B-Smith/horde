@@ -172,6 +172,7 @@ struct Rig
     chans[0] = L.data(); chans[1] = R.data();
     out.data32 = chans; out.channel_count = 2;
     store.reserve(4096);
+    notes.reserve(64);
     evl.in.ctx = &evl; evl.in.size = evSize; evl.in.get = evGet;
   }
   ~Rig() { p->stop_processing(p); p->deactivate(p); p->destroy(p); }
@@ -188,6 +189,22 @@ struct Rig
   }
   // A host write, through the host's own door.
   void set(clap_id id, double v) { queue(id, v); flush(); }
+  /* A NOTE, through the same door — the matrix has nothing to route until the
+     instrument sounds. Stored here rather than on the caller's stack for the
+     reason `store` carries: `evl.ev` holds raw pointers, so the event must
+     outlive the process() call that reads it, and the vector is reserved once
+     so no push can move what is already pointed at. */
+  std::vector<clap_event_note_t> notes;
+  void noteOn(int key)
+  {
+    clap_event_note_t n{};
+    n.header.size = sizeof(n); n.header.type = CLAP_EVENT_NOTE_ON;
+    n.header.space_id = CLAP_CORE_EVENT_SPACE_ID;
+    n.note_id = (int32_t)notes.size() + 1; n.port_index = 0; n.channel = 0;
+    n.key = key; n.velocity = 1.0;
+    notes.push_back(n);
+    evl.ev.push_back(&notes.back().header);
+  }
   void flush() { par->flush(p, &evl.in, &outEv); evl.ev.clear(); }
   // Renders blocks so the morph field actually STEPS (morphStep runs inside
   // process(), on the gravity grid — flush alone never moves it).
@@ -1239,6 +1256,102 @@ int main()
                   unmatched, detectorHits ? "yes" : "no", detectorMisses ? "yes" : "no");
     check(unmatched == 0 && detectorHits && detectorMisses,
           "under quantum the live matrix IS one corner's table", d);
+  }
+
+  /* ---- 22. B146: bass-mono's PLACEMENT relative to the rack ---------------
+     `bassMonoPos` moves the ADR-035 stage from before the rack (pre, the only
+     placement there has ever been) to after it (post), or runs both. The
+     ruling rests on one claim about the rack, and this measures it in both
+     directions rather than asserting the comfortable half:
+
+       A. WITH THE RACK BYPASSED the two placements are BIT-IDENTICAL. Nothing
+          sits between the two points, so this is the honest statement of "the
+          reorder is free when the chain is empty" — and it is the arm that
+          fails if post silently does nothing at all.
+       B. …which is why A needs a control that MUST read non-zero: `both` runs
+          a SECOND stage over the same samples, so it must differ from `pre` in
+          exactly the configuration where pre and post agree. Without this,
+          A also passes on a parameter wired to nothing (L0032: the control
+          that must read zero and the corruption that must not, in one probe).
+       C. WITH A NONLINEAR SLOT BETWEEN THEM the placements DIFFER. This is the
+          whole reason post exists: a stereo-symmetric LINEAR slot commutes
+          with the side high-pass (measured on Comb, 2026-08: the same ~11%
+          residual either way), but Drive runs per channel, so f(L)-f(R) makes
+          side content out of the MID below the crossover that an upstream
+          stage never saw and cannot remove.
+       D. AND A CONTROL FOR THE COMPARATOR ITSELF: with bass mono OFF, pre and
+          post must be bit-identical even with Drive engaged. That is what
+          proves a difference in C is the STAGE MOVING and not two instances
+          of the instrument disagreeing — a difference every arm here would
+          otherwise report as a feature.
+
+     WHAT THIS DOES NOT COVER, named rather than left to be assumed. Arm B asks
+     only that `both` DIFFERS from `pre`, not that it is two correct stages in
+     series. A plant that gave the post stage the PRE stage's filter state —
+     the exact bug the two state pairs exist to prevent — was run and did NOT
+     fire: `both` still differs, `post` alone still starts from a clean state,
+     so every clause here reads the same (calibration pass, 2026-09-18).
+     Recorded as a coverage boundary rather than retried until something fired
+     (L0033). Distinguishing them needs the side-band slope (24 vs 48 dB/oct),
+     and the only way to measure it from here is a second copy of the filter
+     inside the oracle — which is the duplication this file exists to refuse.
+     The defence is structural instead: bassMonoStage takes its state BY
+     REFERENCE and the two call sites pass different members. */
+  {
+    /* One block of settled audio for a given placement, with or without a
+       nonlinear slot between the two points. A LOW note (key 24, ~32.7 Hz)
+       with the default width: bass mono can only be observed where there is
+       side content BELOW the crossover, and a probe that renders none would
+       report "identical" for every arm and call it a pass. */
+    auto capture = [&](int pos, bool on, bool drive, std::vector<float> &L, std::vector<float> &R) {
+      Rig r(factory);
+      r.set(40, on ? 1 : 0);      // bass mono
+      r.set(41, 120);             // crossover, at its default
+      r.set(267, pos);            // B146 placement
+      r.set(57, drive ? 1 : 0);   // FX slot 1 type: Drive or Off
+      r.set(58, 0.9);             // …driven hard, so the nonlinearity is real
+      r.set(133, 1);              // slot 1 fully wet
+      r.render(2);                // let the param writes settle before the note
+      r.noteOn(24);
+      r.render(24);
+      L = r.L; R = r.R;
+    };
+    auto worst = [](const std::vector<float> &a, const std::vector<float> &b) {
+      double m = 0;
+      for (size_t i = 0; i < a.size() && i < b.size(); i++)
+        m = std::fmax(m, std::fabs((double)a[i] - (double)b[i]));
+      return m;
+    };
+    std::vector<float> preL, preR, postL, postR, bothL, bothR;
+    std::vector<float> dpreL, dpreR, dpostL, dpostR, opreL, opreR, opostL, opostR;
+    capture(0, true, false, preL, preR);      // A: pre,  rack bypassed
+    capture(1, true, false, postL, postR);    // A: post, rack bypassed
+    capture(2, true, false, bothL, bothR);    // B: both, rack bypassed  (control)
+    capture(0, true, true, dpreL, dpreR);     // C: pre,  Drive between
+    capture(1, true, true, dpostL, dpostR);   // C: post, Drive between
+    capture(0, false, true, opreL, opreR);    // D: stage off, pre       (control)
+    capture(1, false, true, opostL, opostR);  // D: stage off, post      (control)
+
+    // The anchor: every comparison below is vacuous on silence.
+    double energy = 0;
+    double side = 0;   // and vacuous again if the render is MONO to begin with
+    for (size_t i = 0; i < preL.size(); i++)
+    {
+      energy += (double)preL[i] * preL[i] + (double)preR[i] * preR[i];
+      side = std::fmax(side, std::fabs((double)preL[i] - (double)preR[i]));
+    }
+    const double bypassDiff = std::fmax(worst(preL, postL), worst(preR, postR));
+    const double bothDiff = std::fmax(worst(preL, bothL), worst(preR, bothR));
+    const double driveDiff = std::fmax(worst(dpreL, dpostL), worst(dpreR, dpostR));
+    const double offDiff = std::fmax(worst(opreL, opostL), worst(opreR, opostR));
+    std::snprintf(d, sizeof(d),
+                  "energy %.4g, peak L-R %.4g; bypassed pre vs post %.3g (must be 0); "
+                  "control both vs pre %.3g (must be > 0); Drive pre vs post %.3g "
+                  "(must be > 0); control stage-off pre vs post %.3g (must be 0)",
+                  energy, side, bypassDiff, bothDiff, driveDiff, offDiff);
+    check(energy > 1e-3 && side > 1e-4 && bypassDiff == 0.0 && bothDiff > 1e-6
+              && driveDiff > 1e-6 && offDiff == 0.0,
+          "bassMonoPos: pre == post with the rack bypassed, != with Drive between", d);
   }
 
   /* CALIBRATION, recorded because a green suite proves nothing on its own.

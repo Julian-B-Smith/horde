@@ -129,6 +129,7 @@ osc1.scatter	osc1	Phase Scatter	OSC	The coupling	knob		the-coupling
 osc2.scatter	osc2	Phase Scatter	OSC	The coupling	knob		the-coupling			
 bassMono	global	Bass Mono	MIX	Output & perception	toggle		output-perception			
 bassMonoHz	global	Bass XOver (Hz)	MIX	Output & perception	knob		output-perception			
+bassMonoPos	global	Bass Mono Position	MIX	Output & perception	select		output-perception			
 osc1.panScatter	osc1	Pan Scatter	OSC	Image & tone	knob		image-tone			
 osc2.panScatter	osc2	Pan Scatter	OSC	Image & tone	knob		image-tone			
 osc1.engine	osc1	Engine	OSC	The swarm	select					
