@@ -825,22 +825,40 @@ inline clap_id baseIdOf(clap_id id) { return (clap_id)((uint32_t)id % kOscStride
    instrument's 1..999 x kOscStride space and POSITIONAL rather than curated:
    an id is COMPUTED from the cell it names, never assigned by hand.
 
-     coeff[from][to]   10000 + from*64 + to     -> 10000 .. 14095
+     coeff[row][to]    10000 + row*64 + to      -> 10000 .. 14095
      outAmount[to]     20000 + to               -> 20000 .. 20063
      slotInit[to]      21000 + to               -> 21000 .. 21063
-     srcOut[from]      22000 + from             -> 22000 .. 22063   (B50 1c)
+     srcOut[src]       22000 + src              -> 22000 .. 22063   (B50 1c)
 
-   `from` indexes SOURCES first ([0, NSRC)) then SLOTS (NSRC + slot), exactly as
-   routing_core.h's `coeff[from][to]` does — one indexing scheme, not two.
+   THE ROW IS NOT THE MATRIX INDEX (ADR-088 amendment, 2026-09-18). Rows 0..7
+   are reserved for SOURCES — `kRoutingMaxSrc`, eight of them: the two swarm
+   oscillators, the sub, and five unclaimed — and slots begin at row
+   `kRoutingMaxSrc`. routing_core.h still indexes `coeff[from][to]` with SOURCES
+   first then `NSRC + slot`, so the two coordinate spaces diverge the moment a
+   source is added or removed; `routingRowOfIndex` / `routingIndexOfRow` below
+   are the ONLY translation, and everything that names a cell by id speaks ROWS.
+
+   WHY THE RESERVED BLOCK, AND WHY IT COST A RENUMBERING. The original layout
+   packed rows as `NSRC + slot`, which made the id space append-only for SLOTS
+   and NOT for sources: raising NSRC 1 -> 2 moved every slot's row by 64 and
+   re-pointed six live ids (PR #636 measured it — id 10065 went from Slot 1 ->
+   Slot 2 to Src 2 -> Slot 2). Reserving the source block decouples the two, so
+   this is the LAST time any routing id moves. Taken on the human's ruling
+   2026-09-18, two days after the ids were released in dev builds and before any
+   user patch existed: "Let's renumber now, I haven't built any new presets or
+   saved any files that would lean on them." No migration shim exists because no
+   tracked file carries a chunk written under the old layout — the factory bank
+   is regenerated from this build and no fixture carries a routing.
 
    WHY POSITIONAL, AND WHY 64. Ids are append-only from this release, and the
    thing that grows here is the matrix's SHAPE, not a list of features: B23
    increment 3 adds per-oscillator sources and the FX rework adds up to ~13
    modules. A sequentially-assigned block would have to renumber every cell to
    widen by one slot; a positional one simply lights up ids that were always
-   reserved for those coordinates. 64 is double the ceiling routing_core.h's own
-   `NSRC + NSLOT <= 32` static_assert imposes, so the layout cannot be outgrown
-   before the crosspoint mask is — and the mask is the harder limit.
+   reserved for those coordinates. 64 is wide enough for the eight reserved
+   source rows plus every slot routing_core.h's own `NSRC + NSLOT <= 32`
+   static_assert can admit, so the layout cannot be outgrown before the
+   crosspoint mask is — and the mask is the harder limit.
 
    PHASE 1 EXPOSES THE ACYCLIC SUBSET ONLY (B50 (f)). `edgeLive()` was widened
    by ADR-128 to accept every edge (cycle edges read zPrev, one sample late), so
@@ -850,12 +868,18 @@ inline clap_id baseIdOf(clap_id id) { return (clap_id)((uint32_t)id % kOscStride
    edges are live" is the exact duplication that header forbids. When feedback
    cells are exposed they take the ids this layout already reserves for them;
    nothing renumbers. */
-using RoutingMatrixT = hypersaw::RoutingMatrix<1, hypersaw::kRackSlots>;
-constexpr int kRoutingNSrc = 1;
+/* B23 increment 3: TWO sources, one per swarm oscillator. The sub-oscillator is
+   the third and takes row 2 when it lands — no id moves for it. */
+constexpr int kRoutingNSrc = 2;
+constexpr int kRoutingMaxSrc = 8;              // reserved source ROWS (see above)
+using RoutingMatrixT = hypersaw::RoutingMatrix<kRoutingNSrc, hypersaw::kRackSlots>;
 constexpr int kRoutingNSlot = hypersaw::kRackSlots;
+static_assert(kRoutingNSrc <= kRoutingMaxSrc, "sources must fit the reserved row block");
 
 constexpr uint32_t kRoutingIdBase = 10000;     // every routing id is >= this
 constexpr uint32_t kRoutingFromStride = 64;
+static_assert(kRoutingMaxSrc + kRoutingNSlot <= (int)kRoutingFromStride,
+              "the row space is 64 wide");
 constexpr uint32_t kRoutingCoeffBase = 10000;
 constexpr uint32_t kRoutingOutBase = 20000;
 constexpr uint32_t kRoutingInitBase = 21000;
@@ -872,9 +896,32 @@ enum RoutingKind
   kRoutingSrcOut = 3
 };
 
-/* Id -> cell. False for any id in the block that names no cell THIS build
-   exposes: out of range, or a crosspoint that is not a live forward edge.
-   Every reader goes through here, so "which cells exist" is one function. */
+/* THE ONLY TRANSLATION between the id's ROW and routing_core.h's matrix INDEX
+   (ADR-088 amendment). A second copy of this arithmetic is the whole hazard the
+   amendment exists to remove, so every site that holds one coordinate and needs
+   the other calls these two — including the debug exports, which take rows
+   because the oracle reads them off the id list.
+   `routingIndexOfRow` returns -1 for a row that names no cell in THIS build: a
+   reserved-but-unfilled source row (>= kRoutingNSrc, < kRoutingMaxSrc) or a row
+   past the last slot. -1 is never a valid index, so a caller that forgets to
+   check indexes out of bounds loudly rather than landing on cell 0. */
+inline int routingRowOfIndex(int mi)
+{
+  return mi < kRoutingNSrc ? mi : kRoutingMaxSrc + (mi - kRoutingNSrc);
+}
+inline int routingIndexOfRow(int row)
+{
+  if (row < 0) return -1;
+  if (row < kRoutingNSrc) return row;
+  if (row >= kRoutingMaxSrc && row < kRoutingMaxSrc + kRoutingNSlot)
+    return kRoutingNSrc + (row - kRoutingMaxSrc);
+  return -1;
+}
+
+/* Id -> cell, in ROW coordinates. False for any id in the block that names no
+   cell THIS build exposes: out of range, a reserved source row nothing fills
+   yet, or a crosspoint that is not a live forward edge. Every reader goes
+   through here, so "which cells exist" is one function. */
 inline bool decodeRoutingId(clap_id id, int &kind, int &from, int &to)
 {
   const uint32_t u = (uint32_t)id;
@@ -909,10 +956,12 @@ inline bool decodeRoutingId(clap_id id, int &kind, int &from, int &to)
   kind = kRoutingCoeff;
   from = (int)(off / kRoutingFromStride);
   to = (int)(off % kRoutingFromStride);
-  if (from >= kRoutingNSrc + kRoutingNSlot || to >= kRoutingNSlot) return false;
-  return RoutingMatrixT::edgeLive(from, to) && RoutingMatrixT::edgeForward(from, to);
+  const int mi = routingIndexOfRow(from);
+  if (mi < 0 || to >= kRoutingNSlot) return false;
+  return RoutingMatrixT::edgeLive(mi, to) && RoutingMatrixT::edgeForward(mi, to);
 }
 
+// `from` is a ROW (see the layout comment) — the caller converts, not this.
 inline clap_id routingCoeffId(int from, int to)
 {
   return (clap_id)(kRoutingCoeffBase + (uint32_t)from * kRoutingFromStride + (uint32_t)to);
@@ -938,7 +987,10 @@ static RoutingParamTable makeRoutingTable()
   RoutingParamTable r;
   const RoutingMatrixT def{};   // ctor == setSerialChain
   std::vector<clap_id> ids;
-  for (int f = 0; f < kRoutingNSrc + kRoutingNSlot; f++)
+  /* Over ROWS, not matrix indices, so the ids come out ascending and the
+     reserved source rows simply decode false — the table's membership test is
+     decodeRoutingId and nothing else. */
+  for (int f = 0; f < kRoutingMaxSrc + kRoutingNSlot; f++)
     for (int t = 0; t < kRoutingNSlot; t++)
     {
       int k = 0, ff = 0, tt = 0;
@@ -965,15 +1017,19 @@ static RoutingParamTable makeRoutingTable()
     double lo = 0, hi = 0, dv = 0;
     if (kind == kRoutingCoeff)
     {
-      const bool src = from < kRoutingNSrc;
+      /* Row coordinates, so the SLOT number is `row - kRoutingMaxSrc` — which
+         is what keeps `rt.c.m0.1` naming slot 1 -> slot 2 across the
+         renumbering. The coreKeys of every pre-existing cell are unchanged;
+         only their numeric ids moved. */
+      const bool src = from < kRoutingMaxSrc;
       std::snprintf(nb, sizeof(nb), "Route %s%d > Slot%d", src ? "Src" : "Slot",
-                    src ? from + 1 : from - kRoutingNSrc + 1, to + 1);
+                    src ? from + 1 : from - kRoutingMaxSrc + 1, to + 1);
       std::snprintf(kb, sizeof(kb), "rt.c.%s%d.%d", src ? "s" : "m",
-                    src ? from : from - kRoutingNSrc, to);
+                    src ? from : from - kRoutingMaxSrc, to);
       // Bipolar and past unity: a crosspoint is a gain, so inversion and a
       // little make-up are both topology moves, and +-1 must sit INSIDE the
       // range rather than on its rail.
-      lo = -2.0; hi = 2.0; dv = def.coeff[from][to];
+      lo = -2.0; hi = 2.0; dv = def.coeff[routingIndexOfRow(from)][to];
     }
     else if (kind == kRoutingOut)
     {
@@ -1566,12 +1622,39 @@ struct Plugin
   }
 
   hypersaw::FxRack rack;  // ADR-054 internal FX rack (post-oscillator)
-  // B23 crosspoint topology over those slots (ADR-088). One source for now —
-  // the summed, post-bass-mono bus — so this increment is purely "the matrix is
-  // in the audio path and inert". Per-oscillator sources are a later increment
-  // and carry their own decision, because sources upstream of bass-mono is
-  // exactly the ordering question this increment declined to force.
-  hypersaw::RoutingMatrix<1, hypersaw::kRackSlots> routing;
+  /* B23 crosspoint topology over those slots (ADR-088). TWO sources as of
+     increment 3 — one per swarm oscillator, each its own post-bass-mono
+     buffer — and the default is still the old summed bus: setSerialChain gives
+     every source coeff 1.0 into slot 0, so slot 0 gathers `osc0 + osc1` in the
+     same float order renderSpan used to.
+     `RoutingMatrixT`, not a second spelling of the template arguments: the id
+     layout's `kRoutingNSrc` and the audio path's source count must be one
+     number or the ids describe a matrix the audio thread does not have. */
+  RoutingMatrixT routing;
+  /* THE SOURCE BUFFERS for sources 1.. — source 0 is the output buffer itself,
+     which oscillator 0 renders straight into as it always has. Every further
+     source needs storage that survives from the span loop to the rack pass a
+     whole block later, which is the only reason these exist.
+
+     FIXED SIZE, NOT SIZED AT activate(). A buffer whose existence depends on
+     activate() having run is the trap renderSpan's own comment records — a
+     heap scratch sized there once made audible output conditional on it, and a
+     restored instance silently lost oscillator 1 (state_check caught it).
+     kSrcBufFrames is ~0.74 s at 44.1 kHz, past any host's block size; the two
+     places that could exceed it REFUSE (plug_activate returns false, process
+     returns CLAP_PROCESS_ERROR) rather than truncate, because a partial split
+     is silently-wrong routing and an unchecked write is memory corruption.
+
+     NOTE THE ALIAS THAT REMAINS. Source 0 still aliases the rack's output
+     buffer, so processBlock's rule that the dry term INITIALISES the output
+     (traces/2026-09-17-b50-dry-path.md) is still load-bearing — separate
+     buffers removed the alias for sources 1.., not for source 0. Giving source
+     0 its own buffer too would cost a per-block copy and change nothing an
+     oracle can see, so it was not done. */
+  static constexpr uint32_t kSrcBufFrames = 32768;
+  float srcBufL[kRoutingNSrc - 1][kSrcBufFrames] = {{0}};
+  float srcBufR[kRoutingNSrc - 1][kSrcBufFrames] = {{0}};
+  static_assert((int)kNumOsc <= kRoutingNSrc, "every oscillator needs a routing source");
   double engineSel = 0;  // 0 SAW, 1 SPECTRA (ADR-037; shell dispatch)
   bool spectraMode() const { return engineSel != 0; }
   double sampleRate = 44100.0;
@@ -2914,13 +2997,23 @@ struct Plugin
   // audio-thread-read. The visuals were hardwired to oscillator 0 — the
   // intermediary the human asked for is this one index.
   std::atomic<uint32_t> vizOsc{0};
-  /* The bass-mono SVF's two integrator states — one PAIR PER PLACEMENT. Under
-     `both` the two stages run in series over the same block, so a shared pair
-     would have the post stage read the pre stage's history and neither filter
-     would be the 2nd-order Butterworth it claims to be. Plain members:
-     preallocated, and the audio thread allocates nothing. */
-  double bmIc1 = 0, bmIc2 = 0;             // pre  — before the rack
+  /* The bass-mono SVF's two integrator states — one PAIR PER PLACEMENT, and
+     for `pre`, one pair PER SOURCE (B23 increment 3: pre runs on each source
+     buffer separately, upstream of the matrix). Under `both` the two stages run
+     in series over the same block, so a shared pair would have the post stage
+     read the pre stage's history and neither filter would be the 2nd-order
+     Butterworth it claims to be; two sources through one pair is the same fault
+     in space instead of time. Plain members: preallocated, and the audio thread
+     allocates nothing. */
+  double bmIc1[kRoutingNSrc] = {0}, bmIc2[kRoutingNSrc] = {0};   // pre  — per source, before the rack
   double bmIc1Post = 0, bmIc2Post = 0;     // post — after the rack
+  // EVERY pair, in one call: the two writers below both mean "forget all of it",
+  // and enumerating them at each site is how one gets missed when a pair is added.
+  void clearBassMonoState()
+  {
+    for (int s = 0; s < kRoutingNSrc; s++) bmIc1[s] = bmIc2[s] = 0;
+    bmIc1Post = bmIc2Post = 0;
+  }
 
   void updateTune(uint32_t k)
   {
@@ -3688,7 +3781,7 @@ struct Plugin
   {
     if (k < 0 || k > 3) return "{}";
     morphInit();
-    std::string out = "{\"morphLayout\":4,\"cornerPreset\":[";   // ADR-159; 4 = the Src→OUT dry-path cells appended after the routing block (B50 phase 1c); 3 = the routing block (phase 1)
+    std::string out = "{\"morphLayout\":5,\"cornerPreset\":[";   // ADR-159; 5 = the ADR-088-amendment routing renumbering (B23 increment 3: source rows reserved, Src 2's cells new slot positions); 4 = the Src→OUT dry-path cells appended after the routing block (B50 phase 1c); 3 = the routing block (phase 1)
     char buf[32];
     for (size_t i = 0; i < morphIds.size(); i++)
     {
@@ -3794,7 +3887,7 @@ struct Plugin
   std::string liveCornerJson()
   {
     morphInit();
-    std::string out = "{\"morphLayout\":4,\"cornerPreset\":[";   // ADR-159
+    std::string out = "{\"morphLayout\":5,\"cornerPreset\":[";   // ADR-159
     char buf[32];
     for (size_t i = 0; i < morphIds.size(); i++)
     {
@@ -3957,7 +4050,7 @@ struct Plugin
     if (morphIds.empty()) return "";
     // ADR-159: the array layout version. 2 = late per-osc rows appended last;
     // absent = 1 (pre-2026-09-11), where a 224-entry array is the ADR-150 order.
-    std::string out = ",\"morphLayout\":4,\"cornerNames\":" + cornerNamesJson() + ",\"morphCorners\":[";
+    std::string out = ",\"morphLayout\":5,\"cornerNames\":" + cornerNamesJson() + ",\"morphCorners\":[";
     char buf[32];
     for (int k = 0; k < 4; k++)
     {
@@ -4293,9 +4386,13 @@ struct Plugin
     if (!decodeRoutingId(id, kind, from, to)) return;
     if (kind == kRoutingCoeff)
     {
-      routing.coeff[from][to] = v;
-      if (v != 0.0) routing.inFrom[to] |= (1u << from);
-      else routing.inFrom[to] &= ~(1u << from);
+      // ROW -> matrix index: decodeRoutingId speaks the id's coordinates, the
+      // matrix speaks its own (ADR-088 amendment). The decode already proved
+      // this row names a live cell, so the index is >= 0.
+      const int mi = routingIndexOfRow(from);
+      routing.coeff[mi][to] = v;
+      if (v != 0.0) routing.inFrom[to] |= (1u << mi);
+      else routing.inFrom[to] &= ~(1u << mi);
     }
     else if (kind == kRoutingOut) routing.outAmount[to] = v;
     else if (kind == kRoutingSrcOut) routing.srcOut[from] = v;
@@ -4305,7 +4402,7 @@ struct Plugin
   {
     int kind = 0, from = 0, to = 0;
     if (!decodeRoutingId(id, kind, from, to)) return 0.0;
-    if (kind == kRoutingCoeff) return routing.coeff[from][to];
+    if (kind == kRoutingCoeff) return routing.coeff[routingIndexOfRow(from)][to];
     if (kind == kRoutingOut) return routing.outAmount[to];
     if (kind == kRoutingSrcOut) return routing.srcOut[from];
     return routing.slotInit[to];
@@ -4678,7 +4775,7 @@ struct Plugin
         // Clean engage, both placements: a stage that has been idle holds the
         // history of whenever it was last switched off, and B146 gave the
         // output stage a second one to forget.
-        if (applied != 0 && bassMonoOn == 0) bmIc1 = bmIc2 = bmIc1Post = bmIc2Post = 0;
+        if (applied != 0 && bassMonoOn == 0) clearBassMonoState();
         bassMonoOn = applied;
         return;
       }
@@ -4695,7 +4792,7 @@ struct Plugin
            now minutes old. Cheaper and more honest to clear both than to
            reason about which one survives the move. */
         const int want = (int)std::lround(applied);
-        if (want != bassMonoPos) bmIc1 = bmIc2 = bmIc1Post = bmIc2Post = 0;
+        if (want != bassMonoPos) clearBassMonoState();
         bassMonoPos = want;
         return;
       }
@@ -5257,9 +5354,11 @@ struct Plugin
     // and meter are applied in place afterwards rather than during a sum.
     if (oscEnabled[0] != 0) applyOscGainAndMeter(0, outL + at, outR + at, n, false);
     // Oscillators 1..N-1 render into a FIXED STACK buffer, in chunks, and
-    // sum. At their default vol = 0 they add exact zeros, so a patch that
-    // never touches them is bit-identical to a one-oscillator build — which
-    // is what keeps the 147 parity goldens green.
+    // land in their own SOURCE buffer (B23 increment 3 — they used to sum into
+    // oscillator 0's). At their default vol = 0 they contribute exact zeros
+    // through a coefficient of exactly 1.0, so a patch that never touches them
+    // is bit-identical to a one-oscillator build — which is what keeps the 147
+    // parity goldens green.
     //
     // Stack, not a heap scratch. The first version sized a std::vector at
     // activate() and skipped the oscillator when the buffer was too small;
@@ -5298,6 +5397,15 @@ struct Plugin
         oscPeakViz[k] = 0.0;
         continue;
       }
+      /* B23 increment 3: oscillator k IS routing source k, so its chunk is
+         KEPT (written, not summed) into that source's block buffer instead of
+         being added to oscillator 0's. The old sum is now the matrix's
+         default — slot 0 gathers `1.0*src0 + 1.0*src1` in this same order, and
+         the gather accumulates in float exactly as `outL[i] += tL[i]` did, so
+         the summed result is bit-identical rather than merely equivalent.
+         The buffers were zeroed for the whole block before the span loop, so a
+         disabled or skipped oscillator leaves a SILENT source rather than a
+         stale one. */
       float tL[kMixChunk], tR[kMixChunk];
       for (int off = 0; off < n; off += kMixChunk)
       {
@@ -5306,8 +5414,8 @@ struct Plugin
         applyOscGainAndMeter(k, tL, tR, m, true);
         for (int i = 0; i < m; i++)
         {
-          outL[at + off + i] += tL[i];
-          outR[at + off + i] += tR[i];
+          srcBufL[k - 1][at + off + i] = tL[i];
+          srcBufR[k - 1][at + off + i] = tR[i];
         }
       }
     }
@@ -5357,6 +5465,17 @@ struct Plugin
     float *outL = p->audio_outputs[0].data32[0];
     float *outR = p->audio_outputs[0].data32[1];
     const uint32_t nframes = p->frames_count;
+    /* B23 increment 3: the source buffers are fixed-size, so a block past them
+       is REFUSED rather than truncated — see their declaration. plug_activate
+       refuses the same ceiling up front; this is the belt for a host that
+       processes without activating, or that exceeds its own declared maximum. */
+    if (nframes > kSrcBufFrames) return CLAP_PROCESS_ERROR;
+    /* Sources 1.. start the block SILENT. Zeroing here rather than at each
+       skip site is what makes "a disabled oscillator's source is silent" true
+       for every path through the span loop at once — the SPECTRA branch, a
+       switched-off oscillator, and a span the bend grid never reaches. */
+    for (int s = 1; s < kRoutingNSrc; s++)
+      for (uint32_t i = 0; i < nframes; i++) { srcBufL[s - 1][i] = 0.0f; srcBufR[s - 1][i] = 0.0f; }
     /* Absolute sample position for the forensic trace. NEVER derived from
        steady_time alone: the first real field dump (2026-08-12, Live via the
        VST3 wrapper) came back with every pos under 512 and NON-MONOTONIC —
@@ -5428,7 +5547,16 @@ struct Plugin
     // shows what actually leaves the plugin. B146 made the PLACEMENT a
     // parameter; `pre` (the default) is this call and nothing else, so the
     // shipped chain is the one it always was.
-    if (bassMonoOn != 0 && bassMonoPos != 1) bassMonoStage(outL, outR, nframes, bmIc1, bmIc2);
+    // ONE STAGE PER SOURCE (B23 increment 3): `pre` means "before the matrix",
+    // and after increment 3 there is a source per oscillator, so a single stage
+    // over source 0 would leave every other source unfiltered. Each source
+    // carries its own integrator pair for the reason the declaration states.
+    if (bassMonoOn != 0 && bassMonoPos != 1)
+    {
+      bassMonoStage(outL, outR, nframes, bmIc1[0], bmIc2[0]);
+      for (int s = 1; s < kRoutingNSrc; s++)
+        bassMonoStage(srcBufL[s - 1], srcBufR[s - 1], nframes, bmIc1[s], bmIc2[s]);
+    }
 
     // Internal FX rack (ADR-054), now driven THROUGH the B23 crosspoint matrix
     // (ADR-088) rather than as a hardcoded series. Post-oscillator,
@@ -5471,8 +5599,21 @@ struct Plugin
       {
         const uint32_t left = nframes - off;
         const int m = (int)(left < (uint32_t)kMixChunk ? left : (uint32_t)kMixChunk);
-        const float *srcL[1] = {outL + off};
-        const float *srcR[1] = {outR + off};
+        /* Source 0 is the output buffer (oscillator 0 renders into it);
+           sources 1.. are their own. The ORDER is the matrix's own source
+           order, which is what makes slot 0's default gather
+           `0 + 1.0*osc0 + 1.0*osc1` — the same terms in the same order the
+           pre-increment-3 renderSpan summed them in, and therefore the same
+           float result rather than merely the same value. */
+        const float *srcL[kRoutingNSrc];
+        const float *srcR[kRoutingNSrc];
+        srcL[0] = outL + off;
+        srcR[0] = outR + off;
+        for (int s = 1; s < kRoutingNSrc; s++)
+        {
+          srcL[s] = srcBufL[s - 1] + off;
+          srcR[s] = srcBufR[s - 1] + off;
+        }
         routing.processBlock(srcL, srcR, slotL, slotR, outL + off, outR + off, m,
                              [&](int slot, float *L, float *R, int n) {
                                rack.processSlot(slot, L, R, n);
@@ -5553,9 +5694,15 @@ void plug_destroy(const clap_plugin_t *p)
   delete self(p);
 }
 
-bool plug_activate(const clap_plugin_t *p, double sr, uint32_t, uint32_t)
+bool plug_activate(const clap_plugin_t *p, double sr, uint32_t, uint32_t maxFrames)
 {
   auto *pl = self(p);
+  /* B23 increment 3: the per-source block buffers are fixed-size, so a host
+     that declares a block past them is refused HERE, where a failed activation
+     is the documented outcome, rather than discovered mid-block. The ceiling is
+     ~0.74 s at 44.1 kHz; the argument was unused until this increment gave the
+     shell something that depends on it. */
+  if (maxFrames > Plugin::kSrcBufFrames) return false;
   pl->sampleRate = sr;
   // Recreate the core at the host rate, preserving params (constructor cost
   // is trivial; activate is main-thread and never concurrent with process).
@@ -6075,17 +6222,24 @@ extern "C" bool hypersaw_debug_modpolarity(const clap_plugin_t *p, int idx, int 
    Deliberately not `readParam`: a round-trip through one accessor agrees with
    itself (the state_check trap, L0032), so the round-trip probe would certify
    nothing. These read the very doubles `processBlock` multiplies by. */
+/* `from` IS A ROW, matching the id list these are read beside (ADR-088
+   amendment) — the oracle parses `id,kind,from,to;` and hands `from` straight
+   back here, so a second coordinate space at this boundary would make every
+   cell-by-cell comparison silently address the wrong cell. A reserved-but-
+   unfilled source row maps to index -1 and reads as an absent cell. */
 extern "C" double hypersaw_debug_routing(const clap_plugin_t *p, int from, int to)
 {
   auto *pl = self(p);
-  if (from < 0 || from >= kRoutingNSrc + kRoutingNSlot || to < 0 || to >= kRoutingNSlot) return 0.0;
-  return pl->routing.coeff[from][to];
+  const int mi = routingIndexOfRow(from);
+  if (mi < 0 || to < 0 || to >= kRoutingNSlot) return 0.0;
+  return pl->routing.coeff[mi][to];
 }
 extern "C" bool hypersaw_debug_routing_on(const clap_plugin_t *p, int from, int to)
 {
   auto *pl = self(p);
-  if (from < 0 || from >= kRoutingNSrc + kRoutingNSlot || to < 0 || to >= kRoutingNSlot) return false;
-  return pl->routing.connected(from, to);
+  const int mi = routingIndexOfRow(from);
+  if (mi < 0 || to < 0 || to >= kRoutingNSlot) return false;
+  return pl->routing.connected(mi, to);
 }
 extern "C" double hypersaw_debug_routing_out(const clap_plugin_t *p, int to)
 {

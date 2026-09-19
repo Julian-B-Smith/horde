@@ -6261,11 +6261,26 @@ function mxEditLo(id) {
        slot, and there is none earlier than 0. So the crosspoints into slot 0
        are exactly the sources. */
 function mxShape() {
-  return {
-    slots: mxCells.filter(c => c.kind === 1).length,
-    nSrc: mxCells.filter(c => c.kind === 0 && c.to === 0).length,
-  };
+  const slots = mxCells.filter(c => c.kind === 1).length;
+  const nSrc = mxCells.filter(c => c.kind === 0 && c.to === 0).length;
+  /* srcRows — WHERE THE SLOT ROWS BEGIN in the id layout. Since the ADR-088
+     amendment (2026-09-18) the id's `from` reserves a block of rows for
+     sources, so the slot rows do NOT start at nSrc and `MX_BASE + f*MX_STRIDE`
+     over a contiguous f addresses the wrong cells. Discovered rather than
+     written down, so a third source needs no edit here either: the lowest
+     coeff row that is not a source row. A one-slot matrix has no slot→slot
+     crosspoint and no slot row is ever addressed, so the nSrc fallback is
+     unused rather than silently wrong. */
+  const slotRows = mxCells.filter(c => c.kind === 0 && c.from >= nSrc).map(c => c.from);
+  const srcRows = slotRows.length ? Math.min(...slotRows) : nSrc;
+  return { slots, nSrc, srcRows };
 }
+
+/* Display row f — sources then slots, contiguous, the order the well and the
+   rail draw — to the id layout's ROW. ONE definition for both of them: two
+   copies of this is how the well and the rail come to address different cells
+   for the same picture. */
+const mxRowOf = (f, nSrc, srcRows) => (f < nSrc ? f : srcRows + (f - nSrc));
 
 function mxCellEl(id, label, extra) {
   const row = document.createElement('div');
@@ -6307,7 +6322,7 @@ function buildMatrixPane() {
   if (!mxCells.length) return;           // no routing block in this engine: draw nothing
 
   const byId = new Map(mxCells.map(c => [c.id, c]));
-  const { slots, nSrc } = mxShape();
+  const { slots, nSrc, srcRows } = mxShape();
   const froms = nSrc + slots;            // one row per source, then one per slot
   const name = f => (f < nSrc ? 'Src ' + (f + 1) : 'Slot ' + (f - nSrc + 1));
 
@@ -6322,7 +6337,7 @@ function buildMatrixPane() {
   for (let f = 0; f < froms; f++) {
     grid.appendChild(mxHeadEl(name(f), 'r'));
     for (let t = 0; t < slots; t++) {
-      const c = byId.get(MX_BASE + f * MX_STRIDE + t);
+      const c = byId.get(MX_BASE + mxRowOf(f, nSrc, srcRows) * MX_STRIDE + t);
       grid.appendChild(c ? mxCellEl(c.id, name(f) + ' > Slot ' + (t + 1)) : mxGapEl());
     }
     /* THE TERMINAL COLUMN, now for SOURCE rows too (B50 phase 1c): a slot row
@@ -6361,9 +6376,11 @@ function buildMatrixPane() {
 // slotInit — is 0. nSrc/nSlots come from the discovered cell set, not a literal.
 function mxDefault(id) {
   const c = mxCells.find(x => x.id === id); if (!c) return 0;
-  const nSrc = mxCells.filter(x => x.kind === 0 && x.to === 0).length;
-  const nSlots = mxCells.filter(x => x.kind === 1).length;
-  if (c.kind === 0) return (c.from === 0 && c.to === 0) || (c.from >= nSrc && c.from - nSrc === c.to - 1) ? 1 : 0;
+  const { slots: nSlots, nSrc, srcRows } = mxShape();
+  // EVERY source feeds slot 1 at unity, not just the first (B23 increment 3:
+  // the two-oscillator default IS the old summed bus), and a slot row is
+  // `srcRows + k`, not `nSrc + k` — `from` is a ROW (ADR-088 amendment).
+  if (c.kind === 0) return (c.from < nSrc && c.to === 0) || (c.from >= srcRows && c.from - srcRows === c.to - 1) ? 1 : 0;
   if (c.kind === 1) return c.to === nSlots - 1 ? 1 : 0;
   return 0;   // slotInit AND the dry path: the shipped chain routes through the slots
 }
@@ -6556,7 +6573,10 @@ function drawMatrixGraph() {
   ctx.clearRect(0, 0, W, H);
   ctx.fillStyle = TOK('--scr-tube'); ctx.fillRect(0, 0, W, H);
 
-  const { slots, nSrc } = mxShape();
+  const { slots, nSrc, srcRows } = mxShape();
+  // A SLOT's id row, not its display row (ADR-088 amendment) — every lookup
+  // below that names a slot as the `from` of a crosspoint goes through it.
+  const slotRow = t => mxRowOf(nSrc + t, nSrc, srcRows);
   const val = id => +(lastParams[id] ?? 0);
   const INK = TOK('--scr-grid'), VAL = TOK('--scr-value'), PHY = TOK('--scr-physics');
   const FAINT = TOKA('--scr-grid', 0.35), WASH = TOKA('--scr-grid', 0.14),
@@ -6566,7 +6586,7 @@ function drawMatrixGraph() {
   // never stored, for the reason routing_core.h gives: a second copy of this
   // question is what silently dropped a slot from the output in the lab.
   const terminal = t => {
-    for (let u = t + 1; u < slots; u++) if (Math.abs(val(MX_BASE + (nSrc + t) * MX_STRIDE + u)) > 1e-9) return false;
+    for (let u = t + 1; u < slots; u++) if (Math.abs(val(MX_BASE + slotRow(t) * MX_STRIDE + u)) > 1e-9) return false;
     return true;
   };
   /* REACHABILITY, the same recursion the demo used, over the same derivation as
@@ -6580,7 +6600,7 @@ function drawMatrixGraph() {
     let r = false;
     if (terminal(t)) r = Math.abs(val(MX_OUT + t)) > 1e-9;
     else for (let u = t + 1; u < slots && !r; u++)
-      if (Math.abs(val(MX_BASE + (nSrc + t) * MX_STRIDE + u)) > 1e-9 && reaches(u)) r = true;
+      if (Math.abs(val(MX_BASE + slotRow(t) * MX_STRIDE + u)) > 1e-9 && reaches(u)) r = true;
     reachMemo.set(t, r);
     return r;
   };
@@ -6699,7 +6719,7 @@ function drawMatrixGraph() {
   for (let f = 0; f < slots; f++)
     for (let t = f + 1; t < slots; t++)
       edge(slotX(f) + bw / 2, midY, slotX(t) - bw / 2, midY,
-           val(MX_BASE + (nSrc + f) * MX_STRIDE + t), MX_BASE + (nSrc + f) * MX_STRIDE + t,
+           val(MX_BASE + slotRow(f) * MX_STRIDE + t), MX_BASE + slotRow(f) * MX_STRIDE + t,
            reaches(t), nodeOfSlot(t) - nodeOfSlot(f));
   /* A terminal slot's OUT edge is a SKIP whenever it is not the last slot — a
      Slot 1 that goes straight out passes over Slots 2–4, and drawing it flat put
