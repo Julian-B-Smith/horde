@@ -403,7 +403,7 @@ Not "it sounds plausible". The C++ engines are **statement-level ports of browse
 that you can open and hear, and the oracle re-derives the goldens from those prototypes on
 every run and compares:
 
-- **`./verify fast | full` — 31 gates.** Parity is **156/156 scenarios within 1e-6 RMS**
+- **`./verify fast | full` — every `tools/*_check` is wired or says why not** (`test_table_check` prints the wired and `UNWIRED:` counts on every run; ADR-180 §1). Parity is **156/156 scenarios within 1e-6 RMS**
   (worst 4.262e-09; most match to the bit).
 - Alongside parity sit the probes parity structurally **cannot** see: subdivision invariance,
   sample-rate independence, RT-safety (no allocation on the audio thread), note-lifecycle fuzz,
@@ -457,8 +457,9 @@ Stated rather than omitted:
 - **Fourteen test-table rows have no oracle yet** — counted by the gate rather than quietly
   carried (`test_table_check` prints the number every run, which is why this line can be
   trusted to be current rather than remembered).
-- **Five standalone oracles are green but not wired into `./verify`** (delay, STRATA,
-  voice-tap, SVF, comb-guard) — wiring them is a standing human decision on gate scope.
+- **A check that is not wired carries `UNWIRED: <reason>` in its header**, and `test_table_check`
+  fails the build otherwise (ADR-180 §1, 2026-09-19). The list of exemptions is the enforcement's
+  own output, not this file; ROADMAP B159 holds the ten whose reasons are still owed.
 - **In-page WebAudio health readouts are untrustworthy**, and the labs deliberately show none:
   an analyser taps the graph rather than the device, and `ctx.currentTime` advances straight
   through an underrun. Both reported healthy audio through three rounds while a human heard the
