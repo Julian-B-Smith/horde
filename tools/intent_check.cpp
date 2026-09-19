@@ -1131,6 +1131,10 @@ void identitySection()
    argued (L0032); where a test could pass by inaction it also carries its own
    anchor — the count of positions it actually got to look at (L0033).
 
+     TC   the APPLIED path (acceptance (c)): with nothing bound, every slot
+          lands EXACTLY on the resolved target or holds what it had, never on
+          a third value — and with the morph OFF the flag does nothing (R15,
+          rendered).
      T1   a corner that LOCKS a parameter (lo == hi) pins it under a full
           intent sweep while that corner owns it. CONTROL: widen that one
           range and the same sweep must move it.
@@ -1271,6 +1275,213 @@ std::string rangeTok(clap_id id, int corner, double lo, double hi)
   char tok[96];
   std::snprintf(tok, sizeof tok, ",R:%u:%d:%.17g:%.17g", (unsigned)id, corner, lo, hi);
   return tok;
+}
+
+/* ---- TC: the APPLIED path, and the flag with the morph off --------------
+   S4 (above, 2b) proves the resolver's OUTPUT is the owning corner's stored
+   value. TC is the other half, and the half 2c adds: that the engine is
+   carried to that value, through applyParam, and to nothing else.
+
+   The contract is a disjunction, because the field's own rules are part of it:
+   after a grid tick a slot holds EITHER the resolved target (exact here — the
+   glide is pinned immediate, so what is measured is the target and not how far
+   a one-pole had got) or exactly what it held before (ADR-108's hold, and the
+   1e-9 deadband every field writer goes through). Anything else is a
+   MISMATCHING id, and the question TC answers is whose it is.
+
+   WHOSE IT IS, measured rather than argued. Three id families read back a
+   value the field never gave them, and all three are the READ path's, not the
+   resolver's:
+     - `beatMult` (23) and the step grid (148): applyParam SNAPS them to
+       rational beat increments. The destination owns its own law (ADR-088's
+       rule, shipped long before this).
+     - ids 44-55 / 65-68: readParam routes them to the SHARED `spectra` core
+       while applyParam writes that core for EVERY oscillator's copy, so osc
+       1's readback reports whatever osc 2 last applied.
+     - `toneTilt` (71): the per-osc read collides with `tilt` (45) in the core
+       key map — 1071 reads back a value outside its own declared range.
+   So TC does not assert a number it would have to fix to go green. It asserts
+   the SET of mismatching ids under the resolver is a SUBSET of the set the
+   SHIPPED field produces on the same patch: the resolver introduces no
+   mismatch of its own. Both sets are printed. (ADR candidates, out of this
+   brief's scope — the read path is not 2c's to change.) */
+
+struct Buckets
+{
+  size_t reads = 0, exact = 0, held = 0, mismatch = 0;
+  double worstExact = 0, worstOwner = 0;
+  std::map<clap_id, size_t> ids;   // mismatching id -> how often
+};
+
+std::string idList(const std::map<clap_id, size_t> &m)
+{
+  std::string out;
+  for (std::map<clap_id, size_t>::const_iterator it = m.begin(); it != m.end(); ++it)
+  {
+    char b[32];
+    std::snprintf(b, sizeof b, "%s%u(x%zu)", out.empty() ? "" : " ", (unsigned)it->first,
+                  it->second);
+    out += b;
+  }
+  return out.empty() ? "none" : out;
+}
+
+void tc()
+{
+  std::printf("\nTC — the applied path: the engine is carried to the resolved value\n");
+  const uint32_t seeds[3] = {1024, 7, 4242};
+  const double spreads[3] = {0.15, 0.22, 0.10};
+  std::map<clap_id, size_t> onIds;
+  for (int patch = 0; patch < 3; patch++)
+  {
+    Rig rig(spreads[patch]);
+    rig.push({{kMorphOn, 1}, {kIntentFlag, 1}, {kMorphGlide, 0}, {kMorphTemp, 1},
+              {kMorphSeed, (double)seeds[patch]}});
+    // Zero intents, explicitly: two macros default to 0.5, and the acceptance
+    // names the zero-intent case even though no binding exists to carry them.
+    {
+      std::vector<std::pair<clap_id, double>> zero;
+      for (int i = 0; i < 8; i++)
+        zero.push_back(std::pair<clap_id, double>((clap_id)(166 + i), 0.0));
+      rig.push(zero);
+    }
+    Live live(rig.p);
+    const std::vector<std::pair<double, double>> pos = positions();
+    std::vector<double> prev(rig.f.n(), 0.0);
+    for (size_t s = 0; s < rig.f.n(); s++) prev[s] = rig.live(rig.f.ids[s]);
+
+    Buckets b;
+    for (size_t q = 0; q < pos.size(); q++)
+    {
+      EvList ev;
+      ev.push(kMorphX, pos[q].first);
+      ev.push(kMorphY, pos[q].second);
+      live.run(2, &ev);
+      for (size_t s = 0; s < rig.f.n(); s++)
+      {
+        const double resolved = hypersaw_debug_intent_final(rig.p, (int)s);
+        const double v = rig.live(rig.f.ids[s]);
+        const int k = hypersaw_debug_intent_owner(rig.p, (int)s);
+        const double d = std::fabs(v - resolved);
+        b.reads++;
+        if (d <= kEps)
+        {
+          b.exact++;
+          b.worstExact = std::max(b.worstExact, d);
+          // ... and the target is still the OWNER's corner value, so the
+          // applied value is the owner's and not merely self-consistent.
+          if (k >= 0 && k < 4)
+            b.worstOwner = std::max(b.worstOwner, std::fabs(v - rig.f.corner[k][s]));
+        }
+        else if (v == prev[s] || d <= 1e-9) b.held++;
+        else { b.mismatch++; b.ids[rig.f.ids[s]]++; onIds[rig.f.ids[s]]++; }
+        prev[s] = v;
+      }
+    }
+    char msg[520];
+    std::snprintf(msg, sizeof msg,
+                  "TC patch %d (seed %u): %zu slot-reads over %zu positions — %zu landed "
+                  "EXACTLY on the resolved target (worst %.3g; worst |applied - corner[owner]| "
+                  "= %.3g), %zu held (ADR-108 / the 1e-9 deadband), %zu read back something "
+                  "else",
+                  patch + 1, seeds[patch], b.reads, pos.size(), b.exact, b.worstExact,
+                  b.worstOwner, b.held, b.mismatch);
+    say(b.exact > b.reads / 2 && b.worstOwner <= kEps, msg);
+  }
+  std::printf("       ids that read back something else, WITH the resolver: %s\n",
+              idList(onIds).c_str());
+
+  /* ATTRIBUTION: the same measurement under the SHIPPED field, flag OFF,
+     against the shipped owner query. Its only job is to say whether those ids
+     belong to the resolver or to the read path — and it is the reason TC can
+     assert something true instead of excluding ids by name. */
+  std::map<clap_id, size_t> offIds;
+  size_t offReads = 0;
+  for (int patch = 0; patch < 3; patch++)
+  {
+    Rig rig(spreads[patch]);
+    rig.push({{kMorphOn, 1}, {kIntentFlag, 0}, {kMorphGlide, 0}, {kMorphTemp, 1},
+              {kMorphSeed, (double)seeds[patch]}});
+    Live live(rig.p);
+    const std::vector<std::pair<double, double>> pos = positions();
+    std::vector<double> prev(rig.f.n(), 0.0);
+    for (size_t s = 0; s < rig.f.n(); s++) prev[s] = rig.live(rig.f.ids[s]);
+    for (size_t q = 0; q < pos.size(); q++)
+    {
+      EvList ev;
+      ev.push(kMorphX, pos[q].first);
+      ev.push(kMorphY, pos[q].second);
+      live.run(2, &ev);
+      const std::map<clap_id, int> own = shippedOwners(rig.p);
+      for (size_t s = 0; s < rig.f.n(); s++)
+      {
+        /* SYMMETRIC with the leg above, including the held slots: ownersjson
+           reports -2 for a slot ADR-108 is holding, and the expectation for
+           one of those is "unchanged", so a CHANGE is the mismatch. Skipping
+           them would have made the comparison unfair in the resolver's
+           disfavour — it is how `beatMult` first looked like the resolver's
+           doing when it is the snap in applyParam, which both laws meet. */
+        const std::map<clap_id, int>::const_iterator it = own.find(rig.f.ids[s]);
+        const double v = rig.live(rig.f.ids[s]);
+        if (it != own.end())
+        {
+          offReads++;
+          const bool wrong = it->second >= 0
+                                 ? std::fabs(v - rig.f.corner[it->second][s]) > 1e-9
+                                 : true;
+          if (wrong && v != prev[s]) offIds[rig.f.ids[s]]++;
+        }
+        prev[s] = v;
+      }
+    }
+  }
+  std::printf("       ids that read back something else, SHIPPED field: %s\n",
+              idList(offIds).c_str());
+  std::string extra;
+  for (std::map<clap_id, size_t>::const_iterator it = onIds.begin(); it != onIds.end(); ++it)
+    if (offIds.find(it->first) == offIds.end())
+    {
+      char b[16];
+      std::snprintf(b, sizeof b, "%s%u", extra.empty() ? "" : " ", (unsigned)it->first);
+      extra += b;
+    }
+  char msg[440];
+  std::snprintf(msg, sizeof msg,
+                "TC attribution: every id that reads back something else under the RESOLVER "
+                "does so under the SHIPPED field too (%zu reads) — the resolver introduces "
+                "none of its own (extras: %s)",
+                offReads, extra.empty() ? "none" : extra.c_str());
+  say(extra.empty(), msg);
+
+  /* R15 — with the morph OFF the flag does nothing, because bindings live in
+     corners and with no field there is no owner. Rendered, not reasoned: the
+     seam's condition is `intentBusOn && morphOn`, and this measures that the
+     second half of that `&&` is load-bearing. S3's plant is the control that
+     says this comparison can fail at all. */
+  auto renderAt = [](double flag) {
+    const clap_plugin_t *p = makePlugin();
+    Field f;
+    f.read(p);
+    authorCorners(p, f, 0.15);
+    EvList ev;
+    ev.push(kMorphOn, 0);
+    ev.push(kIntentFlag, flag);
+    ev.push(kMorphX, 0.37);
+    ev.push(kMorphY, 0.61);
+    paramsOf(p)->flush(p, &ev.list, &kOut);
+    drain(p);
+    std::vector<float> audio;
+    render(p, audio);
+    p->destroy(p);
+    return audio;
+  };
+  const std::vector<float> off = renderAt(0);
+  const std::vector<float> on = renderAt(1);
+  std::snprintf(msg, sizeof msg,
+                "TC R15: with the MORPH off, flag 1 renders bit-identically to flag 0 (%zu "
+                "samples, rms %.4g — not silence, so the equality means something)",
+                on.size(), rms(on));
+  say(off == on && rms(on) > 1e-6, msg);
 }
 
 /* ---- T1: a locked range pins its parameter while that corner owns it ----- */
@@ -1947,6 +2158,7 @@ void tg()
 void section()
 {
   std::printf("\n========= SECTION T — SPEC-INTENT-BUS §12, through the plugin =========\n");
+  tc();
   t1();
   t4();
   t5();
