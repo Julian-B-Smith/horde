@@ -6034,3 +6034,18 @@ numbers go to ACCEPTANCE as measured, not aspirational.
    Bill's practice) — `sin(x) + a·sin(3x + φ)` with `a` and `φ` exposed as
    the shape's two parameters and a default that yields the two-bump look;
    band-limited by construction (two partials).
+
+### ADR-086 Amendment — pan motion joins the gravity grid; the SAW reference is segmented to match (2026-09-19, PR #656)
+
+ADR-086 confined the fixed grid to gravity. B151 (human, option a) moves
+pan motion onto it, and ADR-177 §1 sanctioned the paired edit:
+`SwarmSynth.render()` in `reference/swarmsaw.html` becomes the DYN-shaped
+grid loop (segments of 256/44100 s), pan motion advancing once per tick;
+`src/swarm_core.h` advances it on the existing accumulator in seconds.
+Nine of 156 goldens moved (the pan scenarios: centre-pin 0.77 % of golden
+RMS, pan-drift 0.31 %, pan-sweep 0.19 %); the other 147 are byte-identical
+— structurally, because `panMotion ≤ 0.001` makes the step a no-op. The
+character is smoother, not coarser: the staircase updates at 172 Hz instead
+of 43 Hz with steps four times smaller. `subdiv_check` and
+`blocksize_check` now gate every case with no exclusions; parity 156/156 at
+the existing eps with the nine moved scenarios at rms 0.
