@@ -138,67 +138,42 @@ footer{margin-top:10px;font-size:8.5px;color:var(--ink-soft);display:flex;justif
 </div>
 
 <script>
-/* ================= STATION — 3-op PM + LFSR noise ================= */
+/* ================= DSP: Station — 3-op PM + LFSR noise ================= */
+/* Everything between this banner and the `Audio graph` banner below is the
+   headless core: tools/golden/extract_core.mjs slices exactly this span and
+   evaluates it with no DOM, so nothing in here may touch window/document.
+   StationCore owns all mutable audio state — two instances share nothing. */
 const WAVES=['SIN','TRI','SAW','PLS','QTR','DRW'];
 const MODES=['RATIO','PITCH','FIXED'];
 const QSTEPS=[0,4,8,16,32,64];
 const TAU=6.283185307179586;
 
-const state={
-  master:0.75,
-  pitchEnv:{amt:0,dec:80},
-  table:new Array(32).fill(8),
-  matrix:[[0,0,0],[0,0,0],[0,0,0],[0,0,0]],   // rows O1 O2 O3 NS → cols O1 O2 O3
-  ops:[
-    {on:1,wave:0,mode:0,coarse:1, fine:0,semis:0,fixed:220,lvl:0.85,pan:0,pw:0.5,pure:1,qnt:0,sync:0,env:{a:3,d:420,s:0.55,r:260,loop:0}},
-    {on:1,wave:0,mode:0,coarse:2, fine:0,semis:0,fixed:440,lvl:0,   pan:0,pw:0.5,pure:1,qnt:0,sync:0,env:{a:2,d:180,s:0,   r:120,loop:0}},
-    {on:1,wave:0,mode:0,coarse:14,fine:0,semis:0,fixed:880,lvl:0,   pan:0,pw:0.5,pure:1,qnt:0,sync:0,env:{a:2,d:60, s:0,   r:60, loop:0}},
-  ],
-  noise:{on:0,mode:0,rate:0.35,ktrk:1,lvl:0.5,pan:0,env:{a:1,d:120,s:0,r:80,loop:0}},
-};
-state.matrix[1][0]=2.6;
-state.matrix[2][0]=1.1;
-state.seed=1024;   // Wave RAM randomize seed (ADR-122) — persists with device state
-
 // mulberry32 — the house stream (SPEC §5.7: seeded RNG only, no wall-clock);
 // copied verbatim from the form the labs already share (e.g. docs/design/morph-law-bench.html).
 function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
-// Reseeded from state.seed right before each RND click (see wave-presets wiring
-// below), so one click draws one reproducible stream instead of one free call
-// per cell — was Math.floor(Math.random()*16) per cell, unseeded.
-let rndStream=mulberry32(state.seed>>>0);
-const TP={
-  SIN:i=>Math.round((Math.sin(i/32*TAU)*.5+.5)*15),
-  SAW:i=>Math.round(i/31*15),
-  SQR:i=>i<16?15:0,
-  BELL:i=>Math.round(((Math.sin(i/32*TAU)+.55*Math.sin(i/32*3*TAU))*.42+.5)*15),
-  RND:i=>Math.floor(rndStream()*16),
-};
-state.table=state.table.map((_,i)=>TP.BELL(i));
 
-/* ---------------- DSP ---------------- */
-let ac=null, spn=null, SR=48000;
-const voices=[];
-const scopeBuf=new Float32Array(160); let scopeIdx=0, scopeDec=0;
+// A factory, not a literal: each StationCore must own its own patch, or two
+// cores constructed in one scope would share `matrix`/`ops` by reference.
+function mkState(){
+  const s={
+    master:0.75,
+    pitchEnv:{amt:0,dec:80},
+    table:new Array(32).fill(8),
+    matrix:[[0,0,0],[0,0,0],[0,0,0],[0,0,0]],   // rows O1 O2 O3 NS → cols O1 O2 O3
+    ops:[
+      {on:1,wave:0,mode:0,coarse:1, fine:0,semis:0,fixed:220,lvl:0.85,pan:0,pw:0.5,pure:1,qnt:0,sync:0,env:{a:3,d:420,s:0.55,r:260,loop:0}},
+      {on:1,wave:0,mode:0,coarse:2, fine:0,semis:0,fixed:440,lvl:0,   pan:0,pw:0.5,pure:1,qnt:0,sync:0,env:{a:2,d:180,s:0,   r:120,loop:0}},
+      {on:1,wave:0,mode:0,coarse:14,fine:0,semis:0,fixed:880,lvl:0,   pan:0,pw:0.5,pure:1,qnt:0,sync:0,env:{a:2,d:60, s:0,   r:60, loop:0}},
+    ],
+    noise:{on:0,mode:0,rate:0.35,ktrk:1,lvl:0.5,pan:0,env:{a:1,d:120,s:0,r:80,loop:0}},
+  };
+  s.matrix[1][0]=2.6;
+  s.matrix[2][0]=1.1;
+  s.seed=1024;   // Wave RAM randomize seed (ADR-122) — persists with device state
+  return s;
+}
 
 function mkEnv(){return{stage:0,lvl:0};}
-function mkVoice(note,freq){
-  return {note,freq,gate:true,ph:[0,0,0],prev:[0,0,0,0],
-    env:[mkEnv(),mkEnv(),mkEnv(),mkEnv()],pT:0,
-    lfsr:0x7FFF,nphase:0,nout:0,dead:false};
-}
-function envStep(e,p,gate){
-  if(!gate&&e.stage<3)e.stage=3;
-  switch(e.stage){
-    case 0:{const t=Math.max(0.0005,p.a/1000)*SR; e.lvl+=1/t; if(e.lvl>=1){e.lvl=1;e.stage=1;} break;}
-    case 1:{const t=Math.max(0.001,p.d/1000)*SR; e.lvl+=(p.s-e.lvl)*(4.6/t);
-      if(Math.abs(e.lvl-p.s)<0.004){e.lvl=p.s;e.stage=p.loop?0:2;} break;}
-    case 2: e.lvl=p.s; break;
-    case 3:{const t=Math.max(0.001,p.r/1000)*SR; e.lvl+=(0-e.lvl)*(4.6/t);
-      if(e.lvl<0.0005){e.lvl=0;e.stage=4;} break;}
-  }
-  return e.lvl;
-}
 function blep(t,dt){
   if(t<dt){t/=dt;return t+t-t*t-1;}
   if(t>1-dt){t=(t-1)/dt;return t*t+t+t+1;}
@@ -226,88 +201,146 @@ function waveOut(o,p,dt,tbl){
   }
   return raw+(pure-raw)*o.pure;
 }
-function render(L,R,N){
-  const s=state,tbl=s.table;
-  for(let n=0;n<N;n++){
-    let ml=0,mr=0;
-    for(let vi=0;vi<voices.length;vi++){
-      const v=voices[vi];
-      let pmul=1;
-      if(s.pitchEnv.amt!==0){
-        const dec=Math.max(0.005,s.pitchEnv.dec/1000)*SR;
-        pmul=Math.pow(2,s.pitchEnv.amt*Math.exp(-v.pT/dec*4.6)/12);
-      }
-      v.pT++;
-      const base=v.freq*pmul;
-      let nSig=0;
-      if(s.noise.on){
-        const nEnv=envStep(v.env[3],s.noise.env,v.gate);
-        let nf=s.noise.rate*SR*0.5;
-        if(s.noise.ktrk) nf*=base/261.63;
-        v.nphase+=nf/SR;
-        while(v.nphase>=1){
-          v.nphase-=1;
-          const b0=v.lfsr&1, tap=s.noise.mode?((v.lfsr>>6)&1):((v.lfsr>>1)&1);
-          v.lfsr=(v.lfsr>>1)|(((b0^tap)&1)<<14);
-          v.nout=(v.lfsr&1)?0.7:-0.7;
-        }
-        nSig=v.nout*nEnv;
-      } else { envStep(v.env[3],s.noise.env,v.gate); }
-      const dt0=opFreq(s.ops[0],base)/SR;
-      const wrapped=(v.ph[0]+dt0)>=1;
-      const outs=[0,0,0];
-      for(let i=0;i<3;i++){
-        const o=s.ops[i];
-        if(!o.on){outs[i]=0;continue;}
-        const dt=Math.min(opFreq(o,base)/SR,0.45);
-        if(i>0&&o.sync&&wrapped) v.ph[i]=0;
-        v.ph[i]+=dt; if(v.ph[i]>=1) v.ph[i]-=1;
-        const pm=s.matrix[0][i]*v.prev[0]+s.matrix[1][i]*v.prev[1]
-                +s.matrix[2][i]*v.prev[2]+s.matrix[3][i]*v.prev[3];
-        let p=v.ph[i]+pm*0.1591549;
-        p-=Math.floor(p);
-        outs[i]=waveOut(o,p,dt,tbl)*envStep(v.env[i],o.env,v.gate);
-      }
-      v.prev[0]=outs[0];v.prev[1]=outs[1];v.prev[2]=outs[2];v.prev[3]=nSig;
-      for(let i=0;i<3;i++){
-        const o=s.ops[i]; if(!o.on||o.lvl<=0) continue;
-        const g=outs[i]*o.lvl*0.35;
-        ml+=g*(1-Math.max(0,o.pan)); mr+=g*(1-Math.max(0,-o.pan));
-      }
-      if(s.noise.on&&s.noise.lvl>0){
-        const g=nSig*s.noise.lvl*0.35;
-        ml+=g*(1-Math.max(0,s.noise.pan)); mr+=g*(1-Math.max(0,-s.noise.pan));
-      }
-      if(!v.gate){
-        let alive=false;
-        for(let i=0;i<3;i++) if(s.ops[i].on&&v.env[i].stage<4) alive=true;
-        if(s.noise.on&&v.env[3].stage<4) alive=true;
-        if(!alive) v.dead=true;
-      }
+
+class StationCore{
+  constructor(SR=48000){
+    this.SR=SR;
+    this.state=mkState();
+    this.voices=[];
+    this.scopeBuf=new Float32Array(160); this.scopeIdx=0; this.scopeDec=0;
+    // Wave-RAM table generators. The RND stream lives on the instance, not the
+    // module: a shared stream would make two cores' tables depend on the order
+    // their RND buttons were clicked.
+    this.rndStream=mulberry32(this.state.seed>>>0);
+    this.TP={
+      SIN:i=>Math.round((Math.sin(i/32*TAU)*.5+.5)*15),
+      SAW:i=>Math.round(i/31*15),
+      SQR:i=>i<16?15:0,
+      BELL:i=>Math.round(((Math.sin(i/32*TAU)+.55*Math.sin(i/32*3*TAU))*.42+.5)*15),
+      RND:i=>Math.floor(this.rndStream()*16),
+    };
+    this.state.table=this.state.table.map((_,i)=>this.TP.BELL(i));
+  }
+  // Reseeded from state.seed right before each RND click, so one click draws one
+  // reproducible stream instead of one free call per cell — was
+  // Math.floor(Math.random()*16) per cell, unseeded (ADR-122).
+  reseedTable(){ this.rndStream=mulberry32(this.state.seed>>>0); }
+
+  mkVoice(note,freq,slot){
+    return {note,freq,gate:true,ph:[0,0,0],prev:[0,0,0,0],
+      env:[mkEnv(),mkEnv(),mkEnv(),mkEnv()],pT:0,
+      lfsr:0x7FFF,nphase:0,nout:0,dead:false};
+  }
+  noteOn(note,freq){
+    if(this.voices.length>=8) this.voices.shift();
+    const v=this.mkVoice(note,freq,this.voices.length);
+    this.voices.push(v);
+    return v;
+  }
+  noteOff(note){
+    for(const v of this.voices) if(v.note===note&&v.gate) v.gate=false;
+  }
+  envStep(e,p,gate){
+    const SR=this.SR;
+    if(!gate&&e.stage<3)e.stage=3;
+    switch(e.stage){
+      case 0:{const t=Math.max(0.0005,p.a/1000)*SR; e.lvl+=1/t; if(e.lvl>=1){e.lvl=1;e.stage=1;} break;}
+      case 1:{const t=Math.max(0.001,p.d/1000)*SR; e.lvl+=(p.s-e.lvl)*(4.6/t);
+        if(Math.abs(e.lvl-p.s)<0.004){e.lvl=p.s;e.stage=p.loop?0:2;} break;}
+      case 2: e.lvl=p.s; break;
+      case 3:{const t=Math.max(0.001,p.r/1000)*SR; e.lvl+=(0-e.lvl)*(4.6/t);
+        if(e.lvl<0.0005){e.lvl=0;e.stage=4;} break;}
     }
-    for(let i=voices.length-1;i>=0;i--) if(voices[i].dead) voices.splice(i,1);
-    const g=s.master;
-    const l=Math.tanh(ml*g*1.4), r=Math.tanh(mr*g*1.4);
-    L[n]=l; R[n]=r;
-    if((scopeDec++&7)===0){ scopeBuf[scopeIdx]=(l+r)*0.5; scopeIdx=(scopeIdx+1)%160; }
+    return e.lvl;
+  }
+  render(L,R,N){
+    const s=this.state,tbl=s.table,SR=this.SR,voices=this.voices;
+    for(let n=0;n<N;n++){
+      let ml=0,mr=0;
+      for(let vi=0;vi<voices.length;vi++){
+        const v=voices[vi];
+        let pmul=1;
+        if(s.pitchEnv.amt!==0){
+          const dec=Math.max(0.005,s.pitchEnv.dec/1000)*SR;
+          pmul=Math.pow(2,s.pitchEnv.amt*Math.exp(-v.pT/dec*4.6)/12);
+        }
+        v.pT++;
+        const base=v.freq*pmul;
+        let nSig=0;
+        if(s.noise.on){
+          const nEnv=this.envStep(v.env[3],s.noise.env,v.gate);
+          let nf=s.noise.rate*SR*0.5;
+          if(s.noise.ktrk) nf*=base/261.63;
+          v.nphase+=nf/SR;
+          while(v.nphase>=1){
+            v.nphase-=1;
+            const b0=v.lfsr&1, tap=s.noise.mode?((v.lfsr>>6)&1):((v.lfsr>>1)&1);
+            v.lfsr=(v.lfsr>>1)|(((b0^tap)&1)<<14);
+            v.nout=(v.lfsr&1)?0.7:-0.7;
+          }
+          nSig=v.nout*nEnv;
+        } else { this.envStep(v.env[3],s.noise.env,v.gate); }
+        const dt0=opFreq(s.ops[0],base)/SR;
+        const wrapped=(v.ph[0]+dt0)>=1;
+        const outs=[0,0,0];
+        for(let i=0;i<3;i++){
+          const o=s.ops[i];
+          if(!o.on){outs[i]=0;continue;}
+          const dt=Math.min(opFreq(o,base)/SR,0.45);
+          if(i>0&&o.sync&&wrapped) v.ph[i]=0;
+          v.ph[i]+=dt; if(v.ph[i]>=1) v.ph[i]-=1;
+          const pm=s.matrix[0][i]*v.prev[0]+s.matrix[1][i]*v.prev[1]
+                  +s.matrix[2][i]*v.prev[2]+s.matrix[3][i]*v.prev[3];
+          let p=v.ph[i]+pm*0.1591549;
+          p-=Math.floor(p);
+          outs[i]=waveOut(o,p,dt,tbl)*this.envStep(v.env[i],o.env,v.gate);
+        }
+        v.prev[0]=outs[0];v.prev[1]=outs[1];v.prev[2]=outs[2];v.prev[3]=nSig;
+        for(let i=0;i<3;i++){
+          const o=s.ops[i]; if(!o.on||o.lvl<=0) continue;
+          const g=outs[i]*o.lvl*0.35;
+          ml+=g*(1-Math.max(0,o.pan)); mr+=g*(1-Math.max(0,-o.pan));
+        }
+        if(s.noise.on&&s.noise.lvl>0){
+          const g=nSig*s.noise.lvl*0.35;
+          ml+=g*(1-Math.max(0,s.noise.pan)); mr+=g*(1-Math.max(0,-s.noise.pan));
+        }
+        if(!v.gate){
+          let alive=false;
+          for(let i=0;i<3;i++) if(s.ops[i].on&&v.env[i].stage<4) alive=true;
+          if(s.noise.on&&v.env[3].stage<4) alive=true;
+          if(!alive) v.dead=true;
+        }
+      }
+      for(let i=voices.length-1;i>=0;i--) if(voices[i].dead) voices.splice(i,1);
+      const g=s.master;
+      const l=Math.tanh(ml*g*1.4), r=Math.tanh(mr*g*1.4);
+      L[n]=l; R[n]=r;
+      if((this.scopeDec++&7)===0){ this.scopeBuf[this.scopeIdx]=(l+r)*0.5; this.scopeIdx=(this.scopeIdx+1)%160; }
+    }
   }
 }
+
+/* ================= Audio graph ================= */
+const core=new StationCore(48000);
+const state=core.state, voices=core.voices;   // UI aliases — object identity is stable
+let ac=null, spn=null;
 let audioErr='';
 async function power(){
   if(ac){ if(ac.state==='suspended') await ac.resume(); return; }
   try{
     ac=new (window.AudioContext||window.webkitAudioContext)();
-    SR=ac.sampleRate;
+    core.SR=ac.sampleRate;
     spn=ac.createScriptProcessor(1024,0,2);
     spn.onaudioprocess=e=>{
       const t0=performance.now();
       const L=e.outputBuffer.getChannelData(0), R=e.outputBuffer.getChannelData(1);
-      render(L,R,L.length);
+      core.render(L,R,L.length);
       cpuMs=cpuMs*0.9+(performance.now()-t0)*0.1;
     };
     spn.connect(ac.destination);
     await ac.resume();
-    document.getElementById('power-note').textContent='● LIVE @ '+Math.round(SR/1000)+'k';
+    document.getElementById('power-note').textContent='● LIVE @ '+Math.round(core.SR/1000)+'k';
   }catch(err){
     audioErr=err.message||String(err);
     document.getElementById('power-note').textContent='AUDIO FAILED: '+audioErr;
@@ -502,11 +535,11 @@ wcv.addEventListener('pointerdown',e=>{wdrag=true;paintWave(e);wcv.setPointerCap
 wcv.addEventListener('pointermove',e=>{if(wdrag)paintWave(e);});
 wcv.addEventListener('pointerup',()=>wdrag=false);
 wcv.addEventListener('pointercancel',()=>wdrag=false);
-Object.keys(TP).forEach(k=>{
+Object.keys(core.TP).forEach(k=>{
   const b=document.createElement('button'); b.className='mini'; b.textContent=k;
   b.addEventListener('click',()=>{
-    if(k==='RND') rndStream=mulberry32(state.seed>>>0);   // one reproducible draw per click
-    state.table=state.table.map((_,i)=>TP[k](i));drawTable();
+    if(k==='RND') core.reseedTable();   // one reproducible draw per click
+    state.table=state.table.map((_,i)=>core.TP[k](i));drawTable();
   });
   $('#wave-presets').appendChild(b);
 });
@@ -520,7 +553,7 @@ function drawScope(){
   for(let x=0;x<160;x+=8) sctx.fillRect(x,44,1,1);
   sctx.fillStyle='#0f380f';
   for(let x=0;x<160;x++){
-    const y=Math.round(44-scopeBuf[x]*40);
+    const y=Math.round(44-core.scopeBuf[x]*40);
     sctx.fillRect(x,Math.min(86,Math.max(0,y)),2,2);
   }
   if(ac) $('#cpu').textContent=voices.length+' VOICES · '+cpuMs.toFixed(2)+' MS/BLK';
@@ -538,14 +571,13 @@ async function press(n){
   await power();
   if(held.has(n))return;
   held.add(n);
-  if(voices.length>=8) voices.shift();
-  voices.push(mkVoice(n,noteFreq(n)));
+  core.noteOn(n,noteFreq(n));
   markKey(n,true);
 }
 function release(n){
   if(!held.has(n))return;
   held.delete(n);
-  for(const v of voices) if(v.note===n&&v.gate) v.gate=false;
+  core.noteOff(n);
   markKey(n,false);
 }
 function markKey(n,on){
