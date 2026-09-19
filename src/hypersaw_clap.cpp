@@ -674,6 +674,16 @@ static const ParamDef kParams[] = {
     // ruled behaviour is what a patch that never wrote the id gets.
     {264, "fxXfade", "FX Type Crossfade (dev)", 0, 1, 1, true, kFxXfadeLabels},
     {265, "fxXfadeMs", "FX Crossfade Time (dev)", 5, 500, 80, false, nullptr},
+    /* B89 phase 2b / ADR-176 decision 6 — THE INTENT-BUS FLAG, the id the row
+       below has been holding open. Default OFF, so every patch that never
+       writes it renders exactly as it did: the flag IS the bit-identity claim,
+       and parity_check / statefix_check / intent_check section S are where it
+       is proven. "(dev)" is the established label for a control that is not
+       product surface (id 70 is the precedent, 264/265 the recent one).
+       It does NOTHING with morph off (plan R15): bindings live in corners, and
+       with no field there is no owner — so the seam is narrowed to morph-on
+       patches by construction rather than by a second guard. */
+    {266, "intentBus", "Intent Bus (dev)", 0, 1, 0, true, kOffOn},
     /* B146 bass-mono placement, RATIFIED 2026-09-18. Id 267, not 266: 266 is
        reserved for the intent flag, and an id skipped on purpose is cheaper
        than an id claimed twice. Default 0 = pre = the stage's only placement
@@ -793,6 +803,7 @@ constexpr clap_id kGlobalIds[] = {
     248, 249, 250, 251, 252, 253, 254, 255,      // ADR-142 Delay slot 3
     256, 257, 258, 259, 260, 261, 262, 263,      // ADR-142 Delay slot 4
     264, 265,                                    // B117 FX crossfade (dev) — the rack is ONE object
+    266,                                         // B89 intent-bus flag (dev) — one resolver per device
     // ADR-131 per-slot time-engine params: 200..231, four blocks of 8.
     200, 201, 202, 203, 204, 205, 206,
     208, 209, 210, 211, 212, 213, 214,
@@ -1210,6 +1221,13 @@ static const ParamClassRule kParamClassOverrides[] = {
     // (dev) B117/ADR-163: buried, ids kept so saved state loads.
     {264, ParamClass::Device, "(dev) buried rack policy (B117/ADR-163)"},
     {265, ParamClass::Device, "(dev) buried rack policy (B117/ADR-163)"},
+    /* ADR-176 decision 6. Rule 2 would make it STRUCTURAL (it is stepped), and
+       the ruling overrides that to DEVICE for the reason 151-158 are device: it
+       shapes the RESOLVER, and a field that morphed its own resolver would
+       change how it resolves as the pad moved. Device also keeps it out of
+       morphIds, which is what paramclass_check's "no morphIds member is
+       device" cross-check asserts — morphInit never appends it. */
+    {266, ParamClass::Device, "(dev) intent-bus flag — shapes the resolver itself (ADR-176)"},
     /* B146. Rule 2 would make it STRUCTURAL (it is stepped, and it does change
        the graph), and the ruling overrides that to DEVICE: the placement is an
        output-stage policy of the instance, like master volume (id 100), not
@@ -2113,6 +2131,12 @@ struct Plugin
   double morphOn = 0, morphMode = 0, morphGlideS = 0.008;
   uint32_t morphSeed = 1024;
   int morphAccum = 0;
+  /* ADR-176 decision 6 — the intent-bus flag (param 266). Kept here rather
+     than beside the rack's flags because it gates ONE branch, at the top of
+     morphStep, and reads as a morph control at the only site that consults
+     it. Its meaning changes between phase 2b (shadow: resolve, apply nothing)
+     and 2c (applied); harmless for a dev param that ships off. */
+  double intentBusOn = 0;
 
   /* ADR-159 — THE PREFIX IS FROZEN. The per-osc block below is built by
      walking the param table, so a per-osc row added to the table lands INSIDE
@@ -4895,6 +4919,10 @@ struct Plugin
          scope (the rack is ONE object), hence data-fixed on their controls. */
       if (id == 264) { rack.setXfade(applied >= 0.5); return; }
       if (id == 265) { rack.setXfadeMs(applied); return; }
+      // ADR-176 decision 6: a flag and nothing else. No state is rebuilt here —
+      // the resolver's tables are sized in morphInit and are correct whether or
+      // not the flag has ever been on, so toggling it cannot allocate.
+      if (id == 266) { intentBusOn = applied; return; }
       if (id >= 96 && id <= 99)  // per-slot second axis (comb resonance today)
       {
         rack.setTone((int)(id - 96), applied);
@@ -5015,6 +5043,7 @@ struct Plugin
         return rack.getDelayParam((int)((d->id - 232) / 8), (int)((d->id - 232) % 8));
       if (d->id == 264) return rack.getXfade();      // B117: the rack owns both
       if (d->id == 265) return rack.getXfadeMs();    // (clamped there, so readback is the truth)
+      if (d->id == 266) return intentBusOn;          // ADR-176: the shell owns it, so it reads back
       if (d->id == 161)
       {
         const int pr = modPitchRouteIdx();
