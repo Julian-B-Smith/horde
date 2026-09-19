@@ -6,13 +6,31 @@ that costs. Nothing is written, played, or installed.
 
 Universal binary: runs on Apple Silicon and Intel Macs alike.
 
-> **Staleness (repo audit 2026-09-19, H4).** The committed `cpu_bench` was
-> built 2026-08-06 and the engine (`src/swarm_core.h`) has changed in 31
-> commits since; nothing in the repo rebuilds this universal binary
-> (`CMAKE_OSX_ARCHITECTURES` is set nowhere), and the program prints a
-> number, not the engine hash it was built from. Treat its figures as
-> historical until it is rebuilt and stamped — a rebuild recipe and a
-> printed build id are the fix, queued on the ROADMAP.
+## Rebuilding it (and how to tell if it is stale)
+
+**The first line the program prints is the commit it was built from**, so a
+stale copy announces itself — no git log, and no access to this repo, required
+to tell whether the numbers below describe today's engine. CMake does not build
+this artefact (it targets the host arch only); the universal binary is this one
+command, run from the repo root:
+
+```bash
+clang++ -std=c++20 -O3 -arch arm64 -arch x86_64 \
+  -DHYPERSAW_BUILD_STAMP="\"$(git rev-parse --short HEAD)\"" \
+  -I src tools/cpu_bench.cpp -o dist/cpu_bench \
+  && codesign --force -s - dist/cpu_bench
+```
+
+The `-D` is load-bearing: without it the program compiles and runs but prints
+`build unstamped`, which is the failure this section exists to prevent. The
+`codesign` re-seal is what lets the binary run after being copied to another
+Mac.
+
+**Built from commit `6585db9` on 2026-09-19.** The reference numbers at the
+bottom of this file were measured on 2026-08-06 with the binary this one
+replaces, so they describe an OLDER engine; they have not been re-measured
+against this build. Compare the stamp the program prints against the hash
+above before trusting either.
 
 ## Running it
 
@@ -33,6 +51,7 @@ Drive usually does not.
 ## What it prints
 
 ```
+cpu_bench: build 6585db9
 cpu_bench: 7 voices x 8 notes = 56 oscillators
   audio rendered   8.00 s
   cpu consumed     0.128 s
