@@ -65,3 +65,4 @@ swarm-dynamics · parity-oracle · plugin-platform · realtime-perf
 - [L0053] A fresh worktree has empty submodules — `git submodule update --init --recursive` before cmake; say it in the brief (agents · build)
 - [L0054] Re-baselining a reference-driven golden IS a protected reference edit + ADR — say so in the brief (parity · goldens)
 - [L0055] Run and read a new check before calling its PR green; red-on-arrival is a finding, not a regression (oracles · review)
+- [L0056] Worktree agents cannot chain `verify && git commit` — brief it as run / commit / re-run on the committed hash (agents · verify)
