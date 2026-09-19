@@ -1,13 +1,17 @@
 /*
  * station_check.mjs — the fidelity suite for reference/station.html (STATION).
  *
- * WHY IT IS STANDALONE AND HAND-RUN. STATION is JavaScript, so there is no
- * CMake target to hang it on, and `./verify` contains zero references to the
- * engine (audit §7: forty-four gate names, none of them STATION's). Its only
- * automated contact today is lab_load_check.mjs, which asserts that the file's
- * JS evaluates without throwing and nothing whatever about what it computes.
- * This is that missing oracle, in the lab_load_check idiom — run by hand,
- * prints numbers, exits non-zero on failure:
+ * WHERE IT RUNS. `./verify full` runs it (human ruling 2026-09-19, ADR-179 §4
+ * inverted the wiring default), at the top of full() — not beside
+ * lab_load_check in fast(), because fast is the seconds-scale CI leg and this
+ * is ~9 s of DSP measurement. It was hand-run until then: STATION is
+ * JavaScript, so there is no CMake target to hang it on, and `./verify`
+ * contained zero references to the engine (audit §7: forty-four gate names,
+ * none of them STATION's). Its only automated contact before this file was
+ * lab_load_check.mjs, which asserts that the file's JS evaluates without
+ * throwing and nothing whatever about what it computes. Same idiom as
+ * lab_load_check, so it still runs standalone — prints numbers, exits non-zero
+ * on failure:
  *
  *     node tools/labharness/station_check.mjs            (~60 s)
  *     node tools/labharness/station_check.mjs S4 S12     (named rows only)

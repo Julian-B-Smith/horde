@@ -14,6 +14,7 @@
  *   P5 continuity   continuous across the u = 0 hinge
  *   P6 composition  same-sign contributions commute, mixed-sign ones do not,
  *                   and both match the closed forms the spec gives
+ * UNWIRED: reason not stated — see B159.
  */
 #include <cstdio>
 #include <cmath>

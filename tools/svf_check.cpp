@@ -9,6 +9,7 @@
  * Standalone binary, registered in CMake, NOT in ./verify — wiring it into
  * the gate set is the standing human ruling (same status as delay_check,
  * strata_check, voicetap_check).
+ * UNWIRED: standing human ruling on gate scope, stated in this header and pre-dating the ADR-179 §4 inversion; not revisited in the wiring PR (B159).
  */
 #include <cmath>
 #include <cstdio>

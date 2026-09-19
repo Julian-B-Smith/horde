@@ -36,8 +36,9 @@
  * KNOWN BOUNDARY: this pins the CORE. The shell's own `(int)core.p.n` reads
  * (src/hypersaw_clap.cpp hypersaw_debug_phases) are not covered here.
  *
- * Standalone and NOT in ./verify — wiring a gate is the human's decision
- * (charter), proposed in the PR that adds this. Exit 1 on failure.
+ * WIRED in ./verify full beside alias_check, by the human's ruling 2026-09-19
+ * (ADR-179 §4 inverted the wiring default). Still runs standalone; exit 1 on
+ * failure.
  */
 #include <algorithm>
 #include <cmath>

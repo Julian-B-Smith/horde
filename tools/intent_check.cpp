@@ -27,8 +27,10 @@
  *            token whose removal must change the readback, a binding that must
  *            move the shadow.
  *
- * Standalone and UNWIRED: ./verify does not run this (adding a gate is the
- * human's decision, charter §Oracle discipline; ADR-171 is the wiring route).
+ * WIRED in ./verify full as a golden chain (generator --selfcheck, generator,
+ * then this binary), by the human's ruling 2026-09-19 (ADR-179 §4 inverted the
+ * wiring default). Generating the fixtures is part of the chain: while they
+ * were made by hand this ran as "FAIL no manifest" in any fresh checkout.
  * The parity half links nothing but src/intent_core.h; section S links the
  * shell, the way polarity_check and paramclass_check do.
  *

@@ -18,10 +18,9 @@
  *  4. A CPU number against SPEC §12's "<= ~2 % of one core at 16 voices".
  *     REPORTED, never gated: the absolute ratio is machine-dependent.
  *
- * UNWIRED — wiring in `./verify full` is a gate edit awaiting the human's
- * ruling on B159's wiring-default question; when wired it belongs beside
- * swarmalator's chain (generator --selfcheck, generator, then this binary with
- * the golden dir as argv[1]).
+ * WIRED in `./verify full` (human ruling 2026-09-19, ADR-179 §4 — the wiring
+ * default inverted), beside swarmalator's chain: generator --selfcheck,
+ * generator, then this binary with the golden dir as argv[1].
  *
  * EVERY ROW CARRIES A CONTROL that must read the other answer (L0016/L0032).
  * Where the lab harness plants a defective build to get its must-fail control

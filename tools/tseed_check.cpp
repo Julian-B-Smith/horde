@@ -59,8 +59,9 @@
  * chunk is the shell's, so a core-level stand-in would certify the wrong
  * thing.
  *
- * Standalone and NOT wired into ./verify — wiring a gate is the human's
- * decision (charter), proposed in the PR that adds it. Exit 1 on failure.
+ * WIRED in ./verify full beside alias_check, by the human's ruling 2026-09-19
+ * (ADR-179 §4 inverted the wiring default). Still runs standalone; exit 1 on
+ * failure.
  */
 #include <algorithm>
 #include <cmath>

@@ -13,6 +13,7 @@
  *      peak (the control for what the guard is guarding against).
  *   T4 order-independence: FX2 = Comb first, then FX1 = Comb refused too.
  * Standalone, registered in CMake, not in ./verify (standing human ruling).
+ * UNWIRED: standing human ruling on gate scope, stated in this header and pre-dating the ADR-179 §4 inversion; not revisited in the wiring PR (B159).
  */
 #include <algorithm>
 #include <cmath>

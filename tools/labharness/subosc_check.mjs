@@ -19,6 +19,7 @@
  * fails to apply is the exact failure mode the lesson names.
  *
  * NOT WIRED INTO ./verify. Run by hand:
+ * UNWIRED: reason not stated — see B159.
  *     node tools/labharness/subosc_check.mjs
  * Exit 1 if any property fails. Thresholds below are MEASURED on this build at
  * the date in the header of each section, with the margin stated inline; they

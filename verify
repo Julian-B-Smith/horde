@@ -171,6 +171,28 @@ PY
 
 full() {
   fast || return $?
+
+  # STATION LAB FIDELITY (tools/labharness/station_check.mjs) — 21 rows over the
+  # protected prototype reference/station.html, each with a must-fail control
+  # planted into a scratch copy of the DSP. Wired by the human's ruling
+  # 2026-09-19 (ADR-179 §4: a check is wired in the PR that creates it unless
+  # its header states why not). Its header's old reason was "no CMake target to
+  # hang it on", which is an argument for running it with node, not for running
+  # it by hand.
+  # HERE, not beside lab_load_check in fast(): fast is the seconds-scale
+  # CI-blocking leg and this is ~9 s of DSP measurement — Layer-E's business.
+  # Captured like lab_load's (quiet on green), except that the final GREEN line
+  # is echoed: a gate whose green run prints nothing reads as no gate at all.
+  if command -v node >/dev/null; then
+    node tools/labharness/station_check.mjs > /tmp/labstation.$$ 2>&1 || {
+      echo "verify[full]: STATION lab check FAILED" >&2; cat /tmp/labstation.$$ >&2
+      rm -f /tmp/labstation.$$; return 1; }
+    echo "station_check.mjs: $(tail -1 /tmp/labstation.$$)"
+    rm -f /tmp/labstation.$$
+  else
+    echo "verify[full]: node missing — STATION lab check SKIPPED" >&2
+  fi
+
   # ---- Layer-E: the whole gate. Run before closing a queue item. -----------
   # Phase 0: the plugin builds cleanly (CI additionally runs pluginval on the
   # artifact every push; auval/host loads stay human-run — CLAUDE.md §Domain).
@@ -221,6 +243,13 @@ full() {
   "$build_dir/blocksize_check"                          || return 1   # block-size independence (pan motion reported, B151)
   "$build_dir/stability_check" --seconds=60             || return 1   # long-run stability, 60 s sim
   "$build_dir/denormal_check"                           || return 1   # denormal silence in the tail
+  # The two defects the same audit found that SHIPPED and were fixed on
+  # 2026-09-18 — an unwired oracle for a bug that already reached a user is the
+  # weakest position in the set. Wired by the human's ruling 2026-09-19
+  # (ADR-179 §4). Both sit here because both are SAW-fidelity rows driving
+  # SwarmCore at the audit's level, like alias_check above; both are sub-second.
+  "$build_dir/ncap_check"                               || return 1   # B148 n can never index past kMaxV
+  "$build_dir/tseed_check"                              || return 1   # B149 ensemble-timing stream seeded + in the chunk
   # Note-lifecycle guard (ADR-038): seeded note on/off streams must decay to
   # silence — the oracle for the 2026-07-18 "doesn't stop when you let go" hang.
   # Statically linked like state_check; no goldens. (Was built but ungated.)
@@ -397,6 +426,16 @@ full() {
   node tools/golden/gen_swarmalator_goldens.mjs > /dev/null || return 1
   "$build_dir/swarmalator_check" "$(dirname "$build_dir")/build-golden/swarmalator" || return 1
 
+  # STATION engine oracle: goldens sliced live from reference/station.html ->
+  # station_check (L0-1 parity at BOTH 48 000 and 44 100 Hz, plus the
+  # SPEC-STATION §11/§12 rows parity structurally cannot see). Wired by the
+  # human's ruling 2026-09-19 (ADR-179 §4); the generator renders 30 scenarios
+  # at two rates, ~2.4 s, and the check ~3.5 s. Its CPU row is REPORTED, never
+  # gated — the absolute ratio is machine-dependent.
+  node tools/golden/gen_station_goldens.mjs --selfcheck || return 1
+  node tools/golden/gen_station_goldens.mjs > /dev/null || return 1
+  "$build_dir/station_check" "$(dirname "$build_dir")/build-golden/station" || return 1
+
   # Travel-law oracle (A1 fold, ratified 2026-08-06): trajectory goldens from
   # bend-lab's Inertia (sliced live from the HTML) -> glide_check (parity at the
   # L0-1 bar + the behavioural anchors the roundup measured). The core is NOT in
@@ -411,6 +450,17 @@ full() {
   node tools/golden/gen_time_goldens.mjs --selfcheck || return 1
   node tools/golden/gen_time_goldens.mjs > /dev/null || return 1
   "$build_dir/time_check" "$(dirname "$build_dir")/build-golden/time" || return 1
+
+  # Intent-bus resolver oracle (B89 phase 2a/2b, ADR-176): fixtures sliced live
+  # from reference/intent-bus.html -> intent_check (parity with a must-MISMATCH
+  # control per fixture, the coupling invariants the prototype has no analogue
+  # for, and section S driving the shipped plugin). Wired by the human's ruling
+  # 2026-09-19 (ADR-179 §4). The generation lines are load-bearing, not
+  # decoration: the fixtures were made by hand until now, so a fresh checkout
+  # ran this as "FAIL no manifest at build-golden/intent" (B160's trace).
+  node tools/golden/gen_intent_goldens.mjs --selfcheck || return 1
+  node tools/golden/gen_intent_goldens.mjs > /dev/null || return 1
+  "$build_dir/intent_check" "$(dirname "$build_dir")/build-golden/intent" || return 1
 }
 
 case "$TARGET" in
