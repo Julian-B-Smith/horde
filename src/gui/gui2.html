@@ -345,6 +345,19 @@
   .cluster { background:var(--panel); border:var(--stroke) solid var(--line);
     border-radius:var(--r); padding:8px 10px; min-width:0; }
   h2 { font-size:11px; color:var(--pull); letter-spacing:1px; margin-bottom:6px; }
+  /* A CLUSTER INSIDE A CLUSTER gets the tile spacing the page grid gives its
+     top-level siblings, which multicol cannot supply here because a nested box
+     is in normal flow, not in the column track. SET's Performance panel is the
+     live case — gen_gui_controls emits its groups as `.cluster`, so "Intent bus"
+     and "Performance" sat flush under the outer <h2> and flush against each
+     other (human 2026-09-19: "not enough padding ... within the performance
+     section of the set page"). Keyed on NESTING, never on the instance: the
+     inner markup is GENERATED, so a hand-edit there is erased on the next
+     `gen_gui_controls.py` run while this rule survives it, and any future page
+     that nests a group inherits the spacing without a second rule. The gap
+     under the outer <h2> comes free — adjacent sibling margins collapse to
+     max(6,10), so the heading and the tiles breathe by the same 10px. */
+  .cluster .cluster { margin-top:10px; }
   /* No frame and no ground: the cluster around it is already the frame, and a
      panel inside a panel repeating its own title is two boxes saying one
      thing. The strip keeps its LAYOUT job (M/S + meter + rows) and drops the
@@ -390,6 +403,19 @@
      re-implementing all four against a hit map — a second copy of each rule.
      So only the RAIL is a canvas, and the well is styled DOM. */
   #mxPane { column-span:all; -webkit-column-span:all; }
+  /* THE SPANNING PANE HAS NO COLUMN ABOVE IT, so it has no column gap either:
+     `column-span:all` ends the multicol flow, and the 10px `column-gap` that
+     separates every other cluster simply does not apply across that break. The
+     pane therefore butted the clusters above it (human 2026-09-19: "there isn't
+     enough padding above the routing matrix on the fx page"). A 2026-09-17 pass
+     read the same report as an INTERNAL one and padded #mxBody below the <h2> —
+     which was a real defect but not this one, so the outside gap stayed zero.
+     20px = double the column gap, deliberately: the pane is a page-width break
+     in the flow, not another tile in it, and matching the 10px would have said
+     the opposite. Selector carries the page so it OUTRANKS the ADR-098 flow
+     rule's `margin:0 0 10px` — `#mxPane` alone loses to `#pg-FX.on > *`, which
+     is how a plain id rule here would have silently done nothing. */
+  #pg-FX.on > #mxPane { margin-top:20px; }
   /* Side by side at width, stacked when the page is narrow. The pane spans the
      FX page's columns because a 240px column cannot hold six slot cards left to
      right; nothing else on the page changes size. */
@@ -1018,8 +1044,8 @@
        default 0.5. -->
   <div class="cluster"><h2>XY — main pad</h2>
     <canvas id="xyMain" class="xy" width="340" height="212"></canvas>
-    <div class="row xyAsnRow"><label>x drives</label><select data-p="179" data-fixed="1"><option value="0" selected>Macro 1</option><option value="1">Macro 2</option><option value="2">Macro 3</option><option value="3">Macro 4</option><option value="4">Macro 5</option><option value="5">Macro 6</option><option value="6">Macro 7</option><option value="7">Macro 8</option><option value="8">None</option></select><output></output></div>
-    <div class="row xyAsnRow"><label>y drives</label><select data-p="180" data-fixed="1"><option value="0">Macro 1</option><option value="1" selected>Macro 2</option><option value="2">Macro 3</option><option value="3">Macro 4</option><option value="4">Macro 5</option><option value="5">Macro 6</option><option value="6">Macro 7</option><option value="7">Macro 8</option><option value="8">None</option></select><output></output></div>
+    <div class="row xyAsnRow"><label>x drives</label><select data-p="179" data-fixed="1"><option value="0" selected>Macro 1</option><option value="1">Macro 2</option><option value="2">Macro 3</option><option value="3">Macro 4</option><option value="4">Macro 5</option><option value="5">Macro 6</option><option value="6">Macro 7</option><option value="7">Macro 8</option><option value="8">None</option><option value="9">Pitch Bend</option><option value="10">Mod Wheel</option></select><output></output></div>
+    <div class="row xyAsnRow"><label>y drives</label><select data-p="180" data-fixed="1"><option value="0">Macro 1</option><option value="1" selected>Macro 2</option><option value="2">Macro 3</option><option value="3">Macro 4</option><option value="4">Macro 5</option><option value="5">Macro 6</option><option value="6">Macro 7</option><option value="7">Macro 8</option><option value="8">None</option><option value="9">Pitch Bend</option><option value="10">Mod Wheel</option></select><output></output></div>
     <div class="note xyRouteNote" id="xyMainRoutes"></div>
   </div>
   <div class="cluster"><h2>Wheels</h2>
@@ -2838,6 +2864,13 @@ const MOD_SRC_NAMES = ['ENV 1', 'ENV 2', 'Macro 1', 'Macro 2', 'Macro 3', 'Macro
                        'XY1 X (retired)', 'XY1 Y (retired)', 'XY2 X (retired)', 'XY2 Y (retired)',   // ADR-156: read 0
                        // slots 14-17 (ADR-149): MIDI/MPE performance signals
                        'Velocity', 'Mod Wheel', 'Pressure', 'Pitch Wheel'];
+/* The eight macro slots are the only RENAMEABLE rows in that list, so the array
+   holds their fallback spelling and this is the only thing that reads it: a
+   source picker and the macro knob it aims at now get their name from one
+   place (see intentName / macroLabel). Slots 2..9 are M1..M8. */
+function modSrcName(i) {
+  return (i >= 2 && i <= 9) ? macroLabel(i - 2) : MOD_SRC_NAMES[i];
+}
 /* B134 — PER-ROUTE POLARITY. The vocabulary is the ROADMAP's: as-is (whatever
    the source naturally emits) · uni (0…1) · bi (−1…+1) · inv (negated). The
    source's OWN polarity is not listed here on purpose — it arrives per route
@@ -2902,7 +2935,10 @@ async function renderModRoutes() {
        refuses to re-source it anyway — the disable states the rule rather than
        letting the click fail silently. */
     const src = document.createElement('select');
-    for (let i = 0; i < MOD_SRC_NAMES.length; i++) src.add(new Option(MOD_SRC_NAMES[i], i));
+    // `.msrc` marks a macro-naming surface for paintMacroNames — stamped by both
+    // builders so a rename repaints every source list, not the one that was open.
+    src.className = 'msrc';
+    for (let i = 0; i < MOD_SRC_NAMES.length; i++) src.add(new Option(modSrcName(i), i));
     src.value = r.src;
     /* ADR-152: the macro family (macros + pad aliases) is suspended while the
        morph is ON — corners own those values. Show it instead of letting the
@@ -3018,8 +3054,9 @@ function refreshModAdd() {
   const src = document.getElementById('modAddSrc');
   const find = document.getElementById('modAddFind');
   if (!dest || !src || !find) return;
+  src.classList.add('msrc');
   if (!src.options.length)                      // MOD_SRC_NAMES, not a second source list
-    for (let i = 0; i < MOD_SRC_NAMES.length; i++) src.add(new Option(MOD_SRC_NAMES[i], i));
+    for (let i = 0; i < MOD_SRC_NAMES.length; i++) src.add(new Option(modSrcName(i), i));
   const q = (find.value || '').trim().toLowerCase();
   const keep = dest.value;   // a rebuild must not silently re-aim what is already picked
   dest.textContent = '';
@@ -3063,7 +3100,7 @@ function refreshModAdd() {
        not claim to know which — saying "stepped" about a full table would be a
        confident lie, and the honest message names the possibilities. */
     msg.textContent = ok
-      ? `${MOD_SRC_NAMES[+src.value]} → ${name}, depth 0.25.`
+      ? `${modSrcName(+src.value)} → ${name}, depth 0.25.`
       : `Refused: ${name} cannot be a destination — stepped parameters are not `
         + `modulation targets, the matrix cannot modulate itself, and the table holds 64 routes.`;
     if (ok) renderModRoutes().catch(() => {});
@@ -3376,14 +3413,70 @@ async function paintOwners() {
    a later top-level const has initialised, and a `let`/`const` read in its TDZ
    THROWS rather than reading undefined (L0041/L0026 — five occurrences). */
 function paintIntentNames() {
-  const names = OWNERS && OWNERS.intentNames;
   for (let i = 0; i < 8; i++) {
     const ctl = document.querySelector(`input[data-p="${166 + i}"]`);
     const lab = ctl && ctl.closest('.row') && ctl.closest('.row').querySelector('label');
     if (!lab) continue;
-    const want = (names && names[i + 2]) ? names[i + 2] : 'M' + (i + 1);
+    const want = intentName(i) || 'M' + (i + 1);
     if (lab.textContent !== want) lab.textContent = want;
   }
+  paintMacroNames();
+}
+/* ONE SOURCE FOR ONE MACRO'S NAME (human 2026-09-19: "let's include the intent
+   bus names in the mapping dropdowns (i.e. 'Macro 1: Space')"). The knob wore
+   its intent name while every MAPPING surface — the pad-assignment selects, the
+   MOD page's source lists — still spelled "Macro 3" out of static markup and a
+   const array. Those are two copies of one key chain, and a duplicated key chain
+   drifts (L0005): rename M3 and the knob says "Air" while the dropdown that
+   AIMS at it still says "Macro 3", with nothing to tell the player they are the
+   same thing.
+   So the raw name is read HERE and nowhere else, and each surface renders it its
+   own way: the knob is the macro (bare name, "M3" when there is none), the
+   dropdown POINTS at it and must stay identifiable as slot 3 even when named,
+   hence "Macro 3: Air". Same source, same fallback condition, two renderings —
+   the file's one-state-many-renderings rule applied to a caption. */
+function intentName(i) {
+  /* `OWNERS` is a `let` declared further down and this helper is reached from
+     the MOD page's list builders, which sit ABOVE that declaration. A `let` read
+     in its TDZ THROWS, and `typeof` does not guard it either (L0041/L0026, five
+     occurrences), so the try/catch is the only guard that actually holds. */
+  let o = null;
+  try { o = OWNERS; } catch (_) { return ''; }
+  // The plugin emits intentNames only while the intent-bus flag is on, so "flag
+  // off" and "no name" are one condition. Stored slot order is X, Y, M1..M8.
+  const n = o && o.intentNames && o.intentNames[i + 2];
+  return n || '';
+}
+// Declared (not a const arrow) for the same TDZ reason as intentName: the MOD
+// page's source lists reach it from above this line.
+function macroLabel(i) { return 'Macro ' + (i + 1) + (intentName(i) ? ': ' + intentName(i) : ''); }
+/* The MAIN pad's assignment enum, APPEND-ONLY so a stored patch never changes
+   meaning: 0..7 = Macro 1..8, 8 = None, and 9/10 added 2026-09-19. */
+const ASN_NONE = 8, ASN_BEND = 9, ASN_WHEEL = 10;
+function asnOptLabel(v) {
+  return v === ASN_NONE ? 'None' : v === ASN_BEND ? 'Pitch Bend'
+       : v === ASN_WHEEL ? 'Mod Wheel' : macroLabel(v);
+}
+/* Repainted on the ownership feed, beside the knob labels, because a name
+   changes when a patch loads or the flag flips — the option TEXT is rewritten
+   in place and the option VALUE is never touched, so a select's current
+   selection survives a rename. */
+function paintMacroNames() {
+  for (const sel of document.querySelectorAll('select[data-p="174"], select[data-p="175"], '
+                 + 'select[data-p="176"], select[data-p="177"], '
+                 + 'select[data-p="179"], select[data-p="180"]'))
+    for (const opt of sel.options) {
+      const want = asnOptLabel(+opt.value);
+      if (opt.textContent !== want) opt.textContent = want;
+    }
+  // `.msrc` is stamped by both MOD source-list builders; MOD_SRC_NAMES slots
+  // 2..9 are the macros, everything else is not renameable.
+  for (const sel of document.querySelectorAll('select.msrc'))
+    for (const opt of sel.options) {
+      const want = modSrcName(+opt.value);
+      if (opt.textContent !== want) opt.textContent = want;
+    }
+  try { updateXYRouteNotes(); } catch (_) {}   // the pad's own route lines name macros too
 }
 async function paintExempt() {
   if (!window.hzMorphExemptJson) return;
@@ -3856,20 +3949,63 @@ for (const [name, live] of PAGES) {
    carried by the morph like any other. Only MAIN's pad is a macro pad
    (assignable through 179/180, ADR-150). One controller, two id sources and
    a per-axis value map; the unit interval is the pad's coordinate space. */
-const asnPid = a => (a >= 0 && a < 8) ? 166 + a : -1;   // 8 = None -> no target
-const mainMacroIds = () => [asnPid(+(lastParams[179] ?? 0)), asnPid(+(lastParams[180] ?? 1))];
+/* 2026-09-19, the human: "let's make pitch bend and mod wheel accessible to the
+   MAIN XY as well as the macros". Two destinations APPENDED to the assignment
+   enum (9, 10) rather than inserted, so 0..8 keep their meaning bit for bit and
+   a stored patch with 179=3 still drives Macro 4.
+
+   PITCH BEND IS A PARAMETER, so it needs no new write path: a host wheel lands
+   as applyParam(38, ...) (hypersaw_clap.cpp, CLAP_EVENT_MIDI channel 0) and so
+   does the GUI's own Wheel strip, which is exactly why the bend travel law
+   shapes all three identically. Returning 38 from the same decoder every other
+   assignment goes through is the whole implementation — the alternative, a
+   pad-only bend path, would be a second place for the law to be forgotten.
+
+   MOD WHEEL IS NOT A PARAMETER. It is matrix source 15, reached through
+   hzModWheel, so it has no id and the decoder says so (-1); the axis is written
+   by padSideWrite instead. */
+const asnPid = a => a === ASN_BEND ? 38 : (a >= 0 && a < 8) ? 166 + a : -1;
+// 8 None / 10 Mod Wheel -> no parameter target.
+const mainAsnOf = axis => +(lastParams[179 + axis] ?? (axis ? 1 : 0));
+const mainMacroIds = () => [asnPid(mainAsnOf(0)), asnPid(mainAsnOf(1))];
 const oscDirectIds = () => [effId(4), effId(6)];
-const unit = { toVal: (axis, u) => u, toUnit: (axis, v) => v };
+/* ±2 st is the MIDI 1.0 and MPE-manager default bend range, and the shell
+   spells it once — at the channel-0 wheel decode. A full pad throw is a full
+   wheel throw, so the pad borrows THAT number instead of inventing a pad-only
+   range; centre (0.5) is zero bend. If a bend-range parameter ever lands, both
+   sites read it and this constant goes. */
+const BEND_WHEEL_ST = 2;
+/* MAIN's per-axis value map: the pad's coordinate space is the unit interval
+   for a macro (which is already 0..1) and BIPOLAR for bend. Keyed on the
+   assignment, not on the axis, so x and y can carry different destinations. */
+const mainMap = {
+  toVal: (axis, u) => mainAsnOf(axis) === ASN_BEND ? (u - 0.5) * 2 * BEND_WHEEL_ST : u,
+  toUnit: (axis, v) => mainAsnOf(axis) === ASN_BEND
+    ? Math.min(1, Math.max(0, v / (2 * BEND_WHEEL_ST) + 0.5)) : v,
+};
 const detK = { toVal: (axis, u) => axis ? 2 * u - 1 : u, toUnit: (axis, v) => axis ? (v + 1) / 2 : v };
 const PADS = [
   /* `perf`: ADR-176 §5 — the MAIN XY is the PERFORMANCE pad and the morph pad
      never is, so the home marker belongs to this row and only this row. A
      property on the pad rather than a selector test in the painter, because
      the painter already treats a pad as a record. */
-  { sel: '#xyMain', ids: mainMacroIds, map: unit, lastX: -1, lastY: -1, dirty: true, perf: true },
+  { sel: '#xyMain', ids: mainMacroIds, map: mainMap, lastX: -1, lastY: -1, dirty: true, perf: true },
   { sel: '#xy2',    ids: oscDirectIds, map: detK, lastX: -1, lastY: -1, dirty: true },
 ];
 let xyDirty = true;   // legacy flag: any write marks BOTH pads (cheap, correct)
+/* WHERE THE PUCK SITS on one axis, in the pad's unit space. Every destination
+   answers the same question: a parameter axis reads its parameter back, a Mod
+   Wheel axis reads the slider it shares (the wheel is a matrix SOURCE — there
+   is no parameter to read, and leaving it at the None default pinned the puck
+   to centre while the drag was moving the source), None rests centred. */
+function padPuck(pad, axis, id) {
+  if (id >= 0) return pad.map.toUnit(axis, +(lastParams[id] ?? 0));
+  if (pad.perf && mainAsnOf(axis) === ASN_WHEEL) {
+    const w = document.getElementById('modWheelCtl');
+    return w ? Math.min(1, Math.max(0, +w.value)) : 0;
+  }
+  return 0.5;
+}
 function wirePad(pad) {
   const cv = document.querySelector(pad.sel);
   if (!cv) return;
@@ -3883,6 +4019,7 @@ function wirePad(pad) {
     const vx = pad.map.toVal(0, x), vy = pad.map.toVal(1, y);
     if (ix >= 0) { bridge.setParam(ix, vx); lastParams[ix] = vx; setControl(ix, vx); }
     if (iy >= 0) { bridge.setParam(iy, vy); lastParams[iy] = vy; setControl(iy, vy); }
+    padSideWrite(pad, 0, x); padSideWrite(pad, 1, y);
     xyDirty = true;
   };
   cv.addEventListener('pointerdown', e => { down = true; cv.setPointerCapture(e.pointerId);
@@ -3892,6 +4029,16 @@ function wirePad(pad) {
   cv.addEventListener('pointerup', () => { down = false;
     const [ix, iy] = pad.ids();
     if (ix >= 0) bridge.gesture(ix, false); if (iy >= 0) bridge.gesture(iy, false); });
+}
+/* THE ONE AXIS THAT IS NOT A PARAMETER. Assignment 10 aims at the Mod Wheel,
+   which is matrix source 15 and reaches the shell through hzModWheel, so there
+   is no id for `apply` to write and the decoder returns -1. Routed through the
+   GUI's own Mod slider rather than calling hzModWheel directly: the slider and
+   the pad are then ONE control, and the readout cannot sit stale while the pad
+   moves the source underneath it. Only MAIN carries 179/180, hence `perf`. */
+function padSideWrite(pad, axis, u) {
+  if (!pad.perf) return;
+  if (mainAsnOf(axis) === ASN_WHEEL) setModWheelUI(u);
 }
 PADS.forEach(wirePad);
 /* B85 first landing: the light morph pad. Corner colours from MCOLORS (the
@@ -3927,32 +4074,54 @@ function drawMorphMini() {
   cv.addEventListener('pointerup', () => { down = false;
     bridge.gesture(152, false); bridge.gesture(153, false); });
 })();
-/* ADR-150: the GUI mod wheel — drives matrix source 15 through hzModWheel. */
+/* ADR-150: the GUI mod wheel — drives matrix source 15 through hzModWheel.
+   Declared as a FUNCTION and not a const arrow because the MAIN pad's apply
+   path (padSideWrite, wired further UP this file) calls it for an
+   assignment-10 axis, and a const read from above its declaration throws in
+   the TDZ (L0041/L0026). Both callers land here so the slider's position, its
+   readout and the source the shell sees can never be three opinions. */
+function setModWheelUI(v) {
+  const u = Math.min(1, Math.max(0, +v));
+  const w = document.getElementById('modWheelCtl');
+  if (w) {
+    if (+w.value !== u) w.value = u;
+    const row = w.closest('.row');
+    const o = row && row.querySelector('output');
+    if (o) o.textContent = u.toFixed(2);
+  }
+  try { window.hzModWheel && hzModWheel(u); } catch (e) {}
+}
 (() => {
   const w = document.getElementById('modWheelCtl');
   if (!w) return;
-  const o = w.closest('.row').querySelector('output');
-  w.addEventListener('input', () => {
-    o.textContent = (+w.value).toFixed(2);
-    try { window.hzModWheel && hzModWheel(+w.value); } catch (e) {}
-  });
+  w.addEventListener('input', () => setModWheelUI(+w.value));
 })();
 /* What does this pad actually TOUCH? Each axis line = the macro it drives plus
    every matrix route riding that macro (and, for the osc pad, routes on the
    pad-axis alias slots 10-13). Rendered from MODROUTES — no second copy. */
 function padRouteLine(axisName, asn, aliasSlot) {
-  if (asn >= 8 || asn < 0) return axisName + ' → none';
+  // The two non-macro destinations are tested FIRST: 9 and 10 are greater than
+  // the None sentinel, so the old `asn >= 8` guard would have called them none.
+  if (asn === ASN_BEND)
+    return axisName + ' → Pitch Bend ±' + BEND_WHEEL_ST + ' st (centre = no bend; the bend law applies)';
+  if (asn === ASN_WHEEL) {
+    // Source 15 in MOD_SRC_NAMES — the same slot the Mod slider drives.
+    const wd = [];
+    for (const r of (MODROUTES || [])) if (r.src === 15) wd.push(modDestLabel(r.dest));
+    return axisName + ' → Mod Wheel' + (wd.length ? ' → ' + wd.join(', ') : '');
+  }
+  if (asn >= ASN_NONE || asn < 0) return axisName + ' → none';
   const dests = [];
   for (const r of (MODROUTES || [])) if (r.src === 2 + asn) dests.push(modDestLabel(r.dest));
   const sus = (+(lastParams[151] ?? 0)) > 0.5 ? ' (suspended: morph on)' : '';
-  return axisName + ' → Macro ' + (asn + 1) + (dests.length ? ' → ' + dests.join(', ') + sus : '');
+  return axisName + ' → ' + macroLabel(asn) + (dests.length ? ' → ' + dests.join(', ') + sus : '');
 }
 let lastRouteNotes = '';
 function updateXYRouteNotes() {
   const main = document.getElementById('xyMainRoutes');
   const osc = document.getElementById('xyOscRoutes');
-  const mTxt = padRouteLine('x', +(lastParams[179] ?? 0), -1) + '\n'
-             + padRouteLine('y', +(lastParams[180] ?? 1), -1);
+  const mTxt = padRouteLine('x', mainAsnOf(0), -1) + '\n'
+             + padRouteLine('y', mainAsnOf(1), -1);
   const oTxt = 'x → Detune · y → Pull K — this oscillator, directly (ADR-156)';
   const both = mTxt + '|' + oTxt;
   if (both === lastRouteNotes) return;
@@ -4122,8 +4291,7 @@ function frameBody() {
   for (const pad of PADS) {   // each pad follows ITS OWN assigned macros
     if (!pad.cv) continue;
     const [mix, miy] = pad.ids();
-    const mx = mix >= 0 ? pad.map.toUnit(0, +(lastParams[mix] ?? 0)) : 0.5;   // None: rest centred
-    const my = miy >= 0 ? pad.map.toUnit(1, +(lastParams[miy] ?? 0)) : 0.5;
+    const mx = padPuck(pad, 0, mix), my = padPuck(pad, 1, miy);
     if (mx !== pad.lastX || my !== pad.lastY || xyDirty) {
       pad.lastX = mx; pad.lastY = my;
       const xyctx = pad.cv.getContext('2d');
