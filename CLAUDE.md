@@ -122,11 +122,7 @@ Track E effects labs `reference/swarmfilter.html`, `reference/swarmphaser.html`,
 (`Swarmalator`, ADR-048) — all spec-in-code (ADR-003). Ported C++ cores so far:
 `swarm_core.h` (SAW+dynamics), `spectra_core.h` (SPECTRA), `force_core.h`
 (shared force system, ADR-034), `filter_core.h` / `notch_core.h` (E1 effects),
-`swarmalator_core.h` (swarmalator). The E1 effects ship today only in a SECOND CLAP shell, `src/swarmfx_clap.cpp` (SWARM-FX — PARKED 2026-09-19, docs/PARKED.md 21, ADR-179 §1: compiled by `verify full`, tested by nothing, deleted when E1 folds into the rack). Build/test = `./verify fast|full` (fifteen
-gates: nine parity/trajectory chains — parity · trajectory · force · spectra ·
-filter · notch · swarmalator · glide · time — plus ten behavioural/invariant
-probes: state · notefuzz · rtsafety · subdiv · samplerate · routing · paramscope ·
-mpe · preset · waveshape). This Mac: Command Line Tools only, CMake
+`swarmalator_core.h` (swarmalator). The E1 effects ship today only in a SECOND CLAP shell, `src/swarmfx_clap.cpp` (SWARM-FX — PARKED 2026-09-19, docs/PARKED.md 21, ADR-179 §1: compiled by `verify full`, tested by nothing, deleted when E1 folds into the rack). Build/test = `./verify fast|full` (the gate list is `verify`'s own header; `test_table_check` prints the wired count every run — a number written here rots, ADR-180 §1). This Mac: Command Line Tools only, CMake
 with `-G "Unix Makefiles"`, absolute build paths (sandbox resets cwd) — see
 the global CLAUDE.md audio-plugin section before any build/install/validate.
 
