@@ -2864,6 +2864,13 @@ const MOD_SRC_NAMES = ['ENV 1', 'ENV 2', 'Macro 1', 'Macro 2', 'Macro 3', 'Macro
                        'XY1 X (retired)', 'XY1 Y (retired)', 'XY2 X (retired)', 'XY2 Y (retired)',   // ADR-156: read 0
                        // slots 14-17 (ADR-149): MIDI/MPE performance signals
                        'Velocity', 'Mod Wheel', 'Pressure', 'Pitch Wheel'];
+/* The eight macro slots are the only RENAMEABLE rows in that list, so the array
+   holds their fallback spelling and this is the only thing that reads it: a
+   source picker and the macro knob it aims at now get their name from one
+   place (see intentName / macroLabel). Slots 2..9 are M1..M8. */
+function modSrcName(i) {
+  return (i >= 2 && i <= 9) ? macroLabel(i - 2) : MOD_SRC_NAMES[i];
+}
 /* B134 — PER-ROUTE POLARITY. The vocabulary is the ROADMAP's: as-is (whatever
    the source naturally emits) · uni (0…1) · bi (−1…+1) · inv (negated). The
    source's OWN polarity is not listed here on purpose — it arrives per route
@@ -2928,7 +2935,10 @@ async function renderModRoutes() {
        refuses to re-source it anyway — the disable states the rule rather than
        letting the click fail silently. */
     const src = document.createElement('select');
-    for (let i = 0; i < MOD_SRC_NAMES.length; i++) src.add(new Option(MOD_SRC_NAMES[i], i));
+    // `.msrc` marks a macro-naming surface for paintMacroNames — stamped by both
+    // builders so a rename repaints every source list, not the one that was open.
+    src.className = 'msrc';
+    for (let i = 0; i < MOD_SRC_NAMES.length; i++) src.add(new Option(modSrcName(i), i));
     src.value = r.src;
     /* ADR-152: the macro family (macros + pad aliases) is suspended while the
        morph is ON — corners own those values. Show it instead of letting the
@@ -3044,8 +3054,9 @@ function refreshModAdd() {
   const src = document.getElementById('modAddSrc');
   const find = document.getElementById('modAddFind');
   if (!dest || !src || !find) return;
+  src.classList.add('msrc');
   if (!src.options.length)                      // MOD_SRC_NAMES, not a second source list
-    for (let i = 0; i < MOD_SRC_NAMES.length; i++) src.add(new Option(MOD_SRC_NAMES[i], i));
+    for (let i = 0; i < MOD_SRC_NAMES.length; i++) src.add(new Option(modSrcName(i), i));
   const q = (find.value || '').trim().toLowerCase();
   const keep = dest.value;   // a rebuild must not silently re-aim what is already picked
   dest.textContent = '';
@@ -3089,7 +3100,7 @@ function refreshModAdd() {
        not claim to know which — saying "stepped" about a full table would be a
        confident lie, and the honest message names the possibilities. */
     msg.textContent = ok
-      ? `${MOD_SRC_NAMES[+src.value]} → ${name}, depth 0.25.`
+      ? `${modSrcName(+src.value)} → ${name}, depth 0.25.`
       : `Refused: ${name} cannot be a destination — stepped parameters are not `
         + `modulation targets, the matrix cannot modulate itself, and the table holds 64 routes.`;
     if (ok) renderModRoutes().catch(() => {});
@@ -3402,14 +3413,68 @@ async function paintOwners() {
    a later top-level const has initialised, and a `let`/`const` read in its TDZ
    THROWS rather than reading undefined (L0041/L0026 — five occurrences). */
 function paintIntentNames() {
-  const names = OWNERS && OWNERS.intentNames;
   for (let i = 0; i < 8; i++) {
     const ctl = document.querySelector(`input[data-p="${166 + i}"]`);
     const lab = ctl && ctl.closest('.row') && ctl.closest('.row').querySelector('label');
     if (!lab) continue;
-    const want = (names && names[i + 2]) ? names[i + 2] : 'M' + (i + 1);
+    const want = intentName(i) || 'M' + (i + 1);
     if (lab.textContent !== want) lab.textContent = want;
   }
+  paintMacroNames();
+}
+/* ONE SOURCE FOR ONE MACRO'S NAME (human 2026-09-19: "let's include the intent
+   bus names in the mapping dropdowns (i.e. 'Macro 1: Space')"). The knob wore
+   its intent name while every MAPPING surface — the pad-assignment selects, the
+   MOD page's source lists — still spelled "Macro 3" out of static markup and a
+   const array. Those are two copies of one key chain, and a duplicated key chain
+   drifts (L0005): rename M3 and the knob says "Air" while the dropdown that
+   AIMS at it still says "Macro 3", with nothing to tell the player they are the
+   same thing.
+   So the raw name is read HERE and nowhere else, and each surface renders it its
+   own way: the knob is the macro (bare name, "M3" when there is none), the
+   dropdown POINTS at it and must stay identifiable as slot 3 even when named,
+   hence "Macro 3: Air". Same source, same fallback condition, two renderings —
+   the file's one-state-many-renderings rule applied to a caption. */
+function intentName(i) {
+  /* `OWNERS` is a `let` declared further down and this helper is reached from
+     the MOD page's list builders, which sit ABOVE that declaration. A `let` read
+     in its TDZ THROWS, and `typeof` does not guard it either (L0041/L0026, five
+     occurrences), so the try/catch is the only guard that actually holds. */
+  let o = null;
+  try { o = OWNERS; } catch (_) { return ''; }
+  // The plugin emits intentNames only while the intent-bus flag is on, so "flag
+  // off" and "no name" are one condition. Stored slot order is X, Y, M1..M8.
+  const n = o && o.intentNames && o.intentNames[i + 2];
+  return n || '';
+}
+// Declared (not a const arrow) for the same TDZ reason as intentName: the MOD
+// page's source lists reach it from above this line.
+function macroLabel(i) { return 'Macro ' + (i + 1) + (intentName(i) ? ': ' + intentName(i) : ''); }
+/* The MAIN pad's assignment enum: 0..7 = Macro 1..8, 8 = None. */
+const ASN_NONE = 8;
+function asnOptLabel(v) {
+  return v === ASN_NONE ? 'None' : macroLabel(v);
+}
+/* Repainted on the ownership feed, beside the knob labels, because a name
+   changes when a patch loads or the flag flips — the option TEXT is rewritten
+   in place and the option VALUE is never touched, so a select's current
+   selection survives a rename. */
+function paintMacroNames() {
+  for (const sel of document.querySelectorAll('select[data-p="174"], select[data-p="175"], '
+                 + 'select[data-p="176"], select[data-p="177"], '
+                 + 'select[data-p="179"], select[data-p="180"]'))
+    for (const opt of sel.options) {
+      const want = asnOptLabel(+opt.value);
+      if (opt.textContent !== want) opt.textContent = want;
+    }
+  // `.msrc` is stamped by both MOD source-list builders; MOD_SRC_NAMES slots
+  // 2..9 are the macros, everything else is not renameable.
+  for (const sel of document.querySelectorAll('select.msrc'))
+    for (const opt of sel.options) {
+      const want = modSrcName(+opt.value);
+      if (opt.textContent !== want) opt.textContent = want;
+    }
+  try { updateXYRouteNotes(); } catch (_) {}   // the pad's own route lines name macros too
 }
 async function paintExempt() {
   if (!window.hzMorphExemptJson) return;
@@ -3971,7 +4036,7 @@ function padRouteLine(axisName, asn, aliasSlot) {
   const dests = [];
   for (const r of (MODROUTES || [])) if (r.src === 2 + asn) dests.push(modDestLabel(r.dest));
   const sus = (+(lastParams[151] ?? 0)) > 0.5 ? ' (suspended: morph on)' : '';
-  return axisName + ' → Macro ' + (asn + 1) + (dests.length ? ' → ' + dests.join(', ') + sus : '');
+  return axisName + ' → ' + macroLabel(asn) + (dests.length ? ' → ' + dests.join(', ') + sus : '');
 }
 let lastRouteNotes = '';
 function updateXYRouteNotes() {
