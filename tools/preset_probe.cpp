@@ -16,12 +16,7 @@
 #include <vector>
 #include <clap/clap.h>
 #include "../src/hypersaw_clap_entry.h"
-extern "C" bool hypersaw_debug_apply(const clap_plugin_t *, const char *);
-extern "C" const char *hypersaw_debug_cornervals(const clap_plugin_t *, int);
-extern "C" double hypersaw_debug_pitchbend(const clap_plugin_t *);
-extern "C" int hypersaw_debug_lastnotekey(const clap_plugin_t *);
-extern "C" void hypersaw_debug_voices(const clap_plugin_t *, char *, uint32_t);
-extern "C" void hypersaw_debug_notelaw(const clap_plugin_t *, char *, uint32_t);
+#include "../src/hypersaw_debug.h"
 namespace {
 #include "notefuzz_scaffold.inc"
 struct Rig {

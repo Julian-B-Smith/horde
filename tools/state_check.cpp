@@ -24,16 +24,10 @@
 #include <cstdlib>
 
 #include "../src/hypersaw_clap_entry.h"
+#include "../src/hypersaw_debug.h"
 
 namespace
 {
-
-extern "C" void hypersaw_debug_state(const clap_plugin_t *, char *, uint32_t);
-extern "C" bool hypersaw_debug_apply(const clap_plugin_t *, const char *);
-extern "C" bool hypersaw_debug_exempt(const clap_plugin_t *, uint32_t);
-extern "C" const char *hypersaw_debug_cornervals(const clap_plugin_t *, int);
-extern "C" const char *hypersaw_debug_exemptjson(const clap_plugin_t *);
-extern "C" int hypersaw_debug_engine_revision(const clap_plugin_t *);
 
 int g_failures = 0;
 void check(bool ok, const char *what)

@@ -38,12 +38,11 @@
 #include <cmath>
 
 #include "statefix_common.h"
+#include "../src/hypersaw_debug.h"
 #include "../src/mod_core.h"
 
 using hypersaw::ModCore;
 using namespace statefix;
-
-extern "C" const char *hypersaw_debug_modroutes(const clap_plugin_t *p);
 
 namespace
 {

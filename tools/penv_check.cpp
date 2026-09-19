@@ -36,10 +36,7 @@
 #include <vector>
 #include <clap/clap.h>
 #include "../src/hypersaw_clap_entry.h"
-extern "C" bool hypersaw_debug_apply(const clap_plugin_t *, const char *);
-extern "C" void hypersaw_debug_penv(const clap_plugin_t *, double *, double *, double *);
-extern "C" void hypersaw_debug_penv_slot(const clap_plugin_t *, int, double *, double *, double *);
-extern "C" void hypersaw_debug_voices(const clap_plugin_t *, char *, uint32_t);
+#include "../src/hypersaw_debug.h"
 namespace {
 #include "notefuzz_scaffold.inc"
 // One row of hypersaw_debug_voices: slot,midi,gate,f0,f0cur,glide,noteTune.
