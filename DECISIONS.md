@@ -6086,3 +6086,117 @@ as horde's mailbox slot; git initialised, one commit. The resident runs
 `reference/network-lab-v0.html` does for Sluice); the port becomes a
 consumption of Maw's FOUNDATIONS-conformant module ABI when it exists, and
 B137's oracles become theirs. Nothing here is a spec change on horde's side.
+
+## ADR-179 — Rulings of 2026-09-19 (second set): SWARM-FX parked; the bench stamps itself; the auditor rides the wakeup; the wiring question restated; STATION's port shape (2026-09-19)
+
+**Context.** The human's round of 2026-09-19 after the first audit landed:
+"I'll go with whatever your recommendation is on the clap check/parked
+entry"; "Go ahead with the docs-only fix"; "What should we do about the
+CPU benchmark issue?"; "Re: audit cadence, maybe we could build it into
+the wakeup routine, which would be worth telling autonomous since it
+isn't a terrible idea for every repo"; "Let's add a DC blocker to
+Station, and then I would actually like to see it build into the VST";
+"What is the inversion ruling?"
+
+### §1 SWARM-FX (`src/swarmfx_clap.cpp`) is PARKED, not tested
+
+The second CLAP shell (439 lines, its own factory and 16-param surface,
+bundle id of its own) is the F2 extraction lab's dual-deployment
+demonstration: it wraps the Track E1 cores (`filter_core.h`,
+`notch_core.h`) as a standalone effect. Those cores are parity-proven by
+`filter_check` / `notch_check` inside their own harnesses; only the shell
+around them is uncovered. The plan of record is that Track E1 folds into
+horde's own rack (B50), at which point this shell has no reason to exist
+and is deleted (a human gate, then). A ~150-line `swarmfx_check` for a
+plugin nobody ships fails "reduce, never invent". Decision: PARKED
+(docs/PARKED.md entry 21, CLAUDE.md §Domain), kept compiling by `verify
+full` so it does not rot — SPECTRA's idiom. Revisit triggers: E1 folds
+into the rack → delete the shell; or the human wants a standalone FX
+product → then it gets its check first.
+
+### §2 `dist/cpu_bench`: stamp, don't chase
+
+The committed universal binary is for a Mac with no toolchain — a rare
+event — and it printed a number with no provenance. Decision: the program
+prints its build stamp first (`HYPERSAW_BUILD_STAMP`, "unstamped" when
+built bare), the README carries the exact two-arch command with the stamp
+define and a built-from line, and the binary is rebuilt at the commit
+that stamps it. It is NOT rebuilt on every engine commit and NOT deleted:
+a stale copy that says which commit it is is honest; a fresh copy nobody
+asked for is churn. (B161, PR #673.)
+
+### §3 The auditor's cadence is the session-open routine
+
+The human: hang it off the wakeup, and tell autonomous. Decision, local:
+the lead dispatches `.claude/agents/auditor.md` in the background at the
+first session open of a working day when `docs/audits/` holds no repo
+audit newer than seven days; the report is its own PR; findings become
+ROADMAP rows at the next boundary (CLAUDE.md §Domain). Decision,
+cross-repo: the generic step — a `/wakeup` Step 4b "routine audit when
+stale" plus a `last audit: N days ago` line in the state render — is
+filed to autonomous as brief hypersaw-003 (their PR #21); horde runs the
+rule from its charter until the kit carries it. Cadence by staleness,
+not calendar: a repo worked daily audits weekly, a repo touched monthly
+audits on touch.
+
+### §4 The gate-wiring question, restated for the ruling (UNRULED)
+
+Today a new regression check under `tools/` is built by CMake and run by
+nobody until the human ratifies wiring it into `./verify` — because
+editing `./verify` is a human gate. The auditor found thirteen such
+checks, green and never run, two of them guarding defects that shipped
+(`ncap_check`, `tseed_check`); the ungated set grew 5 → 13 between
+ratifications. The two options: (a) INVERT the default — a new check is
+wired into `verify` in the same PR that creates it unless its header
+states why not (timing, a lab-only harness, a red-on-arrival probe), and
+`test_table_check` enforces that every `tools/*_check` is either wired or
+carries that statement; the human gate on `./verify` narrows to
+WEAKENING (removing, skipping, relaxing), which stays gated; or (b) keep
+per-gate ratification and hold a standing cadence to ratify the backlog.
+The lead recommends (a): (b) is the regime that produced the backlog, and
+nothing in "gates are never weakened" can see a gate that was never
+strengthened. Under (a) the first act is wiring `ncap_check`,
+`tseed_check` and `station_check` (phase 1) — one `verify` edit.
+
+### §5 STATION's port shape: a device-level SOURCE ROW, not a selector value
+
+Decided by the lead on the seam scout's report so the human can overrule
+before phase 2 lands (B162 carries the full statement). SPECTRA's shape —
+a single core selected by param 43 while its params carry +1000 twins
+that route nowhere — cannot be layered with the swarm and would put 84 ×
+2 lanes on the host for one engine. STATION enters as routing-matrix
+source row 3 with one core, one page (B154's prototype), one id block
+(3000–3999, the range ADR-088 reserved, through an explicit `findParam`
+intercept), `stationOn` default OFF so existing patches are bit-inert,
+its allocator inside the core, its morph surface §9's cells and levels
+appended after the routing block under layout marker 6. The 84 lanes are
+always visible (the status quo; hidden-flag gating on a selector is new
+behaviour hosts handle unevenly). Phase 1 (core, goldens, standalone
+check) needs no sanction and is dispatched; phase 2 needs four pin
+re-pins the human sanctions first (B162).
+
+### ADR-177 Amendment 1 — STATION's DC blocker lives in the LAB as a parity item (2026-09-19)
+
+ADR-177 §3 left S17's DC (SHORT noise −30 dB, self-feedback −26 dB
+against a −61…−65 dB control) for a ruling: a blocker in the port, out of
+the parity set like the reverb's, or declared character. The human ruled
+for the blocker and for the lab ("add a DC blocker to Station"). It goes
+into `reference/station.html` — one-pole HP per channel, cutoff in Hz (5
+Hz, sample-rate scaled), after the op+noise level/pan sum and before the
+master and the monitoring tanh, states on the core — and §11 gains it as
+a PARITY item, so the port copies it and parity includes it. One fewer
+out-of-parity stage than the reverb precedent; the render hash moves and
+is recorded. (B162.)
+
+### ADR-150 Amendment — the MAIN pad's axes may drive Pitch Bend and Mod Wheel; mapping labels carry the intent names (2026-09-19)
+
+Params 179/180 append 9 = Pitch Bend (the axis writes the bend TARGET a
+MIDI bend message writes, so the bend travel law applies; bipolar about
+the pad centre; the wheel's own range) and 10 = Mod Wheel (the axis
+drives the matrix's Mod Wheel source through the call the GUI's Mod
+slider uses); `intentPadId()` reads both as "no intent pointer". Every
+mapping surface that names a macro reads the name from the same source
+and fallback as the macro knob label ("Macro 1: Space" while the flag
+supplies names, "Macro 1" otherwise), so a knob and a dropdown can never
+disagree. Pad release is unchanged; whether a bend axis springs to centre
+is the human's after listening. (B160.)
