@@ -4028,7 +4028,41 @@ function wirePad(pad) {
   cv.addEventListener('pointermove', e => { if (down) apply(e); });
   cv.addEventListener('pointerup', () => { down = false;
     const [ix, iy] = pad.ids();
+    padSpringRelease(pad);   // inside the still-open gesture, see below
     if (ix >= 0) bridge.gesture(ix, false); if (iy >= 0) bridge.gesture(iy, false); });
+}
+/* THE AXIS THAT DOES NOT STAY PUT. 2026-09-19, the human: "Bend should spring
+   to center". A bend axis is the one destination whose rest position is not
+   where the player left it — a wheel returns, so a pad axis aimed at the
+   wheel's parameter returns too.
+
+   The return is a WRITE OF THE TARGET (param 38 -> the pad's centre, which
+   mainMap already defines as zero bend), down the same three lines the drag
+   used and inside the still-open gesture bracket. That is the whole point: the
+   pad animates nothing, so param 106's bend law — spring / lag / constant time,
+   carried by glide_core — moves the sound home exactly as it moves a released
+   MIDI wheel home. A pad-local easing would have been a second travel law.
+
+   PAD LATCH (268) IS THE OPT-OUT, borrowed rather than invented: its contract
+   already reads "latched, the puck does not return" (hypersaw_clap.cpp).
+   Unlatched (the default) springs.
+
+   Untouched: a macro axis (its release behaviour belongs to the intent bus,
+   not to this row) and a Mod Wheel axis (a wheel does not spring — and it has
+   no parameter to write; see padSideWrite). Only MAIN carries 179/180, hence
+   the `perf` gate. */
+function padSpringRelease(pad) {
+  if (!pad.perf) return;
+  if (+(lastParams[268] ?? 0) > 0.5) return;
+  const ids = pad.ids();
+  for (let axis = 0; axis < 2; axis++) {
+    if (mainAsnOf(axis) !== ASN_BEND) continue;
+    const id = ids[axis];
+    if (id < 0) continue;
+    const v = pad.map.toVal(axis, 0.5);
+    bridge.setParam(id, v); lastParams[id] = v; setControl(id, v);
+  }
+  xyDirty = true;
 }
 /* THE ONE AXIS THAT IS NOT A PARAMETER. Assignment 10 aims at the Mod Wheel,
    which is matrix source 15 and reaches the shell through hzModWheel, so there
