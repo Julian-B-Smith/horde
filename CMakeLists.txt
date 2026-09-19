@@ -613,6 +613,18 @@ if(NOT MSVC)
   target_compile_options(delay_check PRIVATE -O2)
 endif()
 
+# station_check: the STATION port's oracle (B153 layer 3 phase 1) -- L0-1 parity
+# against goldens sliced live from reference/station.html, plus the behavioural
+# rows parity structurally cannot see and the five SPEC-STATION §11 divergences.
+# Core-direct (no shell link): the shell has no STATION seam yet, and a shell
+# layer between the probe and the quantity would only add noise. UNWIRED in
+# ./verify -- that is a gate edit and a human decision (charter).
+add_executable(station_check tools/station_check.cpp)
+target_include_directories(station_check PRIVATE src)
+if(NOT MSVC)
+  target_compile_options(station_check PRIVATE -O2)
+endif()
+
 add_executable(gain_probe tools/gain_probe.cpp)
 target_link_libraries(gain_probe PRIVATE ${PROJECT_NAME}-impl)
 if(NOT MSVC)
