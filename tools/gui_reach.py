@@ -34,6 +34,7 @@ EXEMPT = {
     70: "inertiaCurve — dev-only, labelled (dev) in the param table",
     264: "fxXfade — buried by ruling B117 (ADR-163 A2); id kept for state",
     265: "fxXfadeMs — buried with 264; 80 ms is the behaviour",
+    266: "intentBus — (dev) resolver flag (ADR-176); no product surface until 2c",
 }
 
 guis = {}

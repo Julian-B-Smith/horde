@@ -379,3 +379,4 @@ osc1.oscPitch	osc1	Pitch (st)	OSC	Pitch	knob	st	the-swarm
 osc2.oscPitch	osc2	Pitch (st)	OSC	Pitch	knob	st	the-swarm			
 fxXfade	global	FX Type Crossfade (dev)	BURIED	FX crossfade (buried B117)	select		fx-crossfade
 fxXfadeMs	global	Crossfade Time	BURIED	FX crossfade (buried B117)	knob	ms	fx-crossfade
+intentBus	global	Intent Bus (dev)	BURIED	Intent bus (dev, B89)	select		intent-bus

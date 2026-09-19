@@ -33,6 +33,7 @@
 #include "glide_core.h"
 #include "mod_core.h"
 #include "morph_core.h"
+#include "intent_core.h"   // B89 phase 2b: the resolver (ADR-176); shell owns the storage
 #include "depends_graph.h"
 #include "fx_rack.h"
 #include "routing_core.h"
@@ -674,6 +675,16 @@ static const ParamDef kParams[] = {
     // ruled behaviour is what a patch that never wrote the id gets.
     {264, "fxXfade", "FX Type Crossfade (dev)", 0, 1, 1, true, kFxXfadeLabels},
     {265, "fxXfadeMs", "FX Crossfade Time (dev)", 5, 500, 80, false, nullptr},
+    /* B89 phase 2b / ADR-176 decision 6 — THE INTENT-BUS FLAG, the id the row
+       below has been holding open. Default OFF, so every patch that never
+       writes it renders exactly as it did: the flag IS the bit-identity claim,
+       and parity_check / statefix_check / intent_check section S are where it
+       is proven. "(dev)" is the established label for a control that is not
+       product surface (id 70 is the precedent, 264/265 the recent one).
+       It does NOTHING with morph off (plan R15): bindings live in corners, and
+       with no field there is no owner — so the seam is narrowed to morph-on
+       patches by construction rather than by a second guard. */
+    {266, "intentBus", "Intent Bus (dev)", 0, 1, 0, true, kOffOn},
     /* B146 bass-mono placement, RATIFIED 2026-09-18. Id 267, not 266: 266 is
        reserved for the intent flag, and an id skipped on purpose is cheaper
        than an id claimed twice. Default 0 = pre = the stage's only placement
@@ -793,6 +804,7 @@ constexpr clap_id kGlobalIds[] = {
     248, 249, 250, 251, 252, 253, 254, 255,      // ADR-142 Delay slot 3
     256, 257, 258, 259, 260, 261, 262, 263,      // ADR-142 Delay slot 4
     264, 265,                                    // B117 FX crossfade (dev) — the rack is ONE object
+    266,                                         // B89 intent-bus flag (dev) — one resolver per device
     // ADR-131 per-slot time-engine params: 200..231, four blocks of 8.
     200, 201, 202, 203, 204, 205, 206,
     208, 209, 210, 211, 212, 213, 214,
@@ -1210,6 +1222,13 @@ static const ParamClassRule kParamClassOverrides[] = {
     // (dev) B117/ADR-163: buried, ids kept so saved state loads.
     {264, ParamClass::Device, "(dev) buried rack policy (B117/ADR-163)"},
     {265, ParamClass::Device, "(dev) buried rack policy (B117/ADR-163)"},
+    /* ADR-176 decision 6. Rule 2 would make it STRUCTURAL (it is stepped), and
+       the ruling overrides that to DEVICE for the reason 151-158 are device: it
+       shapes the RESOLVER, and a field that morphed its own resolver would
+       change how it resolves as the pad moved. Device also keeps it out of
+       morphIds, which is what paramclass_check's "no morphIds member is
+       device" cross-check asserts — morphInit never appends it. */
+    {266, ParamClass::Device, "(dev) intent-bus flag — shapes the resolver itself (ADR-176)"},
     /* B146. Rule 2 would make it STRUCTURAL (it is stepped, and it does change
        the graph), and the ruling overrides that to DEVICE: the placement is an
        output-stage policy of the instance, like master volume (id 100), not
@@ -2113,6 +2132,12 @@ struct Plugin
   double morphOn = 0, morphMode = 0, morphGlideS = 0.008;
   uint32_t morphSeed = 1024;
   int morphAccum = 0;
+  /* ADR-176 decision 6 — the intent-bus flag (param 266). Kept here rather
+     than beside the rack's flags because it gates ONE branch, at the top of
+     morphStep, and reads as a morph control at the only site that consults
+     it. Its meaning changes between phase 2b (shadow: resolve, apply nothing)
+     and 2c (applied); harmless for a dev param that ships off. */
+  double intentBusOn = 0;
 
   /* ADR-159 — THE PREFIX IS FROZEN. The per-osc block below is built by
      walking the param table, so a per-osc row added to the table lands INSIDE
@@ -2271,6 +2296,10 @@ struct Plugin
       const double v = d ? defaultFor(*d, morphIds[i] / 1000) : 0.0;
       for (int k = 0; k < 4; k++) morphCorner[k][i] = v;
     }
+    // B89 phase 2b: the resolver's tables, sized HERE and only here — this is
+    // the main-thread, once-per-instance site (plug_activate calls morphInit),
+    // which is what lets intentStep run on the audio thread allocation-free.
+    intentInit();
   }
 
   /* ADR-109: exempt toggle + query, addressed by parameter id so the GUI needs
@@ -2924,6 +2953,18 @@ struct Plugin
 
   void morphStep(int samples)
   {
+    /* THE SEAM (B89 phase 2b, ADR-176 decision 6). ONE branch, taken only when
+       a dev flag that ships OFF is on. With the flag off the instruction
+       sequence past it is the one that shipped, which is why "bit-identical
+       with the flag off" is a structural claim and not a measurement that
+       happened to agree (parity_check 156/156 and statefix_check are the
+       evidence; intent_check section S is the must-fail control that proves
+       those two can see a difference at all).
+       `morphOn > 0.5` is redundant at this call site and kept anyway: it is
+       plan R15's rule — the flag does NOTHING with morph off, because bindings
+       live in corners and with no field there is no owner — and a reader of
+       this line should not have to go and find the caller to learn that. */
+    if (intentBusOn > 0.5 && morphOn > 0.5) { intentStep(samples); return; }
     morphAccum += samples;
     const int grid = (int)std::lround(sampleRate * hypersaw::kGravGridSeconds);
     if (morphAccum < grid) return;
@@ -3016,6 +3057,408 @@ struct Plugin
       }
     }
   }
+
+  /* ================= B89 PHASE 2b — THE INTENT BUS, SHADOWED ===============
+     ADR-176 (the owner law, the atoms, the ten intents, the flag) built behind
+     param 266 with its OUTPUT UNUSED: `intentStep` resolves SPEC-INTENT-BUS
+     §4.5's `final[p]` into `intentShadow` and applies nothing. 2c moves that
+     value through applyParam; this phase exists to prove the seam costs
+     nothing when the flag is off and reduces to a plain corner read when it
+     is on — the two facts that make 2c safe to switch on.
+
+     WHY THE SHELL OWNS THE TABLES (plan R14). IntentCore is pure functions
+     over caller-owned spans, so every array here is sized ONCE in morphInit,
+     beside morphCorner[k].assign — the audio thread never allocates, and
+     rtsafety_probe is the gate on that claim. The binding table alone is
+     4 x 10 x N doubles (~78 KB at today's N); doubles, not floats, because a
+     ten-term sum compared at 1e-6 absolute is uncomfortably close to float32.
+
+     UNITS. `morphCorner` is RAW (a corner holds what the parameter holds).
+     `bind` and `range` are NORMALISED, which is what lets a binding mean the
+     same thing on a 0..1 knob and a 1..2000 ms time. The conversion happens
+     here, at the boundary, with modStep's own span convention — so the corner
+     chunk keeps every byte it had and no ADR-159 remap is in scope. */
+  static constexpr int kIntents = 10;   // X, Y, M1..M8 (ADR-176 decision 4)
+  /* THE STORED ORDER, append-only (ADR-176 decision 4 / plan R6). These are
+     slot KEYS, not captions: a patch renames the captions (intentName below),
+     and a rename must never move a binding. Written into the chunk so a future
+     build that appends an eleventh slot can still read a ten-slot patch. */
+  static constexpr const char *kIntentOrder[kIntents] = {"X",  "Y",  "M1", "M2", "M3",
+                                                         "M4", "M5", "M6", "M7", "M8"};
+  /* The default captions (ADR-176 Amendment 3 — the human's final eight). Patch
+     state: the user renames them per patch, and the defaults are what a patch
+     that never renamed anything gets, which is why they are never written into
+     a chunk that is otherwise at its defaults. */
+  static constexpr const char *kIntentDefaultName[kIntents] = {
+      "X", "Y", "Space", "Timbre", "Motion", "Grit", "Time", "Character",
+      "Brightness", "Pressure"};
+
+  std::vector<double> intentRangeLo, intentRangeHi;   // [4 * N] normalised, corner-major
+  std::vector<double> intentBind;                     // [4 * kIntents * N] normalised
+  double intentHomeX[4] = {0.5, 0.5, 0.5, 0.5};       // §4.4 home, per corner
+  double intentHomeY[4] = {0.5, 0.5, 0.5, 0.5};
+  /* EMPTY MEANS DEFAULT. The array starts empty (a std::string member cannot
+     carry kIntentDefaultName without a constructor), and morphInit is the site
+     that fills it — but morphInit runs at ACTIVATE, so a GUI or an oracle that
+     asked before then read ten blank captions. One accessor instead of one
+     more initialisation site: "" is the absent caption, and the absent caption
+     is the ADR-176 A3 default. It also means a rename sanitised down to
+     nothing degrades to the default rather than to a blank knob. */
+  std::string intentName[kIntents];
+  const char *intentCaption(int i) const
+  {
+    if (i < 0 || i >= kIntents) return "";
+    return intentName[i].empty() ? kIntentDefaultName[i] : intentName[i].c_str();
+  }
+  /* THE ATOM MAP (ADR-176 decision 2): atoms are LEAD GROUPS, not parameters —
+     the distinct values of morphLead[], compacted, plus `home` as its own atom
+     (plan R10). The scale is one atom of 13, each FX slot one of 3, and since
+     B142 the whole routing block is one. Nothing here knows what a group
+     means; morphInit builds the map and IntentCore just indexes it. */
+  std::vector<int> intentAtomOf;        // [N] -> atom index
+  int intentHomeAtom = 0;               // the `home` atom's index (the last one)
+  int intentNAtoms = 0;
+  std::vector<double> intentSeeds;      // [nAtoms], one per atom, from morphSeed
+  double intentSharedSeed = 0;          // drawn AFTER them (ADR-176 Amendment 1)
+  // Per-slot unit conversion, read off the ParamDef once (see UNITS above).
+  std::vector<double> intentMinV, intentSpan;
+  // The per-tick working set. Sized once; never resized on the audio thread.
+  std::vector<double> intentBaseN;      // [4 * N] the corners, normalised
+  std::vector<double> intentFinal;      // [N] §4.5 final, normalised
+  std::vector<double> intentShadow;     // [N] the same value in RAW units — THE SHADOW
+  std::vector<int> intentOwnerAtom;     // [nAtoms]
+  std::vector<int> intentOwnerParam;    // [N]
+  std::vector<int> intentClamped;       // [N] §4.5's clamp indicator
+  double intentValue[kIntents] = {0};   // the ten intents, read as INPUTS in 2b
+
+  /* Sized once, from morphInit, with morphIds and morphLead already built.
+     Everything it writes is a DEFAULT: full range, no binding, centred home,
+     the ADR-176 A3 captions — so an instance that never sees an `intent=`
+     chunk resolves exactly as a plain corner read. */
+  void intentInit()
+  {
+    const size_t n = morphIds.size();
+    intentRangeLo.assign(4 * n, 0.0);
+    intentRangeHi.assign(4 * n, 1.0);
+    intentBind.assign((size_t)4 * kIntents * n, 0.0);
+    for (int k = 0; k < 4; k++) { intentHomeX[k] = 0.5; intentHomeY[k] = 0.5; }
+    for (int i = 0; i < kIntents; i++) intentName[i] = kIntentDefaultName[i];
+
+    intentMinV.assign(n, 0.0);
+    intentSpan.assign(n, 1.0);
+    for (size_t i = 0; i < n; i++)
+    {
+      const ParamDef *d = findParam(morphIds[i]);
+      if (!d) continue;
+      intentMinV[i] = d->minV;
+      // A zero span would make the normalisation a division by zero; no shipped
+      // row has one, and a future one degrades to "already normalised".
+      intentSpan[i] = (d->maxV - d->minV) > 1e-300 ? (d->maxV - d->minV) : 1.0;
+    }
+
+    intentAtomOf.assign(n, 0);
+    {
+      std::vector<int> compact(n, -1);   // morphIds index -> atom, for leads only
+      int na = 0;
+      for (size_t i = 0; i < n; i++)
+      {
+        const size_t lead = morphGroupLead(i);
+        if (compact[lead] < 0) compact[lead] = na++;
+        intentAtomOf[i] = compact[lead];
+      }
+      intentHomeAtom = na;
+      intentNAtoms = na + 1;
+    }
+    intentSeeds.assign((size_t)intentNAtoms, 0.0);
+    intentDrawSeeds();
+
+    intentBaseN.assign(4 * n, 0.0);
+    intentFinal.assign(n, 0.0);
+    intentShadow.assign(n, 0.0);
+    intentOwnerAtom.assign((size_t)intentNAtoms, 0);
+    intentOwnerParam.assign(n, 0);
+    intentClamped.assign(n, 0);
+  }
+
+  /* One seed per atom in ATOM-INDEX order, the shared seed appended last
+     (ADR-176 Amendment 1): appending it leaves every per-atom draw
+     bit-identical to a stream without coupling, so turning coupling on moves
+     the blend and not the boundaries. Pure array writes over storage that
+     already exists — the same RT-safety argument MorphCore::reshuffle makes at
+     the id-156 site that calls this. */
+  void intentDrawSeeds()
+  {
+    if (intentSeeds.empty()) return;
+    hypersaw::IntentCore::drawSeeds(morphSeed, intentSeeds.data(), intentNAtoms,
+                                    &intentSharedSeed);
+  }
+
+  /* ---- the `intent=` chunk ------------------------------------------------
+     SPARSE, AND KEYED ON THE PARAMETER ID. Sparse for ADR-138/ADR-088's
+     reason: a patch that has never bound anything writes NO KEY, so every
+     stored preset, fixture and factory file keeps the bytes it had and
+     statefix_check / bank_check stay the regression proof for this change
+     rather than casualties of it. Keyed on the id rather than the morphIds
+     INDEX because an index is a layout fact — ADR-159 is the scar — and an id
+     this build does not expose is simply skipped, which is how a patch saved
+     by a wider future build stays loadable here.
+
+     GRAMMAR (one line, comma-separated tokens, colon-separated fields):
+       L:1                      layout; first token, always present
+       O:<k0>:...:<k9>          the stored slot order, append-only (kIntentOrder)
+       N:<i>:<name>             a renamed intent slot (only when renamed)
+       R:<id>:<k>:<lo>:<hi>     corner k's range for parameter id, normalised
+       B:<id>:<k>:<i>:<v>       corner k's binding of intent i to parameter id
+       H:<k>:<x>:<y>            corner k's pad home
+     `base` is NOT here: it stays in the `morph=` corner chunk where it always
+     was, which is the whole reason that chunk's bytes do not move. */
+  static std::string intentSafeName(const std::string &in)
+  {
+    std::string out;
+    for (char c : in)
+    {
+      // The three characters that ARE the grammar, plus anything that would
+      // need escaping inside the JSON string this chunk also travels in. A
+      // name is a caption, so degrading it beats inventing an escape layer.
+      if (c == ',' || c == ':' || c == '"' || c == '\\' || (unsigned char)c < 0x20) continue;
+      out += c;
+      if (out.size() >= 24) break;
+    }
+    return out;
+  }
+
+  std::string intentChunk() const
+  {
+    if (morphIds.empty() || intentBind.empty()) return {};
+    const size_t n = morphIds.size();
+    std::string body;
+    char buf[96];
+    for (int i = 0; i < kIntents; i++)
+      if (std::strcmp(intentCaption(i), kIntentDefaultName[i]) != 0)
+        body += ",N:" + std::to_string(i) + ":" + intentSafeName(intentName[i]);
+    for (int k = 0; k < 4; k++)
+      for (size_t i = 0; i < n; i++)
+      {
+        const size_t cp = (size_t)k * n + i;
+        if (intentRangeLo[cp] == 0.0 && intentRangeHi[cp] == 1.0) continue;
+        std::snprintf(buf, sizeof buf, ",R:%u:%d:%.17g:%.17g", (unsigned)morphIds[i], k,
+                      intentRangeLo[cp], intentRangeHi[cp]);
+        body += buf;
+      }
+    for (int k = 0; k < 4; k++)
+      for (int t = 0; t < kIntents; t++)
+        for (size_t i = 0; i < n; i++)
+        {
+          const size_t bi = ((size_t)k * kIntents + t) * n + i;
+          if (intentBind[bi] == 0.0) continue;
+          std::snprintf(buf, sizeof buf, ",B:%u:%d:%d:%.17g", (unsigned)morphIds[i], k, t,
+                        intentBind[bi]);
+          body += buf;
+        }
+    for (int k = 0; k < 4; k++)
+    {
+      if (intentHomeX[k] == 0.5 && intentHomeY[k] == 0.5) continue;
+      std::snprintf(buf, sizeof buf, ",H:%d:%.17g:%.17g", k, intentHomeX[k], intentHomeY[k]);
+      body += buf;
+    }
+    if (body.empty()) return {};   // nothing has left its default: no key at all
+    std::string out = "L:1,O";
+    for (int i = 0; i < kIntents; i++) { out += ":"; out += kIntentOrder[i]; }
+    return out + body;
+  }
+
+  /* A load is a load: EVERY table returns to its default first, so a patch
+     with no `intent=` key loads unbound rather than inheriting whatever the
+     previous patch bound. `O` is READ, not trusted-and-ignored: a slot key
+     this build does not know ends the mapping for that patch's later slots,
+     which is what append-only buys. */
+  void applyIntentChunk(const std::string &chunk)
+  {
+    morphInit();
+    if (intentBind.empty()) return;
+    const size_t n = morphIds.size();
+    std::fill(intentRangeLo.begin(), intentRangeLo.end(), 0.0);
+    std::fill(intentRangeHi.begin(), intentRangeHi.end(), 1.0);
+    std::fill(intentBind.begin(), intentBind.end(), 0.0);
+    for (int k = 0; k < 4; k++) { intentHomeX[k] = 0.5; intentHomeY[k] = 0.5; }
+    for (int i = 0; i < kIntents; i++) intentName[i] = kIntentDefaultName[i];
+    if (chunk.empty()) return;
+
+    // The patch's slot order, defaulting to ours; `stored[j]` is the slot index
+    // THIS build gives the j-th slot the patch stored, or -1 for one we lack.
+    int stored[kIntents];
+    for (int i = 0; i < kIntents; i++) stored[i] = i;
+
+    size_t pos = 0;
+    while (pos < chunk.size())
+    {
+      const size_t comma = chunk.find(',', pos);
+      const std::string tok =
+          chunk.substr(pos, comma == std::string::npos ? std::string::npos : comma - pos);
+      pos = comma == std::string::npos ? chunk.size() : comma + 1;
+      if (tok.size() < 2 || tok[1] != ':') continue;
+      // Fields after the leading "X:".
+      std::vector<std::string> f;
+      {
+        size_t q = 2;
+        while (q <= tok.size())
+        {
+          const size_t c = tok.find(':', q);
+          f.push_back(tok.substr(q, c == std::string::npos ? std::string::npos : c - q));
+          if (c == std::string::npos) break;
+          q = c + 1;
+        }
+      }
+      switch (tok[0])
+      {
+        case 'L': break;   // the layout marker; only version 1 exists
+        case 'O':
+        {
+          for (int j = 0; j < kIntents; j++)
+          {
+            stored[j] = -1;
+            if ((size_t)j >= f.size()) continue;
+            for (int i = 0; i < kIntents; i++)
+              if (f[(size_t)j] == kIntentOrder[i]) { stored[j] = i; break; }
+          }
+          break;
+        }
+        case 'N':
+        {
+          if (f.size() < 2) break;
+          const int j = std::atoi(f[0].c_str());
+          if (j < 0 || j >= kIntents || stored[j] < 0) break;
+          intentName[stored[j]] = intentSafeName(f[1]);
+          break;
+        }
+        case 'R':
+        {
+          if (f.size() < 4) break;
+          const clap_id id = (clap_id)std::strtoul(f[0].c_str(), nullptr, 10);
+          const int k = std::atoi(f[1].c_str());
+          const size_t i = intentSlotOf(id);
+          if (k < 0 || k > 3 || i == SIZE_MAX) break;
+          intentRangeLo[(size_t)k * n + i] = std::atof(f[2].c_str());
+          intentRangeHi[(size_t)k * n + i] = std::atof(f[3].c_str());
+          break;
+        }
+        case 'B':
+        {
+          if (f.size() < 4) break;
+          const clap_id id = (clap_id)std::strtoul(f[0].c_str(), nullptr, 10);
+          const int k = std::atoi(f[1].c_str());
+          const int j = std::atoi(f[2].c_str());
+          const size_t i = intentSlotOf(id);
+          if (k < 0 || k > 3 || j < 0 || j >= kIntents || stored[j] < 0 || i == SIZE_MAX) break;
+          intentBind[((size_t)k * kIntents + stored[j]) * n + i] = std::atof(f[3].c_str());
+          break;
+        }
+        case 'H':
+        {
+          if (f.size() < 3) break;
+          const int k = std::atoi(f[0].c_str());
+          if (k < 0 || k > 3) break;
+          intentHomeX[k] = hypersaw::IntentCore::clamp01(std::atof(f[1].c_str()));
+          intentHomeY[k] = hypersaw::IntentCore::clamp01(std::atof(f[2].c_str()));
+          break;
+        }
+        default: break;
+      }
+    }
+  }
+
+  size_t intentSlotOf(clap_id id) const
+  {
+    for (size_t i = 0; i < morphIds.size(); i++)
+      if (morphIds[i] == id) return i;
+    return SIZE_MAX;
+  }
+
+  /* ---- the seam ----------------------------------------------------------
+     SPEC-INTENT-BUS §4.1-§4.5 over the shell's own field, on morphStep's own
+     grid and accumulator (one accumulator, so there is no second one to drift
+     out of step with the first). In phase 2b the result goes to `intentShadow`
+     and NOWHERE ELSE: no applyParam, no morphCur, no glide. That is what
+     makes flag-off bit-identity structural rather than measured — with the
+     flag off this function is not entered at all, and with it on nothing it
+     computes can reach the audio path.
+
+     Deliberately NOT built here (each has its phase): the corner-scope
+     modulation tier (plan R5 — the prototype's corner LFO has no shell
+     counterpart yet), the pad spring and latch (2d), and the promoted/device
+     mod tiers, which `modStep` already is. */
+  void intentStep(int samples)
+  {
+    morphAccum += samples;
+    const int grid = (int)std::lround(sampleRate * hypersaw::kGravGridSeconds);
+    if (morphAccum < grid) return;
+    morphAccum = 0;
+    const size_t n = morphIds.size();
+    if (n == 0 || intentFinal.size() != n) return;
+    using IC = hypersaw::IntentCore;
+
+    /* §4.2. steepness = 1/morphTemp (ADR-176 decision 1): temp 1 is the
+       spec's softest blend, temp 0.02 its hardest flip. The modSum argument is
+       0 here because a device routing that targets MorphX/Y is plan R5's
+       phase-3 tier; the call is written through effectiveMorph anyway so the
+       site that gains it is already the right one. */
+    double w[4];
+    IC::weights(IC::effectiveMorph(morphX, 0.0), IC::effectiveMorph(morphY, 0.0),
+                morphTemp > 1e-9 ? 1.0 / morphTemp : 1.0e9, w);
+    IC::resolveAtoms(intentSeeds.data(), intentNAtoms, intentSharedSeed, morphCoup, w,
+                     intentOwnerAtom.data());
+    IC::mapOwners(intentOwnerAtom.data(), intentAtomOf.data(), (int)n,
+                  intentOwnerParam.data());
+
+    /* THE TEN INTENTS, read as INPUTS this phase. X and Y are the MAIN pad's
+       axes: ids 179/180 name WHICH macro each axis writes (ADR-150), so the
+       axis's current value is that macro's. The displacement mapping that
+       makes them true +-1 intents is the pad's, and the pad is 2d. */
+    for (int i = 0; i < 8; i++) intentValue[2 + i] = macroVal[i];
+    for (int a = 0; a < 2; a++)
+      intentValue[a] = (mainAsn[a] >= 0 && mainAsn[a] < 8) ? macroVal[mainAsn[a]] : 0.0;
+
+    // The corners, normalised (see UNITS). Recomputed per tick because a corner
+    // is editable while the field runs; the cost is one multiply-add per slot.
+    for (int k = 0; k < 4; k++)
+      for (size_t i = 0; i < n; i++)
+        intentBaseN[(size_t)k * n + i] = (morphCorner[k][i] - intentMinV[i]) / intentSpan[i];
+
+    IC::stepParams((int)n, kIntents, intentValue, intentOwnerParam.data(),
+                   intentBaseN.data(), intentBind.data(), intentRangeLo.data(),
+                   intentRangeHi.data(), nullptr, nullptr, nullptr, nullptr,
+                   intentFinal.data(), intentClamped.data());
+    for (size_t i = 0; i < n; i++)
+      intentShadow[i] = intentMinV[i] + intentFinal[i] * intentSpan[i];
+  }
+
+  /* CALIBRATION ONLY (L0032) — the must-fail control for "the flag off is
+     bit-identical". A green flag-off render proves the comparison RAN; it does
+     not prove the comparison could have failed. So this resolves once and
+     pushes the shadow through applyParam exactly the way 2c will, at whatever
+     the flag happens to be, and intent_check asserts the resulting render
+     DIFFERS. Reached only from hypersaw_debug_intent_plant: no shell path, no
+     GUI path and no host path calls it, which is the property that keeps 2b's
+     "nothing applied" claim true while its control exists.
+     Returns the number of slots it wrote, so the control can assert its own
+     anchor — a plant that silently wrote nothing would "not fire" for the
+     wrong reason (L0033). */
+  int intentPlantShadow()
+  {
+    morphInit();
+    intentStep((int)std::lround(sampleRate * hypersaw::kGravGridSeconds));
+    int wrote = 0;
+    for (size_t i = 0; i < morphIds.size(); i++)
+    {
+      if (i < morphExempt.size() && morphExempt[i]) continue;
+      morphFromField = true;
+      applyParam(morphIds[i], intentShadow[i]);
+      morphFromField = false;
+      wrote++;
+    }
+    return wrote;
+  }
+
   double mpeBendLaw = 1;   // ADR-097: per-note bend follows the wheel by default
 
   void pushNoteLaw()
@@ -4196,6 +4639,12 @@ struct Plugin
     // one serializer, two transports. Only when routes exist (see state_save).
     const std::string routes = modRoutesChunk();
     if (!routes.empty()) tail += ",\"modRoutes\":\"" + routes + "\"";
+    // B89 phase 2b: the intent bus's bindings, ranges, homes and names. Same
+    // rule and the same reason as modRoutes above — only when something has
+    // left its default, so a patch that has never bound an intent writes no
+    // key and its bytes are what they were.
+    const std::string intent = intentChunk();
+    if (!intent.empty()) tail += ",\"intent\":\"" + intent + "\"";
     return out + tail + "}";
   }
 
@@ -4221,6 +4670,21 @@ struct Plugin
           chunk = json.substr(q0 + 1, q1 - q0 - 1);
       }
       applyModRoutesChunk(chunk);
+    }
+    /* B89 phase 2b, and a load is a load for the same reason: an ABSENT key
+       means unbound (full ranges, zero bindings, centred homes, default
+       names), never "whatever the previous patch had". */
+    {
+      std::string chunk;
+      const size_t ip = json.find("\"intent\"");
+      if (ip != std::string::npos)
+      {
+        const size_t q0 = json.find('"', json.find(':', ip) + 1);
+        const size_t q1 = q0 == std::string::npos ? std::string::npos : json.find('"', q0 + 1);
+        if (q0 != std::string::npos && q1 != std::string::npos)
+          chunk = json.substr(q0 + 1, q1 - q0 - 1);
+      }
+      applyIntentChunk(chunk);
     }
     bool any = false;
     for (const auto &d : kParams)
@@ -4754,6 +5218,10 @@ struct Plugin
               morphSeed = (uint32_t)applied;
               // reshuffle is pure array writes — RT-safe; morphInit ran at activate
               morph.reshuffle(morphSeed, (int)morphIds.size());
+              // ADR-176: the resolver's per-atom seeds come from the same
+              // device seed, so they re-draw in the same breath. One seed, two
+              // laws — a second site would be a second chance to forget.
+              intentDrawSeeds();
             }
             break;
           case 157: morphMode = applied; break;
@@ -4895,6 +5363,10 @@ struct Plugin
          scope (the rack is ONE object), hence data-fixed on their controls. */
       if (id == 264) { rack.setXfade(applied >= 0.5); return; }
       if (id == 265) { rack.setXfadeMs(applied); return; }
+      // ADR-176 decision 6: a flag and nothing else. No state is rebuilt here —
+      // the resolver's tables are sized in morphInit and are correct whether or
+      // not the flag has ever been on, so toggling it cannot allocate.
+      if (id == 266) { intentBusOn = applied; return; }
       if (id >= 96 && id <= 99)  // per-slot second axis (comb resonance today)
       {
         rack.setTone((int)(id - 96), applied);
@@ -5015,6 +5487,7 @@ struct Plugin
         return rack.getDelayParam((int)((d->id - 232) / 8), (int)((d->id - 232) % 8));
       if (d->id == 264) return rack.getXfade();      // B117: the rack owns both
       if (d->id == 265) return rack.getXfadeMs();    // (clamped there, so readback is the truth)
+      if (d->id == 266) return intentBusOn;          // ADR-176: the shell owns it, so it reads back
       if (d->id == 161)
       {
         const int pr = modPitchRouteIdx();
@@ -6079,6 +6552,14 @@ bool state_save(const clap_plugin_t *p, const clap_ostream_t *stream)
     const std::string rt = self(p)->routingChunk();
     if (!rt.empty()) blob += "routing=" + rt + "\n";
   }
+  // B89 phase 2b (ADR-176): the intent bus's corner-owned bindings, ranges and
+  // homes plus the patch's intent names. Emitted ONLY when something has left
+  // its default, exactly as `routing=` above — which is what keeps every
+  // existing chunk, fixture and factory file byte-for-byte what it was.
+  {
+    const std::string it = self(p)->intentChunk();
+    if (!it.empty()) blob += "intent=" + it + "\n";
+  }
   // B149: the ADR-077/078 ensemble-timing state, per oscillator, and LAST in
   // the blob on purpose — state_load's idle path applies keys in file order, so
   // arriving after `seed` means the rebuild that re-rolls the stream has
@@ -6127,6 +6608,9 @@ bool state_load(const clap_plugin_t *p, const clap_istream_t *stream)
   // saved on the series chain (or predates the block), so it loads on the
   // series chain. A present key then replaces this default set.
   pl->applyRoutingChunk("");
+  // B89 phase 2b, same rule: a chunk with no `intent=` key was saved unbound
+  // (or predates the bus), so it loads unbound.
+  pl->applyIntentChunk("");
   // B100: a chunk without the header predates it and is revision 1 by
   // definition; a present `engine_revision=` line below overrides this.
   pl->setEngineRevision(1);
@@ -6158,6 +6642,11 @@ bool state_load(const clap_plugin_t *p, const clap_istream_t *stream)
     if (key == "routing")     // ADR-088: crosspoint cells that left their default
     {
       pl->applyRoutingChunk(line.substr(eq + 1));
+      continue;
+    }
+    if (key == "intent")      // ADR-176: intent bindings/ranges/homes/names
+    {
+      pl->applyIntentChunk(line.substr(eq + 1));
       continue;
     }
     /* ADR-147: the specimen's visibility is a GUI preference, NOT patch state,
@@ -6356,6 +6845,80 @@ extern "C" const char *hypersaw_debug_routing_ids(void)
     }
   }
   return s.c_str();
+}
+/* B89 phase 2b — THE SHADOW, and the tables behind it. These are the ONLY
+   readers of the resolver's output in this phase: `final` is what 2c will hand
+   to applyParam, and until then nothing but an oracle ever looks at it.
+   Addressed by morphIds SLOT INDEX, not by parameter id, because that is the
+   index IntentCore works in and because `hypersaw_debug_cornervals` already
+   publishes the slot -> id order — a second id lookup here would be a second
+   copy of a mapping that already has one owner. Out-of-range reads are inert
+   (0 / -1), never undefined. */
+extern "C" double hypersaw_debug_intent_final(const clap_plugin_t *p, int slot)
+{
+  auto *pl = self(p);
+  if (slot < 0 || (size_t)slot >= pl->intentShadow.size()) return 0.0;
+  return pl->intentShadow[(size_t)slot];
+}
+extern "C" int hypersaw_debug_intent_owner(const clap_plugin_t *p, int slot)
+{
+  auto *pl = self(p);
+  if (slot < 0 || (size_t)slot >= pl->intentOwnerParam.size()) return -1;
+  return pl->intentOwnerParam[(size_t)slot];
+}
+extern "C" double hypersaw_debug_intent_bind(const clap_plugin_t *p, int corner, int intent,
+                                             int slot)
+{
+  auto *pl = self(p);
+  const size_t n = pl->morphIds.size();
+  if (corner < 0 || corner > 3 || intent < 0 || intent >= Plugin::kIntents) return 0.0;
+  if (slot < 0 || (size_t)slot >= n || pl->intentBind.empty()) return 0.0;
+  return pl->intentBind[((size_t)corner * Plugin::kIntents + intent) * n + (size_t)slot];
+}
+extern "C" bool hypersaw_debug_intent_range(const clap_plugin_t *p, int corner, int slot,
+                                            double *lo, double *hi)
+{
+  auto *pl = self(p);
+  const size_t n = pl->morphIds.size();
+  if (corner < 0 || corner > 3 || slot < 0 || (size_t)slot >= n || pl->intentRangeLo.empty())
+    return false;
+  const size_t cp = (size_t)corner * n + (size_t)slot;
+  if (lo) *lo = pl->intentRangeLo[cp];
+  if (hi) *hi = pl->intentRangeHi[cp];
+  return true;
+}
+/* The ten CAPTIONS, in stored-slot order, as a JSON array — the same shape
+   cornerNamesJson uses, so the GUI that eventually reads them parses one
+   pattern and not two. The slot KEYS (kIntentOrder) are not published here:
+   they are the chunk's business, and a consumer that needed both would be
+   free to read the chunk. */
+extern "C" const char *hypersaw_debug_intent_names(const clap_plugin_t *p)
+{
+  static std::string j;
+  auto *pl = self(p);
+  j = "[";
+  for (int i = 0; i < Plugin::kIntents; i++)
+  {
+    j += i ? ",\"" : "\"";
+    j += Plugin::jsonEscape(pl->intentCaption(i));
+    j += "\"";
+  }
+  return (j += "]").c_str();
+}
+/* The homes, for the same oracle. `home` is an atom of its own (plan R10), so
+   it is not addressable through the slot exports above. */
+extern "C" bool hypersaw_debug_intent_home(const clap_plugin_t *p, int corner, double *x,
+                                           double *y)
+{
+  if (corner < 0 || corner > 3) return false;
+  if (x) *x = self(p)->intentHomeX[corner];
+  if (y) *y = self(p)->intentHomeY[corner];
+  return true;
+}
+/* See Plugin::intentPlantShadow — a CONTROL, not a feature. */
+extern "C" int hypersaw_debug_intent_plant(const clap_plugin_t *p)
+{
+  return self(p)->intentPlantShadow();
 }
 extern "C" bool hypersaw_debug_apply(const clap_plugin_t *p, const char *json)
 {

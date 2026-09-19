@@ -11,7 +11,7 @@
  * because the classification is a judgement the human reviews — a green exit
  * code says the rule is self-consistent, not that the rule is right.
  *
- *   T1  every parameter is classified: 244 base rows, every twin, no -1.
+ *   T1  every parameter is classified: 245 base rows, every twin, no -1.
  *   T2  no morphIds member is device. This is the load-bearing cross-check:
  *       paramClassOf never reads morphIds and morphInit never reads the class,
  *       so the two lists are independently authored. Derive one from the other
@@ -136,7 +136,7 @@ int main()
 
   std::map<uint32_t, int> tableClass;   // id -> class, as printed
   int counts[3] = {0, 0, 0};            // every host-exposed id, twins included
-  int baseCounts[3] = {0, 0, 0};        // the 244 kParams rows — the definition
+  int baseCounts[3] = {0, 0, 0};        // the 245 kParams rows — the definition
   int unclassified = 0, duplicated = 0, baseRows = 0;
   std::vector<uint32_t> allIds;
 
@@ -151,7 +151,7 @@ int main()
     const int c = hypersaw_debug_paramclass(info.id, &key, &reason);
     if (c < 0) unclassified++;
     else counts[c]++;
-    if (info.id >= 1000) continue;   // the 244 kParams rows ARE the definition
+    if (info.id >= 1000) continue;   // the 245 kParams rows ARE the definition
     baseRows++;
     if (c >= 0) baseCounts[c]++;
     if (tableClass.count(info.id)) duplicated++;
@@ -168,9 +168,9 @@ int main()
               morphable, structural, device);
 
   /* ---- the assertions ---- */
-  // 244 since B146 appended bassMonoPos (id 267). The pin is the point: it is
+  // 245 since B89 phase 2b appended intentBus (id 266). The pin is the point: it is
   // meant to be moved deliberately, by the change that adds the row.
-  check(baseRows == 244, "T1a the table is the 244 frozen kParams rows");
+  check(baseRows == 245, "T1a the table is the 245 frozen kParams rows");
   check(unclassified == 0, "T1b every host-exposed id carries a class (no -1)");
 
   const std::vector<uint32_t> field = morphFieldIds(p);

@@ -508,6 +508,11 @@ endif()
 # invariants for the coupling blend the prototype does not span. Header-only
 # (src/intent_core.h), links nothing. Unwired, same standing ruling as the rest.
 add_executable(intent_check tools/intent_check.cpp)
+# Phase 2b added section S, which drives the SHIPPED PLUGIN (the seam, the
+# chunk, the bit-identity controls) — so the tool links the impl the way
+# polarity_check and paramclass_check do. The parity half still links nothing
+# but the header; the link is what section S needs, not what §4.5 needs.
+target_link_libraries(intent_check PRIVATE ${PROJECT_NAME}-impl)
 if(NOT MSVC)
   target_compile_options(intent_check PRIVATE -O2)
 endif()
