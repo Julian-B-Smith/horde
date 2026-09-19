@@ -6,11 +6,7 @@
 #include <vector>
 #include <clap/clap.h>
 #include "../src/hypersaw_clap_entry.h"
-extern "C" void hypersaw_debug_state(const clap_plugin_t*, char*, uint32_t);
-extern "C" bool hypersaw_debug_exempt(const clap_plugin_t*, uint32_t);
-extern "C" const char *hypersaw_debug_exemptjson(const clap_plugin_t*);
-extern "C" const char *hypersaw_debug_ownersjson(const clap_plugin_t*);
-extern "C" const char *hypersaw_debug_cornervals(const clap_plugin_t*, int);
+#include "../src/hypersaw_debug.h"
 #include <string>
 #include <cstdlib>
 namespace { 

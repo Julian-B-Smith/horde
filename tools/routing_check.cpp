@@ -20,21 +20,9 @@
 #include "../src/routing_core.h"
 #include "../src/fx_rack.h"
 #include "../src/hypersaw_clap_entry.h"
-
-/* B50 phase 1 — the shell's window onto the LIVE matrix. Declared here
-   rather than in the entry header because these are debug exports, not part
-   of the shipped surface, and the entry header is the shipped surface. */
-extern "C" double hypersaw_debug_routing(const clap_plugin_t *, int from, int to);
-extern "C" bool hypersaw_debug_routing_on(const clap_plugin_t *, int from, int to);
-extern "C" double hypersaw_debug_routing_out(const clap_plugin_t *, int to);
-extern "C" double hypersaw_debug_routing_init(const clap_plugin_t *, int to);
-extern "C" double hypersaw_debug_routing_srcout(const clap_plugin_t *, int from);
-extern "C" const char *hypersaw_debug_routing_ids(void);
-/* B142: which corner owns each morph-field parameter right now — the SAME
-   export the GUI's colour coding reads (ADR-110), not a second one written for
-   the oracle: a report only this check can see would not be the report the
-   player is shown. */
-extern "C" const char *hypersaw_debug_ownersjson(const clap_plugin_t *);
+/* B50 phase 1 (routing_*) and B142 (ownersjson): the shell's window onto the
+   LIVE matrix, and the GUI's own ownership report. */
+#include "../src/hypersaw_debug.h"
 
 constexpr double kPi = 3.141592653589793;
 

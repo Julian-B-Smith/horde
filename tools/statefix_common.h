@@ -29,10 +29,7 @@
 #include <clap/clap.h>
 
 #include "../src/hypersaw_clap_entry.h"
-
-extern "C" bool hypersaw_debug_apply(const clap_plugin_t *, const char *);
-extern "C" void hypersaw_debug_state(const clap_plugin_t *, char *, uint32_t);
-extern "C" int hypersaw_debug_engine_revision(const clap_plugin_t *);
+#include "../src/hypersaw_debug.h"
 
 namespace statefix
 {

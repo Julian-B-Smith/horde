@@ -46,6 +46,7 @@
 
 #include "../src/intent_core.h"
 #include "statefix_common.h"   // section S drives the shipped plugin
+#include "../src/hypersaw_debug.h"
 
 using hypersaw::IntentCore;
 
@@ -556,26 +557,6 @@ static void invariants()
    value reaches the engine. Section S keeps its 2b meaning unchanged and is
    re-run verbatim — with the apply live, every one of its assertions still
    holds, which is acceptance (b) and (c) of the 2c brief.                 */
-
-extern "C" double hypersaw_debug_intent_final(const clap_plugin_t *, int);
-extern "C" int hypersaw_debug_intent_owner(const clap_plugin_t *, int);
-extern "C" double hypersaw_debug_intent_bind(const clap_plugin_t *, int, int, int);
-extern "C" bool hypersaw_debug_intent_range(const clap_plugin_t *, int, int, double *, double *);
-extern "C" bool hypersaw_debug_intent_home(const clap_plugin_t *, int, double *, double *);
-extern "C" const char *hypersaw_debug_intent_names(const clap_plugin_t *);
-extern "C" int hypersaw_debug_intent_plant(const clap_plugin_t *);
-extern "C" int hypersaw_debug_intent_commit(const clap_plugin_t *, int);
-extern "C" bool hypersaw_debug_intent_break_atom(const clap_plugin_t *, int);
-extern "C" void hypersaw_debug_gesture(const clap_plugin_t *, uint32_t, bool);
-extern "C" void hypersaw_debug_intent_puck(const clap_plugin_t *, double *, double *);
-extern "C" int hypersaw_debug_intent_homeowner(const clap_plugin_t *);
-extern "C" const char *hypersaw_debug_modroutes(const clap_plugin_t *);
-extern "C" void hypersaw_debug_capture(const clap_plugin_t *, int);
-extern "C" bool hypersaw_debug_exempt(const clap_plugin_t *, uint32_t);
-extern "C" const char *hypersaw_debug_undo(const clap_plugin_t *, const char *, int);
-extern "C" const char *hypersaw_debug_cornervals(const clap_plugin_t *, int);
-extern "C" bool hypersaw_debug_cornerapply(const clap_plugin_t *, int, const char *);
-extern "C" const char *hypersaw_debug_ownersjson(const clap_plugin_t *);
 
 namespace shell
 {

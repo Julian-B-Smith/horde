@@ -25,8 +25,7 @@
 #include <vector>
 #include <clap/clap.h>
 #include "../src/hypersaw_clap_entry.h"
-extern "C" double hypersaw_debug_pitchbend(const clap_plugin_t *);
-extern "C" int hypersaw_debug_lastnotekey(const clap_plugin_t *);
+#include "../src/hypersaw_debug.h"
 namespace {
 #include "notefuzz_scaffold.inc"
 struct Rig {

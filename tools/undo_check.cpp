@@ -37,14 +37,12 @@
 #include <cstdlib>
 
 #include "statefix_common.h"
+#include "../src/hypersaw_debug.h"
 #include "../src/undo_tree.h"
 
 namespace fs = std::filesystem;
 using namespace statefix;
 using hypersaw::UndoTree;
-
-extern "C" const char *hypersaw_debug_undo(const clap_plugin_t *, const char *, int);
-extern "C" const char *hypersaw_debug_ownersjson(const clap_plugin_t *);
 
 namespace
 {

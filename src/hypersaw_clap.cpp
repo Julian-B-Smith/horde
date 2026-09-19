@@ -39,6 +39,9 @@
 #include "routing_core.h"
 #include "undo_tree.h"
 #include "hypersaw_clap_entry.h"
+#include "hypersaw_debug.h"   // the probe surface's ONE prototype set; included
+                              // HERE so a definition below that drifts from it
+                              // is a compile error, not a silent link (audit H2)
 #include "build_stamp.h"   // generated every build (CMake target)
 
 namespace

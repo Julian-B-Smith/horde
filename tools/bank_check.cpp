@@ -62,13 +62,7 @@
 #include <clap/clap.h>
 #include <cstdlib>
 #include "../src/hypersaw_clap_entry.h"
-
-extern "C" bool hypersaw_debug_apply(const clap_plugin_t *, const char *);
-extern "C" void hypersaw_debug_state(const clap_plugin_t *, char *, uint32_t);
-extern "C" bool hypersaw_debug_cornermatches(const clap_plugin_t *, int, const char *);
-extern "C" void hypersaw_debug_voices(const clap_plugin_t *, char *, uint32_t);
-extern "C" void hypersaw_debug_viz(const clap_plugin_t *, int, double *, double *, double *, int *, double *);
-extern "C" int hypersaw_debug_phases(const clap_plugin_t *, int, double *, int);
+#include "../src/hypersaw_debug.h"
 
 namespace fs = std::filesystem;
 

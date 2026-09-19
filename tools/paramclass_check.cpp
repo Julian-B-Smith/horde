@@ -52,12 +52,9 @@
 #include <vector>
 
 #include "statefix_common.h"
+#include "../src/hypersaw_debug.h"
 
 using namespace statefix;
-
-extern "C" int hypersaw_debug_paramclass(uint32_t id, const char **keyOut,
-                                         const char **reasonOut);
-extern "C" const char *hypersaw_debug_cornervals(const clap_plugin_t *p, int k);
 
 namespace
 {
