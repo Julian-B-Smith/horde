@@ -188,13 +188,36 @@ export const SCENARIOS = [
       s.ops[2].pure = 0; s.ops[2].pw = 0.3; s.ops[2].lvl = 0.5;
       s.matrix = [[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]];
     } },
+
+  // VELOCITY (§8/§10, 2026-09-19). The sensitivity is on the MODULATOR, which
+  // is the whole reason the law scales the op at the source rather than at the
+  // mix: OP2 here has lvl 0, so a mix-only velocity scale would be inaudible,
+  // and what this scenario certifies is that velocity reaches TIMBRE through
+  // the matrix. Four notes at four velocities so one render carries the whole
+  // curve. Every OTHER scenario leaves velSens at 0 and takes velocity 1, which
+  // is bit-for-bit what it rendered before this parameter existed — the
+  // regenerate-and-diff against the phase-1 manifest is the proof, and
+  // station_check's own inertness row is the standing one.
+  { name: 'velocity', notes: [48, 55, 60, 67], vels: [1, 0.75, 0.4, 0.1], secs: 1.0, p: s => {
+      s.ops[0].lvl = 0.85;
+      s.ops[0].env = { a: 3, d: 600, s: 0.6, r: 200, loop: 0 };
+      s.ops[1].coarse = 2; s.ops[1].lvl = 0; s.ops[1].velSens = 1;
+      s.ops[1].env = { a: 2, d: 500, s: 0.8, r: 120, loop: 0 };
+      s.ops[2].on = 0;
+      s.matrix = [[0, 0, 0], [4, 0, 0], [0, 0, 0], [0, 0, 0]];
+    } },
 ];
 
 // ------------------------------------------------------------------- render --
+// `sc.vels`, when present, gives the per-note velocity (0..1) in the same order
+// as `sc.notes`. Absent means 1 for every note, which is `noteOn`'s own default
+// and therefore bit-identical to every render taken before velocity existed.
+const velOf = (sc, i) => (sc.vels ? sc.vels[i] : 1);
+
 function build(sc, sr) {
   const c = new StationCore(sr);
   sc.p(c.state, c);
-  for (const n of sc.notes) c.noteOn(n, noteFreq(n));
+  sc.notes.forEach((n, i) => c.noteOn(n, noteFreq(n), velOf(sc, i)));
   c.state.master = MASTER;
   return c;
 }
@@ -235,7 +258,7 @@ const num = v => Number(v).toPrecision(17);
 function dumpState(s) {
   const t = [];
   s.ops.forEach((o, i) => {
-    for (const k of ['on', 'wave', 'mode', 'coarse', 'fine', 'semis', 'fixed', 'lvl', 'pan', 'pw', 'pure', 'qnt', 'sync'])
+    for (const k of ['on', 'wave', 'mode', 'coarse', 'fine', 'semis', 'fixed', 'lvl', 'pan', 'pw', 'pure', 'qnt', 'sync', 'velSens'])
       t.push(`ops.${i}.${k}=${num(o[k])}`);
     for (const k of ['a', 'd', 's', 'r', 'loop']) t.push(`ops.${i}.env.${k}=${num(o.env[k])}`);
   });
@@ -294,7 +317,7 @@ for (const sr of RATES)
     }
     writeFileSync(join(outDir, `${name}.f32`), Buffer.from(audio.buffer));
     const meta = [`@sr=${sr}`, `@secs=${num(sc.secs)}`, `@block=${BLOCK}`, `@dcblock=${dc.has}`,
-                  ...sc.notes.map(n => `@note=${n}:${num(noteFreq(n))}`)];
+                  ...sc.notes.map((n, i) => `@note=${n}:${num(noteFreq(n))}:${num(velOf(sc, i))}`)];
     if (sc.offAt !== undefined) meta.push(`@off=${Math.round(sr * sc.offAt)}`);
     manifest.push([name, [...meta, ...dumpState(build(sc, sr).state)].join(' ')].join('\t'));
     console.log(`wrote ${name}.f32`);

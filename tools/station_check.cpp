@@ -15,8 +15,10 @@
  *     block-size and sample-rate independence, silence, denormals, feedback
  *     stability, the one-sample delay, DC — and the five deliberate
  *     divergences, each with the control that must read the other answer.
- *  4. A CPU number against SPEC §12's "<= ~2 % of one core at 16 voices".
- *     REPORTED, never gated: the absolute ratio is machine-dependent.
+ *  4. A CPU number. REPORTED, never gated: the absolute ratio is
+ *     machine-dependent. SPEC §12's "<= ~2 %" was an estimate and was retired
+ *     2026-09-19; the spec now carries phase 1's measured 5.2 % and re-sets the
+ *     budget from the shell's `measure_cpu` at phase 2.
  *
  * UNWIRED — wiring in `./verify full` is a gate edit awaiting the human's
  * ruling on B159's wiring-default question; when wired it belongs beside
@@ -95,12 +97,18 @@ double mean(const std::vector<double> &a)
 // A manifest row: the WHOLE lab state as flat key=value tokens plus @meta. The
 // C++ mirrors nothing — see the generator's header on why a mirrored scenario
 // table in two languages is a silent-drift machine.
+struct Note
+{
+  int midi = 60;
+  double freq = 0, vel = 1;  // vel 0..1; the manifest's third @note field
+};
+
 struct Scenario
 {
   std::string name;
   double sr = 48000, secs = 1;
   int block = 128, offAt = -1, dcblock = 1;
-  std::vector<std::pair<int, double>> notes;
+  std::vector<Note> notes;
   std::vector<std::pair<std::string, double>> keys;
 };
 
@@ -129,6 +137,7 @@ bool applyKey(StationCore &c, const std::string &k, double v, uint8_t *tbl)
     else if (f == "pure") o.pure = v;
     else if (f == "qnt") o.qnt = (int)v;
     else if (f == "sync") o.sync = (int)v;
+    else if (f == "velSens") o.velSens = v;
     else if (f == "env.a") o.env.a = v;
     else if (f == "env.d") o.env.d = v;
     else if (f == "env.s") o.env.s = v;
@@ -191,7 +200,7 @@ std::vector<double> renderScenario(const Scenario &sc, bool *keyOk = nullptr)
     }
   c.setTable(tbl);
   if (keyOk) *keyOk = ok;
-  for (const auto &n : sc.notes) c.noteOn(n.first, n.second);
+  for (const auto &n : sc.notes) c.noteOn(n.midi, n.freq, n.vel);
 
   const int total = (int)std::lround(sc.sr * sc.secs);
   std::vector<double> out((size_t)total * 2);
@@ -201,7 +210,7 @@ std::vector<double> renderScenario(const Scenario &sc, bool *keyOk = nullptr)
     int k = std::min(sc.block, total - off);
     if (sc.offAt > off && sc.offAt < off + k) k = sc.offAt - off;
     if (off == sc.offAt)
-      for (const auto &n : sc.notes) c.noteOff(n.first);
+      for (const auto &n : sc.notes) c.noteOff(n.midi);
     c.render(L.data(), R.data(), k);
     for (int i = 0; i < k; i++)
     {
@@ -366,8 +375,16 @@ int main(int argc, char **argv)
       else if (k == "@dcblock") sc.dcblock = std::atoi(v.c_str());
       else if (k == "@note")
       {
-        const auto col = v.find(':');
-        sc.notes.push_back({std::atoi(v.c_str()), std::atof(v.c_str() + col + 1)});
+        // `midi:freq[:vel]`. The velocity field is optional so a manifest
+        // written before §10 grew velSens still loads, and its absence means
+        // 1 — noteOn's own default.
+        Note nt;
+        const auto c1 = v.find(':');
+        nt.midi = std::atoi(v.c_str());
+        nt.freq = std::atof(v.c_str() + c1 + 1);
+        const auto c2 = v.find(':', c1 + 1);
+        nt.vel = (c2 == std::string::npos) ? 1.0 : std::atof(v.c_str() + c2 + 1);
+        sc.notes.push_back(nt);
       }
       else sc.keys.push_back({k, std::atof(v.c_str())});
     }
@@ -940,34 +957,200 @@ int main(int argc, char **argv)
         "band-limited alias floor %.1f dB", dbBl);
   }
 
-  // 3.15 §4's 5 ms cell smoothing. The lab has NO smoothing anywhere (audit S6
-  // measured a matrix write at 13.9x the signal's own slope), so this is
-  // build-side work with nothing to match. CONTROL: op LVL, which SPEC §4 does
-  // NOT ask to be smoothed, must still step hard through the same probe — the
-  // audit found it needs smoothing too (S6), and a detector that read both as
-  // smooth would be measuring nothing.
+  // 3.15 §4/§10's 5 ms smoothing: the 12 matrix cells and the three op levels (the
+  // three op LVLs and noise LVL, added 2026-09-19 on audit S6, which measured an
+  // unsmoothed LVL write at 7.4x the signal's own slope and phase 1 measured at
+  // 2.33x through this very probe). The lab has NO smoothing anywhere and keeps
+  // none (ADR-177 §3), so this is build-side work with nothing to match.
+  // CONTROL: the WAVE switch, which §4 says cannot be smoothed at all (it needs
+  // a crossfade or a zero-crossing switch, audit §2.6 reads it at 11.1x), must
+  // still step hard through the identical probe. Without it a detector that had
+  // simply stopped measuring would read every row as smooth and pass.
+  //
+  // THE DETECTOR IS THE LABHARNESS S16 ONE, and it had to be: the first draft
+  // took |step| against the LAST inter-sample difference, which is a function of
+  // where in the carrier's cycle the write lands (the audit says so itself —
+  // "the single 0.0039 reading for the ALG recall is luck, not safety") and,
+  // for LFSR noise, lands INSIDE a zero-order hold about five times out of six
+  // and reads ~0. That made the noise row report 6.61x a floor of 1.45e-4 —
+  // a detector failure, not a smoothing failure. So: 16 writes at 16 settle
+  // lengths spanning one 261.6 Hz cycle, each ratioed against the LARGEST
+  // natural inter-sample step in the cycle before it, reported as the median.
+  // That is the audit's own unit, which is what makes 13.9x / 11.1x / 7.4x
+  // comparable numbers rather than coincidences.
   {
-    auto stepOf = [](bool matrixWrite) {
-      StationCore c = blank();
-      for (int i = 0; i < 3; i++) { c.patch.ops[i].on = 1; c.patch.ops[i].lvl = (i == 0) ? 0.9 : 0; }
-      c.patch.ops[1].coarse = 2;
-      c.patch.matrix[1][0] = 2.6;
-      c.noteOn(60, noteFreq(60));
-      const std::vector<double> a = pull(c, 24000);
-      const double before = a.back(), nat = std::fabs(a[a.size() - 1] - a[a.size() - 2]);
-      if (matrixWrite) c.patch.matrix[1][0] = 8.0;
-      else c.patch.ops[0].lvl = 0.1;
-      const std::vector<double> b = pull(c, 8);
-      return std::pair<double, double>{std::fabs(b[0] - before), nat};
+    enum Write { kCell, kOpLvl, kNsLvl, kWave };
+    const int kCycle = (int)std::lround(48000 / noteFreq(60));  // 183 samples
+    auto stepOf = [&](Write w) {
+      std::vector<double> ratios;
+      for (int k = 0; k < 16; k++)
+      {
+        StationCore c = blank();
+        for (int i = 0; i < 3; i++) { c.patch.ops[i].on = 1; c.patch.ops[i].lvl = (i == 0) ? 0.9 : 0; }
+        c.patch.ops[1].coarse = 2;
+        c.patch.matrix[1][0] = 2.6;
+        if (w == kNsLvl)
+        {
+          // The noise level can only be probed where noise is actually in the
+          // mix, so this variant swaps the carrier for the noise channel.
+          c.patch.ops[0].lvl = 0;
+          c.patch.noise.on = 1;
+          c.patch.noise.lvl = 0.9;
+          c.patch.noise.rate = 0.35;
+          c.patch.noise.env = StationCore::Env{1, 400, 1, 80, 0, 0};
+        }
+        c.noteOn(60, noteFreq(60));
+        const std::vector<double> a = pull(c, 4800 + k * kCycle / 16);
+        double nat = 0;
+        for (size_t i = a.size() - (size_t)kCycle; i < a.size(); i++)
+          nat = std::max(nat, std::fabs(a[i] - a[i - 1]));
+        switch (w)
+        {
+          case kCell: c.patch.matrix[1][0] = 8.0; break;
+          case kOpLvl: c.patch.ops[0].lvl = 0.1; break;
+          case kNsLvl: c.patch.noise.lvl = 0.1; break;
+          case kWave: c.patch.ops[0].wave = StationCore::kSaw; break;
+        }
+        ratios.push_back(std::fabs(pull(c, 8)[0] - a.back()) / std::max(nat, 1e-300));
+      }
+      std::sort(ratios.begin(), ratios.end());
+      return ratios[ratios.size() / 2];
     };
-    const auto sm = stepOf(true), lv = stepOf(false);
-    std::printf("   matrix cell 2.6 -> 8.0 (smoothed): step %.4e vs natural %.4e (%.2fx; lab reads 13.9x)\n",
-                sm.first, sm.second, sm.first / sm.second);
-    std::printf("   control  op LVL 0.9 -> 0.1 (NOT smoothed, audit S6 says it should be): %.4e (%.2fx the natural slope)\n",
-                lv.first, lv.first / lv.second);
-    row(sm.first <= 2 * sm.second && lv.first > 2 * lv.second,
-        "matrix cells smooth over 5 ms (§4); control: an unsmoothed write still steps",
-        "cell step %.2fx the natural slope", sm.first / sm.second);
+    const double sm = stepOf(kCell), lv = stepOf(kOpLvl), ns = stepOf(kNsLvl), wv = stepOf(kWave);
+    std::printf("   matrix cell 2.6 -> 8.0   %.2fx the natural step   (lab pins 13.9x)\n", sm);
+    std::printf("   op LVL 0.9 -> 0.1        %.2fx                    (lab pins 7.4x; planted unsmoothed it reads 2.34x and this row goes RED)\n", lv);
+    std::printf("   noise LVL 0.9 -> 0.1     %.2fx   REPORTED, NOT GATED — see the coverage note\n", ns);
+    std::printf("   control  OP1 wave SIN -> SAW (NOT smoothable, §4; lab pins 11.1x): %.2fx  (gate: > 2x — must step)\n", wv);
+    // COVERAGE BOUNDARY, MEASURED, NOT ASSUMED (LIBRARY L0033). Planting an
+    // unsmoothed noise level did NOT make this row fail: it read 0.56x against
+    // 0.43x smoothed. It cannot, structurally — an LFSR's own natural step is a
+    // full-scale swing every few samples, so ANY level write on noise is a
+    // fraction of it. The plant on the OP level, by contrast, fires (0.43x ->
+    // 2.34x, RED), which is what makes this row's gate trustworthy where it
+    // does claim coverage. The noise level is gated by 3.16 instead, on a
+    // detector that can see it.
+    row(sm <= 2 && lv <= 2 && wv > 2,
+        "matrix cells and the op levels smooth over 5 ms (§4/§10); control: a wave switch still steps",
+        "worst smoothed step %.2fx the natural slope", std::max(sm, lv));
+  }
+
+  // 3.16 the NOISE level's smoother, on a detector that can see it: the
+  // TRAJECTORY of the output's amplitude, not a one-sample step. A 5 ms
+  // one-pole has moved only 1 - exp(-1/5) = 18 % of the way in the first
+  // millisecond, so the first window after the write must still be near the OLD
+  // level and the settled window at the new one.
+  // CONTROL: noise PAN 0 -> +1, which is NOT smoothed and removes the noise
+  // from the left channel outright, must read the new level in that same first
+  // window. Without it this row would pass just as happily on a detector that
+  // had stopped measuring.
+  {
+    auto trajectory = [](bool panInstead) {
+      StationCore c = blank();
+      for (auto &o : c.patch.ops) o.lvl = 0;
+      c.patch.noise.on = 1;
+      c.patch.noise.lvl = 0.9;
+      c.patch.noise.rate = 0.35;
+      c.patch.noise.env = StationCore::Env{1, 400, 1, 80, 0, 0};
+      c.noteOn(60, noteFreq(60));
+      const std::vector<double> pre = pull(c, 24000);
+      double p0 = 0;
+      for (size_t i = pre.size() - 240; i < pre.size(); i++) p0 = std::max(p0, std::fabs(pre[i]));
+      if (panInstead) c.patch.noise.pan = 1.0;
+      else c.patch.noise.lvl = 0.1;
+      const std::vector<double> post = pull(c, 1440);  // 30 ms
+      double first = 0, settled = 0;
+      for (int i = 0; i < 48; i++) first = std::max(first, std::fabs(post[i]));            // ms 0-1
+      for (int i = 960; i < 1200; i++) settled = std::max(settled, std::fabs(post[i]));    // ms 20-25
+      return std::pair<double, double>{first / p0, settled / p0};
+    };
+    const auto lv = trajectory(false), pn = trajectory(true);
+    std::printf("   noise LVL 0.9 -> 0.1  first ms %.3f of the old peak, settled %.3f  (gate: first > 0.5, settled < 0.3)\n",
+                lv.first, lv.second);
+    std::printf("   control  noise PAN 0 -> +1 (NOT smoothed): first ms %.3f, settled %.3f  (gate: first < 0.05)\n",
+                pn.first, pn.second);
+    // Calibrated by a plant, 2026-09-19: an unsmoothed noise level reads first
+    // ms 0.112 against settled 0.110 — the two collapse together and this row
+    // goes RED. Smoothed it reads 0.969 / 0.131.
+    row(lv.first > 0.5 && lv.second < 0.3 && pn.first < 0.05,
+        "the noise level smooths over 5 ms too (§4/§10); control: an unsmoothed pan write is instant",
+        "first ms holds %.0f %% of the old level", lv.first * 100);
+  }
+
+  // 3.17 §3.2/§7: an op switched OFF mid-note KEEPS RUNNING ITS ENVELOPE, so
+  // re-enabling resumes at the live stage instead of the level it froze at.
+  // Fixed in the LAB on 2026-09-19 (lead ruling on audit S9), so it is a parity
+  // item and this row is the invariant half parity cannot see — parity only
+  // proves the two agree on scenarios where nothing toggles.
+  // MUST-FAIL CONTROL: the level the envelope HELD at toggle-off. Under the old
+  // behaviour the read would equal that number exactly; the row fails unless
+  // the two are far apart, so a detector reading the frozen value cannot pass.
+  {
+    auto envAfter = [](bool toggle) {
+      StationCore c = blank();
+      for (int i = 0; i < 3; i++)
+      {
+        c.patch.ops[i].on = (i == 0);
+        c.patch.ops[i].lvl = (i == 0) ? 1 : 0;
+        c.patch.ops[i].env = StationCore::Env{1, 400, 0, 60, 0, 0};
+      }
+      c.noteOn(60, noteFreq(60));
+      pull(c, 2400);  // 50 ms in: mid-decay, so the envelope is moving
+      const double atToggle = c.voiceAt(0).env[0].lvl;
+      if (toggle) c.patch.ops[0].on = 0;
+      pull(c, 9600);  // 200 ms with the op off
+      if (toggle) c.patch.ops[0].on = 1;
+      return std::pair<double, double>{atToggle, c.voiceAt(0).env[0].lvl};
+    };
+    const auto off = envAfter(true), on = envAfter(false);
+    std::printf("   op OFF at 50 ms then ON at 250 ms: env %.6f -> %.6f    never toggled: %.6f -> %.6f\n",
+                off.first, off.second, on.first, on.second);
+    std::printf("   control  the FROZEN value (what the old behaviour would read): %.6f  (must differ from %.6f)\n",
+                off.first, off.second);
+    row(off.second == on.second && std::fabs(off.second - off.first) > 1e-3,
+        "an op toggled OFF->ON mid-note reads the SAME envelope as one never toggled (§3.2/§7)",
+        "delta vs never-toggled %.3e", std::fabs(off.second - on.second));
+  }
+
+  // 3.18 §8/§10 velocity. TWO rows, because the parameter's whole contract is
+  // "inert at 0, proportional at 1" and either half alone is satisfiable by a
+  // wire to nothing.
+  //  (a) CONTROL, and a bit-level one: velSens 0 must make the note velocity
+  //      unobservable — every one of the 32 parity scenarios depends on it.
+  //  (b) MEASURED: velSens 1 on a CARRIER makes its output amplitude
+  //      proportional to velocity. The op is a carrier here on purpose, so the
+  //      law is read directly as amplitude rather than through a Bessel
+  //      response; the `velocity` parity scenario is the modulator case.
+  {
+    auto renderVel = [](double velSens, double vel) {
+      StationCore c = blank();
+      for (int i = 0; i < 3; i++) { c.patch.ops[i].on = (i == 0); c.patch.ops[i].lvl = (i == 0) ? 0.9 : 0; }
+      c.patch.ops[0].velSens = velSens;
+      c.patch.ops[0].env = StationCore::Env{1, 400, 1, 80, 0, 0};
+      c.noteOn(60, noteFreq(60), vel);
+      return pull(c, 24000);
+    };
+    const std::vector<double> inert1 = renderVel(0, 1.0), inertQ = renderVel(0, 0.25);
+    double dInert = 0;
+    for (size_t i = 0; i < inert1.size(); i++) dInert = std::max(dInert, std::fabs(inert1[i] - inertQ[i]));
+    row(dInert == 0.0 && rms(inert1) > 1e-3,
+        "CONTROL velSens 0: note velocity is bit-inert (1.0 vs 0.25 -> max|diff| exactly 0)",
+        "max|diff| %.1e", dInert);
+
+    double worst = 0;
+    std::printf("   velSens 1, carrier amplitude vs velocity:");
+    for (const double v : {1.0, 0.75, 0.5, 0.25}) {
+      const double got = rms(renderVel(1, v)), want = rms(inert1) * v;
+      std::printf("  v=%.2f %.5f (want %.5f)", v, got, want);
+      worst = std::max(worst, std::fabs(got - want) / std::max(want, 1e-12));
+    }
+    std::printf("\n");
+    // 1e-6 is set from the arithmetic, not from what passed: the render stores
+    // float32 (6e-8 relative per sample) and the level factor is applied inside
+    // the chain rather than to the finished signal, so exact equality is not
+    // available. A wire-to-nothing would read 1/v - 1, i.e. 0.33 at v = 0.75
+    // and 3.0 at v = 0.25 — six orders the other side of this gate.
+    row(worst < 1e-6, "velSens 1: level is proportional to velocity (1 - 1*(1 - vel) = vel)",
+        "worst relative error %.2e", worst);
   }
 
   // ==================================================================== 4. CPU
@@ -991,7 +1174,15 @@ int main(int argc, char **argv)
     const double pct = best / secs * 100;
     std::printf("-- CPU (REPORT, not gated) --\n");
     std::printf("   16 voices, max patch, 48 kHz, 5 s, min of 3: %.3f s  =  %.2f %% of one core\n", best, pct);
-    std::printf("   SPEC §12 budget <= ~2 %%; audit §3.4 Node lab reads 18.71 %% (needs >= 9.4x) -> this build is %.1fx the lab\n",
+    // SPEC §12's "<= ~2 %" was an ESTIMATE and was retired on 2026-09-19; the
+    // spec now records the phase-1 measurement (5.2 %, standalone core, the
+    // reference Mac) and re-sets the budget from the shell's `measure_cpu` when
+    // phase 2 lands. This line therefore reports against the measurement, not
+    // against a number nobody measured. It is load-sensitive: it shares the
+    // machine with whatever else is running, so treat a single reading as a
+    // sample, not as the figure.
+    std::printf("   SPEC §12: the <= ~2 %% estimate is RETIRED; phase-1 measured 5.2 %% standalone (2026-09-19)\n");
+    std::printf("   audit §3.4 Node lab reads 18.71 %% -> this build is %.1fx the lab (ROADMAP B162 owns the optimisation queue item)\n",
                 18.71 / std::max(pct, 1e-9));
   }
 

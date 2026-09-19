@@ -918,11 +918,15 @@ check('S21', 'DC blocker response: -3 dB at DC_FC, audio band untouched (vs. the
   return { ok: cut && band && zero, lines };
 });
 
-// S18 — the op-OFF envelope freeze. PINNED: `if(!o.on){outs[i]=0;continue;}`
-// skips envStep, so an automated ON switch leaves a stale level that clicks on
-// re-enable (audit S9). Build-side; the Nyquist mute added by ADR-177 §3
-// deliberately does NOT share the defect, which is what the control proves.
-check('S18', 'op ON->OFF->ON leaves a stale envelope level (PIN — audit S9)', () => {
+// S18 — an OFF op still runs its envelope. Was a PIN on the opposite behaviour
+// until 2026-09-19: `if(!o.on){outs[i]=0;continue;}` skipped envStep, so an
+// automated ON switch left a stale level that clicked on re-enable (audit S9,
+// measured 0.32392/stage 1 held for 500 ms and a 1.645e-3 click). The lead
+// ruled the LAB fixed rather than the defect preserved (ROADMAP B162), so this
+// is now a GATE: OFF silences the op's output and its matrix contribution and
+// nothing else. The Nyquist mute added by ADR-177 §3 always behaved this way,
+// which is what its control proves.
+check('S18', 'op ON->OFF->ON resumes at the LIVE envelope stage, not a stale one', () => {
   const run = (offFor) => {
     const c = blank(); const s = c.state;
     s.ops.forEach((o, i) => { o.on = i === 0; o.lvl = i === 0 ? 1 : 0; o.wave = 0;
@@ -931,13 +935,19 @@ check('S18', 'op ON->OFF->ON leaves a stale envelope level (PIN — audit S9)', 
     pull(c, Math.round(48000 * 0.05));
     const at50 = v.env[0].lvl;
     if (offFor) s.ops[0].on = 0;
-    pull(c, Math.round(48000 * 0.5));
+    // 200 ms, not 500: the envelope is still MID-DECAY here, so the equality
+    // below is a real bit-comparison of two moving values rather than 0 === 0.
+    pull(c, Math.round(48000 * 0.2));
     return { at50, after: v.env[0].lvl, stage: v.env[0].stage };
   };
   const off = run(true), on = run(false);
-  const frozen = Math.abs(off.after - off.at50) < 1e-9;
-  const lines = [`  op switched OFF at 50 ms: env ${off.at50.toFixed(5)} -> ${off.after.toFixed(5)} after 500 ms, stage ${off.stage}  (pin: frozen)`,
-                 `  control  op left ON:        env ${on.at50.toFixed(5)} -> ${on.after.toFixed(5)}, stage ${on.stage}  (gate: must decay)`];
+  // MUST-FAIL CONTROL: `at50` is exactly what the frozen behaviour returned, so
+  // a build that still freezes reads off.after === off.at50 and fails both
+  // clauses at once — the detector cannot confuse the two answers.
+  const live = off.after === on.after && Math.abs(off.after - off.at50) > 1e-3;
+  const lines = [`  op switched OFF at 50 ms: env ${off.at50.toFixed(5)} -> ${off.after.toFixed(5)} after 200 ms, stage ${off.stage}  (gate: must have moved on)`,
+                 `  control  op left ON:        env ${on.at50.toFixed(5)} -> ${on.after.toFixed(5)}, stage ${on.stage}  (gate: identical to the line above)`,
+                 `  control  the FROZEN value the old lab returned: ${off.at50.toFixed(5)}  (gate: must NOT be what the OFF op reads)`];
   // The Nyquist mute (ADR-177 §3) must NOT freeze: an op pushed above Nyquist by
   // the pitch env has to come back with a current envelope, not a stale one.
   const c = blank(); const s = c.state;
@@ -947,7 +957,7 @@ check('S18', 'op ON->OFF->ON leaves a stale envelope level (PIN — audit S9)', 
   pull(c, Math.round(48000 * 0.5));
   const muteMoved = Math.abs(v.env[0].lvl - m50) > 1e-6;
   lines.push(`  control  op MUTED by the Nyquist limit: env ${m50.toFixed(5)} -> ${v.env[0].lvl.toFixed(5)}  (gate: must still decay — ADR-177 §3)`);
-  return { ok: frozen && on.after < on.at50 - 1e-6 && muteMoved, lines };
+  return { ok: live && on.after < on.at50 - 1e-6 && muteMoved, lines };
 });
 
 // S19 — voice stealing. PINNED: the lab caps at 8 and hard-shifts, spec §8 wants
@@ -978,7 +988,11 @@ check('S19', 'voice-steal discontinuity (PIN — lab is 8 + hard shift, spec §8
 // S20 — cost. The ABSOLUTE ratio is machine-dependent and is REPORTED, never
 // gated; what is gated is that cost scales LINEARLY in voices, because that is
 // what makes a `measure_cpu`-style extrapolation on the ported core trustworthy
-// (audit §3.4: the budget is met iff the C++ core is >= 9.4x this).
+// (audit §3.4 framed this as "the budget is met iff the C++ core is >= 9.4x
+// this"; SPEC §12's <= ~2 % was an ESTIMATE and was retired 2026-09-19 — the
+// spec now carries phase 1's MEASURED 5.2 % standalone and re-sets the budget
+// from the shell's measure_cpu at phase 2, so the ratio below is context, not a
+// gate).
 check('S20', 'cost: reported, with the linear-voice-scaling gate', () => {
   const secs = 1;
   // noteOn() enforces the lab's 8-voice cap (`voices.shift()`), so 16 noteOns
@@ -1001,7 +1015,7 @@ check('S20', 'cost: reported, with the linear-voice-scaling gate', () => {
   const c1 = cost(1), c8 = cost(8), c16 = cost(16);
   const lin8 = c8 / (c1 * 8), lin16 = c16 / (c1 * 16);
   const lines = [`  REPORT (this machine, Node ${process.version}): 1v ${c1.toFixed(2)} %  8v ${c8.toFixed(2)} %  16v ${c16.toFixed(2)} % of realtime`,
-                 `  audit's reference reading was 1.35 / 9.42 / 18.71 % — the C++ core must be >= 9.4x this to meet SPEC §12's 2 %`,
+                 `  audit's reference reading was 1.35 / 9.42 / 18.71 % — the ported core measured 5.2 % of one core at 16 voices (SPEC §12, 2026-09-19)`,
                  `  linearity  8v/8x1v ${lin8.toFixed(2)}   16v/16x1v ${lin16.toFixed(2)}   agreement ${Math.abs(lin8 - lin16).toFixed(3)}`,
                  `  (gate: both in [0.4, 1.6] AND within 0.15 of each other — the constant < 1 is the fixed`,
                  `   per-sample overhead outside the voice loop, so what "linear" means is that the two agree)`];
