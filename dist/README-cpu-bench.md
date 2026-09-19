@@ -6,6 +6,14 @@ that costs. Nothing is written, played, or installed.
 
 Universal binary: runs on Apple Silicon and Intel Macs alike.
 
+> **Staleness (repo audit 2026-09-19, H4).** The committed `cpu_bench` was
+> built 2026-08-06 and the engine (`src/swarm_core.h`) has changed in 31
+> commits since; nothing in the repo rebuilds this universal binary
+> (`CMAKE_OSX_ARCHITECTURES` is set nowhere), and the program prints a
+> number, not the engine hash it was built from. Treat its figures as
+> historical until it is rebuilt and stamped — a rebuild recipe and a
+> printed build id are the fix, queued on the ROADMAP.
+
 ## Running it
 
 Copy `cpu_bench` to the other Mac, open **Terminal**, and drag the file into the
