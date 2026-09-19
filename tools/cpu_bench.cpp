@@ -22,8 +22,23 @@
 #include <cmath>
 #include "../src/swarm_core.h"
 
+/* This binary is COMMITTED (dist/cpu_bench) and handed to another Mac, while
+   the core it measures moves under it — so its staleness has to be visible in
+   its own output, not inferred from a git log the tester does not have (repo
+   audit 2026-09-19, H4). Same HYPERSAW_BUILD_STAMP name the CMake targets get
+   from tools/build_stamp.cmake, but defined on the command line here: this
+   file is built by a bare clang++ (see dist/README-cpu-bench.md), with no
+   generated header to include. The default keeps that bare build compiling —
+   and says plainly that the resulting binary cannot be traced to a commit. */
+#ifndef HYPERSAW_BUILD_STAMP
+#define HYPERSAW_BUILD_STAMP "unstamped"
+#endif
+
 int main(int argc, char **argv)
 {
+  // First line, before any argument is read: whatever else this run prints,
+  // the reader can tell which code printed it.
+  std::printf("cpu_bench: build %s\n", HYPERSAW_BUILD_STAMP);
   const int voices = argc > 1 ? std::atoi(argv[1]) : 7;
   const int notes = argc > 2 ? std::atoi(argv[2]) : 8;
   const double secs = argc > 3 ? std::atof(argv[3]) : 8.0;
