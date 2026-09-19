@@ -6001,3 +6001,51 @@ Human: "Gate wiring ratified." Five of the six checks from PR #635 run in
 60-second simulated default; the 600-second run by hand), denormal.
 `cpu_check` stays standalone: a timing measurement must not gate CI; its
 numbers go to ACCEPTANCE as measured, not aspirational.
+
+## ADR-177 — Five rulings of 2026-09-19: the SAW reference is paired with the core; the output pole stays; STATION's lab edits; Reverb's panel carries every lab control; the Sub Osc becomes a reference (2026-09-19)
+
+1. **SAW reference lab edits sanctioned** (B151): `reference/swarmsaw.html` is
+   edited to segment its render on the gravity grid the way
+   `reference/swarmdynamics.html` already does, so the core's pan-motion grid
+   (ADR-086's shape) is paired with the reference and parity holds by
+   construction. The one sanctioned edit; the goldens regenerate from it.
+2. **The output pole stays** (B150's stop): its 0.40 dB at 10 kHz is
+   impulse-invariant aliasing of a one-pole, not a per-tick defect; recorded
+   in ACCEPTANCE as declared character for 1.0. A pre-warped pole would change
+   the 44.1 kHz sound and is not taken.
+3. **STATION lab edits sanctioned** (B153): per-voice seeding of the noise
+   LFSR (determinism preserved), the phase-increment clamp in Hz below Nyquist
+   with mute rather than detune, and a `StationCore` class behind the
+   extractor's banners. **Noise amplitude: the lab wins (ADR-003) — ±0.7;
+   §6 of the spec is amended to say so**, with a listening test offered: the
+   same patch rendered at ±0.7 and ±1 for the human to A/B before the port
+   freezes a golden. The 5 ms parameter smoothing is the port's.
+4. **Reverb's module panel carries every control the reverb lab exposes**
+   (human: "I want reverb to come with all the knobs in the reverb lab").
+   This is ADR-169 A2 applied, not an exception: the panel holds all of
+   them; the four-role face is the preset's distillation on top; `size`
+   lives in the panel and any preset may bind a role to it. No fifth knob.
+5. **The Sub Osc becomes a reference** (B155): `docs/design/subosc-lab.html`
+   → `reference/subosc.html`, `docs/proposals/SPEC-SUBOSC.md` →
+   `specs/SPEC-SUBOSC.md`, both protected; CLAUDE.md lists them. Before the
+   move, one lab addition the human proposed: a **BUMP** waveform — a sine
+   with a phase-shifted third harmonic above it, so one period reads as a
+   big bump followed by a slightly smaller one (a sub-bass shape from Mr.
+   Bill's practice) — `sin(x) + a·sin(3x + φ)` with `a` and `φ` exposed as
+   the shape's two parameters and a default that yields the two-bump look;
+   band-limited by construction (two partials).
+
+### ADR-086 Amendment — pan motion joins the gravity grid; the SAW reference is segmented to match (2026-09-19, PR #656)
+
+ADR-086 confined the fixed grid to gravity. B151 (human, option a) moves
+pan motion onto it, and ADR-177 §1 sanctioned the paired edit:
+`SwarmSynth.render()` in `reference/swarmsaw.html` becomes the DYN-shaped
+grid loop (segments of 256/44100 s), pan motion advancing once per tick;
+`src/swarm_core.h` advances it on the existing accumulator in seconds.
+Nine of 156 goldens moved (the pan scenarios: centre-pin 0.77 % of golden
+RMS, pan-drift 0.31 %, pan-sweep 0.19 %); the other 147 are byte-identical
+— structurally, because `panMotion ≤ 0.001` makes the step a no-op. The
+character is smoother, not coarser: the staircase updates at 172 Hz instead
+of 43 Hz with steps four times smaller. `subdiv_check` and
+`blocksize_check` now gate every case with no exclusions; parity 156/156 at
+the existing eps with the nine moved scenarios at rms 0.
