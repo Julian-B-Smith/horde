@@ -296,7 +296,17 @@ class StationCore{
         for(let i=0;i<3;i++){
           const o=s.ops[i];
           if(!o.on){outs[i]=0;continue;}
-          const dt=Math.min(opFreq(o,base)/SR,0.45);
+          // The Nyquist limit is enforced in Hz and MUTES the operator rather
+          // than detuning it (ADR-177 §3). It used to be `min(opFreq/SR, 0.45)`
+          // — a clamp on the phase INCREMENT — so with the shipped patch OP3
+          // (ratio 14) played the wrong pitch above MIDI 89.4 at 44.1/48 k and
+          // the right one at 96 k: the top 1.5 octaves' timbre, and every
+          // sideband it produced as a modulator, depended on the host's sample
+          // rate (audit S5 / §2.5). A muted operator still steps its envelope,
+          // so a pitch env sweeping back under Nyquist finds no stale level.
+          const f=opFreq(o,base);
+          if(f>=SR*0.5){ outs[i]=0; this.envStep(v.env[i],o.env,v.gate); continue; }
+          const dt=f/SR;
           if(i>0&&o.sync&&wrapped) v.ph[i]=0;
           v.ph[i]+=dt; if(v.ph[i]>=1) v.ph[i]-=1;
           const pm=s.matrix[0][i]*v.prev[0]+s.matrix[1][i]*v.prev[1]
