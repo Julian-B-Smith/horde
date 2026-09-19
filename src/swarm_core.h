@@ -859,11 +859,14 @@ class SwarmCore
      which means the loop belongs here and not at the top. */
   void render(float *outL, float *outR, int frames)
   {
-    advancePanMotion(frames);
     int done = 0;
     while (done < frames)
     {
       const int grid = gravGridSamples();
+      // ADR-177 §1 (B151): pan motion rides the SAME grid, advanced at the top
+      // of each grid period and held across it. Paired with the identical loop
+      // in reference/swarmsaw.html's render(), so parity is by construction.
+      if (gravAccum == 0) advancePanMotion(grid);
       const int room = grid - gravAccum;
       const int seg = (frames - done) < room ? (frames - done) : room;
       renderSeg(outL + done, outR + done, seg);
@@ -880,7 +883,11 @@ class SwarmCore
 private:
   bool panMotionOn = false;   // ADR-086: set by advancePanMotion(), read by renderSeg
 
-  // Per-CALL, deliberately — see the note in renderSeg.
+  /* Called once per GRID TICK from render() (ADR-177 §1), `frames` = the grid.
+     It was once per render CALL, which made the zero-order hold a function of
+     the host buffer. ADR-009: the rates below (0.1, 0.08 + i*0.021) are already
+     per SECOND and `dtB` is seconds, so nothing here is a per-tick constant —
+     moving the cadence changed when it is sampled, not what it integrates. */
   void advancePanMotion(int frames)
   {
     const int n = voiceCount();   // B148: never past kMaxV
@@ -971,16 +978,17 @@ private:
                              ? -1
                              : firstTick + ((frames - 1 - firstTick) / kTick) * kTick;
     for (int i = 0; i < frames; i++) { outL[i] = 0.0f; outR[i] = 0.0f; }
-    // pan motion (ADR-064, parity with reference/swarmsaw.html): slow LFOs sweep the base pan
-    // once per block. mode 0 = independent per-voice drift, 1 = one shared sweep.
+    // pan motion (ADR-064, parity with reference/swarmsaw.html): slow LFOs sweep the base pan.
+    // mode 0 = independent per-voice drift, 1 = one shared sweep.
     // Centre pin scales the offset by distance from the fundamental.
-    // ADR-086: pan motion is advanced ONCE PER CALL by advancePanMotion(),
-    // not here. It is also a per-render-call integrator (phase += rate * dtB,
-    // sampled once and held across the block), so segmenting the render for
-    // gravity silently changed its update rate too — which broke parity on
-    // nine SAW pan scenarios whose reference (reference/swarmsaw.html) was never part of
-    // this ADR. Gravity was ratified for a fixed grid; pan motion was not.
-    // Keeping it per-call is what confines this change to what was approved.
+    // ADR-177 §1 (B151): advanced by advancePanMotion() once per GRID TICK from
+    // render(), not here and no longer once per call. Until B151 it was held
+    // per call deliberately — ADR-086 ratified the fixed grid for GRAVITY only,
+    // and moving pan motion too would have broken parity on nine SAW scenarios
+    // whose reference was not part of that ADR. The human ruled the pairing in
+    // ADR-177 §1: reference/swarmsaw.html segments on the same grid, the nine
+    // goldens were re-baselined from it, and the exclusion in subdiv_check is
+    // gone. Nothing here may reintroduce a per-call integrator.
     const double *PL = panMotionOn ? panLm : panL;
     const double *PR = panMotionOn ? panRm : panR;
     /* B38: dB -> linear, once per tick (~2756/s; unmeasurable beside the voice

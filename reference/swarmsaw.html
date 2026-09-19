@@ -216,6 +216,9 @@ class SwarmSynth {
     this.pan = new Float64Array(MAXV);
     this.panPh = new Float64Array(MAXV); this.panSweepPh = 0;
     this.panLm = new Float64Array(MAXV); this.panRm = new Float64Array(MAXV);
+    // ADR-177 §1: samples owed to the fixed grid pan motion advances on, and
+    // whether the modulated gains are the live ones. See render().
+    this.gravAccum = 0; this.panMotionOn = false;
     this.noteCounter = 0;
     this.tick = 0;
     this.tiltHP = false;
@@ -578,7 +581,70 @@ class SwarmSynth {
     return Math.sign(r) * Math.pow(Math.abs(r), 0.6);               // 4 aggressive
   }
 
+  /* ADR-177 §1 (B151). The render is SEGMENTED on the same fixed grid
+     reference/swarmdynamics.html integrates gravity on (ADR-086 Amendment 1:
+     256/44100 s — a fixed TIME, so it is exactly 256 samples at 44.1 kHz and
+     does not shrink as the rate rises), and PAN MOTION advances once per grid
+     tick inside that loop instead of once per render call.
+
+     Per-call (`dtB = outL.length / sr`) made pan motion a function of the
+     host's buffer. Precisely which function matters, because the obvious
+     reading is wrong: the LFO's RATE was already block-independent — the
+     per-call advances sum to `rate x total/sr` however the buffer is cut — so
+     the sweep does not speed up in small blocks. What depended on the buffer
+     was the ZERO-ORDER HOLD: the gains were sampled once per call and frozen
+     across it, so the staircase was 23.22 ms at 1024 frames and 2.90 ms at
+     128, and the same second of audio rendered whole disagreed sample-for-
+     sample with the same second rendered in chunks (subdiv_check measured
+     0.1915 at chunk 333). Buffer size is not a musical choice, so it may not
+     change a sample. The grid is the cure ADR-086 already paid for; this puts
+     pan motion on it, at a hold of 5.805 ms whatever the host sends.
+
+     This engine carries no gravity term — here the grid exists for pan motion
+     alone. It is deliberately the SAME grid, because the port
+     (src/swarm_core.h) already segments on it for gravity and now advances pan
+     motion at the same boundaries; the two are PAIRED, so L0-1 parity holds by
+     construction instead of by coincidence. Nine pan-motion goldens move once,
+     with this edit, and nothing else does (panMotion <= 0.001 leaves
+     advancePanMotion a no-op and every other scenario byte-identical). */
   render(outL, outR) {
+    const sr = this.sr;
+    let done = 0;
+    while (done < outL.length) {
+      const grid = Math.max(1, Math.round(sr * 256 / 44100));
+      if (this.gravAccum === 0) this.advancePanMotion(grid);
+      const room = grid - this.gravAccum;
+      const seg = Math.min(outL.length - done, room);
+      this.renderSeg(outL.subarray(done, done + seg), outR.subarray(done, done + seg));
+      this.gravAccum += seg;
+      done += seg;
+      if (this.gravAccum >= grid) this.gravAccum = 0;
+    }
+  }
+
+  // pan motion (ADR-064): slow LFOs sweep the base pan, sampled once per grid
+  // tick and held across it (ADR-177 §1 — was: once per render call).
+  // mode 0 = independent per-voice drift, 1 = one shared sweep of the whole image.
+  // centre pin scales the offset by each voice's distance from the fundamental.
+  advancePanMotion(frames) {
+    const sr = this.sr, p = this.p, n = p.n, pmv = p.panMotion;
+    if (!(pmv > 0.001)) { this.panMotionOn = false; return; }
+    const dtB = frames / sr, pmode = p.panMode | 0, cdFoc = this.focus();
+    if (pmode === 1) { this.panSweepPh += 0.1 * dtB; this.panSweepPh -= Math.floor(this.panSweepPh); }
+    const sweep = pmv * Math.sin(6.283185307 * this.panSweepPh);
+    for (let i = 0; i < n; i++) {
+      let off;
+      if (pmode === 1) off = sweep;
+      else { this.panPh[i] += (0.08 + i * 0.021) * dtB; this.panPh[i] -= Math.floor(this.panPh[i]); off = pmv * Math.sin(6.283185307 * this.panPh[i]); }
+      if (p.motionCenter > 0 && cdFoc) off *= 1 - p.motionCenter * (1 - cdFoc.cdist[i]);
+      const pan = Math.max(-1, Math.min(1, this.pan[i] + off));
+      const th = (pan + 1) * 0.25 * 3.14159265;
+      this.panLm[i] = Math.cos(th); this.panRm[i] = Math.sin(th);
+    }
+    this.panMotionOn = true;
+  }
+
+  renderSeg(outL, outR) {
     const sr = this.sr, p = this.p, n = p.n;
     const gain = p.vol * 0.9 / Math.pow(n, p.normExp);
     const atk = 1 - Math.exp(-1 / (0.003 * sr));
@@ -587,26 +653,8 @@ class SwarmSynth {
     // time constant, in seconds → coefficient. Off (0) leaves the path untouched.
     const glideOn = p.freqGlide > 0;
     const gCoefS = glideOn ? 1 - Math.exp(-1 / (p.freqGlide * 0.25 * sr)) : 0;
-    // pan motion (ADR-064): slow LFOs sweep the base pan, once per block.
-    // mode 0 = independent per-voice drift, 1 = one shared sweep of the whole image.
-    // centre pin scales the offset by each voice's distance from the fundamental.
-    let PL = this.panL, PR = this.panR;
-    const pmv = p.panMotion;
-    if (pmv > 0.001) {
-      const dtB = outL.length / sr, pmode = p.panMode | 0, cdFoc = this.focus();
-      if (pmode === 1) { this.panSweepPh += 0.1 * dtB; this.panSweepPh -= Math.floor(this.panSweepPh); }
-      const sweep = pmv * Math.sin(6.283185307 * this.panSweepPh);
-      for (let i = 0; i < n; i++) {
-        let off;
-        if (pmode === 1) off = sweep;
-        else { this.panPh[i] += (0.08 + i * 0.021) * dtB; this.panPh[i] -= Math.floor(this.panPh[i]); off = pmv * Math.sin(6.283185307 * this.panPh[i]); }
-        if (p.motionCenter > 0 && cdFoc) off *= 1 - p.motionCenter * (1 - cdFoc.cdist[i]);
-        const pan = Math.max(-1, Math.min(1, this.pan[i] + off));
-        const th = (pan + 1) * 0.25 * 3.14159265;
-        this.panLm[i] = Math.cos(th); this.panRm[i] = Math.sin(th);
-      }
-      PL = this.panLm; PR = this.panRm;
-    }
+    const PL = this.panMotionOn ? this.panLm : this.panL;
+    const PR = this.panMotionOn ? this.panRm : this.panR;
     outL.fill(0); outR.fill(0);
     for (const s of this.swarms) {
       if (!s.gate && s.env < 1e-4) continue;
