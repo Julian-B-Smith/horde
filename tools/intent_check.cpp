@@ -34,6 +34,7 @@
  *
  * Usage: intent_check [build-golden/intent]
  */
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -548,7 +549,13 @@ static void invariants()
        resolver that never ran.
    S7  atoms are lead groups: the thirteen scale ids report ONE owner at every
        position. CONTROL: some other slot must sit on a different corner, or
-       "they agree" is only "everything agrees".                            */
+       "they agree" is only "everything agrees".
+
+   SECTION T (below, phase 2c) is the APPLY's oracle: SPEC-INTENT-BUS §12's
+   numbered tests measured on the shipped instrument now that the resolved
+   value reaches the engine. Section S keeps its 2b meaning unchanged and is
+   re-run verbatim — with the apply live, every one of its assertions still
+   holds, which is acceptance (b) and (c) of the 2c brief.                 */
 
 extern "C" double hypersaw_debug_intent_final(const clap_plugin_t *, int);
 extern "C" int hypersaw_debug_intent_owner(const clap_plugin_t *, int);
@@ -557,6 +564,11 @@ extern "C" bool hypersaw_debug_intent_range(const clap_plugin_t *, int, int, dou
 extern "C" bool hypersaw_debug_intent_home(const clap_plugin_t *, int, double *, double *);
 extern "C" const char *hypersaw_debug_intent_names(const clap_plugin_t *);
 extern "C" int hypersaw_debug_intent_plant(const clap_plugin_t *);
+extern "C" int hypersaw_debug_intent_commit(const clap_plugin_t *, int);
+extern "C" bool hypersaw_debug_intent_break_atom(const clap_plugin_t *, int);
+extern "C" void hypersaw_debug_capture(const clap_plugin_t *, int);
+extern "C" bool hypersaw_debug_exempt(const clap_plugin_t *, uint32_t);
+extern "C" const char *hypersaw_debug_undo(const clap_plugin_t *, const char *, int);
 extern "C" const char *hypersaw_debug_cornervals(const clap_plugin_t *, int);
 extern "C" bool hypersaw_debug_cornerapply(const clap_plugin_t *, int, const char *);
 extern "C" const char *hypersaw_debug_ownersjson(const clap_plugin_t *);
@@ -1106,12 +1118,1066 @@ void identitySection()
   }
 }
 
+/* ===================== SECTION T — THE SPEC'S TESTS, THROUGH THE PLUGIN ====
+   SPEC-INTENT-BUS §12's numbered tests measured on the SHIPPED INSTRUMENT with
+   the flag on — not on IntentCore, which the parity half above already covers.
+   That distinction is the whole reason this section exists: §12 is about what
+   the DEVICE does, and the device is the resolver PLUS the field's application
+   (the glide, ADR-125's stepped branch, ADR-109's exempt, ADR-108's hold,
+   ADR-176's lead-group atoms) — none of which the header can see, and all of
+   which are where 2c's risk lives.
+
+   Every test carries its must-fail control, and every control is MEASURED, not
+   argued (L0032); where a test could pass by inaction it also carries its own
+   anchor — the count of positions it actually got to look at (L0033).
+
+     TC   the APPLIED path (acceptance (c)): with nothing bound, every slot
+          lands EXACTLY on the resolved target or holds what it had, never on
+          a third value — and with the morph OFF the flag does nothing (R15,
+          rendered).
+     T1   a corner that LOCKS a parameter (lo == hi) pins it under a full
+          intent sweep while that corner owns it. CONTROL: widen that one
+          range and the same sweep must move it.
+     T4   one intent, bound in every corner, acting through TWO corners at once
+          — each parameter by its OWN owner's depth. CONTROL: sharpen
+          (temp 0.02, steepness 50) until ownership collapses to one corner,
+          and the second corner's depth goes silent.
+     T5   four corners requesting a different `n` (voices, structural): a full
+          sweep yields one of the four and never a blend; the scale is ONE
+          atom. CONTROL: break the lead map and the chimera ADR-176 decision 2
+          forbids appears — a scale no corner authored.
+     T6   commit bakes the displacement into the dominant corner: the resolved
+          output is unchanged and every offset reads zero. CONTROL: commit into
+          a corner that owns nothing at this position.
+     T9   the owner map is a function of `morphSeed`: same seed identical,
+          different seed different, the four exact corners unchanged either way
+          (the 2026-09-10 amendment's reading, not the spec's original T9).
+     T10  THE HUMAN'S TEST: one intent bound in two corners with DIFFERENT
+          ranges on an envelope parameter — the shallow corner stays shallow
+          while it owns. CONTROL: swap the two ranges and the roles swap.
+     TE   the corner gestures with the flag on — an armed edit still writes
+          morphCorner, capture still bakes, exempt still holds, and one gesture
+          is still one ADR-160 history node.
+     TG   THE HAZARD the plan names: the corner clamp must be the OWNER's
+          range, and a value HELD under ADR-108 must not be re-clamped into it.
+*/
+namespace spec
+{
+
+using namespace statefix;
+
+// The subjects, chosen for what they are rather than for what they are called.
+constexpr clap_id kFx1Type = 57;    // stepped, FX1's atom
+constexpr clap_id kFx1Amt = 58;     // continuous, in FX1's atom, NO dependency:
+                                    // the closest thing the shipped set has to
+                                    // the spec's `cutoff`, and a pinned value
+                                    // can therefore only be the lock.
+constexpr clap_id kFx1Tone = 96;    // continuous, DEPENDS on fx1type == 5 — the
+                                    // ADR-108 hold TG needs.
+constexpr clap_id kDetune = 4;      // continuous, its own atom
+constexpr clap_id kDecay = 20;      // the envelope parameter T10 asks for
+constexpr clap_id kVoices = 1;      // stepped + structural: T5's `n`
+constexpr clap_id kBendQuant = 114; // the scale's enabling condition
+constexpr clap_id kScaleRoot = 116; // ... and the 13-id atom it heads
+constexpr clap_id kMorphArm = 159, kMorphGlide = 158, kMorphTemp = 154;
+constexpr int kM1 = 2;              // intent index of macro 1 (kIntentOrder)
+
+/* A patch under test: four authored corners, the flag on, the glide immediate.
+   The glide at 0 is not a convenience — it is what makes the ASSERTIONS about
+   the applied value assertions about the resolver's target rather than about
+   how far a one-pole had got (R16 keeps the glide; this pins it out of the
+   measurement). */
+struct Rig
+{
+  const clap_plugin_t *p = nullptr;
+  Field f;
+
+  explicit Rig(double spread = 0.15)
+  {
+    p = makePlugin();
+    f.read(p);
+    authorCorners(p, f, spread);
+    f.read(p);
+  }
+  ~Rig() { if (p != nullptr) p->destroy(p); }
+  Rig(const Rig &) = delete;
+  Rig &operator=(const Rig &) = delete;
+
+  int slot(clap_id id) const { return f.slotOf(id); }
+  double live(clap_id id) const
+  {
+    double v = 0;
+    paramsOf(p)->get_value(p, id, &v);
+    return v;
+  }
+  int owner(clap_id id) const { return hypersaw_debug_intent_owner(p, f.slotOf(id)); }
+
+  // Corner k's stored vector, written back verbatim — the door authorCorners
+  // uses, so a test that wants one different value does not need a second one.
+  void writeCorner(int k)
+  {
+    std::string json = "{\"morphLayout\":5,\"cornerPreset\":[";
+    char buf[48];
+    for (size_t s = 0; s < f.n(); s++)
+    {
+      std::snprintf(buf, sizeof buf, s ? ",%.17g" : "%.17g", f.corner[k][s]);
+      json += buf;
+    }
+    json += "]}";
+    if (!hypersaw_debug_cornerapply(p, k, json.c_str())) say(false, "corner apply refused");
+  }
+  void setCorner(int k, clap_id id, double v)
+  {
+    const int s = f.slotOf(id);
+    if (s < 0) { say(false, "no field slot for a test subject"); return; }
+    f.corner[k][(size_t)s] = v;
+  }
+
+  void push(const std::vector<std::pair<clap_id, double>> &kv)
+  {
+    EvList ev;
+    for (size_t i = 0; i < kv.size(); i++) ev.push(kv[i].first, kv[i].second);
+    paramsOf(p)->flush(p, &ev.list, &kOut);
+    drain(p);
+  }
+  /* Bindings, ranges and homes have exactly one author in phase 2 — the chunk
+     (2b's ruling: the oracle uses the shipped door rather than a write surface
+     built for it). A load restores the params saved in the blob, so anything
+     pushed before the load survives it. */
+  void intentChunk(const std::string &body)
+  {
+    std::string blob = saveChunk(p);
+    if (!body.empty()) blob += "intent=L:1,O:X:Y:M1:M2:M3:M4:M5:M6:M7:M8" + body + "\n";
+    if (!loadChunk(p, blob)) say(false, "chunk load refused");
+  }
+  // The standing configuration of every test here: field on, resolver on,
+  // glide immediate, a named seed.
+  void arm(uint32_t seed, double temp = 1.0)
+  {
+    push({{kMorphOn, 1}, {kIntentFlag, 1}, {kMorphGlide, 0}, {kMorphTemp, temp},
+          {kMorphSeed, (double)seed}});
+  }
+};
+
+std::string bindAllCorners(clap_id id, int intent, double depth)
+{
+  std::string out;
+  char tok[96];
+  for (int k = 0; k < 4; k++)
+  {
+    std::snprintf(tok, sizeof tok, ",B:%u:%d:%d:%.17g", (unsigned)id, k, intent, depth);
+    out += tok;
+  }
+  return out;
+}
+std::string rangeTok(clap_id id, int corner, double lo, double hi)
+{
+  char tok[96];
+  std::snprintf(tok, sizeof tok, ",R:%u:%d:%.17g:%.17g", (unsigned)id, corner, lo, hi);
+  return tok;
+}
+
+/* ---- TC: the APPLIED path, and the flag with the morph off --------------
+   S4 (above, 2b) proves the resolver's OUTPUT is the owning corner's stored
+   value. TC is the other half, and the half 2c adds: that the engine is
+   carried to that value, through applyParam, and to nothing else.
+
+   The contract is a disjunction, because the field's own rules are part of it:
+   after a grid tick a slot holds EITHER the resolved target (exact here — the
+   glide is pinned immediate, so what is measured is the target and not how far
+   a one-pole had got) or exactly what it held before (ADR-108's hold, and the
+   1e-9 deadband every field writer goes through). Anything else is a
+   MISMATCHING id, and the question TC answers is whose it is.
+
+   WHOSE IT IS, measured rather than argued. Three id families read back a
+   value the field never gave them, and all three are the READ path's, not the
+   resolver's:
+     - `beatMult` (23) and the step grid (148): applyParam SNAPS them to
+       rational beat increments. The destination owns its own law (ADR-088's
+       rule, shipped long before this).
+     - ids 44-55 / 65-68: readParam routes them to the SHARED `spectra` core
+       while applyParam writes that core for EVERY oscillator's copy, so osc
+       1's readback reports whatever osc 2 last applied.
+     - `toneTilt` (71): the per-osc read collides with `tilt` (45) in the core
+       key map — 1071 reads back a value outside its own declared range.
+   So TC does not assert a number it would have to fix to go green. It asserts
+   the SET of mismatching ids under the resolver is a SUBSET of the set the
+   SHIPPED field produces on the same patch: the resolver introduces no
+   mismatch of its own. Both sets are printed. (ADR candidates, out of this
+   brief's scope — the read path is not 2c's to change.) */
+
+struct Buckets
+{
+  size_t reads = 0, exact = 0, held = 0, mismatch = 0;
+  double worstExact = 0, worstOwner = 0;
+  std::map<clap_id, size_t> ids;   // mismatching id -> how often
+};
+
+std::string idList(const std::map<clap_id, size_t> &m)
+{
+  std::string out;
+  for (std::map<clap_id, size_t>::const_iterator it = m.begin(); it != m.end(); ++it)
+  {
+    char b[32];
+    std::snprintf(b, sizeof b, "%s%u(x%zu)", out.empty() ? "" : " ", (unsigned)it->first,
+                  it->second);
+    out += b;
+  }
+  return out.empty() ? "none" : out;
+}
+
+void tc()
+{
+  std::printf("\nTC — the applied path: the engine is carried to the resolved value\n");
+  const uint32_t seeds[3] = {1024, 7, 4242};
+  const double spreads[3] = {0.15, 0.22, 0.10};
+  std::map<clap_id, size_t> onIds;
+  for (int patch = 0; patch < 3; patch++)
+  {
+    Rig rig(spreads[patch]);
+    rig.push({{kMorphOn, 1}, {kIntentFlag, 1}, {kMorphGlide, 0}, {kMorphTemp, 1},
+              {kMorphSeed, (double)seeds[patch]}});
+    // Zero intents, explicitly: two macros default to 0.5, and the acceptance
+    // names the zero-intent case even though no binding exists to carry them.
+    {
+      std::vector<std::pair<clap_id, double>> zero;
+      for (int i = 0; i < 8; i++)
+        zero.push_back(std::pair<clap_id, double>((clap_id)(166 + i), 0.0));
+      rig.push(zero);
+    }
+    Live live(rig.p);
+    const std::vector<std::pair<double, double>> pos = positions();
+    std::vector<double> prev(rig.f.n(), 0.0);
+    for (size_t s = 0; s < rig.f.n(); s++) prev[s] = rig.live(rig.f.ids[s]);
+
+    Buckets b;
+    for (size_t q = 0; q < pos.size(); q++)
+    {
+      EvList ev;
+      ev.push(kMorphX, pos[q].first);
+      ev.push(kMorphY, pos[q].second);
+      live.run(2, &ev);
+      for (size_t s = 0; s < rig.f.n(); s++)
+      {
+        const double resolved = hypersaw_debug_intent_final(rig.p, (int)s);
+        const double v = rig.live(rig.f.ids[s]);
+        const int k = hypersaw_debug_intent_owner(rig.p, (int)s);
+        const double d = std::fabs(v - resolved);
+        b.reads++;
+        if (d <= kEps)
+        {
+          b.exact++;
+          b.worstExact = std::max(b.worstExact, d);
+          // ... and the target is still the OWNER's corner value, so the
+          // applied value is the owner's and not merely self-consistent.
+          if (k >= 0 && k < 4)
+            b.worstOwner = std::max(b.worstOwner, std::fabs(v - rig.f.corner[k][s]));
+        }
+        else if (v == prev[s] || d <= 1e-9) b.held++;
+        else { b.mismatch++; b.ids[rig.f.ids[s]]++; onIds[rig.f.ids[s]]++; }
+        prev[s] = v;
+      }
+    }
+    char msg[520];
+    std::snprintf(msg, sizeof msg,
+                  "TC patch %d (seed %u): %zu slot-reads over %zu positions — %zu landed "
+                  "EXACTLY on the resolved target (worst %.3g; worst |applied - corner[owner]| "
+                  "= %.3g), %zu held (ADR-108 / the 1e-9 deadband), %zu read back something "
+                  "else",
+                  patch + 1, seeds[patch], b.reads, pos.size(), b.exact, b.worstExact,
+                  b.worstOwner, b.held, b.mismatch);
+    say(b.exact > b.reads / 2 && b.worstOwner <= kEps, msg);
+  }
+  std::printf("       ids that read back something else, WITH the resolver: %s\n",
+              idList(onIds).c_str());
+
+  /* ATTRIBUTION: the same measurement under the SHIPPED field, flag OFF,
+     against the shipped owner query. Its only job is to say whether those ids
+     belong to the resolver or to the read path — and it is the reason TC can
+     assert something true instead of excluding ids by name. */
+  std::map<clap_id, size_t> offIds;
+  size_t offReads = 0;
+  for (int patch = 0; patch < 3; patch++)
+  {
+    Rig rig(spreads[patch]);
+    rig.push({{kMorphOn, 1}, {kIntentFlag, 0}, {kMorphGlide, 0}, {kMorphTemp, 1},
+              {kMorphSeed, (double)seeds[patch]}});
+    Live live(rig.p);
+    const std::vector<std::pair<double, double>> pos = positions();
+    std::vector<double> prev(rig.f.n(), 0.0);
+    for (size_t s = 0; s < rig.f.n(); s++) prev[s] = rig.live(rig.f.ids[s]);
+    for (size_t q = 0; q < pos.size(); q++)
+    {
+      EvList ev;
+      ev.push(kMorphX, pos[q].first);
+      ev.push(kMorphY, pos[q].second);
+      live.run(2, &ev);
+      const std::map<clap_id, int> own = shippedOwners(rig.p);
+      for (size_t s = 0; s < rig.f.n(); s++)
+      {
+        /* SYMMETRIC with the leg above, including the held slots: ownersjson
+           reports -2 for a slot ADR-108 is holding, and the expectation for
+           one of those is "unchanged", so a CHANGE is the mismatch. Skipping
+           them would have made the comparison unfair in the resolver's
+           disfavour — it is how `beatMult` first looked like the resolver's
+           doing when it is the snap in applyParam, which both laws meet. */
+        const std::map<clap_id, int>::const_iterator it = own.find(rig.f.ids[s]);
+        const double v = rig.live(rig.f.ids[s]);
+        if (it != own.end())
+        {
+          offReads++;
+          const bool wrong = it->second >= 0
+                                 ? std::fabs(v - rig.f.corner[it->second][s]) > 1e-9
+                                 : true;
+          if (wrong && v != prev[s]) offIds[rig.f.ids[s]]++;
+        }
+        prev[s] = v;
+      }
+    }
+  }
+  std::printf("       ids that read back something else, SHIPPED field: %s\n",
+              idList(offIds).c_str());
+  std::string extra;
+  for (std::map<clap_id, size_t>::const_iterator it = onIds.begin(); it != onIds.end(); ++it)
+    if (offIds.find(it->first) == offIds.end())
+    {
+      char b[16];
+      std::snprintf(b, sizeof b, "%s%u", extra.empty() ? "" : " ", (unsigned)it->first);
+      extra += b;
+    }
+  char msg[440];
+  std::snprintf(msg, sizeof msg,
+                "TC attribution: every id that reads back something else under the RESOLVER "
+                "does so under the SHIPPED field too (%zu reads) — the resolver introduces "
+                "none of its own (extras: %s)",
+                offReads, extra.empty() ? "none" : extra.c_str());
+  say(extra.empty(), msg);
+
+  /* R15 — with the morph OFF the flag does nothing, because bindings live in
+     corners and with no field there is no owner. Rendered, not reasoned: the
+     seam's condition is `intentBusOn && morphOn`, and this measures that the
+     second half of that `&&` is load-bearing. S3's plant is the control that
+     says this comparison can fail at all. */
+  auto renderAt = [](double flag) {
+    const clap_plugin_t *p = makePlugin();
+    Field f;
+    f.read(p);
+    authorCorners(p, f, 0.15);
+    EvList ev;
+    ev.push(kMorphOn, 0);
+    ev.push(kIntentFlag, flag);
+    ev.push(kMorphX, 0.37);
+    ev.push(kMorphY, 0.61);
+    paramsOf(p)->flush(p, &ev.list, &kOut);
+    drain(p);
+    std::vector<float> audio;
+    render(p, audio);
+    p->destroy(p);
+    return audio;
+  };
+  const std::vector<float> off = renderAt(0);
+  const std::vector<float> on = renderAt(1);
+  std::snprintf(msg, sizeof msg,
+                "TC R15: with the MORPH off, flag 1 renders bit-identically to flag 0 (%zu "
+                "samples, rms %.4g — not silence, so the equality means something)",
+                on.size(), rms(on));
+  say(off == on && rms(on) > 1e-6, msg);
+}
+
+/* ---- T1: a locked range pins its parameter while that corner owns it ----- */
+void t1()
+{
+  std::printf("\nT1 — a corner that locks a parameter (lo == hi) pins it while it owns it\n");
+  const double lock = 0.42;   // normalised AND raw: fx1amt is a 0..1 control
+
+  struct Leg { size_t owned = 0; double worstOff = 0; double maxMove = 0; };
+  auto leg = [&](bool widen) {
+    Leg r;
+    Rig rig;
+    std::string body = widen ? rangeTok(kFx1Amt, 0, 0.0, 1.0)
+                             : rangeTok(kFx1Amt, 0, lock, lock);
+    body += bindAllCorners(kFx1Amt, kM1, 0.5);
+    rig.push({{kMorphOn, 1}, {kIntentFlag, 1}, {kMorphGlide, 0}, {kMorphTemp, 1},
+              {kMorphSeed, 1024}});
+    rig.intentChunk(body);
+    rig.arm(1024);
+    Live live(rig.p);
+    const std::vector<std::pair<double, double>> pos = positions();
+    for (size_t q = 0; q < pos.size(); q++)
+    {
+      double v[2] = {0, 0};
+      int own = -1;
+      for (int m = 0; m < 2; m++)
+      {
+        EvList ev;
+        ev.push(kMorphX, pos[q].first);
+        ev.push(kMorphY, pos[q].second);
+        ev.push(kMacro1, m == 0 ? 0.0 : 1.0);
+        live.run(2, &ev);
+        own = rig.owner(kFx1Amt);
+        v[m] = rig.live(kFx1Amt);
+      }
+      if (own != 0) continue;   // corner A is the one holding the lock
+      r.owned++;
+      for (int m = 0; m < 2; m++)
+        r.worstOff = std::max(r.worstOff, std::fabs(v[m] - lock));
+      r.maxMove = std::max(r.maxMove, std::fabs(v[1] - v[0]));
+    }
+    return r;
+  };
+
+  const Leg base = leg(false);
+  const Leg ctl = leg(true);
+  char msg[400];
+  std::snprintf(msg, sizeof msg,
+                "T1 corner A locks fx1amt at %.2f: over %zu positions A owned it, a full macro "
+                "sweep moved it by at most %.3g and it never left the lock (worst %.3g)",
+                lock, base.owned, base.maxMove, base.worstOff);
+  say(base.owned > 0 && base.maxMove <= 1e-12 && base.worstOff <= 1e-12, msg);
+  std::snprintf(msg, sizeof msg,
+                "T1 CONTROL: with A's range widened to [0,1] the same sweep at the same "
+                "positions MOVES it (by up to %.3g over %zu owned positions)",
+                ctl.maxMove, ctl.owned);
+  say(ctl.owned > 0 && ctl.maxMove > 1e-6, msg);
+}
+
+/* ---- T10: two corners, two ranges, one intent ---------------------------- */
+void t10()
+{
+  std::printf("\nT10 — the same intent through two corners with different ranges\n");
+  struct Leg { size_t nA = 0, nB = 0; double maxA = 0, maxB = 0; };
+  auto leg = [&](bool swapRanges) {
+    Leg r;
+    Rig rig;
+    const double shallowHi = 0.2;
+    std::string body = rangeTok(kDecay, swapRanges ? 1 : 0, 0.0, shallowHi);
+    body += rangeTok(kDecay, swapRanges ? 0 : 1, 0.0, 1.0);
+    body += bindAllCorners(kDecay, kM1, 0.6);
+    rig.push({{kMorphOn, 1}, {kIntentFlag, 1}, {kMorphGlide, 0}, {kMorphTemp, 1},
+              {kMorphSeed, 7}});
+    rig.intentChunk(body);
+    rig.arm(7);
+    Live live(rig.p);
+    const std::vector<std::pair<double, double>> pos = positions();
+    for (size_t q = 0; q < pos.size(); q++)
+    {
+      EvList ev;
+      ev.push(kMorphX, pos[q].first);
+      ev.push(kMorphY, pos[q].second);
+      ev.push(kMacro1, 1.0);   // the intent pushed all the way up
+      live.run(2, &ev);
+      const int own = rig.owner(kDecay);
+      const double v = rig.live(kDecay);
+      if (own == 0) { r.nA++; r.maxA = std::max(r.maxA, v); }
+      if (own == 1) { r.nB++; r.maxB = std::max(r.maxB, v); }
+    }
+    return r;
+  };
+
+  // The shallow corner's ceiling in RAW units: decay is 0.005..4 s, so a
+  // normalised hi of 0.2 is 0.804 s. Read off the parameter, never retyped.
+  double lo = 0, hi = 0;
+  {
+    const clap_plugin_t *probe = makePlugin();
+    auto *params = paramsOf(probe);
+    const uint32_t n = params->count(probe);
+    for (uint32_t i = 0; i < n; i++)
+    {
+      clap_param_info_t info{};
+      if (params->get_info(probe, i, &info) && info.id == kDecay)
+      { lo = info.min_value; hi = info.max_value; }
+    }
+    probe->destroy(probe);
+  }
+  const double ceiling = lo + 0.2 * (hi - lo);
+
+  const Leg base = leg(false);
+  const Leg ctl = leg(true);
+  char msg[420];
+  std::snprintf(msg, sizeof msg,
+                "T10 corner A's decay range is shallow [0,0.2]: with the intent at full, A "
+                "stayed under %.4f s across %zu positions (max %.4f s) while B reached %.4f s "
+                "across %zu",
+                ceiling, base.nA, base.maxA, base.maxB, base.nB);
+  say(base.nA > 0 && base.nB > 0 && base.maxA <= ceiling + 1e-9 && base.maxB > ceiling + 1e-3,
+      msg);
+  std::snprintf(msg, sizeof msg,
+                "T10 CONTROL: swap the two ranges and the roles swap — A now reaches %.4f s "
+                "and B is the one capped at %.4f s",
+                ctl.maxA, ctl.maxB);
+  say(ctl.nA > 0 && ctl.nB > 0 && ctl.maxB <= ceiling + 1e-9 && ctl.maxA > ceiling + 1e-3, msg);
+}
+
+/* ---- T4: one intent acting through two corners at once ------------------- */
+void t4()
+{
+  std::printf("\nT4 — one intent, two corners, simultaneously (steepness 1 = temp 1)\n");
+  const double depth[4] = {0.10, 0.18, 0.26, 0.34};
+
+  struct Leg
+  {
+    int ownD = -1, ownE = -1;
+    double moveD = 0, moveE = 0, wantD = 0, wantE = 0;
+  };
+  /* The prediction is computed from the CORNER VALUE the plugin reports, not
+     from a second copy of §4.5: base + depth, clamped by the corner tier and
+     then by clamp01, scaled back to raw. Anything else would be this oracle
+     grading its own arithmetic. */
+  auto predict = [](const Rig &rig, clap_id id, int corner, double d, double minV, double span) {
+    const double baseN = (rig.f.corner[corner][(size_t)rig.f.slotOf(id)] - minV) / span;
+    const double up = std::min(1.0, std::max(0.0, baseN + d));
+    return (up - baseN) * span;
+  };
+  auto bounds = [](clap_id id, double &minV, double &span) {
+    const clap_plugin_t *probe = makePlugin();
+    auto *params = paramsOf(probe);
+    const uint32_t n = params->count(probe);
+    minV = 0;
+    span = 1;
+    for (uint32_t i = 0; i < n; i++)
+    {
+      clap_param_info_t info{};
+      if (params->get_info(probe, i, &info) && info.id == id)
+      { minV = info.min_value; span = info.max_value - info.min_value; }
+    }
+    probe->destroy(probe);
+  };
+  double dMin = 0, dSpan = 1, eMin = 0, eSpan = 1;
+  bounds(kDetune, dMin, dSpan);
+  bounds(kDecay, eMin, eSpan);
+
+  auto leg = [&](double x, double y, double temp, uint32_t seed) {
+    Leg r;
+    Rig rig;
+    std::string body;
+    char tok[96];
+    for (int k = 0; k < 4; k++)
+    {
+      std::snprintf(tok, sizeof tok, ",B:%u:%d:%d:%.17g", (unsigned)kDetune, k, kM1, depth[k]);
+      body += tok;
+      std::snprintf(tok, sizeof tok, ",B:%u:%d:%d:%.17g", (unsigned)kDecay, k, kM1, depth[k]);
+      body += tok;
+    }
+    rig.push({{kMorphOn, 1}, {kIntentFlag, 1}, {kMorphGlide, 0}, {kMorphTemp, temp},
+              {kMorphSeed, (double)seed}});
+    rig.intentChunk(body);
+    rig.arm(seed, temp);
+    Live live(rig.p);
+    double v0[2] = {0, 0}, v1[2] = {0, 0};
+    for (int m = 0; m < 2; m++)
+    {
+      EvList ev;
+      ev.push(kMorphX, x);
+      ev.push(kMorphY, y);
+      ev.push(kMacro1, m == 0 ? 0.0 : 1.0);
+      live.run(2, &ev);
+      (m == 0 ? v0 : v1)[0] = rig.live(kDetune);
+      (m == 0 ? v0 : v1)[1] = rig.live(kDecay);
+      r.ownD = rig.owner(kDetune);
+      r.ownE = rig.owner(kDecay);
+    }
+    r.moveD = v1[0] - v0[0];
+    r.moveE = v1[1] - v0[1];
+    if (r.ownD >= 0) r.wantD = predict(rig, kDetune, r.ownD, depth[r.ownD], dMin, dSpan);
+    if (r.ownE >= 0) r.wantE = predict(rig, kDecay, r.ownE, depth[r.ownE], eMin, eSpan);
+    return r;
+  };
+
+  /* The acceptance's configuration: the EXACT centre at temp 1. Note that the
+     centre is where the four weights are tied at EVERY steepness, so it cannot
+     also host the control — the control moves a hair off centre (and the same
+     off-centre position is measured at temp 1 too, so the collapse is
+     attributable to the steepness and not to the move). */
+  Leg mid;
+  uint32_t used = 0;
+  const uint32_t seeds[6] = {1024, 7, 4242, 99, 31337, 5};
+  for (int i = 0; i < 6; i++)
+  {
+    mid = leg(0.5, 0.5, 1.0, seeds[i]);
+    used = seeds[i];
+    if (mid.ownD != mid.ownE) break;
+  }
+  char msg[440];
+  std::snprintf(msg, sizeof msg,
+                "T4 at (0.5,0.5), temp 1, seed %u: detune is owned by corner %d and decay by "
+                "corner %d, and ONE macro moved both — detune by %.6g (corner %d's depth "
+                "predicts %.6g) and decay by %.6g (corner %d's predicts %.6g)",
+                used, mid.ownD, mid.ownE, mid.moveD, mid.ownD, mid.wantD, mid.moveE, mid.ownE,
+                mid.wantE);
+  say(mid.ownD != mid.ownE && std::fabs(mid.moveD - mid.wantD) <= 1e-9 &&
+          std::fabs(mid.moveE - mid.wantE) <= 1e-9 && std::fabs(mid.moveD) > 1e-9 &&
+          std::fabs(mid.moveE) > 1e-9,
+      msg);
+
+  const Leg off = leg(0.35, 0.45, 1.0, used);
+  const Leg sharp = leg(0.35, 0.45, 0.02, used);
+  std::snprintf(msg, sizeof msg,
+                "T4 CONTROL: at (0.35,0.45) temp 1 still splits (corners %d/%d); at temp 0.02 "
+                "(steepness 50) ownership COLLAPSES to corner %d for both, and the second "
+                "corner's depth goes silent — detune moves %.6g against corner %d's %.6g",
+                off.ownD, off.ownE, sharp.ownD, sharp.moveD, sharp.ownD, sharp.wantD);
+  say(sharp.ownD == sharp.ownE && off.ownD != off.ownE &&
+          std::fabs(sharp.moveD - sharp.wantD) <= 1e-9 &&
+          std::fabs(sharp.moveE - sharp.wantE) <= 1e-9,
+      msg);
+}
+
+/* ---- T5: structural requests, and the atom that must not split ----------- */
+void t5()
+{
+  std::printf("\nT5 — four corners requesting a different `n`, and the scale as one atom\n");
+  const double voices[4] = {3, 7, 12, 19};
+
+  struct Leg
+  {
+    size_t positions = 0, outside = 0, distinct = 0, noCornerMatch = 0, split = 0;
+  };
+  auto leg = [&](bool breakAtom) {
+    Leg r;
+    Rig rig;
+    for (int k = 0; k < 4; k++)
+    {
+      rig.setCorner(k, kVoices, voices[k]);
+      // The scale is ADR-108-gated on bendQuant; without this the degrees are
+      // HELD in every corner and the atom test would pass by never applying.
+      rig.setCorner(k, kBendQuant, 2);
+      rig.setCorner(k, kScaleRoot, (double)(k * 3));
+      for (int deg = 0; deg < 12; deg++)
+        rig.setCorner(k, (clap_id)(117 + deg), ((deg + k) % 3 == 0) ? 0 : 1);
+      rig.writeCorner(k);
+    }
+    rig.f.read(rig.p);
+    rig.arm(4242);
+    if (breakAtom && !hypersaw_debug_intent_break_atom(rig.p, rig.slot((clap_id)118)))
+      say(false, "break_atom refused");
+    Live live(rig.p);
+    const std::vector<std::pair<double, double>> pos = positions();
+    bool seen[4] = {false, false, false, false};
+    for (size_t q = 0; q < pos.size(); q++)
+    {
+      EvList ev;
+      ev.push(kMorphX, pos[q].first);
+      ev.push(kMorphY, pos[q].second);
+      live.run(2, &ev);
+      r.positions++;
+      const double n = rig.live(kVoices);
+      bool hit = false;
+      for (int k = 0; k < 4; k++)
+        if (std::fabs(n - voices[k]) < 1e-9) { hit = true; seen[k] = true; }
+      if (!hit) r.outside++;
+      // The 13-id scale, read LIVE and compared to the four stored vectors: a
+      // chimera is a live scale that matches no single corner.
+      bool matched = false;
+      for (int k = 0; k < 4; k++)
+      {
+        bool all = true;
+        for (int d = 0; d < 13; d++)
+        {
+          const clap_id id = (clap_id)(116 + d);
+          if (std::fabs(rig.live(id) - rig.f.corner[k][(size_t)rig.slot(id)]) > 1e-9)
+          { all = false; break; }
+        }
+        if (all) { matched = true; break; }
+      }
+      if (!matched) r.noCornerMatch++;
+      const int k0 = rig.owner(kScaleRoot);
+      for (int d = 1; d < 13; d++)
+        if (rig.owner((clap_id)(116 + d)) != k0) { r.split++; break; }
+    }
+    for (int k = 0; k < 4; k++) r.distinct += seen[k] ? 1 : 0;
+    return r;
+  };
+
+  const Leg base = leg(false);
+  char msg[440];
+  std::snprintf(msg, sizeof msg,
+                "T5 `n` over %zu positions: %zu values outside the four requested {3,7,12,19} "
+                "and %zu of the four actually visited — a structural request is taken in full, "
+                "never blended",
+                base.positions, base.outside, base.distinct);
+  say(base.outside == 0 && base.distinct >= 2, msg);
+  std::snprintf(msg, sizeof msg,
+                "T5 the 13-id scale is ONE atom: %zu owner splits and %zu positions where the "
+                "live scale matched no corner",
+                base.split, base.noCornerMatch);
+  say(base.split == 0 && base.noCornerMatch == 0, msg);
+
+  const Leg ctl = leg(true);
+  std::snprintf(msg, sizeof msg,
+                "T5 CONTROL: with degree 2 broken off the lead map the chimera appears — %zu "
+                "positions split the atom's owner and %zu produced a live scale NO corner "
+                "authored",
+                ctl.split, ctl.noCornerMatch);
+  say(ctl.split > 0 && ctl.noCornerMatch > 0, msg);
+}
+
+/* ---- T6: commit ---------------------------------------------------------- */
+void t6()
+{
+  std::printf("\nT6 — commit bakes the displacement and leaves the sound where it was\n");
+  struct Leg
+  {
+    int dom = -2;
+    double worst = 0, macroSum = 0, worstOffset = 0;
+    size_t slots = 0;
+  };
+  /* At an EXACT corner every weight is one-hot, so that corner owns every atom
+     and is the dominant one — which is what makes "the resolved output is
+     unchanged" a total claim rather than one about the subset it owns. */
+  auto leg = [&](int forceCorner) {
+    Leg r;
+    Rig rig;
+    std::string body = bindAllCorners(kDetune, kM1, 0.2);
+    body += bindAllCorners(kDecay, kM1, 0.2);
+    body += bindAllCorners(kFx1Amt, kM1, 0.2);
+    rig.push({{kMorphOn, 1}, {kIntentFlag, 1}, {kMorphGlide, 0}, {kMorphTemp, 1},
+              {kMorphSeed, 1024}});
+    rig.intentChunk(body);
+    rig.arm(1024);
+    Live live(rig.p);
+    {
+      EvList ev;
+      ev.push(kMorphX, 1.0);
+      ev.push(kMorphY, 1.0);
+      ev.push(kMacro1, 0.7);
+      live.run(2, &ev);
+    }
+    std::vector<double> before(rig.f.n(), 0.0);
+    for (size_t s = 0; s < rig.f.n(); s++)
+      before[s] = hypersaw_debug_intent_final(rig.p, (int)s);
+
+    r.dom = hypersaw_debug_intent_commit(rig.p, forceCorner);
+    live.run(2);
+    for (size_t s = 0; s < rig.f.n(); s++)
+    {
+      r.worst = std::max(r.worst, std::fabs(hypersaw_debug_intent_final(rig.p, (int)s) - before[s]));
+      r.slots++;
+    }
+    for (int i = 0; i < 8; i++) r.macroSum += std::fabs(rig.live((clap_id)(166 + i)));
+    // "every offset reads zero" — measured as the resolved value having become
+    // the corner's own stored base, which is what a baked offset means.
+    rig.f.read(rig.p);
+    const int own = rig.owner(kDetune);
+    if (own >= 0)
+    {
+      const clap_id ids[3] = {kDetune, kDecay, kFx1Amt};
+      for (int i = 0; i < 3; i++)
+      {
+        const int s = rig.slot(ids[i]);
+        r.worstOffset = std::max(r.worstOffset, std::fabs(hypersaw_debug_intent_final(rig.p, s) -
+                                                          rig.f.corner[own][(size_t)s]));
+      }
+    }
+    return r;
+  };
+
+  const Leg base = leg(-1);
+  char msg[440];
+  std::snprintf(msg, sizeof msg,
+                "T6 commit into the dominant corner (%d) at the (1,1) corner: %zu slots, worst "
+                "|resolved after - before| = %.3g, the eight intent knobs now sum to %.3g, and "
+                "the bound parameters sit exactly on their corner's base (worst %.3g)",
+                base.dom, base.slots, base.worst, base.macroSum, base.worstOffset);
+  say(base.dom == 3 && base.worst <= kEps && base.macroSum == 0.0 && base.worstOffset <= kEps,
+      msg);
+
+  const Leg ctl = leg(0);
+  std::snprintf(msg, sizeof msg,
+                "T6 CONTROL: commit into corner 0, which owns nothing at (1,1) — the "
+                "displacement is not baked, the knobs are zeroed anyway, and the resolved "
+                "output MOVES (worst %.3g)",
+                ctl.worst);
+  say(ctl.dom == 0 && ctl.worst > 1e-6, msg);
+}
+
+/* ---- T9: the owner map is a function of the seed ------------------------- */
+void t9()
+{
+  std::printf("\nT9 — the owner map is a function of morphSeed (2026-09-10 amendment)\n");
+  auto sweep = [](uint32_t seed, std::vector<int> &all, std::vector<int> &corners) {
+    Rig rig;
+    rig.arm(seed);
+    Live live(rig.p);
+    const std::vector<std::pair<double, double>> pos = positions();
+    all.clear();
+    corners.clear();
+    for (size_t q = 0; q < pos.size(); q++)
+    {
+      EvList ev;
+      ev.push(kMorphX, pos[q].first);
+      ev.push(kMorphY, pos[q].second);
+      live.run(2, &ev);
+      for (size_t s = 0; s < rig.f.n(); s++)
+      {
+        const int o = hypersaw_debug_intent_owner(rig.p, (int)s);
+        all.push_back(o);
+        if (q < 4) corners.push_back(o);   // positions() opens with the four exact corners
+      }
+    }
+  };
+  std::vector<int> a1, a2, b1, ca1, ca2, cb1;
+  sweep(1024, a1, ca1);
+  sweep(1024, a2, ca2);
+  sweep(4242, b1, cb1);
+  size_t diffSame = 0, diffSeed = 0, diffCorners = 0;
+  for (size_t i = 0; i < a1.size() && i < a2.size(); i++) diffSame += a1[i] != a2[i];
+  for (size_t i = 0; i < a1.size() && i < b1.size(); i++) diffSeed += a1[i] != b1[i];
+  for (size_t i = 0; i < ca1.size() && i < cb1.size(); i++) diffCorners += ca1[i] != cb1[i];
+  char msg[400];
+  std::snprintf(msg, sizeof msg,
+                "T9 same seed, two instances: %zu owner disagreements over %zu reads",
+                diffSame, a1.size());
+  say(diffSame == 0 && !a1.empty(), msg);
+  std::snprintf(msg, sizeof msg,
+                "T9 CONTROL: a different seed disagrees on %zu of %zu reads — the map is the "
+                "seed's, not the position's alone",
+                diffSeed, a1.size());
+  say(diffSeed > 0, msg);
+  std::snprintf(msg, sizeof msg,
+                "T9 the four EXACT corners are unchanged either way: %zu disagreements over "
+                "%zu reads (one-hot weights leave the seed nothing to decide)",
+                diffCorners, ca1.size());
+  say(diffCorners == 0 && !ca1.empty(), msg);
+}
+
+/* ---- TE: the corner gestures, with the flag on --------------------------- */
+void te()
+{
+  std::printf("\nTE — the corner gestures and the ADR-160 marks, with the resolver running\n");
+  {
+    Rig rig;
+    rig.arm(1024);
+    Live live(rig.p);
+    EvList ev;
+    ev.push(kMorphX, 0.37);
+    ev.push(kMorphY, 0.61);
+    live.run(2, &ev);
+    // ARMED: the edit belongs to the armed corner and to no other.
+    rig.push({{kMorphArm, 1}});
+    rig.push({{kDetune, 0.123456}});
+    Field g;
+    g.read(rig.p);
+    const int s = g.slotOf(kDetune);
+    const bool onlyArmed = std::fabs(g.corner[0][(size_t)s] - 0.123456) < 1e-9 &&
+                           std::fabs(g.corner[1][(size_t)s] - 0.123456) > 1e-9;
+    say(onlyArmed, "TE1 an ARMED edit still writes exactly the armed corner's baseline");
+
+    /* UNARMED, MEASURED over a sweep rather than at one position, because at
+       one position the two laws agree by coincidence about a quarter of the
+       time. morphRouteEdit routes an unarmed edit with morph.pickCorner — the
+       SHIPPED Gumbel law — which under the flag is not necessarily the corner
+       the resolver says owns the slot; where they disagree the edit lands in a
+       corner that is not sounding and the next grid tick overwrites it. The
+       assertion below is the mechanism (an unarmed edit still lands in SOME
+       corner baseline, which is ADR-109's contract); the disagreement count is
+       a phase-2c FINDING for the lead, not something this brief rules on. */
+    rig.push({{kMorphArm, 0}});
+    const std::vector<std::pair<double, double>> pos = positions();
+    size_t edits = 0, landedSomewhere = 0, disagreed = 0;
+    for (size_t q = 4; q < 28 && q < pos.size(); q++)
+    {
+      EvList e2;
+      e2.push(kMorphX, pos[q].first);
+      e2.push(kMorphY, pos[q].second);
+      live.run(2, &e2);
+      const int own = rig.owner(kDetune);
+      const double v = 0.10 + 0.01 * (double)q;
+      rig.push({{kDetune, v}});
+      Field h;
+      h.read(rig.p);
+      int landed = -1;
+      for (int k = 0; k < 4; k++)
+        if (std::fabs(h.corner[k][(size_t)s] - v) < 1e-9) landed = k;
+      edits++;
+      if (landed >= 0) landedSomewhere++;
+      if (landed != own) disagreed++;
+    }
+    std::printf("       FINDING: over %zu unarmed edits the corner morphRouteEdit chose "
+                "disagreed with the RESOLVER's owner %zu times — morphRouteEdit still asks "
+                "morph.pickCorner, so those edits are overwritten at the next tick (out of "
+                "this brief's scope; ADR candidate)\n",
+                edits, disagreed);
+    say(edits > 0 && landedSomewhere == edits,
+        "TE2 an UNARMED edit still lands in a corner baseline (WHICH corner is the finding "
+        "above, not this assertion)");
+  }
+  {
+    // CAPTURE still bakes what is sounding.
+    Rig rig;
+    rig.arm(7);
+    Live live(rig.p);
+    EvList ev;
+    ev.push(kMorphX, 0.25);
+    ev.push(kMorphY, 0.8);
+    live.run(2, &ev);
+    Field before;
+    before.read(rig.p);
+    const int s = before.slotOf(kDetune);
+    const double liveV = rig.live(kDetune);
+    /* Capture into a corner that does NOT already hold the live value —
+       otherwise "the corner now holds it" is true before the gesture and the
+       assertion measures nothing (L0033). The owning corner is exactly the one
+       that would make it vacuous, so the target is chosen, not assumed. */
+    int target = -1;
+    for (int k = 0; k < 4 && target < 0; k++)
+      if (std::fabs(before.corner[k][(size_t)s] - liveV) > 1e-9) target = k;
+    const bool differed = target >= 0;
+    if (target < 0) target = 2;
+    hypersaw_debug_capture(rig.p, target);
+    Field after;
+    after.read(rig.p);
+    char msg[320];
+    std::snprintf(msg, sizeof msg,
+                  "TE3 CAPTURE still bakes with the flag on: corner %d's detune was %.6g, the "
+                  "live value %.6g, and after the capture the corner reads %.6g (anchor: the "
+                  "two differed beforehand = %s)",
+                  target, before.corner[target][(size_t)s], liveV,
+                  after.corner[target][(size_t)s], differed ? "yes" : "NO");
+    say(differed && std::fabs(after.corner[target][(size_t)s] - liveV) < 1e-9, msg);
+  }
+  {
+    // EXEMPT still holds: the resolver must not write an exempt slot.
+    Rig rig;
+    rig.arm(1024);
+    Live live(rig.p);
+    auto sweepMove = [&]() {
+      const std::vector<std::pair<double, double>> pos = positions();
+      double lo = 1e30, hi = -1e30;
+      for (size_t q = 0; q < 24; q++)
+      {
+        EvList ev;
+        ev.push(kMorphX, pos[q].first);
+        ev.push(kMorphY, pos[q].second);
+        live.run(2, &ev);
+        const double v = rig.live(kDetune);
+        lo = std::min(lo, v);
+        hi = std::max(hi, v);
+      }
+      return hi - lo;
+    };
+    const double moving = sweepMove();
+    hypersaw_debug_exempt(rig.p, kDetune);
+    const double exempt = sweepMove();
+    Field g;
+    g.read(rig.p);
+    const int s = g.slotOf(kDetune);
+    const bool allFour = std::fabs(g.corner[0][(size_t)s] - g.corner[3][(size_t)s]) < 1e-9;
+    char msg[320];
+    std::snprintf(msg, sizeof msg,
+                  "TE4 EXEMPT still holds under the resolver: detune swung %.4g across the "
+                  "sweep before the toggle and %.4g after, and all four corners took the live "
+                  "value (%s)",
+                  moving, exempt, allFour ? "yes" : "NO");
+    say(moving > 1e-6 && exempt == 0.0 && allFour, msg);
+  }
+  {
+    // ONE GESTURE, ONE NODE (ADR-160). undo_check owns the general law; this
+    // asserts it is not disturbed by the flag.
+    Rig rig;
+    rig.arm(1024);
+    Live live(rig.p);
+    live.run(2);
+    hypersaw_debug_undo(rig.p, "service", 0);
+    const int base = std::atoi(hypersaw_debug_undo(rig.p, "size", 0));
+    hypersaw_debug_capture(rig.p, 1);
+    hypersaw_debug_undo(rig.p, "service", 0);
+    const int one = std::atoi(hypersaw_debug_undo(rig.p, "size", 0));
+    hypersaw_debug_undo(rig.p, "service", 0);
+    const int still = std::atoi(hypersaw_debug_undo(rig.p, "size", 0));
+    char msg[300];
+    std::snprintf(msg, sizeof msg,
+                  "TE5 one gesture is still one history node with the flag on: %d -> %d after a "
+                  "capture, and a second service adds none (%d)",
+                  base, one, still);
+    say(base >= 1 && one == base + 1 && still == one, msg);
+  }
+}
+
+/* ---- TG: the hazard — whose range clamps, and what a hold must not do ---- */
+void tg()
+{
+  std::printf("\nTG — the corner clamp is the OWNER's range, and a held value is not "
+              "re-clamped\n");
+  /* fx1tone (96) is live only while fx1type (57) == 5, and the two share one
+     atom (B49's FX group), so the dependency is always evaluated against the
+     corner that also supplies the type — which is exactly ADR-108's rule. */
+  const double narrowLo = 0.9, narrowHi = 1.0;
+
+  struct Leg { double atB = 0, atA = 0; bool haveRange = false; double rlo = 0, rhi = 0; };
+  auto leg = [&](bool depLiveInA) {
+    Leg r;
+    Rig rig;
+    for (int k = 0; k < 4; k++)
+    {
+      rig.setCorner(k, kFx1Type, (k == 1 || (k == 0 && depLiveInA)) ? 5 : 0);
+      rig.writeCorner(k);
+    }
+    rig.f.read(rig.p);
+    rig.push({{kMorphOn, 1}, {kIntentFlag, 1}, {kMorphGlide, 0}, {kMorphTemp, 1},
+              {kMorphSeed, 1024}});
+    rig.intentChunk(rangeTok(kFx1Tone, 0, narrowLo, narrowHi));
+    rig.arm(1024);
+    r.haveRange = hypersaw_debug_intent_range(rig.p, 0, rig.slot(kFx1Tone), &r.rlo, &r.rhi);
+    Live live(rig.p);
+    {   // corner B (1,0): the tone is live there and B's range is the default
+      EvList ev;
+      ev.push(kMorphX, 1.0);
+      ev.push(kMorphY, 0.0);
+      live.run(2, &ev);
+      r.atB = rig.live(kFx1Tone);
+    }
+    {   // corner A (0,0): A owns it, and A's range is the narrow one
+      EvList ev;
+      ev.push(kMorphX, 0.0);
+      ev.push(kMorphY, 0.0);
+      live.run(2, &ev);
+      r.atA = rig.live(kFx1Tone);
+    }
+    return r;
+  };
+
+  const Leg held = leg(false);
+  const Leg liveA = leg(true);
+  char msg[460];
+  std::snprintf(msg, sizeof msg,
+                "TG1 the clamp is the OWNER's range: at corner B (range [0,1]) fx1tone reads "
+                "%.6g; at corner A, whose range is [%.2f,%.2f] and where the dependency IS "
+                "live, it reads %.6g — A's floor, not B's value",
+                liveA.atB, liveA.rlo, liveA.rhi, liveA.atA);
+  say(liveA.haveRange && liveA.rlo == narrowLo && std::fabs(liveA.atA - narrowLo) < 1e-9 &&
+          std::fabs(liveA.atB - narrowLo) > 1e-3,
+      msg);
+  std::snprintf(msg, sizeof msg,
+                "TG2 THE HAZARD: with the dependency FALSE in corner A, the ADR-108 hold keeps "
+                "corner B's %.6g instead of being re-clamped into A's [%.2f,%.2f] — the wrong "
+                "order would read %.2f, and the two answers differ by %.3g",
+                held.atB, held.rlo, held.rhi, narrowLo, std::fabs(held.atB - narrowLo));
+  say(std::fabs(held.atA - held.atB) < 1e-9 && std::fabs(held.atA - narrowLo) > 1e-3, msg);
+}
+
+void section()
+{
+  std::printf("\n========= SECTION T — SPEC-INTENT-BUS §12, through the plugin =========\n");
+  tc();
+  t1();
+  t4();
+  t5();
+  t6();
+  t9();
+  t10();
+  te();
+  tg();
+}
+
+}   // namespace spec
+
 void section()
 {
   std::printf("\n=============== SECTION S — the shell seam (B89 phase 2b) ==============\n");
   chunkSection();
   plantSection();
   identitySection();
+  spec::section();
 }
 
 }   // namespace shell
