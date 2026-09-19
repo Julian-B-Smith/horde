@@ -5,18 +5,25 @@
  * audit (docs/audits/2026-09-18-saw-engine-audit.md §3.2) measured four more
  * that it is structurally blind to, and every one of them drifts:
  *
- *   K-step settling (0 -> 1, to 90 %)   54.9 %   <- the 0.08 per-tick smoother
- *   onset-lock t(R peak), dissolve 0.30  5.56 %
- *   inertia steady-state R              15.03 %
- *   default output pole at 10 kHz        0.40 dB
+ *                                        audit    this probe   after B150
+ *   K-step settling (0 -> 1, to 90 %)   54.9 %      54.876 %      1.252 %
+ *   onset-lock t(R peak), dissolve 0.30  5.56 %      5.739 %      0.536 %
+ *   inertia steady-state R              15.03 %      2.103 %      0.763 %
+ *   default output pole at 10 kHz        0.40 dB     0.400 dB     0.400 dB
  *
- * THIS FILE DOES NOT PRE-EMPT THE FIX. The bars below are TODAY'S measured
- * drifts plus a margin, not the 0.3 % `samplerate_check` bar. That is
- * deliberate: whether these drifts should shrink is a human ruling (queue row
- * B150), and a check that went red on arrival would be pressure on that ruling
- * rather than evidence for it. What this file buys today is the other half —
- * the drifts cannot GROW unnoticed, and the numbers are on the record. When
- * B150 rules, the bars move down in the same change that moves the engine.
+ * The first two were ONE defect: both are set by the coupling smoother, and
+ * expressing its 0.08 in seconds (swarm_core.h kKsmTauSeconds) closed both.
+ * The last one is STOPPED, not fixed — see the bar comment.
+ *
+ * B150 HAS NOW RULED (human, 2026-09-18, option a): express the rate-bound
+ * constants in seconds with 44.1 kHz special-cased bit-frozen, so every other
+ * rate is corrected to match 44.1 k. That ruling is the ONE sanction under
+ * which the bars in this file move DOWN — a gate threshold is never otherwise
+ * edited without a recorded human decision (charter, Oracle discipline). Each
+ * bar below therefore carries its own before/after pair and the commit that
+ * moved it. The file's original posture — "the bars are today's drifts plus a
+ * margin, never the aspiration" — is unchanged; what changed is which day
+ * "today" is.
  *
  * STANDALONE AND UNWIRED. Wiring a gate into ./verify is the human's decision
  * (charter); this is proposed, not wired. `samplerate_check` is untouched.
@@ -72,6 +79,11 @@ namespace
 
 // M_PI is undefined under MSVC (L0003); every tool in this tree carries its own.
 constexpr double kPi = 3.14159265358979323846;
+// ULP of the two constants the kKsmTauSeconds control compares. Written as
+// literals rather than std::nextafter so the bar in the printout is a fixed
+// number a reader can check by hand.
+constexpr double kUlp = 8.673617379884035e-19;    // ulp(0.00435122...)
+constexpr double kUlp08 = 1.3877787807814457e-17; // ulp(0.08)
 
 int g_failures = 0;
 void check(bool ok, const char *what, const char *detail)
@@ -327,8 +339,8 @@ double onePoleSimDb(double a, double f, double sr)
 int main()
 {
   std::printf("sr_check — sample-rate independence in SECONDS (B147 layer 2)\n");
-  std::printf("Bars are the 2026-09-18 audit's measured drifts plus a stated margin, NOT the\n");
-  std::printf("0.3%% samplerate_check bar: shrinking them is ruling B150, not this file's.\n\n");
+  std::printf("Bars are MEASURED drifts plus a stated margin, never an aspiration. B150 (human,\n");
+  std::printf("2026-09-18) moved three of them down; the output pole is STOPPED, see the source.\n\n");
 
   double kstep[kNR], lock02[kNR], lock05[kNR], lock30[kNR], pole10k[kNR], atk[kNR], sampleQty[kNR];
   double inertFull[kNR], inertWander[kNR];
@@ -393,12 +405,23 @@ int main()
                 *std::min_element(lock30, lock30 + kNR));
   check(interior, "CONTROL the onset-lock probe sees an interior R peak at all", d);
 
-  // The inertia probe's own control, and the reason its bar is loose: the
-  // quantity wanders at a FIXED rate. This does not fail the run — it BOUNDS
-  // what the cross-rate number is allowed to mean, and it prints either way.
-  std::snprintf(d, sizeof(d), "same-rate wander %.3f%% vs cross-rate spread %.3f%% — the bar (%.1f%%) must clear the wander",
-                100 * wander, 100 * spread(inertFull), 18.04);
-  check(wander < 0.1804 / 3.0, "CONTROL inertia bar stands at least 3x clear of its own wander", d);
+  /* The engine's seconds constant is a LITERAL (std::log is not constexpr in
+     C++20), so it is pinned here: the derivation is recomputed and compared,
+     and the ROUND TRIP is asserted to MISS 0.08 — which is what makes the
+     44.1 kHz special case in SwarmCore's constructor load-bearing rather than
+     decorative. If a future edit ever makes the round trip exact, this control
+     fails and says so, and the branch can go. */
+  {
+    const double derived = -((double)hypersaw::kTick / 44100.0) / std::log(0.92);
+    const double err = std::fabs(hypersaw::kKsmTauSeconds - derived);
+    std::snprintf(d, sizeof(d), "literal %.17g vs derived %.17g (|d| = %.3g, 4 ULP = %.3g)",
+                  hypersaw::kKsmTauSeconds, derived, err, 4 * kUlp);
+    check(err <= 4 * kUlp, "CONTROL kKsmTauSeconds is the seconds form of the reference's 0.08", d);
+    const double trip = 1 - std::exp(-((double)hypersaw::kTick / 44100.0) / hypersaw::kKsmTauSeconds);
+    std::snprintf(d, sizeof(d), "round trip is %.17g, %d ULP from 0.08 — hence the 44.1 kHz branch",
+                  trip, (int)std::lround((trip - 0.08) / kUlp08));
+    check(trip != 0.08, "CONTROL the 44.1 kHz special case is load-bearing (round trip misses 0.08)", d);
+  }
 
   // The closed-form pole magnitude against the recurrence it describes, and
   // against a coefficient that is deliberately wrong.
@@ -424,15 +447,96 @@ int main()
      probe-to-probe disagreement, and it is NOT headroom for the engine: a
      20 % growth in any of these is a change in the engine and this check is
      built to see it. */
-  const double kBarKStep = 0.659;     // audit 54.9 %  + 20 %
-  const double kBarLock  = 0.0667;    // audit 5.56 %  + 20 %
-  const double kBarInert = 0.1804;    // audit 15.03 % + 20 % (see inertiaR's header)
-  const double kBarPole  = 0.480;     // audit 0.40 dB + 20 %
+  /* B150 moved this one. Before: 54.876 % (bar 0.659 = audit 54.9 % + 20 %).
+     After the seconds-expressed coupling smoother: 1.252 %, and the residual
+     is NOT a rate law — 44.1 k 0.00992 s, 48 k 0.01001, 88.2 k 0.01005, 96 k
+     0.00992 is non-monotonic, i.e. the 0.2 ms probe grid and the swarm's own
+     sigma, not the smoother. Bar = 1.252 % + the file's standing 20 %. */
+  const double kBarKStep = 0.0150;    // B150: 1.252 % + 20 % (was 0.659)
+  /* B150 moved this one, and NO ENGINE LINE WAS TOUCHED FOR IT. The onset
+     lock's own decay was already in seconds (`s.Kenv *= exp(-dt/dissolve)`,
+     swarm_core.h, dt = kTick/sr); the snap's rate dependence was entirely the
+     coupling smoother it feeds, so the B150/1 commit closed it. Before /
+     after, all three dissolve settings:
+        dissolve 0.02   4.415 % -> 0.197 %
+        dissolve 0.05   5.400 % -> 0.454 %
+        dissolve 0.30   5.739 % -> 0.536 %   <- the gated row, worst of the three
+     Bar = 0.536 % + the file's standing 20 %. */
+  const double kBarLock  = 0.0064;    // B150: 0.536 % + 20 % (was 0.0667)
+  /* B150 moved this one only as far as its own RESOLUTION allows, and the
+     honest reading is that this bar is set by the probe, not by the engine.
+     The cross-rate spread now reads 0.763 % (was 2.103 %), but the SAME-RATE
+     control below reads 4.915 %: nothing under 3x the wander is a measurement.
+     The file's own control asserts exactly that (wander < bar/3), so the bar
+     goes to 16.0 % — the tightest value that keeps the control true — and not
+     to 0.763 % + 20 %, which would be a gate on noise.
+
+     WHY THE QUANTITY WANDERS AT ALL, measured for B150 (scratch probe, 4
+     rates x 2 settings x before/after; numbers in
+     traces/2026-09-18-b150-smoother-seconds.md). `inertia` here is the CORE
+     value 0.7. The shell does not hand the core the knob: it applies the
+     ADR-059 taper, core = pow(knob, inertiaCurve), default curve 2.5 — so a
+     player's knob at 0.7 reaches the core as 0.41, and 0.7 at the core is
+     knob 0.867, a much stiffer spring. At core 0.41 the same quantity is
+     rock-solid: cross-rate spread 0.038 %, same-rate control 1.47 %. At core
+     0.7 it is chaotic and reads 20.6 % over the audit's 10-12 s window beside
+     a 15.4 % same-rate control. So the audit's 15.03 % (A6) is a CHAOTIC-
+     REGIME artefact of the setting, not a sample-rate defect — and the
+     spring's rate reproducibility in the regime a knob actually reaches has
+     never been in question. Left for a ruling, NOT done here (this brief
+     sanctions moving thresholds, not changing what the gate measures): add a
+     second inertia row at core 0.41, where a 0.1 % bar would have real teeth. */
+  const double kBarInert = 0.160;     // B150: 3x the 4.915 % same-rate wander (was 0.1804)
+  /* B150 STOPPED on this one and the bar does NOT move. The ruling was
+     "express the rate-bound constant in seconds"; this constant already IS in
+     seconds, and exactly so. The coefficient is a = 1 - exp(-2*pi*fc/sr)
+     (swarm_core.h, the `s.lpc` line), whose time constant is
+     -1/(sr*ln(1-a)) = 1/(2*pi*fc) = 8.842 us at fc = 18 kHz — independent of
+     `sr` in CLOSED FORM, not approximately. So this is not an ADR-009 defect
+     at all: the 0.40 dB is impulse-invariant ALIASING. At 44.1 kHz the pole
+     sits so far outside the accurate region that the filter's response is
+     shaped by its own mirror image, and that mirror is a function of the
+     sample rate, not of the time constant.
+
+     A partial correction exists and was measured for B150 (scratch, numbers in
+     traces/2026-09-18-b150-smoother-seconds.md): keep the topology, and at
+     rates != 44.1 kHz solve the coefficient that reproduces |H_44.1k| at a
+     fixed anchor frequency. Worst |dB| error over 20 Hz - 20 kHz (restricted
+     to where |H_44.1k| > -30 dB), 44.1-96 k, at the default fc = 18 kHz:
+
+        current law                        1.488 dB   (0.400 dB at 10 kHz)
+        anchored at 18 kHz                 0.177 dB   (0.166 dB at 10 kHz)
+        the BEST single pole at each rate  0.149 dB   <- the topology's floor
+
+     It is not taken here, for three reasons and none of them is effort.
+     (1) It is a NEW DESIGN LAW, not the re-expression of an existing constant
+         that B150 ruled on — ADR territory (an intentional divergence from
+         reference/swarmsaw.html), and the charter says the human rules.
+     (2) It is partial BY CONSTRUCTION. The 0.149 dB row is the floor for ANY
+         choice of one-pole coefficient: the 44.1 kHz response is periodic in
+         f with period 44100, a 96 kHz filter's is periodic with period 96000,
+         and no one-pole can hold both.
+     (3) It costs three transcendentals per voice per control tick in the
+         routine the audit already measured at 23-34 % of all CPU, to buy
+         0.23 dB at 10 kHz at rates the shipped default is not.
+     The bar therefore stays where the audit put it, and the number it pins is
+     unchanged by B150 (0.400 dB before, 0.400 dB after — this quantity does
+     not touch the coupling smoother). */
+  const double kBarPole  = 0.480;     // audit 0.40 dB + 20 % — B150 STOPPED here, see above
 
   std::snprintf(d, sizeof(d), "%.3f%% today, audit 54.9%%, bar %.1f%%", 100 * worstDrift(kstep), 100 * kBarKStep);
   check(worstDrift(kstep) <= kBarKStep, "K-step settling drift has not grown", d);
   std::snprintf(d, sizeof(d), "%.3f%% today, audit 5.56%%, bar %.2f%%", 100 * worstDrift(lock30), 100 * kBarLock);
   check(worstDrift(lock30) <= kBarLock, "onset-lock peak drift has not grown (dissolve 0.30)", d);
+  /* The inertia probe's own control, and the reason its bar stays loose: the
+     quantity wanders at a FIXED rate. It does not merely print — it BOUNDS
+     what the cross-rate number below is allowed to mean. B150 moved it here
+     from the controls block above, where it carried the bar as a DUPLICATED
+     LITERAL; a threshold written twice is a threshold that will one day
+     disagree with itself, and B150 moving the bar is exactly that day. */
+  std::snprintf(d, sizeof(d), "same-rate wander %.3f%% vs cross-rate spread %.3f%% — the bar (%.1f%%) must clear the wander",
+                100 * wander, 100 * spread(inertFull), 100 * kBarInert);
+  check(wander < kBarInert / 3.0, "CONTROL inertia bar stands at least 3x clear of its own wander", d);
   std::snprintf(d, sizeof(d), "%.3f%% today, audit 15.03%%, bar %.2f%% (wander %.2f%%)",
                 100 * spread(inertFull), 100 * kBarInert, 100 * wander);
   check(spread(inertFull) <= kBarInert, "inertia steady-state R spread has not grown", d);

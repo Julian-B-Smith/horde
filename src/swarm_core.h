@@ -134,6 +134,22 @@ inline double sawShapeTab(int k, double ph)
 }
 
 constexpr double kGravGridSeconds = 256.0 / 44100.0;   // 5.805 ms
+/* ADR-009 / B150: the coupling smoother's time constant, in SECONDS.
+   reference/swarmsaw.html:486-487 applies a hand-tuned 0.08 ONCE PER 16-SAMPLE
+   CONTROL TICK, and the port copied it verbatim — so the smoother's time
+   constant was 4.35 ms at 44.1 kHz and 1.99 ms at 96 kHz, and a K-knob step
+   settled 2.2x faster at 96 k (54.9 % drift,
+   docs/audits/2026-09-18-saw-engine-audit.md §1.1). That is exactly the class
+   ADR-009 bans. This is the duration that reproduces the reference's 0.08 at
+   44.1 kHz: tau = -(16/44100)/ln(0.92).
+   A LITERAL, not an expression: std::log is not constexpr in C++20. The
+   literal is pinned by tools/sr_check.cpp, which recomputes the derivation at
+   run time and fails if this value is not within 4 ULP of it.
+   The constructor special-cases 44.1 kHz and that branch is LOAD-BEARING: the
+   round trip 1-exp(-(16/44100)/tau) is 0.07999999999999996, three ULP short of
+   0.08, and three ULP in a coefficient applied 2756 times a second is a golden
+   diff. Same idiom, same reason, as cullEnv's default branch below. */
+constexpr double kKsmTauSeconds = 0.004351220802760264;   // 4.3512 ms
 constexpr double kTau = 6.283185307;   // matches the reference's literal
 constexpr double kPiRef = 3.14159265;  // ditto — NOT M_PI, parity over precision
 
@@ -364,7 +380,15 @@ class SwarmCore
     double noteTune = 1.0;
   };
 
-  explicit SwarmCore(double sampleRate) : sr(sampleRate)
+  // B150: `ksmC` is resolved ONCE here, not per tick. `sr` is fixed for the
+  // object's lifetime, and controlTick is 23-34 % of all CPU (audit §2) — an
+  // exp per voice per tick would buy nothing. 44.1 kHz returns the reference's
+  // literal bit-identically; see kKsmTauSeconds for why that branch exists.
+  explicit SwarmCore(double sampleRate)
+      : sr(sampleRate),
+        ksmC(sampleRate == 44100.0
+                 ? 0.08
+                 : 1 - std::exp(-((double)kTick / sampleRate) / kKsmTauSeconds))
   {
     // One traveller per VOICE (poly glide, ADR-076, gives each its own flight).
     // GlideCore fixes its control rate at construction, so re-rate them all here
@@ -1861,8 +1885,8 @@ public:
     // max(0,Kenv)==Kenv adds to syncT, max(0,-Kenv)==0 leaves splayT untouched.
     const double syncT = (std::max(0.0, km) + std::max(0.0, s.Kenv)) * sigmaU;
     const double splayT = (std::max(0.0, -km) * 3 + std::max(0.0, -s.Kenv) * 3) * sigmaU;
-    s.KsmS += (syncT - s.KsmS) * 0.08;
-    s.KsmP += (splayT - s.KsmP) * 0.08;
+    s.KsmS += (syncT - s.KsmS) * ksmC;
+    s.KsmP += (splayT - s.KsmP) * ksmC;
     /* ADR-164 (human 2026-09-14: "in two-cluster mode, with A/B balance turned
        on, it doesn't seem like K is actually going negative"): the DYN
        reference's K is unipolar (4K²σ), so its two-cluster branch had no
@@ -1875,7 +1899,7 @@ public:
        x), so every DYN golden is bit-identical; only the mean-field and ring
        paths keep the SAW splay reading of a negative K. */
     const double signedT = (km + s.Kenv) * sigmaU;
-    s.KsmD += (signedT - s.KsmD) * 0.08;
+    s.KsmD += (signedT - s.KsmD) * ksmC;
     double sx = 0, sy = 0;
     for (int i = 0; i < n; i++)
     {
@@ -2060,6 +2084,7 @@ public:
   }
 
   double sr;
+  double ksmC;   // B150: per-tick coupling-smoother coefficient at `sr`
 
  public:
   // Gravity readout (per render call): ratio index into kRatios, octave
