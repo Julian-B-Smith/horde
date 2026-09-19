@@ -145,6 +145,8 @@ the global CLAUDE.md audio-plugin section before any build/install/validate.
 - Acceptance numbers in specs/ACCEPTANCE.md are measured, not aspirational; they
   change only with a re-measurement on the reference implementation.
 
+**Gate wiring** (ADR-180 §1, ratified 2026-09-19). The charter's gate on `./verify` is a gate on WEAKENING a check (removing, skipping, relaxing, excluding). ADDING a check is not gated: a new `tools/*_check` is wired into `./verify` in the PR that creates it, or carries `UNWIRED: <reason>` in its header; `test_table_check` enforces wired-or-explained.
+
 **Auditor cadence** (B159, ADR-179 §3). At the first session open of a working day, if `docs/audits/` holds no repo audit newer than seven days, the lead dispatches `.claude/agents/auditor.md` in the background; its report is its own PR and its findings become ROADMAP rows at the next boundary. The same step is proposed to the kit's `/wakeup` (autonomous brief hypersaw-003).
 
 **Alias note.** This repo is public. Private sibling projects are referred to

@@ -6200,3 +6200,71 @@ and fallback as the macro knob label ("Macro 1: Space" while the flag
 supplies names, "Macro 1" otherwise), so a knob and a dropdown can never
 disagree. Pad release is unchanged; whether a bend axis springs to centre
 is the human's after listening. (B160.)
+
+## ADR-180 — Rulings of 2026-09-19 (third set): the wiring inversion ratified; STATION's spec rulings; the bend axis springs; the intent bus is a resolver without a face (2026-09-19)
+
+**Context.** The human's round after merging #676–#679: "recommendation
+ratified" (the wiring inversion); "Please elucidate the Station
+sanctions"; "I'll go with whatever you recommend on the Station specs";
+"Bend should spring to center; I think all macros should have the option
+of springing to origin in general (and macros should be settable to
+unipolar or bipolar)"; "whatever you recommend for the no-caller debug
+exports"; five roadmap ideas; the intent-bus review; and "we should
+probably focus in on some things so I can switch to Opus."
+
+### §1 Gate wiring: a new check is wired by default (RATIFIED)
+
+ADR-179 §4 option (a). A `tools/*_check` (C++ or lab harness) is wired
+into `./verify` in the PR that creates it, unless its first 40 lines carry
+`UNWIRED: <reason>`; `test_table_check` enforces wired-or-explained, with
+a planted control. The charter's human gate on `./verify` (an invariant
+line the lead does not edit) is READ, from today, as a gate on WEAKENING:
+removing, skipping, relaxing, excluding. Adding a check is not gated. The
+first act wires `ncap_check`, `tseed_check`, `station_check`,
+`station_check.mjs` and `intent_check` (with its goldens generated
+in-tree). The three no-caller exports are deleted; the probe-block guard
+stays a queue item until the GUI bridge's use of the exports is audited.
+
+### §2 STATION: seven spec rulings under "whatever you recommend"
+
+Recorded on B162; the rule behind them: a number is measured before it is
+written (§12: 5.2 % measured, 2 % retired); parity where the map is
+contractive, invariants where it is chaotic (§11: the diagonal at index
+≤ 2); a lab behaviour the human has been hearing is declared, not fixed,
+unless it is a defect of definition (pan law declared; release measured
+before touched; op-OFF envelope freeze fixed because it is a defect no
+ear chose); smoothing is the port's (op/noise LVL join the set); an
+addition the prototype lacks is written into the spec in the port's own
+words (FREE mode); a missing input enters inert (velSens default 0).
+
+### §3 The bend axis springs; macros get spring and polarity as options
+
+Ruled. The bend axis returns its target to 0 on release through the wheel
+law, latch respected (B164(a), built). Per-macro spring-to-origin and
+polarity are B164(b), sequenced behind the bus's origin editor: a spring
+with no visible origin is the defect the intent-bus review found.
+
+### §4 The intent bus: the review is right, and the record was not
+
+Phases 2a–2d built SPEC-INTENT-BUS §4 (the resolver) behind a flag and
+proved it against the prototype; §5 (the UI) was phase 3 in the plan and
+the lead's record described the flag as if it were the feature. What the
+review saw is all there is. Two defects: the pad draws the pointer (two
+macros the shell never writes) while the spring moves the puck, so the
+return is invisible and half-effective; and the ADR-152 suspension still
+zeroes the macro family under morph with the flag on, while the corners
+ship no bindings — so a macro reaches nothing. Phase 3 (B170) retires the
+suspension under the flag, ships default bind tables, draws the puck and
+lets the pad's macros follow it, and builds the name, home and binding
+editors against the lab. "Pad Latch" is renamed "Pad spring" with its
+polarity flipped: the spec's word named the exception, not the behaviour.
+
+### §5 Focus
+
+The human asked to narrow. The lead's proposal: ONE thread at a time,
+each with a written acceptance list before dispatch — first STATION
+phase 2 (the port into the plugin: fully specified, every step
+oracle-gated, the four sanctions elucidated on B162), then B170 (the bus
+made real, with B164(b), B167, B168, B169 inside it), then B165/B166.
+Everything else on the ROADMAP holds. An Opus lead can run either thread
+from the ROADMAP alone; nothing depends on this session's memory.
