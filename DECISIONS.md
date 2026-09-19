@@ -6069,3 +6069,20 @@ sanctioned edit outstanding (R7): peak-normalise BUMP per (a, φ) so every
 shape peaks at 1 — today's `1 + a` normalisation leaves it at 0.75 of full
 scale at the defaults, up to 3 dB quieter. The human edits the parameter
 table; the lead moves nothing else.
+
+### ADR-170 Amendment 2 — MAW becomes its own project; horde consumes it (2026-09-19)
+
+Human: "Maybe we should spin up MAW as its own project, similarly to
+Sluice. I'm realizing it needs some work." Done the Sluice way (ADR-166 A1):
+`~/Documents/Claude/synthetic-worlds/Maw` scaffolded by the lead — the
+packet as it arrived under `lab/`, the spec under `spec/`, a spin-up brief
+with provenance, horde's standing rulings (bus-level, drive-ref, no clamp,
+fold LP-pre, ecology pending; FX-C; mulberry32 in the port; the four-role
+face as a distillation with relative bindings; one instance per type) and
+the lead's suggested survey answers for striking; `integrations/hypersaw/`
+as horde's mailbox slot; git initialised, one commit. The resident runs
+`/spinup` there with the human. horde's `reference/maw/**` +
+`specs/SPEC-MAW.md` stay protected as the INTAKE RECORD (as
+`reference/network-lab-v0.html` does for Sluice); the port becomes a
+consumption of Maw's FOUNDATIONS-conformant module ABI when it exists, and
+B137's oracles become theirs. Nothing here is a spec change on horde's side.
