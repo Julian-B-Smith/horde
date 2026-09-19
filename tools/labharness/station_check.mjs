@@ -18,12 +18,14 @@
  * nothing (reverb_check.mjs and feedback_scan.mjs carry the same note).
  *
  * WHAT THE THRESHOLDS ARE. Every gate is a number MEASURED on this lab plus a
- * stated margin — never an invented target. Rows S16-S19 deliberately PIN a
- * known defect rather than demanding it be absent: parameter smoothing, the DC
- * blocker, the op-OFF envelope freeze and release-fade voice stealing are all
- * build-side work (audit §6.4, SPEC-STATION §4/§8), and a gate that fails from
- * day one is a gate nobody reads. When the port changes one of those numbers
- * deliberately, re-measure and move the pin, with the reason.
+ * stated margin — never an invented target. Rows S16/S18/S19 deliberately PIN a
+ * known defect rather than demanding it be absent: parameter smoothing, the
+ * op-OFF envelope freeze and release-fade voice stealing are all build-side work
+ * (audit §6.4, SPEC-STATION §4/§8), and a gate that fails from day one is a gate
+ * nobody reads. When the port changes one of those numbers deliberately,
+ * re-measure and move the pin, with the reason. S17 was the fourth such pin; the
+ * human ruled for the blocker on 2026-09-19 and it went into the LAB rather than
+ * only the port, so S17 and S21 are real gates now and parity covers the stage.
  *
  * EVERY ROW CARRIES A MUST-FAIL CONTROL (L0016/L0032). A probe that only ever
  * reports the expected answer has not been shown to be able to report any other
@@ -74,11 +76,48 @@ function planted(subs) {
 const PLANT_ONE_SEED = [['lfsr:this.lfsrSeed(slot)', 'lfsr:0x7FFF']];               // pre-ADR-177 §3 (S4)
 const PLANT_DT_CLAMP = [['const f=opFreq(o,base);\n          if(f>=SR*0.5){ outs[i]=0; this.envStep(v.env[i],o.env,v.gate); continue; }\n          const dt=f/SR;',
                         'const dt=Math.min(opFreq(o,base)/SR,0.45);']];             // pre-ADR-177 §3 (S12)
+const PLANT_NO_DC = [['let dl=ml-this.dcX[0]+dcR*this.dcY[0]; if(Math.abs(dl)<DC_FLOOR) dl=0;\n      let dr=mr-this.dcX[1]+dcR*this.dcY[1]; if(Math.abs(dr)<DC_FLOOR) dr=0;',
+                      'let dl=ml, dr=mr;']];                                       // pre-blocker (S17/S21)
 // Never-shipped mutations, present only as controls:
 const PLANT_NO_DELAY = [['s.matrix[0][i]*v.prev[0]', 's.matrix[0][i]*(i===0?v.prev[0]:outs[0])']];
 const PLANT_PER_BLOCK = [['render(L,R,N){\n    const s=this.state',
                           'render(L,R,N){\n    for(const _v of this.voices) _v.ph[0]+=1e-3;\n    const s=this.state']];
 const PLANT_PER_TICK = [['const t=Math.max(0.0005,p.a/1000)*SR;', 'const t=Math.max(0.0005,p.a/1000)*48000;']];
+
+// ------------------------------------------------------- the lab's numbers --
+// Read the blocker's cutoff OUT of the lab instead of restating it: a probe that
+// hard-coded 5 Hz would keep passing after someone moved the lab's DC_FC, which
+// is precisely the change it exists to catch.
+const LAB_K = (() => {
+  const html = readFileSync(LAB, 'utf8');
+  const src = html.slice(html.search(BANNERS.reference.start), html.search(BANNERS.reference.end));
+  return new Function(`"use strict";\n${src}\nreturn { DC_FC, DC_FLOOR, TAU };`)();
+})();
+const dcPole = (sr = 48000) => Math.exp(-LAB_K.TAU * LAB_K.DC_FC / sr);
+
+// Recover the level/pan sum (`ml`/`mr` inside render) from a rendered channel by
+// undoing the two stages that sit between them and the buffer: the engine-output
+// DC blocker and the monitoring tanh. S8 and S9 both state their gate in terms
+// of an OPERATOR's signal, so both have to see through the whole monitor path;
+// before 2026-09-19 that path was `tanh(ml*master*1.4)` alone.
+//
+// Both inversions are exact in double precision, but the blocker's INTEGRATES
+// (`x[n] = y[n] + x[n-1] - R*y[n-1]`, pole R = 0.99934 at 5 Hz / 48 k), so it
+// amplifies whatever noise is on its input by up to 1/(1-R) ~ 1500x. That is why
+// callers hand the core a Float64Array: at float32's 6e-8 quantisation the
+// recovered sum would carry ~1e-4 of integrated noise and S8's 1e-6 gate would
+// read the buffer format rather than the PM delay. The float32 render path is
+// S13/S15's subject, not this analysis's.
+function unmonitor(buf, master, sr = 48000) {
+  const R = dcPole(sr), x = new Float64Array(buf.length);
+  let xp = 0, yp = 0;
+  for (let n = 0; n < buf.length; n++) {
+    const y = Math.atanh(buf[n]) / (master * 1.4);
+    x[n] = y + xp - R * yp;
+    xp = x[n]; yp = y;
+  }
+  return x;
+}
 
 // --------------------------------------------------------------- rendering --
 const noteFreq = n => 440 * Math.pow(2, (n - 69) / 12);
@@ -228,12 +267,13 @@ function maxRender(K, secs = 3, seedTable = 1024, bs = 0) {
 
 // S1 — determinism. The hash is the whole engine's signature in one number.
 check('S1', 'determinism: two fresh instances of the max patch, bit-identical', () => {
-  // POST-ADR-177 §3 hash. It moved twice, both deliberately: bc9eea68afc8bfd9
-  // (audit §1.4, pre-fix) -> d867466ebf6ed6d5 (per-voice LFSR seed changed the
-  // noise stream) -> this (the Nyquist mute silences OP3 at the +24 st pitch-env
-  // peak, where the old clamp used to detune it). The class wrap itself moved
-  // nothing: it reproduced bc9eea68afc8bfd9 exactly.
-  const PIN = '75e363cf732c9081';
+  // The hash has moved three times, all deliberately: bc9eea68afc8bfd9 (audit
+  // §1.4, pre-fix) -> d867466ebf6ed6d5 (per-voice LFSR seed changed the noise
+  // stream) -> 75e363cf732c9081 (the Nyquist mute silences OP3 at the +24 st
+  // pitch-env peak, where the old clamp used to detune it) -> this (the 5 Hz
+  // engine-output DC blocker, human ruling 2026-09-19). The class wrap itself
+  // moved nothing: it reproduced bc9eea68afc8bfd9 exactly.
+  const PIN = '7aa8506c5eee18e1';
   const a = maxRender(StationCore), b = maxRender(StationCore);
   let d = 0; for (let i = 0; i < a.L.length; i++) d = Math.max(d, Math.abs(a.L[i] - b.L[i]), Math.abs(a.R[i] - b.R[i]));
   const hA = fnv(a.L, a.R), hB = fnv(b.L, b.R);
@@ -489,16 +529,21 @@ check('S8', 'PM sources are read from the PREVIOUS sample (time-domain, exact)',
     s.ops[2].on = 0;
     s.matrix[0][1] = I;
     const v = c.noteOn(36, noteFreq(36));
-    const L = new Float32Array(1), R = new Float32Array(1);
-    for (let n = 0; n < 2000; n++) c.render(L, R, 1);             // settle past the attack
-    const N = 4000, ph = [], m = [], y = [];
-    for (let n = 0; n < N; n++) { c.render(L, R, 1); ph.push(v.ph[1]); m.push(v.prev[0]); y.push(L[0]); }
-    // Invert the monitor path: l = tanh(out * lvl * 0.35 * master * 1.4), and at
-    // master 0.02 the tanh is linear to -102 dB, so atanh recovers `out` exactly.
+    // Float64 buffers, and the blocker's inverse is run from sample 0: see
+    // unmonitor() — the inverse integrates, so it needs the whole history and
+    // cannot afford the float32 quantisation the audio graph lives with.
+    const L = new Float64Array(1), R = new Float64Array(1);
+    const SETTLE = 2000, N = 4000, raw = [], ph = [], m = [];
+    for (let n = 0; n < SETTLE + N; n++) {
+      c.render(L, R, 1); raw.push(L[0]);
+      if (n >= SETTLE) { ph.push(v.ph[1]); m.push(v.prev[0]); }
+    }
+    // Invert the monitor path: l = tanh(DC(out * lvl * 0.35) * master * 1.4).
+    const sum = unmonitor(Float64Array.from(raw), 0.02).subarray(SETTLE);
     const res = lag => {
       let e = 0;
       for (let n = 1; n < N; n++) {
-        const out = Math.atanh(y[n]) / (0.02 * 1.4 * 0.35);
+        const out = sum[n] / 0.35;
         const p = ph[n] + I * m[n - lag] * 0.1591549;
         e = Math.max(e, Math.abs(out - Math.sin((p - Math.floor(p)) * 2 * Math.PI)));
       }
@@ -508,7 +553,7 @@ check('S8', 'PM sources are read from the PREVIOUS sample (time-domain, exact)',
   };
   const r = lagResidual(StationCore);
   lines.push(`  shipped lab   max|out - model(lag 1)| ${r.l1.toExponential(2)}   max|out - model(lag 0)| ${r.l0.toExponential(2)}`);
-  lines.push(`                (gate: lag 1 < 1e-6 — float32 output quantisation is 6e-8 — AND lag 0 > 0.01)`);
+  lines.push(`                (gate: lag 1 < 1e-6 — the recovered sum is double-precision — AND lag 0 > 0.01)`);
   // MUST-FAIL CONTROL: the same probe on a build that reads the modulator's
   // CURRENT sample must come out the other way round.
   const p = lagResidual(planted(PLANT_NO_DELAY));
@@ -543,12 +588,15 @@ check('S9', 'self-feedback at index 8: bounded and finite over 10 s, all 3 diago
     s.ops.forEach((o, i) => { o.on = i === d ? 1 : 0; o.lvl = i === d ? 1 : 0; o.wave = 0; });
     s.matrix[d][d] = 8;
     c.noteOn(60, noteFreq(60));
-    const { L } = pull(c, 48000 * 10);
-    let mx = 0, bad = 0;
-    for (const v of L) { if (!isFinite(v)) bad++; mx = Math.max(mx, Math.abs(v)); }
-    // master 0.02 * lvl 1 * 0.35 slot gain; |op| = peak / (0.02*1.4*0.35) via tanh^-1 is
-    // linear here, so the operator's own bound is peak / (0.35*0.02*1.4).
-    const opPeak = mx / (0.35 * 0.02 * 1.4);
+    // The gate is on the OPERATOR's excursion, so the engine-output DC blocker
+    // has to be undone with the tanh (unmonitor()) — its transient response
+    // overshoots by ~13 % at note-on, which is the monitor path's business and
+    // not the feedback loop's. Float64 for the same reason S8 uses it.
+    const L = new Float64Array(48000 * 10), R = new Float64Array(L.length);
+    c.render(L, R, L.length);
+    let bad = 0;
+    for (const v of L) if (!isFinite(v)) bad++;
+    const opPeak = peak(unmonitor(L, 0.02)) / 0.35;
     ok = ok && bad === 0 && opPeak <= 1 + 1e-6;
     lines.push(`  OP${d + 1} -> OP${d + 1}  |op| peak ${opPeak.toFixed(6)}  non-finite ${bad}  (gate: <= 1.000001, 0)`);
   }
@@ -784,31 +832,90 @@ check('S16', 'parameter-write discontinuity (PIN — smoothing is the port\'s, S
   return { ok, lines };
 });
 
-// S17 — DC. PINNED: spec §1 forbids an internal filter and the shared chain
-// guarantees no highpass, so the ruling (blocker vs contract) is owed and is not
-// this row's to make (audit S8). What it does do is stop the numbers moving.
-check('S17', 'DC offset by configuration (PIN — the blocker ruling is owed, audit S8)', () => {
-  const MARGIN = 3.0;   // dB
+// S17 — DC at the engine output. A GATE since 2026-09-19, not a pin: the human
+// ruled for a blocker and ruled it into the LAB rather than only the port, so
+// reference/station.html now runs a one-pole highpass per channel on the
+// level/pan sum, before the master gain and the monitoring tanh, and C++ parity
+// covers the stage (SPEC-STATION §2 / §11.8; audit S8 / §2.7 is the defect).
+//
+// THE THRESHOLD IS THE DETECTOR'S OWN FLOOR PLUS MARGIN. A 1 s mean of a
+// 261.63 Hz note is not a whole number of cycles, and that truncation residue
+// reads as ~-61 dB of "DC" on configurations that have none — which is exactly
+// what the two control rows measured before the blocker existed and still
+// measure now. So the gate is not "zero DC", it is "every configuration sits at
+// the floor the DC-free ones sit at".
+//
+// THE CONTROL IS THE DEFECT, PLANTED BACK (L0016/L0032). The identical probe on
+// the pre-blocker lab must FAIL the three DC-prone rows by 20-50 dB, or the row
+// is measuring something other than the blocker; and the two DC-free controls
+// must sit at the floor in BOTH builds, or it is reading "blocker on" rather
+// than "DC absent".
+check('S17', 'DC at the engine output: the 5 Hz blocker holds every configuration at the detector floor', () => {
+  const GATE_PEAK = -55, GATE_RMS = -50;   // dB; measured floor -61.4 / -56.6 (QTR) plus ~6 dB
   const cases = {
-    'SIN, no feedback (control)': [-61.2, s => { s.ops[0].wave = 0; s.ops[0].lvl = 1; }],
-    'QTR raw (control)':          [-64.5, s => { s.ops[0].wave = 4; s.ops[0].lvl = 1; s.ops[0].pure = 0; }],
-    'self-feedback index 8':      [-26.7, s => { s.ops[0].wave = 0; s.ops[0].lvl = 1; s.matrix[0][0] = 8; }],
-    'NS SHORT':                   [-29.9, s => { s.ops.forEach(o => { o.on = 0; o.lvl = 0; });
-                                                s.noise = { on: 1, mode: 1, rate: 0.35, ktrk: 0, lvl: 1, pan: 0, env: { a: 1, d: 120, s: 1, r: 80, loop: 0 } }; }],
-    'PLS raw, pw 0.1':            [-1.9,  s => { s.ops[0].wave = 3; s.ops[0].lvl = 1; s.ops[0].pure = 0; s.ops[0].pw = 0.1; }],
+    'SIN, no feedback (control)': [0, s => { s.ops[0].wave = 0; s.ops[0].lvl = 1; }],
+    'QTR raw (control)':          [0, s => { s.ops[0].wave = 4; s.ops[0].lvl = 1; s.ops[0].pure = 0; }],
+    'self-feedback index 8':      [1, s => { s.ops[0].wave = 0; s.ops[0].lvl = 1; s.matrix[0][0] = 8; }],
+    'NS SHORT':                   [1, s => { s.ops.forEach(o => { o.on = 0; o.lvl = 0; });
+                                             s.noise = { on: 1, mode: 1, rate: 0.35, ktrk: 0, lvl: 1, pan: 0, env: { a: 1, d: 120, s: 1, r: 80, loop: 0 } }; }],
+    'PLS raw, pw 0.1':            [1, s => { s.ops[0].wave = 3; s.ops[0].lvl = 1; s.ops[0].pure = 0; s.ops[0].pw = 0.1; }],
   };
-  const lines = []; let ok = true;
-  for (const [name, [pin, mut]] of Object.entries(cases)) {
-    const c = blank(); c.state.ops.forEach((o, i) => { o.on = i === 0; }); mut(c.state);
+  // Two seconds held, measured over the LAST one: the blocker's time constant is
+  // 1/(2*pi*5) = 32 ms and its note-on transient is not what "DC offset" means.
+  const dcOf = (K, mut) => {
+    const c = blank(K); c.state.ops.forEach((o, i) => { o.on = i === 0; }); mut(c.state);
     c.noteOn(60, noteFreq(60));
-    const { L } = pull(c, 48000);
-    const db = dB(Math.abs(mean(L))) - dB(peak(L));
-    const d = Math.abs(db - pin); ok = ok && d <= MARGIN;
-    lines.push(`  ${name.padEnd(28)} DC ${db.toFixed(1)} dB below peak  (pin ${pin.toFixed(1)} +-${MARGIN})`);
+    const W = pull(c, 48000 * 2).L.subarray(48000);
+    const m = Math.abs(mean(W));
+    return { p: dB(m) - dB(peak(W)), r: dB(m) - dB(rms(W)) };
+  };
+  const Pre = planted(PLANT_NO_DC);
+  const lines = []; let ok = true;
+  for (const [name, [prone, mut]] of Object.entries(cases)) {
+    const a = dcOf(StationCore, mut), b = dcOf(Pre, mut);
+    const pass = a.p <= GATE_PEAK && a.r <= GATE_RMS;
+    // The control rows must read the floor in BOTH builds; the DC-prone ones must
+    // read it in this build and BREACH it in the pre-blocker one.
+    const ctl = prone ? (b.p > GATE_PEAK || b.r > GATE_RMS)
+                      : (b.p <= GATE_PEAK && b.r <= GATE_RMS);
+    ok = ok && pass && ctl;
+    lines.push(`  ${name.padEnd(28)} DC/peak ${a.p.toFixed(1)}  DC/rms ${a.r.toFixed(1)} dB` +
+               `   pre-blocker ${b.p.toFixed(1)} / ${b.r.toFixed(1)}` +
+               `   (gate: <= ${GATE_PEAK} / ${GATE_RMS}${prone ? ', pre-blocker must breach' : ', control — floor in both'})`);
   }
-  lines.push(`  (the two worst rows are STRUCTURAL: a 10 % pulse is 80 % DC, and a 93-step LFSR has 48 ones to 45 zeros —`);
-  lines.push(`   but both are envelope-multiplied at the source, so every note-on is a thump, and 16 voices sum)`);
+  lines.push(`  (the two worst pre-blocker rows are STRUCTURAL, not bugs: a 10 % pulse is 80 % DC and a 93-step LFSR has`);
+  lines.push(`   48 ones to 45 zeros — but both are envelope-multiplied at the source, so each note-on was a thump and 16 summed)`);
   return { ok, lines };
+});
+
+// S21 — the blocker's shape, MEASURED rather than asserted from its algebra: the
+// lab rendered against the planted pre-blocker lab at one frequency at a time,
+// which is the only reading that can tell "a 5 Hz highpass" from "5 Hz written in
+// a comment". The row doubles as the must-read-zero control the DC rows need: at
+// 1 kHz the same difference has to come out at zero, or the probe is reporting a
+// constant offset and its -3 dB means nothing.
+check('S21', 'DC blocker response: -3 dB at DC_FC, audio band untouched (vs. the planted pre-blocker lab)', () => {
+  const Pre = planted(PLANT_NO_DC);
+  // FIXED mode puts the operator at an exact frequency in Hz, so every test tone
+  // is a whole number of cycles in the 1 s window and the RMS needs no window.
+  const level = (K, f) => {
+    const c = blank(K); c.state.ops.forEach((o, i) => { o.on = i === 0; });
+    const o = c.state.ops[0]; o.wave = 0; o.lvl = 1; o.mode = 2; o.fixed = f;
+    c.noteOn(60, noteFreq(60));
+    return rms(pull(c, 48000 * 3).L.subarray(48000, 96000));   // second 1 s: past the 32 ms settle
+  };
+  const fc = LAB_K.DC_FC;
+  const tones = [fc, 2 * fc, 5 * fc, 10 * fc, 20 * fc, 80 * fc, 200 * fc];
+  const resp = tones.map(f => ({ f, d: dB(level(StationCore, f)) - dB(level(Pre, f)) }));
+  const at = f => resp.find(r => r.f === f).d;
+  const lines = resp.map(r => `  ${String(r.f).padStart(5)} Hz   ${r.d >= 0 ? '+' : ''}${r.d.toFixed(4)} dB`);
+  const cut = Math.abs(at(fc) - (-3.0103)) <= 0.5;               // one-pole -3 dB point, +-0.5 dB
+  const band = Math.abs(at(20 * fc)) <= 0.1 && Math.abs(at(80 * fc)) <= 0.1;
+  const zero = Math.abs(at(200 * fc)) <= 0.01;
+  lines.push(`  gate: ${fc} Hz within 0.5 dB of -3.01 (${cut ? 'ok' : 'FAIL'})   ${20 * fc} and ${80 * fc} Hz within 0.1 dB (${band ? 'ok' : 'FAIL'})`);
+  lines.push(`  control  ${200 * fc} Hz must read ZERO to 0.01 dB (${zero ? 'ok' : 'FAIL'}) — a probe that cannot read zero cannot read -3`);
+  lines.push(`  (DC_FC is read out of the lab, not restated here, so moving the lab's cutoff moves this row)`);
+  return { ok: cut && band && zero, lines };
 });
 
 // S18 — the op-OFF envelope freeze. PINNED: `if(!o.on){outs[i]=0;continue;}`
