@@ -234,8 +234,11 @@ class TimeCore
   // tap/line is panned across the field by index × stereo width, so the swarm
   // of delays/room-modes spreads L↔R. Dry keeps the input's own stereo; the
   // wet is the decorrelated field. A deliberate divergence from the mono
-  // reference (which the parity oracle still guards via processExternal/render)
-  // — the effects are experimental (ADR-050). Buffer/feedback logic mirrors
+  // reference. NOTE (repo audit 2026-09-19, H3): no oracle drives
+  // processExternal* — `grep processExternal tools/` is empty — so this path
+  // is UNVERIFIED until the human rules check-or-park for the second shell
+  // (src/swarmfx_clap.cpp). The effects are experimental (ADR-050).
+  // Buffer/feedback logic mirrors
   // processSample exactly; only the wet accumulation is split L/R.
   void processExternalStereo(const float *inL, const float *inR, float *outL, float *outR,
                              int nSamples)
