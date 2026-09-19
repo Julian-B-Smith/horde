@@ -97,7 +97,7 @@ Both branches are computed and crossfaded; at 3 ops this is cheap and it keeps t
 
 ## 6. Noise channel (NS)
 
-- 15-bit LFSR, NES semantics: feedback = bit0 XOR bit1 (**LONG**, 32767-step) or bit0 XOR bit6 (**SHORT**, 93-step metallic/pitched). Output ±1 zero-order hold between clocks.
+- 15-bit LFSR, NES semantics: feedback = bit0 XOR bit1 (**LONG**, 32767-step) or bit0 XOR bit6 (**SHORT**, 93-step metallic/pitched). Output **±0.7** zero-order hold between clocks. *(Amended 2026-09-19 from ±1: the prototype has always rendered ±0.7 and ADR-003 makes the lab the reference, so the spec moves to it rather than the other way round — ADR-177 §3. The 3.098 dB gap scales every noise-as-PM index by 1.43, which is why it had to settle before any preset or golden existed.)*
 - Clock: `RATE` (normalized 0–1 → 0–SR/2, log-ish taper), `KEYTRK` toggle (clock scales with note frequency relative to middle C — short-period + keytrack is a playable melodic voice).
 - Own envelope; no PM input; **is a PM source** (matrix row NS — LFSR-modulated sines are a first-class texture, not an afterthought).
 - LFSR seeds nonzero per voice; seed value is implementer's choice but must be deterministic per note for replay determinism.
@@ -167,6 +167,7 @@ Default patch = prototype boot patch (soft EP: OP2 2:1 idx 2.6, OP3 14:1 idx 1.1
 4. Polyphony 16 with release-fade stealing (prototype: 8, hard shift).
 5. The prototype's master `tanh` drive is monitoring convenience only — engine output is clean; saturation belongs to the downstream chain.
 6. ScriptProcessor/main-thread rendering is a browser sandbox workaround; the DSP core class structure (usable standalone) is the pattern to keep.
+7. The LFSR **seed derivation** is not a parity item. The prototype derives it per voice from the patch seed and the voice slot (`mulberry32(seed ^ slot·2654435761)`, forced odd — ADR-177 §3, 2026-09-19; it was a constant `0x7FFF` for every voice, which summed a chord's noise coherently at +12 dB for 16). §6 leaves the value to the implementer, so the port may choose its own derivation; what IS gated is the rule (nonzero, per voice, deterministic per note), the periods (32767 / 93), and an N-voice/1-voice noise RMS ratio of ~√N rather than N.
 
 ## 12. Performance budget and acceptance
 
