@@ -345,6 +345,19 @@
   .cluster { background:var(--panel); border:var(--stroke) solid var(--line);
     border-radius:var(--r); padding:8px 10px; min-width:0; }
   h2 { font-size:11px; color:var(--pull); letter-spacing:1px; margin-bottom:6px; }
+  /* A CLUSTER INSIDE A CLUSTER gets the tile spacing the page grid gives its
+     top-level siblings, which multicol cannot supply here because a nested box
+     is in normal flow, not in the column track. SET's Performance panel is the
+     live case — gen_gui_controls emits its groups as `.cluster`, so "Intent bus"
+     and "Performance" sat flush under the outer <h2> and flush against each
+     other (human 2026-09-19: "not enough padding ... within the performance
+     section of the set page"). Keyed on NESTING, never on the instance: the
+     inner markup is GENERATED, so a hand-edit there is erased on the next
+     `gen_gui_controls.py` run while this rule survives it, and any future page
+     that nests a group inherits the spacing without a second rule. The gap
+     under the outer <h2> comes free — adjacent sibling margins collapse to
+     max(6,10), so the heading and the tiles breathe by the same 10px. */
+  .cluster .cluster { margin-top:10px; }
   /* No frame and no ground: the cluster around it is already the frame, and a
      panel inside a panel repeating its own title is two boxes saying one
      thing. The strip keeps its LAYOUT job (M/S + meter + rows) and drops the
@@ -390,6 +403,19 @@
      re-implementing all four against a hit map — a second copy of each rule.
      So only the RAIL is a canvas, and the well is styled DOM. */
   #mxPane { column-span:all; -webkit-column-span:all; }
+  /* THE SPANNING PANE HAS NO COLUMN ABOVE IT, so it has no column gap either:
+     `column-span:all` ends the multicol flow, and the 10px `column-gap` that
+     separates every other cluster simply does not apply across that break. The
+     pane therefore butted the clusters above it (human 2026-09-19: "there isn't
+     enough padding above the routing matrix on the fx page"). A 2026-09-17 pass
+     read the same report as an INTERNAL one and padded #mxBody below the <h2> —
+     which was a real defect but not this one, so the outside gap stayed zero.
+     20px = double the column gap, deliberately: the pane is a page-width break
+     in the flow, not another tile in it, and matching the 10px would have said
+     the opposite. Selector carries the page so it OUTRANKS the ADR-098 flow
+     rule's `margin:0 0 10px` — `#mxPane` alone loses to `#pg-FX.on > *`, which
+     is how a plain id rule here would have silently done nothing. */
+  #pg-FX.on > #mxPane { margin-top:20px; }
   /* Side by side at width, stacked when the page is narrow. The pane spans the
      FX page's columns because a 240px column cannot hold six slot cards left to
      right; nothing else on the page changes size. */
