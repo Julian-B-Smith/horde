@@ -2,7 +2,7 @@
  * ANY sample rate.
  *
  * B147 layer 2. `subdiv_check` (a gate, and NOT touched by this file) already
- * proves this at 44.1 kHz for chunks {N, 2048, 1024, 512, 256, 333, 127, 64}.
+ * proves this at 44.1 kHz for chunks {N, 2048, 1024, 512, 333, 256, 127, 64, 7, 1}.
  * The B147 layer-1 audit (docs/audits/2026-09-18-saw-engine-audit.md §3.3)
  * named the two holes it leaves:
  *
@@ -18,15 +18,16 @@
  * with the grid at both rates; 1 is the degenerate case; 256 is exactly the
  * 44.1 k grid and exactly NOT the 48 k one.
  *
- * THRESHOLD: 0.0 exactly, for the inert and gravity cases, at both rates. Not
- * a tolerance — the audit measured 0.0 exactly and a subdivision that changes
- * a sample by one ULP is a per-call integrator that was not there yesterday.
+ * THRESHOLD: 0.0 exactly, for every case, at both rates. Not a tolerance — the
+ * audit measured 0.0 exactly and a subdivision that changes a sample by one ULP
+ * is a per-call integrator that was not there yesterday.
  *
- * PAN MOTION IS REPORTED, NOT GATED. It is a deliberate per-render-call
- * integrator (ADR-064) and ruling it onto a fixed grid is a human decision
- * (queue row B151), exactly as `subdiv_check` declares. Its number is printed
- * with every other, so the exclusion is loud rather than quiet: an undeclared
- * exclusion is how a gate rots into decoration.
+ * PAN MOTION IS NOW GATED TOO (B151). It was a deliberate per-render-call
+ * integrator (ADR-064) and reported-not-gated here while that stood; ADR-177 §1
+ * ruled it onto the same fixed grid as a PAIRED edit to reference/swarmsaw.html
+ * and src/swarm_core.h, so the nine pan goldens re-baselined, parity held at
+ * 156/156, and the exclusion is retired rather than relaxed. All eight rows
+ * read 0.0 exactly.
  *
  * CONTROL (L0032): the max-difference detector is shown BOTH ways before its
  * zeros mean anything — a planted case (the same patch rendered from a
@@ -99,12 +100,12 @@ int main()
 
   const double rates[] = {44100.0, 48000.0};
   const int chunks[] = {1, 7, 64, 256, 333, 1024};
-  struct Case { const char *name; Patch pt; bool gated; };
+  struct Case { const char *name; Patch pt; };
   const Case cases[] = {
-      {"inert (no per-call integrator engaged)", {0.0, 0.0, 1234, 0.0}, true},
-      {"gravity engaged (ADR-086)",              {0.7, 0.0, 1234, 0.0}, true},
-      {"pan motion engaged (ADR-064 — B151 open)", {0.0, 0.6, 1234, 0.0}, false},
-      {"both engaged",                            {0.7, 0.6, 1234, 0.0}, false},
+      {"inert (no grid-driven integrator engaged)",        {0.0, 0.0, 1234, 0.0}},
+      {"gravity engaged (ADR-086)",                        {0.7, 0.0, 1234, 0.0}},
+      {"pan motion engaged (ADR-064, gridded by ADR-177 §1)", {0.0, 0.6, 1234, 0.0}},
+      {"both engaged",                                     {0.7, 0.6, 1234, 0.0}},
   };
 
   for (const auto &cs : cases)
@@ -120,9 +121,7 @@ int main()
       }
       char detail[200];
       std::snprintf(detail, sizeof(detail), "worst %.10g at chunk %d, %.1f kHz", worst, worstChunk, sr / 1000);
-      if (cs.gated) check(worst == 0.0, cs.name, detail);
-      else std::printf("%-6s %s  (%s)  [B151 open — reported, not gated]\n",
-                       worst == 0.0 ? "PASS" : "KNOWN", cs.name, detail);
+      check(worst == 0.0, cs.name, detail);
     }
 
   std::printf("\n-- controls ------------------------------------------------------\n");
@@ -161,7 +160,7 @@ int main()
     check(planted > 0.01, "CONTROL must-read-large: a planted divergence", d);
   }
 
-  std::printf("\nblocksize_check: %s (%d failures; pan motion reported pending B151)\n",
+  std::printf("\nblocksize_check: %s (%d failures; every case gated, pan motion included since B151)\n",
               g_failures ? "RED" : "GREEN", g_failures);
   return g_failures ? 1 : 0;
 }
