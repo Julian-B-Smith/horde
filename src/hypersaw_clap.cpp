@@ -619,9 +619,22 @@ static const ParamDef kParams[] = {
     {178, "specimen", "Specimen (CHROME-002)", 0, 1, 1, true, nullptr},
     /* ADR-150: MAIN's XY is its OWN pad (human: "the main XY needs to be its
        own XY separate from the OSC XYs; I didn't realize it wasn't yet") —
-       its own assignment pair, not a view of the active osc's. */
-    {179, "mainAsnX", "Main X > Macro", 0, 8, 0, true, nullptr},
-    {180, "mainAsnY", "Main Y > Macro", 0, 8, 1, true, nullptr},
+       its own assignment pair, not a view of the active osc's.
+
+       WIDENED 0..8 -> 0..10 on 2026-09-19 (the human: "let's make pitch bend and
+       mod wheel accessible to the MAIN XY as well as the macros"). The two new
+       values are APPENDED, never inserted: 0..7 stay Macro 1..8 and 8 stays
+       None, so every stored patch keeps its meaning bit for bit. 9 = Pitch
+       Bend, 10 = Mod Wheel — both are written by the EDITOR through the paths
+       those signals already own (param 38 for bend, hostIf.setModWheel for the
+       wheel), so the shell learns the two values only here and in the decoder
+       below.
+
+       The host-facing NAME still reads "> Macro" although 9/10 are not macros:
+       renaming a shipped parameter is a public-interface change and needs the
+       human's gate, so it is left for that ruling rather than taken here. */
+    {179, "mainAsnX", "Main X > Macro", 0, 10, 0, true, nullptr},
+    {180, "mainAsnY", "Main Y > Macro", 0, 10, 1, true, nullptr},
     /* ADR-150: continuous per-osc pitch, in semitones — the transposition
        knobs (octave/semi) are stepped so the morph ARGMAX-jumps them; this
        one BLENDS. Per-osc (not in kGlobalIds), so morphInit auto-includes it
@@ -3475,7 +3488,14 @@ struct Plugin
 
   /* The pad's pointer id for one axis, or -1 for "None" (assignment 8). One
      decoder, so the gesture latch and the spring's drag target cannot come to
-     disagree about which parameter the pad is reading. */
+     disagree about which parameter the pad is reading.
+
+     9 (Pitch Bend) and 10 (Mod Wheel) also return -1, and that is the CONTRACT,
+     not an oversight: the intent bus's pad pointer is a macro or nothing —
+     SPEC-INTENT-BUS gives the pad an INTENT to displace, and neither bend nor
+     the wheel is one. An axis aimed at them is invisible to the latch and to
+     the spring, exactly like None, while the editor writes the signal through
+     the path that signal already owns. */
   int intentPadId(int axis) const
   {
     const int a = mainAsn[axis];
