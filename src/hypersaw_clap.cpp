@@ -7084,7 +7084,6 @@ extern "C" void hypersaw_debug_state(const clap_plugin_t *p, char *out, uint32_t
   const std::string j = self(p)->stateJson();
   std::snprintf(out, cap, "%s", j.c_str());
 }
-extern "C" void hypersaw_debug_panic(const clap_plugin_t *p) { self(p)->panicWithDump(); }
 extern "C" bool hypersaw_debug_exempt(const clap_plugin_t *p, uint32_t id) { return self(p)->morphToggleExempt((clap_id)id); }
 /* The GUI bridge's other two corner verbs, headless — the same reason the
    exempt door above exists. B89 2c (e) has to prove capture still bakes and an
@@ -7103,8 +7102,6 @@ extern "C" const char *hypersaw_debug_exemptjson(const clap_plugin_t *p)
    and the bridge that normally carries it is a webview no oracle can drive. */
 extern "C" const char *hypersaw_debug_modroutes(const clap_plugin_t *p)
 { static std::string j; j = self(p)->modRoutesJson(); return j.c_str(); }
-extern "C" bool hypersaw_debug_modpolarity(const clap_plugin_t *p, int idx, int pol)
-{ return self(p)->modSetPolarity(idx, pol); }
 /* ADR-088 (B50) — a window onto the LIVE MATRIX, not onto readParam.
    Deliberately not `readParam`: a round-trip through one accessor agrees with
    itself (the state_check trap, L0032), so the round-trip probe would certify
@@ -7290,16 +7287,10 @@ extern "C" bool hypersaw_debug_apply(const clap_plugin_t *p, const char *json)
 {
   return self(p)->applyStateJson(json ? json : "");
 }
-/* B100: the patch's pinned engine revision, and the opt-forward hook the
-   patch-level GUI control will bind (Plugin::setEngineRevision — the GUI
-   wiring is a follow-up; this is the shell side only). */
+/* B100: the patch's pinned engine revision. */
 extern "C" int hypersaw_debug_engine_revision(const clap_plugin_t *p)
 {
   return self(p)->engineRevision();
-}
-extern "C" void hypersaw_debug_set_engine_revision(const clap_plugin_t *p, int rev)
-{
-  self(p)->setEngineRevision(rev);
 }
 /* 2026-09-11 chord-transposition hunt: the wheel lane's EMITTED value (what
    updateTuneAll multiplies every voice by) and its anchor key. A probe reads

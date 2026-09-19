@@ -18,7 +18,12 @@
  * src/hypersaw_clap_entry.h (they belong to the exported entry's contract).
  *
  * The "owner" named on each line is the check that would fail if the export
- * lied; exports marked NO CALLER have none in this repo.
+ * lied. AN EXPORT WITH NO OWNER IS DELETED, NOT MARKED: three (panic,
+ * modpolarity, set_engine_revision) sat here marked NO CALLER until
+ * 2026-09-19, which is a debug surface maintained for nobody — every one
+ * of them still compiled, still linked, and still had to be kept honest
+ * against a shell method it was the only reader of. Restore one from git
+ * history the day a probe needs it.
  */
 #pragma once
 
@@ -49,8 +54,6 @@ extern "C"
      statefix_common.h. */
   int hypersaw_debug_engine_revision(const clap_plugin_t *p);
 
-  /* Forces the engine revision (fixture setup). NO CALLER. */
-  void hypersaw_debug_set_engine_revision(const clap_plugin_t *p, int rev);
 
   /* --- Morph corners, owners, exemptions --------------------------------- */
 
@@ -96,8 +99,6 @@ extern "C"
      declared polarity. Owner: polarity_check, intent_check. */
   const char *hypersaw_debug_modroutes(const clap_plugin_t *p);
 
-  /* Sets route `idx`'s polarity. NO CALLER. */
-  bool hypersaw_debug_modpolarity(const clap_plugin_t *p, int idx, int pol);
 
   /* --- Routing matrix (ADR-088; `from` is a ROW, not a source index) ------ */
 
@@ -209,9 +210,4 @@ extern "C"
      Owner: preset_probe, bank_check, penv_check. */
   void hypersaw_debug_voices(const clap_plugin_t *p, char *out, uint32_t cap);
 
-  /* --- Forensics --------------------------------------------------------- */
-
-  /* The GUI panic button's dump, headless. NO CALLER (oracles use the entry
-     header's hypersaw_test_panic, which also asserts the ordering). */
-  void hypersaw_debug_panic(const clap_plugin_t *p);
 }
