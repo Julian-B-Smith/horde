@@ -168,9 +168,10 @@ int main()
               morphable, structural, device);
 
   /* ---- the assertions ---- */
-  // 245 since B89 phase 2b appended intentBus (id 266). The pin is the point: it is
-  // meant to be moved deliberately, by the change that adds the row.
-  check(baseRows == 245, "T1a the table is the 245 frozen kParams rows");
+  // 246 since B89 phase 2d appended intentLatch (id 268); 245 was 2b's intentBus
+  // (266). The pin is the point: it is meant to be moved deliberately, by the
+  // change that adds the row.
+  check(baseRows == 246, "T1a the table is the 246 frozen kParams rows");
   check(unclassified == 0, "T1b every host-exposed id carries a class (no -1)");
 
   const std::vector<uint32_t> field = morphFieldIds(p);

@@ -566,6 +566,10 @@ extern "C" const char *hypersaw_debug_intent_names(const clap_plugin_t *);
 extern "C" int hypersaw_debug_intent_plant(const clap_plugin_t *);
 extern "C" int hypersaw_debug_intent_commit(const clap_plugin_t *, int);
 extern "C" bool hypersaw_debug_intent_break_atom(const clap_plugin_t *, int);
+extern "C" void hypersaw_debug_gesture(const clap_plugin_t *, uint32_t, bool);
+extern "C" void hypersaw_debug_intent_puck(const clap_plugin_t *, double *, double *);
+extern "C" int hypersaw_debug_intent_homeowner(const clap_plugin_t *);
+extern "C" const char *hypersaw_debug_modroutes(const clap_plugin_t *);
 extern "C" void hypersaw_debug_capture(const clap_plugin_t *, int);
 extern "C" bool hypersaw_debug_exempt(const clap_plugin_t *, uint32_t);
 extern "C" const char *hypersaw_debug_undo(const clap_plugin_t *, const char *, int);
@@ -2155,6 +2159,342 @@ void tg()
   say(std::fabs(held.atA - held.atB) < 1e-9 && std::fabs(held.atA - narrowLo) > 1e-3, msg);
 }
 
+/* ---- T8: the performance pad, through the plugin (B89 phase 2d) ----------
+   The four t8-* GOLDENS above already hold IntentCore::padStep to the
+   prototype's own trajectory at 1e-6 (release/return, latch, retarget, the
+   stiff drag spring), so what is left for the instrument is everything the
+   header cannot see: that the MAIN pad's two host parameters are the pointer,
+   that the gesture BRACKET is what says "held", that `home` comes off the same
+   walk as every other atom and flips with the field, and that the displacement
+   reaches the engine through the bindings.
+
+   THE PAD'S TWO HOST PARAMETERS are the macros ADR-150's assignment names —
+   ids 179/180 hold the assignment, so by default the pointer is macro 1 (166,
+   x) and macro 2 (167, y). The shell writes NEITHER: the puck is separate
+   state, which is why a spring return cannot fight a host automating the
+   parameter it reads. T8 therefore drives the pad by writing those two ids,
+   bracketed by hypersaw_debug_gesture — the editor's own verb, not a
+   test-only door.
+
+   Y IS FLIPPED ONCE, in intentStep: a knob reads up (1 = top) and the pad's
+   coordinate space is the canvas's (y down), which is the space §4.4 stores
+   `home` in. So knob 0.45 is puck y 0.55, and every number below is written
+   in the pad's space.
+
+   THE SETTLING TIME IS DERIVED, never typed: the resting spring is
+   k = 90 1/s^2, d = 11 1/s (IntentCore::Spring — read from the core here, so a
+   constant that moved would move this budget with it). zeta = d/(2*sqrt(k))
+   = 0.580 < 1, so the return is underdamped and its envelope is
+   exp(-(d/2) t)/sqrt(1-zeta^2). Worst case the puck is a full pad width from
+   home, so the intent starts at |X| = 2 before §4.4's +-1 clamp, and settling
+   to 1e-3 needs t = ln(2/(1e-3*sqrt(1-zeta^2)))/(d/2). */
+void t8()
+{
+  std::printf("\nT8 — the performance pad: the spring, the bracket, and the home that flips\n");
+  const IntentCore::Spring sp;
+  const double zeta = sp.dRest / (2.0 * std::sqrt(sp.kRest));
+  const double settleS = std::log(2.0 / (1e-3 * std::sqrt(1.0 - zeta * zeta))) / (sp.dRest / 2.0);
+  // The control rate is morphStep's grid, and one Live block IS one tick.
+  const int settleTicks = (int)std::ceil(settleS * kSampleRate / (double)kBlock);
+  // The dragging spring is stiffer (k=600, d=40); same derivation, to 1e-4.
+  const double dragS = std::log(1.0 / (1e-4 * std::sqrt(1.0 - 0.8165 * 0.8165))) / (sp.dDrag / 2.0);
+  const int dragTicks = (int)std::ceil(dragS * kSampleRate / (double)kBlock);
+  std::printf("       derived from k=%.0f d=%.0f: zeta %.3f, settling to |X|<=1e-3 in %.3f s "
+              "(%d ticks); the drag spring converges in %.3f s (%d ticks)\n",
+              sp.kRest, sp.dRest, zeta, settleS, settleTicks, dragS, dragTicks);
+
+  constexpr clap_id kPadX = 166, kPadY = 167;   // the default MAIN assignment
+  const double kHome0X = 0.30, kHome0Y = 0.70;   // corner A's home, pad space
+  const double kHome3X = 0.70, kHome3Y = 0.80;   // corner D's, for the retarget
+  const double kBaseAmt = 0.40, kBaseDet = 0.30, kDepth = 0.5;
+  // Dragged to pad (0.55, 0.55): X = (0.55-0.30)*2 = 0.5, Y = (0.70-0.55)*2 = 0.30.
+  const double kDragPadX = 0.55, kDragPadY = 0.55;
+  const double wantX = (kDragPadX - kHome0X) * 2.0, wantY = (kHome0Y - kDragPadY) * 2.0;
+
+  /* One rig, parked on corner A. An EXACT corner is one-hot under both laws,
+     so every atom — `home` among them — is corner A's, and nothing below
+     depends on the seed. */
+  auto build = [&](Rig &rig) {
+    rig.setCorner(0, kFx1Amt, kBaseAmt);
+    rig.setCorner(0, kDetune, kBaseDet);
+    rig.writeCorner(0);
+    rig.f.read(rig.p);
+    rig.push({{kMorphOn, 1}, {kIntentFlag, 1}, {kMorphGlide, 0}, {kMorphTemp, 1},
+              {kMorphSeed, 1024}, {kPadX, 0.5}, {kPadY, 0.5}});
+    char tok[128];
+    std::string body;
+    std::snprintf(tok, sizeof tok, ",B:%u:0:0:%.17g", (unsigned)kFx1Amt, kDepth);
+    body += tok;
+    std::snprintf(tok, sizeof tok, ",B:%u:0:1:%.17g", (unsigned)kDetune, kDepth);
+    body += tok;
+    std::snprintf(tok, sizeof tok, ",H:0:%.17g:%.17g", kHome0X, kHome0Y);
+    body += tok;
+    std::snprintf(tok, sizeof tok, ",H:3:%.17g:%.17g", kHome3X, kHome3Y);
+    body += tok;
+    rig.intentChunk(body);
+    rig.arm(1024);
+  };
+  // The pointer, written to the two host parameters the pad reads, inside a
+  // gesture bracket — the shipped path a GUI drag takes, end to end.
+  auto grab = [&](Rig &rig, Live &live, double padX, double padY, int ticks) {
+    hypersaw_debug_gesture(rig.p, kPadX, true);
+    hypersaw_debug_gesture(rig.p, kPadY, true);
+    EvList ev;
+    ev.push(kPadX, padX);
+    ev.push(kPadY, 1.0 - padY);   // knob space -> pad space, once
+    live.run(ticks, &ev);
+  };
+  auto release = [&](Rig &rig) {
+    hypersaw_debug_gesture(rig.p, kPadX, false);
+    hypersaw_debug_gesture(rig.p, kPadY, false);
+  };
+  auto puck = [&](const clap_plugin_t *p, double *x, double *y) {
+    hypersaw_debug_intent_puck(p, x, y);
+  };
+
+  char msg[520];
+
+  /* T8a — latch OFF. Drag, hold, release, and the puck returns to the home
+     that is current; X and Y go to zero and the two bound parameters go back
+     to their corner's base. The drag half is the anchor (L0033): a run where
+     the puck never moved would satisfy "returns to home" by never leaving. */
+  {
+    Rig rig;
+    build(rig);
+    Live live(rig.p);
+    live.run(settleTicks);                       // settle onto A's home first
+    double rx = 0, ry = 0;
+    puck(rig.p, &rx, &ry);
+    const double restAmt = rig.live(kFx1Amt), restDet = rig.live(kDetune);
+
+    grab(rig, live, kDragPadX, kDragPadY, dragTicks);
+    double dx = 0, dy = 0;
+    puck(rig.p, &dx, &dy);
+    const double heldAmt = rig.live(kFx1Amt), heldDet = rig.live(kDetune);
+
+    release(rig);
+    live.run(settleTicks);
+    double bx = 0, by = 0;
+    puck(rig.p, &bx, &by);
+    const double backAmt = rig.live(kFx1Amt), backDet = rig.live(kDetune);
+
+    std::snprintf(msg, sizeof msg,
+                  "T8a at rest the puck sits on corner A's home (%.4f, %.4f) vs the stored "
+                  "(%.2f, %.2f), and the two bound parameters read their base (%.6g / %.6g "
+                  "vs %.2f / %.2f)",
+                  rx, ry, kHome0X, kHome0Y, restAmt, restDet, kBaseAmt, kBaseDet);
+    say(std::fabs(rx - kHome0X) < 1e-3 && std::fabs(ry - kHome0Y) < 1e-3 &&
+            std::fabs(restAmt - kBaseAmt) < 1e-3 && std::fabs(restDet - kBaseDet) < 1e-3,
+        msg);
+
+    std::snprintf(msg, sizeof msg,
+                  "T8b HELD, the puck is at the pointer (%.4f, %.4f vs %.2f, %.2f) and §4.4's "
+                  "mapping reaches the engine: X = %.4f -> fx1amt %.6g (predicted %.6g), "
+                  "Y = %.4f -> detune %.6g (predicted %.6g)",
+                  dx, dy, kDragPadX, kDragPadY, wantX, heldAmt, kBaseAmt + kDepth * wantX, wantY,
+                  heldDet, kBaseDet + kDepth * wantY);
+    say(std::fabs(dx - kDragPadX) < 1e-3 && std::fabs(dy - kDragPadY) < 1e-3 &&
+            std::fabs(heldAmt - (kBaseAmt + kDepth * wantX)) < 2e-3 &&
+            std::fabs(heldDet - (kBaseDet + kDepth * wantY)) < 2e-3,
+        msg);
+
+    std::snprintf(msg, sizeof msg,
+                  "T8c RELEASED, within the derived settling time (%.3f s) the puck is back on "
+                  "home (%.6f, %.6f), so X and Y are %.2e / %.2e and the parameters are back at "
+                  "base (%.6g / %.6g); anchor: the drag had moved them by %.3g / %.3g",
+                  settleS, bx, by, std::fabs((bx - kHome0X) * 2), std::fabs((kHome0Y - by) * 2),
+                  backAmt, backDet, std::fabs(heldAmt - restAmt), std::fabs(heldDet - restDet));
+    say(std::fabs((bx - kHome0X) * 2) <= 1e-3 && std::fabs((kHome0Y - by) * 2) <= 1e-3 &&
+            std::fabs(backAmt - kBaseAmt) < 1e-3 && std::fabs(backDet - kBaseDet) < 1e-3 &&
+            std::fabs(heldAmt - restAmt) > 0.1 && std::fabs(heldDet - restDet) > 0.05,
+        msg);
+  }
+
+  /* T8d — THE HOME OWNER FLIPS MID-RETURN. The morph jumps from corner A to
+     corner D while the puck is on its way home, so the TARGET jumps by 0.4 in
+     x. The puck's own position must not: it is an integrator's state, and a
+     retarget is a change of force, not of position. Sampled every tick, so a
+     one-tick jump cannot hide between reads. */
+  {
+    Rig rig;
+    build(rig);
+    Live live(rig.p);
+    live.run(settleTicks);
+    grab(rig, live, kDragPadX, kDragPadY, dragTicks);
+    release(rig);
+    const int ownerBefore = hypersaw_debug_intent_homeowner(rig.p);
+
+    double px = 0, py = 0, worstStep = 0, worstDrag = 0;
+    puck(rig.p, &px, &py);
+    // The drag phase's own biggest step, measured on the SAME rig, as the
+    // scale a "continuous" claim is judged against rather than a round number.
+    {
+      double ax = px, ay = py;
+      Rig scratch;
+      build(scratch);
+      Live sl(scratch.p);
+      sl.run(settleTicks);
+      hypersaw_debug_gesture(scratch.p, kPadX, true);
+      hypersaw_debug_gesture(scratch.p, kPadY, true);
+      EvList ev;
+      ev.push(kPadX, kDragPadX);
+      ev.push(kPadY, 1.0 - kDragPadY);
+      puck(scratch.p, &ax, &ay);
+      for (int t = 0; t < dragTicks; t++)
+      {
+        sl.run(1, t == 0 ? &ev : nullptr);
+        double nx = 0, ny = 0;
+        puck(scratch.p, &nx, &ny);
+        const double s = std::max(std::fabs(nx - ax), std::fabs(ny - ay));
+        if (s > worstDrag) worstDrag = s;
+        ax = nx; ay = ny;
+      }
+    }
+
+    const int switchTick = 12;
+    for (int t = 0; t < settleTicks; t++)
+    {
+      if (t == switchTick)
+      {
+        EvList ev;
+        ev.push(kMorphX, 1.0);
+        ev.push(kMorphY, 1.0);
+        live.run(1, &ev);
+      }
+      else live.run(1);
+      double nx = 0, ny = 0;
+      puck(rig.p, &nx, &ny);
+      const double s = std::max(std::fabs(nx - px), std::fabs(ny - py));
+      if (s > worstStep) worstStep = s;
+      px = nx; py = ny;
+    }
+    const int ownerAfter = hypersaw_debug_intent_homeowner(rig.p);
+    double hx = 0, hy = 0;
+    hypersaw_debug_intent_home(rig.p, ownerAfter < 0 ? 0 : ownerAfter, &hx, &hy);
+
+    std::snprintf(msg, sizeof msg,
+                  "T8d the home owner flips mid-return (corner %d -> %d, home (%.2f,%.2f) -> "
+                  "(%.2f,%.2f): the TARGET jumps 0.40 in x) and the puck's own position stays "
+                  "continuous — worst single-tick step %.4g, against the drag phase's own "
+                  "%.4g — ending on the NEW home (%.6f, %.6f)",
+                  ownerBefore, ownerAfter, kHome0X, kHome0Y, hx, hy, worstStep, worstDrag, px, py);
+    say(ownerBefore == 0 && ownerAfter == 3 && worstStep <= worstDrag &&
+            std::fabs(px - kHome3X) < 1e-3 && std::fabs(py - kHome3Y) < 1e-3,
+        msg);
+  }
+
+  /* T8e — THE MUST-FAIL CONTROL. Latch on, the same drag and the same release:
+     the puck must NOT return. Without it T8c's "settles to zero" is equally
+     consistent with a puck that never left home in the first place. */
+  {
+    Rig rig;
+    build(rig);
+    rig.push({{(clap_id)268, 1.0}});
+    Live live(rig.p);
+    live.run(settleTicks);
+    grab(rig, live, kDragPadX, kDragPadY, dragTicks);
+    release(rig);
+    live.run(settleTicks);
+    double lx = 0, ly = 0;
+    puck(rig.p, &lx, &ly);
+    const double heldAmt = rig.live(kFx1Amt);
+    std::snprintf(msg, sizeof msg,
+                  "T8e CONTROL: with the latch (id 268) ON the released puck does NOT return — "
+                  "it sits at (%.6f, %.6f), %.3g from corner A's home, so X is still %.4f and "
+                  "fx1amt still reads %.6g rather than its base %.2f",
+                  lx, ly, std::fabs(lx - kHome0X), (lx - kHome0X) * 2, heldAmt, kBaseAmt);
+    say(std::fabs(lx - kDragPadX) < 1e-6 && std::fabs(ly - kDragPadY) < 1e-6 &&
+            std::fabs(lx - kHome0X) > 0.1 && std::fabs(heldAmt - kBaseAmt) > 0.1,
+        msg);
+  }
+}
+
+/* ---- TS: ADR-152's macro suspension, pinned under the flag ---------------
+   Acceptance (e) of the 2d brief: a macro drives intents OR routes, never
+   both. The suspension is ADR-152's and predates the bus (modStep multiplies
+   the macro family by zero while the morph is on), but 2d is the increment
+   that gives a macro a SECOND job, so "exactly 0" stops being a fact about
+   one feature and becomes the boundary between two. Pinned here, with the
+   route proven live in the other half of the same rig — a route that was
+   never wired would report "contributes 0" just as loudly (L0032).
+
+   MEASURED ON THE RENDER, not on get_value. A routed destination's readback is
+   the modulation BASE by construction (ADR-136's intercept: readParam returns
+   `md->base` for any id the matrix owns), so get_value cannot see a route's
+   contribution at all — it reported "no movement" for a route that was
+   demonstrably in the table. Rendering asks the only question that matters
+   anyway: does moving this macro change what comes out. */
+void ts()
+{
+  std::printf("\nTS — a macro route contributes exactly 0 while the flag and the morph are on\n");
+  /* THE CORNERS ARE LEFT AT THEIR DEFAULTS, which is why this does not use
+     Rig. `authorCorners` sets every continuous slot to 0.30..0.75 of its
+     range, and for `attack` (0.001..2 s) that is 0.60..1.50 s — longer than
+     render()'s ~1 s window, so a morph-ON render of an authored patch has an
+     amplitude envelope that never opens and measures rms EXACTLY 0. This
+     test's own anchor (rms > 1e-4) caught it. Unauthored corners hold the
+     per-slot defaults (morphInit), so the field applies the shipped default
+     patch — audible, and the only thing that differs between the two renders
+     compared below is macro 1.
+
+     The destination is DETUNE and the morph sits at (0.37, 0.61): both are
+     S3's choices, made there for the same reason — detune is continuous, in
+     the field, and audibly changes the swarm. An FX amount would have been the
+     tidier subject and is the trap: fx1type ships at 0, so a route to fx1amt
+     moves a number nothing reads, and the CONTROL reported "no movement" for a
+     route that was demonstrably in the table. */
+  auto leg = [&](bool morphOn, double macro, std::vector<float> &out) {
+    const clap_plugin_t *p = makePlugin();
+    auto push = [&](const std::vector<std::pair<clap_id, double>> &kv) {
+      EvList ev;
+      for (size_t i = 0; i < kv.size(); i++) ev.push(kv[i].first, kv[i].second);
+      paramsOf(p)->flush(p, &ev.list, &kOut);
+      drain(p);
+    };
+    push({{kMorphOn, morphOn ? 1.0 : 0.0}, {kIntentFlag, 1}, {kMorphGlide, 0},
+          {kMorphTemp, 1}, {kMorphSeed, 1024}, {kMorphX, 0.37}, {kMorphY, 0.61},
+          {kMacro1, macro}});
+    // A generic route macro 1 (source slot 2) -> detune at full depth, authored
+    // through the shipped `modroutes=` chunk — the only author of a route this
+    // oracle has, and the same one a saved patch uses.
+    char tok[64];
+    std::snprintf(tok, sizeof tok, "2:%u:1;", (unsigned)kDetune);
+    std::string blob = saveChunk(p);
+    blob += std::string("modroutes=") + tok + "\n";
+    if (!loadChunk(p, blob)) say(false, "modroutes chunk load refused");
+    push({{kMorphOn, morphOn ? 1.0 : 0.0}, {kIntentFlag, 1}, {kMacro1, macro}});
+    render(p, out);
+    p->destroy(p);
+  };
+  std::vector<float> onZero, onFull, offZero, offFull;
+  leg(true, 0.0, onZero);
+  leg(true, 1.0, onFull);
+  leg(false, 0.0, offZero);
+  leg(false, 1.0, offFull);
+  auto worst = [](const std::vector<float> &a, const std::vector<float> &b) {
+    double w = 0;
+    const size_t n = a.size() < b.size() ? a.size() : b.size();
+    for (size_t i = 0; i < n; i++)
+    {
+      const double d = std::fabs((double)a[i] - (double)b[i]);
+      if (d > w) w = d;
+    }
+    return w;
+  };
+  char msg[460];
+  std::snprintf(msg, sizeof msg,
+                "TS1 morph ON + flag ON: a full-depth macro-1 route to detune, with macro 1 at 0 "
+                "and at 1, renders BIT-IDENTICALLY (worst sample diff %.3g over %zu samples; rms "
+                "%.5g, so the equality is not silence) — the route contributes exactly 0",
+                worst(onZero, onFull), onZero.size(), rms(onZero));
+  say(worst(onZero, onFull) == 0.0 && rms(onZero) > 1e-4, msg);
+  std::snprintf(msg, sizeof msg,
+                "TS2 CONTROL: the same route with the morph OFF changes the render (worst sample "
+                "diff %.4g, rms %.5g vs %.5g) — TS1 is ADR-152's suspension, not an unwired route",
+                worst(offZero, offFull), rms(offZero), rms(offFull));
+  say(worst(offZero, offFull) > 1e-4, msg);
+}
+
 void section()
 {
   std::printf("\n========= SECTION T — SPEC-INTENT-BUS §12, through the plugin =========\n");
@@ -2163,10 +2503,12 @@ void section()
   t4();
   t5();
   t6();
+  t8();
   t9();
   t10();
   te();
   tg();
+  ts();
 }
 
 }   // namespace spec
