@@ -92,6 +92,11 @@ footer{margin-top:10px;font-size:8.5px;color:var(--ink-soft);display:flex;justif
     <div class="hgroup"><span class="lbl">ALG</span><div class="btnrow" id="alg-btns"></div></div>
     <div class="hgroup" style="width:170px"><span class="lbl">Master</span>
       <input type="range" id="master" min="0" max="1" step="0.01" value="0.75"></div>
+    <!-- The keyboard's play velocity. It is not a patch parameter — it stands in
+         for the note velocity a host sends — but without it the per-op VEL
+         sensitivity would be an invisible feature (LIBRARY L0023). -->
+    <div class="hgroup" style="width:150px"><span class="lbl">Vel</span>
+      <input type="range" id="playvel" min="0" max="1" step="0.01" value="1"></div>
     <span id="power-note">CLICK / PLAY A KEY TO POWER ON</span>
   </div>
 
@@ -174,10 +179,16 @@ function mkState(){
     pitchEnv:{amt:0,dec:80},
     table:new Array(32).fill(8),
     matrix:[[0,0,0],[0,0,0],[0,0,0],[0,0,0]],   // rows O1 O2 O3 NS → cols O1 O2 O3
+    // velSens 0..1 (SPEC-STATION §8/§10, added 2026-09-19): velocity scales the
+    // op's output by 1 - velSens*(1 - vel), applied AT THE SOURCE beside the
+    // envelope, so it reaches the matrix tap as well as the mix — which is the
+    // whole point (a modulator op with velSens > 0 is how velocity reaches
+    // TIMBRE in PM; a mix-only scale could never do that, because a pure
+    // modulator has lvl 0). Default 0 makes it inert bit for bit.
     ops:[
-      {on:1,wave:0,mode:0,coarse:1, fine:0,semis:0,fixed:220,lvl:0.85,pan:0,pw:0.5,pure:1,qnt:0,sync:0,env:{a:3,d:420,s:0.55,r:260,loop:0}},
-      {on:1,wave:0,mode:0,coarse:2, fine:0,semis:0,fixed:440,lvl:0,   pan:0,pw:0.5,pure:1,qnt:0,sync:0,env:{a:2,d:180,s:0,   r:120,loop:0}},
-      {on:1,wave:0,mode:0,coarse:14,fine:0,semis:0,fixed:880,lvl:0,   pan:0,pw:0.5,pure:1,qnt:0,sync:0,env:{a:2,d:60, s:0,   r:60, loop:0}},
+      {on:1,wave:0,mode:0,coarse:1, fine:0,semis:0,fixed:220,lvl:0.85,pan:0,pw:0.5,pure:1,qnt:0,sync:0,velSens:0,env:{a:3,d:420,s:0.55,r:260,loop:0}},
+      {on:1,wave:0,mode:0,coarse:2, fine:0,semis:0,fixed:440,lvl:0,   pan:0,pw:0.5,pure:1,qnt:0,sync:0,velSens:0,env:{a:2,d:180,s:0,   r:120,loop:0}},
+      {on:1,wave:0,mode:0,coarse:14,fine:0,semis:0,fixed:880,lvl:0,   pan:0,pw:0.5,pure:1,qnt:0,sync:0,velSens:0,env:{a:2,d:60, s:0,   r:60, loop:0}},
     ],
     noise:{on:0,mode:0,rate:0.35,ktrk:1,lvl:0.5,pan:0,env:{a:1,d:120,s:0,r:80,loop:0}},
   };
@@ -255,14 +266,17 @@ class StationCore{
     const r=mulberry32((this.state.seed^Math.imul(slot|0,2654435761))>>>0);
     return (Math.floor(r()*32767)|1)&0x7FFF;   // odd ⇒ 15-bit and never 0
   }
-  mkVoice(note,freq,slot){
-    return {note,freq,gate:true,ph:[0,0,0],prev:[0,0,0,0],
+  mkVoice(note,freq,slot,vel=1){
+    return {note,freq,vel,gate:true,ph:[0,0,0],prev:[0,0,0,0],
       env:[mkEnv(),mkEnv(),mkEnv(),mkEnv()],pT:0,
       lfsr:this.lfsrSeed(slot),nphase:0,nout:0,dead:false};
   }
-  noteOn(note,freq){
+  // `vel` is 0..1 and DEFAULTS TO 1, so every existing call site — the page's
+  // keyboard, the golden generator, the lab harness — renders exactly what it
+  // rendered before this parameter existed.
+  noteOn(note,freq,vel=1){
     if(this.voices.length>=8) this.voices.shift();
-    const v=this.mkVoice(note,freq,this.voices.length);
+    const v=this.mkVoice(note,freq,this.voices.length,vel);
     this.voices.push(v);
     return v;
   }
@@ -315,7 +329,18 @@ class StationCore{
         const outs=[0,0,0];
         for(let i=0;i<3;i++){
           const o=s.ops[i];
-          if(!o.on){outs[i]=0;continue;}
+          // An op switched OFF mid-note still RUNS ITS ENVELOPE. OFF silences
+          // the op's output and its matrix contribution, nothing else, so
+          // re-enabling mid-note resumes at the live stage instead of the level
+          // the envelope froze at. It used to `continue` past envStep: audit S9
+          // measured the envelope stuck at 0.32392 / stage 1 for 500 ms and a
+          // 1.645e-3 click the instant the op came back, and in a plugin the ON
+          // switch is automatable, so the stale level is reachable. This is the
+          // same rule the Nyquist mute below already follows for the same
+          // reason. Ruled by the lead 2026-09-19 under the human's "I'll go
+          // with whatever you recommend on the Station specs" (ROADMAP B162);
+          // SPEC-STATION §3.2/§7 carry the sentence.
+          if(!o.on){outs[i]=0; this.envStep(v.env[i],o.env,v.gate); continue;}
           // The Nyquist limit is enforced in Hz and MUTES the operator rather
           // than detuning it (ADR-177 §3). It used to be `min(opFreq/SR, 0.45)`
           // — a clamp on the phase INCREMENT — so with the shipped patch OP3
@@ -333,7 +358,10 @@ class StationCore{
                   +s.matrix[2][i]*v.prev[2]+s.matrix[3][i]*v.prev[3];
           let p=v.ph[i]+pm*0.1591549;
           p-=Math.floor(p);
-          outs[i]=waveOut(o,p,dt,tbl)*this.envStep(v.env[i],o.env,v.gate);
+          // Velocity multiplies the op AT THE SOURCE, next to the envelope and
+          // for the same reason (§2: the envelope shapes the slot both as a
+          // carrier and as a modulator). velSens 0 makes this factor exactly 1.
+          outs[i]=waveOut(o,p,dt,tbl)*this.envStep(v.env[i],o.env,v.gate)*(1-o.velSens*(1-v.vel));
         }
         v.prev[0]=outs[0];v.prev[1]=outs[1];v.prev[2]=outs[2];v.prev[3]=nSig;
         for(let i=0;i<3;i++){
@@ -454,6 +482,7 @@ state.ops.forEach((o,i)=>{
   buildTune();
   modeB.addEventListener('click',()=>{o.mode=(o.mode+1)%3;modeB.textContent=MODES[o.mode];buildTune();});
   lvlCtl[i]=slider(st,'LVL',0,1,0.01,o.lvl,fmtPc,x=>o.lvl=x);
+  slider(st,'VEL',0,1,0.01,o.velSens,fmtPc,x=>o.velSens=x);
   slider(st,'PAN',-1,1,0.01,o.pan,fmtPan,x=>o.pan=x);
   const pwCtl=slider(st,'PW',0.05,0.95,0.005,o.pw,x=>Math.round(x*100)+'%',x=>o.pw=x);
   const dRow=document.createElement('div'); dRow.className='btnrow';
@@ -505,6 +534,8 @@ state.ops.forEach((o,i)=>{
   opsRow.appendChild(m);
 }
 $('#master').addEventListener('input',e=>state.master=+e.target.value);
+let playVel=1;
+$('#playvel').addEventListener('input',e=>playVel=+e.target.value);
 slider($('#penv'),'P.ENV',-24,24,1,0,x=>x+'st',x=>state.pitchEnv.amt=x);
 slider($('#penv'),'P.DEC',5,800,1,80,fmtMs,x=>state.pitchEnv.dec=x);
 
@@ -619,7 +650,7 @@ async function press(n){
   await power();
   if(held.has(n))return;
   held.add(n);
-  core.noteOn(n,noteFreq(n));
+  core.noteOn(n,noteFreq(n),playVel);
   markKey(n,true);
 }
 function release(n){

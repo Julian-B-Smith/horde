@@ -49,11 +49,21 @@
  *    the k-th note takes slot k — the same slot the lab's `voices.length` gives
  *    it. That is what makes the seeds match, so the allocator's order is a
  *    parity commitment, not an implementation detail.
- *  · KNOWN LAB DEFECTS DELIBERATELY PRESERVED, because SPEC §11 does not list
- *    them as divergences and inventing one is out of this brief's scope:
- *    an operator switched OFF mid-note FREEZES its envelope (audit S9), the pan
- *    law is linear and so is a 3 dB gain control (S10), and the release runs to
- *    163 % of its stated time (S13). Each is an ADR owed, not a bug to fix here.
+ *  · The LINEAR pan law `g*(1 - max(0, pan))`, which is also a 3 dB gain
+ *    control at hard pan (audit S10). RULED INTENDED 2026-09-19 and written
+ *    into SPEC-STATION §11 item 9: constant-power would drop every centred
+ *    default by 3 dB, and what the human has been listening to is this law.
+ *  · The release tail reaching ~163 % of the stated REL (audit S13) is a
+ *    DEFINITION, not an arithmetic defect, and SPEC-STATION §7 now states it:
+ *    the coefficient 4.6/(R*sr) puts the level at 1 % (-40 dB) of its note-off
+ *    value after exactly R (measured 100.10 % at 48 kHz, the 0.10 % being the
+ *    forward-Euler discretisation), and the segment then runs on to the
+ *    ABSOLUTE 0.0005 exit, so the audible tail is ln(lvl0/0.0005)/4.6 * R —
+ *    152.2 % of R from the default sustain 0.55, 165.2 % from 1.0. Nothing to
+ *    fix; the numbers are sample-rate portable to 0.007 %.
+ *  · The op-OFF envelope freeze (audit S9) was the third preserved defect and
+ *    is GONE: the LAB was fixed on 2026-09-19, so an OFF op stepping its
+ *    envelope is a parity item like any other, not a divergence.
  *
  * ── DELIBERATELY DIVERGENT (SPEC-STATION §11, built AS SPECIFIED) ────────────
  *  1. DRW pure branch is BAND-LIMITED (§5): the 32x4-bit table's exact spectrum
@@ -76,10 +86,18 @@
  *     so parity is measured at full engine amplitude with the whole eps budget.
  *  6. Usable standalone (§11.6): header-only, no shell, no allocation after
  *     construction, no wall-clock, mulberry32 streams only.
- *  + 5 ms control-rate smoothing on the 12 matrix cells (§4 — "preset recall
- *    must be click-free"). The lab has NO smoothing anywhere, so this is
- *    build-side work with nothing to match; it is bit-inert for a static patch
- *    because the smoother primes ON the target at the first render.
+ *  + 5 ms control-rate smoothing on the 12 matrix cells AND on the three op
+ *    levels + the noise level (§4/§10 — "preset recall must be click-free";
+ *    audit S6 measured an unsmoothed LVL write at 7.4x the signal's own slope).
+ *    The lab has NO smoothing anywhere and stays that way (ADR-177 §3: the
+ *    smoothing is the port's), so this is build-side work with nothing to
+ *    match; it is bit-inert for a static patch because every smoother primes ON
+ *    its target at the first render.
+ *  + Per-op VELOCITY SENSITIVITY `op{n}.velSens` (§8/§10, 2026-09-19), default
+ *    0 and therefore bit-inert: `noteOn` takes a 0..1 velocity defaulting to 1
+ *    and the op's output is scaled by 1 - velSens*(1 - vel) AT THE SOURCE, so
+ *    velocity reaches the matrix tap as well as the mix. The lab carries the
+ *    same field and the same law, so this is a PARITY item, not a divergence.
  *  + A one-pole DC blocker on the engine output (5 Hz, sample-rate-scaled).
  *    This is a PARITY item, not a divergence, as of the human's 2026-09-19
  *    ruling: SPEC-STATION §11 item 7 (landing on branch `station-dc-blocker`)
@@ -104,6 +122,7 @@
  *                                    -> patch.ops[n-1].{on,wave,mode,coarse,
  *                                       semis,fine,fixed,lvl,pan,pw,pure,qnt,
  *                                       phase,retrig}
+ *   op{n}.velSens                    -> patch.ops[n-1].velSens
  *   op{2,3}.sync / op{2,3}.ring      -> patch.ops[n-1].{sync,ring}
  *   op{n}.env.{a,d,s,r,loop,step}    -> patch.ops[n-1].env.*
  *   ns.{on,mode,rate,ktrk,lvl,pan}   -> patch.noise.*     ns.env.* -> patch.noise.env.*
@@ -151,7 +170,14 @@ class StationCore
   // the slot is reused; the stolen note is what waits, never the new one's
   // envelope shape.
   static constexpr double kStealFadeS = 0.002;
-  // Matrix-cell smoothing time (§4: "~5 ms").
+  // Control-rate smoothing time (§4: "~5 ms"). ONE law for every smoothed
+  // parameter — the 12 matrix cells and, since 2026-09-19, the three op levels
+  // and the noise level (§4/§10; audit S6 measured an unsmoothed LVL write at
+  // 7.4x the signal's own slope, second only to a cell write's 13.9x). The
+  // smoothing is the PORT's, not the lab's (ADR-177 §3): reference/station.html
+  // stays step, so this is build-side work with nothing to match, and it is
+  // bit-inert for a static patch because every smoother primes ON its target at
+  // the first render.
   static constexpr double kCellSmoothS = 0.005;
 
   enum Wave { kSin = 0, kTri, kSaw, kPls, kQtr, kDrw };
@@ -178,6 +204,12 @@ class StationCore
     int ring = kRingOff;  // ops 2/3 only: mix-path ring partner
     double phase = 0;     // §3.4 phase offset, 0..1 turns (§10 states 0..360 deg)
     int retrig = 1;       // 1 = RETRIG (lab behaviour), 0 = FREE
+    // §8/§10 velocity sensitivity, 0..1. The op's output is scaled by
+    // 1 - velSens*(1 - vel) AT THE SOURCE, beside the envelope, so it reaches
+    // the matrix tap as well as the mix — a modulator op with velSens > 0 is
+    // how velocity reaches TIMBRE in PM, which a mix-only scale could never do
+    // (a pure modulator has lvl 0). 0 is exactly 1.0 of gain: bit-inert.
+    double velSens = 0;
     Env env;
   };
 
@@ -228,6 +260,7 @@ class StationCore
   {
     int note = -1;
     double freq = 0;
+    double vel = 1;  // 0..1, per note (§8). 1 is the no-velocity-source default.
     bool gate = false, active = false;
     double ph[kOps]{};    // [0,1) turns
     double prev[kSlots]{};  // the one-sample delay (SPEC §2)
@@ -241,7 +274,7 @@ class StationCore
     double fadeGain = 1;
     bool stealing = false;
     int pendNote = -1;
-    double pendFreq = 0;
+    double pendFreq = 0, pendVel = 1;
   };
 
   explicit StationCore(double sampleRate) { setSampleRate(sampleRate); reset(); }
@@ -339,10 +372,11 @@ class StationCore
   }
 
   // ── Notes ────────────────────────────────────────────────────────────────
-  // Returns the slot. SPEC §10 declares no velocity parameter, so none is taken
-  // here: an unused argument is invented surface, and the shell scales at the
-  // mixer like every other core.
-  int noteOn(int midi, double freq)
+  // Returns the slot. `vel` is 0..1 and DEFAULTS TO 1, so a caller with no
+  // velocity source renders exactly what it rendered before §10 grew the three
+  // `op{n}.velSens` rows (2026-09-19). Velocity is per NOTE and scales each op
+  // by its own sensitivity — see Op::velSens.
+  int noteOn(int midi, double freq, double vel = 1.0)
   {
     const int slot = alloc();
     Voice &v = voices[slot];
@@ -355,9 +389,10 @@ class StationCore
       v.stealing = true;
       v.pendNote = midi;
       v.pendFreq = freq;
+      v.pendVel = vel;
       return slot;
     }
-    startVoice(v, slot, midi, freq);
+    startVoice(v, slot, midi, freq, vel);
     return slot;
   }
   void noteOff(int midi)
@@ -389,6 +424,8 @@ class StationCore
     if (!smoothPrimed)
     {
       std::memcpy(mtx, s.matrix, sizeof(mtx));
+      for (int i = 0; i < kOps; i++) lvlS[i] = s.ops[i].lvl;
+      lvlS[kOps] = s.noise.lvl;
       smoothPrimed = true;
     }
     // FREE phase runs against middle C — the same reference KEYTRK already
@@ -402,6 +439,18 @@ class StationCore
     {
       for (int r = 0; r < kSlots; r++)
         for (int c = 0; c < kOps; c++) mtx[r][c] += (s.matrix[r][c] - mtx[r][c]) * cellCoef;
+      for (int k = 0; k < kSlots; k++)
+      {
+        const double tgt = (k < kOps) ? s.ops[k].lvl : s.noise.lvl;
+        lvlS[k] += (tgt - lvlS[k]) * cellCoef;
+        // A geometric approach never ARRIVES: a level ramped to 0 would go
+        // subnormal after ~3.5 s and stay there, inside the mix sum, which is
+        // exactly what SPEC §12's flush-to-zero rule forbids. Snapping at the
+        // same 1e-30 the DC blocker uses (-600 dB, eight decades above float's
+        // min normal) also lets the `lvlS <= 0` skip below re-engage, so a slot
+        // faded out really does leave the mix.
+        if (std::fabs(tgt - lvlS[k]) < 1e-30) lvlS[k] = tgt;
+      }
       if (anyFree)
         for (int i = 0; i < kOps; i++)
         {
@@ -454,10 +503,14 @@ class StationCore
         for (int i = 0; i < kOps; i++)
         {
           const Op &o = s.ops[i];
-          // Preserved lab defect (audit S9): an op switched OFF mid-note skips
-          // envStep, so its envelope freezes and re-enabling clicks. SPEC §11
-          // does not list it as a divergence, so it stays a parity item.
-          if (!o.on) { outs[i] = 0; continue; }
+          // An OFF op still steps its envelope (SPEC-STATION §3.2/§7, lead
+          // ruling 2026-09-19 on audit S9): OFF silences the op's output and its
+          // matrix contribution, nothing else, so re-enabling mid-note resumes
+          // at the live stage. The lab froze it — 0.32392/stage 1 held for
+          // 500 ms and a 1.645e-3 click on re-enable — and the lab was FIXED
+          // rather than pinned, so this is still a parity item, not a
+          // divergence. Same rule as the Nyquist mute three lines down.
+          if (!o.on) { outs[i] = 0; envStep(v.env[i], o.env, v.gate); continue; }
           const double f = opFreq(o, base);
           // The Nyquist limit is in Hz and MUTES the operator rather than
           // detuning it (ADR-177 §3). A muted operator still steps its envelope,
@@ -473,7 +526,12 @@ class StationCore
                             mtx[2][i] * v.prev[2] + mtx[3][i] * v.prev[3];
           double p = v.ph[i] + pm * pmConst;
           p -= std::floor(p);
-          outs[i] = waveOut(o, p, dt, f) * envStep(v.env[i], o.env, v.gate);
+          // Velocity multiplies at the source beside the envelope (§2's rule,
+          // applied to velocity), so it reaches prev[] and therefore the matrix.
+          // velSens 0 makes the factor exactly 1.0 — IEEE-exact, which is what
+          // keeps every parity scenario bit-identical.
+          outs[i] = waveOut(o, p, dt, f) * envStep(v.env[i], o.env, v.gate) *
+                    (1 - o.velSens * (1 - v.vel));
         }
         v.prev[0] = outs[0];
         v.prev[1] = outs[1];
@@ -483,19 +541,23 @@ class StationCore
         for (int i = 0; i < kOps; i++)
         {
           const Op &o = s.ops[i];
-          if (!o.on || o.lvl <= 0) continue;
+          // The SMOOTHED level gates the slot, not the target: a slot whose
+          // level is on its way to 0 must stay in the mix until it gets there,
+          // or the smoother is bypassed by the very write it exists for.
+          // Statically lvlS[i] == o.lvl exactly, so this is the same branch.
+          if (!o.on || lvlS[i] <= 0) continue;
           // §3.4 RING: mix path only, never the matrix tap (prev[] is already
           // written above). kRingOff leaves the expression at *1.0 — exact.
           double mixv = outs[i];
           if (o.ring == kRingOp1) mixv *= outs[0];
           else if (o.ring == kRingOp2) mixv *= outs[1];
-          const double g = mixv * o.lvl * 0.35 * v.fadeGain;
+          const double g = mixv * lvlS[i] * 0.35 * v.fadeGain;
           ml += g * (1 - std::max(0.0, o.pan));
           mr += g * (1 - std::max(0.0, -o.pan));
         }
-        if (s.noise.on && s.noise.lvl > 0)
+        if (s.noise.on && lvlS[kOps] > 0)
         {
-          const double g = nSig * s.noise.lvl * 0.35 * v.fadeGain;
+          const double g = nSig * lvlS[kOps] * 0.35 * v.fadeGain;
           ml += g * (1 - std::max(0.0, s.noise.pan));
           mr += g * (1 - std::max(0.0, -s.noise.pan));
         }
@@ -503,7 +565,7 @@ class StationCore
         if (v.stealing)
         {
           v.fadeGain -= stealFadeStep;
-          if (v.fadeGain <= 0) startVoice(v, vi, v.pendNote, v.pendFreq);
+          if (v.fadeGain <= 0) startVoice(v, vi, v.pendNote, v.pendFreq, v.pendVel);
         }
         else if (!v.gate)
         {
@@ -723,11 +785,12 @@ class StationCore
     return best;
   }
 
-  void startVoice(Voice &v, int slot, int midi, double freq)
+  void startVoice(Voice &v, int slot, int midi, double freq, double vel = 1.0)
   {
     v = Voice{};
     v.note = midi;
     v.freq = freq;
+    v.vel = vel;
     v.gate = true;
     v.active = true;
     v.age = noteCounter++;
@@ -739,6 +802,7 @@ class StationCore
   double sr = 48000;
   double dcR = 0, dcX[2]{}, dcY[2]{};
   double cellCoef = 1, mtx[kSlots][kOps]{};
+  double lvlS[kSlots]{};  // smoothed op1..3 + noise levels (§4/§10)
   bool smoothPrimed = false;
   double freePh[kOps]{};
   double stealFadeStep = 1;
