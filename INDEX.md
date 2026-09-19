@@ -66,3 +66,4 @@ swarm-dynamics · parity-oracle · plugin-platform · realtime-perf
 - [L0054] Re-baselining a reference-driven golden IS a protected reference edit + ADR — say so in the brief (parity · goldens)
 - [L0055] Run and read a new check before calling its PR green; red-on-arrival is a finding, not a regression (oracles · review)
 - [L0056] Worktree agents cannot chain `verify && git commit` — brief it as run / commit / re-run on the committed hash (agents · verify)
+- [L0057] A spacing fix that loses the cascade looks applied and does nothing — scope it above the flow rule and verify the computed style served (gui · css · review)
