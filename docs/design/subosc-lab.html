@@ -243,7 +243,7 @@
   <div class="rev" title="the file's modification time and a fingerprint of its code, both read at load — neither is hand-maintained, so neither can drift. If the fingerprint does not change after a reload you are still on a cached copy (hard-reload: Cmd+Shift+R, Safari Cmd+Opt+R).">rev <span id="revdate">…</span> &middot; fp <span id="revfp">…</span></div>
   <button id="power">POWER ON</button>
   <button id="panic">PANIC</button>
-  <div class="tagline">design lab · B155 · the honest sub: one voice, six shapes (sine / triangle / square / saw / pulse / seeded noise), octave −2…0 plus semitones and fine, a one-pole tone, hard sync to a master phase, no swarm and no coupling · every control names the parameter address it will carry · the AR envelope here is scaffolding, the shell supplies the voice envelope</div>
+  <div class="tagline">design lab · B155 · the honest sub: one voice, seven shapes (sine / triangle / square / saw / pulse / seeded noise / bump — a sine plus a phase-shifted third harmonic, band-limited by construction), octave −2…0 plus semitones and fine, a one-pole tone, hard sync to a master phase, no swarm and no coupling · every control names the parameter address it will carry · the AR envelope here is scaffolding, the shell supplies the voice envelope</div>
 </header>
 
 <div class="wrap">
@@ -255,12 +255,25 @@
           <option value="0">sine</option><option value="1">triangle</option>
           <option value="2">square</option><option value="3" selected>saw</option>
           <option value="4">pulse</option><option value="5">noise</option>
+          <option value="6">bump</option>
         </select><output id="wave_o">saw</output></div>
       <div class="row"><label>pulse width</label>
         <input type="range" id="width" data-addr="subosc.width" min="0.05" max="0.95" step="0.001" value="0.5"><output id="width_o"></output></div>
-      <div class="note"><b>structural</b> waveform (stepped, ADR-173) · <b>morphable</b> width.
-        polyBLEP on saw / square / pulse only — the idiom is the one the repo already
-        trusts, <code>reference/swarmsaw.html:626-633</code>, not a second BLEP.</div>
+      <div class="row" id="row_bumpAmt"><label>bump amount</label>
+        <input type="range" id="bumpAmt" data-addr="subosc.bumpAmt" min="0" max="0.6" step="0.001" value="0.35"><output id="bumpAmt_o"></output></div>
+      <div class="row" id="row_bumpPhase"><label>bump phase</label>
+        <input type="range" id="bumpPhase" data-addr="subosc.bumpPhase" min="-3.14159265" max="3.14159265" step="0.001" value="-0.25"><output id="bumpPhase_o"></output></div>
+      <div class="note"><b>structural</b> waveform (stepped, ADR-173) · <b>morphable</b> width,
+        bump amount and bump phase. polyBLEP on saw / square / pulse only — the idiom is
+        the one the repo already trusts, <code>reference/swarmsaw.html:626-633</code>, not a
+        second BLEP. <b>bump</b> is
+        <code>(sin θ + a·sin(3θ+φ)) / (1+a)</code>: a sine with a slightly phase-shifted
+        third harmonic, which reads as a big bump followed by a slightly smaller one
+        (measured lobe ratio <b>0.882</b> at the defaults). It needs no BLEP at all — two
+        partials have nothing above 3·f0 to fold — which holds up to f0 = sr/6
+        (7350 Hz here); above that the third partial folds, and the harness pins that
+        boundary rather than leaving it as prose. The two bump controls appear only when
+        the waveform is bump.</div>
     </div>
 
     <div class="card">
@@ -350,9 +363,10 @@
 <script>
 /* ================= DSP: SubOsc =================
  *
- * SubOscCore — the honest sub. One voice, six shapes, pitch offsets, a one-pole
- * tone, optional hard sync to a master phase. No swarm, no coupling: the whole
- * point of this module is that it is the thing the SWARM oscillators are not.
+ * SubOscCore — the honest sub. One voice, seven shapes, pitch offsets, a
+ * one-pole tone, optional hard sync to a master phase. No swarm, no coupling:
+ * the whole point of this module is that it is the thing the SWARM
+ * oscillators are not.
  *
  * This section is the parity core (ADR-003 spec-in-code) and is sliced out
  * verbatim by tools/golden/extract_core.mjs between the two banner comments,
@@ -393,8 +407,9 @@
  */
 
 // Waveform ids. Stepped ⇒ structural under ADR-173's derivation.
-const SUB_SINE = 0, SUB_TRI = 1, SUB_SQUARE = 2, SUB_SAW = 3, SUB_PULSE = 4, SUB_NOISE = 5;
-const SUB_WAVE_NAMES = ['sine', 'triangle', 'square', 'saw', 'pulse', 'noise'];
+const SUB_SINE = 0, SUB_TRI = 1, SUB_SQUARE = 2, SUB_SAW = 3, SUB_PULSE = 4, SUB_NOISE = 5,
+      SUB_BUMP = 6;
+const SUB_WAVE_NAMES = ['sine', 'triangle', 'square', 'saw', 'pulse', 'noise', 'bump'];
 
 // Keytrack OFF pins the module to C2 — a sub that ignores the keyboard still
 // has to sound at SOME pitch, and C2 is the centre of the range this module is
@@ -434,12 +449,49 @@ function subPulse(ph, dph, w) {
   return (2 * w - 1) - (s1 - s2);
 }
 
+/* BUMP — a sine with a slightly phase-shifted third harmonic above it, so one
+   period reads as a big bump followed by a slightly smaller one (the human's
+   request, 2026-09-19, from Mr. Bill; ADR-177 §5).
+
+       y = ( sin(th) + a.sin(3.th + phi) ) / (1 + a)
+
+   NO BLEP, AND NONE IS NEEDED: this shape is BAND-LIMITED BY CONSTRUCTION —
+   it is literally two partials, so it has nothing above 3.f0 to fold. That is
+   only true while 3.f0 < Nyquist; above f0 = sr/6 (7350 Hz at 44.1 k, three
+   octaves above where a sub lives) the third partial folds and the claim
+   lapses. Named limit L6 in the spec draft, PINNED by a harness control that
+   must SEE the fold (LIBRARY L0036) rather than left as prose.
+
+   The shape mechanism, for the next reader: the two bumps are the third
+   harmonic's crest landing inside the sine's, which happens for a > 1/9; phi
+   breaks the mirror symmetry between them, and its SIGN decides which bump
+   comes first (phi < 0 ⇒ the big one leads). Defaults a = 0.35, phi = -0.25
+   rad give a measured lobe ratio of 0.882 with the trough between them at
+   0.637 of the leading peak — derived by rendering one period and measuring,
+   traces/2026-09-19-b155-subosc-bump.md.
+
+   NORMALISED BY THE ANALYTIC BOUND 1/(1+a), not by the true peak. The bound is
+   provable for EVERY (a, phi) at the cost of one divide; a true peak
+   normalisation has no closed form here and would put a ~180-transcendental
+   scan in _recalc — which the mod matrix can drive per block, since both rows
+   are morphable. The price is stated rather than hidden: the bound leaves the
+   output at 0.750 of full scale at the defaults (2.5 dB), and 0.71-0.86 across
+   the parameter range. Spec draft L7 and ruling R7. */
+function subBump(ph, a, phi, norm) {
+  const th = SUB_TWO_PI * ph;
+  return (Math.sin(th) + a * Math.sin(3 * th + phi)) * norm;
+}
+
 /* The parameter table IS the contract: range, quantisation and default in one
    place, with no second copy in the UI (the UI reads the same ids). `step`
    present ⇒ the parameter is stepped ⇒ structural under ADR-173. */
 const SUB_PARAMS = {
-  wave:     { min: 0,      max: 5,          step: 1, def: 3 },
+  wave:     { min: 0,      max: 6,          step: 1, def: 3 },
   width:    { min: 0.05,   max: 0.95,                def: 0.5 },
+  // bump only. The 0.6 ceiling is not a taste limit: above it the third
+  // harmonic dominates and the shape stops reading as a sub at all.
+  bumpAmt:  { min: 0,      max: 0.6,                 def: 0.35 },
+  bumpPhase:{ min: -Math.PI, max: Math.PI,           def: -0.25 },
   octave:   { min: -2,     max: 0,          step: 1, def: -1 },
   semis:    { min: -12,    max: 12,         step: 1, def: 0 },
   fine:     { min: -100,   max: 100,                 def: 0 },
@@ -490,6 +542,9 @@ class SubOscCore {
     this._G = g / (1 + g);
     this._atkInc = 1 / Math.max(1, p.attack * this.sr);
     this._relInc = 1 / Math.max(1, p.release * this.sr);
+    // |sin(th) + a.sin(3th+phi)| <= 1 + a for every (a, phi) — the bound is the
+    // normaliser, so the bump's peak is <= 1 by construction and not by a scan.
+    this._bumpNorm = 1 / (1 + p.bumpAmt);
   }
 
   setParam(key, v) {
@@ -556,6 +611,7 @@ class SubOscCore {
     const p = this.p;
     const G = this._G, atk = this._atkInc, rel = this._relInc;
     const wave = p.wave, w = p.width, start = p.phase;
+    const bumpA = p.bumpAmt, bumpPhi = p.bumpPhase, bumpN = this._bumpNorm;
     const gain = p.level * this._vel;
     const syncOn = (p.sync === 1 && master) ? 1 : 0;
     // Phase increment from the running frequency, capped just under Nyquist so
@@ -584,6 +640,7 @@ class SubOscCore {
         case SUB_SQUARE: v = subPulse(ph, dph, 0.5); break;
         case SUB_SAW:    v = (2 * ph - 1) - subBlep(ph, dph); break;
         case SUB_PULSE:  v = subPulse(ph, dph, w); break;
+        case SUB_BUMP:   v = subBump(ph, bumpA, bumpPhi, bumpN); break;
         default:         v = 2 * this._rngNext() - 1; break;   // SUB_NOISE
       }
 
@@ -666,6 +723,8 @@ function ensureAudio() {
 const FMT = {
   wave: v => SUB_WAVE_NAMES[v | 0],
   width: v => (v * 100).toFixed(1) + '%',
+  bumpAmt: v => v.toFixed(3),
+  bumpPhase: v => v.toFixed(3) + ' rad  (' + (v / Math.PI).toFixed(3) + 'π)',
   octave: v => (v > 0 ? '+' : '') + v,
   semis: v => (v > 0 ? '+' : '') + v + ' st',
   fine: v => (v > 0 ? '+' : '') + v.toFixed(1) + ' c',
@@ -679,6 +738,17 @@ const FMT = {
   seed: v => String(v >>> 0),
 };
 
+/* A FUNCTION DECLARATION, not a const arrow: `wire('wave')` calls this during
+   setup, and a const defined further down would be in its temporal dead zone
+   at that moment — the trap `lab_load_check` exists to catch (LIBRARY L0026). */
+function showBumpRows() {
+  const bump = (core.p.wave | 0) === SUB_BUMP;
+  for (const id of ['row_bumpAmt', 'row_bumpPhase']) {
+    const el = $(id);
+    if (el && el.style) el.style.display = bump ? '' : 'none';
+  }
+}
+
 function wire(id) {
   const el = $(id), out = $(id + '_o');
   if (!el) return;
@@ -688,6 +758,7 @@ function wire(id) {
     const v = core.p[id];
     if (out) out.textContent = FMT[id] ? FMT[id](v) : String(v);
     if (id === 'octave' || id === 'semis' || id === 'fine' || id === 'keytrack') showFreq();
+    if (id === 'wave') showBumpRows();
   };
   el.addEventListener('input', apply);
   el.addEventListener('change', apply);

@@ -11,7 +11,7 @@
  * (LIBRARY L0031). So this module gets its invariant suite BEFORE it gets a
  * port, not after.
  *
- * SIX PROPERTIES, EACH WITH A MUST-FAIL CONTROL. A detector that shares an
+ * SEVEN PROPERTY GROUPS, EACH WITH A MUST-FAIL CONTROL. A detector that shares an
  * assumption with what it measures confirms whatever you expect (LIBRARY
  * L0032), so no row here is trusted unless a deliberate corruption of the core
  * makes it read differently. The corruptions are string plants into the lab's
@@ -62,7 +62,7 @@ function mutantCore(from, to) {
 }
 
 const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
-const WAVE = { sine: 0, triangle: 1, square: 2, saw: 3, pulse: 4, noise: 5 };
+const WAVE = { sine: 0, triangle: 1, square: 2, saw: 3, pulse: 4, noise: 5, bump: 6 };
 const F32_MIN_NORMAL = 1.1754943508222875e-38;
 
 let failures = 0;
@@ -189,13 +189,20 @@ const ALIAS_MAX_DB = {
   square:   [ -64,  -58,  -52,  -46],  //  -69.6  -63.9  -57.6  -51.9
   saw:      [ -64,  -58,  -52,  -46],  //  -69.3  -63.9  -57.6  -51.9
   pulse:    [ -62,  -57,  -51,  -45],  //  -67.9  -62.4  -56.3  -50.3
+  // BUMP (B155, measured 2026-09-19). The gate is NOT the ~5 dB regression band
+  // the BLEP rows use, because there is no aliasing mechanism to regress from:
+  // the shape is two partials, so the only thing in the inharmonic bins is the
+  // detector's own skirt. It is held to the SINE limit — the additive floor —
+  // and its must-fail control is the naive fold below, not the no-BLEP plant
+  // (which cannot reach it, the same coverage boundary sine and triangle have).
+  bump:     [-155, -155, -155, -155],  // -166.8 -163.6 -166.5 -164.4 (fold control: -102.8 .. -67.2)
 };
 const NOTES = [24, 36, 48, 60];
 // The control: a core whose polyBLEP has been neutered. Anchor asserted inside
 // mutantCore — a plant that silently fails to apply reads as a clean pass.
 const NoBlep = mutantCore('function subBlep(ph, dph) {', 'function subBlep(ph, dph) {\n  return 0;');
 const aliasWorst = {};
-for (const w of ['sine', 'triangle', 'square', 'saw', 'pulse']) {
+for (const w of ['sine', 'triangle', 'square', 'saw', 'pulse', 'bump']) {
   const blepped = w === 'square' || w === 'saw' || w === 'pulse';
   let over = '', ctlFail = '', worst = -999;
   for (let i = 0; i < NOTES.length; i++) {
@@ -230,6 +237,49 @@ judge('CONTROL sine must read below -150 dB (detector reads ~zero on clean)',
    The spec draft names it as a v0 limit with the fix (BLAMP) priced. */
 console.log('      NOTE: the no-BLEP plant cannot reach sine or triangle (separation 0.0 dB) —');
 console.log('            the triangle is a NAIVE shape; that is a coverage boundary, not a pass.');
+
+/* BUMP'S OWN MUST-FAIL CONTROL (B155). The bump row above claims the ADDITIVE
+   floor, and the danger is that the claim is vacuous: the sine row proves the
+   DETECTOR reads ~zero on a clean signal, but not that it would read LARGE on a
+   shape that merely LOOKS like this one. So the control is the plausible wrong
+   way to build a double bump — a naive wavefolder, a sine overdriven past unity
+   and reflected at +-1, which produces the same two-humped silhouette from a
+   NONLINEARITY instead of from two partials. If the floor did not move, the
+   bump row would be measuring the window and not the construction. */
+const NaiveFold = mutantCore(
+  'function subBump(ph, a, phi, norm) {',
+  'function subBump(ph, a, phi, norm) {\n' +
+  '  let s = Math.sin(SUB_TWO_PI * ph) * (1 + 2 * a);\n' +
+  '  if (s > 1) s = 2 - s; else if (s < -1) s = -2 - s;\n' +
+  '  return s * norm;');
+{
+  let ctlFail = '', worstCtl = -999;
+  for (let i = 0; i < NOTES.length; i++) {
+    const m = NOTES[i], lim = ALIAS_MAX_DB.bump[i];
+    const ctl = aliasFloorDb(NaiveFold, 44100, WAVE.bump, m);
+    console.log(`      bump/FOLD MIDI ${String(m).padEnd(3)} worst ${ctl.worst.toFixed(1).padStart(7)} dB @ ${ctl.worstHz.toFixed(0).padStart(6)} Hz   limit ${String(lim).padStart(5)}`);
+    if (ctl.worst <= lim) ctlFail += ` MIDI ${m}: ${ctl.worst.toFixed(1)} <= ${lim};`;
+    if (ctl.worst > worstCtl) worstCtl = ctl.worst;
+  }
+  judge('CONTROL naive-fold bump must BREACH every limit', ctlFail === '',
+        ctlFail || `worst ${worstCtl.toFixed(1)} dB vs limit -155`);
+}
+
+/* NAMED LIMIT L6, PINNED RATHER THAN WRITTEN DOWN (LIBRARY L0036). "Band-limited
+   by construction" is true only while 3.f0 < Nyquist; above f0 = sr/6 (7350 Hz
+   at 44.1 k) the third partial folds and the guarantee lapses. A deliberate
+   absence needs a test or it becomes an accidental presence, so the boundary is
+   asserted in BOTH directions: clean just below it, aliasing just above. */
+{
+  const below = aliasFloorDb(SubOscCore, 44100, WAVE.bump, 100);   // f0 2637 Hz, 3f0 7911 Hz
+  const above = aliasFloorDb(SubOscCore, 44100, WAVE.bump, 120);   // f0 8372 Hz, 3f0 25116 Hz -> folds
+  console.log(`      bump boundary: MIDI 100 f0 ${below.f0.toFixed(0)} Hz -> ${below.worst.toFixed(1)} dB   ` +
+              `MIDI 120 f0 ${above.f0.toFixed(0)} Hz (3f0 ${(3 * above.f0).toFixed(0)} Hz > Nyquist) -> ${above.worst.toFixed(1)} dB @ ${above.worstHz.toFixed(0)} Hz`);
+  judge('bump still at the additive floor at MIDI 100 (3.f0 under Nyquist)',
+        below.worst < -150, `${below.worst.toFixed(1)} dB`);
+  judge('CONTROL L6: above f0 = sr/6 the third partial MUST fold', above.worst > -60,
+        `${above.worst.toFixed(1)} dB @ ${above.worstHz.toFixed(0)} Hz`);
+}
 
 /* ===========================================================================
  * 2. DETERMINISM — same seed, bit-identical; different seed, different
@@ -282,6 +332,38 @@ const bitEq = (a, b) => { for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) 
   // both rows above are worthless.
   const d = noiseRun(999999);
   judge('CONTROL different seed must differ', bitEq(a, d) !== -1, `first diff at ${bitEq(a, d)}`);
+}
+
+/* BUMP determinism (B155). The shape draws on no stream at all, so the claim
+   here is narrower and worth stating precisely: the output is a pure function
+   of (parameters, note), and allOff() is still a TOTAL reset for it — the
+   filter and envelope are shared state and a shape without an RNG can still
+   inherit them. The must-differ control is the phase parameter, not a seed. */
+{
+  const bumpRun = (patch, history) => {
+    const c = make(SubOscCore, 44100, Object.assign(
+      { wave: WAVE.bump, level: 1, tone: 20000, attack: 0.001, release: 0.01 }, patch));
+    if (history) {
+      for (const m of [40, 41, 42, 43, 44]) { c.noteOn(m, 1); renderInto(c, 2000); c.noteOff(); renderInto(c, 2000); }
+      c.allOff();
+    }
+    c.noteOn(36, 1);
+    const h1 = renderInto(c, 8192);
+    c.noteOff();
+    const h2 = renderInto(c, 8192);
+    const out = new Float32Array(16384); out.set(h1, 0); out.set(h2, 8192);
+    return out;
+  };
+  const a = bumpRun({}, false), b = bumpRun({}, false);
+  judge('bump: two instances, same params -> bit-identical', bitEq(a, b) === -1,
+        bitEq(a, b) === -1 ? '16384 samples equal' : `first diff at ${bitEq(a, b)}`);
+  const h = bitEq(a, bumpRun({}, true));
+  judge('bump: five notes of history + allOff() -> bit-identical to fresh', h === -1,
+        h === -1 ? 'no state survives allOff()' : `first diff at ${h}`);
+  // CONTROL (must differ): if a phase shift of 0.01 rad did not change a single
+  // sample, the two rows above would be comparing something other than the shape.
+  const p = bitEq(a, bumpRun({ bumpPhase: -0.24 }, false));
+  judge('CONTROL bumpPhase -0.25 vs -0.24 must differ', p !== -1, `first diff at ${p}`);
 }
 
 /* ===========================================================================
@@ -446,7 +528,11 @@ head('5. level 0 is silence, exactly — not -140 dB of something');
     const y = renderInto(c, 8192);
     for (let i = 0; i < y.length; i++) if (y[i] !== 0) { bad += ` ${w}@${i}=${y[i]};`; break; }
   }
-  judge('all six waveforms, level 0 -> every sample exactly 0', bad === '', bad || '6 waveforms x 8192 samples');
+  // The count comes from the WAVE map, not from a literal: a seventh shape was
+  // added (bump, B155) and a hardcoded "six" would have made this row lie about
+  // its own coverage while still passing.
+  const nWaves = Object.keys(WAVE).length;
+  judge(`all ${nWaves} waveforms, level 0 -> every sample exactly 0`, bad === '', bad || `${nWaves} waveforms x 8192 samples`);
   // CONTROL: the same test at a level a thousand times smaller than unity must
   // FAIL to be silent, or the assertion is vacuous.
   const c = make(SubOscCore, 44100, { wave: WAVE.saw, level: 0.001, tone: 900, attack: 0.001 });
@@ -486,6 +572,110 @@ function subnormalCount(Core) {
   const NoFlush = mutantCore('const SUB_FLUSH = 1e-20;', 'const SUB_FLUSH = 0;');
   const rc = subnormalCount(NoFlush);
   judge('CONTROL flush-to-zero removed must produce subnormals', rc.n > 0, `${rc.n} subnormals`);
+}
+
+/* ===========================================================================
+ * 7. THE BUMP SHAPE — two lobes, big one first, and a peak that cannot exceed 1
+ * ======================================================================== */
+head('7. bump (B155): the two-lobe silhouette at the defaults, and the normalisation bound');
+
+/* The lobes are read from a RISING ZERO CROSSING, not from wherever the render
+   window happens to start. Without that anchor the "first" maximum is whichever
+   one the buffer opened on, and the ordering claim — big bump FIRST — silently
+   inverts at some notes. (It did, at MIDI 48, in the first draft of this
+   measurement.) */
+function bumpLobes(Core, sr, midi, patch) {
+  const c = make(Core, sr, Object.assign({
+    wave: WAVE.bump, octave: 0, keytrack: 1, level: 1, tone: 20000,
+    attack: 0.0005, release: 0.01, phase: 0,
+  }, patch || {}));
+  c.noteOn(midi, 1);
+  renderInto(c, 4096);                                  // past the attack ramp
+  const f0 = c.freqHz(), per = sr / f0;
+  const y = renderInto(c, Math.ceil(3 * per) + 4);
+  let z = -1;
+  for (let i = 1; i < y.length; i++) if (y[i - 1] <= 0 && y[i] > 0) { z = i; break; }
+  const pk = [], tr = [];
+  const end = Math.min(y.length - 1, z + Math.round(per));
+  for (let i = z + 1; i < end; i++) {
+    if (y[i] > 0 && y[i] > y[i - 1] && y[i] >= y[i + 1]) pk.push(y[i]);
+    if (y[i] > 0 && y[i] < y[i - 1] && y[i] <= y[i + 1]) tr.push(y[i]);
+  }
+  let amax = 0;
+  for (let i = 0; i < y.length; i++) amax = Math.max(amax, Math.abs(y[i]));
+  return { f0, per, pk, tr, amax };
+}
+
+/* DERIVED 2026-09-19 by rendering one period of y = sin(th) + a.sin(3th+phi)
+   over a grid of (a, phi) and measuring the two positive lobes
+   (traces/2026-09-19-b155-subosc-bump.md). The defaults a = 0.35, phi = -0.25
+   rad were chosen for "a big bump followed by a SLIGHTLY smaller bump": the
+   trailing lobe is 0.8823 of the leading one (1.09 dB down — audible as a
+   shape, not as two different events), with the trough between them at 0.637
+   of the leading peak, which is what makes the pair read as two bumps rather
+   than as one crest with a nick in it. phi's SIGN decides the order. */
+const BUMP_RATIO = 0.8823, BUMP_TROUGH_FRAC = 0.6369, BUMP_TOL = 0.05;
+{
+  let bad = '';
+  for (const m of [24, 36, 48, 60]) {
+    const r = bumpLobes(SubOscCore, 44100, m);
+    if (r.pk.length !== 2) { bad += ` MIDI ${m}: ${r.pk.length} positive lobes;`; continue; }
+    const ratio = r.pk[1] / r.pk[0], tf = r.tr.length ? r.tr[0] / r.pk[0] : NaN;
+    console.log(`      MIDI ${String(m).padEnd(3)} f0 ${r.f0.toFixed(2).padStart(7)} Hz  period ${r.per.toFixed(1).padStart(7)} smp  ` +
+                `lobes ${r.pk[0].toFixed(5)} / ${r.pk[1].toFixed(5)}  ratio ${ratio.toFixed(5)}  ` +
+                `trough/peak ${tf.toFixed(5)}  peak ${r.amax.toFixed(5)}`);
+    if (Math.abs(ratio - BUMP_RATIO) / BUMP_RATIO > BUMP_TOL) bad += ` MIDI ${m}: ratio ${ratio.toFixed(4)};`;
+    if (Math.abs(tf - BUMP_TROUGH_FRAC) / BUMP_TROUGH_FRAC > BUMP_TOL) bad += ` MIDI ${m}: trough ${tf.toFixed(4)};`;
+  }
+  judge(`bump lobe ratio = ${BUMP_RATIO} +-5 % at every note (big bump FIRST)`, bad === '',
+        bad || 'four notes, ratio and trough both within 5 %');
+
+  // CONTROL (must read ~1): at phi = 0 the two lobes are exactly equal by
+  // symmetry. If this still read 0.88 the measurement would be returning a
+  // constant and the row above would be vacuous.
+  const sym = bumpLobes(SubOscCore, 44100, 36, { bumpPhase: 0 });
+  const symRatio = sym.pk[1] / sym.pk[0];
+  judge('CONTROL phi = 0 must give two EQUAL lobes (ratio 1.000 +-0.2 %)',
+        Math.abs(symRatio - 1) < 0.002, `${symRatio.toFixed(5)}`);
+
+  // CONTROL (must invert): phi = +0.25 is the mirror, so the SMALL bump leads.
+  // This is what pins the human's ordering — "big bump followed by a slightly
+  // smaller one" — to the sign of the default rather than to the indexing.
+  const mir = bumpLobes(SubOscCore, 44100, 36, { bumpPhase: 0.25 });
+  const mirRatio = mir.pk[1] / mir.pk[0];
+  judge('CONTROL phi = +0.25 must INVERT the order (small bump leads)',
+        Math.abs(mirRatio - 1 / BUMP_RATIO) / (1 / BUMP_RATIO) < BUMP_TOL, `${mirRatio.toFixed(5)}`);
+}
+
+/* THE NORMALISATION IS AN INVARIANT, NOT A DEFAULT-ONLY FACT. The claim is
+   peak <= 1 for EVERY (a, phi), which is why the grid is swept rather than the
+   defaults spot-checked. The bound 1/(1+a) is analytic, so the headroom it
+   leaves on the table is reported alongside — it is a cost, and a cost that is
+   not measured is a cost that gets forgotten. */
+{
+  const AS = [0, 0.1, 0.2, 0.3, 0.35, 0.4, 0.5, 0.6];
+  const PHIS = [-Math.PI, -2, -1, -0.25, 0, 0.25, 1, 2, Math.PI];
+  const sweep = (Core) => {
+    let worst = 0, at = '', lowest = 9;
+    for (const a of AS) for (const phi of PHIS) {
+      const r = bumpLobes(Core, 44100, 36, { bumpAmt: a, bumpPhase: phi });
+      if (r.amax > worst) { worst = r.amax; at = `a=${a}, phi=${phi.toFixed(2)}`; }
+      if (r.amax < lowest) lowest = r.amax;
+    }
+    return { worst, at, lowest };
+  };
+  const s = sweep(SubOscCore);
+  console.log(`      ${AS.length} x ${PHIS.length} grid: worst peak ${s.worst.toFixed(6)} (${s.at}), ` +
+              `quietest ${s.lowest.toFixed(6)} — the bound leaves up to ` +
+              `${(-20 * Math.log10(s.lowest)).toFixed(2)} dB unclaimed (spec draft L7)`);
+  judge('bump peak <= 1 over the whole (a, phi) grid', s.worst <= 1, `worst ${s.worst.toFixed(6)} at ${s.at}`);
+  // CONTROL: remove the normaliser and the same sweep must overshoot. Without
+  // it, "peak <= 1" could be true because the shape is quiet, not because it is
+  // normalised.
+  const NoNorm = mutantCore('this._bumpNorm = 1 / (1 + p.bumpAmt);', 'this._bumpNorm = 1;');
+  const sc = sweep(NoNorm);
+  judge('CONTROL normaliser removed must overshoot 1', sc.worst > 1.05,
+        `worst ${sc.worst.toFixed(6)} at ${sc.at}`);
 }
 
 console.log('\n' + (failures ? 'RED' : 'GREEN') + ` — ${results.length} properties, ${failures} failed`);
