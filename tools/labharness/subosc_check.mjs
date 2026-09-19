@@ -49,17 +49,24 @@ function dspSource() {
   return html.slice(start, end);
 }
 
-// A corruption of the core, with its anchor asserted. `from` must occur exactly
-// once — a plant that does not apply produces a "clean" reading that looks like
-// a pass (LIBRARY L0032/L0033).
-function mutantCore(from, to) {
-  const src = dspSource();
-  const parts = src.split(from);
-  if (parts.length !== 2) {
-    throw new Error(`subosc_check: plant anchor not unique — ${JSON.stringify(from)} occurs ${parts.length - 1}x`);
+// The DSP source evaluated, optionally with a corruption whose anchor is
+// ASSERTED: `from` must occur exactly once — a plant that does not apply
+// produces a "clean" reading that looks like a pass (LIBRARY L0032/L0033).
+// Hands back the free functions as well as the class, because §7's peak
+// property tests the SHAPE (subBump) against the normaliser the core computed
+// for it, and extract_core only returns the class.
+function dspExports(from, to) {
+  let src = dspSource();
+  if (from !== undefined) {
+    const parts = src.split(from);
+    if (parts.length !== 2) {
+      throw new Error(`subosc_check: plant anchor not unique — ${JSON.stringify(from)} occurs ${parts.length - 1}x`);
+    }
+    src = parts.join(to);
   }
-  return new Function('"use strict";\n' + parts.join(to) + '\nreturn SubOscCore;')();
+  return new Function('"use strict";\n' + src + '\nreturn { SubOscCore, subBump };')();
 }
+const mutantCore = (from, to) => dspExports(from, to).SubOscCore;
 
 const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
 const WAVE = { sine: 0, triangle: 1, square: 2, saw: 3, pulse: 4, noise: 5, bump: 6 };
@@ -575,9 +582,9 @@ function subnormalCount(Core) {
 }
 
 /* ===========================================================================
- * 7. THE BUMP SHAPE — two lobes, big one first, and a peak that cannot exceed 1
+ * 7. THE BUMP SHAPE — two lobes, big one first, and a peak of exactly 1
  * ======================================================================== */
-head('7. bump (B155): the two-lobe silhouette at the defaults, and the normalisation bound');
+head('7. bump (B155): the two-lobe silhouette at the defaults, and a peak of exactly 1');
 
 /* The lobes are read from a RISING ZERO CROSSING, not from wherever the render
    window happens to start. Without that anchor the "first" maximum is whichever
@@ -647,14 +654,28 @@ const BUMP_RATIO = 0.8823, BUMP_TROUGH_FRAC = 0.6369, BUMP_TOL = 0.05;
         Math.abs(mirRatio - 1 / BUMP_RATIO) / (1 / BUMP_RATIO) < BUMP_TOL, `${mirRatio.toFixed(5)}`);
 }
 
+// The normaliser line, named once because two plants below target it. A string
+// plant that silently stops matching is caught by dspExports, not by a wrong
+// reading (LIBRARY L0032).
+const NORM_LINE = 'this._bumpNorm = 1 / subBumpPeak(p.bumpAmt, p.bumpPhase);';
+
+/* One grid, two properties: the audio-path sweep below (does the RENDERED
+   signal stay within 1?) and the shape-level peak check after it (does the
+   shape reach exactly 1?). The extremes a = 0 / a = 0.6 and phi = +-pi are in
+   it deliberately. */
+const AS = [0, 0.1, 0.2, 0.3, 0.35, 0.4, 0.5, 0.6];
+const PHIS = [-Math.PI, -2, -1, -0.25, 0, 0.25, 1, 2, Math.PI];
+
 /* THE NORMALISATION IS AN INVARIANT, NOT A DEFAULT-ONLY FACT. The claim is
    peak <= 1 for EVERY (a, phi), which is why the grid is swept rather than the
-   defaults spot-checked. The bound 1/(1+a) is analytic, so the headroom it
-   leaves on the table is reported alongside — it is a cost, and a cost that is
-   not measured is a cost that gets forgotten. */
+   defaults spot-checked. This row reads the peak through the whole render path
+   — envelope, level, tone filter — so it is the one that would catch a
+   normaliser that is right in theory and clipped in practice. It cannot
+   resolve 1e-6 (the render samples the shape at ~674 points per period and the
+   20 kHz tone filter takes a few parts in 1e5 off the third partial), which is
+   why the exactness claim is a separate property below and not a tightening of
+   this threshold. */
 {
-  const AS = [0, 0.1, 0.2, 0.3, 0.35, 0.4, 0.5, 0.6];
-  const PHIS = [-Math.PI, -2, -1, -0.25, 0, 0.25, 1, 2, Math.PI];
   const sweep = (Core) => {
     let worst = 0, at = '', lowest = 9;
     for (const a of AS) for (const phi of PHIS) {
@@ -665,17 +686,71 @@ const BUMP_RATIO = 0.8823, BUMP_TROUGH_FRAC = 0.6369, BUMP_TOL = 0.05;
     return { worst, at, lowest };
   };
   const s = sweep(SubOscCore);
-  console.log(`      ${AS.length} x ${PHIS.length} grid: worst peak ${s.worst.toFixed(6)} (${s.at}), ` +
-              `quietest ${s.lowest.toFixed(6)} — the bound leaves up to ` +
-              `${(-20 * Math.log10(s.lowest)).toFixed(2)} dB unclaimed (spec draft L7)`);
+  console.log(`      ${AS.length} x ${PHIS.length} grid: worst rendered peak ${s.worst.toFixed(6)} (${s.at}), ` +
+              `quietest ${s.lowest.toFixed(6)} — a shortfall of ` +
+              `${(1 - s.lowest).toExponential(1)}, which is this measurement's own ` +
+              `resolution (sampling + tone filter), not the normaliser's error`);
   judge('bump peak <= 1 over the whole (a, phi) grid', s.worst <= 1, `worst ${s.worst.toFixed(6)} at ${s.at}`);
   // CONTROL: remove the normaliser and the same sweep must overshoot. Without
   // it, "peak <= 1" could be true because the shape is quiet, not because it is
   // normalised.
-  const NoNorm = mutantCore('this._bumpNorm = 1 / (1 + p.bumpAmt);', 'this._bumpNorm = 1;');
+  const NoNorm = mutantCore(NORM_LINE, 'this._bumpNorm = 1;');
   const sc = sweep(NoNorm);
   judge('CONTROL normaliser removed must overshoot 1', sc.worst > 1.05,
         `worst ${sc.worst.toFixed(6)} at ${sc.at}`);
+}
+
+/* PEAK-EXACT, NOT MERELY BOUNDED (ADR-178 R7). The shape used to be divided by
+   the analytic bound 1 + a, which is provable in one operation but left the
+   bump at 0.750 of full scale at the defaults and 0.707 at worst — up to 3 dB
+   quieter than the other six waveforms. The normaliser is now the MEASURED peak
+   for the current (a, phi), so this row is the claim that pins it: max|y| = 1,
+   everywhere in range, to 1e-6.
+
+   MEASURED OFF THE SHAPE, NOT THE RENDER, and that is not a convenience — the
+   render cannot resolve 1e-6 (see the row above). So the property evaluates the
+   lab's own subBump with the normaliser the lab's own _recalc computed for
+   those parameters, on a 65536-point scan of one period. The scan is the
+   INDEPENDENT half: it is brute force over the raw formula, where the core's
+   normaliser is a 32-bracket bisection search, so agreement to 1e-6 is two
+   different methods meeting, not one method agreeing with itself. Scan bias is
+   bounded by |f''|/2 . (dth/2)^2 <= 6.4/2 . (4.8e-5)^2 = 7e-9, two orders under
+   the tolerance. */
+const PEAK_TOL = 1e-6, PEAK_SCAN = 65536;
+{
+  const shapePeak = (bag, a, phi) => {
+    const c = make(bag.SubOscCore, 44100, { bumpAmt: a, bumpPhase: phi });
+    const norm = c._bumpNorm;
+    let m = 0;
+    for (let i = 0; i < PEAK_SCAN; i++) {
+      const v = Math.abs(bag.subBump(i / PEAK_SCAN, a, phi, norm));
+      if (v > m) m = v;
+    }
+    return m;
+  };
+  const pristine = dspExports();
+  let worstDev = 0, at = '', lo = 9, hi = 0;
+  for (const a of AS) for (const phi of PHIS) {
+    const pk = shapePeak(pristine, a, phi);
+    if (pk < lo) lo = pk;
+    if (pk > hi) hi = pk;
+    if (Math.abs(pk - 1) > worstDev) { worstDev = Math.abs(pk - 1); at = `a=${a}, phi=${phi.toFixed(2)}`; }
+  }
+  console.log(`      ${AS.length} x ${PHIS.length} grid, ${PEAK_SCAN}-point scan of one period: ` +
+              `peak in [${lo.toFixed(9)}, ${hi.toFixed(9)}], worst deviation ${worstDev.toExponential(2)} (${at})`);
+  judge(`bump peaks at 1.000000 +-${PEAK_TOL} over the whole (a, phi) grid`, worstDev <= PEAK_TOL,
+        `worst |peak - 1| = ${worstDev.toExponential(3)} at ${at}`);
+
+  // CONTROL: plant the OLD analytic bound back and the defaults must read 0.750
+  // — the number the spec recorded for it. A peak check that still read 1.000
+  // with the wrong normaliser in place would be measuring the scan, not the
+  // core (LIBRARY L0032). The plant's anchor is asserted by dspExports.
+  const bound = dspExports(NORM_LINE, 'this._bumpNorm = 1 / (1 + p.bumpAmt);');
+  const boundDef = shapePeak(bound, 0.35, -0.25);
+  const boundWorst = Math.min(...AS.flatMap(a => PHIS.map(phi => shapePeak(bound, a, phi))));
+  judge('CONTROL old 1/(1+a) bound must read 0.750 at the defaults',
+        Math.abs(boundDef - 0.750) < 5e-4,
+        `defaults ${boundDef.toFixed(6)}, quietest over the grid ${boundWorst.toFixed(6)}`);
 }
 
 console.log('\n' + (failures ? 'RED' : 'GREEN') + ` — ${results.length} properties, ${failures} failed`);

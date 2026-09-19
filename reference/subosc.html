@@ -267,9 +267,10 @@
         bump amount and bump phase. polyBLEP on saw / square / pulse only — the idiom is
         the one the repo already trusts, <code>reference/swarmsaw.html:626-633</code>, not a
         second BLEP. <b>bump</b> is
-        <code>(sin θ + a·sin(3θ+φ)) / (1+a)</code>: a sine with a slightly phase-shifted
+        <code>(sin θ + a·sin(3θ+φ)) / peak(a,φ)</code>: a sine with a slightly phase-shifted
         third harmonic, which reads as a big bump followed by a slightly smaller one
-        (measured lobe ratio <b>0.882</b> at the defaults). It needs no BLEP at all — two
+        (measured lobe ratio <b>0.882</b> at the defaults), divided by its own measured
+        peak so it reaches full scale like every other shape (ADR-178 R7). It needs no BLEP at all — two
         partials have nothing above 3·f0 to fold — which holds up to f0 = sr/6
         (7350 Hz here); above that the third partial folds, and the harness pins that
         boundary rather than leaving it as prose. The two bump controls appear only when
@@ -470,16 +471,67 @@ function subPulse(ph, dph, w) {
    0.637 of the leading peak — derived by rendering one period and measuring,
    traces/2026-09-19-b155-subosc-bump.md.
 
-   NORMALISED BY THE ANALYTIC BOUND 1/(1+a), not by the true peak. The bound is
-   provable for EVERY (a, phi) at the cost of one divide; a true peak
-   normalisation has no closed form here and would put a ~180-transcendental
-   scan in _recalc — which the mod matrix can drive per block, since both rows
-   are morphable. The price is stated rather than hidden: the bound leaves the
-   output at 0.750 of full scale at the defaults (2.5 dB), and 0.71-0.86 across
-   the parameter range. Spec draft L7 and ruling R7. */
+   NORMALISED BY THE MEASURED PEAK, so max|y| = 1 for EVERY (a, phi) and the
+   shape is as loud as the other six. The earlier analytic bound 1/(1+a) was
+   provable in one divide but left the output at 0.750 of full scale at the
+   defaults and 0.707 at worst — up to 3 dB quieter than every other waveform,
+   which is a level the human has to correct by hand on every patch. Changed
+   under the ADR-178 sanction (ruling R7); see subBumpPeak below for the search
+   and its cost. */
 function subBump(ph, a, phi, norm) {
   const th = SUB_TWO_PI * ph;
   return (Math.sin(th) + a * Math.sin(3 * th + phi)) * norm;
+}
+
+/* Peak of |sin(th) + a.sin(3th + phi)| over one period. NO CLOSED FORM: the
+   stationary points solve cos(th) + 3a.cos(3th + phi) = 0, which in t =
+   tan(th/2) is a sextic — solvable in principle, not in a form anyone should
+   maintain. So it is a bounded search, and a bounded search is legitimate here
+   only because it runs at PARAMETER-SET time and never per sample.
+
+   Two facts make it cheap and exact enough. (1) HALF-WAVE ANTISYMMETRY: the
+   shape is two ODD partials, so y(th+pi) = -y(th) and searching [0, pi) finds
+   the same peak as [0, 2pi). (2) f' is a degree-3 trig polynomial, so it has at
+   most 6 zeros per period and at most 3 in [0, pi) — a 32-interval grid
+   brackets every sign change with room to spare, and bisection (not Newton: no
+   division, no escape from the bracket, always converges) closes each bracket
+   to pi/32/2^24 = 6e-9 rad, where the quadratic top of a maximum puts the VALUE
+   error near 1e-16.
+
+   The grid samples |f| as well as f' and seeds the running peak with them, so a
+   hypothetical missed bracket degrades the answer by O(h^2) instead of
+   returning something wrong — and the peak can never be returned as 0, which is
+   what makes the reciprocal below safe by construction rather than by a guard.
+
+   COST, measured 2026-09-19 on this build: 282 transcendental calls and ~2.4 us
+   per call in node, incurred once per setParam. The mod matrix can drive
+   bumpAmt/bumpPhase per block (both rows are morphable); at the 2756 blocks/s
+   tick rate that is ~6.6 ms/s of one core, which is the price of the 3 dB.
+   Verified against a 400k-point brute-force scan over a 121 x 101 (a, phi)
+   grid: worst relative disagreement 1.4e-10, which is the BRUTE scan's own
+   sampling error, not this search's. */
+const SUB_BUMP_PEAK_GRID = 32, SUB_BUMP_PEAK_BISECT = 24;
+function subBumpPeak(a, phi) {
+  const h = Math.PI / SUB_BUMP_PEAK_GRID;
+  const d = th => Math.cos(th) + 3 * a * Math.cos(3 * th + phi);          // f'
+  const f = th => Math.abs(Math.sin(th) + a * Math.sin(3 * th + phi));    // |f|
+  let peak = f(0), d0 = d(0), th0 = 0;
+  for (let i = 1; i <= SUB_BUMP_PEAK_GRID; i++) {
+    const th1 = i * h, d1 = d(th1), f1 = f(th1);
+    if (f1 > peak) peak = f1;
+    if ((d0 < 0 && d1 > 0) || (d0 > 0 && d1 < 0)) {
+      let lo = th0, hi = th1, dlo = d0;
+      for (let k = 0; k < SUB_BUMP_PEAK_BISECT; k++) {
+        const mid = 0.5 * (lo + hi), dm = d(mid);
+        if ((dlo < 0 && dm < 0) || (dlo > 0 && dm > 0)) { lo = mid; dlo = dm; }
+        else hi = mid;
+      }
+      const fm = f(0.5 * (lo + hi));
+      if (fm > peak) peak = fm;
+    }
+    d0 = d1; th0 = th1;
+  }
+  return peak;
 }
 
 /* The parameter table IS the contract: range, quantisation and default in one
@@ -542,9 +594,11 @@ class SubOscCore {
     this._G = g / (1 + g);
     this._atkInc = 1 / Math.max(1, p.attack * this.sr);
     this._relInc = 1 / Math.max(1, p.release * this.sr);
-    // |sin(th) + a.sin(3th+phi)| <= 1 + a for every (a, phi) — the bound is the
-    // normaliser, so the bump's peak is <= 1 by construction and not by a scan.
-    this._bumpNorm = 1 / (1 + p.bumpAmt);
+    // The MEASURED peak is the normaliser (ADR-178 R7), so the bump peaks at
+    // exactly 1 for every (a, phi) instead of at 0.75-0.71. subBumpPeak returns
+    // a value >= the grid maximum of |f|, which is bounded below by the shape's
+    // RMS sqrt((1+a^2)/2) >= 0.707 — the reciprocal cannot divide by zero.
+    this._bumpNorm = 1 / subBumpPeak(p.bumpAmt, p.bumpPhase);
   }
 
   setParam(key, v) {

@@ -2,8 +2,9 @@
 
 > **Status.** Ingested as a protected reference 2026-09-19 (ADR-178) on the
 > human's ruling of the same day; `reference/subosc.html` (`SubOscCore`) is the
-> parity oracle and an edit there is a spec change. One sanctioned edit outstanding:
-> peak-normalise the BUMP shape per (a, φ) (R7). The human edits this table.
+> parity oracle and an edit there is a spec change. The one sanctioned edit is
+> spent: BUMP is peak-normalised per (a, φ) (R7, landed 2026-09-19). The human
+> edits this table.
 
 ---
 
@@ -72,12 +73,15 @@ hosted modules).
 **Bump (B155, the human's request of 2026-09-19 — ADR-177 §5 — from Mr. Bill):**
 
 ```
-  y = ( sin(θ) + a·sin(3θ + φ) ) / (1 + a)
+  y = ( sin(θ) + a·sin(3θ + φ) ) / peak(a, φ)
 ```
 
 a sine with a slightly phase-shifted third harmonic above it, so one period
 reads as **a big bump followed by a slightly smaller bump**. `a` = `bumpAmt`,
-`φ` = `bumpPhase`.
+`φ` = `bumpPhase`, and `peak(a, φ)` is the measured maximum of
+`|sin θ + a·sin(3θ + φ)|` over one period, computed once per parameter set so
+that every (a, φ) peaks at exactly 1 — the ADR-178 sanctioned edit, ruling R7,
+landed 2026-09-19.
 
 - The two bumps appear when the third harmonic's crest lands inside the sine's,
   which needs `a > 1/9`; **φ breaks the symmetry between them, and its sign
@@ -89,10 +93,12 @@ reads as **a big bump followed by a slightly smaller bump**. `a` = `bumpAmt`,
   at the additive floor, −166.8 … −163.6 dB, indistinguishable from the sine
   row (§10.1). That guarantee holds while 3·f0 < Nyquist and lapses above
   f0 = sr/6: limit **L6**.
-- **Normalised by the analytic bound 1/(1+a)**, not by the true peak: |y| ≤ 1
-  for every (a, φ) at the cost of one divide, with no scan in a parameter path
-  the mod matrix can drive per block. The price is a level that sits below full
-  scale — limit **L7**, ruling **R7**.
+- **Normalised by the measured peak, not by the analytic bound 1/(1+a)**:
+  max|y| = 1 for every (a, φ), bought with a 282-transcendental bracketed search
+  once per parameter set instead of one divide — the trade ruling **R7** made,
+  because the bound left the shape up to 3 dB quieter than every other waveform.
+  (§9 L7 and §10.6 still carry the pre-change measurement; re-measuring them is
+  the human's.)
 - Half-wave antisymmetry is structural here (`y(θ+π) = −y(θ)` for any a, φ), so
   the shape is DC-free by construction and the negative half always mirrors the
   positive pair. A "bump" asymmetric between the halves is **not** reachable
@@ -189,7 +195,7 @@ waits on the per-oscillator sources increment and the human's id-layout ruling.
 |---|---|---|---|---|---|---|
 | `subosc.wave` | `wave` | sine, triangle, square, saw, pulse, noise, bump | saw | structural | – | stepped; morphs atomically |
 | `subosc.width` | `width` | 0.05 – 0.95 | 0.5 | morphable | ✓ | pulse only; 0.5 ≡ square |
-| `subosc.bumpAmt` | `bumpAmt` | 0 – 0.6 | 0.35 | morphable | ✓ | bump only; the third harmonic's level `a`. Two lobes need a > 1/9; above 0.6 the harmonic dominates and it stops reading as a sub |
+| `subosc.bumpAmt` | `bumpAmt` | 0 – 0.6 | 0.35 | morphable | ✓ | bump only; the third harmonic's level `a`. Two lobes need a > 1/9; above 0.6 the harmonic dominates and it stops reading as a sub. **A shape control, not a level control** — peak normalisation (R7) holds the output at full scale across the whole range |
 | `subosc.bumpPhase` | `bumpPhase` | −π – π rad | −0.25 | morphable | ✓ | bump only; the third harmonic's phase `φ`. **The sign decides which bump leads** — negative leads with the big one |
 | `subosc.octave` | `octave` | −2, −1, 0 | −1 | structural | – | a sub goes down only |
 | `subosc.semis` | `semis` | ±12 st | 0 | structural | – | stepped by definition |
