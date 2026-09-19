@@ -401,13 +401,13 @@ golden generator uses. Every control names its §10 address, and the page audits
      hand-copied into the wiring, so "the core the page runs" and "the core the
      page shows" cannot drift apart.
 
-     NOTE FOR THE PORT: reference/station.html CANNOT be read by
-     extract_core.mjs today. Its core is delimited by
-     `/* ===== STATION — 3-op PM + LFSR noise ===== */` and it has no
-     `Audio graph` banner at all (reference/station.html:141; compare
-     reference/swarmsaw.html:203/:670), so both marker searches fail. That is a
-     finding about the reference, not a licence to edit it — reference/ is a
-     protected path (CLAUDE.md §Domain) and this lab slices its OWN block.
+     NOTE FOR THE PORT: reference/station.html carries the same two banners and
+     IS read by extract_core.mjs now (`DSP: Station` / `Audio graph`), which is
+     what tools/labharness/station_check.mjs measures. The stale version of this
+     note said the opposite; it was written before the reference wrapped its core
+     in `class StationCore`. This page still slices its OWN block, because the
+     two cores are not the same core — the page implements the build-side
+     additions SPEC-STATION §3.4/§7 call for and the reference does not.
      ====================================================================== -->
 <script type="text/x-station-core" id="coreSrc">
 /* ================= DSP: STATION lab core ================= */
