@@ -1,18 +1,9 @@
-# SUB OSC — Source-Module Specification **(DRAFT)**
+# SUB OSC — Source-Module Specification
 
-> **THIS IS A DRAFT, NOT A SPEC.** It lives in `docs/proposals/` and is therefore
-> NOT a protected path: strike lines, rewrite them, delete whole sections. It
-> becomes protected — an edit becoming a spec change — only when the human moves
-> it to `specs/SPEC-SUBOSC.md`. Until then the lab
-> (`docs/design/subosc-lab.html`) is the thing that is real and this file is the
-> proposal about it.
->
-> **Project:** HORDE (source-module type) · **Queue item:** B155
-> **Written:** 2026-09-18, from the human's request: *"a Sub Osc source module
-> with simple parameters (a small suite of shapes, pitch controls, etc.)"*
-> **Reference prototype:** `docs/design/subosc-lab.html` (`SubOscCore`)
-> **Harness:** `tools/labharness/subosc_check.mjs` — 37 properties, hand-run
-> **Status:** proposal. Nothing here is ratified and nothing is in `src/`.
+> **Status.** Ingested as a protected reference 2026-09-19 (ADR-178) on the
+> human's ruling of the same day; `reference/subosc.html` (`SubOscCore`) is the
+> parity oracle and an edit there is a spec change. One sanctioned edit outstanding:
+> peak-normalise the BUMP shape per (a, φ) (R7). The human edits this table.
 
 ---
 
@@ -235,7 +226,7 @@ parameter row, so every tool that drives the core directly can walk it past
 
 ## 9. Parity, deliberate divergences, and named limits
 
-`docs/design/subosc-lab.html` is the parity oracle for: the seven shapes, the
+`reference/subosc.html` is the parity oracle for: the seven shapes, the
 polyBLEP correction, the pulse construction, the pitch law, the TPT tone
 coefficient, the sync reset convention, the noise stream, and the clamps.
 

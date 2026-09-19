@@ -6049,3 +6049,23 @@ character is smoother, not coarser: the staircase updates at 172 Hz instead
 of 43 Hz with steps four times smaller. `subdiv_check` and
 `blocksize_check` now gate every case with no exclusions; parity 156/156 at
 the existing eps with the nine moved scenarios at rms 0.
+## ADR-178 — SUB OSC ingested as a reference source (2026-09-19)
+
+**Context.** Human (2026-09-18): "I also want a Sub Osc source module with
+simple parameters"; (2026-09-19): "Let's spin up a sub osc reference", plus
+the BUMP waveform. The lab was born as a design lab (PR #643) with a parity
+core behind the extractor's banners, a 25-property harness, and a spec
+draft; BUMP landed (PR #657).
+
+**Decision.** `docs/design/subosc-lab.html` → `reference/subosc.html` and
+`docs/proposals/SPEC-SUBOSC.md` → `specs/SPEC-SUBOSC.md`, both protected;
+`SubOscCore` is the parity oracle. Seven shapes (sine, triangle — naive,
+declared limit L1 — square, saw, pulse, seeded noise, BUMP), octave/semi/
+fine, level, phase, keytrack, one-pole tone, hard sync, seed; attack/release
+provisional (the voice envelope replaces them in the shell). ADR-173 classes
+per the table. It enters the routing matrix as source row 2 when ported
+(the id layout reserves eight source rows, ADR-088 amendment). One
+sanctioned edit outstanding (R7): peak-normalise BUMP per (a, φ) so every
+shape peaks at 1 — today's `1 + a` normalisation leaves it at 0.75 of full
+scale at the defaults, up to 3 dB quieter. The human edits the parameter
+table; the lead moves nothing else.

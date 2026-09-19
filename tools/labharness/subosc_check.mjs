@@ -1,5 +1,5 @@
 /*
- * subosc_check.mjs — fidelity harness for docs/design/subosc-lab.html (B155).
+ * subosc_check.mjs — fidelity harness for reference/subosc.html (B155).
  *
  * WHY THIS EXISTS. The SAW engine's lab-inherited expedients were only found by
  * an audit, years after they shipped: a hand-tuned per-tick smoother that drifts
@@ -31,7 +31,7 @@ import { dirname, resolve } from 'node:path';
 import { extractCore } from '../golden/extract_core.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const LAB = resolve(here, '../../docs/design/subosc-lab.html');
+const LAB = resolve(here, '../../reference/subosc.html');
 
 // The pristine core comes through the SHIPPED extractor, so a banner drift that
 // would break golden generation breaks this harness first and loudly.
