@@ -1044,8 +1044,8 @@
        default 0.5. -->
   <div class="cluster"><h2>XY — main pad</h2>
     <canvas id="xyMain" class="xy" width="340" height="212"></canvas>
-    <div class="row xyAsnRow"><label>x drives</label><select data-p="179" data-fixed="1"><option value="0" selected>Macro 1</option><option value="1">Macro 2</option><option value="2">Macro 3</option><option value="3">Macro 4</option><option value="4">Macro 5</option><option value="5">Macro 6</option><option value="6">Macro 7</option><option value="7">Macro 8</option><option value="8">None</option></select><output></output></div>
-    <div class="row xyAsnRow"><label>y drives</label><select data-p="180" data-fixed="1"><option value="0">Macro 1</option><option value="1" selected>Macro 2</option><option value="2">Macro 3</option><option value="3">Macro 4</option><option value="4">Macro 5</option><option value="5">Macro 6</option><option value="6">Macro 7</option><option value="7">Macro 8</option><option value="8">None</option></select><output></output></div>
+    <div class="row xyAsnRow"><label>x drives</label><select data-p="179" data-fixed="1"><option value="0" selected>Macro 1</option><option value="1">Macro 2</option><option value="2">Macro 3</option><option value="3">Macro 4</option><option value="4">Macro 5</option><option value="5">Macro 6</option><option value="6">Macro 7</option><option value="7">Macro 8</option><option value="8">None</option><option value="9">Pitch Bend</option><option value="10">Mod Wheel</option></select><output></output></div>
+    <div class="row xyAsnRow"><label>y drives</label><select data-p="180" data-fixed="1"><option value="0">Macro 1</option><option value="1" selected>Macro 2</option><option value="2">Macro 3</option><option value="3">Macro 4</option><option value="4">Macro 5</option><option value="5">Macro 6</option><option value="6">Macro 7</option><option value="7">Macro 8</option><option value="8">None</option><option value="9">Pitch Bend</option><option value="10">Mod Wheel</option></select><output></output></div>
     <div class="note xyRouteNote" id="xyMainRoutes"></div>
   </div>
   <div class="cluster"><h2>Wheels</h2>
@@ -3450,10 +3450,12 @@ function intentName(i) {
 // Declared (not a const arrow) for the same TDZ reason as intentName: the MOD
 // page's source lists reach it from above this line.
 function macroLabel(i) { return 'Macro ' + (i + 1) + (intentName(i) ? ': ' + intentName(i) : ''); }
-/* The MAIN pad's assignment enum: 0..7 = Macro 1..8, 8 = None. */
-const ASN_NONE = 8;
+/* The MAIN pad's assignment enum, APPEND-ONLY so a stored patch never changes
+   meaning: 0..7 = Macro 1..8, 8 = None, and 9/10 added 2026-09-19. */
+const ASN_NONE = 8, ASN_BEND = 9, ASN_WHEEL = 10;
 function asnOptLabel(v) {
-  return v === ASN_NONE ? 'None' : macroLabel(v);
+  return v === ASN_NONE ? 'None' : v === ASN_BEND ? 'Pitch Bend'
+       : v === ASN_WHEEL ? 'Mod Wheel' : macroLabel(v);
 }
 /* Repainted on the ownership feed, beside the knob labels, because a name
    changes when a patch loads or the flag flips — the option TEXT is rewritten
@@ -3947,20 +3949,63 @@ for (const [name, live] of PAGES) {
    carried by the morph like any other. Only MAIN's pad is a macro pad
    (assignable through 179/180, ADR-150). One controller, two id sources and
    a per-axis value map; the unit interval is the pad's coordinate space. */
-const asnPid = a => (a >= 0 && a < 8) ? 166 + a : -1;   // 8 = None -> no target
-const mainMacroIds = () => [asnPid(+(lastParams[179] ?? 0)), asnPid(+(lastParams[180] ?? 1))];
+/* 2026-09-19, the human: "let's make pitch bend and mod wheel accessible to the
+   MAIN XY as well as the macros". Two destinations APPENDED to the assignment
+   enum (9, 10) rather than inserted, so 0..8 keep their meaning bit for bit and
+   a stored patch with 179=3 still drives Macro 4.
+
+   PITCH BEND IS A PARAMETER, so it needs no new write path: a host wheel lands
+   as applyParam(38, ...) (hypersaw_clap.cpp, CLAP_EVENT_MIDI channel 0) and so
+   does the GUI's own Wheel strip, which is exactly why the bend travel law
+   shapes all three identically. Returning 38 from the same decoder every other
+   assignment goes through is the whole implementation — the alternative, a
+   pad-only bend path, would be a second place for the law to be forgotten.
+
+   MOD WHEEL IS NOT A PARAMETER. It is matrix source 15, reached through
+   hzModWheel, so it has no id and the decoder says so (-1); the axis is written
+   by padSideWrite instead. */
+const asnPid = a => a === ASN_BEND ? 38 : (a >= 0 && a < 8) ? 166 + a : -1;
+// 8 None / 10 Mod Wheel -> no parameter target.
+const mainAsnOf = axis => +(lastParams[179 + axis] ?? (axis ? 1 : 0));
+const mainMacroIds = () => [asnPid(mainAsnOf(0)), asnPid(mainAsnOf(1))];
 const oscDirectIds = () => [effId(4), effId(6)];
-const unit = { toVal: (axis, u) => u, toUnit: (axis, v) => v };
+/* ±2 st is the MIDI 1.0 and MPE-manager default bend range, and the shell
+   spells it once — at the channel-0 wheel decode. A full pad throw is a full
+   wheel throw, so the pad borrows THAT number instead of inventing a pad-only
+   range; centre (0.5) is zero bend. If a bend-range parameter ever lands, both
+   sites read it and this constant goes. */
+const BEND_WHEEL_ST = 2;
+/* MAIN's per-axis value map: the pad's coordinate space is the unit interval
+   for a macro (which is already 0..1) and BIPOLAR for bend. Keyed on the
+   assignment, not on the axis, so x and y can carry different destinations. */
+const mainMap = {
+  toVal: (axis, u) => mainAsnOf(axis) === ASN_BEND ? (u - 0.5) * 2 * BEND_WHEEL_ST : u,
+  toUnit: (axis, v) => mainAsnOf(axis) === ASN_BEND
+    ? Math.min(1, Math.max(0, v / (2 * BEND_WHEEL_ST) + 0.5)) : v,
+};
 const detK = { toVal: (axis, u) => axis ? 2 * u - 1 : u, toUnit: (axis, v) => axis ? (v + 1) / 2 : v };
 const PADS = [
   /* `perf`: ADR-176 §5 — the MAIN XY is the PERFORMANCE pad and the morph pad
      never is, so the home marker belongs to this row and only this row. A
      property on the pad rather than a selector test in the painter, because
      the painter already treats a pad as a record. */
-  { sel: '#xyMain', ids: mainMacroIds, map: unit, lastX: -1, lastY: -1, dirty: true, perf: true },
+  { sel: '#xyMain', ids: mainMacroIds, map: mainMap, lastX: -1, lastY: -1, dirty: true, perf: true },
   { sel: '#xy2',    ids: oscDirectIds, map: detK, lastX: -1, lastY: -1, dirty: true },
 ];
 let xyDirty = true;   // legacy flag: any write marks BOTH pads (cheap, correct)
+/* WHERE THE PUCK SITS on one axis, in the pad's unit space. Every destination
+   answers the same question: a parameter axis reads its parameter back, a Mod
+   Wheel axis reads the slider it shares (the wheel is a matrix SOURCE — there
+   is no parameter to read, and leaving it at the None default pinned the puck
+   to centre while the drag was moving the source), None rests centred. */
+function padPuck(pad, axis, id) {
+  if (id >= 0) return pad.map.toUnit(axis, +(lastParams[id] ?? 0));
+  if (pad.perf && mainAsnOf(axis) === ASN_WHEEL) {
+    const w = document.getElementById('modWheelCtl');
+    return w ? Math.min(1, Math.max(0, +w.value)) : 0;
+  }
+  return 0.5;
+}
 function wirePad(pad) {
   const cv = document.querySelector(pad.sel);
   if (!cv) return;
@@ -3974,6 +4019,7 @@ function wirePad(pad) {
     const vx = pad.map.toVal(0, x), vy = pad.map.toVal(1, y);
     if (ix >= 0) { bridge.setParam(ix, vx); lastParams[ix] = vx; setControl(ix, vx); }
     if (iy >= 0) { bridge.setParam(iy, vy); lastParams[iy] = vy; setControl(iy, vy); }
+    padSideWrite(pad, 0, x); padSideWrite(pad, 1, y);
     xyDirty = true;
   };
   cv.addEventListener('pointerdown', e => { down = true; cv.setPointerCapture(e.pointerId);
@@ -3983,6 +4029,16 @@ function wirePad(pad) {
   cv.addEventListener('pointerup', () => { down = false;
     const [ix, iy] = pad.ids();
     if (ix >= 0) bridge.gesture(ix, false); if (iy >= 0) bridge.gesture(iy, false); });
+}
+/* THE ONE AXIS THAT IS NOT A PARAMETER. Assignment 10 aims at the Mod Wheel,
+   which is matrix source 15 and reaches the shell through hzModWheel, so there
+   is no id for `apply` to write and the decoder returns -1. Routed through the
+   GUI's own Mod slider rather than calling hzModWheel directly: the slider and
+   the pad are then ONE control, and the readout cannot sit stale while the pad
+   moves the source underneath it. Only MAIN carries 179/180, hence `perf`. */
+function padSideWrite(pad, axis, u) {
+  if (!pad.perf) return;
+  if (mainAsnOf(axis) === ASN_WHEEL) setModWheelUI(u);
 }
 PADS.forEach(wirePad);
 /* B85 first landing: the light morph pad. Corner colours from MCOLORS (the
@@ -4018,21 +4074,43 @@ function drawMorphMini() {
   cv.addEventListener('pointerup', () => { down = false;
     bridge.gesture(152, false); bridge.gesture(153, false); });
 })();
-/* ADR-150: the GUI mod wheel — drives matrix source 15 through hzModWheel. */
+/* ADR-150: the GUI mod wheel — drives matrix source 15 through hzModWheel.
+   Declared as a FUNCTION and not a const arrow because the MAIN pad's apply
+   path (padSideWrite, wired further UP this file) calls it for an
+   assignment-10 axis, and a const read from above its declaration throws in
+   the TDZ (L0041/L0026). Both callers land here so the slider's position, its
+   readout and the source the shell sees can never be three opinions. */
+function setModWheelUI(v) {
+  const u = Math.min(1, Math.max(0, +v));
+  const w = document.getElementById('modWheelCtl');
+  if (w) {
+    if (+w.value !== u) w.value = u;
+    const row = w.closest('.row');
+    const o = row && row.querySelector('output');
+    if (o) o.textContent = u.toFixed(2);
+  }
+  try { window.hzModWheel && hzModWheel(u); } catch (e) {}
+}
 (() => {
   const w = document.getElementById('modWheelCtl');
   if (!w) return;
-  const o = w.closest('.row').querySelector('output');
-  w.addEventListener('input', () => {
-    o.textContent = (+w.value).toFixed(2);
-    try { window.hzModWheel && hzModWheel(+w.value); } catch (e) {}
-  });
+  w.addEventListener('input', () => setModWheelUI(+w.value));
 })();
 /* What does this pad actually TOUCH? Each axis line = the macro it drives plus
    every matrix route riding that macro (and, for the osc pad, routes on the
    pad-axis alias slots 10-13). Rendered from MODROUTES — no second copy. */
 function padRouteLine(axisName, asn, aliasSlot) {
-  if (asn >= 8 || asn < 0) return axisName + ' → none';
+  // The two non-macro destinations are tested FIRST: 9 and 10 are greater than
+  // the None sentinel, so the old `asn >= 8` guard would have called them none.
+  if (asn === ASN_BEND)
+    return axisName + ' → Pitch Bend ±' + BEND_WHEEL_ST + ' st (centre = no bend; the bend law applies)';
+  if (asn === ASN_WHEEL) {
+    // Source 15 in MOD_SRC_NAMES — the same slot the Mod slider drives.
+    const wd = [];
+    for (const r of (MODROUTES || [])) if (r.src === 15) wd.push(modDestLabel(r.dest));
+    return axisName + ' → Mod Wheel' + (wd.length ? ' → ' + wd.join(', ') : '');
+  }
+  if (asn >= ASN_NONE || asn < 0) return axisName + ' → none';
   const dests = [];
   for (const r of (MODROUTES || [])) if (r.src === 2 + asn) dests.push(modDestLabel(r.dest));
   const sus = (+(lastParams[151] ?? 0)) > 0.5 ? ' (suspended: morph on)' : '';
@@ -4042,8 +4120,8 @@ let lastRouteNotes = '';
 function updateXYRouteNotes() {
   const main = document.getElementById('xyMainRoutes');
   const osc = document.getElementById('xyOscRoutes');
-  const mTxt = padRouteLine('x', +(lastParams[179] ?? 0), -1) + '\n'
-             + padRouteLine('y', +(lastParams[180] ?? 1), -1);
+  const mTxt = padRouteLine('x', mainAsnOf(0), -1) + '\n'
+             + padRouteLine('y', mainAsnOf(1), -1);
   const oTxt = 'x → Detune · y → Pull K — this oscillator, directly (ADR-156)';
   const both = mTxt + '|' + oTxt;
   if (both === lastRouteNotes) return;
@@ -4213,8 +4291,7 @@ function frameBody() {
   for (const pad of PADS) {   // each pad follows ITS OWN assigned macros
     if (!pad.cv) continue;
     const [mix, miy] = pad.ids();
-    const mx = mix >= 0 ? pad.map.toUnit(0, +(lastParams[mix] ?? 0)) : 0.5;   // None: rest centred
-    const my = miy >= 0 ? pad.map.toUnit(1, +(lastParams[miy] ?? 0)) : 0.5;
+    const mx = padPuck(pad, 0, mix), my = padPuck(pad, 1, miy);
     if (mx !== pad.lastX || my !== pad.lastY || xyDirty) {
       pad.lastX = mx; pad.lastY = my;
       const xyctx = pad.cv.getContext('2d');
