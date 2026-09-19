@@ -2951,6 +2951,74 @@ struct Plugin
   }
   double modPitchApplied = 0;
 
+  /* ---- ONE APPLICATION, TWO LAWS (B89 phase 2c) --------------------------
+     Choosing the target and APPLYING it are different jobs, and since 2c there
+     are two laws that choose (morphStep's Gumbel field and intentStep's
+     SPEC-INTENT-BUS walk) and exactly one that applies. These three helpers
+     are that one, extracted verbatim from morphStep rather than copied into
+     the resolver: a second copy is the failure this codebase has already paid
+     for (ADR-110 -- "when they were two copies, any edit to one was a map that
+     lied about the sound"), and it would make B89's "no second write path"
+     claim a promise about a copy instead of a property of the code. */
+
+  /* THE WRITE. The 1e-9 deadband and the morphFromField guard are the field's
+     contract with applyParam's ADR-109 choke point; nothing else in the shell
+     may write a morphed slot. Returns true when it actually wrote, which is
+     what lets a calibration door report its own anchor (L0033). */
+  bool morphCommitSlot(size_t i, double next)
+  {
+    if (std::fabs(next - morphCur[i]) <= 1e-9) return false;
+    morphCur[i] = next;
+    morphFromField = true;
+    applyParam(morphIds[i], next);
+    morphFromField = false;
+    return true;
+  }
+
+  /* TARGET -> VALUE. Stepped/structural takes the winner's request IN FULL
+     (ADR-125); continuous is carried by the one-pole (`morphGlide`, id 158 --
+     plan R16 keeps it for the resolver too, so the bus sets the destination
+     and the shipped rate control still owns the journey). `morphCur < -1e29`
+     is "never applied yet": the first tick lands on the target outright rather
+     than gliding up from the sentinel. */
+  bool morphApplyTarget(size_t i, const ParamDef &d, double target, double coef)
+  {
+    double next = d.stepped ? target
+                            : (morphCur[i] < -1e29 ? target
+                                                   : morphCur[i] + (target - morphCur[i]) * coef);
+    if (d.stepped) next = std::round(next);
+    return morphCommitSlot(i, next);
+  }
+
+  // B48: an exempt enable is fully live, so its ramp must not linger.
+  void morphExemptSlot(size_t i)
+  {
+    if (baseIdOf(morphIds[i]) != 150) return;
+    const uint32_t o = oscOfId(morphIds[i]);
+    if (o < kMaxOsc) oscOnW[o] = 1.0;
+  }
+
+  /* B48 SPECIAL CASE -- osc on/off morphs as a LEVEL RAMP, not a pick (human
+     2026-08-26). The stepped pick drew enable from one corner while vol came
+     from another, and ADR-100's off transition hard-kills voices, so the
+     boundary was a click and the partway state a chimera. Here the BILINEAR
+     weight of the corners that hold the osc ON becomes a gain ramp (applied in
+     applyOscGainAndMeter through the existing ~8 ms smoother), and the stepped
+     flip is deferred to the weight floor, where the osc is already ~-60 dB:
+     the kill/re-strike still runs, but inaudibly. Plain w[], not the Gumbel
+     draw and not the resolver's sharpened weights -- the ramp is deterministic
+     in the pad position, all three laws. At a pure corner the weight equals
+     that corner's stored enable, so corners stay bit-identical. */
+  bool morphApplyOscEnable(size_t i, const double *wBilinear)
+  {
+    double onW = 0;
+    for (int k = 0; k < 4; k++) onW += wBilinear[k] * morphCorner[k][i];
+    onW = onW < 0 ? 0 : (onW > 1 ? 1 : onW);
+    const uint32_t o = oscOfId(morphIds[i]);
+    if (o < kMaxOsc) oscOnW[o] = onW;
+    return morphCommitSlot(i, onW > 1e-3 ? 1.0 : 0.0);
+  }
+
   void morphStep(int samples)
   {
     /* THE SEAM (B89 phase 2b, ADR-176 decision 6). ONE branch, taken only when
@@ -2980,45 +3048,12 @@ struct Plugin
       if (!d) continue;
       // ADR-109: an exempt parameter is not in the field at all — it holds
       // whatever it is set to, and no corner owns it.
-      if (i < morphExempt.size() && morphExempt[i])
-      {
-        // B48: an exempt enable is fully live, so its ramp must not linger.
-        if (baseIdOf(morphIds[i]) == 150)
-        {
-          const uint32_t o = oscOfId(morphIds[i]);
-          if (o < kMaxOsc) oscOnW[o] = 1.0;
-        }
-        continue;
-      }
+      if (i < morphExempt.size() && morphExempt[i]) { morphExemptSlot(i); continue; }
+      // B48's ramp and the exempt hold are the same two helpers the resolver
+      // uses; `w` here is the plain bilinear weight, which is what that ramp
+      // wants in both modes.
+      if (baseIdOf(morphIds[i]) == 150) { morphApplyOscEnable(i, w); continue; }
       double target;
-      /* B48 SPECIAL CASE — osc on/off morphs as a LEVEL RAMP, not a pick
-         (human 2026-08-26). The stepped pick drew enable from one corner while
-         vol came from another, and ADR-100's off transition hard-kills voices,
-         so the boundary was a click and the partway state a chimera. Here the
-         BILINEAR weight of the corners that hold the osc ON becomes a gain
-         ramp (applied in applyOscGainAndMeter through the existing ~8 ms
-         smoother), and the stepped flip is deferred to the weight floor,
-         where the osc is already ~-60 dB: the kill/re-strike still runs, but
-         inaudibly. Plain w[], not the Gumbel draw -- the ramp is deterministic
-         in the pad position, both modes. At a pure corner the weight equals
-         that corner's stored enable, so corners stay bit-identical. */
-      if (baseIdOf(morphIds[i]) == 150)
-      {
-        double onW = 0;
-        for (int k = 0; k < 4; k++) onW += w[k] * morphCorner[k][i];
-        onW = onW < 0 ? 0 : (onW > 1 ? 1 : onW);
-        const uint32_t o = oscOfId(morphIds[i]);
-        if (o < kMaxOsc) oscOnW[o] = onW;
-        const double next = onW > 1e-3 ? 1.0 : 0.0;
-        if (std::fabs(next - morphCur[i]) > 1e-9)
-        {
-          morphCur[i] = next;
-          morphFromField = true;
-          applyParam(morphIds[i], next);
-          morphFromField = false;
-        }
-        continue;
-      }
       if ((int)morphMode == 1 && !d->stepped)
       {
         target = 0;
@@ -3044,27 +3079,20 @@ struct Plugin
                                                            ? target
                                                            : morphCur[i];
       }
-      double next = d->stepped ? target
-                               : (morphCur[i] < -1e29 ? target
-                                                      : morphCur[i] + (target - morphCur[i]) * coef);
-      if (d->stepped) next = std::round(next);
-      if (std::fabs(next - morphCur[i]) > 1e-9)
-      {
-        morphCur[i] = next;
-        morphFromField = true;
-        applyParam(morphIds[i], next);
-        morphFromField = false;
-      }
+      morphApplyTarget(i, *d, target, coef);
     }
   }
 
-  /* ================= B89 PHASE 2b — THE INTENT BUS, SHADOWED ===============
-     ADR-176 (the owner law, the atoms, the ten intents, the flag) built behind
-     param 266 with its OUTPUT UNUSED: `intentStep` resolves SPEC-INTENT-BUS
-     §4.5's `final[p]` into `intentShadow` and applies nothing. 2c moves that
-     value through applyParam; this phase exists to prove the seam costs
-     nothing when the flag is off and reduces to a plain corner read when it
-     is on — the two facts that make 2c safe to switch on.
+  /* ================= B89 PHASE 2c — THE INTENT BUS, APPLIED ================
+     ADR-176 (the owner law, the atoms, the ten intents, the flag) behind param
+     266, which ships OFF. `intentStep` resolves SPEC-INTENT-BUS §4.5's
+     `final[p]` into `intentResolved` and — since 2c — APPLIES it: that value
+     is the target the shipped one-pole carries `morphCur` toward, written
+     through morphApplyTarget, which is the same and only write path morphStep
+     uses. 2b proved the two facts this rests on: the flag off costs nothing
+     (structural — the branch is not taken), and the flag on with nothing bound
+     is a pure corner read, so switching it on changes WHICH corner owns a slot
+     and never what the owner's value means.
 
      WHY THE SHELL OWNS THE TABLES (plan R14). IntentCore is pure functions
      over caller-owned spans, so every array here is sized ONCE in morphInit,
@@ -3125,7 +3153,8 @@ struct Plugin
   // The per-tick working set. Sized once; never resized on the audio thread.
   std::vector<double> intentBaseN;      // [4 * N] the corners, normalised
   std::vector<double> intentFinal;      // [N] §4.5 final, normalised
-  std::vector<double> intentShadow;     // [N] the same value in RAW units — THE SHADOW
+  std::vector<double> intentResolved;   // [N] the same value in RAW units — THE TARGET
+  int intentWrote = 0;                 // slots the last apply wrote (a door's anchor, L0033)
   std::vector<int> intentOwnerAtom;     // [nAtoms]
   std::vector<int> intentOwnerParam;    // [N]
   std::vector<int> intentClamped;       // [N] §4.5's clamp indicator
@@ -3174,7 +3203,7 @@ struct Plugin
 
     intentBaseN.assign(4 * n, 0.0);
     intentFinal.assign(n, 0.0);
-    intentShadow.assign(n, 0.0);
+    intentResolved.assign(n, 0.0);
     intentOwnerAtom.assign((size_t)intentNAtoms, 0);
     intentOwnerParam.assign(n, 0);
     intentClamped.assign(n, 0);
@@ -3377,11 +3406,11 @@ struct Plugin
   /* ---- the seam ----------------------------------------------------------
      SPEC-INTENT-BUS §4.1-§4.5 over the shell's own field, on morphStep's own
      grid and accumulator (one accumulator, so there is no second one to drift
-     out of step with the first). In phase 2b the result goes to `intentShadow`
-     and NOWHERE ELSE: no applyParam, no morphCur, no glide. That is what
-     makes flag-off bit-identity structural rather than measured — with the
-     flag off this function is not entered at all, and with it on nothing it
-     computes can reach the audio path.
+     out of step with the first). Since 2c the resolved value is APPLIED, by
+     intentApply below and through morphApplyTarget — the write morphStep would
+     have made, made once, from the other law. Flag-off bit-identity stays
+     structural rather than measured: with the flag off this function is not
+     entered at all.
 
      Deliberately NOT built here (each has its phase): the corner-scope
      modulation tier (plan R5 — the prototype's corner LFO has no shell
@@ -3392,6 +3421,9 @@ struct Plugin
     morphAccum += samples;
     const int grid = (int)std::lround(sampleRate * hypersaw::kGravGridSeconds);
     if (morphAccum < grid) return;
+    // dt BEFORE the reset: the glide coefficient is a function of the interval
+    // that actually elapsed, not of the nominal grid (ADR-086/ADR-009).
+    const double dt = (double)morphAccum / sampleRate;
     morphAccum = 0;
     const size_t n = morphIds.size();
     if (n == 0 || intentFinal.size() != n) return;
@@ -3429,34 +3461,144 @@ struct Plugin
                    intentRangeHi.data(), nullptr, nullptr, nullptr, nullptr,
                    intentFinal.data(), intentClamped.data());
     for (size_t i = 0; i < n; i++)
-      intentShadow[i] = intentMinV[i] + intentFinal[i] * intentSpan[i];
+      intentResolved[i] = intentMinV[i] + intentFinal[i] * intentSpan[i];
+    intentApply(dt);
   }
 
-  /* CALIBRATION ONLY (L0032) — the must-fail control for "the flag off is
-     bit-identical". A green flag-off render proves the comparison RAN; it does
-     not prove the comparison could have failed. So this resolves once and
-     pushes the shadow through applyParam exactly the way 2c will, at whatever
-     the flag happens to be, and intent_check asserts the resulting render
-     DIFFERS. Reached only from hypersaw_debug_intent_plant: no shell path, no
-     GUI path and no host path calls it, which is the property that keeps 2b's
-     "nothing applied" claim true while its control exists.
-     Returns the number of slots it wrote, so the control can assert its own
-     anchor — a plant that silently wrote nothing would "not fire" for the
-     wrong reason (L0033). */
-  int intentPlantShadow()
+  /* ---- the apply (B89 phase 2c) -----------------------------------------
+     Every morphable slot, the resolver's `final[p]` as the TARGET, through the
+     same three helpers morphStep applies with — so there is no second write
+     path to keep in step and nothing here reaches applyParam except by the
+     route the field has always taken (morphFromField set, ADR-109's choke
+     point, the 1e-9 deadband).
+
+     Three rules the resolver does NOT get to reinterpret, because they are the
+     field's and the field is still what is sounding:
+       - morphExempt (ADR-109): an exempt slot is not in the field, so nothing
+         is written for it and no owner it may have been assigned is consulted.
+       - the lead groups (ADR-176 decision 2): the atom map IS morphLead, built
+         in intentInit, so a group flips as one by construction rather than by
+         a rule repeated here.
+       - ADR-108's hold, and WHICH RANGE CLAMPED THE VALUE. This is the hazard
+         the plan names. The corner clamp belongs to the OWNER's range and is
+         already applied, inside IntentCore::stepParams, to the owner's own
+         base. The hold that follows replaces that value with the LIVE one and
+         must NOT re-clamp it: the held value belongs to whatever corner last
+         sounded, and squeezing it into the owner's range would be a value no
+         corner ever authored — audible exactly when the owner's range is
+         narrow, which is the case the range control exists for. Order is the
+         whole rule: clamp with the owner's range FIRST, hold AFTER, no clamp
+         on the way out. (intent_check T-G is the assertion; it fails against
+         the inverted order.) */
+  void intentApply(double dt)
+  {
+    const double coef = morphGlideS > 1e-4 ? 1 - std::exp(-dt / morphGlideS) : 1.0;
+    // The B48 ramp is bilinear in the pad position under every law (see
+    // morphApplyOscEnable) — NOT the sharpened weights the owner draw uses.
+    double wBilinear[4];
+    hypersaw::MorphCore::weights(morphX, morphY, wBilinear);
+    intentWrote = 0;
+    for (size_t i = 0; i < morphIds.size(); i++)
+    {
+      const ParamDef *d = findParam(morphIds[i]);
+      if (!d) continue;
+      if (i < morphExempt.size() && morphExempt[i]) { morphExemptSlot(i); continue; }
+      if (baseIdOf(morphIds[i]) == 150)
+      {
+        if (morphApplyOscEnable(i, wBilinear)) intentWrote++;
+        continue;
+      }
+      const int k = intentOwnerParam[i];
+      double target = intentResolved[i];
+      if (!depLiveInCorner(morphIds[i], k))
+        target = morphCur[i] < -1e29 ? target : morphCur[i];
+      if (morphApplyTarget(i, *d, target, coef)) intentWrote++;
+    }
+  }
+
+  /* CALIBRATION ONLY (L0032) — 2b's must-fail control for "the flag off is
+     bit-identical", carried into 2c with its meaning intact. A green flag-off
+     render proves the comparison RAN; it does not prove the comparison could
+     have failed. So this runs the resolver AND its apply once, at whatever the
+     flag happens to be, and intent_check asserts the resulting render DIFFERS.
+     Reached only from hypersaw_debug_intent_plant: no shell path, no GUI path
+     and no host path calls it.
+     In 2b this door owned a second write loop, because intentStep applied
+     nothing. In 2c the apply IS intentStep's, so the door calls it and reports
+     the count instead of writing again — which is how "no second write path"
+     stays a property of the code rather than a claim in a comment. The count
+     is the control's own anchor: a plant that silently wrote nothing would
+     "not fire" for the wrong reason (L0033). */
+  int intentPlantOnce()
   {
     morphInit();
     intentStep((int)std::lround(sampleRate * hypersaw::kGravGridSeconds));
-    int wrote = 0;
-    for (size_t i = 0; i < morphIds.size(); i++)
-    {
-      if (i < morphExempt.size() && morphExempt[i]) continue;
-      morphFromField = true;
-      applyParam(morphIds[i], intentShadow[i]);
-      morphFromField = false;
-      wrote++;
-    }
-    return wrote;
+    return intentWrote;
+  }
+
+  /* CALIBRATION ONLY — SPEC-INTENT-BUS §7 commit, reachable only from
+     hypersaw_debug_intent_commit. The GUI verb and the pad it re-homes onto
+     are 2d's; T6's invariant (after a commit the resolved sound is unchanged
+     and every offset reads zero) has to be measured through the plugin NOW,
+     and a test-only door is both cheaper and more honest than a half-built
+     button. `forceCorner >= 0` is the must-fail control: baking into a corner
+     that does not own the displacement must NOT leave the sound unchanged. */
+  int intentCommit(int forceCorner)
+  {
+    morphInit();
+    const size_t n = morphIds.size();
+    if (n == 0 || intentFinal.size() != n) return -1;
+    using IC = hypersaw::IntentCore;
+    double w[4];
+    IC::weights(IC::effectiveMorph(morphX, 0.0), IC::effectiveMorph(morphY, 0.0),
+                morphTemp > 1e-9 ? 1.0 / morphTemp : 1.0e9, w);
+    if (forceCorner >= 0 && forceCorner < 4)
+      for (int k = 0; k < 4; k++) w[k] = (k == forceCorner) ? 1.0 : 0.0;
+    // Commit bakes into the NORMALISED bases the resolver reads; intentStep
+    // refreshes them from morphCorner every tick and this door runs between
+    // ticks, so refresh here rather than trusting the last tick's copy.
+    for (int k = 0; k < 4; k++)
+      for (size_t i = 0; i < n; i++)
+        intentBaseN[(size_t)k * n + i] = (morphCorner[k][i] - intentMinV[i]) / intentSpan[i];
+    // No puck in phase 2c (§4.4 is 2d), so re-homing lands on the home that is
+    // already stored: an identity, not an invented pad position.
+    IC::Puck pk;
+    pk.x = intentHomeX[IC::dominantCorner(w)];
+    pk.y = intentHomeY[IC::dominantCorner(w)];
+    int dom = -1;
+    IC::commit((int)n, kIntents, intentValue, intentOwnerParam.data(), w, intentBaseN.data(),
+               intentBind.data(), intentRangeLo.data(), intentRangeHi.data(), pk, intentHomeX,
+               intentHomeY, nullptr, nullptr, &dom);
+    if (dom < 0 || dom > 3) return -1;
+    // Back to RAW, for the slots commit actually touched — a round trip
+    // through the normalisation is not free, so untouched slots keep the exact
+    // bytes they were stored with.
+    for (size_t i = 0; i < n; i++)
+      if (intentOwnerParam[i] == dom)
+        morphCorner[dom][i] = intentMinV[i] + intentBaseN[(size_t)dom * n + i] * intentSpan[i];
+    morphCornersAuthored = true;
+    /* Zero the KNOBS, not the derived copy: `intentValue` is recomputed from
+       macroVal on every tick, so zeroing it alone would last exactly one tick.
+       X/Y are the MAIN pad's axes and read the same macros (ADR-150), which is
+       why eight writes zero all ten intents. */
+    for (int i = 0; i < 8; i++) macroVal[i] = 0.0;
+    for (int i = 0; i < kIntents; i++) intentValue[i] = 0.0;
+    return dom;
+  }
+
+  /* CALIBRATION ONLY — T5's must-fail control, and nothing else may call it.
+     "Atoms are lead groups" is only testable if the test can BREAK the group:
+     move one member onto a different atom and the chimera ADR-176 decision 2
+     forbids must appear. The `home` atom is the one atom no parameter maps to
+     and it carries its own independently drawn seed, so moving a member there
+     is exactly "this member no longer follows its group" — with no table to
+     resize and therefore nothing to allocate. Undone by morphInit(). */
+  bool intentBreakAtom(int slot)
+  {
+    morphInit();
+    if (slot < 0 || (size_t)slot >= intentAtomOf.size()) return false;
+    intentAtomOf[(size_t)slot] = intentHomeAtom;
+    return true;
   }
 
   double mpeBendLaw = 1;   // ADR-097: per-note bend follows the wheel by default
@@ -6846,9 +6988,10 @@ extern "C" const char *hypersaw_debug_routing_ids(void)
   }
   return s.c_str();
 }
-/* B89 phase 2b — THE SHADOW, and the tables behind it. These are the ONLY
-   readers of the resolver's output in this phase: `final` is what 2c will hand
-   to applyParam, and until then nothing but an oracle ever looks at it.
+/* B89 phase 2c — THE RESOLVER'S OUTPUT, and the tables behind it. `final` is
+   the TARGET intentApply hands to the glide, so these exports are the oracle's
+   view of the value the engine is being carried toward — not a second
+   evaluation of it, which would certify the copy.
    Addressed by morphIds SLOT INDEX, not by parameter id, because that is the
    index IntentCore works in and because `hypersaw_debug_cornervals` already
    publishes the slot -> id order — a second id lookup here would be a second
@@ -6857,8 +7000,8 @@ extern "C" const char *hypersaw_debug_routing_ids(void)
 extern "C" double hypersaw_debug_intent_final(const clap_plugin_t *p, int slot)
 {
   auto *pl = self(p);
-  if (slot < 0 || (size_t)slot >= pl->intentShadow.size()) return 0.0;
-  return pl->intentShadow[(size_t)slot];
+  if (slot < 0 || (size_t)slot >= pl->intentResolved.size()) return 0.0;
+  return pl->intentResolved[(size_t)slot];
 }
 extern "C" int hypersaw_debug_intent_owner(const clap_plugin_t *p, int slot)
 {
@@ -6915,10 +7058,28 @@ extern "C" bool hypersaw_debug_intent_home(const clap_plugin_t *p, int corner, d
   if (y) *y = self(p)->intentHomeY[corner];
   return true;
 }
-/* See Plugin::intentPlantShadow — a CONTROL, not a feature. */
+/* The three CALIBRATION DOORS — controls, not features. Each has exactly one
+   caller (tools/intent_check.cpp) and no shell, GUI or host path reaches any
+   of them; see the comment on each Plugin:: member for what it buys and why a
+   door is the honest way to buy it.
+     plant       — 2b's "the flag off is bit-identical" control (returns the
+                   number of slots the apply wrote, its own anchor).
+     commit      — SPEC-INTENT-BUS §7, for T6. `forceCorner >= 0` bakes into a
+                   corner that does not own the displacement: T6's must-fail
+                   control. Returns the corner committed into, or -1.
+     break_atom  — T5's must-fail control: break one member out of its lead
+                   group and the forbidden chimera must appear. */
 extern "C" int hypersaw_debug_intent_plant(const clap_plugin_t *p)
 {
-  return self(p)->intentPlantShadow();
+  return self(p)->intentPlantOnce();
+}
+extern "C" int hypersaw_debug_intent_commit(const clap_plugin_t *p, int forceCorner)
+{
+  return self(p)->intentCommit(forceCorner);
+}
+extern "C" bool hypersaw_debug_intent_break_atom(const clap_plugin_t *p, int slot)
+{
+  return self(p)->intentBreakAtom(slot);
 }
 extern "C" bool hypersaw_debug_apply(const clap_plugin_t *p, const char *json)
 {
