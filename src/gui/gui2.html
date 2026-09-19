@@ -3350,6 +3350,28 @@ async function paintOwners() {
     if (k === undefined || k < 0) { row.style.removeProperty('--own'); row.classList.remove('owned'); }
     else { row.style.setProperty('--own', MCOLORS[k]); row.classList.add('owned'); }
   }
+  paintIntentNames();
+}
+/* B89 phase 2d — THE MACRO KNOBS WEAR THEIR INTENT NAMES (ADR-176 A3 supplies
+   the eight defaults; a patch renames them, SPEC-INTENT-BUS §5). With the flag
+   on, macro N IS intent M_N, so a knob labelled "M3" is labelling the wiring
+   and not the gesture. Names arrive on the ownership feed — the plugin emits
+   `intentNames` only while the flag is on, so "no names" and "flag off" are
+   one condition and the labels fall back to M1..M8 by themselves.
+   The stored slot order is X, Y, M1..M8 (kIntentOrder), hence the +2. */
+/* The eight ids are spelled inline rather than held in a module const: this
+   function is reached from paintOwners, which an event handler can call before
+   a later top-level const has initialised, and a `let`/`const` read in its TDZ
+   THROWS rather than reading undefined (L0041/L0026 — five occurrences). */
+function paintIntentNames() {
+  const names = OWNERS && OWNERS.intentNames;
+  for (let i = 0; i < 8; i++) {
+    const ctl = document.querySelector(`input[data-p="${166 + i}"]`);
+    const lab = ctl && ctl.closest('.row') && ctl.closest('.row').querySelector('label');
+    if (!lab) continue;
+    const want = (names && names[i + 2]) ? names[i + 2] : 'M' + (i + 1);
+    if (lab.textContent !== want) lab.textContent = want;
+  }
 }
 async function paintExempt() {
   if (!window.hzMorphExemptJson) return;
@@ -3828,7 +3850,11 @@ const oscDirectIds = () => [effId(4), effId(6)];
 const unit = { toVal: (axis, u) => u, toUnit: (axis, v) => v };
 const detK = { toVal: (axis, u) => axis ? 2 * u - 1 : u, toUnit: (axis, v) => axis ? (v + 1) / 2 : v };
 const PADS = [
-  { sel: '#xyMain', ids: mainMacroIds, map: unit, lastX: -1, lastY: -1, dirty: true },
+  /* `perf`: ADR-176 §5 — the MAIN XY is the PERFORMANCE pad and the morph pad
+     never is, so the home marker belongs to this row and only this row. A
+     property on the pad rather than a selector test in the painter, because
+     the painter already treats a pad as a record. */
+  { sel: '#xyMain', ids: mainMacroIds, map: unit, lastX: -1, lastY: -1, dirty: true, perf: true },
   { sel: '#xy2',    ids: oscDirectIds, map: detK, lastX: -1, lastY: -1, dirty: true },
 ];
 let xyDirty = true;   // legacy flag: any write marks BOTH pads (cheap, correct)
@@ -4096,6 +4122,24 @@ function frameBody() {
       xyctx.strokeStyle = TOKA('--scr-grid', 0.30);
       xyctx.beginPath(); xyctx.moveTo(x, 0); xyctx.lineTo(x, h);
       xyctx.moveTo(0, y); xyctx.lineTo(w, y); xyctx.stroke();
+      /* B89 phase 2d — THE HOME MARKER (SPEC-INTENT-BUS §4.4). With the intent
+         bus on, MAIN's pad is the PERFORMANCE pad and its displacement is
+         measured from the home of whichever corner owns the `home` atom — so
+         where zero IS has to be visible, and it MOVES when the owner flips.
+         PHYSICS colour, not value: home is the system's state, not the
+         player's (ADR-119's rule, the same one the K-vector obeys). Drawn
+         before the puck so the puck is never occluded by it.
+         The pad's coordinate space is the canvas's (y down) and that is the
+         space `intentHome` is published in — no flip here, deliberately. */
+      const hm = pad.perf && OWNERS && OWNERS.intentHome;
+      if (hm) {
+        const hx = hm[0] * w, hy = hm[1] * h;
+        xyctx.strokeStyle = TOK('--scr-physics'); xyctx.lineWidth = 1.5;
+        xyctx.beginPath(); xyctx.arc(hx, hy, 7, 0, Math.PI * 2); xyctx.stroke();
+        // the tether: which way the puck is displaced, and how far
+        xyctx.strokeStyle = TOKA('--scr-physics', 0.45); xyctx.lineWidth = 1;
+        xyctx.beginPath(); xyctx.moveTo(hx, hy); xyctx.lineTo(x, y); xyctx.stroke();
+      }
       xyctx.fillStyle = TOK('--scr-value');
       xyctx.beginPath(); xyctx.arc(x, y, 5, 0, Math.PI * 2); xyctx.fill();
     }

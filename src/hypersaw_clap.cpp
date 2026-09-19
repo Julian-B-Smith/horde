@@ -692,6 +692,17 @@ static const ParamDef kParams[] = {
        Device class (kParamClassOverrides) — it selects where a stage runs, not
        a timbre a morph corner should hold. */
     {267, "bassMonoPos", "Bass Mono Position", 0, 2, 0, true, kBassMonoPosLabels},
+    /* B89 phase 2d / SPEC-INTENT-BUS §5 (Latch) — the performance pad's spring
+       defeat. A PARAMETER and not a shell toggle because it is a performance
+       state a patch and a host both have to be able to hold: latched, the puck
+       stays where the player left it, so the displacement — and therefore every
+       intent riding it — survives the release. Default off = the spring, which
+       is the pad's whole character (ADR-176 §5: the MAIN XY is the performance
+       pad), so a patch that never writes this behaves exactly as it did.
+       Device class: it is a property of the control surface, not a timbre a
+       morph corner should own — and the pad's home already IS corner-owned,
+       which is the part that flips. */
+    {268, "intentLatch", "Pad Latch (dev)", 0, 1, 0, true, kOffOn},
 };
 
 // THE DEFAULT OF A PARAMETER, DEFINED ONCE. Both CLAP (`clap_param_info.
@@ -805,6 +816,7 @@ constexpr clap_id kGlobalIds[] = {
     256, 257, 258, 259, 260, 261, 262, 263,      // ADR-142 Delay slot 4
     264, 265,                                    // B117 FX crossfade (dev) — the rack is ONE object
     266,                                         // B89 intent-bus flag (dev) — one resolver per device
+    268,                                         // B89 pad latch — one performance pad per device
     // ADR-131 per-slot time-engine params: 200..231, four blocks of 8.
     200, 201, 202, 203, 204, 205, 206,
     208, 209, 210, 211, 212, 213, 214,
@@ -1229,6 +1241,7 @@ static const ParamClassRule kParamClassOverrides[] = {
        morphIds, which is what paramclass_check's "no morphIds member is
        device" cross-check asserts — morphInit never appends it. */
     {266, ParamClass::Device, "(dev) intent-bus flag — shapes the resolver itself (ADR-176)"},
+    {268, ParamClass::Device, "pad latch — the performance surface's spring, not a timbre (ADR-176 §5)"},
     /* B146. Rule 2 would make it STRUCTURAL (it is stepped, and it does change
        the graph), and the ruling overrides that to DEVICE: the placement is an
        output-stage policy of the instance, like master volume (id 100), not
@@ -2368,6 +2381,33 @@ struct Plugin
       out += buf;
       first = false;
     }
+    /* B89 phase 2d — THE INTENT BUS'S TWO GUI FACTS, riding the feed the GUI
+       already fetches for ownership colours rather than a third bridge verb.
+       Emitted ONLY with the flag on, so with it off this JSON is byte-for-byte
+       what it was and the GUI's own paint is part of the bit-identity claim.
+       The keys are NON-NUMERIC and cannot collide: every other key here is a
+       decimal parameter id, and the consumer looks keys up by id.
+         intentHome  [x, y, owningCorner] — the pad's home in CANVAS coords
+                     (y down), which is the space §4.4 stores it in and the
+                     space the GUI's pad paints in.
+         intentNames the ten captions in stored-slot order (kIntentOrder), for
+                     the macro labels; X and Y are slots 0 and 1. */
+    if (intentBusOn > 0.5 && !intentOwnerAtom.empty())
+    {
+      const int ho = intentOwnerAtom[(size_t)intentHomeAtom];
+      char hb[64];   // `buf` above is sized for one id:owner pair and no more
+      std::snprintf(hb, sizeof(hb), ",\"intentHome\":[%.6g,%.6g,%d]", intentHomeX[ho],
+                    intentHomeY[ho], ho);
+      out += hb;
+      out += ",\"intentNames\":[";
+      for (int i = 0; i < kIntents; i++)
+      {
+        out += i ? ",\"" : "\"";
+        out += jsonEscape(intentCaption(i));
+        out += "\"";
+      }
+      out += "]";
+    }
     return out + "}";
   }
 
@@ -3158,7 +3198,34 @@ struct Plugin
   std::vector<int> intentOwnerAtom;     // [nAtoms]
   std::vector<int> intentOwnerParam;    // [N]
   std::vector<int> intentClamped;       // [N] §4.5's clamp indicator
-  double intentValue[kIntents] = {0};   // the ten intents, read as INPUTS in 2b
+  double intentValue[kIntents] = {0};   // the ten intents; X/Y are the pad's since 2d
+
+  /* ---- §4.4 THE PERFORMANCE PAD (B89 phase 2d) --------------------------
+     WHICH HOST PARAMETERS THE PAD READS, and it reads no others: the two
+     macros ADR-150's assignment names — ids 179/180 hold the assignment, so
+     the pad's x is `166 + mainAsn[0]` and its y is `166 + mainAsn[1]` (by
+     default macros 1 and 2). Those two ids are the POINTER: they are what the
+     host automates, what the GUI pad writes, and what a macro knob writes,
+     and with the flag on they are an INPUT to the spring and nothing else.
+     THE SHELL WRITES NEITHER — the puck below is separate state, so a spring
+     return cannot fight the host for the parameter it is reading, and turning
+     the flag on can never move a value the player's hand is on.
+
+     THE PAD'S COORDINATE SPACE IS THE CANVAS'S: y grows DOWNWARD, because
+     that is the space the prototype's `padPos` works in and therefore the
+     space `home` is stored in (§4.4, and padIntentY's inversion assumes it).
+     A macro knob reads UP. The two conventions meet at exactly one line, in
+     intentStep, and nowhere else. */
+  hypersaw::IntentCore::Puck intentPuck;
+  /* DRAG IS A BRACKET, NOT A VALUE. A released pointer leaves the parameter
+     exactly where it was, so no reading of the two macro values can tell
+     "still held" from "let go" — only the gesture bracket can, which is why
+     the latch lives here and is fed from drainQueue (the one place gesture
+     messages already pass through on the audio thread, in order with the
+     values they bracket). Per AXIS, because the two axes can name the same
+     macro or none at all. */
+  bool intentDrag[2] = {false, false};
+  double intentLatchOn = 0;   // param 268; latched, the puck does not return
 
   /* Sized once, from morphInit, with morphIds and morphLead already built.
      Everything it writes is a DEFAULT: full range, no binding, centred home,
@@ -3403,6 +3470,27 @@ struct Plugin
     return SIZE_MAX;
   }
 
+  /* The pad's pointer id for one axis, or -1 for "None" (assignment 8). One
+     decoder, so the gesture latch and the spring's drag target cannot come to
+     disagree about which parameter the pad is reading. */
+  int intentPadId(int axis) const
+  {
+    const int a = mainAsn[axis];
+    return (a >= 0 && a < 8) ? 166 + a : -1;
+  }
+
+  /* Fed from drainQueue for EVERY gesture, flag or no flag: with the flag off
+     nothing reads these two bools, which is why doing it unconditionally costs
+     nothing observable and keeps the branch out of the message loop.
+     A knob on the same macro brackets the same way a pad drag does, and that
+     is deliberate — the pointer is the PARAMETER, not the canvas, so grabbing
+     Macro 1's knob moves the puck exactly as grabbing the pad's x does. */
+  void intentNoteGesture(clap_id id, bool begin)
+  {
+    for (int a = 0; a < 2; a++)
+      if (intentPadId(a) == (int)id) intentDrag[a] = begin;
+  }
+
   /* ---- the seam ----------------------------------------------------------
      SPEC-INTENT-BUS §4.1-§4.5 over the shell's own field, on morphStep's own
      grid and accumulator (one accumulator, so there is no second one to drift
@@ -3414,8 +3502,8 @@ struct Plugin
 
      Deliberately NOT built here (each has its phase): the corner-scope
      modulation tier (plan R5 — the prototype's corner LFO has no shell
-     counterpart yet), the pad spring and latch (2d), and the promoted/device
-     mod tiers, which `modStep` already is. */
+     counterpart yet) and the promoted/device mod tiers, which `modStep`
+     already is. The pad spring and latch arrived in 2d and are below. */
   void intentStep(int samples)
   {
     morphAccum += samples;
@@ -3442,13 +3530,29 @@ struct Plugin
     IC::mapOwners(intentOwnerAtom.data(), intentAtomOf.data(), (int)n,
                   intentOwnerParam.data());
 
-    /* THE TEN INTENTS, read as INPUTS this phase. X and Y are the MAIN pad's
-       axes: ids 179/180 name WHICH macro each axis writes (ADR-150), so the
-       axis's current value is that macro's. The displacement mapping that
-       makes them true +-1 intents is the pad's, and the pad is 2d. */
+    /* §4.4 THE PERFORMANCE PAD (B89 phase 2d). `home` is an ATOM (ADR-176
+       decision 2 / plan R10), so its owner comes out of the SAME walk every
+       parameter atom came out of two lines above — the home flips with the
+       field because it is in the field, not because a rule here says so. */
+    const int homeOwner = intentOwnerAtom[intentHomeAtom];
+    const double homeX = intentHomeX[homeOwner], homeY = intentHomeY[homeOwner];
+    /* The one line where the knob's convention (up = 1) meets the pad's
+       (canvas y, down = 1). An unassigned axis has no pointer, so its drag
+       target is the puck itself: the axis simply cannot be dragged. */
+    const double dragX = intentPadId(0) >= 0 ? macroVal[mainAsn[0]] : intentPuck.x;
+    const double dragY = intentPadId(1) >= 0 ? 1.0 - macroVal[mainAsn[1]] : intentPuck.y;
+    const IC::Spring padSpring;   // the prototype's constants, in 1/s^2 and 1/s
+    IC::padStep(intentPuck, dt, intentDrag[0] || intentDrag[1], dragX, dragY,
+                intentLatchOn > 0.5, homeX, homeY, padSpring);
+
+    /* THE TEN INTENTS. X and Y are the puck's DISPLACEMENT from the owning
+       corner's home (+-0.5 of the pad's extent = full swing); M1..M8 are the
+       eight macro knobs, read straight. The two macros the pad's axes name do
+       DOUBLE DUTY — they are the pointer AND their own M-intent — because
+       ADR-150 built the MAIN pad as a macro pad and 2d does not move it. */
+    intentValue[0] = IC::padIntentX(intentPuck, homeX);
+    intentValue[1] = IC::padIntentY(intentPuck, homeY);
     for (int i = 0; i < 8; i++) intentValue[2 + i] = macroVal[i];
-    for (int a = 0; a < 2; a++)
-      intentValue[a] = (mainAsn[a] >= 0 && mainAsn[a] < 8) ? macroVal[mainAsn[a]] : 0.0;
 
     // The corners, normalised (see UNITS). Recomputed per tick because a corner
     // is editable while the field runs; the cost is one multiply-add per slot.
@@ -3560,11 +3664,13 @@ struct Plugin
     for (int k = 0; k < 4; k++)
       for (size_t i = 0; i < n; i++)
         intentBaseN[(size_t)k * n + i] = (morphCorner[k][i] - intentMinV[i]) / intentSpan[i];
-    // No puck in phase 2c (§4.4 is 2d), so re-homing lands on the home that is
-    // already stored: an identity, not an invented pad position.
-    IC::Puck pk;
-    pk.x = intentHomeX[IC::dominantCorner(w)];
-    pk.y = intentHomeY[IC::dominantCorner(w)];
+    /* THE REAL PUCK since 2d. §7's re-home is what makes commit an identity:
+       the displacement is baked into the dominant corner's bases AND that
+       corner's home moves to where the puck is, so X and Y read zero on the
+       next tick instead of re-applying the offset that was just baked. With
+       the pad at rest the puck IS the home and this is the identity 2c wrote
+       by hand; with the pad displaced it is the only version that holds. */
+    const IC::Puck &pk = intentPuck;
     int dom = -1;
     IC::commit((int)n, kIntents, intentValue, intentOwnerParam.data(), w, intentBaseN.data(),
                intentBind.data(), intentRangeLo.data(), intentRangeHi.data(), pk, intentHomeX,
@@ -3579,8 +3685,9 @@ struct Plugin
     morphCornersAuthored = true;
     /* Zero the KNOBS, not the derived copy: `intentValue` is recomputed from
        macroVal on every tick, so zeroing it alone would last exactly one tick.
-       X/Y are the MAIN pad's axes and read the same macros (ADR-150), which is
-       why eight writes zero all ten intents. */
+       Eight writes, not ten: since 2d X and Y are PAD-DRIVEN (§7.3's exception
+       — the re-home above already zeroes them), and the two macros the pad's
+       axes name are zeroed here as the M-intents they also are. */
     for (int i = 0; i < 8; i++) macroVal[i] = 0.0;
     for (int i = 0; i < kIntents; i++) intentValue[i] = 0.0;
     return dom;
@@ -3904,16 +4011,25 @@ struct Plugin
           out->try_push(out, &ev.header);
         }
       }
-      else if (out)
+      else
       {
-        clap_event_param_gesture_t ev{};
-        ev.header.size = sizeof(ev);
-        ev.header.time = 0;
-        ev.header.space_id = CLAP_CORE_EVENT_SPACE_ID;
-        ev.header.type =
-            m.kind == 1 ? CLAP_EVENT_PARAM_GESTURE_BEGIN : CLAP_EVENT_PARAM_GESTURE_END;
-        ev.param_id = m.id;
-        out->try_push(out, &ev.header);
+        /* B89 phase 2d: the performance pad's drag bracket, read HERE because
+           this is where gesture messages already arrive on the audio thread,
+           in order with the values they bracket — a second path would be a
+           second clock. Unconditional: with the intent flag off nothing reads
+           the latch, so this cannot move a sample. */
+        intentNoteGesture((clap_id)m.id, m.kind == 1);
+        if (out)
+        {
+          clap_event_param_gesture_t ev{};
+          ev.header.size = sizeof(ev);
+          ev.header.time = 0;
+          ev.header.space_id = CLAP_CORE_EVENT_SPACE_ID;
+          ev.header.type =
+              m.kind == 1 ? CLAP_EVENT_PARAM_GESTURE_BEGIN : CLAP_EVENT_PARAM_GESTURE_END;
+          ev.param_id = m.id;
+          out->try_push(out, &ev.header);
+        }
       }
       tail++;
     }
@@ -4939,6 +5055,21 @@ struct Plugin
 
   // The gesture-END label: the parameter's display name plus which oscillator
   // it belongs to, so the two strips are told apart in the list.
+  /* THE EDITOR'S GESTURE BRACKET, in one place. It was the body of
+     hostIf.gesture until B89 phase 2d needed the same bracket reachable
+     headlessly (the performance pad's drag is a bracket, not a value, so an
+     oracle that cannot open one cannot test the spring at all). One function,
+     two callers — the bridge verb and hypersaw_debug_gesture — rather than two
+     copies of a two-line law (ADR-110's scar).
+     B84 rides the ADR-121 latch rather than adding a second one: the END of a
+     bracket is exactly "one drag = one undo step", and a morph-pad drag that
+     rewrites 224 owners ends once. Nothing else about the latch changes. */
+  void guiGesture(clap_id id, bool begin)
+  {
+    enqueueParam(id, 0, begin ? 1 : 2);
+    if (!begin) undoMarkParam(id);
+  }
+
   void undoMarkParam(clap_id id)
   {
     const ParamDef *d = findParam(id);
@@ -5242,7 +5373,18 @@ struct Plugin
       }
       if (id >= 166 && id <= 173) { macroVal[id - 166] = applied; return; }
       if (id >= 174 && id <= 177) { xyAsn[id - 174] = (int)applied; return; }
-      if (id == 179 || id == 180) { mainAsn[id - 179] = (int)applied; return; }
+      if (id == 179 || id == 180)
+      {
+        /* Re-aiming an axis mid-gesture would strand its drag latch ON — the
+           END arrives for the OLD id and matches nothing — and a stuck latch
+           is a puck that never springs home again. Clearing both is the cure
+           that needs no bookkeeping: the worst it costs is one interrupted
+           drag, and the player is already holding the thing that will send the
+           next BEGIN. */
+        intentDrag[0] = intentDrag[1] = false;
+        mainAsn[id - 179] = (int)applied;
+        return;
+      }
       if (baseIdOf(id) == 181)
       {
         const uint32_t osc = oscOfId(id);
@@ -5510,6 +5652,9 @@ struct Plugin
       // the resolver's tables are sized in morphInit and are correct whether or
       // not the flag has ever been on, so toggling it cannot allocate.
       if (id == 266) { intentBusOn = applied; return; }
+      // B89 phase 2d: the pad's spring defeat. Like 266, a flag and nothing
+      // else — padStep reads it per tick, so there is no state to rebuild.
+      if (id == 268) { intentLatchOn = applied; return; }
       if (id >= 96 && id <= 99)  // per-slot second axis (comb resonance today)
       {
         rack.setTone((int)(id - 96), applied);
@@ -5631,6 +5776,7 @@ struct Plugin
       if (d->id == 264) return rack.getXfade();      // B117: the rack owns both
       if (d->id == 265) return rack.getXfadeMs();    // (clamped there, so readback is the truth)
       if (d->id == 266) return intentBusOn;          // ADR-176: the shell owns it, so it reads back
+      if (d->id == 268) return intentLatchOn;        // B89 2d, same shape
       if (d->id == 161)
       {
         const int pr = modPitchRouteIdx();
@@ -7088,6 +7234,35 @@ extern "C" bool hypersaw_debug_intent_break_atom(const clap_plugin_t *p, int slo
 {
   return self(p)->intentBreakAtom(slot);
 }
+/* NOT a calibration door: the EDITOR'S OWN gesture verb, made reachable
+   headlessly — the same thing hypersaw_debug_capture is, and for the same
+   reason. It calls Plugin::guiGesture, which is literally what hostIf.gesture
+   calls, so an oracle that brackets a drag through this door exercises the
+   shipped path (queue -> drainQueue -> the pad's latch) rather than a
+   test-only shortcut. The pad's spring cannot be tested any other way: a
+   released pointer leaves the parameter where it was, so the bracket is the
+   only observable that says "still held". */
+extern "C" void hypersaw_debug_gesture(const clap_plugin_t *p, uint32_t id, bool begin)
+{
+  self(p)->guiGesture((clap_id)id, begin);
+}
+/* The performance pad's puck, for the same oracle. The puck is device state
+   with no parameter of its own by construction (it is the spring's output,
+   not the player's input), so there is no get_value that can see it. */
+extern "C" void hypersaw_debug_intent_puck(const clap_plugin_t *p, double *x, double *y)
+{
+  if (x) *x = self(p)->intentPuck.x;
+  if (y) *y = self(p)->intentPuck.y;
+}
+/* Which corner owns `home` right now — the atom the pad's displacement is
+   measured from (§4.4). Read off the last resolved walk, so it is the answer
+   the audio thread used, not a second draw that could disagree with it. */
+extern "C" int hypersaw_debug_intent_homeowner(const clap_plugin_t *p)
+{
+  auto *pl = self(p);
+  if (pl->intentOwnerAtom.empty()) return -1;
+  return pl->intentOwnerAtom[(size_t)pl->intentHomeAtom];
+}
 extern "C" bool hypersaw_debug_apply(const clap_plugin_t *p, const char *json)
 {
   return self(p)->applyStateJson(json ? json : "");
@@ -7288,13 +7463,7 @@ bool gui_create(const clap_plugin_t *p, const char *api, bool is_floating)
        LAST label, so the pair still collapses into one node. */
     if (id == 151) pl->undoMark(v > 0.5 ? "morph on" : "morph off");
   };
-  /* B84 rides the ADR-121 latch rather than adding a second one: the END of a
-     bracket is exactly "one drag = one undo step", and a morph-pad drag that
-     rewrites 224 owners ends once. Nothing else about the latch changes. */
-  hostIf.gesture = [pl](uint32_t id, bool begin) {
-    pl->enqueueParam(id, 0, begin ? 1 : 2);
-    if (!begin) pl->undoMarkParam((clap_id)id);
-  };
+  hostIf.gesture = [pl](uint32_t id, bool begin) { pl->guiGesture((clap_id)id, begin); };
   // Stamp carries hash AND build time: a hash alone cannot distinguish "the
   // binary I just built" from "a binary built from the same commit last week",
   // which is precisely the stale-install question (L0020).

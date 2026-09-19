@@ -35,6 +35,7 @@ EXEMPT = {
     264: "fxXfade — buried by ruling B117 (ADR-163 A2); id kept for state",
     265: "fxXfadeMs — buried with 264; 80 ms is the behaviour",
     266: "intentBus — (dev) resolver flag (ADR-176); no product surface until 2c",
+    268: "intentLatch — (dev) pad spring defeat (B89 2d); rides the flag, no control until it ships",
 }
 
 guis = {}
