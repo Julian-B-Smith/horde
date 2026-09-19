@@ -3592,7 +3592,8 @@ struct Plugin
      forbids must appear. The `home` atom is the one atom no parameter maps to
      and it carries its own independently drawn seed, so moving a member there
      is exactly "this member no longer follows its group" — with no table to
-     resize and therefore nothing to allocate. Undone by morphInit(). */
+     resize and therefore nothing to allocate. NOT undoable: morphInit is
+     once-per-instance, so the control runs on an instance of its own. */
   bool intentBreakAtom(int slot)
   {
     morphInit();
@@ -6916,6 +6917,12 @@ extern "C" void hypersaw_debug_state(const clap_plugin_t *p, char *out, uint32_t
 }
 extern "C" void hypersaw_debug_panic(const clap_plugin_t *p) { self(p)->panicWithDump(); }
 extern "C" bool hypersaw_debug_exempt(const clap_plugin_t *p, uint32_t id) { return self(p)->morphToggleExempt((clap_id)id); }
+/* The GUI bridge's other two corner verbs, headless — the same reason the
+   exempt door above exists. B89 2c (e) has to prove capture still bakes and an
+   armed edit still lands in the armed corner WITH THE RESOLVER RUNNING, and
+   both gestures reach the shell only through hostIf, which no oracle can
+   drive. `arm` is the parameter (159), so it needs no door of its own. */
+extern "C" void hypersaw_debug_capture(const clap_plugin_t *p, int k) { self(p)->morphCapture(k); }
 extern "C" const char *hypersaw_debug_cornervals(const clap_plugin_t *p, int k)
 { static std::string j; j = self(p)->morphCornerValsJson(k); return j.c_str(); }
 extern "C" const char *hypersaw_debug_ownersjson(const clap_plugin_t *p)
