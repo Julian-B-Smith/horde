@@ -19,9 +19,18 @@
  *            onto one owner, and the walk's cumulative law matches its own
  *            definition over a swept seed.
  *
+ *   SHELL     Phase 2b's section S: the FLAG, the `intent=` chunk and the
+ *            SHADOW, driven through the shipped plugin. Neither the prototype
+ *            nor IntentCore has any of the three, so parity cannot reach them
+ *            and a green parity run says nothing about them. Section S carries
+ *            its own controls: a plant that must change the render, a chunk
+ *            token whose removal must change the readback, a binding that must
+ *            move the shadow.
+ *
  * Standalone and UNWIRED: ./verify does not run this (adding a gate is the
  * human's decision, charter §Oracle discipline; ADR-171 is the wiring route).
- * It links nothing but src/intent_core.h.
+ * The parity half links nothing but src/intent_core.h; section S links the
+ * shell, the way polarity_check and paramclass_check do.
  *
  * Usage: intent_check [build-golden/intent]
  */
@@ -29,10 +38,13 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <map>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "../src/intent_core.h"
+#include "statefix_common.h"   // section S drives the shipped plugin
 
 using hypersaw::IntentCore;
 
@@ -499,16 +511,626 @@ static void invariants()
   }
 }
 
+/* ===================== SECTION S — THE SHELL (B89 phase 2b) ================
+   Everything above this line is the RESOLVER's oracle: pure math against the
+   prototype. Section S is the SEAM's oracle, and it drives the shipped plugin
+   — the flag, the chunk, the shadow — because none of those three exist at the
+   header's level, so a green parity run certifies nothing about them (L0031:
+   a reference oracle covers only the surface the reference spans).
+
+   S1  a patch that has bound nothing writes NO `intent=` key, in either
+       transport, and reads back the documented defaults: range [0,1],
+       bind 0, home {0.5, 0.5}, the ADR-176 A3 captions.
+   S2  the chunk round-trips through the host transport, and a chunk carrying a
+       rename, a range, a binding and a home arrives as all four. CONTROL: the
+       same readback against a chunk with the binding token removed must
+       DISAGREE, or S2 cannot tell a parsed chunk from an ignored one.
+   S3  THE BIT-IDENTITY CONTROL. Flag off, the resolver's output is unused, so
+       the render is what it always was — and this proves the comparison could
+       have SEEN otherwise: the same patch with the shadow planted into the
+       applied path (hypersaw_debug_intent_plant — exactly what 2c will wire)
+       must render DIFFERENTLY. The plant asserts its own anchor (L0032): it
+       reports how many slots it wrote, and a live parameter must have moved.
+       S3e is the measured BOUNDARY of that control, recorded rather than
+       retried (L0033) — see its own comment.
+   S4  THE DEGENERATE-CASE IDENTITY that makes 2c safe. Flag on, no bindings,
+       full ranges: the shadow is a PURE CORNER READ — at every sampled morph
+       position, for every field slot, shadow[p] == the owning corner's stored
+       value. Nothing the resolver adds can move a value until a binding does.
+   S5  the same positions against morphStep's OWN law, reconstructed from the
+       shipped owner query (hypersaw_debug_ownersjson) and the shipped corner
+       values — never from a second copy of the law. Where the two owner laws
+       agree the values are identical to 1e-12; where they disagree, that is
+       the flip-map change ADR-176 decision 1 ratified, counted and printed
+       rather than hidden. S5x is the one position where they CANNOT disagree.
+   S6  CONTROL for S4/S5: set one binding and a non-zero intent, and the shadow
+       must MOVE. Without it, S4's agreement is equally consistent with a
+       resolver that never ran.
+   S7  atoms are lead groups: the thirteen scale ids report ONE owner at every
+       position. CONTROL: some other slot must sit on a different corner, or
+       "they agree" is only "everything agrees".                            */
+
+extern "C" double hypersaw_debug_intent_final(const clap_plugin_t *, int);
+extern "C" int hypersaw_debug_intent_owner(const clap_plugin_t *, int);
+extern "C" double hypersaw_debug_intent_bind(const clap_plugin_t *, int, int, int);
+extern "C" bool hypersaw_debug_intent_range(const clap_plugin_t *, int, int, double *, double *);
+extern "C" bool hypersaw_debug_intent_home(const clap_plugin_t *, int, double *, double *);
+extern "C" const char *hypersaw_debug_intent_names(const clap_plugin_t *);
+extern "C" int hypersaw_debug_intent_plant(const clap_plugin_t *);
+extern "C" const char *hypersaw_debug_cornervals(const clap_plugin_t *, int);
+extern "C" bool hypersaw_debug_cornerapply(const clap_plugin_t *, int, const char *);
+extern "C" const char *hypersaw_debug_ownersjson(const clap_plugin_t *);
+
+namespace shell
+{
+
+using namespace statefix;
+
+constexpr clap_id kIntentFlag = 266;
+constexpr clap_id kMorphOn = 151, kMorphX = 152, kMorphY = 153, kMorphSeed = 156;
+constexpr clap_id kMacro1 = 166;
+constexpr int kIntents = 10;
+constexpr double kEps = 1e-12;
+// The crosspoint namespace. Deliberately NOT authored by this oracle: a dense
+// random coefficient table is a topology no corner would ever hold, and under
+// ADR-175 a cyclic one flips the whole FX pass to sample-by-sample — a CPU
+// cliff that would make this check's cost a property of a coincidence.
+constexpr clap_id kRoutingIdBase = 10000;
+
+void say(bool ok, const std::string &what)
+{
+  std::printf("  %-4s %s\n", ok ? "OK" : "FAIL", what.c_str());
+  if (!ok) failures++;
+}
+
+/* ---- the field, read the way the GUI reads it -----------------------------
+   `hypersaw_debug_cornervals` emits `{"<id>":<value>,...}` in morphIds order,
+   which IS the slot order the intent exports are indexed by. Parsed here
+   rather than added as a slot->id export, so that mapping keeps one owner. */
+struct Field
+{
+  std::vector<clap_id> ids;         // slot -> parameter id
+  std::vector<double> corner[4];    // slot -> corner k's stored value
+
+  void read(const clap_plugin_t *p)
+  {
+    for (int k = 0; k < 4; k++)
+    {
+      const std::string j = hypersaw_debug_cornervals(p, k);
+      corner[k].clear();
+      if (k == 0) ids.clear();
+      size_t pos = 0;
+      while ((pos = j.find('"', pos)) != std::string::npos)
+      {
+        const size_t q1 = j.find('"', pos + 1);
+        if (q1 == std::string::npos) break;
+        const clap_id id = (clap_id)std::strtoul(j.c_str() + pos + 1, nullptr, 10);
+        const size_t colon = j.find(':', q1);
+        if (colon == std::string::npos) break;
+        if (k == 0) ids.push_back(id);
+        corner[k].push_back(std::strtod(j.c_str() + colon + 1, nullptr));
+        pos = colon + 1;
+      }
+    }
+  }
+  size_t n() const { return ids.size(); }
+  int slotOf(clap_id id) const
+  {
+    for (size_t i = 0; i < ids.size(); i++)
+      if (ids[i] == id) return (int)i;
+    return -1;
+  }
+};
+
+/* morphStep's OWN owner map, id-keyed: -1 exempt / field off, -2 held
+   (ADR-108), otherwise the corner its Gumbel law picked. READ, never
+   recomputed — a second copy of pickCorner here would certify the copy. */
+std::map<clap_id, int> shippedOwners(const clap_plugin_t *p)
+{
+  std::map<clap_id, int> out;
+  const std::string j = hypersaw_debug_ownersjson(p);
+  size_t pos = 0;
+  while ((pos = j.find('"', pos)) != std::string::npos)
+  {
+    const size_t q1 = j.find('"', pos + 1);
+    if (q1 == std::string::npos) break;
+    const clap_id id = (clap_id)std::strtoul(j.c_str() + pos + 1, nullptr, 10);
+    const size_t colon = j.find(':', q1);
+    if (colon == std::string::npos) break;
+    out[id] = std::atoi(j.c_str() + colon + 1);
+    pos = colon + 1;
+  }
+  return out;
+}
+
+/* ---- a driver that can actually make intentStep run -----------------------
+   The resolver runs on the gravity grid inside process(), so a flush cannot
+   reach it: every sampled position below costs two blocks of silence. */
+struct Live
+{
+  const clap_plugin_t *p;
+  std::vector<float> L, R;
+  float *chans[2];
+  clap_audio_buffer_t ob{};
+  clap_process_t proc{};
+
+  explicit Live(const clap_plugin_t *pl) : p(pl), L(kBlock), R(kBlock)
+  {
+    chans[0] = L.data();
+    chans[1] = R.data();
+    ob.data32 = chans;
+    ob.channel_count = 2;
+    proc.frames_count = kBlock;
+    proc.audio_outputs = &ob;
+    proc.audio_outputs_count = 1;
+    proc.out_events = &kOut;
+    p->activate(p, kSampleRate, 32, 1024);
+    p->start_processing(p);
+  }
+  ~Live()
+  {
+    p->stop_processing(p);
+    p->deactivate(p);
+  }
+  void run(int blocks, EvList *ev = nullptr)
+  {
+    EvList none;
+    for (int b = 0; b < blocks; b++)
+    {
+      proc.in_events = (b == 0 && ev != nullptr) ? &ev->list : &none.list;
+      p->process(p, &proc);
+    }
+  }
+};
+
+/* ---- a patch with four genuinely different corners ------------------------
+   Authored through the shipped corner-preset surface (cornerApply), so nothing
+   here reaches past a door the GUI already opens. Values are rounded to six
+   significant digits on purpose: `hypersaw_debug_cornervals` prints %.10g, and
+   a reference read back through a 10-digit print cannot support a 1e-12
+   comparison unless the value survives that print exactly. */
+void authorCorners(const clap_plugin_t *p, const Field &f, double spread)
+{
+  auto *params = paramsOf(p);
+  const uint32_t n = params->count(p);
+  std::map<clap_id, std::pair<double, double>> range;
+  std::map<clap_id, bool> stepped;
+  for (uint32_t i = 0; i < n; i++)
+  {
+    clap_param_info_t info{};
+    if (!params->get_info(p, i, &info)) continue;
+    range[info.id] = std::pair<double, double>(info.min_value, info.max_value);
+    stepped[info.id] = (info.flags & CLAP_PARAM_IS_STEPPED) != 0;
+  }
+  for (int k = 0; k < 4; k++)
+  {
+    std::string json = "{\"morphLayout\":5,\"cornerPreset\":[";
+    char buf[48];
+    for (size_t s = 0; s < f.n(); s++)
+    {
+      double v = f.corner[k][s];
+      const auto it = range.find(f.ids[s]);
+      if (it != range.end() && !stepped[f.ids[s]] && f.ids[s] < kRoutingIdBase)
+      {
+        const double frac = 0.30 + spread * (double)k;
+        std::snprintf(buf, sizeof buf, "%.6g",
+                      it->second.first + frac * (it->second.second - it->second.first));
+        v = std::atof(buf);
+      }
+      std::snprintf(buf, sizeof buf, s ? ",%.17g" : "%.17g", v);
+      json += buf;
+    }
+    json += "]}";
+    if (!hypersaw_debug_cornerapply(p, k, json.c_str())) say(false, "corner apply refused");
+  }
+}
+
+/* The sampled morph positions: the four EXACT corners first (both laws are
+   one-hot there, so identity must be total), then a deterministic interior
+   lattice. 200 in all, the number the acceptance names. */
+std::vector<std::pair<double, double>> positions()
+{
+  std::vector<std::pair<double, double>> out;
+  out.push_back(std::pair<double, double>(0, 0));
+  out.push_back(std::pair<double, double>(1, 0));
+  out.push_back(std::pair<double, double>(0, 1));
+  out.push_back(std::pair<double, double>(1, 1));
+  for (int i = 0; out.size() < 200; i++)
+  {
+    const int gx = i % 14, gy = (i / 14) % 14;
+    out.push_back(std::pair<double, double>((gx + 0.5) / 14.0, (gy + 0.5) / 14.0));
+  }
+  return out;
+}
+
+const char *const kDefaultNames[kIntents] = {"X",      "Y",    "Space",      "Timbre",
+                                             "Motion", "Grit", "Time",       "Character",
+                                             "Brightness", "Pressure"};
+
+/* ---- S1 + S2: the chunk ------------------------------------------------- */
+void chunkSection()
+{
+  std::printf("\nS1/S2 — the intent= chunk (silent on defaults, parsed when present)\n");
+  {
+    const clap_plugin_t *p = makePlugin();
+    const std::string chunk = saveChunk(p);
+    const std::string json = saveJson(p);
+    say(chunk.find("\nintent=") == std::string::npos,
+        "S1a a patch that has bound nothing writes no `intent=` line");
+    say(json.find("\"intent\"") == std::string::npos,
+        "S1b ... and no \"intent\" key in the preset transport either");
+    // Reading the field is what builds it (morphCornerValsJson calls morphInit),
+    // and it must happen AFTER the two saves above or the corners would join
+    // the very bytes S1a/S1b are asserting about.
+    Field f0;
+    f0.read(p);
+    double lo = -1, hi = -1, hx = -1, hy = -1;
+    bool defs = hypersaw_debug_intent_range(p, 2, 7, &lo, &hi) && lo == 0.0 && hi == 1.0;
+    defs = defs && hypersaw_debug_intent_home(p, 3, &hx, &hy) && hx == 0.5 && hy == 0.5;
+    defs = defs && hypersaw_debug_intent_bind(p, 1, 4, 9) == 0.0;
+    say(defs, "S1c absent means range [0,1], bind 0, home {0.5,0.5}");
+    const std::string names = hypersaw_debug_intent_names(p);
+    bool ok = true;
+    for (int i = 0; i < kIntents; i++)
+      if (names.find(std::string("\"") + kDefaultNames[i] + "\"") == std::string::npos) ok = false;
+    say(ok, std::string("S1d the ADR-176 A3 captions are the defaults: ") + names);
+    p->destroy(p);
+  }
+
+  /* A chunk that leaves the defaults in all four ways. The ids are read off an
+     instance rather than guessed: slot 3's id is whatever morphIds has there,
+     and hard-coding it would be a second copy of that order. */
+  const clap_plugin_t *probe = makePlugin();
+  Field pf;
+  pf.read(probe);
+  const clap_id idA = pf.ids.at(3), idB = pf.ids.at(11);
+  probe->destroy(probe);
+
+  char tok[128];
+  std::string body = "L:1,O:X:Y:M1:M2:M3:M4:M5:M6:M7:M8,N:4:Swell";
+  std::snprintf(tok, sizeof tok, ",R:%u:1:0.25:0.75", (unsigned)idA);
+  body += tok;
+  std::snprintf(tok, sizeof tok, ",B:%u:1:4:0.125", (unsigned)idB);
+  const std::string bindTok = tok;
+  body += bindTok;
+  body += ",H:2:0.25:0.75";
+
+  struct Back
+  {
+    double lo = 0, hi = 0, bind = -1, hx = 0, hy = 0;
+    std::string names, resavedLine;
+  };
+  auto readBack = [&](const std::string &chunkBody) {
+    Back b;
+    const clap_plugin_t *p = makePlugin();
+    std::string blob = saveChunk(p);
+    blob += "intent=" + chunkBody + "\n";
+    if (loadChunk(p, blob))
+    {
+      Field g;
+      g.read(p);
+      hypersaw_debug_intent_range(p, 1, g.slotOf(idA), &b.lo, &b.hi);
+      b.bind = hypersaw_debug_intent_bind(p, 1, 4, g.slotOf(idB));
+      hypersaw_debug_intent_home(p, 2, &b.hx, &b.hy);
+      b.names = hypersaw_debug_intent_names(p);
+      const std::string re = saveChunk(p);
+      const size_t at = re.find("\nintent=");
+      if (at != std::string::npos)
+        b.resavedLine = re.substr(at + 8, re.find('\n', at + 1) - at - 8);
+    }
+    p->destroy(p);
+    return b;
+  };
+
+  const Back got = readBack(body);
+  say(got.lo == 0.25 && got.hi == 0.75, "S2a a stored range arrives");
+  say(got.bind == 0.125, "S2b a stored binding arrives");
+  say(got.hx == 0.25 && got.hy == 0.75, "S2c a stored home arrives");
+  say(got.names.find("\"Swell\"") != std::string::npos, "S2d a stored rename arrives");
+  say(!got.resavedLine.empty() &&
+          got.resavedLine.find(bindTok.substr(1)) != std::string::npos &&
+          got.resavedLine.find("N:4:Swell") != std::string::npos &&
+          got.resavedLine.find("H:2:0.25:0.75") != std::string::npos,
+      "S2e the re-saved line carries the rename, the binding and the home");
+  std::printf("       re-saved: intent=%s\n", got.resavedLine.c_str());
+
+  // CONTROL: drop the binding token; the same readback must now report 0, and
+  // the range token must still arrive — otherwise "0" would only mean the
+  // whole chunk was ignored.
+  std::string cut = body;
+  cut.erase(cut.find(bindTok), bindTok.size());
+  const Back ctl = readBack(cut);
+  say(ctl.bind == 0.0 && ctl.lo == 0.25,
+      "S2f CONTROL: with the binding token removed the readback reports 0, while the "
+      "range token still arrives");
+}
+
+/* ---- S3: the bit-identity control --------------------------------------- */
+void plantSection()
+{
+  std::printf("\nS3 — flag off is bit-identical, and the comparison can see otherwise\n");
+
+  struct Leg
+  {
+    std::vector<float> audio;
+    int wrote = 0;
+    double moved = 0;
+  };
+  auto renderPatch = [](bool plant, bool morphOn) {
+    Leg leg;
+    const clap_plugin_t *p = makePlugin();
+    Field f;
+    f.read(p);
+    authorCorners(p, f, 0.15);
+    EvList ev;
+    ev.push(kMorphOn, morphOn ? 1 : 0);
+    ev.push(kMorphX, 0.37);
+    ev.push(kMorphY, 0.61);
+    ev.push(kIntentFlag, 0);   // THE FLAG IS OFF on every leg here
+    paramsOf(p)->flush(p, &ev.list, &kOut);
+    drain(p);
+    const int probe = f.slotOf(4);   // detune: continuous, in the field, audible
+    double before = 0, after = 0;
+    paramsOf(p)->get_value(p, f.ids[probe], &before);
+    if (plant) leg.wrote = hypersaw_debug_intent_plant(p);
+    paramsOf(p)->get_value(p, f.ids[probe], &after);
+    leg.moved = std::fabs(after - before);
+    render(p, leg.audio);
+    p->destroy(p);
+    return leg;
+  };
+
+  const Leg a = renderPatch(false, false);
+  const Leg b = renderPatch(false, false);
+  const Leg c = renderPatch(true, false);
+  say(a.audio == b.audio,
+      "S3a the same patch at flag 0 renders bit-identically twice (the comparison's floor)");
+  say(rms(a.audio) > 1e-6,
+      "S3b ... and the render is not silence, so byte-equality means something");
+  say(c.wrote > 0 && c.moved > 1e-9,
+      "S3c the plant asserts its own ANCHOR: it wrote " + std::to_string(c.wrote) +
+          " slots and moved detune by " + std::to_string(c.moved));
+  say(a.audio != c.audio,
+      "S3d CONTROL: the shadow planted into the applied path at flag 0 renders "
+      "DIFFERENTLY — so `flag off is bit-identical` is a claim the comparison could "
+      "have refuted");
+
+  /* S3e — the same control with the MORPH ON, which is the configuration the
+     bit-identity claim is actually about. A PREDICTION THAT MEASURED FALSE,
+     recorded here because it is what 2c needs to know: the expectation was
+     that morphStep, running at the head of the first block, would overwrite
+     every field slot before a sample was rendered and make the plant
+     inaudible. It does not — the plant is audible with the morph on too. So a
+     writer placed BESIDE morphStep is not harmlessly overwritten; 2c's
+     replacement (the early branch already built) is load-bearing, not
+     stylistic. The first differing frame is printed so the next phase can see
+     where the two paths part. */
+  const Leg d = renderPatch(false, true);
+  const Leg e = renderPatch(true, true);
+  say(e.wrote > 0, "S3e1 the plant still wrote " + std::to_string(e.wrote) +
+                       " slots with the morph on (the plant is not the thing that failed)");
+  size_t firstDiff = d.audio.size();
+  for (size_t i = 0; i < d.audio.size() && i < e.audio.size(); i++)
+    if (d.audio[i] != e.audio[i]) { firstDiff = i; break; }
+  say(d.audio != e.audio,
+      "S3e2 CONTROL holds with the morph ON as well: the plant is audible from "
+      "interleaved sample " + std::to_string(firstDiff) + " of " +
+          std::to_string(d.audio.size()) +
+          " — so a second writer beside morphStep would NOT be harmlessly "
+          "overwritten, and 2c's replacement of that write is load-bearing");
+}
+
+/* ---- S4 / S5 / S6 / S7: the degenerate identity -------------------------- */
+void identitySection()
+{
+  std::printf("\nS4/S5/S7 — flag on, no bindings: the shadow is a pure corner read\n");
+  const uint32_t seeds[3] = {1024, 7, 4242};
+  const double spreads[3] = {0.15, 0.22, 0.10};
+
+  for (int patch = 0; patch < 3; patch++)
+  {
+    const clap_plugin_t *p = makePlugin();
+    Field f;
+    f.read(p);
+    authorCorners(p, f, spreads[patch]);
+    f.read(p);   // re-read: the corners are the authored ones now
+    {
+      EvList ev;
+      ev.push(kMorphOn, 1);
+      ev.push(kMorphSeed, (double)seeds[patch]);
+      ev.push(kIntentFlag, 1);
+      paramsOf(p)->flush(p, &ev.list, &kOut);
+      drain(p);
+    }
+    Live live(p);
+    const std::vector<std::pair<double, double>> pos = positions();
+
+    double worstRead = 0, worstAgree = 0;
+    size_t reads = 0, agree = 0, disagree = 0, noOwner = 0;
+    size_t scaleChecked = 0, scaleSplit = 0, positionsWithASplit = 0;
+    const int scale0 = f.slotOf(116);
+
+    for (size_t q = 0; q < pos.size(); q++)
+    {
+      EvList ev;
+      ev.push(kMorphX, pos[q].first);
+      ev.push(kMorphY, pos[q].second);
+      live.run(2, &ev);
+      const std::map<clap_id, int> own = shippedOwners(p);
+
+      for (size_t s = 0; s < f.n(); s++)
+      {
+        const int k = hypersaw_debug_intent_owner(p, (int)s);
+        if (k < 0 || k > 3) { noOwner++; continue; }
+        // S4: the resolver's output IS the owning corner's stored value.
+        const double v = hypersaw_debug_intent_final(p, (int)s);
+        const double d = std::fabs(v - f.corner[k][s]);
+        if (d > worstRead) worstRead = d;
+        reads++;
+        // S5: against morphStep's own law, where the two laws agree.
+        const std::map<clap_id, int>::const_iterator it = own.find(f.ids[s]);
+        if (it == own.end() || it->second < 0) continue;   // exempt / held: morphStep holds
+        if (it->second == k)
+        {
+          const double e = std::fabs(v - f.corner[it->second][s]);
+          if (e > worstAgree) worstAgree = e;
+          agree++;
+        }
+        else disagree++;
+      }
+      // S7: the scale is ONE atom, and something else is not on its corner.
+      if (scale0 >= 0)
+      {
+        const int k0 = hypersaw_debug_intent_owner(p, scale0);
+        for (int deg = 1; deg <= 12; deg++)
+        {
+          const int sd = f.slotOf((clap_id)(116 + deg));
+          if (sd < 0) continue;
+          scaleChecked++;
+          if (hypersaw_debug_intent_owner(p, sd) != k0) scaleSplit++;
+        }
+        for (size_t s = 0; s < f.n(); s++)
+          if (hypersaw_debug_intent_owner(p, (int)s) != k0) { positionsWithASplit++; break; }
+      }
+    }
+
+    char msg[400];
+    std::snprintf(msg, sizeof msg,
+                  "S4 patch %d (seed %u): %zu slot-reads over %zu positions, worst "
+                  "|shadow - corner[owner]| = %.3g (tol %.0e)",
+                  patch + 1, seeds[patch], reads, pos.size(), worstRead, kEps);
+    say(worstRead <= kEps && reads > 0, msg);
+    std::snprintf(msg, sizeof msg,
+                  "S5 patch %d: the two owner laws AGREE on %zu reads (worst diff %.3g) and "
+                  "DISAGREE on %zu — the ADR-176 decision-1 flip-map change, counted not hidden",
+                  patch + 1, agree, worstAgree, disagree);
+    say(worstAgree <= kEps && agree > 0, msg);
+    std::snprintf(msg, sizeof msg,
+                  "S7 patch %d: the 13 scale ids share one owner at every position "
+                  "(%zu checks, %zu splits); CONTROL: %zu positions had some slot elsewhere",
+                  patch + 1, scaleChecked, scaleSplit, positionsWithASplit);
+    say(scaleSplit == 0 && scaleChecked > 0 && positionsWithASplit > 0, msg);
+    std::printf("       (%zu reads had no owner — the resolver reported out of range)\n", noOwner);
+    p->destroy(p);
+  }
+
+  /* S5x — the one position where the two laws CANNOT disagree: at an exact
+     corner every weight is one-hot, so the walk and the Gumbel draw both land
+     on it, and the identity with morphStep's own output is therefore total. */
+  {
+    const clap_plugin_t *p = makePlugin();
+    Field f;
+    f.read(p);
+    authorCorners(p, f, 0.15);
+    f.read(p);
+    EvList ev;
+    ev.push(kMorphOn, 1);
+    ev.push(kIntentFlag, 1);
+    paramsOf(p)->flush(p, &ev.list, &kOut);
+    drain(p);
+    Live live(p);
+    const double xs[4] = {0, 1, 0, 1}, ys[4] = {0, 0, 1, 1};
+    size_t checked = 0, bad = 0;
+    double worst = 0;
+    for (int corner = 0; corner < 4; corner++)
+    {
+      EvList e2;
+      e2.push(kMorphX, xs[corner]);
+      e2.push(kMorphY, ys[corner]);
+      live.run(2, &e2);
+      const std::map<clap_id, int> own = shippedOwners(p);
+      for (size_t s = 0; s < f.n(); s++)
+      {
+        const std::map<clap_id, int>::const_iterator it = own.find(f.ids[s]);
+        if (it == own.end() || it->second < 0) continue;
+        checked++;
+        if (it->second != hypersaw_debug_intent_owner(p, (int)s)) bad++;
+        const double d = std::fabs(hypersaw_debug_intent_final(p, (int)s) - f.corner[it->second][s]);
+        if (d > worst) worst = d;
+      }
+    }
+    char msg[256];
+    std::snprintf(msg, sizeof msg,
+                  "S5x at the four EXACT corners both laws are one-hot: %zu reads, %zu owner "
+                  "disagreements, worst |shadow - morphStep target| = %.3g",
+                  checked, bad, worst);
+    say(bad == 0 && worst <= kEps && checked > 0, msg);
+    p->destroy(p);
+  }
+
+  /* S6 — the control. A binding plus a non-zero intent must MOVE the shadow;
+     without it S4's agreement is equally consistent with a resolver that never
+     ran at all. The binding is authored through the chunk, which is the only
+     author of a binding this phase has. */
+  {
+    const clap_plugin_t *p = makePlugin();
+    Field f;
+    f.read(p);
+    authorCorners(p, f, 0.15);
+    f.read(p);
+    const int slot = 3;
+    auto arm = [&](const clap_plugin_t *pl, Live &live) {
+      EvList ev;
+      ev.push(kMorphOn, 1);
+      ev.push(kIntentFlag, 1);
+      ev.push(kMacro1, 1.0);   // macro 1 = intent M1, and the MAIN pad's X axis
+      ev.push(kMorphX, 0.37);
+      ev.push(kMorphY, 0.61);
+      live.run(2, &ev);
+      live.run(2);
+      (void)pl;
+    };
+    Live live(p);
+    arm(p, live);
+    const double before = hypersaw_debug_intent_final(p, slot);
+
+    char tok[96];
+    std::string body = "L:1,O:X:Y:M1:M2:M3:M4:M5:M6:M7:M8";
+    for (int k = 0; k < 4; k++)   // every corner, so the owner cannot matter
+    {
+      std::snprintf(tok, sizeof tok, ",B:%u:%d:2:0.2", (unsigned)f.ids[slot], k);
+      body += tok;
+    }
+    std::string blob = saveChunk(p);
+    blob += "intent=" + body + "\n";
+    loadChunk(p, blob);
+    arm(p, live);
+    const double after = hypersaw_debug_intent_final(p, slot);
+    say(hypersaw_debug_intent_bind(p, 0, 2, slot) == 0.2,
+        "S6a the binding reached the table through the chunk");
+    say(std::fabs(after - before) > 1e-9,
+        "S6b CONTROL: with a binding and a non-zero intent the shadow MOVES (by " +
+            std::to_string(std::fabs(after - before)) +
+            ") — S4's agreement is not agreement by inaction");
+    p->destroy(p);
+  }
+}
+
+void section()
+{
+  std::printf("\n=============== SECTION S — the shell seam (B89 phase 2b) ==============\n");
+  chunkSection();
+  plantSection();
+  identitySection();
+}
+
+}   // namespace shell
+
 /* ------------------------------------------------------------------- main */
 int main(int argc, char **argv)
 {
   const std::string dir = argc > 1 ? argv[1] : "build-golden/intent";
+  /* A missing manifest is still RED — an unasserted parity half is a promise,
+     not evidence — but it no longer RETURNS, because section S asserts things
+     the goldens have nothing to do with and skipping them would make one
+     missing file silently shrink the oracle. */
   Fixture man;
-  if (!man.load((dir + "/intent-manifest.tsv").c_str()))
+  const bool haveGoldens = man.load((dir + "/intent-manifest.tsv").c_str());
+  if (!haveGoldens)
   {
-    std::printf("intent_check: no manifest at %s/intent-manifest.tsv\n", dir.c_str());
+    std::printf("FAIL no manifest at %s/intent-manifest.tsv\n", dir.c_str());
     std::printf("  run: node tools/golden/gen_intent_goldens.mjs\n");
-    return 1;
+    failures++;
   }
 
   std::printf("intent_check — parity vs reference/intent-bus.html (tol %.0e absolute)\n", kTol);
@@ -555,9 +1177,10 @@ int main(int argc, char **argv)
   }
 
   invariants();
+  shell::section();
 
   std::printf("\n%d fixtures, %d failure(s)\n", cases, failures);
-  if (cases < 24)
+  if (haveGoldens && cases < 24)
   {
     std::printf("FAIL: fewer than 24 fixtures — regenerate with gen_intent_goldens.mjs\n");
     failures++;

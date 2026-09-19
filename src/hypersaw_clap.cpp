@@ -3097,7 +3097,19 @@ struct Plugin
   std::vector<double> intentBind;                     // [4 * kIntents * N] normalised
   double intentHomeX[4] = {0.5, 0.5, 0.5, 0.5};       // §4.4 home, per corner
   double intentHomeY[4] = {0.5, 0.5, 0.5, 0.5};
+  /* EMPTY MEANS DEFAULT. The array starts empty (a std::string member cannot
+     carry kIntentDefaultName without a constructor), and morphInit is the site
+     that fills it — but morphInit runs at ACTIVATE, so a GUI or an oracle that
+     asked before then read ten blank captions. One accessor instead of one
+     more initialisation site: "" is the absent caption, and the absent caption
+     is the ADR-176 A3 default. It also means a rename sanitised down to
+     nothing degrades to the default rather than to a blank knob. */
   std::string intentName[kIntents];
+  const char *intentCaption(int i) const
+  {
+    if (i < 0 || i >= kIntents) return "";
+    return intentName[i].empty() ? kIntentDefaultName[i] : intentName[i].c_str();
+  }
   /* THE ATOM MAP (ADR-176 decision 2): atoms are LEAD GROUPS, not parameters —
      the distinct values of morphLead[], compacted, plus `home` as its own atom
      (plan R10). The scale is one atom of 13, each FX slot one of 3, and since
@@ -3222,7 +3234,7 @@ struct Plugin
     std::string body;
     char buf[96];
     for (int i = 0; i < kIntents; i++)
-      if (intentName[i] != kIntentDefaultName[i])
+      if (std::strcmp(intentCaption(i), kIntentDefaultName[i]) != 0)
         body += ",N:" + std::to_string(i) + ":" + intentSafeName(intentName[i]);
     for (int k = 0; k < 4; k++)
       for (size_t i = 0; i < n; i++)
@@ -3418,6 +3430,33 @@ struct Plugin
                    intentFinal.data(), intentClamped.data());
     for (size_t i = 0; i < n; i++)
       intentShadow[i] = intentMinV[i] + intentFinal[i] * intentSpan[i];
+  }
+
+  /* CALIBRATION ONLY (L0032) — the must-fail control for "the flag off is
+     bit-identical". A green flag-off render proves the comparison RAN; it does
+     not prove the comparison could have failed. So this resolves once and
+     pushes the shadow through applyParam exactly the way 2c will, at whatever
+     the flag happens to be, and intent_check asserts the resulting render
+     DIFFERS. Reached only from hypersaw_debug_intent_plant: no shell path, no
+     GUI path and no host path calls it, which is the property that keeps 2b's
+     "nothing applied" claim true while its control exists.
+     Returns the number of slots it wrote, so the control can assert its own
+     anchor — a plant that silently wrote nothing would "not fire" for the
+     wrong reason (L0033). */
+  int intentPlantShadow()
+  {
+    morphInit();
+    intentStep((int)std::lround(sampleRate * hypersaw::kGravGridSeconds));
+    int wrote = 0;
+    for (size_t i = 0; i < morphIds.size(); i++)
+    {
+      if (i < morphExempt.size() && morphExempt[i]) continue;
+      morphFromField = true;
+      applyParam(morphIds[i], intentShadow[i]);
+      morphFromField = false;
+      wrote++;
+    }
+    return wrote;
   }
 
   double mpeBendLaw = 1;   // ADR-097: per-note bend follows the wheel by default
@@ -6861,7 +6900,7 @@ extern "C" const char *hypersaw_debug_intent_names(const clap_plugin_t *p)
   for (int i = 0; i < Plugin::kIntents; i++)
   {
     j += i ? ",\"" : "\"";
-    j += Plugin::jsonEscape(pl->intentName[i]);
+    j += Plugin::jsonEscape(pl->intentCaption(i));
     j += "\"";
   }
   return (j += "]").c_str();
@@ -6875,6 +6914,11 @@ extern "C" bool hypersaw_debug_intent_home(const clap_plugin_t *p, int corner, d
   if (x) *x = self(p)->intentHomeX[corner];
   if (y) *y = self(p)->intentHomeY[corner];
   return true;
+}
+/* See Plugin::intentPlantShadow — a CONTROL, not a feature. */
+extern "C" int hypersaw_debug_intent_plant(const clap_plugin_t *p)
+{
+  return self(p)->intentPlantShadow();
 }
 extern "C" bool hypersaw_debug_apply(const clap_plugin_t *p, const char *json)
 {
