@@ -1,0 +1,42 @@
+# The docs leg of CI (2026-09-19, repo audit H5). `ci.yml` carries
+# `paths-ignore: ['**.md','docs/**','traces/**']` on both triggers, and GitHub
+# applies a path filter per WORKFLOW, not per job — so a docs-only change ran
+# ZERO jobs, including `verify-fast`, whose `leak_gate` and INDEX/LIBRARY
+# pointer gate read markdown and nothing else. The doctrine's "never commit
+# machine identity" is enforced BY that leak gate, so the one file class it
+# exists to police was the one class CI did not see.
+#
+# This workflow is the inverse filter: the same three globs, `paths` instead of
+# `paths-ignore`, running the ubuntu `verify fast` job and NOTHING else. Ubuntu
+# bills 1x and `verify fast` is seconds, so ci.yml's cost model (the 10x macOS
+# job and the Windows build are why `paths-ignore` exists) is untouched — this
+# leg never runs them.
+#
+# `push` on main is here for the same reason ci.yml has one: the post-merge net
+# for a `.md` edited in the GitHub web UI, which no local session — and so no
+# Stop-hook `./verify fast` — ever gates.
+#
+# REJECTED: narrowing ci.yml's `paths-ignore` instead. One line, but it
+# re-enables the 10x macOS job on every ROADMAP edit, which is the exact bill
+# that drained the account in 2026-07.
+name: docs
+on:
+  push:
+    branches: [main]
+    paths: ['**.md', 'docs/**', 'traces/**']
+  pull_request:
+    paths: ['**.md', 'docs/**', 'traces/**']
+
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Mirrors ci.yml's `verify-fast` job byte for byte, submodule-less checkout
+  # included: `verify fast`'s gates are scripts + markdown, not a build.
+  verify-fast:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: verify fast
+        run: ./verify fast
