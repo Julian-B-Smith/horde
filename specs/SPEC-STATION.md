@@ -33,9 +33,20 @@ STATION is HORDE's traditional-synthesis workhorse: a lightweight 3-operator pha
        │ lvl,pan   │ lvl,pan   │ lvl,pan           │ lvl,pan
        └───────────┴─────┬─────┴───────────────────┘
                          ▼
+                 DC BLOCKER (one pole/channel, 5 Hz)
+                         ▼
                  engine stereo out → HORDE shared chain
                  (filter bank, FX, master — out of scope)
 ```
+
+- **DC blocker on the engine stereo out.** One pole per channel on the level/pan
+  sum, `y[n] = x[n] − x[n−1] + R·y[n−1]`, `R = exp(−2π·f_c/f_s)`, `f_c = 5 Hz`;
+  state zeroed with the core. This is *not* the tone filter §1 rules out — it is
+  a −3 dB-at-5-Hz highpass that leaves the audio band alone (measured: −0.008 dB
+  at 100 Hz) and exists because several ordinary configurations carry real DC
+  that is **envelope-multiplied at the source**, so each note-on is a thump and
+  16 voices sum theirs: self-feedback −26 dB, SHORT noise −30 dB, a 10 % pulse
+  −1.9 dB, all against a −61…−65 dB DC-free control. Human ruling 2026-09-19.
 
 - Each slot's output is **envelope-scaled at the source**, so the envelope shapes it both as a carrier (mix) and as a modulator (matrix). This is the Operator behavior and is load-bearing for FM sound design.
 - **Modulation depth lives in the matrix cell; audible level lives in the LVL slider.** They are decoupled (an op with LVL 0 is a pure modulator).
@@ -157,7 +168,7 @@ Default patch = prototype boot patch (soft EP: OP2 2:1 idx 2.6, OP3 14:1 idx 1.1
 
 ## 11. Prototype parity and deliberate divergences
 
-`reference/station.html` is the parity oracle for: waveform shapes (raw and pure branches), phase-quantization behavior, matrix/feedback semantics including the one-sample delay, envelope segment shapes and loop behavior, LFSR sequences (both taps), pitch-env curve, algorithm preset values, default patch.
+`reference/station.html` is the parity oracle for: waveform shapes (raw and pure branches), phase-quantization behavior, matrix/feedback semantics including the one-sample delay, envelope segment shapes and loop behavior, LFSR sequences (both taps), pitch-env curve, algorithm preset values, default patch, **and the engine-output DC blocker** (item 7).
 
 **Deliberate divergences (do NOT replicate the prototype here):**
 
@@ -167,7 +178,11 @@ Default patch = prototype boot patch (soft EP: OP2 2:1 idx 2.6, OP3 14:1 idx 1.1
 4. Polyphony 16 with release-fade stealing (prototype: 8, hard shift).
 5. The prototype's master `tanh` drive is monitoring convenience only — engine output is clean; saturation belongs to the downstream chain.
 6. ScriptProcessor/main-thread rendering is a browser sandbox workaround; the DSP core class structure (usable standalone) is the pattern to keep.
-7. The LFSR **seed derivation** is not a parity item. The prototype derives it per voice from the patch seed and the voice slot (`mulberry32(seed ^ slot·2654435761)`, forced odd — ADR-177 §3, 2026-09-19; it was a constant `0x7FFF` for every voice, which summed a chord's noise coherently at +12 dB for 16). §6 leaves the value to the implementer, so the port may choose its own derivation; what IS gated is the rule (nonzero, per voice, deterministic per note), the periods (32767 / 93), and an N-voice/1-voice noise RMS ratio of ~√N rather than N.
+
+*Items 7-8 are parity notes, not divergences — one thing the port must copy, one it need not.*
+
+7. The **DC blocker IS a parity item** (added 2026-09-19 by human ruling on ROADMAP B153/suite S17; it differs from the reverb precedent, where the blocker lived only in the port). Port it exactly: same form `y[n] = x[n] − x[n−1] + R·y[n−1]` with `R = exp(−2π·f_c/f_s)` and `f_c = 5 Hz` (named in Hz and derived from the running sample rate — never a hand-tuned per-tick constant, ADR-009), in the same **position** — after the level/pan sum of ops + noise, before the master gain and the prototype's monitoring `tanh` (divergence 5 above), so the port's clean output carries the identical stage; two states (x₁, y₁) per **channel**, not per voice, zeroed wherever the core is reset. The tail is flushed to exact zero below 1e-30 so the filter cannot idle in the subnormal range once the last voice dies (§12's flush-to-zero requirement; suite S15). Gated by `tools/labharness/station_check.mjs` S17 (every configuration at the DC-free detector floor, with the pre-blocker lab as the must-fail control) and S21 (−3.0074 dB measured at 5 Hz, −0.0080 dB at 100 Hz).
+8. The LFSR **seed derivation** is not a parity item. The prototype derives it per voice from the patch seed and the voice slot (`mulberry32(seed ^ slot·2654435761)`, forced odd — ADR-177 §3, 2026-09-19; it was a constant `0x7FFF` for every voice, which summed a chord's noise coherently at +12 dB for 16). §6 leaves the value to the implementer, so the port may choose its own derivation; what IS gated is the rule (nonzero, per voice, deterministic per note), the periods (32767 / 93), and an N-voice/1-voice noise RMS ratio of ~√N rather than N.
 
 ## 12. Performance budget and acceptance
 
