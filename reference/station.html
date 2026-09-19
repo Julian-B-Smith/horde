@@ -226,10 +226,20 @@ class StationCore{
   // Math.floor(Math.random()*16) per cell, unseeded (ADR-122).
   reseedTable(){ this.rndStream=mulberry32(this.state.seed>>>0); }
 
+  // Spec §6: "LFSR seeds nonzero PER VOICE ... deterministic per note". Derived
+  // from the patch seed and the voice slot, so replay stays exact while sibling
+  // voices decorrelate. Every voice used to start at the same 0x7FFF, which made
+  // a chord's noise sum COHERENTLY: 4-voice/1-voice RMS 3.999 where independent
+  // streams give 2.0 — +12 dB at 16 voices, imaged dead centre, and KEYTRK only
+  // masked it while the notes differed (ADR-177 §3; audit S4 / §2.4).
+  lfsrSeed(slot){
+    const r=mulberry32((this.state.seed^Math.imul(slot|0,2654435761))>>>0);
+    return (Math.floor(r()*32767)|1)&0x7FFF;   // odd ⇒ 15-bit and never 0
+  }
   mkVoice(note,freq,slot){
     return {note,freq,gate:true,ph:[0,0,0],prev:[0,0,0,0],
       env:[mkEnv(),mkEnv(),mkEnv(),mkEnv()],pT:0,
-      lfsr:0x7FFF,nphase:0,nout:0,dead:false};
+      lfsr:this.lfsrSeed(slot),nphase:0,nout:0,dead:false};
   }
   noteOn(note,freq){
     if(this.voices.length>=8) this.voices.shift();
