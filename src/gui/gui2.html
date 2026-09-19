@@ -1666,7 +1666,15 @@ function scanA() { return parseFloat(TOK('--scr-scan', '0.22')) || 0.22; }
 const VS = () => Math.min(window.devicePixelRatio || 1, 2);
 function fitViz(cv) {
   const dpr = VS();
-  const w = Math.max(1, Math.round(cv.clientWidth * dpr)), h = Math.max(1, Math.round(cv.clientHeight * dpr));
+  /* B157: a canvas whose CSS box is ZERO is REFUSED — bitmap left alone, false
+     returned — where this used to clamp with `Math.max(1, ...)`. The clamp
+     turned "this canvas is display:none" into a plausible-looking 1x1 backing
+     store, so a painter drew a whole trace into one pixel and every caller was
+     told the bitmap was fine. That is precisely how the OSC page's waveform
+     went structurally blank. Refusing is what the callers already read `false`
+     to mean ("bitmap unchanged"); a hidden canvas simply keeps its last size
+     until it is shown again, when the next call sizes it properly. */
+  const w = Math.round(cv.clientWidth * dpr), h = Math.round(cv.clientHeight * dpr);
   if (!w || !h || (cv.width === w && cv.height === h)) return false;
   cv.width = w; cv.height = h;
   return true;
@@ -4768,23 +4776,44 @@ function paintVizSnapshot(s) {
    the markup (`canvas.wavosc`, `data-viz-osc`) — a third oscillator is a
    canvas and nothing else. wvC stays osc 0's pane so the per-feed fallback and
    the DIAG line keep their existing handle. */
-const wavPanes = [...document.querySelectorAll('canvas.wavosc')]
-  .map(c => ({ c, x: c.getContext('2d'), k: +c.dataset.vizOsc || 0 }));
-const wvC = document.getElementById('wavC2'), wvx = wvC ? wvC.getContext('2d') : null;
+/* One cached 2d context per waveform canvas — MAIN's per-oscillator panes and
+   the OSC page's single active-oscillator canvas alike. `paintScopeInto` wants
+   {c, x}, and `k` names the oscillator a pane OWNS (absent = "whichever is
+   active"), so this is the only place that shape is constructed. */
+const paneFor = (c) => c.__wavPane
+  || (c.__wavPane = { c, x: c.getContext('2d'), k: +c.dataset.vizOsc || 0 });
+const wavPanes = [...document.querySelectorAll('canvas.wavosc')].map(paneFor);
+const wvC = document.getElementById('wavC2');
 let scopeF0 = 0, scopeSR = 44100, lastVizOscEnabled = true;
 let scopeFrozen = false;
-const activePane = () => wavPanes.find(p => p.k === editOsc) || wavPanes[0] || null;
-/* Copies are every OTHER .wavscope — i.e. the OSC page's, which keeps its
-   single ACTIVE-oscillator view by blitting whichever MAIN pane that osc owns.
-   (2026-08-29 bug, still binding: gate and select on the class every rendering
-   shares, never on one rendering's id.) */
-const scopeCopies = () => [...document.querySelectorAll('canvas.wavscope')]
-  .filter(c => !wavPanes.some(p => p.c === c));
-function blitScope() {
-  const src = (activePane() || {}).c || wvC;
-  if (!src) return;
-  for (const c of scopeCopies())
-    if (c.offsetWidth) c.getContext('2d').drawImage(src, 0, 0);
+/* B157 (human 2026-09-19: "OSC 1 waveform isn't showing on its OSC page"). The
+   scope paints into a canvas that is ON SCREEN, resolved from the page that is
+   on — never into a hidden pane that is afterwards blitted. The old route was
+   activePane() -> a `canvas.wavosc` on MAIN, and while the OSC page shows, MAIN
+   is display:none: fitViz collapsed that pane's bitmap to 1x1 (its `Math.max(1,
+   ...)` hid the very zero a guard would look for), the trace was drawn into
+   that one pixel, and blitScope copied the 1x1 image onto the OSC page's 330x80
+   canvas — which nothing then cleared and nothing ever filled. So the OSC
+   waveform was never intermittent; it was structurally blank.
+   Selecting on the class every rendering shares (`canvas.wavscope`) instead of
+   on one rendering's id is the rule the 2026-08-29 feed-gate bug already wrote
+   down for the GATE; B157 is that same rule applied to the PAINT TARGET.
+   blitScope/scopeCopies went with it: paint the visible canvas and there is no
+   second copy left to keep in sync. */
+const visibleScopes = () => {
+  const pg = document.querySelector('.page.on');
+  return pg ? [...pg.querySelectorAll('canvas.wavscope')]
+                .filter(c => c.offsetWidth).map(paneFor)
+            : [];
+};
+/* The single ACTIVE-oscillator block belongs in the pane that OWNS that
+   oscillator where a page has one per oscillator (MAIN's fallback path), and in
+   the page's own canvas where it has only the one (OSC). NO visible canvas ->
+   null, and the caller draws nothing: there is no honest target, and painting
+   into a hidden one is the whole of the bug above. */
+function activeScope() {
+  const ps = visibleScopes();
+  return ps.find(p => p.c.classList.contains('wavosc') && p.k === editOsc) || ps[0] || null;
 }
 for (const c of document.querySelectorAll('canvas.wavscope')) {
   c.style.cursor = 'pointer';
@@ -4792,12 +4821,15 @@ for (const c of document.querySelectorAll('canvas.wavscope')) {
   c.onclick = () => {
     scopeFrozen = !scopeFrozen;
     if (!scopeFrozen) return;
-    for (const p of wavPanes) {
+    /* B157: the badge lands on the canvases that are SHOWING, which always
+       includes the one just clicked. It used to be stamped on every MAIN pane
+       and blitted, so freezing from the OSC page wrote HOLD into that hidden
+       1x1 bitmap: a frozen scope showed neither a wave nor a badge saying why. */
+    for (const p of visibleScopes()) {
       p.x.fillStyle = TOK('--badge-bg'); p.x.fillRect(p.c.width - 34, 3, 31, 11);
       p.x.fillStyle = TOK('--text'); p.x.font = '9px monospace';
       p.x.fillText('HOLD', p.c.width - 31, 12);
     }
-    blitScope();
   };
 }
 let scopeBusy = false;
@@ -4811,13 +4843,20 @@ async function drawScope() {   // B76: per-feed FALLBACK; the plugin path is fra
    pane (canvas + context), the pane's own f0 for the trigger filter, and the
    pane's own on/off. Two callers: paintScope, the single ACTIVE-oscillator
    entry the per-feed fallback and the OSC pages use, and paintScopeOscs, which
-   feeds MAIN's panes from the per-oscillator blocks. Neither blits — the
-   caller does, once, after every pane it owns has been painted. */
+   feeds MAIN's panes from the per-oscillator blocks. B157: neither blits any
+   more — each writes only into canvases that are on screen, so what was drawn
+   IS what is seen. */
 function paintScope(s) {   // ACTIVE oscillator, one pane (OSC pages, fallback)
-  const pane = activePane();
-  if (!pane || scopeFrozen) return;
+  const pane = activeScope();
+  if (!pane) {
+    // No visible .wavscope: say so in the corner rather than paint nowhere.
+    // The token is the human's one-screenshot diagnostic, so a refusal that
+    // left it reading 'ok' would be the B157 lie in a smaller place.
+    SCOPEDIAG = 'hidden';
+    return;
+  }
+  if (scopeFrozen) return;
   paintScopeInto(pane, s, scopeF0, lastVizOscEnabled);
-  blitScope();
 }
 function paintScopeOscs(blocks) {   // MAIN: one block per oscillator, by index
   if (scopeFrozen) return;
@@ -4828,10 +4867,12 @@ function paintScopeOscs(blocks) {   // MAIN: one block per oscillator, by index
     const d = oscs[p.k];
     paintScopeInto(p, b, (d && d.f0) || 0, !d || d.on !== false);
   }
-  blitScope();
 }
 function paintScopeInto(pane, s, paneF0, oscOn) {
   const wvC = pane.c, wvx = pane.x;
+  // B157: fitViz REFUSES a zero-box canvas now, so a pane that reaches here
+  // hidden keeps its old bitmap instead of collapsing to 1x1. Both callers
+  // already screen for visibility; this is the belt to that pair of braces.
   fitViz(wvC);   // B120: crisp at the display's scale
   const V = VS();
   // ADR-100 A4: a switched-off osc taps nothing, so its ring is stale — show
