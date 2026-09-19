@@ -11,6 +11,9 @@
  *     node tools/labharness/reverb_check.mjs          (~45 s, V6 is 38 of them)
  *     node tools/labharness/reverb_check.mjs V5 V6    (named checks only)
  *
+ * UNWIRED: ~45 s of measurement (V6 alone is 38) against a lab with no port
+ *   yet; wiring it was outside the ADR-179 §4 PR's sanctioned set (B159).
+ *
  * IT EXTRACTS, IT DOES NOT REIMPLEMENT. SwarmVerb is sliced live out of the
  * HTML by tools/golden/extract_core.mjs, so the thing measured is the thing
  * that makes the sound. A re-implementation agrees with itself and certifies

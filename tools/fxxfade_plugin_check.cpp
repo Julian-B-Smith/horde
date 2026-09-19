@@ -5,7 +5,8 @@
    500 ms: still ringing at 100 ms, gone by 600 ms. 2026-09-14, after the human
    could not hear the toggle in the DAW — the mechanism was fine, the test
    was not; this pins the plugin path so that question never reopens.
-   Standalone, unwired (human gate). Exit 1 on failure. */
+   Standalone, unwired (human gate). Exit 1 on failure.
+   UNWIRED: standing human ruling on gate scope, stated in this header and pre-dating the ADR-179 §4 inversion; not revisited in the wiring PR (B159). */
 #include <algorithm>
 #include <cmath>
 #include <cstdio>

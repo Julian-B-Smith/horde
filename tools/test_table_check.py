@@ -28,6 +28,31 @@ WHAT IS CHECKED:
    FOUNDATIONS ruling, `spec`, or `human`. A decision nobody owns cannot be
    revisited, only argued about.
 
+5. EVERY CHECK IS WIRED OR SAYS WHY NOT. The human inverted the wiring default
+   on 2026-09-19 (ADR-179 §4): a new `*_check` is WIRED into `./verify` in the
+   PR that creates it, and the human gate on `./verify` narrows to WEAKENING it.
+   So every `tools/*_check.cpp` and every `tools/labharness/*_check.mjs` must be
+   either invoked by `./verify` or carry, in its first 40 lines, a line matching
+
+       UNWIRED: <reason>
+
+   — that is the whole grammar, and it is deliberately a prose reason rather
+   than a token: the cost of not wiring a check should be writing down why,
+   once, where the next reader hits it. An unwired check with no such line is
+   the failure this rule exists to catch — a green, calibrated oracle that runs
+   for nobody reads as coverage while gating nothing, which is worse than no
+   check at all.
+
+   WIRING IS DETECTED BY INVOCATION, NOT BY MENTION (known_oracles()'s parse),
+   so `./verify`'s prose about why cpu_check is NOT wired cannot be mistaken
+   for wiring it.
+
+   KNOWN BOUNDARY: the rule is keyed on FILE NAME, so a check binary whose
+   source is not named `*_check.cpp` is outside it — today `cpu_check` (built a
+   second time from tools/measure_cpu.cpp) and `alias_check`
+   (tools/measure_alias.cpp). Both carry the header line anyway; widening the
+   rule to CMake target names is a decision, not a fix to smuggle in here.
+
 GAPS ARE COUNTED, NEVER HIDDEN: rows with `oracle=none` are printed every run.
 That number going UP is fine — it means we found something we cannot yet test.
 It reading zero when it should not is the failure this gate exists to prevent.
@@ -52,6 +77,41 @@ def known_oracles():
     python = {p.rsplit("/", 1)[-1].removesuffix(".py")
               for p in re.findall(r"python3 (tools/[a-z_0-9]+\.py)", v)}
     return compiled | python
+
+
+UNWIRED_RE = re.compile(r"\bUNWIRED:\s*\S")
+UNWIRED_HEAD = 40          # lines; a reason buried below the header is not a header
+
+
+def wired_checks():
+    """Check names ./verify actually INVOKES. The compiled half is
+    known_oracles()'s parse (a quoted "$build_dir/name"); the lab half is a
+    `node tools/labharness/name.mjs` call. A mention does not count: ./verify
+    explains at length why cpu_check is NOT wired, and a substring grep would
+    read that explanation as the wiring."""
+    v = VERIFY.read_text(encoding="utf-8")
+    lab = set(re.findall(r"node tools/labharness/([a-z_0-9]+)\.mjs", v))
+    return known_oracles() | lab
+
+
+def unwired_rule():
+    """ADR-179 section 4: wired, or a stated reason. -> (failures, n_wired, n_exempt)."""
+    wired = wired_checks()
+    files = sorted(ROOT.glob("tools/*_check.cpp")) + sorted(ROOT.glob("tools/labharness/*_check.mjs"))
+    bad, exempt, run = [], 0, 0
+    for f in files:
+        rel = f.relative_to(ROOT).as_posix()
+        if f.name.rsplit(".", 1)[0] in wired:
+            run += 1
+            continue
+        head = f.read_text(encoding="utf-8").splitlines()[:UNWIRED_HEAD]
+        if any(UNWIRED_RE.search(l) for l in head):
+            exempt += 1
+            continue
+        bad.append(f"{rel} is not run by ./verify and states no reason (ADR-179 §4: "
+                   f"wire it, or give it a line `UNWIRED: <reason>` in its first "
+                   f"{UNWIRED_HEAD} lines)")
+    return bad, run, exempt
 
 
 def gui_features():
@@ -101,6 +161,9 @@ def main():
     for pf in sorted(gui_features() - covered):
         fail.append(f"no test row for a feature the GUI shows: {pf[0]}/{pf[1]}")
 
+    unwired_fail, n_wired, n_exempt = unwired_rule()
+    fail.extend(unwired_fail)
+
     if fail:
         print("test_table_check: FAILED", file=sys.stderr)
         for f in fail[:20]:
@@ -112,7 +175,8 @@ def main():
     agentic = sum(1 for r in body if r[3] == "agentic")
     human = len(body) - agentic
     print(f"test_table_check: GREEN ({len(body)} tests — {agentic} agentic, {human} human; "
-          f"{gaps} awaiting an oracle)")
+          f"{gaps} awaiting an oracle; {n_wired} check files wired into ./verify, "
+          f"{n_exempt} declaring UNWIRED)")
     return 0
 
 

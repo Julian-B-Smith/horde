@@ -19,6 +19,7 @@
  * Each number below is the CONTRACT, not an observation of today's build: a
  * change that moves one is a change to what this module is, and belongs in an
  * ADR before it belongs here.
+ * UNWIRED: reason not stated — see B159.
  */
 #include <cstdio>
 #include <cmath>

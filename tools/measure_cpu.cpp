@@ -17,6 +17,8 @@
  * what makes this a measurement rather than a gate. Release build only — a
  * -O0 number is meaningless (global CLAUDE.md, "Test in Release").
  * Standalone, registered in CMake beside svf_check, NOT in ./verify.
+ * UNWIRED: a timing measurement must not gate CI — run by hand, numbers to
+ * specs/ACCEPTANCE.md (./verify's own note beside alias_check says the same).
  *
  * ---------------------------------------------------------------------------
  * CPU_JUDGE (B147 layer 2) — the same source, built a second time as the
