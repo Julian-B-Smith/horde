@@ -193,6 +193,24 @@ full() {
     echo "verify[full]: node missing — STATION lab check SKIPPED" >&2
   fi
 
+  # SUB OSC LAB FIDELITY (tools/labharness/subosc_check.mjs) — 39 rows over the
+  # protected prototype reference/subosc.html, each with a must-fail control
+  # planted into a scratch copy of the DSP. Wired under ADR-180 §1; its header
+  # had carried "UNWIRED: reason not stated — see B159", which is not a reason.
+  # It is the HOME OF §10.1's aliasing floors: those need a 65 536-point
+  # Kaiser-windowed FFT sweep, which exists here and not on the C++ side, and
+  # tools/subosc_check.cpp's header records that boundary rather than hiding it.
+  # Same capture idiom as above, and cheap — 0.6 s.
+  if command -v node >/dev/null; then
+    node tools/labharness/subosc_check.mjs > /tmp/labsubosc.$$ 2>&1 || {
+      echo "verify[full]: SUB OSC lab check FAILED" >&2; cat /tmp/labsubosc.$$ >&2
+      rm -f /tmp/labsubosc.$$; return 1; }
+    echo "subosc_check.mjs: $(tail -1 /tmp/labsubosc.$$)"
+    rm -f /tmp/labsubosc.$$
+  else
+    echo "verify[full]: node missing — SUB OSC lab check SKIPPED" >&2
+  fi
+
   # ---- Layer-E: the whole gate. Run before closing a queue item. -----------
   # Phase 0: the plugin builds cleanly (CI additionally runs pluginval on the
   # artifact every push; auval/host loads stay human-run — CLAUDE.md §Domain).
@@ -435,6 +453,18 @@ full() {
   node tools/golden/gen_station_goldens.mjs --selfcheck || return 1
   node tools/golden/gen_station_goldens.mjs > /dev/null || return 1
   "$build_dir/station_check" "$(dirname "$build_dir")/build-golden/station" || return 1
+
+  # SUB OSC port oracle (B155 phase 1): goldens sliced live from
+  # reference/subosc.html -> subosc_check (L0-1 parity at BOTH 48 000 and
+  # 44 100 Hz on 28 scenarios x 2 rates, plus SPEC-SUBOSC §10's measured rows —
+  # determinism, sample-rate and block-size independence, exact silence, the
+  # subnormal-free tail, the bump's lobes and its peak-exact normaliser — each
+  # with the control that must read the other answer). Wired in the PR that
+  # created it (ADR-180 §1). Cost: generator 0.25 s + 0.1 s, check 0.2 s. Its
+  # CPU row is REPORTED, never gated — the absolute number is machine-dependent.
+  node tools/golden/gen_subosc_goldens.mjs --selfcheck || return 1
+  node tools/golden/gen_subosc_goldens.mjs > /dev/null || return 1
+  "$build_dir/subosc_check" "$(dirname "$build_dir")/build-golden/subosc" || return 1
 
   # Travel-law oracle (A1 fold, ratified 2026-08-06): trajectory goldens from
   # bend-lab's Inertia (sliced live from the HTML) -> glide_check (parity at the
