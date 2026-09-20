@@ -387,6 +387,10 @@ inline void installBridge(choc::ui::WebView &web, GuiHost &host)
     return choc::value::createString(host.getShapeWaveJson ? host.getShapeWaveJson()
                                                            : std::string("{}"));
   });
+  web.bind("hzGetSubWave", [&host](const choc::value::ValueView &) -> choc::value::Value {
+    return choc::value::createString(host.getSubWaveJson ? host.getSubWaveJson()
+                                                         : std::string("{}"));
+  });
   web.bind("hzGetDefaults", [&host](const choc::value::ValueView &) -> choc::value::Value {
     return choc::value::createString(host.getDefaultsJson ? host.getDefaultsJson()
                                                           : std::string("{}"));

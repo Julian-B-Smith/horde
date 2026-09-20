@@ -5154,6 +5154,63 @@ struct Plugin
      one (band-limiting is inaudible to the eye at this size), and roundness is
      shown at its knob value — the per-voice roundHi pitch scaling varies by
      note, which a single static cycle cannot show. */
+  /* ---- THE SUB'S CYCLE, DRAWN BY THE ENGINE (B181 note 3) -----------------
+     The human: "Sub needs a visualizer to see the shape."
+
+     PUBLISHED, NOT RE-DERIVED IN JS, and that choice is the whole design. The
+     GUI already computes the LFO shape independently of the shell (B177) and
+     this repo has a recorded scar for the same mistake (ADR-110: "when they
+     were two copies, any edit to one was a map that lied about the sound"). A
+     display that disagrees with the sound is a confident wrong answer, and
+     the only structural cure is that there is nothing to disagree WITH — so
+     this calls SubOscCore::shapeAt, which is the SAME function render() calls
+     per sample, and the GUI draws the numbers it is handed.
+
+     THE BAND-LIMITING IS REAL. `dph` is the core's own running phase
+     increment, so the polyBLEP correction in the drawing is the correction in
+     the sound: a pulse at a high note visibly rounds its edges, exactly as it
+     does audibly. The bump's normaliser comes from the core's own bounded
+     search, so the two-lobe silhouette is drawn at the amplitude it sounds at.
+
+     Noise draws from a LOCAL stream seeded with `seed`, which is the first N
+     draws a note-on would make (the core re-seeds per note — audit A3). It is
+     a sample of the stream, not a second stream.
+
+     Instance 0 is the reader, as subGetParam's is: the parameters are
+     per-device, so all sixteen hold the same table. */
+  std::string subWaveJson() const
+  {
+    using Core = hypersaw::SubOscCore;
+    const Core &c = subs[0];
+    constexpr int N = 256;
+    const int wave = (int)c.param(Core::kWave);
+    const double sr = c.sampleRate();
+    const double dph = std::min(c.freqHz(), 0.49 * sr) / sr;
+    const double w = c.param(Core::kWidth);
+    const double bumpA = c.param(Core::kBumpAmt), bumpPhi = c.param(Core::kBumpPhase);
+    uint32_t rng = (uint32_t)c.param(Core::kSeed);
+    // The header needs its own buffer: it is ~40 characters wide and a char[32]
+    // truncated it mid-key, which produced JSON the reader parsed as "no
+    // points" rather than as an error. Caught by subosc_check's 11i rows on
+    // their first run — the reason a display gets an oracle at all.
+    char hdr[96], buf[32];
+    std::snprintf(hdr, sizeof hdr, "{\"n\":%d,\"wave\":%d,\"hz\":%.4f,\"wave_pts\":[", N, wave,
+                  c.freqHz());
+    std::string out = hdr;
+    for (int i = 0; i < N; i++)
+    {
+      // The start phase is where a note begins, so the drawing begins there
+      // too — moving `phase` visibly rotates the cycle, which is what the
+      // control does to the sound.
+      double ph = c.param(Core::kPhase) + (double)i / N;
+      ph -= std::floor(ph);
+      const double v = Core::shapeAt(wave, ph, dph, w, bumpA, bumpPhi, c.bumpNorm(), rng);
+      std::snprintf(buf, sizeof(buf), i ? ",%.5f" : "%.5f", v);
+      out += buf;
+    }
+    return out + "]}";
+  }
+
   std::string shapeWaveJson()
   {
     const uint32_t vo = vizOsc.load(std::memory_order_relaxed);
@@ -8219,6 +8276,11 @@ extern "C" void hypersaw_debug_state(const clap_plugin_t *p, char *out, uint32_t
   const std::string j = self(p)->stateJson();
   std::snprintf(out, cap, "%s", j.c_str());
 }
+extern "C" void hypersaw_debug_subwave(const clap_plugin_t *p, char *out, uint32_t cap)
+{
+  const std::string j = self(p)->subWaveJson();
+  std::snprintf(out, cap, "%s", j.c_str());
+}
 extern "C" bool hypersaw_debug_exempt(const clap_plugin_t *p, uint32_t id) { return self(p)->morphToggleExempt((clap_id)id); }
 /* The GUI bridge's other two corner verbs, headless — the same reason the
    exempt door above exists. B89 2c (e) has to prove capture still bakes and an
@@ -8591,6 +8653,7 @@ bool gui_create(const clap_plugin_t *p, const char *api, bool is_floating)
   hostIf.getDefaultsJson = [pl]() { return pl->defaultsJson(); };
   hostIf.getBendCurveJson = [pl]() { return pl->bendCurveJson(); };
   hostIf.getShapeWaveJson = [pl]() { return pl->shapeWaveJson(); };
+  hostIf.getSubWaveJson = [pl]() { return pl->subWaveJson(); };   // B181 note 3
   hostIf.morphCapture = [pl](uint32_t k) { pl->morphCapture((int)k); };
   hostIf.morphCornerJson = [pl](uint32_t k) { return pl->cornerJson((int)k); };
   hostIf.morphLiveJson = [pl]() { return pl->liveCornerJson(); };

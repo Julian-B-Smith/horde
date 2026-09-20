@@ -325,27 +325,7 @@ class SubOscCore
         mPrev = m;
       }
 
-      double v;
-      switch (wave)
-      {
-        case kSine: v = std::sin(kTwoPi * ph); break;
-        case kTri:
-        {
-          // Quarter-turn offset so the shape starts at 0 rising, like the sine
-          // — a sub that starts at full scale is a click the start-phase
-          // control cannot remove. NAIVE: no BLAMP (limit L1).
-          double t = ph + 0.25;
-          t -= std::floor(t);
-          v = 1 - 4 * std::fabs(t - 0.5);
-          break;
-        }
-        case kSquare: v = pulseAt(ph, dph, 0.5); break;
-        case kSaw: v = (2 * ph - 1) - blep(ph, dph); break;
-        case kPulse: v = pulseAt(ph, dph, w); break;
-        case kBump: v = bumpAt(ph, bumpA, bumpPhi, bumpN); break;
-        // kNoise, and the lab's `default:` — noise ignores pitch entirely (L3).
-        default: v = 2 * forcecore::rngNext(rs_) - 1; break;
-      }
+      double v = shapeAt(wave, ph, dph, w, bumpA, bumpPhi, bumpN, rs_);
 
       // Linear AR in seconds (§5.3, PROVISIONAL). Linear rather than
       // exponential because a linear ramp reaches exactly 0 and exactly 1 in
@@ -385,6 +365,49 @@ class SubOscCore
     mPrev_ = mPrev;
     peak = pk;
   }
+
+  /* ── THE SHAPE, AT ONE PHASE — §3's seven cases, and the ONLY copy ─────────
+     Extracted from render()'s inner loop for B181 note 3, which needs the
+     shape for a DISPLAY as well as for the audio. It was extracted rather
+     than reimplemented for the display because this repo has already paid for
+     the alternative twice: ADR-110 ("when they were two copies, any edit to
+     one was a map that lied about the sound") and, three days ago, B177's GUI
+     computing the LFO shape independently of the shell. A display that
+     disagrees with the sound is worse than no display — it is a confident
+     wrong answer — and the only structural cure is that there is nothing to
+     disagree WITH.
+     The body is render()'s verbatim; parity (eps 1e-6 over 60 goldens at two
+     rates) and §10.2's bit-identity rows are what certify that the move
+     changed no arithmetic. `rng` is stepped in place, so the noise case is a
+     function of the stream's position exactly as it was inside the loop. */
+  static double shapeAt(int wave, double ph, double dph, double w, double bumpA, double bumpPhi,
+                        double bumpNorm, uint32_t &rng)
+  {
+    switch (wave)
+    {
+      case kSine: return std::sin(kTwoPi * ph);
+      case kTri:
+      {
+        // Quarter-turn offset so the shape starts at 0 rising, like the sine
+        // — a sub that starts at full scale is a click the start-phase
+        // control cannot remove. NAIVE: no BLAMP (limit L1).
+        double t = ph + 0.25;
+        t -= std::floor(t);
+        return 1 - 4 * std::fabs(t - 0.5);
+      }
+      case kSquare: return pulseAt(ph, dph, 0.5);
+      case kSaw: return (2 * ph - 1) - blep(ph, dph);
+      case kPulse: return pulseAt(ph, dph, w);
+      case kBump: return bumpAt(ph, bumpA, bumpPhi, bumpNorm);
+      // kNoise, and the lab's `default:` — noise ignores pitch entirely (L3).
+      default: return 2 * forcecore::rngNext(rng) - 1;
+    }
+  }
+
+  // The normaliser the current (a, phi) implies — the same reciprocal of the
+  // same bounded search recalc() stores, so a reader outside the class can ask
+  // for it without a second law or a second cached copy.
+  double bumpNorm() const { return bumpNorm_; }
 
   // ── the shape laws, exposed for the oracle ────────────────────────────────
   // polyBLEP: one period of the correction, the exact idiom the repo already

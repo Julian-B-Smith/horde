@@ -1771,6 +1771,143 @@ int main(int argc, char **argv)
       }
     }
 
+    /* ==== 11.i THE WAVE DISPLAY IS THE ENGINE'S (B181 note 3) ==============
+       The human: "Sub needs a visualizer to see the shape."
+
+       THE LAW IS NOT DUPLICATED, so there is no law to gate: the shell calls
+       SubOscCore::shapeAt, which is the same function render() calls per
+       sample, and the GUI draws the numbers it is handed. (B177 left the GUI
+       computing the LFO shape independently of the shell; that is the failure
+       this deliberately does not repeat.)
+
+       WHAT IS NOT STRUCTURAL IS THE WIRING — whether the published cycle is
+       the engine's CURRENT configuration or a stale/default one, whether it
+       carries the core's own phase increment (so the band-limiting is real),
+       whether BUMP's normaliser reached it, and whether the start phase
+       rotates it. Those are what these rows ask, against shapeAt evaluated at
+       the same phases with the same inputs. */
+    {
+      auto published = [&](const std::vector<std::pair<clap_id, double>> &sets, int key,
+                           std::vector<double> &pts, double &hz) {
+        ShellRig r;
+        r.boot(48000, 256);
+        r.block(key, with(kSwarmSilent, with({{kSubOnId, 1}}, sets)), 2);
+        std::vector<char> buf(1 << 16);
+        hypersaw_debug_subwave(r.p, buf.data(), (uint32_t)buf.size());
+        const std::string j(buf.data());
+        r.kill();
+        pts.clear();
+        hz = 0;
+        const size_t hp = j.find("\"hz\":");
+        if (hp != std::string::npos) hz = std::atof(j.c_str() + hp + 5);
+        size_t at = j.find("\"wave_pts\":[");
+        if (at == std::string::npos)
+        {
+          std::printf("   (subwave JSON head: %.120s)\n", j.c_str());
+          return;
+        }
+        at += 12;
+        while (at < j.size() && j[at] != ']')
+        {
+          pts.push_back(std::atof(j.c_str() + at));
+          const size_t comma = j.find(',', at);
+          const size_t close = j.find(']', at);
+          if (comma == std::string::npos || comma > close) break;
+          at = comma + 1;
+        }
+      };
+      struct Case { const char *what; int wave; double width, phase, bumpA, bumpPhi; int oct; };
+      const Case cases[] = {
+          {"saw", SubOscCore::kSaw, 0.5, 0, 0.35, -0.25, 0},
+          {"pulse w=0.2", SubOscCore::kPulse, 0.2, 0, 0.35, -0.25, 0},
+          {"pulse w=0.8 rotated", SubOscCore::kPulse, 0.8, 0.37, 0.35, -0.25, 0},
+          {"bump defaults", SubOscCore::kBump, 0.5, 0, 0.35, -0.25, -1},
+          {"bump a=0.6", SubOscCore::kBump, 0.5, 0, 0.6, 1.7, -2},
+          {"triangle", SubOscCore::kTri, 0.5, 0, 0.35, -0.25, -3},
+      };
+      bool allAgree = true;
+      double worstDiff = 0;
+      std::vector<std::vector<double>> drawn;
+      for (const Case &cs : cases)
+      {
+        std::vector<double> pts;
+        double hz = 0;
+        published({{kSubIdBase + 0, (double)cs.wave},
+                   {kSubIdBase + 1, cs.width},
+                   {kSubIdBase + 8, cs.phase},
+                   {kSubIdBase + 2, cs.bumpA},
+                   {kSubIdBase + 3, cs.bumpPhi},
+                   {kSubIdBase + 4, (double)cs.oct}},
+                  45, pts, hz);
+        drawn.push_back(pts);
+        if (pts.size() != 256) { allAgree = false; continue; }
+        // The expected picture, from the SAME law at the SAME phases with the
+        // core's own dph and normaliser — so a mismatch is a WIRING fault.
+        SubOscCore c = make(48000, {{SubOscCore::kWave, (double)cs.wave},
+                                    {SubOscCore::kWidth, cs.width},
+                                    {SubOscCore::kPhase, cs.phase},
+                                    {SubOscCore::kBumpAmt, cs.bumpA},
+                                    {SubOscCore::kBumpPhase, cs.bumpPhi},
+                                    {SubOscCore::kOctave, (double)cs.oct}});
+        c.noteOn(45, 1.0);
+        const double dph = std::min(c.freqHz(), 0.49 * 48000.0) / 48000.0;
+        uint32_t rng = (uint32_t)c.param(SubOscCore::kSeed);
+        for (int i = 0; i < 256; i++)
+        {
+          double ph = cs.phase + (double)i / 256;
+          ph -= std::floor(ph);
+          const double want = SubOscCore::shapeAt(cs.wave, ph, dph, cs.width, cs.bumpA,
+                                                  cs.bumpPhi, c.bumpNorm(), rng);
+          worstDiff = std::max(worstDiff, std::fabs(want - pts[(size_t)i]));
+        }
+        if (std::fabs(hz - c.freqHz()) > 1e-3) allAgree = false;
+      }
+      row(allAgree && worstDiff <= 1e-4,
+          "11i.a the published cycle IS the engine's current shape, at the engine's own dph, "
+          "normaliser, start phase and frequency, over 6 configurations",
+          "worst |published - shapeAt| = %.2e", worstDiff);
+      /* 11i.b CONTROL — THE PICTURE FOLLOWS THE CONTROLS. Two pulse widths
+         must draw differently, and the DUTY the drawing shows must be the
+         width that was asked for. Without this 11i.a would also pass for a
+         shell that published the same cycle for every patch and a check that
+         happened to build the same one. */
+      {
+        auto duty = [](const std::vector<double> &p) {
+          if (p.empty()) return 0.0;
+          size_t hi = 0;
+          for (double v : p) if (v > 0) hi++;
+          return (double)hi / (double)p.size();
+        };
+        const double d02 = duty(drawn[1]), d08 = duty(drawn[2]);
+        row(std::fabs(d02 - 0.2) < 0.02 && std::fabs(d08 - 0.8) < 0.02,
+            "11i.b CONTROL the drawn duty IS the pulse width — 0.2 and 0.8 draw differently",
+            "%.3f and (below) ", d02);
+        std::printf("   (the w = 0.8 case drew a duty of %.3f)\n", d08);
+      }
+      /* 11i.c BUMP'S TWO-LOBE SILHOUETTE, in the picture. §10.6 gates the
+         shape itself; this gates that the shape REACHED the display with its
+         peak normaliser applied — a display drawn from the un-normalised law
+         would peak at 0.75 (ruling R7's superseded bound). */
+      {
+        // THE SAME DEFINITION §10.6 USES on the rendered audio: two positive
+        // LOCAL MAXIMA in one period. A different definition here would make
+        // "the picture shows the lobes" a claim about two different things.
+        const std::vector<double> &b = drawn[3];
+        double pk = 0;
+        int lobes = 0;
+        for (size_t i = 0; i < b.size(); i++)
+        {
+          pk = std::max(pk, std::fabs(b[i]));
+          const double prev = b[(i + b.size() - 1) % b.size()], next = b[(i + 1) % b.size()];
+          if (b[i] > 0 && b[i] > prev && b[i] >= next) lobes++;
+        }
+        row(lobes == 2 && std::fabs(pk - 1.0) < 5e-3,
+            "11i.c BUMP draws its TWO lobes and peaks at 1.000 — the peak normaliser reached "
+            "the picture (the old 1/(1+a) bound would read 0.750)",
+            "peak %.4f", pk);
+      }
+    }
+
     /* ---- 11.f HEADROOM, measured THROUGH THE SHELL and gated. Phase 1
        finding 1: the core's TPT tone stage overshoots above unity at a
        near-Nyquist cutoff. The row divides by 1.425 so a sub at level 1 into a

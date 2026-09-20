@@ -45,6 +45,14 @@ extern "C"
      corner_probe, gen_factory_bank, statefix_common.h. */
   void hypersaw_debug_state(const clap_plugin_t *p, char *out, uint32_t cap);
 
+  /* B181 note 3: the SUB's published cycle — exactly what the GUI bridge's
+     hzGetSubWave hands the wave display. Headless, so an oracle can ask
+     whether the PICTURE is the engine's current configuration rather than a
+     stale or default one (the law itself is shared by construction: the shell
+     calls SubOscCore::shapeAt, which is what render() calls per sample).
+     Owner: subosc_check. */
+  void hypersaw_debug_subwave(const clap_plugin_t *p, char *out, uint32_t cap);
+
   /* The GUI load button's applyStateJson, headless; the apply is QUEUED.
      Owner: state_check, preset_probe, morphlayout_check, penv_check,
      bank_check, statefix_common.h. */

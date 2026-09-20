@@ -116,6 +116,10 @@ struct GuiHost
   // to make visible in the first place.
   std::function<std::string()> getBendCurveJson;
   std::function<std::string()> getShapeWaveJson;   // ADR-101: engine-drawn cycle
+  /* B181 note 3: the SUB's cycle, same idiom and for the same reason — the
+     ENGINE draws it, so the display cannot disagree with the sound. A JS twin
+     of the shape law is the failure B177 already shipped once. */
+  std::function<std::string()> getSubWaveJson;
   std::function<void(uint32_t)> morphCapture;      // ADR-104: snapshot -> corner k
   std::function<std::string(uint32_t)> morphCornerJson;      // ADR-105: corner -> preset
   std::function<std::string()> morphLiveJson;               // ADR-105 A3: live state -> preset

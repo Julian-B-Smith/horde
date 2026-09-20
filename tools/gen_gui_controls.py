@@ -234,10 +234,16 @@ def main():
             # curve takes an id quad now, and the LFO picture is a pure function
             # of the shape and phase controls. A modulator whose only readout is
             # four numbers is the thing the human could not evaluate.
+            # B181 note 3: the SUB panel gets a wave display. Unlike every
+            # other entry here it is NOT drawn by a JS law — the shell
+            # publishes the cycle out of SubOscCore::shapeAt, the same
+            # function render() calls per sample — which is the correction to
+            # the B177 line above, where the GUI computes the LFO shape
+            # independently of the shell and can therefore disagree with it.
             VISUALS = {"Envelope": ["envelope"], "Onset & scatter": ["scatter"],
                        "Bend": ["bendstep", "bendvib"], "Saw shape": ["shapewave"],
                        "ENV 3": ["env3"], "ENV 4": ["env4"],
-                       "LFO 1": ["lfo1"], "LFO 2": ["lfo2"]}
+                       "LFO 1": ["lfo1"], "LFO 2": ["lfo2"], "SUB": ["subwave"]}
             # data-group NAMES THE BOX so page logic can address one cluster
             # without matching on its <h2> text. B176 needs exactly that: the
             # OSC page's SUB panel is shown alone while every swarm cluster is
