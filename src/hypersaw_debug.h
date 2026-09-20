@@ -99,6 +99,12 @@ extern "C"
      declared polarity. Owner: polarity_check, intent_check. */
   const char *hypersaw_debug_modroutes(const clap_plugin_t *p);
 
+  /* One SOURCE SLOT's live value — `mod.src[slot]`, the number every route on
+     that slot multiplies by depth. NaN for a slot outside [0, kMaxSources): a
+     probe reading past the table must not silently read 0, which is also the
+     value an unassigned slot legitimately holds. Owner: lfoenv_check. */
+  double hypersaw_debug_modsrc(const clap_plugin_t *p, int slot);
+
 
   /* --- Routing matrix (ADR-088; `from` is a ROW, not a source index) ------ */
 
