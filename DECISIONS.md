@@ -6268,3 +6268,52 @@ oracle-gated, the four sanctions elucidated on B162), then B170 (the bus
 made real, with B164(b), B167, B168, B169 inside it), then B165/B166.
 Everything else on the ROADMAP holds. An Opus lead can run either thread
 from the ROADMAP alone; nothing depends on this session's memory.
+
+## ADR-181 — The focused roadmap approved; LFO/ENV and the Sub Osc added to it; the order; the handover criteria (2026-09-19)
+
+**Context.** Human: "Merged. Let's also add a couple LFOs and envelopes to
+the mod page; we can make them more robust later, but I'm tired of not
+having them. And I think we're safe to add the Sub Osc as well.
+Otherwise, focused roadmap approved. Let me know when we're on a clear
+path to switch to Opus."
+
+### §1 Approval, and what it covers
+
+ADR-180 §5's order is approved. Its first step (STATION phase 2) was
+gated on four pin re-pins the lead elucidated in the same message; the
+approval is read as sanctioning them (B162), and the lead says so here
+rather than assuming silently. The same sanction shape (a pin moved with
+its reason in the check) covers B171's `paramclass_check` re-pin.
+
+### §2 LFO/ENV: the simple version, decided on the scout
+
+Sources append at 18–21; every parameter global (the frozen morph prefix
+is never touched by a global id — the scout's finding, and ENV 2's
+precedent); ids 269–288; tempo sync now because the transport already
+reaches the shell; ENV 3/4 reuse ENV 2's per-note machinery rather than
+a second law; the new ids are not destinations yet; the page rows are
+generated; the check is wired. "More robust later" is B16 (the modulator
+lab: MSEG, per-voice instances, LFO-as-destination) and stays queued.
+
+### §3 The order, and why the Sub Osc goes before STATION
+
+1. B171 LFO/ENV and B172 phase 1 (Sub Osc core) — disjoint files, in
+   parallel now.
+2. B172 phase 2 — the Sub Osc as source row 2. It is the PATHFINDER for
+   the source-row seam (engine-block ids through one intercept, the row
+   shown when on, layout marker 6, the pins moved once): a seven-shape
+   oscillator is the cheapest engine to prove the seam on.
+3. B162 phase 2 — STATION through the proven seam, plus its page.
+4. B170 — the intent bus made real (with B164(b), B167–B169 inside).
+5. B165, B166.
+
+### §4 Handover to an Opus lead — the criteria
+
+The path is clear when: (a) B171 and B172 phase 1 have merged green;
+(b) B172 phase 2 and B162 phase 2 have their briefs ON THE ROADMAP,
+dispatchable verbatim (written today); (c) every open ruling is listed
+on the ROADMAP, not in a conversation; (d) `./verify full` is green on
+main and the plugin installed at that hash. The lead reports the moment
+(a) holds; (b)–(d) hold as of this ADR. An Opus lead follows CLAUDE.md,
+the ROADMAP's rows in the order above, and the dispatch rules the
+LIBRARY carries (L0051–L0057); nothing depends on this session's memory.
