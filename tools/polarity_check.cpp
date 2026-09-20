@@ -2,8 +2,9 @@
  * polarity_check — B134's oracle: a modulation route's POLARITY is a property
  * of the route, it maps the source before depth, and it survives the chunk.
  *
- * STANDALONE AND UNWIRED, by the charter's standing rule: wiring a gate into
- * ./verify is the human's decision, proposed in the PR that adds the gate.
+ * WIRED into `./verify full` (verify:235). The header used to read "STANDALONE
+ * AND UNWIRED" under the pre-ADR-180 rule and was left behind when the gate was
+ * wired — corrected here by B171, which extends section C.
  *
  * Five sections, each answering one acceptance clause of ROADMAP B134:
  *   A  the map itself, at the core — a bipolar source through a unipolar route
@@ -17,7 +18,8 @@
  *      detector-shares-the-assumption trap this repo keeps re-finding).
  *   C  the shell's SOURCE POLARITY TABLE, read back the way the GUI reads it:
  *      slot 2 (a macro) unipolar, slot 17 (pitch wheel) and 10-13 (the retired
- *      aliases) bipolar.
+ *      aliases) bipolar, and — B171 — slots 18/19 (the LFOs) bipolar with slot
+ *      20 (ENV 3) beside them as the unipolar control.
  *   D  the chunk: the fourth field round-trips, an ABSENT field is as-is, a
  *      polarity-free patch serialises to exactly its pre-B134 bytes, and two
  *      routes that share (src, dest) but differ in polarity both survive — the
@@ -214,6 +216,18 @@ void sectionTable()
   check(jsonIntAt(j, 1, "srcPol") == ModCore::kSrcBipolar, "retired XY alias declared bipolar");
   check(jsonIntAt(j, 2, "srcPol") == ModCore::kSrcBipolar, "Pitch Wheel declared bipolar");
   check(jsonIntAt(j, 0, "pol") == ModCore::kAsIs, "a fresh route is as-is");
+  // B171: the two new BIPOLAR slots. An LFO declared unipolar by accident would
+  // make an as-is route swing 0..1 about base instead of ±1 — audible, but only
+  // as "the LFO feels off-centre", which is exactly what a table gets wrong
+  // silently. ENV 3 (slot 20) is the unipolar control beside them.
+  check(hypersaw_test_mod_add(p, 18, 4), "route added on slot 18 (LFO 1)");
+  check(hypersaw_test_mod_add(p, 19, 4), "route added on slot 19 (LFO 2)");
+  check(hypersaw_test_mod_add(p, 20, 4), "route added on slot 20 (ENV 3)");
+  const std::string j2 = hypersaw_debug_modroutes(p);
+  check(jsonIntAt(j2, 3, "srcPol") == ModCore::kSrcBipolar, "LFO 1 declared bipolar");
+  check(jsonIntAt(j2, 4, "srcPol") == ModCore::kSrcBipolar, "LFO 2 declared bipolar");
+  check(jsonIntAt(j2, 5, "srcPol") == ModCore::kSrcUnipolar,
+        "control: ENV 3 beside them is unipolar (the table is not all-bipolar)");
   p->destroy(p);
 }
 

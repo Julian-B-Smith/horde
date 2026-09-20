@@ -233,6 +233,7 @@ full() {
   "$build_dir/morphlayout_check"                        || return 1   # B124 layout-1 remap, corner reset
   "$build_dir/fxxfade_check"                            || return 1   # B117 crossfade handover as measured
   "$build_dir/polarity_check"                           || return 1   # B134 polarity before depth, as-is exact
+  "$build_dir/lfoenv_check"                             || return 1   # B171 LFO 1/2 + ENV 3/4 as mod sources
   # The SAW fidelity suite (B147 layer 2, PR #635), wired by the human's ruling
   # 2026-09-18 (ADR-171 A1). Thresholds are the audit's MEASURED numbers plus a
   # stated margin; every check carries a must-fail control. cpu_check is NOT here —
