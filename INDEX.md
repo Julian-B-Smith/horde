@@ -67,3 +67,4 @@ swarm-dynamics · parity-oracle · plugin-platform · realtime-perf
 - [L0055] Run and read a new check before calling its PR green; red-on-arrival is a finding, not a regression (oracles · review)
 - [L0056] Worktree agents cannot chain `verify && git commit` — brief it as run / commit / re-run on the committed hash (agents · verify)
 - [L0057] A spacing fix that loses the cascade looks applied and does nothing — scope it above the flow rule and verify the computed style served (gui · css · review)
+- [L0058] Keyword fields are machine-read: put the bare word in the field and the prose in the body, reply under the original id, and suspect your own filing before the scanner (protocol · mailbox)
