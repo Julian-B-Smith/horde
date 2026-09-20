@@ -5482,17 +5482,35 @@ struct Plugin
     else std::snprintf(lb, sizeof lb, "corner %s %s", cornerLetter(k), verb);
     undoMark(lb);
   }
-  // The GUI names the corner right after a load; the load's own mark is still
-  // pending (the snapshot waits for the next frame), so the label is amended
-  // in place and the node reads "corner B ← Squids", not "corner B loaded".
+  /* The GUI names the corner right after a load; the load's own mark is
+     usually still pending (the snapshot waits for the next frame), so the
+     label is amended in place and the node reads "corner B ← Squids", not
+     "corner B loaded".
+
+     USUALLY, NOT ALWAYS — and the else branch is B186's fix. The GUI names
+     the corner in a SECOND webview round trip (gui2.html ~2956: `await
+     hzMorphCornerApply` then `await hzMorphCornerName`), and hzFrame services
+     the pending mark FIRST thing every frame (hypersaw_gui_common.h:487). A
+     frame landing between those two awaits is not an exotic interleaving,
+     just the one an `await` permits — and when it did, the load's node
+     photographed the corner's new VALUES beside its OLD name, the name change
+     was recorded nowhere, and the instrument stood on a node that did not
+     hold its state. The first navigation away then reverted the dropdown to
+     unnamed, which is the "history doesn't handle presets elegantly" shape
+     B122 was supposed to have closed. A corner's name is patch state (B122 —
+     it rides the morph chunk into every snapshot), so a name change with no
+     pending mark to amend is an edit of its own and marks like one.
+     UndoTree::push's dedup makes a rename to the same name cost nothing. */
   void setCornerName(int k, const std::string &name)
   {
     if (k < 0 || k > 3) return;
     cornerName[k] = name.substr(0, 60);
-    if (undoPending && undoPendingLabel.rfind("corner ", 0) == 0)
-      undoPendingLabel = cornerName[k].empty()
-          ? std::string("corner ") + cornerLetter(k) + " captured"
-          : std::string("corner ") + cornerLetter(k) + " \xe2\x86\x90 " + cornerName[k];   // "←" as UTF-8: labels show raw
+    const std::string label =
+        cornerName[k].empty()
+            ? std::string("corner ") + cornerLetter(k) + " captured"
+            : std::string("corner ") + cornerLetter(k) + " \xe2\x86\x90 " + cornerName[k];   // "←" as UTF-8: labels show raw
+    if (undoPending && undoPendingLabel.rfind("corner ", 0) == 0) undoPendingLabel = label;
+    else undoMark(label.c_str());
   }
   std::string cornerNamesJson() const
   {
