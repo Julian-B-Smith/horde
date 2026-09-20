@@ -221,8 +221,15 @@ def main():
             # bench proved one picture cannot say both things: the trajectory shows
             # where the laws differ, the vibrato cost shows what they charge for it,
             # and a trajectory plot hides the cost completely.
+            # B177: the MOD page's four generated modulators get a picture each,
+            # drawn by the SAME laws the OSC page already uses — the envelope
+            # curve takes an id quad now, and the LFO picture is a pure function
+            # of the shape and phase controls. A modulator whose only readout is
+            # four numbers is the thing the human could not evaluate.
             VISUALS = {"Envelope": ["envelope"], "Onset & scatter": ["scatter"],
-                       "Bend": ["bendstep", "bendvib"], "Saw shape": ["shapewave"]}
+                       "Bend": ["bendstep", "bendvib"], "Saw shape": ["shapewave"],
+                       "ENV 3": ["env3"], "ENV 4": ["env4"],
+                       "LFO 1": ["lfo1"], "LFO 2": ["lfo2"]}
             # data-group NAMES THE BOX so page logic can address one cluster
             # without matching on its <h2> text. B176 needs exactly that: the
             # OSC page's SUB panel is shown alone while every swarm cluster is
