@@ -1214,7 +1214,9 @@ struct EngineBlock
 
 /* THE SUB OSC BLOCK (B172 / ADR-178). Ids 4000..4015: the fifteen core rows in
    `SubOscCore::Param` order — so id - 4000 IS the enum index, which is the whole
-   reason the mapping needs no table — then the block's gate at 4015.
+   reason the mapping needs no table — then the block's gate at 4015. One of the
+   fifteen (4011) is RETIRED IN PLACE rather than removed; that is what keeps the
+   identity true and every later id where the host already found it.
 
    RANGE, STEP AND DEFAULT ARE THE CORE TABLE'S. `SubOscCore::kParamTable`
    (subosc_core.h, SPEC-SUBOSC §7) is the only writer of those five numbers, and
@@ -1246,7 +1248,17 @@ static constexpr ParamDef kSubOscParams[] = {
     {4008, "phase", "SUB Start Phase", 0, 1, 0, false, nullptr},
     {4009, "keytrack", "SUB Keytrack", 0, 1, 1, true, kOffOn},
     {4010, "tone", "SUB Tone", 30, 20000, 20000, false, nullptr},
-    {4011, "sync", "SUB Hard Sync", 0, 1, 0, true, kOffOn},
+    /* RETIRED 2026-09-20 (B184) — WAS "SUB Hard Sync". The human struck the
+       feature ("I can't imagine a scenario in which it would be useful"); it
+       was never audible, because the shell never had a master phase to hand
+       the core. THE ID IS RESERVED, NOT RECLAIMED: this block's map is
+       positional, so deleting the row would slide 4012..4019 down and move the
+       host automation lanes of parameters that DO sound. The same idiom as the
+       retired pad aliases (174..177) and mod-matrix slots 10..13. It still
+       reads, writes and round-trips through state so an old patch loads
+       unchanged — the value simply reaches nothing. Do not reuse this id;
+       sync for the SWARM oscillators is B185 and gets its own. */
+    {4011, "sync", "SUB Sync (retired)", 0, 1, 0, true, kOffOn},
     {4012, "attack", "SUB Attack", 0.0005, 0.5, 0.005, false, nullptr},
     {4013, "release", "SUB Release", 0.002, 2, 0.08, false, nullptr},
     {4014, "seed", "SUB Seed", 0, 4294967295.0, 1, true, nullptr},
@@ -7356,19 +7368,17 @@ struct Plugin
       {
         subs[s].pitchOffsetSt =
             subPitchMod + (subMono != 0 && s == 0 ? subGlideCur : 0.0);
-        /* HARD SYNC IS WIRED OFF, AND THAT IS A RECORDED REFUSAL, NOT AN
-           OVERSIGHT. SPEC-SUBOSC §6 wants oscillator 1's FUNDAMENTAL PHASE as a
-           per-sample input. SwarmCore has no such output: the fundamental's
-           phase is `voices[s].phase[rootIdx]`, private per-voice state advanced
-           inside the render loop (and advanced twice per output sample when
-           oversampling is on), so publishing it means a per-sample buffer
-           written from inside SwarmCore::render — a change to a parity-gated
-           core, outside this item's scope. Passing nullptr makes SubOscCore's
-           own `syncOn` false by construction (subosc_core.h:272), so the `sync`
-           parameter is inert TODAY rather than half-wired; subosc_check pins
-           that refusal (sync on == sync off, bit-exact) so it cannot become an
-           accidental presence (L0036). The seam is a queue row, not a guess. */
-        subs[s].render(tL, tR, m, nullptr);
+        /* HARD SYNC IS RETIRED, NOT DEFERRED (B184, human 2026-09-20).
+           It used to be a recorded refusal: SPEC-SUBOSC §6 wanted oscillator
+           1's fundamental phase per sample, SwarmCore published none, so the
+           shell passed nullptr and the parameter was inert. The human struck
+           the feature rather than pay for the source, so `render` no longer
+           takes a master phase at all and id 4011 is a reserved, ignored slot
+           (see kSubOscParams). subosc_check's 11e RETIREMENT pin measures that
+           writing 4011 moves not one sample, with a control proving the
+           comparison can fail — the absence is tested, not remembered (L0036).
+           Sync for the SWARM oscillators is a separate row (B185). */
+        subs[s].render(tL, tR, m);
         /* ACCUMULATE, never write. process() zeroes every source buffer for
            the whole block before the span loop, so `+=` over sixteen voices
            and however many spans the event list splits the block into is

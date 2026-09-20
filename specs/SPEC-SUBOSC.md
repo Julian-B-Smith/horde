@@ -35,7 +35,7 @@ hosted modules).
 ```
   note (midi, vel) ──► pitch: octave · semitones · fine · keytrack
                                     │
-    master phase (osc 1) ──► hard sync (optional) ──► phase accumulator
+                            phase accumulator
                                     │
                            one of seven shapes
         sine · triangle · square · saw · pulse(width) · noise(seeded) · bump
@@ -153,8 +153,7 @@ response with the sample rate — measured −1.34 dB at Nyquist at 44.1 kHz ver
 ### 5.2 Level, start phase, velocity
 
 Level 0–1, and **level 0 is exact silence** (§10). Start phase 0–1 sets the
-phase at note-on and is also the value hard sync resets to. Velocity scales
-level linearly.
+phase at note-on. Velocity scales level linearly.
 
 ### 5.3 Envelope — PROVISIONAL, expected to be deleted
 
@@ -170,19 +169,30 @@ time-constant tail to drift and no denormal floor to flush.
 
 ---
 
-## 6. Hard sync
+## 6. Hard sync — RETIRED 2026-09-20 (B184)
 
-When enabled and a master phase is supplied, a **wrap in the master phase resets
-the oscillator phase to the start-phase value** (not to 0 — the same convention
-as `specs/SPEC-STATION.md` §3.4, so a start-phase control still means something
-under sync).
+**The ruling this section used to ask for is answered by deleting the feature.**
+The human, on being told the sub's Hard Sync toggle was wired off and inert:
+*"Please remove hard sync from the sub. I can't imagine a scenario in which it
+would be useful, and I didn't realize it had entered the spec."* So R3 ("ship
+hard sync without a BLEP at the reset?") is neither yes nor no — there is
+nothing to ship, and the BLEP is never priced.
 
-**Named limit (L2):** the reset discontinuity is **not** band-limited in v0.
-Sync is the classic aliasing generator and a correct treatment needs a BLEP at
-the reset instant, whose amplitude is the step the reset causes. It is left out
-because the honest sub's job is the bottom octave, where sync is rare; the cost
-is unmeasured and the harness does not currently cover it. ← **a ruling: ship
-without, or price the BLEP before the port?**
+What remains is the shape of the retirement, because it is load-bearing: the
+`sync` parameter's **id is reserved, not reclaimed** (`subosc.sync` → id 4011).
+The sub's shell ids are positional — `id − 4000` IS `SubOscCore::Param` — so
+deleting the row would slide 4012…4019 down and move the host automation lanes
+of parameters that do sound. The slot therefore still stores, reports and
+restores a value; nothing reads it. The retirement is pinned by a test
+(`subosc_check` 11e) rather than remembered: writing 4011 must leave the render
+bit-identical, with a control proving the comparison can fail.
+
+Hard sync is **not** dead as an idea for the instrument — it is queued for the
+SWARM oscillators (B185). It is dead for the sub.
+
+The section number is kept, and §7 onward are **not** renumbered: other files
+cite §7, §8.1 and §10 by number, and a silent renumber would point them at the
+wrong text.
 
 ---
 
@@ -202,10 +212,10 @@ waits on the per-oscillator sources increment and the human's id-layout ruling.
 | `subosc.semis` | `semis` | ±12 st | 0 | structural | – | stepped by definition |
 | `subosc.fine` | `fine` | ±100 c | 0 | morphable | ✓ | |
 | `subosc.level` | `level` | 0 – 1 | 0.8 | morphable | ✓ | 0 is exact silence |
-| `subosc.phase` | `phase` | 0 – 1 | 0 | morphable | ✓ | note-on phase **and** the sync reset target |
+| `subosc.phase` | `phase` | 0 – 1 | 0 | morphable | ✓ | the phase at note-on |
 | `subosc.keytrack` | `keytrack` | on / off | on | structural | – | off ⇒ C2 |
 | `subosc.tone` | `tone` | 30 – 20000 Hz | 20000 | morphable | ✓ | one-pole TPT LP |
-| `subosc.sync` | `sync` | on / off | off | structural | – | needs a master phase |
+| ~~`subosc.sync`~~ | `sync` | on / off | off | structural | – | **RETIRED 2026-09-20 (§6).** The id (4011) is reserved and must not be reused — the block's map is positional. Stored and restored; read by nothing |
 | `subosc.seed` | `seed` | uint32 | 1 | structural | – | noise stream; re-drawn per note-on |
 | `subosc.attack` | `attack` | 0.5 ms – 0.5 s | 5 ms | morphable | ✓ | **PROVISIONAL, §5.3** |
 | `subosc.release` | `release` | 2 ms – 2 s | 80 ms | morphable | ✓ | **PROVISIONAL, §5.3** |
@@ -221,7 +231,7 @@ parameter row, so every tool that drives the core directly can walk it past
 ## 8. House-tenet integration
 
 1. **Intent bus / morph:** the eight morphable rows are the morph surface. The
-   structural rows (waveform, octave, semitones, keytrack, sync, seed) morph
+   structural rows (waveform, octave, semitones, keytrack, seed) morph
    atomically at a corner boundary like every other structural parameter.
 2. **Mod matrix:** every morphable row is a destination. The module is a matrix
    **source row** in its own right once the id layout lands.
@@ -235,7 +245,7 @@ parameter row, so every tool that drives the core directly can walk it past
 
 `reference/subosc.html` is the parity oracle for: the seven shapes, the
 polyBLEP correction, the pulse construction, the pitch law, the TPT tone
-coefficient, the sync reset convention, the noise stream, and the clamps.
+coefficient, the noise stream, and the clamps.
 
 **Deliberate divergences from the SAW lab's habits — the point of this module
 being born after the audit rather than before it:**
@@ -255,7 +265,9 @@ being born after the audit rather than before it:**
   set. It is acceptable in the sub range and indefensible if this module is ever
   played at MIDI 84. The fix is a BLAMP on the two slope discontinuities.
   ← **a ruling: accept for v0, or pay for the BLAMP now?**
-- **L2 — hard sync is not band-limited.** §6.
+- **L2 — RETIRED with hard sync itself (2026-09-20, §6).** The limit was that
+  the sync reset was not band-limited; there is no reset. Kept as a numbered
+  entry so L3…L7 keep their names in the files that cite them.
 - **L3 — noise does not respond to pitch or keytrack.** It is white, full-band,
   and only the tone control shapes it.
 - **L4 — the aliasing numbers are the MODULE's, not the oscillator's.** The tone
@@ -360,7 +372,7 @@ phase, not a seed.
 ### 10.4 Block-size independence
 
 Chunks **1 / 7 / 64 / 256 / 333** against one whole-buffer render, 20000
-samples, two legs (pulse + tone + hard sync; seeded noise + tone):
+samples, two legs (pulse + tone; seeded noise + tone):
 **bit-identical, tolerance 0.0 exactly.** Control: a per-render-call filter
 reset diverges at sample 64.
 
@@ -412,7 +424,7 @@ to five decimals, so the shape is the formula and not an approximation of it.
 
 - CPU per voice (no budget claimed here; the SAW figures are in
   `docs/MEASUREMENTS.md`).
-- Aliasing under hard sync (L2), and under audio-rate modulation of `fine`.
+- Aliasing under audio-rate modulation of `fine`.
 - Behaviour at 192 kHz — the harness covers 44.1 / 48 / 96 only.
 
 ---
@@ -423,7 +435,7 @@ to five decimals, so the shape is the formula and not an approximation of it.
 |---|---|---|
 | R1 | Keytrack off pins to C2 (§4), or add a `freeHz` parameter? | pin to C2; one fewer control, and a free-running sub is a rare case |
 | R2 | Triangle naive (L1), or pay for the BLAMP now? | naive for v0; it is the worst row but it is 30 dB down from where it would matter, and the sub range is where this module lives |
-| R3 | Ship hard sync without a BLEP at the reset (L2)? | yes for v0, with L2 recorded; a sync BLEP is worth a queue row of its own |
+| R3 | ~~Ship hard sync without a BLEP at the reset (L2)?~~ | **ANSWERED 2026-09-20 by retirement (§6):** hard sync leaves the sub entirely, so the BLEP is never priced. The human: "I can't imagine a scenario in which it would be useful." Sync for the SWARM oscillators is B185 |
 | R4 | Do `attack`/`release` (§5.3) survive the port at all? | no — strike both rows when the voice envelope is wired |
 | R5 | Is `seed` a per-module parameter or does the voice seed reach it? | prefer the voice's seed; a per-module seed is one more thing a preset must carry |
 | R6 | `noise` as a waveform, or is a sub-range noise source a different module? | keep it here; it costs one switch case and no state |

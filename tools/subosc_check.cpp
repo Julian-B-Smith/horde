@@ -37,8 +37,8 @@
  * `slotcontract_check` / `measure_cpu` idiom, and gate the claims the port's
  * phase 2 actually makes: the block's gate is bit-inert while off, the row
  * reproduces the core through the matrix at the same eps, the chunk carries
- * every new id, the headroom bound holds as a measurement, and hard sync's
- * REFUSAL is pinned so it cannot become an accidental presence.
+ * every new id, the headroom bound holds as a measurement, and the RETIRED
+ * `sync` id (4011, B184) is pinned INERT so it cannot come back by accident.
  *
  * THE ONE §10 ROW THAT IS NOT HERE, AND WHY. §10.1's aliasing floors are a
  * 65 536-point Kaiser-windowed FFT sweep for the worst inharmonic bin across
@@ -344,11 +344,11 @@ SubOscCore make(double sr, std::initializer_list<Set> sets)
   return c;
 }
 
-// Mono left channel; `master` is the whole buffer (the core reads [0, n)).
-std::vector<float> pull(SubOscCore &c, int n, const float *master = nullptr)
+// Mono left channel.
+std::vector<float> pull(SubOscCore &c, int n)
 {
   std::vector<float> out((size_t)n), r((size_t)n);
-  c.render(out.data(), r.data(), n, master);
+  c.render(out.data(), r.data(), n);
   return out;
 }
 
@@ -419,28 +419,10 @@ double sineHz(const std::vector<float> &x, double sr, size_t from, size_t to)
 struct Scenario
 {
   std::string name;
-  double sr = 48000, secs = 0.5, vel = 1, master = -1;
+  double sr = 48000, secs = 0.5, vel = 1;
   int block = 128, offAt = -1, note = 36;
   std::vector<std::pair<std::string, double>> keys;
 };
-
-// The master phase a sync scenario states: a saw at an absolute frequency,
-// accumulated in double and stored f32 — the generator's `masterPhase`, the
-// same two operations in the same order, which is what makes a sync reset land
-// on the same sample in both languages.
-std::vector<float> masterPhase(double hz, double sr, int n)
-{
-  std::vector<float> a((size_t)n);
-  const double d = hz / sr;
-  double ph = 0;
-  for (int i = 0; i < n; i++)
-  {
-    ph += d;
-    ph -= std::floor(ph);
-    a[(size_t)i] = (float)ph;
-  }
-  return a;
-}
 
 // Interleaved stereo, rendered exactly as the generator does: BLOCK chunks with
 // the note-off split onto its own boundary.
@@ -466,8 +448,6 @@ std::vector<float> renderScenario(const Scenario &sc, bool *keyOk = nullptr)
   c.noteOn(sc.note, sc.vel);
 
   const int total = (int)std::lround(sc.sr * sc.secs);
-  std::vector<float> master;
-  if (sc.master > 0) master = masterPhase(sc.master, sc.sr, total);
   std::vector<float> out((size_t)total * 2);
   std::vector<float> L((size_t)sc.block), R((size_t)sc.block);
   for (int off = 0; off < total;)
@@ -475,7 +455,7 @@ std::vector<float> renderScenario(const Scenario &sc, bool *keyOk = nullptr)
     int k = std::min(sc.block, total - off);
     if (sc.offAt > off && sc.offAt < off + k) k = sc.offAt - off;
     if (off == sc.offAt) c.noteOff();
-    c.render(L.data(), R.data(), k, master.empty() ? nullptr : master.data() + off);
+    c.render(L.data(), R.data(), k);
     for (int i = 0; i < k; i++)
     {
       out[(size_t)(off + i) * 2] = L[(size_t)i];
@@ -584,7 +564,6 @@ int main(int argc, char **argv)
       else if (k == "@secs") sc.secs = std::atof(v.c_str());
       else if (k == "@block") sc.block = std::atoi(v.c_str());
       else if (k == "@off") sc.offAt = std::atoi(v.c_str());
-      else if (k == "@master") sc.master = std::atof(v.c_str());
       else if (k == "@note")
       {
         const auto c1 = v.find(':');
@@ -874,7 +853,6 @@ int main(int argc, char **argv)
   head("§10.4 block-size independence, chunks 1 / 7 / 64 / 256 / 333 vs one whole render");
   {
     constexpr int kTotal = 20000;
-    const std::vector<float> master = masterPhase(220, 44100, kTotal);
     // `reset` emulates the defect class this row exists to catch: a core whose
     // state does not survive a render call (audit A10, the SAW engine's pan
     // motion). It is the control, and it must break the comparator.
@@ -884,7 +862,6 @@ int main(int argc, char **argv)
                          {SubOscCore::kWidth, 0.27},
                          {SubOscCore::kTone, 900},
                          {SubOscCore::kLevel, 0.9},
-                         {SubOscCore::kSync, 1},
                          {SubOscCore::kAttack, 0.004},
                          {SubOscCore::kRelease, 0.05}})
           : make(44100, {{SubOscCore::kWave, SubOscCore::kNoise},
@@ -898,13 +875,13 @@ int main(int argc, char **argv)
       {
         const int n = std::min(chunk, kTotal - i);
         if (reset && i > 0) { c.allOff(); c.noteOn(45, 1); }
-        c.render(L.data(), R.data(), n, leg == 0 ? master.data() + i : nullptr);
+        c.render(L.data(), R.data(), n);
         for (int k = 0; k < n; k++) out[(size_t)(i + k)] = L[(size_t)k];
         i += n;
       }
       return out;
     };
-    const char *legName[2] = {"pulse + tone + hard sync", "seeded noise + tone"};
+    const char *legName[2] = {"pulse + tone", "seeded noise + tone"};
     for (int leg = 0; leg < 2; leg++)
     {
       const std::vector<float> ref = chunked(leg, kTotal, false);
@@ -1453,7 +1430,8 @@ int main(int argc, char **argv)
       const std::string chunk(buf.data());
       static const char *const addr[kSubIdCount] = {
           "sub.wave", "sub.width",  "sub.bumpAmt", "sub.bumpPhase", "sub.octave", "sub.semis",
-          "sub.fine", "sub.level",  "sub.phase",   "sub.keytrack",  "sub.tone",   "sub.sync",
+          "sub.fine", "sub.level",  "sub.phase",   "sub.keytrack",  "sub.tone",
+          "sub.sync",   // RETIRED (B184) and still stored: an old patch must load
           "sub.attack", "sub.release", "sub.seed", "sub.on",
           "sub.mono", "sub.bias", "sub.glide", "sub.pitchMod"};
       // morphLayout 7 = B181: sub.glide and sub.pitchMod are MORPHABLE, so
@@ -1498,18 +1476,35 @@ int main(int argc, char **argv)
       cc.kill();
     }
 
-    /* ---- 11.e HARD SYNC'S REFUSAL, PINNED (L0036).
-       SPEC-SUBOSC §6 wants oscillator 1's per-sample fundamental phase; the
-       swarm publishes none, so the shell passes nullptr and `sync` is INERT.
-       A deliberate absence needs a test or it becomes an accidental presence.
-       The day the master phase is wired this row goes red and names itself. */
+    /* ---- 11.e THE RETIRED ID IS INERT, PINNED (B184, L0036).
+       Hard sync LEFT the sub on 2026-09-20 (human: "I can't imagine a scenario
+       in which it would be useful"). Id 4011 could not leave with it — the
+       block's map is positional, so removing the row would slide 4012..4019
+       down and move the automation lanes of parameters that do sound. What is
+       gated is therefore the retirement itself: the id still exists, still
+       takes a value, and reaches NOTHING.
+
+       ITS CONTROL IS THE POINT. "The two renders match" is exactly what a
+       comparator that cannot tell anything apart reports, and this suite has
+       been bitten by a detector confirming the expected answer for the wrong
+       reason. So the same rig writes a DIFFERENT id in the same block (4010,
+       `tone`, down to 300 Hz) and that difference must be visible. Both ends
+       of the row, one rig, one pair of renders each. */
     {
-      const auto syncOff = with(kSwarmSilent, {{kSubOnId, 1}, {kSubIdBase + 7, 1.0}});
-      const auto syncOn = with(syncOff, {{kSubIdBase + 11, 1.0}});
-      row(firstDiff(shellRender(48000, 256, 8, 40, syncOff),
-                    shellRender(48000, 256, 8, 40, syncOn)) < 0,
-          "11e REFUSAL pinned: hard sync is not wired — sync ON renders bit-identically to "
-          "sync OFF");
+      const auto base = with(kSwarmSilent, {{kSubOnId, 1}, {kSubIdBase + 7, 1.0}});
+      const auto ref = shellRender(48000, 256, 8, 40, base);
+      // Every value the retired row can take, not just its opposite: a slot
+      // that is truly read by nothing cannot care which number it holds.
+      bool inert = true;
+      for (double v : {1.0, 0.5, 0.0})
+        inert = inert && firstDiff(ref, shellRender(48000, 256, 8, 40,
+                                                    with(base, {{kSubIdBase + 11, v}}))) < 0;
+      row(inert, "11e RETIREMENT pinned: writing id 4011 (sync, retired B184) at 1 / 0.5 / 0 "
+                 "leaves the render bit-identical");
+      row(firstDiff(ref, shellRender(48000, 256, 8, 40,
+                                     with(base, {{kSubIdBase + 10, 300.0}}))) >= 0,
+          "11e CONTROL: the same comparison DOES fire when a live id in the same block "
+          "(4010, tone) moves — the inertness above is the parameter's, not the rig's");
     }
 
     /* ==== 11.g THE SUB'S OWN MONO, BIAS AND GLIDE (B181 note 2) ============
@@ -1958,23 +1953,21 @@ int main(int argc, char **argv)
       {
         v.push_back(make(48000, {{SubOscCore::kWave, SubOscCore::kPulse},
                                  {SubOscCore::kWidth, 0.27},
-                                 {SubOscCore::kTone, 1200},
-                                 {SubOscCore::kSync, 1}}));
+                                 {SubOscCore::kTone, 1200}}));
         v.back().noteOn(36 + i, 1);
       }
-      const std::vector<float> master = masterPhase(110, 48000, 256);
       std::vector<float> L(256), R(256);
       const auto t0 = std::chrono::steady_clock::now();
       for (int off = 0; off < N; off += 256)
       {
         const int k = std::min(256, N - off);
-        for (auto &c : v) c.render(L.data(), R.data(), k, master.data());
+        for (auto &c : v) c.render(L.data(), R.data(), k);
       }
       best = std::min(best, std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count());
     }
     const double pct = best / secs * 100;
     std::printf("\n-- CPU (REPORT, not gated) --\n");
-    std::printf("   16 instances (16 voices' worth), pulse + tone + hard sync, 48 kHz, 5 s, "
+    std::printf("   16 instances (16 voices' worth), pulse + tone, 48 kHz, 5 s, "
                 "min of 3: %.4f s  =  %.3f %% of one core\n", best, pct);
     std::printf("   SPEC-SUBOSC §10.7 claims no budget; this is the first measurement. It is "
                 "load-sensitive — treat a single reading as a sample, not as the figure.\n");

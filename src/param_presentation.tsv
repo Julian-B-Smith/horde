@@ -29,6 +29,13 @@
 # the same thing by filing the row under "not yet designed", and the undesigned
 # count is the queue — it is the one number here that must not be allowed to lie.
 #
+# ITS SECOND CASE IS A RETIRED PARAMETER (`sub.sync`, B184). A retired id is
+# still DECLARED — the sub's block is positional, so its slot cannot be removed
+# without moving every later id's automation lane — and totality therefore still
+# demands a row. `none` is the honest widget for it: the parameter exists, is
+# stored and is restored, and has no control because it reaches nothing. The
+# label says so, so a reader of this table is not left to infer it.
+#
 # `chunk` IS THE QUEUE, AND EMPTY MEANS NOT-YET-DESIGNED.
 #
 # `shown_when` HIDES A ROW THAT CANNOT AFFECT THE SOUND. Grammar:
@@ -420,7 +427,7 @@ sub.level	sub	Level	OSC	SUB	knob		subosc
 sub.phase	sub	Start Phase	OSC	SUB	knob		subosc			
 sub.keytrack	sub	Keytrack	OSC	SUB	toggle		subosc			
 sub.tone	sub	Tone	OSC	SUB	knob	Hz	subosc		log10	
-sub.sync	sub	Hard Sync	OSC	SUB	toggle		subosc			
+sub.sync	sub	Sync (retired)	OSC	SUB	none		subosc			
 sub.attack	sub	Attack	OSC	SUB	knob	s	subosc		log10	
 sub.release	sub	Release	OSC	SUB	knob	s	subosc		log10	
 sub.seed	sub	Seed	OSC	SUB	knob		subosc			
