@@ -91,6 +91,15 @@ const clap_output_events_t kShOut = {nullptr, shPush};
 // params extension), so this is a coordinate, not a second decoder.
 constexpr clap_id kSubIdBase = 4000;
 constexpr clap_id kSubOnId = 4015;
+/* The block's ids: 4000..4014 are SubOscCore::Param positionally, 4015 is the
+   gate, and 4016..4019 are B181's SHELL rows (mono, bias, glide, pitchMod) —
+   voice assignment and glide are the shell's job for the swarm too, so the
+   core stays a single-voice renderer. Spelled out rather than imported
+   because this file drives the plugin through the CLAP factory and must not
+   read the shell's internals to state what the shell should expose. */
+constexpr clap_id kSubMonoId = 4016, kSubBiasId = 4017, kSubGlideId = 4018,
+                  kSubPitchModId = 4019;
+constexpr int kSubIdCount = 20;
 constexpr clap_id kOscEnable0 = 150, kOscEnable1 = 1150;
 
 struct ShellRig
@@ -184,6 +193,73 @@ struct ShellRig
       {
         for (auto &e : pv) ord.push_back(&e.header);
         if (key >= 0) ord.push_back(&on.header);
+      }
+      clap_process_t proc{};
+      proc.frames_count = (uint32_t)L.size();
+      proc.audio_outputs = &out;
+      proc.audio_outputs_count = 1;
+      proc.in_events = &in;
+      proc.out_events = &kShOut;
+      p->process(p, &proc);
+      acc.insert(acc.end(), L.begin(), L.end());
+    }
+    return acc;
+  }
+
+  /* B181 note 2 needs a SEQUENCE of note events, which `block` above cannot
+     express (one note-on, at frame 0, once). This is the same transport with
+     an event list the caller supplies per block: `keys[b]` is what happens at
+     the top of block b — a positive key is a note-on, a negative one is a
+     note-off of |key|, 0 is nothing. Returns the left channel. */
+  std::vector<float> sequence(const std::vector<std::pair<clap_id, double>> &sets,
+                              const std::vector<int> &keys)
+  {
+    std::vector<clap_event_param_value_t> pv;
+    for (const auto &kv : sets)
+    {
+      clap_event_param_value_t e{};
+      e.header.size = sizeof(e);
+      e.header.type = CLAP_EVENT_PARAM_VALUE;
+      e.header.space_id = CLAP_CORE_EVENT_SPACE_ID;
+      e.header.time = 0;
+      e.param_id = kv.first;
+      e.value = kv.second;
+      e.note_id = -1;
+      e.port_index = -1;
+      e.channel = -1;
+      e.key = -1;
+      pv.push_back(e);
+    }
+    std::vector<clap_event_note_t> ne(keys.size());
+    std::vector<const clap_event_header_t *> ord;
+    struct Ctx { std::vector<const clap_event_header_t *> *o; } ctx{&ord};
+    clap_input_events_t in{};
+    in.ctx = &ctx;
+    in.size = [](const clap_input_events_t *l) -> uint32_t {
+      return (uint32_t)((Ctx *)l->ctx)->o->size();
+    };
+    in.get = [](const clap_input_events_t *l, uint32_t i) -> const clap_event_header_t * {
+      return (*((Ctx *)l->ctx)->o)[i];
+    };
+    std::vector<float> acc;
+    for (size_t b = 0; b < keys.size(); b++)
+    {
+      ord.clear();
+      if (b == 0)
+        for (auto &e : pv) ord.push_back(&e.header);
+      if (keys[b] != 0)
+      {
+        clap_event_note_t &e = ne[b];
+        e.header.size = sizeof(e);
+        e.header.type = keys[b] > 0 ? CLAP_EVENT_NOTE_ON : CLAP_EVENT_NOTE_OFF;
+        e.header.space_id = CLAP_CORE_EVENT_SPACE_ID;
+        e.header.time = 0;
+        e.note_id = keys[b] > 0 ? keys[b] : -keys[b];
+        e.port_index = 0;
+        e.channel = 0;
+        e.key = (int16_t)(keys[b] > 0 ? keys[b] : -keys[b]);
+        e.velocity = keys[b] > 0 ? 1.0 : 0.0;
+        ord.push_back(&e.header);
       }
       clap_process_t proc{};
       proc.frames_count = (uint32_t)L.size();
@@ -311,6 +387,32 @@ double goertzel(const std::vector<float> &x, double sr, double f)
     s1 = s0;
   }
   return std::sqrt(std::max(0.0, s1 * s1 + s2 * s2 - c * s1 * s2)) * 2 / (double)N;
+}
+
+/* THE SOUNDING FREQUENCY OF A SINE, from rising zero crossings with linear
+   interpolation between the bracketing samples (B181 note 2). A Goertzel reads
+   ENERGY at a frequency you already guessed; a glide is measured by asking
+   what the frequency IS, which is a different question and needs a different
+   instrument. First-to-last crossing over cycle count, so the window's ragged
+   ends cost nothing; DC is not an issue (the sub's tone stage passes the
+   fundamental and the shape here is a sine). Returns 0 if fewer than two
+   crossings fall in the window, which is a reading no assertion accepts. */
+double sineHz(const std::vector<float> &x, double sr, size_t from, size_t to)
+{
+  to = std::min(to, x.size());
+  double first = -1, last = -1;
+  long cycles = -1;
+  for (size_t i = from + 1; i < to; i++)
+    if (x[i - 1] <= 0 && x[i] > 0)
+    {
+      const double d = (double)x[i] - (double)x[i - 1];
+      const double at = (double)(i - 1) + (d != 0 ? -(double)x[i - 1] / d : 0.0);
+      if (first < 0) first = at;
+      last = at;
+      cycles++;
+    }
+  if (cycles < 1 || last <= first) return 0;
+  return (double)cycles * sr / (last - first);
 }
 
 // ------------------------------------------------------------------ parity --
@@ -1218,9 +1320,11 @@ int main(int argc, char **argv)
       ShellRig r;
       r.boot(48000, 256);
       bool all = true;
-      for (int i = 0; i < 16; i++) all = all && r.known((clap_id)(kSubIdBase + i));
-      row(all, "11.0a every one of the block's 16 ids resolves through the shell");
-      row(!r.known(3000) && !r.known(3999) && !r.known(4016) && !r.known(4999),
+      for (int i = 0; i < kSubIdCount; i++) all = all && r.known((clap_id)(kSubIdBase + i));
+      row(all, "11.0a every one of the block's 20 ids resolves through the shell");
+      // 4020 is the first id ABOVE the block (it was 4016 until B181 claimed
+      // it); the probe stays hard against the block's top edge on purpose.
+      row(!r.known(3000) && !r.known(3999) && !r.known(4020) && !r.known(4999),
           "11.0b REFUSAL: an unclaimed id in the reserved engine band is not a parameter");
       row(r.read(kSubOnId) == 0, "11.0c the block's gate ships OFF", "subOn = %.0f",
           r.read(kSubOnId));
@@ -1335,31 +1439,38 @@ int main(int argc, char **argv)
       a.boot(48000, 256);
       // Every row driven OFF its default, inside its declared range, so a key
       // that silently fails to round-trip cannot hide behind equality.
-      const double want[16] = {SubOscCore::kBump, 0.31, 0.55, 1.75,  -2,    7,      -42.5, 0.37,
-                               0.62,              0,    311,  1,     0.041, 1.37,   987654, 1};
+      const double want[kSubIdCount] = {SubOscCore::kBump, 0.31, 0.55,  1.75,   -2,
+                                        7,                 -42.5, 0.37, 0.62,   0,
+                                        311,               1,     0.041, 1.37,  987654,
+                                        1,
+                                        // B181's shell rows: mono, bias, glide, pitchMod
+                                        1, 2, 0.75, -17.5};
       std::vector<std::pair<clap_id, double>> odd;
-      for (int i = 0; i < 16; i++) odd.push_back({(clap_id)(kSubIdBase + i), want[i]});
+      for (int i = 0; i < kSubIdCount; i++) odd.push_back({(clap_id)(kSubIdBase + i), want[i]});
       a.block(-1, odd, 2);
       std::vector<char> buf(1 << 18);
       hypersaw_debug_state(a.p, buf.data(), (uint32_t)buf.size());
       const std::string chunk(buf.data());
-      static const char *const addr[16] = {
+      static const char *const addr[kSubIdCount] = {
           "sub.wave", "sub.width",  "sub.bumpAmt", "sub.bumpPhase", "sub.octave", "sub.semis",
           "sub.fine", "sub.level",  "sub.phase",   "sub.keytrack",  "sub.tone",   "sub.sync",
-          "sub.attack", "sub.release", "sub.seed", "sub.on"};
-      bool keys = chunk.find("\"morphLayout\":6") != std::string::npos;
+          "sub.attack", "sub.release", "sub.seed", "sub.on",
+          "sub.mono", "sub.bias", "sub.glide", "sub.pitchMod"};
+      // morphLayout 7 = B181: sub.glide and sub.pitchMod are MORPHABLE, so
+      // they append to the corner array and its order changed again.
+      bool keys = chunk.find("\"morphLayout\":7") != std::string::npos;
       for (const char *k : addr)
         keys = keys && chunk.find(std::string("\"") + k + "\"") != std::string::npos;
-      row(keys, "11d the state chunk carries all 16 prefixed keys and morphLayout 6");
+      row(keys, "11d the state chunk carries all 20 prefixed keys and morphLayout 7");
 
       ShellRig b;
       b.boot(48000, 256);
       hypersaw_debug_apply(b.p, chunk.c_str());
       b.block(-1, {}, 2);   // drain the param queue
       bool same = true;
-      for (int i = 0; i < 16; i++)
+      for (int i = 0; i < kSubIdCount; i++)
         same = same && b.read((clap_id)(kSubIdBase + i)) == a.read((clap_id)(kSubIdBase + i));
-      row(same, "11d a fresh instance restores all 16 ids exactly");
+      row(same, "11d a fresh instance restores all 20 ids exactly");
       // CONTROL: the same chunk with the sub keys STRIPPED must NOT restore
       // them — otherwise "restored" could mean "both happened to be default".
       std::string stripped = chunk;
@@ -1378,7 +1489,7 @@ int main(int argc, char **argv)
       hypersaw_debug_apply(cc.p, stripped.c_str());
       cc.block(-1, {}, 2);
       bool differs = false;
-      for (int i = 0; i < 16; i++)
+      for (int i = 0; i < kSubIdCount; i++)
         differs =
             differs || cc.read((clap_id)(kSubIdBase + i)) != a.read((clap_id)(kSubIdBase + i));
       row(differs, "11d CONTROL: a chunk with the sub keys removed does NOT restore them");
@@ -1399,6 +1510,153 @@ int main(int argc, char **argv)
                     shellRender(48000, 256, 8, 40, syncOn)) < 0,
           "11e REFUSAL pinned: hard sync is not wired — sync ON renders bit-identically to "
           "sync OFF");
+    }
+
+    /* ==== 11.g THE SUB'S OWN MONO, BIAS AND GLIDE (B181 note 2) ============
+       The human: "Sub should have its own mono toggle, with 'lowest' as the
+       MIDI bias and a simple glide knob."
+
+       Measured as PITCH out of the plugin, never as a state read: a per-voice
+       getter would test the accessor, which is how a suite ends up agreeing
+       with itself through a broken one (mpe_check's note). The sub is driven
+       as a sine with both swarm oscillators off, so the output IS its row and
+       the sounding frequency is a zero-crossing count. */
+    {
+      auto subSine = [&](std::vector<std::pair<clap_id, double>> extra) {
+        return with(with(kSwarmSilent, {{kSubOnId, 1},
+                                        {kSubIdBase + 0, SubOscCore::kSine},
+                                        {kSubIdBase + 7, 1.0},
+                                        {kSubIdBase + 4, 0.0},      // octave 0: audible
+                                        {kSubIdBase + 12, 0.0005}}),  // attack: settle fast
+                    extra);
+      };
+      /* 11g.0 CONTROL — THE DEFAULTS ARE BIT-INERT. With `sub.mono` off, the
+         bias and the glide time are not allowed to move one sample; with
+         `sub.pitchMod` at its default, naming it must be the same as not
+         naming it. Without this row the three new parameters could be
+         reaching the audio path when they are supposed to be asleep. */
+      {
+        const auto plain = subSine({});
+        const auto armed = subSine({{kSubBiasId, 2}, {kSubGlideId, 2.0}, {kSubPitchModId, 0.0}});
+        row(firstDiff(shellRender(48000, 256, 16, 45, plain),
+                      shellRender(48000, 256, 16, 45, armed)) < 0,
+            "11g.0 CONTROL: with mono OFF, bias and glide change not one sample, and pitchMod "
+            "at 0 is the same as absent");
+        // CALIBRATION: the same comparison with mono ON and a second key would
+        // differ — otherwise 11g.0 could be passing because nothing works.
+        const auto live = subSine({{kSubMonoId, 1}, {kSubPitchModId, 7.0}});
+        row(firstDiff(shellRender(48000, 256, 16, 45, plain),
+                      shellRender(48000, 256, 16, 45, live)) >= 0,
+            "11g.0 CALIBRATION: pitchMod at 7 st DOES differ — the comparison can fail");
+      }
+      /* 11g.a/b MONO AND ITS BIAS. Three keys down at once (48, 60, 55, in
+         that order): poly sounds all three, mono sounds exactly ONE, and WHICH
+         one is the bias's whole job. Goertzel at each of the three
+         fundamentals is the reading; the two silent ones are the control that
+         must read ~0 in the same measurement (L0032). */
+      {
+        const std::vector<int> press = {48, 0, 60, 0, 55, 0, 0, 0};
+        std::vector<int> seq;
+        for (int i = 0; i < 8; i++) seq.push_back(press[i]);
+        for (int i = 0; i < 40; i++) seq.push_back(0);   // ~0.21 s of steady tone
+        auto mags = [&](std::vector<std::pair<clap_id, double>> extra, double m[3]) {
+          ShellRig r;
+          r.boot(48000, 256);
+          const std::vector<float> y = r.sequence(subSine(extra), seq);
+          r.kill();
+          const std::vector<float> tail(y.end() - 40 * 256, y.end());
+          const int keys[3] = {48, 60, 55};
+          for (int i = 0; i < 3; i++)
+            m[i] = goertzel(tail, 48000, 440 * std::pow(2.0, (keys[i] - 69) / 12.0));
+        };
+        double poly[3], lo[3], hi[3], last[3];
+        mags({}, poly);
+        mags({{kSubMonoId, 1}, {kSubBiasId, 0}}, lo);
+        mags({{kSubMonoId, 1}, {kSubBiasId, 1}}, hi);
+        mags({{kSubMonoId, 1}, {kSubBiasId, 2}}, last);
+        row(poly[0] > 0.02 && poly[1] > 0.02 && poly[2] > 0.02,
+            "11g.a CONTROL: with mono OFF the sub sounds all THREE held keys", "weakest %.4f",
+            std::min(poly[0], std::min(poly[1], poly[2])));
+        row(lo[0] > 0.05 && lo[1] < 0.005 && lo[2] < 0.005,
+            "11g.a mono + bias LOWEST sounds 48 and only 48", "48 %.4f", lo[0]);
+        row(hi[1] > 0.05 && hi[0] < 0.005 && hi[2] < 0.005,
+            "11g.b mono + bias HIGHEST sounds 60 and only 60", "60 %.4f", hi[1]);
+        row(last[2] > 0.05 && last[0] < 0.005 && last[1] < 0.005,
+            "11g.b mono + bias LAST sounds 55 (the most recent press) and only 55", "55 %.4f",
+            last[2]);
+      }
+      /* 11g.c THE GLIDE, in SECONDS. Press 36, then 48 a tenth of a second
+         later: the pitch must be BETWEEN the two shortly after the second
+         press and AT 48 once the glide time has elapsed. The must-read-
+         differently control is the same sequence at glide 0, which has to be
+         at 48 immediately — without it this row would pass for a shell that
+         simply jumped and took its time about being measured. */
+      {
+        auto glideSeq = [&](double glide, double *early, double *late) {
+          std::vector<int> seq = {36};
+          for (int i = 0; i < 18; i++) seq.push_back(0);   // 0.1 s
+          seq.push_back(48);
+          for (int i = 0; i < 200; i++) seq.push_back(0);  // 1.07 s
+          ShellRig r;
+          r.boot(48000, 256);
+          const std::vector<float> y =
+              r.sequence(subSine({{kSubMonoId, 1}, {kSubBiasId, 2}, {kSubGlideId, glide}}), seq);
+          r.kill();
+          // Blocks 26..38 = 0.04..0.10 s after the retarget (glide 0.5 s, so
+          // ~10-20 % of the journey); blocks 180..219 = well past it.
+          *early = sineHz(y, 48000, 26 * 256, 38 * 256);
+          *late = sineHz(y, 48000, 180 * 256, 219 * 256);
+        };
+        const double f36 = 440 * std::pow(2.0, (36 - 69) / 12.0);
+        const double f48 = 440 * std::pow(2.0, (48 - 69) / 12.0);
+        double gEarly = 0, gLate = 0, sEarly = 0, sLate = 0;
+        glideSeq(0.5, &gEarly, &gLate);
+        glideSeq(0.0, &sEarly, &sLate);
+        row(gEarly > f36 * 1.02 && gEarly < f48 * 0.90,
+            "11g.c glide 0.5 s: 40-100 ms after the new key the pitch is BETWEEN the two",
+            "%.2f Hz (36 is 65.41, 48 is 130.81)", gEarly);
+        row(std::fabs(gLate - f48) < f48 * 0.02,
+            "11g.c glide 0.5 s: past the glide time it has ARRIVED at the new key", "%.2f Hz",
+            gLate);
+        row(std::fabs(sEarly - f48) < f48 * 0.02,
+            "11g.c CONTROL glide 0 s snaps — the same window is already at the new key",
+            "%.2f Hz", sEarly);
+        row(std::fabs(sLate - f48) < f48 * 0.02, "11g.c CONTROL glide 0 s stays there",
+            "%.2f Hz", sLate);
+      }
+      /* 11g.d THE GLIDE IS IN SECONDS, NOT SAMPLES (ADR-009 / the rule
+         samplerate_check enforces for the instrument). The same gesture at
+         44.1 and at 96 kHz must be at the same place at the same TIME. */
+      {
+        /* THE WINDOW IS A TIME AT BOTH RATES, and that is not pedantry: the
+           first version of this row measured a fixed number of BLOCKS, which
+           is 226 ms at 44.1 kHz and 104 ms at 96 kHz. The pitch is still
+           moving inside it, so the two averages differed by 9.5 % and the row
+           went red on its own measurement rather than on the shell. Sample
+           indices, derived from the rate, everywhere. */
+        auto atTime = [&](double sr, double secs) {
+          const int pre = (int)(0.1 * sr / 256);           // ~0.1 s before the retarget
+          const int tail = (int)((secs + 0.15) * sr / 256) + 2;
+          std::vector<int> seq = {36};
+          for (int i = 0; i < pre; i++) seq.push_back(0);
+          seq.push_back(48);
+          for (int i = 0; i < tail; i++) seq.push_back(0);
+          ShellRig r;
+          r.boot(sr, 256);
+          const std::vector<float> y = r.sequence(
+              subSine({{kSubMonoId, 1}, {kSubBiasId, 2}, {kSubGlideId, 0.5}}), seq);
+          r.kill();
+          const size_t retarget = (size_t)(pre + 1) * 256;
+          const size_t at = retarget + (size_t)(secs * sr);
+          return sineHz(y, sr, at, at + (size_t)(0.06 * sr));   // 60 ms, both rates
+        };
+        const double a = atTime(44100, 0.25), b = atTime(96000, 0.25);
+        row(std::fabs(a - b) < std::max(a, b) * 0.03,
+            "11g.d the glide is a TIME, not a sample count — same pitch at 0.25 s at 44.1 and "
+            "96 kHz",
+            "44.1 kHz %.2f Hz", a);
+        std::printf("   (96 kHz read %.2f Hz at the same instant)\n", b);
+      }
     }
 
     /* ---- 11.f HEADROOM, measured THROUGH THE SHELL and gated. Phase 1
@@ -1447,7 +1705,7 @@ int main(int argc, char **argv)
     {
       std::vector<SubOscCore> v;
       v.reserve(16);
-      for (int i = 0; i < 16; i++)
+      for (int i = 0; i < 16; i++)   // VOICES, not ids — hypersaw::kPoly's worth
       {
         v.push_back(make(48000, {{SubOscCore::kWave, SubOscCore::kPulse},
                                  {SubOscCore::kWidth, 0.27},

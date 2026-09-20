@@ -1228,6 +1228,9 @@ struct EngineBlock
    derivation evaluated at the one place that knows the step. */
 static const char *const kSubWaveLabels[] = {"sine",  "triangle", "square", "saw",
                                              "pulse", "noise",    "bump"};
+// B181 note 2: which held key the sub's own mono follows. "lowest" first, so
+// it is the default by the table's own order.
+static const char *const kSubBiasLabels[] = {"lowest", "highest", "last"};
 constexpr uint32_t kSubOscIdBase = 4000;
 constexpr clap_id kSubOscOnId = 4015;
 static constexpr ParamDef kSubOscParams[] = {
@@ -1256,26 +1259,71 @@ static constexpr ParamDef kSubOscParams[] = {
        keyed on the key finds the wrong one. The block's address prefix
        (`sub.`) is what disambiguates; see src/param_presentation.tsv. */
     {4015, "on", "SUB On", 0, 1, 0, true, kOffOn},
+    /* ---- SHELL ROWS, ABOVE THE GATE (B181 notes 2 and 4) -------------------
+       Everything from here up is the SHELL's, not the core's: voice assignment
+       and glide are the shell's job for the swarm too (`voiceMono`,
+       `voiceLegato`, the `glide` lane), and SubOscCore stays what its header
+       says it is — a single-voice renderer that holds one note.
+
+       They sit ABOVE the gate rather than interleaved because the block's id
+       map is POSITIONAL below it: `id - 4000` IS SubOscCore::Param for every id
+       under 4015, and subOscRowsAgreeWithCore proves it at compile time. A
+       shell row inserted among them would break that identity silently.
+
+       EVERY DEFAULT IS THE INERT ONE. mono off, glide 0 s, pitch mod 0 st —
+       so a patch that says nothing about them renders exactly as it did before
+       they existed, which subosc_check's 11g control measures rather than
+       assumes. */
+    {4016, "mono", "SUB Mono", 0, 1, 0, true, kOffOn},
+    /* WHICH held key the mono sub follows. "lowest" is the human's own word
+       and is therefore the default; the other two cost one line each at the
+       pick site, so refusing them would have been a choice rather than a
+       saving. */
+    {4017, "bias", "SUB Mono Bias", 0, 2, 0, true, kSubBiasLabels},
+    /* SECONDS, and converted per sample rate at the one place that knows it
+       (renderSubSpan) — ADR-009: there is not a per-tick constant here. Range
+       matched to the instrument's own `glide` lane (id 33) so the two knobs
+       mean the same thing. 0 = off, which is a SNAP, not a very fast ramp. */
+    {4018, "glide", "SUB Glide (s)", 0, 2.0, 0, false, nullptr},
+    /* THE PITCH-ENVELOPE DESTINATION (note 4). `fine` already routes — it is
+       continuous, it is in the block, and nothing refuses it — so the gap the
+       human hit is RANGE: +/-100 cents is one semitone, which is not a pitch
+       envelope. This is a DEDICATED offset rather than a widening of `fine`,
+       so `fine` keeps its meaning and every stored value of it keeps its
+       pitch. +/-48 st is the instrument's own pitch route's range (ADR-135's
+       clamp in modStep), so the two pitch surfaces agree on what "full" is. */
+    {4019, "pitchMod", "SUB Pitch Mod (st)", -48, 48, 0, false, nullptr},
 };
 constexpr uint32_t kSubOscParamCount = (uint32_t)(sizeof(kSubOscParams) / sizeof(kSubOscParams[0]));
+// The first id above the gate; everything from here up is a shell row and has
+// no SubOscCore::Param behind it. Named once, because three sites ask.
+constexpr clap_id kSubShellIdBase = 4016;
 
-// THE PROOF, not the promise. Every row against SubOscCore::kParamTable.
+/* THE PROOF, not the promise. Rows 0..kParamCount-1 against
+   SubOscCore::kParamTable, the gate at kParamCount, and shell rows above it.
+   Generalised for B181: the claim was "the block is the core table plus a
+   gate"; it is now "the block OPENS with the core table, then the gate, then
+   shell rows" — the same positional identity over the same span, with room
+   above it. Weakening it would have meant dropping the per-row comparison;
+   nothing there changed. */
 constexpr bool subOscRowsAgreeWithCore()
 {
   using Core = hypersaw::SubOscCore;
-  if (kSubOscParamCount != (uint32_t)Core::kParamCount + 1) return false;
+  if (kSubOscParamCount < (uint32_t)Core::kParamCount + 1) return false;
+  for (uint32_t i = 0; i < kSubOscParamCount; i++)
+    if (kSubOscParams[i].id != (clap_id)(kSubOscIdBase + i)) return false;
   for (int i = 0; i < Core::kParamCount; i++)
   {
     const ParamDef &d = kSubOscParams[i];
     const Core::ParamSpec &s = Core::kParamTable[i];
-    if (d.id != (clap_id)(kSubOscIdBase + i)) return false;
     if (d.minV != s.min || d.maxV != s.max || d.defV != s.def) return false;
     if (d.stepped != (s.step != 0)) return false;      // ADR-173's derivation
     const char *a = d.coreKey, *b = s.key;             // same address, same row
     while (*a && *a == *b) { a++; b++; }
     if (*a != 0 || *b != 0) return false;
   }
-  return kSubOscParams[Core::kParamCount].id == kSubOscOnId;
+  return kSubOscParams[Core::kParamCount].id == kSubOscOnId &&
+         kSubOscIdBase + (uint32_t)Core::kParamCount + 1 == (uint32_t)kSubShellIdBase;
 }
 static_assert(subOscRowsAgreeWithCore(),
               "kSubOscParams disagrees with SubOscCore::kParamTable — the core table is "
@@ -1679,20 +1727,121 @@ struct Plugin
                                  -1, -1, -1, -1, -1, -1, -1, -1};
   double subOn = 0;   // the block's gate (id 4015), DEVICE class, ships off
 
+  /* ---- THE SUB'S OWN MONO, BIAS AND GLIDE (B181 note 2) -------------------
+     The human: "Sub should have its own mono toggle, with 'lowest' as the MIDI
+     bias and a simple glide knob."
+
+     SHELL-SIDE, NOT IN THE CORE, and that is the same division the swarm
+     already uses: `voiceMono` / `voiceLegato` / the `glide` lane are all the
+     shell's, and SwarmCore does not know it is being played monophonically.
+     SubOscCore likewise stays what its header declares — one note, one phase,
+     one envelope — and the only thing this adds to it is a pitch INPUT.
+
+     THE HELD STACK IS THE SUB'S OWN, fed by subNoteOn / subNoteOff, which
+     every lifecycle path already funnels through (noteOffAll, allOffAll). Last
+     entry = most recent, so `last` is the back, `lowest`/`highest` are a scan.
+     Same 16-entry bound and same DROP-OLDEST rule as the swarm's heldStack
+     (ADR-126) — including its stated cost, that an evicted key's later
+     note-off matches nothing.
+
+     ONE SOUNDING SLOT, AND IT IS SLOT 0. Mono means one note, so only slot 0
+     is ever struck while `subMono` is on; the other fifteen are idle (their
+     envelopes are at 0 and their filter states were cleared by subAllOff when
+     the toggle moved), so they render exact silence into the sum. */
+  double subMono = 0, subBias = 0, subGlide = 0;   // ids 4016 / 4017 / 4018
+  double subPitchMod = 0;                          // id 4019 (note 4)
+  int subHeld[hypersaw::kPoly];
+  int subHeldCount = 0;
+  int subStruckKey = -1;    // the key slot 0 was STRUCK at; the glide's origin
+  // Semitones relative to subStruckKey. `cur` is what reaches the core, `to`
+  // is where it is heading, `rate` is st/s — set at every retarget from the
+  // remaining distance and the glide TIME, so a glide always takes `subGlide`
+  // seconds whatever the interval.
+  double subGlideCur = 0, subGlideTo = 0, subGlideRate = 0;
+
+  int subBiasPick() const
+  {
+    if (subHeldCount <= 0) return -1;
+    if (subBias >= 2) return subHeld[subHeldCount - 1];        // last
+    int best = subHeld[0];
+    for (int i = 1; i < subHeldCount; i++)
+      if (subBias >= 1 ? subHeld[i] > best : subHeld[i] < best) best = subHeld[i];
+    return best;                                               // highest / lowest
+  }
+  void subGlideAim(int key)
+  {
+    if (subStruckKey < 0) return;
+    subGlideTo = (double)(key - subStruckKey);
+    if (subGlide <= 0) { subGlideCur = subGlideTo; subGlideRate = 0; return; }
+    const double span = subGlideTo - subGlideCur;
+    subGlideRate = (span < 0 ? -span : span) / subGlide;   // st per second
+  }
+  // MONO NOTE-ON: push, then follow the bias. A sub already sounding GLIDES to
+  // the new pick and is NOT re-struck — a re-strike would reset the phase and
+  // the AR, which is audibly the opposite of a glide.
+  void subMonoNoteOn(int key, double vel)
+  {
+    for (int i = 0; i < subHeldCount; i++)   // a key cannot be held twice
+      if (subHeld[i] == key)
+      {
+        for (int j = i; j < subHeldCount - 1; j++) subHeld[j] = subHeld[j + 1];
+        subHeldCount--;
+        break;
+      }
+    if (subHeldCount < hypersaw::kPoly) subHeld[subHeldCount++] = key;
+    else
+    {
+      for (int j = 0; j + 1 < hypersaw::kPoly; j++) subHeld[j] = subHeld[j + 1];
+      subHeld[hypersaw::kPoly - 1] = key;
+    }
+    const int want = subBiasPick();
+    if (want < 0) return;
+    if (subStruckKey < 0)
+    {
+      subStruckKey = want;
+      subGlideCur = subGlideTo = subGlideRate = 0;
+      subs[0].noteOn(want, vel);
+      subKey[0] = want;
+      return;
+    }
+    subGlideAim(want);
+  }
+  void subMonoNoteOff(int key)
+  {
+    int w = 0;
+    for (int i = 0; i < subHeldCount; i++)
+      if (subHeld[i] != key) subHeld[w++] = subHeld[i];
+    subHeldCount = w;
+    const int want = subBiasPick();
+    if (want < 0)
+    {
+      subs[0].noteOff();
+      subKey[0] = -1;
+      subStruckKey = -1;         // the next press strikes rather than glides
+      return;
+    }
+    subGlideAim(want);
+  }
   void subNoteOn(int slot, int key, double vel)
   {
+    if (subMono != 0) { subMonoNoteOn(key, vel); return; }
     if (slot < 0 || slot >= hypersaw::kPoly) return;
     subs[slot].noteOn(key, vel);
     subKey[slot] = key;
   }
   void subNoteOff(int key)
   {
+    if (subMono != 0) { subMonoNoteOff(key); return; }
     for (int s = 0; s < hypersaw::kPoly; s++)
       if (subKey[s] == key) { subs[s].noteOff(); subKey[s] = -1; }
   }
   void subAllOff()
   {
     for (int s = 0; s < hypersaw::kPoly; s++) { subs[s].allOff(); subKey[s] = -1; }
+    subHeldCount = 0;
+    subStruckKey = -1;
+    subGlideCur = subGlideTo = subGlideRate = 0;
+    for (auto &c : subs) c.pitchOffsetSt = 0;
   }
   // One write per id, from the block's positional mapping: id - base IS the
   // core's enum index (see kSubOscParams). No switch, so a row added to the
@@ -1709,12 +1858,46 @@ struct Plugin
       subOn = v;
       return;
     }
+    /* THE SHELL ROWS (B181), handled BEFORE the positional map — `id - 4000`
+       for 4016 would be 16, one past SubOscCore::Param, and setParam would
+       read off the end of the core's table. The order is the safety. */
+    if ((uint32_t)id >= (uint32_t)kSubShellIdBase)
+    {
+      switch ((uint32_t)id)
+      {
+        case 4016:
+          /* Same reasoning as the gate one branch up (ADR-099 A1): crossing
+             the mono boundary must SILENCE, not freeze. Fifteen slots holding
+             notes when mono comes on would keep sounding for ever (mono only
+             ever releases slot 0), and slot 0's glide state would outlive its
+             note when mono goes off. */
+          if (v != subMono) subAllOff();
+          subMono = v;
+          return;
+        case 4017: subBias = v; return;
+        case 4018:
+          subGlide = v;
+          // Re-aim rather than re-time: a knob moved mid-glide changes how
+          // long the REST of the journey takes, which is what a player means.
+          if (subStruckKey >= 0) subGlideAim(subStruckKey + (int)subGlideTo);
+          return;
+        default: subPitchMod = v; return;   // 4019
+      }
+    }
     const int i = (int)((uint32_t)id - kSubOscIdBase);
     for (auto &c : subs) c.setParam((hypersaw::SubOscCore::Param)i, v);
   }
   double subGetParam(clap_id id) const
   {
     if (id == kSubOscOnId) return subOn;
+    if ((uint32_t)id >= (uint32_t)kSubShellIdBase)
+      switch ((uint32_t)id)
+      {
+        case 4016: return subMono;
+        case 4017: return subBias;
+        case 4018: return subGlide;
+        default: return subPitchMod;   // 4019
+      }
     return subs[0].param((hypersaw::SubOscCore::Param)((uint32_t)id - kSubOscIdBase));
   }
   /* ONE LOGICAL NOTE, N PHYSICAL VOICES — and the mapping is now CONSTRUCTED,
@@ -5166,6 +5349,11 @@ struct Plugin
     if (k < 0 || k > 3) return "{}";
     morphInit();
     /* THE LAYOUT MARKER, BUMPED ONCE HERE AND AT THE OTHER THREE WRITERS.
+       7 = B181: the SUB block's two new MORPHABLE shell rows (sub.glide,
+       sub.pitchMod) append after everything, so the corner array grew by two
+       and the order changed. A layout-6 array is shorter and maps 1:1
+       (morphSlotMap), so the two new slots simply hold their defaults — which
+       is why the bump is a marker and not a migration.
        6 = B172: the SUB OSC engine block's morphable ids appended after the
        routing block. STATION (B162) appends into this SAME layout and will
        bump it again — the marker names an ORDER, and every append changes the
@@ -5174,7 +5362,7 @@ struct Plugin
        increment 3: source rows reserved, Src 2's cells new slot positions);
        4 = the Src→OUT dry-path cells appended after the routing block (B50
        phase 1c); 3 = the routing block (phase 1). */
-    std::string out = "{\"morphLayout\":6,\"cornerPreset\":[";
+    std::string out = "{\"morphLayout\":7,\"cornerPreset\":[";
     char buf[32];
     for (size_t i = 0; i < morphIds.size(); i++)
     {
@@ -5280,7 +5468,7 @@ struct Plugin
   std::string liveCornerJson()
   {
     morphInit();
-    std::string out = "{\"morphLayout\":6,\"cornerPreset\":[";   // ADR-159; 6 = B172, see cornerJson
+    std::string out = "{\"morphLayout\":7,\"cornerPreset\":[";   // ADR-159; 6 = B172, see cornerJson
     char buf[32];
     for (size_t i = 0; i < morphIds.size(); i++)
     {
@@ -5443,7 +5631,7 @@ struct Plugin
     if (morphIds.empty()) return "";
     // ADR-159: the array layout version. 2 = late per-osc rows appended last;
     // absent = 1 (pre-2026-09-11), where a 224-entry array is the ADR-150 order.
-    std::string out = ",\"morphLayout\":6,\"cornerNames\":" + cornerNamesJson() + ",\"morphCorners\":[";
+    std::string out = ",\"morphLayout\":7,\"cornerNames\":" + cornerNamesJson() + ",\"morphCorners\":[";
     char buf[32];
     for (int k = 0; k < 4; k++)
     {
@@ -6642,6 +6830,18 @@ struct Plugin
           if (heldStack[i].key != n->key) heldStack[w++] = heldStack[i];
         heldCount = w;
       }
+      /* THE SUB HEARS EVERY RELEASE, INCLUDING THE ONES THE SWARM SWALLOWS
+         (B181 note 2). In swarm-mono a key released while it is NOT the
+         sounding one produces no call at all below — `retargetAll` only runs
+         for the sounding key — so the sub's own held stack would keep it for
+         ever and `lowest` would chase a key nobody is holding.
+         BIT-INERT FOR THE EXISTING PATH: outside sub-mono this releases at
+         most the one slot whose subKey matches, and the retarget three lines
+         down immediately re-strikes that same slot with `noteOn`, which
+         REPLACES the note regardless (subosc_core.h:237). No sample is
+         rendered between the two, so nothing changes for a patch with
+         `sub.mono` off. */
+      subNoteOff(n->key);
       if (monoSlot >= 0 && core.voiceAt(monoSlot).midi == n->key)
       {
         if (heldCount > 0)
@@ -7070,8 +7270,35 @@ struct Plugin
     for (int off = 0; off < n; off += kMixChunk)
     {
       const int m = n - off < kMixChunk ? n - off : kMixChunk;
+      /* ---- THE SUB'S PITCH, COMPOSED ONCE PER CHUNK (B181 notes 2 and 4) ---
+         TWO contributors — the mono glide and the pitch-mod offset — and ONE
+         writer, because two hands on the same quantity is the last-writer-wins
+         bug the note-expression composer exists to prevent (L0029, ADR-162).
+
+         THE GLIDE IS IN SECONDS, converted here and nowhere else (ADR-009):
+         `dt` is this chunk's own duration at the running sample rate, so the
+         journey takes `subGlide` seconds at 44.1, 48 and 96 kHz alike. The
+         GRANULARITY is the chunk (kMixChunk = 256 samples, 5.8 ms at 44.1 kHz)
+         because the core recomputes its phase increment once per render() call
+         — a finer grid would mean changing a parity-gated loop, which this
+         note does not buy.
+
+         BIT-INERT AT THE DEFAULTS: with mono off and pitch mod 0, every
+         instance is handed exactly 0.0 and §4's law reads `m + 0.0`, which is
+         `m`. subosc_check's 11g row measures that rather than assuming it. */
+      if (subMono != 0 && subGlideRate > 0 && subGlideCur != subGlideTo)
+      {
+        const double dt = (double)m / sampleRate;
+        const double step = subGlideRate * dt;
+        if (subGlideTo > subGlideCur)
+          subGlideCur = subGlideCur + step > subGlideTo ? subGlideTo : subGlideCur + step;
+        else
+          subGlideCur = subGlideCur - step < subGlideTo ? subGlideTo : subGlideCur - step;
+      }
       for (int s = 0; s < hypersaw::kPoly; s++)
       {
+        subs[s].pitchOffsetSt =
+            subPitchMod + (subMono != 0 && s == 0 ? subGlideCur : 0.0);
         /* HARD SYNC IS WIRED OFF, AND THAT IS A RECORDED REFUSAL, NOT AN
            OVERSIGHT. SPEC-SUBOSC §6 wants oscillator 1's FUNDAMENTAL PHASE as a
            per-sample input. SwarmCore has no such output: the fundamental's

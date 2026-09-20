@@ -172,6 +172,25 @@ class SubOscCore
   // shell may ever write it.
   double flushFloor = kFlush;
 
+  /* ── THE SHELL'S PITCH INPUT, IN SEMITONES (B181 notes 2 and 4) ────────────
+     A continuous offset summed into §4's pitch law, and deliberately NOT a §7
+     parameter row. Three reasons, in order of weight:
+       · §7's table is the only writer of range/step/default and the shell's id
+         map is POSITIONAL (`id - 4000` IS the enum index) with the block's gate
+         frozen at 4015 — a sixteenth table row would collide with a shipped
+         CLAP id, and moving a frozen id to make room is the worse trade.
+       · It is an INPUT, not a setting: the same category as `master`, the
+         per-sample sync phase §2 already calls an input. The shell composes it
+         from the sub's glide (note 2) and its pitch-mod offset (note 4) and
+         writes ONE number per instance — one routing layer, not two writers of
+         the same quantity (L0029).
+       · The lab has no analogue and needs none: at 0 the law is `m + 0.0`,
+         which is `m` exactly, so parity is untouched and every golden is inert.
+     Unbounded here on purpose — the shell's parameter row declares the range a
+     player can ask for, and the 0.49*sr increment cap below is what makes any
+     value safe. */
+  double pitchOffsetSt = 0;
+
   // Read-only observables, as the lab exposes them: the current envelope value
   // and the peak since a reader last cleared it. Written by render(), never by
   // the shell.
@@ -238,7 +257,9 @@ class SubOscCore
   double freqHz() const
   {
     const double base = p_[kKeytrack] != 0 ? midi_ : (double)kKeytrackOffMidi;
-    const double m = base + 12 * p_[kOctave] + p_[kSemis];
+    // `pitchOffsetSt` is the shell's input (see the member's comment). At its
+    // default 0 this is `m + 0.0`, which is bit-identical to the lab's law.
+    const double m = base + 12 * p_[kOctave] + p_[kSemis] + pitchOffsetSt;
     return 440 * std::pow(2, (m - 69) / 12) * std::pow(2, p_[kFine] / 1200);
   }
 
