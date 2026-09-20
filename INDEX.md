@@ -68,3 +68,4 @@ swarm-dynamics · parity-oracle · plugin-platform · realtime-perf
 - [L0056] Worktree agents cannot chain `verify && git commit` — brief it as run / commit / re-run on the committed hash (agents · verify)
 - [L0057] A spacing fix that loses the cascade looks applied and does nothing — scope it above the flow rule and verify the computed style served (gui · css · review)
 - [L0058] Keyword fields are machine-read: put the bare word in the field and the prose in the body, reply under the original id, and suspect your own filing before the scanner (protocol · mailbox)
+- [L0059] An acceptance criterion the lead writes can pass on the unfixed build — name the case where old and new differ, or it is decoration (briefs · oracles)
