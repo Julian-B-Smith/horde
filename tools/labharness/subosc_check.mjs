@@ -18,8 +18,14 @@
  * own DSP source, and every plant ASSERTS ITS ANCHOR — a plant that silently
  * fails to apply is the exact failure mode the lesson names.
  *
- * NOT WIRED INTO ./verify. Run by hand:
- * UNWIRED: reason not stated — see B159.
+ * WIRED into `./verify full` (ADR-180 §1: a check is wired in the PR that
+ * creates it unless its header states why not — this one's stated reason had
+ * been "UNWIRED: reason not stated", which is not a reason). It runs at the top
+ * of full() beside station_check.mjs, and it is also the HOME of §10.1's
+ * aliasing floors: those need the 65 536-point Kaiser-windowed FFT sweep that
+ * exists here and not on the C++ side, which is why tools/subosc_check.cpp's
+ * header points at this file for them rather than approximating them. 0.6 s.
+ * By hand:
  *     node tools/labharness/subosc_check.mjs
  * Exit 1 if any property fails. Thresholds below are MEASURED on this build at
  * the date in the header of each section, with the margin stated inline; they

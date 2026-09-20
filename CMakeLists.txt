@@ -625,6 +625,18 @@ if(NOT MSVC)
   target_compile_options(station_check PRIVATE -O2)
 endif()
 
+# subosc_check: the SUB OSC port's oracle (B155 port phase 1) -- L0-1 parity
+# against goldens sliced live from reference/subosc.html at both 48 000 and
+# 44 100 Hz, plus SPEC-SUBOSC §10's measured rows with their must-fail controls.
+# Core-direct (no shell link): the shell has no SUB OSC seam yet -- that is
+# phase 2's source row -- and a shell layer between the probe and the quantity
+# would only add noise. WIRED in ./verify full (ADR-180 §1).
+add_executable(subosc_check tools/subosc_check.cpp)
+target_include_directories(subosc_check PRIVATE src)
+if(NOT MSVC)
+  target_compile_options(subosc_check PRIVATE -O2)
+endif()
+
 add_executable(gain_probe tools/gain_probe.cpp)
 target_link_libraries(gain_probe PRIVATE ${PROJECT_NAME}-impl)
 if(NOT MSVC)
