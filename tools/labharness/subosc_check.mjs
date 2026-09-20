@@ -94,9 +94,9 @@ function make(Core, sr, patch) {
   for (const k in patch) c.setParam(k, patch[k]);
   return c;
 }
-function renderInto(core, n, master) {
+function renderInto(core, n) {
   const L = new Float32Array(n), R = new Float32Array(n);
-  core.render(L, R, n, master);
+  core.render(L, R, n);
   return L;
 }
 
@@ -486,36 +486,33 @@ function toneMagRatio(Core, sr) {
 head('4. block-size independence, chunks 1 / 7 / 64 / 256 / 333 against one whole-buffer render');
 const CHUNKS = [1, 7, 64, 256, 333];
 const TOTAL = 20000;
-function chunked(Core, patch, chunk, masterAll) {
+function chunked(Core, patch, chunk) {
   const c = make(Core, 44100, patch);
   c.noteOn(45, 1);
   const out = new Float32Array(TOTAL);
   const L = new Float32Array(chunk), R = new Float32Array(chunk);
-  const m = masterAll ? new Float32Array(chunk) : null;
   let i = 0;
   while (i < TOTAL) {
     const n = Math.min(chunk, TOTAL - i);
-    if (m) for (let k = 0; k < n; k++) m[k] = masterAll[i + k];
-    c.render(L, R, n, m);
+    c.render(L, R, n);
     for (let k = 0; k < n; k++) out[i + k] = L[k];
     i += n;
   }
   return out;
 }
-// A master phase the lab would supply: a plain saw, precomputed so every
-// chunking sees identical input.
-const masterAll = new Float32Array(TOTAL);
-{ let ph = 0; for (let i = 0; i < TOTAL; i++) { ph += 220 / 44100; ph -= Math.floor(ph); masterAll[i] = ph; } }
+// Leg 1 was 'pulse + tone + hard sync' and carried a precomputed master-phase
+// saw; hard sync was retired from the sub on 2026-09-20 (B184) and the core no
+// longer takes a master phase, so the leg keeps its shape and loses its sync.
 const LEGS = {
-  'pulse + tone + hard sync': [{ wave: WAVE.pulse, width: 0.27, tone: 900, level: 0.9, sync: 1, attack: 0.004, release: 0.05 }, masterAll],
-  'seeded noise + tone': [{ wave: WAVE.noise, tone: 1500, level: 0.9, seed: 7, attack: 0.002 }, null],
+  'pulse + tone': { wave: WAVE.pulse, width: 0.27, tone: 900, level: 0.9, attack: 0.004, release: 0.05 },
+  'seeded noise + tone': { wave: WAVE.noise, tone: 1500, level: 0.9, seed: 7, attack: 0.002 },
 };
 for (const name in LEGS) {
-  const [patch, master] = LEGS[name];
-  const ref = chunked(SubOscCore, patch, TOTAL, master);
+  const patch = LEGS[name];
+  const ref = chunked(SubOscCore, patch, TOTAL);
   let bad = '';
   for (const ch of CHUNKS) {
-    const i = bitEq(ref, chunked(SubOscCore, patch, ch, master));
+    const i = bitEq(ref, chunked(SubOscCore, patch, ch));
     if (i !== -1) bad += ` chunk ${ch} differs at ${i};`;
   }
   judge(`block-size independent: ${name}`, bad === '', bad || 'all chunkings bit-identical');
@@ -523,10 +520,10 @@ for (const name in LEGS) {
 {
   // CONTROL: a per-render-call state reset — the defect class the SAW engine's
   // pan motion still has (audit A10). Must be visible to this comparator.
-  const PerCall = mutantCore('render(outL, outR, n, master) {', 'render(outL, outR, n, master) {\n    this._z = 0;');
-  const [patch, master] = LEGS['pulse + tone + hard sync'];
-  const ref = chunked(PerCall, patch, TOTAL, master);
-  const i = bitEq(ref, chunked(PerCall, patch, 64, master));
+  const PerCall = mutantCore('render(outL, outR, n) {', 'render(outL, outR, n) {\n    this._z = 0;');
+  const patch = LEGS['pulse + tone'];
+  const ref = chunked(PerCall, patch, TOTAL);
+  const i = bitEq(ref, chunked(PerCall, patch, 64));
   judge('CONTROL per-call filter reset must break block independence', i !== -1, `first diff at ${i}`);
 }
 

@@ -16,15 +16,14 @@
  * rounding on the path is the f32 golden file itself (6e-8 relative, ~6 % of
  * the budget), and the C++ core stores f32 too, so both sides round once.
  *
- * ── THE MASTER PHASE IS AN INPUT, SO IT IS DUMPED, NOT DERIVED ──────────────
- * §2: "the master phase is an INPUT" — in the device the voice hands the sub
- * oscillator 1's phase; the lab fakes it with a saw at a lab-only ratio that
- * does not survive the port. So the sync scenarios STATE their source: a saw at
- * an absolute frequency written into the manifest to 17 digits, accumulated by
- * the identical recurrence on both sides and stored f32 (the type the shell's
- * phase buffer will be). Dumping the Hz rather than a ratio keeps `Math.pow`
- * out of the shared path: a 1-ulp disagreement there would move a sync reset
- * by a whole sample, which is a discontinuity, not a rounding error.
+ * ── NO MASTER PHASE ─────────────────────────────────────────────────────────
+ * There were three hard-sync scenarios here, each stating a master-phase source
+ * (a saw at an absolute frequency, dumped to 17 digits so a 1-ulp disagreement
+ * could not move a reset by a whole sample). Hard sync was RETIRED from the sub
+ * on 2026-09-20 (B184) and the lab core no longer takes a master phase, so the
+ * three rows, the @master manifest key and the recurrence that fed it are gone.
+ * Every remaining golden is byte-for-byte what it was — the retirement touched
+ * no shape, no law and no literal, which is the claim the unchanged files make.
  *
  * ── THE MANIFEST IS THE SINGLE SOURCE OF TRUTH ──────────────────────────────
  * Each row dumps the WHOLE resulting parameter table as flat key=value tokens
@@ -53,7 +52,7 @@ const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
 
 // ----------------------------------------------------------------- scenarios --
 // Every row is a named departure from §7's defaults (wave = saw, octave = -1,
-// level 0.8, tone wide open, sync off, seed 1), so the `default` row certifies
+// level 0.8, tone wide open, seed 1), so the `default` row certifies
 // the table itself and each other row certifies exactly what it names.
 // `p` holds §7 ADDRESS KEYS: they go through the lab's setParam, which clamps
 // and throws, so a typo here fails at generation rather than silently.
@@ -102,17 +101,6 @@ export const SCENARIOS = [
   { name: 'tone-200', note: 36, secs: 0.5, p: { wave: 3, tone: 200 } },
   { name: 'tone-2k', note: 36, secs: 0.5, p: { wave: 4, width: 0.3, tone: 2000 } },
 
-  // §6 hard sync, against a STATED source: a saw at 41 Hz (the note here is
-  // MIDI 36 at octave -1 = 32.70 Hz, so the master wraps faster than the
-  // oscillator and the reset lands at irregular phases).
-  { name: 'sync-pulse', note: 36, secs: 0.5, master: 41, p: { wave: 4, width: 0.4, sync: 1, phase: 0.3 } },
-  // Sync ON but with the start phase at 0 and a master BELOW the oscillator, so
-  // the reset is rare — the other half of §6's convention.
-  { name: 'sync-slow', note: 48, secs: 0.5, master: 7.5, p: { wave: 3, sync: 1 } },
-  // The must-not-fire case, and it is a parity row rather than a comment: the
-  // same master with sync OFF must reproduce the unsynced shape exactly.
-  { name: 'sync-off', note: 36, secs: 0.5, master: 41, p: { wave: 4, width: 0.4, sync: 0, phase: 0.3 } },
-
   // §5.3's PROVISIONAL envelope at non-default A/R, with the note-off inside
   // the render so the release ramp and the filter tail are both in the golden.
   { name: 'env-ar', note: 36, secs: 1.2, offAt: 0.45, p: { attack: 0.2, release: 0.6 } },
@@ -134,18 +122,6 @@ export const SCENARIOS = [
 ];
 
 // -------------------------------------------------------------------- render --
-// The master phase, when a scenario states one: a saw at an absolute frequency,
-// accumulated in double and STORED f32 — the same two operations the C++ side
-// performs, in the same order, so the two arrays are bit-identical and a sync
-// reset lands on the same sample in both.
-function masterPhase(hz, sr, n) {
-  const a = new Float32Array(n);
-  const d = hz / sr;
-  let ph = 0;
-  for (let i = 0; i < n; i++) { ph += d; ph -= Math.floor(ph); a[i] = ph; }
-  return a;
-}
-
 function build(sc, sr) {
   const c = new SubOscCore(sr);
   for (const k in sc.p) c.setParam(k, sc.p[k]);
@@ -157,14 +133,13 @@ function renderScenario(sc, sr) {
   const c = build(sc, sr);
   const total = Math.round(sr * sc.secs);
   const offSample = sc.offAt === undefined ? -1 : Math.round(sr * sc.offAt);
-  const master = sc.master === undefined ? null : masterPhase(sc.master, sr, total);
   const out = new Float32Array(total * 2);
   const L = new Float32Array(BLOCK), R = new Float32Array(BLOCK);
   for (let off = 0; off < total;) {
     let k = Math.min(BLOCK, total - off);
     if (offSample > off && offSample < off + k) k = offSample - off;  // split exactly on the note-off
     if (off === offSample) c.noteOff();
-    c.render(L, R, k, master === null ? undefined : master.subarray(off, off + k));
+    c.render(L, R, k);
     for (let i = 0; i < k; i++) { out[(off + i) * 2] = L[i]; out[(off + i) * 2 + 1] = R[i]; }
     off += k;
   }
@@ -197,7 +172,6 @@ for (const sr of RATES)
     writeFileSync(join(outDir, `${name}.f32`), Buffer.from(audio.buffer));
     const meta = [`@sr=${sr}`, `@secs=${num(sc.secs)}`, `@block=${BLOCK}`,
                   `@note=${sc.note}:${num(sc.vel === undefined ? 1 : sc.vel)}`];
-    if (sc.master !== undefined) meta.push(`@master=${num(sc.master)}`);
     if (sc.offAt !== undefined) meta.push(`@off=${Math.round(sr * sc.offAt)}`);
     manifest.push([name, [...meta, ...dumpParams(build(sc, sr))].join(' ')].join('\t'));
     console.log(`wrote ${name}.f32`);

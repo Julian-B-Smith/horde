@@ -1,12 +1,22 @@
 /*
  * subosc_core.h — SUB OSC: the honest sub. One oscillator, seven shapes, pitch
- * offsets, a one-pole tone, optional hard sync. No swarm, no coupling.
+ * offsets, a one-pole tone. No swarm, no coupling, and no hard sync (B184).
  *
- * STATUS: PORT PHASE 1 (core + oracle only). NOT wired into the shell, NO ids,
- * NO routing source row, NO GUI. The shell seam (source row 2 — ADR-178, the
- * eight reserved source rows of ADR-088's amendment) is phase 2 under a
- * separate brief. `tools/subosc_check.cpp` drives this header directly and
- * `./verify full` runs that chain.
+ * STATUS: SHIPPED. Phase 1 built this core and its oracle; phase 2 (B172, PR
+ * #690) wired it into the shell as ADR-088's first ENGINE BLOCK — ids
+ * 4000–4019, routing source row 2 (ADR-178, the eight rows ADR-088's amendment
+ * reserved), its own SUB panel on the OSC page and a MIX strip. The gate
+ * (4015 `on`) ships OFF, so an untouched patch is bit-inert.
+ *
+ * This header said "NOT wired into the shell, NO ids, NO routing source row,
+ * NO GUI" for the two days after all four became false — the B184 agent found
+ * it and could not fix it in its brief's scope. A STATUS block is the first
+ * thing a fresh agent reads, so a stale one does not merely misinform, it
+ * misdirects the next piece of work. Re-read it whenever this file's place in
+ * the instrument changes.
+ *
+ * `tools/subosc_check.cpp` drives this header directly AND through the CLAP
+ * factory (its section 11), and `./verify full` runs that chain.
  *
  * ── ONE INSTANCE PER VOICE, AND THAT IS THE CLASS'S ASSUMPTION ──────────────
  * SPEC-SUBOSC §1 ("one oscillator, one voice") and §8.2 (a routing SOURCE row)
@@ -14,8 +24,8 @@
  * class holds exactly ONE note's state: one phase, one envelope, one filter,
  * one RNG stream. `noteOn` REPLACES the sounding note rather than layering it.
  * Phase 2 therefore instantiates one SubOscCore per voice and hands each its
- * own note and its own master phase, exactly as it does for an oscillator — it
- * does NOT instantiate one per device and expect polyphony from it. (The
+ * own note, exactly as it does for an oscillator — it does NOT instantiate one
+ * per device and expect polyphony from it. (The
  * parameters are per-device and identical across the instances; nothing in the
  * class assumes that, so a future per-voice parameter costs no restructuring.)
  *
@@ -44,8 +54,8 @@
  *    a "better" root finder would land on a different double.
  *  · The pitch law, the 0.49*sr phase-increment cap, the tone clamp to
  *    0.45*sr, the TPT coefficient g/(1+g) with g = tan(pi*fc/sr), the linear AR
- *    in seconds, the sync reset TO THE START PHASE (§6, not to 0), the
- *    mulberry32 stream re-seeded at every note-on, and the 1e-20 flush floor.
+ *    in seconds, the mulberry32 stream re-seeded at every note-on, and the
+ *    1e-20 flush floor.
  *  · `Math.round`'s half-UP rule for stepped parameters is reproduced as
  *    floor(x + 0.5) — std::round rounds half AWAY FROM ZERO, which would send
  *    octave -1.5 to -2 where the lab sends it to -1. (JS's one further quirk,
@@ -62,9 +72,17 @@
  * coefficient and is 10 orders inside the eps = 1e-6 gate.
  *
  * ── NOT PORTED ──────────────────────────────────────────────────────────────
- * The lab's audio graph, its fake master-phase oscillator (§2: "the master
- * phase is an INPUT"; in the device the voice hands over oscillator 1's phase),
- * its tubes, its keyboard and the whole UI section.
+ * The lab's audio graph, its tubes, its keyboard and the whole UI section.
+ *
+ * ── HARD SYNC IS RETIRED (B184, human 2026-09-20) ───────────────────────────
+ * The sub had a `sync` parameter that reset the phase on a master-phase wrap.
+ * It was never audible in the device — the shell had no master phase to hand
+ * it — and the human struck the feature rather than pay for the source: "I
+ * can't imagine a scenario in which it would be useful." The parameter's SLOT
+ * survives (kSync, and its row in kParamTable) because the shell's id map is
+ * POSITIONAL — `id - 4000` IS this enum's index — so deleting the entry would
+ * shift ids 4012..4019 and move a player's automation lanes. See kSync.
+ * Sync is not dead as an idea: it is queued for the SWARM oscillators (B185).
  *
  * ── PROVISIONAL SURFACE (§5.3), flagged so the port is not read as a claim ───
  * `attack` and `release` are the LAB's, ported as the lab has them, and are
@@ -108,7 +126,16 @@ class SubOscCore
   enum Param
   {
     kWave = 0, kWidth, kBumpAmt, kBumpPhase, kOctave, kSemis, kFine, kLevel,
-    kPhase, kKeytrack, kTone, kSync, kAttack, kRelease, kSeed, kParamCount
+    kPhase, kKeytrack, kTone,
+    /* RETIRED (B184) — WAS `sync`, hard sync to a master phase. Never audible:
+       the shell never had a master phase to supply it. THE SLOT IS RESERVED
+       AND MUST NOT BE REUSED — the shell's ids are positional (`id - 4000` IS
+       this index), so deleting it would renumber 4012..4019 and move the
+       automation lanes of parameters that DO sound. The repo's idiom for
+       exactly this: params 174..177, mod-matrix slots 10..13. The value is
+       still stored and still restored from a patch; render() never reads it. */
+    kSync,
+    kAttack, kRelease, kSeed, kParamCount
   };
 
   struct ParamSpec
@@ -144,6 +171,8 @@ class SubOscCore
       {"phase", 0, 1, 0, 0},
       {"keytrack", 0, 1, 1, 1},
       {"tone", 30, 20000, 0, 20000},
+      // RETIRED (B184) — see kSync. The row stays so the positional id map and
+      // every stored patch keep their meaning; nothing reads the value.
       {"sync", 0, 1, 1, 0},
       {"attack", 0.0005, 0.5, 0, 0.005},
       {"release", 0.002, 2, 0, 0.08},
@@ -179,11 +208,10 @@ class SubOscCore
          map is POSITIONAL (`id - 4000` IS the enum index) with the block's gate
          frozen at 4015 — a sixteenth table row would collide with a shipped
          CLAP id, and moving a frozen id to make room is the worse trade.
-       · It is an INPUT, not a setting: the same category as `master`, the
-         per-sample sync phase §2 already calls an input. The shell composes it
-         from the sub's glide (note 2) and its pitch-mod offset (note 4) and
-         writes ONE number per instance — one routing layer, not two writers of
-         the same quantity (L0029).
+       · It is an INPUT, not a setting, and the shell composes it from the
+         sub's glide (note 2) and its pitch-mod offset (note 4) and writes ONE
+         number per instance — one routing layer, not two writers of the same
+         quantity (L0029).
        · The lab has no analogue and needs none: at 0 the law is `m + 0.0`,
          which is `m` exactly, so parity is untouched and every golden is inert.
      Unbounded here on purpose — the shell's parameter row declares the range a
@@ -269,7 +297,6 @@ class SubOscCore
     midi_ = midi;
     vel_ = std::min(1.0, std::max(0.0, std::isfinite(vel) ? vel : 1.0));
     ph_ = p_[kPhase];
-    mPrev_ = -1;
     // Re-seeded per note (audit A3 / D3): the stream is a pure function of
     // (seed, note) and not of session history. The SAW engine's ensemble stream
     // is the counter-example — same seed, different history, RMS diff 0.137.
@@ -291,26 +318,23 @@ class SubOscCore
     env = 0;
     z_ = 0;
     ph_ = p_[kPhase];
-    mPrev_ = -1;
   }
 
   // ── render ────────────────────────────────────────────────────────────────
-  // `master` is an optional per-sample phase input in [0,1): the voice supplies
-  // oscillator 1's phase (§2/§6). Null (or sync off) means no sync, which is
-  // the lab's `p.sync === 1 && master` condition exactly. Mono by construction:
-  // the same sample goes to both channels; pan and width are the voice's.
-  void render(float *outL, float *outR, int n, const float *master = nullptr)
+  // Mono by construction: the same sample goes to both channels; pan and width
+  // are the voice's. There is no master-phase input — hard sync is RETIRED
+  // (B184); see kSync for why the parameter slot outlived the feature.
+  void render(float *outL, float *outR, int n)
   {
     const int wave = (int)p_[kWave];
-    const double w = p_[kWidth], start = p_[kPhase];
+    const double w = p_[kWidth];
     const double bumpA = p_[kBumpAmt], bumpPhi = p_[kBumpPhase], bumpN = bumpNorm_;
     const double gain = p_[kLevel] * vel_;
     const double G = g_, atk = atkInc_, rel = relInc_;
-    const bool syncOn = (p_[kSync] == 1 && master != nullptr);
     // Phase increment from the running frequency, capped just under Nyquist so
     // no fine/semis/octave combination can run the phase backwards.
     const double dph = std::min(freqHz(), 0.49 * sr_) / sr_;
-    double ph = ph_, z = z_, e = env, pk = peak, mPrev = mPrev_;
+    double ph = ph_, z = z_, e = env, pk = peak;
     int stage = stage_;
     const double flush = flushFloor;
 
@@ -318,12 +342,6 @@ class SubOscCore
     {
       ph += dph;
       ph -= std::floor(ph);
-      if (syncOn)
-      {
-        const double m = master[i];
-        if (mPrev >= 0 && m < mPrev) ph = start;  // master wrapped: hard reset
-        mPrev = m;
-      }
 
       double v = shapeAt(wave, ph, dph, w, bumpA, bumpPhi, bumpN, rs_);
 
@@ -362,7 +380,6 @@ class SubOscCore
     z_ = z;
     env = e;
     stage_ = stage;
-    mPrev_ = mPrev;
     peak = pk;
   }
 
@@ -511,7 +528,6 @@ class SubOscCore
   double p_[kParamCount] = {kSaw, 0.5, 0.35, -0.25, -1, 0, 0, 0.8, 0, 1, 20000, 0, 0.005, 0.08, 1};
   double ph_ = 0;       // oscillator phase in [0,1)
   double z_ = 0;        // tone filter state
-  double mPrev_ = -1;   // last master phase; < 0 = no edge yet this note
   double vel_ = 1;
   double g_ = 0, atkInc_ = 0, relInc_ = 0, bumpNorm_ = 1;
   int stage_ = kStageIdle;

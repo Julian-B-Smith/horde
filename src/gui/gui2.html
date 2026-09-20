@@ -1769,7 +1769,6 @@
     <div class="row kcell" data-addr="sub.phase"><label>Start Phase</label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="4008" data-fixed="1" min="0" max="1" step="0.005" value="0"><span class="kmnow"></span></span><output></output></div>
     <div class="row" data-addr="sub.keytrack"><label>Keytrack</label><input type="checkbox" data-p="4009" data-fixed="1" checked><output></output></div>
     <div class="row kcell" data-addr="sub.tone"><label>Tone <span class="u">Hz</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="4010" data-fixed="1" data-log10="1" min="1.477" max="4.301" step="0.001" value="4.301"><span class="kmnow"></span></span><output></output></div>
-    <div class="row" data-addr="sub.sync"><label>Hard Sync</label><input type="checkbox" data-p="4011" data-fixed="1"><output></output></div>
     <div class="row kcell" data-addr="sub.attack"><label>Attack <span class="u">s</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="4012" data-fixed="1" data-log10="1" min="-3.301" max="-0.301" step="0.001" value="-2.301"><span class="kmnow"></span></span><output></output></div>
     <div class="row kcell" data-addr="sub.release"><label>Release <span class="u">s</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="4013" data-fixed="1" data-log10="1" min="-2.699" max="0.301" step="0.001" value="-1.097"><span class="kmnow"></span></span><output></output></div>
     <div class="row kcell" data-addr="sub.seed"><label>Seed</label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="4014" data-fixed="1" min="0" max="4.29497e+09" step="1" value="1"><span class="kmnow"></span></span><output></output></div>
@@ -2450,7 +2449,7 @@ function setControl(id, v) {
      4015 (SUB On) reduces to base 15, which is `mono` (Mono Fold) and IS in
      the shell's global list, so the echo fell straight through and painted
      the MIX page's Mono Fold checkbox with the sub's power state; 4011 (SUB
-     Hard Sync) reduces to 11 the same way, and every routing cell (10064 ->
+     Sync, retired) reduces to 11 the same way, and every routing cell (10064 ->
      64, an FX-rack id) does it too. Found while adding 4016-4019 (B181 note
      2/4), whose bases are 16-19 and happen not to be global — "happen not to
      be" is not a property to rely on. The fixed paint above is the whole job
