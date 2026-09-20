@@ -1049,7 +1049,11 @@
 <!--HAND-PLACED, outside the GEN markers on purpose: the first version sat
     inside the generated region and the next regen deleted it silently. -->
 <div class="cluster"><h2>Presets</h2>
-  <div class="row"><label>Name</label><input type="text" id="presetName" placeholder="my patch" style="min-width:0"></div>
+  <!--B174: the third track of .row is the asterisk, exactly as on the B122
+      corner rows — same class, same wording, so "edited since the preset was
+      loaded" means one thing everywhere on the page.-->
+  <div class="row"><label>Name</label><input type="text" id="presetName" placeholder="my patch" style="min-width:0"><span
+    id="presetDirty" class="cdirty" title="this patch has been edited since the preset was loaded" hidden>*</span></div>
   <div class="row"><label>Saved</label><select id="presetList" style="min-width:0"></select></div>
   <div class="row" style="display:flex;gap:6px">
     <button id="presetSave">SAVE</button><button id="presetLoad">LOAD</button><button id="presetDel">DELETE</button>
@@ -2002,7 +2006,9 @@ const bridge = {
   // is handed. There is deliberately no JS shape law here to drift from it.
   getSubWave: () => window.hzGetSubWave ? window.hzGetSubWave() : Promise.resolve('{}'),
   getState: () => window.hzGetState ? window.hzGetState() : Promise.reject(new Error('no engine')),
-  applyState: (j) => window.hzApplyState ? window.hzApplyState(j) : Promise.reject(new Error('no engine')),
+  // B174: the second argument NAMES the preset being loaded, in the same call
+  // that applies it — see hzApplyState's bind for why it is not a second call.
+  applyState: (j, n) => window.hzApplyState ? window.hzApplyState(j, n || '') : Promise.reject(new Error('no engine')),
 };
 
 /* Escape = panic, matching gui.html (ADR-032). Deliberately guarded so it does
@@ -2682,6 +2688,9 @@ const FACTORY_PREFIX = 'factory:';
 const selTier = (v) => (v || '').startsWith(FACTORY_PREFIX)
   ? { kind: 'factory', name: v.slice(FACTORY_PREFIX.length) }
   : { kind: 'presets', name: v || '' };
+// B174: preset JSON by shell name, for the asterisk — dropped whenever the
+// store is re-listed, the same rule (and the same reason) as cornerPresetCache.
+const presetJsonCache = new Map();
 {
   const list = document.getElementById('presetList');
   const name = document.getElementById('presetName');
@@ -2692,6 +2701,7 @@ const selTier = (v) => (v || '').startsWith(FACTORY_PREFIX)
     /* null = the store could not be read. Keep the options already on screen:
        blanking them here is what made a transient failure look like deletion. */
     if (names === null) return;
+    presetJsonCache.clear();   // B174: a save may have changed a named preset
     const factory = (await presetStore.list('factory')) || [];
     /* The first real preset must not LOOK loaded when nothing is (human,
        2026-08-22). The placeholder is disabled so it can be departed from but
@@ -2716,9 +2726,15 @@ const selTier = (v) => (v || '').startsWith(FACTORY_PREFIX)
        saved as your own, under its own name. */
     if (n.includes('/')) { flash(e.target, 'FACTORY: RO'); return; }
     try {
+      /* B174: NAME FIRST, then dump. The saved file carries its own
+         "presetName", so loading it back needs no help from whatever listed
+         it, and the live patch is now that preset — which is what clears the
+         asterisk (presetMatches finds no difference). */
+      if (window.hzPresetSetName) await window.hzPresetSetName(n);
       const j = await bridge.getState();
       const ok = await presetStore.save('presets', n, j);
       await refresh(); list.value = n; flash(e.target, ok ? 'SAVED' : 'STORE FAIL');
+      syncPresetName().catch(() => {});
     } catch (_) { flash(e.target, 'NO ENGINE'); }
   });
   document.getElementById('presetLoad')?.addEventListener('click', async (e) => {
@@ -2726,12 +2742,15 @@ const selTier = (v) => (v || '').startsWith(FACTORY_PREFIX)
     const j = await presetStore.load(sel.kind, sel.name);
     if (!j) { flash(e.target, 'EMPTY'); return; }
     try {
-      await bridge.applyState(j);
-      /* Prefill the name box with the bare name after loading a factory
-         preset, so "save a copy of this into my own presets" is one click --
-         which is the only route the read-only tier leaves open. */
-      if (sel.kind === 'factory' && name && !name.value)
-        name.value = sel.name.split('/').pop();
+      /* B174: the name goes to the SHELL in the same call as the values, so a
+         GUI reload, a save, an undo and a branch all still know which preset
+         this is. sel.name keeps its "category/name" form for the factory tier
+         — that IS the address the store loads by, and it is how syncPresetName
+         finds the file again to answer "edited?". The box shows the bare tail
+         (below), which is what a re-save would be called. */
+      await bridge.applyState(j, sel.name);
+      presetJsonCache.set(sel.name, j);
+      syncPresetName().catch(() => {});
       flash(e.target, 'LOADED');
     }
     catch (_) { flash(e.target, 'NO ENGINE'); }
@@ -2996,6 +3015,43 @@ async function syncCornerNames() {
     }
     r.star.hidden = !(n && dirty);
   }
+}
+/* B174: the GLOBAL preset's name FOLLOWS THE SHELL, the exact shape of
+   syncCornerNames above and for the same two reasons. The page cannot remember
+   it (no localStorage under the plugin's opaque origin, ADR-105 A2), and a
+   name the PAGE owns shows whatever was loaded last no matter which history
+   branch you are standing on — which is the defect the human reported. B186's
+   gauntlet proved the STATE was never contaminated (PR #703: the literal
+   scenario plus 120 seeds restore byte-identically), so the name moving with
+   the node is the whole fix.
+
+   The box stays EDITABLE — it is also where you type a name to save under — so
+   it is rewritten only when the SHELL's name CHANGES (a load, an undo, a
+   branch, a session restore), and never while it has focus. */
+let presetNameShown = null;
+async function syncPresetName() {
+  const box = document.getElementById('presetName'), star = document.getElementById('presetDirty');
+  if (!box || !star || !window.hzPresetName) return;
+  let n = '';
+  try { n = (await window.hzPresetName()) || ''; } catch (_) { return; }
+  if (n !== presetNameShown) {
+    presetNameShown = n;
+    /* The TAIL, not the address: the shell holds "category/name" for a factory
+       preset (that is what the store loads by), while the box shows what a
+       re-save would be called — SAVE refuses a '/', the factory tier being
+       read-only. Same prefill this button did inline before B174. */
+    if (document.activeElement !== box) box.value = n.split('/').pop();
+  }
+  let dirty = false;
+  if (n && window.hzPresetDirty) {
+    let j = presetJsonCache.get(n);
+    if (j === undefined) {
+      j = await presetStore.load(n.includes('/') ? 'factory' : 'presets', n);
+      presetJsonCache.set(n, j || '');
+    }
+    if (j) { try { dirty = !!(await window.hzPresetDirty(j)); } catch (_) {} }
+  }
+  star.hidden = !(n && dirty);
 }
 // The shape stages are per-osc: the wave follows the echoed params AND the
 // oscillator selector (whose click handler already repaints the pages).
@@ -4024,6 +4080,7 @@ function paintLive(ps) {
 }
 async function syncFromEngine() {
   syncCornerNames().catch(() => {});   // B122: names + asterisks follow the shell
+  syncPresetName().catch(() => {});    // B174: and so does the global preset's
   const ps = JSON.parse(await bridge.getParams());
   if (!globalIds) { learnOscLayout(ps); buildOscSelectors(); }
   Object.assign(lastParams, ps);

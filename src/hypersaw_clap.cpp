@@ -5752,6 +5752,116 @@ struct Plugin
     patchEngineRevision.store((int)r, std::memory_order_relaxed);
   }
 
+  /* B174: THE GLOBAL PRESET'S NAME, in the shell — the B122 corner mechanism
+     one level up, for the same two reasons.
+
+     (1) The PAGE cannot hold it. localStorage is unavailable under the
+     plugin's opaque origin (ADR-105 A2), so a name the GUI remembers dies with
+     the window: "I would like for the global preset to persist when you reload
+     the GUI, like the corner presets do" (human 2026-09-20).
+
+     (2) What is not shell state cannot ride a history snapshot, and that is
+     the bug the human actually hit — loading a preset on a second branch
+     appeared to switch the FIRST branch onto it. B186's gauntlet proved the
+     STATE was never contaminated (PR #703: the literal scenario plus 120 seeds
+     restore byte-identically); what moved was the DISPLAY, because the name
+     lived only in the page and the page shows whatever was loaded last, from
+     whichever branch you stand on. Storing it here is what makes the name
+     travel with the node.
+
+     "" = an unnamed patch: a fresh instance, one pasted in, or one saved
+     before this key existed. */
+  std::string presetName;
+  void setPresetName(const std::string &n)
+  {
+    presetName.clear();
+    /* The host chunk is LINE-based (state_save), so a newline inside a name
+       would make the rest of it look like the next key=value line. Control
+       characters are dropped rather than escaped — a preset name is a file
+       name, and none of them can appear in one. */
+    for (char c : n.substr(0, 60))
+      if ((unsigned char)c >= 0x20) presetName += c;
+  }
+
+  /* One reader for "the number this JSON gives for `needle`, or `def` when it
+     does not name the key". applyStateJson (what a load DOES) and
+     presetMatches (whether a load would CHANGE anything) have to agree down to
+     the absent-key rule, so they read through these four lines rather than
+     through two copies of them. Returns whether the key was present. */
+  static bool jsonNumber(const std::string &json, const std::string &needle, double def,
+                         double &out)
+  {
+    size_t pos = json.find(needle);
+    if (pos == std::string::npos) { out = def; return false; }
+    pos = json.find(':', pos + needle.size());
+    if (pos == std::string::npos) { out = def; return false; }
+    out = std::atof(json.c_str() + pos + 1);
+    return true;
+  }
+
+  // The string value of a top-level key, unescaped; "" when absent.
+  static std::string jsonString(const std::string &json, const std::string &needle)
+  {
+    const size_t kp = json.find(needle);
+    if (kp == std::string::npos) return "";
+    const size_t colon = json.find(':', kp + needle.size());
+    if (colon == std::string::npos) return "";
+    const size_t q0 = json.find('"', colon + 1);
+    if (q0 == std::string::npos) return "";
+    std::string out;
+    for (size_t i = q0 + 1; i < json.size() && json[i] != '"'; i++)
+    {
+      if (json[i] == '\\' && i + 1 < json.size()) i++;
+      out += json[i];
+    }
+    return out;
+  }
+
+  /* Would applying this patch JSON change the instrument? The GUI's asterisk,
+     and the global twin of cornerMatches — the same LAW, deliberately not a
+     second opinion: dirty is the shell's own answer to one question, so it
+     cannot disagree with a load the way a GUI-side "edited" flag can.
+
+     The BODY cannot be shared with cornerMatches, whose every line is the
+     morph slot array and its ADR-159 layout remap; a global patch is a
+     parameter key set, so this walks the key sets applyStateJson walks. What
+     IS shared is the rule that makes either of them honest: a key the preset
+     does not carry loads as its DEFAULT (B181 note 6), so it must READ as its
+     default to match — B124's uncarried-slot rule, one level up. */
+  bool presetMatches(const std::string &json) const
+  {
+    if (json.find("\"params\"") == std::string::npos) return false;
+    // Relative, because the parameter ranges here span 0..1 and 0..20000 alike
+    // and one absolute epsilon cannot be right for both.
+    auto same = [&](clap_id id, double want) {
+      return std::fabs(readParam(id) - want) <= 1e-9 * std::max(1.0, std::fabs(want));
+    };
+    double v = 0;
+    for (const auto &d : kParams)
+    {
+      if (d.id == 178) continue;   // ADR-147: applyStateJson skips it, so matching must too
+      jsonNumber(json, "\"" + std::string(d.coreKey) + "\"", defaultFor(d, 0), v);
+      if (!same(d.id, v)) return false;
+    }
+    for (const auto &b : kEngineBlocks)
+      for (uint32_t i = 0; i < b.count; i++)
+      {
+        jsonNumber(json, "\"" + std::string(b.keyPrefix) + b.defs[i].coreKey + "\"",
+                   defaultFor(b.defs[i], 0), v);
+        if (!same(b.defs[i].id, v)) return false;
+      }
+    for (uint32_t k = 1; k < kNumOsc; k++)
+      for (const auto &d : kParams)
+      {
+        if (isGlobalId(d.id)) continue;
+        char nb[64];
+        std::snprintf(nb, sizeof(nb), "\"o%u.%s\"", k, d.coreKey);
+        jsonNumber(json, nb, defaultFor(d, k), v);
+        if (!same((clap_id)(d.id + k * kOscStride), v)) return false;
+      }
+    return true;
+  }
+
   std::string stateJson() const
   {
     // The debug dump IS the preset format (ROADMAP Phase 2 design position):
@@ -5814,10 +5924,17 @@ struct Plugin
     // key and its bytes are what they were.
     const std::string intent = intentChunk();
     if (!intent.empty()) tail += ",\"intent\":\"" + intent + "\"";
+    // B174: which preset this patch came from. Emitted ONLY when non-empty —
+    // the `modRoutes`/`intent` rule above — so an unnamed patch writes no key
+    // and every chunk saved before this change is byte-for-byte what it was
+    // (bank_check's re-save identity and the B100 fixture corpus are the proof).
+    if (!presetName.empty()) tail += ",\"presetName\":\"" + jsonEscape(presetName) + "\"";
     return out + tail + "}";
   }
 
-  bool applyStateJson(const std::string &json)
+  /* `nameFromLoader` is the name of the preset being loaded, or "" to take the
+     patch's own (see the naming block at the end of this function). */
+  bool applyStateJson(const std::string &json, const std::string &nameFromLoader = "")
   {
     // Tolerant flat scan of our own schema: for each known coreKey, find
     // "key" and parse the number after the colon. Queued to the audio
@@ -5893,13 +6010,10 @@ struct Plugin
        `any` still means "the patch named at least one key we know", which is
        this function's return value and the host's success flag; a default
        restore is not evidence of that, so it deliberately does not set it. */
+    // B174: the absent-key rule lives in jsonNumber now, because presetMatches
+    // has to apply exactly this one to answer "would a load change anything?".
     auto valueOrDefault = [&](const std::string &needle, double def, double &out) {
-      size_t pos = json.find(needle);
-      if (pos == std::string::npos) { out = def; return false; }
-      pos = json.find(':', pos + needle.size());
-      if (pos == std::string::npos) { out = def; return false; }
-      out = std::atof(json.c_str() + pos + 1);
-      return true;
+      return jsonNumber(json, needle, def, out);
     };
     bool any = false;
     for (const auto &d : kParams)
@@ -5985,7 +6099,21 @@ struct Plugin
       enqueueParam(150, 1, 3);
       enqueueParam(1150, 1, 3);
     }
-    undoMark("load");   // B84: a preset load is ONE history node
+    /* B174 — THE NAME IS SET HERE, NOT BY A SECOND CALL AFTERWARDS.
+       B122's setCornerName amends a mark that is still PENDING, and PR #703
+       found the hole that leaves: let a GUI frame land between the load and
+       the naming and undoService takes the snapshot first, so the node records
+       the PREVIOUS name and the corner's identity is lost from history. There
+       is no such window here — the loader's name is an ARGUMENT, so the state
+       undoService will snapshot already carries it however late the pump
+       arrives. An empty argument defers to the patch's own key, which is how a
+       history restore (whose json IS a snapshot) gets its branch's name back;
+       a patch with no key at all is unnamed, never "whatever was loaded
+       before" — a load is a load, the same rule as the chunks above. */
+    setPresetName(nameFromLoader.empty() ? jsonString(json, "\"presetName\"") : nameFromLoader);
+    const std::string label =
+        presetName.empty() ? std::string("load") : "load \xe2\x86\x90 " + presetName;   // "←" as UTF-8
+    undoMark(label.c_str());   // B84: a preset load is ONE history node
     return any;
   }
 
@@ -8027,6 +8155,13 @@ bool state_save(const clap_plugin_t *p, const clap_ostream_t *stream)
   // fragment is opaque JSON on one line; the parser find()s its keys, so the
   // leading comma the fragment carries is harmless.
   blob += "morph=" + self(p)->morphJson() + "\n";
+  // B174: which preset this session is sitting on — the corner names have
+  // ridden the `morph=` line since B122 and the GLOBAL name had no such home,
+  // so reopening a project showed the right patch under the wrong name (or
+  // none). Emitted ONLY when non-empty, exactly as `routing=` below, so a
+  // session saved before names is byte-identical. setPresetName strips control
+  // characters, which is what keeps this one line one line.
+  if (!self(p)->presetName.empty()) blob += "presetname=" + self(p)->presetName + "\n";
   // ADR-138: generic mod routes ride the session. Emitted ONLY when routes
   // exist, so a routeless patch's bytes are unchanged and every existing
   // state round-trip stays exactly what it was. Old builds ignore the key.
@@ -8110,6 +8245,10 @@ bool state_load(const clap_plugin_t *p, const clap_istream_t *stream)
   // B89 phase 2b, same rule: a chunk with no `intent=` key was saved unbound
   // (or predates the bus), so it loads unbound.
   pl->applyIntentChunk("");
+  // B174, same rule: a chunk with no `presetname=` key was saved before names
+  // existed (or by a patch that had none), so it loads UNNAMED — a stale name
+  // outliving the values it described is exactly the display bug this closes.
+  pl->setPresetName("");
   // B100: a chunk without the header predates it and is revision 1 by
   // definition; a present `engine_revision=` line below overrides this.
   pl->setEngineRevision(1);
@@ -8146,6 +8285,11 @@ bool state_load(const clap_plugin_t *p, const clap_istream_t *stream)
     if (key == "intent")      // ADR-176: intent bindings/ranges/homes/names
     {
       pl->applyIntentChunk(line.substr(eq + 1));
+      continue;
+    }
+    if (key == "presetname")  // B174: the global preset's name
+    {
+      pl->setPresetName(line.substr(eq + 1));
       continue;
     }
     /* ADR-147: the specimen's visibility is a GUI preference, NOT patch state,
@@ -8507,6 +8651,21 @@ extern "C" bool hypersaw_debug_apply(const clap_plugin_t *p, const char *json)
 {
   return self(p)->applyStateJson(json ? json : "");
 }
+/* B174: the GUI's LOAD button, whose one call both applies the patch and says
+   which preset it is — the window-free path (see applyStateJson's naming
+   block). A separate export rather than a third argument on the one above
+   because that one's C ABI is held by a dozen tools. */
+extern "C" bool hypersaw_debug_apply_named(const clap_plugin_t *p, const char *json,
+                                           const char *name)
+{
+  return self(p)->applyStateJson(json ? json : "", name ? name : "");
+}
+/* B174: true iff applying `json` would leave the patch exactly as it is — the
+   GUI's asterisk, headless. */
+extern "C" bool hypersaw_debug_presetmatches(const clap_plugin_t *p, const char *json)
+{
+  return self(p)->presetMatches(json ? json : "");
+}
 /* B100: the patch's pinned engine revision. */
 extern "C" int hypersaw_debug_engine_revision(const clap_plugin_t *p)
 {
@@ -8711,7 +8870,12 @@ bool gui_create(const clap_plugin_t *p, const char *api, bool is_floating)
   hostIf.getHostHint = [pl]() { return pl->hostHint(); };
   hostIf.setVizOsc = [pl](uint32_t k) { pl->vizOsc.store(k, std::memory_order_relaxed); };
   hostIf.getStateJson = [pl]() { return pl->stateJson(); };
-  hostIf.applyStateJson = [pl](const std::string &s) { return pl->applyStateJson(s); };
+  hostIf.applyStateJson = [pl](const std::string &s, const std::string &n) {
+    return pl->applyStateJson(s, n);
+  };
+  hostIf.presetNameGet = [pl]() { return pl->presetName; };                              // B174
+  hostIf.presetSetName = [pl](const std::string &n) { pl->setPresetName(n); };           // B174
+  hostIf.presetMatches = [pl](const std::string &j) { return pl->presetMatches(j); };    // B174
   hostIf.undoService = [pl]() { pl->undoService(); };
   hostIf.undoTreeJson = [pl]() { return pl->undoTreeJson(); };
   hostIf.undoRestore = [pl](int i) { return pl->undoGoTo(i); };
