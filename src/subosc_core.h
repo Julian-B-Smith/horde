@@ -128,7 +128,16 @@ class SubOscCore
       // dominates and the shape stops reading as a sub at all.
       {"bumpAmt", 0, 0.6, 0, 0.35},
       {"bumpPhase", -3.141592653589793, 3.141592653589793, 0, -0.25},
-      {"octave", -2, 0, 1, -1},
+      /* B181 note 1 (human 2026-09-20: "Sub should be able to reach 3 octaves
+         below"). ONLY THE FLOOR MOVED — the default stays -1, so every stored
+         patch renders bit-identically and nothing existing changes meaning.
+         At -3 the lowest reachable fundamental is MIDI 0 less 36 semitones =
+         1.02197 Hz: the phase increment there is 2.3e-5 at 44.1 kHz, six
+         orders above the f32 normal floor, the tone stage and the BUMP peak
+         search are both independent of f0, and the 0.49*sr increment cap only
+         ever clamps the OTHER end. Measured, not assumed — subosc_check's
+         bottom-octave row. */
+      {"octave", -3, 0, 1, -1},
       {"semis", -12, 12, 1, 0},
       {"fine", -100, 100, 0, 0},
       {"level", 0, 1, 0, 0.8},

@@ -125,7 +125,8 @@ landed 2026-09-19.
 `freq = mtof(base + 12·octave + semitones) · 2^(fine/1200)`, where
 `base = midi` if keytrack is on and **C2 (MIDI 36)** if it is off.
 
-- Octave is **{−2, −1, 0}** — a sub goes down, never up. Default −1.
+- Octave is **{−3, −2, −1, 0}** — a sub goes down, never up. Default −1.
+  (−3 added 2026-09-20, B181 note 1; §7 records why the widening is bit-inert.)
 - Semitones ±12, fine ±100 cents.
 - The frequency is capped just under Nyquist so no combination of offsets can
   run the phase backwards.
@@ -197,7 +198,7 @@ waits on the per-oscillator sources increment and the human's id-layout ruling.
 | `subosc.width` | `width` | 0.05 – 0.95 | 0.5 | morphable | ✓ | pulse only; 0.5 ≡ square |
 | `subosc.bumpAmt` | `bumpAmt` | 0 – 0.6 | 0.35 | morphable | ✓ | bump only; the third harmonic's level `a`. Two lobes need a > 1/9; above 0.6 the harmonic dominates and it stops reading as a sub. **A shape control, not a level control** — peak normalisation (R7) holds the output at full scale across the whole range |
 | `subosc.bumpPhase` | `bumpPhase` | −π – π rad | −0.25 | morphable | ✓ | bump only; the third harmonic's phase `φ`. **The sign decides which bump leads** — negative leads with the big one |
-| `subosc.octave` | `octave` | −2, −1, 0 | −1 | structural | – | a sub goes down only |
+| `subosc.octave` | `octave` | −3, −2, −1, 0 | −1 | structural | – | a sub goes down only. **−3 added 2026-09-20** on the human's request (B181 note 1); the default is unchanged, so the widening is bit-inert for every stored patch. At −3 the floor is MIDI 0 → 1.02197 Hz — inaudible, but the maths is clean there (phase increment 2.3e-5 at 44.1 kHz, six orders above the f32 normal floor; the tone stage and the BUMP peak search do not depend on f0) |
 | `subosc.semis` | `semis` | ±12 st | 0 | structural | – | stepped by definition |
 | `subosc.fine` | `fine` | ±100 c | 0 | morphable | ✓ | |
 | `subosc.level` | `level` | 0 – 1 | 0.8 | morphable | ✓ | 0 is exact silence |

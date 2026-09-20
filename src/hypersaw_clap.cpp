@@ -1236,7 +1236,7 @@ static constexpr ParamDef kSubOscParams[] = {
     {4002, "bumpAmt", "SUB Bump Amount", 0, 0.6, 0.35, false, nullptr},
     {4003, "bumpPhase", "SUB Bump Phase", -3.141592653589793, 3.141592653589793, -0.25, false,
      nullptr},
-    {4004, "octave", "SUB Octave", -2, 0, -1, true, nullptr},
+    {4004, "octave", "SUB Octave", -3, 0, -1, true, nullptr},   // B181 note 1: floor -2 -> -3
     {4005, "semis", "SUB Semitones", -12, 12, 0, true, nullptr},
     {4006, "fine", "SUB Fine", -100, 100, 0, false, nullptr},
     {4007, "level", "SUB Level", 0, 1, 0.8, false, nullptr},

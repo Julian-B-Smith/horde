@@ -1035,6 +1035,79 @@ int main(int argc, char **argv)
         "|bump - sine| = %.2e", std::fabs(pkBump - pkSine));
   }
 
+  /* ============= 7b. THE BOTTOM OCTAVE (B181 note 1: octave floor -2 -> -3)
+     A WIDENED RANGE IS ZERO COVERAGE UNLESS SOMETHING ASKS ABOUT IT (L0031
+     (B)): the goldens now carry two -3 scenarios, but parity certifies only
+     AGREEMENT with the lab — it cannot see a shared defect, and "1.02 Hz is
+     fine" is exactly the kind of claim a shared implementation would confirm
+     for both sides. So the floor is asserted here against absolutes instead:
+     finiteness, no subnormals, and a peak still under the shell row's headroom
+     divisor. THE DEFAULT IS ALSO PINNED — the widening was sanctioned as a
+     floor move, and a default that drifted with it would silently re-pitch
+     every stored patch. */
+  head("B181 note 1: the -3 floor — 1.02 Hz at MIDI 0, and the default did not move");
+  {
+    row(SubOscCore::kParamTable[SubOscCore::kOctave].min == -3 &&
+            SubOscCore::kParamTable[SubOscCore::kOctave].max == 0 &&
+            SubOscCore::kParamTable[SubOscCore::kOctave].def == -1,
+        "octave is [-3, 0] with the default STILL -1 (bit-inertness of the widening)",
+        "min %.0f", SubOscCore::kParamTable[SubOscCore::kOctave].min);
+    {
+      SubOscCore c = make(44100, {{SubOscCore::kOctave, -3}});
+      c.noteOn(0, 1);
+      // 440 * 2^((0 - 36 - 69)/12). Closed form, not a number copied off a run.
+      const double want = 440 * std::pow(2.0, (0.0 - 36.0 - 69.0) / 12.0);
+      row(std::fabs(c.freqHz() - want) < 1e-12 && c.freqHz() > 1.0 && c.freqHz() < 1.05,
+          "the lowest fundamental the module can be asked for is 1.02197 Hz", "%.6f Hz",
+          c.freqHz());
+    }
+    // Every shape, two seconds each with the note released half way, at the
+    // floor and at full level: the release tail is where a 2.3e-5 phase
+    // increment would park the filter state in the subnormal range.
+    constexpr float kF32Min = 1.1754943508222875e-38f;
+    double worstPeak = 0;
+    long subn = 0, nonFinite = 0;
+    for (int w = 0; w < SubOscCore::kWaveCount; w++)
+    {
+      SubOscCore c = make(44100, {{SubOscCore::kWave, (double)w},
+                                  {SubOscCore::kOctave, -3},
+                                  {SubOscCore::kLevel, 1},
+                                  {SubOscCore::kRelease, 1.0}});
+      c.noteOn(0, 1);
+      for (int b = 0; b < 172; b++)   // 172 * 512 = 88 064 samples = 2.0 s
+      {
+        if (b == 43) c.noteOff();
+        for (float v : pull(c, 512))
+        {
+          if (!std::isfinite(v)) nonFinite++;
+          const float a = std::fabs(v);
+          if (a > 0 && a < kF32Min) subn++;
+          worstPeak = std::max(worstPeak, (double)a);
+        }
+      }
+    }
+    row(nonFinite == 0 && subn == 0,
+        "at the floor every shape stays finite and never enters the subnormal range",
+        "non-finite + subnormal samples = %.0f", (double)(nonFinite + subn));
+    // The shell row divides by 1.425 so a sub at level 1 cannot reach the rail
+    // (renderSubSpan's kSubRowHeadroomPeak). The new floor must not breach the
+    // constant that bound was measured for.
+    row(worstPeak < 1.425,
+        "the floor does not breach the shell row's headroom divisor (1.425)",
+        "worst peak over all seven shapes %.6f", worstPeak);
+    /* CONTROL, and it is the must-read-differently half (L0032): the SAME scan
+       one octave up must give a DIFFERENT peak set. Without it these rows would
+       pass for a core that silently clamped -3 back to -2 — the exact failure
+       the widening could have. */
+    {
+      SubOscCore lo = make(44100, {{SubOscCore::kOctave, -3}}), hi = make(44100, {{SubOscCore::kOctave, -2}});
+      lo.noteOn(36, 1);
+      hi.noteOn(36, 1);
+      row(std::fabs(lo.freqHz() * 2 - hi.freqHz()) < 1e-12 && lo.freqHz() != hi.freqHz(),
+          "CONTROL -3 is an octave BELOW -2, not -2 clamped", "%.6f Hz at -3", lo.freqHz());
+    }
+  }
+
   // ====================== 8. the polyBLEP correction is present in THIS build
   head("§3/§10.1 the polyBLEP is in this build (Goertzel, not the lab's FFT — see the header)");
   {
