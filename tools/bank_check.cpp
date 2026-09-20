@@ -373,7 +373,7 @@ int main(int argc, char **argv)
     // D: cornerNames name shipped corner presets, and the corners agree
     const std::vector<std::string> names = cornerNamesOf(blob);
     check(names.size() == 4, tag + ": carries cornerNames");
-    check(blob.find("\"morphLayout\":5") != std::string::npos, tag + ": carries morphLayout 5");   // 5 since B23 increment 3 (the ADR-088 routing renumbering moved the block's slot positions); 4 = B50 phase 1c; 3 = phase 1
+    check(blob.find("\"morphLayout\":6") != std::string::npos, tag + ": carries morphLayout 6");   // PIN MOVED BY B172: the SUB OSC engine block's morphable ids append after the routing block, so the corner array's order changed. 5 = B23 increment 3 (the ADR-088 routing renumbering moved the block's slot positions); 4 = B50 phase 1c; 3 = phase 1
     check(blob.find("\"schema\":3") != std::string::npos, tag + ": carries the state header");
     for (size_t k = 0; k < names.size(); k++)
     {

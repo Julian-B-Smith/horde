@@ -197,10 +197,21 @@ int main()
      internals; it is a bound, not a second decoder — every cell's membership
      still comes from the host's own id list. */
   constexpr uint32_t kRoutingIdBase = 10000;
-  int twinsChecked = 0;
+  /* ADR-088's reserved ENGINE span, restated here for the same reason
+     kRoutingIdBase is: this tool links the entry, not the shell's internals.
+     PIN MOVED BY B172, and TIGHTENED rather than relaxed. The twin scan below
+     used to read "1000 <= id < kRoutingIdBase", which was an accurate
+     description of the id space only while the oscillator twins were the ONLY
+     thing in it. The SUB OSC block (4000..4015) is not a twin of anything —
+     `classOf(4000 - 1000)` names id 3000, which no build declares — so the old
+     bound made the assertion ask a question with no answer and fail. A twin is
+     an id in an OSCILLATOR block; that is what the bound now says. */
+  constexpr uint32_t kEngineIdLo = 3000;
+  int twinsChecked = 0, engineIds = 0;
   bool twinsAgree = true;
   for (uint32_t id : allIds)
   {
+    if (id >= kEngineIdLo && id < kRoutingIdBase) { engineIds++; continue; }
     if (id < 1000 || id >= kRoutingIdBase) continue;   // routing ids are not twins
     twinsChecked++;
     if (classOf(id) != classOf(id - 1000)) twinsAgree = false;
@@ -210,6 +221,15 @@ int main()
             " twins; true by construction — they share one ParamDef)");
   check(hypersaw_debug_paramclass(1151, nullptr, nullptr) == -1,
         "T4r REFUSAL: a global's +1000 twin is not a parameter and gets no class");
+  /* B172, and it PINS THE REFUSAL the bound above encodes (L0036): an engine
+     block occupies the band but is not a twin, and `id - 1000` inside it names
+     nothing. Asserting that 3000 is not a parameter is what stops the tightened
+     bound from quietly becoming "skip whatever is inconvenient" — if an engine
+     block is ever given a 3000-aliasing twin, this row goes red. */
+  check(engineIds > 0, "T4e the engine-block band is populated (" + std::to_string(engineIds) +
+                           " ids) — the bound above is skipping something real");
+  check(hypersaw_debug_paramclass(kEngineIdLo, nullptr, nullptr) == -1,
+        "T4f REFUSAL: an unclaimed id in the engine band is not a parameter");
 
   bool fxOk = true;
   for (int slot = 0; slot < 4; slot++)

@@ -53,10 +53,24 @@ int main() {
      ids >= 10000), so a stray insertion still fails here. */
   bool prefixOk = live.size() >= frozen.size() + 2;
   for (size_t i = 0; prefixOk && i < frozen.size(); i++) prefixOk = live[i] == frozen[i];
+  /* PIN MOVED BY B172, and it admits TWO bands now, not one. Until B172 the
+     only appended block was the routing cells (ids >= 10000), so "everything
+     after the prefix is >= 10000" was an accurate statement of the invariant.
+     ADR-088 also reserves 3000..9999 for ENGINE blocks, and the SUB OSC's
+     morphable rows (4000..4014) append after the routing block — STATION's
+     3000-block lands in the same band (B162), which is why the bound is the
+     band and not the one engine. The invariant is unchanged and still has
+     teeth: a stray INSERTION lands inside the frozen prefix and fails above,
+     and an appended id below 3000 (an instrument row that skipped
+     buildMorphOrder) still fails here. */
   bool tailOk = true;
-  for (size_t i = frozen.size() + 2; i < live.size(); i++) tailOk = tailOk && std::atoi(live[i].c_str()) >= 10000;
+  for (size_t i = frozen.size() + 2; i < live.size(); i++)
+  {
+    const int id = std::atoi(live[i].c_str());
+    tailOk = tailOk && id >= 3000;   // engine blocks 3000..9999, routing >= 10000
+  }
   expect(prefixOk && live[frozen.size()] == "181" && live[frozen.size() + 1] == "1181", "T1 frozen 222-entry prefix, then 181/1181");
-  expect(tailOk, "T1b everything after the ADR-159 prefix is an appended block (ids >= 10000)");
+  expect(tailOk, "T1b everything after the ADR-159 prefix is an appended block (routing ids >= 10000 or an ADR-088 engine block, 3000..9999)");
   auto idx = [&](const std::vector<std::string> &o, const char *id) { return (size_t)(std::find(o.begin(), o.end(), id) - o.begin()); };
   // T2: 222-entry layout-1 array, 120.5 at the frozen slot of 107
   { std::vector<double> a(222, 0.0); a[idx(frozen, "107")] = 120.5; a[idx(frozen, "4")] = 0.31;
