@@ -83,6 +83,10 @@ static const DepCond kDep229[] = {{63, 7}, {63, 8}};
 static const DepCond kDep226[] = {{63, 7}, {63, 8}};
 static const DepCond kDep99[] = {{63, 5}};
 static const DepCond kDep33[] = {{137, 0}, {138, 3}};
+static const DepCond kDep272[] = {{271, 1}};
+static const DepCond kDep269[] = {{271, 0}};
+static const DepCond kDep278[] = {{277, 1}};
+static const DepCond kDep275[] = {{277, 0}};
 static const DepCond kDep155[] = {{151, 1}};
 static const DepCond kDep158[] = {{151, 1}};
 static const DepCond kDep157[] = {{151, 1}};
@@ -198,6 +202,10 @@ static const DepRule kDepRules[] = {
   {226, kDep226, 2},
   {99, kDep99, 1},
   {33, kDep33, 2},
+  {272, kDep272, 1},
+  {269, kDep269, 1},
+  {278, kDep278, 1},
+  {275, kDep275, 1},
   {155, kDep155, 1},
   {158, kDep158, 1},
   {157, kDep157, 1},
@@ -241,5 +249,5 @@ static const DepRule kDepRules[] = {
   {126, kDep126, 4},
   {116, kDep116, 3},
 };
-static const int kNumDepRules = 114;
+static const int kNumDepRules = 118;
 }  // namespace hypersaw
