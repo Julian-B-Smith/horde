@@ -6317,3 +6317,16 @@ main and the plugin installed at that hash. The lead reports the moment
 (a) holds; (b)–(d) hold as of this ADR. An Opus lead follows CLAUDE.md,
 the ROADMAP's rows in the order above, and the dispatch rules the
 LIBRARY carries (L0051–L0057); nothing depends on this session's memory.
+
+### ADR-166 Amendment 6 — Sluice's macro shape has SHIPPED (their D-046, gates G-69/G-70); addendum landed (2026-09-20)
+
+Sluice appended a "shipped" addendum to their seq-5 notice in our mailbox
+(`integrations/sluice/notice-preset-macros.md`), a visitor write under the
+INTEGRATIONS exception; committing it is our resident act. Three details
+for horde's mapping of module macros (ADR-169): targets include the bus
+(`fb:gain`, `fb:damp`, `fb:width`) and `mix`; `curve` is `'lin'`, `'log'`
+or a breakpoint list (piecewise-linear, x ascending in [0, 1]); the macro
+`value` is stored in the preset and gated consistent with the stored
+params, so it can be read as "where this preset sits". Still a
+recommendation, not a contract; nothing asked; ball none. Consumed when
+the module-macro tiers are built (ADR-169 PROPOSED, B50's rack).
