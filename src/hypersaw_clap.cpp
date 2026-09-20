@@ -1228,6 +1228,9 @@ struct EngineBlock
    derivation evaluated at the one place that knows the step. */
 static const char *const kSubWaveLabels[] = {"sine",  "triangle", "square", "saw",
                                              "pulse", "noise",    "bump"};
+// B181 note 2: which held key the sub's own mono follows. "lowest" first, so
+// it is the default by the table's own order.
+static const char *const kSubBiasLabels[] = {"lowest", "highest", "last"};
 constexpr uint32_t kSubOscIdBase = 4000;
 constexpr clap_id kSubOscOnId = 4015;
 static constexpr ParamDef kSubOscParams[] = {
@@ -1236,7 +1239,7 @@ static constexpr ParamDef kSubOscParams[] = {
     {4002, "bumpAmt", "SUB Bump Amount", 0, 0.6, 0.35, false, nullptr},
     {4003, "bumpPhase", "SUB Bump Phase", -3.141592653589793, 3.141592653589793, -0.25, false,
      nullptr},
-    {4004, "octave", "SUB Octave", -2, 0, -1, true, nullptr},
+    {4004, "octave", "SUB Octave", -3, 0, -1, true, nullptr},   // B181 note 1: floor -2 -> -3
     {4005, "semis", "SUB Semitones", -12, 12, 0, true, nullptr},
     {4006, "fine", "SUB Fine", -100, 100, 0, false, nullptr},
     {4007, "level", "SUB Level", 0, 1, 0.8, false, nullptr},
@@ -1256,26 +1259,71 @@ static constexpr ParamDef kSubOscParams[] = {
        keyed on the key finds the wrong one. The block's address prefix
        (`sub.`) is what disambiguates; see src/param_presentation.tsv. */
     {4015, "on", "SUB On", 0, 1, 0, true, kOffOn},
+    /* ---- SHELL ROWS, ABOVE THE GATE (B181 notes 2 and 4) -------------------
+       Everything from here up is the SHELL's, not the core's: voice assignment
+       and glide are the shell's job for the swarm too (`voiceMono`,
+       `voiceLegato`, the `glide` lane), and SubOscCore stays what its header
+       says it is — a single-voice renderer that holds one note.
+
+       They sit ABOVE the gate rather than interleaved because the block's id
+       map is POSITIONAL below it: `id - 4000` IS SubOscCore::Param for every id
+       under 4015, and subOscRowsAgreeWithCore proves it at compile time. A
+       shell row inserted among them would break that identity silently.
+
+       EVERY DEFAULT IS THE INERT ONE. mono off, glide 0 s, pitch mod 0 st —
+       so a patch that says nothing about them renders exactly as it did before
+       they existed, which subosc_check's 11g control measures rather than
+       assumes. */
+    {4016, "mono", "SUB Mono", 0, 1, 0, true, kOffOn},
+    /* WHICH held key the mono sub follows. "lowest" is the human's own word
+       and is therefore the default; the other two cost one line each at the
+       pick site, so refusing them would have been a choice rather than a
+       saving. */
+    {4017, "bias", "SUB Mono Bias", 0, 2, 0, true, kSubBiasLabels},
+    /* SECONDS, and converted per sample rate at the one place that knows it
+       (renderSubSpan) — ADR-009: there is not a per-tick constant here. Range
+       matched to the instrument's own `glide` lane (id 33) so the two knobs
+       mean the same thing. 0 = off, which is a SNAP, not a very fast ramp. */
+    {4018, "glide", "SUB Glide (s)", 0, 2.0, 0, false, nullptr},
+    /* THE PITCH-ENVELOPE DESTINATION (note 4). `fine` already routes — it is
+       continuous, it is in the block, and nothing refuses it — so the gap the
+       human hit is RANGE: +/-100 cents is one semitone, which is not a pitch
+       envelope. This is a DEDICATED offset rather than a widening of `fine`,
+       so `fine` keeps its meaning and every stored value of it keeps its
+       pitch. +/-48 st is the instrument's own pitch route's range (ADR-135's
+       clamp in modStep), so the two pitch surfaces agree on what "full" is. */
+    {4019, "pitchMod", "SUB Pitch Mod (st)", -48, 48, 0, false, nullptr},
 };
 constexpr uint32_t kSubOscParamCount = (uint32_t)(sizeof(kSubOscParams) / sizeof(kSubOscParams[0]));
+// The first id above the gate; everything from here up is a shell row and has
+// no SubOscCore::Param behind it. Named once, because three sites ask.
+constexpr clap_id kSubShellIdBase = 4016;
 
-// THE PROOF, not the promise. Every row against SubOscCore::kParamTable.
+/* THE PROOF, not the promise. Rows 0..kParamCount-1 against
+   SubOscCore::kParamTable, the gate at kParamCount, and shell rows above it.
+   Generalised for B181: the claim was "the block is the core table plus a
+   gate"; it is now "the block OPENS with the core table, then the gate, then
+   shell rows" — the same positional identity over the same span, with room
+   above it. Weakening it would have meant dropping the per-row comparison;
+   nothing there changed. */
 constexpr bool subOscRowsAgreeWithCore()
 {
   using Core = hypersaw::SubOscCore;
-  if (kSubOscParamCount != (uint32_t)Core::kParamCount + 1) return false;
+  if (kSubOscParamCount < (uint32_t)Core::kParamCount + 1) return false;
+  for (uint32_t i = 0; i < kSubOscParamCount; i++)
+    if (kSubOscParams[i].id != (clap_id)(kSubOscIdBase + i)) return false;
   for (int i = 0; i < Core::kParamCount; i++)
   {
     const ParamDef &d = kSubOscParams[i];
     const Core::ParamSpec &s = Core::kParamTable[i];
-    if (d.id != (clap_id)(kSubOscIdBase + i)) return false;
     if (d.minV != s.min || d.maxV != s.max || d.defV != s.def) return false;
     if (d.stepped != (s.step != 0)) return false;      // ADR-173's derivation
     const char *a = d.coreKey, *b = s.key;             // same address, same row
     while (*a && *a == *b) { a++; b++; }
     if (*a != 0 || *b != 0) return false;
   }
-  return kSubOscParams[Core::kParamCount].id == kSubOscOnId;
+  return kSubOscParams[Core::kParamCount].id == kSubOscOnId &&
+         kSubOscIdBase + (uint32_t)Core::kParamCount + 1 == (uint32_t)kSubShellIdBase;
 }
 static_assert(subOscRowsAgreeWithCore(),
               "kSubOscParams disagrees with SubOscCore::kParamTable — the core table is "
@@ -1679,20 +1727,121 @@ struct Plugin
                                  -1, -1, -1, -1, -1, -1, -1, -1};
   double subOn = 0;   // the block's gate (id 4015), DEVICE class, ships off
 
+  /* ---- THE SUB'S OWN MONO, BIAS AND GLIDE (B181 note 2) -------------------
+     The human: "Sub should have its own mono toggle, with 'lowest' as the MIDI
+     bias and a simple glide knob."
+
+     SHELL-SIDE, NOT IN THE CORE, and that is the same division the swarm
+     already uses: `voiceMono` / `voiceLegato` / the `glide` lane are all the
+     shell's, and SwarmCore does not know it is being played monophonically.
+     SubOscCore likewise stays what its header declares — one note, one phase,
+     one envelope — and the only thing this adds to it is a pitch INPUT.
+
+     THE HELD STACK IS THE SUB'S OWN, fed by subNoteOn / subNoteOff, which
+     every lifecycle path already funnels through (noteOffAll, allOffAll). Last
+     entry = most recent, so `last` is the back, `lowest`/`highest` are a scan.
+     Same 16-entry bound and same DROP-OLDEST rule as the swarm's heldStack
+     (ADR-126) — including its stated cost, that an evicted key's later
+     note-off matches nothing.
+
+     ONE SOUNDING SLOT, AND IT IS SLOT 0. Mono means one note, so only slot 0
+     is ever struck while `subMono` is on; the other fifteen are idle (their
+     envelopes are at 0 and their filter states were cleared by subAllOff when
+     the toggle moved), so they render exact silence into the sum. */
+  double subMono = 0, subBias = 0, subGlide = 0;   // ids 4016 / 4017 / 4018
+  double subPitchMod = 0;                          // id 4019 (note 4)
+  int subHeld[hypersaw::kPoly];
+  int subHeldCount = 0;
+  int subStruckKey = -1;    // the key slot 0 was STRUCK at; the glide's origin
+  // Semitones relative to subStruckKey. `cur` is what reaches the core, `to`
+  // is where it is heading, `rate` is st/s — set at every retarget from the
+  // remaining distance and the glide TIME, so a glide always takes `subGlide`
+  // seconds whatever the interval.
+  double subGlideCur = 0, subGlideTo = 0, subGlideRate = 0;
+
+  int subBiasPick() const
+  {
+    if (subHeldCount <= 0) return -1;
+    if (subBias >= 2) return subHeld[subHeldCount - 1];        // last
+    int best = subHeld[0];
+    for (int i = 1; i < subHeldCount; i++)
+      if (subBias >= 1 ? subHeld[i] > best : subHeld[i] < best) best = subHeld[i];
+    return best;                                               // highest / lowest
+  }
+  void subGlideAim(int key)
+  {
+    if (subStruckKey < 0) return;
+    subGlideTo = (double)(key - subStruckKey);
+    if (subGlide <= 0) { subGlideCur = subGlideTo; subGlideRate = 0; return; }
+    const double span = subGlideTo - subGlideCur;
+    subGlideRate = (span < 0 ? -span : span) / subGlide;   // st per second
+  }
+  // MONO NOTE-ON: push, then follow the bias. A sub already sounding GLIDES to
+  // the new pick and is NOT re-struck — a re-strike would reset the phase and
+  // the AR, which is audibly the opposite of a glide.
+  void subMonoNoteOn(int key, double vel)
+  {
+    for (int i = 0; i < subHeldCount; i++)   // a key cannot be held twice
+      if (subHeld[i] == key)
+      {
+        for (int j = i; j < subHeldCount - 1; j++) subHeld[j] = subHeld[j + 1];
+        subHeldCount--;
+        break;
+      }
+    if (subHeldCount < hypersaw::kPoly) subHeld[subHeldCount++] = key;
+    else
+    {
+      for (int j = 0; j + 1 < hypersaw::kPoly; j++) subHeld[j] = subHeld[j + 1];
+      subHeld[hypersaw::kPoly - 1] = key;
+    }
+    const int want = subBiasPick();
+    if (want < 0) return;
+    if (subStruckKey < 0)
+    {
+      subStruckKey = want;
+      subGlideCur = subGlideTo = subGlideRate = 0;
+      subs[0].noteOn(want, vel);
+      subKey[0] = want;
+      return;
+    }
+    subGlideAim(want);
+  }
+  void subMonoNoteOff(int key)
+  {
+    int w = 0;
+    for (int i = 0; i < subHeldCount; i++)
+      if (subHeld[i] != key) subHeld[w++] = subHeld[i];
+    subHeldCount = w;
+    const int want = subBiasPick();
+    if (want < 0)
+    {
+      subs[0].noteOff();
+      subKey[0] = -1;
+      subStruckKey = -1;         // the next press strikes rather than glides
+      return;
+    }
+    subGlideAim(want);
+  }
   void subNoteOn(int slot, int key, double vel)
   {
+    if (subMono != 0) { subMonoNoteOn(key, vel); return; }
     if (slot < 0 || slot >= hypersaw::kPoly) return;
     subs[slot].noteOn(key, vel);
     subKey[slot] = key;
   }
   void subNoteOff(int key)
   {
+    if (subMono != 0) { subMonoNoteOff(key); return; }
     for (int s = 0; s < hypersaw::kPoly; s++)
       if (subKey[s] == key) { subs[s].noteOff(); subKey[s] = -1; }
   }
   void subAllOff()
   {
     for (int s = 0; s < hypersaw::kPoly; s++) { subs[s].allOff(); subKey[s] = -1; }
+    subHeldCount = 0;
+    subStruckKey = -1;
+    subGlideCur = subGlideTo = subGlideRate = 0;
+    for (auto &c : subs) c.pitchOffsetSt = 0;
   }
   // One write per id, from the block's positional mapping: id - base IS the
   // core's enum index (see kSubOscParams). No switch, so a row added to the
@@ -1709,12 +1858,46 @@ struct Plugin
       subOn = v;
       return;
     }
+    /* THE SHELL ROWS (B181), handled BEFORE the positional map — `id - 4000`
+       for 4016 would be 16, one past SubOscCore::Param, and setParam would
+       read off the end of the core's table. The order is the safety. */
+    if ((uint32_t)id >= (uint32_t)kSubShellIdBase)
+    {
+      switch ((uint32_t)id)
+      {
+        case 4016:
+          /* Same reasoning as the gate one branch up (ADR-099 A1): crossing
+             the mono boundary must SILENCE, not freeze. Fifteen slots holding
+             notes when mono comes on would keep sounding for ever (mono only
+             ever releases slot 0), and slot 0's glide state would outlive its
+             note when mono goes off. */
+          if (v != subMono) subAllOff();
+          subMono = v;
+          return;
+        case 4017: subBias = v; return;
+        case 4018:
+          subGlide = v;
+          // Re-aim rather than re-time: a knob moved mid-glide changes how
+          // long the REST of the journey takes, which is what a player means.
+          if (subStruckKey >= 0) subGlideAim(subStruckKey + (int)subGlideTo);
+          return;
+        default: subPitchMod = v; return;   // 4019
+      }
+    }
     const int i = (int)((uint32_t)id - kSubOscIdBase);
     for (auto &c : subs) c.setParam((hypersaw::SubOscCore::Param)i, v);
   }
   double subGetParam(clap_id id) const
   {
     if (id == kSubOscOnId) return subOn;
+    if ((uint32_t)id >= (uint32_t)kSubShellIdBase)
+      switch ((uint32_t)id)
+      {
+        case 4016: return subMono;
+        case 4017: return subBias;
+        case 4018: return subGlide;
+        default: return subPitchMod;   // 4019
+      }
     return subs[0].param((hypersaw::SubOscCore::Param)((uint32_t)id - kSubOscIdBase));
   }
   /* ONE LOGICAL NOTE, N PHYSICAL VOICES — and the mapping is now CONSTRUCTED,
@@ -4971,6 +5154,63 @@ struct Plugin
      one (band-limiting is inaudible to the eye at this size), and roundness is
      shown at its knob value — the per-voice roundHi pitch scaling varies by
      note, which a single static cycle cannot show. */
+  /* ---- THE SUB'S CYCLE, DRAWN BY THE ENGINE (B181 note 3) -----------------
+     The human: "Sub needs a visualizer to see the shape."
+
+     PUBLISHED, NOT RE-DERIVED IN JS, and that choice is the whole design. The
+     GUI already computes the LFO shape independently of the shell (B177) and
+     this repo has a recorded scar for the same mistake (ADR-110: "when they
+     were two copies, any edit to one was a map that lied about the sound"). A
+     display that disagrees with the sound is a confident wrong answer, and
+     the only structural cure is that there is nothing to disagree WITH — so
+     this calls SubOscCore::shapeAt, which is the SAME function render() calls
+     per sample, and the GUI draws the numbers it is handed.
+
+     THE BAND-LIMITING IS REAL. `dph` is the core's own running phase
+     increment, so the polyBLEP correction in the drawing is the correction in
+     the sound: a pulse at a high note visibly rounds its edges, exactly as it
+     does audibly. The bump's normaliser comes from the core's own bounded
+     search, so the two-lobe silhouette is drawn at the amplitude it sounds at.
+
+     Noise draws from a LOCAL stream seeded with `seed`, which is the first N
+     draws a note-on would make (the core re-seeds per note — audit A3). It is
+     a sample of the stream, not a second stream.
+
+     Instance 0 is the reader, as subGetParam's is: the parameters are
+     per-device, so all sixteen hold the same table. */
+  std::string subWaveJson() const
+  {
+    using Core = hypersaw::SubOscCore;
+    const Core &c = subs[0];
+    constexpr int N = 256;
+    const int wave = (int)c.param(Core::kWave);
+    const double sr = c.sampleRate();
+    const double dph = std::min(c.freqHz(), 0.49 * sr) / sr;
+    const double w = c.param(Core::kWidth);
+    const double bumpA = c.param(Core::kBumpAmt), bumpPhi = c.param(Core::kBumpPhase);
+    uint32_t rng = (uint32_t)c.param(Core::kSeed);
+    // The header needs its own buffer: it is ~40 characters wide and a char[32]
+    // truncated it mid-key, which produced JSON the reader parsed as "no
+    // points" rather than as an error. Caught by subosc_check's 11i rows on
+    // their first run — the reason a display gets an oracle at all.
+    char hdr[96], buf[32];
+    std::snprintf(hdr, sizeof hdr, "{\"n\":%d,\"wave\":%d,\"hz\":%.4f,\"wave_pts\":[", N, wave,
+                  c.freqHz());
+    std::string out = hdr;
+    for (int i = 0; i < N; i++)
+    {
+      // The start phase is where a note begins, so the drawing begins there
+      // too — moving `phase` visibly rotates the cycle, which is what the
+      // control does to the sound.
+      double ph = c.param(Core::kPhase) + (double)i / N;
+      ph -= std::floor(ph);
+      const double v = Core::shapeAt(wave, ph, dph, w, bumpA, bumpPhi, c.bumpNorm(), rng);
+      std::snprintf(buf, sizeof(buf), i ? ",%.5f" : "%.5f", v);
+      out += buf;
+    }
+    return out + "]}";
+  }
+
   std::string shapeWaveJson()
   {
     const uint32_t vo = vizOsc.load(std::memory_order_relaxed);
@@ -5166,6 +5406,11 @@ struct Plugin
     if (k < 0 || k > 3) return "{}";
     morphInit();
     /* THE LAYOUT MARKER, BUMPED ONCE HERE AND AT THE OTHER THREE WRITERS.
+       7 = B181: the SUB block's two new MORPHABLE shell rows (sub.glide,
+       sub.pitchMod) append after everything, so the corner array grew by two
+       and the order changed. A layout-6 array is shorter and maps 1:1
+       (morphSlotMap), so the two new slots simply hold their defaults — which
+       is why the bump is a marker and not a migration.
        6 = B172: the SUB OSC engine block's morphable ids appended after the
        routing block. STATION (B162) appends into this SAME layout and will
        bump it again — the marker names an ORDER, and every append changes the
@@ -5174,7 +5419,7 @@ struct Plugin
        increment 3: source rows reserved, Src 2's cells new slot positions);
        4 = the Src→OUT dry-path cells appended after the routing block (B50
        phase 1c); 3 = the routing block (phase 1). */
-    std::string out = "{\"morphLayout\":6,\"cornerPreset\":[";
+    std::string out = "{\"morphLayout\":7,\"cornerPreset\":[";
     char buf[32];
     for (size_t i = 0; i < morphIds.size(); i++)
     {
@@ -5280,7 +5525,7 @@ struct Plugin
   std::string liveCornerJson()
   {
     morphInit();
-    std::string out = "{\"morphLayout\":6,\"cornerPreset\":[";   // ADR-159; 6 = B172, see cornerJson
+    std::string out = "{\"morphLayout\":7,\"cornerPreset\":[";   // ADR-159; 6 = B172, see cornerJson
     char buf[32];
     for (size_t i = 0; i < morphIds.size(); i++)
     {
@@ -5443,7 +5688,7 @@ struct Plugin
     if (morphIds.empty()) return "";
     // ADR-159: the array layout version. 2 = late per-osc rows appended last;
     // absent = 1 (pre-2026-09-11), where a 224-entry array is the ADR-150 order.
-    std::string out = ",\"morphLayout\":6,\"cornerNames\":" + cornerNamesJson() + ",\"morphCorners\":[";
+    std::string out = ",\"morphLayout\":7,\"cornerNames\":" + cornerNamesJson() + ",\"morphCorners\":[";
     char buf[32];
     for (int k = 0; k < 4; k++)
     {
@@ -5598,32 +5843,70 @@ struct Plugin
       }
       applyIntentChunk(chunk);
     }
+    /* ---- A LOAD IS A LOAD, AND IT NOW MEANS THE SAME THING FOR PARAMETERS
+       (B181 note 6, human 2026-09-20: "Sub currently seems to be ignored by
+       loading presets").
+
+       Until this change every parameter loop here read `if (pos == npos)
+       continue;` — an ABSENT key was SKIPPED, so the parameter kept whatever
+       the previous patch left in it. The two chunk paths three lines above
+       have always said the opposite, in as many words: "an ABSENT key means
+       unbound ... never 'whatever the previous patch had'." One function held
+       both rules.
+
+       The engine-block loop even defended the skip: "a patch written before
+       the block existed simply says nothing about it, and the block ships off,
+       so it stays inert". The hidden premise is that the block is off — and
+       the moment a player switches it ON, an absent key means it stays on
+       across every subsequent preset load, carrying its wave, its octave and
+       its level with it. That is exactly what the human heard.
+
+       So: a parameter ABSENT from a loaded patch is restored to its DEFAULT
+       (defaultFor — the same single source CLAP's default_value and the GUI's
+       double-click use), never left as it was. Instrument table, engine blocks
+       and osc-2 twins alike, because "a load is a load" is not a property of
+       one namespace.
+
+       WHAT THIS COSTS, STATED: an old patch that omits a key now renders that
+       key at its default rather than at the previous patch's value. That is a
+       behaviour change for every pre-existing preset, and it is the POINT — it
+       is what makes a load reproducible. The evidence is subosc_check's
+       40-patch byte-identity row: loading each factory patch after deliberately
+       disturbing every parameter must give byte-identical state to loading it
+       on a fresh instance. The migrations below still run AFTER this and still
+       win, so `enable`, `noteLawLink`/`glide` and the schema<2 glideMode
+       rewrite are untouched — each is keyed on the JSON text, not on what the
+       instance currently holds.
+
+       `any` still means "the patch named at least one key we know", which is
+       this function's return value and the host's success flag; a default
+       restore is not evidence of that, so it deliberately does not set it. */
+    auto valueOrDefault = [&](const std::string &needle, double def, double &out) {
+      size_t pos = json.find(needle);
+      if (pos == std::string::npos) { out = def; return false; }
+      pos = json.find(':', pos + needle.size());
+      if (pos == std::string::npos) { out = def; return false; }
+      out = std::atof(json.c_str() + pos + 1);
+      return true;
+    };
     bool any = false;
     for (const auto &d : kParams)
     {
       if (d.id == 178) continue;   // ADR-147: specimen is not patch state (see state_load)
-      const std::string needle = "\"" + std::string(d.coreKey) + "\"";
-      size_t pos = json.find(needle);
-      if (pos == std::string::npos) continue;
-      pos = json.find(':', pos + needle.size());
-      if (pos == std::string::npos) continue;
-      enqueueParam(d.id, std::atof(json.c_str() + pos + 1), 3);   // B125: load kind
-      any = true;
+      double v = 0;
+      any = valueOrDefault("\"" + std::string(d.coreKey) + "\"", defaultFor(d, 0), v) || any;
+      enqueueParam(d.id, v, 3);   // B125: load kind
     }
-    // B172 engine blocks, prefixed. Absent keys leave the block at whatever
-    // it holds, exactly as an absent instrument key does — a patch written
-    // before the block existed simply says nothing about it, and the block
-    // ships off, so it stays inert.
+    // B172 engine blocks, prefixed — same rule, and this is the loop whose
+    // absent-key skip the human actually heard.
     for (const auto &b : kEngineBlocks)
       for (uint32_t i = 0; i < b.count; i++)
       {
-        const std::string needle = "\"" + std::string(b.keyPrefix) + b.defs[i].coreKey + "\"";
-        size_t pos = json.find(needle);
-        if (pos == std::string::npos) continue;
-        pos = json.find(':', pos + needle.size());
-        if (pos == std::string::npos) continue;
-        enqueueParam(b.defs[i].id, std::atof(json.c_str() + pos + 1), 3);
-        any = true;
+        double v = 0;
+        any = valueOrDefault("\"" + std::string(b.keyPrefix) + b.defs[i].coreKey + "\"",
+                             defaultFor(b.defs[i], 0), v) ||
+              any;
+        enqueueParam(b.defs[i].id, v, 3);
       }
     // the twins, by the state_save convention
     for (uint32_t k = 1; k < kNumOsc; k++)
@@ -5632,12 +5915,9 @@ struct Plugin
         if (isGlobalId(d.id)) continue;
         char nb[64];
         std::snprintf(nb, sizeof(nb), "\"o%u.%s\"", k, d.coreKey);
-        size_t pos = json.find(nb);
-        if (pos == std::string::npos) continue;
-        pos = json.find(':', pos + std::strlen(nb));
-        if (pos == std::string::npos) continue;
-        enqueueParam(d.id + k * 1000, std::atof(json.c_str() + pos + 1), 3);
-        any = true;
+        double v = 0;
+        any = valueOrDefault(nb, defaultFor(d, k), v) || any;
+        enqueueParam(d.id + k * 1000, v, 3);
       }
     /* PRE-NOTE-LANE PATCH MIGRATION. `noteLawLink` ships FOLLOW as of 2026-08-20,
        but a patch saved before the note lane existed carries no such key — it
@@ -6607,6 +6887,18 @@ struct Plugin
           if (heldStack[i].key != n->key) heldStack[w++] = heldStack[i];
         heldCount = w;
       }
+      /* THE SUB HEARS EVERY RELEASE, INCLUDING THE ONES THE SWARM SWALLOWS
+         (B181 note 2). In swarm-mono a key released while it is NOT the
+         sounding one produces no call at all below — `retargetAll` only runs
+         for the sounding key — so the sub's own held stack would keep it for
+         ever and `lowest` would chase a key nobody is holding.
+         BIT-INERT FOR THE EXISTING PATH: outside sub-mono this releases at
+         most the one slot whose subKey matches, and the retarget three lines
+         down immediately re-strikes that same slot with `noteOn`, which
+         REPLACES the note regardless (subosc_core.h:237). No sample is
+         rendered between the two, so nothing changes for a patch with
+         `sub.mono` off. */
+      subNoteOff(n->key);
       if (monoSlot >= 0 && core.voiceAt(monoSlot).midi == n->key)
       {
         if (heldCount > 0)
@@ -7035,8 +7327,35 @@ struct Plugin
     for (int off = 0; off < n; off += kMixChunk)
     {
       const int m = n - off < kMixChunk ? n - off : kMixChunk;
+      /* ---- THE SUB'S PITCH, COMPOSED ONCE PER CHUNK (B181 notes 2 and 4) ---
+         TWO contributors — the mono glide and the pitch-mod offset — and ONE
+         writer, because two hands on the same quantity is the last-writer-wins
+         bug the note-expression composer exists to prevent (L0029, ADR-162).
+
+         THE GLIDE IS IN SECONDS, converted here and nowhere else (ADR-009):
+         `dt` is this chunk's own duration at the running sample rate, so the
+         journey takes `subGlide` seconds at 44.1, 48 and 96 kHz alike. The
+         GRANULARITY is the chunk (kMixChunk = 256 samples, 5.8 ms at 44.1 kHz)
+         because the core recomputes its phase increment once per render() call
+         — a finer grid would mean changing a parity-gated loop, which this
+         note does not buy.
+
+         BIT-INERT AT THE DEFAULTS: with mono off and pitch mod 0, every
+         instance is handed exactly 0.0 and §4's law reads `m + 0.0`, which is
+         `m`. subosc_check's 11g row measures that rather than assuming it. */
+      if (subMono != 0 && subGlideRate > 0 && subGlideCur != subGlideTo)
+      {
+        const double dt = (double)m / sampleRate;
+        const double step = subGlideRate * dt;
+        if (subGlideTo > subGlideCur)
+          subGlideCur = subGlideCur + step > subGlideTo ? subGlideTo : subGlideCur + step;
+        else
+          subGlideCur = subGlideCur - step < subGlideTo ? subGlideTo : subGlideCur - step;
+      }
       for (int s = 0; s < hypersaw::kPoly; s++)
       {
+        subs[s].pitchOffsetSt =
+            subPitchMod + (subMono != 0 && s == 0 ? subGlideCur : 0.0);
         /* HARD SYNC IS WIRED OFF, AND THAT IS A RECORDED REFUSAL, NOT AN
            OVERSIGHT. SPEC-SUBOSC §6 wants oscillator 1's FUNDAMENTAL PHASE as a
            per-sample input. SwarmCore has no such output: the fundamental's
@@ -7957,6 +8276,11 @@ extern "C" void hypersaw_debug_state(const clap_plugin_t *p, char *out, uint32_t
   const std::string j = self(p)->stateJson();
   std::snprintf(out, cap, "%s", j.c_str());
 }
+extern "C" void hypersaw_debug_subwave(const clap_plugin_t *p, char *out, uint32_t cap)
+{
+  const std::string j = self(p)->subWaveJson();
+  std::snprintf(out, cap, "%s", j.c_str());
+}
 extern "C" bool hypersaw_debug_exempt(const clap_plugin_t *p, uint32_t id) { return self(p)->morphToggleExempt((clap_id)id); }
 /* The GUI bridge's other two corner verbs, headless — the same reason the
    exempt door above exists. B89 2c (e) has to prove capture still bakes and an
@@ -8329,6 +8653,7 @@ bool gui_create(const clap_plugin_t *p, const char *api, bool is_floating)
   hostIf.getDefaultsJson = [pl]() { return pl->defaultsJson(); };
   hostIf.getBendCurveJson = [pl]() { return pl->bendCurveJson(); };
   hostIf.getShapeWaveJson = [pl]() { return pl->shapeWaveJson(); };
+  hostIf.getSubWaveJson = [pl]() { return pl->subWaveJson(); };   // B181 note 3
   hostIf.morphCapture = [pl](uint32_t k) { pl->morphCapture((int)k); };
   hostIf.morphCornerJson = [pl](uint32_t k) { return pl->cornerJson((int)k); };
   hostIf.morphLiveJson = [pl]() { return pl->liveCornerJson(); };

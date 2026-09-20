@@ -83,6 +83,14 @@ export const SCENARIOS = [
   // §4's pitch law: each offset on its own, then all three at once.
   { name: 'oct1', note: 48, secs: 0.5, p: { octave: -1 } },
   { name: 'oct2', note: 48, secs: 0.5, p: { octave: -2 } },
+  /* B181 note 1's new floor. A SUPERSET RANGE THE REFERENCE LACKED IS ZERO
+     COVERAGE (L0031): the lab grew -3 in the same change, so parity must be
+     asked about it or the widening ships uncertified. Two rows — a musical one
+     and the ABSOLUTE bottom (MIDI 0 at -3 = 1.02197 Hz, the lowest frequency
+     this module can be asked for), which is where a denormal or a sign error
+     in the phase increment would surface. */
+  { name: 'oct3', note: 48, secs: 0.5, p: { octave: -3 } },
+  { name: 'oct3-floor', note: 0, secs: 1.2, p: { octave: -3, wave: 6, release: 1.5 }, offAt: 0.4 },
   { name: 'semis', note: 48, secs: 0.5, p: { semis: -7 } },
   { name: 'fine', note: 48, secs: 0.5, p: { fine: 37.5 } },
   { name: 'pitch-all', note: 60, secs: 0.5, p: { octave: -2, semis: 11, fine: -100 } },

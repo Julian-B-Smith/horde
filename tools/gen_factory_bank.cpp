@@ -429,7 +429,7 @@ std::string cornerPresetJson(const std::vector<PV> &order, const CornerDef &c, s
   }
   // 6 since B172 (the SUB OSC engine block appended after the routing block);
   // the shell's cornerJson carries the full ladder.
-  std::string out = "{\"morphLayout\":6,\"cornerPreset\":[";
+  std::string out = "{\"morphLayout\":7,\"cornerPreset\":[";
   char buf[32];
   for (size_t i = 0; i < vals.size(); i++)
   {

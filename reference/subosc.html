@@ -243,7 +243,7 @@
   <div class="rev" title="the file's modification time and a fingerprint of its code, both read at load — neither is hand-maintained, so neither can drift. If the fingerprint does not change after a reload you are still on a cached copy (hard-reload: Cmd+Shift+R, Safari Cmd+Opt+R).">rev <span id="revdate">…</span> &middot; fp <span id="revfp">…</span></div>
   <button id="power">POWER ON</button>
   <button id="panic">PANIC</button>
-  <div class="tagline">design lab · B155 · the honest sub: one voice, seven shapes (sine / triangle / square / saw / pulse / seeded noise / bump — a sine plus a phase-shifted third harmonic, band-limited by construction), octave −2…0 plus semitones and fine, a one-pole tone, hard sync to a master phase, no swarm and no coupling · every control names the parameter address it will carry · the AR envelope here is scaffolding, the shell supplies the voice envelope</div>
+  <div class="tagline">design lab · B155 · the honest sub: one voice, seven shapes (sine / triangle / square / saw / pulse / seeded noise / bump — a sine plus a phase-shifted third harmonic, band-limited by construction), octave −3…0 plus semitones and fine, a one-pole tone, hard sync to a master phase, no swarm and no coupling · every control names the parameter address it will carry · the AR envelope here is scaffolding, the shell supplies the voice envelope</div>
 </header>
 
 <div class="wrap">
@@ -281,7 +281,7 @@
       <h2>Pitch</h2>
       <div class="row"><label>octave</label>
         <select id="octave" data-addr="subosc.octave">
-          <option value="-2">−2</option><option value="-1" selected>−1</option><option value="0">0</option>
+          <option value="-3">−3</option><option value="-2">−2</option><option value="-1" selected>−1</option><option value="0">0</option>
         </select><output id="octave_o"></output></div>
       <div class="row"><label>semitones</label>
         <input type="range" id="semis" data-addr="subosc.semis" min="-12" max="12" step="1" value="0"><output id="semis_o"></output></div>
@@ -544,7 +544,10 @@ const SUB_PARAMS = {
   // harmonic dominates and the shape stops reading as a sub at all.
   bumpAmt:  { min: 0,      max: 0.6,                 def: 0.35 },
   bumpPhase:{ min: -Math.PI, max: Math.PI,           def: -0.25 },
-  octave:   { min: -2,     max: 0,          step: 1, def: -1 },
+  // B181 note 1: the floor moved to -3 on the human's request ("Sub should be
+  // able to reach 3 octaves below"). The DEFAULT is unchanged, so every stored
+  // patch and every golden that does not name `octave` is bit-inert.
+  octave:   { min: -3,     max: 0,          step: 1, def: -1 },
   semis:    { min: -12,    max: 12,         step: 1, def: 0 },
   fine:     { min: -100,   max: 100,                 def: 0 },
   level:    { min: 0,      max: 1,                   def: 0.8 },

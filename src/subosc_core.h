@@ -128,7 +128,16 @@ class SubOscCore
       // dominates and the shape stops reading as a sub at all.
       {"bumpAmt", 0, 0.6, 0, 0.35},
       {"bumpPhase", -3.141592653589793, 3.141592653589793, 0, -0.25},
-      {"octave", -2, 0, 1, -1},
+      /* B181 note 1 (human 2026-09-20: "Sub should be able to reach 3 octaves
+         below"). ONLY THE FLOOR MOVED — the default stays -1, so every stored
+         patch renders bit-identically and nothing existing changes meaning.
+         At -3 the lowest reachable fundamental is MIDI 0 less 36 semitones =
+         1.02197 Hz: the phase increment there is 2.3e-5 at 44.1 kHz, six
+         orders above the f32 normal floor, the tone stage and the BUMP peak
+         search are both independent of f0, and the 0.49*sr increment cap only
+         ever clamps the OTHER end. Measured, not assumed — subosc_check's
+         bottom-octave row. */
+      {"octave", -3, 0, 1, -1},
       {"semis", -12, 12, 1, 0},
       {"fine", -100, 100, 0, 0},
       {"level", 0, 1, 0, 0.8},
@@ -162,6 +171,25 @@ class SubOscCore
   // the floor removed the 2 s tail idles in float32 subnormals. Nothing in the
   // shell may ever write it.
   double flushFloor = kFlush;
+
+  /* ── THE SHELL'S PITCH INPUT, IN SEMITONES (B181 notes 2 and 4) ────────────
+     A continuous offset summed into §4's pitch law, and deliberately NOT a §7
+     parameter row. Three reasons, in order of weight:
+       · §7's table is the only writer of range/step/default and the shell's id
+         map is POSITIONAL (`id - 4000` IS the enum index) with the block's gate
+         frozen at 4015 — a sixteenth table row would collide with a shipped
+         CLAP id, and moving a frozen id to make room is the worse trade.
+       · It is an INPUT, not a setting: the same category as `master`, the
+         per-sample sync phase §2 already calls an input. The shell composes it
+         from the sub's glide (note 2) and its pitch-mod offset (note 4) and
+         writes ONE number per instance — one routing layer, not two writers of
+         the same quantity (L0029).
+       · The lab has no analogue and needs none: at 0 the law is `m + 0.0`,
+         which is `m` exactly, so parity is untouched and every golden is inert.
+     Unbounded here on purpose — the shell's parameter row declares the range a
+     player can ask for, and the 0.49*sr increment cap below is what makes any
+     value safe. */
+  double pitchOffsetSt = 0;
 
   // Read-only observables, as the lab exposes them: the current envelope value
   // and the peak since a reader last cleared it. Written by render(), never by
@@ -229,7 +257,9 @@ class SubOscCore
   double freqHz() const
   {
     const double base = p_[kKeytrack] != 0 ? midi_ : (double)kKeytrackOffMidi;
-    const double m = base + 12 * p_[kOctave] + p_[kSemis];
+    // `pitchOffsetSt` is the shell's input (see the member's comment). At its
+    // default 0 this is `m + 0.0`, which is bit-identical to the lab's law.
+    const double m = base + 12 * p_[kOctave] + p_[kSemis] + pitchOffsetSt;
     return 440 * std::pow(2, (m - 69) / 12) * std::pow(2, p_[kFine] / 1200);
   }
 
@@ -295,27 +325,7 @@ class SubOscCore
         mPrev = m;
       }
 
-      double v;
-      switch (wave)
-      {
-        case kSine: v = std::sin(kTwoPi * ph); break;
-        case kTri:
-        {
-          // Quarter-turn offset so the shape starts at 0 rising, like the sine
-          // — a sub that starts at full scale is a click the start-phase
-          // control cannot remove. NAIVE: no BLAMP (limit L1).
-          double t = ph + 0.25;
-          t -= std::floor(t);
-          v = 1 - 4 * std::fabs(t - 0.5);
-          break;
-        }
-        case kSquare: v = pulseAt(ph, dph, 0.5); break;
-        case kSaw: v = (2 * ph - 1) - blep(ph, dph); break;
-        case kPulse: v = pulseAt(ph, dph, w); break;
-        case kBump: v = bumpAt(ph, bumpA, bumpPhi, bumpN); break;
-        // kNoise, and the lab's `default:` — noise ignores pitch entirely (L3).
-        default: v = 2 * forcecore::rngNext(rs_) - 1; break;
-      }
+      double v = shapeAt(wave, ph, dph, w, bumpA, bumpPhi, bumpN, rs_);
 
       // Linear AR in seconds (§5.3, PROVISIONAL). Linear rather than
       // exponential because a linear ramp reaches exactly 0 and exactly 1 in
@@ -355,6 +365,49 @@ class SubOscCore
     mPrev_ = mPrev;
     peak = pk;
   }
+
+  /* ── THE SHAPE, AT ONE PHASE — §3's seven cases, and the ONLY copy ─────────
+     Extracted from render()'s inner loop for B181 note 3, which needs the
+     shape for a DISPLAY as well as for the audio. It was extracted rather
+     than reimplemented for the display because this repo has already paid for
+     the alternative twice: ADR-110 ("when they were two copies, any edit to
+     one was a map that lied about the sound") and, three days ago, B177's GUI
+     computing the LFO shape independently of the shell. A display that
+     disagrees with the sound is worse than no display — it is a confident
+     wrong answer — and the only structural cure is that there is nothing to
+     disagree WITH.
+     The body is render()'s verbatim; parity (eps 1e-6 over 60 goldens at two
+     rates) and §10.2's bit-identity rows are what certify that the move
+     changed no arithmetic. `rng` is stepped in place, so the noise case is a
+     function of the stream's position exactly as it was inside the loop. */
+  static double shapeAt(int wave, double ph, double dph, double w, double bumpA, double bumpPhi,
+                        double bumpNorm, uint32_t &rng)
+  {
+    switch (wave)
+    {
+      case kSine: return std::sin(kTwoPi * ph);
+      case kTri:
+      {
+        // Quarter-turn offset so the shape starts at 0 rising, like the sine
+        // — a sub that starts at full scale is a click the start-phase
+        // control cannot remove. NAIVE: no BLAMP (limit L1).
+        double t = ph + 0.25;
+        t -= std::floor(t);
+        return 1 - 4 * std::fabs(t - 0.5);
+      }
+      case kSquare: return pulseAt(ph, dph, 0.5);
+      case kSaw: return (2 * ph - 1) - blep(ph, dph);
+      case kPulse: return pulseAt(ph, dph, w);
+      case kBump: return bumpAt(ph, bumpA, bumpPhi, bumpNorm);
+      // kNoise, and the lab's `default:` — noise ignores pitch entirely (L3).
+      default: return 2 * forcecore::rngNext(rng) - 1;
+    }
+  }
+
+  // The normaliser the current (a, phi) implies — the same reciprocal of the
+  // same bounded search recalc() stores, so a reader outside the class can ask
+  // for it without a second law or a second cached copy.
+  double bumpNorm() const { return bumpNorm_; }
 
   // ── the shape laws, exposed for the oracle ────────────────────────────────
   // polyBLEP: one period of the correction, the exact idiom the repo already

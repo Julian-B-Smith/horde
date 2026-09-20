@@ -1168,6 +1168,32 @@
     <div class="row"><label>pitch</label><input type="range" data-p="1036" data-fixed="1" min="-12" max="12" step="1" value="0"><output></output></div>
     <div class="row"><label>fine</label><input type="range" data-p="1037" data-fixed="1" min="-100" max="100" step="1" value="0"><output></output></div>
   </div></div>
+  <!-- B181 note 5 — THE SUB ON THE MIX PAGE. The human: "Sub needs to be on
+       the mix page." A PROXY strip in the idiom the two oscillator strips
+       already use, and in B178's proxy idiom: ONE PARAMETER, TWO CONTROLS,
+       NEVER A SECOND ID. Every input below writes the id the OSC page's SUB
+       panel writes, so the two panels cannot drift and no parameter was added
+       (the rule B166 sets).
+         · data-fixed — an engine block is ONE device-wide object; effId()
+           must not remap 4007 to 5007 while OSC 2 is the edited oscillator,
+           which is a parameter the shell never declared.
+         · data-proxy — this is not a hand-PLACEMENT, so gen_gui_controls
+           keeps generating the real controls on the OSC page instead of
+           standing down and deleting them.
+       NO M/S BUTTONS, and that is a match rather than an omission: mute and
+       solo are ids 104/105 and 1104/1105, per-OSCILLATOR parameters inside
+       the swarm. The sub has no such parameter, and inventing one here would
+       be a second gate beside `sub.on` — which is the power switch the SUB
+       tab already carries, shown here for the same reason the oscillator
+       strips show theirs. Level, power, octave and pitch, the same four rows
+       the strips above use, addressing the sub's own ids. -->
+  <div class="cluster"><h2>SUB</h2><div class="strip"><b>SUB</b>
+    <div class="row"><label>power</label><input type="checkbox" data-p="4015" data-fixed="1" data-proxy="1"><output></output></div>
+    <div class="row"><label>level</label><input type="range" data-p="4007" data-fixed="1" data-proxy="1" min="0" max="1" step="0.005" value="0.8"><output></output></div>
+    <div class="row"><label>octave</label><input type="range" data-p="4004" data-fixed="1" data-proxy="1" min="-3" max="0" step="1" value="-1"><output></output></div>
+    <div class="row"><label>pitch</label><input type="range" data-p="4005" data-fixed="1" data-proxy="1" min="-12" max="12" step="1" value="0"><output></output></div>
+    <div class="row"><label>fine</label><input type="range" data-p="4006" data-fixed="1" data-proxy="1" min="-100" max="100" step="1" value="0"><output></output></div>
+  </div></div>
   <div class="cluster"><h2>Master</h2><div class="strip master"><b>MASTER</b>
     <div class="row"><label>volume</label><input type="range" data-p="100" data-fixed="1" min="0" max="1.5" step="0.005" value="1"><output></output></div>
     <div class="row"><label>octave</label><input type="range" data-p="103" data-fixed="1" min="-2" max="2" step="1" value="0"><output></output></div>
@@ -1731,11 +1757,12 @@
     <div class="row kcell" data-addr="penvR"><label>P.Env Release <span class="u">s</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="165" min="0.005" max="8" step="0.005" value="0.16"><span class="kmnow"></span></span><output></output></div>
   </div>
   <div class="cluster" data-group="SUB"><h2>SUB</h2>
+    <canvas class="gviz" data-viz="subwave" width="260" height="72"></canvas>
     <div class="row" data-addr="sub.wave"><label>Wave</label><select data-p="4000" data-fixed="1"><option value="0">sine</option><option value="1">triangle</option><option value="2">square</option><option value="3" selected>saw</option><option value="4">pulse</option><option value="5">noise</option><option value="6">bump</option></select><output></output></div>
     <div class="row kcell" data-addr="sub.width" data-when="sub.wave=4"><label>Pulse Width</label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="4001" data-fixed="1" min="0.05" max="0.95" step="0.005" value="0.5"><span class="kmnow"></span></span><output></output></div>
     <div class="row kcell" data-addr="sub.bumpAmt" data-when="sub.wave=6"><label>Bump Amount</label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="4002" data-fixed="1" min="0" max="0.6" step="0.005" value="0.35"><span class="kmnow"></span></span><output></output></div>
     <div class="row kcell" data-addr="sub.bumpPhase" data-when="sub.wave=6"><label>Bump Phase <span class="u">rad</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="4003" data-fixed="1" min="-3.14159" max="3.14159" step="0.005" value="-0.25"><span class="kmnow"></span></span><output></output></div>
-    <div class="row kcell" data-addr="sub.octave"><label>Octave <span class="u">oct</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="4004" data-fixed="1" min="-2" max="0" step="1" value="-1"><span class="kmnow"></span></span><output></output></div>
+    <div class="row kcell" data-addr="sub.octave"><label>Octave <span class="u">oct</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="4004" data-fixed="1" min="-3" max="0" step="1" value="-1"><span class="kmnow"></span></span><output></output></div>
     <div class="row kcell" data-addr="sub.semis"><label>Semitones <span class="u">st</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="4005" data-fixed="1" min="-12" max="12" step="1" value="0"><span class="kmnow"></span></span><output></output></div>
     <div class="row kcell" data-addr="sub.fine"><label>Fine <span class="u">c</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="4006" data-fixed="1" min="-100" max="100" step="0.005" value="0"><span class="kmnow"></span></span><output></output></div>
     <div class="row kcell" data-addr="sub.level"><label>Level</label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="4007" data-fixed="1" min="0" max="1" step="0.005" value="0.8"><span class="kmnow"></span></span><output></output></div>
@@ -1746,6 +1773,10 @@
     <div class="row kcell" data-addr="sub.attack"><label>Attack <span class="u">s</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="4012" data-fixed="1" data-log10="1" min="-3.301" max="-0.301" step="0.001" value="-2.301"><span class="kmnow"></span></span><output></output></div>
     <div class="row kcell" data-addr="sub.release"><label>Release <span class="u">s</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="4013" data-fixed="1" data-log10="1" min="-2.699" max="0.301" step="0.001" value="-1.097"><span class="kmnow"></span></span><output></output></div>
     <div class="row kcell" data-addr="sub.seed"><label>Seed</label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="4014" data-fixed="1" min="0" max="4.29497e+09" step="1" value="1"><span class="kmnow"></span></span><output></output></div>
+    <div class="row" data-addr="sub.mono"><label>Mono</label><input type="checkbox" data-p="4016" data-fixed="1"><output></output></div>
+    <div class="row" data-addr="sub.bias" data-when="sub.mono=1"><label>Mono Bias</label><select data-p="4017" data-fixed="1"><option value="0" selected>lowest</option><option value="1">highest</option><option value="2">last</option></select><output></output></div>
+    <div class="row kcell" data-addr="sub.glide" data-when="sub.mono=1"><label>Glide <span class="u">s</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="4018" data-fixed="1" min="0" max="2" step="0.005" value="0"><span class="kmnow"></span></span><output></output></div>
+    <div class="row kcell" data-addr="sub.pitchMod"><label>Pitch Mod <span class="u">st</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="4019" data-fixed="1" min="-48" max="48" step="0.005" value="0"><span class="kmnow"></span></span><output></output></div>
   </div>
   <div class="cluster" data-group="Saw shape"><h2>Saw shape</h2>
     <canvas class="gviz" data-viz="shapewave" width="260" height="72"></canvas>
@@ -1967,6 +1998,10 @@ const bridge = {
   // plumbing); in the browser lab they are absent and COPY reports NO ENGINE
   // rather than copying a fake patch.
   getShapeWave: () => window.hzGetShapeWave ? window.hzGetShapeWave() : Promise.resolve('{}'),
+  // B181 note 3. The SHELL draws the sub's cycle (SubOscCore::shapeAt, the
+  // same function render() calls per sample); this side only paints what it
+  // is handed. There is deliberately no JS shape law here to drift from it.
+  getSubWave: () => window.hzGetSubWave ? window.hzGetSubWave() : Promise.resolve('{}'),
   getState: () => window.hzGetState ? window.hzGetState() : Promise.reject(new Error('no engine')),
   applyState: (j) => window.hzApplyState ? window.hzApplyState(j) : Promise.reject(new Error('no engine')),
 };
@@ -2106,7 +2141,7 @@ document.addEventListener('pointerleave', hzMaybeRelease);
          so it needs the same redraw the page-switch handler already uses. */
       if (repaint && canPaint()) {
         drawCurves(); drawScatter(lastViz); drawBendStep();
-        drawBendVib(); drawShapeWave();
+        drawBendVib(); drawShapeWave(); drawSubWave();
       }
     };
     /* PERSISTENCE (human 2026-08-29: "GUI color settings aren't persistent").
@@ -2410,6 +2445,26 @@ function paintSolo() {
 }
 function setControl(id, v) {
   document.querySelectorAll(`[data-p="${id}"][data-fixed]`).forEach(f => paintControl(f, v));
+  /* AN ENGINE-BLOCK OR ROUTING ID HAS ONE ADDRESS AND NO TWIN, so the
+     `id % OSC_STRIDE` derivation below must never run on one — it ALIASES.
+     4015 (SUB On) reduces to base 15, which is `mono` (Mono Fold) and IS in
+     the shell's global list, so the echo fell straight through and painted
+     the MIX page's Mono Fold checkbox with the sub's power state; 4011 (SUB
+     Hard Sync) reduces to 11 the same way, and every routing cell (10064 ->
+     64, an FX-rack id) does it too. Found while adding 4016-4019 (B181 note
+     2/4), whose bases are 16-19 and happen not to be global — "happen not to
+     be" is not a property to rely on. The fixed paint above is the whole job
+     for these ids; the same ordering guard findParam and paramClassOf make on
+     the shell side, for the same reason. */
+  /* B181 note 3: the sub's picture follows the ECHO, not the gesture — the
+     same rule the bend curve's comment states, and keyed on the RAW id
+     because an engine-block id has no base. The redraw asks the shell, so it
+     must happen after the engine has the new value. */
+  if (SUB_VIZ_IDS.has(id) && subVizSeen[id] !== v) {
+    subVizSeen[id] = v;
+    drawSubWave();
+  }
+  if (id >= 3000) return;
   const osc = Math.floor(id / OSC_STRIDE), base = id % OSC_STRIDE;
   const isGlobal = globalIds ? globalIds.has(base) : osc === 0;
   if (!isGlobal && osc !== editOsc) return;
@@ -2455,6 +2510,46 @@ function setControl(id, v) {
     shapeVizSeen[base + '.' + osc] = v;
     drawShapeWave();
   }
+}
+/* B181 note 3 — THE SUB'S WAVE DISPLAY, AND THE SHELL DRAWS IT.
+   There is no shape law in this function and that is the design: the engine
+   publishes one cycle out of SubOscCore::shapeAt, the SAME function render()
+   calls per sample, so the picture cannot disagree with the sound. B177 left
+   this file computing the LFO shape independently of the shell — a second
+   copy free to drift, which is the failure ADR-110 already recorded ("when
+   they were two copies, any edit to one was a map that lied about the
+   sound"). Not repeated here.
+   Because the shell sends its own `dph`, the band-limiting is REAL: a pulse
+   at a high note visibly rounds its edges exactly as it does audibly, BUMP
+   arrives at the amplitude its peak search normalises it to, and the start
+   phase rotates the drawing because it rotates the cycle. */
+const SUB_VIZ_IDS = new Set([4000, 4001, 4002, 4003, 4004, 4005, 4006, 4008, 4014, 4019]);
+const subVizSeen = {};
+function drawSubWave() {
+  const c = document.querySelector('canvas[data-viz="subwave"]');
+  if (!c || !c.offsetWidth) return;
+  const g = c.getContext('2d'), w = c.width, h = c.height;
+  g.clearRect(0, 0, w, h);
+  bridge.getSubWave().then(j => {
+    const d = JSON.parse(j || '{}');
+    const pts = d.wave_pts;
+    if (!pts || !pts.length) { g.fillStyle = TOK('--scr-tube'); g.fillRect(0, 0, w, h);
+      g.fillStyle = TOKA('--scr-grid', 0.75);
+      g.font = '10px monospace'; g.fillText('no engine — open in the plugin', 8, h / 2); return; }
+    g.strokeStyle = TOKA('--scr-grid', 0.55); g.lineWidth = 1;
+    g.beginPath(); g.moveTo(4, h / 2); g.lineTo(w - 4, h / 2); g.stroke();
+    g.strokeStyle = TOK('--scr-value'); g.lineWidth = 1.5; g.beginPath();
+    for (let i = 0; i < pts.length; i++) {
+      const x = i / (pts.length - 1) * (w - 8) + 4;
+      const y = h / 2 - pts[i] * (h / 2 - 6);
+      i ? g.lineTo(x, y) : g.moveTo(x, y);
+    }
+    g.stroke();
+    // The sounding fundamental, because the octave/semis/fine/pitchMod knobs
+    // do not change the SHAPE and would otherwise look like they do nothing.
+    if (d.hz) { g.fillStyle = TOKA('--scr-grid', 0.85); g.font = '10px monospace';
+      g.fillText(d.hz.toFixed(2) + ' Hz', 6, 12); }
+  }).catch(() => {});
 }
 function drawShapeWave() {
   const c = document.querySelector('canvas[data-viz="shapewave"]');
@@ -3799,7 +3894,8 @@ function buildOscSelectors() {
            The seen-latches are cleared too, or the first REAL edit after the
            switch would be swallowed as "unchanged". */
         for (const key in shapeVizSeen) delete shapeVizSeen[key];
-        if (canPaint()) { drawShapeWave(); drawCurves(); drawScatter(lastViz); }
+        for (const key in subVizSeen) delete subVizSeen[key];   // B181 note 3, same reason
+        if (canPaint()) { drawShapeWave(); drawSubWave(); drawCurves(); drawScatter(lastViz); }
       });
       host.appendChild(b);
       host.appendChild(pw);
@@ -3840,6 +3936,9 @@ function buildSubTab(host) {
        right now. Rewriting them to "sub" would relabel controls the sub does
        not own, and they would have to be put back on the way out. */
     applyOscPanel();
+    // B181 note 3: the canvas has zero offsetWidth while the panel is hidden,
+    // so drawSubWave bails out — it has to be asked again once the panel is up.
+    drawSubWave();
   });
   host.appendChild(b);
   host.appendChild(pw);
@@ -4172,7 +4271,7 @@ for (const [name, live] of PAGES) {
        ResizeObserver and into the loop. */
     if (name === 'MORPH' && window._padInvalidate) window._padInvalidate();
     if (typeof canPaint === 'function' && canPaint()) {
-      drawCurves(); drawScatter(lastViz); drawBendStep(); drawBendVib(); drawShapeWave();
+      drawCurves(); drawScatter(lastViz); drawBendStep(); drawBendVib(); drawShapeWave(); drawSubWave();
     }
   });
   pgTabs.appendChild(t);

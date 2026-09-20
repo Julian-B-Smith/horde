@@ -425,3 +425,7 @@ sub.attack	sub	Attack	OSC	SUB	knob	s	subosc		log10
 sub.release	sub	Release	OSC	SUB	knob	s	subosc		log10	
 sub.seed	sub	Seed	OSC	SUB	knob		subosc			
 sub.on	sub	SUB On	OSC	SUB	none		subosc			
+sub.mono	sub	Mono	OSC	SUB	toggle		subosc			
+sub.bias	sub	Mono Bias	OSC	SUB	select		subosc	sub.mono=1		
+sub.glide	sub	Glide	OSC	SUB	knob	s	subosc	sub.mono=1		
+sub.pitchMod	sub	Pitch Mod	OSC	SUB	knob	st	subosc			
