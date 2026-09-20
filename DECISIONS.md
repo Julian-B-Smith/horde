@@ -6330,3 +6330,39 @@ or a breakpoint list (piecewise-linear, x ascending in [0, 1]); the macro
 params, so it can be read as "where this preset sits". Still a
 recommendation, not a contract; nothing asked; ball none. Consumed when
 the module-macro tiers are built (ADR-169 PROPOSED, B50's rack).
+
+### ADR-169 Amendment 1 — Sluice has DECLINED to author roles; the vocabulary has no producer (2026-09-20, ruling owed)
+
+Sluice appended a second addendum to their seq-5 notice
+(`integrations/sluice/notice-preset-macros.md`, their D-052): they no
+longer author `role` on their macros, because "a fixed vocabulary beside
+the macro's name reads as a second name the user cannot change". They ask
+us to **bind by ORDER** — macro 1 → slot 1 — which is already how their
+standalone plugin exposes its eight host parameters, and to display each
+macro's human `label`. They are explicit that this is not an ask: our
+vocabulary is untouched, they are declining to author into it, ball none.
+
+**Why it still needs a ruling.** SPEC-MODULE-MACROS §1 is built on slots
+"keyed by **role**, not by index or name", and the enum (`Amount`, `Tone`,
+`Motion`, `Regen`) is extensible only by ADR. ADR-169 is PROPOSED, and its
+first and only real module now produces no roles — so on the ground horde
+would fall back to order anyway, with the spec describing a mechanism
+nothing exercises.
+
+**Lead recommends ORDER + LABEL, with role demoted to an optional hint.**
+Three reasons, in order of weight: (1) horde ALREADY has a semantic
+vocabulary for this job — the intent bus's own names (Space, Timbre,
+Motion, Grit, …, ADR-176 A3), which the human edits per patch; a module-
+level role enum is a second vocabulary doing the same work, and two
+vocabularies that must agree will not; (2) the only producer has declined
+it, and a controlled vocabulary with no authors drifts into decoration —
+the same failure L0058 records one field down; (3) order + label is one
+rule rather than two, and matches how their plugin already presents
+itself. Keeping `role` as an optional hint costs nothing: a module that
+wants to say "this one is Regen" still can, and the intent bus can consume
+it when a corner binds.
+
+**What the human rules:** keep ADR-169's role-keyed design (and accept
+that its first module will not use it), or amend §1 to order-keyed with a
+label and role optional. Recorded, not acted on. Nothing is blocked — B50's
+rack and B170's bindings are where this is consumed, and neither is built.
