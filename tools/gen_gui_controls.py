@@ -140,7 +140,15 @@ def main():
     # passes. It reported GREEN on a table edited underneath it. The filter that
     # keeps generation from fighting a human must not also blind it to itself.
     hand_written = re.sub(r"<!--GEN:\w+-->.*?<!--/GEN:\w+-->", "", gui, flags=re.S)
-    already = {int(x) for x in re.findall(r'data-p="(\d+)"', hand_written)}
+    # `data-proxy` IS NOT A PLACEMENT. B178 puts a SECOND control for ENV 1's and
+    # ENV 2's parameters on the MOD page, beside the sources they belong to —
+    # one parameter, two controls, never a second id. Counting a proxy as
+    # hand-placed would make generation stand down and DELETE the real control
+    # from the OSC page, which is the exact opposite of what the marker means.
+    # Every proxy also carries data-fixed, so the collision gate below (which
+    # skips fixed controls) still sees exactly one claimant per base id.
+    already = {int(m.group(1)) for m in re.finditer(r'data-p="(\d+)"([^>]*)', hand_written)
+               if "data-proxy" not in m.group(2)}
 
     per_page = {}
     for r in rows:

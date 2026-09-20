@@ -963,7 +963,16 @@
      and every gated row stayed on screen. Found because a DOM probe reported
      `hidden: true` while the human reported seeing the controls: the property was
      the mechanism, the pixels were the outcome, and only one of them was checked. */
-  .row[hidden], .cluster[hidden], .grp[hidden] { display: none; }
+  .row[hidden], .cluster[hidden], .grp[hidden], .subgrp[hidden] { display: none; }
+  /* B178: a labelled sub-group INSIDE a cluster — ENV 1 needs one per
+     oscillator because it follows the loudest of them and there is no single
+     "the" envelope to show. A SEPARATOR and a caption, not a second box: a
+     nested .cluster would read as a peer panel and lose the "these belong to
+     ENV 1" relation the whole panel exists to state. `--div` is the token for
+     an intra-card separator; `--hair` is in-well gridlines and never a border,
+     and `--stroke` is reserved for a full box edge (the ADR-119 note above). */
+  .subgrp { border-top:1px dashed var(--div); padding-top:5px; margin-top:6px; }
+  .subgrp > h3 { font-size:10px; color:var(--dim); letter-spacing:.6px;
                  margin:0 0 4px; font-weight:600; }
 
   /* COLLAPSIBLE SECTIONS. The heading is the control — no extra chrome to hunt
@@ -1215,6 +1224,67 @@
       <b>LFO 1/2</b> and <b>ENV 3/4</b> are below (B171). The LFOs are
       <i>bipolar</i>: a route reads ±1 about the destination's base unless the
       route's own polarity cell says otherwise. The bottom bar is B40.</div>
+  </div>
+  <!-- B178 — ENV 1 AND ENV 2, WHERE THE MOD PAGE CAN SEE THEM. Hand-placed,
+       outside every GEN: block, because these are PROXIES: a second control for
+       a parameter whose home is elsewhere. ONE PARAMETER, TWO CONTROLS, NEVER A
+       SECOND ID — every input below writes the same id the OSC page writes, so
+       the two panels cannot drift and no parameter was added.
+         · data-fixed  — the id is literal here. effId() must not remap it: OSC
+           2's ADSR is 1019-1022 and would become 2019-2022 the moment OSC 2 was
+           the edited oscillator, addressing a parameter the shell never
+           declared. It is also what keeps gen_gui_controls' collision gate
+           true (exactly one NON-fixed claimant per base id).
+         · data-proxy  — tells the generator this is not a hand-PLACEMENT, so it
+           keeps generating the real controls on the OSC page. Without it,
+           "generation never fights a human" would delete them.
+       WHY THE WARNINGS. The request that produced this panel said ENV 1 and
+       ENV 2 "control the gain of OSCs 1 and 2 respectively". Neither does, and a
+       proxy panel that repeated it would have made a false premise permanent.
+       ENV 1 is `envMax` — the max amp-envelope level over every voice of every
+       ENABLED oscillator (src/hypersaw_clap.cpp, modStep) — and owns no
+       parameters at all. ENV 2 is a per-note-slot ADSR on 162-165, the same four
+       parameters the OSC page's Pitch Env shows, and it also drives pitch at the
+       `Env > Pitch` depth (161). The notes below say exactly that. -->
+  <div class="cluster" id="env1Proxy"><h2>ENV 1 — the amp envelope</h2>
+    <div class="note"><b>ENV 1 is not a dedicated envelope.</b> It follows
+      whichever voice is loudest across the <i>enabled</i> oscillators, so its
+      shape is each oscillator's own <b>Envelope</b> panel on OSC — the same
+      knobs, shown here, not copies. Changing them changes how loud the note
+      is, not only what ENV 1 modulates.</div>
+    <div class="subgrp" data-envscope><h3>OSC 1 amp ADSR</h3>
+      <canvas class="gviz" data-viz="env1osc1" width="260" height="72"></canvas>
+      <div class="row kcell"><label>Attack <span class="u">s</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="19" data-fixed="1" data-proxy="1" data-log10="1" min="-3" max="0.301" step="0.001" value="-2.523"><span class="kmnow"></span></span><output></output></div>
+      <div class="row kcell"><label>Decay <span class="u">s</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="20" data-fixed="1" data-proxy="1" data-log10="1" min="-2.301" max="0.6021" step="0.001" value="-0.7959"><span class="kmnow"></span></span><output></output></div>
+      <div class="row kcell"><label>Sustain</label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="21" data-fixed="1" data-proxy="1" min="0" max="1" step="0.005" value="1"><span class="kmnow"></span></span><output></output></div>
+      <div class="row kcell"><label>Release <span class="u">s</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="22" data-fixed="1" data-proxy="1" data-log10="1" min="-2.301" max="0.9031" step="0.001" value="-0.7959"><span class="kmnow"></span></span><output></output></div>
+    </div>
+    <!-- Shown only while OSC 2 is ENABLED, and NOT through `data-when`: that
+         grammar resolves a base key through the CURRENTLY EDITED oscillator
+         (applyGates asks for the one non-fixed control), so `enable=1` would
+         mean "whichever osc you are editing is on" — never "osc 2 is on". The
+         poll already reads 1150 per oscillator in paintOscTabs; the visibility
+         is set there, from the same value, rather than by a gate that cannot
+         say what it needs to say. Authored hidden so a single-oscillator
+         layout, which never runs that loop, never shows a phantom OSC 2. -->
+    <div class="subgrp" id="env1Osc2" data-envscope hidden><h3>OSC 2 amp ADSR</h3>
+      <canvas class="gviz" data-viz="env1osc2" width="260" height="72"></canvas>
+      <div class="row kcell"><label>Attack <span class="u">s</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="1019" data-fixed="1" data-proxy="1" data-log10="1" min="-3" max="0.301" step="0.001" value="-2.523"><span class="kmnow"></span></span><output></output></div>
+      <div class="row kcell"><label>Decay <span class="u">s</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="1020" data-fixed="1" data-proxy="1" data-log10="1" min="-2.301" max="0.6021" step="0.001" value="-0.7959"><span class="kmnow"></span></span><output></output></div>
+      <div class="row kcell"><label>Sustain</label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="1021" data-fixed="1" data-proxy="1" min="0" max="1" step="0.005" value="1"><span class="kmnow"></span></span><output></output></div>
+      <div class="row kcell"><label>Release <span class="u">s</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="1022" data-fixed="1" data-proxy="1" data-log10="1" min="-2.301" max="0.9031" step="0.001" value="-0.7959"><span class="kmnow"></span></span><output></output></div>
+    </div>
+  </div>
+  <div class="cluster" id="env2Proxy"><h2>ENV 2 — the pitch envelope</h2>
+    <div class="note"><b>ENV 2 is the same envelope as <i>Pitch Env</i> on the
+      OSC page</b> — the same four knobs, not a copy of them. It also drives
+      pitch at the <b>Env &gt; Pitch</b> depth, so editing it here changes the
+      pitch envelope too.</div>
+    <canvas class="gviz" data-viz="env2" width="260" height="72"></canvas>
+    <div class="row kcell"><label>Attack <span class="u">s</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="162" data-fixed="1" data-proxy="1" min="0.001" max="2" step="0.005" value="0.003"><span class="kmnow"></span></span><output></output></div>
+    <div class="row kcell"><label>Decay <span class="u">s</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="163" data-fixed="1" data-proxy="1" min="0.005" max="4" step="0.005" value="0.16"><span class="kmnow"></span></span><output></output></div>
+    <div class="row kcell"><label>Sustain</label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="164" data-fixed="1" data-proxy="1" min="0" max="1" step="0.005" value="0"><span class="kmnow"></span></span><output></output></div>
+    <div class="row kcell"><label>Release <span class="u">s</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="165" data-fixed="1" data-proxy="1" min="0.005" max="8" step="0.005" value="0.16"><span class="kmnow"></span></span><output></output></div>
   </div>
   <!--GEN:MOD-->
   <div class="cluster" data-group="ENV 3"><h2>ENV 3</h2>
@@ -3811,6 +3881,15 @@ function paintOscTabs(ps) {
     // every other bar's buttons permanently stateless — the "funky" report.
     for (const pw of document.querySelectorAll('.oscPow[data-osc="' + k + '"]'))
       pw.classList.toggle('on', en >= 0.5);
+    /* B178: ENV 1 is the max over the ENABLED oscillators, so its OSC 2 proxy
+       is furniture while OSC 2 is off. Set HERE because this is the one loop
+       that already reads each oscillator's own enable by raw id — `data-when`
+       could not express it (applyGates resolves a base key through whichever
+       oscillator is being EDITED, so `enable=1` never means "osc 2 is on"). */
+    if (k === 1) {
+      const g2 = document.getElementById('env1Osc2');
+      if (g2) g2.hidden = en < 0.5;
+    }
   });
 }
 /* ADR-111: while a corner is armed, in-field controls display that corner's
@@ -6311,8 +6390,12 @@ document.querySelectorAll('input[data-diag]').forEach(cb => {
 /* Knob cells flow in one grid per cluster. Done at runtime rather than in the
    generator because the generator emits per PARAMETER and this is a property
    of the GROUP — and because a hidden cell must still be a `.row` child of the
-   cluster for the empty-cluster rule to keep counting it. */
-document.querySelectorAll('.cluster').forEach(cl => {
+   cluster for the empty-cluster rule to keep counting it.
+   `.subgrp` joins the selector rather than getting a rule of its own: B178's
+   ENV 1 sub-groups hold knob cells one level deeper, and a second copy of this
+   walk is how the two would later disagree about what a run is. The empty-
+   cluster rule still sees the cells — it queries `.row` descendants. */
+document.querySelectorAll('.cluster, .subgrp').forEach(cl => {
   let grid = null;
   for (const el of [...cl.children]) {
     if (el.classList && el.classList.contains('kcell')) {
@@ -6580,6 +6663,11 @@ function drawCurves() {
   drawEnvelope(null);
   drawEnvelope(null, 'env3', [281, 282, 283, 284]);
   drawEnvelope(null, 'env4', [285, 286, 287, 288]);
+  /* B178's proxies. Same law, own ids, own box — `env1osc2` reads 1019-1022,
+     which exist nowhere else as a control, which is why the reader is scoped. */
+  drawEnvelope(null, 'env2', [162, 163, 164, 165]);
+  drawEnvelope(null, 'env1osc1', [19, 20, 21, 22]);
+  drawEnvelope(null, 'env1osc2', [1019, 1020, 1021, 1022]);
   drawLfo('lfo1', { rate: 269, shape: 270, sync: 271, beats: 272, phase: 274 });
   drawLfo('lfo2', { rate: 275, shape: 276, sync: 277, beats: 278, phase: 280 });
 }
