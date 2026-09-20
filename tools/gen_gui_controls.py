@@ -140,7 +140,15 @@ def main():
     # passes. It reported GREEN on a table edited underneath it. The filter that
     # keeps generation from fighting a human must not also blind it to itself.
     hand_written = re.sub(r"<!--GEN:\w+-->.*?<!--/GEN:\w+-->", "", gui, flags=re.S)
-    already = {int(x) for x in re.findall(r'data-p="(\d+)"', hand_written)}
+    # `data-proxy` IS NOT A PLACEMENT. B178 puts a SECOND control for ENV 1's and
+    # ENV 2's parameters on the MOD page, beside the sources they belong to —
+    # one parameter, two controls, never a second id. Counting a proxy as
+    # hand-placed would make generation stand down and DELETE the real control
+    # from the OSC page, which is the exact opposite of what the marker means.
+    # Every proxy also carries data-fixed, so the collision gate below (which
+    # skips fixed controls) still sees exactly one claimant per base id.
+    already = {int(m.group(1)) for m in re.finditer(r'data-p="(\d+)"([^>]*)', hand_written)
+               if "data-proxy" not in m.group(2)}
 
     per_page = {}
     for r in rows:
@@ -172,6 +180,15 @@ def main():
         # control generated before them is what produced a numeric-slider enum, a
         # duplicated panel, and a SPECTRA surface nobody asked for.
         if len(r) < 8 or not r[7].strip():
+            continue
+        # `widget = none` — DESIGNED, and deliberately NOT a generated row.
+        # The presentation table is TOTAL (presentation_check rule 1), so a
+        # parameter whose control is hand-placed somewhere the generator cannot
+        # reach still needs a row; blanking its `chunk` would file it under
+        # "not yet designed", which is the one thing the queue count must not
+        # be allowed to lie about. B176's `sub.on` is the case: its switch is
+        # the SUB tab's power button in the Editing bar, built in JS.
+        if widget == "none":
             continue
         # ADR-108: `depends` is the SOURCE and shown_when is DERIVED from it.
         # The two columns coexist for exactly one release -- long enough that
@@ -212,9 +229,23 @@ def main():
             # bench proved one picture cannot say both things: the trajectory shows
             # where the laws differ, the vibrato cost shows what they charge for it,
             # and a trajectory plot hides the cost completely.
+            # B177: the MOD page's four generated modulators get a picture each,
+            # drawn by the SAME laws the OSC page already uses — the envelope
+            # curve takes an id quad now, and the LFO picture is a pure function
+            # of the shape and phase controls. A modulator whose only readout is
+            # four numbers is the thing the human could not evaluate.
             VISUALS = {"Envelope": ["envelope"], "Onset & scatter": ["scatter"],
-                       "Bend": ["bendstep", "bendvib"], "Saw shape": ["shapewave"]}
-            out.append(f'  <div class="cluster"><h2>{group}</h2>')
+                       "Bend": ["bendstep", "bendvib"], "Saw shape": ["shapewave"],
+                       "ENV 3": ["env3"], "ENV 4": ["env4"],
+                       "LFO 1": ["lfo1"], "LFO 2": ["lfo2"]}
+            # data-group NAMES THE BOX so page logic can address one cluster
+            # without matching on its <h2> text. B176 needs exactly that: the
+            # OSC page's SUB panel is shown alone while every swarm cluster is
+            # hidden, and a CSS rule keyed on a heading's text is not a thing
+            # CSS can write. The attribute carries the same string the heading
+            # does, from the same variable, so the two cannot drift.
+            gattr = group.replace("&", "&amp;").replace('"', "&quot;")
+            out.append(f'  <div class="cluster" data-group="{gattr}"><h2>{group}</h2>')
             for viz in VISUALS.get(group, []):
                 out.append(f'    <canvas class="gviz" data-viz="{viz}" width="260" height="72"></canvas>')
             for addr, scope, label, widget, unit, p, when, scale in sorted(items, key=lambda x: x[5]["id"]):
