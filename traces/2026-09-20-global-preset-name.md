@@ -93,8 +93,10 @@
   load (name shown, no asterisk) and after one edit (same name, asterisk),
   rendered from `src/gui/gui2.html` with the three new shell bindings stubbed.
 
-- **Verify:** `./verify full`, exit 0, git `<hash>` (see
-  `.harness/last-verify.json`; re-run on the committed hash).
+- **Verify:** `./verify full`, exit 0, git `3292dc8` — the code commit, per
+  `.harness/last-verify.json` (`{"target":"full","exit":0,"git":"3292dc8"}`).
+  Re-run on the follow-up commit that filled this line in; that commit touches
+  this file only.
 
 - **Open questions:**
   1. The asterisk is a PARAMETER comparison; the morph corners have their own
