@@ -1659,6 +1659,118 @@ int main(int argc, char **argv)
       }
     }
 
+    /* ==== 11.h THE SUB AS A PITCH-ENVELOPE DESTINATION (B181 note 4) =======
+       The human: "Sub needs one of its pitch parameters to also be mappable
+       smoothly to a pitch envelope."
+
+       WHAT ALREADY WORKED, ASKED RATHER THAN ASSUMED. `sub.fine` is
+       continuous, it is in the block, and nothing in modAddRoute or in the
+       GUI's modDestOptions refuses it — so the capability was there and the
+       gap was RANGE: +/-100 cents is ONE SEMITONE, which is not a pitch
+       envelope. 11h.a measures that it routes and 11h.b measures how far it
+       can go, so the premise of the fix is evidence and not a reading.
+
+       THE FIX is a dedicated `sub.pitchMod` in SEMITONES over the
+       instrument's own pitch range (+/-48, ADR-135's clamp), which leaves
+       `fine` alone — every stored value of it keeps its pitch — and costs no
+       recalc() on the audio-parameter path (`fine` is a core table row, so
+       modulating IT reruns the BUMP peak search on all sixteen instances
+       every mod tick; `pitchMod` is a single store).
+
+       Routes are installed through the state chunk, which is the transport
+       the shell already has — a second debug hook for the same job would be
+       one more thing to keep in step. Source 14 is VELOCITY (ADR-149), which
+       is the one global source that is live with both swarm oscillators off;
+       ENV 1 follows the ENABLED oscillators' amp envelope and would read 0
+       in exactly the rig that makes the sub measurable on its own. */
+    {
+      auto routed = [&](const char *chunk, std::vector<std::pair<clap_id, double>> extra,
+                        int key) {
+        ShellRig r;
+        r.boot(48000, 256);
+        std::string j = "{\"params\":{},\"modRoutes\":\"";
+        j += chunk;
+        j += "\"}";
+        hypersaw_debug_apply(r.p, j.c_str());
+        r.block(-1, {}, 2);   // drain the load's queue before the patch lands
+        const auto sets = with(with(kSwarmSilent, {{kSubOnId, 1},
+                                                   {kSubIdBase + 0, SubOscCore::kSine},
+                                                   {kSubIdBase + 7, 1.0},
+                                                   {kSubIdBase + 4, 0.0},
+                                                   {kSubIdBase + 12, 0.0005}}),
+                               extra);
+        std::vector<int> seq = {key};
+        for (int i = 0; i < 60; i++) seq.push_back(0);
+        const std::vector<float> y = r.sequence(sets, seq);
+        r.kill();
+        return sineHz(y, 48000, 40 * 256, 60 * 256);   // steady, past the ramp
+      };
+      const double f48 = 440 * std::pow(2.0, (48 - 69) / 12.0);
+      // 11h.a `fine` ALREADY routes. Depth is a fraction of the destination's
+      // own range (200 cents), so 0.25 asks for +50 c = a factor 1.02930.
+      const double fineOn = routed("14:4006:0.25;", {}, 48);
+      const double fineOff = routed("", {}, 48);
+      row(std::fabs(fineOff - f48) < f48 * 0.01 &&
+              std::fabs(fineOn - f48 * std::pow(2.0, 50.0 / 1200.0)) < f48 * 0.01,
+          "11h.a `sub.fine` was ALREADY a mod destination — velocity at depth 0.25 moves it "
+          "+50 cents",
+          "%.3f Hz", fineOn);
+      // 11h.b AND THAT IS THE GAP. `fine` at its ceiling is one semitone; a
+      // pitch envelope is not one semitone. Stated as a measurement so the
+      // reason for a new parameter is on the record.
+      const double fineMax = routed("14:4006:0.5;", {}, 48);
+      row(std::fabs(fineMax - f48 * 2.0) > f48 * 0.05,
+          "11h.b THE GAP: `fine` at FULL depth is +100 c — one semitone, not a pitch envelope",
+          "%.3f Hz (an octave would be 261.63)", fineMax);
+      /* 11h.c THE FIX, MEASURED. `sub.pitchMod` spans 96 st, so depth 0.125
+         asks for exactly +12 st — one octave, a number a wrong answer cannot
+         land on by accident. The control is the same route at depth 0. */
+      const double modOn = routed("14:4019:0.125;", {}, 48);
+      const double modOff = routed("14:4019:0;", {}, 48);
+      row(std::fabs(modOn - f48 * 2.0) < f48 * 0.02,
+          "11h.c a source routed to `sub.pitchMod` at depth 0.125 moves the sub by exactly "
+          "+12 st",
+          "%.3f Hz (want 261.63)", modOn);
+      row(std::fabs(modOff - f48) < f48 * 0.01,
+          "11h.c CONTROL the same route at depth 0 leaves the pitch alone", "%.3f Hz", modOff);
+      // 11h.d a NEGATIVE depth goes DOWN — the range is signed, not a magnitude.
+      const double modDown = routed("14:4019:-0.125;", {}, 48);
+      row(std::fabs(modDown - f48 * 0.5) < f48 * 0.02,
+          "11h.d depth -0.125 moves it an octave DOWN", "%.3f Hz (want 65.41)", modDown);
+      /* 11h.e SMOOTH, and that is the word the human used. The parameter is
+         continuous (not CLAP-stepped), and a sweep of it must produce
+         strictly increasing, all-distinct frequencies — a quantised
+         destination would land on repeats. 16 steps of 0.75 st. */
+      {
+        ShellRig q;
+        q.boot(48000, 256);
+        clap_param_info_t info{};
+        bool got = false;
+        for (uint32_t x = 0, n2 = q.params->count(q.p); x < n2 && !got; x++)
+          if (q.params->get_info(q.p, x, &info) && info.id == kSubPitchModId) got = true;
+        row(got && (info.flags & CLAP_PARAM_IS_STEPPED) == 0 && info.min_value == -48 &&
+                info.max_value == 48 && info.default_value == 0,
+            "11h.e `sub.pitchMod` is CONTINUOUS over +/-48 st, defaulting to 0");
+        q.kill();
+        double prev = 0;
+        bool rising = true, distinct = true;
+        // 0.7 st, deliberately NOT a whole semitone: a destination that
+        // quantised to semitones would still rise on a 1-st grid.
+        for (int i = 0; i <= 16; i++)
+        {
+          const double f = routed("", {{kSubPitchModId, i * 0.7}}, 48);
+          if (i && (f <= prev * 1.0001)) rising = false;
+          if (i && std::fabs(f - prev) < 1e-3) distinct = false;
+          prev = f;
+        }
+        const double top = f48 * std::pow(2.0, 11.2 / 12.0);
+        row(rising && distinct && std::fabs(prev - top) < top * 0.01,
+            "11h.e sweeping it in 0.7 st steps gives 17 strictly rising, all-distinct "
+            "frequencies and lands where the law says — no quantisation",
+            "top %.3f Hz (want 249.69)", prev);
+      }
+    }
+
     /* ---- 11.f HEADROOM, measured THROUGH THE SHELL and gated. Phase 1
        finding 1: the core's TPT tone stage overshoots above unity at a
        near-Nyquist cutoff. The row divides by 1.425 so a sub at level 1 into a
