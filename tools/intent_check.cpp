@@ -1675,14 +1675,38 @@ void t4()
      also host the control — the control moves a hair off centre (and the same
      off-centre position is measured at temp 1 too, so the collapse is
      attributable to the steepness and not to the move). */
+  /* THE SEARCH COVERS THE CONTROL'S POSITION TOO — PIN MOVED 2026-09-20,
+     B181, and the reason belongs here rather than in a commit message.
+
+     The search used to select a seed on the CENTRE alone and the control below
+     then inherited it, assuming it would also split at (0.35,0.45). Nothing
+     enforced that, and B181 note 2 made the assumption false: appending two
+     morphable ids (sub.glide, sub.pitchMod) lengthens morphIds, and
+     MorphField::reshuffle draws the SHARED gumbel AFTER every per-parameter
+     draw (morph_core.h) — so a longer list shifts gShared, and with
+     morphCoup > 0 that re-decides ownership everywhere. Seed 1024 split 1/0
+     off-centre before and splits 0/0 after. Exactly the class of change the
+     morphLayout marker exists to record; not a defect, and not something the
+     seed pool can be immune to.
+
+     WHAT IS SELECTED FOR AND WHAT IS NOT. The search picks a seed that splits
+     at temp 1 at BOTH positions, because "at temp 1 it splits" is the
+     control's PREMISE — the point of the row is that sharpening the
+     temperature collapses it. The COLLAPSE (sharp.ownD == sharp.ownE and the
+     silenced second depth) is NOT searched on, so the operative half of the
+     gate is untouched; and if no seed in the pool splits at both, the row
+     FAILS rather than quietly picking the last one (the old loop's behaviour,
+     which is how a moved field reads as a broken resolver). */
   Leg mid;
   uint32_t used = 0;
+  bool premiseFound = false;
   const uint32_t seeds[6] = {1024, 7, 4242, 99, 31337, 5};
   for (int i = 0; i < 6; i++)
   {
     mid = leg(0.5, 0.5, 1.0, seeds[i]);
     used = seeds[i];
-    if (mid.ownD != mid.ownE) break;
+    const Leg probe = leg(0.35, 0.45, 1.0, seeds[i]);
+    if (mid.ownD != mid.ownE && probe.ownD != probe.ownE) { premiseFound = true; break; }
   }
   char msg[440];
   std::snprintf(msg, sizeof msg,
@@ -1703,7 +1727,7 @@ void t4()
                 "(steepness 50) ownership COLLAPSES to corner %d for both, and the second "
                 "corner's depth goes silent — detune moves %.6g against corner %d's %.6g",
                 off.ownD, off.ownE, sharp.ownD, sharp.moveD, sharp.ownD, sharp.wantD);
-  say(sharp.ownD == sharp.ownE && off.ownD != off.ownE &&
+  say(premiseFound && sharp.ownD == sharp.ownE && off.ownD != off.ownE &&
           std::fabs(sharp.moveD - sharp.wantD) <= 1e-9 &&
           std::fabs(sharp.moveE - sharp.wantE) <= 1e-9,
       msg);
