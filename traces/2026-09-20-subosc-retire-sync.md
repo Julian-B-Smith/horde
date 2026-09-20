@@ -100,9 +100,13 @@
 
 ## Verify
 
-`./verify full` — exit **0**, git `2ff36ec`, per `.harness/last-verify.json`
-(read from the file, not the wrapper — L0051). A pre-commit `full` run was also
-exit 0 on the working tree (`9e8ccef` was the recorded HEAD at that moment).
+`./verify full` — exit **0**, git `6ab85c5`, per `.harness/last-verify.json`
+(read from the file, not the wrapper — L0051):
+
+    {"target":"full","exit":0,"git":"6ab85c5","ts":"2026-09-20T20:57:10Z"}
+
+A pre-commit `full` run was also exit 0 (recorded HEAD `9e8ccef` at that
+moment). The line above is the post-commit run, on the committed tree.
 
 ## Open questions
 
