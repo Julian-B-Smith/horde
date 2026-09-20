@@ -2,11 +2,21 @@
  * subosc_core.h — SUB OSC: the honest sub. One oscillator, seven shapes, pitch
  * offsets, a one-pole tone. No swarm, no coupling, and no hard sync (B184).
  *
- * STATUS: PORT PHASE 1 (core + oracle only). NOT wired into the shell, NO ids,
- * NO routing source row, NO GUI. The shell seam (source row 2 — ADR-178, the
- * eight reserved source rows of ADR-088's amendment) is phase 2 under a
- * separate brief. `tools/subosc_check.cpp` drives this header directly and
- * `./verify full` runs that chain.
+ * STATUS: SHIPPED. Phase 1 built this core and its oracle; phase 2 (B172, PR
+ * #690) wired it into the shell as ADR-088's first ENGINE BLOCK — ids
+ * 4000–4019, routing source row 2 (ADR-178, the eight rows ADR-088's amendment
+ * reserved), its own SUB panel on the OSC page and a MIX strip. The gate
+ * (4015 `on`) ships OFF, so an untouched patch is bit-inert.
+ *
+ * This header said "NOT wired into the shell, NO ids, NO routing source row,
+ * NO GUI" for the two days after all four became false — the B184 agent found
+ * it and could not fix it in its brief's scope. A STATUS block is the first
+ * thing a fresh agent reads, so a stale one does not merely misinform, it
+ * misdirects the next piece of work. Re-read it whenever this file's place in
+ * the instrument changes.
+ *
+ * `tools/subosc_check.cpp` drives this header directly AND through the CLAP
+ * factory (its section 11), and `./verify full` runs that chain.
  *
  * ── ONE INSTANCE PER VOICE, AND THAT IS THE CLASS'S ASSUMPTION ──────────────
  * SPEC-SUBOSC §1 ("one oscillator, one voice") and §8.2 (a routing SOURCE row)

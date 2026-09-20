@@ -631,7 +631,7 @@ endif()
 # section 11's SHELL rows (B172 phase 2). It LINKS THE PLUGIN IMPL now: phase 2
 # gave the sub a source row, and the claims phase 2 makes -- the gate is
 # bit-inert, the row reproduces the core through the matrix, the chunk carries
-# every new id, hard sync's refusal is pinned -- live between the core and the
+# every new id, the retired sync id stays inert (B184) -- live between the core and the
 # output, which a core-direct probe is structurally blind to (L0031 (B)).
 # WIRED in ./verify full (ADR-180 §1).
 add_executable(subosc_check tools/subosc_check.cpp)
