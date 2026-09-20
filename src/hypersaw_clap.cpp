@@ -5598,32 +5598,70 @@ struct Plugin
       }
       applyIntentChunk(chunk);
     }
+    /* ---- A LOAD IS A LOAD, AND IT NOW MEANS THE SAME THING FOR PARAMETERS
+       (B181 note 6, human 2026-09-20: "Sub currently seems to be ignored by
+       loading presets").
+
+       Until this change every parameter loop here read `if (pos == npos)
+       continue;` — an ABSENT key was SKIPPED, so the parameter kept whatever
+       the previous patch left in it. The two chunk paths three lines above
+       have always said the opposite, in as many words: "an ABSENT key means
+       unbound ... never 'whatever the previous patch had'." One function held
+       both rules.
+
+       The engine-block loop even defended the skip: "a patch written before
+       the block existed simply says nothing about it, and the block ships off,
+       so it stays inert". The hidden premise is that the block is off — and
+       the moment a player switches it ON, an absent key means it stays on
+       across every subsequent preset load, carrying its wave, its octave and
+       its level with it. That is exactly what the human heard.
+
+       So: a parameter ABSENT from a loaded patch is restored to its DEFAULT
+       (defaultFor — the same single source CLAP's default_value and the GUI's
+       double-click use), never left as it was. Instrument table, engine blocks
+       and osc-2 twins alike, because "a load is a load" is not a property of
+       one namespace.
+
+       WHAT THIS COSTS, STATED: an old patch that omits a key now renders that
+       key at its default rather than at the previous patch's value. That is a
+       behaviour change for every pre-existing preset, and it is the POINT — it
+       is what makes a load reproducible. The evidence is subosc_check's
+       40-patch byte-identity row: loading each factory patch after deliberately
+       disturbing every parameter must give byte-identical state to loading it
+       on a fresh instance. The migrations below still run AFTER this and still
+       win, so `enable`, `noteLawLink`/`glide` and the schema<2 glideMode
+       rewrite are untouched — each is keyed on the JSON text, not on what the
+       instance currently holds.
+
+       `any` still means "the patch named at least one key we know", which is
+       this function's return value and the host's success flag; a default
+       restore is not evidence of that, so it deliberately does not set it. */
+    auto valueOrDefault = [&](const std::string &needle, double def, double &out) {
+      size_t pos = json.find(needle);
+      if (pos == std::string::npos) { out = def; return false; }
+      pos = json.find(':', pos + needle.size());
+      if (pos == std::string::npos) { out = def; return false; }
+      out = std::atof(json.c_str() + pos + 1);
+      return true;
+    };
     bool any = false;
     for (const auto &d : kParams)
     {
       if (d.id == 178) continue;   // ADR-147: specimen is not patch state (see state_load)
-      const std::string needle = "\"" + std::string(d.coreKey) + "\"";
-      size_t pos = json.find(needle);
-      if (pos == std::string::npos) continue;
-      pos = json.find(':', pos + needle.size());
-      if (pos == std::string::npos) continue;
-      enqueueParam(d.id, std::atof(json.c_str() + pos + 1), 3);   // B125: load kind
-      any = true;
+      double v = 0;
+      any = valueOrDefault("\"" + std::string(d.coreKey) + "\"", defaultFor(d, 0), v) || any;
+      enqueueParam(d.id, v, 3);   // B125: load kind
     }
-    // B172 engine blocks, prefixed. Absent keys leave the block at whatever
-    // it holds, exactly as an absent instrument key does — a patch written
-    // before the block existed simply says nothing about it, and the block
-    // ships off, so it stays inert.
+    // B172 engine blocks, prefixed — same rule, and this is the loop whose
+    // absent-key skip the human actually heard.
     for (const auto &b : kEngineBlocks)
       for (uint32_t i = 0; i < b.count; i++)
       {
-        const std::string needle = "\"" + std::string(b.keyPrefix) + b.defs[i].coreKey + "\"";
-        size_t pos = json.find(needle);
-        if (pos == std::string::npos) continue;
-        pos = json.find(':', pos + needle.size());
-        if (pos == std::string::npos) continue;
-        enqueueParam(b.defs[i].id, std::atof(json.c_str() + pos + 1), 3);
-        any = true;
+        double v = 0;
+        any = valueOrDefault("\"" + std::string(b.keyPrefix) + b.defs[i].coreKey + "\"",
+                             defaultFor(b.defs[i], 0), v) ||
+              any;
+        enqueueParam(b.defs[i].id, v, 3);
       }
     // the twins, by the state_save convention
     for (uint32_t k = 1; k < kNumOsc; k++)
@@ -5632,12 +5670,9 @@ struct Plugin
         if (isGlobalId(d.id)) continue;
         char nb[64];
         std::snprintf(nb, sizeof(nb), "\"o%u.%s\"", k, d.coreKey);
-        size_t pos = json.find(nb);
-        if (pos == std::string::npos) continue;
-        pos = json.find(':', pos + std::strlen(nb));
-        if (pos == std::string::npos) continue;
-        enqueueParam(d.id + k * 1000, std::atof(json.c_str() + pos + 1), 3);
-        any = true;
+        double v = 0;
+        any = valueOrDefault(nb, defaultFor(d, k), v) || any;
+        enqueueParam(d.id + k * 1000, v, 3);
       }
     /* PRE-NOTE-LANE PATCH MIGRATION. `noteLawLink` ships FOLLOW as of 2026-08-20,
        but a patch saved before the note lane existed carries no such key — it

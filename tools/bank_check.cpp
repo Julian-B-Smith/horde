@@ -224,6 +224,55 @@ std::string saveState(const clap_plugin_t *p)
   return buf;
 }
 
+/* MOVE EVERY PARAMETER OFF WHERE IT IS, through the HOST's own parameter list
+   (B181 note 6's assertion needs a disturbance it did not author by hand — a
+   hand-written list would disturb the parameters the author remembered, which
+   are exactly the ones a load bug would not hide in). Each row goes to a value
+   inside its own declared range and away from its current one: a stepped row
+   steps, a continuous row lands a third of the way in from the far bound.
+   Returns how many rows actually moved, which is the calibration handle. */
+size_t disturb(Rig &r)
+{
+  auto *px = (const clap_plugin_params_t *)r.p->get_extension(r.p, CLAP_EXT_PARAMS);
+  if (!px) return 0;
+  std::vector<std::pair<clap_id, double>> sets;
+  const uint32_t n = px->count(r.p);
+  for (uint32_t i = 0; i < n; i++)
+  {
+    clap_param_info_t info{};
+    if (!px->get_info(r.p, i, &info)) continue;
+    /* ONE NAMED EXCLUSION, and it is stated rather than silently skipped
+       (L0033). Id 178 (`specimen`) is declared NOT PATCH STATE by ADR-147 —
+       applyStateJson skips it on purpose, and so does state_load. Disturbing
+       it would make the E assertion below fail for the one parameter whose
+       whole contract is that a load does not touch it: the gate would be
+       measuring the exclusion instead of the rule. */
+    if (info.id == 178) continue;
+    double cur = info.default_value;
+    px->get_value(r.p, info.id, &cur);
+    const bool stepped = (info.flags & CLAP_PARAM_IS_STEPPED) != 0;
+    double want;
+    if (stepped)
+      want = cur + 1 <= info.max_value ? cur + 1 : cur - 1;
+    else
+      want = cur < 0.5 * (info.min_value + info.max_value)
+                 ? info.max_value - (info.max_value - info.min_value) / 3
+                 : info.min_value + (info.max_value - info.min_value) / 3;
+    if (want < info.min_value || want > info.max_value || want == cur) continue;
+    sets.push_back({info.id, want});
+  }
+  // In chunks: the param queue is finite and a single event list of ~700
+  // writes would overrun it silently, which would understate the disturbance.
+  for (size_t at = 0; at < sets.size(); at += 64)
+  {
+    std::vector<std::pair<clap_id, double>> part(
+        sets.begin() + (long)at, sets.begin() + (long)std::min(sets.size(), at + 64));
+    r.params(part);
+    r.run(0.01);
+  }
+  return sets.size();
+}
+
 /* Strike C4 and follow R for `sec`, returning the peak R and the time it first
    crossed `want` (or -1). The swarm is sampled once per block, which is the
    same cadence publishViz feeds the GUI at. */
@@ -319,6 +368,7 @@ int main(int argc, char **argv)
   // ---- per file -------------------------------------------------------
   bool fxSeen[10] = {false};
   bool calibrated = false;
+  bool disturbCalibrated = false, namedKeyCalibrated = false, holeCalibrated = false;
   for (const auto &f : files)
   {
     const std::string tag = f.parent_path().filename().string() + "/" + f.stem().string();
@@ -342,6 +392,213 @@ int main(int argc, char **argv)
       std::printf("     first difference at byte %zu:\n       file  ...%s\n       resave...%s\n", i,
                   a.substr(i > 40 ? i - 40 : 0, 110).c_str(),
                   b.substr(i > 40 ? i - 40 : 0, 110).c_str());
+    }
+
+    /* E: A LOAD IS A LOAD — loading into a DISTURBED instance must land in
+       exactly the same place as loading into a fresh one (B181 note 6).
+
+       Until 2026-09-20 applyStateJson SKIPPED an absent key, so a parameter
+       the patch does not name kept whatever the previous patch left in it.
+       The human heard it on the SUB block: switch the sub on, load a preset
+       written before the block existed, and the sub stays on with yesterday's
+       wave and octave. The fix restores an absent key to its DEFAULT; this row
+       is the assertion that says so for the whole bank, every parameter at
+       once, rather than for the one block that was noticed.
+
+       Byte-identity of the re-SAVE is the assertion because the save emits
+       every parameter the instrument has — so two states that agree byte for
+       byte agree on all of them, including the ones this patch never mentions.
+
+       CALIBRATION IS NOT OPTIONAL HERE (L0032): if `disturb` silently moved
+       nothing, the two rigs would be identical for the boring reason and this
+       row would certify nothing. So the disturbed state is FIRST asserted to
+       differ from the fresh one, before the load. */
+    {
+      Rig d;
+      d.boot();
+      const std::string clean = saveState(d.p);
+      const size_t moved = disturb(d);
+      d.run(0.05);
+      const std::string messy = saveState(d.p);
+      if (!disturbCalibrated)
+      {
+        disturbCalibrated = true;
+        check(moved > 100 && dropBuild(messy) != dropBuild(clean),
+              "CALIBRATION: the disturbance moves " + std::to_string(moved) +
+                  " parameters and is visible in the state — E is not vacuous");
+      }
+      d.load(blob);
+      d.run(0.05);
+      const std::string after = dropBuild(saveState(d.p)), want = dropBuild(again);
+      const bool eq = after == want;
+      check(eq, tag + ": loads byte-identically into a DISTURBED instance (a load is a load)");
+      if (!eq)
+      {
+        size_t i = 0;
+        while (i < after.size() && i < want.size() && after[i] == want[i]) i++;
+        std::printf("     first difference at byte %zu:\n       fresh    ...%s\n"
+                    "       disturbed...%s\n",
+                    i, want.substr(i > 60 ? i - 60 : 0, 140).c_str(),
+                    after.substr(i > 60 ? i - 60 : 0, 140).c_str());
+      }
+      d.kill();
+    }
+
+    /* F: THE ROW THAT ACTUALLY EXHIBITS THE BUG, and E is not it.
+
+       E above was run against the PRE-FIX binary during development and PASSED
+       (40/40). That is not a failure of E, it is E's COVERAGE BOUNDARY, and it
+       is recorded here rather than retried until something fired (L0033): the
+       factory bank was re-saved when the SUB block landed, so every patch in
+       it names every key, and a loader that skips ABSENT keys and one that
+       defaults them agree exactly when nothing is absent.
+
+       The defect lives in patches with HOLES — a patch written before a
+       parameter existed. So F punches holes in a factory patch (every 7th key
+       of the params object, a deterministic subset nobody chose by hand) and
+       asks the same question: a fresh instance and a disturbed one must land
+       in the same place. Under the old skip rule the disturbed instance keeps
+       its disturbed values at every hole and this row is RED, which is what
+       makes it a gate rather than a restatement of E.
+
+       Plus one NAMED anchor, because the human's report was concrete: with
+       every `sub.` key stripped, the block's gate (id 4015) must read its
+       default OFF in an instance where it was just switched on. */
+    if (!holeCalibrated)
+    {
+      holeCalibrated = true;
+      // Holes: every 7th "key": in the params object, left-to-right.
+      std::string holed = blob;
+      {
+        const size_t pStart = holed.find("\"params\"");
+        size_t at = pStart == std::string::npos ? std::string::npos : holed.find('{', pStart);
+        int seen = 0;
+        size_t punched = 0;
+        while (at != std::string::npos)
+        {
+          const size_t q0 = holed.find('"', at + 1);
+          if (q0 == std::string::npos) break;
+          const size_t q1 = holed.find('"', q0 + 1);
+          if (q1 == std::string::npos) break;
+          const size_t colon = holed.find(':', q1);
+          if (colon == std::string::npos) break;
+          size_t end = colon;
+          while (end < holed.size() && holed[end] != ',' && holed[end] != '}') end++;
+          const bool last = end >= holed.size() || holed[end] == '}';
+          if (seen++ % 7 == 0 && !last)
+          {
+            holed.erase(q0, end + 1 - q0);
+            at = q0 == 0 ? std::string::npos : q0 - 1;
+            punched++;
+          }
+          else
+          {
+            at = end;
+          }
+          if (last) break;
+        }
+        std::printf("     F: punched %zu holes in %s\n", punched, tag.c_str());
+        check(punched > 20, "F: the hole-punch removed enough keys to be a test");
+      }
+      Rig fa, fb;
+      fa.boot();
+      fa.load(holed);
+      fa.run(0.05);
+      fb.boot();
+      disturb(fb);
+      fb.run(0.05);
+      fb.load(holed);
+      fb.run(0.05);
+      const std::string sa = dropBuild(saveState(fa.p)), sb = dropBuild(saveState(fb.p));
+      const bool eq = sa == sb;
+      check(eq, "F: a patch with HOLES loads the same into a fresh and a disturbed instance "
+                "(this is the row that was RED before the fix)");
+      if (!eq)
+      {
+        size_t i = 0;
+        while (i < sa.size() && i < sb.size() && sa[i] == sb[i]) i++;
+        std::printf("     first difference at byte %zu:\n       fresh    ...%s\n"
+                    "       disturbed...%s\n",
+                    i, sa.substr(i > 60 ? i - 60 : 0, 140).c_str(),
+                    sb.substr(i > 60 ? i - 60 : 0, 140).c_str());
+      }
+      fa.kill();
+      fb.kill();
+
+      /* THE NAMED ANCHOR — the human's own report. Strip every `sub.` key from
+         a patch, switch the block ON by hand, load: the gate must come back
+         OFF (its default), not stay on carrying the previous patch's sub. The
+         key prefix and the gate id are spelled out here because this row is
+         about a specific reported defect, not about a generic rule. */
+      std::string noSub = blob;
+      for (size_t q = noSub.find("\"sub."); q != std::string::npos; q = noSub.find("\"sub."))
+      {
+        size_t end = noSub.find(':', q);
+        while (end < noSub.size() && noSub[end] != ',' && noSub[end] != '}') end++;
+        noSub.erase(q, (end < noSub.size() && noSub[end] == ',' ? end + 1 : end) - q);
+      }
+      Rig sg;
+      sg.boot();
+      sg.params({{4015, 1.0}, {4000, 5.0}});   // SUB On, SUB Wave = noise
+      sg.run(0.05);
+      sg.load(noSub);
+      sg.run(0.05);
+      auto *sp = (const clap_plugin_params_t *)sg.p->get_extension(sg.p, CLAP_EXT_PARAMS);
+      double on = -1, wave = -1;
+      sp->get_value(sg.p, 4015, &on);
+      sp->get_value(sg.p, 4000, &wave);
+      char m3[200];
+      std::snprintf(m3, sizeof m3,
+                    "F-ANCHOR: a patch that names no `sub.` key restores the block to its "
+                    "DEFAULTS — on = %.0f (want 0), wave = %.0f (want 3)",
+                    on, wave);
+      check(on == 0 && wave == 3, m3);
+      sg.kill();
+    }
+
+    /* E-CONTROL, once: "restore the default when the key is ABSENT" must not
+       have become "restore the default". A key the patch DOES name has to come
+       back at the patch's value — so this picks a row whose loaded value is
+       away from its default (i.e. one the file really names), moves it
+       somewhere else, re-loads, and requires the file's value back rather than
+       the default. Without this row the E assertion above would also pass for
+       a loader that reset everything and read nothing. */
+    if (!namedKeyCalibrated)
+    {
+      auto *px = (const clap_plugin_params_t *)r.p->get_extension(r.p, CLAP_EXT_PARAMS);
+      clap_param_info_t pick{};
+      double loaded = 0;
+      bool found = false;
+      for (uint32_t i = 0, n2 = px ? px->count(r.p) : 0; i < n2 && !found; i++)
+      {
+        clap_param_info_t info{};
+        double v = 0;
+        if (!px->get_info(r.p, i, &info) || !px->get_value(r.p, info.id, &v)) continue;
+        if (std::fabs(v - info.default_value) <= 1e-9) continue;
+        pick = info;
+        loaded = v;
+        found = true;
+      }
+      if (found)
+      {
+        namedKeyCalibrated = true;
+        Rig e2;
+        e2.boot();
+        disturb(e2);
+        e2.run(0.05);
+        e2.load(blob);
+        e2.run(0.05);
+        auto *p2 = (const clap_plugin_params_t *)e2.p->get_extension(e2.p, CLAP_EXT_PARAMS);
+        double back = 0;
+        p2->get_value(e2.p, pick.id, &back);
+        char m2[200];
+        std::snprintf(m2, sizeof m2,
+                      "E-CONTROL: a key the patch NAMES (%s = %.6g, default %.6g) comes back at "
+                      "the patch's value, not the default — got %.6g",
+                      pick.name, loaded, pick.default_value, back);
+        check(std::fabs(back - loaded) <= 1e-9 && std::fabs(back - pick.default_value) > 1e-9, m2);
+        e2.kill();
+      }
     }
 
     // B-calibration, once: the same comparison must FAIL on a planted change.
