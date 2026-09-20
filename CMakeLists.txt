@@ -794,6 +794,14 @@ target_link_libraries(morphlayout_check PRIVATE ${PROJECT_NAME}-impl)
 add_executable(penv_check tools/penv_check.cpp)
 target_link_libraries(penv_check PRIVATE ${PROJECT_NAME}-impl)
 
+# lfoenv_check: B171's LFO 1/2 and ENV 3/4 as mod sources (ADR-181). WIRED into
+# ./verify full in the PR that adds it — ADR-180 §1 inverted the default.
+add_executable(lfoenv_check tools/lfoenv_check.cpp)
+target_link_libraries(lfoenv_check PRIVATE ${PROJECT_NAME}-impl)
+if(NOT MSVC)
+  target_compile_options(lfoenv_check PRIVATE -O2)
+endif()
+
 # fxxfade_plugin_check: B117 through the plugin param path (2026-09-14). Standalone, unwired.
 add_executable(fxxfade_plugin_check tools/fxxfade_plugin_check.cpp)
 target_link_libraries(fxxfade_plugin_check PRIVATE ${PROJECT_NAME}-impl)

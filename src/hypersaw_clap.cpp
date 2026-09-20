@@ -24,6 +24,7 @@
 #include <clap/clap.h>
 #include <clapwrapper/vst3.h>
 #include <algorithm>
+#include <limits>   // quiet_NaN in the modsrc probe export (B171)
 #include <vector>
 
 #include "swarm_core.h"
@@ -140,6 +141,17 @@ static const char *const kPolesLabels[] = {"1 — classic", "2 — pair", "3 —
 // knob ("free ms" vs "tempo sync"), not "off/on" — a sync toggle labelled
 // off/on reads as though it disables the delay.
 static const char *const kDelaySyncLabels[] = {"free (ms)", "tempo sync"};
+/* B171 LFO labels. The sync pair is NOT kDelaySyncLabels: the free branch of an
+   LFO is a RATE in Hz, not a time in ms, and a label that names the wrong unit
+   is the kind of lie a dropdown tells in one glance. Shape order is frozen —
+   the value is a stepped parameter a patch stores, so entries are appended. */
+/* "sample & hold" is spelled exactly as kDriftModeLabels spells it — the device
+   already has a word for this shape, and a second spelling is a second thing a
+   player has to learn is the same thing. */
+static const char *const kLfoShapeLabels[] = {"sine",     "triangle", "saw up",
+                                              "saw down", "square",   "sample & hold"};
+static const char *const kLfoSyncLabels[] = {"free (Hz)", "tempo sync"};
+static const char *const kLfoRetrigLabels[] = {"free-running", "retrig on note"};
 static const char *const kFxTypeLabels[] = {"Off",  "Drive", "Filter", "Gain",
                                             "Comp", "Comb",  "Notch", "Echo", "Room", "Delay"};
 /* B117 / ADR-163. "atomic" is what the rack has always done — module type is
@@ -719,6 +731,47 @@ static const ParamDef kParams[] = {
        morph corner should own — and the pad's home already IS corner-owned,
        which is the part that flips. */
     {268, "intentLatch", "Pad Latch (dev)", 0, 1, 0, true, kOffOn},
+    /* B171 — TWO LFOs AND TWO MORE ENVELOPES, as modulation SOURCES (mod slots
+       18-21). Ids 269-288, contiguous and appended: the slot indices are frozen
+       in the `modroutes` chunk, so sources only ever APPEND, and the ids follow
+       the same rule for the same reason. ALL GLOBAL (kGlobalIds) and all Device
+       class (kParamClassOverrides) — §3.2 puts a global mod source there, which
+       is also what keeps them out of buildMorphOrder's frozen prefix.
+
+       `lfoNBeats` MATCHES THE DELAY'S BEATS PARAM (234/242/250/258): the same
+       0.0625..8 continuous range in BEATS, rendered as a knob with unit
+       `/beat`. The brief asked for "a division list ... reuse its label table";
+       there is no such table — d1beats is continuous and d1sync's labels are
+       the free/sync pair — so matching the delay means matching what it IS.
+       Default 1 = one beat = a 1/4 note (the delay's law is
+       `seconds = beats * 60/bpm`, and bpm counts quarter notes).
+
+       NOT MODULATION DESTINATIONS in this increment (see modAddRoute): an LFO
+       modulating an LFO is a later feature with its own cycle rule. */
+    {269, "lfo1Rate", "LFO 1 Rate (Hz)", 0.02, 40, 1, false, nullptr},
+    {270, "lfo1Shape", "LFO 1 Shape", 0, 5, 0, true, kLfoShapeLabels},
+    {271, "lfo1Sync", "LFO 1 Time Mode", 0, 1, 0, true, kLfoSyncLabels},
+    {272, "lfo1Beats", "LFO 1 Beats", 0.0625, 8, 1, false, nullptr},
+    {273, "lfo1Retrig", "LFO 1 Retrigger", 0, 1, 0, true, kLfoRetrigLabels},
+    {274, "lfo1Phase", "LFO 1 Start Phase", 0, 1, 0, false, nullptr},
+    {275, "lfo2Rate", "LFO 2 Rate (Hz)", 0.02, 40, 1, false, nullptr},
+    {276, "lfo2Shape", "LFO 2 Shape", 0, 5, 0, true, kLfoShapeLabels},
+    {277, "lfo2Sync", "LFO 2 Time Mode", 0, 1, 0, true, kLfoSyncLabels},
+    {278, "lfo2Beats", "LFO 2 Beats", 0.0625, 8, 1, false, nullptr},
+    {279, "lfo2Retrig", "LFO 2 Retrigger", 0, 1, 0, true, kLfoRetrigLabels},
+    {280, "lfo2Phase", "LFO 2 Start Phase", 0, 1, 0, false, nullptr},
+    /* ENV 3 and ENV 4 carry EXACTLY ENV 2's ranges, units and defaults (162-165)
+       because they run EXACTLY ENV 2's law — advanceAdsr() is the one copy, and
+       three envelopes reading three different ranges off one law would be three
+       ways to describe the same contour. */
+    {281, "env3A", "ENV 3 Attack (s)", 0.001, 2.0, 0.003, false, nullptr},
+    {282, "env3D", "ENV 3 Decay (s)", 0.005, 4.0, 0.16, false, nullptr},
+    {283, "env3S", "ENV 3 Sustain", 0, 1, 0, false, nullptr},
+    {284, "env3R", "ENV 3 Release (s)", 0.005, 8.0, 0.16, false, nullptr},
+    {285, "env4A", "ENV 4 Attack (s)", 0.001, 2.0, 0.003, false, nullptr},
+    {286, "env4D", "ENV 4 Decay (s)", 0.005, 4.0, 0.16, false, nullptr},
+    {287, "env4S", "ENV 4 Sustain", 0, 1, 0, false, nullptr},
+    {288, "env4R", "ENV 4 Release (s)", 0.005, 8.0, 0.16, false, nullptr},
 };
 
 // THE DEFAULT OF A PARAMETER, DEFINED ONCE. Both CLAP (`clap_param_info.
@@ -833,6 +886,10 @@ constexpr clap_id kGlobalIds[] = {
     264, 265,                                    // B117 FX crossfade (dev) — the rack is ONE object
     266,                                         // B89 intent-bus flag (dev) — one resolver per device
     268,                                         // B89 pad latch — one performance pad per device
+    269, 270, 271, 272, 273, 274,                // B171 LFO 1 (mod source slot 18)
+    275, 276, 277, 278, 279, 280,                // B171 LFO 2 (mod source slot 19)
+    281, 282, 283, 284,                          // B171 ENV 3 (mod source slot 20)
+    285, 286, 287, 288,                          // B171 ENV 4 (mod source slot 21)
     // ADR-131 per-slot time-engine params: 200..231, four blocks of 8.
     200, 201, 202, 203, 204, 205, 206,
     208, 209, 210, 211, 212, 213, 214,
@@ -1266,6 +1323,33 @@ static const ParamClassRule kParamClassOverrides[] = {
        "no morphIds member is device" cross-check holds because morphInit never
        appends it. */
     {267, ParamClass::Device, "bass-mono placement — an output-stage policy (B146)"},
+    /* B171, the ENV 2 rows above applied to twenty more: §3.2 puts a GLOBAL MOD
+       SOURCE in the device class, and that is what all twenty are — the shape
+       and timing of a modulator, not a value a corner authors. Device also
+       keeps them out of morphIds, which is what paramclass_check's "no morphIds
+       member is device" cross-check needs, and out of buildMorphOrder's frozen
+       prefix (it skips globals). Rule 2 would call the stepped ones structural;
+       the same override the delay's sync rows earn. */
+    {269, ParamClass::Device, "LFO 1 is a global mod source (§3.2)"},
+    {270, ParamClass::Device, "LFO 1 is a global mod source (§3.2)"},
+    {271, ParamClass::Device, "LFO 1 is a global mod source (§3.2)"},
+    {272, ParamClass::Device, "LFO 1 is a global mod source (§3.2)"},
+    {273, ParamClass::Device, "LFO 1 is a global mod source (§3.2)"},
+    {274, ParamClass::Device, "LFO 1 is a global mod source (§3.2)"},
+    {275, ParamClass::Device, "LFO 2 is a global mod source (§3.2)"},
+    {276, ParamClass::Device, "LFO 2 is a global mod source (§3.2)"},
+    {277, ParamClass::Device, "LFO 2 is a global mod source (§3.2)"},
+    {278, ParamClass::Device, "LFO 2 is a global mod source (§3.2)"},
+    {279, ParamClass::Device, "LFO 2 is a global mod source (§3.2)"},
+    {280, ParamClass::Device, "LFO 2 is a global mod source (§3.2)"},
+    {281, ParamClass::Device, "ENV 3 is a global mod source (§3.2)"},
+    {282, ParamClass::Device, "ENV 3 is a global mod source (§3.2)"},
+    {283, ParamClass::Device, "ENV 3 is a global mod source (§3.2)"},
+    {284, ParamClass::Device, "ENV 3 is a global mod source (§3.2)"},
+    {285, ParamClass::Device, "ENV 4 is a global mod source (§3.2)"},
+    {286, ParamClass::Device, "ENV 4 is a global mod source (§3.2)"},
+    {287, ParamClass::Device, "ENV 4 is a global mod source (§3.2)"},
+    {288, ParamClass::Device, "ENV 4 is a global mod source (§3.2)"},
 };
 
 /* The class of `id` and the one-line reason it has that class. False for an id
@@ -2055,7 +2139,11 @@ struct Plugin
        15   Mod wheel    unipolar
        16   Pressure     unipolar
        17   Pitch wheel  BIPOLAR
-       18+  unassigned   unipolar   (the default a new source inherits)
+       18   LFO 1        BIPOLAR    (B171 — an LFO swings ±1 about base)
+       19   LFO 2        BIPOLAR
+       20   ENV 3        unipolar   (B171)
+       21   ENV 4        unipolar
+       22+  unassigned   unipolar   (the default a new source inherits)
      Installed through a member initializer, not a call in the factory: a
      construction path that forgot the call would give that instance a silently
      all-unipolar table, which is exactly the kind of init-order trap this file
@@ -2065,6 +2153,8 @@ struct Plugin
     hypersaw::ModCore m;
     for (int i = 10; i <= 13; i++) m.srcPol[i] = hypersaw::ModCore::kSrcBipolar;
     m.srcPol[17] = hypersaw::ModCore::kSrcBipolar;
+    m.srcPol[18] = hypersaw::ModCore::kSrcBipolar;   // B171 LFO 1
+    m.srcPol[19] = hypersaw::ModCore::kSrcBipolar;   // B171 LFO 2
     return m;
   }
   hypersaw::ModCore mod = makeModCore();
@@ -2118,6 +2208,112 @@ struct Plugin
   };
   PitchEnv penv[hypersaw::kPoly];
   double env2A = 0.003, env2D = 0.16, env2S = 0.0, env2R = 0.16;
+  /* B171 — ENV 3 and ENV 4, mod source slots 20 and 21. Same type, same law,
+     same per-slot state as ENV 2; only the pitch-route projection is ENV 2's
+     alone. They carry no retrig flag of their own: `penv[s].retrig` is set at
+     note-on for the slot, and all three envelopes consume that ONE flag in
+     modStep — a second and third flag set at the same three note-on sites is
+     three chances to miss one (L0029's shape, one level down). */
+  static constexpr int kExtraEnvs = 2;
+  PitchEnv xenv[kExtraEnvs][hypersaw::kPoly];
+  double xenvA[kExtraEnvs] = {0.003, 0.003}, xenvD[kExtraEnvs] = {0.16, 0.16},
+         xenvS[kExtraEnvs] = {0.0, 0.0}, xenvR[kExtraEnvs] = {0.16, 0.16};
+  /* ONE ADSR LAW, THREE ENVELOPES. Extracted from modStep's ENV 2 block
+     verbatim — same branches, same order, same constants — because a second
+     copy of an envelope is precisely the repo's named failure, and ENV 2 must
+     stay BIT-identical (parity_check / state_check / bank_check prove it).
+     `gated` is the slot's key state; `retrig` is consumed by the CALLER, once
+     per tick, so the three envelopes that share the flag all see it. */
+  static void advanceAdsr(PitchEnv &pe, bool gated, bool retrig, double dt, double A, double D,
+                          double S, double R)
+  {
+    if (retrig) pe.stage = 1;
+    if (!gated) pe.stage = 0;   // this slot's key is up: release
+    // An idle slot at rest costs nothing: no exp(), no pow() in setNoteExpr.
+    if (pe.stage != 0 || pe.level != 0.0)
+    {
+      double target, tau;
+      if (pe.stage == 1) { target = 1.0; tau = A; }
+      else if (pe.stage == 2) { target = S; tau = D; }
+      else { target = 0.0; tau = R; }
+      pe.level += (target - pe.level) * (1.0 - std::exp(-dt / std::max(1e-4, tau)));
+      if (pe.stage == 1 && pe.level > 0.99) { pe.level = 1.0; pe.stage = 2; }
+      // SNAP TO EXACTLY ZERO at the end of a release (the modPitchSm rule):
+      // a one-pole only approaches 0, and "approaches" would leave a dead
+      // slot's noteTune a hair off 1.0 forever — a permanent detune the
+      // ear finds long before an oracle does.
+      if (pe.stage == 0 && std::fabs(pe.level) < 1e-6) pe.level = 0.0;
+    }
+  }
+
+  /* ---- B171: TWO LFOs, mod source slots 18 and 19 ------------------------
+     A phase accumulator advanced at the mod grid (ADR-009: the rate is in Hz
+     or in beats, never a per-tick constant), a shape read out of that phase,
+     and — for S&H — one seeded mulberry32 stream per LFO. Preallocated, no
+     allocation on the audio thread (rtsafety_probe).
+
+     STEPPING, NOT SMOOTHING, AND DELIBERATELY SO. The generic destination path
+     (ADR-136) applies `base + delta*span` with no filter, and this increment
+     does NOT add one — the human's brief is the simple version. A square or
+     S&H LFO into an audio-rate destination therefore steps at the 172 Hz mod
+     tick (256/44100 s). That is a known, recorded limit, not an oversight. */
+  static constexpr int kNumLfo = 2;
+  struct Lfo
+  {
+    double phase = 0;        // [0,1), the cycle position
+    double sh = 0;           // S&H's held value, bipolar
+    uint32_t rng = 0;        // the mulberry32 stream state
+    bool drawn = false;      // has S&H ever drawn? gates the state-chunk key
+    bool restored = false;   // a chunk set us; activate() must not overwrite it
+  };
+  Lfo lfo[kNumLfo];
+  bool lfoStruck = false;   // set by the envelope loop, read by the LFO loop
+  double lfoRate[kNumLfo] = {1, 1}, lfoBeats[kNumLfo] = {1, 1}, lfoPhase0[kNumLfo] = {0, 0};
+  int lfoShape[kNumLfo] = {0, 0}, lfoSync[kNumLfo] = {0, 0}, lfoRetrig[kNumLfo] = {0, 0};
+  /* The patch seed XOR the LFO index — the index scaled by the golden-ratio
+     word mulberry32 itself steps with. A bare `^ i` would hand LFO 1 the patch
+     seed VERBATIM (the same stream every other consumer of that seed draws)
+     and LFO 2 its immediate neighbour, and two adjacent mulberry32 seeds are
+     not independent enough for two S&H lanes to sound uncorrelated. */
+  uint32_t lfoSeed(int i) const
+  {
+    return (uint32_t)core.p.seed ^ (0x9E3779B9u * (uint32_t)(i + 1));
+  }
+  /* Re-seed and rewind. Called from activate() and from the `seed` param — the
+     same place SwarmCore's own rebuild() re-rolls its streams, so "change the
+     seed" means one thing across the device. */
+  void lfoReseed()
+  {
+    for (int i = 0; i < kNumLfo; i++)
+    {
+      lfo[i].rng = lfoSeed(i);
+      lfo[i].sh = 0;
+      lfo[i].drawn = false;
+      lfo[i].phase = lfoPhase0[i];
+    }
+  }
+  /* Bipolar (±1) readout of `phase`. Every shape crosses zero AT phase 0 and
+     has mean 0 over a cycle, so switching shape does not jump the destination
+     to a different average — the property the oracle's shape rows pin. */
+  static double lfoShapeAt(int shape, double ph, double sh)
+  {
+    switch (shape)
+    {
+      case 1:   // triangle: 0 -> +1 -> 0 -> -1 -> 0
+        return ph < 0.25 ? 4.0 * ph : (ph < 0.75 ? 2.0 - 4.0 * ph : 4.0 * ph - 4.0);
+      case 2: return 2.0 * ph - 1.0;          // saw up: monotone across the cycle
+      case 3: return 1.0 - 2.0 * ph;          // saw down
+      case 4: return ph < 0.5 ? 1.0 : -1.0;   // square: two-valued, exactly
+      case 5: return sh;                      // S&H: piecewise-constant per wrap
+      default:
+      {
+        // A LOCAL π, not M_PI — MSVC leaves M_PI undefined and portability_gate
+        // fails the file that uses it (L0003, bit three times).
+        constexpr double kPi = 3.141592653589793;
+        return std::sin(2.0 * kPi * ph);
+      }
+    }
+  }
   /* The GLOBAL projection of ENV 2 — mod source slot 1, what every route
      OTHER than the pitch route reads. Max over GATED slots, ENV 1's
      convention, so an ENV 2 -> filter patch keeps its meaning with one note
@@ -2600,6 +2796,13 @@ struct Plugin
     // XY assignment (166-177, ADR-137). Macro-as-dest is fan-out — B70's
     // territory, refused until its cycle rule is ruled.
     if (destId >= 161 && destId <= 177) return false;
+    /* B171, the same refusal one block along: the LFO and ENV 3/4 controls
+       (269-288) are SOURCES, not destinations. "LFO modulates LFO" is a real
+       feature and a later one — it needs the cycle rule B70 owes for
+       macro-as-destination, and a matrix that can feed a modulator its own
+       output without that rule is a matrix that can deadlock or run away.
+       modDestOptions() in gui2.html mirrors this exclusion. */
+    if (destId >= 269 && destId <= 288) return false;
     return mod.addRoute(srcSlot, destId, 0.25, hypersaw::ModCore::kGlobal);
   }
   /* ADR-141: re-aim a live route's SOURCE. The human's ruling moved the
@@ -2794,6 +2997,55 @@ struct Plugin
     cores[k].setEnsembleTiming(e);
   }
 
+  /* B171 — the LFOs' stream state, one line of the chunk, B149's rule applied
+     verbatim: EMITTED ONLY once a S&H stream has actually DRAWN. Every patch
+     that has never run an S&H LFO therefore writes exactly the bytes it wrote
+     before this key existed, which is what keeps state_check / statefix_check /
+     bank_check the regression proof for this change rather than three fixtures
+     to regenerate. Carries `phase;rng` per LFO, %.17g — a round trip that loses
+     a bit is a continuation that is no longer bit-identical. */
+  std::string lfoChunk() const
+  {
+    bool any = false;
+    for (const auto &L : lfo) any = any || L.drawn;
+    if (!any) return {};
+    std::string out;
+    char buf[64];
+    for (int i = 0; i < kNumLfo; i++)
+    {
+      std::snprintf(buf, sizeof buf, "%s%.17g;%u", i ? "," : "", lfo[i].phase,
+                    (unsigned)lfo[i].rng);
+      out += buf;
+    }
+    return out;
+  }
+  /* A short or malformed line leaves the remaining LFOs at their seeded state
+     rather than refusing the load — the chunk is append-only and a future build
+     may write more lanes; a patch that half-loads its LFO phases is still a
+     patch that loads. */
+  void applyLfoChunk(const std::string &chunk)
+  {
+    size_t pos = 0;
+    for (int i = 0; i < kNumLfo && pos < chunk.size(); i++)
+    {
+      const size_t semi = chunk.find(';', pos);
+      if (semi == std::string::npos) return;
+      lfo[i].phase = std::atof(chunk.c_str() + pos);
+      lfo[i].rng = (uint32_t)std::strtoul(chunk.c_str() + semi + 1, nullptr, 10);
+      lfo[i].drawn = true;
+      lfo[i].restored = true;
+      const size_t comma = chunk.find(',', semi + 1);
+      if (comma == std::string::npos) return;
+      pos = comma + 1;
+    }
+  }
+  bool lfoRestoredPending() const
+  {
+    for (const auto &L : lfo) if (L.restored) return true;
+    return false;
+  }
+  void lfoClearRestored() { for (auto &L : lfo) L.restored = false; }
+
   std::string modRoutesChunk() const
   {
     std::string out;
@@ -2876,27 +3128,31 @@ struct Plugin
       const double penvDepth = pr >= 0 ? mod.routes[pr].depth : 0.0;
       double gatedMax = 0;
       int gatedStage = -1;
+      double xenvMax[kExtraEnvs] = {0, 0};   // B171: ENV 3/4's global projections
+      /* B171: did ANY slot strike this tick? The LFOs' retrig mode reads this
+         rather than a flag of its own set at the three note-on sites — one
+         signal, distributed from one place (L0029), and it cannot drift out of
+         step with the envelopes that share it. */
+      bool anyStrike = false;
       for (int s = 0; s < (int)hypersaw::kPoly; s++)
       {
         PitchEnv &pe = penv[s];
         const bool gated = slotGated(s);
-        if (pe.retrig) pe.stage = 1;
+        /* B171: the retrig flag is consumed ONCE here and handed to all three
+           envelopes — ENV 2 below, ENV 3/4 in the xenv loop that follows — so
+           a strike restarts every envelope that slot owns. Clearing it before
+           the xenv loop instead would have given ENV 3/4 a flag permanently
+           false, which is the silent half of this kind of bug. */
+        const bool strike = pe.retrig;
         pe.retrig = false;
-        if (!gated) pe.stage = 0;   // this slot's key is up: release
-        // An idle slot at rest costs nothing: no exp(), no pow() in setNoteExpr.
-        if (pe.stage != 0 || pe.level != 0.0)
+        anyStrike = anyStrike || strike;
+        advanceAdsr(pe, gated, strike, dt, env2A, env2D, env2S, env2R);
+        for (int x = 0; x < kExtraEnvs; x++)
         {
-          double target, tau;
-          if (pe.stage == 1) { target = 1.0; tau = env2A; }
-          else if (pe.stage == 2) { target = env2S; tau = env2D; }
-          else { target = 0.0; tau = env2R; }
-          pe.level += (target - pe.level) * (1.0 - std::exp(-dt / std::max(1e-4, tau)));
-          if (pe.stage == 1 && pe.level > 0.99) { pe.level = 1.0; pe.stage = 2; }
-          // SNAP TO EXACTLY ZERO at the end of a release (the modPitchSm rule):
-          // a one-pole only approaches 0, and "approaches" would leave a dead
-          // slot's noteTune a hair off 1.0 forever — a permanent detune the
-          // ear finds long before an oracle does.
-          if (pe.stage == 0 && std::fabs(pe.level) < 1e-6) pe.level = 0.0;
+          advanceAdsr(xenv[x][s], gated, strike, dt, xenvA[x], xenvD[x], xenvS[x], xenvR[x]);
+          // ENV 3/4 project into the matrix the SAME way ENV 2's global lane
+          // does — max over every slot, releasing tails included.
+          if (xenv[x][s].level > xenvMax[x]) xenvMax[x] = xenv[x][s].level;
         }
         /* Lead ruling 2026-09-13 on the stream's open question: the global
            source counts EVERY slot, releasing ones included, so at last-key-up
@@ -2911,6 +3167,39 @@ struct Plugin
       env2 = gatedMax;
       env2Stage = gatedStage;
       mod.src[1] = env2;
+      mod.src[20] = xenvMax[0];   // B171 ENV 3
+      mod.src[21] = xenvMax[1];   // B171 ENV 4
+      lfoStruck = anyStrike;
+    }
+    /* B171 — the two LFOs, slots 18 and 19. Phase advances by frequency * the
+       MEASURED tick span (ADR-009: seconds in, per-tick out, never a hand-tuned
+       constant), so the same patch at 44.1/48/96 kHz completes a cycle in the
+       same number of SECONDS. Tempo mode divides the host's bpm by the beats
+       knob, the delay's own law (`seconds = beats * 60/bpm`) read as a rate.
+       S&H draws ONE new value per wrap from this LFO's seeded stream — a draw
+       inside the tick loop would make the value depend on block size. */
+    for (int i = 0; i < kNumLfo; i++)
+    {
+      Lfo &L = lfo[i];
+      /* Retrig rewinds to the START PHASE knob, then this tick advances from
+         there — the note is treated as having landed at the tick boundary,
+         which is the only phase the control grid can represent. Free-running
+         mode never rewinds: it takes its start phase once, at activate(). */
+      if (lfoRetrig[i] != 0 && lfoStruck) L.phase = lfoPhase0[i];
+      const double bpm = core.p.bpm > 1 ? core.p.bpm : 120.0;
+      const double freq = lfoSync[i] != 0 ? (bpm / 60.0) / std::max(0.01, lfoBeats[i])
+                                          : lfoRate[i];
+      L.phase += freq * dt;
+      if (L.phase >= 1.0)
+      {
+        // One draw per WRAP, however many cycles a long tick crossed: a tick
+        // that spanned three cycles of a 40 Hz S&H still yields one value, and
+        // that is honest — the source is read once per tick either way.
+        L.phase -= std::floor(L.phase);
+        L.sh = 2.0 * forcecore::rngNext(L.rng) - 1.0;
+        L.drawn = true;
+      }
+      mod.src[18 + i] = lfoShapeAt(lfoShape[i], L.phase, L.sh);
     }
     // ADR-137: macros feed source slots 2-9 every tick. A macro with no route
     // is inert by the matrix's own law — no route, no evaluate output.
@@ -5394,6 +5683,35 @@ struct Plugin
         else env2R = applied;
         return;
       }
+      /* B171: LFO 1/2 (269-280) and ENV 3/4 (281-288). Stored here rather than
+         pushed to a core because these modulators are the SHELL's — the cores
+         never see them; the matrix does. */
+      if (id >= 269 && id <= 280)
+      {
+        const int i = (id - 269) / 6, f = (int)((id - 269) % 6);
+        switch (f)
+        {
+          case 0: lfoRate[i] = applied; break;
+          case 1: lfoShape[i] = (int)applied; break;
+          case 2: lfoSync[i] = (int)applied; break;
+          case 3: lfoBeats[i] = applied; break;
+          case 4: lfoRetrig[i] = (int)applied; break;
+          default: lfoPhase0[i] = applied; break;
+        }
+        return;
+      }
+      if (id >= 281 && id <= 288)
+      {
+        const int x = (id - 281) / 4, f = (int)((id - 281) % 4);
+        switch (f)
+        {
+          case 0: xenvA[x] = applied; break;
+          case 1: xenvD[x] = applied; break;
+          case 2: xenvS[x] = applied; break;
+          default: xenvR[x] = applied; break;
+        }
+        return;
+      }
       if (id >= 166 && id <= 173) { macroVal[id - 166] = applied; return; }
       if (id >= 174 && id <= 177) { xyAsn[id - 174] = (int)applied; return; }
       if (id == 179 || id == 180)
@@ -5704,6 +6022,12 @@ struct Plugin
       else if (osc < kNumOsc)
         cores[osc].setParam(d->coreKey, applied);
       spectra.setParam(d->coreKey, applied);  // shared-name knobs mirror; unknown keys no-op
+      /* B171: the device seed re-rolls the LFOs' S&H streams here, in the same
+         breath SwarmCore's own rebuild() re-rolls its ensemble stream — "change
+         the seed" has to mean one thing across the device, or the S&H lane is
+         the one modulator a re-seed cannot move. Last in applyParam so the
+         core's rebuild has already run. */
+      if (baseIdOf(id) == 3) lfoReseed();
     }
   }
 
@@ -5811,6 +6135,30 @@ struct Plugin
       if (d->id == 163) return env2D;
       if (d->id == 164) return env2S;
       if (d->id == 165) return env2R;
+      if (d->id >= 269 && d->id <= 280)   // B171 LFO 1/2
+      {
+        const int i = (d->id - 269) / 6;
+        switch ((d->id - 269) % 6)
+        {
+          case 0: return lfoRate[i];
+          case 1: return lfoShape[i];
+          case 2: return lfoSync[i];
+          case 3: return lfoBeats[i];
+          case 4: return lfoRetrig[i];
+          default: return lfoPhase0[i];
+        }
+      }
+      if (d->id >= 281 && d->id <= 288)   // B171 ENV 3/4
+      {
+        const int x = (d->id - 281) / 4;
+        switch ((d->id - 281) % 4)
+        {
+          case 0: return xenvA[x];
+          case 1: return xenvD[x];
+          case 2: return xenvS[x];
+          default: return xenvR[x];
+        }
+      }
       if (d->id >= 166 && d->id <= 173) return macroVal[d->id - 166];
       if (d->id >= 174 && d->id <= 177) return xyAsn[d->id - 174];
       if (d->id == 179 || d->id == 180) return mainAsn[d->id - 179];
@@ -6574,6 +6922,16 @@ bool plug_activate(const clap_plugin_t *p, double sr, uint32_t, uint32_t maxFram
   // ADR-104: morph tables are built HERE, on the main thread — morphInit
   // allocates, and applyParam(151) can arrive on the audio thread.
   pl->morphInit();
+  /* B171: the LFOs take their start phase and their seeds here — a free-running
+     LFO starts at its Start Phase knob once, at activate, and never rewinds.
+     B149's trap applies verbatim: the host's order is setState() then
+     activate(), so a phase/stream RESTORED from the chunk must survive this
+     call. `restored` is that one-shot flag; without it the restore would pass
+     its own round-trip assertion and change nothing. */
+  if (pl->lfoRestoredPending())
+    pl->lfoClearRestored();
+  else
+    pl->lfoReseed();
   return true;
 }
 
@@ -6885,6 +7243,15 @@ bool state_save(const clap_plugin_t *p, const clap_ostream_t *stream)
     if (ens.empty()) continue;
     blob += (k == 0 ? std::string("ens=") : "o" + std::to_string(k) + ".ens=") + ens + "\n";
   }
+  /* B171: the LFO streams, AFTER `seed` for the same reason `ens=` is — the
+     seed's applyParam re-rolls them (lfoReseed), so a restored phase written
+     before it would be thrown away by the very key it followed. Emitted only
+     for a patch whose S&H has drawn, so a chunk that had no key before this
+     change still has none. */
+  {
+    const std::string lf = self(p)->lfoChunk();
+    if (!lf.empty()) blob += "lfo=" + lf + "\n";
+  }
   int64_t written = 0;
   while (written < (int64_t)blob.size())
   {
@@ -6994,6 +7361,9 @@ bool state_load(const clap_plugin_t *p, const clap_istream_t *stream)
     // read here rather than beside morph/routing above — the prefix split is
     // this loop's, and a second copy of it is a second thing to keep in step.
     if (key == "ens") { pl->applyEnsembleChunk(keyOsc, line.substr(eq + 1)); continue; }
+    // B171: the LFO streams. Not prefixed (the LFOs are global), but read here
+    // beside `ens` because both are non-parameter keys emitted after `seed`.
+    if (key == "lfo") { pl->applyLfoChunk(line.substr(eq + 1)); continue; }
     const clap_id idOff = (clap_id)(keyOsc * kOscStride);
     // Thread safety (2026-07-18): state_load is main-thread and MAY run while
     // the audio thread is in process() — a direct setParam would race
@@ -7102,6 +7472,19 @@ extern "C" const char *hypersaw_debug_exemptjson(const clap_plugin_t *p)
    and the bridge that normally carries it is a webview no oracle can drive. */
 extern "C" const char *hypersaw_debug_modroutes(const clap_plugin_t *p)
 { static std::string j; j = self(p)->modRoutesJson(); return j.c_str(); }
+/* B171 — the LIVE source slot, not a readParam round-trip. The distinction is
+   the whole value of the export: a probe that asked readParam(269) would learn
+   what the RATE KNOB says, which is a fact about the parameter store, while
+   what an oracle needs to know is what the matrix is actually handing the
+   routes this tick (L0032 — a detector that shares its subject's accessor
+   agrees with itself). Out-of-range returns NaN rather than 0 because 0 is a
+   legitimate reading for an unassigned slot. */
+extern "C" double hypersaw_debug_modsrc(const clap_plugin_t *p, int slot)
+{
+  if (slot < 0 || slot >= hypersaw::ModCore::kMaxSources)
+    return std::numeric_limits<double>::quiet_NaN();
+  return self(p)->mod.src[slot];
+}
 /* ADR-088 (B50) — a window onto the LIVE MATRIX, not onto readParam.
    Deliberately not `readParam`: a round-trip through one accessor agrees with
    itself (the state_check trap, L0032), so the round-trip probe would certify

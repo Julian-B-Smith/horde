@@ -1189,8 +1189,40 @@
   <div class="cluster"><h2>Sources</h2>
     <div class="note"><b>ENV 1</b> — the amp envelope (loudest voice).
       <b>ENV 2</b> — the pitch envelope's own ADSR (the P.Env knobs on OSC).
-      LFOs land here when B16 builds them; the bottom bar is B40.</div>
+      <b>LFO 1/2</b> and <b>ENV 3/4</b> are below (B171). The LFOs are
+      <i>bipolar</i>: a route reads ±1 about the destination's base unless the
+      route's own polarity cell says otherwise. The bottom bar is B40.</div>
   </div>
+  <!--GEN:MOD-->
+  <div class="cluster"><h2>ENV 3</h2>
+    <div class="row kcell" data-addr="env3A"><label>Attack <span class="u">s</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="281" min="0.001" max="2" step="0.005" value="0.003"><span class="kmnow"></span></span><output></output></div>
+    <div class="row kcell" data-addr="env3D"><label>Decay <span class="u">s</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="282" min="0.005" max="4" step="0.005" value="0.16"><span class="kmnow"></span></span><output></output></div>
+    <div class="row kcell" data-addr="env3S"><label>Sustain</label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="283" min="0" max="1" step="0.005" value="0"><span class="kmnow"></span></span><output></output></div>
+    <div class="row kcell" data-addr="env3R"><label>Release <span class="u">s</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="284" min="0.005" max="8" step="0.005" value="0.16"><span class="kmnow"></span></span><output></output></div>
+  </div>
+  <div class="cluster"><h2>ENV 4</h2>
+    <div class="row kcell" data-addr="env4A"><label>Attack <span class="u">s</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="285" min="0.001" max="2" step="0.005" value="0.003"><span class="kmnow"></span></span><output></output></div>
+    <div class="row kcell" data-addr="env4D"><label>Decay <span class="u">s</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="286" min="0.005" max="4" step="0.005" value="0.16"><span class="kmnow"></span></span><output></output></div>
+    <div class="row kcell" data-addr="env4S"><label>Sustain</label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="287" min="0" max="1" step="0.005" value="0"><span class="kmnow"></span></span><output></output></div>
+    <div class="row kcell" data-addr="env4R"><label>Release <span class="u">s</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="288" min="0.005" max="8" step="0.005" value="0.16"><span class="kmnow"></span></span><output></output></div>
+  </div>
+  <div class="cluster"><h2>LFO 1</h2>
+    <div class="row kcell" data-addr="lfo1Rate" data-when="lfo1Sync=0"><label>Rate <span class="u">Hz</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="269" data-log10="1" min="-1.699" max="1.602" step="0.001" value="0"><span class="kmnow"></span></span><output></output></div>
+    <div class="row" data-addr="lfo1Shape"><label>Shape</label><select data-p="270"><option value="0" selected>sine</option><option value="1">triangle</option><option value="2">saw up</option><option value="3">saw down</option><option value="4">square</option><option value="5">sample & hold</option></select><output></output></div>
+    <div class="row" data-addr="lfo1Sync"><label>Time Mode</label><select data-p="271"><option value="0" selected>free (Hz)</option><option value="1">tempo sync</option></select><output></output></div>
+    <div class="row kcell" data-addr="lfo1Beats" data-when="lfo1Sync=1"><label>Beats <span class="u">/beat</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="272" min="0.0625" max="8" step="0.005" value="1"><span class="kmnow"></span></span><output></output></div>
+    <div class="row" data-addr="lfo1Retrig"><label>Retrigger</label><select data-p="273"><option value="0" selected>free-running</option><option value="1">retrig on note</option></select><output></output></div>
+    <div class="row kcell" data-addr="lfo1Phase"><label>Start Phase</label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="274" min="0" max="1" step="0.005" value="0"><span class="kmnow"></span></span><output></output></div>
+  </div>
+  <div class="cluster"><h2>LFO 2</h2>
+    <div class="row kcell" data-addr="lfo2Rate" data-when="lfo2Sync=0"><label>Rate <span class="u">Hz</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="275" data-log10="1" min="-1.699" max="1.602" step="0.001" value="0"><span class="kmnow"></span></span><output></output></div>
+    <div class="row" data-addr="lfo2Shape"><label>Shape</label><select data-p="276"><option value="0" selected>sine</option><option value="1">triangle</option><option value="2">saw up</option><option value="3">saw down</option><option value="4">square</option><option value="5">sample & hold</option></select><output></output></div>
+    <div class="row" data-addr="lfo2Sync"><label>Time Mode</label><select data-p="277"><option value="0" selected>free (Hz)</option><option value="1">tempo sync</option></select><output></output></div>
+    <div class="row kcell" data-addr="lfo2Beats" data-when="lfo2Sync=1"><label>Beats <span class="u">/beat</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="278" min="0.0625" max="8" step="0.005" value="1"><span class="kmnow"></span></span><output></output></div>
+    <div class="row" data-addr="lfo2Retrig"><label>Retrigger</label><select data-p="279"><option value="0" selected>free-running</option><option value="1">retrig on note</option></select><output></output></div>
+    <div class="row kcell" data-addr="lfo2Phase"><label>Start Phase</label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="280" min="0" max="1" step="0.005" value="0"><span class="kmnow"></span></span><output></output></div>
+  </div>
+  <!--/GEN:MOD-->
   </div>
 </div>
 
@@ -2863,7 +2895,11 @@ const MOD_SRC_NAMES = ['ENV 1', 'ENV 2', 'Macro 1', 'Macro 2', 'Macro 3', 'Macro
                        // routing "XY1 X" follows the assignment
                        'XY1 X (retired)', 'XY1 Y (retired)', 'XY2 X (retired)', 'XY2 Y (retired)',   // ADR-156: read 0
                        // slots 14-17 (ADR-149): MIDI/MPE performance signals
-                       'Velocity', 'Mod Wheel', 'Pressure', 'Pitch Wheel'];
+                       'Velocity', 'Mod Wheel', 'Pressure', 'Pitch Wheel',
+                       // slots 18-21 (B171): the two LFOs (BIPOLAR, ±1) and the
+                       // two spare envelopes. Appended, never inserted — the
+                       // slot index is what a saved route stores.
+                       'LFO 1', 'LFO 2', 'ENV 3', 'ENV 4'];
 /* The eight macro slots are the only RENAMEABLE rows in that list, so the array
    holds their fallback spelling and this is the only thing that reads it: a
    source picker and the macro knob it aims at now get their name from one
@@ -3037,6 +3073,12 @@ function modDestOptions() {
            "Env > Pitch · osc 2" and the four P.Env twins — addresses that mean
            nothing, because 161-177 are global by construction. */
         if (g >= 161 && g <= 178) continue;
+        /* B171: the LFO and ENV 3/4 controls (269-288) are SOURCES, not
+           destinations — "LFO modulates LFO" is a later feature, and it needs
+           the cycle rule B70 owes for macro-as-destination first. Mirrors
+           modAddRoute's refusal in the shell; tested on the BASE for the same
+           reason the line above is (they are global by construction). */
+        if (g >= 269 && g <= 288) continue;
         if (seen.has(id)) continue;             // MIX carries fixed twins of OSC rows
         seen.add(id);
         out.push({ id, label: modDestLabel(id), page: pname });

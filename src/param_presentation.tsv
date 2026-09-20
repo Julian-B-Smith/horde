@@ -381,3 +381,23 @@ fxXfade	global	FX Type Crossfade (dev)	BURIED	FX crossfade (buried B117)	select	
 fxXfadeMs	global	Crossfade Time	BURIED	FX crossfade (buried B117)	knob	ms	fx-crossfade
 intentBus	global	Intent Bus (dev)	SET	Intent bus (dev, B89)	select		intent-bus
 intentLatch	global	Pad Latch (dev)	SET	Intent bus (dev, B89)	select		intent-bus
+lfo1Rate	global	Rate	MOD	LFO 1	knob	Hz	mod-matrix	lfo1Sync=0	log10	lfo1Sync=0
+lfo1Shape	global	Shape	MOD	LFO 1	select		mod-matrix
+lfo1Sync	global	Time Mode	MOD	LFO 1	select		mod-matrix
+lfo1Beats	global	Beats	MOD	LFO 1	knob	/beat	mod-matrix	lfo1Sync=1		lfo1Sync=1
+lfo1Retrig	global	Retrigger	MOD	LFO 1	select		mod-matrix
+lfo1Phase	global	Start Phase	MOD	LFO 1	knob		mod-matrix
+lfo2Rate	global	Rate	MOD	LFO 2	knob	Hz	mod-matrix	lfo2Sync=0	log10	lfo2Sync=0
+lfo2Shape	global	Shape	MOD	LFO 2	select		mod-matrix
+lfo2Sync	global	Time Mode	MOD	LFO 2	select		mod-matrix
+lfo2Beats	global	Beats	MOD	LFO 2	knob	/beat	mod-matrix	lfo2Sync=1		lfo2Sync=1
+lfo2Retrig	global	Retrigger	MOD	LFO 2	select		mod-matrix
+lfo2Phase	global	Start Phase	MOD	LFO 2	knob		mod-matrix
+env3A	global	Attack	MOD	ENV 3	knob	s	mod-matrix
+env3D	global	Decay	MOD	ENV 3	knob	s	mod-matrix
+env3S	global	Sustain	MOD	ENV 3	knob		mod-matrix
+env3R	global	Release	MOD	ENV 3	knob	s	mod-matrix
+env4A	global	Attack	MOD	ENV 4	knob	s	mod-matrix
+env4D	global	Decay	MOD	ENV 4	knob	s	mod-matrix
+env4S	global	Sustain	MOD	ENV 4	knob		mod-matrix
+env4R	global	Release	MOD	ENV 4	knob	s	mod-matrix
