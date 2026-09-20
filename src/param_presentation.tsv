@@ -21,6 +21,14 @@
 # single copy is the whole point. If you want to know whether a param is
 # patch-scope, ask gui_reach; it is the owner.
 #
+# `widget = none` MEANS HAND-PLACED, NOT UNDESIGNED. The table is TOTAL — every
+# declared parameter owns exactly one row — but a few parameters are presented by
+# a control the generator cannot author, and `sub.on` is the case that forced the
+# value: its switch is the SUB tab's power button in the Editing bar, built in JS
+# beside the two oscillator power buttons (B176). Blanking `chunk` would have said
+# the same thing by filing the row under "not yet designed", and the undesigned
+# count is the queue — it is the one number here that must not be allowed to lie.
+#
 # `chunk` IS THE QUEUE, AND EMPTY MEANS NOT-YET-DESIGNED.
 #
 # `shown_when` HIDES A ROW THAT CANNOT AFFECT THE SOUND. Grammar:
@@ -401,19 +409,19 @@ env4A	global	Attack	MOD	ENV 4	knob	s	mod-matrix
 env4D	global	Decay	MOD	ENV 4	knob	s	mod-matrix
 env4S	global	Sustain	MOD	ENV 4	knob		mod-matrix
 env4R	global	Release	MOD	ENV 4	knob	s	mod-matrix
-sub.wave	sub	Wave	OSC	SUB	select		subosc	sub.on=1		
-sub.width	sub	Pulse Width	OSC	SUB	knob		subosc	sub.on=1,sub.wave=4		
-sub.bumpAmt	sub	Bump Amount	OSC	SUB	knob		subosc	sub.on=1,sub.wave=6		
-sub.bumpPhase	sub	Bump Phase	OSC	SUB	knob	rad	subosc	sub.on=1,sub.wave=6		
-sub.octave	sub	Octave	OSC	SUB	knob	oct	subosc	sub.on=1		
-sub.semis	sub	Semitones	OSC	SUB	knob	st	subosc	sub.on=1		
-sub.fine	sub	Fine	OSC	SUB	knob	c	subosc	sub.on=1		
-sub.level	sub	Level	OSC	SUB	knob		subosc	sub.on=1		
-sub.phase	sub	Start Phase	OSC	SUB	knob		subosc	sub.on=1		
-sub.keytrack	sub	Keytrack	OSC	SUB	toggle		subosc	sub.on=1		
-sub.tone	sub	Tone	OSC	SUB	knob	Hz	subosc	sub.on=1	log10	
-sub.sync	sub	Hard Sync	OSC	SUB	toggle		subosc	sub.on=1		
-sub.attack	sub	Attack	OSC	SUB	knob	s	subosc	sub.on=1	log10	
-sub.release	sub	Release	OSC	SUB	knob	s	subosc	sub.on=1	log10	
-sub.seed	sub	Seed	OSC	SUB	knob		subosc	sub.on=1		
-sub.on	sub	SUB On	OSC	SUB	toggle		subosc			
+sub.wave	sub	Wave	OSC	SUB	select		subosc			
+sub.width	sub	Pulse Width	OSC	SUB	knob		subosc	sub.wave=4		
+sub.bumpAmt	sub	Bump Amount	OSC	SUB	knob		subosc	sub.wave=6		
+sub.bumpPhase	sub	Bump Phase	OSC	SUB	knob	rad	subosc	sub.wave=6		
+sub.octave	sub	Octave	OSC	SUB	knob	oct	subosc			
+sub.semis	sub	Semitones	OSC	SUB	knob	st	subosc			
+sub.fine	sub	Fine	OSC	SUB	knob	c	subosc			
+sub.level	sub	Level	OSC	SUB	knob		subosc			
+sub.phase	sub	Start Phase	OSC	SUB	knob		subosc			
+sub.keytrack	sub	Keytrack	OSC	SUB	toggle		subosc			
+sub.tone	sub	Tone	OSC	SUB	knob	Hz	subosc		log10	
+sub.sync	sub	Hard Sync	OSC	SUB	toggle		subosc			
+sub.attack	sub	Attack	OSC	SUB	knob	s	subosc		log10	
+sub.release	sub	Release	OSC	SUB	knob	s	subosc		log10	
+sub.seed	sub	Seed	OSC	SUB	knob		subosc			
+sub.on	sub	SUB On	OSC	SUB	none		subosc			
