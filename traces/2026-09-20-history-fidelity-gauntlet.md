@@ -91,9 +91,11 @@ silently skipped; a gap nobody re-checks is how a gap becomes permanent.
     Settling fades everywhere would have cost seconds of audio per seed for a
     defect that is out of scope anyway; only the evidence row processes audio,
     which is where the claim about the product is made.
-- **Verify:** `./verify full`, exit 0, git `fda4d19` per
-  `.harness/last-verify.json`. `undo_check` GREEN, 110 rows, 3.1 s; green on
-  120 distinct seeds and byte-identical across repeat runs of the same seed.
+- **Verify:** `./verify full`, exit 0, git `9d6d5f1` per
+  `.harness/last-verify.json` (re-run on the committed hash; a follow-up
+  commit on this branch carries only this line's correction). `undo_check`
+  GREEN, 110 rows, 3.1 s; green on 120 distinct seeds and byte-identical
+  across repeat runs of the same seed.
 
 ## Open questions
 
