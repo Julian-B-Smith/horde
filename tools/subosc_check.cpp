@@ -29,6 +29,17 @@
  * evaluated through the core's own public surface (`flushFloor` is the one test
  * hook, the StationCore::pmConst idiom).
  *
+ * B172 PHASE 2 ADDED A SECOND LAYER: THE SHELL (section 11 below). Sections
+ * 1-10 drive `SubOscCore` DIRECTLY, which is the right instrument for parity
+ * and for §10's laws — and structurally blind to everything BETWEEN the core
+ * and the output (L0031 (B): a reference oracle covers only the surface it
+ * spans). The shell rows drive the real plugin through the CLAP factory, the
+ * `slotcontract_check` / `measure_cpu` idiom, and gate the claims the port's
+ * phase 2 actually makes: the block's gate is bit-inert while off, the row
+ * reproduces the core through the matrix at the same eps, the chunk carries
+ * every new id, the headroom bound holds as a measurement, and hard sync's
+ * REFUSAL is pinned so it cannot become an accidental presence.
+ *
  * THE ONE §10 ROW THAT IS NOT HERE, AND WHY. §10.1's aliasing floors are a
  * 65 536-point Kaiser-windowed FFT sweep for the worst inharmonic bin across
  * six shapes and four notes. No FFT harness exists on the C++ side, and the
@@ -51,6 +62,10 @@
 #include <string>
 #include <vector>
 
+#include <clap/clap.h>
+
+#include "../src/hypersaw_clap_entry.h"
+#include "../src/hypersaw_debug.h"
 #include "../src/subosc_core.h"
 
 using hypersaw::SubOscCore;
@@ -58,6 +73,160 @@ using hypersaw::SubOscCore;
 namespace
 {
 int g_failures = 0;
+
+/* ---- THE SHELL RIG (section 11) -----------------------------------------
+   The real plugin through the real factory, driven with real parameter and
+   note events — the slotcontract_check idiom. Nothing here pokes state: a
+   value a host could not reach must not reach the DSP here either. */
+const void *shHostExt(const clap_host_t *, const char *) { return nullptr; }
+void shHostNoop(const clap_host_t *) {}
+const clap_host_t kShHost = {CLAP_VERSION, nullptr, "subosc_check", "-", "-", "1.0",
+                             shHostExt, shHostNoop, shHostNoop, shHostNoop};
+bool shPush(const clap_output_events_t *, const clap_event_header_t *) { return true; }
+const clap_output_events_t kShOut = {nullptr, shPush};
+
+// ADR-088 SUB OSC block, restated here as a BOUND rather than included: this
+// tool links the plugin entry, not the shell's internals. Membership still
+// comes from the host's own id list (every row below asks findParam via the
+// params extension), so this is a coordinate, not a second decoder.
+constexpr clap_id kSubIdBase = 4000;
+constexpr clap_id kSubOnId = 4015;
+constexpr clap_id kOscEnable0 = 150, kOscEnable1 = 1150;
+
+struct ShellRig
+{
+  const clap_plugin_t *p = nullptr;
+  const clap_plugin_params_t *params = nullptr;
+  std::vector<float> L, R;
+  float *ch[2];
+  clap_audio_buffer_t out{};
+
+  void boot(double sr, uint32_t block)
+  {
+    auto *f = (const clap_plugin_factory_t *)hypersaw_entry_get_factory(CLAP_PLUGIN_FACTORY_ID);
+    p = f->create_plugin(f, &kShHost, "com.lifted-truck.hypersaw");
+    p->init(p);
+    params = (const clap_plugin_params_t *)p->get_extension(p, CLAP_EXT_PARAMS);
+    p->activate(p, sr, block, block);
+    p->start_processing(p);
+    L.assign(block, 0);
+    R.assign(block, 0);
+    ch[0] = L.data();
+    ch[1] = R.data();
+    out.data32 = ch;
+    out.channel_count = 2;
+  }
+  void kill()
+  {
+    p->stop_processing(p);
+    p->deactivate(p);
+    p->destroy(p);
+  }
+  double read(clap_id id) const
+  {
+    double v = 0;
+    return params->get_value(p, id, &v) ? v : NAN;
+  }
+  bool known(clap_id id) const
+  {
+    double v = 0;
+    return params->get_value(p, id, &v);
+  }
+
+  /* One block. `sets` are applied at frame 0 (so they are live for the whole
+     block), a note-on at frame 0 when key >= 0. Returns the left channel. */
+  std::vector<float> block(int key, const std::vector<std::pair<clap_id, double>> &sets,
+                           int blocks)
+  {
+    std::vector<clap_event_param_value_t> pv;
+    for (const auto &kv : sets)
+    {
+      clap_event_param_value_t e{};
+      e.header.size = sizeof(e);
+      e.header.type = CLAP_EVENT_PARAM_VALUE;
+      e.header.space_id = CLAP_CORE_EVENT_SPACE_ID;
+      e.header.time = 0;
+      e.param_id = kv.first;
+      e.value = kv.second;
+      e.note_id = -1;
+      e.port_index = -1;
+      e.channel = -1;
+      e.key = -1;
+      pv.push_back(e);
+    }
+    clap_event_note_t on{};
+    on.header.size = sizeof(on);
+    on.header.type = CLAP_EVENT_NOTE_ON;
+    on.header.space_id = CLAP_CORE_EVENT_SPACE_ID;
+    on.header.time = 0;
+    on.note_id = 1;
+    on.port_index = 0;
+    on.channel = 0;
+    on.key = (int16_t)key;
+    on.velocity = 1.0;
+
+    std::vector<const clap_event_header_t *> ord;
+    struct Ctx { std::vector<const clap_event_header_t *> *o; } ctx{&ord};
+    clap_input_events_t in{};
+    in.ctx = &ctx;
+    in.size = [](const clap_input_events_t *l) -> uint32_t {
+      return (uint32_t)((Ctx *)l->ctx)->o->size();
+    };
+    in.get = [](const clap_input_events_t *l, uint32_t i) -> const clap_event_header_t * {
+      return (*((Ctx *)l->ctx)->o)[i];
+    };
+
+    std::vector<float> acc;
+    for (int b = 0; b < blocks; b++)
+    {
+      ord.clear();
+      if (b == 0)
+      {
+        for (auto &e : pv) ord.push_back(&e.header);
+        if (key >= 0) ord.push_back(&on.header);
+      }
+      clap_process_t proc{};
+      proc.frames_count = (uint32_t)L.size();
+      proc.audio_outputs = &out;
+      proc.audio_outputs_count = 1;
+      proc.in_events = &in;
+      proc.out_events = &kShOut;
+      p->process(p, &proc);
+      acc.insert(acc.end(), L.begin(), L.end());
+    }
+    return acc;
+  }
+};
+
+/* A fresh instance, one patch, one note, N blocks — every shell row's unit, so
+   no row can be contaminated by the state another left behind. */
+std::vector<float> shellRender(double sr, uint32_t blockSize, int blocks, int key,
+                               const std::vector<std::pair<clap_id, double>> &sets)
+{
+  ShellRig r;
+  r.boot(sr, blockSize);
+  std::vector<float> out = r.block(key, sets, blocks);
+  r.kill();
+  return out;
+}
+
+// Both swarm oscillators OFF: what is left in the output is the sub's row and
+// nothing else, which is what makes row 11c a parity measurement rather than a
+// difference of two mixtures.
+const std::vector<std::pair<clap_id, double>> kSwarmSilent = {{kOscEnable0, 0}, {kOscEnable1, 0}};
+
+std::vector<std::pair<clap_id, double>> with(std::vector<std::pair<clap_id, double>> a,
+                                             std::vector<std::pair<clap_id, double>> b)
+{
+  a.insert(a.end(), b.begin(), b.end());
+  return a;
+}
+double peakOf(const std::vector<float> &a)
+{
+  double m = 0;
+  for (float v : a) m = std::max(m, std::fabs((double)v));
+  return m;
+}
 
 void row(bool ok, const char *label, const char *fmt = nullptr, double v = 0)
 {
@@ -961,6 +1130,237 @@ int main(int argc, char **argv)
         "octave(-1.5) = %.0f", c.param(SubOscCore::kOctave));
   }
 
+  // ================================================ 11. THE SHELL (B172 phase 2)
+  // Sections 1-10 drive the core DIRECTLY and are structurally blind to
+  // everything between it and the output (L0031 (B)). These rows drive the
+  // real plugin through the CLAP factory.
+  head("11. the shell: the SUB OSC engine block (B172 phase 2)");
+  {
+    /* ---- 11.0 DISPATCH. Any id >= 3000 is unreachable without the engine
+       intercept in findParam — `oscOfId(4000)` is 4, which fails
+       `osc >= kNumOsc` and returns nullptr, silently, with every other gate
+       green. And an id the block does NOT claim must stay unreachable, or
+       "the block exists" degenerates into "the band exists". */
+    {
+      ShellRig r;
+      r.boot(48000, 256);
+      bool all = true;
+      for (int i = 0; i < 16; i++) all = all && r.known((clap_id)(kSubIdBase + i));
+      row(all, "11.0a every one of the block's 16 ids resolves through the shell");
+      row(!r.known(3000) && !r.known(3999) && !r.known(4016) && !r.known(4999),
+          "11.0b REFUSAL: an unclaimed id in the reserved engine band is not a parameter");
+      row(r.read(kSubOnId) == 0, "11.0c the block's gate ships OFF", "subOn = %.0f",
+          r.read(kSubOnId));
+      // POSITIONAL, and the ranges are the CORE TABLE'S — asked through the
+      // host's own param info, never through the shell's internals.
+      bool pos = true;
+      for (int i = 0; i < SubOscCore::kParamCount; i++)
+      {
+        const SubOscCore::ParamSpec &sp = SubOscCore::kParamTable[i];
+        clap_param_info_t info{};
+        bool got = false;
+        for (uint32_t x = 0, n = r.params->count(r.p); x < n && !got; x++)
+          if (r.params->get_info(r.p, x, &info) && info.id == (clap_id)(kSubIdBase + i))
+            got = true;
+        pos = pos && got && info.min_value == sp.min && info.max_value == sp.max &&
+              info.default_value == sp.def &&
+              ((info.flags & CLAP_PARAM_IS_STEPPED) != 0) == (sp.step != 0);
+      }
+      row(pos, "11.0d id - 4000 IS the core's enum index, and every row's range, default "
+               "and steppedness are SubOscCore::kParamTable's");
+      r.kill();
+    }
+
+    /* ---- 11.a THE GATE OFF IS BIT-INERT, and this is the CONTROL row.
+       "Identical to a build WITHOUT the block" cannot be measured from inside
+       a build that has it. What IS measured — and is the operative half — is
+       that with the gate off, nothing the block can be set to reaches the
+       output at all. Bit equality, not eps.
+       The other half, that the block's mere PRESENCE changed nothing, is
+       carried by statefix_check (pre-B172 fixtures against goldens stored
+       before this change existed) and by bank_check's re-save bit-identity.
+       Both run in the same `./verify full`; neither is restated here. */
+    const std::vector<std::pair<clap_id, double>> loud = {
+        {kSubIdBase + 0, SubOscCore::kNoise}, {kSubIdBase + 7, 1.0},
+        {kSubIdBase + 10, 20000.0},           {kSubIdBase + 4, 0.0},
+        {kSubIdBase + 9, 1.0},                {kSubIdBase + 12, 0.0005}};
+    const std::vector<float> bare = shellRender(48000, 256, 16, 45, {});
+    const std::vector<float> armedOff = shellRender(48000, 256, 16, 45, loud);
+    row(firstDiff(bare, armedOff) < 0,
+        "11a CONTROL: with the gate OFF, a fully-driven SUB block changes not one sample");
+    const std::vector<float> armedOn =
+        shellRender(48000, 256, 16, 45, with(loud, {{kSubOnId, 1}}));
+    row(firstDiff(bare, armedOn) >= 0,
+        "11a CALIBRATION: the same patch with the gate ON does differ — 11a's comparison "
+        "can fail", "first differing sample %.0f", (double)firstDiff(bare, armedOn));
+
+    // ---- 11.b the gate ON at level 0 is exact silence FROM THE ROW.
+    const std::vector<float> onZero =
+        shellRender(48000, 256, 16, 45, with(loud, {{kSubOnId, 1}, {kSubIdBase + 7, 0.0}}));
+    row(firstDiff(bare, onZero) < 0,
+        "11b the gate ON at level 0 is exact silence — bit-identical to the gate off");
+
+    /* ---- 11.c PARITY THROUGH THE SHELL. Both swarm oscillators OFF, so what
+       leaves the plugin IS source row 2 carried by the matrix's default
+       topology. The expected signal is the same core sections 1-10 drive,
+       times the row's headroom divisor — the only thing the shell adds.
+       Stating it as an explicit factor is what makes a mismatch in EITHER
+       direction visible. */
+    constexpr double kHeadroom = 1.0 / 1.425;
+    struct Case { int wave; int key; double tone; };
+    const Case cases[] = {{SubOscCore::kSaw, 45, 20000}, {SubOscCore::kPulse, 33, 1200},
+                          {SubOscCore::kBump, 28, 6000}, {SubOscCore::kNoise, 60, 900}};
+    for (const Case &cs : cases)
+    {
+      const auto sets = with(kSwarmSilent, {{kSubOnId, 1},
+                                            {kSubIdBase + 0, (double)cs.wave},
+                                            {kSubIdBase + 7, 1.0},
+                                            {kSubIdBase + 10, cs.tone},
+                                            {kSubIdBase + 4, 0.0}});
+      const std::vector<float> got = shellRender(48000, 256, 24, cs.key, sets);
+      SubOscCore c = make(48000, {{SubOscCore::kWave, (double)cs.wave},
+                                  {SubOscCore::kLevel, 1.0},
+                                  {SubOscCore::kTone, cs.tone},
+                                  {SubOscCore::kOctave, 0}});
+      c.noteOn(cs.key, 1.0);
+      std::vector<float> want;
+      for (int b = 0; b < 24; b++)
+        for (float v : pull(c, 256)) want.push_back((float)(v * kHeadroom));
+      double num = 0, den = 0;
+      for (size_t i = 0; i < want.size(); i++)
+      {
+        const double d = (double)got[i] - (double)want[i];
+        num += d * d;
+        den += (double)want[i] * want[i];
+      }
+      const double rr = std::sqrt(num / (double)want.size());
+      row(rr <= 1e-6 && den > 0,
+          "11c the row reproduces the CORE through the shell at the L0-1 bar", "rms %.3e", rr);
+    }
+    /* CALIBRATION (L0032): the same comparison against a core WITHOUT the
+       headroom factor must FAIL. Without it, 11c would also pass for a shell
+       that dropped the divisor — the detector would share the assumption. */
+    {
+      const auto sets =
+          with(kSwarmSilent, {{kSubOnId, 1}, {kSubIdBase + 7, 1.0}, {kSubIdBase + 4, 0.0}});
+      const std::vector<float> got = shellRender(48000, 256, 8, 45, sets);
+      SubOscCore c = make(48000, {{SubOscCore::kLevel, 1.0}, {SubOscCore::kOctave, 0}});
+      c.noteOn(45, 1.0);
+      double num = 0;
+      size_t n = 0;
+      for (int b = 0; b < 8; b++)
+        for (float v : pull(c, 256)) { const double d = (double)got[n++] - (double)v; num += d * d; }
+      row(std::sqrt(num / (double)n) > 1e-6,
+          "11c CALIBRATION: the same comparison against an UNSCALED core fails — 11c is "
+          "measuring the headroom law, not an accidental match",
+          "rms %.3e", std::sqrt(num / (double)n));
+    }
+
+    // ---- 11.d the chunk carries every new id, and the layout marker.
+    {
+      ShellRig a;
+      a.boot(48000, 256);
+      // Every row driven OFF its default, inside its declared range, so a key
+      // that silently fails to round-trip cannot hide behind equality.
+      const double want[16] = {SubOscCore::kBump, 0.31, 0.55, 1.75,  -2,    7,      -42.5, 0.37,
+                               0.62,              0,    311,  1,     0.041, 1.37,   987654, 1};
+      std::vector<std::pair<clap_id, double>> odd;
+      for (int i = 0; i < 16; i++) odd.push_back({(clap_id)(kSubIdBase + i), want[i]});
+      a.block(-1, odd, 2);
+      std::vector<char> buf(1 << 18);
+      hypersaw_debug_state(a.p, buf.data(), (uint32_t)buf.size());
+      const std::string chunk(buf.data());
+      static const char *const addr[16] = {
+          "sub.wave", "sub.width",  "sub.bumpAmt", "sub.bumpPhase", "sub.octave", "sub.semis",
+          "sub.fine", "sub.level",  "sub.phase",   "sub.keytrack",  "sub.tone",   "sub.sync",
+          "sub.attack", "sub.release", "sub.seed", "sub.on"};
+      bool keys = chunk.find("\"morphLayout\":6") != std::string::npos;
+      for (const char *k : addr)
+        keys = keys && chunk.find(std::string("\"") + k + "\"") != std::string::npos;
+      row(keys, "11d the state chunk carries all 16 prefixed keys and morphLayout 6");
+
+      ShellRig b;
+      b.boot(48000, 256);
+      hypersaw_debug_apply(b.p, chunk.c_str());
+      b.block(-1, {}, 2);   // drain the param queue
+      bool same = true;
+      for (int i = 0; i < 16; i++)
+        same = same && b.read((clap_id)(kSubIdBase + i)) == a.read((clap_id)(kSubIdBase + i));
+      row(same, "11d a fresh instance restores all 16 ids exactly");
+      // CONTROL: the same chunk with the sub keys STRIPPED must NOT restore
+      // them — otherwise "restored" could mean "both happened to be default".
+      std::string stripped = chunk;
+      for (const char *k : addr)
+      {
+        const std::string needle = std::string("\"") + k + "\"";
+        for (size_t q = stripped.find(needle); q != std::string::npos;
+             q = stripped.find(needle))
+        {
+          const size_t e = stripped.find(',', q);
+          stripped.erase(q, (e == std::string::npos ? stripped.size() : e + 1) - q);
+        }
+      }
+      ShellRig cc;
+      cc.boot(48000, 256);
+      hypersaw_debug_apply(cc.p, stripped.c_str());
+      cc.block(-1, {}, 2);
+      bool differs = false;
+      for (int i = 0; i < 16; i++)
+        differs =
+            differs || cc.read((clap_id)(kSubIdBase + i)) != a.read((clap_id)(kSubIdBase + i));
+      row(differs, "11d CONTROL: a chunk with the sub keys removed does NOT restore them");
+      a.kill();
+      b.kill();
+      cc.kill();
+    }
+
+    /* ---- 11.e HARD SYNC'S REFUSAL, PINNED (L0036).
+       SPEC-SUBOSC §6 wants oscillator 1's per-sample fundamental phase; the
+       swarm publishes none, so the shell passes nullptr and `sync` is INERT.
+       A deliberate absence needs a test or it becomes an accidental presence.
+       The day the master phase is wired this row goes red and names itself. */
+    {
+      const auto syncOff = with(kSwarmSilent, {{kSubOnId, 1}, {kSubIdBase + 7, 1.0}});
+      const auto syncOn = with(syncOff, {{kSubIdBase + 11, 1.0}});
+      row(firstDiff(shellRender(48000, 256, 8, 40, syncOff),
+                    shellRender(48000, 256, 8, 40, syncOn)) < 0,
+          "11e REFUSAL pinned: hard sync is not wired — sync ON renders bit-identically to "
+          "sync OFF");
+    }
+
+    /* ---- 11.f HEADROOM, measured THROUGH THE SHELL and gated. Phase 1
+       finding 1: the core's TPT tone stage overshoots above unity at a
+       near-Nyquist cutoff. The row divides by 1.425 so a sub at level 1 into a
+       unity path cannot reach the rail. This measures the ROW, not the core. */
+    {
+      double worst = 0;
+      int worstWave = -1, worstKey = -1;
+      for (int w = 0; w < SubOscCore::kWaveCount; w++)
+        for (int key : {12, 24, 36, 48, 60, 72})
+        {
+          const auto sets = with(kSwarmSilent, {{kSubOnId, 1},
+                                                {kSubIdBase + 0, (double)w},
+                                                {kSubIdBase + 7, 1.0},
+                                                {kSubIdBase + 10, 20000.0},
+                                                {kSubIdBase + 4, 0.0},
+                                                {kSubIdBase + 1, 0.05},
+                                                {kSubIdBase + 2, 0.6},
+                                                {kSubIdBase + 12, 0.0005}});
+          const double pk = peakOf(shellRender(48000, 256, 24, key, sets));
+          if (pk > worst) { worst = pk; worstWave = w; worstKey = key; }
+        }
+      row(worst <= 1.0,
+          "11f the SUB row at level 1 cannot exceed unity — the headroom law holds as a "
+          "MEASUREMENT", "worst peak %.4f", worst);
+      std::printf("     worst case: wave %d, MIDI %d, tone 20 kHz, level 1, 48 kHz\n",
+                  worstWave, worstKey);
+      row(worst * 1.425 > 1.0,
+          "11f CALIBRATION: the same render WITHOUT the divisor exceeds unity — the bound "
+          "is doing work, not describing a signal that was already quiet",
+          "undivided peak %.4f", worst * 1.425);
+    }
+  }
+
   // ==================================================================== 10. CPU
   {
     // REPORTED, NEVER GATED — the absolute number is machine-dependent.
@@ -998,6 +1398,45 @@ int main(int argc, char **argv)
                 "min of 3: %.4f s  =  %.3f %% of one core\n", best, pct);
     std::printf("   SPEC-SUBOSC §10.7 claims no budget; this is the first measurement. It is "
                 "load-sensitive — treat a single reading as a sample, not as the figure.\n");
+  }
+
+  // ================================= 12. CPU THROUGH THE SHELL (B172, REPORTED)
+  /* What the ROADMAP needs is not the core's cost but the DEVICE's: sixteen
+     voices of the real plugin with the sub on against the same thing with it
+     off. Both figures come from the same rig and the same notes, so the
+     DIFFERENCE is the row's bill and nothing else. REPORTED, never gated. */
+  {
+    auto bench = [](bool on) {
+      const int blocks = 48000 * 5 / 256;
+      double best = 1e30;
+      for (int t = 0; t < 3; t++)
+      {
+        ShellRig r;
+        r.boot(48000, 256);
+        std::vector<std::pair<clap_id, double>> sets = {
+            {kSubIdBase + 0, SubOscCore::kPulse}, {kSubIdBase + 1, 0.27},
+            {kSubIdBase + 10, 1200.0},            {kSubIdBase + 7, 0.8},
+            {kSubOnId, on ? 1.0 : 0.0}};
+        // Sixteen voices: one note per slot, struck before the clock starts.
+        r.block(-1, sets, 1);
+        for (int v = 0; v < 16; v++) r.block(36 + v, {}, 1);
+        const auto t0 = std::chrono::steady_clock::now();
+        r.block(-1, {}, blocks);
+        best = std::min(
+            best, std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count());
+        r.kill();
+      }
+      return best;
+    };
+    const double off = bench(false), on = bench(true);
+    std::printf("\n-- CPU through the SHELL (REPORT, not gated) --\n");
+    std::printf("   16 voices, 5 s at 48 kHz, min of 3 — sub OFF %.4f s (%.2f %% of one core), "
+                "sub ON %.4f s (%.2f %%)\n", off, off / 5 * 100, on, on / 5 * 100);
+    std::printf("   the sub's bill: %+.2f percentage points (%.2fx)\n",
+                (on - off) / 5 * 100, off > 0 ? on / off : 0.0);
+    std::printf("   NB the sub's parameter writes run recalc() on all sixteen instances "
+                "(282 transcendentals each, phase 1 finding 4) — that is a CONTROL-path "
+                "cost this steady-state number does not contain.\n");
   }
 
   std::printf("\nsubosc_check: %s (%d failure%s; worst parity rms %.3e)\n",

@@ -17,6 +17,12 @@
  *
  * NB deliberately: it counts allocations, it does not abort on them, so one run
  * reports every offender instead of the first.
+ *
+ * EVERY PATH THAT SHIPS MUST BE INSIDE THE ARMED WINDOW, or the probe reports
+ * on code it never ran. B172's SUB OSC block is gated OFF by default, so the
+ * event stream below switches it ON — otherwise sixteen per-voice cores, their
+ * render and their control path would all sit outside this measurement while it
+ * printed GREEN.
  */
 #include <atomic>
 #include <cstdio>
@@ -104,6 +110,11 @@ int main()
   pv.header.space_id = CLAP_CORE_EVENT_SPACE_ID; pv.note_id = -1;
   pv.port_index = -1; pv.channel = -1; pv.key = -1;
 
+  // B172: the SUB OSC block's gate and a swept row from its 4000-block.
+  clap_event_param_value_t subOn = pv, subP = pv;
+  subOn.param_id = 4015;
+  subOn.value = 1.0;
+
   EvList evl;
   evl.in.ctx = &evl; evl.in.size = evSize; evl.in.get = evGet;
   clap_output_events_t outEv{nullptr, outPush};
@@ -124,6 +135,19 @@ int main()
       evl.ev.push_back(&on.header);
       evl.ev.push_back(&off.header);
       evl.ev.push_back(&pv.header);
+      /* B172: the SUB OSC engine block. Without these two events the block's
+         gate stays off, so renderSubSpan returns at its first line and the
+         sixteen per-voice cores are never inside the armed window at all —
+         the probe would print GREEN for a path it did not run. The gate is
+         re-sent every block (idempotent) and one block row is swept per block,
+         so both the render path and the control path (setParam -> recalc on
+         all sixteen instances) are measured. */
+      subOn.header.time = 0;
+      subP.header.time = n / 4;
+      subP.param_id = 4000 + (uint32_t)((round * 5 + bi) % 15);
+      subP.value = 0.3 + 0.4 * ((round + bi) % 2);
+      evl.ev.push_back(&subOn.header);
+      evl.ev.push_back(&subP.header);
 
       clap_process_t proc{};
       proc.frames_count = n;
