@@ -445,6 +445,12 @@
   #mxGrid .row, #mxInit .row { display:block; margin:0; gap:0; }
   #mxGrid .row > label, #mxInit .row > label { display:none; }
   #mxGrid .row > output, #mxInit .row > output { display:none; }
+  /* B172: a gated-off SOURCE ROW is hidden (mxApplySrcGates). `[hidden]`'s UA
+     `display:none` loses to `#mxGrid .row { display:block }` above — same
+     specificity, earlier in the file — so the rule is restated here with a
+     class in it, which wins outright. A hide that loses the cascade looks
+     applied and does nothing (LIBRARY L0057). */
+  #mxGrid .row[hidden], #mxGrid .mxh[hidden], #mxGrid .mxgap[hidden] { display:none; }
   /* `.row.owned`'s inset LEFT stripe is a row-shaped mark; on a square well
      cell it reads as a stray edge, so it is cancelled here and re-drawn as the
      halo below — same state, same colour token, a shape that fits the cell. */
@@ -1632,6 +1638,24 @@
     <div class="row kcell" data-addr="penvD"><label>P.Env Decay <span class="u">s</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="163" min="0.005" max="4" step="0.005" value="0.16"><span class="kmnow"></span></span><output></output></div>
     <div class="row kcell" data-addr="penvS"><label>P.Env Sustain</label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="164" min="0" max="1" step="0.005" value="0"><span class="kmnow"></span></span><output></output></div>
     <div class="row kcell" data-addr="penvR"><label>P.Env Release <span class="u">s</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="165" min="0.005" max="8" step="0.005" value="0.16"><span class="kmnow"></span></span><output></output></div>
+  </div>
+  <div class="cluster"><h2>SUB</h2>
+    <div class="row" data-addr="sub.wave" data-when="sub.on=1"><label>Wave</label><select data-p="4000" data-fixed="1"><option value="0">sine</option><option value="1">triangle</option><option value="2">square</option><option value="3" selected>saw</option><option value="4">pulse</option><option value="5">noise</option><option value="6">bump</option></select><output></output></div>
+    <div class="row kcell" data-addr="sub.width" data-when="sub.on=1,sub.wave=4"><label>Pulse Width</label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="4001" data-fixed="1" min="0.05" max="0.95" step="0.005" value="0.5"><span class="kmnow"></span></span><output></output></div>
+    <div class="row kcell" data-addr="sub.bumpAmt" data-when="sub.on=1,sub.wave=6"><label>Bump Amount</label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="4002" data-fixed="1" min="0" max="0.6" step="0.005" value="0.35"><span class="kmnow"></span></span><output></output></div>
+    <div class="row kcell" data-addr="sub.bumpPhase" data-when="sub.on=1,sub.wave=6"><label>Bump Phase <span class="u">rad</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="4003" data-fixed="1" min="-3.14159" max="3.14159" step="0.005" value="-0.25"><span class="kmnow"></span></span><output></output></div>
+    <div class="row kcell" data-addr="sub.octave" data-when="sub.on=1"><label>Octave <span class="u">oct</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="4004" data-fixed="1" min="-2" max="0" step="1" value="-1"><span class="kmnow"></span></span><output></output></div>
+    <div class="row kcell" data-addr="sub.semis" data-when="sub.on=1"><label>Semitones <span class="u">st</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="4005" data-fixed="1" min="-12" max="12" step="1" value="0"><span class="kmnow"></span></span><output></output></div>
+    <div class="row kcell" data-addr="sub.fine" data-when="sub.on=1"><label>Fine <span class="u">c</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="4006" data-fixed="1" min="-100" max="100" step="0.005" value="0"><span class="kmnow"></span></span><output></output></div>
+    <div class="row kcell" data-addr="sub.level" data-when="sub.on=1"><label>Level</label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="4007" data-fixed="1" min="0" max="1" step="0.005" value="0.8"><span class="kmnow"></span></span><output></output></div>
+    <div class="row kcell" data-addr="sub.phase" data-when="sub.on=1"><label>Start Phase</label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="4008" data-fixed="1" min="0" max="1" step="0.005" value="0"><span class="kmnow"></span></span><output></output></div>
+    <div class="row" data-addr="sub.keytrack" data-when="sub.on=1"><label>Keytrack</label><input type="checkbox" data-p="4009" data-fixed="1" checked><output></output></div>
+    <div class="row kcell" data-addr="sub.tone" data-when="sub.on=1"><label>Tone <span class="u">Hz</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="4010" data-fixed="1" data-log10="1" min="1.477" max="4.301" step="0.001" value="4.301"><span class="kmnow"></span></span><output></output></div>
+    <div class="row" data-addr="sub.sync" data-when="sub.on=1"><label>Hard Sync</label><input type="checkbox" data-p="4011" data-fixed="1"><output></output></div>
+    <div class="row kcell" data-addr="sub.attack" data-when="sub.on=1"><label>Attack <span class="u">s</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="4012" data-fixed="1" data-log10="1" min="-3.301" max="-0.301" step="0.001" value="-2.301"><span class="kmnow"></span></span><output></output></div>
+    <div class="row kcell" data-addr="sub.release" data-when="sub.on=1"><label>Release <span class="u">s</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="4013" data-fixed="1" data-log10="1" min="-2.699" max="0.301" step="0.001" value="-1.097"><span class="kmnow"></span></span><output></output></div>
+    <div class="row kcell" data-addr="sub.seed" data-when="sub.on=1"><label>Seed</label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="4014" data-fixed="1" min="0" max="4.29497e+09" step="1" value="1"><span class="kmnow"></span></span><output></output></div>
+    <div class="row" data-addr="sub.on"><label>SUB On</label><input type="checkbox" data-p="4015" data-fixed="1"><output></output></div>
   </div>
   <div class="cluster"><h2>Saw shape</h2>
     <canvas class="gviz" data-viz="shapewave" width="260" height="72"></canvas>
@@ -3733,6 +3757,7 @@ async function syncFromEngine() {
   // shell's routing ids, and at script end nothing has been fetched yet, so a
   // build there would find no cells and never retry.
   if (!mxCells) buildMatrixPane();
+  else mxApplySrcGates();   // B172: source row visibility follows its gate live
   paintLive(ps);
   paintOscTabs(ps);
   // ADR-137: the pad reads the assigned macros out of lastParams every frame,
@@ -5642,11 +5667,29 @@ function star(g, cx, cy, r, fill, ink) {
    Greying was rejected: a disabled control still occupies the eye and still
    invites a click. Hidden says the truth, which is that the parameter is not
    part of the patch in this mode. */
-const GATE_KEY = {};                       // base key -> base id, learned from the table
+const GATE_KEY = {};                       // gate name -> base id, learned from the table
+/* THE ENGINE BAND (ADR-088, B172): ids 3000..9999 belong to an engine BLOCK,
+   one device-wide object with no oscillator twin. `% 1000` means "the base id
+   of an oscillator twin" and is nonsense there — it would map 4015 (SUB On)
+   onto 15 (Mono Fold) and gate on a completely different parameter. */
+const ENGINE_ID_LO = 3000, ENGINE_ID_HI = 10000;
+const isEngineId = (i) => i >= ENGINE_ID_LO && i < ENGINE_ID_HI;
 function learnGateKeys() {
   document.querySelectorAll('.row[data-addr]').forEach(r => {
     const el = r.querySelector('[data-p]');
-    if (el) GATE_KEY[r.dataset.addr.split('.').pop()] = +el.dataset.p % 1000;
+    if (!el) return;
+    const id = +el.dataset.p;
+    const base = isEngineId(id) ? id : id % 1000;
+    /* TWO NAMES, and the FULL ADDRESS is the unambiguous one. The short name
+       is what every hand-written gate uses (`topo=1`, `bendLaw=4`), and it
+       stopped being unique the moment a second scope shipped: `osc1.seed` and
+       `sub.seed` both end in "seed", so whichever row rendered last would have
+       silently owned the name. Engine rows therefore register their ADDRESS
+       only — no short alias — which leaves every existing gate resolving to
+       exactly the id it resolved to before, and gives the new rows a name that
+       cannot be claimed twice. */
+    GATE_KEY[r.dataset.addr] = base;
+    if (!isEngineId(id)) GATE_KEY[r.dataset.addr.split('.').pop()] = base;
   });
 }
 function applyGates() {
@@ -6657,7 +6700,7 @@ function buildMatrixPane() {
   const byId = new Map(mxCells.map(c => [c.id, c]));
   const { slots, nSrc, srcRows } = mxShape();
   const froms = nSrc + slots;            // one row per source, then one per slot
-  const name = f => (f < nSrc ? 'Src ' + (f + 1) : 'Slot ' + (f - nSrc + 1));
+  const name = f => (f < nSrc ? (MX_SRC_NAME[f] || 'Src ' + (f + 1)) : 'Slot ' + (f - nSrc + 1));
 
   grid.textContent = '';
   initRow.textContent = '';
@@ -6668,10 +6711,14 @@ function buildMatrixPane() {
   grid.appendChild(mxHeadEl('OUT'));
 
   for (let f = 0; f < froms; f++) {
-    grid.appendChild(mxHeadEl(name(f), 'r'));
+    /* EVERY ELEMENT OF A DISPLAY ROW IS TAGGED WITH THAT ROW, because the well
+       is ONE css grid and a "row" is not a DOM node — hiding one means hiding
+       its cells. mxApplySrcGates (below) is the only reader. */
+    const tag = el => { el.dataset.mxrow = String(f); return el; };
+    grid.appendChild(tag(mxHeadEl(name(f), 'r')));
     for (let t = 0; t < slots; t++) {
       const c = byId.get(MX_BASE + mxRowOf(f, nSrc, srcRows) * MX_STRIDE + t);
-      grid.appendChild(c ? mxCellEl(c.id, name(f) + ' > Slot ' + (t + 1)) : mxGapEl());
+      grid.appendChild(tag(c ? mxCellEl(c.id, name(f) + ' > Slot ' + (t + 1)) : mxGapEl()));
     }
     /* THE TERMINAL COLUMN, now for SOURCE rows too (B50 phase 1c): a slot row
        holds its outAmount, a source row its dry path. Before 1c the source
@@ -6679,7 +6726,7 @@ function buildMatrixPane() {
        edge — the thing ADR-088 says bypass is. */
     const term = f >= nSrc ? byId.get(MX_OUT + (f - nSrc)) : byId.get(MX_SRCOUT + f);
     const termName = f >= nSrc ? 'Out Slot ' + (f - nSrc + 1) : 'Out Src ' + (f + 1);
-    grid.appendChild(term ? mxCellEl(term.id, termName, 'mxterm') : mxGapEl());
+    grid.appendChild(tag(term ? mxCellEl(term.id, termName, 'mxterm') : mxGapEl()));
   }
 
   initRow.style.gridTemplateColumns = `52px repeat(${slots}, minmax(0,1fr)) minmax(0,1fr)`;
@@ -6696,7 +6743,28 @@ function buildMatrixPane() {
     const v = lastParams[c.id];
     if (v !== undefined) setControl(c.id, v);
   }
+  mxApplySrcGates();
   mxInvalidate();
+}
+
+/* SOURCE ROWS THAT ARE OFF ARE HIDDEN, not drawn dead (B172).
+   The matrix well's rows are built by JS above, not by generated markup, so
+   `data-when` — which applyGates evaluates over `.row[data-when]` elements —
+   cannot reach them. This is that gate, for the grid, and it is deliberately
+   the same rule: a row whose SOURCE contributes nothing is furniture that
+   lies. Keyed on the engine block's gate id rather than on a name, so a second
+   gated source (STATION, B162) is one more entry.
+   Sources with no gate are never hidden — that is the default, and it is why
+   the two swarm oscillators are untouched by this function. */
+const MX_SRC_NAME = { 2: 'SUB' };     // display row -> caption, sources only
+const MX_SRC_GATE = { 2: 4015 };      // display row -> the param that gates it
+function mxApplySrcGates() {
+  const grid = document.getElementById('mxGrid');
+  if (!grid) return;
+  for (const [row, gate] of Object.entries(MX_SRC_GATE)) {
+    const on = +(lastParams[gate] ?? 0) >= 0.5;
+    grid.querySelectorAll(`[data-mxrow="${row}"]`).forEach(el => { el.hidden = !on; });
+  }
 }
 
 /* Drag (vertical), wheel, and double-click — the three gestures B50 asks for.

@@ -87,10 +87,10 @@ def shell_params():
             return None
         return re.findall(r'"([^"]*)"', m.group(1)) or None
 
+    num = lambda t: float(eval(t.strip(), {"__builtins__": {}}, {}))
     by_addr = {}
     for sid, key, name, mn, mx, dv, stepped, labels in rows:
         i = int(sid)
-        num = lambda t: float(eval(t.strip(), {"__builtins__": {}}, {}))
         base = dict(min=num(mn), max=num(mx), default=num(dv), stepped=stepped == "true",
                     enum=enum_labels(labels))
         if i in globals_:
@@ -98,6 +98,32 @@ def shell_params():
         else:
             for o in range(NOSC):
                 by_addr[f"osc{o+1}.{key}"] = dict(base, id=i + o * 1000)
+
+    # B172 — the ADR-088 ENGINE BLOCKS (ids 3000..9999). Read off kEngineBlocks
+    # and the ParamDef arrays it names, so a block added to the shell becomes
+    # generable here the same day and B162's STATION needs no edit.
+    #
+    # NO OSCILLATOR FAN-OUT: an engine block is one device-wide object, so it
+    # has ONE address and ONE id. That is also why every generated engine
+    # control carries data-fixed below — gui2's effId() remaps any non-fixed
+    # control's id by `editOsc * 1000`, which would send 5015 for SUB On while
+    # OSC 2 is selected and the knob would do nothing exactly when you expect it
+    # to work. gui_reach's patch-scope derivation cannot see this class (it
+    # only enumerates ids < 1000), so the pin is made here, by construction,
+    # rather than discovered.
+    blk = re.compile(
+        r'\{\s*\w+\s*,\s*\w+\s*,\s*(\w+)\s*,\s*\w+\s*,\s*"[^"]*"\s*,\s*"([^"]*)"\s*\}')
+    if "kEngineBlocks[] = {" in src:
+        edecl = src.split("kEngineBlocks[] = {", 1)[1].split("\n};", 1)[0]
+        for m in blk.finditer(edecl):
+            arr, prefix = m.group(1), m.group(2)
+            body = src.split(arr + "[] = {", 1)[1].split("\n};", 1)[0]
+            for sid, key, name, mn, mx, dv, stepped, labels in re.findall(
+                    r'\{\s*(\d+),\s*"([A-Za-z0-9_]+)",\s*"([^"]*)",\s*([^,]+),\s*([^,]+),'
+                    r'\s*([^,]+),\s*(true|false),\s*([A-Za-z0-9_]+)\s*\}', body):
+                by_addr[f"{prefix}{key}"] = dict(
+                    min=num(mn), max=num(mx), default=num(dv), stepped=stepped == "true",
+                    enum=enum_labels(labels), id=int(sid), engine=True)
     return by_addr
 
 
@@ -137,7 +163,9 @@ def main():
         # gui_reach could not catch this: it asks whether each BASE id appears in
         # the text, so a duplicate row and a mis-addressed send are both invisible
         # to it. The paired gate below is the one with teeth.
-        if scope not in ("global", "osc1"):
+        # B172: an engine block has no twin to duplicate, so it is admitted by
+        # its own scope rather than by being called an oscillator.
+        if scope not in ("global", "osc1") and not p.get("engine"):
             continue
         # UNDESIGNED ROWS DO NOT RENDER. An empty `chunk` means the four
         # decisions in the table's header have not been made for this row, and a
@@ -190,9 +218,13 @@ def main():
             for viz in VISUALS.get(group, []):
                 out.append(f'    <canvas class="gviz" data-viz="{viz}" width="260" height="72"></canvas>')
             for addr, scope, label, widget, unit, p, when, scale in sorted(items, key=lambda x: x[5]["id"]):
-                df = ' data-fixed="1"' if p["id"] in fixed else ""
+                # data-fixed: patch-scope by gui_reach's derivation, OR an
+                # engine block — one device-wide object, so effId() must not
+                # remap it (see shell_params). The engine half is a pin gui_reach
+                # structurally cannot make; it enumerates ids < 1000 only.
+                df = ' data-fixed="1"' if (p["id"] in fixed or p.get("engine")) else ""
                 step = "1" if p["stepped"] else "0.005"
-                sfx = "" if scope == "global" else f' <span class="sc">{scope}</span>'
+                sfx = "" if scope == "global" or p.get("engine") else f' <span class="sc">{scope}</span>'
                 u = f' <span class="u">{unit}</span>' if unit else ""
                 # ONE CONTROL KIND PER PARAMETER TYPE, decided by the SHELL, not by
                 # the table's `widget` hint: the shell owns whether a parameter is

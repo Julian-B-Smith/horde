@@ -55,6 +55,34 @@ def shell_addresses():
         else:
             for o in range(NOSC):
                 out[f"osc{o + 1}.{key}"] = f"osc{o + 1}"
+    for prefix, table in engine_blocks(src):
+        # B172: an ADR-088 engine block (ids 3000..9999) is ONE device-wide
+        # object — not per-oscillator, and not a global among the swarm's — so
+        # its scope IS its address prefix. That is D2's rule applied rather than
+        # extended ("scopes are named by address prefix, never by an enumerated
+        # type"), and it is why no `id` column appears here either.
+        for _sid, key in table:
+            out[f"{prefix}{key}"] = prefix.rstrip(".")
+    return out
+
+
+def engine_blocks(src):
+    """[(address prefix, [(id, coreKey), ...]), ...] read off the shell's
+    kEngineBlocks and the ParamDef arrays it names.
+
+    TWO READS, NOT ONE HARDCODED NAME. kEngineBlocks is the shell's own list of
+    engines, so a block added there becomes a scope here the same day — nothing
+    in this file has to be told that SUB OSC exists, and B162's STATION block
+    needs no edit to this function."""
+    if "kEngineBlocks[] = {" not in src:
+        return []
+    decl = src.split("kEngineBlocks[] = {", 1)[1].split("\n};", 1)[0]
+    out = []
+    row = re.compile(r'\{\s*\w+\s*,\s*\w+\s*,\s*(\w+)\s*,\s*\w+\s*,\s*"[^"]*"\s*,\s*"([^"]*)"\s*\}')
+    for m in row.finditer(decl):
+        arr, prefix = m.group(1), m.group(2)
+        body = src.split(arr + "[] = {", 1)[1].split("\n};", 1)[0]
+        out.append((prefix, re.findall(r'\{\s*(\d+),\s*"([A-Za-z0-9_]+)"', body)))
     return out
 
 

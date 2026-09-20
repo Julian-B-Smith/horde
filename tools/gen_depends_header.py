@@ -16,8 +16,12 @@ for r in rows[1:]:
 
 # resolve addresses to ids using the shell's own param table
 src = open('src/hypersaw_clap.cpp', encoding='utf-8').read()
+# SCOPED TO kParams (see depends_check for the collision this avoids): the
+# shell's B172 engine-block array shares five core keys with the instrument, and
+# a whole-file scan would resolve `seed` to the SUB OSC's id.
 ids = {}
-for m in re.finditer(r'\{(\d+), "([A-Za-z0-9_]+)"', src):
+_decl = src.split('kParams[] = {', 1)[1].split('\n};', 1)[0]
+for m in re.finditer(r'\{(\d+), "([A-Za-z0-9_]+)"', _decl):
     ids[m.group(2)] = int(m.group(1))
 
 STRIDE = 1000
@@ -25,6 +29,14 @@ out = []
 for addr, clause in sorted(deps.items()):
     if '.' in addr:
         osc, base = addr.split('.', 1)
+        # An address whose prefix is not an oscillator is an ADR-088 ENGINE
+        # BLOCK (B172). This graph's consumer is the morph hierarchy over the
+        # swarm's kParams ids, so an engine row that declares a dependency is
+        # skipped here rather than mis-resolved — the GUI still gates it through
+        # shown_when. Wiring engine blocks into the graph is a queue row; an
+        # int('sub') crash is not a design.
+        if not re.fullmatch(r'osc\d+', osc):
+            continue
         k = int(osc.replace('osc', '')) - 1
     else:
         base, k = addr, 0

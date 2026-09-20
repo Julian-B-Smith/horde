@@ -625,13 +625,17 @@ if(NOT MSVC)
   target_compile_options(station_check PRIVATE -O2)
 endif()
 
-# subosc_check: the SUB OSC port's oracle (B155 port phase 1) -- L0-1 parity
-# against goldens sliced live from reference/subosc.html at both 48 000 and
-# 44 100 Hz, plus SPEC-SUBOSC §10's measured rows with their must-fail controls.
-# Core-direct (no shell link): the shell has no SUB OSC seam yet -- that is
-# phase 2's source row -- and a shell layer between the probe and the quantity
-# would only add noise. WIRED in ./verify full (ADR-180 §1).
+# subosc_check: the SUB OSC port's oracle -- L0-1 parity against goldens sliced
+# live from reference/subosc.html at both 48 000 and 44 100 Hz, plus
+# SPEC-SUBOSC §10's measured rows with their must-fail controls (phase 1), plus
+# section 11's SHELL rows (B172 phase 2). It LINKS THE PLUGIN IMPL now: phase 2
+# gave the sub a source row, and the claims phase 2 makes -- the gate is
+# bit-inert, the row reproduces the core through the matrix, the chunk carries
+# every new id, hard sync's refusal is pinned -- live between the core and the
+# output, which a core-direct probe is structurally blind to (L0031 (B)).
+# WIRED in ./verify full (ADR-180 §1).
 add_executable(subosc_check tools/subosc_check.cpp)
+target_link_libraries(subosc_check PRIVATE ${PROJECT_NAME}-impl)
 target_include_directories(subosc_check PRIVATE src)
 if(NOT MSVC)
   target_compile_options(subosc_check PRIVATE -O2)

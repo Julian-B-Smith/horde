@@ -31,6 +31,7 @@
 #include "gui/hypersaw_gui.h"
 #include "gui/preset_store.h"   // presetRoot(): the ONE store path (B129)
 #include "spectra_core.h"
+#include "subosc_core.h"   // B172: the SUB OSC engine block's core, one per voice
 #include "glide_core.h"
 #include "mod_core.h"
 #include "morph_core.h"
@@ -966,8 +967,13 @@ inline clap_id baseIdOf(clap_id id) { return (clap_id)((uint32_t)id % kOscStride
    cells are exposed they take the ids this layout already reserves for them;
    nothing renumbers. */
 /* B23 increment 3: TWO sources, one per swarm oscillator. The sub-oscillator is
-   the third and takes row 2 when it lands — no id moves for it. */
-constexpr int kRoutingNSrc = 2;
+   the third and takes row 2 when it lands — no id moves for it.
+   B172 LANDED IT, and the promise held: raising this to 3 moved no routing id.
+   Row 2 was already reserved (rows 0..7 are the source block), so the only new
+   ids are the cells row 2 itself names — `routingIndexOfRow` already returned
+   -1 for it and now returns 2, and every slot row keeps the row number it had.
+   Row 2 is the SUB; its caption in the matrix well is "SUB". */
+constexpr int kRoutingNSrc = 3;
 constexpr int kRoutingMaxSrc = 8;              // reserved source ROWS (see above)
 using RoutingMatrixT = hypersaw::RoutingMatrix<kRoutingNSrc, hypersaw::kRackSlots>;
 constexpr int kRoutingNSlot = hypersaw::kRackSlots;
@@ -1171,6 +1177,170 @@ inline const ParamDef *findRoutingParam(clap_id id)
 }
 inline uint32_t routingParamCount() { return (uint32_t)g_routingTable.defs.size(); }
 
+/* ---- ENGINE PARAMETER BLOCKS (B172) — THE SHARED MECHANISM ----------------
+   ADR-088 reserved 3000..9999 for engines that are not the swarm. Each such
+   engine takes a CONTIGUOUS block of a thousand ids, and every one of them is
+   unreachable without the dispatch below: `findParam` derives the oscillator as
+   `id / kOscStride`, so 4000 resolves to oscillator 4, fails `osc >= kNumOsc`
+   and returns nullptr — silently, with every gate green (the same trap the
+   routing block's comment records).
+
+   THIS IS THE MECHANISM B162 REUSES. STATION's 3000-block lands as ONE MORE ROW
+   in kEngineBlocks and touches nothing else: findParam, paramClassOf,
+   applyParam, readParam, params_count and params_get_info all walk the table.
+   Adding an engine must never mean editing the dispatch again — if it does,
+   this abstraction failed and should be deleted rather than extended.
+
+   THE BLOCK'S GATE. Every block names one stepped id as its `gateId`, default
+   OFF. While that id reads 0 the engine renders nothing, allocates nothing and
+   contributes nothing, so every patch written before the block existed is
+   BIT-IDENTICAL with the block present — which is what makes the append safe
+   and what subosc_check's control row proves rather than assumes. */
+struct EngineBlock
+{
+  uint32_t base;             // first id; ids are base + i, positional, never curated
+  uint32_t count;            // how many ids the block occupies
+  const ParamDef *defs;      // `count` rows, ascending, defs[i].id == base + i
+  clap_id gateId;            // the block's on/off; DEVICE class, default 0 (off)
+  const char *module;        // CLAP module string for params_get_info
+  /* THE STATE-KEY PREFIX, and it is not decoration. Both state paths are
+     keyed on `coreKey`, and an engine's core keys are its own namespace —
+     "wave", "level", "tone", "phase", "seed" all already exist in kParams. An
+     unprefixed engine key would be found by the instrument's scan (or the
+     reverse) and the wrong parameter would be restored, silently. The `o<k>.`
+     twin convention is the same idea one namespace over. */
+  const char *keyPrefix;
+};
+
+/* THE SUB OSC BLOCK (B172 / ADR-178). Ids 4000..4015: the fifteen core rows in
+   `SubOscCore::Param` order — so id - 4000 IS the enum index, which is the whole
+   reason the mapping needs no table — then the block's gate at 4015.
+
+   RANGE, STEP AND DEFAULT ARE THE CORE TABLE'S. `SubOscCore::kParamTable`
+   (subosc_core.h, SPEC-SUBOSC §7) is the only writer of those five numbers, and
+   `kSubOscAgrees` below is a COMPILE-TIME proof that these rows still say what
+   it says — count, min, max, stepped (== step != 0) and default, every row. The
+   ParamDef shape cannot be generated from the table directly (it carries a
+   host-facing name and an optional label array the core has no notion of, and
+   the GUI generators parse these literals out of this file), so the rows are
+   written out and the static_assert is what makes the second copy safe: a
+   divergence is a build failure, not a silent lie. `stepped` is ADR-173's
+   derivation evaluated at the one place that knows the step. */
+static const char *const kSubWaveLabels[] = {"sine",  "triangle", "square", "saw",
+                                             "pulse", "noise",    "bump"};
+constexpr uint32_t kSubOscIdBase = 4000;
+constexpr clap_id kSubOscOnId = 4015;
+static constexpr ParamDef kSubOscParams[] = {
+    {4000, "wave", "SUB Wave", 0, 6, 3, true, kSubWaveLabels},
+    {4001, "width", "SUB Width", 0.05, 0.95, 0.5, false, nullptr},
+    {4002, "bumpAmt", "SUB Bump Amount", 0, 0.6, 0.35, false, nullptr},
+    {4003, "bumpPhase", "SUB Bump Phase", -3.141592653589793, 3.141592653589793, -0.25, false,
+     nullptr},
+    {4004, "octave", "SUB Octave", -2, 0, -1, true, nullptr},
+    {4005, "semis", "SUB Semitones", -12, 12, 0, true, nullptr},
+    {4006, "fine", "SUB Fine", -100, 100, 0, false, nullptr},
+    {4007, "level", "SUB Level", 0, 1, 0.8, false, nullptr},
+    {4008, "phase", "SUB Start Phase", 0, 1, 0, false, nullptr},
+    {4009, "keytrack", "SUB Keytrack", 0, 1, 1, true, kOffOn},
+    {4010, "tone", "SUB Tone", 30, 20000, 20000, false, nullptr},
+    {4011, "sync", "SUB Hard Sync", 0, 1, 0, true, kOffOn},
+    {4012, "attack", "SUB Attack", 0.0005, 0.5, 0.005, false, nullptr},
+    {4013, "release", "SUB Release", 0.002, 2, 0.08, false, nullptr},
+    {4014, "seed", "SUB Seed", 0, 4294967295.0, 1, true, nullptr},
+    /* THE GATE, and it is NOT one of the core's parameters — the core has no
+       notion of being switched off, and giving it one would be a divergence
+       from the parity reference. It is a shell row: default OFF, so the sub
+       costs nothing and changes nothing until a player asks for it.
+       "on", not "subOn": id 52 already carries that core key (the SPECTRA
+       sub-oscillator, ADR-042) and two rows with one key is how a lookup
+       keyed on the key finds the wrong one. The block's address prefix
+       (`sub.`) is what disambiguates; see src/param_presentation.tsv. */
+    {4015, "on", "SUB On", 0, 1, 0, true, kOffOn},
+};
+constexpr uint32_t kSubOscParamCount = (uint32_t)(sizeof(kSubOscParams) / sizeof(kSubOscParams[0]));
+
+// THE PROOF, not the promise. Every row against SubOscCore::kParamTable.
+constexpr bool subOscRowsAgreeWithCore()
+{
+  using Core = hypersaw::SubOscCore;
+  if (kSubOscParamCount != (uint32_t)Core::kParamCount + 1) return false;
+  for (int i = 0; i < Core::kParamCount; i++)
+  {
+    const ParamDef &d = kSubOscParams[i];
+    const Core::ParamSpec &s = Core::kParamTable[i];
+    if (d.id != (clap_id)(kSubOscIdBase + i)) return false;
+    if (d.minV != s.min || d.maxV != s.max || d.defV != s.def) return false;
+    if (d.stepped != (s.step != 0)) return false;      // ADR-173's derivation
+    const char *a = d.coreKey, *b = s.key;             // same address, same row
+    while (*a && *a == *b) { a++; b++; }
+    if (*a != 0 || *b != 0) return false;
+  }
+  return kSubOscParams[Core::kParamCount].id == kSubOscOnId;
+}
+static_assert(subOscRowsAgreeWithCore(),
+              "kSubOscParams disagrees with SubOscCore::kParamTable — the core table is "
+              "SPEC-SUBOSC §7's only writer of range/step/default");
+
+constexpr uint32_t kEngineIdLo = 3000;    // ADR-088's reserved engine span, inclusive
+constexpr uint32_t kEngineIdHi = 10000;   // exclusive; kRoutingIdBase takes over here
+static_assert(kEngineIdHi == kRoutingIdBase, "the engine span must abut the routing block");
+constexpr EngineBlock kEngineBlocks[] = {
+    {kSubOscIdBase, kSubOscParamCount, kSubOscParams, kSubOscOnId, "SUB OSC", "sub."},
+    /* STATION's 3000-block lands HERE (B162) and nowhere else. */
+};
+static_assert(kSubOscIdBase >= kEngineIdLo && kSubOscIdBase + kSubOscParamCount < kEngineIdHi,
+              "the SUB OSC block must sit inside ADR-088's reserved engine span");
+
+// The block an id belongs to, or nullptr. One membership test, every caller.
+inline const EngineBlock *engineBlockOf(clap_id id)
+{
+  const uint32_t u = (uint32_t)id;
+  if (u < kEngineIdLo || u >= kEngineIdHi) return nullptr;
+  for (const auto &b : kEngineBlocks)
+    if (u >= b.base && u < b.base + b.count) return &b;
+  return nullptr;   // a reserved-but-unclaimed thousand: no parameter, loudly
+}
+inline const ParamDef *findEngineParam(clap_id id)
+{
+  const EngineBlock *b = engineBlockOf(id);
+  return b ? &b->defs[(uint32_t)id - b->base] : nullptr;
+}
+/* `<prefix><coreKey>` -> id, or nullptr. THE ONLY decoder of an engine state
+   key, called by both state paths and by the preset JSON path, so "which key
+   names which id" is one function rather than four copies. */
+inline const ParamDef *findEngineParamByKey(const std::string &key)
+{
+  for (const auto &b : kEngineBlocks)
+  {
+    const size_t n = std::strlen(b.keyPrefix);
+    if (key.size() <= n || key.compare(0, n, b.keyPrefix) != 0) continue;
+    for (uint32_t i = 0; i < b.count; i++)
+      if (key.compare(n, std::string::npos, b.defs[i].coreKey) == 0) return &b.defs[i];
+  }
+  return nullptr;
+}
+inline uint32_t engineParamCount()
+{
+  uint32_t n = 0;
+  for (const auto &b : kEngineBlocks) n += b.count;
+  return n;
+}
+// Index -> row, in kEngineBlocks order. The enumeration order params_get_info
+// hands a host, and the order paramsJson/defaultsJson emit.
+inline const ParamDef *engineParamAt(uint32_t index, const char **moduleOut)
+{
+  for (const auto &b : kEngineBlocks)
+  {
+    if (index < b.count)
+    {
+      if (moduleOut) *moduleOut = b.module;
+      return &b.defs[index];
+    }
+    index -= b.count;
+  }
+  return nullptr;
+}
+
 const ParamDef *findParam(clap_id id)
 {
   /* ROUTING BLOCK FIRST, and this ordering is load-bearing. The line below
@@ -1179,6 +1349,10 @@ const ParamDef *findParam(clap_id id)
      id would simply not exist, silently, with every gate green. routing_check's
      dispatch probe asserts this branch rather than trusting the reading. */
   if ((uint32_t)id >= kRoutingIdBase) return findRoutingParam(id);
+  /* ENGINE BLOCKS SECOND, and for the SAME reason: `oscOfId(4000)` is 4, which
+     fails `osc >= kNumOsc` below, so every SUB OSC id would simply not exist —
+     silently. subosc_check's dispatch row asserts this branch. */
+  if ((uint32_t)id >= kEngineIdLo) return findEngineParam(id);
   const uint32_t osc = oscOfId(id);
   if (osc == 0)
   {
@@ -1371,6 +1545,32 @@ inline bool paramClassOf(clap_id id, ParamClass &cls, const char *&reason)
     reason = "ADR-088 crosspoint: a continuous gain, blended never argmax'd";
     return true;
   }
+  /* ENGINE BLOCKS, classed BY THE RULE and before `baseIdOf` — which would
+     otherwise ALIAS: 4004 (SUB Octave) reduces to base 4, a real instrument id
+     that could carry an override. The rule is ADR-173's, evaluated off the
+     block's own `stepped` (which subOscRowsAgreeWithCore pins to the core
+     table's step), with exactly ONE exception: the block's gate. */
+  if (const EngineBlock *eb = engineBlockOf(id))
+  {
+    if (id == eb->gateId)
+    {
+      /* DEVICE, not structural. Rule 2 would make it structural (it is
+         stepped), and device is the override for the reason master volume
+         (100) and the bass-mono placement (267) are device: switching an
+         engine on is an instance-level policy, not a value a corner authors.
+         Device also keeps it out of morphIds — which is what makes "subOn off
+         is bit-inert" a property of the patch rather than of the pad's
+         position, and what paramclass_check's "no morphIds member is device"
+         cross-check needs (morphInit never appends it). */
+      cls = ParamClass::Device;
+      reason = "engine-block gate — switching an engine on is device policy (B172)";
+      return true;
+    }
+    cls = d->stepped ? ParamClass::Structural : ParamClass::Morphable;
+    reason = d->stepped ? "engine block, stepped: cannot blend, resolves atomically"
+                        : "engine block, continuous DSP value: blends inside its corner";
+    return true;
+  }
   const clap_id base = baseIdOf(id);
   for (const auto &r : kParamClassOverrides)
     if (r.id == base)
@@ -1443,10 +1643,79 @@ struct Plugin
   void allOffAll()
   {
     for (uint32_t k = 0; k < kNumOsc; k++) cores[k].allOff();
+    subAllOff();
   }
   void noteOffAll(int key)
   {
     for (uint32_t k = 0; k < kNumOsc; k++) cores[k].noteOff(key);
+    subNoteOff(key);
+  }
+
+  /* ---- SUB OSC, ONE CORE PER VOICE SLOT (B172 / ADR-178) -------------------
+     subosc_core.h states the assumption in its header: SubOscCore holds exactly
+     ONE note's state, so polyphony is N instances, not one instance played N
+     times. The bank is indexed by OSCILLATOR 0's slot — the logical voice —
+     which is the same index `tags`, `penv` and `slotOf` already use, so the sub
+     needs no allocator of its own and cannot disagree with the swarm's about
+     which voice a note is.
+
+     THE KEY TABLE IS WHY. The swarm releases BY KEY (`SwarmCore::noteOff(key)`)
+     and SubOscCore releases the one note it holds, so the shell has to remember
+     which key each slot's sub is sounding. Set at every strike, cleared at
+     every release and at allOff — a stale entry would release the wrong slot,
+     which is the stuck-note shape the mono held-stack comment records.
+
+     EVERY LIFECYCLE CALL FANS OUT THROUGH allOffAll / noteOffAll, which are the
+     seam that comment names — a second hand-wired path for the same signal
+     class is L0029's named failure, so there is exactly one. */
+  hypersaw::SubOscCore subs[hypersaw::kPoly] = {
+      hypersaw::SubOscCore{44100.0}, hypersaw::SubOscCore{44100.0}, hypersaw::SubOscCore{44100.0},
+      hypersaw::SubOscCore{44100.0}, hypersaw::SubOscCore{44100.0}, hypersaw::SubOscCore{44100.0},
+      hypersaw::SubOscCore{44100.0}, hypersaw::SubOscCore{44100.0}, hypersaw::SubOscCore{44100.0},
+      hypersaw::SubOscCore{44100.0}, hypersaw::SubOscCore{44100.0}, hypersaw::SubOscCore{44100.0},
+      hypersaw::SubOscCore{44100.0}, hypersaw::SubOscCore{44100.0}, hypersaw::SubOscCore{44100.0},
+      hypersaw::SubOscCore{44100.0}};
+  int subKey[hypersaw::kPoly] = {-1, -1, -1, -1, -1, -1, -1, -1,
+                                 -1, -1, -1, -1, -1, -1, -1, -1};
+  double subOn = 0;   // the block's gate (id 4015), DEVICE class, ships off
+
+  void subNoteOn(int slot, int key, double vel)
+  {
+    if (slot < 0 || slot >= hypersaw::kPoly) return;
+    subs[slot].noteOn(key, vel);
+    subKey[slot] = key;
+  }
+  void subNoteOff(int key)
+  {
+    for (int s = 0; s < hypersaw::kPoly; s++)
+      if (subKey[s] == key) { subs[s].noteOff(); subKey[s] = -1; }
+  }
+  void subAllOff()
+  {
+    for (int s = 0; s < hypersaw::kPoly; s++) { subs[s].allOff(); subKey[s] = -1; }
+  }
+  // One write per id, from the block's positional mapping: id - base IS the
+  // core's enum index (see kSubOscParams). No switch, so a row added to the
+  // core table cannot be forgotten here.
+  void subSetParam(clap_id id, double v)
+  {
+    if (id == kSubOscOnId)
+    {
+      /* Switching the block OFF must SILENCE it, not freeze it: a frozen core
+         resumes mid-note when the gate comes back, and "off" then means "off
+         until you turn it on, at which point yesterday's note finishes". The
+         same reasoning ADR-099 A1 applies to an oscillator's power switch. */
+      if (v == 0 && subOn != 0) subAllOff();
+      subOn = v;
+      return;
+    }
+    const int i = (int)((uint32_t)id - kSubOscIdBase);
+    for (auto &c : subs) c.setParam((hypersaw::SubOscCore::Param)i, v);
+  }
+  double subGetParam(clap_id id) const
+  {
+    if (id == kSubOscOnId) return subOn;
+    return subs[0].param((hypersaw::SubOscCore::Param)((uint32_t)id - kSubOscIdBase));
   }
   /* ONE LOGICAL NOTE, N PHYSICAL VOICES — and the mapping is now CONSTRUCTED,
      not assumed. Every helper below used to apply oscillator 0's slot index to
@@ -1473,6 +1742,18 @@ struct Plugin
     if (slot < 0) return;
     for (uint32_t k = 0; k < kNumOsc; k++)
       cores[k].retargetNote(slotOf[slot][k], key, freq, keepPhase);
+    /* THE SUB RE-STRIKES ON A MONO RETARGET, and that is a NAMED DIVERGENCE
+       from the swarm, not an accident. SubOscCore's only pitch input is
+       `noteOn` (subosc_core.h:237) — there is no retune seam, and adding one to
+       a parity-gated core is outside B172. So legato mono moves the sub to the
+       new key by re-striking it: under `keepPhase` the swarm glides and the sub
+       restarts its own AR, which is audible. Recorded rather than hidden
+       because SPEC-SUBOSC §5.3/R4 already expects that AR to be STRUCK when the
+       voice envelope is wired, and the divergence disappears with it — a
+       retune seam added now would be built for an envelope that is leaving.
+       The velocity is the SLOT'S, not 1.0: a retarget must not change loudness,
+       which is what NoteTag::vel exists for (ADR-100 A1). */
+    subNoteOn(slot, key, tags[slot].vel);
   }
   void setNoteExprAll(int slot, double v)
   {
@@ -2459,6 +2740,24 @@ struct Plugin
        Legality is enforced on the READ side, so a corner holding any table at
        all stays correct by construction — which is exactly why this is safe. */
     for (const auto &d : g_routingTable.defs) morphIds.push_back(d.id);
+
+    /* B172 — THE ENGINE BLOCKS' MORPHABLE ROWS, APPENDED AFTER THE ROUTING
+       BLOCK and therefore after everything (ADR-159's rule again: never
+       inserted). Membership is `paramClassOf == Morphable` and nothing else,
+       so the field and the classifier cannot disagree about which engine rows
+       a corner holds — the block's GATE is Device and is therefore absent by
+       the same test, which is what keeps "the gate is not a corner value" a
+       property of one rule rather than of two lists.
+       STATION appends here too (B162), by adding its block to kEngineBlocks.
+       Both appends bump the layout marker; see cornerJson. */
+    for (const auto &b : kEngineBlocks)
+      for (uint32_t i = 0; i < b.count; i++)
+      {
+        ParamClass cls = ParamClass::Device;
+        const char *why = nullptr;
+        if (paramClassOf(b.defs[i].id, cls, why) && cls == ParamClass::Morphable)
+          morphIds.push_back(b.defs[i].id);
+      }
 
     /* THE LEAD MAP. Identity, then the groups.
        FX SLOTS (B49, measured 2026-08-26): type and amount were drawn
@@ -4639,6 +4938,14 @@ struct Plugin
       std::snprintf(buf, sizeof(buf), ",\"%u\":%.6g", (unsigned)d.id, d.defV);
       out += buf;
     }
+    // B172 engine blocks — same loop as paramsJson so the two cannot disagree
+    // about which ids exist.
+    for (const auto &b : kEngineBlocks)
+      for (uint32_t i = 0; i < b.count; i++)
+      {
+        std::snprintf(buf, sizeof(buf), ",\"%u\":%.6g", (unsigned)b.defs[i].id, b.defs[i].defV);
+        out += buf;
+      }
     out += "}";
     return out;
   }
@@ -4833,6 +5140,17 @@ struct Plugin
       std::snprintf(buf, sizeof(buf), ",\"%u\":%.6g", (unsigned)d.id, readParam(d.id));
       out += buf;
     }
+    /* B172 engine blocks, on the SAME snapshot for the same reason the routing
+       cells are: one poll feeds every pane. Safe for learnOscLayout — these
+       ids are >= 3000, so `i < OSC_STRIDE` (the globals test) is false and
+       `floor(i/1000) == numOsc` never reaches them (the walk stops at 2). */
+    for (const auto &b : kEngineBlocks)
+      for (uint32_t i = 0; i < b.count; i++)
+      {
+        std::snprintf(buf, sizeof(buf), ",\"%u\":%.6g", (unsigned)b.defs[i].id,
+                      readParam(b.defs[i].id));
+        out += buf;
+      }
     return out + "}";
   }
 
@@ -4847,7 +5165,16 @@ struct Plugin
   {
     if (k < 0 || k > 3) return "{}";
     morphInit();
-    std::string out = "{\"morphLayout\":5,\"cornerPreset\":[";   // ADR-159; 5 = the ADR-088-amendment routing renumbering (B23 increment 3: source rows reserved, Src 2's cells new slot positions); 4 = the Src→OUT dry-path cells appended after the routing block (B50 phase 1c); 3 = the routing block (phase 1)
+    /* THE LAYOUT MARKER, BUMPED ONCE HERE AND AT THE OTHER THREE WRITERS.
+       6 = B172: the SUB OSC engine block's morphable ids appended after the
+       routing block. STATION (B162) appends into this SAME layout and will
+       bump it again — the marker names an ORDER, and every append changes the
+       order, so one bump per appending change is the rule, not one bump per
+       engine family. 5 = the ADR-088-amendment routing renumbering (B23
+       increment 3: source rows reserved, Src 2's cells new slot positions);
+       4 = the Src→OUT dry-path cells appended after the routing block (B50
+       phase 1c); 3 = the routing block (phase 1). */
+    std::string out = "{\"morphLayout\":6,\"cornerPreset\":[";
     char buf[32];
     for (size_t i = 0; i < morphIds.size(); i++)
     {
@@ -4953,7 +5280,7 @@ struct Plugin
   std::string liveCornerJson()
   {
     morphInit();
-    std::string out = "{\"morphLayout\":5,\"cornerPreset\":[";   // ADR-159
+    std::string out = "{\"morphLayout\":6,\"cornerPreset\":[";   // ADR-159; 6 = B172, see cornerJson
     char buf[32];
     for (size_t i = 0; i < morphIds.size(); i++)
     {
@@ -5116,7 +5443,7 @@ struct Plugin
     if (morphIds.empty()) return "";
     // ADR-159: the array layout version. 2 = late per-osc rows appended last;
     // absent = 1 (pre-2026-09-11), where a 224-entry array is the ADR-150 order.
-    std::string out = ",\"morphLayout\":5,\"cornerNames\":" + cornerNamesJson() + ",\"morphCorners\":[";
+    std::string out = ",\"morphLayout\":6,\"cornerNames\":" + cornerNamesJson() + ",\"morphCorners\":[";
     char buf[32];
     for (int k = 0; k < 4; k++)
     {
@@ -5202,6 +5529,20 @@ struct Plugin
                       readParam(d.id + k * 1000));
         out += buf;
       }
+    /* B172 ENGINE BLOCKS, prefixed (see EngineBlock::keyPrefix). Emitted
+       UNCONDITIONALLY, unlike `routing=`/`intent=`/`ens=`: those are chunks
+       that mean "someone left the default", while these are ordinary
+       parameters and a patch that omits a parameter is a patch that does not
+       say what it is. The cost is paid once — every stored chunk gains 16
+       keys, so the factory bank is re-saved in the same change and bank_check
+       re-asserts bit-identical re-save from there. */
+    for (const auto &b : kEngineBlocks)
+      for (uint32_t i = 0; i < b.count; i++)
+      {
+        std::snprintf(buf, sizeof(buf), ",\"%s%s\":%.17g", b.keyPrefix, b.defs[i].coreKey,
+                      readParam(b.defs[i].id));
+        out += buf;
+      }
     // const_cast confined to serialisation: morphJson touches no state, but
     // morphIds is lazily built and stateJson is const. Building eagerly at
     // construction would be cleaner; deferred to keep this diff reviewable.
@@ -5269,6 +5610,21 @@ struct Plugin
       enqueueParam(d.id, std::atof(json.c_str() + pos + 1), 3);   // B125: load kind
       any = true;
     }
+    // B172 engine blocks, prefixed. Absent keys leave the block at whatever
+    // it holds, exactly as an absent instrument key does — a patch written
+    // before the block existed simply says nothing about it, and the block
+    // ships off, so it stays inert.
+    for (const auto &b : kEngineBlocks)
+      for (uint32_t i = 0; i < b.count; i++)
+      {
+        const std::string needle = "\"" + std::string(b.keyPrefix) + b.defs[i].coreKey + "\"";
+        size_t pos = json.find(needle);
+        if (pos == std::string::npos) continue;
+        pos = json.find(':', pos + needle.size());
+        if (pos == std::string::npos) continue;
+        enqueueParam(b.defs[i].id, std::atof(json.c_str() + pos + 1), 3);
+        any = true;
+      }
     // the twins, by the state_save convention
     for (uint32_t k = 1; k < kNumOsc; k++)
       for (const auto &d : kParams)
@@ -5388,7 +5744,13 @@ struct Plugin
     if (!d) return;
     char lb[96];
     const uint32_t k = oscOfId(id);
-    if (kNumOsc > 1 && !isGlobalId(baseIdOf(id)))
+    // B172: an engine-block id has no oscillator — `oscOfId(4001)` is 4 and
+    // `baseIdOf(4001)` is 1, so without this the undo label would read
+    // "SUB Width (osc 5)". The routing ids never reached here with a suffix
+    // because every routing id is global by `isGlobalId`'s accident; this is
+    // the honest test rather than the lucky one.
+    if (engineBlockOf(id)) std::snprintf(lb, sizeof lb, "%s", d->name);
+    else if (kNumOsc > 1 && !isGlobalId(baseIdOf(id)))
       std::snprintf(lb, sizeof lb, "%s (osc %u)", d->name, (unsigned)(k + 1));
     else
       std::snprintf(lb, sizeof lb, "%s", d->name);
@@ -5553,6 +5915,17 @@ struct Plugin
          routing id onto an instrument one. Handles and RETURNS: the fallthrough
          at the end of this function hands the id to cores[].setParam. */
       if ((uint32_t)id >= kRoutingIdBase) { setRoutingParam(id, applied); return; }
+      /* ENGINE BLOCKS (B172), placed for the same two reasons the routing block
+         is: after the morph/mod hooks (an engine row is morphable, so a corner
+         edit routes like any other parameter) and before every `baseIdOf` test
+         below, which would alias 4004 onto base 4. THE DISPATCH IS THE TABLE;
+         only the last line is engine-specific, because each engine owns a
+         different core — STATION adds a branch there and nothing else. */
+      if (const EngineBlock *eb = engineBlockOf(id))
+      {
+        if (eb->base == kSubOscIdBase) subSetParam(id, applied);
+        return;
+      }
       if (id == 32)
       {
         if (applied != voiceMono)
@@ -6043,6 +6416,13 @@ struct Plugin
       // host readback and the GUI all land on the same numbers the audio pass
       // multiplies by, so a readback cannot report a topology that is not live.
       if ((uint32_t)id >= kRoutingIdBase) return getRoutingParam(id);
+      /* ENGINE BLOCKS (B172) — read the CORE, not a shadow copy, for the reason
+         the routing branch above reads the matrix: a readback that could
+         report a value the audio path does not hold is the `readParam` half of
+         the 2026-07-18 state bug this function's header records. Before every
+         `baseIdOf` test, which would alias. */
+      if (const EngineBlock *eb = engineBlockOf(id))
+        return eb->base == kSubOscIdBase ? subGetParam(id) : 0.0;
       if (d->id == 11) return inertiaKnob;  // ADR-024 knob domain
       if (d->id == 70) return inertiaCurve;  // ADR-059 dev taper exponent
       if (d->id == 32) return voiceMono;
@@ -6278,6 +6658,11 @@ struct Plugin
           // No MPE bend re-apply here — SpectraCore has no noteTune (ADR-038's
           // per-note pitch is SAW-side until the kernel unification).
           const int slot = spectra.noteOn(n->key, freq);
+          // B172: the sub follows the note in BOTH engines. It is a routing
+          // SOURCE beside them, not a feature of the swarm, so a sub that went
+          // silent when the engine selector moved would be a source that exists
+          // only in one mode — with nothing saying so.
+          subNoteOn(slot, n->key, n->velocity);
           retireTag(slot);
           lastNoteKey = n->key;
           // ADR-162: this slot's pitch envelope restarts (from its current
@@ -6368,6 +6753,7 @@ struct Plugin
               noteOffAll(core.voiceAt(monoSlot).midi);
             monoSlot = core.noteOn(n->key, freq);
             core.setNoteVelocity(monoSlot, n->velocity);
+            subNoteOn(monoSlot, n->key, n->velocity);   // B172
             bindSlots(monoSlot, 0, monoSlot);
             for (uint32_t k = 1; k < kNumOsc; k++)
             {
@@ -6390,6 +6776,7 @@ struct Plugin
         {
           const int slot = core.noteOn(n->key, freq);
           core.setNoteVelocity(slot, n->velocity);
+          subNoteOn(slot, n->key, n->velocity);   // B172
           bindSlots(slot, 0, slot);
           for (uint32_t k = 1; k < kNumOsc; k++)
           {
@@ -6604,6 +6991,77 @@ struct Plugin
         }
       }
     }
+    renderSubSpan(at, count);
+  }
+
+  /* ---- SUB OSC INTO ROUTING SOURCE ROW 2 (B172) ----------------------------
+     SOURCE 2, so the block buffer is srcBuf[1] (source 0 is the output buffer;
+     the comment on srcBufL says why). Sixteen per-voice cores SUM into it,
+     mono — SubOscCore writes the same sample to both channels by construction
+     (SPEC-SUBOSC §2: pan and width are the voice's, not a sub's).
+
+     OFF COSTS NOTHING AND CHANGES NOTHING. With the gate at 0 this returns
+     before touching a buffer, so the source stays the zeros process() wrote at
+     the top of the block, the matrix gathers exact 0.0f through a coefficient
+     of exactly 1.0, and every pre-B172 patch renders bit-identically — which is
+     what subosc_check's control row measures rather than assumes.
+
+     THE ROW'S LEVEL LAW — HEADROOM, AND IT IS LOAD-BEARING (phase 1 finding 1).
+     The core's tone stage is a TPT one-pole, and a TPT one-pole OVERSHOOTS on a
+     step when its cutoff sits near Nyquist: at level 1 and tone 20 kHz the core
+     peaks above unity for every edged shape. MEASURED on this build, worst over
+     {44.1, 48, 96} kHz x MIDI 12..96 x width {0.05, 0.27, 0.5, 0.95}, bumpAmt
+     at its 0.6 ceiling:
+         sine 1.0025   triangle 0.9998   square 1.1221   saw 1.1208
+         pulse 1.1883  noise 1.4012      bump 1.0029
+     — worst 1.4012 (noise, 48 kHz), and SPEC-SUBOSC's phase-1 finding records
+     1.425 for the same shape over a wider sweep. The DIVISOR IS THE LARGER of
+     the two, so the bound holds under both measurements: a sub at level 1 into
+     a unity path peaks at 1.4012/1.425 = 0.983 and CANNOT reach the rail. That
+     is a property of the constant, not of the patch — no vigilance, no
+     limiter, and nothing a mod route can undo.
+     Why a constant and not a per-shape gain: a gain that changed with `wave`
+     would make the waveform selector a level control too, and the shape
+     selector is exactly where a player does not want one. The cost accepted is
+     that sine and triangle are 3.07 dB below where they could sit; `level`
+     (default 0.8) is the control that answers that, and it costs one turn. */
+  static constexpr double kSubRowHeadroomPeak = 1.425;   // SPEC-SUBOSC phase 1 finding 1
+  static constexpr double kSubRowHeadroom = 1.0 / kSubRowHeadroomPeak;   // 0.7018 = -3.07 dB
+  void renderSubSpan(uint32_t at, uint32_t count)
+  {
+    if (subOn == 0) return;
+    const int n = (int)count;
+    float tL[kMixChunk], tR[kMixChunk];
+    for (int off = 0; off < n; off += kMixChunk)
+    {
+      const int m = n - off < kMixChunk ? n - off : kMixChunk;
+      for (int s = 0; s < hypersaw::kPoly; s++)
+      {
+        /* HARD SYNC IS WIRED OFF, AND THAT IS A RECORDED REFUSAL, NOT AN
+           OVERSIGHT. SPEC-SUBOSC §6 wants oscillator 1's FUNDAMENTAL PHASE as a
+           per-sample input. SwarmCore has no such output: the fundamental's
+           phase is `voices[s].phase[rootIdx]`, private per-voice state advanced
+           inside the render loop (and advanced twice per output sample when
+           oversampling is on), so publishing it means a per-sample buffer
+           written from inside SwarmCore::render — a change to a parity-gated
+           core, outside this item's scope. Passing nullptr makes SubOscCore's
+           own `syncOn` false by construction (subosc_core.h:272), so the `sync`
+           parameter is inert TODAY rather than half-wired; subosc_check pins
+           that refusal (sync on == sync off, bit-exact) so it cannot become an
+           accidental presence (L0036). The seam is a queue row, not a guess. */
+        subs[s].render(tL, tR, m, nullptr);
+        /* ACCUMULATE, never write. process() zeroes every source buffer for
+           the whole block before the span loop, so `+=` over sixteen voices
+           and however many spans the event list splits the block into is
+           correct by that zeroing — the same contract the oscillators' `=`
+           relies on from the other side. */
+        for (int i = 0; i < m; i++)
+        {
+          srcBufL[1][at + off + i] += (float)(tL[i] * kSubRowHeadroom);
+          srcBufR[1][at + off + i] += (float)(tR[i] * kSubRowHeadroom);
+        }
+      }
+    }
   }
 
   /* ADR-035's bass-mono stage: ONE 2nd-order TPT SVF high-pass on the SIDE
@@ -6722,7 +7180,11 @@ struct Plugin
         continue;   // `frame` is already at `until`
       }
       if (spectraMode())
+      {
         spectra.render(outL + frame, outR + frame, (int)(until - frame));
+        // B172: source row 2 is engine-independent (see the note-on comment).
+        renderSubSpan(frame, (uint32_t)(until - frame));
+      }
       else
         renderSpan(outL, outR, frame, (uint32_t)(until - frame));
       frame = until;
@@ -6914,6 +7376,13 @@ bool plug_activate(const clap_plugin_t *p, double sr, uint32_t, uint32_t maxFram
   pl->spectra.p = sp;
   pl->spectra.rebuild();
   pl->rack.setSampleRate(sr);  // ADR-071: size comb lines + derive comp coeffs at sr
+  /* B172: the sub's sixteen voices follow the host rate. setSampleRate RECALCS
+     (subosc_core.h) rather than replacing the object, so the parameters survive
+     without the save/restore dance the swarm cores need — and every voice is
+     silenced, because a rate change while a note is held would otherwise leave
+     sixteen phases running at the old increment. */
+  for (auto &c : pl->subs) c.setSampleRate(sr);
+  pl->subAllOff();
   // The shell owns the note law (it resolves the link), so push it once here.
   // Without this the cores run GlideCore's OWN defaults until the first edit of
   // a note/bend/scale param -- including an empty scale mask, which the
@@ -7007,7 +7476,11 @@ uint32_t params_count(const clap_plugin_t *)
   // explicitly: this loop walks kParams, and the routing table is deliberately
   // NOT in kParams (its ids are positional, not curated, and the presentation
   // registry is address-keyed over the instrument's params).
-  return kNumParams + (kNumOsc - 1) * perOscParamCount() + routingParamCount();
+  /* B172: the engine blocks enumerate LAST, after the routing block, for the
+     same reason routing enumerates after the oscillators — every index a host
+     already knows keeps its parameter. */
+  return kNumParams + (kNumOsc - 1) * perOscParamCount() + routingParamCount() +
+         engineParamCount();
 }
 
 bool params_get_info(const clap_plugin_t *, uint32_t index, clap_param_info_t *info)
@@ -7015,10 +7488,17 @@ bool params_get_info(const clap_plugin_t *, uint32_t index, clap_param_info_t *i
   uint32_t osc = 0;
   const ParamDef *dp = nullptr;
   const uint32_t oscEnd = kNumParams + (kNumOsc - 1) * perOscParamCount();
-  if (index >= oscEnd)
+  const char *engineModule = nullptr;
+  if (index >= oscEnd + routingParamCount())
+  {
+    // B172 engine blocks. osc stays 0, so `d.id + osc * kOscStride` below is
+    // the engine id itself — the routing branch's own trick.
+    dp = engineParamAt(index - oscEnd - routingParamCount(), &engineModule);
+    if (!dp) return false;
+  }
+  else if (index >= oscEnd)
   {
     const uint32_t r = index - oscEnd;
-    if (r >= routingParamCount()) return false;
     dp = &g_routingTable.defs[r];
     // osc stays 0, so `d.id + osc * kOscStride` below is the routing id itself.
   }
@@ -7046,7 +7526,9 @@ bool params_get_info(const clap_plugin_t *, uint32_t index, clap_param_info_t *i
   else
     std::snprintf(info->name, sizeof(info->name), "Osc%u %s", osc + 1, d.name);
   std::snprintf(info->module, sizeof(info->module), "%s",
-                isRouting ? "Routing" : osc == 0 ? "" : (osc == 1 ? "Osc 2" : "Osc 3"));
+                engineModule ? engineModule
+                             : isRouting ? "Routing"
+                                         : osc == 0 ? "" : (osc == 1 ? "Osc 2" : "Osc 3"));
   info->min_value = d.minV;
   info->max_value = d.maxV;
   // Oscillators above the first default to SILENT (vol = 0). Without this the
@@ -7201,6 +7683,15 @@ bool state_save(const clap_plugin_t *p, const clap_ostream_t *stream)
       if (isGlobalId(d.id)) continue;
       std::snprintf(line, sizeof(line), "o%u.%s=%.17g\n", k, d.coreKey,
                     self(p)->readParam((clap_id)(d.id + k * kOscStride)));
+      blob += line;
+    }
+  // B172 engine blocks, prefixed and unconditional — see stateJson's comment
+  // for why these are not emitted-only-when-dirty like `routing=` below.
+  for (const auto &b : kEngineBlocks)
+    for (uint32_t i = 0; i < b.count; i++)
+    {
+      std::snprintf(line, sizeof(line), "%s%s=%.17g\n", b.keyPrefix, b.defs[i].coreKey,
+                    self(p)->readParam(b.defs[i].id));
       blob += line;
     }
   // ADR-112 A3: the morph field rides the session, not just the preset. The
@@ -7364,6 +7855,18 @@ bool state_load(const clap_plugin_t *p, const clap_istream_t *stream)
     // B171: the LFO streams. Not prefixed (the LFOs are global), but read here
     // beside `ens` because both are non-parameter keys emitted after `seed`.
     if (key == "lfo") { pl->applyLfoChunk(line.substr(eq + 1)); continue; }
+    /* B172 engine blocks. AFTER the `o<k>.` split (an engine key never carries
+       one, and asking first would mean two prefix vocabularies) and BEFORE the
+       kParams scans below, which is the ordering that matters: `sub.wave` must
+       never fall through to a search that could match `wave`. Routed through
+       the same two lanes — queue while processing, applyParam while idle. */
+    if (keyOsc == 0)
+      if (const ParamDef *ed = findEngineParamByKey(key))
+      {
+        if (pl->processing.load(std::memory_order_acquire)) pl->enqueueParam(ed->id, val, 3);
+        else pl->applyParam(ed->id, val);
+        continue;
+      }
     const clap_id idOff = (clap_id)(keyOsc * kOscStride);
     // Thread safety (2026-07-18): state_load is main-thread and MAY run while
     // the audio thread is in process() — a direct setParam would race
