@@ -42,8 +42,15 @@ hdr = rows[0]
 di, ai = hdr.index("depends"), hdr.index("address")
 
 src = CLAP.read_text(encoding="utf-8")
+# SCOPED TO kParams, not the whole file. B172 put a SECOND ParamDef array in the
+# shell (the ADR-088 engine blocks), and five of its core keys -- attack, octave,
+# release, seed, width -- are also instrument keys. This scan keys on coreKey
+# alone, so the later array silently WON and every clause naming one of those
+# five was range-checked against the wrong parameter's range. An engine block is
+# addressed `sub.seed`, never `seed`; scoping the read is what says so.
 params = {}
-for m in re.finditer(r'\{(\d+), "([A-Za-z0-9_]+)", "[^"]*", ([-0-9.]+), ([-0-9.]+)', src):
+_decl = src.split("kParams[] = {", 1)[1].split("\n};", 1)[0]
+for m in re.finditer(r'\{(\d+), "([A-Za-z0-9_]+)", "[^"]*", ([-0-9.]+), ([-0-9.]+)', _decl):
     params[m.group(2)] = (int(m.group(1)), float(m.group(3)), float(m.group(4)))
 
 declared = 0
