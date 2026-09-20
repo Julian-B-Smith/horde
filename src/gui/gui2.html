@@ -1168,6 +1168,32 @@
     <div class="row"><label>pitch</label><input type="range" data-p="1036" data-fixed="1" min="-12" max="12" step="1" value="0"><output></output></div>
     <div class="row"><label>fine</label><input type="range" data-p="1037" data-fixed="1" min="-100" max="100" step="1" value="0"><output></output></div>
   </div></div>
+  <!-- B181 note 5 — THE SUB ON THE MIX PAGE. The human: "Sub needs to be on
+       the mix page." A PROXY strip in the idiom the two oscillator strips
+       already use, and in B178's proxy idiom: ONE PARAMETER, TWO CONTROLS,
+       NEVER A SECOND ID. Every input below writes the id the OSC page's SUB
+       panel writes, so the two panels cannot drift and no parameter was added
+       (the rule B166 sets).
+         · data-fixed — an engine block is ONE device-wide object; effId()
+           must not remap 4007 to 5007 while OSC 2 is the edited oscillator,
+           which is a parameter the shell never declared.
+         · data-proxy — this is not a hand-PLACEMENT, so gen_gui_controls
+           keeps generating the real controls on the OSC page instead of
+           standing down and deleting them.
+       NO M/S BUTTONS, and that is a match rather than an omission: mute and
+       solo are ids 104/105 and 1104/1105, per-OSCILLATOR parameters inside
+       the swarm. The sub has no such parameter, and inventing one here would
+       be a second gate beside `sub.on` — which is the power switch the SUB
+       tab already carries, shown here for the same reason the oscillator
+       strips show theirs. Level, power, octave and pitch, the same four rows
+       the strips above use, addressing the sub's own ids. -->
+  <div class="cluster"><h2>SUB</h2><div class="strip"><b>SUB</b>
+    <div class="row"><label>power</label><input type="checkbox" data-p="4015" data-fixed="1" data-proxy="1"><output></output></div>
+    <div class="row"><label>level</label><input type="range" data-p="4007" data-fixed="1" data-proxy="1" min="0" max="1" step="0.005" value="0.8"><output></output></div>
+    <div class="row"><label>octave</label><input type="range" data-p="4004" data-fixed="1" data-proxy="1" min="-3" max="0" step="1" value="-1"><output></output></div>
+    <div class="row"><label>pitch</label><input type="range" data-p="4005" data-fixed="1" data-proxy="1" min="-12" max="12" step="1" value="0"><output></output></div>
+    <div class="row"><label>fine</label><input type="range" data-p="4006" data-fixed="1" data-proxy="1" min="-100" max="100" step="1" value="0"><output></output></div>
+  </div></div>
   <div class="cluster"><h2>Master</h2><div class="strip master"><b>MASTER</b>
     <div class="row"><label>volume</label><input type="range" data-p="100" data-fixed="1" min="0" max="1.5" step="0.005" value="1"><output></output></div>
     <div class="row"><label>octave</label><input type="range" data-p="103" data-fixed="1" min="-2" max="2" step="1" value="0"><output></output></div>
