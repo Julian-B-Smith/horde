@@ -88,6 +88,64 @@ bool oev_try_push(const clap_output_events_t *, const clap_event_header_t *)
 }
 const clap_output_events_t kOut = {nullptr, oev_try_push};
 
+/* MOVE EVERY PARAMETER OFF WHERE IT IS, through the HOST's own parameter list
+   (B192). Hand-listing the disturbance would disturb the parameters the author
+   remembered, which are exactly the ones a load bug does not hide in. Returns
+   how many rows actually moved — the calibration handle, because two rigs that
+   agree because nothing was disturbed certify nothing (L0032).
+   ONE NAMED EXCLUSION: id 178 (`specimen`) is declared NOT patch state by
+   ADR-147 and both load paths skip it on purpose, so disturbing it would make
+   these rows measure the exclusion instead of the rule. */
+size_t disturbAll(const clap_plugin_t *p)
+{
+  auto *px = (const clap_plugin_params_t *)p->get_extension(p, CLAP_EXT_PARAMS);
+  if (!px) return 0;
+  EvList e;
+  e.list.ctx = &e;
+  e.list.size = ev_size;
+  e.list.get = ev_get;
+  size_t moved = 0;
+  for (uint32_t i = 0, n = px->count(p); i < n; i++)
+  {
+    clap_param_info_t info{};
+    if (!px->get_info(p, i, &info)) continue;
+    if (info.id == 178) continue;
+    double cur = info.default_value;
+    px->get_value(p, info.id, &cur);
+    const bool stepped = (info.flags & CLAP_PARAM_IS_STEPPED) != 0;
+    const double want = stepped ? (cur + 1 <= info.max_value ? cur + 1 : cur - 1)
+                                : (cur < 0.5 * (info.min_value + info.max_value)
+                                       ? info.max_value - (info.max_value - info.min_value) / 3
+                                       : info.min_value + (info.max_value - info.min_value) / 3);
+    if (want < info.min_value || want > info.max_value || want == cur) continue;
+    clap_event_param_value_t ev{};
+    ev.header.size = sizeof(ev);
+    ev.header.type = CLAP_EVENT_PARAM_VALUE;
+    ev.header.space_id = CLAP_CORE_EVENT_SPACE_ID;
+    ev.param_id = info.id;
+    ev.note_id = -1;
+    ev.port_index = -1;
+    ev.channel = -1;
+    ev.key = -1;
+    ev.value = want;
+    e.evs.push_back(ev);
+    moved++;
+  }
+  px->flush(p, &e.list, &kOut);
+  return moved;
+}
+
+/* The `build=` line is provenance, not state — two instances built from the
+   same source still stamp the same id, but dropping it keeps these comparisons
+   about the patch. */
+std::string dropBuild(const std::string &blob)
+{
+  const size_t at = blob.find("\nbuild=");
+  if (at == std::string::npos) return blob;
+  const size_t eol = blob.find('\n', at + 1);
+  return blob.substr(0, at) + (eol == std::string::npos ? std::string() : blob.substr(eol));
+}
+
 const clap_plugin_t *makePlugin()
 {
   auto *factory =
@@ -489,6 +547,187 @@ int main()
     const std::string ex = hypersaw_debug_exemptjson(m2);
     check(ex.find("\"11\"") != std::string::npos, "exempt set survives the session");
     m2->destroy(m2);
+  }
+
+  /* ================= B192 / B183 — INITIALISE BEFORE EVERY LOAD ===========
+     The human, 2026-09-21: "when I turn on the Sub and then load a preset, the
+     sub is still on in all of them. Maybe this is a more general issue of the
+     patch not initializing before loading."
+
+     THE ASSERTION IS ONE LINE AND COVERS EVERYTHING: disturb an instance, load
+     a patch, and the result must be byte-identical to loading that patch on a
+     FRESH instance. Every parameter, every chunk, every future module at once.
+
+     THE CORPUS IS WHERE THE WORK IS (L0059). A factory patch NAMES EVERY KEY,
+     so skip-the-absent-key and default-the-absent-key agree everywhere on it
+     and the row passes on the unfixed binary — that is exactly how a criterion
+     the lead wrote a week ago passed on an unfixed build. These rows therefore
+     run on corpora with genuine HOLES: a chunk with lines cut out (a session
+     saved before those parameters existed) and a JSON patch with its whole
+     morph chunk cut off (a patch from before corners existed). Both were
+     measured RED before the initialise step landed; the reds are in the trace.
+
+     Q1-Q3 are the CHUNK transport (state_save/state_load — the DAW session
+     path, B183). Q4-Q5 are the non-parameter state on the JSON path. */
+  {
+    // A reference chunk with real content: disturb a rig, save what it holds.
+    const clap_plugin_t *src = makePlugin();
+    const size_t movedSrc = disturbAll(src);
+    OStr srcOut; srcOut.s.ctx = &srcOut; srcOut.s.write = ostr_write;
+    srcOut.data.clear();
+    ((const clap_plugin_state_t *)src->get_extension(src, CLAP_EXT_STATE))->save(src, &srcOut.s);
+    const std::string full = srcOut.data;
+    src->destroy(src);
+
+    // THE HOLES: every 7th key=value line, a deterministic subset nobody chose
+    // by hand. The header and the `build=` provenance line stay.
+    std::string holed;
+    size_t punched = 0, kept = 0;
+    {
+      size_t pos = 0;
+      int seen = 0;
+      while (pos < full.size())
+      {
+        const size_t eol = full.find('\n', pos);
+        const std::string line =
+            full.substr(pos, eol == std::string::npos ? std::string::npos : eol - pos);
+        pos = eol == std::string::npos ? full.size() : eol + 1;
+        const bool isKv = line.find('=') != std::string::npos;
+        if (isKv && line.rfind("build=", 0) != 0 && seen++ % 7 == 0) { punched++; continue; }
+        if (isKv) kept++;
+        holed += line;
+        holed += '\n';
+      }
+    }
+    char cm[200];
+    std::snprintf(cm, sizeof cm,
+                  "Q1 CALIBRATION: the disturbance moved %zu parameters and the hole-punch cut %zu "
+                  "of %zu chunk keys — Q2 is not vacuous",
+                  movedSrc, punched, punched + kept);
+    check(movedSrc > 100 && punched > 20, cm);
+
+    auto loadInto = [&](const clap_plugin_t *p, const std::string &blob) {
+      IStr in; in.s.ctx = &in; in.s.read = istr_read; in.data = blob;
+      return ((const clap_plugin_state_t *)p->get_extension(p, CLAP_EXT_STATE))->load(p, &in.s);
+    };
+    auto saveOf = [&](const clap_plugin_t *p) {
+      OStr o; o.s.ctx = &o; o.s.write = ostr_write;
+      ((const clap_plugin_state_t *)p->get_extension(p, CLAP_EXT_STATE))->save(p, &o.s);
+      return o.data;
+    };
+
+    const clap_plugin_t *qa = makePlugin();   // fresh
+    const clap_plugin_t *qb = makePlugin();   // disturbed
+    disturbAll(qb);
+    const std::string preA = dropBuild(saveOf(qa)), preB = dropBuild(saveOf(qb));
+    check(preA != preB, "Q1b CALIBRATION: the disturbed instance differs from the fresh one BEFORE "
+                        "the load — the comparison below has something to see");
+    loadInto(qa, holed);
+    loadInto(qb, holed);
+    const std::string postA = dropBuild(saveOf(qa)), postB = dropBuild(saveOf(qb));
+    const bool same = postA == postB;
+    if (!same)
+    {
+      size_t i = 0;
+      while (i < postA.size() && i < postB.size() && postA[i] == postB[i]) i++;
+      std::printf("     first difference at byte %zu:\n       fresh    >>%s\n"
+                  "       disturbed>>%s\n",
+                  i, postA.substr(i, 90).c_str(), postB.substr(i, 90).c_str());
+    }
+    check(same, "Q2 a HOST CHUNK with holes loads byte-identically into a fresh and a disturbed "
+                "instance (B183: a load is a load on the session path too)");
+    qa->destroy(qa);
+    qb->destroy(qb);
+
+    /* Q3 THE NAMED ANCHOR — the human's own report, on the session path. Strip
+       every `sub.` line from a chunk, switch the block ON by hand, load: the
+       gate must come back OFF (its default), not stay on carrying whatever the
+       instance last held. */
+    {
+      std::string noSub;
+      size_t cut = 0, pos = 0;
+      while (pos < full.size())
+      {
+        const size_t eol = full.find('\n', pos);
+        const std::string line =
+            full.substr(pos, eol == std::string::npos ? std::string::npos : eol - pos);
+        pos = eol == std::string::npos ? full.size() : eol + 1;
+        if (line.rfind("sub.", 0) == 0) { cut++; continue; }
+        noSub += line;
+        noSub += '\n';
+      }
+      const clap_plugin_t *q3 = makePlugin();
+      auto *p3 = (const clap_plugin_params_t *)q3->get_extension(q3, CLAP_EXT_PARAMS);
+      EvList on;
+      on.list.ctx = &on; on.list.size = ev_size; on.list.get = ev_get;
+      clap_event_param_value_t ev{};
+      ev.header.size = sizeof(ev); ev.header.type = CLAP_EVENT_PARAM_VALUE;
+      ev.header.space_id = CLAP_CORE_EVENT_SPACE_ID;
+      ev.param_id = 4015; ev.note_id = -1; ev.port_index = -1; ev.channel = -1; ev.key = -1;
+      ev.value = 1;
+      on.evs.push_back(ev);
+      p3->flush(q3, &on.list, &kOut);
+      double gate = -1;
+      p3->get_value(q3, 4015, &gate);
+      char q3m[140];
+      std::snprintf(q3m, sizeof q3m,
+                    "Q3 anchor: the chunk lost %zu sub. lines and the gate is ON before the load",
+                    cut);
+      check(cut > 10 && gate == 1.0, q3m);
+      loadInto(q3, noSub);
+      p3->get_value(q3, 4015, &gate);
+      check(gate == 0.0, "Q3 a chunk that says nothing about the SUB block loads it OFF (its "
+                         "default), not ON — the report, on the session path");
+      q3->destroy(q3);
+    }
+
+    /* Q4/Q5 — THE JSON PATH'S NON-PARAMETER STATE. bank_check's E and F already
+       cover the preset path for PARAMETERS. What a key-by-key default cannot
+       reach is the chunks: a patch written before corners existed carries no
+       morph chunk at all, and until B192 the four corners kept whatever the
+       previous patch authored into them. Same shape: fresh vs authored, and
+       the corners must agree. */
+    {
+      const clap_plugin_t *j0 = makePlugin();
+      static char jb[1 << 18];
+      // morphIds is built lazily, and morphJson emits NOTHING until it exists —
+      // so a plugin that was only init()ed would hand us a patch with no morph
+      // chunk for the boring reason and Q5 would certify nothing. Ask for the
+      // corners first (hypersaw_debug_cornervals calls morphInit), THEN save.
+      hypersaw_debug_cornervals(j0, 0);
+      hypersaw_debug_state(j0, jb, sizeof jb);
+      std::string patch = jb;
+      const size_t mp = patch.find(",\"morphLayout\"");
+      const bool cutOk = mp != std::string::npos;
+      if (cutOk) patch = patch.substr(0, mp) + "}";
+      check(cutOk && patch.find("morphCorners") == std::string::npos,
+            "Q4 CALIBRATION: the test patch really has NO morph chunk (a patch from before "
+            "corners existed)");
+      j0->destroy(j0);
+
+      const clap_plugin_t *ja = makePlugin();   // fresh
+      const clap_plugin_t *jb2 = makePlugin();  // corners authored by hand
+      {
+        const std::string order = hypersaw_debug_cornervals(jb2, 0);
+        // Author corner D: every slot to 0.777, which no default equals across
+        // the board — the same trick the morph-field section above uses.
+        std::string arr = "{\"morphLayout\":8,\"cornerPreset\":[";
+        size_t slots = 0;
+        for (size_t i = 0; i < order.size(); i++) slots += order[i] == ':';
+        for (size_t i = 0; i < slots; i++) arr += i ? ",0.777" : "0.777";
+        arr += "]}";
+        check(slots > 200 && hypersaw_debug_cornerapply(jb2, 3, arr.c_str()),
+              "Q5 CALIBRATION: corner D is authored away from its defaults before the load");
+      }
+      hypersaw_debug_apply(ja, patch.c_str());
+      hypersaw_debug_apply(jb2, patch.c_str());
+      const std::string ca = hypersaw_debug_cornervals(ja, 3);
+      const std::string cb = hypersaw_debug_cornervals(jb2, 3);
+      check(ca == cb, "Q5 a JSON patch with NO morph chunk leaves corner D at its defaults, not at "
+                      "what the previous patch authored");
+      ja->destroy(ja);
+      jb2->destroy(jb2);
+    }
   }
 
   b->destroy(b);

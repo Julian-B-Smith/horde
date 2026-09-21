@@ -10,7 +10,23 @@
    T5  CONTROL (must read wrong without the remap): the T3 array read as
        layout 2 puts bendTime's value on the wrong id — proves T3 exercised
        the remap and not a coincidence of equal values.
-   Standalone; not wired into ./verify (human gate). Exit 1 on failure. */
+   T6-T9 the corner-preset FILE path, corner names, the short-array reset and
+       the "a load with morph already on must not route into corners" rule.
+   T10 (B195) every host-visible id in ADR-088's engine span (3000..9999) is in
+       the morph field iff its class is not Device — driven from the shell's own
+       parameter enumeration, so a new engine block inherits the coverage.
+   T10b the Structural engine ids are the TAIL of the order, never interleaved:
+       morphIds is append-only and a stored corner array is positional, so an
+       interleave would silently move every slot after the first new id.
+   T10c CONTROL: the T10 scan run against a membership set that lies about one
+       id must report exactly one violation.
+   T11 a corner HOLDS a sub wave, and morphing between a sine corner and a bump
+       corner keeps SUB Wave on an authored value at every pad position (a
+       stepped member resolves atomically), calibrated by the same sweep
+       driving the block's continuous SUB Level strictly between the corners.
+   WIRED: ./verify (fast), beside the other state oracles. The header claimed
+   "not wired into ./verify" until 2026-09-20 and had been wired since B124 —
+   the B190 class of stale relationship claim. Exit 1 on failure. */
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -155,5 +171,178 @@ int main() {
     hypersaw_debug_apply(r.p, patch(0, 1, 0, 0, 700).c_str()); r.run(8);
     c = hypersaw_debug_cornervals(r.p, 1);
     expect(valueOf(c, "107") == 710, "T9 control: quantum mode, pad on B — the winning corner is not overwritten by the load's live value"); }
+
+  /* ---- T10 / T11 (B195): the ENGINE BLOCKS' membership of the field -------
+     Driven off the SHELL'S OWN ENUMERATION — every host-visible parameter in
+     ADR-088's reserved engine span (3000..9999) — and never off a list written
+     here. That is what makes STATION inherit this coverage the day its block
+     joins kEngineBlocks: the span is the contract, the block is an accident of
+     which engines exist today. */
+  auto inField = [&](uint32_t id) {
+    return std::find(live.begin(), live.end(), std::to_string(id)) != live.end();
+  };
+  {
+    auto *px = (const clap_plugin_params_t *)r.p->get_extension(r.p, CLAP_EXT_PARAMS);
+    int seen = 0, morphable = 0, structural = 0, device = 0, bad = 0;
+    std::string report;
+    for (uint32_t i = 0, n = px ? px->count(r.p) : 0; i < n; i++)
+    {
+      clap_param_info_t info{};
+      if (!px->get_info(r.p, i, &info)) continue;
+      if (info.id < 3000 || info.id >= 10000) continue;
+      const char *key = nullptr, *why = nullptr;
+      const int cls = hypersaw_debug_paramclass(info.id, &key, &why);   // 0 morphable, 1 structural, 2 device
+      seen++;
+      if (cls == 0) morphable++; else if (cls == 1) structural++; else if (cls == 2) device++;
+      /* THE RULE (B195): Morphable AND Structural are corner values; Device is
+         not. A stepped/structural member morphs ATOMICALLY, which is what the
+         instrument table's own curated appends have always meant by including
+         the bend laws and the FX slot types. */
+      const bool want = cls == 0 || cls == 1;
+      if (inField(info.id) != want)
+      {
+        bad++;
+        report += std::string("\n       id ") + std::to_string(info.id) + " (" + (key ? key : "?") +
+                  ", class " + std::to_string(cls) + ") " + (want ? "MISSING from" : "PRESENT in") +
+                  " morphIds";
+      }
+    }
+    char m[160];
+    std::snprintf(m, sizeof m,
+                  "T10 anchor: the engine span is populated and spans all three classes "
+                  "(%d ids: %d morphable, %d structural, %d device)",
+                  seen, morphable, structural, device);
+    expect(seen > 0 && morphable > 0 && structural > 0 && device > 0, m);
+    if (bad) std::printf("     T10 violations:%s\n", report.c_str());
+    expect(bad == 0, "T10 every non-Device engine-block id is in the morph field and every Device one "
+                     "is not (the block's GATE stays out, by the class and not by a list)");
+    /* T10b NOTHING THAT WAS ALREADY STORED MOVED. The Structural engine rows
+       joined in a SECOND pass over kEngineBlocks, after every Morphable one,
+       precisely so they land at the tail; widening the class test in place
+       would have interleaved them in block order (4000 before 4001) and every
+       stored corner slot after the first new id would mean a different
+       parameter. The assertion is positional and needs no frozen list: every
+       Structural engine id sits in the last `structural` slots of the order. */
+    {
+      size_t firstStructural = live.size();
+      int atTail = 0;
+      for (uint32_t i = 0, n = px ? px->count(r.p) : 0; i < n; i++)
+      {
+        clap_param_info_t info{};
+        if (!px->get_info(r.p, i, &info)) continue;
+        if (info.id < 3000 || info.id >= 10000) continue;
+        const char *key = nullptr, *why = nullptr;
+        if (hypersaw_debug_paramclass(info.id, &key, &why) != 1) continue;
+        const size_t at = idx(live, std::to_string(info.id).c_str());
+        if (at < live.size()) { firstStructural = std::min(firstStructural, at); atTail++; }
+      }
+      char m2[200];
+      std::snprintf(m2, sizeof m2,
+                    "T10b the %d Structural engine ids are the TAIL of the order (first at slot %zu "
+                    "of %zu) — no previously stored slot moved",
+                    atTail, firstStructural, live.size());
+      expect(atTail == structural && atTail > 0 && firstStructural + (size_t)atTail == live.size(), m2);
+    }
+    /* T10c THE CONTROL (L0032). The same scan, run against a membership set
+       that LIES about ONE id, must REPORT the violation — otherwise a scan
+       that silently examined nothing would pass exactly as loudly. */
+    std::vector<std::string> lying = live;
+    std::string dropped;
+    for (uint32_t i = 0, n = px ? px->count(r.p) : 0; i < n && dropped.empty(); i++)
+    {
+      clap_param_info_t info{};
+      if (!px->get_info(r.p, i, &info)) continue;
+      if (info.id < 3000 || info.id >= 10000) continue;
+      const char *key = nullptr, *why = nullptr;
+      if (hypersaw_debug_paramclass(info.id, &key, &why) == 2) continue;
+      const auto at = std::find(lying.begin(), lying.end(), std::to_string(info.id));
+      if (at == lying.end()) continue;
+      dropped = *at;
+      lying.erase(at);
+    }
+    int badLying = 0;
+    for (uint32_t i = 0, n = px ? px->count(r.p) : 0; i < n; i++)
+    {
+      clap_param_info_t info{};
+      if (!px->get_info(r.p, i, &info)) continue;
+      if (info.id < 3000 || info.id >= 10000) continue;
+      const char *key = nullptr, *why = nullptr;
+      const int cls = hypersaw_debug_paramclass(info.id, &key, &why);
+      const bool want = cls == 0 || cls == 1;
+      const bool has = std::find(lying.begin(), lying.end(), std::to_string(info.id)) != lying.end();
+      if (has != want) badLying++;
+    }
+    const std::string cmsg = "T10c control: the same scan against a membership set missing id " +
+                             (dropped.empty() ? std::string("<none found>") : dropped) +
+                             " reports exactly one violation";
+    expect(!dropped.empty() && badLying == 1, cmsg.c_str());
+  }
+
+  /* T11 — A CORNER CAN HOLD A SUB WAVE, AND THE MORPH SNAPS.
+     The human's report was that the sub's stepped rows never reached the
+     field; T10 says they are members, T11 says membership MEANS something.
+     Fresh rig, because the sweep drives every corner slot and the rigs above
+     are full of deliberately wrong arrays. */
+  {
+    Rig w; w.boot();
+    const std::vector<std::string> wo = liveOrder(hypersaw_debug_cornervals(w.p, 0));
+    const size_t iWave = idx(wo, "4000"), iLevel = idx(wo, "4007");
+    expect(iWave < wo.size(),
+           "T11a the sub's WAVE (id 4000, stepped) is a corner slot at all — RED before B195");
+    if (iWave < wo.size() && iLevel < wo.size())
+    {
+      // A fresh instance's corners hold the per-slot DEFAULTS, so start from
+      // what the shell itself reports and move only the two slots under test.
+      std::vector<double> base(wo.size(), 0.0);
+      { const char *c = hypersaw_debug_cornervals(w.p, 0);
+        for (size_t i = 0; i < wo.size(); i++) base[i] = valueOf(c, wo[i].c_str()); }
+      auto cornerArr = [&](double wave, double level) {
+        std::vector<double> a = base; a[iWave] = wave; a[iLevel] = level; return a; };
+      auto cornerFile2 = [&](const std::vector<double> &arr) {
+        std::string s = "{\"morphLayout\":8,\"cornerPreset\":[";
+        for (size_t i = 0; i < arr.size(); i++) { char b[32]; std::snprintf(b, sizeof b, i ? ",%.6g" : "%.6g", arr[i]); s += b; }
+        return s + "]}"; };
+      // x = 0 corners hold wave "sine" (0) at level 0.1; x = 1 corners hold
+      // "bump" (6) at level 0.9. Both rows of the pad, so a Gumbel draw at any
+      // y can only ever land on one of the two authored waves.
+      hypersaw_debug_cornerapply(w.p, 0, cornerFile2(cornerArr(0, 0.1)).c_str());
+      hypersaw_debug_cornerapply(w.p, 2, cornerFile2(cornerArr(0, 0.1)).c_str());
+      hypersaw_debug_cornerapply(w.p, 1, cornerFile2(cornerArr(6, 0.9)).c_str());
+      hypersaw_debug_cornerapply(w.p, 3, cornerFile2(cornerArr(6, 0.9)).c_str());
+      auto *px = (const clap_plugin_params_t *)w.p->get_extension(w.p, CLAP_EXT_PARAMS);
+      auto send = [&](std::initializer_list<std::pair<clap_id, double>> kv) {
+        EvList e;
+        for (const auto &q : kv) e.params.push_back(mkParam(q.first, q.second));
+        e.finalize(); w.proc.in_events = &e.list; w.p->process(w.p, &w.proc); };
+      // BLEND (morphMode 1) is the hard case on purpose: it is the one mode
+      // that interpolates at all, and morphStep's blend branch is guarded by
+      // `!d->stepped` — so a stepped member must still snap here.
+      send({{157, 1}, {151, 1}, {153, 0.5}, {158, 0}});
+      w.run(40);
+      bool waveOk = true, sawSine = false, sawBump = false, sawBlend = false;
+      double strayWave = -1;
+      for (int stepI = 0; stepI <= 20; stepI++)
+      {
+        send({{152, stepI / 20.0}});
+        w.run(20);
+        double wv = -1, lv = -1;
+        px->get_value(w.p, 4000, &wv); px->get_value(w.p, 4007, &lv);
+        if (wv == 0) sawSine = true; else if (wv == 6) sawBump = true;
+        else { waveOk = false; strayWave = wv; }
+        if (lv > 0.1 + 1e-6 && lv < 0.9 - 1e-6) sawBlend = true;
+      }
+      char m[200];
+      std::snprintf(m, sizeof m,
+                    "T11b morphing between a sine corner and a bump corner keeps SUB Wave on an "
+                    "authored value at all 21 pad positions (stray %.6g)", strayWave);
+      expect(waveOk && sawSine && sawBump, m);
+      expect(sawBlend,
+             "T11c CALIBRATION: the SAME sweep drives the block's CONTINUOUS SUB Level strictly "
+             "between the two corners' values — so the sweep moves and T11b's detector could see "
+             "an interpolated wave if there were one");
+    }
+    w.kill();
+  }
+
   std::printf("morphlayout_check: %s\n", fails ? "FAIL" : "PASS"); r.kill(); hypersaw_entry_deinit(); return fails ? 1 : 0;
 }

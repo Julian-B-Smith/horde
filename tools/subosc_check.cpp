@@ -1434,12 +1434,13 @@ int main(int argc, char **argv)
           "sub.sync",   // RETIRED (B184) and still stored: an old patch must load
           "sub.attack", "sub.release", "sub.seed", "sub.on",
           "sub.mono", "sub.bias", "sub.glide", "sub.pitchMod"};
-      // morphLayout 7 = B181: sub.glide and sub.pitchMod are MORPHABLE, so
-      // they append to the corner array and its order changed again.
-      bool keys = chunk.find("\"morphLayout\":7") != std::string::npos;
+      // morphLayout 8 = B195: the block's STRUCTURAL rows join the corner
+      // array too (appended after its morphable ones), so the order changed
+      // again. 7 = B181 (sub.glide and sub.pitchMod became morphable rows).
+      bool keys = chunk.find("\"morphLayout\":8") != std::string::npos;
       for (const char *k : addr)
         keys = keys && chunk.find(std::string("\"") + k + "\"") != std::string::npos;
-      row(keys, "11d the state chunk carries all 20 prefixed keys and morphLayout 7");
+      row(keys, "11d the state chunk carries all 20 prefixed keys and morphLayout 8");
 
       ShellRig b;
       b.boot(48000, 256);

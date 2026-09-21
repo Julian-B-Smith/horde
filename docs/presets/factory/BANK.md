@@ -9,6 +9,10 @@ Each line says what the patch demonstrates and which knob to touch first.
 `tools/bank_check.cpp` asserts the bank loads, re-saves identically, makes
 sound, and that the named exemplars still do what their line claims.
 
+## init
+
+- **INIT - Init** — The instrument as it opens: every parameter at its default, no morph corners authored, nothing routed. Load it to start over.
+
 ## lead
 
 - **LD - Hyper Lead** — The founding supersaw with the coupling switched on — Pull K is the knob: at 0 it is a detuned stack, at 1 it collapses into one voice.

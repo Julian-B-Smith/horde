@@ -342,15 +342,23 @@ int main(int argc, char **argv)
     return 2;
   }
   const fs::path root = argv[1];
-  const char *kCats[] = {"lead", "bass", "pad", "pluck", "keys", "fx", "morph", "demo"};
 
-  // ---- inventory ------------------------------------------------------
+  /* ---- inventory ------------------------------------------------------
+     EVERY category directory under the bank, discovered — NOT a hand-written
+     list of the eight that existed when this was written. B192 added an `init`
+     category and the hand-list silently excluded it: the patch shipped (CMake
+     globs the tree, so it was embedded and installed) while every row below —
+     loads, re-saves identically, makes sound, holds no NaN — simply never ran
+     on it. A gate whose corpus is a second list of what the product contains
+     is a gate that cannot see anything new, which is the one thing a gate is
+     for. `corners/` is the only exclusion and it is a real one: corner presets
+     are positional arrays, not patches, and are checked against the patches
+     that name them further down. */
   std::vector<fs::path> files;
-  for (const char *c : kCats)
+  for (const auto &dir : fs::directory_iterator(root))
   {
-    const fs::path dir = root / c;
-    if (!fs::is_directory(dir)) continue;
-    for (const auto &e : fs::directory_iterator(dir))
+    if (!dir.is_directory() || dir.path().filename() == "corners") continue;
+    for (const auto &e : fs::directory_iterator(dir.path()))
       if (e.path().extension() == ".json") files.push_back(e.path());
   }
   std::sort(files.begin(), files.end());
@@ -630,7 +638,7 @@ int main(int argc, char **argv)
     // D: cornerNames name shipped corner presets, and the corners agree
     const std::vector<std::string> names = cornerNamesOf(blob);
     check(names.size() == 4, tag + ": carries cornerNames");
-    check(blob.find("\"morphLayout\":7") != std::string::npos, tag + ": carries morphLayout 7");   // PIN MOVED BY B181 (note 2/4): the SUB block gained two MORPHABLE shell rows (sub.glide, sub.pitchMod), which append after everything and lengthen the corner array — one bump per appending change is the rule at cornerJson. 6 = B172: the SUB OSC engine block's morphable ids append after the routing block, so the corner array's order changed. 5 = B23 increment 3 (the ADR-088 routing renumbering moved the block's slot positions); 4 = B50 phase 1c; 3 = phase 1
+    check(blob.find("\"morphLayout\":8") != std::string::npos, tag + ": carries morphLayout 8");   // PIN MOVED BY B195: the engine blocks' STRUCTURAL rows (the sub's wave, octave, semitones, keytrack, sync, seed, mono, bias) join the morph field, appended after their block's morphable rows, so the corner array is eight entries longer and the order changed — one bump per appending change is the rule at cornerJson. 7 = B181 (note 2/4): the SUB block gained two MORPHABLE shell rows (sub.glide, sub.pitchMod), which append after everything and lengthen the corner array — one bump per appending change is the rule at cornerJson. 6 = B172: the SUB OSC engine block's morphable ids append after the routing block, so the corner array's order changed. 5 = B23 increment 3 (the ADR-088 routing renumbering moved the block's slot positions); 4 = B50 phase 1c; 3 = phase 1
     check(blob.find("\"schema\":3") != std::string::npos, tag + ": carries the state header");
     for (size_t k = 0; k < names.size(); k++)
     {

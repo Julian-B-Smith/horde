@@ -110,6 +110,29 @@ const std::vector<CornerDef> kCorners = {
 #define NO_CORNERS {"", "", "", ""}
 
 const std::vector<PresetDef> kBank = {
+    /* ---- init ----------------------------------------------------------
+       B192 (human, 2026-09-21): "let's make sure there's a factory Init
+       patch". The bank shipped 40 patches and four corner presets, and not one
+       of them was the place a player goes to start over — the only way back to
+       defaults was to close the instrument and open a new one.
+
+       ITS PARAMETER TABLE IS EMPTY, AND THAT IS THE WHOLE POINT. The generator
+       boots a fresh instance and saves what the shell itself holds, so this
+       file is the shell's OWN defaults written by the shell's own writer. A
+       hand-listed "init" table would be a second statement of every default,
+       free to drift from the first one silently — the exact failure ADR-159
+       was written about for the corner order. Re-run the generator after any
+       default changes and this patch follows for nothing.
+
+       It is not redundant with initState (hypersaw_clap.cpp): initState is the
+       first act of a LOAD and is not reachable by a player, this is a patch a
+       player can load. Loading it exercises initState too, so the two agree by
+       construction rather than by care. */
+    {"init", "INIT - Init",
+     "The instrument as it opens: every parameter at its default, no morph corners authored, nothing routed. Load it to start over.",
+     {},
+     NO_CORNERS},
+
     /* ---- lead ---------------------------------------------------------- */
     {"lead", "LD - Hyper Lead",
      "The founding supersaw with the coupling switched on — Pull K is the knob: at 0 it is a detuned stack, at 1 it collapses into one voice.",
@@ -427,9 +450,10 @@ std::string cornerPresetJson(const std::vector<PV> &order, const CornerDef &c, s
       err += std::string("corner '") + c.name + "': id " + std::to_string(s.id) +
              " is not in the morph field (global or non-morphable) — put it in the patch\n";
   }
-  // 6 since B172 (the SUB OSC engine block appended after the routing block);
-  // the shell's cornerJson carries the full ladder.
-  std::string out = "{\"morphLayout\":7,\"cornerPreset\":[";
+  // 8 since B195 (the engine blocks' STRUCTURAL rows join the field, appended
+  // after their block's morphable ones); the shell's cornerJson carries the
+  // full ladder and is the only place the reasons are written out.
+  std::string out = "{\"morphLayout\":8,\"cornerPreset\":[";
   char buf[32];
   for (size_t i = 0; i < vals.size(); i++)
   {
@@ -541,9 +565,26 @@ int main(int argc, char **argv)
       "Each line says what the patch demonstrates and which knob to touch first.\n"
       "`tools/bank_check.cpp` asserts the bank loads, re-saves identically, makes\n"
       "sound, and that the named exemplars still do what their line claims.\n\n";
-  const char *cats[] = {"lead", "bass", "pad", "pluck", "keys", "fx", "morph", "demo"};
-  for (const char *cat : cats)
+  // "init" comes first because it is where a player starts over, and it comes
+  // first for FREE: kBank lists it first, and the order below is first-seen.
+  // (This comment used to say "adding a category here is what makes it appear
+  // in BANK.md at all" — true of the hand-listed array it sat above, and false
+  // the moment that array went away.)
+  /* CATEGORIES ARE DISCOVERED FROM kBank, NEVER HAND-LISTED (B192, 2026-09-21).
+     `bank_check` carried exactly this array while CMake globs the whole tree, so
+     the Init patch shipped, embedded and installed with ZERO check rows running
+     on it. That hole was fixed in the check; leaving the same array here would
+     have left the same defect with a smaller blast radius — an undocumented
+     patch rather than an unchecked one — which is precisely how a class of bug
+     survives its own fix. First-seen order, so BANK.md stays stable for a given
+     table instead of reordering on a container's whim. */
+  std::vector<std::string> cats;
+  for (const auto &d : kBank)
+    if (std::find(cats.begin(), cats.end(), d.category) == cats.end())
+      cats.emplace_back(d.category);
+  for (const std::string &catOwned : cats)
   {
+    const char *cat = catOwned.c_str();
     md += std::string("## ") + cat + "\n\n";
     for (const auto &d : kBank)
     {

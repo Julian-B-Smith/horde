@@ -2276,14 +2276,28 @@ struct Plugin
     double value;
     uint8_t kind;  // 0=value, 1=gesture begin, 2=gesture end, 3=load value (B125)
   };
-  /* 1024, not 256 (B110, 2026-09-10): a FULL preset applied through
-     applyStateJson enqueues ~323 keys plus the osc-2 twins plus the
-     migrators' own writes in ONE burst, and enqueueParam DROPS on overflow —
-     so at 256 the tail of the table (osc 2's enable among it) silently never
-     landed, on the exact path the GUI's preset LOAD uses. Found by B100's
-     fixture generator, pinned by state_check's B110 assertion (RED at 256).
-     Static array, 16 KB, RT-safe; headroom for two full loads in flight. */
-  static constexpr uint32_t kQCap = 1024;
+  /* 2048, not 1024 and certainly not 256 (B110, 2026-09-10): a FULL preset
+     applied through applyStateJson enqueues ~323 keys plus the osc-2 twins
+     plus the migrators' own writes in ONE burst, and enqueueParam DROPS on
+     overflow — so at 256 the tail of the table (osc 2's enable among it)
+     silently never landed, on the exact path the GUI's preset LOAD uses. Found
+     by B100's fixture generator, pinned by state_check's B110 assertion (RED
+     at 256). DOUBLED BY B192, AND THE DOUBLING IS MEASURED, NOT ESTIMATED:
+     initState writes every parameter's default through this same queue before
+     the patch's own values follow, so one load is two bursts. Held at 1024 the
+     whole change set turns state_check RED at "B100: unknown JSON header keys
+     ignored, params still apply" — the tail of a burst silently dropped, which
+     is B110's failure with a new cause. Peak in-flight depth over state_check's
+     corpus, measured with a temporary counter in enqueueParam: 1471 of 2048.
+     Static array, 32 KB, RT-safe.
+     KNOWN AND PRE-EXISTING, so that a future reader does not mistake it for
+     this change's doing: a rig that keeps `processing` true and loads
+     repeatedly WITHOUT calling process() between loads never drains, so it
+     saturates whatever this constant is (morphlayout_check reaches exactly
+     kQCap at 1024 on main and at 2048 here). The shipping paths drain every
+     block; raising the cap cannot fix a rig that never drains, and no rig
+     assertion depends on the drops. */
+  static constexpr uint32_t kQCap = 2048;
   ParamMsg queue[kQCap];
   std::atomic<uint32_t> qHead{0}, qTail{0};
 
@@ -2938,19 +2952,53 @@ struct Plugin
 
     /* B172 — THE ENGINE BLOCKS' MORPHABLE ROWS, APPENDED AFTER THE ROUTING
        BLOCK and therefore after everything (ADR-159's rule again: never
-       inserted). Membership is `paramClassOf == Morphable` and nothing else,
-       so the field and the classifier cannot disagree about which engine rows
-       a corner holds — the block's GATE is Device and is therefore absent by
-       the same test, which is what keeps "the gate is not a corner value" a
-       property of one rule rather than of two lists.
+       inserted). Membership is a CLASS TEST and nothing else, so the field and
+       the classifier cannot disagree about which engine rows a corner holds —
+       the block's GATE is Device and is therefore absent by that same test,
+       which is what keeps "the gate is not a corner value" a property of one
+       rule rather than of two lists.
        STATION appends here too (B162), by adding its block to kEngineBlocks.
-       Both appends bump the layout marker; see cornerJson. */
+       Both appends bump the layout marker; see cornerJson.
+
+       B195 — THE RULING B172 OWED (human 2026-09-21: "some Sub Osc parameters
+       don't reach morph"). Until now the test was `== Morphable`, which under
+       ADR-173's default excluded every STEPPED row of the block — all EIGHT of
+       the sub's: wave, octave, semitones, keytrack, seed, mono, bias, and the
+       retired `sync` (4011), which is Structural like the rest and joins with
+       them because membership is the CLASS and not a list of rows someone
+       judged interesting; it reaches nothing either way. The INSTRUMENT
+       table's own hand-curated appends above have always included stepped rows
+       (the bend and note-travel laws, the FX slot types), where a stepped
+       member morphs ATOMICALLY: morphApplyTarget takes the winner's request in
+       full and rounds it, so it snaps rather than interpolating through values
+       no corner authored. That is the established meaning of a stepped corner
+       value, so an engine block that excluded them was an asymmetry, not a
+       policy. The rule is now: Morphable and Structural join the field, Device
+       stays out. The gate leaves by exactly the reason it left before.
+
+       WHY TWO PASSES OVER THE SAME TABLE, which looks redundant and is not.
+       morphIds is APPEND-ONLY: a stored corner array is POSITIONAL, so the
+       only safe way to admit new ids is at the tail. Widening the test in one
+       pass would interleave the newly-admitted Structural rows with the
+       Morphable ones IN BLOCK ORDER (4000 before 4001, …) and every slot after
+       the first newly-admitted id would SHIFT — silently re-reading every
+       corner ever saved against the wrong parameter. So: Morphable first, in
+       exactly the order it had, then Structural after all of them. Do not
+       collapse these into one loop. */
     for (const auto &b : kEngineBlocks)
       for (uint32_t i = 0; i < b.count; i++)
       {
         ParamClass cls = ParamClass::Device;
         const char *why = nullptr;
         if (paramClassOf(b.defs[i].id, cls, why) && cls == ParamClass::Morphable)
+          morphIds.push_back(b.defs[i].id);
+      }
+    for (const auto &b : kEngineBlocks)
+      for (uint32_t i = 0; i < b.count; i++)
+      {
+        ParamClass cls = ParamClass::Device;
+        const char *why = nullptr;
+        if (paramClassOf(b.defs[i].id, cls, why) && cls == ParamClass::Structural)
           morphIds.push_back(b.defs[i].id);
       }
 
@@ -5418,11 +5466,19 @@ struct Plugin
     if (k < 0 || k > 3) return "{}";
     morphInit();
     /* THE LAYOUT MARKER, BUMPED ONCE HERE AND AT THE OTHER THREE WRITERS.
+       8 = B195: the engine blocks' STRUCTURAL rows join the field, appended
+       after their block's morphable ones (morphInit), so the corner array grew
+       by eight and the order changed. A layout-7 array is shorter and maps 1:1
+       (morphSlotMap), so the eight new slots simply hold their defaults —
+       which is why the bump is a marker and not a migration, and why NOTHING
+       stored moves. The bump is not needed to READ a layout-7 array correctly
+       (morphSlotMap treats every layout >= 2 as a 1:1 prefix); it is taken
+       because the marker's job is to NAME AN ORDER, and B175's cross-layout
+       remap will have to ask which order an array was written in. The factory
+       bank re-saves either way — its corner arrays are eight entries longer.
        7 = B181: the SUB block's two new MORPHABLE shell rows (sub.glide,
        sub.pitchMod) append after everything, so the corner array grew by two
-       and the order changed. A layout-6 array is shorter and maps 1:1
-       (morphSlotMap), so the two new slots simply hold their defaults — which
-       is why the bump is a marker and not a migration.
+       and the order changed.
        6 = B172: the SUB OSC engine block's morphable ids appended after the
        routing block. STATION (B162) appends into this SAME layout and will
        bump it again — the marker names an ORDER, and every append changes the
@@ -5431,7 +5487,7 @@ struct Plugin
        increment 3: source rows reserved, Src 2's cells new slot positions);
        4 = the Src→OUT dry-path cells appended after the routing block (B50
        phase 1c); 3 = the routing block (phase 1). */
-    std::string out = "{\"morphLayout\":7,\"cornerPreset\":[";
+    std::string out = "{\"morphLayout\":8,\"cornerPreset\":[";
     char buf[32];
     for (size_t i = 0; i < morphIds.size(); i++)
     {
@@ -5555,7 +5611,7 @@ struct Plugin
   std::string liveCornerJson()
   {
     morphInit();
-    std::string out = "{\"morphLayout\":7,\"cornerPreset\":[";   // ADR-159; 6 = B172, see cornerJson
+    std::string out = "{\"morphLayout\":8,\"cornerPreset\":[";   // ADR-159; 7 = B181, see cornerJson
     char buf[32];
     for (size_t i = 0; i < morphIds.size(); i++)
     {
@@ -5718,7 +5774,7 @@ struct Plugin
     if (morphIds.empty()) return "";
     // ADR-159: the array layout version. 2 = late per-osc rows appended last;
     // absent = 1 (pre-2026-09-11), where a 224-entry array is the ADR-150 order.
-    std::string out = ",\"morphLayout\":7,\"cornerNames\":" + cornerNamesJson() + ",\"morphCorners\":[";
+    std::string out = ",\"morphLayout\":8,\"cornerNames\":" + cornerNamesJson() + ",\"morphCorners\":[";
     char buf[32];
     for (int k = 0; k < 4; k++)
     {
@@ -5950,6 +6006,92 @@ struct Plugin
     return out + tail + "}";
   }
 
+  /* ================= B192 — INITIALISE BEFORE EVERY LOAD ==================
+     The human, 2026-09-21: "Let's make sure there's a factory Init patch and
+     that everything initializes as the first step before a load."
+
+     WHY THIS EXISTS WHEN B181 NOTE 6 ALREADY DEFAULTS ABSENT KEYS. "Every loop
+     defaults its absent keys" is THREE loops in applyStateJson (the instrument
+     table, the engine blocks, the osc-2 twins) that must each stay right
+     forever, plus a fourth in state_load that did NOT (B183). "Reset to init,
+     then apply" is ONE rule in one place, and it reaches what a key-by-key
+     default structurally cannot: the morph corners, the corner names, the
+     exempt set, the intent chunk, the generic routes, the preset name, the
+     engine revision — and whatever the next module adds, for free.
+
+     WHICH LANE. The same rule state_load has used since 2026-07-18: while the
+     audio thread is in process() a direct write would race rebuild() against
+     render(), so the defaults go through the param queue; idle, they are
+     applied directly, because a host reads values back immediately after
+     setState. Kind 3 = "load", so B125's rule still holds — a load's writes
+     are not edits and are never routed into an armed corner.
+
+     ONE NAMED EXCLUSION, id 178 (`specimen`): ADR-147 rules it NOT patch state
+     and both load paths skip it on purpose. Resetting it here would make a
+     load touch the one parameter whose whole contract is that it does not.
+
+     `chunkOnlyState` IS NOT A SECOND RULE, IT IS THE TRANSPORT'S REACH. The
+     host chunk carries the routing matrix (`routing=`); the preset JSON does
+     NOT (B193 — stateJson emits kParams, the twins, the engine blocks, the
+     morph chunk, modRoutes and intent, and no routing cells). Resetting the
+     matrix on a preset load would therefore DELETE a topology the patch has no
+     way to restore. So the flag is true only for the transport that can put it
+     back, and it RETIRES the day B193 puts routing in stateJson.
+     DELIBERATELY NOT RESET, and named rather than silently skipped (L0036):
+     `ens=` and `lfo=` are RNG STREAM CONTINUATIONS, not patch values — they are
+     emitted only once a stream has drawn, precisely so a patch that never ran
+     one is byte-for-byte what it was. Resetting them is a separate question
+     about stream identity across a load, and no row asks it yet. */
+  void initState(bool chunkOnlyState)
+  {
+    const bool viaQueue = processing.load(std::memory_order_acquire);
+    auto setDefault = [&](clap_id id, double v) {
+      if (viaQueue)
+      {
+        enqueueParam(id, v, 3);
+        return;
+      }
+      loadingState = true;
+      applyParam(id, v);
+      loadingState = false;
+    };
+    for (const auto &d : kParams)
+    {
+      if (d.id == 178) continue;   // ADR-147: specimen is not patch state
+      setDefault(d.id, defaultFor(d, 0));
+    }
+    for (const auto &b : kEngineBlocks)
+      for (uint32_t i = 0; i < b.count; i++) setDefault(b.defs[i].id, defaultFor(b.defs[i], 0));
+    for (uint32_t k = 1; k < kNumOsc; k++)
+      for (const auto &d : kParams)
+      {
+        if (isGlobalId(d.id)) continue;
+        setDefault((clap_id)(d.id + k * kOscStride), defaultFor(d, k));
+      }
+    /* THE MORPH FIELD. A fresh instance's four corners hold exactly the
+       per-slot defaults (morphInit), unnamed and unexempted, and
+       `morphCornersAuthored` false — so this IS the init state, not an
+       approximation of it. applyMorphChunk resets a corner it actually
+       carries; what it could never do is reset a corner the patch says
+       nothing about, which is the hole a patch written before corners
+       existed falls straight through. */
+    morphInit();
+    for (int k = 0; k < 4; k++)
+    {
+      resetCorner(k);
+      cornerName[k].clear();
+    }
+    for (auto &e : morphExempt) e = 0;
+    morphCornersAuthored = false;
+    // The chunks, each by the rule it already states for itself: an absent key
+    // means the default, never "whatever the previous patch had".
+    applyModRoutesChunk("");
+    applyIntentChunk("");
+    if (chunkOnlyState) applyRoutingChunk("");
+    setPresetName("");
+    setEngineRevision(1);
+  }
+
   /* `nameFromLoader` is the name of the preset being loaded, or "" to take the
      patch's own (see the naming block at the end of this function). */
   bool applyStateJson(const std::string &json, const std::string &nameFromLoader = "")
@@ -5958,6 +6100,14 @@ struct Plugin
     // "key" and parse the number after the colon. Queued to the audio
     // thread — never applied directly from the GUI thread.
     if (json.find("\"params\"") == std::string::npos) return false;
+    /* B192 — RESET TO INIT, THEN APPLY. The FIRST act of the load, before any
+       chunk and before any parameter, so nothing the instance happened to hold
+       can survive into a patch that does not name it. The per-key defaulting
+       below is kept rather than deleted: it is also `presetMatches`' rule
+       (B174 moved it into jsonNumber to answer "would a load change
+       anything?"), and two independent statements of "absent means default"
+       is the cheap kind of redundancy. */
+    initState(/*chunkOnlyState=*/false);
     /* ADR-138: a load is a load — generic routes are REPLACED by the preset's
        (or cleared, for a preset saved before routes existed; stale routes
        bleeding into a loaded patch would be state the preset never named).
@@ -8251,25 +8401,16 @@ bool state_load(const clap_plugin_t *p, const clap_istream_t *stream)
   if (!v1 && !v2) return false;
   size_t pos = blob.find('\n') + 1;
   auto *pl = self(p);
-  // ADR-138: a load is a load — clear generic routes up front, so a state
-  // saved before routes existed (no `modroutes=` key) loads route-free
-  // instead of inheriting whatever the previous patch had. A present key
-  // then replaces this empty set.
-  pl->applyModRoutesChunk("");
-  // ADR-088, same rule and the same reason: a chunk with no `routing=` key was
-  // saved on the series chain (or predates the block), so it loads on the
-  // series chain. A present key then replaces this default set.
-  pl->applyRoutingChunk("");
-  // B89 phase 2b, same rule: a chunk with no `intent=` key was saved unbound
-  // (or predates the bus), so it loads unbound.
-  pl->applyIntentChunk("");
-  // B174, same rule: a chunk with no `presetname=` key was saved before names
-  // existed (or by a patch that had none), so it loads UNNAMED — a stale name
-  // outliving the values it described is exactly the display bug this closes.
-  pl->setPresetName("");
-  // B100: a chunk without the header predates it and is revision 1 by
-  // definition; a present `engine_revision=` line below overrides this.
-  pl->setEngineRevision(1);
+  /* B192 / B183 — RESET TO INIT, THEN APPLY. This REPLACES five hand-listed
+     resets (modroutes, routing, intent, presetname, engine_revision), each of
+     which stated "an absent key means the default" for its own chunk and none
+     of which covered the PARAMETERS: the loop below only ever visits the keys
+     the file names, so a parameter this chunk does not mention kept whatever
+     the instance held. Harmless on a fresh restore and wrong in exactly B181
+     note 6's way when a host re-uses an instance, which is the common case in
+     a long session. `true` = this transport carries the routing matrix, so
+     resetting it here is restorable; see initState. */
+  pl->initState(/*chunkOnlyState=*/true);
   while (pos < blob.size())
   {
     const size_t eol = blob.find('\n', pos);
