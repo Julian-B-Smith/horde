@@ -162,6 +162,20 @@ PY
     node tools/labharness/lab_load_check.mjs > /tmp/labload.$$ 2>&1 || {
       echo "verify: lab load check FAILED" >&2; cat /tmp/labload.$$ >&2; ok=1; }
     rm -f /tmp/labload.$$
+
+    # EVERY GUI CONTROL MARKS THE HISTORY EXACTLY ONCE (B191). The human
+    # changed the sub's Wave and no node appeared; the cause was general, not
+    # the sub's — a history node exists only where a gesture bracket CLOSES,
+    # and gui2 opened/closed that bracket from pointer events on the control,
+    # a signal a native <select> popup and EVERY keyboard path simply do not
+    # produce. The pre-fix wiring failed 399 of 874 scenarios across eight
+    # interaction classes. Wired here rather than left standalone because the
+    # defect is invisible to every other gate: the parameter changes, the
+    # sound changes, and only the undo stack is silently wrong.
+    node tools/labharness/gui_history_check.mjs > /tmp/guihist.$$ 2>&1 || {
+      echo "verify: GUI history check FAILED" >&2; cat /tmp/guihist.$$ >&2; ok=1; }
+    tail -1 /tmp/guihist.$$   # the harness prints its own name; do not prefix it twice
+    rm -f /tmp/guihist.$$
   else
     echo "verify: node missing — lab load check SKIPPED" >&2
   fi
