@@ -565,12 +565,26 @@ int main(int argc, char **argv)
       "Each line says what the patch demonstrates and which knob to touch first.\n"
       "`tools/bank_check.cpp` asserts the bank loads, re-saves identically, makes\n"
       "sound, and that the named exemplars still do what their line claims.\n\n";
-  // "init" FIRST: it is where a player starts over, so it is where the listing
-  // starts. Adding a category here is what makes it appear in BANK.md at all —
-  // a patch in an unlisted category ships but is undocumented.
-  const char *cats[] = {"init", "lead", "bass", "pad", "pluck", "keys", "fx", "morph", "demo"};
-  for (const char *cat : cats)
+  // "init" comes first because it is where a player starts over, and it comes
+  // first for FREE: kBank lists it first, and the order below is first-seen.
+  // (This comment used to say "adding a category here is what makes it appear
+  // in BANK.md at all" — true of the hand-listed array it sat above, and false
+  // the moment that array went away.)
+  /* CATEGORIES ARE DISCOVERED FROM kBank, NEVER HAND-LISTED (B192, 2026-09-21).
+     `bank_check` carried exactly this array while CMake globs the whole tree, so
+     the Init patch shipped, embedded and installed with ZERO check rows running
+     on it. That hole was fixed in the check; leaving the same array here would
+     have left the same defect with a smaller blast radius — an undocumented
+     patch rather than an unchecked one — which is precisely how a class of bug
+     survives its own fix. First-seen order, so BANK.md stays stable for a given
+     table instead of reordering on a container's whim. */
+  std::vector<std::string> cats;
+  for (const auto &d : kBank)
+    if (std::find(cats.begin(), cats.end(), d.category) == cats.end())
+      cats.emplace_back(d.category);
+  for (const std::string &catOwned : cats)
   {
+    const char *cat = catOwned.c_str();
     md += std::string("## ") + cat + "\n\n";
     for (const auto &d : kBank)
     {
