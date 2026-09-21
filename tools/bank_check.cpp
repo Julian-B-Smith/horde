@@ -342,15 +342,23 @@ int main(int argc, char **argv)
     return 2;
   }
   const fs::path root = argv[1];
-  const char *kCats[] = {"lead", "bass", "pad", "pluck", "keys", "fx", "morph", "demo"};
 
-  // ---- inventory ------------------------------------------------------
+  /* ---- inventory ------------------------------------------------------
+     EVERY category directory under the bank, discovered — NOT a hand-written
+     list of the eight that existed when this was written. B192 added an `init`
+     category and the hand-list silently excluded it: the patch shipped (CMake
+     globs the tree, so it was embedded and installed) while every row below —
+     loads, re-saves identically, makes sound, holds no NaN — simply never ran
+     on it. A gate whose corpus is a second list of what the product contains
+     is a gate that cannot see anything new, which is the one thing a gate is
+     for. `corners/` is the only exclusion and it is a real one: corner presets
+     are positional arrays, not patches, and are checked against the patches
+     that name them further down. */
   std::vector<fs::path> files;
-  for (const char *c : kCats)
+  for (const auto &dir : fs::directory_iterator(root))
   {
-    const fs::path dir = root / c;
-    if (!fs::is_directory(dir)) continue;
-    for (const auto &e : fs::directory_iterator(dir))
+    if (!dir.is_directory() || dir.path().filename() == "corners") continue;
+    for (const auto &e : fs::directory_iterator(dir.path()))
       if (e.path().extension() == ".json") files.push_back(e.path());
   }
   std::sort(files.begin(), files.end());

@@ -110,6 +110,29 @@ const std::vector<CornerDef> kCorners = {
 #define NO_CORNERS {"", "", "", ""}
 
 const std::vector<PresetDef> kBank = {
+    /* ---- init ----------------------------------------------------------
+       B192 (human, 2026-09-21): "let's make sure there's a factory Init
+       patch". The bank shipped 40 patches and four corner presets, and not one
+       of them was the place a player goes to start over — the only way back to
+       defaults was to close the instrument and open a new one.
+
+       ITS PARAMETER TABLE IS EMPTY, AND THAT IS THE WHOLE POINT. The generator
+       boots a fresh instance and saves what the shell itself holds, so this
+       file is the shell's OWN defaults written by the shell's own writer. A
+       hand-listed "init" table would be a second statement of every default,
+       free to drift from the first one silently — the exact failure ADR-159
+       was written about for the corner order. Re-run the generator after any
+       default changes and this patch follows for nothing.
+
+       It is not redundant with initState (hypersaw_clap.cpp): initState is the
+       first act of a LOAD and is not reachable by a player, this is a patch a
+       player can load. Loading it exercises initState too, so the two agree by
+       construction rather than by care. */
+    {"init", "INIT - Init",
+     "The instrument as it opens: every parameter at its default, no morph corners authored, nothing routed. Load it to start over.",
+     {},
+     NO_CORNERS},
+
     /* ---- lead ---------------------------------------------------------- */
     {"lead", "LD - Hyper Lead",
      "The founding supersaw with the coupling switched on — Pull K is the knob: at 0 it is a detuned stack, at 1 it collapses into one voice.",
@@ -542,7 +565,10 @@ int main(int argc, char **argv)
       "Each line says what the patch demonstrates and which knob to touch first.\n"
       "`tools/bank_check.cpp` asserts the bank loads, re-saves identically, makes\n"
       "sound, and that the named exemplars still do what their line claims.\n\n";
-  const char *cats[] = {"lead", "bass", "pad", "pluck", "keys", "fx", "morph", "demo"};
+  // "init" FIRST: it is where a player starts over, so it is where the listing
+  // starts. Adding a category here is what makes it appear in BANK.md at all —
+  // a patch in an unlisted category ships but is undocumented.
+  const char *cats[] = {"init", "lead", "bass", "pad", "pluck", "keys", "fx", "morph", "demo"};
   for (const char *cat : cats)
   {
     md += std::string("## ") + cat + "\n\n";

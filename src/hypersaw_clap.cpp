@@ -2282,11 +2282,21 @@ struct Plugin
      overflow — so at 256 the tail of the table (osc 2's enable among it)
      silently never landed, on the exact path the GUI's preset LOAD uses. Found
      by B100's fixture generator, pinned by state_check's B110 assertion (RED
-     at 256). DOUBLED BY B192: initState now writes every parameter's default
-     through this same queue before the patch's own values follow, so one load
-     is two bursts, and 1024 would have spent the headroom the previous comment
-     claimed rather than measured. Static array, 32 KB, RT-safe; headroom for
-     two full loads in flight, which is now ~1740 of 2048. */
+     at 256). DOUBLED BY B192, AND THE DOUBLING IS MEASURED, NOT ESTIMATED:
+     initState writes every parameter's default through this same queue before
+     the patch's own values follow, so one load is two bursts. Held at 1024 the
+     whole change set turns state_check RED at "B100: unknown JSON header keys
+     ignored, params still apply" — the tail of a burst silently dropped, which
+     is B110's failure with a new cause. Peak in-flight depth over state_check's
+     corpus, measured with a temporary counter in enqueueParam: 1471 of 2048.
+     Static array, 32 KB, RT-safe.
+     KNOWN AND PRE-EXISTING, so that a future reader does not mistake it for
+     this change's doing: a rig that keeps `processing` true and loads
+     repeatedly WITHOUT calling process() between loads never drains, so it
+     saturates whatever this constant is (morphlayout_check reaches exactly
+     kQCap at 1024 on main and at 2048 here). The shipping paths drain every
+     block; raising the cap cannot fix a rig that never drains, and no rig
+     assertion depends on the drops. */
   static constexpr uint32_t kQCap = 2048;
   ParamMsg queue[kQCap];
   std::atomic<uint32_t> qHead{0}, qTail{0};
@@ -2952,8 +2962,11 @@ struct Plugin
 
        B195 — THE RULING B172 OWED (human 2026-09-21: "some Sub Osc parameters
        don't reach morph"). Until now the test was `== Morphable`, which under
-       ADR-173's default excluded every STEPPED row of the block — the sub's
-       wave, octave, semitones, keytrack, mono, bias and seed. The INSTRUMENT
+       ADR-173's default excluded every STEPPED row of the block — all EIGHT of
+       the sub's: wave, octave, semitones, keytrack, seed, mono, bias, and the
+       retired `sync` (4011), which is Structural like the rest and joins with
+       them because membership is the CLASS and not a list of rows someone
+       judged interesting; it reaches nothing either way. The INSTRUMENT
        table's own hand-curated appends above have always included stepped rows
        (the bend and note-travel laws, the FX slot types), where a stepped
        member morphs ATOMICALLY: morphApplyTarget takes the winner's request in
