@@ -6366,3 +6366,44 @@ it when a corner binds.
 that its first module will not use it), or amend §1 to order-keyed with a
 label and role optional. Recorded, not acted on. Nothing is blocked — B50's
 rack and B170's bindings are where this is consumed, and neither is built.
+
+### ADR-170 Amendment 3 — MAW closes Phase P; it satisfies ADR-175 and declares needs-no-lookahead (2026-09-21)
+
+MAW's resident filed `integrations/maw/notice-phase-p.md` (their seq 2,
+ball none, nothing asked). Landing it is our resident act. What matters to
+horde as the host:
+
+**ADR-175 is satisfied with a measurement, not a claim.** An independent
+critic measured n = 1 call parity on every route at block sizes 1/7/64/256
+against one 8192-sample call: zero differing samples, with inertia, flux,
+ecology, the mod matrix and the feedback route live. The port will carry a
+declared no-lookahead property for our shell to check — which is the shape
+ADR-175 asked for, since a cyclic topology sends us sample-by-sample and a
+module that needed lookahead could not live inside one.
+
+**Their lab audit returned REWORK and the findings are ours to care about,
+because FX-C is shared by the whole roster:** a NaN/Inf sample used to
+poison the core permanently (now a per-sample watchdog plus `reset()`); the
+mid/side route's second stage never updated its drive-ref follower (+34 dB
+error); two curves did not pass through the origin (a full-scale click on
+silence); four curves rang in the feedback loop because the normaliser used
+a point slope rather than the supremum of the describing-function gain, so
+`fbAmt = 1` is now the limit-cycle threshold for every curve; four time
+constants were fixed in SAMPLES and are now in seconds (ADR-009's trap,
+found independently in another tree).
+
+**Our own D4 is confirmed with a number:** the clamp was the sole DC source
+(−42.5 dB re RMS when clipping) and their lab's clamp is removed, so lab
+and port agree.
+
+**One thing lands on us later:** `latency()` = 0.25 host samples under our
+global 2× oversampling (half an oversampled sample). Whether the ABI
+reports 0 with the phase documented, or 1 with a 0.75-sample allpass, is
+ruled at M1 start with FOUNDATIONS. We are not asked now.
+
+Ecology is measurably not a compressor (our D6 A/B): against a compressor
+granted a perfect match of its level curve, ecology still moves the
+spectral centroid 132 cents up / 227 cents down on their programme. Whether
+it earns a panel slot is the human's listening call; under ADR-169 the
+Motion role is its natural home — noting that ADR-169 A1 has Sluice
+declining roles entirely, which the human has not yet ruled on.
