@@ -38,7 +38,40 @@ with file:line, the evidence, the class it belongs to, and the MINIMAL delta:
 5. **Consolidation.** Checks that could share a rig, traces that repeat a
    corpus description, docs that say the same thing in three places, labs
    whose index or landing-page card is stale.
-6. **Doc drift.** README's "last verified" line, CLAUDE.md §Domain against
+6. **The harness itself — is a green gate green for the right reason?** A
+   gate reports success when it passed, when it never ran, and when it
+   cannot fail; those three are indistinguishable from outside, and telling
+   them apart is this item's whole job. Ask of each: is it invoked by
+   `./verify` or does it carry a written reason not to be; does every
+   assertion have a control PROVEN to trip; can its corpus distinguish the
+   two behaviours at all (a check about absent values cannot fail on data
+   with no gaps); does its coverage enumerate from a declaration or from
+   someone's memory — a hand-maintained list sitting beside an automated
+   discovery is a hole that opens the moment something is added; and does
+   any claim a file makes about its own place in the system ("wired",
+   "covered", "shipped") survive being verified rather than read past.
+7. **Storage — according to spec, and comprehensively.** Two halves that
+   fail differently. ACCORDING TO SPEC: a load leaves the instrument
+   byte-identical to loading that patch into a fresh instance; every load
+   path (preset, host chunk, session restore, undo) gets the same rule, not
+   three of four; positional data only ever APPENDS, because corner values,
+   parameter blocks and mod slots are addressed by position and an insertion
+   silently relocates everything after it; a round trip loses nothing, INCLUDING
+   the second pass where the thing has moved first (aliases with disagreeing
+   ranges and singleton caps fail only there). COMPREHENSIVELY: diff what the
+   interface can change against what the state writer emits — anything
+   reachable but unrecorded is invisible to save, undo and branching at once;
+   verify the record survives BRANCHING, not only saving (for a pair of nodes,
+   a → b → a must land on a's exact state and b must never mutate a); and
+   check that everything deliberately excluded is written down as a decision
+   rather than left as an accident.
+
+   The nine shapes these two items keep finding, for speed: green for the
+   wrong reason · prose asserting a relationship · a hand list beside a glob ·
+   one rule with two implementations · insertion into positional data ·
+   absent means keep · reachable but unrecorded · an exclusion with no expiry ·
+   a number nobody measured.
+8. **Doc drift.** README's "last verified" line, CLAUDE.md §Domain against
    the tree (protected paths that no longer exist, candidates that shipped),
    the landing page against `reference/`, the lab index against
    `docs/design/`, ROADMAP rows marked running whose PR merged.
