@@ -156,7 +156,18 @@ struct GuiHost
      the DSP can fix a note-off the host never sends. */
   std::function<void()> releaseKeyFocus;
   std::function<std::string()> getStateJson;             // full provenance dump
-  std::function<bool(const std::string &)> applyStateJson;
+  // (json, the preset's name; "" = take whatever name the patch itself carries)
+  std::function<bool(const std::string &, const std::string &)> applyStateJson;
+  /* B174: the GLOBAL preset's name, the same three-part shape as the corner
+     names above and for the same reason — the shell holds it (the page cannot:
+     ADR-105 A2), the page reads it back, and "dirty" is the shell's own answer
+     to "would applying this preset JSON change the patch?". The LOAD verb is
+     applyStateJson's name argument, not a setter, so no snapshot can land
+     between applying a patch and knowing what it is called; presetSetName is
+     the SAVE verb, which changes no values. */
+  std::function<std::string()> presetNameGet;
+  std::function<void(const std::string &)> presetSetName;
+  std::function<bool(const std::string &)> presetMatches;
   /* UNDO HISTORY (B84 / ADR-160). The tree is SHELL state — a GUI-side history
      dies with the window and never sees a preset change made while the editor
      was shut. Four calls, all main-thread:

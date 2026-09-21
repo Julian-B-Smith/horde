@@ -546,11 +546,33 @@ inline void installBridge(choc::ui::WebView &web, GuiHost &host)
   web.bind("hzGetState", [&host](const choc::value::ValueView &) -> choc::value::Value {
     return choc::value::createString(host.getStateJson());
   });
+  /* B174: the optional SECOND argument is the name of the preset being loaded.
+     One call, so the shell knows what the patch is called by the time the
+     state exists — a second `hzPresetSetName` afterwards would reopen exactly
+     the window PR #703 found in the corner path. Absent (PASTE, the dev
+     panel) = take the name the patch itself carries, which is "" for one that
+     names none. */
   web.bind("hzApplyState", [&host](const choc::value::ValueView &args) -> choc::value::Value {
     bool ok = false;
     if (args.isArray() && args.size() >= 1)
-      ok = host.applyStateJson(std::string(args[0].getWithDefault<std::string_view>("")));
+      ok = host.applyStateJson(std::string(args[0].getWithDefault<std::string_view>("")),
+                               args.size() >= 2 ? args[1].getWithDefault<std::string>("")
+                                                : std::string());
     return choc::value::createBool(ok);
+  });
+  web.bind("hzPresetName", [&host](const choc::value::ValueView &) -> choc::value::Value {
+    return choc::value::createString(host.presetNameGet ? host.presetNameGet() : std::string());
+  });
+  // The SAVE verb: this patch is now called `n`. Changes no values, so it
+  // deliberately marks no history node.
+  web.bind("hzPresetSetName", [&host](const choc::value::ValueView &args) -> choc::value::Value {
+    if (host.presetSetName && args.isArray() && args.size() >= 1)
+      host.presetSetName(args[0].getWithDefault<std::string>(""));
+    return {};
+  });
+  web.bind("hzPresetDirty", [&host](const choc::value::ValueView &args) -> choc::value::Value {
+    if (!host.presetMatches || !args.isArray() || args.size() < 1) return choc::value::createBool(false);
+    return choc::value::createBool(!host.presetMatches(args[0].getWithDefault<std::string>("")));
   });
   /* B84 undo history. hzUndo/hzRedo are the SAME shell call with opposite
      signs — see GuiHost::undoStep for why that is one function. Guarded on the

@@ -38,6 +38,18 @@
  * through the very same host flush, so a flush that started marking would
  * show up as extra nodes in every recording row.
  *
+ * THE PRESET'S IDENTITY (B174). The global preset's NAME is shell state as of
+ * 2026-09-20, which puts it inside history's promise: it is written into the
+ * snapshot, so it forks and restores with everything else. The rows at the end
+ * are the human's own report expressed as a test — load X, edit, step back,
+ * branch onto Y, return to the first branch, and the patch must still report X.
+ * Before the name was state there was nothing in the node to report and the
+ * page showed Y on both branches, so that row is RED on the binary this change
+ * fixes, which is the only thing that makes its green mean anything (L0059).
+ *
+ * WIRED. ./verify runs this (fast, beside state_check); the "standalone and
+ * unwired" note this header carried until 2026-09-20 described the day it was
+ * written, not the gate it has been since.
  * WIRED (verify:239), and this paragraph is the correction of the one that
  * stood here until 2026-09-20: it read "STANDALONE AND UNWIRED. Not run by
  * ./verify", which had been false since the human wired the gate on
@@ -350,6 +362,158 @@ void automationControl()
   p->stop_processing(p);
   p->deactivate(p);
   p->destroy(p);
+}
+
+/* ---------------- the global preset's IDENTITY (B174) ---------------- */
+
+/* A patch that is recognisably neither the default nor the other one, taken to
+   a FIXED POINT of load-then-save: a parameter the loader clamps or quantises
+   would otherwise make "a just-loaded patch matches its own preset" fail for a
+   reason that is not this change's (the o1.tilt alias clamp B186 reported is
+   exactly that shape, and it is out of scope here). A settled patch asks the
+   asterisk the question it is for: has the PLAYER moved anything? */
+std::string settledPatch(double v)
+{
+  const clap_plugin_t *p = makePlugin();
+  mutate(p, v);
+  const std::string once = saveJson(p);
+  loadJson(p, once);
+  const std::string j = saveJson(p);
+  p->destroy(p);
+  return j;
+}
+
+// The stored name, read out of a state blob the way the GUI's binding reads it.
+std::string nameIn(const std::string &json)
+{
+  const size_t k = json.find("\"presetName\"");
+  if (k == std::string::npos) return "";
+  const size_t q0 = json.find('"', json.find(':', k) + 1);
+  if (q0 == std::string::npos) return "";
+  const size_t q1 = json.find('"', q0 + 1);
+  return q1 == std::string::npos ? "" : json.substr(q0 + 1, q1 - q0 - 1);
+}
+
+void presetIdentityChecks()
+{
+  const std::string X = settledPatch(0.211), Y = settledPatch(0.733);
+  check(X != Y && nameIn(X).empty() && nameIn(Y).empty(),
+        "identity: two DIFFERENT patches, neither of them named");
+
+  /* 1. THE NAME IS STATE — it reaches both blobs, comes back out of both, and
+     an unnamed patch writes no key at all, which is what keeps every chunk
+     saved before this change byte-for-byte what it was. */
+  {
+    const clap_plugin_t *p = makePlugin();
+    check(saveJson(p).find("\"presetName\"") == std::string::npos &&
+              saveChunk(p).find("presetname=") == std::string::npos,
+          "identity: an unnamed patch writes NO key (existing chunks are bit-inert)");
+
+    check(hypersaw_debug_apply_named(p, X.c_str(), "Squids"), "identity: a named load applies");
+    drain(p);
+    check(nameIn(saveJson(p)) == "Squids", "identity: the name is in the JSON chunk");
+    const std::string blob = saveChunk(p);
+    check(blob.find("\npresetname=Squids\n") != std::string::npos,
+          "identity: the name is in the HOST chunk (it survives reopening the project)");
+
+    // The JSON the GUI would SAVE carries its own name, so loading it back
+    // needs no help from whatever listed it.
+    const std::string named = saveJson(p);
+    p->destroy(p);
+
+    const clap_plugin_t *q = makePlugin();
+    check(loadChunk(q, blob), "identity: the host chunk loads");
+    drain(q);
+    check(nameIn(saveJson(q)) == "Squids", "identity: the name round-trips the host chunk");
+
+    const clap_plugin_t *r = makePlugin();
+    check(hypersaw_debug_apply(r, named.c_str()), "identity: the saved JSON loads");
+    drain(r);
+    check(nameIn(saveJson(r)) == "Squids",
+          "identity: an UNNAMED load takes the name the patch itself carries");
+
+    // A load is a load: a patch that names no preset clears the last one,
+    // rather than leaving a name describing values that are gone.
+    check(hypersaw_debug_apply(r, Y.c_str()), "identity: the unnamed patch loads");
+    drain(r);
+    check(nameIn(saveJson(r)).empty(), "identity: loading an unnamed patch CLEARS the name");
+
+    q->destroy(q);
+    r->destroy(r);
+  }
+
+  /* 2. NO NAMING WINDOW. PR #703 found that a corner preset's name could be
+     lost from history when a GUI frame landed between the load and the naming,
+     because setCornerName only amends a mark that is still PENDING. The load
+     here is a single call that names as it applies, so the worst-placed pump
+     in the world — the one on the very next line — still finds the name. */
+  {
+    const clap_plugin_t *p = makePlugin();
+    hypersaw_debug_apply_named(p, X.c_str(), "Squids");
+    undoOp(p, "service");   // a frame at the worst possible moment
+    drain(p);
+    undoOp(p, "service");
+    check(nameIn(undoOp(p, "json", undoInt(p, "current"))) == "Squids",
+          "identity: the load's OWN node carries the name (no naming window)");
+    p->destroy(p);
+  }
+
+  /* 3. THE HUMAN'S SCENARIO, at the DISPLAY level (2026-09-20: "loading a
+     different preset on a second branch switched the original branch over to
+     the new preset"). B186's gauntlet proved the VALUES were never
+     contaminated, so this row asks the only question left: which preset does
+     each branch say it is? RED before this change — the name was not in the
+     snapshot to begin with. */
+  {
+    const clap_plugin_t *p = makePlugin();
+    hypersaw_debug_apply_named(p, X.c_str(), "Squids");
+    drain(p);
+    undoOp(p, "service");
+    const int nx = undoInt(p, "current");
+
+    mutate(p, 0.371);                       // the player edits on top of X
+    undoOp(p, "mark", 1);
+    undoOp(p, "service");
+    const int edit = undoInt(p, "current");
+    check(edit != nx && undoInt(p, "parent", edit) == nx,
+          "scenario: the edit is a child of the X node");
+
+    check(undoOp(p, "restore", nx) == "1", "scenario: step back onto X");
+    drain(p);
+    hypersaw_debug_apply_named(p, Y.c_str(), "Grackle");   // the SECOND branch
+    drain(p);
+    undoOp(p, "service");
+    const int ny = undoInt(p, "current");
+    check(ny != edit && undoInt(p, "parent", ny) == nx,
+          "scenario: Y is a second branch off X, not a continuation of the edit");
+    check(nameIn(saveJson(p)) == "Grackle", "scenario: on the Y branch the patch reports Grackle");
+
+    check(undoOp(p, "restore", edit) == "1", "scenario: the first branch is still reachable");
+    drain(p);
+    check(nameIn(saveJson(p)) == "Squids",
+          "scenario: back on the FIRST branch the patch reports Squids, NOT Grackle");
+    p->destroy(p);
+  }
+
+  /* 4. THE ASTERISK, with the control that makes its answer mean anything: a
+     predicate wired to nothing also reports "clean" forever (L0032). */
+  {
+    const clap_plugin_t *p = makePlugin();
+    hypersaw_debug_apply_named(p, X.c_str(), "Squids");
+    drain(p);
+    check(hypersaw_debug_presetmatches(p, X.c_str()),
+          "dirty: a just-loaded patch MATCHES its preset (no asterisk)");
+    check(!hypersaw_debug_presetmatches(p, Y.c_str()),
+          "dirty CONTROL: the same instance does NOT match a different preset");
+    mutate(p, 0.371);
+    check(!hypersaw_debug_presetmatches(p, X.c_str()),
+          "dirty: one edit and the patch stops matching (the asterisk appears)");
+    hypersaw_debug_apply_named(p, X.c_str(), "Squids");
+    drain(p);
+    check(hypersaw_debug_presetmatches(p, X.c_str()),
+          "dirty: re-loading clears it — dirty cannot get stuck on");
+    p->destroy(p);
+  }
 }
 
 
@@ -1401,6 +1565,7 @@ int main(int argc, char **argv)
   treeChecks();
   fixtureChecks(dir);
   automationControl();
+  presetIdentityChecks();
 
   /* LAYER 3 (B186). The controls run FIRST and unconditionally: they prove
      the sweep and the recording rule can go red before anything green below

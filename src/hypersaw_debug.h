@@ -58,6 +58,15 @@ extern "C"
      bank_check, statefix_common.h. */
   bool hypersaw_debug_apply(const clap_plugin_t *p, const char *json);
 
+  /* B174: the same load, NAMED — one call that applies the patch and records
+     which preset it is, so no history snapshot can land between the two.
+     Owner: undo_check. */
+  bool hypersaw_debug_apply_named(const clap_plugin_t *p, const char *json, const char *name);
+
+  /* B174: true iff applying `json` would leave the patch exactly as it is —
+     the GUI's edited-since-load asterisk, inverted. Owner: undo_check. */
+  bool hypersaw_debug_presetmatches(const clap_plugin_t *p, const char *json);
+
   /* Reads the engine revision counter a state load bumps. Owner: state_check,
      statefix_common.h. */
   int hypersaw_debug_engine_revision(const clap_plugin_t *p);
