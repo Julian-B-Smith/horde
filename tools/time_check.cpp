@@ -9,6 +9,7 @@
  *     would collapse it.
  *   - L0-21 room DC/stability: 12 s at regen 0.95 — bounded, NaN-clean.
  * noise=0; one held A3, 1.5 s for parity, longer for the stability rows.
+ * WIRED: ./verify full.
  */
 
 #include <cmath>

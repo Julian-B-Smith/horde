@@ -3,6 +3,7 @@
  * real modulation SOURCES with the timing, shapes, determinism and polarity
  * they claim. WIRED into `./verify full` (ADR-180 §1 inverted the default: a
  * new check is wired in the PR that creates it).
+ * WIRED: ./verify full.
  *
  * WHAT IT GATES, section by section. Each section answers one acceptance
  * clause of the brief, and each carries a control that MUST read the other way

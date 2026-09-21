@@ -11,6 +11,7 @@
  * Also pinned: global params never travel. An oscillator preset that carried
  * the FX rack or the master image would silently redecorate the patch it was
  * dropped into — a data-loss bug wearing the costume of a feature.
+ * WIRED: ./verify full.
  */
 #include <cmath>
 #include <cstdio>

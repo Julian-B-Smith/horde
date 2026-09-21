@@ -1,5 +1,6 @@
 /*
  * undo_check — the undo history's oracle (B84 / ADR-160, B186).
+ * WIRED: ./verify full.
  *
  *   undo_check [state_fixtures_dir] [preset_dir] [seed]
  *              (defaults: tests/state_fixtures  docs/presets/factory  20260920)
@@ -54,17 +55,15 @@
  * page showed Y on both branches, so that row is RED on the binary this change
  * fixes, which is the only thing that makes its green mean anything (L0059).
  *
- * WIRED. ./verify runs this (fast, beside state_check); the "standalone and
- * unwired" note this header carried until 2026-09-20 described the day it was
- * written, not the gate it has been since.
- * WIRED (verify:239), and this paragraph is the correction of the one that
- * stood here until 2026-09-20: it read "STANDALONE AND UNWIRED. Not run by
- * ./verify", which had been false since the human wired the gate on
- * 2026-09-13. test_table_check's wired-or-explained rule could not catch it —
- * the rule looks for a literal `UNWIRED:` marker in the first 40 lines
- * (tools/test_table_check.py:82) and finds nothing to complain about in prose
- * that merely CLAIMS the opposite of the truth. Prose that contradicts the
- * gate list is invisible to a marker grep; only reading it catches it.
+ * THE DECLARATION AT THE TOP IS NOW MACHINE-CHECKED. This paragraph used to
+ * read "STANDALONE AND UNWIRED. Not run by ./verify", which had been false
+ * since the human wired the gate on 2026-09-13 and survived two days because
+ * test_table_check only tested that a marker EXISTED, never that it was true.
+ * B190 layer 1 (2026-09-21) closed that: the header's one `WIRED:`/`UNWIRED:`
+ * line is cross-checked against ./verify's own text, in both directions, and
+ * this file is the case that motivated it. Free prose can still contradict the
+ * gate list — only reading catches that — which is why the relationship claim
+ * now lives in one line with a fixed grammar instead of in a paragraph.
  */
 
 #include <algorithm>

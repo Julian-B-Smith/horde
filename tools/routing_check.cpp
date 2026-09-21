@@ -9,6 +9,7 @@
  * stand-in, so what is measured is the topology and nothing else — which is
  * also what makes these transferable (L0030/L0031: an oracle that names no
  * internals outlives the implementation it was written against).
+ * WIRED: ./verify full.
  */
 #include <cmath>
 #include <cstdio>

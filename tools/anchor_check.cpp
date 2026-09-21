@@ -17,7 +17,7 @@
        wheel ramp under an 8 Hz gate commits fewer, later steps than the
        continuous path; a detector that could not see the gate would pass T1
        for the wrong reason.
-   Standalone; not wired into ./verify (human gate). Exit 1 on any failure. */
+   WIRED: ./verify full. Exit 1 on any failure. */
 #include <algorithm>
 #include <cmath>
 #include <cstdio>

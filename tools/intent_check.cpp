@@ -35,6 +35,7 @@
  * shell, the way polarity_check and paramclass_check do.
  *
  * Usage: intent_check [build-golden/intent]
+ * WIRED: ./verify full.
  */
 #include <algorithm>
 #include <cmath>

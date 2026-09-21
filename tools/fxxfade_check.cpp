@@ -1,8 +1,7 @@
 /*
  * fxxfade_check — B117 / ADR-163: the FX presence crossfade, held to its four
- * promises. Standalone, registered in CMake, NOT run by ./verify (the standing
- * human ruling for rack probes — combguard_check and delay_check sit the same
- * way; wiring a gate in is a human decision, proposed in the PR).
+ * promises. combguard_check and fxxfade_plugin_check sit beside it.
+ * WIRED: ./verify full.
  *
  * WHAT IS UNDER TEST. Module TYPE is stepped, so under both morph modes a
  * slot's module flips atomically (B49): the outgoing tail is cut, the incoming

@@ -1,7 +1,7 @@
 /*
  * bank_check — the factory bank is loadable, self-consistent, audible, and still
- * demonstrates the coupling laws it claims to (B130). Standalone; NOT wired into
- * ./verify (the standing ruling: wiring a gate is the human's decision).
+ * demonstrates the coupling laws it claims to (B130).
+ * WIRED: ./verify full.
  *
  *   bank_check <bank-dir>          (e.g. docs/presets/factory)
  *

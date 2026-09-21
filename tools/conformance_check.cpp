@@ -32,6 +32,7 @@
  * CALIBRATION LIVES IN ./verify, NOT HERE. A suite that has never rejected
  * anything is not a gate (their words and ours). The planted-defect run is
  * recorded in the trace for this change.
+ * WIRED: ./verify full.
  */
 #include <cstdio>
 #include <cstring>

@@ -1,5 +1,6 @@
 /*
  * station_check — the STATION port's oracle (B153 layer 3, phase 1).
+ * WIRED: ./verify full.
  *
  * WHAT IT GATES
  *  1. L0-1 parity: `hypersaw::StationCore` reproduces reference/station.html's

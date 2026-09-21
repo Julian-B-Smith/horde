@@ -266,6 +266,37 @@ full() {
   "$build_dir/fxxfade_check"                            || return 1   # B117 crossfade handover as measured
   "$build_dir/polarity_check"                           || return 1   # B134 polarity before depth, as-is exact
   "$build_dir/lfoenv_check"                             || return 1   # B171 LFO 1/2 + ENV 3/4 as mod sources
+
+  # THE B159 BACKLOG, ruled one at a time on evidence (2026-09-21). Nine checks
+  # sat unwired: five stated no reason at all, four cited a "standing human
+  # ruling on gate scope" that the ADR-179 §4 inversion overturned on
+  # 2026-09-19 — an inherited exemption, not a decision. Each was run before
+  # being wired; eight were green, and combguard_check was RED on arrival for a
+  # reason inside the ORACLE (see its header's age-matching note), which is the
+  # whole argument for the inversion: a check nobody runs is a check nobody
+  # knows the state of. Measured cost of the nine together: 2.0 s, against a
+  # 75.5 s warm `verify full` baseline. None duplicates a wired check —
+  # fxxfade_plugin_check is the PLUGIN-PATH half of fxxfade_check's core-level
+  # claim (L0031: an oracle that builds the core directly gives the shell path
+  # zero coverage), and the other eight guard cores nothing else touches.
+  "$build_dir/delay_check"                              || return 1   # ADR-142 standard delay, spec-as-contract
+  "$build_dir/mixer_check"                              || return 1   # B24 per-oscillator mute/solo gate the mix
+  "$build_dir/mod_check"                                || return 1   # mod_core matrix: sum law, scope, refusals
+  "$build_dir/strata_check"                             || return 1   # STRATA §2.2's six properties
+  "$build_dir/voicetap_check"                           || return 1   # ADR-148 per-voice seam is bit-identical
+  "$build_dir/combguard_check"                          || return 1   # a second Comb is impossible, not just loud
+  "$build_dir/fxxfade_plugin_check"                     || return 1   # B117 through the plugin's param path
+  "$build_dir/svf_check"                                || return 1   # SvfCore's oracle-as-spec (no reference lab)
+  # paramclass_check is CAPTURED, not printed: it reports 289 lines (a row per
+  # id) and a gate that buries the run in its own output stops being read. The
+  # final line is echoed — a green gate that prints nothing reads as no gate.
+  # It pins the classification the morph field depends on, and that pin moved
+  # twice in the week it was only ever run by hand.
+  "$build_dir/paramclass_check" > /tmp/paramclass.$$ 2>&1 || {
+    echo "verify[full]: paramclass_check FAILED" >&2; cat /tmp/paramclass.$$ >&2
+    rm -f /tmp/paramclass.$$; return 1; }
+  echo "paramclass_check: $(tail -1 /tmp/paramclass.$$)"
+  rm -f /tmp/paramclass.$$
   # The SAW fidelity suite (B147 layer 2, PR #635), wired by the human's ruling
   # 2026-09-18 (ADR-171 A1). Thresholds are the audit's MEASURED numbers plus a
   # stated margin; every check carries a must-fail control. cpu_check is NOT here —

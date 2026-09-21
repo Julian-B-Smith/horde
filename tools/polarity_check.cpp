@@ -30,6 +30,7 @@
  *
  * Reuses tools/statefix_common.h — one stub host, one loader per transport,
  * one render — rather than growing a third copy of the CLAP scaffold.
+ * WIRED: ./verify full.
  */
 
 #include <algorithm>

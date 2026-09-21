@@ -1,5 +1,6 @@
 /*
  * subosc_check — the SUB OSC port's oracle (B155 port phase 1).
+ * WIRED: ./verify full.
  *
  * WHAT IT GATES
  *  1. L0-1 parity: `hypersaw::SubOscCore` reproduces reference/subosc.html's

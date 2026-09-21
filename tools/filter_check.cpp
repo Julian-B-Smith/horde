@@ -7,6 +7,7 @@
  *
  * All scenarios run at noise=0 (the reference's dither is Math.random(), not
  * bit-checkable — see filter_core.h). One held A3, 1 s, 512-sample blocks.
+ * WIRED: ./verify full.
  */
 
 #include <cmath>

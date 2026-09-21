@@ -8,6 +8,7 @@
  *   - sync+rainbow: K+J raise R and max(R+,R-) together.
  *   - stability at K=J=drift=1: bounded, NaN-clean.
  * Fully seed-deterministic; one held A3 (220 Hz), 1 s, 512-sample blocks.
+ * WIRED: ./verify full.
  */
 
 #include <cmath>

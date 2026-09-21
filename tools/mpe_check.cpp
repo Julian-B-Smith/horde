@@ -19,6 +19,7 @@
  * residual is ~0.5 (half the energy stranded at the old pitch); with it in
  * place the residual is at the noise floor. The threshold sits between them by
  * more than an order of magnitude, so this cannot pass by being insensitive.
+ * WIRED: ./verify full.
  */
 #include <cmath>
 #include <cstdio>

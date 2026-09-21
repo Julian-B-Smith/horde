@@ -32,6 +32,7 @@
  * vector, changes only if the SPECTRAL SHAPE differs — which a notch cascade
  * does and a scalar gain error does not (a paranoid README, but disproving a
  * shape-blind detector this cheaply is worth eight lines).
+ * WIRED: ./verify full.
  */
 #include <algorithm>
 #include <cmath>

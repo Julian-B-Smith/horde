@@ -1,5 +1,5 @@
 /*
- * presetstore_check — B129 acceptance (4). Standalone, unwired (human gate).
+ * presetstore_check — B129 acceptance (4).
  *
  * Proves the four things the store must do and the one it must refuse:
  *   1. presetRoot() resolves per PLATFORM from the environment. All three
@@ -19,6 +19,7 @@
  * zero can actually fail. The edit-survival check compares bytes, not mtimes.
  *
  * Build: it is part of the normal CMake configure; run the binary directly.
+ * WIRED: ./verify full.
  */
 #include <algorithm>
 #include <cstdio>

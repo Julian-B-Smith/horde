@@ -1,5 +1,6 @@
 /*
  * subosc_check.mjs — fidelity harness for reference/subosc.html (B155).
+ * WIRED: ./verify full.
  *
  * WHY THIS EXISTS. The SAW engine's lab-inherited expedients were only found by
  * an audit, years after they shipped: a hand-tuned per-tick smoother that drifts
@@ -18,9 +19,18 @@
  * own DSP source, and every plant ASSERTS ITS ANCHOR — a plant that silently
  * fails to apply is the exact failure mode the lesson names.
  *
- * WIRED into `./verify full` (ADR-180 §1: a check is wired in the PR that
- * creates it unless its header states why not — this one's stated reason had
- * been "UNWIRED: reason not stated", which is not a reason). It runs at the top
+ * THE `WIRED:` LINE AT THE TOP IS HERE BECAUSE THIS FILE IS WHAT B190 LAYER 1
+ * CAUGHT FIRST. Until 2026-09-21 this paragraph said the
+ * check was wired while the header still carried a bare `UNWIRED:` marker two
+ * lines on — the same contradiction undo_check.cpp shipped for two days, and
+ * invisible for the same reason: the old rule tested that a marker existed,
+ * never that it was true. The marker is now one line with a fixed grammar,
+ * cross-checked against ./verify's text. The sentence it replaced is quoted
+ * below as history; quoted mid-line, it is prose and no longer a declaration.
+ *
+ * Wired under ADR-180 §1 (a check is wired in the PR that creates it unless its
+ * header states why not — this one's stated reason had been
+ * "UNWIRED: reason not stated", which is not a reason). It runs at the top
  * of full() beside station_check.mjs, and it is also the HOME of §10.1's
  * aliasing floors: those need the 65 536-point Kaiser-windowed FFT sweep that
  * exists here and not on the C++ side, which is why tools/subosc_check.cpp's

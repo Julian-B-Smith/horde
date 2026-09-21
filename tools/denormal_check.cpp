@@ -1,5 +1,6 @@
 /* denormal_check — the silent tail after a held note, in the OUTPUT and in the
  * STATE.
+ * WIRED: ./verify full.
  *
  * B147 layer 2. This check exists under a caveat, and the caveat comes first,
  * quoted verbatim from the B147 layer-1 audit
@@ -100,7 +101,6 @@
  * below a 0 for the wrong reason — the detector-shares-the-assumption trap in
  * its purest form.
  *
- * STANDALONE AND UNWIRED — wiring a gate is the human's decision (charter).
  */
 #include <algorithm>
 #include <cmath>

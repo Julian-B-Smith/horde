@@ -1,5 +1,6 @@
 /*
  * gui_history_check — every control the GUI exposes must MARK THE HISTORY.
+ * WIRED: ./verify fast.
  *
  *   node tools/labharness/gui_history_check.mjs [gui.html]   (default: src/gui/gui2.html)
  *

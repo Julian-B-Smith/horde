@@ -1,5 +1,6 @@
 /*
  * station_check.mjs — the fidelity suite for reference/station.html (STATION).
+ * WIRED: ./verify full.
  *
  * WHERE IT RUNS. `./verify full` runs it (human ruling 2026-09-19, ADR-179 §4
  * inverted the wiring default), at the top of full() — not beside
