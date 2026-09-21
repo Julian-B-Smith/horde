@@ -3,13 +3,15 @@
  *
  *   node tools/labharness/gui_history_check.mjs [gui.html]   (default: src/gui/gui2.html)
  *
- * UNWIRED: the implementing agent that wrote it is forbidden by its own
- * operating rules from editing ./verify, and ADR-180 section 1 offers exactly
- * this alternative. Wiring is ONE line, beside the other node harnesses in
- * `fast` (which skip when node is absent, the convention this follows):
- *     node tools/labharness/gui_history_check.mjs || ok=1
- * Until that lands this gate runs for nobody, which is the whole reason the
- * marker has to be read as a debt rather than a decision.
+ * WIRED in ./verify's `fast` leg, beside the other node harnesses (which skip
+ * when node is absent, the convention this follows). It landed UNWIRED for one
+ * commit and the lead wired it on integration: the implementing agent's brief
+ * carried a stale blanket rule ("do not edit ./verify") alongside ADR-180
+ * section 1, which had already narrowed that gate to WEAKENING a check —
+ * adding one is not gated. The agent obeyed the stricter line and said so,
+ * which was the correct call from inside the brief; the contradiction was the
+ * lead's to fix, and the boilerplate has been corrected so the next brief does
+ * not reproduce it.
  *
  * THE BUG THIS EXISTS FOR (B191). The human, 2026-09-21: "I changed the shape
  * value and it didn't make a node." A history node exists only where a gesture
