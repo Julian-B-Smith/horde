@@ -173,7 +173,11 @@ This is adding a check, not weakening one — ADR-180 §1.
     the cheap kind of redundancy.
   - *Fixing `morphlayout_check`'s queue saturation.* Out of scope and not this
     change's doing — measured identical on main at its own cap.
-- **Verify:** `./verify full`, exit 0, git `<hash>` per `.harness/last-verify.json`.
+- **Verify:** `./verify full`, exit 0, git `bb755fa` per `.harness/last-verify.json`
+  — the first `verify full` ever run against this work. (`7eb257b` and `0e02c81`
+  were committed with the ledger still naming main's commit; that is what made
+  every claim in them a proposal rather than a result.) The follow-up commit
+  that fills in this hash is re-verified the same way.
 - **Open questions:**
   1. `ens=` / `lfo=` survive a load by design (named above). Whether an RNG
      stream's continuation should be reset by "a load is a load" is a ruling
