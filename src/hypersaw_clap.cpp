@@ -2938,19 +2938,50 @@ struct Plugin
 
     /* B172 — THE ENGINE BLOCKS' MORPHABLE ROWS, APPENDED AFTER THE ROUTING
        BLOCK and therefore after everything (ADR-159's rule again: never
-       inserted). Membership is `paramClassOf == Morphable` and nothing else,
-       so the field and the classifier cannot disagree about which engine rows
-       a corner holds — the block's GATE is Device and is therefore absent by
-       the same test, which is what keeps "the gate is not a corner value" a
-       property of one rule rather than of two lists.
+       inserted). Membership is a CLASS TEST and nothing else, so the field and
+       the classifier cannot disagree about which engine rows a corner holds —
+       the block's GATE is Device and is therefore absent by that same test,
+       which is what keeps "the gate is not a corner value" a property of one
+       rule rather than of two lists.
        STATION appends here too (B162), by adding its block to kEngineBlocks.
-       Both appends bump the layout marker; see cornerJson. */
+       Both appends bump the layout marker; see cornerJson.
+
+       B195 — THE RULING B172 OWED (human 2026-09-21: "some Sub Osc parameters
+       don't reach morph"). Until now the test was `== Morphable`, which under
+       ADR-173's default excluded every STEPPED row of the block — the sub's
+       wave, octave, semitones, keytrack, mono, bias and seed. The INSTRUMENT
+       table's own hand-curated appends above have always included stepped rows
+       (the bend and note-travel laws, the FX slot types), where a stepped
+       member morphs ATOMICALLY: morphApplyTarget takes the winner's request in
+       full and rounds it, so it snaps rather than interpolating through values
+       no corner authored. That is the established meaning of a stepped corner
+       value, so an engine block that excluded them was an asymmetry, not a
+       policy. The rule is now: Morphable and Structural join the field, Device
+       stays out. The gate leaves by exactly the reason it left before.
+
+       WHY TWO PASSES OVER THE SAME TABLE, which looks redundant and is not.
+       morphIds is APPEND-ONLY: a stored corner array is POSITIONAL, so the
+       only safe way to admit new ids is at the tail. Widening the test in one
+       pass would interleave the newly-admitted Structural rows with the
+       Morphable ones IN BLOCK ORDER (4000 before 4001, …) and every slot after
+       the first newly-admitted id would SHIFT — silently re-reading every
+       corner ever saved against the wrong parameter. So: Morphable first, in
+       exactly the order it had, then Structural after all of them. Do not
+       collapse these into one loop. */
     for (const auto &b : kEngineBlocks)
       for (uint32_t i = 0; i < b.count; i++)
       {
         ParamClass cls = ParamClass::Device;
         const char *why = nullptr;
         if (paramClassOf(b.defs[i].id, cls, why) && cls == ParamClass::Morphable)
+          morphIds.push_back(b.defs[i].id);
+      }
+    for (const auto &b : kEngineBlocks)
+      for (uint32_t i = 0; i < b.count; i++)
+      {
+        ParamClass cls = ParamClass::Device;
+        const char *why = nullptr;
+        if (paramClassOf(b.defs[i].id, cls, why) && cls == ParamClass::Structural)
           morphIds.push_back(b.defs[i].id);
       }
 
@@ -5418,11 +5449,19 @@ struct Plugin
     if (k < 0 || k > 3) return "{}";
     morphInit();
     /* THE LAYOUT MARKER, BUMPED ONCE HERE AND AT THE OTHER THREE WRITERS.
+       8 = B195: the engine blocks' STRUCTURAL rows join the field, appended
+       after their block's morphable ones (morphInit), so the corner array grew
+       by eight and the order changed. A layout-7 array is shorter and maps 1:1
+       (morphSlotMap), so the eight new slots simply hold their defaults —
+       which is why the bump is a marker and not a migration, and why NOTHING
+       stored moves. The bump is not needed to READ a layout-7 array correctly
+       (morphSlotMap treats every layout >= 2 as a 1:1 prefix); it is taken
+       because the marker's job is to NAME AN ORDER, and B175's cross-layout
+       remap will have to ask which order an array was written in. The factory
+       bank re-saves either way — its corner arrays are eight entries longer.
        7 = B181: the SUB block's two new MORPHABLE shell rows (sub.glide,
        sub.pitchMod) append after everything, so the corner array grew by two
-       and the order changed. A layout-6 array is shorter and maps 1:1
-       (morphSlotMap), so the two new slots simply hold their defaults — which
-       is why the bump is a marker and not a migration.
+       and the order changed.
        6 = B172: the SUB OSC engine block's morphable ids appended after the
        routing block. STATION (B162) appends into this SAME layout and will
        bump it again — the marker names an ORDER, and every append changes the
@@ -5431,7 +5470,7 @@ struct Plugin
        increment 3: source rows reserved, Src 2's cells new slot positions);
        4 = the Src→OUT dry-path cells appended after the routing block (B50
        phase 1c); 3 = the routing block (phase 1). */
-    std::string out = "{\"morphLayout\":7,\"cornerPreset\":[";
+    std::string out = "{\"morphLayout\":8,\"cornerPreset\":[";
     char buf[32];
     for (size_t i = 0; i < morphIds.size(); i++)
     {
@@ -5555,7 +5594,7 @@ struct Plugin
   std::string liveCornerJson()
   {
     morphInit();
-    std::string out = "{\"morphLayout\":7,\"cornerPreset\":[";   // ADR-159; 6 = B172, see cornerJson
+    std::string out = "{\"morphLayout\":8,\"cornerPreset\":[";   // ADR-159; 7 = B181, see cornerJson
     char buf[32];
     for (size_t i = 0; i < morphIds.size(); i++)
     {
@@ -5718,7 +5757,7 @@ struct Plugin
     if (morphIds.empty()) return "";
     // ADR-159: the array layout version. 2 = late per-osc rows appended last;
     // absent = 1 (pre-2026-09-11), where a 224-entry array is the ADR-150 order.
-    std::string out = ",\"morphLayout\":7,\"cornerNames\":" + cornerNamesJson() + ",\"morphCorners\":[";
+    std::string out = ",\"morphLayout\":8,\"cornerNames\":" + cornerNamesJson() + ",\"morphCorners\":[";
     char buf[32];
     for (int k = 0; k < 4; k++)
     {

@@ -427,9 +427,10 @@ std::string cornerPresetJson(const std::vector<PV> &order, const CornerDef &c, s
       err += std::string("corner '") + c.name + "': id " + std::to_string(s.id) +
              " is not in the morph field (global or non-morphable) — put it in the patch\n";
   }
-  // 6 since B172 (the SUB OSC engine block appended after the routing block);
-  // the shell's cornerJson carries the full ladder.
-  std::string out = "{\"morphLayout\":7,\"cornerPreset\":[";
+  // 8 since B195 (the engine blocks' STRUCTURAL rows join the field, appended
+  // after their block's morphable ones); the shell's cornerJson carries the
+  // full ladder and is the only place the reasons are written out.
+  std::string out = "{\"morphLayout\":8,\"cornerPreset\":[";
   char buf[32];
   for (size_t i = 0; i < vals.size(); i++)
   {
