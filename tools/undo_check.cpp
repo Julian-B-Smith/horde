@@ -17,6 +17,13 @@
  * stored node byte for byte. A restore that is merely close is a restore that
  * silently loses a patch.
  *
+ * LAYER 4 — every control marks (B191). A closed gesture bracket on ANY
+ * declared parameter makes exactly one node, and a bracket that never closes
+ * makes none — the shell half of "changing a parameter through its own control
+ * produces exactly one history node". The GUI half (does the control emit a
+ * balanced bracket at all, from the keyboard and through a native popup?) is
+ * tools/labharness/gui_history_check.mjs; neither half is the property alone.
+ *
  * LAYER 3 — the history-fidelity GAUNTLET (B186). Layers 1 and 2 each check
  * one node at a time. The property the player actually relies on is about
  * PAIRS: a tree of real depth and breadth, built by a seeded random sequence
@@ -1152,6 +1159,178 @@ void gauntletChecks(uint32_t seed, const std::vector<std::string> &globals,
   }
 }
 
+/* ============ layer 4: every control marks the history (B191) ===========
+   The human, 2026-09-21: "I changed the shape value and it didn't make a node."
+   The cause was in the GUI — a <select>'s bracket was opened from `pointerdown`
+   and closed from a `pointerup` a native popup swallows — but the PROPERTY the
+   player relies on spans both sides of the bridge and so does its gate:
+
+     (1) the control emits exactly one BALANCED bracket around its value change,
+         whatever the input modality — tools/labharness/gui_history_check.mjs,
+         which executes gui2's own wiring;
+     (2) one closed bracket on that id produces exactly one node — here, driven
+         through the shell's real gesture verb for EVERY declared parameter.
+
+   Neither half is the property alone. This half is TOTAL over the parameter
+   table (editablePool, the same pool and the same two exclusions layer 3 uses),
+   so a parameter added tomorrow is covered on its first run rather than when
+   somebody remembers.
+
+   WHY A VALUE IS WRITTEN FIRST. UndoTree::push drops a snapshot identical to
+   the one under foot — a gesture that ended where it began is not an edit — so
+   a bracket with no value change correctly makes no node, and asserting "+1"
+   without moving the parameter would be asserting the wrong thing. The value
+   is driven to whichever END of the declared range is further from where the
+   parameter already sits, so it is guaranteed to move for any real range. */
+void controlMarkChecks()
+{
+  const clap_plugin_t *p0 = makePlugin();
+  const std::vector<ParamPick> pool = editablePool(p0);
+  p0->destroy(p0);
+  check(pool.size() > 100, "layer 4: the parameter pool is the whole table (" +
+                               std::to_string(pool.size()) + " params)");
+
+  const clap_plugin_t *p = makePlugin();
+  p->activate(p, kSampleRate, 32, 1024);
+  drain(p);
+  undoOp(p, "service");
+
+  int unmarked = 0, covered = 0;
+  clap_id firstBad = 0;
+  std::vector<clap_id> inert;          // wrote a live value, left no trace in the snapshot
+  for (const ParamPick &q : pool)
+  {
+    /* The ring is 200 slots and the pool is larger, so a wrapped tree stops
+       reporting growth in `size`. A fresh instance every 150 parameters keeps
+       the observable honest without paying for one per parameter. */
+    if (undoInt(p, "size") >= 150)
+    {
+      p->stop_processing(p);
+      p->deactivate(p);
+      p->destroy(p);
+      p = makePlugin();
+      p->activate(p, kSampleRate, 32, 1024);
+      drain(p);
+      undoOp(p, "service");
+    }
+
+    double cur = 0;
+    paramsOf(p)->get_value(p, q.id, &cur);
+    const double v = (cur - q.lo) > (q.hi - cur) ? q.lo : q.hi;
+
+    const std::string before = saveJson(p);
+    EvList ev;
+    ev.push(q.id, v);
+    paramsOf(p)->flush(p, &ev.list, &kOut);
+    drain(p);
+    if (saveJson(p) == before)
+    {
+      // The write left no trace in the snapshot, so a node for it would carry
+      // nothing and this parameter cannot say anything about history. Recorded
+      // and pinned below (L0033: a boundary is recorded, never silently
+      // skipped), never just skipped.
+      inert.push_back(q.id);
+      continue;
+    }
+
+    const int was = undoInt(p, "size");
+    hypersaw_debug_gesture(p, q.id, true);
+    hypersaw_debug_gesture(p, q.id, false);
+    /* The gesture verb ENQUEUES its bracket for the audio thread, and
+       undoService refuses to snapshot a queue it has not seen drained. Without
+       this the size never moves and every row below would pass or fail for the
+       harness's reason instead of the product's. */
+    drain(p);
+    undoOp(p, "service");
+    covered++;
+    if (undoInt(p, "size") != was + 1)
+    {
+      if (!unmarked) firstBad = q.id;
+      unmarked++;
+    }
+  }
+  check(unmarked == 0, "layer 4: EVERY parameter's closed bracket makes exactly one node (" +
+                           std::to_string(covered) + " of " + std::to_string(pool.size()) +
+                           " params, " + std::to_string(unmarked) + " unmarked" +
+                           (unmarked ? ", first id " + std::to_string(firstBad) : "") + ")");
+
+  /* THE COVERAGE BOUNDARY, PINNED AND RE-EARNED EVERY RUN — the same discipline
+     as kAliasGapId, and found the same way (by this check, on its first run).
+     Two families of parameter accept a value, read it back, and leave the
+     snapshot byte-identical, so history cannot carry them:
+
+       * EVERY ROUTING ID (>= 10000, hypersaw_clap.cpp:982). stateJson emits
+         kParams, the per-oscillator copies, the engine blocks, morph, modRoutes
+         and intent — and no routing coefficient (hypersaw_clap.cpp:5773). The
+         binary chunk has a `routing=` section; the JSON path, which IS what
+         UndoTree stores, does not. So the matrix is outside undo/redo entirely.
+         That is a state-serialisation question, not a history one, and closing
+         it is an ADR-sized decision about the preset schema — deliberately NOT
+         done here (B191 is about marking).
+       * id 1043. Base id 43 is dispatched by RAW id to a shared object
+         (gui_reach's patch-scope derivation), so the oscillator-2 twin is
+         declared but reaches nothing: the value written above reads back
+         UNCHANGED, which no other parameter in the table does.
+
+     Pinned as a set, not a count, so a new hole in either direction is red. */
+  std::vector<clap_id> instrumentInert;
+  int routingInert = 0, routingDeclared = 0;
+  for (const ParamPick &q : pool)
+    if (q.id >= 10000) routingDeclared++;
+  for (clap_id id : inert)
+    (id >= 10000) ? (void)routingInert++ : instrumentInert.push_back(id);
+  check(instrumentInert.size() == 1 && instrumentInert[0] == 1043,
+        "layer 4 boundary: id 1043 is the ONLY non-routing parameter whose write leaves the "
+        "snapshot unchanged (base 43 is patch-scope, so the osc-2 twin reaches nothing) — " +
+            std::to_string(instrumentInert.size()) + " found");
+  check(routingInert == routingDeclared && routingDeclared > 0,
+        "layer 4 boundary: ALL " + std::to_string(routingDeclared) + " routing ids are absent "
+        "from stateJson, so the routing matrix is outside undo/redo (" +
+            std::to_string(routingInert) +
+            " inert) — WHEN THIS ROW GOES RED ROUTING HAS ENTERED THE STATE: delete this "
+            "boundary and let the rows above cover it");
+  p->stop_processing(p);
+  p->deactivate(p);
+  p->destroy(p);
+}
+
+/* THE HUMAN'S BUG, AT THE SHELL, with its calibration (L0032). An OPEN bracket
+   is not an edit: the node is made where the bracket CLOSES, so a control whose
+   release never arrives writes the parameter and leaves the history untouched.
+   The zero below is the defect the GUI had; the one after it is what makes the
+   zero evidence rather than a counter wired to nothing. */
+void unclosedBracketControl()
+{
+  const clap_plugin_t *p = makePlugin();
+  p->activate(p, kSampleRate, 32, 1024);
+  drain(p);
+  undoOp(p, "service");
+  const int base = undoInt(p, "size");
+  check(base == 1, "unclosed: one root node before anything is touched");
+
+  const clap_id id = 4000;   // sub.wave — the control the human reported
+  EvList ev;
+  ev.push(id, 5);
+  paramsOf(p)->flush(p, &ev.list, &kOut);
+  drain(p);
+  hypersaw_debug_gesture(p, id, true);          // ... and the popup eats the release
+  drain(p);                                     // see controlMarkChecks: an undrained
+  undoOp(p, "service");                         // queue would make this zero for free
+  check(undoInt(p, "size") == base,
+        "unclosed CONTROL: a bracket that opens and never closes makes ZERO nodes "
+        "(the reported bug: the sub's Wave changed, the history did not)");
+
+  hypersaw_debug_gesture(p, id, false);         // the same bracket, now closed
+  drain(p);
+  undoOp(p, "service");
+  check(undoInt(p, "size") == base + 1,
+        "unclosed CALIBRATION: closing that SAME bracket makes exactly one node");
+
+  p->stop_processing(p);
+  p->deactivate(p);
+  p->destroy(p);
+}
+
 /* ---- the reported scenario, run literally ---- */
 
 /* load X, edit, step back, load Y on the fork, return to the first branch.
@@ -1401,6 +1580,11 @@ int main(int argc, char **argv)
   treeChecks();
   fixtureChecks(dir);
   automationControl();
+
+  /* LAYER 4 (B191). The control runs first, for layer 3's reason: a zero that
+     cannot be shown to move is not evidence. */
+  unclosedBracketControl();
+  controlMarkChecks();
 
   /* LAYER 3 (B186). The controls run FIRST and unconditionally: they prove
      the sweep and the recording rule can go red before anything green below

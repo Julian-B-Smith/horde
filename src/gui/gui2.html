@@ -2384,12 +2384,19 @@ function wireKnob(k) {
   if (!el || k.dataset.wired) return;
   k.dataset.wired = '1';
   let y0 = 0, v0 = 0, id = null;
+  /* THE SAME LATCH the inner input's own wiring uses (gestureFor, B191). The
+     skin and the input are two doors onto one parameter, so they must not be
+     two brackets: a drag opens here and the input handler's `begin` is a no-op
+     for as long as the pointer is held, while an arrow key on the focused
+     input (the skin takes the pointer, the input keeps the keyboard) opens and
+     closes its own bracket without the skin ever hearing about it. */
+  const g = gestureFor(el);
   k.addEventListener('pointerdown', e => {
     if (el.disabled) return;
     e.preventDefault(); el.focus();
     y0 = e.clientY; v0 = +el.value; id = e.pointerId;
     k.classList.add('drag');
-    bridge.gesture(el.dataset.fixed ? +el.dataset.p : effId(+el.dataset.p), true);
+    g.begin(true);
     /* Capture LAST and guarded. It throws NotFoundError whenever the pointer is
        already gone, and it used to run first -- so a throw skipped the gesture
        BEGIN while `id` was already set, leaving pointermove free to write values
@@ -2411,7 +2418,7 @@ function wireKnob(k) {
     if (id === null) return;
     try { k.releasePointerCapture(id); } catch (_) {}
     id = null; k.classList.remove('drag');
-    bridge.gesture(el.dataset.fixed ? +el.dataset.p : effId(+el.dataset.p), false);
+    g.end();
   };
   k.addEventListener('pointerup', end);
   k.addEventListener('pointercancel', end);
@@ -3747,21 +3754,114 @@ async function paintExempt() {
     row.classList.toggle('exempt', !!set[id]);
   }
 }
+/*GATE:BRACKET  -- the block below is EXECUTED by tools/labharness/gui_history_check.mjs;
+   keep the markers, they are the gate's only anchor into this file. */
+/* ===================== THE GESTURE BRACKET (B191) =========================
+   A history node exists only where a bracket CLOSES: the shell's guiGesture
+   calls undoMarkParam on the END and on nothing else (hypersaw_clap.cpp,
+   `void guiGesture`). So a control whose bracket never closes is a parameter
+   the player cannot undo — fully implemented, host-automatable, and absent
+   from the history. No audio oracle can see that, which is L0023's shape with
+   a different victim.
+
+   WHY POINTER EVENTS ARE THE WRONG SIGNAL. The bracket used to be
+   `pointerdown`/`pointerup` on the control element itself. That signal is not
+   available to every control, and it is missing in exactly the cases a player
+   uses every day:
+     * a <select> opens a NATIVE popup, which is a platform window outside the
+       document — the release lands on the menu, so `pointerup` need never
+       reach the element and the bracket opens and never closes;
+     * ANY control changed from the KEYBOARD (arrows on a range, space on a
+       checkbox, type-ahead in a select) emits no pointer events at all, so the
+       bracket never opens either;
+     * a knob's own <input type=range> carries `pointer-events:none` (the skin
+       takes the pointer — see the .knob CSS), so its pointer listeners were
+       dead from the day the skin was added.
+   The signal that IS guaranteed, for every control type and every input
+   modality, is the value event the control fires when its value changes.
+
+   THE RULE, in one place so the next control type does not re-derive it:
+     * a CONTINUOUS control (a range being dragged) keeps a pointer bracket,
+       because one drag must collapse to one node;
+     * everything else — and the keyboard path of a range — brackets around the
+       VALUE CHANGE itself, begin/set/end synchronously.
+   Both triggers go through ONE latch per element, so there are not two ways of
+   bracketing that must agree. `begin` and `end` are idempotent and the latch
+   remembers the id it OPENED with, so a bracket cannot be doubled, left open,
+   or closed against a different parameter than it opened against: every begin
+   has exactly one end. An unbalanced gesture is how a host records automation
+   it can never undo (the same warning wireKnob carries). */
+/* WHAT IS DELIBERATELY NOT IN THE HISTORY, as a list rather than an absence
+   (L0036: a deliberate absence needs a test, and this set IS that test — the
+   gate reads it from here, so adding to it is a visible decision).
+     * 178 `specimen` — ADR-147 rules it a GUI PREFERENCE: stateJson writes it
+       and applyStateJson deliberately skips it, so a node created for it is a
+       node that restores nothing. A history entry the player cannot undo is
+       worse than no entry, so this control sets the parameter and marks
+       nothing. (undo_check's layer 2 excludes the same id for the same reason.)
+   NOT LISTED, because it is excluded STRUCTURALLY and not by this filter: host
+   parameter events and automation, which ADR-160 (3) rules never mark — they
+   reach applyParam on the audio thread, and nothing on that path can call
+   undoMark. A filter here could be forgotten; that exclusion cannot. */
+const NO_HISTORY_IDS = new Set([178]);
+const gestureLatches = new WeakMap();
+/* One latch per ELEMENT, cached on the element, so every path that can move
+   that control — the generic wiring here, the knob skin's drag, the tab bar's
+   power button, double-click-to-default — shares the same bracket state
+   regardless of which one is wired first. `idOf` is only supplied by controls
+   that do not carry their own data-p (the osc tab's power button). */
+function gestureFor(el, idOf) {
+  let g = gestureLatches.get(el);
+  if (g) return g;
+  const id_ = idOf || (() => el.dataset.fixed ? +el.dataset.p : effId(+el.dataset.p));
+  let openId = null, byPointer = false;
+  g = {
+    begin(pointer) {
+      if (openId !== null) return;          // idempotent: no double bracket
+      if (NO_HISTORY_IDS.has(id_())) return;   // declared above, not forgotten
+      openId = id_();
+      byPointer = !!pointer;
+      bridge.gesture(openId, true);
+    },
+    end() {
+      if (openId === null) return;          // idempotent: no unmatched END
+      const id = openId;                    // close the id we OPENED, never a
+      openId = null; byPointer = false;     // re-aimed one (effId follows the
+      bridge.gesture(id, false);            // selected oscillator)
+    },
+    // True only while a pointer is still down on this control: the one case in
+    // which the value handler must NOT close the bracket it just opened.
+    heldByPointer() { return openId !== null && byPointer; },
+  };
+  gestureLatches.set(el, g);
+  return g;
+}
 document.querySelectorAll('[data-p]').forEach(el => {
   const baseId = +el.dataset.p;
   const id_ = () => el.dataset.fixed ? baseId : effId(baseId);
+  const g = gestureFor(el);
   if (el.classList.contains('msbtn')) {
     el.addEventListener('click', () => {
       const v = el.classList.contains('on') ? 0 : 1;
       el.classList.toggle('on', v > 0);
+      // M/S is a div with no value event, so the click IS the whole gesture.
+      // It carried no bracket at all until B191 — mute and solo were simply
+      // absent from the history.
+      g.begin();
       bridge.setParam(id_(), v);
       lastParams[id_()] = v;
+      g.end();
       paintSolo();
     });
     return;
   }
+  // A range is the only control here with a DRAG; everything else changes
+  // instantaneously and brackets around its own value change.
+  const continuous = el.type === 'range';
   const evName = el.type === 'checkbox' ? 'change' : 'input';
   el.addEventListener(evName, () => {
+    g.begin();                    // no-op mid-drag; this is what opens the
+                                  // bracket on the keyboard and popup paths
     const v = el.type === 'checkbox' ? (el.checked ? 1 : 0) : ctlToParam(el);
     bridge.setParam(id_(), v);
     displayValue(el, v);
@@ -3771,11 +3871,18 @@ document.querySelectorAll('[data-p]').forEach(el => {
       /* 174-177 retired (ADR-156) */
     }
     if (baseId === 178) specimenSync(v > 0.5);            // instant, before the echo
+    if (!g.heldByPointer()) g.end();   // discrete, or a range moved by keyboard
   });
-  el.addEventListener('pointerdown', () => bridge.gesture(id_(), true));
-  el.addEventListener('pointerup', () => bridge.gesture(id_(), false));
+  if (continuous) {
+    el.addEventListener('pointerdown', () => g.begin(true));
+    el.addEventListener('pointerup', () => g.end());
+    // A drag that leaves the control (or is stolen by a scroll) must still
+    // close, or the host keeps recording a gesture nobody is making.
+    el.addEventListener('pointercancel', () => g.end());
+  }
   el.addEventListener('dblclick', () => resetToDefault(el));
 });
+/*/GATE:BRACKET*/
 /* Lifted out of the double-click closure so the context menu's "Reset to
    default" and the double-click are ONE implementation. A second copy of a
    default lookup is exactly the drift this comment block warns about below. */
@@ -3806,9 +3913,13 @@ function resetToDefault(el) {
     } else if (el.defaultValue !== '' && el.defaultValue !== undefined) def = +el.defaultValue;
     if (def === undefined || Number.isNaN(def)) def = DEFAULTS[baseId];
     if (def === undefined) return;
-    bridge.gesture(id_(), true);
+    // The element's own latch (B191), not a hand-rolled pair: a reset is an
+    // instantaneous gesture like any other discrete edit, and sharing the latch
+    // is what keeps it from nesting inside a drag that is still open.
+    const g = gestureFor(el);
+    g.begin();
     bridge.setParam(id_(), def);
-    bridge.gesture(id_(), false);
+    g.end();
     paintControl(el, def);
     lastParams[id_()] = def;
     if (typeof applyGates === 'function') applyGates();   // a mode default can re-gate rows
@@ -3859,7 +3970,15 @@ function buildOscSelectors() {
         // was three layers of duplicated defaults disagreeing; the engine's
         // defaultsJson is the ONE source and the GUI carries no copy.
         const cur = +(lastParams[id] ?? SHELL_DEFAULTS[id] ?? 0);
+        /* B191: bracketed like every other discrete edit. This button and the
+           SWARM page's `power` checkbox are two controls onto the SAME id, and
+           only the checkbox marked history — so turning an oscillator off from
+           the tab bar was an edit the player could not undo. The button has no
+           data-p of its own, so it hands gestureFor the id explicitly. */
+        const g = gestureFor(pw, () => id);
+        g.begin();
         bridge.setParam(id, cur >= 0.5 ? 0 : 1);
+        g.end();
         lastParams[id] = cur >= 0.5 ? 0 : 1;   // optimistic; syncFromEngine confirms
         // instant feedback on EVERY copy of this osc's button; the poll confirms
         for (const el of document.querySelectorAll('.oscPow[data-osc="' + k + '"]'))
@@ -3919,7 +4038,13 @@ function buildSubTab(host) {
   pw.addEventListener('click', (ev) => {
     ev.stopPropagation();
     const cur = +(lastParams[SUB_ON_ID] ?? SHELL_DEFAULTS[SUB_ON_ID] ?? 0);
+    /* B191: `sub.on` is the presentation table's `widget = none` case — this
+       button is its ONLY control — so without a bracket here the sub could be
+       switched on and off with nothing in the history at all. */
+    const g = gestureFor(pw, () => SUB_ON_ID);
+    g.begin();
     bridge.setParam(SUB_ON_ID, cur >= 0.5 ? 0 : 1);
+    g.end();
     lastParams[SUB_ON_ID] = cur >= 0.5 ? 0 : 1;   // optimistic; syncFromEngine confirms
     for (const el of document.querySelectorAll('.oscPow[data-panel="sub"]'))
       el.classList.toggle('on', cur < 0.5);
