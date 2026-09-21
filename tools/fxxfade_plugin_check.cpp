@@ -5,7 +5,7 @@
    500 ms: still ringing at 100 ms, gone by 600 ms. 2026-09-14, after the human
    could not hear the toggle in the DAW — the mechanism was fine, the test
    was not; this pins the plugin path so that question never reopens.
-   WIRED: ./verify full. Exit 1 on failure.
+   WIRED: ./verify full. Exit 1 on failure. */
 #include <algorithm>
 #include <cmath>
 #include <cstdio>

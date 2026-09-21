@@ -53,6 +53,14 @@ extern "C"
      Owner: subosc_check. */
   void hypersaw_debug_subwave(const clap_plugin_t *p, char *out, uint32_t cap);
 
+  /* B177 note: the LFOs' published cycles — exactly what the GUI bridge's
+     hzGetLfoCycle hands the MOD page. The law is shared by construction (the
+     shell calls its own `lfoShapeAt`, which is what the mod tick calls), so
+     what this door is FOR is the other half: an oracle can walk the live
+     source slot phase by phase and assert the picture is the sequence being
+     generated, not merely a function that resembles it. Owner: lfoenv_check. */
+  void hypersaw_debug_lfocycle(const clap_plugin_t *p, char *out, uint32_t cap);
+
   /* The GUI load button's applyStateJson, headless; the apply is QUEUED.
      Owner: state_check, preset_probe, morphlayout_check, penv_check,
      bank_check, statefix_common.h. */
