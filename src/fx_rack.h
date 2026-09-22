@@ -294,6 +294,57 @@ class FxRack
     return held < kSlotMaxInstances[type];
   }
 
+  /* B188 — THE LOAD'S VERB, and only the load's. `typeAllowed` above counts a
+     slot's fade-out SHADOW as a holder, which is right while both modules
+     render and is what fxxfade_check T4 pins: during ordinary play a slot that
+     has just left Comb still renders it, so another slot may not claim it yet.
+
+     A LOAD is the one caller that rule breaks. A load arrives as a whole patch
+     in a single drain — B192 resets every slot to Off first, which arms the
+     outgoing slot's crossfade, and the arriving slot's write is refused
+     microseconds later against that shadow with nobody to retry once the fade
+     ends. So a preset load, a DAW session reload or a history restore that had
+     to MOVE Comb between slots LOST it entirely (measured 2026-09-21: save with
+     Comb in slot 1, move it to slot 3, reload the slot-1 patch, and slot 1 came
+     back Off). Worse headless: `fadeLeft` decays only inside renderCrossfade,
+     so an instance that processes no audio held that shadow for ever and one
+     Comb that ever left a slot blocked Comb permanently.
+
+     THE CAP IS NOT WEAKENED, at either caller. A claim blocked by a LIVE
+     instance is still refused — that is the double-write of the rack-shared KS
+     bank the cap exists to prevent. A claim blocked ONLY by shadows ends those
+     fades now; the outgoing module stops rendering the instant `fadeLeft` hits
+     0, so the bank still has exactly one writer at every sample. And no
+     uncapped type can reach this path at all: each has kRackSlots instances
+     against at most kRackSlots-1 other slots, so `typeAllowed` never refuses
+     one.
+
+     What the cut costs is small and local, which is why a load may pay it and
+     a knob move may not: Comb's delay lines are rack-owned and shared, so the
+     resonance carries across the move untouched — only that slot's POSITION in
+     the series chain changes, which is what the load is changing anyway. */
+  bool claimType(int slot, int type)
+  {
+    if (typeAllowed(slot, type)) return true;
+    if (slot < 0 || slot >= kRackSlots || type < 0 || type >= 10) return false;
+    int live = 0, shadows = 0;
+    for (int k = 0; k < kRackSlots; k++)
+    {
+      if (k == slot) continue;
+      if ((int)slots[k].type == type) live++;
+      else if (fadeLeft[k] > 0 && (int)shadow[k].type == type) shadows++;
+    }
+    // Refuse without cutting anything when the cap is reached WITHOUT the
+    // shadows' help: ending them would not free the instance, so the click
+    // would be bought for nothing.
+    if (shadows == 0 || live >= kSlotMaxInstances[type]) return false;
+    for (int k = 0; k < kRackSlots; k++)
+      if (k != slot && (int)slots[k].type != type && fadeLeft[k] > 0
+          && (int)shadow[k].type == type)
+        fadeLeft[k] = 0;
+    return true;
+  }
+
   /* ---- B117 / ADR-163: FX PRESENCE CROSSFADE ------------------------------
    * A DEV TOGGLE, an instrument for a ruling — not a feature. Module TYPE is
    * stepped, so under both morph modes a slot's module flips atomically (B49):
