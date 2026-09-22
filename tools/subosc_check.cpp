@@ -211,9 +211,18 @@ struct ShellRig
      express (one note-on, at frame 0, once). This is the same transport with
      an event list the caller supplies per block: `keys[b]` is what happens at
      the top of block b — a positive key is a note-on, a negative one is a
-     note-off of |key|, 0 is nothing. Returns the left channel. */
+     note-off of |key|, 0 is nothing. Returns the left channel.
+
+     `mid` (B202) is the same story for PARAMETERS: `mid[b]`, when the caller
+     supplies it, is written at the top of block b. `vels[b]` is that block's
+     note-on velocity (1.0 when absent), which 11g.e needs to separate the
+     phase discontinuity from the gain one. `sets` stays the block-0 patch and
+     both new arguments default to empty, so every existing caller reads
+     exactly as it did. */
   std::vector<float> sequence(const std::vector<std::pair<clap_id, double>> &sets,
-                              const std::vector<int> &keys)
+                              const std::vector<int> &keys,
+                              const std::vector<std::vector<std::pair<clap_id, double>>> &mid = {},
+                              const std::vector<double> &vels = {})
   {
     std::vector<clap_event_param_value_t> pv;
     for (const auto &kv : sets)
@@ -231,6 +240,25 @@ struct ShellRig
       e.key = -1;
       pv.push_back(e);
     }
+    /* Built ONCE, up front: the event pointers handed to the host must outlive
+       the process() call that reads them, and a per-block temporary would not. */
+    std::vector<std::vector<clap_event_param_value_t>> mpv(keys.size());
+    for (size_t b = 0; b < keys.size() && b < mid.size(); b++)
+      for (const auto &kv : mid[b])
+      {
+        clap_event_param_value_t e{};
+        e.header.size = sizeof(e);
+        e.header.type = CLAP_EVENT_PARAM_VALUE;
+        e.header.space_id = CLAP_CORE_EVENT_SPACE_ID;
+        e.header.time = 0;
+        e.param_id = kv.first;
+        e.value = kv.second;
+        e.note_id = -1;
+        e.port_index = -1;
+        e.channel = -1;
+        e.key = -1;
+        mpv[b].push_back(e);
+      }
     std::vector<clap_event_note_t> ne(keys.size());
     std::vector<const clap_event_header_t *> ord;
     struct Ctx { std::vector<const clap_event_header_t *> *o; } ctx{&ord};
@@ -248,6 +276,7 @@ struct ShellRig
       ord.clear();
       if (b == 0)
         for (auto &e : pv) ord.push_back(&e.header);
+      for (auto &e : mpv[b]) ord.push_back(&e.header);
       if (keys[b] != 0)
       {
         clap_event_note_t &e = ne[b];
@@ -259,7 +288,7 @@ struct ShellRig
         e.port_index = 0;
         e.channel = 0;
         e.key = (int16_t)(keys[b] > 0 ? keys[b] : -keys[b]);
-        e.velocity = keys[b] > 0 ? 1.0 : 0.0;
+        e.velocity = keys[b] > 0 ? (b < vels.size() && vels[b] > 0 ? vels[b] : 1.0) : 0.0;
         ord.push_back(&e.header);
       }
       clap_process_t proc{};
@@ -1653,6 +1682,107 @@ int main(int argc, char **argv)
             "96 kHz",
             "44.1 kHz %.2f Hz", a);
         std::printf("   (96 kHz read %.2f Hz at the same instant)\n", b);
+      }
+      /* 11g.e THE MONO OVERLAP CLICK (B202; human 2026-09-21: "when the Sub
+         Osc is set to mono, there's a click artifact when notes overlap").
+
+         WHICH OVERLAP. Mono has exactly ONE re-strike path: `subStruckKey` is
+         cleared when the last key lifts, so the NEXT press strikes the core
+         instead of gliding — and SubOscCore::noteOn REPLACES the sounding note
+         (subosc_core.h's header). With the previous note's release tail still
+         running (`release` ships at 0.08 s, which is most of ordinary
+         playing), that strike reset the phase underneath a live envelope: a
+         full-scale sample-to-sample jump. Poly never shows it because the
+         swarm's allocator hands the new note a DIFFERENT slot; mono is always
+         slot 0. That is the human's report, and it is NOT the mono TOGGLE
+         crossing, which is a separate, deliberate discontinuity (subAllOff
+         under ADR-099 A1) still awaiting its own ruling — it is the control
+         below, measured through the identical detector so the two cannot be
+         confused for one another.
+
+         THE DETECTOR is station_check 3.12/3.15's, in its unit: |step at the
+         event| over the LARGEST natural inter-sample step in the cycle before
+         it, gated at 2x. A raw threshold would be a number about this patch;
+         a ratio against the signal's own slope is a number about clicks.
+         SIXTEEN PHASES, median — at 48 kHz a 256-sample block advances MIDI
+         60's 183-sample cycle by 73 samples, so the sustain length sweeps the
+         phase, and a single reading would be luck about where the event fell
+         (station_check's own note on exactly that trap). */
+      {
+        const double sr = 48000;
+        const int blk = 256;
+        const int cycle = (int)std::lround(sr / mtof(60));   // 183 samples
+        auto ratioAt = [&](const std::vector<float> &y, size_t at) {
+          double nat = 0;
+          for (size_t i = at - (size_t)cycle; i < at; i++)
+            nat = std::max(nat, std::fabs((double)y[i] - (double)y[i - 1]));
+          return std::fabs((double)y[at] - (double)y[at - 1]) / std::max(nat, 1e-300);
+        };
+        // Held for `hold` blocks, released, then a NEW key pressed `gap`
+        // blocks later — inside the 0.08 s release, so the tail is live.
+        auto overlap = [&](int hold, int gap, double vel2) {
+          std::vector<int> seq = {60};
+          for (int i = 1; i < hold; i++) seq.push_back(0);
+          seq.push_back(-60);
+          for (int i = 1; i < gap; i++) seq.push_back(0);
+          seq.push_back(67);
+          for (int i = 0; i < 8; i++) seq.push_back(0);
+          std::vector<double> vels(seq.size(), 1.0);
+          vels[(size_t)(hold + gap)] = vel2;
+          ShellRig r;
+          r.boot(sr, blk);
+          const std::vector<float> y =
+              r.sequence(subSine({{kSubMonoId, 1}, {kSubBiasId, 0}}), seq, {}, vels);
+          r.kill();
+          return ratioAt(y, (size_t)(hold + gap) * blk);
+        };
+        // CONTROL: the mono TOGGLE crossing, same detector. 4016 goes 1 -> 0
+        // under a sounding note; subAllOff zeroes the envelope and the filter
+        // state in one sample. It MUST read above the gate — a detector that
+        // had stopped measuring would pass 11g.e by reading zero everywhere.
+        auto toggle = [&](int hold) {
+          std::vector<int> seq = {60};
+          for (int i = 1; i < hold + 9; i++) seq.push_back(0);
+          std::vector<std::vector<std::pair<clap_id, double>>> mid(seq.size());
+          mid[hold] = {{kSubMonoId, 0}};
+          ShellRig r;
+          r.boot(sr, blk);
+          const std::vector<float> y =
+              r.sequence(subSine({{kSubMonoId, 1}, {kSubBiasId, 0}}), seq, mid);
+          r.kill();
+          return ratioAt(y, (size_t)hold * blk);
+        };
+        std::vector<double> ov, ovv, tg;
+        for (int k = 0; k < 16; k++)
+        {
+          ov.push_back(overlap(24 + k, 3, 1.0));
+          ovv.push_back(overlap(24 + k, 3, 0.3));
+          tg.push_back(toggle(24 + k));
+        }
+        std::sort(ov.begin(), ov.end());
+        std::sort(ovv.begin(), ovv.end());
+        std::sort(tg.begin(), tg.end());
+        const double ovMed = ov[ov.size() / 2], ovvMed = ovv[ovv.size() / 2],
+                     tgMed = tg[tg.size() / 2];
+        std::printf("   overlap re-strike into a live release tail: %.2fx the natural step "
+                    "(worst of 16 phases %.2fx; 18.18x before B202)\n", ovMed, ov.back());
+        std::printf("   same re-strike at velocity 1.0 -> 0.3: %.2fx   REPORTED, NOT GATED — "
+                    "see the coverage note\n", ovvMed);
+        std::printf("   control  mono TOGGLE crossing (deliberate, ADR-099 A1, unruled): %.2fx "
+                    "(gate: > 2x — must step)\n", tgMed);
+        /* COVERAGE BOUNDARY, MEASURED, NOT ASSUMED (L0033). The velocity-change
+           reading above is NOT gated, and the reason is not that it is small.
+           `gain = level * vel` steps at a re-strike only because the AR
+           envelope CONTINUES across a note-on; that envelope is SPEC-SUBOSC
+           §5.3's PROVISIONAL per-module surface, which open ruling R4 already
+           expects the VOICE envelope to strike — gating it here would pin a
+           number about a stage that is leaving. What IS gated is the phase
+           discontinuity, which is present at every re-strike however the
+           player plays, and which was the human's report. */
+        row(ovMed <= 2 && tgMed > 2,
+            "11g.e mono overlap is click-free: a re-strike into a live release tail steps no "
+            "more than 2x the signal's own slope; control: the mono toggle still steps",
+            "overlap %.2fx", ovMed);
       }
     }
 

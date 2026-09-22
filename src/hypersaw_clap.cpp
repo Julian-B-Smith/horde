@@ -1812,7 +1812,36 @@ struct Plugin
     {
       subStruckKey = want;
       subGlideCur = subGlideTo = subGlideRate = 0;
-      subs[0].noteOn(want, vel);
+      /* THE OVERLAP CLICK (B202; human 2026-09-21: "when the Sub Osc is set to
+         mono, there's a click artifact when notes overlap"). This is mono's
+         ONLY re-strike path — `subStruckKey` is cleared when the last key
+         lifts, so the next press strikes instead of gliding — and `release`
+         ships at 0.08 s, so in ordinary playing the previous note's tail is
+         still running when it lands. noteOn REPLACES (subosc_core.h), and the
+         phase reset underneath that live envelope was the click: 18.18x the
+         signal's own slope, measured by subosc_check 11g.e before this line.
+         Keeping the phase makes the strike continuous; `env > 0` is the tail,
+         so a note that starts from silence still obeys the `phase` parameter
+         exactly as before.
+
+         WHY MONO AND NOT THE POLY PATH BESIDE IT — the structural difference
+         the sub has from an oscillator. Poly hands the sub the SWARM
+         allocator's slot, and alloc()'s tiers 1 and 2 read `env`, so a fresh
+         note lands on an idle or quietest voice and a live tail is the case it
+         is built to avoid. Mono has one slot and no such choice; the click is
+         the price of that, and this is what pays it.
+
+         WHAT THIS DOES NOT COVER, measured and named rather than implied: if
+         the new note's VELOCITY differs from the tail's, `gain = level * vel`
+         still steps — 11.91x at 1.0 -> 0.3, which 11g.e REPORTS and does not
+         gate. Its size is the product of the INHERITED envelope level and the
+         velocity change, and the inheritance is SPEC-SUBOSC §5.3's PROVISIONAL
+         per-module AR, which open ruling R4 already expects the voice envelope
+         to replace. Fixing it here means either cutting the tail (a bigger
+         step) or the shell writing the core's `env`, which that member's own
+         comment forbids — so it is left measured, visible and unqueued rather
+         than paid for against a stage that is leaving. */
+      subs[0].noteOn(want, vel, /*keepPhase=*/subs[0].env > 0);
       subKey[0] = want;
       return;
     }
