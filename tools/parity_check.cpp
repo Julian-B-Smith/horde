@@ -11,6 +11,7 @@
  * Pass: every scenario RMS < 1e-6 (ACCEPTANCE L0-1). Exit nonzero otherwise.
  *
  * Usage: parity_check <build-golden-dir>
+ * WIRED: ./verify full.
  */
 
 #include <cstdio>

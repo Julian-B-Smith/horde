@@ -15,6 +15,7 @@
  * Setup mirrors the labs' state as a pure function of final params (the
  * generator applies 'seed' last, so pre-run state == rebuild(final params)
  * + reset-to-home; no call-sequence replay needed).
+ * WIRED: ./verify full.
  */
 
 #include <cmath>

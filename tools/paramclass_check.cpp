@@ -3,10 +3,7 @@
  * (morphable / structural / device) and the classification is consistent with
  * the structures that already exist in the shell.
  *
- * STANDALONE AND UNWIRED, by the charter's standing rule: wiring a gate into
- * ./verify is the human's decision, proposed in the PR that adds the gate
- * (ADR-171 is the route the nine wired checks took).
- * UNWIRED: standing human ruling on gate scope, stated in this header and pre-dating the ADR-179 §4 inversion; not revisited in the wiring PR (B159).
+ * WIRED: ./verify full (CAPTURED there, not printed — 289 lines a run).
  *
  * It PRINTS the full table (id, key, name, class, reason) before it asserts,
  * because the classification is a judgement the human reviews — a green exit

@@ -35,7 +35,7 @@
  * read exactly 0. A "0.0" from a detector that has never produced a non-zero
  * is not evidence.
  *
- * STANDALONE AND UNWIRED — wiring a gate is the human's decision (charter).
+ * WIRED: ./verify full.
  */
 #include <cmath>
 #include <cstdio>

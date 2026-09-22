@@ -12,8 +12,7 @@
  *   T3 bounded: a held note through the guarded rack never exceeds a sane
  *      peak (the control for what the guard is guarding against).
  *   T4 order-independence: FX2 = Comb first, then FX1 = Comb refused too.
- * Standalone, registered in CMake, not in ./verify (standing human ruling).
- * UNWIRED: standing human ruling on gate scope, stated in this header and pre-dating the ADR-179 §4 inversion; not revisited in the wiring PR (B159).
+ * WIRED: ./verify full.
  */
 #include <algorithm>
 #include <cmath>
@@ -71,6 +70,15 @@ int main()
   const int kBlocks = (int)(2.0 * kSR) / kBlock;
   // reference: one Comb in FX1, amount 0.6
   Probe ref; ref.boot(); ref.set({{57, 5}, {58, 0.6}});
+  /* AGE-MATCHING, not padding: set() PROCESSES a block, and the refusal arm
+     below needs two set() calls to attempt its second Comb. Without this empty
+     second block the reference enters render() one block YOUNGER, and one block
+     is enough for FX1's amount smoother to move — so T2's bit-identity claim
+     was comparing two different points on the smoother ramp and failed on a
+     difference the guard has nothing to do with. Found when the check was first
+     run for wiring (B159): T2 was the only red row, and it went green the
+     moment the two arms were the same age. */
+  ref.set({});
   double refPeak = 0; auto refA = ref.render(kBlocks, refPeak); ref.kill();
 
   // T1 + T2: FX1 = Comb, then FX2 = Comb attempted
@@ -80,8 +88,20 @@ int main()
   char d[96]; std::snprintf(d, sizeof d, "FX2 reads %.0f (want 0 = Off)", t2);
   ok(t2 == 0.0, "T1 second Comb refused, slot keeps its type", d);
   double aPeak = 0; auto aA = a.render(kBlocks, aPeak); a.kill();
-  ok(aA == refA, "T2 audio after the refusal is bit-identical to one Comb",
-     aA == refA ? "identical to the bit" : "diverged — the refusal leaked into the audio");
+  /* Report WHERE and BY HOW MUCH on divergence: "diverged" alone cannot tell a
+     leaked Comb (gross, growing) from a smoother-phase artifact (tiny, early),
+     and that ambiguity is what made the original red row hard to read. */
+  double worst = 0; size_t firstDiff = aA.size();
+  for (size_t i = 0; i < aA.size() && i < refA.size(); i++)
+  {
+    const double d = std::fabs((double)aA[i] - (double)refA[i]);
+    if (d > 0 && i < firstDiff) firstDiff = i;
+    worst = std::max(worst, d);
+  }
+  const bool identical = (aA == refA);
+  if (identical) std::snprintf(d, sizeof d, "identical to the bit (%zu samples)", aA.size());
+  else std::snprintf(d, sizeof d, "diverged: first at sample %zu, worst |delta| %.3e", firstDiff, worst);
+  ok(identical, "T2 audio after the refusal is bit-identical to one Comb", d);
   std::snprintf(d, sizeof d, "peak %.3f (ref %.3f)", aPeak, refPeak);
   ok(aPeak < 4.0 && std::isfinite(aPeak), "T3 bounded", d);
 

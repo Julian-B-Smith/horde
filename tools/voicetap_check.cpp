@@ -13,7 +13,7 @@
  *   T3  a REAL filter changes the output (the hook is genuinely in-path)
  *   T4  per-note buffers carry the right notes: gated slots non-silent,
  *       silent cores contribute nothing
- * UNWIRED: reason not stated — see B159.
+ * WIRED: ./verify full.
  */
 #include <cstdio>
 #include <cmath>

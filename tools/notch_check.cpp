@@ -6,6 +6,7 @@
  * attenuation means the defect returned).
  *
  * noise=0 for every scenario. One held A3, 1 s, 512-sample blocks.
+ * WIRED: ./verify full.
  */
 
 #include <cmath>

@@ -1,4 +1,5 @@
 /* stability_check — the engine over TEN MINUTES of held notes.
+ * WIRED: ./verify full.
  *
  * B147 layer 2. The B147 layer-1 audit (docs/audits/2026-09-18-saw-engine-audit.md
  * §3.4) found: "Gate: none for duration. `notefuzz_check` and
@@ -60,7 +61,6 @@
  * DEFAULT IS THE FULL 600 s, because a duration check whose default duration
  * is short is a duration check in name only.
  *
- * STANDALONE AND UNWIRED — wiring a gate is the human's decision (charter).
  */
 #include <algorithm>
 #include <chrono>

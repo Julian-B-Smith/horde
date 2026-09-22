@@ -1,6 +1,7 @@
 /*
  * tseed_check — B149: the ADR-077/078 ensemble-timing stream is SEEDED, and its
  * state survives the chunk.
+ * WIRED: ./verify full.
  *
  * WHY. Until 2026-09-18 the stream was `uint32_t tRng = 12345` in
  * src/swarm_core.h — a literal `p.seed` never reached and no saved state ever

@@ -6,10 +6,7 @@
  * invariant probes with measured tolerances, the L0031 oracle-kind lesson
  * applied from birth instead of retrofitted.
  *
- * Standalone binary, registered in CMake, NOT in ./verify — wiring it into
- * the gate set is the standing human ruling (same status as delay_check,
- * strata_check, voicetap_check).
- * UNWIRED: standing human ruling on gate scope, stated in this header and pre-dating the ADR-179 §4 inversion; not revisited in the wiring PR (B159).
+ * WIRED: ./verify full, beside delay_check / strata_check / voicetap_check.
  */
 #include <cmath>
 #include <cstdio>

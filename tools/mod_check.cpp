@@ -6,7 +6,7 @@
  * segregation, refusal semantics) so a later "small" change that bends one is
  * caught by a red gate instead of by a player. Each check prints its evidence;
  * the must-fire style follows the repo's probe discipline.
- * UNWIRED: reason not stated — see B159.
+ * WIRED: ./verify full.
  */
 #include <cstdio>
 #include <cmath>

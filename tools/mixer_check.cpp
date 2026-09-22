@@ -22,7 +22,7 @@
  * The tritone is irrational (2^(1/2)), so no harmonic of either fundamental
  * lands on the other. Calibrate the detector for the signal class before
  * trusting it to accuse the code.
- * UNWIRED: reason not stated — see B159.
+ * WIRED: ./verify full.
  */
 #include <cmath>
 #include <cstdio>

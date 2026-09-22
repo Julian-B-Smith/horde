@@ -14,6 +14,7 @@
  * within a block, so per-block timestamps must be drawn sorted BEFORE
  * assigning on/off actions — otherwise the generator emits an OFF that
  * precedes its own ON and fakes a hang no host can produce.
+ * WIRED: ./verify full.
  */
 #include <cstdio>
 #include <cstring>

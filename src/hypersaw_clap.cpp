@@ -5271,6 +5271,63 @@ struct Plugin
     return out + "]}";
   }
 
+  /* B177 note (2026-09-21) — ONE CYCLE OF EACH LFO, AND THE SHELL DRAWS IT.
+     B177 shipped the MOD page's LFO pictures with a JS transcription of
+     `lfoShapeAt` in gui2.html: two copies of one law, nothing holding them
+     together, so an edit to the switch above would have left the drawing
+     confidently wrong. Same exposure ADR-110 records for the bend curve, and
+     the same cure B181 note 3 applied to the SUB — publish the cycle from the
+     function that MAKES THE SOUND (the mod tick calls this same `lfoShapeAt`
+     at line ~3744) and delete the twin.
+
+     N = 129 points at ph = i/128, which is exactly the grid the deleted JS
+     drew on, so the picture is unchanged for every shape but S&H.
+
+     S&H IS THE PART THAT GOT MORE HONEST. The GUI showed a fixed eight-value
+     display list labelled "illustrative" because it could not reach the
+     engine's stream. `sh` here is the FIRST EIGHT DRAWS of this LFO's own
+     seeded stream — lfoSeed(i), the stream `lfoReseed` installs — advanced on
+     a LOCAL copy of the state, so publishing a picture can never perturb the
+     sound. One value per wrap is the tick loop's law, so eight values are
+     eight cycles: the steps are the ones the patch seed will actually
+     produce, not a stand-in for them.
+
+     Free of the audio thread: called from the GUI bind, reads plain doubles. */
+  std::string lfoCycleJson() const
+  {
+    constexpr int N = 128;        // segments; N+1 points, the GUI's old grid
+    constexpr int kShSteps = 8;   // wraps shown for S&H, the old display list's length
+    char buf[32];
+    std::string out = "{\"lfo\":[";
+    for (int i = 0; i < kNumLfo; i++)
+    {
+      if (i) out += ',';
+      std::snprintf(buf, sizeof buf, "{\"shape\":%d,\"pts\":[", lfoShape[i]);
+      out += buf;
+      for (int k = 0; k <= N; k++)
+      {
+        const double v = lfoShapeAt(lfoShape[i], (double)k / N, lfo[i].sh);
+        /* SEVEN decimals, not the five a 300-pixel canvas needs: lfoenv_check's
+           E2 walks the live source against these points, so the transport's own
+           quantisation is the floor of what that gate can resolve. At %.5f the
+           residual was 5e-6 — the printf, not the law — and a tolerance written
+           to absorb it would have absorbed a real divergence of the same size. */
+        std::snprintf(buf, sizeof buf, k ? ",%.7f" : "%.7f", v);
+        out += buf;
+      }
+      out += "],\"sh\":[";
+      uint32_t rng = lfoSeed(i);          // a COPY: the live stream is untouched
+      for (int k = 0; k < kShSteps; k++)
+      {
+        const double v = 2.0 * forcecore::rngNext(rng) - 1.0;
+        std::snprintf(buf, sizeof buf, k ? ",%.7f" : "%.7f", v);
+        out += buf;
+      }
+      out += "]}";
+    }
+    return out + "]}";
+  }
+
   std::string shapeWaveJson()
   {
     const uint32_t vo = vizOsc.load(std::memory_order_relaxed);
@@ -8594,6 +8651,11 @@ extern "C" void hypersaw_debug_subwave(const clap_plugin_t *p, char *out, uint32
   const std::string j = self(p)->subWaveJson();
   std::snprintf(out, cap, "%s", j.c_str());
 }
+extern "C" void hypersaw_debug_lfocycle(const clap_plugin_t *p, char *out, uint32_t cap)
+{
+  const std::string j = self(p)->lfoCycleJson();
+  std::snprintf(out, cap, "%s", j.c_str());
+}
 extern "C" bool hypersaw_debug_exempt(const clap_plugin_t *p, uint32_t id) { return self(p)->morphToggleExempt((clap_id)id); }
 /* The GUI bridge's other two corner verbs, headless — the same reason the
    exempt door above exists. B89 2c (e) has to prove capture still bakes and an
@@ -8982,6 +9044,7 @@ bool gui_create(const clap_plugin_t *p, const char *api, bool is_floating)
   hostIf.getBendCurveJson = [pl]() { return pl->bendCurveJson(); };
   hostIf.getShapeWaveJson = [pl]() { return pl->shapeWaveJson(); };
   hostIf.getSubWaveJson = [pl]() { return pl->subWaveJson(); };   // B181 note 3
+  hostIf.getLfoCycleJson = [pl]() { return pl->lfoCycleJson(); }; // B177 note
   hostIf.morphCapture = [pl](uint32_t k) { pl->morphCapture((int)k); };
   hostIf.morphCornerJson = [pl](uint32_t k) { return pl->cornerJson((int)k); };
   hostIf.morphLiveJson = [pl]() { return pl->liveCornerJson(); };

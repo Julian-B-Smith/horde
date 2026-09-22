@@ -1,4 +1,5 @@
 /* ncap_check — B148: the swarm size can never index past kMaxV.
+ * WIRED: ./verify full.
  *
  * WHY. `SwarmCore::p.n` is a public double and `kMaxV` (32) is the extent of
  * x[], panL[], panR[], panBase[], itdSamp[] and every per-oscillator Voice

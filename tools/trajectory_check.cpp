@@ -10,6 +10,7 @@
  * Protocol: A3 = midi 57 (220 Hz), 44.1 kHz, 1024-sample blocks, retriggered
  * start unless stated. R is sampled from the focus swarm once per second of
  * rendered audio (ACCEPTANCE L0-2: "R sampled ~1/s").
+ * WIRED: ./verify full.
  */
 
 #include <cstdio>

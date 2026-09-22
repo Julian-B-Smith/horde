@@ -25,6 +25,7 @@
  * is this: choose the layout so the contamination is IMPOSSIBLE, not unlikely.
  * Notes 72..75 exist to fill the pool and are deliberately NOT measured — 72 is
  * exactly one octave above 60 and would read 60's second harmonic.
+ * WIRED: ./verify full.
  */
 #include <cstdio>
 #include <cmath>

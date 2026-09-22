@@ -7,6 +7,7 @@
  * equivalence with the reference, never "feels like a glide".
  *
  * Usage: glide_check <golden-dir>
+ * WIRED: ./verify full.
  */
 #include <cmath>
 #include <cstdio>

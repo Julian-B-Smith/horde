@@ -11,8 +11,12 @@
  *     node tools/labharness/reverb_check.mjs          (~45 s, V6 is 38 of them)
  *     node tools/labharness/reverb_check.mjs V5 V6    (named checks only)
  *
- * UNWIRED: ~45 s of measurement (V6 alone is 38) against a lab with no port
- *   yet; wiring it was outside the ADR-179 §4 PR's sanctioned set (B159).
+ * UNWIRED: COST, not doubt — ~45 s of measurement (V6 alone is 38) on a
+ *   `./verify full` that runs in 75.5 s warm, so wiring it is a 60 % increase
+ *   for a lab nothing consumes yet: SwarmVerb has no port, no shell route and
+ *   no caller, so a regression here cannot reach a user. The reason expires
+ *   the day the port lands — wire it in that PR. Re-ruled 2026-09-21 (B159),
+ *   the one of the ten kept unwired; the other nine cost 2.0 s together.
  *
  * IT EXTRACTS, IT DOES NOT REIMPLEMENT. SwarmVerb is sliced live out of the
  * HTML by tools/golden/extract_core.mjs, so the thing measured is the thing

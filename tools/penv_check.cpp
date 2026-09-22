@@ -24,7 +24,7 @@
        makes depth 0 bit-identical.
    env2/stage here are the GLOBAL PROJECTION (mod source slot 1 = max over
    gated slots); hypersaw_debug_penv_slot reads one slot's own envelope.
-   Standalone; not wired into ./verify (human gate). Exit 1 on failure. */
+   WIRED: ./verify full. Exit 1 on failure. */
 #include <algorithm>
 #include <cmath>
 #include <cstdio>

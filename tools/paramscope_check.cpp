@@ -27,6 +27,7 @@
  * four unrelated renders ran first. Re-ordering made it pass, which is luck —
  * the next assertion added would re-break it. A fresh instance makes the suite
  * order-independent by construction rather than by arrangement.
+ * WIRED: ./verify full.
  */
 #include <cmath>
 #include <cstdio>

@@ -12,6 +12,7 @@
  *
  * The wrapper layers (VST3/AU setState paths) are covered by pluginval and
  * auval; this pins OUR side of the contract in ./verify full.
+ * WIRED: ./verify full.
  */
 
 #include <cstdio>

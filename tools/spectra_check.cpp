@@ -10,6 +10,7 @@
  *  3. L0-7 interference gate: K=-1 vs K=0 at defaults, 4 s settle — RMS
  *     reduction >= 12 dB (reference -14.8; a value near -1.7 dB means the
  *     wmix narrowing path broke).
+ * WIRED: ./verify full.
  */
 
 #include <cmath>

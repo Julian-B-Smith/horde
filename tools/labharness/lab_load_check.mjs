@@ -18,6 +18,7 @@
  *
  * Usage: node tools/labharness/lab_load_check.mjs [file.html ...]
  * Exit 1 if any lab throws.
+ * WIRED: ./verify fast.
  */
 import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';

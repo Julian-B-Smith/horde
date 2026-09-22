@@ -18,6 +18,7 @@
  * by a file that mentions every key. So each positive assertion is paired with
  * a negative one that must NOT match, on a dump taken from a state where the
  * thing genuinely is absent.
+ * WIRED: ./verify full.
  */
 #include <cstdio>
 #include <cstring>

@@ -23,6 +23,7 @@
  *
  * The harness below is lifted from notchslot_check rather than rewritten: a
  * second CLAP driver is a second thing to keep in step.
+ * WIRED: ./verify full.
  */
 #include <algorithm>
 #include <cmath>

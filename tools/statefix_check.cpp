@@ -18,6 +18,7 @@
  *
  * Bit-identity is asserted on THIS toolchain. Whether it holds across
  * compilers is measured, not assumed — see the corpus README.
+ * WIRED: ./verify full.
  */
 
 #include <algorithm>

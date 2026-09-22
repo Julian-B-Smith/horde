@@ -3,6 +3,7 @@
  * real modulation SOURCES with the timing, shapes, determinism and polarity
  * they claim. WIRED into `./verify full` (ADR-180 §1 inverted the default: a
  * new check is wired in the PR that creates it).
+ * WIRED: ./verify full.
  *
  * WHAT IT GATES, section by section. Each section answers one acceptance
  * clause of the brief, and each carries a control that MUST read the other way
@@ -30,6 +31,14 @@
  *   E  RETRIGGER. With retrig on, a note-on rewinds the phase to the Start
  *      Phase knob. CONTROL: with retrig OFF (free-running) the same note-on
  *      does NOT rewind it.
+ *   E2 THE MOD PAGE'S PICTURE IS THE LIVE SOURCE (B177 note, 2026-09-21). The
+ *      shell publishes each LFO's cycle for the GUI; this walks the live source
+ *      slot phase by phase, on a grid where one mod tick is exactly one
+ *      published point, and asserts they agree to the publisher's own precision.
+ *      It is what stops the deleted JS shape law from being re-forked: the cure
+ *      for B177's second copy was structural, and this is what keeps it so.
+ *      CONTROLS: the same walk against ANOTHER shape's cycle fails; a different
+ *      patch seed publishes a different S&H first step.
  *   F  ENV 3/4. THE ADSR KNOBS ARE ONE-POLE TIME CONSTANTS, not times-to-peak.
  *      That is ENV 2's law (ADR-135/162) and ENV 3/4 run the same one, so the
  *      level is 1-exp(-t/tau) and the stage snaps to exactly 1 once it passes
@@ -406,6 +415,162 @@ void sectionRetrig()
         num(off.first) + " -> " + num(off.second));
 }
 
+/* ---- E2: the PUBLISHED CYCLE is the sequence the source generates -------- */
+void sectionPublishedCycle()
+{
+  std::printf("\n-- E2. the MOD page's LFO picture IS the live source (B177 note) --\n");
+  /* WHY THIS SECTION EXISTS. B177 drew each LFO from a JS transcription of
+     `lfoShapeAt` inside gui2.html: two copies of one law, nothing gating them,
+     so a shape edit could have left the picture confidently wrong. The cure is
+     structural — the shell publishes the cycle and the transcription is gone —
+     but "one law" is a property of today's source, not an invariant, and the
+     next author can re-fork it in one line. This pins the relationship the
+     deletion bought: the published points must BE the values the mod tick
+     puts in the source slot, walked phase by phase.
+
+     THE PHASE GRID IS EXACT BY CONSTRUCTION. One block here is one mod tick,
+     so with rate = sr / (tickFrames * N) the phase advances by exactly 1/N a
+     tick, and after a retrigger to Start Phase 0 the k-th tick lands on the
+     k-th published point. N is the publisher's own resolution (128 segments).
+
+     DISCONTINUITIES ARE EXCLUDED, AND THE EXCLUSION IS DERIVED, NOT LISTED:
+     any index where the PUBLISHED curve itself jumps more than 0.1 between
+     neighbours is skipped, because a sub-ULP phase difference across the
+     square's edge or the saw's wrap is a sign flip, not a disagreement. An
+     exclusion nobody states is how a gate rots (the subdiv_check note), so the
+     count of skipped indices is printed.
+
+     CALIBRATED WITH TWO PLANTS IN THE PUBLISHER, and the second one is here
+     because the first measured a boundary rather than the law (L0033):
+       * publishing `lfoShapeAt(shape, k/N + 0.01, ...)` — a phase shift — fails
+         shapes 0-3 at 0.0628 / 0.04 / 0.02 / 0.02 and DOES NOT FAIL THE SQUARE.
+         That is the exclusion above doing exactly what it says: a square is
+         two-valued, so the only index a small phase shift can move is the one
+         straddling its edge, and that index is skipped. The square's row is
+         therefore blind to phase, by construction, and this sentence is the
+         record of it.
+       * publishing `0.9 * lfoShapeAt(...)` — an amplitude scale — fails all
+         five, square included, at ~0.1. Between them the rows are sensitive to
+         both kinds of divergence a re-fork would introduce. */
+  constexpr int N = 128;
+  auto published = [](Rig &r, int lfoIndex, std::vector<double> &pts) {
+    std::vector<char> buf(1 << 15);
+    hypersaw_debug_lfocycle(r.p, buf.data(), (uint32_t)buf.size());
+    const std::string j(buf.data());
+    pts.clear();
+    size_t at = 0;
+    for (int k = 0; k <= lfoIndex; k++)      // the k-th "pts":[ is the k-th LFO
+    {
+      at = j.find("\"pts\":[", at);
+      if (at == std::string::npos) return false;
+      at += 7;
+    }
+    while (at < j.size() && j[at] != ']')
+    {
+      pts.push_back(std::atof(j.c_str() + at));
+      const size_t comma = j.find(',', at), close = j.find(']', at);
+      if (comma == std::string::npos || comma > close) break;
+      at = comma + 1;
+    }
+    return pts.size() == (size_t)N + 1;
+  };
+
+  for (int shape : {0, 1, 2, 3, 4})          // S&H (5) is not a function of phase
+  {
+    Rig r;
+    r.boot();
+    r.set(kLfo1Shape, (double)shape);
+    r.set(kLfo1Sync, 0.0);
+    r.set(kLfo1Rate, kSR / (kTickFrames * (double)N));
+    r.set(kLfo1Phase, 0.0);
+    r.set(kLfo1Retrig, 1.0);
+    std::vector<double> pts;
+    if (!published(r, 0, pts))
+    {
+      check(false, "shape " + std::to_string(shape) + ": the publisher returned " +
+                       std::to_string(pts.size()) + " points, want " + std::to_string(N + 1));
+      r.kill();
+      continue;
+    }
+    r.note(60, true);                        // retrig -> phase 0, then this tick advances 1/N
+    double worst = 0;
+    int checked = 0, skipped = 0;
+    for (int k = 1; k < N; k++)
+    {
+      const double live = r.src(kSlotLfo1);
+      const bool edge = std::fabs(pts[k] - pts[k - 1]) > 0.1 ||
+                        std::fabs(pts[k + 1] - pts[k]) > 0.1;
+      if (edge) skipped++;
+      else { worst = std::max(worst, std::fabs(live - pts[k])); checked++; }
+      r.tick();
+    }
+    /* 1e-7 is the publisher's own precision (%.7f), not a comfort margin: the
+       two sides run the SAME function, so the only legal difference is the
+       JSON's last digit. At the publisher's first %.5f this row read 5e-6 and
+       failed, which is the check doing its job on the transport. */
+    check(checked > 0 && worst < 1e-7,
+          "shape " + std::to_string(shape) + ": every published point is the live source value",
+          num(worst) + " worst over " + std::to_string(checked) + " phases (" +
+              std::to_string(skipped) + " skipped at a jump)");
+    r.kill();
+  }
+
+  /* CONTROL, and it is the one that matters: the same walk against ANOTHER
+     shape's published cycle must disagree grossly. Without it the row above
+     would also pass if both sides had quietly collapsed to a constant, or if
+     `published` were reading a stale buffer that happened to be zeroed. */
+  Rig a, b;
+  a.boot(); b.boot();
+  a.set(kLfo1Shape, 0.0);                    // sine, the walked instrument
+  b.set(kLfo1Shape, 2.0);                    // saw up, the foreign picture
+  a.set(kLfo1Sync, 0.0);
+  a.set(kLfo1Rate, kSR / (kTickFrames * (double)N));
+  a.set(kLfo1Phase, 0.0);
+  a.set(kLfo1Retrig, 1.0);
+  std::vector<double> foreign;
+  const bool got = published(b, 0, foreign);
+  a.note(60, true);
+  double worstForeign = 0;
+  if (got)
+    for (int k = 1; k < N; k++)
+    {
+      worstForeign = std::max(worstForeign, std::fabs(a.src(kSlotLfo1) - foreign[k]));
+      a.tick();
+    }
+  check(got && worstForeign > 0.5,
+        "control: walked against the WRONG shape's cycle, the same comparison fails",
+        num(worstForeign));
+  a.kill(); b.kill();
+
+  /* S&H's steps are published from the LFO's own seeded stream, so the
+     picture's first step must be the value the first wrap actually holds.
+     CONTROL: a different patch seed must move it — otherwise "the steps come
+     from the seed" would also be satisfied by a hard-coded list. */
+  auto firstStep = [&](double seed) {
+    Rig r;
+    r.boot();
+    r.set(kSeed, seed);
+    r.set(kLfo1Shape, 5.0);
+    r.set(kLfo1Rate, 2.0);
+    std::vector<char> buf(1 << 15);
+    hypersaw_debug_lfocycle(r.p, buf.data(), (uint32_t)buf.size());
+    const std::string j(buf.data());
+    const size_t at = j.find("\"sh\":[");
+    const double pub = at == std::string::npos ? 1e300 : std::atof(j.c_str() + at + 6);
+    double live = 0;
+    for (int k = 0; k < 400; k++) { r.tick(); live = r.src(kSlotLfo1); if (live != 0.0) break; }
+    r.kill();
+    return std::pair<double, double>(pub, live);
+  };
+  const auto s1 = firstStep(1.0), s2 = firstStep(2.0);
+  check(std::fabs(s1.first - s1.second) < 1e-7,
+        "S&H: the published first step is the value the first wrap holds",
+        num(s1.first) + " vs live " + num(s1.second));
+  check(std::fabs(s1.first - s2.first) > 1e-7,
+        "control: a different patch seed publishes a different first step",
+        num(s1.first) + " vs " + num(s2.first));
+}
+
 /* ---- F: ENV 3 / ENV 4 --------------------------------------------------- */
 void sectionEnvelopes()
 {
@@ -544,6 +709,7 @@ int main()
   sectionShapes();
   sectionDeterminism();
   sectionRetrig();
+  sectionPublishedCycle();
   sectionEnvelopes();
   sectionChunk();
   sectionPolarity();

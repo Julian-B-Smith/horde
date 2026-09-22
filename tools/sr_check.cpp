@@ -1,4 +1,5 @@
 /* sr_check — sample-rate independence of the WHOLE engine, in SECONDS.
+ * WIRED: ./verify full.
  *
  * B147 layer 2. `samplerate_check` (a gate) tests two quantities — envelope
  * attack and gravity settle — at 0.3 % tolerance, and passes. The B147 layer-1
@@ -24,9 +25,6 @@
  * moved it. The file's original posture — "the bars are today's drifts plus a
  * margin, never the aspiration" — is unchanged; what changed is which day
  * "today" is.
- *
- * STANDALONE AND UNWIRED. Wiring a gate into ./verify is the human's decision
- * (charter); this is proposed, not wired. `samplerate_check` is untouched.
  *
  * MEASUREMENT DISCIPLINE, inherited verbatim from samplerate_check's header:
  * the probe's own resolution must not track the variable under test. Every

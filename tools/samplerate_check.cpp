@@ -19,6 +19,7 @@
  * variation that vanished to ±0.13% once the step was one MILLISECOND at every
  * rate with interpolated threshold crossings. A probe whose resolution depends
  * on the thing it is testing will report the effect it is looking for (L0032).
+ * WIRED: ./verify full.
  */
 #include <cmath>
 #include <cstdio>

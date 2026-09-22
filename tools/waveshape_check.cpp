@@ -7,6 +7,7 @@
 // Calibration per L0016: a single ideal saw passes all; a PLANTED up-jump must
 // make the detectors fire — a detector that can't catch a planted bug proves
 // nothing.
+// WIRED: ./verify full.
 #include <cstdio>
 #include <cmath>
 #include <vector>

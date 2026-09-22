@@ -21,6 +21,7 @@
  * gated at 0.0 exactly — the exclusion this file used to carry is gone, and a
  * third integrator added without thought would fail here rather than be
  * tolerated in a printed KNOWN row.
+ * WIRED: ./verify full.
  */
 #include <cmath>
 #include <cstdio>

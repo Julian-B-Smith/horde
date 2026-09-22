@@ -24,7 +24,7 @@
        corner keeps SUB Wave on an authored value at every pad position (a
        stepped member resolves atomically), calibrated by the same sweep
        driving the block's continuous SUB Level strictly between the corners.
-   WIRED: ./verify (fast), beside the other state oracles. The header claimed
+   WIRED: ./verify full, beside the other state oracles. The header claimed
    "not wired into ./verify" until 2026-09-20 and had been wired since B124 —
    the B190 class of stale relationship claim. Exit 1 on failure. */
 #include <algorithm>

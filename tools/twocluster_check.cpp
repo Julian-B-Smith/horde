@@ -2,13 +2,14 @@
    human 2026-09-14: "with A/B balance turned on, it doesn't seem like K is
    actually going negative"). Drives SwarmCore directly like trajectory_check
    (DYN base: dist 0, lpOut 0, n 24, detune 0.2, retrig 0), reads R_A / R_B
-   after 3 s. Standalone, unwired (human gate). Exit 1 on failure.
+   after 3 s. Exit 1 on failure.
    T1 K=+0.8 balance 0: both clusters sync (the unchanged corner).
    T2 K=-0.8 balance 0: neither cluster syncs — repulsive within both.
    T3 K=-0.8 balance 1: A dissolved, B synced — the MIRROR of T4.
    T4 K=+0.8 balance 1: A synced, B dissolved (L0-23's corner, unchanged).
    T5 CONTROL: K=0 balance 0 reads like T2 (no coupling) — so T2's low R is
       not a coincidence of K<0 merely being "off": T2 and T5 must both be
+ * WIRED: ./verify full.
       low, and T3 must differ from T5 in B. */
 #include <algorithm>
 #include <cmath>
