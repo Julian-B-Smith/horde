@@ -224,9 +224,11 @@ plants a lie in the membership set and requires exactly one violation.
     read) and would have spared 45 files of bank churn, but it makes one marker
     name two orders, which is precisely what B175's cross-layout remap will have
     to ask. Rejected on the same grounds B195 rejected it.
-- **Verify:** `./verify full`, exit 0, git `<filled by the re-run on the
-  committed hash>` per `.harness/last-verify.json`. Named gates green in that
-  run: `subosc_check: GREEN (0 failures; worst parity rms 0.000e+00)`,
+- **Verify:** `./verify full`, exit 0, git `f798f48` per
+  `.harness/last-verify.json` — the B203 commit itself, re-run after committing
+  rather than before. (This line is the one thing a trace cannot state in the
+  commit it describes; the follow-up commit that writes it is re-verified the
+  same way, which is the B195 trace's precedent.) Named gates green in that run: `subosc_check: GREEN (0 failures; worst parity rms 0.000e+00)`,
   `morphlayout_check: PASS`, `bank_check: 0 failure(s)`,
   `state_check: GREEN (0 failures)`, `undo_check: GREEN (0 failures)`,
   `fxxfade_check: GREEN (0 failures)`, `paramclass_check: PASSED (0 failures)`.
