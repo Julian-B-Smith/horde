@@ -1,244 +1,1365 @@
 <!doctype html>
-<!-- shape-lab-mod — custom LFO / envelope SHAPE builder.
-     HYPERSAW, 2026-08-15. Spec-in-code per ADR-003.
+<!-- shape-lab-mod — the MODULATOR lab: LFO + envelope, one shape law (B208).
+     HYPERSAW. First written 2026-08-15 as "Shape Lab — LFO / envelope breakpoint
+     builder"; rebuilt 2026-09-22 for ROADMAP B208. Spec-in-code per ADR-003.
 
-     The human asked for a lab to work on a custom LFO/envelope shape builder.
-     One breakpoint editor serves BOTH: an envelope is a shape played once from
-     a trigger (with an optional sustain point); an LFO is the same shape looped
-     with its endpoints joined. Deciding that up front means one editor, one
-     serialization, one oracle — not two half-built ones.
+     ONE LAB, NOT TWO. B208 found two labs doing this job: this file (the
+     human's named one: a breakpoint editor, no sound) and modulator-lab.html
+     (2026-08-22: LFO + DAHDSR bench with sound, S&H clocks, per-route polarity,
+     ownership tiers). Two labs for one job is this repo's second-copy failure in
+     lab form, so they are merged HERE and modulator-lab.html carries a header
+     pointing at this file. Kept from each:
+       - from this file: ONE breakpoint editor for both modulators, points +
+         per-segment curve, a serialization with nothing tempo- or rate-
+         dependent inside the shape;
+       - from modulator-lab: it SOUNDS, envelopes are an explicit function of
+         elapsed time (not a one-pole) so drawn and heard are the same code,
+         straight/dotted/triplet divisions, retrigger, double-click reset, the
+         load-time fingerprint (L0020).
+     NOT carried (B16's questions, not a shape editor's): modulator-lab's S&H
+     clock kinds, rotor, per-route polarity and ownership tiers. They stay
+     readable there.
 
-     Design constraints carried in from the codebase, so the lab does not drift
-     from what the core can accept:
-       - a shape is a table of (t, v, curve) breakpoints; t in [0,1] normalised
-         so RATE/DURATION are separate params in SECONDS (ADR-009), never baked
-         into the shape;
-       - curve per segment is a single exponent (bipolar tension), so the
-         segment evaluator is one pow() — cheap enough for the audio thread and
-         trivially deterministic;
-       - the sampled output is what the core would consume; the sample-and-hold
-         resolution slider exists to SHOW the cost of block-rate stepping;
-       - per-partial application (all partials, with a distribution across
-         them) is the population-destination question raised with FOUNDATIONS —
-         the "per-partial spread" control here previews it and is labelled as a
-         doorframe, not a promise.
+     THE CONSTRAINT (B177). The shape a player SEES must be the shape they HEAR.
+     The shipped instrument learned this by drifting: the GUI kept its own copy
+     of `lfoShapeAt` until PR #712 made the shell publish the cycle instead. So
+     here there is exactly ONE shape function, `shapeAt(points, t)`, inside the
+     DSP section below. The painters hold no law — they call ModLabCore's
+     statics or read the core's taps — and the page AUDITS that at load: an
+     offline render's destination tap is compared with the picture sample for
+     sample, with a moved-breakpoint control that must fire.
 
-     L0026: all state above all wiring. No devicePixelRatio. -->
-<html><head><meta charset="utf-8"><title>Shape Lab — LFO / envelope breakpoint builder</title>
+     THE THREE CORRECTED LAWS (each stated on the page as well):
+       1. TEMPO DIVISION. The stored value stays BEATS per cycle (lfoNBeats: id
+          and range unchanged). The control becomes a NAMED list of 22 values,
+          exactly those inside the shipped 0.0625..8 beat range: straight
+          2/1..1/64, dotted 3/2..3/128, triplet 2/1T..1/32T. The name is UI and
+          the beats are the truth — gui2's scale-picker ruling ("the mask is the
+          truth, the name is UI"), so no id moves and no patch migrates.
+       2. START PHASE. Phase is a LIVE offset on the readout:
+          out = shape(frac(acc + phase)). Retrigger rewinds acc to 0, so a
+          struck note still starts AT the phase (the shipped meaning, kept).
+          Free-running, the knob now moves the wave. In SYNC, acc comes from the
+          transport (beats since bar 1 / cycle beats), so the phase is measured
+          from the bar and a division change lands back on the grid.
+       3. ENVELOPE TIME. The number on a stage is WHEN IT ARRIVES. A stage is a
+          breakpoint segment ending at the knob's time; curvature is a separate
+          per-segment control, and c = +0.5 is the one-pole's own shape scaled
+          to arrive. (Shipped: the knob is a time constant tau; at the stated
+          time a stage is 63.2% of the way there.) Migration that keeps an old
+          patch's sound: tau x ln(100) = 4.61 -> arrival time, c = +0.5.
+
+     CURVE LAW CHANGE, and why. The old evaluator was pow(x, e^(3c)). Its
+     MIRROR button negated c, which only mirrors an exponential: for pow the
+     error reached 0.41 of a segment at c = 0.6, the value this file's own ADSR
+     preset used (measured offline, trace 2026-09-22-b208-modulator-lab). The
+     normalised exponential (1 - e^(-kx)) / (1 - e^(-k)) makes mirror EXACT
+     (f_-k(x) = 1 - f_k(1-x)) and contains the one-pole as a special case.
+
+     L0026: all state above all wiring. No Math.random (mulberry32 only, SPEC
+     §5.7). No wall clock in the render path: the core counts samples. -->
+<html lang="en"><head><meta charset="utf-8">
+<meta name="lab-review" content="B208 · 2026-09-22">
+<title>horde modulator lab: LFO + envelope, one shape law (B208)</title>
 <style>
-  :root { --bg:#0b0e13; --panel:#11151f; --line:#2a3040; --dim:#7f8899; --text:#cdd6e4;
-    --teal:#5ff2e0; --amber:#ffc24b; --rust:#e0654a; }
+  /* ============================================================
+     TOKENS, copied VERBATIM from src/gui/gui2.html:26-96 (:root),
+     :142-144 (body.scr-orchid, the light chassis' screen pairing),
+     :167-185 (light legibility overrides) and :186-212 (body.dark),
+     by way of station-page-lab.html, the one lab already built to
+     this standard. Copy, therefore drift: re-copy if gui2 moves.
+     ============================================================ */
+  :root {
+    --bg:#F2EDE2; --panel:#FCFAF4; --well:#FFFFFF; --panel2:#E9E3D4;
+    --line:#191521; --hair:#E5DFD0; --div:#D8D1C0;
+    --text:#191521; --t2:#494356; --dim:#9A93A3; --dis:#B6AFA0;
+    --value:#F5169C; --pull:#F5169C; --physics:#6431F0; --meter:#00D5C8;
+    --marker:#FFD702; --celebrate:#A6F219;
+    --caution:#F5A300; --caution-bg:#FBE9BD; --caution-tx:#6D570B;
+    --amber:#F5A300; --alarm:#C2261A; --ghost:#C9C2FF;
+    --cA:#FFD702; --cAtx:#D4A900; --cB:#FF2E88; --cBtx:#FF2E88;
+    --cC:#00D5C8; --cCtx:#00B3A8; --cD:#A6F219; --cDtx:#6FB200;
+    --scr-tube:#1B0733; --scr-value:#FF5ECF; --scr-meter:#B8F227;
+    --scr-physics:#B48CFF; --scr-marker:#FFB86B; --scr-grid:#4FD8BE;
+    --scr-scan:0.22; --scr-alpha:1;
+    --r-card:10px; --r-well:var(--r-card); --r:var(--r-card); --stroke:1.5px;
+    --shadow:1.5px 1.5px 0 var(--line);
+    --shadow-hover:2.5px 2.5px 0 var(--line);
+    --focus:0 0 0 2.5px rgba(245,22,156,.45); }
+  body:not(.dark) { --scr-tube:#F3EBFF; --scr-value:#D6006B; --scr-meter:#007A73;
+    --scr-physics:#6E14E8; --scr-marker:#C43A00; --scr-grid:#5A3FA8;
+    --scr-scan:0.05; --scr-alpha:1.6;
+    --marker:#8A6A00; --celebrate:#4E7A00; }
+  body.dark {
+    --bg:#151220; --panel:#1F1B2E; --well:#0E0C16; --panel2:#2C2740;
+    --line:#EFE9FA; --hair:#312B47; --div:#3B3455;
+    --text:#EFE9FA; --t2:#BDB4D4; --dim:#8A82A3; --dis:#514A6B;
+    --value:#FF3DAD; --pull:#FF3DAD; --physics:#A07CFF; --meter:#2DF2E2;
+    --marker:#FFE04D; --celebrate:#C2F53E;
+    --caution:#FFB627; --caution-bg:#4A3A12; --caution-tx:#FFD98A;
+    --amber:#FFB627; --alarm:#FF5A4D; --ghost:#5B4E8F;
+    --cA:#FFD702; --cAtx:#FFE566; --cB:#FF2E88; --cBtx:#FF6FAE;
+    --cC:#00D5C8; --cCtx:#4DEDE3; --cD:#A6F219; --cDtx:#C6F86A;
+    --focus:0 0 0 2.5px rgba(255,61,173,.45); }
+  /* gui2:103 — every canvas is a phosphor tube with the cards' ink border. */
+  canvas { border:var(--stroke) solid var(--line); border-radius:var(--r-well);
+           background:var(--scr-tube); display:block; width:100%; }
+
+  /* ============ CHROME — gui2's idiom, as station-page-lab.html uses it ============ */
   * { box-sizing:border-box; margin:0; }
-  body { background:var(--bg); color:var(--text); font:12px/1.45 ui-monospace,Menlo,monospace;
-    padding:12px 16px; max-width:1100px; margin:0 auto; }
-  h1 { font-size:16px; } .sub { color:var(--dim); font-size:11px; margin-bottom:12px; }
-  .cols { display:grid; grid-template-columns:1fr 300px; gap:12px; align-items:start; }
-  .panel { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:10px; margin-bottom:10px; }
-  .panel h2 { font-size:12px; color:var(--amber); margin-bottom:6px; }
-  canvas { display:block; width:100%; background:#0d1017; border:1px solid var(--line); border-radius:6px; }
-  #ed { cursor:crosshair; }
-  .ctl { margin:6px 0; } .ctl label { display:block; color:var(--dim); font-size:11px; }
-  input[type=range] { width:100%; }
-  .seg { display:flex; gap:4px; flex-wrap:wrap; }
-  .seg button, .btn { background:#1a2130; border:1px solid var(--line); color:var(--dim); border-radius:4px;
-    font:11px ui-monospace,monospace; padding:3px 9px; cursor:pointer; }
-  .seg button[aria-pressed="true"] { color:#0b0e13; background:var(--teal); border-color:var(--teal); }
-  .note { color:var(--dim); font-size:11px; margin-top:6px; line-height:1.5; }
-  pre { background:#0d1017; border:1px solid var(--line); border-radius:6px; padding:8px; font-size:10px;
-    overflow:auto; max-height:130px; color:var(--dim); }
-  b.k { color:var(--teal); }
+  body { background:var(--bg); color:var(--text);
+    font:12px/1.45 ui-monospace,Menlo,monospace; padding:10px 12px 40px; }
+  .rev { position:fixed; top:6px; right:8px; z-index:9; font-size:9.5px; color:var(--t2);
+         background:var(--panel); border:var(--stroke) solid var(--line); border-radius:999px;
+         padding:1px 8px; }
+  .hdr { display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; margin-bottom:8px; }
+  h1 { font-size:34px; line-height:1; letter-spacing:-1px; font-weight:800; }
+  .badges { display:flex; align-items:center; gap:8px; margin-top:4px; }
+  .badge { font-size:9.5px; letter-spacing:.1em; padding:2px 7px;
+           border:var(--stroke) solid var(--line); border-radius:3px;
+           background:var(--cA); color:var(--line); }
+  body.dark .badge { color:var(--bg); }
+  .sub { color:var(--t2); font-size:10.5px; letter-spacing:.12em; }
+  .hdrctl { display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-left:auto; }
+  .grp { display:flex; align-items:center; gap:7px; }
+  .lbl { font-size:10px; font-weight:700; letter-spacing:.1em; color:var(--t2); }
+  .pill { padding:3px 10px; border:var(--stroke) solid var(--line);
+    border-radius:999px; min-height:26px; cursor:pointer; color:var(--dim);
+    background:var(--panel); font:inherit; font-size:10px; letter-spacing:.06em; }
+  .pill:hover { box-shadow:var(--shadow); }
+  .pill.on { color:var(--bg); background:var(--line); font-weight:600; }
+  .pill.panic { border-color:var(--alarm); color:var(--alarm); font-weight:700; }
+  .pill.panic:hover { background:var(--alarm); color:var(--bg); }
+  .pills { display:flex; gap:4px; flex-wrap:wrap; }
+  .chip { padding:4px 8px; border:0; background:none; border-radius:var(--r);
+    cursor:pointer; font:inherit; font-size:10px; letter-spacing:.06em;
+    color:var(--dim); min-height:26px; }
+  .chip:hover { background:var(--panel2); }
+  .chip b { color:var(--t2); font-weight:600; letter-spacing:.1em; }
+  .tagline { color:var(--t2); font-size:11px; max-width:124ch; margin-bottom:6px; }
+  .tagline b { color:var(--text); }
+  .audit { font-size:10px; color:var(--t2); margin-bottom:10px;
+           border-left:3px solid var(--meter); padding-left:8px; }
+  .audit.bad { border-left-color:var(--alarm); color:var(--alarm); }
+  .audit b { color:var(--value); }
+
+  .cluster { background:var(--panel); border:var(--stroke) solid var(--line);
+    border-radius:var(--r); padding:8px 10px; min-width:0; }
+  h2 { font-size:11px; color:var(--pull); letter-spacing:1px; margin-bottom:6px; }
+  h2 span { color:var(--dim); font-weight:normal; letter-spacing:.04em; }
+  .row { display:grid; grid-template-columns:62px minmax(0,1fr) 78px;
+    align-items:center; gap:6px; margin:4px 0; }
+  .row label { color:var(--t2); font-size:10px; }
+  .row output { font-size:10px; text-align:right; color:var(--text);
+                font-variant-numeric:tabular-nums; }
+  /* gui2:764 — GHOST: present but not in force. Dimmed, never removed. */
+  .row.ghost > * { opacity:.45; }
+  .row.wide { grid-template-columns:62px minmax(0,1fr); }
+  .note { color:var(--t2); font-size:10px; line-height:1.5; margin-top:6px; }
+  .note b { color:var(--text); }
+  /* A stated law is the lab's deliverable, so it gets a frame of its own: the
+     authored-value rule on the left edge, because the law IS the proposal. */
+  .law { font-size:10.5px; line-height:1.5; color:var(--text); margin:4px 0 8px;
+         border-left:3px solid var(--value); padding:2px 0 2px 8px; }
+  .law b { color:var(--value); }
+  .sep { border-top:1px dashed var(--div); margin:8px 0 6px; }
+  .cap { font-size:9px; letter-spacing:.12em; color:var(--dim); margin:6px 0 3px; }
+  .warn { font-size:10px; margin-top:4px; padding:3px 7px; border-radius:var(--r);
+          background:var(--caution-bg); color:var(--caution-tx);
+          border:var(--stroke) solid var(--caution); }
+  code { font-size:10px; color:var(--text); }
+
+  /* SLIDER — gui2:490; --pct paints the authored fill. */
+  input[type=range] { -webkit-appearance:none; appearance:none; width:100%; min-width:0;
+    height:24px; background:transparent; cursor:pointer; }
+  input[type=range]::-webkit-slider-runnable-track {
+    height:6px; border-radius:3px; border:var(--stroke) solid var(--line);
+    background:linear-gradient(to right, var(--value) 0 calc(var(--pct, 0) * 100%),
+      var(--panel2) calc(var(--pct, 0) * 100%) 100%); }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; appearance:none;
+    width:13px; height:13px; border-radius:4px; margin-top:-3.5px;
+    background:var(--panel); border:var(--stroke) solid var(--line); box-shadow:var(--shadow); }
+  input[type=range]:hover::-webkit-slider-thumb { box-shadow:var(--shadow-hover); }
+  input[type=range]:active::-webkit-slider-thumb { background:var(--value); box-shadow:none; }
+  input[type=checkbox] { -webkit-appearance:none; appearance:none; margin:0;
+    width:32px; height:17px; border-radius:999px; cursor:pointer;
+    background:var(--panel2); border:var(--stroke) solid var(--line); position:relative; }
+  input[type=checkbox]::after { content:''; position:absolute; top:1px; left:1px;
+    width:11px; height:11px; border-radius:999px;
+    background:var(--panel); border:var(--stroke) solid var(--line); transition:transform .12s ease; }
+  input[type=checkbox]:checked { background:var(--value); }
+  input[type=checkbox]:checked::after { transform:translateX(15px); }
+  select { -webkit-appearance:none; appearance:none;
+    font:inherit; font-size:10px; padding:3px 18px 3px 9px; min-width:0;
+    border-radius:999px; border:var(--stroke) solid var(--line);
+    background:var(--panel); color:var(--t2); cursor:pointer; min-height:26px;
+    background-image:linear-gradient(45deg,transparent 50%,var(--t2) 50%),
+                     linear-gradient(135deg,var(--t2) 50%,transparent 50%);
+    background-position:calc(100% - 11px) 50%, calc(100% - 7px) 50%;
+    background-size:4px 4px, 4px 4px; background-repeat:no-repeat; }
+  select:hover { box-shadow:var(--shadow); }
+  input[type=number] { font:inherit; font-size:10px; padding:3px 8px; border-radius:999px;
+    min-height:26px; border:var(--stroke) solid var(--line);
+    background:var(--panel); color:var(--text); min-width:0; width:84px; }
+
+  /* ============ PAGE SHAPE ============ */
+  .top { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:10px; align-items:start; }
+  .mid { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:10px;
+         align-items:start; margin-top:10px; }
+  .bot { display:grid; grid-template-columns:minmax(0,1.25fr) minmax(0,1fr) minmax(0,.8fr);
+         gap:10px; align-items:start; margin-top:10px; }
+  @media (max-width:1180px) { .top, .mid, .bot { grid-template-columns:1fr; } }
+  #lfoC, #envC { height:200px; cursor:crosshair; touch-action:none; }
+  #lawC { height:170px; }
+  #heardC { height:150px; }
+
+  /* The division table is a DATA surface (gui2: "DATA surfaces: viz, pads,
+     keyboards" sit on --well): three families as columns, one row per note
+     value, the gaps left where a sibling falls outside the shipped range. */
+  #divWell { background:var(--well); border:var(--stroke) solid var(--line);
+             border-radius:var(--r); padding:7px; display:grid;
+             grid-template-columns:repeat(3, minmax(0,1fr)); gap:4px; }
+  #divWell .pill { min-height:22px; padding:1px 6px; font-size:9.5px; width:100%; }
+  #divWell .hd { font-size:9px; letter-spacing:.12em; color:var(--t2); text-align:center; }
+  #divWell .gap { font-size:9px; color:var(--dis); text-align:center; align-self:center; }
+  table.t { width:100%; border-collapse:collapse; font-size:10px; margin-top:6px; }
+  table.t th { color:var(--t2); font-weight:600; text-align:left; padding:2px 4px;
+               border-bottom:var(--stroke) solid var(--line); }
+  table.t td { padding:2px 4px; border-bottom:1px dashed var(--div);
+               font-variant-numeric:tabular-nums; }
+  table.t td.p { color:var(--value); font-weight:600; }
+  ol.find { padding-left:18px; font-size:10px; line-height:1.5; color:var(--t2); }
+  ol.find li { margin-bottom:5px; }
+  ol.find b { color:var(--text); }
+  pre { background:var(--well); border:var(--stroke) solid var(--line); border-radius:var(--r);
+        padding:7px; font-size:9.5px; overflow:auto; max-height:260px; color:var(--t2); }
+
+  #kbd { display:flex; margin-top:8px; height:56px; user-select:none;
+         border:var(--stroke) solid var(--line); border-radius:var(--r);
+         background:var(--well); overflow:hidden; }
+  .key { flex:1 1 0; border-right:1px solid var(--line); background:var(--well);
+         position:relative; cursor:pointer; min-width:0; }
+  .key:last-child { border-right:0; }
+  .key.blk { background:var(--line); flex:0 0 14px; width:14px; margin:0 -7px;
+             z-index:2; height:62%; border-radius:0 0 3px 3px; border:0; }
+  .key.on { background:var(--value); }
+  .key span { position:absolute; bottom:3px; left:0; right:0; text-align:center;
+              font-size:8px; color:var(--dim); pointer-events:none; }
+  .key.blk span { display:none; }
 </style></head><body>
 
-<h1>Shape Lab — LFO / envelope builder</h1>
-<div class="sub">One breakpoint editor for both. Drag points · double-click to add · right-click to delete ·
-drag the mid-segment handle to bend the curve. Time is normalised 0–1; rate/duration are separate.</div>
+<div class="rev" title="The file's modification time and a fingerprint of its scripts, both read at load, so neither can drift (L0020). If the fingerprint does not change after a reload you are on a cached copy.">rev <span id="revdate">…</span> · fp <span id="revfp">…</span></div>
 
-<div class="cols">
+<div class="hdr">
   <div>
-    <div class="panel">
-      <h2>Editor <span id="modeLbl" style="color:var(--dim)">— envelope</span></h2>
-      <canvas id="ed" width="760" height="300"></canvas>
-      <div class="note">Segment curve = one exponent per segment (bipolar tension), so the audio-thread
-        evaluator is a single <b class="k">pow()</b>. Sustain point (envelope mode) is the marked breakpoint;
-        release plays from it on note-off.</div>
-    </div>
-    <div class="panel">
-      <h2>Output as the core would consume it</h2>
-      <canvas id="out" width="760" height="120"></canvas>
-      <div class="note">Sampled at the chosen control rate over <b id="spanLbl">2</b> cycles / one note. Coarser
-        rates show the stepping the core would actually apply — this is the honest picture, not the pretty one.</div>
+    <h1>modulators</h1>
+    <div class="badges">
+      <span class="badge">LAB · B208</span>
+      <span class="sub">LFO + ENVELOPE: ONE SHAPE LAW, SO THE PICTURE IS THE SOUND</span>
     </div>
   </div>
-  <div>
-    <div class="panel">
-      <h2>Mode</h2>
-      <div class="seg" id="mode"><button data-v="env" aria-pressed="true">envelope</button><button data-v="lfo">LFO (loop)</button></div>
-      <div class="ctl"><label>rate / duration <span id="rateV">1.0 s</span></label>
-        <input type="range" id="rate" min="0.05" max="8" step="0.01" value="1"></div>
-      <div class="ctl"><label>control rate <span id="crV">2756 /s (16-sample tick)</span></label>
-        <input type="range" id="cr" min="0" max="3" step="1" value="1"></div>
-      <div class="ctl"><label>sustain point (envelope) <span id="susV">2</span></label>
-        <input type="range" id="sus" min="0" max="8" step="1" value="2"></div>
-      <div class="ctl"><label>per-partial spread <span id="spreadV">0%</span> <span style="color:var(--rust)">doorframe</span></label>
-        <input type="range" id="spread" min="0" max="1" step="0.01" value="0"></div>
-      <div class="note">Spread offsets each partial's phase across the shape — the population-destination
-        idea (distribution across partials, not selection of them). Shown in the output panel as a fan.
-        Labelled doorframe because the routing layer that would deliver it does not exist yet.</div>
-    </div>
-    <div class="panel">
-      <h2>Presets</h2>
-      <div class="seg" id="presets"><button data-v="adsr">ADSR</button><button data-v="pluck">pluck</button>
-        <button data-v="sine">sine</button><button data-v="ramp">ramp</button><button data-v="steps">4-step</button>
-        <button data-v="rnd">random</button></div>
-      <div class="ctl" style="margin-top:8px"><button class="btn" id="mirror">mirror</button>
-        <button class="btn" id="invert">invert</button> <button class="btn" id="smooth">smooth</button></div>
-    </div>
-    <div class="panel">
-      <h2>Serialization (what a preset stores)</h2>
-      <pre id="ser"></pre>
-      <div class="note">Breakpoints + per-segment curve, normalised. Rate and sustain index are separate
-        fields. Nothing sample-rate- or tempo-dependent lives inside the shape.</div>
-    </div>
+  <div class="hdrctl">
+    <div class="grp"><span class="lbl">HEAR</span><div class="pills" id="lawPills"></div></div>
+    <div class="grp"><span class="lbl">BPM</span>
+      <input id="bpm" type="range" min="40" max="220" step="1" style="width:110px">
+      <output id="bpmOut" style="font-size:10px;width:30px;text-align:right"></output></div>
+    <button class="pill" id="pwr">POWER</button>
+    <button class="chip" id="themeBtn">theme <b>LIGHT</b></button>
+    <button class="pill panic" id="panic">PANIC</button>
+  </div>
+</div>
+
+<div class="tagline">The modulator editor as one lab. An <b>LFO</b> and an <b>envelope</b>, both drawn and edited
+as breakpoints, and both evaluated by <b>one shape law</b>, <code>shapeAt(points, t)</code>. The picture and the audio
+both call it. <b>HEAR</b> switches what you listen to between the <b>PROPOSED</b> laws (the three panels in the middle
+row) and the <b>SHIPPED</b> ones (B171, as <code>src/hypersaw_clap.cpp</code> runs them). Whichever you are not hearing
+is drawn as a dashed ghost. Press POWER, then play the keys or A..L, <b>space</b> = drone, Z/X = octave. Double-click any
+slider to reset it.</div>
+
+<div class="audit" id="audit">one-law audit: pending</div>
+
+<div class="top">
+  <div class="cluster" id="lfoPane"><h2>LFO <span>· one cycle · bipolar ±1 · global, like the shipped two</span></h2>
+    <canvas id="lfoC"></canvas>
+    <div id="lfoRows"></div>
+    <div class="cap">SHAPES</div><div class="pills" id="lfoPresets"></div>
+    <div class="note">Drag a point · <b>double-click</b> empty space to add one, a point to delete it (right-click
+      deletes too) · drag the small <b>mid-segment handle</b> up/down to bend that segment. Two points at the same time
+      make a vertical step, so saw and square are exact rather than steep ramps. The ends sit at 0 and 1 and are
+      <b>not</b> forced equal: the wrap from the last value back to the first is a step, drawn dashed. The dashed
+      <b>φ</b> line is the start phase, the solid dot is where the sound is reading right now, and the ring is where
+      the other law would be reading.</div>
+  </div>
+
+  <div class="cluster" id="envPane"><h2>ENVELOPE <span>· per voice · time axis in real seconds</span></h2>
+    <canvas id="envC"></canvas>
+    <div class="row wide"><label>sustain</label><div class="pills" id="susPills"></div></div>
+    <div id="envRows"></div>
+    <div class="cap">SHAPES</div><div class="pills" id="envPresets"></div>
+    <div class="warn" id="envWarn" style="display:none"></div>
+    <div class="note">Same editor, same law. Time runs left to right in <b>seconds</b>, the picture is the note held
+      until it reaches the sustain point and then released. While the key is down the envelope holds at the
+      <b>SUS</b> point. On release it plays the segments after SUS, starting from <b>whatever level it has
+      reached</b>, so an early release never jumps. <b>NONE</b> makes it one-shot: the gate only starts it. The
+      A/D/S/R sliders <b>write</b> a four-point shape. Edit the points by hand and the sliders stop describing it.</div>
+  </div>
+</div>
+
+<div class="mid">
+  <div class="cluster" id="divPane"><h2>1 · TEMPO DIVISION</h2>
+    <div class="law"><b>Proposed:</b> the stored value stays <b>beats per cycle</b> (<code>lfoNBeats</code>, the same id and
+      the same 0.0625 to 8 range). The control becomes a <b>named list</b>: the 22 straight, dotted and triplet values
+      inside that range, each written as an exact beat count. The name is UI and the beats are the truth, the same
+      ruling as gui2's scale picker. No id moves and no patch migrates. A patch holding an off-list value loads
+      unchanged and reads as <b>≈ nearest ±x%</b>.</div>
+    <div id="divWell"></div>
+    <div class="note" id="divRead"></div>
+    <div class="sep"></div>
+    <div class="cap">A SHIPPED PATCH'S CONTINUOUS BEATS → THE LIST</div>
+    <div id="migRows"></div>
+    <div class="note" id="migRead"></div>
+    <div class="note">Why not two controls (base × straight/dotted/triplet)? That is two automation lanes for one
+      quantity, and it can name values that do not exist (1/64 triplet is below the range). The widest gap in the
+      list is 4:3, so no shipped value is more than <b>±15.5%</b> from a name. The list and the knob above write the
+      <b>same</b> stored beats, and both HEAR laws read it. The knob is the shipped control, kept here to show how
+      any value it can hold reads against the list.</div>
+  </div>
+
+  <div class="cluster" id="phasePane"><h2>2 · START PHASE</h2>
+    <div class="law"><b>Proposed:</b> phase is a <b>live offset on the readout</b>, <code>out = shape(frac(acc + φ))</code>.
+      A retrigger rewinds <code>acc</code> to 0, so a struck note still <b>starts at φ</b> (the shipped meaning, kept).
+      Free-running, turning φ <b>moves the wave now</b>. In <b>sync</b>, <code>acc</code> comes from the transport
+      (beats since bar 1 ÷ cycle beats), so φ is measured <b>from the bar</b>, and a division change lands back on the
+      grid. In free mode this matches the shipped output exactly for any patch whose φ has not moved since
+      activation.</div>
+    <div class="note"><b>Shipped</b> (<code>hypersaw_clap.cpp:2854, :3820</code>): φ is copied into the phase at
+      activation and at a retrigger. Free-running, it is never read again, so the knob does nothing you can hear
+      until the plugin is re-activated. <b>Hear it:</b> DRONE, LFO free on CUTOFF, retrig off, then sweep φ. Under
+      PROPOSED the sweep jumps with the knob. Under SHIPPED nothing happens until RE-ACTIVATE.</div>
+    <div class="pills" style="margin-top:6px"><button class="pill" id="droneBtn">DRONE</button>
+      <button class="pill" id="reactBtn">RE-ACTIVATE</button></div>
+    <div class="sep"></div>
+    <div class="cap">WHERE EACH LAW IS IN ITS CYCLE ON THE LAST BEAT</div>
+    <div class="note" id="beatRead">—</div>
+    <div class="note">The sync half, measured. With SYNC on at 1/4, both laws read the same place on every beat.
+      Change the division to 1/4T and back. The proposed law lands back on its phase, while the shipped accumulator
+      (<code>:3822</code>, <code>phase += bpm/60/beats · dt</code>, no song position) keeps whatever offset the detour
+      left it, for good.</div>
+  </div>
+
+  <div class="cluster" id="lawPane"><h2>3 · ENVELOPE TIME</h2>
+    <div class="law"><b>Proposed:</b> <b>the number on a stage is when it arrives.</b> A stage is a breakpoint segment
+      that ends at the knob's time. Its curvature is a separate per-segment control, and <b>c = +0.5</b> is the
+      one-pole's own shape, scaled so it arrives. To keep an old patch's sound, migrate
+      <b>τ × ln 100 = τ × 4.61 → arrival time</b> with c = +0.5.</div>
+    <canvas id="lawC"></canvas>
+    <table class="t" id="lawT"></table>
+    <div class="note" id="lawMig"></div>
+    <div class="note"><b>Shipped</b> (<code>advanceAdsr</code>, <code>hypersaw_clap.cpp:2789</code>): each knob is a one-pole
+      <b>time constant</b>. At the stated time a stage is only <b>63.2%</b> of the way there. The attack snaps to 1
+      past 0.99 (<code>:2802</code>), which takes 4.61τ. A release reaches exact zero only at the 1e-6 snap
+      (<code>:2807</code>), 13.8τ from full level. <b>Relabelling</b> the knobs "τ" was the other option. It was
+      rejected because it leaves the player to multiply by 4.6 in their head, and a breakpoint you drag already is
+      an arrival time. Dashed = shipped, solid = proposed, the same four numbers, the gate released 0.3 s after the
+      proposed sustain.</div>
+  </div>
+</div>
+
+<div class="bot">
+  <div class="cluster" id="heardPane"><h2>HEARD <span>· the destination taps, last 3 s</span></h2>
+    <canvas id="heardC"></canvas>
+    <div class="cap" id="audioStat">AUDIO: OFF</div>
+    <div id="synthRows"></div>
+    <div id="kbd"></div>
+    <div class="note">Each lane is the value the core actually applied to its destination, logged from the render
+      loop. It is not redrawn from the parameters. Top: the LFO. Bottom: the newest voice's envelope. Solid = what
+      you hear, dashed = the other law, ticks = beats. The target is deliberately dull: two saws per voice into a
+      two-pole low-pass. The envelope drives level and adds its amount to cutoff. The LFO drives the destination
+      chosen in its card.</div>
+  </div>
+
+  <div class="cluster" id="findPane"><h2>4 · OTHER LOGIC THAT WAS WRONG</h2>
+    <ol class="find">
+      <li><b>Mirror was not a mirror</b> (the old version of this file: curve <code>pow(x, e^(3c))</code>, mirror negated
+        c). That is only exact for an exponential. The error reached <b>0.41</b> of a segment at c = 0.6, the value the
+        file's own ADSR preset used. The curve is now the normalised exponential, and mirror is exact (audited above).</li>
+      <li><b>A rate labelled in seconds, read as Hz</b> (old file: the slider said "rate / duration … s", while LFO mode
+        computed <code>2 / rate</code> seconds for two cycles). Rate is now Hz and division is beats. Neither is a
+        duration.</li>
+      <li><b>It made no sound</b> (old file). Its "output" canvas was a second rendering of the picture, so nothing
+        tested the picture against a sound. Now the HEARD lanes are taps of the render, and the audit compares them.</li>
+      <li><b>Envelope loop clicked</b> (modulator-lab.html:476 with :459). LOOP restarted the attack from 0 while the
+        level sat at sustain, a step of height = sustain on every loop. Here every segment starts from the level it
+        is actually at. Looping is the LFO's job.</li>
+      <li><b>Two time grammars</b> (modulator-lab.html:215-219: seconds for its envelope, normalised t for this file's
+        editor, "unreconciled"). Here one evaluator serves both, and the unit is the caller's: cycle fraction for the
+        LFO, seconds for the envelope.</li>
+      <li><b>A shipped comment claims every LFO shape crosses zero at phase 0</b> (<code>hypersaw_clap.cpp:2857</code>).
+        That is true only for sine and triangle. Saw-up starts at −1, and saw-down and square start at +1. So
+        a retriggered saw lands its destination at full excursion. What the comment's reasoning actually needs is
+        the zero <b>mean</b>, and that part is true. This is a doc fix for the lead to queue, not changed here.</li>
+      <li><b>Synced LFOs are not bar-locked</b> (<code>:3822</code>). The phase accumulates from activation, not from
+        song position, so where the peak falls in the bar depends on when the plugin woke. After any division change,
+        the offset is permanent. Panel 2 measures it, and the proposed law derives the phase from the transport.</li>
+      <li><b>The B208 row says "0.912 at 1·τ"</b>. A one-pole at 1τ is 1 − e<sup>−1</sup> = <b>0.632</b>. 0.91 is what
+        <code>lfoenv_check</code>'s first pass read at a probe instant it does not record
+        (<code>tools/lfoenv_check.cpp:44-47</code>). The lab uses 0.632 and draws it.</li>
+    </ol>
+  </div>
+
+  <div class="cluster" id="serPane"><h2>PRESET <span>· what a patch would store</span></h2>
+    <pre id="ser"></pre>
+    <div class="note">Points are <b>[t, v, c]</b>: t in cycles for the LFO and in seconds for the envelope, c the
+      segment's curvature. Rate is Hz, or <b>beats</b> with the division's name stored beside it for display. Nothing
+      in a shape depends on the sample rate or the tempo (ADR-009).</div>
   </div>
 </div>
 
 <script>
 'use strict';
-/* ---- all state above all wiring (L0026) ---- */
-const S={mode:'env',rate:1.0,crIdx:1,sus:2,spread:0,seed:1234};
-const CR=[689,2756,11025,44100];   // /s: 64-tick, 16-tick (the core's), 4-tick, per-sample
-const CRL=['689 /s (64-sample tick)','2756 /s (16-sample tick)','11025 /s (4-sample tick)','44100 /s (per sample)'];
-let pts=[{t:0,v:0,c:0},{t:.05,v:1,c:0},{t:.3,v:.6,c:.6},{t:.75,v:.6,c:0},{t:1,v:0,c:-.6}];
-let drag=null;
-const $=s=>document.querySelector(s);
-const ed=$('#ed'),ec=ed.getContext('2d'),oc=$('#out').getContext('2d');
-const PADL=28,PADR=12,PADT=12,PADB=22;
+/* ================= DSP ================= */
+/* Self-contained by contract: constants, pure functions and one class, no
+   DOM, no wall clock. tools/golden/extract_core.mjs can slice this span with
+   its 'design' banner set and get ModLabCore, whose statics carry the laws,
+   which is how a port or an oracle would reach the SAME functions the page
+   draws with. */
+const TAU = 6.283185307179586;
+/* ln(100): the shipped attack snaps to 1 once the one-pole passes 0.99, and a
+   one-pole is within 1% of its target after ln(100) time constants. It is the
+   factor between "tau" and "arrival", and the curve law below is scaled by it
+   so that c = +0.5 IS the one-pole's shape. */
+const K_ONEPOLE = Math.log(100);
+const MAXPTS = 32;          // a cap, not a guess: preallocation-sized, and 32 is plenty for a cycle
+const MAXV = 8;
+const HN = 4096, HDEC = 32; // heard-lane history: 4096 points every 32 samples ≈ 3 s at 44.1 kHz
 
-function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
-/* the evaluator the core would run: segment lookup + one pow */
-function segCurve(x,c){ // c in [-1,1]: 0 linear, +tension bends toward late, - toward early
-  if(Math.abs(c)<1e-6)return x;
-  const k=Math.exp(c*3);
-  return Math.pow(x,k);}
-function evalShape(t){
-  t=Math.min(1,Math.max(0,t));
-  for(let i=0;i<pts.length-1;i++){const a=pts[i],b=pts[i+1];
-    if(t<=b.t){const span=b.t-a.t;if(span<=1e-9)return b.v;
-      const x=(t-a.t)/span;return a.v+(b.v-a.v)*segCurve(x,a.c);}}
-  return pts[pts.length-1].v;}
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0;
+  let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+  return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const frac = x => x - Math.floor(x);
 
-function toX(t){return PADL+t*(ed.width-PADL-PADR);}
-function toY(v){return PADT+(1-v)*(ed.height-PADT-PADB);}
-function fromX(x){return Math.min(1,Math.max(0,(x-PADL)/(ed.width-PADL-PADR)));}
-function fromY(y){return Math.min(1,Math.max(0,1-(y-PADT)/(ed.height-PADT-PADB)));}
-
-function drawEditor(){
-  const W=ed.width,H=ed.height;
-  ec.clearRect(0,0,W,H);
-  ec.strokeStyle='#1c2230';ec.lineWidth=1;
-  for(let i=0;i<=4;i++){const y=toY(i/4);ec.beginPath();ec.moveTo(PADL,y);ec.lineTo(W-PADR,y);ec.stroke();
-    ec.fillStyle='#7f8899';ec.font='9px monospace';ec.fillText((i/4).toFixed(2),2,y+3);}
-  for(let i=0;i<=8;i++){const x=toX(i/8);ec.beginPath();ec.moveTo(x,PADT);ec.lineTo(x,H-PADB);ec.stroke();}
-  ec.fillStyle='#7f8899';ec.fillText('0',PADL-2,H-8);ec.fillText('t → 1',W-PADR-30,H-8);
-  // curve
-  ec.strokeStyle='#5ff2e0';ec.lineWidth=2;ec.beginPath();
-  for(let i=0;i<=400;i++){const t=i/400,v=evalShape(t);const x=toX(t),y=toY(v);i?ec.lineTo(x,y):ec.moveTo(x,y);}
-  ec.stroke();
-  // sustain marker
-  if(S.mode==='env'&&S.sus<pts.length){const p=pts[S.sus];ec.strokeStyle='#ffc24b';ec.setLineDash([3,3]);
-    ec.beginPath();ec.moveTo(toX(p.t),PADT);ec.lineTo(toX(p.t),H-PADB);ec.stroke();ec.setLineDash([]);
-    ec.fillStyle='#ffc24b';ec.fillText('sustain',toX(p.t)+4,PADT+10);}
-  // points + tension handles
-  pts.forEach((p,i)=>{
-    if(i<pts.length-1){const q=pts[i+1];const tm=(p.t+q.t)/2,vm=p.v+(q.v-p.v)*segCurve(.5,p.c);
-      ec.fillStyle='#ffc24b';ec.beginPath();ec.arc(toX(tm),toY(vm),4,0,7);ec.fill();}
-    ec.fillStyle=(i===0||i===pts.length-1)?'#7f8899':'#5ff2e0';
-    ec.beginPath();ec.arc(toX(p.t),toY(p.v),6,0,7);ec.fill();
-    ec.strokeStyle='#0b0e13';ec.lineWidth=1.5;ec.stroke();});
+/* THE DIVISION LIST, slow → fast: [name, alias, beats, family, row]. Beats are
+   quarter notes (the host's bpm counts quarters, the delay's law). Exactly the
+   values inside the shipped 0.0625..8 range, so every name is reachable by the
+   existing param. `family`/`row` lay the table out and are UI only. */
+const DIVS = Object.freeze([
+  ['2/1', '', 8, 0, 0], ['3/2', '1/1D', 6, 1, 1], ['2/1T', '', 16 / 3, 2, 0],
+  ['1/1', '', 4, 0, 1], ['3/4', '1/2D', 3, 1, 2], ['1/1T', '', 8 / 3, 2, 1],
+  ['1/2', '', 2, 0, 2], ['3/8', '1/4D', 1.5, 1, 3], ['1/2T', '', 4 / 3, 2, 2],
+  ['1/4', '', 1, 0, 3], ['3/16', '1/8D', 0.75, 1, 4], ['1/4T', '', 2 / 3, 2, 3],
+  ['1/8', '', 0.5, 0, 4], ['3/32', '1/16D', 0.375, 1, 5], ['1/8T', '', 1 / 3, 2, 4],
+  ['1/16', '', 0.25, 0, 5], ['3/64', '1/32D', 0.1875, 1, 6], ['1/16T', '', 1 / 6, 2, 5],
+  ['1/32', '', 0.125, 0, 6], ['3/128', '1/64D', 0.09375, 1, 7], ['1/32T', '', 1 / 12, 2, 6],
+  ['1/64', '', 0.0625, 0, 7],
+]);
+/* Nearest by RATIO, not difference: at 8 beats a 0.1-beat error is nothing,
+   at 1/16 it is a different note value. */
+function nearestDiv(beats) {
+  let best = 0, bd = Infinity;
+  for (let i = 0; i < DIVS.length; i++) {
+    const d = Math.abs(Math.log(beats / DIVS[i][2]));
+    if (d < bd - 1e-12) { bd = d; best = i; }
+  }
+  return best;
 }
 
-function drawOutput(){
-  const cv=$('#out'),W=cv.width,H=cv.height;
-  oc.clearRect(0,0,W,H);
-  const cr=CR[S.crIdx],dur=S.mode==='lfo'?2/S.rate*S.rate:S.rate; // lfo: 2 cycles; env: one note of `rate` s
-  const cycles=S.mode==='lfo'?2:1;
-  const totalS=S.mode==='lfo'?2/S.rate:S.rate;
-  const n=Math.max(8,Math.floor(totalS*cr));
-  const fans=S.spread>0?7:1;
-  for(let f=0;f<fans;f++){
-    const off=fans===1?0:(f/(fans-1)-.5)*S.spread; // phase offset across partials
-    oc.strokeStyle=fans===1?'#5ff2e0':'rgba(95,242,224,'+(0.35+0.65*(1-Math.abs(f/(fans-1)-.5)*2))+')';
-    oc.lineWidth=fans===1?1.6:1;
-    oc.beginPath();
-    let last=null;
-    for(let i=0;i<=n;i++){
-      let ph=(i/n)*cycles+off;
-      let t;
-      if(S.mode==='lfo'){t=ph-Math.floor(ph);}
-      else{t=Math.min(1,Math.max(0,ph));}
-      const v=evalShape(t);
-      const x=i/n*W,y=H-6-v*(H-12);
-      if(last===null){oc.moveTo(x,y);}else{oc.lineTo(x,last);oc.lineTo(x,y);} // sample-and-hold stairs
-      last=y;}
-    oc.stroke();}
-  oc.fillStyle='#7f8899';oc.font='9px monospace';
-  oc.fillText((S.mode==='lfo'?'2 cycles @ ':'1 note @ ')+S.rate.toFixed(2)+' s · '+n+' control samples',6,10);
-  $('#spanLbl').textContent=S.mode==='lfo'?'2':'1';
+/* THE CURVE. Normalised exponential, c in [-1, 1], k = 2·ln(100)·c:
+     f(x) = (1 - e^(-kx)) / (1 - e^(-k)),  f(0) = 0, f(1) = 1 exactly.
+   c > 0 moves fast first (the one-pole's character, exactly so at c = +0.5),
+   c < 0 moves slow first, 0 is linear. Chosen over the old pow(x, e^(3c))
+   because f_{-k}(x) = 1 - f_k(1 - x): negating c IS the time-mirror, which the
+   editor's MIRROR relies on and which pow does not satisfy. */
+function segCurve(x, c) {
+  const k = 2 * K_ONEPOLE * c;
+  if (Math.abs(k) < 1e-9) return x;
+  return (1 - Math.exp(-k * x)) / (1 - Math.exp(-k));
 }
 
-function serialize(){
-  const o={version:1,mode:S.mode,rateSeconds:S.rate,sustainIndex:S.mode==='env'?S.sus:null,
-    points:pts.map(p=>({t:+p.t.toFixed(4),v:+p.v.toFixed(4),curve:+p.c.toFixed(3)}))};
-  $('#ser').textContent=JSON.stringify(o,null,1);}
+/* THE SHAPE LAW — the one function every picture and every sample calls.
+   pts: [{t, v, c}] sorted by t; segment i runs pts[i] → pts[i+1] with curve
+   pts[i].c. Units of t are the CALLER's (cycles for the LFO, seconds for the
+   envelope), which is what lets one evaluator serve both modulators.
+   `i0`/`v0` start the evaluation at segment i0 FROM value v0 instead of
+   pts[i0].v: the envelope's release enters its first segment from wherever the
+   level is, and it does so through this same function rather than a second
+   release law. Equal t on two points is a vertical step (span 0 → b.v). */
+function shapeAt(pts, t, i0, v0) {
+  const n = pts.length, s = i0 | 0;
+  const sv = v0 === undefined ? pts[s].v : v0;
+  if (t <= pts[s].t) return sv;
+  for (let i = s; i < n - 1; i++) {
+    const a = pts[i], b = pts[i + 1];
+    if (t <= b.t) {
+      const av = i === s ? sv : a.v, span = b.t - a.t;
+      if (span <= 1e-12) return b.v;
+      return av + (b.v - av) * segCurve((t - a.t) / span, a.c);
+    }
+  }
+  return n - 1 === s ? sv : pts[n - 1].v;
+}
 
-function update(){pts.sort((a,b)=>a.t-b.t);pts[0].t=0;pts[pts.length-1].t=1;
-  if(S.mode==='lfo'){pts[pts.length-1].v=pts[0].v;}   // loop closure: endpoints joined
-  $('#sus').max=pts.length-1;if(S.sus>pts.length-1)S.sus=pts.length-1;$('#susV').textContent=S.sus;
-  drawEditor();drawOutput();serialize();}
+/* The envelope as an explicit function of time since the gate (t) and the
+   release instant (tOff, null while held) — so the voice and the picture are
+   the same expression, and "released at the SUS point" is simply tOff = its t.
+   sus < 0 (or on the last point, which would leave no release) = one-shot. */
+function susOf(pts, sus) { return sus >= 0 && sus < pts.length - 1 ? sus : -1; }
+function envAt(pts, sus, t, tOff) {
+  const s = susOf(pts, sus);
+  if (s < 0) return shapeAt(pts, t);
+  if (tOff === null || tOff === undefined || t < tOff) return shapeAt(pts, Math.min(t, pts[s].t));
+  const held = shapeAt(pts, Math.min(tOff, pts[s].t));
+  return shapeAt(pts, pts[s].t + (t - tOff), s, held);
+}
+function envDone(pts, sus, t, tOff) {
+  const s = susOf(pts, sus), end = pts[pts.length - 1].t;
+  if (s < 0) return t >= end;
+  return tOff !== null && tOff !== undefined && pts[s].t + (t - tOff) >= end;
+}
 
-/* ---- editing ---- */
-function hit(mx,my){
-  for(let i=0;i<pts.length;i++){const p=pts[i];if(Math.hypot(toX(p.t)-mx,toY(p.v)-my)<9)return{kind:'pt',i};}
-  for(let i=0;i<pts.length-1;i++){const p=pts[i],q=pts[i+1];const tm=(p.t+q.t)/2,vm=p.v+(q.v-p.v)*segCurve(.5,p.c);
-    if(Math.hypot(toX(tm)-mx,toY(vm)-my)<8)return{kind:'ten',i};}
-  return null;}
-function pos(e){const r=ed.getBoundingClientRect();return[(e.clientX-r.left)*ed.width/r.width,(e.clientY-r.top)*ed.height/r.height];}
-ed.addEventListener('pointerdown',e=>{const[mx,my]=pos(e);const h=hit(mx,my);
-  if(e.button===2){if(h&&h.kind==='pt'&&h.i>0&&h.i<pts.length-1){pts.splice(h.i,1);update();}return;}
-  if(h){drag={...h,startY:my,startC:h.kind==='ten'?pts[h.i].c:0};ed.setPointerCapture(e.pointerId);}});
-ed.addEventListener('contextmenu',e=>e.preventDefault());
-ed.addEventListener('dblclick',e=>{const[mx,my]=pos(e);if(hit(mx,my))return;
-  pts.push({t:fromX(mx),v:fromY(my),c:0});update();});
-ed.addEventListener('pointermove',e=>{if(!drag)return;const[mx,my]=pos(e);
-  if(drag.kind==='pt'){const p=pts[drag.i];
-    if(drag.i>0&&drag.i<pts.length-1)p.t=Math.min(pts[drag.i+1].t-.005,Math.max(pts[drag.i-1].t+.005,fromX(mx)));
-    p.v=fromY(my);}
-  else{const p=pts[drag.i];p.c=Math.max(-1,Math.min(1,drag.startC+(drag.startY-my)/90));}
-  update();});
-ed.addEventListener('pointerup',()=>{drag=null;});
+/* THE SHIPPED LAW, for the A/B only — advanceAdsr (hypersaw_clap.cpp:2789) in
+   closed form. The shipped update, level += (target - level)(1 - e^(-dt/tau)),
+   is the exact sampling of the continuous one-pole, so this equals it at every
+   tick instant. The one place it can differ is WHERE the 0.99 snap lands: the
+   shipped snap waits for the next tick edge after ln(100)·A. No closure, no
+   allocation: it runs per sample per voice. */
+function tauGated(p, A, D, u) {
+  const tPk = A * K_ONEPOLE;
+  return u < tPk ? 1 - Math.exp(-u / A) : p.s + (1 - p.s) * Math.exp(-(u - tPk) / D);
+}
+function envTauAt(p, t, tOff) {
+  const A = Math.max(1e-4, p.a), D = Math.max(1e-4, p.d), R = Math.max(1e-4, p.r);
+  if (tOff === null || tOff === undefined || t < tOff) return tauGated(p, A, D, Math.max(0, t));
+  const v = tauGated(p, A, D, tOff) * Math.exp(-(t - tOff) / R);
+  return v < 1e-6 ? 0 : v;
+}
 
-/* ---- controls ---- */
-$('#mode').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{
-  $('#mode').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed','false'));
-  b.setAttribute('aria-pressed','true');S.mode=b.dataset.v;
-  $('#modeLbl').textContent='— '+(S.mode==='env'?'envelope':'LFO (looped, endpoints joined)');update();}));
-$('#rate').addEventListener('input',e=>{S.rate=+e.target.value;$('#rateV').textContent=S.rate.toFixed(2)+' s';drawOutput();serialize();});
-$('#cr').addEventListener('input',e=>{S.crIdx=+e.target.value;$('#crV').textContent=CRL[S.crIdx];drawOutput();});
-$('#sus').addEventListener('input',e=>{S.sus=+e.target.value;update();});
-$('#spread').addEventListener('input',e=>{S.spread=+e.target.value;$('#spreadV').textContent=Math.round(S.spread*100)+'%';drawOutput();});
-const PRESETS={
-  adsr:()=>[{t:0,v:0,c:0},{t:.05,v:1,c:0},{t:.3,v:.6,c:.6},{t:.75,v:.6,c:0},{t:1,v:0,c:-.6}],
-  pluck:()=>[{t:0,v:0,c:0},{t:.01,v:1,c:0},{t:1,v:0,c:.9}],
-  sine:()=>Array.from({length:9},(_,i)=>({t:i/8,v:.5+.5*Math.sin(i/8*2*Math.PI),c:0})),
-  ramp:()=>[{t:0,v:0,c:0},{t:1,v:1,c:0}],
-  steps:()=>[{t:0,v:.2,c:0},{t:.249,v:.2,c:0},{t:.25,v:.8,c:0},{t:.499,v:.8,c:0},{t:.5,v:.4,c:0},{t:.749,v:.4,c:0},{t:.75,v:1,c:0},{t:1,v:1,c:0}],
-  rnd:()=>{const r=mulberry32(S.seed++);const n=4+Math.floor(r()*5);const a=[{t:0,v:r(),c:0}];
-    for(let i=1;i<n-1;i++)a.push({t:i/(n-1),v:r(),c:r()*2-1});a.push({t:1,v:r(),c:0});return a;}};
-$('#presets').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{pts=PRESETS[b.dataset.v]();S.sus=Math.min(S.sus,pts.length-1);update();}));
-$('#mirror').addEventListener('click',()=>{pts=pts.map(p=>({t:1-p.t,v:p.v,c:p.c})).reverse();
-  for(let i=0;i<pts.length-1;i++)pts[i].c=-pts[i+1].c;update();});
-$('#invert').addEventListener('click',()=>{pts.forEach(p=>p.v=1-p.v);update();});
-$('#smooth').addEventListener('click',()=>{for(let i=1;i<pts.length-1;i++)pts[i].v=(pts[i-1].v+2*pts[i].v+pts[i+1].v)/4;update();});
-update();
+/* The ADSR knobs as breakpoints: the numbers are ARRIVAL times, the curve is
+   the one-pole's shape (c = +0.5), so migrating a tau patch is times × ln 100. */
+function adsrPts(a, d, s, r) {
+  return [{ t: 0, v: 0, c: 0.5 }, { t: a, v: 1, c: 0.5 }, { t: a + d, v: s, c: 0.5 }, { t: a + d + r, v: 0, c: 0 }];
+}
+
+function blep(t, dt) {
+  if (t < dt) { t /= dt; return t + t - t * t - 1; }
+  if (t > 1 - dt) { t = (t - 1) / dt; return t * t + t + t + 1; }
+  return 0;
+}
+
+class ModLabCore {
+  constructor(sr, S) {
+    this.sr = sr || 48000; this.S = S;
+    this.beat = 0;                 // the lab's transport: beats since bar 1 (starts at POWER / load)
+    this.accP = 0; this.beatStrike = 0;      // PROPOSED accumulator
+    this.accS = 0; this.phLatch = S.lfo.phase; // SHIPPED: phase copied at activation (:2854)
+    this.readP = 0; this.readS = 0;
+    this.lfo = 0; this.lfoGhost = 0;
+    this.onBeatP = NaN; this.onBeatS = NaN;
+    this.voices = [];
+    for (let i = 0; i < MAXV; i++) this.voices.push({ on: false, note: -1, f: 220, n: 0, nOff: -1,
+      ph0: 0, ph1: 0, lp1: 0, lp2: 0, age: 0, env: 0, envG: 0, done: true });
+    this.age = 0;
+    this.H = { lfo: new Float32Array(HN), lfoG: new Float32Array(HN), env: new Float32Array(HN),
+               envG: new Float32Array(HN), beat: new Uint8Array(HN), w: 0, dec: 0, bt: 0 };
+    this.tapLfo = null; this.tapEnv = null; this.tapN = 0;   // the audit's probes
+    this.peak = 0;
+  }
+  /* Shipped plug_activate: the phase knob is read HERE, which is the whole
+     finding for free-running LFOs. The lab calls this at load and on
+     RE-ACTIVATE. */
+  activate() { this.accS = 0; this.phLatch = this.S.lfo.phase; }
+  noteOn(note) {
+    const L = this.S.lfo;
+    if (L.retrig) {
+      // Both laws rewind on a strike; they differ in what φ means afterwards.
+      this.accP = 0; this.beatStrike = this.beat;
+      this.accS = 0; this.phLatch = L.phase;
+    }
+    let v = null;
+    for (const x of this.voices) if (x.done) { v = x; break; }
+    if (!v) { v = this.voices[0]; for (const x of this.voices) if (x.age < v.age) v = x; }
+    v.on = true; v.done = false; v.note = note; v.f = 440 * Math.pow(2, (note - 69) / 12);
+    v.n = 0; v.nOff = -1; v.age = ++this.age;
+  }
+  noteOff(note) { for (const v of this.voices) if (v.on && v.note === note) { v.on = false; v.nOff = v.n; } }
+  panic() { for (const v of this.voices) { v.on = false; v.done = true; v.nOff = -1; v.env = 0; v.envG = 0; } }
+
+  /* One sample of the LFO under BOTH laws: the heard one drives the
+     destination, the other is kept for the ghost. Both read shapeAt. */
+  lfoStep() {
+    const S = this.S, L = S.lfo, sr = this.sr, bpm = S.bpm;
+    const b0 = this.beat;
+    this.beat += bpm / 60 / sr;
+    /* Both laws read the SAME stored beats (the division list only writes it),
+       so the two differ in exactly two things: where the phase comes from, and
+       what φ means. */
+    const beats = Math.max(0.01, L.beats);
+    // PROPOSED — free: an accumulator; sync: derived from the transport.
+    if (L.sync) this.accP = (this.beat - (L.retrig ? this.beatStrike : 0)) / beats;
+    else { this.accP += L.hz / sr; this.accP -= Math.floor(this.accP); }
+    this.readP = frac(this.accP + L.phase);
+    // SHIPPED — :3822: one accumulator from activation, whatever the mode.
+    const fS = L.sync ? (bpm / 60) / beats : L.hz;
+    this.accS += fS / sr; this.accS -= Math.floor(this.accS);
+    this.readS = frac(this.accS + this.phLatch);
+    const vP = shapeAt(L.pts, this.readP), vS = shapeAt(L.pts, this.readS);
+    const shipped = S.law === 1;
+    this.lfo = shipped ? vS : vP; this.lfoGhost = shipped ? vP : vS;
+    const beatHit = Math.floor(this.beat) !== Math.floor(b0);
+    if (beatHit) { this.onBeatP = this.readP; this.onBeatS = this.readS; this.H.bt = 1; }
+  }
+
+  render(Lb, Rb, N) {
+    const S = this.S, sr = this.sr, E = S.env, L = S.lfo, sy = S.synth;
+    const shipped = S.law === 1;
+    const H = this.H;
+    for (let i = 0; i < N; i++) {
+      this.lfoStep();
+      const lfo = this.lfo, dep = L.depth;
+      const cutL = L.dest === 0 ? dep * lfo * 0.5 : 0;
+      const bend = L.dest === 1 ? Math.pow(2, dep * lfo * 0.5) : 1;
+      const lvl = L.dest === 2 ? 1 - dep * 0.5 * (1 - lfo) : 1;
+      let mix = 0, newest = null;
+      for (let k = 0; k < MAXV; k++) {
+        const v = this.voices[k];
+        if (v.done) continue;
+        const t = v.n / sr, tOff = v.nOff >= 0 ? v.nOff / sr : null;
+        const eP = envAt(E.pts, E.sus, t, tOff), eS = envTauAt(E.adsr, t, tOff);
+        v.env = shipped ? eS : eP; v.envG = shipped ? eP : eS;
+        v.n++;
+        if (shipped ? (tOff !== null && t > tOff && eS === 0) : envDone(E.pts, E.sus, t, tOff)) { v.done = true; v.env = 0; }
+        if (!newest || v.age > newest.age) newest = v;
+        const f = v.f * bend;
+        const d0 = Math.min(0.45, f * 1.0035 / sr), d1 = Math.min(0.45, f * 0.9965 / sr);
+        v.ph0 += d0; if (v.ph0 >= 1) v.ph0 -= 1;
+        v.ph1 += d1; if (v.ph1 >= 1) v.ph1 -= 1;
+        const osc = (2 * v.ph0 - 1 - blep(v.ph0, d0)) + (2 * v.ph1 - 1 - blep(v.ph1, d1));
+        const cut = Math.min(1, Math.max(0, sy.cutoff + cutL + E.toCut * v.env));
+        const fc = Math.min(40 * Math.pow(300, cut), sr * 0.45);
+        const g = 1 - Math.exp(-TAU * fc / sr);
+        v.lp1 += (osc - v.lp1) * g; v.lp2 += (v.lp1 - v.lp2) * g;
+        mix += v.lp2 * v.env;
+      }
+      const y = Math.tanh(mix * 0.45) * sy.level * lvl;
+      Lb[i] = y; Rb[i] = y;
+      const ay = Math.abs(y); if (ay > this.peak) this.peak = ay;
+      if (this.tapLfo && this.tapN < this.tapLfo.length) {
+        this.tapLfo[this.tapN] = lfo;
+        this.tapEnv[this.tapN] = this.voices[0].done ? 0 : this.voices[0].env;
+        this.tapN++;
+      }
+      if (++H.dec >= HDEC) {
+        H.dec = 0;
+        H.lfo[H.w] = lfo; H.lfoG[H.w] = this.lfoGhost;
+        H.env[H.w] = newest ? newest.env : 0; H.envG[H.w] = newest ? newest.envG : 0;
+        H.beat[H.w] = H.bt; H.bt = 0;
+        H.w = (H.w + 1) % HN;
+      }
+    }
+  }
+  /* One cycle of the LFO, published FROM the law — the shipped B177 idiom
+     (hzGetLfoCycle): the painter asks the core for the curve instead of
+     knowing how to make one. */
+  lfoCycle(N) { const o = new Float64Array(N + 1); for (let k = 0; k <= N; k++) o[k] = shapeAt(this.S.lfo.pts, k / N * (1 - 1e-9)); return o; }
+}
+ModLabCore.shapeAt = shapeAt; ModLabCore.segCurve = segCurve; ModLabCore.envAt = envAt;
+ModLabCore.envTauAt = envTauAt; ModLabCore.adsrPts = adsrPts; ModLabCore.DIVS = DIVS;
+ModLabCore.nearestDiv = nearestDiv; ModLabCore.K_ONEPOLE = K_ONEPOLE;
+
+/* ================= UI ================= */
+/* ---- STATE: the whole patch, one plain object, above all wiring (L0026) --- */
+const LAWS = ['PROPOSED', 'SHIPPED'];
+const DESTS = ['CUTOFF', 'PITCH', 'LEVEL'];
+const S = {
+  law: 0, bpm: 120, seed: 1234, draw: 0,
+  lfo: { pts: [], sync: 0, hz: 1.0, beats: 1, phase: 0, retrig: 0, dest: 0, depth: 0.55 },
+  env: { pts: [], sus: 2, adsr: { a: 0.01, d: 0.3, s: 0.5, r: 0.4 }, toCut: 0.35, custom: false },
+  synth: { cutoff: 0.35, level: 0.6 },
+};
+/* Curve fit for the smooth presets: sample fn at n points and give each segment
+   the c whose MIDPOINT matches fn's (f_k(½) = 1/(1+e^(-k/2)) inverts in closed
+   form). Presets are therefore points, the same currency the editor trades in,
+   rather than a second family of built-in waveforms. */
+function fitCycle(fn, n) {
+  const p = [];
+  for (let i = 0; i <= n; i++) p.push({ t: i / n, v: fn(i / n), c: 0 });
+  for (let i = 0; i < n; i++) {
+    const a = p[i].v, b = p[i + 1].v, dv = b - a;
+    if (Math.abs(dv) < 1e-9) continue;
+    const m = Math.min(0.999, Math.max(0.001, (fn((i + 0.5) / n) - a) / dv));
+    p[i].c = Math.max(-1, Math.min(1, -2 * Math.log(1 / m - 1) / (2 * K_ONEPOLE)));
+  }
+  return p;
+}
+const LFO_PRESETS = {
+  'SINE': () => fitCycle(t => Math.sin(TAU * t), 8),
+  'TRI': () => [{ t: 0, v: 0, c: 0 }, { t: 0.25, v: 1, c: 0 }, { t: 0.75, v: -1, c: 0 }, { t: 1, v: 0, c: 0 }],
+  'SAW ↑': () => [{ t: 0, v: -1, c: 0 }, { t: 1, v: 1, c: 0 }],
+  'SAW ↓': () => [{ t: 0, v: 1, c: 0 }, { t: 1, v: -1, c: 0 }],
+  'SQUARE': () => [{ t: 0, v: 1, c: 0 }, { t: 0.5, v: 1, c: 0 }, { t: 0.5, v: -1, c: 0 }, { t: 1, v: -1, c: 0 }],
+  /* Seeded, one reproducible draw per click: (seed, draw#) → the same steps. */
+  'STEPS': () => {
+    const r = mulberry32((S.seed + Math.imul(0x9E3779B9, ++S.draw)) >>> 0), p = [];
+    for (let i = 0; i < 8; i++) { const v = Math.round((r() * 2 - 1) * 8) / 8;
+      p.push({ t: i / 8, v, c: 0 }, { t: (i + 1) / 8, v, c: 0 }); }
+    return p;
+  },
+};
+const ENV_PRESETS = {
+  'ADSR': () => null,   // rewritten from the sliders (see applyAdsr)
+  'PLUCK': () => ({ sus: -1, pts: [{ t: 0, v: 0, c: 0.5 }, { t: 0.003, v: 1, c: 0.8 }, { t: 0.7, v: 0, c: 0 }] }),
+  'SWELL': () => ({ sus: 2, pts: [{ t: 0, v: 0, c: -0.5 }, { t: 1.1, v: 1, c: 0.3 }, { t: 1.6, v: 0.8, c: 0.5 }, { t: 2.6, v: 0, c: 0 }] }),
+  'GATE': () => ({ sus: 1, pts: [{ t: 0, v: 0, c: 0 }, { t: 0.002, v: 1, c: 0 }, { t: 0.012, v: 0, c: 0 }] }),
+  'AD': () => ({ sus: -1, pts: [{ t: 0, v: 0, c: 0.5 }, { t: 0.01, v: 1, c: 0.5 }, { t: 0.5, v: 0, c: 0 }] }),
+};
+S.lfo.pts = LFO_PRESETS['SINE']();
+S.env.pts = adsrPts(S.env.adsr.a, S.env.adsr.d, S.env.adsr.s, S.env.adsr.r);
+
+/* ---- token reader + canvas ground (gui2:1627/:1665, as station-page-lab) --- */
+const _tok = {};
+function TOK(name, fallback) {
+  if (_tok[name] === undefined) {
+    let v = '';
+    try { v = getComputedStyle(document.body || document.documentElement).getPropertyValue(name).trim(); }
+    catch (_) { v = ''; }
+    _tok[name] = (typeof v === 'string' && v) ? v : (fallback || '#000');
+  }
+  return _tok[name];
+}
+function RGBA(hex, a) {
+  const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(hex).trim());
+  if (!m) return hex;
+  return `rgba(${parseInt(m[1], 16)},${parseInt(m[2], 16)},${parseInt(m[3], 16)},${a})`;
+}
+function TOKA(name, a, fallback) {
+  const m = parseFloat(TOK('--scr-alpha', '1')) || 1;
+  return RGBA(TOK(name, fallback), Math.min(1, a * m));
+}
+const VS = () => Math.min(window.devicePixelRatio || 1, 2);
+function fitViz(cv) {
+  const d = VS();
+  const w = Math.max(1, Math.round(cv.clientWidth * d)), h = Math.max(1, Math.round(cv.clientHeight * d));
+  if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+}
+function ground(cv) {
+  if (!cv || !cv.getContext) return null;
+  fitViz(cv);
+  const g = cv.getContext('2d'), w = cv.width, h = cv.height, v = VS();
+  g.setLineDash([]);
+  g.fillStyle = TOK('--scr-tube'); g.fillRect(0, 0, w, h);
+  g.fillStyle = `rgba(0,0,0,${parseFloat(TOK('--scr-scan', '0.22')) || 0.22})`;
+  for (let y = v; y < h; y += 3 * v) g.fillRect(0, y, w, v);
+  return { g, w, h, v };
+}
+const FONT = v => (9 * v) + 'px ui-monospace,Menlo,monospace';
+
+/* ---- the core the page runs ---- */
+const core = new ModLabCore(48000, S);
+
+/* ---- editor geometry: ONE mapping per editor, shared by paint and pointer --- */
+let envWin = 1;              // seconds shown; frozen while dragging so the axis cannot chase the pointer
+let drag = null;
+// 1.2×: headroom so the last point can be dragged later in one gesture.
+function envWindow() { return Math.max(0.05, S.env.pts[S.env.pts.length - 1].t) * 1.2; }
+function geom(kind, cv) {
+  const v = VS(), w = cv.width, h = cv.height;
+  const x0 = 30 * v, x1 = w - 12 * v, y0 = 12 * v, y1 = h - 22 * v;
+  const lfo = kind === 'lfo', tMax = lfo ? 1 : envWin, lo = lfo ? -1 : 0, hi = 1;
+  return { v, x0, x1, y0, y1, tMax, lo, hi,
+    X: t => x0 + t / tMax * (x1 - x0), Y: val => y1 - (val - lo) / (hi - lo) * (y1 - y0),
+    T: x => Math.min(tMax, Math.max(0, (x - x0) / (x1 - x0) * tMax)),
+    V: y => Math.min(hi, Math.max(lo, lo + (y1 - y) / (y1 - y0) * (hi - lo))) };
+}
+function niceStep(span, n) {
+  const raw = span / (n || 5), p = Math.pow(10, Math.floor(Math.log10(raw)));
+  return raw / p < 2 ? p : raw / p < 5 ? 2 * p : 5 * p;
+}
+const fSec = s => s < 1 ? (s * 1000).toFixed(s < 0.01 ? 1 : 0) + ' ms' : s.toFixed(2) + ' s';
+
+function paintEditor(kind) {
+  const cv = document.getElementById(kind === 'lfo' ? 'lfoC' : 'envC');
+  const G = ground(cv); if (!G) return;
+  const { g, w, h, v } = G, M = geom(kind, cv);
+  const lfo = kind === 'lfo', pts = lfo ? S.lfo.pts : S.env.pts;
+  g.font = FONT(v); g.lineWidth = v;
+  // grid
+  g.strokeStyle = TOKA('--scr-grid', 0.22); g.fillStyle = TOKA('--scr-grid', 0.8);
+  const vt = lfo ? [-1, -0.5, 0, 0.5, 1] : [0, 0.25, 0.5, 0.75, 1];
+  for (const q of vt) { const y = M.Y(q); g.beginPath(); g.moveTo(M.x0, y); g.lineTo(M.x1, y); g.stroke();
+    g.fillText((q > 0 && lfo ? '+' : '') + q, 3 * v, y + 3 * v); }
+  const st = lfo ? 0.25 : niceStep(M.tMax);
+  for (let t = 0; t <= M.tMax + 1e-9; t += st) { const x = M.X(t); g.beginPath(); g.moveTo(x, M.y0); g.lineTo(x, M.y1); g.stroke();
+    g.fillText(lfo ? t.toFixed(2) : fSec(t), x - 8 * v, h - 8 * v); }
+  // THE CURVE — asked of the core, never computed here.
+  g.strokeStyle = TOK('--scr-value'); g.lineWidth = 1.6 * v; g.beginPath();
+  const N = 480;
+  if (lfo) {
+    const cyc = core.lfoCycle(N);
+    for (let k = 0; k <= N; k++) { const x = M.X(k / N), y = M.Y(cyc[k]); k ? g.lineTo(x, y) : g.moveTo(x, y); }
+  } else {
+    const s = susOf(pts, S.env.sus), tOff = s >= 0 ? pts[s].t : null;
+    for (let k = 0; k <= N; k++) { const t = k / N * M.tMax, y = M.Y(ModLabCore.envAt(pts, S.env.sus, t, tOff));
+      k ? g.lineTo(M.X(t), y) : g.moveTo(M.X(t), y); }
+  }
+  g.stroke();
+  if (lfo) {   // the wrap step, dashed: it is a real discontinuity, not an edit handle
+    g.setLineDash([3 * v, 3 * v]); g.strokeStyle = TOKA('--scr-value', 0.6); g.lineWidth = v;
+    g.beginPath(); g.moveTo(M.X(1), M.Y(pts[pts.length - 1].v)); g.lineTo(M.X(1), M.Y(pts[0].v)); g.stroke();
+    // start phase φ: authored, so value colour
+    const xp = M.X(S.lfo.phase);
+    g.strokeStyle = TOKA('--scr-value', 0.7); g.beginPath(); g.moveTo(xp, M.y0); g.lineTo(xp, M.y1); g.stroke();
+    g.setLineDash([]); g.fillStyle = TOK('--scr-value'); g.fillText('φ', xp + 3 * v, M.y0 + 8 * v);
+  } else {
+    const s = susOf(pts, S.env.sus);
+    if (s >= 0) { const xs = M.X(pts[s].t);
+      g.setLineDash([3 * v, 3 * v]); g.strokeStyle = TOK('--scr-marker'); g.lineWidth = v;
+      g.beginPath(); g.moveTo(xs, M.y0); g.lineTo(xs, M.y1); g.stroke(); g.setLineDash([]);
+      g.fillStyle = TOK('--scr-marker'); g.fillText('SUS', xs + 3 * v, M.y0 + 8 * v); }
+  }
+  // curve handles (segment midpoints, on the law) then points
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i], b = pts[i + 1]; if (b.t - a.t < 1e-9 || a.v === b.v) continue;
+    const tm = (a.t + b.t) / 2, vm = shapeAt(pts, tm);
+    g.fillStyle = TOKA('--scr-value', 0.45); g.beginPath(); g.arc(M.X(tm), M.Y(vm), 3.2 * v, 0, TAU); g.fill();
+  }
+  for (let i = 0; i < pts.length; i++) {
+    const p = pts[i], x = M.X(p.t), y = M.Y(p.v), r = 4 * v;
+    g.fillStyle = TOK('--scr-value'); g.fillRect(x - r, y - r, 2 * r, 2 * r);
+    g.strokeStyle = TOK('--scr-tube'); g.lineWidth = v; g.strokeRect(x - r, y - r, 2 * r, 2 * r);
+    if (drag && drag.kind === kind && drag.i === i) { g.strokeStyle = TOK('--scr-marker'); g.lineWidth = 1.5 * v; g.strokeRect(x - r - 2 * v, y - r - 2 * v, 2 * r + 4 * v, 2 * r + 4 * v); }
+  }
+  // playheads — MEASURED from the core, so meter colour; the other law as a ring
+  g.lineWidth = 1.2 * v;
+  if (lfo) {
+    const heard = S.law === 1 ? core.readS : core.readP, other = S.law === 1 ? core.readP : core.readS;
+    g.strokeStyle = TOKA('--scr-grid', 0.9); g.beginPath(); g.arc(M.X(other), M.Y(core.lfoGhost), 5 * v, 0, TAU); g.stroke();
+    g.fillStyle = TOK('--scr-meter'); g.beginPath(); g.arc(M.X(heard), M.Y(core.lfo), 4.2 * v, 0, TAU); g.fill();
+    const L = S.lfo, per = L.sync ? L.beats * 60 / S.bpm : 1 / L.hz;
+    const lab = L.sync ? divName(L.beats) + ' = ' + +L.beats.toFixed(4) + ' beat @ ' + S.bpm + ' BPM' : L.hz.toFixed(2) + ' Hz';
+    // top-RIGHT: the φ label owns the top-left corner at the default phase 0
+    g.fillStyle = TOKA('--scr-grid', 0.9); g.textAlign = 'right';
+    g.fillText('1 cycle = ' + fSec(per) + ' · ' + lab, M.x1 - 4 * v, M.y0 + 8 * v); g.textAlign = 'left';
+  } else {
+    const s = susOf(pts, S.env.sus);
+    if (S.law === 0) {
+      for (const vc of core.voices) {
+        if (vc.done) continue;
+        const t = vc.n / core.sr, tOff = vc.nOff >= 0 ? vc.nOff / core.sr : null;
+        const td = s < 0 ? t : (tOff === null ? Math.min(t, pts[s].t) : pts[s].t + (t - tOff));
+        if (td > M.tMax) continue;
+        g.fillStyle = TOK('--scr-meter'); g.beginPath(); g.arc(M.X(td), M.Y(vc.env), 4 * v, 0, TAU); g.fill();
+      }
+    } else {
+      g.fillStyle = TOK('--scr-marker');
+      g.fillText('HEAR = SHIPPED: voices play the τ-law ADSR, not this shape (see panel 3)', M.x0 + 4 * v, M.y0 + 8 * v);
+    }
+  }
+}
+
+/* ---- editor pointer wiring: the same geom() the painter used --------------- */
+function hit(kind, cv, mx, my) {
+  const M = geom(kind, cv), pts = kind === 'lfo' ? S.lfo.pts : S.env.pts, r = 8 * M.v;
+  for (let i = 0; i < pts.length; i++) if (Math.hypot(M.X(pts[i].t) - mx, M.Y(pts[i].v) - my) < r) return { part: 'pt', i };
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i], b = pts[i + 1]; if (b.t - a.t < 1e-9 || a.v === b.v) continue;
+    const tm = (a.t + b.t) / 2;
+    if (Math.hypot(M.X(tm) - mx, M.Y(shapeAt(pts, tm)) - my) < r) return { part: 'crv', i };
+  }
+  return null;
+}
+function delPoint(kind, i) {
+  const pts = kind === 'lfo' ? S.lfo.pts : S.env.pts;
+  // Endpoints anchor the axis (LFO both ends, envelope its t = 0 start).
+  if (i === 0 || (kind === 'lfo' && i === pts.length - 1) || pts.length <= 2) return;
+  pts.splice(i, 1);
+  if (kind === 'env') { if (S.env.sus > i) S.env.sus--; else if (S.env.sus === i) S.env.sus = Math.min(i, pts.length - 2); S.env.custom = true; }
+  onEdit();
+}
+function addPoint(kind, t, val) {
+  const pts = kind === 'lfo' ? S.lfo.pts : S.env.pts;
+  if (pts.length >= MAXPTS) return;
+  let i = 1; while (i < pts.length && pts[i].t <= t) i++;
+  if (kind === 'lfo' && i >= pts.length) i = pts.length - 1;
+  pts.splice(i, 0, { t, v: val, c: 0 });
+  if (kind === 'env') { if (S.env.sus >= i) S.env.sus++; S.env.custom = true; }
+  onEdit();
+}
+function wireEditor(kind) {
+  const cv = document.getElementById(kind === 'lfo' ? 'lfoC' : 'envC');
+  if (!cv || !cv.addEventListener) return;
+  const pos = e => { const r = cv.getBoundingClientRect();
+    return [(e.clientX - r.left) * cv.width / r.width, (e.clientY - r.top) * cv.height / r.height]; };
+  cv.addEventListener('contextmenu', e => e.preventDefault());
+  cv.addEventListener('pointerdown', e => {
+    const [mx, my] = pos(e), hh = hit(kind, cv, mx, my);
+    if (e.button === 2) { if (hh && hh.part === 'pt') delPoint(kind, hh.i); return; }
+    if (!hh) return;
+    const pts = kind === 'lfo' ? S.lfo.pts : S.env.pts;
+    drag = { kind, part: hh.part, i: hh.i, y0: my, c0: pts[hh.i].c };
+    // Capture is a nicety (drag past the edge); it throws for a pointer the
+    // browser no longer considers active, and that must not cost the drag.
+    try { if (cv.setPointerCapture) cv.setPointerCapture(e.pointerId); } catch (_) { /* keep dragging */ }
+  });
+  cv.addEventListener('pointermove', e => {
+    if (!drag || drag.kind !== kind) return;
+    const [mx, my] = pos(e), M = geom(kind, cv), pts = kind === 'lfo' ? S.lfo.pts : S.env.pts, p = pts[drag.i];
+    if (drag.part === 'pt') {
+      const n = pts.length, fixedT = drag.i === 0 || (kind === 'lfo' && drag.i === n - 1);
+      if (!fixedT) {
+        const lo = pts[drag.i - 1].t, hi = drag.i < n - 1 ? pts[drag.i + 1].t : (kind === 'lfo' ? 1 : 10);
+        p.t = Math.min(hi, Math.max(lo, M.T(mx)));
+      }
+      p.v = M.V(my);
+    } else {
+      // Up raises the midpoint: for a rising segment that is +c, for a falling one −c.
+      const q = pts[drag.i + 1], sgn = q.v >= p.v ? 1 : -1;
+      p.c = Math.max(-1, Math.min(1, drag.c0 + sgn * (drag.y0 - my) / (90 * M.v)));
+    }
+    if (kind === 'env') S.env.custom = true;
+    onEdit();
+  });
+  const end = () => { if (drag && drag.kind === kind) { drag = null; envWin = envWindow(); onEdit(); } };
+  cv.addEventListener('pointerup', end); cv.addEventListener('pointercancel', end);
+  cv.addEventListener('dblclick', e => {
+    const [mx, my] = pos(e), hh = hit(kind, cv, mx, my), M = geom(kind, cv);
+    if (hh && hh.part === 'pt') delPoint(kind, hh.i);
+    else if (!hh) addPoint(kind, M.T(mx), M.V(my));
+  });
+}
+
+/* ---- small builders, gui2's .row grid, one control per row ----------------- */
+const $ = id => document.getElementById(id);
+function el(tag, cls, txt) { const e = document.createElement(tag); if (cls) e.className = cls; if (txt !== undefined) e.textContent = txt; return e; }
+const REPAINT = [];
+/* Double-click resets (modulator-lab's rule): the default is captured from S at
+   build time, so the patch IS the default table and there is no second copy. */
+function slider(host, o) {
+  const row = el('div', 'row'), inp = el('input'), out = el('output');
+  inp.type = 'range';
+  const lg = !!o.log, lo = o.min, hi = o.max;
+  const toU = x => lg ? Math.log(x / lo) / Math.log(hi / lo) : x;
+  const fromU = u => lg ? lo * Math.pow(hi / lo, u) : u;
+  inp.min = String(lg ? 0 : lo); inp.max = String(lg ? 1 : hi); inp.step = String(lg ? 0.001 : o.step);
+  const def = o.get();
+  const show = () => { const x = o.get(); inp.value = String(toU(x)); out.textContent = o.fmt(x);
+    inp.style.setProperty('--pct', String(Math.min(1, Math.max(0, lg ? toU(x) : (x - lo) / (hi - lo))))); };
+  inp.addEventListener('input', () => { o.set(fromU(parseFloat(inp.value))); show(); onEdit(); });
+  inp.addEventListener('dblclick', () => { o.set(def); show(); onEdit(); });
+  row.appendChild(el('label', null, o.label)); row.appendChild(inp); row.appendChild(out);
+  host.appendChild(row); REPAINT.push(show); show();
+  return row;
+}
+function pillRow(host, label, names, get, set) {
+  const row = el('div', 'row wide'), box = el('div', 'pills'), btns = [];
+  names.forEach((nm, i) => { const b = el('button', 'pill', nm);
+    b.addEventListener('click', () => { set(i); onEdit(); }); box.appendChild(b); btns.push(b); });
+  const show = () => btns.forEach((b, i) => b.classList.toggle('on', i === get()));
+  row.appendChild(el('label', null, label)); row.appendChild(box);
+  host.appendChild(row); REPAINT.push(show); show();
+  return row;
+}
+function selectRow(host, label, names, get, set) {
+  const row = el('div', 'row wide'), sel = el('select');
+  names.forEach((nm, i) => { const op = el('option', null, nm); op.value = String(i); sel.appendChild(op); });
+  sel.addEventListener('change', () => { set(parseInt(sel.value, 10)); onEdit(); });
+  row.appendChild(el('label', null, label)); row.appendChild(sel);
+  host.appendChild(row); REPAINT.push(() => { sel.value = String(get()); });
+  return row;
+}
+const f2 = x => (+x).toFixed(2);
+const divLabel = i => DIVS[i][0] + (DIVS[i][1] ? ' · ' + DIVS[i][1] : '');
+/* The display rule for a stored beats value: its name when it is exactly on
+   the list, otherwise "≈ nearest ±x%" (a loaded off-list patch keeps its value). */
+function divName(beats) {
+  const i = nearestDiv(beats), r = beats / DIVS[i][2] - 1;
+  return Math.abs(r) < 1e-12 ? divLabel(i) : '≈ ' + DIVS[i][0] + ' ' + (r > 0 ? '+' : '') + (r * 100).toFixed(1) + '%';
+}
+
+/* ---- LFO card ---- */
+const GHOSTS = [];
+function buildLfo() {
+  const host = $('lfoRows'); if (!host) return;
+  const L = S.lfo;
+  pillRow(host, 'time', ['FREE Hz', 'SYNC'], () => L.sync, i => { L.sync = i; });
+  const rRate = slider(host, { label: 'rate', min: 0.02, max: 40, log: true, get: () => L.hz, set: x => { L.hz = x; }, fmt: x => x.toFixed(x < 1 ? 3 : 2) + ' Hz' });
+  const rDiv = selectRow(host, 'division', DIVS.map((d, i) => divLabel(i)), () => nearestDiv(L.beats), i => { L.beats = DIVS[i][2]; });
+  slider(host, { label: 'phase φ', min: 0, max: 1, step: 0.001, get: () => L.phase, set: x => { L.phase = x; }, fmt: x => f2(x) + ' · ' + Math.round(x * 360) + '°' });
+  pillRow(host, 'retrig', ['FREE-RUN', 'ON NOTE'], () => L.retrig, i => { L.retrig = i; });
+  pillRow(host, 'dest', DESTS, () => L.dest, i => { L.dest = i; });
+  slider(host, { label: 'depth', min: 0, max: 1, step: 0.01, get: () => L.depth, set: x => { L.depth = x; }, fmt: f2 });
+  GHOSTS.push(() => { rRate.classList.toggle('ghost', !!L.sync); rDiv.classList.toggle('ghost', !L.sync || S.law === 1); });
+  const pre = $('lfoPresets');
+  if (pre) {
+    Object.keys(LFO_PRESETS).forEach(k => { const b = el('button', 'pill', k);
+      b.addEventListener('click', () => { L.pts = LFO_PRESETS[k](); onEdit(); }); pre.appendChild(b); });
+    const mir = el('button', 'pill', 'MIRROR');
+    /* Exact under this curve law: segment j of the result is old segment n-2-j
+       run backwards, and running a segment backwards is negating its c. */
+    mir.addEventListener('click', () => {
+      const o = L.pts, n = o.length, r = [];
+      for (let i = 0; i < n; i++) r.push({ t: 1 - o[n - 1 - i].t, v: o[n - 1 - i].v, c: 0 });
+      for (let j = 0; j < n - 1; j++) r[j].c = -o[n - 2 - j].c;
+      L.pts = r; onEdit();
+    });
+    const inv = el('button', 'pill', 'INVERT');
+    inv.addEventListener('click', () => { for (const p of L.pts) p.v = -p.v; onEdit(); });
+    pre.appendChild(mir); pre.appendChild(inv);
+    const sd = el('input'); sd.type = 'number'; sd.value = String(S.seed); sd.title = 'seed for STEPS (mulberry32; one draw per click)';
+    sd.addEventListener('input', () => { S.seed = (parseInt(sd.value, 10) || 0) | 0; S.draw = 0; });
+    pre.appendChild(sd);
+  }
+}
+
+/* ---- envelope card ---- */
+function applyAdsr() { const a = S.env.adsr; S.env.pts = adsrPts(a.a, a.d, a.s, a.r); S.env.sus = 2; S.env.custom = false; envWin = envWindow(); }
+function buildEnv() {
+  const host = $('envRows'); if (!host) return;
+  const a = S.env.adsr;
+  const w = (key, label, min, max, log, fmt) => slider(host, { label, min, max, step: 0.01, log,
+    get: () => a[key], set: x => { a[key] = x; applyAdsr(); }, fmt });
+  // The shipped ranges (params 281-288): A 0.001-2, D 0.005-4, R 0.005-8 s.
+  w('a', 'attack', 0.001, 2, true, fSec); w('d', 'decay', 0.005, 4, true, fSec);
+  w('s', 'sustain', 0, 1, false, f2); w('r', 'release', 0.005, 8, true, fSec);
+  slider(host, { label: 'env→cut', min: 0, max: 1, step: 0.01, get: () => S.env.toCut, set: x => { S.env.toCut = x; }, fmt: f2 });
+  const pre = $('envPresets');
+  if (pre) Object.keys(ENV_PRESETS).forEach(k => { const b = el('button', 'pill', k);
+    b.addEventListener('click', () => { const r = ENV_PRESETS[k]();
+      if (!r) applyAdsr(); else { S.env.pts = r.pts; S.env.sus = r.sus; S.env.custom = true; envWin = envWindow(); }
+      onEdit(); }); pre.appendChild(b); });
+}
+function paintSus() {
+  const box = $('susPills'); if (!box) return;
+  box.innerHTML = '';
+  const n = S.env.pts.length, cur = susOf(S.env.pts, S.env.sus);
+  const add = (label, idx) => { const b = el('button', 'pill' + (cur === idx ? ' on' : ''), label);
+    b.addEventListener('click', () => { S.env.sus = idx; S.env.custom = true; onEdit(); }); box.appendChild(b); };
+  add('NONE', -1);
+  for (let i = 0; i < n - 1; i++) add('P' + (i + 1), i);
+}
+
+/* ---- panel 1: the division table + the migration read ---- */
+function buildDivs() {
+  const well = $('divWell'); if (!well) return;
+  ['STRAIGHT', 'DOTTED', 'TRIPLET'].forEach(h => well.appendChild(el('div', 'hd', h)));
+  const cells = [];
+  for (let r = 0; r < 8; r++) for (let f = 0; f < 3; f++) {
+    const i = DIVS.findIndex(d => d[3] === f && d[4] === r);
+    if (i < 0) { well.appendChild(el('div', 'gap', f === 1 ? '12 beats: out of range' : 'below range')); continue; }
+    const b = el('button', 'pill', divLabel(i));
+    b.addEventListener('click', () => { S.lfo.beats = DIVS[i][2]; S.lfo.sync = 1; onEdit(); });
+    well.appendChild(b); cells.push([b, i]);
+  }
+  // Lit only on an EXACT match: an off-list value lights nothing rather than
+  // letting the nearest name pose as the stored value.
+  REPAINT.push(() => cells.forEach(([b, i]) => b.classList.toggle('on', DIVS[i][2] === S.lfo.beats)));
+  const mh = $('migRows');
+  if (mh) slider(mh, { label: 'beats', min: 0.0625, max: 8, log: true, get: () => S.lfo.beats, set: x => { S.lfo.beats = x; }, fmt: x => x.toFixed(4) });
+}
+function paintDivRead() {
+  const b = S.lfo.beats, sec = b * 60 / S.bpm, e = $('divRead'), i = nearestDiv(b);
+  if (e) e.innerHTML = '<b>' + divName(b) + '</b> = ' + +b.toFixed(5) + ' beat = ' + fSec(sec)
+    + ' = ' + (1 / sec).toFixed(3) + ' Hz @ ' + S.bpm + ' BPM · list position ' + (i + 1) + ' of 22 (slow → fast)'
+    + (S.lfo.sync ? '' : ' · <b>SYNC is off</b>, so the LFO is on its Hz rate');
+  const m = $('migRead');
+  if (m) { const i = nearestDiv(S.lfo.beats), r = S.lfo.beats / DIVS[i][2] - 1;
+    m.innerHTML = 'Shipped knob at <b>' + S.lfo.beats.toFixed(4) + '</b> beats reads as <b>'
+      + (Math.abs(r) < 1e-9 ? divLabel(i) + '</b> exactly' : '≈ ' + divLabel(i) + '</b> ' + (r > 0 ? '+' : '') + (r * 100).toFixed(1) + '%')
+      + '. It stays at its own value until a name is picked, so a loaded patch never changes sound.'; }
+}
+
+/* ---- panel 3: the time-law comparison, same four numbers under both laws --- */
+function paintLaw() {
+  const cv = $('lawC'), G = ground(cv); if (!G) return;
+  const { g, w, h, v } = G, a = S.env.adsr;
+  const P = adsrPts(a.a, a.d, a.s, a.r), gate = a.a + a.d + 0.3;
+  const T = Math.max(gate + K_ONEPOLE * a.r * 1.05, K_ONEPOLE * (a.a + a.d) * 1.05, 0.05);
+  const x0 = 6 * v, x1 = w - 8 * v, y0 = 14 * v, y1 = h - 18 * v;
+  const X = t => x0 + t / T * (x1 - x0), Y = q => y1 - q * (y1 - y0);
+  g.font = FONT(v); g.lineWidth = v; g.strokeStyle = TOKA('--scr-grid', 0.22); g.fillStyle = TOKA('--scr-grid', 0.8);
+  const st = niceStep(T, 4);
+  for (let t = 0; t <= T; t += st) { g.beginPath(); g.moveTo(X(t), y0); g.lineTo(X(t), y1); g.stroke(); g.fillText(fSec(t), X(t) + 2 * v, h - 6 * v); }
+  const N = 600;
+  const line = (fn, col, dash) => { g.setLineDash(dash); g.strokeStyle = col; g.lineWidth = 1.5 * v; g.beginPath();
+    for (let k = 0; k <= N; k++) { const t = k / N * T, y = Y(fn(t)); k ? g.lineTo(X(t), y) : g.moveTo(X(t), y); } g.stroke(); g.setLineDash([]); };
+  line(t => ModLabCore.envTauAt(a, t, gate), TOKA('--scr-grid', 0.9), [4 * v, 3 * v]);
+  line(t => ModLabCore.envAt(P, 2, t, gate), TOK('--scr-value'), []);
+  // stated times: where the knobs SAY each stage arrives
+  const marks = [[a.a, 'A'], [a.a + a.d, 'D'], [gate, 'OFF'], [gate + a.r, 'R']];
+  g.strokeStyle = TOKA('--scr-marker', 0.8); g.fillStyle = TOK('--scr-marker'); g.setLineDash([2 * v, 3 * v]);
+  for (const [t, l] of marks) { g.beginPath(); g.moveTo(X(t), y0); g.lineTo(X(t), y1); g.stroke(); g.fillText(l, X(t) + 2 * v, y0 - 3 * v); }
+  g.setLineDash([]);
+  // where the shipped law actually gets there (99%): rings on the ghost
+  g.strokeStyle = TOKA('--scr-grid', 1);
+  for (const t of [K_ONEPOLE * a.a, K_ONEPOLE * (a.a + a.d), gate + K_ONEPOLE * a.r]) {
+    g.beginPath(); g.arc(X(t), Y(ModLabCore.envTauAt(a, t, gate)), 3.5 * v, 0, TAU); g.stroke(); }
+  // table
+  const tb = $('lawT');
+  if (tb) {
+    const at = (fn, t) => (fn(t) * 100).toFixed(1) + '%';
+    const relD = t => { const q = ModLabCore.envTauAt(a, t, gate); return a.s < 1 ? (1 - q) / (1 - a.s) : 1; };
+    const relR = t => ModLabCore.envTauAt(a, t, gate) / Math.max(1e-9, ModLabCore.envTauAt(a, gate, gate));
+    tb.innerHTML = '<tr><th>stage</th><th>knob</th><th>proposed arrives</th><th>shipped arrives</th><th>shipped at the knob\'s time</th></tr>'
+      + '<tr><td>attack</td><td>' + fSec(a.a) + '</td><td class="p">' + fSec(a.a) + '</td><td>' + fSec(K_ONEPOLE * a.a) + ' (snap at 99%)</td><td>' + at(t => ModLabCore.envTauAt(a, t, gate), a.a) + ' of peak</td></tr>'
+      + '<tr><td>decay</td><td>' + fSec(a.d) + '</td><td class="p">+' + fSec(a.d) + '</td><td>never exactly (99% at +' + fSec(K_ONEPOLE * a.d) + ')</td><td>' + (relD(K_ONEPOLE * a.a + a.d) * 100).toFixed(1) + '% of the way</td></tr>'
+      + '<tr><td>release</td><td>' + fSec(a.r) + '</td><td class="p">+' + fSec(a.r) + '</td><td>1% at +' + fSec(K_ONEPOLE * a.r) + ', exact 0 at +' + fSec(Math.log(Math.max(1e-6, ModLabCore.envTauAt(a, gate, gate)) / 1e-6) * a.r) + '</td><td>' + (relR(gate + a.r) * 100).toFixed(1) + '% of the level left</td></tr>';
+  }
+  /* MIGRATION, measured rather than asserted: the shipped curve against the
+     proposed law at arrival = tau × ln 100, over a gate long enough for both to
+     settle, max |difference| in level units. */
+  const m = $('lawMig');
+  if (m) {
+    const Pm = adsrPts(a.a * K_ONEPOLE, a.d * K_ONEPOLE, a.s, a.r * K_ONEPOLE), gm = K_ONEPOLE * (a.a + a.d) + 0.3;
+    const Tm = gm + K_ONEPOLE * a.r * 1.2; let mx = 0;
+    for (let k = 0; k <= 4000; k++) { const t = k / 4000 * Tm;
+      mx = Math.max(mx, Math.abs(ModLabCore.envAt(Pm, 2, t, gm) - ModLabCore.envTauAt(a, t, gm))); }
+    m.innerHTML = 'Migration check, run live on these four numbers: proposed law with times × 4.61 against the shipped law, '
+      + 'max |Δ level| = <b>' + (mx * 100).toFixed(2) + '%</b> of full scale. The bound is e<sup>−4.61</sup>/(1−e<sup>−4.61</sup>) ≈ 1.01% per stage, '
+      + 'the residue the one-pole still owes at the moment the proposed stage has arrived.';
+  }
+}
+
+/* ---- panel 2: where each law sits on the beat ---- */
+function paintBeat() {
+  const e = $('beatRead'); if (!e) return;
+  if (!ac) { e.innerHTML = 'POWER to run the transport.'; return; }
+  const p = core.onBeatP, s = core.onBeatS;
+  if (!(p >= 0)) { e.textContent = 'waiting for a beat…'; return; }
+  const d = Math.abs(frac(p - s + 0.5) - 0.5);
+  e.innerHTML = 'proposed <b>' + p.toFixed(3) + '</b> · shipped <b>' + s.toFixed(3) + '</b> · apart by <b>' + d.toFixed(3) + '</b> cycle'
+    + (S.lfo.sync ? '' : ' (free mode: the laws differ only in φ)');
+}
+
+/* ---- heard lanes ---- */
+function paintHeard() {
+  const cv = $('heardC'), G = ground(cv); if (!G) return;
+  const { g, w, h, v } = G, H = core.H, lh = h / 2;
+  g.font = FONT(v);
+  if (!ac) { g.fillStyle = TOKA('--scr-grid', 0.9); g.fillText('POWER, then play (the lanes are taps of the render, so they are empty until it runs)', 8 * v, h / 2); return; }
+  const lanes = [[H.lfo, H.lfoG, true, 'LFO → ' + DESTS[S.lfo.dest]], [H.env, H.envG, false, 'ENV (newest voice)']];
+  lanes.forEach(([a, b, bip, name], li) => {
+    const top = li * lh + 5 * v, bot = (li + 1) * lh - 5 * v;
+    const Y = q => bip ? (top + bot) / 2 - q * (bot - top) / 2 : bot - q * (bot - top);
+    g.strokeStyle = TOKA('--scr-grid', 0.25); g.lineWidth = v;
+    g.beginPath(); g.moveTo(0, Y(0)); g.lineTo(w, Y(0)); g.stroke();
+    for (const [arr, col, dash] of [[b, TOKA('--scr-grid', 0.85), [4 * v, 3 * v]], [a, TOK('--scr-meter'), []]]) {
+      g.setLineDash(dash); g.strokeStyle = col; g.lineWidth = 1.4 * v; g.beginPath();
+      for (let k = 0; k < HN; k++) { const x = k / (HN - 1) * w, y = Y(arr[(H.w + k) % HN]); k ? g.lineTo(x, y) : g.moveTo(x, y); }
+      g.stroke();
+    }
+    g.setLineDash([]);
+    g.fillStyle = TOKA('--scr-grid', 0.9); g.fillText(name, 4 * v, top + 8 * v);
+  });
+  g.strokeStyle = TOKA('--scr-marker', 0.9); g.lineWidth = v;
+  for (let k = 0; k < HN; k++) if (H.beat[(H.w + k) % HN]) { const x = k / (HN - 1) * w; g.beginPath(); g.moveTo(x, lh - 6 * v); g.lineTo(x, lh); g.stroke(); }
+}
+
+/* ---- THE ONE-LAW AUDIT --------------------------------------------------------
+   Structure guarantees the painters hold no law, but a guarantee nobody checks
+   is a claim. So the page renders its own core offline and compares the value
+   the DESTINATION received, sample by sample, with the value the picture
+   draws at the same instant. What that catches: any smoothing, offset, second
+   phase law or second envelope law added to the render path later.
+   Must-fire controls (L0032): the same comparison against a copy with one
+   breakpoint moved by 0.1 has to read about 0.1, or the comparison is blind. */
+function auditOneLaw() {
+  const box = $('audit'); if (!box) return;
+  try {
+    const St = JSON.parse(JSON.stringify(S)); St.law = 0;
+    const sr = 8000, E = St.env, s = susOf(E.pts, E.sus);
+    const nOff = Math.round(sr * ((s >= 0 ? E.pts[s].t : 0) + 0.15));
+    const endT = s >= 0 ? E.pts[s].t + 0.15 + (E.pts[E.pts.length - 1].t - E.pts[s].t) : E.pts[E.pts.length - 1].t;
+    const n = Math.min(Math.round(sr * 6), Math.max(nOff, Math.round(sr * endT)) + 200);
+    const c = new ModLabCore(sr, St);
+    c.tapLfo = new Float64Array(n); c.tapEnv = new Float64Array(n);
+    const Lb = new Float32Array(n), Rb = new Float32Array(n);
+    c.noteOn(60);
+    c.render(Lb, Rb, Math.min(nOff, n)); c.noteOff(60);
+    if (n > nOff) c.render(Lb.subarray(nOff), Rb.subarray(nOff), n - nOff);
+    const L = St.lfo;
+    /* The phase each sample SHOULD read, written out from the stated law in the
+       same float order the core uses. Same order matters: a square or STEPS
+       shape has a vertical step, and an ULP of phase on either side of it is a
+       difference of 2 — a mapping written as (i+1)·inc instead of a running sum
+       would "fail" on arithmetic, not on law. */
+    let acc = 0, beat = 0;
+    const bps = St.bpm / 60 / sr, beats = Math.max(0.01, L.beats);
+    const moved = pts => { const q = JSON.parse(JSON.stringify(pts)), j = q.length > 2 ? 1 : 0; q[j].v += 0.1; return q; };
+    const L2 = moved(L.pts), E2 = moved(E.pts);
+    let dL = 0, dE = 0, cL = 0, cE = 0;
+    for (let i = 0; i < n; i++) {
+      beat += bps;
+      if (L.sync) acc = beat / beats; else { acc += L.hz / sr; acc -= Math.floor(acc); }
+      const ph = frac(acc + L.phase), t = i / sr, tOff = i >= nOff ? nOff / sr : null;
+      dL = Math.max(dL, Math.abs(c.tapLfo[i] - shapeAt(L.pts, ph)));
+      cL = Math.max(cL, Math.abs(c.tapLfo[i] - shapeAt(L2, ph)));
+      dE = Math.max(dE, Math.abs(c.tapEnv[i] - envAt(E.pts, E.sus, t, tOff)));
+      cE = Math.max(cE, Math.abs(c.tapEnv[i] - envAt(E2, E.sus, t, tOff)));
+    }
+    let dm = 0;   // mirror exactness of the curve law itself
+    for (const cc of [-1, -0.6, -0.2, 0.3, 0.5, 1]) for (let k = 0; k <= 100; k++) {
+      const x = k / 100; dm = Math.max(dm, Math.abs(segCurve(x, -cc) - (1 - segCurve(1 - x, cc)))); }
+    const ok = dL === 0 && dE === 0 && cL > 1e-3 && cE > 1e-3 && dm < 1e-12;
+    box.classList.toggle('bad', !ok);
+    const e = x => x === 0 ? '0' : x.toExponential(1);
+    box.innerHTML = 'one-law audit (PROPOSED, offline render at ' + sr + ' Hz, ' + n + ' samples, re-run on every edit): '
+      + 'picture vs destination tap, LFO max|Δ| <b>' + e(dL) + '</b> · ENV max|Δ| <b>' + e(dE) + '</b>'
+      + (dL === 0 && dE === 0 ? ' (bit-identical)' : '') + ' · controls, one breakpoint moved 0.1: LFO <b>' + cL.toFixed(3) + '</b>, ENV <b>'
+      + cE.toFixed(3) + '</b>, ' + (cL > 1e-3 && cE > 1e-3 ? 'both fire' : 'A CONTROL DID NOT FIRE') + ' · mirror (c → −c) exact to <b>' + e(dm) + '</b>'
+      + (ok ? '' : ' · FAILED');
+  } catch (err) { box.classList.add('bad'); box.textContent = 'one-law audit threw: ' + String((err && err.message) || err); }
+}
+
+/* ---- preset serialization ---- */
+function serialize() {
+  const e = $('ser'); if (!e) return;
+  const L = S.lfo, E = S.env, r = x => +(+x).toFixed(5);
+  const o = { version: 2, proposal: 'B208',
+    lfo: { shape: L.pts.map(p => [r(p.t), r(p.v), r(p.c)]),
+           rate: L.sync ? { sync: true, beats: L.beats, name: DIVS[nearestDiv(L.beats)][2] === L.beats ? DIVS[nearestDiv(L.beats)][0] : null }
+                  : { sync: false, hz: r(L.hz) },
+           phase: r(L.phase), retrig: !!L.retrig },
+    env: { shape: E.pts.map(p => [r(p.t), r(p.v), r(p.c)]), sustain: susOf(E.pts, E.sus) < 0 ? null : E.sus } };
+  e.textContent = JSON.stringify(o).replace(/\],\[/g, '],\n    [').replace(/"(lfo|env|rate|phase|retrig|sustain)":/g, '\n  "$1":');
+}
+
+/* ---- normalise after any edit: sorted, anchored, sustain in range ---------- */
+function normalise() {
+  const lp = S.lfo.pts; lp.sort((a, b) => a.t - b.t); lp[0].t = 0; lp[lp.length - 1].t = 1;
+  const ep = S.env.pts; ep.sort((a, b) => a.t - b.t); ep[0].t = 0;
+  if (S.env.sus > ep.length - 2) S.env.sus = ep.length - 2;
+}
+function onEdit() {
+  normalise();
+  if (!drag) envWin = envWindow();
+  for (const f of REPAINT) f();
+  for (const f of GHOSTS) f();
+  paintSus(); paintDivRead(); paintLaw(); serialize(); auditOneLaw();
+  const w = $('envWarn');
+  if (w) { const on = S.env.custom; w.style.display = on ? 'block' : 'none';
+    w.textContent = 'Breakpoints edited: the A/D/S/R sliders no longer describe this shape (moving one rewrites it). HEAR = SHIPPED still plays the sliders as τ, because the shipped envelope has no breakpoints.'; }
+  const bo = $('bpmOut'); if (bo) bo.textContent = String(S.bpm);
+  paintEditor('lfo'); paintEditor('env');
+}
+
+/* ---- audio (the page's job; the core is graph-free) ---- */
+let ac = null, spn = null, blocks = 0;
+function power() {
+  if (ac) { if (ac.state === 'suspended') ac.resume(); return; }
+  try {
+    ac = new (window.AudioContext || window.webkitAudioContext)();
+    core.sr = ac.sampleRate;
+    spn = ac.createScriptProcessor(512, 0, 2);
+    spn.onaudioprocess = ev => { const L = ev.outputBuffer.getChannelData(0), R = ev.outputBuffer.getChannelData(1);
+      core.render(L, R, L.length); blocks++; };
+    spn.connect(ac.destination);
+    const b = $('pwr'); if (b && b.classList) b.classList.add('on');
+  } catch (e) { const st = $('audioStat'); if (st) st.textContent = 'AUDIO: ' + String((e && e.message) || e); }
+}
+
+/* ---- keyboard ---- */
+const KEYMAP = { a: 0, w: 1, s: 2, e: 3, d: 4, f: 5, t: 6, g: 7, y: 8, h: 9, u: 10, j: 11, k: 12, o: 13, l: 14 };
+const BLACK = { 1: 1, 3: 1, 6: 1, 8: 1, 10: 1 };
+const KEYEL = {}, held = {};
+let baseNote = 48, droning = false;
+function press(n) { if (held[n]) return; held[n] = 1; power(); core.noteOn(n); if (KEYEL[n] && KEYEL[n].classList) KEYEL[n].classList.add('on'); }
+function release(n) { if (!held[n]) return; delete held[n]; core.noteOff(n); if (KEYEL[n] && KEYEL[n].classList) KEYEL[n].classList.remove('on'); }
+function buildKbd() {
+  const host = $('kbd'); if (!host) return;
+  host.innerHTML = ''; for (const k in KEYEL) delete KEYEL[k];
+  for (let i = 0; i < 25; i++) {
+    const n = baseNote + i, k = el('div', 'key' + (BLACK[n % 12] ? ' blk' : ''));
+    const kc = Object.keys(KEYMAP).filter(c => baseNote + KEYMAP[c] === n)[0];
+    k.appendChild(el('span', null, n % 12 === 0 ? 'C' + (Math.floor(n / 12) - 1) : (kc ? kc.toUpperCase() : '')));
+    k.addEventListener('pointerdown', () => press(n));
+    k.addEventListener('pointerup', () => release(n)); k.addEventListener('pointerleave', () => release(n));
+    host.appendChild(k); KEYEL[n] = k;
+  }
+}
+function toggleDrone() {
+  power(); droning = !droning;
+  if (droning) { press(48); press(55); } else { release(48); release(55); }
+  const b = $('droneBtn'); if (b && b.classList) b.classList.toggle('on', droning);
+}
+
+/* ---- theme: `?theme=dark` opens dark, so a screenshot of it is a LOAD ---- */
+let dark = false;
+try { const q = window.location && window.location.search; if (typeof q === 'string' && /theme=dark/.test(q)) dark = true; } catch (_) { /* headless */ }
+function applyTheme() {
+  document.body.classList.toggle('dark', dark);
+  const b = $('themeBtn'); if (b) b.innerHTML = 'theme <b>' + (dark ? 'DARK · TUBE' : 'LIGHT · ORCHID') + '</b>';
+  for (const k in _tok) delete _tok[k];
+  onEdit(); paintHeard();
+}
+
+function audioStat() {
+  const e = $('audioStat'); if (!e) return;
+  if (!ac) { e.textContent = 'AUDIO: OFF (POWER)'; return; }
+  const pk = core.peak; core.peak = 0;
+  let nv = 0; for (const v of core.voices) if (!v.done) nv++;
+  e.textContent = 'AUDIO: ' + Math.round(ac.sampleRate) + ' Hz · blocks ' + blocks + ' · voices ' + nv + ' · peak ' + pk.toFixed(3)
+    + ' · hearing ' + LAWS[S.law];
+}
+function frame() {
+  paintEditor('lfo'); paintEditor('env'); paintHeard(); paintBeat(); audioStat();
+  if (window.requestAnimationFrame) window.requestAnimationFrame(frame);
+}
+
+/* ============ SETUP: everything above is declared (L0026) ============ */
+buildLfo(); buildEnv(); buildDivs(); buildKbd();
+(() => {
+  const lp = $('lawPills');
+  if (lp) { const btns = LAWS.map((nm, i) => { const b = el('button', 'pill', nm);
+      b.addEventListener('click', () => { S.law = i; onEdit(); }); lp.appendChild(b); return b; });
+    REPAINT.push(() => btns.forEach((b, i) => b.classList.toggle('on', i === S.law))); }
+  const sh = $('synthRows');
+  if (sh) { slider(sh, { label: 'cutoff', min: 0, max: 1, step: 0.005, get: () => S.synth.cutoff, set: x => { S.synth.cutoff = x; }, fmt: f2 });
+    slider(sh, { label: 'level', min: 0, max: 1, step: 0.005, get: () => S.synth.level, set: x => { S.synth.level = x; }, fmt: f2 }); }
+  const bpm = $('bpm');
+  if (bpm && bpm.addEventListener) { bpm.value = String(S.bpm);
+    bpm.addEventListener('input', () => { S.bpm = parseInt(bpm.value, 10) || 120; onEdit(); });
+    REPAINT.push(() => { bpm.value = String(S.bpm); bpm.style.setProperty('--pct', String((S.bpm - 40) / 180)); }); }
+  const on = (id, f) => { const b = $(id); if (b && b.addEventListener) b.addEventListener('click', f); };
+  on('pwr', power);
+  on('panic', () => { core.panic(); for (const n in held) release(+n); droning = false; const d = $('droneBtn'); if (d && d.classList) d.classList.remove('on'); });
+  on('themeBtn', () => { dark = !dark; applyTheme(); });
+  on('droneBtn', toggleDrone);
+  on('reactBtn', () => { core.activate(); });
+})();
+wireEditor('lfo'); wireEditor('env');
+core.activate();
+if (window.addEventListener) {
+  window.addEventListener('keydown', e => {
+    if (e.repeat) return;
+    const tg = e.target && e.target.tagName;
+    if (tg === 'INPUT' && e.target.type === 'number') return;
+    const k = String(e.key || '').toLowerCase();
+    if (k === ' ') { if (e.preventDefault) e.preventDefault(); toggleDrone(); return; }
+    if (k === 'z') { baseNote = Math.max(24, baseNote - 12); buildKbd(); return; }
+    if (k === 'x') { baseNote = Math.min(84, baseNote + 12); buildKbd(); return; }
+    if (KEYMAP[k] !== undefined) press(baseNote + KEYMAP[k]);
+  });
+  window.addEventListener('keyup', e => { const k = String(e.key || '').toLowerCase(); if (KEYMAP[k] !== undefined) release(baseNote + KEYMAP[k]); });
+  window.addEventListener('resize', () => onEdit());
+}
+applyTheme();
+frame();
+</script>
+
+<script>
+/* Load-time provenance (L0020): a fingerprint of the page's scripts and the
+   file's own mtime. Neither is typed by hand, so neither can go stale. */
+(() => {
+  let h = 0x811c9dc5;
+  for (const s of document.querySelectorAll('script')) {
+    const t = s.textContent;
+    for (let i = 0; i < t.length; i++) { h ^= t.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+  }
+  const el = document.getElementById('revfp');
+  if (el) el.textContent = (h >>> 0).toString(16).padStart(8, '0').slice(0, 6);
+  const dt = document.getElementById('revdate');
+  if (dt) {
+    const m = new Date(document.lastModified), p = n => String(n).padStart(2, '0');
+    dt.textContent = isNaN(m.getTime()) ? '?' : m.getFullYear() + '-' + p(m.getMonth() + 1) + '-' + p(m.getDate()) + ' ' + p(m.getHours()) + ':' + p(m.getMinutes());
+  }
+})();
 </script>
 </body></html>
