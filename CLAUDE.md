@@ -80,7 +80,7 @@ as masses on springs, a register state R; `specs/SPEC-FORMANT.md`, prototype
 fourth engine but the prototype for **FX-C**, the shared post-stage every source hands
 off to (ADR-092); PARKED 2026-09-16 — MAW is FX-C now (ADR-092 amendment, "Maw eats
 it"), the files stay as history, nothing is ported. A third CANDIDATE arrived
-2026-08-25: **STATION** (`reference/station.html`, `specs/SPEC-STATION.md`, ADR-122) — a
+2026-08-25 and is OUT OF 1.0 since 2026-09-22 (ADR-182, docs/PARKED.md 22 — built core stays gated, integration deferred): **STATION** (`reference/station.html`, `specs/SPEC-STATION.md`, ADR-122) — a
 3-operator PM engine with LFSR noise, the traditional-synthesis workhorse; same
 unseeded-RNG blocker (Wave RAM randomize, one sanctioned edit: seed it — the three
 seeds landed 2026-09-10, ADR-091/122/152 amendment). A fourth CANDIDATE arrived
