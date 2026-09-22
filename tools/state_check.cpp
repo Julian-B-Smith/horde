@@ -712,7 +712,7 @@ int main()
         const std::string order = hypersaw_debug_cornervals(jb2, 0);
         // Author corner D: every slot to 0.777, which no default equals across
         // the board — the same trick the morph-field section above uses.
-        std::string arr = "{\"morphLayout\":8,\"cornerPreset\":[";
+        std::string arr = "{\"morphLayout\":9,\"cornerPreset\":[";
         size_t slots = 0;
         for (size_t i = 0; i < order.size(); i++) slots += order[i] == ':';
         for (size_t i = 0; i < slots; i++) arr += i ? ",0.777" : "0.777";

@@ -1614,16 +1614,26 @@ inline bool paramClassOf(clap_id id, ParamClass &cls, const char *&reason)
   {
     if (id == eb->gateId)
     {
-      /* DEVICE, not structural. Rule 2 would make it structural (it is
-         stepped), and device is the override for the reason master volume
-         (100) and the bass-mono placement (267) are device: switching an
-         engine on is an instance-level policy, not a value a corner authors.
-         Device also keeps it out of morphIds — which is what makes "subOn off
-         is bit-inert" a property of the patch rather than of the pad's
-         position, and what paramclass_check's "no morphIds member is device"
-         cross-check needs (morphInit never appends it). */
-      cls = ParamClass::Device;
-      reason = "engine-block gate — switching an engine on is device policy (B172)";
+      /* STRUCTURAL — rule 2, with NO override. This row read Device from B172
+         until B203, on the argument that "switching an engine on is
+         instance-level policy, like master volume", and the human overruled it
+         2026-09-21: "Sub on/off is still exempt from morph and it ought to be
+         wired in the way the other two oscs are." They are right, and the
+         evidence is one id away: the OSCILLATORS' enable (150) is stepped,
+         carries no override, is therefore Structural, and has been in the
+         morph field since the field existed — with B48's ramp (see
+         morphApplyOscEnable) as its special case. The old ruling made the
+         instrument's two power switches answer to two different rules for no
+         reason a player could hear.
+         The gate is STILL not interpolated: like 150 it is applied as a LEVEL
+         RAMP off the bilinear corner weight, and the stepped flip is deferred
+         to the weight floor where the engine is already ~-60 dB. Membership is
+         what changed here; how it resolves is morphApplyGateEnable's business.
+         `subOn off is bit-inert` survives because every corner of a fresh
+         instance holds the default (0), so the ramp weight is 0 everywhere
+         until a corner authors otherwise. */
+      cls = ParamClass::Structural;
+      reason = "engine-block gate — a level ramp in the field, like osc enable 150 (B203)";
       return true;
     }
     cls = d->stepped ? ParamClass::Structural : ParamClass::Morphable;
@@ -1737,7 +1747,14 @@ struct Plugin
       hypersaw::SubOscCore{44100.0}};
   int subKey[hypersaw::kPoly] = {-1, -1, -1, -1, -1, -1, -1, -1,
                                  -1, -1, -1, -1, -1, -1, -1, -1};
-  double subOn = 0;   // the block's gate (id 4015), DEVICE class, ships off
+  double subOn = 0;   // the block's gate (id 4015), STRUCTURAL since B203, ships off
+  /* B203: the gate's morph-derived on-weight and the gain it is smoothed
+     into, the sub's copy of B48's `oscOnW` / `oscGainSm` pair and carried by
+     the SAME ~8 ms one-pole (gainSmoothCoef), so the instrument's power
+     switches feel alike. 1.0 whenever morph is off, the gate is exempt, or
+     every relevant corner agrees — which is what keeps an untouched patch
+     bit-identical: multiplying a double by exactly 1.0 is exact. */
+  double subOnW = 1.0, subOnGainSm = 1.0;
 
   /* ---- THE SUB'S OWN MONO, BIAS AND GLIDE (B181 note 2) -------------------
      The human: "Sub should have its own mono toggle, with 'lowest' as the MIDI
@@ -1896,6 +1913,32 @@ struct Plugin
          until you turn it on, at which point yesterday's note finishes". The
          same reasoning ADR-099 A1 applies to an oscillator's power switch. */
       if (v == 0 && subOn != 0) subAllOff();
+      /* B203: ON RE-STRIKES WHAT IS HELD — ADR-100 Amendment 1's rule for an
+         oscillator's enable, applied to the gate that now shares its field.
+         Without it a corner that turns the sub ON is silent until the next
+         fresh note, which is the "sometimes osc 2 doesn't work" report one
+         engine over, and a gate in the morph field that a pad sweep cannot
+         make audible is a member in name only. The OFF branch above killed
+         whatever state there was, so this is a fresh strike and not a resumed
+         envelope — deliberately, as it is there. The strike order is the SLOT
+         order, not the press order, so in sub-mono the `last` bias picks the
+         highest-numbered held slot rather than the most recent press; the
+         oscillator re-strike has the same character and the alternative is a
+         second record of press order that nothing else needs. */
+      else if (v != 0 && subOn == 0)
+      {
+        /* THE RAMP RESUMES FROM THE WEIGHT, NOT FROM WHEREVER IT WAS LEFT.
+           The row renders nothing while the gate is off, so `subOnGainSm` is
+           stale — and its shipped value is 1.0, so a gate that flipped ON at
+           the weight FLOOR (1e-3, where morphApplyGateEnable defers the flip
+           to) would open at full level and fade DOWN to 0.001: a full-scale
+           burst at exactly the pad position the ramp exists to make silent.
+           With morph off `subOnW` is 1.0, so this assignment is 1.0 = 1.0 and
+           the plain toggle behaves exactly as it always has. */
+        subOnGainSm = subOnW;
+        for (int i = 0; i < (int)hypersaw::kPoly; i++)
+          if (tags[i].active) subNoteOn(i, tags[i].key, tags[i].vel);
+      }
       subOn = v;
       return;
     }
@@ -3019,6 +3062,7 @@ struct Plugin
       {
         ParamClass cls = ParamClass::Device;
         const char *why = nullptr;
+        if (b.defs[i].id == b.gateId) continue;   // B203's third pass — see below
         if (paramClassOf(b.defs[i].id, cls, why) && cls == ParamClass::Morphable)
           morphIds.push_back(b.defs[i].id);
       }
@@ -3027,9 +3071,26 @@ struct Plugin
       {
         ParamClass cls = ParamClass::Device;
         const char *why = nullptr;
+        if (b.defs[i].id == b.gateId) continue;   // B203's third pass — see below
         if (paramClassOf(b.defs[i].id, cls, why) && cls == ParamClass::Structural)
           morphIds.push_back(b.defs[i].id);
       }
+    /* B203 — THE BLOCK'S GATE JOINS THE FIELD (human 2026-09-21: "Sub on/off
+       is still exempt from morph and it ought to be wired in the way the other
+       two oscs are"). paramClassOf now calls it Structural rather than Device
+       and the reasoning lives there; this is the APPEND, and it is a THIRD
+       pass for exactly the reason there are already two.
+
+       The gate is Structural, so pass 2 would have taken it — IN BLOCK ORDER,
+       which for the sub puts 4015 between 4014 (seed) and 4016 (mono) and
+       SHIFTS every slot after it. morphIds is append-only and a stored corner
+       array is positional, so that would silently re-read every corner ever
+       saved against the wrong parameter. The two `continue`s above are what
+       keep passes 1 and 2 producing the exact order they produced before this
+       change; the gates land here, after all of them, at the tail.
+       morphlayout_check T10b is the positional gate on that claim and T10d
+       pins this ruling. */
+    for (const auto &b : kEngineBlocks) morphIds.push_back(b.gateId);
 
     /* THE LEAD MAP. Identity, then the groups.
        FX SLOTS (B49, measured 2026-08-26): type and amount were drawn
@@ -3906,9 +3967,28 @@ struct Plugin
     return morphCommitSlot(i, next);
   }
 
-  // B48: an exempt enable is fully live, so its ramp must not linger.
+  /* B203: THE ONE PLACE A BLOCK'S GATE IS MAPPED TO ITS RAMP. An engine's
+     ramp weight is consumed by that engine's OWN renderer (renderSubSpan), so
+     the weight is a member of the engine's state and this is the mapping;
+     STATION's gate adds one line here and nothing else. An array indexed by
+     block would buy nothing while the consumer is per-engine code anyway. */
+  void setEngineGateRamp(clap_id id, double w)
+  {
+    if (id == kSubOscOnId) subOnW = w;
+  }
+  static bool isEngineGateId(clap_id id)
+  {
+    const EngineBlock *b = engineBlockOf(id);
+    return b && b->gateId == id;
+  }
+
+  // B48/B203: an exempt enable is fully live, so its ramp must not linger.
   void morphExemptSlot(size_t i)
   {
+    // THE GATE TEST FIRST, and not because of aliasing (4015 % 1000 is 15, not
+    // 150) but because an engine id must never reach `baseIdOf` at all — the
+    // rule paramClassOf states two screens up, kept true here too.
+    if (isEngineGateId(morphIds[i])) { setEngineGateRamp(morphIds[i], 1.0); return; }
     if (baseIdOf(morphIds[i]) != 150) return;
     const uint32_t o = oscOfId(morphIds[i]);
     if (o < kMaxOsc) oscOnW[o] = 1.0;
@@ -3927,11 +4007,46 @@ struct Plugin
      that corner's stored enable, so corners stay bit-identical. */
   bool morphApplyOscEnable(size_t i, const double *wBilinear)
   {
-    double onW = 0;
-    for (int k = 0; k < 4; k++) onW += wBilinear[k] * morphCorner[k][i];
-    onW = onW < 0 ? 0 : (onW > 1 ? 1 : onW);
+    const double onW = morphOnWeight(i, wBilinear);
     const uint32_t o = oscOfId(morphIds[i]);
     if (o < kMaxOsc) oscOnW[o] = onW;
+    return morphCommitSlot(i, onW > 1e-3 ? 1.0 : 0.0);
+  }
+
+  /* THE RAMP LAW, STATED ONCE (B203). The bilinear weight of the corners
+     holding this switch ON, clamped. Extracted from morphApplyOscEnable rather
+     than copied into its sibling below for ADR-110's reason: two copies of a
+     law are two chances to edit one of them. */
+  double morphOnWeight(size_t i, const double *wBilinear) const
+  {
+    double onW = 0;
+    for (int k = 0; k < 4; k++) onW += wBilinear[k] * morphCorner[k][i];
+    return onW < 0 ? 0 : (onW > 1 ? 1 : onW);
+  }
+
+  /* B203 — AN ENGINE BLOCK'S GATE, BY THE SAME LAW (human 2026-09-21: "Sub
+     on/off is still exempt from morph and it ought to be wired in the way the
+     other two oscs are"). Every property B48 claims is claimed here and for the
+     same reasons: plain `w[]` and not the Gumbel draw or the resolver's
+     sharpened weights, so the ramp is DETERMINISTIC IN THE PAD POSITION under
+     all three laws; at a PURE CORNER the weight equals that corner's stored
+     gate, so 0 and 1 come out exactly and the corner is bit-identical; and the
+     stepped flip is deferred to the weight floor (1e-3, ~-60 dB) where the
+     kill (subAllOff) and the re-strike still run but inaudibly.
+
+     WHERE THE SUB DIFFERS FROM AN OSCILLATOR, and why the handling is the
+     same anyway: an oscillator's ramp lands in applyOscGainAndMeter, which
+     already existed for the mixer's mute/solo faders; the sub has no mixer
+     strip of that kind, so renderSubSpan carries the ramp itself — the same
+     one-pole (gainSmoothCoef) applied once per chunk OUTSIDE the sixteen-slot
+     loop, because the gate is the ROW's switch and not each voice's. And the
+     sub's kill is total (SubOscCore::allOff clears phase, envelope and filter
+     state) where an oscillator's is a voice kill; that is exactly why the
+     deferral to the weight floor matters more here, not less. */
+  bool morphApplyGateEnable(size_t i, const double *wBilinear)
+  {
+    const double onW = morphOnWeight(i, wBilinear);
+    setEngineGateRamp(morphIds[i], onW);
     return morphCommitSlot(i, onW > 1e-3 ? 1.0 : 0.0);
   }
 
@@ -3968,6 +4083,7 @@ struct Plugin
       // B48's ramp and the exempt hold are the same two helpers the resolver
       // uses; `w` here is the plain bilinear weight, which is what that ramp
       // wants in both modes.
+      if (isEngineGateId(morphIds[i])) { morphApplyGateEnable(i, w); continue; }
       if (baseIdOf(morphIds[i]) == 150) { morphApplyOscEnable(i, w); continue; }
       double target;
       if ((int)morphMode == 1 && !d->stepped)
@@ -4490,6 +4606,11 @@ struct Plugin
       const ParamDef *d = findParam(morphIds[i]);
       if (!d) continue;
       if (i < morphExempt.size() && morphExempt[i]) { morphExemptSlot(i); continue; }
+      if (isEngineGateId(morphIds[i]))
+      {
+        if (morphApplyGateEnable(i, wBilinear)) intentWrote++;
+        continue;
+      }
       if (baseIdOf(morphIds[i]) == 150)
       {
         if (morphApplyOscEnable(i, wBilinear)) intentWrote++;
@@ -5552,6 +5673,11 @@ struct Plugin
     if (k < 0 || k > 3) return "{}";
     morphInit();
     /* THE LAYOUT MARKER, BUMPED ONCE HERE AND AT THE OTHER THREE WRITERS.
+       9 = B203: the engine blocks' GATES join the field, appended after both
+       of B195's passes (morphInit's third pass), so the corner array grew by
+       one per block and the order changed. Same reasoning as 8 below in every
+       respect: a layout-8 array is shorter, maps 1:1, and the new slot holds
+       its default — the bump NAMES the order, it does not migrate anything.
        8 = B195: the engine blocks' STRUCTURAL rows join the field, appended
        after their block's morphable ones (morphInit), so the corner array grew
        by eight and the order changed. A layout-7 array is shorter and maps 1:1
@@ -5573,7 +5699,7 @@ struct Plugin
        increment 3: source rows reserved, Src 2's cells new slot positions);
        4 = the Src→OUT dry-path cells appended after the routing block (B50
        phase 1c); 3 = the routing block (phase 1). */
-    std::string out = "{\"morphLayout\":8,\"cornerPreset\":[";
+    std::string out = "{\"morphLayout\":9,\"cornerPreset\":[";
     char buf[32];
     for (size_t i = 0; i < morphIds.size(); i++)
     {
@@ -5697,7 +5823,7 @@ struct Plugin
   std::string liveCornerJson()
   {
     morphInit();
-    std::string out = "{\"morphLayout\":8,\"cornerPreset\":[";   // ADR-159; 7 = B181, see cornerJson
+    std::string out = "{\"morphLayout\":9,\"cornerPreset\":[";   // ADR-159; 8 = B195, see cornerJson
     char buf[32];
     for (size_t i = 0; i < morphIds.size(); i++)
     {
@@ -5860,7 +5986,7 @@ struct Plugin
     if (morphIds.empty()) return "";
     // ADR-159: the array layout version. 2 = late per-osc rows appended last;
     // absent = 1 (pre-2026-09-11), where a 224-entry array is the ADR-150 order.
-    std::string out = ",\"morphLayout\":8,\"cornerNames\":" + cornerNamesJson() + ",\"morphCorners\":[";
+    std::string out = ",\"morphLayout\":9,\"cornerNames\":" + cornerNamesJson() + ",\"morphCorners\":[";
     char buf[32];
     for (int k = 0; k < 4; k++)
     {
@@ -6878,8 +7004,13 @@ struct Plugin
                       }
                     // B48: morph off releases the on-weight ramp, else the
                     // last partway value would keep scaling a morph-free patch.
+                    // B203: the engine gates' ramp is released with them — same
+                    // sentence, one switch over.
                     if (morphOn <= 0.5)
+                    {
                       for (uint32_t k2 = 0; k2 < kMaxOsc; k2++) oscOnW[k2] = 1.0;
+                      for (const auto &b : kEngineBlocks) setEngineGateRamp(b.gateId, 1.0);
+                    }
                     break;
           case 152: morphX = applied; break;
           case 153: morphY = applied; break;
@@ -7746,6 +7877,32 @@ struct Plugin
         else
           subGlideCur = subGlideCur - step < subGlideTo ? subGlideTo : subGlideCur - step;
       }
+      /* ---- THE GATE'S LEVEL RAMP (B203) -----------------------------------
+         `subOnW` is the bilinear weight of the corners holding the gate ON
+         (morphApplyGateEnable); this carries it through the same ~8 ms
+         one-pole the oscillator enables use. ONCE PER CHUNK AND OUTSIDE THE
+         SLOT LOOP: the gate is the ROW's switch, so advancing the smoother
+         inside the sixteen-slot accumulation would run it sixteen times per
+         sample and the ramp would be 16x too fast.
+         BIT-INERT AT 1.0: `x * headroom * 1.0` is `x * headroom` exactly, so
+         a patch that never morphs its gate renders sample-for-sample as it
+         did before this existed — 11j.a measures that rather than assuming
+         it. The stack array is the same shape as tL/tR: no allocation. */
+      double gate[kMixChunk];
+      {
+        const double c = gainSmoothCoef();
+        double g = subOnGainSm;
+        for (int i = 0; i < m; i++)
+        {
+          if (g != subOnW)
+          {
+            g += (subOnW - g) * c;
+            if (std::fabs(g - subOnW) < 1e-6) g = subOnW;
+          }
+          gate[i] = g;
+        }
+        subOnGainSm = g;
+      }
       for (int s = 0; s < hypersaw::kPoly; s++)
       {
         subs[s].pitchOffsetSt =
@@ -7768,8 +7925,8 @@ struct Plugin
            relies on from the other side. */
         for (int i = 0; i < m; i++)
         {
-          srcBufL[1][at + off + i] += (float)(tL[i] * kSubRowHeadroom);
-          srcBufR[1][at + off + i] += (float)(tR[i] * kSubRowHeadroom);
+          srcBufL[1][at + off + i] += (float)(tL[i] * kSubRowHeadroom * gate[i]);
+          srcBufR[1][at + off + i] += (float)(tR[i] * kSubRowHeadroom * gate[i]);
         }
       }
     }
