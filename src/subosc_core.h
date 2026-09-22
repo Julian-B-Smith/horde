@@ -291,12 +291,31 @@ class SubOscCore
     return 440 * std::pow(2, (m - 69) / 12) * std::pow(2, p_[kFine] / 1200);
   }
 
-  // ── note lifecycle ────────────────────────────────────────────────────────
-  void noteOn(int midi, double vel = 1)
+  /* ── note lifecycle ────────────────────────────────────────────────────────
+     `keepPhase` (B202) is SwarmCore::retargetNote's own word for the same
+     thing, reused rather than re-invented. A note-on REPLACES the sounding
+     note (this header's opening), so a strike that lands while the previous
+     note's RELEASE TAIL is still running used to reset the phase underneath a
+     live envelope: a full-scale sample-to-sample jump, measured through the
+     shell at 18x the signal's own slope (subosc_check 11g.e). With it true the
+     phase runs on and the new note's attack takes over continuously.
+
+     DEFAULT FALSE, so every golden, every parity render and every strike from
+     silence is bit-identical to the pre-B202 core — the shell passes true only
+     where the alternative is a click (`env > 0`). The `phase` parameter is
+     therefore obeyed on every note that starts from silence, which is the only
+     place a player can hear it.
+
+     THE RNG IS RE-SEEDED EITHER WAY: audit A3's "the stream is a pure function
+     of (seed, note) and not of session history" is a DETERMINISM property;
+     phase continuity is an audio one, and a note-on that kept the stream's
+     position would make the noise shape depend on how long the last note was
+     held. The two do not trade against each other, so neither is weakened. */
+  void noteOn(int midi, double vel = 1, bool keepPhase = false)
   {
     midi_ = midi;
     vel_ = std::min(1.0, std::max(0.0, std::isfinite(vel) ? vel : 1.0));
-    ph_ = p_[kPhase];
+    if (!keepPhase) ph_ = p_[kPhase];
     // Re-seeded per note (audit A3 / D3): the stream is a pure function of
     // (seed, note) and not of session history. The SAW engine's ensemble stream
     // is the counter-example — same seed, different history, RMS diff 0.137.

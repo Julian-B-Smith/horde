@@ -24,6 +24,11 @@
        corner keeps SUB Wave on an authored value at every pad position (a
        stepped member resolves atomically), calibrated by the same sweep
        driving the block's continuous SUB Level strictly between the corners.
+   T12 (B203) the block's GATE is a corner value and it morphs as B48's LEVEL
+       RAMP: the AUDIO moves continuously across a pad sweep while the gate's
+       own VALUE only ever reads 0 or 1 (each half is the other's control), and
+       a PURE CORNER is exact — bit-identical to every corner agreeing at the
+       ON end, exactly silent at the OFF end.
    WIRED: ./verify full, beside the other state oracles. The header claimed
    "not wired into ./verify" until 2026-09-20 and had been wired since B124 —
    the B190 class of stale relationship claim. Exit 1 on failure. */
@@ -48,6 +53,11 @@ struct Rig {
     L.assign(kBlock, 0); R.assign(kBlock, 0); ch[0] = L.data(); ch[1] = R.data(); out.data32 = ch; out.channel_count = 2;
     proc.frames_count = kBlock; proc.audio_outputs = &out; proc.audio_outputs_count = 1; proc.out_events = &kOut; }
   void run(int blocks) { for (int i = 0; i < blocks; i++) { EvList e; e.finalize(); proc.in_events = &e.list; p->process(p, &proc); } }
+  /* T12 (B203) needs the AUDIO and not a parameter read: the gate's VALUE
+     snaps by design — that is the whole point of B48's law — and the ramp
+     lives in the gain, so a value-only reading could not tell a ramp from a
+     snap. Left channel, appended block by block. */
+  std::vector<float> capture(int blocks) { std::vector<float> a; for (int i = 0; i < blocks; i++) { EvList e; e.finalize(); proc.in_events = &e.list; p->process(p, &proc); a.insert(a.end(), L.begin(), L.end()); } return a; }
   void kill() { p->stop_processing(p); p->deactivate(p); p->destroy(p); }
 };
 std::vector<std::string> split(const std::string &s) { std::vector<std::string> v; std::stringstream ss(s); std::string t; while (std::getline(ss, t, ',')) v.push_back(t); return v; }
@@ -207,15 +217,25 @@ int main() {
                   " morphIds";
       }
     }
-    char m[160];
+    /* THE ANCHOR, AND WHY ITS THIRD CLAUSE LEFT (B203). It read `device > 0`
+       until the human overruled B172's gate ruling: the block's GATE was the
+       ONLY Device id in ADR-088's whole engine span, and it is Structural now,
+       so the clause asserts something that is no longer true of the product.
+       Kept as a PRINTED count rather than deleted, so a future engine block
+       that does class a row Device is visible here the day it lands; T10's
+       Device clause is then vacuous and says so out loud rather than reading
+       as coverage it does not have. The scan's teeth are T10c's control, which
+       plants a lie and requires exactly one violation to be reported. */
+    char m[190];
     std::snprintf(m, sizeof m,
-                  "T10 anchor: the engine span is populated and spans all three classes "
-                  "(%d ids: %d morphable, %d structural, %d device)",
+                  "T10 anchor: the engine span is populated and spans the classes it has "
+                  "(%d ids: %d morphable, %d structural, %d device — device is 0 since B203)",
                   seen, morphable, structural, device);
-    expect(seen > 0 && morphable > 0 && structural > 0 && device > 0, m);
+    expect(seen > 0 && morphable > 0 && structural > 0, m);
     if (bad) std::printf("     T10 violations:%s\n", report.c_str());
     expect(bad == 0, "T10 every non-Device engine-block id is in the morph field and every Device one "
-                     "is not (the block's GATE stays out, by the class and not by a list)");
+                     "is not — by the class and not by a list (the block's GATE is Structural "
+                     "since B203 and is therefore IN)");
     /* T10b NOTHING THAT WAS ALREADY STORED MOVED. The Structural engine rows
        joined in a SECOND pass over kEngineBlocks, after every Morphable one,
        precisely so they land at the tail; widening the class test in place
@@ -299,7 +319,7 @@ int main() {
       auto cornerArr = [&](double wave, double level) {
         std::vector<double> a = base; a[iWave] = wave; a[iLevel] = level; return a; };
       auto cornerFile2 = [&](const std::vector<double> &arr) {
-        std::string s = "{\"morphLayout\":8,\"cornerPreset\":[";
+        std::string s = "{\"morphLayout\":9,\"cornerPreset\":[";
         for (size_t i = 0; i < arr.size(); i++) { char b[32]; std::snprintf(b, sizeof b, i ? ",%.6g" : "%.6g", arr[i]); s += b; }
         return s + "]}"; };
       // x = 0 corners hold wave "sine" (0) at level 0.1; x = 1 corners hold
@@ -342,6 +362,127 @@ int main() {
              "an interpolated wave if there were one");
     }
     w.kill();
+  }
+
+  /* T12 — B203: THE BLOCK'S GATE IS A CORNER VALUE, AND IT RAMPS.
+     The human, 2026-09-21: "Sub on/off is still exempt from morph and it ought
+     to be wired in the way the other two oscs are." B48 is the way the other
+     two are wired: the bilinear weight of the corners holding the switch ON
+     becomes a GAIN RAMP through the ~8 ms smoother, and the stepped flip is
+     deferred to the weight floor where the source is already ~-60 dB. So this
+     asserts BOTH halves and each is the other's control — the AUDIO must move
+     continuously while the PARAMETER must only ever read 0 or 1. A row that
+     only read the parameter could not tell a ramp from a snap, and a row that
+     only read the audio could not tell the deferral from an interpolated gate
+     (which would be a value no corner authored).
+     Both swarm oscillators are OFF IN EVERY CORNER, so what the sweep measures
+     is the sub's row and nothing else. */
+  {
+    std::vector<std::string> go;
+    std::vector<double> base;
+    size_t iGate = 0;
+    { Rig t; t.boot();
+      go = liveOrder(hypersaw_debug_cornervals(t.p, 0));
+      base.assign(go.size(), 0.0);
+      const char *c = hypersaw_debug_cornervals(t.p, 0);
+      for (size_t i = 0; i < go.size(); i++) base[i] = valueOf(c, go[i].c_str());
+      t.kill(); }
+    iGate = idx(go, "4015");
+    expect(iGate < go.size(),
+           "T12a the SUB block's GATE (id 4015) is a corner slot at all — RED before B203");
+    if (iGate < go.size())
+    {
+      base[idx(go, "150")] = 0;
+      base[idx(go, "1150")] = 0;
+      base[idx(go, "4007")] = 1.0;   // sub level: the row well clear of the floor
+      auto file = [&](const std::vector<double> &a) {
+        std::string s = "{\"morphLayout\":9,\"cornerPreset\":[";
+        for (size_t i = 0; i < a.size(); i++) { char b[32]; std::snprintf(b, sizeof b, i ? ",%.6g" : "%.6g", a[i]); s += b; }
+        return s + "]}"; };
+      auto author = [&](Rig &w, const double g4[4]) {
+        for (int k = 0; k < 4; k++)
+        { std::vector<double> a = base; a[iGate] = g4[k];
+          hypersaw_debug_cornerapply(w.p, k, file(a).c_str()); } };
+      // Morph on, no morph glide (158 = 0) so each pad position is settled by
+      // the time it is read, pad parked at x, y = 0, one held note.
+      auto start = [&](Rig &w, double x) {
+        EvList e;
+        e.params.push_back(mkParam(151, 1));
+        e.params.push_back(mkParam(158, 0));
+        e.params.push_back(mkParam(152, x));
+        e.params.push_back(mkParam(153, 0));
+        e.notes.push_back(mkNote(CLAP_EVENT_NOTE_ON, 0, 45, 1));
+        e.finalize(); w.proc.in_events = &e.list; w.p->process(w.p, &w.proc); };
+      auto rmsOf = [](const std::vector<float> &a) {
+        double s = 0; for (float v : a) s += (double)v * v;
+        return std::sqrt(s / (a.size() ? a.size() : 1)); };
+
+      // ---- T12b/c: the sweep, in ONE instance -----------------------------
+      const double edge[4] = {0, 1, 0, 1};   // corners 0/2 hold it OFF, 1/3 ON
+      std::vector<double> level;
+      bool valueSnaps = true;
+      double strayGate = -1;
+      { Rig w; w.boot(); author(w, edge); start(w, 0.0); w.run(40);
+        auto *px = (const clap_plugin_params_t *)w.p->get_extension(w.p, CLAP_EXT_PARAMS);
+        for (int s = 0; s <= 20; s++)
+        { EvList e; e.params.push_back(mkParam(152, s / 20.0)); e.finalize();
+          w.proc.in_events = &e.list; w.p->process(w.p, &w.proc);
+          w.run(24);                                   // settle the ~8 ms ramp
+          level.push_back(rmsOf(w.capture(8)));
+          double gv = -1; px->get_value(w.p, 4015, &gv);
+          if (gv != 0 && gv != 1) { valueSnaps = false; strayGate = gv; } }
+        w.kill(); }
+      const double lo = level.front(), hi = level.back(), span = hi - lo;
+      double worst = 0;
+      int between = 0;
+      for (size_t i = 1; i < level.size(); i++)
+        worst = std::max(worst, std::fabs(level[i] - level[i - 1]));
+      for (double v : level)
+        if (v > lo + span * 0.05 && v < hi - span * 0.05) between++;
+      char m3[240];
+      std::snprintf(m3, sizeof m3,
+                    "T12b the gate RAMPS across the pad: over 21 positions the sub's level "
+                    "rises %.4f -> %.4f with %d strictly between and no adjacent step above "
+                    "25%% of the span (worst %.1f%%)",
+                    lo, hi, between, span > 0 ? worst / span * 100 : 100.0);
+      expect(span > 1e-3 && between >= 12 && worst <= span * 0.25, m3);
+      char m4[200];
+      std::snprintf(m4, sizeof m4,
+                    "T12c CONTROL/paired: the gate's own VALUE only ever reads 0 or 1 across "
+                    "that same sweep — the flip is deferred, never interpolated (stray %.6g)",
+                    strayGate);
+      expect(valueSnaps, m4);
+
+      // ---- T12d: a pure corner is exact -----------------------------------
+      /* B48's claim, restated for the gate: "at a pure corner the weight
+         equals that corner's stored enable, so corners stay bit-identical".
+         Two instances that take the IDENTICAL morph code path and differ only
+         in WHERE the weight 1.0 came from — one from a pure corner, one from
+         all four corners agreeing. Anything but an exact 1.0 at the corner
+         puts a ramp on one and not the other. The OFF half is the same claim
+         at the other end: a pure OFF corner is exactly 0, so the row is
+         exactly silent, not merely quiet. */
+      const double allOn[4] = {1, 1, 1, 1};
+      std::vector<float> pure, agree, off;
+      { Rig w; w.boot(); author(w, edge); start(w, 1.0); w.run(60); pure = w.capture(16); w.kill(); }
+      { Rig w; w.boot(); author(w, allOn); start(w, 1.0); w.run(60); agree = w.capture(16); w.kill(); }
+      { Rig w; w.boot(); author(w, edge); start(w, 0.0); w.run(60); off = w.capture(16); w.kill(); }
+      size_t diff = pure.size() != agree.size() ? 0 : pure.size();
+      for (size_t i = 0; i < pure.size() && i < agree.size(); i++)
+        if (pure[i] != agree[i]) { diff = i; break; }
+      double offPeak = 0;
+      for (float v : off) offPeak = std::max(offPeak, std::fabs((double)v));
+      double onRms = 0; for (float v : agree) onRms += (double)v * v;
+      onRms = std::sqrt(onRms / (agree.size() ? agree.size() : 1));
+      char m5[260];
+      std::snprintf(m5, sizeof m5,
+                    "T12d a PURE CORNER is exact: parked on the ON corner the render is "
+                    "BIT-IDENTICAL to the same patch with all four corners holding the gate ON "
+                    "(%zu samples, first difference %s), and the OFF corner is exactly silent "
+                    "(peak %.3e); anchor: the ON render is not silence (rms %.4f)",
+                    pure.size(), diff == pure.size() ? "none" : "SOME", offPeak, onRms);
+      expect(diff == pure.size() && offPeak == 0.0 && onRms > 1e-3, m5);
+    }
   }
 
   std::printf("morphlayout_check: %s\n", fails ? "FAIL" : "PASS"); r.kill(); hypersaw_entry_deinit(); return fails ? 1 : 0;
