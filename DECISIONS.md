@@ -6407,3 +6407,51 @@ spectral centroid 132 cents up / 227 cents down on their programme. Whether
 it earns a panel slot is the human's listening call; under ADR-169 the
 Motion role is its natural home — noting that ADR-169 A1 has Sluice
 declining roles entirely, which the human has not yet ruled on.
+
+## ADR-182 — STATION is removed from the 1.0 specification (2026-09-22)
+
+**Context.** The human: "I've decided to remove Station from the 1.0 spec
+since it will need time to integrate; there are enough bugs with an engine
+as simple as the sub, and I need to release soon."
+
+**The reasoning is the sub's record, and it is sound.** The Sub Osc is a
+single-voice, seven-shape oscillator with no swarm and no coupling, and
+integrating it produced, in five days: a morph-field asymmetry that kept its
+stepped rows out of the field, a gate ruling the lead got wrong, a mono click
+from a phase reset under a live tail, a velocity residual that needs an
+architecture decision, a save-before-activate gap, and a preset-load defect
+that turned out to be the whole instrument's. STATION is a three-operator
+phase-modulation engine with LFSR noise, Wave RAM as patch data, ~84
+parameters and its own page. Its phase-1 core measured 5.2 % of a core at
+sixteen voices against a spec budget of 2 %, and its phase 2 needed four pin
+re-pins before a brief could be written. The integration cost scales with the
+engine, and the sub has shown what that cost is.
+
+**Decision.** STATION leaves the 1.0 specification. Its phase 2 (B162) is
+deferred past 1.0 — not cancelled.
+
+**What stays, and why.** Everything already built stays in the tree, compiled
+and gated, so nothing rots while it waits — SPECTRA's idiom (docs/PARKED.md
+19): `src/station_core.h`, `tools/station_check.cpp` and its golden chain,
+`tools/labharness/station_check.mjs`, `reference/station.html` and
+`specs/SPEC-STATION.md`, the page prototype at
+`docs/design/station-page-lab.html`. The generic engine-block mechanism B172
+built so STATION could plug in without a dispatch edit also stays: it is the
+sub's mechanism now, and it costs nothing to keep ready.
+
+**Revisit trigger.** After 1.0 ships, or when the human reopens it. Not an
+audit, not a roster review, and not "the core is already done" — the core was
+never the expensive part.
+
+### ADR-166 Amendment 7 — Sluice's undo shape matches horde's, independently (2026-09-22)
+
+Sluice filed `integrations/sluice/notice-undo-history.md` (their seq 6, ball
+none): their undo history stores one PATCH JSON per step, never a
+(seed, click index) pair, because a seeded randomiser that draws only over the
+currently unlocked parameters of the current chain cannot be reconstructed from
+the index alone, and a stream position re-points every later index the moment a
+module gains a parameter. They keep the seed as PROVENANCE inside the step,
+never as the source of truth. **horde's undo tree already does exactly this** —
+a full state JSON per node, confirmed by B186's gauntlet — so the two projects
+arrived at the same design without coordinating, which is the kind of
+convergence worth noting and nothing we need to act on.
