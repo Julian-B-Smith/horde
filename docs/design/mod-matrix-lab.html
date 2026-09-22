@@ -1,0 +1,1898 @@
+<!doctype html>
+<!-- mod-matrix-lab — B207: the modulation matrix, made VISIBLE, and a route's
+     AMOUNT made modulatable. HYPERSAW, 2026-09-22. Spec-in-code per ADR-003.
+
+     WHY A SUCCESSOR AND NOT AN IN-PLACE REWRITE of docs/design/mod-lab.html.
+     That file is the 2026-08-17 lab for the SOURCES (Kuro rotor, classic LFOs,
+     envelope A/B, Kuro chorus/phaser). Four harnesses slice its first script
+     block by position (tools/labharness/modlab_probe|reach|sweep|sweep_report
+     .mjs) and kuramoto-lfo-golden-spec.md cites it; overwriting it would break
+     all four silently and erase a design record the golden spec points at. This
+     lab asks a different question — how a ROUTE is wired, shown and modulated —
+     so it gets its own file and the old one carries a pointer here.
+
+     THE TWO QUESTIONS (ROADMAP B207) AND THIS LAB'S ANSWERS.
+     (1) DEPTH MODULATION (B70). A depth route is an ordinary route whose
+         destination is another route's depth — B70's `kDestRouteDepth | index`
+         key space, one new destination CLASS, not a new mechanism. Combination
+         law stays SUM. Evaluation is TWO FIXED PASSES in one tick: depth routes
+         first, then value routes read the modulated depths. A depth route speaks
+         its TARGET's units (semitones on a pitch route, fraction-of-range
+         elsewhere), and the modulated depth is clamped to the route's own depth
+         range — OQ-30's "the destination bounds the value", with the depth as
+         the destination. RECURSION: NO, ONE LEVEL. A depth route may target a
+         value route and nothing else; see refuseWhy() for the stated reason.
+     (2) VISUAL INTUITION. Four treatments of ONE state, side by side — arcs on
+         the knob, wires, grid, trace — each judged by one question: "what is
+         moving this knob, by how much, right now?" The human chooses; the lab
+         does not.
+
+     WHAT THIS IS NOT. Not a port, not a parity oracle, not the shell. The core
+     below (BLOCK A) is the LAB'S OWN: it follows src/mod_core.h's route table,
+     SUM law and B134 polarity map, and adds the depth-route class B70 describes.
+     Envelope contours are linear segments in seconds — NOT advanceAdsr()'s law,
+     which this lab does not claim. One mono voice, global scope only (B34's
+     per-note scope is not modelled). The audio is a MONITOR on native WebAudio
+     nodes updated per animation frame — it is not the 172 Hz tick and must not
+     be used to judge B199 by ear.
+
+     TOKENS ARE COPIED, NOT LINKED — from docs/design/station-page-lab.html,
+     which copied them verbatim from src/gui/gui2.html:26-96 / :103-105 / :142 /
+     :167 / :186-212. Copy, therefore drift: if gui2's tokens move, this file is
+     stale until re-copied.
+
+     L0026: all state above all wiring; nothing at setup time reaches forward to
+     a const declared below it. No Math.random anywhere (mulberry32 only, SPEC
+     §5.7). No wall-clock in the core — the core counts ticks; only the frame
+     loop reads the rAF timestamp to decide how many ticks are due.
+     STUB-SAFETY (tools/labharness/lab_load_check.mjs runs this under a proxy
+     DOM whose every number coerces to 0): painters loop over INTEGER INDICES,
+     never over accumulated pixel positions — `x += w / n` with a stubbed w is
+     `x += 0`, an infinite loop the gate would report as a timeout. -->
+<html><head><meta charset="utf-8">
+<meta name="lab-review" content="B207 · 2026-09-22">
+<title>mod matrix lab — depth modulation, and four ways to see a route</title>
+<style>
+  /* ============================================================
+     TOKENS — copied VERBATIM from docs/design/station-page-lab.html, which
+     copied them from src/gui/gui2.html:26-96 (:root), :103-105 (canvas is a
+     phosphor tube), :142-144 (ORCHID, the light chassis' screen pairing),
+     :167-185 (light legibility overrides), :186-212 (body.dark). The
+     derivations live at those lines; the VALUES are what must not drift.
+     ============================================================ */
+  :root {
+    --bg:#F2EDE2; --panel:#FCFAF4; --well:#FFFFFF; --panel2:#E9E3D4;
+    --line:#191521; --hair:#E5DFD0; --div:#D8D1C0;
+    --text:#191521; --t2:#494356; --dim:#9A93A3; --dis:#B6AFA0;
+    --value:#F5169C;     /* the user's authored value              */
+    --pull:#F5169C;
+    --physics:#6431F0;   /* what the system does on its own — and, in gui2,
+                            every modulation halo (gui2:630 .kmod)       */
+    --meter:#00D5C8;     /* analyzers                               */
+    --marker:#FFD702;    /* attention                               */
+    --celebrate:#A6F219;
+    --caution:#F5A300;   --caution-bg:#FBE9BD; --caution-tx:#6D570B;
+    --amber:#F5A300;
+    --alarm:#C2261A;     /* PANIC, clip, mute — NOTHING else        */
+    --ghost:#C9C2FF;
+    --cA:#FFD702; --cAtx:#D4A900; --cB:#FF2E88; --cBtx:#FF2E88;
+    --cC:#00D5C8; --cCtx:#00B3A8; --cD:#A6F219; --cDtx:#6FB200;
+    --text-hi:#191521; --dim2:#494356; --grid:#E5DFD0; --grid2:#E5DFD0;
+    --hot:#F5169C; --bad:#C2261A; --badge-bg:rgba(245,163,0,.9);
+    --scr-tube:#1B0733; --scr-value:#FF5ECF; --scr-meter:#B8F227;
+    --scr-physics:#B48CFF; --scr-marker:#FFB86B; --scr-grid:#4FD8BE;
+    --scr-scan:0.22; --scr-alpha:1;
+    --r-card:10px; --r-well:var(--r-card); --r:var(--r-card); --stroke:1.5px;
+    --shadow:1.5px 1.5px 0 var(--line);
+    --shadow-hover:2.5px 2.5px 0 var(--line);
+    --focus:0 0 0 2.5px rgba(245,22,156,.45); }
+  * { box-sizing:border-box; margin:0; }
+  canvas { border:var(--stroke) solid var(--line); border-radius:var(--r-well);
+           background:var(--scr-tube); display:block; }
+  body:not(.dark) { --scr-tube:#F3EBFF; --scr-value:#D6006B; --scr-meter:#007A73;
+    --scr-physics:#6E14E8; --scr-marker:#C43A00; --scr-grid:#5A3FA8;
+    --scr-scan:0.05; --scr-alpha:1.6;
+    --marker:#8A6A00; --celebrate:#4E7A00; }
+  body.dark {
+    --bg:#151220; --panel:#1F1B2E; --well:#0E0C16; --panel2:#2C2740;
+    --line:#EFE9FA; --hair:#312B47; --div:#3B3455;
+    --text:#EFE9FA; --t2:#BDB4D4; --dim:#8A82A3; --dis:#514A6B;
+    --value:#FF3DAD; --pull:#FF3DAD; --physics:#A07CFF; --meter:#2DF2E2;
+    --marker:#FFE04D; --celebrate:#C2F53E;
+    --caution:#FFB627; --caution-bg:#4A3A12; --caution-tx:#FFD98A;
+    --amber:#FFB627; --alarm:#FF5A4D;
+    --ghost:#5B4E8F;
+    --cA:#FFD702; --cAtx:#FFE566; --cB:#FF2E88; --cBtx:#FF6FAE;
+    --cC:#00D5C8; --cCtx:#4DEDE3; --cD:#A6F219; --cDtx:#C6F86A;
+    --text-hi:#FFFFFF; --dim2:#9A93A8; --grid:#312B47; --grid2:#312B47;
+    --hot:#FF3DAD; --bad:#FF5A4D; --badge-bg:rgba(255,182,39,.9);
+    --focus:0 0 0 2.5px rgba(255,61,173,.45); }
+
+  /* ============ CHROME — gui2's idiom, as station-page-lab carries it ============ */
+  body { background:var(--bg); color:var(--text);
+    font:12px/1.45 ui-monospace,Menlo,monospace; padding:10px 12px; }
+  .hdr { display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; margin-bottom:8px; }
+  h1 { font-size:34px; line-height:1; letter-spacing:-1px; font-weight:800; }
+  .badges { display:flex; align-items:center; gap:8px; margin-top:4px; }
+  .badge { font-size:9.5px; letter-spacing:.1em; padding:2px 7px;
+           border:var(--stroke) solid var(--line); border-radius:3px;
+           background:var(--cA); color:var(--line); }
+  body.dark .badge { color:var(--bg); }   /* station-page-lab:152 — measured */
+  .sub { color:var(--t2); font-size:10.5px; letter-spacing:.12em; }
+  .hdrctl { display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-left:auto; }
+  .grp { display:flex; align-items:center; gap:7px; }
+  .lbl { font-size:10px; font-weight:700; letter-spacing:.1em; color:var(--t2); }
+  .pill { padding:3px 10px; border:var(--stroke) solid var(--line);
+    border-radius:999px; min-height:26px; cursor:pointer; color:var(--dim);
+    background:var(--panel); font:inherit; font-size:10px; letter-spacing:.06em; }
+  .pill:hover { box-shadow:var(--shadow); }
+  .pill.on { color:var(--bg); background:var(--line); font-weight:600; }
+  .pill.panic { border-color:var(--alarm); color:var(--alarm); font-weight:700; }
+  .pill.panic:hover { background:var(--alarm); color:var(--bg); }
+  .pills { display:flex; gap:4px; flex-wrap:wrap; }
+  .chip { padding:4px 8px; border:0; background:none; border-radius:var(--r);
+    cursor:pointer; font:inherit; font-size:10px; letter-spacing:.06em;
+    color:var(--dim); min-height:26px; }
+  .chip:hover { background:var(--panel2); }
+  .chip b { color:var(--t2); font-weight:600; letter-spacing:.1em; }
+  .tagline { color:var(--t2); font-size:11px; max-width:130ch; margin-bottom:6px; }
+  .tagline b { color:var(--text); }
+  .audit { font-size:10px; color:var(--t2); margin-bottom:10px;
+           border-left:3px solid var(--meter); padding-left:8px; }
+  .audit.bad { border-left-color:var(--alarm); color:var(--alarm); }
+  .audit b { color:var(--text); }
+  .cluster { background:var(--panel); border:var(--stroke) solid var(--line);
+    border-radius:var(--r); padding:8px 10px; min-width:0; }
+  h2 { font-size:11px; color:var(--pull); letter-spacing:1px; margin-bottom:6px; }
+  h3 { font-size:10px; letter-spacing:.12em; color:var(--t2); margin:8px 0 4px; }
+  .note { color:var(--t2); font-size:10px; line-height:1.5; margin-top:6px; }
+  .note b { color:var(--text); }
+  .sep { border-top:1px dashed var(--div); margin:8px 0 6px; }
+  .cap { font-size:9px; letter-spacing:.12em; color:var(--dim); margin:6px 0 3px; }
+  .row { display:grid; grid-template-columns:52px minmax(0,1fr) 46px;
+    align-items:center; gap:6px; margin:3px 0; }
+  .row label { color:var(--t2); font-size:10px; }
+  .row output { font-size:10px; text-align:right; color:var(--text);
+                font-variant-numeric:tabular-nums; }
+  input[type=range] {
+    -webkit-appearance:none; appearance:none; width:100%; min-width:0;
+    height:22px; background:transparent; cursor:pointer; }
+  input[type=range]::-webkit-slider-runnable-track {
+    height:6px; border-radius:3px; border:var(--stroke) solid var(--line);
+    background:linear-gradient(to right,
+      var(--value) 0 calc(var(--pct, 0) * 100%),
+      var(--panel2) calc(var(--pct, 0) * 100%) 100%); }
+  /* A BIPOLAR slider fills from its CENTRE (gui2's knob rule, §8: "unipolar
+     from min and bipolar from centre are the same declaration"). --p0/--p1 are
+     the fill's two edges; a depth is signed, so every depth slider is one. */
+  input[type=range].bip::-webkit-slider-runnable-track {
+    background:linear-gradient(to right,
+      var(--panel2) 0 calc(var(--p0, .5) * 100%),
+      var(--value) calc(var(--p0, .5) * 100%) calc(var(--p1, .5) * 100%),
+      var(--panel2) calc(var(--p1, .5) * 100%) 100%); }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance:none; appearance:none;
+    width:13px; height:13px; border-radius:4px; margin-top:-3.5px;
+    background:var(--panel); border:var(--stroke) solid var(--line);
+    box-shadow:var(--shadow); }
+  input[type=range]:hover::-webkit-slider-thumb { box-shadow:var(--shadow-hover); }
+  input[type=range]:active::-webkit-slider-thumb { background:var(--value); box-shadow:none; }
+  select {
+    -webkit-appearance:none; appearance:none;
+    font:inherit; font-size:10px; padding:3px 18px 3px 9px; min-width:0;
+    border-radius:999px; border:var(--stroke) solid var(--line);
+    background:var(--panel); color:var(--t2); cursor:pointer; min-height:24px;
+    background-image:linear-gradient(45deg,transparent 50%,var(--t2) 50%),
+                     linear-gradient(135deg,var(--t2) 50%,transparent 50%);
+    background-position:calc(100% - 11px) 50%, calc(100% - 7px) 50%;
+    background-size:4px 4px, 4px 4px; background-repeat:no-repeat; }
+  select:hover { box-shadow:var(--shadow); }
+  button.sq { border:var(--stroke) solid var(--line); border-radius:var(--r);
+    background:var(--panel); color:var(--text); font:inherit; font-size:9.5px;
+    cursor:pointer; min-height:24px; padding:0 6px; }
+  button.sq:hover { box-shadow:var(--shadow); }
+  code { font-size:10px; }
+
+  /* ============ PAGE SHAPE ============ */
+  .answers { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px; }
+  .answers .cluster { font-size:10.5px; color:var(--t2); line-height:1.55; }
+  .answers b { color:var(--text); }
+  .answers .verdict { color:var(--text); font-weight:700; border-left:3px solid var(--value);
+    padding-left:7px; margin:4px 0 6px; }
+  .top { display:grid; grid-template-columns:minmax(560px,1.15fr) minmax(480px,1fr);
+         gap:10px; align-items:start; }
+  .views { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px; }
+  .bottom { display:grid; grid-template-columns:minmax(0,1.3fr) minmax(0,1fr); gap:10px;
+            margin-top:10px; align-items:start; }
+  @media (max-width:1250px) {
+    .top, .views, .bottom, .answers { grid-template-columns:1fr; } }
+
+  /* ============ SOURCE STRIP — all 24 slots of kMaxSources ============
+     The strip shows what the matrix CAN read, in slot order, because slot order
+     is what a saved route stores (B179: rename, never renumber). Retired and
+     free slots are drawn DASHED rather than hidden — a hidden slot would make
+     "why is 22 followed by nothing" unanswerable from the page. */
+  .strip { display:grid; grid-template-columns:repeat(8, minmax(0,1fr)); gap:4px; }
+  .stile { border:var(--stroke) solid var(--line); border-radius:6px;
+    padding:3px 5px 4px; background:var(--panel); min-width:0; position:relative; }
+  .stile .sn { font-size:8px; color:var(--dim); }
+  .stile .st { font-size:10px; font-weight:700; letter-spacing:.04em; }
+  .stile .sl { font-size:8.5px; color:var(--t2); white-space:nowrap; overflow:hidden;
+               text-overflow:ellipsis; }
+  .stile .sw { font-size:7.5px; color:var(--dim); white-space:nowrap; overflow:hidden;
+               text-overflow:ellipsis; }
+  .stile .sb { height:4px; border-radius:2px; background:var(--panel2); margin-top:3px;
+               position:relative; overflow:hidden; }
+  .stile .sb i { position:absolute; top:0; bottom:0; background:var(--physics); }
+  .stile .sb.bi::after { content:''; position:absolute; left:50%; top:-1px; bottom:-1px;
+               width:1px; background:var(--line); opacity:.5; }
+  .stile.used { box-shadow:var(--shadow); }
+  .stile.used .st::after { content:attr(data-n); font-size:7.5px; color:var(--physics);
+               margin-left:4px; font-weight:600; }
+  .stile.retired, .stile.free { border-style:dashed; border-color:var(--dis);
+               background:transparent; }
+  .stile.retired .st, .stile.free .st { color:var(--dis); }
+  .ctl4 { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:8px; margin-top:6px; }
+  .ctl4 .row { grid-template-columns:30px minmax(0,1fr) 40px; gap:4px; margin:1px 0; }
+  .ctl4 .row label { font-size:9.5px; }
+  .ctl4 .row output { font-size:9.5px; }
+  .shapes { display:flex; gap:2px; flex-wrap:wrap; margin:2px 0 3px; }
+  .shapes .pill { min-height:20px; padding:1px 5px; font-size:8.5px; }
+
+  /* KEYBOARD — station-page-lab's, a data surface on --well */
+  #kbd { display:flex; margin-top:8px; height:54px; user-select:none;
+         border:var(--stroke) solid var(--line); border-radius:var(--r);
+         background:var(--well); overflow:hidden; }
+  .key { flex:1 1 0; border-right:1px solid var(--line); background:var(--well);
+         position:relative; cursor:pointer; min-width:0; }
+  .key:last-child { border-right:0; }
+  .key.blk { background:var(--line); flex:0 0 12px; width:12px; margin:0 -6px;
+             z-index:2; height:62%; border-radius:0 0 3px 3px; border:0;
+             box-shadow:0 0 0 1px var(--line); }
+  .key.on { background:var(--value); }
+
+  /* ============ ROUTE EDITOR ============
+     gui2's .modrow is two lines in a 240 px cluster (ADR-141); here the cluster
+     is wide, so a route is ONE line and a depth route is an INDENTED line
+     under the route whose depth it moves — the nesting IS the one-level rule
+     drawn as layout: there is no third indent to reach for. */
+  .rt { display:grid; grid-template-columns:26px 92px 34px minmax(80px,1fr)
+        minmax(110px,1.4fr) 86px 50px 22px; gap:5px; align-items:center;
+        padding:4px 0; border-bottom:1px dashed var(--div); }
+  .rt.dr { grid-template-columns:26px 92px 34px minmax(80px,1fr)
+        minmax(110px,1.4fr) 86px 50px 22px; padding-left:18px;
+        background:linear-gradient(to right, transparent 8px, var(--physics) 8px 10px, transparent 10px); }
+  .rt .ix { font-size:9px; color:var(--dim); }
+  .rt .dname { font-size:10px; color:var(--text); overflow:hidden; text-overflow:ellipsis;
+               white-space:nowrap; }
+  .rt.dr .dname { color:var(--physics); }
+  .rt output { font-size:9.5px; text-align:right; font-variant-numeric:tabular-nums; }
+  .rt output .now { color:var(--physics); }
+  .rt select { font-size:9.5px; padding:2px 16px 2px 7px; min-height:22px; }
+  button.pol { border:var(--stroke) solid var(--line); border-radius:999px;
+    background:var(--panel); color:var(--t2); font:inherit; font-size:9px;
+    min-height:22px; padding:0; cursor:pointer; }
+  button.pol[data-pol="1"], button.pol[data-pol="2"], button.pol[data-pol="3"] {
+    color:var(--text); font-weight:700; }
+  button.pol:hover { box-shadow:var(--shadow); }
+  /* THE DEPTH HALO — gui2's slider mod band (.smod/.snow, gui2:645) applied to a
+     route's own depth slider. A depth is a parameter; a modulated parameter is
+     shown with the violet band + live tick everywhere else in the instrument,
+     so a modulated DEPTH is shown the same way. No new visual vocabulary. */
+  .dwrap { position:relative; min-width:0; }
+  .dwrap .smod { position:absolute; height:3px; border-radius:1.5px; bottom:0;
+    background:var(--physics); opacity:.6; pointer-events:none; display:none; }
+  .dwrap .snow { position:absolute; width:2.5px; height:7px; border-radius:1px; bottom:-2px;
+    background:var(--physics); pointer-events:none; display:none; }
+  .dwrap.mod .smod, .dwrap.mod .snow { display:block; }
+  button.dep { border:var(--stroke) dashed var(--physics); border-radius:999px;
+    background:var(--panel); color:var(--physics); font:inherit; font-size:8.5px;
+    min-height:22px; padding:0 4px; cursor:pointer; letter-spacing:.04em; }
+  button.dep:hover { box-shadow:var(--shadow); }
+  button.dep.refuse { border-color:var(--dis); color:var(--dis); }
+  button.x { border:var(--stroke) solid var(--line); border-radius:var(--r);
+    background:var(--panel); color:var(--text); font:inherit; min-height:22px;
+    padding:0; cursor:pointer; }
+  .addrow { display:flex; gap:6px; align-items:center; margin-top:8px; flex-wrap:wrap; }
+  #routeMsg { font-size:10px; margin-top:6px; min-height:15px; color:var(--t2); }
+  #routeMsg.refused { color:var(--caution-tx); background:var(--caution-bg);
+    border:var(--stroke) solid var(--caution); border-radius:6px; padding:4px 7px; }
+  .rt.sel .dname, .rt.sel .ix { text-decoration:underline; text-decoration-color:var(--value); }
+
+  /* ============ TREATMENTS ============ */
+  .view h2 { display:flex; gap:8px; align-items:baseline; }
+  .view h2 span { color:var(--dim); font-size:9.5px; letter-spacing:.06em; font-weight:400; }
+  .reads { font-size:9.5px; color:var(--t2); margin-top:6px; line-height:1.5;
+           border-top:1px dashed var(--div); padding-top:5px; }
+  .reads b { color:var(--text); }
+
+  /* A — ARCS: chrome, not a tube. The knob sits on a CARD in the instrument, so
+     it is drawn in the chrome set (gui2 §4 knob, ADR-120), and its SVG strokes
+     read the same tokens gui2's CSS knob reads. */
+  #arcs { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:4px 6px; }
+  .kn { text-align:center; cursor:ns-resize; user-select:none; touch-action:none;
+        border-radius:var(--r); padding:2px 0 3px; }
+  .kn.sel { outline:var(--stroke) solid var(--line); outline-offset:-1px; }
+  .kn svg { width:100%; max-width:132px; height:auto; display:block; margin:0 auto; overflow:visible; }
+  .kn .kl { font-size:9.5px; color:var(--text); font-weight:600; }
+  .kn .kv { font-size:9px; color:var(--t2); font-variant-numeric:tabular-nums; }
+  .kn .kv .now { color:var(--physics); }
+  .kn .kv .clip { color:var(--caution-tx); background:var(--caution-bg); padding:0 2px; border-radius:2px; }
+  .k-track { fill:none; stroke:var(--panel2); stroke-width:6; }
+  .k-edge { fill:none; stroke:var(--line); stroke-width:1; opacity:.35; }
+  .k-val { fill:none; stroke:var(--value); stroke-width:6; }
+  .k-shadow { fill:var(--line); }
+  .k-cap { fill:var(--panel); stroke:var(--line); stroke-width:1.5; }
+  .k-ptr { stroke:var(--line); stroke-width:2.5; stroke-linecap:round; }
+  .k-now { stroke:var(--physics); stroke-width:3; stroke-linecap:round; }
+  .k-now.clip { stroke:var(--caution); }
+  .k-reach { fill:none; stroke:var(--physics); stroke-width:3.4; stroke-linecap:round; opacity:.85; }
+  .k-all { fill:none; stroke:var(--physics); stroke-width:1.1; stroke-dasharray:2 2.2; opacity:.9; }
+  .k-dot { fill:var(--physics); stroke:var(--panel); stroke-width:1.2; }
+  .k-tag { fill:var(--t2); font-size:6.6px; font-family:ui-monospace,Menlo,monospace;
+           text-anchor:middle; dominant-baseline:middle; }
+  .k-tag.d { fill:var(--physics); font-weight:700; }
+
+  /* B — WIRES and D — TRACE are data wells: phosphor tubes */
+  #wires { width:100%; height:300px; cursor:pointer; }
+  #trace { width:100%; height:300px; cursor:pointer; }
+
+  /* C — GRID: the FX-matrix well idiom (gui2:404/:429, station-page-lab's .mxc).
+     Fill = AUTHORED depth (magenta, rising from the bottom; caution for a
+     negative depth, as gui2:.mxc.neg does). The LIVE contribution is a violet
+     bar on the cell's floor. A cell whose depth is itself modulated takes
+     gui2's own "MODULATED" mark — the dashed violet ring (gui2:483) — because
+     that ring already means "a modulator is acting on this value", and a depth
+     is that value here. */
+  #mgWell { background:var(--well); border:var(--stroke) solid var(--line);
+            border-radius:var(--r); padding:7px 9px 7px 7px; }
+  #mg { display:grid; gap:3px 4px; align-items:center; }
+  .mgh { font-size:8.5px; letter-spacing:.3px; color:var(--t2); text-align:center;
+         overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .mgh.r { text-align:right; padding-right:3px; }
+  .mgh.sel { color:var(--text); font-weight:700; text-decoration:underline;
+             text-decoration-color:var(--value); }
+  .mgc { position:relative; height:15px; border:var(--stroke) solid var(--line);
+         border-radius:4px; background:var(--panel2); cursor:ns-resize;
+         user-select:none; touch-action:none; font-size:8px; line-height:12px;
+         text-align:center; color:var(--dim); overflow:visible; }
+  .mgc.on { color:var(--text);
+            background:linear-gradient(to top, var(--value) calc(var(--mx) * 100%),
+                                       var(--panel2) 0); }
+  .mgc.on.neg { background:linear-gradient(to top, var(--caution) calc(var(--mx) * 100%),
+                                           var(--panel2) 0); }
+  .mgc .lv { position:absolute; left:1px; bottom:1px; height:2.5px; border-radius:1px;
+             background:var(--physics); width:0; }
+  .mgc.dmod::after { content:''; position:absolute; inset:-3.5px;
+         border:1.6px dashed var(--physics); border-radius:6px; pointer-events:none; }
+  .mgc:hover { outline:2px solid var(--physics); outline-offset:2px; }
+  .mgc.gone { border-style:dashed; border-color:var(--dis); background:transparent; cursor:default; }
+  .mgc.gone:hover { outline:none; }
+
+  /* ============ INSPECTOR ============ */
+  table.ledger { width:100%; border-collapse:collapse; font-size:9.5px;
+                 font-variant-numeric:tabular-nums; }
+  table.ledger th { text-align:left; color:var(--dim); font-weight:400; font-size:8.5px;
+                    letter-spacing:.08em; border-bottom:1px solid var(--line); padding:2px 4px; }
+  table.ledger td { padding:2px 4px; border-bottom:1px dashed var(--div); }
+  table.ledger td.n { text-align:right; }
+  table.ledger tr.dr td { color:var(--physics); }
+  table.ledger tr.dr td:first-child { padding-left:14px; }
+  table.ledger tr.sum td { border-bottom:0; border-top:1px solid var(--line); color:var(--text); font-weight:700; }
+  table.ledger .val { color:var(--value); font-weight:700; }
+  table.ledger .phy { color:var(--physics); font-weight:700; }
+  table.ledger .clip { color:var(--caution-tx); background:var(--caution-bg); padding:0 3px; border-radius:2px; }
+  .axes { display:grid; grid-template-columns:22px 140px minmax(0,1fr); gap:3px 8px;
+          font-size:9.5px; align-items:baseline; }
+  .axes .k { font-weight:700; color:var(--text); }
+  .axes .on { color:var(--text); }
+  .axes .off { color:var(--dis); }
+  .axes .st { color:var(--t2); }
+  .axes .st b { color:var(--text); }
+  .axes .warn { color:var(--caution-tx); background:var(--caution-bg); padding:0 3px; border-radius:2px; }
+</style></head><body>
+
+<div class="hdr">
+  <div>
+    <h1>mod matrix</h1>
+    <div class="badges">
+      <span class="badge">LAB · B207</span>
+      <span class="sub">DEPTH MODULATION · FOUR WAYS TO SEE A ROUTE · ONE STATE, CHOOSE THE PICTURE</span>
+    </div>
+  </div>
+  <div class="hdrctl">
+    <div class="grp"><span class="lbl">SCENE</span><div class="pills" id="scenePills"></div></div>
+    <button class="pill" id="pwr" data-lab="audio monitor — a lab affordance">POWER</button>
+    <button class="pill on" id="holdBtn" data-lab="drone: holds C3 so envelopes sit in sustain">HOLD</button>
+    <button class="pill" id="pauseBtn" data-lab="freezes the tick clock — the core only moves when ticked">PAUSE</button>
+    <button class="chip" id="themeBtn" data-lab="theme audition">theme <b>LIGHT</b></button>
+    <button class="pill panic" id="panic" data-lab="all notes off">PANIC</button>
+  </div>
+</div>
+
+<div class="tagline">The <b>modulation matrix</b> as it stands after B134/B171 — 22 source slots under
+<b>B179's new names</b>, per-route polarity, pitch as an ordinary <b>±48 st</b> destination per oscillator (B180,
+proposed) — plus the two things B207 exists to settle: <b>depth modulation</b> (a route's amount as a destination,
+B70) and <b>how a route should look</b>. The four treatments below all draw the SAME live state; edit routes in the
+editor or directly in the grid and watch all four answer. Drawn only in gui2's tokens: magenta is what you
+<b>authored</b>, violet is what <b>modulation</b> does to it (gui2's halo colour), cyan/lime is <b>measurement</b>.
+Keys <b>A</b>..<b>K</b> play (W/E/T/Y/U black); HOLD keeps a drone so the envelopes have something to do.</div>
+
+<div class="audit" id="audit">audit: pending</div>
+
+<div class="answers">
+  <div class="cluster"><h2>Q1 · Depth modulation — the answer this lab proposes</h2>
+    <div class="verdict">A depth route is an ordinary route whose destination is another route's depth.
+      Recursion: <u>no — one level</u>.</div>
+    <b>Wired</b> — <i>+ DEPTH</i> on any route row, a right-click on that route's depth slider (the human's
+    right-click ruling, extended to the depth — B70), or a right-click on a lit grid cell. It arrives on
+    ENV 1, like any sent route, and its source is re-aimed in the row.
+    <b>Shown</b> — a depth is a parameter, so it is shown the way every modulated parameter already is: the
+    violet band and live tick on the route's own depth slider (gui2's slider halo); the knob ring breathes
+    inside a dashed envelope of its possible reach; the wire swells behind a valve the depth wire lands on;
+    the grid cell takes gui2's dashed violet <i>modulated</i> ring; the trace's reach band widens.
+    <b>Arithmetic</b> — still SUM, two fixed passes in one tick (depth routes, then value routes reading the
+    modulated depths); a depth route speaks its target's units (semitones on a pitch route); the moved depth is
+    clamped to the route's own ±range (OQ-30: the destination bounds the value).
+    <b>Why one level</b> — letting a depth route target a depth route means routes read routes, which admits
+    cycles (A deepens B, B deepens A). The instrument would then need an evaluation order and FOUNDATIONS
+    OQ-23's unit delay — one route silently reading the <i>previous</i> tick of another — for a three-way
+    product of sources nobody has asked for. One level forbids cycles by construction, keeps evaluate() at two
+    passes with no graph sort, and covers every case named: vibrato that blooms, tremolo on the wheel. Lift it
+    only when someone asks for depth-of-depth. <b>Try it:</b> the dimmed <i>+ DEPTH</i> on an indented row
+    refuses and says so.
+    <b>A port trap found on the way</b> — mod_core's removeRoute() COMPACTS the table, so an index-keyed depth
+    route would silently re-aim at its neighbour after a delete (the ADR-138 index-shift family). This lab's
+    removeRoute deletes a route's depth routes with it and re-points the rest; the port needs the same.
+  </div>
+  <div class="cluster"><h2>Q2 · Visual intuition — four treatments, yours to choose</h2>
+    <div class="verdict">Each answers one question: what is moving this knob, by how much, right now?</div>
+    <b>A · Arcs on the knob</b> — gui2's halo grown up: one concentric ring per route, the route's reach as a
+    violet arc from your value, a dot where that route is pushing now, the tag in the dial's gap. Nothing new to
+    learn; crowds past four routes.
+    <b>B · Wires</b> — a patch bay: width is depth, brightness is the source's live value, dashed is inverted, a
+    depth route is a wire landing on a wire. Reads the <i>topology</i> fastest; says least about the value.
+    <b>C · Grid</b> — the FX-matrix well you already know: every possible route visible at once, empty cells are
+    one click from a route. Best at "what COULD move this"; weakest at "where is it now".
+    <b>D · Trace</b> — the value over time against its reach band. The only one that shows <i>motion</i> honestly,
+    and the only one that can show the 172 Hz tick (250 ms view).
+    <b>One finding before you choose:</b> source-<i>coloured</i> arcs are not available without a ruling. Every
+    hue here has one job (magenta = your value, violet = modulation, cyan = measurement), and a per-source hue is
+    a categorical palette the design system does not have. So source identity rides <b>tag + ring order</b>.
+    If you want hue, that is an ADR-116 amendment, not a lab choice.
+  </div>
+</div>
+
+<div class="top">
+  <div class="cluster" id="srcPane"><h2>Sources — all 24 slots of kMaxSources</h2>
+    <div class="strip" id="strip"></div>
+    <div class="note">Slot order is frozen — it is what a saved route stores. <b>B179</b>: slots 20/21 display
+      <b>ENV 1/2</b> (they were ENV 3/4), slot 0 is <b>Gain ENV (loudest voice)</b> and slot 1 <b>Pitch ENV</b>
+      (they were ENV 1/2): a rename, never a renumber. Slots 10–13 are the retired pad aliases (ADR-156, read 0).
+      22/23 are the last two free — B180 proposes <i>Gain ENV OSC 1/2</i> there, unbuilt. The bar is each source's
+      value now; ◦n counts the routes reading it.</div>
+    <div class="ctl4" id="srcCtl"></div>
+    <div id="kbd"></div>
+  </div>
+
+  <div class="cluster" id="routePane"><h2>Routes — the editor (the four views below only draw)</h2>
+    <div id="routes"></div>
+    <div class="addrow">
+      <select id="addSrc" title="which modulator drives it"></select>
+      <span class="lbl">→</span>
+      <select id="addDst" title="the parameter this route will move"></select>
+      <button class="sq" id="addGo" type="button">Add route</button>
+    </div>
+    <div id="routeMsg"></div>
+    <div class="note">Columns: table index · source · <b>polarity</b> (B134, per route: as-is · uni · bi · inv —
+      click to cycle) · destination · depth (fills from centre; a depth route's halo sits under it) · authored →
+      <span style="color:var(--physics)">now</span> · + DEPTH · remove. Pitch depths are semitones, ±48 (B180);
+      everything else is ±1 of the destination's full range (ADR-136). Indented violet rows are depth routes.
+      Click a destination name to inspect it.</div>
+  </div>
+</div>
+
+<div class="views">
+  <div class="cluster view"><h2>A · Arcs on the knob <span>chrome · drag a knob to move its base</span></h2>
+    <div id="arcs"></div>
+    <div class="reads"><b>What</b> — tag per ring, in the dial's gap. <b>How much</b> — ring length (solid = reach at
+      today's depth; dashed = reach the depth modulation can open). <b>Now</b> — the dot per ring and the violet
+      tick across the track for the sum; amber when the destination clamps. Cost: crowds past ~4 routes; the
+      rings are per-route, so the eye has to add them; and the knob's scale is the PARAMETER's — on a ±48 st
+      pitch knob a 0.7 st vibrato is a sliver (see OSC 1 Pitch), which the trace, autoscaled, does not suffer.</div>
+  </div>
+  <div class="cluster view"><h2>B · Wires <span>tube · click a destination</span></h2>
+    <canvas id="wires"></canvas>
+    <div class="reads"><b>What</b> — follow the wire. <b>How much</b> — wire width is the depth NOW (it breathes when
+      modulated); a depth route lands on the ◇ valve at the wire's middle. <b>Now</b> — wire brightness is the
+      source's value; the destination bar shows base (magenta) and now (lime/teal). Cost: reads topology, not
+      magnitude — two wires of equal width can mean ±1 or ±48 st.</div>
+  </div>
+  <div class="cluster view"><h2>C · Grid <span>well · click empty = add · drag = depth · right-click = + depth</span></h2>
+    <div id="mgWell"><div id="mg"></div></div>
+    <div class="reads"><b>What</b> — row × column. <b>How much</b> — the magenta fill is the depth you set (amber =
+      negative). <b>Now</b> — the violet floor bar. A dashed violet ring = this cell's depth is itself modulated.
+      Cost: 18 × 7 cells to show ~6 routes; duplicates (two routes, one cell) show as ×2 and sum.</div>
+  </div>
+  <div class="cluster view"><h2>D · Trace <span>tube · click a lane</span>
+      <span class="pills" style="margin-left:auto"><button class="pill on" id="tzA" data-lab="trace span">3 s</button><button class="pill" id="tzB" data-lab="trace span">250 ms · ticks</button></span></h2>
+    <canvas id="trace"></canvas>
+    <div class="reads"><b>What</b> — lane per routed destination (the ledger below names the routes). <b>How much</b>
+      — the violet band is the reach at the depth in force at that instant, so depth modulation shows as the band
+      breathing. <b>Now</b> — the right edge. Each lane autoscales to what moved in view and prints its scale. The <b>250 ms</b> view draws the value as the staircase it is: one
+      step per 5.8 ms control tick (B199 axis 5). Cost: needs a second of history to be read at all.</div>
+  </div>
+</div>
+
+<div class="bottom">
+  <div class="cluster"><h2 id="ledgerH">What is moving it, right now</h2>
+    <div id="ledger"></div>
+    <div class="note">The arithmetic, in the order the core does it: depth routes add to their target's depth
+      (clamped to that route's ±range); each route contributes depth-now × mapped-source; contributions SUM; the
+      destination's own range clamps last. <b>Cutoff is modulated in Hz, linearly</b> — ADR-136's
+      <code>base + delta·span</code> on a log knob — so a bipolar LFO sweeps further up than down in pitch terms.
+      That is today's shell, reproduced, not endorsed; it is not this lab's question.</div>
+  </div>
+  <div class="cluster"><h2 id="axesH">How fast is too fast — five limits, not one (B199)</h2>
+    <div class="axes" id="axes"></div>
+    <div class="note">B199's finding, kept as five rows because they have five fixes. Only row 5 is arithmetic; rows
+      1, 3 and 4 await B199's measurements, and this lab states no numbers for them. The lab LFOs top out at
+      40 Hz (params 269/275), so a sine never folds; the shapes with edges do.</div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ============ BLOCK A — the lab's mod core. DOM-free by contract ============
+   Nothing in this block touches document/window/canvas, so a future harness can
+   slice it and construct a fresh core per test (tools/labharness/modlab_probe.mjs
+   is the precedent for why that matters). */
+
+/* THE CONTROL TICK. kGravGridSeconds = 256/44100 (src/swarm_core.h:136): the
+   modulation matrix is evaluated once per tick, 172.27 Hz, so anything faster
+   than 86.13 Hz in a MODULATOR folds before it reaches any destination (B199
+   axis 5). Every time constant below is seconds, converted per tick (ADR-009). */
+const TICK_S = 256 / 44100;
+const TICK_HZ = 44100 / 256;
+const TICK_NYQ = TICK_HZ / 2;
+const MAX_SOURCES = 24;            // ModCore::kMaxSources (src/mod_core.h)
+const MAX_ROUTES = 64;             // ModCore::kMaxRoutes
+const HIST = 517;                  // 3 s of ticks
+const ZOOM = 43;                   // 250 ms of ticks
+
+// mulberry32 — the house stream (SPEC §5.7: seeded RNG only, no wall-clock).
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+/* SOURCES — the 22 slots gui2's MOD_SRC_NAMES carries (gui2:3174), displayed
+   under B179's table: slot 20 ENV 3 → ENV 1, 21 ENV 4 → ENV 2, 0 ENV 1 → Gain ENV
+   (loudest voice), 1 ENV 2 → Pitch ENV. `bi` is the source's NATURAL polarity
+   (ModCore::SrcPolarity); gui2's note says the LFOs are bipolar and the pitch
+   wheel is ±1. Slots 22/23 exist in kMaxSources but carry no source. */
+const SRC = (() => {
+  const s = [
+    { tag: 'GE', name: 'Gain ENV', long: 'Gain ENV (loudest voice)', was: 'was ENV 1', bi: false, kind: 'engine' },
+    { tag: 'PE', name: 'Pitch ENV', long: 'Pitch ENV', was: 'was ENV 2', bi: false, kind: 'engine' },
+  ];
+  for (let i = 1; i <= 8; i++) s.push({ tag: 'M' + i, name: 'Macro ' + i, long: 'Macro ' + i, bi: false, kind: 'macro' });
+  for (const n of ['XY1 X', 'XY1 Y', 'XY2 X', 'XY2 Y'])
+    s.push({ tag: n.replace(' ', ''), name: n, long: n + ' (retired, ADR-156)', was: 'retired · reads 0', bi: false, kind: 'retired', retired: true });
+  s.push({ tag: 'VEL', name: 'Velocity', long: 'Velocity', bi: false, kind: 'midi' });
+  s.push({ tag: 'MW', name: 'Mod Wheel', long: 'Mod Wheel', bi: false, kind: 'midi' });
+  s.push({ tag: 'AT', name: 'Pressure', long: 'Pressure', bi: false, kind: 'midi' });
+  s.push({ tag: 'PW', name: 'Pitch Wheel', long: 'Pitch Wheel', bi: true, kind: 'midi' });
+  s.push({ tag: 'L1', name: 'LFO 1', long: 'LFO 1', bi: true, kind: 'lfo' });
+  s.push({ tag: 'L2', name: 'LFO 2', long: 'LFO 2', bi: true, kind: 'lfo' });
+  s.push({ tag: 'E1', name: 'ENV 1', long: 'ENV 1', was: 'was ENV 3', bi: false, kind: 'env' });
+  s.push({ tag: 'E2', name: 'ENV 2', long: 'ENV 2', was: 'was ENV 4', bi: false, kind: 'env' });
+  return s;
+})();
+const S_GE = 0, S_PE = 1, S_M1 = 2, S_VEL = 14, S_MW = 15, S_AT = 16, S_PW = 17,
+      S_L1 = 18, S_L2 = 19, S_E1 = 20, S_E2 = 21;
+/* A route sent from the matrix arrives on a default source. gui2's note says
+   "the route arrives on ENV 1" — which today is slot 0, the loudest-voice gain
+   envelope. Under B179 the general-purpose ENV 1 is slot 20, and that is what
+   the note's intent names, so the lab uses 20. A shell default change; flagged
+   for the lead rather than decided here. */
+const DEFAULT_SRC = S_E1;
+
+/* DESTINATIONS — a representative seven, NOT the presentation table (the shell
+   derives its list from src/param_presentation.tsv; a typed list is exactly the
+   second table gui2:3316 warns about, and it is tolerable only in a lab).
+   `pitch` destinations take depth in SEMITONES (±48, B180); every other depth
+   is a fraction of the full range, applied as base + delta·(max−min)
+   (ADR-136). `axes` are the B199 failure classes the destination is exposed to
+   by kind — a CLASSIFICATION, not a measurement. */
+const DEST = [
+  { key: 'p1',  short: 'PIT1', name: 'OSC 1 Pitch', unit: 'st', min: -48, max: 48, base: 0, pitch: true, bip: true, axes: [1, 5] },
+  { key: 'p2',  short: 'PIT2', name: 'OSC 2 Pitch', unit: 'st', min: -48, max: 48, base: 0, pitch: true, bip: true, axes: [1, 5] },
+  { key: 'l1',  short: 'LVL1', name: 'OSC 1 Level', unit: '',   min: 0,   max: 1,   base: 0.7, axes: [1, 5] },
+  { key: 'l2',  short: 'LVL2', name: 'OSC 2 Level', unit: '',   min: 0,   max: 1,   base: 0.55, axes: [1, 5] },
+  { key: 'cut', short: 'CUT',  name: 'Cutoff',      unit: 'Hz', min: 20,  max: 20000, base: 900, log: true, axes: [1, 3, 5] },
+  { key: 'res', short: 'RES',  name: 'Resonance',   unit: '',   min: 0,   max: 1,   base: 0.25, axes: [1, 3, 5] },
+  { key: 'pan', short: 'PAN',  name: 'Pan',         unit: '',   min: -1,  max: 1,   base: 0, bip: true, axes: [1, 5] },
+];
+const DEST_BY = {};
+for (const d of DEST) DEST_BY[d.key] = d;
+
+const LFO_SHAPES = ['sine', 'triangle', 'saw up', 'saw down', 'square', 'sample & hold'];   // kLfoShapeLabels
+const POL_NAMES = ['as-is', 'uni', 'bi', 'inv'];                                             // gui2 MOD_POL_NAMES
+const POL_HINT = ['as-is — the source’s own polarity', 'unipolar — mapped to 0…1',
+                  'bipolar — mapped to −1…+1', 'inverted — negated'];
+
+/* ModCore::mapPolarity, verbatim in meaning (src/mod_core.h, B134). */
+function mapPolarity(v, pol, srcBi) {
+  if (pol === 1) return srcBi ? (v + 1) / 2 : v;
+  if (pol === 2) return srcBi ? v : 2 * v - 1;
+  if (pol === 3) return -v;
+  return v;
+}
+/* gui2's modSrcSpan: the range a MAPPED source covers, which reach is depth × of. */
+function polSpan(pol, srcBi) {
+  if (pol === 1) return [0, 1];
+  if (pol === 2) return [-1, 1];
+  if (pol === 3) return srcBi ? [-1, 1] : [-1, 0];
+  return srcBi ? [-1, 1] : [0, 1];
+}
+function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
+
+/* The lab's envelope: linear segments in SECONDS (ADR-009), retriggered from the
+   current level so a re-gate cannot click. NOT advanceAdsr()'s law. */
+class Adsr {
+  constructor(A, D, S, R) { this.A = A; this.D = D; this.S = S; this.R = R; this.stage = 0; this.lv = 0; this.rs = 0; }
+  gate(on) {
+    if (on) this.stage = 1;
+    else if (this.stage) { this.stage = 4; this.rs = this.lv; }
+  }
+  step() {
+    const t = TICK_S;
+    if (this.stage === 1) {
+      this.lv += t / Math.max(1e-4, this.A);
+      if (this.lv >= 1) { this.lv = 1; this.stage = 2; }
+    } else if (this.stage === 2) {
+      this.lv -= (1 - this.S) * t / Math.max(1e-4, this.D);
+      if (this.lv <= this.S) { this.lv = this.S; this.stage = 3; }
+    } else if (this.stage === 3) {
+      this.lv = this.S;
+    } else if (this.stage === 4) {
+      this.lv -= this.rs * t / Math.max(1e-4, this.R);
+      if (this.lv <= 0) { this.lv = 0; this.stage = 0; }
+    }
+    return this.lv;
+  }
+}
+
+/* Why recursion is refused — ONE string, read by every surface that refuses
+   (editor button, slider right-click, grid), so the reason cannot drift. */
+function refuseWhy() {
+  return 'Refused — a depth route’s own depth is not a destination (one level, B207). ' +
+    'Depth-of-depth lets routes read routes, which admits cycles; the matrix would then need an ' +
+    'evaluation order and a one-tick delay (FOUNDATIONS OQ-23) for a case nobody has asked for.';
+}
+
+class ModLabCore {
+  constructor() {
+    this.lfo = [
+      { rate: 5.5, shape: 0, ph: 0, sh: 0, seed: 0x51A7, rng: null, v: 0 },
+      { rate: 0.35, shape: 1, ph: 0, sh: 0, seed: 0x51A8, rng: null, v: 0 },
+    ];
+    this.env = [new Adsr(1.8, 0.5, 1, 0.6), new Adsr(0.003, 0.45, 0, 0.3)];   // ENV 1 (20), ENV 2 (21)
+    this.genv = new Adsr(0.005, 0.3, 0.75, 0.35);   // Gain ENV — stand-in for the loudest voice's
+    this.penv = new Adsr(0.003, 0.16, 0, 0.2);      // Pitch ENV — ADR-135's contour, sustain 0
+    this.macro = new Float64Array(8);
+    this.midi = { vel: 0, mw: 0, at: 0, pw: 0 };
+    this.src = new Float64Array(MAX_SOURCES);
+    this.routes = [];
+    this.base = {};
+    for (const d of DEST) this.base[d.key] = d.base;
+    this.out = { route: [], dest: {} };
+    for (const d of DEST) this.out.dest[d.key] = { now: d.base, raw: d.base, lo: d.base, hi: d.base,
+      loAll: d.base, hiAll: d.base, clip: false, sum: 0, n: 0 };
+    this.hist = {};
+    for (const d of DEST) this.hist[d.key] = { now: new Float32Array(HIST), lo: new Float32Array(HIST),
+      hi: new Float32Array(HIST), base: new Float32Array(HIST), clip: new Uint8Array(HIST) };
+    this.hpos = 0; this.ticks = 0; this.note = -1; this.version = 0;
+    this.reseed();
+  }
+  reseed() {
+    for (const l of this.lfo) { l.rng = mulberry32(l.seed); l.sh = l.rng() * 2 - 1; l.ph = 0; }
+  }
+  noteOn(n, vel) {
+    this.note = n; this.midi.vel = vel;
+    for (const e of [this.genv, this.penv, this.env[0], this.env[1]]) e.gate(true);
+  }
+  noteOff(n) {
+    if (n !== this.note) return;
+    this.note = -1;
+    for (const e of [this.genv, this.penv, this.env[0], this.env[1]]) e.gate(false);
+  }
+  panic() { this.note = -1; for (const e of [this.genv, this.penv, this.env[0], this.env[1]]) { e.stage = 0; e.lv = 0; } }
+
+  /* ---- the route table ---------------------------------------------------
+     Index-addressed like ModCore::routes. A value route has `dest` (a key) and
+     tgt −1; a depth route has tgt = the index of the VALUE route it moves. */
+  depthMax(i) {
+    const r = this.routes[i];
+    if (!r) return 1;
+    if (r.tgt >= 0) return this.depthMax(r.tgt);
+    return DEST_BY[r.dest].pitch ? 48 : 1;
+  }
+  addRoute(src, dest, depth, pol) {
+    if (this.routes.length >= MAX_ROUTES) return { ok: false, why: 'Refused — the table is full (64 routes, ModCore::kMaxRoutes).' };
+    if (!SRC[src] || SRC[src].retired) return { ok: false, why: 'Refused — that source slot is retired or empty.' };
+    if (!DEST_BY[dest]) return { ok: false, why: 'Refused — not a continuous destination.' };
+    this.routes.push({ src, dest, tgt: -1, depth, pol: pol | 0 });
+    this.version++;
+    return { ok: true, i: this.routes.length - 1 };
+  }
+  addDepthRoute(src, tgt, depth, pol) {
+    const t = this.routes[tgt];
+    if (!t) return { ok: false, why: 'Refused — no such route.' };
+    if (t.tgt >= 0) return { ok: false, why: refuseWhy() };
+    if (this.routes.length >= MAX_ROUTES) return { ok: false, why: 'Refused — the table is full (64 routes, ModCore::kMaxRoutes).' };
+    if (!SRC[src] || SRC[src].retired) return { ok: false, why: 'Refused — that source slot is retired or empty.' };
+    this.routes.push({ src, dest: null, tgt, depth, pol: pol | 0 });
+    this.version++;
+    return { ok: true, i: this.routes.length - 1 };
+  }
+  /* REMOVE — the port trap. ModCore::removeRoute compacts the table, so an
+     index-keyed depth route would silently re-aim at whichever route slid into
+     its target's slot. Here the route's own depth routes go with it (a depth
+     with no route is meaningless), removed DESCENDING so each removal cannot
+     shift a pending index (gui2's modRelease rule), and every surviving depth
+     route's tgt above a removed index is decremented. Returns how many went. */
+  removeRoute(i) {
+    if (i < 0 || i >= this.routes.length) return 0;
+    const kill = [i];
+    for (let j = 0; j < this.routes.length; j++) if (this.routes[j].tgt === i) kill.push(j);
+    kill.sort((a, b) => b - a);
+    for (const k of kill) {
+      this.routes.splice(k, 1);
+      for (const r of this.routes) if (r.tgt > k) r.tgt--;
+    }
+    this.version++;
+    return kill.length;
+  }
+  /* Re-aiming a value route between a pitch and a non-pitch destination changes
+     its depth UNITS (±48 st vs ±1). Depths are rescaled proportionally — its own
+     and its depth routes' — so "a quarter of the way" stays a quarter. */
+  setDest(i, key) {
+    const r = this.routes[i];
+    if (!r || r.tgt >= 0 || !DEST_BY[key]) return;
+    const m0 = this.depthMax(i);
+    r.dest = key;
+    const k = this.depthMax(i) / m0;
+    if (k !== 1) {
+      r.depth *= k;
+      for (const d of this.routes) if (d.tgt === i) d.depth *= k;
+    }
+    this.version++;
+  }
+
+  /* ---- sources, one tick ---- */
+  stepSources() {
+    const s = this.src;
+    for (let k = 0; k < 2; k++) {
+      const l = this.lfo[k];
+      l.ph += l.rate * TICK_S;
+      if (l.ph >= 1) { l.ph -= Math.floor(l.ph); l.sh = l.rng() * 2 - 1; }
+      const p = l.ph;
+      let v;
+      switch (l.shape) {
+        case 1: v = p < 0.25 ? 4 * p : p < 0.75 ? 2 - 4 * p : 4 * p - 4; break;
+        case 2: v = 2 * p - 1; break;
+        case 3: v = 1 - 2 * p; break;
+        case 4: v = p < 0.5 ? 1 : -1; break;
+        case 5: v = l.sh; break;
+        default: v = Math.sin(2 * Math.PI * p);
+      }
+      l.v = v;
+    }
+    s[S_GE] = this.genv.step();
+    s[S_PE] = this.penv.step();
+    for (let m = 0; m < 8; m++) s[S_M1 + m] = this.macro[m];
+    for (let r = 10; r <= 13; r++) s[r] = 0;          // retired: read 0 (ADR-156)
+    s[S_VEL] = this.midi.vel; s[S_MW] = this.midi.mw; s[S_AT] = this.midi.at; s[S_PW] = this.midi.pw;
+    s[S_L1] = this.lfo[0].v; s[S_L2] = this.lfo[1].v;
+    s[S_E1] = this.env[0].step(); s[S_E2] = this.env[1].step();
+  }
+
+  /* ---- evaluate: TWO FIXED PASSES, same tick ----------------------------
+     Pass 1: every depth route adds depth × mapped-source to its target's depth.
+     Pass 2: every value route contributes depth-now × mapped-source; SUM per
+     destination; the destination's range clamps (OQ-30). Because a depth route
+     can only target a value route, pass 1 never reads pass 1's output — there is
+     no order to choose and nothing to delay. That is the whole case for one
+     level. */
+  evaluate() {
+    const R = this.routes, O = this.out.route, s = this.src;
+    O.length = R.length;
+    for (let i = 0; i < R.length; i++) {
+      const r = R[i];
+      const o = O[i] || (O[i] = {});
+      o.srcNow = mapPolarity(s[r.src], r.pol, SRC[r.src].bi);
+      o.depthNow = r.depth; o.dMin = r.depth; o.dMax = r.depth; o.dClamp = false; o.contrib = 0; o.dmod = false;
+    }
+    for (let i = 0; i < R.length; i++) {
+      const r = R[i];
+      if (r.tgt < 0) continue;
+      const o = O[i], t = O[r.tgt];
+      o.contrib = r.depth * o.srcNow;
+      t.depthNow += o.contrib; t.dmod = true;
+      const sp = polSpan(r.pol, SRC[r.src].bi);
+      const a = r.depth * sp[0], b = r.depth * sp[1];
+      t.dMin += Math.min(a, b); t.dMax += Math.max(a, b);
+    }
+    const D = this.out.dest;
+    for (const d of DEST) { const x = D[d.key]; x.sum = 0; x.lo = 0; x.hi = 0; x.loAll = 0; x.hiAll = 0; x.n = 0; }
+    for (let i = 0; i < R.length; i++) {
+      const r = R[i];
+      if (r.tgt >= 0) continue;
+      const o = O[i], M = this.depthMax(i);
+      if (o.depthNow > M || o.depthNow < -M) { o.depthNow = clamp(o.depthNow, -M, M); o.dClamp = true; }
+      o.dMin = clamp(o.dMin, -M, M); o.dMax = clamp(o.dMax, -M, M);
+      o.contrib = o.depthNow * o.srcNow;
+      const sp = polSpan(r.pol, SRC[r.src].bi);
+      const x = D[r.dest];
+      x.sum += o.contrib; x.n++;
+      const a = o.depthNow * sp[0], b = o.depthNow * sp[1];
+      x.lo += Math.min(a, b); x.hi += Math.max(a, b);
+      const c = [o.dMin * sp[0], o.dMin * sp[1], o.dMax * sp[0], o.dMax * sp[1]];
+      x.loAll += Math.min(c[0], c[1], c[2], c[3]); x.hiAll += Math.max(c[0], c[1], c[2], c[3]);
+    }
+    for (const d of DEST) {
+      const x = D[d.key], base = this.base[d.key];
+      const k = d.pitch ? 1 : d.max - d.min;
+      x.raw = base + x.sum * k;
+      x.now = clamp(x.raw, d.min, d.max);
+      x.clip = x.n > 0 && Math.abs(x.raw - x.now) > 1e-9;
+      x.vLo = clamp(base + x.lo * k, d.min, d.max); x.vHi = clamp(base + x.hi * k, d.min, d.max);
+      x.vLoAll = clamp(base + x.loAll * k, d.min, d.max); x.vHiAll = clamp(base + x.hiAll * k, d.min, d.max);
+    }
+  }
+  record() {
+    const p = this.hpos;
+    for (const d of DEST) {
+      const h = this.hist[d.key], x = this.out.dest[d.key];
+      h.now[p] = x.now; h.lo[p] = x.vLo; h.hi[p] = x.vHi; h.base[p] = this.base[d.key]; h.clip[p] = x.clip ? 1 : 0;
+    }
+    this.hpos = (p + 1) % HIST;
+  }
+  tick() { this.stepSources(); this.evaluate(); this.record(); this.ticks++; }
+}
+
+/* B199 axis 5, as ARITHMETIC: which harmonic of an LFO shape first lands above
+   the tick's Nyquist, and at what level. Sine has one partial and the lab's
+   40 Hz ceiling is under 86 Hz, so it never folds; triangle/square carry odd
+   harmonics (1/n², 1/n), saws all harmonics (1/n); S&H is a step train whose
+   edges land on the tick grid, so it is broadband at any rate. */
+function foldInfo(shape, rate) {
+  if (shape === 0) return rate > TICK_NYQ ? { n: 1, db: 0 } : null;
+  if (shape === 5) return { n: 0, db: 0 };
+  const odd = shape === 1 || shape === 4;
+  let n = Math.max(2, Math.ceil(TICK_NYQ / rate + 1e-9));
+  if (odd && n % 2 === 0) n++;
+  const db = 20 * Math.log10(shape === 1 ? 1 / (n * n) : 1 / n);
+  return { n, db };
+}
+</script>
+
+<script>
+"use strict";
+/* ============ BLOCK B — tokens, painters, wiring ============ */
+
+/* ---- state (L0026: every const/let the setup reaches is declared here) ---- */
+const core = new ModLabCore();
+let selDest = 'p1';
+let dark = false;
+let paused = false;
+let hold = true;
+let zoom = false;
+let ac = null, nodes = null;
+let lastTs = -1, acc = 0, frameNo = 0;
+let builtVersion = -1;
+let heldKey = -1;
+const HOLD_NOTE = 48;
+const KEYMAP = { a: 0, w: 1, s: 2, e: 3, d: 4, f: 5, t: 6, g: 7, y: 8, h: 9, u: 10, j: 11, k: 12 };
+const BASE_NOTE = 48;
+const routeRefs = [];            // per route index: { wrap, band, tick, out, sl }
+const cellRefs = {};             // 'src:dest' → { el, lv }
+const gridHeads = {};            // dest key → column header
+const knobRefs = {};             // dest key → { root, val, ptr, now, rings:[], kv }
+const tileRefs = [];             // per slot: { el, bar }
+const wireHits = [];             // dest hit rects, rebuilt every paint
+const laneHits = [];             // trace lanes, rebuilt every paint
+const SVGNS = 'http://www.w3.org/2000/svg';
+
+/* SCENES — deterministic starting states. Each names the case it demonstrates. */
+const SCENES = {
+  tour: { label: 'TOUR', f(c) {
+    lfoSet(0, 5.5, 0); lfoSet(1, 0.35, 1); envSet(0, 1.8, 0.5, 1, 0.6); envSet(1, 0.003, 0.45, 0, 0.3);
+    c.midi.mw = 0.55; c.macro[0] = 0.3;
+    c.addRoute(S_L1, 'p1', 0, 0);                  // 0  vibrato, authored depth ZERO…
+    c.addDepthRoute(S_E1, 0, 0.7, 0);              // 1  …ENV 1 blooms it to 0.7 st
+    c.addRoute(S_VEL, 'cut', 0.12, 0);             // 2  velocity opens the filter
+    c.addRoute(S_L2, 'cut', 0.05, 2);              // 3  a slow bipolar sweep…
+    c.addDepthRoute(S_MW, 3, 0.15, 0);             // 4  …that the mod wheel widens
+    c.addRoute(S_M1, 'res', 0.4, 0);               // 5
+    c.addRoute(S_L2, 'pan', 0.6, 3);               // 6  inverted — pans against the sweep
+    c.addRoute(S_E2, 'p2', 7, 0);                  // 7  a second pitch envelope (B180)
+  } },
+  bloom: { label: 'VIBRATO BLOOMS', f(c) {
+    lfoSet(0, 5.8, 0); envSet(0, 2.2, 0.2, 1, 0.8);
+    c.addRoute(S_L1, 'p1', 0, 0); c.addDepthRoute(S_E1, 0, 0.6, 0);
+    c.addRoute(S_L1, 'p2', 0, 0); c.addDepthRoute(S_E1, 2, 0.6, 0);
+  } },
+  wheel: { label: 'TREMOLO ON THE WHEEL', f(c) {
+    lfoSet(1, 6.5, 1); c.midi.mw = 0.4;
+    c.addRoute(S_L2, 'l1', 0, 2); c.addDepthRoute(S_MW, 0, 0.35, 0);
+    c.addRoute(S_L2, 'l2', 0, 2); c.addDepthRoute(S_MW, 2, 0.35, 0);
+  } },
+  twoenv: { label: 'TWO PITCH ENVS (B180)', f(c) {
+    envSet(0, 0.003, 0.25, 0, 0.2); envSet(1, 0.003, 0.7, 0, 0.3);
+    c.addRoute(S_E1, 'p1', 12, 0); c.addRoute(S_E2, 'p2', -7, 0);
+  } },
+  stack: { label: 'THREE ON CUTOFF', f(c) {
+    lfoSet(0, 0.7, 1); lfoSet(1, 9, 4); c.macro[0] = 0.5;
+    c.addRoute(S_VEL, 'cut', 0.1, 0); c.addRoute(S_L1, 'cut', 0.06, 2);
+    c.addRoute(S_M1, 'cut', 0.15, 0); c.addRoute(S_L2, 'cut', 0.02, 2);
+  } },
+  blank: { label: 'BLANK', f() {} },
+};
+let sceneKey = 'tour';
+
+/* ---- tokens: station-page-lab's TOK/TOKA (gui2:1627), cache keyed by name ---- */
+const _tok = {};
+function TOK(name, fallback) {
+  if (_tok[name] === undefined) {
+    let v = '';
+    try { v = getComputedStyle(document.body || document.documentElement).getPropertyValue(name).trim(); }
+    catch (_) { v = ''; }
+    _tok[name] = (typeof v === 'string' && v) ? v : (fallback || '#000');
+  }
+  return _tok[name];
+}
+function RGBA(hex, a) {
+  const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(hex).trim());
+  if (!m) return hex;
+  return `rgba(${parseInt(m[1], 16)},${parseInt(m[2], 16)},${parseInt(m[3], 16)},${a})`;
+}
+function TOKA(name, a, fallback) {
+  const m = parseFloat(TOK('--scr-alpha', '1')) || 1;
+  return RGBA(TOK(name, fallback), Math.min(1, a * m));
+}
+function scanA() { return parseFloat(TOK('--scr-scan', '0.22')) || 0.22; }
+const VS = () => Math.min(window.devicePixelRatio || 1, 2);
+function fitViz(cv) {
+  const dpr = VS();
+  const w = Math.max(1, Math.round(cv.clientWidth * dpr)), h = Math.max(1, Math.round(cv.clientHeight * dpr));
+  if (!w || !h || (cv.width === w && cv.height === h)) return false;
+  cv.width = w; cv.height = h;
+  return true;
+}
+function ground(cv) {
+  if (!cv || !cv.getContext) return null;
+  fitViz(cv);
+  const g = cv.getContext('2d');
+  const w = cv.width | 0, h = cv.height | 0, v = VS();
+  g.fillStyle = TOK('--scr-tube'); g.fillRect(0, 0, w, h);
+  g.fillStyle = `rgba(0,0,0,${scanA()})`;
+  const rows = Math.floor(h / (3 * v));
+  for (let i = 0; i < rows; i++) g.fillRect(0, v + i * 3 * v, w, v);
+  return { g, w, h, v };
+}
+const $ = id => document.getElementById(id);
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text !== undefined) e.textContent = text;
+  return e;
+}
+function svg(tag, attrs, parent) {
+  const e = document.createElementNS(SVGNS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+
+/* ---- value formatting and the knob curve ---- */
+function pctOf(d, v) {
+  if (d.log) return clamp(Math.log(Math.max(d.min, v) / d.min) / Math.log(d.max / d.min), 0, 1);
+  return clamp((v - d.min) / (d.max - d.min), 0, 1);
+}
+function valOf(d, p) {
+  p = clamp(p, 0, 1);
+  return d.log ? d.min * Math.pow(d.max / d.min, p) : d.min + p * (d.max - d.min);
+}
+function fmtVal(d, v) {
+  if (d.unit === 'Hz') return v >= 1000 ? (v / 1000).toFixed(2) + 'k' : v.toFixed(0);
+  if (d.unit === 'st') return (v >= 0 ? '+' : '') + v.toFixed(2) + ' st';
+  if (d.key === 'pan') return Math.abs(v) < 0.005 ? 'C' : (v < 0 ? 'L' : 'R') + Math.abs(v * 100).toFixed(0);
+  return v.toFixed(2);
+}
+function fmtDepth(i, v) {
+  const st = core.depthMax(i) === 48;
+  return (v >= 0 ? '+' : '') + (st ? v.toFixed(1) + 'st' : v.toFixed(2));
+}
+function routeName(i) {
+  const r = core.routes[i];
+  if (!r) return '?';
+  return r.tgt >= 0 ? 'depth of #' + r.tgt : DEST_BY[r.dest].name;
+}
+
+/* ---- the lab's own LFO/ENV setters (so scenes and controls share one path) ---- */
+function lfoSet(k, rate, shape) { const l = core.lfo[k]; l.rate = rate; l.shape = shape; }
+function envSet(k, A, D, S, R) { const e = core.env[k]; e.A = A; e.D = D; e.S = S; e.R = R; }
+
+/* ============ SOURCE STRIP + CONTROLS ============ */
+function buildStrip() {
+  const box = $('strip'); box.textContent = '';
+  tileRefs.length = 0;
+  for (let i = 0; i < MAX_SOURCES; i++) {
+    const s = SRC[i];
+    const t = el('div', 'stile' + (!s ? ' free' : s.retired ? ' retired' : ''));
+    t.appendChild(el('div', 'sn', String(i)));
+    t.appendChild(el('div', 'st', s ? (s.retired ? '—' : s.tag) : '—'));
+    t.appendChild(el('div', 'sl', s ? s.name : 'free'));
+    t.appendChild(el('div', 'sw', s ? (s.was || (s.bi ? 'bipolar ±1' : 'unipolar 0…1')) : (i === 22 ? 'B180: Gain ENV OSC 1?' : 'B180: Gain ENV OSC 2?')));
+    const b = el('div', 'sb' + (s && s.bi ? ' bi' : ''));
+    const bar = el('i'); b.appendChild(bar); t.appendChild(b);
+    t.title = s ? (s.long + ' — slot ' + i) : ('slot ' + i + ' — free; B180 proposes a per-oscillator gain envelope here (unbuilt)');
+    box.appendChild(t);
+    tileRefs.push({ el: t, bar, s });
+  }
+}
+function paintStrip() {
+  const used = new Array(MAX_SOURCES).fill(0);
+  for (const r of core.routes) used[r.src]++;
+  for (let i = 0; i < tileRefs.length; i++) {
+    const t = tileRefs[i];
+    if (!t.s || t.s.retired) continue;
+    const v = core.src[i];
+    if (t.s.bi) { const a = 50 + Math.min(0, v) * 50, b = 50 + Math.max(0, v) * 50;
+      t.bar.style.left = a.toFixed(1) + '%'; t.bar.style.width = (b - a).toFixed(1) + '%'; }
+    else { t.bar.style.left = '0%'; t.bar.style.width = (clamp(v, 0, 1) * 100).toFixed(1) + '%'; }
+    t.el.classList.toggle('used', used[i] > 0);
+    t.el.querySelector('.st').dataset.n = used[i] ? '◦' + used[i] : '';
+  }
+}
+function mkRow(parent, label, min, max, step, get, set, fmt, logScale) {
+  const row = el('div', 'row');
+  row.appendChild(el('label', '', label));
+  const sl = document.createElement('input'); sl.type = 'range';
+  const out = el('output');
+  const toS = v => logScale ? Math.log10(v) : v, fromS = v => logScale ? Math.pow(10, v) : v;
+  sl.min = String(toS(min)); sl.max = String(toS(max)); sl.step = String(step);
+  const paint = () => { const v = get(); sl.value = String(toS(v));
+    sl.style.setProperty('--pct', ((toS(v) - toS(min)) / (toS(max) - toS(min))).toFixed(4)); out.value = fmt(v); };
+  sl.addEventListener('input', () => { set(fromS(parseFloat(sl.value))); paint(); });
+  row.appendChild(sl); row.appendChild(out); parent.appendChild(row);
+  paint();
+  return paint;
+}
+const ctlPainters = [];
+function buildControls() {
+  const box = $('srcCtl'); box.textContent = '';
+  ctlPainters.length = 0;
+  const f2 = v => v.toFixed(2), fs = v => v < 1 ? (v * 1000).toFixed(0) + 'ms' : v.toFixed(2) + 's';
+  const fHz = v => v < 10 ? v.toFixed(2) : v.toFixed(1);
+  const lfoCol = el('div');
+  for (let k = 0; k < 2; k++) {
+    lfoCol.appendChild(el('h3', '', 'LFO ' + (k + 1) + ' · slot ' + (18 + k)));
+    ctlPainters.push(mkRow(lfoCol, 'Rate', 0.02, 40, 0.001, () => core.lfo[k].rate, v => { core.lfo[k].rate = v; }, fHz, true));
+    const sh = el('div', 'shapes');
+    const btns = [];
+    LFO_SHAPES.forEach((n, j) => {
+      const b = el('button', 'pill', n === 'sample & hold' ? 'S&H' : n.replace('saw ', 'saw')); b.type = 'button';
+      b.title = n;
+      b.addEventListener('click', () => { core.lfo[k].shape = j; paintShapes(); });
+      sh.appendChild(b); btns.push(b);
+    });
+    const paintShapes = () => btns.forEach((b, j) => b.classList.toggle('on', core.lfo[k].shape === j));
+    paintShapes(); ctlPainters.push(paintShapes);
+    lfoCol.appendChild(sh);
+  }
+  box.appendChild(lfoCol);
+  const envCol = el('div');
+  for (let k = 0; k < 2; k++) {
+    envCol.appendChild(el('h3', '', 'ENV ' + (k + 1) + ' · slot ' + (20 + k)));
+    const e = () => core.env[k];
+    ctlPainters.push(mkRow(envCol, 'A', 0.001, 2, 0.001, () => e().A, v => { e().A = v; }, fs, true));
+    ctlPainters.push(mkRow(envCol, 'D', 0.005, 4, 0.001, () => e().D, v => { e().D = v; }, fs, true));
+    ctlPainters.push(mkRow(envCol, 'S', 0, 1, 0.01, () => e().S, v => { e().S = v; }, f2));
+    ctlPainters.push(mkRow(envCol, 'R', 0.005, 4, 0.001, () => e().R, v => { e().R = v; }, fs, true));
+  }
+  box.appendChild(envCol);
+  const mCol = el('div');
+  mCol.appendChild(el('h3', '', 'MACROS · slots 2–9'));
+  for (let m = 0; m < 8; m++)
+    ctlPainters.push(mkRow(mCol, 'M' + (m + 1), 0, 1, 0.01, () => core.macro[m], v => { core.macro[m] = v; }, f2));
+  box.appendChild(mCol);
+  const midCol = el('div');
+  midCol.appendChild(el('h3', '', 'MIDI · slots 14–17'));
+  ctlPainters.push(mkRow(midCol, 'MW', 0, 1, 0.01, () => core.midi.mw, v => { core.midi.mw = v; }, f2));
+  ctlPainters.push(mkRow(midCol, 'AT', 0, 1, 0.01, () => core.midi.at, v => { core.midi.at = v; }, f2));
+  ctlPainters.push(mkRow(midCol, 'PW', -1, 1, 0.01, () => core.midi.pw, v => { core.midi.pw = v; }, f2));
+  const vr = el('div', 'row'); vr.appendChild(el('label', '', 'VEL'));
+  const vn = el('div', 'note', 'from the key: click low on a key = loud'); vn.style.margin = '0';
+  vr.appendChild(vn); const vo = el('output'); vr.appendChild(vo); midCol.appendChild(vr);
+  ctlPainters.push(() => { vo.value = core.midi.vel.toFixed(2); });
+  midCol.appendChild(el('h3', '', 'ENGINE · slots 0–1'));
+  midCol.appendChild(el('div', 'note', 'Gain ENV and Pitch ENV follow the note; their contours live on OSC in the plugin and are fixed here.'));
+  box.appendChild(midCol);
+}
+function paintControls() { for (const p of ctlPainters) p(); }
+
+function buildKbd() {
+  const box = $('kbd'); box.textContent = '';
+  for (let n = 0; n < 25; n++) {
+    const blk = [1, 3, 6, 8, 10].includes(n % 12);
+    const k = el('div', 'key' + (blk ? ' blk' : ''));
+    k.dataset.n = String(BASE_NOTE + n);
+    k.addEventListener('pointerdown', e => {
+      const h = k.clientHeight || 1;
+      const vel = clamp(0.25 + 0.75 * ((e.offsetY || 0) / h), 0.05, 1);
+      press(BASE_NOTE + n, vel);
+    });
+    k.addEventListener('pointerup', () => release(BASE_NOTE + n));
+    k.addEventListener('pointerleave', () => { if (heldKey === BASE_NOTE + n) release(BASE_NOTE + n); });
+    box.appendChild(k);
+  }
+}
+function paintKbd() {
+  const keys = $('kbd').children;
+  for (let i = 0; i < keys.length; i++) keys[i].classList.toggle('on', +keys[i].dataset.n === core.note);
+}
+function press(n, vel) { heldKey = n; core.noteOn(n, vel); paintKbd(); }
+function release(n) {
+  if (heldKey !== n) return;
+  heldKey = -1;
+  /* Under HOLD the drone resumes WITHOUT a re-gate: retriggering every
+     envelope on key-up would make release sound like a second attack. */
+  if (hold) core.note = HOLD_NOTE; else core.noteOff(n);
+  paintKbd();
+}
+
+/* ============ ROUTE EDITOR ============ */
+/* fillSrc/fillDst populate a GIVEN select, so the add-row's static selects and
+   each route row's fresh ones share one option list. (Not "build one, then move
+   its children": `while (x.firstChild)` never ends under lab_load_check's
+   proxy DOM, where every property is truthy — found by that gate.) */
+function fillSrc(s, val) {
+  s.textContent = '';
+  for (let i = 0; i < SRC.length; i++) {
+    if (SRC[i].retired) continue;          // absent, not disabled — gui2:473's rule
+    const o = document.createElement('option'); o.value = String(i); o.textContent = SRC[i].name;
+    s.appendChild(o);
+  }
+  s.value = String(val);
+  return s;
+}
+function fillDst(s, val) {
+  s.textContent = '';
+  for (const d of DEST) { const o = document.createElement('option'); o.value = d.key; o.textContent = d.name; s.appendChild(o); }
+  s.value = val;
+  return s;
+}
+function srcSelect(val) { return fillSrc(document.createElement('select'), val); }
+function dstSelect(val) { return fillDst(document.createElement('select'), val); }
+function say(msg, refused) {
+  const m = $('routeMsg');
+  m.textContent = msg || '';
+  m.className = refused ? 'refused' : '';
+}
+function addDepth(i) {
+  const r = core.routes[i];
+  if (!r) return;
+  if (r.tgt >= 0) { say(refuseWhy(), true); return; }
+  const M = core.depthMax(i);
+  const res = core.addDepthRoute(DEFAULT_SRC, i, 0.25 * M, 0);
+  if (!res.ok) { say(res.why, true); return; }
+  say('Depth route #' + res.i + ' added: ENV 1 now moves the depth of #' + i + ' (' + routeName(i) + ').');
+  rebuild();
+}
+/* The editor lists value routes in table order, each followed by its depth
+   routes — so the table index (#n) is shown rather than implied, and a delete
+   visibly renumbers (that renumbering IS the port trap, made visible). */
+function buildRoutes() {
+  const box = $('routes'); box.textContent = '';
+  routeRefs.length = 0;
+  const R = core.routes;
+  if (!R.length) { box.appendChild(el('div', 'note', 'No routes. Add one below, or click an empty grid cell.')); return; }
+  const order = [];
+  for (let i = 0; i < R.length; i++) if (R[i].tgt < 0) {
+    order.push(i);
+    for (let j = 0; j < R.length; j++) if (R[j].tgt === i) order.push(j);
+  }
+  for (const i of order) {
+    const r = R[i], isD = r.tgt >= 0, M = core.depthMax(i);
+    const row = el('div', 'rt' + (isD ? ' dr' : ''));
+    if (!isD && r.dest === selDest) row.classList.add('sel');
+    row.appendChild(el('span', 'ix', '#' + i));
+    const ss = srcSelect(r.src);
+    ss.addEventListener('change', () => { r.src = +ss.value; core.version++; rebuild(); });
+    row.appendChild(ss);
+    const pb = el('button', 'pol', POL_NAMES[r.pol]); pb.type = 'button';
+    pb.dataset.pol = String(r.pol); pb.title = POL_HINT[r.pol] + ' — click to cycle';
+    pb.addEventListener('click', () => { r.pol = (r.pol + 1) % 4; pb.textContent = POL_NAMES[r.pol];
+      pb.dataset.pol = String(r.pol); pb.title = POL_HINT[r.pol] + ' — click to cycle'; });
+    row.appendChild(pb);
+    if (isD) {
+      const dn = el('span', 'dname', '↳ depth of #' + r.tgt);
+      dn.title = 'moves the depth of route #' + r.tgt + ' (' + routeName(r.tgt) + '), in its units';
+      row.appendChild(dn);
+    } else {
+      const ds = dstSelect(r.dest);
+      ds.addEventListener('change', () => { core.setDest(i, ds.value); selDest = ds.value; rebuild(); });
+      ds.addEventListener('focus', () => select(r.dest));
+      row.appendChild(ds);
+    }
+    const wrap = el('div', 'dwrap');
+    const sl = document.createElement('input'); sl.type = 'range'; sl.className = 'bip';
+    sl.min = String(-M); sl.max = String(M); sl.step = M === 48 ? '0.1' : '0.005'; sl.value = String(r.depth);
+    const paintFill = () => { const p = 0.5 + r.depth / (2 * M);
+      sl.style.setProperty('--p0', Math.min(0.5, p).toFixed(4)); sl.style.setProperty('--p1', Math.max(0.5, p).toFixed(4)); };
+    sl.addEventListener('input', () => { r.depth = parseFloat(sl.value); paintFill(); });
+    sl.addEventListener('dblclick', () => { r.depth = 0; sl.value = '0'; paintFill(); });
+    /* the human's right-click ruling, extended: right-click a DEPTH to send it */
+    sl.addEventListener('contextmenu', e => { e.preventDefault(); addDepth(i); });
+    sl.title = isD ? 'depth-route amount, in the target route’s units' :
+      'depth · right-click: send this depth to the matrix (+ DEPTH) · double-click: 0';
+    paintFill();
+    const band = el('span', 'smod'), tick = el('span', 'snow');
+    wrap.appendChild(sl); wrap.appendChild(band); wrap.appendChild(tick);
+    row.appendChild(wrap);
+    const out = el('output'); row.appendChild(out);
+    const db = el('button', 'dep' + (isD ? ' refuse' : ''), '+ DEPTH'); db.type = 'button';
+    db.title = isD ? 'one level only — click for the reason' : 'modulate this route’s depth (B70)';
+    db.addEventListener('click', () => addDepth(i));
+    row.appendChild(db);
+    const x = el('button', 'x', '×'); x.type = 'button';
+    x.title = isD ? 'remove this depth route' : 'remove this route (and any depth routes on it)';
+    x.addEventListener('click', () => {
+      const n = core.removeRoute(i);
+      say(n > 1 ? 'Removed #' + i + ' and its ' + (n - 1) + ' depth route' + (n > 2 ? 's' : '') +
+        '; the table compacted and every later index moved down — depth routes were re-pointed, not left dangling.'
+        : 'Removed #' + i + '; later routes renumbered.');
+      rebuild();
+    });
+    row.appendChild(x);
+    if (!isD) row.querySelector('.ix').addEventListener('click', () => select(r.dest));
+    box.appendChild(row);
+    routeRefs[i] = { row, wrap, band, tick, out, M, isD };
+  }
+}
+function paintRoutes() {
+  for (let i = 0; i < core.routes.length; i++) {
+    const ref = routeRefs[i], o = core.out.route[i], r = core.routes[i];
+    if (!ref || !o) continue;
+    if (ref.isD) { ref.out.innerHTML = fmtDepth(i, r.depth); continue; }
+    const M = ref.M;
+    if (o.dmod) {
+      const p = v => (50 + 50 * v / M);
+      const a = p(o.dMin), b = p(o.dMax);
+      ref.band.style.left = a.toFixed(1) + '%'; ref.band.style.width = Math.max(0.8, b - a).toFixed(1) + '%';
+      ref.tick.style.left = 'calc(' + p(o.depthNow).toFixed(1) + '% - 1px)';
+      ref.wrap.classList.add('mod');
+      ref.out.innerHTML = fmtDepth(i, r.depth) + ' <span class="now">→' + fmtDepth(i, o.depthNow) + '</span>';
+    } else {
+      ref.wrap.classList.remove('mod');
+      ref.out.innerHTML = fmtDepth(i, r.depth);
+    }
+  }
+}
+function buildAdd() {
+  fillSrc($('addSrc'), DEFAULT_SRC);
+  fillDst($('addDst'), selDest);
+}
+
+/* ============ A · ARCS ON THE KNOB (SVG, chrome tokens) ============
+   Dial: 280° from 220° clockwise — gui2's knob (conic from 220deg, 280deg sweep;
+   pointer at −140 + p·280). One ring per value route on this destination, in
+   table order, outward. */
+const KCX = 60, KCY = 56, KTR = 28;
+function angOf(p) { return (-140 + clamp(p, 0, 1) * 280) * Math.PI / 180; }
+function ptOf(r, p) { const a = angOf(p); return [KCX + r * Math.sin(a), KCY - r * Math.cos(a)]; }
+function arcD(r, p0, p1, minSpan) {
+  let a = Math.min(p0, p1), b = Math.max(p0, p1);
+  if (b - a < (minSpan || 0)) { const m = (a + b) / 2; a = m - minSpan / 2; b = m + minSpan / 2; }
+  if (b - a < 1e-4) return 'M0 0';
+  const [x0, y0] = ptOf(r, a), [x1, y1] = ptOf(r, b);
+  const large = (b - a) * 280 > 180 ? 1 : 0;
+  return `M${x0.toFixed(2)} ${y0.toFixed(2)} A${r} ${r} 0 ${large} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`;
+}
+function buildArcs() {
+  const box = $('arcs'); box.textContent = '';
+  for (const d of DEST) {
+    const kn = el('div', 'kn' + (d.key === selDest ? ' sel' : ''));
+    const s = svg('svg', { viewBox: '0 0 120 122' });
+    svg('path', { class: 'k-track', d: arcD(KTR, 0, 1) }, s);
+    const val = svg('path', { class: 'k-val' }, s);
+    svg('circle', { class: 'k-shadow', cx: KCX + 1.5, cy: KCY + 1.5, r: 21 }, s);
+    svg('circle', { class: 'k-cap', cx: KCX, cy: KCY, r: 21 }, s);
+    const ptr = svg('line', { class: 'k-ptr' }, s);
+    const now = svg('line', { class: 'k-now' }, s);
+    const rings = [];
+    let k = 0;
+    for (let i = 0; i < core.routes.length; i++) {
+      const r = core.routes[i];
+      if (r.tgt >= 0 || r.dest !== d.key) continue;
+      if (k >= 4) { k++; continue; }
+      const rad = 36 + k * 6.2;
+      const all = svg('path', { class: 'k-all' }, s);
+      const reach = svg('path', { class: 'k-reach' }, s);
+      const dot = svg('circle', { class: 'k-dot', r: 2.5 }, s);
+      const dm = core.routes.some(x => x.tgt === i);
+      const tg = svg('text', { class: 'k-tag' + (dm ? ' d' : ''), x: KCX, y: KCY + rad + 0.5 }, s);
+      tg.textContent = SRC[r.src].tag + (dm ? '◇' : '');
+      rings.push({ i, rad, all, reach, dot });
+      k++;
+    }
+    kn.appendChild(s);
+    kn.appendChild(el('div', 'kl', d.name));
+    const kv = el('div', 'kv'); kn.appendChild(kv);
+    if (k > 4) kn.appendChild(el('div', 'kv', '+' + (k - 4) + ' more — the arc view crowds'));
+    /* drag = move the BASE (the authored value); a click without travel selects */
+    let y0 = null, p0 = 0, moved = false;
+    kn.addEventListener('pointerdown', e => { y0 = e.clientY; p0 = pctOf(d, core.base[d.key]); moved = false;
+      if (kn.setPointerCapture) kn.setPointerCapture(e.pointerId); });
+    kn.addEventListener('pointermove', e => { if (y0 === null) return;
+      const dy = y0 - e.clientY; if (Math.abs(dy) > 2) moved = true;
+      if (moved) core.base[d.key] = valOf(d, p0 + dy / 160); });
+    kn.addEventListener('pointerup', () => { if (y0 !== null && !moved) select(d.key); y0 = null; });
+    kn.addEventListener('dblclick', () => { core.base[d.key] = d.base; });
+    box.appendChild(kn);
+    knobRefs[d.key] = { root: kn, val, ptr, now, rings, kv, d };
+  }
+}
+function paintArcs() {
+  for (const d of DEST) {
+    const K = knobRefs[d.key];
+    if (!K) continue;
+    const x = core.out.dest[d.key], base = core.base[d.key];
+    const pb = pctOf(d, base);
+    K.val.setAttribute('d', d.bip ? arcD(KTR, 0.5, pb) : arcD(KTR, 0, pb));
+    const [a0, b0] = ptOf(8, pb), [a1, b1] = ptOf(18, pb);
+    K.ptr.setAttribute('x1', a0.toFixed(2)); K.ptr.setAttribute('y1', b0.toFixed(2));
+    K.ptr.setAttribute('x2', a1.toFixed(2)); K.ptr.setAttribute('y2', b1.toFixed(2));
+    const routed = x.n > 0, pn = pctOf(d, x.now);
+    const [c0, e0] = ptOf(KTR - 5, pn), [c1, e1] = ptOf(KTR + 5, pn);
+    K.now.setAttribute('x1', c0.toFixed(2)); K.now.setAttribute('y1', e0.toFixed(2));
+    K.now.setAttribute('x2', c1.toFixed(2)); K.now.setAttribute('y2', e1.toFixed(2));
+    K.now.style.display = routed ? '' : 'none';
+    K.now.classList.toggle('clip', x.clip);
+    const k = d.pitch ? 1 : d.max - d.min;
+    for (const g of K.rings) {
+      const o = core.out.route[g.i], r = core.routes[g.i];
+      if (!o || !r) continue;
+      const sp = polSpan(r.pol, SRC[r.src].bi);
+      const v = t => pctOf(d, clamp(base + t * k, d.min, d.max));
+      const lo = Math.min(o.depthNow * sp[0], o.depthNow * sp[1]), hi = Math.max(o.depthNow * sp[0], o.depthNow * sp[1]);
+      g.reach.setAttribute('d', arcD(g.rad, v(lo), v(hi)));
+      if (o.dmod) {
+        const c = [o.dMin * sp[0], o.dMin * sp[1], o.dMax * sp[0], o.dMax * sp[1]];
+        g.all.setAttribute('d', arcD(g.rad, v(Math.min(c[0], c[1], c[2], c[3])), v(Math.max(c[0], c[1], c[2], c[3]))));
+      } else g.all.setAttribute('d', 'M0 0');
+      const [dx, dy] = ptOf(g.rad, v(o.contrib));
+      g.dot.setAttribute('cx', dx.toFixed(2)); g.dot.setAttribute('cy', dy.toFixed(2));
+    }
+    K.kv.innerHTML = routed
+      ? fmtVal(d, base) + ' → <span class="' + (x.clip ? 'clip' : 'now') + '">' + fmtVal(d, x.now) + '</span>'
+      : fmtVal(d, base) + ' · unrouted';
+  }
+}
+
+/* ============ B · WIRES (tube) ============ */
+function paintWires() {
+  const cv = $('wires');
+  const G = ground(cv);
+  wireHits.length = 0;
+  if (!G) return;
+  const { g, w, h, v } = G;
+  const R = core.routes, O = core.out.route;
+  const srcs = [];
+  for (const r of R) if (!srcs.includes(r.src)) srcs.push(r.src);
+  srcs.sort((a, b) => a - b);
+  const font = (9.5 * v) + 'px ui-monospace,Menlo,monospace';
+  g.font = font; g.textBaseline = 'middle';
+  if (!R.length) {
+    g.fillStyle = TOKA('--scr-grid', 0.8); g.fillText('no routes', 12 * v, h / 2); return;
+  }
+  const nw = Math.max(40 * v, w * 0.11), nh = 22 * v;
+  const sx = 8 * v, dx = w - nw * 1.5 - 8 * v, dW = nw * 1.5;
+  const sY = j => h * (j + 1) / (srcs.length + 1);
+  const dY = j => h * (j + 1) / (DEST.length + 1);
+  const destIdx = {}; DEST.forEach((d, j) => { destIdx[d.key] = j; });
+  // fan: routes into one destination spread vertically at the node's edge
+  const fanN = {}, fanK = {};
+  for (let i = 0; i < R.length; i++) if (R[i].tgt < 0) fanN[R[i].dest] = (fanN[R[i].dest] || 0) + 1;
+  const mids = [];
+  const bez = (x0, y0, x1, y1, t) => {
+    const cx0 = x0 + (x1 - x0) * 0.45, cx1 = x1 - (x1 - x0) * 0.45, u = 1 - t;
+    return [u * u * u * x0 + 3 * u * u * t * cx0 + 3 * u * t * t * cx1 + t * t * t * x1,
+            u * u * u * y0 + 3 * u * u * t * y0 + 3 * u * t * t * y1 + t * t * t * y1];
+  };
+  g.lineCap = 'round';
+  for (let i = 0; i < R.length; i++) {
+    const r = R[i], o = O[i];
+    if (r.tgt >= 0 || !o) continue;
+    const M = core.depthMax(i);
+    const j = srcs.indexOf(r.src), dj = destIdx[r.dest];
+    const n = fanN[r.dest], kk = fanK[r.dest] = (fanK[r.dest] || 0) + 1;
+    const x0 = sx + nw, y0 = sY(j);
+    const x1 = dx, y1 = dY(dj) + (kk - (n + 1) / 2) * 5 * v;
+    const wd = v * (1 + 7 * Math.abs(o.depthNow) / M);
+    g.strokeStyle = TOKA('--scr-physics', 0.22 + 0.7 * Math.min(1, Math.abs(o.srcNow)));
+    g.lineWidth = wd;
+    g.setLineDash(r.pol === 3 ? [6 * v, 4 * v] : []);
+    g.beginPath(); g.moveTo(x0, y0);
+    g.bezierCurveTo(x0 + (x1 - x0) * 0.45, y0, x1 - (x1 - x0) * 0.45, y1, x1, y1); g.stroke();
+    g.setLineDash([]);
+    const m = bez(x0, y0, x1, y1, 0.5);
+    mids[i] = m;
+    if (o.dmod) {   // the valve: a depth route lands here; its fill is where the depth sits in its reach
+      const s = 6 * v;
+      g.fillStyle = TOK('--scr-tube'); g.strokeStyle = TOK('--scr-physics'); g.lineWidth = 1.5 * v;
+      g.beginPath(); g.moveTo(m[0], m[1] - s); g.lineTo(m[0] + s, m[1]); g.lineTo(m[0], m[1] + s); g.lineTo(m[0] - s, m[1]); g.closePath();
+      g.fill(); g.stroke();
+      const f = o.dMax - o.dMin > 1e-9 ? clamp((o.depthNow - o.dMin) / (o.dMax - o.dMin), 0, 1) : 1;
+      g.save(); g.clip();
+      g.fillStyle = TOKA('--scr-physics', 0.85); g.fillRect(m[0] - s, m[1] + s - 2 * s * f, 2 * s, 2 * s * f);
+      g.restore();
+    }
+    /* polarity tag at the DESTINATION end, beside that route's own fan slot —
+       at the source end two routes from one node print on top of each other */
+    if (r.pol) { const q = bez(x0, y0, x1, y1, 0.9); g.fillStyle = TOKA('--scr-grid', 0.95);
+      g.fillText(POL_NAMES[r.pol], q[0] - 14 * v, q[1] - 6 * v); }
+  }
+  // depth wires: source → valve, thinner
+  for (let i = 0; i < R.length; i++) {
+    const r = R[i], o = O[i];
+    if (r.tgt < 0 || !o || !mids[r.tgt]) continue;
+    const M = core.depthMax(i);
+    const j = srcs.indexOf(r.src);
+    const x0 = sx + nw, y0 = sY(j), m = mids[r.tgt];
+    g.strokeStyle = TOKA('--scr-physics', 0.3 + 0.65 * Math.min(1, Math.abs(o.srcNow)));
+    g.lineWidth = v * (1 + 3 * Math.abs(r.depth) / M);
+    g.setLineDash(r.pol === 3 ? [2 * v, 3 * v] : [1 * v, 2.5 * v]);
+    g.beginPath(); g.moveTo(x0, y0);
+    g.bezierCurveTo(x0 + (m[0] - x0) * 0.5, y0, m[0], m[1] - (m[1] > y0 ? 40 : -40) * v, m[0], m[1] + (m[1] > y0 ? -7 : 7) * v);
+    g.stroke(); g.setLineDash([]);
+  }
+  // source nodes
+  for (let j = 0; j < srcs.length; j++) {
+    const s = SRC[srcs[j]], y = sY(j) - nh / 2, val = core.src[srcs[j]];
+    g.fillStyle = TOK('--scr-tube'); g.fillRect(sx, y, nw, nh);
+    g.strokeStyle = TOKA('--scr-grid', 0.8); g.lineWidth = v; g.strokeRect(sx, y, nw, nh);
+    g.fillStyle = TOKA('--scr-grid', 1); g.fillText(s.tag, sx + 4 * v, y + nh / 2 - 2 * v);
+    g.fillStyle = TOKA('--scr-physics', 0.9);
+    if (s.bi) { const c = sx + nw / 2; g.fillRect(Math.min(c, c + val * nw / 2), y + nh - 3 * v, Math.abs(val) * nw / 2, 2 * v); }
+    else g.fillRect(sx, y + nh - 3 * v, clamp(val, 0, 1) * nw, 2 * v);
+  }
+  // destination nodes
+  for (let j = 0; j < DEST.length; j++) {
+    const d = DEST[j], x = core.out.dest[d.key], y = dY(j) - nh / 2;
+    const on = x.n > 0, sel = d.key === selDest;
+    g.globalAlpha = on ? 1 : 0.45;
+    g.fillStyle = TOK('--scr-tube'); g.fillRect(dx, y, dW, nh);
+    g.strokeStyle = TOKA('--scr-grid', sel ? 1 : 0.7); g.lineWidth = (sel ? 2.5 : 1) * v; g.strokeRect(dx, y, dW, nh);
+    g.fillStyle = TOKA('--scr-grid', 1); g.fillText(d.name, dx + 5 * v, y + nh / 2 - 2 * v);
+    const bx = dx + 4 * v, bw = dW - 8 * v, by = y + nh - 4 * v;
+    g.fillStyle = TOKA('--scr-grid', 0.25); g.fillRect(bx, by, bw, 2 * v);
+    if (on) {
+      const a = pctOf(d, x.vLo), b = pctOf(d, x.vHi);
+      g.fillStyle = TOKA('--scr-physics', 0.55); g.fillRect(bx + a * bw, by - v, Math.max(v, (b - a) * bw), 3 * v);
+    }
+    g.fillStyle = TOK('--scr-value'); g.fillRect(bx + pctOf(d, core.base[d.key]) * bw - v, by - 3 * v, 2 * v, 6 * v);
+    if (on) { g.fillStyle = x.clip ? TOK('--scr-marker') : TOK('--scr-meter');
+      g.fillRect(bx + pctOf(d, x.now) * bw - v, by - 4 * v, 2 * v, 7 * v); }
+    g.globalAlpha = 1;
+    wireHits.push({ x: dx, y, w: dW, h: nh, key: d.key });
+  }
+}
+
+/* ============ C · GRID (DOM well) ============ */
+function buildGrid() {
+  const box = $('mg'); box.textContent = '';
+  for (const k in cellRefs) delete cellRefs[k];
+  for (const k in gridHeads) delete gridHeads[k];
+  box.style.gridTemplateColumns = '68px repeat(' + DEST.length + ', minmax(0,1fr))';
+  box.appendChild(el('div', 'mgh r', 'src \\ dst'));
+  for (const d of DEST) { const hd = el('div', 'mgh' + (d.key === selDest ? ' sel' : ''), d.short); hd.title = d.name;
+    box.appendChild(hd); gridHeads[d.key] = hd; }
+  for (let s = 0; s < SRC.length; s++) {
+    if (SRC[s].retired) {
+      if (s === 10) { const n = el('div', 'mgh r', '10–13'); n.title = 'retired pad aliases (ADR-156) — read 0, not offered';
+        box.appendChild(n); for (let j = 0; j < DEST.length; j++) box.appendChild(el('div', 'mgc gone')); }
+      continue;
+    }
+    const lab = el('div', 'mgh r', SRC[s].tag + ' ' + s); lab.title = SRC[s].long + ' — slot ' + s;
+    box.appendChild(lab);
+    for (const d of DEST) {
+      const c = el('div', 'mgc'); const lv = el('i', 'lv'); c.appendChild(lv);
+      const txt = el('span'); c.appendChild(txt);
+      c.title = SRC[s].name + ' → ' + d.name;
+      wireCell(c, s, d);
+      box.appendChild(c);
+      cellRefs[s + ':' + d.key] = { el: c, lv, txt };
+    }
+  }
+}
+function cellRoutes(s, key) {
+  const out = [];
+  for (let i = 0; i < core.routes.length; i++) { const r = core.routes[i]; if (r.tgt < 0 && r.src === s && r.dest === key) out.push(i); }
+  return out;
+}
+function wireCell(c, s, d) {
+  let y0 = null, dep0 = 0, idx = -1, moved = false;
+  c.addEventListener('pointerdown', e => {
+    if (e.button === 2) return;
+    const ids = cellRoutes(s, d.key);
+    if (!ids.length) {
+      const res = core.addRoute(s, d.key, 0.25 * (d.pitch ? 48 : 1), 0);
+      if (!res.ok) say(res.why, true); else { say('Route #' + res.i + ' added: ' + SRC[s].name + ' → ' + d.name + '.'); selDest = d.key; }
+      rebuild(); return;
+    }
+    idx = ids[0]; dep0 = core.routes[idx].depth; y0 = e.clientY; moved = false;
+    if (c.setPointerCapture) c.setPointerCapture(e.pointerId);
+  });
+  c.addEventListener('pointermove', e => {
+    if (y0 === null || !core.routes[idx]) return;
+    const dy = y0 - e.clientY; if (Math.abs(dy) > 2) moved = true;
+    if (moved) { const M = core.depthMax(idx); core.routes[idx].depth = clamp(dep0 + dy / 90 * M, -M, M); }
+  });
+  c.addEventListener('pointerup', () => {
+    if (y0 === null) return;
+    y0 = null;
+    if (moved) rebuild(); else select(d.key);
+  });
+  c.addEventListener('contextmenu', e => {
+    e.preventDefault();
+    const ids = cellRoutes(s, d.key);
+    if (ids.length) addDepth(ids[0]);
+  });
+}
+function paintGrid() {
+  for (let s = 0; s < SRC.length; s++) {
+    if (SRC[s].retired) continue;
+    for (const d of DEST) {
+      const ref = cellRefs[s + ':' + d.key];
+      if (!ref) continue;
+      const ids = cellRoutes(s, d.key);
+      if (!ids.length) { if (ref.el.classList.contains('on')) { ref.el.className = 'mgc'; ref.lv.style.width = '0'; ref.txt.textContent = ''; } continue; }
+      let dep = 0, con = 0, dm = false;
+      const M = d.pitch ? 48 : 1;
+      for (const i of ids) { dep += core.routes[i].depth; const o = core.out.route[i]; if (o) { con += o.contrib; if (o.dmod) dm = true; } }
+      ref.el.className = 'mgc on' + (dep < 0 ? ' neg' : '') + (dm ? ' dmod' : '');
+      ref.el.style.setProperty('--mx', Math.min(1, Math.abs(dep) / M).toFixed(3));
+      ref.lv.style.width = 'calc(' + (Math.min(1, Math.abs(con) / M) * 100).toFixed(1) + '% - 2px)';
+      ref.txt.textContent = ids.length > 1 ? '×' + ids.length : '';
+    }
+  }
+}
+
+/* ============ D · TRACE (tube) ============ */
+function paintTrace() {
+  const cv = $('trace');
+  const G = ground(cv);
+  laneHits.length = 0;
+  if (!G) return;
+  const { g, w, h, v } = G;
+  const lanes = DEST.filter(d => core.out.dest[d.key].n > 0);
+  g.font = (9.5 * v) + 'px ui-monospace,Menlo,monospace'; g.textBaseline = 'top';
+  if (!lanes.length) { g.fillStyle = TOKA('--scr-grid', 0.8); g.fillText('no routed destinations', 12 * v, 12 * v); return; }
+  const N = zoom ? ZOOM : HIST;
+  const lh = h / lanes.length;
+  const X = k => 4 * v + (w - 8 * v) * k / (N - 1);
+  for (let L = 0; L < lanes.length; L++) {
+    const d = lanes[L], H = core.hist[d.key], top = L * lh, pad = 5 * v;
+    const at = k => (core.hpos - N + k + HIST * 2) % HIST;
+    /* AUTOSCALED to what is moving, in the knob's own curve. A knob must show
+       the parameter's whole range; a trace is a MEASUREMENT and must show the
+       motion — on a ±48 st axis a 0.7 st vibrato is a flat line (the first
+       screenshot of this lab proved it). The lane prints its scale, so the zoom
+       is never silent. */
+    let p0 = 1, p1 = 0;
+    for (let k = 0; k < N; k++) {
+      const q = at(k);
+      for (const val of [H.lo[q], H.hi[q], H.base[q], H.now[q]]) { const pp = pctOf(d, val); if (pp < p0) p0 = pp; if (pp > p1) p1 = pp; }
+    }
+    const xd = core.out.dest[d.key];
+    p0 = Math.min(p0, pctOf(d, xd.vLoAll)); p1 = Math.max(p1, pctOf(d, xd.vHiAll));
+    if (p1 - p0 < 0.002) { const m = (p0 + p1) / 2; p0 = m - 0.001; p1 = m + 0.001; }
+    const pd = (p1 - p0) * 0.08; p0 -= pd; p1 += pd;
+    const Y = val => top + pad + 11 * v + (1 - (pctOf(d, val) - p0) / (p1 - p0)) * (lh - 2 * pad - 11 * v);
+    if (L) { g.fillStyle = TOKA('--scr-grid', 0.35); g.fillRect(0, top, w, v); }
+    if (d.key === selDest) { g.fillStyle = TOKA('--scr-grid', 0.08); g.fillRect(0, top, w, lh); }
+    // reach band at the depth in force at each instant
+    g.fillStyle = TOKA('--scr-physics', 0.28);
+    g.beginPath();
+    for (let k = 0; k < N; k++) { const p = at(k); k ? g.lineTo(X(k), Y(H.hi[p])) : g.moveTo(X(k), Y(H.hi[p])); }
+    for (let k = N - 1; k >= 0; k--) g.lineTo(X(k), Y(H.lo[at(k)]));
+    g.closePath(); g.fill();
+    // the authored base
+    g.strokeStyle = TOK('--scr-value'); g.lineWidth = v; g.setLineDash([4 * v, 3 * v]);
+    g.beginPath();
+    for (let k = 0; k < N; k++) { const p = at(k); k ? g.lineTo(X(k), Y(H.base[p])) : g.moveTo(X(k), Y(H.base[p])); }
+    g.stroke(); g.setLineDash([]);
+    // the value now — a measurement, so the meter hue; STEPPED in the zoom view, because it is
+    g.strokeStyle = TOK('--scr-meter'); g.lineWidth = 1.6 * v;
+    g.beginPath();
+    for (let k = 0; k < N; k++) {
+      const p = at(k), y = Y(H.now[p]);
+      if (!k) g.moveTo(X(k), y);
+      else if (zoom) { g.lineTo(X(k), Y(H.now[at(k - 1)])); g.lineTo(X(k), y); }
+      else g.lineTo(X(k), y);
+    }
+    g.stroke();
+    if (zoom) { g.fillStyle = TOK('--scr-meter');
+      for (let k = 0; k < N; k++) g.fillRect(X(k) - v, Y(H.now[at(k)]) - v, 2 * v, 2 * v); }
+    g.fillStyle = TOK('--scr-marker');
+    for (let k = 0; k < N; k++) if (H.clip[at(k)]) g.fillRect(X(k) - v, top + pad - 3 * v, 2 * v, 2 * v);
+    g.fillStyle = TOKA('--scr-grid', 1);
+    g.fillText(d.name + '  ' + fmtVal(d, core.out.dest[d.key].now), 7 * v, top + 3 * v);
+    const sc = 'scale ' + fmtVal(d, valOf(d, Math.max(0, p0))) + ' … ' + fmtVal(d, valOf(d, Math.min(1, p1)));
+    g.fillStyle = TOKA('--scr-grid', 0.7); g.fillText(sc, w - g.measureText(sc).width - 7 * v, top + 3 * v);
+    laneHits.push({ top, h: lh, key: d.key });
+  }
+  g.fillStyle = TOKA('--scr-grid', 0.8); g.textBaseline = 'bottom';
+  const lab = zoom ? '250 ms · one step per tick (5.8 ms, 172.3 Hz)' : '3 s';
+  g.fillText(lab, w - g.measureText(lab).width - 6 * v, h - 3 * v);
+}
+
+/* ============ INSPECTOR ============ */
+function paintLedger() {
+  const d = DEST_BY[selDest], x = core.out.dest[selDest];
+  $('ledgerH').textContent = 'What is moving ' + d.name + ', right now';
+  const R = core.routes, O = core.out.route;
+  let rows = '';
+  for (let i = 0; i < R.length; i++) {
+    const r = R[i], o = O[i];
+    if (r.tgt >= 0 || r.dest !== selDest || !o) continue;
+    rows += '<tr><td>#' + i + ' ' + SRC[r.src].name + '</td><td>' + POL_NAMES[r.pol] + '</td>'
+      + '<td class="n"><span class="val">' + fmtDepth(i, r.depth) + '</span></td>'
+      + '<td class="n">' + (o.dmod ? '<span class="phy">' + fmtDepth(i, o.depthNow) + '</span>' : '—')
+      + (o.dClamp ? ' <span class="clip">clamped</span>' : '') + '</td>'
+      + '<td class="n">' + o.srcNow.toFixed(3) + '</td>'
+      + '<td class="n"><span class="phy">' + fmtDepth(i, o.contrib) + '</span></td></tr>';
+    for (let j = 0; j < R.length; j++) {
+      const q = R[j], p = O[j];
+      if (q.tgt !== i || !p) continue;
+      rows += '<tr class="dr"><td>↳ #' + j + ' ' + SRC[q.src].name + '</td><td>' + POL_NAMES[q.pol] + '</td>'
+        + '<td class="n">' + fmtDepth(j, q.depth) + '</td><td class="n">(to #' + i + '’s depth)</td>'
+        + '<td class="n">' + p.srcNow.toFixed(3) + '</td><td class="n">' + fmtDepth(j, p.contrib) + '</td></tr>';
+    }
+  }
+  if (!rows) rows = '<tr><td colspan="6">nothing — ' + d.name + ' sits at its base. Click an empty grid cell in its column to route something.</td></tr>';
+  const k = d.pitch ? '' : ' × ' + (d.max - d.min) + ' span';
+  rows += '<tr class="sum"><td colspan="3">base <span class="val">' + fmtVal(d, core.base[selDest]) + '</span>'
+    + ' + Σ ' + (d.pitch ? x.sum.toFixed(2) + ' st' : x.sum.toFixed(3) + k) + '</td><td class="n" colspan="2">'
+    + (x.clip ? 'raw ' + fmtVal(d, x.raw) + ' <span class="clip">clamped</span>' : '') + '</td>'
+    + '<td class="n"><span class="phy">= ' + fmtVal(d, x.now) + '</span></td></tr>';
+  $('ledger').innerHTML = '<table class="ledger"><tr><th>ROUTE</th><th>POL</th><th>DEPTH (YOURS)</th>'
+    + '<th>DEPTH NOW</th><th>SOURCE NOW</th><th>PUSH NOW</th></tr>' + rows + '</table>';
+}
+function paintAxes() {
+  const d = DEST_BY[selDest];
+  $('axesH').textContent = 'How fast is too fast for ' + d.name + ' — five limits, not one (B199)';
+  const has = n => d.axes.includes(n);
+  const lfoNote = [];
+  for (let i = 0; i < core.routes.length; i++) {
+    const r = core.routes[i];
+    const hits = r.tgt < 0 ? r.dest === selDest : core.routes[r.tgt] && core.routes[r.tgt].dest === selDest;
+    if (!hits || (r.src !== S_L1 && r.src !== S_L2)) continue;
+    const l = core.lfo[r.src - S_L1], f = foldInfo(l.shape, l.rate);
+    const nm = 'LFO ' + (r.src - S_L1 + 1) + ' ' + LFO_SHAPES[l.shape] + ' @ ' + l.rate.toFixed(2) + ' Hz';
+    let t;
+    if (!f) t = nm + ': nothing folds';
+    else if (f.n === 0) t = nm + ': edges land on the tick grid (≤5.8 ms jitter) — broadband at any rate';
+    else t = nm + ': harmonic ' + f.n + ' (' + f.db.toFixed(0) + ' dB) and up fold';
+    if (!lfoNote.includes(t)) lfoNote.push(t);
+  }
+  const A = [
+    [1, 'DISCONTINUITY', has(1), 'a step clicks unless smoothed — <b>unmeasured here</b>; B199 derives each destination’s smoothing time constant' + (d.pitch ? ' (pitch rides the per-voice smoother, B180)' : '')],
+    [2, 'UNINTERPOLATABLE', false, 'waveform, mode, algorithm — excluded BY CLASS: stepped parameters are refused as destinations, so the matrix never offers them'],
+    [3, 'STABILITY', has(3), has(3) ? 'fast coefficient motion can destabilise a filter that is stable at every static setting — <b>unmeasured</b>' : 'not a filter/feedback coefficient'],
+    [4, 'COST', false, 'none of this lab’s seven; B199’s case is the sub’s recalc() (282 transcendentals) driven per block'],
+    [5, 'TICK CEILING', true, '<b>global, arithmetic</b>: the matrix ticks at ' + TICK_HZ.toFixed(2) + ' Hz, so modulation content above '
+      + TICK_NYQ.toFixed(1) + ' Hz folds in the MODULATOR, whatever the destination'
+      + (lfoNote.length ? '<br><span class="warn">' + lfoNote.join('<br>') + '</span>' : '')],
+  ];
+  $('axes').innerHTML = A.map(a => '<span class="k ' + (a[2] ? 'on' : 'off') + '">' + a[0] + '</span><span class="'
+    + (a[2] ? 'on' : 'off') + '">' + a[1] + '</span><span class="st">' + a[3] + '</span>').join('');
+}
+
+/* ============ AUDIT — the page counts its own claims ============ */
+function paintAudit() {
+  const live = SRC.filter(s => !s.retired).length, ret = SRC.filter(s => s.retired).length;
+  const nd = core.routes.filter(r => r.tgt >= 0).length;
+  const deep = core.routes.filter(r => r.tgt >= 0 && core.routes[r.tgt] && core.routes[r.tgt].tgt >= 0).length;
+  const dangling = core.routes.filter(r => r.tgt >= 0 && !core.routes[r.tgt]).length;
+  const ok = SRC.length === 22 && deep === 0 && dangling === 0;
+  const a = $('audit');
+  a.className = 'audit' + (ok ? '' : ' bad');
+  a.innerHTML = 'audit — source slots <b>' + SRC.length + '/22</b> (' + live + ' live, ' + ret + ' retired, '
+    + (MAX_SOURCES - SRC.length) + ' free of kMaxSources ' + MAX_SOURCES + ') · destinations <b>' + DEST.length
+    + '</b> · routes <b>' + core.routes.length + '/' + MAX_ROUTES + '</b>, of which depth routes <b>' + nd
+    + '</b> · depth-of-depth <b>' + deep + '</b> · dangling depth targets <b>' + dangling + '</b>'
+    + ' · tick ' + TICK_HZ.toFixed(2) + ' Hz · ticks run <b>' + core.ticks + '</b>' + (paused ? ' (PAUSED)' : '');
+}
+
+/* ============ MONITOR AUDIO — native nodes, frame-rate pushes ============ */
+function power() {
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return;
+  if (ac) { if (ac.resume) ac.resume(); return; }
+  ac = new AC();
+  const mk = () => { const o = ac.createOscillator(); o.type = 'sawtooth'; return o; };
+  const o1 = mk(), o2 = mk(), g1 = ac.createGain(), g2 = ac.createGain();
+  const flt = ac.createBiquadFilter(); flt.type = 'lowpass';
+  const pan = ac.createStereoPanner ? ac.createStereoPanner() : ac.createGain();
+  const amp = ac.createGain(), master = ac.createGain();
+  master.gain.value = 0.22; amp.gain.value = 0;
+  o1.connect(g1); o2.connect(g2); g1.connect(flt); g2.connect(flt); flt.connect(pan); pan.connect(amp);
+  amp.connect(master); master.connect(ac.destination);
+  o1.start(); o2.start();
+  nodes = { o1, o2, g1, g2, flt, pan, amp };
+}
+function pushAudio() {
+  if (!ac || !nodes) return;
+  const t = ac.currentTime, D = core.out.dest, tc = 0.012;
+  const note = core.note >= 0 ? core.note : HOLD_NOTE;
+  const f = 440 * Math.pow(2, (note - 69) / 12);
+  const set = (p, v) => { if (p && p.setTargetAtTime) p.setTargetAtTime(v, t, tc); };
+  set(nodes.o1.frequency, f); set(nodes.o2.frequency, f);
+  // +7 cents on OSC 2 so the two saws beat audibly; a monitor choice, not a parameter
+  set(nodes.o1.detune, D.p1.now * 100); set(nodes.o2.detune, D.p2.now * 100 + 7);
+  set(nodes.g1.gain, D.l1.now); set(nodes.g2.gain, D.l2.now);
+  set(nodes.flt.frequency, D.cut.now); set(nodes.flt.Q, 0.5 + D.res.now * 14);
+  if (nodes.pan.pan) set(nodes.pan.pan, D.pan.now);
+  set(nodes.amp.gain, core.src[S_GE]);
+}
+
+/* ============ REBUILD / SELECT / FRAME ============
+   rebuild() is for STRUCTURE (a route added, removed, re-aimed); selection only
+   repaints classes. Rebuilding on a click would destroy the element that is
+   mid-gesture — a knob's dblclick, an open <select> — under the pointer. */
+function select(key) {
+  if (!DEST_BY[key]) return;
+  selDest = key;
+  for (const d of DEST) {
+    const K = knobRefs[d.key]; if (K && K.root) K.root.classList.toggle('sel', d.key === key);
+    const hd = gridHeads[d.key]; if (hd) hd.classList.toggle('sel', d.key === key);
+  }
+  for (let i = 0; i < routeRefs.length; i++) {
+    const ref = routeRefs[i], r = core.routes[i];
+    if (ref && r) ref.row.classList.toggle('sel', !ref.isD && r.dest === key);
+  }
+  paintAll(true);
+}
+function rebuild() {
+  buildRoutes(); buildArcs(); buildGrid(); buildAdd();
+  builtVersion = core.version;
+  paintAll(true);
+}
+function paintAll(full) {
+  paintStrip(); paintRoutes(); paintArcs(); paintWires(); paintGrid(); paintTrace();
+  if (full || frameNo % 4 === 0) { paintLedger(); paintAxes(); paintAudit(); }
+}
+function loadScene(k) {
+  sceneKey = k;
+  core.routes.length = 0; core.version++;
+  for (let m = 0; m < 8; m++) core.macro[m] = 0;
+  core.midi.mw = 0; core.midi.at = 0; core.midi.pw = 0;
+  for (const d of DEST) core.base[d.key] = d.base;
+  lfoSet(0, 5.5, 0); lfoSet(1, 0.35, 1); envSet(0, 1.8, 0.5, 1, 0.6); envSet(1, 0.003, 0.45, 0, 0.3);
+  SCENES[k].f(core);
+  core.reseed();
+  const first = core.routes.find(r => r.tgt < 0);
+  selDest = first ? first.dest : 'p1';
+  core.panic();
+  if (hold) core.noteOn(HOLD_NOTE, 0.8);
+  say('');
+  paintScenePills(); paintControls(); rebuild();
+}
+function buildScenePills() {
+  const box = $('scenePills'); box.textContent = '';
+  for (const k in SCENES) {
+    const b = el('button', 'pill', SCENES[k].label); b.type = 'button'; b.dataset.k = k;
+    b.addEventListener('click', () => loadScene(k));
+    box.appendChild(b);
+  }
+}
+function paintScenePills() {
+  const b = $('scenePills').children;
+  for (let i = 0; i < b.length; i++) b[i].classList.toggle('on', b[i].dataset.k === sceneKey);
+}
+function frame(ts) {
+  const now = typeof ts === 'number' ? ts : 0;
+  if (!paused && lastTs >= 0) {
+    acc += Math.min(0.25, Math.max(0, now - lastTs) / 1000) * TICK_HZ;
+    let n = Math.min(64, Math.floor(acc));
+    acc -= Math.floor(acc);
+    while (n-- > 0) core.tick();
+  }
+  lastTs = now;
+  if (core.version !== builtVersion) rebuild();
+  frameNo++;
+  paintAll(false); paintKbd(); pushAudio();
+  if (window.requestAnimationFrame) window.requestAnimationFrame(frame);
+}
+
+/* ---- theme and deep links -----------------------------------------------
+   `?theme=dark` opens the dark chassis; `?at=2.5` runs 2.5 s of ticks at load
+   and PAUSES — the core is deterministic (ticks + seeded streams), so a
+   screenshot at ?at=2.5 is the same picture every time, which is what makes it
+   evidence rather than a lucky frame. */
+let preroll = 0;
+try {
+  const q = window.location && window.location.search;
+  if (typeof q === 'string') {
+    if (/theme=dark/.test(q)) dark = true;
+    const m = /[?&]at=([0-9.]+)/.exec(q);
+    if (m) preroll = Math.min(30, parseFloat(m[1]) || 0);
+    const sc = /[?&]scene=([a-z]+)/.exec(q);
+    if (sc && SCENES[sc[1]]) sceneKey = sc[1];
+  }
+} catch (_) { /* headless: no location */ }
+function applyTheme() {
+  document.body.classList.toggle('dark', dark);
+  const b = $('themeBtn');
+  if (b) b.innerHTML = 'theme <b>' + (dark ? 'DARK · TUBE' : 'LIGHT · ORCHID') + '</b>';
+  for (const k in _tok) delete _tok[k];
+  paintAll(true);
+}
+
+/* ============ SETUP — everything above is declared; nothing below reaches
+   forward (L0026). ============ */
+buildStrip();
+buildControls();
+buildKbd();
+buildScenePills();
+loadScene(sceneKey);
+if (preroll > 0) {
+  const n = Math.round(preroll * TICK_HZ);
+  for (let i = 0; i < n; i++) core.tick();
+  paused = true;
+}
+
+$('addGo').addEventListener('click', () => {
+  const res = core.addRoute(+$('addSrc').value, $('addDst').value, 0.25 * (DEST_BY[$('addDst').value] && DEST_BY[$('addDst').value].pitch ? 48 : 1), 0);
+  if (!res.ok) say(res.why, true); else { selDest = $('addDst').value; say('Route #' + res.i + ' added.'); }
+  rebuild();
+});
+$('pwr').addEventListener('click', () => { power(); $('pwr').classList.add('on'); });
+$('holdBtn').addEventListener('click', () => {
+  hold = !hold; $('holdBtn').classList.toggle('on', hold);
+  if (hold) core.noteOn(HOLD_NOTE, 0.8); else if (heldKey < 0) core.noteOff(core.note);
+});
+$('pauseBtn').addEventListener('click', () => { paused = !paused; $('pauseBtn').classList.toggle('on', paused); });
+$('panic').addEventListener('click', () => { hold = false; $('holdBtn').classList.remove('on'); heldKey = -1; core.panic(); });
+$('themeBtn').addEventListener('click', () => { dark = !dark; applyTheme(); });
+$('tzA').addEventListener('click', () => { zoom = false; $('tzA').classList.add('on'); $('tzB').classList.remove('on'); });
+$('tzB').addEventListener('click', () => { zoom = true; $('tzB').classList.add('on'); $('tzA').classList.remove('on'); });
+$('wires').addEventListener('click', e => {
+  const r = $('wires').getBoundingClientRect(), v = VS();
+  const x = (e.clientX - r.left) * v, y = (e.clientY - r.top) * v;
+  for (const hh of wireHits) if (x >= hh.x && x <= hh.x + hh.w && y >= hh.y && y <= hh.y + hh.h) { select(hh.key); return; }
+});
+$('trace').addEventListener('click', e => {
+  const r = $('trace').getBoundingClientRect(), y = (e.clientY - r.top) * VS();
+  for (const l of laneHits) if (y >= l.top && y < l.top + l.h) { select(l.key); return; }
+});
+if (window.addEventListener) {
+  window.addEventListener('keydown', e => {
+    if (e.repeat) return;
+    const k = String(e.key || '').toLowerCase();
+    if (KEYMAP[k] !== undefined && !(e.target && e.target.tagName === 'SELECT')) press(BASE_NOTE + KEYMAP[k], 0.8);
+  });
+  window.addEventListener('keyup', e => {
+    const k = String(e.key || '').toLowerCase();
+    if (KEYMAP[k] !== undefined) release(BASE_NOTE + KEYMAP[k]);
+  });
+  window.addEventListener('resize', () => paintAll(true));
+}
+$('pauseBtn').classList.toggle('on', paused);
+applyTheme();
+frame();
+</script>
+</body></html>
