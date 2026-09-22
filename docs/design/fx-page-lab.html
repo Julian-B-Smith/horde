@@ -1,4 +1,8 @@
 <!doctype html>
+<!-- SUPERSEDED 2026-09-22 by docs/design/fx-design-lab.html (B210): every FX
+     module as a four-knob face over every control, in gui2's tokens. This file
+     is kept as history of the 2026-08-15 page-shape question; its palette
+     predates the design standard and is not current. -->
 <!-- fx-page-lab — F-A: the FX page's shape, before any of it touches gui2.
      HYPERSAW, 2026-08-15. Spec-in-code per ADR-003.
 
@@ -15,7 +19,8 @@
      one lab, one question: what does a MODULE feel like?).
 
      L0026: all state above all wiring. No devicePixelRatio (stubs lack it). -->
-<html><head><meta charset="utf-8"><title>FX Page Lab — modules, mini-viz, expanded views</title>
+<html><head><meta charset="utf-8">
+<meta name="lab-superseded-by" content="fx-design-lab.html"><title>FX Page Lab — modules, mini-viz, expanded views</title>
 <style>
   :root { --bg:#0b0e13; --panel:#11151f; --panel2:#161b28; --line:#2a3040;
     --dim:#7f8899; --text:#cdd6e4; --teal:#5ff2e0; --amber:#ffc24b;
@@ -62,6 +67,8 @@
   b.k { color:var(--teal); }
 </style></head><body>
 
+<div class="sub" style="color:var(--amber)">Superseded 2026-09-22 — the current FX-module lab is
+<a href="fx-design-lab.html" style="color:var(--teal)">fx-design-lab.html</a> (B210). Kept as history.</div>
 <h1>FX Page Lab</h1>
 <div class="sub">QM-3 pool in rank order · each module: compact box + live mini-viz + click header to expand ·
 reverb is a module, not a page (SPACE dissolved) · corner strip + slot-mode chips are the morph panel's
