@@ -6995,8 +6995,18 @@ struct Plugin
              write passes (GUI, host automation, preset load, morph): a type
              that is already held to its cap elsewhere is REFUSED and the slot
              keeps its type — readback reports the rack, so host and GUI see
-             the refusal rather than a phantom second Comb. */
-          if (!rack.typeAllowed(slot, (int)applied)) return;
+             the refusal rather than a phantom second Comb.
+             B188: a LOAD gets `claimType`, which additionally resolves a fade
+             SHADOW that is the only thing standing in the way — a load arrives
+             as a whole patch in one drain, so a patch that MOVES Comb between
+             slots was refused against the shadow its own first write armed and
+             lost the module. A live edit keeps `typeAllowed`, because during
+             ordinary play the shadow is still rendering and still writing the
+             shared bank (fxxfade_check T4). Neither weakens the cap: a LIVE
+             second instance is refused on both paths. */
+          if (!(loadingState ? rack.claimType(slot, (int)applied)
+                             : rack.typeAllowed(slot, (int)applied)))
+            return;
           rack.setType(slot, (int)applied);
         }
         else rack.setAmount(slot, applied);

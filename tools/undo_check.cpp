@@ -886,53 +886,34 @@ struct ShellHistory
   }
 };
 
-/* THE SECOND KNOWN GAP, also found by this gauntlet on 2026-09-20 (seed
-   20268020: "arriving at node 27 from 24 gave the wrong state: fx1type want 5
-   got 1"), and also not history's — history is the messenger.
+/* COMB, THE RACK'S ONE SINGLETON — the gap this gauntlet found on 2026-09-20
+   (seed 20268020: "arriving at node 27 from 24 gave the wrong state: fx1type
+   want 5 got 1"), CLOSED 2026-09-21 by B188 and now asserted the other way up.
 
-   MEASURED, with audio actually processed (fxCombGapEvidence below): a state
-   load that must MOVE COMB between slots LOSES COMB ENTIRELY, in both
-   directions. COMB is the rack's only singleton (fx_rack.h:270 — one shared
-   KS bank, so a second Comb slot doubles every write) and the cap is enforced
-   at the one choke point every type write passes (hypersaw_clap.cpp:6664).
-   During the load the slot that currently holds COMB is rewritten first,
-   which ARMS an 80 ms crossfade whose shadow still holds COMB (fx_rack.h:292,
-   B117, deliberately); the incoming slot's write arrives microseconds later
-   in the same drain, is refused against that shadow, and nobody retries once
-   the fade ends. Preset load, DAW session reload and a history restore all
-   drop it identically: save a patch with COMB in slot 2, move COMB to slot 4,
-   reload the patch, and the rack comes back with no COMB at all.
+   What it was. COMB is capped at one instance (fx_rack.h — its eight KS lines
+   are ONE rack-owned bank, so a second Comb slot doubles every write), and a
+   slot's fade-out SHADOW holds its type until the fade ends (B117), which is
+   right while both modules render. A load that had to MOVE COMB between slots
+   therefore lost it entirely, in both directions: B192 resets every slot to
+   Off before applying, which arms the outgoing slot's crossfade, and the
+   arriving slot's write is refused against that shadow microseconds later in
+   the same drain with nobody to retry once the fade ends. Preset load, DAW
+   session reload and history restore all dropped it identically.
 
-   AND A HEADLESS CONSEQUENCE THIS GAUNTLET MUST RESPECT. `fadeLeft` decays
-   only inside renderCrossfade (fx_rack.h:581), so in an instance that
-   processes no audio the shadow NEVER clears: one COMB that ever left a slot
-   blocks COMB everywhere, forever. So the gauntlet keeps COMB out of the
-   instrument entirely — no edit writes type 5, and the two factory presets
-   that place it (BS - Growl Bass, FX - Comb Throat) are dropped from the load
-   pool and the drop is printed, never silent. The evidence row below is the
-   one place that DOES process audio, so what it asserts is the product's
-   behaviour and not the harness's.
+   What closed it. `FxRack::claimType` — a claim blocked ONLY by shadows ends
+   those fades and proceeds; a claim blocked by a LIVE instance is still
+   refused, so the cap is unchanged. The rows below are the gate, and they run
+   on an instance that ACTUALLY PROCESSES AUDIO (settleFades), because
+   `fadeLeft` decays only inside renderCrossfade — a headless statement about a
+   crossfade is a statement about the harness.
 
-   Fixing it is a ruling about what a load may do to a capped type — evict the
-   holder first? apply types in freeing order? let a load outrank a shadow? —
-   which is ADR-054 / B117 territory and deliberately NOT decided here. */
+   THE CORPUS THAT MADE IT RED (L0059). Not the factory bank: the bank holds no
+   relocation, so a bank-only corpus passes on the unfixed binary. The case
+   that distinguishes the behaviours is the save/move/reload sequence
+   `fxRelocate` performs, and on the unfixed binary it left slot 1 holding type
+   0 where the patch said 5. */
 constexpr int kCombType = 5;
 bool isFxTypeId(clap_id id) { return id >= 57 && id <= 63 && ((id - 57) & 1) == 0; }
-
-// Does this global preset place COMB in any of the four slots?
-bool placesComb(const std::string &blob)
-{
-  for (int s = 1; s <= 4; s++)
-  {
-    char key[16];
-    std::snprintf(key, sizeof key, "\"fx%dtype\"", s);
-    const size_t k = blob.find(key);
-    if (k == std::string::npos) continue;
-    const size_t c = blob.find(':', k);
-    if (c != std::string::npos && std::atoi(blob.c_str() + c + 1) == kCombType) return true;
-  }
-  return false;
-}
 
 /* ---- the preset store, as the gauntlet's two load verbs ---- */
 
@@ -940,7 +921,7 @@ bool placesComb(const std::string &blob)
    folder it sits in: a global names "params", a corner preset names
    "cornerPreset" (ADR-105). Sorted, so the seeded draw is reproducible. */
 void collectPresets(const std::string &root, std::vector<std::string> &globals,
-                    std::vector<std::string> &corners, int &combSkipped)
+                    std::vector<std::string> &corners)
 {
   std::error_code ec;
   for (const auto &e : fs::recursive_directory_iterator(root, ec))
@@ -950,13 +931,11 @@ void collectPresets(const std::string &root, std::vector<std::string> &globals,
     if (!isJson(path)) continue;
     std::string blob;
     if (!readFile(path, blob)) continue;
-    if (blob.find("\"params\"") != std::string::npos)
-    {
-      // see kCombType: a COMB that ever leaves a slot blocks COMB forever in
-      // an instance that processes no audio, which is this gauntlet's.
-      if (placesComb(blob)) { combSkipped++; continue; }
-      globals.push_back(path);
-    }
+    // B188: the two presets that place COMB (BS - Growl Bass, FX - Comb Throat)
+    // used to be held back here, because one COMB that left a slot blocked COMB
+    // for ever in an instance that processes no audio. claimType resolves the
+    // stale shadow on demand, so the whole bank is in the pool again.
+    if (blob.find("\"params\"") != std::string::npos) globals.push_back(path);
     else if (blob.find("\"cornerPreset\"") != std::string::npos) corners.push_back(path);
   }
   std::sort(globals.begin(), globals.end());
@@ -997,17 +976,19 @@ struct ParamPick
 {
   clap_id id;
   double lo, hi;
-  bool fxType = false;   // draw from [0,9] minus COMB — see kCombType
+  bool fxType = false;   // an integer draw over the WHOLE type list, COMB included
 };
 
-// One draw, honouring the one excluded value. Kept here rather than at the
-// call site so "what may an edit write?" has a single answer.
+/* One draw. An FX type is drawn as an integer over all ten types rather than
+   scaled across the range, so the sweep really does visit each module; COMB
+   (5) used to be skipped here and is not any more (B188). A refused claim is
+   not a hole in the sweep — the gauntlet records what the INSTRUMENT holds
+   after the write, so a cap refusal is recorded as the refusal it is. */
 double drawValue(const ParamPick &q, double r01)
 {
   if (!q.fxType) return q.lo + (q.hi - q.lo) * r01;
-  int v = (int)(r01 * 9.0);
-  if (v > 8) v = 8;
-  return v >= kCombType ? v + 1 : v;
+  int v = (int)(r01 * 10.0);
+  return v > 9 ? 9 : v;
 }
 std::vector<ParamPick> editablePool(const clap_plugin_t *p)
 {
@@ -1122,22 +1103,60 @@ double fxRelocate(int type, int from, int to)
   return got;
 }
 
-/* THE SECOND EXCLUSION, RE-EARNED EVERY RUN — same discipline as the alias
-   gap. Moving COMB back DOWN a slot is refused at the cap; moving an
-   uncapped type the identical distance is not, which is the control that
-   stops this probe from being a tautology. */
+/* Two slots, both live, both asking for `type`. The second write must be
+   REFUSED and its slot left Off — this is what makes the gate below a
+   statement about a MOVE and not a licence to hold two. */
+double fxSecondInstance(int type)
+{
+  const clap_plugin_t *p = makePlugin();
+  p->activate(p, kSampleRate, 32, 1024);
+  drain(p);
+  EvList a;
+  a.push(57, type);
+  paramsOf(p)->flush(p, &a.list, &kOut);
+  drain(p);
+  settleFades(p);   // the first instance is LIVE, with no shadow anywhere
+  EvList b;
+  b.push(61, type);
+  paramsOf(p)->flush(p, &b.list, &kOut);
+  drain(p);
+  double got = -1;
+  paramsOf(p)->get_value(p, 61, &got);
+  p->deactivate(p);
+  p->destroy(p);
+  return got;
+}
+
+/* B188 — THE GATE, in place of the exclusion it replaces. Red on the binary
+   this change fixes (measured 2026-09-21: slot 1 came back holding type 0),
+   green after, with three controls around it so it can be neither a tautology
+   nor a licence:
+     - the SAME relocation with the uncapped Notch, which round-tripped on the
+       unfixed binary too, so the loss was the cap and not the probe;
+     - the reverse direction, because the fade shadow and the live holder swap
+       places with the slot order;
+     - a genuine SECOND instance, which must still be refused — the cap is what
+       stops the shared KS bank being written twice, and a "fix" that let this
+       through would have broken the audio the cap exists to protect. */
 void fxCombGapEvidence()
 {
   const double back = fxRelocate(kCombType, 0, 2);
   std::printf("     COMB relocation: slot 1 -> slot 3 -> reload the slot-1 patch leaves slot 1 "
               "holding type %.0f (wanted %d)\n", back, kCombType);
-  check(back != (double)kCombType,
-        "known gap (NOT history's): a state load that must MOVE COMB between slots loses it "
-        "entirely (fade shadow + singleton cap), so the gauntlet never writes COMB. WHEN THIS ROW "
-        "GOES RED THE LOAD PATH IS FIXED: delete the kCombType exclusion");
+  check(back == (double)kCombType,
+        "B188: a state load that must MOVE COMB between slots restores it (the arriving claim "
+        "resolves the outgoing slot's fade shadow instead of losing the module)");
+  check(fxRelocate(kCombType, 2, 0) == (double)kCombType,
+        "B188 (other direction): slot 3 -> slot 1 -> reload the slot-3 patch restores COMB too");
+  check(fxSecondInstance(kCombType) == 0.0,
+        "B188 control: the cap is NOT weakened — a second LIVE Comb is still refused and its slot "
+        "stays Off (one shared KS bank)");
+  check(fxSecondInstance(6) == 6.0,
+        "B188 control: the uncapped Notch DOES take a second slot (the refusal above is the cap, "
+        "not a probe that refuses everything)");
   check(fxRelocate(6, 0, 2) == 6.0,
-        "known gap control: the SAME relocation with Notch (uncapped) round-trips exactly, so the "
-        "loss above is the cap and not the probe");
+        "B188 control: the SAME relocation with Notch (uncapped) round-trips exactly — it did on "
+        "the unfixed binary too, which is what proved the loss was the cap and not the probe");
 }
 
 /* ---- the gauntlet itself ---- */
@@ -1281,15 +1300,15 @@ GauntletResult historyGauntlet(uint32_t seed, int steps, const std::vector<std::
 }
 
 void gauntletChecks(uint32_t seed, const std::vector<std::string> &globals,
-                    const std::vector<std::string> &corners, int combSkipped)
+                    const std::vector<std::string> &corners)
 {
   check(globals.size() >= 2,
         "gauntlet: the preset store offers at least two distinct global presets");
   check(!corners.empty(), "gauntlet: the preset store offers at least one corner preset");
-  std::printf("     gauntlet: seed %u (argv[3] overrides), %zu global + %zu corner presets"
-              " (%d global preset%s held back: see kCombType)\n",
-              (unsigned)seed, globals.size(), corners.size(), combSkipped,
-              combSkipped == 1 ? "" : "s");
+  // B188 retired the "held back" count: no preset is dropped from the pool any
+  // more, so the whole bank is loaded and the number printed is the whole bank.
+  std::printf("     gauntlet: seed %u (argv[3] overrides), %zu global + %zu corner presets\n",
+              (unsigned)seed, globals.size(), corners.size());
 
   /* Four seeds, one regime. Determinism is per-seed; the spread is there
      because one random walk is one shape of tree, and the property is about
@@ -1758,9 +1777,8 @@ int main(int argc, char **argv)
   fxCombGapEvidence();
   {
     std::vector<std::string> globals, corners;
-    int combSkipped = 0;
-    collectPresets(presetDir, globals, corners, combSkipped);
-    gauntletChecks(seed, globals, corners, combSkipped);
+    collectPresets(presetDir, globals, corners);
+    gauntletChecks(seed, globals, corners);
     reportedScenario(globals);
     cornerReferenceScenario(corners);
   }
