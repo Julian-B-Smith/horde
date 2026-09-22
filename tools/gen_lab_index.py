@@ -6,6 +6,15 @@ Writing descriptions into the index by hand would be a second copy of what every
 lab already says about itself, and it would drift the first time a lab changed —
 the same reason the GUI derives its controls from the presentation table and the
 bend graphs are drawn by the shipped core rather than a JS twin.
+
+REVIEW STATE IS THE LAB'S OWN CLAIM TOO, for the same reason. A lab awaiting the
+human's review carries `<meta name="lab-review" content="B207 · 2026-09-22">` and
+is pinned to the top under "Awaiting your review"; a lab another lab replaced
+carries `<meta name="lab-superseded-by" content="winner.html">` and is dimmed with
+a link to its successor. The lead removes `lab-review` when the human rules. A
+date-based "new" badge was rejected: it would read the wall clock, so the same
+tree would generate a different index tomorrow, and "new" is not what matters —
+"you have not looked at this yet" is.
 """
 import html
 import pathlib
@@ -24,7 +33,10 @@ def labs():
         title = html.unescape(m.group(1).strip()) if m else f.stem
         tag = re.search(r'class="tagline"[^>]*>(.*?)</div>', t, re.S)
         desc = re.sub(r"<[^>]+>", "", tag.group(1)) if tag else ""
-        yield f.name, title, html.unescape(re.sub(r"\s+", " ", desc)).strip()[:260]
+        rv = re.search(r'<meta name="lab-review" content="([^"]*)"', t)
+        sup = re.search(r'<meta name="lab-superseded-by" content="([^"]*)"', t)
+        yield (f.name, title, html.unescape(re.sub(r"\s+", " ", desc)).strip()[:260],
+               html.unescape(rv.group(1)) if rv else None, sup.group(1) if sup else None)
 
 
 # Everything outside the card grid is static; the grid is the only derived part.
@@ -48,6 +60,13 @@ HEAD = """<!doctype html><html><head><meta charset="utf-8">
   .none { color:var(--dim); }
   .gui { margin-bottom:22px; }
   .gui a { color:var(--pull); margin-right:16px; }
+  h3 { font-size:12px; letter-spacing:2px; color:var(--dim); margin:0 0 10px; }
+  .review-grid { margin-bottom:26px; }
+  .lab.review { border-color:#f5169c; box-shadow:0 0 0 1px #f5169c inset; }
+  .pill { display:inline-block; font-size:9px; letter-spacing:1px; padding:1px 6px;
+          border-radius:3px; background:#f5169c; color:#fff; margin-bottom:6px; }
+  .lab.superseded { opacity:.45; }
+  .succ { color:var(--dim); font-size:10px; margin-top:4px; }
 </style></head><body>
 <h1>horde — design labs</h1>
 <div class="sub">Every bench in <code>docs/design/</code>. Each card's text is the lab's
@@ -57,7 +76,6 @@ which would be a second copy free to drift. Regenerate with
 <div class="gui"><b>The instrument:</b>
   <a href="../../src/gui/gui2.html">gui2 (in development)</a>
   <a href="../../src/gui/gui.html">gui1 (shipped default)</a></div>
-<div class="grid">
 """
 
 FOOT = """</div>
@@ -65,18 +83,29 @@ FOOT = """</div>
 """
 
 
-def card(name, title, desc):
+def card(name, title, desc, review, sup):
     p = html.escape(desc) if desc else "<span class=none>no tagline</span>"
-    return (f'  <a class="lab" href="{name}">\n'
+    cls = "lab review" if review else "lab superseded" if sup else "lab"
+    pill = f'    <span class="pill">NEW · AWAITING REVIEW · {html.escape(review)}</span>\n' if review else ""
+    succ = f'    <div class="succ">superseded by {html.escape(sup)}</div>\n' if sup else ""
+    return (f'  <a class="{cls}" href="{name}">\n'
+            f"{pill}"
             f"    <h2>{html.escape(title)}</h2>\n"
             f'    <div class="file">{name}</div>\n'
             f"    <p>{p}</p>\n"
+            f"{succ}"
             f"  </a>\n")
 
 
 def main():
     entries = list(labs())
-    out = HEAD + "".join(card(*e) for e in entries) + FOOT
+    pending = [e for e in entries if e[3]]
+    out = HEAD
+    if pending:
+        out += (f"<h3>AWAITING YOUR REVIEW ({len(pending)})</h3>\n"
+                '<div class="grid review-grid">\n' + "".join(card(*e) for e in pending) + "</div>\n"
+                "<h3>ALL LABS</h3>\n")
+    out += '<div class="grid">\n' + "".join(card(*e) for e in entries if not e[3]) + FOOT
     (D / "index.html").open("w", encoding="utf-8", newline="\n").write(out)
     print(f"gen_lab_index: wrote docs/design/index.html with {len(entries)} lab(s)")
     return 0
