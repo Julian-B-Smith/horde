@@ -416,6 +416,20 @@ add_executable(user_patch_bench tools/user_patch_bench.cpp)
 target_link_libraries(user_patch_bench PRIVATE ${PROJECT_NAME}-impl)
 add_executable(shell_bench tools/shell_bench.cpp)
 target_link_libraries(shell_bench PRIVATE ${PROJECT_NAME}-impl)
+# B204 save-stall measurement: state_save, the B174/B122 dirty tests and their
+# control, and whether session length reaches the save path. Diagnostic, not a
+# gate — same standing as the two benches above.
+add_executable(save_bench tools/save_bench.cpp)
+target_link_libraries(save_bench PRIVATE ${PROJECT_NAME}-impl)
+# Its VST3 twin: loads the BUILT bundle as a host does and times
+# IComponent::getState, because the stall was reported on the VST3 path and the
+# CLAP number is not a stand-in for it. Only where the VST3 SDK target exists
+# (clap-wrapper CPM-fetches it) and only on APPLE — the loader is CoreFoundation.
+if(APPLE AND TARGET base-sdk-vst3)
+  add_executable(vst3_save_bench tools/vst3_save_bench.cpp)
+  target_link_libraries(vst3_save_bench PRIVATE base-sdk-vst3 "-framework CoreFoundation")
+  add_dependencies(vst3_save_bench ${PROJECT_NAME}_vst3)
+endif()
 add_executable(glidepath_probe tools/glidepath_probe.cpp)
 target_link_libraries(glidepath_probe PRIVATE ${PROJECT_NAME}-impl)
 add_executable(tailprobe tools/tailprobe.cpp)
