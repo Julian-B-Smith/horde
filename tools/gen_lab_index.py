@@ -19,14 +19,26 @@ tree would generate a different index tomorrow, and "new" is not what matters �
 import html
 import pathlib
 import re
+import subprocess
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 D = ROOT / "docs/design"
 
 
+def tracked_labs():
+    # TRACKED FILES ONLY, never a glob of the working tree. A glob also finds
+    # gitignored local-only labs — quantum-morph-lab.html is ignored because it
+    # names a private sibling (ADR-014) — and the committed index then links a
+    # file no clone has, and would publish its title and tagline if they carried
+    # the name. `git ls-files` is the set a reader of the repo can actually open.
+    out = subprocess.run(["git", "ls-files", "--", "docs/design/*.html"], cwd=ROOT,
+                         capture_output=True, text=True, check=True).stdout.split()
+    return sorted(ROOT / p for p in out)
+
+
 def labs():
-    for f in sorted(D.glob("*.html")):
-        if f.name == "index.html":
+    for f in tracked_labs():
+        if f.parent != D or f.name == "index.html":
             continue
         t = f.read_text(errors="ignore")
         m = re.search(r"<title>(.*?)</title>", t, re.S)
