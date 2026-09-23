@@ -56,11 +56,37 @@
      normalised exponential (1 - e^(-kx)) / (1 - e^(-k)) makes mirror EXACT
      (f_-k(x) = 1 - f_k(1-x)) and contains the one-pole as a special case.
 
+     ROUND 2 (B226, 2026-09-23): THREE SOURCE FAMILIES JOIN THE SAME RULE.
+     Human: "include some of the novel modulators in the modulator lab — the
+     kuro-LFO and the orbitals system ... deeper MIDI-based trackers,
+     including a note-on gate and a note-on trigger".
+       - KURO LFO (ADR-053): mod-lab.html's KuroSwarm, transcribed as a subset
+         with its arithmetic unchanged (mod-lab is read by four harnesses by
+         position and is never edited). A fifth shape, DRAWN, runs every voice
+         through this file's shapeAt, so ONE shape law serves every LFO here.
+       - ORBITAL (ADR-165, specs/SPEC-ORBITAL.md): the protected reference's
+         step() transcribed (every preset's cushion/regulators/scale are off,
+         so for those presets it IS the reference's step), stepped by sample
+         count (§6.2), with the spec's observables as sources and its KICK /
+         RESET trigger inputs (§7) as action targets. Add-body draws from this
+         file's own seeded stream.
+       - MIDI: a note-on GATE (a level, legato: it never dips while any key is
+         down), a note-on TRIGGER (an EVENT: a count at a sample, no value in
+         between), and six trackers. An event cannot be routed to a level; it
+         reaches one only through a stateful action (S&H, envelope restart),
+         and a hosted module's action ("randomize unlocked") is posted across
+         the module boundary, never modelled here.
+     Every source is read through ONE table (SOURCES). The destination reads it
+     there, and the pictures either read it there or draw history the render
+     logged from there. auditRound2 checks the destination tap against an
+     independent twin (a fresh instance for the simulations, the stated rules
+     restated for MIDI), with a control that must fire for each.
+
      L0026: all state above all wiring. No Math.random (mulberry32 only, SPEC
      §5.7). No wall clock in the render path: the core counts samples. -->
 <html lang="en"><head><meta charset="utf-8">
-<meta name="lab-review" content="B208 · 2026-09-22">
-<title>horde modulator lab: LFO + envelope, one shape law (B208)</title>
+<meta name="lab-review" content="B208 + B226 · 2026-09-23">
+<title>horde modulator lab: LFO + envelope + sources, one law each (B208, B226)</title>
 <style>
   /* ============================================================
      TOKENS, copied VERBATIM from src/gui/gui2.html:26-96 (:root),
@@ -246,6 +272,21 @@
   .key span { position:absolute; bottom:3px; left:0; right:0; text-align:center;
               font-size:8px; color:var(--dim); pointer-events:none; }
   .key.blk span { display:none; }
+
+  /* ============ ROUND 2 (B226) — the same chrome, three more cards a row ============ */
+  .sect { display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; margin:22px 0 8px;
+          border-top:var(--stroke) solid var(--line); padding-top:12px; }
+  .sect h1 { font-size:26px; }
+  .r2 { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:10px; align-items:start; margin-top:10px; }
+  @media (max-width:1180px) { .r2 { grid-template-columns:1fr; } }
+  #kuroC { height:210px; } #orbC { height:250px; } #midiC { height:250px; }
+  #routeC { height:120px; } #evC { height:190px; }
+  /* A hosted parameter row carries its LOCK beside its value. */
+  .row.lk { grid-template-columns:62px minmax(0,1fr) 44px 34px; }
+  select.src { width:100%; }
+  #hostMsg, #hostUndo { white-space:pre-wrap; word-break:break-all; }
+  /* A refused route reads as refused, not as missing (L0036: pin the refusal). */
+  option:disabled { color:var(--dis); }
 </style></head><body>
 
 <div class="rev" title="The file's modification time and a fingerprint of its scripts, both read at load, so neither can drift (L0020). If the fingerprint does not change after a reload you are on a cached copy.">rev <span id="revdate">…</span> · fp <span id="revfp">…</span></div>
@@ -415,6 +456,146 @@ slider to reset it.</div>
   </div>
 </div>
 
+<!-- ======================= ROUND 2 (B226) ======================= -->
+<div class="sect">
+  <div>
+    <h1>sources</h1>
+    <div class="badges">
+      <span class="badge">LAB · B226</span>
+      <span class="sub">KURO LFO · ORBITAL · MIDI GATE, TRIGGER AND TRACKERS: THE SAME ONE-LAW RULE</span>
+    </div>
+  </div>
+</div>
+<div class="tagline">Three source families join the lab. The <b>Kuro LFO</b> is a Kuramoto swarm of LFOs (ADR-053). <b>ORBITAL</b>
+is an N-body gravity field whose observables are sources (ADR-165). The <b>MIDI trackers</b> add a note-on <b>gate</b>, a
+note-on <b>trigger</b> and six trackers. Every source is read through <b>one table</b>. The destination reads it there, and
+the pictures read it there too, or draw history the render logged from it. <b>ROUTES</b> sends two continuous sources to a
+level. <b>EVENTS</b> sends the trigger to actions. POWER, then play the keys (the key's height sets velocity), or press
+<b>PHRASE</b>, a fixed three-second phrase with legato, a gap, staccato and a rolled chord.</div>
+<div class="audit" id="audit2">round-2 audit: pending</div>
+
+<div class="r2">
+  <div class="cluster" id="kuroPane"><h2>KURO LFO <span>· a Kuramoto swarm of LFOs · ADR-053 · global</span></h2>
+    <canvas id="kuroC"></canvas>
+    <div id="kuroRows"></div>
+    <div class="note">Each voice is an LFO with its own rate (<b>detune</b> spreads the rates, and <b>anchor</b> picks which
+      voice sits on the rate). The voices are coupled through the swarm's mean phase. <b>K &gt; 0</b> pulls them into a
+      cluster, so the voices agree and <b>R</b>, their coherence, rises toward 1. <b>K &lt; 0</b> spreads them evenly round
+      the circle, where R falls to 0 (the rank-lattice splay, ADR-053's A5 fix, confirmed by ear on 2026-07-24).
+      <b>K = 0</b> lets each voice run free. The wheel is the swarm now, and the strips are what the render logged:
+      voices on top, R below. The ringed voice is the one a route is reading. <b>DRAWN</b> runs every voice through the
+      LFO card's breakpoints, the same <code>shapeAt</code> as round 1. Transcribed from <code>mod-lab.html</code>
+      (mean-field and splay only) with its arithmetic unchanged, and checked bit-for-bit against it (see the trace).</div>
+  </div>
+
+  <div class="cluster" id="orbPane"><h2>ORBITAL <span>· N-body gravity · ADR-165 · global</span></h2>
+    <canvas id="orbC"></canvas>
+    <div class="pills" id="orbPresets" style="margin-top:6px"></div>
+    <div id="orbRows"></div>
+    <div class="note" id="orbRead"></div>
+    <div class="note">Bodies attract under softened gravity (velocity Verlet, the reference's <code>step()</code>). You set up
+      a system and route what it does, and never draw a shape. Sources per body are <b>x, y</b> (y up), <b>speed</b> (|v| ÷ the
+      3.0 clamp), <b>near</b> (1 − the softened distance to the nearest body) and <b>angle</b> about the centre (0..1,
+      wrapping, and <b>not smoothed</b>, because a smoother would sweep through 0.5 at every wrap). Per field there are
+      <b>energy</b> and <b>spread</b>. The ticks on the bottom and left edges are each body's x and y, and a ticked body a
+      route is reading is drawn in meter colour. Steps are <b>counted in samples</b> (SPEC-ORBITAL §6.2) at the lab's
+      1/480 s. <b>ADD BODY</b> draws its position from a seeded stream, (seed, add count), so an added body is patch
+      state. <b>KICK</b> and <b>RESET</b> are the spec's two trigger inputs (§7), and they are also action targets in
+      EVENTS.</div>
+  </div>
+
+  <div class="cluster" id="midiPane"><h2>MIDI TRACKERS <span>· gate · trigger · six trackers · global</span></h2>
+    <div class="law"><b>GATE</b> is a level: 1 while <b>any</b> key is held. It is <b>legato</b>. A note-on while it is high does
+      not dip it, and a note-off leaves it high while another key is down, so it never re-attacks. Re-attacking on an
+      overlapping note is the <b>TRIGGER's</b> job. The trigger is an <b>event</b>: it fires at a sample and has no value
+      in between. <b>EVERY</b> fires on each note-on, and <b>FIRST</b> fires only on the note-on that opens the gate (the
+      legato trigger).</div>
+    <canvas id="midiC"></canvas>
+    <div id="midiRows"></div>
+    <table class="t" id="midiT"></table>
+  </div>
+</div>
+
+<div class="r2">
+  <div class="cluster" id="routePane"><h2>ROUTES <span>· a continuous source → a level, every sample</span></h2>
+    <div id="routeRows"></div>
+    <canvas id="routeC"></canvas>
+    <div class="note">Two slots, each a source and a destination with a depth. The destinations use the same laws as
+      the LFO card's (cutoff ±½ range, pitch ±½ octave, level down to 1 − depth). A lane shows the value the destination
+      <b>received</b>, logged where it is applied, so the lane and the sound cannot differ. That is what the round-2
+      audit checks. The TRIGGER is listed and <b>refused</b>. An event has no value between its ticks, so a depth has
+      nothing to scale. It reaches a level only through an action in EVENTS.</div>
+  </div>
+
+  <div class="cluster" id="evPane"><h2>EVENTS ARE NOT LEVELS <span>· the trigger and its action targets</span></h2>
+    <div class="law"><b>A continuous source</b> has a value at every sample, and a route scales it. <b>An event source</b>
+      is a count at a sample offset, and there is nothing to scale. It fires an <b>action</b>. Some actions hold
+      state, and those turn an event back into a level: <b>S&amp;H</b> samples its input and holds it, and <b>MOD ENV</b>
+      restarts the envelope card's shape from the level it has reached. The rest act on a module: they restart the LFO,
+      reset the Kuro swarm, or kick or reset ORBITAL. The last one posts <b>randomize unlocked</b> to a hosted
+      module.</div>
+    <div id="actRows"></div>
+    <canvas id="evC"></canvas>
+    <div class="note" id="evRead"></div>
+    <div class="note">Lanes, top to bottom. The gate is a level. The trigger has <b>ticks, not a line</b>. S&amp;H is stepped,
+      the event made into a level. MOD ENV is the round-1 envelope law, restarted by the trigger and released when the
+      gate falls, so under FIRST an overlapping note does <b>not</b> restart it. The in-core actions land on the
+      trigger's own sample. The hosted one cannot, because a module's patch changes on the main thread (see the next
+      card).</div>
+  </div>
+
+  <div class="cluster" id="hostPane"><h2>HOSTED MODULE <span>· a generic stand-in, not any real module</span></h2>
+    <div class="law"><b>HORDE sends WHEN, and the module owns WHAT.</b> The trigger crosses the module boundary as one
+      message: an action name, a sequence number and the sample it fired on. The module draws from <b>its own</b> seeded
+      stream, over <b>its own</b> unlocked parameters, and hands back a patch. HORDE never sees the stream or the locks.
+      The draw changes the module's patch, so it runs on the <b>main thread</b>. The audio thread only posts into a
+      preallocated ring, and the lag between firing and applying is shown below.</div>
+    <div id="hostRows"></div>
+    <div class="cap">LAST MESSAGE, HORDE → MODULE</div>
+    <pre id="hostMsg">—</pre>
+    <div class="cap">UNDO: ONE PATCH JSON PER STEP (the shape the hosted sibling filed, integrations/sluice/notice-undo-history.md)</div>
+    <pre id="hostUndo">—</pre>
+  </div>
+</div>
+
+<div class="r2" style="grid-template-columns:minmax(0,1fr)">
+  <div class="cluster" id="qPane"><h2>ROUND 2 · FINDINGS AND OPEN QUESTIONS FOR THE HUMAN <span>· B226</span></h2>
+    <ol class="find">
+      <li><b>May a trigger fire a HOSTED module's action across the module boundary?</b> The lab designs it as a
+        message (<code>randomize-unlocked</code>, seq, fired-at sample), posted to the main thread, with the module owning
+        the stream and the locks. Three sub-rulings follow if the answer is yes. (a) <b>Latency.</b> It is not
+        sample-accurate. It lands at the next main-thread tick, a few ms to one UI frame. (b) <b>Undo.</b> One undo step
+        per trigger floods the history in an arpeggio. Should the steps coalesce per gesture, or should the trigger be
+        rate-limited (a minimum interval)? (c) <b>Automation.</b> The parameter changes that result: are they written
+        to host automation while it records, or kept out of it?</li>
+      <li><b>Trigger default: EVERY or FIRST (legato)?</b> The shipped LFO retrig (round 1) is exactly this trigger
+        routed to LFO RESTART under EVERY. A legato retrig is the same route under FIRST, so one mode control could
+        replace a per-module retrig switch.</li>
+      <li><b>A release trigger</b> (an event on note-off, or on the gate falling) is not built. Wanted? Likewise, should the
+        <b>sustain pedal</b> (CC64) hold the gate?</li>
+      <li><b>Scope.</b> Every tracker here is GLOBAL (one per instrument, last-note priority). Velocity, note and time
+        since note-on also make sense <b>per voice</b>, and the matrix already has to tell per-note sources from global
+        ones (mod-lab finding #2, per-note envelopes). Which trackers get a per-voice twin?</li>
+      <li><b>Tracker ranges, stated here and not ruled.</b> NOTE is (n − 60) ÷ 48 (C4 = 0, four octaves = full scale),
+        last-note priority. Is high or low priority wanted? ORDER wraps at N (a round-robin). Is an unwrapped count
+        wanted instead? SINCE resets with the <b>trigger</b>, so under FIRST it is the time since the phrase began. Is
+        that the right reading?</li>
+      <li><b>ORBITAL's normalisation.</b> SPEC-ORBITAL §4 normalises speed by the 3.0 clamp and energy by its maximum.
+        On the shipped presets that reads about 0.1 and 0.01, too small to hear without a gain. Should they be
+        normalised per preset, like the ruled fixed ceiling for <code>accel</code>? <b>accel is not built</b>, because the
+        ruling fixes a per-preset ceiling but no value. Angle is unsmoothed (see the card).</li>
+      <li><b>ORBITAL's source count</b> is still B126's open collision: up to 8 bodies × 5 observables + 2 against fixed
+        matrix slots. The lab exposes bodies 1 to 4.</li>
+      <li><b>Two transcriptions, no committed gate.</b> The Kuro swarm and ORBITAL's step are copies (neither source can
+        be imported by a page). Each was checked bit-for-bit against its original in scratch (trace). Keeping them
+        honest needs a <code>tools/*_check</code> wired into <code>./verify</code>, and that is the lead's call.</li>
+      <li><b>A stale charter line.</b> CLAUDE.md §Domain still lists ORBITAL's add-body seed as outstanding. The reference
+        carries it (<code>reference/gravity-modulator.html:726-731</code>, ADR-165 amendment 2). This lab seeds its own
+        add-body draw anyway, as briefed.</li>
+    </ol>
+  </div>
+</div>
+
 <script>
 'use strict';
 /* ================= DSP ================= */
@@ -503,11 +684,15 @@ function shapeAt(pts, t, i0, v0) {
    the same expression, and "released at the SUS point" is simply tOff = its t.
    sus < 0 (or on the last point, which would leave no release) = one-shot. */
 function susOf(pts, sus) { return sus >= 0 && sus < pts.length - 1 ? sus : -1; }
-function envAt(pts, sus, t, tOff) {
+/* v0 (B226): start the first segment FROM v0 instead of pts[0].v. That is what
+   the trigger's MOD ENV restart uses: it starts from the level it has reached.
+   Omitted, shapeAt(pts, t, 0, undefined) IS shapeAt(pts, t), so every round-1
+   caller is unchanged, and the round-1 audit still reads 0. */
+function envAt(pts, sus, t, tOff, v0) {
   const s = susOf(pts, sus);
-  if (s < 0) return shapeAt(pts, t);
-  if (tOff === null || tOff === undefined || t < tOff) return shapeAt(pts, Math.min(t, pts[s].t));
-  const held = shapeAt(pts, Math.min(tOff, pts[s].t));
+  if (s < 0) return shapeAt(pts, t, 0, v0);
+  if (tOff === null || tOff === undefined || t < tOff) return shapeAt(pts, Math.min(t, pts[s].t), 0, v0);
+  const held = shapeAt(pts, Math.min(tOff, pts[s].t), 0, v0);
   return shapeAt(pts, pts[s].t + (t - tOff), s, held);
 }
 function envDone(pts, sus, t, tOff) {
@@ -544,6 +729,412 @@ function blep(t, dt) {
   if (t > 1 - dt) { t = (t - 1) / dt; return t * t + t + t + 1; }
   return 0;
 }
+const clamp01 = v => v < 0 ? 0 : v > 1 ? 1 : v;
+
+/* ================= ROUND 2 (B226): three source families =================
+   Each family is a small class the core owns and advances one sample at a
+   time. None of them is read directly by a destination or a painter: they are
+   read through SOURCES (below the classes). */
+
+/* ---- KURO LFO: mod-lab.html's KuroSwarm (ADR-053), TRANSCRIBED ------------
+   docs/design/mod-lab.html is read by four harnesses by position and is never
+   edited, and a page cannot import another file's class over file://, so the
+   swarm is copied here. A copy drifts (B177 is this repo's record of that), so
+   the copy is held to the SUBSET of the law this lab exposes, with its
+   arithmetic kept token for token. That is what let it be compared
+   bit-for-bit with mod-lab's own class (trace 2026-09-23-b226-modulator-lab-2).
+   Kept: voice count 1..8, bipolar K, rate + detune + anchor, the mean-field
+   topology and the rank-lattice splay (the A5 fix). Dropped, and still in
+   mod-lab: the ring and two-cluster topologies, the legacy splay law and the
+   satellite `link`. Changed without changing a number: the splay's rank order
+   is an insertion sort into a preallocated array (mod-lab builds and sorts a
+   fresh array every sample). The comparator is a strict total order (ties
+   broken by index), so both produce the same permutation. Added: shape 4,
+   DRAWN, which is the LFO card's breakpoints through shapeAt. */
+const KURO_TAU = 6.283185307;   // mod-lab.html:78's TRUNCATED 2π, kept on purpose: bit-identity with it
+const KTICK = 16, MAXK = 8;
+class KuroSwarm {
+  constructor(sr, n) {
+    this.sr = sr;
+    this.p = { n: n || 4, K: 0.35, gRate: 1, detune: 0.3, anchor: 0 };
+    this.shape = new Int32Array(MAXK);
+    this.phase = new Float64Array(MAXK);
+    this.lfo = new Float64Array(MAXK);     // constructor-init: readable at tick 0 (ADR-053 lesson a)
+    this.rate = new Float64Array(MAXK);
+    this.ratio = new Float64Array(MAXK);
+    this.rank = new Int32Array(MAXK);
+    this.drawn = null;                     // the LFO card's points, for shape 4
+    this.R = 0; this.psi = 0; this.tick = 0;
+    this.initPhases(); this.updateRates(); this.controlTick();
+  }
+  initPhases() { const n = Math.max(1, this.p.n | 0); for (let i = 0; i < MAXK; i++) this.phase[i] = (i % n) / n; }
+  setParam(k, v) {
+    this.p[k] = v;
+    if (k === 'n') { this.initPhases(); this.updateRates(); }
+    else if (k === 'gRate' || k === 'detune' || k === 'anchor') this.updateRates();
+  }
+  updateRates() {
+    const p = this.p, n = Math.max(1, p.n | 0), ratios = this.ratio;
+    let mn = 1e9, mx = -1e9, lg = 0;
+    for (let i = 0; i < n; i++) {
+      const x = n === 1 ? 0 : (2 * i / (n - 1) - 1);
+      const r = Math.pow(2, x * p.detune * 2);
+      ratios[i] = r; lg += Math.log(r);
+      if (r < mn) mn = r; if (r > mx) mx = r;
+    }
+    const norm = p.anchor === 1 ? mn : (p.anchor === 2 ? mx : Math.exp(lg / n));
+    for (let i = 0; i < n; i++) this.rate[i] = p.gRate * ratios[i] / norm;
+    for (let i = n; i < MAXK; i++) this.rate[i] = 0;
+  }
+  shapeOf(ph, vi) {
+    switch (this.shape[vi]) {
+      case 1: return ph < 0.5 ? (4 * ph - 1) : (3 - 4 * ph);
+      case 2: return 2 * ph - 1;
+      case 3: return ph < 0.5 ? 1 : -1;
+      case 4: return this.drawn ? shapeAt(this.drawn, ph) : Math.sin(KURO_TAU * ph);
+      default: return Math.sin(KURO_TAU * ph);
+    }
+  }
+  controlTick() {
+    const n = Math.max(1, this.p.n | 0);
+    let cx = 0, cy = 0;
+    for (let i = 0; i < n; i++) { const a = KURO_TAU * this.phase[i]; cx += Math.cos(a); cy += Math.sin(a); }
+    this.R = Math.sqrt(cx * cx + cy * cy) / n;
+    this.psi = Math.atan2(cy, cx);
+    for (let i = 0; i < n; i++) this.lfo[i] = this.shapeOf(this.phase[i], i);
+    for (let i = n; i < MAXK; i++) this.lfo[i] = 0;
+  }
+  advance(nSmp) {
+    const p = this.p, sr = this.sr, K = p.K, n = Math.max(1, p.n | 0);
+    const kHz = (K > 0 ? K * K : -K * K) * 3.0;
+    for (let smp = 0; smp < nSmp; smp++) {
+      if (this.tick === 0) this.controlTick();
+      this.tick = (this.tick + 1) & (KTICK - 1);
+      if (K < 0) {
+        // rank lattice + rate entrainment (the A5 fix): voice of rank r is
+        // pulled to anchor + r/n, and every rate blends toward the mean by |K|
+        const kMag = -kHz, blend = -K;
+        let mr = 0; for (let i = 0; i < n; i++) mr += this.rate[i]; mr /= n;
+        const idx = this.rank;
+        for (let j = 0; j < n; j++) idx[j] = j;
+        for (let j = 1; j < n; j++) {
+          const x = idx[j]; let q = j - 1;
+          while (q >= 0 && (this.phase[idx[q]] - this.phase[x] || idx[q] - x) > 0) { idx[q + 1] = idx[q]; q--; }
+          idx[q + 1] = x;
+        }
+        const anchor = this.phase[idx[0]];
+        for (let r = 0; r < n; r++) {
+          const i = idx[r];
+          const eff = this.rate[i] + (mr - this.rate[i]) * blend;
+          const adv = eff / sr + kMag * Math.sin(KURO_TAU * (anchor + r / n - this.phase[i])) / sr;
+          this.phase[i] += adv;
+        }
+      } else {
+        for (let i = 0; i < n; i++) {
+          const th = KURO_TAU * this.phase[i];
+          let c = 0;
+          if (K > 0) c = kHz * this.R * Math.sin(this.psi - th);
+          this.phase[i] += (this.rate[i] + c) / sr;
+        }
+      }
+      for (let i = 0; i < n; i++) this.phase[i] -= Math.floor(this.phase[i]);
+    }
+  }
+}
+function makeKuro(sr, cfg, drawn) {
+  const k = new KuroSwarm(sr, cfg.n);
+  k.p.K = cfg.K; k.p.gRate = cfg.gRate; k.p.detune = cfg.detune; k.p.anchor = cfg.anchor;
+  k.updateRates();
+  for (let i = 0; i < MAXK; i++) k.shape[i] = cfg.shape | 0;
+  k.drawn = drawn || null;
+  return k;
+}
+
+/* ---- ORBITAL: the N-body gravity field (ADR-165, specs/SPEC-ORBITAL.md) ----
+   reference/gravity-modulator.html is PROTECTED and its physics is page
+   script (globals plus DOM), not an extractable class. So its law is
+   transcribed here with the same arithmetic: accel() is :307-323 and step()
+   is :397-449, minus the edge cushion, both B126 energy regulators and the
+   pointer drag. All four are OFF in every reference preset (:226-227, :302),
+   so for those presets this IS the reference's step. It was checked
+   bit-for-bit against the reference's own step() in headless Chrome (trace).
+   What is added comes from the spec, not the reference: stepping counted in
+   SAMPLES (§6.2), the observables beyond x/y (§4), smoothing (§3.2), and KICK
+   and RESET (§7). dt stays the reference's 1/480 s. The port's is 1/960 and
+   its oracle is behavioural (ADR-165 amendment of 2026-09-17), so matching
+   the lab to the port would buy nothing. */
+const ORB_DT = 1 / 480, ORB_MAXV = 3.0, MAXB = 8, ORB_TRL = 240;
+const ORB_EDGES = ['reflect', 'wrap', 'open'];
+/* The reference's four presets (:267-296) as initial-condition data. */
+function orbPreset(name) {
+  const B = (m, x, y, vx, vy, pinned) => ({ m, x, y, vx: vx || 0, vy: vy || 0, pinned: !!pinned });
+  if (name === 'sun') return { G: 0.025, eps: 0.06, bounds: 'reflect', com: false, bodies: [
+    B(8, 0.5, 0.5, 0, 0, true), B(0.4, 0.5, 0.32, 0.62, 0), B(0.6, 0.5, 0.86, -0.42, 0), B(0.15, 0.12, 0.15, 0.35, 0.12)] };
+  if (name === 'figure8') {
+    const s = 0.28, v = Math.sqrt(0.05 / s);   // Chenciner–Montgomery, scaled: G = 0.05, m = 1
+    return { G: 0.05, eps: 0.01, bounds: 'open', com: true, bodies: [
+      B(1, 0.5 + 0.97000436 * s, 0.5 - 0.24308753 * s, 0.46620369 * v, 0.43236573 * v),
+      B(1, 0.5 - 0.97000436 * s, 0.5 + 0.24308753 * s, 0.46620369 * v, 0.43236573 * v),
+      B(1, 0.5, 0.5, -0.93240737 * v, -0.86473146 * v)] };
+  }
+  if (name === 'chaos') return { G: 0.025, eps: 0.06, bounds: 'reflect', com: true, bodies: [
+    B(1.2, 0.25, 0.25, 0.1, 0.05), B(0.8, 0.75, 0.3, -0.05, 0.15), B(2.0, 0.6, 0.72, 0, -0.1), B(0.5, 0.2, 0.7, 0.2, -0.1)] };
+  return { G: 0.025, eps: 0.06, bounds: 'reflect', com: true, bodies: [B(3, 0.38, 0.5, 0, -0.28), B(3, 0.62, 0.5, 0, 0.28)] };
+}
+class OrbitalField {
+  constructor(sr, cfg) {
+    this.sr = sr;
+    this.P = { G: cfg.G, eps: cfg.eps, ts: cfg.ts, damp: cfg.damp, bounds: cfg.bounds, com: cfg.com };
+    this.nodes = [];
+    for (const b of cfg.bodies) this.addBody(b);
+    this.acc = 0; this.steps = 0;
+    this.raw = new Float64Array(MAXB * 5);   // per body: x, y, speed, near, angle
+    this.sm = new Float64Array(MAXB * 4);    // the smoothed four (angle is never smoothed)
+    this.fraw = new Float64Array(2); this.fsm = new Float64Array(2);   // energy, spread
+    this.setSmooth(cfg.smooth);
+    /* KICK's direction: one seeded stream, drawn once per kick, so a kick is
+       reproducible from (seed, kick count). Offset from the add-body stream
+       so the two never share draws. */
+    this.kickRng = mulberry32(((cfg.seed | 0) ^ 0x5EED) >>> 0); this.kicks = 0;
+    this.tr = new Float32Array(MAXB * 2 * ORB_TRL); this.trw = 0; this.trn = 0; this.trDec = 0;
+    this.observe(); this.prime();
+  }
+  setSmooth(s) { this.tauS = s; this.a = s > 0 ? 1 - Math.exp(-1 / (s * this.sr)) : 1; }   // seconds → per sample (ADR-009)
+  setSr(sr) { this.sr = sr; this.setSmooth(this.tauS); }
+  addBody(b) {
+    if (this.nodes.length >= MAXB) return false;
+    this.nodes.push({ m: b.m, x: b.x, y: b.y, vx: b.vx, vy: b.vy, pinned: !!b.pinned,
+      hx0: b.x, hy0: b.y, vx0: b.vx, vy0: b.vy, ax: 0, ay: 0 });
+    return true;
+  }
+  accel() {
+    const nodes = this.nodes, n = nodes.length, P = this.P;
+    for (const b of nodes) { b.ax = 0; b.ay = 0; }
+    const e2 = P.eps * P.eps;
+    for (let i = 0; i < n; i++) {
+      const a = nodes[i];
+      for (let j = i + 1; j < n; j++) {
+        const b = nodes[j];
+        let dx = b.x - a.x, dy = b.y - a.y;
+        if (P.bounds === 'wrap') { if (dx > 0.5) dx -= 1; if (dx < -0.5) dx += 1; if (dy > 0.5) dy -= 1; if (dy < -0.5) dy += 1; }
+        const r2 = dx * dx + dy * dy + e2;
+        const inv = P.G / (r2 * Math.sqrt(r2));
+        a.ax += dx * inv * b.m; a.ay += dy * inv * b.m;
+        b.ax -= dx * inv * a.m; b.ay -= dy * inv * a.m;
+      }
+    }
+  }
+  step(dt) {
+    const nodes = this.nodes, P = this.P;
+    this.accel();   // velocity Verlet (kick–drift–kick)
+    for (const b of nodes) { if (b.pinned) continue; b.vx += 0.5 * b.ax * dt; b.vy += 0.5 * b.ay * dt; }
+    for (const b of nodes) { if (b.pinned) continue; b.x += b.vx * dt; b.y += b.vy * dt; }
+    this.accel();
+    for (const b of nodes) {
+      if (b.pinned) continue;
+      b.vx += 0.5 * b.ax * dt; b.vy += 0.5 * b.ay * dt;
+      if (P.damp > 0) { const k = Math.exp(-P.damp * 3 * dt); b.vx *= k; b.vy *= k; }
+    }
+    for (const b of nodes) {
+      if (b.pinned) continue;
+      if (b.vx * b.vx + b.vy * b.vy > ORB_MAXV * ORB_MAXV) { const s = Math.hypot(b.vx, b.vy); b.vx *= ORB_MAXV / s; b.vy *= ORB_MAXV / s; }
+      if (P.bounds === 'reflect') {
+        if (b.x < 0) { b.x = -b.x; b.vx = Math.abs(b.vx); } else if (b.x > 1) { b.x = 2 - b.x; b.vx = -Math.abs(b.vx); }
+        if (b.y < 0) { b.y = -b.y; b.vy = Math.abs(b.vy); } else if (b.y > 1) { b.y = 2 - b.y; b.vy = -Math.abs(b.vy); }
+      } else if (P.bounds === 'wrap') {
+        b.x = ((b.x % 1) + 1) % 1; b.y = ((b.y % 1) + 1) % 1;
+      }
+    }
+    if (P.com && P.bounds !== 'wrap') {
+      let M = 0, cx = 0, cy = 0, vx = 0, vy = 0, pinned = false;
+      for (const b of nodes) { if (b.pinned) { pinned = true; continue; } M += b.m; cx += b.x * b.m; cy += b.y * b.m; vx += b.vx * b.m; vy += b.vy * b.m; }
+      if (M > 0 && !pinned) {
+        cx /= M; cy /= M; vx /= M; vy /= M;
+        for (const b of nodes) { b.x += 0.5 - cx; b.y += 0.5 - cy; b.vx -= vx; b.vy -= vy; }
+      }
+    }
+    this.steps++;
+  }
+  /* The spec's observables (§4), from the state after a step. */
+  observe() {
+    const nodes = this.nodes, n = nodes.length, r = this.raw, e2 = this.P.eps * this.P.eps;
+    let M = 0, K = 0, cx = 0, cy = 0;
+    for (let i = 0; i < n; i++) {
+      const b = nodes[i], o = i * 5;
+      r[o] = clamp01(b.x); r[o + 1] = clamp01(1 - b.y);   // y up = higher, as the reference's outY
+      r[o + 2] = Math.min(1, Math.hypot(b.vx, b.vy) / ORB_MAXV);
+      let dmin = Infinity;
+      for (let j = 0; j < n; j++) if (j !== i) { const d = Math.hypot(nodes[j].x - b.x, nodes[j].y - b.y); if (d < dmin) dmin = d; }
+      r[o + 3] = n > 1 ? 1 - Math.min(1, Math.sqrt(dmin * dmin + e2)) : 0;
+      r[o + 4] = (Math.atan2(0.5 - b.y, b.x - 0.5) / TAU + 1) % 1;   // the reference's outAngle
+      M += b.m; K += 0.5 * b.m * (b.vx * b.vx + b.vy * b.vy); cx += b.m * b.x; cy += b.m * b.y;
+    }
+    if (!(M > 0)) { this.fraw[0] = 0; this.fraw[1] = 0; return; }
+    cx /= M; cy /= M;
+    let s2 = 0;
+    for (let i = 0; i < n; i++) { const b = nodes[i]; s2 += b.m * ((b.x - cx) * (b.x - cx) + (b.y - cy) * (b.y - cy)); }
+    this.fraw[0] = Math.min(1, K / (0.5 * M * ORB_MAXV * ORB_MAXV));   // KE over the most the clamp allows
+    this.fraw[1] = clamp01(Math.sqrt(s2 / M) / Math.SQRT1_2);          // RMS radius about the COM, corner = 1
+  }
+  prime() {   // §6.3: smoothing primed to the new values, no glide from the old
+    for (let i = 0; i < this.nodes.length; i++) for (let q = 0; q < 4; q++) this.sm[i * 4 + q] = this.raw[i * 5 + q];
+    this.fsm[0] = this.fraw[0]; this.fsm[1] = this.fraw[1];
+  }
+  /* One SAMPLE: the fixed step runs as many times as the counted samples
+     allow (§6.2: sample count, never wall time), then the smoothers move. */
+  advance() {
+    this.acc += this.P.ts / this.sr;
+    let k = 0;
+    while (this.acc >= ORB_DT && k < 8) {
+      this.step(ORB_DT); this.acc -= ORB_DT; k++;
+      if (++this.trDec >= 4) {   // trail: every 4th step (120 Hz of sim), 2 s long
+        this.trDec = 0;
+        const o = this.trw * MAXB * 2;
+        for (let i = 0; i < this.nodes.length; i++) { this.tr[o + i * 2] = this.nodes[i].x; this.tr[o + i * 2 + 1] = this.nodes[i].y; }
+        this.trw = (this.trw + 1) % ORB_TRL; if (this.trn < ORB_TRL) this.trn++;
+      }
+    }
+    if (k >= 8) this.acc = 0;   // the reference's no-spiral rule (:611)
+    if (k) this.observe();
+    const a = this.a, r = this.raw, s = this.sm, n = this.nodes.length;
+    for (let i = 0; i < n; i++) for (let q = 0; q < 4; q++) s[i * 4 + q] += (r[i * 5 + q] - s[i * 4 + q]) * a;
+    this.fsm[0] += (this.fraw[0] - this.fsm[0]) * a; this.fsm[1] += (this.fraw[1] - this.fsm[1]) * a;
+  }
+  obs(b, q) { return b < this.nodes.length ? (q === 4 ? this.raw[b * 5 + 4] : this.sm[b * 4 + q]) : 0; }
+  reset() {
+    for (const b of this.nodes) { b.x = b.hx0; b.y = b.hy0; b.vx = b.vx0; b.vy = b.vy0; if (b.pinned) { b.vx = 0; b.vy = 0; } }
+    this.trn = 0; this.observe(); this.prime();
+  }
+  kick(bi, mag) {
+    const b = this.nodes[bi]; if (!b || b.pinned) return;
+    const th = TAU * this.kickRng(); this.kicks++;
+    b.vx += mag * Math.cos(th); b.vy -= mag * Math.sin(th);   // heading 0 = +x, 90° = up (§3.2)
+  }
+  energyTotal() {   // the reference's energy() (:451-460): the HUD's health check
+    let K = 0, U = 0; const nodes = this.nodes;
+    for (const b of nodes) K += 0.5 * b.m * (b.vx * b.vx + b.vy * b.vy);
+    for (let i = 0; i < nodes.length; i++) for (let j = i + 1; j < nodes.length; j++) {
+      const a = nodes[i], b = nodes[j], r = Math.hypot(b.x - a.x, b.y - a.y);
+      U -= this.P.G * a.m * b.m / Math.sqrt(r * r + this.P.eps * this.P.eps);
+    }
+    return K + U;
+  }
+}
+
+/* ---- MIDI TRACKERS: note-on GATE, note-on TRIGGER, six trackers ----------
+   GLOBAL scope here (one tracker per instrument, as the LFO is). The rules,
+   which the page states and auditRound2 restates independently:
+   GATE    1 while ANY key is held. LEGATO: a note-on while it is high does
+           not dip it, and a note-off leaves it high while another key is down.
+   TRIGGER an EVENT: a count raised at the note-on and consumed by the render at
+           the top of the next sample. Mode 0 EVERY fires on each note-on. Mode
+           1 FIRST fires only on the note-on that opens the gate.
+   NOTE    last-note priority: the newest held key; on its release, the newest
+           key still held; with none held it keeps its value. (n − 60)/48,
+           clamped to ±1: C4 = 0, four octaves = full scale.
+   VEL     the velocity of the NOTE tracker's key (it follows the fallback).
+   REL VEL the release velocity of the latest note-off, held.
+   HELD    keys held / 8, clamped (16 held keys is the preallocated cap).
+   ORDER   the ordinal k of this note-on since the gate opened, wrapping at N:
+           ((k − 1) mod N) / (N − 1). A round-robin.
+   SINCE   seconds since the last TRIGGER, / T, clamped to 1: under FIRST it
+           is the time since the phrase began. Counted in samples; reads 1
+           before the first trigger. */
+const MAXHELD = 16;
+class NoteTracker {
+  constructor(sr, cfg) {
+    this.sr = sr; this.cfg = cfg;
+    this.hn = new Int16Array(MAXHELD); this.hv = new Float64Array(MAXHELD); this.cnt = 0;
+    this.note = 60; this.vel = 0; this.rel = 0; this.k = 0;
+    this.nSince = -1; this.trig = 0; this.fired = 0;
+  }
+  remove(n) {
+    for (let i = 0; i < this.cnt; i++) if (this.hn[i] === n) {
+      for (let j = i; j < this.cnt - 1; j++) { this.hn[j] = this.hn[j + 1]; this.hv[j] = this.hv[j + 1]; }
+      this.cnt--; return true;
+    }
+    return false;
+  }
+  noteOn(n, v) {
+    const open = this.cnt > 0;
+    this.remove(n);
+    if (this.cnt < MAXHELD) { this.hn[this.cnt] = n; this.hv[this.cnt] = v; this.cnt++; }
+    this.k = open ? this.k + 1 : 1;
+    this.note = n; this.vel = v;
+    if (this.cfg.mode === 0 || !open) { this.trig++; this.fired++; this.nSince = 0; }
+  }
+  noteOff(n, r) {
+    if (!this.remove(n)) return;
+    this.rel = r;
+    if (this.cnt > 0) { this.note = this.hn[this.cnt - 1]; this.vel = this.hv[this.cnt - 1]; }
+  }
+  clear() { this.cnt = 0; }
+  gate() { return this.cnt > 0 ? 1 : 0; }
+  noteV() { const x = (this.note - 60) / 48; return x < -1 ? -1 : x > 1 ? 1 : x; }
+  held() { return Math.min(1, this.cnt / 8); }
+  order() { const N = Math.max(2, this.cfg.orderN | 0); return this.k > 0 ? ((this.k - 1) % N) / (N - 1) : 0; }
+  since() { return this.nSince < 0 ? 1 : Math.min(1, this.nSince / this.sr / Math.max(1e-3, this.cfg.sinceT)); }
+  step() { if (this.nSince >= 0) this.nSince++; }
+}
+
+/* PHRASE: a fixed three-second test phrase, [start s, length s, note, vel,
+   release vel]. It has a legato run (overlaps), a gap, two staccato notes, a
+   rolled chord (three held at once) and a last note, so EVERY and FIRST fire
+   differently (9 against 5). The page's PHRASE button and the audit both
+   play it, from this one table. */
+const PHRASE = Object.freeze([
+  [0.00, 0.40, 60, 0.90, 0.50], [0.30, 0.40, 64, 0.60, 0.30], [0.60, 0.30, 67, 0.75, 0.70],
+  [1.10, 0.15, 72, 1.00, 0.90], [1.40, 0.15, 71, 0.45, 0.20],
+  [1.80, 0.50, 60, 0.80, 0.40], [1.81, 0.50, 64, 0.70, 0.50], [1.82, 0.50, 67, 0.60, 0.60],
+  [2.60, 0.30, 57, 0.50, 0.50],
+]);
+/* → [[sample, on(1)/off(0), note, value]] sorted by sample, offs before ons
+   on the same sample (a key released and struck at once is not a held key). */
+function phraseEvents(sr, n0) {
+  const e = [];
+  for (const [t, d, nn, v, r] of PHRASE) { e.push([n0 + Math.round(t * sr), 1, nn, v]); e.push([n0 + Math.round((t + d) * sr), 0, nn, r]); }
+  return e.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+}
+
+/* ---- SOURCES: the ONE read path ----------------------------------------------
+   Every continuous source is a row here with a read(core). A route reads it
+   here; a painter reads it here or draws lanes the render logged from here.
+   Nothing else touches a family's fields to make a picture. bip = the native
+   range is ±1 (otherwise 0..1). A body that does not exist reads 0. */
+const SOURCES = [], SX = {};
+function defSrc(id, name, fam, bip, read) { SX[id] = SOURCES.length; SOURCES.push({ id, name, fam, bip, read }); }
+defSrc('round1.lfo', 'the LFO card', 'LFO', true, c => c.lfo);
+for (let i = 0; i < MAXK; i++) defSrc('kuro.v' + (i + 1), 'voice ' + (i + 1), 'KURO', true, c => c.kuro.lfo[i]);
+defSrc('kuro.R', 'coherence R', 'KURO', false, c => c.kuro.R);
+const ORB_OBS = ['x', 'y', 'speed', 'near', 'angle'];
+for (let b = 0; b < 4; b++) for (let q = 0; q < 5; q++)
+  defSrc('orb.b' + (b + 1) + '.' + ORB_OBS[q], 'body ' + (b + 1) + ' ' + ORB_OBS[q], 'ORBITAL', false, c => c.orb.obs(b, q));
+defSrc('orb.energy', 'field energy', 'ORBITAL', false, c => c.orb.fsm[0]);
+defSrc('orb.spread', 'field spread', 'ORBITAL', false, c => c.orb.fsm[1]);
+defSrc('midi.gate', 'GATE', 'MIDI', false, c => c.trk.gate());
+defSrc('midi.note', 'NOTE', 'MIDI', true, c => c.trk.noteV());
+defSrc('midi.vel', 'VELOCITY', 'MIDI', false, c => c.trk.vel);
+defSrc('midi.rel', 'RELEASE VEL', 'MIDI', false, c => c.trk.rel);
+defSrc('midi.held', 'HELD COUNT', 'MIDI', false, c => c.trk.held());
+defSrc('midi.order', 'NOTE ORDER', 'MIDI', false, c => c.trk.order());
+defSrc('midi.since', 'SINCE NOTE-ON', 'MIDI', false, c => c.trk.since());
+defSrc('act.sh', 'S&H (on TRIGGER)', 'EVENT → LEVEL', true, c => c.sh);
+defSrc('act.env', 'MOD ENV (on TRIGGER)', 'EVENT → LEVEL', false, c => c.envLvl);
+const MIDI_IDS = ['midi.gate', 'midi.note', 'midi.vel', 'midi.rel', 'midi.held', 'midi.order', 'midi.since'];
+/* The ACTION targets of the one event source, in S.act.on order. The first
+   six run inside the render on the trigger's own sample. The seventh posts. */
+const ACTIONS = ['S&H', 'MOD ENV RESTART', 'LFO RESTART', 'KURO RESET', 'ORBITAL KICK', 'ORBITAL RESET', 'HOSTED: RANDOMIZE UNLOCKED'];
+/* History lanes the render logs every HDEC samples (Float64, so a lane equals
+   the value it logged exactly and the audit can demand 0). */
+const LN = { r0: 0, r1: 1, trig: 2, sh: 3, env: 4, kR: 5, k0: 6, o0: 14, m0: 22 };   // k0..k7 voices, o0..: x,y of bodies 1-4, m0..: MIDI_IDS
+const NL2 = LN.m0 + MIDI_IDS.length;
+/* Lane → SOURCES row, built once, so the render never builds a string. */
+const LANE_SRC = new Int32Array(NL2).fill(-1);
+LANE_SRC[LN.sh] = SX['act.sh']; LANE_SRC[LN.env] = SX['act.env']; LANE_SRC[LN.kR] = SX['kuro.R'];
+for (let k = 0; k < MAXK; k++) LANE_SRC[LN.k0 + k] = SX['kuro.v' + (k + 1)];
+for (let b = 0; b < 4; b++) { LANE_SRC[LN.o0 + 2 * b] = SX['orb.b' + (b + 1) + '.x']; LANE_SRC[LN.o0 + 2 * b + 1] = SX['orb.b' + (b + 1) + '.y']; }
+for (let k = 0; k < MIDI_IDS.length; k++) LANE_SRC[LN.m0 + k] = SX[MIDI_IDS[k]];
+const POSTN = 64;   // the hosted-action ring: preallocated, oldest overwritten
 
 class ModLabCore {
   constructor(sr, S) {
@@ -562,26 +1153,75 @@ class ModLabCore {
                envG: new Float32Array(HN), beat: new Uint8Array(HN), w: 0, dec: 0, bt: 0 };
     this.tapLfo = null; this.tapEnv = null; this.tapN = 0;   // the audit's probes
     this.peak = 0;
+    /* ---- ROUND 2 (B226) ---- */
+    this.sN = 0;                               // samples since construction: the core's only clock
+    this.evq = []; this.evp = 0;               // scheduled note events [sample, on, note, value] (PHRASE, the audit)
+    this.kuro = makeKuro(this.sr, S.kuro, S.lfo.pts);
+    this.orb = new OrbitalField(this.sr, S.orb);
+    this.trk = new NoteTracker(this.sr, S.midi);
+    this.shRng = mulberry32(S.act.seed | 0); this.sh = 0; this.shN = 0; this.shSrc = -1;
+    this.envN = -1; this.envOffN = -1; this.envV0 = 0; this.envLvl = 0;   // the MOD ENV action's state
+    this.post = { seq: new Int32Array(POSTN), at: new Float64Array(POSTN), w: 0, r: 0 }; this.postSeq = 0;
+    this.rtSrc = new Int32Array(2); this.rv = new Float64Array(2);
+    this.tapRoute = null; this.tapRN = 0;      // route 0's received value, per sample (auditRound2)
+    this.H2 = { a: new Float64Array(NL2 * HN), trig: 0 };
+    this.compileRoutes();
   }
+  /* Route and S&H source ids → SOURCES rows, once per edit rather than per sample. */
+  compileRoutes() {
+    for (let r = 0; r < 2; r++) { const x = SX[this.S.routes[r].src]; this.rtSrc[r] = x === undefined ? -1 : x; }
+    const s = SX[this.S.act.shIn]; this.shSrc = s === undefined ? -1 : s;
+  }
+  setSr(sr) { this.sr = sr; this.kuro.sr = sr; this.orb.setSr(sr); this.trk.sr = sr; }
   /* Shipped plug_activate: the phase knob is read HERE, which is the whole
      finding for free-running LFOs. The lab calls this at load and on
      RE-ACTIVATE. */
   activate() { this.accS = 0; this.phLatch = this.S.lfo.phase; }
-  noteOn(note) {
+  /* Both laws rewind on a strike; they differ in what φ means afterwards.
+     B226: split out of noteOn unchanged, because LFO RESTART is the same
+     rewind fired by the trigger. */
+  lfoRewind() { this.accP = 0; this.beatStrike = this.beat; this.accS = 0; this.phLatch = this.S.lfo.phase; }
+  noteOn(note, vel) {
     const L = this.S.lfo;
-    if (L.retrig) {
-      // Both laws rewind on a strike; they differ in what φ means afterwards.
-      this.accP = 0; this.beatStrike = this.beat;
-      this.accS = 0; this.phLatch = L.phase;
-    }
+    if (L.retrig) this.lfoRewind();
     let v = null;
     for (const x of this.voices) if (x.done) { v = x; break; }
     if (!v) { v = this.voices[0]; for (const x of this.voices) if (x.age < v.age) v = x; }
     v.on = true; v.done = false; v.note = note; v.f = 440 * Math.pow(2, (note - 69) / 12);
     v.n = 0; v.nOff = -1; v.age = ++this.age;
+    this.trk.noteOn(note, vel === undefined ? 0.8 : vel);
   }
-  noteOff(note) { for (const v of this.voices) if (v.on && v.note === note) { v.on = false; v.nOff = v.n; } }
-  panic() { for (const v of this.voices) { v.on = false; v.done = true; v.nOff = -1; v.env = 0; v.envG = 0; } }
+  noteOff(note, rel) {
+    for (const v of this.voices) if (v.on && v.note === note) { v.on = false; v.nOff = v.n; }
+    this.trk.noteOff(note, rel === undefined ? 0.5 : rel);
+  }
+  panic() { for (const v of this.voices) { v.on = false; v.done = true; v.nOff = -1; v.env = 0; v.envG = 0; } this.trk.clear(); this.evq.length = 0; this.evp = 0; }
+  /* THE TRIGGER'S DISPATCH. Called at the top of the sample after a note-on
+     raised it, so every in-core action lands on the trigger's own sample. */
+  fire() {
+    const A = this.S.act.on;
+    this.H2.trig++;
+    if (A[0]) { this.sh = this.shSrc < 0 ? this.shRng() * 2 - 1 : SOURCES[this.shSrc].read(this); this.shN++; }
+    if (A[1]) { this.envV0 = this.envLvl; this.envN = 0; this.envOffN = -1; }
+    if (A[2]) this.lfoRewind();
+    if (A[3]) this.kuro.initPhases();
+    if (A[4]) this.orb.kick(this.S.orb.kickBody | 0, this.S.orb.kick);
+    if (A[5]) this.orb.reset();
+    if (A[6]) {   // a HOSTED action: post (sequence, fired-at sample); the main thread applies it
+      const P = this.post, j = P.w % POSTN;
+      P.seq[j] = ++this.postSeq; P.at[j] = this.sN; P.w++;
+    }
+  }
+  /* MOD ENV: round 1's envelope law (envAt), started by the trigger FROM the
+     level it has reached (v0) and released at the sample the gate falls. */
+  envStep() {
+    if (this.envN < 0) return;
+    const E = this.S.env, sr = this.sr;
+    if (this.envOffN < 0 && this.trk.cnt === 0) this.envOffN = this.envN;
+    const t = this.envN / sr, tOff = this.envOffN >= 0 ? this.envOffN / sr : null;
+    this.envLvl = envAt(E.pts, E.sus, t, tOff, this.envV0);
+    if (envDone(E.pts, E.sus, t, tOff)) this.envN = -1; else this.envN++;
+  }
 
   /* One sample of the LFO under BOTH laws: the heard one drives the
      destination, the other is kept for the ghost. Both read shapeAt. */
@@ -613,11 +1253,32 @@ class ModLabCore {
     const shipped = S.law === 1;
     const H = this.H;
     for (let i = 0; i < N; i++) {
+      /* ROUND 2, top of the sample: note events due now, then the trigger they
+         raised, then each source advances one sample. */
+      const Q = this.evq;
+      while (this.evp < Q.length && Q[this.evp][0] <= this.sN) {
+        const e = Q[this.evp++]; if (e[1]) this.noteOn(e[2], e[3]); else this.noteOff(e[2], e[3]);
+      }
+      if (this.evp && this.evp === Q.length) { Q.length = 0; this.evp = 0; }
+      if (this.trk.trig) { this.trk.trig = 0; this.fire(); }
+      this.kuro.advance(1); this.orb.advance(); this.envStep();
       this.lfoStep();
       const lfo = this.lfo, dep = L.depth;
       const cutL = L.dest === 0 ? dep * lfo * 0.5 : 0;
-      const bend = L.dest === 1 ? Math.pow(2, dep * lfo * 0.5) : 1;
-      const lvl = L.dest === 2 ? 1 - dep * 0.5 * (1 - lfo) : 1;
+      let bend = L.dest === 1 ? Math.pow(2, dep * lfo * 0.5) : 1;
+      let lvl = L.dest === 2 ? 1 - dep * 0.5 * (1 - lfo) : 1;
+      /* THE ROUTES: a SOURCES row → the same three destination laws as the LFO
+         card's. The value logged (tap, lane) is the value applied, here. */
+      let cutR = 0;
+      for (let r = 0; r < 2; r++) {
+        const si = this.rtSrc[r]; if (si < 0) { this.rv[r] = 0; continue; }
+        const R = S.routes[r], v = SOURCES[si].read(this);
+        this.rv[r] = v;
+        if (r === 0 && this.tapRoute && this.tapRN < this.tapRoute.length) this.tapRoute[this.tapRN++] = v;
+        if (R.dest === 0) cutR += R.depth * v * 0.5;
+        else if (R.dest === 1) bend *= Math.pow(2, R.depth * v * 0.5);
+        else lvl *= 1 - R.depth * 0.5 * (1 - v);
+      }
       let mix = 0, newest = null;
       for (let k = 0; k < MAXV; k++) {
         const v = this.voices[k];
@@ -633,7 +1294,7 @@ class ModLabCore {
         v.ph0 += d0; if (v.ph0 >= 1) v.ph0 -= 1;
         v.ph1 += d1; if (v.ph1 >= 1) v.ph1 -= 1;
         const osc = (2 * v.ph0 - 1 - blep(v.ph0, d0)) + (2 * v.ph1 - 1 - blep(v.ph1, d1));
-        const cut = Math.min(1, Math.max(0, sy.cutoff + cutL + E.toCut * v.env));
+        const cut = Math.min(1, Math.max(0, sy.cutoff + cutL + cutR + E.toCut * v.env));
         const fc = Math.min(40 * Math.pow(300, cut), sr * 0.45);
         const g = 1 - Math.exp(-TAU * fc / sr);
         v.lp1 += (osc - v.lp1) * g; v.lp2 += (v.lp1 - v.lp2) * g;
@@ -652,8 +1313,15 @@ class ModLabCore {
         H.lfo[H.w] = lfo; H.lfoG[H.w] = this.lfoGhost;
         H.env[H.w] = newest ? newest.env : 0; H.envG[H.w] = newest ? newest.envG : 0;
         H.beat[H.w] = H.bt; H.bt = 0;
+        /* Round-2 lanes, logged at the same instant as round 1's, and every one
+           through SOURCES or the value a route just applied. */
+        const A2 = this.H2.a, w = H.w;
+        A2[LN.r0 * HN + w] = this.rv[0]; A2[LN.r1 * HN + w] = this.rv[1];
+        A2[LN.trig * HN + w] = this.H2.trig; this.H2.trig = 0;
+        for (let k = LN.sh; k < NL2; k++) A2[k * HN + w] = SOURCES[LANE_SRC[k]].read(this);
         H.w = (H.w + 1) % HN;
       }
+      this.trk.step(); this.sN++;
     }
   }
   /* One cycle of the LFO, published FROM the law — the shipped B177 idiom
@@ -664,6 +1332,10 @@ class ModLabCore {
 ModLabCore.shapeAt = shapeAt; ModLabCore.segCurve = segCurve; ModLabCore.envAt = envAt;
 ModLabCore.envTauAt = envTauAt; ModLabCore.adsrPts = adsrPts; ModLabCore.DIVS = DIVS;
 ModLabCore.nearestDiv = nearestDiv; ModLabCore.K_ONEPOLE = K_ONEPOLE;
+// B226: the round-2 families, reachable the same way (extract_core, design banners)
+ModLabCore.KuroSwarm = KuroSwarm; ModLabCore.makeKuro = makeKuro; ModLabCore.OrbitalField = OrbitalField;
+ModLabCore.orbPreset = orbPreset; ModLabCore.NoteTracker = NoteTracker; ModLabCore.SOURCES = SOURCES;
+ModLabCore.SX = SX; ModLabCore.phraseEvents = phraseEvents; ModLabCore.mulberry32 = mulberry32;
 
 /* ================= UI ================= */
 /* ---- STATE: the whole patch, one plain object, above all wiring (L0026) --- */
@@ -674,7 +1346,23 @@ const S = {
   lfo: { pts: [], sync: 0, hz: 1.0, beats: 1, phase: 0, retrig: 0, dest: 0, depth: 0.55 },
   env: { pts: [], sus: 2, adsr: { a: 0.01, d: 0.3, s: 0.5, r: 0.4 }, toCut: 0.35, custom: false },
   synth: { cutoff: 0.35, level: 0.6 },
+  /* ---- ROUND 2 (B226). All plain data: the audits clone S through JSON. ---- */
+  kuro: { n: 4, K: 0.35, gRate: 1, detune: 0.3, anchor: 0, shape: 0 },   // mod-lab's defaults (detune 0.3 on purpose: ADR-053 amendment)
+  /* ORBITAL's patch state: field params + the bodies' INITIAL CONDITIONS. An
+     added body is appended here, so a reset, a reload or the audit's twin
+     rebuilds it. `adds` counts the seeded add-body draws. */
+  orb: Object.assign(orbPreset('binary'), { preset: 'binary', ts: 1, damp: 0, smooth: 0.005, kick: 0.3, kickBody: 0, seed: 1024, adds: 0 }),
+  midi: { mode: 0, orderN: 4, sinceT: 2, vel: 0.8, rel: 0.5 },
+  /* Defaults chosen to be heard: SPEC-ORBITAL §4's suggested body 1 x → cutoff,
+     and a seeded S&H of each note-on on pitch (the event → level path). */
+  routes: [{ src: 'orb.b1.x', dest: 0, depth: 0.3 }, { src: 'act.sh', dest: 1, depth: 0.15 }],
+  act: { on: [1, 1, 0, 0, 0, 0, 0], shIn: 'rand', seed: 4242 },
 };
+/* The hosted module is NOT the core's: it lives on the main thread, as a
+   module's patch does. Six generic parameters, a lock each, its own seed.
+   Nothing here describes any real module. */
+const HOST = { p: [0.50, 0.30, 0.70, 0.20, 0.60, 0.40], lock: [0, 1, 0, 0, 1, 0], seed: 77, clicks: 0,
+               undo: [], msg: null, applied: 0, lagMs: 0, dropped: 0 };
 /* Curve fit for the smooth presets: sample fn at n points and give each segment
    the c whose MIDPOINT matches fn's (f_k(½) = 1/(1+e^(-k/2)) inverts in closed
    form). Presets are therefore points, the same currency the editor trades in,
@@ -1212,13 +1900,22 @@ function auditOneLaw() {
 function serialize() {
   const e = $('ser'); if (!e) return;
   const L = S.lfo, E = S.env, r = x => +(+x).toFixed(5);
-  const o = { version: 2, proposal: 'B208',
+  const o = { version: 3, proposal: 'B208 + B226',
     lfo: { shape: L.pts.map(p => [r(p.t), r(p.v), r(p.c)]),
            rate: L.sync ? { sync: true, beats: L.beats, name: DIVS[nearestDiv(L.beats)][2] === L.beats ? DIVS[nearestDiv(L.beats)][0] : null }
                   : { sync: false, hz: r(L.hz) },
            phase: r(L.phase), retrig: !!L.retrig },
-    env: { shape: E.pts.map(p => [r(p.t), r(p.v), r(p.c)]), sustain: susOf(E.pts, E.sus) < 0 ? null : E.sus } };
-  e.textContent = JSON.stringify(o).replace(/\],\[/g, '],\n    [').replace(/"(lfo|env|rate|phase|retrig|sustain)":/g, '\n  "$1":');
+    env: { shape: E.pts.map(p => [r(p.t), r(p.v), r(p.c)]), sustain: susOf(E.pts, E.sus) < 0 ? null : E.sus },
+    /* B226: sources are patch state too. ORBITAL stores initial conditions,
+       never live positions (SPEC-ORBITAL §6.1), and its seed + add count. */
+    kuro: Object.assign({}, S.kuro),
+    orbital: { preset: S.orb.preset, G: r(S.orb.G), eps: r(S.orb.eps), timeScale: r(S.orb.ts), drag: r(S.orb.damp), edges: S.orb.bounds,
+               com: S.orb.com, smooth: r(S.orb.smooth), seed: S.orb.seed, adds: S.orb.adds,
+               bodies: S.orb.bodies.map(b => [r(b.m), r(b.x), r(b.y), r(b.vx), r(b.vy), b.pinned ? 1 : 0]) },
+    midi: { trigger: ['every', 'first'][S.midi.mode], orderN: S.midi.orderN, sinceT: r(S.midi.sinceT) },
+    routes: S.routes.map(R => ({ src: R.src, dest: DESTS[R.dest], depth: r(R.depth) })),
+    trigger: { actions: ACTIONS.filter((_, i) => S.act.on[i]), shIn: S.act.shIn, shSeed: S.act.seed } };
+  e.textContent = JSON.stringify(o).replace(/\],\[/g, '],\n    [').replace(/"(lfo|env|rate|phase|retrig|sustain|kuro|orbital|bodies|midi|routes|trigger)":/g, '\n  "$1":');
 }
 
 /* ---- normalise after any edit: sorted, anchored, sustain in range ---------- */
@@ -1232,7 +1929,8 @@ function onEdit() {
   if (!drag) envWin = envWindow();
   for (const f of REPAINT) f();
   for (const f of GHOSTS) f();
-  paintSus(); paintDivRead(); paintLaw(); serialize(); auditOneLaw();
+  core.kuro.drawn = S.lfo.pts;   // B226: DRAWN reads the card's CURRENT points (a preset replaces the array)
+  paintSus(); paintDivRead(); paintLaw(); serialize(); auditOneLaw(); scheduleAudit2();
   const w = $('envWarn');
   if (w) { const on = S.env.custom; w.style.display = on ? 'block' : 'none';
     w.textContent = 'Breakpoints edited: the A/D/S/R sliders no longer describe this shape (moving one rewrites it). HEAR = SHIPPED still plays the sliders as τ, because the shipped envelope has no breakpoints.'; }
@@ -1240,13 +1938,460 @@ function onEdit() {
   paintEditor('lfo'); paintEditor('env');
 }
 
+/* ====================== ROUND 2 (B226) — UI ====================== */
+const readSrc = id => SOURCES[SX[id]].read(core);   // the painters' one way to a source's value
+const isRead = pre => S.routes.some(r => r.src.indexOf(pre) === 0) || S.act.shIn.indexOf(pre) === 0;
+
+/* One logged lane over [x0,x1]×[top,bot], oldest left. Every 4th log point:
+   display resolution only; the audit compares every point. */
+function lane(g, laneIx, x0, x1, top, bot, bip, col, v, dash) {
+  const A = core.H2.a, w0 = core.H.w, base = laneIx * HN;
+  const Y = q => bip ? (top + bot) / 2 - q * (bot - top) / 2 : bot - q * (bot - top);
+  g.setLineDash(dash || []); g.strokeStyle = col; g.lineWidth = 1.3 * v; g.beginPath();
+  for (let k = 0; k < HN; k += 4) { const x = x0 + k / (HN - 1) * (x1 - x0), y = Y(A[base + (w0 + k) % HN]); k ? g.lineTo(x, y) : g.moveTo(x, y); }
+  g.stroke(); g.setLineDash([]);
+}
+/* The trigger's lane is TICKS, never a line: an event has no value between
+   them. Every log point is scanned, so no event is decimated away. */
+function ticks(g, x0, x1, top, bot, v) {
+  const A = core.H2.a, w0 = core.H.w, base = LN.trig * HN;
+  g.strokeStyle = TOK('--scr-marker'); g.fillStyle = TOK('--scr-marker'); g.lineWidth = 1.4 * v;
+  for (let k = 0; k < HN; k++) {
+    const c = A[base + (w0 + k) % HN]; if (!(c > 0)) continue;
+    const x = x0 + k / (HN - 1) * (x1 - x0);
+    g.beginPath(); g.moveTo(x, bot); g.lineTo(x, top + 3 * v); g.stroke();
+    g.beginPath(); g.arc(x, top + 3 * v, 2.6 * v, 0, TAU); g.fill();
+  }
+}
+function bandLabel(g, txt, x, y, v) { g.fillStyle = TOKA('--scr-grid', 0.9); g.fillText(txt, x, y + 8 * v); }
+
+/* ---- KURO card ---- */
+function buildKuro() {
+  const host = $('kuroRows'); if (!host) return;
+  const K = S.kuro, set = (k, x) => { K[k] = x; core.kuro.setParam(k, x); };
+  slider(host, { label: 'voices', min: 1, max: 8, step: 1, get: () => K.n, set: x => set('n', Math.round(x)), fmt: x => String(Math.round(x)) });
+  slider(host, { label: 'K', min: -1, max: 1, step: 0.01, get: () => K.K, set: x => set('K', x),
+    fmt: x => (x > 0 ? '+' : '') + x.toFixed(2) + (x > 0 ? ' pull' : x < 0 ? ' splay' : ' free') });
+  slider(host, { label: 'rate', min: 0.05, max: 8, log: true, get: () => K.gRate, set: x => set('gRate', x), fmt: x => x.toFixed(x < 1 ? 3 : 2) + ' Hz' });
+  slider(host, { label: 'detune', min: 0, max: 1, step: 0.01, get: () => K.detune, set: x => set('detune', x), fmt: x => '±' + (2 * x).toFixed(2) + ' oct' });
+  pillRow(host, 'anchor', ['MEAN', 'SLOWEST', 'FASTEST'], () => K.anchor, i => set('anchor', i));
+  pillRow(host, 'shape', ['SINE', 'TRI', 'SAW', 'SQUARE', 'DRAWN'], () => K.shape,
+    i => { K.shape = i; for (let k = 0; k < MAXK; k++) core.kuro.shape[k] = i; });
+}
+function paintKuro() {
+  const cv = $('kuroC'), G = ground(cv); if (!G) return;
+  const { g, w, h, v } = G, K = core.kuro, n = Math.max(1, K.p.n | 0);
+  g.font = FONT(v); g.lineWidth = v;
+  // THE WHEEL: the swarm's phases now (state, drawn as state; no law in here)
+  const side = Math.min(h, w * 0.42), cx = side / 2, cy = h / 2, rr = side / 2 - 18 * v;
+  g.strokeStyle = TOKA('--scr-grid', 0.35);
+  g.beginPath(); g.arc(cx, cy, rr, 0, TAU); g.stroke();
+  g.beginPath(); g.moveTo(cx - rr, cy); g.lineTo(cx + rr, cy); g.moveTo(cx, cy - rr); g.lineTo(cx, cy + rr); g.stroke();
+  const R = readSrc('kuro.R');
+  g.strokeStyle = TOK('--scr-meter'); g.lineWidth = 2 * v; g.beginPath(); g.moveTo(cx, cy);
+  g.lineTo(cx + R * rr * Math.cos(K.psi), cy - R * rr * Math.sin(K.psi)); g.stroke();
+  for (let i = 0; i < n; i++) {
+    const a = KURO_TAU * K.phase[i], x = cx + rr * Math.cos(a), y = cy - rr * Math.sin(a);
+    g.fillStyle = TOK('--scr-physics'); g.beginPath(); g.arc(x, y, 4.5 * v, 0, TAU); g.fill();
+    if (isRead('kuro.v' + (i + 1))) { g.strokeStyle = TOK('--scr-meter'); g.lineWidth = 1.5 * v; g.beginPath(); g.arc(x, y, 8 * v, 0, TAU); g.stroke(); }
+    g.fillStyle = TOKA('--scr-grid', 0.9); g.fillText(String(i + 1), x + 7 * v, y - 6 * v);
+  }
+  g.fillStyle = TOKA('--scr-grid', 0.9);
+  g.fillText('R ' + R.toFixed(3) + '  K ' + (K.p.K > 0 ? '+' : '') + K.p.K.toFixed(2), 4 * v, h - 6 * v);
+  // THE STRIPS: what the render logged through SOURCES
+  const x0 = side + 6 * v, x1 = w - 6 * v, mid = Math.round(h * 0.66);
+  if (!ac) { bandLabel(g, 'POWER: the strips are the render\'s own log', x0, h / 2 - 8 * v, v); return; }
+  g.strokeStyle = TOKA('--scr-grid', 0.25); g.lineWidth = v;
+  g.beginPath(); g.moveTo(x0, (8 * v + mid - 6 * v) / 2); g.lineTo(x1, (8 * v + mid - 6 * v) / 2); g.stroke();
+  for (let i = n - 1; i >= 0; i--) lane(g, LN.k0 + i, x0, x1, 8 * v, mid - 6 * v, true, i === 0 ? TOK('--scr-physics') : TOKA('--scr-physics', 0.4), v);
+  lane(g, LN.kR, x0, x1, mid + 4 * v, h - 6 * v, false, TOK('--scr-meter'), v);
+  bandLabel(g, 'VOICES (1 solid) ±1', x0 + 2 * v, 2 * v, v); bandLabel(g, 'R 0..1', x0 + 2 * v, mid, v);
+}
+
+/* ---- ORBITAL card ---- */
+function loadOrb(name) {
+  const k = S.orb;
+  S.orb = Object.assign(orbPreset(name), { preset: name, ts: k.ts, damp: k.damp, smooth: k.smooth, kick: k.kick, kickBody: 0, seed: k.seed, adds: 0 });
+  core.orb = new OrbitalField(core.sr, S.orb);
+}
+/* ADD BODY, seeded: position = draw #adds of (seed, add count), the STEPS idiom,
+   so an added body is reproducible patch state and never Math.random. */
+function addOrbBody() {
+  if (S.orb.bodies.length >= MAXB) return;
+  const r = mulberry32((S.orb.seed + Math.imul(0x9E3779B9, ++S.orb.adds)) >>> 0);
+  const b = { m: 0.8, x: 0.2 + r() * 0.6, y: 0.2 + r() * 0.6, vx: 0, vy: 0, pinned: false };
+  S.orb.bodies.push(b); core.orb.addBody(b); core.orb.observe(); core.orb.prime();
+}
+function buildOrb() {
+  const pre = $('orbPresets');
+  if (pre) {
+    const bs = [['BINARY', 'binary'], ['SUN + PLANETS', 'sun'], ['FIGURE EIGHT', 'figure8'], ['FOUR-BODY CHAOS', 'chaos']].map(([lab, k]) => {
+      const b = el('button', 'pill', lab); b.addEventListener('click', () => { loadOrb(k); onEdit(); }); pre.appendChild(b); return [b, k]; });
+    REPAINT.push(() => bs.forEach(([b, k]) => b.classList.toggle('on', S.orb.preset === k)));
+    [['ADD BODY', () => addOrbBody()], ['RESET', () => core.orb.reset()], ['KICK', () => core.orb.kick(S.orb.kickBody | 0, S.orb.kick)]].forEach(([lab, f]) => {
+      const b = el('button', 'pill', lab); b.addEventListener('click', () => { f(); onEdit(); }); pre.appendChild(b); });
+  }
+  const host = $('orbRows'); if (!host) return;
+  const O = () => S.orb, live = (k, x) => { S.orb[k] = x; core.orb.P[k] = x; };
+  slider(host, { label: 'gravity G', min: 0.001, max: 1, log: true, get: () => O().G, set: x => live('G', x), fmt: x => x.toFixed(4) });
+  slider(host, { label: 'soften ε', min: 0.005, max: 0.5, log: true, get: () => O().eps, set: x => live('eps', x), fmt: x => x.toFixed(3) });
+  slider(host, { label: 'time ×', min: 0, max: 4, step: 0.01, get: () => O().ts, set: x => live('ts', x), fmt: x => x.toFixed(2) + '×' });
+  slider(host, { label: 'drag', min: 0, max: 1, step: 0.01, get: () => O().damp, set: x => live('damp', x), fmt: f2 });
+  pillRow(host, 'edges', ['BOUNCE', 'WRAP', 'OPEN'], () => ORB_EDGES.indexOf(O().bounds), i => live('bounds', ORB_EDGES[i]));
+  pillRow(host, 'COM lock', ['OFF', 'ON'], () => O().com ? 1 : 0, i => live('com', !!i));
+  slider(host, { label: 'smooth', min: 0, max: 0.05, step: 0.0005, get: () => O().smooth, set: x => { S.orb.smooth = x; core.orb.setSmooth(x); }, fmt: x => (x * 1000).toFixed(1) + ' ms' });
+  slider(host, { label: 'kick', min: 0, max: 1, step: 0.01, get: () => O().kick, set: x => { S.orb.kick = x; }, fmt: x => x.toFixed(2) + ' u/s' });
+  selectRow(host, 'kick body', ['1', '2', '3', '4', '5', '6', '7', '8'], () => O().kickBody | 0, i => { S.orb.kickBody = i; });
+}
+function paintOrb() {
+  const cv = $('orbC'), G = ground(cv); if (!G) return;
+  const { g, w, h, v } = G, O = core.orb, nb = O.nodes.length;
+  g.font = FONT(v); g.lineWidth = v;
+  const side = Math.min(h - 20 * v, w * 0.56), fx = 12 * v, fy = (h - side) / 2 - 4 * v;
+  const X = u => fx + u * side, Y = u => fy + u * side;   // sim y grows DOWN, as the reference's
+  g.strokeStyle = TOKA('--scr-grid', 0.16);
+  for (let k = 0; k <= 8; k++) { const q = k / 8; g.beginPath(); g.moveTo(X(q), Y(0)); g.lineTo(X(q), Y(1)); g.moveTo(X(0), Y(q)); g.lineTo(X(1), Y(q)); g.stroke(); }
+  g.strokeStyle = TOKA('--scr-grid', 0.55);
+  g.beginPath(); g.moveTo(X(0.5), Y(0)); g.lineTo(X(0.5), Y(1)); g.moveTo(X(0), Y(0.5)); g.lineTo(X(1), Y(0.5)); g.stroke();
+  g.save(); g.beginPath(); g.rect(0, 0, fx + side + 4 * v, h); g.clip();
+  g.strokeStyle = TOKA('--scr-physics', 0.35); g.lineWidth = v;
+  for (let i = 0; i < nb; i++) {
+    g.beginPath(); let px = NaN, py = NaN;
+    for (let k = 0; k < O.trn; k++) {
+      const s = ((O.trw - O.trn + k + ORB_TRL) % ORB_TRL) * MAXB * 2 + i * 2, x = O.tr[s], y = O.tr[s + 1];
+      // a wrap or a bounce is a jump in position, not a path: break the stroke there
+      if (k && Math.abs(x - px) < 0.5 && Math.abs(y - py) < 0.5) g.lineTo(X(x), Y(y)); else g.moveTo(X(x), Y(y));
+      px = x; py = y;
+    }
+    g.stroke();
+  }
+  for (let i = 0; i < nb; i++) {
+    const b = O.nodes[i], x = X(b.x), y = Y(b.y), r = (3 + Math.sqrt(b.m) * 3) * v;
+    const col = TOK(isRead('orb.b' + (i + 1) + '.') ? '--scr-meter' : '--scr-physics');
+    g.fillStyle = col; g.strokeStyle = col; g.lineWidth = 2 * v;
+    g.beginPath(); g.arc(x, y, r, 0, TAU); if (b.pinned) g.stroke(); else g.fill();
+    g.fillStyle = TOKA('--scr-grid', 0.95); g.fillText(String(i + 1), x + r + 2 * v, y - r);
+    // projection ticks (§9): this body's x and y OBSERVABLES on the bottom and left edges
+    g.fillStyle = col;
+    g.fillRect(X(O.obs(i, 0)) - v, Y(1) + 2 * v, 2 * v, 7 * v);
+    g.fillRect(X(0) - 9 * v, Y(1 - O.obs(i, 1)) - v, 7 * v, 2 * v);
+  }
+  g.restore();
+  // lanes: x solid / y dashed for bodies 1-4, from the render's log
+  const x0 = fx + side + 12 * v, x1 = w - 6 * v, nL = Math.max(1, Math.min(4, nb)), bh = (h - 16 * v) / nL;
+  if (!ac) bandLabel(g, 'POWER: lanes are the render\'s log', x0, 4 * v, v);
+  else for (let i = 0; i < nL; i++) {
+    const top = 4 * v + i * bh, bot = top + bh - 6 * v, col = TOK(isRead('orb.b' + (i + 1) + '.') ? '--scr-meter' : '--scr-physics');
+    lane(g, LN.o0 + 2 * i, x0, x1, top, bot, false, col, v);
+    lane(g, LN.o0 + 2 * i + 1, x0, x1, top, bot, false, col, v, [3 * v, 3 * v]);
+    bandLabel(g, 'body ' + (i + 1) + ' x — y - -', x0 + 2 * v, top, v);
+  }
+  g.fillStyle = TOKA('--scr-grid', 0.9);
+  g.fillText('t ' + (O.steps * ORB_DT).toFixed(1) + ' s  E ' + O.energyTotal().toFixed(4), fx, h - 4 * v);
+}
+
+/* ---- MIDI card ---- */
+function playPhrase() {
+  power();
+  const ev = phraseEvents(core.sr, core.sN + 1);
+  core.evq = core.evq.slice(core.evp).concat(ev).sort((a, b) => a[0] - b[0] || a[1] - b[1]); core.evp = 0;
+}
+const MIDI_ROWS = [
+  ['GATE', '0 / 1', 'any key held; legato, never dips', 'midi.gate'],
+  ['TRIGGER', 'event', 'EVERY: each note-on · FIRST: the one that opens the gate', null],
+  ['NOTE', '±1', '(n − 60) ÷ 48, last-note priority, holds', 'midi.note'],
+  ['VELOCITY', '0..1', 'the NOTE key\'s velocity', 'midi.vel'],
+  ['REL VEL', '0..1', 'latest note-off\'s velocity, held', 'midi.rel'],
+  ['HELD', '0..1', 'keys held ÷ 8', 'midi.held'],
+  ['ORDER', '0..1', 'k-th note since the gate opened, wraps at N', 'midi.order'],
+  ['SINCE', '0..1', 'seconds since the TRIGGER ÷ T', 'midi.since'],
+];
+const midiNowEl = [];
+function buildMidi() {
+  const host = $('midiRows'); if (host) {
+    pillRow(host, 'trigger', ['EVERY NOTE-ON', 'FIRST · LEGATO'], () => S.midi.mode, i => { S.midi.mode = i; });
+    slider(host, { label: 'order N', min: 2, max: 8, step: 1, get: () => S.midi.orderN, set: x => { S.midi.orderN = Math.round(x); }, fmt: x => String(Math.round(x)) });
+    slider(host, { label: 'since T', min: 0.1, max: 8, log: true, get: () => S.midi.sinceT, set: x => { S.midi.sinceT = x; }, fmt: fSec });
+    slider(host, { label: 'key vel', min: 0.05, max: 1, step: 0.01, get: () => S.midi.vel, set: x => { S.midi.vel = x; }, fmt: x => f2(x) + ' (A..L)' });
+    slider(host, { label: 'key rel', min: 0, max: 1, step: 0.01, get: () => S.midi.rel, set: x => { S.midi.rel = x; }, fmt: f2 });
+    const row = el('div', 'row wide'), b = el('button', 'pill', 'PHRASE');
+    b.addEventListener('click', playPhrase);
+    row.appendChild(el('label', null, 'play')); const bx = el('div', 'pills'); bx.appendChild(b); row.appendChild(bx); host.appendChild(row);
+  }
+  const t = $('midiT'); if (!t) return;
+  t.innerHTML = '<tr><th>tracker</th><th>range</th><th>rule</th><th>now</th></tr>';
+  for (const [nm, rg, rule, id] of MIDI_ROWS) {
+    const tr = el('tr'); tr.appendChild(el('td', null, nm)); tr.appendChild(el('td', null, rg)); tr.appendChild(el('td', null, rule));
+    const td = el('td', 'p', '—'); tr.appendChild(td); t.appendChild(tr); midiNowEl.push([td, id]);
+  }
+}
+function paintMidi() {
+  const cv = $('midiC'), G = ground(cv); if (!G) return;
+  const { g, w, h, v } = G, x0 = 4 * v, x1 = w - 4 * v, bh = h / MIDI_ROWS.length;
+  g.font = FONT(v);
+  if (!ac) { bandLabel(g, 'POWER, then PHRASE or the keys: these lanes are the render\'s log', 8 * v, h / 2 - 8 * v, v); return; }
+  MIDI_ROWS.forEach(([nm, , , id], k) => {
+    const top = k * bh + 2 * v, bot = (k + 1) * bh - 3 * v;
+    g.strokeStyle = TOKA('--scr-grid', 0.18); g.lineWidth = v; g.beginPath(); g.moveTo(x0, bot + 1.5 * v); g.lineTo(x1, bot + 1.5 * v); g.stroke();
+    if (id) lane(g, LN.m0 + MIDI_IDS.indexOf(id), x0, x1, top + 9 * v, bot, id === 'midi.note', TOK('--scr-meter'), v);
+    else ticks(g, x0, x1, top + 9 * v, bot, v);
+    bandLabel(g, nm, x0 + 2 * v, top - 2 * v, v);
+  });
+}
+function midiNow() {
+  for (const [td, id] of midiNowEl) {
+    const s = id ? readSrc(id).toFixed(3) : String(core.trk.fired) + ' fired';
+    if (td.textContent !== s) td.textContent = s;
+  }
+}
+
+/* ---- ROUTES card ---- */
+const FAMS = ['LFO', 'KURO', 'ORBITAL', 'MIDI', 'EVENT → LEVEL'];
+function srcSelect(get, set, withRandom) {
+  const sel = el('select', 'src');
+  const op0 = el('option', null, withRandom ? 'RANDOM (seeded)' : 'OFF'); op0.value = withRandom ? 'rand' : 'off'; sel.appendChild(op0);
+  for (const fam of FAMS) {
+    if (withRandom && fam === 'EVENT → LEVEL') continue;   // an S&H cannot sample itself
+    const og = el('optgroup'); og.label = fam;
+    for (const s of SOURCES) if (s.fam === fam) { const op = el('option', null, s.name + (s.bip ? '  ±1' : '  0..1')); op.value = s.id; og.appendChild(op); }
+    if (fam === 'MIDI') {   // L0036: the refusal is present and pinned, not merely absent
+      const op = el('option', null, 'TRIGGER: an event, not a level (see EVENTS)'); op.value = 'midi.trig'; op.disabled = true; og.appendChild(op); }
+    sel.appendChild(og);
+  }
+  sel.addEventListener('change', () => { set(sel.value); core.compileRoutes(); onEdit(); });
+  REPAINT.push(() => { sel.value = get(); });
+  return sel;
+}
+function buildRoutes() {
+  const host = $('routeRows'); if (!host) return;
+  S.routes.forEach((R, r) => {
+    const row = el('div', 'row wide');
+    row.appendChild(el('label', null, 'route ' + 'AB'[r])); row.appendChild(srcSelect(() => R.src, x => { R.src = x; }, false));
+    host.appendChild(row);
+    pillRow(host, 'to', DESTS, () => R.dest, i => { R.dest = i; });
+    slider(host, { label: 'depth', min: 0, max: 1, step: 0.01, get: () => R.depth, set: x => { R.depth = x; }, fmt: f2 });
+  });
+}
+function srcName(id) { const i = SX[id]; return i === undefined ? 'off' : SOURCES[i].fam + ' ' + SOURCES[i].name; }
+function paintRoutes() {
+  const cv = $('routeC'), G = ground(cv); if (!G) return;
+  const { g, w, h, v } = G, bh = h / 2;
+  g.font = FONT(v);
+  if (!ac) { bandLabel(g, 'POWER: each lane is the value its destination received', 8 * v, h / 2 - 8 * v, v); return; }
+  S.routes.forEach((R, r) => {
+    const top = r * bh + 3 * v, bot = (r + 1) * bh - 3 * v, i = SX[R.src], bip = i !== undefined && SOURCES[i].bip;
+    if (i !== undefined) lane(g, LN.r0 + r, 4 * v, w - 4 * v, top + 9 * v, bot, bip, TOK('--scr-meter'), v);
+    bandLabel(g, 'AB'[r] + ': ' + srcName(R.src) + ' → ' + DESTS[R.dest] + ' × ' + R.depth.toFixed(2), 6 * v, top - 2 * v, v);
+  });
+}
+
+/* ---- EVENTS card ---- */
+function buildActs() {
+  const host = $('actRows'); if (!host) return;
+  const row = el('div', 'row wide'), box = el('div', 'pills'), btns = [];
+  ACTIONS.forEach((nm, i) => { const b = el('button', 'pill', nm);
+    b.addEventListener('click', () => { S.act.on[i] = S.act.on[i] ? 0 : 1; onEdit(); }); box.appendChild(b); btns.push(b); });
+  REPAINT.push(() => btns.forEach((b, i) => b.classList.toggle('on', !!S.act.on[i])));
+  row.appendChild(el('label', null, 'fires')); row.appendChild(box); host.appendChild(row);
+  const r2 = el('div', 'row wide');
+  r2.appendChild(el('label', null, 'S&H in')); r2.appendChild(srcSelect(() => S.act.shIn, x => { S.act.shIn = x; }, true)); host.appendChild(r2);
+  const r3 = el('div', 'row wide'), sd = el('input');
+  sd.type = 'number'; sd.value = String(S.act.seed); sd.title = 'S&H seed: mulberry32, one draw per trigger';
+  sd.addEventListener('input', () => { S.act.seed = (parseInt(sd.value, 10) || 0) | 0; core.shRng = mulberry32(S.act.seed); core.shN = 0; onEdit(); });
+  r3.appendChild(el('label', null, 'S&H seed')); r3.appendChild(sd); host.appendChild(r3);
+}
+function paintEv() {
+  const cv = $('evC'), G = ground(cv); if (!G) return;
+  const { g, w, h, v } = G, x0 = 4 * v, x1 = w - 4 * v, bh = h / 4;
+  g.font = FONT(v);
+  if (!ac) { bandLabel(g, 'POWER, then PHRASE: gate, trigger, S&H and MOD ENV, as logged', 8 * v, h / 2 - 8 * v, v); return; }
+  const rows = [['GATE: a level, every sample', () => lane(g, LN.m0, x0, x1, 11 * v, bh - 3 * v, false, TOK('--scr-meter'), v)],
+    ['TRIGGER: an event, ticks only', () => ticks(g, x0, x1, bh + 11 * v, 2 * bh - 3 * v, v)],
+    ['S&H: event → level, holds', () => lane(g, LN.sh, x0, x1, 2 * bh + 11 * v, 3 * bh - 3 * v, true, TOK('--scr-meter'), v)],
+    ['MOD ENV: restarted by the trigger, released by the gate', () => lane(g, LN.env, x0, x1, 3 * bh + 11 * v, 4 * bh - 3 * v, false, TOK('--scr-meter'), v)]];
+  rows.forEach(([nm, f], k) => { f(); bandLabel(g, nm, x0 + 2 * v, k * bh, v);
+    g.strokeStyle = TOKA('--scr-grid', 0.18); g.lineWidth = v; g.beginPath(); g.moveTo(x0, (k + 1) * bh - 1); g.lineTo(x1, (k + 1) * bh - 1); g.stroke(); });
+  const e = $('evRead');
+  if (e) e.innerHTML = 'triggers fired <b>' + core.trk.fired + '</b> (' + ['EVERY', 'FIRST'][S.midi.mode] + ') · S&amp;H draws <b>'
+    + core.shN + '</b> (seed ' + S.act.seed + ') · MOD ENV <b>' + core.envLvl.toFixed(3) + '</b> · ORBITAL kicks '
+    + core.orb.kicks + ' · hosted posts <b>' + core.postSeq + '</b>';
+}
+
+/* ---- HOSTED MODULE stand-in (main thread) ---- */
+const hostEls = [];
+/* The module's own RANDOMIZE UNLOCKED: its stream, its locks, its patch. A
+   fresh mulberry32 per click from (seed, click), drawn ONLY for the unlocked
+   parameters, in order. So (seed, click) alone does not rebuild the patch:
+   the result depends on the lock mask and the patch it started from. That is
+   why the undo step stores the PATCH, with (seed, click) as provenance only. */
+function hostRandomize(by, seq, at) {
+  HOST.clicks++;
+  const r = mulberry32((HOST.seed + Math.imul(0x9E3779B9, HOST.clicks)) >>> 0);
+  for (let i = 0; i < HOST.p.length; i++) if (!HOST.lock[i]) HOST.p[i] = Math.round(r() * 1000) / 1000;
+  HOST.undo.push({ step: HOST.undo.length + 1, patch: { p: HOST.p.slice(), lock: HOST.lock.slice() },
+                   provenance: { seed: HOST.seed, click: HOST.clicks, by, seq: seq || null, firedAtSample: at === undefined ? null : at } });
+  if (HOST.undo.length > 64) HOST.undo.shift();
+  paintHost();
+}
+/* The main thread's side of the boundary: drain what the audio thread posted. */
+function drainHost() {
+  const P = core.post;
+  if (P.w - P.r > POSTN) { HOST.dropped += P.w - P.r - POSTN; P.r = P.w - POSTN; }
+  while (P.r < P.w) {
+    const j = P.r % POSTN, seq = P.seq[j], at = P.at[j]; P.r++;
+    HOST.msg = { to: 'hosted slot (stand-in)', action: 'randomize-unlocked', seq, firedAtSample: at };
+    HOST.lagMs = (core.sN - at) / core.sr * 1000; HOST.applied++;
+    hostRandomize('trigger', seq, at);
+  }
+}
+function buildHost() {
+  const host = $('hostRows'); if (!host) return;
+  HOST.p.forEach((_, i) => {
+    const row = el('div', 'row lk'), inp = el('input'), out = el('output'), lk = el('input');
+    inp.type = 'range'; inp.min = '0'; inp.max = '1'; inp.step = '0.001';
+    inp.addEventListener('input', () => { HOST.p[i] = parseFloat(inp.value); paintHost(); });
+    lk.type = 'checkbox'; lk.title = 'LOCK: randomize leaves this parameter alone';
+    lk.addEventListener('change', () => { HOST.lock[i] = lk.checked ? 1 : 0; paintHost(); });
+    row.appendChild(el('label', null, 'P' + (i + 1))); row.appendChild(inp); row.appendChild(out); row.appendChild(lk);
+    host.appendChild(row); hostEls.push([inp, out, lk]);
+  });
+  const row = el('div', 'row wide'), bx = el('div', 'pills'), b = el('button', 'pill', 'RANDOMIZE UNLOCKED'), sd = el('input');
+  b.title = 'the module\'s own button: the same action the trigger posts';
+  b.addEventListener('click', () => hostRandomize('button'));
+  sd.type = 'number'; sd.value = String(HOST.seed); sd.title = 'the MODULE\'s seed: HORDE never sees it';
+  sd.addEventListener('input', () => { HOST.seed = (parseInt(sd.value, 10) || 0) | 0; HOST.clicks = 0; });
+  bx.appendChild(b); bx.appendChild(sd); row.appendChild(el('label', null, 'module')); row.appendChild(bx); host.appendChild(row);
+  paintHost();
+}
+function paintHost() {
+  hostEls.forEach(([inp, out, lk], i) => { inp.value = String(HOST.p[i]); inp.style.setProperty('--pct', String(HOST.p[i]));
+    out.textContent = HOST.p[i].toFixed(3); lk.checked = !!HOST.lock[i]; });
+  const m = $('hostMsg');
+  if (m) m.textContent = HOST.msg ? JSON.stringify(HOST.msg) + '\napplied on the main thread ' + HOST.lagMs.toFixed(1)
+    + ' ms after the sample it fired on · ' + HOST.applied + ' posts applied' + (HOST.dropped ? ' · ' + HOST.dropped + ' DROPPED (ring full)' : '')
+    : 'no trigger has posted yet: turn on HOSTED in EVENTS, then play';
+  const u = $('hostUndo');
+  if (u) u.textContent = HOST.undo.length ? HOST.undo.slice(-3).reverse().map(s => JSON.stringify(s)).join('\n') : 'no steps yet';
+}
+
+/* ---- THE ROUND-2 AUDIT -----------------------------------------------------
+   Round 1's rule for the new families: the value a DESTINATION received,
+   captured where the render applies it, is compared sample by sample with an
+   INDEPENDENT twin. For the two simulations the twin is a fresh instance driven
+   through the same calls (so any smoothing, offset, second copy or hidden
+   state in the render path shows, and replay determinism is checked in
+   passing). For MIDI the twin is the stated rules, restated here in a
+   different shape (arrays and filters, not the tracker's typed arrays).
+   L0032: every comparison has a control that MUST fire: the simulation with
+   one constant nudged, the phrase 1 ms late, the lane 100 ms off, and the
+   other trigger mode. Offline at 8 kHz, 3.2 s. Scheduled off the edit path
+   (setTimeout), because it renders the whole core eleven times. */
+function midiRules(evs, cfg, sr, n) {
+  const out = {}; for (const id of MIDI_IDS) out[id] = new Float64Array(n);
+  let held = [], note = 60, vel = 0, rel = 0, k = 0, lastTrig = -1, e = 0;
+  const N = Math.max(2, cfg.orderN | 0);
+  for (let i = 0; i < n; i++) {
+    while (e < evs.length && evs[e][0] <= i) {
+      const [, on, nn, val] = evs[e++];
+      if (on) {
+        const open = held.length > 0;
+        held = held.filter(x => x.note !== nn).concat([{ note: nn, vel: val }]);
+        k = open ? k + 1 : 1; note = nn; vel = val;
+        if (cfg.mode === 0 || !open) lastTrig = i;
+      } else if (held.some(x => x.note === nn)) {
+        held = held.filter(x => x.note !== nn); rel = val;
+        if (held.length) { note = held[held.length - 1].note; vel = held[held.length - 1].vel; }
+      }
+    }
+    out['midi.gate'][i] = held.length ? 1 : 0;
+    out['midi.note'][i] = Math.max(-1, Math.min(1, (note - 60) / 48));
+    out['midi.vel'][i] = vel; out['midi.rel'][i] = rel;
+    out['midi.held'][i] = Math.min(1, held.length / 8);
+    out['midi.order'][i] = k ? ((k - 1) % N) / (N - 1) : 0;
+    out['midi.since'][i] = lastTrig < 0 ? 1 : Math.min(1, (i - lastTrig) / sr / Math.max(1e-3, cfg.sinceT));
+  }
+  return out;
+}
+function auditRound2() {
+  const box = $('audit2'); if (!box) return;
+  try {
+    const sr = 8000, n = Math.round(sr * 3.2);
+    const base = src => { const St = JSON.parse(JSON.stringify(S)); St.law = 0;
+      St.act.on = St.act.on.map(() => 0); St.routes[0] = { src, dest: 0, depth: 0.5 }; St.routes[1].src = 'off'; return St; };
+    const run = (St, evs) => {
+      const c = new ModLabCore(sr, St); c.tapRoute = new Float64Array(n);
+      if (evs) c.evq = evs.slice();
+      const Lb = new Float32Array(256), Rb = new Float32Array(256);
+      for (let i = 0; i < n; i += 256) c.render(Lb, Rb, Math.min(256, n - i));
+      return c;
+    };
+    const maxd = (a, f) => { let m = 0; for (let i = 0; i < n; i++) m = Math.max(m, Math.abs(a[i] - f(i))); return m; };
+    /* KURO — voice 1 at the destination vs a fresh swarm. The control nudges
+       the RATE (× 1.05), not K: at detune 0 with K ≤ 0 the swarm sits on the
+       degenerate equilibrium (ADR-053 amendment), where a K nudge moves
+       nothing, and near K = 0 the coupling is K², so a K nudge barely moves.
+       Both were measured to read 0 against mod-lab's own class (trace). */
+    const Sk = base('kuro.v1'), ck = run(Sk, null);
+    const tw = makeKuro(sr, Sk.kuro, Sk.lfo.pts), tc = makeKuro(sr, Object.assign({}, Sk.kuro, { gRate: Sk.kuro.gRate * 1.05 }), Sk.lfo.pts);
+    const kw = new Float64Array(n), kc = new Float64Array(n);
+    for (let i = 0; i < n; i++) { tw.advance(1); tc.advance(1); kw[i] = tw.lfo[0]; kc[i] = tc.lfo[0]; }
+    const dK = maxd(ck.tapRoute, i => kw[i]), cK = maxd(ck.tapRoute, i => kc[i]);
+    // THE PICTURE vs THE SOUND on the same run: the logged lane vs the tap at the logged sample; control 100 ms off
+    let dP = 0, cP = 0; const A = ck.H2.a, off = Math.round(0.1 * sr);
+    for (let k = 0; k < Math.min(HN, Math.floor(n / HDEC)); k++) {
+      const i = k * HDEC + HDEC - 1;
+      dP = Math.max(dP, Math.abs(A[LN.r0 * HN + k] - ck.tapRoute[i]));
+      cP = Math.max(cP, Math.abs(A[LN.r0 * HN + k] - ck.tapRoute[Math.min(n - 1, i + off)]));
+    }
+    // ORBITAL — body 1 x vs a fresh field; control G × 1.1
+    const So = base('orb.b1.x'), co = run(So, null);
+    const ow = new OrbitalField(sr, So.orb), oc = new OrbitalField(sr, Object.assign({}, So.orb, { G: So.orb.G * 1.1 }));
+    const xw = new Float64Array(n), xc = new Float64Array(n);
+    for (let i = 0; i < n; i++) { ow.advance(); oc.advance(); xw[i] = ow.obs(0, 0); xc[i] = oc.obs(0, 0); }
+    const dO = maxd(co.tapRoute, i => xw[i]), cO = maxd(co.tapRoute, i => xc[i]);
+    // MIDI — each tracker vs the stated rules; control: the phrase 1 ms late
+    const ph = phraseEvents(sr, 0), late = phraseEvents(sr, Math.round(0.001 * sr));
+    const want = midiRules(ph, S.midi, sr, n), wantLate = midiRules(late, S.midi, sr, n);
+    let dM = 0, cM = Infinity;
+    for (const id of MIDI_IDS) {
+      const cm = run(base(id), ph);
+      dM = Math.max(dM, maxd(cm.tapRoute, i => want[id][i]));
+      cM = Math.min(cM, maxd(cm.tapRoute, i => wantLate[id][i]));
+    }
+    // TRIGGER — S&H of the seeded stream: WHERE it steps must be exactly the
+    // mode's trigger samples, and WHAT it holds must be the stream's draws
+    const Se = base('act.sh'); Se.act.on[0] = 1; Se.act.shIn = 'rand';
+    const ce = run(Se, ph), T = ce.tapRoute, seen = [];
+    let prev = 0; for (let i = 0; i < n; i++) if (T[i] !== prev) { seen.push(i); prev = T[i]; }
+    const expect = mode => { const o = [], h = new Set(); for (const [i, on, nn] of ph) { if (on) { if (mode === 0 || h.size === 0) o.push(i); h.add(nn); } else h.delete(nn); } return o; };
+    const same = (a, b) => a.length === b.length && a.every((x, j) => x === b[j]);
+    const mine = expect(S.midi.mode), other = expect(1 - S.midi.mode);
+    const trigOk = same(seen, mine), trigCtl = !same(seen, other);
+    const rs = mulberry32(Se.act.seed | 0); let dS = 0;
+    for (const i of seen) dS = Math.max(dS, Math.abs(T[i] - (rs() * 2 - 1)));
+    const ok = dK === 0 && dO === 0 && dM === 0 && dP === 0 && dS === 0 && trigOk && trigCtl
+      && cK > 1e-3 && cO > 1e-3 && cM > 1e-3 && cP > 1e-3;
+    const e = x => x === 0 ? '0' : x.toExponential(1), c3 = x => x.toFixed(3);
+    box.classList.toggle('bad', !ok);
+    box.innerHTML = 'round-2 audit (offline, ' + sr + ' Hz, ' + n + ' samples, re-run after edits). Destination tap vs an independent twin: '
+      + 'KURO voice 1 max|Δ| <b>' + e(dK) + '</b> (control rate × 1.05: ' + c3(cK) + ') · ORBITAL body 1 x <b>' + e(dO) + '</b> (control G × 1.1: '
+      + c3(cO) + ') · MIDI, 7 trackers vs their stated rules <b>' + e(dM) + '</b> (control, phrase 1 ms late: smallest ' + c3(cM) + ')'
+      + ' · picture lane vs destination tap <b>' + e(dP) + '</b> (control, 100 ms off: ' + c3(cP) + ') · TRIGGER: <b>' + seen.length
+      + '</b> S&amp;H steps, ' + (trigOk ? 'exactly' : '<b>NOT</b>') + ' the phrase\'s ' + ['EVERY', 'FIRST'][S.midi.mode] + ' samples; '
+      + ['EVERY', 'FIRST'][1 - S.midi.mode] + ' would give ' + other.length + ' (' + (trigCtl ? 'control fires' : 'CONTROL DID NOT FIRE') + ')'
+      + ' · held values = the seeded draws, max|Δ| <b>' + e(dS) + '</b>' + (ok ? '' : ' · FAILED');
+  } catch (err) { box.classList.add('bad'); box.textContent = 'round-2 audit threw: ' + String((err && err.message) || err); }
+}
+let audit2T = 0;
+function scheduleAudit2() { if (audit2T) clearTimeout(audit2T); audit2T = setTimeout(() => { audit2T = 0; auditRound2(); }, 150); }
+
 /* ---- audio (the page's job; the core is graph-free) ---- */
 let ac = null, spn = null, blocks = 0;
 function power() {
   if (ac) { if (ac.state === 'suspended') ac.resume(); return; }
   try {
     ac = new (window.AudioContext || window.webkitAudioContext)();
-    core.sr = ac.sampleRate;
+    core.setSr(ac.sampleRate);
     spn = ac.createScriptProcessor(512, 0, 2);
     spn.onaudioprocess = ev => { const L = ev.outputBuffer.getChannelData(0), R = ev.outputBuffer.getChannelData(1);
       core.render(L, R, L.length); blocks++; };
@@ -1260,8 +2405,12 @@ const KEYMAP = { a: 0, w: 1, s: 2, e: 3, d: 4, f: 5, t: 6, g: 7, y: 8, h: 9, u: 
 const BLACK = { 1: 1, 3: 1, 6: 1, 8: 1, 10: 1 };
 const KEYEL = {}, held = {};
 let baseNote = 48, droning = false;
-function press(n) { if (held[n]) return; held[n] = 1; power(); core.noteOn(n); if (KEYEL[n] && KEYEL[n].classList) KEYEL[n].classList.add('on'); }
-function release(n) { if (!held[n]) return; delete held[n]; core.noteOff(n); if (KEYEL[n] && KEYEL[n].classList) KEYEL[n].classList.remove('on'); }
+/* B226: a note carries a velocity and its release a release velocity. The
+   on-screen key's HEIGHT sets them (low on the key = hard); computer keys and
+   the drone use the MIDI card's key vel / key rel. */
+function press(n, vel) { if (held[n]) return; held[n] = 1; power(); core.noteOn(n, vel === undefined ? S.midi.vel : vel); if (KEYEL[n] && KEYEL[n].classList) KEYEL[n].classList.add('on'); }
+function release(n, rel) { if (!held[n]) return; delete held[n]; core.noteOff(n, rel === undefined ? S.midi.rel : rel); if (KEYEL[n] && KEYEL[n].classList) KEYEL[n].classList.remove('on'); }
+function keyFrac(e, k) { const r = k.getBoundingClientRect(); return Math.min(1, Math.max(0, (e.clientY - r.top) / Math.max(1, r.height))); }
 function buildKbd() {
   const host = $('kbd'); if (!host) return;
   host.innerHTML = ''; for (const k in KEYEL) delete KEYEL[k];
@@ -1269,8 +2418,8 @@ function buildKbd() {
     const n = baseNote + i, k = el('div', 'key' + (BLACK[n % 12] ? ' blk' : ''));
     const kc = Object.keys(KEYMAP).filter(c => baseNote + KEYMAP[c] === n)[0];
     k.appendChild(el('span', null, n % 12 === 0 ? 'C' + (Math.floor(n / 12) - 1) : (kc ? kc.toUpperCase() : '')));
-    k.addEventListener('pointerdown', () => press(n));
-    k.addEventListener('pointerup', () => release(n)); k.addEventListener('pointerleave', () => release(n));
+    k.addEventListener('pointerdown', e => press(n, 0.15 + 0.85 * keyFrac(e, k)));
+    k.addEventListener('pointerup', e => release(n, keyFrac(e, k))); k.addEventListener('pointerleave', () => release(n));
     host.appendChild(k); KEYEL[n] = k;
   }
 }
@@ -1296,15 +2445,17 @@ function audioStat() {
   const pk = core.peak; core.peak = 0;
   let nv = 0; for (const v of core.voices) if (!v.done) nv++;
   e.textContent = 'AUDIO: ' + Math.round(ac.sampleRate) + ' Hz · blocks ' + blocks + ' · voices ' + nv + ' · peak ' + pk.toFixed(3)
-    + ' · hearing ' + LAWS[S.law];
+    + ' · hearing ' + LAWS[S.law] + ' · triggers ' + core.trk.fired;
 }
 function frame() {
   paintEditor('lfo'); paintEditor('env'); paintHeard(); paintBeat(); audioStat();
+  drainHost(); paintKuro(); paintOrb(); paintMidi(); midiNow(); paintRoutes(); paintEv();
   if (window.requestAnimationFrame) window.requestAnimationFrame(frame);
 }
 
 /* ============ SETUP: everything above is declared (L0026) ============ */
 buildLfo(); buildEnv(); buildDivs(); buildKbd();
+buildKuro(); buildOrb(); buildMidi(); buildRoutes(); buildActs(); buildHost();
 (() => {
   const lp = $('lawPills');
   if (lp) { const btns = LAWS.map((nm, i) => { const b = el('button', 'pill', nm);
