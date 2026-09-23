@@ -15,7 +15,7 @@ sound, and that the named exemplars still do what their line claims.
 
 ## lead
 
-- **LD - Hyper Lead** — The founding supersaw with the coupling switched on — Pull K is the knob: at 0 it is a detuned stack, at 1 it collapses into one voice.
+- **LD - Hyper Lead** — The founding supersaw with the coupling switched on — Coupling is the knob: at 0 it is a detuned stack, at 1 it collapses into one voice.
 - **LD - Knife Fifth** — Poles q = 2 locks the swarm into two antiphase groups, so the stack sounds a hollow fifth above itself — raise Poles q to hear the split.
 - **LD - Glass Reed** — Saw Base and Roundness round the edge off every voice before they couple — sweep Roundness and the swarm goes from reed to glass.
 - **LD - Hoover** — Wide detune, slow Dissolve and a Drive slot: the swarm is still arguing while the note is loud. Dissolve is the knob — it sets how long the argument lasts.
@@ -23,9 +23,9 @@ sound, and that the named exemplars still do what their line claims.
 
 ## bass
 
-- **BS - Sub Anchor** — Near-total coupling at the bottom of the keyboard: four voices that agree read as one fat sine-ish saw. Drop Pull K and the sub smears.
+- **BS - Sub Anchor** — Near-total coupling at the bottom of the keyboard: four voices that agree read as one fat sine-ish saw. Drop Coupling and the sub smears.
 - **BS - Growl Bass** — A comb in the rack feeds the swarm's own beating back at it — FX1 Tone is the resonance.
-- **BS - Reese** — Two voices, no coupling, wide: the classic beating bass is what this engine does when you tell it NOT to agree. Pull K is the anti-knob here.
+- **BS - Reese** — Two voices, no coupling, wide: the classic beating bass is what this engine does when you tell it NOT to agree. Coupling is the anti-knob here.
 - **BS - Tight Stack** — Fast Dissolve: the swarm locks before the attack transient is over, so the note starts wide and lands narrow. Dissolve is the knob.
 - **BS - Wobble Frame** — Drift Depth walks every voice around its seat while the coupling pulls them back — the wobble is the fight. Drift Depth first.
 
@@ -71,9 +71,9 @@ sound, and that the named exemplars still do what their line claims.
 
 ## demo
 
-- **MISC - Cloud To Lock Sweep** — Pull K, and nothing else. At K 0 sixteen voices ignore each other and the order parameter sits down on its 1/sqrt(n) floor; at K 1 they are one voice inside a second. This is the whole thesis of the instrument in one knob.
+- **MISC - Cloud To Lock Sweep** — Coupling, and nothing else. At Coupling 0 sixteen voices ignore each other and the coherence sits down on its 1/sqrt(n) floor; at Coupling 1 they are one voice inside a second. This is the whole thesis of the instrument in one knob.
 - **MISC - Consonance Gravity Chord** — Gravity on, basin wide. Hold C4 and G4 — your keyboard's fifth is TEMPERED, 1.96 cents narrow of 3/2, and over about a second the two notes pull each other onto the just ratio. Gravity is the knob; at 0 the fifth stays tempered.
-- **MISC - Splay Interference** — Pull K at -1: coupling reversed. The voices REPEL until they sit on an even phase lattice, gap 1/n, and the order parameter falls to zero — a texture you cannot get by detuning. Pull K is the knob; walk it back to 0 and the lattice dissolves.
+- **MISC - Splay Interference** — Coupling at -1: reversed. The voices REPEL until they sit on an even phase lattice, gap 1/n, and the coherence falls to zero — a texture you cannot get by detuning. Coupling is the knob; walk it back to 0 and the lattice dissolves.
 - **MISC - Onset Scatter Ensemble** — Nobody starts together. Onset Scatter spreads the entries over 80 ms and Timing Correction decides whether the players pull back into line. Timing Correction is the knob — at 0 they never converge.
 - **MISC - Tempo Grid Lattice** — Detune Law = tempo grid: the voices are not spread in cents, they are spread on rungs of the host tempo, so the swarm beats IN TIME. Grid Cycles/Beat is the knob.
 
