@@ -3386,25 +3386,64 @@ struct Plugin
          mean writing over a corner the player authored — the destructive
          direction the seed adoption was written to keep closed.
      Exempt members are skipped: they are live-only already.
+
+     THE GRANULARITY IS THE FIELD'S OWN (critic NOTE, PR #732). A group is
+     only a unit where the field treats it as one: quantum picks ONE corner
+     per group lead, and so does blend for a STEPPED slot. Blend computes a
+     CONTINUOUS slot on its own — each cell is its own weighted sum, the lead
+     map is never consulted (morphStep) — so there a slot whose four corners
+     agree adopts the live value even when a sibling in its group disagrees.
+     Applying the group rule in blend would throw away a live routing cell for
+     a disagreement in a DIFFERENT cell, which the field itself never couples.
+     (Quantum keeps the group rule for the reason the group exists: a corner's
+     routing table with one cell swapped for a live value is a topology no
+     corner authored — ADR-175's cycle hazard.) The mode is read at the
+     toggle; a later quantum<->blend switch re-reads the corners as they are.
+
+     "SAME" MEANS SAME AT THE SAVED PRECISION (critic B1, PR #732). The host
+     chunk and every preset write corners %.6g; a corner captured live keeps
+     full precision. After an ordinary save and reopen, a cell nobody morphed
+     can hold 0.123457 in one corner and 0.123456789 in another, and `!=`
+     called that a morph and handed the whole routing block to the field —
+     the human's defect again, through a session reload. So two corner values
+     agree when |a - b| <= 5e-6 * max(|a|, |b|): %.6g keeps six significant
+     digits, so rounding moves a value by at most half a unit in the sixth,
+     which is at most 5e-6 of its magnitude, at every magnitude. A tolerance
+     rather than comparing %.6g TEXT because this runs on the audio thread
+     and snprintf does not belong there; relative rather than the absolute
+     5e-7*max(1,|a|) the review suggested because that bound is too tight
+     above 1 (1234.5678 saves as 1234.57, off by 2.2e-3 > 6.2e-4). Values
+     closer than that are indistinguishable after any save anyway.
+
      REJECTED: clearing `morphCornersAuthored` on loads whose corners agree. It
      would reopen the seed adoption DURING a load, where 151 lands in the
      middle of the queued burst and would adopt half-loaded values.
      Audio thread: compares and writes into vectors morphInit pre-sized. */
+  static bool cornerValuesAgree(double a, double b)
+  {
+    return std::fabs(a - b) <= 5e-6 * std::max(std::fabs(a), std::fabs(b));
+  }
+  bool cornersAgreeAt(size_t i) const
+  {
+    const double v = morphCorner[0][i];
+    return cornerValuesAgree(v, morphCorner[1][i]) && cornerValuesAgree(v, morphCorner[2][i]) &&
+           cornerValuesAgree(v, morphCorner[3][i]);
+  }
   void morphAdoptUncontested()
   {
     const size_t n = morphIds.size();
     if (morphGroupSplit.size() != n) return;   // morphInit sizes it; never allocate here
     std::fill(morphGroupSplit.begin(), morphGroupSplit.end(), 0);
     for (size_t i = 0; i < n; i++)
-    {
-      const double v = morphCorner[0][i];
-      if (morphCorner[1][i] != v || morphCorner[2][i] != v || morphCorner[3][i] != v)
-        morphGroupSplit[morphGroupLead(i)] = 1;
-    }
+      if (!cornersAgreeAt(i)) morphGroupSplit[morphGroupLead(i)] = 1;
+    const bool blend = (int)morphMode == 1;
     for (size_t i = 0; i < n; i++)
     {
-      if (morphGroupSplit[morphGroupLead(i)]) continue;          // the field's
       if (i < morphExempt.size() && morphExempt[i]) continue;    // live-only already
+      const ParamDef *d = findParam(morphIds[i]);
+      const bool perSlot = blend && d && !d->stepped;             // the field's own unit
+      if (perSlot ? !cornersAgreeAt(i) : morphGroupSplit[morphGroupLead(i)] != 0)
+        continue;                                                  // the field's
       const double live = readParam(morphIds[i]);
       for (int k = 0; k < 4; k++) morphCorner[k][i] = live;
     }
@@ -6321,8 +6360,8 @@ struct Plugin
      way to restore. So the flag is true only for the transport that can put it
      back, and it RETIRES the day B193 puts routing in stateJson. (B222: a
      HISTORY snapshot can put it back too — historyJson writes its own
-     `routing` key and applyStateJson applies it when present — so a restore
-     resets the matrix without this flag; a preset still cannot.)
+     `routing` key and applyStateJson reads it on a history restore only — so
+     a restore resets the matrix without this flag; a preset still cannot.)
      DELIBERATELY NOT RESET, and named rather than silently skipped (L0036):
      `ens=` and `lfo=` are RNG STREAM CONTINUATIONS, not patch values — they are
      emitted only once a stream has drawn, precisely so a patch that never ran
@@ -6379,8 +6418,12 @@ struct Plugin
   }
 
   /* `nameFromLoader` is the name of the preset being loaded, or "" to take the
-     patch's own (see the naming block at the end of this function). */
-  bool applyStateJson(const std::string &json, const std::string &nameFromLoader = "")
+     patch's own (see the naming block at the end of this function).
+     `historyRestore` is true ONLY from undoGoTo / undoStep: it is what lets a
+     node's `routing` key be read (B222) without teaching the PRESET door a key
+     and a behaviour nobody has ruled on (critic S4, PR #732). */
+  bool applyStateJson(const std::string &json, const std::string &nameFromLoader = "",
+                      bool historyRestore = false)
   {
     // Tolerant flat scan of our own schema: for each known coreKey, find
     // "key" and parse the number after the colon. Queued to the audio
@@ -6394,12 +6437,16 @@ struct Plugin
        anything?"), and two independent statements of "absent means default"
        is the cheap kind of redundancy. */
     initState(/*chunkOnlyState=*/false);
-    /* B222: a HISTORY snapshot carries the routing matrix (historyJson); a
-       preset does not, and loads exactly as before — without the key the
-       matrix is left alone (`chunkOnlyState` above). Queued with the
+    /* B222: a HISTORY snapshot carries the routing matrix (historyJson), and
+       only a history restore reads it. A preset or GUI load ignores the key
+       even if a file carries one, and leaves the matrix alone exactly as on
+       main (`chunkOnlyState` above): which key a preset would use for routing,
+       and whether a preset load should reset the matrix, is B193's question
+       and the human's ruling, not a side effect of history. Queued with the
        parameters as kind 3, for initState's reason (a direct write while
        process() runs races the audio thread) and B125's (a load's writes are
        not edits, so none of them is routed into a corner). */
+    if (historyRestore)
     {
       const size_t rk = json.find("\"routing\":\"");
       const size_t q0 = rk == std::string::npos ? rk : rk + 11;   // past `"routing":"`
@@ -6603,7 +6650,9 @@ struct Plugin
      alone (B192's `chunkOnlyState`), so a preset without the key would start
      resetting the player's matrix. Both are human gates. A history snapshot is
      main-thread memory that is never persisted, so its format is this
-     function's to choose.
+     function's to choose — and it is READ only by a history restore
+     (applyStateJson's `historyRestore`), so no preset gains the key by
+     accident: a preset carrying `routing` loads exactly as on main.
 
      `routing` is written ALWAYS here, even empty, because a node's promise is
      total: an empty chunk means "the series chain", and a restore must put the
@@ -6738,7 +6787,7 @@ struct Plugin
     undoService();   // the edit in hand becomes a node BEFORE we walk away from it
     if (!undo.liveAt(i)) return false;
     undoRestoring = true;
-    applyStateJson(undo.node(i).json);
+    applyStateJson(undo.node(i).json, "", /*historyRestore=*/true);
     undoRestoring = false;
     undo.restore(i);
     undoPending = false;
@@ -6751,7 +6800,7 @@ struct Plugin
     const int i = dir < 0 ? undo.undo() : undo.redo();
     if (i == hypersaw::UndoTree::kNone) return false;
     undoRestoring = true;
-    applyStateJson(undo.node(i).json);
+    applyStateJson(undo.node(i).json, "", /*historyRestore=*/true);
     undoRestoring = false;
     undoPending = false;
     return true;

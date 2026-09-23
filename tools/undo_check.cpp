@@ -2310,13 +2310,16 @@ PathReport historyPaths(uint32_t seed, const std::vector<std::string> &globals,
        preset door fed the node's own JSON land on the same state and audio.
        Both doors start from one disturbance, so a gap either door shares
        cannot make this row red — it is about the two DOORS, not about what
-       the snapshot holds (the rows above are). */
+       the snapshot holds (the rows above are).
+       ONE DELIBERATE DIFFERENCE (B222 S4): only the restore reads the node's
+       `routing` key; the preset door leaves the matrix alone, as it does on
+       main. So the preset leg starts from the node's own matrix (a restore
+       first, then a disturbance that touches no routing cell), and the two
+       doors are compared on everything else. */
     {
-      const clap_id cell = rids[pick(rids.size())];
       auto disturb = [&]() {
         EvList ev;
         for (clap_id id : kMutable) ev.push(id, 0.444);
-        ev.push(cell, 1.7);
         paramsOf(p)->flush(p, &ev.list, &kOut);
         drain(p);
       };
@@ -2325,6 +2328,8 @@ PathReport historyPaths(uint32_t seed, const std::vector<std::string> &globals,
       drain(p);
       const std::string viaRestore = liveJson(p), chunkR = saveChunk(p);
       settledRender(p, a);
+      undoOp(p, "restore", n);   // the node's matrix, which the preset door keeps
+      drain(p);
       disturb();
       const std::string node = undoOp(p, "json", n);
       hypersaw_debug_apply(p, node.c_str());
@@ -2375,6 +2380,203 @@ void historyPathChecks(uint32_t seed, const std::vector<std::string> &globals,
     check(r.loadBad == 0, tag + ": a restore IS a load (the node's JSON through the preset door "
                                 "lands on the same state and audio)" + r.why(r.loadBad));
   }
+}
+
+/* ---- the critic's rework (PR #732 review) ---- */
+
+/* B1 — CORNERS THAT AGREE AT THE SAVED PRECISION ARE CORNERS THAT AGREE.
+   The critic's probe, run as a row. A host chunk (and a preset) writes corner
+   values %.6g, while a corner captured live keeps full precision; so an
+   ordinary save + reopen leaves corners A and B holding 0.123457 and
+   0.123456789 for a cell the player never morphed. Compared with `!=` that
+   marked the whole routing block as split, and morph-on then played corner
+   A's routing over the player's live edit — the human's defect, back through
+   a session reload. The row is the reopen; its control is the identical
+   sequence without the reopen, which must keep the edit on either build. */
+void savedPrecisionAgreementChecks()
+{
+  const std::vector<clap_id> rids = routingIds();
+  const clap_id X = rids[1], Y = rids[2];
+  bool kept[2] = {false, false}, splitSeen = false;
+  for (int reload = 0; reload < 2; reload++)
+  {
+    const clap_plugin_t *p = makePlugin();
+    p->activate(p, kSampleRate, 32, 1024);
+    p->start_processing(p);
+    Blocks b(p);
+    b.run(2);
+    undoOp(p, "service");
+    const std::string self = saveJson(p);
+    hypersaw_debug_apply(p, self.c_str());   // a load: the corners count as authored
+    b.run(2);
+    {
+      EvList ev;
+      ev.push(X, 0.123456789);
+      b.run(4, &ev);
+    }
+    for (int k = 0; k < 4; k++) hypersaw_debug_capture(p, k);
+    if (reload)
+    {
+      const std::string c = saveChunk(p);
+      p->stop_processing(p);
+      p->deactivate(p);
+      loadChunk(p, c);
+      p->activate(p, kSampleRate, 32, 1024);
+      p->start_processing(p);
+      b.run(4);
+    }
+    hypersaw_debug_capture(p, 1);
+    if (reload)
+      splitSeen = std::string(hypersaw_debug_cornervals(p, 0)) != hypersaw_debug_cornervals(p, 1);
+    {
+      EvList ev;
+      ev.push(Y, 0.5);
+      b.run(4, &ev);
+    }
+    editorMorph(p, b, 1, 40);
+    kept[reload] = valueOf(p, Y) == 0.5;
+    p->stop_processing(p);
+    p->deactivate(p);
+    p->destroy(p);
+  }
+  check(splitSeen, "B1 PRECONDITION: after the reopen, corners A and B differ in their stored "
+                   "digits (0.123457 vs 0.123456789) — the case the row is about exists");
+  check(kept[0], "B1 CONTROL: without the reopen, the routing edit survives morph-on");
+  check(kept[1], "B1: after an ordinary save + reopen, the routing edit STILL survives morph-on "
+                 "(corners equal at the saved %.6g precision agree)");
+}
+
+/* NOTE 4 — THE ADOPTION UNIT IS THE FIELD'S OWN. Corners A and B disagree on
+   routing cell Y and agree on cell X; the player edits X with morph off and
+   switches morph on. In BLEND the field computes each continuous cell on its
+   own, so X — whose corners agree — keeps the edit. In QUANTUM the routing
+   block is one unit (ADR-176 §3): it plays the owning corner whole, X
+   included, which is the stated rule and the must-fire beside the blend row. */
+void adoptionUnitChecks()
+{
+  const std::vector<clap_id> rids = routingIds();
+  const clap_id X = rids[1], Y = rids[2];
+  for (int blend = 0; blend < 2; blend++)
+  {
+    const clap_plugin_t *p = makePlugin();
+    p->activate(p, kSampleRate, 32, 1024);
+    p->start_processing(p);
+    Blocks b(p);
+    b.run(2);
+    const std::string self = saveJson(p);
+    hypersaw_debug_apply(p, self.c_str());
+    b.run(2);
+    const double x0 = valueOf(p, X);
+    auto set = [&](clap_id id, double v) {
+      EvList ev;
+      ev.push(id, v);
+      b.run(4, &ev);
+    };
+    set(157, blend);   // morph mode: 0 quantum, 1 blend
+    set(Y, 0.25);
+    hypersaw_debug_capture(p, 0);
+    set(Y, 1.5);
+    hypersaw_debug_capture(p, 1);
+    set(152, 1.0);     // the puck on corner B
+    set(153, 0.0);
+    set(X, 0.6);
+    editorMorph(p, b, 1, 40);
+    const double x = valueOf(p, X), y = valueOf(p, Y);
+    if (blend)
+      check(x == 0.6 && y == 1.5,
+            "NOTE 4, BLEND: a routing cell whose corners agree keeps its live edit although a "
+            "sibling cell's corners differ (X " + std::to_string(x) + " want 0.6; Y " +
+                std::to_string(y) + " = corner B)");
+    else
+      check(x == x0 && y == 1.5,
+            "NOTE 4, QUANTUM (the stated group rule, and the must-fire): the routing block plays "
+            "corner B whole, so X returns to B's " + std::to_string(x0) + " (got " +
+                std::to_string(x) + ")");
+    p->stop_processing(p);
+    p->deactivate(p);
+    p->destroy(p);
+  }
+}
+
+/* S3 — A MOD-ROUTE DEPTH SURVIVES A HISTORY ROUND TRIP EXACTLY. The route
+   enters through the preset door's `modRoutes` key (the door
+   gen_state_fixtures already uses), with a depth %.6g cannot hold. The node
+   must carry the depth's %.17g text — asserted against the text, not against
+   the node writer's own output, because a writer that rounded would agree
+   with itself (L0032). */
+void modRouteDepthChecks()
+{
+  const clap_plugin_t *p = makePlugin();
+  std::vector<float> scratch;
+  render(p, scratch);
+  drain(p);
+  undoOp(p, "service");
+  loadJson(p, "{\"plugin\":\"HYPERSAW\",\"schema\":3,\"params\":{},\"modRoutes\":\"0:4:0.123456789;\"}");
+  undoOp(p, "service");
+  const int n = undoInt(p, "current");
+  char exact[64];
+  std::snprintf(exact, sizeof exact, "0:4:%.17g;", 0.123456789);
+  const std::string node = undoOp(p, "json", n);
+  check(node.find(exact) != std::string::npos,
+        std::string("S3: the history node holds the route depth EXACTLY (") + exact + ")");
+  loadJson(p, "{\"plugin\":\"HYPERSAW\",\"schema\":3,\"params\":{}}");   // routes cleared
+  undoOp(p, "service");
+  const bool cleared = undoOp(p, "json", undoInt(p, "current")).find(exact) == std::string::npos;
+  undoOp(p, "restore", n);
+  drain(p);
+  check(cleared && liveJson(p) == node,
+        "S3: the depth comes back through a restore (and the load between really cleared it)");
+  p->destroy(p);
+}
+
+/* S4 — A PRESET CANNOT CARRY ROUTING. The `routing` key is the HISTORY
+   snapshot's; the preset door must ignore it exactly as main does, because
+   reading it would decide B193's key name and a preset-load behaviour, both
+   human-gated. The control is the other door: a history restore of a node
+   that holds the matrix DOES move it — so the readout can move. */
+void presetRoutingKeyChecks()
+{
+  const std::vector<clap_id> rids = routingIds();
+  const clap_id cell = rids[1];
+  const clap_plugin_t *p = makePlugin();
+  std::vector<float> scratch;
+  render(p, scratch);
+  drain(p);
+  undoOp(p, "service");
+  {
+    EvList ev;
+    ev.push(cell, 0.7);
+    paramsOf(p)->flush(p, &ev.list, &kOut);
+    drain(p);
+  }
+  const std::string preset = "{\"plugin\":\"HYPERSAW\",\"schema\":3,\"routing\":\"" +
+                             std::to_string(cell) + ":0.25\",\"params\":{}}";
+  hypersaw_debug_apply(p, preset.c_str());
+  drain(p);
+  check(valueOf(p, cell) == 0.7,
+        "S4: a preset carrying a `routing` key, loaded through the preset door, leaves the matrix "
+        "untouched (cell " + std::to_string(valueOf(p, cell)) + ", want 0.7)");
+  undoOp(p, "service");
+  {
+    EvList ev;
+    ev.push(cell, 0.25);
+    paramsOf(p)->flush(p, &ev.list, &kOut);
+    drain(p);
+  }
+  undoOp(p, "mark", 1);
+  undoOp(p, "service");
+  const int n = undoInt(p, "current");
+  {
+    EvList ev;
+    ev.push(cell, 0.7);
+    paramsOf(p)->flush(p, &ev.list, &kOut);
+    drain(p);
+  }
+  undoOp(p, "restore", n);
+  drain(p);
+  check(valueOf(p, cell) == 0.25,
+        "S4 CONTROL: a history restore DOES put the node's matrix back (the readout can move)");
+  p->destroy(p);
 }
 
 /* THE ONE STATE HISTORY STILL DOES NOT RESTORE, PINNED (L0033/L0036), and the
@@ -2509,6 +2711,10 @@ int main(int argc, char **argv)
        the three defects have three different detectors. */
     morphToggleChecks();
     morphOnKeepsPatchChecks();
+    savedPrecisionAgreementChecks();   // B1 (critic, PR #732)
+    adoptionUnitChecks();              // NOTE 4
+    modRouteDepthChecks();             // S3
+    presetRoutingKeyChecks();          // S4
     ensBoundaryEvidence();   // first: it is what licenses the one exemption below
     historyPathChecks(seed, globals, corners);
   }
