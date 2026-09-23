@@ -135,7 +135,7 @@ const std::vector<PresetDef> kBank = {
 
     /* ---- lead ---------------------------------------------------------- */
     {"lead", "LD - Hyper Lead",
-     "The founding supersaw with the coupling switched on — Pull K is the knob: at 0 it is a detuned stack, at 1 it collapses into one voice.",
+     "The founding supersaw with the coupling switched on — Coupling is the knob: at 0 it is a detuned stack, at 1 it collapses into one voice.",
      {{1, 16}, {2, 1}, {4, 0.42}, {6, 0.18}, {8, 0.9}, {14, 1.1}, {17, 0.4}, {19, 0.004},
       {20, 0.35}, {21, 0.85}, {22, 0.25}, {39, 0.6}, {69, 0.18}, {71, 0.15}, {100, 0.9}},
      NO_CORNERS},
@@ -162,7 +162,7 @@ const std::vector<PresetDef> kBank = {
 
     /* ---- bass ---------------------------------------------------------- */
     {"bass", "BS - Sub Anchor",
-     "Near-total coupling at the bottom of the keyboard: four voices that agree read as one fat sine-ish saw. Drop Pull K and the sub smears.",
+     "Near-total coupling at the bottom of the keyboard: four voices that agree read as one fat sine-ish saw. Drop Coupling and the sub smears.",
      {{1, 4}, {4, 0.09}, {6, 0.92}, {8, 0.25}, {14, 0.2}, {19, 0.002}, {20, 0.25}, {21, 0.95},
       {22, 0.12}, {35, -1}, {40, 1}, {41, 140}, {100, 0.95}},
      NO_CORNERS},
@@ -172,7 +172,7 @@ const std::vector<PresetDef> kBank = {
       {22, 0.14}, {35, -1}, {57, 5}, {58, 0.45}, {96, 0.72}, {133, 0.55}, {100, 0.85}},
      NO_CORNERS},
     {"bass", "BS - Reese",
-     "Two voices, no coupling, wide: the classic beating bass is what this engine does when you tell it NOT to agree. Pull K is the anti-knob here.",
+     "Two voices, no coupling, wide: the classic beating bass is what this engine does when you tell it NOT to agree. Coupling is the anti-knob here.",
      {{1, 2}, {4, 0.26}, {6, 0.0}, {8, 4.0}, {14, 1.25}, {19, 0.002}, {20, 0.4}, {21, 0.95},
       {22, 0.18}, {35, -1}, {40, 1}, {100, 0.9}},
      NO_CORNERS},
@@ -328,7 +328,7 @@ const std::vector<PresetDef> kBank = {
 
     /* ---- demo: the coupling laws, each one on its own ------------------- */
     {"demo", "MISC - Cloud To Lock Sweep",
-     "Pull K, and nothing else. At K 0 sixteen voices ignore each other and the order parameter sits down on its 1/sqrt(n) floor; at K 1 they are one voice inside a second. This is the whole thesis of the instrument in one knob.",
+     "Coupling, and nothing else. At Coupling 0 sixteen voices ignore each other and the coherence sits down on its 1/sqrt(n) floor; at Coupling 1 they are one voice inside a second. This is the whole thesis of the instrument in one knob.",
      {{1, 16}, {2, 0}, {4, 0.30}, {6, 0.0}, {8, 0.35}, {14, 1.0}, {17, 0.4}, {19, 0.002},
       {20, 2.0}, {21, 1.0}, {22, 0.3}, {39, 1.0}, {100, 0.85}},
      NO_CORNERS},
@@ -338,7 +338,7 @@ const std::vector<PresetDef> kBank = {
       {20, 3.0}, {21, 1.0}, {22, 0.4}, {33, 0}, {100, 0.85}},
      NO_CORNERS},
     {"demo", "MISC - Splay Interference",
-     "Pull K at -1: coupling reversed. The voices REPEL until they sit on an even phase lattice, gap 1/n, and the order parameter falls to zero — a texture you cannot get by detuning. Pull K is the knob; walk it back to 0 and the lattice dissolves.",
+     "Coupling at -1: reversed. The voices REPEL until they sit on an even phase lattice, gap 1/n, and the coherence falls to zero — a texture you cannot get by detuning. Coupling is the knob; walk it back to 0 and the lattice dissolves.",
      {{1, 16}, {2, 0}, {4, 0.30}, {6, -1.0}, {8, 0.35}, {14, 1.0}, {17, 0.4}, {19, 0.002},
       {20, 2.0}, {21, 1.0}, {22, 0.3}, {39, 1.0}, {100, 0.85}},
      NO_CORNERS},

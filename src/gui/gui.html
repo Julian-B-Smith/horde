@@ -117,7 +117,7 @@
   .togs label { display: flex; align-items: center; gap: 5px; color: var(--dim); font-size: 10px; cursor: pointer; }
   .togs input { accent-color: var(--pull); }
   .togs label.modewarn { color: var(--drift); font-weight: 600; }
-  .togs label.modewarn::after { content: " — K in absolute Hz"; font-weight: 400; }
+  .togs label.modewarn::after { content: " — coupling in absolute Hz"; font-weight: 400; }
   #statebox {
     display: none; width: 100%; height: 70px; margin-top: 8px; background: var(--panel2);
     color: var(--text); border: 1px solid var(--line); font-family: var(--mono-f); font-size: 9px;
@@ -146,9 +146,9 @@
     <canvas id="phaseCanvas" width="256" height="256"></canvas>
     <div class="rmeter">
       <div class="bar"><div class="fill" id="rfill"></div></div>
-      <div class="lbl"><span>R₁ sync (clump) <b id="rval">0.00</b></span><span>pull <b id="kval">0.0</b> Hz · σ <b id="sval">0.0</b> Hz</span></div>
+      <div class="lbl"><span>Coherence sync (clump) <b id="rval">0.00</b></span><span>pull <b id="kval">0.0</b> Hz · σ <b id="sval">0.0</b> Hz</span></div>
       <div class="bar" style="margin-top:5px"><div class="fill amber" id="rnfill"></div></div>
-      <div class="lbl"><span>Rₙ splay (formation) <b id="rnval">0.00</b></span><span id="dynval"></span></div>
+      <div class="lbl"><span>Coherence splay (formation) <b id="rnval">0.00</b></span><span id="dynval"></span></div>
       <div class="lbl" id="gravline" style="height:18px;overflow:hidden"></div>
       <div class="lbl" id="beatinfo" style="height:34px;overflow:hidden;color:var(--drift)"></div>
     </div>
@@ -182,7 +182,7 @@
 <div class="grid">
   <div class="controls">
     <div class="cluster">
-      <h2 id="xyLabel">XY · x=detune y=pull K</h2>
+      <h2 id="xyLabel">XY · x=detune y=coupling</h2>
       <canvas id="xyPad" width="256" height="150"></canvas>
       <textarea id="statebox" spellcheck="false" placeholder='paste state JSON here, then PASTE STATE'></textarea>
     </div>
@@ -267,7 +267,7 @@
 
     <div class="cluster pull">
       <h2>The coupling</h2>
-      <div class="row"><label>pull K</label><input type="range" data-p="6" min="-1" max="1" step="0.001"><output>0.00</output></div>
+      <div class="row"><label>coupling</label><input type="range" data-p="6" min="-1" max="1" step="0.001"><output>0.00</output></div>
       <div class="row"><label>onset lock</label><input type="range" data-p="7" min="-1" max="1" step="0.001"><output>0.00</output></div>
       <div class="row"><label>dissolve</label><input type="range" data-p="8" min="-1.3" max="0.9" step="0.01" data-log10="1"><output>0.63s</output></div>
       <div class="row"><label>inertia</label><input type="range" data-p="11" min="0" max="1" step="0.01"><output>0.00</output></div>
@@ -297,7 +297,7 @@
       <div class="row"><label>gravity</label><input type="range" data-p="29" min="0" max="1" step="0.01"><output>0.00</output></div>
       <div class="row"><label>basin</label><input type="range" data-p="30" min="10" max="50" step="1"><output>35c</output></div>
       <div class="togs">
-        <label id="abskLabel"><input type="checkbox" data-p="31"> absolute K</label>
+        <label id="abskLabel"><input type="checkbox" data-p="31"> absolute coupling</label>
       </div>
     </div>
 
@@ -383,7 +383,7 @@
 
     <div class="cluster">
       <h2>Output &amp; perception</h2>
-      <div class="row"><label>R→tone</label><input type="range" data-p="12" min="-1" max="1" step="0.01"><output>0.00</output></div>
+      <div class="row"><label>coherence→tone</label><input type="range" data-p="12" min="-1" max="1" step="0.01"><output>0.00</output></div>
       <div class="row"><label>density comp</label><input type="range" data-p="13" min="0.5" max="1" step="0.01"><output>0.75</output></div>
       <div class="row"><label>width</label><input type="range" data-p="14" min="0" max="1.5" step="0.01"><output>0.80</output></div>
       <div class="row"><label>pan scatter</label><input type="range" data-p="42" min="0" max="1" step="0.01"><output>0%</output></div>
@@ -802,7 +802,7 @@ function applyGates() {
   // XY x-axis follows the engine: cascade in SPECTRA, detune in SAW. Reload the
   // crosshair from the live value (applyGates runs on poll, never mid-drag).
   const xl = $('#xyLabel');
-  if (xl) xl.textContent = spectraOn ? 'XY · x=cascade y=pull K' : 'XY · x=detune y=pull K';
+  if (xl) xl.textContent = spectraOn ? 'XY · x=cascade y=coupling' : 'XY · x=detune y=coupling';
   if (!xyDown) { const xv = lastParams[effId(xAxisId())]; if (xv !== undefined) { curDetune = xv; xyDirty = true; } }
   for (const id of SPECTRA_ONLY) {
     const el = document.querySelector(`[data-p="${id}"]`);
@@ -990,7 +990,7 @@ function drawPhase(s) {
   const RATIO_NAMES = ['1/1','16/15','9/8','6/5','5/4','4/3','7/5','3/2','8/5','5/3','16/9','15/8','2/1'];
   let dyn = '';
   if (s.topo === 2) dyn = 'A ' + s.RA.toFixed(2) + ' / B ' + s.RB.toFixed(2);
-  else if (s.poles > 1) dyn = 'R' + s.poles + ' ' + s.RQ.toFixed(2);
+  else if (s.poles > 1) dyn = 'Coh' + s.poles + ' ' + s.RQ.toFixed(2);
   $('#dynval').textContent = dyn;
   // gravity: captured pairs (ratio name, octave fold, live cents)
   $('#gravline').textContent = (s.grav && s.grav.length)
@@ -1000,7 +1000,7 @@ function drawPhase(s) {
   // fixed-height line so the warning cannot reflow the layout
   $('#beatinfo').textContent = s.gridActive
     ? ('grid ' + s.gridU.toFixed(2) + ' Hz · ' + s.gridRungs + ' rung' + (s.gridRungs === 1 ? ' — raise detune to populate' : 's')
-       + (s.gridLockWarn ? ' · ⚠ swarm locked — lower K to hear the grid' : ''))
+       + (s.gridLockWarn ? ' · ⚠ swarm locked — lower coupling to hear the grid' : ''))
     : '';
 }
 

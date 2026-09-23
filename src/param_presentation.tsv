@@ -80,8 +80,8 @@ osc1.detune	osc1	Detune	OSC	The swarm	knob		the-swarm
 osc2.detune	osc2	Detune	OSC	The swarm	knob		the-swarm			
 osc1.law	osc1	Detune Law	OSC	The swarm	select		the-swarm			
 osc2.law	osc2	Detune Law	OSC	The swarm	select		the-swarm			
-osc1.K	osc1	Pull K	OSC	The coupling	knob		the-coupling			
-osc2.K	osc2	Pull K	OSC	The coupling	knob		the-coupling			
+osc1.K	osc1	Coupling	OSC	The coupling	knob		the-coupling
+osc2.K	osc2	Coupling	OSC	The coupling	knob		the-coupling
 osc1.onset	osc1	Onset Lock	OSC	The coupling	knob		the-coupling			
 osc2.onset	osc2	Onset Lock	OSC	The coupling	knob		the-coupling			
 osc1.dissolve	osc1	Dissolve (s)	OSC	The coupling	knob		the-coupling		log10	
@@ -91,8 +91,8 @@ osc2.driftDepth	osc2	Drift Depth (c)	OSC	Drift	knob		drift
 osc1.driftRate	osc1	Drift Rate	OSC	Drift	knob		drift			
 osc2.driftRate	osc2	Drift Rate	OSC	Drift	knob		drift			
 inertia	global	Inertia	OSC	The coupling	knob		the-coupling			
-osc1.rtone	osc1	R->Tone	OSC	Image & tone	knob		image-tone			
-osc2.rtone	osc2	R->Tone	OSC	Image & tone	knob		image-tone			
+osc1.rtone	osc1	Coherence → Tone	OSC	Image & tone	knob		image-tone
+osc2.rtone	osc2	Coherence → Tone	OSC	Image & tone	knob		image-tone
 osc1.normExp	osc1	Density Comp	OSC	Image & tone	knob		image-tone			
 osc2.normExp	osc2	Density Comp	OSC	Image & tone	knob		image-tone			
 osc1.width	osc1	Width	OSC	Image & tone	knob		image-tone			
@@ -128,8 +128,8 @@ osc1.grav	osc1	Gravity	OSC	Dynamics	knob		dynamics
 osc2.grav	osc2	Gravity	OSC	Dynamics	knob		dynamics			
 osc1.basin	osc1	Basin (c)	OSC	Dynamics	knob		dynamics			
 osc2.basin	osc2	Basin (c)	OSC	Dynamics	knob		dynamics			
-osc1.absK	osc1	Absolute K	OSC	Dynamics	toggle		dynamics			
-osc2.absK	osc2	Absolute K	OSC	Dynamics	toggle		dynamics			
+osc1.absK	osc1	Absolute Coupling	OSC	Dynamics	toggle		dynamics
+osc2.absK	osc2	Absolute Coupling	OSC	Dynamics	toggle		dynamics
 voiceMono	global	Mono	MAIN	Bend	toggle		voice			
 glide	global	Note Lag	MAIN	Bend	knob	s	bend	noteLawLink=0,noteLaw=3	log10	noteLawLink=0,noteLaw=3
 voiceLegato	global	Legato	MAIN	Bend	toggle		voice			

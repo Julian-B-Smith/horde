@@ -183,14 +183,14 @@ static const ParamDef kParams[] = {
        0.28 / 0 are the lab-authored defaults the cores already carry. */
     {4, "detune", "Detune", 0, 1, 0.28, false, nullptr},
     {5, "law", "Detune Law", 0, 5, 0, true, kLawLabels},
-    {6, "K", "Pull K", -1, 1, 0, false, nullptr},   // ADR-156: the lab default, see detune
+    {6, "K", "Coupling", -1, 1, 0, false, nullptr},   // ADR-156: the lab default, see detune
     {7, "onset", "Onset Lock", -1, 1, 0, false, nullptr},  // ADR-056: bipolar (<0 = splay onset)
     {8, "dissolve", "Dissolve (s)", 0.05, 7.94, 0.63, false, nullptr},
     {9, "driftDepth", "Drift Depth (c)", 0, 100, 0, false, nullptr},  // widened from the
     // prototype's 25c at human request (ADR-020); core takes any cents value
     {10, "driftRate", "Drift Rate", 0, 1, 0.4, false, nullptr},
     {11, "inertia", "Inertia", 0, 1, 0, false, nullptr},
-    {12, "rtone", "R->Tone", -1, 1, 0, false, nullptr},
+    {12, "rtone", "Coherence -> Tone", -1, 1, 0, false, nullptr},
     {13, "normExp", "Density Comp", 0.5, 1, 0.75, false, nullptr},
     {14, "width", "Width", 0, 1.5, 0.8, false, nullptr},  // >1 = super-width (ADR-025)
     {15, "mono", "Mono Fold", 0, 1, 0, true, kOffOn},
@@ -212,7 +212,7 @@ static const ParamDef kParams[] = {
     {28, "poles", "Poles q", 1, 4, 1, true, kPolesLabels},
     {29, "grav", "Gravity", 0, 1, 0, false, nullptr},
     {30, "basin", "Basin (c)", 10, 50, 35, false, nullptr},
-    {31, "absK", "Absolute K", 0, 1, 0, true, kOffOn},
+    {31, "absK", "Absolute Coupling", 0, 1, 0, true, kOffOn},
     // Voice mode (ADR-026): mono/glide/legato are SHELL note-routing plus the
     // core's glide param; octave is a pure shell transpose.
     {32, "voiceMono", "Mono", 0, 1, 0, true, kOffOn},
