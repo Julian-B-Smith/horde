@@ -2,7 +2,7 @@
 """compact_lab_table_check — the compact lab's embedded parameter table still
 matches src/param_presentation.tsv.
 
-UNWIRED: an implementer dispatch may not edit ./verify (implementer charter); the lead wires it — one line in fast(): python3 tools/compact_lab_table_check.py || ok=1
+WIRED: ./verify fast (wired by the lead in the same PR, 2026-09-23 — the implementer charter's 'never edit ./verify' predated ADR-180 §1 and is corrected).
 
 WHY. docs/design/compact-lab.html (B212, B227) embeds a generated COPY of the
 presentation table joined to the shell's ranges (`const PT = [...]`), because a
