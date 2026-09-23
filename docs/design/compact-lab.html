@@ -1,0 +1,2038 @@
+<!doctype html>
+<!-- compact-lab — B212: the compact horde interface, and the decisions it needs.
+     HYPERSAW, 2026-09-22. A DESIGN LAB, not a port: nothing here is wired to the
+     shell, and nothing in src/ reads this file.
+
+     WHAT THE HUMAN ASKED (2026-09-22, verbatim): "While I want all or most of the
+     currently exposed parameters available to advanced users and sound
+     designers, I want to hide them behind a simplified interface that exposes
+     the most important controls. This will require some decisions to be made".
+     So the page has two jobs: show competing compact faces at plugin size, and
+     put each of the six decisions (B212) on the table as a CHOICE with a
+     recommendation, never settled silently by the layout.
+
+     WHAT IS REAL. Every control is keyed by the parameter ADDRESS used in
+     src/param_presentation.tsv, and the PT table below is that file joined to
+     the shell's kParams ranges (src/hypersaw_clap.cpp:175-775, 1239-1307),
+     generated at commit fb64f70 — labels, pages, groups, widgets, ranges,
+     defaults, enum captions, shown_when and log10 tapers, all 368 rows. A
+     generated COPY, therefore able to drift: if the table or the ranges move,
+     regenerate rather than hand-edit (the script was a scratch join of the two
+     files; the trace records how). The intent names are the shell's defaults
+     (hypersaw_clap.cpp:4152, ADR-176 Amendment 3).
+
+     WHAT IS INVENTED. The three presets (their values, routes, corners, pins
+     and names) are lab content chosen to exercise the decisions. The lab's
+     morph is a bilinear BLEND; the shell's default mode is quantum (flip)
+     (kMorphModeLabels), which gives each parameter one owning corner. Both move
+     values while you are not looking, which is the one property decision 5
+     needs, so the lab does not model the flip field. An edit to a morphed
+     parameter lands on the dominant corner (the shell's morphArm default is
+     "live (owning corner)"); the lab does not model arming.
+
+     THE INVARIANT (decision 6) IS THE ARCHITECTURE OF THIS FILE. There is ONE
+     store keyed by table address. Every view (three compact faces, the full
+     surface, the drawer) reads and writes it through put(); history, the host's
+     automation lanes and the preset snapshot are all fed from put() and from
+     nothing else. A compact control holds an address, never a value. The page
+     audits that at load (every face address must be a table address) and
+     CALIBRATES the audit with a planted shadow control that must be caught
+     (L0032: a check that cannot fail proves nothing).
+
+     TOKENS ARE COPIED, NOT LINKED — the :root block is gui2's (src/gui/gui2.html
+     :26-104 light, :142-144 ORCHID, :167-185 legibility, :186-212 dark), taken
+     through docs/design/station-page-lab.html, which copied it verbatim. The
+     knob skin is gui2's §4 knob (:617-730, ADR-120) and its mod halo is ADR-137
+     (:632-648): the knob holds the BASE; modulation is a violet reach arc plus
+     a live tick, never a moving knob.
+
+     L0026 / L0041: all state is declared in BLOCK A above all wiring; helpers
+     that are reached before their neighbours are `function` declarations. No
+     Math.random (mulberry32 only); lab time is a frame counter, not a clock. -->
+<html><head><meta charset="utf-8">
+<meta name="lab-review" content="B212 · 2026-09-22">
+<title>compact lab — the simplified horde face, and the six decisions it needs</title>
+<style>
+  /* ============ TOKENS — gui2's, verbatim (see the header) ============ */
+  :root {
+    --bg:#F2EDE2; --panel:#FCFAF4; --well:#FFFFFF; --panel2:#E9E3D4;
+    --line:#191521; --hair:#E5DFD0; --div:#D8D1C0;
+    --text:#191521; --t2:#494356; --dim:#9A93A3; --dis:#B6AFA0;
+    --value:#F5169C; --pull:#F5169C; --physics:#6431F0; --meter:#00D5C8;
+    --marker:#FFD702; --celebrate:#A6F219;
+    --caution:#F5A300; --caution-bg:#FBE9BD; --caution-tx:#6D570B;
+    --amber:#F5A300; --alarm:#C2261A; --ghost:#C9C2FF;
+    --cA:#FFD702; --cAtx:#D4A900; --cB:#FF2E88; --cBtx:#FF2E88;
+    --cC:#00D5C8; --cCtx:#00B3A8; --cD:#A6F219; --cDtx:#6FB200;
+    --text-hi:#191521; --dim2:#494356; --grid:#E5DFD0; --grid2:#E5DFD0;
+    --hot:#F5169C; --bad:#C2261A; --badge-bg:rgba(245,163,0,.9);
+    --scr-tube:#1B0733; --scr-value:#FF5ECF; --scr-meter:#B8F227;
+    --scr-physics:#B48CFF; --scr-marker:#FFB86B; --scr-grid:#4FD8BE;
+    --scr-scan:0.22; --scr-alpha:1;
+    --r-card:10px; --r-well:var(--r-card); --r:var(--r-card); --stroke:1.5px;
+    --shadow:1.5px 1.5px 0 var(--line);
+    --shadow-hover:2.5px 2.5px 0 var(--line);
+    --focus:0 0 0 2.5px rgba(245,22,156,.45); }
+  * { box-sizing:border-box; margin:0; }
+  canvas { border:var(--stroke) solid var(--line); border-radius:var(--r-well);
+           background:var(--scr-tube); display:block; }
+  body:not(.dark) { --scr-tube:#F3EBFF; --scr-value:#D6006B; --scr-meter:#007A73;
+    --scr-physics:#6E14E8; --scr-marker:#C43A00; --scr-grid:#5A3FA8;
+    --scr-scan:0.05; --scr-alpha:1.6;
+    --marker:#8A6A00; --celebrate:#4E7A00; }
+  body.dark {
+    --bg:#151220; --panel:#1F1B2E; --well:#0E0C16; --panel2:#2C2740;
+    --line:#EFE9FA; --hair:#312B47; --div:#3B3455;
+    --text:#EFE9FA; --t2:#BDB4D4; --dim:#8A82A3; --dis:#514A6B;
+    --value:#FF3DAD; --pull:#FF3DAD; --physics:#A07CFF; --meter:#2DF2E2;
+    --marker:#FFE04D; --celebrate:#C2F53E;
+    --caution:#FFB627; --caution-bg:#4A3A12; --caution-tx:#FFD98A;
+    --amber:#FFB627; --alarm:#FF5A4D; --ghost:#5B4E8F;
+    --cA:#FFD702; --cAtx:#FFE566; --cB:#FF2E88; --cBtx:#FF6FAE;
+    --cC:#00D5C8; --cCtx:#4DEDE3; --cD:#A6F219; --cDtx:#C6F86A;
+    --text-hi:#FFFFFF; --dim2:#9A93A8; --grid:#312B47; --grid2:#312B47;
+    --hot:#FF3DAD; --bad:#FF5A4D; --badge-bg:rgba(255,182,39,.9);
+    --focus:0 0 0 2.5px rgba(255,61,173,.45); }
+
+  /* ============ CHROME — the station lab's page idiom (gui2's declarations) ============ */
+  body { background:var(--bg); color:var(--text);
+    font:12px/1.45 ui-monospace,Menlo,monospace; padding:10px 12px 40px; }
+  .hdr { display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; margin-bottom:8px; }
+  h1 { font-size:34px; line-height:1; letter-spacing:-1px; font-weight:800; }
+  .badges { display:flex; align-items:center; gap:8px; margin-top:4px; }
+  .badge { font-size:9.5px; letter-spacing:.1em; padding:2px 7px;
+           border:var(--stroke) solid var(--line); border-radius:3px;
+           background:var(--cA); color:var(--line); }
+  /* station-page-lab:146 — the corner hues do not invert but ink does, so the
+     yellow badge needs the dark ground token for its text on the dark chassis */
+  body.dark .badge { color:var(--bg); }
+  .sub { color:var(--t2); font-size:10.5px; letter-spacing:.12em; }
+  .hdrctl { display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-left:auto; }
+  .grp { display:flex; align-items:center; gap:7px; }
+  .lbl { font-size:10px; font-weight:700; letter-spacing:.1em; color:var(--t2); }
+  .pill { padding:3px 10px; border:var(--stroke) solid var(--line);
+    border-radius:999px; min-height:26px; cursor:pointer; color:var(--dim);
+    background:var(--panel); font:inherit; font-size:10px; letter-spacing:.06em; }
+  .pill:hover { box-shadow:var(--shadow); }
+  .pill.on { color:var(--bg); background:var(--line); font-weight:600; }
+  .pills { display:flex; gap:4px; flex-wrap:wrap; align-items:center; }
+  .chip { padding:4px 8px; border:0; background:none; border-radius:var(--r);
+    cursor:pointer; font:inherit; font-size:10px; letter-spacing:.06em;
+    color:var(--dim); min-height:26px; }
+  .chip:hover { background:var(--panel2); }
+  .chip b { color:var(--t2); font-weight:600; letter-spacing:.1em; }
+  .tagline { color:var(--t2); font-size:11px; max-width:118ch; margin-bottom:6px; }
+  .tagline b { color:var(--text); }
+  .audit { font-size:10px; color:var(--t2); margin-bottom:10px;
+           border-left:3px solid var(--meter); padding-left:8px; max-width:150ch; }
+  .audit.bad { border-left-color:var(--alarm); color:var(--alarm); }
+  .audit b { color:var(--text); }
+  .cluster { background:var(--panel); border:var(--stroke) solid var(--line);
+    border-radius:var(--r); padding:8px 10px; min-width:0; }
+  h2 { font-size:11px; color:var(--pull); letter-spacing:1px; margin-bottom:6px; }
+  .note { color:var(--t2); font-size:10px; line-height:1.5; margin-top:6px; }
+  .note b { color:var(--text); }
+  .cap { font-size:9px; letter-spacing:.12em; color:var(--dim); margin:6px 0 3px; }
+  code { font-size:.95em; color:var(--text); }
+  /* the one caution surface — amber is "look at this before you trust it" */
+  .caution { background:var(--caution-bg); color:var(--caution-tx);
+    border:var(--stroke) solid var(--caution); border-radius:var(--r);
+    padding:4px 8px; font-size:10px; line-height:1.4; }
+
+  /* ============ ROWS + NATIVE WIDGETS — gui2:517, :490-560 ============ */
+  .row { display:grid; grid-template-columns:86px minmax(0,1fr) 50px;
+    align-items:center; gap:6px; margin:4px 0; }
+  .row label { color:var(--t2); font-size:10px; overflow:hidden;
+    text-overflow:ellipsis; white-space:nowrap; }
+  .row output { font-size:10px; text-align:right; color:var(--text);
+    font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden; }
+  .row.ghost > * { opacity:.5; }
+  /* focus from a jump ("open in full", a strip chip): attention is the MARKER's
+     job (gui2 token comment: "attention: root, overshoot, lock front") */
+  .row.focus { outline:2px solid var(--marker); outline-offset:2px; border-radius:4px; }
+  input[type=range] { -webkit-appearance:none; appearance:none; width:100%; min-width:0;
+    height:22px; background:transparent; cursor:pointer; }
+  input[type=range]::-webkit-slider-runnable-track {
+    height:6px; border-radius:3px; border:var(--stroke) solid var(--line);
+    background:linear-gradient(to right,
+      var(--value) 0 calc(var(--pct, 0) * 100%),
+      var(--panel2) calc(var(--pct, 0) * 100%) 100%); }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; appearance:none;
+    width:13px; height:13px; border-radius:4px; margin-top:-3.5px;
+    background:var(--panel); border:var(--stroke) solid var(--line); box-shadow:var(--shadow); }
+  input[type=range]:active::-webkit-slider-thumb { background:var(--value); box-shadow:none; }
+  input[type=checkbox] { -webkit-appearance:none; appearance:none; margin:0;
+    width:32px; height:17px; border-radius:999px; cursor:pointer;
+    background:var(--panel2); border:var(--stroke) solid var(--line); position:relative; }
+  input[type=checkbox]::after { content:''; position:absolute; top:1px; left:1px;
+    width:11px; height:11px; border-radius:999px;
+    background:var(--panel); border:var(--stroke) solid var(--line); transition:transform .12s ease; }
+  input[type=checkbox]:checked { background:var(--value); }
+  input[type=checkbox]:checked::after { transform:translateX(15px); }
+  select { -webkit-appearance:none; appearance:none;
+    font:inherit; font-size:10px; padding:3px 18px 3px 9px; min-width:0; width:100%;
+    border-radius:999px; border:var(--stroke) solid var(--line);
+    background:var(--panel); color:var(--t2); cursor:pointer; min-height:24px;
+    background-image:linear-gradient(45deg,transparent 50%,var(--t2) 50%),
+                     linear-gradient(135deg,var(--t2) 50%,transparent 50%);
+    background-position:calc(100% - 11px) 50%, calc(100% - 7px) 50%;
+    background-size:4px 4px, 4px 4px; background-repeat:no-repeat; }
+
+  /* ============ §4 KNOB — gui2:617-730 (ADR-120 skin, ADR-137 halo) ============ */
+  .knob { position:relative; width:36px; height:36px; flex:0 0 auto; cursor:ns-resize;
+          touch-action:none; }
+  .karc { position:absolute; inset:1.7px; border-radius:50%;
+    background:conic-gradient(from 220deg,
+      var(--panel2) 0deg var(--a0,0deg), var(--value) var(--a0,0deg) var(--a1,0deg),
+      var(--panel2) var(--a1,0deg) 280deg, transparent 280deg 360deg); }
+  .kmod { position:absolute; inset:0; border-radius:50%;
+    background:conic-gradient(from 220deg,
+      transparent 0deg var(--m0,0deg), var(--physics) var(--m0,0deg) var(--m1,0deg),
+      transparent var(--m1,0deg) 360deg); opacity:.85; }
+  .kmnow { position:absolute; left:50%; top:0; width:2.5px; height:5px;
+    margin-left:-1.25px; border-radius:1.25px; background:var(--physics);
+    transform-origin:50% 18px; transform:rotate(var(--mang,0deg)); opacity:0; z-index:2; }
+  .knob.mod .kmnow { opacity:1; }
+  .kcap { position:absolute; inset:4.5px; border-radius:50%;
+    background:var(--panel); border:var(--stroke) solid var(--line); box-shadow:var(--shadow); }
+  .kptr { position:absolute; left:50%; top:7px; width:2.5px; height:9px;
+    margin-left:-1.25px; border-radius:1.5px; background:var(--line);
+    transform-origin:50% 11px; transform:rotate(var(--ang,0deg)); }
+  .knob:hover .kcap { box-shadow:var(--shadow-hover); }
+  .knob.drag .kcap { background:var(--value); box-shadow:none; }
+  .knob.drag .kptr { background:var(--bg); }
+  /* the macro face's larger knob: same skin, the two rotation origins moved to
+     the new centre (24px) so the pointer and the live tick still pivot on it */
+  .knob.big { width:48px; height:48px; }
+  .knob.big .kcap { inset:5.5px; }
+  .knob.big .kptr { top:8px; height:11px; transform-origin:50% 16px; }
+  .knob.big .kmnow { transform-origin:50% 24px; }
+  .kcell { position:relative; display:flex; flex-direction:column; align-items:center;
+    gap:1px; padding:2px 0 0; text-align:center; width:52px; min-width:0; }
+  .kcell.big { width:94px; }
+  .kcell > label { font-size:9.5px; line-height:1.15; max-width:100%; color:var(--t2);
+    letter-spacing:-.01em; display:-webkit-box; -webkit-box-orient:vertical;
+    -webkit-line-clamp:2; overflow:hidden; overflow-wrap:break-word; min-height:2.3em; }
+  .kcell.big > label { font-size:11px; font-weight:700; color:var(--text); min-height:1.3em; }
+  .kcell > output { position:absolute; left:0; right:0; top:2px; min-height:2.3em;
+    display:flex; align-items:center; justify-content:center; font-size:10px;
+    line-height:1.15; color:var(--text); font-weight:600;
+    font-variant-numeric:tabular-nums; opacity:0; pointer-events:none; transition:opacity .08s; }
+  .kcell:hover > output, .kcell:has(.knob.drag) > output { opacity:1; }
+  .kcell:hover > label, .kcell:has(.knob.drag) > label { opacity:0; }
+  /* gui2:698 — a morph-owned cell wears its owning corner's stripe on top */
+  .kcell.owned { border-top:3px solid var(--own); padding-top:0; }
+  .kcell.ghost > .knob { opacity:.45; }
+  .kcell.ghost > label { color:var(--dim); }
+  .kcell .tg { font-size:9px; color:var(--dim); line-height:1.2; margin-top:1px; }
+  .kcell .tg.bound { color:var(--t2); }
+  .kcell.tcell input[type=checkbox] { margin:9px 0 10px; }
+
+  /* ============ THE PLUGIN WINDOW MOCK ============ */
+  .frames { display:flex; gap:14px; flex-wrap:wrap; align-items:flex-start; }
+  .fcap { display:flex; align-items:baseline; gap:8px; margin:0 0 5px; max-width:var(--ww); }
+  .fcap b { font-size:12px; letter-spacing:.06em; }
+  .fcap span { color:var(--t2); font-size:10px; }
+  .fcap .rec { font-size:9px; letter-spacing:.1em; padding:1px 6px; border-radius:3px;
+    border:var(--stroke) solid var(--line); background:var(--value); color:var(--bg); }
+  .fcap .rec.alt { background:var(--panel); color:var(--t2); }
+  .win { width:var(--ww); height:var(--wh); position:relative; background:var(--bg);
+    border:var(--stroke) solid var(--line); border-radius:var(--r);
+    box-shadow:var(--shadow); overflow:hidden; display:flex; flex-direction:column; }
+  .win.picked { outline:3px solid var(--marker); outline-offset:3px; }
+  .wbar { flex:0 0 34px; display:flex; align-items:center; gap:8px; padding:0 8px;
+    border-bottom:var(--stroke) solid var(--line); background:var(--panel); }
+  .wmark { font-weight:800; font-size:16px; letter-spacing:-.6px; }
+  .wpre { flex:0 1 auto; min-width:0; border:var(--stroke) solid var(--line); border-radius:999px;
+    padding:2px 10px; font-size:10px; color:var(--text); background:var(--well);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .wpre i { font-style:normal; color:var(--dim); }
+  .wsize { font-size:9px; color:var(--dim); letter-spacing:.08em; margin-left:auto; }
+  .seg { display:flex; border:var(--stroke) solid var(--line); border-radius:999px; overflow:hidden; }
+  .seg button { font:inherit; font-size:9.5px; letter-spacing:.08em; padding:3px 9px;
+    border:0; background:var(--panel); color:var(--dim); cursor:pointer; }
+  .seg button + button { border-left:var(--stroke) solid var(--line); }
+  .seg button.on { background:var(--line); color:var(--bg); font-weight:600; }
+  .wbody { flex:1 1 auto; min-height:0; overflow:auto; padding:8px; position:relative; }
+  .wstrip { flex:0 0 28px; display:flex; align-items:center; gap:5px; padding:0 8px;
+    border-top:var(--stroke) solid var(--line); background:var(--panel); overflow-x:auto;
+    overflow-y:hidden; white-space:nowrap; scrollbar-width:thin; }
+  .wstrip .sl { font-size:8.5px; letter-spacing:.12em; color:var(--dim); flex:0 0 auto; }
+  .mv { display:inline-flex; align-items:center; gap:4px; flex:0 0 auto;
+    border:var(--stroke) solid var(--line); border-radius:999px; background:var(--panel);
+    padding:1px 7px 1px 3px; font:inherit; font-size:9.5px; color:var(--text); cursor:pointer;
+    min-height:20px; }
+  .mv:hover { box-shadow:var(--shadow); }
+  .mv i { font-style:normal; font-size:8px; font-weight:700; line-height:12px; min-width:14px;
+    height:14px; border-radius:7px; text-align:center; color:var(--bg); background:var(--physics);
+    border:1px solid var(--line); }
+  .mv i.corner { color:#191521; }
+  .mv .bar { width:26px; height:5px; border-radius:2.5px; background:var(--panel2);
+    border:1px solid var(--line); position:relative; overflow:hidden; }
+  .mv .bar b { position:absolute; top:0; bottom:0; width:3px; margin-left:-1.5px;
+    background:var(--physics); }
+  .mvcount { font-size:10px; color:var(--t2); }
+  .drawer { position:absolute; left:0; right:0; bottom:28px; height:64%;
+    background:var(--bg); border-top:var(--stroke) solid var(--line);
+    box-shadow:0 -1.5px 0 var(--line); overflow:auto; padding:8px; z-index:5; display:none; }
+  .drawer.open { display:block; }
+
+  /* ============ COMPACT FACE LAYOUT ============ */
+  .face { display:grid; grid-template-columns:190px minmax(0,1fr); gap:8px; align-items:start; }
+  .fleft { display:flex; flex-direction:column; gap:6px; }
+  .fright { display:flex; flex-wrap:wrap; gap:6px; align-content:flex-start; }
+  .cc { padding:4px 6px 5px; }
+  .cc > .ch { display:flex; align-items:center; gap:5px; margin-bottom:1px; }
+  .cc > .ch h2 { margin:0; font-size:10px; }
+  .cc > .ch .own { font-size:8px; letter-spacing:.1em; color:var(--dim);
+    border:1px solid var(--div); border-radius:3px; padding:0 4px; }
+  .cc > .ch .own.pre { color:var(--value); border-color:var(--value); }
+  .cc > .ch .more { margin-left:auto; font:inherit; font-size:10px; line-height:1;
+    border:var(--stroke) solid var(--line); border-radius:999px; background:var(--panel);
+    color:var(--t2); cursor:pointer; padding:1px 6px; }
+  .cc > .ch .more:hover { box-shadow:var(--shadow); }
+  .kr { display:flex; gap:2px; flex-wrap:wrap; }
+  .xp { border-top:1px dashed var(--div); margin-top:5px; padding-top:3px; }
+  .pad { width:100%; aspect-ratio:1 / 1; cursor:crosshair; touch-action:none; }
+  .padcap { font-size:9px; color:var(--t2); line-height:1.35; }
+  .padcap b { color:var(--text); font-weight:600; }
+  .empty { font-size:9.5px; color:var(--dim); border:1px dashed var(--div);
+    border-radius:var(--r); padding:8px 6px; width:108px; text-align:center; }
+
+  /* ============ FULL SURFACE (in-frame) ============ */
+  .ftabs { display:flex; gap:3px; flex-wrap:wrap; margin-bottom:6px; align-items:center; }
+  .ftabs .pill { min-height:22px; padding:1px 8px; font-size:9.5px; }
+  .fcols { columns:210px; column-gap:8px; }
+  .fg { break-inside:avoid; margin-bottom:8px; padding:6px 8px; }
+  .fg h2 { font-size:10px; margin-bottom:3px; }
+  .fnote { font-size:9.5px; color:var(--dim); margin:0 0 6px; }
+
+  /* ============ BELOW THE FRAMES ============ */
+  .lower { display:flex; gap:14px; flex-wrap:wrap; align-items:flex-start; margin-top:16px; }
+  .ledger { flex:1 1 520px; min-width:420px; }
+  .lg { font-size:10px; line-height:1.55; font-variant-numeric:tabular-nums; }
+  .lg div { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .lg .via { color:var(--dim); }
+  .lg .warn { color:var(--caution-tx); background:var(--caution-bg); padding:0 4px; border-radius:3px; }
+  .lg .ok { color:var(--celebrate); }
+  .lg .no { color:var(--alarm); }
+  .decisions { display:grid; grid-template-columns:repeat(auto-fill, minmax(440px, 1fr));
+    gap:12px; margin-top:16px; }
+  .dec h2 { font-size:12px; }
+  .dec .q { color:var(--text); font-size:11px; margin-bottom:6px; }
+  .dec .opts .pill { position:relative; }
+  .dec .opts .pill.rec::after { content:'REC'; position:absolute; top:-7px; right:-6px;
+    font-size:7.5px; letter-spacing:.08em; padding:0 3px; border-radius:3px;
+    background:var(--value); color:var(--bg); border:1px solid var(--line); }
+  .dec .rtxt { font-size:10.5px; line-height:1.5; margin-top:8px; color:var(--text); }
+  .dec .rtxt b { color:var(--value); }
+  .dec ul { margin:4px 0 0 16px; padding:0; font-size:10px; color:var(--t2); line-height:1.5; }
+  .dec .ev { font-size:9.5px; color:var(--dim); margin-top:5px; }
+  .dec .live { font-size:10px; color:var(--t2); margin-top:6px; border-left:3px solid var(--div);
+    padding-left:6px; }
+  table.exp { border-collapse:collapse; font-size:10px; font-variant-numeric:tabular-nums; }
+  table.exp th, table.exp td { padding:2px 10px 2px 0; text-align:right; }
+  table.exp th:first-child, table.exp td:first-child { text-align:left; }
+  table.exp th { color:var(--t2); font-weight:600; border-bottom:1px solid var(--div); }
+  table.exp tr.tot td { border-top:1px solid var(--div); font-weight:700; }
+  .legend { display:flex; gap:14px; flex-wrap:wrap; font-size:10px; color:var(--t2); margin:4px 0 10px; }
+  .legend span { display:inline-flex; align-items:center; gap:5px; }
+  .legend i { display:inline-block; width:18px; height:6px; border-radius:3px; border:1px solid var(--line); }
+</style></head><body>
+
+<div class="hdr">
+  <div>
+    <h1>compact</h1>
+    <div class="badges">
+      <span class="badge">B212</span>
+      <span class="sub">THE SIMPLIFIED FACE · THREE LAYOUTS AT PLUGIN SIZE · SIX DECISIONS</span>
+    </div>
+  </div>
+  <div class="hdrctl">
+    <div class="grp"><span class="lbl">PRESET</span><div class="pills" id="prePills"
+      data-lab="lab preset recall: a stored patch, not a parameter"></div></div>
+    <button class="chip" id="themeBtn" data-lab="theme audition">theme <b>LIGHT</b></button>
+  </div>
+</div>
+
+<div class="tagline">The <b>compact horde face</b>: three competing layouts drawn at plugin size, every control a real address from
+<b>src/param_presentation.tsv</b> with the shell's ranges — <b>A</b> a fixed spine we choose, <b>B</b> the preset's eight named
+macros, <b>C</b> both (recommended). All three and the full surface read and write <b>one store</b>, so history, automation,
+morph and presets see nothing new. The six decisions B212 names sit below each as a choice with a recommendation; their pills
+drive the frames. Drag knobs and pads; LFO and morph keep moving what the face hides.</div>
+
+<div class="audit" id="audit">audit: pending</div>
+<div class="legend">
+  <span><i style="background:var(--value)"></i>your authored value</span>
+  <span><i style="background:var(--physics)"></i>modulation — the engine acting on it (reach arc + live tick, ADR-137)</span>
+  <span><i style="background:linear-gradient(to right,var(--cA),var(--cB),var(--cC),var(--cD))"></i>morph corner that owns it (stripe, gui2 .owned)</span>
+  <span><i style="background:var(--caution)"></i>caution</span>
+  <span><i style="background:var(--marker)"></i>attention: the frame or row a pill or jump points at</span>
+</div>
+
+<div class="frames" id="framesAB"></div>
+<div class="lower">
+  <div id="framesC"></div>
+  <div class="cluster ledger" id="ledger"><h2>One store — what history, automation, morph and presets see</h2>
+    <div class="cap">HISTORY (one node per gesture; undo walks it back through the same path)</div>
+    <div class="lg" id="histList"></div>
+    <div class="pills" style="margin-top:6px">
+      <button class="pill" id="undoBtn" data-lab="undo — replays the node's FROM values through put()">UNDO</button>
+      <button class="pill" id="saveBtn" data-lab="save → reload round trip through the preset snapshot">SAVE → RELOAD</button>
+    </div>
+    <div class="cap" style="margin-top:8px">HOST · AUTOMATION LANES · PRESET SNAPSHOT</div>
+    <div class="lg" id="hostList"></div>
+    <div class="cap" style="margin-top:8px">SELF-AUDIT (calibrated)</div>
+    <div class="lg" id="auditList"></div>
+  </div>
+</div>
+
+<div class="decisions" id="decisions"></div>
+
+<div class="cluster" style="margin-top:16px" id="expBox"><h2>What is exposed today, and what each face reaches</h2>
+  <div id="expTable"></div>
+  <div class="note">Counted at load from the embedded table: a control is <b>designed</b> when its row names a chunk, is not
+    <code>shown_when = never</code> and is not <code>widget = none</code> — the same three conditions that decide whether gui2
+    renders it. SPECTRA's rows carry no chunk (the engine is parked), which is most of the OSC gap. A face "reaches" an address
+    by showing a control for it (both oscillators count, since the face's OSC pill switches between them); a macro reaches its
+    routed targets indirectly, and that is counted separately because it changes with the preset.</div>
+</div>
+
+<script>
+"use strict";
+/* ============ BLOCK 0 — THE PARAMETER TABLE (generated; see the header) =====
+   [address, label, page, group, widget, min, max, default, stepped, enum,
+    designed(chunk named), shown_when, scale, unit] */
+const ENUMS = {"kOffOn":["off","on"],"kDistLabels":["even spread","JP-8000 curve","gaussian (seeded)","cauchy (seeded)","golden (irrational)"],"kLawLabels":["cents-constant","Hz-constant","ERB-flat","tempo-grid","harmonic (series)","stretch (inharmonic)"],"kTopoLabels":["mean-field","ring","two-cluster"],"kPolesLabels":["1 — classic","2 — pair","3 — triad","4 — quad"],"kBassMonoPosLabels":["pre (before FX)","post (after FX)","both"],"kEngineLabels":["SWARM SAW","SPECTRA"],"kWlawLabels":["cents","Hz"],"kFxTypeLabels":["Off","Drive","Filter","Gain","Comp","Comb","Notch","Echo","Room","Delay"],"kDriftModeLabels":["walk (1/f)","sine (per-voice)","sample & hold"],"kPanModeLabels":["drift (per-voice)","sweep (whole image)"],"kPivotLabels":["mean field","root (fundamental)"],"kPanLayoutLabels":["pitch fan","legacy (x-position)"],"kSuperModeLabels":["wide (clean)","pulse (M/S)","smear (allpass)"],"kGlideModeLabels":["held note (legato)","last note (ringing)","always"],"kBendLawLabels":["off (instant)","constant time","constant rate","lag (one-pole)","mass-spring"],"kBendQuantLabels":["off","chromatic","scale (drag)","scale","scale (offset)"],"kNoteNames":["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"],"kNoteLinkLabels":["own settings","follow bend law"],"kNoteQuantLabels":["off","chromatic","scale"],"kQTimeModeLabels":["continuous","free (Hz)","sync"],"kMpeLawLabels":["instant","follow bend law"],"kMorphModeLabels":["quantum (flip)","blend"],"kMorphArmLabels":["live (owning corner)","A","B","C","D"],"kDelaySyncLabels":["free (ms)","tempo sync"],"kFxXfadeLabels":["atomic (flip)","crossfade"],"kLfoShapeLabels":["sine","triangle","saw up","saw down","square","sample & hold"],"kLfoSyncLabels":["free (Hz)","tempo sync"],"kLfoRetrigLabels":["free-running","retrig on note"],"kSubWaveLabels":["sine","triangle","square","saw","pulse","noise","bump"],"kSubBiasLabels":["lowest","highest","last"]};
+const PT = [
+  ["osc1.enable","Osc On","OSC","The swarm","toggle",0,1,1,1,"kOffOn",1,"","",""],
+  ["osc2.enable","Osc On","OSC","The swarm","toggle",0,1,1,1,"kOffOn",1,"","",""],
+  ["osc1.n","Voices","OSC","The swarm","knob",1,32,7,1,"",1,"","",""],
+  ["osc2.n","Voices","OSC","The swarm","knob",1,32,7,1,"",1,"","",""],
+  ["osc1.dist","Distribution","OSC","The swarm","select",0,4,1,1,"kDistLabels",1,"","",""],
+  ["osc2.dist","Distribution","OSC","The swarm","select",0,4,1,1,"kDistLabels",1,"","",""],
+  ["osc1.seed","Seed","OSC","The swarm","knob",0,999999,1234,1,"",1,"","",""],
+  ["osc2.seed","Seed","OSC","The swarm","knob",0,999999,1234,1,"",1,"","",""],
+  ["osc1.detune","Detune","OSC","The swarm","knob",0,1,0.28,0,"",1,"","",""],
+  ["osc2.detune","Detune","OSC","The swarm","knob",0,1,0.28,0,"",1,"","",""],
+  ["osc1.law","Detune Law","OSC","The swarm","select",0,5,0,1,"kLawLabels",1,"","",""],
+  ["osc2.law","Detune Law","OSC","The swarm","select",0,5,0,1,"kLawLabels",1,"","",""],
+  ["osc1.K","Pull K","OSC","The coupling","knob",-1,1,0,0,"",1,"","",""],
+  ["osc2.K","Pull K","OSC","The coupling","knob",-1,1,0,0,"",1,"","",""],
+  ["osc1.onset","Onset Lock","OSC","The coupling","knob",-1,1,0,0,"",1,"","",""],
+  ["osc2.onset","Onset Lock","OSC","The coupling","knob",-1,1,0,0,"",1,"","",""],
+  ["osc1.dissolve","Dissolve (s)","OSC","The coupling","knob",0.05,7.94,0.63,0,"",1,"","log10",""],
+  ["osc2.dissolve","Dissolve (s)","OSC","The coupling","knob",0.05,7.94,0.63,0,"",1,"","log10",""],
+  ["osc1.driftDepth","Drift Depth (c)","OSC","Drift","knob",0,100,0,0,"",1,"","",""],
+  ["osc2.driftDepth","Drift Depth (c)","OSC","Drift","knob",0,100,0,0,"",1,"","",""],
+  ["osc1.driftRate","Drift Rate","OSC","Drift","knob",0,1,0.4,0,"",1,"","",""],
+  ["osc2.driftRate","Drift Rate","OSC","Drift","knob",0,1,0.4,0,"",1,"","",""],
+  ["inertia","Inertia","OSC","The coupling","knob",0,1,0,0,"",1,"","",""],
+  ["osc1.rtone","R->Tone","OSC","Image & tone","knob",-1,1,0,0,"",1,"","",""],
+  ["osc2.rtone","R->Tone","OSC","Image & tone","knob",-1,1,0,0,"",1,"","",""],
+  ["osc1.normExp","Density Comp","OSC","Image & tone","knob",0.5,1,0.75,0,"",1,"","",""],
+  ["osc2.normExp","Density Comp","OSC","Image & tone","knob",0.5,1,0.75,0,"",1,"","",""],
+  ["osc1.width","Width","OSC","Image & tone","knob",0,1.5,0.8,0,"",1,"","",""],
+  ["osc2.width","Width","OSC","Image & tone","knob",0,1.5,0.8,0,"",1,"","",""],
+  ["mono","Mono Fold","MIX","Output & perception","toggle",0,1,0,1,"kOffOn",1,"","",""],
+  ["osc1.digital","Digital","OSC","Image & tone","knob",0,1,1,0,"",1,"","",""],
+  ["osc2.digital","Digital","OSC","Image & tone","knob",0,1,1,0,"",1,"","",""],
+  ["osc1.vol","Volume","MIX","Mix","knob",0,1,0.4,0,"",1,"","",""],
+  ["osc2.vol","Volume","MIX","Mix","knob",0,1,0.4,0,"",1,"","",""],
+  ["osc1.retrig","Retrigger","OSC","The coupling","toggle",0,1,1,1,"kOffOn",1,"","",""],
+  ["osc2.retrig","Retrigger","OSC","The coupling","toggle",0,1,1,1,"kOffOn",1,"","",""],
+  ["osc1.attack","Attack (s)","OSC","Envelope","knob",0.001,2,0.003,0,"",1,"","log10",""],
+  ["osc2.attack","Attack (s)","OSC","Envelope","knob",0.001,2,0.003,0,"",1,"","log10",""],
+  ["osc1.decay","Decay (s)","OSC","Envelope","knob",0.005,4,0.16,0,"",1,"","log10",""],
+  ["osc2.decay","Decay (s)","OSC","Envelope","knob",0.005,4,0.16,0,"",1,"","log10",""],
+  ["osc1.sustain","Sustain","OSC","Envelope","knob",0,1,1,0,"",1,"","",""],
+  ["osc2.sustain","Sustain","OSC","Envelope","knob",0,1,1,0,"",1,"","",""],
+  ["osc1.release","Release (s)","OSC","Envelope","knob",0.005,8,0.16,0,"",1,"","log10",""],
+  ["osc2.release","Release (s)","OSC","Envelope","knob",0.005,8,0.16,0,"",1,"","log10",""],
+  ["osc1.beatMult","Grid Cycles/Beat","OSC","The swarm","select",0.25,8,1,0,"",1,"","",""],
+  ["osc2.beatMult","Grid Cycles/Beat","OSC","The swarm","select",0.25,8,1,0,"",1,"","",""],
+  ["osc1.topo","Topology","OSC","Dynamics","select",0,2,0,1,"kTopoLabels",1,"","",""],
+  ["osc2.topo","Topology","OSC","Dynamics","select",0,2,0,1,"kTopoLabels",1,"","",""],
+  ["osc1.reach","Ring Reach","OSC","Dynamics","knob",1,8,5,1,"",1,"topo=1","",""],
+  ["osc2.reach","Ring Reach","OSC","Dynamics","knob",1,8,5,1,"",1,"topo=1","",""],
+  ["osc1.mu","Cluster Link","OSC","Dynamics","knob",0,1,0.6,0,"",1,"topo=2","",""],
+  ["osc2.mu","Cluster Link","OSC","Dynamics","knob",0,1,0.6,0,"",1,"topo=2","",""],
+  ["osc1.alpha","Phase Lag","OSC","Dynamics","knob",-90,90,0,0,"",1,"","",""],
+  ["osc2.alpha","Phase Lag","OSC","Dynamics","knob",-90,90,0,0,"",1,"","",""],
+  ["osc1.poles","Poles q","OSC","Dynamics","select",1,4,1,1,"kPolesLabels",1,"topo=0","",""],
+  ["osc2.poles","Poles q","OSC","Dynamics","select",1,4,1,1,"kPolesLabels",1,"topo=0","",""],
+  ["osc1.grav","Gravity","OSC","Dynamics","knob",0,1,0,0,"",1,"","",""],
+  ["osc2.grav","Gravity","OSC","Dynamics","knob",0,1,0,0,"",1,"","",""],
+  ["osc1.basin","Basin (c)","OSC","Dynamics","knob",10,50,35,0,"",1,"","",""],
+  ["osc2.basin","Basin (c)","OSC","Dynamics","knob",10,50,35,0,"",1,"","",""],
+  ["osc1.absK","Absolute K","OSC","Dynamics","toggle",0,1,0,1,"kOffOn",1,"","",""],
+  ["osc2.absK","Absolute K","OSC","Dynamics","toggle",0,1,0,1,"kOffOn",1,"","",""],
+  ["voiceMono","Mono","MAIN","Bend","toggle",0,1,0,1,"kOffOn",1,"","",""],
+  ["glide","Note Lag","MAIN","Bend","knob",0,2,0,0,"",1,"noteLawLink=0,noteLaw=3","log10","s"],
+  ["voiceLegato","Legato","MAIN","Bend","toggle",0,1,1,1,"kOffOn",1,"","",""],
+  ["osc1.octave","Octave","OSC","Pitch","knob",-2,2,0,1,"",1,"","",""],
+  ["osc2.octave","Octave","OSC","Pitch","knob",-2,2,0,1,"",1,"","",""],
+  ["osc1.semi","Semitones","OSC","Pitch","knob",-12,12,0,1,"",1,"","",""],
+  ["osc2.semi","Semitones","OSC","Pitch","knob",-12,12,0,1,"",1,"","",""],
+  ["osc1.fineCents","Fine (c)","OSC","Pitch","knob",-100,100,0,0,"",1,"","",""],
+  ["osc2.fineCents","Fine (c)","OSC","Pitch","knob",-100,100,0,0,"",1,"","",""],
+  ["pitchBend","Pitch","MAIN","Bend","knob",-12,12,0,0,"",1,"","",""],
+  ["osc1.scatter","Phase Scatter","OSC","The coupling","knob",0,1,0,0,"",1,"","",""],
+  ["osc2.scatter","Phase Scatter","OSC","The coupling","knob",0,1,0,0,"",1,"","",""],
+  ["bassMono","Bass Mono","MIX","Output & perception","toggle",0,1,0,1,"kOffOn",1,"","",""],
+  ["bassMonoHz","Bass XOver (Hz)","MIX","Output & perception","knob",60,500,120,0,"",1,"","",""],
+  ["bassMonoPos","Bass Mono Position","MIX","Output & perception","select",0,2,0,1,"kBassMonoPosLabels",1,"","",""],
+  ["osc1.panScatter","Pan Scatter","OSC","Image & tone","knob",0,1,0,0,"",1,"","",""],
+  ["osc2.panScatter","Pan Scatter","OSC","Image & tone","knob",0,1,0,0,"",1,"","",""],
+  ["osc1.engine","Engine","OSC","The swarm","select",0,1,0,1,"kEngineLabels",0,"","",""],
+  ["osc2.engine","Engine","OSC","The swarm","select",0,1,0,1,"kEngineLabels",0,"","",""],
+  ["osc1.partials","Partials","OSC","Spectra","knob",1,32,12,1,"",0,"","",""],
+  ["osc2.partials","Partials","OSC","Spectra","knob",1,32,12,1,"",0,"","",""],
+  ["osc1.tilt","Amp Tilt","OSC","Spectra","knob",0.5,2,1,0,"",0,"","",""],
+  ["osc2.tilt","Amp Tilt","OSC","Spectra","knob",0.5,2,1,0,"",0,"","",""],
+  ["osc1.stretch","Stretch","OSC","Spectra","knob",0,1,0,0,"",0,"","",""],
+  ["osc2.stretch","Stretch","OSC","Spectra","knob",0,1,0,0,"",0,"","",""],
+  ["osc1.cloud","Cloud Voices","OSC","Spectra","knob",1,7,5,1,"",0,"","",""],
+  ["osc2.cloud","Cloud Voices","OSC","Spectra","knob",1,7,5,1,"",0,"","",""],
+  ["osc1.cwidth","Cloud Width","OSC","Spectra","knob",0,1,0.25,0,"",0,"","",""],
+  ["osc2.cwidth","Cloud Width","OSC","Spectra","knob",0,1,0.25,0,"",0,"","",""],
+  ["osc1.wtilt","Width Tilt","OSC","Spectra","knob",-1,1,0,0,"",0,"","",""],
+  ["osc2.wtilt","Width Tilt","OSC","Spectra","knob",-1,1,0,0,"",0,"","",""],
+  ["osc1.wlaw","Width Law","OSC","Spectra","select",0,1,0,1,"kWlawLabels",0,"","",""],
+  ["osc2.wlaw","Width Law","OSC","Spectra","select",0,1,0,1,"kWlawLabels",0,"","",""],
+  ["osc1.cascade","Cascade","OSC","Spectra","knob",0,1,0,0,"",0,"","",""],
+  ["osc2.cascade","Cascade","OSC","Spectra","knob",0,1,0,0,"",0,"","",""],
+  ["osc1.subOn","Sub Osc","OSC","Spectra","toggle",0,1,0,1,"kOffOn",0,"","",""],
+  ["osc2.subOn","Sub Osc","OSC","Spectra","toggle",0,1,0,1,"kOffOn",0,"","",""],
+  ["osc1.subVol","Sub Level","OSC","Spectra","knob",0,1,0,0,"",0,"","",""],
+  ["osc2.subVol","Sub Level","OSC","Spectra","knob",0,1,0,0,"",0,"","",""],
+  ["osc1.subWave","Sub Wave","OSC","Spectra","knob",0,1,0,0,"",0,"","",""],
+  ["osc2.subWave","Sub Wave","OSC","Spectra","knob",0,1,0,0,"",0,"","",""],
+  ["osc1.subOct","Sub Octave","OSC","Spectra","knob",-3,-1,-1,1,"",0,"","",""],
+  ["osc2.subOct","Sub Octave","OSC","Spectra","knob",-3,-1,-1,1,"",0,"","",""],
+  ["osc1.balance","A/B Balance","OSC","Dynamics","knob",0,1,0,0,"",1,"topo=2","",""],
+  ["osc2.balance","A/B Balance","OSC","Dynamics","knob",0,1,0,0,"",1,"topo=2","",""],
+  ["fx1type","FX1 Type","FX","Slot 1","select",0,9,0,1,"kFxTypeLabels",1,"","",""],
+  ["fx1amt","FX1 Amount","FX","Slot 1","knob",0,1,0.5,0,"",1,"","",""],
+  ["fx2type","FX2 Type","FX","Slot 2","select",0,9,0,1,"kFxTypeLabels",1,"","",""],
+  ["fx2amt","FX2 Amount","FX","Slot 2","knob",0,1,0.5,0,"",1,"","",""],
+  ["fx3type","FX3 Type","FX","Slot 3","select",0,9,0,1,"kFxTypeLabels",1,"","",""],
+  ["fx3amt","FX3 Amount","FX","Slot 3","knob",0,1,0.5,0,"",1,"","",""],
+  ["fx4type","FX4 Type","FX","Slot 4","select",0,9,0,1,"kFxTypeLabels",1,"","",""],
+  ["fx4amt","FX4 Amount","FX","Slot 4","knob",0,1,0.5,0,"",1,"","",""],
+  ["osc1.sAttack","S.Attack (s)","OSC","Envelope","knob",0.001,2,0.004,0,"",0,"","",""],
+  ["osc2.sAttack","S.Attack (s)","OSC","Envelope","knob",0.001,2,0.004,0,"",0,"","",""],
+  ["osc1.sDecay","S.Decay (s)","OSC","Envelope","knob",0.005,4,0.18,0,"",0,"","",""],
+  ["osc2.sDecay","S.Decay (s)","OSC","Envelope","knob",0.005,4,0.18,0,"",0,"","",""],
+  ["osc1.sSustain","S.Sustain","OSC","Envelope","knob",0,1,1,0,"",0,"","",""],
+  ["osc2.sSustain","S.Sustain","OSC","Envelope","knob",0,1,1,0,"",0,"","",""],
+  ["osc1.sRelease","S.Release (s)","OSC","Envelope","knob",0.005,8,0.18,0,"",0,"","",""],
+  ["osc2.sRelease","S.Release (s)","OSC","Envelope","knob",0.005,8,0.18,0,"",0,"","",""],
+  ["osc1.shape","Squareness","OSC","Saw shape","knob",0,1,0,0,"",1,"","",""],
+  ["osc2.shape","Squareness","OSC","Saw shape","knob",0,1,0,0,"",1,"","",""],
+  ["osc1.toneTilt","Tone Tilt","OSC","Image & tone","knob",-1,1,0,0,"",1,"","",""],
+  ["osc2.toneTilt","Tone Tilt","OSC","Image & tone","knob",-1,1,0,0,"",1,"","",""],
+  ["osc1.hiTame","Hi Tame","OSC","Image & tone","knob",0,1,0,0,"",1,"","",""],
+  ["osc2.hiTame","Hi Tame","OSC","Image & tone","knob",0,1,0,0,"",1,"","",""],
+  ["osc1.driftMode","Drift Mode","OSC","Drift","select",0,2,0,1,"kDriftModeLabels",1,"","",""],
+  ["osc2.driftMode","Drift Mode","OSC","Drift","select",0,2,0,1,"kDriftModeLabels",1,"","",""],
+  ["osc1.keepPhase","Keep Phase","OSC","Drift","toggle",0,1,0,1,"kOffOn",1,"","",""],
+  ["osc2.keepPhase","Keep Phase","OSC","Drift","toggle",0,1,0,1,"kOffOn",1,"","",""],
+  ["freqGlide","Freq Glide (s)","OSC","Drift","knob",0,0.1,0,0,"",1,"","",""],
+  ["osc1.panMotion","Pan Motion","OSC","Image & tone","knob",0,1,0,0,"",1,"","",""],
+  ["osc2.panMotion","Pan Motion","OSC","Image & tone","knob",0,1,0,0,"",1,"","",""],
+  ["osc1.panMode","Pan Motion Mode","OSC","Image & tone","select",0,1,0,1,"kPanModeLabels",1,"","",""],
+  ["osc2.panMode","Pan Motion Mode","OSC","Image & tone","select",0,1,0,1,"kPanModeLabels",1,"","",""],
+  ["osc1.motionCenter","Centre Pin","OSC","Drift","knob",0,1,0,0,"",1,"","",""],
+  ["osc2.motionCenter","Centre Pin","OSC","Drift","knob",0,1,0,0,"",1,"","",""],
+  ["osc1.harmReach","Harmonic Reach","OSC","The swarm","knob",0.25,4,1,0,"",1,"","",""],
+  ["osc2.harmReach","Harmonic Reach","OSC","The swarm","knob",0.25,4,1,0,"",1,"","",""],
+  ["osc1.stretchB","Stretch B","OSC","The swarm","knob",0,6,0,0,"",1,"","",""],
+  ["osc2.stretchB","Stretch B","OSC","The swarm","knob",0,6,0,0,"",1,"","",""],
+  ["osc1.spread","Octave Spread","OSC","The swarm","knob",1,24,1,0,"",1,"","",""],
+  ["osc2.spread","Octave Spread","OSC","The swarm","knob",1,24,1,0,"",1,"","",""],
+  ["osc1.anchor","Root Anchor","OSC","The swarm","knob",0,1,0,0,"",1,"","",""],
+  ["osc2.anchor","Root Anchor","OSC","The swarm","knob",0,1,0,0,"",1,"","",""],
+  ["osc1.pivotMode","Pivot","OSC","Dynamics","select",0,1,0,1,"kPivotLabels",1,"","",""],
+  ["osc2.pivotMode","Pivot","OSC","Dynamics","select",0,1,0,1,"kPivotLabels",1,"","",""],
+  ["osc1.panLayout","Pan Image","OSC","Image & tone","select",0,1,0,1,"kPanLayoutLabels",1,"","",""],
+  ["osc2.panLayout","Pan Image","OSC","Image & tone","select",0,1,0,1,"kPanLayoutLabels",1,"","",""],
+  ["osc1.panCurve","Fan Curve","OSC","Image & tone","knob",0,1,0.5,0,"",1,"","",""],
+  ["osc2.panCurve","Fan Curve","OSC","Image & tone","knob",0,1,0.5,0,"",1,"","",""],
+  ["osc1.panInvert","Fan Invert","OSC","Image & tone","toggle",0,1,0,1,"kOffOn",1,"","",""],
+  ["osc2.panInvert","Fan Invert","OSC","Image & tone","toggle",0,1,0,1,"kOffOn",1,"","",""],
+  ["osc1.superMode","Super-Width Mode","OSC","Image & tone","select",0,2,0,1,"kSuperModeLabels",1,"","",""],
+  ["osc2.superMode","Super-Width Mode","OSC","Image & tone","select",0,2,0,1,"kSuperModeLabels",1,"","",""],
+  ["oversample","Oversample 2x","MIX","Output & perception","toggle",0,1,0,1,"kOffOn",1,"","",""],
+  ["polyGlide","Poly Glide (dev)","MAIN","Bend","toggle",0,1,1,1,"kOffOn",1,"never","",""],
+  ["glideMode","Glide From","MAIN","Bend","select",0,2,0,1,"kGlideModeLabels",1,"","",""],
+  ["osc1.onsetScatter","Onset Scatter (ms)","OSC","Onset & scatter","knob",0,80,0,0,"",1,"","log10",""],
+  ["osc2.onsetScatter","Onset Scatter (ms)","OSC","Onset & scatter","knob",0,80,0,0,"",1,"","log10",""],
+  ["osc1.onsetAlpha","Timing Correction","OSC","Onset & scatter","knob",0,1.5,0.25,0,"",1,"","",""],
+  ["osc2.onsetAlpha","Timing Correction","OSC","Onset & scatter","knob",0,1.5,0.25,0,"",1,"","",""],
+  ["osc1.attackScatter","Attack Scatter","OSC","Onset & scatter","knob",0,1,0,0,"",1,"","",""],
+  ["osc2.attackScatter","Attack Scatter","OSC","Onset & scatter","knob",0,1,0,0,"",1,"","",""],
+  ["osc1.voiceEnv","Per-Partial Env","OSC","Onset & scatter","toggle",0,1,0,1,"kOffOn",1,"","",""],
+  ["osc2.voiceEnv","Per-Partial Env","OSC","Onset & scatter","toggle",0,1,0,1,"kOffOn",1,"","",""],
+  ["osc1.relScatter","Release Scatter","OSC","Onset & scatter","knob",0,1,0,0,"",1,"","",""],
+  ["osc2.relScatter","Release Scatter","OSC","Onset & scatter","knob",0,1,0,0,"",1,"","",""],
+  ["fx1tone","Resonance","FX","Slot 1","knob",0,1,0.5,0,"",1,"fx1type=5","",""],
+  ["fx2tone","Resonance","FX","Slot 2","knob",0,1,0.5,0,"",1,"fx2type=5","",""],
+  ["fx3tone","Resonance","FX","Slot 3","knob",0,1,0.5,0,"",1,"fx3type=5","",""],
+  ["fx4tone","Resonance","FX","Slot 4","knob",0,1,0.5,0,"",1,"fx4type=5","",""],
+  ["inertiaCurve","Inertia Curve (dev)","OSC","The coupling","knob",0.3,5,2.5,0,"",1,"never","",""],
+  ["masterVol","Master Volume","MIX","Mix","knob",0,1.5,1,0,"",1,"","",""],
+  ["gSemi","Pitch","MIX","Mix","knob",-12,12,0,1,"",1,"","",""],
+  ["gFine","Fine","MIX","Mix","knob",-100,100,0,0,"",1,"","",""],
+  ["gOct","Master Octave","MIX","(ungrouped)","knob",-2,2,0,1,"",1,"","",""],
+  ["osc1.oscMute","Mute","MIX","(ungrouped)","select",0,1,0,1,"kOffOn",1,"","",""],
+  ["osc2.oscMute","Mute","MIX","(ungrouped)","select",0,1,0,1,"kOffOn",1,"","",""],
+  ["osc1.oscSolo","Solo","MIX","(ungrouped)","select",0,1,0,1,"kOffOn",1,"","",""],
+  ["osc2.oscSolo","Solo","MIX","(ungrouped)","select",0,1,0,1,"kOffOn",1,"","",""],
+  ["bendLaw","Bend Law","MAIN","Bend","select",0,4,0,1,"kBendLawLabels",1,"","",""],
+  ["bendTime","Bend Time","MAIN","Bend","knob",5,1500,120,0,"",1,"bendLaw=1","log10","ms"],
+  ["bendRate","Bend Rate","MAIN","Bend","knob",0.5,200,24,0,"",1,"bendLaw=2","log10","st/s"],
+  ["bendTau","Bend Lag","MAIN","Bend","knob",1,2000,60,0,"",1,"bendLaw=3","log10","ms"],
+  ["bendSpringF","Spring","MAIN","Bend","knob",0.5,20,4,0,"",1,"bendLaw=4","log10","Hz"],
+  ["bendDamp","Damping","MAIN","Bend","knob",0,1,0.6,0,"",1,"bendLaw=4","",""],
+  ["bendDistOver","Distance Curve","MAIN","Bend","knob",0,2,1,0,"",1,"bendLaw=4","",""],
+  ["bendReturn","Return x","MAIN","Bend","knob",0.2,3,1,0,"",1,"bendLaw=1|2|3|4","",""],
+  ["bendQuant","Bend Quantise","MAIN","Bend","select",0,4,0,1,"kBendQuantLabels",1,"","",""],
+  ["bendHyst","Quantise Hyst","MAIN","Bend","knob",0,50,8,0,"",1,"bendQuant=1|2|3|4","","c"],
+  ["scaleRoot","Root","MAIN","Scale","select",0,11,0,1,"kNoteNames",1,"bendQuant=2|3;noteQuant=2","",""],
+  ["scaleDeg0","1 (root)","MAIN","Scale","toggle",0,1,1,1,"kOffOn",1,"bendQuant=2|3|4;noteQuant=2","",""],
+  ["scaleDeg1","b2","MAIN","Scale","toggle",0,1,0,1,"kOffOn",1,"bendQuant=2|3|4;noteQuant=2","",""],
+  ["scaleDeg2","2","MAIN","Scale","toggle",0,1,1,1,"kOffOn",1,"bendQuant=2|3|4;noteQuant=2","",""],
+  ["scaleDeg3","b3","MAIN","Scale","toggle",0,1,0,1,"kOffOn",1,"bendQuant=2|3|4;noteQuant=2","",""],
+  ["scaleDeg4","3","MAIN","Scale","toggle",0,1,1,1,"kOffOn",1,"bendQuant=2|3|4;noteQuant=2","",""],
+  ["scaleDeg5","4","MAIN","Scale","toggle",0,1,1,1,"kOffOn",1,"bendQuant=2|3|4;noteQuant=2","",""],
+  ["scaleDeg6","b5","MAIN","Scale","toggle",0,1,0,1,"kOffOn",1,"bendQuant=2|3|4;noteQuant=2","",""],
+  ["scaleDeg7","5","MAIN","Scale","toggle",0,1,1,1,"kOffOn",1,"bendQuant=2|3|4;noteQuant=2","",""],
+  ["scaleDeg8","b6","MAIN","Scale","toggle",0,1,0,1,"kOffOn",1,"bendQuant=2|3|4;noteQuant=2","",""],
+  ["scaleDeg9","6","MAIN","Scale","toggle",0,1,1,1,"kOffOn",1,"bendQuant=2|3|4;noteQuant=2","",""],
+  ["scaleDeg10","b7","MAIN","Scale","toggle",0,1,0,1,"kOffOn",1,"bendQuant=2|3|4;noteQuant=2","",""],
+  ["scaleDeg11","7","MAIN","Scale","toggle",0,1,1,1,"kOffOn",1,"bendQuant=2|3|4;noteQuant=2","",""],
+  ["osc1.sawBase","Saw Base","OSC","Saw shape","knob",0,1,0,0,"",1,"","",""],
+  ["osc1.sawProfile","Roundness Shape","OSC","Saw shape","knob",0,1,0,0,"",1,"","",""],
+  ["osc1.round","Roundness","OSC","Saw shape","knob",0,1,0,0,"",1,"","",""],
+  ["osc1.roundHi","Round x Pitch","OSC","Saw shape","knob",-1,1,0,0,"",1,"","",""],
+  ["osc2.sawBase","Saw Base","OSC","Saw shape","knob",0,1,0,0,"",1,"","",""],
+  ["osc2.sawProfile","Roundness Shape","OSC","Saw shape","knob",0,1,0,0,"",1,"","",""],
+  ["osc2.round","Roundness","OSC","Saw shape","knob",0,1,0,0,"",1,"","",""],
+  ["osc2.roundHi","Round x Pitch","OSC","Saw shape","knob",-1,1,0,0,"",1,"","",""],
+  ["fx1mix","FX1 Mix","FX","Slot 1","knob",0,1,1,0,"",1,"","",""],
+  ["fx2mix","FX2 Mix","FX","Slot 2","knob",0,1,1,0,"",1,"","",""],
+  ["fx3mix","FX3 Mix","FX","Slot 3","knob",0,1,1,0,"",1,"","",""],
+  ["fx4mix","FX4 Mix","FX","Slot 4","knob",0,1,1,0,"",1,"","",""],
+  ["noteLawLink","Note Law","MAIN","Bend","select",0,1,1,1,"kNoteLinkLabels",1,"","",""],
+  ["noteLaw","Note Travel","MAIN","Bend","select",0,4,3,1,"kBendLawLabels",1,"noteLawLink=0","",""],
+  ["noteTime","Note Time","MAIN","Bend","knob",5,1500,120,0,"",1,"noteLawLink=0,noteLaw=1","log10","ms"],
+  ["noteRate","Note Rate","MAIN","Bend","knob",0.5,200,24,0,"",1,"noteLawLink=0,noteLaw=2","log10","st/s"],
+  ["noteSpringF","Note Spring","MAIN","Bend","knob",0.5,20,4,0,"",1,"noteLawLink=0,noteLaw=4","log10","Hz"],
+  ["noteDamp","Note Damping","MAIN","Bend","knob",0,1,0.6,0,"",1,"noteLawLink=0,noteLaw=4","",""],
+  ["noteDistOver","Note Distance Curve","MAIN","Bend","knob",0,2,1,0,"",1,"noteLawLink=0,noteLaw=4","",""],
+  ["noteQuant","Note Quantise","MAIN","Bend","select",0,2,0,1,"kNoteQuantLabels",1,"noteLawLink=0","",""],
+  ["noteHyst","Note Quant Hyst","MAIN","Bend","knob",0,50,8,0,"",1,"noteLawLink=0,noteQuant=1|2","","c"],
+  ["bendQTimeMode","Step Timing","MAIN","Bend","select",0,2,0,1,"kQTimeModeLabels",1,"bendQuant=1|2|3|4","",""],
+  ["bendQTimeHz","Step Rate","MAIN","Bend","knob",0.2,50,8,0,"",1,"bendQTimeMode=1","log10","Hz"],
+  ["bendQTimeSync","Step Grid","MAIN","Bend","knob",0.25,8,4,0,"",1,"bendQTimeMode=2","","/beat"],
+  ["bendMpeLaw","MPE Bend","MAIN","Bend","select",0,1,1,1,"kMpeLawLabels",1,"","",""],
+  ["morphOn","Morph","MORPH","Morph engine","toggle",0,1,0,1,"kOffOn",1,"","",""],
+  ["morphMode","Morph Mode","MORPH","Morph engine","select",0,1,0,1,"kMorphModeLabels",1,"morphOn=1","",""],
+  ["morphTemp","Temperature","MORPH","Morph engine","knob",0.02,4,1,0,"",1,"morphOn=1","log10",""],
+  ["morphCoup","Coupling","MORPH","Morph engine","knob",0,1,0.3,0,"",1,"morphOn=1","",""],
+  ["morphSeed","Morph Seed","MORPH","Morph engine","knob",1,9999,1024,1,"",1,"morphOn=1","",""],
+  ["morphGlide","Morph Glide","MORPH","Morph engine","knob",0,5,0.008,0,"",1,"morphOn=1","log10","s"],
+  ["morphX","Morph X","MORPH","Morph engine","knob",0,1,0,0,"",1,"morphOn=1","",""],
+  ["morphY","Morph Y","MORPH","Morph engine","knob",0,1,0,0,"",1,"morphOn=1","",""],
+  ["morphArm","Edit Corner","MORPH","Morph engine","select",0,4,0,1,"kMorphArmLabels",1,"never","",""],
+  ["voiceCull","Voice Cull","SET","Performance","knob",-80,-40,-80,0,"",1,"","","dB"],
+  ["fx1size","Size","FX","Slot 1","knob",0,1,0.55,0,"",1,"fx1type=7|8","",""],
+  ["fx1spread","Spread","FX","Slot 1","knob",0,1,0.6,0,"",1,"fx1type=7|8","",""],
+  ["fx1taps","Taps / Lines","FX","Slot 1","select",2,12,8,1,"",1,"fx1type=7|8","",""],
+  ["fx1damp","Damping","FX","Slot 1","knob",0,1,0.4,0,"",1,"fx1type=7|8","",""],
+  ["fx1noise","Noise","FX","Slot 1","knob",0,1,0.2,0,"",1,"never","",""],
+  ["fx1stereo","Stereo","FX","Slot 1","knob",0,1,0.7,0,"",1,"fx1type=7|8","",""],
+  ["fx1dist","Spacing","FX","Slot 1","select",0,4,1,1,"kDistLabels",1,"fx1type=7|8","",""],
+  ["fx2size","Size","FX","Slot 2","knob",0,1,0.55,0,"",1,"fx2type=7|8","",""],
+  ["fx2spread","Spread","FX","Slot 2","knob",0,1,0.6,0,"",1,"fx2type=7|8","",""],
+  ["fx2taps","Taps / Lines","FX","Slot 2","select",2,12,8,1,"",1,"fx2type=7|8","",""],
+  ["fx2damp","Damping","FX","Slot 2","knob",0,1,0.4,0,"",1,"fx2type=7|8","",""],
+  ["fx2noise","Noise","FX","Slot 2","knob",0,1,0.2,0,"",1,"never","",""],
+  ["fx2stereo","Stereo","FX","Slot 2","knob",0,1,0.7,0,"",1,"fx2type=7|8","",""],
+  ["fx2dist","Spacing","FX","Slot 2","select",0,4,1,1,"kDistLabels",1,"fx2type=7|8","",""],
+  ["fx3size","Size","FX","Slot 3","knob",0,1,0.55,0,"",1,"fx3type=7|8","",""],
+  ["fx3spread","Spread","FX","Slot 3","knob",0,1,0.6,0,"",1,"fx3type=7|8","",""],
+  ["fx3taps","Taps / Lines","FX","Slot 3","select",2,12,8,1,"",1,"fx3type=7|8","",""],
+  ["fx3damp","Damping","FX","Slot 3","knob",0,1,0.4,0,"",1,"fx3type=7|8","",""],
+  ["fx3noise","Noise","FX","Slot 3","knob",0,1,0.2,0,"",1,"never","",""],
+  ["fx3stereo","Stereo","FX","Slot 3","knob",0,1,0.7,0,"",1,"fx3type=7|8","",""],
+  ["fx3dist","Spacing","FX","Slot 3","select",0,4,1,1,"kDistLabels",1,"fx3type=7|8","",""],
+  ["fx4size","Size","FX","Slot 4","knob",0,1,0.55,0,"",1,"fx4type=7|8","",""],
+  ["fx4spread","Spread","FX","Slot 4","knob",0,1,0.6,0,"",1,"fx4type=7|8","",""],
+  ["fx4taps","Taps / Lines","FX","Slot 4","select",2,12,8,1,"",1,"fx4type=7|8","",""],
+  ["fx4damp","Damping","FX","Slot 4","knob",0,1,0.4,0,"",1,"fx4type=7|8","",""],
+  ["fx4noise","Noise","FX","Slot 4","knob",0,1,0.2,0,"",1,"never","",""],
+  ["fx4stereo","Stereo","FX","Slot 4","knob",0,1,0.7,0,"",1,"fx4type=7|8","",""],
+  ["fx4dist","Spacing","FX","Slot 4","select",0,4,1,1,"kDistLabels",1,"fx4type=7|8","",""],
+  ["modEnvPitch","Env > Pitch","OSC","Pitch Env","knob",-48,48,0,0,"",1,"","","st"],
+  ["penvA","P.Env Attack","OSC","Pitch Env","knob",0.001,2,0.003,0,"",1,"","","s"],
+  ["penvD","P.Env Decay","OSC","Pitch Env","knob",0.005,4,0.16,0,"",1,"","","s"],
+  ["penvS","P.Env Sustain","OSC","Pitch Env","knob",0,1,0,0,"",1,"","",""],
+  ["penvR","P.Env Release","OSC","Pitch Env","knob",0.005,8,0.16,0,"",1,"","","s"],
+  ["macro1","M1","MAIN","Macros","knob",0,1,0.5,0,"",1,"","",""],
+  ["macro2","M2","MAIN","Macros","knob",0,1,0.5,0,"",1,"","",""],
+  ["macro3","M3","MAIN","Macros","knob",0,1,0,0,"",1,"","",""],
+  ["macro4","M4","MAIN","Macros","knob",0,1,0,0,"",1,"","",""],
+  ["macro5","M5","MAIN","Macros","knob",0,1,0,0,"",1,"","",""],
+  ["macro6","M6","MAIN","Macros","knob",0,1,0,0,"",1,"","",""],
+  ["macro7","M7","MAIN","Macros","knob",0,1,0,0,"",1,"","",""],
+  ["macro8","M8","MAIN","Macros","knob",0,1,0,0,"",1,"","",""],
+  ["xyAsn0X","OSC1 x","SET","XY assignment","enum",0,8,0,1,"",1,"","",""],
+  ["xyAsn0Y","OSC1 y","SET","XY assignment","enum",0,8,1,1,"",1,"","",""],
+  ["xyAsn1X","OSC2 x","SET","XY assignment","enum",0,8,2,1,"",1,"","",""],
+  ["xyAsn1Y","OSC2 y","SET","XY assignment","enum",0,8,3,1,"",1,"","",""],
+  ["specimen","Specimen","SET","Visualizers","toggle",0,1,1,1,"",1,"","",""],
+  ["d1time","Delay Time","FX","Slot 1","knob",1,2000,375,0,"",1,"fx1type=9,d1sync=0","log10","ms"],
+  ["d1sync","Time Mode","FX","Slot 1","select",0,1,0,1,"kDelaySyncLabels",1,"fx1type=9","",""],
+  ["d1beats","Beats","FX","Slot 1","knob",0.0625,8,0.5,0,"",1,"fx1type=9,d1sync=1","","/beat"],
+  ["d1offR","R Offset","FX","Slot 1","knob",0.25,2,1,0,"",1,"fx1type=9","","x"],
+  ["d1fb","Feedback","FX","Slot 1","knob",0,1,0.35,0,"",1,"fx1type=9","",""],
+  ["d1cross","Crossfeed","FX","Slot 1","knob",0,1,0,0,"",1,"fx1type=9","",""],
+  ["d1damp","Damp","FX","Slot 1","knob",0,1,0.35,0,"",1,"fx1type=9","",""],
+  ["d1hp","Loop HP","FX","Slot 1","knob",0,500,60,0,"",1,"fx1type=9","","Hz"],
+  ["d2time","Delay Time","FX","Slot 2","knob",1,2000,375,0,"",1,"fx2type=9,d2sync=0","log10","ms"],
+  ["d2sync","Time Mode","FX","Slot 2","select",0,1,0,1,"kDelaySyncLabels",1,"fx2type=9","",""],
+  ["d2beats","Beats","FX","Slot 2","knob",0.0625,8,0.5,0,"",1,"fx2type=9,d2sync=1","","/beat"],
+  ["d2offR","R Offset","FX","Slot 2","knob",0.25,2,1,0,"",1,"fx2type=9","","x"],
+  ["d2fb","Feedback","FX","Slot 2","knob",0,1,0.35,0,"",1,"fx2type=9","",""],
+  ["d2cross","Crossfeed","FX","Slot 2","knob",0,1,0,0,"",1,"fx2type=9","",""],
+  ["d2damp","Damp","FX","Slot 2","knob",0,1,0.35,0,"",1,"fx2type=9","",""],
+  ["d2hp","Loop HP","FX","Slot 2","knob",0,500,60,0,"",1,"fx2type=9","","Hz"],
+  ["d3time","Delay Time","FX","Slot 3","knob",1,2000,375,0,"",1,"fx3type=9,d3sync=0","log10","ms"],
+  ["d3sync","Time Mode","FX","Slot 3","select",0,1,0,1,"kDelaySyncLabels",1,"fx3type=9","",""],
+  ["d3beats","Beats","FX","Slot 3","knob",0.0625,8,0.5,0,"",1,"fx3type=9,d3sync=1","","/beat"],
+  ["d3offR","R Offset","FX","Slot 3","knob",0.25,2,1,0,"",1,"fx3type=9","","x"],
+  ["d3fb","Feedback","FX","Slot 3","knob",0,1,0.35,0,"",1,"fx3type=9","",""],
+  ["d3cross","Crossfeed","FX","Slot 3","knob",0,1,0,0,"",1,"fx3type=9","",""],
+  ["d3damp","Damp","FX","Slot 3","knob",0,1,0.35,0,"",1,"fx3type=9","",""],
+  ["d3hp","Loop HP","FX","Slot 3","knob",0,500,60,0,"",1,"fx3type=9","","Hz"],
+  ["d4time","Delay Time","FX","Slot 4","knob",1,2000,375,0,"",1,"fx4type=9,d4sync=0","log10","ms"],
+  ["d4sync","Time Mode","FX","Slot 4","select",0,1,0,1,"kDelaySyncLabels",1,"fx4type=9","",""],
+  ["d4beats","Beats","FX","Slot 4","knob",0.0625,8,0.5,0,"",1,"fx4type=9,d4sync=1","","/beat"],
+  ["d4offR","R Offset","FX","Slot 4","knob",0.25,2,1,0,"",1,"fx4type=9","","x"],
+  ["d4fb","Feedback","FX","Slot 4","knob",0,1,0.35,0,"",1,"fx4type=9","",""],
+  ["d4cross","Crossfeed","FX","Slot 4","knob",0,1,0,0,"",1,"fx4type=9","",""],
+  ["d4damp","Damp","FX","Slot 4","knob",0,1,0.35,0,"",1,"fx4type=9","",""],
+  ["d4hp","Loop HP","FX","Slot 4","knob",0,500,60,0,"",1,"fx4type=9","","Hz"],
+  ["mainAsnX","Main x","SET","XY assignment","select",0,10,0,1,"",1,"","",""],
+  ["mainAsnY","Main y","SET","XY assignment","select",0,10,1,1,"",1,"","",""],
+  ["osc1.oscPitch","Pitch (st)","OSC","Pitch","knob",-24,24,0,0,"",1,"","","st"],
+  ["osc2.oscPitch","Pitch (st)","OSC","Pitch","knob",-24,24,0,0,"",1,"","","st"],
+  ["fxXfade","FX Type Crossfade (dev)","BURIED","FX crossfade (buried B117)","select",0,1,1,1,"kFxXfadeLabels",1,"","",""],
+  ["fxXfadeMs","Crossfade Time","BURIED","FX crossfade (buried B117)","knob",5,500,80,0,"",1,"","","ms"],
+  ["intentBus","Intent Bus (dev)","SET","Intent bus (dev, B89)","select",0,1,0,1,"kOffOn",1,"","",""],
+  ["intentLatch","Pad Latch (dev)","SET","Intent bus (dev, B89)","select",0,1,0,1,"kOffOn",1,"","",""],
+  ["lfo1Rate","Rate","MOD","LFO 1","knob",0.02,40,1,0,"",1,"lfo1Sync=0","log10","Hz"],
+  ["lfo1Shape","Shape","MOD","LFO 1","select",0,5,0,1,"kLfoShapeLabels",1,"","",""],
+  ["lfo1Sync","Time Mode","MOD","LFO 1","select",0,1,0,1,"kLfoSyncLabels",1,"","",""],
+  ["lfo1Beats","Beats","MOD","LFO 1","knob",0.0625,8,1,0,"",1,"lfo1Sync=1","","/beat"],
+  ["lfo1Retrig","Retrigger","MOD","LFO 1","select",0,1,0,1,"kLfoRetrigLabels",1,"","",""],
+  ["lfo1Phase","Start Phase","MOD","LFO 1","knob",0,1,0,0,"",1,"","",""],
+  ["lfo2Rate","Rate","MOD","LFO 2","knob",0.02,40,1,0,"",1,"lfo2Sync=0","log10","Hz"],
+  ["lfo2Shape","Shape","MOD","LFO 2","select",0,5,0,1,"kLfoShapeLabels",1,"","",""],
+  ["lfo2Sync","Time Mode","MOD","LFO 2","select",0,1,0,1,"kLfoSyncLabels",1,"","",""],
+  ["lfo2Beats","Beats","MOD","LFO 2","knob",0.0625,8,1,0,"",1,"lfo2Sync=1","","/beat"],
+  ["lfo2Retrig","Retrigger","MOD","LFO 2","select",0,1,0,1,"kLfoRetrigLabels",1,"","",""],
+  ["lfo2Phase","Start Phase","MOD","LFO 2","knob",0,1,0,0,"",1,"","",""],
+  ["env3A","Attack","MOD","ENV 3","knob",0.001,2,0.003,0,"",1,"","","s"],
+  ["env3D","Decay","MOD","ENV 3","knob",0.005,4,0.16,0,"",1,"","","s"],
+  ["env3S","Sustain","MOD","ENV 3","knob",0,1,0,0,"",1,"","",""],
+  ["env3R","Release","MOD","ENV 3","knob",0.005,8,0.16,0,"",1,"","","s"],
+  ["env4A","Attack","MOD","ENV 4","knob",0.001,2,0.003,0,"",1,"","","s"],
+  ["env4D","Decay","MOD","ENV 4","knob",0.005,4,0.16,0,"",1,"","","s"],
+  ["env4S","Sustain","MOD","ENV 4","knob",0,1,0,0,"",1,"","",""],
+  ["env4R","Release","MOD","ENV 4","knob",0.005,8,0.16,0,"",1,"","","s"],
+  ["sub.wave","Wave","OSC","SUB","select",0,6,3,1,"kSubWaveLabels",1,"","",""],
+  ["sub.width","Pulse Width","OSC","SUB","knob",0.05,0.95,0.5,0,"",1,"sub.wave=4","",""],
+  ["sub.bumpAmt","Bump Amount","OSC","SUB","knob",0,0.6,0.35,0,"",1,"sub.wave=6","",""],
+  ["sub.bumpPhase","Bump Phase","OSC","SUB","knob",-3.141593,3.141593,-0.25,0,"",1,"sub.wave=6","","rad"],
+  ["sub.octave","Octave","OSC","SUB","knob",-3,0,-1,1,"",1,"","","oct"],
+  ["sub.semis","Semitones","OSC","SUB","knob",-12,12,0,1,"",1,"","","st"],
+  ["sub.fine","Fine","OSC","SUB","knob",-100,100,0,0,"",1,"","","c"],
+  ["sub.level","Level","OSC","SUB","knob",0,1,0.8,0,"",1,"","",""],
+  ["sub.phase","Start Phase","OSC","SUB","knob",0,1,0,0,"",1,"","",""],
+  ["sub.keytrack","Keytrack","OSC","SUB","toggle",0,1,1,1,"kOffOn",1,"","",""],
+  ["sub.tone","Tone","OSC","SUB","knob",30,20000,20000,0,"",1,"","log10","Hz"],
+  ["sub.sync","Sync (retired)","OSC","SUB","none",0,1,0,1,"kOffOn",1,"","",""],
+  ["sub.attack","Attack","OSC","SUB","knob",0.0005,0.5,0.005,0,"",1,"","log10","s"],
+  ["sub.release","Release","OSC","SUB","knob",0.002,2,0.08,0,"",1,"","log10","s"],
+  ["sub.seed","Seed","OSC","SUB","knob",0,4294967295,1,1,"",1,"","",""],
+  ["sub.on","SUB On","OSC","SUB","none",0,1,0,1,"kOffOn",1,"","",""],
+  ["sub.mono","Mono","OSC","SUB","toggle",0,1,0,1,"kOffOn",1,"","",""],
+  ["sub.bias","Mono Bias","OSC","SUB","select",0,2,0,1,"kSubBiasLabels",1,"sub.mono=1","",""],
+  ["sub.glide","Glide","OSC","SUB","knob",0,2,0,0,"",1,"sub.mono=1","","s"],
+  ["sub.pitchMod","Pitch Mod","OSC","SUB","knob",-48,48,0,0,"",1,"","","st"],
+];
+</script>
+
+<script>
+"use strict";
+/* ============ BLOCK A — state and vocabulary, above all wiring (L0026) ====== */
+const PTI = Object.create(null);           /* address -> row object */
+const ROWS = [];
+for (const r of PT) {
+  const o = { a: r[0], l: r[1], p: r[2], g: r[3], w: r[4], min: r[5], max: r[6], df: r[7],
+              st: r[8], en: r[9], c: r[10], sh: r[11], sc: r[12], u: r[13] };
+  PTI[o.a] = o; ROWS.push(o);
+}
+/* gui2:4416 page order; BURIED is not a page a player sees (B117) */
+const PAGES = ['MAIN', 'OSC', 'MIX', 'FX', 'MOD', 'MORPH', 'SET'];
+const designed = r => r.c === 1 && r.sh !== 'never' && r.w !== 'none';
+const INTENT_DEFAULT = ['Space', 'Timbre', 'Motion', 'Grit', 'Time', 'Character', 'Brightness', 'Pressure'];
+const CORNER = ['A', 'B', 'C', 'D'];
+
+// mulberry32 — the house stream (SPEC §5.7). Used by the lab's S&H LFO only.
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+/* THE PRESETS — lab content (see the header). `set` overrides defaults;
+   `routes` are matrix routes in NORMALISED depth (a route moves the control's
+   position, which is what the ADR-137 halo draws); `corners` are the morph
+   snapshots; `pins` are the sound designer's extra face controls (decision 3),
+   which are PRESENTATION data carried by the patch, never parameters. */
+const PRESETS = {
+  'INIT': {
+    set: {}, names: INTENT_DEFAULT.slice(), routes: [], corners: null, pins: [],
+    why: 'the defaults: no routes, morph off — what a macro-only face looks like on most patches today',
+  },
+  'GLASS CHOIR': {
+    set: { 'osc1.n': 16, 'osc1.detune': 0.42, 'osc1.K': 0.35, 'osc1.width': 1.1, 'osc1.attack': 0.12,
+           'osc1.release': 1.6, 'osc2.detune': 0.2, 'osc2.vol': 0.25, 'fx1type': 1, 'fx1amt': 0.25,
+           'fx4type': 8, 'fx4mix': 0.35, 'lfo1Rate': 0.35, 'lfo2Rate': 0.11,
+           'morphOn': 1, 'morphX': 0.28, 'morphY': 0.64 },
+    names: ['Space', 'Bloom', 'Motion', 'Grit', 'Time', 'Character', 'Brightness', 'Pressure'],
+    routes: [ { src: 'lfo1', dst: 'osc2.detune', d: 0.22 },
+              { src: 'lfo2', dst: 'osc1.panMotion', d: 0.4 },
+              { src: 'm1', dst: 'fx4mix', d: 0.45 }, { src: 'm1', dst: 'fx4size', d: 0.3 },
+              { src: 'm2', dst: 'osc1.dissolve', d: 0.5 }, { src: 'm2', dst: 'osc1.onset', d: -0.35 } ],
+    corners: [ { 'osc1.detune': 0.12, 'osc1.K': 0.8, 'osc1.width': 0.6, 'fx4mix': 0.2, 'osc1.toneTilt': -0.3 },
+               { 'osc1.detune': 0.55, 'osc1.K': 0.15, 'osc1.width': 1.2, 'fx4mix': 0.5, 'osc1.toneTilt': 0.1 },
+               { 'osc1.detune': 0.3, 'osc1.K': -0.4, 'osc1.width': 0.9, 'fx4mix': 0.7, 'osc1.toneTilt': 0.4 },
+               { 'osc1.detune': 0.8, 'osc1.K': -0.8, 'osc1.width': 1.5, 'fx4mix': 0.9, 'osc1.toneTilt': 0.7 } ],
+    pins: ['osc1.dissolve', 'osc1.driftDepth'],
+    why: 'morph ON, four corners, two LFO routes and two bound macros — which morph suspends today',
+  },
+  'SAW STACK': {
+    set: { 'osc1.n': 9, 'osc1.detune': 0.36, 'osc1.K': -0.2, 'osc1.shape': 0.15, 'osc2.octave': -1,
+           'osc2.vol': 0.3, 'fx1type': 1, 'fx1amt': 0.35, 'fx2type': 2, 'fx4type': 8, 'fx4mix': 0.25,
+           'lfo1Rate': 5.2, 'macro1': 0.3, 'macro2': 0.5, 'macro3': 0.2, 'macro4': 0.4 },
+    names: ['Space', 'Timbre', 'Motion', 'Grit', 'Time', 'Character', 'Brightness', 'Pressure'],
+    routes: [ { src: 'lfo1', dst: 'osc1.fineCents', d: 0.03 },
+              { src: 'm1', dst: 'fx4mix', d: 0.5 }, { src: 'm1', dst: 'fx4size', d: 0.25 },
+              { src: 'm2', dst: 'osc1.shape', d: 0.6 }, { src: 'm2', dst: 'osc1.toneTilt', d: 0.4 },
+              { src: 'm3', dst: 'osc1.driftDepth', d: 0.35 }, { src: 'm3', dst: 'osc1.panMotion', d: 0.5 },
+              { src: 'm4', dst: 'fx1amt', d: 0.5 }, { src: 'm4', dst: 'osc1.digital', d: -0.4 } ],
+    corners: null,
+    pins: ['osc1.onset', 'osc1.dissolve', 'osc1.law'],
+    why: 'morph off, four bound macros, a vibrato LFO, three pins chosen by the patch',
+  },
+};
+
+/* THE FACES. A face lists ADDRESSES (or per-oscillator KEYS the face's OSC pill
+   expands to osc1./osc2.) — never values. `groups` are the (page, group) pairs a
+   cluster stands for, which is what "open in full" and "expand in place" reach. */
+const FX_GROUPS = [['FX', 'Slot 1'], ['FX', 'Slot 2'], ['FX', 'Slot 3'], ['FX', 'Slot 4']];
+const MACRO_ADDRS = ['macro1', 'macro2', 'macro3', 'macro4', 'macro5', 'macro6', 'macro7', 'macro8'];
+const FACES = {
+  fixed: {
+    key: 'A', title: 'A · FIXED SPINE', blurb: 'ours — the same controls, same places, on every patch',
+    pad: 'morph',
+    clusters: [
+      { id: 'swarm', name: 'Swarm', own: 'ours', osc: ['n', 'detune', 'K', 'width'],
+        groups: [['OSC', 'The swarm'], ['OSC', 'The coupling']] },
+      { id: 'tone', name: 'Tone', own: 'ours', osc: ['shape', 'toneTilt', 'hiTame'],
+        groups: [['OSC', 'Saw shape'], ['OSC', 'Image & tone']] },
+      { id: 'env', name: 'Envelope', own: 'ours', osc: ['attack', 'decay', 'sustain', 'release'],
+        groups: [['OSC', 'Envelope']] },
+      { id: 'out', name: 'Output', own: 'ours', addrs: ['osc1.vol', 'osc2.vol', 'masterVol'],
+        groups: [['MIX', 'Mix']] },
+      { id: 'fx', name: 'FX · Amount', own: 'ours', fx: true, addrs: ['fx1amt', 'fx2amt', 'fx3amt', 'fx4amt'],
+        groups: FX_GROUPS },
+    ],
+  },
+  macro: {
+    key: 'B', title: 'B · MACRO FACE', blurb: "the preset's — eight named macros the sound designer bound",
+    pad: 'main',
+    clusters: [
+      { id: 'macros', name: 'Macros', own: 'preset', macros: true, big: true, addrs: MACRO_ADDRS,
+        groups: [['MAIN', 'Macros']] },
+      { id: 'out', name: 'Output', own: 'ours', addrs: ['masterVol'], groups: [['MIX', 'Mix']] },
+    ],
+  },
+  mix: {
+    key: 'C', title: 'C · SPINE + MACROS', blurb: "ours and the preset's, layered — the recommendation",
+    pad: 'morph',
+    clusters: [
+      { id: 'macros', name: 'Macros', own: 'preset', macros: true, addrs: MACRO_ADDRS, who: 'preset',
+        groups: [['MAIN', 'Macros']] },
+      { id: 'spine', name: 'Spine', own: 'ours', osc: ['n', 'detune', 'K', 'width', 'attack', 'release'],
+        addrs: ['masterVol'], who: 'ours',
+        groups: [['OSC', 'The swarm'], ['OSC', 'The coupling'], ['OSC', 'Envelope'], ['MIX', 'Mix']] },
+      { id: 'pins', name: 'Pinned', own: 'preset', pins: true, who: 'preset', groups: [] },
+      { id: 'fx', name: 'FX · Amount', own: 'ours', fx: true, who: 'ours',
+        addrs: ['fx1amt', 'fx2amt', 'fx3amt', 'fx4amt'], groups: FX_GROUPS },
+    ],
+  },
+};
+
+/* LAB STATE — the audition switches the six decision cards drive. */
+const LAB = {
+  preset: 'SAW STACK',
+  reach: 'toggle',          /* decision 2: toggle | expand | drawer          */
+  who: 'both',              /* decision 3: ours | preset | both (frame C)    */
+  size: 'small',            /* decision 4: small (720x440) | same (980x720)  */
+  strip: 'named',           /* decision 5: none | count | named              */
+  shadow: false,            /* decision 6: false = a view; true = the planted shadow */
+  picked: '',               /* decision 1: which frame the pill points at    */
+  dark: false,
+};
+const SIZES = { small: [720, 440], same: [980, 720] };
+
+/* THE ONE STORE. `v` holds every table address; `shadow` exists only so the
+   decision-6 audition can show what a second parameter would cost. */
+const STORE = { v: Object.create(null), shadow: Object.create(null), hist: [], seen: Object.create(null),
+                lost: [], routes: [], corners: null, names: INTENT_DEFAULT.slice(), pins: [] };
+let GEST = null;                  /* the open gesture: {via, from:{addr:v}} */
+let T = 0;                        /* lab time in seconds — a frame counter / 60, never a clock */
+let SH_RNG = mulberry32(1024);
+const SH_VAL = [0, 0];
+const SH_CYC = [-1, -1];
+const FRAMES = [];
+const DEEP = { view: '', open: '', page: '' };   /* deep-link frame state, applied once at setup */
+</script>
+
+<script>
+"use strict";
+/* ============ BLOCK B — the store, the model, the painters, the wiring ====== */
+const clamp01 = x => Math.min(1, Math.max(0, x));
+function isLog(r) { return r.sc === 'log10' && r.min > 0; }
+function toPos(r, v) {
+  if (!r) return 0;
+  if (isLog(r)) return clamp01(Math.log(Math.max(r.min, v) / r.min) / Math.log(r.max / r.min));
+  return clamp01((v - r.min) / ((r.max - r.min) || 1));
+}
+function fromPos(r, p) {
+  p = clamp01(p);
+  let v = isLog(r) ? r.min * Math.pow(r.max / r.min, p) : r.min + p * (r.max - r.min);
+  if (r.st) v = Math.round(v);
+  return v;
+}
+function clampV(r, v) {
+  v = Math.min(r.max, Math.max(r.min, +v || 0));
+  return r.st ? Math.round(v) : v;
+}
+function get(a) {
+  if (PTI[a]) return STORE.v[a];
+  return STORE.shadow[a] !== undefined ? STORE.shadow[a] : 0;
+}
+/* A name a player can find: the scope a bare label drops ("Detune" of WHICH
+   oscillator?) is put back, because the strip lists controls OUT of their
+   cluster and the cluster was what carried the scope. */
+function nameOf(a) {
+  const r = PTI[a];
+  if (!r) return a;
+  const m = /^osc([12])\./.exec(a);
+  if (m) return 'OSC' + m[1] + ' ' + r.l;
+  if (/^sub\./.test(a)) return 'SUB ' + r.l;
+  if (/^macro(\d)$/.test(a)) return macroName(+a.slice(5) - 1);
+  if (r.p === 'FX' && !/^FX\d/.test(r.l)) return r.g.replace('Slot ', 'FX') + ' ' + r.l;
+  if (r.p === 'MOD') return r.g + ' ' + r.l;
+  return r.l;
+}
+function macroName(i) { return STORE.names[i] || ('M' + (i + 1)); }
+function fmt(r, v) {
+  if (!r) return String(v);
+  if (r.en && ENUMS[r.en]) { const L = ENUMS[r.en]; const k = Math.round(v); return L[k] !== undefined ? L[k] : String(k); }
+  if (r.st) return String(Math.round(v));
+  const u = r.u, l = r.l;
+  if (u === 's' || /\(s\)/.test(l)) return v < 1 ? Math.round(v * 1000) + ' ms' : v.toFixed(2) + ' s';
+  if (u === 'ms' || /\(ms\)/.test(l)) return Math.round(v) + ' ms';
+  if (u === 'c' || /\(c\)/.test(l)) return (v > 0 ? '+' : '') + Math.round(v) + ' c';
+  if (u === 'Hz' || /\(Hz\)/.test(l)) return v < 100 ? v.toFixed(2) + ' Hz' : Math.round(v) + ' Hz';
+  if (u === 'st') return (v > 0 ? '+' : '') + v.toFixed(1) + ' st';
+  return (Math.round(v * 100) / 100).toFixed(2);
+}
+
+/* ---- the write path: put() is the ONLY writer (decision 6) ---------------- */
+function begin(via) { if (GEST) end(); GEST = { via, from: Object.create(null) }; }
+function put(a, v) {
+  const r = PTI[a];
+  if (!r) {
+    /* The shadow case, allowed only while the decision-6 audition asks for it.
+       Note what does NOT happen: no history node, no host lane, no snapshot. */
+    STORE.shadow[a] = +v;
+    STORE.lost.push({ a, v: +v, via: GEST ? GEST.via : '?' });
+    if (STORE.lost.length > 40) STORE.lost.shift();
+    return;
+  }
+  if (GEST && GEST.from[a] === undefined) GEST.from[a] = STORE.v[a];
+  let nv = clampV(r, v);
+  /* An edit to a morph-owned parameter lands on the dominant corner (see the
+     header); the blend is then re-applied, so the value you see is the value
+     the morph field produces, as in the shell (base follows morph writes,
+     hypersaw_clap.cpp:3838-3841). */
+  if (STORE.corners && get('morphOn') > 0.5 && ownedBy(a) >= 0) {
+    STORE.corners[dominant()][a] = nv;
+    STORE.v[a] = blendOf(a);
+  } else {
+    STORE.v[a] = nv;
+  }
+  STORE.seen[a] = (STORE.seen[a] || 0) + 1;
+  if (a === 'morphX' || a === 'morphY' || a === 'morphOn') applyMorph();
+}
+function end() {
+  if (!GEST) return;
+  const writes = [];
+  for (const a in GEST.from) if (GEST.from[a] !== STORE.v[a]) writes.push({ a, from: GEST.from[a], to: STORE.v[a] });
+  if (writes.length) {
+    STORE.hist.push({ via: GEST.via, writes });
+    if (STORE.hist.length > 200) STORE.hist.shift();
+  }
+  GEST = null;
+  repaintAll(); paintLedger();
+}
+function write(a, v, via) { begin(via); put(a, v); end(); }
+
+/* ---- morph (lab blend — see the header) ----------------------------------- */
+function weights() {
+  const x = get('morphX'), y = get('morphY');
+  /* gui2:2836 corner placement: A top-left, B top-right, C bottom-left, D bottom-right */
+  return [(1 - x) * (1 - y), x * (1 - y), (1 - x) * y, x * y];
+}
+function dominant() { const w = weights(); let k = 0; for (let i = 1; i < 4; i++) if (w[i] > w[k]) k = i; return k; }
+function ownedBy(a) {
+  const C = STORE.corners;
+  if (!C) return -1;
+  for (let k = 0; k < 4; k++) if (C[k][a] !== undefined) return dominant();
+  return -1;
+}
+function blendOf(a) {
+  const C = STORE.corners, w = weights(), base = PTI[a].df;
+  let s = 0;
+  for (let k = 0; k < 4; k++) s += w[k] * (C[k][a] !== undefined ? C[k][a] : base);
+  return clampV(PTI[a], s);
+}
+function applyMorph() {
+  const C = STORE.corners;
+  if (!C || get('morphOn') < 0.5) return;
+  const seen = Object.create(null);
+  for (let k = 0; k < 4; k++) for (const a in C[k]) if (!seen[a] && PTI[a]) { seen[a] = 1; STORE.v[a] = blendOf(a); }
+}
+
+/* ---- modulation (the ADR-137 model: base held, offset drawn) -------------- */
+/* hypersaw_clap.cpp:3847 — while morph is ON the macro family reads 0, so a
+   macro route contributes nothing. The lab reproduces TODAY's law, not B170's
+   planned retirement of it. */
+function macroLive() { return get('morphOn') > 0.5 ? 0 : 1; }
+function lfoVal(i) {
+  const n = i + 1, rate = get('lfo' + n + 'Rate') || 1, shape = Math.round(get('lfo' + n + 'Shape') || 0);
+  const ph0 = get('lfo' + n + 'Phase') || 0;
+  const cyc = rate * T + ph0, p = cyc - Math.floor(cyc);
+  switch (shape) {
+    case 1: return 1 - 4 * Math.abs(p - 0.5);
+    case 2: return 2 * p - 1;
+    case 3: return 1 - 2 * p;
+    case 4: return p < 0.5 ? 1 : -1;
+    case 5: { const c = Math.floor(cyc); if (c !== SH_CYC[i]) { SH_CYC[i] = c; SH_VAL[i] = 2 * SH_RNG() - 1; } return SH_VAL[i]; }
+    default: return Math.sin(p * 6.283185307179586);
+  }
+}
+function srcVal(s) {
+  if (s === 'lfo1') return lfoVal(0);
+  if (s === 'lfo2') return lfoVal(1);
+  const m = /^m(\d)$/.exec(s);
+  if (m) return get('macro' + m[1]) * macroLive();
+  return 0;
+}
+function srcLive(s) { return /^m\d$/.test(s) ? macroLive() > 0 : true; }
+function routesTo(a) { return STORE.routes.filter(r => r.dst === a); }
+/* {base, eff, lo, hi, mod} in POSITION space (0..1 of the control's travel) */
+function modOf(a) {
+  const r = PTI[a];
+  const base = toPos(r, get(a));
+  let eff = base, lo = base, hi = base, mod = false;
+  for (const rt of routesTo(a)) {
+    if (!srcLive(rt.src)) continue;
+    mod = true;
+    eff += rt.d * srcVal(rt.src);
+    if (/^lfo/.test(rt.src)) { lo -= Math.abs(rt.d); hi += Math.abs(rt.d); }
+    else { lo = Math.min(lo, lo + rt.d); hi = Math.max(hi, hi + rt.d); }
+  }
+  return { base, eff: clamp01(eff), lo: clamp01(lo), hi: clamp01(hi), mod };
+}
+/* "Driven" = moving without your hand on it: a live route, or a morph field
+   that gives it different values in different corners. */
+function driven(a) {
+  const out = [];
+  for (const rt of routesTo(a)) if (srcLive(rt.src)) out.push(rt.src);
+  if (STORE.corners && get('morphOn') > 0.5) {
+    const C = STORE.corners, vals = [];
+    for (let k = 0; k < 4; k++) if (C[k][a] !== undefined) vals.push(C[k][a]);
+    if (vals.length && Math.max.apply(null, vals) !== Math.min.apply(null, vals)) out.push('morph');
+  }
+  return out;
+}
+function drivenAll() {
+  const set = Object.create(null);
+  for (const rt of STORE.routes) set[rt.dst] = 1;
+  if (STORE.corners) for (let k = 0; k < 4; k++) for (const a in STORE.corners[k]) set[a] = 1;
+  return Object.keys(set).filter(a => PTI[a] && driven(a).length);
+}
+
+/* ---- presets --------------------------------------------------------------- */
+function loadPreset(name, via) {
+  const P = PRESETS[name];
+  if (!P) return;
+  LAB.preset = name;
+  begin(via || 'preset');
+  for (const r of ROWS) put(r.a, P.set[r.a] !== undefined ? P.set[r.a] : r.df);
+  STORE.routes = P.routes.map(x => ({ src: x.src, dst: x.dst, d: x.d }));
+  STORE.corners = P.corners ? P.corners.map(c => Object.assign({}, c)) : null;
+  STORE.names = P.names.slice();
+  /* pins are validated on load: a pin naming no table address is DROPPED,
+     never promoted into something that stores a value (decision 3/6) */
+  STORE.pins = P.pins.filter(a => !!PTI[a]);
+  STORE.shadow = Object.create(null);
+  applyMorph();
+  end();
+  renderAll();
+}
+function snapshot() {
+  /* the preset chunk: every table address, plus presentation data (names,
+     pins). A shadow value has nowhere to go — that is the point. */
+  const vals = Object.create(null);
+  for (const r of ROWS) vals[r.a] = STORE.v[r.a];
+  return { vals, names: STORE.names.slice(), pins: STORE.pins.slice() };
+}
+
+/* ---- token reader + canvas helpers (gui2:1627-1719 idiom) ----------------- */
+const _tok = {};
+function TOK(name, fallback) {
+  if (_tok[name] === undefined) {
+    let v = '';
+    try { v = getComputedStyle(document.body || document.documentElement).getPropertyValue(name).trim(); }
+    catch (_) { v = ''; }
+    _tok[name] = (typeof v === 'string' && v) ? v : (fallback || '#000');
+  }
+  return _tok[name];
+}
+function RGBA(hex, a) {
+  const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(hex).trim());
+  if (!m) return hex;
+  return `rgba(${parseInt(m[1], 16)},${parseInt(m[2], 16)},${parseInt(m[3], 16)},${a})`;
+}
+function TOKA(name, a, fallback) {
+  const m = parseFloat(TOK('--scr-alpha', '1')) || 1;
+  return RGBA(TOK(name, fallback), Math.min(1, a * m));
+}
+const VS = () => Math.min(window.devicePixelRatio || 1, 2);
+function fitViz(cv) {
+  const dpr = VS();
+  const w = Math.max(1, Math.round(cv.clientWidth * dpr)), h = Math.max(1, Math.round(cv.clientHeight * dpr));
+  if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+}
+function scan(g, w, h, a) {
+  const v = VS();
+  g.fillStyle = `rgba(0,0,0,${a})`;
+  for (let y = v; y < h; y += 3 * v) g.fillRect(0, y, w, v);
+}
+
+/* ---- DOM builders ---------------------------------------------------------- */
+function el(tag, cls, txt) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (txt !== undefined) e.textContent = txt;
+  return e;
+}
+function oscAddr(F, key) { return 'osc' + F.osc + '.' + key; }
+
+/* THE KNOB CELL. It holds an ADDRESS. Its paint reads the store; its gesture
+   writes the store through begin/put/end. There is no other state in it. */
+function knobCell(F, host, a, opts) {
+  opts = opts || {};
+  const r = PTI[a];
+  const cell = el('div', 'kcell' + (opts.big ? ' big' : ''));
+  cell.dataset.addr = a;
+  const lab = el('label', null, opts.label || (r ? r.l : a));
+  lab.title = nameOf(a) + (r ? '  (' + a + ')' : '');
+  const k = el('span', 'knob' + (opts.big ? ' big' : ''));
+  k.appendChild(el('span', 'kmod')); k.appendChild(el('span', 'karc'));
+  k.appendChild(el('span', 'kcap')); k.appendChild(el('span', 'kptr'));
+  k.appendChild(el('span', 'kmnow'));
+  const out = el('output');
+  cell.appendChild(lab); cell.appendChild(k); cell.appendChild(out);
+  let tg = null;
+  if (opts.tag) { tg = el('div', 'tg'); cell.appendChild(tg); }
+  host.appendChild(cell);
+  /* a shadow knob (decision 6's planted failure) addresses a key that is not
+     in the table; it paints from STORE.shadow and writes nowhere the host sees */
+  const addr = (LAB.shadow && opts.shadowable) ? 'compact.' + (opts.label || a).toLowerCase() : a;
+  const R = r || { min: 0, max: 1, df: 0, st: 0, l: a };
+  let drag = false, y0 = 0, p0 = 0;
+  k.addEventListener('pointerdown', e => {
+    drag = true; y0 = e.clientY; p0 = toPos(R, get(addr));
+    k.classList.add('drag');
+    if (k.setPointerCapture) k.setPointerCapture(e.pointerId);
+    begin(F.id + ' · compact');
+  });
+  k.addEventListener('pointermove', e => {
+    if (!drag) return;
+    const sens = e.shiftKey ? 600 : 160;
+    put(addr, fromPos(R, p0 + (y0 - e.clientY) / sens));
+    repaintAll();
+  });
+  const up = () => { if (!drag) return; drag = false; k.classList.remove('drag'); end(); };
+  k.addEventListener('pointerup', up);
+  k.addEventListener('pointercancel', up);
+  k.addEventListener('dblclick', () => write(addr, R.df, F.id + ' · compact'));
+  k.addEventListener('wheel', e => {
+    e.preventDefault();
+    write(addr, fromPos(R, toPos(R, get(addr)) - Math.sign(e.deltaY) * 0.02), F.id + ' · compact');
+  }, { passive: false });
+  const paint = () => {
+    const v = get(addr), p = toPos(R, v);
+    const bip = R.min < 0 && R.max > 0, c = bip ? toPos(R, 0) : 0;
+    k.style.setProperty('--a0', (Math.min(c, p) * 280) + 'deg');
+    k.style.setProperty('--a1', (Math.max(c, p) * 280) + 'deg');
+    k.style.setProperty('--ang', (-140 + p * 280) + 'deg');
+    out.textContent = fmt(r, v);
+    if (opts.ghost) cell.classList.toggle('ghost', !!opts.ghost());
+    if (opts.label2) lab.textContent = opts.label2();
+    if (tg && opts.tag) { const t = opts.tag(); tg.textContent = t.text; tg.classList.toggle('bound', !!t.bound); }
+    const own = r ? ownedBy(a) : -1;
+    cell.classList.toggle('owned', own >= 0);
+    if (own >= 0) cell.style.setProperty('--own', TOK('--c' + CORNER[own]));
+  };
+  const anim = () => {
+    if (!r) return;
+    const m = modOf(a);
+    k.classList.toggle('mod', m.mod);
+    k.style.setProperty('--m0', (m.mod ? m.lo * 280 : 0) + 'deg');
+    k.style.setProperty('--m1', (m.mod ? m.hi * 280 : 0) + 'deg');
+    k.style.setProperty('--mang', (-140 + m.eff * 280) + 'deg');
+  };
+  F.binds.push({ a, paint, anim });
+  F.vis[a] = 1;
+  paint(); anim();
+  return cell;
+}
+function toggleCell(F, host, a, label) {
+  const cell = el('div', 'kcell tcell'); cell.dataset.addr = a;
+  const lab = el('label', null, label || PTI[a].l);
+  const t = el('input'); t.type = 'checkbox';
+  t.addEventListener('change', () => write(a, t.checked ? 1 : 0, F.id + ' · compact'));
+  cell.appendChild(lab); cell.appendChild(t);
+  host.appendChild(cell);
+  F.binds.push({ a, paint: () => { t.checked = get(a) > 0.5; }, anim: null });
+  F.vis[a] = 1;
+  t.checked = get(a) > 0.5;
+  return cell;
+}
+
+/* THE FULL-SURFACE ROW — the same address, drawn the gui2 way (gui2:517). */
+function shownOK(r) {
+  const s = r.sh;
+  if (!s) return true;
+  if (s === 'never') return false;
+  return s.split(';').some(alt => alt.split(',').every(cl => {
+    const i = cl.indexOf('=');
+    if (i < 0) return true;
+    let k = cl.slice(0, i);
+    const m = /^(osc[12])\./.exec(r.a);
+    if (!PTI[k] && m && PTI[m[1] + '.' + k]) k = m[1] + '.' + k;
+    const v = Math.round(get(k));
+    return cl.slice(i + 1).split('|').some(x => +x === v);
+  }));
+}
+function fullRow(F, host, r) {
+  const row = el('div', 'row'); row.dataset.addr = r.a;
+  const lab = el('label', null, r.l); lab.title = r.a;
+  row.appendChild(lab);
+  const via = F.id + ' · full';
+  let paint;
+  if (r.w === 'toggle') {
+    const t = el('input'); t.type = 'checkbox';
+    t.addEventListener('change', () => write(r.a, t.checked ? 1 : 0, via));
+    const o = el('output');
+    row.appendChild(t); row.appendChild(o);
+    paint = () => { t.checked = get(r.a) > 0.5; o.textContent = get(r.a) > 0.5 ? 'on' : 'off'; };
+  } else if ((r.w === 'select' || r.w === 'enum') && r.en && ENUMS[r.en]) {
+    const s = el('select');
+    ENUMS[r.en].forEach((nm, i) => { if (i >= r.min && i <= r.max) { const o = el('option', null, nm); o.value = String(i); s.appendChild(o); } });
+    s.addEventListener('change', () => write(r.a, +s.value, via));
+    row.className = 'row'; row.style.gridTemplateColumns = '86px minmax(0,1fr)';
+    row.appendChild(s);
+    paint = () => { s.value = String(Math.round(get(r.a))); };
+  } else {
+    const inp = el('input'); inp.type = 'range'; inp.min = '0'; inp.max = '1'; inp.step = r.st ? String(1 / Math.max(1, r.max - r.min)) : '0.001';
+    const o = el('output');
+    inp.addEventListener('pointerdown', () => begin(via));
+    inp.addEventListener('input', () => { if (!GEST) begin(via); put(r.a, fromPos(r, +inp.value)); repaintAll(); });
+    inp.addEventListener('change', () => end());
+    row.appendChild(inp); row.appendChild(o);
+    paint = () => { const p = toPos(r, get(r.a)); inp.value = String(p); inp.style.setProperty('--pct', String(p)); o.textContent = fmt(r, get(r.a)); };
+  }
+  host.appendChild(row);
+  F.binds.push({ a: r.a, paint: () => { paint(); row.classList.toggle('ghost', !shownOK(r)); }, anim: null });
+  F.vis[r.a] = 1;
+  paint(); row.classList.toggle('ghost', !shownOK(r));
+  return row;
+}
+function rowsFor(F, page) {
+  return ROWS.filter(r => r.p === page && designed(r) &&
+    (!/^osc[12]\./.test(r.a) || r.a.indexOf('osc' + F.osc + '.') === 0));
+}
+function renderFull(F, host, onlyGroups) {
+  const tabs = el('div', 'ftabs');
+  for (const pg of PAGES) {
+    const b = el('button', 'pill' + (pg === F.page ? ' on' : ''), pg);
+    b.dataset.lab = 'full-surface page tab (gui2:4416)';
+    b.addEventListener('click', () => { F.page = pg; F.focus = ''; renderFrame(F); });
+    tabs.appendChild(b);
+  }
+  if (F.page === 'OSC') {
+    const sp = el('span', 'lbl', '·'); sp.style.margin = '0 4px'; tabs.appendChild(sp);
+    for (const n of [1, 2]) {
+      const b = el('button', 'pill' + (F.osc === n ? ' on' : ''), 'OSC ' + n);
+      b.dataset.lab = 'oscillator selection — GUI state, not a parameter';
+      b.addEventListener('click', () => { F.osc = n; renderFrame(F); });
+      tabs.appendChild(b);
+    }
+  }
+  host.appendChild(tabs);
+  const rows = rowsFor(F, F.page);
+  const total = ROWS.filter(r => r.p === F.page && designed(r)).length;
+  host.appendChild(el('div', 'fnote', F.page + ' — ' + total + ' designed controls'
+    + (F.page === 'OSC' ? ' across both oscillators; OSC ' + F.osc + ' and shared rows shown' : '')
+    + '. Same addresses as the face, same store.'));
+  const cols = el('div', 'fcols');
+  const groups = [];
+  for (const r of rows) if (groups.indexOf(r.g) < 0) groups.push(r.g);
+  for (const g of groups) {
+    const box = el('div', 'cluster fg');
+    box.dataset.group = g;
+    box.appendChild(el('h2', null, g));
+    for (const r of rows) if (r.g === g) fullRow(F, box, r);
+    cols.appendChild(box);
+  }
+  host.appendChild(cols);
+}
+
+/* ---- pads ------------------------------------------------------------------ */
+function padCell(F, host, kind) {
+  const cv = el('canvas', 'pad');
+  cv.dataset.addr = kind === 'morph' ? 'morphX,morphY' : 'mainPad';
+  host.appendChild(cv);
+  const cap = el('div', 'padcap');
+  host.appendChild(cap);
+  const axes = () => {
+    if (kind === 'morph') return ['morphX', 'morphY'];
+    const ax = Math.round(get('mainAsnX')), ay = Math.round(get('mainAsnY'));
+    return [ax < 8 ? 'macro' + (ax + 1) : '', ay < 8 ? 'macro' + (ay + 1) : ''];
+  };
+  let down = false;
+  const apply = e => {
+    const r = cv.getBoundingClientRect();
+    const x = clamp01((e.clientX - r.left) / (r.width || 1)), y = clamp01((e.clientY - r.top) / (r.height || 1));
+    const [ax, ay] = axes();
+    /* the main pad's y reads UP (gui2 canvas.xy); the morph pad's y reads DOWN
+       (gui2:2836 puts corners A/B on top), so only the main pad flips */
+    if (ax) put(ax, x);
+    if (ay) put(ay, kind === 'morph' ? y : 1 - y);
+    repaintAll();
+  };
+  cv.addEventListener('pointerdown', e => {
+    down = true; if (cv.setPointerCapture) cv.setPointerCapture(e.pointerId);
+    begin(F.id + ' · compact'); apply(e);
+  });
+  cv.addEventListener('pointermove', e => { if (down) apply(e); });
+  const up = () => { if (!down) return; down = false; end(); };
+  cv.addEventListener('pointerup', up);
+  cv.addEventListener('pointercancel', up);
+  const paint = () => {
+    if (!cv.getContext) return;
+    fitViz(cv);
+    const g = cv.getContext('2d');
+    if (!g) return;
+    const w = cv.width, h = cv.height, v = VS();
+    g.fillStyle = TOK('--scr-tube'); g.fillRect(0, 0, w, h);
+    if (kind === 'morph') {
+      /* gui2:2833 paintMorphField — the corner hues as a radial ground */
+      for (let k = 0; k < 4; k++) {
+        const gx = (k % 2) ? w : 0, gy = (k > 1) ? h : 0;
+        const gr = g.createRadialGradient(gx, gy, 0, gx, gy, Math.max(w, h));
+        gr.addColorStop(0, TOK('--c' + CORNER[k]) + '55'); gr.addColorStop(0.7, 'rgba(0,0,0,0)');
+        g.fillStyle = gr; g.fillRect(0, 0, w, h);
+      }
+      g.font = (9 * v) + 'px ui-monospace,Menlo,monospace';
+      g.fillStyle = TOKA('--scr-grid', 0.9);
+      g.fillText('A', 5 * v, 12 * v); g.fillText('B', w - 11 * v, 12 * v);
+      g.fillText('C', 5 * v, h - 5 * v); g.fillText('D', w - 11 * v, h - 5 * v);
+    } else {
+      g.strokeStyle = TOKA('--scr-grid', 0.3); g.lineWidth = v;
+      for (let i = 1; i < 4; i++) {
+        g.beginPath(); g.moveTo(w * i / 4, 0); g.lineTo(w * i / 4, h); g.stroke();
+        g.beginPath(); g.moveTo(0, h * i / 4); g.lineTo(w, h * i / 4); g.stroke();
+      }
+    }
+    scan(g, w, h, parseFloat(TOK('--scr-scan', '0.22')) || 0.22);
+    const [ax, ay] = axes();
+    const px = ax ? get(ax) : 0.5, pyv = ay ? get(ay) : 0.5;
+    const py = kind === 'morph' ? pyv : 1 - pyv;
+    const off = kind === 'morph' && get('morphOn') < 0.5;
+    g.strokeStyle = off ? TOKA('--scr-grid', 0.7) : TOK('--scr-value'); g.lineWidth = 1.5 * v;
+    g.beginPath(); g.arc(px * w, py * h, 7 * v, 0, 6.283185307179586); g.stroke();
+    if (off) {
+      g.fillStyle = TOKA('--scr-grid', 0.9); g.font = (9 * v) + 'px ui-monospace,Menlo,monospace';
+      g.fillText('morph off', w / 2 - 22 * v, h / 2 + 3 * v);
+    }
+    if (kind === 'morph') {
+      cap.innerHTML = '<b>Morph</b> · x ' + get('morphX').toFixed(2) + ' · y ' + get('morphY').toFixed(2)
+        + (STORE.corners ? ' · dominant <b>' + CORNER[dominant()] + '</b>' : ' · this preset stores no corners');
+    } else {
+      const lx = ax ? nameOf(ax) : 'none', ly = ay ? nameOf(ay) : 'none';
+      const n = s => STORE.routes.filter(r => r.src === s).length;
+      cap.innerHTML = 'x → <b>' + lx + '</b>' + (ax ? ' (' + n('m' + ax.slice(5)) + ' routes)' : '')
+        + ' · y → <b>' + ly + '</b>' + (ay ? ' (' + n('m' + ay.slice(5)) + ' routes)' : '');
+    }
+  };
+  F.binds.push({ a: kind === 'morph' ? 'morphX' : 'mainAsnX', paint, anim: null });
+  if (kind === 'morph') { F.vis.morphX = 1; F.vis.morphY = 1; }
+  else { F.vis.mainAsnX = 1; F.vis.mainAsnY = 1; }
+  F.pads.push(paint);
+  return cv;
+}
+
+/* ---- the compact face ------------------------------------------------------ */
+function clusterAddrs(F, c) {
+  const out = [];
+  if (c.osc) for (const k of c.osc) out.push(oscAddr(F, k));
+  if (c.addrs) for (const a of c.addrs) out.push(a);
+  if (c.pins) for (const a of STORE.pins) out.push(a);
+  return out;
+}
+function clusterShown(F, c) {
+  if (F.face !== 'mix' || !c.who) return true;
+  return LAB.who === 'both' || LAB.who === c.who;
+}
+function renderFace(F, host) {
+  const D = FACES[F.face];
+  const face = el('div', 'face');
+  const left = el('div', 'fleft');
+  const right = el('div', 'fright');
+  face.appendChild(left); face.appendChild(right);
+  host.appendChild(face);
+  /* left column: the pad, its switch, the oscillator selection */
+  const pc = el('div', 'cluster cc');
+  const ph = el('div', 'ch'); ph.appendChild(el('h2', null, D.pad === 'morph' ? 'Morph' : 'XY — main pad'));
+  const po = el('span', 'own' + (D.pad === 'morph' ? '' : ' pre'), D.pad === 'morph' ? 'OURS' : 'PRESET');
+  ph.appendChild(po);
+  pc.appendChild(ph);
+  padCell(F, pc, D.pad);
+  const kr = el('div', 'kr'); kr.style.marginTop = '3px';
+  if (D.pad === 'morph') {
+    toggleCell(F, kr, 'morphOn', 'Morph');
+    knobCell(F, kr, 'morphGlide', { label: 'Glide' });
+    knobCell(F, kr, 'morphTemp', { label: 'Temp' });
+  } else {
+    knobCell(F, kr, 'masterVol', { label: 'Master' });
+  }
+  pc.appendChild(kr);
+  left.appendChild(pc);
+  const hasOsc = D.clusters.some(c => c.osc && clusterShown(F, c));
+  if (hasOsc) {
+    const sel = el('div', 'pills');
+    for (const n of [1, 2]) {
+      const b = el('button', 'pill' + (F.osc === n ? ' on' : ''), 'OSC ' + n);
+      b.dataset.lab = 'oscillator selection — GUI state (gui2 MAIN comment: "global state"), not a parameter';
+      b.addEventListener('click', () => { F.osc = n; renderFrame(F); });
+      sel.appendChild(b);
+    }
+    left.appendChild(sel);
+  }
+  for (const c of D.clusters) {
+    if (!clusterShown(F, c)) continue;
+    const box = el('div', 'cluster cc');
+    box.dataset.cluster = c.id;
+    const h = el('div', 'ch');
+    h.appendChild(el('h2', null, c.name));
+    h.appendChild(el('span', 'own' + (c.own === 'preset' ? ' pre' : ''), c.own === 'preset' ? 'PRESET' : 'OURS'));
+    if (c.groups.length) {
+      const more = el('button', 'more', LAB.reach === 'expand' ? (F.open[c.id] ? '−' : '+') : '↗');
+      more.title = LAB.reach === 'expand' ? 'expand this cluster in place' : 'open this group in the full surface';
+      more.dataset.lab = 'decision 2 affordance';
+      more.addEventListener('click', () => {
+        if (LAB.reach === 'expand') { F.open[c.id] = !F.open[c.id]; renderFrame(F); }
+        else openFull(F, c.groups[0][0], c.groups[0][1], '');
+      });
+      h.appendChild(more);
+    }
+    box.appendChild(h);
+    /* the caution the macro row owes the player, INSIDE the row it is about (in
+       the left column it was clipped by the 440px window): today morph
+       suspends every macro */
+    if (c.macros && get('morphOn') > 0.5) {
+      const cn = el('div', 'caution',
+        'Morph is ON: every macro reads 0 (hypersaw_clap.cpp:3847, ADR-152) until B170(d).');
+      cn.style.margin = '2px 0 3px'; cn.style.padding = '2px 6px'; cn.style.fontSize = '9.5px';
+      box.appendChild(cn);
+    }
+    const row = el('div', 'kr');
+    if (c.macros) {
+      MACRO_ADDRS.forEach((a, i) => {
+        const bound = () => STORE.routes.filter(r => r.src === 'm' + (i + 1));
+        knobCell(F, row, a, {
+          big: !!c.big, label: macroName(i), label2: () => macroName(i), shadowable: i === 0,
+          ghost: () => bound().length === 0,
+          tag: c.big ? () => {
+            const b = bound();
+            /* ADR-169: a role the preset does not implement is drawn, inert and
+               labelled unbound — never hidden */
+            return b.length ? { text: '→ ' + b.map(r => nameOf(r.dst)).join(', '), bound: true }
+                            : { text: 'unbound', bound: false };
+          } : null,
+        });
+      });
+    } else if (c.pins) {
+      if (!STORE.pins.length) row.appendChild(el('div', 'empty', 'this preset pins nothing'));
+      for (const a of STORE.pins) knobCell(F, row, a, { label: nameOf(a).replace(/^OSC\d /, '') });
+    } else {
+      if (c.osc) for (const k of c.osc) knobCell(F, row, oscAddr(F, k));
+      if (c.addrs) for (const a of c.addrs) {
+        if (c.fx) {
+          const n = a.charAt(2);
+          /* the Amount ROLE of each module (ADR-169's first role) is its compact
+             representative; the four-knob face itself is B210's to design */
+          knobCell(F, row, a, {
+            label2: () => (ENUMS.kFxTypeLabels[Math.round(get('fx' + n + 'type'))] || '?'),
+            ghost: () => Math.round(get('fx' + n + 'type')) === 0,
+          });
+        } else knobCell(F, row, a, a === 'masterVol' ? { label: 'Master' } : {});
+      }
+    }
+    box.appendChild(row);
+    if (LAB.reach === 'expand' && F.open[c.id]) {
+      const xp = el('div', 'xp');
+      const shown = Object.create(null);
+      for (const a of clusterAddrs(F, c)) shown[a] = 1;
+      for (const [pg, gname] of c.groups) {
+        const rows = rowsFor(F, pg).filter(r => r.g === gname && !shown[r.a]);
+        if (!rows.length) continue;
+        xp.appendChild(el('div', 'cap', gname.toUpperCase()));
+        for (const r of rows) fullRow(F, xp, r);
+      }
+      box.appendChild(xp);
+      box.style.flexBasis = '100%';
+    }
+    right.appendChild(box);
+  }
+}
+
+/* ---- the frame (one plugin window) ---------------------------------------- */
+function openFull(F, page, group, addr) {
+  if (addr && /^osc([12])\./.test(addr)) F.osc = +addr.charAt(3);
+  if (LAB.reach === 'expand') {
+    const D = FACES[F.face];
+    const c = D.clusters.find(c => clusterShown(F, c) && c.groups.some(gp => gp[0] === page && gp[1] === group));
+    if (c) { F.open[c.id] = true; F.focus = addr; renderFrame(F); scrollToFocus(F, F.el.body); return; }
+  }
+  F.page = page; F.focus = addr; F.focusGroup = group;
+  if (LAB.reach === 'drawer') F.drawer = true; else F.view = 'full';
+  renderFrame(F);
+  scrollToFocus(F, LAB.reach === 'drawer' ? F.el.drawer : F.el.body);
+}
+function scrollToFocus(F, box) {
+  if (!box || !box.querySelector) return;
+  let t = null;
+  if (F.focus) t = box.querySelector('.row[data-addr="' + F.focus + '"]');
+  if (!t && F.focusGroup) t = box.querySelector('.fg[data-group="' + F.focusGroup + '"]');
+  if (!t) return;
+  if (t.classList) t.classList.add('focus');
+  const top = (t.offsetTop || 0) - 30;
+  box.scrollTop = Math.max(0, top);
+}
+function buildFrame(F, host) {
+  const wrap = el('div', 'fwrap');
+  const D = FACES[F.face];
+  const cap = el('div', 'fcap');
+  cap.appendChild(el('b', null, D.title));
+  cap.appendChild(el('span', null, D.blurb));
+  if (F.face === 'mix') cap.appendChild(el('span', 'rec', 'RECOMMENDED'));
+  else cap.appendChild(el('span', 'rec alt', 'COMPETING'));
+  wrap.appendChild(cap);
+  const win = el('div', 'win');
+  const bar = el('div', 'wbar');
+  const body = el('div', 'wbody');
+  const drawer = el('div', 'drawer');
+  const strip = el('div', 'wstrip');
+  win.appendChild(bar); win.appendChild(body); win.appendChild(drawer); win.appendChild(strip);
+  wrap.appendChild(win);
+  host.appendChild(wrap);
+  F.el = { wrap, cap, win, bar, body, drawer, strip };
+}
+function renderBar(F) {
+  const bar = F.el.bar;
+  bar.innerHTML = '';
+  bar.appendChild(el('span', 'wmark', 'horde'));
+  const pre = el('span', 'wpre');
+  pre.innerHTML = LAB.preset + ' <i>· ' + (get('morphOn') > 0.5 ? 'morph on' : 'morph off') + '</i>';
+  bar.appendChild(pre);
+  const sz = SIZES[LAB.size];
+  bar.appendChild(el('span', 'wsize', sz[0] + '×' + sz[1]));
+  if (LAB.reach === 'toggle') {
+    const seg = el('div', 'seg');
+    seg.dataset.lab = 'decision 2 — the view switch; GUI state, never a parameter';
+    for (const v of ['compact', 'full']) {
+      const b = el('button', F.view === v ? 'on' : '', v.toUpperCase());
+      b.addEventListener('click', () => { F.view = v; F.focus = ''; renderFrame(F); });
+      seg.appendChild(b);
+    }
+    bar.appendChild(seg);
+  } else if (LAB.reach === 'drawer') {
+    const b = el('button', 'pill' + (F.drawer ? ' on' : ''), F.drawer ? 'ALL PARAMETERS ▾' : 'ALL PARAMETERS ▴');
+    b.style.minHeight = '22px'; b.style.padding = '1px 9px';
+    b.dataset.lab = 'decision 2 — the drawer handle';
+    b.addEventListener('click', () => { F.drawer = !F.drawer; renderFrame(F); });
+    bar.appendChild(b);
+  } else {
+    bar.appendChild(el('span', 'wsize', 'expand: + on each cluster')).style.marginLeft = '0';
+  }
+}
+function renderFrame(F) {
+  const sz = SIZES[LAB.size];
+  F.el.wrap.style.setProperty('--ww', sz[0] + 'px');
+  F.el.wrap.style.setProperty('--wh', sz[1] + 'px');
+  F.el.win.classList.toggle('picked', LAB.picked === F.face);
+  F.binds = []; F.vis = Object.create(null); F.pads = [];
+  F.el.body.innerHTML = ''; F.el.drawer.innerHTML = '';
+  if (LAB.reach !== 'toggle') F.view = 'compact';
+  if (LAB.reach !== 'drawer') F.drawer = false;
+  renderBar(F);
+  if (F.view === 'full') renderFull(F, F.el.body);
+  else renderFace(F, F.el.body);
+  F.el.drawer.classList.toggle('open', !!F.drawer);
+  if (F.drawer) renderFull(F, F.el.drawer);
+  paintStrip(F);
+}
+/* DECISION 5 — what the face shows of what it hides. Computed per frame from
+   what THIS frame is showing, so the strip never lists a control you can see. */
+function paintStrip(F) {
+  const s = F.el.strip;
+  if (!s) return;
+  const hidden = drivenAll().filter(a => !F.vis[a]);
+  const key = LAB.strip + '|' + hidden.join(',');
+  if (F.stripKey !== key) {
+    F.stripKey = key;
+    s.innerHTML = '';
+    F.stripBars = [];
+    if (LAB.strip === 'none') {
+      s.appendChild(el('span', 'sl', 'NOTHING SHOWN — the audition of decision 5\'s rejected option'));
+    } else if (LAB.strip === 'count') {
+      s.appendChild(el('span', 'sl', 'OUT OF SIGHT'));
+      s.appendChild(el('span', 'mvcount', hidden.length ? hidden.length + ' hidden parameter' + (hidden.length > 1 ? 's' : '') + ' moving' : 'nothing hidden is moving'));
+    } else {
+      s.appendChild(el('span', 'sl', 'MOVING OUT OF SIGHT'));
+      if (!hidden.length) s.appendChild(el('span', 'mvcount', 'nothing hidden is moving'));
+      for (const a of hidden) {
+        const src = driven(a);
+        const b = el('button', 'mv');
+        b.title = a + ' — driven by ' + src.join(', ') + '. Click to reveal it.';
+        const g = el('i');
+        const morph = src.indexOf('morph') >= 0;
+        if (morph) { g.className = 'corner'; g.textContent = CORNER[dominant()]; g.style.background = TOK('--c' + CORNER[dominant()]); }
+        else { const s0 = src[0]; g.textContent = /^lfo/.test(s0) ? 'L' + s0.slice(3) : 'M' + s0.slice(1); }
+        b.appendChild(g);
+        b.appendChild(document.createTextNode(nameOf(a)));
+        const bar = el('span', 'bar'); const tick = el('b'); bar.appendChild(tick);
+        if (morph) tick.style.background = TOK('--c' + CORNER[dominant()]);
+        b.appendChild(bar);
+        b.addEventListener('click', () => openFull(F, PTI[a].p, PTI[a].g, a));
+        s.appendChild(b);
+        F.stripBars.push({ a, tick });
+      }
+    }
+  }
+  for (const sb of (F.stripBars || [])) sb.tick.style.left = (modOf(sb.a).eff * 100) + '%';
+}
+
+function repaintAll() {
+  for (const F of FRAMES) {
+    for (const b of F.binds) b.paint();
+    const pre = F.el && F.el.bar && F.el.bar.querySelector && F.el.bar.querySelector('.wpre');
+    if (pre) pre.innerHTML = LAB.preset + ' <i>· ' + (get('morphOn') > 0.5 ? 'morph on' : 'morph off') + '</i>';
+  }
+}
+function renderAll() {
+  for (const F of FRAMES) renderFrame(F);
+  paintPresetPills(); paintDecisions(); paintLedger(); paintExposure();
+}
+
+/* ---- the ledger (decision 6's evidence) ----------------------------------- */
+function paintLedger() {
+  const hl = document.getElementById('histList');
+  if (hl) {
+    hl.innerHTML = '';
+    const H = STORE.hist.slice(-8).reverse();
+    if (!H.length) hl.appendChild(el('div', 'via', 'no history yet'));
+    H.forEach((n, i) => {
+      const d = el('div');
+      const w = n.writes;
+      const what = w.length > 3 ? w.length + ' parameters'
+        : w.map(x => x.a + ' ' + fmt(PTI[x.a], x.from) + ' → ' + fmt(PTI[x.a], x.to)).join(' · ');
+      d.innerHTML = '#' + (STORE.hist.length - i) + ' ' + what + ' <span class="via">· via ' + n.via + '</span>';
+      hl.appendChild(d);
+    });
+  }
+  const ho = document.getElementById('hostList');
+  if (ho) {
+    ho.innerHTML = '';
+    const lanes = ROWS.length;
+    const seen = Object.keys(STORE.seen);
+    const foreign = seen.filter(a => !PTI[a]).length;
+    const snap = snapshot();
+    ho.appendChild(el('div', null, 'automation lanes the host sees: ' + lanes + ' (the table) · lanes added by any compact face: 0'));
+    ho.appendChild(el('div', null, 'addresses written this session: ' + seen.length + ' · outside the table: ' + foreign));
+    ho.appendChild(el('div', null, 'preset snapshot: ' + Object.keys(snap.vals).length + ' values + names (' + snap.names.length
+      + ') + pins (' + snap.pins.length + ') — presentation data, no ids'));
+    if (STORE.lost.length) {
+      const d = el('div', 'warn');
+      const L = STORE.lost[STORE.lost.length - 1];
+      d.textContent = 'SHADOW: ' + STORE.lost.length + ' writes to ' + L.a + ' — no history node, no automation lane, not in the preset, and the full surface never moved';
+      ho.appendChild(d);
+    }
+  }
+}
+function saveReload() {
+  const snap = snapshot();
+  const shadowBefore = Object.keys(STORE.shadow).length;
+  begin('save → reload');
+  for (const a in snap.vals) put(a, snap.vals[a]);
+  end();
+  STORE.shadow = Object.create(null);
+  const ho = document.getElementById('hostList');
+  renderAll();
+  if (ho) ho.appendChild(el('div', shadowBefore ? 'warn' : 'ok',
+    'round trip: ' + Object.keys(snap.vals).length + ' table values survived; shadow values lost: ' + shadowBefore));
+}
+function undo() {
+  const n = STORE.hist.pop();
+  if (!n) return;
+  GEST = { via: 'undo', from: Object.create(null) };
+  for (let i = n.writes.length - 1; i >= 0; i--) put(n.writes[i].a, n.writes[i].from);
+  GEST = null;
+  renderAll();
+}
+
+/* ---- the self-audit (decision 6, calibrated per L0032) -------------------- */
+/* Counted over the SET of addresses a face can bind (both OSC-pill states).
+   The first version counted per binding pass, so the non-osc addresses were
+   seen twice and the plant below read 2 where it must read exactly 1 — the
+   calibration caught its own detector, which is what it is there for. */
+function faceForeign(D) {
+  const set = Object.create(null);
+  const probe = { osc: 1 };
+  for (const osc of [1, 2]) {
+    probe.osc = osc;
+    for (const c of D.clusters) {
+      if (c.osc) for (const k of c.osc) set[oscAddr(probe, k)] = 1;
+      if (c.addrs) for (const a of c.addrs) set[a] = 1;
+    }
+  }
+  const padA = D.pad === 'morph' ? ['morphX', 'morphY', 'morphOn', 'morphGlide', 'morphTemp'] : ['mainAsnX', 'mainAsnY', 'masterVol'];
+  for (const a of padA) set[a] = 1;
+  const all = Object.keys(set);
+  return { n: all.length, bad: all.filter(a => !PTI[a]) };
+}
+function runAudit() {
+  const lines = [];
+  let ok = true;
+  for (const key of ['fixed', 'macro', 'mix']) {
+    const r = faceForeign(FACES[key]);
+    if (r.bad.length) ok = false;
+    lines.push({ ok: !r.bad.length, t: 'face ' + FACES[key].key + ': ' + r.n + ' bindable addresses → ' + (r.n - r.bad.length)
+      + ' table addresses, ' + r.bad.length + ' foreign' + (r.bad.length ? ' (' + r.bad.join(', ') + ')' : '') });
+  }
+  let pinBad = 0;
+  for (const nm in PRESETS) for (const a of PRESETS[nm].pins) if (!PTI[a]) pinBad++;
+  if (pinBad) ok = false;
+  lines.push({ ok: !pinBad, t: 'preset pins: ' + pinBad + ' foreign (a foreign pin is dropped on load, never stored)' });
+  /* CALIBRATION: a planted face with one shadow control MUST be flagged, and a
+     planted face of real addresses must read zero. If the plant does not fire,
+     the lines above are not evidence of anything. */
+  const plant = faceForeign({ pad: 'main', clusters: [{ addrs: ['masterVol', 'compact.bite'] }] });
+  const clean = faceForeign({ pad: 'main', clusters: [{ addrs: ['masterVol', 'osc1.detune'] }] });
+  const fired = plant.bad.length === 1 && plant.bad[0] === 'compact.bite';
+  const quiet = clean.bad.length === 0;
+  if (!fired || !quiet) ok = false;
+  lines.push({ ok: fired, t: 'calibration: planted shadow control compact.bite → ' + (fired ? 'flagged (the check can fail)' : 'NOT flagged — the audit above is blind') });
+  lines.push({ ok: quiet, t: 'control: planted face of real addresses → ' + clean.bad.length + ' foreign (must read 0)' });
+  return { ok, lines };
+}
+let AUDIT = { ok: false, lines: [] };
+function paintAudit() {
+  const box = document.getElementById('audit');
+  const list = document.getElementById('auditList');
+  const nDesigned = ROWS.filter(designed).length;
+  if (box) {
+    box.classList.toggle('bad', !AUDIT.ok);
+    box.innerHTML = 'audit — <b>' + ROWS.length + '</b> table addresses (' + nDesigned + ' designed controls) · every face control is a table address: <b>'
+      + (AUDIT.ok ? 'yes' : 'NO') + '</b> · calibration plant: <b>' + (AUDIT.lines[3] && AUDIT.lines[3].ok ? 'fired' : 'DID NOT FIRE')
+      + '</b> · source: src/param_presentation.tsv ⋈ kParams @ fb64f70';
+  }
+  if (list) {
+    list.innerHTML = '';
+    for (const l of AUDIT.lines) {
+      const d = el('div', l.ok ? 'ok' : 'no', (l.ok ? '✓ ' : '✗ ') + l.t);
+      list.appendChild(d);
+    }
+  }
+}
+
+/* ---- exposure table --------------------------------------------------------- */
+function faceReach(key) {
+  const D = FACES[key], set = Object.create(null);
+  for (const osc of [1, 2]) for (const c of D.clusters) {
+    if (c.osc) for (const k of c.osc) set['osc' + osc + '.' + k] = 1;
+    if (c.addrs) for (const a of c.addrs) set[a] = 1;
+  }
+  for (const a of (D.pad === 'morph' ? ['morphX', 'morphY', 'morphOn', 'morphGlide', 'morphTemp'] : ['mainAsnX', 'mainAsnY', 'masterVol'])) set[a] = 1;
+  return set;
+}
+function paintExposure() {
+  const host = document.getElementById('expTable');
+  if (!host) return;
+  const reach = { A: faceReach('fixed'), B: faceReach('macro'), C: faceReach('mix') };
+  const pinsC = Object.create(null);
+  for (const a of STORE.pins) pinsC[a] = 1;
+  let h = '<table class="exp"><tr><th>page</th><th>table rows</th><th>designed</th><th>A reaches</th><th>B reaches</th><th>C reaches (+ this preset\'s pins)</th></tr>';
+  const tot = [0, 0, 0, 0, 0, 0];
+  for (const pg of PAGES.concat(['BURIED'])) {
+    const rows = ROWS.filter(r => r.p === pg);
+    const des = rows.filter(designed);
+    const cnt = S => des.filter(r => S[r.a]).length;
+    const cP = des.filter(r => pinsC[r.a] && !reach.C[r.a]).length;
+    const v = [rows.length, des.length, cnt(reach.A), cnt(reach.B), cnt(reach.C), cP];
+    v.forEach((x, i) => { tot[i] += x; });
+    h += '<tr><td>' + pg + '</td><td>' + v[0] + '</td><td>' + v[1] + '</td><td>' + v[2] + '</td><td>' + v[3] + '</td><td>' + v[4] + (v[5] ? ' + ' + v[5] : '') + '</td></tr>';
+  }
+  h += '<tr class="tot"><td>all</td><td>' + tot[0] + '</td><td>' + tot[1] + '</td><td>' + tot[2] + '</td><td>' + tot[3] + '</td><td>' + tot[4] + (tot[5] ? ' + ' + tot[5] : '') + '</td></tr></table>';
+  const macroTargets = Object.create(null);
+  for (const r of STORE.routes) if (/^m\d$/.test(r.src)) macroTargets[r.dst] = 1;
+  h += '<div class="note">This preset (<b>' + LAB.preset + '</b>) routes its macros to <b>' + Object.keys(macroTargets).length
+    + '</b> further parameters' + (macroLive() ? '' : ' — all suspended while morph is on') + '. Everything not reached stays one '
+    + (LAB.reach === 'toggle' ? 'toggle' : LAB.reach === 'drawer' ? 'drawer' : 'expand') + ' away, at the address it already has.</div>';
+  host.innerHTML = h;
+}
+</script>
+
+<script>
+"use strict";
+/* ============ BLOCK C — the six decisions (text + the auditions they drive) ==
+   Each is a CHOICE: the pills are the options, REC marks the lab's
+   recommendation, and clicking a pill drives the frames above so the choice can
+   be judged by using it rather than by reading about it. */
+const DECISIONS = [
+  { n: 1, title: 'WHAT counts as most important',
+    q: 'Which controls earn a place on the compact face?',
+    opts: [['fixed', 'A FIXED SET'], ['macro', 'THE MACROS'], ['modules', 'MODULE FACES'], ['mix', 'A MIX']], rec: 'mix',
+    get: () => LAB.picked, set: v => { LAB.picked = v; },
+    rec_text: '<b>A mix (frame C):</b> a fixed spine of the controls every patch has, plus the preset\'s macro row.',
+    why: [
+      'Macros are already per-patch, named (hypersaw_clap.cpp:4152) and routed by the preset\'s author, so they are the right place for "what matters in THIS sound".',
+      'But a macro with no route is inert by the matrix\'s own law (hypersaw_clap.cpp:3836), and INIT ships none: a macro-only face is eight dead knobs on most patches today. Load INIT and look at B.',
+      'And with the intent-bus flag off, morph suspends every macro (hypersaw_clap.cpp:3847). Load GLASS CHOIR: B moves nothing until B170(d). A fixed spine guarantees the face works on every patch.',
+      'Module faces composed: rejected as the face. Four modules × four ADR-169 knobs is sixteen FX knobs before a single source control. The face takes each module\'s Amount role only, and B210 designs the faces themselves.',
+    ],
+    ev: 'Evidence: ADR-137 (macros), ADR-152 (suspension), ADR-169 (roles), B170. Pills highlight the frame that embodies the option; MODULE FACES is B210\'s to draw.' },
+  { n: 2, title: 'HOW the full surface is reached',
+    q: 'A separate compact view behind a toggle, panels that expand in place, or an "advanced" drawer?',
+    opts: [['toggle', 'TOGGLE'], ['expand', 'EXPAND IN PLACE'], ['drawer', 'DRAWER']], rec: 'toggle',
+    get: () => LAB.reach, set: v => { LAB.reach = v; },
+    rec_text: '<b>A toggle (COMPACT | FULL)</b>, plus a jump on every cluster (↗) and every strip chip that opens FULL at that parameter\'s page and group.',
+    why: [
+      'The full surface already exists: gui2, 325 designed controls on 7 pages. A toggle keeps it exactly as it is, so compact is a new view, not a redesign of the full one.',
+      'The jump costs no extra upkeep: page and group are columns of param_presentation.tsv, so "where does this address live" is data, not a hand-kept map.',
+      'Expanding in place breaks at plugin size. OSC\'s Image & tone group alone is 13 rows, so expanding any cluster scrolls the face you were using. Try + on Tone.',
+      'A drawer covers the face and its strip while you edit, and it is a third layout to maintain at every window size.',
+    ],
+    ev: 'Evidence: gui2:4416 (pages), the table\'s page/group columns, and the group sizes counted below.' },
+  { n: 3, title: 'WHO chooses',
+    q: 'Fixed by us for every patch, chosen per preset by the sound designer, or both?',
+    opts: [['ours', 'FIXED BY US'], ['preset', 'PER PRESET'], ['both', 'BOTH']], rec: 'both',
+    get: () => LAB.who, set: v => { LAB.who = v; },
+    rec_text: '<b>Both, in layers:</b> our spine never moves, so muscle memory survives a preset change. The preset owns the macro row (names and routes) and up to four pins.',
+    why: [
+      'The per-preset half mostly exists already: intent names are patch state in the chunk (hypersaw_clap.cpp:4148-4151), and B170(a)/(e) make them editable and bindable.',
+      'Pins are the one new thing, and they are PRESENTATION data (a list of addresses in the chunk, like the names), never parameters: no host id, no automation lane. A pin naming no table address is dropped on load (the audit checks this).',
+      'Per-preset only: every patch change moves the Master and envelope knobs to a new place. Ours only: the sound designer cannot say "this patch lives on Dissolve".',
+    ],
+    ev: 'Drives frame C: its PRESET-tagged clusters (macros, pins) and OURS-tagged clusters (spine, FX) show per the pill. Compare SAW STACK\'s three pins with INIT\'s none.' },
+  { n: 4, title: 'Is compact also a SMALLER WINDOW',
+    q: 'Compact inside the normal 980×720 window, or a smaller window of its own?',
+    opts: [['same', 'SAME 980×720'], ['small', 'SMALLER 720×440']], rec: 'small',
+    get: () => LAB.size, set: v => { LAB.size = v; },
+    rec_text: '<b>Yes: 720×440</b>, the shell\'s existing minimum, and compact must still render correctly when the host refuses the resize.',
+    why: [
+      'The size needs no new clamp. The GUI is already resizable within 720–1600 × 440–1000 (hypersaw_clap.cpp:9333-9338), and its default is 980×720 (hypersaw_gui_common.h:27-28).',
+      'At 980×720 the compact face leaves most of the window empty. Switch the pill and look: the space is the argument.',
+      'But the shell never asks the host to resize today: src/ has no request_resize call. The switch needs one new host call, and it must degrade. If the host says no, compact draws at 720×440 inside the current window.',
+      'HYPOTHESIS, unmeasured here: which of our hosts honour a plugin-initiated resize. Live, Bitwig and REAPER each need checking before this is promised.',
+    ],
+    ev: 'Resizes all three frames. Window size is GUI state, like the page tab. It is never a parameter.' },
+  { n: 5, title: 'What compact shows of what it HIDES',
+    q: 'A parameter modulated or morphed out of sight must still visibly move somewhere. Where?',
+    opts: [['none', 'NOTHING'], ['count', 'A COUNT'], ['named', 'NAMED STRIP']], rec: 'named',
+    get: () => LAB.strip, set: v => { LAB.strip = v; },
+    rec_text: '<b>A named strip</b> along the bottom of the window: each hidden driven parameter by name, with its source (L1/M2, or the owning corner\'s letter and hue) and a live tick. Click a chip to reveal the control. Controls that ARE on the face keep gui2\'s ADR-137 halo: the knob holds your value, and the violet arc and tick show what the engine does to it.',
+    why: [
+      'A count tells you something moves but not what, so there is nothing to act on.',
+      'Nothing at all is the failure the human named.',
+      'The strip is computed per frame from what that frame shows, so it never lists a control you can see, and it shrinks as you reveal things.',
+      'Morph-driven entries wear the owning corner (gui2\'s .owned stripe idiom). Modulation wears violet, never magenta: magenta is only ever your own value.',
+    ],
+    ev: 'Watch GLASS CHOIR: LFO 1 moves OSC2 Detune and LFO 2 moves OSC1 Pan Motion. Both are hidden on every face.' },
+  { n: 6, title: 'The SAFETY INVARIANT',
+    q: 'A compact control is a view of an existing parameter, never a second one. How is that made true, and shown?',
+    opts: [['view', 'A VIEW OF THE SAME ADDRESS'], ['shadow', 'A SHADOW PARAMETER']], rec: 'view',
+    get: () => (LAB.shadow ? 'shadow' : 'view'), set: v => { LAB.shadow = v === 'shadow'; },
+    rec_text: '<b>A view.</b> Every compact control holds a table ADDRESS and writes through the one path the full surface uses. The store, history, automation and preset snapshot are keyed by address, so they cannot tell which view wrote.',
+    why: [
+      'Shown, not claimed: turn a knob in any frame and watch the same address move in the others and in the full surface. The ledger records address, from, to and "via". Only "via" differs.',
+      'The audit at the top checks every face binding against the table, and a planted shadow control proves the check can fail (L0032).',
+      'Choose SHADOW to see the failure: B and C\'s first macro becomes compact.space. Its writes leave no history node and no automation lane, they are not in the preset, and SAVE → RELOAD loses them.',
+      'The same rule covers the compact/full switch, the window size and the pins. None of them becomes a host parameter. SET\'s "Specimen" is a view choice that IS a parameter (hypersaw_clap.cpp:632), and compact should not repeat that.',
+    ],
+    ev: 'This file\'s put() is the only writer (search it). Undo walks history back through put().' },
+];
+function paintDecisions() {
+  const host = document.getElementById('decisions');
+  if (!host) return;
+  host.innerHTML = '';
+  for (const D of DECISIONS) {
+    const c = el('div', 'cluster dec');
+    c.appendChild(el('h2', null, D.n + ' · ' + D.title));
+    c.appendChild(el('div', 'q', D.q));
+    const o = el('div', 'pills opts');
+    const cur = D.get();
+    for (const [v, lab] of D.opts) {
+      const b = el('button', 'pill' + (cur === v ? ' on' : '') + (D.rec === v ? ' rec' : ''), lab);
+      b.dataset.lab = 'decision ' + D.n + ' audition';
+      b.addEventListener('click', () => {
+        D.set(v);
+        /* the audition must change something you can see; MODULE FACES has no
+           frame (B210 draws them), so it says so instead of silently doing nothing */
+        renderAll();
+        if (D.n === 1 && v === 'modules') paintNote(c, 'Not drawn here: B210 designs the four-knob module faces (ADR-169). Composed, they would be 16 FX knobs, more than frame A\'s whole face.');
+      });
+      o.appendChild(b);
+    }
+    c.appendChild(o);
+    const r = el('div', 'rtxt'); r.innerHTML = D.rec_text; c.appendChild(r);
+    const ul = el('ul');
+    for (const w of D.why) { const li = el('li'); li.textContent = w; ul.appendChild(li); }
+    c.appendChild(ul);
+    c.appendChild(el('div', 'ev', D.ev));
+    host.appendChild(c);
+  }
+}
+function paintNote(card, text) {
+  const n = el('div', 'live', text);
+  card.appendChild(n);
+}
+function paintPresetPills() {
+  const host = document.getElementById('prePills');
+  if (!host) return;
+  host.innerHTML = '';
+  for (const nm in PRESETS) {
+    const b = el('button', 'pill' + (LAB.preset === nm ? ' on' : ''), nm);
+    b.title = PRESETS[nm].why;
+    b.addEventListener('click', () => loadPreset(nm));
+    host.appendChild(b);
+  }
+}
+
+/* ---- theme ----------------------------------------------------------------- */
+try {
+  const q = window.location && window.location.search;
+  if (typeof q === 'string') {
+    if (/theme=dark/.test(q)) LAB.dark = true;
+    const m = /preset=([A-Z_%20+]+)/.exec(q);
+    if (m) { const nm = decodeURIComponent(m[1]).replace(/[_+]/g, ' '); if (PRESETS[nm]) LAB.preset = nm; }
+    const t = /[?&]t=([\d.]+)/.exec(q);
+    if (t) T = +t[1];
+    /* Every decision audition is also a deep link (?reach=drawer&size=same&
+       strip=count&shadow=1&who=ours&view=full&open=tone&page=OSC), so a
+       screenshot of an alternative is a LOAD, not a synthetic click that can
+       silently fail to land (station-page-lab's ?theme=dark reasoning). */
+    const arg = k => { const m = new RegExp('[?&]' + k + '=([A-Za-z0-9_]+)').exec(q); return m ? m[1] : ''; };
+    if (/^(toggle|expand|drawer)$/.test(arg('reach'))) LAB.reach = arg('reach');
+    if (/^(small|same)$/.test(arg('size'))) LAB.size = arg('size');
+    if (/^(none|count|named)$/.test(arg('strip'))) LAB.strip = arg('strip');
+    if (/^(ours|preset|both)$/.test(arg('who'))) LAB.who = arg('who');
+    if (arg('shadow') === '1') LAB.shadow = true;
+    DEEP.view = arg('view'); DEEP.open = arg('open'); DEEP.page = arg('page');
+  }
+} catch (_) { /* headless: no location */ }
+function applyTheme() {
+  document.body.classList.toggle('dark', LAB.dark);
+  const b = document.getElementById('themeBtn');
+  if (b) b.innerHTML = 'theme <b>' + (LAB.dark ? 'DARK · TUBE' : 'LIGHT · ORCHID') + '</b>';
+  /* gui2:1896 — the token cache is keyed by NAME, so a theme change purges it */
+  for (const k in _tok) delete _tok[k];
+  renderAll();
+}
+
+/* ---- frame loop: lab time advances by frames, never by the clock ---------- */
+function tick() {
+  T += 1 / 60;
+  for (const F of FRAMES) {
+    for (const b of F.binds) if (b.anim) b.anim();
+    paintStrip(F);
+  }
+  if (window.requestAnimationFrame) window.requestAnimationFrame(tick);
+}
+
+/* ============ SETUP — everything above is declared; nothing here reaches
+   forward to a const below it (L0026). ============ */
+{
+  const ab = document.getElementById('framesAB');
+  const cc = document.getElementById('framesC');
+  for (const [id, face, host] of [['A', 'fixed', ab], ['B', 'macro', ab], ['C', 'mix', cc]]) {
+    const F = { id, face, view: 'compact', osc: 1, page: 'MAIN', drawer: false, open: Object.create(null),
+                binds: [], vis: Object.create(null), pads: [], focus: '', focusGroup: '', el: null,
+                stripKey: '', stripBars: [] };
+    if (DEEP.view === 'full' && LAB.reach === 'toggle') F.view = 'full';
+    if (DEEP.view === 'full' && LAB.reach === 'drawer') F.drawer = true;
+    if (DEEP.open) F.open[DEEP.open] = true;
+    if (DEEP.page && PAGES.indexOf(DEEP.page) >= 0) F.page = DEEP.page;
+    buildFrame(F, host);
+    FRAMES.push(F);
+  }
+}
+{
+  const u = document.getElementById('undoBtn');
+  if (u && u.addEventListener) u.addEventListener('click', undo);
+  const s = document.getElementById('saveBtn');
+  if (s && s.addEventListener) s.addEventListener('click', saveReload);
+  const tb = document.getElementById('themeBtn');
+  if (tb && tb.addEventListener) tb.addEventListener('click', () => { LAB.dark = !LAB.dark; applyTheme(); });
+  if (window.addEventListener) window.addEventListener('resize', () => repaintAll());
+}
+AUDIT = runAudit();
+loadPreset(LAB.preset, 'preset load');
+STORE.hist.length = 0;              /* the boot load is not a user action */
+paintAudit();
+applyTheme();
+tick();
+</script>
+</body></html>
