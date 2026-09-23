@@ -1,0 +1,49 @@
+# b213-units-inventory: Phase 0 read-only inventory of units, tapers and tempo divisions
+
+- **Queue item:** B213, Phase 0 only. The row is carried in PR #721 (`lead-records-81`). The horde lead dispatched it on 2026-09-22.
+- **Why:** The human rules on D1–D6 before any code changes. This is the evidence those rulings rest on. Every continuous parameter's unit is shown in the three places it lives (the name string, the host text and the presentation table), plus gui2's markup. Alongside that are its taper, its host text at the default, its sync partner, its morph class, and a proposal. Each decision gets an evidence section, and there is a list of every rule hard-coded by id.
+- **Deliverable:** `docs/audits/2026-09-22-units-inventory.md`. No code changed. Nothing under `src/`, `specs/`, `reference/`, `tools/` or `./verify` was touched, and neither were ROADMAP, DECISIONS, LIBRARY or INDEX.
+- **Evidence consulted:**
+  - `src/hypersaw_clap.cpp`: ParamDef tables; `params_get_info`, `value_to_text` and `text_to_value` (:8363-8515); `applyParam` (:6676-6700); mod apply (:3881-3891); morph step (:4053-4116); `morphApplyTarget`; intent normalisation; `advanceAdsr`; LFO tick.
+  - `src/param_presentation.tsv` (header and all rows).
+  - `src/gui/gui2.html`: `fmtVal`, `displayValue`, `ctlToParam`/`paramToCtl`, `setKnobMod`, `applyModVis`, `wireKnob`, the hand-placed proxies, `fmtHz`, the LFO caption.
+  - `src/gui/gui.html` `displayValue`.
+  - `tools/gen_gui_controls.py:289`; `tools/gui_reach.py`.
+  - `src/delay_core.h`, `src/subosc_core.h`, `src/force_core.h`.
+  - `libs/clap/include/clap/ext/params.h`; clap-wrapper v0.15.1 (`vst3/parameter.h`, `wrapasvst3.cpp`, `vst3/process.cpp`, `auv2/parameter.cpp`, `wrapasauv2.cpp`); the macOS SDK `AudioUnitProperties.h` flag values.
+  - The factory bank (41 patches and 4 corner files) and `tests/state_fixtures`.
+  - ROADMAP rows B213, B208, B128 and B39 (at `origin/lead-records-81`).
+  - The B208 trace on `origin/lab-modulator` (`015b612`).
+- **Probes (scratch, not committed; described in the doc's Appendix A):**
+  - `units_probe` enumerates the params through the CLAP factory, with `value_to_text` at min, default and max. It found 397 params, 266 continuous.
+  - `snap_probe` writes 0.9 through `params.flush` and reads it back, and runs the `text_to_value` cases.
+  - `corner_probe` gives the corner slot order.
+  - `paramclass_check` supplied the class column. Taper, morph and mod arithmetic come from a Python script.
+- **Headline findings:**
+  - The osc-1-only host text is keyed by `id ==`, and the octave and semitone branches are dead.
+  - `text_to_value` is `atof`: `3.0 ms` round-trips to 3 s, and label entry ignores `minV` (Poles q is off by one).
+  - The gui2 readout is unitless `toFixed(2)`, so a 3 ms attack reads `0.00`.
+  - Three log10 rows render linear because of the generator's `min > 0` rule.
+  - The ENV 2/3/4 and S.env ranges already equal ENV 1's.
+  - Linear-range mod depth **over**-moves short times, which corrects the row's D6 wording.
+  - The two beats conventions are opposite; `/beat` is wrong for the LFO and delay rows.
+  - Osc 2's `beatMult` is unsnapped (probe).
+  - A division snap changes no factory patch or fixture.
+  - Host lanes are linear, with no taper hook anywhere in CLAP 1.2.10 or clap-wrapper v0.15.1.
+  - A range widen re-maps VST3/AU automation.
+  - "Attack" is τ in five envelopes and an arrival time in the sub.
+- **Alternatives rejected:**
+  - Committing the probes as `tools/`: `tools/` is out of scope for Phase 0, and a new check would have to be wired or carry `UNWIRED:` (ADR-180 §1). Phase 3 can decide.
+  - Writing proposals into the presentation table: out of scope by the brief.
+- **Verify:** `./verify fast`. The exit code and git hash are recorded in `.harness/last-verify.json` on the committed hash, and reported in the PR.
+- **Open questions:**
+  - How a CLAP host draws a lane, and whether the human's Ableton loads CLAP or VST3/AU, is not determined.
+  - Whether VST3/AU hosts store parameter *snapshots* normalised is not determined. The automation path is code-evidenced.
+  - The gui2 boot flash (a log value shown before the first echo) is entailed from code, not observed.
+  - User patches and sets are unknowable, so every "changes nothing" claim covers the factory bank and fixtures only.
+  - B208's division list is on an unmerged branch.
+  - For the lead, four corrections to the B213 row:
+    - its D6 mod-depth sentence has the direction reversed;
+    - its "201 have none" includes 25 label-only units;
+    - its "almost the whole journey above 2 s" is 60 %;
+    - its "mixer's crossfade" has no gui2 control (id 265 is buried).
