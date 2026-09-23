@@ -71,3 +71,4 @@ swarm-dynamics · parity-oracle · plugin-platform · realtime-perf
 - [L0059] An acceptance criterion the lead writes can pass on the unfixed build — name the case where old and new differ, or it is decoration (briefs · oracles)
 - [L0060] Record the row before dispatching, or the brief has nothing to quote and the ledger cannot disagree with it (process · briefs)
 - [L0061] Parallel agents share one scratchpad and main's preview server — brief each its own subfolder and port (process · delegation)
+- [L0062] A ruling must amend the agent charters that restate the old rule — the charter outranks the brief (harness · delegation)

@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """presentation_check — the presentation table is TOTAL, address-keyed, and honest.
 
+WIRED: ./verify fast
+
 WHAT THIS GATES, and why each part exists:
 
 1. TOTALITY. Every parameter the shell declares has exactly one presentation row,

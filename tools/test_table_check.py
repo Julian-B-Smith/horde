@@ -31,8 +31,8 @@ WHAT IS CHECKED:
 5. EVERY CHECK DECLARES ITS WIRING, AND THE DECLARATION IS TRUE (B190 layer 1).
    The human inverted the wiring default on 2026-09-19 (ADR-179 §4): a new
    `*_check` is WIRED into `./verify` in the PR that creates it, and the human
-   gate on `./verify` narrows to WEAKENING it. So every `tools/*_check.cpp` and
-   every `tools/labharness/*_check.mjs` carries, in its first 40 lines, EXACTLY
+   gate on `./verify` narrows to WEAKENING it. So every `tools/*_check.cpp`,
+   every `tools/*_check.py` and every `tools/labharness/*_check.mjs` carries, in its first 40 lines, EXACTLY
    ONE declaration line:
 
        WIRED: <where>          or          UNWIRED: <reason>
@@ -174,7 +174,12 @@ def declaration_rule():
     """B190 layer 1: every check declares its wiring and the declaration is
     TRUE. -> (failures, n_wired, n_unwired)."""
     wired = wired_checks()
-    files = sorted(ROOT.glob("tools/*_check.cpp")) + sorted(ROOT.glob("tools/labharness/*_check.mjs"))
+    # `*_check.py` joined 2026-09-23: the census scanned only .cpp and .mjs, so
+    # six Python checks — four of them without a declaration — were invisible
+    # to the rule that exists to make every check declare itself. Found when an
+    # agent's new check sat UNWIRED and the census count did not move.
+    files = (sorted(ROOT.glob("tools/*_check.cpp")) + sorted(ROOT.glob("tools/*_check.py"))
+             + sorted(ROOT.glob("tools/labharness/*_check.mjs")))
     bad, n_unwired, n_wired = [], 0, 0
     for f in files:
         rel = f.relative_to(ROOT).as_posix()

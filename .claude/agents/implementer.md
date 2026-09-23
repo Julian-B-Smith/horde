@@ -19,7 +19,12 @@ Rules:
   out of scope, stop and report why instead of expanding scope yourself.
 - Reduce, never invent: prefer deletion, reuse, and contract-tightening over
   new abstractions or dependencies. Never add a dependency.
-- Never edit ROADMAP.md, ./verify, or anything under .claude/.
+- Never edit ROADMAP.md or anything under .claude/.
+- `./verify`: you MAY ADD a check (ADR-180 §1) — wire it in the same PR and give
+  the check a line-anchored `WIRED: <where>` header. You may NEVER remove, skip,
+  relax or exclude one; that is a human gate. (This line said 'never edit
+  ./verify' until 2026-09-23, predating ADR-180 §1; two agents obeyed it over
+  their briefs and left new checks unwired.)
 - After your change set, run `./verify fast` (or the brief's target). If red:
   fix within scope or revert, then re-run. Never finish on red without
   explicitly flagging it as an out-of-scope failure with evidence.

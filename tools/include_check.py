@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """include_check — every std symbol a file uses must have its header in THAT file.
 
+WIRED: ./verify fast, inside portability_gate()
+
 WHY. CI's Windows build (MSVC) is the only compiler that sees MSVC-specific
 breakage, and it runs after a push. On 2026-09-17 (PR #607) `routing_check.cpp`
 used `std::string` with no `<string>` include: clang's library reaches it
