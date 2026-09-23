@@ -1,4 +1,15 @@
 <!doctype html>
+<!-- SUPERSEDED 2026-09-22 (ROADMAP B208) by shape-lab-mod.html — open that one.
+     B208 found two labs doing one job (this one and the human's named
+     shape-lab-mod.html) and merged them there: one breakpoint editor for LFO and
+     envelope, one shape law driving both picture and sound, gui2's tokens, and
+     the proposed laws for tempo division, start phase and envelope time. Carried
+     over from here: sound, time-explicit envelopes, straight/dotted/triplet
+     divisions, retrigger, double-click reset, the load fingerprint. NOT carried,
+     and still only readable here: the S&H clock kinds (global / kuro), the rotor,
+     per-route polarity and the ownership-tier question (B16's, not a shape
+     editor's). The winner kept the human's filename, so this file is the one
+     that loses; deleting it is the human's call, not an agent's. -->
 <!-- modulator-lab — the LFO + envelope editor bench (ROADMAP B16).
      HYPERSAW, 2026-08-22. Spec-in-code per ADR-003.
 
@@ -46,7 +57,8 @@
 
      L0026: all state above all wiring. No devicePixelRatio. -->
 <html lang="en"><head><meta charset="utf-8">
-<title>horde modulator lab — LFO + envelope editor bench</title>
+<meta name="lab-superseded-by" content="shape-lab-mod.html">
+<title>horde modulator lab — LFO + envelope editor bench (SUPERSEDED by shape-lab-mod.html)</title>
 <style>
   :root { --bg:#0b0e13; --panel:#11151d; --panel2:#171c26; --line:#2a3040; --dim:#7f8899;
           --fg:#cdd6e4; --teal:#5ff2e0; --amber:#ffc24b; --red:#ff5a5a; --rust:#e0654a;
@@ -97,6 +109,7 @@
 
 <div class="rev" title="the file's modification time and a fingerprint of its code, both read at load — neither is hand-maintained, so neither can drift. If the fingerprint does not change after a reload you are still on a cached copy (hard-reload: Cmd+Shift+R, Safari Cmd+Opt+R).">rev <span id="revdate">…</span> &middot; fp <span id="revfp">…</span></div>
 
+<div style="border:1.5px solid var(--amber);color:var(--amber);border-radius:6px;padding:6px 10px;margin:0 0 10px;font-size:12px;max-width:1080px">SUPERSEDED 2026-09-22 (B208): the modulator editor is now <a href="shape-lab-mod.html" style="color:var(--amber)">shape-lab-mod.html</a>, one lab, one shape law. This page stays only for its S&amp;H clock, polarity and ownership-tier questions (B16), which were not carried over.</div>
 <h1>horde modulator lab</h1>
 <div class="tagline">Bench for the <b>modulator editor</b> (ROADMAP B16) — the weakest surface in the instrument, because the LFOs have three parameters and the envelope is a plain ADSR while everything else here has had a lab. Three claims, each measurable on this page. <b>Reverse-saw is not a sixth shape</b>: it is <b>skew = 0</b> on the ramp axis, and the same warp that turns triangle into saw-up and saw-down turns square into a pulse — so shape is a continuous axis and can itself be a modulation destination, which a dropdown can never be. <b>S&amp;H is a sampler, not a shape</b>, and the thing the two kinds differ in is the CLOCK: <i>global</i> is one clock and one value broadcast to every attached mod (measured: value correlation <b>1.000</b>, timing lock <b>1.00</b>), <i>kuro</i> samples on each mod's bound rotor voice wrapping — measured value correlation <b>−0.23</b> with timing lock riding |K| from <b>0.04</b> to <b>0.83</b>, because coupling locks <i>when</i> they sample and never <i>what</i>. <b>Polarity belongs to the route</b>, not the source: every route carries its own, and the lab measures the fraction a rectified destination throws away, so "half-inert" is a number instead of a surprise. Envelopes show the <b>distribution across voices</b> that scatter produces, not one curve. Double-click any control to reset it. Keys <kbd>A</kbd>..<kbd>;</kbd>, <kbd>Z</kbd>/<kbd>X</kbd> octave, <kbd>space</kbd> drone.</div>
 
