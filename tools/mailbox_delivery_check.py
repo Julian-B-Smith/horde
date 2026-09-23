@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """mailbox_delivery_check — did our outbound filings actually REACH the reader?
 
+WIRED: ./verify fast
+
 WHY THIS EXISTS. On 2026-08-15 we hit three versions of one failure in a single
 day: a filing left uncommitted, a filing committed to a side branch, and a filing
 committed inside a sibling's checkout and never pushed. The last one stranded an

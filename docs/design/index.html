@@ -34,6 +34,46 @@ which would be a second copy free to drift. Regenerate with
 <div class="gui"><b>The instrument:</b>
   <a href="../../src/gui/gui2.html">gui2 (in development)</a>
   <a href="../../src/gui/gui.html">gui1 (shipped default)</a></div>
+<h3>AWAITING YOUR REVIEW (6)</h3>
+<div class="grid review-grid">
+  <a class="lab review" href="compact-lab.html">
+    <span class="pill">NEW · AWAITING REVIEW · B212 · 2026-09-22</span>
+    <h2>compact lab — the simplified horde face, and the six decisions it needs</h2>
+    <div class="file">compact-lab.html</div>
+    <p>The compact horde face: three competing layouts drawn at plugin size, every control a real address from src/param_presentation.tsv with the shell&#x27;s ranges — A a fixed spine we choose, B the preset&#x27;s eight named macros, C both (recommended). All three and the f</p>
+  </a>
+  <a class="lab review" href="filter-lab.html">
+    <span class="pill">NEW · AWAITING REVIEW · B209 · 2026-09-22</span>
+    <h2>filter lab — where a filter sits: per source, rack slot, or both</h2>
+    <div class="file">filter-lab.html</div>
+    <p>A filter&#x27;s placement is not a layout choice — per-source and post-sum filtering are audibly different instruments. PER SOURCE gives every voice of every source its own filter (B81&#x27;s SVF pair, src/svf_core.h): each note carries its own cutoff, keytrack and enve</p>
+  </a>
+  <a class="lab review" href="fx-design-lab.html">
+    <span class="pill">NEW · AWAITING REVIEW · B210 · 2026-09-22</span>
+    <h2>FX design lab — seven modules, a four-knob face over every control</h2>
+    <div class="file">fx-design-lab.html</div>
+    <p>Every FX module horde hosts, drawn in gui2&#x27;s token set and held to one rule — ADR-169&#x27;s module macro tiers as the human put it: &quot;distill its essential controls to four knobs, even while the rest of the parameters are accessible&quot;. Each card is a FACE: four role</p>
+  </a>
+  <a class="lab review" href="mod-matrix-lab.html">
+    <span class="pill">NEW · AWAITING REVIEW · B207 · 2026-09-22</span>
+    <h2>mod matrix lab — depth modulation, and four ways to see a route</h2>
+    <div class="file">mod-matrix-lab.html</div>
+    <p>The modulation matrix as it stands after B134/B171 — 22 source slots under B179&#x27;s new names, per-route polarity, pitch as an ordinary ±48 st destination per oscillator (B180, proposed) — plus the two things B207 exists to settle: depth modulation (a route&#x27;s am</p>
+  </a>
+  <a class="lab review" href="morph-editor-lab.html">
+    <span class="pill">NEW · AWAITING REVIEW · B211 · 2026-09-22</span>
+    <h2>Morph editor lab — four corners × the whole field</h2>
+    <div class="file">morph-editor-lab.html</div>
+    <p>A corner today is captured whole: set the instrument, store it into A..D. This lab is the missing view — every member of the real morph field (273 of them, dumped from the shell) against the four corners of the factory patch MO - Quantum Morph, plus the lab&#x27;s </p>
+  </a>
+  <a class="lab review" href="shape-lab-mod.html">
+    <span class="pill">NEW · AWAITING REVIEW · B208 · 2026-09-22</span>
+    <h2>horde modulator lab: LFO + envelope, one shape law (B208)</h2>
+    <div class="file">shape-lab-mod.html</div>
+    <p>The modulator editor as one lab. An LFO and an envelope, both drawn and edited as breakpoints, and both evaluated by one shape law, shapeAt(points, t). The picture and the audio both call it. HEAR switches what you listen to between the PROPOSED laws (the thre</p>
+  </a>
+</div>
+<h3>ALL LABS</h3>
 <div class="grid">
   <a class="lab" href="aesthetics-lab.html">
     <h2>horde aesthetics lab — control style bench</h2>
@@ -65,11 +105,6 @@ which would be a second copy free to drift. Regenerate with
     <div class="file">feedback-lab.html</div>
     <p>The four-agent survey (2026-08-15) produced hypotheses that only ears can settle, and feedback is the one area where being wrong is loud. This bench makes the loop audible with two things the survey said must exist and must be separate: a limiter as a safety b</p>
   </a>
-  <a class="lab" href="filter-lab.html">
-    <h2>horde filter lab — swarm bank as a rack filter</h2>
-    <div class="file">filter-lab.html</div>
-    <p>Lab campaign 3 item 2 — the human&#x27;s verdict on the E1 cores was &quot;not quite there yet&quot;, so this bench starts by measuring why rather than guessing. The shipped bank was measured first (`filter_core.h`, `processExternal`, swept steady-state at 48 kHz) and three </p>
-  </a>
   <a class="lab" href="formant-lab.html">
     <h2>HORDE · formant swarm lab — formant detune width / de-click</h2>
     <div class="file">formant-lab.html</div>
@@ -80,10 +115,11 @@ which would be a second copy free to drift. Regenerate with
     <div class="file">fx-morph-law-lab.html</div>
     <p>Corner A routes source → DRIVE → COMB → out. Corner B routes the same two modules the other way: source → COMB → DRIVE → out. Both corners are the same modules with the same settings — only the order differs. The question this lab exists to settle is what shou</p>
   </a>
-  <a class="lab" href="fx-page-lab.html">
+  <a class="lab superseded" href="fx-page-lab.html">
     <h2>FX Page Lab — modules, mini-viz, expanded views</h2>
     <div class="file">fx-page-lab.html</div>
     <p><span class=none>no tagline</span></p>
+    <div class="succ">superseded by fx-design-lab.html</div>
   </a>
   <a class="lab" href="glitch-lab.html">
     <h2>horde glitch lab — DECOHERE · STALE FIELD · NECROSIS</h2>
@@ -95,15 +131,17 @@ which would be a second copy free to drift. Regenerate with
     <div class="file">layout-lab.html</div>
     <p>Information-architecture audition (human brief 2026-07-30): click through the proposed pages before any fold work begins. Nothing here makes sound — the controls are the REAL inventory (every shipped param, every lab feature with a fold path), placed where the</p>
   </a>
-  <a class="lab" href="mod-lab.html">
+  <a class="lab superseded" href="mod-lab.html">
     <h2>horde mod lab — Kuro rotor · LFOs · env · matrix</h2>
     <div class="file">mod-lab.html</div>
     <p>Lab campaign 2.2 — Kuro rotor (ADR-053) toward golden (incl. the A5 splay fix, rank-based law) · classic LFOs + ADSR as first-class sources · mod matrix · env→K vs onset-lock consolidation A/B · Kuro chorus (rotor → delay taps) · Kuro phaser (rotor → notches).</p>
+    <div class="succ">superseded by mod-matrix-lab.html</div>
   </a>
-  <a class="lab" href="modulator-lab.html">
-    <h2>horde modulator lab — LFO + envelope editor bench</h2>
+  <a class="lab superseded" href="modulator-lab.html">
+    <h2>horde modulator lab — LFO + envelope editor bench (SUPERSEDED by shape-lab-mod.html)</h2>
     <div class="file">modulator-lab.html</div>
     <p>Bench for the modulator editor (ROADMAP B16) — the weakest surface in the instrument, because the LFOs have three parameters and the envelope is a plain ADSR while everything else here has had a lab. Three claims, each measurable on this page. Reverse-saw is n</p>
+    <div class="succ">superseded by shape-lab-mod.html</div>
   </a>
   <a class="lab" href="morph-law-bench.html">
     <h2>Morph Law Bench — blend vs argmax on one dense table</h2>
@@ -124,11 +162,6 @@ which would be a second copy free to drift. Regenerate with
     <h2>horde routing lab — topology bench (B23)</h2>
     <div class="file">routing-lab.html</div>
     <p>B23. The question is not which effects to have — it is which sources reach which slots, in what order, and who pays for it. Three candidate topologies, the same four-slot rack (ADR-054 is already a grid, not a fixed chain), the same two sources. Switch schemes</p>
-  </a>
-  <a class="lab" href="shape-lab-mod.html">
-    <h2>Shape Lab — LFO / envelope breakpoint builder</h2>
-    <div class="file">shape-lab-mod.html</div>
-    <p><span class=none>no tagline</span></p>
   </a>
   <a class="lab" href="shape-lab.html">
     <h2>horde shape lab — sync · phase-warp formants · ripple</h2>

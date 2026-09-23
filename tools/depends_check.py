@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """depends_check -- the feature-dependency graph must stay honest (ADR-108).
 
+WIRED: ./verify fast
+
 WHY. Three systems used to answer "does this parameter matter right now?"
 independently: shown_when (GUI), the morph field (which happily flipped a
 parameter whose enabling law was off), and the engine's own guards, which are

@@ -86,8 +86,8 @@ unseeded-RNG blocker (Wave RAM randomize, one sanctioned edit: seed it — the t
 seeds landed 2026-09-10, ADR-091/122/152 amendment). A fourth CANDIDATE arrived
 2026-09-14: **ORBITAL** (`reference/gravity-modulator.html`, `specs/SPEC-ORBITAL.md`,
 ADR-165) — an N-body gravity field whose observables are modulation sources; a
-modulator, not an engine, queued for the modulation lab (B126); one sanctioned
-edit: seed the add-body draw. A fifth CANDIDATE arrived 2026-09-14: **NETWORK**
+modulator, not an engine, queued for the modulation lab (B126); its one sanctioned
+edit (seed the add-body draw) landed 2026-09-15 (ADR-165 A2). A fifth CANDIDATE arrived 2026-09-14: **NETWORK**
 (`reference/network-lab-v0.html`, `specs/SPEC-FX-NETWORK.md`, ADR-166) — a
 morphable FX network (rack VM of shifters/delays/allpasses/combs/filters in a
 feedback graph); written as a pre-spin-up spec for its OWN project, its
@@ -160,8 +160,8 @@ engine, ingested 2026-08-17, ADR-091), and `reference/station.html` + `specs/SPE
 `specs/SPEC-INTENT-BUS.md` + `reference/intent-bus.html` (intent bus,
 ingested 2026-09-01, ADR-152) — their three sanctioned RNG seeds landed 2026-09-10 and the
 sanctions are spent — and `reference/gravity-modulator.html` + `specs/SPEC-ORBITAL.md`
-(ORBITAL modulator, ingested 2026-09-14, ADR-165; one sanctioned edit outstanding: seed the
-add-body draw), and `reference/network-lab-v0.html` + `specs/SPEC-FX-NETWORK.md` (NETWORK,
+(ORBITAL modulator, ingested 2026-09-14, ADR-165; its one sanctioned edit is spent,
+2026-09-15), and `reference/network-lab-v0.html` + `specs/SPEC-FX-NETWORK.md` (NETWORK,
 ingested 2026-09-14, ADR-166; sanctioned edits: seed its four draws), and
 `specs/SPEC-MODULE-MACROS.md` + `reference/horde-module-macros.html` (module macro tiers,
 ingested 2026-09-16, ADR-169; one sanctioned edit: seed `quantumPick`), and `specs/SPEC-MAW.md`
