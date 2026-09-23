@@ -180,6 +180,11 @@ PY
     echo "verify: node missing — lab load check SKIPPED" >&2
   fi
 
+  # B227: the compact lab embeds a COPY of src/param_presentation.tsv so it can
+  # draw real addresses offline; a copy drifts the first time a label or taper
+  # changes (B213/B224 will change both). python3, so outside the node guard.
+  python3 tools/compact_lab_table_check.py || ok=1
+
   return $ok
 }
 

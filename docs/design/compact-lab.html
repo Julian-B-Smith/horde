@@ -46,11 +46,25 @@
      (:632-648): the knob holds the BASE; modulation is a violet reach arc plus
      a live tick, never a moving knob.
 
+     ROUND 2 (B227 + B223, 2026-09-23). The human's own wireframes — a MAIN
+     and an OSC page from one schema, and an alternative single screen — built
+     as working frames ABOVE round 1 (H1/H2 at 980×720, H3 at 1600×1000), with
+     the lab's reading of each image, every ambiguity, and an agree/conflict
+     table against round 1's six decisions as static panels. They share the one
+     store: every W_* list in BLOCK A is both what a frame renders and what the
+     audit checks. B223's pad modulation view (reach box / ghost + trail / edge
+     rails) is kdetPad in BLOCK R2. Visualizers there are a LAB TOY (a seeded
+     mean-field sketch driven by the real addresses), never the engine. K and R
+     wear B224's player names (Coupling, Coherence); the table is unchanged.
+     The embedded PT copy is now checked against the TSV by
+     tools/compact_lab_table_check.py (labels/pages/groups/widgets/chunk/
+     shown_when/scale/unit; NOT the kParams ranges).
+
      L0026 / L0041: all state is declared in BLOCK A above all wiring; helpers
      that are reached before their neighbours are `function` declarations. No
      Math.random (mulberry32 only); lab time is a frame counter, not a clock. -->
 <html><head><meta charset="utf-8">
-<meta name="lab-review" content="B212 · 2026-09-22">
+<meta name="lab-review" content="B212 + B227 · 2026-09-23">
 <title>compact lab — the simplified horde face, and the six decisions it needs</title>
 <style>
   /* ============ TOKENS — gui2's, verbatim (see the header) ============ */
@@ -338,6 +352,137 @@
   .legend { display:flex; gap:14px; flex-wrap:wrap; font-size:10px; color:var(--t2); margin:4px 0 10px; }
   .legend span { display:inline-flex; align-items:center; gap:5px; }
   .legend i { display:inline-block; width:18px; height:6px; border-radius:3px; border:1px solid var(--line); }
+
+  /* ============ ROUND 2 (B227) — the human's wireframes, same tokens ============ */
+  .round { display:flex; align-items:center; gap:10px; font-size:15px; font-weight:800;
+    letter-spacing:.02em; margin:18px 0 6px; }
+  .wf .wbar { flex:0 0 auto; align-items:flex-start; padding:6px 8px; gap:12px; }
+  .wlogo { display:flex; flex-direction:column; gap:2px; padding-top:2px; }
+  .wlogo .wsize { margin-left:0; }
+  .wmark.big { font-size:30px; letter-spacing:-1px; }
+  .wtabs { display:grid; margin-left:auto; width:470px; gap:var(--stroke); background:var(--line);
+    border:var(--stroke) solid var(--line); border-radius:6px; overflow:hidden; }
+  .wtabs > * { background:var(--panel); }
+  .wtabs button { font:inherit; font-size:9.5px; letter-spacing:.05em; padding:2px 7px; border:0;
+    color:var(--t2); cursor:pointer; text-align:left; display:flex; align-items:center; gap:5px;
+    min-height:20px; white-space:nowrap; overflow:hidden; }
+  .wtabs button:hover { background:var(--panel2); }
+  .wtabs button.on { background:var(--line); color:var(--bg); font-weight:700; }
+  .wtabs button.src { background:var(--panel2); }
+  .wtabs button.src.on { background:var(--value); color:var(--bg); }
+  .pw { width:10px; height:10px; border-radius:50%; border:1.5px solid var(--line); flex:0 0 auto;
+    background:var(--panel); cursor:pointer; }
+  .pw.on { background:var(--celebrate); }
+  .wbody.wfb { padding:6px; overflow:hidden; }
+  .wbody.wfb.scroll { overflow:auto; }
+  .wcol { display:flex; flex-direction:column; gap:6px; min-height:0; min-width:0; }
+  .wcell { background:var(--panel); border:var(--stroke) solid var(--line); border-radius:var(--r);
+    padding:4px 6px 5px; min-width:0; min-height:0; }
+  .wcell > h2 { font-size:10px; margin:0 0 3px; display:flex; align-items:center; gap:6px; }
+  .tagp { font-size:8px; letter-spacing:.1em; color:var(--dim); border:1px solid var(--div);
+    border-radius:3px; padding:0 4px; font-weight:400; }
+  .tagp.pre { color:var(--value); border-color:var(--value); }
+  .wfoot { border-top:1px dashed var(--div); margin-top:4px; padding-top:3px; display:flex; gap:4px;
+    align-items:center; flex-wrap:wrap; }
+  .wf canvas.pad { aspect-ratio:auto; width:100%; }
+  .wf .padcap i, .tri .padcap i { font-style:normal; color:var(--physics); }
+  canvas.viz { width:100%; }
+  .pill.mini { min-height:20px; padding:1px 7px; font-size:9px; }
+  .caution.mini { margin:0 0 3px; padding:2px 6px; font-size:9px; }
+  .advb { font:inherit; font-size:10px; letter-spacing:.08em; padding:3px 12px; border:var(--stroke) solid var(--line);
+    border-radius:6px; background:var(--panel); color:var(--text); cursor:pointer; box-shadow:var(--shadow); }
+  .advb.on { background:var(--line); color:var(--bg); box-shadow:none; }
+  .wadv { display:flex; margin-top:auto; }
+  .wadv.right { justify-content:flex-end; margin-top:0; }
+  .empty.wide { width:auto; }
+  .empty.tall { height:206px; display:flex; align-items:center; justify-content:center; }
+  /* H1 MAIN */
+  .wmain { display:grid; grid-template-columns:268px minmax(0,1fr); gap:7px; height:100%; }
+  .wpreset .prow { display:flex; align-items:center; gap:6px; min-width:0; }
+  .wpreset .prow .fnote { margin:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; }
+  .wpreset .more { font:inherit; font-size:10px; border:var(--stroke) solid var(--line); border-radius:999px;
+    background:var(--panel); color:var(--t2); cursor:pointer; padding:1px 7px; }
+  .mgrid { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:0 4px; justify-items:center; }
+  .mgrid .kcell { width:100%; }
+  .mgrid .kcell .tg { max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .wtwo { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+  .woc { padding:0; overflow:hidden; }
+  .octabs { width:auto; margin:0; border:0; border-bottom:var(--stroke) solid var(--line); border-radius:0;
+    grid-template-columns:150px repeat(3, minmax(0,1fr)); }
+  .octitle { font-size:10px; font-weight:700; color:var(--pull); letter-spacing:1px; padding:3px 7px; }
+  .ocbody { display:grid; grid-template-columns:150px minmax(0,1fr) 120px; gap:6px; padding:5px 6px; }
+  .occell { min-width:0; }
+  /* H2 OSC */
+  .wosc { display:grid; grid-template-columns:292px minmax(0,1fr); gap:7px; height:100%; }
+  .vgrid { display:grid; grid-template-columns:1fr 1fr; gap:4px; margin-bottom:4px; }
+  .vgrid canvas.viz + canvas.viz { margin-top:4px; }
+  .wctl { flex:1 1 auto; display:flex; flex-direction:column; min-height:0; }
+  .ctlscroll { overflow:auto; min-height:0; flex:1 1 auto; }
+  .ctlgrid { display:flex; flex-wrap:wrap; gap:6px; align-items:flex-start; }
+  .ctlgrid .gbox { flex:1 1 230px; max-width:100%; background:var(--bg); }
+  .ctlgrid .wcell.wide { flex:1 1 100%; }
+  .ctlgrid .empty { width:auto; flex:1 1 100%; }
+  /* H3 ALTERNATIVE: columns and rows are the image's own grid, scaled (see the reading) */
+  .walt { display:grid; height:100%; gap:5px;
+    grid-template-columns:205fr 198fr 199fr 398fr 197fr 398fr 395fr;
+    grid-template-rows:88px minmax(0,1fr) 64px 176px;
+    grid-template-areas:
+      "logo vis  vis  load rout rout rout"
+      "left left ctr  ctr  ctr  mods viz"
+      "left left ctr  ctr  ctr  mods poly"
+      "whl  key  key  key  key  scale poly"; }
+  .walt > .wcell, .walt > .wcol { overflow:hidden; }
+  .walt .wcol .wcell.grow { flex:1 1 auto; }
+  .walt .ctrcell { display:flex; flex-direction:column; }
+  .walt .wtabs { margin:0 0 5px; width:100%; flex:0 0 auto; }   /* never let the scroller squeeze the tab block */
+  .walt .mods-col .wcell { flex:1 1 0; }
+  .padinline { max-width:340px; margin-bottom:6px; }
+  .routes { display:flex; flex-wrap:wrap; gap:4px; align-items:center; }
+  .routes .mv { cursor:default; }
+  .routes .mv.off { opacity:.5; }
+  .wheels { display:flex; gap:12px; justify-content:center; }
+  .wheelc { display:flex; flex-direction:column; align-items:center; gap:2px; font-size:9.5px; color:var(--t2); }
+  .wheel { position:relative; width:26px; height:92px; border:var(--stroke) solid var(--line); border-radius:6px;
+    background:var(--panel2); cursor:ns-resize; touch-action:none; overflow:hidden; box-shadow:var(--shadow); }
+  .wheel i { position:absolute; left:0; right:0; background:var(--value); }
+  .wheel i.src { background:var(--physics); }
+  .kbd { position:relative; height:104px; margin-top:2px; }
+  .kbd .kw { position:absolute; top:0; bottom:0; width:calc(100% / 14 - 2px); background:var(--well);
+    border:var(--stroke) solid var(--line); border-radius:0 0 4px 4px; cursor:pointer; }
+  .kbd .kb { position:absolute; top:0; height:60%; width:calc(100% / 14 * .62); background:var(--line);
+    border:var(--stroke) solid var(--line); border-radius:0 0 3px 3px; z-index:2; cursor:pointer; }
+  /* the keys keep a keyboard's look in both themes: ink tokens invert, so the
+     dark chassis swaps which token each colour of key takes */
+  body.dark .kbd .kw { background:var(--dim2); }
+  body.dark .kbd .kb { background:var(--well); }
+  .kbd .out { opacity:.3; }
+  .kbd .down { background:var(--value); }
+  .degs { display:grid; grid-template-columns:repeat(6, 1fr); gap:3px; margin-top:4px; }
+  .deg { font:inherit; font-size:9px; padding:2px 0; border:var(--stroke) solid var(--line); border-radius:4px;
+    background:var(--panel); color:var(--dim); cursor:pointer; }
+  .deg.on { background:var(--value); color:var(--bg); }
+  .deg.ghost { opacity:.45; }
+  .lgline { font-size:10px; line-height:1.5; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  /* B223 triptych and the reading/ambiguity/agree panels */
+  .triptych { display:flex; gap:12px; flex-wrap:wrap; margin-top:8px; }
+  .tri { flex:0 0 320px; }
+  .tri h2 { display:flex; align-items:center; gap:6px; }
+  .tri canvas.pad { aspect-ratio:auto; width:100%; }
+  #b223pads .pill.rec { position:relative; }
+  #b223pads .pill.rec::after { content:'REC'; position:absolute; top:-7px; right:-6px; font-size:7.5px;
+    letter-spacing:.08em; padding:0 3px; border-radius:3px; background:var(--value); color:var(--bg);
+    border:1px solid var(--line); }
+  .b223why { margin:8px 0 0 16px; padding:0; font-size:10px; color:var(--t2); line-height:1.5; max-width:150ch; }
+  .b223why b, .rd b, .amb b { color:var(--text); }
+  .r2grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(520px, 1fr)); gap:12px; margin-top:14px; }
+  .rd, .amb { margin:2px 0 6px 16px; padding:0; font-size:10px; color:var(--t2); line-height:1.5; }
+  .amb i, .rd i { color:var(--value); font-style:normal; }
+  table.ag td { text-align:left !important; vertical-align:top; padding:4px 10px 4px 0; line-height:1.45; }
+  table.ag td:nth-child(2) { font-weight:700; white-space:nowrap; }
+  table.ag td.yes { color:var(--celebrate); }
+  table.ag td.part { color:var(--caution-tx); }
+  table.ag td.no { color:var(--alarm); }
+  table.ag th { text-align:left !important; }
 </style></head><body>
 
 <div class="hdr">
@@ -370,6 +515,151 @@ drive the frames. Drag knobs and pads; LFO and morph keep moving what the face h
   <span><i style="background:var(--marker)"></i>attention: the frame or row a pill or jump points at</span>
 </div>
 
+<!-- ============ ROUND 2 — B227 (the human's wireframes) + B223 ============ -->
+<div class="round"><span class="badge">B227</span>ROUND 2 — the human's own wireframes, built as working frames</div>
+<div class="tagline">The human sent three spreadsheet wireframes (2026-09-23): a <b>MAIN</b> page and an <b>OSC</b> page from one
+schema, and an <b>alternative</b> single screen. Each is drawn below at a real window size, from the same one store as round 1:
+every knob, pad and toggle is a table address, so round 1's audit, history, host lanes and preset snapshot cover them unchanged.
+K is labelled <b>Coupling</b> and R <b>Coherence</b> (B224's proposed player names; the addresses keep K and R). The page tabs,
+source tabs, visualizer choice and Advanced buttons are GUI state, never parameters. Visualizers here are a <b>lab toy</b>
+(a seeded mean-field sketch driven by the real Voices / Detune / Coupling addresses), not the engine.</div>
+<div class="frames" id="framesH12"></div>
+<div class="frames" id="framesH3" style="margin-top:14px"></div>
+
+<div class="cluster" style="margin-top:14px" id="b223box"><h2>B223 · the Coupling × Detune pad has to show modulation — three treatments of the same live state</h2>
+  <div class="note" style="margin:0 0 6px">The human: <i>"The K x detune XY grids need some way to visualize modulation."</i> Today the pad
+    shows only where the puck IS (gui2.html:1682). Below: one pad, drawn three ways, all reading the same store; the pill picks which
+    one every pad in the frames above uses. <b>Magenta ring</b> = your authored value, which never moves on its own.
+    <b>Violet</b> = what the engine does to it (ADR-137's colour law). SWARM RIDE moves Swarm 1: LFO 1 on Detune, LFO 2 and Motion (M3) on Coupling.
+    Load GLASS CHOIR to see morph move the ring itself (ringed in the owning corner's hue), and INIT for the must-read-zero case: no routes, nothing violet.</div>
+  <div id="b223pads"></div>
+  <ul class="b223why">
+    <li><b>REACH BOX (recommended)</b> — ADR-137's reach arc in two dimensions: the rectangle is every value the live routes can reach,
+      the dot is where the value is now. It reads in a still screenshot and when a slow LFO is paused. One axis modulated gives a band.
+      This is the same grammar as the knobs, so a player learns it once.</li>
+    <li><b>GHOST + TRAIL</b> — the dot plus where it has been. Two LFOs at unrelated rates draw a Lissajous figure, which shows the
+      <i>shape</i> of the motion better than the box does. The lab computes its last six seconds from the LFOs' own law. The shell could
+      not always do that: an envelope, a sample &amp; hold or a MIDI source has no past it can recompute, so there the trail would be a
+      remembered history. It is also noisy on the MAIN page's small pad.</li>
+    <li><b>EDGE RAILS</b> — the interior stays clean for the puck; each axis gets the knob's arc and live tick along its edge. This is the
+      least clutter, but on a 150 px pad the rails are thin and the joint position (which the pad is for) is left for you to infer.</li>
+    <li><b>Source colour</b> — not drawn. Sources are named by glyph (L1, M3) at the axis they move. A per-source hue needs a palette,
+      which is an ADR-116 amendment that the mod-matrix lab (B207) left open. The box could take the source colour once one exists.</li>
+    <li><b>What the pad means for decision 5</b>: a pad marks both of its addresses as visible, so the strip at the bottom of each frame
+      stops listing Detune and Coupling while a pad shows them. The pad has to carry their motion, which is why B223 is needed.</li>
+  </ul>
+</div>
+
+<div class="r2grid">
+<div class="cluster" id="readings"><h2>How the lab reads each wireframe (check against the images)</h2>
+  <div class="cap">IMAGE 1 · MAIN</div>
+  <ul class="rd">
+    <li>Header: <b>horde</b> at the left. Page tabs at the right in two rows of four: <b>Main</b> (selected) · Osc (+ Filt) · FX · Mod / Morph · Mix · Hist · Set.
+      These are gui2's eight pages (gui2.html:4416-4419) with OSC renamed <i>Osc (+ Filt)</i>. The page SET is unchanged.</li>
+    <li>Left column, each title <b>above</b> its box: <b>Morph</b>, <b>XY</b> and <b>Visualizers</b>. Each box has a thin strip ruled off
+      its foot. Then a lone <b>Advanced</b> button at the bottom left.</li>
+    <li>Right column: <b>Preset</b> (a wide bar, two cells tall); <b>Macros</b> (2 × 4); <b>Mix</b> beside <b>Global Controls</b>; then
+      <b>Osc Controls</b>. Its header row is the title and three source tabs, <b>Sub [on/off] · Swarm 1 [on/off]</b> (selected) <b>· Swarm 2 [on/off]</b>.
+      Below that are four columns: (1) one tall box labelled at its <b>foot</b> "K x Detune XY"; (2–3) Voices, R → Tone, Drift | Width,
+      Onset/Dissolve, Squareness, ruled off above a box labelled at its foot "Envelope"; (4) one tall box labelled at its foot "Mini Visualizers".
+      Zoomed: no rule sits above "K x Detune XY" or "Mini Visualizers", so they are bottom labels, not separate cells.</li>
+    <li>So image 1 already uses both conventions. Section titles sit above their boxes, and the cells inside Osc Controls are labelled at their foot.</li>
+  </ul>
+  <div class="cap">IMAGE 2 · OSC</div>
+  <ul class="rd">
+    <li>Same header. <b>Osc (+ Filt)</b> is selected, and the tab block gains a third row: <b>Sub [on/off] · Swarm 1 [on/off]</b> (selected) <b>· Swarm 2 [on/off] · Filters</b>.
+      The source tabs move out of Osc Controls and into the tab block.</li>
+    <li>Left: <b>K x Detune</b> (with the same foot strip); <b>Visualizers</b>: a pair of cells, the left labelled at its foot "Swarm Circle", the right holding
+      "Waveform" mid-cell and "Phase Carpet" at its foot <b>with no rule between them</b> (read as two stacked views), then a big box labelled at its
+      foot "Etc."; <b>Advanced</b> at the bottom left, where MAIN has it.</li>
+    <li>Right: one large <b>Controls</b> box with its <b>own Advanced</b> button under its bottom-right corner.</li>
+    <li>The blue outline and dot on "Waveform" are the spreadsheet's cell cursor, not part of the design.</li>
+  </ul>
+  <div class="cap">IMAGE 3 · ALTERNATIVE — the label question, settled from the image</div>
+  <ul class="rd">
+    <li><b>Reading taken: the stacked boxes are labelled at their FOOT.</b> The image settles it three ways. (a) Right column: "Filter 2" sits on a rule with
+      an empty box above it. Reading labels as tops would leave that first box unlabelled, and would put "Mod 1" on the box that "Scale Quantization"
+      already labels at its foot. (b) Left column: reading tops would put "XY" on the box that "Wheels" labels at its foot. (c) The bottom row
+      (Wheels, Keyboard, Scale Quantization, Polyphony + Bend) has nothing below it, so it must be foot-labelled. Image 1's Osc Controls uses the same convention.</li>
+    <li>Exceptions labelled at the top: the top row (Logo · Visual Controls · Load Patch · Routing, with Routing spanning the whole right half), <b>Mix</b> (the first box
+      in the left column) and <b>Visualizers</b>.</li>
+    <li>Result: left column Mix, Macros (the tallest), Morph, XY. Centre: the tab block Osc · Mod · FX · Settings / Morph · Mix · Hist / Sub · Swarm 1 · <b>Swarm 1</b>
+      (read as <b>Swarm 2</b>, a typo) over a large unlabelled control area. Then a column Filter 2, Filter 1, Mod 4, Mod 3, Mod 2, Mod 1 (numbered upward,
+      like a rack filled from the bottom), a tall Visualizers column with Polyphony + Bend in its foot, and a bottom row of Wheels, Keyboard (wide) and Scale Quantization.</li>
+    <li>There is no Main tab, because everything MAIN held is on screen. "Settings" replaces Set. The grid is about 1.7:1, drawn here at <b>1600×1000</b>, the
+      shell's maximum window (hypersaw_clap.cpp:9333-9338), because nothing smaller holds it.</li>
+  </ul>
+</div>
+
+<div class="cluster" id="ambig"><h2>Ambiguities — answered from the images where they settle it, asked where they do not</h2>
+  <ol class="amb">
+    <li><b>Image 3 labels: top or foot?</b> SETTLED from the image: foot, with three top-labelled exceptions (see left). <i>Confirm</i> that Mix is labelled at
+      its top, and is not an unlabelled box above Macros.</li>
+    <li><b>"Swarm 1" twice in image 3.</b> Read as Swarm 2. <i>Confirm.</i></li>
+    <li><b>Axis order of "K x Detune".</b> gui2 draws x = Detune and y = K (gui2.html:1682, ADR-156). "K x Detune" could mean x = K. The lab keeps gui2's axes. <i>Ask.</i></li>
+    <li><b>Onset/Dissolve is one cell.</b> Is it two controls (<code>osc.onset</code>, <code>osc.dissolve</code>) or one combined control? A combined control
+      would be a NEW parameter (decision 6). The lab draws two knobs. <i>Ask.</i></li>
+    <li><b>"Drift"</b>: Drift Depth only, or depth and rate? The lab draws <code>osc.driftDepth</code>. <i>Ask.</i></li>
+    <li><b>The strips ruled off the foot of Morph, XY, Visualizers (image 1) and K x Detune (image 2).</b> Their content is not stated. The lab puts
+      Morph's on/glide/temperature, XY's axis targets, the visualizer choice, and the pad's modulation readout (B223) there. <i>Ask.</i></li>
+    <li><b>The global Advanced (bottom left of both pages).</b> Does it open today's whole surface (round 1's FULL) or only this page's hidden rows? The lab
+      opens FULL at the current page. <i>Ask.</i></li>
+    <li><b>What Controls holds by default (image 2), and what its own Advanced adds.</b> The lab shows the table groups that MAIN's Osc Controls
+      draws from (The swarm, The coupling, Drift, Image &amp; tone, Saw shape, Envelope, Pitch). Its Advanced adds Dynamics, Onset &amp; scatter
+      and Pitch Env in place. <i>Ask.</i></li>
+    <li><b>Filters</b> (image 2's tab, image 3's Filter 1 / Filter 2). No filter address exists outside the FX rack. B209 has not ruled placement.
+      The lab shows the rack's Filter-typed slots and says so. <i>Ask</i> what Filter 1 and Filter 2 are: per swarm, or two in series?</li>
+    <li><b>Mix vs Global Controls (image 1).</b> The lab puts Swarm 1 / Swarm 2 volume and Sub level under Mix, and Master, Master Octave, Note Lag and Mono
+      under Global Controls. <i>Ask.</i></li>
+    <li><b>The Sub tab inside Osc Controls.</b> The sub has no swarm, so what fills the K x Detune slot, and which controls replace Voices…Squareness?
+      The lab shows the sub's own primary set and leaves the pad slot empty. <i>Ask.</i></li>
+    <li><b>Mod 1–4 (image 3)</b> are read as the four modulator slots that exist today: LFO 1, LFO 2, ENV 3, ENV 4 (the MOD page's groups).
+      <i>Ask</i> whether that is right, and whether the centre's Mod tab then duplicates them.</li>
+    <li><b>Visual Controls (image 3)</b> is read as which visualizer, and whose swarm it watches. That is GUI state and never a parameter. <i>Ask.</i></li>
+    <li><b>Routing (image 3)</b> is read as a read-only view of the patch's routes, since routes are edited on the Mod page. <i>Ask.</i></li>
+    <li><b>"Polyphony" + Bend.</b> No polyphony-count parameter exists. The nearest are Mono and Legato, and the swarm's Voices is not polyphony.
+      <i>Ask</i> whether a voice-count parameter is wanted. It would be new, and it would be a DSP change.</li>
+    <li><b>Wheels.</b> Pitch bend is a parameter (<code>pitchBend</code>). The mod wheel is matrix source 15 with no address (gui2.html, ADR-150).
+      The lab's Mod wheel writes nothing, and neither does the Keyboard. <i>Confirm.</i></li>
+    <li><b>Where the K x Detune pad goes in image 3.</b> It is not drawn there. The lab puts it at the head of the centre's Osc controls when a swarm is selected. <i>Ask.</i></li>
+    <li><b>Mix and Morph appear twice in image 3</b> (a left box and a tab). The lab reads it as the box holding the everyday controls and the tab
+      opening the full page. <i>Confirm.</i></li>
+    <li><b>Mini Visualizers (image 1):</b> which ones? The lab uses the swarm circle with its Coherence readout. <i>Ask.</i></li>
+    <li><b>Window size.</b> Neither image states one. MAIN's contents do not fit 720×440, which conflicts with round 1's decision 4 (see right). <i>Ask.</i></li>
+  </ol>
+</div>
+
+<div class="cluster" id="agree"><h2>The human's layout against round 1's six decisions</h2>
+  <table class="exp ag">
+    <tr><th>round 1 decision (its recommendation)</th><th>verdict</th><th>why</th></tr>
+    <tr><td>1 · WHAT — a mix: our spine + the preset's macros</td><td class="yes">AGREE</td>
+      <td>MAIN is exactly that: our Osc Controls, Mix and Global Controls, plus the preset's 2 × 4 Macros. The human's spine is <b>larger and per source</b>:
+        Voices, Coherence → Tone, Drift, Width, Onset, Dissolve, Squareness, ADSR and the Coupling × Detune pad, behind Sub / Swarm tabs. Round 1's was
+        Voices, Detune, K, Width, Attack, Release and Master.</td></tr>
+    <tr><td>2 · HOW — COMPACT/FULL toggle + ↗ jumps</td><td class="part">PARTLY</td>
+      <td>The global <b>Advanced</b> is the toggle (agree). But the Controls area's own Advanced is <b>expand in place</b>, which round 1 rejected <i>at 720×440</i>.
+        On a 980×720 page given over to controls, that objection mostly goes away. No ↗ jumps are drawn. And the human keeps <b>page tabs on the simplified
+        surface</b>, so the simple face spans several pages, where round 1 assumed one screen.</td></tr>
+    <tr><td>3 · WHO — both, layered (ours fixed; preset's macros + pins)</td><td class="yes">AGREE</td>
+      <td>Macros are the preset's and everything else is ours. <b>Pins</b> (round 1's per-preset extra controls) do not appear in any image. That is an open question, not a conflict.</td></tr>
+    <tr><td>4 · SMALLER WINDOW — yes, 720×440</td><td class="no">CONFLICT</td>
+      <td>MAIN holds three pads, eight macros and about twenty knobs, and needs the <b>980×720</b> default. The alternative needs <b>1600×1000</b>, the maximum.
+        In the human's schema the simplified surface is the normal window, not a smaller one. If that holds, round 1's resize question (request_resize, host refusal)
+        goes away.</td></tr>
+    <tr><td>5 · HIDDEN MOTION — named strip + halos</td><td class="part">EXTENDED</td>
+      <td>The images do not address it. The lab keeps the strip on the human's frames, where it still lists hidden driven parameters. B223 is decision 5
+        applied to the pads: they carry Detune and Coupling's motion themselves.</td></tr>
+    <tr><td>6 · INVARIANT — a view of the same address</td><td class="yes">AGREE</td>
+      <td>Every cell maps to an existing address (see the audit). The [on/off] dots are the existing enable addresses, and the sub's is already a
+        hand-placed tab power button in gui2 (B176). Watch items: a single Onset/Dissolve control would be a new parameter; the Keyboard and Mod wheel
+        must stay address-free; tab, visualizer and Advanced choices stay GUI state.</td></tr>
+    <tr><td>(implicit) the full surface is unchanged</td><td class="yes">AGREE</td>
+      <td>All eight of today's pages survive as tabs. The human folds filters into OSC ("Osc (+ Filt)") and moves the swarm and sub selector into it.</td></tr>
+  </table>
+</div>
+</div>
+
+<div class="round"><span class="badge">B212</span>ROUND 1 — three compact faces and the six decisions (2026-09-22)</div>
 <div class="frames" id="framesAB"></div>
 <div class="lower">
   <div id="framesC"></div>
@@ -836,6 +1126,23 @@ const PRESETS = {
     pins: ['osc1.onset', 'osc1.dissolve', 'osc1.law'],
     why: 'morph off, four bound macros, a vibrato LFO, three pins chosen by the patch',
   },
+  /* ROUND 2 (B227/B223): the pad needs something moving it. Two LFOs at
+     incommensurate rates on Swarm 1's Detune and Coupling (so the ghost draws a
+     Lissajous, not a line), plus a macro on Coupling, which morph would suspend. */
+  'SWARM RIDE': {
+    set: { 'osc1.n': 12, 'osc1.detune': 0.4, 'osc1.K': 0.15, 'osc1.width': 1.0, 'osc1.shape': 0.1,
+           'osc2.detune': 0.12, 'osc2.K': 0.6, 'osc2.vol': 0.3, 'sub.on': 1, 'sub.level': 0.5,
+           'fx2type': 2, 'fx2amt': 0.55, 'fx4type': 8, 'fx4mix': 0.25, 'bendQuant': 3,
+           'scaleDeg2': 1, 'scaleDeg3': 1, 'scaleDeg5': 1, 'scaleDeg7': 1, 'scaleDeg8': 1, 'scaleDeg10': 1,
+           'lfo1Rate': 0.23, 'lfo2Rate': 0.37, 'lfo2Shape': 1, 'macro1': 0.3, 'macro3': 0.6 },
+    names: INTENT_DEFAULT.slice(),
+    routes: [ { src: 'lfo1', dst: 'osc1.detune', d: 0.2 },
+              { src: 'lfo2', dst: 'osc1.K', d: 0.22 }, { src: 'm3', dst: 'osc1.K', d: 0.2 },
+              { src: 'm1', dst: 'fx4mix', d: 0.4 }, { src: 'lfo1', dst: 'osc1.panMotion', d: 0.3 } ],
+    corners: null,
+    pins: ['osc1.dissolve'],
+    why: "B223's demo: LFO 1 and LFO 2 move Swarm 1's Detune and Coupling, Motion (M3) offsets Coupling",
+  },
 };
 
 /* THE FACES. A face lists ADDRESSES (or per-oscillator KEYS the face's OSC pill
@@ -887,7 +1194,8 @@ const FACES = {
 
 /* LAB STATE — the audition switches the six decision cards drive. */
 const LAB = {
-  preset: 'SAW STACK',
+  preset: 'SWARM RIDE',     /* round 2's landing preset: the one that moves the pad (B223) */
+  padView: 'box',           /* B223: box | ghost | rails — how the pad draws modulation */
   reach: 'toggle',          /* decision 2: toggle | expand | drawer          */
   who: 'both',              /* decision 3: ours | preset | both (frame C)    */
   size: 'small',            /* decision 4: small (720x440) | same (980x720)  */
@@ -909,6 +1217,64 @@ const SH_VAL = [0, 0];
 const SH_CYC = [-1, -1];
 const FRAMES = [];
 const DEEP = { view: '', open: '', page: '' };   /* deep-link frame state, applied once at setup */
+
+/* ============ ROUND 2 (B227) — the human's wireframes, AS DATA ==============
+   Every list below is what a round-2 frame renders AND what the self-audit
+   checks, so the audit sees exactly the addresses the frames can bind — a
+   second, hand-kept audit list is how the two would drift apart. Labels are
+   B224's player vocabulary (K is "Coupling", R is "Coherence"): the frames show
+   the future names over today's unchanged addresses. */
+const SAY = { K: 'Coupling', R: 'Coherence', rtone: 'Coherence → Tone' };
+/* image 1's page tabs, two rows of four, in the human's order. The eight names
+   are gui2's eight pages (gui2.html:4416-4419) with OSC spelled "Osc (+ Filt)" */
+const WIRE_TABS = [['Main', 'Osc (+ Filt)', 'FX', 'Mod'], ['Morph', 'Mix', 'Hist', 'Set']];
+/* image 3's tabs: no Main (its content is all on screen), "Settings" for Set */
+const ALT_TABS = [['Osc', 'Mod', 'FX', 'Settings'], ['Morph', 'Mix', 'Hist']];
+const WIRE_PAGE_OF = { 'Main': 'MAIN', 'Osc (+ Filt)': 'OSC', 'Osc': 'OSC', 'FX': 'FX', 'Mod': 'MOD',
+                       'Morph': 'MORPH', 'Mix': 'MIX', 'Hist': 'HIST', 'Set': 'SET', 'Settings': 'SET' };
+/* the source tabs: image 1 puts them inside Osc Controls, image 2 in the tab
+   block's third row, image 3 in the centre's third row. [key, label] */
+const W_SOURCES = [['sub', 'Sub'], [1, 'Swarm 1'], [2, 'Swarm 2']];
+/* "[on/off]" on each source tab: the enable addresses that already exist. The
+   sub's is widget=none in the table because gui2 ALREADY hand-places it as a
+   tab power button (B176) — the human's idiom, arrived at independently. */
+const W_POWER = { sub: 'sub.on', 1: 'osc1.enable', 2: 'osc2.enable' };
+/* image 1, Osc Controls: the six named cells, per-oscillator keys. The human's
+   "Onset/Dissolve" is ONE cell over TWO addresses — drawn as two knobs, because
+   one knob would be a new parameter (decision 6); asked, not settled. */
+const W_SWARM = [['n', 'Voices'], ['rtone', SAY.rtone], ['driftDepth', 'Drift'],
+                 ['width', 'Width'], ['onset', 'Onset'], ['dissolve', 'Dissolve'], ['shape', 'Squareness']];
+const W_ENV = [['attack', 'Attack'], ['decay', 'Decay'], ['sustain', 'Sustain'], ['release', 'Release']];
+/* the sub has no swarm, so the Sub tab shows the sub's own primary set */
+const W_SUB = [['sub.wave', 'Wave'], ['sub.octave', 'Octave'], ['sub.level', 'Level'], ['sub.tone', 'Tone'],
+               ['sub.width', 'Pulse W']];
+const W_SUB_ENV = [['sub.attack', 'Attack'], ['sub.release', 'Release']];
+const W_MIX = [['osc1.vol', 'Swarm 1'], ['osc2.vol', 'Swarm 2'], ['sub.level', 'Sub']];
+const W_GLOBAL = [['masterVol', 'Master'], ['gOct', 'Octave'], ['glide', 'Note Lag']];
+const W_GLOBAL_T = [['voiceMono', 'Mono']];
+/* image 2's Controls area. Default: the table groups MAIN's Osc Controls draws
+   from; its own Advanced adds the rest of the oscillator's OSC-page groups.
+   Group names are table data, so a row can only appear through its group. */
+const W_CURATED = ['The swarm', 'The coupling', 'Drift', 'Image & tone', 'Saw shape', 'Envelope', 'Pitch'];
+const W_ADV = ['Dynamics', 'Onset & scatter', 'Pitch Env'];
+const SUB_PRIMARY = ['sub.wave', 'sub.octave', 'sub.semis', 'sub.level', 'sub.tone', 'sub.attack', 'sub.release'];
+/* image 3's Mod 1..4: the four modulator slots that exist today (MOD groups) */
+const W_MODS = [['Mod 1', 'LFO 1'], ['Mod 2', 'LFO 2'], ['Mod 3', 'ENV 3'], ['Mod 4', 'ENV 4']];
+const W_POLY = [['voiceMono', 'Mono'], ['voiceLegato', 'Legato'], ['glide', 'Note Lag'], ['bendLaw', 'Bend Law'],
+                ['bendTime', 'Bend Time']];
+const W_SCALE = ['noteQuant', 'bendQuant', 'scaleRoot'];
+const W_DEGS = ['scaleDeg0', 'scaleDeg1', 'scaleDeg2', 'scaleDeg3', 'scaleDeg4', 'scaleDeg5',
+                'scaleDeg6', 'scaleDeg7', 'scaleDeg8', 'scaleDeg9', 'scaleDeg10', 'scaleDeg11'];
+/* B223: the three pad treatments, [key, label] — the first is the recommendation */
+const PADVIEWS = [['box', 'REACH BOX'], ['ghost', 'GHOST + TRAIL'], ['rails', 'EDGE RAILS']];
+/* the lab's toy swarm, one per oscillator (visualizers only; see simOf) */
+const SIMS = [null, null];
+const SIM_HIST = 96;
+const TRAIL_S = 6;                /* B223 ghost trail length, seconds of lab time */
+/* GUI-only state that is deliberately NOT a parameter: the mod wheel is matrix
+   source 15, reached through hzModWheel (gui2.html, ADR-150), and a keyboard is
+   note input. Neither has an address, so neither may enter the store. */
+const GUI_ONLY = { modWheel: 0, key: -1 };
 </script>
 
 <script>
@@ -1034,10 +1400,17 @@ function applyMorph() {
    macro route contributes nothing. The lab reproduces TODAY's law, not B170's
    planned retirement of it. */
 function macroLive() { return get('morphOn') > 0.5 ? 0 : 1; }
-function lfoVal(i) {
+/* `at` (round 2): the LFO at an EARLIER lab time, so B223's trail is computed
+   from the law rather than remembered — the same picture on every load and in
+   a headless screenshot. S&H only ever answers with the value it holds now:
+   re-drawing a past cycle would advance the stream (SH_RNG) and change what
+   the live picture draws next. */
+function lfoVal(i, at) {
   const n = i + 1, rate = get('lfo' + n + 'Rate') || 1, shape = Math.round(get('lfo' + n + 'Shape') || 0);
   const ph0 = get('lfo' + n + 'Phase') || 0;
-  const cyc = rate * T + ph0, p = cyc - Math.floor(cyc);
+  const t = at === undefined ? T : at;
+  const cyc = rate * t + ph0, p = cyc - Math.floor(cyc);
+  if (shape === 5 && at !== undefined) return SH_VAL[i];
   switch (shape) {
     case 1: return 1 - 4 * Math.abs(p - 0.5);
     case 2: return 2 * p - 1;
@@ -1047,9 +1420,9 @@ function lfoVal(i) {
     default: return Math.sin(p * 6.283185307179586);
   }
 }
-function srcVal(s) {
-  if (s === 'lfo1') return lfoVal(0);
-  if (s === 'lfo2') return lfoVal(1);
+function srcVal(s, at) {
+  if (s === 'lfo1') return lfoVal(0, at);
+  if (s === 'lfo2') return lfoVal(1, at);
   const m = /^m(\d)$/.exec(s);
   if (m) return get('macro' + m[1]) * macroLive();
   return 0;
@@ -1057,14 +1430,14 @@ function srcVal(s) {
 function srcLive(s) { return /^m\d$/.test(s) ? macroLive() > 0 : true; }
 function routesTo(a) { return STORE.routes.filter(r => r.dst === a); }
 /* {base, eff, lo, hi, mod} in POSITION space (0..1 of the control's travel) */
-function modOf(a) {
+function modOf(a, at) {
   const r = PTI[a];
   const base = toPos(r, get(a));
   let eff = base, lo = base, hi = base, mod = false;
   for (const rt of routesTo(a)) {
     if (!srcLive(rt.src)) continue;
     mod = true;
-    eff += rt.d * srcVal(rt.src);
+    eff += rt.d * srcVal(rt.src, at);
     if (/^lfo/.test(rt.src)) { lo -= Math.abs(rt.d); hi += Math.abs(rt.d); }
     else { lo = Math.min(lo, lo + rt.d); hi = Math.max(hi, hi + rt.d); }
   }
@@ -1310,11 +1683,17 @@ function renderFull(F, host, onlyGroups) {
     }
   }
   host.appendChild(tabs);
-  const rows = rowsFor(F, F.page);
   const total = ROWS.filter(r => r.p === F.page && designed(r)).length;
   host.appendChild(el('div', 'fnote', F.page + ' — ' + total + ' designed controls'
     + (F.page === 'OSC' ? ' across both oscillators; OSC ' + F.osc + ' and shared rows shown' : '')
     + '. Same addresses as the face, same store.'));
+  renderPageGroups(F, host, F.page);
+}
+/* One page's groups as gui2-style rows. Split out of renderFull so round 2's
+   frames draw the pages the wireframes do not redesign (FX, Mod, …) through
+   the SAME code, not a copy. */
+function renderPageGroups(F, host, page) {
+  const rows = rowsFor(F, page);
   const cols = el('div', 'fcols');
   const groups = [];
   for (const r of rows) if (groups.indexOf(r.g) < 0) groups.push(r.g);
@@ -1540,6 +1919,7 @@ function renderFace(F, host) {
 
 /* ---- the frame (one plugin window) ---------------------------------------- */
 function openFull(F, page, group, addr) {
+  if (F.wire) { wireOpen(F, page, group, addr); return; }
   if (addr && /^osc([12])\./.test(addr)) F.osc = +addr.charAt(3);
   if (LAB.reach === 'expand') {
     const D = FACES[F.face];
@@ -1609,6 +1989,9 @@ function renderBar(F) {
   }
 }
 function renderFrame(F) {
+  /* round 2's frames (the human's wireframes, B223's pads) bring their own
+     renderer; everything else about them — binds, vis, strip — is shared */
+  if (F.render) { F.render(F); return; }
   const sz = SIZES[LAB.size];
   F.el.wrap.style.setProperty('--ww', sz[0] + 'px');
   F.el.wrap.style.setProperty('--wh', sz[1] + 'px');
@@ -1774,9 +2157,49 @@ function runAudit() {
   const fired = plant.bad.length === 1 && plant.bad[0] === 'compact.bite';
   const quiet = clean.bad.length === 0;
   if (!fired || !quiet) ok = false;
-  lines.push({ ok: fired, t: 'calibration: planted shadow control compact.bite → ' + (fired ? 'flagged (the check can fail)' : 'NOT flagged — the audit above is blind') });
+  lines.push({ ok: fired, cal: true, t: 'calibration: planted shadow control compact.bite → ' + (fired ? 'flagged (the check can fail)' : 'NOT flagged — the audit above is blind') });
   lines.push({ ok: quiet, t: 'control: planted face of real addresses → ' + clean.bad.length + ' foreign (must read 0)' });
+  /* ROUND 2. The human's frames bind from the W_* lists (hand-typed addresses)
+     and from table GROUPS (addresses by construction, but a misspelt group is
+     an empty cluster that looks like a design choice). Both are checked. */
+  const w = wireAddrs(), wa = Object.keys(w), wbad = wa.filter(a => !PTI[a]);
+  if (wbad.length) ok = false;
+  lines.push({ ok: !wbad.length, t: "round 2, the human's frames: " + wa.length + ' hand-listed addresses → '
+    + (wa.length - wbad.length) + ' table addresses, ' + wbad.length + ' foreign' + (wbad.length ? ' (' + wbad.join(', ') + ')' : '') });
+  const groups = Object.create(null);
+  for (const r of ROWS) groups[r.g] = 1;
+  const named = W_CURATED.concat(W_ADV, W_MODS.map(m => m[1])), gbad = named.filter(g => !groups[g]);
+  if (gbad.length) ok = false;
+  lines.push({ ok: !gbad.length, t: 'round 2 table groups: ' + named.length + ' named, ' + gbad.length + ' unknown' + (gbad.length ? ' (' + gbad.join(', ') + ')' : '') });
+  /* B223's detector, with its must-read-zero control (L0032, and the
+     detector-shares-assumption trap): with NO routes the pad must find no
+     modulated axis; with SWARM RIDE's routes it must find both. Computed over
+     swapped route lists, never through put(), so the audit writes nothing. */
+  const saved = STORE.routes;
+  const axes = ['osc1.detune', 'osc1.K'];
+  STORE.routes = [];
+  const zero = axes.filter(a => modOf(a).mod).length;
+  STORE.routes = PRESETS['SWARM RIDE'].routes.map(x => ({ src: x.src, dst: x.dst, d: x.d }));
+  const two = axes.filter(a => modOf(a).mod).length;
+  STORE.routes = saved;
+  const padOk = zero === 0 && two === 2;
+  if (!padOk) ok = false;
+  lines.push({ ok: padOk, t: 'B223 pad detector: no routes → ' + zero + ' modulated axes (must read 0) · SWARM RIDE → ' + two + ' (must read 2)' });
   return { ok, lines };
+}
+function wireAddrs() {
+  const set = Object.create(null);
+  const add = a => { set[a] = 1; };
+  for (const osc of [1, 2]) {
+    for (const [k] of W_SWARM.concat(W_ENV)) add('osc' + osc + '.' + k);
+    add('osc' + osc + '.detune'); add('osc' + osc + '.K'); add(W_POWER[osc]);
+  }
+  add(W_POWER.sub);
+  for (const [a] of W_SUB.concat(W_SUB_ENV, W_MIX, W_GLOBAL, W_GLOBAL_T, W_POLY)) add(a);
+  for (const a of SUB_PRIMARY.concat(W_SCALE, W_DEGS, MACRO_ADDRS)) add(a);
+  for (const a of ['morphX', 'morphY', 'morphOn', 'morphGlide', 'morphTemp', 'mainAsnX', 'mainAsnY', 'pitchBend']) add(a);
+  for (let n = 1; n <= 4; n++) { add('fx' + n + 'type'); add('fx' + n + 'amt'); add('fx' + n + 'mix'); }
+  return set;
 }
 let AUDIT = { ok: false, lines: [] };
 function paintAudit() {
@@ -1786,7 +2209,7 @@ function paintAudit() {
   if (box) {
     box.classList.toggle('bad', !AUDIT.ok);
     box.innerHTML = 'audit — <b>' + ROWS.length + '</b> table addresses (' + nDesigned + ' designed controls) · every face control is a table address: <b>'
-      + (AUDIT.ok ? 'yes' : 'NO') + '</b> · calibration plant: <b>' + (AUDIT.lines[3] && AUDIT.lines[3].ok ? 'fired' : 'DID NOT FIRE')
+      + (AUDIT.ok ? 'yes' : 'NO') + '</b> · calibration plant: <b>' + (AUDIT.lines.some(l => l.cal && l.ok) ? 'fired' : 'DID NOT FIRE')
       + '</b> · source: src/param_presentation.tsv ⋈ kParams @ fb64f70';
   }
   if (list) {
@@ -1832,6 +2255,889 @@ function paintExposure() {
     + '</b> further parameters' + (macroLive() ? '' : ' — all suspended while morph is on') + '. Everything not reached stays one '
     + (LAB.reach === 'toggle' ? 'toggle' : LAB.reach === 'drawer' ? 'drawer' : 'expand') + ' away, at the address it already has.</div>';
   host.innerHTML = h;
+}
+</script>
+
+<script>
+"use strict";
+/* ============ BLOCK R2 — round 2 (B227): the human's wireframes as working
+   frames, and B223's pad modulation view. Declarations only; SETUP (end of the
+   file) builds the frames. Every control here holds an ADDRESS and writes
+   through put() — nothing in this block stores a parameter value. ========== */
+
+/* ---- the lab's toy swarm (visualizers only) --------------------------------
+   A mean-field Kuramoto sketch driven by the oscillator's Voices and its
+   EFFECTIVE Detune and Coupling (base plus modulation, so what the pad shows
+   moving, the circle shows doing). NOT the engine's law — swarm_core.h is — and
+   nothing reads it back into the store. Seeded from the oscillator's own Seed
+   address through mulberry32; stepped by the frame counter, never a clock. */
+function simOf(osc) {
+  const n = Math.max(1, Math.min(32, Math.round(get('osc' + osc + '.n')) || 1));
+  const seed = Math.round(get('osc' + osc + '.seed')) || 1;
+  let S = SIMS[osc - 1];
+  if (!S || S.n !== n || S.seed !== seed) {
+    const rng = mulberry32(seed * 2 + osc);
+    const th = new Float64Array(32), jit = new Float64Array(32);
+    for (let i = 0; i < 32; i++) { th[i] = rng() * 6.283185307179586; jit[i] = (rng() - 0.5) * 0.3; }
+    if (S) for (let i = 0; i < Math.min(n, S.n); i++) th[i] = S.th[i];
+    S = { n, seed, th, jit, R: 0, psi: 0, hist: [], frame: 0 };
+    SIMS[osc - 1] = S;
+  }
+  return S;
+}
+/* the value the engine would be using right now: the base moved by live routes */
+function effVal(a) { return fromPos(PTI[a], modOf(a).eff); }
+function stepSim(osc) {
+  const S = simOf(osc);
+  const det = effVal('osc' + osc + '.detune') || 0, K = effVal('osc' + osc + '.K') || 0;
+  const n = S.n, TAU = 6.283185307179586;
+  for (let sub = 0; sub < 2; sub++) {
+    let cx = 0, cy = 0;
+    for (let i = 0; i < n; i++) { cx += Math.cos(S.th[i]); cy += Math.sin(S.th[i]); }
+    cx /= n; cy /= n;
+    S.R = Math.hypot(cx, cy); S.psi = Math.atan2(cy, cx);
+    for (let i = 0; i < n; i++) {
+      const s = n > 1 ? (2 * i / (n - 1) - 1) + S.jit[i] : 0;
+      S.th[i] += (s * det * 7 + 6 * K * S.R * Math.sin(S.psi - S.th[i])) / 120;
+      if (S.th[i] > 1e4 || S.th[i] < -1e4) S.th[i] %= TAU;
+    }
+  }
+  if ((S.frame++ & 1) === 0) {
+    const row = new Float32Array(n);
+    for (let i = 0; i < n; i++) row[i] = S.th[i] - S.psi;
+    S.hist.push(row);
+    if (S.hist.length > SIM_HIST) S.hist.shift();
+  }
+}
+
+/* ---- visualizer painters (gui2's tube idiom: --scr-* tokens, scanlines) --- */
+function vizCanvas(F, host, kind, hPx, oscOf, label) {
+  const cv = el('canvas', 'viz');
+  cv.style.height = hPx + 'px';
+  host.appendChild(cv);
+  const paint = () => {
+    if (!cv.getContext) return;
+    fitViz(cv);
+    const g = cv.getContext('2d');
+    if (!g) return;
+    const w = cv.width, h = cv.height, v = VS();
+    g.fillStyle = TOK('--scr-tube'); g.fillRect(0, 0, w, h);
+    const src = oscOf();
+    if (src === 'sub') paintSubWave(g, w, h, v);
+    else {
+      const S = SIMS[src - 1] || simOf(src);
+      if (kind === 'circle') paintCircle(g, w, h, v, S, src);
+      else if (kind === 'carpet') paintCarpet(g, w, h, v, S);
+      else paintWave(g, w, h, v, S, src);
+    }
+    scan(g, w, h, parseFloat(TOK('--scr-scan', '0.22')) || 0.22);
+    g.font = (8.5 * v) + 'px ui-monospace,Menlo,monospace';
+    g.fillStyle = TOKA('--scr-grid', 0.9);
+    const who = src === 'sub' ? 'SUB' : 'SWARM ' + src;
+    g.fillText((label || kind).toUpperCase() + ' · ' + who, 5 * v, 11 * v);
+  };
+  F.viz.push(paint);
+  paint();
+  return cv;
+}
+function paintCircle(g, w, h, v, S, osc) {
+  const cx = w / 2, cy = h / 2 + 4 * v, rad = Math.min(w, h) * 0.36;
+  g.strokeStyle = TOKA('--scr-grid', 0.45); g.lineWidth = v;
+  g.beginPath(); g.arc(cx, cy, rad, 0, 6.283185307179586); g.stroke();
+  /* rotating frame: the mean phase points up, so the picture shows spread and
+     lock, not the carrier spinning */
+  g.fillStyle = TOK('--scr-physics');
+  for (let i = 0; i < S.n; i++) {
+    const a = S.th[i] - S.psi - Math.PI / 2;
+    g.beginPath(); g.arc(cx + rad * Math.cos(a), cy + rad * Math.sin(a), 2.6 * v, 0, 6.283185307179586); g.fill();
+  }
+  g.strokeStyle = TOK('--scr-meter'); g.lineWidth = 2 * v;
+  g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx, cy - rad * S.R); g.stroke();
+  g.fillStyle = TOK('--scr-meter'); g.font = (9 * v) + 'px ui-monospace,Menlo,monospace';
+  const on = get('osc' + osc + '.enable') > 0.5;
+  g.fillText(SAY.R + ' ' + S.R.toFixed(2) + (on ? '' : ' · swarm off'), 5 * v, h - 5 * v);
+}
+function paintCarpet(g, w, h, v, S) {
+  const H = S.hist, cols = SIM_HIST, n = S.n;
+  if (!H.length) return;
+  const cw = w / cols, rh = (h - 14 * v) / n;
+  const hue = TOK('--scr-physics');
+  for (let c = 0; c < H.length; c++) {
+    const row = H[c], x = (cols - H.length + c) * cw;
+    for (let i = 0; i < Math.min(n, row.length); i++) {
+      g.fillStyle = RGBA(hue, 0.08 + 0.8 * (0.5 + 0.5 * Math.cos(row[i])));
+      g.fillRect(x, 14 * v + i * rh, cw + 0.5, rh + 0.5);
+    }
+  }
+}
+function paintWave(g, w, h, v, S, osc) {
+  const sq = get('osc' + osc + '.shape') || 0, n = S.n, TAU = 6.283185307179586;
+  g.strokeStyle = TOK('--scr-meter'); g.lineWidth = 1.5 * v;
+  g.beginPath();
+  for (let x = 0; x <= w; x += v) {
+    const ph = 2 * x / w;
+    let y = 0;
+    for (let i = 0; i < n; i++) {
+      let p = ph + (S.th[i] - S.psi) / TAU; p -= Math.floor(p);
+      y += (1 - sq) * (2 * p - 1) + sq * (p < 0.5 ? 1 : -1);
+    }
+    y /= n;
+    const Y = h / 2 + 4 * v - y * (h * 0.36);
+    if (x === 0) g.moveTo(x, Y); else g.lineTo(x, Y);
+  }
+  g.stroke();
+}
+/* the sub's selected wave, drawn from its Wave / Pulse Width addresses. Noise is
+   a fixed seeded strip (mulberry32), not a live random draw. */
+function paintSubWave(g, w, h, v) {
+  const wave = Math.round(get('sub.wave')), pw = get('sub.width') || 0.5;
+  const rng = mulberry32(77);
+  g.strokeStyle = TOK('--scr-meter'); g.lineWidth = 1.5 * v;
+  g.beginPath();
+  for (let x = 0; x <= w; x += v) {
+    const p0 = 2 * x / w, p = p0 - Math.floor(p0);
+    let y;
+    switch (wave) {
+      case 0: y = Math.sin(p * 6.283185307179586); break;
+      case 1: y = 1 - 4 * Math.abs(p - 0.5); break;
+      case 2: y = p < 0.5 ? 1 : -1; break;
+      case 4: y = p < pw ? 1 : -1; break;
+      case 5: y = 2 * rng() - 1; break;
+      case 6: y = Math.sin(p * 3.141592653589793) * 2 - 1; break;   /* BUMP: a half-sine lobe, shape only */
+      default: y = 2 * p - 1;
+    }
+    const Y = h / 2 + 4 * v - y * (h * 0.34);
+    if (x === 0) g.moveTo(x, Y); else g.lineTo(x, Y);
+  }
+  g.stroke();
+  if (get('sub.on') < 0.5) {
+    g.fillStyle = TOKA('--scr-grid', 0.9); g.font = (9 * v) + 'px ui-monospace,Menlo,monospace';
+    g.fillText('sub off', 5 * v, h - 5 * v);
+  }
+}
+
+/* ---- B223: the Coupling × Detune pad, with its modulation drawn -----------
+   x = Detune, y = Coupling (K) reading UP, exactly gui2's pad (gui2.html:1682,
+   ADR-156; `detK` map at :4508). The magenta ring is the AUTHORED value and
+   never moves on its own; everything the engine does to it is violet
+   (--physics), which is ADR-137's knob grammar carried into two dimensions:
+     box   — the reach of every live route as a rectangle (the knob's arc, in
+             2-D), plus a ghost dot at where the value IS now;
+     ghost — the ghost dot with a fading trail of where it has been;
+     rails — the pad's interior left alone; each axis gets the knob's arc and
+             live tick as a rail along its edge.
+   A morph-owned axis moves the ring ITSELF (morph writes values), so the ring
+   wears the owning corner's hue as a halo — gui2's .owned stripe idiom. */
+function srcGlyph(s) { return /^lfo/.test(s) ? 'L' + s.slice(3) : 'M' + s.slice(1); }
+function kdetPad(F, host, osc, hPx, fixedView, cap) {
+  const ax = 'osc' + osc + '.detune', ay = 'osc' + osc + '.K';
+  const rx = PTI[ax], ry = PTI[ay];
+  const cv = el('canvas', 'pad kpad');
+  cv.style.height = hPx + 'px';
+  cv.dataset.addr = ax + ',' + ay;
+  cv.dataset.lab = 'writes ' + ax + ' (x) and ' + ay + ' (y) through put()';
+  host.appendChild(cv);
+  let down = false;
+  const apply = e => {
+    const r = cv.getBoundingClientRect();
+    const x = clamp01((e.clientX - r.left) / (r.width || 1)), y = clamp01((e.clientY - r.top) / (r.height || 1));
+    put(ax, fromPos(rx, x)); put(ay, fromPos(ry, 1 - y));
+    repaintAll();
+  };
+  cv.addEventListener('pointerdown', e => {
+    down = true; if (cv.setPointerCapture) cv.setPointerCapture(e.pointerId);
+    begin(F.id + ' · pad'); apply(e);
+  });
+  cv.addEventListener('pointermove', e => { if (down) apply(e); });
+  const up = () => { if (!down) return; down = false; end(); };
+  cv.addEventListener('pointerup', up);
+  cv.addEventListener('pointercancel', up);
+  const TAU = 6.283185307179586;
+  const paint = () => {
+    if (!cv.getContext) return;
+    fitViz(cv);
+    const g = cv.getContext('2d');
+    if (!g) return;
+    const w = cv.width, h = cv.height, v = VS();
+    const view = fixedView || LAB.padView;
+    const X = p => p * w, Y = p => (1 - p) * h;
+    g.fillStyle = TOK('--scr-tube'); g.fillRect(0, 0, w, h);
+    g.strokeStyle = TOKA('--scr-grid', 0.25); g.lineWidth = v;
+    for (let i = 1; i < 4; i++) {
+      g.beginPath(); g.moveTo(w * i / 4, 0); g.lineTo(w * i / 4, h); g.stroke();
+      g.beginPath(); g.moveTo(0, h * i / 4); g.lineTo(w, h * i / 4); g.stroke();
+    }
+    /* Coupling is BIPOLAR (-1..1): the zero line is where attraction turns to
+       repulsion, so it is drawn, dashed, rather than left as one more grid line */
+    const yz = Y(toPos(ry, 0));
+    g.setLineDash([4 * v, 3 * v]); g.strokeStyle = TOKA('--scr-grid', 0.7);
+    g.beginPath(); g.moveTo(0, yz); g.lineTo(w, yz); g.stroke(); g.setLineDash([]);
+    scan(g, w, h, parseFloat(TOK('--scr-scan', '0.22')) || 0.22);
+    g.font = (8.5 * v) + 'px ui-monospace,Menlo,monospace';
+    g.fillStyle = TOKA('--scr-grid', 0.95);
+    const dl = 'DETUNE →';
+    g.fillText(dl, w - g.measureText(dl).width - 5 * v, h - 5 * v);
+    g.fillText('↑ ' + SAY.K.toUpperCase(), 5 * v, 11 * v);
+    const mx = modOf(ax), my = modOf(ay);
+    const bx = X(mx.base), by = Y(my.base), ex = X(mx.eff), ey = Y(my.eff);
+    const phy = TOK('--scr-physics');
+    if (mx.mod || my.mod) {
+      if (view === 'box') {
+        const m = 3 * v;
+        let x0 = X(mx.lo), x1 = X(mx.hi), y0 = Y(my.hi), y1 = Y(my.lo);
+        if (x1 - x0 < m) { x0 = bx - m / 2; x1 = bx + m / 2; }
+        if (y1 - y0 < m) { y0 = by - m / 2; y1 = by + m / 2; }
+        g.fillStyle = TOKA('--scr-physics', 0.16); g.fillRect(x0, y0, x1 - x0, y1 - y0);
+        g.setLineDash([3 * v, 2 * v]); g.strokeStyle = phy; g.lineWidth = v;
+        g.strokeRect(x0, y0, x1 - x0, y1 - y0); g.setLineDash([]);
+      } else if (view === 'ghost') {
+        /* the last TRAIL_S seconds of the path, evaluated from the sources'
+           own law at earlier lab times (see lfoVal) — oldest faintest */
+        const N = 150, trail = [];
+        for (let k = N; k >= 0; k--) {
+          const t = T - k * TRAIL_S / N;
+          trail.push([modOf(ax, t).eff, modOf(ay, t).eff]);
+        }
+        g.lineWidth = 1.5 * v;
+        for (let i = 1; i < trail.length; i++) {
+          g.strokeStyle = TOKA('--scr-physics', 0.85 * i / trail.length);
+          g.beginPath(); g.moveTo(X(trail[i - 1][0]), Y(trail[i - 1][1])); g.lineTo(X(trail[i][0]), Y(trail[i][1])); g.stroke();
+        }
+      } else {
+        const t = 4 * v;
+        g.fillStyle = TOKA('--scr-grid', 0.3);
+        g.fillRect(0, h - t, w, t); g.fillRect(0, 0, t, h);
+        g.fillStyle = phy;
+        if (mx.mod) { g.fillRect(X(mx.lo), h - t, Math.max(2 * v, X(mx.hi) - X(mx.lo)), t); g.fillRect(ex - v, h - 3 * t, 2 * v, 3 * t); }
+        if (my.mod) { g.fillRect(0, Y(my.hi), t, Math.max(2 * v, Y(my.lo) - Y(my.hi))); g.fillRect(0, ey - v, 3 * t, 2 * v); }
+        /* the rail also marks the authored value, in magenta, as the knob's arc does */
+        g.fillStyle = TOK('--scr-value');
+        g.fillRect(bx - v / 2, h - t, v, t); g.fillRect(0, by - v / 2, t, v);
+      }
+      if (view !== 'rails') {
+        g.strokeStyle = TOKA('--scr-physics', 0.7); g.lineWidth = v;
+        g.beginPath(); g.moveTo(bx, by); g.lineTo(ex, ey); g.stroke();
+        g.fillStyle = phy; g.beginPath(); g.arc(ex, ey, 4 * v, 0, TAU); g.fill();
+      }
+    }
+    const own = Math.max(ownedBy(ax), ownedBy(ay));
+    if (own >= 0 && driven(ax).concat(driven(ay)).indexOf('morph') >= 0) {
+      g.strokeStyle = TOK('--c' + CORNER[own]); g.lineWidth = 3 * v;
+      g.beginPath(); g.arc(bx, by, 11 * v, 0, TAU); g.stroke();
+    }
+    g.strokeStyle = TOK('--scr-value'); g.lineWidth = 1.5 * v;
+    g.beginPath(); g.arc(bx, by, 7 * v, 0, TAU); g.stroke();
+    /* which source moves which axis: glyphs, not colours — a per-source palette
+       is an ADR-116 amendment the mod-matrix lab (B207) left open */
+    const lab = a => routesTo(a).map(r => srcGlyph(r.src) + (srcLive(r.src) ? '' : ' (off)'));
+    const gx = lab(ax), gy = lab(ay);
+    g.fillStyle = phy; g.font = (9 * v) + 'px ui-monospace,Menlo,monospace';
+    if (gx.length) g.fillText('x ← ' + gx.join(' '), 5 * v, h - 14 * v);
+    if (gy.length) { const s = 'y ← ' + gy.join(' '); g.fillText(s, w - g.measureText(s).width - 5 * v, 11 * v); }
+    if (cap) {
+      const S = SIMS[osc - 1];
+      const rs = a => routesTo(a).map(r => srcGlyph(r.src) + (srcLive(r.src) ? '' : ' suspended')).join('+');
+      cap.innerHTML = '<b>Detune</b> ' + fmt(rx, get(ax)) + (mx.mod ? ' → ' + fmt(rx, effVal(ax)) + ' <i>' + rs(ax) + '</i>' : '')
+        + ' · <b>' + SAY.K + '</b> ' + fmt(ry, get(ay)) + (my.mod ? ' → ' + fmt(ry, effVal(ay)) + ' <i>' + rs(ay) + '</i>' : '')
+        + (!mx.mod && !my.mod ? ' · <i>nothing routed here</i>' : '')
+        + (S ? ' · ' + SAY.R + ' ' + S.R.toFixed(2) : '');
+    }
+  };
+  F.binds.push({ a: ax, paint, anim: paint });
+  F.vis[ax] = 1; F.vis[ay] = 1;
+  paint();
+  return cv;
+}
+
+/* ---- small builders for the wire frames ----------------------------------- */
+function wcell(host, title, tag, cls) {
+  const c = el('div', 'wcell' + (cls ? ' ' + cls : ''));
+  if (title) {
+    const h = el('h2', null, title);
+    if (tag) h.appendChild(el('span', 'tagp' + (tag === 'PRESET' ? ' pre' : ''), tag));
+    c.appendChild(h);
+  }
+  host.appendChild(c);
+  return c;
+}
+function oscKey(r) { return r.a.replace(/^osc[12]\./, ''); }
+/* B224's names on the two addresses it renames; every other label is the table's */
+function sayLabel(r) {
+  const k = oscKey(r);
+  if (k === 'K') return SAY.K;
+  if (k === 'rtone') return SAY.rtone;
+  return r.l;
+}
+function macroKnobs(F, host, big) {
+  MACRO_ADDRS.forEach((a, i) => {
+    const bound = () => STORE.routes.filter(r => r.src === 'm' + (i + 1));
+    knobCell(F, host, a, {
+      big, label: macroName(i), label2: () => macroName(i), shadowable: i === 0,
+      ghost: () => bound().length === 0,
+      tag: () => {
+        const b = bound();
+        return b.length ? { text: '→ ' + b.map(r => nameOf(r.dst)).join(', '), bound: true } : { text: 'unbound', bound: false };
+      },
+    });
+  });
+}
+function macroCaution(host) {
+  if (get('morphOn') < 0.5) return;
+  host.appendChild(el('div', 'caution mini', 'Morph is ON: every macro reads 0 (hypersaw_clap.cpp:3847) until B170(d).'));
+}
+/* a source tab: the label selects (GUI state); the dot is the source's REAL
+   enable address, written through put() like any other control */
+function srcTab(F, host, key, label, cls) {
+  const b = el('button', cls + (F.src === key ? ' on' : ''));
+  b.dataset.lab = 'source tab — GUI state; its dot is ' + (W_POWER[key] || 'no address');
+  if (W_POWER[key]) {
+    const a = W_POWER[key];
+    const dot = el('span', 'pw');
+    dot.title = a + ' — on/off';
+    dot.addEventListener('click', e => { e.stopPropagation(); write(a, get(a) > 0.5 ? 0 : 1, F.id + ' · tab power'); });
+    b.appendChild(dot);
+    F.binds.push({ a, paint: () => dot.classList.toggle('on', get(a) > 0.5), anim: null });
+    F.vis[a] = 1;
+    dot.classList.toggle('on', get(a) > 0.5);
+  }
+  b.appendChild(document.createTextNode(label));
+  b.addEventListener('click', () => { F.src = key; if (typeof key === 'number') F.osc = key; renderFrame(F); });
+  host.appendChild(b);
+  return b;
+}
+function advButton(F, host, which) {
+  const b = el('button', 'advb' + ((which === 'ctl' ? F.cadv : F.adv) ? ' on' : ''), 'Advanced');
+  b.dataset.lab = which === 'ctl' ? 'this area\'s hidden rows, in place (decision 2: expand)' : 'the full surface for this page (decision 2: toggle)';
+  b.addEventListener('click', () => {
+    if (which === 'ctl') F.cadv = !F.cadv; else F.adv = !F.adv;
+    renderFrame(F);
+  });
+  host.appendChild(b);
+  return b;
+}
+
+/* ---- the frame shell -------------------------------------------------------- */
+function buildWire(F, host) {
+  const wrap = el('div', 'fwrap');
+  const cap = el('div', 'fcap');
+  cap.appendChild(el('b', null, F.title));
+  cap.appendChild(el('span', null, F.blurb));
+  cap.appendChild(el('span', 'rec alt', "THE HUMAN'S"));
+  wrap.appendChild(cap);
+  const win = el('div', 'win wf' + (F.alt ? ' walt-w' : ''));
+  const bar = el('div', 'wbar');
+  const body = el('div', 'wbody wfb');
+  const drawer = el('div', 'drawer');
+  const strip = el('div', 'wstrip');
+  if (!F.alt) win.appendChild(bar);
+  win.appendChild(body); win.appendChild(drawer); win.appendChild(strip);
+  wrap.appendChild(win);
+  if (host) host.appendChild(wrap);
+  F.el = { wrap, cap, win, bar, body, drawer, strip };
+}
+function renderWire(F) {
+  F.el.wrap.style.setProperty('--ww', F.size[0] + 'px');
+  F.el.wrap.style.setProperty('--wh', F.size[1] + 'px');
+  F.binds = []; F.vis = Object.create(null); F.pads = []; F.viz = [];
+  F.el.body.innerHTML = ''; F.el.drawer.innerHTML = '';
+  if (typeof F.src === 'number') F.osc = F.src;
+  F.el.body.classList.toggle('scroll', !!F.adv);
+  if (F.alt) renderAlt(F, F.el.body);
+  else {
+    renderWireBar(F);
+    if (F.adv) renderAdvanced(F, F.el.body);
+    else if (F.wpage === 'Main') renderWMain(F, F.el.body);
+    else if (F.wpage === 'Osc (+ Filt)') renderWOsc(F, F.el.body);
+    else renderWOther(F, F.el.body, WIRE_PAGE_OF[F.wpage], true);
+  }
+  paintStrip(F);
+}
+function tabGrid(F, host, rows, cols) {
+  const t = el('div', 'wtabs');
+  t.style.gridTemplateColumns = 'repeat(' + cols + ', minmax(0,1fr))';
+  for (const row of rows) {
+    for (const name of row) {
+      const b = el('button', F.wpage === name ? 'on' : '', name);
+      b.dataset.lab = 'page tab — GUI state, never a parameter';
+      b.addEventListener('click', () => { F.wpage = name; F.adv = false; F.focus = ''; renderFrame(F); });
+      t.appendChild(b);
+    }
+    for (let k = row.length; k < cols; k++) t.appendChild(el('span', 'gap'));
+  }
+  host.appendChild(t);
+  return t;
+}
+function renderWireBar(F) {
+  const bar = F.el.bar;
+  bar.innerHTML = '';
+  const lg = el('div', 'wlogo');
+  lg.appendChild(el('span', 'wmark', 'horde'));
+  lg.appendChild(el('span', 'wsize', F.size[0] + '×' + F.size[1]));
+  bar.appendChild(lg);
+  const t = tabGrid(F, bar, WIRE_TABS, 4);
+  /* image 2: on the Osc (+ Filt) page the source tabs become the block's third row */
+  if (F.wpage === 'Osc (+ Filt)' && !F.adv) {
+    for (const [k, l] of W_SOURCES) srcTab(F, t, k, l, 'src');
+    const fb = el('button', 'src' + (F.src === 'filters' ? ' on' : ''), 'Filters');
+    fb.addEventListener('click', () => { F.src = 'filters'; renderFrame(F); });
+    t.appendChild(fb);
+  }
+}
+/* the global Advanced: decision 2's toggle — today's full surface for the page
+   you are on, same addresses, same store */
+function renderAdvanced(F, host) {
+  const top = el('div', 'ftabs');
+  const back = el('button', 'advb on', '◀ simple');
+  back.addEventListener('click', () => { F.adv = false; renderFrame(F); });
+  top.appendChild(back);
+  top.appendChild(el('span', 'fnote', ' Advanced = the full surface (round 1 decision 2: TOGGLE). Same addresses; nothing new.'));
+  host.appendChild(top);
+  const pg = WIRE_PAGE_OF[F.wpage];
+  if (PAGES.indexOf(F.page) < 0 || F.pageFor !== F.wpage) { F.page = PAGES.indexOf(pg) >= 0 ? pg : 'MAIN'; F.pageFor = F.wpage; }
+  renderFull(F, host);
+}
+function renderWOther(F, host, page, note) {
+  if (note) host.appendChild(el('div', 'fnote', F.wpage + ' — not redrawn by the wireframes: today\'s ' + page
+    + ' page, rendered from the table (same addresses, same store).'));
+  if (page === 'HIST') {
+    const c = wcell(host, 'History — the one ledger (B84)', 'OURS');
+    const H = STORE.hist.slice(-12).reverse();
+    if (!H.length) c.appendChild(el('div', 'fnote', 'no history yet — turn something'));
+    for (const n of H) {
+      const w = n.writes;
+      c.appendChild(el('div', 'lgline', (w.length > 3 ? w.length + ' parameters' : w.map(x => x.a + ' → ' + fmt(PTI[x.a], x.to)).join(' · ')) + '  · via ' + n.via));
+    }
+    return;
+  }
+  renderPageGroups(F, host, page);
+}
+
+/* ---- H1: the MAIN page (image 1) ------------------------------------------ */
+function renderWMain(F, host) {
+  const g = el('div', 'wmain');
+  host.appendChild(g);
+  const L = el('div', 'wcol'), R = el('div', 'wcol');
+  g.appendChild(L); g.appendChild(R);
+  /* left: Morph, XY, Visualizers — each a well with a footer strip — then Advanced */
+  const cm = wcell(L, 'Morph', 'OURS');
+  padCell(F, cm, 'morph').style.height = '118px';
+  const fm = el('div', 'wfoot kr');
+  toggleCell(F, fm, 'morphOn', 'Morph');
+  knobCell(F, fm, 'morphGlide', { label: 'Glide' });
+  knobCell(F, fm, 'morphTemp', { label: 'Temp' });
+  cm.appendChild(fm);
+  const cx = wcell(L, 'XY', 'PRESET');
+  padCell(F, cx, 'main').style.height = '118px';
+  const cv = wcell(L, 'Visualizers', 'OURS');
+  vizCanvas(F, cv, F.vizPick, 150, () => F.src === 'filters' ? 1 : F.src, F.vizPick === 'circle' ? 'swarm circle' : F.vizPick);
+  vizPills(F, cv);
+  const ab = el('div', 'wadv'); advButton(F, ab, 'all'); L.appendChild(ab);
+  /* right: Preset, Macros, Mix | Global Controls, Osc Controls */
+  presetBar(F, R);
+  const mc = wcell(R, 'Macros', 'PRESET');
+  macroCaution(mc);
+  const mg = el('div', 'mgrid'); macroKnobs(F, mg, false); mc.appendChild(mg);
+  const two = el('div', 'wtwo'); R.appendChild(two);
+  const cmix = wcell(two, 'Mix', 'OURS');
+  const kmx = el('div', 'kr'); for (const [a, l] of W_MIX) knobCell(F, kmx, a, { label: l }); cmix.appendChild(kmx);
+  const cgl = wcell(two, 'Global Controls', 'OURS');
+  const kgl = el('div', 'kr');
+  for (const [a, l] of W_GLOBAL) knobCell(F, kgl, a, { label: l });
+  for (const [a, l] of W_GLOBAL_T) toggleCell(F, kgl, a, l);
+  cgl.appendChild(kgl);
+  oscControls(F, R);
+}
+function presetBar(F, host) {
+  const c = wcell(host, 'Preset', 'PRESET', 'wpreset');
+  const row = el('div', 'prow');
+  const names = Object.keys(PRESETS);
+  const step = d => { const i = names.indexOf(LAB.preset); loadPreset(names[(i + d + names.length) % names.length]); };
+  const pv = el('button', 'more', '◀'); pv.addEventListener('click', () => step(-1));
+  const nx = el('button', 'more', '▶'); nx.addEventListener('click', () => step(1));
+  const nm = el('span', 'wpre');
+  nm.innerHTML = LAB.preset + ' <i>· ' + (get('morphOn') > 0.5 ? 'morph on' : 'morph off') + '</i>';
+  row.appendChild(pv); row.appendChild(nm); row.appendChild(nx);
+  row.appendChild(el('span', 'fnote', PRESETS[LAB.preset] ? PRESETS[LAB.preset].why : ''));
+  c.appendChild(row);
+}
+function vizPills(F, host) {
+  const f = el('div', 'wfoot');
+  for (const [k, l] of [['circle', 'Swarm Circle'], ['carpet', 'Phase Carpet'], ['wave', 'Waveform']]) {
+    const b = el('button', 'pill mini' + (F.vizPick === k ? ' on' : ''), l);
+    b.dataset.lab = 'which visualizer — GUI state, never a parameter';
+    b.addEventListener('click', () => { F.vizPick = k; renderFrame(F); });
+    f.appendChild(b);
+  }
+  host.appendChild(f);
+}
+/* image 1's Osc Controls block: header row of [title | Sub | Swarm 1 | Swarm 2],
+   then [pad | the named controls + Envelope | mini visualizers] */
+function oscControls(F, host) {
+  const c = wcell(host, null, null, 'woc');
+  const hd = el('div', 'wtabs octabs');
+  hd.appendChild(el('span', 'octitle', 'Osc Controls'));
+  for (const [k, l] of W_SOURCES) srcTab(F, hd, k, l, 'src');
+  c.appendChild(hd);
+  const body = el('div', 'ocbody');
+  c.appendChild(body);
+  const src = F.src === 'filters' ? 1 : F.src;
+  const pc = el('div', 'occell');
+  const mid = el('div', 'occell');
+  const mv = el('div', 'occell');
+  body.appendChild(pc); body.appendChild(mid); body.appendChild(mv);
+  if (src === 'sub') {
+    pc.appendChild(el('div', 'empty wide', 'The sub has no swarm, so no Coupling × Detune pad. What goes here is asked (ambiguity 11).'));
+    const k1 = el('div', 'kr');
+    for (const [a, l] of W_SUB) knobCell(F, k1, a, { label: l });
+    mid.appendChild(k1);
+    mid.appendChild(el('div', 'cap', 'ENVELOPE'));
+    const k2 = el('div', 'kr');
+    for (const [a, l] of W_SUB_ENV) knobCell(F, k2, a, { label: l });
+    mid.appendChild(k2);
+  } else {
+    const cap = el('div', 'padcap');
+    kdetPad(F, pc, src, 118, '', cap);
+    pc.appendChild(cap);
+    const k1 = el('div', 'kr');
+    for (const [k, l] of W_SWARM) knobCell(F, k1, 'osc' + src + '.' + k, { label: l });
+    mid.appendChild(k1);
+    mid.appendChild(el('div', 'cap', 'ENVELOPE'));
+    const k2 = el('div', 'kr');
+    for (const [k, l] of W_ENV) knobCell(F, k2, 'osc' + src + '.' + k, { label: l });
+    mid.appendChild(k2);
+  }
+  vizCanvas(F, mv, src === 'sub' ? 'wave' : 'circle', 118, () => src, 'mini');
+  mv.appendChild(el('div', 'padcap', 'Mini visualizer — lab toy, not the engine'));
+}
+
+/* ---- H2: the OSC page (image 2) ------------------------------------------- */
+function renderWOsc(F, host) {
+  const g = el('div', 'wosc');
+  host.appendChild(g);
+  const L = el('div', 'wcol'), R = el('div', 'wcol');
+  g.appendChild(L); g.appendChild(R);
+  const swarm = typeof F.src === 'number' ? F.src : 0;
+  const cp = wcell(L, SAY.K + ' × Detune', 'OURS');
+  if (swarm) {
+    const cap = el('div', 'padcap');
+    kdetPad(F, cp, swarm, 206, '', cap);
+    const ft = el('div', 'wfoot'); ft.appendChild(cap); cp.appendChild(ft);
+  } else {
+    cp.appendChild(el('div', 'empty wide tall', F.src === 'sub' ? 'Sub selected: no swarm, no pad.' : 'Filters selected: no pad.'));
+  }
+  const cv = wcell(L, 'Visualizers', 'OURS');
+  const vg = el('div', 'vgrid');
+  const vl = el('div'), vr = el('div');
+  vg.appendChild(vl); vg.appendChild(vr); cv.appendChild(vg);
+  const who = () => swarm || (F.src === 'sub' ? 'sub' : 1);
+  vizCanvas(F, vl, 'circle', 150, who, 'swarm circle');
+  vizCanvas(F, vr, 'wave', 71, who, 'waveform');
+  vizCanvas(F, vr, 'carpet', 71, who, 'phase carpet');
+  cv.appendChild(el('div', 'empty wide', 'Etc. — the rest of today\'s OSC visualizers (voice map, partial strips) live here'));
+  const ab = el('div', 'wadv'); advButton(F, ab, 'all'); L.appendChild(ab);
+  const cc = wcell(R, 'Controls — ' + (F.src === 'sub' ? 'Sub' : F.src === 'filters' ? 'Filters' : 'Swarm ' + F.src), 'OURS', 'wctl');
+  const scroller = el('div', 'ctlscroll');
+  cc.appendChild(scroller);
+  renderControls(F, scroller, F.src);
+  const ar = el('div', 'wadv right'); advButton(F, ar, 'ctl'); R.appendChild(ar);
+}
+/* the Controls area: table groups, knobs as knobs and the rest as gui2 rows.
+   Default is W_CURATED; the area's own Advanced adds W_ADV in place. */
+function renderControls(F, host, src) {
+  const box = el('div', 'ctlgrid');
+  host.appendChild(box);
+  if (src === 'filters') {
+    const c = wcell(box, 'No filter parameter exists outside the FX rack', null, 'wide');
+    c.appendChild(el('div', 'fnote', 'Today a filter is an FX slot whose type is Filter. Where filters SHOULD sit (per source, a rack slot, or both) is B209\'s to rule; the tab is drawn so the question is visible, not answered.'));
+    let any = 0;
+    for (let n = 1; n <= 4; n++) {
+      if (Math.round(get('fx' + n + 'type')) !== 2) continue;
+      any++;
+      const s = wcell(box, 'FX ' + n + ' · Filter', 'OURS');
+      const k = el('div', 'kr');
+      knobCell(F, k, 'fx' + n + 'amt', { label: 'Amount' });
+      knobCell(F, k, 'fx' + n + 'mix', { label: 'Mix' });
+      s.appendChild(k);
+    }
+    if (!any) box.appendChild(el('div', 'empty', 'no FX slot is a Filter in this preset'));
+    return;
+  }
+  if (src === 'sub') {
+    const rows = ROWS.filter(r => r.g === 'SUB' && designed(r));
+    const prim = rows.filter(r => SUB_PRIMARY.indexOf(r.a) >= 0), rest = rows.filter(r => SUB_PRIMARY.indexOf(r.a) < 0);
+    groupBox(F, box, 'Sub', prim);
+    if (F.cadv) groupBox(F, box, 'Sub · advanced', rest);
+    else box.appendChild(el('div', 'empty', rest.length + ' more under Advanced'));
+    return;
+  }
+  const groups = W_CURATED.concat(F.cadv ? W_ADV : []);
+  const rows = rowsFor(F, 'OSC');
+  for (const gname of groups) groupBox(F, box, gname, rows.filter(r => r.g === gname));
+  if (!F.cadv) {
+    const hidden = rows.filter(r => W_ADV.indexOf(r.g) >= 0).length;
+    box.appendChild(el('div', 'empty', hidden + ' more under Advanced (' + W_ADV.join(', ') + ')'));
+  }
+}
+function groupBox(F, host, title, rows) {
+  if (!rows.length) return;
+  const c = wcell(host, title, null, 'gbox');
+  const kr = el('div', 'kr');
+  for (const r of rows) if (r.w === 'knob') knobCell(F, kr, r.a, { label: sayLabel(r) });
+  if (kr.childNodes && kr.childNodes.length) c.appendChild(kr);
+  for (const r of rows) if (r.w !== 'knob') fullRow(F, c, r);
+}
+
+/* ---- H3: the alternative, one screen (image 3) ---------------------------- */
+function renderAlt(F, host) {
+  const g = el('div', 'walt');
+  host.appendChild(g);
+  const area = (name, title, tag, cls) => { const c = wcell(g, title, tag, cls); c.style.gridArea = name; return c; };
+  const lg = area('logo', null); lg.appendChild(el('span', 'wmark big', 'horde'));
+  lg.appendChild(el('div', 'wsize', F.size[0] + '×' + F.size[1]));
+  /* Visual Controls: which visualizer, and whose swarm — GUI state only */
+  const vc = area('vis', 'Visual Controls', 'GUI');
+  const vp = el('div', 'pills');
+  for (const [k, l] of [['circle', 'Circle'], ['carpet', 'Carpet'], ['wave', 'Wave']]) {
+    const b = el('button', 'pill mini' + (F.vizPick === k ? ' on' : ''), l);
+    b.addEventListener('click', () => { F.vizPick = k; renderFrame(F); });
+    vp.appendChild(b);
+  }
+  for (const n of [1, 2]) {
+    const b = el('button', 'pill mini' + ((F.vizOsc || 1) === n ? ' on' : ''), 'Swarm ' + n);
+    b.addEventListener('click', () => { F.vizOsc = n; renderFrame(F); });
+    vp.appendChild(b);
+  }
+  vc.appendChild(vp);
+  vc.appendChild(el('div', 'fnote', 'what the Visualizers column watches; never a parameter'));
+  const lp = area('load', 'Load Patch', 'PRESET');
+  const pp = el('div', 'pills');
+  for (const nm in PRESETS) {
+    const b = el('button', 'pill mini' + (LAB.preset === nm ? ' on' : ''), nm);
+    b.addEventListener('click', () => loadPreset(nm));
+    pp.appendChild(b);
+  }
+  lp.appendChild(pp);
+  routingArea(F, area('rout', 'Routing', 'PRESET'));
+  /* left stack: Mix, Macros (tallest), Morph, XY */
+  const left = el('div', 'wcol'); left.style.gridArea = 'left'; g.appendChild(left);
+  const cmix = wcell(left, 'Mix', 'OURS');
+  const kmx = el('div', 'kr');
+  for (const [a, l] of W_MIX.concat([['masterVol', 'Master']])) knobCell(F, kmx, a, { label: l });
+  cmix.appendChild(kmx);
+  const cm = wcell(left, 'Macros', 'PRESET', 'grow');
+  macroCaution(cm);
+  const mg = el('div', 'mgrid'); macroKnobs(F, mg, false); cm.appendChild(mg);
+  const cmo = wcell(left, 'Morph', 'OURS');
+  padCell(F, cmo, 'morph').style.height = '96px';
+  const mk = el('div', 'wfoot kr'); toggleCell(F, mk, 'morphOn', 'Morph');
+  knobCell(F, mk, 'morphGlide', { label: 'Glide' }); cmo.appendChild(mk);
+  const cx = wcell(left, 'XY', 'PRESET');
+  padCell(F, cx, 'main').style.height = '96px';
+  /* centre: the tab block and the control area */
+  const ctr = area('ctr', null, null, 'ctrcell');
+  const t = tabGrid(F, ctr, ALT_TABS, 4);
+  if (F.wpage === 'Osc') {
+    for (const [k, l] of W_SOURCES) srcTab(F, t, k, l, 'src');
+    t.appendChild(el('span', 'gap'));    /* image 3's third row has three cells; fill the fourth */
+  }
+  const cs = el('div', 'ctlscroll');
+  ctr.appendChild(cs);
+  if (F.wpage === 'Osc') {
+    if (typeof F.src === 'number') {
+      const pr = wcell(cs, SAY.K + ' × Detune — Swarm ' + F.src, 'OURS', 'padinline');
+      const cap = el('div', 'padcap');
+      kdetPad(F, pr, F.src, 150, '', cap);
+      pr.appendChild(cap);
+    }
+    renderControls(F, cs, F.src);
+    const ar = el('div', 'wadv right'); advButton(F, ar, 'ctl'); cs.appendChild(ar);
+  } else renderWOther(F, cs, WIRE_PAGE_OF[F.wpage], true);
+  /* Filter 2, Filter 1, Mod 4 … Mod 1, top to bottom (bottom-labelled reading) */
+  const mods = el('div', 'wcol mods-col'); mods.style.gridArea = 'mods'; g.appendChild(mods);
+  for (const f of ['Filter 2', 'Filter 1']) {
+    const c = wcell(mods, f, 'OWED');
+    c.appendChild(el('div', 'fnote', 'no filter address exists; B209 rules placement. Today: an FX slot typed Filter.'));
+  }
+  for (const [nm, grp] of W_MODS.slice().reverse()) {
+    const c = wcell(mods, nm + ' · ' + grp, 'OURS');
+    const rows = ROWS.filter(r => r.p === 'MOD' && r.g === grp && designed(r));
+    const k = el('div', 'kr');
+    for (const r of rows) if (r.w === 'knob') knobCell(F, k, r.a, { label: r.l });
+    c.appendChild(k);
+    for (const r of rows) if (/Shape$/.test(r.a)) fullRow(F, c, r);
+  }
+  const vz = area('viz', 'Visualizers', 'OURS');
+  const vo = () => F.vizOsc || 1;
+  vizCanvas(F, vz, 'circle', 230, vo, 'swarm circle');
+  vizCanvas(F, vz, F.vizPick === 'circle' ? 'carpet' : F.vizPick, 150, vo, F.vizPick === 'wave' ? 'waveform' : 'phase carpet');
+  vizCanvas(F, vz, F.vizPick === 'wave' ? 'carpet' : 'wave', 150, vo, F.vizPick === 'wave' ? 'phase carpet' : 'waveform');
+  const po = area('poly', 'Polyphony + Bend', 'OURS');
+  const pk = el('div', 'kr');
+  for (const [a, l] of W_POLY) {
+    const r = PTI[a];
+    if (r.w === 'toggle') toggleCell(F, pk, a, l);
+    else if (r.w === 'knob') knobCell(F, pk, a, { label: l });
+  }
+  po.appendChild(pk);
+  for (const [a] of W_POLY) if (PTI[a].w === 'select') fullRow(F, po, PTI[a]);
+  po.appendChild(el('div', 'fnote', 'no polyphony-count parameter exists; the swarm\'s Voices is not polyphony (ambiguity 15)'));
+  const wh = area('whl', 'Wheels', 'OURS');
+  const wr = el('div', 'wheels');
+  wheelCell(F, wr, 'pitchBend', 'Bend');
+  wheelCell(F, wr, '', 'Mod');
+  wh.appendChild(wr);
+  keyboardArea(F, area('key', 'Keyboard', 'GUI'));
+  scaleArea(F, area('scale', 'Scale Quantization', 'OURS'));
+}
+function routingArea(F, host) {
+  const list = el('div', 'routes');
+  host.appendChild(list);
+  if (!STORE.routes.length) { list.appendChild(el('div', 'fnote', 'this preset routes nothing')); return; }
+  for (const r of STORE.routes) {
+    const live = srcLive(r.src);
+    const b = el('span', 'mv' + (live ? '' : ' off'));
+    const gl = el('i', null, srcGlyph(r.src));
+    b.appendChild(gl);
+    b.appendChild(document.createTextNode(nameOf(r.dst) + ' ' + (r.d > 0 ? '+' : '') + r.d.toFixed(2) + (live ? '' : ' · suspended')));
+    const bar = el('span', 'bar'); const tick = el('b'); bar.appendChild(tick); b.appendChild(bar);
+    list.appendChild(b);
+    F.binds.push({ a: r.dst, paint: () => {}, anim: () => { tick.style.left = (modOf(r.dst).eff * 100) + '%'; } });
+  }
+  list.appendChild(el('span', 'fnote', 'read-only here: routes are edited on the Mod page'));
+}
+/* a wheel: pitch bend is a PARAMETER (written through put, and it springs back
+   to centre on release inside the same gesture — the human's 2026-09-19 ruling
+   for the pad's bend axis); the mod wheel is NOT (GUI_ONLY, never the store) */
+function wheelCell(F, host, a, label) {
+  const r = a ? PTI[a] : null;
+  const cell = el('div', 'wheelc');
+  const wv = el('div', 'wheel'); const fill = el('i'); wv.appendChild(fill);
+  cell.appendChild(wv);
+  cell.appendChild(el('label', null, label));
+  cell.appendChild(el('div', 'tg', a ? a : 'source, no address'));
+  host.appendChild(cell);
+  let down = false;
+  const posOf = e => { const b = wv.getBoundingClientRect(); return clamp01(1 - (e.clientY - b.top) / (b.height || 1)); };
+  wv.addEventListener('pointerdown', e => {
+    down = true; if (wv.setPointerCapture) wv.setPointerCapture(e.pointerId);
+    if (r) { begin(F.id + ' · wheel'); put(a, fromPos(r, posOf(e))); repaintAll(); }
+    else { GUI_ONLY.modWheel = posOf(e); paint(); }
+  });
+  wv.addEventListener('pointermove', e => {
+    if (!down) return;
+    if (r) { put(a, fromPos(r, posOf(e))); repaintAll(); } else { GUI_ONLY.modWheel = posOf(e); paint(); }
+  });
+  const up = () => { if (!down) return; down = false; if (r) { put(a, 0); end(); } };
+  wv.addEventListener('pointerup', up);
+  wv.addEventListener('pointercancel', up);
+  const paint = () => {
+    const p = r ? toPos(r, get(a)) : GUI_ONLY.modWheel;
+    const c = r && r.min < 0 ? toPos(r, 0) : 0;
+    fill.style.bottom = (Math.min(c, p) * 100) + '%';
+    fill.style.height = (Math.abs(p - c) * 100) + '%';
+    fill.className = r ? '' : 'src';
+  };
+  if (r) { F.binds.push({ a, paint, anim: null }); F.vis[a] = 1; }
+  paint();
+}
+/* two octaves; pitch classes the scale excludes are dimmed while a scale
+   quantiser is active — read from the scaleDeg addresses, nothing written */
+function keyboardArea(F, host) {
+  const kb = el('div', 'kbd');
+  host.appendChild(kb);
+  const WHITE = [0, 2, 4, 5, 7, 9, 11], BLACK = [1, 3, -1, 6, 8, 10, -1];
+  const keys = [];
+  for (let o = 0; o < 2; o++) {
+    WHITE.forEach((pc, i) => {
+      const k = el('span', 'kw'); k.style.left = ((o * 7 + i) / 14 * 100) + '%'; kb.appendChild(k); keys.push([k, pc, o * 12 + pc]);
+    });
+    BLACK.forEach((pc, i) => {
+      if (pc < 0) return;
+      const k = el('span', 'kb'); k.style.left = ((o * 7 + i + 0.68) / 14 * 100) + '%'; kb.appendChild(k); keys.push([k, pc, o * 12 + pc]);
+    });
+  }
+  for (const [k, , n] of keys) {
+    k.addEventListener('pointerdown', () => { GUI_ONLY.key = n; paint(); });
+    k.addEventListener('pointerup', () => { GUI_ONLY.key = -1; paint(); });
+  }
+  host.appendChild(el('div', 'fnote', 'note input: writes no address. Dimmed keys are outside the scale while quantising.'));
+  const paint = () => {
+    const q = Math.round(get('bendQuant')) >= 2 || Math.round(get('noteQuant')) === 2;
+    const root = Math.round(get('scaleRoot')) || 0;
+    for (const [k, pc, n] of keys) {
+      k.classList.toggle('out', q && get(W_DEGS[(pc - root + 12) % 12]) < 0.5);
+      k.classList.toggle('down', GUI_ONLY.key === n);
+    }
+  };
+  F.binds.push({ a: 'scaleRoot', paint, anim: null });
+  paint();
+}
+function scaleArea(F, host) {
+  for (const a of W_SCALE) fullRow(F, host, PTI[a]);
+  const d = el('div', 'degs');
+  W_DEGS.forEach(a => {
+    const b = el('button', 'deg', PTI[a].l);
+    b.addEventListener('click', () => write(a, get(a) > 0.5 ? 0 : 1, F.id + ' · scale'));
+    d.appendChild(b);
+    const paint = () => { b.classList.toggle('on', get(a) > 0.5); b.classList.toggle('ghost', !shownOK(PTI[a])); };
+    F.binds.push({ a, paint, anim: null });
+    F.vis[a] = 1;
+    paint();
+  });
+  host.appendChild(d);
+}
+/* strip-chip and jump target for the human's frames: go to the page (and
+   source tab) that holds the address; OSC rows that live under Advanced open it */
+function wireOpen(F, page, group, addr) {
+  if (addr && /^osc([12])\./.test(addr)) { F.src = +addr.charAt(3); F.osc = F.src; }
+  else if (addr && /^sub\./.test(addr)) F.src = 'sub';
+  F.focus = addr; F.focusGroup = group;
+  if (page === 'OSC') {
+    F.wpage = F.alt ? 'Osc' : 'Osc (+ Filt)'; F.adv = false;
+    if (W_ADV.indexOf(group) >= 0 || (F.src === 'sub' && SUB_PRIMARY.indexOf(addr) < 0)) F.cadv = true;
+  } else {
+    const tabs = F.alt ? ALT_TABS : WIRE_TABS;
+    const name = Object.keys(WIRE_PAGE_OF).find(k => WIRE_PAGE_OF[k] === page && tabs.some(r => r.indexOf(k) >= 0));
+    if (name) F.wpage = name;
+    if (!F.alt && page === 'MAIN') { F.adv = true; F.page = 'MAIN'; F.pageFor = F.wpage; }
+  }
+  renderFrame(F);
+  scrollToFocus(F, F.el.body);
+}
+
+/* ---- B223's triptych: the SAME pad, three treatments, one store ----------- */
+function renderB223(F) {
+  const host = document.getElementById('b223pads');
+  if (!host) return;
+  host.innerHTML = '';
+  F.binds = []; F.vis = Object.create(null); F.viz = [];
+  const ctl = el('div', 'pills');
+  ctl.appendChild(el('span', 'lbl', 'PAD'));
+  for (const n of [1, 2]) {
+    const b = el('button', 'pill' + (F.osc === n ? ' on' : ''), 'SWARM ' + n);
+    b.addEventListener('click', () => { F.osc = n; renderFrame(F); });
+    ctl.appendChild(b);
+  }
+  ctl.appendChild(el('span', 'lbl', ' · THE FRAMES ABOVE USE'));
+  for (const [k, l] of PADVIEWS) {
+    const b = el('button', 'pill' + (LAB.padView === k ? ' on' : '') + (k === 'box' ? ' rec' : ''), l);
+    b.dataset.lab = 'B223 audition — drives every pad in the human\'s frames';
+    b.addEventListener('click', () => { LAB.padView = k; renderAll(); });
+    ctl.appendChild(b);
+  }
+  host.appendChild(ctl);
+  const row = el('div', 'triptych');
+  host.appendChild(row);
+  for (const [k, l] of PADVIEWS) {
+    const c = el('div', 'cluster tri');
+    const h = el('h2', null, l);
+    if (k === 'box') h.appendChild(el('span', 'tagp pre', 'REC'));
+    c.appendChild(h);
+    const cap = el('div', 'padcap');
+    kdetPad(F, c, F.osc, 210, k, cap);
+    c.appendChild(cap);
+    row.appendChild(c);
+  }
 }
 </script>
 
@@ -1980,7 +3286,11 @@ try {
     if (/^(none|count|named)$/.test(arg('strip'))) LAB.strip = arg('strip');
     if (/^(ours|preset|both)$/.test(arg('who'))) LAB.who = arg('who');
     if (arg('shadow') === '1') LAB.shadow = true;
+    if (/^(box|ghost|rails)$/.test(arg('padview'))) LAB.padView = arg('padview');
     DEEP.view = arg('view'); DEEP.open = arg('open'); DEEP.page = arg('page');
+    /* round 2: ?src=sub|1|2|filters picks the source tab in the human's
+       frames, ?cadv=1 opens the Controls area's own Advanced */
+    DEEP.src = arg('src'); DEEP.cadv = arg('cadv');
   }
 } catch (_) { /* headless: no location */ }
 function applyTheme() {
@@ -1995,8 +3305,10 @@ function applyTheme() {
 /* ---- frame loop: lab time advances by frames, never by the clock ---------- */
 function tick() {
   T += 1 / 60;
+  stepSim(1); stepSim(2);           /* round 2's toy swarms, once per tick for every frame */
   for (const F of FRAMES) {
     for (const b of F.binds) if (b.anim) b.anim();
+    for (const p of (F.viz || [])) p();
     paintStrip(F);
   }
   if (window.requestAnimationFrame) window.requestAnimationFrame(tick);
@@ -2018,6 +3330,25 @@ function tick() {
     buildFrame(F, host);
     FRAMES.push(F);
   }
+  /* ROUND 2 — the human's three wireframes, then B223's pad triptych. Same
+     frame record, same store; `render` routes them to BLOCK R2. */
+  const src0 = /^(sub|filters)$/.test(DEEP.src || '') ? DEEP.src : (/^[12]$/.test(DEEP.src || '') ? +DEEP.src : 1);
+  const W = [
+    ['H1', 'Main', false, [980, 720], 'framesH12', "H1 · MAIN (image 1)", "the human's schema, page one — at 980×720, the shell's default window"],
+    ['H2', 'Osc (+ Filt)', false, [980, 720], 'framesH12', "H2 · OSC (image 2)", 'the same schema, the Osc (+ Filt) page — 980×720'],
+    ['H3', 'Osc', true, [1600, 1000], 'framesH3', "H3 · ALTERNATIVE (image 3)", "one screen, no Main page — at 1600×1000, the shell's maximum"],
+  ];
+  for (const [id, wpage, alt, size, hostId, title, blurb] of W) {
+    const host = document.getElementById(hostId);
+    const F = { id, wire: true, alt, size, title, blurb, wpage, render: renderWire,
+                src: src0 === 'filters' && alt ? 1 : src0, osc: 1, adv: false, cadv: DEEP.cadv === '1',
+                page: 'MAIN', drawer: false, open: Object.create(null), binds: [], vis: Object.create(null),
+                pads: [], viz: [], focus: '', focusGroup: '', el: null, stripKey: '', stripBars: [], vizPick: 'circle' };
+    buildWire(F, host);
+    FRAMES.push(F);
+  }
+  FRAMES.push({ id: 'B223', render: renderB223, osc: 1, binds: [], vis: Object.create(null), pads: [], viz: [],
+                el: { strip: null }, stripKey: '', stripBars: [] });
 }
 {
   const u = document.getElementById('undoBtn');
@@ -2031,6 +3362,9 @@ function tick() {
 AUDIT = runAudit();
 loadPreset(LAB.preset, 'preset load');
 STORE.hist.length = 0;              /* the boot load is not a user action */
+/* pre-roll the toy swarms so the phase carpet opens full, not blank. Frame
+   counts, not time: the same load always shows the same picture. */
+for (let i = 0; i < 2 * SIM_HIST; i++) { stepSim(1); stepSim(2); }
 paintAudit();
 applyTheme();
 tick();
