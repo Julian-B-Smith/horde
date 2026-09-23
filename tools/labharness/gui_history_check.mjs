@@ -466,6 +466,44 @@ function mustBeRed(name, play, id, opts) {
   mustBeRed('control with no bracket at all', () => btn.dispatchEvent(ev('click')), 104, { expectSets: 1 });
 }
 
+/* ---------------- B222: the rail must show a morph toggle on its own -------
+   The human, 2026-09-23: "'morph on' doesn't seem to get a history entry on
+   its own." The shell made one node per toggle all along; what hid it was the
+   LABEL. The rail (gui2 `histRowsOf`) folds a straight chain of same-label
+   nodes into one row, and every toggle was labelled "Morph" — the bracket END
+   re-marked it with the display name after guiSetParam had named it (the
+   shell half, and its fix, are undo_check's layer 5). So on-then-off drew as
+   ONE row, "Morph ×2".
+
+   This executes the page's own `histRowsOf` over two chains of the shape the
+   shell produces: the labels it produces NOW ("morph on"/"morph off"), which
+   must draw one row per toggle, and the labels it produced BEFORE, which must
+   collapse — the plant that proves this row can see the defect at all. */
+{
+  const ctx = { Map, Set, Array, histCoalesce: true };
+  vm.createContext(ctx);
+  new vm.Script(`${topLevelFn('histRowsOf')}\nglobalThis.__rows = histRowsOf;`,
+                { filename: 'gui2.html:histRowsOf' }).runInContext(ctx);
+  const rowsFor = (labels) => {
+    // root, then one toggle per label, the player standing on the root (a
+    // node that is not current is what the rail is free to coalesce).
+    const nodes = [{ i: 0, parent: -1, tick: 1, label: 'start' }];
+    labels.forEach((label, k) => nodes.push({ i: k + 1, parent: k, tick: k + 2, label }));
+    const by = new Map(nodes.map((n) => [n.i, n]));
+    const kids = new Map();
+    for (const n of nodes) {
+      const pk = n.parent >= 0 ? n.parent : -1;
+      if (!kids.has(pk)) kids.set(pk, []);
+      kids.get(pk).push(n);
+    }
+    return ctx.__rows(nodes, by, kids, 0).length;
+  };
+  const now = rowsFor(['morph on', 'morph off', 'morph on']);
+  check(now === 4, `B222: the rail draws each morph toggle as its own row (${now} rows for root + on/off/on, want 4)`);
+  const before = rowsFor(['Morph', 'Morph', 'Morph']);
+  check(before < 4, `B222 PLANT: the pre-fix labels ("Morph" ×3) collapse on the rail (${before} rows) — the row above can see the defect`);
+}
+
 /* WIDGET-KIND TOTALITY. Every widget the presentation table names must be a
    kind this gate exercises, so a new control type cannot enter the table
    without meeting a scenario list. The exclusions are named, not missing. */
