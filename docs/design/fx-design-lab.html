@@ -474,8 +474,8 @@ computed from the parameters, not heard: this lab answers what a module <i>shows
       vocabulary cannot hold.</li>
     <li><b>ADR-169 A1, made concrete (not ruled).</b> Keyed by role, Sluice's shipped presets put
       <b>nothing</b> on the face (they author no roles); with a horde-authored role table two slots bind
-      and bode's defining macro — <i>shift</i> — is not on the face at all. Keyed by order, all four bind
-      under Sluice's own labels, but an automation lane on slot 1 means <i>shift</i> in bode and
+      and shifted glass's defining macro — <i>shift</i> — is not on the face at all. Keyed by order, all four bind
+      under Sluice's own labels, but an automation lane on slot 1 means <i>shift</i> in shifted glass and
       <i>allpass unison</i> in the next preset. L0028 (canonical here) asks for both halves: address a
       ROLE, and LABEL what it resolved to — each rule keeps one half.</li>
     <li><b>A face knob can be bound to a parameter the current topology ignores.</b> MAW's Feedback
@@ -773,7 +773,9 @@ function mawModule() {
    protected), plus the shifter's L/R spread and the bus width from Sluice's
    current lab. Presets: Sluice's lab PRESETLIB, macros verbatim (their
    D-046: "values are set so that applying each macro at its stored value
-   reproduces the params", G-70). freeverb carries NO macros there — kept, so
+   reproduces the params", G-70). PRESET NAMES ARE OURS, renamed 2026-09-23 at the human's request: Sluice's lab
+   names these three after the effects that inspired them, and a public repo
+   should not carry another product's name as a preset title. Data unchanged. comb hall carries NO macros there — kept, so
    the page shows what an unmacro'd preset does to each keying rule. */
 const SL_DEFS = {
   shifter: { name: 'FREQ SHIFT', p: [['shift', 'shift', -2000, 2000, 'lin', fHz], ['spread', 'L−R spread', -200, 200, 'lin', fHz]] },
@@ -786,7 +788,7 @@ const SL_DEFS = {
   disperser: { name: 'DISPERSER', p: [['freq', 'freq', 100, 8000, 'log', fHz], ['q', 'q', 0.3, 3, 'lin', f2], ['stages', 'stages', 1, 32, 'lin', fInt]] },
 };
 const SL_PRESETS = {
-  'bode': {
+  'shifted glass': {
     chain: [{ type: 'shifter', params: { shift: 80, spread: 0 } }, { type: 'diffuser', params: { blur: 0.45, size: 1 } },
       { type: 'delay', params: { time: 140, fb: 0, damp: 0.2, mix: 1 } }],
     fb: { gain: 0.6, damp: 0.3, width: 0.5, clip: 1 }, mix: 0.75, lfo: { rate: 0.3, depth: 0, shape: 0, target: 'off' },
@@ -795,7 +797,7 @@ const SL_PRESETS = {
       { label: 'time', value: 0.5, bindings: [{ target: '2:time', lo: 40, hi: 240 }] },
       { label: 'regen', value: 0.5, bindings: [{ target: 'fb:gain', lo: 0.3, hi: 0.9 }] },
       { label: 'amount', value: 0.6875, bindings: [{ target: 'mix', lo: 0.2, hi: 1 }] }] },
-  'scrumulator-ish': {
+  'smear loop': {
     chain: [{ type: 'allpass', params: { time: 37, g: 0.6 } }, { type: 'delay', params: { time: 210, fb: 0.55, damp: 0.35, mix: 0.7 } },
       { type: 'allpass', params: { time: 11, g: -0.5 } }, { type: 'shifter', params: { shift: 3, spread: 0 } }],
     fb: { gain: 0.62, damp: 0.45, width: 0.5, clip: 1 }, mix: 0.65, lfo: { rate: 0.11, depth: 0.06, shape: 1, target: '1:time' },
@@ -804,7 +806,7 @@ const SL_PRESETS = {
       { label: 'delay time', value: 0.5, bindings: [{ target: '1:time', lo: 120, hi: 300 }] },
       { label: 'regen', value: 0.5, bindings: [{ target: 'fb:gain', lo: 0.3, hi: 0.94 }] },
       { label: 'amount', value: 0.5, bindings: [{ target: 'mix', lo: 0.3, hi: 1 }] }] },
-  'freeverb': {
+  'comb hall': {
     chain: [{ type: 'combs', params: { size: 1, decay: 0.84, damp: 0.4 } }, { type: 'diffuser', params: { blur: 0.74, size: 0.8 } }],
     fb: { gain: 0, damp: 0.3, width: 0.5, clip: 1 }, mix: 0.35, lfo: { rate: 0.3, depth: 0, shape: 0, target: 'off' },
     macros: [] },
@@ -844,7 +846,7 @@ function slLoad(name) {
 function sluiceModule() {
   const M = {
     id: 'sluice', name: 'SLUICE', kind: 'HOSTED', org: 'network module · own project · ADR-166', wide: true,
-    P: slLoad('bode'), roleTable: false,
+    P: slLoad('shifted glass'), roleTable: false,
     sections: () => {
       const P = M.P, out = [];
       P.chain.forEach((m, i) => {
@@ -868,7 +870,7 @@ function sluiceModule() {
     why: '<b>Sluice authors its own four</b> (its macros); horde\'s only choice is how to KEY them — the open '
       + 'ruling. <b>Left</b>, ADR-169 §1 as written: slots keyed by role. Sluice ships no roles (their D-052), so as '
       + 'shipped every slot is unbound; with the horde-authored role table (Sluice\'s own A4 mapping, by target) two '
-      + 'bind, and bode\'s defining macro — <i>shift</i>, "the shift IS the Bode sound" (their D-048) — has no role '
+      + 'bind, and shifted glass\'s defining macro — <i>shift</i>, the shift is the whole character of the preset (their D-048) — has no role '
       + 'and is not on the face. <b>Right</b>, A1\'s ask: macro n → slot n, the label shown; every macro binds, and '
       + 'what slot 1 MEANS changes with the preset. Both faces drive the same macros. The lead recommended order + '
       + 'label (ADR-169 A1); this lab adds no vote.',
@@ -1878,7 +1880,7 @@ function buildSluiceFaces(M, host) {
   }
   host.appendChild(tb);
   host.appendChild(el('div', 'note', 'An automation lane is a slot. Role-keyed: lane "FX Regen" means regen in every preset, or nothing. '
-    + 'Order-keyed: lane "FX M1" means shift in bode and allpass unison in scrumulator-ish — the label follows, the meaning moves.'));
+    + 'Order-keyed: lane "FX M1" means shift in shifted glass and allpass unison in smear loop — the label follows, the meaning moves.'));
 }
 
 /* ---- the card ----------------------------------------------------------- */
