@@ -1366,7 +1366,7 @@
     <div class="row"><label>OSC1 y</label><select data-p="175" data-fixed="1"><option value="0">Macro 1</option><option value="1" selected>Macro 2</option><option value="2">Macro 3</option><option value="3">Macro 4</option><option value="4">Macro 5</option><option value="5">Macro 6</option><option value="6">Macro 7</option><option value="7">Macro 8</option><option value="8">None</option></select><output></output></div>
     <div class="row"><label>OSC2 x</label><select data-p="176" data-fixed="1"><option value="0">Macro 1</option><option value="1">Macro 2</option><option value="2" selected>Macro 3</option><option value="3">Macro 4</option><option value="4">Macro 5</option><option value="5">Macro 6</option><option value="6">Macro 7</option><option value="7">Macro 8</option><option value="8">None</option></select><output></output></div>
     <div class="row"><label>OSC2 y</label><select data-p="177" data-fixed="1"><option value="0">Macro 1</option><option value="1">Macro 2</option><option value="2">Macro 3</option><option value="3" selected>Macro 4</option><option value="4">Macro 5</option><option value="5">Macro 6</option><option value="6">Macro 7</option><option value="7">Macro 8</option><option value="8">None</option></select><output></output></div>
-    <div class="note">RETIRED (ADR-156): the OSC pads write detune and K
+    <div class="note">RETIRED (ADR-156): the OSC pads write detune and coupling
       directly, so these assignments drive nothing. Kept so saved sessions
       still load; MAIN's pad is the one macro pad.</div>
   </div>
@@ -1662,7 +1662,7 @@
   <div class="vizcol">
 <div class="cluster"><h2>The swarm, seen — <span class="whoOsc">OSC 1</span></h2>
     <canvas id="phaseC2" class="phase" width="220" height="220" style="display:block;margin:0 auto;max-width:232px"></canvas>
-    <div class="vizline vRead">R —</div>
+    <div class="vizline vRead">Coherence —</div>
     <div class="vlabel gravline"></div>
     <div class="vlabel">Log spectrum · MASTER bus</div>
     <canvas id="specC2" class="spec" width="256" height="58"></canvas>
@@ -1679,7 +1679,7 @@
     <div id="vmapScope2"><div class="vlabel">Voice map · pan × pitch</div>
       <canvas id="vmapC" width="256" height="96"></canvas></div>
   </div>
-<div class="cluster"><h2>XY — detune × K</h2>
+<div class="cluster"><h2>XY — detune × Coupling</h2>
     <!-- ADR-156: this pad writes THIS oscillator's detune (x) and pull K (y)
          directly. It is not a macro pad — MAIN's is the only one of those. -->
     <canvas id="xy2" class="xy" width="340" height="212"></canvas>
@@ -1719,7 +1719,7 @@
     <div class="row" data-addr="osc1.poles" data-when="topo=0"><label>Poles q <span class="sc">osc1</span></label><select data-p="28"><option value="1" selected>1 — classic</option><option value="2">2 — pair</option><option value="3">3 — triad</option><option value="4">4 — quad</option></select><output></output></div>
     <div class="row kcell" data-addr="osc1.grav"><label>Gravity <span class="sc">osc1</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="29" min="0" max="1" step="0.005" value="0"><span class="kmnow"></span></span><output></output></div>
     <div class="row kcell" data-addr="osc1.basin"><label>Basin (c) <span class="sc">osc1</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="30" min="10" max="50" step="0.005" value="35"><span class="kmnow"></span></span><output></output></div>
-    <div class="row" data-addr="osc1.absK"><label>Absolute K <span class="sc">osc1</span></label><input type="checkbox" data-p="31"><output></output></div>
+    <div class="row" data-addr="osc1.absK"><label>Absolute Coupling <span class="sc">osc1</span></label><input type="checkbox" data-p="31"><output></output></div>
     <div class="row kcell" data-addr="osc1.balance" data-when="topo=2"><label>A/B Balance <span class="sc">osc1</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="56" min="0" max="1" step="0.005" value="0"><span class="kmnow"></span></span><output></output></div>
     <div class="row" data-addr="osc1.pivotMode"><label>Pivot <span class="sc">osc1</span></label><select data-p="83"><option value="0" selected>mean field</option><option value="1">root (fundamental)</option></select><output></output></div>
   </div>
@@ -1731,7 +1731,7 @@
     <div class="row kcell" data-addr="osc1.release"><label>Release (s) <span class="sc">osc1</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="22" data-log10="1" min="-2.301" max="0.9031" step="0.001" value="-0.7959"><span class="kmnow"></span></span><output></output></div>
   </div>
   <div class="cluster" data-group="Image &amp; tone"><h2>Image & tone</h2>
-    <div class="row kcell" data-addr="osc1.rtone"><label>R->Tone <span class="sc">osc1</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="12" min="-1" max="1" step="0.005" value="0"><span class="kmnow"></span></span><output></output></div>
+    <div class="row kcell" data-addr="osc1.rtone"><label>Coherence → Tone <span class="sc">osc1</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="12" min="-1" max="1" step="0.005" value="0"><span class="kmnow"></span></span><output></output></div>
     <div class="row kcell" data-addr="osc1.normExp"><label>Density Comp <span class="sc">osc1</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="13" min="0.5" max="1" step="0.005" value="0.75"><span class="kmnow"></span></span><output></output></div>
     <div class="row kcell" data-addr="osc1.width"><label>Width <span class="sc">osc1</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="14" min="0" max="1.5" step="0.005" value="0.8"><span class="kmnow"></span></span><output></output></div>
     <div class="row kcell" data-addr="osc1.digital"><label>Digital <span class="sc">osc1</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="16" min="0" max="1" step="0.005" value="1"><span class="kmnow"></span></span><output></output></div>
@@ -1790,7 +1790,7 @@
     <div class="row kcell" data-addr="osc1.roundHi"><label>Round x Pitch <span class="sc">osc1</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="132" min="-1" max="1" step="0.005" value="0"><span class="kmnow"></span></span><output></output></div>
   </div>
   <div class="cluster" data-group="The coupling"><h2>The coupling</h2>
-    <div class="row kcell" data-addr="osc1.K"><label>Pull K <span class="sc">osc1</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="6" min="-1" max="1" step="0.005" value="0"><span class="kmnow"></span></span><output></output></div>
+    <div class="row kcell" data-addr="osc1.K"><label>Coupling <span class="sc">osc1</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="6" min="-1" max="1" step="0.005" value="0"><span class="kmnow"></span></span><output></output></div>
     <div class="row kcell" data-addr="osc1.onset"><label>Onset Lock <span class="sc">osc1</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="7" min="-1" max="1" step="0.005" value="0"><span class="kmnow"></span></span><output></output></div>
     <div class="row kcell" data-addr="osc1.dissolve"><label>Dissolve (s) <span class="sc">osc1</span></label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="8" data-log10="1" min="-1.301" max="0.8998" step="0.001" value="-0.2007"><span class="kmnow"></span></span><output></output></div>
     <div class="row kcell" data-addr="inertia"><label>Inertia</label><span class="knob"><span class="kmod"></span><span class="karc"></span><span class="kcap"></span><span class="kptr"></span><input type="range" data-p="11" min="0" max="1" step="0.005" value="0"><span class="kmnow"></span></span><output></output></div>
@@ -4683,7 +4683,7 @@ function updateXYRouteNotes() {
   const osc = document.getElementById('xyOscRoutes');
   const mTxt = padRouteLine('x', mainAsnOf(0), -1) + '\n'
              + padRouteLine('y', mainAsnOf(1), -1);
-  const oTxt = 'x → Detune · y → Pull K — this oscillator, directly (ADR-156)';
+  const oTxt = 'x → Detune · y → Coupling — this oscillator, directly (ADR-156)';
   const both = mTxt + '|' + oTxt;
   if (both === lastRouteNotes) return;
   lastRouteNotes = both;
@@ -5516,11 +5516,11 @@ function paintVizSnapshot(s) {
       // values print an em dash — the line never appears/disappears, so the
       // layout under the circle stops breathing with the patch.
       const rt = (s && s.active)
-        ? 'R <b>' + s.R.toFixed(3) + '</b>'
+        ? 'Coherence <b>' + s.R.toFixed(3) + '</b>'
           + (s.topo === 2
               ? ' \u00b7 A <b>' + (s.RA ?? 0).toFixed(2) + '</b> \u00b7 B <b>' + (s.RB ?? 0).toFixed(2) + '</b>'
               : ' \u00b7 A \u2014 \u00b7 B \u2014')
-        : 'R \u2014 \u00b7 A \u2014 \u00b7 B \u2014';
+        : 'Coherence \u2014 \u00b7 A \u2014 \u00b7 B \u2014';
       for (const el of document.querySelectorAll('.vRead'))
         if (el.innerHTML !== rt) el.innerHTML = rt;
       const txt = 'gravity ' + ((s && s.grav && s.grav.length)
