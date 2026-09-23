@@ -1,0 +1,1442 @@
+<!doctype html>
+<!-- mixer-lab — B225: the MIX page with a meter, a peak hold and a LATCHING clip
+     lamp at every stage of the signal chain, plus the visualisers that earn their
+     space. HYPERSAW, 2026-09-23. Spec-in-code per ADR-003. Origin: the human,
+     verbatim (ROADMAP B225): "Let's make a mixer page design lab as well, and I
+     want it to include more visualizers and clipping warnings on all steps of
+     the signal chain."
+
+     WHAT THIS IS. A design lab for the question "where did it go over?". The
+     page runs its OWN small chain, sample by sample — two saw-stack swarms and
+     a sine sub, B209's pre-mix filter pair, the mix sum, four FX slots, master
+     volume — and taps every stage. Each tap drives a meter (level + peak hold)
+     and a CLIP lamp that LATCHES until clicked, because a one-sample over is
+     gone before an eye can see it.
+
+     THE MUST-FIRE CONTROL. DRIVE plants an over at a stage you choose — a
+     sustained HOT gain, or a single-sample SPIKE — and the lamp must light at
+     THAT stage and at no stage upstream of it or parallel to it. The page
+     PROVES this at load for every stage on the boot patch, and proves the
+     control too: with nothing driven, no lamp lights (L0032: a detector is only
+     trusted once a must-fire case and a must-read-zero case both hold). The
+     result is the audit line under the tagline and the MUST-FIRE column of the
+     table.
+
+     WHAT THIS IS NOT. Not a port and not a parity oracle. The sources are
+     stand-ins (polyBLEP saws, a sine), not swarm_core / subosc_core. Where the
+     lab borrows a law it transcribes it and says where from: the per-source SVF
+     is src/svf_core.h via filter-lab.html's transcription; DRIVE, COMP and GAIN
+     are fx_rack.h's own loops; the swarm's output tanh is swarm_core.h's tail.
+     ECHO is a plain feedback delay, NOT TimeCore — it stands in for "a slot
+     whose level builds with regen". Nothing in src/, specs/ or reference/ is
+     touched.
+
+     A METER THE SHELL CANNOT FEED IS A PICTURE. Every tap carries a badge —
+     FED (the shell publishes it today), PART (published, but not in a form a
+     clip lamp can use) or OWED (the port must add it) — read from the one TAPS
+     table below, which also renders as the table at the foot of the page, so
+     the badges and the table cannot disagree.
+
+     COLOUR, ARGUED (the brief offered --caution for clip "unless you argue
+     otherwise"). The clip lamp and the over zone are --alarm, not --caution:
+     gui2.html:49 defines --alarm as "PANIC, clip, mute — NOTHING else", its
+     shipping strip meter already paints clip in it (gui2.html:383), and the UI
+     Spec's METER recipe (docs/design-system/HORDE-UI-Spec.dc.html §4, normative
+     for values) says "clip top 8% zone tints red 25% α always; SOLID #C2261A
+     only while clipping". The level FILL is --celebrate for the same reason
+     (UI Spec METER "fill #A6F219"; gui2.html:381), and the peak hold is the 2 px
+     --value line the same recipe names. --meter (cyan) keeps its spec job,
+     "analyzers … honesty bars": it colours the analysers and the FED honesty
+     badge. --caution marks what is OWED.
+
+     TOKENS ARE COPIED, NOT LINKED — from src/gui/gui2.html via
+     docs/design/station-page-lab.html (the model lab), whose citation block is
+     kept verbatim below; the values were re-read against gui2.html:26-96 and
+     :186-212 on 2026-09-22 and match.
+
+     L0026: all state above all wiring; setup runs last and reaches nothing
+     declared below it. No Math.random (mulberry32 only, SPEC §5.7). No wall
+     clock anywhere: the chain counts samples, and meter ballistics and peak
+     caps are timed in those samples too. -->
+<html lang="en"><head><meta charset="utf-8">
+<meta name="lab-review" content="B225 · 2026-09-23">
+<title>mixer lab — every stage metered, every over latched</title>
+<style>
+  /* ============================================================
+     TOKENS — copied VERBATIM from src/gui/gui2.html:26-96 (:root),
+     :103-105 (the canvas-is-a-phosphor-tube rule), :142-144
+     (body.scr-orchid, the light theme's screen pairing), :167-185
+     (body:not(.dark) legibility overrides) and :186-212 (body.dark).
+     The multi-paragraph derivations behind these values live at those
+     lines and are not duplicated here; the VALUES are what a lab must
+     not paraphrase, and they are exact.
+     ============================================================ */
+  :root {
+    /* ground */
+    --bg:#F2EDE2;        /* page ground (cream)                    */
+    --panel:#FCFAF4;     /* module cards                           */
+    --well:#FFFFFF;      /* DATA surfaces: viz, pads, keyboards     */
+    --panel2:#E9E3D4;    /* well-alt: control tracks, empty meters  */
+    --line:#191521;      /* ink — ALL outlines                     */
+    --hair:#E5DFD0;      /* in-well gridlines ONLY, never borders   */
+    --div:#D8D1C0;       /* dashed intra-card separators           */
+    /* text */
+    --text:#191521;      /* primary (ink)                          */
+    --t2:#494356;        /* secondary                              */
+    --dim:#9A93A3;       /* hint                                   */
+    --dis:#B6AFA0;       /* disabled                               */
+    /* signal — one job each, never borrowed */
+    --value:#F5169C;     /* the user's authored value              */
+    --pull:#F5169C;      /* legacy name for the accent = value      */
+    --physics:#6431F0;   /* order parameter, K vector, rotor lead   */
+    --meter:#00D5C8;     /* analyzers, R rim arc                   */
+    --marker:#FFD702;    /* attention: root, overshoot, lock front  */
+    --celebrate:#A6F219; /* OK / meters in the green               */
+    --caution:#F5A300;   --caution-bg:#FBE9BD; --caution-tx:#6D570B;
+    --amber:#F5A300;     /* legacy name for caution                 */
+    --alarm:#C2261A;     /* PANIC, clip, mute — NOTHING else        */
+    --ghost:#C9C2FF;     /* dry/reference traces behind wet         */
+    /* corners — preset identity (fill / dark text pair) */
+    --cA:#FFD702; --cAtx:#D4A900;
+    --cB:#FF2E88; --cBtx:#FF2E88;
+    --cC:#00D5C8; --cCtx:#00B3A8;
+    --cD:#A6F219; --cDtx:#6FB200;
+    /* canvas-only names from ADR-118 A2, re-pointed at spec roles */
+    --text-hi:#191521;
+    --dim2:#494356;      /* canvas axis labels — secondary          */
+    --grid:#E5DFD0;      /* gridlines = hairline                    */
+    --grid2:#E5DFD0;
+    --hot:#F5169C;       /* live-value marks = value                */
+    --bad:#C2261A;
+    --badge-bg:rgba(245,163,0,.9);
+    /* SCREEN TOKENS — vaporwave phosphor (ADR-119). The chrome stays cream;
+       only the DATA WELLS become phosphor tubes, so canvases read these while
+       every CSS control keeps the chrome set. */
+    --scr-tube:#1B0733;      /* the tube ground — deep violet            */
+    --scr-value:#FF5ECF;     /* your value, as hot-pink phosphor        */
+    --scr-meter:#B8F227;     /* meter/measure, as LIME                  */
+    --scr-physics:#B48CFF;   /* the system's own state                  */
+    --scr-marker:#FFB86B;    /* attention/root, as amber                */
+    --scr-grid:#4FD8BE;      /* in-tube structure — painted at low alpha */
+    --scr-scan:0.22;         /* scanline strength                        */
+    --scr-alpha:1;           /* multiplier on every TOKA() alpha         */
+    /* geometry */
+    --r-card:10px; --r-well:var(--r-card); --r:var(--r-card); --stroke:1.5px;
+    --shadow:1.5px 1.5px 0 var(--line);
+    --shadow-hover:2.5px 2.5px 0 var(--line);
+    --focus:0 0 0 2.5px rgba(245,22,156,.45); }
+  * { box-sizing:border-box; margin:0; }
+  /* gui2:103 — every canvas is a phosphor tube, and a tube gets the same ink
+     border language as the cards. No shadow: shadows are for interactive
+     elements, never wells. */
+  canvas { border:var(--stroke) solid var(--line); border-radius:var(--r-well);
+           background:var(--scr-tube); display:block; }
+  /* gui2:142 — ORCHID is the screen scheme the LIGHT chassis pairs with
+     (gui2:1654-1657: LIGHT/ORCHID, DARK/TUBE). A lab with two themes carries
+     both pairings or it is showing a chassis nobody ships. */
+  body:not(.dark) { --scr-tube:#F3EBFF; --scr-value:#D6006B; --scr-meter:#007A73;
+    --scr-physics:#6E14E8; --scr-marker:#C43A00; --scr-grid:#5A3FA8;
+    --scr-scan:0.05; --scr-alpha:1.6;
+    /* gui2:167 — yellow and lime cannot survive a light ground (measured
+       1.20:1 and 1.17:1 against --bg, where the graphical floor is 3:1). */
+    --marker:#8A6A00; --celebrate:#4E7A00; }
+  body.dark {
+    --bg:#151220; --panel:#1F1B2E; --well:#0E0C16; --panel2:#2C2740;
+    --line:#EFE9FA; --hair:#312B47; --div:#3B3455;
+    --text:#EFE9FA; --t2:#BDB4D4; --dim:#8A82A3; --dis:#514A6B;
+    --value:#FF3DAD; --pull:#FF3DAD; --physics:#A07CFF; --meter:#2DF2E2;
+    --marker:#FFE04D; --celebrate:#C2F53E;
+    --caution:#FFB627; --caution-bg:#4A3A12; --caution-tx:#FFD98A;
+    --amber:#FFB627; --alarm:#FF5A4D;
+    --ghost:#5B4E8F;
+    --cA:#FFD702; --cAtx:#FFE566;
+    --cB:#FF2E88; --cBtx:#FF6FAE;
+    --cC:#00D5C8; --cCtx:#4DEDE3;
+    --cD:#A6F219; --cDtx:#C6F86A;
+    --text-hi:#FFFFFF; --dim2:#9A93A8; --grid:#312B47; --grid2:#312B47;
+    --hot:#FF3DAD; --bad:#FF5A4D; --badge-bg:rgba(255,182,39,.9);
+    --focus:0 0 0 2.5px rgba(255,61,173,.45); }
+
+  /* ============ CHROME — station-page-lab's copy of gui2's idiom ============ */
+  body { background:var(--bg); color:var(--text);
+    font:12px/1.45 ui-monospace,Menlo,monospace; padding:10px 12px; }
+  .hdr { display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; margin-bottom:8px; }
+  h1 { font-size:34px; line-height:1; letter-spacing:-1px; font-weight:800; }
+  .badges { display:flex; align-items:center; gap:8px; margin-top:4px; }
+  .badge { font-size:9.5px; letter-spacing:.1em; padding:2px 7px;
+           border:var(--stroke) solid var(--line); border-radius:3px;
+           background:var(--cA); color:var(--line); }
+  body.dark .badge { color:var(--bg); }      /* station-page-lab:146-152 */
+  .sub { color:var(--t2); font-size:10.5px; letter-spacing:.12em; }
+  .hdrctl { display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-left:auto; }
+  .pill { padding:3px 10px; border:var(--stroke) solid var(--line);
+    border-radius:999px; min-height:26px; cursor:pointer; color:var(--dim);
+    background:var(--panel); font:inherit; font-size:10px; letter-spacing:.06em; }
+  .pill:hover { box-shadow:var(--shadow); }
+  .pill.on { color:var(--bg); background:var(--line); font-weight:600; }
+  .pills { display:flex; gap:4px; flex-wrap:wrap; }
+  .chip { padding:4px 8px; border:0; background:none; border-radius:var(--r);
+    cursor:pointer; font:inherit; font-size:10px; letter-spacing:.06em;
+    color:var(--dim); min-height:26px; }
+  .chip:hover { background:var(--panel2); }
+  .chip b { color:var(--t2); font-weight:600; letter-spacing:.1em; }
+  .tagline { color:var(--t2); font-size:11px; max-width:118ch; margin-bottom:6px; }
+  .tagline b { color:var(--text); }
+  .audit { font-size:10px; color:var(--t2); margin-bottom:10px; max-width:150ch;
+           border-left:3px solid var(--meter); padding-left:8px; }
+  .audit.bad { border-left-color:var(--alarm); color:var(--alarm); }
+  .audit b { color:var(--value); }
+  .cluster { background:var(--panel); border:var(--stroke) solid var(--line);
+    border-radius:var(--r); padding:8px 10px; min-width:0; }
+  h2 { font-size:11px; color:var(--pull); letter-spacing:1px; margin-bottom:6px; }
+  .row { display:grid; grid-template-columns:44px minmax(0,1fr) 44px;
+    align-items:center; gap:6px; margin:4px 0; }
+  .row label { color:var(--t2); font-size:10px; }
+  .row output { font-size:10px; text-align:right; color:var(--text);
+                font-variant-numeric:tabular-nums; }
+  .arow { display:grid; grid-template-columns:44px minmax(0,1fr); align-items:center;
+          gap:6px; margin:4px 0; }
+  .arow label { color:var(--t2); font-size:10px; }
+  .note { color:var(--t2); font-size:10px; line-height:1.5; margin-top:6px; }
+  .note b { color:var(--text); }
+  .sep { border-top:1px dashed var(--div); margin:8px 0 6px; }
+  .cap { font-size:9px; letter-spacing:.12em; color:var(--dim); margin:6px 0 3px; }
+  /* SLIDER / ENUM — gui2:490 and :538, as station-page-lab copies them */
+  input[type=range] { -webkit-appearance:none; appearance:none; width:100%; min-width:0;
+    height:24px; background:transparent; cursor:pointer; }
+  input[type=range]::-webkit-slider-runnable-track {
+    height:6px; border-radius:3px; border:var(--stroke) solid var(--line);
+    background:linear-gradient(to right,
+      var(--value) 0 calc(var(--pct, 0) * 100%),
+      var(--panel2) calc(var(--pct, 0) * 100%) 100%); }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; appearance:none;
+    width:13px; height:13px; border-radius:4px; margin-top:-3.5px;
+    background:var(--panel); border:var(--stroke) solid var(--line); box-shadow:var(--shadow); }
+  input[type=range]:hover::-webkit-slider-thumb { box-shadow:var(--shadow-hover); }
+  input[type=range]:active::-webkit-slider-thumb { background:var(--value); box-shadow:none; }
+  select { -webkit-appearance:none; appearance:none;
+    font:inherit; font-size:10px; padding:3px 18px 3px 9px; min-width:0; width:100%;
+    border-radius:999px; border:var(--stroke) solid var(--line);
+    background:var(--panel); color:var(--t2); cursor:pointer; min-height:26px;
+    background-image:linear-gradient(45deg,transparent 50%,var(--t2) 50%),
+                     linear-gradient(135deg,var(--t2) 50%,transparent 50%);
+    background-position:calc(100% - 11px) 50%, calc(100% - 7px) 50%;
+    background-size:4px 4px, 4px 4px; background-repeat:no-repeat; }
+  select:hover { box-shadow:var(--shadow); }
+
+  /* ============ PAGE SHAPE ============
+     Top: the DRIVE card (the must-fire control) beside the gain-staging line,
+     because those two answer the same question — "which stage?" — from the
+     cause side and the effect side. Below: the chain in signal order, one card
+     per stage group, as gui2's MIX page lays its strips (gui2.html:1158-1206)
+     and extended through the rack and the master. */
+  .top { display:grid; grid-template-columns:minmax(290px,340px) minmax(0,1fr);
+         gap:10px; align-items:start; margin-bottom:10px; }
+  .chain { display:grid; grid-template-columns:repeat(auto-fill, minmax(186px,1fr));
+           gap:10px; align-items:start; }
+  .chain .wide2 { grid-column:span 2; }
+  @media (max-width:980px) { .top { grid-template-columns:1fr; } }
+  .foot { display:grid; grid-template-columns:minmax(0,1.6fr) minmax(0,1fr); gap:10px;
+          margin-top:10px; align-items:start; }
+  @media (max-width:1180px) { .foot { grid-template-columns:1fr; } }
+
+  /* ============ THE TAP — lamp over a meter pair over a readout ============
+     UI Spec METER (§4, normative for values): well-alt ground, ink border,
+     radius 4, fill from the bottom, 2 px peak hold in the value colour, the
+     top 8% tinted red at 25% always and SOLID red only while clipping. The
+     scale here runs -66..+6 dBFS, so 0 dBFS sits at 91.7% and the zone above
+     it is 8.3% of the bar: the spec's "top 8%" IS the over region, not a
+     decoration drawn near it. Motion is transform-only (UI Spec §8: meters
+     update via scaleY/translate, "never touch width/height"). */
+  .taps { display:flex; gap:5px; align-items:flex-start; margin:6px 0 2px; }
+  .tap { display:flex; flex-direction:column; align-items:center; gap:3px; width:44px; }
+  .tap.ghost .mpair, .tap.ghost .tname { opacity:.5; }   /* gui2:764 ghost: present, not in force */
+  .lamp { width:44px; height:28px; font:inherit; font-size:8.5px; font-weight:700;
+    letter-spacing:.08em; line-height:1.05; padding:1px 0; cursor:pointer;
+    border:var(--stroke) solid var(--line); border-radius:4px;
+    background:var(--panel); color:var(--dim); }
+  .lamp small { display:block; font-size:8px; font-weight:600; letter-spacing:0; }
+  .lamp:hover { box-shadow:var(--shadow); }
+  .lamp.on { background:var(--alarm); color:#FCF0EE; }   /* gui2.html:374, the mute stamp's text */
+  body.dark .lamp.on { color:var(--bg); }  /* #FF5A4D under light text reads ~2.9:1; ink holds */
+  /* FIRST OVER — the earliest lamp to latch. --marker is "attention: …
+     overshoot" (gui2.html:45), which is exactly this. An outline, not a fill:
+     the red stays the only fill that means "over". */
+  .lamp.first { outline:2.5px solid var(--marker); outline-offset:2px; }
+  .mpair { display:flex; gap:3px; }
+  .mbar { position:relative; width:10px; height:132px; overflow:hidden;
+    background:var(--panel2); border:var(--stroke) solid var(--line); border-radius:4px; }
+  .mbar::before { content:''; position:absolute; left:0; right:0; top:0; height:8.333%; z-index:2;
+    background:color-mix(in srgb, var(--alarm) 25%, transparent);
+    border-bottom:1px solid var(--alarm); }
+  .mbar.over::before { background:var(--alarm); }
+  .mbar .fill { position:absolute; left:0; right:0; bottom:0; height:100%; z-index:1;
+    background:var(--celebrate); transform-origin:50% 100%; transform:scaleY(0); }
+  .mbar .hold { position:absolute; left:0; right:0; bottom:0; height:2px; z-index:3;
+    background:var(--value); transform:translateY(calc(var(--hp, 0) * -127px)); }
+  .pk { font-size:9px; font-variant-numeric:tabular-nums; color:var(--text); }
+  .tname { font-size:8px; letter-spacing:.06em; color:var(--t2); text-align:center; line-height:1.1; }
+  /* HONESTY BADGE. FED/PART in the meter colour (UI Spec: meter = "honesty
+     bars"), OWED in gui2's caution banner pair (gui2.html:5922-5928). */
+  .tb { font-size:7.5px; letter-spacing:.08em; padding:1px 3px; border-radius:3px;
+        border:1px solid var(--meter); color:var(--text);
+        background:color-mix(in srgb, var(--meter) 20%, transparent); }
+  .tb.part { border-style:dashed; }
+  .tb.owed { border-color:var(--caution); background:var(--caution-bg); color:var(--caution-tx); }
+  .mscale { position:relative; width:22px; height:132px; margin-top:31px; }
+  .mscale span { position:absolute; right:0; font-size:7.5px; color:var(--dim);
+                 transform:translateY(50%); font-variant-numeric:tabular-nums; }
+  .mscale span.z { color:var(--alarm); font-weight:700; }
+
+  .mini { width:100%; height:46px; margin-top:6px; }
+  .hist { width:100%; height:44px; margin-top:6px; }
+  #stageC { width:100%; height:228px; }
+  #mScope { width:100%; height:92px; margin-top:6px; }
+  #mSpec { width:100%; height:80px; margin-top:6px; }
+  .first { font-size:10px; margin-top:8px; padding:6px 8px; border-radius:var(--r);
+           border:var(--stroke) solid var(--line); background:var(--well); }
+  .first b { color:var(--alarm); }
+  .btns { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+
+  /* ============ THE TABLE ============ */
+  table.tt { width:100%; border-collapse:collapse; font-size:10px; }
+  .tt th { text-align:left; color:var(--t2); font-size:9px; letter-spacing:.1em; font-weight:600;
+           border-bottom:var(--stroke) solid var(--line); padding:4px 6px; }
+  .tt td { border-bottom:1px dashed var(--div); padding:5px 6px; vertical-align:top; line-height:1.45; }
+  .tt td.st { white-space:nowrap; font-weight:600; }
+  .tt td.n { white-space:nowrap; font-variant-numeric:tabular-nums; }
+  .tt td.ok { color:var(--text); }
+  .tt td.fail { color:var(--alarm); font-weight:700; }
+  .tt tr.secthead td { color:var(--pull); font-size:9.5px; letter-spacing:.1em; font-weight:700;
+                       border-bottom:var(--stroke) solid var(--line); padding-top:10px; }
+  .tt code, .note code { font-size:9.5px; }
+  .qa > div { margin-bottom:8px; font-size:10px; line-height:1.5; color:var(--t2); }
+  .qa .q { display:block; color:var(--text); font-weight:700; letter-spacing:.06em; margin-bottom:2px; }
+  .qa b { color:var(--text); }
+</style></head><body>
+
+<div class="hdr">
+  <div>
+    <h1>mixer</h1>
+    <div class="badges">
+      <span class="badge">PAGE · MIX</span>
+      <span class="sub">EVERY STAGE METERED · EVERY OVER LATCHED · EVERY TAP HONEST ABOUT ITS FEED</span>
+    </div>
+  </div>
+  <div class="hdrctl">
+    <button class="pill" id="clearAll">CLEAR ALL LAMPS</button>
+    <button class="chip" id="themeBtn">theme <b>LIGHT</b></button>
+  </div>
+</div>
+
+<div class="tagline">The <b>MIX page</b> as a signal-chain instrument. Every stage from each source's gain to the master
+carries a meter with a <b>peak hold</b> and a <b>CLIP lamp that latches until you click it</b>: the three sources (after
+their gain, after B209's pre-mix filter, and — for the swarms — after the core's own output saturator), the mix sum, each
+FX slot's input and output, and the master. <b>DRIVE</b> makes the lab's own chain clip at the stage you pick; the lamp
+lights there and at nothing upstream, and the page proves that at load for every stage (line below). Every meter says
+whether the shell can feed it today — <b>FED</b>, <b>PART</b> or <b>OWED</b> — from the table at the foot of the page,
+which cites file:line for both.</div>
+
+<div class="audit" id="audit">must-fire audit: pending</div>
+
+<div class="top">
+  <div class="cluster" id="driveCard"><h2>Drive — clip on purpose</h2>
+    <div class="arow"><label>clip at</label><select id="probeSel"></select></div>
+    <div class="arow"><label>kind</label><div id="kindPills"></div></div>
+    <div id="hotRow"></div>
+    <div class="arow"><label>feed</label><div id="feedPills"></div></div>
+    <div class="note" id="standsFor"></div>
+    <div class="btns">
+      <button class="pill" id="reaudit">RE-AUDIT THIS PATCH</button>
+      <button class="pill" id="bootBtn">BOOT PATCH</button>
+    </div>
+    <div class="first" id="firstOver">FIRST OVER — none latched</div>
+    <div class="note"><b>HOT</b> multiplies the signal at that tap for as long as it is chosen. <b>SPIKE</b> replaces
+      ONE sample there with ±1.12 (+1 dB) every 3000–7000 samples (seeded). <b>FEED</b> chooses how the meters are fed:
+      <b>STICKY</b> — the maximum over every block since the last read, which the port owes; <b>LAST BLOCK</b> — what the
+      shell's publish does today (a fresh snapshot every 128-sample block, read once per 768-sample frame, so five blocks
+      in six are never seen). Put SPIKE on any stage and flip FEED to watch a real over go missing.</div>
+  </div>
+  <div class="cluster"><h2>Gain staging — every tap on one line</h2>
+    <canvas id="stageC"></canvas>
+    <div class="note">x is the chain in signal order, y is each tap's <b>peak hold</b> in dBFS; the red dashed rail is
+      0 dBFS. Links follow the signal: three source lanes (gain, filter, saturator) fold into the mix and run through
+      the rack. <b>Solid</b> dot: the shell feeds this tap today. <b>Hollow</b>: owed — until the port adds it, this dot
+      is a drawing. <b>Red</b>: latched over. The pink ring is the stage DRIVE is hitting; the gold ring is the first
+      over. This line earns its place because only the whole chain answers "where is my headroom going?" — a single
+      strip cannot.</div>
+  </div>
+</div>
+
+<div class="chain" id="chain"></div>
+
+<div class="foot">
+  <div class="cluster"><h2>Published today vs owed by the port — per tap</h2>
+    <table class="tt" id="tapTable"></table>
+  </div>
+  <div class="cluster"><h2>Design notes and what is left for the human</h2>
+    <div class="qa" id="qa">
+      <div><span class="q">1 · WHICH ROW IS THE PAGE?</span>Eighteen meter pairs is a lab, not a page. The lab's lean:
+        <b>lamps at every tap</b> (cheap, and the only thing that answers "where"), <b>full meters</b> on the three
+        sources, the mix and the master, and each FX slot's in/out as the compact <b>level-history strip</b> under its
+        card, which shows what the slot does to level over time (COMP pulling down, ECHO building up), not only
+        whether it went over. Your call.</div>
+      <div><span class="q">2 · A SWARM'S OVER IS BEFORE ITS SATURATOR</span>The swarm core ends in
+        <code>tanh</code> (<code>swarm_core.h:1329-1332</code>), so the one source meter the shell publishes
+        (<code>oscPeak</code>, post-gain, post-tanh) can never exceed 1.0 and its clip class can never fire. The last place a
+        swarm's level is still a number above 1.0 is the <b>FILTER</b> tap, before that tail. Is driving the core's own
+        tanh a "clip" to warn about, or part of the sound? The lab lamps it, because it is where level turns into
+        distortion; a <code>SAT</code> label instead of <code>CLIP</code> on that lamp would be a one-word change.</div>
+      <div><span class="q">3 · THE LATCH LIVES ON THE AUDIO THREAD</span>A lamp can only latch what the GUI is shown. The
+        shell's publish (<code>hypersaw_clap.cpp:8176</code>, every block, into a double buffer at :5086-5087) hands
+        the GUI the newest block; everything between two reads is overwritten. Put DRIVE on SPIKE and flip FEED to LAST
+        BLOCK: most spikes never reach a lamp (the audit line counts them). The port owes a <b>sticky</b> reading per
+        tap — max since the last read plus an over count, OR'd across blocks and cleared by the reader. The lamp's
+        latch and its click-to-clear can then live in the GUI.</div>
+      <div><span class="q">4 · "THE MIX SUM" IS A MATRIX GATHER</span>horde has no mix bus. In the default topology every
+        source gathers into slot 1 at 1.0 (<code>routing_core.h:113-128</code>), so MIX · SUM and FX 1 · IN carry the
+        same samples until a crosspoint moves. Crosspoints run −2..+2 (<code>hypersaw_clap.cpp:1132-1135</code>), so a
+        slot input CAN go over from routing alone: FX n · IN is metered after the edge coefficient, and the lab's
+        <b>in</b> row per slot IS that coefficient. Keep a separate SUM lamp, or let FX 1 · IN be it?</div>
+      <div><span class="q">5 · A LIMITER HIDES EVERY OVER ABOVE IT</span>The default rack ends in COMP, whose 0.98
+        brickwall (<code>fx_rack.h:707-708</code>) is always on. Clip at FX 2 and the master meter stays clean — which is
+        the whole case for lamps before the last slot: the master alone cannot tell you the rack is overdriven.</div>
+      <div><span class="q">6 · FLOAT OVERS ARE NOT YET DAMAGE</span>Inside a float engine a sample above 1.0 survives;
+        what an intermediate lamp reports is <b>where level went hot</b>, which matters because the next nonlinear stage
+        (drive, the core's tanh, the comp's brickwall, the host's output) will act on it. Only the MASTER over is
+        clipping in the DAC sense. The lamp reads the same everywhere on purpose.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ===================== BLOCK A — constants, data, state ===================== */
+/* Math, cached into script-scope consts: the load checker runs this file in a
+   vm context where every GLOBAL lookup is slow (L0052), and the audit below
+   renders ~330k samples at load. */
+const mAbs = Math.abs, mTanh = Math.tanh, mSin = Math.sin, mMax = Math.max, mMin = Math.min,
+      mLog10 = Math.log10, mLog = Math.log, mPow = Math.pow, mSqrt = Math.sqrt, mExp = Math.exp,
+      mFloor = Math.floor, mRound = Math.round, mCos = Math.cos;
+const TAU = 2 * Math.PI;
+const SR = 48000;
+const BLOCK = 128;                 // host block, samples
+const FRAME_BLOCKS = 6;            // blocks rendered per GUI frame
+const FRAME = BLOCK * FRAME_BLOCKS; // 768 samples = 16 ms at 48 kHz; one per animation frame
+const SPB = SR / 2;                // samples per beat, 120 bpm
+const NOTES = [48, 51, 55];        // C3 Eb3 G3 — SWARM 2 plays them an octave up
+const SUB_NOTE = 36;               // C2, the sub an octave under SWARM 1 (B209's stand-in convention)
+const NSAW = 3;                    // saws per note: a swarm stand-in, not swarm_core
+const NV = NOTES.length * NSAW;
+const NORM = 1.8 / NV;
+/* hypersaw_clap.cpp:7855-7856 — the sub row's headroom constant, verbatim:
+   "a sub at level 1 into a unity path peaks at 0.983 and CANNOT reach the
+   rail" (:7846-7848). The lab keeps it so the SUB · GAIN lamp tells the same
+   truth the shell does: its own level knob cannot light it. */
+const SUB_HEADROOM = 1 / 1.425;
+const DB_MIN = -66, DB_MAX = 6;    // meter scale: 0 dBFS at 91.7%, the over zone is the top 8.3%
+const HOLD_S = 1.5, HOLD_FALL_DBS = 20;   // UI Spec METER: "1.5s hold then 20dB/s fall"
+/* Bar release. gui2.html:4996 decays the hold by x0.86 per 60 Hz frame — a
+   per-frame constant, which ADR-009 bans; re-expressed in seconds it is
+   tau = -1 / (60 ln 0.86) = 0.11 s, applied per FRAME's duration here. */
+const BAR_REL_S = 0.11;
+const SPIKE_LVL = 1.122;           // +1 dB: over, but by the smallest amount a lamp should still catch
+const AUDIT_HOT_DB = 18;
+const AUDIT_ROW_FRAMES = 8;        // 6144 samples per must-fire row: every source is sounding by then
+const AUDIT_CTL_FRAMES = 1000;     // 16 s: the detuned saws beat, so a 4 s window read 2 dB optimistic (measured vs 30 s)
+const AUDIT_SPIKE_FRAMES = 160;    // ~24 spikes at a 5000-sample mean gap
+const DLEN = 32768, DMASK = DLEN - 1;   // echo line, power of two
+const ECHO_DL = 18000, ECHO_DR = 12000; // 375 / 250 ms
+const RING = 2048, RMASK = RING - 1;
+const HIST = 190;                  // level-history strip: ~3 s of frames
+const FX_TYPES = ['OFF', 'DRIVE', 'FILTER', 'ECHO*', 'COMP', 'GAIN'];
+const FLT_MODES = ['LP', 'BP', 'HP'];   // index + 1 = svf_core's mode int (1 LP, 2 BP, 3 HP)
+const ASSIGN = ['OFF', 'A', 'B', 'A+B'];
+
+/* ---- STAGES — the chain, in TOPOLOGICAL order (every `up` entry appears
+   earlier in the list). That order is load-bearing twice: DOWN below is one
+   forward pass over it, and FIRST OVER breaks same-sample ties by index. It is
+   asserted at load (topoErr), not assumed. `col` is the x column on the
+   gain-staging line. */
+const STAGES = [
+  { id: 's1g', grp: 'SWARM 1', name: 'GAIN', up: [], col: 0 },
+  { id: 's1f', grp: 'SWARM 1', name: 'FILTER', up: ['s1g'], col: 1 },
+  { id: 's1o', grp: 'SWARM 1', name: 'SAT OUT', up: ['s1f'], col: 2 },
+  { id: 's2g', grp: 'SWARM 2', name: 'GAIN', up: [], col: 0 },
+  { id: 's2f', grp: 'SWARM 2', name: 'FILTER', up: ['s2g'], col: 1 },
+  { id: 's2o', grp: 'SWARM 2', name: 'SAT OUT', up: ['s2f'], col: 2 },
+  { id: 'sbg', grp: 'SUB', name: 'GAIN', up: [], col: 0 },
+  { id: 'sbf', grp: 'SUB', name: 'FILTER', up: ['sbg'], col: 1 },
+  { id: 'mix', grp: 'MIX', name: 'SUM', up: ['s1o', 's2o', 'sbf'], col: 3 },
+];
+for (let n = 1; n <= 4; n++) {
+  STAGES.push({ id: 'f' + n + 'i', grp: 'FX ' + n, name: 'IN', up: [n === 1 ? 'mix' : 'f' + (n - 1) + 'o'], col: 2 + 2 * n });
+  STAGES.push({ id: 'f' + n + 'o', grp: 'FX ' + n, name: 'OUT', up: ['f' + n + 'i'], col: 3 + 2 * n });
+}
+STAGES.push({ id: 'mst', grp: 'MASTER', name: 'OUT', up: ['f4o'], col: 12 });
+const NST = STAGES.length;
+const NCOL = 13;
+const COL_LABELS = ['GAIN', 'FILTER', 'SAT', 'MIX', '1 IN', '1 OUT', '2 IN', '2 OUT', '3 IN', '3 OUT', '4 IN', '4 OUT', 'MASTER'];
+const SI = {};
+STAGES.forEach((s, i) => { SI[s.id] = i; });
+const ST_G = [SI.s1g, SI.s2g, SI.sbg], ST_F = [SI.s1f, SI.s2f, SI.sbf], ST_O = [SI.s1o, SI.s2o];
+const ST_FI = [SI.f1i, SI.f2i, SI.f3i, SI.f4i], ST_FO = [SI.f1o, SI.f2o, SI.f3o, SI.f4o];
+const ST_MIX = SI.mix, ST_MST = SI.mst;
+const label = s => STAGES[s].grp + ' · ' + STAGES[s].name;
+/* DOWN[i][j] = 1 when stage j is stage i or downstream of it. A lamp that
+   lights OUTSIDE DOWN[probe] is the audit's failure: upstream or parallel. */
+const DOWN = STAGES.map(() => new Uint8Array(NST));
+let topoErr = '';
+for (let j = 0; j < NST; j++) {
+  DOWN[j][j] = 1;
+  for (const u of STAGES[j].up) {
+    const ui = SI[u];
+    if (!(ui < j)) { topoErr += ' ' + STAGES[j].id + '<-' + u; continue; }
+    for (let i = 0; i < NST; i++) if (DOWN[i][ui]) DOWN[i][j] = 1;
+  }
+}
+
+/* ---- TAPS — the ONE table of what the shell publishes. Badges and the foot
+   table both render from it. `meter` is the honesty status of the LEVEL
+   reading; the LATCH is owed at every stage (see the LATCH row), so it is
+   stated once rather than eighteen times. Every claim cites file:line in the
+   tree this lab was written against (origin/main 7d08e6e). */
+const SWARM_TODAY = k => 'The level (<code>vol</code>, id ' + (k ? '1017' : '17') + ') multiplies INSIDE the core, per note '
+  + '(<code>swarm_core.h:943</code>), and the voices are summed with it — there is no post-gain bus between the notes and '
+  + 'the output tail to read.';
+const TAPS = {
+  s1g: { meter: 'owed', today: SWARM_TODAY(0),
+    port: 'A peak over the note sum after <code>gain</code>. Once B81\'s per-note filter is in, that sum only exists if the port adds it — the FILTER tap below is the first place a swarm\'s level is one signal.' },
+  s1f: { meter: 'owed', today: 'No filter stage exists in the shell. B81\'s per-note seam <code>setNoteTap</code> is declared '
+    + '(<code>swarm_core.h:314-332</code>) and nothing in <code>src/</code> installs a tap (the declaration is the only hit).',
+    port: 'The stage (B81), then a peak over the re-summed bus <b>before</b> the tanh tail (<code>swarm_core.h:1329-1332</code>) — the last point where a swarm\'s over is still a number above 1.0.' },
+  s1o: { meter: 'part', today: '<code>oscPeak[0]</code>: max(|L|,|R|) after mute/solo/on-weight (<code>hypersaw_clap.cpp:2453-2477</code>), '
+    + 'copied and zeroed by publishViz (:5115-5119), marshalled at <code>hypersaw_gui_common.h:100-104</code>, drawn by '
+    + '<code>gui2.html:4989-5001</code> with a clip class at hold ≥ 1.0 that is re-decided every frame, never latched. Post-tanh, so it '
+    + 'cannot exceed 1.0. Osc 0 is metered with <code>chunked = false</code> (:7754), which restarts the peak on every '
+    + 'renderSpan call (:2458), so when the bend grid splits a block (:8042, :8067) only the last span is read.',
+    port: 'A sticky reading (see LATCH). As a level meter it is FED; as a clip source it can never fire.' },
+  s2g: { meter: 'owed', today: SWARM_TODAY(1), port: 'As SWARM 1 · GAIN.' },
+  s2f: { meter: 'owed', today: 'As SWARM 1 · FILTER: no stage, no tap.', port: 'As SWARM 1 · FILTER.' },
+  s2o: { meter: 'part', today: '<code>oscPeak[1]</code>, same path as SWARM 1, metered in chunks with <code>chunked = true</code> '
+    + '(<code>hypersaw_clap.cpp:7813</code>) so its peak does accumulate across the block. Post-tanh: cannot exceed 1.0.',
+    port: 'As SWARM 1 · SAT OUT.' },
+  sbg: { meter: 'owed', today: 'Nothing. The sub sums into routing source row 2 (<code>srcBufL[1]</code>, '
+    + '<code>hypersaw_clap.cpp:7938-7939</code>) through the headroom constant (:7855-7856) and no peak is taken. The oscPeak '
+    + 'loop stops at <code>kNumOsc = 2</code> (:5115, :836) although VizSnapshot has room for four (<code>hypersaw_gui.h:67</code>).',
+    port: 'A peak over <code>srcBuf[1]</code> after <code>renderSubSpan</code> (<code>hypersaw_clap.cpp:7821</code>); <code>oscPeak[2]</code> is the free slot.' },
+  sbf: { meter: 'owed', today: 'No sub filter exists. B209 defaults the sub to OFF (filter-lab Q2) and where a sub filter would sit is unruled.',
+    port: 'Only if the human rules a sub filter in.' },
+  mix: { meter: 'owed', today: 'No mix bus exists. Every source gathers into slot 1 at 1.0 in the default topology '
+    + '(<code>routing_core.h:113-128</code>) inside <code>routing.processBlock</code> (<code>hypersaw_clap.cpp:8142</code>; '
+    + '<code>routing_core.h:222</code>), which publishes nothing.',
+    port: 'Covered by FX 1 · IN in the default topology; a separate SUM tap only if the page keeps a would-be bus (note 4).' },
+};
+for (let n = 1; n <= 4; n++) {
+  TAPS['f' + n + 'i'] = { meter: 'owed', today: n === 1
+    ? 'Nothing. Slot inputs are gathered in <code>routing_core.h</code> (gathers at :241, :269) with crosspoints of −2..+2 '
+      + '(<code>hypersaw_clap.cpp:1132-1135</code>), so an input CAN go over from routing alone.'
+    : 'As FX 1 · IN.',
+    port: n === 1 ? 'A peak inside the <code>processSlot</code> lambda (<code>hypersaw_clap.cpp:8143-8145</code>), before <code>rack.processSlot</code> — four of them, <code>kRackSlots = 4</code> (<code>fx_rack.h:74</code>).' : 'As FX 1 · IN.' };
+  TAPS['f' + n + 'o'] = { meter: 'owed', today: n === 1
+    ? 'Nothing after <code>rack.processSlot</code> (<code>hypersaw_clap.cpp:8144</code>); <code>fx_rack.h</code> keeps no level '
+      + 'state (its one envelope is COMP\'s, :700).'
+    : 'As FX 1 · OUT.',
+    port: n === 1 ? 'The same lambda, after <code>processSlot</code>.' : 'As FX 1 · OUT.' };
+}
+TAPS.mst = { meter: 'part', today: '<code>outPeak</code> exists but (a) is |L|+|R|, not max(|L|,|R|) '
+  + '(<code>hypersaw_clap.cpp:8183-8184</code>), so a centred signal at −6 dBFS reads 1.0 and a ≥ 1.0 lamp on it fires 6 dB '
+  + 'early; (b) accumulates AFTER <code>publishViz</code> in the same block (:8176), so it lands one block late; (c) is not '
+  + 'drawn on MIX — the master strip has no meter (<code>gui2.html:1201-1206</code>); gui2 reads it only for the chrome ripple (:5330).',
+  port: 'max(|L|,|R|), sticky, after master volume (<code>hypersaw_clap.cpp:8158-8174</code>).' };
+/* Feeds that are not one stage's level. Rendered as the table's second section. */
+const FEEDS = [
+  { name: 'LATCH · every stage', meter: 'owed', today: 'Nothing latches anywhere. <code>publishViz</code> runs every block '
+    + '(<code>hypersaw_clap.cpp:8176</code>) into a double buffer (:5086-5087), so the GUI reads the newest block per frame; '
+    + 'an over in any other block is overwritten before it is seen. gui2 re-decides its clip class per frame (<code>gui2.html:4999</code>).',
+    port: 'Per tap: max since last read + an over count, OR\'d across blocks on the audio thread and cleared by the reader. Measured by this page: the audit line\'s SPIKE count.' },
+  { name: 'SPECTRUM · master', meter: 'fed', today: '<code>specRing</code> = L+R after master volume (<code>hypersaw_clap.cpp:8177-8180</code>), '
+    + 'FFT on the GUI thread; <code>hzGetSpec</code> (<code>hypersaw_gui_common.h:428-435</code>) / <code>hzFrame</code> spec8 (:496-507).',
+    port: 'Nothing. A mono sum, so an over that cancels between L and R is invisible to it.' },
+  { name: 'SCOPE · SWARM 1, 2', meter: 'fed', today: 'Per-osc <code>scopeL/R[k]</code> rings after the gain (<code>hypersaw_clap.cpp:2483-2488</code>), 1536 samples per read '
+    + '(<code>hypersaw_gui_common.h:436-447</code>; <code>hzFrame</code> bits 4/8, :514).', port: 'Nothing.' },
+  { name: 'SCOPE · SUB, master', meter: 'owed', today: 'No sub ring; the master scope fill was retired (<code>hypersaw_clap.cpp:8186-8190</code>).',
+    port: 'A sub ring beside the swarm rings; a master L/R ring if the master scope stays.' },
+  { name: 'LEVEL HISTORY · FX n', meter: 'owed', today: 'Needs the slot in/out taps, which do not exist.', port: 'Nothing beyond the FX taps: the history is GUI-side.' },
+  { name: 'GAIN-STAGING LINE', meter: 'part', today: 'Three of eighteen taps are published (SWARM 1/2 SAT OUT, master), none sticky.', port: 'All of the above.' },
+];
+const BADGE = { fed: 'FED', part: 'PART', owed: 'OWED' };
+const BADGE_TIP = {
+  fed: 'FED — the shell publishes this reading today',
+  part: 'PART — the shell publishes a reading here, but not one a clip lamp can use (see the table)',
+  owed: 'OWED — the shell has no tap here; until the port adds one, this meter is a picture',
+};
+/* What a HOT probe at each stage stands for in the instrument — or, where
+   nothing can drive it, that the plant is synthetic. */
+const STANDS = {
+  s1g: 'the level knob pushed past its range (vol, id 17 — the probe goes beyond 1.0).',
+  s1f: 'filter A/B resonance or a boosting mode (B209). Try it for real: FILTER A res toward 1.',
+  s1o: 'nothing in the shell: post-tanh times a mute/solo gain of at most 1 (hypersaw_clap.cpp:2499-2507). A synthetic plant.',
+  s2g: 'the level knob pushed past its range (vol, id 1017).',
+  s2f: 'filter A/B resonance or a boosting mode (B209).',
+  s2o: 'nothing in the shell (as SWARM 1 · SAT OUT). A synthetic plant.',
+  sbg: 'sub level past 1/0.983 — its own knob cannot do it (hypersaw_clap.cpp:7846-7848).',
+  sbf: 'a sub filter\'s resonance — unruled (B209 Q2).',
+  mix: 'three hot sources summing in phase.',
+  mst: 'master volume, which runs to 1.5 (+3.5 dB; id 100, hypersaw_clap.cpp:359).',
+};
+for (let n = 1; n <= 4; n++) {
+  STANDS['f' + n + 'i'] = 'a crosspoint into slot ' + n + ' up to 2.0 (+6 dB; hypersaw_clap.cpp:1135) — the lab\'s "in" row is that coefficient.';
+  STANDS['f' + n + 'o'] = 'the slot\'s own make-up or regen (GAIN above 0.5, ECHO regen, FILTER resonance).';
+}
+
+/* ---- THE PATCH. Levels, B209 filter pair, four rack slots, master. The
+   defaults are chosen to leave headroom at every tap — the control half of the
+   audit measures that rather than trusting it. */
+const S = {
+  lvl: [0.28, 0.22, 0.42],     // SWARM 1, SWARM 2, SUB — under gui2's defaults (0.4, and 0.8 for the sub, gui2.html:1162, :1196): every tap keeps >= 3 dB — the control measures it, 30 s worst -3.3 dBFS
+  asg: [1, 2, 0],              // B209 assignment: SWARM 1 -> A, SWARM 2 -> B, SUB -> OFF (B209 Q2)
+  flt: [{ mode: 1, fc: 2400, res: 0.3 }, { mode: 1, fc: 1100, res: 0.45 }],
+  fx: [{ type: 1, amt: 0.3, coef: 1 }, { type: 2, amt: 0.25, coef: 1 },
+       { type: 3, amt: 0.35, coef: 1 }, { type: 4, amt: 0.3, coef: 1 }],
+  master: 1.0,
+};
+const BOOT = JSON.stringify(S);
+const D = { probe: -1, kind: 0, hotDb: 12, feed: 0 };   // DRIVE: lab-only, never a parameter
+
+/* ---- GUI-side meter state (ballistics + latches), in SAMPLE time ---- */
+const M = {
+  bar: new Float64Array(NST * 2), hold: new Float64Array(NST * 2).fill(-140),
+  age: new Float64Array(NST * 2), over: new Uint8Array(NST),
+  lOn: new Uint8Array(NST), lAt: new Float64Array(NST), lMax: new Float64Array(NST), lN: new Uint32Array(NST),
+};
+const FXH = [0, 1, 2, 3].map(() => ({ inn: new Float32Array(HIST).fill(-140), out: new Float32Array(HIST).fill(-140) }));
+let fxhIdx = 0;
+const TAPEL = [];          // per stage: DOM refs of its tap
+const SYNCS = [];          // control re-syncs (BOOT PATCH)
+const GHOSTS = [];         // [stageIndex, sourceIndex] for FILTER taps that ghost when OFF
+let rig = null;
+let auditRes = null;
+let dark = false;
+
+/* ---- FFT (master spectrum): radix-2, sized to the ring ---- */
+const FFT_N = RING;
+const fRe = new Float64Array(FFT_N), fIm = new Float64Array(FFT_N), fWin = new Float64Array(FFT_N);
+const fRev = new Uint32Array(FFT_N);
+for (let i = 0; i < FFT_N; i++) {
+  fWin[i] = 0.5 - 0.5 * mCos(TAU * i / (FFT_N - 1));
+  let r = 0; for (let b = 1, x = i; b < FFT_N; b <<= 1, x >>= 1) r = (r << 1) | (x & 1);
+  fRev[i] = r;
+}
+const SPEC_EDGES = [];
+for (let b = 0; b <= 24; b++) SPEC_EDGES.push(30 * mPow(16000 / 30, b / 24));
+const specPeak = new Float64Array(24), specPeakAt = new Float64Array(24);
+
+/* ===================== BLOCK B — the chain ===================== */
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+/* Svf — TRANSCRIBED from src/svf_core.h:46-77 by way of filter-lab.html:447-463
+   (B209's literal copy). fc clamped to [10, 0.49 fs]; k = max(0.05, √2(1 − res)),
+   so at res 1 the peak at cutoff is ~ +26 dB — resonance is a filter's level
+   hazard, which is why the FILTER taps exist. Mode ints: 1 LP, 2 BP, 3 HP. */
+class Svf {
+  constructor() { this.ic1 = 0; this.ic2 = 0; this.a1 = 0; this.a2 = 0; this.a3 = 0; this.k = Math.SQRT2; }
+  set(sr, fcHz, res) {
+    const fc = mMax(10, mMin(0.49 * sr, fcHz));
+    const r = mMax(0, mMin(1, res));
+    const g = Math.tan(Math.PI * fc / sr);
+    const k = mMax(0.05, Math.SQRT2 * (1 - r));
+    this.k = k;
+    this.a1 = 1 / (1 + g * (g + k)); this.a2 = g * this.a1; this.a3 = g * this.a2;
+  }
+  process(x, mode) {
+    const v3 = x - this.ic2;
+    const v1 = this.a1 * this.ic1 + this.a2 * v3;
+    const v2 = this.ic2 + this.a2 * this.ic1 + this.a3 * v3;
+    this.ic1 = 2 * v1 - this.ic1; this.ic2 = 2 * v2 - this.ic2;
+    return mode === 1 ? v2 : mode === 2 ? v1 : x - this.k * v1 - v2;
+  }
+}
+
+/* MixRig — the lab's chain. Pure: no DOM, no clock; `t` counts samples.
+   Every stage calls _tap(stage) on the working pair (xL, xR): that is where a
+   probe acts, and where the block peaks and overs are taken. Peaks are kept
+   per BLOCK, then folded into the frame two ways at once — STICKY (max over
+   every block) and LAST (the final block only, which is what the shell's
+   per-block publish leaves for a once-per-frame reader) — so one render feeds
+   both FEED modes and the audit compares them on identical samples. */
+class MixRig {
+  constructor(P) {
+    this.P = P;
+    const rng = mulberry32(0xB225);
+    this.ph = [new Float64Array(NV), new Float64Array(NV)];
+    this.inc = [new Float64Array(NV), new Float64Array(NV)];
+    this.gl = [new Float64Array(NV), new Float64Array(NV)];
+    this.gr = [new Float64Array(NV), new Float64Array(NV)];
+    for (let k = 0; k < 2; k++) for (let n = 0; n < NOTES.length; n++) for (let j = 0; j < NSAW; j++) {
+      const v = n * NSAW + j;
+      const cents = (rng() * 2 - 1) * 14;
+      this.inc[k][v] = 440 * mPow(2, (NOTES[n] + 12 * k - 69 + cents / 100) / 12) / SR;
+      this.ph[k][v] = rng();
+      const pan = (rng() * 2 - 1) * 0.7;
+      this.gl[k][v] = mSqrt(0.5 * (1 - pan)); this.gr[k][v] = mSqrt(0.5 * (1 + pan));
+    }
+    this.subInc = 440 * mPow(2, (SUB_NOTE - 69) / 12) / SR; this.subPh = 0;
+    // Envelopes in seconds (ADR-009): 4 ms attack, 250 ms decay to 0.55, 120 ms release.
+    this.env = new Float64Array(3); this.envAtk = new Uint8Array(3).fill(1);
+    this.eA = 1 - mExp(-1 / (0.004 * SR)); this.eD = 1 - mExp(-1 / (0.25 * SR)); this.eR = 1 - mExp(-1 / (0.12 * SR));
+    this.flt = [];
+    for (let s = 0; s < 3; s++) this.flt.push([[new Svf(), new Svf()], [new Svf(), new Svf()]]);
+    this.slot = [];
+    for (let n = 0; n < 4; n++) this.slot.push({ fL: new Svf(), fR: new Svf(), dL: new Float64Array(DLEN), dR: new Float64Array(DLEN), w: 0, cEnv: 0 });
+    // fx_rack.h:174-175 — COMP's attack/release, seconds-derived there too.
+    this.cAtk = 1 - mExp(-1 / (6.3576e-5 * SR)); this.cRel = 1 - mExp(-1 / (1.5106e-2 * SR));
+    this.xL = 0; this.xR = 0; this.t = 0;
+    this.bPk = new Float64Array(NST * 2); this.bOv = new Float64Array(NST); this.bAt = new Float64Array(NST).fill(-1);
+    this.fPkS = new Float64Array(NST * 2); this.fPkL = new Float64Array(NST * 2);
+    this.fOvS = new Float64Array(NST); this.fOvL = new Float64Array(NST);
+    this.fAtS = new Float64Array(NST).fill(-1); this.fAtL = new Float64Array(NST).fill(-1);
+    this.pSt = -1; this.pKind = 0; this.pG = 1;
+    this.sRng = mulberry32(0x5B1CE); this.nextSpike = 1500; this.spikeNow = false; this.spikes = 0; this.fSpikes = 0;
+    this.rSrc = [new Float32Array(RING), new Float32Array(RING), new Float32Array(RING)];
+    this.rML = new Float32Array(RING); this.rMR = new Float32Array(RING);
+    this.configure();
+  }
+  configure() {
+    const P = this.P;
+    for (let s = 0; s < 3; s++) for (let f = 0; f < 2; f++) for (let c = 0; c < 2; c++) this.flt[s][f][c].set(SR, P.flt[f].fc, P.flt[f].res);
+    // The rack FILTER slot: B209's rack placement, an SVF LP at 1.2 kHz whose
+    // amount is RESONANCE here (the shipping rack Filter is a one-pole that
+    // cannot boost — fx_rack.h:669-680 — so it could never light its own lamp).
+    for (let n = 0; n < 4; n++) { const sl = this.slot[n]; sl.fL.set(SR, 1200, P.fx[n].amt); sl.fR.set(SR, 1200, P.fx[n].amt); }
+  }
+  setProbe(st, kind, db) { this.pSt = st; this.pKind = kind; this.pG = mPow(10, db / 20); }
+  _env(k, gate) {
+    let e = this.env[k];
+    if (gate) {
+      if (this.envAtk[k]) { e += this.eA * (1.02 - e); if (e >= 1) { e = 1; this.envAtk[k] = 0; } }
+      else e += this.eD * (0.55 - e);
+    } else { this.envAtk[k] = 1; e -= this.eR * e; }
+    this.env[k] = e;
+  }
+  _tap(st) {
+    if (st === this.pSt) {
+      if (this.pKind === 0) { this.xL *= this.pG; this.xR *= this.pG; }
+      else if (this.spikeNow) {
+        this.xL = this.xL < 0 ? -SPIKE_LVL : SPIKE_LVL;
+        this.xR = this.xR < 0 ? -SPIKE_LVL : SPIKE_LVL;
+      }
+    }
+    const aL = mAbs(this.xL), aR = mAbs(this.xR), i2 = st * 2, pk = this.bPk;
+    if (aL > pk[i2]) pk[i2] = aL;
+    if (aR > pk[i2 + 1]) pk[i2 + 1] = aR;
+    const a = aL > aR ? aL : aR;
+    // OVER is strictly above full scale: 1.0 itself is a legal sample (and
+    // is where a float tanh saturates to, which must not read as a clip).
+    if (a > 1) {
+      if (this.bAt[st] < 0) this.bAt[st] = this.t;
+      if (a > this.bOv[st]) this.bOv[st] = a;
+    }
+  }
+  _filter(s) {
+    const a = this.P.asg[s];
+    if (a & 1) { const m = this.P.flt[0].mode, f = this.flt[s][0]; this.xL = f[0].process(this.xL, m); this.xR = f[1].process(this.xR, m); }
+    if (a & 2) { const m = this.P.flt[1].mode, f = this.flt[s][1]; this.xL = f[0].process(this.xL, m); this.xR = f[1].process(this.xR, m); }
+  }
+  _slot(n) {
+    const sp = this.P.fx[n], sl = this.slot[n], a = sp.amt;
+    switch (sp.type) {
+      case 1: {   // DRIVE — fx_rack.h:658-667, verbatim
+        const w = a, pre = 1 + a * 3;
+        this.xL = (1 - w) * this.xL + w * mTanh(this.xL * pre);
+        this.xR = (1 - w) * this.xR + w * mTanh(this.xR * pre);
+        break;
+      }
+      case 2:     // FILTER — B209's rack placement (see configure)
+        this.xL = sl.fL.process(this.xL, 1); this.xR = sl.fR.process(this.xR, 1);
+        break;
+      case 3: {   // ECHO* — a plain feedback delay standing in for "regen builds level"; NOT TimeCore
+        const fb = a * 0.9, w = sl.w;
+        const rL = sl.dL[(w - ECHO_DL) & DMASK], rR = sl.dR[(w - ECHO_DR) & DMASK];
+        sl.dL[w] = this.xL + fb * rL; sl.dR[w] = this.xR + fb * rR; sl.w = (w + 1) & DMASK;
+        this.xL += 0.5 * rL; this.xR += 0.5 * rR;
+        break;
+      }
+      case 4: {   // COMP — fx_rack.h:688-712, verbatim, 0.98 brickwall always on
+        let l = this.xL, r = this.xR;
+        const a0 = mMax(mAbs(l), mAbs(r));
+        sl.cEnv += (a0 > sl.cEnv ? this.cAtk : this.cRel) * (a0 - sl.cEnv);
+        if (a > 0.005 && sl.cEnv > 0.4) { const gr = (0.4 + (sl.cEnv - 0.4) / (1 + a * 4)) / sl.cEnv; l *= gr; r *= gr; }
+        const pk = mMax(mAbs(l), mAbs(r));
+        if (pk > 0.98) { const lg = 0.98 / pk; l *= lg; r *= lg; }
+        this.xL = l; this.xR = r;
+        break;
+      }
+      case 5: { const g = a * 2; this.xL *= g; this.xR *= g; break; }   // GAIN — fx_rack.h:682-686, 0.5 = unity
+      default: break;   // OFF — passthrough
+    }
+  }
+  _block(n) {
+    const P = this.P;
+    for (let i = 0; i < n; i++) {
+      const t = this.t;
+      this.spikeNow = this.pKind === 1 && this.pSt >= 0 && t === this.nextSpike;
+      // A seeded, sample-counted pattern: SWARM 1 stabs on every beat, SWARM 2
+      // shorter stabs, the sub holds 3.5 beats of every bar. All three start at
+      // t = 0, so a must-fire row needs only a few thousand samples.
+      const pos = t % SPB, bpos = t % (4 * SPB);
+      this._env(0, pos < 0.5 * SPB); this._env(1, pos < 0.3 * SPB); this._env(2, bpos < 3.5 * SPB);
+      const ri = t & RMASK;
+      let mL = 0, mR = 0;
+      for (let k = 0; k < 2; k++) {
+        const ph = this.ph[k], inc = this.inc[k], gl = this.gl[k], gr = this.gr[k];
+        let sl = 0, sr = 0;
+        for (let v = 0; v < NV; v++) {
+          const dt = inc[v]; let p = ph[v] + dt; if (p >= 1) p -= 1; ph[v] = p;
+          let s = 2 * p - 1;   // polyBLEP saw
+          if (p < dt) { const x = p / dt; s -= x + x - x * x - 1; }
+          else if (p > 1 - dt) { const x = (p - 1) / dt; s -= x * x + x + x + 1; }
+          sl += s * gl[v]; sr += s * gr[v];
+        }
+        const g = this.env[k] * P.lvl[k] * NORM;
+        this.xL = sl * g; this.xR = sr * g; this._tap(ST_G[k]);
+        this._filter(k); this._tap(ST_F[k]);
+        // swarm_core.h:1329-1332 — the core's output tail. After this nothing
+        // a swarm emits can exceed 1.0, which is why its FED meter cannot clip.
+        this.xL = mTanh(this.xL); this.xR = mTanh(this.xR); this._tap(ST_O[k]);
+        this.rSrc[k][ri] = 0.5 * (this.xL + this.xR);
+        mL += this.xL; mR += this.xR;
+      }
+      let sp = this.subPh + this.subInc; if (sp >= 1) sp -= 1; this.subPh = sp;
+      const sb = mSin(TAU * sp) * this.env[2] * P.lvl[2] * SUB_HEADROOM;   // mono by construction (SPEC-SUBOSC §2)
+      this.xL = sb; this.xR = sb; this._tap(ST_G[2]);
+      this._filter(2); this._tap(ST_F[2]);
+      this.rSrc[2][ri] = 0.5 * (this.xL + this.xR);
+      mL += this.xL; mR += this.xR;
+      this.xL = mL; this.xR = mR; this._tap(ST_MIX);
+      for (let s = 0; s < 4; s++) {
+        const c = P.fx[s].coef; this.xL *= c; this.xR *= c; this._tap(ST_FI[s]);
+        this._slot(s); this._tap(ST_FO[s]);
+      }
+      this.xL *= P.master; this.xR *= P.master; this._tap(ST_MST);
+      this.rML[ri] = this.xL; this.rMR[ri] = this.xR;
+      if (this.spikeNow) { this.spikes++; this.fSpikes++; this.nextSpike = t + 3000 + mFloor(this.sRng() * 4000); }
+      this.t = t + 1;
+    }
+  }
+  _endBlock() {
+    for (let j = 0; j < NST * 2; j++) {
+      const v = this.bPk[j];
+      if (v > this.fPkS[j]) this.fPkS[j] = v;
+      this.fPkL[j] = v; this.bPk[j] = 0;
+    }
+    for (let s = 0; s < NST; s++) {
+      const o = this.bOv[s], at = this.bAt[s];
+      if (o > 0) { if (o > this.fOvS[s]) this.fOvS[s] = o; if (this.fAtS[s] < 0) this.fAtS[s] = at; }
+      this.fOvL[s] = o; this.fAtL[s] = at;
+      this.bOv[s] = 0; this.bAt[s] = -1;
+    }
+  }
+  renderFrame() {
+    this.fPkS.fill(0); this.fOvS.fill(0); this.fAtS.fill(-1); this.fSpikes = 0;
+    for (let b = 0; b < FRAME_BLOCKS; b++) { this._block(BLOCK); this._endBlock(); }
+  }
+}
+
+/* ===================== BLOCK C — the audit (must-fire + control) ===================== */
+function auditScenario(P, st, kind, db, frames) {
+  const r = new MixRig(P);
+  r.setProbe(st, kind, db);
+  const lit = new Uint8Array(NST), peak = new Float64Array(NST);
+  let spk = 0, cS = 0, cL = 0;
+  for (let f = 0; f < frames; f++) {
+    r.renderFrame();
+    for (let s = 0; s < NST; s++) {
+      if (r.fOvS[s] > 0) lit[s] = 1;
+      const p = mMax(r.fPkS[2 * s], r.fPkS[2 * s + 1]);
+      if (p > peak[s]) peak[s] = p;
+    }
+    if (st >= 0 && r.fSpikes > 0) { spk++; if (r.fOvS[st] > 0) cS++; if (r.fOvL[st] > 0) cL++; }
+  }
+  return { lit, peak, spk, cS, cL };
+}
+/* The two halves L0032 asks for, on the SAME chain the page plays:
+   control — nothing driven, every lamp must stay dark (and the tightest
+   headroom is reported, so a pass that sits on its threshold is visible, L0024);
+   must-fire — for each stage, a HOT plant there must light THAT lamp and no
+   lamp outside its downstream set. Plus the feed comparison: one-sample
+   spikes at MIX · SUM, counted through both feeds from one render. */
+function runAudit(P) {
+  const ctl = auditScenario(P, -1, 0, 0, AUDIT_CTL_FRAMES);
+  const rows = [];
+  for (let s = 0; s < NST; s++) {
+    const r = auditScenario(P, s, 0, AUDIT_HOT_DB, AUDIT_ROW_FRAMES);
+    const stray = []; let down = 0;
+    for (let j = 0; j < NST; j++) if (r.lit[j]) { if (!DOWN[s][j]) stray.push(j); else if (j !== s) down++; }
+    rows.push({ fired: r.lit[s] === 1, stray, down });
+  }
+  const sp = auditScenario(P, ST_MIX, 1, 0, AUDIT_SPIKE_FRAMES);
+  return { ctl, rows, sp };
+}
+
+/* ===================== BLOCK D — tokens, painters ===================== */
+/* station-page-lab.html:688-742 — the token reader, DPR and tube ground. */
+const _tok = {};
+function TOK(name, fallback) {
+  if (_tok[name] === undefined) {
+    let v = '';
+    try { v = getComputedStyle(document.body || document.documentElement).getPropertyValue(name).trim(); }
+    catch (_) { v = ''; }
+    _tok[name] = (typeof v === 'string' && v) ? v : (fallback || '#000');
+  }
+  return _tok[name];
+}
+function RGBA(hex, a) {
+  const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(hex).trim());
+  if (!m) return hex;
+  return `rgba(${parseInt(m[1], 16)},${parseInt(m[2], 16)},${parseInt(m[3], 16)},${a})`;
+}
+function TOKA(name, a, fallback) {
+  const m = parseFloat(TOK('--scr-alpha', '1')) || 1;
+  return RGBA(TOK(name, fallback), mMin(1, a * m));
+}
+function scanA() { return parseFloat(TOK('--scr-scan', '0.22')) || 0.22; }
+const VS = () => mMin(window.devicePixelRatio || 1, 2);
+function fitViz(cv) {
+  const dpr = VS();
+  const w = mMax(1, mRound(cv.clientWidth * dpr)), h = mMax(1, mRound(cv.clientHeight * dpr));
+  if (!w || !h || (cv.width === w && cv.height === h)) return false;
+  cv.width = w; cv.height = h;
+  return true;
+}
+function scan(g, w, h, a) {
+  const v = VS();
+  g.fillStyle = `rgba(0,0,0,${a})`;
+  for (let y = v; y < h; y += 3 * v) g.fillRect(0, y, w, v);
+}
+/* gui2:1682 — the ONE gradient in the theme, quarantined to spectrum bars. */
+function sunset(v) {
+  const stops = [[157, 108, 255], [255, 94, 207], [255, 184, 107]];
+  const t = mMin(1, mMax(0, v)) * 2;
+  const a = stops[t < 1 ? 0 : 1], b = stops[t < 1 ? 1 : 2], f = t < 1 ? t : t - 1;
+  return `rgb(${mRound(a[0] + (b[0] - a[0]) * f)},${mRound(a[1] + (b[1] - a[1]) * f)},${mRound(a[2] + (b[2] - a[2]) * f)})`;
+}
+function ground(cv) {
+  if (!cv || !cv.getContext) return null;
+  fitViz(cv);
+  const g = cv.getContext('2d');
+  const w = cv.width, h = cv.height;
+  g.fillStyle = TOK('--scr-tube'); g.fillRect(0, 0, w, h);
+  scan(g, w, h, scanA());
+  return { g, w, h, v: VS() };
+}
+/* The honesty tag a visualiser carries in its corner — same vocabulary as the
+   meter badges: FED in the measure colour, OWED in caution. */
+function tag(G, fed, text) {
+  const { g, w, v } = G;
+  g.font = (8.5 * v) + 'px ui-monospace,Menlo,monospace';
+  const s = (fed ? 'FED · ' : 'OWED · ') + text;
+  const tw = g.measureText ? g.measureText(s).width : 0;
+  g.fillStyle = fed ? TOKA('--scr-meter', 0.95) : TOK('--caution');
+  g.fillText(s, w - (+tw || 0) - 5 * v, 10 * v);
+}
+const dbOf = a => (a > 1e-7 ? 20 * mLog10(a) : -140);
+const frac = db => mMax(0, mMin(1, (db - DB_MIN) / (DB_MAX - DB_MIN)));
+
+function drawRingScope(cv, ring, fed, what) {
+  const G = ground(cv); if (!G || !rig) return;
+  const { g, w, h, v } = G;
+  const n = 480, sc = (h / 2 - 3 * v) / 1.3, mid = h / 2;
+  g.strokeStyle = TOKA('--scr-grid', 0.3); g.lineWidth = v;
+  g.beginPath(); g.moveTo(0, mid); g.lineTo(w, mid); g.stroke();
+  // the rails ARE full scale, so an over is visibly outside them
+  if (g.setLineDash) g.setLineDash([4 * v, 3 * v]);
+  g.strokeStyle = RGBA(TOK('--alarm'), 0.8);
+  g.beginPath(); g.moveTo(0, mid - sc); g.lineTo(w, mid - sc); g.moveTo(0, mid + sc); g.lineTo(w, mid + sc); g.stroke();
+  if (g.setLineDash) g.setLineDash([]);
+  // rising-zero-crossing trigger in the last 400 samples before the window
+  let st = rig.t - n - 400;
+  for (let k = 1; k < 400; k++) if (ring[(st + k - 1) & RMASK] < 0 && ring[(st + k) & RMASK] >= 0) { st += k; break; }
+  g.strokeStyle = TOK('--scr-value'); g.lineWidth = 1.5 * v; g.beginPath();
+  for (let i = 0; i < n; i++) {
+    const y = mid - ring[(st + i) & RMASK] * sc, x = i / (n - 1) * w;
+    if (i === 0) g.moveTo(x, y); else g.lineTo(x, y);
+  }
+  g.stroke();
+  g.fillStyle = TOK('--alarm');
+  for (let i = 0; i < n; i++) { const s = ring[(st + i) & RMASK]; if (s > 1 || s < -1) g.fillRect(i / (n - 1) * w - v, mid - s * sc - v, 2.5 * v, 2.5 * v); }
+  tag(G, fed, what);
+}
+function drawHist(cv, k) {
+  const G = ground(cv); if (!G) return;
+  const { g, w, h, v } = G;
+  const y = db => 2 * v + (1 - (mMax(-48, mMin(6, db)) + 48) / 54) * (h - 4 * v);
+  if (g.setLineDash) g.setLineDash([4 * v, 3 * v]);
+  g.strokeStyle = RGBA(TOK('--alarm'), 0.8); g.lineWidth = v;
+  g.beginPath(); g.moveTo(0, y(0)); g.lineTo(w, y(0)); g.stroke();
+  if (g.setLineDash) g.setLineDash([]);
+  const H = FXH[k];
+  const line = (arr, style, lw) => {
+    g.strokeStyle = style; g.lineWidth = lw; g.beginPath();
+    for (let i = 0; i < HIST; i++) {
+      const x = i / (HIST - 1) * w, yy = y(arr[(fxhIdx + i) % HIST]);
+      if (i === 0) g.moveTo(x, yy); else g.lineTo(x, yy);
+    }
+    g.stroke();
+  };
+  line(H.inn, TOKA('--scr-grid', 0.75), v);
+  line(H.out, TOK('--scr-meter'), 1.5 * v);
+  tag(G, false, 'in ~ out');
+}
+function drawStaging() {
+  const G = ground(document.getElementById('stageC')); if (!G) return;
+  const { g, w, h, v } = G;
+  const pl = 34 * v, pr = 10 * v, pt = 10 * v, pb = 18 * v;
+  const X = c => pl + (c + 0.5) * (w - pl - pr) / NCOL;
+  const Y = db => pt + (1 - (mMax(-48, mMin(6, db)) + 48) / 54) * (h - pt - pb);
+  g.font = (8.5 * v) + 'px ui-monospace,Menlo,monospace';
+  for (const d of [-6, -12, -24, -36, -48]) {
+    g.strokeStyle = TOKA('--scr-grid', 0.18); g.lineWidth = v;
+    g.beginPath(); g.moveTo(pl, Y(d)); g.lineTo(w - pr, Y(d)); g.stroke();
+    g.fillStyle = TOKA('--scr-grid', 0.85); g.fillText(String(d), 4 * v, Y(d) + 3 * v);
+  }
+  if (g.setLineDash) g.setLineDash([5 * v, 3 * v]);
+  g.strokeStyle = TOK('--alarm'); g.lineWidth = 1.5 * v;
+  g.beginPath(); g.moveTo(pl, Y(0)); g.lineTo(w - pr, Y(0)); g.stroke();
+  if (g.setLineDash) g.setLineDash([]);
+  g.fillStyle = TOK('--alarm'); g.fillText('0 dBFS', 4 * v, Y(0) + 3 * v);
+  const hd = s => mMax(M.hold[2 * s], M.hold[2 * s + 1]);
+  g.strokeStyle = TOKA('--scr-meter', 0.5); g.lineWidth = 1.5 * v;
+  for (let j = 0; j < NST; j++) for (const u of STAGES[j].up) {
+    const i = SI[u];
+    g.beginPath(); g.moveTo(X(STAGES[i].col), Y(hd(i))); g.lineTo(X(STAGES[j].col), Y(hd(j))); g.stroke();
+  }
+  const org = originStage();
+  for (let s = 0; s < NST; s++) {
+    const x = X(STAGES[s].col), y = Y(hd(s)), r = 4 * v;
+    g.beginPath(); g.arc(x, y, r, 0, TAU);
+    if (M.lOn[s]) { g.fillStyle = TOK('--alarm'); g.fill(); }
+    else if (TAPS[STAGES[s].id].meter !== 'owed') { g.fillStyle = TOK('--scr-meter'); g.fill(); }
+    else { g.fillStyle = TOK('--scr-tube'); g.fill(); g.strokeStyle = TOK('--scr-meter'); g.lineWidth = 1.5 * v; g.stroke(); }
+    if (s === D.probe) { g.strokeStyle = TOK('--scr-value'); g.lineWidth = 2 * v; g.beginPath(); g.arc(x, y, r + 4 * v, 0, TAU); g.stroke(); }
+    if (s === org) { g.strokeStyle = TOK('--scr-marker'); g.lineWidth = 2 * v; g.beginPath(); g.arc(x, y, r + 7.5 * v, 0, TAU); g.stroke(); }
+  }
+  g.fillStyle = TOKA('--scr-grid', 0.9);
+  for (let c = 0; c < NCOL; c++) {
+    const s = COL_LABELS[c], tw = g.measureText ? (+g.measureText(s).width || 0) : 0;
+    g.fillText(s, X(c) - tw / 2, h - 5 * v);
+  }
+}
+function drawMasterScope() {
+  const G = ground(document.getElementById('mScope')); if (!G || !rig) return;
+  const { g, w, h, v } = G;
+  const n = 1536, sc = (h / 2 - 3 * v) / 1.3, mid = h / 2;
+  if (g.setLineDash) g.setLineDash([4 * v, 3 * v]);
+  g.strokeStyle = RGBA(TOK('--alarm'), 0.8); g.lineWidth = v;
+  g.beginPath(); g.moveTo(0, mid - sc); g.lineTo(w, mid - sc); g.moveTo(0, mid + sc); g.lineTo(w, mid + sc); g.stroke();
+  if (g.setLineDash) g.setLineDash([]);
+  const st = rig.t - n;
+  /* L in the value phosphor, R in meter at 0.65 — gui2's own scope pairing
+     (gui2.html:5736). */
+  for (const [ring, style, lw] of [[rig.rMR, TOKA('--scr-meter', 0.65), v], [rig.rML, TOK('--scr-value'), 1.3 * v]]) {
+    g.strokeStyle = style; g.lineWidth = lw; g.beginPath();
+    for (let i = 0; i < n; i++) {
+      const x = i / (n - 1) * w, y = mid - ring[(st + i) & RMASK] * sc;
+      if (i === 0) g.moveTo(x, y); else g.lineTo(x, y);
+    }
+    g.stroke();
+  }
+  g.fillStyle = TOK('--alarm');
+  for (let i = 0; i < n; i++) {
+    const a = rig.rML[(st + i) & RMASK], b = rig.rMR[(st + i) & RMASK];
+    if (a > 1 || a < -1 || b > 1 || b < -1) { const s = mAbs(a) > mAbs(b) ? a : b; g.fillRect(i / (n - 1) * w - v, mid - s * sc - v, 2.5 * v, 2.5 * v); }
+  }
+  tag(G, false, 'master scope retired');
+}
+function fft() {
+  for (let i = 0; i < FFT_N; i++) { const j = fRev[i]; if (j > i) { let t = fRe[i]; fRe[i] = fRe[j]; fRe[j] = t; t = fIm[i]; fIm[i] = fIm[j]; fIm[j] = t; } }
+  for (let len = 2; len <= FFT_N; len <<= 1) {
+    const ang = -TAU / len, wr = mCos(ang), wi = mSin(ang), half = len >> 1;
+    for (let i = 0; i < FFT_N; i += len) {
+      let cr = 1, ci = 0;
+      for (let k = 0; k < half; k++) {
+        const a = i + k, b = a + half;
+        const tr = fRe[b] * cr - fIm[b] * ci, ti = fRe[b] * ci + fIm[b] * cr;
+        fRe[b] = fRe[a] - tr; fIm[b] = fIm[a] - ti; fRe[a] += tr; fIm[a] += ti;
+        const nr = cr * wr - ci * wi; ci = cr * wi + ci * wr; cr = nr;
+      }
+    }
+  }
+}
+function drawSpectrum() {
+  const G = ground(document.getElementById('mSpec')); if (!G || !rig) return;
+  const { g, w, h, v } = G;
+  const st = rig.t - FFT_N;
+  // The shell's feed is L+R (hypersaw_clap.cpp:8179); the lab halves it so a
+  // full-scale mono sine reads 0 dB. Hann window: peak bin = A·N/4.
+  for (let i = 0; i < FFT_N; i++) { fRe[i] = 0.5 * (rig.rML[(st + i) & RMASK] + rig.rMR[(st + i) & RMASK]) * fWin[i]; fIm[i] = 0; }
+  fft();
+  const nb = SPEC_EDGES.length - 1, slot = (w - 4 * v) / nb, bw = slot * 0.74, floorY = h - 3 * v;
+  for (let b = 0; b < nb; b++) {
+    const i0 = mMax(1, mRound(SPEC_EDGES[b] / SR * FFT_N)), i1 = mMax(i0, mRound(SPEC_EDGES[b + 1] / SR * FFT_N));
+    let m = 0;
+    for (let i = i0; i <= i1; i++) { const q = fRe[i] * fRe[i] + fIm[i] * fIm[i]; if (q > m) m = q; }
+    const db = dbOf(mSqrt(m) * 4 / FFT_N);
+    const val = mMin(1, mMax(0, (db + 90) / 90));
+    const x = 2 * v + b * slot + (slot - bw) / 2, bh = val * (h - 8 * v);
+    g.fillStyle = sunset(val); g.fillRect(x, floorY - bh, bw, bh);
+    // peak caps timed in SAMPLES (1.5 s hold), not wall clock
+    if (val >= specPeak[b]) { specPeak[b] = val; specPeakAt[b] = rig.t; }
+    else if (rig.t - specPeakAt[b] > HOLD_S * SR) specPeak[b] = mMax(val, specPeak[b] - 0.012);
+    const py = floorY - specPeak[b] * (h - 8 * v);
+    // gui2.html:5869 — caps go measure-coloured; a cap AT the ceiling stays red
+    g.fillStyle = specPeak[b] >= 0.999 ? TOK('--alarm') : TOK('--scr-meter');
+    g.fillRect(x, py - 2.5 * v, bw, 2.5 * v);
+  }
+  g.fillStyle = TOKA('--scr-grid', 0.55); g.fillRect(0, floorY, w, 2 * v);
+  tag(G, true, 'hzFrame spec8');
+}
+
+/* ===================== BLOCK E — meters, latches ===================== */
+function meterStep() {
+  const last = D.feed === 1;
+  const pk = last ? rig.fPkL : rig.fPkS, ov = last ? rig.fOvL : rig.fOvS, at = last ? rig.fAtL : rig.fAtS;
+  const dt = FRAME / SR, rel = mExp(-dt / BAR_REL_S);
+  for (let j = 0; j < NST * 2; j++) {
+    const a = pk[j], b = M.bar[j] * rel;
+    M.bar[j] = a > b ? a : b;
+    const db = dbOf(a);
+    if (db >= M.hold[j]) { M.hold[j] = db; M.age[j] = 0; }
+    else { M.age[j] += dt; if (M.age[j] > HOLD_S) M.hold[j] = mMax(-140, M.hold[j] - HOLD_FALL_DBS * dt); }
+  }
+  for (let s = 0; s < NST; s++) {
+    M.over[s] = ov[s] > 0 ? 1 : 0;
+    if (ov[s] > 0) {
+      if (!M.lOn[s]) { M.lOn[s] = 1; M.lAt[s] = at[s]; M.lMax[s] = 0; M.lN[s] = 0; }
+      if (ov[s] > M.lMax[s]) M.lMax[s] = ov[s];
+      M.lN[s]++;
+    }
+  }
+  for (let k = 0; k < 4; k++) {
+    const a = ST_FI[k] * 2, b = ST_FO[k] * 2;
+    FXH[k].inn[fxhIdx] = dbOf(mMax(pk[a], pk[a + 1]));
+    FXH[k].out[fxhIdx] = dbOf(mMax(pk[b], pk[b + 1]));
+  }
+  fxhIdx = (fxhIdx + 1) % HIST;
+}
+/* FIRST OVER: the latched stage with the earliest first-over sample; a tie
+   (one hot sample crossing several taps at once) goes to the most upstream,
+   which is what STAGES' topological order makes the lowest index. */
+function originStage() {
+  let best = -1;
+  for (let s = 0; s < NST; s++) if (M.lOn[s] && (best < 0 || M.lAt[s] < M.lAt[best])) best = s;
+  return best;
+}
+function clearLatch(s) { M.lOn[s] = 0; M.lMax[s] = 0; M.lN[s] = 0; M.lAt[s] = 0; }
+function clearAll() { for (let s = 0; s < NST; s++) clearLatch(s); }
+function paintMeters() {
+  const org = originStage();
+  for (let s = 0; s < NST; s++) {
+    const E = TAPEL[s]; if (!E) continue;
+    for (let c = 0; c < 2; c++) {
+      const j = 2 * s + c;
+      E.fill[c].style.transform = 'scaleY(' + frac(dbOf(M.bar[j])).toFixed(4) + ')';
+      E.hold[c].style.setProperty('--hp', frac(M.hold[j]).toFixed(4));
+      E.bar[c].classList.toggle('over', M.over[s] === 1);
+    }
+    const hd = mMax(M.hold[2 * s], M.hold[2 * s + 1]);
+    E.out.textContent = hd <= -99 ? '−∞' : (hd > 0 ? '+' : '') + hd.toFixed(1);
+    const on = M.lOn[s] === 1;
+    E.lamp.classList.toggle('on', on);
+    E.lamp.classList.toggle('first', s === org);
+    const key = on ? 'on' + dbOf(M.lMax[s]).toFixed(1) : 'off';
+    if (E.key !== key) {
+      E.key = key;
+      E.lamp.innerHTML = on ? 'CLIP<small>+' + dbOf(M.lMax[s]).toFixed(1) + '</small>' : 'CLIP<small>—</small>';
+      E.lamp.title = on ? label(s) + ': latched at sample ' + M.lAt[s] + ' (' + (M.lAt[s] / SR).toFixed(2)
+        + ' s), max +' + dbOf(M.lMax[s]).toFixed(2) + ' dBFS — click to clear' : label(s) + ': no over since cleared';
+    }
+  }
+  const fo = document.getElementById('firstOver');
+  if (fo) {
+    let n = 0; for (let s = 0; s < NST; s++) n += M.lOn[s];
+    fo.innerHTML = org < 0 ? 'FIRST OVER — none latched'
+      : 'FIRST OVER — <b>' + label(org) + '</b> at ' + (M.lAt[org] / SR).toFixed(2) + ' s (sample ' + M.lAt[org]
+        + '), max +' + dbOf(M.lMax[org]).toFixed(1) + ' dB' + (n > 1 ? ' · ' + (n - 1) + ' more lamp' + (n > 2 ? 's' : '') + ' lit' : '');
+  }
+}
+
+/* ===================== BLOCK F — builders ===================== */
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+}
+function mkRange(parent, lab, min, max, step, get, set, fmt, title) {
+  const row = el('div', 'row');
+  const inp = el('input'); inp.type = 'range'; inp.min = min; inp.max = max; inp.step = step;
+  if (title) inp.title = title;
+  const out = el('output');
+  const sync = () => { const x = get(); inp.value = x; inp.style.setProperty('--pct', ((x - min) / (max - min)).toFixed(4)); out.textContent = fmt(x); };
+  inp.addEventListener('input', () => { set(parseFloat(inp.value)); sync(); onEdit(); });
+  row.appendChild(el('label', null, lab)); row.appendChild(inp); row.appendChild(out);
+  parent.appendChild(row); sync(); SYNCS.push(sync);
+  return row;
+}
+function mkPills(parent, labels, get, set) {
+  const wrap = el('div', 'pills'), bs = [];
+  const paint = () => bs.forEach((b, i) => b.classList.toggle('on', get() === i));
+  labels.forEach((l, i) => {
+    const b = el('button', 'pill', l);
+    b.addEventListener('click', () => { set(i); paint(); onEdit(); });
+    wrap.appendChild(b); bs.push(b);
+  });
+  paint(); SYNCS.push(paint); parent.appendChild(wrap);
+  return wrap;
+}
+function mkScale(parent) {
+  const sc = el('div', 'mscale');
+  for (const d of [6, 0, -6, -12, -24, -48]) {
+    const s = el('span', d === 0 ? 'z' : null, d > 0 ? '+' + d : String(d));
+    s.style.bottom = (frac(d) * 100).toFixed(2) + '%';
+    sc.appendChild(s);
+  }
+  parent.appendChild(sc);
+}
+function mkTap(parent, s) {
+  const st = STAGES[s], tp = TAPS[st.id];
+  const root = el('div', 'tap');
+  const lamp = el('button', 'lamp');
+  lamp.addEventListener('click', () => { clearLatch(s); paintMeters(); });
+  const pair = el('div', 'mpair'), bar = [], fill = [], hold = [];
+  for (let c = 0; c < 2; c++) {
+    const b = el('div', 'mbar'), f = el('i', 'fill'), h = el('i', 'hold');
+    b.title = label(s) + (c ? ' · R' : ' · L');
+    b.appendChild(f); b.appendChild(h); pair.appendChild(b);
+    bar.push(b); fill.push(f); hold.push(h);
+  }
+  const out = el('output', 'pk', '−∞');
+  const nm = el('span', 'tname', st.name);
+  const tb = el('span', 'tb ' + tp.meter, BADGE[tp.meter]); tb.title = BADGE_TIP[tp.meter];
+  root.appendChild(lamp); root.appendChild(pair); root.appendChild(out); root.appendChild(nm); root.appendChild(tb);
+  parent.appendChild(root);
+  TAPEL[s] = { root, lamp, bar, fill, hold, out, nm, key: '' };
+}
+function mkTaps(parent, list) {
+  const row = el('div', 'taps');
+  mkScale(row);
+  for (const s of list) mkTap(row, s);
+  parent.appendChild(row);
+}
+const CANV = { src: [], hist: [] };
+
+function buildChain() {
+  const chain = document.getElementById('chain');
+  const SRC = [['SWARM 1', 'level', 17], ['SWARM 2', 'level', 1017], ['SUB', 'level', 4007]];
+  for (let k = 0; k < 3; k++) {
+    const card = el('div', 'cluster'); card.appendChild(el('h2', null, SRC[k][0]));
+    mkRange(card, 'level', 0, 1, 0.005, () => S.lvl[k], x => { S.lvl[k] = x; }, x => x.toFixed(2), 'id ' + SRC[k][2]);
+    const ar = el('div', 'arow'); ar.appendChild(el('label', null, 'filter'));
+    mkPills(ar, ASSIGN, () => S.asg[k], i => { S.asg[k] = i; });
+    card.appendChild(ar);
+    mkTaps(card, k < 2 ? [ST_G[k], ST_F[k], ST_O[k]] : [ST_G[k], ST_F[k]]);
+    GHOSTS.push([ST_F[k], k]);
+    const cv = el('canvas', 'mini'); card.appendChild(cv); CANV.src.push(cv);
+    card.appendChild(el('div', 'note')).innerHTML = k < 2
+      ? '<b>SAT OUT</b> is after the core\'s tanh — the one source tap the shell publishes, and one that can never go over. The scope is the shell\'s per-osc ring.'
+      : 'Mono. The row\'s <b>headroom constant</b> (1/1.425) means level 1 peaks at 0.983: this lamp cannot be lit by its own knob. No sub scope ring exists.';
+    chain.appendChild(card);
+  }
+  // B209's pair: settings shared, state per source (filter-lab Q3)
+  const fc = el('div', 'cluster'); fc.appendChild(el('h2', null, 'Pre-mix filters · B209'));
+  for (let f = 0; f < 2; f++) {
+    fc.appendChild(el('div', 'cap', 'FILTER ' + 'AB'[f]));
+    const ar = el('div', 'arow'); ar.appendChild(el('label', null, 'mode'));
+    mkPills(ar, FLT_MODES, () => S.flt[f].mode - 1, i => { S.flt[f].mode = i + 1; });
+    fc.appendChild(ar);
+    mkRange(fc, 'cutoff', 0, 1, 0.001, () => mLog(S.flt[f].fc / 40) / mLog(400), x => { S.flt[f].fc = 40 * mPow(400, x); },
+      x => { const hz = 40 * mPow(400, x); return hz >= 1000 ? (hz / 1000).toFixed(1) + 'k' : String(mRound(hz)); });
+    mkRange(fc, 'res', 0, 1, 0.005, () => S.flt[f].res, x => { S.flt[f].res = x; }, x => x.toFixed(2));
+  }
+  fc.appendChild(el('div', 'note')).innerHTML = 'Assign per source on its card (OFF / A / B / A+B in series). <b>Resonance is the '
+    + 'hazard</b>: k floors at 0.05 (<code>svf_core.h:56</code>), about +26 dB at cutoff, so a FILTER lamp can light while the GAIN '
+    + 'lamp before it stays dark. An OFF filter\'s tap is ghosted, not removed: it reads the gain tap\'s signal.';
+  chain.appendChild(fc);
+  const mc = el('div', 'cluster'); mc.appendChild(el('h2', null, 'Mix'));
+  mkTaps(mc, [ST_MIX]);
+  mc.appendChild(el('div', 'note')).innerHTML = 'The sum of the three sources. In the shell this IS slot 1\'s gather (note 4), so '
+    + 'it and FX 1 · IN read the same samples while the crosspoint sits at 1.0.';
+  chain.appendChild(mc);
+  for (let k = 0; k < 4; k++) {
+    const card = el('div', 'cluster'); card.appendChild(el('h2', null, 'FX ' + (k + 1)));
+    const ar = el('div', 'arow'); ar.appendChild(el('label', null, 'type'));
+    const sel = el('select');
+    FX_TYPES.forEach((t, i) => { const o = el('option', null, t); o.value = String(i); sel.appendChild(o); });
+    sel.value = String(S.fx[k].type);
+    sel.addEventListener('change', () => { S.fx[k].type = parseInt(sel.value, 10) || 0; onEdit(); });
+    SYNCS.push(() => { sel.value = String(S.fx[k].type); });
+    ar.appendChild(sel); card.appendChild(ar);
+    mkRange(card, 'amount', 0, 1, 0.005, () => S.fx[k].amt, x => { S.fx[k].amt = x; }, x => x.toFixed(2));
+    mkRange(card, 'in', -2, 2, 0.01, () => S.fx[k].coef, x => { S.fx[k].coef = x; }, x => x.toFixed(2),
+      'the crosspoint into this slot (rt.c.*, −2..+2 — hypersaw_clap.cpp:1132-1135)');
+    mkTaps(card, [ST_FI[k], ST_FO[k]]);
+    const cv = el('canvas', 'hist'); card.appendChild(cv); CANV.hist.push(cv);
+    chain.appendChild(card);
+  }
+  const ms = el('div', 'cluster wide2'); ms.appendChild(el('h2', null, 'Master'));
+  mkRange(ms, 'volume', 0, 1.5, 0.005, () => S.master, x => { S.master = x; }, x => x.toFixed(2), 'id 100, 0..1.5');
+  mkTaps(ms, [ST_MST]);
+  const sc = el('canvas'); sc.id = 'mScope'; ms.appendChild(sc);
+  const sp = el('canvas'); sp.id = 'mSpec'; ms.appendChild(sp);
+  ms.appendChild(el('div', 'note')).innerHTML = 'Scope: L in the value phosphor, R in meter, full-scale rails dashed red and every '
+    + 'over sample dotted. Spectrum: the shell\'s own feed (L+R after master volume), log bands, 1.5 s peak caps; a cap at the '
+    + 'ceiling stays red (<code>gui2.html:5869</code>). Only the spectrum is FED today; the master scope was retired.';
+  chain.appendChild(ms);
+}
+function buildDrive() {
+  const sel = document.getElementById('probeSel');
+  if (sel) {
+    const o0 = el('option', null, 'NONE — the control: no lamp may light'); o0.value = '-1'; sel.appendChild(o0);
+    for (let s = 0; s < NST; s++) { const o = el('option', null, label(s)); o.value = String(s); sel.appendChild(o); }
+    sel.value = String(D.probe);
+    sel.addEventListener('change', () => { D.probe = parseInt(sel.value, 10); if (!(D.probe >= -1)) D.probe = -1; onProbe(); });
+  }
+  const kp = document.getElementById('kindPills');
+  if (kp) mkPills(kp, ['HOT', 'SPIKE'], () => D.kind, i => { D.kind = i; onProbe(); });
+  const hr = document.getElementById('hotRow');
+  if (hr) mkRange(hr, 'hot', 0, 24, 0.5, () => D.hotDb, x => { D.hotDb = x; onProbe(); }, x => '+' + x.toFixed(1));
+  const fp = document.getElementById('feedPills');
+  if (fp) mkPills(fp, ['STICKY · PORT', 'LAST BLOCK · TODAY'], () => D.feed, i => { D.feed = i; clearAll(); });
+}
+function standsFor() {
+  const e = document.getElementById('standsFor'); if (!e) return;
+  e.innerHTML = D.probe < 0 ? '<b>NONE</b> — nothing is driven, so every lamp must stay dark. That is the must-read-zero half of the audit.'
+    : '<b>' + label(D.probe) + '</b> — in the instrument this is ' + STANDS[STAGES[D.probe].id];
+}
+function buildTable() {
+  const t = document.getElementById('tapTable'); if (!t) return;
+  let h = '<tr><th>STAGE</th><th>METER</th><th>TODAY — WHAT THE SHELL PUBLISHES</th><th>THE PORT ADDS</th>'
+    + '<th>HEADROOM</th><th>MUST-FIRE</th></tr>';
+  for (let s = 0; s < NST; s++) {
+    const tp = TAPS[STAGES[s].id];
+    let hr = '—', mf = '—', cls = '';
+    if (auditRes) {
+      hr = dbOf(auditRes.ctl.peak[s]).toFixed(1) + ' dBFS';
+      const r = auditRes.rows[s];
+      const ok = r.fired && !r.stray.length;
+      cls = ok ? 'ok' : 'fail';
+      mf = ok ? 'OK · +' + r.down + ' downstream' : (r.fired ? 'STRAY: ' + r.stray.map(label).join(', ') : 'DID NOT FIRE');
+    }
+    h += '<tr><td class="st">' + label(s) + '</td><td><span class="tb ' + tp.meter + '">' + BADGE[tp.meter] + '</span></td><td>'
+      + tp.today + '</td><td>' + tp.port + '</td><td class="n">' + hr + '</td><td class="n ' + cls + '">' + mf + '</td></tr>';
+  }
+  h += '<tr class="secthead"><td colspan="6">FEEDS THAT ARE NOT ONE STAGE\'S LEVEL</td></tr>';
+  for (const f of FEEDS) {
+    h += '<tr><td class="st">' + f.name + '</td><td><span class="tb ' + f.meter + '">' + BADGE[f.meter] + '</span></td><td>'
+      + f.today + '</td><td>' + f.port + '</td><td class="n">—</td><td class="n">—</td></tr>';
+  }
+  t.innerHTML = h;
+}
+function paintAudit() {
+  const box = document.getElementById('audit'); if (!box) return;
+  if (topoErr) { box.className = 'audit bad'; box.textContent = 'STAGES is not topologically ordered:' + topoErr; return; }
+  if (!auditRes) return;
+  const A = auditRes;
+  let ok = 0; const bad = [];
+  A.rows.forEach((r, s) => { if (r.fired && !r.stray.length) ok++; else bad.push(label(s)); });
+  const litCtl = []; for (let s = 0; s < NST; s++) if (A.ctl.lit[s]) litCtl.push(label(s));
+  let worst = 0; for (let s = 1; s < NST; s++) if (A.ctl.peak[s] > A.ctl.peak[worst]) worst = s;
+  const pass = ok === NST && !litCtl.length && A.sp.cS === A.sp.spk && A.sp.spk > 0;
+  box.className = pass ? 'audit' : 'audit bad';
+  box.innerHTML = 'must-fire audit, run at load on ' + (A.boot ? 'the boot patch' : 'THIS patch') + ': <b>' + ok + '/' + NST
+    + '</b> stages light at the chosen stage and at none upstream or parallel (HOT +' + AUDIT_HOT_DB + ' dB, '
+    + AUDIT_ROW_FRAMES * FRAME + ' samples each)' + (bad.length ? ' — FAILED: ' + bad.join(', ') : '')
+    + ' · control, nothing driven: <b>' + litCtl.length + '</b> lamps over ' + (AUDIT_CTL_FRAMES * FRAME / SR).toFixed(1) + ' s'
+    + (litCtl.length ? ' (' + litCtl.join(', ') + ')' : '') + ', tightest headroom <b>' + label(worst) + ' '
+    + dbOf(A.ctl.peak[worst]).toFixed(1) + ' dBFS</b> · one-sample SPIKE at MIX · SUM: the sticky feed caught <b>' + A.sp.cS
+    + '/' + A.sp.spk + '</b>, the last-block feed (the shell\'s publish today) caught <b>' + A.sp.cL + '/' + A.sp.spk + '</b>.';
+}
+function audit(boot) {
+  auditRes = runAudit(boot ? JSON.parse(BOOT) : S);
+  auditRes.boot = boot;
+  paintAudit(); buildTable();
+}
+
+/* ===================== BLOCK G — edits, theme, frame loop ===================== */
+function onEdit() {
+  if (rig) rig.configure();
+  for (const [s, k] of GHOSTS) {
+    const E = TAPEL[s]; if (!E) continue;
+    const off = S.asg[k] === 0;
+    E.root.classList.toggle('ghost', off);
+    E.nm.textContent = off ? 'FILTER OFF' : 'FILTER ' + ASSIGN[S.asg[k]];
+  }
+}
+function onProbe() {
+  if (rig) rig.setProbe(D.probe, D.kind, D.hotDb);
+  clearAll(); standsFor();
+}
+function bootPatch() {
+  const b = JSON.parse(BOOT);
+  S.lvl = b.lvl; S.asg = b.asg; S.flt = b.flt; S.fx = b.fx; S.master = b.master;
+  for (const f of SYNCS) f();
+  onEdit(); clearAll();
+}
+/* `?theme=dark` opens the dark chassis as a LOAD, so a headless screenshot of
+   the second theme needs no synthetic click (station-page-lab.html:1294). */
+/* `?clip=<stage id>` (e.g. f2i) opens with DRIVE on that stage, and
+   `&kind=spike` picks SPIKE — the must-fire case as a load, for the same reason. */
+try {
+  const q = window.location && window.location.search;
+  if (typeof q === 'string') {
+    if (/theme=dark/.test(q)) dark = true;
+    const m = /clip=([a-z0-9]+)/.exec(q);
+    if (m && SI[m[1]] !== undefined) D.probe = SI[m[1]];
+    if (/kind=spike/.test(q)) D.kind = 1;
+  }
+} catch (_) { /* headless: no location */ }
+function applyTheme() {
+  document.body.classList.toggle('dark', dark);
+  const b = document.getElementById('themeBtn');
+  if (b) b.innerHTML = 'theme <b>' + (dark ? 'DARK · TUBE' : 'LIGHT · ORCHID') + '</b>';
+  for (const k in _tok) delete _tok[k];
+  paintViz();
+}
+function paintViz() {
+  drawStaging();
+  for (let k = 0; k < 3; k++) drawRingScope(CANV.src[k], rig ? rig.rSrc[k] : null, k < 2, k < 2 ? 'scopeL/R[' + k + ']' : 'no sub ring');
+  for (let k = 0; k < 4; k++) drawHist(CANV.hist[k], k);
+  drawMasterScope(); drawSpectrum();
+}
+/* One frame of the chain per animation frame: 768 samples, counted, never
+   timed — on a 60 Hz display the lab runs at 96% of real time, which is the
+   honest cost of keeping the clock out of the core. */
+function frame() {
+  if (rig) { rig.renderFrame(); meterStep(); paintMeters(); paintViz(); }
+  if (window.requestAnimationFrame) window.requestAnimationFrame(frame);
+}
+
+/* ============ SETUP — everything above is declared; nothing here reaches
+   forward to a const below it (L0026). ============ */
+buildChain();
+buildDrive();
+standsFor();
+rig = new MixRig(S);
+onEdit();
+onProbe();
+audit(true);
+const reBtn = document.getElementById('reaudit');
+if (reBtn && reBtn.addEventListener) reBtn.addEventListener('click', () => audit(false));
+const bootBtn = document.getElementById('bootBtn');
+if (bootBtn && bootBtn.addEventListener) bootBtn.addEventListener('click', bootPatch);
+const clrBtn = document.getElementById('clearAll');
+if (clrBtn && clrBtn.addEventListener) clrBtn.addEventListener('click', () => { clearAll(); paintMeters(); });
+const themeBtn = document.getElementById('themeBtn');
+if (themeBtn && themeBtn.addEventListener) themeBtn.addEventListener('click', () => { dark = !dark; applyTheme(); });
+if (window.addEventListener) window.addEventListener('resize', paintViz);
+applyTheme();
+paintMeters();
+frame();
+</script>
+</body></html>
