@@ -2615,6 +2615,7 @@ struct Plugin
      booleans as automation lanes would be noise. Indexed by morphIds position,
      so it rides the same append-only order the corners do. */
   std::vector<uint8_t> morphExempt;
+  std::vector<uint8_t> morphGroupSplit;   // B222 scratch, by group lead: do the corners disagree?
   double morphArm = 0;
   bool morphFromField = false;   // ADR-109 re-entry guard, see the hook
   /* B125 (human 2026-09-14: a reverted corner "might become whatever the corner
@@ -2626,6 +2627,12 @@ struct Plugin
      weighted corners with the live values — with the pad parked on A, corner B
      became A. Set for the duration of a load's writes only. */
   bool loadingState = false;
+  /* B222: set for the duration of an EDITOR value write's apply (queue kind
+     0, which only guiSetParam produces, bar id 90's load migration). It is the
+     one fact morph-on needs to tell the player's toggle from host automation,
+     so the player's toggle can keep the patch while an existing session's
+     automation plays back exactly as it always has. */
+  bool editorWrite = false;
   /* ATOMIC GROUP (ADR-109 A1): indices in [first, last] share ONE corner
      decision, taken on the group's first index. Today the scale is the only
      group; the mechanism is general because the next one (a chord voicing, an
@@ -3144,6 +3151,7 @@ struct Plugin
     for (int k = 0; k < 4; k++) morphCorner[k].assign(morphIds.size(), 0.0);
     morphCur.assign(morphIds.size(), -1e30);
     morphExempt.assign(morphIds.size(), 0);
+    morphGroupSplit.assign(morphIds.size(), 0);   // B222: sized here, never on the audio thread
     morph.reshuffle(morphSeed, (int)morphIds.size());
     // A fresh instance's corners all hold the DEFAULT patch, so switching morph
     // on before capturing anything is silence-safe: every corner agrees.
@@ -3354,6 +3362,116 @@ struct Plugin
     return true;      // no rule -> always live
   }
 
+  /* ================= B222 — MORPH-ON KEEPS THE PATCH =======================
+     The human, 2026-09-23: "turning on morph reverts the routing matrix to its
+     initial state, which kills whatever patch you're working on."
+     Measured (tools/undo_check.cpp layer 5): after ANY state load — the Init
+     patch, a factory preset, a history restore — switching morph on reverted
+     EVERY morphable edit made since, the routing matrix and ordinary
+     parameters alike. The seed adoption in applyParam(151) is keyed on
+     `morphCornersAuthored`, and every load sets that flag because every
+     stateJson carries a morph chunk; so "the corners are still the seed" was
+     false for any instance that had ever loaded anything, even with four
+     identical corners, and the field wrote the load-time values back.
+
+     THE RULE, per morph GROUP (a singleton, or an atomic group: the scale,
+     each FX slot's triple, the whole routing block — ADR-176 §3):
+       * all four corners hold the SAME values -> the field has no opinion
+         about the group (it would pin one value wherever the puck sits), so
+         the LIVE values are adopted into all four and morph-on changes
+         nothing you can hear. Nothing authored is lost: four equal corners
+         carry no morph information;
+       * the corners DIFFER -> the group is the field's and plays the owning
+         corner's values. The live edit is NOT kept, because keeping it would
+         mean writing over a corner the player authored — the destructive
+         direction the seed adoption was written to keep closed.
+     Exempt members are skipped: they are live-only already.
+
+     THE GRANULARITY IS THE FIELD'S OWN (critic NOTE, PR #732). A group is
+     only a unit where the field treats it as one: quantum picks ONE corner
+     per group lead, and so does blend for a STEPPED slot. Blend computes a
+     CONTINUOUS slot on its own — each cell is its own weighted sum, the lead
+     map is never consulted (morphStep) — so there a slot whose four corners
+     agree adopts the live value even when a sibling in its group disagrees.
+     Applying the group rule in blend would throw away a live routing cell for
+     a disagreement in a DIFFERENT cell, which the field itself never couples.
+     (Quantum keeps the group rule for the reason the group exists — ADR-176
+     §3's ruling against ADR-124's chimera: under quantum what you hear is ONE
+     corner's whole routing table, so a cell adopted into every corner while a
+     sibling cell's corners differ would make each corner's table a mix of
+     that corner's cells and the live one — a topology no corner was authored
+     with. It is NOT a cycle guard today: the routing ids expose forward cells
+     only, and ADR-175 calls the cycle hazard "latent while only acyclic cells
+     are exposed". It becomes one if the B139 feedback cells are exposed.) The
+     mode is read at the toggle; a later quantum<->blend switch re-reads the
+     corners as they are.
+
+     "SAME" MEANS SAME AT THE SAVED PRECISION (critic B1, PR #732). The host
+     chunk and every preset write corners %.6g; a corner captured live keeps
+     full precision. After an ordinary save and reopen, a cell nobody morphed
+     can hold 0.123457 in one corner and 0.123456789 in another, and `!=`
+     called that a morph and handed the whole routing block to the field —
+     the human's defect again, through a session reload. So two corner values
+     agree when |a - b| <= 5e-6 * max(|a|, |b|): %.6g keeps six significant
+     digits, so rounding moves a value by at most half a unit in the sixth,
+     which is at most 5e-6 of its magnitude, at every magnitude. A tolerance
+     rather than comparing %.6g TEXT because this runs on the audio thread
+     and snprintf does not belong there; relative rather than the absolute
+     5e-7*max(1,|a|) the review suggested because that bound is too tight
+     above 1 (1234.5678 saves as 1234.57, off by 2.2e-3 > 6.2e-4). Values
+     closer than that are indistinguishable after any save anyway.
+     EXCEPT A STEPPED SLOT, which compares EXACTLY (critic re-review, PR
+     #732): its values are integers, %.6g stores every one up to 999999
+     exactly, so two different stepped corner values were AUTHORED — the
+     oscillator Seed (0..999999) holding 999996 and 999999 is two seeds, not
+     one seed rounded, and the tolerance called them equal and wrote the live
+     seed over both. The SUB seed (4014, up to ~4.29e9) exceeds what %.6g
+     stores exactly, so after a reload its corners can differ by rounding
+     alone; exact comparison then calls them split and hands the slot to the
+     field — the SAFE direction (the corners keep what they hold; only the live
+     edit to that one slot is not adopted), never an overwrite.
+     Each corner is compared with corner 0 only; under the tolerance that makes
+     "agree" hold pairwise within twice the bound, which is still far inside
+     what any save can distinguish.
+
+     REJECTED: clearing `morphCornersAuthored` on loads whose corners agree. It
+     would reopen the seed adoption DURING a load, where 151 lands in the
+     middle of the queued burst and would adopt half-loaded values.
+     Audio thread: compares and writes into vectors morphInit pre-sized. */
+  static bool cornerValuesAgree(double a, double b, bool stepped)
+  {
+    if (stepped) return a == b;
+    return std::fabs(a - b) <= 5e-6 * std::max(std::fabs(a), std::fabs(b));
+  }
+  bool cornersAgreeAt(size_t i) const
+  {
+    const ParamDef *d = findParam(morphIds[i]);
+    const bool stepped = d && d->stepped;
+    const double v = morphCorner[0][i];
+    return cornerValuesAgree(v, morphCorner[1][i], stepped) &&
+           cornerValuesAgree(v, morphCorner[2][i], stepped) &&
+           cornerValuesAgree(v, morphCorner[3][i], stepped);
+  }
+  void morphAdoptUncontested()
+  {
+    const size_t n = morphIds.size();
+    if (morphGroupSplit.size() != n) return;   // morphInit sizes it; never allocate here
+    std::fill(morphGroupSplit.begin(), morphGroupSplit.end(), 0);
+    for (size_t i = 0; i < n; i++)
+      if (!cornersAgreeAt(i)) morphGroupSplit[morphGroupLead(i)] = 1;
+    const bool blend = (int)morphMode == 1;
+    for (size_t i = 0; i < n; i++)
+    {
+      if (i < morphExempt.size() && morphExempt[i]) continue;    // live-only already
+      const ParamDef *d = findParam(morphIds[i]);
+      const bool perSlot = blend && d && !d->stepped;             // the field's own unit
+      if (perSlot ? !cornersAgreeAt(i) : morphGroupSplit[morphGroupLead(i)] != 0)
+        continue;                                                  // the field's
+      const double live = readParam(morphIds[i]);
+      for (int k = 0; k < 4; k++) morphCorner[k][i] = live;
+    }
+  }
+
   /* ADR-109 — where does an edit LAND? The human's model, implemented:
        armed (1..4)  -> that corner's baseline, and only that corner's.
        none armed    -> the corner that OWNS this parameter right now, so the
@@ -3561,7 +3679,15 @@ struct Plugin
      any other write — one write path, no second one to drift. */
   void applyRoutingChunk(const std::string &chunk)
   {
-    for (const auto &d : g_routingTable.defs) applyParam(d.id, d.defV);
+    routingChunkCells(chunk, [&](clap_id id, double v) { applyParam(id, v); });
+  }
+  /* The chunk's meaning, once: every cell at its default, then the cells the
+     chunk names. Two writers consume it — the host chunk applies directly
+     (above), a history restore queues (applyStateJson, B222) — so the parse
+     is shared and only the WRITE differs. */
+  template <class Set> void routingChunkCells(const std::string &chunk, Set &&set) const
+  {
+    for (const auto &d : g_routingTable.defs) set(d.id, d.defV);
     size_t pos = 0;
     while (pos < chunk.size())
     {
@@ -3573,7 +3699,7 @@ struct Plugin
       if (colon == std::string::npos) continue;
       const clap_id id = (clap_id)std::strtoul(tok.c_str(), nullptr, 10);
       if (!findRoutingParam(id)) continue;   // a cell this build does not expose
-      applyParam(id, std::atof(tok.c_str() + colon + 1));
+      set(id, std::atof(tok.c_str() + colon + 1));
     }
   }
 
@@ -3678,7 +3804,8 @@ struct Plugin
   }
   void lfoClearRestored() { for (auto &L : lfo) L.restored = false; }
 
-  std::string modRoutesChunk() const
+  // `lossless`: see historyJson (B222) — the persisted chunk stays %.6g.
+  std::string modRoutesChunk(bool lossless = false) const
   {
     std::string out;
     char buf[80];
@@ -3687,9 +3814,11 @@ struct Plugin
       const auto &q = mod.routes[r];
       if (q.dest & kModDestSynthetic) continue;
       if (q.polarity == hypersaw::ModCore::kAsIs)
-        std::snprintf(buf, sizeof buf, "%u:%u:%.6g;", q.src, q.dest, q.depth);
+        std::snprintf(buf, sizeof buf, lossless ? "%u:%u:%.17g;" : "%u:%u:%.6g;", q.src, q.dest,
+                      q.depth);
       else
-        std::snprintf(buf, sizeof buf, "%u:%u:%.6g:%d;", q.src, q.dest, q.depth, q.polarity);
+        std::snprintf(buf, sizeof buf, lossless ? "%u:%u:%.17g:%d;" : "%u:%u:%.6g:%d;", q.src,
+                      q.dest, q.depth, q.polarity);
       out += buf;
     }
     return out;
@@ -4996,8 +5125,10 @@ struct Plugin
       if (m.kind == 0 || m.kind == 3)   // 3 = a LOAD's value (B125): bypasses corner routing
       {
         loadingState = m.kind == 3;
+        editorWrite = m.kind == 0;
         applyParam(m.id, m.value);
         loadingState = false;
+        editorWrite = false;
         if (out)
         {
           clap_event_param_value_t ev{};
@@ -5981,19 +6112,21 @@ struct Plugin
     }
   }
 
-  std::string morphJson()
+  // `lossless`: see historyJson (B222) — the persisted chunk stays %.6g.
+  std::string morphJson(bool lossless = false)
   {
     if (morphIds.empty()) return "";
     // ADR-159: the array layout version. 2 = late per-osc rows appended last;
     // absent = 1 (pre-2026-09-11), where a 224-entry array is the ADR-150 order.
     std::string out = ",\"morphLayout\":9,\"cornerNames\":" + cornerNamesJson() + ",\"morphCorners\":[";
     char buf[32];
+    const char *first = lossless ? "%.17g" : "%.6g", *rest = lossless ? ",%.17g" : ",%.6g";
     for (int k = 0; k < 4; k++)
     {
       out += k ? ",[" : "[";
       for (size_t i = 0; i < morphIds.size(); i++)
       {
-        std::snprintf(buf, sizeof(buf), i ? ",%.6g" : "%.6g", morphCorner[k][i]);
+        std::snprintf(buf, sizeof(buf), i ? rest : first, morphCorner[k][i]);
         out += buf;
       }
       out += "]";
@@ -6148,7 +6281,7 @@ struct Plugin
     return true;
   }
 
-  std::string stateJson() const
+  std::string stateJson(bool lossless = false) const
   {
     // The debug dump IS the preset format (ROADMAP Phase 2 design position):
     // one schema, provenance included (SPEC §5.7). B100: the header is the
@@ -6199,10 +6332,10 @@ struct Plugin
     // const_cast confined to serialisation: morphJson touches no state, but
     // morphIds is lazily built and stateJson is const. Building eagerly at
     // construction would be cleaner; deferred to keep this diff reviewable.
-    std::string tail = "}" + const_cast<Plugin *>(this)->morphJson();
+    std::string tail = "}" + const_cast<Plugin *>(this)->morphJson(lossless);
     // ADR-138: routes in the preset too, same canonical chunk as state_save —
     // one serializer, two transports. Only when routes exist (see state_save).
-    const std::string routes = modRoutesChunk();
+    const std::string routes = modRoutesChunk(lossless);
     if (!routes.empty()) tail += ",\"modRoutes\":\"" + routes + "\"";
     // B89 phase 2b: the intent bus's bindings, ranges, homes and names. Same
     // rule and the same reason as modRoutes above — only when something has
@@ -6248,7 +6381,10 @@ struct Plugin
      morph chunk, modRoutes and intent, and no routing cells). Resetting the
      matrix on a preset load would therefore DELETE a topology the patch has no
      way to restore. So the flag is true only for the transport that can put it
-     back, and it RETIRES the day B193 puts routing in stateJson.
+     back, and it RETIRES the day B193 puts routing in stateJson. (B222: a
+     HISTORY snapshot can put it back too — historyJson writes its own
+     `routing` key and applyStateJson reads it on a history restore only — so
+     a restore resets the matrix without this flag; a preset still cannot.)
      DELIBERATELY NOT RESET, and named rather than silently skipped (L0036):
      `ens=` and `lfo=` are RNG STREAM CONTINUATIONS, not patch values — they are
      emitted only once a stream has drawn, precisely so a patch that never ran
@@ -6305,8 +6441,12 @@ struct Plugin
   }
 
   /* `nameFromLoader` is the name of the preset being loaded, or "" to take the
-     patch's own (see the naming block at the end of this function). */
-  bool applyStateJson(const std::string &json, const std::string &nameFromLoader = "")
+     patch's own (see the naming block at the end of this function).
+     `historyRestore` is true ONLY from undoGoTo / undoStep: it is what lets a
+     node's `routing` key be read (B222) without teaching the PRESET door a key
+     and a behaviour nobody has ruled on (critic S4, PR #732). */
+  bool applyStateJson(const std::string &json, const std::string &nameFromLoader = "",
+                      bool historyRestore = false)
   {
     // Tolerant flat scan of our own schema: for each known coreKey, find
     // "key" and parse the number after the colon. Queued to the audio
@@ -6320,6 +6460,24 @@ struct Plugin
        anything?"), and two independent statements of "absent means default"
        is the cheap kind of redundancy. */
     initState(/*chunkOnlyState=*/false);
+    /* B222: a HISTORY snapshot carries the routing matrix (historyJson), and
+       only a history restore reads it. A preset or GUI load ignores the key
+       even if a file carries one, and leaves the matrix alone exactly as on
+       main (`chunkOnlyState` above): which key a preset would use for routing,
+       and whether a preset load should reset the matrix, is B193's question
+       and the human's ruling, not a side effect of history. Queued with the
+       parameters as kind 3, for initState's reason (a direct write while
+       process() runs races the audio thread) and B125's (a load's writes are
+       not edits, so none of them is routed into a corner). */
+    if (historyRestore)
+    {
+      const size_t rk = json.find("\"routing\":\"");
+      const size_t q0 = rk == std::string::npos ? rk : rk + 11;   // past `"routing":"`
+      const size_t q1 = q0 == std::string::npos ? q0 : json.find('"', q0);
+      if (q1 != std::string::npos)
+        routingChunkCells(json.substr(q0, q1 - q0),
+                          [&](clap_id id, double v) { enqueueParam(id, v, 3); });
+    }
     /* ADR-138: a load is a load — generic routes are REPLACED by the preset's
        (or cleared, for a preset saved before routes existed; stale routes
        bleeding into a loaded patch would be state the preset never named).
@@ -6497,6 +6655,52 @@ struct Plugin
     return any;
   }
 
+  /* ================= B222 — WHAT A HISTORY NODE STORES =====================
+     The preset JSON PLUS the routing matrix. The preset JSON has never carried
+     routing (B193: stateJson emits kParams, the twins, the engine blocks, the
+     morph chunk, modRoutes and intent — no routing cell), so a node restored
+     everything except the FX matrix, which kept whatever it held. That alone
+     made history lie about the matrix; with the morph field it made a restore
+     depend on the road taken, which is what the human heard — a node with
+     morph on drives the matrix from its corners the moment audio runs, and
+     that matrix survived the return to any other node (undo_check layer 5,
+     red on the pre-B222 build with every snapshot byte-identical).
+
+     WHY A HISTORY-ONLY KEY AND NOT B193's LITERAL FIX (routing in stateJson).
+     stateJson IS the preset file format and the GUI's save. Putting routing
+     there changes what every preset saves and — through "a load is a load" —
+     what every existing preset LOADS: today a preset load leaves the matrix
+     alone (B192's `chunkOnlyState`), so a preset without the key would start
+     resetting the player's matrix. Both are human gates. A history snapshot is
+     main-thread memory that is never persisted, so its format is this
+     function's to choose — and it is READ only by a history restore
+     (applyStateJson's `historyRestore`), so no preset gains the key by
+     accident: a preset carrying `routing` loads exactly as on main.
+
+     `routing` is written ALWAYS here, even empty, because a node's promise is
+     total: an empty chunk means "the series chain", and a restore must put the
+     chain back rather than skip. It sits before "params" so it is the first
+     `"routing":"` in the text whatever a preset or corner NAME contains
+     (jsonEscape makes an embedded quote `\"`, which cannot match anyway).
+
+     LOSSLESS, for the same reason and found the same way: the corner arrays
+     and the mod-route depths are written %.6g in the persisted formats, so a
+     node recorded with morph ON restored its corners ROUNDED — the field then
+     played 1.27526 where the player had heard 1.275262652, and the node never
+     sounded again the way it did when it was made. Measured first as audio
+     (a node's render at record time against its render after any restore),
+     now gated by layer 5's corner-readout row, which is %.10g and so sees a
+     %.6g rounding the node's own writer cannot. The parameters were always
+     %.17g; now everything in a node is. The persisted %.6g is untouched —
+     changing it would re-save every preset. */
+  std::string historyJson() const
+  {
+    std::string s = stateJson(/*lossless=*/true);
+    const size_t at = s.find(",\"params\":{");
+    s.insert(at == std::string::npos ? s.size() - 1 : at, ",\"routing\":\"" + routingChunk() + "\"");
+    return s;
+  }
+
   /* ================= UNDO HISTORY (B84 / ADR-160) =========================
      Main thread only. The audio thread is not read, not written, and not
      synchronised with beyond the two atomic loads undoService already needs in
@@ -6538,10 +6742,34 @@ struct Plugin
     if (!begin) undoMarkParam(id);
   }
 
+  /* THE EDITOR'S VALUE WRITE, in one place for guiGesture's reason: the
+     bridge's setParam and the headless `setmorph` verb (hypersaw_debug_undo)
+     are two callers of this, never two copies of it, so an oracle drives the
+     write the editor makes.
+     B84 — the morph toggle gets its own label. Marked HERE and not in the
+     morphOn branch of applyParam, which is the audio thread and is also where
+     host automation lands: a mark there would both touch the RT path and give
+     automation a node, and ADR-160 (3) forbids the second. This seam is
+     main-thread and reachable only from the editor. */
+  void guiSetParam(clap_id id, double v)
+  {
+    enqueueParam(id, v, 0);
+    if (id == 151) undoMark(v > 0.5 ? "morph on" : "morph off");
+  }
+
   void undoMarkParam(clap_id id)
   {
     const ParamDef *d = findParam(id);
     if (!d) return;
+    /* B222: the morph toggle's bracket END must not rename the node its value
+       write already named. gui2 brackets every control around its own value
+       change (B191), so the order is begin, setParam, END — the END arrives
+       LAST and, left alone, overwrote "morph on"/"morph off" with the bare
+       display name "Morph". The history rail folds a chain of same-label nodes
+       into one row, so on-then-off drew as "Morph ×2" and the ON had no entry
+       of its own (human 2026-09-23). guiSetParam's label is the specific one;
+       keep it. */
+    if (id == 151 && undoPending && undoPendingLabel.rfind("morph o", 0) == 0) return;
     char lb[96];
     const uint32_t k = oscOfId(id);
     // B172: an engine-block id has no oscillator — `oscOfId(4001)` is 4 and
@@ -6568,7 +6796,7 @@ struct Plugin
     const bool seed = undo.size() == 0;
     if (!seed && !undoPending) return;
     if (qHead.load(std::memory_order_acquire) != qTail.load(std::memory_order_acquire)) return;
-    const std::string snap = stateJson();
+    const std::string snap = historyJson();
     if (seed) undo.push("start", snap, ++undoTick);
     if (undoPending)
     {
@@ -6582,7 +6810,7 @@ struct Plugin
     undoService();   // the edit in hand becomes a node BEFORE we walk away from it
     if (!undo.liveAt(i)) return false;
     undoRestoring = true;
-    applyStateJson(undo.node(i).json);
+    applyStateJson(undo.node(i).json, "", /*historyRestore=*/true);
     undoRestoring = false;
     undo.restore(i);
     undoPending = false;
@@ -6595,7 +6823,7 @@ struct Plugin
     const int i = dir < 0 ? undo.undo() : undo.redo();
     if (i == hypersaw::UndoTree::kNone) return false;
     undoRestoring = true;
-    applyStateJson(undo.node(i).json);
+    applyStateJson(undo.node(i).json, "", /*historyRestore=*/true);
     undoRestoring = false;
     undoPending = false;
     return true;
@@ -6975,6 +7203,7 @@ struct Plugin
       if (id == 159) { morphArm = applied; return; }
       if (id >= 151 && id <= 158)
       {
+        const bool morphWasOn = morphOn > 0.5;
         switch (id)
         {
           case 151: morphOn = applied;
@@ -7002,6 +7231,14 @@ struct Plugin
                         const double live = readParam(morphIds[i]);
                         for (int k2 = 0; k2 < 4; k2++) morphCorner[k2][i] = live;
                       }
+                    /* B222: the same promise once the corners ARE authored —
+                       which, before this, meant every instance that had ever
+                       loaded anything, because every state load carries a
+                       morph chunk and sets the flag above. The rule is
+                       morphAdoptUncontested's; it runs on the EDITOR's
+                       off -> on only, never a load's write, never automation. */
+                    else if (morphOn > 0.5 && !morphWasOn && editorWrite && !loadingState)
+                      morphAdoptUncontested();
                     // B48: morph off releases the on-weight ramp, else the
                     // last partway value would keep scaling a morph-free patch.
                     // B203: the engine gates' ramp is released with them — same
@@ -9111,6 +9348,7 @@ extern "C" bool hypersaw_debug_cornermatches(const clap_plugin_t *p, int k, cons
    check drives exactly the calls the GUI binds drive — a second entry point
    would be a second implementation of the thing under test.
      service | tree | json <i> | restore <i> | undo | redo | mark <label-id>
+     | live | setmorph <0|1>   (B222; hypersaw_debug.h's op list predates them)
    Everything returns a string because two of the ops return JSON; the numeric
    ops return a decimal. */
 extern "C" const char *hypersaw_debug_undo(const clap_plugin_t *p, const char *op, int arg)
@@ -9129,6 +9367,10 @@ extern "C" const char *hypersaw_debug_undo(const clap_plugin_t *p, const char *o
   else if (o == "undo") r = pl->undoStep(-1) ? "1" : "0";
   else if (o == "redo") r = pl->undoStep(1) ? "1" : "0";
   else if (o == "mark") { char lb[32]; std::snprintf(lb, sizeof lb, "probe %d", arg); pl->undoMark(lb); r = "1"; }
+  // B222: what a node taken NOW would store, and the editor's morph toggle
+  // (the value half of the checkbox; the bracket is hypersaw_debug_gesture).
+  else if (o == "live") r = pl->historyJson();
+  else if (o == "setmorph") { pl->guiSetParam(151, arg ? 1.0 : 0.0); r = "1"; }
   else r = "?";
   return r.c_str();
 }
@@ -9264,17 +9506,7 @@ bool gui_create(const clap_plugin_t *p, const char *api, bool is_floating)
   hostIf.morphCornerNamesJson = [pl]() { return pl->cornerNamesJson(); };                      // B122
   hostIf.morphCornerSetName = [pl](int k, const std::string &n) { pl->setCornerName(k, n); };  // B122
   hostIf.morphCornerMatches = [pl](int k, const std::string &j) { return pl->cornerMatches(k, j); };   // B122
-  hostIf.setParam = [pl](uint32_t id, double v) {
-    pl->enqueueParam(id, v, 0);
-    /* B84 — the morph toggle gets its own label. Marked HERE and not in the
-       morphOn branch of applyParam, which is the audio thread and is also
-       where host automation lands: a mark there would both touch the RT path
-       and give automation a node, and ADR-160 (3) forbids the second. This
-       seam is main-thread and reachable only from the editor. The checkbox's
-       own pointerup already marked via the gesture latch; undoMark keeps the
-       LAST label, so the pair still collapses into one node. */
-    if (id == 151) pl->undoMark(v > 0.5 ? "morph on" : "morph off");
-  };
+  hostIf.setParam = [pl](uint32_t id, double v) { pl->guiSetParam((clap_id)id, v); };
   hostIf.gesture = [pl](uint32_t id, bool begin) { pl->guiGesture((clap_id)id, begin); };
   // Stamp carries hash AND build time: a hash alone cannot distinguish "the
   // binary I just built" from "a binary built from the same commit last week",

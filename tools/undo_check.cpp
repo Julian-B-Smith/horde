@@ -1,11 +1,11 @@
 /*
- * undo_check — the undo history's oracle (B84 / ADR-160, B186).
+ * undo_check — the undo history's oracle (B84 / ADR-160, B186, B191, B222).
  * WIRED: ./verify full.
  *
  *   undo_check [state_fixtures_dir] [preset_dir] [seed]
  *              (defaults: tests/state_fixtures  docs/presets/factory  20260920)
  *
- * Three layers, because the design has parts that fail differently.
+ * Five layers, because the design has parts that fail differently.
  *
  * LAYER 1 — UndoTree, pure. Ring eviction and re-parenting, fork-on-restore,
  * the undo/redo path, the dedup rule, the 200 cap. No plugin, no CLAP: these
@@ -33,6 +33,15 @@
  * then b, then a again must land on a's exact stored state, and visiting b
  * must never mutate what a stores. Same seed, same sequence, every time; the
  * seed is printed and overridable (argv[3]) so a red run is reproducible.
+ *
+ * LAYER 5 — history fidelity, round 3 (B222), on instances that PROCESS AUDIO,
+ * because the morph field only acts inside process() and every layer above
+ * drives one that never calls it. Three defects the human heard: the morph
+ * toggle's node was named "Morph" and so folded into its neighbour on the
+ * rail; switching morph on after any load reverted every edit since; and a
+ * node sounded different depending on the node visited before it, because
+ * the routing matrix was in no snapshot (B193). Its oracles do not share the
+ * node's writer: the engine's own routing and corner readouts, and the audio.
  *
  * THE CONTROL, and its calibration. ADR-160 (3) rules that host parameter
  * events and automation NEVER create a node: history records the player's
@@ -103,6 +112,13 @@ int undoInt(const clap_plugin_t *p, const char *op, int arg = 0)
 {
   return std::atoi(undoOp(p, op, arg).c_str());
 }
+/* What a node taken NOW would store — the form every "does the instrument
+   hold what the node holds" row compares against (B222). It is the preset
+   JSON PLUS the routing matrix, which the preset JSON does not carry (B193),
+   so a row that compared nodes against saveJson would be blind to exactly the
+   state this history lost. saveJson stays where a row is about the PRESET
+   transport (the round-trip evidence, the preset name). */
+std::string liveJson(const clap_plugin_t *p) { return undoOp(p, "live"); }
 
 // Distinct payloads without pretending to be real patches: layer 1 is about
 // the graph, and a 35 KB string per node would only slow it down.
@@ -292,7 +308,7 @@ void fixtureChecks(const std::string &dir)
     check(undoInt(p, "size") == 1 && root >= 0, "fixtures: " + n + " -> ONE node on open");
     const std::string rootJson = undoOp(p, "json", root);
     g_maxSnapshot = std::max(g_maxSnapshot, rootJson.size());
-    check(rootJson == saveJson(p), "fixtures: " + n + " root node IS the live state");
+    check(rootJson == liveJson(p), "fixtures: " + n + " root node IS the live state");
 
     // Move somewhere else, mark it, and check the tree actually forked forward.
     mutate(p, 0.371);
@@ -300,13 +316,13 @@ void fixtureChecks(const std::string &dir)
     undoOp(p, "service");
     check(undoInt(p, "size") == 2 && undoInt(p, "parent", undoInt(p, "current")) == root,
           "fixtures: " + n + " -> the edit is a child of the root");
-    check(saveJson(p) != rootJson, "fixtures: " + n + " the mutation actually moved the state");
+    check(liveJson(p) != rootJson, "fixtures: " + n + " the mutation actually moved the state");
 
     // Restore, drain, and demand byte-for-byte.
     const bool back = undoOp(p, "restore", root) == "1";
     drain(p);
     check(back && undoInt(p, "current") == root, "fixtures: " + n + " restore lands on the node");
-    check(saveJson(p) == rootJson, "fixtures: " + n + " restore is BIT-IDENTICAL");
+    check(liveJson(p) == rootJson, "fixtures: " + n + " restore is BIT-IDENTICAL");
     check(undoInt(p, "size") == 2, "fixtures: " + n + " restore creates NO node");
 
     p->destroy(p);
@@ -878,7 +894,7 @@ struct ShellHistory
   }
   std::string expected(int i) const { return rec.at(i); }
   std::string stored(int i) const { return undoOp(p, "json", i); }
-  std::string liveState() const { return saveJson(p); }
+  std::string liveState() const { return liveJson(p); }
   void visit(int i)
   {
     undoOp(p, "restore", i);
@@ -1182,7 +1198,7 @@ GauntletResult historyGauntlet(uint32_t seed, int steps, const std::vector<std::
   undoOp(p, "service");   // the editor opening: the root
 
   ShellHistory h{p, {}};
-  h.rec[undoInt(p, "current")] = saveJson(p);
+  h.rec[undoInt(p, "current")] = liveJson(p);
   const std::vector<ParamPick> pool = editablePool(p);
 
   auto pick = [&](size_t n) { return (size_t)(forcecore::rngNext(rng) * (double)n); };
@@ -1191,7 +1207,7 @@ GauntletResult historyGauntlet(uint32_t seed, int steps, const std::vector<std::
   auto closeMark = [&](MarkObs &o, const std::string &was, int step) {
     drain(p);
     undoOp(p, "service");
-    o.liveJson = saveJson(p);
+    o.liveJson = liveJson(p);
     o.stateMoved = o.liveJson != was;
     o.sizeAfter = undoInt(p, "size");
     o.curAfter = undoInt(p, "current");
@@ -1215,7 +1231,7 @@ GauntletResult historyGauntlet(uint32_t seed, int steps, const std::vector<std::
   auto closeNav = [&](int sizeBefore, int step, const std::string &what) {
     drain(p);
     const int c = undoInt(p, "current");
-    if (h.rec.find(c) == h.rec.end() || saveJson(p) != h.rec[c])
+    if (h.rec.find(c) == h.rec.end() || liveJson(p) != h.rec[c])
     {
       g.navBad++;
       if (g.firstNavWhy.empty())
@@ -1236,7 +1252,7 @@ GauntletResult historyGauntlet(uint32_t seed, int steps, const std::vector<std::
     MarkObs o;
     o.sizeBefore = undoInt(p, "size");
     o.curBefore = undoInt(p, "current");
-    const std::string was = saveJson(p);
+    const std::string was = liveJson(p);
 
     if (roll < 0.36)
     {
@@ -1400,12 +1416,12 @@ void controlMarkChecks()
     paramsOf(p)->get_value(p, q.id, &cur);
     const double v = (cur - q.lo) > (q.hi - cur) ? q.lo : q.hi;
 
-    const std::string before = saveJson(p);
+    const std::string before = liveJson(p);
     EvList ev;
     ev.push(q.id, v);
     paramsOf(p)->flush(p, &ev.list, &kOut);
     drain(p);
-    if (saveJson(p) == before)
+    if (liveJson(p) == before)
     {
       // The write left no trace in the snapshot, so a node for it would carry
       // nothing and this parameter cannot say anything about history. Recorded
@@ -1438,39 +1454,28 @@ void controlMarkChecks()
 
   /* THE COVERAGE BOUNDARY, PINNED AND RE-EARNED EVERY RUN — the same discipline
      as kAliasGapId, and found the same way (by this check, on its first run).
-     Two families of parameter accept a value, read it back, and leave the
-     snapshot byte-identical, so history cannot carry them:
+     ONE parameter accepts a value and leaves the history snapshot unchanged:
 
-       * EVERY ROUTING ID (>= 10000, hypersaw_clap.cpp:982). stateJson emits
-         kParams, the per-oscillator copies, the engine blocks, morph, modRoutes
-         and intent — and no routing coefficient (hypersaw_clap.cpp:5773). The
-         binary chunk has a `routing=` section; the JSON path, which IS what
-         UndoTree stores, does not. So the matrix is outside undo/redo entirely.
-         That is a state-serialisation question, not a history one, and closing
-         it is an ADR-sized decision about the preset schema — deliberately NOT
-         done here (B191 is about marking).
        * id 1043. Base id 43 is dispatched by RAW id to a shared object
          (gui_reach's patch-scope derivation), so the oscillator-2 twin is
          declared but reaches nothing: the value written above reads back
          UNCHANGED, which no other parameter in the table does.
 
+     RETIRED 2026-09-23 (B222), by its own instruction: a second family, EVERY
+     ROUTING ID, used to sit here — "ALL 29 routing ids are absent from
+     stateJson, so the routing matrix is outside undo/redo ... WHEN THIS ROW
+     GOES RED ROUTING HAS ENTERED THE STATE: delete this boundary and let the
+     rows above cover it". It went red when historyJson began carrying the
+     matrix, so the 29 routing ids are now inside `covered` above and must each
+     make their node like any other parameter. What remains is STRICTER than
+     what stood: the inert set must be exactly {1043}, so a routing id that
+     fell out of the snapshot again would be red here, not re-pinned.
+
      Pinned as a set, not a count, so a new hole in either direction is red. */
-  std::vector<clap_id> instrumentInert;
-  int routingInert = 0, routingDeclared = 0;
-  for (const ParamPick &q : pool)
-    if (q.id >= 10000) routingDeclared++;
-  for (clap_id id : inert)
-    (id >= 10000) ? (void)routingInert++ : instrumentInert.push_back(id);
-  check(instrumentInert.size() == 1 && instrumentInert[0] == 1043,
-        "layer 4 boundary: id 1043 is the ONLY non-routing parameter whose write leaves the "
-        "snapshot unchanged (base 43 is patch-scope, so the osc-2 twin reaches nothing) — " +
-            std::to_string(instrumentInert.size()) + " found");
-  check(routingInert == routingDeclared && routingDeclared > 0,
-        "layer 4 boundary: ALL " + std::to_string(routingDeclared) + " routing ids are absent "
-        "from stateJson, so the routing matrix is outside undo/redo (" +
-            std::to_string(routingInert) +
-            " inert) — WHEN THIS ROW GOES RED ROUTING HAS ENTERED THE STATE: delete this "
-            "boundary and let the rows above cover it");
+  check(inert.size() == 1 && inert[0] == 1043,
+        "layer 4 boundary: id 1043 is the ONLY parameter whose write leaves the history snapshot "
+        "unchanged (base 43 is patch-scope, so the osc-2 twin reaches nothing; the routing matrix "
+        "has been inside the snapshot since B222) — " + std::to_string(inert.size()) + " found");
   p->stop_processing(p);
   p->deactivate(p);
   p->destroy(p);
@@ -1573,7 +1578,7 @@ void reportedScenario(const std::vector<std::string> &globals)
   drain(p);
   undoOp(p, "service");
   const int nX = undoInt(p, "current");
-  const std::string recX = saveJson(p);
+  const std::string recX = liveJson(p);
 
   // 2. edit on top of X
   {
@@ -1584,19 +1589,19 @@ void reportedScenario(const std::vector<std::string> &globals)
   undoOp(p, "mark", 1);
   undoOp(p, "service");
   const int nXEdit = undoInt(p, "current");
-  const std::string recXEdit = saveJson(p);
+  const std::string recXEdit = liveJson(p);
   check(nXEdit != nX && undoInt(p, "parent", nXEdit) == nX,
         "scenario: the edit is a child of the node preset X made");
 
   // 3. step back to X, 4. load Y there — the fork
   undoOp(p, "restore", nX);
   drain(p);
-  check(saveJson(p) == recX, "scenario: stepping back to X restores X");
+  check(liveJson(p) == recX, "scenario: stepping back to X restores X");
   hypersaw_debug_apply(p, blobY.c_str());
   drain(p);
   undoOp(p, "service");
   const int nY = undoInt(p, "current");
-  const std::string recY = saveJson(p);
+  const std::string recY = liveJson(p);
   check(undoInt(p, "parent", nY) == nX, "scenario: loading Y on the second branch FORKS from X");
   check(recY != recX, "scenario control: Y's state really differs from X's");
 
@@ -1608,9 +1613,9 @@ void reportedScenario(const std::vector<std::string> &globals)
   // 5. return to the first branch
   undoOp(p, "restore", nXEdit);
   drain(p);
-  check(saveJson(p) == recXEdit,
+  check(liveJson(p) == recXEdit,
         "scenario: returning to the first branch lands on the EDIT ON TOP OF X, byte for byte");
-  check(saveJson(p) != recY, "scenario control: that landing is not Y's state wearing X's label");
+  check(liveJson(p) != recY, "scenario control: that landing is not Y's state wearing X's label");
 
   /* 6. and a further edit there sits on X, not on Y — which is exactly the
         state assertion above plus the recording rule, so it is stated as one. */
@@ -1619,11 +1624,11 @@ void reportedScenario(const std::vector<std::string> &globals)
     for (clap_id id : kMutable) ev.push(id, 0.213);
     paramsOf(p)->flush(p, &ev.list, &kOut);
   }
-  const std::string before = saveJson(p);
+  const std::string before = liveJson(p);
   undoOp(p, "mark", 2);
   undoOp(p, "service");
   const int nX3 = undoInt(p, "current");
-  check(undoInt(p, "parent", nX3) == nXEdit && undoOp(p, "json", nX3) == saveJson(p),
+  check(undoInt(p, "parent", nX3) == nXEdit && undoOp(p, "json", nX3) == liveJson(p),
         "scenario: the further edit is recorded on the first branch, holding what the instrument has");
   check(before != recY, "scenario control: the further edit was made on top of X's branch, not Y's");
 
@@ -1693,7 +1698,7 @@ void cornerReferenceScenario(const std::vector<std::string> &corners)
   undoOp(p, "service");
 
   const int node = undoInt(p, "current");
-  check(undoOp(p, "json", node) == saveJson(p),
+  check(undoOp(p, "json", node) == liveJson(p),
         "corner reference: after naming the corner the instrument stands on a node that HOLDS its "
         "state");
   check(undoOp(p, "json", node).find("\"" + name + "\"") != std::string::npos,
@@ -1706,10 +1711,986 @@ void cornerReferenceScenario(const std::vector<std::string> &corners)
   drain(p);
   check(std::string(hypersaw_debug_cornernames(p)).find("\"" + name + "\"") != std::string::npos,
         "corner reference: the corner's preset name survives a round trip through history");
-  check(saveJson(p) == undoOp(p, "json", node),
+  check(liveJson(p) == undoOp(p, "json", node),
         "corner reference: that round trip is byte-identical");
 
   p->destroy(p);
+}
+
+/* ============ layer 5: history fidelity, round 3 (B222) ====================
+   The human, 2026-09-23: "'morph on' doesn't seem to get a history entry on
+   its own. Also I think turning on morph reverts the routing matrix to its
+   initial state ... Sometimes when you go back to a past node and then revert
+   to the future node, the future node sounds different depending on the past
+   node you visited."
+
+   Three defects, one section, because two of them are the same seam seen from
+   two sides: the morph field writes EVERY morphable parameter, the routing
+   matrix included, and the routing matrix was in no history snapshot (B193).
+
+   WHY THESE ROWS RUN AN INSTANCE THAT PROCESSES AUDIO. The morph field acts
+   only inside process() (morphStep, on the 256-sample grid), and every layer
+   above drives an instance that never calls it — which is exactly how the
+   gauntlet walked 120 seeds green past a defect the human heard in a minute.
+   A statement about the field made by an instance whose field never ticks is
+   a statement about the harness (the same lesson as settleFades above). */
+
+// The routing ids from the shell's own enumeration, never re-derived here
+// (the id-layout comment asks nobody to make a second copy of decodeRoutingId).
+std::vector<clap_id> routingIds()
+{
+  std::vector<clap_id> v;
+  const std::string s = hypersaw_debug_routing_ids();
+  for (size_t pos = 0; pos < s.size();)
+  {
+    v.push_back((clap_id)std::strtoul(s.c_str() + pos, nullptr, 10));
+    pos = s.find(';', pos);
+    if (pos == std::string::npos) break;
+    pos++;
+  }
+  return v;
+}
+double valueOf(const clap_plugin_t *p, clap_id id)
+{
+  double v = 0;
+  paramsOf(p)->get_value(p, id, &v);
+  return v;
+}
+/* THE MATRIX AS THE ENGINE REPORTS IT, through CLAP get_value — deliberately
+   NOT through any JSON writer. A row that compared history's snapshot against
+   history's own writer would agree with itself about whatever that writer
+   leaves out (L0032: the detector must not share the assumption); this
+   readout is how the routing rows below can be red on a build whose snapshot
+   has no routing in it at all. */
+std::string routingReadout(const clap_plugin_t *p, const std::vector<clap_id> &ids)
+{
+  std::string out;
+  char b[48];
+  for (clap_id id : ids)
+  {
+    std::snprintf(b, sizeof b, "%u:%.17g,", (unsigned)id, valueOf(p, id));
+    out += b;
+  }
+  return out;
+}
+
+// A processing instance's clock: n blocks of 256, `ev` delivered in the first.
+struct Blocks
+{
+  const clap_plugin_t *p;
+  std::vector<float> L = std::vector<float>(256), R = std::vector<float>(256);
+  float *ch[2];
+  clap_audio_buffer_t ob{};
+  clap_process_t pr{};
+  explicit Blocks(const clap_plugin_t *pp) : p(pp)
+  {
+    ob.channel_count = 2;
+    pr.frames_count = 256;
+    pr.audio_outputs_count = 1;
+    pr.out_events = &kOut;
+  }
+  void run(int n, EvList *ev = nullptr)
+  {
+    // Re-aimed every call, and the empty list is local (EvList points at
+    // itself): the struct is returned by value, and a copy's pointers would
+    // otherwise still aim at the original's buffers.
+    EvList none;
+    ch[0] = L.data();
+    ch[1] = R.data();
+    ob.data32 = ch;
+    pr.audio_outputs = &ob;
+    for (int i = 0; i < n; i++)
+    {
+      pr.in_events = (i == 0 && ev) ? &ev->list : &none.list;
+      p->process(p, &pr);
+    }
+  }
+};
+
+/* The editor's morph checkbox, in the order gui2's bracket emits it (the
+   GATE:BRACKET block; gui_history_check pins that order): begin, value, end.
+   The value goes through the bridge's own setParam body (Plugin::guiSetParam),
+   and `blocks` lets the audio thread drain the whole bracket. */
+void editorMorph(const clap_plugin_t *p, Blocks &b, int on, int blocks)
+{
+  hypersaw_debug_gesture(p, 151, true);
+  undoOp(p, "setmorph", on);
+  hypersaw_debug_gesture(p, 151, false);
+  b.run(blocks);
+}
+
+/* ---- defect 1: the toggle's node ----
+   The shell has always made ONE node per toggle. What it did not do is NAME
+   it: guiSetParam marks "morph on"/"morph off", and the bracket's END, which
+   gui2 has emitted AFTER the value since B191 made every control bracket its
+   own value change, re-marked it with the parameter's display name, "Morph".
+   The history rail coalesces a chain of same-label nodes into one row
+   (gui2 histRowsOf), so on-then-off drew as ONE row, "Morph ×2" — the ON had
+   no entry of its own. The comment that stood at the setParam seam said the
+   opposite ("the checkbox's own pointerup already marked"), which was true of
+   the pre-B191 order and has been false since. */
+void morphToggleChecks()
+{
+  const clap_plugin_t *p = makePlugin();
+  p->activate(p, kSampleRate, 32, 1024);
+  p->start_processing(p);
+  Blocks b(p);
+  b.run(2);
+  undoOp(p, "service");
+
+  const char *want[4] = {"morph on", "morph off", "morph on", "morph off"};
+  bool eachOne = true, named = true;
+  std::string got;
+  for (int k = 0; k < 4; k++)
+  {
+    const int was = undoInt(p, "size");
+    editorMorph(p, b, k % 2 == 0 ? 1 : 0, 2);
+    undoOp(p, "service");
+    if (undoInt(p, "size") != was + 1) eachOne = false;
+    const std::string lb = undoOp(p, "label", undoInt(p, "current"));
+    if (lb != want[k]) named = false;
+    got += (k ? " / " : "") + lb;
+  }
+  check(eachOne, "morph toggle: on, off, on, off from the editor make exactly ONE node each");
+  check(named, "morph toggle: each node is named for the direction it went, so the rail cannot "
+               "coalesce an ON into an OFF (got: " + got + ")");
+
+  /* THE CONTROL, ADR-160 (3): the SAME parameter moved by the host makes no
+     node. The four +1s above are its calibration — this instance can count. */
+  const int was = undoInt(p, "size");
+  EvList ev;
+  ev.push(151, 1);
+  b.run(2, &ev);
+  undoOp(p, "service");
+  check(undoInt(p, "size") == was && valueOf(p, 151) > 0.5,
+        "morph toggle CONTROL: the host switching Morph on moves the parameter and makes ZERO nodes");
+
+  p->stop_processing(p);
+  p->deactivate(p);
+  p->destroy(p);
+}
+
+/* ---- defect 2: morph-on destroys the patch ----
+   CAUSE, measured before the fix (the rows below, red): switching morph on
+   AFTER ANY STATE LOAD reverted every morphable edit made since that load —
+   the routing matrix, which is what the human saw, AND ordinary parameters
+   (detune here), which nobody had reported. Not stale ROUTING corners in
+   particular: stale corners, full stop.
+
+   The mechanism. Morph-on already had a non-destructive rule — "if the corners
+   are still the seed, adopt the live patch into all four" — keyed on
+   `morphCornersAuthored`. Every state load that carries a morph chunk sets
+   that flag, and every stateJson carries one: the Init patch, any factory
+   preset, every history restore. So after any load the corners counted as
+   authored even when all four were identical, the adoption was skipped, and
+   the field wrote the load-time values over everything edited since. The
+   lead's hypothesis (routing rides the field, the corners predate the edit)
+   is CONFIRMED as to mechanism and REFUTED as to scope: it is not routing.
+
+   THE RULE NOW (applyParam, case 151). On the EDITOR's off -> on:
+     * a morph GROUP whose four corners hold the SAME values (the field has no
+       opinion about it — it would pin one value wherever the puck sits) adopts
+       the LIVE values into all four: morph-on changes nothing you can hear;
+     * a group whose corners DIFFER is the field's: it plays the owning
+       corner's values (the whole routing block as one unit, ADR-176 §3). Your
+       live edits to it are not kept, because keeping them would mean writing
+       over a corner you authored — capture them into a corner first.
+   Host automation of the same parameter keeps its pre-B222 behaviour, so an
+   existing session plays back exactly as it did; that boundary is pinned. */
+void morphOnKeepsPatchChecks()
+{
+  const std::vector<clap_id> rids = routingIds();
+  check(!rids.empty(), "morph-on: the routing matrix declares its cells");
+  const clap_id kCell = rids.front();   // Src 1 -> Slot 1: the serial chain's first link
+  const clap_id kDetune = 4, kWidth = 14;
+
+  enum Prep { Fresh, AfterLoad, AfterRestore };
+  struct Inst
+  {
+    const clap_plugin_t *p;
+    Blocks b;
+  };
+  auto open = [&](Prep prep) {
+    const clap_plugin_t *p = makePlugin();
+    p->activate(p, kSampleRate, 32, 1024);
+    p->start_processing(p);
+    Inst in{p, Blocks(p)};
+    in.b.run(2);
+    undoOp(p, "service");
+    if (prep == AfterLoad)
+    {
+      // Its OWN state through the preset door: nothing about the patch
+      // changes, only that a load happened — which is all the defect needs.
+      const std::string self = saveJson(p);
+      hypersaw_debug_apply(p, self.c_str());
+      in.b.run(2);
+      undoOp(p, "service");
+    }
+    if (prep == AfterRestore)
+    {
+      const int root = undoInt(p, "current");
+      EvList ev;
+      ev.push(kWidth, 1.1);
+      in.b.run(2, &ev);
+      undoOp(p, "mark", 1);
+      undoOp(p, "service");
+      undoOp(p, "restore", root);
+      in.b.run(2);
+    }
+    return in;
+  };
+  auto close = [](Inst &in) {
+    in.p->stop_processing(in.p);
+    in.p->deactivate(in.p);
+    in.p->destroy(in.p);
+  };
+  // The player's work: a routing cell and a parameter, edited with morph off.
+  auto edit = [&](Inst &in, double cell, double detune) {
+    EvList ev;
+    ev.push(kCell, cell);
+    ev.push(kDetune, detune);
+    in.b.run(4, &ev);
+  };
+
+  const char *names[3] = {"on a fresh instance", "after a preset load", "after a history restore"};
+  for (int prep = Fresh; prep <= AfterRestore; prep++)
+  {
+    Inst in = open((Prep)prep);
+    const double cell0 = valueOf(in.p, kCell);
+    edit(in, 0.25, 0.777);
+    const bool moved = valueOf(in.p, kCell) == 0.25 && valueOf(in.p, kDetune) == 0.777 && cell0 != 0.25;
+    editorMorph(in.p, in.b, 1, 40);
+    check(moved && valueOf(in.p, kCell) == 0.25 && valueOf(in.p, kDetune) == 0.777,
+          std::string("morph-on ") + names[prep] + ": the routing edit AND the parameter edit "
+          "survive switching morph on (cell " + std::to_string(valueOf(in.p, kCell)) +
+          ", detune " + std::to_string(valueOf(in.p, kDetune)) + ")");
+    close(in);
+  }
+
+  /* MUST READ ZERO: the same patch, the same edits, 40 blocks — and NO toggle.
+     Nothing else in the run may move these values, or the rows above would be
+     measuring something other than the toggle. */
+  {
+    Inst in = open(AfterLoad);
+    edit(in, 0.25, 0.777);
+    in.b.run(40);
+    check(valueOf(in.p, kCell) == 0.25 && valueOf(in.p, kDetune) == 0.777,
+          "morph-on CONTROL: without the toggle nothing moves the edited values (the detector reads zero)");
+    close(in);
+  }
+
+  /* MUST FIRE, and the stated rule for a patch whose corners DO differ: corner
+     A holds the cell at 0.25, corner B at 1.5, the puck sits on B. Edit the
+     cell to 0.6 and width to 1.2 with morph off, then switch it on. The
+     routing block is the field's (A and B disagree), so it plays B's 1.5 —
+     the detector CAN see morph-on move a value. Width was never captured
+     apart — all four corners agree on it — so the edit is adopted and kept. */
+  {
+    Inst in = open(AfterLoad);
+    edit(in, 0.25, 0.28);
+    hypersaw_debug_capture(in.p, 0);
+    edit(in, 1.5, 0.28);
+    hypersaw_debug_capture(in.p, 1);
+    EvList ev;
+    ev.push(152, 1.0);   // morph X: B is top-right (corner order A B / C D)
+    ev.push(153, 0.0);
+    ev.push(kCell, 0.6);
+    ev.push(kWidth, 1.2);
+    in.b.run(4, &ev);
+    editorMorph(in.p, in.b, 1, 40);
+    check(valueOf(in.p, kCell) == 1.5,
+          "morph-on RULE, corners that DIFFER: the routing block plays the owning corner (B = 1.5, got " +
+              std::to_string(valueOf(in.p, kCell)) + ") — and this is the must-fire: the detector "
+              "above can see morph-on move a value");
+    check(valueOf(in.p, kWidth) == 1.2,
+          "morph-on RULE, corners that AGREE: in the same patch, width (never captured apart) keeps "
+          "the live edit (got " + std::to_string(valueOf(in.p, kWidth)) + ")");
+    close(in);
+  }
+
+  /* BOUNDARY, PINNED (L0036): the HOST switching morph on keeps the old
+     behaviour — after a load, a live edit is handed back to the corners. That
+     is what every saved session automating Morph has always done, and changing
+     how an existing session sounds is the human's call, not this change's. If
+     this row goes red, that call was made; say so in the PR. */
+  {
+    Inst in = open(AfterLoad);
+    const double cell0 = valueOf(in.p, kCell);
+    edit(in, 0.25, 0.777);
+    EvList ev;
+    ev.push(151, 1);
+    in.b.run(40, &ev);
+    check(valueOf(in.p, kCell) == cell0,
+          "morph-on BOUNDARY: HOST automation of Morph after a load still plays the corners "
+          "(existing sessions unchanged; the editor rule above is the editor's)");
+    close(in);
+  }
+}
+
+/* ---- defect 3: a restore that depends on the road taken ----
+   THE GAUNTLET PROPERTY, with the independent oracles the earlier layers did
+   not have: for every node N, arriving from several different nodes must land
+   on (a) N's recorded snapshot byte for byte, (b) N's recorded routing and
+   morph corners AS THE ENGINE REPORTS THEM (routingReadout, cornerReadout —
+   neither goes through the node's own writer, L0032), and (c) the same AUDIO
+   over a fixed render whichever node you came from.
+
+   CAUSE, measured before the fix: (a) held on every seed — the snapshot really
+   was restored — while (b) and (c) failed. The routing matrix was in no
+   snapshot (B193), so a restore left it as it was; and a node with morph ON
+   drives the matrix from its corners the moment the audio thread runs. So
+   visiting such a node REWROTE the matrix, and the matrix it wrote then
+   survived the return to any node whose snapshot could not put it back:
+   "the future node sounds different depending on the past node you visited",
+   exactly. The walk below therefore renders at every visit, so the field at
+   the past node actually runs.
+
+   THE FIXED RENDER STARTS FROM SETTLED SILENCE (settledRender): 0.25 s of
+   silent blocks, then statefix::render's one second of A3. Without the settle,
+   every road differed for its first ~4600 frames and then agreed exactly —
+   the master-volume declick (masterVolSm, an 8 ms one-pole that
+   plug_activate does not snap to its target) gliding from the PREVIOUS
+   render's gain. That is a transient left in flight, not state, and the
+   settle is identical for every road, so it cannot hide a difference that
+   persists: the pre-fix routing leak is red through it (verified).
+
+   CAUSE TWO, found by this section once the first was fixed: the node's
+   writer rounded the corner arrays to %.6g (the persisted format's
+   precision), so a node recorded with morph ON came back with its corners
+   rounded and the field played slightly different values than the player had
+   heard. (b)'s corner readout is %.10g, independent of the node writer, which
+   is why it can see a %.6g rounding the snapshot comparison (same writer on
+   both sides) cannot. historyJson is lossless now.
+
+   WHAT (c) DELIBERATELY DOES NOT CLAIM, measured rather than assumed: that a
+   node sounds bit-identical to the moment it was RECORDED. The first cut of
+   this section had that row and it caught the %.6g rounding above; after
+   that, its only residue was in-flight MOTION, not state: the morph field's
+   glide cache (`morphCur`, the one-pole carrying each slot toward its target
+   at Morph Glide, id 158) and the master-volume declick. A restore lands the
+   field ON its targets (the 151 off->on transition every load performs
+   resets the cache), while the instrument at record time was still gliding
+   toward them — up to 0.063 peak difference on a node recorded mid-glide
+   under a loaded patch's long Morph Glide, and ~1e-7 where the glide had
+   converged to its 1e-9 deadband. Replaying a glide in flight is not a
+   property of a patch; it is reported to the lead as an open question rather
+   than smuggled into a tolerance here.
+
+   THE OTHER CANDIDATES, each tested rather than assumed:
+     * a restore path that skips initState: it does not — undoGoTo and
+       undoStep both replay through applyStateJson, whose first act is
+       initState. The "restore IS a load" row pins it.
+     * state the snapshot omits: the host chunk is the most complete writer
+       the shell has, so every audio difference is classified against it. Two
+       arrivals whose chunks are identical must render identically; after the
+       routing fix the ONLY residue anywhere in the sweep is the ensemble-
+       timing stream (`ens=`, B149) — see ensBoundaryEvidence. Engine
+       internals, the morph runtime and the LFOs (which activate() reseeds)
+       leave nothing.
+     * B189's dropped marks: a RECORDING defect (an edit never becomes a
+       node), not a restore one; (b) and (c) close without touching it. */
+struct PathReport
+{
+  int nodes = 0, arrivals = 0, stateBad = 0, routeBad = 0, cornerBad = 0, audioPath = 0,
+      ctlBad = 0, distinct = 0, silent = 0, loadBad = 0, ensOnly = 0;
+  // The first reason PER BUCKET: one shared "first why" printed beside every
+  // red row names the wrong failure on all but one of them.
+  std::map<const int *, std::string> first;
+  void note(int &bucket, const std::string &w)
+  {
+    bucket++;
+    if (!first.count(&bucket)) first[&bucket] = w;
+  }
+  std::string why(const int &bucket) const
+  {
+    const auto it = first.find(&bucket);
+    return it == first.end() ? "" : " [" + it->second + "]";
+  }
+};
+
+constexpr int kSettleBlocks = 43;   // 0.25 s: masterVolSm lands on target in ~0.11 s
+void settledRender(const clap_plugin_t *p, std::vector<float> &out)
+{
+  p->activate(p, kSampleRate, 32, 1024);
+  p->start_processing(p);
+  Blocks(p).run(kSettleBlocks);
+  p->stop_processing(p);
+  p->deactivate(p);
+  render(p, out);
+}
+
+/* The four corners as the engine's own armed-view readout prints them
+   (%.10g, morphCornerValsJson) — a second writer, so a node writer that
+   rounds cannot agree with itself here. */
+std::string cornerReadout(const clap_plugin_t *p)
+{
+  std::string out;
+  for (int k = 0; k < 4; k++) out += std::string(hypersaw_debug_cornervals(p, k)) + "\n";
+  return out;
+}
+
+/* The host chunk with its ensemble-timing lines (`ens=`, `o<k>.ens=`) taken
+   out: the one difference the sweep is allowed to explain, and only by
+   showing that it is the ONLY difference. */
+std::string withoutEns(const std::string &chunk)
+{
+  std::string out;
+  size_t pos = 0;
+  while (pos < chunk.size())
+  {
+    size_t eol = chunk.find('\n', pos);
+    if (eol == std::string::npos) eol = chunk.size();
+    const std::string line = chunk.substr(pos, eol - pos);
+    const std::string key = line.substr(0, line.find('='));
+    const bool ens = key == "ens" || (key.size() > 4 && key.compare(key.size() - 4, 4, ".ens") == 0);
+    if (!ens) out += line + "\n";
+    pos = eol + 1;
+  }
+  return out;
+}
+
+/* Two renders that differ are EXPLAINED only when the host chunks they
+   started from differ in the ensemble stream and in nothing else. Anything
+   else — including identical chunks and different audio — is the defect. */
+enum class AudioVerdict { Same, EnsOnly, Unexplained };
+AudioVerdict classify(const std::vector<float> &a, const std::vector<float> &b,
+                      const std::string &chunkA, const std::string &chunkB)
+{
+  if (a == b) return AudioVerdict::Same;
+  if (chunkA != chunkB && withoutEns(chunkA) == withoutEns(chunkB)) return AudioVerdict::EnsOnly;
+  return AudioVerdict::Unexplained;
+}
+
+PathReport historyPaths(uint32_t seed, const std::vector<std::string> &globals,
+                        const std::vector<std::string> &corners)
+{
+  PathReport r;
+  uint32_t rng = seed;
+  auto pick = [&](size_t n) {
+    size_t k = (size_t)(forcecore::rngNext(rng) * (double)n);
+    return k >= n ? n - 1 : k;
+  };
+  const std::vector<clap_id> rids = routingIds();
+  const clap_plugin_t *p = makePlugin();
+  std::vector<float> scratch, a, b;
+  render(p, scratch);   // activate once: morphInit, so every snapshot carries the field
+  drain(p);
+  undoOp(p, "service");
+
+  std::map<int, std::string> rec, recRoute, recCorner;
+  std::map<int, std::vector<float>> recAudio;
+  auto record = [&]() {
+    drain(p);
+    undoOp(p, "service");
+    const int c = undoInt(p, "current");
+    if (rec.count(c)) return;
+    rec[c] = liveJson(p);
+    recRoute[c] = routingReadout(p, rids);
+    recCorner[c] = cornerReadout(p);
+    settledRender(p, recAudio[c]);   // ... and the field at this node runs
+  };
+  auto tally = [&](AudioVerdict v, int &bucket, const std::string &why) {
+    if (v == AudioVerdict::EnsOnly) r.ensOnly++;
+    if (v == AudioVerdict::Unexplained) r.note(bucket, why);
+  };
+  record();
+
+  for (int s = 0; s < 28; s++)
+  {
+    const double roll = forcecore::rngNext(rng);
+    if (roll < 0.24)
+    {
+      EvList ev;
+      const int k = 1 + (int)pick(2);
+      for (int i = 0; i < k; i++) ev.push(rids[pick(rids.size())], -1.0 + 2.5 * forcecore::rngNext(rng));
+      paramsOf(p)->flush(p, &ev.list, &kOut);
+      undoOp(p, "mark", s);
+      record();
+    }
+    else if (roll < 0.34)
+    {
+      EvList ev;
+      ev.push(4, forcecore::rngNext(rng));    // detune
+      ev.push(152, forcecore::rngNext(rng));  // the puck, so corners get to win
+      ev.push(153, forcecore::rngNext(rng));
+      paramsOf(p)->flush(p, &ev.list, &kOut);
+      undoOp(p, "mark", s);
+      record();
+    }
+    else if (roll < 0.46)
+    {
+      // The editor's toggle, idle-instance form: the bracket and the value
+      // drain through the host's flush, as the preset door's writes do.
+      hypersaw_debug_gesture(p, 151, true);
+      undoOp(p, "setmorph", valueOf(p, 151) > 0.5 ? 0 : 1);
+      hypersaw_debug_gesture(p, 151, false);
+      record();
+    }
+    else if (roll < 0.56)
+    {
+      hypersaw_debug_capture(p, (int)pick(4));
+      record();
+    }
+    else if (roll < 0.64 && !globals.empty())
+    {
+      std::string blob;
+      readFile(globals[pick(globals.size())], blob);
+      hypersaw_debug_apply(p, blob.c_str());
+      record();
+    }
+    else if (roll < 0.70 && !corners.empty())
+    {
+      std::string blob;
+      const std::string &f = corners[pick(corners.size())];
+      readFile(f, blob);
+      const int k = (int)pick(4);
+      hypersaw_debug_cornerapply(p, k, blob.c_str());
+      hypersaw_debug_cornername(p, k, stemOf(f).c_str());
+      record();
+    }
+    else
+    {
+      // Visit a past node and PLAY it: the field at that node runs.
+      std::vector<int> ids;
+      for (const auto &kv : rec) ids.push_back(kv.first);
+      undoOp(p, "restore", ids[pick(ids.size())]);
+      drain(p);
+      settledRender(p, scratch);
+    }
+  }
+
+  std::vector<int> ids;
+  for (const auto &kv : rec) ids.push_back(kv.first);
+  r.nodes = (int)ids.size();
+  for (int n : ids)
+  {
+    if (rms(recAudio[n]) == 0) r.silent++;
+    if (recAudio[n] != recAudio[ids.front()]) r.distinct++;
+    std::vector<float> first;
+    std::string firstChunk;
+    for (int t = 0; t < 3; t++)
+    {
+      const int from = ids[pick(ids.size())];
+      undoOp(p, "restore", from);
+      drain(p);
+      settledRender(p, scratch);   // play the past node
+      undoOp(p, "restore", n);
+      drain(p);
+      r.arrivals++;
+      const std::string tag = "node " + std::to_string(n) + " from " + std::to_string(from);
+      if (liveJson(p) != rec[n])
+        r.note(r.stateBad, tag + ": snapshot differs — " + firstKeyDiff(rec[n], liveJson(p)));
+      if (routingReadout(p, rids) != recRoute[n])
+        r.note(r.routeBad, tag + ": the ENGINE's routing differs from what the node recorded");
+      if (cornerReadout(p) != recCorner[n])
+        r.note(r.cornerBad, tag + ": the ENGINE's morph corners differ from what the node recorded");
+      const std::string chunk = saveChunk(p);
+      settledRender(p, b);
+      if (t == 0)
+      {
+        first = b;
+        firstChunk = chunk;
+        /* MUST READ ZERO: the same road twice renders the same bytes (up to
+           the named stream), so a difference between roads below is the
+           road, not the render. */
+        undoOp(p, "restore", from);
+        drain(p);
+        settledRender(p, scratch);
+        undoOp(p, "restore", n);
+        drain(p);
+        const std::string again = saveChunk(p);
+        settledRender(p, a);
+        tally(classify(b, a, chunk, again), r.ctlBad, tag + ": the same road twice rendered different bytes");
+      }
+      else
+        tally(classify(first, b, firstChunk, chunk), r.audioPath,
+              tag + ": audio depends on the node visited before it");
+    }
+    /* A RESTORE IS A LOAD: from the SAME disturbed state, the restore and the
+       preset door fed the node's own JSON land on the same state and audio.
+       Both doors start from one disturbance, so a gap either door shares
+       cannot make this row red — it is about the two DOORS, not about what
+       the snapshot holds (the rows above are).
+       ONE DELIBERATE DIFFERENCE (B222 S4): only the restore reads the node's
+       `routing` key; the preset door leaves the matrix alone, as it does on
+       main. So the preset leg starts from the node's own matrix (a restore
+       first, then a disturbance that touches no routing cell), and the two
+       doors are compared on everything else. */
+    {
+      auto disturb = [&]() {
+        EvList ev;
+        for (clap_id id : kMutable) ev.push(id, 0.444);
+        paramsOf(p)->flush(p, &ev.list, &kOut);
+        drain(p);
+      };
+      disturb();
+      undoOp(p, "restore", n);
+      drain(p);
+      const std::string viaRestore = liveJson(p), chunkR = saveChunk(p);
+      settledRender(p, a);
+      undoOp(p, "restore", n);   // the node's matrix, which the preset door keeps
+      drain(p);
+      disturb();
+      const std::string node = undoOp(p, "json", n);
+      hypersaw_debug_apply(p, node.c_str());
+      drain(p);
+      const std::string viaLoad = liveJson(p), chunkL = saveChunk(p);
+      settledRender(p, b);
+      if (viaLoad != viaRestore)
+        r.note(r.loadBad, "node " + std::to_string(n) + ": its JSON through the preset door did "
+                          "not land where the restore did — " + firstKeyDiff(viaRestore, viaLoad));
+      else
+        tally(classify(a, b, chunkR, chunkL), r.loadBad,
+              "node " + std::to_string(n) + ": the preset door and the restore render differently");
+      undoOp(p, "restore", n);   // the door marked a node; stand back on N
+      drain(p);
+    }
+  }
+  p->destroy(p);
+  return r;
+}
+
+void historyPathChecks(uint32_t seed, const std::vector<std::string> &globals,
+                       const std::vector<std::string> &corners)
+{
+  for (int run = 0; run < 3; run++)
+  {
+    const uint32_t s = seed + 104729u * (uint32_t)run;
+    const PathReport r = historyPaths(s, globals, corners);
+    const std::string tag = "paths[seed " + std::to_string(s) + "]";
+    std::printf("     %s: %d nodes, %d arrivals, %d nodes render distinct from the root, "
+                "%d audio differences explained by the ens= stream alone\n",
+                tag.c_str(), r.nodes, r.arrivals, r.distinct, r.ensOnly);
+    check(r.nodes >= 8, tag + ": the walk built a tree worth testing (>= 8 nodes)");
+    check(r.ctlBad == 0, tag + " CONTROL: the same road twice renders identical bytes (must read zero)" +
+                             r.why(r.ctlBad));
+    check(r.distinct > 0 && r.silent == 0,
+          tag + " CONTROL: nodes render audibly and DIFFERENTLY (the audio detector can see a "
+                "difference; " + std::to_string(r.silent) + " silent)");
+    check(r.stateBad == 0, tag + ": every arrival lands on the node's snapshot byte for byte" +
+                               r.why(r.stateBad));
+    check(r.routeBad == 0, tag + ": every arrival lands on the node's ROUTING as the engine reports it" +
+                               r.why(r.routeBad));
+    check(r.audioPath == 0,
+          tag + ": the fixed render does not depend on which node you came from" +
+              r.why(r.audioPath));
+    check(r.cornerBad == 0,
+          tag + ": every arrival lands on the node's morph CORNERS as the engine reports them" +
+              r.why(r.cornerBad));
+    check(r.loadBad == 0, tag + ": a restore IS a load (the node's JSON through the preset door "
+                                "lands on the same state and audio)" + r.why(r.loadBad));
+  }
+}
+
+/* ---- the critic's rework (PR #732 review) ---- */
+
+/* B1 — CORNERS THAT AGREE AT THE SAVED PRECISION ARE CORNERS THAT AGREE.
+   The critic's probe, run as a row. A host chunk (and a preset) writes corner
+   values %.6g, while a corner captured live keeps full precision; so an
+   ordinary save + reopen leaves corners A and B holding 0.123457 and
+   0.123456789 for a cell the player never morphed. Compared with `!=` that
+   marked the whole routing block as split, and morph-on then played corner
+   A's routing over the player's live edit — the human's defect, back through
+   a session reload. The row is the reopen; its control is the identical
+   sequence without the reopen, which must keep the edit on either build. */
+void savedPrecisionAgreementChecks()
+{
+  const std::vector<clap_id> rids = routingIds();
+  const clap_id X = rids[1], Y = rids[2];
+  bool kept[2] = {false, false}, splitSeen = false;
+  for (int reload = 0; reload < 2; reload++)
+  {
+    const clap_plugin_t *p = makePlugin();
+    p->activate(p, kSampleRate, 32, 1024);
+    p->start_processing(p);
+    Blocks b(p);
+    b.run(2);
+    undoOp(p, "service");
+    const std::string self = saveJson(p);
+    hypersaw_debug_apply(p, self.c_str());   // a load: the corners count as authored
+    b.run(2);
+    {
+      EvList ev;
+      ev.push(X, 0.123456789);
+      b.run(4, &ev);
+    }
+    for (int k = 0; k < 4; k++) hypersaw_debug_capture(p, k);
+    if (reload)
+    {
+      const std::string c = saveChunk(p);
+      p->stop_processing(p);
+      p->deactivate(p);
+      loadChunk(p, c);
+      p->activate(p, kSampleRate, 32, 1024);
+      p->start_processing(p);
+      b.run(4);
+    }
+    hypersaw_debug_capture(p, 1);
+    if (reload)
+      splitSeen = std::string(hypersaw_debug_cornervals(p, 0)) != hypersaw_debug_cornervals(p, 1);
+    {
+      EvList ev;
+      ev.push(Y, 0.5);
+      b.run(4, &ev);
+    }
+    editorMorph(p, b, 1, 40);
+    kept[reload] = valueOf(p, Y) == 0.5;
+    p->stop_processing(p);
+    p->deactivate(p);
+    p->destroy(p);
+  }
+  check(splitSeen, "B1 PRECONDITION: after the reopen, corners A and B differ in their stored "
+                   "digits (0.123457 vs 0.123456789) — the case the row is about exists");
+  check(kept[0], "B1 CONTROL: without the reopen, the routing edit survives morph-on");
+  check(kept[1], "B1: after an ordinary save + reopen, the routing edit STILL survives morph-on "
+                 "(corners equal at the saved %.6g precision agree)");
+}
+
+/* NOTE 4 — THE ADOPTION UNIT IS THE FIELD'S OWN. Corners A and B disagree on
+   routing cell Y and agree on cell X; the player edits X with morph off and
+   switches morph on. In BLEND the field computes each continuous cell on its
+   own, so X — whose corners agree — keeps the edit. In QUANTUM the routing
+   block is one unit (ADR-176 §3): it plays the owning corner whole, X
+   included, which is the stated rule and the must-fire beside the blend row. */
+void adoptionUnitChecks()
+{
+  const std::vector<clap_id> rids = routingIds();
+  const clap_id X = rids[1], Y = rids[2];
+  for (int blend = 0; blend < 2; blend++)
+  {
+    const clap_plugin_t *p = makePlugin();
+    p->activate(p, kSampleRate, 32, 1024);
+    p->start_processing(p);
+    Blocks b(p);
+    b.run(2);
+    const std::string self = saveJson(p);
+    hypersaw_debug_apply(p, self.c_str());
+    b.run(2);
+    const double x0 = valueOf(p, X);
+    auto set = [&](clap_id id, double v) {
+      EvList ev;
+      ev.push(id, v);
+      b.run(4, &ev);
+    };
+    set(157, blend);   // morph mode: 0 quantum, 1 blend
+    set(Y, 0.25);
+    hypersaw_debug_capture(p, 0);
+    set(Y, 1.5);
+    hypersaw_debug_capture(p, 1);
+    set(152, 1.0);     // the puck on corner B
+    set(153, 0.0);
+    set(X, 0.6);
+    editorMorph(p, b, 1, 40);
+    const double x = valueOf(p, X), y = valueOf(p, Y);
+    if (blend)
+      check(x == 0.6 && y == 1.5,
+            "NOTE 4, BLEND: a routing cell whose corners agree keeps its live edit although a "
+            "sibling cell's corners differ (X " + std::to_string(x) + " want 0.6; Y " +
+                std::to_string(y) + " = corner B)");
+    else
+      check(x == x0 && y == 1.5,
+            "NOTE 4, QUANTUM (the stated group rule, and the must-fire): the routing block plays "
+            "corner B whole, so X returns to B's " + std::to_string(x0) + " (got " +
+                std::to_string(x) + ")");
+    p->stop_processing(p);
+    p->deactivate(p);
+    p->destroy(p);
+  }
+}
+
+/* STEPPED CORNERS COMPARE EXACTLY (critic re-review, PR #732). The %.6g
+   tolerance that makes B1 work is wrong for an integer: the oscillator Seed
+   (id 3, stepped, 0..999999) is in the field, %.6g stores every integer in
+   that range exactly, and 999996 vs 999999 are within 5e-6 of each other —
+   so the tolerance called two AUTHORED seeds "the same" and morph-on wrote
+   the live seed over both corners. The row: corners A=999996, B=999999, live
+   999998, morph on — the corners must stay authored, in quantum and blend.
+   The control: the same live edit over UNANIMOUS seed corners is adopted (a
+   stepped slot still adopts when its corners truly agree). */
+double cornerValueOf(const clap_plugin_t *p, int k, clap_id id)
+{
+  const std::string s = hypersaw_debug_cornervals(p, k);
+  const std::string key = "\"" + std::to_string(id) + "\":";
+  const size_t a = s.find(key);
+  return a == std::string::npos ? -999 : std::atof(s.c_str() + a + key.size());
+}
+void steppedCornerChecks()
+{
+  const clap_id kSeed = 3;
+  for (int blend = 0; blend < 2; blend++)
+    for (int split = 0; split < 2; split++)
+    {
+      const clap_plugin_t *p = makePlugin();
+      p->activate(p, kSampleRate, 32, 1024);
+      p->start_processing(p);
+      Blocks b(p);
+      b.run(2);
+      const std::string self = saveJson(p);
+      hypersaw_debug_apply(p, self.c_str());   // a load: the corners count as authored
+      b.run(2);
+      auto set = [&](clap_id id, double v) {
+        EvList ev;
+        ev.push(id, v);
+        b.run(4, &ev);
+      };
+      set(157, blend);
+      set(kSeed, 999996);
+      for (int k = 0; k < 4; k++) hypersaw_debug_capture(p, k);
+      if (split)
+      {
+        set(kSeed, 999999);
+        hypersaw_debug_capture(p, 1);
+      }
+      set(kSeed, 999998);   // the live seed, a third value
+      editorMorph(p, b, 1, 40);
+      const double a = cornerValueOf(p, 0, kSeed), bb = cornerValueOf(p, 1, kSeed);
+      const std::string mode = blend ? "blend" : "quantum";
+      if (split)
+        check(a == 999996 && bb == 999999,
+              "STEPPED (" + mode + "): authored seed corners 999996 / 999999 are NOT overwritten by "
+              "morph-on (got " + std::to_string((long)a) + " / " + std::to_string((long)bb) + ")");
+      else
+        check(a == 999998 && bb == 999998,
+              "STEPPED CONTROL (" + mode + "): unanimous seed corners DO adopt the live 999998 (got " +
+                  std::to_string((long)a) + " / " + std::to_string((long)bb) + ")");
+      p->stop_processing(p);
+      p->deactivate(p);
+      p->destroy(p);
+    }
+}
+
+/* S3 — A MOD-ROUTE DEPTH SURVIVES A HISTORY ROUND TRIP EXACTLY. The route
+   enters through the preset door's `modRoutes` key (the door
+   gen_state_fixtures already uses), with a depth %.6g cannot hold. The node
+   must carry the depth's %.17g text — asserted against the text, not against
+   the node writer's own output, because a writer that rounded would agree
+   with itself (L0032). */
+void modRouteDepthChecks()
+{
+  const clap_plugin_t *p = makePlugin();
+  std::vector<float> scratch;
+  render(p, scratch);
+  drain(p);
+  undoOp(p, "service");
+  loadJson(p, "{\"plugin\":\"HYPERSAW\",\"schema\":3,\"params\":{},\"modRoutes\":\"0:4:0.123456789;\"}");
+  undoOp(p, "service");
+  const int n = undoInt(p, "current");
+  char exact[64];
+  std::snprintf(exact, sizeof exact, "0:4:%.17g;", 0.123456789);
+  const std::string node = undoOp(p, "json", n);
+  check(node.find(exact) != std::string::npos,
+        std::string("S3: the history node holds the route depth EXACTLY (") + exact + ")");
+  loadJson(p, "{\"plugin\":\"HYPERSAW\",\"schema\":3,\"params\":{}}");   // routes cleared
+  undoOp(p, "service");
+  const bool cleared = undoOp(p, "json", undoInt(p, "current")).find(exact) == std::string::npos;
+  undoOp(p, "restore", n);
+  drain(p);
+  check(cleared && liveJson(p) == node,
+        "S3: the depth comes back through a restore (and the load between really cleared it)");
+  p->destroy(p);
+}
+
+/* S4 — A PRESET CANNOT CARRY ROUTING. The `routing` key is the HISTORY
+   snapshot's; the preset door must ignore it exactly as main does, because
+   reading it would decide B193's key name and a preset-load behaviour, both
+   human-gated. The control is the other door: a history restore of a node
+   that holds the matrix DOES move it — so the readout can move. */
+void presetRoutingKeyChecks()
+{
+  const std::vector<clap_id> rids = routingIds();
+  const clap_id cell = rids[1];
+  const clap_plugin_t *p = makePlugin();
+  std::vector<float> scratch;
+  render(p, scratch);
+  drain(p);
+  undoOp(p, "service");
+  {
+    EvList ev;
+    ev.push(cell, 0.7);
+    paramsOf(p)->flush(p, &ev.list, &kOut);
+    drain(p);
+  }
+  const std::string preset = "{\"plugin\":\"HYPERSAW\",\"schema\":3,\"routing\":\"" +
+                             std::to_string(cell) + ":0.25\",\"params\":{}}";
+  hypersaw_debug_apply(p, preset.c_str());
+  drain(p);
+  check(valueOf(p, cell) == 0.7,
+        "S4: a preset carrying a `routing` key, loaded through the preset door, leaves the matrix "
+        "untouched (cell " + std::to_string(valueOf(p, cell)) + ", want 0.7)");
+  undoOp(p, "service");
+  {
+    EvList ev;
+    ev.push(cell, 0.25);
+    paramsOf(p)->flush(p, &ev.list, &kOut);
+    drain(p);
+  }
+  undoOp(p, "mark", 1);
+  undoOp(p, "service");
+  const int n = undoInt(p, "current");
+  {
+    EvList ev;
+    ev.push(cell, 0.7);
+    paramsOf(p)->flush(p, &ev.list, &kOut);
+    drain(p);
+  }
+  undoOp(p, "restore", n);
+  drain(p);
+  check(valueOf(p, cell) == 0.25,
+        "S4 CONTROL: a history restore DOES put the node's matrix back (the readout can move)");
+  p->destroy(p);
+}
+
+/* THE ONE STATE HISTORY STILL DOES NOT RESTORE, PINNED (L0033/L0036), and the
+   reason the rows above may explain a difference at all.
+   `ens=` is the ADR-077/078 ensemble-timing stream: each note's onset offsets
+   are corrected FROM the notes before it, so it is the memory of the phrase
+   played, not a setting. The host chunk carries it (B149) so a reopened
+   session resumes the phrase; the preset JSON and therefore history do not,
+   and a load deliberately does not reset it (initState: "a separate question
+   about stream identity across a load, and no row asks it yet"). B222 is that
+   row: with Onset Scatter on, a node sounds different after one more note
+   than before it, whichever way you arrived. Whether a restore should REWIND
+   the phrase to where the node was recorded is the human's call, not this
+   change's — carrying `ens` in history would make the rows above exact, and
+   would also make every restore replay the same scatter. WHEN THIS ROW GOES
+   RED, history restores the stream: delete classify's EnsOnly exemption.
+   The control beside it is the same sequence with Onset Scatter off, which
+   must read zero — so the difference is the stream and not the sequence. */
+void ensBoundaryEvidence()
+{
+  auto run = [](double scatterMs, bool &audioDiffers, bool &onlyEns) {
+    const clap_plugin_t *p = makePlugin();
+    std::vector<float> scratch, a, b;
+    render(p, scratch);   // morphInit
+    EvList ev;
+    ev.push(91, scatterMs);   // onsetScatter
+    paramsOf(p)->flush(p, &ev.list, &kOut);
+    drain(p);
+    undoOp(p, "mark", 1);
+    undoOp(p, "service");
+    const int n = undoInt(p, "current");
+    undoOp(p, "restore", n);
+    drain(p);
+    const std::string c1 = saveChunk(p);
+    settledRender(p, a);
+    settledRender(p, scratch);   // one more phrase played here...
+    undoOp(p, "restore", n);     // ... and back to the SAME node
+    drain(p);
+    const std::string c2 = saveChunk(p);
+    settledRender(p, b);
+    audioDiffers = a != b;
+    onlyEns = c1 != c2 && withoutEns(c1) == withoutEns(c2);
+    p->destroy(p);
+  };
+  bool diff = false, ens = false;
+  run(30.0, diff, ens);
+  check(diff && ens, "BOUNDARY (B222, the human's call): with Onset Scatter on, the ensemble-timing "
+                     "stream is NOT restored by history — the same node renders differently after "
+                     "more notes, and the host chunks differ ONLY in ens= — WHEN THIS ROW GOES RED "
+                     "delete classify's EnsOnly exemption");
+  run(0.0, diff, ens);
+  check(!diff, "BOUNDARY CONTROL: the same sequence with Onset Scatter OFF renders identically "
+               "(the difference above is the stream, not the sequence)");
 }
 
 }   // namespace
@@ -1750,9 +2731,13 @@ int main(int argc, char **argv)
     pp->flush(p, &ev.list, &kOut);
     drain(p);
     (void)hypersaw_debug_ownersjson(p);   // forces morphInit, so the corners are in the blob
-    const size_t worst = saveJson(p).size();
-    std::printf("     stateJson (%u params at full precision + morph field): %zu bytes"
-                " (UndoTree reserves %zu per node, x%d = %zu KB)\n",
+    /* B222: a node is the HISTORY snapshot — lossless corners plus the routing
+       matrix — so the adversarial case captures the full-precision patch into
+       all four corners, which is the largest thing a node can now hold. */
+    for (int k = 0; k < 4; k++) hypersaw_debug_capture(p, k);
+    const size_t worst = liveJson(p).size();
+    std::printf("     history snapshot (%u params at full precision + 4 full-precision corners"
+                " + routing): %zu bytes (UndoTree reserves %zu per node, x%d = %zu KB)\n",
                 nParams, worst, UndoTree::kJsonReserve, UndoTree::kUndoCap,
                 (UndoTree::kJsonReserve * (size_t)UndoTree::kUndoCap) / 1024);
     check(worst < UndoTree::kJsonReserve, "adversarial snapshot fits the per-node reservation");
@@ -1781,6 +2766,19 @@ int main(int argc, char **argv)
     gauntletChecks(seed, globals, corners);
     reportedScenario(globals);
     cornerReferenceScenario(corners);
+
+    /* LAYER 5 (B222). Each group carries its own must-read-zero control and
+       its own must-fire row beside the property, rather than a shared prelude:
+       the three defects have three different detectors. */
+    morphToggleChecks();
+    morphOnKeepsPatchChecks();
+    savedPrecisionAgreementChecks();   // B1 (critic, PR #732)
+    adoptionUnitChecks();              // NOTE 4
+    steppedCornerChecks();             // critic re-review: stepped compare exactly
+    modRouteDepthChecks();             // S3
+    presetRoutingKeyChecks();          // S4
+    ensBoundaryEvidence();   // first: it is what licenses the one exemption below
+    historyPathChecks(seed, globals, corners);
   }
 
   /* The reservation's real headroom. A DEFAULT instance is the small case; a
