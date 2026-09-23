@@ -1,0 +1,1733 @@
+<!doctype html>
+<!-- morph-editor-lab — B211: the morph field, corner by corner, parameter by parameter.
+     HYPERSAW, 2026-09-22. A DESIGN LAB, not a port and not a reference: nothing here
+     is read by the shell, and nothing in src/ was changed to make it.
+
+     THE GAP IT ANSWERS. Today a corner is CAPTURED WHOLE — set the instrument, store
+     it into A..D (ADR-109's four boxes). Nothing lets a player read what a corner
+     holds row by row, or change one of its values without re-capturing all of it.
+     This page is that editor, prototyped against the REAL field.
+
+     THE FIELD IS REAL, NOT PLACEHOLDERS. The block marked FIELD SNAPSHOT below was
+     dumped from the built shell (git 3fd3a6b, origin/main 2026-09-22) by a scratch
+     probe that asked the plugin itself — `hypersaw_debug_cornervals` for the
+     morphIds order, the CLAP params extension for name/range/default/stepped and
+     enum text, `hypersaw_debug_paramclass` for the class — then joined that to
+     src/param_presentation.tsv (label, group) by address. 273 members: 181
+     continuous, 89 structural, 3 gates; and the 124 parameters that are NOT members,
+     with the shell's own one-line reason for each. The corner values are the factory
+     patch `MO - Quantum Morph` (docs/presets/factory/morph/). A snapshot rots: when
+     morphInit appends (STATION's block, B162), this table is stale until re-dumped.
+
+     THE RESOLVER IS PORTED, AND AUDITS ITSELF. weights / logW / gumbel / reshuffle /
+     pickCorner are src/morph_core.h line for line; the lead map (scale, FX slot
+     type+amount+tone, the routing block) is morphInit's (hypersaw_clap.cpp ~3095-3140);
+     B48/B203's ramp is morphOnWeight; ADR-108's hold is depLiveInCorner over the
+     generated src/depends_graph.h. The page checks its ownership answer against the
+     ENGINE's own `morphOwnersJson` at four pad positions (ENGINE_OWNERS, same dump)
+     and prints the score under the tagline — "the map must be the sound" (ADR-110)
+     applied to a lab.
+
+     WHAT THE PAGE MAKES ANSWERABLE (B211):
+       - four corners × every member, navigable at 273 rows: sections, group
+         captions, search (which also finds NON-members and says why), and a default
+         view of only the rows where the corners disagree;
+       - one corner's value edited directly, STAGED — the edit is held in the editor
+         and its audible consequence at the current pad position is stated before
+         it is committed, so editing never disturbs the sound by surprise;
+       - the three membership behaviours drawn three ways (glyph, cell, pad map):
+         continuous SLIDES, structural SNAPS, a gate RAMPS;
+       - EXEMPT (ADR-109, pulled out, still in the field's arrays) shown distinctly
+         from ABSENT (never a member): exempt has a value, a ⊘ and a way back;
+         absent has no cells, a reason, and no action;
+       - "what this corner HOLDS" (the four cells, magenta — authored) against "what
+         you are HEARING" (the resolved column, violet — the engine's own doing).
+     OUT OF SCOPE: the intent bus (B170 — it re-shapes the field; this editor does
+     not wait for it), and sound: the page resolves values, it renders no audio.
+
+     TOKENS ARE COPIED, NOT LINKED — verbatim from src/gui/gui2.html (:root 26-96,
+     body.scr-orchid 142-144, body:not(.dark) 167-185, body.dark 186-212), by way of
+     docs/design/station-page-lab.html, the batch's model. Copy, therefore drift.
+
+     L0026: all state above all wiring; nothing at setup time reaches forward to a
+     const declared below it. No Math.random (mulberry32 only, SPEC §5.7); no wall
+     clock anywhere. -->
+<html><head><meta charset="utf-8">
+<meta name="lab-review" content="B211 · 2026-09-22">
+<title>Morph editor lab — four corners × the whole field</title>
+<style>
+  /* ============================================================
+     TOKENS — copied VERBATIM from src/gui/gui2.html (see header).
+     ============================================================ */
+  :root {
+    --bg:#F2EDE2; --panel:#FCFAF4; --well:#FFFFFF; --panel2:#E9E3D4;
+    --line:#191521; --hair:#E5DFD0; --div:#D8D1C0;
+    --text:#191521; --t2:#494356; --dim:#9A93A3; --dis:#B6AFA0;
+    --value:#F5169C;     /* the user's authored value              */
+    --pull:#F5169C;      /* legacy name for the accent = value      */
+    --physics:#6431F0;   /* the system's own state                  */
+    --meter:#00D5C8;     /* analyzers                               */
+    --marker:#FFD702;    /* attention                               */
+    --celebrate:#A6F219;
+    --caution:#F5A300;   --caution-bg:#FBE9BD; --caution-tx:#6D570B;
+    --amber:#F5A300;
+    --alarm:#C2261A;     /* PANIC, clip, mute — NOTHING else        */
+    --ghost:#C9C2FF;
+    --cA:#FFD702; --cAtx:#D4A900;
+    --cB:#FF2E88; --cBtx:#FF2E88;
+    --cC:#00D5C8; --cCtx:#00B3A8;
+    --cD:#A6F219; --cDtx:#6FB200;
+    --text-hi:#191521; --dim2:#494356; --grid:#E5DFD0; --grid2:#E5DFD0;
+    --hot:#F5169C; --bad:#C2261A; --badge-bg:rgba(245,163,0,.9);
+    --scr-tube:#1B0733; --scr-value:#FF5ECF; --scr-meter:#B8F227;
+    --scr-physics:#B48CFF; --scr-marker:#FFB86B; --scr-grid:#4FD8BE;
+    --scr-scan:0.22; --scr-alpha:1;
+    --r-card:10px; --r-well:var(--r-card); --r:var(--r-card); --stroke:1.5px;
+    --shadow:1.5px 1.5px 0 var(--line);
+    --shadow-hover:2.5px 2.5px 0 var(--line);
+    --focus:0 0 0 2.5px rgba(245,22,156,.45); }
+  * { box-sizing:border-box; margin:0; }
+  canvas { border:var(--stroke) solid var(--line); border-radius:var(--r-well);
+           background:var(--scr-tube); display:block; }
+  body:not(.dark) { --scr-tube:#F3EBFF; --scr-value:#D6006B; --scr-meter:#007A73;
+    --scr-physics:#6E14E8; --scr-marker:#C43A00; --scr-grid:#5A3FA8;
+    --scr-scan:0.05; --scr-alpha:1.6;
+    --marker:#8A6A00; --celebrate:#4E7A00; }
+  body.dark {
+    --bg:#151220; --panel:#1F1B2E; --well:#0E0C16; --panel2:#2C2740;
+    --line:#EFE9FA; --hair:#312B47; --div:#3B3455;
+    --text:#EFE9FA; --t2:#BDB4D4; --dim:#8A82A3; --dis:#514A6B;
+    --value:#FF3DAD; --pull:#FF3DAD; --physics:#A07CFF; --meter:#2DF2E2;
+    --marker:#FFE04D; --celebrate:#C2F53E;
+    --caution:#FFB627; --caution-bg:#4A3A12; --caution-tx:#FFD98A;
+    --amber:#FFB627; --alarm:#FF5A4D;
+    --ghost:#5B4E8F;
+    --cA:#FFD702; --cAtx:#FFE566;
+    --cB:#FF2E88; --cBtx:#FF6FAE;
+    --cC:#00D5C8; --cCtx:#4DEDE3;
+    --cD:#A6F219; --cDtx:#C6F86A;
+    --text-hi:#FFFFFF; --dim2:#9A93A8; --grid:#312B47; --grid2:#312B47;
+    --hot:#FF3DAD; --bad:#FF5A4D; --badge-bg:rgba(255,182,39,.9);
+    --focus:0 0 0 2.5px rgba(255,61,173,.45); }
+
+  /* ============ CHROME — gui2's idiom, as station-page-lab carries it ============ */
+  body { background:var(--bg); color:var(--text);
+    font:12px/1.45 ui-monospace,Menlo,monospace; padding:10px 12px; }
+  .hdr { display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; margin-bottom:8px; }
+  h1 { font-size:34px; line-height:1; letter-spacing:-1px; font-weight:800; }
+  .badges { display:flex; align-items:center; gap:8px; margin-top:4px; }
+  .badge { font-size:9.5px; letter-spacing:.1em; padding:2px 7px;
+           border:var(--stroke) solid var(--line); border-radius:3px;
+           background:var(--cA); color:var(--line); }
+  body.dark .badge { color:var(--bg); }        /* station-page-lab:152, measured */
+  .sub { color:var(--t2); font-size:10.5px; letter-spacing:.12em; }
+  .hdrctl { display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-left:auto; }
+  .grp { display:flex; align-items:center; gap:7px; }
+  .lbl { font-size:10px; font-weight:700; letter-spacing:.1em; color:var(--t2); }
+  .pill { padding:3px 10px; border:var(--stroke) solid var(--line);
+    border-radius:999px; min-height:26px; cursor:pointer; color:var(--dim);
+    background:var(--panel); font:inherit; font-size:10px; letter-spacing:.06em; }
+  .pill:hover { box-shadow:var(--shadow); }
+  .pill.on { color:var(--bg); background:var(--line); font-weight:600; }
+  .pill.go { color:var(--text); }
+  .pill.go.commit { border-color:var(--value); color:var(--value); font-weight:700; }
+  .pill.go.commit:hover { background:var(--value); color:var(--bg); }
+  .pill[disabled] { opacity:.4; cursor:default; box-shadow:none; }
+  .pills { display:flex; gap:4px; flex-wrap:wrap; }
+  .chip { padding:4px 8px; border:0; background:none; border-radius:var(--r);
+    cursor:pointer; font:inherit; font-size:10px; letter-spacing:.06em;
+    color:var(--dim); min-height:26px; }
+  .chip:hover { background:var(--panel2); }
+  .chip b { color:var(--t2); font-weight:600; letter-spacing:.1em; }
+  .tagline { color:var(--t2); font-size:11px; max-width:120ch; margin-bottom:6px; }
+  .tagline b { color:var(--text); }
+  .audit { font-size:10px; color:var(--t2); margin-bottom:10px;
+           border-left:3px solid var(--meter); padding-left:8px; }
+  .audit.bad { border-left-color:var(--alarm); color:var(--alarm); }
+  .audit b { color:var(--text); }
+  .cluster { background:var(--panel); border:var(--stroke) solid var(--line);
+    border-radius:var(--r); padding:8px 10px; min-width:0; }
+  h2 { font-size:11px; color:var(--pull); letter-spacing:1px; margin-bottom:6px; }
+  .note { color:var(--t2); font-size:10px; line-height:1.5; margin-top:6px; }
+  .note b { color:var(--text); }
+  .sep { border-top:1px dashed var(--div); margin:8px 0 6px; }
+  .cap { font-size:9px; letter-spacing:.12em; color:var(--dim); margin:6px 0 3px; }
+  .row { display:grid; grid-template-columns:62px minmax(0,1fr) 46px;
+    align-items:center; gap:6px; margin:4px 0; }
+  .row label { color:var(--t2); font-size:10px; }
+  .row output { font-size:10px; text-align:right; font-variant-numeric:tabular-nums; }
+  input[type=range] { -webkit-appearance:none; appearance:none; width:100%; min-width:0;
+    height:24px; background:transparent; cursor:pointer; }
+  input[type=range]::-webkit-slider-runnable-track {
+    height:6px; border-radius:3px; border:var(--stroke) solid var(--line);
+    background:linear-gradient(to right,
+      var(--value) 0 calc(var(--pct, 0) * 100%),
+      var(--panel2) calc(var(--pct, 0) * 100%) 100%); }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; appearance:none;
+    width:13px; height:13px; border-radius:4px; margin-top:-3.5px;
+    background:var(--panel); border:var(--stroke) solid var(--line); box-shadow:var(--shadow); }
+  input[type=range]:active::-webkit-slider-thumb { background:var(--value); box-shadow:none; }
+  input[type=checkbox] { -webkit-appearance:none; appearance:none; margin:0;
+    width:32px; height:17px; border-radius:999px; cursor:pointer;
+    background:var(--panel2); border:var(--stroke) solid var(--line); position:relative; }
+  input[type=checkbox]::after { content:''; position:absolute; top:1px; left:1px;
+    width:11px; height:11px; border-radius:999px;
+    background:var(--panel); border:var(--stroke) solid var(--line); transition:transform .12s ease; }
+  input[type=checkbox]:checked { background:var(--value); }
+  input[type=checkbox]:checked::after { transform:translateX(15px); }
+  select { -webkit-appearance:none; appearance:none;
+    font:inherit; font-size:10px; padding:3px 18px 3px 9px; min-width:0; width:100%;
+    border-radius:999px; border:var(--stroke) solid var(--line);
+    background:var(--panel); color:var(--t2); cursor:pointer; min-height:26px;
+    background-image:linear-gradient(45deg,transparent 50%,var(--t2) 50%),
+                     linear-gradient(135deg,var(--t2) 50%,transparent 50%);
+    background-position:calc(100% - 11px) 50%, calc(100% - 7px) 50%;
+    background-size:4px 4px, 4px 4px; background-repeat:no-repeat; }
+  input[type=text], input[type=number] { font:inherit; font-size:10px; padding:3px 8px;
+    border-radius:999px; min-height:26px; border:var(--stroke) solid var(--line);
+    background:var(--panel); color:var(--text); min-width:0; width:100%; }
+  input:focus-visible, select:focus-visible, button:focus-visible { outline:none; box-shadow:var(--focus); }
+
+  /* ============ PAGE SHAPE ============ */
+  .top { display:grid; grid-template-columns:292px minmax(330px,1fr) minmax(300px,380px);
+         gap:10px; align-items:start; }
+  .main { display:grid; grid-template-columns:minmax(0,1fr) 372px; gap:10px;
+          margin-top:10px; align-items:start; }
+  @media (max-width:1240px) { .top { grid-template-columns:292px minmax(0,1fr); }
+    .top > :last-child { grid-column:1 / -1; } }
+  @media (max-width:1060px) { .main { grid-template-columns:1fr; } }
+  #padC { width:100%; aspect-ratio:1 / 1; cursor:crosshair; touch-action:none; }
+  .wts { display:grid; grid-template-columns:repeat(4,1fr); gap:4px; margin-top:6px; }
+  .wt { font-size:9.5px; color:var(--t2); font-variant-numeric:tabular-nums; }
+  .wt i { display:block; height:5px; margin-top:2px; border:1px solid var(--line);
+          border-radius:2px; background:linear-gradient(to right, var(--cc) calc(var(--f)*100%), var(--panel2) 0); }
+  .padcap { font-size:9.5px; color:var(--t2); margin-top:6px; min-height:2.8em; }
+  .padcap b { color:var(--text); }
+
+  /* THE KINDS. A membership kind is a BEHAVIOUR, not a status, and every named
+     colour in the set is a status (station-page-lab:291 makes the same call for
+     feedback) — so kind is carried by a GLYPH and a word, drawn in ink, never by
+     a fourth accent. The glyphs are tiny SVG so they render identically in every
+     font: a straight rise (slides), a staircase (snaps), a ramp ending in a
+     deferred switch tick (ramps). */
+  .kg { display:inline-flex; width:18px; height:14px; color:var(--text); vertical-align:middle; }
+  .kg svg { width:18px; height:14px; overflow:visible; }
+  .kchip { display:inline-flex; align-items:center; gap:5px; font-size:9.5px; letter-spacing:.1em;
+    padding:1px 7px 1px 4px; border:var(--stroke) solid var(--line); border-radius:999px;
+    background:var(--panel); color:var(--text); white-space:nowrap; }
+  .legend { display:grid; grid-template-columns:128px minmax(0,1fr) 120px; gap:6px 10px;
+            align-items:center; }
+  .legend .say { font-size:10px; color:var(--t2); line-height:1.4; }
+  .legend .say b { color:var(--text); }
+  .legend canvas { width:120px; height:38px; border-radius:6px; }
+  .legend .mk { font-size:13px; text-align:center; width:120px; color:var(--text); }
+
+  /* ============ THE GRID ============ */
+  #gridPane { padding:0; overflow:hidden; }
+  .ghead, .grow { display:grid;
+    grid-template-columns:26px minmax(150px,1.35fr) repeat(4, minmax(78px,1fr)) minmax(112px,1.15fr);
+    align-items:stretch; }
+  .ghead { position:sticky; top:0; z-index:3; background:var(--panel);
+           border-bottom:var(--stroke) solid var(--line); }
+  .ghead > div { padding:6px 6px 5px; font-size:9.5px; letter-spacing:.08em; color:var(--t2); }
+  .ch { display:flex; flex-direction:column; gap:2px; }
+  .ch .cn { display:flex; align-items:center; gap:5px; color:var(--text); font-weight:700; }
+  .sw { display:inline-block; width:12px; height:12px; border:var(--stroke) solid var(--line);
+        border-radius:3px; background:var(--cc); flex:none; }
+  .ch .cs { font-size:9px; color:var(--dim); letter-spacing:.04em; white-space:nowrap;
+            overflow:hidden; text-overflow:ellipsis; }
+  .ch.hear .cn { color:var(--physics); }
+  #rows { max-height:900px; overflow:auto; }
+  .sec { display:flex; align-items:center; gap:8px; padding:6px 8px; cursor:pointer;
+         background:var(--panel2); border-bottom:1px solid var(--line); font-size:10px;
+         letter-spacing:.1em; color:var(--text); font-weight:700; user-select:none; }
+  .sec .car { width:10px; color:var(--t2); }
+  .sec .sc { font-weight:400; color:var(--t2); letter-spacing:.04em; }
+  .sec .sc b { color:var(--text); font-weight:600; }
+  .gcap { padding:5px 8px 2px 34px; font-size:9px; letter-spacing:.12em; color:var(--dim);
+          border-bottom:1px dashed var(--div); }
+  .grow { border-bottom:1px solid var(--hair); min-height:30px; }
+  .grow:hover { background:color-mix(in srgb, var(--panel2) 45%, transparent); }
+  .grow.sel { background:color-mix(in srgb, var(--value) 7%, transparent);
+              box-shadow:inset 3px 0 0 var(--value); }
+  .grow > div { padding:4px 6px; min-width:0; display:flex; align-items:center; }
+  .gk { justify-content:center; }
+  .gp { flex-direction:column; align-items:flex-start !important; justify-content:center; gap:1px; }
+  .gp .pl { font-size:10.5px; color:var(--text); white-space:nowrap; overflow:hidden;
+            text-overflow:ellipsis; max-width:100%; }
+  .gp .ph { font-size:8.5px; color:var(--dim); white-space:nowrap; overflow:hidden;
+            text-overflow:ellipsis; max-width:100%; letter-spacing:.03em; }
+  .unit { font-size:8px; letter-spacing:.1em; color:var(--t2); border:1px solid var(--line);
+          border-radius:3px; padding:0 3px; margin-left:4px; }
+  .same .cell { color:var(--dim); }              /* four equal values are noise */
+  .same .cell .cbar { opacity:.45; }
+
+  /* A corner CELL — what that corner HOLDS. Authored, so --value. */
+  .cell { position:relative; cursor:pointer; font-size:10px; font-variant-numeric:tabular-nums;
+          gap:5px; border-left:1px solid var(--hair); color:var(--text); }
+  .cell:hover { outline:1.5px solid var(--physics); outline-offset:-3px; }
+  .cell.pick { outline:var(--stroke) solid var(--value); outline-offset:-3px; }
+  .cbar { flex:none; width:26px; height:6px; border:1px solid var(--line); border-radius:2px;
+          background:var(--panel2); position:relative; overflow:hidden; }
+  .cbar i { position:absolute; top:0; bottom:0; background:var(--value); }
+  .cbar.h i { background:var(--physics); }
+  .cbar .z { position:absolute; top:-1px; bottom:-1px; width:1px; background:var(--line); opacity:.6; }
+  .ctx { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  /* structural: a PILL — no bar, because there is no in-between to fill */
+  .spill { border:1px solid var(--line); border-radius:999px; padding:0 6px; font-size:9.5px;
+           white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
+  /* gate: a switch face */
+  .gsw { font-size:9px; letter-spacing:.08em; border:1px solid var(--line); border-radius:999px;
+         padding:0 6px; }
+  .gsw.on { background:var(--value); color:var(--bg); border-color:var(--line); }
+  .same .gsw.on { background:var(--panel2); color:var(--t2); }
+  /* OWNERSHIP — gui2's own idiom (gui2 .row.owned, ~line 775): a solid stripe in
+     the owning corner's colour down the cell's leading edge. HELD (gui2 .row.held,
+     B93): the corner won but its enabling condition is false there, so the live
+     value holds — a DASHED stripe, the same one-property-away move gui2 makes for
+     its armed-ghost rows. */
+  .cell.own { box-shadow:inset 3px 0 0 var(--own); }
+  .cell.heldw { background-image:repeating-linear-gradient(to bottom, var(--own) 0 4px, transparent 4px 7px);
+                background-size:3px 100%; background-repeat:no-repeat; }
+  /* WEIGHT underline — a blended or ramped row hears every corner at its
+     bilinear weight, so ownership is the wrong picture there; the underline is. */
+  .cell .wu { position:absolute; left:6px; bottom:3px; height:2px; background:var(--own);
+              width:calc((100% - 12px) * var(--f)); }
+  .cell.draft { outline:var(--stroke) dashed var(--caution); outline-offset:-3px; }
+  .cell.draft::after { content:'staged'; position:absolute; top:1px; right:4px; font-size:7.5px;
+           letter-spacing:.08em; color:var(--caution-tx); background:var(--caution-bg);
+           padding:0 3px; border-radius:3px; }
+  /* HEARING — what the engine resolves at this pad position: its own doing, so
+     --physics. The one column whose ink is violet, which is the whole point. */
+  .hear { border-left:var(--stroke) solid var(--line); color:var(--physics); gap:5px;
+          font-size:10px; font-variant-numeric:tabular-nums; }
+  .hear.own { box-shadow:inset 3px 0 0 var(--own); }
+  .hear .hx { font-size:8.5px; color:var(--t2); letter-spacing:.04em; white-space:nowrap; }
+  .hear .spill { border-color:var(--physics); }
+
+  /* EXEMPT vs ABSENT — the distinction B211 exists to make visible.
+     EXEMPT (ADR-109): a member the player pulled out. It still has a value, the
+     four corners still store one (the live value, written in at exempt time), it
+     carries gui2's own ⊘ mark (gui2 .row.exempt, ~line 870) and it has a way back.
+     The four corner cells MERGE into one band, because "no corner owns this" is
+     the fact, and four cells would say the opposite.
+     ABSENT: never a member. No value cells at all, a reason, no action — and it
+     lives in its own section, so it can never be mistaken for a row that lost its
+     corners. An exemption that looked like this would be a bug the player could
+     not see; the two share no styling on purpose. */
+  .exband { grid-column:3 / span 4; border-left:1px solid var(--hair);
+            background:repeating-linear-gradient(135deg, transparent 0 6px,
+              color-mix(in srgb, var(--pull) 9%, transparent) 6px 8px);
+            gap:8px; font-size:10px; color:var(--text); cursor:pointer; }
+  .exmark { color:var(--pull); font-size:13px; line-height:1; }
+  .exband .ctx b { color:var(--pull); font-weight:600; }
+  .exband .warn { color:var(--caution-tx); background:var(--caution-bg); border-radius:3px;
+                  padding:0 4px; font-size:9px; }
+  .hear.exh { color:var(--value); }
+  .grow.absent { color:var(--dim); border-bottom:1px dashed var(--div); }
+  .grow.absent .gp .pl { color:var(--t2); }
+  .abband { grid-column:3 / span 5; font-size:9.5px; color:var(--dim); gap:8px; }
+  .abband .cls { border:1px dashed var(--dim); border-radius:3px; padding:0 4px;
+                 letter-spacing:.08em; font-size:8.5px; color:var(--t2); white-space:nowrap; }
+  .abband .cls.gap { border-color:var(--caution); color:var(--caution-tx); background:var(--caution-bg); }
+  .empty { padding:18px; color:var(--t2); font-size:10.5px; }
+
+  /* ============ FIND ============ */
+  .census { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:3px 10px;
+            font-size:10px; color:var(--t2); margin-top:6px; }
+  .census b { color:var(--text); font-variant-numeric:tabular-nums; }
+  .jump { display:flex; flex-wrap:wrap; gap:4px; margin-top:6px; }
+  .jump .pill { min-height:22px; padding:1px 7px; font-size:9.5px; }
+
+  /* ============ INSPECTOR ============ */
+  #insp { position:sticky; top:8px; }
+  .ititle { font-size:15px; font-weight:800; letter-spacing:-.3px; color:var(--text); }
+  .imeta { font-size:9.5px; color:var(--dim); margin:2px 0 6px; letter-spacing:.03em; }
+  .ikind { display:flex; gap:8px; align-items:flex-start; margin:4px 0 8px; }
+  .ikind .say { font-size:10px; color:var(--t2); line-height:1.45; }
+  .ikind .say b { color:var(--text); }
+  .ced { display:grid; grid-template-columns:68px minmax(0,1fr) 62px; gap:6px; align-items:center;
+         padding:4px 6px; border:1px solid transparent; border-radius:8px; margin:2px 0; }
+  .ced.pick { border:var(--stroke) solid var(--value); background:color-mix(in srgb, var(--value) 5%, transparent); }
+  .ced .cl { display:flex; align-items:center; gap:5px; font-size:10px; color:var(--text); font-weight:700; }
+  .ced .cl small { font-weight:400; color:var(--dim); font-size:8.5px; }
+  .ced output { font-size:10px; text-align:right; font-variant-numeric:tabular-nums; color:var(--value); }
+  .impact { margin-top:8px; padding:7px 9px; border-radius:8px; font-size:10px; line-height:1.5;
+            border:var(--stroke) solid var(--line); background:var(--well); color:var(--t2); }
+  .impact b { color:var(--text); }
+  .impact .hv { color:var(--physics); font-weight:600; }
+  .impact.staged { border-color:var(--caution); background:var(--caution-bg); color:var(--caution-tx); }
+  .impact.staged b { color:var(--caution-tx); }
+  .iact { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+  .kbdh { font-size:9px; color:var(--dim); margin-top:6px; }
+</style></head><body>
+
+<div class="hdr">
+  <div>
+    <h1>morph editor</h1>
+    <div class="badges">
+      <span class="badge">LAB · B211</span>
+      <span class="sub">FOUR CORNERS × THE WHOLE FIELD — READ ONE ROW, EDIT ONE CELL, HEAR NOTHING BY SURPRISE</span>
+    </div>
+  </div>
+  <div class="hdrctl">
+    <div class="grp"><span class="lbl">MORPH MODE</span><div class="pills" id="modePills"></div></div>
+    <button class="chip" id="demoBtn" data-lab="toggles the lab's own corner edits on top of the factory patch">corners <b>FACTORY + LAB EDITS</b></button>
+    <button class="chip" id="themeBtn" data-lab="theme audition">theme <b>LIGHT</b></button>
+  </div>
+</div>
+
+<div class="tagline">A corner today is <b>captured whole</b>: set the instrument, store it into A..D. This lab is the
+missing view — <b>every member of the real morph field</b> (273 of them, dumped from the shell) against the four corners
+of the factory patch <b>MO - Quantum Morph</b>, plus the lab's own labelled edits so every behaviour has something to
+show. The four cells are what each corner <b>holds</b> (magenta, authored); the last column is what you are
+<b>hearing</b> at the pad position (violet, the engine's own resolution). Click a cell to edit that corner alone: the
+edit is <b>staged</b>, and its audible consequence at this pad position is stated before you commit it.</div>
+
+<div class="audit" id="audit">field audit: pending</div>
+
+<div class="top">
+  <div class="cluster" id="padPane"><h2>Pad</h2>
+    <canvas id="padC" data-lab="the morph pad — drag to move the listening position"></canvas>
+    <div class="wts" id="wts"></div>
+    <div class="padcap" id="padCap"></div>
+    <div class="sep"></div>
+    <div class="cap">RESOLVER — DEVICE CONTROLS, NEVER CORNER VALUES</div>
+    <div class="row" data-lab="morph Temperature (id 154)"><label>Temp</label><input id="tempIn" type="range" min="0.02" max="3" step="0.01"><output id="tempOut"></output></div>
+    <div class="row" data-lab="morph Coupling (id 155)"><label>Coupling</label><input id="coupIn" type="range" min="0" max="1" step="0.01"><output id="coupOut"></output></div>
+    <div class="row" data-lab="morph Seed (id 156)"><label>Seed</label><input id="seedIn" type="number" step="1" min="0"><output></output></div>
+  </div>
+
+  <div class="cluster" id="kindPane"><h2>What a row can be</h2>
+    <div class="legend" id="legend"></div>
+    <div class="note">Every member behaves one of <b>three</b> ways, and the grid marks which on every row — without it a
+      player watches one value slide while its neighbour jumps and concludes the instrument is broken. In <b>QUANTUM</b>
+      a continuous row also flips corner-by-corner, but the morph glide (<span id="glideS"></span>) carries the value across
+      the flip, so it still arrives by sliding; a structural row takes the winner's value outright (morphApplyTarget), so
+      it never passes through a value no corner chose.</div>
+  </div>
+
+  <div class="cluster" id="findPane"><h2>Find</h2>
+    <input id="q" type="text" placeholder="search name, group, id — also finds non-members" data-lab="search">
+    <div class="cap">SHOW</div>
+    <div class="pills" id="viewPills"></div>
+    <div class="cap">KINDS</div>
+    <div class="pills" id="kindPills"></div>
+    <div class="cap">JUMP TO SECTION</div>
+    <div class="jump" id="jump"></div>
+    <div class="census" id="census"></div>
+  </div>
+</div>
+
+<div class="main">
+  <div class="cluster" id="gridPane">
+    <div class="ghead" id="ghead"></div>
+    <div id="rows"></div>
+  </div>
+  <div class="cluster" id="insp"></div>
+</div>
+
+<script>
+/* ======================================================================
+   FIELD SNAPSHOT — GENERATED, do not hand-edit (see the file header for how it
+   was dumped). git 3fd3a6b. Row = [id, label (param_presentation.tsv), host name
+   (CLAP), section, group, kind c|s|g, min, max, default, labelset, unit, unit-of-measure].
+   ====================================================================== */
+const SECTIONS = ["OSC 1","OSC 2","SUB","FX RACK","ROUTING","PLAY","SCALE","SWARM"];
+const GROUPS = ["The swarm","The coupling","Drift","Image & tone","Mix","Envelope","Dynamics","Pitch","Spectra","Saw shape","Onset & scatter","(ungrouped)","Slot 1","Slot 2","Slot 3","Slot 4","Bend","Scale","Crosspoints","Outputs & inits","SUB"];
+const LABELSETS = [["even spread","JP-8000 curve","gaussian (seeded)","cauchy (seeded)","golden (irrational)"],["cents-constant","Hz-constant","ERB-flat","tempo-grid","harmonic (series)","stretch (inharmonic)"],["off","on"],["mean-field","ring","two-cluster"],["1","2","3","4","5","6","7","8"],["1 — classic","2 — pair","3 — triad","4 — quad"],["-2","-1","0","1","2"],["-12","-11","-10","-9","-8","-7","-6","-5","-4","-3","-2","-1","0","1","2","3","4","5","6","7","8","9","10","11","12"],["SWARM SAW","SPECTRA"],["1","2","3","4","5","6","7"],["cents","Hz"],["-3","-2","-1"],["walk (1/f)","sine (per-voice)","sample & hold"],["drift (per-voice)","sweep (whole image)"],["mean field","root (fundamental)"],["pitch fan","legacy (x-position)"],["wide (clean)","pulse (M/S)","smear (allpass)"],["Off","Drive","Filter","Gain","Comp","Comb","Notch","Echo","Room","Delay"],["off (instant)","constant time","constant rate","lag (one-pole)","mass-spring"],["off","chromatic","scale (drag)","scale","scale (offset)"],["own settings","follow bend law"],["off","chromatic","scale"],["continuous","free (Hz)","sync"],["instant","follow bend law"],["held note (legato)","last note (ringing)","always"],["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"],["sine","triangle","square","saw","pulse","noise","bump"],["-3","-2","-1","0"],["lowest","highest","last"]];
+/* [id, label, hostName, section, group, kind, min, max, default, labelset, unit-lead, unit] */
+const FIELD_ROWS = [
+[1,"Voices","Voices",0,0,"s",1,32,7,-1,"",""],
+[1001,"Voices","Osc2 Voices",1,0,"s",1,32,7,-1,"",""],
+[2,"Distribution","Distribution",0,0,"s",0,4,1,0,"",""],
+[1002,"Distribution","Osc2 Distribution",1,0,"s",0,4,1,0,"",""],
+[3,"Seed","Seed",0,0,"s",0,999999,1234,-1,"",""],
+[1003,"Seed","Osc2 Seed",1,0,"s",0,999999,1234,-1,"",""],
+[4,"Detune","Detune",0,0,"c",0,1,0.28,-1,"",""],
+[1004,"Detune","Osc2 Detune",1,0,"c",0,1,0.28,-1,"",""],
+[5,"Detune Law","Detune Law",0,0,"s",0,5,0,1,"",""],
+[1005,"Detune Law","Osc2 Detune Law",1,0,"s",0,5,0,1,"",""],
+[6,"Pull K","Pull K",0,1,"c",-1,1,0,-1,"",""],
+[1006,"Pull K","Osc2 Pull K",1,1,"c",-1,1,0,-1,"",""],
+[7,"Onset Lock","Onset Lock",0,1,"c",-1,1,0,-1,"",""],
+[1007,"Onset Lock","Osc2 Onset Lock",1,1,"c",-1,1,0,-1,"",""],
+[8,"Dissolve (s)","Dissolve (s)",0,1,"c",0.05,7.94,0.63,-1,"",""],
+[1008,"Dissolve (s)","Osc2 Dissolve (s)",1,1,"c",0.05,7.94,0.63,-1,"",""],
+[9,"Drift Depth (c)","Drift Depth (c)",0,2,"c",0,100,0,-1,"",""],
+[1009,"Drift Depth (c)","Osc2 Drift Depth (c)",1,2,"c",0,100,0,-1,"",""],
+[10,"Drift Rate","Drift Rate",0,2,"c",0,1,0.4,-1,"",""],
+[1010,"Drift Rate","Osc2 Drift Rate",1,2,"c",0,1,0.4,-1,"",""],
+[12,"R->Tone","R->Tone",0,3,"c",-1,1,0,-1,"",""],
+[1012,"R->Tone","Osc2 R->Tone",1,3,"c",-1,1,0,-1,"",""],
+[13,"Density Comp","Density Comp",0,3,"c",0.5,1,0.75,-1,"",""],
+[1013,"Density Comp","Osc2 Density Comp",1,3,"c",0.5,1,0.75,-1,"",""],
+[14,"Width","Width",0,3,"c",0,1.5,0.8,-1,"",""],
+[1014,"Width","Osc2 Width",1,3,"c",0,1.5,0.8,-1,"",""],
+[16,"Digital","Digital",0,3,"c",0,1,1,-1,"",""],
+[1016,"Digital","Osc2 Digital",1,3,"c",0,1,1,-1,"",""],
+[17,"Volume","Volume",0,4,"c",0,1,0.4,-1,"",""],
+[1017,"Volume","Osc2 Volume",1,4,"c",0,1,0.4,-1,"",""],
+[18,"Retrigger","Retrigger",0,1,"s",0,1,1,2,"",""],
+[1018,"Retrigger","Osc2 Retrigger",1,1,"s",0,1,1,2,"",""],
+[19,"Attack (s)","Attack (s)",0,5,"c",0.001,2,0.003,-1,"",""],
+[1019,"Attack (s)","Osc2 Attack (s)",1,5,"c",0.001,2,0.003,-1,"",""],
+[20,"Decay (s)","Decay (s)",0,5,"c",0.005,4,0.16,-1,"",""],
+[1020,"Decay (s)","Osc2 Decay (s)",1,5,"c",0.005,4,0.16,-1,"",""],
+[21,"Sustain","Sustain",0,5,"c",0,1,1,-1,"",""],
+[1021,"Sustain","Osc2 Sustain",1,5,"c",0,1,1,-1,"",""],
+[22,"Release (s)","Release (s)",0,5,"c",0.005,8,0.16,-1,"",""],
+[1022,"Release (s)","Osc2 Release (s)",1,5,"c",0.005,8,0.16,-1,"",""],
+[23,"Grid Cycles/Beat","Grid Cycles/Beat",0,0,"c",0.25,8,1,-1,"",""],
+[1023,"Grid Cycles/Beat","Osc2 Grid Cycles/Beat",1,0,"c",0.25,8,1,-1,"",""],
+[24,"Topology","Topology",0,6,"s",0,2,0,3,"",""],
+[1024,"Topology","Osc2 Topology",1,6,"s",0,2,0,3,"",""],
+[25,"Ring Reach","Ring Reach",0,6,"s",1,8,5,4,"",""],
+[1025,"Ring Reach","Osc2 Ring Reach",1,6,"s",1,8,5,4,"",""],
+[26,"Cluster Link","Cluster Link",0,6,"c",0,1,0.6,-1,"",""],
+[1026,"Cluster Link","Osc2 Cluster Link",1,6,"c",0,1,0.6,-1,"",""],
+[27,"Phase Lag","Phase Lag",0,6,"c",-90,90,0,-1,"",""],
+[1027,"Phase Lag","Osc2 Phase Lag",1,6,"c",-90,90,0,-1,"",""],
+[28,"Poles q","Poles q",0,6,"s",1,4,1,5,"",""],
+[1028,"Poles q","Osc2 Poles q",1,6,"s",1,4,1,5,"",""],
+[29,"Gravity","Gravity",0,6,"c",0,1,0,-1,"",""],
+[1029,"Gravity","Osc2 Gravity",1,6,"c",0,1,0,-1,"",""],
+[30,"Basin (c)","Basin (c)",0,6,"c",10,50,35,-1,"",""],
+[1030,"Basin (c)","Osc2 Basin (c)",1,6,"c",10,50,35,-1,"",""],
+[31,"Absolute K","Absolute K",0,6,"s",0,1,0,2,"",""],
+[1031,"Absolute K","Osc2 Absolute K",1,6,"s",0,1,0,2,"",""],
+[35,"Octave","Octave",0,7,"s",-2,2,0,6,"",""],
+[1035,"Octave","Osc2 Octave",1,7,"s",-2,2,0,6,"",""],
+[36,"Semitones","Semitones",0,7,"s",-12,12,0,7,"",""],
+[1036,"Semitones","Osc2 Semitones",1,7,"s",-12,12,0,7,"",""],
+[37,"Fine (c)","Fine (c)",0,7,"c",-100,100,0,-1,"",""],
+[1037,"Fine (c)","Osc2 Fine (c)",1,7,"c",-100,100,0,-1,"",""],
+[39,"Phase Scatter","Phase Scatter",0,1,"c",0,1,0,-1,"",""],
+[1039,"Phase Scatter","Osc2 Phase Scatter",1,1,"c",0,1,0,-1,"",""],
+[42,"Pan Scatter","Pan Scatter",0,3,"c",0,1,0,-1,"",""],
+[1042,"Pan Scatter","Osc2 Pan Scatter",1,3,"c",0,1,0,-1,"",""],
+[43,"Engine","Engine",0,0,"s",0,1,0,8,"",""],
+[1043,"Engine","Osc2 Engine",1,0,"s",0,1,0,8,"",""],
+[44,"Partials","Partials",0,8,"s",1,32,12,-1,"",""],
+[1044,"Partials","Osc2 Partials",1,8,"s",1,32,12,-1,"",""],
+[45,"Amp Tilt","Amp Tilt",0,8,"c",0.5,2,1,-1,"",""],
+[1045,"Amp Tilt","Osc2 Amp Tilt",1,8,"c",0.5,2,1,-1,"",""],
+[46,"Stretch","Stretch",0,8,"c",0,1,0,-1,"",""],
+[1046,"Stretch","Osc2 Stretch",1,8,"c",0,1,0,-1,"",""],
+[47,"Cloud Voices","Cloud Voices",0,8,"s",1,7,5,9,"",""],
+[1047,"Cloud Voices","Osc2 Cloud Voices",1,8,"s",1,7,5,9,"",""],
+[48,"Cloud Width","Cloud Width",0,8,"c",0,1,0.25,-1,"",""],
+[1048,"Cloud Width","Osc2 Cloud Width",1,8,"c",0,1,0.25,-1,"",""],
+[49,"Width Tilt","Width Tilt",0,8,"c",-1,1,0,-1,"",""],
+[1049,"Width Tilt","Osc2 Width Tilt",1,8,"c",-1,1,0,-1,"",""],
+[50,"Width Law","Width Law",0,8,"s",0,1,0,10,"",""],
+[1050,"Width Law","Osc2 Width Law",1,8,"s",0,1,0,10,"",""],
+[51,"Cascade","Cascade",0,8,"c",0,1,0,-1,"",""],
+[1051,"Cascade","Osc2 Cascade",1,8,"c",0,1,0,-1,"",""],
+[52,"Sub Osc","Sub Osc",0,8,"s",0,1,0,2,"",""],
+[1052,"Sub Osc","Osc2 Sub Osc",1,8,"s",0,1,0,2,"",""],
+[53,"Sub Level","Sub Level",0,8,"c",0,1,0,-1,"",""],
+[1053,"Sub Level","Osc2 Sub Level",1,8,"c",0,1,0,-1,"",""],
+[54,"Sub Wave","Sub Wave",0,8,"c",0,1,0,-1,"",""],
+[1054,"Sub Wave","Osc2 Sub Wave",1,8,"c",0,1,0,-1,"",""],
+[55,"Sub Octave","Sub Octave",0,8,"s",-3,-1,-1,11,"",""],
+[1055,"Sub Octave","Osc2 Sub Octave",1,8,"s",-3,-1,-1,11,"",""],
+[56,"A/B Balance","A/B Balance",0,6,"c",0,1,0,-1,"",""],
+[1056,"A/B Balance","Osc2 A/B Balance",1,6,"c",0,1,0,-1,"",""],
+[65,"S.Attack (s)","S.Attack (s)",0,5,"c",0.001,2,0.004,-1,"",""],
+[1065,"S.Attack (s)","Osc2 S.Attack (s)",1,5,"c",0.001,2,0.004,-1,"",""],
+[66,"S.Decay (s)","S.Decay (s)",0,5,"c",0.005,4,0.18,-1,"",""],
+[1066,"S.Decay (s)","Osc2 S.Decay (s)",1,5,"c",0.005,4,0.18,-1,"",""],
+[67,"S.Sustain","S.Sustain",0,5,"c",0,1,1,-1,"",""],
+[1067,"S.Sustain","Osc2 S.Sustain",1,5,"c",0,1,1,-1,"",""],
+[68,"S.Release (s)","S.Release (s)",0,5,"c",0.005,8,0.18,-1,"",""],
+[1068,"S.Release (s)","Osc2 S.Release (s)",1,5,"c",0.005,8,0.18,-1,"",""],
+[69,"Squareness","Squareness",0,9,"c",0,1,0,-1,"",""],
+[1069,"Squareness","Osc2 Squareness",1,9,"c",0,1,0,-1,"",""],
+[71,"Tone Tilt","Tone Tilt",0,3,"c",-1,1,0,-1,"",""],
+[1071,"Tone Tilt","Osc2 Tone Tilt",1,3,"c",-1,1,0,-1,"",""],
+[72,"Hi Tame","Hi Tame",0,3,"c",0,1,0,-1,"",""],
+[1072,"Hi Tame","Osc2 Hi Tame",1,3,"c",0,1,0,-1,"",""],
+[73,"Drift Mode","Drift Mode",0,2,"s",0,2,0,12,"",""],
+[1073,"Drift Mode","Osc2 Drift Mode",1,2,"s",0,2,0,12,"",""],
+[74,"Keep Phase","Keep Phase",0,2,"s",0,1,0,2,"",""],
+[1074,"Keep Phase","Osc2 Keep Phase",1,2,"s",0,1,0,2,"",""],
+[76,"Pan Motion","Pan Motion",0,3,"c",0,1,0,-1,"",""],
+[1076,"Pan Motion","Osc2 Pan Motion",1,3,"c",0,1,0,-1,"",""],
+[77,"Pan Motion Mode","Pan Motion Mode",0,3,"s",0,1,0,13,"",""],
+[1077,"Pan Motion Mode","Osc2 Pan Motion Mode",1,3,"s",0,1,0,13,"",""],
+[78,"Centre Pin","Centre Pin",0,2,"c",0,1,0,-1,"",""],
+[1078,"Centre Pin","Osc2 Centre Pin",1,2,"c",0,1,0,-1,"",""],
+[79,"Harmonic Reach","Harmonic Reach",0,0,"c",0.25,4,1,-1,"",""],
+[1079,"Harmonic Reach","Osc2 Harmonic Reach",1,0,"c",0.25,4,1,-1,"",""],
+[80,"Stretch B","Stretch B",0,0,"c",0,6,0,-1,"",""],
+[1080,"Stretch B","Osc2 Stretch B",1,0,"c",0,6,0,-1,"",""],
+[81,"Octave Spread","Octave Spread",0,0,"c",1,24,1,-1,"",""],
+[1081,"Octave Spread","Osc2 Octave Spread",1,0,"c",1,24,1,-1,"",""],
+[82,"Root Anchor","Root Anchor",0,0,"c",0,1,0,-1,"",""],
+[1082,"Root Anchor","Osc2 Root Anchor",1,0,"c",0,1,0,-1,"",""],
+[83,"Pivot","Pivot",0,6,"s",0,1,0,14,"",""],
+[1083,"Pivot","Osc2 Pivot",1,6,"s",0,1,0,14,"",""],
+[84,"Pan Image","Pan Image",0,3,"s",0,1,0,15,"",""],
+[1084,"Pan Image","Osc2 Pan Image",1,3,"s",0,1,0,15,"",""],
+[85,"Fan Curve","Fan Curve",0,3,"c",0,1,0.5,-1,"",""],
+[1085,"Fan Curve","Osc2 Fan Curve",1,3,"c",0,1,0.5,-1,"",""],
+[86,"Fan Invert","Fan Invert",0,3,"s",0,1,0,2,"",""],
+[1086,"Fan Invert","Osc2 Fan Invert",1,3,"s",0,1,0,2,"",""],
+[87,"Super-Width Mode","Super-Width Mode",0,3,"s",0,2,0,16,"",""],
+[1087,"Super-Width Mode","Osc2 Super-Width Mode",1,3,"s",0,2,0,16,"",""],
+[91,"Onset Scatter (ms)","Onset Scatter (ms)",0,10,"c",0,80,0,-1,"",""],
+[1091,"Onset Scatter (ms)","Osc2 Onset Scatter (ms)",1,10,"c",0,80,0,-1,"",""],
+[92,"Timing Correction","Timing Correction",0,10,"c",0,1.5,0.25,-1,"",""],
+[1092,"Timing Correction","Osc2 Timing Correction",1,10,"c",0,1.5,0.25,-1,"",""],
+[93,"Attack Scatter","Attack Scatter",0,10,"c",0,1,0,-1,"",""],
+[1093,"Attack Scatter","Osc2 Attack Scatter",1,10,"c",0,1,0,-1,"",""],
+[94,"Per-Partial Env","Per-Partial Env",0,10,"s",0,1,0,2,"",""],
+[1094,"Per-Partial Env","Osc2 Per-Partial Env",1,10,"s",0,1,0,2,"",""],
+[95,"Release Scatter","Release Scatter",0,10,"c",0,1,0,-1,"",""],
+[1095,"Release Scatter","Osc2 Release Scatter",1,10,"c",0,1,0,-1,"",""],
+[104,"Mute","Mute",0,11,"s",0,1,0,2,"",""],
+[1104,"Mute","Osc2 Mute",1,11,"s",0,1,0,2,"",""],
+[105,"Solo","Solo",0,11,"s",0,1,0,2,"",""],
+[1105,"Solo","Osc2 Solo",1,11,"s",0,1,0,2,"",""],
+[129,"Saw Base","Saw Base",0,9,"c",0,1,0,-1,"",""],
+[1129,"Saw Base","Osc2 Saw Base",1,9,"c",0,1,0,-1,"",""],
+[130,"Roundness Shape","Roundness Shape",0,9,"c",0,1,0,-1,"",""],
+[1130,"Roundness Shape","Osc2 Roundness Shape",1,9,"c",0,1,0,-1,"",""],
+[131,"Roundness","Roundness",0,9,"c",0,1,0,-1,"",""],
+[1131,"Roundness","Osc2 Roundness",1,9,"c",0,1,0,-1,"",""],
+[132,"Round x Pitch","Round x Pitch",0,9,"c",-1,1,0,-1,"",""],
+[1132,"Round x Pitch","Osc2 Round x Pitch",1,9,"c",-1,1,0,-1,"",""],
+[150,"Osc On","Osc On",0,0,"g",0,1,1,2,"",""],
+[1150,"Osc On","Osc2 Osc On",1,0,"g",0,1,0,2,"",""],
+[57,"FX1 Type","FX1 Type",3,12,"s",0,9,0,17,"fx1",""],
+[58,"FX1 Amount","FX1 Amount",3,12,"c",0,1,0.5,-1,"fx1",""],
+[59,"FX2 Type","FX2 Type",3,13,"s",0,9,0,17,"fx2",""],
+[60,"FX2 Amount","FX2 Amount",3,13,"c",0,1,0.5,-1,"fx2",""],
+[61,"FX3 Type","FX3 Type",3,14,"s",0,9,0,17,"fx3",""],
+[62,"FX3 Amount","FX3 Amount",3,14,"c",0,1,0.5,-1,"fx3",""],
+[63,"FX4 Type","FX4 Type",3,15,"s",0,9,0,17,"fx4",""],
+[64,"FX4 Amount","FX4 Amount",3,15,"c",0,1,0.5,-1,"fx4",""],
+[96,"Resonance","FX1 Tone",3,12,"c",0,1,0.5,-1,"fx1",""],
+[97,"Resonance","FX2 Tone",3,13,"c",0,1,0.5,-1,"fx2",""],
+[98,"Resonance","FX3 Tone",3,14,"c",0,1,0.5,-1,"fx3",""],
+[99,"Resonance","FX4 Tone",3,15,"c",0,1,0.5,-1,"fx4",""],
+[133,"FX1 Mix","FX1 Mix",3,12,"c",0,1,1,-1,"",""],
+[134,"FX2 Mix","FX2 Mix",3,13,"c",0,1,1,-1,"",""],
+[135,"FX3 Mix","FX3 Mix",3,14,"c",0,1,1,-1,"",""],
+[136,"FX4 Mix","FX4 Mix",3,15,"c",0,1,1,-1,"",""],
+[33,"Note Lag","Note Lag (s)",5,16,"c",0,2,0,-1,"","s"],
+[106,"Bend Law","Bend Law",5,16,"s",0,4,0,18,"",""],
+[107,"Bend Time","Bend Time (ms)",5,16,"c",5,1500,120,-1,"","ms"],
+[108,"Bend Rate","Bend Rate (st/s)",5,16,"c",0.5,200,24,-1,"","st/s"],
+[109,"Bend Lag","Bend Lag (ms)",5,16,"c",1,2000,60,-1,"","ms"],
+[110,"Spring","Spring (Hz)",5,16,"c",0.5,20,4,-1,"","Hz"],
+[111,"Damping","Damping",5,16,"c",0,1,0.6,-1,"",""],
+[112,"Distance Curve","Distance Curve",5,16,"c",0,2,1,-1,"",""],
+[113,"Return x","Return x",5,16,"c",0.2,3,1,-1,"",""],
+[114,"Bend Quantise","Bend Quantise",5,16,"s",0,4,0,19,"",""],
+[115,"Quantise Hyst","Quantise Hyst (c)",5,16,"c",0,50,8,-1,"","c"],
+[137,"Note Law","Note Law",5,16,"s",0,1,1,20,"",""],
+[138,"Note Travel","Note Travel",5,16,"s",0,4,3,18,"",""],
+[139,"Note Time","Note Time (ms)",5,16,"c",5,1500,120,-1,"","ms"],
+[140,"Note Rate","Note Rate (st/s)",5,16,"c",0.5,200,24,-1,"","st/s"],
+[141,"Note Spring","Note Spring (Hz)",5,16,"c",0.5,20,4,-1,"","Hz"],
+[142,"Note Damping","Note Damping",5,16,"c",0,1,0.6,-1,"",""],
+[143,"Note Distance Curve","Note Distance Curve",5,16,"c",0,2,1,-1,"",""],
+[144,"Note Quantise","Note Quantise",5,16,"s",0,2,0,21,"",""],
+[145,"Note Quant Hyst","Note Quant Hyst (c)",5,16,"c",0,50,8,-1,"","c"],
+[146,"Step Timing","Step Timing",5,16,"s",0,2,0,22,"",""],
+[147,"Step Rate","Step Rate (Hz)",5,16,"c",0.2,50,8,-1,"","Hz"],
+[148,"Step Grid","Step Grid",5,16,"c",0.25,8,4,-1,"","/beat"],
+[149,"MPE Bend","MPE Bend",5,16,"s",0,1,1,23,"",""],
+[11,"Inertia","Inertia",7,1,"c",0,1,0,-1,"",""],
+[70,"Inertia Curve (dev)","Inertia Curve (dev)",7,1,"c",0.3,5,2.5,-1,"",""],
+[32,"Mono","Mono",5,16,"s",0,1,0,2,"",""],
+[34,"Legato","Legato",5,16,"s",0,1,1,2,"",""],
+[38,"Pitch","Pitch",5,16,"c",-12,12,0,-1,"",""],
+[90,"Glide From","Glide From",5,16,"s",0,2,0,24,"",""],
+[75,"Freq Glide (s)","Freq Glide (s)",5,2,"c",0,0.1,0,-1,"",""],
+[116,"Root","Scale Root",6,17,"s",0,11,0,25,"scale",""],
+[117,"1 (root)","Degree 1 (root)",6,17,"s",0,1,1,2,"scale",""],
+[118,"b2","Degree b2",6,17,"s",0,1,0,2,"scale",""],
+[119,"2","Degree 2",6,17,"s",0,1,1,2,"scale",""],
+[120,"b3","Degree b3",6,17,"s",0,1,0,2,"scale",""],
+[121,"3","Degree 3",6,17,"s",0,1,1,2,"scale",""],
+[122,"4","Degree 4",6,17,"s",0,1,1,2,"scale",""],
+[123,"b5","Degree b5",6,17,"s",0,1,0,2,"scale",""],
+[124,"5","Degree 5",6,17,"s",0,1,1,2,"scale",""],
+[125,"b6","Degree b6",6,17,"s",0,1,0,2,"scale",""],
+[126,"6","Degree 6",6,17,"s",0,1,1,2,"scale",""],
+[127,"b7","Degree b7",6,17,"s",0,1,0,2,"scale",""],
+[128,"7","Degree 7",6,17,"s",0,1,1,2,"scale",""],
+[181,"Pitch (st)","Pitch (cont.)",0,7,"c",-24,24,0,-1,"","st"],
+[1181,"Pitch (st)","Osc2 Pitch (cont.)",1,7,"c",-24,24,0,-1,"","st"],
+[10000,"Route Src1 > Slot1","Route Src1 > Slot1",4,18,"c",-2,2,1,-1,"route",""],
+[10001,"Route Src1 > Slot2","Route Src1 > Slot2",4,18,"c",-2,2,0,-1,"route",""],
+[10002,"Route Src1 > Slot3","Route Src1 > Slot3",4,18,"c",-2,2,0,-1,"route",""],
+[10003,"Route Src1 > Slot4","Route Src1 > Slot4",4,18,"c",-2,2,0,-1,"route",""],
+[10064,"Route Src2 > Slot1","Route Src2 > Slot1",4,18,"c",-2,2,1,-1,"route",""],
+[10065,"Route Src2 > Slot2","Route Src2 > Slot2",4,18,"c",-2,2,0,-1,"route",""],
+[10066,"Route Src2 > Slot3","Route Src2 > Slot3",4,18,"c",-2,2,0,-1,"route",""],
+[10067,"Route Src2 > Slot4","Route Src2 > Slot4",4,18,"c",-2,2,0,-1,"route",""],
+[10128,"Route Src3 > Slot1","Route Src3 > Slot1",4,18,"c",-2,2,1,-1,"route",""],
+[10129,"Route Src3 > Slot2","Route Src3 > Slot2",4,18,"c",-2,2,0,-1,"route",""],
+[10130,"Route Src3 > Slot3","Route Src3 > Slot3",4,18,"c",-2,2,0,-1,"route",""],
+[10131,"Route Src3 > Slot4","Route Src3 > Slot4",4,18,"c",-2,2,0,-1,"route",""],
+[10513,"Route Slot1 > Slot2","Route Slot1 > Slot2",4,18,"c",-2,2,1,-1,"route",""],
+[10514,"Route Slot1 > Slot3","Route Slot1 > Slot3",4,18,"c",-2,2,0,-1,"route",""],
+[10515,"Route Slot1 > Slot4","Route Slot1 > Slot4",4,18,"c",-2,2,0,-1,"route",""],
+[10578,"Route Slot2 > Slot3","Route Slot2 > Slot3",4,18,"c",-2,2,1,-1,"route",""],
+[10579,"Route Slot2 > Slot4","Route Slot2 > Slot4",4,18,"c",-2,2,0,-1,"route",""],
+[10643,"Route Slot3 > Slot4","Route Slot3 > Slot4",4,18,"c",-2,2,1,-1,"route",""],
+[20000,"Out Slot1","Out Slot1",4,19,"c",0,2,0,-1,"route",""],
+[20001,"Out Slot2","Out Slot2",4,19,"c",0,2,0,-1,"route",""],
+[20002,"Out Slot3","Out Slot3",4,19,"c",0,2,0,-1,"route",""],
+[20003,"Out Slot4","Out Slot4",4,19,"c",0,2,1,-1,"route",""],
+[21000,"Init Slot1","Init Slot1",4,19,"c",-1,1,0,-1,"route",""],
+[21001,"Init Slot2","Init Slot2",4,19,"c",-1,1,0,-1,"route",""],
+[21002,"Init Slot3","Init Slot3",4,19,"c",-1,1,0,-1,"route",""],
+[21003,"Init Slot4","Init Slot4",4,19,"c",-1,1,0,-1,"route",""],
+[22000,"Out Src1","Out Src1",4,19,"c",0,2,0,-1,"route",""],
+[22001,"Out Src2","Out Src2",4,19,"c",0,2,0,-1,"route",""],
+[22002,"Out Src3","Out Src3",4,19,"c",0,2,0,-1,"route",""],
+[4001,"Pulse Width","SUB Width",2,20,"c",0.05,0.95,0.5,-1,"",""],
+[4002,"Bump Amount","SUB Bump Amount",2,20,"c",0,0.6,0.35,-1,"",""],
+[4003,"Bump Phase","SUB Bump Phase",2,20,"c",-3.14159,3.14159,-0.25,-1,"","rad"],
+[4006,"Fine","SUB Fine",2,20,"c",-100,100,0,-1,"","c"],
+[4007,"Level","SUB Level",2,20,"c",0,1,0.8,-1,"",""],
+[4008,"Start Phase","SUB Start Phase",2,20,"c",0,1,0,-1,"",""],
+[4010,"Tone","SUB Tone",2,20,"c",30,20000,20000,-1,"","Hz"],
+[4012,"Attack","SUB Attack",2,20,"c",0.0005,0.5,0.005,-1,"","s"],
+[4013,"Release","SUB Release",2,20,"c",0.002,2,0.08,-1,"","s"],
+[4018,"Glide","SUB Glide (s)",2,20,"c",0,2,0,-1,"","s"],
+[4019,"Pitch Mod","SUB Pitch Mod (st)",2,20,"c",-48,48,0,-1,"","st"],
+[4000,"Wave","SUB Wave",2,20,"s",0,6,3,26,"",""],
+[4004,"Octave","SUB Octave",2,20,"s",-3,0,-1,27,"","oct"],
+[4005,"Semitones","SUB Semitones",2,20,"s",-12,12,0,7,"","st"],
+[4009,"Keytrack","SUB Keytrack",2,20,"s",0,1,1,2,"",""],
+[4011,"Sync (retired)","SUB Sync (retired)",2,20,"s",0,1,0,2,"",""],
+[4014,"Seed","SUB Seed",2,20,"s",0,4294970000.0,1,-1,"",""],
+[4016,"Mono","SUB Mono",2,20,"s",0,1,0,2,"",""],
+[4017,"Mono Bias","SUB Mono Bias",2,20,"s",0,2,0,28,"",""],
+[4015,"SUB On","SUB On",2,20,"g",0,1,0,2,"",""]];
+const FACTORY_NAME = "MO - Quantum Morph";
+const FACTORY_CORNER_NAMES = ["MISC - Cloud","MISC - Lock","MISC - Splay","MISC - Two Cluster"];
+const FACTORY_OVERRIDES = {"0":[16,16,16,16],"6":[0.55,0.3,0.3,0.3],"10":[0,1,-1,1],"14":[0.35,0.35,0.35,0.35],"24":[1,1,1,1],"42":[0,0,0,2],"64":[1,1,1,1],"94":[0,0,0,1]};
+const FACTORY_MORPH = {"morphX":0,"morphY":0,"morphTemp":1,"morphCoup":0.3,"morphSeed":1024,"morphMode":0,"morphGlide":0.05};
+const ENGINE_OWNERS = [[0.62,0.37,[0,0,0,1,0,1,0,3,1,3,3,2,3,0,3,3,3,3,1,3,0,3,1,0,0,1,1,3,0,0,3,0,3,1,3,0,1,3,1,0,-2,-2,3,1,-2,-2,3,-2,0,0,1,1,3,0,3,1,3,3,0,0,1,1,0,0,0,2,1,1,1,1,0,3,3,0,1,0,1,3,1,3,3,1,1,1,1,1,1,2,0,3,0,3,3,3,-2,-2,3,1,0,1,1,1,0,0,0,0,1,1,2,0,3,1,2,3,3,0,0,3,1,0,-2,-2,-2,-2,0,1,1,3,1,3,3,3,3,1,3,0,1,0,1,1,0,0,3,3,0,1,0,0,1,1,3,0,0,0,1,1,0,0,1,0,0,0,0,0,1,1,1,1,1,1,-2,-2,-2,-2,1,1,3,1,1,0,-2,-2,-2,-2,-2,-2,-2,0,-2,0,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,3,2,0,0,1,1,1,1,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,2,1,0,3,0,0,3,1,1,1,3,3,3,0,1,3,1]],[0.5,0.5,[2,0,0,1,0,1,0,3,0,3,3,2,3,0,3,3,3,3,1,3,0,3,1,0,0,1,1,3,0,0,3,0,3,0,3,0,2,3,3,0,-2,-2,3,1,-2,-2,3,-2,0,0,1,0,3,0,3,1,3,3,0,0,1,0,2,0,0,2,0,1,0,1,0,3,3,0,1,0,0,3,1,3,3,3,0,1,2,2,3,2,0,3,0,3,3,3,-2,-2,3,1,0,1,1,3,0,2,0,0,1,1,2,0,3,0,2,3,3,0,0,3,1,0,-2,-2,-2,-2,0,0,3,3,1,3,3,3,3,1,3,0,1,0,1,1,0,0,3,2,0,0,0,0,1,1,3,0,0,0,1,1,0,0,3,0,0,0,0,0,1,1,1,1,3,3,-2,-2,-2,-2,1,3,3,1,3,0,-2,-2,-2,-2,-2,-2,-2,0,-2,0,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,3,2,0,0,1,1,1,1,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,2,2,0,3,0,0,3,1,1,3,3,3,3,0,3,3,3]],[0.15,0.85,[2,2,2,2,2,2,2,2,0,3,3,2,3,0,3,2,3,2,2,3,2,3,1,0,0,2,2,3,0,2,3,0,3,0,2,2,2,3,2,0,-2,-2,2,2,-2,-2,-2,-2,0,2,2,2,2,0,3,2,2,2,2,2,2,2,2,2,0,2,2,0,2,2,0,2,3,2,2,0,2,3,2,2,2,2,2,2,2,2,2,2,2,3,0,2,3,3,-2,-2,3,2,2,2,2,2,0,2,2,0,2,2,2,0,3,2,2,3,3,0,2,3,2,0,-2,-2,-2,-2,0,0,2,2,2,2,2,2,2,2,2,2,2,2,2,2,0,2,2,2,2,2,2,0,2,2,3,2,0,0,2,0,0,2,3,0,0,0,2,2,2,2,2,2,2,2,-2,-2,-2,-2,2,2,3,2,2,0,-2,-2,-2,-2,-2,-2,-2,2,-2,2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,2,2,0,2,2,2,2,2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,2,2,2,2,0,3,0,2,2,0,2,2,2,2,3,2,2,2,2]],[0.9,0.9,[3,3,3,3,3,3,3,3,3,3,3,2,3,3,3,3,3,3,3,3,3,3,1,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,-2,-2,3,3,-2,-2,3,-2,3,3,-2,3,3,3,3,3,3,3,3,3,3,3,3,3,3,2,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,-2,3,3,3,3,1,3,3,3,3,3,3,1,3,3,3,3,3,3,3,3,3,3,3,3,-2,-2,-2,-2,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,1,3,3,3,3,3,3,3,3,3,3,3,3,3,3,-2,-2,-2,-2,3,3,3,3,3,3,-2,-2,-2,-2,-2,-2,-2,3,-2,3,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,3,2,3,3,3,3,3,3,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,1,3,3,3,3,3,3,3,3,3]]];
+const DEP_RULES = {"111":[[106,4.0]],"112":[[106,4.0]],"115":[[114,1.0],[114,2.0],[114,3.0],[114,4.0]],"147":[[146,1.0]],"146":[[114,1.0],[114,2.0],[114,3.0],[114,4.0]],"148":[[146,2.0]],"108":[[106,2.0]],"113":[[106,1.0],[106,2.0],[106,3.0],[106,4.0]],"110":[[106,4.0]],"109":[[106,3.0]],"107":[[106,1.0]],"96":[[57,5.0]],"97":[[59,5.0]],"98":[[61,5.0]],"99":[[63,5.0]],"33":[[137,0.0],[138,3.0]],"142":[[137,0.0],[138,4.0]],"143":[[137,0.0],[138,4.0]],"145":[[137,0.0],[144,1.0],[144,2.0]],"138":[[137,0.0]],"144":[[137,0.0]],"140":[[137,0.0],[138,2.0]],"141":[[137,0.0],[138,4.0]],"139":[[137,0.0],[138,1.0]],"56":[[24,2.0]],"23":[[5,3.0]],"79":[[5,4.0]],"26":[[24,2.0]],"28":[[24,0.0]],"25":[[24,1.0]],"80":[[5,5.0]],"1056":[[1024,2.0]],"1023":[[1005,3.0]],"1079":[[1005,4.0]],"1026":[[1024,2.0]],"1028":[[1024,0.0]],"1025":[[1024,1.0]],"1080":[[1005,5.0]],"117":[[114,2.0],[114,3.0],[114,4.0],[144,2.0]],"118":[[114,2.0],[114,3.0],[114,4.0],[144,2.0]],"127":[[114,2.0],[114,3.0],[114,4.0],[144,2.0]],"128":[[114,2.0],[114,3.0],[114,4.0],[144,2.0]],"119":[[114,2.0],[114,3.0],[114,4.0],[144,2.0]],"120":[[114,2.0],[114,3.0],[114,4.0],[144,2.0]],"121":[[114,2.0],[114,3.0],[114,4.0],[144,2.0]],"122":[[114,2.0],[114,3.0],[114,4.0],[144,2.0]],"123":[[114,2.0],[114,3.0],[114,4.0],[144,2.0]],"124":[[114,2.0],[114,3.0],[114,4.0],[144,2.0]],"125":[[114,2.0],[114,3.0],[114,4.0],[144,2.0]],"126":[[114,2.0],[114,3.0],[114,4.0],[144,2.0]],"116":[[114,2.0],[114,3.0],[144,2.0]]};
+/* [id, host name, module, class 0 morphable|1 structural|2 device, the shell's reason] */
+const ABSENT_ROWS = [
+[15,"Mono Fold","",1,"stepped: cannot blend, resolves atomically"],
+[40,"Bass Mono","",1,"stepped: cannot blend, resolves atomically"],
+[41,"Bass XOver (Hz)","",0,"continuous DSP value: blends inside its corner"],
+[88,"Oversample 2x","",1,"stepped: cannot blend, resolves atomically"],
+[89,"Poly Glide (dev)","",2,"(dev) not read by the DSP (ADR-102); state compat only"],
+[100,"Master Volume","",2,"master volume — §3.2's own device example"],
+[101,"Pitch","",1,"stepped: cannot blend, resolves atomically"],
+[102,"Fine","",0,"continuous DSP value: blends inside its corner"],
+[103,"Master Octave","",1,"stepped: cannot blend, resolves atomically"],
+[151,"Morph","",2,"morph control — the field cannot morph itself"],
+[152,"Morph X","",2,"morph position — §3.2: a source, not a destination"],
+[153,"Morph Y","",2,"morph position — §3.2: a source, not a destination"],
+[154,"Temperature","",2,"morph control — shapes the resolver itself"],
+[155,"Coupling","",2,"morph control — shapes the resolver itself"],
+[156,"Morph Seed","",2,"morph control — the field's flip topology"],
+[157,"Morph Mode","",2,"morph control — how the field resolves"],
+[158,"Morph Glide (s)","",2,"morph control — the field's own rate"],
+[159,"Edit Corner","",2,"drives the morph — corner-edit arming (ADR-109)"],
+[200,"FX1 Size","",0,"continuous DSP value: blends inside its corner"],
+[201,"FX1 Spread","",0,"continuous DSP value: blends inside its corner"],
+[202,"FX1 Taps/Lines","",1,"stepped: cannot blend, resolves atomically"],
+[203,"FX1 Damping","",0,"continuous DSP value: blends inside its corner"],
+[204,"FX1 Noise","",0,"continuous DSP value: blends inside its corner"],
+[205,"FX1 Stereo","",0,"continuous DSP value: blends inside its corner"],
+[206,"FX1 Spacing","",1,"stepped: cannot blend, resolves atomically"],
+[208,"FX2 Size","",0,"continuous DSP value: blends inside its corner"],
+[209,"FX2 Spread","",0,"continuous DSP value: blends inside its corner"],
+[210,"FX2 Taps/Lines","",1,"stepped: cannot blend, resolves atomically"],
+[211,"FX2 Damping","",0,"continuous DSP value: blends inside its corner"],
+[212,"FX2 Noise","",0,"continuous DSP value: blends inside its corner"],
+[213,"FX2 Stereo","",0,"continuous DSP value: blends inside its corner"],
+[214,"FX2 Spacing","",1,"stepped: cannot blend, resolves atomically"],
+[216,"FX3 Size","",0,"continuous DSP value: blends inside its corner"],
+[217,"FX3 Spread","",0,"continuous DSP value: blends inside its corner"],
+[218,"FX3 Taps/Lines","",1,"stepped: cannot blend, resolves atomically"],
+[219,"FX3 Damping","",0,"continuous DSP value: blends inside its corner"],
+[220,"FX3 Noise","",0,"continuous DSP value: blends inside its corner"],
+[221,"FX3 Stereo","",0,"continuous DSP value: blends inside its corner"],
+[222,"FX3 Spacing","",1,"stepped: cannot blend, resolves atomically"],
+[224,"FX4 Size","",0,"continuous DSP value: blends inside its corner"],
+[225,"FX4 Spread","",0,"continuous DSP value: blends inside its corner"],
+[226,"FX4 Taps/Lines","",1,"stepped: cannot blend, resolves atomically"],
+[227,"FX4 Damping","",0,"continuous DSP value: blends inside its corner"],
+[228,"FX4 Noise","",0,"continuous DSP value: blends inside its corner"],
+[229,"FX4 Stereo","",0,"continuous DSP value: blends inside its corner"],
+[230,"FX4 Spacing","",1,"stepped: cannot blend, resolves atomically"],
+[160,"Voice Cull","",1,"selects VOICE COUNT (continuous §8 selector)"],
+[161,"Env > Pitch","",2,"mod-matrix route depth — tiered by §6, not a corner value"],
+[162,"P.Env Attack (s)","",2,"ENV 2 is a global mod source (§3.2)"],
+[163,"P.Env Decay (s)","",2,"ENV 2 is a global mod source (§3.2)"],
+[164,"P.Env Sustain","",2,"ENV 2 is a global mod source (§3.2)"],
+[165,"P.Env Release (s)","",2,"ENV 2 is a global mod source (§3.2)"],
+[166,"Macro 1","",2,"macro = intent value (§3.2; ADR-137)"],
+[167,"Macro 2","",2,"macro = intent value (§3.2; ADR-137)"],
+[168,"Macro 3","",2,"macro = intent value (§3.2; ADR-137)"],
+[169,"Macro 4","",2,"macro = intent value (§3.2; ADR-137)"],
+[170,"Macro 5","",2,"macro = intent value (§3.2; ADR-137)"],
+[171,"Macro 6","",2,"macro = intent value (§3.2; ADR-137)"],
+[172,"Macro 7","",2,"macro = intent value (§3.2; ADR-137)"],
+[173,"Macro 8","",2,"macro = intent value (§3.2; ADR-137)"],
+[174,"XY1 X > Macro","",2,"intent assignment — which macro an axis writes (ADR-137)"],
+[175,"XY1 Y > Macro","",2,"intent assignment — which macro an axis writes (ADR-137)"],
+[176,"XY2 X > Macro","",2,"intent assignment — which macro an axis writes (ADR-137)"],
+[177,"XY2 Y > Macro","",2,"intent assignment — which macro an axis writes (ADR-137)"],
+[178,"Specimen (CHROME-002)","",2,"GUI renderer toggle (ADR-140) — outside the audio path"],
+[179,"Main X > Macro","",2,"intent assignment — MAIN pad's axes (ADR-150)"],
+[180,"Main Y > Macro","",2,"intent assignment — MAIN pad's axes (ADR-150)"],
+[232,"D1 Time (ms)","",0,"continuous DSP value: blends inside its corner"],
+[233,"D1 Sync","",1,"stepped: cannot blend, resolves atomically"],
+[234,"D1 Beats","",0,"continuous DSP value: blends inside its corner"],
+[235,"D1 R Offset","",0,"continuous DSP value: blends inside its corner"],
+[236,"D1 Feedback","",0,"continuous DSP value: blends inside its corner"],
+[237,"D1 Crossfeed","",0,"continuous DSP value: blends inside its corner"],
+[238,"D1 Damp","",0,"continuous DSP value: blends inside its corner"],
+[239,"D1 Loop HP (Hz)","",0,"continuous DSP value: blends inside its corner"],
+[240,"D2 Time (ms)","",0,"continuous DSP value: blends inside its corner"],
+[241,"D2 Sync","",1,"stepped: cannot blend, resolves atomically"],
+[242,"D2 Beats","",0,"continuous DSP value: blends inside its corner"],
+[243,"D2 R Offset","",0,"continuous DSP value: blends inside its corner"],
+[244,"D2 Feedback","",0,"continuous DSP value: blends inside its corner"],
+[245,"D2 Crossfeed","",0,"continuous DSP value: blends inside its corner"],
+[246,"D2 Damp","",0,"continuous DSP value: blends inside its corner"],
+[247,"D2 Loop HP (Hz)","",0,"continuous DSP value: blends inside its corner"],
+[248,"D3 Time (ms)","",0,"continuous DSP value: blends inside its corner"],
+[249,"D3 Sync","",1,"stepped: cannot blend, resolves atomically"],
+[250,"D3 Beats","",0,"continuous DSP value: blends inside its corner"],
+[251,"D3 R Offset","",0,"continuous DSP value: blends inside its corner"],
+[252,"D3 Feedback","",0,"continuous DSP value: blends inside its corner"],
+[253,"D3 Crossfeed","",0,"continuous DSP value: blends inside its corner"],
+[254,"D3 Damp","",0,"continuous DSP value: blends inside its corner"],
+[255,"D3 Loop HP (Hz)","",0,"continuous DSP value: blends inside its corner"],
+[256,"D4 Time (ms)","",0,"continuous DSP value: blends inside its corner"],
+[257,"D4 Sync","",1,"stepped: cannot blend, resolves atomically"],
+[258,"D4 Beats","",0,"continuous DSP value: blends inside its corner"],
+[259,"D4 R Offset","",0,"continuous DSP value: blends inside its corner"],
+[260,"D4 Feedback","",0,"continuous DSP value: blends inside its corner"],
+[261,"D4 Crossfeed","",0,"continuous DSP value: blends inside its corner"],
+[262,"D4 Damp","",0,"continuous DSP value: blends inside its corner"],
+[263,"D4 Loop HP (Hz)","",0,"continuous DSP value: blends inside its corner"],
+[264,"FX Type Crossfade (dev)","",2,"(dev) buried rack policy (B117/ADR-163)"],
+[265,"FX Crossfade Time (dev)","",2,"(dev) buried rack policy (B117/ADR-163)"],
+[266,"Intent Bus (dev)","",2,"(dev) intent-bus flag — shapes the resolver itself (ADR-176)"],
+[267,"Bass Mono Position","",2,"bass-mono placement — an output-stage policy (B146)"],
+[268,"Pad Latch (dev)","",2,"pad latch — the performance surface's spring, not a timbre (ADR-176 §5)"],
+[269,"LFO 1 Rate (Hz)","",2,"LFO 1 is a global mod source (§3.2)"],
+[270,"LFO 1 Shape","",2,"LFO 1 is a global mod source (§3.2)"],
+[271,"LFO 1 Time Mode","",2,"LFO 1 is a global mod source (§3.2)"],
+[272,"LFO 1 Beats","",2,"LFO 1 is a global mod source (§3.2)"],
+[273,"LFO 1 Retrigger","",2,"LFO 1 is a global mod source (§3.2)"],
+[274,"LFO 1 Start Phase","",2,"LFO 1 is a global mod source (§3.2)"],
+[275,"LFO 2 Rate (Hz)","",2,"LFO 2 is a global mod source (§3.2)"],
+[276,"LFO 2 Shape","",2,"LFO 2 is a global mod source (§3.2)"],
+[277,"LFO 2 Time Mode","",2,"LFO 2 is a global mod source (§3.2)"],
+[278,"LFO 2 Beats","",2,"LFO 2 is a global mod source (§3.2)"],
+[279,"LFO 2 Retrigger","",2,"LFO 2 is a global mod source (§3.2)"],
+[280,"LFO 2 Start Phase","",2,"LFO 2 is a global mod source (§3.2)"],
+[281,"ENV 3 Attack (s)","",2,"ENV 3 is a global mod source (§3.2)"],
+[282,"ENV 3 Decay (s)","",2,"ENV 3 is a global mod source (§3.2)"],
+[283,"ENV 3 Sustain","",2,"ENV 3 is a global mod source (§3.2)"],
+[284,"ENV 3 Release (s)","",2,"ENV 3 is a global mod source (§3.2)"],
+[285,"ENV 4 Attack (s)","",2,"ENV 4 is a global mod source (§3.2)"],
+[286,"ENV 4 Decay (s)","",2,"ENV 4 is a global mod source (§3.2)"],
+[287,"ENV 4 Sustain","",2,"ENV 4 is a global mod source (§3.2)"],
+[288,"ENV 4 Release (s)","",2,"ENV 4 is a global mod source (§3.2)"]];
+</script>
+
+<script>
+"use strict";
+/* ============ BLOCK A — state and the resolver, above all wiring (L0026) ============ */
+const N = FIELD_ROWS.length;
+const CORNERS = ['A', 'B', 'C', 'D'];
+const CVAR = ['--cA', '--cB', '--cC', '--cD'];
+const R_ID = 0, R_LABEL = 1, R_HOST = 2, R_SEC = 3, R_GRP = 4, R_KIND = 5, R_MIN = 6, R_MAX = 7,
+      R_DEF = 8, R_LSET = 9, R_UNITLEAD = 10, R_UOM = 11;
+const idxOf = {};
+for (let i = 0; i < N; i++) idxOf[FIELD_ROWS[i][R_ID]] = i;
+
+/* THE LAB'S OWN CORNER EDITS — on top of the factory patch, and listed here so
+   nobody mistakes them for factory content. The factory patch differs on only four
+   rows, none of them a gate and only one structural; these give every behaviour
+   something to show. Toggle them off with the "corners" chip to see the factory
+   patch alone. */
+const DEMO_EDITS = [
+  { id: 1150, v: [0, 1, 0, 1], why: 'osc 2 ON in B and D — a GATE: it ramps in across the pad' },
+  { id: 4015, v: [0, 0, 1, 1], why: 'SUB ON in C and D — the gate B203 brought in' },
+  { id: 4000, v: [3, 3, 0, 6], why: 'SUB wave saw / saw / sine / bump — STRUCTURAL, snaps (B195)' },
+  { id: 4007, v: [0.8, 0.8, 0.55, 0.9], why: 'SUB level — continuous' },
+  { id: 1005, v: [0, 4, 0, 4], why: 'osc 2 detune law — structural' },
+  { id: 57, v: [0, 0, 1, 1], why: 'FX1 type Off/Off/Drive/Drive — a UNIT with amount + tone (B49)' },
+  { id: 58, v: [0.5, 0.5, 0.3, 0.75], why: 'FX1 amount — draws the same corner as FX1 type' },
+  { id: 116, v: [0, 0, 9, 9], why: 'scale root C / C / A / A — the scale flips as ONE thing' },
+  { id: 106, v: [0, 1, 0, 4], why: 'bend law — structural' },
+  { id: 107, v: [120, 250, 120, 300], why: 'bend time — HELD wherever the winning corner’s law is not "constant time" (ADR-108)' },
+  { id: 17, v: [0.4, 0.45, 0.4, 0.3], why: 'osc 1 volume — continuous' },
+];
+/* Exempt in the lab's start state. 1017 is exempt AND its live value was moved
+   afterwards — which is how the page shows a real consequence of ADR-109's rule
+   (live written into all four at exempt time, edits while exempt are live-only):
+   returning it to the field will JUMP to what the corners stored. */
+const DEMO_EXEMPT = [{ id: 38, live: 0 }, { id: 1017, live: 0.62, stored: 0.4 }];
+
+// ---- the unit (lead) map — morphInit's, hypersaw_clap.cpp ~3095-3140 -------------
+// Identity, then: root + twelve degrees share one lead; each FX slot's type, amount
+// and tone share one (MIX is NOT in it — the shell's list is {57+2s, 58+2s, 96+s});
+// every routing id shares the first routing index. A unit flips AND exempts as one.
+const LEAD = new Int32Array(N);
+(function buildLead() {
+  for (let i = 0; i < N; i++) LEAD[i] = i;
+  const first = {};
+  for (let i = 0; i < N; i++) {
+    const u = FIELD_ROWS[i][R_UNITLEAD];
+    if (!u) continue;
+    if (first[u] === undefined) first[u] = i;
+    LEAD[i] = first[u];
+  }
+})();
+const UNIT_SIZE = {};
+for (let i = 0; i < N; i++) { const u = FIELD_ROWS[i][R_UNITLEAD]; if (u) UNIT_SIZE[u] = (UNIT_SIZE[u] || 0) + 1; }
+
+// ---- src/morph_core.h, line for line ---------------------------------------------
+// mulberry32 — the house stream; the C++ is the same arithmetic in uint32.
+function mulberry32Next(st) {
+  st.a = (st.a + 0x6D2B79F5) | 0;
+  let t = Math.imul(st.a ^ (st.a >>> 15), 1 | st.a);
+  t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+}
+function gumbel(u) {
+  u = u < 1e-9 ? 1e-9 : (u > 1 - 1e-9 ? 1 - 1e-9 : u);
+  return -Math.log(-Math.log(u));
+}
+// Param draws first, then the shared draw — reshuffleAll's order (morph_core.h:49).
+function reshuffle(seed, n) {
+  const st = { a: seed | 0 };
+  const g = new Float64Array(n * 4), gs = new Float64Array(4);
+  for (let i = 0; i < n; i++) for (let k = 0; k < 4; k++) g[i * 4 + k] = gumbel(mulberry32Next(st));
+  for (let k = 0; k < 4; k++) gs[k] = gumbel(mulberry32Next(st));
+  return { g, gs };
+}
+function weights(x, y) { return [(1 - x) * (1 - y), x * (1 - y), (1 - x) * y, x * y]; }
+function logW(w, temp) {
+  const T = temp < 0.02 ? 0.02 : temp;
+  return w.map(v => (v > 1e-9 ? Math.log(v) / T : -1e12));
+}
+function pickCorner(G, i, lw, coup) {
+  let best = -1e300, bi = 0;
+  for (let k = 0; k < 4; k++) {
+    const s = lw[k] + (1 - coup) * G.g[i * 4 + k] + coup * G.gs[k];
+    if (s > best) { best = s; bi = k; }
+  }
+  return bi;
+}
+// ADR-108 depLiveInCorner: a rule exists -> live only if one of its conditions holds
+// in THAT corner's stored values; a condition naming a non-member never holds.
+function depLive(corners, id, k) {
+  const conds = DEP_RULES[id];
+  if (!conds) return true;
+  for (const c of conds) {
+    const j = idxOf[c[0]];
+    if (j !== undefined && Math.abs(corners[k][j] - c[1]) < 0.5) return true;
+  }
+  return false;
+}
+
+function freshCorners(withDemo) {
+  const c = [0, 1, 2, 3].map(() => new Float64Array(N));
+  for (let i = 0; i < N; i++) for (let k = 0; k < 4; k++) c[k][i] = FIELD_ROWS[i][R_DEF];
+  for (const s in FACTORY_OVERRIDES) for (let k = 0; k < 4; k++) c[k][+s] = FACTORY_OVERRIDES[s][k];
+  if (withDemo) for (const e of DEMO_EDITS) { const i = idxOf[e.id]; if (i !== undefined) for (let k = 0; k < 4; k++) c[k][i] = e.v[k]; }
+  return c;
+}
+
+/* THE PAGE STATE. The pad starts OFF the factory patch's own (0,0) — at a corner
+   every row is trivially that corner's, which would show nothing. */
+const S = {
+  x: 0.62, y: 0.37,
+  temp: FACTORY_MORPH.morphTemp, coup: FACTORY_MORPH.morphCoup, seed: FACTORY_MORPH.morphSeed,
+  glide: FACTORY_MORPH.morphGlide,
+  mode: FACTORY_MORPH.morphMode | 0,         // 0 quantum, 1 blend (id 157)
+  demo: true,
+  corners: null,
+  exempt: new Uint8Array(N),
+  live: new Float64Array(N),                 // an exempt row's live value
+  cur: new Float64Array(N).fill(-1e30),      // morphCur: last heard (ADR-108's hold)
+  view: 'differs',                           // differs | all | exempt | absent
+  kinds: { c: true, s: true, g: true },
+  q: '',
+  collapsed: {},
+  sel: -1, selCorner: 0, selAbsent: -1,
+  draft: null,                               // { i, k, v } — staged, not sent
+};
+let G = reshuffle(S.seed, N);
+
+function resetCorners() {
+  S.corners = freshCorners(S.demo);
+  S.exempt.fill(0);
+  S.cur.fill(-1e30);
+  S.draft = null;
+  if (S.demo) for (const e of DEMO_EXEMPT) {
+    const i = idxOf[e.id]; if (i === undefined) continue;
+    S.exempt[i] = 1;
+    const stored = e.stored !== undefined ? e.stored : e.live;
+    for (let k = 0; k < 4; k++) S.corners[k][i] = stored;
+    S.live[i] = e.live;
+  }
+}
+resetCorners();
+
+/* RESOLVE one row at the current pad — morphStep's branch order exactly:
+   exempt -> engine gate (B203) / osc enable (B48) ramp -> blend (continuous only)
+   -> pick (with ADR-108 hold). Returns what is HEARD and why. */
+function resolveRow(i, w, lw, corners) {
+  const row = FIELD_ROWS[i];
+  if (S.exempt[i]) return { v: S.live[i], owner: -1, how: 'exempt' };
+  if (row[R_KIND] === 'g') {
+    let on = 0;
+    for (let k = 0; k < 4; k++) on += w[k] * corners[k][i];
+    on = on < 0 ? 0 : (on > 1 ? 1 : on);
+    return { v: on > 1e-3 ? 1 : 0, ramp: on, owner: -1, how: 'ramp' };
+  }
+  if (S.mode === 1 && row[R_KIND] === 'c') {
+    let v = 0;
+    for (let k = 0; k < 4; k++) v += w[k] * corners[k][i];
+    return { v, owner: -1, how: 'blend' };
+  }
+  const k = pickCorner(G, LEAD[i], lw, S.coup);
+  if (!depLive(corners, row[R_ID], k)) {
+    const held = S.cur[i] < -1e29 ? corners[k][i] : S.cur[i];
+    return { v: held, owner: k, held: true, how: 'held' };
+  }
+  let v = corners[k][i];
+  if (row[R_KIND] === 's') v = Math.round(v);
+  return { v, owner: k, how: row[R_KIND] === 's' ? 'snap' : 'flip' };
+}
+let HEARD = [];
+function resolveAll() {
+  const w = weights(S.x, S.y), lw = logW(w, S.temp);
+  HEARD = new Array(N);
+  for (let i = 0; i < N; i++) {
+    const r = resolveRow(i, w, lw, S.corners);
+    HEARD[i] = r;
+    S.cur[i] = r.v;
+  }
+  return w;
+}
+function differs(i) {
+  const c = S.corners;
+  return !(c[0][i] === c[1][i] && c[1][i] === c[2][i] && c[2][i] === c[3][i]);
+}
+
+/* THE PARITY AUDIT — the lab's ownership against the ENGINE's morphOwnersJson at
+   four pad positions, on the pure factory corners (no lab edits, nothing exempt),
+   -2 = held exactly as the shell reports it. A lab resolver that disagreed with the
+   shell would paint a map that lies about the sound (ADR-110). */
+function auditParity() {
+  const corners = freshCorners(false);
+  const g = reshuffle(FACTORY_MORPH.morphSeed, N);
+  let agree = 0, total = 0;
+  const bad = [];
+  for (const fx of ENGINE_OWNERS) {
+    const w = weights(fx[0], fx[1]), lw = logW(w, FACTORY_MORPH.morphTemp);
+    for (let i = 0; i < N; i++) {
+      let k = pickCorner(g, LEAD[i], lw, FACTORY_MORPH.morphCoup);
+      if (!depLive(corners, FIELD_ROWS[i][R_ID], k)) k = -2;
+      total++;
+      if (k === fx[2][i]) agree++; else if (bad.length < 4) bad.push(FIELD_ROWS[i][R_ID] + '@' + fx[0] + ',' + fx[1]);
+    }
+  }
+  return { agree, total, bad };
+}
+const PARITY = auditParity();
+const CENSUS = (function () {
+  const c = { c: 0, s: 0, g: 0 };
+  for (const r of FIELD_ROWS) c[r[R_KIND]]++;
+  let dev = 0, gap = 0;
+  for (const a of ABSENT_ROWS) if (a[3] === 2) dev++; else gap++;
+  return { c: c.c, s: c.s, g: c.g, dev, gap };
+})();
+// Exposed for headless probes only; nothing on the page reads it back.
+if (typeof window !== 'undefined') window.__morphEditorAudit = { parity: PARITY, census: CENSUS, n: N };
+</script>
+
+<script>
+"use strict";
+/* ============ BLOCK B — tokens, painters, grid, inspector, wiring ============ */
+const _tok = {};
+function TOK(name, fallback) {
+  if (_tok[name] === undefined) {
+    let v = '';
+    try { v = getComputedStyle(document.body || document.documentElement).getPropertyValue(name).trim(); }
+    catch (_) { v = ''; }
+    _tok[name] = (typeof v === 'string' && v) ? v : (fallback || '#000');
+  }
+  return _tok[name];
+}
+function RGBA(hex, a) {
+  const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(hex).trim());
+  if (!m) return hex;
+  return `rgba(${parseInt(m[1], 16)},${parseInt(m[2], 16)},${parseInt(m[3], 16)},${a})`;
+}
+function TOKA(name, a, fallback) {
+  const m = parseFloat(TOK('--scr-alpha', '1')) || 1;
+  return RGBA(TOK(name, fallback), Math.min(1, a * m));
+}
+const VS = () => Math.min(window.devicePixelRatio || 1, 2);
+function fitViz(cv) {
+  const dpr = VS();
+  const w = Math.max(1, Math.round(cv.clientWidth * dpr)), h = Math.max(1, Math.round(cv.clientHeight * dpr));
+  if (cv.width === w && cv.height === h) return;
+  cv.width = w; cv.height = h;
+}
+function ground(cv) {
+  if (!cv || !cv.getContext) return null;
+  fitViz(cv);
+  const g = cv.getContext('2d');
+  const w = cv.width, h = cv.height;
+  g.fillStyle = TOK('--scr-tube'); g.fillRect(0, 0, w, h);
+  const a = parseFloat(TOK('--scr-scan', '0.22')) || 0.22, v = VS();
+  g.fillStyle = `rgba(0,0,0,${a})`;
+  for (let y = v; y < h; y += 3 * v) g.fillRect(0, y, w, v);
+  return { g, w, h, v };
+}
+const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const $ = id => document.getElementById(id);
+
+// ---- value formatting -------------------------------------------------------------
+function span(i) { const r = FIELD_ROWS[i]; return (r[R_MAX] - r[R_MIN]) || 1; }
+function norm(i, v) { const r = FIELD_ROWS[i]; return Math.min(1, Math.max(0, (v - r[R_MIN]) / span(i))); }
+function fmt(i, v) {
+  const r = FIELD_ROWS[i];
+  if (r[R_LSET] >= 0) { const L = LABELSETS[r[R_LSET]]; const j = Math.round(v - r[R_MIN]); return L[j] !== undefined ? L[j] : String(Math.round(v)); }
+  if (r[R_KIND] !== 'c') return String(Math.round(v));
+  const s = span(i);
+  const d = s >= 100 ? 0 : (s >= 10 ? 1 : (s >= 1.5 ? 2 : 3));
+  return v.toFixed(d) + (r[R_UOM] ? r[R_UOM] : '');
+}
+function barHTML(i, v, heard) {
+  const r = FIELD_ROWS[i];
+  let inner;
+  if (r[R_MIN] < 0 && r[R_MAX] > 0) {            // bipolar: fill from zero
+    const z = norm(i, 0), f = norm(i, v);
+    const a = Math.min(z, f), b = Math.max(z, f);
+    inner = `<i style="left:${(a * 100).toFixed(1)}%;width:${((b - a) * 100).toFixed(1)}%"></i><span class="z" style="left:${(z * 100).toFixed(1)}%"></span>`;
+  } else inner = `<i style="left:0;width:${(norm(i, v) * 100).toFixed(1)}%"></i>`;
+  return `<span class="cbar${heard ? ' h' : ''}">${inner}</span>`;
+}
+function valueHTML(i, v, heard) {
+  const k = FIELD_ROWS[i][R_KIND];
+  if (k === 'c') return barHTML(i, v, heard) + `<span class="ctx">${esc(fmt(i, v))}</span>`;
+  if (k === 'g') return `<span class="gsw${v > 0.5 ? ' on' : ''}">${v > 0.5 ? 'ON' : 'OFF'}</span>`;
+  return `<span class="spill">${esc(fmt(i, v))}</span>`;
+}
+
+// ---- the kind glyphs (see the CSS note: a behaviour, drawn in ink) ----------------
+const GLYPH = {
+  c: '<svg viewBox="0 0 18 14"><path d="M1 12 L17 2" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg>',
+  s: '<svg viewBox="0 0 18 14"><path d="M1 12 H6 V7 H11 V2 H17" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linejoin="round"/></svg>',
+  g: '<svg viewBox="0 0 18 14"><path d="M1 12 L12 3" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round"/><path d="M15 1 V13" stroke="currentColor" stroke-width="1.6" stroke-dasharray="2 1.6"/></svg>',
+};
+const KIND_WORD = { c: 'SLIDES', s: 'SNAPS', g: 'RAMPS' };
+const KIND_TITLE = {
+  c: 'continuous — interpolates between corners (blend) or glides across each flip (quantum)',
+  s: 'structural — snaps atomically to one corner’s value; never a value nobody chose',
+  g: 'gate — a level ramp by pad position; the switch itself flips only below −60 dB',
+};
+const kindGlyph = k => `<span class="kg" title="${esc(KIND_TITLE[k])}">${GLYPH[k]}</span>`;
+const kindChip = k => `<span class="kchip">${GLYPH[k].replace('<svg', '<svg width="18" height="14"')} ${KIND_WORD[k]}</span>`;
+
+// ---- the grid ------------------------------------------------------------------
+/* Rows are grouped by SECTION (osc 1 / osc 2 / sub / FX rack / routing / play /
+   scale / swarm), then by the presentation table's GROUP inside a section — the
+   same groups the plugin's own pages use, so a player navigates the editor with the
+   map they already have. Field order is kept within a group. */
+const ORDER = (function () {
+  const o = [];
+  for (let i = 0; i < N; i++) o.push(i);
+  o.sort((a, b) => FIELD_ROWS[a][R_SEC] - FIELD_ROWS[b][R_SEC] || FIELD_ROWS[a][R_GRP] - FIELD_ROWS[b][R_GRP] || a - b);
+  return o;
+})();
+function matchesQuery(txt) {
+  const q = S.q.trim().toLowerCase();
+  return !q || String(txt).toLowerCase().indexOf(q) >= 0;
+}
+function rowVisible(i) {
+  const r = FIELD_ROWS[i];
+  if (!S.kinds[r[R_KIND]]) return false;
+  if (!matchesQuery(r[R_LABEL] + ' ' + r[R_HOST] + ' ' + GROUPS[r[R_GRP]] + ' ' + SECTIONS[r[R_SEC]] + ' ' + r[R_ID])) return false;
+  if (S.q.trim()) return true;                     // a search overrides the view
+  if (S.view === 'all') return true;
+  if (S.view === 'exempt') return !!S.exempt[i];
+  if (S.view === 'absent') return false;
+  return differs(i) || !!S.exempt[i] || i === S.sel || (S.draft && S.draft.i === i);
+}
+function headHTML(w) {
+  const owns = [0, 0, 0, 0];
+  for (let i = 0; i < N; i++) if (HEARD[i].owner >= 0 && !HEARD[i].held && FIELD_ROWS[i][R_KIND] !== 'g' && HEARD[i].how !== 'blend') owns[HEARD[i].owner]++;
+  let h = '<div></div><div class="ch"><span class="cn">PARAMETER</span><span class="cs">label · host name · id</span></div>';
+  for (let k = 0; k < 4; k++) {
+    const nm = String(FACTORY_CORNER_NAMES[k] || '').replace(/^MISC - /, '') || '—';
+    h += `<div class="ch" style="--cc:var(${CVAR[k]})"><span class="cn"><span class="sw"></span>${CORNERS[k]} <span style="font-weight:400;color:var(--t2)">${esc(nm)}</span></span>`
+      + `<span class="cs">w ${(w[k] * 100).toFixed(0)}%${S.mode === 0 ? ' · wins ' + owns[k] : ''}</span></div>`;
+  }
+  h += '<div class="ch hear"><span class="cn">HEARING NOW</span><span class="cs">resolved at the pad</span></div>';
+  return h;
+}
+function cellHTML(i, k) {
+  const v = (S.draft && S.draft.i === i && S.draft.k === k) ? S.draft.v : S.corners[k][i];
+  const H = HEARD[i], kind = FIELD_ROWS[i][R_KIND];
+  const w = weights(S.x, S.y)[k];
+  let cls = 'cell', style = `--own:var(${CVAR[k]})`, extra = '';
+  if (H.how === 'blend' || H.how === 'ramp') extra = `<span class="wu" style="--f:${w.toFixed(3)}"></span>`;
+  else if (H.owner === k) cls += H.held ? ' heldw' : ' own';
+  if (i === S.sel && k === S.selCorner) cls += ' pick';
+  if (S.draft && S.draft.i === i && S.draft.k === k) cls += ' draft';
+  const title = `${CORNERS[k]} holds ${fmt(i, v)}` + (H.owner === k ? (H.held ? ' — won this row, but HELD (ADR-108)' : ' — owns this row now') : '');
+  return `<div class="${cls}" style="${style}" data-k="${k}" title="${esc(title)}">${valueHTML(i, v, false)}${extra}</div>`;
+}
+function hearHTML(i) {
+  const H = HEARD[i];
+  if (H.how === 'exempt') return `<div class="hear exh"><span class="ctx">${esc(fmt(i, H.v))}</span><span class="hx">live</span></div>`;
+  if (H.how === 'ramp') {
+    const f = H.ramp;
+    return `<div class="hear"><span class="cbar h"><i style="left:0;width:${(f * 100).toFixed(1)}%"></i></span>`
+      + `<span class="ctx">${H.v ? 'ON' : 'OFF'}</span><span class="hx">level ${(f * 100).toFixed(0)}%</span></div>`;
+  }
+  const own = H.owner >= 0 && !H.held ? ` own" style="--own:var(${CVAR[H.owner]})` : '';
+  const tail = H.held ? '<span class="hx">· held</span>' : (H.how === 'blend' ? '<span class="hx">blend</span>' : `<span class="hx">${CORNERS[H.owner]}</span>`);
+  return `<div class="hear${own}">${valueHTML(i, H.v, true)}${tail}</div>`;
+}
+function rowHTML(i) {
+  const r = FIELD_ROWS[i];
+  const unit = r[R_UNITLEAD] ? `<span class="unit" title="flips and exempts as one unit of ${UNIT_SIZE[r[R_UNITLEAD]]}">UNIT·${esc(r[R_UNITLEAD].toUpperCase())}</span>` : '';
+  const same = differs(i) ? '' : ' same';
+  const sel = i === S.sel ? ' sel' : '';
+  let h = `<div class="grow${same}${sel}" data-i="${i}"><div class="gk">${kindGlyph(r[R_KIND])}</div>`
+    + `<div class="gp"><span class="pl">${esc(r[R_LABEL])}${unit}</span><span class="ph">${esc(r[R_HOST])} · ${r[R_ID]}</span></div>`;
+  if (S.exempt[i]) {
+    let stored = S.corners[0][i];
+    const jump = Math.abs(stored - S.live[i]) > 1e-9;
+    h += `<div class="exband" data-k="-1" title="exempt (ADR-109) — no corner owns this; click to edit the live value or return it to the field">`
+      + `<span class="exmark">⊘</span><span class="ctx"><b>EXEMPT</b> — out of the morph · corners store ${esc(fmt(i, stored))}</span>`
+      + (jump ? '<span class="warn">returning jumps</span>' : '') + '</div>';
+  } else for (let k = 0; k < 4; k++) h += cellHTML(i, k);
+  h += hearHTML(i) + '</div>';
+  return h;
+}
+function absentHTML(a, j) {
+  const gap = a[3] !== 2;
+  const cls = gap ? `<span class="cls gap">${a[3] === 1 ? 'STRUCTURAL' : 'CONTINUOUS'} · NOT APPENDED</span>` : '<span class="cls">DEVICE</span>';
+  const why = gap ? (a[0] >= 200 && a[0] <= 263 ? 'its class would admit it; outside the field by append order (B86)'
+                                                : 'its class would admit it; no append has been made — no ruling found')
+                  : a[4];
+  return `<div class="grow absent${j === S.selAbsent ? ' sel' : ''}" data-a="${j}"><div class="gk">—</div>`
+    + `<div class="gp"><span class="pl">${esc(a[1])}</span><span class="ph">${esc(a[2] || 'instrument')} · ${a[0]}</span></div>`
+    + `<div class="abband">${cls}<span class="ctx">not in the field — ${esc(why)}</span></div></div>`;
+}
+function renderGrid() {
+  const w = resolveAll();
+  const head = $('ghead'); if (head) head.innerHTML = headHTML(w);
+  let h = '', shown = 0, lastSec = -1, lastGrp = -1;
+  const secStats = SECTIONS.map(() => ({ n: 0, d: 0, e: 0, vis: [] }));
+  for (const i of ORDER) {
+    const s = secStats[FIELD_ROWS[i][R_SEC]];
+    s.n++; if (differs(i)) s.d++; if (S.exempt[i]) s.e++;
+    if (rowVisible(i)) s.vis.push(i);
+  }
+  SECTIONS.forEach((name, si) => {
+    const s = secStats[si];
+    if (!s.vis.length && !(S.view === 'all' && !S.q.trim())) return;
+    const col = !!S.collapsed[name];
+    h += `<div class="sec" data-sec="${esc(name)}" id="sec-${si}"><span class="car">${col ? '▸' : '▾'}</span>${esc(name)}`
+      + `<span class="sc"><b>${s.n}</b> members · <b>${s.d}</b> differ${s.e ? ' · <b>' + s.e + '</b> exempt' : ''}`
+      + (s.vis.length < s.n ? ` · showing ${s.vis.length}` : '') + '</span></div>';
+    if (col) return;
+    lastGrp = -1;
+    for (const i of s.vis) {
+      const g = FIELD_ROWS[i][R_GRP];
+      if (g !== lastGrp) { h += `<div class="gcap">${esc(GROUPS[g]).toUpperCase()}</div>`; lastGrp = g; }
+      h += rowHTML(i); shown++;
+    }
+    lastSec = si;
+  });
+  // NOT IN THE FIELD — its own section, always last, never interleaved with members.
+  const absVis = [];
+  ABSENT_ROWS.forEach((a, j) => {
+    if (S.view === 'absent' ? matchesQuery(a[1] + ' ' + a[0] + ' ' + a[4]) : (S.q.trim() && matchesQuery(a[1] + ' ' + a[0] + ' ' + a[4]))) absVis.push(j);
+  });
+  if (absVis.length) {
+    h += `<div class="sec" data-sec="__absent"><span class="car">${S.collapsed.__absent ? '▸' : '▾'}</span>NOT IN THE FIELD`
+      + `<span class="sc"><b>${ABSENT_ROWS.length}</b> parameters · <b>${CENSUS.dev}</b> device by definition · <b>${CENSUS.gap}</b> class-eligible, never appended`
+      + (absVis.length < ABSENT_ROWS.length ? ` · showing ${absVis.length}` : '') + '</span></div>';
+    if (!S.collapsed.__absent) for (const j of absVis) h += absentHTML(ABSENT_ROWS[j], j);
+  }
+  if (!shown && !absVis.length) h = '<div class="empty">No row matches. The default view shows only rows where the corners disagree — try <b>ALL</b>.</div>';
+  const rows = $('rows'); if (rows) rows.innerHTML = h;
+  renderCensus(shown, absVis.length);
+  renderWeights(w);
+  paintPad();
+}
+
+// ---- find / census --------------------------------------------------------------
+function renderCensus(shown, abs) {
+  const el = $('census'); if (!el) return;
+  let d = 0, e = 0;
+  for (let i = 0; i < N; i++) { if (differs(i)) d++; if (S.exempt[i]) e++; }
+  el.innerHTML = `<span>members <b>${N}</b></span><span>showing <b>${shown}</b>${abs ? ' + ' + abs + ' non-members' : ''}</span>`
+    + `<span>${kindGlyph('c')} continuous <b>${CENSUS.c}</b></span><span>corners differ on <b>${d}</b></span>`
+    + `<span>${kindGlyph('s')} structural <b>${CENSUS.s}</b></span><span>⊘ exempt <b>${e}</b></span>`
+    + `<span>${kindGlyph('g')} gates <b>${CENSUS.g}</b></span><span>— not in field <b>${ABSENT_ROWS.length}</b></span>`;
+}
+function buildFind() {
+  const vp = $('viewPills');
+  if (vp) {
+    vp.innerHTML = '';
+    [['differs', 'WHERE CORNERS DIFFER'], ['all', 'ALL 273'], ['exempt', '⊘ EXEMPT'], ['absent', '— NOT IN FIELD']].forEach(([v, t]) => {
+      const b = document.createElement('button'); b.className = 'pill' + (S.view === v ? ' on' : ''); b.textContent = t;
+      b.addEventListener('click', () => { S.view = v; buildFind(); renderGrid(); });
+      vp.appendChild(b);
+    });
+  }
+  const kp = $('kindPills');
+  if (kp) {
+    kp.innerHTML = '';
+    ['c', 's', 'g'].forEach(k => {
+      const b = document.createElement('button'); b.className = 'pill' + (S.kinds[k] ? ' on' : '');
+      b.innerHTML = KIND_WORD[k]; b.title = KIND_TITLE[k];
+      b.addEventListener('click', () => { S.kinds[k] = !S.kinds[k]; buildFind(); renderGrid(); });
+      kp.appendChild(b);
+    });
+  }
+  const jp = $('jump');
+  if (jp) {
+    jp.innerHTML = '';
+    SECTIONS.forEach((name, si) => {
+      const b = document.createElement('button'); b.className = 'pill'; b.textContent = name;
+      b.addEventListener('click', () => {
+        S.collapsed[name] = false;
+        if (S.view !== 'all') { S.view = 'all'; buildFind(); }
+        renderGrid();
+        const t = $('sec-' + si); if (t && t.scrollIntoView) t.scrollIntoView({ block: 'start' });
+      });
+      jp.appendChild(b);
+    });
+  }
+}
+
+// ---- the pad -------------------------------------------------------------------
+function renderWeights(w) {
+  const el = $('wts'); if (!el) return;
+  el.innerHTML = w.map((v, k) => `<div class="wt" style="--cc:var(${CVAR[k]});--f:${v.toFixed(3)}">${CORNERS[k]} ${(v * 100).toFixed(0)}%<i></i></div>`).join('');
+}
+/* THE PAD PAINTS THE SELECTED ROW. Sampled on a grid, each cell is the value the
+   row would resolve to if the pad stood there — so the three behaviours become
+   three PICTURES: a continuous row under BLEND is a smooth gradient; a structural
+   row (and, under QUANTUM, a continuous one) is a patchwork of flat regions with
+   hard edges (edges drawn in the marker colour); a gate is a smooth LEVEL gradient
+   with a single contour where the switch would flip (the −60 dB floor). With no
+   row selected the pad shows corner identity only. Deterministic: the same seed
+   and corners paint the same map, every time. */
+function paintPad() {
+  const cv = $('padC');
+  const G2 = ground(cv); if (!G2) return;
+  const { g, w: W, h: H, v } = G2;
+  const i = S.sel;
+  const M = 56;
+  if (i >= 0 && !S.exempt[i]) {
+    const vals = new Float64Array(M * M), sw = new Uint8Array(M * M), own = new Int8Array(M * M);
+    const savedCur = S.cur[i];
+    for (let yy = 0; yy < M; yy++) for (let xx = 0; xx < M; xx++) {
+      const x = (xx + 0.5) / M, y = (yy + 0.5) / M;
+      const ww = weights(x, y), lw = logW(ww, S.temp);
+      const r = resolveRow(i, ww, lw, draftCorners());
+      const q = yy * M + xx;
+      vals[q] = r.how === 'ramp' ? r.ramp : norm(i, r.v);
+      sw[q] = r.v > 0.5 ? 1 : 0; own[q] = r.owner;
+    }
+    S.cur[i] = savedCur;
+    const cw = W / M, chh = H / M;
+    const phys = TOK('--scr-physics');
+    for (let q = 0; q < M * M; q++) {
+      g.fillStyle = RGBA(phys, (0.06 + 0.86 * vals[q]) * Math.min(1, parseFloat(TOK('--scr-alpha', '1')) || 1));
+      g.fillRect((q % M) * cw, Math.floor(q / M) * chh, cw + 0.5, chh + 0.5);
+    }
+    const kind = FIELD_ROWS[i][R_KIND];
+    const smooth = (kind === 'c' && S.mode === 1);
+    g.strokeStyle = TOKA('--scr-marker', 0.95); g.lineWidth = 1.5 * v;
+    g.beginPath();
+    for (let yy = 0; yy < M; yy++) for (let xx = 0; xx < M; xx++) {
+      const q = yy * M + xx;
+      const edge = (a, b) => kind === 'g' ? sw[a] !== sw[b] : (!smooth && Math.abs(vals[a] - vals[b]) > 1e-9);
+      if (xx + 1 < M && edge(q, q + 1)) { g.moveTo((xx + 1) * cw, yy * chh); g.lineTo((xx + 1) * cw, (yy + 1) * chh); }
+      if (yy + 1 < M && edge(q, q + M)) { g.moveTo(xx * cw, (yy + 1) * chh); g.lineTo((xx + 1) * cw, (yy + 1) * chh); }
+    }
+    g.stroke();
+  }
+  // corner identity: a tab in each corner, in the corner's own colour
+  const tabs = [[0, 0], [1, 0], [0, 1], [1, 1]];
+  g.font = `${10 * v}px ui-monospace,Menlo,monospace`; g.textBaseline = 'middle'; g.textAlign = 'center';
+  tabs.forEach(([cx, cy], k) => {
+    const s = 18 * v, x0 = cx ? W - s - 4 * v : 4 * v, y0 = cy ? H - s - 4 * v : 4 * v;
+    g.fillStyle = TOK(CVAR[k]); g.fillRect(x0, y0, s, s);
+    g.strokeStyle = TOK('--line'); g.lineWidth = v; g.strokeRect(x0, y0, s, s);
+    g.fillStyle = '#191521'; g.fillText(CORNERS[k], x0 + s / 2, y0 + s / 2 + 0.5);
+  });
+  // the listening position — your value, so the value phosphor
+  g.strokeStyle = TOK('--scr-value'); g.lineWidth = 2 * v;
+  g.beginPath(); g.arc(S.x * W, S.y * H, 7 * v, 0, 6.2832); g.stroke();
+  g.beginPath(); g.arc(S.x * W, S.y * H, 1.5 * v, 0, 6.2832); g.fillStyle = TOK('--scr-value'); g.fill();
+  const cap = $('padCap');
+  if (cap) {
+    if (i < 0) cap.innerHTML = 'Select a row and the pad paints <b>that row</b> across every position.';
+    else if (S.exempt[i]) cap.innerHTML = `<b>${esc(FIELD_ROWS[i][R_LABEL])}</b> is exempt — it has no map; it holds its live value everywhere.`;
+    else cap.innerHTML = `Painted: <b>${esc(FIELD_ROWS[i][R_LABEL])}</b> (${esc(FIELD_ROWS[i][R_HOST])}) — ${
+      FIELD_ROWS[i][R_KIND] === 'g' ? 'level gradient; the line is where the switch flips'
+      : (FIELD_ROWS[i][R_KIND] === 'c' && S.mode === 1 ? 'a smooth blend' : 'flat regions; lines are where it jumps')}.`;
+  }
+}
+function draftCorners() {
+  if (!S.draft) return S.corners;
+  const c = S.corners.map(a => a);
+  c[S.draft.k] = Float64Array.from(S.corners[S.draft.k]);
+  c[S.draft.k][S.draft.i] = S.draft.v;
+  return c;
+}
+
+// ---- the legend: one real row per kind, swept A -> D along the diagonal ----------
+function paintSweep(cv, i) {
+  const G2 = ground(cv); if (!G2) return;
+  const { g, w: W, h: H, v } = G2;
+  if (i === undefined) return;
+  const pts = [], M = 90;
+  for (let s = 0; s <= M; s++) {
+    const t = s / M, ww = weights(t, t), lw = logW(ww, S.temp);
+    const r = resolveRow(i, ww, lw, S.corners);
+    pts.push(r.how === 'ramp' ? r.ramp : norm(i, r.v));
+  }
+  g.strokeStyle = TOK('--scr-physics'); g.lineWidth = 1.6 * v; g.beginPath();
+  pts.forEach((p, s) => { const x = 3 * v + s / M * (W - 6 * v), y = H - 4 * v - p * (H - 8 * v); s ? g.lineTo(x, y) : g.moveTo(x, y); });
+  g.stroke();
+  g.fillStyle = TOKA('--scr-grid', 0.8); g.font = `${8 * v}px ui-monospace,Menlo,monospace`;
+  g.textBaseline = 'top'; g.fillText('A', 4 * v, 3 * v); g.textAlign = 'right'; g.fillText('D', W - 4 * v, 3 * v); g.textAlign = 'left';
+}
+function buildLegend() {
+  const el = $('legend'); if (!el) return;
+  const iC = idxOf[6], iS = idxOf[24], iG = idxOf[1150];
+  el.innerHTML =
+      `<div>${kindChip('c')}</div><div class="say"><b>Continuous</b> — ${CENSUS.c} rows. ${S.mode === 1
+        ? 'BLEND: the value moves through the space between corners.'
+        : 'QUANTUM: across the pad it flips like a snap (below) — but it GLIDES to each new winner over the morph glide, so it is never heard jumping.'} <i>Pull K, swept A→D:</i></div><canvas id="lgC"></canvas>`
+    + `<div>${kindChip('s')}</div><div class="say"><b>Structural</b> — ${CENSUS.s} rows. Jumps to ONE corner's value, whole; a waveform or a mode never passes through values nobody chose (B195). <i>Topology:</i></div><canvas id="lgS"></canvas>`
+    + `<div>${kindChip('g')}</div><div class="say"><b>Gate</b> — ${CENSUS.g} rows (both oscs' power, the sub's). The LEVEL ramps with the pad; the switch waits until it is inaudible (B48, B203). <i>Osc 2 power:</i></div><canvas id="lgG"></canvas>`
+    + `<div><span class="kchip"><span class="exmark">⊘</span> EXEMPT</span></div><div class="say">Pulled out of the morph by the player (ADR-109). Keeps its live value; its four cells merge into one band; it has a way back.</div><div class="mk"><span class="exmark">⊘</span> band</div>`
+    + `<div><span class="kchip">— ABSENT</span></div><div class="say">Never a member. No cells, a reason, no action — listed apart, under <b>NOT IN THE FIELD</b>.</div><div class="mk">— no cells</div>`
+    + `<div><span class="kchip">· HELD</span></div><div class="say">A corner won the row, but its enabling switch is off in that corner, so the live value holds (ADR-108) — dashed stripe.</div><div class="mk">┆ dashed</div>`;
+  paintSweep($('lgC'), iC); paintSweep($('lgS'), iS); paintSweep($('lgG'), iG);
+}
+
+// ---- the inspector --------------------------------------------------------------
+function impactText(i, k, vNew) {
+  const w = weights(S.x, S.y), lw = logW(w, S.temp);
+  const before = HEARD[i];
+  const c2 = S.corners.map(a => a); c2[k] = Float64Array.from(S.corners[k]); c2[k][i] = vNew;
+  const saved = S.cur[i];
+  const after = resolveRow(i, w, lw, c2);
+  S.cur[i] = saved;
+  const kind = FIELD_ROWS[i][R_KIND], C = CORNERS[k];
+  const bv = before.how === 'ramp' ? `level ${(before.ramp * 100).toFixed(0)}%` : fmt(i, before.v);
+  const av = after.how === 'ramp' ? `level ${(after.ramp * 100).toFixed(0)}%` : fmt(i, after.v);
+  let why;
+  if (kind === 'g') why = `a gate hears every corner at its weight — ${C} is <b>${(w[k] * 100).toFixed(0)}%</b> here`;
+  else if (before.how === 'blend') why = `BLEND hears every corner at its weight — ${C} is <b>${(w[k] * 100).toFixed(0)}%</b> here`;
+  else if (before.owner === k && before.held) why = `${C} wins this row here, but it is <b>held</b> — its enabling switch is off in ${C}`;
+  else if (before.owner === k) why = `${C} <b>owns</b> this row at this pad position`;
+  else why = `${CORNERS[before.owner]} owns this row here, not ${C} — the edit is <b>silent until ${C} wins it</b>`;
+  const moves = bv !== av;
+  return { html: `${why}. Hearing <span class="hv">${esc(bv)}</span>${moves ? ` → would become <span class="hv">${esc(av)}</span>` : ' — <b>unchanged</b> by this edit'}.`, moves };
+}
+function ctlHTML(i, k, v) {
+  const r = FIELD_ROWS[i], kind = r[R_KIND];
+  if (kind === 'g') return `<input type="checkbox" data-ck="${k}" ${v > 0.5 ? 'checked' : ''}>`;
+  if (kind === 's' && r[R_LSET] >= 0) {
+    const L = LABELSETS[r[R_LSET]];
+    return `<select data-ck="${k}">` + L.map((t, j) => `<option value="${r[R_MIN] + j}"${Math.round(v) === r[R_MIN] + j ? ' selected' : ''}>${esc(t)}</option>`).join('') + '</select>';
+  }
+  if (kind === 's') return `<input type="number" data-ck="${k}" min="${r[R_MIN]}" max="${r[R_MAX]}" step="1" value="${Math.round(v)}">`;
+  const step = span(i) / 1000;
+  return `<input type="range" data-ck="${k}" min="${r[R_MIN]}" max="${r[R_MAX]}" step="${step}" value="${v}" style="--pct:${norm(i, v)}">`;
+}
+function renderInspector() {
+  const el = $('insp'); if (!el) return;
+  if (S.selAbsent >= 0) {
+    const a = ABSENT_ROWS[S.selAbsent];
+    el.innerHTML = `<h2>Not in the field</h2><div class="ititle">${esc(a[1])}</div><div class="imeta">${esc(a[2] || 'instrument')} · id ${a[0]}</div>`
+      + `<div class="impact">No corner holds this parameter, so there is nothing to edit here and nothing to exempt.<br><b>The shell's reason:</b> ${esc(a[4])}.`
+      + (a[3] !== 2 ? `<br><br>Its class (${a[3] === 1 ? 'structural' : 'continuous'}) would admit it — it is outside because no append was made${a[0] >= 200 && a[0] <= 263 ? ' (B86: the time-engine and delay rows postdate the append lists)' : ''}. That is a gap, not a ruling.` : '')
+      + '</div>';
+    return;
+  }
+  const i = S.sel;
+  if (i < 0) {
+    el.innerHTML = '<h2>Inspector</h2><div class="note">Click any <b>cell</b> to edit that corner’s value for that row, or a row’s name to read it. '
+      + 'Edits are <b>staged</b>: nothing reaches the sound until you commit, and the panel says beforehand what committing would change at this pad position.</div>'
+      + '<div class="kbdh">Keys: ↑/↓ row · ←/→ corner · Enter commit · Esc discard</div>';
+    return;
+  }
+  const r = FIELD_ROWS[i], kind = r[R_KIND];
+  const unit = r[R_UNITLEAD] ? ` · unit <b>${esc(r[R_UNITLEAD])}</b> (${UNIT_SIZE[r[R_UNITLEAD]]} rows flip and exempt together)` : '';
+  let h = `<h2>${esc(SECTIONS[r[R_SEC]])} · ${esc(GROUPS[r[R_GRP]])}</h2><div class="ititle">${esc(r[R_LABEL])}</div>`
+    + `<div class="imeta">${esc(r[R_HOST])} · id ${r[R_ID]} · ${esc(fmt(i, r[R_MIN]))} … ${esc(fmt(i, r[R_MAX]))} · default ${esc(fmt(i, r[R_DEF]))}${unit}</div>`;
+  h += `<div class="ikind">${kindChip(kind)}<div class="say">${
+    kind === 'c' ? (S.mode === 1 ? '<b>Blends</b>: what you hear is every corner at its weight — every corner you edit is audible in proportion.' : '<b>Flips, then glides</b>: one corner wins it at a time; the value slides to the winner over the morph glide.')
+    : kind === 's' ? '<b>Snaps</b>: the winning corner’s value, whole and at once. Editing a corner that is not winning is silent.'
+    : '<b>Ramps</b>: level = the weighted share of corners holding it ON; the switch flips only below −60 dB.'}</div></div>`;
+  if (S.exempt[i]) {
+    const stored = S.corners[0][i];
+    h += `<div class="impact"><span class="exmark">⊘</span> <b>Exempt</b> (ADR-109). No corner owns it; it plays its live value everywhere on the pad.`
+      + ` The four corners store <b>${esc(fmt(i, stored))}</b> — the live value at the moment it was exempted.</div>`
+      + `<div class="ced pick"><span class="cl">LIVE</span>${ctlHTML(i, -1, S.live[i])}<output>${esc(fmt(i, S.live[i]))}</output></div>`
+      + (Math.abs(stored - S.live[i]) > 1e-9 ? `<div class="impact staged">Live has moved since exempting. <b>Return to field</b> will jump from ${esc(fmt(i, S.live[i]))} to what the corners hold (${esc(fmt(i, stored))}) — unless you keep the live value.</div>` : '')
+      + `<div class="iact"><button class="pill go" id="unexBtn">RETURN TO FIELD</button>`
+      + (Math.abs(stored - S.live[i]) > 1e-9 ? '<button class="pill go" id="unexKeepBtn">RETURN, KEEP LIVE IN ALL FOUR</button>' : '') + '</div>';
+  } else {
+    for (let k = 0; k < 4; k++) {
+      const v = (S.draft && S.draft.i === i && S.draft.k === k) ? S.draft.v : S.corners[k][i];
+      const nm = String(FACTORY_CORNER_NAMES[k] || '').replace(/^MISC - /, '');
+      h += `<div class="ced${k === S.selCorner ? ' pick' : ''}" data-ek="${k}" style="--cc:var(${CVAR[k]})"><span class="cl"><span class="sw"></span>${CORNERS[k]} <small>${esc(nm)}</small></span>`
+        + `${ctlHTML(i, k, v)}<output>${esc(fmt(i, v))}</output></div>`;
+    }
+    const d = S.draft && S.draft.i === i ? S.draft : null;
+    const imp = impactText(i, d ? d.k : S.selCorner, d ? d.v : S.corners[S.selCorner][i]);
+    h += `<div class="impact${d ? ' staged' : ''}" id="impact">${d ? `<b>STAGED — not sent.</b> Corner ${CORNERS[d.k]}: ${esc(fmt(i, S.corners[d.k][i]))} → ${esc(fmt(i, d.v))}.<br>` : `Editing corner <b>${CORNERS[S.selCorner]}</b>. `}${imp.html}</div>`;
+    h += `<div class="iact"><button class="pill go commit" id="commitBtn"${d ? '' : ' disabled'}>COMMIT ⏎</button>`
+      + `<button class="pill go" id="discardBtn"${d ? '' : ' disabled'}>DISCARD</button>`
+      + `<button class="pill go" id="allBtn" title="write the edited value into all four corners">SET ALL FOUR</button>`
+      + `<button class="pill go" id="exBtn" title="ADR-109: pull it out of the morph; the live value is written into all four corners">⊘ EXEMPT${r[R_UNITLEAD] ? ' UNIT' : ''}</button></div>`;
+  }
+  h += '<div class="kbdh">↑/↓ row · ←/→ corner · Enter commit · Esc discard</div>';
+  el.innerHTML = h;
+  wireInspector(i);
+}
+function wireInspector(i) {
+  const el = $('insp'); if (!el || !el.querySelectorAll) return;
+  for (const c of el.querySelectorAll('[data-ck]')) {
+    const k = parseInt(c.getAttribute('data-ck'), 10);
+    const read = () => (c.type === 'checkbox' ? (c.checked ? 1 : 0) : parseFloat(c.value));
+    const on = () => {
+      const v = read();
+      if (k < 0) { S.live[i] = v; renderGrid(); renderInspector(); return; }      // exempt: live only
+      S.selCorner = k;
+      S.draft = (Math.abs(v - S.corners[k][i]) > 1e-12) ? { i, k, v } : null;
+      if (c.type === 'range' && c.style) c.style.setProperty('--pct', String(norm(i, v)));
+      renderGrid(); updateImpact(i);
+    };
+    c.addEventListener('input', on);
+    c.addEventListener('change', () => { on(); renderInspector(); });
+  }
+  for (const c of el.querySelectorAll('[data-ek]')) c.addEventListener('pointerdown', () => {
+    const k = parseInt(c.getAttribute('data-ek'), 10);
+    if (S.selCorner !== k) { S.selCorner = k; if (S.draft && S.draft.k !== k) S.draft = null; renderGrid(); renderInspector(); }
+  });
+  const on = (id, f) => { const b = $(id); if (b && b.addEventListener) b.addEventListener('click', f); };
+  on('commitBtn', commit); on('discardBtn', discard);
+  on('allBtn', () => {
+    const v = S.draft && S.draft.i === i ? S.draft.v : S.corners[S.selCorner][i];
+    for (let k = 0; k < 4; k++) S.corners[k][i] = v;
+    S.draft = null; renderGrid(); renderInspector();
+  });
+  on('exBtn', () => setExempt(i, true));
+  on('unexBtn', () => setExempt(i, false));
+  on('unexKeepBtn', () => { for (let k = 0; k < 4; k++) S.corners[k][i] = S.live[i]; setExempt(i, false); });
+}
+function updateImpact(i) {
+  const el = $('impact'); if (!el) return;
+  const d = S.draft && S.draft.i === i ? S.draft : null;
+  const imp = impactText(i, d ? d.k : S.selCorner, d ? d.v : S.corners[S.selCorner][i]);
+  el.className = 'impact' + (d ? ' staged' : '');
+  el.innerHTML = (d ? `<b>STAGED — not sent.</b> Corner ${CORNERS[d.k]}: ${esc(fmt(i, S.corners[d.k][i]))} → ${esc(fmt(i, d.v))}.<br>` : `Editing corner <b>${CORNERS[S.selCorner]}</b>. `) + imp.html;
+  const cb = $('commitBtn'), db = $('discardBtn');
+  if (cb) cb.disabled = !d; if (db) db.disabled = !d;
+  const out = document.querySelector ? document.querySelector(`#insp [data-ek="${d ? d.k : S.selCorner}"] output`) : null;
+  if (out && d) out.textContent = fmt(i, d.v);
+}
+function commit() {
+  if (!S.draft) return;
+  S.corners[S.draft.k][S.draft.i] = S.draft.v;
+  S.draft = null; renderGrid(); renderInspector();
+}
+function discard() { S.draft = null; renderGrid(); renderInspector(); }
+/* ADR-109, including the unit rule: a unit (scale / FX slot / routing block)
+   exempts as one. On exempt the live value — what is HEARD now — is written into
+   all four corners, so returning never jumps unless live was moved meanwhile. */
+function setExempt(i, on) {
+  S.draft = null;
+  const lead = LEAD[i];
+  for (let j = 0; j < N; j++) {
+    if (LEAD[j] !== lead) continue;
+    if (on) {
+      const live = HEARD[j] ? HEARD[j].v : S.corners[0][j];
+      S.live[j] = live;
+      for (let k = 0; k < 4; k++) S.corners[k][j] = live;
+      S.exempt[j] = 1;
+    } else S.exempt[j] = 0;
+  }
+  renderGrid(); renderInspector();
+}
+function select(i, k) {
+  if (S.draft && S.draft.i !== i) S.draft = null;
+  S.sel = i; S.selAbsent = -1;
+  if (k !== undefined && k >= 0) S.selCorner = k;
+  renderGrid(); renderInspector();
+}
+
+// ---- the audit line ------------------------------------------------------------
+function renderAudit() {
+  const el = $('audit'); if (!el) return;
+  const ok = PARITY.agree === PARITY.total && PARITY.total > 0;
+  if (el.classList) el.classList.toggle('bad', !ok);
+  el.innerHTML = `field audit — <b>${N}</b> members (${CENSUS.c} continuous · ${CENSUS.s} structural · ${CENSUS.g} gates), `
+    + `<b>${ABSENT_ROWS.length}</b> parameters outside it (${CENSUS.dev} device by definition, ${CENSUS.gap} class-eligible but never appended). `
+    + `Ownership parity against the engine’s own morphOwnersJson: <b>${PARITY.agree}/${PARITY.total}</b> `
+    + `(${ENGINE_OWNERS.length} pad positions × ${N}, factory corners, seed ${FACTORY_MORPH.morphSeed})`
+    + (ok ? '.' : ' — MISMATCH at ' + PARITY.bad.join(', '));
+}
+
+// ---- header controls -----------------------------------------------------------
+function buildMode() {
+  const el = $('modePills'); if (!el) return;
+  el.innerHTML = '';
+  [['QUANTUM', 0], ['BLEND', 1]].forEach(([t, m]) => {
+    const b = document.createElement('button'); b.className = 'pill' + (S.mode === m ? ' on' : ''); b.textContent = t;
+    b.title = m ? 'id 157 = 1: continuous rows interpolate by weight' : 'id 157 = 0: every row flips to one corner (Gumbel draw)';
+    b.addEventListener('click', () => { S.mode = m; buildMode(); buildLegend(); renderGrid(); renderInspector(); });
+    el.appendChild(b);
+  });
+}
+function wireResolver() {
+  const t = $('tempIn'), c = $('coupIn'), s = $('seedIn');
+  const show = () => {
+    const to = $('tempOut'), co = $('coupOut');
+    if (to) to.textContent = S.temp.toFixed(2); if (co) co.textContent = S.coup.toFixed(2);
+    if (t && t.style) t.style.setProperty('--pct', String((S.temp - 0.02) / 2.98));
+    if (c && c.style) c.style.setProperty('--pct', String(S.coup));
+  };
+  if (t) { t.value = String(S.temp); t.addEventListener('input', () => { S.temp = parseFloat(t.value); show(); buildLegend(); renderGrid(); renderInspector(); }); }
+  if (c) { c.value = String(S.coup); c.addEventListener('input', () => { S.coup = parseFloat(c.value); show(); buildLegend(); renderGrid(); renderInspector(); }); }
+  if (s) { s.value = String(S.seed); s.addEventListener('change', () => { S.seed = (parseInt(s.value, 10) >>> 0); G = reshuffle(S.seed, N); buildLegend(); renderGrid(); renderInspector(); }); }
+  const gl = $('glideS'); if (gl) gl.textContent = S.glide + ' s in this patch';
+  show();
+}
+let dragging = false;
+function padAt(e) {
+  const cv = $('padC'); if (!cv || !cv.getBoundingClientRect) return;
+  const r = cv.getBoundingClientRect();
+  S.x = Math.min(1, Math.max(0, (e.clientX - r.left) / (r.width || 1)));
+  S.y = Math.min(1, Math.max(0, (e.clientY - r.top) / (r.height || 1)));
+  renderGrid(); if (S.sel >= 0 || S.selAbsent >= 0) renderInspector();
+}
+function wirePad() {
+  const cv = $('padC'); if (!cv || !cv.addEventListener) return;
+  cv.addEventListener('pointerdown', e => { dragging = true; if (cv.setPointerCapture) cv.setPointerCapture(e.pointerId); padAt(e); });
+  cv.addEventListener('pointermove', e => { if (dragging) padAt(e); });
+  cv.addEventListener('pointerup', () => { dragging = false; buildLegend(); });
+}
+function wireGrid() {
+  const rows = $('rows'); if (!rows || !rows.addEventListener) return;
+  rows.addEventListener('click', e => {
+    const t = e.target; if (!t || !t.closest) return;
+    const sec = t.closest('[data-sec]');
+    if (sec) { const n = sec.getAttribute('data-sec'); S.collapsed[n] = !S.collapsed[n]; renderGrid(); return; }
+    const ab = t.closest('[data-a]');
+    if (ab) { S.selAbsent = parseInt(ab.getAttribute('data-a'), 10); S.sel = -1; S.draft = null; renderGrid(); renderInspector(); return; }
+    const row = t.closest('[data-i]'); if (!row) return;
+    const cell = t.closest('[data-k]');
+    select(parseInt(row.getAttribute('data-i'), 10), cell ? parseInt(cell.getAttribute('data-k'), 10) : undefined);
+  });
+  const q = $('q');
+  if (q && q.addEventListener) q.addEventListener('input', () => { S.q = String(q.value || ''); renderGrid(); });
+}
+function visibleOrder() { return ORDER.filter(i => rowVisible(i) && !S.collapsed[SECTIONS[FIELD_ROWS[i][R_SEC]]]); }
+function wireKeys() {
+  if (!window.addEventListener) return;
+  window.addEventListener('keydown', e => {
+    const tag = e.target && e.target.tagName;
+    if (tag === 'INPUT' && e.target.type === 'text') return;
+    if (e.key === 'Enter') { commit(); e.preventDefault && e.preventDefault(); return; }
+    if (e.key === 'Escape') { discard(); return; }
+    if (S.sel < 0 || tag === 'SELECT') return;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      const vo = visibleOrder(), p = vo.indexOf(S.sel);
+      const n = vo[Math.min(vo.length - 1, Math.max(0, p + (e.key === 'ArrowDown' ? 1 : -1)))];
+      if (n !== undefined) { select(n); e.preventDefault && e.preventDefault(); }
+    } else if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && tag !== 'INPUT') {
+      S.selCorner = (S.selCorner + (e.key === 'ArrowRight' ? 1 : 3)) % 4; S.draft = null;
+      renderGrid(); renderInspector();
+    }
+  });
+}
+
+/* ---- theme + deep links ---------------------------------------------------------
+   `?theme=dark`, `?view=all|exempt|absent`, `?sel=<id>&corner=A..D`, `?demo=0`,
+   `?q=<text>`, `?x=&y=`, `?mode=blend`, `?stage=<value>` (stages an edit on the
+   selected cell). Deep links, not conveniences: a headless screenshot of a state
+   is then a LOAD rather than a synthetic click that can silently fail to land. */
+let dark = false;
+function readLinks() {
+  let q = '';
+  try { q = window.location && window.location.search; } catch (_) { q = ''; }
+  if (typeof q !== 'string' || !q) return;
+  const get = k => { const m = new RegExp('[?&]' + k + '=([^&]*)').exec(q); return m ? decodeURIComponent(m[1]) : null; };
+  if (get('theme') === 'dark') dark = true;
+  if (get('demo') === '0') { S.demo = false; resetCorners(); }
+  const v = get('view'); if (v) S.view = v;
+  const m = get('mode'); if (m === 'blend') S.mode = 1;
+  const x = get('x'), y = get('y'); if (x !== null) S.x = +x; if (y !== null) S.y = +y;
+  const qq = get('q'); if (qq) { S.q = qq; const qi = $('q'); if (qi) qi.value = qq; }
+  const sel = get('sel'); if (sel !== null && idxOf[+sel] !== undefined) S.sel = idxOf[+sel];
+  const c = get('corner'); if (c && CORNERS.indexOf(c) >= 0) S.selCorner = CORNERS.indexOf(c);
+  const st = get('stage'); if (st !== null && S.sel >= 0) S.draft = { i: S.sel, k: S.selCorner, v: +st };
+}
+function applyTheme() {
+  document.body.classList.toggle('dark', dark);
+  const b = $('themeBtn');
+  if (b) b.innerHTML = 'theme <b>' + (dark ? 'DARK · TUBE' : 'LIGHT · ORCHID') + '</b>';
+  for (const k in _tok) delete _tok[k];
+  buildLegend(); renderGrid();
+}
+function wireHeader() {
+  const tb = $('themeBtn');
+  if (tb && tb.addEventListener) tb.addEventListener('click', () => { dark = !dark; applyTheme(); });
+  const db = $('demoBtn');
+  const showDemo = () => { if (db) db.innerHTML = 'corners <b>' + (S.demo ? 'FACTORY + LAB EDITS' : 'FACTORY ONLY') + '</b>'; };
+  if (db && db.addEventListener) db.addEventListener('click', () => { S.demo = !S.demo; resetCorners(); showDemo(); buildLegend(); renderGrid(); renderInspector(); });
+  showDemo();
+  if (window.addEventListener) window.addEventListener('resize', () => { buildLegend(); paintPad(); });
+}
+
+/* ============ SETUP — everything above is declared; nothing here reaches
+   forward to a const below it (L0026). ============ */
+readLinks();
+buildMode();
+buildFind();
+wireResolver();
+wirePad();
+wireGrid();
+wireKeys();
+wireHeader();
+renderAudit();
+resolveAll();
+applyTheme();
+renderInspector();
+</script>
+</body></html>
