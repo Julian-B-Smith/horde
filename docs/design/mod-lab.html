@@ -1,7 +1,15 @@
 <!DOCTYPE html>
+<!-- SUPERSEDED 2026-09-22 (B207) by docs/design/mod-matrix-lab.html for the
+     MATRIX question — how a route is wired, shown and depth-modulated. Kept, not
+     rewritten in place: this file is the Kuro-rotor / sources lab of 2026-08-17,
+     four harnesses slice its first script block by position
+     (tools/labharness/modlab_probe|reach|sweep|sweep_report.mjs) and
+     docs/design/kuramoto-lfo-golden-spec.md cites it. Its palette predates
+     gui2's tokens (ADR-116); do not copy styling from here. -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="lab-superseded-by" content="mod-matrix-lab.html">
 <title>horde mod lab — Kuro rotor · LFOs · env · matrix</title>
 <style>
   :root { --bg:#0f1218; --panel:#171b24; --line:#2a3040; --text:#e8ecf2; --dim:#8b94a6;
@@ -58,6 +66,7 @@
 </style>
 </head>
 <body>
+<div class="superseded" style="border:1px solid var(--amber);color:var(--amber);border-radius:4px;padding:5px 9px;margin-bottom:8px;font-size:11px">SUPERSEDED for the matrix (2026-09-22, B207) &rarr; <a href="mod-matrix-lab.html" style="color:var(--amber)">mod-matrix-lab.html</a> — depth modulation, per-route polarity, the 22 current source slots and four competing route views, in gui2's tokens. This page stays as the August sources lab (Kuro rotor, LFO/ENV A/B); its palette and matrix are a month stale.</div>
 <h1>horde · mod lab</h1>
 <div class="rev" title="the file's modification time and a fingerprint of its code, both read at load — neither is hand-maintained, so neither can drift. If the fingerprint does not change after a reload you are still on a cached copy (hard-reload: Cmd+Shift+R, Safari Cmd+Opt+R).">rev <span id="revdate">…</span> &middot; fp <span id="revfp">…</span></div>
 <div class="tagline">Lab campaign 2.2 — Kuro rotor (ADR-053) toward golden (incl. the A5 splay fix, rank-based law) · classic LFOs + ADSR as first-class sources · mod matrix · env→K vs onset-lock consolidation A/B · <b>Kuro chorus</b> (rotor → delay taps) · <b>Kuro phaser</b> (rotor → notches). Audition lab, spec-in-code — NOT a reference. Keys: <kbd>a</kbd>..<kbd>k</kbd> play, <kbd>space</kbd> drone.</div>
