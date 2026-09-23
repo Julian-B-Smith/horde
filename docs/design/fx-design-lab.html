@@ -1,0 +1,2064 @@
+<!doctype html>
+<!-- fx-design-lab — B210: every FX module as a FACE of four knobs over an
+     EXPANDED view of every control, in horde's design system.
+     HYPERSAW, 2026-09-22. Spec-in-code per ADR-003. Origin: the human, verbatim
+     (ROADMAP B210): "New FX design lab (We now have the routing visualized, but
+     I want to see a design prototype for the full reverb, Maw, Sluice, and
+     expanded visuals/controls/functionality for comb, echo, drive, filter)".
+     Supersedes docs/design/fx-page-lab.html (2026-08-15) as the FX-module lab;
+     that file is kept as history and now points here.
+
+     THE ONE RULE EVERY CARD FOLLOWS. ADR-169's module macro tiers, as the human
+     restated them (ADR-169 A2): "distill its essential controls to four knobs,
+     even while the rest of the parameters are accessible". So each module is a
+     FACE — four role slots {Amount, Tone, Motion, Regen} (SPEC-MODULE-MACROS §1),
+     each one knob bound to N internals — over an EXPANDED view holding every
+     control. The face never hides, it summarises: every row a face knob drives is
+     marked in the expanded view with the slot that drives it. The CHOICE of four
+     is the design, so every card states why those four.
+
+     WHAT THIS IS NOT. Not a port, not a parity oracle, not audio. Every picture
+     is computed from the parameters by deterministic arithmetic (no RNG except
+     seeded mulberry32, no wall-clock anywhere), because the question this lab
+     answers is "what does the module SHOW", and the audition for each module
+     already lives elsewhere: reverb-lab.html (the reverb), reference/maw/ (MAW),
+     Sluice's own lab (Sluice). Routing is NOT here — the FX page's matrix pane
+     owns it (B50). Filter ROUTING is a separate lab's question; this file draws
+     the filter MODULE only.
+
+     TWO HOSTED MODULES ARE PRESENTED, NOT DESIGNED. MAW (ADR-170) and Sluice
+     (ADR-166) live in their own projects. MAW's transfer curves are drawn by
+     MAW's OWN parity core, loaded read-only from reference/maw/core.js (and its
+     presets from reference/maw/presets.js), so the pictures cannot drift from
+     the device; when those files are unreachable (the headless load checker
+     runs inline scripts only) the page says so instead of drawing a guess.
+     Sluice's three presets are copied from Sluice's lab (their D-046/D-048
+     macro data, read 2026-09-22) and cited where they sit.
+
+     ONE OPEN RULING IS MADE CONCRETE, NOT SETTLED. ADR-169 A1 (2026-09-20,
+     ruling owed): Sluice declined to author macro ROLES and asks horde to bind
+     by ORDER with the macro's label shown. Sluice's card draws its face BOTH
+     ways, side by side, plus a slot-meaning table across presets.
+
+     "PROPOSED" MEANS NEW. For the four rack modules (comb, echo, drive,
+     filter) the expanded view proposes controls the rack does not have today.
+     Those rows carry a dashed left rule and a NEW tag; rows that exist
+     today name their shipping address. A proposal is a design question for the
+     human, never a claim about the engine.
+
+     TOKENS ARE COPIED, NOT LINKED — from src/gui/gui2.html via
+     docs/design/station-page-lab.html (the one lab already built to this
+     standard), whose citation block is kept verbatim below. The knob skin is
+     gui2's §4 knob (gui2.html:617-731, ADR-120), copied.
+
+     L0026: all state above all wiring; setup runs last and reaches nothing
+     declared below it. No Math.random (mulberry32 only, SPEC §5.7). -->
+<html><head><meta charset="utf-8">
+<meta name="lab-review" content="B210 · 2026-09-22">
+<title>FX design lab — seven modules, a four-knob face over every control</title>
+<style>
+  /* ============================================================
+     TOKENS + CHROME — copied VERBATIM from docs/design/station-page-lab.html
+     :50-247, which copied them from src/gui/gui2.html:26-96 (:root),
+     :103-105, :142-144 (body.scr-orchid — the light chassis' screen),
+     :167-185 (light legibility overrides), :186-212 (body.dark) and the
+     chrome idiom at gui2:277, :345, :485-547. Values are exact; the
+     derivations live at those lines and are not duplicated here.
+     ============================================================ */
+  :root {
+    /* ground */
+    --bg:#F2EDE2;        /* page ground (cream)                    */
+    --panel:#FCFAF4;     /* module cards                           */
+    --well:#FFFFFF;      /* DATA surfaces: viz, pads, keyboards     */
+    --panel2:#E9E3D4;    /* well-alt: control tracks, empty meters  */
+    --line:#191521;      /* ink — ALL outlines                     */
+    --hair:#E5DFD0;      /* in-well gridlines ONLY, never borders   */
+    --div:#D8D1C0;       /* dashed intra-card separators           */
+    /* text */
+    --text:#191521;      /* primary (ink)                          */
+    --t2:#494356;        /* secondary                              */
+    --dim:#9A93A3;       /* hint                                   */
+    --dis:#B6AFA0;       /* disabled                               */
+    /* signal — one job each, never borrowed */
+    --value:#F5169C;     /* the user's authored value              */
+    --pull:#F5169C;      /* legacy name for the accent = value      */
+    --physics:#6431F0;   /* order parameter, K vector, rotor lead   */
+    --meter:#00D5C8;     /* analyzers, R rim arc                   */
+    --marker:#FFD702;    /* attention: root, overshoot, lock front  */
+    --celebrate:#A6F219; /* OK / meters in the green               */
+    --caution:#F5A300;   --caution-bg:#FBE9BD; --caution-tx:#6D570B;
+    --amber:#F5A300;     /* legacy name for caution                 */
+    --alarm:#C2261A;     /* PANIC, clip, mute — NOTHING else        */
+    --ghost:#C9C2FF;     /* dry/reference traces behind wet         */
+    /* corners — preset identity (fill / dark text pair) */
+    --cA:#FFD702; --cAtx:#D4A900;
+    --cB:#FF2E88; --cBtx:#FF2E88;
+    --cC:#00D5C8; --cCtx:#00B3A8;
+    --cD:#A6F219; --cDtx:#6FB200;
+    /* canvas-only names from ADR-118 A2, re-pointed at spec roles */
+    --text-hi:#191521;
+    --dim2:#494356;      /* canvas axis labels — secondary          */
+    --grid:#E5DFD0;      /* gridlines = hairline                    */
+    --grid2:#E5DFD0;
+    --hot:#F5169C;       /* live-value marks = value                */
+    --bad:#C2261A;
+    --badge-bg:rgba(245,163,0,.9);
+    /* SCREEN TOKENS — vaporwave phosphor (ADR-119). The chrome stays cream;
+       only the DATA WELLS become phosphor tubes, so canvases read these while
+       every CSS control keeps the chrome set. */
+    --scr-tube:#1B0733;      /* the tube ground — deep violet            */
+    --scr-value:#FF5ECF;     /* your value, as hot-pink phosphor        */
+    --scr-meter:#B8F227;     /* meter/measure, as LIME                  */
+    --scr-physics:#B48CFF;   /* the system's own state                  */
+    --scr-marker:#FFB86B;    /* attention/root, as amber                */
+    --scr-grid:#4FD8BE;      /* in-tube structure — painted at low alpha */
+    --scr-scan:0.22;         /* scanline strength                        */
+    --scr-alpha:1;           /* multiplier on every TOKA() alpha         */
+    /* geometry */
+    --r-card:10px; --r-well:var(--r-card); --r:var(--r-card); --stroke:1.5px;
+    --shadow:1.5px 1.5px 0 var(--line);
+    --shadow-hover:2.5px 2.5px 0 var(--line);
+    --focus:0 0 0 2.5px rgba(245,22,156,.45); }
+  * { box-sizing:border-box; margin:0; }
+  /* gui2:103 — every canvas is a phosphor tube, and a tube gets the same ink
+     border language as the cards. No shadow: shadows are for interactive
+     elements, never wells. */
+  canvas { border:var(--stroke) solid var(--line); border-radius:var(--r-well);
+           background:var(--scr-tube); display:block; }
+  /* gui2:142 — ORCHID is the screen scheme the LIGHT chassis pairs with
+     (gui2:1654-1657: LIGHT/ORCHID, DARK/TUBE). A lab with two themes carries
+     both pairings or it is showing a chassis nobody ships. */
+  body:not(.dark) { --scr-tube:#F3EBFF; --scr-value:#D6006B; --scr-meter:#007A73;
+    --scr-physics:#6E14E8; --scr-marker:#C43A00; --scr-grid:#5A3FA8;
+    --scr-scan:0.05; --scr-alpha:1.6;
+    /* gui2:167 — yellow and lime cannot survive a light ground (measured
+       1.20:1 and 1.17:1 against --bg, where the graphical floor is 3:1). */
+    --marker:#8A6A00; --celebrate:#4E7A00; }
+  body.dark {
+    --bg:#151220; --panel:#1F1B2E; --well:#0E0C16; --panel2:#2C2740;
+    --line:#EFE9FA; --hair:#312B47; --div:#3B3455;
+    --text:#EFE9FA; --t2:#BDB4D4; --dim:#8A82A3; --dis:#514A6B;
+    --value:#FF3DAD; --pull:#FF3DAD; --physics:#A07CFF; --meter:#2DF2E2;
+    --marker:#FFE04D; --celebrate:#C2F53E;
+    --caution:#FFB627; --caution-bg:#4A3A12; --caution-tx:#FFD98A;
+    --amber:#FFB627; --alarm:#FF5A4D;
+    --ghost:#5B4E8F;
+    --cA:#FFD702; --cAtx:#FFE566;
+    --cB:#FF2E88; --cBtx:#FF6FAE;
+    --cC:#00D5C8; --cCtx:#4DEDE3;
+    --cD:#A6F219; --cDtx:#C6F86A;
+    --text-hi:#FFFFFF; --dim2:#9A93A8; --grid:#312B47; --grid2:#312B47;
+    --hot:#FF3DAD; --bad:#FF5A4D; --badge-bg:rgba(255,182,39,.9);
+    --focus:0 0 0 2.5px rgba(255,61,173,.45); }
+
+  /* ============ CHROME — gui2's markup idiom, same declarations ============ */
+  body { background:var(--bg); color:var(--text);
+    font:12px/1.45 ui-monospace,Menlo,monospace; padding:10px 12px; }
+  .hdr { display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap;
+         margin-bottom:8px; }
+  h1 { font-size:34px; line-height:1; letter-spacing:-1px; font-weight:800; }
+  .badges { display:flex; align-items:center; gap:8px; margin-top:4px; }
+  .badge { font-size:9.5px; letter-spacing:.1em; padding:2px 7px;
+           border:var(--stroke) solid var(--line); border-radius:3px;
+           background:var(--cA); color:var(--line); }
+  /* The corner hues are IDENTICAL in both chassis by design (gui2:196 — "corner
+     identity stays recognisably itself"), but --line and --text both INVERT. A
+     badge filled with --cA therefore needs a different token for the same dark
+     ink on each ground: --line on cream, --bg on the dark chassis. Measured
+     the wrong way first — light ink on yellow at 1.3:1, which is the failure
+     gui2:167 catalogues for exactly these two hues. */
+  body.dark .badge { color:var(--bg); }
+  .sub { color:var(--t2); font-size:10.5px; letter-spacing:.12em; }
+  .hdrctl { display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+            margin-left:auto; }
+  .grp { display:flex; align-items:center; gap:7px; }
+  .lbl { font-size:10px; font-weight:700; letter-spacing:.1em; color:var(--t2); }
+  /* gui2:277 — the capsule. `on` inverts to ink fill, which is the one state
+     this file's chips, algorithm recalls and waveform selectors all share. */
+  .pill { padding:3px 10px; border:var(--stroke) solid var(--line);
+    border-radius:999px; min-height:26px; cursor:pointer; color:var(--dim);
+    background:var(--panel); font:inherit; font-size:10px; letter-spacing:.06em; }
+  .pill:hover { box-shadow:var(--shadow); }
+  .pill.on { color:var(--bg); background:var(--line); font-weight:600; }
+  .pill.panic { border-color:var(--alarm); color:var(--alarm); font-weight:700; }
+  .pill.panic:hover { background:var(--alarm); color:var(--bg); }
+  .pills { display:flex; gap:4px; flex-wrap:wrap; }
+  .chip { padding:4px 8px; border:0; background:none; border-radius:var(--r);
+    cursor:pointer; font:inherit; font-size:10px; letter-spacing:.06em;
+    color:var(--dim); min-height:26px; }
+  .chip:hover { background:var(--panel2); }
+  .chip b { color:var(--t2); font-weight:600; letter-spacing:.1em; }
+  .tagline { color:var(--t2); font-size:11px; max-width:112ch; margin-bottom:6px; }
+  .tagline b { color:var(--text); }
+  .audit { font-size:10px; color:var(--t2); margin-bottom:10px;
+           border-left:3px solid var(--meter); padding-left:8px; }
+  .audit.bad { border-left-color:var(--alarm); color:var(--alarm); }
+  .audit b { color:var(--value); }
+
+  /* ============ CLUSTERS AND ROWS — gui2:345, :485 ============ */
+  .cluster { background:var(--panel); border:var(--stroke) solid var(--line);
+    border-radius:var(--r); padding:8px 10px; min-width:0; }
+  h2 { font-size:11px; color:var(--pull); letter-spacing:1px; margin-bottom:6px; }
+  .row { display:grid; grid-template-columns:52px minmax(0,1fr) 46px;
+    align-items:center; gap:6px; margin:5px 0; }
+  .row label { color:var(--t2); font-size:10px; }
+  .row output { font-size:10px; text-align:right; color:var(--text);
+                font-variant-numeric:tabular-nums; }
+  /* gui2:764 — GHOST: a row that is present but not in force. Dimmed content,
+     never a removed control: this page's whole claim is that every §10 address
+     has a reachable control, and hiding the three tuning rows the current mode
+     does not use would make that claim false four times over. */
+  .row.ghost > * { opacity:.5; }
+  .row.wide { grid-template-columns:52px minmax(0,1fr); }
+  .row.full { display:block; }
+  .note { color:var(--t2); font-size:10px; line-height:1.5; margin-top:6px; }
+  .note b { color:var(--text); }
+  .sep { border-top:1px dashed var(--div); margin:8px 0 6px; }
+  .cap { font-size:9px; letter-spacing:.12em; color:var(--dim); margin:6px 0 3px; }
+
+  /* SLIDER — gui2:490. --pct carries the fill, because a native range cannot
+     paint its own; anything that never sets it renders an EMPTY track rather
+     than a wrong one. */
+  input[type=range] {
+    -webkit-appearance:none; appearance:none; width:100%; min-width:0;
+    height:24px; background:transparent; cursor:pointer; }
+  input[type=range]::-webkit-slider-runnable-track {
+    height:6px; border-radius:3px; border:var(--stroke) solid var(--line);
+    background:linear-gradient(to right,
+      var(--value) 0 calc(var(--pct, 0) * 100%),
+      var(--panel2) calc(var(--pct, 0) * 100%) 100%); }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance:none; appearance:none;
+    width:13px; height:13px; border-radius:4px; margin-top:-3.5px;
+    background:var(--panel); border:var(--stroke) solid var(--line);
+    box-shadow:var(--shadow); }
+  input[type=range]:hover::-webkit-slider-thumb { box-shadow:var(--shadow-hover); }
+  input[type=range]:active::-webkit-slider-thumb {
+    background:var(--value); box-shadow:none; }
+  /* TOGGLE — gui2:513 */
+  input[type=checkbox] {
+    -webkit-appearance:none; appearance:none; margin:0;
+    width:32px; height:17px; border-radius:999px; cursor:pointer;
+    background:var(--panel2); border:var(--stroke) solid var(--line);
+    position:relative; transition:background .12s linear; }
+  input[type=checkbox]::after {
+    content:''; position:absolute; top:1px; left:1px;
+    width:11px; height:11px; border-radius:999px;
+    background:var(--panel); border:var(--stroke) solid var(--line);
+    transition:transform .12s ease; }
+  input[type=checkbox]:checked { background:var(--value); }
+  input[type=checkbox]:checked::after { transform:translateX(15px); }
+  /* ENUM — gui2:538 */
+  select {
+    -webkit-appearance:none; appearance:none;
+    font:inherit; font-size:10px; padding:3px 18px 3px 9px; min-width:0;
+    border-radius:999px; border:var(--stroke) solid var(--line);
+    background:var(--panel); color:var(--t2); cursor:pointer; min-height:26px;
+    background-image:linear-gradient(45deg,transparent 50%,var(--t2) 50%),
+                     linear-gradient(135deg,var(--t2) 50%,transparent 50%);
+    background-position:calc(100% - 11px) 50%, calc(100% - 7px) 50%;
+    background-size:4px 4px, 4px 4px; background-repeat:no-repeat; }
+  select:hover { box-shadow:var(--shadow); }
+  input[type=text], input[type=number] {
+    font:inherit; font-size:10px; padding:3px 8px; border-radius:999px;
+    min-height:26px; border:var(--stroke) solid var(--line);
+    background:var(--panel); color:var(--text); min-width:0; width:100%; }
+
+  /* ============ KNOB — gui2.html:617-731 (§4, ADR-120), copied ============
+     A skin over the range input, never a replacement: the input keeps the
+     value and the keyboard, the skin takes the pointer. --a0/--a1 carry the
+     filled arc, --ang the pointer. */
+  .knob { position:relative; width:36px; height:36px; flex:0 0 auto; }
+  .karc { position:absolute; inset:1.7px; border-radius:50%;
+    background:conic-gradient(from 220deg,
+      var(--panel2) 0deg var(--a0,0deg), var(--value) var(--a0,0deg) var(--a1,0deg),
+      var(--panel2) var(--a1,0deg) 280deg, transparent 280deg 360deg); }
+  .kmod { position:absolute; inset:0; border-radius:50%;
+    background:conic-gradient(from 220deg,
+      transparent 0deg var(--m0,0deg), var(--physics) var(--m0,0deg) var(--m1,0deg),
+      transparent var(--m1,0deg) 360deg); opacity:.85; }
+  .kcap { position:absolute; inset:4.5px; border-radius:50%;
+    background:var(--panel); border:var(--stroke) solid var(--line);
+    box-shadow:var(--shadow); }
+  .kptr { position:absolute; left:50%; top:7px; width:2.5px; height:9px;
+    margin-left:-1.25px; border-radius:1.5px; background:var(--line);
+    transform-origin:50% 11px; transform:rotate(var(--ang,0deg)); }
+  .knob:hover .kcap { box-shadow:var(--shadow-hover); }
+  .knob.drag .kcap { background:var(--value); box-shadow:none; }
+  .knob.drag .kptr { background:var(--bg); }
+  .knob input[type=range] { position:absolute; inset:0; width:100%; height:100%;
+    opacity:0; pointer-events:none; margin:0; }
+  .knob:focus-within { border-radius:50%; box-shadow:var(--focus); }
+  .knob.dis .kcap { opacity:.55; box-shadow:none; }
+  .knob.dis .kptr { opacity:.35; }
+  .row.kcell { position:relative; display:flex; flex-direction:column;
+    align-items:center; gap:1px; margin:0; padding:2px 0 0; text-align:center;
+    min-width:0; }
+  .row.kcell > label { font-size:9.5px; line-height:1.15; max-width:100%;
+    letter-spacing:-.01em; color:var(--t2);
+    display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2;
+    overflow:hidden; overflow-wrap:break-word; min-height:2.3em; }
+  .row.kcell > output { position:absolute; left:0; right:0; top:2px;
+    min-height:2.3em; display:flex; align-items:center; justify-content:center;
+    font-size:10px; line-height:1.15; text-align:center; color:var(--text);
+    font-weight:600; font-variant-numeric:tabular-nums; opacity:0;
+    pointer-events:none; transition:opacity .08s; }
+  .row.kcell:hover > output, .row.kcell:focus-within > output,
+  .row.kcell:has(.knob.drag) > output { opacity:1; }
+  .row.kcell:hover > label, .row.kcell:focus-within > label,
+  .row.kcell:has(.knob.drag) > label { opacity:0; }
+
+  /* ============ THIS LAB — the module card ============ */
+  /* The row grid widens its label column: FX parameter names ("pre-delay",
+     "tail decorr", "drift depth") are longer than STATION's, and a clipped
+     name is a control you cannot identify. */
+  .row { grid-template-columns:104px minmax(0,1fr) 54px; margin:3px 0; }
+  .row.wide { grid-template-columns:104px minmax(0,1fr); }
+  .sec .row label, .fblock .row label { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .rule { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:10px; }
+  .rule .cluster { flex:1 1 300px; }
+  .legend { display:flex; gap:12px; flex-wrap:wrap; font-size:10px; color:var(--t2);
+            margin-top:4px; align-items:center; }
+  .sw { display:inline-block; width:18px; height:8px; border-radius:2px;
+        border:1px solid var(--line); vertical-align:middle; margin-right:4px; }
+  .rack { display:grid; grid-template-columns:repeat(auto-fill, minmax(300px,1fr));
+          gap:10px; align-items:start; }
+  .mod { background:var(--panel); border:var(--stroke) solid var(--line);
+         border-radius:var(--r); padding:8px 10px; min-width:0; }
+  .mod.wide { grid-column:span 2; }
+  /* OPEN: the card takes the whole row, face column left, every control right.
+     The face stays where it was, so opening a module never moves the four
+     knobs the player already knows. */
+  .mod.open { grid-column:1 / -1; display:grid;
+    grid-template-columns:minmax(290px,340px) minmax(0,1fr); gap:16px; }
+  .mod.wide.open { grid-template-columns:minmax(560px,640px) minmax(0,1fr); }
+  @media (max-width:1100px) { .mod.open, .mod.wide.open { grid-template-columns:1fr; }
+                              .mod.wide { grid-column:auto; } }
+  .mhead { display:flex; align-items:center; gap:7px; margin-bottom:6px; flex-wrap:wrap; }
+  .mhead b { font-size:13px; letter-spacing:.08em; }
+  .kind { font-size:8.5px; letter-spacing:.12em; padding:1px 6px; border-radius:3px;
+          border:var(--stroke) solid var(--line); color:var(--t2); }
+  /* HOSTED: dashed, because the module lives in another project and horde only
+     presents it — the same "present, not ours" dash the ghost rows wear. */
+  .kind.hosted { border-style:dashed; }
+  .mhead .org { color:var(--dim); font-size:9.5px; letter-spacing:.04em; }
+  .mhead .xbtn { margin-left:auto; }
+  canvas.mini { width:100%; height:62px; }
+  canvas.big { width:100%; height:190px; }
+  canvas.aux { width:100%; height:150px; }
+  .face { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:4px;
+          margin:8px 0 2px; }
+  .rchip { font-size:8px; letter-spacing:.12em; color:var(--t2); margin-top:3px;
+           border:1px solid var(--line); border-radius:3px; padding:0 4px; }
+  .fslot.unbound .rchip { border-style:dashed; color:var(--dim); border-color:var(--dim); }
+  .fslot.unbound > label { color:var(--dim); font-style:italic; }
+  /* GHOST face slot: bound, but to a parameter the current topology ignores
+     (MAW's Feedback outside the feedback route). Present and turnable, and it
+     says so — gui2:764's ghost rule applied to a knob. */
+  .fslot.ghost .knob { opacity:.5; }
+  .fslot.ghost .rchip::after { content:' · IDLE'; color:var(--caution); }
+  .bto { font-size:8.5px; color:var(--dim); line-height:1.25; margin-top:2px;
+         max-width:100%; overflow-wrap:anywhere; }
+  .why { font-size:10px; color:var(--t2); line-height:1.5; margin-top:6px;
+         border-top:1px dashed var(--div); padding-top:6px; }
+  .why b { color:var(--text); }
+  .pset { display:flex; gap:4px; flex-wrap:wrap; margin:6px 0 2px; }
+  .pset .pill { min-height:22px; padding:2px 8px; font-size:9.5px; }
+  .xp { display:none; min-width:0; }
+  .mod.open .xp { display:block; }
+  .xhead { display:flex; align-items:baseline; gap:10px; margin-bottom:6px; }
+  .xhead h2 { margin:0; }
+  .xhead .cnt { font-size:10px; color:var(--t2); }
+  .secs { columns:260px 3; column-gap:14px; margin-top:8px; }
+  .sec { break-inside:avoid; -webkit-column-break-inside:avoid; display:inline-block;
+         width:100%; margin:0 0 8px; }
+  .sec .cap { margin-top:0; }
+  /* BINDING MARK — which face slot drives this row. Magenta because a binding
+     is AUTHORED (by the preset author), and gui2 gives the authored value one
+     colour and never borrows it. */
+  .bchip { display:inline-block; font-size:8px; letter-spacing:.06em; padding:0 3px;
+           margin-right:3px; border:1px solid var(--value); color:var(--value);
+           border-radius:3px; line-height:1.4; vertical-align:1px; }
+  .row.prop { border-left:2px dashed var(--dim); padding-left:4px; }
+  .ptag { font-size:7.5px; letter-spacing:.1em; color:var(--dim); margin-left:4px; }
+  .row.hl { background:var(--panel2); border-radius:4px; }
+  .row .ro { font-size:10px; color:var(--t2); }
+  .note code { font-size:9.5px; }
+  /* SLUICE — two faces side by side, same macros, two keying rules. */
+  .twin { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:6px; }
+  .fblock { border:var(--stroke) solid var(--line); border-radius:var(--r);
+            padding:6px 7px 4px; min-width:0; }
+  .fblock .ftitle { font-size:9.5px; letter-spacing:.1em; font-weight:700; color:var(--text); }
+  .fblock .fsub { font-size:9px; color:var(--t2); line-height:1.35; min-height:2.7em; }
+  .fblock .fcount { font-size:9.5px; color:var(--t2); margin-top:2px; }
+  .fblock .fcount b { color:var(--value); }
+  table.smap { width:100%; border-collapse:collapse; font-size:9.5px; margin-top:6px; }
+  table.smap th, table.smap td { border:1px solid var(--div); padding:2px 5px; text-align:left;
+    font-weight:400; }
+  table.smap th { color:var(--t2); letter-spacing:.06em; }
+  table.smap td.un { color:var(--dim); font-style:italic; }
+  table.smap td.k { color:var(--t2); }
+  .findings { margin-top:10px; }
+  .findings ol { padding-left:18px; }
+  .findings li { margin:4px 0; color:var(--t2); font-size:10.5px; line-height:1.5; }
+  .findings li b { color:var(--text); }
+</style>
+<!-- MAW'S OWN CORE AND PRESETS, read-only (reference/maw/ is PROTECTED — this
+     loads it, never copies it). A classic <script src>, so it works from the
+     filesystem as well as from the labs server; the load checker runs inline
+     blocks only, so under it `defineCore` is simply absent and the page says so. -->
+<script src="../../reference/maw/core.js"></script>
+<script src="../../reference/maw/presets.js"></script>
+</head><body>
+
+<div class="hdr">
+  <div>
+    <h1>fx modules</h1>
+    <div class="badges">
+      <span class="badge">B210 · DESIGN LAB</span>
+      <span class="sub">SEVEN MODULES · A FOUR-KNOB FACE OVER EVERY CONTROL · ADR-169</span>
+    </div>
+  </div>
+  <div class="hdrctl">
+    <div class="grp"><span class="lbl">VIEW</span>
+      <button class="pill" id="openAll" data-lab="open every module">EXPAND ALL</button>
+      <button class="pill" id="closeAll" data-lab="faces only">FACES</button></div>
+    <button class="chip" id="themeBtn" data-lab="theme audition">theme <b>LIGHT</b></button>
+  </div>
+</div>
+
+<div class="tagline">Every FX module horde hosts, drawn in gui2's token set and held to one rule —
+<b>ADR-169</b>'s module macro tiers as the human put it: <i>"distill its essential controls to four knobs, even
+while the rest of the parameters are accessible"</i>. Each card is a <b>FACE</b>: four role slots
+(Amount · Tone · Motion · Regen), each one knob that may drive several internals. <b>EXPAND</b> opens every
+control beside it, and every row a face knob drives wears that knob's mark. The <b>reverb</b> is the ruled
+worked example (ADR-177 §4); <b>MAW</b> and <b>Sluice</b> are hosted — horde designs how it
+<i>presents</i> them, not how they work; <b>comb, echo, drive, filter</b> are the rack's own modules, expanded
+with proposed controls. Sluice's face is drawn <b>both</b> ways for the open ruling ADR-169 A1. Pictures are
+computed from the parameters, not heard: this lab answers what a module <i>shows</i>. Drag a knob vertically
+(shift = fine, double-click = the preset's value), or move any row.</div>
+
+<div class="audit" id="audit">module audit: pending</div>
+
+<div class="rule">
+  <div class="cluster"><h2>The face</h2>
+    <div class="note">Four slots keyed by the fixed role enum <b>Amount · Tone · Motion · Regen</b>
+      (SPEC-MODULE-MACROS §1). The module PRESET supplies each slot's label and bindings — one knob →
+      N internals, lo…hi spans (ADR-169 A2) — never values. A role the preset does not implement is
+      drawn <b>inert and labelled unbound</b>, never hidden. Global-tier slots are host parameters at
+      ids <code>300 + 8·host + role</code> (ADR-169 A1 ruling 4).</div>
+  </div>
+  <div class="cluster"><h2>The expanded view</h2>
+    <div class="note">Every control the module has. The face never hides, it summarises: a row the face
+      drives carries the slot's mark. Ghost rows are present but not in force in the current mode
+      (gui2:764) — dimmed, never removed. Dashed rows are <b>proposed</b>: controls the rack does not
+      have today.</div>
+    <div class="legend">
+      <span><span class="sw" style="background:var(--value)"></span>your authored value</span>
+      <span><span class="sw" style="background:var(--physics)"></span>what the engine does on its own</span>
+      <span><span class="sw" style="background:var(--meter)"></span>analysis</span>
+      <span><span class="bchip">TONE</span>row driven by that face slot</span>
+      <span style="border-left:2px dashed var(--dim);padding-left:4px">proposed control</span>
+    </div>
+  </div>
+</div>
+
+<div class="rack" id="rack"></div>
+
+<div class="cluster findings"><h2>What the lab surfaced — for the human</h2>
+  <ol id="findings">
+    <li><b>The role enum fits five modules; Drive and Sluice strain it from opposite sides.</b> Reverb,
+      MAW, comb, echo and filter each fill all four roles honestly. Drive cannot: a one-stage drive has no
+      loop, so <b>Regen is drawn unbound</b>, and the knob a player would want there (Output, or Bias) has
+      no role. Sluice will not: it declines to author roles at all (D-052). Both are a label the
+      vocabulary cannot hold.</li>
+    <li><b>ADR-169 A1, made concrete (not ruled).</b> Keyed by role, Sluice's shipped presets put
+      <b>nothing</b> on the face (they author no roles); with a horde-authored role table two slots bind
+      and bode's defining macro — <i>shift</i> — is not on the face at all. Keyed by order, all four bind
+      under Sluice's own labels, but an automation lane on slot 1 means <i>shift</i> in bode and
+      <i>allpass unison</i> in the next preset. L0028 (canonical here) asks for both halves: address a
+      ROLE, and LABEL what it resolved to — each rule keeps one half.</li>
+    <li><b>A face knob can be bound to a parameter the current topology ignores.</b> MAW's Feedback
+      (Regen) only acts in the feedback route. The card keeps it turnable and marks it IDLE rather than
+      letting it turn silently — worth a line in SPEC-MODULE-MACROS if the human agrees.</li>
+    <li><b>Drive's expanded view is a one-stage subset of a MAW stage</b> (curve, drive, bias, tone,
+      mix; its curves are drawn by MAW's own core). If Drive and MAW should converge, the reduction is
+      Drive = a MAW preset with stages 2–3 off — one module fewer at 1.0 (ADR-172: one instance per
+      type).</li>
+    <li><b>Filter's face inverts today's knob.</b> The rack's Filter amount turns UP to CLOSE
+      (fx_rack.h:671); a Cutoff knob that closes as it turns up is a trap, so the face turns up to open.
+      A saved patch would migrate <code>a → 1 − a</code>. Proposed, not assumed.</li>
+  </ol>
+</div>
+
+<script>
+"use strict";
+/* ============ BLOCK A — data and vocabulary, above all wiring (L0026) =======
+   Modules are DATA: a parameter object `P`, sections of row specs addressing
+   paths inside it, and four face slots whose bindings address the same paths.
+   The page builds everything from these records, and audits them against each
+   other at load — a face binding that names a row the panel lacks is an error
+   the audit prints, not a knob that silently does nothing. */
+const ROLES = ['Amount', 'Tone', 'Motion', 'Regen'];
+const TAU = 6.283185307179586;
+
+// mulberry32 — the house stream (SPEC §5.7). Identical to force_core.h's
+// rngNext when seeded with (seed + 1), which is how the echo taps below are
+// placed exactly where the TimeCore places them.
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const clamp = (x, a, b) => (x < a ? a : (x > b ? b : x));
+
+/* ---- formatters ---------------------------------------------------------- */
+const f2 = x => (Math.round(x * 100) / 100).toFixed(2);
+const fPct = x => Math.round(x * 100) + '%';
+const fMs = x => (x < 10 ? x.toFixed(1) : String(Math.round(x))) + 'ms';
+const fSecMs = x => (x < 1 ? Math.round(x * 1000) + 'ms' : x.toFixed(2) + 's');
+const fSec = x => x.toFixed(2) + 's';
+const fHz = x => (x >= 1000 ? (x / 1000).toFixed(x >= 10000 ? 1 : 2) + 'k' : (x < 10 ? x.toFixed(2) : String(Math.round(x)))) + 'Hz';
+const fDb = x => (x > 0 ? '+' : '') + (Math.round(x * 10) / 10).toFixed(1) + 'dB';
+const fSt = x => (x > 0 ? '+' : '') + Math.round(x) + 'st';
+const fCt = x => (x > 0 ? '+' : '') + Math.round(x) + 'ct';
+const fBi = x => (x > 0 ? '+' : '') + f2(x);
+const fInt = x => String(Math.round(x));
+const fOct = x => (x > 0 ? '+' : '') + x.toFixed(2) + 'oct';
+const fLin2dB = x => fDb(20 * Math.log10(Math.max(1e-6, x)));
+
+/* ---- row spec builders --------------------------------------------------- */
+const R = (k, l, min, max, step, f, o) => Object.assign({ k, l, min, max, step, f, type: 'range' }, o || {});
+const PILLS = (k, l, opts, o) => Object.assign({ k, l, opts, type: 'pills' }, o || {});
+const TOG = (k, l, o) => Object.assign({ k, l, type: 'toggle' }, o || {});
+const SEL = (k, l, opts, o) => Object.assign({ k, l, opts, type: 'select' }, o || {});
+const RO = (k, l, f, o) => Object.assign({ k, l, f, type: 'readout' }, o || {});
+const SEC = (cap, rows) => ({ cap, rows });
+const B = (t, lo, hi, curve) => ({ t, lo, hi, curve: curve || 'lin' });
+const SLOT = (role, label, b) => ({ role, label, b: b || [], v: 0 });
+
+function getp(o, path) {
+  const ks = String(path).split('.');
+  let x = o;
+  for (const k of ks) { if (x === null || x === undefined) return undefined; x = x[k]; }
+  return x;
+}
+function setp(o, path, v) {
+  const ks = String(path).split('.');
+  let x = o;
+  for (let i = 0; i < ks.length - 1; i++) { if (x[ks[i]] === null || x[ks[i]] === undefined) return; x = x[ks[i]]; }
+  x[ks[ks.length - 1]] = v;
+}
+/* A binding's curve: 'lin' spans lo..hi; 'log'/'exp' spans it geometrically
+   (Sluice's `curve:'exp'` and every frequency/time binding here). */
+function bindVal(b, v) {
+  if (b.curve === 'log' || b.curve === 'exp') return b.lo * Math.pow(b.hi / b.lo, v);
+  return b.lo + (b.hi - b.lo) * v;
+}
+function bindInv(b, x) {
+  if (typeof x !== 'number' || !isFinite(x)) return 0;
+  if (b.curve === 'log' || b.curve === 'exp') return clamp(Math.log(x / b.lo) / Math.log(b.hi / b.lo), 0, 1);
+  return b.hi === b.lo ? 0 : clamp((x - b.lo) / (b.hi - b.lo), 0, 1);
+}
+
+/* ============ REVERB — the full one (reverb-lab.html lineage, ADR-177 §4) ==
+   The panel's claim is ADR-177 §4's: "Reverb's module panel carries every
+   control the reverb lab exposes". The list below is the lab's own control
+   list (reverb-lab.html:718) — the audit holds the panel to it. */
+const REVERB_LAB_CONTROLS = ['mix', 'preDelay', 'size', 'decay', 'damp', 'lowCut', 'inHP', 'inLP',
+  'spinDepth', 'spinRate', 'preGain', 'postGain', 'outGain', 'width', 'bassMono', 'envelop',
+  'tailDecorr', 'mixTimeMs', 'erSend', 'erSize', 'erDecay', 'diffuse', 'modDepth', 'modRate', 'modK'];
+// The lab's fixed ER tap table (reverb-lab.html:206-209) and FDN base lengths
+// at 44.1 kHz (:237) — the echogram draws THESE, not an illustration of them.
+const RV_NTAP = 12;
+const RV_TAP_T = []; const RV_TAP_G = [];
+for (let i = 0; i < RV_NTAP; i++) {
+  RV_TAP_T.push(0.006 + Math.pow(i / (RV_NTAP - 1), 1.35) * 0.075);
+  RV_TAP_G.push(1 / (1 + i * 0.55));
+}
+const RV_BASELEN = [1237, 1451, 1733, 1979, 2287, 2593, 2861, 3187];
+
+function reverbModule() {
+  // Defaults are the lab's INPUT values (reverb-lab.html:603-646), which is
+  // what a player meets — note `size` 0.2 there against 0.5 in the class body.
+  const P = { mix: 0.35, preDelay: 0.02, size: 0.2, decay: 2.2, damp: 0.45, lowCut: 120, width: 1,
+    inHP: 20, inLP: 20000, spinDepth: 0, spinRate: 0.28, preGain: 0, postGain: 0, outGain: 0,
+    bassMono: 260, envelop: 1, tailDecorr: 0.6, mixTimeMs: 0, erSend: 0.7, erSize: 0.55,
+    erDecay: 0.6, diffuse: 0.7, modDepth: 0.35, modRate: 0.35, modK: 0 };
+  return {
+    id: 'reverb', name: 'REVERB', kind: 'FULL', org: 'horde · ADR-177 §4 · reverb-lab.html', P,
+    sections: () => [
+      SEC('SPACE', [
+        R('mix', 'mix', 0, 1, 0.01, fPct),
+        R('preDelay', 'pre-delay', 0, 0.2, 0.001, x => fMs(x * 1000)),
+        R('size', 'size', 0, 1, 0.005, f2),
+        R('decay', 'decay', 0.2, 12, 0.05, x => fSec(x) + ' RT60'),
+        R('width', 'width', 0, 1.5, 0.01, f2),
+      ]),
+      SEC('EARLY REFLECTIONS', [
+        R('erSend', 'ER send', 0, 1.5, 0.01, f2),
+        R('erSize', 'ER size', 0.15, 1.5, 0.01, f2),
+        R('erDecay', 'ER decay', 0.2, 1, 0.01, f2),
+        R('spinDepth', 'ER spin', 0, 3, 0.05, x => x.toFixed(2) + 'ms'),
+        R('spinRate', 'spin rate', 0.02, 2, 0.01, fHz),
+      ]),
+      SEC('DIFFUSION + TAIL', [
+        R('diffuse', 'diffusion', 0, 1, 0.01, f2),
+        R('damp', 'damping', 0, 1, 0.01, f2),
+        R('lowCut', 'low cut', 20, 600, 5, fHz),
+        R('envelop', 'envelop', 0, 1.6, 0.01, f2),
+        R('tailDecorr', 'tail decorr', 0, 1, 0.01, f2),
+        R('mixTimeMs', 'mixing time', 0, 300, 5, x => (x ? Math.round(x) + 'ms' : 'stock')),
+        R('bassMono', 'bass mono', 0, 600, 5, x => (x ? fHz(x) : 'off')),
+      ]),
+      SEC('MODULATION — THE SWARM', [
+        R('modDepth', 'depth', 0, 1, 0.01, f2),
+        R('modRate', 'rate', 0.02, 3, 0.01, fHz),
+        R('modK', 'coupling K', 0, 1, 0.01, f2),
+      ]),
+      SEC('INPUT + GAIN STAGING', [
+        R('inHP', 'in low cut', 20, 2000, 5, fHz, { log: true }),
+        R('inLP', 'in high cut', 800, 20000, 50, fHz, { log: true }),
+        R('preGain', 'pre gain', -24, 12, 0.5, fDb),
+        R('postGain', 'post gain', -24, 12, 0.5, fDb),
+        R('outGain', 'out gain', -24, 12, 0.5, fDb),
+      ]),
+    ],
+    slots: [
+      SLOT('Amount', 'Mix', [B('mix', 0, 1)]),
+      // Inverted span: the knob turns UP to brighten, the parameter (damping)
+      // falls. A face knob's direction is the player's, not the DSP's.
+      SLOT('Tone', 'Bright', [B('damp', 0.9, 0.1)]),
+      SLOT('Motion', 'Motion', [B('modDepth', 0, 1)]),
+      // ONE KNOB, TWO INTERNALS (ADR-169 A2). The size span is chosen so the
+      // knob's value at the stock decay (2.2 s) lands exactly on the stock size
+      // (0.20): applying the face moves nothing until the player moves it.
+      SLOT('Regen', 'Decay', [B('decay', 0.4, 9, 'log'), B('size', 0.02, 0.35)]),
+    ],
+    why: '<b>MIX · BRIGHT · MOTION · DECAY.</b> The four things a player asks of a room, in order: how much of '
+      + 'it, how dark, how alive, how long. <b>Decay carries size with it</b> — one knob, two internals (ADR-169 A2) — '
+      + 'because a long room that stays small rings metallic (the lab measured the smallest sizes as the roughest). '
+      + 'Size, the early reflections and the width/envelop split stay in the panel (ADR-177 §4: no fifth knob): '
+      + 'they decide WHICH room, which is the designer\'s layer, not the player\'s.',
+    notes: 'The panel is every control in <code>reverb-lab.html</code> — the audit holds it to that lab\'s own list. '
+      + '<b>Echogram</b> (sqrt time axis): the pre-delay gap; the twelve ER stems from the lab\'s own tap table, at '
+      + '<code>erSize</code>-scaled times and <code>erDecay</code>-shaped gains, violet whiskers for the spin reach; the '
+      + 'tail as RT60 lines at 125 Hz / 1 kHz / 8 kHz from the lab\'s loop-gain law (reverb-lab.html:350-376) on the mean '
+      + 'line — exact in slope at 1 kHz by construction, schematic in level. <b>Swarm</b>: the eight line-modulation '
+      + 'phases after two simulated seconds at this K (the lab\'s <code>stepMod</code>), R = how locked they are.',
+    draw: drawReverb, aux: drawReverbSwarm, auxLabel: 'MODULATION SWARM — eight line phases',
+  };
+}
+
+/* ============ MAW — FX-C, hosted (ADR-170; its own project since A2) =======
+   Horde PRESENTS MAW. Its parameter set is MAW's defaultParams() (core.js:
+   83-91); the rows below address it, and when core.js is reachable the audit
+   checks both directions: no row addresses a parameter MAW lacks, and every
+   MAW parameter horde ports has a row. The lab-only source fields (src,
+   spread, latch — the prototype's internal oscillator, SPEC-MAW §10 "not
+   ported") are excluded by name. */
+// Names VERBATIM from core.js SHAPERS[].name — the fallback for when the core
+// is unreachable, and checked against it when it is.
+const MAW_CURVES = ['soft (tanh→clip)', 'hard clip (knee↑)', 'overdrive (bite↑)', 'tube (cubic+even)',
+  'diode (asym ceiling)', 'fold (sine→triangle)', 'rectify (half→full)', 'crush (bits↓)', 'clip→wrap',
+  'cheby (harmonic n)', 'polynomial (wiggle↑)', 'fractal (ridges↑)', 'shards (count↑)', 'noise (amount↑)'];
+const MAW_ROUTES = ['series', 'parallel', 'multiband', 'mid/side', 'feedback'];
+const MAW_LAB_ONLY = ['src', 'spread', 'latch'];
+// core.js defaultStage()/defaultParams(), copied as a FALLBACK only; when the
+// core loads, its own defaults replace these (see mawFresh()).
+function mawStageDefaults() { return { on: true, drive: 12, bias: 0, a: 0, b: 5, morph: 0, shape: 0.3, floor: 0, ft: 0, fpos: 1, cut: 2000, res: 0.15, level: 0, mix: 1 }; }
+function mawDefaultsLocal() {
+  return { src: 'super', spread: 14, inGain: 0, latch: false, route: 0, os: 2, adaa: false, auto: 0.7,
+    autoMode: 0, driveRef: 0, inertia: 0, eco: 0, flux: 0, wet: 1, out: -6, xo1: 200, xo2: 2000,
+    fbAmt: 0.3, fbMode: 0, fbSemi: 0, fbMs: 8, fbDamp: 5000, fbHp: 80, fbTap: 2, envA: 5, envR: 80,
+    lfoRate: 2, mod: { ed: 0, ec: 0, em: 0, ld: 0, lc: 0, lb: 0 },
+    stages: [mawStageDefaults(), mawStageDefaults(), mawStageDefaults()] };
+}
+
+function mawStageRows(i) {
+  const s = 'stages.' + i + '.';
+  const off = P => !getp(P, s + 'on');
+  const noFilt = P => off(P) || !getp(P, s + 'ft');
+  return SEC('STAGE ' + (i + 1), [
+    TOG(s + 'on', 'on'),
+    SEL(s + 'a', 'curve A', MAW_CURVES, { ghost: off }),
+    SEL(s + 'b', 'curve B', MAW_CURVES, { ghost: off }),
+    R(s + 'morph', 'morph A→B', 0, 1, 0.01, f2, { ghost: off }),
+    R(s + 'shape', 'shape', 0, 1, 0.01, f2, { ghost: off }),
+    R(s + 'drive', 'drive', -12, 48, 0.5, fDb, { ghost: off }),
+    R(s + 'bias', 'bias', -1, 1, 0.01, fBi, { ghost: off }),
+    R(s + 'floor', 'floor', 0, 0.2, 0.005, f2, { ghost: off }),
+    PILLS(s + 'ft', 'filter', ['OFF', 'LP', 'BP', 'HP'], { ghost: off }),
+    PILLS(s + 'fpos', 'filter at', ['PRE', 'POST'], { ghost: noFilt }),
+    R(s + 'cut', 'cutoff', 20, 20000, 1, fHz, { log: true, ghost: noFilt }),
+    R(s + 'res', 'resonance', 0, 1, 0.01, f2, { ghost: noFilt }),
+    R(s + 'level', 'level', -24, 12, 0.5, fDb, { ghost: off }),
+    R(s + 'mix', 'mix', 0, 1, 0.01, fPct, { ghost: off }),
+  ]);
+}
+function mawModule() {
+  const notFb = P => P.route !== 4;
+  return {
+    id: 'maw', name: 'MAW', kind: 'HOSTED', org: 'FX-C · own project · ADR-170', P: null,
+    sections: () => [
+      SEC('ROUTE', [PILLS('route', 'topology', MAW_ROUTES)]),
+      SEC('IN · OUT · GAIN LAW', [
+        R('inGain', 'input', -24, 24, 0.5, fDb),
+        R('wet', 'wet', 0, 1, 0.01, fPct),
+        R('out', 'output', -24, 12, 0.5, fDb),
+        R('auto', 'auto-gain', 0, 1, 0.01, f2),
+        TOG('driveRef', 'drive-ref'),
+        // D3 (ADR-170 A1): horde ships drive-ref and DROPS tracked auto-gain;
+        // the row stays, ghosted, so the panel does not lie about MAW's set.
+        PILLS('autoMode', 'auto mode', ['STATIC', 'TRACKED'], { ghost: () => true, note: 'dropped in horde (D3)' }),
+        TOG('adaa', 'ADAA'),
+        // Not ported (SPEC-MAW §10): horde's global 2× is the ceiling.
+        PILLS('os', 'oversample', ['1×', '2×', '3×', '4×'], { ghost: () => true, map: [1, 2, 3, 4], note: 'horde global 2× (§10)' }),
+      ]),
+      SEC('BEHAVIOUR', [
+        R('inertia', 'inertia', 0, 1, 0.01, f2),
+        R('eco', 'ecology', -1, 1, 0.01, fBi),
+        R('flux', 'flux', 0, 1, 0.01, f2),
+      ]),
+      SEC('CROSSOVER — multiband', [
+        R('xo1', 'low | mid', 40, 1000, 1, fHz, { log: true, ghost: P => P.route !== 2 }),
+        R('xo2', 'mid | high', 500, 12000, 1, fHz, { log: true, ghost: P => P.route !== 2 }),
+      ]),
+      SEC('FEEDBACK — feedback route', [
+        R('fbAmt', 'amount', 0, 1, 0.01, fPct, { ghost: notFb }),
+        PILLS('fbMode', 'time from', ['PITCH', 'MS'], { ghost: notFb }),
+        R('fbSemi', 'pitch', -24, 24, 1, fSt, { ghost: P => notFb(P) || P.fbMode !== 0 }),
+        R('fbMs', 'time', 1, 200, 0.5, fMs, { ghost: P => notFb(P) || P.fbMode !== 1 }),
+        R('fbDamp', 'damp', 500, 16000, 10, fHz, { log: true, ghost: notFb }),
+        R('fbHp', 'low cut', 20, 1000, 1, fHz, { log: true, ghost: notFb }),
+        PILLS('fbTap', 'tap after', ['S1', 'S2', 'S3'], { ghost: notFb }),
+      ]),
+      SEC('MODULATION', [
+        R('envA', 'env attack', 0.5, 100, 0.5, fMs, { log: true }),
+        R('envR', 'env release', 5, 1000, 1, fMs, { log: true }),
+        R('lfoRate', 'LFO rate', 0.02, 20, 0.01, fHz, { log: true }),
+        R('mod.ed', 'env → drive', -1, 1, 0.01, fBi),
+        R('mod.ec', 'env → cutoff', -1, 1, 0.01, fBi),
+        R('mod.em', 'env → morph', -1, 1, 0.01, fBi),
+        R('mod.ld', 'LFO → drive', -1, 1, 0.01, fBi),
+        R('mod.lc', 'LFO → cutoff', -1, 1, 0.01, fBi),
+        R('mod.lb', 'LFO → bias', -1, 1, 0.01, fBi),
+      ]),
+      mawStageRows(0), mawStageRows(1), mawStageRows(2),
+    ],
+    // MAW's OWN declaration (ADR-170 D9 / A1): Amount = drive, Tone =
+    // shape/cutoff, Motion = inertia/flux, Regen = feedback. Horde did not
+    // choose these; the lab only decides the spans and that each knob moves
+    // all three stages at once.
+    slots: [
+      SLOT('Amount', 'Drive', [B('stages.0.drive', -12, 36), B('stages.1.drive', -12, 36), B('stages.2.drive', -12, 36)]),
+      SLOT('Tone', 'Shape', [B('stages.0.shape', 0, 1), B('stages.1.shape', 0, 1), B('stages.2.shape', 0, 1)]),
+      SLOT('Motion', 'Motion', [B('inertia', 0, 1), B('flux', 0, 0.8)]),
+      SLOT('Regen', 'Feedback', [B('fbAmt', 0, 1)]),
+    ],
+    slotGhost: (P, slot) => slot.role === 'Regen' && P.route !== 4,
+    why: '<b>DRIVE · SHAPE · MOTION · FEEDBACK are MAW\'s own declaration</b> (ADR-170 D9, A1: Amount = drive, '
+      + 'Tone = shape/cutoff, Motion = inertia/flux, Regen = feedback) — horde presents them, it did not pick them. '
+      + 'What the lab adds is the spans: Drive and Shape move all three stages together, Motion rides inertia and '
+      + 'flux (and is ecology\'s natural home once its A/B lands, ADR-170 A3). <b>Feedback goes IDLE outside the '
+      + 'feedback route</b>: a knob bound to a parameter the topology ignores must say so, not turn silently.',
+    notes: 'Parameters are MAW\'s own <code>defaultParams()</code>; presets are MAW\'s <code>presets.js</code>, '
+      + 'applied by its own <code>applyPresetTo</code>. <b>Curves</b>: each stage\'s transfer at its drive and bias, '
+      + 'morphing A→B, drawn by MAW\'s <code>SHAPERS</code> (the dashed line is unity). <b>Topology</b>: the five '
+      + 'routes, with the feedback tap. Ghosted: tracked auto-gain (dropped, D3) and per-stage oversampling (not '
+      + 'ported — horde\'s global 2× is the ceiling, SPEC-MAW §10). The −12…+48 dB drive range is the '
+      + 'prototype\'s; horde\'s is unruled.',
+    draw: drawMaw, aux: drawMawTopo, auxLabel: 'TOPOLOGY',
+  };
+}
+
+/* ============ SLUICE — hosted (ADR-166, A3: NETWORK is Sluice) ===============
+   Module parameter specs: reference/network-lab-v0.html:181-209 (in this tree,
+   protected), plus the shifter's L/R spread and the bus width from Sluice's
+   current lab. Presets: Sluice's lab PRESETLIB, macros verbatim (their
+   D-046: "values are set so that applying each macro at its stored value
+   reproduces the params", G-70). freeverb carries NO macros there — kept, so
+   the page shows what an unmacro'd preset does to each keying rule. */
+const SL_DEFS = {
+  shifter: { name: 'FREQ SHIFT', p: [['shift', 'shift', -2000, 2000, 'lin', fHz], ['spread', 'L−R spread', -200, 200, 'lin', fHz]] },
+  doppler: { name: 'RATIO SHIFT', p: [['semi', 'pitch', -24, 24, 'lin', fSt], ['win', 'window', 20, 120, 'lin', fMs], ['mix', 'mix', 0, 1, 'lin', fPct]] },
+  delay: { name: 'DELAY', p: [['time', 'time', 5, 1000, 'log', fMs], ['fb', 'feedback', 0, 0.95, 'lin', f2], ['damp', 'damp', 0, 1, 'lin', f2], ['mix', 'mix', 0, 1, 'lin', fPct]] },
+  allpass: { name: 'ALLPASS', p: [['time', 'time', 0.5, 100, 'log', fMs], ['g', 'g', -0.95, 0.95, 'lin', fBi]] },
+  diffuser: { name: 'DIFFUSER', p: [['blur', 'blur', 0, 1, 'lin', f2], ['size', 'size', 0.25, 4, 'log', f2]] },
+  combs: { name: 'COMB BANK', p: [['size', 'size', 0.25, 2, 'log', f2], ['decay', 'decay', 0, 0.98, 'lin', f2], ['damp', 'damp', 0, 1, 'lin', f2]] },
+  filter: { name: 'FILTER', p: [['freq', 'cutoff', 40, 12000, 'log', fHz], ['res', 'res q', 0.5, 8, 'log', f2], ['mode', 'lp→bp→hp', 0, 2, 'lin', f2]] },
+  disperser: { name: 'DISPERSER', p: [['freq', 'freq', 100, 8000, 'log', fHz], ['q', 'q', 0.3, 3, 'lin', f2], ['stages', 'stages', 1, 32, 'lin', fInt]] },
+};
+const SL_PRESETS = {
+  'bode': {
+    chain: [{ type: 'shifter', params: { shift: 80, spread: 0 } }, { type: 'diffuser', params: { blur: 0.45, size: 1 } },
+      { type: 'delay', params: { time: 140, fb: 0, damp: 0.2, mix: 1 } }],
+    fb: { gain: 0.6, damp: 0.3, width: 0.5, clip: 1 }, mix: 0.75, lfo: { rate: 0.3, depth: 0, shape: 0, target: 'off' },
+    macros: [
+      { label: 'shift', value: 0.5, bindings: [{ target: '0:shift', lo: 0, hi: 160 }] },
+      { label: 'time', value: 0.5, bindings: [{ target: '2:time', lo: 40, hi: 240 }] },
+      { label: 'regen', value: 0.5, bindings: [{ target: 'fb:gain', lo: 0.3, hi: 0.9 }] },
+      { label: 'amount', value: 0.6875, bindings: [{ target: 'mix', lo: 0.2, hi: 1 }] }] },
+  'scrumulator-ish': {
+    chain: [{ type: 'allpass', params: { time: 37, g: 0.6 } }, { type: 'delay', params: { time: 210, fb: 0.55, damp: 0.35, mix: 0.7 } },
+      { type: 'allpass', params: { time: 11, g: -0.5 } }, { type: 'shifter', params: { shift: 3, spread: 0 } }],
+    fb: { gain: 0.62, damp: 0.45, width: 0.5, clip: 1 }, mix: 0.65, lfo: { rate: 0.11, depth: 0.06, shape: 1, target: '1:time' },
+    macros: [
+      { label: 'allpass unison', value: 0.5, bindings: [{ target: '0:time', lo: 24, hi: 50 }, { target: '2:time', lo: 7, hi: 15 }] },
+      { label: 'delay time', value: 0.5, bindings: [{ target: '1:time', lo: 120, hi: 300 }] },
+      { label: 'regen', value: 0.5, bindings: [{ target: 'fb:gain', lo: 0.3, hi: 0.94 }] },
+      { label: 'amount', value: 0.5, bindings: [{ target: 'mix', lo: 0.3, hi: 1 }] }] },
+  'freeverb': {
+    chain: [{ type: 'combs', params: { size: 1, decay: 0.84, damp: 0.4 } }, { type: 'diffuser', params: { blur: 0.74, size: 0.8 } }],
+    fb: { gain: 0, damp: 0.3, width: 0.5, clip: 1 }, mix: 0.35, lfo: { rate: 0.3, depth: 0, shape: 0, target: 'off' },
+    macros: [] },
+};
+/* THE HORDE-AUTHORED ROLE TABLE — the role-keyed face's only possible source
+   now Sluice authors none. It is Sluice's OWN earlier mapping (ADR-166 A4:
+   "Regen = global feedback gain … Amount = wet mix, Tone = filter cutoff or
+   loop damp, Motion = LFO depth"), applied by a macro's FIRST binding target.
+   A rule over targets, not a per-preset guess — and it is still horde writing
+   into a vocabulary the producer declined, which is exactly what A1 asks the
+   human to weigh. Labels that happen to spell a role ("regen", "amount") are
+   NOT read as roles: a mapper that guessed from labels would be a third
+   vocabulary. */
+function hordeRoleOf(macro) {
+  const t = macro && macro.bindings && macro.bindings[0] ? macro.bindings[0].target : '';
+  if (t === 'mix') return 'Amount';
+  if (t === 'fb:gain') return 'Regen';
+  if (t === 'fb:damp' || /:freq$/.test(t)) return 'Tone';
+  if (t === 'lfo:depth') return 'Motion';
+  return null;
+}
+function slPath(target) {
+  const m = /^(\d+):(\w+)$/.exec(target);
+  if (m) return 'chain.' + m[1] + '.params.' + m[2];
+  const f = /^fb:(\w+)$/.exec(target);
+  if (f) return 'fb.' + f[1];
+  const l = /^lfo:(\w+)$/.exec(target);
+  if (l) return 'lfo.' + l[1];
+  return target;                      /* 'mix' */
+}
+function slLoad(name) {
+  const src = SL_PRESETS[name];
+  const P = JSON.parse(JSON.stringify(src));
+  P.preset = name;
+  return P;
+}
+function sluiceModule() {
+  const M = {
+    id: 'sluice', name: 'SLUICE', kind: 'HOSTED', org: 'network module · own project · ADR-166', wide: true,
+    P: slLoad('bode'), roleTable: false,
+    sections: () => {
+      const P = M.P, out = [];
+      P.chain.forEach((m, i) => {
+        const d = SL_DEFS[m.type];
+        out.push(SEC((i + 1) + ' · ' + d.name, d.p.map(q => R('chain.' + i + '.params.' + q[0], q[1], q[2], q[3],
+          q[4] === 'log' ? 0.001 : (q[0] === 'stages' ? 1 : 0.001), q[5], { log: q[4] === 'log' }))));
+      });
+      out.push(SEC('FEEDBACK BUS', [
+        R('fb.gain', 'fb gain', 0, 0.98, 0.01, f2), R('fb.damp', 'fb damp', 0, 1, 0.01, f2),
+        R('fb.width', 'fb width', 0, 1, 0.01, x => (x < 0.49 ? 'mid ' : x > 0.51 ? 'side ' : '') + f2(x)),
+        TOG('fb.clip', 'loop clip'),
+      ]));
+      out.push(SEC('OUT + LFO', [
+        R('mix', 'mix', 0, 1, 0.01, fPct), R('lfo.rate', 'LFO rate', 0.01, 10, 0.01, fHz, { log: true }),
+        R('lfo.depth', 'LFO depth', 0, 1, 0.01, f2), PILLS('lfo.shape', 'LFO shape', ['SINE', 'TRI']),
+        RO('lfo.target', 'LFO target', x => String(x)),
+      ]));
+      return out;
+    },
+    slots: [],        /* built per rule by sluiceSlots(); the generic face is not used */
+    why: '<b>Sluice authors its own four</b> (its macros); horde\'s only choice is how to KEY them — the open '
+      + 'ruling. <b>Left</b>, ADR-169 §1 as written: slots keyed by role. Sluice ships no roles (their D-052), so as '
+      + 'shipped every slot is unbound; with the horde-authored role table (Sluice\'s own A4 mapping, by target) two '
+      + 'bind, and bode\'s defining macro — <i>shift</i>, "the shift IS the Bode sound" (their D-048) — has no role '
+      + 'and is not on the face. <b>Right</b>, A1\'s ask: macro n → slot n, the label shown; every macro binds, and '
+      + 'what slot 1 MEANS changes with the preset. Both faces drive the same macros. The lead recommended order + '
+      + 'label (ADR-169 A1); this lab adds no vote.',
+    notes: 'Parameters are the loaded Sluice patch: its chain, the feedback bus, mix and LFO (ranges from '
+      + '<code>reference/network-lab-v0.html</code>). Horde presents the patch; editing its TOPOLOGY (adding, '
+      + 'removing, reordering modules) is Sluice\'s own panel and is not offered here. <b>Signal graph</b>: the chain in '
+      + 'series, the global feedback bus returning to its head (gain, damp), the dry/wet — numbered marks show which '
+      + 'macro reaches which module. Slot ids under either rule sit in the reserved block <code>300 + 8·host + n</code>; '
+      + 'order-keyed uses n = macro index where role-keyed uses n = role — the same eight ids, a different meaning.',
+    draw: drawSluice,
+  };
+  return M;
+}
+
+/* ============ COMB — the rack's per-note Karplus–Strong comb (ADR-071) =====
+   Today (fx_rack.h:750-811): one tuned line per held note (8, oldest stolen),
+   continuously fed by the bus; `amount` = wet mix, `tone` = resonance
+   (fb = 0.6 + 0.38·tone); damping hard-wired at 0.5; a line never releases —
+   it keeps resonating the bus at its pitch until stolen (noteOff is a no-op). */
+function combModule() {
+  const P = { mix: 0.5, res: 0.5, damp: 0.5, pitch: 0, fine: 0, spread: 0, lines: 8, release: 0 };
+  return {
+    id: 'comb', name: 'COMB', kind: 'RACK', org: 'per-note Karplus–Strong · ADR-071', P,
+    demo: [57, 60, 64],               /* the chord the response is drawn for: A3 C4 E4 */
+    sections: () => [
+      SEC('TODAY', [
+        R('mix', 'mix', 0, 1, 0.01, fPct, { addr: 'fxNamt' }),
+        R('res', 'resonance', 0, 1, 0.01, f2, { addr: 'fxNtone', note: 'fb = 0.6 + 0.38·res' }),
+      ]),
+      SEC('PROPOSED — the line', [
+        R('damp', 'damping', 0, 0.95, 0.01, f2, { prop: true, note: 'hard-wired 0.5 today' }),
+        R('pitch', 'pitch', -24, 24, 1, fSt, { prop: true }),
+        R('fine', 'fine', -50, 50, 1, fCt, { prop: true }),
+        R('spread', 'L/R spread', 0, 30, 0.5, fCt, { prop: true }),
+      ]),
+      SEC('PROPOSED — the bank', [
+        R('lines', 'lines', 1, 8, 1, x => Math.round(x) + ' of 8', { prop: true }),
+        R('release', 'release', 0, 4, 0.01, x => (x ? fSec(x) : 'hold'), { prop: true, note: 'today: hold until stolen' }),
+      ]),
+    ],
+    slots: [
+      SLOT('Amount', 'Mix', [B('mix', 0, 1)]),
+      SLOT('Tone', 'Bright', [B('damp', 0.9, 0)]),
+      SLOT('Motion', 'Spread', [B('spread', 0, 30)]),
+      SLOT('Regen', 'Resonance', [B('res', 0, 1)]),
+    ],
+    why: '<b>MIX · BRIGHT · SPREAD · RESONANCE.</b> Mix and Resonance are the two knobs the rack ships today '
+      + '(<code>fxNamt</code>, <code>fxNtone</code>) and keep their meaning. <b>Bright</b> is the damping the core hard-wires '
+      + 'at 0.5 — the difference between a plucked string and a bell. <b>Spread</b> detunes each note\'s right line '
+      + 'against its left so the tuned lines beat: the only motion a note-locked comb has without borrowing an LFO.',
+    notes: '<b>Response</b>: the rack comb\'s actual transfer — each line is <code>Hlp·z^−D / (1 − fb·Hlp·z^−D)</code> with '
+      + 'the in-loop one-pole (fx_rack.h:777), D = one period of the held note (× pitch/fine), summed over the held '
+      + 'lines with the 1/N normaliser and mixed with the dry. Drawn for A3 C4 E4 held; solid = left, dashed = right '
+      + '(spread). <b>Release</b> proposes what the core lacks: today a line keeps singing the bus at its pitch until '
+      + 'a new note steals it.',
+    draw: drawComb,
+  };
+}
+
+/* ============ ECHO — the rack's tap-swarm delay (TimeCore mode 0) ==========
+   Today (fx_rack.h:714-748; time_core.h): N read taps on one buffer, placed by
+   the force system around a centre time; the tap SUM feeds back normalised by
+   /N (ADR-031's worst-case-correlation law), damped and DC-blocked. The rack's
+   `amount` drives regen, the slot mix owns dry/wet, and size/spread/taps/
+   spacing/damp/stereo are per-slot params (noise is declared but never shown).
+   The force system's own motion (pull K, drift, gravity) exists in the core
+   and the reference lab and is not reachable from the rack. */
+function echoModule() {
+  const P = { mix: 0.5, regen: 0.5, size: 0.55, spread: 0.6, taps: 8, dist: 1, damp: 0.4, stereo: 0.7,
+    noise: 0.2, seed: 1234, K: 0, driftDepth: 30, driftRate: 0.3, grav: 0, basin: 50 };
+  return {
+    id: 'echo', name: 'ECHO', kind: 'RACK', org: 'tap swarm · TimeCore mode 0 · ADR-031', P,
+    sections: () => [
+      SEC('TODAY', [
+        R('mix', 'mix', 0, 1, 0.01, fPct, { addr: 'fxNmix' }),
+        R('regen', 'regen', 0, 0.97, 0.01, f2, { addr: 'fxNamt' }),
+        R('size', 'size', 0, 1, 0.01, f2, { addr: 'fxNsize' }),
+        R('spread', 'spread', 0, 1, 0.01, f2, { addr: 'fxNspread' }),
+        R('taps', 'taps', 4, 12, 1, fInt, { addr: 'fxNtaps' }),
+        PILLS('dist', 'spacing', ['EVEN', 'GAUSS', 'CAUCHY'], { addr: 'fxNdist' }),
+        R('damp', 'damp', 0, 1, 0.01, f2, { addr: 'fxNdamp' }),
+        R('stereo', 'stereo', 0, 1, 0.01, f2, { addr: 'fxNstereo' }),
+        R('noise', 'noise', 0, 1, 0.01, f2, { addr: 'fxNnoise', note: 'declared, never shown today' }),
+      ]),
+      SEC('PROPOSED — the swarm\'s own motion', [
+        R('seed', 'seed', 1, 9999, 1, fInt, { prop: true, ghost: P => P.dist === 0 }),
+        R('K', 'pull K', -1, 1, 0.01, fBi, { prop: true }),
+        R('driftDepth', 'drift depth', 0, 200, 1, fInt, { prop: true }),
+        R('driftRate', 'drift rate', 0, 1, 0.01, f2, { prop: true }),
+        R('grav', 'gravity', -1, 1, 0.01, fBi, { prop: true }),
+        R('basin', 'basin', 15, 90, 1, fInt, { prop: true, ghost: P => P.grav === 0 }),
+      ]),
+    ],
+    slots: [
+      SLOT('Amount', 'Mix', [B('mix', 0, 1)]),
+      SLOT('Tone', 'Bright', [B('damp', 1, 0)]),
+      SLOT('Motion', 'Drift', [B('driftDepth', 0, 200)]),
+      SLOT('Regen', 'Regen', [B('regen', 0, 0.97)]),
+    ],
+    why: '<b>MIX · BRIGHT · DRIFT · REGEN.</b> Regen is what the slot\'s amount already drives ("slapback at 0.1, '
+      + 'cavern at 0.9", fx_rack.h:724); mix is the rack\'s own dry/wet; Bright is the damping every repeat passes '
+      + 'through. <b>Drift</b> is the swarm moving its own taps — the reason to pick Echo over the textbook Delay '
+      + '(ADR-142). Size, spread and taps choose WHICH pattern; that is a preset\'s job.',
+    notes: '<b>Taps</b> (top): placed exactly as the core places them — centre 0.08·2^(4.2·size) s, ±2·spread '
+      + 'octaves, even or seeded gaussian/cauchy offsets (force_core.h:160-222, mulberry32 at seed+1); violet whiskers '
+      + 'show the drift reach, schematic. <b>Impulse response</b> (stems, dB): the loop simulated at 2 kHz — tap sum ÷ N '
+      + 'fed back at regen (time_core.h:132-154), broadband, damping and the loop tanh left out. The picture shows '
+      + 'ADR-031\'s law at work: every generation re-smears through the whole swarm — a wash, not a repeat.',
+    draw: drawEcho,
+  };
+}
+
+/* ============ DRIVE — the rack's placeholder saturator =====================
+   Today (fx_rack.h:658-668): ONE knob does two things — it raises the gain
+   into tanh (pre = 1 + 3·amount) AND the wet share (w = amount). The face's
+   Amount reproduces exactly that (two bindings); the panel pulls them apart.
+   The curve set is MAW's (a subset of its SHAPERS), drawn by MAW's core — see
+   finding 4: an expanded Drive converges on one MAW stage. */
+const DRIVE_CURVES = [[0, 'soft'], [1, 'hard'], [3, 'tube'], [4, 'diode']];
+function driveModule() {
+  const P = { pre: 2.5, mix: 0.5, curve: 0, shape: 0, bias: 0, tone: 20000, bloom: 0, out: 0 };
+  return {
+    id: 'drive', name: 'DRIVE', kind: 'RACK', org: 'placeholder tanh · increment 1', P,
+    sections: () => [
+      SEC('TODAY — one knob, two jobs', [
+        R('pre', 'drive', 1, 16, 0.01, fLin2dB, { addr: 'fxNamt (as 1+3a)', log: true }),
+        R('mix', 'mix', 0, 1, 0.01, fPct, { addr: 'fxNamt (as a)' }),
+      ]),
+      SEC('PROPOSED — the curve', [
+        PILLS('curve', 'curve', DRIVE_CURVES.map(c => c[1].toUpperCase()), { prop: true }),
+        R('shape', 'shape', 0, 1, 0.01, f2, { prop: true }),
+        R('bias', 'bias', -0.5, 0.5, 0.01, fBi, { prop: true }),
+      ]),
+      SEC('PROPOSED — around it', [
+        R('tone', 'tone', 500, 20000, 10, fHz, { log: true, prop: true }),
+        R('bloom', 'bloom', -1, 1, 0.01, fBi, { prop: true, note: 'env → drive, ±12 dB' }),
+        R('out', 'output', -18, 6, 0.5, fDb, { prop: true }),
+      ]),
+    ],
+    slots: [
+      // Today's knob, reproduced: amount a → pre 1+3a and wet a. At 0.5 this
+      // is exactly the rack's default (pre 2.5, mix 0.5).
+      SLOT('Amount', 'Drive', [B('pre', 1, 4), B('mix', 0, 1)]),
+      SLOT('Tone', 'Tone', [B('tone', 1500, 20000, 'log')]),
+      SLOT('Motion', 'Bloom', [B('bloom', 0, 1)]),
+      SLOT('Regen', null, []),
+    ],
+    why: '<b>DRIVE · TONE · BLOOM · (unbound).</b> Drive at its default binding IS today\'s knob — gain into the curve '
+      + 'and the wet share together (fx_rack.h:658) — so an old patch\'s amount lands on the same sound; the panel pulls '
+      + 'the two apart. Tone is the post-curve lowpass; Bloom lets playing dynamics push the drive. <b>Regen is drawn '
+      + 'unbound</b>: a single-stage drive has no loop, and ADR-169 draws an unimplemented role inert rather than hide '
+      + 'it. The knob a player would want there — Output, or Bias — has no role. That empty slot is the vocabulary\'s '
+      + 'cost, made visible.',
+    notes: '<b>Curve</b> (left): the transfer <code>f(drive·x + bias) − f(bias)</code> (bias adds even harmonics; the '
+      + 'offset is removed, as MAW\'s DC blocker does), dashed = unity, violet = where Bloom can push it. <b>Signal</b> '
+      + '(centre): one cycle of a 0.8 sine in (ghost) and out. <b>Harmonics</b> (right, cyan = analysis): the output\'s '
+      + 'first ten partials at 220 Hz after the tone lowpass. Curves come from MAW\'s core; when it is unreachable the '
+      + 'page falls back to tanh and says so.',
+    draw: drawDrive,
+  };
+}
+
+/* ============ FILTER — the rack's placeholder one-pole ======================
+   Today (fx_rack.h:669-681): a one-pole lowpass, amount 0 = open, 1 = heavy.
+   Proposed: the TPT state-variable filter horde already owns (svf_core.h, the
+   per-voice filter's core) re-hosted bus-side, with the continuous
+   LP→BP→HP morph Sluice's filter module uses, and its own envelope follower
+   and LFO. WHERE the filter sits is the filter-routing lab's question. */
+function filterModule() {
+  // envAmt/lfoDepth sit at the Motion knob's midpoint (0.5 → 1.5 oct, 0.75 oct)
+  // so the card opens showing the reach it is designed to show.
+  const P = { cut: 2000, res: 0.2, morph: 0, slope: 0, drive: 0, envAmt: 1.5, envA: 5, envR: 120,
+    lfoRate: 0.5, lfoDepth: 0.75, mix: 1, amount: 0.5 };
+  return {
+    id: 'filter', name: 'FILTER', kind: 'RACK', org: 'placeholder one-pole · increment 1', P,
+    sections: () => [
+      SEC('TODAY', [
+        R('amount', 'amount', 0, 1, 0.01, x => f2(x) + (x < 0.005 ? ' open' : ''), { addr: 'fxNamt', note: 'one-pole; superseded by the rows below' }),
+        R('mix', 'mix', 0, 1, 0.01, fPct, { addr: 'fxNmix' }),
+      ]),
+      SEC('PROPOSED — the SVF (svf_core.h)', [
+        R('cut', 'cutoff', 20, 20000, 1, fHz, { log: true, prop: true }),
+        R('res', 'resonance', 0, 0.98, 0.01, f2, { prop: true }),
+        R('morph', 'LP→BP→HP', 0, 2, 0.01, x => (x < 0.02 ? 'LP' : x > 1.98 ? 'HP' : Math.abs(x - 1) < 0.02 ? 'BP' : f2(x)), { prop: true }),
+        PILLS('slope', 'slope', ['12 dB', '24 dB'], { prop: true }),
+        R('drive', 'drive in', 0, 24, 0.5, fDb, { prop: true }),
+      ]),
+      SEC('PROPOSED — motion', [
+        R('envAmt', 'env → cut', -4, 4, 0.05, fOct, { prop: true }),
+        R('envA', 'env attack', 0.5, 200, 0.5, fMs, { log: true, prop: true, ghost: P => P.envAmt === 0 }),
+        R('envR', 'env release', 5, 2000, 1, fMs, { log: true, prop: true, ghost: P => P.envAmt === 0 }),
+        R('lfoRate', 'LFO rate', 0.02, 20, 0.01, fHz, { log: true, prop: true, ghost: P => P.lfoDepth === 0 }),
+        R('lfoDepth', 'LFO depth', 0, 3, 0.05, fOct, { prop: true }),
+      ]),
+    ],
+    slots: [
+      SLOT('Amount', 'Cutoff', [B('cut', 40, 20000, 'log')]),
+      SLOT('Tone', 'Mode', [B('morph', 0, 2)]),
+      SLOT('Motion', 'Motion', [B('envAmt', 0, 3), B('lfoDepth', 0, 1.5)]),
+      SLOT('Regen', 'Resonance', [B('res', 0, 0.98)]),
+    ],
+    why: '<b>CUTOFF · MODE · MOTION · RESONANCE.</b> Cutoff turns UP to open; today\'s amount turns up to close '
+      + '(fx_rack.h:671), so the face inverts it and a saved patch would migrate a → 1 − a (finding 5). Mode morphs '
+      + 'LP → BP → HP continuously — tone in the literal sense. Motion rides the envelope and LFO depths together (one '
+      + 'knob, two internals). Resonance IS the SVF\'s feedback, so Regen is its honest role.',
+    notes: '<b>Response</b>: the SVF\'s magnitude (analog prototype, <code>k = 1/Q</code>, Q = 0.707·20^res — MAW\'s '
+      + 'mapping), LP/BP/HP blended by the morph, squared at 24 dB, mixed with the dry. Magenta = where you set the '
+      + 'cutoff; the violet band and dashed curves = where the envelope and LFO can carry it (the engine\'s own '
+      + 'motion). This card is the filter MODULE; per-voice vs bus placement and serial/parallel belong to the '
+      + 'filter-routing lab.',
+    draw: drawFilter,
+  };
+}
+</script>
+
+<script>
+"use strict";
+/* ============ BLOCK B — tokens, painters, builders, wiring ============ */
+
+/* MAW's core, if the two <script src> tags reached it. `defineCore` and
+   `PRESETS`/`applyPresetTo` are MAW's globals, read and never redeclared. */
+let MAWLIB = null, MAWPRE = null, MAW_ERR = '';
+try { if (typeof defineCore === 'function') MAWLIB = defineCore(); else MAW_ERR = 'reference/maw/core.js not reachable'; }
+catch (e) { MAW_ERR = 'core.js: ' + String((e && e.message) || e); }
+try { if (typeof PRESETS === 'object' && PRESETS && typeof applyPresetTo === 'function') MAWPRE = PRESETS; }
+catch (_) { MAWPRE = null; }
+function mawFresh() {
+  if (MAWLIB && MAWLIB.defaultParams) return MAWLIB.defaultParams();
+  return mawDefaultsLocal();
+}
+
+/* ---- token reader (gui2:1627/:1709 — keyed by NAME; a theme change clears
+   it; read from BODY because the screen schemes override at body level) ---- */
+const _tok = {};
+function TOK(name, fallback) {
+  if (_tok[name] === undefined) {
+    let v = '';
+    try { v = getComputedStyle(document.body || document.documentElement).getPropertyValue(name).trim(); }
+    catch (_) { v = ''; }
+    _tok[name] = (typeof v === 'string' && v) ? v : (fallback || '#000');
+  }
+  return _tok[name];
+}
+function RGBA(hex, a) {
+  const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(hex).trim());
+  if (!m) return hex;
+  return `rgba(${parseInt(m[1], 16)},${parseInt(m[2], 16)},${parseInt(m[3], 16)},${a})`;
+}
+function TOKA(name, a, fallback) {
+  const m = parseFloat(TOK('--scr-alpha', '1')) || 1;
+  return RGBA(TOK(name, fallback), Math.min(1, a * m));
+}
+const VS = () => Math.min(window.devicePixelRatio || 1, 2);
+function fitViz(cv) {
+  const dpr = VS();
+  const w = Math.max(1, Math.round(cv.clientWidth * dpr)), h = Math.max(1, Math.round(cv.clientHeight * dpr));
+  if (cv.width === w && cv.height === h) return false;
+  cv.width = w; cv.height = h;
+  return true;
+}
+function ground(cv) {
+  if (!cv || !cv.getContext) return null;
+  fitViz(cv);
+  const g = cv.getContext('2d');
+  const w = cv.width, h = cv.height, v = VS();
+  g.fillStyle = TOK('--scr-tube'); g.fillRect(0, 0, w, h);
+  const sa = parseFloat(TOK('--scr-scan', '0.22')) || 0.22;
+  g.fillStyle = `rgba(0,0,0,${sa})`;
+  for (let y = v; y < h; y += 3 * v) g.fillRect(0, y, w, v);
+  g.lineJoin = 'round'; g.lineCap = 'round';
+  return { g, w, h, v };
+}
+const FONT = px => px + 'px ui-monospace,Menlo,monospace';
+function label(G, txt, x, y, tok, a, px) {
+  G.g.fillStyle = TOKA(tok || '--scr-grid', a === undefined ? 0.95 : a);
+  G.g.font = FONT((px || 8.5) * G.v);
+  G.g.fillText(txt, x, y);
+}
+function hline(G, y, tok, a) {
+  G.g.strokeStyle = TOKA(tok || '--scr-grid', a === undefined ? 0.3 : a); G.g.lineWidth = G.v;
+  G.g.beginPath(); G.g.moveTo(0, y); G.g.lineTo(G.w, y); G.g.stroke();
+}
+function vline(G, x, tok, a) {
+  G.g.strokeStyle = TOKA(tok || '--scr-grid', a === undefined ? 0.3 : a); G.g.lineWidth = G.v;
+  G.g.beginPath(); G.g.moveTo(x, 0); G.g.lineTo(x, G.h); G.g.stroke();
+}
+function dash(G, on) { if (G.g.setLineDash) G.g.setLineDash(on ? [4 * G.v, 3 * G.v] : []); }
+function say(cv, txt) {
+  const G = ground(cv); if (!G) return;
+  label(G, txt, 8 * G.v, G.h / 2, '--scr-marker', 1, 9.5);
+}
+/* complex helpers — [re, im] pairs; allocation per point is fine at 400 pts */
+const cadd = (a, b) => [a[0] + b[0], a[1] + b[1]];
+const cmul = (a, b) => [a[0] * b[0] - a[1] * b[1], a[0] * b[1] + a[1] * b[0]];
+const cdiv = (a, b) => { const d = b[0] * b[0] + b[1] * b[1] || 1e-30; return [(a[0] * b[0] + a[1] * b[1]) / d, (a[1] * b[0] - a[0] * b[1]) / d]; };
+const cabs = a => Math.sqrt(a[0] * a[0] + a[1] * a[1]);
+const csc = (a, s) => [a[0] * s, a[1] * s];
+const dB = x => 20 * Math.log10(Math.max(1e-9, x));
+
+/* ================= PAINTERS — one per module, face (small) and open (big) = */
+
+/* ---- REVERB: echogram --------------------------------------------------- */
+function rvRT60(P, f) {
+  /* The lab's loop-gain law (reverb-lab.html:350-376) on the MEAN line: the
+     per-pass attenuation that makes RT60 exact at 1 kHz, re-weighted at f by
+     the in-loop damping lowpass and low-cut highpass. */
+  const sr = 44100, sizeScale = 0.55 + P.size * 2.5;
+  let L = 0; for (const x of RV_BASELEN) L += x; L = L / RV_BASELEN.length * sizeScale;
+  const dampHz = 12000 * Math.pow(0.06, P.damp);
+  const dc = 1 - Math.exp(-TAU * dampHz / sr), hc = 1 - Math.exp(-TAU * Math.max(20, P.lowCut) / sr);
+  const mag = (fr) => {
+    const w = TAU * fr / sr, cw = Math.cos(w);
+    const den = c => { const a = 1 - c; return Math.sqrt(1 - 2 * a * cw + a * a); };
+    const lp = dc / den(dc), ah = 1 - hc, hp = ah * Math.sqrt(2 - 2 * cw) / den(hc);
+    return lp * hp;
+  };
+  const aRef = Math.pow(10, -3 * L / (sr * P.decay));
+  const af = aRef * mag(f) / mag(1000);
+  if (af >= 0.999999) return 60;
+  return clamp(-3 * L / (sr * Math.log10(af)), 0.01, 60);
+}
+function drawReverb(cv, M, big) {
+  const G = ground(cv); if (!G) return;
+  const { g, w, h, v } = G, P = M.P;
+  const tMax = clamp(P.preDelay + 0.12 + P.decay * 1.15, 0.4, 14);
+  const X = t => 4 * v + (w - 8 * v) * Math.sqrt(Math.max(0, t) / tMax);
+  const top = (big ? 14 : 6) * v, bot = h - (big ? 14 : 5) * v;
+  const Y = d => top + (bot - top) * clamp(-d / 60, 0, 1);
+  if (big) for (const d of [-20, -40]) { hline(G, Y(d), '--scr-grid', 0.18); label(G, d + ' dB', 4 * v, Y(d) - 2 * v, '--scr-grid', 0.7); }
+  if (big) for (const t of [0.01, 0.1, 0.5, 1, 2, 5, 10]) if (t < tMax) {
+    vline(G, X(t), '--scr-grid', 0.14);
+    label(G, t < 1 ? Math.round(t * 1000) + 'ms' : t + 's', X(t) + 2 * v, h - 3 * v, '--scr-grid', 0.7);
+  }
+  // pre-delay gap
+  g.fillStyle = TOKA('--scr-grid', 0.12); g.fillRect(X(0), top, X(P.preDelay) - X(0), bot - top);
+  if (big) label(G, 'PRE', X(0) + 2 * v, top + 9 * v, '--scr-grid', 0.8);
+  // the tail per band — violet for the two bands the engine shapes on its own
+  const t0 = P.preDelay + 0.02 + 0.04 * (0.55 + P.size * 2.5);
+  const l0 = -9 + 3 * Math.log2(Math.max(0.05, P.envelop));
+  const bands = [[125, '--scr-physics', true], [8000, '--scr-physics', true], [1000, '--scr-value', false]];
+  for (const [f, tok, dsh] of bands) {
+    const rt = rvRT60(P, f);
+    g.strokeStyle = TOK(tok); g.lineWidth = (dsh ? 1.2 : 2) * v; dash(G, dsh);
+    g.beginPath(); g.moveTo(X(t0), Y(l0));
+    const tEnd = Math.min(tMax, t0 + rt);
+    for (let i = 1; i <= 40; i++) { const t = t0 + (tEnd - t0) * i / 40; g.lineTo(X(t), Y(l0 - 60 * (t - t0) / rt)); }
+    g.stroke(); dash(G, false);
+    if (big) label(G, (f >= 1000 ? f / 1000 + 'k' : f) + ' · ' + fSec(rt), X(Math.min(tMax * 0.92, t0 + rt * 0.3)) + 3 * v,
+      Y(l0 - 60 * 0.3) - 3 * v, tok, 0.95);
+  }
+  // early reflections: the lab's own tap table
+  for (let i = 0; i < RV_NTAP; i++) {
+    const t = P.preDelay + RV_TAP_T[i] * P.erSize * 2;
+    const gain = RV_TAP_G[i] * Math.pow(P.erDecay, i * 0.4) * P.erSend;
+    const x = X(t);
+    if (P.spinDepth > 0 && big) {
+      const sp = P.spinDepth * 0.001;
+      g.strokeStyle = TOKA('--scr-physics', 0.8); g.lineWidth = 1.5 * v;
+      g.beginPath(); g.moveTo(X(t - sp), Y(dB(gain)) - 3 * v); g.lineTo(X(t + sp), Y(dB(gain)) - 3 * v); g.stroke();
+    }
+    g.strokeStyle = TOK('--scr-value'); g.lineWidth = 2 * v;
+    g.beginPath(); g.moveTo(x, bot); g.lineTo(x, Y(dB(gain))); g.stroke();
+  }
+  if (big) {
+    label(G, 'ER ×12', X(P.preDelay + RV_TAP_T[0] * P.erSize * 2) + 3 * v, top + 9 * v, '--scr-value', 0.95);
+    label(G, 'ECHOGRAM · sqrt time', w - 118 * v, top + 2 * v, '--scr-grid', 0.8);
+  }
+}
+function drawReverbSwarm(cv, M) {
+  const G = ground(cv); if (!G) return;
+  const { g, w, h, v } = G, P = M.P;
+  /* reverb-lab.html stepMod: eight phase oscillators, rates modRate·(0.7 +
+     0.6·i/8), Kuramoto pull K = 3·modK, stepped at the 16-sample tick for two
+     simulated seconds from the lab's own start (phase i/8). Deterministic. */
+  const N = 8, ph = new Float64Array(N), K = P.modK * 3, dt = 16 / 44100;
+  for (let i = 0; i < N; i++) ph[i] = i / N;
+  const steps = Math.round(2 / dt);
+  for (let s = 0; s < steps; s++) {
+    let cx = 0, cy = 0;
+    for (let i = 0; i < N; i++) { cx += Math.cos(TAU * ph[i]); cy += Math.sin(TAU * ph[i]); }
+    const Rr = Math.sqrt(cx * cx + cy * cy) / N, psi = Math.atan2(cy, cx);
+    for (let i = 0; i < N; i++) {
+      const rate = P.modRate * (0.7 + 0.6 * (i / N));
+      ph[i] += (rate + (K ? K * Rr * Math.sin(psi - TAU * ph[i]) : 0)) * dt;
+      ph[i] -= Math.floor(ph[i]);
+    }
+  }
+  let cx = 0, cy = 0;
+  for (let i = 0; i < N; i++) { cx += Math.cos(TAU * ph[i]); cy += Math.sin(TAU * ph[i]); }
+  const Rr = Math.sqrt(cx * cx + cy * cy) / N;
+  const r = Math.min(w, h) * 0.36, ox = Math.min(w * 0.3, r + 30 * v), oy = h / 2;
+  g.strokeStyle = TOKA('--scr-grid', 0.4); g.lineWidth = v;
+  g.beginPath(); g.arc(ox, oy, r, 0, TAU); g.stroke();
+  for (let i = 0; i < N; i++) {
+    const a = TAU * ph[i];
+    g.fillStyle = TOK('--scr-physics');
+    g.beginPath(); g.arc(ox + r * Math.cos(a), oy - r * Math.sin(a), 4 * v * (0.6 + 0.4 * P.modDepth), 0, TAU); g.fill();
+  }
+  g.strokeStyle = TOK('--scr-physics'); g.lineWidth = 2 * v;
+  g.beginPath(); g.moveTo(ox, oy); g.lineTo(ox + r * cx / N, oy - r * cy / N); g.stroke();
+  const tx = ox + r + 24 * v;
+  label(G, 'K ' + f2(P.modK) + '   R ' + f2(Rr), tx, oy - 14 * v, '--scr-physics', 1, 11);
+  label(G, Rr > 0.8 ? 'locked — one coherent breath' : Rr > 0.4 ? 'partly locked' : 'independent drifts', tx, oy + 4 * v, '--scr-grid', 0.9, 9.5);
+  label(G, 'depth ' + f2(P.modDepth) + ' · ≈' + Math.round(P.modDepth * 26) + ' samples of wander', tx, oy + 20 * v, '--scr-value', 0.95, 9.5);
+}
+
+/* ---- MAW: three curves + topology ---------------------------------------- */
+function mawCurve(st, x) {
+  const S = MAWLIB.SHAPERS;
+  const g = Math.pow(10, clamp(st.drive, -12, 60) / 20);
+  const u = x * g + st.bias, s = st.shape, m = st.morph;
+  const fa = S[st.a] ? S[st.a].f : S[0].f, fb = S[st.b] ? S[st.b].f : S[0].f;
+  const y = m <= 0 ? fa(u, s, null) : m >= 1 ? fb(u, s, null) : (1 - m) * fa(u, s, null) + m * fb(u, s, null);
+  if (st.floor > 0) {         /* core.js shapeDriven: clean gain below the floor */
+    const t = clamp((Math.abs(x) - st.floor) / st.floor, 0, 1), wv = t * t * (3 - 2 * t);
+    return x * g + wv * (y - x * g);
+  }
+  return y;
+}
+function drawMaw(cv, M, big) {
+  if (!MAWLIB) { say(cv, 'MAW core not reachable — curves come from reference/maw/core.js'); return; }
+  const G = ground(cv); if (!G) return;
+  const { g, w, h, v } = G, P = M.P;
+  const pad = 4 * v, cw = (w - pad * 4) / 3;
+  for (let i = 0; i < 3; i++) {
+    const st = P.stages[i], x0 = pad + i * (cw + pad), y0 = (big ? 16 : 4) * v, ch = h - y0 - (big ? 6 : 4) * v;
+    const X = x => x0 + (x + 1) / 2 * cw, Y = y => y0 + ch / 2 - clamp(y, -1.25, 1.25) / 1.25 * ch / 2;
+    g.strokeStyle = TOKA('--scr-grid', 0.25); g.lineWidth = v;
+    g.strokeRect(x0, y0, cw, ch);
+    dash(G, true); g.beginPath(); g.moveTo(X(-1), Y(-1)); g.lineTo(X(1), Y(1)); g.stroke(); dash(G, false);
+    g.strokeStyle = st.on ? TOK('--scr-value') : TOKA('--scr-grid', 0.5); g.lineWidth = (st.on ? 2 : 1) * v;
+    g.beginPath();
+    for (let k = 0; k <= 120; k++) { const x = -1 + 2 * k / 120; const y = mawCurve(st, x); if (k) g.lineTo(X(x), Y(y)); else g.moveTo(X(x), Y(y)); }
+    g.stroke();
+    const nm = (MAWLIB.SHAPERS[st.a] || {}).name || '?';
+    const nb = st.morph > 0 ? ' → ' + ((MAWLIB.SHAPERS[st.b] || {}).name || '?').split(' ')[0] : '';
+    if (big) {
+      label(G, 'S' + (i + 1) + (st.on ? '' : ' · OFF'), x0 + 3 * v, 11 * v, st.on ? '--scr-value' : '--scr-grid', 1, 9.5);
+      label(G, nm.split(' ')[0] + nb, x0 + 3 * v, y0 + ch - 4 * v, '--scr-grid', 0.9);
+      label(G, fDb(st.drive), x0 + cw - 42 * v, 11 * v, '--scr-grid', 0.9);
+    } else label(G, 'S' + (i + 1), x0 + 3 * v, y0 + 10 * v, st.on ? '--scr-value' : '--scr-grid', 0.9);
+  }
+}
+function drawMawTopo(cv, M) {
+  const G = ground(cv); if (!G) return;
+  const { g, w, h, v } = G, P = M.P;
+  const r = P.route, on = i => P.stages[i].on;
+  const bw = Math.min(64 * v, w / 7), bh = 26 * v, cy = h / 2;
+  const box = (x, y, txt, i) => {
+    g.strokeStyle = on(i) ? TOK('--scr-value') : TOKA('--scr-grid', 0.6); g.lineWidth = 1.8 * v;
+    dash(G, !on(i)); g.strokeRect(x - bw / 2, y - bh / 2, bw, bh); dash(G, false);
+    label(G, txt, x - bw / 2 + 6 * v, y + 4 * v, on(i) ? '--scr-value' : '--scr-grid', 1, 10);
+  };
+  const wire = (pts) => { g.strokeStyle = TOKA('--scr-grid', 0.8); g.lineWidth = 1.3 * v; g.beginPath(); g.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) g.lineTo(pts[i][0], pts[i][1]); g.stroke(); };
+  const xin = 26 * v, xout = w - 26 * v;
+  label(G, 'IN', 4 * v, cy + 4 * v, '--scr-grid', 1, 10); label(G, 'OUT', xout + 2 * v, cy + 4 * v, '--scr-grid', 1, 10);
+  label(G, MAW_ROUTES[r].toUpperCase(), w / 2 - 30 * v, 14 * v, '--scr-marker', 1, 10);
+  const xs = [w * 0.3, w * 0.5, w * 0.7];
+  if (r === 0 || r === 4) {
+    wire([[xin, cy], [xout, cy]]);
+    for (let i = 0; i < 3; i++) box(xs[i], cy, 'S' + (i + 1), i);
+    if (r === 4) {
+      const tapX = xs[P.fbTap] + bw / 2 + 8 * v, yb = cy + bh / 2 + 22 * v;
+      g.strokeStyle = TOK('--scr-physics'); g.lineWidth = 1.6 * v;
+      g.beginPath(); g.moveTo(tapX, cy); g.lineTo(tapX, yb); g.lineTo(xs[0] - bw / 2 - 12 * v, yb); g.lineTo(xs[0] - bw / 2 - 12 * v, cy); g.stroke();
+      label(G, 'fb ' + fPct(P.fbAmt) + ' · ' + (P.fbMode === 0 ? 'pitch ' + fSt(P.fbSemi) : fMs(P.fbMs)) + ' · tap S' + (P.fbTap + 1),
+        xs[0] - bw / 2, yb + 13 * v, '--scr-physics', 1, 9.5);
+    }
+  } else if (r === 1 || r === 2) {
+    const ys = [cy - 36 * v, cy, cy + 36 * v];
+    for (let i = 0; i < 3; i++) { wire([[xin, cy], [w * 0.36, ys[i]], [w * 0.64, ys[i]], [xout, cy]]); box(w * 0.5, ys[i], 'S' + (i + 1), i); }
+    if (r === 2) {
+      label(G, '< ' + fHz(P.xo1), w * 0.5 + bw / 2 + 6 * v, ys[0] + 4 * v, '--scr-grid', 0.9);
+      label(G, fHz(P.xo1) + '–' + fHz(Math.max(P.xo2, P.xo1 * 1.5)), w * 0.5 + bw / 2 + 6 * v, ys[1] + 4 * v, '--scr-grid', 0.9);
+      label(G, '> ' + fHz(Math.max(P.xo2, P.xo1 * 1.5)), w * 0.5 + bw / 2 + 6 * v, ys[2] + 4 * v, '--scr-grid', 0.9);
+    }
+  } else {
+    const ym = cy - 24 * v, ys2 = cy + 24 * v;
+    wire([[xin, cy], [w * 0.3, ym], [w * 0.58, cy]]); wire([[xin, cy], [w * 0.3, ys2], [w * 0.58, cy]]); wire([[w * 0.58, cy], [xout, cy]]);
+    box(w * 0.36, ym, 'S1 M', 0); box(w * 0.36, ys2, 'S2 S', 1); box(w * 0.7, cy, 'S3', 2);
+  }
+}
+
+/* ---- SLUICE: the signal graph ------------------------------------------- */
+function drawSluice(cv, M, big) {
+  const G = ground(cv); if (!G) return;
+  const { g, w, h, v } = G, P = M.P;
+  const n = P.chain.length, cy = big ? h * 0.45 : h * 0.52;
+  const x0 = 30 * v, x1 = w - 44 * v, bw = Math.min((x1 - x0) / n - 10 * v, 110 * v), bh = (big ? 30 : 22) * v;
+  const cx = i => x0 + (x1 - x0) * (i + 0.5) / n;
+  g.strokeStyle = TOKA('--scr-grid', 0.8); g.lineWidth = 1.3 * v;
+  g.beginPath(); g.moveTo(4 * v, cy); g.lineTo(w - 4 * v, cy); g.stroke();
+  // which macros reach which chain index — the numbered marks
+  const reach = {};
+  (P.macros || []).forEach((m, mi) => (m.bindings || []).forEach(b => {
+    const mm = /^(\d+):/.exec(b.target); const key = mm ? mm[1] : b.target.split(':')[0];
+    (reach[key] = reach[key] || []).push(mi + 1);
+  }));
+  for (let i = 0; i < n; i++) {
+    const m = P.chain[i], x = cx(i);
+    g.fillStyle = TOK('--scr-tube'); g.fillRect(x - bw / 2, cy - bh / 2, bw, bh);
+    g.strokeStyle = TOK('--scr-value'); g.lineWidth = 1.8 * v; g.strokeRect(x - bw / 2, cy - bh / 2, bw, bh);
+    label(G, SL_DEFS[m.type].name, x - bw / 2 + 5 * v, cy + (big ? -2 : 3) * v, '--scr-value', 1, big ? 9.5 : 8);
+    if (big) {
+      const k = SL_DEFS[m.type].p[0];
+      label(G, k[1] + ' ' + k[5](m.params[k[0]]), x - bw / 2 + 5 * v, cy + 10 * v, '--scr-grid', 0.9);
+    }
+    const r = reach[String(i)];
+    if (r) label(G, r.map(q => '#' + q).join(' '), x - bw / 2, cy - bh / 2 - 4 * v, '--scr-marker', 1, 9);
+  }
+  // the global feedback bus: from the chain's tail back to its head
+  const yb = cy + bh / 2 + (big ? 30 : 12) * v;
+  g.strokeStyle = TOK('--scr-physics'); g.lineWidth = (0.8 + 2.2 * P.fb.gain) * v;
+  g.beginPath(); g.moveTo(cx(n - 1) + bw / 2 + 6 * v, cy); g.lineTo(cx(n - 1) + bw / 2 + 6 * v, yb);
+  g.lineTo(cx(0) - bw / 2 - 8 * v, yb); g.lineTo(cx(0) - bw / 2 - 8 * v, cy); g.stroke();
+  if (big) {
+    label(G, 'FEEDBACK BUS  gain ' + f2(P.fb.gain) + ' · damp ' + f2(P.fb.damp) + (reach.fb ? '  ' + reach.fb.map(q => '#' + q).join(' ') : ''),
+      cx(0) - bw / 2, yb + 13 * v, '--scr-physics', 1, 9.5);
+    label(G, 'MIX ' + fPct(P.mix) + (reach.mix ? '  ' + reach.mix.map(q => '#' + q).join(' ') : ''), w - 110 * v, 14 * v, '--scr-grid', 1, 9.5);
+    label(G, 'SLUICE · ' + P.preset, 6 * v, 14 * v, '--scr-marker', 1, 10);
+  }
+}
+
+/* ---- COMB: the rack comb's transfer, over the held lines ------------------ */
+function drawComb(cv, M, big) {
+  const G = ground(cv); if (!G) return;
+  const { g, w, h, v } = G, P = M.P, sr = 48000;
+  const fmin = 40, fmax = 8000, dMin = -18, dMax = 36;
+  const X = f => 4 * v + (w - 8 * v) * Math.log(f / fmin) / Math.log(fmax / fmin);
+  const top = (big ? 14 : 4) * v, bot = h - (big ? 14 : 4) * v;
+  const Y = d => top + (bot - top) * (1 - clamp((d - dMin) / (dMax - dMin), 0, 1));
+  hline(G, Y(0), '--scr-grid', 0.35);
+  if (big) {
+    for (const f of [100, 200, 500, 1000, 2000, 5000]) { vline(G, X(f), '--scr-grid', 0.12); label(G, fHz(f), X(f) + 2 * v, h - 3 * v, '--scr-grid', 0.7); }
+    label(G, '0 dB', 4 * v, Y(0) - 3 * v, '--scr-grid', 0.8);
+  }
+  const held = M.demo.slice(0, Math.max(1, Math.round(P.lines)));
+  const fb = 0.6 + 0.38 * P.res, c = 1 - P.damp, a = 1 - c;
+  const ratio = Math.pow(2, (P.pitch + P.fine / 100) / 12);
+  const resp = (f, cents) => {
+    const wv = TAU * f / sr;
+    const hlp = cdiv([c, 0], [1 - a * Math.cos(wv), a * Math.sin(wv)]);
+    let sum = [0, 0];
+    for (const n of held) {
+      const fn = 440 * Math.pow(2, (n - 69) / 12) * ratio * Math.pow(2, cents / 1200);
+      const D = Math.max(2, Math.round(sr / fn));
+      const z = [Math.cos(wv * D), -Math.sin(wv * D)];
+      const num = cmul(hlp, z);
+      sum = cadd(sum, cdiv(num, [1 - fb * num[0], -fb * num[1]]));
+    }
+    return cabs(cadd([1 - P.mix, 0], csc(sum, P.mix / held.length)));
+  };
+  const NP = big ? 700 : 300;
+  const side = [[0, false], [P.spread, true]];
+  for (const [ct, dsh] of side) {
+    if (dsh && P.spread === 0) continue;
+    g.strokeStyle = TOK('--scr-value'); g.lineWidth = (dsh ? 1 : 1.6) * v; dash(G, dsh);
+    g.beginPath();
+    for (let i = 0; i <= NP; i++) { const f = fmin * Math.pow(fmax / fmin, i / NP); const y = Y(dB(resp(f, ct))); if (i) g.lineTo(X(f), y); else g.moveTo(X(f), y); }
+    g.stroke(); dash(G, false);
+  }
+  if (big) {
+    label(G, 'LINES ' + held.length + '/8 · ' + held.map(n => ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'][n % 12] + (Math.floor(n / 12) - 1)).join(' ')
+      + ' · fb ' + f2(fb) + ' · damp ' + f2(P.damp), 6 * v, 11 * v, '--scr-marker', 1, 9.5);
+  }
+}
+
+/* ---- ECHO: tap placement + a simulated impulse response ------------------ */
+function echoTaps(P) {
+  /* force_core.h buildOffsets + placeTimeTargets, mode 0, verbatim in effect:
+     sorted offsets x_i in [-1,1], centre 0.08·2^(4.2·size) s, ±2·spread oct,
+     clamped to the echo profile's [0.03, 1.8] s. */
+  const n = Math.round(P.taps), rng = mulberry32((P.seed | 0) + 1), xs = [];
+  for (let i = 0; i < n; i++) {
+    const u = n === 1 ? 0.5 : i / (n - 1);
+    let x;
+    if (P.dist === 0) x = 2 * u - 1;
+    else if (P.dist === 1) { const u1 = Math.max(rng(), 1e-9), u2 = rng(); x = clamp(Math.sqrt(-2 * Math.log(u1)) * Math.cos(TAU * u2) / 2.5, -1, 1); }
+    else x = clamp(Math.tan(Math.PI * (rng() - 0.5)) / 4, -1, 1);
+    xs.push(x);
+  }
+  xs.sort((p, q) => p - q);
+  const c = Math.log2(0.08 * Math.pow(2, P.size * 4.2)), half = P.spread * 2;
+  return xs.map(x => clamp(Math.pow(2, c + x * half), 0.03, 1.8));
+}
+function drawEcho(cv, M, big) {
+  const G = ground(cv); if (!G) return;
+  const { g, w, h, v } = G, P = M.P;
+  const taps = echoTaps(P), n = taps.length, maxT = taps[n - 1];
+  const tMax = clamp(maxT * (2 + 6 * P.regen), 0.3, 6);
+  const X = t => 4 * v + (w - 8 * v) * t / tMax;
+  const rail = (big ? 26 : 12) * v, top = rail + 6 * v, bot = h - (big ? 14 : 4) * v;
+  const Y = d => top + (bot - top) * clamp(-d / 48, 0, 1);
+  // the loop, simulated at 2 kHz: e[n] = x[n] + regen·(Σ e[n−d_i])/N ; out = Σ/N
+  const fs = 2000, len = Math.ceil(tMax * fs) + 1, e = new Float64Array(len), out = new Float64Array(len);
+  const d = taps.map(t => Math.max(1, Math.round(t * fs)));
+  for (let k = 0; k < len; k++) {
+    let s = 0;
+    for (let i = 0; i < n; i++) if (k - d[i] >= 0) s += e[k - d[i]];
+    s /= n; out[k] = s; e[k] = (k === 0 ? 1 : 0) + P.regen * s;
+  }
+  let pk = 1e-9; for (let k = 0; k < len; k++) pk = Math.max(pk, Math.abs(out[k]));
+  if (big) for (const dd of [-12, -24, -36]) { hline(G, Y(dd), '--scr-grid', 0.15); label(G, dd + ' dB', 4 * v, Y(dd) - 2 * v, '--scr-grid', 0.7); }
+  if (big) for (let s = 0.25; s < tMax; s += (tMax > 2 ? 0.5 : 0.25)) { vline(G, X(s), '--scr-grid', 0.1); label(G, fSecMs(s), X(s) + 2 * v, h - 3 * v, '--scr-grid', 0.7); }
+  g.strokeStyle = TOKA('--scr-value', 0.9); g.lineWidth = Math.max(v, (w / len) * 0.9);
+  g.beginPath();
+  for (let k = 1; k < len; k++) {
+    const a = Math.abs(out[k]) / pk; if (a < 0.004) continue;
+    const x = X(k / fs); g.moveTo(x, bot); g.lineTo(x, Y(dB(a)));
+  }
+  g.stroke();
+  // the taps themselves on a rail, with drift whiskers (the engine's motion)
+  hline(G, rail, '--scr-grid', 0.4);
+  for (const t of taps) {
+    const dr = P.driftDepth / 1200 * t;                 /* schematic reach */
+    if (dr > 0) { g.strokeStyle = TOK('--scr-physics'); g.lineWidth = 1.5 * v; g.beginPath(); g.moveTo(X(t - dr), rail); g.lineTo(X(t + dr), rail); g.stroke(); }
+    g.fillStyle = TOK('--scr-value'); g.beginPath(); g.arc(X(t), rail, 2.6 * v, 0, TAU); g.fill();
+  }
+  if (big) label(G, n + ' TAPS · ' + ['even', 'gaussian', 'cauchy'][P.dist] + ' · centre ' + fSecMs(0.08 * Math.pow(2, P.size * 4.2)) + ' · regen ' + f2(P.regen) + ' ÷ ' + n,
+    6 * v, 11 * v, '--scr-marker', 1, 9.5);
+}
+
+/* ---- DRIVE: curve, one cycle, harmonics --------------------------------- */
+function driveShape(P, u) {
+  if (MAWLIB) { const S = MAWLIB.SHAPERS[DRIVE_CURVES[P.curve][0]]; return S.f(u, P.shape, null); }
+  return Math.tanh(u);          /* fallback: today's curve, and the page says so */
+}
+function driveY(P, x, extraDb) {
+  const pre = P.pre * Math.pow(10, (extraDb || 0) / 20);
+  const y = driveShape(P, pre * x + P.bias) - driveShape(P, P.bias);
+  return ((1 - P.mix) * x + P.mix * y) * Math.pow(10, P.out / 20);
+}
+function drawDrive(cv, M, big) {
+  const G = ground(cv); if (!G) return;
+  const { g, w, h, v } = G, P = M.P;
+  const pad = 5 * v, n3 = big ? 3 : 2, cw = (w - pad * (n3 + 1)) / n3;
+  const y0 = (big ? 16 : 4) * v, ch = h - y0 - (big ? 6 : 4) * v;
+  // 1 — the transfer
+  {
+    const x0 = pad, X = x => x0 + (x + 1) / 2 * cw, Y = y => y0 + ch / 2 - clamp(y, -1.3, 1.3) / 1.3 * ch / 2;
+    g.strokeStyle = TOKA('--scr-grid', 0.3); g.lineWidth = v; g.strokeRect(x0, y0, cw, ch);
+    dash(G, true); g.beginPath(); g.moveTo(X(-1), Y(-1)); g.lineTo(X(1), Y(1)); g.stroke(); dash(G, false);
+    if (P.bloom !== 0) {
+      g.strokeStyle = TOKA('--scr-physics', 0.9); g.lineWidth = 1.2 * v; g.beginPath();
+      for (let k = 0; k <= 100; k++) { const x = -1 + 2 * k / 100; const y = driveY(P, x, 12 * P.bloom); if (k) g.lineTo(X(x), Y(y)); else g.moveTo(X(x), Y(y)); }
+      g.stroke();
+    }
+    g.strokeStyle = TOK('--scr-value'); g.lineWidth = 2 * v; g.beginPath();
+    for (let k = 0; k <= 100; k++) { const x = -1 + 2 * k / 100; const y = driveY(P, x); if (k) g.lineTo(X(x), Y(y)); else g.moveTo(X(x), Y(y)); }
+    g.stroke();
+    if (big) label(G, 'CURVE · ' + DRIVE_CURVES[P.curve][1] + (MAWLIB ? '' : ' (tanh fallback)'), x0 + 3 * v, 11 * v, '--scr-marker', 1, 9.5);
+  }
+  // 2 — one cycle in and out
+  const N = 128, ys = new Float64Array(N);
+  for (let k = 0; k < N; k++) ys[k] = driveY(P, 0.8 * Math.sin(TAU * k / N));
+  {
+    const x0 = pad * 2 + cw, X = k => x0 + cw * k / (N - 1), Y = y => y0 + ch / 2 - clamp(y, -1.3, 1.3) / 1.3 * ch / 2;
+    g.strokeStyle = TOKA('--scr-grid', 0.3); g.lineWidth = v; g.strokeRect(x0, y0, cw, ch);
+    g.strokeStyle = TOKA('--scr-grid', 0.8); g.lineWidth = 1.2 * v; dash(G, true); g.beginPath();
+    for (let k = 0; k < N; k++) { const y = Y(0.8 * Math.sin(TAU * k / N)); if (k) g.lineTo(X(k), y); else g.moveTo(X(k), y); }
+    g.stroke(); dash(G, false);
+    g.strokeStyle = TOK('--scr-value'); g.lineWidth = 2 * v; g.beginPath();
+    for (let k = 0; k < N; k++) { if (k) g.lineTo(X(k), Y(ys[k])); else g.moveTo(X(k), Y(ys[k])); }
+    g.stroke();
+    if (big) label(G, 'ONE CYCLE · 0.8 in', x0 + 3 * v, 11 * v, '--scr-marker', 1, 9.5);
+  }
+  // 3 — harmonics after the tone lowpass (analysis: cyan)
+  if (big) {
+    const x0 = pad * 3 + cw * 2, H = 10, bwid = cw / H;
+    g.strokeStyle = TOKA('--scr-grid', 0.3); g.lineWidth = v; g.strokeRect(x0, y0, cw, ch);
+    for (let k = 1; k <= H; k++) {
+      let re = 0, im = 0;
+      for (let i = 0; i < N; i++) { re += ys[i] * Math.cos(TAU * k * i / N); im -= ys[i] * Math.sin(TAU * k * i / N); }
+      const mag = Math.sqrt(re * re + im * im) * 2 / N / Math.sqrt(1 + Math.pow(220 * k / P.tone, 2));
+      const hh = ch * clamp((dB(mag) + 60) / 60, 0, 1);
+      g.fillStyle = TOK('--scr-meter'); g.fillRect(x0 + (k - 1) * bwid + bwid * 0.18, y0 + ch - hh, bwid * 0.64, hh);
+    }
+    label(G, 'HARMONICS 1–10 · −60…0 dB', x0 + 3 * v, 11 * v, '--scr-meter', 1, 9.5);
+  }
+}
+
+/* ---- FILTER: SVF magnitude, with the motion reach ---------------------- */
+function svfH(P, f, fc) {
+  const Q = 0.7071 * Math.pow(20, P.res), k = 1 / Q, x = f / fc;
+  const D = [1 - x * x, k * x];
+  const LP = cdiv([1, 0], D), BP = cdiv([0, k * x], D), HP = cdiv([-x * x, 0], D);
+  const m = P.morph;
+  let H = m <= 1 ? cadd(csc(LP, 1 - m), csc(BP, m)) : cadd(csc(BP, 2 - m), csc(HP, m - 1));
+  if (P.slope === 1) H = cmul(H, H);
+  return cabs(cadd([1 - P.mix, 0], csc(H, P.mix)));
+}
+function drawFilter(cv, M, big) {
+  const G = ground(cv); if (!G) return;
+  const { g, w, h, v } = G, P = M.P;
+  const fmin = 20, fmax = 20000, dMin = -42, dMax = 24;
+  const X = f => 4 * v + (w - 8 * v) * Math.log(f / fmin) / Math.log(fmax / fmin);
+  const top = (big ? 14 : 4) * v, bot = h - (big ? 14 : 4) * v;
+  const Y = d => top + (bot - top) * (1 - clamp((d - dMin) / (dMax - dMin), 0, 1));
+  hline(G, Y(0), '--scr-grid', 0.35);
+  if (big) for (const f of [50, 100, 200, 500, 1000, 2000, 5000, 10000]) { vline(G, X(f), '--scr-grid', 0.12); label(G, fHz(f), X(f) + 2 * v, h - 3 * v, '--scr-grid', 0.7); }
+  const lo = P.cut * Math.pow(2, Math.min(0, P.envAmt) - P.lfoDepth), hi = P.cut * Math.pow(2, Math.max(0, P.envAmt) + P.lfoDepth);
+  if (hi / lo > 1.01) {
+    g.fillStyle = TOKA('--scr-physics', 0.16); g.fillRect(X(clamp(lo, fmin, fmax)), top, X(clamp(hi, fmin, fmax)) - X(clamp(lo, fmin, fmax)), bot - top);
+  }
+  const NP = big ? 500 : 240;
+  const curve = (fc, tok, lw, dsh) => {
+    g.strokeStyle = TOK(tok); g.lineWidth = lw * v; dash(G, dsh); g.beginPath();
+    for (let i = 0; i <= NP; i++) { const f = fmin * Math.pow(fmax / fmin, i / NP); const y = Y(dB(svfH(P, f, fc))); if (i) g.lineTo(X(f), y); else g.moveTo(X(f), y); }
+    g.stroke(); dash(G, false);
+  };
+  if (hi / lo > 1.01) { curve(clamp(lo, 20, 20000), '--scr-physics', 1, true); curve(clamp(hi, 20, 20000), '--scr-physics', 1, true); }
+  curve(P.cut, '--scr-value', 2, false);
+  vline(G, X(P.cut), '--scr-value', 0.8);
+  if (big) label(G, 'SVF ' + (P.slope ? '24' : '12') + ' dB · cutoff ' + fHz(P.cut) + ' · Q ' + f2(0.7071 * Math.pow(20, P.res))
+    + (hi / lo > 1.01 ? ' · reach ' + fHz(lo) + '–' + fHz(hi) : ''), 6 * v, 11 * v, '--scr-marker', 1, 9.5);
+}
+
+/* ================= BUILDERS ============================================== */
+const $ = s => document.getElementById(s);
+function el(tag, cls, txt) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (txt !== undefined && txt !== null) e.textContent = txt;
+  return e;
+}
+function setPct(inp, min, max) {
+  const x = (parseFloat(inp.value) - min) / (max - min || 1);
+  inp.style.setProperty('--pct', String(clamp(x, 0, 1)));
+}
+/* gui2 paintFill for a knob: 280° sweep from 220°, filled from min. */
+function paintKnob(k, inp) {
+  const pct = clamp(+inp.value || 0, 0, 1);
+  k.style.setProperty('--a0', '0deg');
+  k.style.setProperty('--a1', (pct * 280).toFixed(2) + 'deg');
+  k.style.setProperty('--ang', (-140 + pct * 280).toFixed(2) + 'deg');
+  k.classList.toggle('dis', !!inp.disabled);
+}
+/* gui2's §4 knob input: vertical drag, 200 px = full range, shift = ×0.25,
+   double-click = the value the preset stored. The handler writes the INPUT
+   and calls one callback, so the knob is a skin over a range, as in gui2. */
+function wireKnob(k, inp, dflt, onInput) {
+  let y0 = 0, v0 = 0, id = null;
+  k.addEventListener('pointerdown', e => {
+    if (inp.disabled) return;
+    e.preventDefault(); y0 = e.clientY; v0 = +inp.value; id = e.pointerId;
+    k.classList.add('drag');
+    try { k.setPointerCapture(id); } catch (_) { /* pointer already gone */ }
+  });
+  k.addEventListener('pointermove', e => {
+    if (id === null) return;
+    const fine = e.shiftKey ? 0.25 : 1;
+    inp.value = String(clamp(v0 + (y0 - e.clientY) / 200 * fine, 0, 1)); onInput();
+  });
+  const up = () => { id = null; k.classList.remove('drag'); };
+  k.addEventListener('pointerup', up); k.addEventListener('pointercancel', up);
+  k.addEventListener('dblclick', () => { if (!inp.disabled) { inp.value = String(dflt()); onInput(); } });
+  k.addEventListener('wheel', e => {
+    if (inp.disabled) return;
+    e.preventDefault(); inp.value = String(clamp(+inp.value - Math.sign(e.deltaY) * 0.01, 0, 1)); onInput();
+  }, { passive: false });
+  inp.addEventListener('input', onInput);
+}
+
+/* A face slot → one knob cell. `bindings` resolve against M.P; `chip` is the
+   role (or M1..M4 under order keying); a slot with no bindings is drawn inert
+   and says "unbound" (ADR-169: never hidden). */
+function faceCell(M, slot, chip) {
+  const bound = slot.b && slot.b.length > 0;
+  const cell = el('div', 'row kcell fslot' + (bound ? '' : ' unbound'));
+  const lab = el('label', null, bound ? (slot.label || '—') : 'unbound');
+  lab.title = (slot.label || 'unbound') + ' · ' + chip;
+  const k = el('span', 'knob');
+  for (const c of ['kmod', 'karc', 'kcap', 'kptr']) k.appendChild(el('span', c));
+  const inp = el('input'); inp.type = 'range'; inp.min = '0'; inp.max = '1'; inp.step = '0.001';
+  inp.value = String(slot.v); inp.disabled = !bound;
+  k.appendChild(inp);
+  const out = el('output');
+  cell.appendChild(lab); cell.appendChild(k); cell.appendChild(out);
+  cell.appendChild(el('span', 'rchip', chip));
+  /* "→ drive ×3", not "→ drive · drive · drive": MAW's knobs bind the same
+     parameter in three stages, and the caption is for a glance. */
+  const names = [];
+  for (const b of slot.b) { const nm = shortName(M, b.t); const hit = names.find(q => q[0] === nm); if (hit) hit[1]++; else names.push([nm, 1]); }
+  cell.appendChild(el('span', 'bto', bound ? '→ ' + names.map(q => q[0] + (q[1] > 1 ? ' ×' + q[1] : '')).join(' · ') : 'no binding'));
+  /* A Sluice slot is a WRAPPER over one macro record, and both faces wrap the
+     same record — so the value lives on the macro and each wrapper re-reads
+     it, or turning one face would leave the other showing a stale knob. */
+  const show = () => {
+    if (slot.mc) slot.v = slot.mc.value;
+    inp.value = String(slot.v);
+    paintKnob(k, inp);
+    out.textContent = bound ? rowFmt(M, slot.b[0].t) : '—';
+    const gh = !!(M.slotGhost && M.slotGhost(M.P, slot));
+    cell.classList.toggle('ghost', gh);
+  };
+  wireKnob(k, inp, () => slot.v0, () => {
+    slot.v = clamp(+inp.value || 0, 0, 1);
+    if (slot.mc) slot.mc.value = slot.v;
+    for (const b of slot.b) setp(M.P, b.t, bindVal(b, slot.v));
+    refresh(M);
+  });
+  // hovering a face knob lights every row it drives
+  cell.addEventListener('pointerenter', () => hlRows(M, slot.b, true));
+  cell.addEventListener('pointerleave', () => hlRows(M, slot.b, false));
+  M.faceShows.push(show); show();
+  return cell;
+}
+function hlRows(M, bs, on) {
+  for (const b of bs || []) { const r = M.rowEls[b.t]; if (r && r.classList) r.classList.toggle('hl', on); }
+}
+function findRow(M, key) {
+  for (const s of M.secs) for (const r of s.rows) if (r.k === key) return r;
+  return null;
+}
+function shortName(M, key) { const r = findRow(M, key); return r ? r.l : key + '?'; }
+function rowFmt(M, key) {
+  const r = findRow(M, key), x = getp(M.P, key);
+  if (!r) return String(x);
+  if (r.f) return r.f(x);
+  return String(x);
+}
+
+/* One expanded-view row. `marks` = the face chips that drive this key. */
+function buildRow(M, host, r, marks) {
+  const row = el('div', 'row' + (r.type === 'pills' || r.type === 'select' || r.type === 'readout' ? ' wide' : '') + (r.prop ? ' prop' : ''));
+  row.dataset.addr = M.id + '.' + r.k;
+  const lab = el('label');
+  for (const m of marks) lab.appendChild(el('span', 'bchip', m));
+  lab.appendChild(document.createTextNode(r.l));
+  lab.title = r.l + (r.addr ? ' — today: ' + r.addr : '') + (r.prop ? ' — PROPOSED' : '') + (r.note ? ' — ' + r.note : '');
+  row.appendChild(lab);
+  let show = () => {};
+  if (r.type === 'range') {
+    const inp = el('input'); inp.type = 'range';
+    const lo = r.log ? Math.log10(r.min) : r.min, hi = r.log ? Math.log10(r.max) : r.max;
+    inp.min = String(lo); inp.max = String(hi); inp.step = r.log ? '0.001' : String(r.step);
+    const out = el('output');
+    show = () => { const x = getp(M.P, r.k); inp.value = String(r.log ? Math.log10(Math.max(1e-9, x)) : x); setPct(inp, lo, hi); out.textContent = r.f ? r.f(x) : String(x); };
+    inp.addEventListener('input', () => {
+      let x = parseFloat(inp.value); if (r.log) x = Math.pow(10, x);
+      if (!r.log && r.step >= 1) x = Math.round(x);
+      setp(M.P, r.k, x); refresh(M);
+    });
+    row.appendChild(inp); row.appendChild(out);
+  } else if (r.type === 'pills') {
+    const box = el('div', 'pills'), btns = [];
+    r.opts.forEach((nm, i) => {
+      const b = el('button', 'pill', nm);
+      b.addEventListener('click', () => { setp(M.P, r.k, r.map ? r.map[i] : i); refresh(M); });
+      box.appendChild(b); btns.push(b);
+    });
+    show = () => { const x = getp(M.P, r.k); btns.forEach((b, i) => b.classList.toggle('on', (r.map ? r.map[i] : i) === x)); };
+    row.appendChild(box);
+  } else if (r.type === 'select') {
+    const sel = el('select');
+    r.opts.forEach((nm, i) => { const o = el('option', null, nm); o.value = String(i); sel.appendChild(o); });
+    show = () => { sel.value = String(getp(M.P, r.k)); };
+    sel.addEventListener('change', () => { setp(M.P, r.k, parseInt(sel.value, 10)); refresh(M); });
+    row.appendChild(sel);
+  } else if (r.type === 'toggle') {
+    const inp = el('input'); inp.type = 'checkbox';
+    const out = el('output');
+    show = () => { const x = getp(M.P, r.k); inp.checked = !!x; out.textContent = x ? 'ON' : 'OFF'; };
+    inp.addEventListener('change', () => {
+      const was = getp(M.P, r.k);
+      setp(M.P, r.k, typeof was === 'boolean' ? inp.checked : (inp.checked ? 1 : 0)); refresh(M);
+    });
+    row.appendChild(inp); row.appendChild(out);
+  } else if (r.type === 'readout') {
+    const s = el('span', 'ro');
+    show = () => { s.textContent = r.f ? r.f(getp(M.P, r.k)) : String(getp(M.P, r.k)); };
+    row.appendChild(s);
+  }
+  if (r.prop) lab.appendChild(el('span', 'ptag', 'NEW'));
+  const full = () => { show(); if (r.ghost) row.classList.toggle('ghost', !!r.ghost(M.P)); };
+  M.rowShows.push(full); M.rowEls[r.k] = row;
+  host.appendChild(row);
+  full();
+  return row;
+}
+
+/* The marks each row carries: every face slot (or Sluice macro) whose
+   bindings name it. Built from the SAME records the knobs use, so the mark
+   and the knob cannot disagree. */
+function marksFor(M) {
+  const out = {};
+  const add = (k, m) => { (out[k] = out[k] || []).push(m); };
+  if (M.id === 'sluice') {
+    (M.P.macros || []).forEach((mc, i) => (mc.bindings || []).forEach(b => add(slPath(b.target), 'M' + (i + 1))));
+  } else {
+    for (const s of M.slots) for (const b of s.b) add(b.t, s.role.toUpperCase());
+  }
+  return out;
+}
+function buildRows(M) {
+  const host = M.secHost;
+  if (!host) return;
+  host.innerHTML = '';
+  M.rowShows = []; M.rowEls = {};
+  M.secs = M.sections();
+  const marks = marksFor(M);
+  for (const s of M.secs) {
+    const sec = el('div', 'sec');
+    sec.appendChild(el('div', 'cap', s.cap));
+    for (const r of s.rows) buildRow(M, sec, r, marks[r.k] || []);
+    host.appendChild(sec);
+  }
+  const n = M.secs.reduce((a, s) => a + s.rows.length, 0);
+  const np = M.secs.reduce((a, s) => a + s.rows.filter(r => r.prop).length, 0);
+  if (M.cntEl) M.cntEl.textContent = n + ' controls' + (np ? ' · ' + np + ' proposed' : '');
+}
+
+/* ---- the face: generic (4 role slots) or Sluice's twin ---------------------- */
+function deriveSlotValues(M) {
+  /* The stored value is DERIVED from the params the preset set (Sluice G-70's
+     rule: applying a macro at its stored value reproduces the params), via the
+     slot's first binding — so loading a preset moves no internal. */
+  for (const s of M.slots) { s.v = s.b.length ? bindInv(s.b[0], getp(M.P, s.b[0].t)) : 0; s.v0 = s.v; }
+}
+function buildFace(M) {
+  const host = M.faceHost;
+  if (!host) return;
+  host.innerHTML = ''; M.faceShows = [];
+  if (M.id === 'sluice') { buildSluiceFaces(M, host); return; }
+  const f = el('div', 'face');
+  for (const s of M.slots) f.appendChild(faceCell(M, s, s.role.toUpperCase()));
+  host.appendChild(f);
+}
+/* SLUICE — the same macros under two keying rules. A macro is wrapped as a
+   slot whose bindings are the macro's (paths resolved), so both faces and the
+   expanded marks drive ONE macro record: turning either face moves the other. */
+function macroSlot(mc, label) {
+  const s = { role: '', label, b: (mc.bindings || []).map(b => ({ t: slPath(b.target), lo: b.lo, hi: b.hi, curve: b.curve || 'lin' })), v: mc.value, v0: mc.value, mc };
+  return s;
+}
+function sluiceSlots(M, rule) {
+  const macros = M.P.macros || [];
+  if (rule === 'order') {
+    return [0, 1, 2, 3].map(i => macros[i] ? macroSlot(macros[i], macros[i].label) : { role: '', label: null, b: [], v: 0, v0: 0 });
+  }
+  return ROLES.map(role => {
+    const mc = M.roleTable ? macros.find(m => hordeRoleOf(m) === role) : null;
+    return mc ? macroSlot(mc, mc.label) : { role, label: null, b: [], v: 0, v0: 0 };
+  });
+}
+function buildSluiceFaces(M, host) {
+  // preset pills
+  const ps = el('div', 'pset');
+  for (const name of Object.keys(SL_PRESETS)) {
+    const b = el('button', 'pill' + (M.P.preset === name ? ' on' : ''), name + ' · ' + SL_PRESETS[name].macros.length + ' macros');
+    b.dataset.lab = 'Sluice preset — from Sluice\'s lab';
+    b.addEventListener('click', () => { M.P = slLoad(name); rebuild(M); });
+    ps.appendChild(b);
+  }
+  host.appendChild(ps);
+  const twin = el('div', 'twin');
+  const blocks = [
+    ['role', 'ROLE-KEYED', 'ADR-169 §1 as written — slot = role. Sluice authors no roles (D-052).'],
+    ['order', 'ORDER-KEYED', 'ADR-169 A1, Sluice\'s ask — macro n → slot n, its label shown.'],
+  ];
+  for (const [rule, title, sub] of blocks) {
+    const fb = el('div', 'fblock');
+    fb.appendChild(el('div', 'ftitle', title));
+    fb.appendChild(el('div', 'fsub', sub));
+    const slots = sluiceSlots(M, rule);
+    const f = el('div', 'face');
+    slots.forEach((s, i) => {
+      const chip = rule === 'order' ? 'M' + (i + 1) : ROLES[i].toUpperCase();
+      const cell = faceCell(M, s, chip);
+      f.appendChild(cell);
+    });
+    fb.appendChild(f);
+    const nb = slots.filter(s => s.b.length).length;
+    const cnt = el('div', 'fcount');
+    cnt.innerHTML = '<b>' + nb + ' / 4</b> bound' + (rule === 'role' ? (M.roleTable ? ' · horde-authored roles' : ' · as shipped') : '')
+      + (rule === 'order' && (M.P.macros || []).length > 4 ? ' · macros 5+ unreachable' : '');
+    fb.appendChild(cnt);
+    if (rule === 'role') {
+      const r = el('div', 'row wide'); r.style.marginTop = '4px';
+      const t = el('input'); t.type = 'checkbox'; t.checked = !!M.roleTable;
+      t.dataset.lab = 'horde writes roles into Sluice presets (Sluice A4 mapping, by target)';
+      t.addEventListener('change', () => { M.roleTable = t.checked; rebuild(M); });
+      r.appendChild(el('label', null, 'horde roles')); r.appendChild(t);
+      fb.appendChild(r);
+    }
+    twin.appendChild(fb);
+  }
+  host.appendChild(twin);
+  // the slot-meaning table: what each slot MEANS, per preset, per rule
+  const tb = el('table', 'smap');
+  const hr = el('tr'); hr.appendChild(el('th', null, 'preset · rule'));
+  for (let i = 0; i < 4; i++) hr.appendChild(el('th', null, 'slot ' + (i + 1) + ' · id ' + (300 + i) + '+8h'));
+  tb.appendChild(hr);
+  for (const name of Object.keys(SL_PRESETS)) {
+    const macros = SL_PRESETS[name].macros;
+    for (const rule of ['role', 'order']) {
+      const tr = el('tr');
+      tr.appendChild(el('td', 'k', name + ' · ' + rule));
+      for (let i = 0; i < 4; i++) {
+        let txt = null;
+        if (rule === 'order') txt = macros[i] ? macros[i].label : null;
+        else { const mc = M.roleTable ? macros.find(m => hordeRoleOf(m) === ROLES[i]) : null; txt = mc ? ROLES[i] + ' = ' + mc.label : null; }
+        tr.appendChild(el('td', txt ? null : 'un', txt || (rule === 'role' ? ROLES[i] + ' · unbound' : 'unbound')));
+      }
+      tb.appendChild(tr);
+    }
+  }
+  host.appendChild(tb);
+  host.appendChild(el('div', 'note', 'An automation lane is a slot. Role-keyed: lane "FX Regen" means regen in every preset, or nothing. '
+    + 'Order-keyed: lane "FX M1" means shift in bode and allpass unison in scrumulator-ish — the label follows, the meaning moves.'));
+}
+
+/* ---- the card ----------------------------------------------------------- */
+function buildModule(M, rack) {
+  M.faceShows = []; M.rowShows = []; M.rowEls = {}; M.secs = [];
+  const card = el('div', 'mod' + (M.wide ? ' wide' : ''));
+  card.id = 'mod-' + M.id;
+  M.card = card;
+  const col = el('div', 'fcol');
+  const head = el('div', 'mhead');
+  head.appendChild(el('b', null, M.name));
+  head.appendChild(el('span', 'kind' + (M.kind === 'HOSTED' ? ' hosted' : ''), M.kind));
+  head.appendChild(el('span', 'org', M.org));
+  const xb = el('button', 'pill xbtn', 'EXPAND');
+  xb.dataset.lab = 'open every control';
+  xb.addEventListener('click', () => { setOpen(M, !M.open); });
+  M.xbtn = xb;
+  head.appendChild(xb);
+  col.appendChild(head);
+  M.mini = el('canvas', 'mini');
+  col.appendChild(M.mini);
+  if (M.id === 'maw' && MAWPRE) {
+    const ps = el('div', 'pset');
+    Object.keys(MAWPRE).forEach(name => {
+      const b = el('button', 'pill', name.split(' · ')[0]);
+      b.title = name; b.dataset.lab = 'MAW preset — reference/maw/presets.js';
+      b.addEventListener('click', () => {
+        const base = mawFresh();
+        try { applyPresetTo(base, MAWPRE[name], MAWLIB ? MAWLIB.SHAPERS : []); } catch (_) { /* keep defaults */ }
+        M.P = base; M.presetName = name; rebuild(M);
+      });
+      ps.appendChild(b); (M.presetBtns = M.presetBtns || []).push([name, b]);
+    });
+    col.appendChild(ps);
+  }
+  M.faceHost = el('div');
+  col.appendChild(M.faceHost);
+  const why = el('div', 'why'); why.innerHTML = M.why;
+  col.appendChild(why);
+  card.appendChild(col);
+
+  const xp = el('div', 'xp');
+  const xh = el('div', 'xhead');
+  xh.appendChild(el('h2', null, M.name + ' — every control'));
+  M.cntEl = el('span', 'cnt');
+  xh.appendChild(M.cntEl);
+  xp.appendChild(xh);
+  M.bigCv = el('canvas', 'big');
+  xp.appendChild(M.bigCv);
+  if (M.aux) {
+    xp.appendChild(el('div', 'cap', M.auxLabel));
+    M.auxCv = el('canvas', 'aux');
+    xp.appendChild(M.auxCv);
+  }
+  M.secHost = el('div', 'secs');
+  xp.appendChild(M.secHost);
+  const nt = el('div', 'note'); nt.innerHTML = M.notes;
+  xp.appendChild(nt);
+  card.appendChild(xp);
+  rack.appendChild(card);
+  rebuild(M);
+}
+function rebuild(M) {
+  if (M.id !== 'sluice') deriveSlotValues(M);
+  buildRows(M);
+  buildFace(M);
+  if (M.presetBtns) for (const [n, b] of M.presetBtns) b.classList.toggle('on', n === M.presetName);
+  refresh(M);
+  audit();
+}
+function refresh(M) {
+  for (const f of M.rowShows) f();
+  for (const f of M.faceShows) f();
+  paintModule(M);
+}
+function paintModule(M) {
+  try {
+    M.draw(M.mini, M, false);
+    if (M.open) { M.draw(M.bigCv, M, true); if (M.aux) M.aux(M.auxCv, M); }
+  } catch (e) { say(M.mini, 'paint: ' + String((e && e.message) || e)); }
+}
+function setOpen(M, on) {
+  M.open = !!on;
+  if (M.card && M.card.classList) M.card.classList.toggle('open', M.open);
+  if (M.xbtn) { M.xbtn.textContent = M.open ? 'FACE ONLY' : 'EXPAND'; M.xbtn.classList.toggle('on', M.open); }
+  paintAll();
+}
+
+/* ================= AUDIT — the page checks its own claims ================== */
+function audit() {
+  const box = $('audit');
+  if (!box || !MODULES.length) return;
+  const parts = [], errs = [];
+  for (const M of MODULES) {
+    if (!M.secs || !M.secs.length) continue;
+    const keys = {};
+    for (const s of M.secs) for (const r of s.rows) keys[r.k] = 1;
+    const nCtl = Object.keys(keys).length;
+    let slots = M.slots;
+    if (M.id === 'sluice') slots = sluiceSlots(M, 'order');
+    let bound = 0;
+    for (const s of slots) {
+      if (s.b.length) bound++;
+      for (const b of s.b) if (!keys[b.t]) errs.push(M.id + ': face binds ' + b.t + ', which has no row');
+    }
+    let extra = '';
+    if (M.id === 'reverb') {
+      const miss = REVERB_LAB_CONTROLS.filter(k => !keys[k]);
+      extra = ' · reverb-lab controls <b>' + (REVERB_LAB_CONTROLS.length - miss.length) + '/' + REVERB_LAB_CONTROLS.length + '</b>';
+      if (miss.length) errs.push('reverb: panel lacks ' + miss.join(', '));
+    }
+    if (M.id === 'maw') {
+      if (!MAWLIB) extra = ' · <b>core.js unreachable</b>, set unchecked';
+      else {
+        const d = MAWLIB.defaultParams(), want = [];
+        for (const k of Object.keys(d)) {
+          if (MAW_LAB_ONLY.indexOf(k) >= 0) continue;
+          if (k === 'mod') { for (const m of Object.keys(d.mod)) want.push('mod.' + m); continue; }
+          if (k === 'stages') { d.stages.forEach((st, i) => { for (const q of Object.keys(st)) want.push('stages.' + i + '.' + q); }); continue; }
+          want.push(k);
+        }
+        const miss = want.filter(k => !keys[k]);
+        const stray = Object.keys(keys).filter(k => want.indexOf(k) < 0);
+        extra = ' · MAW params <b>' + (want.length - miss.length) + '/' + want.length + '</b>';
+        if (miss.length) errs.push('maw: no row for ' + miss.join(', '));
+        if (stray.length) errs.push('maw: rows address params MAW lacks: ' + stray.join(', '));
+        const names = MAWLIB.SHAPERS.map(s => s.name);
+        if (names.join('|') !== MAW_CURVES.join('|')) errs.push('maw: curve names drifted from core.js SHAPERS');
+      }
+    }
+    if (M.id === 'sluice') {
+      const rb = sluiceSlots(M, 'role').filter(s => s.b.length).length;
+      parts.push('<b>sluice</b> ' + nCtl + ' · role-keyed <b>' + rb + '/4</b> · order-keyed <b>' + bound + '/4</b>');
+      continue;
+    }
+    parts.push('<b>' + M.id + '</b> ' + nCtl + ' · face <b>' + bound + '/4</b>' + extra);
+  }
+  box.classList.toggle('bad', errs.length > 0);
+  box.innerHTML = 'module audit — ' + parts.join(' &nbsp;|&nbsp; ')
+    + (errs.length ? '<br>ERRORS: ' + errs.join('; ') : ' — every face binding resolves to a panel row.')
+    + (MAW_ERR ? '<br>MAW: ' + MAW_ERR + ' (curves and the parameter check need it; open from the labs server or the filesystem)' : '');
+}
+
+/* ================= WIRING ================================================ */
+const MODULES = [];
+function paintAll() { for (const M of MODULES) paintModule(M); }
+let dark = false;
+let openQ = '';
+try {
+  const q = window.location && window.location.search;
+  if (typeof q === 'string') {
+    if (/theme=dark/.test(q)) dark = true;
+    const m = /expand=([a-z,]+)/.exec(q);
+    if (m) openQ = m[1];
+  }
+} catch (_) { /* headless: no location */ }
+function applyTheme() {
+  document.body.classList.toggle('dark', dark);
+  const b = $('themeBtn');
+  if (b) b.innerHTML = 'theme <b>' + (dark ? 'DARK · TUBE' : 'LIGHT · ORCHID') + '</b>';
+  for (const k in _tok) delete _tok[k];
+  paintAll();
+}
+
+/* ============ SETUP — everything above is declared (L0026) ============ */
+{
+  const rack = $('rack');
+  const mods = [reverbModule(), mawModule(), sluiceModule(), combModule(), echoModule(), driveModule(), filterModule()];
+  const maw = mods[1];
+  maw.P = mawFresh();
+  for (const M of mods) MODULES.push(M);
+  if (rack) for (const M of MODULES) buildModule(M, rack);
+  for (const M of MODULES) if (openQ === 'all' || openQ.split(',').indexOf(M.id) >= 0) setOpen(M, true);
+  audit();
+  const oa = $('openAll'), ca = $('closeAll'), tb = $('themeBtn');
+  if (oa && oa.addEventListener) oa.addEventListener('click', () => { for (const M of MODULES) setOpen(M, true); });
+  if (ca && ca.addEventListener) ca.addEventListener('click', () => { for (const M of MODULES) setOpen(M, false); });
+  if (tb && tb.addEventListener) tb.addEventListener('click', () => { dark = !dark; applyTheme(); });
+  if (window.addEventListener) window.addEventListener('resize', paintAll);
+  applyTheme();
+}
+</script>
+</body></html>
