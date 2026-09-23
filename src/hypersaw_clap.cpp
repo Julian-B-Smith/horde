@@ -3395,10 +3395,16 @@ struct Plugin
      agree adopts the live value even when a sibling in its group disagrees.
      Applying the group rule in blend would throw away a live routing cell for
      a disagreement in a DIFFERENT cell, which the field itself never couples.
-     (Quantum keeps the group rule for the reason the group exists: a corner's
-     routing table with one cell swapped for a live value is a topology no
-     corner authored — ADR-175's cycle hazard.) The mode is read at the
-     toggle; a later quantum<->blend switch re-reads the corners as they are.
+     (Quantum keeps the group rule for the reason the group exists — ADR-176
+     §3's ruling against ADR-124's chimera: under quantum what you hear is ONE
+     corner's whole routing table, so a cell adopted into every corner while a
+     sibling cell's corners differ would make each corner's table a mix of
+     that corner's cells and the live one — a topology no corner was authored
+     with. It is NOT a cycle guard today: the routing ids expose forward cells
+     only, and ADR-175 calls the cycle hazard "latent while only acyclic cells
+     are exposed". It becomes one if the B139 feedback cells are exposed.) The
+     mode is read at the toggle; a later quantum<->blend switch re-reads the
+     corners as they are.
 
      "SAME" MEANS SAME AT THE SAVED PRECISION (critic B1, PR #732). The host
      chunk and every preset write corners %.6g; a corner captured live keeps
@@ -3414,20 +3420,37 @@ struct Plugin
      5e-7*max(1,|a|) the review suggested because that bound is too tight
      above 1 (1234.5678 saves as 1234.57, off by 2.2e-3 > 6.2e-4). Values
      closer than that are indistinguishable after any save anyway.
+     EXCEPT A STEPPED SLOT, which compares EXACTLY (critic re-review, PR
+     #732): its values are integers, %.6g stores every one up to 999999
+     exactly, so two different stepped corner values were AUTHORED — the
+     oscillator Seed (0..999999) holding 999996 and 999999 is two seeds, not
+     one seed rounded, and the tolerance called them equal and wrote the live
+     seed over both. The SUB seed (4014, up to ~4.29e9) exceeds what %.6g
+     stores exactly, so after a reload its corners can differ by rounding
+     alone; exact comparison then calls them split and hands the slot to the
+     field — the SAFE direction (the corners keep what they hold; only the live
+     edit to that one slot is not adopted), never an overwrite.
+     Each corner is compared with corner 0 only; under the tolerance that makes
+     "agree" hold pairwise within twice the bound, which is still far inside
+     what any save can distinguish.
 
      REJECTED: clearing `morphCornersAuthored` on loads whose corners agree. It
      would reopen the seed adoption DURING a load, where 151 lands in the
      middle of the queued burst and would adopt half-loaded values.
      Audio thread: compares and writes into vectors morphInit pre-sized. */
-  static bool cornerValuesAgree(double a, double b)
+  static bool cornerValuesAgree(double a, double b, bool stepped)
   {
+    if (stepped) return a == b;
     return std::fabs(a - b) <= 5e-6 * std::max(std::fabs(a), std::fabs(b));
   }
   bool cornersAgreeAt(size_t i) const
   {
+    const ParamDef *d = findParam(morphIds[i]);
+    const bool stepped = d && d->stepped;
     const double v = morphCorner[0][i];
-    return cornerValuesAgree(v, morphCorner[1][i]) && cornerValuesAgree(v, morphCorner[2][i]) &&
-           cornerValuesAgree(v, morphCorner[3][i]);
+    return cornerValuesAgree(v, morphCorner[1][i], stepped) &&
+           cornerValuesAgree(v, morphCorner[2][i], stepped) &&
+           cornerValuesAgree(v, morphCorner[3][i], stepped);
   }
   void morphAdoptUncontested()
   {

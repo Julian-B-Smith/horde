@@ -2498,6 +2498,67 @@ void adoptionUnitChecks()
   }
 }
 
+/* STEPPED CORNERS COMPARE EXACTLY (critic re-review, PR #732). The %.6g
+   tolerance that makes B1 work is wrong for an integer: the oscillator Seed
+   (id 3, stepped, 0..999999) is in the field, %.6g stores every integer in
+   that range exactly, and 999996 vs 999999 are within 5e-6 of each other —
+   so the tolerance called two AUTHORED seeds "the same" and morph-on wrote
+   the live seed over both corners. The row: corners A=999996, B=999999, live
+   999998, morph on — the corners must stay authored, in quantum and blend.
+   The control: the same live edit over UNANIMOUS seed corners is adopted (a
+   stepped slot still adopts when its corners truly agree). */
+double cornerValueOf(const clap_plugin_t *p, int k, clap_id id)
+{
+  const std::string s = hypersaw_debug_cornervals(p, k);
+  const std::string key = "\"" + std::to_string(id) + "\":";
+  const size_t a = s.find(key);
+  return a == std::string::npos ? -999 : std::atof(s.c_str() + a + key.size());
+}
+void steppedCornerChecks()
+{
+  const clap_id kSeed = 3;
+  for (int blend = 0; blend < 2; blend++)
+    for (int split = 0; split < 2; split++)
+    {
+      const clap_plugin_t *p = makePlugin();
+      p->activate(p, kSampleRate, 32, 1024);
+      p->start_processing(p);
+      Blocks b(p);
+      b.run(2);
+      const std::string self = saveJson(p);
+      hypersaw_debug_apply(p, self.c_str());   // a load: the corners count as authored
+      b.run(2);
+      auto set = [&](clap_id id, double v) {
+        EvList ev;
+        ev.push(id, v);
+        b.run(4, &ev);
+      };
+      set(157, blend);
+      set(kSeed, 999996);
+      for (int k = 0; k < 4; k++) hypersaw_debug_capture(p, k);
+      if (split)
+      {
+        set(kSeed, 999999);
+        hypersaw_debug_capture(p, 1);
+      }
+      set(kSeed, 999998);   // the live seed, a third value
+      editorMorph(p, b, 1, 40);
+      const double a = cornerValueOf(p, 0, kSeed), bb = cornerValueOf(p, 1, kSeed);
+      const std::string mode = blend ? "blend" : "quantum";
+      if (split)
+        check(a == 999996 && bb == 999999,
+              "STEPPED (" + mode + "): authored seed corners 999996 / 999999 are NOT overwritten by "
+              "morph-on (got " + std::to_string((long)a) + " / " + std::to_string((long)bb) + ")");
+      else
+        check(a == 999998 && bb == 999998,
+              "STEPPED CONTROL (" + mode + "): unanimous seed corners DO adopt the live 999998 (got " +
+                  std::to_string((long)a) + " / " + std::to_string((long)bb) + ")");
+      p->stop_processing(p);
+      p->deactivate(p);
+      p->destroy(p);
+    }
+}
+
 /* S3 — A MOD-ROUTE DEPTH SURVIVES A HISTORY ROUND TRIP EXACTLY. The route
    enters through the preset door's `modRoutes` key (the door
    gen_state_fixtures already uses), with a depth %.6g cannot hold. The node
@@ -2713,6 +2774,7 @@ int main(int argc, char **argv)
     morphOnKeepsPatchChecks();
     savedPrecisionAgreementChecks();   // B1 (critic, PR #732)
     adoptionUnitChecks();              // NOTE 4
+    steppedCornerChecks();             // critic re-review: stepped compare exactly
     modRouteDepthChecks();             // S3
     presetRoutingKeyChecks();          // S4
     ensBoundaryEvidence();   // first: it is what licenses the one exemption below
