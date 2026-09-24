@@ -42,7 +42,8 @@ extern "C"
   /* --- State and the preset JSON path ----------------------------------- */
 
   /* Writes the shell's stateJson() into `out`. Owner: state_check, bank_check,
-     corner_probe, gen_factory_bank, statefix_common.h. */
+     corner_probe, gen_factory_bank, statefix_common.h, morphlayout_check (T13
+     reads the morphLayout marker the state carries). */
   void hypersaw_debug_state(const clap_plugin_t *p, char *out, uint32_t cap);
 
   /* B241: a parameter's STORAGE (Plugin::readStored) — under a mod route, the

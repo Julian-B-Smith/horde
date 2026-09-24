@@ -1,4 +1,8 @@
 /* morphlayout_check — the morph field's array layout is APPEND-ONLY (ADR-159).
+   WIRED: ./verify full, beside the other state oracles (argv[1] = tests/morph_order.txt).
+   The header claimed "not wired into ./verify" until 2026-09-20 and had been
+   wired since B124 — the B190 class of stale relationship claim. Moved to the
+   top by B240, whose T13 paragraph pushed it past test_table_check's 40 lines.
    T1  the first 222 entries of morphIds are the frozen 2026-08-22 order, and
        the late per-osc rows (181/1181) come LAST.
    T2  a 222-entry layout-1 corner (saved 2026-08-22..08-31) lands each value on
@@ -15,9 +19,10 @@
    T10 (B195) every host-visible id in ADR-088's engine span (3000..9999) is in
        the morph field iff its class is not Device — driven from the shell's own
        parameter enumeration, so a new engine block inherits the coverage.
-   T10b the Structural engine ids are the TAIL of the order, never interleaved:
-       morphIds is append-only and a stored corner array is positional, so an
-       interleave would silently move every slot after the first new id.
+   T10b the Structural engine ids form one contiguous run at the TAIL of the
+       order (B195/B203's layout-9 shape). RELABELLED BY B240: it was headed
+       "no previously stored slot moved", which it cannot see — a Morphable row
+       inserted before that run passes it. T13 is the gate on that claim.
    T10c CONTROL: the T10 scan run against a membership set that lies about one
        id must report exactly one violation.
    T11 a corner HOLDS a sub wave, and morphing between a sine corner and a bump
@@ -29,9 +34,16 @@
        own VALUE only ever reads 0 or 1 (each half is the other's control), and
        a PURE CORNER is exact — bit-identical to every corner agreeing at the
        ON end, exactly silent at the OFF end.
-   WIRED: ./verify full, beside the other state oracles. The header claimed
-   "not wired into ./verify" until 2026-09-20 and had been wired since B124 —
-   the B190 class of stale relationship claim. Exit 1 on failure. */
+   T13 (B240) THE WHOLE ORDER IS FROZEN. tests/morph_order.txt (argv[1]) holds
+       every slot of the layout-9 order; it must be an EXACT PREFIX of the live
+       order, so an insertion, removal or reorder anywhere fails and an append
+       at the end passes. The marker must equal the fixture's `layout` when
+       nothing is appended, and exceed it by exactly one when something is
+       (one appending change, one bump; a second append waits for the first to
+       be frozen into the file). No id may occupy two slots. T13e is the
+       control: planted insertion, removal and swap must each be reported at
+       the slot where they happen, and a planted append must not be.
+   Exit 1 on failure. */
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -67,8 +79,48 @@ double valueOf(const char *j, const char *id) { std::string key = std::string("\
 std::string cornersJson(int layout, const std::vector<double> &arr) { std::string s = "{\"schema\":3,\"params\":{}"; if (layout) s += ",\"morphLayout\":" + std::to_string(layout); s += ",\"morphCorners\":[";
   for (int k = 0; k < 4; k++) { s += k ? ",[" : "["; for (size_t i = 0; i < arr.size(); i++) { char b[32]; std::snprintf(b, sizeof b, i ? ",%.6g" : "%.6g", arr[i]); s += b; } s += "]"; } return s + "]}"; }
 int fails = 0; void expect(bool ok, const char *w) { std::printf("  %s  %s\n", ok ? "ok  " : "FAIL", w); if (!ok) fails++; }
+
+/* ---- T13 (B240): the frozen whole-order fixture ------------------------- */
+struct OrderFixture { int layout = -1; std::vector<std::string> ids; };
+// `#` comment lines, one `layout N` line, then one id per line. A file that
+// cannot be read comes back empty and T13a fails on it — never skipped.
+OrderFixture readOrderFixture(const char *path)
+{
+  OrderFixture f;
+  FILE *fp = std::fopen(path, "r");
+  if (!fp) return f;
+  char line[512];
+  while (std::fgets(line, sizeof line, fp))
+  {
+    std::string s(line);
+    while (!s.empty() && (s.back() == '\n' || s.back() == '\r' || s.back() == ' ')) s.pop_back();
+    if (s.empty() || s[0] == '#') continue;
+    if (s.rfind("layout ", 0) == 0) { f.layout = std::atoi(s.c_str() + 7); continue; }
+    f.ids.push_back(s);
+  }
+  std::fclose(fp);
+  return f;
 }
-int main() {
+/* The first slot at which `order` stops carrying `frozen` as its PREFIX, or
+   SIZE_MAX when every frozen slot is where it was. One function for the live
+   run and for T13e's planted mutations, so the control exercises the exact
+   comparator the gate uses. */
+size_t prefixBreak(const std::vector<std::string> &frozen, const std::vector<std::string> &order)
+{
+  for (size_t i = 0; i < frozen.size(); i++)
+    if (i >= order.size() || order[i] != frozen[i]) return i;
+  return SIZE_MAX;
+}
+// The marker rule (see the header): equal when nothing is appended, exactly
+// one past the fixture when an append is pending, and nothing else.
+bool markerOk(size_t liveLen, size_t frozenLen, int marker, int frozenLayout)
+{
+  if (liveLen == frozenLen) return marker == frozenLayout;
+  if (liveLen > frozenLen) return marker == frozenLayout + 1;
+  return false;
+}
+}
+int main(int argc, char **argv) {
   Rig r; r.boot();
   const std::vector<std::string> frozen = split(kFrozen);
   const std::vector<std::string> live = liveOrder(hypersaw_debug_cornervals(r.p, 0));
@@ -236,13 +288,17 @@ int main() {
     expect(bad == 0, "T10 every non-Device engine-block id is in the morph field and every Device one "
                      "is not — by the class and not by a list (the block's GATE is Structural "
                      "since B203 and is therefore IN)");
-    /* T10b NOTHING THAT WAS ALREADY STORED MOVED. The Structural engine rows
-       joined in a SECOND pass over kEngineBlocks, after every Morphable one,
-       precisely so they land at the tail; widening the class test in place
-       would have interleaved them in block order (4000 before 4001) and every
-       stored corner slot after the first new id would mean a different
-       parameter. The assertion is positional and needs no frozen list: every
-       Structural engine id sits in the last `structural` slots of the order. */
+    /* T10b THE STRUCTURAL ENGINE IDS ARE ONE RUN AT THE TAIL. They joined in a
+       SECOND pass over kEngineBlocks, after every Morphable one, precisely so
+       they land at the tail; widening the class test in place would have
+       interleaved them in block order (4000 before 4001).
+       WHAT THIS DOES NOT SEE (B240 — it was labelled "no previously stored
+       slot moved"): a Morphable row landing BEFORE the run — a second block's
+       pass-1 rows, or a new SUB row — leaves the run contiguous at the tail
+       and passes here while shifting every stored slot after it. T13's
+       whole-order fixture is the gate on that. Note also that any append
+       after the gate (Plugin::kMorphTailIds) ends the run's tail position, so
+       this row turns red at the first real append until its pin is ruled. */
     {
       size_t firstStructural = live.size();
       int atTail = 0;
@@ -258,8 +314,8 @@ int main() {
       }
       char m2[200];
       std::snprintf(m2, sizeof m2,
-                    "T10b the %d Structural engine ids are the TAIL of the order (first at slot %zu "
-                    "of %zu) — no previously stored slot moved",
+                    "T10b the %d Structural engine ids are one contiguous run at the TAIL (first at "
+                    "slot %zu of %zu) — the layout-9 shape; insertion is T13's to see",
                     atTail, firstStructural, live.size());
       expect(atTail == structural && atTail > 0 && firstStructural + (size_t)atTail == live.size(), m2);
     }
@@ -483,6 +539,85 @@ int main() {
                     pure.size(), diff == pure.size() ? "none" : "SOME", offPeak, onRms);
       expect(diff == pure.size() && offPeak == 0.0 && onRms > 1e-3, m5);
     }
+  }
+
+  /* T13 — B240: THE WHOLE ORDER IS FROZEN, NOT ONLY ITS FIRST 224 SLOTS.
+     T1 pins the ADR-159 prefix and T10b a shape; neither sees a row landing
+     between the routing block and the SUB's gate, which is exactly where a
+     second engine block's pass-1 rows used to go. The fixture is every slot
+     of layout 9, read from a file so an insertion is a visible one-line diff
+     in review. A fresh rig, so nothing the rows above loaded can matter. */
+  {
+    const char *fixPath = argc > 1 ? argv[1] : "tests/morph_order.txt";
+    const OrderFixture fx = readOrderFixture(fixPath);
+    Rig t; t.boot();
+    const std::vector<std::string> order = liveOrder(hypersaw_debug_cornervals(t.p, 0));
+    static char st[1 << 18];
+    hypersaw_debug_state(t.p, st, sizeof st);
+    const char *mk = std::strstr(st, "\"morphLayout\":");
+    const int marker = mk ? std::atoi(mk + 14) : -1;
+    t.kill();
+
+    char m[240];
+    std::snprintf(m, sizeof m, "T13a the fixture %s is readable: layout %d, %zu slots", fixPath,
+                  fx.layout, fx.ids.size());
+    expect(fx.layout > 0 && !fx.ids.empty(), m);
+
+    const size_t brk = prefixBreak(fx.ids, order);
+    if (brk == SIZE_MAX)
+      std::snprintf(m, sizeof m,
+                    "T13b every one of the %zu frozen slots holds its layout-%d id (live order %zu "
+                    "slots: %zu appended at the tail)",
+                    fx.ids.size(), fx.layout, order.size(), order.size() - fx.ids.size());
+    else
+      std::snprintf(m, sizeof m,
+                    "T13b slot %zu MOVED: the fixture says %s, the live order says %s — an insertion, "
+                    "removal or reorder; a new member goes in Plugin::kMorphTailIds",
+                    brk, fx.ids[brk].c_str(), brk < order.size() ? order[brk].c_str() : "<end>");
+    expect(!fx.ids.empty() && brk == SIZE_MAX, m);
+
+    std::snprintf(m, sizeof m,
+                  "T13c the marker (%d) names this order: fixture layout %d, %zu unfrozen tail "
+                  "slot(s) — equal with none, exactly one bump with some",
+                  marker, fx.layout, order.size() > fx.ids.size() ? order.size() - fx.ids.size() : 0);
+    expect(markerOk(order.size(), fx.ids.size(), marker, fx.layout), m);
+
+    std::vector<std::string> sorted = order;
+    std::sort(sorted.begin(), sorted.end());
+    const auto dup = std::adjacent_find(sorted.begin(), sorted.end());
+    std::snprintf(m, sizeof m, "T13d no id holds two slots (duplicate: %s)",
+                  dup == sorted.end() ? "none" : dup->c_str());
+    expect(dup == sorted.end(), m);
+
+    /* T13e THE CONTROL (L0032): the comparator T13b trusts must report each
+       kind of move AT the slot it happens, and must not report an append.
+       Planted on the fixture itself, mid-field (slot 240 sits inside the
+       routing block, the region nothing before B240 could see). */
+    if (fx.ids.size() > 250)
+    {
+      const size_t at = 240;
+      std::vector<std::string> ins = fx.ids, rem = fx.ids, swp = fx.ids, app = fx.ids;
+      ins.insert(ins.begin() + (long)at, "99999");
+      rem.erase(rem.begin() + (long)at);
+      std::swap(swp[at], swp[at + 1]);
+      app.push_back("99999");
+      const bool insOk = prefixBreak(fx.ids, ins) == at, remOk = prefixBreak(fx.ids, rem) == at,
+                 swpOk = swp[at] != swp[at + 1] && prefixBreak(fx.ids, swp) == at,
+                 appOk = prefixBreak(fx.ids, app) == SIZE_MAX;
+      const bool mkCtl = !markerOk(fx.ids.size() + 1, fx.ids.size(), fx.layout, fx.layout) &&
+                         markerOk(fx.ids.size() + 1, fx.ids.size(), fx.layout + 1, fx.layout) &&
+                         !markerOk(fx.ids.size(), fx.ids.size(), fx.layout + 1, fx.layout) &&
+                         !markerOk(fx.ids.size() + 1, fx.ids.size(), fx.layout + 2, fx.layout);
+      std::snprintf(m, sizeof m,
+                    "T13e CONTROL: planted insertion %s, removal %s, swap %s at slot %zu; planted "
+                    "append %s; marker rule rejects an unbumped append and a double bump %s",
+                    insOk ? "caught" : "MISSED", remOk ? "caught" : "MISSED",
+                    swpOk ? "caught" : "MISSED", at, appOk ? "admitted" : "REJECTED",
+                    mkCtl ? "yes" : "NO");
+      expect(insOk && remOk && swpOk && appOk && mkCtl, m);
+    }
+    else
+      expect(false, "T13e CONTROL: the fixture is too short to plant mid-field (<= 250 slots)");
   }
 
   std::printf("morphlayout_check: %s\n", fails ? "FAIL" : "PASS"); r.kill(); hypersaw_entry_deinit(); return fails ? 1 : 0;

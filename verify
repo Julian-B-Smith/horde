@@ -285,7 +285,7 @@ full() {
   "$build_dir/anchor_check"                             || return 1   # B114 quantiser re-arms on anchor change
   "$build_dir/penv_check"                               || return 1   # B116 ENV 2 per-note, retriggers
   "$build_dir/twocluster_check"                         || return 1   # ADR-164 negative K repels
-  "$build_dir/morphlayout_check"                        || return 1   # B124 layout-1 remap, corner reset
+  "$build_dir/morphlayout_check" tests/morph_order.txt  || return 1   # B124 layout-1 remap, corner reset; B240 whole order frozen
   "$build_dir/fxxfade_check"                            || return 1   # B117 crossfade handover as measured
   "$build_dir/polarity_check"                           || return 1   # B134 polarity before depth, as-is exact
   "$build_dir/lfoenv_check"                             || return 1   # B171 LFO 1/2 + ENV 3/4 as mod sources

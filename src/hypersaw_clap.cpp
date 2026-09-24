@@ -1186,8 +1186,13 @@ inline uint32_t routingParamCount() { return (uint32_t)g_routingTable.defs.size(
    routing block's comment records).
 
    THIS IS THE MECHANISM B162 REUSES. STATION's 3000-block lands as ONE MORE ROW
-   in kEngineBlocks and touches nothing else: findParam, paramClassOf,
-   applyParam, readParam, params_count and params_get_info all walk the table.
+   in kEngineBlocks for the DISPATCH: findParam, paramClassOf, params_count and
+   params_get_info all walk the table. That is all the row buys (corrected by
+   B240; this said "touches nothing else"). A new block still needs one line
+   in the write and read branches (applyParam's `eb->base == kSubOscIdBase`,
+   readStored's twin), one in setEngineGateRamp, and every one of its field
+   members listed in the morph field's tail (Plugin::kMorphTailIds) — the
+   morph passes are frozen at layout 9 and will not see it.
    Adding an engine must never mean editing the dispatch again — if it does,
    this abstraction failed and should be deleted rather than extended.
 
@@ -1346,7 +1351,8 @@ constexpr uint32_t kEngineIdHi = 10000;   // exclusive; kRoutingIdBase takes ove
 static_assert(kEngineIdHi == kRoutingIdBase, "the engine span must abut the routing block");
 constexpr EngineBlock kEngineBlocks[] = {
     {kSubOscIdBase, kSubOscParamCount, kSubOscParams, kSubOscOnId, "SUB OSC", "sub."},
-    /* STATION's 3000-block lands HERE (B162) and nowhere else. */
+    /* STATION's 3000-block lands HERE (B162) for dispatch; its morph-field
+       members are listed in Plugin::kMorphTailIds (B240), not derived here. */
 };
 static_assert(kSubOscIdBase >= kEngineIdLo && kSubOscIdBase + kSubOscParamCount < kEngineIdHi,
               "the SUB OSC block must sit inside ADR-088's reserved engine span");
@@ -2943,13 +2949,72 @@ struct Plugin
      none. Hidden until B110 let `morphOn` land on preset load. Per-osc rows
      added after the freeze are listed here and APPENDED after every earlier
      block, twin beside base, so append-only is true by construction again.
-     `applyMorphChunk` remaps arrays saved under the 2026-08-31..09-11 layout. */
+     `applyMorphChunk` remaps arrays saved under the 2026-08-31..09-11 layout.
+     CLOSED at layout 9 (B240): this list is appended BEFORE the routing block,
+     so a row added here now would shift every routing and engine slot. A new
+     per-osc row goes in kMorphTailIds below, never here. */
   static constexpr clap_id kMorphLateIds[] = {181};
   static constexpr size_t kMorphAdr150Size = 224;   // the only layout that ever had 181 in the prefix
   static bool isMorphLateId(clap_id id)
   {
     for (clap_id l : kMorphLateIds) if (l == id) return true;
     return false;
+  }
+
+  /* B240 — THE MORPH FIELD'S ONE APPEND SITE.
+     morphInit builds the layout-9 order in passes (the per-osc prefix, the
+     curated appends, the late rows, the routing block, then the engine blocks
+     in three passes). Every pass walks a TABLE, so a row added to that table
+     used to land INSIDE the pass — before everything that follows it — and
+     shift every stored corner slot after it (ADR-159's scar, and the engine
+     passes' hazard B240 found). Two rules now make "append-only" true by
+     construction:
+
+     1. THE PASSES ARE FROZEN AT LAYOUT 9. The per-osc prefix admits only base
+        ids below kMorphL9OscIdEnd, and the engine passes only the SUB rows
+        below kMorphL9EngineIdEnd. Both bounds are the SET of rows that existed
+        at layout 9, not a guess: every id 1..181 is a kParams row and every
+        per-osc row is <= 181 (182..199 are unused, 200..288 are all global);
+        the SUB block is exactly 4000..4019. Ids are never reused, so a row
+        added later falls outside the bound and the pass simply does not see
+        it. (The routing pass cannot be bounded — a new source row's cells get
+        ids in the MIDDLE of the table — so it skips tail-listed ids instead,
+        and morphlayout_check T13 catches an unlisted one.)
+
+     2. EVERY NEW MEMBER IS ONE LINE HERE, IN THE ORDER IT JOINED, and is
+        appended after every pass. A per-osc base id (< 1000, not global)
+        brings its +1000 twin right behind it, as kMorphLateIds does — list the
+        BASE only. A global, an engine-block row (any block, any class that
+        belongs in the field — morphlayout_check T10 requires every non-Device
+        engine row to be here) or a routing cell appends as itself. An existing
+        global that is not yet a member (bassMonoHz, say) joins the same way.
+
+     WHAT AN APPEND DOES TO THE MARKER AND TO OLD CHUNKS. One appending change
+     bumps `morphLayout` by ONE at all four writers (cornerJson, liveCornerJson,
+     morphJson, gen_factory_bank; playbook_check keeps them equal), 9 -> 10 at
+     the first real append, however many lines that change adds. Nothing
+     migrates: morphSlotMap reads every layout >= 2 array 1:1 as a PREFIX, so a
+     layout-9 chunk loads every stored slot where it was, and resetCorner (B124)
+     gives the new tail slots their defaults — an old patch loads with the new
+     member unmorphed at its (inert) default, which is what it said when saved.
+     Freeze the appended ids into tests/morph_order.txt (add them at the end,
+     set its `layout` line to the new marker) in the same change or the next
+     one: morphlayout_check T13 admits at most ONE unfrozen append, and only
+     with the marker already bumped. */
+  static constexpr clap_id kMorphL9OscIdEnd = 182;
+  static constexpr clap_id kMorphL9EngineIdEnd = kSubOscIdBase + 20;
+  static inline const std::vector<clap_id> kMorphTailIds = {
+      // layout 10 onward: one member per line, appended in this order.
+  };
+  static bool isMorphTailId(clap_id id)
+  {
+    for (clap_id t : kMorphTailIds)
+      if (t == id || (t < kOscStride && !isGlobalId(t) && t + kOscStride == id)) return true;
+    return false;
+  }
+  static bool inMorphL9EnginePasses(clap_id id)
+  {
+    return id >= kSubOscIdBase && id < kMorphL9EngineIdEnd;
   }
   // One builder for both the live order and the 2026-08-31 legacy order.
   static std::vector<clap_id> buildMorphOrder(bool lateInPrefix)
@@ -2958,6 +3023,7 @@ struct Plugin
     for (const auto &d : kParams)
     {
       if (isGlobalId(d.id)) continue;
+      if (d.id >= kMorphL9OscIdEnd) continue;   // B240: the prefix is layout 9's, by construction
       if (!lateInPrefix && isMorphLateId(d.id)) continue;
       ids.push_back(d.id);
       ids.push_back(d.id + 1000);    // the twin — each osc morphs its own
@@ -3026,8 +3092,10 @@ struct Plugin
        route ids point at one lead index" — and the identity lead map that
        matched the comment shipped as the default (B142, ADR-176 §3).
        Legality is enforced on the READ side, so a corner holding any table at
-       all stays correct by construction — which is exactly why this is safe. */
-    for (const auto &d : g_routingTable.defs) morphIds.push_back(d.id);
+       all stays correct by construction — which is exactly why this is safe.
+       B240: a tail-listed cell is skipped here and appended at the tail. */
+    for (const auto &d : g_routingTable.defs)
+      if (!isMorphTailId(d.id)) morphIds.push_back(d.id);
 
     /* B172 — THE ENGINE BLOCKS' MORPHABLE ROWS, APPENDED AFTER THE ROUTING
        BLOCK and therefore after everything (ADR-159's rule again: never
@@ -3036,8 +3104,14 @@ struct Plugin
        the block's GATE is Device and is therefore absent by that same test,
        which is what keeps "the gate is not a corner value" a property of one
        rule rather than of two lists.
-       STATION appends here too (B162), by adding its block to kEngineBlocks.
-       Both appends bump the layout marker; see cornerJson.
+       CORRECTED BY B240. This comment said "STATION appends here too (B162), by
+       adding its block to kEngineBlocks", and it would not have: each of the
+       three passes walks EVERY block before the next pass starts, so a second
+       block's morphable rows would land before the SUB's structural rows and
+       gate and shift them. The three passes are now bounded to the rows that
+       existed at layout 9 (inMorphL9EnginePasses) and produce exactly that
+       order forever; STATION's rows, and any new SUB row, join through
+       kMorphTailIds at the tail.
 
        B195 — THE RULING B172 OWED (human 2026-09-21: "some Sub Osc parameters
        don't reach morph"). Until now the test was `== Morphable`, which under
@@ -3069,6 +3143,7 @@ struct Plugin
       {
         ParamClass cls = ParamClass::Device;
         const char *why = nullptr;
+        if (!inMorphL9EnginePasses(b.defs[i].id)) continue;   // B240: frozen at layout 9
         if (b.defs[i].id == b.gateId) continue;   // B203's third pass — see below
         if (paramClassOf(b.defs[i].id, cls, why) && cls == ParamClass::Morphable)
           morphIds.push_back(b.defs[i].id);
@@ -3078,6 +3153,7 @@ struct Plugin
       {
         ParamClass cls = ParamClass::Device;
         const char *why = nullptr;
+        if (!inMorphL9EnginePasses(b.defs[i].id)) continue;   // B240: frozen at layout 9
         if (b.defs[i].id == b.gateId) continue;   // B203's third pass — see below
         if (paramClassOf(b.defs[i].id, cls, why) && cls == ParamClass::Structural)
           morphIds.push_back(b.defs[i].id);
@@ -3095,9 +3171,19 @@ struct Plugin
        saved against the wrong parameter. The two `continue`s above are what
        keep passes 1 and 2 producing the exact order they produced before this
        change; the gates land here, after all of them, at the tail.
-       morphlayout_check T10b is the positional gate on that claim and T10d
-       pins this ruling. */
-    for (const auto &b : kEngineBlocks) morphIds.push_back(b.gateId);
+       morphlayout_check T13 is the positional gate on that claim (the whole
+       layout-9 order is a fixture) and T12 pins this ruling. A new block's
+       gate is outside the layout-9 bound and joins through kMorphTailIds. */
+    for (const auto &b : kEngineBlocks)
+      if (inMorphL9EnginePasses(b.gateId)) morphIds.push_back(b.gateId);
+
+    /* B240: THE TAIL. Every member added after layout 9, in listed order —
+       see kMorphTailIds for the rule, the marker bump and what old chunks do. */
+    for (clap_id id : kMorphTailIds)
+    {
+      morphIds.push_back(id);
+      if (id < kOscStride && !isGlobalId(id)) morphIds.push_back(id + kOscStride);   // the twin, beside its base
+    }
 
     /* THE LEAD MAP. Identity, then the groups.
        FX SLOTS (B49, measured 2026-08-26): type and amount were drawn
@@ -5807,6 +5893,8 @@ struct Plugin
     if (k < 0 || k > 3) return "{}";
     morphInit();
     /* THE LAYOUT MARKER, BUMPED ONCE HERE AND AT THE OTHER THREE WRITERS.
+       NEXT: 10, at the first kMorphTailIds append (B240; the rule and what an
+       old chunk does are stated there).
        9 = B203: the engine blocks' GATES join the field, appended after both
        of B195's passes (morphInit's third pass), so the corner array grew by
        one per block and the order changed. Same reasoning as 8 below in every
