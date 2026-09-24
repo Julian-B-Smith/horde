@@ -829,6 +829,15 @@ if(NOT MSVC)
   target_compile_options(lfoenv_check PRIVATE -O2)
 endif()
 
+# offcorner_check: B232 / ADR-183 — in blend, a corner where the source is OFF
+# gives no weight, as revision 2; revision 1 renders as before. WIRED into
+# ./verify full in the PR that adds it (ADR-180 §1).
+add_executable(offcorner_check tools/offcorner_check.cpp)
+target_link_libraries(offcorner_check PRIVATE ${PROJECT_NAME}-impl)
+if(NOT MSVC)
+  target_compile_options(offcorner_check PRIVATE -O2)
+endif()
+
 # modreadback_check: B241 — a modulated parameter persists at its BASE on every
 # path (readback, state, history, corners, morph-on). WIRED into ./verify full
 # in the PR that adds it (ADR-180 §1).
