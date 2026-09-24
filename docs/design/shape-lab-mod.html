@@ -82,11 +82,43 @@
      independent twin (a fresh instance for the simulations, the stated rules
      restated for MIDI), with a control that must fire for each.
 
+     ROUND 3 (B237, 2026-09-23): S&H AND SMOOTHED RANDOM AS LFO SHAPES.
+     Human: "I would also like to see a standard S&H and a random noise LFO
+     with smoothing options in the lab as LFO options."
+       - One stream: draw k of mulberry32(lfoSeed), where lfoSeed is the
+         engine's own lfoSeed(0) = patch seed ^ 0x9E3779B9
+         (hypersaw_clap.cpp:2847-2850), and v_k = 2u_k - 1, the engine's draw
+         (:3960). Draw k is read by INDEX (m32at: mulberry32's state after k
+         steps is seed + k*0x6D2B79F5, so the k-th output is one hash), which
+         makes every non-slew mode a pure function of (seed, k, x) that the
+         picture and the sound both call.
+       - The LFO's position is round 1's p = acc + phi, unwrapped:
+         k = floor(p) indexes the draw, x = frac(p) is where in the cycle.
+         S&H = v_k. RANDOM smooths the same stream: NONE (= S&H, audited
+         bit-identical), LINEAR, COSINE, CUBIC (Catmull-Rom, clamped: it can
+         overshoot to 1.25), each passing through v_k at every cycle start;
+         and SLEW, a glide in MILLISECONDS from wherever it is to v_k,
+         counted in samples, so it does not move with the rate. SLEW's glide
+         is round 1's segment law at c = +0.5 (the one-pole's shape, arriving
+         at the stated time), not a new curve.
+       - A strike (retrig, or round 2's LFO RESTART) starts a new cycle, so it
+         takes the next unused draw. In sync, k comes from the transport.
+       - Round 2's TRIGGER -> "S&H" action is RENAMED on this page to SAMPLE ON
+         TRIGGER (ids act.sh / shIn kept, so no stored route moves). "S&H" is
+         the LFO shape's name alone. Both share one hold rule and one draw
+         rule and differ only in clock and input (card "TWO S&Hs").
+       - HEAR = SHIPPED plays the engine's S&H law transcribed: 0 until the
+         first wrap (:2859), one sequential draw per wrap (:3954-3961), a
+         strike rewinds without drawing (:3949). The engine has no smoothed
+         random, so SHIPPED plays that S&H for RANDOM too.
+     auditRound3 renders every mode offline against a twin that draws from
+     the SEQUENTIAL stream (not m32at), with must-fire controls.
+
      L0026: all state above all wiring. No Math.random (mulberry32 only, SPEC
      §5.7). No wall clock in the render path: the core counts samples. -->
 <html lang="en"><head><meta charset="utf-8">
-<meta name="lab-review" content="B208 + B226 · 2026-09-23">
-<title>horde modulator lab: LFO + envelope + sources, one law each (B208, B226)</title>
+<meta name="lab-review" content="B208 + B226 + B237 · 2026-09-23">
+<title>horde modulator lab: LFO + envelope + sources + S&amp;H/random, one law each (B208, B226, B237)</title>
 <style>
   /* ============================================================
      TOKENS, copied VERBATIM from src/gui/gui2.html:26-96 (:root),
@@ -287,6 +319,12 @@
   #hostMsg, #hostUndo { white-space:pre-wrap; word-break:break-all; }
   /* A refused route reads as refused, not as missing (L0036: pin the refusal). */
   option:disabled { color:var(--dis); }
+
+  /* ============ ROUND 3 (B237) — the same chrome again ============ */
+  .r3 { display:grid; grid-template-columns:minmax(0,1.35fr) minmax(0,1fr) minmax(0,1fr); gap:10px;
+        align-items:start; margin-top:10px; }
+  @media (max-width:1180px) { .r3 { grid-template-columns:1fr; } }
+  #smC { height:300px; cursor:pointer; }
 </style></head><body>
 
 <div class="rev" title="The file's modification time and a fingerprint of its scripts, both read at load, so neither can drift (L0020). If the fingerprint does not change after a reload you are on a cached copy.">rev <span id="revdate">…</span> · fp <span id="revfp">…</span></div>
@@ -329,7 +367,9 @@ slider to reset it.</div>
       make a vertical step, so saw and square are exact rather than steep ramps. The ends sit at 0 and 1 and are
       <b>not</b> forced equal: the wrap from the last value back to the first is a step, drawn dashed. The dashed
       <b>φ</b> line is the start phase, the solid dot is where the sound is reading right now, and the ring is where
-      the other law would be reading.</div>
+      the other law would be reading. <b>S&amp;H</b> and <b>RANDOM</b> (round 3, below) have no breakpoints: a new
+      seeded value every cycle is not a fixed cycle. Pick one and this canvas shows <b>eight cycles of the stream</b>
+      instead, with the dots on the draws. Any breakpoint shape brings the editor back.</div>
   </div>
 
   <div class="cluster" id="envPane"><h2>ENVELOPE <span>· per voice · time axis in real seconds</span></h2>
@@ -530,14 +570,15 @@ level. <b>EVENTS</b> sends the trigger to actions. POWER, then play the keys (th
   <div class="cluster" id="evPane"><h2>EVENTS ARE NOT LEVELS <span>· the trigger and its action targets</span></h2>
     <div class="law"><b>A continuous source</b> has a value at every sample, and a route scales it. <b>An event source</b>
       is a count at a sample offset, and there is nothing to scale. It fires an <b>action</b>. Some actions hold
-      state, and those turn an event back into a level: <b>S&amp;H</b> samples its input and holds it, and <b>MOD ENV</b>
+      state, and those turn an event back into a level: <b>SAMPLE ON TRIGGER</b> samples its input and holds it
+      (renamed from "S&amp;H" in round 3, so that "S&amp;H" means one thing: the LFO shape), and <b>MOD ENV</b>
       restarts the envelope card's shape from the level it has reached. The rest act on a module: they restart the LFO,
       reset the Kuro swarm, or kick or reset ORBITAL. The last one posts <b>randomize unlocked</b> to a hosted
       module.</div>
     <div id="actRows"></div>
     <canvas id="evC"></canvas>
     <div class="note" id="evRead"></div>
-    <div class="note">Lanes, top to bottom. The gate is a level. The trigger has <b>ticks, not a line</b>. S&amp;H is stepped,
+    <div class="note">Lanes, top to bottom. The gate is a level. The trigger has <b>ticks, not a line</b>. SAMPLE ON TRIGGER is stepped,
       the event made into a level. MOD ENV is the round-1 envelope law, restarted by the trigger and released when the
       gate falls, so under FIRST an overlapping note does <b>not</b> restart it. The in-core actions land on the
       trigger's own sample. The hosted one cannot, because a module's patch changes on the main thread (see the next
@@ -592,6 +633,121 @@ level. <b>EVENTS</b> sends the trigger to actions. POWER, then play the keys (th
       <li><b>A stale charter line.</b> CLAUDE.md §Domain still lists ORBITAL's add-body seed as outstanding. The reference
         carries it (<code>reference/gravity-modulator.html:726-731</code>, ADR-165 amendment 2). This lab seeds its own
         add-body draw anyway, as briefed.</li>
+    </ol>
+  </div>
+</div>
+
+<!-- ======================= ROUND 3 (B237) ======================= -->
+<div class="sect">
+  <div>
+    <h1>random</h1>
+    <div class="badges">
+      <span class="badge">LAB · B237</span>
+      <span class="sub">S&amp;H AND SMOOTHED RANDOM AS LFO SHAPES: SEEDED, ONE LAW, PICTURE = SOUND</span>
+    </div>
+  </div>
+</div>
+<div class="tagline">Two new LFO shapes, picked in the LFO card beside SINE, TRI and the rest. <b>S&amp;H</b> takes a new seeded value
+at every cycle start and holds it flat for the cycle. <b>RANDOM</b> is the same stream with <b>smoothing</b> the player picks.
+Both follow the LFO's rate or tempo division, its phase and its retrigger, and both run through the one-law rule: the picture
+and the destination call the same function. POWER, then <b>DRONE</b> below, and click a lane to hear that smoothing on the
+LFO's destination (CUTOFF by default; PITCH makes the steps obvious).</div>
+<div class="audit" id="audit3">round-3 audit: pending</div>
+
+<div class="r3">
+  <div class="cluster" id="smPane"><h2>SMOOTHING <span>· one seeded stream, five laws · click a lane to hear it</span></h2>
+    <div class="law"><b>The stream.</b> Draw <b>k</b> of mulberry32(<code>lfoSeed</code>) → <b>v<sub>k</sub> = 2u<sub>k</sub> − 1</b>, and
+      <code>lfoSeed</code> is the engine's own: patch seed ^ 0x9E3779B9 (<code>hypersaw_clap.cpp:2847</code>). The LFO's position is
+      round 1's <code>p = acc + φ</code>, not wrapped: <b>k = ⌊p⌋</b> picks the draw and <b>x = p − k</b> is where in the cycle.
+      <b>NONE</b> = v<sub>k</sub> (this <i>is</i> S&amp;H). <b>LINEAR</b> v<sub>k</sub> → v<sub>k+1</sub> across the cycle.
+      <b>COSINE</b> the same with a half-cosine ease, so it is flat at every draw. <b>CUBIC</b> a Catmull-Rom through
+      v<sub>k−1</sub>..v<sub>k+2</sub>, smooth through every draw, clamped to ±1. <b>SLEW</b> glides from wherever it is to
+      v<sub>k</sub>, arriving <b>exactly</b> after the slew time, which is in <b>ms</b> and does not change with the rate.</div>
+    <canvas id="smC"></canvas>
+    <div id="smRows"></div>
+    <div class="note" id="smRead"></div>
+    <div class="note">Every lane is the <b>same eight draws</b> (the dots), the page the LFO is on now. The solid lane is the one
+      you hear, and the meter-coloured line is where the sound is reading. The first four lanes pass through every dot at
+      the cycle start. Only LINEAR, COSINE and CUBIC look <b>one draw ahead</b>, which a seeded stream allows. SLEW is causal:
+      it <b>trails</b> the S&amp;H step (drawn dashed in its lane), and when the slew is longer than a cycle it never
+      arrives, and each glide starts where the last one stopped. Its curve is round 1's segment law at <b>c = +0.5</b>, the
+      one-pole's shape, arriving at the stated time. It is not a new curve. Because SLEW carries state, its lane is
+      exact for cycles already played (the core records where each glide started) and a <b>forecast</b> for the rest of
+      the page at the current rate. The audit holds S&amp;H and the four pure lanes to the sound, and SLEW's law but not
+      its forecast.</div>
+  </div>
+
+  <div class="cluster" id="namePane"><h2>TWO S&amp;Hs, ONE NAME EACH <span>· the proposal</span></h2>
+    <div class="law"><b>"S&amp;H" is the LFO shape</b>, the shipped name (<code>lfoShapeAt</code> case 5), and nothing else.
+      Round 2's trigger action is renamed <b>SAMPLE ON TRIGGER</b>. Both follow <b>one hold rule</b> (take a value at an
+      event and hold it flat until the next event) and <b>one draw rule</b> (2u − 1 from a seeded mulberry32 stream, one
+      draw per event). They differ in exactly two things, the <b>clock</b> and the <b>input</b>.</div>
+    <table class="t">
+      <tr><th></th><th>S&amp;H</th><th>SAMPLE ON TRIGGER</th></tr>
+      <tr><td>is a</td><td class="p">LFO shape</td><td class="p">trigger action</td></tr>
+      <tr><td>clock</td><td>the LFO's own cycle start (rate, division, φ, retrig)</td><td>the note-on TRIGGER (EVERY or FIRST)</td></tr>
+      <tr><td>input</td><td>its own stream only: draw k at cycle k</td><td>its own stream (draw j at trigger j), or any continuous source</td></tr>
+      <tr><td>law</td><td>out(p) = v<sub>⌊p⌋</sub></td><td>held ← input at the trigger's sample</td></tr>
+      <tr><td>smoothing</td><td>none; RANDOM is the smoothed sibling</td><td>none</td></tr>
+      <tr><td>seed</td><td>patch seed ^ 0x9E3779B9 (the engine's)</td><td>its own seed field</td></tr>
+      <tr><td>reads as</td><td>"the LFO's random step"</td><td>"grab X when a note hits"</td></tr>
+    </table>
+    <div class="note">The page applies the rename to round 2's labels. The stored ids (<code>act.sh</code>, <code>shIn</code>)
+      stay, so no route or preset moves. The two could become <b>one module</b> if S&amp;H took an input (sample a source at
+      the LFO's rate). Then the only difference left is the clock. That is not built here. It is an open question.</div>
+  </div>
+
+  <div class="cluster" id="shipPane"><h2>THIS S&amp;H vs THE SHIPPED ONE <span>· hypersaw_clap.cpp</span></h2>
+    <table class="t">
+      <tr><th></th><th>shipped</th><th>proposed</th></tr>
+      <tr><td>stream</td><td>mulberry32(lfoSeed(i)), 2u − 1 (<code>:2847</code>, <code>:3960</code>)</td><td class="p">the same stream, the same numbers</td></tr>
+      <tr><td>first cycle</td><td><b>0</b> until the first wrap (<code>lfoReseed</code> <code>:2859</code>)</td><td class="p">draw 0 at the first cycle start</td></tr>
+      <tr><td>which draw</td><td>the n-th wrap the <b>mod tick</b> saw (<code>:3954-3961</code>, one draw per tick however many cycles it crossed)</td><td class="p">the cycle index k, read by index: rate-exact, independent of block and tick size</td></tr>
+      <tr><td>strike (retrig)</td><td>rewinds the phase, <b>no draw</b>: the note holds whatever the last wrap drew (<code>:3949</code>)</td><td class="p">a new cycle: the next unused draw</td></tr>
+      <tr><td>sync</td><td>accumulates from activation</td><td class="p">k from the transport: the same bar reads the same value on every playback (retrig off)</td></tr>
+      <tr><td>φ</td><td>copied at activation and strike</td><td class="p">a live offset (round 1's law 2)</td></tr>
+    </table>
+    <div class="note"><b>Same law for the values, different law for when they start.</b> With free-running, no retrig and
+      φ = 0, proposed cycle k plays the value the shipped S&amp;H plays in cycle k + 1, so the proposal is the shipped
+      sequence one cycle earlier, without the silent first cycle. <b>Why change it:</b> "a new value at each cycle start"
+      should include the first cycle. A struck note should get a fresh step, not the tail of a free-running one. And an
+      index that counts cycles cannot depend on the tick size. <b>HEAR = SHIPPED</b> plays the shipped law transcribed
+      (audited below), for S&amp;H and for RANDOM alike, because the engine has no smoothed random.</div>
+  </div>
+</div>
+
+<div class="r2" style="grid-template-columns:minmax(0,1fr)">
+  <div class="cluster" id="q3Pane"><h2>ROUND 3 · FINDINGS AND OPEN QUESTIONS FOR THE HUMAN <span>· B237</span></h2>
+    <ol class="find">
+      <li><b>The naming ruling.</b> Is "S&amp;H" the LFO shape and "SAMPLE ON TRIGGER" the trigger's action, as proposed
+        (card above)? Or should S&amp;H gain an input selector, so that the two become one module with two clocks?</li>
+      <li><b>The first cycle.</b> The shipped S&amp;H holds 0 for its first cycle after activation or a seed change. The
+        proposal draws at every cycle start, the first included. Adopt it? It shifts the shipped sequence one cycle
+        earlier. The numbers stay the same.</li>
+      <li><b>What a strike does to the stream.</b> Proposed: the next unused draw, so each note gets a new step. The
+        alternatives are the shipped "keep the held value" and a third option, "rewind the stream", where every struck
+        note replays the same sequence from draw 0 (a repeatable random riff). Which is wanted? It could be a per-LFO
+        choice.</li>
+      <li><b>Look-ahead.</b> LINEAR, COSINE and CUBIC pass through each draw <b>at</b> its cycle start and head for the
+        next one. That is possible only because the stream is seeded, so draw k + 1 is known. The causal alternative
+        glides toward each draw after it is taken, which arrives one cycle late (what "S&amp;H into a lag" does). SLEW
+        is that causal form already. Keep the knots on the cycle starts?</li>
+      <li><b>CUBIC overshoot.</b> A Catmull-Rom through values in ±1 can reach <b>±1.25</b> (the run −1, +1, +1, −1). The
+        lab clamps to ±1, which flattens those peaks. The alternative is a cubic B-spline: it never overshoots and is
+        smoother still, but it does not pass through the draws, so its range shrinks. Which one?</li>
+      <li><b>SLEW's law.</b> Proposed: arrival time in ms along round 1's c = +0.5 curve, consistent with "the number on a
+        stage is when it arrives". The alternatives are a constant-rate limiter (ms per full-scale step, so small steps
+        arrive sooner) and a plain one-pole τ (never arrives). Should SLEW also apply after LINEAR/COSINE/CUBIC? Not
+        built.</li>
+      <li><b>A shipped picture/sound mismatch</b> (out of scope, <code>src/</code>, for the lead to queue). gui2 draws the S&amp;H
+        as the first eight draws and puts the start-phase dot on draw 0, "the value a strike at any phase holds"
+        (<code>src/gui/gui2.html:6925-6929</code>). The engine's strike does not draw (<code>:3949</code>). It holds whatever
+        the last wrap drew, which is 0 after activation. Draw 0 is first <b>heard</b> in the second cycle
+        (<code>:2859</code>, <code>:3954-3961</code>).</li>
+      <li><b>STEPS is not S&amp;H.</b> Round 1's STEPS preset is a seeded 8-step <b>breakpoint shape</b>. It repeats every
+        cycle. S&amp;H never repeats. Both stay: STEPS is a drawn sequence, S&amp;H is a random source.</li>
+      <li><b>No committed gate.</b> The round-3 audit is in-page, like rounds 1 and 2. A <code>tools/*_check</code> that runs it
+        headless would keep it honest, and that is the lead's call.</li>
     </ol>
   </div>
 </div>
@@ -1118,12 +1274,14 @@ defSrc('midi.rel', 'RELEASE VEL', 'MIDI', false, c => c.trk.rel);
 defSrc('midi.held', 'HELD COUNT', 'MIDI', false, c => c.trk.held());
 defSrc('midi.order', 'NOTE ORDER', 'MIDI', false, c => c.trk.order());
 defSrc('midi.since', 'SINCE NOTE-ON', 'MIDI', false, c => c.trk.since());
-defSrc('act.sh', 'S&H (on TRIGGER)', 'EVENT → LEVEL', true, c => c.sh);
+defSrc('act.sh', 'SAMPLED ON TRIGGER', 'EVENT → LEVEL', true, c => c.sh);
 defSrc('act.env', 'MOD ENV (on TRIGGER)', 'EVENT → LEVEL', false, c => c.envLvl);
 const MIDI_IDS = ['midi.gate', 'midi.note', 'midi.vel', 'midi.rel', 'midi.held', 'midi.order', 'midi.since'];
 /* The ACTION targets of the one event source, in S.act.on order. The first
    six run inside the render on the trigger's own sample. The seventh posts. */
-const ACTIONS = ['S&H', 'MOD ENV RESTART', 'LFO RESTART', 'KURO RESET', 'ORBITAL KICK', 'ORBITAL RESET', 'HOSTED: RANDOMIZE UNLOCKED'];
+/* B237: ACTIONS[0] was 'S&H'. Renamed so that "S&H" names the LFO shape alone; the
+   stored id stays act.sh / shIn, so a saved route or preset does not move. */
+const ACTIONS = ['SAMPLE ON TRIGGER', 'MOD ENV RESTART', 'LFO RESTART', 'KURO RESET', 'ORBITAL KICK', 'ORBITAL RESET', 'HOSTED: RANDOMIZE UNLOCKED'];
 /* History lanes the render logs every HDEC samples (Float64, so a lane equals
    the value it logged exactly and the audit can demand 0). */
 const LN = { r0: 0, r1: 1, trig: 2, sh: 3, env: 4, kR: 5, k0: 6, o0: 14, m0: 22 };   // k0..k7 voices, o0..: x,y of bodies 1-4, m0..: MIDI_IDS
@@ -1135,6 +1293,57 @@ for (let k = 0; k < MAXK; k++) LANE_SRC[LN.k0 + k] = SX['kuro.v' + (k + 1)];
 for (let b = 0; b < 4; b++) { LANE_SRC[LN.o0 + 2 * b] = SX['orb.b' + (b + 1) + '.x']; LANE_SRC[LN.o0 + 2 * b + 1] = SX['orb.b' + (b + 1) + '.y']; }
 for (let k = 0; k < MIDI_IDS.length; k++) LANE_SRC[LN.m0 + k] = SX[MIDI_IDS[k]];
 const POSTN = 64;   // the hosted-action ring: preallocated, oldest overwritten
+
+/* ================= ROUND 3 (B237): S&H and smoothed RANDOM =================
+   Two LFO shapes that are NOT breakpoint cycles: a new seeded value every
+   cycle never repeats, so it cannot live in shapeAt's points. They get their
+   own law, held to round 1's rule (one function, called by the picture and by
+   the destination) and audited the same way (auditRound3). */
+const LFO_KINDS = ['DRAWN', 'S&H', 'RANDOM'];              // S.lfo.kind
+const RAND_MODES = ['NONE', 'LINEAR', 'COSINE', 'CUBIC', 'SLEW'];   // S.lfo.smooth
+/* The engine's lfoSeed(0): patch seed XOR the golden-ratio word
+   (hypersaw_clap.cpp:2847-2850), so the lab's stream IS LFO 1's stream. */
+function lfoSeedOf(patchSeed) { return (patchSeed | 0) ^ 0x9E3779B9; }
+/* Draw k (k = 0, 1, ...) of mulberry32(seed), WITHOUT the stream. mulberry32's
+   state after j calls is seed + j*0x6D2B79F5 (mod 2^32) and each output is a
+   hash of that state, so the k-th output is one hash of seed + (k+1)*G. This
+   is what lets S&H be a pure function of the cycle index: the picture can read
+   any cycle's value and never advance (or allocate) the sound's stream. The
+   hash lines are mulberry32's own, above, token for token. auditRound3 checks
+   it against the sequential stream. */
+function m32at(seed, k) {
+  const a = (seed + Math.imul(k + 1, 0x6D2B79F5)) | 0;
+  let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+  return ((t ^ t >>> 14) >>> 0) / 4294967296;
+}
+const drawV = (seed, k) => 2 * m32at(seed, k) - 1;   // bipolar, the engine's 2u − 1 (:3960)
+/* The four PURE smoothings, from the draws around cycle k (vm = v_{k-1},
+   v0 = v_k, v1 = v_{k+1}, v2 = v_{k+2}) and x in [0, 1). Every one reads v0 at
+   x = 0, so all four pass through the same dots. CUBIC is Catmull-Rom, which
+   can reach 1.25 on the run (-1, +1, +1, -1), so it is clamped: the LFO's
+   range is ±1 (round 1's editor clamps its points the same way). */
+function randInterp(vm, v0, v1, v2, x, mode) {
+  if (mode === 1) return v0 + (v1 - v0) * x;
+  if (mode === 2) return v0 + (v1 - v0) * (1 - Math.cos(Math.PI * x)) * 0.5;
+  if (mode === 3) {
+    const y = v0 + 0.5 * x * (v1 - vm + x * (2 * vm - 5 * v0 + 4 * v1 - v2 + x * (3 * (v0 - v1) + v2 - vm)));
+    return y < -1 ? -1 : y > 1 ? 1 : y;
+  }
+  return v0;   // 0 NONE: S&H
+}
+function randAt(seed, k, x, mode) {
+  if (mode === 0) return drawV(seed, k);
+  return randInterp(drawV(seed, k - 1), drawV(seed, k), drawV(seed, k + 1), drawV(seed, k + 2), x, mode);
+}
+/* SLEW: from L0 toward v, ARRIVING at slewSec, along round 1's segment law at
+   c = +0.5 (the one-pole's shape, normalised to arrive), so a slew time means
+   what an envelope time means here: when it gets there. t is counted in
+   samples by the caller, so a rate change does not stretch it. Arrived returns
+   v itself, not L0 + (v − L0)·1, which can miss v by an ULP. */
+function slewAt(L0, v, t, slewSec) {
+  if (!(t < slewSec)) return v;
+  return L0 + (v - L0) * segCurve(t / slewSec, 0.5);
+}
 
 class ModLabCore {
   constructor(sr, S) {
@@ -1165,8 +1374,25 @@ class ModLabCore {
     this.rtSrc = new Int32Array(2); this.rv = new Float64Array(2);
     this.tapRoute = null; this.tapRN = 0;      // route 0's received value, per sample (auditRound2)
     this.H2 = { a: new Float64Array(NL2 * HN), trig: 0 };
+    /* ---- ROUND 3 (B237) ---- */
+    this.cyc = 0;                  // PROPOSED, free mode: whole cycles wrapped out of accP
+    this.kOff = 0;                 // PROPOSED: draw-index offset; a strike moves it past every draw used
+    this.kNow = -1; this.xNow = 0; // PROPOSED: the draw index and cycle fraction read last sample (-1: none yet)
+    this.vP = 0; this.vS = 0;      // both laws' LFO value this sample (the painters' playhead)
+    /* SLEW's state: the cycle it is gliding in, samples since that cycle
+       began, where the glide started, and where it is. It runs whenever the
+       LFO is random, so switching into SLEW lands on its own curve. */
+    this.slK = 0; this.slPrimed = false; this.slN = 0; this.slL0 = 0; this.slOut = 0;
+    /* Where each of the last eight cycles' glides STARTED, keyed by k & 7: the
+       picture's record of cycles already played (randPage). */
+    this.slRing = new Float64Array(8); this.slRingK = new Float64Array(8).fill(NaN);
+    this.shipReseed();
     this.compileRoutes();
   }
+  /* SHIPPED S&H state, as lfoReseed (hypersaw_clap.cpp:2854-2862) sets it:
+     the stream at its seed, the held value 0 (so the first cycle reads 0),
+     and the wrap detector primed at the latched start phase. */
+  shipReseed() { this.rngS = mulberry32(lfoSeedOf(this.S.seed)); this.shS = 0; this.prevS = this.phLatch; }
   /* Route and S&H source ids → SOURCES rows, once per edit rather than per sample. */
   compileRoutes() {
     for (let r = 0; r < 2; r++) { const x = SX[this.S.routes[r].src]; this.rtSrc[r] = x === undefined ? -1 : x; }
@@ -1176,11 +1402,20 @@ class ModLabCore {
   /* Shipped plug_activate: the phase knob is read HERE, which is the whole
      finding for free-running LFOs. The lab calls this at load and on
      RE-ACTIVATE. */
-  activate() { this.accS = 0; this.phLatch = this.S.lfo.phase; }
+  activate() { this.accS = 0; this.phLatch = this.S.lfo.phase; this.shipReseed(); }
   /* Both laws rewind on a strike; they differ in what φ means afterwards.
      B226: split out of noteOn unchanged, because LFO RESTART is the same
-     rewind fired by the trigger. */
-  lfoRewind() { this.accP = 0; this.beatStrike = this.beat; this.accS = 0; this.phLatch = this.S.lfo.phase; }
+     rewind fired by the trigger.
+     B237: a PROPOSED strike starts a new cycle, so kOff is set to make the
+     next cycle read draw kNow + 1, the first draw not yet heard. (kNow = -1
+     before any sample, so a strike before the first sample still starts at
+     draw 0.) Several strikes on one sample (a chord) set the same kOff. The
+     SHIPPED strike rewinds the phase and draws nothing (:3949); prevS moves
+     with the latch so the rewind itself is not mistaken for a wrap. */
+  lfoRewind() {
+    this.accP = 0; this.beatStrike = this.beat; this.accS = 0; this.phLatch = this.S.lfo.phase;
+    this.kOff = this.kNow + 1 - (this.S.lfo.sync ? 0 : this.cyc); this.prevS = this.phLatch;
+  }
   noteOn(note, vel) {
     const L = this.S.lfo;
     if (L.retrig) this.lfoRewind();
@@ -1234,14 +1469,29 @@ class ModLabCore {
        what φ means. */
     const beats = Math.max(0.01, L.beats);
     // PROPOSED — free: an accumulator; sync: derived from the transport.
+    /* B237: the free accumulator's wraps are COUNTED (cyc) so the random
+       shapes know which cycle they are in. `w` is Math.floor(accP), the value
+       round 1 subtracted, so accP is bit-identical to before. */
     if (L.sync) this.accP = (this.beat - (L.retrig ? this.beatStrike : 0)) / beats;
-    else { this.accP += L.hz / sr; this.accP -= Math.floor(this.accP); }
+    else { this.accP += L.hz / sr; const w = Math.floor(this.accP); this.accP -= w; this.cyc += w; }
     this.readP = frac(this.accP + L.phase);
     // SHIPPED — :3822: one accumulator from activation, whatever the mode.
     const fS = L.sync ? (bpm / 60) / beats : L.hz;
     this.accS += fS / sr; this.accS -= Math.floor(this.accS);
     this.readS = frac(this.accS + this.phLatch);
-    const vP = shapeAt(L.pts, this.readP), vS = shapeAt(L.pts, this.readS);
+    /* B237, SHIPPED S&H (:3954-3961): the read phase fell, so the phase
+       wrapped, so draw ONE value from the sequential stream. Per sample here;
+       the engine does this per mod tick (the "which draw" row on the page). */
+    if (this.readS < this.prevS) this.shS = 2 * this.rngS() - 1;
+    this.prevS = this.readS;
+    /* B237, PROPOSED: the unwrapped position p = acc + φ; k = ⌊p⌋ picks the
+       draw and readP (= p − ⌊p⌋, the same expression) is x. */
+    const pP = this.accP + L.phase;
+    this.kNow = this.kOff + (L.sync ? 0 : this.cyc) + Math.floor(pP); this.xNow = this.readP;
+    const kind = L.kind | 0;
+    const vP = kind === 0 ? shapeAt(L.pts, this.readP) : this.randStep(kind === 1 ? 0 : L.smooth | 0);
+    const vS = kind === 0 ? shapeAt(L.pts, this.readS) : this.shS;
+    this.vP = vP; this.vS = vS;
     const shipped = S.law === 1;
     this.lfo = shipped ? vS : vP; this.lfoGhost = shipped ? vP : vS;
     const beatHit = Math.floor(this.beat) !== Math.floor(b0);
@@ -1328,6 +1578,49 @@ class ModLabCore {
      (hzGetLfoCycle): the painter asks the core for the curve instead of
      knowing how to make one. */
   lfoCycle(N) { const o = new Float64Array(N + 1); for (let k = 0; k <= N; k++) o[k] = shapeAt(this.S.lfo.pts, k / N * (1 - 1e-9)); return o; }
+
+  /* B237: one sample of the PROPOSED random LFO at (kNow, xNow). Modes 0-3 are
+     randAt, pure. SLEW keeps state: on the first sample of a new cycle its
+     glide restarts FROM where it is (a strike included, so no jump), except
+     the very first cycle, which is primed to its draw (ORBITAL's §6.3 rule:
+     no glide from a value that never sounded). */
+  randStep(mode) {
+    const L = this.S.lfo, seed = lfoSeedOf(this.S.seed), k = this.kNow;
+    if (!this.slPrimed || k !== this.slK) {
+      this.slL0 = this.slPrimed ? this.slOut : drawV(seed, k);
+      this.slPrimed = true; this.slK = k; this.slN = 0;
+      this.slRing[k & 7] = this.slL0; this.slRingK[k & 7] = k;
+    }
+    this.slOut = slewAt(this.slL0, drawV(seed, k), this.slN / this.sr, L.slewMs / 1000);
+    this.slN++;
+    return mode === 4 ? this.slOut : randAt(seed, k, this.xNow, mode);
+  }
+  /* B237: nCyc cycles of the random law from cycle k0, N+1 points, published
+     FROM the law (the B177 idiom again). Modes 0-3 are randAt at p = k0 + u.
+     SLEW is not pure: each glide starts where the last one reached. So cycles
+     already played take their start from the core's own record (slRing), and
+     the rest are run forward at the current cycle length. That forward part
+     is a forecast: it holds while the rate, the slew and the retrig do. SLEW's
+     picture also times each glide from x = 0, so the one cycle a strike lands
+     in with φ ≠ 0 (it starts at x = φ) is drawn later than it sounds.
+     `ps` (optional, auditRound3): evaluate at these absolute positions k + x
+     instead of the uniform grid, so the audit can hold the PICTURE's own
+     indexing against the sound, not just the law functions it calls. */
+  randPage(mode, k0, nCyc, N, ps) {
+    const L = this.S.lfo, seed = lfoSeedOf(this.S.seed), M = ps ? ps.length : N + 1, o = new Float64Array(M);
+    const cycSec = L.sync ? Math.max(0.01, L.beats) * 60 / this.S.bpm : 1 / L.hz, sl = L.slewMs / 1000;
+    const L0 = new Float64Array(nCyc);
+    if (mode === 4) for (let j = 0; j < nCyc; j++) {
+      const k = k0 + j;
+      if (this.slPrimed && k <= this.slK && this.slRingK[k & 7] === k) L0[j] = this.slRing[k & 7];
+      else L0[j] = j ? slewAt(L0[j - 1], drawV(seed, k - 1), cycSec, sl) : drawV(seed, k);
+    }
+    for (let i = 0; i < M; i++) {
+      const p = ps ? ps[i] - k0 : i / N * nCyc, j = Math.min(nCyc - 1, Math.floor(p)), x = p - j;
+      o[i] = mode === 4 ? slewAt(L0[j], drawV(seed, k0 + j), x * cycSec, sl) : randAt(seed, k0 + j, x, mode);
+    }
+    return o;
+  }
 }
 ModLabCore.shapeAt = shapeAt; ModLabCore.segCurve = segCurve; ModLabCore.envAt = envAt;
 ModLabCore.envTauAt = envTauAt; ModLabCore.adsrPts = adsrPts; ModLabCore.DIVS = DIVS;
@@ -1336,6 +1629,9 @@ ModLabCore.nearestDiv = nearestDiv; ModLabCore.K_ONEPOLE = K_ONEPOLE;
 ModLabCore.KuroSwarm = KuroSwarm; ModLabCore.makeKuro = makeKuro; ModLabCore.OrbitalField = OrbitalField;
 ModLabCore.orbPreset = orbPreset; ModLabCore.NoteTracker = NoteTracker; ModLabCore.SOURCES = SOURCES;
 ModLabCore.SX = SX; ModLabCore.phraseEvents = phraseEvents; ModLabCore.mulberry32 = mulberry32;
+// B237: the random laws, reachable the same way
+ModLabCore.m32at = m32at; ModLabCore.drawV = drawV; ModLabCore.randAt = randAt; ModLabCore.randInterp = randInterp;
+ModLabCore.slewAt = slewAt; ModLabCore.lfoSeedOf = lfoSeedOf; ModLabCore.RAND_MODES = RAND_MODES; ModLabCore.LFO_KINDS = LFO_KINDS;
 
 /* ================= UI ================= */
 /* ---- STATE: the whole patch, one plain object, above all wiring (L0026) --- */
@@ -1343,7 +1639,11 @@ const LAWS = ['PROPOSED', 'SHIPPED'];
 const DESTS = ['CUTOFF', 'PITCH', 'LEVEL'];
 const S = {
   law: 0, bpm: 120, seed: 1234, draw: 0,
-  lfo: { pts: [], sync: 0, hz: 1.0, beats: 1, phase: 0, retrig: 0, dest: 0, depth: 0.55 },
+  lfo: { pts: [], sync: 0, hz: 1.0, beats: 1, phase: 0, retrig: 0, dest: 0, depth: 0.55,
+         /* B237: kind 0 = DRAWN (the breakpoints), 1 = S&H, 2 = RANDOM with a
+            smoothing (RAND_MODES) and a slew time in ms for SLEW. The stream's
+            seed is not here: it is the patch seed (S.seed) through lfoSeedOf. */
+         kind: 0, smooth: 1, slewMs: 80 },
   env: { pts: [], sus: 2, adsr: { a: 0.01, d: 0.3, s: 0.5, r: 0.4 }, toCut: 0.35, custom: false },
   synth: { cutoff: 0.35, level: 0.6 },
   /* ---- ROUND 2 (B226). All plain data: the audits clone S through JSON. ---- */
@@ -1466,6 +1766,7 @@ const fSec = s => s < 1 ? (s * 1000).toFixed(s < 0.01 ? 1 : 0) + ' ms' : s.toFix
 function paintEditor(kind) {
   const cv = document.getElementById(kind === 'lfo' ? 'lfoC' : 'envC');
   const G = ground(cv); if (!G) return;
+  if (kind === 'lfo' && S.lfo.kind) { paintRandLfo(G); return; }   // B237: no breakpoints to draw
   const { g, w, h, v } = G, M = geom(kind, cv);
   const lfo = kind === 'lfo', pts = lfo ? S.lfo.pts : S.env.pts;
   g.font = FONT(v); g.lineWidth = v;
@@ -1543,8 +1844,54 @@ function paintEditor(kind) {
   }
 }
 
+/* ---- B237: the LFO canvas when the shape is S&H or RANDOM ---------------------
+   Eight cycles of the stream, the page the LFO is on (k0 = a multiple of 8),
+   from core.randPage: the painter asks the law for the curve and holds none.
+   The dots are the draws, v_k at each cycle start. */
+const PAGE = 8;
+function pageK0() { const k = Math.max(0, core.kNow); return k - k % PAGE; }
+/* One page of one mode as a path over [x0,x1] (PAGE cycles) and [yt,yb] (±1). */
+function pagePath(g, pg, x0, x1, yt, yb) {
+  const N = pg.length - 1; g.beginPath();
+  for (let i = 0; i <= N; i++) { const x = x0 + i / N * (x1 - x0), y = yb - (pg[i] + 1) / 2 * (yb - yt); i ? g.lineTo(x, y) : g.moveTo(x, y); }
+  g.stroke();
+}
+function paintRandLfo(G) {
+  const { g, w, h, v } = G, L = S.lfo, mode = L.kind === 1 ? 0 : L.smooth, seed = lfoSeedOf(S.seed), k0 = pageK0();
+  const x0 = 30 * v, x1 = w - 12 * v, y0 = 12 * v, y1 = h - 22 * v;
+  const X = p => x0 + p / PAGE * (x1 - x0), Y = q => y1 - (q + 1) / 2 * (y1 - y0);
+  g.font = FONT(v); g.lineWidth = v;
+  g.strokeStyle = TOKA('--scr-grid', 0.22); g.fillStyle = TOKA('--scr-grid', 0.8);
+  for (const q of [-1, -0.5, 0, 0.5, 1]) { g.beginPath(); g.moveTo(x0, Y(q)); g.lineTo(x1, Y(q)); g.stroke(); g.fillText((q > 0 ? '+' : '') + q, 3 * v, Y(q) + 3 * v); }
+  for (let j = 0; j <= PAGE; j++) { g.beginPath(); g.moveTo(X(j), y0); g.lineTo(X(j), y1); g.stroke();
+    if (j < PAGE) g.fillText('k ' + (k0 + j), X(j) + 3 * v, h - 8 * v); }
+  const N = PAGE * 96;
+  if (mode === 4) {   // SLEW trails the S&H step: the step it is chasing, dashed
+    g.setLineDash([3 * v, 3 * v]); g.strokeStyle = TOKA('--scr-value', 0.45); g.lineWidth = v;
+    pagePath(g, core.randPage(0, k0, PAGE, N), x0, x1, y0, y1); g.setLineDash([]);
+  }
+  g.strokeStyle = TOK('--scr-value'); g.lineWidth = 1.6 * v;
+  pagePath(g, core.randPage(mode, k0, PAGE, N), x0, x1, y0, y1);
+  g.fillStyle = TOK('--scr-value');
+  for (let j = 0; j < PAGE; j++) { g.beginPath(); g.arc(X(j), Y(drawV(seed, k0 + j)), 3 * v, 0, TAU); g.fill(); }
+  // the playhead: MEASURED, so meter colour, at the proposed law's (k, x)
+  if (core.kNow >= k0 && core.kNow < k0 + PAGE) {
+    const xp = X(core.kNow - k0 + core.xNow);
+    g.strokeStyle = TOKA('--scr-meter', 0.5); g.beginPath(); g.moveTo(xp, y0); g.lineTo(xp, y1); g.stroke();
+    g.fillStyle = TOK('--scr-meter'); g.beginPath(); g.arc(xp, Y(core.vP), 4.2 * v, 0, TAU); g.fill();
+  }
+  const per = L.sync ? L.beats * 60 / S.bpm : 1 / L.hz;
+  g.fillStyle = TOKA('--scr-grid', 0.9); g.textAlign = 'right';
+  g.fillText(LFO_KINDS[L.kind] + (L.kind === 2 ? ' · ' + RAND_MODES[mode] + (mode === 4 ? ' ' + L.slewMs.toFixed(0) + ' ms' : '') : '')
+    + ' · 1 cycle = ' + fSec(per) + ' · seed ' + S.seed, x1 - 4 * v, y0 + 8 * v);
+  g.textAlign = 'left';
+  if (S.law === 1) { g.fillStyle = TOK('--scr-marker');
+    g.fillText('HEAR = SHIPPED: the engine\'s S&H plays (0 until the first wrap), not this page', x0 + 4 * v, y1 - 4 * v); }
+}
+
 /* ---- editor pointer wiring: the same geom() the painter used --------------- */
 function hit(kind, cv, mx, my) {
+  if (kind === 'lfo' && S.lfo.kind) return null;   // B237: S&H / RANDOM have no points to grab
   const M = geom(kind, cv), pts = kind === 'lfo' ? S.lfo.pts : S.env.pts, r = 8 * M.v;
   for (let i = 0; i < pts.length; i++) if (Math.hypot(M.X(pts[i].t) - mx, M.Y(pts[i].v) - my) < r) return { part: 'pt', i };
   for (let i = 0; i < pts.length - 1; i++) {
@@ -1563,6 +1910,7 @@ function delPoint(kind, i) {
   onEdit();
 }
 function addPoint(kind, t, val) {
+  if (kind === 'lfo' && S.lfo.kind) return;
   const pts = kind === 'lfo' ? S.lfo.pts : S.env.pts;
   if (pts.length >= MAXPTS) return;
   let i = 1; while (i < pts.length && pts[i].t <= t) i++;
@@ -1674,11 +2022,22 @@ function buildLfo() {
   pillRow(host, 'retrig', ['FREE-RUN', 'ON NOTE'], () => L.retrig, i => { L.retrig = i; });
   pillRow(host, 'dest', DESTS, () => L.dest, i => { L.dest = i; });
   slider(host, { label: 'depth', min: 0, max: 1, step: 0.01, get: () => L.depth, set: x => { L.depth = x; }, fmt: f2 });
-  GHOSTS.push(() => { rRate.classList.toggle('ghost', !!L.sync); rDiv.classList.toggle('ghost', !L.sync || S.law === 1); });
+  /* B237: RANDOM's smoothing and SLEW's time. Ghosted, never removed, when not in force. */
+  const rSm = pillRow(host, 'smooth', RAND_MODES, () => L.smooth, i => { L.smooth = i; L.kind = 2; });
+  const rSl = slider(host, { label: 'slew', min: 1, max: 2000, log: true, get: () => L.slewMs, set: x => { L.slewMs = x; },
+    fmt: x => x.toFixed(x < 10 ? 1 : 0) + ' ms' });
+  GHOSTS.push(() => { rRate.classList.toggle('ghost', !!L.sync); rDiv.classList.toggle('ghost', !L.sync || S.law === 1);
+    rSm.classList.toggle('ghost', L.kind !== 2); rSl.classList.toggle('ghost', !(L.kind === 2 && L.smooth === 4)); });
   const pre = $('lfoPresets');
   if (pre) {
+    // A breakpoint preset brings the DRAWN kind back: its points are the shape again.
     Object.keys(LFO_PRESETS).forEach(k => { const b = el('button', 'pill', k);
-      b.addEventListener('click', () => { L.pts = LFO_PRESETS[k](); onEdit(); }); pre.appendChild(b); });
+      b.addEventListener('click', () => { L.pts = LFO_PRESETS[k](); L.kind = 0; onEdit(); }); pre.appendChild(b); });
+    /* B237: the two shapes with no breakpoints, beside the ones with. Lit
+       while in force; the breakpoints are kept, so DRAWN comes back intact. */
+    const kb = [[1, 'S&H'], [2, 'RANDOM']].map(([kd, nm]) => { const b = el('button', 'pill', nm);
+      b.addEventListener('click', () => { L.kind = kd; onEdit(); }); pre.appendChild(b); return [b, kd]; });
+    REPAINT.push(() => kb.forEach(([b, kd]) => b.classList.toggle('on', L.kind === kd)));
     const mir = el('button', 'pill', 'MIRROR');
     /* Exact under this curve law: segment j of the result is old segment n-2-j
        run backwards, and running a segment backwards is negating its c. */
@@ -1691,8 +2050,13 @@ function buildLfo() {
     const inv = el('button', 'pill', 'INVERT');
     inv.addEventListener('click', () => { for (const p of L.pts) p.v = -p.v; onEdit(); });
     pre.appendChild(mir); pre.appendChild(inv);
-    const sd = el('input'); sd.type = 'number'; sd.value = String(S.seed); sd.title = 'seed for STEPS (mulberry32; one draw per click)';
-    sd.addEventListener('input', () => { S.seed = (parseInt(sd.value, 10) || 0) | 0; S.draw = 0; });
+    /* The PATCH seed: STEPS' draws (one per click) and, since B237, the S&H /
+       RANDOM stream (lfoSeed = seed ^ 0x9E3779B9, the engine's). Changing it
+       re-activates, because the engine's seed param calls lfoReseed (:7455),
+       which rewinds the shipped LFO as well. */
+    const sd = el('input'); sd.type = 'number'; sd.value = String(S.seed);
+    sd.title = 'patch seed: STEPS (one draw per click) and the S&H / RANDOM stream (mulberry32, seed ^ 0x9E3779B9)';
+    sd.addEventListener('input', () => { S.seed = (parseInt(sd.value, 10) || 0) | 0; S.draw = 0; core.activate(); onEdit(); });
     pre.appendChild(sd);
   }
 }
@@ -1851,7 +2215,9 @@ function paintHeard() {
 function auditOneLaw() {
   const box = $('audit'); if (!box) return;
   try {
-    const St = JSON.parse(JSON.stringify(S)); St.law = 0;
+    /* kind 0: this audit is of the BREAKPOINT law, whatever shape the card is
+       on. S&H and RANDOM have their own twin in auditRound3. */
+    const St = JSON.parse(JSON.stringify(S)); St.law = 0; St.lfo.kind = 0;
     const sr = 8000, E = St.env, s = susOf(E.pts, E.sus);
     const nOff = Math.round(sr * ((s >= 0 ? E.pts[s].t : 0) + 0.15));
     const endT = s >= 0 ? E.pts[s].t + 0.15 + (E.pts[E.pts.length - 1].t - E.pts[s].t) : E.pts[E.pts.length - 1].t;
@@ -1900,8 +2266,14 @@ function auditOneLaw() {
 function serialize() {
   const e = $('ser'); if (!e) return;
   const L = S.lfo, E = S.env, r = x => +(+x).toFixed(5);
-  const o = { version: 3, proposal: 'B208 + B226',
-    lfo: { shape: L.pts.map(p => [r(p.t), r(p.v), r(p.c)]),
+  const o = { version: 4, proposal: 'B208 + B226 + B237',
+    /* B237: kind names the law. The breakpoints are kept under S&H/RANDOM,
+       so switching back to DRAWN loses nothing. The stream is not stored: it
+       is (patch seed, cycle index), and the seed is the patch's. */
+    lfo: { kind: LFO_KINDS[L.kind],
+           random: L.kind ? { smooth: L.kind === 1 ? 'NONE' : RAND_MODES[L.smooth], slewMs: L.kind === 2 && L.smooth === 4 ? r(L.slewMs) : undefined,
+                              stream: 'mulberry32(patchSeed ^ 0x9E3779B9), draw k at cycle k', patchSeed: S.seed } : undefined,
+           shape: L.pts.map(p => [r(p.t), r(p.v), r(p.c)]),
            rate: L.sync ? { sync: true, beats: L.beats, name: DIVS[nearestDiv(L.beats)][2] === L.beats ? DIVS[nearestDiv(L.beats)][0] : null }
                   : { sync: false, hz: r(L.hz) },
            phase: r(L.phase), retrig: !!L.retrig },
@@ -1930,7 +2302,7 @@ function onEdit() {
   for (const f of REPAINT) f();
   for (const f of GHOSTS) f();
   core.kuro.drawn = S.lfo.pts;   // B226: DRAWN reads the card's CURRENT points (a preset replaces the array)
-  paintSus(); paintDivRead(); paintLaw(); serialize(); auditOneLaw(); scheduleAudit2();
+  paintSus(); paintDivRead(); paintLaw(); serialize(); auditOneLaw(); scheduleAudit2(); scheduleAudit3();
   const w = $('envWarn');
   if (w) { const on = S.env.custom; w.style.display = on ? 'block' : 'none';
     w.textContent = 'Breakpoints edited: the A/D/S/R sliders no longer describe this shape (moving one rewrites it). HEAR = SHIPPED still plays the sliders as τ, because the shipped envelope has no breakpoints.'; }
@@ -2194,25 +2566,25 @@ function buildActs() {
   REPAINT.push(() => btns.forEach((b, i) => b.classList.toggle('on', !!S.act.on[i])));
   row.appendChild(el('label', null, 'fires')); row.appendChild(box); host.appendChild(row);
   const r2 = el('div', 'row wide');
-  r2.appendChild(el('label', null, 'S&H in')); r2.appendChild(srcSelect(() => S.act.shIn, x => { S.act.shIn = x; }, true)); host.appendChild(r2);
+  r2.appendChild(el('label', null, 'sample in')); r2.appendChild(srcSelect(() => S.act.shIn, x => { S.act.shIn = x; }, true)); host.appendChild(r2);
   const r3 = el('div', 'row wide'), sd = el('input');
-  sd.type = 'number'; sd.value = String(S.act.seed); sd.title = 'S&H seed: mulberry32, one draw per trigger';
+  sd.type = 'number'; sd.value = String(S.act.seed); sd.title = 'SAMPLE ON TRIGGER seed: mulberry32, one draw per trigger';
   sd.addEventListener('input', () => { S.act.seed = (parseInt(sd.value, 10) || 0) | 0; core.shRng = mulberry32(S.act.seed); core.shN = 0; onEdit(); });
-  r3.appendChild(el('label', null, 'S&H seed')); r3.appendChild(sd); host.appendChild(r3);
+  r3.appendChild(el('label', null, 'sample seed')); r3.appendChild(sd); host.appendChild(r3);
 }
 function paintEv() {
   const cv = $('evC'), G = ground(cv); if (!G) return;
   const { g, w, h, v } = G, x0 = 4 * v, x1 = w - 4 * v, bh = h / 4;
   g.font = FONT(v);
-  if (!ac) { bandLabel(g, 'POWER, then PHRASE: gate, trigger, S&H and MOD ENV, as logged', 8 * v, h / 2 - 8 * v, v); return; }
+  if (!ac) { bandLabel(g, 'POWER, then PHRASE: gate, trigger, SAMPLE ON TRIGGER and MOD ENV, as logged', 8 * v, h / 2 - 8 * v, v); return; }
   const rows = [['GATE: a level, every sample', () => lane(g, LN.m0, x0, x1, 11 * v, bh - 3 * v, false, TOK('--scr-meter'), v)],
     ['TRIGGER: an event, ticks only', () => ticks(g, x0, x1, bh + 11 * v, 2 * bh - 3 * v, v)],
-    ['S&H: event → level, holds', () => lane(g, LN.sh, x0, x1, 2 * bh + 11 * v, 3 * bh - 3 * v, true, TOK('--scr-meter'), v)],
+    ['SAMPLE ON TRIGGER: event → level, holds', () => lane(g, LN.sh, x0, x1, 2 * bh + 11 * v, 3 * bh - 3 * v, true, TOK('--scr-meter'), v)],
     ['MOD ENV: restarted by the trigger, released by the gate', () => lane(g, LN.env, x0, x1, 3 * bh + 11 * v, 4 * bh - 3 * v, false, TOK('--scr-meter'), v)]];
   rows.forEach(([nm, f], k) => { f(); bandLabel(g, nm, x0 + 2 * v, k * bh, v);
     g.strokeStyle = TOKA('--scr-grid', 0.18); g.lineWidth = v; g.beginPath(); g.moveTo(x0, (k + 1) * bh - 1); g.lineTo(x1, (k + 1) * bh - 1); g.stroke(); });
   const e = $('evRead');
-  if (e) e.innerHTML = 'triggers fired <b>' + core.trk.fired + '</b> (' + ['EVERY', 'FIRST'][S.midi.mode] + ') · S&amp;H draws <b>'
+  if (e) e.innerHTML = 'triggers fired <b>' + core.trk.fired + '</b> (' + ['EVERY', 'FIRST'][S.midi.mode] + ') · samples <b>'
     + core.shN + '</b> (seed ' + S.act.seed + ') · MOD ENV <b>' + core.envLvl.toFixed(3) + '</b> · ORBITAL kicks '
     + core.orb.kicks + ' · hosted posts <b>' + core.postSeq + '</b>';
 }
@@ -2377,13 +2749,204 @@ function auditRound2() {
       + 'KURO voice 1 max|Δ| <b>' + e(dK) + '</b> (control rate × 1.05: ' + c3(cK) + ') · ORBITAL body 1 x <b>' + e(dO) + '</b> (control G × 1.1: '
       + c3(cO) + ') · MIDI, 7 trackers vs their stated rules <b>' + e(dM) + '</b> (control, phrase 1 ms late: smallest ' + c3(cM) + ')'
       + ' · picture lane vs destination tap <b>' + e(dP) + '</b> (control, 100 ms off: ' + c3(cP) + ') · TRIGGER: <b>' + seen.length
-      + '</b> S&amp;H steps, ' + (trigOk ? 'exactly' : '<b>NOT</b>') + ' the phrase\'s ' + ['EVERY', 'FIRST'][S.midi.mode] + ' samples; '
+      + '</b> SAMPLE ON TRIGGER steps, ' + (trigOk ? 'exactly' : '<b>NOT</b>') + ' the phrase\'s ' + ['EVERY', 'FIRST'][S.midi.mode] + ' samples; '
       + ['EVERY', 'FIRST'][1 - S.midi.mode] + ' would give ' + other.length + ' (' + (trigCtl ? 'control fires' : 'CONTROL DID NOT FIRE') + ')'
       + ' · held values = the seeded draws, max|Δ| <b>' + e(dS) + '</b>' + (ok ? '' : ' · FAILED');
   } catch (err) { box.classList.add('bad'); box.textContent = 'round-2 audit threw: ' + String((err && err.message) || err); }
 }
 let audit2T = 0;
 function scheduleAudit2() { if (audit2T) clearTimeout(audit2T); audit2T = setTimeout(() => { audit2T = 0; auditRound2(); }, 150); }
+
+/* ====================== ROUND 3 (B237) — UI ====================== */
+function buildRand() {
+  const host = $('smRows'); if (!host) return;
+  const L = S.lfo;
+  /* Second controls on the SAME fields as the LFO card's (S is the one
+     patch). They are here so the five lanes can be heard without scrolling. */
+  pillRow(host, 'shape', LFO_KINDS, () => L.kind, i => { L.kind = i; });
+  slider(host, { label: 'rate', min: 0.02, max: 40, log: true, get: () => L.hz, set: x => { L.hz = x; }, fmt: x => x.toFixed(x < 1 ? 3 : 2) + ' Hz' });
+  slider(host, { label: 'slew', min: 1, max: 2000, log: true, get: () => L.slewMs, set: x => { L.slewMs = x; }, fmt: x => x.toFixed(x < 10 ? 1 : 0) + ' ms' });
+  pillRow(host, 'dest', DESTS, () => L.dest, i => { L.dest = i; });
+  const row = el('div', 'row wide'), bx = el('div', 'pills'), d = el('button', 'pill', 'DRONE');
+  d.id = 'droneBtn3'; d.addEventListener('click', toggleDrone);
+  const p = el('button', 'pill', 'POWER'); p.id = 'pwr3'; p.addEventListener('click', power);
+  bx.appendChild(p); bx.appendChild(d); row.appendChild(el('label', null, 'listen')); row.appendChild(bx); host.appendChild(row);
+  const cv = $('smC');
+  /* A lane is a smoothing: clicking it puts the LFO on RANDOM with that mode
+     (lane 0, NONE, is the S&H law under RANDOM's name). */
+  if (cv && cv.addEventListener) cv.addEventListener('pointerdown', e => {
+    const r = cv.getBoundingClientRect(), m = Math.min(4, Math.max(0, Math.floor((e.clientY - r.top) / Math.max(1, r.height) * 5)));
+    L.kind = 2; L.smooth = m; onEdit();
+  });
+}
+function paintSm() {
+  const cv = $('smC'), G = ground(cv); if (!G) return;
+  const { g, w, h, v } = G, L = S.lfo, seed = lfoSeedOf(S.seed), k0 = pageK0(), bh = h / 5;
+  const sel = L.kind === 1 ? 0 : L.kind === 2 ? L.smooth : -1;
+  const x0 = 4 * v, x1 = w - 4 * v, N = PAGE * 64, X = p => x0 + p / PAGE * (x1 - x0);
+  g.font = FONT(v);
+  const st = core.randPage(0, k0, PAGE, N);
+  for (let m = 0; m < 5; m++) {
+    const top = m * bh + 13 * v, bot = (m + 1) * bh - 4 * v, Y = q => bot - (q + 1) / 2 * (bot - top), on = m === sel;
+    g.strokeStyle = TOKA('--scr-grid', 0.18); g.lineWidth = v; g.beginPath();
+    for (let j = 0; j <= PAGE; j++) { g.moveTo(X(j), top); g.lineTo(X(j), bot); }
+    g.moveTo(x0, Y(0)); g.lineTo(x1, Y(0)); g.stroke();
+    if (m === 4) { g.setLineDash([3 * v, 3 * v]); g.strokeStyle = TOKA('--scr-value', 0.35); pagePath(g, st, x0, x1, top, bot); g.setLineDash([]); }
+    g.strokeStyle = on ? TOK('--scr-value') : TOKA('--scr-value', 0.42); g.lineWidth = (on ? 1.8 : 1.1) * v;
+    pagePath(g, m === 0 ? st : core.randPage(m, k0, PAGE, N), x0, x1, top, bot);
+    g.fillStyle = on ? TOK('--scr-value') : TOKA('--scr-value', 0.5);
+    for (let j = 0; j < PAGE; j++) { g.beginPath(); g.arc(X(j), Y(drawV(seed, k0 + j)), 2.4 * v, 0, TAU); g.fill(); }
+    const tag = RAND_MODES[m] + (m === 0 ? ' (= S&H)' : m === 4 ? ' ' + L.slewMs.toFixed(0) + ' ms' : '');
+    g.fillStyle = on ? TOK('--scr-value') : TOKA('--scr-grid', 0.9);
+    g.fillText(tag + (on ? (S.law === 0 ? '  ◀ HEARD' : '  ◀ selected (HEAR = SHIPPED plays the engine\'s S&H)') : ''), x0 + 2 * v, m * bh + 9 * v);
+    if (m < 4) { g.strokeStyle = TOKA('--scr-grid', 0.3); g.lineWidth = v; g.beginPath(); g.moveTo(0, (m + 1) * bh); g.lineTo(w, (m + 1) * bh); g.stroke(); }
+    if (on && core.kNow >= k0 && core.kNow < k0 + PAGE) {
+      g.fillStyle = TOK('--scr-meter'); g.beginPath(); g.arc(X(core.kNow - k0 + core.xNow), Y(core.vP), 3.8 * v, 0, TAU); g.fill();
+    }
+  }
+  if (core.kNow >= k0 && core.kNow < k0 + PAGE) {   // where the sound is reading: measured, meter colour
+    const xp = X(core.kNow - k0 + core.xNow);
+    g.strokeStyle = TOKA('--scr-meter', 0.7); g.lineWidth = v; g.beginPath(); g.moveTo(xp, 0); g.lineTo(xp, h); g.stroke();
+  }
+  const e = $('smRead');
+  if (e) { const per = L.sync ? L.beats * 60 / S.bpm : 1 / L.hz;
+    e.innerHTML = 'page <b>k ' + k0 + '..' + (k0 + PAGE - 1) + '</b> · 1 cycle = <b>' + fSec(per) + '</b>' + (L.sync ? ' (' + divName(L.beats) + ')' : '')
+      + ' · slew <b>' + L.slewMs.toFixed(0) + ' ms</b> = ' + (L.slewMs / 1000 / per).toFixed(2) + ' of a cycle'
+      + (L.slewMs / 1000 > per ? ' (<b>longer than a cycle</b>: SLEW never arrives, and each glide starts where the last stopped)' : '')
+      + ' · the LFO is on <b>' + LFO_KINDS[L.kind] + '</b>' + (L.kind === 0 ? ': click a lane to switch it to RANDOM with that smoothing' : '')
+      + ' · retrig <b>' + (L.retrig ? 'ON' : 'OFF') + '</b>'; }
+}
+
+/* ---- THE ROUND-3 AUDIT -------------------------------------------------------
+   Round 1's rule for the two new shapes. The page renders its own core
+   offline, with RETRIG FORCED ON and three strikes (so the strike law runs),
+   every trigger action off, and every other LFO setting as the card has it.
+   It compares the LFO's destination tap, sample by sample, with a twin. The
+   twin restates the phase and strike law in the core's float order (round 1's
+   discipline) and takes its draws from the SEQUENTIAL mulberry32 stream,
+   called in order. It never uses m32at. So a 0 says three things at once:
+   the render adds nothing to the law, m32at is the stream, and S&H = RANDOM
+   NONE. The PICTURE's own path (randPage) is then asked for each sample's
+   position and held to the tap too. Must-fire controls (L0032): another seed,
+   the shipped draw index (one cycle late), a strike that keeps the stream,
+   the neighbouring smoothing, the slew ×1.25, proposed vs shipped, and the
+   picture one cycle on. Scheduled off the edit path.
+   COVERAGE BOUNDARY (planted in scratch, trace): a change INSIDE randInterp
+   or slewAt moves the twin with the core, so it reads green, as round 2's M6
+   did. Those laws' own properties (the knots, the 1.25 overshoot, arrival
+   at the slew time) were checked separately.
+   TWO PASSES. The card's own settings, which at the default 1 Hz reach only a
+   handful of draws, and a fixed fast free-running pass (13.7 Hz, φ 0.37) that
+   reaches dozens, so CUBIC's clamp and the φ carry into k are exercised
+   whatever the card is set to. 16 offline renders, a few hundred ms. */
+function auditRound3() {
+  const box = $('audit3'); if (!box) return;
+  try {
+    const A = audit3Pass({}), B = audit3Pass({ sync: 0, hz: 13.7, phase: 0.37 });
+    const ok = A.ok && B.ok;
+    box.classList.toggle('bad', !ok);
+    box.innerHTML = 'round-3 audit (offline, re-run after edits; retrig forced ON, 3 strikes, trigger actions off). <b>Pass 1, the card as set</b>: ' + A.html
+      + '<br><b>Pass 2, free 13.7 Hz, φ 0.37</b>: ' + B.html + (ok ? '' : ' · <b>FAILED</b>');
+  } catch (err) { box.classList.add('bad'); box.textContent = 'round-3 audit threw: ' + String((err && err.message) || err); }
+}
+/* One pass: `over` overrides the card's LFO fields (rate, phase, sync). */
+function audit3Pass(over) {
+  // 4 kHz: the checks are identities, not spectra, and the shortest slew (1 ms) is still 4 samples.
+  const sr = 4000, n = Math.round(sr * 3.2), strikes = [0, Math.round(0.913 * sr), Math.round(2.31 * sr)], strikeAt = new Set(strikes);
+  const L = Object.assign({}, S.lfo, over), bps = S.bpm / 60 / sr, beats = Math.max(0.01, L.beats), per = L.sync ? beats * 60 / S.bpm : 1 / L.hz;
+  const slewLong = Math.min(2000, Math.max(1, 3000 * per));   // 3 cycles, inside the control's range
+  const cfg = (kind, smooth, slewMs, law) => { const St = JSON.parse(JSON.stringify(S)); St.law = law || 0; Object.assign(St.lfo, over);
+    St.lfo.kind = kind; St.lfo.smooth = smooth; St.lfo.slewMs = slewMs; St.lfo.retrig = 1; St.act.on = St.act.on.map(() => 0);
+    /* Lightened where the LFO tap reads nothing: a 4 ms one-shot envelope (so
+       the struck voices finish at once), no ORBITAL bodies, one Kuro voice.
+       Voice DSP was 80% of the audit's time (profiled), and the strikes still
+       go through noteOn, the retrig path itself. */
+    St.env = { pts: [{ t: 0, v: 0, c: 0 }, { t: 0.002, v: 1, c: 0 }, { t: 0.004, v: 0, c: 0 }], sus: -1, adsr: St.env.adsr, toCut: 0, custom: true };
+    St.orb.bodies = []; St.kuro.n = 1; return St; };
+  const run = St => {
+    const c = new ModLabCore(sr, St); c.tapLfo = new Float64Array(n); c.tapEnv = new Float64Array(n);
+    const Lb = new Float32Array(n), Rb = new Float32Array(n);
+    let i = 0;
+    for (let s = 0; s <= strikes.length; s++) {
+      const end = s < strikes.length ? strikes[s] : n;
+      if (end > i) { c.render(Lb.subarray(i), Rb.subarray(i), end - i); i = end; }
+      if (s < strikes.length) c.noteOn(60 + s);
+    }
+    return c.tapLfo;
+  };
+  /* Draw k from the stream CALLED IN ORDER. Started one step early so that
+     draw −1 (CUBIC's v_{k−1} at k = 0) exists: D(k) is element k + 1. */
+  const seqDraws = seed => { const r = mulberry32((seed - 0x6D2B79F5) | 0), D = [];
+    return k => { while (D.length <= k + 1) D.push(2 * r() - 1); return D[k + 1]; }; };
+  let kMax = 0;
+  const twinP = (mode, slewMs, D, opt) => {
+    const out = new Float64Array(n), sl = slewMs / 1000;
+    let acc = 0, beat = 0, bS = 0, cyc = 0, kOff = 0, kNow = -1, slK = 0, primed = false, slN = 0, slL0 = 0, slOut = 0;
+    for (let i = 0; i < n; i++) {
+      if (strikeAt.has(i)) { acc = 0; bS = beat; if (!opt.keep) kOff = kNow + 1 - (L.sync ? 0 : cyc); }
+      beat += bps;
+      if (L.sync) acc = (beat - bS) / beats; else { acc += L.hz / sr; const w = Math.floor(acc); acc -= w; cyc += w; }
+      const y = acc + L.phase, fl = Math.floor(y), x = y - fl, k = kOff + (L.sync ? 0 : cyc) + fl, kk = k - (opt.shift || 0);
+      kNow = k; if (k > kMax) kMax = k; if (opt.ps) opt.ps[i] = k + x;
+      if (!primed || k !== slK) { slL0 = primed ? slOut : D(kk); primed = true; slK = k; slN = 0; }
+      slOut = slewAt(slL0, D(kk), slN / sr, sl); slN++;
+      out[i] = mode === 4 ? slOut : mode === 0 ? D(kk) : randInterp(D(kk - 1), D(kk), D(kk + 1), D(kk + 2), x, mode);
+    }
+    return out;
+  };
+  // The SHIPPED S&H restated from hypersaw_clap.cpp: 0 first, one in-order draw per wrap, a strike draws nothing.
+  const twinS = () => {
+    const out = new Float64Array(n), r = mulberry32(lfoSeedOf(S.seed));
+    let accS = 0, phL = L.phase, prev = L.phase, sh = 0;
+    for (let i = 0; i < n; i++) {
+      if (strikeAt.has(i)) { accS = 0; phL = L.phase; prev = phL; }
+      const fS = L.sync ? (S.bpm / 60) / beats : L.hz;
+      accS += fS / sr; accS -= Math.floor(accS);
+      const rd = frac(accS + phL);
+      if (rd < prev) sh = 2 * r() - 1;
+      prev = rd; out[i] = sh;
+    }
+    return out;
+  };
+  const md = (a, b) => { let m = 0; for (let i = 0; i < n; i++) m = Math.max(m, Math.abs(a[i] - b[i])); return m; };
+  const seed = lfoSeedOf(S.seed), D = seqDraws(seed), D1 = seqDraws(lfoSeedOf(S.seed + 1)), slew = L.slewMs;
+  const tSH = run(cfg(1, 0, slew)), tR = [0, 1, 2, 3, 4].map(m => run(cfg(2, m, slew)));
+  const tSl = run(cfg(2, 4, slewLong)), tShip = run(cfg(1, 0, slew, 1));
+  const dSH = md(tSH, twinP(0, slew, D, {})), dId = md(tSH, tR[0]);
+  const dR = tR.map((t, m) => md(t, twinP(m, slew, D, {}))), dSl = md(tSl, twinP(4, slewLong, D, {}));
+  const dShip = md(tShip, twinS());
+  const cSeed = md(tSH, twinP(0, slew, D1, {})), cShift = md(tSH, twinP(0, slew, D, { shift: 1 }));
+  const cKeep = md(tSH, twinP(0, slew, D, { keep: true }));
+  const cMode = [0, 1, 2, 3].map(m => md(tR[m], twinP((m + 1) % 4, slew, D, {})));
+  const cSlew = md(tR[4], twinP(4, slew * 1.25, D, {})), cSlL = md(tSl, twinP(4, slewLong * 1.25, D, {}));
+  const cShip = md(tShip, twinP(0, slew, D, {}));
+  let dSt = 0, cSt = 0; const Dq = seqDraws(seed);   // m32at by index vs the stream in order, draws −1..4095
+  for (let k = -1; k < 4096; k++) { dSt = Math.max(dSt, Math.abs(drawV(seed, k) - Dq(k))); cSt = Math.max(cSt, Math.abs(drawV(seed + 1, k) - Dq(k))); }
+  /* THE PICTURE's own path: the painter's randPage, asked for each sample's
+     position k + x, against the tap, for S&H and the four pure modes. The
+     tolerance is 1e-9, not 0, because k + x re-rounds x to ulp(k) (about
+     1e-14 here). Control: the picture one cycle on. SLEW's picture is a
+     forecast (randPage's note) and is not held to the tap. */
+  const ps = new Float64Array(n); twinP(0, slew, D, { ps });
+  const ps1 = ps.map(p => p + 1), nC = kMax + 3;
+  let dPic = 0, cPic = Infinity;
+  [tSH].concat(tR.slice(0, 4)).forEach((t, q) => { const m = q ? q - 1 : 0, cp = new ModLabCore(sr, cfg(2, m, slew));
+    dPic = Math.max(dPic, md(t, cp.randPage(m, 0, nC, 0, ps))); cPic = Math.min(cPic, md(t, cp.randPage(m, 0, nC, 0, ps1))); });
+  const zero = [dSH, dId, dSl, dShip, dSt].concat(dR).every(x => x === 0) && dPic < 1e-9;
+  const ctls = [cSeed, cShift, cKeep, cSlew, cSlL, cShip, cPic].concat(cMode), fired = ctls.every(x => x > 1e-3) && cSt > 0;
+  const ok = zero && fired;
+  const e = x => x === 0 ? '0' : x.toExponential(1), c3 = x => x.toFixed(3);
+  return { ok, html: sr + ' Hz, ' + n + ' samples, draws 0..' + kMax + '. '
+    + 'Destination tap vs a twin drawing from the stream <i>in order</i>: S&amp;H <b>' + e(dSH) + '</b> · RANDOM '
+    + RAND_MODES.map((nm, m) => nm + ' <b>' + e(dR[m]) + '</b>').join(' · ') + ' (' + slew.toFixed(0) + ' ms) · SLEW ' + slewLong.toFixed(0) + ' ms <b>' + e(dSl) + '</b>'
+    + ' · S&amp;H vs RANDOM NONE <b>' + e(dId) + '</b> · m32at vs the stream, 4097 draws <b>' + e(dSt) + '</b> · HEAR SHIPPED vs the engine law <b>' + e(dShip) + '</b>'
+    + ' · picture (randPage at each sample\'s k + x) vs tap, S&amp;H + 4 pure modes <b>' + e(dPic) + '</b> (tol 1e-9)'
+    + '. Controls that must fire: seed + 1 ' + c3(cSeed) + ' · shipped draw index (one cycle late) ' + c3(cShift) + ' · strike keeps the stream ' + c3(cKeep)
+    + ' · neighbouring smoothing ' + cMode.map(c3).join('/') + ' · slew ×1.25 ' + c3(cSlew) + '/' + c3(cSlL) + ' · proposed vs shipped ' + c3(cShip) + ' · picture one cycle on ' + c3(cPic)
+    + ' · m32at(seed + 1) ' + c3(cSt) + ' · ' + (fired ? 'all fire' : '<b>A CONTROL DID NOT FIRE</b>') + (ok ? '' : ' · <b>FAILED</b>') };
+}
+let audit3T = 0;
+function scheduleAudit3() { if (audit3T) clearTimeout(audit3T); audit3T = setTimeout(() => { audit3T = 0; auditRound3(); }, 200); }
 
 /* ---- audio (the page's job; the core is graph-free) ---- */
 let ac = null, spn = null, blocks = 0;
@@ -2396,7 +2959,7 @@ function power() {
     spn.onaudioprocess = ev => { const L = ev.outputBuffer.getChannelData(0), R = ev.outputBuffer.getChannelData(1);
       core.render(L, R, L.length); blocks++; };
     spn.connect(ac.destination);
-    const b = $('pwr'); if (b && b.classList) b.classList.add('on');
+    for (const id of ['pwr', 'pwr3']) { const b = $(id); if (b && b.classList) b.classList.add('on'); }   // B237: two POWER pills
   } catch (e) { const st = $('audioStat'); if (st) st.textContent = 'AUDIO: ' + String((e && e.message) || e); }
 }
 
@@ -2426,7 +2989,7 @@ function buildKbd() {
 function toggleDrone() {
   power(); droning = !droning;
   if (droning) { press(48); press(55); } else { release(48); release(55); }
-  const b = $('droneBtn'); if (b && b.classList) b.classList.toggle('on', droning);
+  for (const id of ['droneBtn', 'droneBtn3']) { const b = $(id); if (b && b.classList) b.classList.toggle('on', droning); }   // B237: two DRONE pills, one state
 }
 
 /* ---- theme: `?theme=dark` opens dark, so a screenshot of it is a LOAD ---- */
@@ -2449,13 +3012,13 @@ function audioStat() {
 }
 function frame() {
   paintEditor('lfo'); paintEditor('env'); paintHeard(); paintBeat(); audioStat();
-  drainHost(); paintKuro(); paintOrb(); paintMidi(); midiNow(); paintRoutes(); paintEv();
+  drainHost(); paintKuro(); paintOrb(); paintMidi(); midiNow(); paintRoutes(); paintEv(); paintSm();
   if (window.requestAnimationFrame) window.requestAnimationFrame(frame);
 }
 
 /* ============ SETUP: everything above is declared (L0026) ============ */
 buildLfo(); buildEnv(); buildDivs(); buildKbd();
-buildKuro(); buildOrb(); buildMidi(); buildRoutes(); buildActs(); buildHost();
+buildKuro(); buildOrb(); buildMidi(); buildRoutes(); buildActs(); buildHost(); buildRand();
 (() => {
   const lp = $('lawPills');
   if (lp) { const btns = LAWS.map((nm, i) => { const b = el('button', 'pill', nm);
@@ -2470,7 +3033,8 @@ buildKuro(); buildOrb(); buildMidi(); buildRoutes(); buildActs(); buildHost();
     REPAINT.push(() => { bpm.value = String(S.bpm); bpm.style.setProperty('--pct', String((S.bpm - 40) / 180)); }); }
   const on = (id, f) => { const b = $(id); if (b && b.addEventListener) b.addEventListener('click', f); };
   on('pwr', power);
-  on('panic', () => { core.panic(); for (const n in held) release(+n); droning = false; const d = $('droneBtn'); if (d && d.classList) d.classList.remove('on'); });
+  on('panic', () => { core.panic(); for (const n in held) release(+n); droning = false;
+    for (const id of ['droneBtn', 'droneBtn3']) { const d = $(id); if (d && d.classList) d.classList.remove('on'); } });
   on('themeBtn', () => { dark = !dark; applyTheme(); });
   on('droneBtn', toggleDrone);
   on('reactBtn', () => { core.activate(); });

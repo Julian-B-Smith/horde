@@ -45,6 +45,17 @@
      OUT OF SCOPE: the intent bus (B170 — it re-shapes the field; this editor does
      not wait for it), and sound: the page resolves values, it renders no audio.
 
+     B235, 2026-09-23 — WAYPOINTS. The human: "you move the morph point to a position
+     and then go down to the parameter list and set the parameter to where you want it
+     at that point and the curves are calculated from there. I suppose there would have
+     to be a limit." A continuous row may carry up to WP_CAP_ROW values pinned at pad
+     positions; blend passes through them. Block W (pure, end of the second script)
+     holds four interpolation laws, the surface cache and a seeded self-check with
+     must-fail controls (the second audit line); Block B paints each law, drives the
+     arm / set / drag / delete gestures, and writes the six answers with the numbers
+     computed, not typed. Nothing here is built in C++: the state format, B232's rule
+     and the recommended law are proposals for the human.
+
      TOKENS ARE COPIED, NOT LINKED — verbatim from src/gui/gui2.html (:root 26-96,
      body.scr-orchid 142-144, body:not(.dark) 167-185, body.dark 186-212), by way of
      docs/design/station-page-lab.html, the batch's model. Copy, therefore drift.
@@ -53,8 +64,8 @@
      const declared below it. No Math.random (mulberry32 only, SPEC §5.7); no wall
      clock anywhere. -->
 <html><head><meta charset="utf-8">
-<meta name="lab-review" content="B211 · 2026-09-22">
-<title>Morph editor lab — four corners × the whole field</title>
+<meta name="lab-review" content="B211 + B235 · 2026-09-23">
+<title>Morph editor lab — four corners × the whole field, and waypoints between them</title>
 <style>
   /* ============================================================
      TOKENS — copied VERBATIM from src/gui/gui2.html (see header).
@@ -360,13 +371,75 @@
   .impact.staged b { color:var(--caution-tx); }
   .iact { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
   .kbdh { font-size:9px; color:var(--dim); margin-top:6px; }
+
+  /* ============ WAYPOINTS (B235) ============
+     Colour stays status, as B211 ruled for kinds: a PIN is authored, so
+     --value; the RANGE CLAMP is a clip, which is exactly --alarm's remit
+     ("PANIC, clip, mute"); leaving the values you set is a caution, not an
+     alarm; "the puck sits on a pin" is attention, so --marker. A pin's glyph is
+     ◆ everywhere (pad, row, list) and ◇ when it is dormant. */
+  .wpband { display:grid; grid-template-columns:minmax(0,1.35fr) minmax(330px,1fr); gap:10px;
+            margin-top:10px; align-items:start; }
+  @media (max-width:1240px) { .wpband { grid-template-columns:1fr; } }
+  .lawctl { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom:8px; }
+  .laws { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:8px; }
+  @media (max-width:900px) { .laws { grid-template-columns:repeat(2, minmax(0,1fr)); } }
+  .law { border:var(--stroke) solid transparent; border-radius:8px; padding:4px; cursor:pointer; min-width:0; }
+  .law:hover { background:color-mix(in srgb, var(--panel2) 45%, transparent); }
+  .law.on { border-color:var(--value); background:color-mix(in srgb, var(--value) 5%, transparent); }
+  .law canvas { width:100%; aspect-ratio:1 / 1; border-radius:6px; }
+  .law .ln { display:flex; justify-content:space-between; align-items:baseline; gap:4px;
+             font-size:10.5px; font-weight:800; letter-spacing:.06em; color:var(--text); margin:4px 0 1px; }
+  .law .ln small { font-weight:400; font-size:8.5px; color:var(--dim); letter-spacing:.04em; }
+  .law .ls { font-size:9px; color:var(--t2); line-height:1.5; font-variant-numeric:tabular-nums; }
+  .law .ls b { color:var(--text); font-weight:600; }
+  .law .ls .al { color:var(--alarm); font-weight:600; }
+  .law .ls .ca { color:var(--caution-tx); background:var(--caution-bg); border-radius:3px; padding:0 3px; }
+  .rec { font-size:8px; letter-spacing:.1em; border:1px solid var(--line); border-radius:3px;
+         padding:0 4px; background:var(--cA); color:var(--line); }
+  body.dark .rec { color:var(--bg); }
+  .ftab { width:100%; border-collapse:collapse; font-size:9.5px; font-variant-numeric:tabular-nums; margin-top:6px; }
+  .ftab th, .ftab td { padding:2px 5px; text-align:right; border-bottom:1px solid var(--hair); }
+  .ftab th { color:var(--t2); font-weight:600; letter-spacing:.04em; font-size:8.5px; }
+  .ftab td:first-child, .ftab th:first-child { text-align:left; }
+  .ftab td.good { color:var(--text); font-weight:600; }
+  .ftab td.poor { color:var(--caution-tx); }
+  .ans { margin:0; padding-left:18px; font-size:10px; color:var(--t2); line-height:1.5; }
+  .ans > li { margin:0 0 7px; }
+  .ans b { color:var(--text); }
+  .ans code { font-size:9.5px; background:var(--panel2); border-radius:3px; padding:0 3px; color:var(--text);
+              overflow-wrap:anywhere; }
+  .legrow { display:flex; gap:10px; flex-wrap:wrap; font-size:9.5px; color:var(--t2); margin-top:6px; align-items:center; }
+  .sw2 { display:inline-block; width:14px; height:10px; border:1px solid var(--line); border-radius:2px; vertical-align:middle; }
+  .sw2.al { background:repeating-linear-gradient(135deg, var(--alarm) 0 2px, transparent 2px 4px); }
+  .sw2.ca { background:repeating-linear-gradient(45deg, var(--caution) 0 2px, transparent 2px 4px); }
+  /* the row's pin count — a count AND a jump: click cycles the puck through them */
+  .wpc { display:inline-block; margin-left:5px; padding:0 5px; border:1px solid var(--value); border-radius:999px;
+         font-size:8.5px; letter-spacing:.04em; color:var(--value); cursor:pointer; line-height:1.5; }
+  .wpc:hover { background:color-mix(in srgb, var(--value) 12%, transparent); }
+  .wpc.dorm { border-style:dashed; border-color:var(--dim); color:var(--dim); }
+  .wpc.here { background:var(--value); color:var(--bg); }
+  .hear .hx.clip { color:var(--alarm); font-weight:600; }
+  .hear .hx.past { color:var(--caution-tx); background:var(--caution-bg); border-radius:3px; padding:0 3px; }
+  .wpst { font-size:9.5px; color:var(--t2); margin:2px 0 4px; font-variant-numeric:tabular-nums; }
+  .wpst b { color:var(--text); }
+  .pill.go.armed { border-color:var(--value); background:var(--value); color:var(--bg); font-weight:700; }
+  .wpl { display:grid; grid-template-columns:30px minmax(0,1fr) auto auto; gap:4px 6px; align-items:center;
+         font-size:10px; font-variant-numeric:tabular-nums; margin-top:6px; }
+  .wpl .pn { color:var(--value); font-weight:700; }
+  .wpl .pn.dorm { color:var(--dim); }
+  .wpl .pv { color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .wpl .pv small { color:var(--dim); }
+  .wpl .on { box-shadow:inset 3px 0 0 var(--marker); padding-left:4px; }
+  .wpl .pill { min-height:22px; padding:1px 7px; font-size:9px; }
+  .impact.refuse { border-color:var(--caution); background:var(--caution-bg); color:var(--caution-tx); }
 </style></head><body>
 
 <div class="hdr">
   <div>
     <h1>morph editor</h1>
     <div class="badges">
-      <span class="badge">LAB · B211</span>
+      <span class="badge">LAB · B211 + B235</span>
       <span class="sub">FOUR CORNERS × THE WHOLE FIELD — READ ONE ROW, EDIT ONE CELL, HEAR NOTHING BY SURPRISE</span>
     </div>
   </div>
@@ -382,9 +455,14 @@ missing view — <b>every member of the real morph field</b> (273 of them, dumpe
 of the factory patch <b>MO - Quantum Morph</b>, plus the lab's own labelled edits so every behaviour has something to
 show. The four cells are what each corner <b>holds</b> (magenta, authored); the last column is what you are
 <b>hearing</b> at the pad position (violet, the engine's own resolution). Click a cell to edit that corner alone: the
-edit is <b>staged</b>, and its audible consequence at this pad position is stated before you commit it.</div>
+edit is <b>staged</b>, and its audible consequence at this pad position is stated before you commit it.
+<b>B235 — waypoints:</b> in BLEND, a continuous row can also carry a few values <b>pinned at pad positions</b> (◆) between
+its corners, and the blend passes through them. Move the puck, select a row, <b>arm</b> it in the inspector, set the
+value: a pin appears. The band below the pad puts four interpolation laws side by side on the selected row, measures
+them, and answers the brief's six questions.</div>
 
 <div class="audit" id="audit">field audit: pending</div>
+<div class="audit" id="wpAudit">waypoint audit: pending</div>
 
 <div class="top">
   <div class="cluster" id="padPane"><h2>Pad</h2>
@@ -417,6 +495,24 @@ edit is <b>staged</b>, and its audible consequence at this pad position is state
     <div class="jump" id="jump"></div>
     <div class="census" id="census"></div>
   </div>
+</div>
+
+<div class="wpband">
+  <div class="cluster" id="lawPane"><h2>Waypoints — four laws, one row (B235)</h2>
+    <div class="lawctl">
+      <div class="grp"><span class="lbl">LAW</span><div class="pills" id="lawPills"></div></div>
+      <div class="grp" data-lab="clamp every Δ law to the range of values the player set (corners + pins)"><span class="lbl">CLAMP TO SET VALUES</span><input type="checkbox" id="hullIn"></div>
+      <div class="grp" data-lab="B232, proposed not built: a source's parameters blend only from corners where the source is ON"><span class="lbl">B232 OFF-CORNER RULE</span><input type="checkbox" id="b232In"></div>
+    </div>
+    <div class="laws" id="laws"></div>
+    <div class="legrow"><span><span class="sw2 al"></span> clipped at the parameter's range (always clamped)</span>
+      <span><span class="sw2 ca"></span> outside the values you set — flattened when CLAMP is on, heard when it is off</span>
+      <span>── faint lines: contours · dashed: the triangulation (TIN laws — every dashed line is a crease)</span></div>
+    <div class="note" id="lawNote"></div>
+    <div class="cap">THE SAME FOUR LAWS OVER THE SELF-CHECK'S SEEDED FIXTURES (MEASURED, NOT CLAIMED)</div>
+    <div id="ftab"></div>
+  </div>
+  <div class="cluster" id="ansPane"><h2>What the lab answers</h2><ol class="ans" id="answers"></ol></div>
 </div>
 
 <div class="main">
@@ -873,12 +969,25 @@ const DEMO_EDITS = [
   { id: 106, v: [0, 1, 0, 4], why: 'bend law — structural' },
   { id: 107, v: [120, 250, 120, 300], why: 'bend time — HELD wherever the winning corner’s law is not "constant time" (ADR-108)' },
   { id: 17, v: [0.4, 0.45, 0.4, 0.3], why: 'osc 1 volume — continuous' },
+  { id: 1004, v: [0.1, 0.8, 0.1, 0.8], why: 'B235: osc 2 detune — B232’s own example, 0.1 where osc 2 is OFF (A, C) and 0.8 where it is ON (B, D)' },
 ];
 /* Exempt in the lab's start state. 1017 is exempt AND its live value was moved
    afterwards — which is how the page shows a real consequence of ADR-109's rule
    (live written into all four at exempt time, edits while exempt are live-only):
    returning it to the field will JUMP to what the corners stored. */
 const DEMO_EXEMPT = [{ id: 38, live: 0 }, { id: 1017, live: 0.62, stored: 0.4 }];
+/* B235's DEMO WAYPOINTS — lab content, like DEMO_EDITS, and gone with them under
+   "FACTORY ONLY". [x, y, value] in pad units, stored order = insertion order.
+   osc 1 Volume: a swell in the middle and a dip near B. SUB Level: the PLANTED
+   OVERSHOOT — two pins 0.2 apart that disagree by 0.8, which a smooth law has to
+   bend past the range to pass through (the self-check uses the same numbers).
+   osc 2 Detune: B232's own example row, one pin. (0.5, 0.5) is shared by two
+   rows on purpose: it is one STATION on the global view. */
+const DEMO_WAYPOINTS = [
+  { id: 17, pts: [[0.5, 0.5, 0.85], [0.8, 0.22, 0.1]] },
+  { id: 4007, pts: [[0.36, 0.64, 1.0], [0.5, 0.5, 0.15]] },
+  { id: 1004, pts: [[0.62, 0.3, 0.35]] },
+];
 
 // ---- the unit (lead) map — morphInit's, hypersaw_clap.cpp ~3095-3140 -------------
 // Identity, then: root + twelve degrees share one lead; each FX slot's type, amount
@@ -969,6 +1078,15 @@ const S = {
   collapsed: {},
   sel: -1, selCorner: 0, selAbsent: -1,
   draft: null,                               // { i, k, v } — staged, not sent
+  // ---- B235 waypoints ----
+  wp: {},                                    // row index -> [[x, y, v], ...], insertion order
+  wpVer: 0,                                  // bumped on every pin change (surface cache key)
+  law: 'tps',                                // the law blend uses for a row with pins
+  hullClamp: true,                           // clamp to the values the player set
+  b232: false,                               // B232's off-corner rule (proposed, not built)
+  wpArm: false,                              // the selected row is armed: an edit pins HERE
+  wpSel: -1,                                 // the selected pin of the selected row
+  wpMsg: '',                                 // the last refusal, stated in the inspector
 };
 let G = reshuffle(S.seed, N);
 
@@ -984,13 +1102,21 @@ function resetCorners() {
     for (let k = 0; k < 4; k++) S.corners[k][i] = stored;
     S.live[i] = e.live;
   }
+  S.wp = {}; S.wpSel = -1; S.wpMsg = ''; S.wpVer++;
+  if (S.demo) for (const d of DEMO_WAYPOINTS) {
+    const i = idxOf[d.id]; if (i !== undefined) S.wp[i] = d.pts.map(p => p.slice());
+  }
 }
 resetCorners();
 
 /* RESOLVE one row at the current pad — morphStep's branch order exactly:
    exempt -> engine gate (B203) / osc enable (B48) ramp -> blend (continuous only)
-   -> pick (with ADR-108 hold). Returns what is HEARD and why. */
-function resolveRow(i, w, lw, corners) {
+   -> pick (with ADR-108 hold). Returns what is HEARD and why.
+   B235: (x, y) is the pad position `w` was made from — a waypoint law needs the
+   position, not just the four weights. A row with no pin (and B232 off) never
+   enters the law: it takes the unchanged bilinear lines below, which is the
+   structural half of "a patch without waypoints sounds exactly as today". */
+function resolveRow(i, w, lw, corners, x, y) {
   const row = FIELD_ROWS[i];
   if (S.exempt[i]) return { v: S.live[i], owner: -1, how: 'exempt' };
   if (row[R_KIND] === 'g') {
@@ -1000,6 +1126,12 @@ function resolveRow(i, w, lw, corners) {
     return { v: on > 1e-3 ? 1 : 0, ramp: on, owner: -1, how: 'ramp' };
   }
   if (S.mode === 1 && row[R_KIND] === 'c') {
+    const sf = surfaceFor(i, corners);
+    if (sf) {
+      const px = x === undefined ? w[1] + w[3] : x, py = y === undefined ? w[2] + w[3] : y;
+      const r = surfAt(sf, px, py, row[R_MIN], row[R_MAX], S.hullClamp);
+      return { v: r.v, raw: r.raw, clip: r.clip, wp: sf.n, owner: -1, how: 'blend' };
+    }
     let v = 0;
     for (let k = 0; k < 4; k++) v += w[k] * corners[k][i];
     return { v, owner: -1, how: 'blend' };
@@ -1018,7 +1150,7 @@ function resolveAll() {
   const w = weights(S.x, S.y), lw = logW(w, S.temp);
   HEARD = new Array(N);
   for (let i = 0; i < N; i++) {
-    const r = resolveRow(i, w, lw, S.corners);
+    const r = resolveRow(i, w, lw, S.corners, S.x, S.y);
     HEARD[i] = r;
     S.cur[i] = r.v;
   }
@@ -1057,8 +1189,384 @@ const CENSUS = (function () {
   for (const a of ABSENT_ROWS) if (a[3] === 2) dev++; else gap++;
   return { c: c.c, s: c.s, g: c.g, dev, gap };
 })();
+
+/* ======================================================================
+   BLOCK W — WAYPOINTS (B235). PURE: no DOM, no clock, mulberry32 only.
+   A continuous row may carry a few VALUES PINNED AT PAD POSITIONS ("pins") on
+   top of its four corners, and blend interpolates through them. Everything the
+   page draws and the self-check measures goes through makeSurface + surfAt, so
+   the pictures and the numbers cannot describe two different laws.
+
+   FOUR LAWS, because the brief's two families each have a trap worth seeing:
+     TIN    piecewise-linear over a Delaunay triangulation of corners + pins,
+            interpolating the VALUES. Bounded by construction (every point is a
+            convex combination of three stored values) — but it is not the
+            bilinear law, so the FIRST pin re-shapes the whole pad, and dragging
+            a pin flips triangle edges, so the surface can jump mid-drag.
+     TIN·Δ  the same triangulation interpolating the RESIDUAL (pin value minus
+            what today's bilinear law gives there), added back onto today's law.
+     IDW·Δ  inverse-distance (Shepard, power 2) on the residual — smooth
+            between nodes but flat AT every node: the "flattens" family.
+     TPS·Δ  thin-plate radial basis on the residual — the smooth family, and
+            the one that overshoots.
+   THE Δ (residual) FORM is the lab's own finding, not the brief's: interpolating
+   the residual with the corners pinned at residual 0 makes "no pin" EXACTLY
+   today's law and makes the first pin, set to what you hear, change nothing.
+   It costs TIN its free bound, which is why HULL CLAMP (clamp to the range of
+   values the player actually set) is a switch the page exposes.
+
+   Corners are READ, never computed: surfAt returns today's base law at the four
+   exact corner positions and skips every clamp, so a waypoint cannot change the
+   value AT a corner — bit for bit. The self-check proves that for every law and
+   measures what the guard is protecting against (M3). */
+const WP_CAP_ROW = 8;            // pins per parameter — the limit answer on the page says why
+const WP_CAP_PATCH = 64;         // pins per patch
+const WP_SNAP = 0.04;            // pad units: a position this close to another IS that position
+const WP_GUARD = 0.04;           // pad units: this close to a corner you are editing the corner
+const LAWS = ['tin', 'tind', 'idw', 'tps'];
+const LAW_NAME = { tin: 'TIN', tind: 'TIN·Δ', idw: 'IDW·Δ', tps: 'TPS·Δ' };
+const CORNER_XY = [[0, 0], [1, 0], [0, 1], [1, 1]];   // weights() order: A B C D
+const TICKS_PER_S = 44100 / 256;  // the morph grid, kGravGridSeconds (src/swarm_core.h:136)
+/* B232 (proposed, not built): which gate a section's sources hang on. The shell
+   will route this through the depends graph (param_presentation.tsv `depends`
+   is empty for these today); the lab approximates it by SECTION and says so. */
+const B232_GATE = { 0: 150, 1: 1150, 2: 4015 };
+
+function isCornerXY(x, y) { return (x === 0 || x === 1) && (y === 0 || y === 1); }
+
+// Bowyer–Watson, seeded with the square's two triangles (diagonal A–D) rather
+// than a super-triangle: every pin lies inside the square, so the square IS the
+// hull, and a super-triangle's far vertices are what make pins near an edge lose
+// their hull triangles. Deterministic: same pins in the same ORDER, same mesh —
+// co-circular ties (the bare square is one) go to whoever was inserted first,
+// which is why the stored order of a row's pins is part of its state.
+function triOrient(P, a, b, c) {
+  return (P[b][0] - P[a][0]) * (P[c][1] - P[a][1]) - (P[b][1] - P[a][1]) * (P[c][0] - P[a][0]);
+}
+function inCircle(P, t, px, py) {                     // t is CCW; > 0 strictly inside
+  const ax = P[t[0]][0] - px, ay = P[t[0]][1] - py, bx = P[t[1]][0] - px, by = P[t[1]][1] - py,
+        cx = P[t[2]][0] - px, cy = P[t[2]][1] - py;
+  return (ax * ax + ay * ay) * (bx * cy - cx * by) - (bx * bx + by * by) * (ax * cy - cx * ay)
+       + (cx * cx + cy * cy) * (ax * by - bx * ay) > 1e-13;
+}
+function triangulate(P) {
+  let T = [[0, 1, 3], [0, 3, 2]];
+  for (let p = 4; p < P.length; p++) {
+    const bad = [], keep = [];
+    for (const t of T) (inCircle(P, t, P[p][0], P[p][1]) ? bad : keep).push(t);
+    const cnt = {};
+    for (const t of bad) for (let e = 0; e < 3; e++) {
+      const a = t[e], b = t[(e + 1) % 3], k = a < b ? a + ',' + b : b + ',' + a;
+      cnt[k] = (cnt[k] || 0) + 1;
+    }
+    for (const t of bad) for (let e = 0; e < 3; e++) {
+      const a = t[e], b = t[(e + 1) % 3], k = a < b ? a + ',' + b : b + ',' + a;
+      if (cnt[k] !== 1) continue;
+      const o = triOrient(P, a, b, p);
+      if (Math.abs(o) > 1e-14) keep.push(o > 0 ? [a, b, p] : [b, a, p]);   // a pin ON a hull edge splits it
+    }
+    T = keep;
+  }
+  return T;
+}
+function tinAt(P, T, val, x, y) {
+  let best = -Infinity, bv = 0;
+  for (const t of T) {
+    const [a, b, c] = t;
+    const d = (P[b][1] - P[c][1]) * (P[a][0] - P[c][0]) + (P[c][0] - P[b][0]) * (P[a][1] - P[c][1]);
+    const l0 = ((P[b][1] - P[c][1]) * (x - P[c][0]) + (P[c][0] - P[b][0]) * (y - P[c][1])) / d;
+    const l1 = ((P[c][1] - P[a][1]) * (x - P[c][0]) + (P[a][0] - P[c][0]) * (y - P[c][1])) / d;
+    const l2 = 1 - l0 - l1;
+    const v = l0 * val[a] + l1 * val[b] + l2 * val[c];
+    const m = Math.min(l0, l1, l2);
+    if (m >= -1e-12) return v;
+    if (m > best) { best = m; bv = v; }
+  }
+  return bv;
+}
+function idwAt(P, val, x, y) {
+  let sw = 0, s = 0;
+  for (let j = 0; j < P.length; j++) {
+    const dx = x - P[j][0], dy = y - P[j][1], d2 = dx * dx + dy * dy;
+    if (d2 < 1e-24) return val[j];
+    const w = 1 / d2; sw += w; s += w * val[j];
+  }
+  return s / sw;
+}
+function tpsPhi(d) { return d > 0 ? d * d * Math.log(d) : 0; }
+// Thin-plate spline through P with values r: [K P; Pᵀ 0][w; a] = [r; 0], solved by
+// Gaussian elimination with partial pivoting. In the shell this is an EDIT-TIME
+// solve on the main thread (≤ 15 unknowns at the cap); the audio thread only
+// evaluates. A zero right-hand side stays exactly zero through elimination, which
+// is why a pin at residual 0 contributes exactly nothing.
+function tpsSolve(P, r) {
+  const m = P.length, n = m + 3;
+  const A = [];
+  for (let i = 0; i < n; i++) A.push(new Float64Array(n + 1));
+  for (let i = 0; i < m; i++) {
+    for (let j = 0; j < m; j++) A[i][j] = tpsPhi(Math.hypot(P[i][0] - P[j][0], P[i][1] - P[j][1]));
+    A[i][m] = 1; A[i][m + 1] = P[i][0]; A[i][m + 2] = P[i][1]; A[i][n] = r[i];
+    A[m][i] = 1; A[m + 1][i] = P[i][0]; A[m + 2][i] = P[i][1];
+  }
+  for (let c = 0; c < n; c++) {
+    let p = c;
+    for (let i = c + 1; i < n; i++) if (Math.abs(A[i][c]) > Math.abs(A[p][c])) p = i;
+    if (p !== c) { const t = A[p]; A[p] = A[c]; A[c] = t; }
+    const d = A[c][c];
+    if (Math.abs(d) < 1e-300) continue;
+    for (let i = c + 1; i < n; i++) {
+      const f = A[i][c] / d;
+      if (f === 0) continue;
+      for (let j = c; j <= n; j++) A[i][j] -= f * A[c][j];
+    }
+  }
+  const x = new Float64Array(n);
+  for (let i = n - 1; i >= 0; i--) {
+    let s = A[i][n];
+    for (let j = i + 1; j < n; j++) s -= A[i][j] * x[j];
+    x[i] = Math.abs(A[i][i]) < 1e-300 ? 0 : s / A[i][i];
+  }
+  return x;
+}
+function tpsAt(P, co, x, y) {
+  const m = P.length;
+  let s = co[m] + co[m + 1] * x + co[m + 2] * y;
+  for (let j = 0; j < m; j++) s += co[j] * tpsPhi(Math.hypot(x - P[j][0], y - P[j][1]));
+  return s;
+}
+
+/* makeSurface — PURE. c: the four corner values [A,B,C,D]; pins: [[x,y,v],...]
+   in stored order; law ∈ LAWS; on: B232's per-corner source state [0/1 ×4], or
+   null for today's plain bilinear base. */
+function makeSurface(c, pins, law, on) {
+  const base = (x, y) => {
+    const w = weights(x, y);
+    if (on) {
+      let live = 0, s = 0;
+      for (let k = 0; k < 4; k++) if (on[k]) { live += w[k]; s += w[k] * c[k]; }
+      // B232's switch-over sits under the −60 dB floor (1e-3, the gate floor
+      // resolveRow uses): below it the source is silent and the row reads the
+      // plain blend, so a pure OFF corner still reads back its stored value.
+      if (live > 1e-3) return s / live;
+    }
+    let v = 0;                                   // resolveRow's blend lines, same order
+    for (let k = 0; k < 4; k++) v += w[k] * c[k];
+    return v;
+  };
+  const n = pins.length;
+  const P = CORNER_XY.concat(pins.map(p => [p[0], p[1]]));
+  let lo = Math.min(c[0], c[1], c[2], c[3]), hi = Math.max(c[0], c[1], c[2], c[3]);
+  for (const p of pins) { lo = Math.min(lo, p[2]); hi = Math.max(hi, p[2]); }
+  const val = law === 'tin' ? c.concat(pins.map(p => p[2]))
+                            : [0, 0, 0, 0].concat(pins.map(p => p[2] - base(p[0], p[1])));
+  let R = () => 0, tri = null, terms = 4;
+  if (n && (law === 'tin' || law === 'tind')) { tri = triangulate(P); R = (x, y) => tinAt(P, tri, val, x, y); terms = tri.length; }
+  else if (n && law === 'idw') { R = (x, y) => idwAt(P, val, x, y); terms = P.length; }
+  else if (n && law === 'tps') { const co = tpsSolve(P, val); R = (x, y) => tpsAt(P, co, x, y); terms = P.length; }
+  const raw = law === 'tin' ? (x, y) => (n ? R(x, y) : base(x, y)) : (x, y) => base(x, y) + R(x, y);
+  return { base, raw, tri, P, lo, hi, n, law, terms };
+}
+/* What is HEARD from a surface at (x, y). clip bit 1: the law left the range of
+   values the player set (the hull) — clamped to it when hullClamp; bit 2: the
+   value would have left the PARAMETER's range and was clamped there (always;
+   that clamp is safety, not taste). */
+function surfAt(s, x, y, rmin, rmax, hullClamp) {
+  if (isCornerXY(x, y)) { const v = s.base(x, y); return { v, raw: v, clip: 0 }; }
+  const raw = s.raw(x, y);
+  if (!s.n) return { v: raw, raw, clip: 0 };
+  let v = raw, clip = 0;
+  const eps = 1e-9 * ((rmax - rmin) || 1);
+  if (raw < s.lo - eps || raw > s.hi + eps) { clip |= 1; if (hullClamp) v = Math.min(s.hi, Math.max(s.lo, v)); }
+  if (v < rmin || v > rmax) { clip |= 2; v = Math.min(rmax, Math.max(rmin, v)); }
+  return { v, raw, clip };
+}
+/* The page's surfaces, cached on everything they depend on: the row, the law,
+   its four corner values (a STAGED corner edit is a different surface), B232's
+   gate states, and the pin version. A paint asks for the same surface thousands
+   of times; a TPS solve per sample would be the lab lying about the cost model,
+   in which the solve happens once per edit. */
+const SURF = new Map();
+function b232On(i, corners) {
+  if (!S.b232 || FIELD_ROWS[i][R_KIND] !== 'c') return null;
+  const g = B232_GATE[FIELD_ROWS[i][R_SEC]];
+  if (g === undefined) return null;
+  const j = idxOf[g];
+  return [0, 1, 2, 3].map(k => (corners[k][j] > 0.5 ? 1 : 0));
+}
+function surfaceFor(i, corners, law, pinsOverride) {
+  law = law || S.law;
+  const pins = pinsOverride || S.wp[i] || [];
+  const on = b232On(i, corners);
+  if (!pins.length && !on) return null;
+  const c = [corners[0][i], corners[1][i], corners[2][i], corners[3][i]];
+  if (pinsOverride) return makeSurface(c, pins, law, on);
+  const key = i + '|' + law + '|' + c.join(',') + '|' + (on ? on.join('') : '-') + '|' + S.wpVer;
+  let s = SURF.get(key);
+  if (s) return s;
+  if (SURF.size > 512) SURF.clear();
+  s = makeSurface(c, pins, law, on);
+  SURF.set(key, s);
+  return s;
+}
+function pinSpotOk(pins, x, y, skip) {
+  if (!(x >= 0 && x <= 1 && y >= 0 && y <= 1)) return false;
+  for (const q of CORNER_XY) if (Math.hypot(x - q[0], y - q[1]) < WP_GUARD) return false;
+  for (let j = 0; j < pins.length; j++) if (j !== skip && Math.hypot(x - pins[j][0], y - pins[j][1]) < WP_SNAP) return false;
+  return true;
+}
+
+/* THE SELF-CHECK. Seeded fixtures (mulberry32, seed 235): random corners, 1..8
+   pins at legal spots, every fourth fixture with a pin ON a hull edge; range
+   [0,1]; sampled on a 17×17 grid that includes the corners and the edges.
+   PROPERTIES (must hold): P1 no pin = today's bilinear, bit for bit; P2 corners
+   bit-identical under every law; P3 every law passes through every pin; P4 TIN
+   never leaves the hull of its values; P5 under every Δ law the FIRST pin, set
+   to what you hear, changes nothing; P6 the planted overshoot is flagged and
+   clamped exactly at the bound.
+   CONTROLS (must FAIL / must read zero, or the checks above prove nothing):
+   M1 a law that ignores pins fails P3; M2 the hull check fed a value 1% past the
+   hull fails; M6 the overshoot flag reads ZERO on the same planted case under
+   TIN, and under TPS·Δ with the hull clamp on — a flagger that always fires would
+   pass P6 alone. M3 is a measurement: how far TPS·Δ lands from a corner WITHOUT
+   the corner guard — the thing the guard exists to stop. */
+const PROBES = [];
+for (let py = 0; py < 5; py++) for (let px = 0; px < 5; px++) PROBES.push([(px + 0.5) / 5, (py + 0.5) / 5]);
+const WP_PLANTED = { c: [0.8, 0.8, 0.55, 0.9], pins: [[0.36, 0.64, 1.0], [0.5, 0.5, 0.15]] };
+function waypointAudit() {
+  const st = { a: 235 }, rnd = () => mulberry32Next(st);
+  const F = [];
+  for (let f = 0; f < 24; f++) {
+    const c = [rnd(), rnd(), rnd(), rnd()];
+    const want = 1 + Math.floor(rnd() * WP_CAP_ROW), pins = [];
+    if (f % 4 === 3) { const x = 0.2 + 0.6 * rnd(); pins.push([x, 0, rnd()]); }
+    for (let t = 0; pins.length < want && t < 400; t++) {
+      const x = rnd(), y = rnd(), v = rnd();
+      if (pinSpotOk(pins, x, y)) pins.push([x, y, v]);
+    }
+    F.push({ c, pins });
+  }
+  const TOL = 1e-9;
+  const GN = 17, grid = [];
+  for (let gy = 0; gy < GN; gy++) for (let gx = 0; gx < GN; gx++) grid.push([gx / (GN - 1), gy / (GN - 1)]);
+  const bil = (c, x, y) => { const w = weights(x, y); let v = 0; for (let k = 0; k < 4; k++) v += w[k] * c[k]; return v; };
+  const at = (s, x, y, clamp) => surfAt(s, x, y, 0, 1, clamp);
+  // The two checks the controls re-run: ONE function each, so a control that
+  // fires proves the check the properties used can see a failure.
+  const p3Miss = (s, pins) => pins.filter(p => Math.abs(s.raw(p[0], p[1]) - p[2]) > TOL).length;
+  const p4Scan = s => grid.filter(([x, y]) => {
+    const r = isCornerXY(x, y) ? s.base(x, y) : s.raw(x, y);
+    return Math.max(s.lo - r, r - s.hi, 0) > TOL;
+  }).length;
+  const fails = { P1: 0, P2: 0, P3: 0, P4: 0, P5: 0, P6: 0 };
+  const table = {};
+  for (const law of LAWS) table[law] = { hullPk: 0, hullCfg: 0, rangeCfg: 0, nth: 0, drag: 0, reach: 0, terms: 0 };
+  let m3 = 0;
+  for (const fx of F) {
+    for (const law of LAWS) {
+      const T = table[law];
+      const s0 = makeSurface(fx.c, [], law, null);
+      for (const [x, y] of grid) if (at(s0, x, y, true).v !== bil(fx.c, x, y)) fails.P1++;
+      const s = makeSurface(fx.c, fx.pins, law, null);
+      T.terms = Math.max(T.terms, s.terms);
+      for (let k = 0; k < 4; k++) if (at(s, CORNER_XY[k][0], CORNER_XY[k][1], true).v !== fx.c[k]) fails.P2++;
+      if (law === 'tps') for (let k = 0; k < 4; k++) m3 = Math.max(m3, Math.abs(s.raw(CORNER_XY[k][0], CORNER_XY[k][1]) - fx.c[k]));
+      fails.P3 += p3Miss(s, fx.pins);
+      if (law === 'tin') fails.P4 += p4Scan(s);
+      let pk = 0, anyR = false;
+      for (const [x, y] of grid) {
+        const r = isCornerXY(x, y) ? s.base(x, y) : s.raw(x, y);
+        const ex = Math.max(s.lo - r, r - s.hi, 0);
+        pk = Math.max(pk, ex);
+        if (r < -TOL || r > 1 + TOL) anyR = true;
+      }
+      if (pk > TOL) T.hullCfg++;
+      T.hullPk = Math.max(T.hullPk, pk);
+      if (anyR) T.rangeCfg++;
+      // P5: the first pin at the heard value (Δ laws), and the measured Nth pin.
+      const q = [0.5 + 0.3 * (fx.c[0] - 0.5), 0.5 + 0.3 * (fx.c[1] - 0.5)];
+      if (law !== 'tin') {
+        const b0 = makeSurface(fx.c, [], law, null);
+        const s1 = makeSurface(fx.c, [[q[0], q[1], b0.raw(q[0], q[1])]], law, null);
+        for (const [x, y] of grid) if (Math.abs(at(s1, x, y, false).v - at(b0, x, y, false).v) > 1e-12) { fails.P5++; break; }
+      }
+      // NTH PIN (measured): one more pin, set to exactly what the law already
+      // gives at a spot where it is inside the range (a knob cannot set more),
+      // compared as RAW surfaces — how far the rest of the pad moves.
+      let spot = null;
+      for (let t = 0; t < 40 && !spot; t++) {
+        const x = 0.1 + 0.8 * ((t * 0.618034) % 1), y = 0.1 + 0.8 * ((t * 0.381966 + 0.5) % 1);
+        if (pinSpotOk(fx.pins, x, y)) { const r = s.raw(x, y); if (r >= 0 && r <= 1) spot = [x, y, r]; }
+      }
+      if (spot && fx.pins.length < WP_CAP_ROW) {
+        const s2 = makeSurface(fx.c, fx.pins.concat([spot]), law, null);
+        let d = 0;
+        for (const [x, y] of grid) d = Math.max(d, Math.abs((isCornerXY(x, y) ? 0 : s2.raw(x, y) - s.raw(x, y))));
+        T.nth = Math.max(T.nth, d);
+      }
+      // REACH: the share of the pad the LAST pin moves by more than 1% of range.
+      const sm = makeSurface(fx.c, fx.pins.slice(0, -1), law, null);
+      let moved = 0;
+      for (const [x, y] of grid) if (Math.abs(at(s, x, y, false).v - at(sm, x, y, false).v) > 0.01) moved++;
+      T.reach += moved / grid.length / F.length;
+      // DRAG (measured): pin 0 walked 40 steps toward its mirror image across
+      // the pad centre. The step whose 25 probe values change most is then
+      // BISECTED 24 times, always keeping the half that changes more. A law
+      // continuous in its pin positions shrinks to ~0 over a ~1e-9 move; a mesh
+      // that flips an edge keeps the jump. The number is that residue.
+      const p0 = fx.pins[0], to = [1 - p0[0], 1 - p0[1]];
+      const probeAt = t => {
+        const x = p0[0] + (to[0] - p0[0]) * t, y = p0[1] + (to[1] - p0[1]) * t;
+        if (!pinSpotOk(fx.pins, x, y, 0)) return null;
+        const pins = fx.pins.slice(); pins[0] = [x, y, p0[2]];
+        const sd = makeSurface(fx.c, pins, law, null);
+        return PROBES.map(([u, v]) => sd.raw(u, v));
+      };
+      const diff = (a, b) => { let d = 0; for (let j = 0; j < a.length; j++) d = Math.max(d, Math.abs(a[j] - b[j])); return d; };
+      let prev = null, worst = null;
+      for (let k = 0; k <= 40; k++) {
+        const cur = probeAt(k / 40);
+        if (cur && prev && (!worst || diff(cur, prev) > worst.d)) worst = { a: (k - 1) / 40, b: k / 40, d: diff(cur, prev) };
+        prev = cur;                              // a skipped (illegal) spot resets the walk
+      }
+      if (worst) {
+        let a = worst.a, b = worst.b, va = probeAt(a), vb = probeAt(b);
+        for (let it = 0; it < 24 && va && vb; it++) {
+          const m = (a + b) / 2, vm = probeAt(m);
+          if (!vm) break;
+          if (diff(va, vm) >= diff(vm, vb)) { b = m; vb = vm; } else { a = m; va = vm; }
+        }
+        if (va && vb) T.drag = Math.max(T.drag, diff(va, vb));
+      }
+    }
+  }
+  // P6 — the planted overshoot, and its must-read-zero controls (M6).
+  const flags = (law, clamp) => {
+    const s = makeSurface(WP_PLANTED.c, WP_PLANTED.pins, law, null);
+    let n = 0, exact = true;
+    for (const [x, y] of grid) {
+      const r = at(s, x, y, clamp);
+      if (r.clip & 2) { n++; if (!(r.v === 0 || r.v === 1)) exact = false; }
+    }
+    return { n, exact };
+  };
+  const pl = flags('tps', false);
+  if (!(pl.n > 0 && pl.exact)) fails.P6++;
+  const m6tin = flags('tin', false).n, m6clamp = flags('tps', true).n;
+  // M1 — a law that ignores its pins must FAIL P3.
+  let m1 = 0;
+  for (const fx of F) m1 += p3Miss(makeSurface(fx.c, [], 'tind', null), fx.pins);
+  // M2 — the hull scan must see ONE sample planted 1% past the hull, mid-pad.
+  const hs = makeSurface(F[0].c, F[0].pins, 'tin', null);
+  const m2 = p4Scan(Object.assign({}, hs, { raw: (x, y) => (x === 0.5 && y === 0.5 ? hs.hi + 0.01 : hs.raw(x, y)) }));
+  const props = Object.keys(fails).filter(k => fails[k] === 0).length;
+  const controls = (m1 > 0 ? 1 : 0) + (m2 > 0 ? 1 : 0) + (m6tin === 0 ? 1 : 0) + (m6clamp === 0 ? 1 : 0);
+  return { cases: F.length, grid: GN, fails, props, nProps: 6, controls, nControls: 4,
+           m1, m2, m6tin, m6clamp, planted: pl.n, m3, table };
+}
+const WP_AUDIT = waypointAudit();
+
 // Exposed for headless probes only; nothing on the page reads it back.
-if (typeof window !== 'undefined') window.__morphEditorAudit = { parity: PARITY, census: CENSUS, n: N };
+if (typeof window !== 'undefined') window.__morphEditorAudit = { parity: PARITY, census: CENSUS, n: N, waypoints: WP_AUDIT };
 </script>
 
 <script>
@@ -1170,7 +1678,8 @@ function rowVisible(i) {
   if (S.view === 'all') return true;
   if (S.view === 'exempt') return !!S.exempt[i];
   if (S.view === 'absent') return false;
-  return differs(i) || !!S.exempt[i] || i === S.sel || (S.draft && S.draft.i === i);
+  if (S.view === 'wp') return nPins(i) > 0 || i === S.sel;
+  return differs(i) || nPins(i) > 0 || !!S.exempt[i] || i === S.sel || (S.draft && S.draft.i === i);
 }
 function headHTML(w) {
   const owns = [0, 0, 0, 0];
@@ -1205,16 +1714,19 @@ function hearHTML(i) {
       + `<span class="ctx">${H.v ? 'ON' : 'OFF'}</span><span class="hx">level ${(f * 100).toFixed(0)}%</span></div>`;
   }
   const own = H.owner >= 0 && !H.held ? ` own" style="--own:var(${CVAR[H.owner]})` : '';
-  const tail = H.held ? '<span class="hx">· held</span>' : (H.how === 'blend' ? '<span class="hx">blend</span>' : `<span class="hx">${CORNERS[H.owner]}</span>`);
+  let tail = H.held ? '<span class="hx">· held</span>' : (H.how === 'blend' ? `<span class="hx">blend${H.wp ? ' ◆' : ''}</span>` : `<span class="hx">${CORNERS[H.owner]}</span>`);
+  // B235: say it when the law had to be clamped HERE — a clip is never silent.
+  if (H.clip & 2) tail += '<span class="hx clip" title="the law left the parameter’s range here and was clamped">clipped</span>';
+  else if ((H.clip & 1) && !S.hullClamp) tail += '<span class="hx past" title="the law is outside every value you set for this row">past set</span>';
   return `<div class="hear${own}">${valueHTML(i, H.v, true)}${tail}</div>`;
 }
 function rowHTML(i) {
   const r = FIELD_ROWS[i];
   const unit = r[R_UNITLEAD] ? `<span class="unit" title="flips and exempts as one unit of ${UNIT_SIZE[r[R_UNITLEAD]]}">UNIT·${esc(r[R_UNITLEAD].toUpperCase())}</span>` : '';
-  const same = differs(i) ? '' : ' same';
+  const same = differs(i) || nPins(i) ? '' : ' same';
   const sel = i === S.sel ? ' sel' : '';
   let h = `<div class="grow${same}${sel}" data-i="${i}"><div class="gk">${kindGlyph(r[R_KIND])}</div>`
-    + `<div class="gp"><span class="pl">${esc(r[R_LABEL])}${unit}</span><span class="ph">${esc(r[R_HOST])} · ${r[R_ID]}</span></div>`;
+    + `<div class="gp"><span class="pl">${esc(r[R_LABEL])}${unit}${wpBadge(i)}</span><span class="ph">${esc(r[R_HOST])} · ${r[R_ID]}</span></div>`;
   if (S.exempt[i]) {
     let stored = S.corners[0][i];
     const jump = Math.abs(stored - S.live[i]) > 1e-9;
@@ -1277,6 +1789,8 @@ function renderGrid() {
   renderCensus(shown, absVis.length);
   renderWeights(w);
   paintPad();
+  paintLaws();
+  renderAnswers();
 }
 
 // ---- find / census --------------------------------------------------------------
@@ -1293,7 +1807,7 @@ function buildFind() {
   const vp = $('viewPills');
   if (vp) {
     vp.innerHTML = '';
-    [['differs', 'WHERE CORNERS DIFFER'], ['all', 'ALL 273'], ['exempt', '⊘ EXEMPT'], ['absent', '— NOT IN FIELD']].forEach(([v, t]) => {
+    [['differs', 'WHERE CORNERS DIFFER'], ['all', 'ALL 273'], ['wp', '◆ WAYPOINTS'], ['exempt', '⊘ EXEMPT'], ['absent', '— NOT IN FIELD']].forEach(([v, t]) => {
       const b = document.createElement('button'); b.className = 'pill' + (S.view === v ? ' on' : ''); b.textContent = t;
       b.addEventListener('click', () => { S.view = v; buildFind(); renderGrid(); });
       vp.appendChild(b);
@@ -1344,16 +1858,24 @@ function paintPad() {
   const { g, w: W, h: H, v } = G2;
   const i = S.sel;
   const M = 56;
-  if (i >= 0 && !S.exempt[i]) {
-    const vals = new Float64Array(M * M), sw = new Uint8Array(M * M), own = new Int8Array(M * M);
+  const dc = draftCorners();
+  const kind = i >= 0 ? FIELD_ROWS[i][R_KIND] : '';
+  if (i >= 0 && !S.exempt[i] && kind === 'c' && S.mode === 1) {
+    // B235: a continuous row under BLEND is painted from its SURFACE — the same
+    // makeSurface/surfAt the HEARING column and the self-check use.
+    const smp = sampleRow(i, dc, S.law, M);
+    paintField(g, W, H, v, M, smp);
+    drawTriangulation(g, W, H, v, smp.sf);
+  } else if (i >= 0 && !S.exempt[i]) {
+    const vals = new Float64Array(M * M), sw = new Uint8Array(M * M);
     const savedCur = S.cur[i];
     for (let yy = 0; yy < M; yy++) for (let xx = 0; xx < M; xx++) {
       const x = (xx + 0.5) / M, y = (yy + 0.5) / M;
       const ww = weights(x, y), lw = logW(ww, S.temp);
-      const r = resolveRow(i, ww, lw, draftCorners());
+      const r = resolveRow(i, ww, lw, dc, x, y);
       const q = yy * M + xx;
       vals[q] = r.how === 'ramp' ? r.ramp : norm(i, r.v);
-      sw[q] = r.v > 0.5 ? 1 : 0; own[q] = r.owner;
+      sw[q] = r.v > 0.5 ? 1 : 0;
     }
     S.cur[i] = savedCur;
     const cw = W / M, chh = H / M;
@@ -1362,18 +1884,20 @@ function paintPad() {
       g.fillStyle = RGBA(phys, (0.06 + 0.86 * vals[q]) * Math.min(1, parseFloat(TOK('--scr-alpha', '1')) || 1));
       g.fillRect((q % M) * cw, Math.floor(q / M) * chh, cw + 0.5, chh + 0.5);
     }
-    const kind = FIELD_ROWS[i][R_KIND];
-    const smooth = (kind === 'c' && S.mode === 1);
     g.strokeStyle = TOKA('--scr-marker', 0.95); g.lineWidth = 1.5 * v;
     g.beginPath();
     for (let yy = 0; yy < M; yy++) for (let xx = 0; xx < M; xx++) {
       const q = yy * M + xx;
-      const edge = (a, b) => kind === 'g' ? sw[a] !== sw[b] : (!smooth && Math.abs(vals[a] - vals[b]) > 1e-9);
+      const edge = (a, b) => kind === 'g' ? sw[a] !== sw[b] : Math.abs(vals[a] - vals[b]) > 1e-9;
       if (xx + 1 < M && edge(q, q + 1)) { g.moveTo((xx + 1) * cw, yy * chh); g.lineTo((xx + 1) * cw, (yy + 1) * chh); }
       if (yy + 1 < M && edge(q, q + M)) { g.moveTo(xx * cw, (yy + 1) * chh); g.lineTo((xx + 1) * cw, (yy + 1) * chh); }
     }
     g.stroke();
   }
+  // B235, GLOBAL: every position that carries ANY row's pin, as a small ink
+  // square — the "stations". Drawn under the selected row's own pins.
+  drawStations(g, W, H, v, i >= 0 ? 1 : 1.6);
+  if (i >= 0 && nPins(i)) drawPins(g, W, H, v, i, !!wpDormant(i), true);
   // corner identity: a tab in each corner, in the corner's own colour
   const tabs = [[0, 0], [1, 0], [0, 1], [1, 1]];
   g.font = `${10 * v}px ui-monospace,Menlo,monospace`; g.textBaseline = 'middle'; g.textAlign = 'center';
@@ -1387,13 +1911,121 @@ function paintPad() {
   g.strokeStyle = TOK('--scr-value'); g.lineWidth = 2 * v;
   g.beginPath(); g.arc(S.x * W, S.y * H, 7 * v, 0, 6.2832); g.stroke();
   g.beginPath(); g.arc(S.x * W, S.y * H, 1.5 * v, 0, 6.2832); g.fillStyle = TOK('--scr-value'); g.fill();
+  // ON A PIN: a dashed attention ring round the puck — the marker phosphor.
+  const on = i >= 0 ? pinAtPuck(i) : -1;
+  if (on >= 0) {
+    g.strokeStyle = TOKA('--scr-marker', 1); g.lineWidth = 1.6 * v;
+    if (g.setLineDash) g.setLineDash([3 * v, 2.5 * v]);
+    g.beginPath(); g.arc(S.x * W, S.y * H, 13 * v, 0, 6.2832); g.stroke();
+    if (g.setLineDash) g.setLineDash([]);
+  }
   const cap = $('padCap');
   if (cap) {
-    if (i < 0) cap.innerHTML = 'Select a row and the pad paints <b>that row</b> across every position.';
+    const st = stationCensus();
+    const glob = st.pins ? ` <b>${st.pins}</b> pin${st.pins > 1 ? 's' : ''} on <b>${st.rows}</b> row${st.rows > 1 ? 's' : ''} at <b>${st.pos}</b> position${st.pos > 1 ? 's' : ''} (▫).` : '';
+    if (i < 0) cap.innerHTML = 'Select a row and the pad paints <b>that row</b> across every position.' + glob;
     else if (S.exempt[i]) cap.innerHTML = `<b>${esc(FIELD_ROWS[i][R_LABEL])}</b> is exempt — it has no map; it holds its live value everywhere.`;
+    else if (kind === 'c' && S.mode === 1) cap.innerHTML = `Painted: <b>${esc(FIELD_ROWS[i][R_LABEL])}</b> under <b>${LAW_NAME[S.law]}</b>${nPins(i) ? ` through ${nPins(i)} pin${nPins(i) > 1 ? 's' : ''} (◆, drag to move)` : ' — no pins: today’s blend, untouched'}.`
+      + (on >= 0 ? ` <b>The puck is ON ◆${on + 1}</b> — an armed edit changes its value.` : '');
     else cap.innerHTML = `Painted: <b>${esc(FIELD_ROWS[i][R_LABEL])}</b> (${esc(FIELD_ROWS[i][R_HOST])}) — ${
-      FIELD_ROWS[i][R_KIND] === 'g' ? 'level gradient; the line is where the switch flips'
-      : (FIELD_ROWS[i][R_KIND] === 'c' && S.mode === 1 ? 'a smooth blend' : 'flat regions; lines are where it jumps')}.`;
+      kind === 'g' ? 'level gradient; the line is where the switch flips'
+      : 'flat regions; lines are where it jumps'}.` + (nPins(i) ? ` Its ${nPins(i)} pin${nPins(i) > 1 ? 's are' : ' is'} <b>dormant</b> (◇) under ${wpDormant(i)}.` : '');
+  }
+}
+
+// ---- B235 painters: one per overlay, shared by the pad and the four law minis --
+/* Sample a continuous row's blend surface under `law` on an M×M grid of cell
+   centres (never a corner, so the corner guard never fires here). */
+function sampleRow(i, corners, law, M, pinsOverride) {
+  const r = FIELD_ROWS[i];
+  const sf = surfaceFor(i, corners, law, pinsOverride);
+  const vals = new Float64Array(M * M), raw = new Float64Array(M * M), clip = new Uint8Array(M * M);
+  for (let yy = 0; yy < M; yy++) for (let xx = 0; xx < M; xx++) {
+    const x = (xx + 0.5) / M, y = (yy + 0.5) / M, q = yy * M + xx;
+    if (sf) { const o = surfAt(sf, x, y, r[R_MIN], r[R_MAX], S.hullClamp); vals[q] = o.v; raw[q] = o.raw; clip[q] = o.clip; }
+    else { const w = weights(x, y); let s = 0; for (let k = 0; k < 4; k++) s += w[k] * corners[k][i]; vals[q] = raw[q] = s; }
+  }
+  return { i, M, sf, vals, raw, clip };
+}
+/* The surface as a picture: brightness = value; faint contour lines every tenth
+   of the range (a crease shows as a kink in them); hatches where a clamp acted —
+   alarm "/" at the parameter's range, caution "\" outside the values set. */
+function paintField(g, W, H, v, M, smp) {
+  const i = smp.i, cw = W / M, chh = H / M;
+  const phys = TOK('--scr-physics'), am = Math.min(1, parseFloat(TOK('--scr-alpha', '1')) || 1);
+  const lv = new Int16Array(M * M);
+  for (let q = 0; q < M * M; q++) {
+    const n = norm(i, smp.vals[q]);
+    lv[q] = Math.min(9, Math.floor(n * 10));
+    g.fillStyle = RGBA(phys, (0.06 + 0.86 * n) * am);
+    g.fillRect((q % M) * cw, Math.floor(q / M) * chh, cw + 0.5, chh + 0.5);
+  }
+  g.strokeStyle = TOKA('--scr-grid', 0.45); g.lineWidth = 0.8 * v;
+  g.beginPath();
+  for (let yy = 0; yy < M; yy++) for (let xx = 0; xx < M; xx++) {
+    const q = yy * M + xx;
+    if (xx + 1 < M && lv[q] !== lv[q + 1]) { g.moveTo((xx + 1) * cw, yy * chh); g.lineTo((xx + 1) * cw, (yy + 1) * chh); }
+    if (yy + 1 < M && lv[q] !== lv[q + M]) { g.moveTo(xx * cw, (yy + 1) * chh); g.lineTo((xx + 1) * cw, (yy + 1) * chh); }
+  }
+  g.stroke();
+  const hatch = (bit, col, dir) => {
+    g.strokeStyle = col; g.lineWidth = 1.1 * v; g.beginPath();
+    for (let q = 0; q < M * M; q++) {
+      if (bit === 2 ? !(smp.clip[q] & 2) : (smp.clip[q] !== 1)) continue;
+      const x0 = (q % M) * cw, y0 = Math.floor(q / M) * chh;
+      if (dir > 0) { g.moveTo(x0, y0 + chh); g.lineTo(x0 + cw, y0); } else { g.moveTo(x0, y0); g.lineTo(x0 + cw, y0 + chh); }
+    }
+    g.stroke();
+  };
+  hatch(1, RGBA(TOK('--caution', '#F5A300'), 0.9), -1);
+  hatch(2, RGBA(TOK('--alarm', '#C2261A'), 1), 1);
+}
+function drawTriangulation(g, W, H, v, sf) {
+  if (!sf || !sf.tri) return;
+  g.strokeStyle = TOKA('--scr-grid', 0.7); g.lineWidth = 0.9 * v;
+  if (g.setLineDash) g.setLineDash([2.5 * v, 2.5 * v]);
+  g.beginPath();
+  for (const t of sf.tri) for (let e = 0; e < 3; e++) {
+    const a = sf.P[t[e]], b = sf.P[t[(e + 1) % 3]];
+    g.moveTo(a[0] * W, a[1] * H); g.lineTo(b[0] * W, b[1] * H);
+  }
+  g.stroke();
+  if (g.setLineDash) g.setLineDash([]);
+}
+/* A pin: a diamond in the value phosphor (authored), hollow when dormant, with
+   its number and value. The selected pin is drawn larger. */
+function drawPins(g, W, H, v, i, dormant, labels) {
+  const pins = S.wp[i] || [];
+  g.font = `${8.5 * v}px ui-monospace,Menlo,monospace`; g.textBaseline = 'bottom'; g.textAlign = 'left';
+  pins.forEach((p, j) => {
+    const x = p[0] * W, y = p[1] * H, r = (j === S.wpSel ? 6.5 : 5) * v;
+    g.beginPath(); g.moveTo(x, y - r); g.lineTo(x + r, y); g.lineTo(x, y + r); g.lineTo(x - r, y); g.closePath();
+    if (dormant) { g.strokeStyle = TOK('--scr-value'); g.lineWidth = 1.4 * v; g.stroke(); }
+    else { g.fillStyle = TOK('--scr-value'); g.fill(); g.strokeStyle = TOK('--scr-tube'); g.lineWidth = 1.2 * v; g.stroke(); }
+    if (labels) {
+      const t = `${j + 1}·${fmt(i, p[2])}`;
+      const tx = Math.min(W - g.measureText(t).width - 3 * v, x + r + 2 * v), ty = Math.max(10 * v, y - 2 * v);
+      g.fillStyle = TOK('--scr-value'); g.fillText(t, tx, ty);
+    }
+  });
+}
+function stationCensus() {
+  const pos = {}; let pins = 0, rows = 0;
+  for (const k in S.wp) {
+    const L = S.wp[k]; if (!L.length) continue;
+    rows++;
+    for (const p of L) { pins++; const key = p[0].toFixed(6) + ',' + p[1].toFixed(6); (pos[key] = pos[key] || { x: p[0], y: p[1], n: 0 }).n++; }
+  }
+  return { pins, rows, pos: Object.keys(pos).length, list: Object.values(pos) };
+}
+function drawStations(g, W, H, v, scale) {
+  const st = stationCensus();
+  g.font = `${8 * v}px ui-monospace,Menlo,monospace`; g.textBaseline = 'top'; g.textAlign = 'left';
+  for (const s of st.list) {
+    const h = 3.2 * v * scale, x = s.x * W, y = s.y * H;
+    g.strokeStyle = TOKA('--scr-grid', 0.95); g.lineWidth = 1.2 * v;
+    g.strokeRect(x - h, y - h, 2 * h, 2 * h);
+    if (s.n > 1) { g.fillStyle = TOKA('--scr-grid', 0.95); g.fillText('×' + s.n, x + h + 1.5 * v, y + h - 1 * v); }
   }
 }
 function draftCorners() {
@@ -1412,7 +2044,7 @@ function paintSweep(cv, i) {
   const pts = [], M = 90;
   for (let s = 0; s <= M; s++) {
     const t = s / M, ww = weights(t, t), lw = logW(ww, S.temp);
-    const r = resolveRow(i, ww, lw, S.corners);
+    const r = resolveRow(i, ww, lw, S.corners, t, t);
     pts.push(r.how === 'ramp' ? r.ramp : norm(i, r.v));
   }
   g.strokeStyle = TOK('--scr-physics'); g.lineWidth = 1.6 * v; g.beginPath();
@@ -1436,13 +2068,264 @@ function buildLegend() {
   paintSweep($('lgC'), iC); paintSweep($('lgS'), iS); paintSweep($('lgG'), iG);
 }
 
+// ---- B235: waypoint state, gestures and refusals ------------------------------
+function nPins(i) { const L = S.wp[i]; return L ? L.length : 0; }
+function wpTotal() { let n = 0; for (const k in S.wp) n += S.wp[k].length; return n; }
+/* Why a row cannot take (or use) a pin right now — null when it can. The first
+   two are PERMANENT (the kind); the last two make existing pins DORMANT. */
+function wpBlocked(i) {
+  const k = FIELD_ROWS[i][R_KIND];
+  if (k === 's') return 'STEPPED';
+  if (k === 'g') return 'GATE';
+  return wpDormant(i);
+}
+function wpDormant(i) {
+  if (S.exempt[i]) return 'EXEMPT';
+  if (S.mode !== 1) return 'QUANTUM';
+  return null;
+}
+function pinAtPuck(i) {
+  const L = S.wp[i] || [];
+  for (let j = 0; j < L.length; j++) if (Math.hypot(L[j][0] - S.x, L[j][1] - S.y) < WP_SNAP) return j;
+  return -1;
+}
+function nearCorner(x, y) {
+  for (let k = 0; k < 4; k++) if (Math.hypot(x - CORNER_XY[k][0], y - CORNER_XY[k][1]) < WP_GUARD) return k;
+  return -1;
+}
+// Any row's pin position within the snap radius — so rows SHARE positions and
+// the global view stays a handful of stations, not a scatter.
+function stationNear(x, y) {
+  let best = null, bd = WP_SNAP;
+  for (const k in S.wp) for (const p of S.wp[k]) {
+    const d = Math.hypot(p[0] - x, p[1] - y);
+    if (d < bd) { bd = d; best = [p[0], p[1]]; }
+  }
+  return best;
+}
+/* THE GESTURE: puck placed, row armed, value turned. On a pin of this row it
+   edits that pin; elsewhere it makes one (snapped to a shared station). The
+   corners never move — that is what separates it from ADR-109's unarmed
+   weighted edit, which moves all four. Returns a refusal string, or ''. */
+function setPinAtPuck(i, val) {
+  const r = FIELD_ROWS[i];
+  const why = wpBlocked(i);
+  if (why) return why === 'QUANTUM' ? 'Pins are dormant under QUANTUM — switch to BLEND to set one.' : `A ${why.toLowerCase()} row takes no pins.`;
+  const v = Math.min(r[R_MAX], Math.max(r[R_MIN], val));
+  const L = S.wp[i] || (S.wp[i] = []);
+  const j = pinAtPuck(i);
+  if (j >= 0) { L[j][2] = v; S.wpSel = j; S.wpVer++; return ''; }
+  const k = nearCorner(S.x, S.y);
+  if (k >= 0) return `The puck is ON corner ${CORNERS[k]} (within ${WP_GUARD}). A value here is the corner’s — edit cell ${CORNERS[k]} instead; a pin never sits on a corner.`;
+  if (L.length >= WP_CAP_ROW) return `This row already has ${WP_CAP_ROW} pins — the per-row limit. Move or delete one.`;
+  if (wpTotal() >= WP_CAP_PATCH) return `The patch already has ${WP_CAP_PATCH} pins — the per-patch limit.`;
+  const st = stationNear(S.x, S.y);
+  const x = st ? st[0] : S.x, y = st ? st[1] : S.y;
+  if (!pinSpotOk(L, x, y)) return 'Too close to another pin of this row — move the puck, or drag that pin.';
+  if (S.b232) {
+    const on = b232On(i, S.corners);
+    if (on) { const w = weights(x, y); let live = 0; for (let q = 0; q < 4; q++) if (on[q]) live += w[q]; if (live <= 1e-3) return 'B232: the source is silent here (every corner that weighs here has it OFF) — a pin could not be heard.'; }
+  }
+  S.x = x; S.y = y;
+  L.push([x, y, v]); S.wpSel = L.length - 1; S.wpVer++;
+  return '';
+}
+function delPin(i, j) {
+  const L = S.wp[i]; if (!L || j < 0 || j >= L.length) return;
+  L.splice(j, 1);
+  if (!L.length) delete S.wp[i];
+  S.wpSel = -1; S.wpVer++;
+}
+function jumpToPin(i, j) {
+  const L = S.wp[i]; if (!L || !L[j]) return;
+  if (i !== S.sel) select(i);
+  S.x = L[j][0]; S.y = L[j][1]; S.wpSel = j; S.wpMsg = '';
+  renderGrid(); renderInspector();
+}
+function wpBadge(i) {
+  const n = nPins(i); if (!n) return '';
+  const d = wpDormant(i), here = pinAtPuck(i) >= 0;
+  return `<span class="wpc${d ? ' dorm' : ''}${here ? ' here' : ''}" data-wpj="${i}" title="${n} pin${n > 1 ? 's' : ''}${d ? ' — dormant under ' + d : ''}${here ? ' — the puck is on one' : ''}; click to jump the puck to the next">${d ? '◇' : '◆'}${n}</span>`;
+}
+
+// ---- B235: the four laws side by side --------------------------------------------
+const REC_LAW = 'tps';        // the lab's recommendation — the answers panel says why
+function buildLaws() {
+  const lp = $('lawPills');
+  if (lp) {
+    lp.innerHTML = '';
+    LAWS.forEach(l => {
+      const b = document.createElement('button'); b.className = 'pill' + (S.law === l ? ' on' : ''); b.textContent = LAW_NAME[l];
+      b.addEventListener('click', () => { S.law = l; buildLaws(); renderGrid(); renderInspector(); });
+      lp.appendChild(b);
+    });
+  }
+  const el = $('laws');
+  if (el && !el.childElementCount) {
+    el.innerHTML = LAWS.map(l => `<div class="law" data-law="${l}"><canvas id="law-${l}" data-lab="the selected row under ${LAW_NAME[l]}"></canvas><div class="ln"><span>${LAW_NAME[l]}${l === REC_LAW ? ' <span class="rec">REC</span>' : ''}</span><small>${LAW_SHORT[l]}</small></div><div class="ls" id="lawS-${l}"></div></div>`).join('');
+    if (el.querySelectorAll) for (const d of el.querySelectorAll('[data-law]')) d.addEventListener('click', () => { S.law = d.getAttribute('data-law'); buildLaws(); renderGrid(); renderInspector(); });
+  }
+  if (el && el.querySelectorAll) for (const d of el.querySelectorAll('[data-law]')) d.classList.toggle('on', d.getAttribute('data-law') === S.law);
+  const h = $('hullIn'); if (h) h.checked = S.hullClamp;
+  const b2 = $('b232In'); if (b2) b2.checked = S.b232;
+}
+const LAW_SHORT = { tin: 'linear · values', tind: 'linear · residual', idw: 'inverse-distance', tps: 'thin-plate spline' };
+/* Each mini paints the selected row under one law and states, measured on its
+   own 44×44 samples: the clip, the excursion past the values set, how much of
+   the pad the selected (or last) pin moves, and what one more pin set to what
+   you hear at the puck would move — the "arming disturbs nothing" test. */
+function paintLaws() {
+  const i = S.sel, note = $('lawNote');
+  const ok = i >= 0 && FIELD_ROWS[i][R_KIND] === 'c' && !S.exempt[i];
+  const M = 44, dc = draftCorners();
+  for (const l of LAWS) {
+    const cv = $('law-' + l), st = $('lawS-' + l);
+    const G2 = ground(cv);
+    if (!ok) { if (st) st.innerHTML = '—'; continue; }
+    const r = FIELD_ROWS[i], span = (r[R_MAX] - r[R_MIN]) || 1;
+    const smp = sampleRow(i, dc, l, M);
+    if (G2) {
+      const { g, w: W, h: H, v } = G2;
+      paintField(g, W, H, v, M, smp); drawTriangulation(g, W, H, v, smp.sf); drawPins(g, W, H, v, i, false, false);
+      g.strokeStyle = TOK('--scr-value'); g.lineWidth = 1.5 * v;
+      g.beginPath(); g.arc(S.x * W, S.y * H, 5 * v, 0, 6.2832); g.stroke();
+    }
+    if (!st) continue;
+    let c2 = 0, c1 = 0, pk = 0;
+    for (let q = 0; q < M * M; q++) {
+      if (smp.clip[q] & 2) c2++;
+      if (smp.clip[q] & 1) c1++;
+      if (smp.sf && smp.sf.n) pk = Math.max(pk, smp.sf.lo - smp.raw[q], smp.raw[q] - smp.sf.hi);
+    }
+    const pct = n => (100 * n / (M * M)).toFixed(0) + '%';
+    const L = S.wp[i] || [];
+    let reach = '', nth = '';
+    if (L.length) {
+      const j = S.wpSel >= 0 && S.wpSel < L.length ? S.wpSel : L.length - 1;
+      const wo = sampleRow(i, dc, l, M, L.filter((_, q) => q !== j).length ? L.filter((_, q) => q !== j) : []);
+      let moved = 0;
+      for (let q = 0; q < M * M; q++) if (Math.abs(smp.vals[q] - wo.vals[q]) > 0.01 * span) moved++;
+      reach = `◆${j + 1} moves <b>${pct(moved)}</b> of the pad`;
+    }
+    if (pinSpotOk(L, S.x, S.y) && nearCorner(S.x, S.y) < 0 && L.length < WP_CAP_ROW && smp.sf) {
+      const at = surfAt(smp.sf, S.x, S.y, r[R_MIN], r[R_MAX], S.hullClamp);
+      const w2 = sampleRow(i, dc, l, M, L.concat([[S.x, S.y, at.raw]]));
+      let d = 0;
+      for (let q = 0; q < M * M; q++) d = Math.max(d, Math.abs(w2.raw[q] - smp.raw[q]));
+      nth = `a pin HERE at what you hear moves the rest by <b>${pctOfSpan(d / span)}</b>`;
+    } else if (!smp.sf) nth = 'a first pin HERE at what you hear moves nothing (P5)';
+    const terms = smp.sf && smp.sf.n ? smp.sf.terms : 4;
+    st.innerHTML = [
+      c2 ? `<span class="al">clipped on ${pct(c2)}</span> of the pad` : 'never clipped',
+      c1 ? `<span class="ca">${S.hullClamp && l !== 'tin' ? 'flattened' : 'past set values'} on ${pct(c1)}</span> · peak +${(100 * pk / span).toFixed(0)}% span` : 'inside the values set',
+      reach, nth,
+      `${terms} ${l === 'tin' || l === 'tind' ? 'triangles to search' : 'kernel terms'} / tick`,
+    ].filter(Boolean).join('<br>');
+  }
+  if (note) {
+    if (!ok) note.innerHTML = 'Select a <b>continuous</b> row (◆ WAYPOINTS in SHOW lists the ones with pins) and the four minis paint it under each law. Click a mini to make that law the one the pad and the HEARING column use.';
+    else note.innerHTML = `Painting <b>${esc(FIELD_ROWS[i][R_LABEL])}</b> (${esc(FIELD_ROWS[i][R_HOST])}) as BLEND would, whatever the mode${
+      S.mode !== 1 ? ' — the patch is in QUANTUM, where these pins are dormant' : ''}. The ring is the puck. ${
+      S.b232 && b232On(i, S.corners) ? '<b>B232 is on</b>: the base blends only the corners where this source is ON. ' : ''}`;
+  }
+}
+// A share of the range as a percent — exactly 0 says 0, a rounding residue says
+// its size (1e-12%), never a row of zeros that reads like a measurement.
+function pctOfSpan(n) {
+  if (n === 0) return '0%';
+  if (n < 1e-5) return (100 * n).toExponential(0) + '%';
+  return (100 * n).toFixed(n < 0.1 ? 1 : 0) + '%';
+}
+function renderFixtureTable() {
+  const el = $('ftab'); if (!el) return;
+  const T = WP_AUDIT.table, P = pctOfSpan;
+  const cell = (v, good) => `<td class="${good ? 'good' : 'poor'}">${v}</td>`;
+  let h = '<table class="ftab"><tr><th>law</th><th>peak past set values</th><th>fixtures past range</th><th>Nth pin at heard value moves pad</th><th>jump while dragging a pin</th><th>mean reach of a pin</th><th>terms / tick @8</th></tr>';
+  for (const l of LAWS) {
+    const t = T[l];
+    h += `<tr><td>${LAW_NAME[l]}${l === REC_LAW ? ' <span class="rec">REC</span>' : ''}</td>`
+      + cell(P(t.hullPk), t.hullPk < 1e-6) + cell(`${t.rangeCfg}/${WP_AUDIT.cases}`, t.rangeCfg === 0)
+      + cell(P(t.nth), t.nth < 1e-6) + cell(P(t.drag), t.drag < 1e-4)
+      + cell(P(t.reach), t.reach < 0.5) + `<td>${t.terms}</td></tr>`;
+  }
+  el.innerHTML = h + '</table><div class="note">Raw laws, before either clamp; range [0, 1]; '
+    + `${WP_AUDIT.cases} seeded fixtures of 1..${WP_CAP_ROW} pins, ${WP_AUDIT.grid}×${WP_AUDIT.grid} samples each. `
+    + '"Jump while dragging" is what survives bisecting the worst drag step 24 times — a continuous law shrinks to ~0, a mesh that flips an edge does not. '
+    + '"Reach" is the share of the pad the last pin moves by more than 1% of range.</div>';
+}
+function renderWpAudit() {
+  const el = $('wpAudit'); if (!el) return;
+  const A = WP_AUDIT, ok = A.props === A.nProps && A.controls === A.nControls;
+  if (el.classList) el.classList.toggle('bad', !ok);
+  const f = Object.keys(A.fails).filter(k => A.fails[k]).map(k => k + '×' + A.fails[k]);
+  el.innerHTML = `waypoint audit — properties <b>${A.props}/${A.nProps}</b> hold over ${A.cases} seeded fixtures × ${LAWS.length} laws `
+    + '(P1 no pin = today’s blend bit for bit · P2 corners bit-identical · P3 through every pin · P4 TIN inside its hull · P5 first pin at the heard value is a no-op · P6 planted overshoot flagged and clamped exactly). '
+    + `Controls <b>${A.controls}/${A.nControls}</b>: M1 a law that ignores its pins misses <b>${A.m1}</b> pins (must be &gt; 0) · M2 a value planted past the hull is seen (<b>${A.m2}</b>) · `
+    + `M6 the overshoot flag reads <b>${A.m6tin}</b> under TIN and <b>${A.m6clamp}</b> under clamped TPS·Δ (must be 0; it fires on <b>${A.planted}</b> samples unclamped). `
+    + `Without the corner guard TPS·Δ lands <b>${A.m3.toExponential(1)}</b> off a corner — why the guard exists.`
+    + (ok ? '' : ' — FAILING: ' + f.join(', '));
+}
+
+// ---- B235: the answers — prose, with the numbers computed, not typed -----------
+function g6(v) { return String(Number(Number(v).toPrecision(6))); }
+function g4(v) { return String(Number(Number(v).toPrecision(4))); }
+function waypointChunk() {
+  const toks = ['L:1'];
+  const rows = Object.keys(S.wp).map(Number).sort((a, b) => a - b);   // morphIds order across rows; insertion order within
+  for (const i of rows) for (const p of S.wp[i]) toks.push(`W:${FIELD_ROWS[i][R_ID]}:${g4(p[0])}:${g4(p[1])}:${g6(p[2])}`);
+  return toks.length > 1 ? `,"morphWaypoints":"${toks.join(',')}"` : '';
+}
+function renderAnswers() {
+  const el = $('answers'); if (!el) return;
+  const T = WP_AUDIT.table;
+  // cost: today's blend is 4 multiply-adds per continuous row per morph tick.
+  const nC = CENSUS.c, today = nC * 4;
+  const worstCap = Math.max(WP_CAP_PATCH * (1 + 4), Math.floor(WP_CAP_PATCH / WP_CAP_ROW) * (WP_CAP_ROW + 4));
+  const noPatchCap = nC * (WP_CAP_ROW + 4);
+  let cornerBytes = 0;
+  for (let k = 0; k < 4; k++) for (let i = 0; i < N; i++) cornerBytes += g6(S.corners[k][i]).length + 1;
+  cornerBytes += N * 2;
+  const tokMax = 'W:4019:0.1234:0.5678:-47.1234,'.length;
+  const chunk = waypointChunk();
+  const st = stationCensus();
+  const li = [];
+  li.push(`<b>The law — recommend ${LAW_NAME[REC_LAW]} with CLAMP TO SET VALUES on.</b> Every law here is exact at every pin and, by the corner guard, bit-identical at every corner (P2, P3). They part on four measured things (table, left): `
+    + `<b>TIN</b> never leaves its values (P4) but is not today’s law, so the first pin re-shapes the whole pad, and dragging a pin flips mesh edges — the value at a fixed puck jumps by <b>${(100 * T.tin.drag).toFixed(0)}%</b> of range mid-drag; `
+    + `<b>TIN·Δ</b> keeps today’s law under the pins but inherits the same jump (${(100 * T.tind.drag).toFixed(0)}%) and its creases; `
+    + `<b>IDW·Δ</b> is continuous but flat at every pin and not additive — one more pin set to what you already hear still moves the pad by up to ${(100 * T.idw.nth).toFixed(0)}%; `
+    + `<b>TPS·Δ</b> is the only law where that extra pin changes nothing (${T.tps.nth.toExponential(0)} — the thin-plate spline is the unique least-bending surface through its points, and the old surface already passes through the new one), and dragging is continuous (${T.tps.drag.toExponential(0)}). `
+    + `Its price is the overshoot: unclamped it runs <b>${(100 * T.tps.hullPk).toFixed(0)}%</b> of span past the values set and past the range in ${T.tps.rangeCfg}/${WP_AUDIT.cases} fixtures. CLAMP TO SET VALUES turns that into a flat top (caution hatch) and keeps every heard value inside what the player chose. `
+    + `Against it: a pin reaches most of the pad (${(100 * T.tps.reach).toFixed(0)}% vs TIN’s ${(100 * T.tin.reach).toFixed(0)}%), and a solve per edit. If LOCALITY is what the human wants, TIN·Δ is the runner-up — with the drag jump stated.`);
+  li.push(`<b>The limit — ${WP_CAP_ROW} per parameter, ${WP_CAP_PATCH} per patch.</b> Neither number is forced by cost, and the page says so rather than dress a judgment as a measurement. `
+    + `CPU: the morph grid runs ${TICKS_PER_S.toFixed(1)} ticks/s (kGravGridSeconds, src/swarm_core.h:136). Today’s blend is ${nC} rows × 4 = <b>${today}</b> multiply-adds per tick; a row with pins adds its terms (TPS·Δ/IDW·Δ: pins + 4 kernel terms; TIN: up to 2·pins + 2 triangles to search). At the caps the worst case is <b>${worstCap}</b> kernel terms per tick (every pin on its own row); with no patch cap it would be ${noPatchCap}. The TPS solve (≤ ${WP_CAP_ROW + 7} unknowns) runs on the main thread per EDIT, never per tick. `
+    + `State: the corner arrays of this patch are ≈ <b>${(cornerBytes / 1024).toFixed(1)} KB</b> of text; ${WP_CAP_PATCH} pins are ≤ ${WP_CAP_PATCH} × ${tokMax} B ≈ <b>${(WP_CAP_PATCH * tokMax / 1024).toFixed(1)} KB</b> — small beside it, nowhere near the size that makes hosts drop state. `
+    + `What binds is <b>legibility</b>: ${WP_CAP_ROW} labelled pins still read on a ~270 px pad and fit a row’s jump list; past about two per corner the corners stop being the patch’s identity. And a CAP is what makes the audio side <b>preallocated</b>: ${WP_CAP_PATCH} pin slots and their solved coefficients, sized once. Pins closer than ${WP_SNAP} merge into one position, which also keeps the TPS system well-conditioned.`);
+  li.push(`<b>Representation.</b> With a row selected, the pad paints THAT row’s surface under the chosen law — brightness = value, faint contours, dashed triangulation for the TIN laws (every dashed line is a crease), ◆ pins with number and value, alarm hatch where the range clamp acted, caution hatch where the law left the values set. `
+    + `In the row: a <b>◆n</b> count beside the name; clicking it jumps the puck to the next pin (a count AND a jump), and it fills when the puck is on one. The inspector lists every pin with JUMP and ✕. `
+    + `Globally: every position that carries any row’s pin is a small ▫ on the pad, with ×n where rows share it — now <b>${st.pins}</b> pin${st.pins === 1 ? '' : 's'} on ${st.rows} row${st.rows === 1 ? '' : 's'} at ${st.pos} position${st.pos === 1 ? '' : 's'}. New pins snap to an existing position within ${WP_SNAP}, so rows gather at shared stations instead of scattering.`);
+  li.push(`<b>Interaction.</b> SET: move the puck, select the row, <b>◆ ARM</b> it in the inspector, turn HERE — a pin appears at the puck; the corners do not move. MOVE: drag a ◆ on the pad. DELETE: ✕ in the list, or Delete/Backspace with the puck on the pin. ON A PIN: a dashed ring round the puck, the row’s ◆n fills, the list row is striped, and an armed edit changes that pin rather than making a new one. `
+    + `REFUSED, with the reason stated: at a corner (within ${WP_GUARD} it IS the corner — edit the cell), at either limit, too close to another pin, a stepped or gate row, under QUANTUM, on an exempt row, and (with B232) where the source is silent. `
+    + `Unarmed, a knob turned mid-pad stays ADR-109’s weighted corner edit — it moves all four corners so the blend lands on the new value. Arming is what makes it a pin instead.`);
+  li.push(`<b>With the rest of morph.</b> <b>QUANTUM:</b> pins are kept but <b>dormant</b> (◇, hollow): a pick means "exactly one corner’s value", and a pin is a value between corners — nothing for a pick to land on. Making a pin a fifth candidate would change reshuffle’s draw order (morph_core.h draws n×4 in a fixed order), moving every seeded patch’s map. Quantum’s own authoring handle is the edited BOUNDARY the human already named: pins shape blend’s values, boundaries shape quantum’s regions. `
+    + `<b>EXEMPT:</b> ADR-109 writes the live value into all four corners so returning never jumps; writing it into the pins too makes each one a no-op under a Δ law, so exempting a row <b>removes</b> its pins (the inspector warns with the count). `
+    + `<b>STEPPED:</b> none — blend never interpolates them (morphStep: <code>morphMode == 1 &amp;&amp; !d->stepped</code>), and B195’s rule is that they never pass through a value no corner chose; a pin on a waveform would be a REGION claim ("saw around here"), which is boundary editing, not a curve. <b>GATES:</b> none — the ramp is a de-click law (B48/B203); shape the source’s level instead. `
+    + `<b>B232:</b> pins sit on B232’s base — the residual is measured against the ON-corner blend (toggle it on the osc 2 Detune row). A pin where the source is silent is refused. Raw TIN ignores any base, so B232 could not reach a pinned row under TIN — one more reason against it. `
+    + `<b>CORNERS:</b> read, never computed — P2 bit-identical under all four laws; M3 is how far the TPS solve would land without the guard.`);
+  li.push(`<b>State (described, not built).</b> One new key in the morph chunk, <b>sparse</b> — absent when a patch has no pins, so every stored patch, fixture and factory file keeps its bytes and statefix_check / bank_check stay the regression proof: `
+    + (chunk ? `<code>${esc(chunk)}</code>` : '<code>(no pins — no key)</code>') + '. '
+    + `Keyed on the parameter ID, not the morphIds index — ADR-159’s scar, and the <code>intent=</code> chunk’s precedent (hypersaw_clap.cpp ~4413) — so <b>morphLayout stays 9</b>: the marker names the order of the index-keyed arrays, and this list has none; an id this build does not expose is skipped. `
+    + `Append-only grammar: <code>L:1</code> first, new token kinds appended, never re-meant. Within a row the STORED ORDER is the insertion order and is contract — it breaks TIN’s ties and fixes the TPS solve’s rounding. `
+    + `No engine_revision: no pins renders exactly as today (P1), and a pinned patch did not exist before. But once shipped, the law IS behaviour — changing it later is a B100 revision, which is why the law is chosen now. An older build ignores the key (plays the plain blend) and a re-save there drops the pins. Pin edits ride stateJson, so each is an undo node (B193). The audio thread only evaluates: pins and solved coefficients live in a pool preallocated at ${WP_CAP_PATCH}, solved and swapped in from the main thread.`);
+  el.innerHTML = li.map(x => `<li>${x}</li>`).join('');
+}
+
 // ---- the inspector --------------------------------------------------------------
 function impactText(i, k, vNew) {
   const w = weights(S.x, S.y), lw = logW(w, S.temp);
   const before = HEARD[i];
   const c2 = S.corners.map(a => a); c2[k] = Float64Array.from(S.corners[k]); c2[k][i] = vNew;
   const saved = S.cur[i];
-  const after = resolveRow(i, w, lw, c2);
+  const after = resolveRow(i, w, lw, c2, S.x, S.y);
   S.cur[i] = saved;
   const kind = FIELD_ROWS[i][R_KIND], C = CORNERS[k];
   const bv = before.how === 'ramp' ? `level ${(before.ramp * 100).toFixed(0)}%` : fmt(i, before.v);
@@ -1513,11 +2396,41 @@ function renderInspector() {
     h += `<div class="iact"><button class="pill go commit" id="commitBtn"${d ? '' : ' disabled'}>COMMIT ⏎</button>`
       + `<button class="pill go" id="discardBtn"${d ? '' : ' disabled'}>DISCARD</button>`
       + `<button class="pill go" id="allBtn" title="write the edited value into all four corners">SET ALL FOUR</button>`
-      + `<button class="pill go" id="exBtn" title="ADR-109: pull it out of the morph; the live value is written into all four corners">⊘ EXEMPT${r[R_UNITLEAD] ? ' UNIT' : ''}</button></div>`;
+      + `<button class="pill go" id="exBtn" title="ADR-109: pull it out of the morph; the live value is written into all four corners${nPins(i) ? ' — and, B235, its pins are removed (they would all hold the live value, which makes each one a no-op)' : ''}">⊘ EXEMPT${r[R_UNITLEAD] ? ' UNIT' : ''}${nPins(i) ? ` · REMOVES ◆${nPins(i)}` : ''}</button></div>`;
   }
-  h += '<div class="kbdh">↑/↓ row · ←/→ corner · Enter commit · Esc discard</div>';
+  h += wpInspectorHTML(i);
+  h += '<div class="kbdh">↑/↓ row · ←/→ corner · Enter commit · Esc discard · Delete removes the pin under the puck</div>';
   el.innerHTML = h;
   wireInspector(i);
+}
+/* B235's half of the inspector: the count against both limits, the HERE control
+   (the value heard at the puck; live only while ARMED), the refusal or the
+   consequence, and the row's pins with a jump and a delete each. */
+function wpInspectorHTML(i) {
+  const r = FIELD_ROWS[i], kind = r[R_KIND];
+  let h = '<div class="sep"></div><div class="cap">◆ WAYPOINTS — VALUES PINNED BETWEEN THE CORNERS (B235)</div>';
+  if (kind !== 'c') return h + `<div class="note">${kind === 's'
+    ? '<b>No pins on a stepped row.</b> Blend never interpolates it — it snaps to one corner’s value, whole (B195), so there is no between for a pin to shape. A pin here would be a REGION claim (“this value around here”), which is quantum-boundary editing, not a curve.'
+    : '<b>No pins on a gate.</b> Its level ramp is a de-click law (B48, B203), not an authored curve — pin the source’s level row instead.'}</div>`;
+  const L = S.wp[i] || [], d = wpDormant(i), on = pinAtPuck(i);
+  h += `<div class="wpst"><b>${L.length}</b> / ${WP_CAP_ROW} on this row · <b>${wpTotal()}</b> / ${WP_CAP_PATCH} in the patch · law <b>${LAW_NAME[S.law]}</b>${S.hullClamp ? ' · clamped to set values' : ''}${d ? ` · <b>dormant under ${d}</b>` : ''}</div>`;
+  if (!S.exempt[i]) {
+    const heard = HEARD[i] ? HEARD[i].v : r[R_DEF];
+    const dis = d || !S.wpArm ? ' disabled' : '';
+    h += `<div class="ced${S.wpArm && !d ? ' pick' : ''}"><span class="cl">◆ HERE <small>${S.x.toFixed(2)}, ${S.y.toFixed(2)}</small></span>`
+      + `<input type="range" data-wpv="1" min="${r[R_MIN]}" max="${r[R_MAX]}" step="${span(i) / 1000}" value="${heard}" style="--pct:${norm(i, heard)}"${dis}><output>${esc(fmt(i, heard))}</output></div>`
+      + `<div class="iact"><button class="pill go${S.wpArm && !d ? ' armed' : ''}" id="wpArmBtn"${d ? ' disabled' : ''}>◆ ${S.wpArm && !d ? 'ARMED — TURN HERE TO PIN' : 'ARM: PIN AT THE PUCK'}</button>`
+      + (on >= 0 ? `<button class="pill go" id="wpDelHere">✕ DELETE ◆${on + 1}</button>` : '') + '</div>';
+    if (S.wpMsg) h += `<div class="impact refuse">${esc(S.wpMsg)}</div>`;
+    else if (d === 'QUANTUM') h += '<div class="impact">Under QUANTUM each continuous row flips to one corner and glides to it; a pin is a value BETWEEN corners, so there is nothing for it to be. The pins are kept (◇) and wake when the patch is in BLEND.</div>';
+    else if (on >= 0) h += `<div class="impact">The puck is <b>ON ◆${on + 1}</b>. ${S.wpArm ? 'Turning HERE changes its value' : 'Arm to change its value'}; drag it on the pad to move it; ✕ or Delete removes it.</div>`;
+    else if (S.wpArm) h += `<div class="impact">Armed. Turning HERE writes a pin at <b>${S.x.toFixed(2)}, ${S.y.toFixed(2)}</b>${stationNear(S.x, S.y) ? ' — snapped to the position another row already uses' : ''}. <b>The corners do not move.</b></div>`;
+    else h += '<div class="impact">Not armed. A live knob turn here would be ADR-109’s weighted corner edit — it moves all four corners so the blend lands on the new value. <b>Arm</b> to pin the value at this position instead.</div>';
+  }
+  if (L.length) h += '<div class="wpl">' + L.map((p, j) => `<span class="pn${d ? ' dorm' : ''}${j === on ? ' on' : ''}">${d ? '◇' : '◆'}${j + 1}</span>`
+      + `<span class="pv">${esc(fmt(i, p[2]))} <small>at ${p[0].toFixed(2)}, ${p[1].toFixed(2)}</small></span>`
+      + `<button class="pill go" data-wpjump="${j}" title="move the puck onto this pin">JUMP</button><button class="pill go" data-wpdel="${j}" title="delete this pin">✕</button>`).join('') + '</div>';
+  return h;
 }
 function wireInspector(i) {
   const el = $('insp'); if (!el || !el.querySelectorAll) return;
@@ -1547,6 +2460,24 @@ function wireInspector(i) {
     S.draft = null; renderGrid(); renderInspector();
   });
   on('exBtn', () => setExempt(i, true));
+  // ---- B235 ----
+  const wv = el.querySelector ? el.querySelector('[data-wpv]') : null;
+  if (wv && wv.addEventListener) {
+    const onv = () => {
+      const val = parseFloat(wv.value);
+      S.wpMsg = setPinAtPuck(i, val);
+      if (wv.style) wv.style.setProperty('--pct', String(norm(i, val)));
+      const o = wv.parentNode && wv.parentNode.querySelector ? wv.parentNode.querySelector('output') : null;
+      if (o) o.textContent = fmt(i, val);
+      renderGrid();
+    };
+    wv.addEventListener('input', onv);
+    wv.addEventListener('change', () => { onv(); renderInspector(); });
+  }
+  on('wpArmBtn', () => { S.wpArm = !S.wpArm; S.wpMsg = ''; renderInspector(); });
+  on('wpDelHere', () => { delPin(i, pinAtPuck(i)); S.wpMsg = ''; renderGrid(); renderInspector(); });
+  for (const b of el.querySelectorAll('[data-wpjump]')) b.addEventListener('click', () => jumpToPin(i, parseInt(b.getAttribute('data-wpjump'), 10)));
+  for (const b of el.querySelectorAll('[data-wpdel]')) b.addEventListener('click', () => { delPin(i, parseInt(b.getAttribute('data-wpdel'), 10)); S.wpMsg = ''; renderGrid(); renderInspector(); });
   on('unexBtn', () => setExempt(i, false));
   on('unexKeepBtn', () => { for (let k = 0; k < 4; k++) S.corners[k][i] = S.live[i]; setExempt(i, false); });
 }
@@ -1580,12 +2511,15 @@ function setExempt(i, on) {
       S.live[j] = live;
       for (let k = 0; k < 4; k++) S.corners[k][j] = live;
       S.exempt[j] = 1;
+      // B235: the same write, extended to the pins, makes each a no-op — so they go.
+      if (S.wp[j]) { delete S.wp[j]; S.wpSel = -1; S.wpVer++; }
     } else S.exempt[j] = 0;
   }
   renderGrid(); renderInspector();
 }
 function select(i, k) {
   if (S.draft && S.draft.i !== i) S.draft = null;
+  if (i !== S.sel) { S.wpArm = false; S.wpSel = -1; S.wpMsg = ''; }      // arming is per row
   S.sel = i; S.selAbsent = -1;
   if (k !== undefined && k >= 0) S.selCorner = k;
   renderGrid(); renderInspector();
@@ -1628,19 +2562,50 @@ function wireResolver() {
   const gl = $('glideS'); if (gl) gl.textContent = S.glide + ' s in this patch';
   show();
 }
-let dragging = false;
-function padAt(e) {
-  const cv = $('padC'); if (!cv || !cv.getBoundingClientRect) return;
+let dragging = false, dragPin = -1, dragMoved = false;
+function padXY(e) {
+  const cv = $('padC'); if (!cv || !cv.getBoundingClientRect) return null;
   const r = cv.getBoundingClientRect();
-  S.x = Math.min(1, Math.max(0, (e.clientX - r.left) / (r.width || 1)));
-  S.y = Math.min(1, Math.max(0, (e.clientY - r.top) / (r.height || 1)));
+  return { x: Math.min(1, Math.max(0, (e.clientX - r.left) / (r.width || 1))),
+           y: Math.min(1, Math.max(0, (e.clientY - r.top) / (r.height || 1))), w: r.width || 1, h: r.height || 1 };
+}
+function padAt(e) {
+  const p = padXY(e); if (!p) return;
+  S.x = p.x; S.y = p.y; S.wpMsg = '';
   renderGrid(); if (S.sel >= 0 || S.selAbsent >= 0) renderInspector();
+}
+/* B235: a pointer-down within 10 px of one of the SELECTED row's pins grabs
+   that pin (drag = move it, a click without movement = jump the puck onto it);
+   anywhere else it moves the puck, as before. A pin cannot be dragged onto a
+   corner or onto another pin of its row — the move simply stops there. */
+function pinUnder(p) {
+  if (S.sel < 0 || !nPins(S.sel)) return -1;
+  const L = S.wp[S.sel];
+  let best = -1, bd = 10;
+  for (let j = 0; j < L.length; j++) {
+    const d = Math.hypot((L[j][0] - p.x) * p.w, (L[j][1] - p.y) * p.h);
+    if (d < bd) { bd = d; best = j; }
+  }
+  return best;
 }
 function wirePad() {
   const cv = $('padC'); if (!cv || !cv.addEventListener) return;
-  cv.addEventListener('pointerdown', e => { dragging = true; if (cv.setPointerCapture) cv.setPointerCapture(e.pointerId); padAt(e); });
-  cv.addEventListener('pointermove', e => { if (dragging) padAt(e); });
-  cv.addEventListener('pointerup', () => { dragging = false; buildLegend(); });
+  cv.addEventListener('pointerdown', e => {
+    if (cv.setPointerCapture) cv.setPointerCapture(e.pointerId);
+    const p = padXY(e), j = p ? pinUnder(p) : -1;
+    if (j >= 0) { dragPin = j; dragMoved = false; S.wpSel = j; renderGrid(); return; }
+    dragging = true; padAt(e);
+  });
+  cv.addEventListener('pointermove', e => {
+    if (dragPin >= 0) {
+      const p = padXY(e), L = S.wp[S.sel]; if (!p || !L) return;
+      if (pinSpotOk(L, p.x, p.y, dragPin)) { L[dragPin] = [p.x, p.y, L[dragPin][2]]; S.wpVer++; dragMoved = true; renderGrid(); }
+    } else if (dragging) padAt(e);
+  });
+  cv.addEventListener('pointerup', () => {
+    if (dragPin >= 0) { const j = dragPin; dragPin = -1; if (!dragMoved) jumpToPin(S.sel, j); else renderInspector(); return; }
+    dragging = false; buildLegend();
+  });
 }
 function wireGrid() {
   const rows = $('rows'); if (!rows || !rows.addEventListener) return;
@@ -1650,6 +2615,13 @@ function wireGrid() {
     if (sec) { const n = sec.getAttribute('data-sec'); S.collapsed[n] = !S.collapsed[n]; renderGrid(); return; }
     const ab = t.closest('[data-a]');
     if (ab) { S.selAbsent = parseInt(ab.getAttribute('data-a'), 10); S.sel = -1; S.draft = null; renderGrid(); renderInspector(); return; }
+    const wj = t.closest('[data-wpj]');
+    if (wj) {                                    // B235: the count is also a jump — cycle the puck through the pins
+      const i = parseInt(wj.getAttribute('data-wpj'), 10), L = S.wp[i]; if (!L || !L.length) return;
+      const cur = pinAtPuck(i) >= 0 ? pinAtPuck(i) : (S.sel === i ? S.wpSel : -1);
+      jumpToPin(i, (cur + 1) % L.length);
+      return;
+    }
     const row = t.closest('[data-i]'); if (!row) return;
     const cell = t.closest('[data-k]');
     select(parseInt(row.getAttribute('data-i'), 10), cell ? parseInt(cell.getAttribute('data-k'), 10) : undefined);
@@ -1665,6 +2637,11 @@ function wireKeys() {
     if (tag === 'INPUT' && e.target.type === 'text') return;
     if (e.key === 'Enter') { commit(); e.preventDefault && e.preventDefault(); return; }
     if (e.key === 'Escape') { discard(); return; }
+    if ((e.key === 'Delete' || e.key === 'Backspace') && S.sel >= 0 && tag !== 'INPUT' && tag !== 'SELECT') {
+      const j = pinAtPuck(S.sel) >= 0 ? pinAtPuck(S.sel) : S.wpSel;
+      if (j >= 0 && j < nPins(S.sel)) { delPin(S.sel, j); S.wpMsg = ''; renderGrid(); renderInspector(); if (e.preventDefault) e.preventDefault(); }
+      return;
+    }
     if (S.sel < 0 || tag === 'SELECT') return;
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       const vo = visibleOrder(), p = vo.indexOf(S.sel);
@@ -1680,7 +2657,8 @@ function wireKeys() {
 /* ---- theme + deep links ---------------------------------------------------------
    `?theme=dark`, `?view=all|exempt|absent`, `?sel=<id>&corner=A..D`, `?demo=0`,
    `?q=<text>`, `?x=&y=`, `?mode=blend`, `?stage=<value>` (stages an edit on the
-   selected cell). Deep links, not conveniences: a headless screenshot of a state
+   selected cell); B235: `?law=tin|tind|idw|tps`, `?clamp=0`, `?b232=1`, `?arm=1`,
+   `?pin=<n>` (1-based: puts the puck on the selected row's pin n). Deep links, not conveniences: a headless screenshot of a state
    is then a LOAD rather than a synthetic click that can silently fail to land. */
 let dark = false;
 function readLinks() {
@@ -1697,6 +2675,16 @@ function readLinks() {
   const sel = get('sel'); if (sel !== null && idxOf[+sel] !== undefined) S.sel = idxOf[+sel];
   const c = get('corner'); if (c && CORNERS.indexOf(c) >= 0) S.selCorner = CORNERS.indexOf(c);
   const st = get('stage'); if (st !== null && S.sel >= 0) S.draft = { i: S.sel, k: S.selCorner, v: +st };
+  const lw = get('law'); if (lw && LAWS.indexOf(lw) >= 0) S.law = lw;
+  if (get('clamp') === '0') S.hullClamp = false;
+  if (get('b232') === '1') S.b232 = true;
+  if (get('arm') === '1') S.wpArm = true;
+  const pn = get('pin'); if (pn !== null && S.sel >= 0 && S.wp[S.sel] && S.wp[S.sel][+pn - 1]) { const P = S.wp[S.sel][+pn - 1]; S.x = P[0]; S.y = P[1]; S.wpSel = +pn - 1; }
+}
+function wireLawCtl() {
+  const h = $('hullIn'), b = $('b232In');
+  if (h && h.addEventListener) h.addEventListener('change', () => { S.hullClamp = !!h.checked; renderGrid(); renderInspector(); });
+  if (b && b.addEventListener) b.addEventListener('change', () => { S.b232 = !!b.checked; renderGrid(); renderInspector(); });
 }
 function applyTheme() {
   document.body.classList.toggle('dark', dark);
@@ -1712,7 +2700,7 @@ function wireHeader() {
   const showDemo = () => { if (db) db.innerHTML = 'corners <b>' + (S.demo ? 'FACTORY + LAB EDITS' : 'FACTORY ONLY') + '</b>'; };
   if (db && db.addEventListener) db.addEventListener('click', () => { S.demo = !S.demo; resetCorners(); showDemo(); buildLegend(); renderGrid(); renderInspector(); });
   showDemo();
-  if (window.addEventListener) window.addEventListener('resize', () => { buildLegend(); paintPad(); });
+  if (window.addEventListener) window.addEventListener('resize', () => { buildLegend(); paintPad(); paintLaws(); });
 }
 
 /* ============ SETUP — everything above is declared; nothing here reaches
@@ -1720,12 +2708,16 @@ function wireHeader() {
 readLinks();
 buildMode();
 buildFind();
+buildLaws();
+wireLawCtl();
 wireResolver();
 wirePad();
 wireGrid();
 wireKeys();
 wireHeader();
 renderAudit();
+renderWpAudit();
+renderFixtureTable();
 resolveAll();
 applyTheme();
 renderInspector();

@@ -293,8 +293,9 @@ int main()
   // B100: the header rides every blob. engine_revision pins the patch's DSP
   // laws, build is provenance. Pinned in TEXT (not via the parser) so a
   // symmetric writer/parser no-op cannot pass.
-  check(saved.data.find("\nengine_revision=1\n") != std::string::npos,
-        "B100: host chunk carries engine_revision=1");
+  // ADR-183: this instance was never loaded, so it is the latest revision (2).
+  check(saved.data.find("\nengine_revision=2\n") != std::string::npos,
+        "B100: host chunk carries engine_revision=2 (a never-loaded instance is the latest)");
   check(saved.data.find("\nbuild=") != std::string::npos, "B100: host chunk carries build");
 
   // Fresh instance, load, compare every value exactly.
@@ -427,16 +428,28 @@ int main()
     check(fullOk && std::fabs(mv - 0.333) < 1e-9 && en2 == 0.0 && std::fabs(op2 - 7.5) < 1e-9, bd);
     /* B100 on the preset path. The header is asserted in TEXT on the dump;
        the revision is read back through the debug export, which is the same
-       accessor a gated law will consult. With kEngineRevision == 1 every case
-       reads 1 — these are pinned NOW so the revision-2 bump cannot skip them,
-       and the clamp case bites today: a preset from a future build must load
-       and must not store a value this build has no laws for. */
-    check(std::strstr(snap, "\"engine_revision\":1") != nullptr &&
+       accessor the gated law consults. Since ADR-183 (kEngineRevision == 2)
+       the fresh instance is 2, so the header-less case is a real 2 -> 1
+       transition rather than a value that was 1 all along, and a revision-2
+       blob must keep 2 on both transports. The clamp case: a preset from a
+       future build must load and must not store a value this build has no
+       laws for. (Snapshot `snap` was taken of this instance before any
+       load, so it carries the latest revision.) */
+    check(std::strstr(snap, "\"engine_revision\":2") != nullptr &&
               std::strstr(snap, "\"build\":\"") != nullptr,
-          "B100: JSON preset carries engine_revision + build");
+          "B100: JSON preset carries engine_revision (2, never loaded before the snapshot) + build");
     const bool hl = hypersaw_debug_apply(
         j, "{\"plugin\":\"HYPERSAW\",\"schema\":3,\"params\":{\"detune\":0.5}}");
     check(hl && hypersaw_debug_engine_revision(j) == 1, "B100: header-less JSON loads as revision 1");
+    const bool r2 = hypersaw_debug_apply(
+        j, "{\"plugin\":\"HYPERSAW\",\"schema\":3,\"engine_revision\":2,\"params\":{\"detune\":0.5}}");
+    check(r2 && hypersaw_debug_engine_revision(j) == 2, "ADR-183: revision-2 JSON loads as revision 2");
+    {
+      static char again[65536];
+      hypersaw_debug_state(j, again, sizeof again);
+      check(std::strstr(again, "\"engine_revision\":2") != nullptr,
+            "ADR-183: a revision-2 JSON patch re-saves as revision 2");
+    }
     const bool st = hypersaw_debug_apply(
         j, "{\"plugin\":\"HYPERSAW\",\"schema\":3,\"engine_revision\":1,\"build\":\"abc123+\","
            "\"future_header\":7,\"params\":{\"detune\":0.4}}");
@@ -447,8 +460,8 @@ int main()
     check(std::fabs(dj - 0.4) < 1e-9, "B100: unknown JSON header keys ignored, params still apply");
     const bool fu = hypersaw_debug_apply(
         j, "{\"plugin\":\"HYPERSAW\",\"schema\":3,\"engine_revision\":99,\"params\":{\"detune\":0.4}}");
-    check(fu && hypersaw_debug_engine_revision(j) == 1,
-          "B100: future JSON revision loads, clamps to latest");
+    check(fu && hypersaw_debug_engine_revision(j) == 2,
+          "B100: future JSON revision loads, clamps to latest (2)");
     j->stop_processing(j); j->deactivate(j); j->destroy(j);
   }
 
@@ -460,7 +473,7 @@ int main()
     const clap_plugin_t *r = makePlugin();
     auto *rs = (const clap_plugin_state_t *)r->get_extension(r, CLAP_EXT_STATE);
     auto *rp = (const clap_plugin_params_t *)r->get_extension(r, CLAP_EXT_PARAMS);
-    check(hypersaw_debug_engine_revision(r) == 1, "B100: fresh instance is the latest revision (1)");
+    check(hypersaw_debug_engine_revision(r) == 2, "B100: fresh instance is the latest revision (2)");
     auto loadText = [&](const char *text) {
       IStr s;
       s.s.ctx = &s; s.s.read = istr_read; s.data = text;
@@ -480,8 +493,17 @@ int main()
     rp->get_value(r, 6, &kv2);
     check(uk && kv2 == 0.45, "B100: unknown chunk header keys ignored, params still apply");
     check(loadText("hypersaw-state 2\nengine_revision=99\nK=0.4\n") &&
-              hypersaw_debug_engine_revision(r) == 1,
-          "B100: future chunk revision loads, clamps to latest");
+              hypersaw_debug_engine_revision(r) == 2,
+          "B100: future chunk revision loads, clamps to latest (2)");
+    check(loadText("hypersaw-state 2\nengine_revision=2\nbuild=abc123+\nK=0.4\n") &&
+              hypersaw_debug_engine_revision(r) == 2,
+          "ADR-183: revision-2 chunk loads as revision 2");
+    OStr re2;
+    re2.s.ctx = &re2; re2.s.write = ostr_write;
+    check(rs->save(r, &re2.s) && re2.data.find("\nengine_revision=2\n") != std::string::npos,
+          "ADR-183: a revision-2 chunk re-saves as revision 2");
+    check(loadText("hypersaw-state 2\nK=0.4\n") && hypersaw_debug_engine_revision(r) == 1,
+          "ADR-183: a header-less chunk AFTER a revision-2 load drops back to revision 1");
     r->destroy(r);
   }
 
