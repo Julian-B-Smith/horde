@@ -441,6 +441,7 @@ is kept building so the escape hatch stays real.
 | `src/gui/gui2.html` · `src/param_presentation.tsv` | The interface, and the table 197 of its controls are generated from |
 | `tools/` | The oracle: golden generator, parity/trajectory/invariant checks |
 | `docs/design/` | 23 labs — where behaviour is auditioned before it becomes code |
+| `docs/playbooks/` | How to wire a new source or feature through every seam (ids, class, morph, mod matrix, history, presets, GUI, RT safety, parity, checks), with a PR checklist — its citations are re-read by `tools/playbook_check.py` |
 | `traces/` | Provenance log — one entry per merged change set |
 
 ## Status and known gaps

@@ -195,6 +195,14 @@ PY
   # changes (B213/B224 will change both). python3, so outside the node guard.
   python3 tools/compact_lab_table_check.py || ok=1
 
+  # B233: the machine half of docs/playbooks/integrating-a-source.md. Its
+  # file:line citations must still name code that exists (a vanished anchor
+  # FAILS; a line that merely moved is printed as drift, because failing on it
+  # would redden every unrelated edit above a cited line), the four morphLayout
+  # writers must agree, and no engine source may read a clock or an unseeded
+  # RNG (SPEC §5.7's invariant, which no gate enforced). Sub-second.
+  python3 tools/playbook_check.py || ok=1
+
   return $ok
 }
 
