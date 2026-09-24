@@ -101,7 +101,7 @@ PROPOSED) — the rule for how a hosted FX module's presets carry role-keyed mac
 under the intent bus; one sanctioned edit: seed `quantumPick`. A seventh CANDIDATE, a
 SOURCE this time, 2026-09-19: **SUB OSC** (`reference/subosc.html`, `specs/SPEC-SUBOSC.md`,
 ADR-178) — the honest sub (seven shapes incl. BUMP, pitch, tone, sync; no swarm), a routing
-source row when ported; its one sanctioned edit (peak-normalise BUMP) landed 2026-09-19. CLAP-native instrument
+source row when ported; its one sanctioned edit (peak-normalise BUMP) landed 2026-09-19. An eighth CANDIDATE, 2026-09-24: **SCALPEL** (`reference/scalpel/`, `specs/SPEC-SCALPEL.md`, ADR-184) — Waverazor-style blade synthesis on the Kuramoto swarm, replacing hard sync and likely the saw-shape panel; its integration shape (a swarm extension or an engine block) is the open question. CLAP-native instrument
 plugin, VST3 via clap-wrapper (ADR-002). The DEVICE is **horde** (ADR-114,
 settled 2026-08-23); HYPERSAW is the founding ENGINE, the repo name, and the
 frozen plugin id. Design docs: specs/SPEC.md (the instrument), specs/ACCEPTANCE.md (the
@@ -167,7 +167,9 @@ ingested 2026-09-14, ADR-166; sanctioned edits: seed its four draws), and
 ingested 2026-09-16, ADR-169; one sanctioned edit: seed `quantumPick`), and `specs/SPEC-MAW.md`
 + `reference/maw/**` (MAW, ingested 2026-09-16, ADR-170; nothing outstanding), and
 `reference/subosc.html` + `specs/SPEC-SUBOSC.md` (SUB OSC, ingested 2026-09-19, ADR-178; its one
-sanctioned edit is spent) — (they ARE the reference — an edit there is a spec change), `./verify`, golden render fixtures once they exist.
+sanctioned edit is spent), and `specs/SPEC-SCALPEL.md` + `reference/scalpel/**` (SCALPEL, blade
+synthesis on the swarm, ingested 2026-09-24, ADR-184 CANDIDATE; a seed edit is PROPOSED, not yet
+sanctioned) — (they ARE the reference — an edit there is a spec change), `./verify`, golden render fixtures once they exist.
 
 **Verify targets.** `fast`: leak gate + structure/manifest sanity now; grows
 the L0 suite (parity + trajectories) from Phase 1 — seconds-to-minutes,

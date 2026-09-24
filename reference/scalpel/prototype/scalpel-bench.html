@@ -1,0 +1,2272 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Scalpel bench</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..750&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#eef2f7; --panel:#f9fbfd; --ink:#173463; --ink-2:#56709b; --rule:rgba(23,52,99,.2);
+  --cut:#c2410c; --cut-soft:rgba(194,65,12,.13); --blade2:rgba(23,52,99,.10); --key:#ffffff; --key-b:#173463;
+  color-scheme: light dark;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#12305c; --panel:#173a6c; --ink:#e7eef8; --ink-2:#9fb5d6; --rule:rgba(231,238,248,.2);
+    --cut:#ffb020; --cut-soft:rgba(255,176,32,.15); --blade2:rgba(159,181,214,.16); --key:#dfe7f3; --key-b:#0c2244;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#12305c; --panel:#173a6c; --ink:#e7eef8; --ink-2:#9fb5d6; --rule:rgba(231,238,248,.2);
+  --cut:#ffb020; --cut-soft:rgba(255,176,32,.15); --blade2:rgba(159,181,214,.16); --key:#dfe7f3; --key-b:#0c2244;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px);}
+*,*::before,*::after{box-sizing:inherit;}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:"Archivo",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:15px;line-height:1.45;font-variant-numeric:tabular-nums;}
+button{font:inherit;color:inherit;cursor:pointer;}
+button:focus-visible,input:focus-visible,canvas:focus-visible,select:focus-visible{outline:2px solid var(--cut);outline-offset:2px;}
+canvas{display:block;width:100%;background:var(--panel);border:1px solid var(--rule);border-radius:3px;}
+
+/* two columns: a pinned monitor on the left, everything you edit on the right */
+.layout{display:grid;grid-template-columns:clamp(340px,31vw,460px) minmax(0,1fr);gap:26px;max-width:1560px;margin:0 auto;padding:0 clamp(12px,2.2vw,28px);}
+.monitor{position:sticky;top:0;align-self:start;max-height:100vh;max-height:100dvh;overflow-y:auto;
+  display:flex;flex-direction:column;gap:8px;padding:14px 2px 14px 0;}
+.mbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.mbar .title{font-stretch:70%;font-weight:730;font-size:22px;line-height:1;margin-right:auto;}
+.act{font-weight:650;font-stretch:87%;font-size:14px;padding:6px 12px;border:2px solid var(--cut);background:transparent;border-radius:3px;}
+.act[aria-pressed="true"]{background:var(--cut);color:var(--bg);}
+.act.quiet{border-color:var(--rule);}
+#midiStatus{color:var(--ink-2);font-size:12px;flex-basis:100%;}
+#recOut{color:var(--cut);font-weight:650;font-size:13px;}
+#recOut:empty{display:none;}
+#wtStatus{color:var(--ink-2);font-size:13px;display:block;min-height:1.4em;margin-top:4px;}
+#wtGo[aria-pressed="true"]{background:var(--cut);color:var(--bg);}
+#midiStatus:empty{display:none;}
+#cycle{height:clamp(120px,16vh,170px);}
+.padrow{display:grid;grid-template-columns:minmax(0,1fr) clamp(88px,8vw,118px);gap:8px;align-items:start;}
+#pad{aspect-ratio:1/1;touch-action:none;cursor:crosshair;}
+#ring{aspect-ratio:1/1;}
+.side{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--ink-2);}
+.side b{color:var(--ink);font-weight:620;}
+#spec{height:clamp(110px,15vh,160px);}
+.mcap{display:flex;justify-content:space-between;align-items:center;gap:10px;color:var(--ink-2);font-size:12px;line-height:1.5;margin:2px 1px 0;
+  white-space:nowrap;overflow:hidden;height:1.5em;flex:0 0 auto;}
+.mcap > span{overflow:hidden;text-overflow:ellipsis;min-width:0;}
+.mcap b{color:var(--ink);font-weight:620;}
+#dcNote{flex:0 0 auto;min-width:12ch;text-align:right;}
+.axes{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--ink-2);}
+.axrow{display:grid;grid-template-columns:1.1em minmax(0,1fr) minmax(0,1fr) auto;gap:4px;align-items:center;}
+.axrow label{display:flex;align-items:center;gap:2px;white-space:nowrap;}
+.axes select{font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--rule);border-radius:3px;padding:2px 4px;min-width:0;width:100%;}
+.padsel{display:flex;}
+.padsel button{font:inherit;font-size:12px;border:1px solid var(--rule);background:var(--panel);padding:2px 9px;margin-right:-1px;}
+.padsel button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink);}
+.cyc{position:relative;}
+.vsel{flex:0 0 auto;display:flex;gap:2px;}
+.vsel button{font:inherit;font-size:12px;background:none;border:0;padding:0 4px;color:var(--ink-2);cursor:pointer;line-height:inherit;}
+.vsel button[aria-pressed="true"]{color:var(--ink);text-decoration:underline;text-underline-offset:3px;}
+#cycleNote{flex:1 1 auto;}
+
+.work{padding:22px 0 48px;min-width:0;}
+h1{font-size:clamp(30px,3.6vw,46px);font-stretch:70%;font-weight:730;margin:0;line-height:.95;}
+.lede{margin:8px 0 0;color:var(--ink-2);max-width:70ch;}
+.kbwrap{margin-top:16px;}
+.kb{position:relative;height:84px;user-select:none;-webkit-user-select:none;touch-action:none;}
+.kb .w,.kb .b{position:absolute;top:0;border:1px solid var(--rule);border-radius:0 0 3px 3px;display:flex;align-items:flex-end;justify-content:center;font-size:11px;padding-bottom:5px;}
+.kb .w{height:100%;background:var(--key);color:#56709b;}
+.kb .b{height:60%;background:var(--key-b);color:#9fb5d6;z-index:2;border-color:var(--key-b);}
+.kb .on{background:var(--cut) !important;color:var(--bg) !important;}
+.cap{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;color:var(--ink-2);font-size:13.5px;margin:6px 2px 0;}
+.cap b{color:var(--ink);font-weight:620;}
+.groups{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 30px;margin-top:22px;align-items:start;}
+@media (max-width:1180px){.groups{grid-template-columns:1fr;}}
+#gExport{grid-column:1 / -1;}
+fieldset{border:0;border-top:2px solid var(--ink);margin:0;padding:10px 0 4px;min-width:0;}
+legend{font-stretch:75%;font-weight:680;font-size:18px;padding:0 8px 0 0;}
+.row{display:grid;grid-template-columns:7.4em 1fr 5.6em;align-items:center;gap:10px;min-height:34px;transition:opacity .15s;}
+.row.dim{opacity:.4;}
+.row label,.row .lab{color:var(--ink-2);font-size:14px;}
+.row output{text-align:right;font-size:14px;}
+input[type=range]{width:100%;accent-color:var(--cut);margin:0;}
+.seg{display:flex;flex-wrap:wrap;grid-column:2 / 4;}
+.seg button{border:1px solid var(--rule);background:transparent;padding:4px 10px;font-size:14px;margin:0 -1px -1px 0;}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink);}
+.presets{display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin-top:18px;}
+#presets2{margin-top:10px;}
+.presets span{color:var(--ink-2);margin-right:4px;}
+#showcase .presets{margin-top:8px;}
+#showcase .presets span{min-width:6.5em;}
+.presets button{border:1px solid var(--ink);background:transparent;padding:5px 11px;border-radius:3px;font-size:14px;}
+.presets button:hover{background:var(--cut-soft);}
+.note{color:var(--ink-2);font-size:13.5px;margin-top:22px;max-width:78ch;}
+
+/* narrow screens: the monitor becomes a compact pinned strip across the top */
+@media (max-width:980px){
+  .layout{grid-template-columns:1fr;gap:0;}
+  .monitor{top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--rule);max-height:none;overflow:visible;
+    display:grid;grid-template-columns:minmax(0,1fr) clamp(130px,30vw,190px);grid-template-areas:"bar bar" "cycle pad" "spec pad" "caps axes";
+    gap:6px 8px;padding:8px 0 8px;margin:0 calc(-1*clamp(12px,2.2vw,28px));padding-left:clamp(12px,2.2vw,28px);padding-right:clamp(12px,2.2vw,28px);}
+  .mbar{grid-area:bar;} .mbar .title{font-size:18px;}
+  .cyc{grid-area:cycle;} .sp{grid-area:spec;} .padrow{grid-area:pad;grid-template-columns:1fr;}
+  .mcaps{grid-area:caps;} .axes{grid-area:axes;flex-direction:column;gap:3px;}
+  .axes select{max-width:100%;}
+  #cycle{height:clamp(64px,11vh,96px);} #spec{height:clamp(56px,9vh,84px);}
+  #ring,.side .ringcap,.hide-narrow{display:none;}
+  .side{flex-direction:row;flex-wrap:wrap;gap:2px 10px;}
+  .work{padding-top:14px;}
+}
+@media (prefers-reduced-motion: reduce){.row{transition:none;}}
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside class="monitor" aria-label="Monitor">
+    <div class="mbar">
+      <span class="title">Scalpel bench</span>
+      <button class="act" id="drone" aria-pressed="false">Drone</button>
+      <button class="act quiet" id="midi">MIDI</button>
+      <span id="recOut" aria-live="polite"></span>
+      <span id="midiStatus"></span>
+    </div>
+    <div class="cyc">
+      <canvas id="cycle" aria-label="Two cycles of the summed swarm waveform, with each member's blade shaded" title="Two cycles of the summed swarm. Each shaded span is one member's blade."></canvas>
+      <div class="mcap"><span class="vsel" role="group" aria-label="Cycle view"><button type="button" id="vSum" aria-pressed="true">sum</button><button type="button" id="vMem" aria-pressed="false">members</button></span><span id="cycleNote"></span><span id="dcNote"></span></div>
+    </div>
+    <div class="padrow">
+      <canvas id="pad" tabindex="0" aria-label="Blade pad. Arrow keys nudge; the axis menus choose what it controls."></canvas>
+      <div class="side">
+        <canvas id="ring" aria-label="Phase ring showing each swarm member's phase and the mean field"></canvas>
+        <span class="ringcap">Phase ring</span>
+        <span>r <b id="rOut">1.00</b></span>
+        <span id="voiceOut"></span>
+      </div>
+    </div>
+    <div class="mcaps">
+      <div class="mcap"><span id="rx"></span></div>
+      <div class="mcap"><span id="ry"></span></div>
+    </div>
+    <div class="axes">
+      <div class="padsel" role="group" aria-label="Pad"><button type="button" id="padA" aria-pressed="true">Pad A</button><button type="button" id="padB" aria-pressed="false">Pad B</button></div>
+      <div class="axrow"><span>X</span><select id="axX" aria-label="X axis"></select><select id="axX2" aria-label="X axis second parameter"></select><label title="Second parameter runs the opposite way"><input type="checkbox" id="ivX"> inv</label></div>
+      <div class="axrow"><span>Y</span><select id="axY" aria-label="Y axis"></select><select id="axY2" aria-label="Y axis second parameter"></select><label title="Second parameter runs the opposite way"><input type="checkbox" id="ivY"> inv</label></div>
+    </div>
+    <div class="sp">
+      <canvas id="spec" aria-label="Spectrum with predicted formant band"></canvas>
+      <div class="mcap"><span id="formantNote"></span></div>
+      <div class="mcap hide-narrow"><span id="specNote"></span></div>
+    </div>
+  </aside>
+
+  <main class="work">
+    <h1>Scalpel bench</h1>
+    <p class="lede">A Waverazor-style blade riding a Kuramoto swarm. Play with your computer keys (A to ' for notes, W E T Y U O P for sharps, Z and X shift octave), the keys below, or MIDI. Space holds a drone.</p>
+
+    <div class="kbwrap">
+      <div class="kb" id="kb" aria-label="On-screen keyboard"></div>
+      <div class="cap"><span>Octave <b id="octOut">4</b></span></div>
+    </div>
+
+    <div class="presets" id="presets"><span>Starting points</span></div>
+    <div class="presets" id="presets2"><span>Two-blade</span></div>
+    <div id="showcase"></div>
+
+    <div class="groups">
+      <fieldset id="gBlade"><legend>Blade</legend></fieldset>
+      <fieldset id="gHot"><legend>What the blade does</legend></fieldset>
+      <fieldset id="gSwarm"><legend>Swarm</legend></fieldset>
+      <fieldset id="gBlade2"><legend>Blade 2</legend></fieldset>
+      <fieldset id="gBenv"><legend>Blade envelope</legend></fieldset>
+      <fieldset id="gB2spread"><legend>Blade 2 spread</legend></fieldset>
+      <fieldset id="gB2env"><legend>Blade 2 envelope</legend></fieldset>
+      <fieldset id="gSpread"><legend>Spread across members</legend></fieldset>
+      <fieldset id="gVoice"><legend>Voice</legend></fieldset>
+      <fieldset id="gExport"><legend>Serum wavetable</legend></fieldset>
+    </div>
+
+    <p class="note">Things to try: hold a chord at coupling 0, then push K toward 1 and hear the members lock into one blade; pull it to −1 and the blades splay, repeating the cut several times per cycle. For the narrow trance saw, load Trance jitter and bring Depth down to blend the jittered saw against the clean one. Either pad axis can drive any continuous parameter. Anti-aliasing is PolyBLEP on every blade edge, sync reset, and carrier wrap (including under FM), plus the optional 2× stage.</p>
+  </main>
+</div>
+<script>
+/* ============ DSP core (shared by AudioWorklet and fallback) ============ */
+class RazorCore {
+  static frac(x){ return x - Math.floor(x); }
+  static rnd(){ return Math.random()*2 - 1; }
+  static hash(i){ const x = Math.sin(i*127.1 + 311.7)*43758.5453; return (x - Math.floor(x))*2 - 1; }
+  static wave(s, x){
+    switch(s){
+      case 0: return Math.sin(6.283185307179586 * x);
+      case 1: return x < 0.25 ? 4*x : (x < 0.75 ? 2 - 4*x : 4*x - 4);
+      case 2: { const y = x + 0.5; return 2*(y - Math.floor(y)) - 1; }
+      case 4: { const y = x + 0.5; return 1 - 2*(y - Math.floor(y)); }   // reversed (ramp-down) saw
+      case 6: {
+        // sine -> saw: sum of r^n sin(n th)/n in closed form. r = 0 is the sine, r -> 1 the saw.
+        // r is capped per member so the harmonics die out before Nyquist (self band-limiting).
+        const r = RazorCore.mr || 0;
+        if (r < 1e-4) return Math.sin(6.283185307179586*x);
+        const th = 6.283185307179586*(x + 0.5);
+        return -Math.atan2(r*Math.sin(th), 1 - r*Math.cos(th))/RazorCore.mn;
+      }
+      default: return x < 0.5 ? 1 : -1;
+    }
+  }
+  // modulator shapes; x is an unbounded phase so noise keeps moving in free mode
+  static mod(shape, x, seed){
+    if (shape === 7) return RazorCore.hash(Math.floor(x) + seed);   // sample-and-hold noise: a new random value each mod cycle
+    if (shape === 5){
+      const i = Math.floor(x), f = x - i, sm = f*f*(3 - 2*f);
+      const a = RazorCore.hash(i + seed), b = RazorCore.hash(i + 1 + seed);
+      return a + (b - a)*sm;
+    }
+    return RazorCore.wave(shape, x - Math.floor(x));
+  }
+  // periodic antiderivative of each base shape (all are zero-mean, so the integral over any interval is F(b) − F(a))
+  static F(sh, x){
+    switch(sh){
+      case 0: return (1 - Math.cos(6.283185307179586*x))*0.15915494309189535;
+      case 1: { const f = x - Math.floor(x); return f < 0.25 ? 2*f*f : f < 0.75 ? 2*f - 2*f*f - 0.25 : 2*f*f - 4*f + 2; }
+      case 2: { let y = x + 0.5; y -= Math.floor(y); return y*y - y; }
+      case 4: { let y = x + 0.5; y -= Math.floor(y); return y - y*y; }
+      default: { const f = x - Math.floor(x); return f < 0.5 ? f : 1 - f; }
+    }
+  }
+  static crushAvg(sh, st, kk, j){ return (RazorCore.F(sh, st + (j + 1)/kk) - RazorCore.F(sh, st + j/kk))*kk; }
+  // held level at hold-phase hp; with slew, each step glides in from the previous level over its first `sl` fraction
+  static crushLevel(sh, st, kk, hp, sl){
+    if (hp < 0) return RazorCore.wave(sh, st - Math.floor(st));
+    const j = Math.floor(hp), f = hp - j, a = RazorCore.crushAvg(sh, st, kk, j);
+    if (sl > 0.001 && f < sl){
+      const prev = j === 0 ? RazorCore.wave(sh, st - Math.floor(st)) : RazorCore.crushAvg(sh, st, kk, j - 1);
+      return prev + (a - prev)*f/sl;
+    }
+    return a;
+  }
+  static isFM(p){ return p.mode === 1 || p.mode === 2; }
+  // 'balanced' stereo slots per swarm size: the evenly spaced pan positions, permuted so pan is uncorrelated with
+  // member order (and so with detune, cut-rate, width... gradients). Found by exhaustive search; 2 and 3 members
+  // can't be fully balanced, 4–9 are exact.
+  static panSlot(N, i){ return RazorCore.PANS[N - 1][i]; }
+  // glide a wrapped offset back to 0 by the shortest way round (used when rotation is switched off)
+  static home(x, k){ let d = x - Math.round(x); d -= d*k; return Math.abs(d) < 1e-6 ? 0 : d; }
+  // per-member offsets under the chosen spread law: 0 gradient, 1 random per note, 2 alternate, 3 swarm-linked
+  // cut-rate rules: the member-by-member ratio list a rule defines for N members (member 0 is the root, at k)
+  static parseRatios(str){
+    const out = [];
+    for (const tok of String(str).split(/[\s,;]+/)){
+      if (!tok) continue;
+      const q = tok.split('/'), v = q.length === 2 ? parseFloat(q[0])/parseFloat(q[1]) : parseFloat(tok);
+      if (isFinite(v) && v > 0) out.push(v);
+    }
+    return out.length ? out : [1];
+  }
+  static ruleList(rule, N, custom){
+    const c = RazorCore._rlc || (RazorCore._rlc = {n:0});
+    const key = rule + '|' + N + '|' + (rule === 9 ? custom : '');
+    if (c[key]) return c[key];
+    if (++c.n > 32){ RazorCore._rlc = {n:1}; }
+    const PR = [2, 3, 5, 7, 11, 13, 17, 19, 23], CU = rule === 9 ? RazorCore.parseRatios(custom) : null;
+    const chord = (set, j) => set[j % set.length]*Math.pow(2, Math.floor(j/set.length));
+    const L = [];
+    for (let j = 0; j < N; j++){
+      switch (rule){
+        case 1: L.push(j + 1); break;                              // harmonic series
+        case 2: L.push(1/(j + 1)); break;                          // undertone series
+        case 3: L.push(Math.pow(2, j)); break;                     // octaves
+        case 4: L.push(chord([1, 5/4, 3/2], j)); break;            // just major triad, stacked
+        case 5: L.push(chord([1, 6/5, 3/2], j)); break;            // just minor triad, stacked
+        case 6: L.push(Math.pow(1.5, j)); break;                   // stacked fifths
+        case 7: L.push(Math.pow(1.6180339887, j)); break;          // golden ratio: maximally inharmonic
+        case 8: L.push(PR[j]/2); break;                            // primes over 2
+        default: L.push(CU ? CU[j % CU.length]*Math.pow(2, Math.floor(j/CU.length)) : 1);  // custom, repeating by octaves
+      }
+    }
+    RazorCore._rlc[key] = L;
+    return L;
+  }
+  static spreadMember(m, i, N, s, law, fi, nyq){
+    const g = N > 1 ? i/(N - 1) - 0.5 : 0, alt = N > 1 ? (i % 2 ? 0.5 : -0.5) : 0;
+    const pn = j => N < 2 ? 0 : law === 0 ? g : (law === 1 || law === 4) ? m.rv[j] : law === 2 ? alt : m.lead;
+    m.cOff = s.bspread*pn(0);
+    const ks = RazorCore.kSpread(s.kRule, s.kRuleAmt, s.kspread, s.kq, s.kCustom, N, pn(1));
+    const ko = ks[0];
+    m.kAdd = ko; m.kMul = ks[1];
+    m.rotOff = s.rotSpread*2*pn(2);
+    m.rotOff2 = s.b2sp ? s.rotSpread2*2*pn(11) : m.rotOff;
+    m.wMul = Math.pow(2, s.wspread*4*pn(3));
+    m.dAdd = s.dspread*2*pn(4);
+    m.iMul = Math.pow(2, s.ispread*4*pn(5));
+    m.mor = Math.min(1, Math.max(0, s.morph + s.mspread*2*pn(6)));
+    const ki = Math.min((s.lock === 2 ? Math.max(0.05, s.kHz/Math.max(1, fi) + ko) : Math.max(0.25, s.k + ko))*m.kMul, 0.9*nyq/Math.max(1, fi));
+    m.kEff = ki;
+    const wi = Math.min(1, s.w*m.wMul);
+    const fh = (s.lock === 1 ? ki/Math.max(wi, 1e-3) : ki)*fi;
+    const rmax = Math.min(0.995, Math.pow(0.01, fh/nyq));
+    const r = 1 - Math.pow(1 - rmax, m.mor);
+    m.mr = r; m.mn = r > 1e-4 ? Math.asin(r) : 1;
+    // blade 2: follows blade 1's spreads, or runs its own amounts on independent random slots (7..10)
+    if (!s.b2sp){ m.cOff2 = m.cOff; m.kAdd2 = m.kAdd; m.kMul2 = m.kMul; m.wMul2 = m.wMul; m.dAdd2 = m.dAdd; m.iMul2 = m.iMul; }
+    else {
+      m.iMul2 = Math.pow(2, s.ispread2*4*pn(13));
+      m.cOff2 = s.bspread2*pn(7);
+      const k2 = RazorCore.kSpread(s.kRule2, s.kRuleAmt2, s.kspread2, s.kq, s.kCustom, N, pn(8));
+      m.kAdd2 = k2[0]; m.kMul2 = k2[1];
+      m.wMul2 = Math.pow(2, s.wspread2*4*pn(9));
+      m.dAdd2 = s.dspread2*2*pn(10);
+    }
+    {
+      // blade 2's sine->saw shape, capped from blade 2's own carrier frequency (it used to borrow blade 1's)
+      const mor2 = Math.min(1, Math.max(0, s.morph2 + (s.b2sp ? s.mspread2*2*pn(12) : s.mspread*2*pn(6))));
+      const lock2 = s.lock2 < 0 ? s.lock : s.lock2;
+      const k2 = Math.min((lock2 === 2 ? Math.max(0.05, s.kHz2/Math.max(1, fi) + m.kAdd2) : Math.max(0.25, s.k2 + m.kAdd2))*m.kMul2, 0.9*nyq/Math.max(1, fi));
+      const w2 = Math.min(1, s.w2*m.wMul2);
+      const fh2 = (lock2 === 1 ? k2/Math.max(w2, 1e-3) : k2)*fi;
+      const rmax2 = Math.min(0.995, Math.pow(0.01, fh2/nyq)), r2 = 1 - Math.pow(1 - rmax2, mor2);
+      m.mr2 = r2; m.mn2 = r2 > 1e-4 ? Math.asin(r2) : 1;
+    }
+  }
+  static kSpread(rule, amt, spread, q, custom, N, pv){
+    const out = RazorCore._ks || (RazorCore._ks = [0, 1]);
+    out[0] = 0; out[1] = 1;
+    if (!rule){
+      let ko = (q ? Math.round(spread) : spread)*pv;
+      if (q) ko = Math.sign(ko)*Math.round(Math.abs(ko));
+      out[0] = ko;
+    } else if (N > 1){
+      // a rule defines one ratio per slot; the spread law picks each member's slot (snapped = exact slots only)
+      const L = RazorCore.ruleList(rule, N, custom);
+      const x = Math.min(N - 1, Math.max(0, (pv + 0.5)*(N - 1)));
+      let r;
+      if (q) r = L[Math.round(x)];
+      else { const a = Math.floor(x), b = Math.min(N - 1, a + 1), f = x - a; r = Math.exp(Math.log(L[a])*(1 - f) + Math.log(L[b])*f); }
+      out[1] = Math.pow(r, amt);
+    }
+    return out;
+  }
+  // pitch-FM integrator: advances ns.acc (cycles of carrier phase); returns the unwrapped increment
+  static fmStep(p, ns, e, entered, kk, modX, dphi){
+    if (p.fmType !== 1 || !RazorCore.isFM(p)) return 0;
+    if (entered && p.mode === 1) ns.acc = 0;
+    const mv = RazorCore.mod(p.mshape, p.mode === 1 ? p.mEff*e : modX, ns.seed);
+    // exponential pitch deviation: ±(1 + I/10) as a frequency ratio at full modulator swing (symmetric in cents)
+    const d = (Math.pow(1 + 0.1*p.I, mv) - 1)*kk*dphi;
+    ns.acc += d; ns.acc -= Math.floor(ns.acc);
+    return d;
+  }
+  static voice(p, phi, c, k, modX, ns){
+    const base = RazorCore.wave(p.base, phi);
+    const w = p.w;
+    if (w < 0.004){ ns.g = 0; ns.inside = false; return base; }
+    let st = c - w*0.5; st -= Math.floor(st);
+    let e = phi - st; if (e < 0) e += 1;
+    if (e >= w){ ns.g = 0; ns.inside = false; return base; }
+    const kk = p.lock === 1 ? k / w : k;
+    // reflect: the second half of the blade replays the first half backwards (a palindrome)
+    const er = p.mirror === 1 && e > w*0.5 ? w - e : e;
+    const hp = kk * er;
+    let hot, x;
+    switch (p.mode){
+      case 0: { const cp = hp + ns.xin; hot = RazorCore.wave(p.hot, cp - Math.floor(cp)); break; }
+      case 1: case 2: {
+        const cp = ns.xin + (p.fmType === 1 ? hp + ns.acc
+          : hp + p.I*0.15915494309189535*RazorCore.mod(p.mshape, p.mode === 1 ? p.mEff*er : modX, ns.seed));
+        hot = RazorCore.wave(p.hot, cp - Math.floor(cp)); break;
+      }
+      case 3: {
+        const idx = Math.floor(hp);
+        if (!ns.inside || idx !== ns.idx){ ns.idx = idx; ns.val = ns.rnd(idx); }
+        hot = ns.val; break;
+      }
+      case 4: hot = Math.sin(1.5707963267948966*(1 + (k - 1)*0.25)*base); break;          // fold
+      case 5: { const cp = hp + ns.xin; hot = base*RazorCore.wave(p.hot, cp - Math.floor(cp)); break; }  // ring
+      case 6: {                                                                           // crush
+        // each hold level is the AVERAGE of the base over its hold interval (box-filtered decimation), so levels move
+        // continuously as k changes instead of flipping when a sample point slides across the base wave's jump
+        const wEff = p.mirror === 1 ? w*0.5 : w, hpEnd = kk*wEff, sl = p.hard;
+        hot = RazorCore.crushLevel(p.base, st, kk, hp, sl);
+        if (sl > 0.001){
+          // land on the base wave at the blade exit, over the last `slew` hold intervals (independent of step layout)
+          const rlE = Math.min(sl, hpEnd), h0 = hpEnd - rlE;
+          if (rlE > 1e-9 && hp > h0){
+            const from = RazorCore.crushLevel(p.base, st, kk, h0, sl);
+            x = st + wEff; const tgt = RazorCore.wave(p.base, x - Math.floor(x));
+            hot = from + (tgt - from)*(hp - h0)/rlE;
+          }
+        }
+        ns.inside = true; ns.g = 1;
+        return base + p.depth*(hot - base);
+      }
+      default: hot = base;
+    }
+    ns.inside = true;
+    const t = p.hard * w * 0.5;
+    let g = 1;
+    if (t > 1e-9){
+      if (e < t) g = 0.5 - 0.5*Math.cos(Math.PI*e/t);
+      else if (e > w - t) g = 0.5 - 0.5*Math.cos(Math.PI*(w - e)/t);
+    }
+    ns.g = g;
+    return base + g*p.depth*(hot - base);
+  }
+  // full output: the blade, plus an optional twin half a cycle later (inverted or not)
+  static out(p, phi, c, k, modX, ns, ns2, bx){
+    let y = RazorCore.voice(p, phi, c, k, modX, ns);
+    let ph2 = -1;
+    if (p.mirror >= 2){
+      ph2 = phi - 0.5; if (ph2 < 0) ph2 += 1;
+      ns2.acc = ns.acc; ns2.xin = ns.xin;
+      const d2 = RazorCore.voice(p, ph2, c, k, modX, ns2) - RazorCore.wave(p.base, ph2);
+      y += p.mirror === 2 ? -d2 : d2;
+    }
+    if (bx){
+      // second blade: its own parameter view (bx.g), centre, rate and state; contributions add on the same base
+      const g = bx.g, mr0 = RazorCore.mr, mn0 = RazorCore.mn;
+      RazorCore.mr = bx.mr; RazorCore.mn = bx.mn;
+      y += RazorCore.voice(g, phi, bx.c, bx.k, bx.modX, bx.ns3) - RazorCore.wave(g.base, phi);
+      if (g.mirror >= 2){
+        if (ph2 < 0){ ph2 = phi - 0.5; if (ph2 < 0) ph2 += 1; }
+        bx.ns4.acc = bx.ns3.acc; bx.ns4.xin = bx.ns3.xin;
+        const d4 = RazorCore.voice(g, ph2, bx.c, bx.k, bx.modX, bx.ns4) - RazorCore.wave(g.base, ph2);
+        y += g.mirror === 2 ? -d4 : d4;
+      }
+      RazorCore.mr = mr0; RazorCore.mn = mn0;
+    }
+    return y;
+  }
+  // blade-2 view: every field voice() reads, so it can be passed in place of the main params
+  static g2(){ return {mode:4,hot:2,base:0,w:.2,depth:1,hard:0,lock:0,mirror:0,fmType:0,I:2,mshape:0,mEff:3.37,m:3.37}; }
+  // blade 2's settings: units and mirror can follow blade 1 (-1) or be its own; FM follows blade 1 unless b2fm
+  static fillG2(g, s, w2e, dep2, I2e, mEff2){
+    g.mode = s.mode2; g.hot = s.hot2; g.base = s.base; g.w = w2e; g.depth = dep2; g.hard = s.hard2;
+    g.lock = s.lock2 < 0 ? s.lock : s.lock2; g.mirror = s.mirror2 < 0 ? s.mirror : s.mirror2;
+    g.fmType = s.b2fm ? s.fmType2 : s.fmType; g.mshape = s.b2fm ? s.mshape2 : s.mshape;
+    g.I = I2e; g.mEff = mEff2; g.m = s.b2fm ? s.m2 : s.m;
+  }
+  constructor(sr){
+    this.sr = sr; this.age = 0; this.cnt = 0; this.vc = 0;
+    this.t = {I2:2,m2:3.37,mHz2:660,morph2:.5,mspread2:0,ispread2:0,rotRate2:0,rotSpread2:0,kRuleAmt2:1,bspread2:0,kspread2:0,wspread2:0,dspread2:0,benvA2:2,benvD2:250,benvK2:0,benvW2:0,benvVel2:.5,kRuleAmt:1,w2:.2,k2:3,kHz2:800,c2:.35,depth2:1,hard2:0,xm:0,fb:0,benvA:2,benvD:250,benvK:0,benvW:0,benvVel:.5,glide:60,driftRate:.5,morph:.5,wspread:0,dspread:0,mspread:0,ispread:0,w:.25,k:6,kHz:1320,mHz:660,c:.875,rotRate:0,rotSpread:0,hard:0,depth:1,I:2,m:3.37,gain:.35,
+      detune:14,K:.35,bspread:0,kspread:0,width:.7,A:4,D:400,S:.85,R:280,bend:0};
+    // every field declared up front so the hot object keeps one fast shape
+    this.s = {lock2:-1,mirror2:-1,b2fm:0,fmType2:0,mshape2:0,mUnit2:0,I2:2,m2:3.37,mHz2:660,morph2:.5,mspread2:0,ispread2:0,rotRate2:0,rotSpread2:0,b2sp:0,kRule2:0,kRuleAmt2:1,bspread2:0,kspread2:0,wspread2:0,dspread2:0,benvA2:2,benvD2:250,benvK2:0,benvW2:0,benvVel2:.5,kRule:0,kCustom:'1, 5/4, 3/2',kRuleAmt:1,mode2:4,hot2:2,b2on:0,w2:.2,k2:3,kHz2:800,c2:.35,depth2:1,hard2:0,xm:0,fb:0,benvA:2,benvD:250,benvK:0,benvW:0,benvVel:.5,aa:1,glide:60,driftRate:.5,morph:.5,wspread:0,dspread:0,mspread:0,ispread:0,kq:0,law:0,w:.25,k:6,kHz:1320,mHz:660,c:.875,rotRate:0,rotSpread:0,hard:0,depth:1,I:2,m:3.37,gain:.35,
+      detune:14,K:.35,bspread:0,kspread:0,width:.7,A:4,D:400,S:.85,R:280,bend:0,
+      mode:0,hot:2,base:0,lock:0,mshape:0,fmType:0,mirror:0,mEff:3.37};
+    this.keys = Object.keys(this.t).filter(k => !['k','kHz','w','c','depth','I','hard','w2','k2','kHz2','c2'].includes(k));
+    this.sm = 0;
+    this.d = {mode:0,hot:2,base:0,lock:0,N:5,phaseMode:2,poly:6,mshape:0,kq:0,fmType:0,mUnit:0,mirror:0,dcMode:2,law:0,frame:0,frame2:-1,rot2Follow:1,lock2:-1,mirror2:-1,b2fm:0,fmType2:0,mshape2:0,mUnit2:0,cScale:0,rotSync:1,panOrder:0,aa:1,polyMode:0,glideAlways:0,b2on:0,mode2:4,hot2:2,kRule:0,kCustom:'1, 5/4, 3/2',b2sp:0,kRule2:0,b2env:0};
+    this.voices = [];
+    for (let i = 0; i < 8; i++) this.voices.push(this.newVoice());
+    this.Rx = new Float64Array(8); this.Ry = new Float64Array(8);
+    this.gl = new Float64Array(9); this.gr = new Float64Array(9);
+    this.sc = {idx:0,val:0,inside:true,g:0,seed:0,acc:0,xin:0,rnd:function(){ return this.val; }};
+    this.sc2 = {idx:0,val:0,inside:true,g:0,seed:0,acc:0,xin:0,rnd:function(){ return this.val; }};
+    this.bxs = {g:null,c:0,k:1,modX:0,mr:0,mn:1,ns3:{idx:0,val:0,inside:true,g:0,seed:0,acc:0,xin:0,rnd:function(){ return this.val; }},
+      ns4:{idx:0,val:0,inside:true,g:0,seed:0,acc:0,xin:0,rnd:function(){ return this.val; }}};
+    this.dcCnt = 0; this.hx = [0, 0]; this.hy = [0, 0]; this.gRot = 0; this.gRot2 = 0;
+    this.stack = []; this.nf = {};
+    this._cc = 0; this._cp = 0;
+    this.post = null;
+    this.os = 0; this.setOS(2);
+  }
+  newVoice(){
+    const ms = [];
+    for (let i = 0; i < 9; i++) ms.push({phi:0,modX:0,inc:0,prev:0,dc:0,dcS:0,dcInit:true,
+      rv:new Float64Array(14),rvT:new Float64Array(14),dcWait:0,lead:0,kMul:1,rot2:0,rotOff2:0,iMul2:1,mr2:0,mn2:1,cOff2:0,kAdd2:0,kMul2:1,wMul2:1,dAdd2:0,rot:0,cOff:0,kAdd:0,rotOff:0,wMul:1,dAdd:0,iMul:1,mor:0,kEff:6,mr:0,mn:1,
+      ns:{idx:0,val:0,inside:false,g:0,seed:i*97,acc:0,xin:0,rnd:RazorCore.rnd},
+      ns2:{idx:0,val:0,inside:false,g:0,seed:i*97 + 7,acc:0,xin:0,rnd:RazorCore.rnd},
+      y1:0,y2:0,
+      bx:{g:RazorCore.g2(),c:0,k:3,modX:0,mr:0,mn:1,ns3:{idx:0,val:0,inside:false,g:0,seed:i*97 + 13,acc:0,xin:0,rnd:RazorCore.rnd},ns4:{idx:0,val:0,inside:false,g:0,seed:i*97 + 19,acc:0,xin:0,rnd:RazorCore.rnd}}});
+    return {active:false,note:null,freq:110,freqT:110,fc:110,vel:1,env:0,stage:0,gate:false,age:0,r:1,rot:0,m:ms,
+      rot2:0,be:0,bst:0,bv:1,kE:1,wE:1,be2:0,bst2:0,bv2:1,kE2:1,wE2:1,gr:1,xb:new Float64Array(9)};
+  }
+  msg(o){
+    if (o.t === 'p') this.set(o);
+    else if (o.t === 'on') this.noteOn(o.note, o.freq, o.vel);
+    else if (o.t === 'off') this.noteOff(o.note);
+    else if (o.t === 're'){ for (const v of this.voices) if (v.active && v.note === o.note) v.freq = o.freq; }
+    else if (o.t === 'panic'){ for (const v of this.voices){ v.gate = false; v.stage = 4; } }
+  }
+  set(m){
+    if ('polyMode' in m && m.polyMode !== this.d.polyMode){
+      for (const v of this.voices){ v.gate = false; v.stage = 4; }
+      this.stack = [];
+    }
+    for (const k in m){
+      if (k === 't') continue;
+      if (k === 'os'){ if (m.os !== this.os) this.setOS(m.os); }
+      else if (k in this.t) this.t[k] = m[k];
+      else if (k in this.d) this.d[k] = m[k];
+    }
+  }
+  noteOn(note, freq, vel){
+    const d = this.d;
+    if (d.polyMode) return this.monoOn(note, freq, vel);
+    const pool = this.voices.slice(0, d.poly);
+    let v = pool.find(x => x.active && x.note === note);
+    const fresh = !v;
+    if (!v) v = pool.find(x => !x.active);
+    if (!v){ v = pool[0]; for (const x of pool) if (x.age < v.age) v = x; }
+    this.startVoice(v, note, freq, vel, fresh, true);
+    v.freq = v.freqT = freq;
+    this.couple(v, this.s, this.d);
+    this.spread(v);
+  }
+  // mono: one voice, a note stack with last-note priority. 'mono' retriggers the envelope on every new note,
+  // 'legato' only when no other key is held. Glide slides pitch between overlapping notes (or always, if set).
+  monoOn(note, freq, vel){
+    const d = this.d, s = this.s, v = this.voices[0];
+    this.stack = this.stack.filter(n => n !== note); this.stack.push(note); this.nf[note] = freq;
+    const held = v.active && v.gate, fresh = !v.active;
+    const retrig = !held || d.polyMode === 1;
+    const glide = !fresh && (held || d.glideAlways) && s.glide > 1;
+    this.startVoice(v, note, freq, vel, fresh, retrig);
+    v.freqT = freq; if (!glide) v.freq = freq;
+    this.couple(v, s, d);
+    this.spread(v);
+  }
+  startVoice(v, note, freq, vel, fresh, retrig){
+    const d = this.d;
+    if (fresh){
+      if (!v.active) v.env = 0;
+      for (const m of v.m){
+        m.phi = d.phaseMode === 1 ? 0 : Math.random(); m.modX = Math.random()*1000; m.bx.modX = m.modX + 317; m.prev = 0;
+        m.ns.inside = false; m.ns.acc = 0; m.ns2.inside = false; m.inc = freq;
+        m.dc = 0; m.dcS = 0; m.dcInit = true; m.y1 = 0; m.y2 = 0; m.bx.ns3.inside = false; m.bx.ns3.acc = 0; m.bx.ns4.inside = false;
+      }
+    }
+    if (fresh) v.freq = v.freqT = freq;
+    v.note = note; v.vel = vel; v.gate = true; v.active = true; v.age = ++this.age;
+    if (retrig){
+      v.stage = 1; v.be = 0; v.bst = 1; v.bv = 1 - this.s.benvVel + this.s.benvVel*vel;
+      v.be2 = 0; v.bst2 = 1; v.bv2 = 1 - this.s.benvVel2 + this.s.benvVel2*vel;
+    }
+    if (!retrig) return;
+    // 'note' rotation: every note starts with its blade exactly at Position
+    if (d.rotSync || fresh){ v.rot = 0; v.rot2 = 0; for (const m of v.m){ m.rot = 0; m.rot2 = 0; } }
+    // random law: every note-on (retriggers included) rolls a new distribution; a fresh voice jumps straight to it,
+    // a retriggered one glides there so a sounding note doesn't click
+    for (const m of v.m) for (let j = 0; j < 14; j++){ m.rvT[j] = Math.random() - 0.5; if (fresh) m.rv[j] = m.rvT[j]; }
+    if (fresh && d.phaseMode === 2 && d.N > 1){ v.freq = freq; this.settle(v); }
+    this.dcCnt = 0;
+  }
+  noteOff(note){
+    const d = this.d;
+    if (d.polyMode){
+      this.stack = this.stack.filter(n => n !== note);
+      const v = this.voices[0];
+      if (!v.active || !v.gate || v.note !== note) return;
+      if (this.stack.length){
+        // fall back to the most recent key still held, gliding there without a retrigger
+        const n = this.stack[this.stack.length - 1];
+        v.note = n; v.freqT = this.nf[n];
+        if (this.s.glide <= 1) v.freq = v.freqT;
+      } else { v.gate = false; v.stage = 4; }
+      return;
+    }
+    for (const v of this.voices) if (v.active && v.note === note && v.gate){ v.gate = false; v.stage = 4; }
+  }
+  keff(v, s){
+    const f = v.freq*Math.pow(2, s.bend/12);
+    const maxDev = 6.283185307179586*f*(Math.pow(2, s.detune/1200) - 1);
+    // 'cycles' scales the whole coupling with pitch, so locked phase lags (and the summed shape) match on every note
+    const floor = 6.283185307179586*3*(this.d.cScale ? f/110 : 1);
+    return s.K*(1.5*maxDev + floor);
+  }
+  // fast-forward the swarm to its steady state so a new note starts where a held note would be
+  settle(v){
+    const s = this.s, d = this.d, N = d.N, Ke = Math.abs(this.keff(v, s));
+    if (Ke < 1e-3) return;
+    const dt = Math.min(0.01, 0.15/Ke), f = v.freq*Math.pow(2, s.bend/12);
+    if (s.K > 0) for (let i = 0; i < N; i++) v.m[i].phi = Math.random()*0.15;
+    for (let it = 0; it < 150; it++){
+      this.couple(v, s, d);
+      for (let i = 0; i < N; i++){ const m = v.m[i]; m.phi += (m.inc - f)*dt; m.phi -= Math.floor(m.phi); }
+    }
+  }
+  couple(v, s, d){
+    const TAU = 6.283185307179586, N = d.N;
+    const f = v.freq*Math.pow(2, s.bend/12);
+    v.fc = v.freq;
+    const Keff = this.keff(v, s);
+    const H = N < 2 ? 1 : (s.K < 0 ? Math.min(N - 1, 6) : 1);
+    const Rx = this.Rx, Ry = this.Ry;
+    for (let h = 1; h <= H; h++){
+      let sx = 0, sy = 0;
+      for (let i = 0; i < N; i++){ const a = TAU*h*v.m[i].phi; sx += Math.cos(a); sy += Math.sin(a); }
+      Rx[h] = sx/N; Ry[h] = sy/N;
+    }
+    v.r = Math.hypot(Rx[1], Ry[1]);
+    if (N > 1){
+      // each member's signed phase lead on the mean field, in cycles (−½…½): locking shrinks it, splay maximizes it
+      const psi = Math.atan2(Ry[1], Rx[1])/TAU;
+      for (let i = 0; i < N; i++){ let l = v.m[i].phi - psi + 0.5; l -= Math.floor(l); v.m[i].lead = l - 0.5; }
+    } else v.m[0].lead = 0;
+    for (let i = 0; i < N; i++){
+      const cents = N > 1 ? s.detune*(2*i/(N - 1) - 1) : 0;
+      const fi = f*Math.pow(2, cents/1200);
+      let coup = 0;
+      if (N > 1) for (let h = 1; h <= H; h++){
+        const a = TAU*h*v.m[i].phi;
+        coup += (Ry[h]*Math.cos(a) - Rx[h]*Math.sin(a))/h;
+      }
+      v.m[i].inc = Math.max(0, fi + Keff*coup/TAU);
+    }
+  }
+  spread(v){
+    const s = this.s, d = this.d, N = d.N, nyq = this.sr*this.os*0.5, dt = 32/this.sr;
+    s.kq = d.kq; s.lock = d.lock; s.kRule = d.kRule; s.kCustom = d.kCustom; s.b2sp = d.b2sp; s.kRule2 = d.kRule2;
+    s.lock2 = d.lock2; s.mirror2 = d.mirror2;
+    if (d.law === 1){
+      const a = 1 - Math.exp(-dt/0.02);
+      for (let i = 0; i < N; i++){ const m = v.m[i]; for (let j = 0; j < 14; j++) m.rv[j] += (m.rvT[j] - m.rv[j])*a; }
+    } else if (d.law === 4){
+      // drift: an Ornstein-Uhlenbeck walk per member and per parameter, same spread as the random law
+      const th = 6.283185307179586*s.driftRate, sig = 0.289*Math.sqrt(2*th*dt), dec = Math.exp(-th*dt);
+      for (let i = 0; i < N; i++){
+        const m = v.m[i];
+        for (let j = 0; j < 14; j++){
+          const u = Math.max(1e-12, Math.random()), z = Math.sqrt(-2*Math.log(u))*Math.cos(6.283185307179586*Math.random());
+          let x = m.rv[j]*dec + sig*z;
+          m.rv[j] = x > 0.75 ? 0.75 : x < -0.75 ? -0.75 : x;
+        }
+      }
+    }
+    for (let i = 0; i < N; i++) RazorCore.spreadMember(v.m[i], i, N, s, d.law, v.m[i].inc, nyq);
+  }
+  mk(fs, fc, Q){
+    const w0 = 6.283185307179586*fc/fs, cs = Math.cos(w0), al = Math.sin(w0)/(2*Q);
+    const a0 = 1 + al, b0 = (1 - cs)/2;
+    return {b0:b0/a0, b1:(1 - cs)/a0, b2:b0/a0, a1:(-2*cs)/a0, a2:(1 - al)/a0, z1:0, z2:0};
+  }
+  setOS(n){
+    this.os = n;
+    const fs = this.sr*n, fc = 0.45*this.sr;
+    this.bqL = [this.mk(fs,fc,0.5412), this.mk(fs,fc,1.3066)];
+    this.bqR = [this.mk(fs,fc,0.5412), this.mk(fs,fc,1.3066)];
+  }
+  bqf(f, x){
+    const y = f.b0*x + f.z1;
+    f.z1 = f.b1*x - f.a1*y + f.z2;
+    f.z2 = f.b2*x - f.a2*y;
+    return y;
+  }
+  hAt(m, E, c, k, s){
+    const sc = this.sc, sc2 = this.sc2, F = RazorCore.frac;
+    sc.seed = m.ns.seed; sc.acc = m.ns.acc; sc2.seed = m.ns2.seed;
+    sc.idx = m.ns.idx; sc.val = m.ns.val; sc.inside = true;
+    sc2.idx = m.ns2.idx; sc2.val = m.ns2.val; sc2.inside = true;
+    sc.xin = m.ns.xin; sc2.xin = m.ns.xin;
+    let bx = null;
+    if (s.b2on){
+      const src = m.bx, b = this.bxs; bx = b;
+      b.g = src.g; b.c = src.c; b.k = src.k; b.modX = src.modX; b.mr = src.mr; b.mn = src.mn;
+      b.ns3.seed = src.ns3.seed; b.ns3.acc = src.ns3.acc; b.ns3.idx = src.ns3.idx; b.ns3.val = src.ns3.val; b.ns3.inside = true; b.ns3.xin = src.ns3.xin;
+      b.ns4.seed = src.ns4.seed; b.ns4.idx = src.ns4.idx; b.ns4.val = src.ns4.val; b.ns4.inside = true;
+    }
+    const a = RazorCore.out(s, F(E + 1e-7), c, k, m.modX, sc, sc2, bx);
+    sc.idx = m.ns.idx; sc.inside = true; sc2.idx = m.ns2.idx; sc2.inside = true;
+    if (bx){ bx.ns3.idx = m.bx.ns3.idx; bx.ns3.inside = true; bx.ns4.idx = m.bx.ns4.idx; bx.ns4.inside = true; }
+    const b = RazorCore.out(s, F(E - 1e-7), c, k, m.modX, sc, sc2, bx);
+    return a - b;
+  }
+  // mean of the blade's contribution over one cycle, for per-cycle DC correction
+  dcEst(ns, modX, c, k, s){
+    const w = s.w;
+    this._dcJ = 0;
+    if (w < 0.004) return 0;   // noise blades: estimated with the noise at its mean (zero), leaving the base it replaces
+    const fac = s.mirror === 2 ? 0 : s.mirror === 3 ? 2 : 1;
+    if (!fac) return 0;
+    let st = c - w*0.5; st -= Math.floor(st);
+    const kk = s.lock === 1 ? k/w : k, F = RazorCore.F;
+    // sync blade of a closed-form wave: the hard-edged integral is exact; soft edges subtract what the
+    // tapers remove, integrated numerically over the (short) taper regions only
+    if (s.mode === 0 && s.hot !== 6){
+      const hotInt = s.mirror === 1 ? 2*(F(s.hot, kk*w*0.5) - F(s.hot, 0))/kk : (F(s.hot, kk*w) - F(s.hot, 0))/kk;
+      let total = hotInt - (F(s.base, st + w) - F(s.base, st));
+      const t = s.hard*w*0.5;
+      if (t > 1e-9){
+        const Jt = Math.min(512, Math.max(32, Math.ceil(kk*t*32)));
+        this._dcJ = 2*Jt;
+        const sc = this.sc; sc.inside = true;
+        let cut = 0;
+        for (let side = 0; side < 2; side++) for (let j = 0; j < Jt; j++){
+          const e = side === 0 ? (j + 0.5)/Jt*t : w - (j + 0.5)/Jt*t;
+          const er = s.mirror === 1 && e > w*0.5 ? w - e : e;
+          let hp = kk*er; hp -= Math.floor(hp);
+          let phi = st + e; phi -= Math.floor(phi);
+          const g = 0.5 - 0.5*Math.cos(Math.PI*(side === 0 ? e : w - e)/t);
+          cut += (1 - g)*(RazorCore.wave(s.hot, hp) - RazorCore.wave(s.base, phi));
+        }
+        total -= cut*t/Jt;
+      }
+      return fac*s.depth*total;
+    }
+    // numeric: enough points to resolve every carrier cycle, crush step and modulator cycle, so the
+    // sample grid can never lock onto the blade's own periodicity (that was the erratic-DC bug)
+    let feats = kk*w;
+    if (RazorCore.isFM(s)) feats *= 1 + 0.5*s.I;
+    feats += s.mEff*w;
+    const J = Math.min(1024, Math.max(48, Math.ceil(feats*32)));
+    this._dcJ = J;
+    const sc = this.sc;
+    sc.seed = ns.seed; sc.acc = ns.acc; sc.idx = ns.idx; sc.val = s.mode === 3 ? 0 : ns.val; sc.xin = ns.xin;
+    let sum = 0;
+    for (let j = 0; j < J; j++){
+      let phi = st + (j + 0.5)/J*w; phi -= Math.floor(phi);
+      sc.inside = j > 0;
+      sum += RazorCore.voice(s, phi, c, k, modX, sc) - RazorCore.wave(s.base, phi);
+    }
+    return fac*w*sum/J;
+  }
+  // PolyBLEP for discontinuities inside one blade (primary or twin), tracked in carrier phase
+  scan(m, st, p0, dphi, c, k, s, dAcc, modX0, g, kB, nsB, modX1){
+    const w = g.w, ns = nsB;
+    let off = -1, step = 1;
+    const carrier = g.mode === 0 || g.mode === 5 || RazorCore.isFM(g);
+    if (carrier && (g.hot === 2 || g.hot === 4)){ off = 0.5; step = 1; }
+    else if (carrier && g.hot === 3){ off = 0; step = 0.5; }
+    else if (g.mode === 6 && g.hard <= 0.001){ off = 0; step = 1; }
+    if (off < 0) return;
+    let e0 = p0 - st; e0 -= Math.floor(e0);
+    if (e0 >= w) return;
+    const kk = g.lock === 1 ? kB/w : kB;
+    const eEnd = Math.min(e0 + dphi, w), tmax = (eEnd - e0)/dphi;
+    const hw = w*0.5, refl = g.mirror === 1;
+    const r0 = refl && e0 > hw ? w - e0 : e0, r1 = refl && eEnd > hw ? w - eEnd : eEnd;
+    let o0 = 0, o1 = 0;
+    if (RazorCore.isFM(g)){
+      if (g.fmType === 1){ o1 = ns.acc; o0 = o1 - dAcc; }
+      else {
+        const sc = 0.15915494309189535*g.I;
+        o0 = sc*RazorCore.mod(g.mshape, g.mode === 1 ? g.mEff*r0 : modX0, ns.seed);
+        o1 = sc*RazorCore.mod(g.mshape, g.mode === 1 ? g.mEff*r1 : modX1, ns.seed);
+      }
+    }
+    const cp0 = kk*r0 + o0, cp1 = kk*r1 + o0 + (o1 - o0)*tmax;
+    const lo = Math.min(cp0, cp1), hi = Math.max(cp0, cp1);
+    if (!(hi - lo > 1e-12 && hi - lo < 8)) return;
+    let j = Math.floor((lo - off)/step) + 1;
+    for (let q = 0; q < 6; q++, j++){
+      const pos = off + j*step; if (pos > hi) break;
+      if (pos <= lo || pos === 0) continue;
+      const tau = (pos - cp0)/(cp1 - cp0)*tmax;
+      if (tau > 0 && tau <= 1) this.addE(m, p0 + tau*dphi, tau, c, k, s);
+    }
+  }
+  addE(m, E, tau, c, k, s){
+    const h = this.hAt(m, E, c, k, s);
+    this._cc -= 0.5*h*tau*tau;
+    this._cp += 0.5*h*(1 - tau)*(1 - tau);
+  }
+  tryE(m, E, p0, dphi, c, k, s){
+    let dd = E - p0; dd -= Math.floor(dd);
+    if (dd > 0 && dd <= dphi) this.addE(m, E, dd/dphi, c, k, s);
+  }
+  // one member, one (oversampled) tick, with PolyBLEP on every known discontinuity
+  stepM(m, dphi, c, k, s){
+    const w = s.w, p0 = m.phi, ns = m.ns;
+    let p1 = p0 + dphi; p1 -= Math.floor(p1); m.phi = p1;
+    const modX0 = m.modX;
+    m.modX += s.mEff*dphi; if (m.modX > 65536) m.modX -= 65536;
+    let st = c - w*0.5; st -= Math.floor(st);
+    let e0 = p0 - st; e0 -= Math.floor(e0);
+    let e1 = p1 - st; e1 -= Math.floor(e1);
+    const on = w >= 0.004, kk = on ? (s.lock === 1 ? k/w : k) : k;
+    const dAcc = on ? RazorCore.fmStep(s, ns, e1, e1 < e0, kk, m.modX, dphi) : 0;
+    const bx = s.b2on ? m.bx : null;
+    let dAcc2 = 0, st3 = 0, on2 = false, modX20 = 0;
+    if (bx){
+      // blade 2 shares blade 1's modulator unless it has FM of its own
+      if (s.b2fm){ modX20 = bx.modX; bx.modX += bx.g.mEff*dphi; if (bx.modX > 65536) bx.modX -= 65536; }
+      else { modX20 = modX0; bx.modX = m.modX; }
+      const g = bx.g, w2 = g.w;
+      on2 = w2 >= 0.004;
+      if (on2){
+        st3 = bx.c - w2*0.5; st3 -= Math.floor(st3);
+        let a0 = p0 - st3; a0 -= Math.floor(a0); let a1 = p1 - st3; a1 -= Math.floor(a1);
+        const mr0 = RazorCore.mr; RazorCore.mr = bx.mr;
+        dAcc2 = RazorCore.fmStep(g, bx.ns3, a1, a1 < a0, g.lock === 1 ? bx.k/w2 : bx.k, bx.modX, dphi);
+        RazorCore.mr = mr0;
+      }
+    }
+    const x = RazorCore.out(s, p1, c, k, m.modX, ns, m.ns2, bx);
+    this._cc = 0; this._cp = 0;
+    if (s.aa && dphi > 0 && dphi < 0.5){
+      const b = s.base;
+      if (b === 2 || b === 4) this.tryE(m, 0.5, p0, dphi, c, k, s);
+      else if (b === 3){ this.tryE(m, 0, p0, dphi, c, k, s); this.tryE(m, 0.5, p0, dphi, c, k, s); }
+      if (on){
+        this.tryE(m, st, p0, dphi, c, k, s);
+        if (w < 0.9999) this.tryE(m, st + w, p0, dphi, c, k, s);
+        this.scan(m, st, p0, dphi, c, k, s, dAcc, modX0, s, k, ns, m.modX);
+        if (s.mirror >= 2){
+          const st2 = st + 0.5;
+          this.tryE(m, st2, p0, dphi, c, k, s);
+          if (w < 0.9999) this.tryE(m, st2 + w, p0, dphi, c, k, s);
+          this.scan(m, st2 - Math.floor(st2), p0, dphi, c, k, s, dAcc, modX0, s, k, ns, m.modX);
+        }
+      }
+      if (on2){
+        const g = bx.g, w2 = g.w;
+        this.tryE(m, st3, p0, dphi, c, k, s);
+        if (w2 < 0.9999) this.tryE(m, st3 + w2, p0, dphi, c, k, s);
+        this.scan(m, st3, p0, dphi, c, k, s, dAcc2, modX20, g, bx.k, bx.ns3, bx.modX);
+        if (g.mirror >= 2){
+          const st4 = st3 + 0.5;
+          this.tryE(m, st4, p0, dphi, c, k, s);
+          if (w2 < 0.9999) this.tryE(m, st4 + w2, p0, dphi, c, k, s);
+          this.scan(m, st4 - Math.floor(st4), p0, dphi, c, k, s, dAcc2, modX20, g, bx.k, bx.ns3, bx.modX);
+        }
+      }
+    }
+    const out = m.prev + this._cp;
+    m.prev = x + this._cc;
+    return out;
+  }
+  render(L, R){
+    const n = L.length, os = this.os, sr = this.sr, s = this.s, t = this.t, d = this.d, keys = this.keys;
+    const a = 1 - Math.exp(-16/(0.012*sr));
+    const a1 = 1 - Math.exp(-1/(0.012*sr));
+    s.mode = d.mode; s.hot = d.hot; s.base = d.base; s.lock = d.lock; s.mshape = d.mshape; s.fmType = d.fmType; s.mirror = d.mirror; s.aa = d.aa; s.mEff = s.m;
+    s.b2on = d.b2on; s.mode2 = d.mode2; s.hot2 = d.hot2;
+    s.lock2 = d.lock2; s.mirror2 = d.mirror2; s.b2fm = d.b2fm; s.fmType2 = d.fmType2; s.mshape2 = d.mshape2; s.mUnit2 = d.mUnit2;
+    s.kq = d.kq; s.law = d.law; s.kRule = d.kRule; s.kCustom = d.kCustom; s.b2sp = d.b2sp; s.kRule2 = d.kRule2;
+    const N = d.N, gl = this.gl, gr = this.gr;
+    for (let i = 0; i < N; i++){
+      const pn = N > 1 ? i/(N - 1) - 0.5 : 0;
+      const pos = d.panOrder ? pn*2 : RazorCore.panSlot(N, i);
+      const ang = (pos*s.width + 1)*Math.PI/4;
+      gl[i] = Math.cos(ang); gr[i] = Math.sin(ang);
+    }
+    const norm = 1/Math.sqrt(N);
+    const attInc = 1/Math.max(1, s.A*0.001*sr);
+    const dC = 1 - Math.exp(-4/Math.max(1, s.D*0.001*sr));
+    const rC = 1 - Math.exp(-4/Math.max(1, s.R*0.001*sr));
+    const voices = this.voices, bqL = this.bqL, bqR = this.bqR;
+    const dcOn = d.dcMode === 2, hpR = 1 - 6.283185307179586*8/sr, hx = this.hx, hy = this.hy;
+    for (let i = 0; i < n; i++){
+      if (--this.sm <= 0){ this.sm = 16; for (let q = 0; q < keys.length; q++){ const k = keys[q]; s[k] += (t[k] - s[k])*a; } }
+      // audio-critical parameters glide every sample, so cut-rate and width moves don't step every 16 samples
+      s.k += (t.k - s.k)*a1; s.kHz += (t.kHz - s.kHz)*a1; s.w += (t.w - s.w)*a1; s.c += (t.c - s.c)*a1;
+      s.depth += (t.depth - s.depth)*a1; s.I += (t.I - s.I)*a1; s.hard += (t.hard - s.hard)*a1;
+      s.w2 += (t.w2 - s.w2)*a1; s.k2 += (t.k2 - s.k2)*a1; s.kHz2 += (t.kHz2 - s.kHz2)*a1; s.c2 += (t.c2 - s.c2)*a1;
+      if (--this.cnt <= 0){ this.cnt = 32; for (const v of voices) if (v.active){ this.couple(v, s, d); this.spread(v); } }
+      const gk = 1 - Math.exp(-3/Math.max(1, s.glide*0.001*sr));
+      const beA = 1/Math.max(1, s.benvA*0.001*sr), beD = 1 - Math.exp(-4/Math.max(1, s.benvD*0.001*sr));
+      const beA2 = 1/Math.max(1, s.benvA2*0.001*sr), beD2 = 1 - Math.exp(-4/Math.max(1, s.benvD2*0.001*sr));
+      for (const v of voices){
+        if (!v.active) continue;
+        if (v.freq !== v.freqT){
+          const lr = Math.log(v.freqT/v.freq);
+          v.freq = Math.abs(lr) < 1e-5 ? v.freqT : v.freq*Math.exp(lr*gk);
+        }
+        v.gr = v.freq/v.fc;
+        // blade envelope: linear attack, exponential decay to zero; scales cut rate and width of both blades
+        if (v.bst === 1){ v.be += beA; if (v.be >= 1){ v.be = 1; v.bst = 2; } }
+        else if (v.bst === 2){ v.be -= v.be*beD; if (v.be < 1e-4){ v.be = 0; v.bst = 0; } }
+        const bE = v.be*v.bv;
+        v.kE = s.benvK ? Math.pow(2, s.benvK*4*bE) : 1;
+        v.wE = s.benvW ? Math.pow(2, s.benvW*3*bE) : 1;
+        if (d.b2env){
+          // blade 2's own envelope
+          if (v.bst2 === 1){ v.be2 += beA2; if (v.be2 >= 1){ v.be2 = 1; v.bst2 = 2; } }
+          else if (v.bst2 === 2){ v.be2 -= v.be2*beD2; if (v.be2 < 1e-4){ v.be2 = 0; v.bst2 = 0; } }
+          const bE2 = v.be2*v.bv2;
+          v.kE2 = s.benvK2 ? Math.pow(2, s.benvK2*4*bE2) : 1;
+          v.wE2 = s.benvW2 ? Math.pow(2, s.benvW2*3*bE2) : 1;
+        } else { v.kE2 = v.kE; v.wE2 = v.wE; }
+        if (v.stage === 1){ v.env += attInc; if (v.env >= 1){ v.env = 1; v.stage = 2; } }
+        else if (v.stage === 2) v.env += (s.S - v.env)*dC;
+        else if (v.stage === 4){ v.env -= v.env*rC; if (v.env < 1e-4){ v.env = 0; v.active = false; } }
+      }
+      let yl = 0, yr = 0;
+      const dcTick = dcOn && --this.dcCnt <= 0;
+      if (dcTick) this.dcCnt = 256;
+      const w0 = s.w, d0 = s.depth, I0 = s.I, rs = s.rotRate/sr;
+      // rotation is bipolar: negative rates run the blade backwards round the cycle
+      const rOn = Math.abs(t.rotRate) > 0.004, sOn = t.rotSpread > 0.004, hk = 1 - Math.exp(-1/(0.03*sr));
+      if (rOn){ this.gRot += rs; this.gRot -= Math.floor(this.gRot); } else this.gRot = RazorCore.home(this.gRot, hk);
+      const rotBase = d.rotSync ? null : this.gRot;
+      // blade 2 rotates with blade 1, or on a clock of its own
+      const own2 = s.b2on && !d.rot2Follow, rs2 = s.rotRate2/sr, rOn2 = Math.abs(t.rotRate2) > 0.004;
+      const sOn2 = d.b2sp ? t.rotSpread2 > 0.004 : sOn;
+      if (own2){ if (rOn2){ this.gRot2 += rs2; this.gRot2 -= Math.floor(this.gRot2); } else this.gRot2 = RazorCore.home(this.gRot2, hk); }
+      const rotBase2 = d.rotSync ? null : this.gRot2;
+      for (const v of voices){
+        if (!v.active) continue;
+        if (rOn){ v.rot += rs; v.rot -= Math.floor(v.rot); } else v.rot = RazorCore.home(v.rot, hk);
+        if (own2){ if (rOn2){ v.rot2 += rs2; v.rot2 -= Math.floor(v.rot2); } else v.rot2 = RazorCore.home(v.rot2, hk); }
+        for (let q = 0; q < N; q++){
+          const mm = v.m[q];
+          if (sOn){ mm.rot += mm.rotOff/sr; mm.rot -= Math.floor(mm.rot); } else mm.rot = RazorCore.home(mm.rot, hk);
+          if (own2){ if (sOn2){ mm.rot2 += mm.rotOff2/sr; mm.rot2 -= Math.floor(mm.rot2); } else mm.rot2 = RazorCore.home(mm.rot2, hk); }
+        }
+      }
+      for (let j = 0; j < os; j++){
+        let accL = 0, accR = 0;
+        for (const v of voices){
+          if (!v.active) continue;
+          let vl = 0, vr = 0;
+          const xOn = s.xm > 0.0005 || s.fb > 0.0005, xb = v.xb;
+          if (xOn) for (let q = 0; q < N; q++) xb[q] = v.m[q].y1;
+          for (let q = 0; q < N; q++){
+            const mm = v.m[q];
+            // cross-member modulation: phase push from the next member round the ring; feedback: from itself
+            const xin = xOn ? 0.5*(s.xm*xb[(q + 1) % N] + s.fb*0.5*(mm.y1 + mm.y2)) : 0;
+            mm.ns.xin = xin; mm.ns2.xin = xin; mm.bx.ns3.xin = xin; mm.bx.ns4.xin = xin;
+            // per-member overrides of the shared parameters, restored after the voices
+            s.w = w0 < 0.004 ? w0 : Math.min(1, w0*mm.wMul*v.wE);
+            s.depth = Math.min(1, Math.max(0, d0 + mm.dAdd));
+            s.I = I0*mm.iMul;
+            RazorCore.mr = mm.mr; RazorCore.mn = mm.mn;
+            const rotAll = (rotBase === null ? v.rot : rotBase) + mm.rot, fr2 = d.frame2 < 0 ? d.frame : d.frame2;
+            let c = s.c + rotAll + mm.cOff + (d.frame ? mm.lead : 0); c -= Math.floor(c);
+            const fi = Math.max(1, mm.inc*v.gr);
+            // Hz units: the same absolute rate for every member and every note
+            const kCap = 0.45*sr*os/fi;   // keep every blade carrier under the oversampled Nyquist
+            const kq = Math.min((d.lock === 2 ? Math.max(0.05, s.kHz/fi + mm.kAdd) : Math.max(0.25, s.k + mm.kAdd))*mm.kMul*v.kE, kCap);
+            if (s.b2on){
+              const bx = mm.bx;
+              const rot2All = own2 ? (rotBase2 === null ? v.rot2 : rotBase2) + mm.rot2 : rotAll;
+              bx.c = s.c2 + rot2All + mm.cOff2 + (fr2 ? mm.lead : 0); bx.c -= Math.floor(bx.c);
+              const lock2 = d.lock2 < 0 ? d.lock : d.lock2;
+              bx.k = Math.min((lock2 === 2 ? Math.max(0.05, s.kHz2/fi + mm.kAdd2) : Math.max(0.25, s.k2 + mm.kAdd2))*mm.kMul2*v.kE2, kCap);
+              const mEff2 = d.b2fm ? (d.mUnit2 ? s.mHz2/fi : s.m2) : (d.mUnit ? s.mHz/fi : s.m);
+              RazorCore.fillG2(bx.g, s, s.w2 < 0.004 ? s.w2 : Math.min(1, s.w2*mm.wMul2*v.wE2), Math.min(1, Math.max(0, s.depth2 + mm.dAdd2)),
+                (d.b2fm ? s.I2 : I0)*mm.iMul2, mEff2);
+              bx.mr = mm.mr2; bx.mn = mm.mn2;
+            }
+            s.mEff = d.mUnit ? s.mHz/fi : s.m;
+            let y = this.stepM(mm, mm.inc*v.gr/(sr*os), c, kq, s);
+            if (xOn){ mm.y2 = mm.y1; mm.y1 = y; }
+            if (dcOn){
+              // big numeric estimates refresh less often, so the cost stays about constant
+              if (dcTick && j === 0 && (--mm.dcWait <= 0 || mm.dcInit)){
+                mm.dc = this.dcEst(mm.ns, mm.modX, c, kq, s);
+                const j1 = this._dcJ;
+                if (s.b2on){
+                  const mr0 = RazorCore.mr, mn0 = RazorCore.mn; RazorCore.mr = mm.bx.mr; RazorCore.mn = mm.bx.mn;
+                  mm.dc += this.dcEst(mm.bx.ns3, mm.bx.modX, mm.bx.c, mm.bx.k, mm.bx.g); this._dcJ += j1;
+                  RazorCore.mr = mr0; RazorCore.mn = mn0;
+                }
+                mm.dcWait = Math.max(1, Math.ceil(this._dcJ/64));
+                if (mm.dcInit){ mm.dcS = mm.dc; mm.dcInit = false; }
+              }
+              mm.dcS += (mm.dc - mm.dcS)*0.003;
+              y -= mm.dcS;
+            }
+            vl += y*gl[q]; vr += y*gr[q];
+          }
+          const amp = v.env*v.vel*norm;
+          accL += vl*amp; accR += vr*amp;
+        }
+        s.w = w0; s.depth = d0; s.I = I0;
+        if (os > 1){
+          accL = this.bqf(bqL[1], this.bqf(bqL[0], accL));
+          accR = this.bqf(bqR[1], this.bqf(bqR[0], accR));
+        }
+        yl = accL; yr = accR;
+      }
+      // cross-mod and feedback make the cycle depend on the previous sample, which the per-cycle estimate can't see:
+      // back it up with the blocker so any residual offset still drains away
+      if (d.dcMode === 1 || (d.dcMode === 2 && (s.xm > 0.0005 || s.fb > 0.0005))){
+        const ol = yl - hx[0] + hpR*hy[0]; hx[0] = yl; hy[0] = ol; yl = ol;
+        const or = yr - hx[1] + hpR*hy[1]; hx[1] = yr; hy[1] = or; yr = or;
+      }
+      L[i] = Math.tanh(yl*s.gain*1.6);
+      R[i] = Math.tanh(yr*s.gain*1.6);
+      if (--this.vc <= 0){
+        this.vc = Math.floor(sr/30);
+        if (this.post){
+          let lv = null, cntA = 0;
+          for (const v of voices) if (v.active){ cntA++; if (!lv || v.age > lv.age) lv = v; }
+          if (lv){
+            const mem = {phi:[], c:[], k:[], w:[], dep:[], I:[], mr:[], mn:[], k2:[], w2:[], dep2:[], c2:[], I2:[], mr2:[], mn2:[]};
+            for (let q = 0; q < N; q++){
+              const mm = lv.m[q];
+              mem.phi.push(mm.phi); mem.c.push((d.rotSync ? lv.rot : this.gRot) + mm.rot + mm.cOff + (d.frame ? mm.lead : 0)); mem.k.push(mm.kEff*lv.kE);
+              mem.w.push(s.w < 0.004 ? s.w : Math.min(1, s.w*mm.wMul*lv.wE));
+              mem.k2.push(mm.bx.k); mem.w2.push(mm.bx.g.w); mem.dep2.push(mm.bx.g.depth); mem.I2.push(mm.bx.g.I); mem.mr2.push(mm.mr2); mem.mn2.push(mm.mn2); const r1 = (d.rotSync ? lv.rot : this.gRot) + mm.rot, r2 = (s.b2on && !d.rot2Follow) ? (d.rotSync ? lv.rot2 : this.gRot2) + mm.rot2 : r1;
+              mem.c2.push((r2 + mm.cOff2 + ((d.frame2 < 0 ? d.frame : d.frame2) ? mm.lead : 0)) - (r1 + mm.cOff + (d.frame ? mm.lead : 0)));
+              mem.dep.push(Math.min(1, Math.max(0, s.depth + mm.dAdd))); mem.I.push(s.I*mm.iMul);
+              mem.mr.push(mm.mr); mem.mn.push(mm.mn);
+            }
+            this.post({t:'viz', phases:mem.phi, mem, r:lv.r, freq:lv.freq*Math.pow(2, s.bend/12), count:cntA});
+          } else this.post({t:'viz', count:0});
+        }
+      }
+    }
+  }
+}
+
+RazorCore.PANS = [[0.0],[-1.0,1.0],[-1.0,1.0,0.0],[-0.3333,1.0,-1.0,0.3333],[-0.5,1.0,0.0,-1.0,0.5],[-0.2,0.6,-1.0,1.0,-0.6,0.2],[-0.3333,1.0,-1.0,0.6667,-0.6667,0.3333,0.0],[-0.1429,0.4286,-0.7143,1.0,-1.0,0.7143,-0.4286,0.1429],[-0.25,1.0,-0.75,-0.5,0.0,0.5,0.75,-1.0,0.25]];
+const workletSrc = RazorCore.toString() + `\nRazorCore.PANS = [[0.0],[-1.0,1.0],[-1.0,1.0,0.0],[-0.3333,1.0,-1.0,0.3333],[-0.5,1.0,0.0,-1.0,0.5],[-0.2,0.6,-1.0,1.0,-0.6,0.2],[-0.3333,1.0,-1.0,0.6667,-0.6667,0.3333,0.0],[-0.1429,0.4286,-0.7143,1.0,-1.0,0.7143,-0.4286,0.1429],[-0.25,1.0,-0.75,-0.5,0.0,0.5,0.75,-1.0,0.25]];
+class RazorProc extends AudioWorkletProcessor{
+  constructor(){ super(); this.core = new RazorCore(sampleRate); this.core.post = d => this.port.postMessage(d); this.port.onmessage = e => this.core.msg(e.data); }
+  process(i, o){ const out = o[0]; this.core.render(out[0], out[1] || out[0]); return true; }
+}
+registerProcessor('razor-proc', RazorProc);`;
+
+/* ============ State ============ */
+const P = {w:.25,k:6,c:.875,rotRate:0,rotSpread:0,hard:0,depth:1,I:2,m:3.37,gain:.35,
+  detune:14,K:.35,bspread:0,kspread:0,width:.7,A:4,D:400,S:.85,R:280,bend:0,
+  mode:0,hot:2,base:0,lock:0,N:5,phaseMode:2,poly:6,os:2,f0:110,mshape:0,kq:0,fmType:0,mUnit:0,kHz:1320,mHz:660,mEff:3.37,mirror:0,dcMode:2,b2on:0,mode2:4,hot2:2,w2:.2,k2:3,kHz2:800,c2:.35,depth2:1,hard2:0,xm:0,fb:0,benvA:2,benvD:250,benvK:0,benvW:0,benvVel:.5,b2sp:0,kRule2:0,kRuleAmt2:1,bspread2:0,kspread2:0,wspread2:0,dspread2:0,b2env:0,benvA2:2,benvD2:250,benvK2:0,benvW2:0,benvVel2:.5,kRule:0,kRuleAmt:1,kCustom:'1, 5/4, 3/2',f0Mode:0,f0Note:45,nameAbleton:1,wtMode:0,wtFrames:64,wtDur:4,wtNorm:1,aa:1,polyMode:0,glideAlways:0,glide:60,panOrder:0,rotSync:1,rot2Follow:1,rotRate2:0,rotSpread2:0,lock2:-1,mirror2:-1,b2fm:0,fmType2:0,mshape2:0,mUnit2:0,I2:2,m2:3.37,mHz2:660,morph2:.5,mspread2:0,ispread2:0,law:0,driftRate:.5,morph:.5,wspread:0,dspread:0,mspread:0,ispread:0,frame:0,frame2:-1,cScale:0};
+const VIZ = {phases:[0,0,0,0,0], r:1, freq:110, count:0, mem:null};
+// two pads; each axis drives a primary parameter and optionally a second one (same position, or inverted)
+const PADS = [{x:'w', y:'k', x2:'', y2:'', xi:0, yi:0}, {x:'c2', y:'k2', x2:'', y2:'', xi:0, yi:0}];
+let padSel = 0, PAD = PADS[0];
+let engine = null, starting = null, droneOn = false;
+const localRot = new Float64Array(9), localRot2 = new Float64Array(9);
+const preview = Array.from({length:9}, () => ({rv:new Float64Array(14),lead:0,kMul:1}));
+const frac = RazorCore.frac;
+
+function post(o){ if (engine) engine.post(o); }
+function swapAxis(a, b){
+  for (const pd of PADS) for (const ax of ['x','y','x2','y2']) if (pd[ax] === a) pd[ax] = b;
+  syncPadUI();
+}
+function noteName(m){ return NOTES[(m%12 + 12)%12] + (Math.floor(m/12) + (P.nameAbleton ? -2 : -1)); }
+function send(o){
+  o = Object.assign({}, o);
+  if ('f0Note' in o) o.f0 = mtof(o.f0Note);
+  if (o.f0Mode === 1 && !('f0Note' in o)){ const n = Math.round(69 + 12*Math.log2(P.f0/440)); o.f0Note = n; o.f0 = mtof(n); }
+  if ('nameAbleton' in o) setTimeout(buildKb, 0);
+  if ('lock' in o){ if (o.lock === 2) swapAxis('k', 'kHz'); else swapAxis('kHz', 'k'); }
+  if ('lock2' in o || 'lock' in o){
+    const l2 = ('lock2' in o ? o.lock2 : P.lock2), l1 = ('lock' in o ? o.lock : P.lock), e2 = l2 < 0 ? l1 : l2;
+    if (e2 === 2) swapAxis('k2', 'kHz2'); else swapAxis('kHz2', 'k2');
+  }
+  if ('mUnit' in o){ if (o.mUnit === 1) swapAxis('m', 'mHz'); else swapAxis('mHz', 'm'); }
+  Object.assign(P, o);
+  post(Object.assign({t:'p'}, o));
+  if ('kq' in o && P.kq && P.kspread !== Math.round(P.kspread)){ P.kspread = Math.round(P.kspread); post({t:'p', kspread:P.kspread}); }
+  if ('f0' in o && droneOn) post({t:'re', note:-1, freq:P.f0});
+  syncAll();
+}
+function onViz(d){
+  if (d.t !== 'viz') return;
+  VIZ.count = d.count;
+  if (d.count){ VIZ.phases = d.phases; VIZ.r = d.r; VIZ.freq = d.freq; VIZ.mem = d.mem; }
+}
+
+function ensureAudio(){
+  if (engine){ if (engine.ctx.state !== 'running') engine.ctx.resume(); return Promise.resolve(); }
+  if (starting) return starting;
+  starting = (async () => {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    const ctx = new AC();
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 8192; analyser.smoothingTimeConstant = 0.55;
+    analyser.connect(ctx.destination);
+    let postFn;
+    try{
+      if (!ctx.audioWorklet) throw new Error('no worklet');
+      const url = URL.createObjectURL(new Blob([workletSrc], {type:'application/javascript'}));
+      await ctx.audioWorklet.addModule(url);
+      const node = new AudioWorkletNode(ctx, 'razor-proc', {numberOfInputs:0, outputChannelCount:[2]});
+      node.port.onmessage = e => onViz(e.data);
+      node.connect(analyser);
+      postFn = o => node.port.postMessage(o);
+    } catch(err){
+      const core = new RazorCore(ctx.sampleRate);
+      core.post = onViz;
+      const sp = ctx.createScriptProcessor(1024, 1, 2);
+      sp.onaudioprocess = ev => core.render(ev.outputBuffer.getChannelData(0), ev.outputBuffer.getChannelData(1));
+      sp.connect(analyser);
+      postFn = o => core.msg(o);
+    }
+    engine = {ctx, analyser, post:postFn, buf:new Float32Array(analyser.frequencyBinCount)};
+    postFn(Object.assign({t:'p'}, P));
+    await ctx.resume();
+  })();
+  return starting;
+}
+
+/* ============ Notes: keys, on-screen keyboard, MIDI ============ */
+const mtof = n => 440*Math.pow(2, (n - 69)/12);
+const NOTES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const held = new Set();
+let octave = 4;
+async function noteOn(n, vel = 0.85){
+  await ensureAudio();
+  held.add(n); post({t:'on', note:n, freq:mtof(n), vel}); markKeys();
+}
+function noteOff(n){ held.delete(n); post({t:'off', note:n}); markKeys(); }
+
+const KEYMAP = {a:0,w:1,s:2,e:3,d:4,f:5,t:6,g:7,y:8,h:9,u:10,j:11,k:12,o:13,l:14,p:15,';':16,"'":17};
+const keyDown = {};
+document.addEventListener('keydown', e => {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const tag = e.target.tagName;
+  if (tag === 'SELECT' || tag === 'TEXTAREA' || (tag === 'INPUT' && e.target.type === 'text')) return;
+  if (e.code === 'Space'){
+    if (tag === 'BUTTON') return;
+    e.preventDefault(); if (!e.repeat) toggleDrone(); return;
+  }
+  const key = e.key.toLowerCase();
+  if (key === 'z' && !e.repeat){ octave = Math.max(1, octave - 1); buildKb(); return; }
+  if (key === 'x' && !e.repeat){ octave = Math.min(7, octave + 1); buildKb(); return; }
+  if (key in KEYMAP){
+    e.preventDefault();
+    if (e.repeat || keyDown[key] != null) return;
+    const n = 12*(octave + 1) + KEYMAP[key];
+    keyDown[key] = n; noteOn(n);
+  }
+});
+document.addEventListener('keyup', e => {
+  const key = e.key.toLowerCase();
+  if (keyDown[key] != null){ noteOff(keyDown[key]); keyDown[key] = null; }
+});
+window.addEventListener('blur', () => { for (const k in keyDown) if (keyDown[k] != null){ noteOff(keyDown[k]); keyDown[k] = null; } });
+
+const kbEl = document.getElementById('kb');
+const LETTERS = ['A','W','S','E','D','F','T','G','Y','H','U','J','K','O','L','P',';',"'"];
+function buildKb(){
+  kbEl.innerHTML = '';
+  document.getElementById('octOut').textContent = octave + (P.nameAbleton ? -1 : 0);
+  const base = 12*(octave + 1), nWhite = 15, ww = 100/nWhite;
+  const isBlack = s => [1,3,6,8,10].includes(s%12);
+  let wi = 0;
+  for (let s = 0; s <= 24; s++){
+    const el = document.createElement('div');
+    const n = base + s;
+    el.dataset.note = n;
+    el.textContent = s < LETTERS.length ? LETTERS[s] : '';
+    if (isBlack(s)){
+      el.className = 'b';
+      el.style.left = `calc(${wi*ww}% - ${ww*0.3}%)`; el.style.width = ww*0.6 + '%';
+    } else {
+      el.className = 'w';
+      el.style.left = wi*ww + '%'; el.style.width = ww + '%';
+      if (s === 0) el.textContent = noteName(n) + ' ' + el.textContent;
+      wi++;
+    }
+    el.addEventListener('pointerdown', ev => { ev.preventDefault(); el.setPointerCapture(ev.pointerId); el._on = true; noteOn(n); });
+    const up = () => { if (el._on){ el._on = false; noteOff(n); } };
+    el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up); el.addEventListener('lostpointercapture', up);
+    kbEl.appendChild(el);
+  }
+  markKeys();
+}
+function markKeys(){ kbEl.querySelectorAll('[data-note]').forEach(el => el.classList.toggle('on', held.has(+el.dataset.note))); }
+buildKb();
+
+const droneBtn = document.getElementById('drone');
+async function toggleDrone(){
+  await ensureAudio();
+  droneOn = !droneOn;
+  if (droneOn) post({t:'on', note:-1, freq:P.f0, vel:0.85}); else post({t:'off', note:-1});
+  droneBtn.setAttribute('aria-pressed', droneOn);
+}
+droneBtn.addEventListener('click', toggleDrone);
+
+const midiStatus = document.getElementById('midiStatus');
+document.getElementById('midi').addEventListener('click', async () => {
+  await ensureAudio();
+  if (!navigator.requestMIDIAccess){ midiStatus.textContent = 'This browser has no Web MIDI. Try Chrome or Edge.'; return; }
+  try{
+    const access = await navigator.requestMIDIAccess();
+    const hook = () => {
+      let names = [];
+      access.inputs.forEach(inp => { names.push(inp.name); inp.onmidimessage = onMidi; });
+      midiStatus.textContent = names.length ? 'Listening to ' + names.join(', ') : 'No MIDI inputs found. Plug one in and it will connect.';
+    };
+    hook(); access.onstatechange = hook;
+  } catch(e){
+    midiStatus.textContent = 'MIDI access was blocked here. Allow it in site settings, or use the keys.';
+  }
+});
+function onMidi(ev){
+  const [st, d1, d2] = ev.data, cmd = st & 0xf0;
+  if (cmd === 0x90 && d2 > 0) noteOn(d1, 0.25 + 0.75*d2/127);
+  else if (cmd === 0x80 || (cmd === 0x90 && d2 === 0)) noteOff(d1);
+  else if (cmd === 0xE0){ const v = ((d2 << 7) | d1) - 8192; send({bend: 2*v/8192}); }
+  else if (cmd === 0xB0 && d1 === 1) send({c: d2/127});
+  else if (cmd === 0xB0 && (d1 === 123 || d1 === 120)){ held.clear(); post({t:'panic'}); markKeys(); }
+}
+
+/* ============ Parameter maps (shared by sliders and the pad) ============ */
+const wMin = 0.02, wMax = 1, OFFX = 0.035;
+const wToX = w => w < 0.004 ? 0 : OFFX + (1 - OFFX)*Math.log(w/wMin)/Math.log(wMax/wMin);
+const xToW = x => x < OFFX*0.6 ? 0 : wMin*Math.pow(wMax/wMin, Math.max(0, (x - OFFX)/(1 - OFFX)));
+const lin = (min, max) => ({to01:v => (v - min)/(max - min), from01:u => min + (max - min)*u});
+const lg = (min, max) => ({to01:v => Math.log(v/min)/Math.log(max/min), from01:u => min*Math.pow(max/min, u)});
+const pw = (max, e) => ({to01:v => Math.pow(Math.max(0, v)/max, 1/e), from01:u => max*Math.pow(u, e)});
+const clamp01 = u => Math.min(1, Math.max(0, u));
+const META = {};
+
+const ctrls = {};
+function row(parent){ const r = document.createElement('div'); r.className = 'row'; parent.appendChild(r); return r; }
+function slider(parent, key, label, o){
+  const r = row(parent), id = 'c_' + key;
+  const lab = document.createElement('label'); lab.htmlFor = id; lab.textContent = label;
+  const inp = document.createElement('input'); inp.type = 'range'; inp.id = id; inp.min = 0; inp.max = 1000; inp.step = 1;
+  const out = document.createElement('output'); out.htmlFor = id;
+  r.append(lab, inp, out);
+  const round = v => (o.int || (o.snap && o.snap())) ? Math.round(v) : v;
+  META[key] = {label:o.padLabel || label, map:o.map, fmt:o.fmt, round};
+  inp.addEventListener('input', () => send({[key]: round(o.map.from01(+inp.value/1000))}));
+  ctrls[key] = {row:r, lab, sync(){ inp.value = 1000*clamp01(o.map.to01(P[key])); out.textContent = o.fmt(P[key]); }};
+}
+function seg(parent, key, label, opts){
+  const r = row(parent);
+  const lab = document.createElement('span'); lab.className = 'lab'; lab.textContent = label;
+  const box = document.createElement('div'); box.className = 'seg'; box.setAttribute('role','group'); box.setAttribute('aria-label', label);
+  const btns = opts.map(([v, txt]) => {
+    const b = document.createElement('button'); b.type = 'button'; b.textContent = txt;
+    b.addEventListener('click', () => send({[key]: v}));
+    box.appendChild(b); return [v, b];
+  });
+  r.append(lab, box);
+  ctrls[key] = {row:r, lab, sync(){ btns.forEach(([v, b]) => b.setAttribute('aria-pressed', P[key] === v)); }};
+}
+const ms = v => v >= 1000 ? (v/1000).toFixed(2) + ' s' : Math.round(v) + ' ms';
+const hz = v => v < 0.005 ? 'off' : v.toFixed(2) + ' Hz';
+const gB = document.getElementById('gBlade'), gH = document.getElementById('gHot'),
+      gS = document.getElementById('gSwarm'), gV = document.getElementById('gVoice');
+slider(gB, 'w', 'Width', {map:{to01:wToX, from01:xToW}, fmt:v => v < 0.004 ? 'off' : (v*100).toFixed(v < .1 ? 1 : 0) + '%'});
+slider(gB, 'k', 'Cut rate k', {map:lg(1, 64), fmt:v => v.toFixed(2)});
+slider(gB, 'kHz', 'Cut rate Hz', {map:lg(20, 12000), fmt:v => v >= 1000 ? (v/1000).toFixed(2) + ' kHz' : Math.round(v) + ' Hz'});
+slider(gB, 'c', 'Position', {map:lin(0, 1), fmt:v => v.toFixed(3)});
+const hzBi = v => Math.abs(v) < 0.005 ? 'off' : (v > 0 ? '→ ' : '← ') + Math.abs(v).toFixed(2) + ' Hz';
+slider(gB, 'rotRate', 'Rotate', {map:lin(-4, 4), fmt:hzBi});
+seg(gB, 'rotSync', 'Rotation', [[1,'restart per note'],[0,'free-running']]);
+slider(gB, 'hard', 'Edges', {map:lin(0, 1), fmt:v => v < 0.005 ? 'hard' : (v > 0.995 ? 'soft' : Math.round(v*100) + '% soft')});
+slider(gB, 'depth', 'Depth', {map:lin(0, 1), fmt:v => Math.round(v*100) + '%'});
+seg(gB, 'mirror', 'Mirror', [[0,'off'],[1,'reflect'],[2,'twin −'],[3,'twin +']]);
+
+seg(gH, 'mode', 'Mode', [[0,'Sync'],[1,'FM reset'],[2,'FM free'],[3,'Noise'],[4,'Fold'],[5,'Ring'],[6,'Crush']]);
+seg(gH, 'hot', 'Blade wave', [[0,'Sine'],[1,'Tri'],[2,'Saw'],[4,'Rev saw'],[3,'Square'],[6,'Sine→Saw']]);
+slider(gH, 'morph', 'Shape', {map:lin(0, 1), fmt:v => v < 0.005 ? 'sine' : v > 0.995 ? 'saw' : Math.round(v*100) + '% saw'});
+seg(gH, 'fmType', 'FM type', [[0,'phase'],[1,'pitch']]);
+seg(gH, 'mshape', 'Mod shape', [[0,'Sine'],[1,'Tri'],[2,'Saw'],[4,'Rev saw'],[3,'Square'],[5,'Smooth noise'],[7,'S&H noise']]);
+slider(gH, 'I', 'FM depth', {map:pw(10, 2.5), fmt:v => P.fmType === 1 ? '±' + (1200*Math.log2(1 + 0.1*v)).toFixed(v < 0.1 ? 1 : 0) + ' ct' : v.toFixed(v < 0.1 ? 3 : 2) + ' rad'});
+slider(gH, 'fb', 'Feedback', {padLabel:'Blade feedback', map:pw(1, 1.5), fmt:v => v < 0.0005 ? 'off' : Math.round(v*100) + '%'});
+slider(gH, 'm', 'Mod rate', {map:lg(0.25, 24), fmt:v => v.toFixed(2) + '× f₀'});
+slider(gH, 'mHz', 'Mod rate Hz', {map:lg(1, 20000), fmt:v => v >= 1000 ? (v/1000).toFixed(2) + ' kHz' : v.toFixed(v < 10 ? 1 : 0) + ' Hz'});
+seg(gH, 'mUnit', 'Mod rate in', [[0,'× f₀'],[1,'Hz']]);
+seg(gH, 'lock', 'Cut rate in', [[0,'× f₀ per cycle'],[1,'per blade'],[2,'Hz (fixed)']]);
+
+slider(gS, 'N', 'Members', {map:lin(1, 9), int:true, fmt:v => v === 1 ? '1 (solo)' : String(v)});
+slider(gS, 'detune', 'Detune', {map:lin(0, 100), fmt:v => '±' + v.toFixed(1) + ' ct'});
+slider(gS, 'K', 'Coupling K', {map:lin(-1, 1), fmt:v => (v >= 0 ? '+' : '') + v.toFixed(2) + (v > .97 ? ' lock' : v < -.97 ? ' splay' : '')});
+slider(gS, 'width', 'Stereo', {map:lin(0, 1), fmt:v => Math.round(v*100) + '%'});
+seg(gS, 'panOrder', 'Pan order', [[0,'balanced'],[1,'fan']]);
+slider(gS, 'xm', 'Cross-mod', {padLabel:'Cross-member mod', map:pw(1, 1.5), fmt:v => v < 0.0005 ? 'off' : Math.round(v*100) + '%'});
+seg(gS, 'phaseMode', 'Start phases', [[2,'settled'],[0,'random'],[1,'aligned']]);
+seg(gS, 'frame', 'Blade frame', [[0,'member'],[1,'swarm']]);
+seg(gS, 'frame2', 'Blade 2 frame', [[-1,'same as blade 1'],[0,'member'],[1,'swarm']]);
+seg(gS, 'cScale', 'Coupling time', [[0,'seconds'],[1,'cycles']]);
+
+const gP = document.getElementById('gSpread');
+seg(gP, 'law', 'Law', [[0,'gradient'],[1,'random'],[4,'drift'],[2,'alternate'],[3,'swarm']]);
+slider(gP, 'driftRate', 'Drift rate', {padLabel:'Spread drift rate', map:lg(0.02, 12), fmt:v => v.toFixed(v < 1 ? 2 : 1) + ' Hz'});
+slider(gP, 'bspread', 'Position', {padLabel:'Position spread', map:lin(0, 1), fmt:v => v < 0.005 ? 'none' : v.toFixed(2) + ' cyc'});
+slider(gP, 'kspread', 'Cut rate', {padLabel:'Cut rate spread', map:lin(0, 24), snap:() => P.kq, fmt:v => v < 0.005 ? 'none' :
+  (P.kq ? Math.round(v) : v.toFixed(2)) + (P.lock === 1 ? ' k' : ' harm.')});
+seg(gP, 'kRule', 'Cut rule', [[0,'even'],[1,'harmonic'],[2,'undertone'],[3,'octaves'],[4,'major'],[5,'minor'],[6,'fifths'],[7,'golden'],[8,'primes'],[9,'custom']]);
+slider(gP, 'kRuleAmt', 'Rule depth', {padLabel:'Cut rule depth', map:lin(0, 1), fmt:v => Math.round(v*100) + '%'});
+{
+  const r = row(gP);
+  const lab = document.createElement('label'); lab.htmlFor = 'kCustomIn'; lab.textContent = 'Ratios';
+  const inp = document.createElement('input'); inp.type = 'text'; inp.id = 'kCustomIn'; inp.value = P.kCustom; inp.spellcheck = false;
+  inp.placeholder = '1, 5/4, 3/2'; inp.style.cssText = 'grid-column:2 / 4;font:inherit;font-size:14px;color:var(--ink);background:var(--panel);border:1px solid var(--rule);border-radius:3px;padding:4px 6px;min-width:0;';
+  inp.addEventListener('change', () => send({kCustom: inp.value}));
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter') inp.blur(); });
+  r.append(lab, inp);
+  ctrls.kCustom = {row:r, lab, sync(){ if (document.activeElement !== inp) inp.value = P.kCustom; }};
+}
+{
+  const r = row(gP); const lab = document.createElement('span'); lab.className = 'lab'; lab.textContent = 'Members';
+  const o = document.createElement('output'); o.id = 'kRuleOut'; o.style.cssText = 'grid-column:2 / 4;text-align:left;font-size:13px;color:var(--ink-2);';
+  r.append(lab, o); ctrls.kRuleOut = {row:r, lab, sync(){}};
+}
+seg(gP, 'kq', 'Quantize', [[0,'free'],[1,'whole']]);
+slider(gP, 'wspread', 'Width', {padLabel:'Width spread', map:lin(0, 1), fmt:v => v < 0.005 ? 'none' : '×÷' + Math.pow(2, v*2).toFixed(2)});
+slider(gP, 'dspread', 'Depth', {padLabel:'Depth spread', map:lin(0, 1), fmt:v => v < 0.005 ? 'none' : '±' + Math.round(v*100) + '%'});
+slider(gP, 'mspread', 'Shape', {padLabel:'Shape spread', map:lin(0, 1), fmt:v => v < 0.005 ? 'none' : '±' + Math.round(v*100) + '%'});
+slider(gP, 'ispread', 'FM index', {padLabel:'FM index spread', map:lin(0, 1), fmt:v => v < 0.005 ? 'none' : '×÷' + Math.pow(2, v*2).toFixed(2)});
+slider(gP, 'rotSpread', 'Rotate', {padLabel:'Rotate spread', map:pw(2, 2), fmt:v => v < 0.005 ? 'none' : '±' + v.toFixed(2) + ' Hz'});
+seg(gV, 'base', 'Base wave', [[0,'Sine'],[1,'Tri'],[2,'Saw'],[4,'Rev saw'],[3,'Square']]);
+slider(gV, 'A', 'Attack', {map:lg(1, 2000), fmt:ms});
+slider(gV, 'D', 'Decay', {map:lg(10, 4000), fmt:ms});
+slider(gV, 'S', 'Sustain', {map:lin(0, 1), fmt:v => Math.round(v*100) + '%'});
+slider(gV, 'R', 'Release', {map:lg(10, 5000), fmt:ms});
+seg(gV, 'f0Mode', 'Drone pitch in', [[0,'Hz'],[1,'notes']]);
+slider(gV, 'f0', 'Drone pitch', {map:lg(27.5, 880), fmt:v => {
+  const m = Math.round(69 + 12*Math.log2(v/440)); return (v < 100 ? v.toFixed(1) : Math.round(v)) + ' Hz ≈' + noteName(m);
+}});
+slider(gV, 'f0Note', 'Drone note', {map:lin(12, 108), int:true, fmt:m => noteName(m) + ' · ' + mtof(m).toFixed(2) + ' Hz'});
+seg(gV, 'nameAbleton', 'Note names', [[1,'C3 = middle C'],[0,'C4 = middle C']]);
+slider(gV, 'gain', 'Volume', {map:lin(0, 1), fmt:v => Math.round(v*100) + '%'});
+seg(gV, 'polyMode', 'Voicing', [[0,'poly'],[1,'mono'],[2,'legato']]);
+slider(gV, 'glide', 'Glide', {map:pw(2000, 2), fmt:v => v < 1 ? 'off' : ms(v)});
+seg(gV, 'glideAlways', 'Glide when', [[0,'overlapping'],[1,'always']]);
+seg(gV, 'os', 'Oversample', [[1,'1×'],[2,'2×']]);
+seg(gV, 'aa', 'Band-limit', [[1,'clean'],[0,'raw']]);
+const g2el = document.getElementById('gBlade2');
+seg(g2el, 'b2on', 'Blade 2', [[0,'off'],[1,'on']]);
+seg(g2el, 'mode2', 'Mode', [[0,'Sync'],[1,'FM reset'],[2,'FM free'],[3,'Noise'],[4,'Fold'],[5,'Ring'],[6,'Crush']]);
+seg(g2el, 'hot2', 'Blade wave', [[0,'Sine'],[1,'Tri'],[2,'Saw'],[4,'Rev saw'],[3,'Square'],[6,'Sine→Saw']]);
+slider(g2el, 'w2', 'Width', {padLabel:'Blade 2 width', map:{to01:wToX, from01:xToW}, fmt:v => v < 0.004 ? 'off' : (v*100).toFixed(v < .1 ? 1 : 0) + '%'});
+slider(g2el, 'k2', 'Cut rate k', {padLabel:'Blade 2 cut rate', map:lg(1, 64), fmt:v => v.toFixed(2)});
+slider(g2el, 'kHz2', 'Cut rate Hz', {padLabel:'Blade 2 cut rate Hz', map:lg(20, 12000), fmt:v => v >= 1000 ? (v/1000).toFixed(2) + ' kHz' : Math.round(v) + ' Hz'});
+seg(g2el, 'lock2', 'Cut rate in', [[-1,'same as blade 1'],[0,'× f₀'],[1,'per blade'],[2,'Hz']]);
+seg(g2el, 'mirror2', 'Mirror', [[-1,'same as blade 1'],[0,'off'],[1,'reflect'],[2,'twin −'],[3,'twin +']]);
+slider(g2el, 'morph2', 'Shape', {padLabel:'Blade 2 shape', map:lin(0, 1), fmt:v => v < 0.005 ? 'sine' : v > 0.995 ? 'saw' : Math.round(v*100) + '% saw'});
+seg(g2el, 'rot2Follow', 'Rotation', [[1,'with blade 1'],[0,'its own']]);
+slider(g2el, 'rotRate2', 'Rotate', {padLabel:'Blade 2 rotate', map:lin(-4, 4), fmt:hzBi});
+slider(g2el, 'c2', 'Position', {padLabel:'Blade 2 position', map:lin(0, 1), fmt:v => v.toFixed(3)});
+slider(g2el, 'hard2', 'Edges', {padLabel:'Blade 2 edges', map:lin(0, 1), fmt:v => v < 0.005 ? 'hard' : (v > 0.995 ? 'soft' : Math.round(v*100) + '% soft')});
+slider(g2el, 'depth2', 'Depth', {padLabel:'Blade 2 depth', map:lin(0, 1), fmt:v => Math.round(v*100) + '%'});
+const g2s = document.getElementById('gB2spread');
+seg(g2s, 'b2sp', 'Blade 2 uses', [[0,'blade 1 spreads'],[1,'its own']]);
+slider(g2s, 'bspread2', 'Position', {padLabel:'Blade 2 position spread', map:lin(0, 1), fmt:v => v < 0.005 ? 'none' : v.toFixed(2) + ' cyc'});
+seg(g2s, 'kRule2', 'Cut rule', [[0,'even'],[1,'harmonic'],[2,'undertone'],[3,'octaves'],[4,'major'],[5,'minor'],[6,'fifths'],[7,'golden'],[8,'primes'],[9,'custom']]);
+slider(g2s, 'kspread2', 'Cut rate', {padLabel:'Blade 2 cut rate spread', map:lin(0, 24), snap:() => P.kq, fmt:v => v < 0.005 ? 'none' : (P.kq ? Math.round(v) : v.toFixed(2)) + (P.lock === 1 ? ' k' : ' harm.')});
+slider(g2s, 'kRuleAmt2', 'Rule depth', {padLabel:'Blade 2 rule depth', map:lin(0, 1), fmt:v => Math.round(v*100) + '%'});
+slider(g2s, 'wspread2', 'Width', {padLabel:'Blade 2 width spread', map:lin(0, 1), fmt:v => v < 0.005 ? 'none' : '×÷' + Math.pow(2, v*2).toFixed(2)});
+slider(g2s, 'mspread2', 'Shape', {padLabel:'Blade 2 shape spread', map:lin(0, 1), fmt:v => v < 0.005 ? 'none' : '±' + Math.round(v*100) + '%'});
+slider(g2s, 'ispread2', 'FM index', {padLabel:'Blade 2 FM index spread', map:lin(0, 1), fmt:v => v < 0.005 ? 'none' : '×÷' + Math.pow(2, v*2).toFixed(2)});
+slider(g2s, 'rotSpread2', 'Rotate', {padLabel:'Blade 2 rotate spread', map:pw(2, 2), fmt:v => v < 0.005 ? 'none' : '±' + v.toFixed(2) + ' Hz'});
+slider(g2s, 'dspread2', 'Depth', {padLabel:'Blade 2 depth spread', map:lin(0, 1), fmt:v => v < 0.005 ? 'none' : '±' + Math.round(v*100) + '%'});
+{
+  const r = row(g2s); const lab = document.createElement('span'); lab.className = 'lab'; lab.textContent = 'Members';
+  const o = document.createElement('output'); o.id = 'kRuleOut2'; o.style.cssText = 'grid-column:2 / 4;text-align:left;font-size:13px;color:var(--ink-2);';
+  r.append(lab, o); ctrls.kRuleOut2 = {row:r, lab, sync(){}};
+}
+const g2f = document.createElement('fieldset'); g2f.id = 'gB2fm'; document.querySelector('.groups').appendChild(g2f);
+seg(g2f, 'b2fm', 'Blade 2 uses', [[0,'blade 1 FM'],[1,'its own']]);
+seg(g2f, 'fmType2', 'FM type', [[0,'phase'],[1,'pitch']]);
+seg(g2f, 'mshape2', 'Mod shape', [[0,'Sine'],[1,'Tri'],[2,'Saw'],[4,'Rev saw'],[3,'Square'],[5,'Smooth noise'],[7,'S&H noise']]);
+slider(g2f, 'I2', 'FM depth', {padLabel:'Blade 2 FM depth', map:pw(10, 2.5), fmt:v => P.fmType2 === 1 ? '±' + (1200*Math.log2(1 + 0.1*v)).toFixed(v < 0.1 ? 1 : 0) + ' ct' : v.toFixed(v < 0.1 ? 3 : 2) + ' rad'});
+seg(g2f, 'mUnit2', 'Mod rate in', [[0,'× f₀'],[1,'Hz']]);
+slider(g2f, 'm2', 'Mod rate', {padLabel:'Blade 2 mod rate', map:lg(0.25, 24), fmt:v => v.toFixed(2) + '× f₀'});
+slider(g2f, 'mHz2', 'Mod rate Hz', {padLabel:'Blade 2 mod rate Hz', map:lg(1, 20000), fmt:v => v >= 1000 ? (v/1000).toFixed(2) + ' kHz' : v.toFixed(v < 10 ? 1 : 0) + ' Hz'});
+const g2e = document.getElementById('gB2env');
+seg(g2e, 'b2env', 'Blade 2 uses', [[0,'blade 1 envelope'],[1,'its own']]);
+slider(g2e, 'benvK2', 'Cut rate', {padLabel:'Env 2 → cut rate', map:lin(-1, 1), fmt:v => Math.abs(v) < 0.005 ? 'off' : (v > 0 ? '+' : '−') + (Math.abs(v)*4).toFixed(2) + ' oct'});
+slider(g2e, 'benvW2', 'Width', {padLabel:'Env 2 → width', map:lin(-1, 1), fmt:v => Math.abs(v) < 0.005 ? 'off' : (v > 0 ? '×' : '÷') + Math.pow(2, Math.abs(v)*3).toFixed(2)});
+slider(g2e, 'benvA2', 'Attack', {padLabel:'Env 2 attack', map:lg(0.5, 2000), fmt:ms});
+slider(g2e, 'benvD2', 'Decay', {padLabel:'Env 2 decay', map:lg(10, 5000), fmt:ms});
+slider(g2e, 'benvVel2', 'Velocity', {padLabel:'Env 2 velocity', map:lin(0, 1), fmt:v => Math.round(v*100) + '%'});
+const gE = document.getElementById('gBenv');
+slider(gE, 'benvK', 'Cut rate', {padLabel:'Envelope → cut rate', map:lin(-1, 1), fmt:v => Math.abs(v) < 0.005 ? 'off' : (v > 0 ? '+' : '−') + (Math.abs(v)*4).toFixed(2) + ' oct'});
+slider(gE, 'benvW', 'Width', {padLabel:'Envelope → width', map:lin(-1, 1), fmt:v => Math.abs(v) < 0.005 ? 'off' : (v > 0 ? '×' : '÷') + Math.pow(2, Math.abs(v)*3).toFixed(2)});
+slider(gE, 'benvA', 'Attack', {padLabel:'Envelope attack', map:lg(0.5, 2000), fmt:ms});
+slider(gE, 'benvD', 'Decay', {padLabel:'Envelope decay', map:lg(10, 5000), fmt:ms});
+slider(gE, 'benvVel', 'Velocity', {padLabel:'Envelope velocity', map:lin(0, 1), fmt:v => Math.round(v*100) + '%'});
+const gW = document.getElementById('gExport');
+seg(gW, 'wtMode', 'Source', [[0,'snapshot'],[1,'sweep X'],[2,'sweep Y'],[3,'record']]);
+seg(gW, 'wtFrames', 'Frames', [[16,'16'],[64,'64'],[128,'128'],[256,'256']]);
+slider(gW, 'wtDur', 'Record for', {map:lg(0.5, 16), fmt:v => v.toFixed(1) + ' s'});
+seg(gW, 'wtNorm', 'Level', [[1,'normalize'],[0,'as is']]);
+{
+  const r = row(gW);
+  const b = document.createElement('button'); b.type = 'button'; b.id = 'wtGo'; b.className = 'act'; b.style.gridColumn = '1 / 3';
+  const st = document.createElement('output'); st.id = 'wtStatus'; st.style.gridColumn = '1 / 4'; st.style.textAlign = 'left';
+  b.addEventListener('click', wtAction);
+  r.append(b); gW.appendChild(st);
+}
+seg(gV, 'dcMode', 'DC fix', [[0,'off'],[1,'blocker'],[2,'per cycle']]);
+
+
+// ---- layout: controls are created where their code lives, then placed into groups in a reading order ----
+(function arrangeControls(){
+  const LAYOUT = [
+    ['gL_b1',  'Blade 1',            ['mode','hot','morph','w','lock','k','kHz','c','rotRate','mirror','hard','depth']],
+    ['gL_b2',  'Blade 2',            ['b2on','mode2','hot2','morph2','w2','lock2','k2','kHz2','c2','rot2Follow','rotRate2','mirror2','hard2','depth2']],
+    ['gL_f1',  'Blade 1 FM',         ['fmType','mshape','I','mUnit','m','mHz']],
+    ['gL_f2',  'Blade 2 FM',         ['b2fm','fmType2','mshape2','I2','mUnit2','m2','mHz2']],
+    ['gL_e1',  'Blade 1 envelope',   ['benvK','benvW','benvA','benvD','benvVel']],
+    ['gL_e2',  'Blade 2 envelope',   ['b2env','benvK2','benvW2','benvA2','benvD2','benvVel2']],
+    ['gL_sw',  'Swarm',              ['N','detune','K','cScale','phaseMode','frame','frame2','xm','width','panOrder']],
+    ['gL_both','Both blades',        ['fb','rotSync']],
+    ['gL_s1',  'Spread across members', ['law','driftRate','bspread','kRule','kspread','kRuleAmt','kCustom','kRuleOut','kq','wspread','dspread','mspread','ispread','rotSpread']],
+    ['gL_s2',  'Blade 2 spread',     ['b2sp','bspread2','kRule2','kspread2','kRuleAmt2','kRuleOut2','wspread2','dspread2','mspread2','ispread2','rotSpread2']],
+    ['gL_v',   'Voice',              ['base','polyMode','glide','glideAlways','A','D','S','R','gain']],
+    ['gL_p',   'Drone and output',   ['f0Mode','f0','f0Note','nameAbleton','os','aa','dcMode']],
+  ];
+  const groups = document.querySelector('.groups'), exp = document.getElementById('gExport');
+  const placed = new Set();
+  for (const [id, title, keys] of LAYOUT){
+    const fs = document.createElement('fieldset'); fs.id = id;
+    const lg = document.createElement('legend'); lg.textContent = title; fs.appendChild(lg);
+    for (const k of keys) if (ctrls[k]){ fs.appendChild(ctrls[k].row); placed.add(k); }
+    groups.insertBefore(fs, exp);
+  }
+  // anything not listed (future controls) lands in the last group rather than disappearing
+  for (const k in ctrls) if (!placed.has(k) && !['wtMode','wtFrames','wtDur','wtNorm'].includes(k) && ctrls[k].row.parentNode && ctrls[k].row.parentNode.id !== 'gExport')
+    document.getElementById('gL_p').appendChild(ctrls[k].row);
+  // retire the old creation containers
+  for (const id of ['gBlade','gHot','gSwarm','gBlade2','gBenv','gB2spread','gB2env','gSpread','gVoice','gB2fm']){
+    const el = document.getElementById(id); if (el) el.remove();
+  }
+})();
+const PAD_KEYS = ['I2','m2','mHz2','morph2','mspread2','ispread2','rotRate2','rotSpread2','bspread2','kspread2','kRuleAmt2','wspread2','dspread2','benvK2','benvW2','benvD2','kRuleAmt','w2','k2','c2','depth2','xm','fb','benvK','benvW','benvD','driftRate','w','k','kHz','mHz','morph','mspread','wspread','dspread','ispread','c','hard','depth','rotRate','rotSpread','bspread','kspread','I','m','detune','K','width'];
+const PAD_ALL = PAD_KEYS.concat(['kHz2']);
+[['axX','x'],['axY','y'],['axX2','x2'],['axY2','y2']].forEach(([id, key]) => {
+  const sel = document.getElementById(id);
+  if (key.length === 2){ const o = document.createElement('option'); o.value = ''; o.textContent = '+ second…'; sel.appendChild(o); }
+  PAD_ALL.forEach(k => { const o = document.createElement('option'); o.value = k; o.textContent = META[k].label; sel.appendChild(o); });
+  sel.addEventListener('change', () => { PAD[key] = sel.value; syncAll(); });
+});
+[['ivX','xi'],['ivY','yi']].forEach(([id, key]) => document.getElementById(id).addEventListener('change', e => { PAD[key] = e.target.checked ? 1 : 0; syncAll(); }));
+function syncPadUI(){
+  document.getElementById('axX').value = PAD.x; document.getElementById('axY').value = PAD.y;
+  document.getElementById('axX2').value = PAD.x2; document.getElementById('axY2').value = PAD.y2;
+  document.getElementById('ivX').checked = !!PAD.xi; document.getElementById('ivY').checked = !!PAD.yi;
+  document.getElementById('ivX').disabled = !PAD.x2; document.getElementById('ivY').disabled = !PAD.y2;
+  ['padA','padB'].forEach((id, i) => document.getElementById(id).setAttribute('aria-pressed', padSel === i));
+}
+['padA','padB'].forEach((id, i) => document.getElementById(id).addEventListener('click', () => { padSel = i; PAD = PADS[i]; syncAll(); }));
+[['vSum',0],['vMem',1]].forEach(([id, v]) => document.getElementById(id).addEventListener('click', () => {
+  cycView = v; ['vSum','vMem'].forEach((b, j) => document.getElementById(b).setAttribute('aria-pressed', j === v));
+}));
+
+function syncAll(){
+  for (const k in ctrls) ctrls[k].sync();
+  const fm = P.mode === 1 || P.mode === 2, sw = P.N > 1;
+  ['fmType','mshape','I','mUnit'].forEach(k => ctrls[k].row.classList.toggle('dim', !fm));
+  ctrls.m.row.classList.toggle('dim', !fm || P.mUnit === 1);
+  ctrls.mHz.row.classList.toggle('dim', !fm || P.mUnit === 0);
+  ctrls.k.row.classList.toggle('dim', P.lock === 2);
+  ctrls.kHz.row.classList.toggle('dim', P.lock !== 2);
+  ['mode2','hot2','w2','k2','kHz2','c2','hard2','depth2','rot2Follow','rotRate2','lock2','mirror2','morph2'].forEach(k => ctrls[k].row.classList.toggle('dim', !P.b2on));
+  if (P.b2on){
+    ctrls.rotRate2.row.classList.toggle('dim', !!P.rot2Follow);
+    const lk2 = P.lock2 < 0 ? P.lock : P.lock2;
+    ctrls.k2.row.classList.toggle('dim', lk2 === 2); ctrls.kHz2.row.classList.toggle('dim', lk2 !== 2);
+    ctrls.morph2.row.classList.toggle('dim', P.hot2 !== 6 || ![0,1,2,5].includes(P.mode2));
+  }
+  {
+    const fm2 = P.b2on && [1,2].includes(P.mode2);
+    ctrls.b2fm.row.classList.toggle('dim', !fm2);
+    ['fmType2','mshape2','I2','mUnit2'].forEach(k => ctrls[k].row.classList.toggle('dim', !(fm2 && P.b2fm)));
+    ctrls.m2.row.classList.toggle('dim', !(fm2 && P.b2fm && !P.mUnit2));
+    ctrls.mHz2.row.classList.toggle('dim', !(fm2 && P.b2fm && P.mUnit2));
+  }
+  if (P.b2on){
+    ctrls.hot2.row.classList.toggle('dim', !(P.mode2 === 0 || P.mode2 === 1 || P.mode2 === 2 || P.mode2 === 5)); }
+  ctrls.fb.row.classList.toggle('dim', !(P.mode === 0 || P.mode === 1 || P.mode === 2 || P.mode === 5 || (P.b2on && [0,1,2,5].includes(P.mode2))));
+  const envOn = Math.abs(P.benvK) > 0.005 || Math.abs(P.benvW) > 0.005;
+  ['benvA','benvD','benvVel'].forEach(k => ctrls[k].row.classList.toggle('dim', !envOn));
+  ctrls.hot.row.classList.toggle('dim', !(P.mode === 0 || P.mode === 5 || fm));
+  ['kRule','kRuleAmt','kCustom','kRuleOut','panOrder','frame','frame2','cScale','driftRate','detune','K','bspread','kspread','kq','width','rotSpread','law','wspread','dspread','mspread','ispread'].forEach(k => ctrls[k].row.classList.toggle('dim', !sw));
+  const usesBladeWave = P.mode === 0 || P.mode === 5 || fm;
+  ctrls.morph.row.classList.toggle('dim', !(usesBladeWave && P.hot === 6));
+  if (sw) ctrls.mspread.row.classList.toggle('dim', !(usesBladeWave && P.hot === 6));
+  if (sw) ctrls.ispread.row.classList.toggle('dim', !fm);
+  if (sw) ctrls.driftRate.row.classList.toggle('dim', P.law !== 4);
+  if (sw){
+    ctrls.kspread.row.classList.toggle('dim', P.kRule !== 0);
+    ctrls.kRuleAmt.row.classList.toggle('dim', P.kRule === 0);
+  }
+  ctrls.kCustom.row.style.display = (P.kRule === 9 || (P.b2sp && P.kRule2 === 9)) ? '' : 'none';
+  {
+    const own = P.b2on && P.b2sp && P.N > 1;
+    ['bspread2','kRule2','kspread2','kRuleAmt2','wspread2','dspread2','mspread2','ispread2','rotSpread2','kRuleOut2'].forEach(k => ctrls[k].row.classList.toggle('dim', !own));
+    if (own){ ctrls.kspread2.row.classList.toggle('dim', P.kRule2 !== 0); ctrls.kRuleAmt2.row.classList.toggle('dim', P.kRule2 === 0); }
+    ctrls.b2sp.row.classList.toggle('dim', !P.b2on || P.N < 2);
+    const own2 = P.b2on && P.b2env;
+    ['benvK2','benvW2','benvA2','benvD2','benvVel2'].forEach(k => ctrls[k].row.classList.toggle('dim', !own2));
+    ctrls.b2env.row.classList.toggle('dim', !P.b2on);
+    const N = P.N, f = drawF0 || 110, vals = [];
+    for (let i = 0; i < N; i++){
+      const pm = {rv:new Float64Array(14), lead:0, kMul:1};
+      RazorCore.spreadMember(pm, i, N, P, 0, f, 48000);
+      const lk2 = P.lock2 < 0 ? P.lock : P.lock2;
+      const k2 = (lk2 === 2 ? Math.max(0.05, P.kHz2/f + pm.kAdd2) : Math.max(0.25, P.k2 + pm.kAdd2))*pm.kMul2;
+      vals.push(lk2 === 2 ? Math.round(k2*f) + ' Hz' : k2.toFixed(2));
+    }
+    const o2 = document.getElementById('kRuleOut2');
+    if (o2) o2.textContent = N > 1 ? ((P.lock2 < 0 ? P.lock : P.lock2) === 2 ? '' : 'k ') + vals.join(' · ') : 'one member: no spread';
+  }
+  ctrls.kq.lab.textContent = P.kRule ? 'Snap to rule' : 'Quantize';
+  // each member's resulting cut rate (gradient order), so the rule reads as numbers
+  {
+    const N = P.N, f = drawF0 || 110, vals = [];
+    for (let i = 0; i < N; i++){
+      const pm = {rv:new Float64Array(14), lead:0, kMul:1};
+      RazorCore.spreadMember(pm, i, N, P, 0, f, 48000);
+      vals.push(P.lock === 2 ? Math.round(pm.kEff*f) + ' Hz' : pm.kEff.toFixed(2));
+    }
+    const out = document.getElementById('kRuleOut');
+    if (out) out.textContent = N > 1 ? (P.lock === 2 ? '' : 'k ') + vals.join(' · ') : 'one member: no spread';
+  }
+  ctrls.glide.row.classList.toggle('dim', P.polyMode === 0);
+  if (P.N > 1) ctrls.frame2.row.classList.toggle('dim', !P.b2on);
+  ctrls.f0.row.classList.toggle('dim', P.f0Mode === 1);
+  ctrls.f0Note.row.classList.toggle('dim', P.f0Mode === 0);
+  ctrls.wtFrames.row.classList.toggle('dim', P.wtMode === 0);
+  ctrls.wtDur.row.classList.toggle('dim', P.wtMode !== 3);
+  if (document.getElementById('wtGo') && !wtRec) syncWt();
+  ctrls.glideAlways.row.classList.toggle('dim', P.polyMode === 0);
+  ctrls.rotSync.row.classList.toggle('dim', Math.abs(P.rotRate) < 0.005 && (P.rotSpread < 0.005 || P.N < 2)
+    && !(P.b2on && !P.rot2Follow && (Math.abs(P.rotRate2) > 0.005 || (P.b2sp && P.rotSpread2 > 0.005))));
+  ctrls.hard.lab.textContent = P.mode === 6 ? 'Step slew' : 'Edges';
+  const rd = (a, b) => META[a].label + ' <b>' + META[a].fmt(P[a]) + '</b>' + (b ? ' + ' + META[b].label + ' <b>' + META[b].fmt(P[b]) + '</b>' : '');
+  document.getElementById('rx').innerHTML = 'X ' + rd(PAD.x, PAD.x2);
+  document.getElementById('ry').innerHTML = 'Y ' + rd(PAD.y, PAD.y2);
+  syncPadUI();
+  document.getElementById('rx').parentNode.title = document.getElementById('rx').textContent;
+}
+
+const PRESETS = [
+  ['Quarter sync', {mode:0,hot:2,base:0,w:.25,c:.875,k:6,hard:0,depth:1,mirror:0,lock:0,mUnit:0,rotRate:0,rotSpread:0,N:1,bspread:0,kspread:0}],
+  ['Trance jitter', {mode:2,hot:2,base:2,fmType:1,mshape:5,I:0.12,m:3,w:1,c:.5,k:1,hard:0,depth:1,mirror:0,lock:0,mUnit:0,rotRate:0,rotSpread:0,N:1,bspread:0,kspread:0}],
+  ['Two blades', {mode:0,hot:2,base:0,w:.22,c:.85,k:7,hard:.05,depth:1,mirror:0,lock:0,mUnit:0,rotRate:0,rotSpread:0,N:3,detune:10,K:.6,bspread:0,kspread:0,
+    b2on:1,mode2:4,hot2:2,w2:.3,k2:9,c2:.35,depth2:1,hard2:.3}],
+  ['Crush vs FM', {mode:6,base:2,w:.35,c:.25,k:12,hard:.4,depth:1,mirror:0,lock:0,mUnit:0,rotRate:.15,rotSpread:0,N:3,detune:12,K:.5,bspread:0,kspread:0,
+    b2on:1,mode2:1,hot2:0,fmType:0,mshape:0,I:2.2,m:3,w2:.3,k2:5,c2:.75,depth2:1,hard2:.4}],
+  ['Chord of formants', {mode:1,hot:0,fmType:0,mshape:0,I:1,m:1,base:2,w:.5,c:.5,hard:.6,depth:1,mirror:0,lock:2,kHz:600,mUnit:0,rotRate:0,rotSpread:0,
+    N:5,detune:10,K:.6,bspread:0,kspread:0,kRule:4,kRuleAmt:1,kq:1}],
+  ['Harmonic stack', {mode:0,hot:2,base:0,w:.25,c:.8,k:3,hard:.05,depth:1,mirror:0,lock:0,mUnit:0,rotRate:0,rotSpread:0,N:7,detune:14,K:.5,bspread:0,kspread:0,kRule:1,kRuleAmt:.8,kq:1}],
+  ['Golden bells', {mode:5,hot:0,base:0,w:.4,c:.6,k:2.5,hard:.3,depth:1,mirror:0,lock:0,mUnit:0,rotRate:0,rotSpread:0,N:6,detune:8,K:.3,bspread:.2,kspread:0,kRule:7,kRuleAmt:1,kq:1}],
+  ['Undertone drift', {mode:0,hot:4,base:2,w:.3,c:.7,k:16,hard:.1,depth:1,mirror:0,lock:0,mUnit:0,rotRate:0,rotSpread:0,N:6,detune:12,K:.35,bspread:0,kspread:0,kRule:2,kRuleAmt:1,kq:0,law:4,driftRate:.25}],
+  ['Cross-mod ring (watch)', {mode:0,hot:0,base:0,w:.45,c:.6,k:3,hard:.15,depth:1,mirror:0,lock:0,mUnit:0,rotRate:0,rotSpread:0,N:5,detune:18,K:.2,bspread:0,kspread:0,xm:.7}],
+  ['Cross-mod horde', {mode:0,hot:2,base:0,w:.4,c:.7,k:4,hard:.1,depth:1,mirror:0,lock:0,mUnit:0,rotRate:0,rotSpread:0,N:6,detune:14,K:.45,bspread:0,kspread:0,xm:.45}],
+  ['Feedback screech', {mode:0,hot:0,base:0,w:.5,c:.6,k:3,hard:.1,depth:1,mirror:0,lock:0,mUnit:0,rotRate:0,rotSpread:0,N:1,bspread:0,kspread:0,fb:.75}],
+  ['Blade pluck', {mode:0,hot:2,base:0,w:.3,c:.8,k:2,hard:.05,depth:1,mirror:0,lock:0,mUnit:0,rotRate:0,rotSpread:0,N:5,detune:12,K:.5,bspread:0,kspread:0,
+    benvK:.55,benvW:.2,benvA:1,benvD:220,benvVel:.6,S:.6,R:300}],
+  ['Zap bass', {mode:1,hot:2,fmType:0,mshape:0,I:1.2,m:1,base:2,w:.5,c:.7,k:1.5,hard:0,depth:1,mirror:0,lock:0,mUnit:0,rotRate:0,rotSpread:0,N:3,detune:8,K:.7,bspread:0,kspread:0,
+    benvK:.8,benvA:.5,benvD:90,benvVel:.3,polyMode:2,glide:40}],
+  ['Crunch (pitch S&H)', {mode:2,hot:2,base:2,fmType:1,mshape:7,I:0.09,mUnit:1,mHz:2400,w:1,c:.5,k:1,hard:0,depth:1,mirror:0,lock:0,rotRate:0,rotSpread:0,N:1,bspread:0,kspread:0,polyMode:2,glide:70}],
+  ['Crunch (audio-rate PM)', {mode:2,hot:2,base:2,fmType:0,mshape:7,I:0.35,mUnit:1,mHz:16000,w:1,c:.5,k:1,hard:0,depth:1,mirror:0,lock:0,rotRate:0,rotSpread:0,N:1,bspread:0,kspread:0,polyMode:2,glide:70}],
+  ['Crunch horde', {mode:2,hot:2,base:2,fmType:1,mshape:7,I:0.07,mUnit:1,mHz:2400,w:1,c:.5,k:1,hard:0,depth:1,mirror:0,lock:0,rotRate:0,rotSpread:0,N:5,detune:12,K:.15,bspread:0,kspread:0,polyMode:0}],
+  ['Jitter swarm', {mode:2,hot:2,base:2,fmType:1,mshape:5,I:0.2,m:3,w:1,c:.5,k:1,hard:0,depth:.7,mirror:0,lock:0,mUnit:0,rotRate:0,rotSpread:0,N:5,detune:9,K:.1,bspread:0,kspread:0}],
+  ['Hollow twin', {mode:0,hot:2,base:0,w:.2,c:.35,k:7,hard:.1,depth:1,mirror:2,lock:0,mUnit:0,rotRate:0,rotSpread:0,N:3,detune:10,K:.6,bspread:0,kspread:0}],
+  ['Reflected sync', {mode:0,hot:2,base:0,w:.4,c:.7,k:9,hard:0,depth:1,mirror:1,lock:0,mUnit:0,rotRate:0,rotSpread:0,N:1,bspread:0,kspread:0}],
+  ['Reverse cut', {mode:0,hot:4,base:2,w:.3,c:.8,k:5,hard:0,depth:1,mirror:0,lock:0,mUnit:0,rotRate:0,rotSpread:0,N:5,detune:12,K:.5,bspread:0,kspread:0}],
+  ['Sine-to-saw fan', {mode:0,hot:6,morph:.5,mspread:.5,base:0,w:.35,c:.8,k:4,hard:.1,depth:1,mirror:0,lock:0,mUnit:0,rotRate:0,rotSpread:0,N:7,detune:14,K:.45,bspread:0,kspread:0,law:0}],
+  ['Swarm-linked spread', {mode:0,hot:6,morph:.6,mspread:.4,base:0,w:.25,c:.75,k:6,hard:.2,depth:1,mirror:0,lock:0,mUnit:0,rotRate:0,rotSpread:0,N:6,detune:18,K:.1,bspread:.5,kspread:3,kq:1,wspread:.5,law:3}],
+  ['Wandering blades', {mode:0,hot:6,morph:.6,base:0,w:.2,c:.8,k:7,hard:.2,depth:1,mirror:0,lock:0,mUnit:0,rotRate:0,rotSpread:0,N:6,detune:14,K:.5,bspread:.5,kspread:3,kq:1,wspread:.3,mspread:.4,law:4,driftRate:.4}],
+  ['Humanized', {mode:0,hot:2,base:0,w:.25,c:.85,k:6,hard:.1,depth:1,mirror:0,lock:0,mUnit:0,rotRate:0,rotSpread:.15,N:5,detune:10,K:.5,bspread:.08,kspread:1,kq:0,wspread:.2,dspread:.15,law:1}],
+  ['Anchored horde', {mode:0,hot:2,base:0,w:.22,c:.8,k:6,hard:.1,depth:1,mirror:0,lock:0,mUnit:0,rotRate:0,rotSpread:0,N:6,detune:20,K:.7,bspread:0,kspread:0,frame:1,cScale:1}],
+  ['Locked horde', {mode:0,hot:2,base:0,w:.25,c:.875,k:6,hard:0,depth:1,mirror:0,lock:0,mUnit:0,rotRate:0,rotSpread:0,N:7,detune:22,K:.6,bspread:0,kspread:0}],
+  ['Splayed blades', {mode:0,hot:2,base:0,w:.2,c:.875,k:8,hard:.15,depth:1,mirror:0,lock:0,mUnit:0,rotRate:0,rotSpread:0,N:4,detune:4,K:-1,bspread:0,kspread:0}],
+  ['Drifting cuts', {mode:0,hot:3,base:0,w:.18,c:.5,k:9,hard:.25,depth:1,mirror:0,lock:0,mUnit:0,rotRate:0,rotSpread:.35,N:6,detune:14,K:.4,bspread:0,kspread:4,kq:1}],
+  ['Vowel choir', {mode:1,hot:0,fmType:0,mshape:0,base:0,w:.35,c:.5,k:7,I:1.6,m:2,hard:.5,depth:1,mirror:0,lock:0,mUnit:0,rotRate:0,rotSpread:0,N:5,detune:12,K:.45,bspread:0,kspread:2,kq:1}],
+  ['Frozen noise FM', {mode:1,hot:2,fmType:0,mshape:5,base:0,w:.3,c:.8,k:6,I:1.2,m:5,hard:.2,depth:1,mirror:0,lock:0,mUnit:0,rotRate:0,rotSpread:0,N:5,detune:10,K:.5,bspread:0,kspread:0}],
+  ['Ring saw', {mode:5,hot:2,base:0,w:.45,c:.7,k:5,hard:.3,depth:1,mirror:0,lock:0,mUnit:0,rotRate:0,rotSpread:0,N:3,detune:8,K:.6,bspread:.1,kspread:0}],
+  ['Folded slice', {mode:4,base:0,w:.5,c:.75,k:14,hard:.3,depth:1,mirror:0,lock:0,mUnit:0,rotRate:0,rotSpread:0,N:3,detune:9,K:.6,bspread:.15,kspread:0}],
+  ['Fixed formant', {mode:1,hot:0,fmType:0,mshape:0,base:2,w:.5,c:.5,kHz:900,I:1.2,m:1,hard:.6,depth:1,mirror:0,lock:2,mUnit:0,rotRate:0,rotSpread:0,N:5,detune:12,K:.5,bspread:0,kspread:0}],
+  ['Operator jitter', {mode:2,hot:2,base:2,fmType:1,mshape:5,I:0.12,mHz:700,w:1,c:.5,k:1,hard:0,depth:.6,mirror:0,lock:0,mUnit:1,rotRate:0,rotSpread:0,N:1,bspread:0,kspread:0}],
+  ['Fixed crush', {mode:6,base:2,w:1,c:.5,kHz:2400,hard:0,depth:1,mirror:0,lock:2,mUnit:0,rotRate:0,rotSpread:0,N:1,bspread:0,kspread:0}],
+  ['Slewed crush', {mode:6,base:2,w:.6,c:.6,k:10,hard:.5,depth:1,mirror:0,lock:0,mUnit:0,rotRate:0,rotSpread:0,N:3,detune:10,K:.5,bspread:0,kspread:0}],
+];
+const PRESET_BASE = {law:0,wspread:0,dspread:0,mspread:0,ispread:0,morph:.5,frame:0,cScale:0,aa:1,polyMode:0,b2on:0,xm:0,fb:0,benvK:0,benvW:0,kRule:0,kRuleAmt:1,
+  b2sp:0,b2env:0,kRule2:0,kRuleAmt2:1,bspread2:0,kspread2:0,wspread2:0,dspread2:0,benvK2:0,benvW2:0,frame2:-1,rot2Follow:1,rotRate2:0,rotSpread2:0,lock2:-1,mirror2:-1,b2fm:0,morph2:.5,mspread2:0,ispread2:0};
+// a neutral two-blade patch every two-blade starting point builds on, so nothing leaks in from the last sound
+const TWO_BASE = {b2sp:0,b2env:0,b2on:1,base:0,depth:1,depth2:1,hard:0,hard2:0,mirror:0,lock:0,mUnit:0,fmType:0,mshape:0,I:1,m:2,rotRate:0,rotSpread:0,
+  N:3,detune:10,K:.55,bspread:0,kspread:0,kq:0,phaseMode:2,frame:0,rotSync:1,S:.85,A:4,D:400,R:280};
+const TWO_PRESETS = [
+  ['Two-formant vowel', {mode:1,hot:0,mode2:1,hot2:0,I:1.1,m:1,lock:2,kHz:720,kHz2:1150,w:.55,c:.5,w2:.45,c2:.5,hard:.6,hard2:.6,depth2:.8,base:2,N:5,detune:12,K:.6}],
+  ['Sync into crush', {mode:0,hot:2,w:.2,c:.2,k:7,mode2:6,w2:.35,c2:.72,k2:10,hard2:.4,base:0}],
+  ['Metal pair', {mode:5,hot:3,w:.3,c:.3,k:5.3,hard:.2,mode2:4,w2:.35,c2:.78,k2:17,hard2:.25,base:0,N:4,detune:16,K:.35}],
+  ['Hollow double', {mode:0,hot:2,w:.12,c:.2,k:9,hard:.1,mode2:0,hot2:4,w2:.12,c2:.4,k2:13,hard2:.1,mirror:2,base:0,N:3,K:.7}],
+  ['Breath and bite', {mode:3,w:.08,c:.9,k:40,hard:.5,depth:.55,mode2:0,hot2:2,w2:.25,c2:.45,k2:6,hard2:.05,base:2,N:5,detune:14,K:.5}],
+  ['Chasing blades', {mode:0,hot:2,w:.15,c:.2,k:8,hard:.15,mode2:0,hot2:4,w2:.15,c2:.7,k2:8,hard2:.15,rotRate:.35,rotSpread:.12,N:5,detune:12,K:.4,base:0}],
+  ['Formant pluck', {mode:1,hot:0,mode2:1,hot2:0,I:1.4,m:1,lock:2,kHz:500,kHz2:1600,w:.5,c:.5,w2:.4,c2:.5,hard:.5,hard2:.5,base:2,
+    benvK:.35,benvW:-.25,benvA:1,benvD:260,benvVel:.5,N:3,detune:10,K:.6,S:.5,R:260}],
+  ['Stacked sync', {mode:0,hot:2,w:.18,c:.3,k:5,hard:.05,mode2:0,hot2:6,morph:.8,morph2:.8,w2:.22,c2:.55,k2:13,hard2:.1,base:0,N:6,detune:16,K:.5,kspread:3,kq:1}],
+  ['Crunch and fold', {mode:2,hot:2,fmType:1,mshape:7,I:.08,mUnit:1,mHz:2400,w:1,c:.5,k:1,base:2,mode2:4,w2:.25,c2:.85,k2:10,hard2:.4,depth2:.6,N:1,polyMode:2,glide:60}],
+  ['Formant over sync', {mode:1,hot:0,I:1.1,m:1,lock:2,kHz:900,w:.5,c:.5,hard:.6,base:2,
+    b2on:1,mode2:0,hot2:4,lock2:0,k2:7,w2:.15,c2:.85,hard2:.05,mirror2:2,N:4,detune:12,K:.6}],
+  ['Two FM voices', {mode:1,hot:0,fmType:0,mshape:0,I:1.2,m:1,w:.5,c:.25,k:2,hard:.4,base:0,
+    b2on:1,mode2:2,hot2:0,b2fm:1,fmType2:1,mshape2:7,I2:.15,mUnit2:1,mHz2:1500,w2:.4,c2:.75,k2:5,hard2:.4,N:3,detune:8,K:.6}],
+  ['Counter-rotation', {mode:0,hot:2,w:.18,c:.2,k:6,hard:.15,rotRate:.4,mode2:0,hot2:4,w2:.18,c2:.7,k2:9,hard2:.15,rot2Follow:0,rotRate2:-.55,
+    base:0,N:4,detune:10,K:.55}],
+  ['Smear and strike', {mode:0,hot:2,w:.3,c:.3,k:4,hard:.3,mode2:0,hot2:2,w2:.12,c2:.8,k2:9,hard2:.05,base:0,N:7,detune:20,K:.3,
+    frame:0,frame2:1,cScale:1}],
+  ['Split envelopes', {mode:0,hot:2,w:.2,c:.25,k:3,hard:.05,mode2:1,hot2:0,I:1.3,m:1,w2:.35,c2:.72,k2:5,hard2:.4,base:0,N:4,detune:12,K:.55,
+    benvK:.6,benvW:.25,benvA:1,benvD:180,benvVel:.6,b2env:1,benvK2:.5,benvW2:.3,benvA2:700,benvD2:2500,benvVel2:.2,S:.8,R:600}],
+  ['Chord against scatter', {mode:1,hot:0,mode2:0,hot2:2,I:1,m:1,lock:2,kHz:500,kHz2:1800,w:.45,c:.4,w2:.18,c2:.85,hard:.5,hard2:.1,base:2,N:6,detune:14,K:.45,
+    kRule:4,kRuleAmt:1,kq:1,b2sp:1,law:0,bspread2:.6,kRule2:0,kspread2:0,wspread2:.5,dspread2:.4}],
+  ['Mirror-image spreads', {mode:0,hot:2,w:.18,c:.3,k:6,hard:.1,mode2:0,hot2:4,w2:.18,c2:.8,k2:6,hard2:.1,base:0,N:7,detune:12,K:.5,
+    kRule:1,kRuleAmt:.7,kq:1,b2sp:1,kRule2:2,kRuleAmt2:1,bspread2:.3,wspread2:.3}],
+  ['Cross-mod pair', {mode:0,hot:0,w:.3,c:.25,k:4,hard:.1,mode2:5,hot2:2,w2:.3,c2:.75,k2:6,hard2:.2,xm:.5,N:6,detune:14,K:.45,base:0}],
+];
+
+// ---- Showcase: a full reset of every sound parameter, then each patch states only what it needs ----
+const SHOW_BASE = {w:.25,k:6,c:.5,rotRate:0,rotSpread:0,rotSync:1,hard:0,depth:1,I:1,m:2,detune:12,K:.5,bspread:0,kspread:0,width:.7,
+  A:4,D:400,S:.85,R:280,mode:0,hot:2,base:0,lock:0,N:3,phaseMode:2,mshape:0,kq:1,fmType:0,mUnit:0,kHz:1000,mHz:660,mirror:0,
+  b2on:0,mode2:4,hot2:2,w2:.2,k2:3,kHz2:1500,c2:.35,depth2:1,hard2:0,xm:0,fb:0,
+  benvA:2,benvD:250,benvK:0,benvW:0,benvVel:.5,b2sp:0,kRule2:0,kRuleAmt2:1,bspread2:0,kspread2:0,wspread2:0,dspread2:0,
+  b2env:0,benvA2:2,benvD2:250,benvK2:0,benvW2:0,benvVel2:.5,kRule:0,kRuleAmt:1,polyMode:0,glideAlways:0,glide:60,panOrder:0,
+  law:0,driftRate:.5,morph:.5,wspread:0,dspread:0,mspread:0,ispread:0,frame:0,frame2:-1,rot2Follow:1,rotRate2:0,rotSpread2:0,lock2:-1,mirror2:-1,b2fm:0,morph2:.5,mspread2:0,ispread2:0,cScale:0,aa:1,dcMode:2};
+const SHOWCASE = [
+  ['Growls', [
+    // a fixed-Hz sine formant swept round the cycle by rotation, plus a folded edge; mono with glide
+    ['Formant growl', {base:2,mode:0,hot:0,w:.7,hard:.6,lock:2,kHz:650,rotRate:.6,N:3,detune:8,K:.7,xm:.2,
+      b2on:1,mode2:4,w2:.3,c2:.1,kHz2:1400,hard2:.4,depth2:.7,benvK:.3,benvD:400,polyMode:2,glide:50}],
+    // self-feedback on a saw sync blade: the snarl lives only inside the cut
+    ['Feedback snarl', {base:2,mode:0,hot:2,w:.45,c:.7,k:2,hard:.1,fb:.55,N:1,b2on:1,mode2:4,w2:.25,c2:.15,k2:12,hard2:.3,
+      benvK:.4,benvD:300,benvVel:.6,polyMode:2,glide:45}],
+    // a loosely coupled swarm ring-modulating square blades into each other, over a slewed crush
+    ['Cross-mod roar', {base:2,mode:5,hot:3,w:.5,c:.6,k:3,hard:.2,N:5,detune:20,K:.3,xm:.6,cScale:1,
+      b2on:1,mode2:6,w2:.3,c2:.1,k2:8,hard2:.4,depth2:.6,polyMode:2,glide:40}],
+    // rotation at LFO rate drags an FM formant through the cycle: a wobble that restarts on every note
+    ['Wobble jaw', {base:2,mode:1,hot:0,I:2,m:1,w:.6,hard:.5,lock:2,kHz:800,rotRate:2.2,rotSync:1,N:3,detune:6,K:.8,
+      b2on:1,mode2:2,hot2:2,w2:1,c2:.5,k2:1,depth2:.45,fmType:1,mshape:7,mUnit:1,mHz:1800,polyMode:2,glide:35}],
+  ]],
+  ['FM sines', [
+    // two-operator FM across the whole cycle; the blade envelope bends the carrier ratio on the attack
+    ['Glass FM', {base:0,mode:1,hot:0,I:1.6,m:2,w:1,c:.5,k:1,N:1,benvK:.12,benvD:600,benvVel:.7,A:2,D:1400,S:.35,R:700}],
+    // free-running FM at an irrational ratio (inharmonic); the FM region shrinks as the envelope decays
+    ['FM bell', {base:0,mode:2,hot:0,I:2.4,m:3.5,w:.25,c:.5,k:1,N:1,benvW:1,benvA:1,benvD:1800,benvVel:.5,A:1,D:2600,S:0,R:1600}],
+    // two FM blades with separate envelopes: a bright fast click over a slower body
+    ['FM pluck pair', {base:0,mode:1,hot:0,I:1.3,m:1,w:.6,c:.3,k:1,mode2:1,hot2:0,b2on:1,b2fm:1,I2:3,m2:3,w2:.2,c2:.8,k2:4,hard2:.3,N:2,detune:4,K:.8,
+      benvK:.25,benvD:700,b2env:1,benvK2:.6,benvW2:-.4,benvA2:.5,benvD2:120,benvVel2:.8,A:1,D:900,S:.2,R:400}],
+    // a sine swarm whose blades frequency-modulate each other round the ring
+    ['Ring of sines', {base:0,mode:1,hot:0,I:.8,m:1,w:.5,c:.5,k:2,hard:.5,N:6,detune:10,K:.55,xm:.45,A:30,R:600}],
+  ]],
+  ['Movement', [
+    // blade 1 glides round the cycle; blade 2's members scatter on their own random walk
+    ['Two clocks', {base:0,mode:0,hot:2,w:.2,c:.3,k:5,hard:.2,rotRate:.3,N:5,detune:12,K:.5,law:4,driftRate:.3,
+      b2on:1,mode2:5,hot2:0,w2:.18,c2:.7,k2:9,hard2:.3,b2sp:1,bspread2:.8,dspread2:.5,wspread2:.4,S:.9,R:500}],
+    // golden-ratio cut rates assigned by each member's phase lead: the voicing follows the coupling
+    ['Drift and lock', {base:0,mode:0,hot:0,w:.35,c:.6,k:3,hard:.4,N:6,detune:18,K:.3,law:3,kRule:7,kRuleAmt:.8,kq:0,
+      b2on:1,mode2:4,w2:.2,c2:.1,k2:6,hard2:.3,depth2:.5,S:.9,R:700}],
+    // no global rotation, only rotate detune: members' blades orbit in opposite directions, lightly cross-coupled
+    ['Orbiting cuts', {base:0,mode:0,hot:4,w:.15,c:.5,k:7,hard:.15,rotSpread:.5,N:6,detune:10,K:.5,xm:.25,mirror:2,S:.9,R:500}],
+    // two envelopes on different clocks: a fast downward zap and a slow width swell
+    ['Tidal envelopes', {base:2,mode:0,hot:2,w:.3,c:.25,k:4,hard:.1,N:4,detune:12,K:.5,benvK:.7,benvD:180,benvVel:.6,
+      b2on:1,mode2:1,hot2:0,I:1.2,m:1,w2:.1,c2:.7,k2:3,hard2:.5,b2env:1,benvW2:1,benvA2:1800,benvD2:4000,S:.9,R:900}],
+  ]],
+  ['Leads', [
+    // tight swarm, saw sync with a little feedback, a fold on the other edge; legato glide
+    ['Screamer', {base:2,mode:0,hot:2,w:.35,c:.75,k:5,hard:.05,fb:.35,N:3,detune:10,K:.8,benvK:.5,benvD:350,benvVel:.5,
+      b2on:1,mode2:4,w2:.2,c2:.1,k2:14,hard2:.3,depth2:.5,polyMode:2,glide:90}],
+    // two fixed-Hz formants; blade 2's own envelope lifts the second formant on each new note ("ya")
+    ['Vocal lead', {base:2,mode:1,hot:0,I:1.1,m:1,w:.5,hard:.6,lock:2,kHz:750,b2on:1,mode2:1,hot2:0,w2:.4,c2:.5,kHz2:1150,hard2:.6,depth2:.85,
+      b2env:1,benvK2:.2,benvA2:120,benvD2:500,N:2,detune:6,K:.8,fb:.08,polyMode:2,glide:120}],
+    // square base with mirrored twins: odd harmonics only, a sync blade and a ring blade
+    ['Hollow square lead', {base:3,mode:0,hot:3,w:.15,c:.3,k:7,hard:.1,mirror:2,b2on:1,mode2:5,hot2:0,w2:.15,c2:.6,k2:3,hard2:.2,
+      N:3,detune:6,K:.8,polyMode:2,glide:60}],
+    // the trance crunch with a bright pluck envelope on a sync edge
+    ['Crunch pluck lead', {base:2,mode:2,hot:2,fmType:1,mshape:7,I:.08,mUnit:1,mHz:2400,w:1,c:.5,k:1,N:1,
+      b2on:1,mode2:0,hot2:2,w2:.2,c2:.8,k2:3,hard2:.1,depth2:.7,b2env:1,benvK2:.6,benvD2:220,benvVel2:.6,polyMode:2,glide:70}],
+  ]],
+  ['Pads', [
+    // nine FM-formant members voicing a just major chord in Hz, with scattered sine-saw glints on top
+    ['Glass horde pad', {base:1,mode:1,hot:0,I:.9,m:2,w:.5,hard:.7,lock:2,kHz:500,kRule:4,N:9,detune:18,K:.35,cScale:1,width:1,xm:.15,
+      b2on:1,mode2:0,hot2:6,morph:.3,morph2:.3,w2:.12,c2:.8,kHz2:2200,hard2:.6,b2sp:1,bspread2:.6,dspread2:.5,law:4,driftRate:.15,A:900,D:2000,S:.9,R:2500}],
+    // an undertone ladder of sine sync formants, slowly rotating; blade 2 folds open over four seconds
+    ['Undertone cathedral', {base:2,mode:0,hot:0,w:.6,hard:.8,k:16,kRule:2,N:7,detune:10,K:.55,rotRate:.07,
+      b2on:1,mode2:4,w2:.25,c2:.1,k2:4,depth2:.4,hard2:.5,b2env:1,benvW2:.6,benvA2:1500,benvD2:4000,A:1200,S:.9,R:3000}],
+    // a drifting, cross-modulated ring swarm with fifths spread by phase lead
+    ['Cross-mod shimmer', {base:0,mode:5,hot:0,w:.4,k:4,hard:.5,mirror:1,N:8,detune:22,K:.15,xm:.35,kRule:6,kRuleAmt:.6,kq:0,law:3,width:1,A:700,S:.9,R:3000}],
+    // slow width breathing, members drifting in position, a thin noise blade for air
+    ['Breathing pad', {base:1,mode:0,hot:6,morph:.5,w:.3,c:.6,k:5,hard:.6,N:6,detune:14,K:.45,frame:1,cScale:1,law:4,driftRate:.1,bspread:.3,
+      benvW:.8,benvA:1500,benvD:4000,b2on:1,mode2:3,w2:.05,c2:.2,k2:30,hard2:.5,depth2:.3,A:1500,S:.9,R:3000}],
+  ]],
+  ['Oddities', [
+    // every member feeds itself and its neighbour: a choir that argues
+    ['Feedback choir', {base:0,mode:1,hot:0,I:.7,m:1,w:.5,k:3,hard:.4,N:6,detune:12,K:.45,fb:.4,xm:.3,A:200,R:1200}],
+    // golden-ratio ring bells run through a slewed crush blade
+    ['Crushed bells', {base:0,mode:5,hot:0,w:.4,c:.3,k:2.5,hard:.3,N:6,detune:8,K:.3,kRule:7,b2on:1,mode2:6,w2:.35,c2:.75,k2:9,hard2:.5,A:2,D:1800,S:.2,R:1500}],
+    // splayed swarm, twin-mirrored blades, custom 7-limit cut rates: a clockwork of cuts
+    ['Clockwork', {base:0,mode:0,hot:3,w:.1,c:.5,k:4,hard:.1,N:7,detune:3,K:-1,mirror:3,kRule:9,kCustom:'1, 7/6, 7/4, 21/8',rotRate:.25}],
+  ]],
+];
+const showEl = document.getElementById('showcase');
+SHOWCASE.forEach(([cat, list]) => {
+  const rowEl = document.createElement('div'); rowEl.className = 'presets';
+  const lab = document.createElement('span'); lab.textContent = cat; rowEl.appendChild(lab);
+  list.forEach(([name, o]) => {
+    const b = document.createElement('button'); b.type = 'button'; b.textContent = name;
+    b.addEventListener('click', () => { send(Object.assign({}, SHOW_BASE, o)); document.getElementById('kCustomIn').value = P.kCustom; });
+    rowEl.appendChild(b);
+  });
+  showEl.appendChild(rowEl);
+});
+const pBox = document.getElementById('presets'), pBox2 = document.getElementById('presets2');
+PRESETS.forEach(([name, o]) => {
+  const b = document.createElement('button'); b.type = 'button'; b.textContent = name;
+  b.addEventListener('click', () => send(Object.assign({}, PRESET_BASE, o)));
+  pBox.appendChild(b);
+});
+TWO_PRESETS.forEach(([name, o]) => {
+  const b = document.createElement('button'); b.type = 'button'; b.textContent = name;
+  b.addEventListener('click', () => send(Object.assign({}, PRESET_BASE, TWO_BASE, o)));
+  pBox2.appendChild(b);
+});
+
+
+/* ============ Serum wavetable export ============ */
+// Frames are rendered at 8192 points and band-limited to 1023 harmonics by FFT, then stored as 2048-sample
+// single cycles, Serum's native frame size, in a 32-bit float WAV with Serum's 'clm ' frame-size marker.
+const WT = 2048, WT_OS = 8192;
+function fft(re, im, inv){
+  const n = re.length;
+  for (let i = 1, j = 0; i < n; i++){
+    let bit = n >> 1; for (; j & bit; bit >>= 1) j ^= bit; j ^= bit;
+    if (i < j){ let t = re[i]; re[i] = re[j]; re[j] = t; t = im[i]; im[i] = im[j]; im[j] = t; }
+  }
+  for (let len = 2; len <= n; len <<= 1){
+    const ang = (inv ? 2 : -2)*Math.PI/len, wr = Math.cos(ang), wi = Math.sin(ang), hl = len >> 1;
+    for (let i = 0; i < n; i += len){
+      let cr = 1, ci = 0;
+      for (let k = 0; k < hl; k++){
+        const ar = re[i+k], ai = im[i+k];
+        const br = re[i+k+hl]*cr - im[i+k+hl]*ci, bi = re[i+k+hl]*ci + im[i+k+hl]*cr;
+        re[i+k] = ar + br; im[i+k] = ai + bi; re[i+k+hl] = ar - br; im[i+k+hl] = ai - bi;
+        const t = cr*wr - ci*wi; ci = cr*wi + ci*wr; cr = t;
+      }
+    }
+  }
+}
+const wtBig = new Float32Array(WT_OS);
+function renderFrame(forcePreview){
+  computeCycle(WT_OS, wtBig, forcePreview);
+  const re = new Float64Array(WT_OS), im = new Float64Array(WT_OS);
+  for (let i = 0; i < WT_OS; i++) re[i] = wtBig[i];
+  fft(re, im, false);
+  const r2 = new Float64Array(WT), i2 = new Float64Array(WT);
+  if (!P.dcMode){ r2[0] = re[0]; }
+  for (let h = 1; h < WT/2; h++){ r2[h] = re[h]; i2[h] = im[h]; r2[WT - h] = re[WT_OS - h]; i2[WT - h] = im[WT_OS - h]; }
+  fft(r2, i2, true);
+  const out = new Float32Array(WT);
+  for (let i = 0; i < WT; i++) out[i] = r2[i]/WT_OS;
+  return out;
+}
+// snapshot the state a frame depends on, so recorded moments can be rendered after the fact
+function captureState(){
+  return {P:Object.assign({}, P), phases:VIZ.phases.slice(), mem:VIZ.mem ? JSON.parse(JSON.stringify(VIZ.mem)) : null,
+    count:VIZ.count, rot:Array.from(localRot), f0:drawF0};
+}
+function withState(st, fn){
+  const save = captureState();
+  Object.assign(P, st.P); VIZ.phases = st.phases; VIZ.mem = st.mem; VIZ.count = st.count; localRot.set(st.rot); drawF0 = st.f0;
+  P.mEff = P.mUnit ? P.mHz/drawF0 : P.m;
+  try { return fn(); } finally {
+    Object.assign(P, save.P); VIZ.phases = save.phases; VIZ.mem = save.mem; VIZ.count = save.count; localRot.set(save.rot); drawF0 = save.f0;
+  }
+}
+function wavBytes(frames){
+  const n = frames.length*WT, clm = '<!>2048 01000000 wavetable (www.xferrecords.com)';
+  const clmLen = clm.length + (clm.length & 1);
+  const size = 12 + 24 + 12 + (8 + clmLen) + 8 + n*4;
+  const buf = new ArrayBuffer(size), v = new DataView(buf);
+  let o = 0;
+  const str = t => { for (let i = 0; i < t.length; i++) v.setUint8(o++, t.charCodeAt(i)); };
+  const u32 = x => { v.setUint32(o, x, true); o += 4; }, u16 = x => { v.setUint16(o, x, true); o += 2; };
+  str('RIFF'); u32(size - 8); str('WAVE');
+  str('fmt '); u32(16); u16(3); u16(1); u32(44100); u32(44100*4); u16(4); u16(32);
+  str('fact'); u32(4); u32(n);
+  str('clm '); u32(clmLen); str(clm); if (clm.length & 1) v.setUint8(o++, 0);
+  str('data'); u32(n*4);
+  for (const f of frames) for (let i = 0; i < WT; i++){ v.setFloat32(o, f[i], true); o += 4; }
+  return new Uint8Array(buf);
+}
+const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++){ let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(b){ let c = 0xFFFFFFFF; for (let i = 0; i < b.length; i++) c = CRC[(c ^ b[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+// a one-file zip, stored uncompressed (the viewer's save allowlist has zip but not wav)
+function zipOne(name, data){
+  const nm = new TextEncoder().encode(name), crc = crc32(data), len = data.length;
+  const out = new Uint8Array(30 + nm.length + len + 46 + nm.length + 22), v = new DataView(out.buffer);
+  let o = 0;
+  const u32 = x => { v.setUint32(o, x, true); o += 4; }, u16 = x => { v.setUint16(o, x, true); o += 2; };
+  u32(0x04034b50); u16(20); u16(0); u16(0); u16(0); u16(0x21); u32(crc); u32(len); u32(len); u16(nm.length); u16(0);
+  out.set(nm, o); o += nm.length; out.set(data, o); o += len;
+  const cd = o;
+  u32(0x02014b50); u16(20); u16(20); u16(0); u16(0); u16(0); u16(0x21); u32(crc); u32(len); u32(len);
+  u16(nm.length); u16(0); u16(0); u16(0); u16(0); u32(0); u32(0);
+  out.set(nm, o); o += nm.length;
+  const cdSize = o - cd;
+  u32(0x06054b50); u16(0); u16(0); u16(1); u16(1); u32(cdSize); u32(cd); u16(0);
+  return out;
+}
+const dlPromise = (window.claude && typeof window.claude.use === 'function') ? window.claude.use('downloads').catch(() => null) : Promise.resolve(null);
+const wtStatus = (t) => { document.getElementById('wtStatus').textContent = t; };
+async function deliver(frames){
+  if (P.wtNorm){
+    let pk = 0; for (const f of frames) for (let i = 0; i < WT; i++) pk = Math.max(pk, Math.abs(f[i]));
+    if (pk > 1e-6) for (const f of frames) for (let i = 0; i < WT; i++) f[i] *= 0.99/pk;
+  }
+  const stamp = new Date().toISOString().slice(0, 19).replace(/[-:T]/g, '');
+  const name = 'scalpel-' + ['snapshot','sweep-x','sweep-y','recorded'][P.wtMode] + '-' + frames.length + 'f-' + stamp;
+  const wav = wavBytes(frames);
+  const dl = await dlPromise;
+  if (dl){
+    try { await dl.save({filename:name + '.zip', data:zipOne(name + '.wav', wav)}); wtStatus('Saved ' + frames.length + ' frames. Unzip, then drop the .wav on a Serum oscillator.'); }
+    catch(e){ wtStatus(e && e.code === 'declined' ? 'Save cancelled.' : e && e.code === 'rate_limited' ? 'A save prompt is already open.' : 'Saving isn’t available in this view.'); }
+  } else {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([wav], {type:'audio/wav'})); a.download = name + '.wav';
+    document.body.appendChild(a); a.click(); a.remove();
+    wtStatus('Downloaded ' + frames.length + ' frames.');
+  }
+}
+let wtRec = null, wtBusy = false;
+const nextTick = () => new Promise(r => setTimeout(r, 0));
+async function renderMany(states, forcePreview){
+  const frames = [];
+  for (let i = 0; i < states.length; i++){
+    frames.push(withState(states[i], () => renderFrame(forcePreview)));
+    if (i % 4 === 3){ wtStatus('Rendering ' + (i + 1) + ' / ' + states.length + '…'); await nextTick(); }
+  }
+  return frames;
+}
+async function wtAction(){
+  if (wtBusy) return;
+  if (P.wtMode === 3){
+    if (!wtRec){
+      wtRec = {states:[], next:performance.now(), every:P.wtDur*1000/P.wtFrames, total:P.wtFrames};
+      wtStatus('Recording… play and move things.'); syncWt(); return;
+    }
+    const states = wtRec.states; wtRec = null; syncWt();
+    if (!states.length){ wtStatus('Nothing recorded.'); return; }
+    wtBusy = true; try { await deliver(await renderMany(states, false)); } finally { wtBusy = false; syncWt(); }
+    return;
+  }
+  wtBusy = true; syncWt();
+  try {
+    const base = captureState(), states = [];
+    if (P.wtMode === 0) states.push(base);
+    else {
+      const X = P.wtMode === 1, key = X ? PAD.x : PAD.y, key2 = X ? PAD.x2 : PAD.y2, inv = X ? PAD.xi : PAD.yi, F = P.wtFrames;
+      const m = META[key], m2 = key2 ? META[key2] : null;
+      for (let i = 0; i < F; i++){
+        const u = F > 1 ? i/(F - 1) : 0, st = captureState();
+        st.P[key] = m.round(m.map.from01(u));
+        if (m2) st.P[key2] = m2.round(m2.map.from01(inv ? 1 - u : u));
+        states.push(st);
+      }
+    }
+    await deliver(await renderMany(states, P.wtMode !== 0));
+  } finally { wtBusy = false; syncWt(); }
+}
+function wtTick(now){
+  if (!wtRec) return;
+  if (now >= wtRec.next){ wtRec.states.push(captureState()); wtRec.next += wtRec.every; }
+  document.getElementById('recOut').textContent = '● REC ' + wtRec.states.length + '/' + wtRec.total;
+  if (wtRec.states.length >= wtRec.total) wtAction();
+}
+function syncWt(){
+  const b = document.getElementById('wtGo'), rec = !!wtRec;
+  b.textContent = wtBusy ? 'Working…' : P.wtMode === 3 ? (rec ? 'Stop and save' : 'Record') : 'Export wavetable';
+  b.setAttribute('aria-pressed', rec);
+  b.disabled = wtBusy;
+  document.getElementById('recOut').textContent = rec ? '● REC 0/' + wtRec.total : '';
+}
+
+/* ============ Drawing ============ */
+let COL = {};
+function readColors(){
+  const cs = getComputedStyle(document.documentElement);
+  ['ink','ink-2','rule','cut','cut-soft','panel','blade2'].forEach(k => COL[k] = cs.getPropertyValue('--' + k).trim());
+}
+readColors();
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', readColors);
+
+function fit(cv){
+  const dpr = Math.min(devicePixelRatio || 1, 2);
+  const w = Math.round(cv.clientWidth*dpr), h = Math.round(cv.clientHeight*dpr);
+  if (cv.width !== w || cv.height !== h){ cv.width = w; cv.height = h; }
+  const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return [g, cv.clientWidth, cv.clientHeight];
+}
+const hashNoise = RazorCore.hash;
+
+const NS = 2048;
+const cy = new Float32Array(NS), cb = new Float32Array(NS), cg = new Float32Array(NS);
+const nsArr = Array.from({length:9}, (_, i) => ({idx:0,val:0,inside:false,g:0,seed:i*97,acc:0,xin:0,rnd:hashNoise}));
+const nsArr2 = Array.from({length:9}, (_, i) => ({idx:0,val:0,inside:false,g:0,seed:i*97 + 7,acc:0,xin:0,rnd:hashNoise}));
+const bxArr = Array.from({length:9}, (_, i) => ({g:RazorCore.g2(), c:0, k:3,
+  ns3:{idx:0,val:0,inside:false,g:0,seed:i*97 + 13,acc:0,xin:0,rnd:hashNoise}, ns4:{idx:0,val:0,inside:false,g:0,seed:i*97 + 19,acc:0,xin:0,rnd:hashNoise}}));
+const memOut = Array.from({length:9}, () => new Float32Array(8192));
+const memView = Array.from({length:9}, () => new Float32Array(NS));
+let cycView = 0;
+let dcBefore = 0;
+let drawF0 = 110;
+let spans = [];
+function memberPhases(){
+  const ph = VIZ.phases.slice(0, P.N);
+  while (ph.length < P.N) ph.push(ph.length ? ph[ph.length - 1] : 0);
+  return ph;
+}
+// per-member view: live values from the engine when a note sounds, otherwise a local preview
+function memberView(i, N, forcePreview){
+  const mem = VIZ.mem;
+  if (!forcePreview && VIZ.count && mem && mem.c.length === N)
+    return {c:frac(P.c + mem.c[i]), coff:mem.c[i], k:mem.k[i], w:mem.w[i], dep:mem.dep[i], I:mem.I[i], mr:mem.mr[i], mn:mem.mn[i],
+      k2:mem.k2 ? mem.k2[i] : P.k2, w2:mem.w2 ? mem.w2[i] : P.w2, dep2:mem.dep2 ? mem.dep2[i] : P.depth2,
+      I2:mem.I2 ? mem.I2[i] : P.I, mr2:mem.mr2 ? mem.mr2[i] : 0, mn2:mem.mn2 ? mem.mn2[i] : 1,
+      coff2:mem.c[i] + (mem.c2 ? mem.c2[i] : 0)};
+  const pm = preview[i];
+  let lead = 0;
+  const fr2 = P.frame2 < 0 ? P.frame : P.frame2;
+  if ((P.frame || fr2) && N > 1){
+    const ph = memberPhases(); let sx = 0, sy = 0;
+    ph.forEach(q => { sx += Math.cos(2*Math.PI*q); sy += Math.sin(2*Math.PI*q); });
+    lead = frac(ph[i] - Math.atan2(sy, sx)/(2*Math.PI) + 0.5) - 0.5;
+  }
+  const law = P.law === 2 ? 2 : 0;   // random and swarm-linked preview as a gradient until a note plays
+  RazorCore.spreadMember(pm, i, N, P, law, drawF0, 48000);
+  const lk2 = P.lock2 < 0 ? P.lock : P.lock2;
+  const k2 = (lk2 === 2 ? Math.max(0.05, P.kHz2/drawF0 + pm.kAdd2) : Math.max(0.25, P.k2 + pm.kAdd2))*pm.kMul2;
+  return {c:frac(P.c + localRot[i] + pm.cOff + (P.frame ? lead : 0)), coff:localRot[i] + pm.cOff + (P.frame ? lead : 0),
+    coff2:(P.b2on && !P.rot2Follow ? localRot2[i] : localRot[i]) + pm.cOff2 + (fr2 ? lead : 0),
+    k2, w2:P.w2 < 0.004 ? P.w2 : Math.min(1, P.w2*pm.wMul2), dep2:Math.min(1, Math.max(0, P.depth2 + pm.dAdd2)),
+    I2:(P.b2fm ? P.I2 : P.I)*pm.iMul2, mr2:pm.mr2, mn2:pm.mn2,
+    k:pm.kEff, w:P.w < 0.004 ? P.w : Math.min(1, P.w*pm.wMul),
+    dep:Math.min(1, Math.max(0, P.depth + pm.dAdd)), I:P.I*pm.iMul, mr:pm.mr, mn:pm.mn, rotOff:pm.rotOff};
+}
+function computeCycle(M = NS, out = cy, forcePreview = false){
+  const N = P.N, ph = memberPhases(), main = out === cy;
+  if (main) spans = [];
+  // cross-mod/feedback need the previous output; a static cycle approximates it by iterating three passes
+  const xOn = P.xm > 0.0005 || P.fb > 0.0005, passes = xOn ? 3 : 1;
+  const w0 = P.w, d0 = P.depth, I0 = P.I;
+  if (xOn) for (let i = 0; i < N; i++) memOut[i].fill(0);
+  for (let pass = 0; pass < passes; pass++){
+    const last = pass === passes - 1;
+    if (last) out.fill(0);
+    for (let i = 0; i < N; i++){
+      const mv = memberView(i, N, forcePreview);
+      P.w = mv.w; P.depth = mv.dep; P.I = mv.I; RazorCore.mr = mv.mr; RazorCore.mn = mv.mn;
+      const c = mv.c, k = mv.k, mo = memOut[i], nb = memOut[(i + 1) % N];
+      const off = ph[i] - ph[0], ns = nsArr[i];
+      ns.inside = false; ns.acc = 0; ns.xin = 0; nsArr2[i].inside = false;
+      let bx = null;
+      if (P.b2on){
+        bx = bxArr[i];
+        bx.c = frac(P.c2 + mv.coff2); bx.k = mv.k2;
+        RazorCore.fillG2(bx.g, P, mv.w2, mv.dep2, mv.I2, P.b2fm ? (P.mUnit2 ? P.mHz2/drawF0 : P.m2) : P.mEff);
+        bx.mr = mv.mr2; bx.mn = mv.mn2;
+        bx.ns3.inside = false; bx.ns3.acc = 0; bx.ns3.xin = 0; bx.ns4.inside = false;
+      }
+      const st = frac(c - P.w/2), kk = P.w >= 0.004 ? (P.lock === 1 ? k/P.w : k) : k;
+      const st3 = bx ? frac(bx.c - bx.g.w/2) : 0, kk3 = bx ? (bx.g.lock === 1 ? bx.k/Math.max(bx.g.w, 1e-3) : bx.k) : 0;
+      let prevE = 2, prevE3 = 2;
+      const tmp = xOn ? new Float32Array(M) : null;
+      for (let n = 0; n < M; n++){
+        const phi = frac(n/M + off), e = frac(phi - st);
+        if (xOn){
+          const q1 = Math.floor((n ? n - 1 : M - 1)*8192/M), q2 = Math.floor((n > 1 ? n - 2 : M - 2 + n)*8192/M);
+          ns.xin = 0.5*(P.xm*nb[q1] + P.fb*0.5*(mo[q1] + mo[q2]));
+          if (bx) bx.ns3.xin = ns.xin;
+        }
+        if (P.w >= 0.004) RazorCore.fmStep(P, ns, e, e < prevE, kk, P.mEff*(n/M), 1/M);
+        prevE = e;
+        if (bx){ bx.modX = bx.g.mEff*(n/M); }
+        if (bx && bx.g.w >= 0.004){ const e3 = frac(phi - st3); RazorCore.fmStep(bx.g, bx.ns3, e3, e3 < prevE3, kk3, bx.modX, 1/M); prevE3 = e3; }
+        const y = RazorCore.out(P, phi, c, k, P.mEff*(n/M), ns, nsArr2[i], bx);
+        if (xOn) tmp[n] = y;
+        if (last){
+          out[n] += y/N;
+          if (main) memView[i][n] = y;
+          if (main && N === 1){ cg[n] = ns.g; cb[n] = RazorCore.wave(P.base, phi); }
+        }
+      }
+      if (xOn){ for (let q = 0; q < 8192; q++) mo[q] = tmp[Math.floor(q*M/8192)]; }
+      if (last && main){
+        if (P.w >= 0.004){
+          spans.push([frac(c - P.w/2 - off), P.w, 1]);
+          if (P.mirror >= 2) spans.push([frac(c - P.w/2 - off + 0.5), P.w, 1]);
+        }
+        if (bx && bx.g.w >= 0.004){
+          spans.push([frac(bx.c - bx.g.w/2 - off), bx.g.w, 2]);
+          if (bx.g.mirror >= 2) spans.push([frac(bx.c - bx.g.w/2 - off + 0.5), bx.g.w, 2]);
+        }
+      }
+    }
+  }
+  P.w = w0; P.depth = d0; P.I = I0;
+  let mean = 0; for (let n = 0; n < M; n++) mean += out[n]; mean /= M;
+  if (main) dcBefore = mean;
+  if (P.dcMode > 0) for (let n = 0; n < M; n++) out[n] -= mean;
+}
+
+const re = new Float64Array(NS), im = new Float64Array(NS);
+function harmonics(){
+  for (let i = 0; i < NS; i++){ re[i] = cy[i]; im[i] = 0; }
+  for (let i = 1, j = 0; i < NS; i++){
+    let bit = NS >> 1; for (; j & bit; bit >>= 1) j ^= bit; j ^= bit;
+    if (i < j){ let t = re[i]; re[i] = re[j]; re[j] = t; t = im[i]; im[i] = im[j]; im[j] = t; }
+  }
+  for (let len = 2; len <= NS; len <<= 1){
+    const ang = -2*Math.PI/len, wr = Math.cos(ang), wi = Math.sin(ang), hl = len >> 1;
+    for (let i = 0; i < NS; i += len){
+      let cr = 1, ci = 0;
+      for (let k = 0; k < hl; k++){
+        const ar = re[i+k], ai = im[i+k];
+        const br = re[i+k+hl]*cr - im[i+k+hl]*ci, bi = re[i+k+hl]*ci + im[i+k+hl]*cr;
+        re[i+k] = ar + br; im[i+k] = ai + bi; re[i+k+hl] = ar - br; im[i+k+hl] = ai - bi;
+        const t = cr*wr - ci*wi; ci = cr*wi + ci*wr; cr = t;
+      }
+    }
+  }
+}
+
+const cvC = document.getElementById('cycle'), cvR = document.getElementById('ring'),
+      cvP = document.getElementById('pad'), cvS = document.getElementById('spec');
+
+function drawMembers(){
+  // one lane per member, one cycle each: shows what cross-mod and feedback do to every member's own waveform
+  const [g, W, H] = fit(cvC);
+  g.clearRect(0, 0, W, H);
+  const N = P.N, lh = H/N;
+  g.font = '10px Archivo, system-ui, sans-serif'; g.textBaseline = 'top'; g.textAlign = 'left';
+  for (let i = 0; i < N; i++){
+    const y0 = i*lh, mid = y0 + lh/2, a = memView[i];
+    let pk = 1e-6; for (let n = 0; n < NS; n++) pk = Math.max(pk, Math.abs(a[n]));
+    g.strokeStyle = COL.rule; g.lineWidth = 1; g.beginPath();
+    g.moveTo(0, Math.round(mid) + .5); g.lineTo(W, Math.round(mid) + .5);
+    if (i) { g.moveTo(0, Math.round(y0) + .5); g.lineTo(W, Math.round(y0) + .5); }
+    g.stroke();
+    g.strokeStyle = i === 0 ? COL.ink : COL.cut; g.lineWidth = 1.3; g.beginPath();
+    for (let n = 0; n < NS; n += 2){ const x = n/NS*W, y = mid - a[n]/Math.max(1, pk)*(lh/2 - 2); n ? g.lineTo(x, y) : g.moveTo(x, y); }
+    g.stroke();
+    if (lh > 14){ g.fillStyle = COL['ink-2']; g.fillText(String(i + 1), 4, y0 + 2); }
+  }
+}
+function drawCycle(){
+  if (cycView === 1 && P.N > 1) return drawMembers();
+  const [g, W, H] = fit(cvC);
+  g.clearRect(0, 0, W, H);
+  const pad = 10, ymap = v => H/2 - v*(H/2 - pad)/1.1, xmap = (cyc, n) => (cyc + n/NS)*W/2;
+  for (const [st, sw, which] of spans) for (let cyc = -1; cyc < 2; cyc++){
+    g.fillStyle = which === 2 ? COL['blade2'] : COL['cut-soft'];
+    const x0 = (cyc + st)*W/2, x1 = (cyc + st + sw)*W/2;
+    const a = Math.max(0, x0), b = Math.min(W, x1);
+    if (b > a) g.fillRect(a, 0, b - a, H);
+  }
+  g.strokeStyle = COL.rule; g.lineWidth = 1; g.beginPath();
+  for (let q = 1; q < 8; q++){ const x = Math.round(q*W/8) + .5; g.moveTo(x, 0); g.lineTo(x, H); }
+  g.moveTo(0, Math.round(H/2) + .5); g.lineTo(W, Math.round(H/2) + .5); g.stroke();
+  g.strokeStyle = COL.ink; g.globalAlpha = .5; g.beginPath();
+  g.moveTo(Math.round(W/2) + .5, 0); g.lineTo(Math.round(W/2) + .5, H); g.stroke(); g.globalAlpha = 1;
+  if (P.N === 1){
+    g.setLineDash([4, 4]); g.strokeStyle = COL['ink-2']; g.lineWidth = 1.2; g.beginPath();
+    for (let cyc = 0; cyc < 2; cyc++){
+      let on = false;
+      for (let n = 0; n < NS; n += 2){
+        if (cg[n] > 0.001){ const x = xmap(cyc, n), y = ymap(cb[n]); on ? g.lineTo(x, y) : g.moveTo(x, y); on = true; } else on = false;
+      }
+    }
+    g.stroke(); g.setLineDash([]);
+  }
+  g.lineWidth = 1.7; g.strokeStyle = P.N === 1 ? COL.ink : COL.cut; g.lineJoin = 'round'; g.beginPath();
+  for (let cyc = 0; cyc < 2; cyc++) for (let n = 0; n < NS; n++){
+    const x = xmap(cyc, n), y = ymap(cy[n]); (cyc === 0 && n === 0) ? g.moveTo(x, y) : g.lineTo(x, y);
+  }
+  g.stroke();
+  const fm = P.mode === 1 || P.mode === 2;
+  // DC readout lives in its own fixed slot, and only updates a few times a second, so the layout never shifts
+  const now = performance.now();
+  if (!drawCycle.t || now - drawCycle.t > 250){
+    drawCycle.t = now;
+    document.getElementById('dcNote').textContent = 'DC ' + (dcBefore >= 0 ? '+' : '−') + Math.abs(dcBefore).toFixed(2) +
+      (Math.abs(dcBefore) < 0.005 ? '' : P.dcMode ? ' removed' : ' present');
+  }
+  document.getElementById('cycleNote').textContent = (
+    P.N > 1 ? 'Snapshot at the swarm’s current relative phases.' :
+    (P.mode === 2 || (fm && P.mshape === 5)) ? 'Modulated cycles vary; this is one snapshot.' :
+    P.mode === 3 ? 'Noise changes every cycle; this is one draw.' : '');
+}
+
+function drawRing(){
+  if (cvR.clientWidth < 24){   // hidden on narrow layouts; still report r
+    const ph = memberPhases(); let sx = 0, sy = 0;
+    ph.forEach(p => { sx += Math.cos(2*Math.PI*p); sy += Math.sin(2*Math.PI*p); });
+    document.getElementById('rOut').textContent = (Math.hypot(sx, sy)/ph.length).toFixed(2);
+    return;
+  }
+  const [g, W, H] = fit(cvR);
+  g.clearRect(0, 0, W, H);
+  const cx = W/2, cyy = H/2, R = Math.max(4, Math.min(W, H)/2 - 10);
+  g.strokeStyle = COL.rule; g.lineWidth = 1;
+  g.beginPath(); g.arc(cx, cyy, R, 0, Math.PI*2); g.stroke();
+  g.beginPath(); g.moveTo(cx - R, cyy); g.lineTo(cx + R, cyy); g.moveTo(cx, cyy - R); g.lineTo(cx, cyy + R); g.stroke();
+  const ph = memberPhases();
+  let sx = 0, sy = 0;
+  ph.forEach(p => { sx += Math.cos(2*Math.PI*p); sy += Math.sin(2*Math.PI*p); });
+  sx /= ph.length; sy /= ph.length;
+  g.strokeStyle = COL.ink; g.lineWidth = 2;
+  g.beginPath(); g.moveTo(cx, cyy); g.lineTo(cx + sx*R, cyy - sy*R); g.stroke();
+  const pos = ph.map(p => [cx + Math.cos(2*Math.PI*p)*R, cyy - Math.sin(2*Math.PI*p)*R]);
+  if (P.xm > 0.0005 && ph.length > 1){
+    g.strokeStyle = COL.cut; g.fillStyle = COL.cut; g.globalAlpha = Math.min(0.9, 0.25 + P.xm);
+    g.lineWidth = 1 + 2*P.xm;
+    for (let i = 0; i < ph.length; i++){
+      const [x1, y1] = pos[(i + 1) % ph.length], [x2, y2] = pos[i];
+      const dx = x2 - x1, dy = y2 - y1, L = Math.hypot(dx, dy);
+      if (L < 10) continue;
+      const ux = dx/L, uy = dy/L, ex = x2 - ux*8, ey = y2 - uy*8;
+      g.beginPath(); g.moveTo(x1 + ux*7, y1 + uy*7); g.lineTo(ex, ey); g.stroke();
+      g.beginPath(); g.moveTo(ex + ux*1, ey + uy*1); g.lineTo(ex - ux*5 - uy*3.5, ey - uy*5 + ux*3.5); g.lineTo(ex - ux*5 + uy*3.5, ey - uy*5 - ux*3.5); g.closePath(); g.fill();
+    }
+    g.globalAlpha = 1;
+  }
+  if (P.fb > 0.0005){
+    g.strokeStyle = COL.cut; g.lineWidth = 1.2; g.globalAlpha = Math.min(0.9, 0.25 + P.fb);
+    pos.forEach(([x, y]) => { g.beginPath(); g.arc(x, y, 9 + 5*P.fb, 0, Math.PI*2); g.stroke(); });
+    g.globalAlpha = 1;
+  }
+  ph.forEach((p, i) => {
+    const a = 2*Math.PI*p;
+    g.fillStyle = i === 0 ? COL.ink : COL.cut;
+    g.beginPath(); g.arc(cx + Math.cos(a)*R, cyy - Math.sin(a)*R, W < 140 ? 4 : 6, 0, Math.PI*2); g.fill();
+  });
+  document.getElementById('rOut').textContent = Math.hypot(sx, sy).toFixed(2);
+}
+
+function axisTicks(key){
+  if (key === 'w') return [0.05, 0.1, 0.25, 0.5, 1].map(w => ({u:wToX(w), t:w === 1 ? 'all' : Math.round(w*100) + '%'}));
+  if (key === 'k') return [1, 2, 4, 8, 16, 32, 64].map(k => ({u:META.k.map.to01(k), t:[1, 4, 16, 64].includes(k) ? String(k) : ''}));
+  const m = META[key];
+  return [0, .25, .5, .75, 1].map(u => ({u, t:(u === 0 || u === 1) ? m.fmt(m.map.from01(u)) : ''}));
+}
+function drawPad(){
+  const [g, W, H] = fit(cvP);
+  g.clearRect(0, 0, W, H);
+  const small = W < 200, m = small ? 22 : 28, iw = W - m - 6, ih = H - m - 6, ox = m, oy = 6;
+  g.fillStyle = COL['cut-soft'];
+  if (PAD.x === 'w') g.fillRect(ox, oy, OFFX*iw, ih);
+  if (PAD.y === 'w') g.fillRect(ox, oy + ih*(1 - OFFX), iw, OFFX*ih);
+  g.font = (small ? 9.5 : 11) + 'px Archivo, system-ui, sans-serif';
+  const tx = axisTicks(PAD.x), ty = axisTicks(PAD.y);
+  g.strokeStyle = COL.rule; g.lineWidth = 1; g.beginPath();
+  tx.forEach(t => { const x = Math.round(ox + t.u*iw) + .5; g.moveTo(x, oy); g.lineTo(x, oy + ih); });
+  ty.forEach(t => { const y = Math.round(oy + (1 - t.u)*ih) + .5; g.moveTo(ox, y); g.lineTo(ox + iw, y); });
+  g.stroke();
+  g.fillStyle = COL['ink-2'];
+  g.textBaseline = 'top';
+  tx.forEach(t => { if (!t.t || (small && (t.t === '10%' || t.t === '50%'))) return; g.textAlign = t.u < .02 ? 'left' : t.u > .98 ? 'right' : 'center'; g.fillText(t.t, ox + t.u*iw, oy + ih + 6); });
+  const shortY = PAD.y === 'k';
+  ty.forEach(t => {
+    if (!t.t) return;
+    const y = oy + (1 - t.u)*ih;
+    if (shortY){ g.textAlign = 'right'; g.textBaseline = 'middle'; g.fillText(t.t, ox - 6, y); }
+    else { g.textAlign = 'left'; g.textBaseline = t.u > .5 ? 'top' : 'bottom'; g.fillText(t.t, ox + 5, y + (t.u > .5 ? 3 : -3)); }
+  });
+  if (PAD.x === 'w'){
+    g.save(); g.translate(ox + OFFX*iw/2, oy + ih/2); g.rotate(-Math.PI/2);
+    g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('off', 0, 0); g.restore();
+  }
+  const ux = clamp01(META[PAD.x].map.to01(P[PAD.x])), uy = clamp01(META[PAD.y].map.to01(P[PAD.y]));
+  const px = ox + ux*iw, py = oy + (1 - uy)*ih;
+  g.strokeStyle = COL.cut; g.globalAlpha = .55; g.beginPath();
+  g.moveTo(px, oy); g.lineTo(px, oy + ih); g.moveTo(ox, py); g.lineTo(ox + iw, py); g.stroke();
+  g.globalAlpha = 1; g.fillStyle = COL.cut;
+  g.beginPath(); g.arc(px, py, 7, 0, Math.PI*2); g.fill();
+  g.strokeStyle = COL.panel; g.lineWidth = 2; g.stroke();
+  cvP._geom = {ox, oy, iw, ih};
+}
+function padSet(ux, uy){
+  const o = {}, put = (key, u, inv) => { if (!key) return; const m = META[key]; o[key] = m.round(m.map.from01(clamp01(inv ? 1 - u : u))); };
+  put(PAD.x2, ux, PAD.xi); put(PAD.y2, uy, PAD.yi);
+  put(PAD.x, ux, 0); if (PAD.y !== PAD.x) put(PAD.y, uy, 0);
+  send(o);
+}
+function padFromEvent(e){
+  const r = cvP.getBoundingClientRect(), gm = cvP._geom;
+  padSet((e.clientX - r.left - gm.ox)/gm.iw, 1 - (e.clientY - r.top - gm.oy)/gm.ih);
+}
+cvP.addEventListener('pointerdown', e => { cvP.setPointerCapture(e.pointerId); padFromEvent(e); });
+cvP.addEventListener('pointermove', e => { if (cvP.hasPointerCapture(e.pointerId)) padFromEvent(e); });
+cvP.addEventListener('keydown', e => {
+  const step = e.shiftKey ? 0.05 : 0.01;
+  let x = clamp01(META[PAD.x].map.to01(P[PAD.x])), y = clamp01(META[PAD.y].map.to01(P[PAD.y]));
+  if (e.key === 'ArrowLeft') x -= step; else if (e.key === 'ArrowRight') x += step;
+  else if (e.key === 'ArrowUp') y += step; else if (e.key === 'ArrowDown') y -= step; else return;
+  e.preventDefault(); e.stopPropagation();
+  padSet(x, y);
+});
+
+function fmtHz(f){ return f >= 1000 ? (f/1000).toFixed(f >= 10000 ? 1 : 2) + ' kHz' : Math.round(f) + ' Hz'; }
+let peak = null;
+function drawSpec(f0){
+  const [g, W, H] = fit(cvS);
+  g.clearRect(0, 0, W, H);
+  const fLo = 20, fHi = 20000, top = 6, bot = H - 16;
+  const fx = f => Math.log(f/fLo)/Math.log(fHi/fLo)*W;
+  const dy = (db, lo, hi) => top + (1 - (db - lo)/(hi - lo))*(bot - top);
+  const marks = [50, 100, 200, 500, 1000, 2000, 5000, 10000];
+  g.strokeStyle = COL.rule; g.lineWidth = 1; g.font = '10.5px Archivo, system-ui, sans-serif';
+  g.fillStyle = COL['ink-2']; g.textAlign = 'center'; g.textBaseline = 'top';
+  g.beginPath(); marks.forEach(f => { const x = Math.round(fx(f)) + .5; g.moveTo(x, top); g.lineTo(x, bot); }); g.stroke();
+  marks.forEach(f => g.fillText(f >= 1000 ? f/1000 + 'k' : f, fx(f), bot + 3));
+  const fc = P.lock === 2 ? P.kHz : P.lock === 1 ? P.k*f0/Math.max(P.w, 1e-3) : P.k*f0;
+  const bw = (f0/Math.max(P.w, 1e-3))*(1 + P.hard);
+  const nyq = engine ? engine.ctx.sampleRate/2 : 24000;
+  const kind = P.w < 0.004 ? 'off' : ({3:'hold',4:'fold',6:'hold'})[P.mode] || 'formant';
+  if (kind === 'formant'){
+    const x0 = fx(Math.max(fLo, fc - bw)), x1 = fx(Math.min(fHi, fc + bw));
+    if (x1 > x0){ g.fillStyle = COL['cut-soft']; g.fillRect(x0, top, x1 - x0, bot - top); }
+    if (fc > fLo && fc < fHi){
+      g.strokeStyle = COL.cut; g.setLineDash([3, 3]); g.beginPath();
+      g.moveTo(fx(fc), top); g.lineTo(fx(fc), bot); g.stroke(); g.setLineDash([]);
+    }
+  }
+  harmonics();
+  const live = engine && VIZ.count > 0;
+  g.strokeStyle = COL['ink-2']; g.globalAlpha = live ? .35 : .8; g.lineWidth = 1.5; g.beginPath();
+  for (let h = 1; h < NS/2 && h*f0 < fHi; h++){
+    const db = 20*Math.log10(2*Math.hypot(re[h], im[h])/NS + 1e-9);
+    if (db < -80) continue;
+    const x = fx(h*f0); g.moveTo(x, bot); g.lineTo(x, dy(db, -80, 0));
+  }
+  g.stroke(); g.globalAlpha = 1;
+  if (live){
+    const an = engine.analyser, buf = engine.buf;
+    an.getFloatFrequencyData(buf);
+    const binHz = engine.ctx.sampleRate/an.fftSize, cols = Math.ceil(W);
+    if (!peak || peak.length !== cols) peak = new Float32Array(cols);
+    peak.fill(-200);
+    for (let b = 1; b < buf.length; b++){
+      const f = b*binHz; if (f < fLo || f > fHi) continue;
+      const x = Math.floor(fx(f)); if (x >= 0 && x < cols && buf[b] > peak[x]) peak[x] = buf[b];
+    }
+    g.strokeStyle = COL.ink; g.lineWidth = 1.5; g.beginPath();
+    let started = false, last = -200;
+    for (let x = 0; x < cols; x++){
+      let v = peak[x]; if (v <= -199) v = last; else last = v;
+      if (v <= -199) continue;
+      const y = dy(Math.max(-120, v), -120, -20);
+      started ? g.lineTo(x, y) : g.moveTo(x, y); started = true;
+    }
+    g.stroke();
+  }
+  document.getElementById('specNote').textContent = live
+    ? 'Line: live output. Stems: drawn snapshot.'
+    : 'Stems: drawn snapshot. Play for live spectrum.';
+  document.getElementById('formantNote').textContent =
+    kind === 'off' ? 'Blade off' :
+    kind === 'hold' ? 'Hold rate ' + fmtHz(fc) + ' (a spectral null, not a peak)' :
+    kind === 'fold' ? 'Fold drive ' + (1 + ((P.lock === 2 ? P.kHz/f0 : P.k) - 1)*0.25).toFixed(2) + '×' :
+    'Predicted formant ' + fmtHz(fc) + (fc > nyq ? ', above Nyquist' : '') + ', main lobe ±' + fmtHz(bw);
+}
+
+let lastT = performance.now();
+function frame(t){
+  const dt = Math.min(0.1, (t - lastT)/1000); lastT = t;
+  for (let i = 0; i < P.N; i++){
+    const pn = P.N > 1 ? (P.law === 2 ? (i % 2 ? .5 : -.5) : i/(P.N - 1) - 0.5) : 0;
+    if (Math.abs(P.rotRate) > 0.004 || P.rotSpread > 0.004) localRot[i] = frac(localRot[i] + (P.rotRate + P.rotSpread*pn*2)*dt);
+    else localRot[i] = RazorCore.home(localRot[i], 1 - Math.exp(-dt/0.03));
+    const rs2 = P.b2sp ? P.rotSpread2 : P.rotSpread;
+    if (Math.abs(P.rotRate2) > 0.004 || rs2 > 0.004) localRot2[i] = frac(localRot2[i] + (P.rotRate2 + rs2*pn*2)*dt);
+    else localRot2[i] = RazorCore.home(localRot2[i], 1 - Math.exp(-dt/0.03));
+  }
+  const f0 = VIZ.count ? VIZ.freq : (droneOn ? P.f0 : VIZ.freq);
+  drawF0 = f0; P.mEff = P.mUnit ? P.mHz/f0 : P.m;
+  computeCycle();
+  wtTick(t);
+  drawCycle(); drawRing(); drawPad(); drawSpec(f0);
+  document.getElementById('voiceOut').textContent = VIZ.count ? VIZ.count + '/' + P.poly + ' voices' : 'silent';
+  requestAnimationFrame(frame);
+}
+syncAll();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

@@ -37,3 +37,7 @@ dist/cpu_bench
 # python bytecode — a stray .pyc rode in on a GUI commit 2026-08-18
 __pycache__/
 *.pyc
+
+# SCALPEL golden renders (reference/scalpel/verify/render-goldens.js) — ~45 MB of
+# float WAVs, regenerated on demand, never tracked (the packet says so itself).
+reference/scalpel/verify/goldens/
