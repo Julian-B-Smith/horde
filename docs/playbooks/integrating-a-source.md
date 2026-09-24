@@ -658,8 +658,11 @@ exists only on the pick path.
   - **Re-run `gen_factory_bank` after any parameter or default change.** The files then
     gain the new keys, and `bank_check` re-asserts byte-identical re-save.
 - **The B100 header.** Every blob carries `{schema, engine_revision, build}`.
-  - `src/hypersaw_clap.cpp:6165 static constexpr int kEngineRevision = 1;` is the only
-    revision so far.
+  - `src/hypersaw_clap.cpp:6424 static constexpr int kEngineRevision = 2;` — revision 2
+    is the first gated law (ADR-183, B232's off-corner blend). A sound-changing law
+    names the revision it arrives in, keeps the old law selectable for older patches,
+    and ships a row proving both revisions render as specified (`offcorner_check` is
+    the worked example).
   - `engineRevision()` is the only read site.
   - A load sets the revision from the header, or 1 if the header is absent.
 - **The queue.** A load pushes *two* writes per parameter through the queue: the default

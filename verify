@@ -289,6 +289,11 @@ full() {
   "$build_dir/fxxfade_check"                            || return 1   # B117 crossfade handover as measured
   "$build_dir/polarity_check"                           || return 1   # B134 polarity before depth, as-is exact
   "$build_dir/lfoenv_check"                             || return 1   # B171 LFO 1/2 + ENV 3/4 as mod sources
+  # B232 / ADR-183, the first revision-2 law: in blend, a corner where a
+  # parameter's source is OFF gives it no weight. Renders both revisions of
+  # the same patch (L0063); wired in the PR that adds it (ADR-180 §1). ~0.5 s.
+  # The directory argument is where it finds the factory Init patch.
+  "$build_dir/offcorner_check"   docs/presets/factory   || return 1   # B232 off-corner blend rule, rev-gated
   "$build_dir/modreadback_check" tests/state_fixtures/chunk-v2-rev1.txt || return 1   # B241 a modulated row persists at its BASE
 
   # THE B159 BACKLOG, ruled one at a time on evidence (2026-09-21). Nine checks

@@ -2919,6 +2919,27 @@ struct Plugin
   std::vector<clap_id> morphIds;          // id order = persistence order (stable)
   std::vector<double> morphCorner[4];     // snapshots, aligned to morphIds
   std::vector<double> morphCur;           // last applied value per morphIds slot
+  /* ADR-183: per slot, the morphIds INDEX of the switch that gates this
+     slot's source (its oscillator's enable, or its engine block's gateId), or
+     -1 when the slot belongs to no switchable source. Sized and filled once in
+     morphInit, so the blend reads it on the audio thread without allocating. */
+  std::vector<int32_t> morphGateSlot;
+  /* ADR-183 / critic S1 (PR #744): the distinct gate slots, and per gate slot
+     whether its source was OFF when this tick began. Snapshotted at the top
+     of each morph tick because the gate itself is re-committed INSIDE the
+     slot loop, and its position in morphIds relative to the slots it gates
+     differs per source. Sized in morphInit; the audio thread only writes. */
+  std::vector<int32_t> morphGateSlotList;
+  std::vector<uint8_t> morphSrcWasOff;
+  /* Per gate slot, the source's LIVE WEIGHT at the previous tick (critic
+     re-review, PR #744) — what "was off" is keyed on. NOT the committed
+     enable: an unarmed write of the gate (a GUI click, host automation)
+     reaches applyParam, which switches the engine on as the event arrives,
+     so the enable already reads ON at the top of the next tick while every
+     gated slot still holds its silent value. The weight is computed from the
+     corners (the ramp's own sum), so the puck, the GUI and the host are one
+     case. 0 at init: the first tick lands anyway (morphCur is the sentinel). */
+  std::vector<double> morphGatePrevLiveW;
   // ADR-115: MUST match the ParamDef defaults for 152/153 (corner A = 0,0).
   // paramscope_check's default-truth sweep exists for exactly this pair going
   // out of step, and caught it the first time this changed.
@@ -2926,6 +2947,18 @@ struct Plugin
   double morphOn = 0, morphMode = 0, morphGlideS = 0.008;
   uint32_t morphSeed = 1024;
   int morphAccum = 0;
+  /* ADR-183 / critic re-review (PR #744): a live write of a source's GATE at
+     revision 2 in blend asks the field for a tick NOW rather than at the next
+     grid boundary. applyParam switches the engine on as the event arrives, so
+     without it the source re-struck and sounded its slots' SILENT values
+     (the plain blend near an OFF corner) for up to one grid tick (5.8 ms)
+     before morphStep's landing — measured with 32-sample host blocks: osc 2
+     sounded (peak 6.4e-2 above the no-toggle render) at detune 0.31, the
+     silent plain blend, for up to 6 blocks before landing on 0.1. The forced tick runs in the morphStep call
+     that precedes the render of the event's span, so the landing happens
+     before the first re-struck sample. It is keyed on the EVENT's position,
+     not on block boundaries, so ADR-086's subdivision independence holds. */
+  bool morphTickNow = false;
   /* ADR-176 decision 6 — the intent-bus flag (param 266). Kept here rather
      than beside the rack's flags because it gates ONE branch, at the top of
      morphStep, and reads as a morph control at the only site that consults
@@ -3148,6 +3181,24 @@ struct Plugin
         if (decodeRoutingId(morphIds[i], kind, from, to)) morphLead[i] = (uint32_t)routeLead;
     }
 
+    /* ADR-183: each slot's source gate, resolved to a slot index here so the
+       blend never searches morphIds on the audio thread. */
+    morphGateSlot.assign(morphIds.size(), -1);
+    for (size_t i = 0; i < morphIds.size(); i++)
+    {
+      const clap_id gate = sourceGateOf(morphIds[i]);
+      if (gate == kNoSourceGate) continue;
+      for (size_t j = 0; j < morphIds.size(); j++)
+        if (morphIds[j] == gate) { morphGateSlot[i] = (int32_t)j; break; }
+    }
+    morphGateSlotList.clear();
+    for (int32_t g : morphGateSlot)
+      if (g >= 0 && std::find(morphGateSlotList.begin(), morphGateSlotList.end(), g) ==
+                        morphGateSlotList.end())
+        morphGateSlotList.push_back(g);
+    morphSrcWasOff.assign(morphIds.size(), 0);
+    morphGatePrevLiveW.assign(morphIds.size(), 0.0);
+
     for (int k = 0; k < 4; k++) morphCorner[k].assign(morphIds.size(), 0.0);
     morphCur.assign(morphIds.size(), -1e30);
     morphExempt.assign(morphIds.size(), 0);
@@ -3336,7 +3387,9 @@ struct Plugin
      accumulator makes the result independent of host buffer subdivision, the
      ADR-086 rule). Stepped params take their winning corner's value outright;
      continuous params either flip (quantum) with a one-pole slew toward the
-     winner, or blend (mode 1) across all four corners. */
+     winner, or blend (mode 1) across all four corners — at engine revision 2,
+     across the corners where the parameter's source is ON (ADR-183,
+     morphBlendTarget). */
   /* Is `id` live under corner k's stored settings? Linear scan over a table of
      ~55 rules, once per morphed parameter per 256-sample grid tick -- cheap
      enough to not need an index, and an index would be a second structure to
@@ -3487,7 +3540,19 @@ struct Plugin
     for (size_t i = 0; i < morphIds.size(); i++)
       if (morphIds[i] == id) { idx = i; break; }
     if (idx == morphIds.size()) return true;          // not morphed: normal edit
-    if (idx < morphExempt.size() && morphExempt[idx]) return true;   // exempt: live only
+    // ADR-183: a gate written LIVE (exempt, or unarmed below) lands its
+    // source's slots before the re-strike sounds — see morphTickNow. ONLY when
+    // a landing will happen (the source was off at the last tick): a forced
+    // tick moves the glide cadence, so forcing one on a write that changes
+    // nothing made revision 2 depend on how densely a host re-sends the gate
+    // (critic on ac9bc38: -11.7 dB against the peak; offcorner_check 5e).
+    const bool gateLive = engineRevision() >= 2 && (int)morphMode == 1 &&
+                          (isEngineGateId(id) || (oscOfId(id) < kNumOsc && baseIdOf(id) == 150));
+    if (idx < morphExempt.size() && morphExempt[idx])   // exempt: live only
+    {
+      if (gateLive && morphGatePrevLiveW[idx] <= kMorphOnFloor) morphTickNow = true;
+      return true;
+    }
 
     const int armed = (int)morphArm;
     if (armed >= 1 && armed <= 4)
@@ -3509,19 +3574,26 @@ struct Plugin
          sum(w[k] * corner[k]) lands exactly on the edited value while the
          corners keep their relative identities. Distributing EVENLY would move
          a corner you are barely touching as much as the one under your cursor;
-         proportional is the reading that respects where you are standing. */
+         proportional is the reading that respects where you are standing.
+         ADR-183: "their average" is whatever average the forward blend takes,
+         so the weights are morphLiveWeights' — at revision 2 an edit where
+         the source is off in a weighted corner moves only the ON corners
+         (an OFF corner's weight is 0), which is what makes it stick. */
+      double e[4];
+      const double *u = morphLiveWeights(idx, w, engineRevision() >= 2, e) ? e : w;
       double cur = 0, sumsq = 0;
-      for (int k = 0; k < 4; k++) { cur += w[k] * morphCorner[k][idx]; sumsq += w[k] * w[k]; }
+      for (int k = 0; k < 4; k++) { cur += u[k] * morphCorner[k][idx]; sumsq += u[k] * u[k]; }
       if (sumsq > 1e-12)
       {
         const double scale = (v - cur) / sumsq;
-        for (int k = 0; k < 4; k++) morphCorner[k][idx] += w[k] * scale;
+        for (int k = 0; k < 4; k++) morphCorner[k][idx] += u[k] * scale;
       }
       return true;
     }
     // quantum: the corner that won this parameter owns the edit
     const int k = morph.pickCorner((int)morphGroupLead(idx), lw, morphCoup);
     morphCorner[k][idx] = v;
+    if (gateLive && morphGatePrevLiveW[idx] <= kMorphOnFloor) morphTickNow = true;   // stepped: always unarmed here
     return true;
   }
 
@@ -4142,8 +4214,16 @@ struct Plugin
     const double onW = morphOnWeight(i, wBilinear);
     const uint32_t o = oscOfId(morphIds[i]);
     if (o < kMaxOsc) oscOnW[o] = onW;
-    return morphCommitSlot(i, onW > 1e-3 ? 1.0 : 0.0);
+    return morphCommitSlot(i, onW > kMorphOnFloor ? 1.0 : 0.0);
   }
+
+  /* THE RAMP'S FLOOR (B48/B203): below this share of ON corners the source's
+     stepped switch flips off (~-60 dB, so the kill and re-strike run
+     inaudibly). Named because ADR-183's blend rule falls back to the plain
+     blend at EXACTLY this floor — the parameter switch-over and the source's
+     own kill are one threshold, so the switch-over happens only where the
+     source is already off. */
+  static constexpr double kMorphOnFloor = 1e-3;
 
   /* THE RAMP LAW, STATED ONCE (B203). The bilinear weight of the corners
      holding this switch ON, clamped. Extracted from morphApplyOscEnable rather
@@ -4179,7 +4259,130 @@ struct Plugin
   {
     const double onW = morphOnWeight(i, wBilinear);
     setEngineGateRamp(morphIds[i], onW);
-    return morphCommitSlot(i, onW > 1e-3 ? 1.0 : 0.0);
+    return morphCommitSlot(i, onW > kMorphOnFloor ? 1.0 : 0.0);
+  }
+
+  /* ================= ADR-183 / B232 — THE OFF-CORNER BLEND RULE ===========
+     The human, 2026-09-23: "if one morph corner has, say, Osc 2 turned off and
+     the other has it on, instead of blending from corner 1's irrelevant Osc 2
+     settings, the blend effectively treats corner 1 as if it has corner 2's
+     osc 2 with the level at 0 … this is also how the Sub should work when
+     blend is on." The on/off itself is B48/B203's level ramp and is untouched;
+     this is about the source's CONTINUOUS parameters, which revision 1 blends
+     over all four corners — so an off corner's settings, which cannot sound
+     there, pulled the sound everywhere else (Osc 2 detune 0.1 off / 0.8 on
+     read 0.45 at the midpoint).
+
+     THE DECLARATION IS THE SOURCE'S GATE, not the depends graph. A slot's
+     source is switched by exactly the id the level ramp already reads:
+       - an ADR-088 engine block's `gateId` (the sub's 4015 over 4000..4019;
+         STATION's block gets the rule by declaring its gate in kEngineBlocks);
+       - an oscillator's enable (150 + k * kOscStride) over that oscillator's
+         per-osc ids — ADR-082's global/per-osc classification, so a third
+         swarm oscillator gets the rule from the stride.
+     `param_presentation.tsv`'s `depends` was the other candidate and is the
+     wrong one for three reasons: it also drives the GUI's shown_when (every
+     oscillator control would hide when its oscillator is off — a GUI change
+     nobody asked for); it drives ADR-108's hold on the PICK path, which this
+     rule must leave alone and which is not revision-gated, so declaring the
+     enable there would re-voice revision-1 patches under quantum; and its
+     clause grammar ORs conditions, so `law=4` AND `enable=1` is not
+     expressible without a grammar change (and gen_depends_header skips engine
+     rows entirely).
+
+     Returns kNoSourceGate for a slot with no switchable source (globals, the
+     FX rack, routing cells) and for the gates themselves (their law is the
+     ramp). An engine id must never reach baseIdOf — the order below is the
+     rule morphExemptSlot states too. */
+  static constexpr clap_id kNoSourceGate = CLAP_INVALID_ID;
+  static clap_id sourceGateOf(clap_id id)
+  {
+    if (const EngineBlock *b = engineBlockOf(id)) return b->gateId == id ? kNoSourceGate : b->gateId;
+    const uint32_t o = oscOfId(id);
+    const clap_id base = baseIdOf(id);
+    if (o >= kNumOsc || base == 150 || isGlobalId(base)) return kNoSourceGate;
+    return (clap_id)(150 + o * kOscStride);
+  }
+
+  /* The BLEND's effective corner weights for continuous slot `i` at bilinear
+     weights `w`: fills `e` and returns true when the off-corner rule applies,
+     returns false when the weights are `w` itself. ONE statement of the law
+     with two consumers — morphBlendTarget (the forward blend) and
+     morphRouteEdit (its inverse, which must land a live edit ON the value the
+     forward blend will then read, or the edit is overwritten at the next grid
+     tick) — for ADR-110's reason: two copies of a law are two chances to edit
+     one of them. `liveOnly` is `engineRevision() >= 2`.
+
+     Revision 2: the weight of a corner whose source is OFF is dropped and the
+     rest renormalised, `e = w g / sum(w g)` with g the corner's stored gate —
+     the same `w * g` product morphOnWeight sums for the ramp, so the
+     denominator IS the ramp's gain. Three cases keep `w`, each chosen so the
+     rule changes a value only where it has something to say:
+       - no gate, or the gate is EXEMPT (ADR-109: an exempt gate is live-only,
+         so its corners' stored values say nothing about where it is off);
+       - no OFF corner carries weight (`offW == 0`): the renormalised sum is
+         the plain one mathematically, and taking the plain one makes it so
+         bitwise — a pure ON corner, an all-ON field and a segment between two
+         ON corners all read exactly what revision 1 reads;
+       - the live weight is at or below kMorphOnFloor: the source's switch has
+         flipped off there (morphApplyOscEnable / morphApplyGateEnable, same
+         threshold, same comparison), so the value cannot sound and the plain
+         blend keeps a pure OFF corner reading back its own stored value —
+         corner bit-identity. The discontinuity at the floor lands where the
+         ramp's gain is <= 1e-3 (-60 dB) and the source is being killed. */
+  bool morphLiveWeights(size_t i, const double *w, bool liveOnly, double *e) const
+  {
+    if (!liveOnly || i >= morphGateSlot.size()) return false;
+    const int32_t g = morphGateSlot[i];
+    if (g < 0 || morphExempt[(size_t)g]) return false;
+    double liveW = 0, offW = 0;
+    for (int k = 0; k < 4; k++)
+    {
+      const double on = morphCorner[k][(size_t)g];
+      liveW += w[k] * on;
+      offW += w[k] * (1.0 - on);
+    }
+    if (offW <= 0 || liveW <= kMorphOnFloor) return false;
+    for (int k = 0; k < 4; k++) e[k] = w[k] * morphCorner[k][(size_t)g] / liveW;
+    return true;
+  }
+
+  /* The BLEND target. When the rule does not apply this is the plain
+     four-corner sum by the SAME expression in the SAME order it always was,
+     so a revision-1 patch renders bit-identically (the old law is selected,
+     not deleted — ADR-183 §2).
+
+     ONE MORE FALLBACK, forward only: every corner carrying weight holds the
+     SAME value. Then both laws give that value mathematically, but not
+     bitwise — off the grid the bilinear weights do not sum to exactly 1 in
+     doubles, so `c * sum(w)` and `c * sum(e)` can land an ulp apart, and at
+     (0.3, 0.7) two untouched osc-2 rows (1019, 1026) did exactly that
+     (offcorner_check's off-grid control). Taking the plain sum keeps revision
+     2 bit-identical to revision 1 wherever the rule has nothing to change,
+     which is what lets "rev 2 differs only where the rule applies" be a
+     bitwise statement about audio. NOT in morphLiveWeights, because the
+     inverse (morphRouteEdit) must not take it: an edit of an uncontested slot
+     makes it contested, and the forward then reads it through `e`, so the
+     edit has to be distributed by `e` to land. */
+  bool morphWeightedCornersAgree(size_t i, const double *w) const
+  {
+    int first = -1;
+    for (int k = 0; k < 4; k++)
+    {
+      if (w[k] <= 0) continue;
+      if (first < 0) first = k;
+      else if (morphCorner[k][i] != morphCorner[first][i]) return false;
+    }
+    return true;
+  }
+  double morphBlendTarget(size_t i, const double *w, bool liveOnly) const
+  {
+    double e[4];
+    const double *u =
+        morphLiveWeights(i, w, liveOnly, e) && !morphWeightedCornersAgree(i, w) ? e : w;
+    double target = 0;
+    for (int k = 0; k < 4; k++) target += u[k] * morphCorner[k][i];
+    return target;
   }
 
   void morphStep(int samples)
@@ -4196,15 +4399,62 @@ struct Plugin
        live in corners and with no field there is no owner — and a reader of
        this line should not have to go and find the caller to learn that. */
     if (intentBusOn > 0.5 && morphOn > 0.5) { intentStep(samples); return; }
-    morphAccum += samples;
     const int grid = (int)std::lround(sampleRate * hypersaw::kGravGridSeconds);
-    if (morphAccum < grid) return;
-    const double dt = (double)morphAccum / sampleRate;
-    morphAccum = 0;
+    double dt;
+    if (morphTickNow)
+    {
+      /* The forced tick (a gate written live, ADR-183): it happens AT the
+         event, so its interval is the time elapsed up to the event — NOT
+         including the span about to render, whose length is wherever the
+         host or the next event happens to split the block. The span starts
+         the next grid interval instead. Both choices keep the tick keyed on
+         the event's sample position, independent of host subdivision. */
+      morphTickNow = false;
+      dt = (double)morphAccum / sampleRate;
+      morphAccum = samples;
+    }
+    else
+    {
+      morphAccum += samples;
+      if (morphAccum < grid) return;
+      dt = (double)morphAccum / sampleRate;
+      morphAccum = 0;
+    }
     double w[4], lw[4];
     hypersaw::MorphCore::weights(morphX, morphY, w);
     hypersaw::MorphCore::logW(w, morphTemp, lw);
     const double coef = morphGlideS > 1e-4 ? 1 - std::exp(-dt / morphGlideS) : 1.0;
+    // ADR-183: read ONCE per tick through the one read site B100 names.
+    const bool offCornerRule = engineRevision() >= 2;
+    /* ADR-183 / critic S1 (PR #744) — A SOURCE THAT WAS OFF LANDS, IT DOES NOT
+       GLIDE. Below the floor the blend reads the plain sum, which near a pure
+       OFF corner IS that corner's value; the one-pole then carried the slot
+       from there toward the ON corners' value AFTER the source re-struck, so
+       the OFF corner was heard on the way up (the critic measured the sub at
+       -23 dB at the default glide and -13.5 dB at 0.5 s, osc 2 at about
+       -9.5 dB, against the as-if patch). Whatever a slot held while its source
+       was silent was never heard, so there is no audible position to glide
+       FROM: on the tick its source comes back, a gated continuous slot takes
+       its target outright — the "never applied yet" landing morphApplyTarget
+       gives the -1e29 sentinel, written as a direct commit so a slot whose
+       source stays off is not re-applied every tick. Blend only, like the
+       rule itself; revision 1 never reads it.
+       "WAS OFF" IS THE PREVIOUS TICK'S LIVE WEIGHT <= kMorphOnFloor — the
+       same quantity and threshold the ramp switches the source on by — not
+       the committed enable (see morphGatePrevLiveW for why the enable is too
+       early). An EXEMPT gate is live-only, so its weight is its live value.
+       The weights are refreshed every revision-2 tick in either mode, so a
+       quantum -> blend switch does not read a stale one. */
+    const bool landRule = offCornerRule && (int)morphMode == 1;
+    if (offCornerRule)
+      for (int32_t g : morphGateSlotList)
+      {
+        const size_t gs = (size_t)g;
+        const double now = morphExempt[gs] ? (readParam(morphIds[gs]) >= 0.5 ? 1.0 : 0.0)
+                                           : morphOnWeight(gs, w);
+        morphSrcWasOff[gs] = morphGatePrevLiveW[gs] <= kMorphOnFloor ? 1 : 0;
+        morphGatePrevLiveW[gs] = now;
+      }
     for (size_t i = 0; i < morphIds.size(); i++)
     {
       const ParamDef *d = findParam(morphIds[i]);
@@ -4220,8 +4470,9 @@ struct Plugin
       double target;
       if ((int)morphMode == 1 && !d->stepped)
       {
-        target = 0;
-        for (int k = 0; k < 4; k++) target += w[k] * morphCorner[k][i];
+        target = morphBlendTarget(i, w, offCornerRule);
+        const int32_t g = landRule && i < morphGateSlot.size() ? morphGateSlot[i] : -1;
+        if (g >= 0 && morphSrcWasOff[(size_t)g]) { morphCommitSlot(i, target); continue; }
       }
       else
       {
@@ -6157,15 +6408,20 @@ struct Plugin
      latest; a blob with no header predates the mechanism and is revision 1 BY
      DEFINITION — every session saved before 2026-09-10 renders with the laws
      it was saved under. kEngineRevision moves only with the ADR that adds a
-     gated law; no revision-2 law exists yet, so the only observable today is
-     the round-trip (tools/state_check.cpp, tools/statefix_check.cpp).
+     gated law. THE LAWS, BY THE REVISION THEY ARRIVED IN (ADR-183 §5: every
+     law names its revision and keeps the old one selectable):
+       2 — B232 / ADR-183, the off-corner blend rule (morphBlendTarget and its
+           inverse in morphRouteEdit). Revision 1 is the plain four-corner
+           bilinear blend, kept, not deleted.
+     tools/offcorner_check.cpp renders both revisions of the same patch; the
+     round-trip is tools/state_check.cpp and tools/statefix_check.cpp.
      A revision this build cannot honour clamps to the latest it knows: a
      value with no laws behind it is never stored, and the re-save then
      records what actually rendered. engineRevision() is the ONE read site —
      a future gated law consults it there, never a copy, so a law cannot fork
      on a stale snapshot. Atomic because the read site will be the audio
      thread and the write site is state_load on the main thread. */
-  static constexpr int kEngineRevision = 1;
+  static constexpr int kEngineRevision = 2;   // ADR-183: the off-corner blend rule
   std::atomic<int> patchEngineRevision{kEngineRevision};
   int engineRevision() const { return patchEngineRevision.load(std::memory_order_relaxed); }
   void setEngineRevision(long rev)
