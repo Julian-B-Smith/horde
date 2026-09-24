@@ -3541,12 +3541,16 @@ struct Plugin
       if (morphIds[i] == id) { idx = i; break; }
     if (idx == morphIds.size()) return true;          // not morphed: normal edit
     // ADR-183: a gate written LIVE (exempt, or unarmed below) lands its
-    // source's slots before the re-strike sounds — see morphTickNow.
+    // source's slots before the re-strike sounds — see morphTickNow. ONLY when
+    // a landing will happen (the source was off at the last tick): a forced
+    // tick moves the glide cadence, so forcing one on a write that changes
+    // nothing made revision 2 depend on how densely a host re-sends the gate
+    // (critic on ac9bc38: -11.7 dB against the peak; offcorner_check 5e).
     const bool gateLive = engineRevision() >= 2 && (int)morphMode == 1 &&
                           (isEngineGateId(id) || (oscOfId(id) < kNumOsc && baseIdOf(id) == 150));
     if (idx < morphExempt.size() && morphExempt[idx])   // exempt: live only
     {
-      if (gateLive) morphTickNow = true;
+      if (gateLive && morphGatePrevLiveW[idx] <= kMorphOnFloor) morphTickNow = true;
       return true;
     }
 
@@ -3589,7 +3593,7 @@ struct Plugin
     // quantum: the corner that won this parameter owns the edit
     const int k = morph.pickCorner((int)morphGroupLead(idx), lw, morphCoup);
     morphCorner[k][idx] = v;
-    if (gateLive) morphTickNow = true;   // a gate is stepped, so it always arrives here unarmed
+    if (gateLive && morphGatePrevLiveW[idx] <= kMorphOnFloor) morphTickNow = true;   // stepped: always unarmed here
     return true;
   }
 

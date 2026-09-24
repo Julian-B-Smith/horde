@@ -777,6 +777,54 @@ int main(int argc, char **argv)
     }
   }
 
+  /* ---- 5e. A GATE WRITE THAT CHANGES NOTHING CHANGES NOTHING (critic, ac9bc38)
+     Osc 2 ON in every corner, glide 0.5 s, the puck sweeping. The gate is
+     written to the value it already holds every 64 samples — the shape of a
+     host re-sending automation — once with the gate EXEMPT (the live-only
+     path) and once not (the unarmed path, which writes the owning corner). The
+     render must equal the same sweep with a no-op write of id 41 (Bass XOver,
+     to its own value) at the same positions. A forced tick where no landing
+     happens would move the glide cadence, so revision 2 would depend on how
+     densely a host automates the gate: -11.7 dB against the peak before. */
+  for (const bool exemptGate : {true, false})
+  {
+    Patch a;
+    a.live = {{1150, 1.0}};
+    for (int k = 0; k < 4; k++) a.corner[k] = {{1150, 1.0}, {1004, (k & 1) ? kDetB : kDetA}};
+    a.x = 0.0;
+    a.glide = 0.5;
+    if (exemptGate) a.exempt = {1150};
+    const std::string j = atRevision(capture(a), 2);
+    uint64_t h[2] = {0, 0};
+    for (int redundant = 0; redundant < 2; redundant++)
+    {
+      Rig r;
+      r.boot();
+      hypersaw_debug_apply(r.p, j.c_str());
+      r.run(0.05);
+      const double v41 = r.get(41);
+      r.hash = 1469598103934665603ull;
+      r.noteOn(48);
+      for (int b = 0; b < 80; b++)
+      {
+        EvList e;
+        e.params.push_back(mkParam(152, std::min(1.0, b / 60.0)));   // the sweep
+        for (uint32_t t = 0; t < (uint32_t)kBlock; t += 64)
+        {
+          clap_event_param_value_t ev = redundant ? mkParam(1150, 1.0) : mkParam(41, v41);
+          ev.header.time = t;
+          e.params.push_back(ev);
+        }
+        r.step(e);
+      }
+      h[redundant] = r.hash;
+      r.kill();
+    }
+    check(h[0] == h[1], std::string("redundant gate writes (") + (exemptGate ? "exempt" : "unarmed") +
+                            " gate, 1150 = 1 every 64 samples during a sweep) render bit-identically "
+                            "to no-op writes of id 41 (" + hex(h[1]) + " vs " + hex(h[0]) + ")");
+  }
+
   /* ---- 6. the inverse: a live edit STICKS under the law that reads it ---- */
   for (int rev : {1, 2})
     for (const std::string *where : {&pj, &gj})
