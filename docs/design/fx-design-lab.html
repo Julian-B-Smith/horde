@@ -51,11 +51,22 @@
      standard), whose citation block is kept verbatim below. The knob skin is
      gui2's §4 knob (gui2.html:617-731, ADR-120), copied.
 
+     ROUND 2 — B234, 2026-09-23. The human: "Let's also add a more robust EQ and
+     compressor to the FX lab." Two cards join the seven: a six-band parametric
+     EQ (a drag surface over a live analyser) and a compressor (real-unit
+     ballistics, sidechain HPF, GR meter, transfer curve with the operating point,
+     one envelope per instance — the contrast with B230). THESE TWO RUN THEIR DSP
+     in the page (an offline render, one fixed hop per frame, no clock), so "not
+     audio" above now reads "not audible": each picture is what the running DSP
+     did. Each self-checks at load against a must-fail control and prints the
+     numbers in the audit line; tools/labharness/fxlab_check.mjs runs the same
+     checks under ./verify fast.
+
      L0026: all state above all wiring; setup runs last and reaches nothing
      declared below it. No Math.random (mulberry32 only, SPEC §5.7). -->
 <html><head><meta charset="utf-8">
-<meta name="lab-review" content="B210 · 2026-09-22">
-<title>FX design lab — seven modules, a four-knob face over every control</title>
+<meta name="lab-review" content="B210 + B234 · 2026-09-23">
+<title>FX design lab — nine modules, a four-knob face over every control</title>
 <style>
   /* ============================================================
      TOKENS + CHROME — copied VERBATIM from docs/design/station-page-lab.html
@@ -346,6 +357,11 @@
   canvas.mini { width:100%; height:62px; }
   canvas.big { width:100%; height:190px; }
   canvas.aux { width:100%; height:150px; }
+  /* B234: the EQ's curve is a drag surface, so it gets room to be grabbed. */
+  canvas.big.tall { height:260px; }
+  .srcbar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:0 0 6px; }
+  .srcbar input[type=range] { width:140px; flex:0 0 auto; }
+  .srcbar output { font-size:10px; color:var(--t2); font-variant-numeric:tabular-nums; }
   .face { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:4px;
           margin:8px 0 2px; }
   .rchip { font-size:8px; letter-spacing:.12em; color:var(--t2); margin-top:3px;
@@ -415,8 +431,8 @@
   <div>
     <h1>fx modules</h1>
     <div class="badges">
-      <span class="badge">B210 · DESIGN LAB</span>
-      <span class="sub">SEVEN MODULES · A FOUR-KNOB FACE OVER EVERY CONTROL · ADR-169</span>
+      <span class="badge">B210 + B234 · DESIGN LAB</span>
+      <span class="sub">NINE MODULES · A FOUR-KNOB FACE OVER EVERY CONTROL · ADR-169</span>
     </div>
   </div>
   <div class="hdrctl">
@@ -435,8 +451,11 @@ control beside it, and every row a face knob drives wears that knob's mark. The 
 worked example (ADR-177 §4); <b>MAW</b> and <b>Sluice</b> are hosted — horde designs how it
 <i>presents</i> them, not how they work; <b>comb, echo, drive, filter</b> are the rack's own modules, expanded
 with proposed controls. Sluice's face is drawn <b>both</b> ways for the open ruling ADR-169 A1. Pictures are
-computed from the parameters, not heard: this lab answers what a module <i>shows</i>. Drag a knob vertically
-(shift = fine, double-click = the preset's value), or move any row.</div>
+computed from the parameters, not heard: this lab answers what a module <i>shows</i>. <b>B234</b> adds a parametric
+<b>EQ</b> and a <b>compressor</b> that run real DSP on a lab source — the EQ curve is draggable over a live analyser,
+the compressor shows its transfer curve, operating point and gain reduction — and both prove their pictures
+against sines at load (the audit line). Drag a knob vertically (shift = fine, double-click = the preset's value),
+or move any row.</div>
 
 <div class="audit" id="audit">module audit: pending</div>
 
@@ -488,6 +507,18 @@ computed from the parameters, not heard: this lab answers what a module <i>shows
     <li><b>Filter's face inverts today's knob.</b> The rack's Filter amount turns UP to CLOSE
       (fx_rack.h:671); a Cutoff knob that closes as it turns up is a trap, so the face turns up to open.
       A saved patch would migrate <code>a → 1 − a</code>. Proposed, not assumed.</li>
+    <li><b>B234 — Regen is now empty on three of nine faces</b> (Drive, EQ, Compressor): every processor without a
+      loop. The EQ also puts <i>Sweep</i> on Motion, which SPEC-MODULE-MACROS:139 writes as the module's internal LFO —
+      a stretch, flagged. The knob a player wants in the compressor's empty slot is Makeup, which has no role. Whether
+      loop-free modules should leave Regen inert (ADR-169 as written) or the enum needs a fifth, output-shaped role
+      is the human's call; the lab makes the cost visible and does not vote.</li>
+    <li><b>B234 — per-instance dynamics, and the check that sees B230.</b> The compressor's envelope is a member of
+      each instance. The self-check runs two, feeds one silence and requires 0.00 dB of gain reduction on it; then
+      it plants the rack's law (<code>b.env = a.env</code>) and the silent instance reads ≈ 9 dB it never earned.
+      That planted pair is a ready-made must-fail control for B230's own check.</li>
+    <li><b>B234 — the two new cards compute but do not sound.</b> The lab had no audio path, so the DSP runs as an
+      offline render the pictures read. Whether the lab wants a LISTEN switch (the same classes in an AudioWorklet)
+      is open.</li>
   </ol>
 </div>
 
@@ -1084,6 +1115,410 @@ function filterModule() {
     draw: drawFilter,
   };
 }
+
+/* ============ B234 — PARAMETRIC EQ + COMPRESSOR: real DSP, run in the page ==
+   Round 2 (ROADMAP B234; the human, 2026-09-23: "Let's also add a more robust
+   EQ and compressor to the FX lab."). These two cards depart from the note at
+   the top of this file ("not audio") on the brief's instruction: each runs its
+   actual DSP, in plain JS, on a deterministic lab source, one fixed HOP of
+   samples per animation frame — a frame COUNT, never a clock read (SPEC §5.7) —
+   and the pictures read what that DSP did. An offline render rather than a
+   worklet because the lab had no audio path to reuse, and a main-thread render
+   is something the load-time self-check and the headless load checker can run
+   as well. Nothing is audible; whether it should be is an open question.
+
+   ONE LAW PER PICTURE. The EQ curve is evaluated from the SAME section list the
+   EqDSP runs (eqSections), as each biquad's digital |H(e^jw)| — never an
+   analog sketch of it. The compressor's transfer curve is compStatic(), the
+   function CompDSP calls every sample. The self-checks then MEASURE both with
+   sines (eqSelfCheck, compSelfCheck), each against a planted must-fail control,
+   and the audit line prints the numbers. */
+const LAB_SR = 44100;          // the house rate
+const HOP = 735;               // LAB_SR / 60: one animation frame of signal, counted
+const FFT_N = 4096;
+const toDb = x => 20 * Math.log10(Math.max(1e-12, x));   // block A's own; dB() lives in block B
+const fromDb = d => Math.pow(10, d / 20);
+
+/* ---- biquads: RBJ Audio-EQ-Cookbook forms, normalised so a0 = 1 ---------- */
+const EQ_TYPES = ['LC', 'LS', 'PK', 'HS', 'HC'];
+const EQ_TYPE_PILLS = ['LO CUT', 'LO SHLF', 'PEAK', 'HI SHLF', 'HI CUT'];
+const EQ_SLOPES = [12, 24, 48];
+function rbj(t, f, g, Q, sr) {
+  const w0 = TAU * clamp(f, 5, sr * 0.49) / sr, cw = Math.cos(w0), sw = Math.sin(w0);
+  const al = sw / (2 * Math.max(0.05, Q)), A = Math.pow(10, g / 40), k = 2 * Math.sqrt(A) * al;
+  let b0, b1, b2, a0, a1, a2;
+  if (t === 'PK') { b0 = 1 + al * A; b1 = -2 * cw; b2 = 1 - al * A; a0 = 1 + al / A; a1 = -2 * cw; a2 = 1 - al / A; }
+  else if (t === 'LS') {
+    b0 = A * ((A + 1) - (A - 1) * cw + k); b1 = 2 * A * ((A - 1) - (A + 1) * cw); b2 = A * ((A + 1) - (A - 1) * cw - k);
+    a0 = (A + 1) + (A - 1) * cw + k; a1 = -2 * ((A - 1) + (A + 1) * cw); a2 = (A + 1) + (A - 1) * cw - k;
+  } else if (t === 'HS') {
+    b0 = A * ((A + 1) + (A - 1) * cw + k); b1 = -2 * A * ((A - 1) + (A + 1) * cw); b2 = A * ((A + 1) + (A - 1) * cw - k);
+    a0 = (A + 1) - (A - 1) * cw + k; a1 = 2 * ((A - 1) - (A + 1) * cw); a2 = (A + 1) - (A - 1) * cw - k;
+  } else if (t === 'HC') { b0 = (1 - cw) / 2; b1 = 1 - cw; b2 = (1 - cw) / 2; a0 = 1 + al; a1 = -2 * cw; a2 = 1 - al; }
+  else { b0 = (1 + cw) / 2; b1 = -(1 + cw); b2 = (1 + cw) / 2; a0 = 1 + al; a1 = -2 * cw; a2 = 1 - al; }   // LC
+  return [b0 / a0, b1 / a0, b2 / a0, a1 / a0, a2 / a0];
+}
+/* A 24/48 dB cut is a CASCADE, and identical sections would put the corner at
+   −6/−12 dB. So each section takes its Butterworth Q, scaled by the band's Q
+   over 0.707: at Q 0.707 the band is exactly Butterworth (−3 dB at the
+   corner, any slope); above it every section resonates together. */
+function bwQ(n) { const q = []; for (let k = 0; k < n; k++) q.push(1 / (2 * Math.cos(Math.PI * (2 * k + 1) / (4 * n)))); return q; }
+function bandSections(b, depth, sr) {
+  const t = EQ_TYPES[b.type];
+  if (t === 'LC' || t === 'HC') return bwQ(EQ_SLOPES[b.slope] / 12).map(q => rbj(t, b.freq, 0, q * b.q / Math.SQRT1_2, sr));
+  return [rbj(t, b.freq, b.gain * depth, b.q, sr)];
+}
+function eqSections(P, sr) {
+  const out = [];
+  for (const b of P.bands) if (b.on) for (const s of bandSections(b, P.depth, sr)) out.push(s);
+  return out;
+}
+/* |H(e^jw)| of one normalised section — the exact digital response, so the
+   drawn curve cramps toward Nyquist exactly as the running filter does. */
+function secMag(s, f, sr) {
+  const w = TAU * f / sr, c1 = Math.cos(w), s1 = Math.sin(w), c2 = Math.cos(2 * w), s2 = Math.sin(2 * w);
+  const nr = s[0] + s[1] * c1 + s[2] * c2, ni = -(s[1] * s1 + s[2] * s2);
+  const dr = 1 + s[3] * c1 + s[4] * c2, di = -(s[3] * s1 + s[4] * s2);
+  return Math.sqrt((nr * nr + ni * ni) / (dr * dr + di * di || 1e-30));
+}
+function curveOf(S, sr) { return f => { let d = 0; for (const s of S) d += toDb(secMag(s, f, sr)); return d; }; }
+function eqCurve(P, sr) { return curveOf(eqSections(P, sr), sr); }
+function bandCurve(P, i, sr) { return curveOf(P.bands[i].on ? bandSections(P.bands[i], P.depth, sr) : [], sr); }
+
+/* The running EQ. Transposed direct form II, one state pair per section. The
+   design is redone every frame (a few cos per band); the STATE survives a
+   re-design while the section count holds, so dragging a node glides. */
+class EqDSP {
+  constructor(sr) { this.sr = sr; this.S = []; this.z = []; }
+  set(P) {
+    const S = eqSections(P, this.sr);
+    if (S.length !== this.z.length) this.z = S.map(() => new Float64Array(2));   // topology changed: reset
+    this.S = S;
+  }
+  process(x, y, n) {
+    if (y !== x) for (let i = 0; i < n; i++) y[i] = x[i];
+    for (let k = 0; k < this.S.length; k++) {
+      const s = this.S[k], z = this.z[k], b0 = s[0], b1 = s[1], b2 = s[2], a1 = s[3], a2 = s[4];
+      let z1 = z[0], z2 = z[1];
+      for (let i = 0; i < n; i++) { const u = y[i], v = b0 * u + z1; z1 = b1 * u - a1 * v + z2; z2 = b2 * u - a2 * v; y[i] = v; }
+      z[0] = z1; z[1] = z2;
+    }
+  }
+}
+
+/* ---- the compressor --------------------------------------------------------
+   Feed-forward, log domain: Giannoulis, Massberg & Reiss, "Digital Dynamic
+   Range Compressor Design — A Tutorial and Analysis", JAES 60(6), 2012. The
+   static curve is their eq. 4 (quadratic soft knee of width W); the ballistics
+   are their smooth DECOUPLED peak detector on the gain reduction (eq. 17):
+   release as a peak-hold decay, attack as a one-pole after it. Chosen because
+   it is the textbook design whose steady state IS the static curve for a
+   steady tone at the detector's peak level — which is what the self-check
+   asserts. Attack and release are 1/e time constants in ms, turned into
+   per-sample coefficients at the rate (ADR-009: seconds, never hand-tuned
+   per-tick numbers). */
+function compStatic(x, T, R, W) {
+  const d = x - T;
+  if (2 * d < -W) return x;
+  if (W > 0 && 2 * Math.abs(d) <= W) return x + (1 / R - 1) * (d + W / 2) * (d + W / 2) / (2 * W);
+  return T + d / R;
+}
+const compGR = (x, C) => x - compStatic(x, C.thr, C.ratio, C.knee);
+class CompDSP {
+  constructor(sr) {
+    this.sr = sr;
+    /* THE ENVELOPE IS THIS OBJECT'S OWN — the contrast with B230. The rack's
+       COMP keeps ONE compEnv for the whole rack (fx_rack.h:886), so two COMP
+       slots drive each other's gain. Here it is a member, so two compressors
+       cannot share it unless someone writes `b.env = a.env` — which is exactly
+       the fault compSelfCheck plants to prove its check can see it. */
+    this.env = { y1: 0, yL: 0 };
+    this.sc = new Float64Array(2);
+    this.m = { scPk: 0, inPk: 0, outPk: 0, gr: 0, grMax: 0 };
+    this.set({ thr: 0, ratio: 1, knee: 0, atk: 10, rel: 100, makeup: 0, scOn: false, scHz: 80 });
+  }
+  set(C) {
+    this.C = C;
+    this.aA = Math.exp(-1 / (C.atk * 1e-3 * this.sr));
+    this.aR = Math.exp(-1 / (C.rel * 1e-3 * this.sr));
+    this.hp = rbj('LC', C.scHz, 0, Math.SQRT1_2, this.sr);   // sidechain HPF, 12 dB/oct Butterworth
+  }
+  process(x, y, n) {
+    const C = this.C, e = this.env, h = this.hp, aA = this.aA, aR = this.aR, T = C.thr, Ra = C.ratio, W = C.knee;
+    let z1 = this.sc[0], z2 = this.sc[1], scPk = 0, inPk = 0, outPk = 0, grMax = 0;
+    for (let i = 0; i < n; i++) {
+      const u = x[i];
+      let s = u;
+      if (C.scOn) { s = h[0] * u + z1; z1 = h[1] * u - h[3] * s + z2; z2 = h[2] * u - h[4] * s; }
+      const as = Math.abs(s), xL = as > 1e-6 ? 20 * Math.log10(as) : -120;
+      const gc = xL - compStatic(xL, T, Ra, W);
+      const r = aR * e.y1 + (1 - aR) * gc;
+      e.y1 = gc > r ? gc : r;
+      e.yL = aA * e.yL + (1 - aA) * e.y1;
+      const o = u * Math.pow(10, (C.makeup - e.yL) / 20);
+      y[i] = o;
+      if (as > scPk) scPk = as;
+      if (Math.abs(u) > inPk) inPk = Math.abs(u);
+      if (Math.abs(o) > outPk) outPk = Math.abs(o);
+      if (e.yL > grMax) grMax = e.yL;
+    }
+    this.sc[0] = z1; this.sc[1] = z2;
+    const m = this.m; m.scPk = scPk; m.inPk = inPk; m.outPk = outPk; m.gr = e.yL; m.grMax = grMax;
+  }
+}
+
+/* ---- the lab source: what the two cards chew on. Deterministic: mulberry32
+   noise at a fixed seed and a sample counter — the same frames always paint
+   the same pictures. LOOP is a 120 BPM bar (kick on every beat, snare on 2 and
+   4, off-beat hats, a swelling saw chord) so the compressor has transients to
+   catch and a low end for its sidechain filter to ignore. ----------------- */
+const SRC_KINDS = ['LOOP', 'PINK', 'SINE 1k'];
+class LabSource {
+  constructor(sr, seed, kind) {
+    this.sr = sr; this.rng = mulberry32(seed); this.kind = kind; this.lvl = 0; this.n = 0;
+    this.p = [0, 0, 0]; this.kph = 0; this.ph = [0, 0, 0]; this.wPrev = 0;
+  }
+  fill(buf, n) {
+    const g = fromDb(this.lvl), sr = this.sr;
+    for (let i = 0; i < n; i++, this.n++) {
+      let s;
+      if (this.kind === 2) s = Math.sin(TAU * 1000 * this.n / sr);     // SINE: lvl IS its peak in dBFS
+      else if (this.kind === 1) {                                        // PINK: Kellet's economy filter, ≈ −20 dBFS RMS
+        const w = this.rng() * 2 - 1, p = this.p;
+        p[0] = 0.99765 * p[0] + w * 0.0990460; p[1] = 0.96300 * p[1] + w * 0.2965164; p[2] = 0.57000 * p[2] + w * 1.0526913;
+        s = (p[0] + p[1] + p[2] + w * 0.1848) * 0.055;
+      } else s = this.loop();
+      buf[i] = s * g;
+    }
+  }
+  loop() {
+    const sr = this.sr, beat = sr / 2, pos = this.n % (4 * beat), b = Math.floor(pos / beat), tb = (pos - b * beat) / sr;
+    if (pos % beat === 0) this.kph = 0;
+    this.kph += (48 + 110 * Math.exp(-tb / 0.03)) / sr;
+    let s = 0.75 * Math.sin(TAU * this.kph) * Math.exp(-tb / 0.2);
+    const w = this.rng() * 2 - 1, hp = w - this.wPrev; this.wPrev = w;
+    if (b === 1 || b === 3) s += 0.3 * w * Math.exp(-tb / 0.08);
+    s += 0.1 * hp * Math.exp(-(((pos + beat / 2) % beat) / sr) / 0.025);
+    const swell = 0.55 + 0.45 * Math.sin(TAU * pos / (4 * beat));
+    const F = [110, 164.81, 220];
+    for (let k = 0; k < 3; k++) { this.ph[k] += F[k] / sr; if (this.ph[k] >= 1) this.ph[k] -= 1; s += 0.05 * swell * (2 * this.ph[k] - 1); }
+    return s;
+  }
+}
+
+/* ---- the self-checks (run at load; printed in the audit line) -------------
+   Hann-windowed quadrature amplitude at f: the measurement both checks share.
+   The image at −f sits 2f away, far down Hann's sidelobes for every f here. */
+function toneAmp(y, s0, n, f, sr) {
+  let re = 0, im = 0, ws = 0;
+  for (let i = 0; i < n; i++) {
+    const w = 0.5 - 0.5 * Math.cos(TAU * i / (n - 1)), ph = TAU * f * (s0 + i) / sr;
+    re += w * y[s0 + i] * Math.cos(ph); im += w * y[s0 + i] * Math.sin(ph); ws += w;
+  }
+  return 2 * Math.sqrt(re * re + im * im) / ws;
+}
+/* Tolerances sit well above the measurement's own floor (≈0.0003 dB EQ,
+   ≈0.006 dB comp, measured 2026-09-23) and well below the controls' misses
+   (≈3.3 dB, ≈0.56 dB): tight enough that a mis-scaled Q or a stray knee shows. */
+const EQ_CHECK_TOL = 0.01, EQ_CHECK_FLOOR = -60, COMP_CHECK_TOL = 0.05;
+/* EQ: sines through a FRESH EqDSP, measured gain against the drawn curve at 28
+   log-spaced points, on the defaults and on a stress set (every type, every
+   slope, high Q, depth 150 %). Points where the curve is below −60 dB are
+   stopband and skipped. MUST-FAIL CONTROL: the same measurements against the
+   curve designed at 48 kHz while the filters run at 44.1 — the sample-rate
+   mismatch a drawn curve and a running filter most plausibly disagree by. If
+   the control does not fail, the check is blind and the audit says so. */
+function eqSelfCheck() {
+  const sr = LAB_SR, SETTLE = 17640, N = 16384, F = [];
+  for (let i = 0; i < 28; i++) F.push(25 * Math.pow(19000 / 25, i / 27));
+  const x = new Float64Array(SETTLE + N), y = new Float64Array(SETTLE + N);
+  let worst = 0, ctl = 0, pts = 0;
+  for (const P of [eqDefaults(), eqStress()]) {
+    const drawn = eqCurve(P, sr), wrong = eqCurve(P, 48000);
+    for (const f of F) {
+      const want = drawn(f);
+      if (want < EQ_CHECK_FLOOR) continue;
+      for (let i = 0; i < x.length; i++) x[i] = 0.5 * Math.sin(TAU * f * i / sr);
+      const d = new EqDSP(sr); d.set(P); d.process(x, y, x.length);
+      const meas = toDb(toneAmp(y, SETTLE, N, f, sr) / toneAmp(x, SETTLE, N, f, sr));
+      pts++;
+      worst = Math.max(worst, Math.abs(meas - want));
+      ctl = Math.max(ctl, Math.abs(meas - wrong(f)));
+    }
+  }
+  return { pass: worst <= EQ_CHECK_TOL, worst, pts, ctl, ctlFails: ctl > EQ_CHECK_TOL };
+}
+/* COMPRESSOR: a steady sine at a known peak level; after 1.5 s the gain
+   reduction — measured at the output as the tone's amplitude ratio, AND read
+   off the meter (the envelope the GR meter draws) — must equal the transfer
+   curve's at that level: below the knee, at the knee's centre, above it, and
+   through the sidechain HPF (100 Hz, filter at 200 Hz: the detector hears the
+   level minus |H_sc(100)|). Release is 1 s here so the peak-hold ripple is
+   below 0.03 dB; the law does not depend on it.
+   MUST-FAIL CONTROL 1: the same measurements against a HARD-knee curve — a
+   picture that forgot the knee. MUST-FAIL CONTROL 2 (B230): two instances in
+   128-sample blocks, the second fed silence, must leave the second at exactly
+   0 dB GR; then B230's wrong law is planted (`b.env = a.env`) and the silent
+   one must read gain reduction it never earned. */
+function compSelfCheck() {
+  const sr = LAB_SR, C = { thr: -18, ratio: 4, knee: 6, atk: 5, rel: 1000, makeup: 0, scOn: false, scHz: 200 };
+  const SET = Math.round(1.5 * sr), N = Math.round(0.5 * sr);
+  const x = new Float64Array(SET + N), y = new Float64Array(SET + N);
+  const hard = Object.assign({}, C, { knee: 0 });
+  let worst = 0, ctl = 0;
+  const rows = [];
+  for (const [f, L, sc] of [[1000, -30, false], [1000, -18, false], [1000, -6, false], [100, -6, true]]) {
+    const Cc = Object.assign({}, C, { scOn: sc });
+    const A = fromDb(L);
+    for (let i = 0; i < x.length; i++) x[i] = A * Math.sin(TAU * f * i / sr);
+    const d = new CompDSP(sr); d.set(Cc); d.process(x, y, x.length);
+    const lvl = L + (sc ? toDb(secMag(rbj('LC', C.scHz, 0, Math.SQRT1_2, sr), f, sr)) : 0);
+    const want = compGR(lvl, Cc), meas = -toDb(toneAmp(y, SET, N, f, sr) / toneAmp(x, SET, N, f, sr)) + Cc.makeup;
+    worst = Math.max(worst, Math.abs(meas - want), Math.abs(d.env.yL - want));
+    ctl = Math.max(ctl, Math.abs(meas - compGR(lvl, hard)));
+    rows.push([f, L, sc, want, meas]);
+  }
+  const pair = shared => {
+    const a = new CompDSP(sr), b = new CompDSP(sr);
+    a.set(C); b.set(C);
+    if (shared) b.env = a.env;                      // B230's wrong law, planted
+    const xa = new Float64Array(128), xb = new Float64Array(128), ya = new Float64Array(128), yb = new Float64Array(128);
+    let gb = 0;
+    for (let blk = 0, n = 0; blk < 345; blk++) {     // 1 s
+      for (let i = 0; i < 128; i++, n++) xa[i] = 0.5 * Math.sin(TAU * 1000 * n / sr);
+      a.process(xa, ya, 128); b.process(xb, yb, 128);
+      gb = Math.max(gb, b.m.grMax);
+    }
+    return gb;
+  };
+  const grSilent = pair(false), grShared = pair(true);
+  return { pass: worst <= COMP_CHECK_TOL && grSilent === 0, worst, rows, ctl, ctlFails: ctl > COMP_CHECK_TOL,
+    grSilent, grShared, sharedFails: grShared > 1 };
+}
+
+/* ============ EQ — a parametric EQ (new: the rack has none) ================ */
+const eqBand = (on, type, freq, gain, q, slope) => ({ on, type, freq, gain, q, slope: slope || 0 });
+function eqDefaults() {
+  // A gentle, drawn-on-purpose curve so the card opens showing a shape. The
+  // two shelves sit on the Tilt knob's line (−2 / +2 dB ⇒ knob 0.667 moves
+  // neither), so turning Tilt from here moves both smoothly.
+  return { depth: 1, bands: [
+    eqBand(true, 0, 30, 0, 0.71, 1), eqBand(true, 1, 120, -2, 0.71), eqBand(true, 2, 350, -3, 1.4),
+    eqBand(true, 2, 1800, 2.5, 1), eqBand(true, 3, 8000, 2, 0.71), eqBand(false, 4, 18000, 0, 0.71, 0)] };
+}
+function eqStress() {
+  return { depth: 1.5, bands: [
+    eqBand(true, 0, 80, 0, 2, 0), eqBand(true, 1, 200, 6, 0.5), eqBand(true, 2, 1000, -12, 8),
+    eqBand(true, 3, 4000, -6, 1), eqBand(true, 2, 12000, 9, 3), eqBand(true, 4, 6000, 0, 1.2, 2)] };
+}
+function eqBandRows(i) {
+  const s = 'bands.' + i + '.';
+  const off = P => !getp(P, s + 'on');
+  const cut = P => { const t = EQ_TYPES[getp(P, s + 'type')]; return t === 'LC' || t === 'HC'; };
+  return SEC('BAND ' + (i + 1), [
+    TOG(s + 'on', 'on'),
+    PILLS(s + 'type', 'type', EQ_TYPE_PILLS, { ghost: off }),
+    R(s + 'freq', 'frequency', 20, 20000, 1, fHz, { log: true, ghost: off }),
+    R(s + 'gain', 'gain', -18, 18, 0.1, fDb, { ghost: P => off(P) || cut(P), note: 'cuts have no gain' }),
+    R(s + 'q', 'Q', 0.1, 18, 0.01, f2, { log: true, ghost: off, note: 'on a cut: resonance, 0.71 = Butterworth' }),
+    PILLS(s + 'slope', 'slope', EQ_SLOPES.map(d => d + ' dB'), { ghost: P => off(P) || !cut(P) }),
+  ]);
+}
+function eqModule() {
+  const M = {
+    id: 'eq', name: 'EQ', kind: 'NEW', org: 'parametric · six bands · RBJ biquads · B234', P: eqDefaults(), tall: true,
+    sections: () => [0, 1, 2, 3, 4, 5].map(eqBandRows).concat([SEC('OUTPUT', [R('depth', 'depth', 0, 2, 0.01, fPct)])]),
+    slots: [
+      SLOT('Amount', 'Depth', [B('depth', 0, 2)]),
+      // ONE KNOB, TWO INTERNALS (ADR-169 A2): up = brighter — the low shelf
+      // falls as the high shelf rises. Spans are mirror images through 0 dB.
+      SLOT('Tone', 'Tilt', [B('bands.1.gain', 6, -6), B('bands.4.gain', -6, 6)]),
+      SLOT('Motion', 'Sweep', [B('bands.3.freq', 200, 8000, 'log')]),
+      SLOT('Regen', null, []),
+    ],
+    why: '<b>DEPTH · TILT · SWEEP · (unbound).</b> <b>Depth</b> scales every band\'s gain at once (0–200 %): how much EQ, '
+      + 'and the knob a morph wants — a preset\'s curve fades in without being redrawn. <b>Tilt</b> is one knob on two '
+      + 'internals (ADR-169 A2): the low shelf falls as the high shelf rises. <b>Sweep</b> carries the presence bell '
+      + '(band 4) from 200 Hz to 8 kHz — the move an engineer makes by hand. It sits on Motion as a <b>stretch</b>: '
+      + 'SPEC-MODULE-MACROS:139 writes Motion as the module\'s internal LFO, and an EQ has none. <b>Regen is unbound</b>: '
+      + 'an EQ has no loop. Bands, types, Q and slope decide WHICH curve — the preset\'s job, in the panel.',
+    notes: '<b>Curve</b> (magenta, drag it): the product of every enabled band\'s biquad, evaluated as the digital '
+      + '<code>|H(e^jω)|</code> of the coefficients the running filter uses — the self-check measures that claim with '
+      + 'sines at load. Faint magenta: each band alone. Drag a node for frequency and gain, wheel for Q, double-click '
+      + 'for on/off. Types are the RBJ cookbook\'s; a 24/48 dB cut is a Butterworth cascade whose sections all scale '
+      + 'with Q. <b>Analyser</b> (cyan, behind): the lab source after the EQ, 4096-point Hann FFT, +3 dB/oct display '
+      + 'tilt so pink noise reads flat; dashed = before the EQ. <b>OUT</b>: the output peak; red = clip. '
+      + 'The rack has no EQ today, so every control here is new — the card\'s kind says so once rather than dashing 37 rows.',
+    draw: drawEq,
+    lv: null,
+  };
+  M.lv = { src: new LabSource(LAB_SR, 234, 1), dsp: new EqDSP(LAB_SR), x: new Float64Array(HOP), y: new Float64Array(HOP),
+    pre: new Float64Array(FFT_N), post: new Float64Array(FFT_N), w: 0,
+    pwPre: new Float64Array(FFT_N / 2 + 1), pwPost: new Float64Array(FFT_N / 2 + 1), outDb: -120, clip: 0 };
+  M.srcKinds = [1, 0, 2];            // PINK first: the analyser's natural source
+  M.sel = -1;
+  return M;
+}
+
+/* ============ COMP — a compressor, per instance (replaces the rack COMP) ====
+   Today (fx_rack.h:688-712): `amount` → ratio 1 + 4a above a fixed 0.4
+   (−8 dBFS) HARD knee, a branching one-pole on max|L|,|R| at 0.06 ms / 15 ms,
+   a 0.98 brickwall always on, and one envelope shared by every COMP slot
+   (B230). Everything but the ratio is proposed. */
+function compDefaults() { return { thr: -18, ratio: 4, knee: 6, atk: 10, rel: 150, makeup: 4, scOn: true, scHz: 80 }; }
+function compModule() {
+  const fRatio = x => (x >= 19.95 ? '20:1' : x.toFixed(1) + ':1');
+  const fMsFine = x => (x < 1 ? x.toFixed(2) + 'ms' : fMs(x));
+  const M = {
+    id: 'comp', name: 'COMP', kind: 'RACK', org: 'feed-forward · soft knee · per instance · B234 (B230)', P: compDefaults(),
+    sections: () => [
+      SEC('THE LAW', [
+        R('thr', 'threshold', -60, 0, 0.5, fDb, { prop: true }),
+        R('ratio', 'ratio', 1, 20, 0.01, fRatio, { log: true, addr: 'fxNamt (as 1+4a, over a fixed −8 dB)' }),
+        R('knee', 'knee', 0, 24, 0.5, x => (x ? fDb(x).replace('+', '') : 'hard'), { prop: true }),
+      ]),
+      SEC('TIME — real units', [
+        R('atk', 'attack', 0.05, 200, 0.01, fMsFine, { log: true, prop: true, note: '1/e time constant' }),
+        R('rel', 'release', 5, 2000, 1, fMs, { log: true, prop: true, note: '1/e time constant' }),
+      ]),
+      SEC('SIDECHAIN', [
+        TOG('scOn', 'SC high-pass', { prop: true }),
+        R('scHz', 'SC freq', 20, 1000, 1, fHz, { log: true, prop: true, ghost: P => !P.scOn, note: '12 dB/oct Butterworth, detector only' }),
+      ]),
+      SEC('OUTPUT', [R('makeup', 'makeup', -12, 24, 0.5, fDb, { prop: true })]),
+    ],
+    slots: [
+      // ONE KNOB, TWO INTERNALS: 0 = untouched (0 dB, 1:1), 1 = flattened
+      // (−36 dB, 7:1). The defaults (−18 dB, 4:1) sit exactly at 0.5.
+      SLOT('Amount', 'Squash', [B('thr', 0, -36), B('ratio', 1, 7)]),
+      SLOT('Tone', 'SC HPF', [B('scHz', 20, 500, 'log')]),
+      SLOT('Motion', 'Release', [B('rel', 20, 1000, 'log')]),
+      SLOT('Regen', null, []),
+    ],
+    why: '<b>SQUASH · SC HPF · RELEASE · (unbound).</b> <b>Squash</b> lowers the threshold and raises the ratio together '
+      + '— one knob from untouched to flattened, the rack COMP\'s one knob grown up. <b>Tone</b> is what the compressor '
+      + '<i>listens to</i>: the sidechain high-pass lets the kick through without pumping the rest. <b>Release</b> is '
+      + 'Motion because release IS the pump — the gain\'s own movement. <b>Regen is unbound</b>: a feed-forward '
+      + 'compressor has no loop, and the knob a player wants in that slot — Makeup — has no role. Threshold, knee and '
+      + 'attack shape the law; they stay in the panel.',
+    notes: '<b>Transfer</b> (left): input peak level → output level, makeup included; magenta = the curve you set '
+      + '(shaded = the knee), violet dot = where the signal is right now (detector level, output after the envelope) '
+      + 'with its recent trail — on the curve when the input is steady, off it while the envelope catches up. '
+      + '<b>Meters</b>: IN and OUT peaks (cyan; red = clip) and GR (violet, from the top). <b>Sidechain</b>: the HPF the '
+      + 'detector hears through. Law: Giannoulis, Massberg &amp; Reiss (JAES 2012) — soft-knee static curve, smooth '
+      + 'decoupled peak detector; attack and release are 1/e time constants. <b>Per instance by construction</b>: '
+      + 'the envelope is each compressor\'s own member; the self-check runs two, feeds one silence and requires it to '
+      + 'stay at 0 dB GR, then plants the rack\'s shared envelope (B230) and requires that to be caught. Today\'s COMP '
+      + 'is a 0.98 brickwall as well (fx_rack.h:709); the limiter is out of this card.',
+    draw: drawComp, aux: drawCompHistory, auxLabel: 'LEVEL + GAIN REDUCTION — the last 4 s',
+    lv: null,
+  };
+  M.lv = { src: new LabSource(LAB_SR, 230, 0), dsp: new CompDSP(LAB_SR), x: new Float64Array(HOP), y: new Float64Array(HOP),
+    hIn: new Float64Array(240).fill(-120), hOut: new Float64Array(240).fill(-120), hGr: new Float64Array(240), hw: 0, hn: 0,
+    trail: [], outDb: -120, inDb: -120, clip: 0 };
+  M.srcKinds = [0, 1, 2];
+  return M;
+}
 </script>
 
 <script>
@@ -1588,6 +2023,344 @@ function drawFilter(cv, M, big) {
     + (hi / lo > 1.01 ? ' · reach ' + fHz(lo) + '–' + fHz(hi) : ''), 6 * v, 11 * v, '--scr-marker', 1, 9.5);
 }
 
+/* ================= B234 — the live cards: tick, analyser, painters ========= */
+
+/* In-place radix-2 FFT. The Hann window and its sum are fixed at FFT_N. */
+const FFT_WIN = new Float64Array(FFT_N);
+let FFT_WSUM = 0;
+for (let i = 0; i < FFT_N; i++) { FFT_WIN[i] = 0.5 - 0.5 * Math.cos(TAU * i / FFT_N); FFT_WSUM += FFT_WIN[i]; }
+const FFT_RE = new Float64Array(FFT_N), FFT_IM = new Float64Array(FFT_N);
+function fft(re, im) {
+  const n = re.length;
+  for (let i = 1, j = 0; i < n; i++) {
+    let bit = n >> 1;
+    for (; j & bit; bit >>= 1) j ^= bit;
+    j ^= bit;
+    if (i < j) { let t = re[i]; re[i] = re[j]; re[j] = t; t = im[i]; im[i] = im[j]; im[j] = t; }
+  }
+  for (let len = 2; len <= n; len <<= 1) {
+    const ang = -TAU / len, wr = Math.cos(ang), wi = Math.sin(ang), hl = len >> 1;
+    for (let i = 0; i < n; i += len) {
+      let cr = 1, ci = 0;
+      for (let k = 0; k < hl; k++) {
+        const a = i + k, b = a + hl;
+        const vr = re[b] * cr - im[b] * ci, vi = re[b] * ci + im[b] * cr;
+        re[b] = re[a] - vr; im[b] = im[a] - vi; re[a] += vr; im[a] += vi;
+        const t = cr * wr - ci * wi; ci = cr * wi + ci * wr; cr = t;
+      }
+    }
+  }
+}
+/* Power per bin, sine-calibrated (a full-scale sine reads 0 dB), averaged
+   frame to frame with a fixed 0.25 — a per-FRAME constant, not a time one,
+   because frames are counted here and never timed. */
+function spectrumInto(ring, w, pw) {
+  for (let i = 0; i < FFT_N; i++) { FFT_RE[i] = ring[(w + i) & (FFT_N - 1)] * FFT_WIN[i]; FFT_IM[i] = 0; }
+  fft(FFT_RE, FFT_IM);
+  const s = 2 / FFT_WSUM;
+  for (let k = 0; k <= FFT_N / 2; k++) {
+    const p = (FFT_RE[k] * FFT_RE[k] + FFT_IM[k] * FFT_IM[k]) * s * s;
+    pw[k] = pw[k] ? 0.75 * pw[k] + 0.25 * p : p;
+  }
+}
+function peakHold(prevDb, pk) { return Math.max(toDb(pk), prevDb - 0.5); }   // 0.5 dB per frame fall
+
+function eqTick(M) {
+  const L = M.lv;
+  L.dsp.set(M.P); L.src.fill(L.x, HOP); L.dsp.process(L.x, L.y, HOP);
+  let pk = 0;
+  for (let i = 0; i < HOP; i++) {
+    L.pre[L.w] = L.x[i]; L.post[L.w] = L.y[i]; L.w = (L.w + 1) & (FFT_N - 1);
+    const a = Math.abs(L.y[i]); if (a > pk) pk = a;
+  }
+  L.outDb = peakHold(L.outDb, pk);
+  L.clip = pk >= 1 ? 60 : Math.max(0, L.clip - 1);          // latch a clip for 60 frames
+  spectrumInto(L.pre, L.w, L.pwPre); spectrumInto(L.post, L.w, L.pwPost);
+}
+function compTick(M) {
+  const L = M.lv, d = L.dsp;
+  d.set(M.P); L.src.fill(L.x, HOP); d.process(L.x, L.y, HOP);
+  const m = d.m;
+  L.hIn[L.hw] = toDb(m.scPk); L.hOut[L.hw] = toDb(m.outPk); L.hGr[L.hw] = m.grMax; L.hw = (L.hw + 1) % L.hGr.length; L.hn++;
+  L.trail.push([toDb(m.scPk), m.gr]); if (L.trail.length > 24) L.trail.shift();
+  L.inDb = peakHold(L.inDb, m.inPk); L.outDb = peakHold(L.outDb, m.outPk);
+  L.clip = m.outPk >= 1 ? 60 : Math.max(0, L.clip - 1);
+}
+
+/* ---- EQ: the curve over the analyser, with draggable band nodes --------- */
+function drawEq(cv, M, big) {
+  const G = ground(cv); if (!G) return;
+  const { g, w, h, v } = G, P = M.P, L = M.lv;
+    /* Analyser scale is its own: pink at the lab level reads ≈ −45 dB per bin
+     after the tilt, so −78…0 puts it in the lower half, under the curve. */
+  const fmin = 20, fmax = 20000, dR = big ? 24 : 18, aMin = -78, aMax = 0;
+  const x0 = 4 * v, x1 = w - (big ? 34 : 12) * v, top = (big ? 16 : 4) * v, bot = h - (big ? 14 : 4) * v;
+  const X = f => x0 + (x1 - x0) * Math.log(f / fmin) / Math.log(fmax / fmin);
+  const fOf = x => fmin * Math.pow(fmax / fmin, clamp((x - x0) / (x1 - x0), 0, 1));
+  const Y = d => top + (bot - top) * (1 - clamp((d + dR) / (2 * dR), 0, 1));
+  const dbOf = y => -dR + 2 * dR * (1 - (y - top) / (bot - top));
+  const YA = d => top + (bot - top) * (1 - clamp((d - aMin) / (aMax - aMin), 0, 1));
+  for (const d of [-18, -12, -6, 6, 12, 18]) if (Math.abs(d) < dR) hline(G, Y(d), '--scr-grid', 0.1);
+  hline(G, Y(0), '--scr-grid', 0.35);
+  if (big) {
+    for (const f of [50, 100, 200, 500, 1000, 2000, 5000, 10000]) { vline(G, X(f), '--scr-grid', 0.12); label(G, fHz(f), X(f) + 2 * v, h - 3 * v, '--scr-grid', 0.7); }
+    for (const d of [-18, -12, -6, 6, 12, 18]) label(G, (d > 0 ? '+' : '') + d, x0 + 2 * v, Y(d) - 2 * v, '--scr-grid', 0.6, 7.5);
+  }
+  // THE ANALYSER — what the running EQ actually did to the source (cyan = measured).
+  const binHz = LAB_SR / FFT_N, step = 2 * v;
+  const specAt = (pw, xa) => {
+    const fa = fOf(xa), fb = fOf(xa + step), k0 = Math.floor(fa / binHz), k1 = Math.floor(fb / binHz);
+    let p;
+    if (k1 > k0) { p = 0; for (let k = k0; k <= k1; k++) p += pw[Math.min(k, FFT_N / 2)]; p /= (k1 - k0 + 1); }
+    else { const t = fa / binHz - k0; p = pw[Math.min(k0, FFT_N / 2)] * (1 - t) + pw[Math.min(k0 + 1, FFT_N / 2)] * t; }
+    return 10 * Math.log10(Math.max(1e-20, p)) + 3 * Math.log2(fa / 1000);   // +3 dB/oct display tilt
+  };
+  g.beginPath(); g.moveTo(x0, bot);
+  for (let xa = x0; xa <= x1; xa += step) g.lineTo(xa, YA(specAt(L.pwPost, xa)));
+  g.lineTo(x1, bot); g.closePath(); g.fillStyle = TOKA('--scr-meter', 0.16); g.fill();
+  g.strokeStyle = TOKA('--scr-meter', 0.85); g.lineWidth = v; g.beginPath();
+  for (let xa = x0; xa <= x1; xa += step) { const y = YA(specAt(L.pwPost, xa)); if (xa === x0) g.moveTo(xa, y); else g.lineTo(xa, y); }
+  g.stroke();
+  if (big) {
+    g.strokeStyle = TOKA('--scr-meter', 0.4); dash(G, true); g.beginPath();
+    for (let xa = x0; xa <= x1; xa += step) { const y = YA(specAt(L.pwPre, xa)); if (xa === x0) g.moveTo(xa, y); else g.lineTo(xa, y); }
+    g.stroke(); dash(G, false);
+  }
+  // Each band alone (faint), then the curve the filters run (magenta = authored).
+  const NP = big ? 400 : 200;
+  const trace = (fn, a, lw) => {
+    g.strokeStyle = TOKA('--scr-value', a); g.lineWidth = lw * v; g.beginPath();
+    for (let i = 0; i <= NP; i++) { const f = fmin * Math.pow(fmax / fmin, i / NP), y = Y(fn(f)); if (i) g.lineTo(X(f), y); else g.moveTo(X(f), y); }
+    g.stroke();
+  };
+  if (big) P.bands.forEach((b, i) => { if (b.on) trace(bandCurve(P, i, LAB_SR), i === M.sel ? 0.6 : 0.25, 1); });
+  trace(eqCurve(P, LAB_SR), 1, 2);
+  // Nodes. Cuts sit on 0 dB (they have no gain to drag); shelves and peaks on their effective gain.
+  const nodes = [];
+  P.bands.forEach((b, i) => {
+    const t = EQ_TYPES[b.type], nx = X(b.freq), ny = (t === 'LC' || t === 'HC') ? Y(0) : Y(b.gain * P.depth);
+    nodes.push({ i, x: nx, y: ny });
+    const r = (big ? 7 : 4) * v;
+    g.beginPath(); g.arc(nx, ny, r, 0, TAU);
+    if (b.on) {
+      g.fillStyle = i === M.sel ? TOK('--scr-value') : TOK('--scr-tube'); g.fill();
+      g.strokeStyle = TOK('--scr-value'); g.lineWidth = 1.5 * v; g.stroke();
+    } else { g.strokeStyle = TOKA('--scr-grid', 0.7); g.lineWidth = v; dash(G, true); g.stroke(); dash(G, false); }
+    if (big) {
+      g.fillStyle = b.on ? (i === M.sel ? TOK('--scr-tube') : TOK('--scr-value')) : TOKA('--scr-grid', 0.8);
+      g.font = FONT(8 * v); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(String(i + 1), nx, ny + 0.5 * v);
+      g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+    }
+  });
+  cv._map = { v, nodes, fOf, dbOf };
+  // OUT — the EQ's output peak (cyan; alarm = clipped in the last second).
+  const mx = x1 + (big ? 12 : 4) * v, mw = (big ? 12 : 5) * v, MY = d => top + (bot - top) * (1 - clamp((d + 48) / 54, 0, 1));
+  g.fillStyle = TOKA('--scr-grid', 0.15); g.fillRect(mx, top, mw, bot - top);
+  g.fillStyle = L.clip ? TOK('--alarm') : TOK('--scr-meter'); g.fillRect(mx, MY(L.outDb), mw, bot - MY(L.outDb));
+  g.strokeStyle = TOKA('--scr-grid', 0.6); g.lineWidth = v; g.beginPath(); g.moveTo(mx - 2 * v, MY(0)); g.lineTo(mx + mw + 2 * v, MY(0)); g.stroke();
+  if (big) {
+    if (L.clip) { g.fillStyle = TOK('--alarm'); g.font = FONT(7.5 * v); g.fillText('CLIP', mx - 3 * v, h - 3 * v); }
+    else label(G, 'OUT', mx - 1 * v, h - 3 * v, '--scr-grid', 0.9, 7.5);
+    const on = P.bands.filter(b => b.on).length;
+    label(G, 'EQ · ' + on + '/6 bands · depth ' + fPct(P.depth) + ' · analyser: ' + SRC_KINDS[L.src.kind].toLowerCase()
+      + ' after the EQ (dashed = before), +3 dB/oct', 6 * v, 11 * v, '--scr-marker', 1, 9.5);
+  }
+}
+
+/* ---- COMP: transfer + meters + sidechain, and the history strip -------- */
+function paintTransfer(G, M, x0, y0, s, big) {
+  const { g, v } = G, P = M.P, L = M.lv, lo = -60, hi = 6;
+  const X = d => x0 + s * clamp((d - lo) / (hi - lo), 0, 1), Y = d => y0 + s * (1 - clamp((d - lo) / (hi - lo), 0, 1));
+  g.strokeStyle = TOKA('--scr-grid', 0.3); g.lineWidth = v; g.strokeRect(x0, y0, s, s);
+  if (big) for (const d of [-48, -36, -24, -12, 0]) {
+    g.strokeStyle = TOKA('--scr-grid', 0.1); g.beginPath(); g.moveTo(X(d), y0); g.lineTo(X(d), y0 + s); g.moveTo(x0, Y(d)); g.lineTo(x0 + s, Y(d)); g.stroke();
+    label(G, String(d), X(d) + 2 * v, y0 + s - 3 * v, '--scr-grid', 0.6, 7);
+  }
+  g.strokeStyle = TOKA('--scr-grid', 0.6); dash(G, true); g.beginPath(); g.moveTo(X(lo), Y(lo)); g.lineTo(X(hi), Y(hi)); g.stroke(); dash(G, false);
+  if (P.knee > 0) { g.fillStyle = TOKA('--scr-value', 0.1); g.fillRect(X(P.thr - P.knee / 2), y0, X(P.thr + P.knee / 2) - X(P.thr - P.knee / 2), s); }
+  g.strokeStyle = TOKA('--scr-value', 0.45); g.lineWidth = v; g.beginPath(); g.moveTo(X(P.thr), y0); g.lineTo(X(P.thr), y0 + s); g.stroke();
+  g.save(); g.beginPath(); g.rect(x0, y0, s, s); g.clip();
+  g.strokeStyle = TOK('--scr-value'); g.lineWidth = 2 * v; g.beginPath();
+  for (let i = 0; i <= 120; i++) { const d = lo + (hi - lo) * i / 120, y = Y(compStatic(d, P.thr, P.ratio, P.knee) + P.makeup); if (i) g.lineTo(X(d), y); else g.moveTo(X(d), y); }
+  g.stroke();
+  // Operating point (violet = what the engine is doing): detector level, and
+  // that level after the CURRENT envelope — on the curve only when steady.
+  L.trail.forEach((p, k) => {
+    if (p[0] < lo) return;
+    g.fillStyle = TOKA('--scr-physics', 0.12 + 0.5 * k / L.trail.length);
+    g.beginPath(); g.arc(X(p[0]), Y(p[0] - p[1] + P.makeup), (big ? 2 : 1.2) * v, 0, TAU); g.fill();
+  });
+  const op = L.trail[L.trail.length - 1];
+  if (op && op[0] >= lo) {
+    g.fillStyle = TOK('--scr-physics'); g.beginPath(); g.arc(X(op[0]), Y(op[0] - op[1] + P.makeup), (big ? 4.5 : 2.5) * v, 0, TAU); g.fill();
+    g.strokeStyle = TOK('--scr-tube'); g.lineWidth = v; g.stroke();
+  }
+  g.restore();
+  if (big) {
+    label(G, 'TRANSFER', x0 + 3 * v, y0 - 4 * v, '--scr-marker', 1, 9.5);
+    label(G, fDb(P.thr) + ' · ' + (P.ratio >= 19.95 ? '20' : P.ratio.toFixed(1)) + ':1 · knee ' + (P.knee ? P.knee.toFixed(1) : 'hard'),
+      x0 + 4 * v, y0 + 11 * v, '--scr-value', 1, 8);
+  }
+}
+function paintMeter(G, x, top, bot, wd, db, lo, hi, tok, fromTop, clip) {
+  const { g, v } = G, Y = d => top + (bot - top) * (1 - clamp((d - lo) / (hi - lo), 0, 1));
+  g.fillStyle = TOKA('--scr-grid', 0.15); g.fillRect(x, top, wd, bot - top);
+  g.fillStyle = clip ? TOK('--alarm') : TOK(tok);
+  if (fromTop) { const yy = top + (bot - top) * clamp(db / hi, 0, 1); g.fillRect(x, top, wd, yy - top); }
+  else g.fillRect(x, Y(db), wd, bot - Y(db));
+  g.strokeStyle = TOKA('--scr-grid', 0.5); g.lineWidth = v; g.strokeRect(x, top, wd, bot - top);
+}
+function drawComp(cv, M, big) {
+  const G = ground(cv); if (!G) return;
+  const { g, w, h, v } = G, P = M.P, L = M.lv;
+  const y0 = (big ? 18 : 4) * v, s = h - y0 - (big ? 6 : 4) * v, pad = 6 * v;
+  paintTransfer(G, M, pad, y0, s, big);
+  const gr = L.dsp.m.gr;
+  if (!big) {
+    // Face: transfer, then the GR bar and its number.
+    const mx = pad * 2 + s;
+    paintMeter(G, mx, y0, y0 + s, 8 * v, gr, 0, 24, '--scr-physics', true, false);
+    label(G, 'GR ' + gr.toFixed(1) + ' dB', mx + 14 * v, y0 + 12 * v, '--scr-physics', 1, 9.5);
+    label(G, 'OUT ' + (L.outDb > -99 ? L.outDb.toFixed(1) : '−∞') + ' dBFS', mx + 14 * v, y0 + 26 * v, '--scr-meter', 1, 8.5);
+    if (L.clip) { g.fillStyle = TOK('--alarm'); g.font = FONT(8.5 * v); g.fillText('CLIP', mx + 14 * v, y0 + 40 * v); }
+    return;
+  }
+  // Meters: IN, GR, OUT.
+  const mx = pad * 2 + s + 4 * v, mw = 14 * v, gap = 10 * v;
+  paintMeter(G, mx, y0, y0 + s, mw, L.inDb, -60, 6, '--scr-meter', false, false);
+  paintMeter(G, mx + mw + gap, y0, y0 + s, mw, gr, 0, 24, '--scr-physics', true, false);
+  paintMeter(G, mx + 2 * (mw + gap), y0, y0 + s, mw, L.outDb, -60, 6, '--scr-meter', false, L.clip > 0);
+  label(G, 'IN', mx, y0 - 4 * v, '--scr-meter', 1, 8);
+  label(G, 'GR', mx + mw + gap, y0 - 4 * v, '--scr-physics', 1, 8);
+  if (L.clip) { g.fillStyle = TOK('--alarm'); g.font = FONT(8 * v); g.fillText('CLIP', mx + 2 * (mw + gap), y0 - 4 * v); }
+  else label(G, 'OUT', mx + 2 * (mw + gap), y0 - 4 * v, '--scr-meter', 1, 8);
+  label(G, gr.toFixed(1), mx + mw + gap, y0 + s - 2 * v, '--scr-physics', 1, 7.5);
+  // Sidechain: the HPF the detector listens through.
+  const sx = mx + 3 * (mw + gap) + 6 * v, sw = w - sx - pad;
+  if (sw > 60 * v) {
+    const fmin = 20, fmax = 20000, X = f => sx + sw * Math.log(f / fmin) / Math.log(fmax / fmin), Y = d => y0 + s * (1 - clamp((d + 36) / 42, 0, 1));
+    g.strokeStyle = TOKA('--scr-grid', 0.3); g.lineWidth = v; g.strokeRect(sx, y0, sw, s);
+    for (const f of [100, 1000, 10000]) { g.strokeStyle = TOKA('--scr-grid', 0.12); g.beginPath(); g.moveTo(X(f), y0); g.lineTo(X(f), y0 + s); g.stroke(); label(G, fHz(f), X(f) + 2 * v, y0 + s - 3 * v, '--scr-grid', 0.6, 7); }
+    g.strokeStyle = TOKA('--scr-grid', 0.35); g.beginPath(); g.moveTo(sx, Y(0)); g.lineTo(sx + sw, Y(0)); g.stroke();
+    const sec = rbj('LC', P.scHz, 0, Math.SQRT1_2, LAB_SR);
+    g.strokeStyle = P.scOn ? TOK('--scr-value') : TOKA('--scr-value', 0.35); g.lineWidth = (P.scOn ? 2 : 1) * v; dash(G, !P.scOn); g.beginPath();
+    for (let i = 0; i <= 200; i++) { const f = fmin * Math.pow(fmax / fmin, i / 200), y = Y(P.scOn ? toDb(secMag(sec, f, LAB_SR)) : 0); if (i) g.lineTo(X(f), y); else g.moveTo(X(f), y); }
+    g.stroke(); dash(G, false);
+    label(G, 'SIDECHAIN · ' + (P.scOn ? 'HPF ' + fHz(P.scHz) + ' 12 dB/oct' : 'HPF off — the detector hears everything'), sx + 3 * v, y0 - 4 * v, '--scr-marker', 1, 9.5);
+  }
+}
+function drawCompHistory(cv, M) {
+  const G = ground(cv); if (!G) return;
+  const { g, w, h, v } = G, P = M.P, L = M.lv, n = L.hGr.length, k0 = n - Math.min(n, L.hn);   // draw rendered frames only
+  const top = 6 * v, bot = h - 12 * v, X = k => 4 * v + (w - 8 * v) * k / (n - 1);
+  const YL = d => top + (bot - top) * (1 - clamp((d + 60) / 66, 0, 1));
+  hline(G, YL(0), '--scr-grid', 0.3);
+  g.strokeStyle = TOKA('--scr-value', 0.5); g.lineWidth = v; dash(G, true); g.beginPath(); g.moveTo(0, YL(P.thr)); g.lineTo(w, YL(P.thr)); g.stroke(); dash(G, false);
+  // GR from the top (violet), then the input (dashed cyan) and output (cyan) peaks.
+  g.fillStyle = TOKA('--scr-physics', 0.35); g.beginPath();
+  g.moveTo(X(k0), top);
+  for (let k = k0; k < n; k++) g.lineTo(X(k), top + (bot - top) * clamp(L.hGr[(L.hw + k) % n] / 24, 0, 1));
+  g.lineTo(X(n - 1), top); g.closePath(); g.fill();
+  const line = (arr, a, dsh) => {
+    g.strokeStyle = TOKA('--scr-meter', a); g.lineWidth = 1.2 * v; dash(G, dsh); g.beginPath();
+    for (let k = k0; k < n; k++) { const y = YL(arr[(L.hw + k) % n]); if (k > k0) g.lineTo(X(k), y); else g.moveTo(X(k), y); }
+    g.stroke(); dash(G, false);
+  };
+  line(L.hIn, 0.55, true); line(L.hOut, 1, false);
+  label(G, 'GR 0…24 dB from the top (violet) · detector in (dashed) · out (solid) · threshold (magenta dashed) · source ' + SRC_KINDS[L.src.kind].toLowerCase(),
+    6 * v, h - 3 * v, '--scr-grid', 0.9, 8);
+}
+
+/* ---- EQ: drag the curve. The painter left `cv._map` (its own mapping and the
+   node positions), so the pointer maps through the SAME arithmetic that drew
+   what it is pointing at. ---------------------------------------------------- */
+function wireEq(M) {
+  for (const cv of [M.mini, M.bigCv]) {
+    if (!cv || !cv.addEventListener) continue;
+    let drag = -1;
+    const at = e => { const r = cv.getBoundingClientRect(), k = cv.width / Math.max(1, r.width); return [(e.clientX - r.left) * k, (e.clientY - r.top) * k]; };
+    const hit = (px, py) => {
+      const mp = cv._map; if (!mp) return -1;
+      let best = -1, bd = Math.pow(12 * mp.v, 2);
+      for (const nd of mp.nodes) { const d = (nd.x - px) * (nd.x - px) + (nd.y - py) * (nd.y - py); if (d < bd) { bd = d; best = nd.i; } }
+      return best;
+    };
+    const lightBand = (i, on) => hlRows(M, ['on', 'type', 'freq', 'gain', 'q', 'slope'].map(k => ({ t: 'bands.' + i + '.' + k })), on);
+    cv.addEventListener('pointerdown', e => {
+      const [px, py] = at(e), i = hit(px, py);
+      if (M.sel >= 0) lightBand(M.sel, false);
+      M.sel = i;
+      if (i < 0) { paintModule(M); return; }
+      e.preventDefault(); drag = i;
+      try { cv.setPointerCapture(e.pointerId); } catch (_) { /* pointer already gone */ }
+      lightBand(i, true); paintModule(M);
+    });
+    cv.addEventListener('pointermove', e => {
+      const [px, py] = at(e);
+      if (drag < 0) { cv.style.cursor = hit(px, py) >= 0 ? 'grab' : 'default'; return; }
+      const mp = cv._map, b = M.P.bands[drag], t = EQ_TYPES[b.type];
+      b.freq = clamp(mp.fOf(px), 20, 20000);
+      if (t !== 'LC' && t !== 'HC' && M.P.depth > 0.01) b.gain = clamp(mp.dbOf(py) / M.P.depth, -18, 18);
+      refresh(M);
+    });
+    const up = () => { drag = -1; };
+    cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+    cv.addEventListener('wheel', e => {
+      const [px, py] = at(e), i = hit(px, py);
+      if (i < 0) return;
+      e.preventDefault();
+      const b = M.P.bands[i]; b.q = clamp(b.q * (e.deltaY < 0 ? 1.1 : 1 / 1.1), 0.1, 18); M.sel = i; refresh(M);
+    }, { passive: false });
+    cv.addEventListener('dblclick', e => {
+      const [px, py] = at(e), i = hit(px, py);
+      if (i < 0) return;
+      M.P.bands[i].on = !M.P.bands[i].on; refresh(M);
+    });
+  }
+}
+/* The lab source bar — lab chrome, NOT a module control: it lives above the
+   expanded picture, outside the rows, so the audit's control counts stay the
+   module's own. */
+function labSourceBar(M) {
+  const bar = el('div', 'srcbar'), src = M.lv.src;
+  bar.appendChild(el('span', 'lbl', 'LAB SOURCE'));
+  const box = el('div', 'pills'), btns = [];
+  const lvIn = el('input'); lvIn.type = 'range'; lvIn.min = '-30'; lvIn.max = '12'; lvIn.step = '0.5';
+  const lvOut = el('output');
+  const show = () => {
+    btns.forEach(([k, b]) => b.classList.toggle('on', k === src.kind));
+    lvIn.value = String(src.lvl); setPct(lvIn, -30, 12);
+    lvOut.textContent = src.kind === 2 ? fDb(src.lvl).replace('dB', ' dBFS pk') : fDb(src.lvl) + ' trim';
+  };
+  for (const k of M.srcKinds) {
+    const b = el('button', 'pill', SRC_KINDS[k]);
+    b.dataset.lab = 'the signal the lab renders through this module';
+    b.addEventListener('click', () => { src.kind = k; if (k === 2 && src.lvl === 0) src.lvl = -6; show(); });
+    box.appendChild(b); btns.push([k, b]);
+  }
+  lvIn.addEventListener('input', () => { src.lvl = parseFloat(lvIn.value); show(); });
+  bar.appendChild(box); bar.appendChild(lvIn); bar.appendChild(lvOut);
+  show();
+  return bar;
+}
+/* The self-check lines the audit prints for the two live cards. */
+function selfCheckLine(M) {
+  const r = M.check, errs = [];
+  if (!r) return { html: '', errs };
+  if (M.id === 'eq') {
+    if (!r.pass) errs.push('drawn curve vs measured filters Δ ' + r.worst.toFixed(3) + ' dB > ' + EQ_CHECK_TOL);
+    if (!r.ctlFails) errs.push('must-fail control PASSED (48 kHz curve Δ ' + r.ctl.toFixed(3) + ' dB) — the curve check is blind');
+    return { errs, html: 'curve ↔ measured Δ <b>' + r.worst.toFixed(3) + ' dB</b> over ' + r.pts + ' pts (tol ' + EQ_CHECK_TOL
+      + ') · control, 48 kHz curve: Δ ' + r.ctl.toFixed(2) + ' dB ' + (r.ctlFails ? 'FAILS as it must' : 'PASSED') };
+  }
+  if (!r.pass) errs.push('steady-state GR vs transfer curve Δ ' + r.worst.toFixed(3) + ' dB > ' + COMP_CHECK_TOL + (r.grSilent ? ', silent instance GR ' + r.grSilent.toFixed(2) : ''));
+  if (!r.ctlFails) errs.push('must-fail control PASSED (hard-knee curve Δ ' + r.ctl.toFixed(3) + ' dB) — the GR check is blind');
+  if (!r.sharedFails) errs.push('must-fail control PASSED (shared envelope, silent GR ' + r.grShared.toFixed(2) + ' dB) — the per-instance check is blind');
+  return { errs, html: 'GR ↔ curve Δ <b>' + r.worst.toFixed(3) + ' dB</b> at 4 sine levels (tol ' + COMP_CHECK_TOL + ') · control, hard-knee curve: Δ '
+    + r.ctl.toFixed(2) + ' dB ' + (r.ctlFails ? 'FAILS as it must' : 'PASSED') + ' · silent 2nd instance <b>' + r.grSilent.toFixed(2)
+    + ' dB</b> · control, B230 shared envelope: ' + r.grShared.toFixed(1) + ' dB ' + (r.sharedFails ? 'FAILS as it must' : 'PASSED') };
+}
+
 /* ================= BUILDERS ============================================== */
 const $ = s => document.getElementById(s);
 function el(tag, cls, txt) {
@@ -1928,7 +2701,8 @@ function buildModule(M, rack) {
   M.cntEl = el('span', 'cnt');
   xh.appendChild(M.cntEl);
   xp.appendChild(xh);
-  M.bigCv = el('canvas', 'big');
+  if (M.lv) xp.appendChild(labSourceBar(M));
+  M.bigCv = el('canvas', 'big' + (M.tall ? ' tall' : ''));
   xp.appendChild(M.bigCv);
   if (M.aux) {
     xp.appendChild(el('div', 'cap', M.auxLabel));
@@ -1941,6 +2715,7 @@ function buildModule(M, rack) {
   xp.appendChild(nt);
   card.appendChild(xp);
   rack.appendChild(card);
+  if (M.id === 'eq') wireEq(M);
   rebuild(M);
 }
 function rebuild(M) {
@@ -2011,6 +2786,11 @@ function audit() {
         if (names.join('|') !== MAW_CURVES.join('|')) errs.push('maw: curve names drifted from core.js SHAPERS');
       }
     }
+    if (M.check) {
+      const sc = selfCheckLine(M);
+      extra += ' · ' + sc.html;
+      for (const e of sc.errs) errs.push(M.id + ': ' + e);
+    }
     if (M.id === 'sluice') {
       const rb = sluiceSlots(M, 'role').filter(s => s.b.length).length;
       parts.push('<b>sluice</b> ' + nCtl + ' · role-keyed <b>' + rb + '/4</b> · order-keyed <b>' + bound + '/4</b>');
@@ -2027,6 +2807,13 @@ function audit() {
 /* ================= WIRING ================================================ */
 const MODULES = [];
 function paintAll() { for (const M of MODULES) paintModule(M); }
+/* B234's two live cards advance one HOP per frame. requestAnimationFrame only
+   paces the loop; nothing reads a clock, so N frames always render the same
+   N·HOP samples. */
+function liveLoop() {
+  for (const M of MODULES) if (M.tick) { M.tick(M); paintModule(M); }
+  requestAnimationFrame(liveLoop);
+}
 let dark = false;
 let openQ = '';
 try {
@@ -2048,10 +2835,21 @@ function applyTheme() {
 /* ============ SETUP — everything above is declared (L0026) ============ */
 {
   const rack = $('rack');
-  const mods = [reverbModule(), mawModule(), sluiceModule(), combModule(), echoModule(), driveModule(), filterModule()];
+  const mods = [reverbModule(), mawModule(), sluiceModule(), combModule(), echoModule(), driveModule(), filterModule(),
+    eqModule(), compModule()];
   const maw = mods[1];
   maw.P = mawFresh();
   for (const M of mods) MODULES.push(M);
+  // B234: the load-time self-checks, before anything draws, and exported for
+  // tools/labharness/fxlab_check.mjs (which runs them under ./verify fast).
+  const eqM = mods[7], compM = mods[8];
+  eqM.tick = eqTick; compM.tick = compTick;
+  eqM.check = eqSelfCheck(); compM.check = compSelfCheck();
+  globalThis.FXLAB_SELFCHECK = { eq: eqM.check, comp: compM.check,
+    errors: [eqM, compM].reduce((a, M) => a.concat(selfCheckLine(M).errs.map(e => M.id + ': ' + e)), []) };
+  // Prime half a second of signal so the first paint already shows an
+  // analyser and a GR history (and a headless screenshot is not blank).
+  for (let k = 0; k < 30; k++) { eqTick(eqM); compTick(compM); }
   if (rack) for (const M of MODULES) buildModule(M, rack);
   for (const M of MODULES) if (openQ === 'all' || openQ.split(',').indexOf(M.id) >= 0) setOpen(M, true);
   audit();
@@ -2061,6 +2859,7 @@ function applyTheme() {
   if (tb && tb.addEventListener) tb.addEventListener('click', () => { dark = !dark; applyTheme(); });
   if (window.addEventListener) window.addEventListener('resize', paintAll);
   applyTheme();
+  if (typeof requestAnimationFrame === 'function') requestAnimationFrame(liveLoop);
 }
 </script>
 </body></html>

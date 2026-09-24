@@ -163,6 +163,16 @@ PY
       echo "verify: lab load check FAILED" >&2; cat /tmp/labload.$$ >&2; ok=1; }
     rm -f /tmp/labload.$$
 
+    # THE FX LAB'S EQ AND COMP PICTURES ARE THE DSP'S (B234). The lab draws an
+    # EQ curve and a compressor transfer curve and measures both at load with
+    # sines, each against a must-fail control (a 48 kHz curve, a hard-knee
+    # curve, B230's shared envelope). The page only prints the verdict; this
+    # runs the same self-checks headlessly (~1 s) so a lying picture fails CI.
+    node tools/labharness/fxlab_check.mjs > /tmp/fxlab.$$ 2>&1 || {
+      echo "verify: FX lab self-check FAILED" >&2; cat /tmp/fxlab.$$ >&2; ok=1; }
+    tail -1 /tmp/fxlab.$$
+    rm -f /tmp/fxlab.$$
+
     # EVERY GUI CONTROL MARKS THE HISTORY EXACTLY ONCE (B191). The human
     # changed the sub's Wave and no node appeared; the cause was general, not
     # the sub's — a history node exists only where a gesture bracket CLOSES,
