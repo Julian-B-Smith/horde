@@ -2931,6 +2931,15 @@ struct Plugin
      differs per source. Sized in morphInit; the audio thread only writes. */
   std::vector<int32_t> morphGateSlotList;
   std::vector<uint8_t> morphSrcWasOff;
+  /* Per gate slot, the source's LIVE WEIGHT at the previous tick (critic
+     re-review, PR #744) — what "was off" is keyed on. NOT the committed
+     enable: an unarmed write of the gate (a GUI click, host automation)
+     reaches applyParam, which switches the engine on as the event arrives,
+     so the enable already reads ON at the top of the next tick while every
+     gated slot still holds its silent value. The weight is computed from the
+     corners (the ramp's own sum), so the puck, the GUI and the host are one
+     case. 0 at init: the first tick lands anyway (morphCur is the sentinel). */
+  std::vector<double> morphGatePrevLiveW;
   // ADR-115: MUST match the ParamDef defaults for 152/153 (corner A = 0,0).
   // paramscope_check's default-truth sweep exists for exactly this pair going
   // out of step, and caught it the first time this changed.
@@ -2938,6 +2947,18 @@ struct Plugin
   double morphOn = 0, morphMode = 0, morphGlideS = 0.008;
   uint32_t morphSeed = 1024;
   int morphAccum = 0;
+  /* ADR-183 / critic re-review (PR #744): a live write of a source's GATE at
+     revision 2 in blend asks the field for a tick NOW rather than at the next
+     grid boundary. applyParam switches the engine on as the event arrives, so
+     without it the source re-struck and sounded its slots' SILENT values
+     (the plain blend near an OFF corner) for up to one grid tick (5.8 ms)
+     before morphStep's landing — measured with 32-sample host blocks: osc 2
+     sounded (peak 6.4e-2 above the no-toggle render) at detune 0.31, the
+     silent plain blend, for up to 5 blocks before landing on 0.1. The forced tick runs in the morphStep call
+     that precedes the render of the event's span, so the landing happens
+     before the first re-struck sample. It is keyed on the EVENT's position,
+     not on block boundaries, so ADR-086's subdivision independence holds. */
+  bool morphTickNow = false;
   /* ADR-176 decision 6 — the intent-bus flag (param 266). Kept here rather
      than beside the rack's flags because it gates ONE branch, at the top of
      morphStep, and reads as a morph control at the only site that consults
@@ -3176,6 +3197,7 @@ struct Plugin
                         morphGateSlotList.end())
         morphGateSlotList.push_back(g);
     morphSrcWasOff.assign(morphIds.size(), 0);
+    morphGatePrevLiveW.assign(morphIds.size(), 0.0);
 
     for (int k = 0; k < 4; k++) morphCorner[k].assign(morphIds.size(), 0.0);
     morphCur.assign(morphIds.size(), -1e30);
@@ -3518,7 +3540,15 @@ struct Plugin
     for (size_t i = 0; i < morphIds.size(); i++)
       if (morphIds[i] == id) { idx = i; break; }
     if (idx == morphIds.size()) return true;          // not morphed: normal edit
-    if (idx < morphExempt.size() && morphExempt[idx]) return true;   // exempt: live only
+    // ADR-183: a gate written LIVE (exempt, or unarmed below) lands its
+    // source's slots before the re-strike sounds — see morphTickNow.
+    const bool gateLive = engineRevision() >= 2 && (int)morphMode == 1 &&
+                          (isEngineGateId(id) || (oscOfId(id) < kNumOsc && baseIdOf(id) == 150));
+    if (idx < morphExempt.size() && morphExempt[idx])   // exempt: live only
+    {
+      if (gateLive) morphTickNow = true;
+      return true;
+    }
 
     const int armed = (int)morphArm;
     if (armed >= 1 && armed <= 4)
@@ -3559,6 +3589,7 @@ struct Plugin
     // quantum: the corner that won this parameter owns the edit
     const int k = morph.pickCorner((int)morphGroupLead(idx), lw, morphCoup);
     morphCorner[k][idx] = v;
+    if (gateLive) morphTickNow = true;   // a gate is stepped, so it always arrives here unarmed
     return true;
   }
 
@@ -4361,11 +4392,27 @@ struct Plugin
        live in corners and with no field there is no owner — and a reader of
        this line should not have to go and find the caller to learn that. */
     if (intentBusOn > 0.5 && morphOn > 0.5) { intentStep(samples); return; }
-    morphAccum += samples;
     const int grid = (int)std::lround(sampleRate * hypersaw::kGravGridSeconds);
-    if (morphAccum < grid) return;
-    const double dt = (double)morphAccum / sampleRate;
-    morphAccum = 0;
+    double dt;
+    if (morphTickNow)
+    {
+      /* The forced tick (a gate written live, ADR-183): it happens AT the
+         event, so its interval is the time elapsed up to the event — NOT
+         including the span about to render, whose length is wherever the
+         host or the next event happens to split the block. The span starts
+         the next grid interval instead. Both choices keep the tick keyed on
+         the event's sample position, independent of host subdivision. */
+      morphTickNow = false;
+      dt = (double)morphAccum / sampleRate;
+      morphAccum = samples;
+    }
+    else
+    {
+      morphAccum += samples;
+      if (morphAccum < grid) return;
+      dt = (double)morphAccum / sampleRate;
+      morphAccum = 0;
+    }
     double w[4], lw[4];
     hypersaw::MorphCore::weights(morphX, morphY, w);
     hypersaw::MorphCore::logW(w, morphTemp, lw);
@@ -4383,13 +4430,24 @@ struct Plugin
        FROM: on the tick its source comes back, a gated continuous slot takes
        its target outright — the "never applied yet" landing morphApplyTarget
        gives the -1e29 sentinel, written as a direct commit so a slot whose
-       source stays off is not re-applied every tick. The state is read at the
-       TOP of the tick, before the loop re-commits the gate. Blend only, like
-       the rule itself; revision 1 never reads it. */
+       source stays off is not re-applied every tick. Blend only, like the
+       rule itself; revision 1 never reads it.
+       "WAS OFF" IS THE PREVIOUS TICK'S LIVE WEIGHT <= kMorphOnFloor — the
+       same quantity and threshold the ramp switches the source on by — not
+       the committed enable (see morphGatePrevLiveW for why the enable is too
+       early). An EXEMPT gate is live-only, so its weight is its live value.
+       The weights are refreshed every revision-2 tick in either mode, so a
+       quantum -> blend switch does not read a stale one. */
     const bool landRule = offCornerRule && (int)morphMode == 1;
-    if (landRule)
+    if (offCornerRule)
       for (int32_t g : morphGateSlotList)
-        morphSrcWasOff[(size_t)g] = readParam(morphIds[(size_t)g]) < 0.5 ? 1 : 0;
+      {
+        const size_t gs = (size_t)g;
+        const double now = morphExempt[gs] ? (readParam(morphIds[gs]) >= 0.5 ? 1.0 : 0.0)
+                                           : morphOnWeight(gs, w);
+        morphSrcWasOff[gs] = morphGatePrevLiveW[gs] <= kMorphOnFloor ? 1 : 0;
+        morphGatePrevLiveW[gs] = now;
+      }
     for (size_t i = 0; i < morphIds.size(); i++)
     {
       const ParamDef *d = findParam(morphIds[i]);

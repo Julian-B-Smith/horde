@@ -36,7 +36,10 @@
  * while a note sounds, at a real glide — the OFF corner must not be heard on
  * the way up, so the render must equal the as-if patch's (5c); a patch whose
  * ON corners DIFFER, so the renormalised mix itself is asserted (5b); and the
- * off-grid control proving its own power (the two sums differ there).
+ * off-grid control proving its own power (the two sums differ there). On
+ * re-review: the GATE switched on directly (a GUI click or host automation)
+ * while morph runs — the slot lands, and no sample sounds the silent values
+ * even when the write arrives between grid ticks (5d).
  *
  * WHICH SOURCES. Swarm 2 (1150 over the 1000-block), Swarm 1 (150 over osc 1's
  * ids) and the Sub (gate 4015 over 4000..4019) — every source the shell has,
@@ -682,6 +685,96 @@ int main(int argc, char **argv)
                     fmt(", glide %g s — rev 2 renders bit-identically to the as-if patch", glide) +
                     " (" + hex(real.hash) + " vs " + hex(asif.hash) + ")");
         }
+  }
+
+  /* ---- 5d. THE GATE SWITCHED ON DIRECTLY (critic re-review, PR #744) -----
+     The source is OFF in every corner, puck at (0.3, 0), glide 0.5 s. An
+     UNARMED write of the gate — the path a GUI click and host automation both
+     take — turns it on in the corner that owns it (ADR-109), and applyParam
+     flips the engine on AS THE EVENT ARRIVES, so a "was off" read from the
+     committed enable already says ON by the next tick. Two rows per source:
+       VALUE — one tick later the slot reads the ON corner's value, not a
+         point on a glide down from the plain blend (0.31 -> 0.3076 -> ... ->
+         0.1 before the fix, which keyed "was off" on the committed enable);
+       AUDIO — the toggle arrives at sample 100, BETWEEN grid ticks, with a
+         second (inert) event at sample 200 so the block is split again
+         before the grid boundary. The re-strike sounds from sample 100; the
+         whole render must equal the AS-IF patch's (the corner that stays OFF
+         holding the value the ON corner has), i.e. no sample was rendered
+         with the silent values. Without the forced tick at the gate write
+         (morphTickNow) samples 100..199 are rendered stale. */
+  {
+    struct Tg { const char *what; clap_id gate, id; double offV, onV; };
+    const Tg tg[] = {{"osc 2 (1150)", 1150, 1004, kDetA, kDetB},
+                     {"sub (4015)", 4015, 4007, 0.2, 0.9}};
+    auto build = [](const Tg &t, bool asif) {
+      Patch a;
+      a.live = {{t.gate, 0.0}};
+      for (int k = 0; k < 4; k++)
+        a.corner[k] = {{t.gate, 0.0}, {t.id, (k & 1) && !asif ? t.onV : t.offV}};
+      a.x = 0.3;
+      a.glide = 0.5;
+      return atRevision(capture(a), 2);
+    };
+    for (const auto &t : tg)
+    {
+      // VALUE row.
+      {
+        Rig r;
+        r.boot();
+        hypersaw_debug_apply(r.p, build(t, false).c_str());
+        r.run(0.05);
+        r.noteOn(48);
+        r.run(0.2);
+        r.send({{t.gate, 1.0}});                   // the toggle, unarmed, at a grid boundary
+        r.run(1.0 / 44100.0 * kBlock * 1.0001);    // one more block = one more grid tick
+        // Which corner(s) the edit switched on — read back, not assumed.
+        std::vector<int> on;
+        for (int k = 0; k < 4; k++)
+        {
+          const std::string c = hypersaw_debug_cornervals(r.p, k);
+          const std::string key = "\"" + std::to_string(t.gate) + "\":";
+          const size_t at = c.find(key);
+          if (at != std::string::npos && std::strtod(c.c_str() + at + key.size(), nullptr) >= 0.5)
+            on.push_back(k);
+        }
+        const double want = on.size() == 1 ? ((on[0] & 1) ? t.onV : t.offV) : NAN;
+        const double got = r.get(t.id);
+        check(on.size() == 1 && on[0] == 0 && r.get(t.gate) == 1.0 && same(got, want),
+              std::string("gate on directly: ") + t.what + " toggled ON at x 0.3, glide 0.5 s — one " +
+                  "tick later id " + std::to_string(t.id) +
+                  fmt(" reads the ON corner's %.6g (read %.17g)", want, got) + ", ON corner(s) " +
+                  std::to_string(on.size()));
+        r.kill();
+      }
+      // AUDIO row.
+      uint64_t h[2] = {0, 0};
+      for (int asif = 0; asif < 2; asif++)
+      {
+        Rig r;
+        r.boot();
+        hypersaw_debug_apply(r.p, build(t, asif != 0).c_str());
+        r.run(0.05);
+        r.hash = 1469598103934665603ull;
+        r.noteOn(48);
+        r.run(0.2);
+        EvList e;
+        clap_event_param_value_t tog = mkParam(t.gate, 1.0);
+        tog.header.time = 100;
+        clap_event_param_value_t inert = mkParam(100, r.get(100));   // masterVol, to itself
+        inert.header.time = 200;
+        e.params.push_back(tog);
+        e.params.push_back(inert);
+        r.step(e);
+        r.run(0.3);
+        h[asif] = r.hash;
+        r.kill();
+      }
+      check(h[0] == h[1], std::string("gate on directly: ") + t.what +
+                              " toggled ON at sample 100 (mid-grid) — the render equals the as-if "
+                              "patch, so no sample sounds the silent values (" +
+                              hex(h[0]) + " vs " + hex(h[1]) + ")");
+    }
   }
 
   /* ---- 6. the inverse: a live edit STICKS under the law that reads it ---- */
