@@ -3665,7 +3665,10 @@ struct Plugin
     char buf[64];
     for (const auto &d : g_routingTable.defs)
     {
-      const double v = getRoutingParam(d.id);
+      // readParam, not getRoutingParam (B241): a cell under a mod route holds
+      // its MODULATED coefficient in the matrix, and this chunk is what a save
+      // and a history node persist. readParam answers the ADR-136 base first.
+      const double v = readParam(d.id);
       if (v == d.defV) continue;
       std::snprintf(buf, sizeof(buf), "%s%u:%.17g", out.empty() ? "" : ",", (unsigned)d.id, v);
       out += buf;
@@ -6920,6 +6923,11 @@ struct Plugin
       if (id == 70)  // ADR-059 dev: inertia taper exponent; re-derive inertia now
       {
         inertiaCurve = v;
+        // This row returns before the ADR-136 base intercept below, so a write
+        // under modulation must land its base here or the next mod tick puts
+        // the old base back (B241, modreadback_check §B).
+        if (!modFromMatrix)
+          if (ModDest *md = modDestFor(id, false)) md->base = v;
         core.setParam("inertia",
                       inertiaCurve == 0.5 ? std::sqrt(inertiaKnob) : std::pow(inertiaKnob, inertiaCurve));
         return;
@@ -6935,8 +6943,16 @@ struct Plugin
          lands as the new BASE for a modulated destination; the offset is
          re-applied on the next mod tick rather than here, so a user drag under
          modulation feels like dragging the base. */
+      /* THE BASE IS IN THE ROW'S OWN DOMAIN (B241). Two rows transform the
+         written value on its way to storage, and the base must be the value
+         readback reports with no route, or a save under modulation persists a
+         number no route-free write could produce: Inertia (11) stores the KNOB
+         but `applied` is already the tapered core value (a 0.1 write became a
+         0.0032 base); Step Grid (148) snaps to a musical division below, after
+         this line. modreadback_check §B's write law measures both. */
       if (!modFromMatrix)
-        if (ModDest *md = modDestFor(id, false)) md->base = applied;
+        if (ModDest *md = modDestFor(id, false))
+          md->base = id == 11 ? inertiaKnob : id == 148 ? snapGridStep(applied) : applied;
       /* ADR-088 routing block. Placed AFTER the morph/mod hooks above (a
          crosspoint is morphable, so a corner edit has to route like any other
          parameter) and BEFORE every `baseIdOf` test below, which would alias a
@@ -7460,6 +7476,18 @@ struct Plugin
   {
     if (const ParamDef *d = findParam(id))
     {
+      /* ADR-136's BASE, BEFORE EVERY OTHER BRANCH (B241). A destination the
+         matrix is driving holds its modulated value in whatever storage the
+         branches below read — the core, the routing matrix, a shell field —
+         so any branch that returns first reports the modulation, and every
+         caller of this function persists it: get_value, state_save,
+         stateJson, a history node, corner capture, morph-on adoption. This
+         check used to sit two-thirds of the way down, after the routing,
+         engine and shell-owned returns, and was keyed on `d->id` — the BASE
+         def, so oscillator 2's rows asked oscillator 1's question. Measured
+         2026-09-23: 172 routable rows read back modulated (modreadback_check
+         §B). Keyed on `id`, the full address the matrix stores. */
+      if (const ModDest *md = const_cast<Plugin *>(this)->modDestFor(id, false)) return md->base;
       // Shell-domain params first; everything else reads the core through the
       // SAME key map setParam uses — no parallel chain to drift (the
       // 2026-07-18 state bug: dynamics params were missing from a duplicated
@@ -7561,8 +7589,7 @@ struct Plugin
         const int pr = modPitchRouteIdx();
         return pr >= 0 ? mod.routes[pr].depth : 0.0;
       }
-      if (const ModDest *md = const_cast<Plugin *>(this)->modDestFor(d->id, false))
-        return md->base;
+      // (The ADR-136 base lookup that sat here moved to the top — B241.)
       if (d->id == 162) return env2A;
       if (d->id == 163) return env2D;
       if (d->id == 164) return env2S;
