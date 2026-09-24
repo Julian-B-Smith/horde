@@ -1,0 +1,1343 @@
+{
+ "note": "Generated from the live bench controls. engine = how the core receives the parameter.",
+ "parameters": [
+  {
+   "key": "w",
+   "label": "Width",
+   "group": "Blade 1",
+   "default": 0.25,
+   "kind": "continuous",
+   "min": 0,
+   "max": 1,
+   "curve": "log with bypass zone",
+   "padAssignable": true,
+   "engine": "smoothed per sample (12 ms)"
+  },
+  {
+   "key": "k",
+   "label": "Cut rate k",
+   "group": "Blade 1",
+   "default": 6,
+   "kind": "continuous",
+   "min": 1,
+   "max": 64,
+   "curve": "log",
+   "padAssignable": true,
+   "engine": "smoothed per sample (12 ms)"
+  },
+  {
+   "key": "kHz",
+   "label": "Cut rate Hz",
+   "group": "Blade 1",
+   "default": 1320,
+   "kind": "continuous",
+   "min": 20,
+   "max": 12000,
+   "curve": "log",
+   "padAssignable": true,
+   "engine": "smoothed per sample (12 ms)"
+  },
+  {
+   "key": "c",
+   "label": "Position",
+   "group": "Blade 1",
+   "default": 0.875,
+   "kind": "continuous",
+   "min": 0,
+   "max": 1,
+   "curve": "linear",
+   "padAssignable": true,
+   "engine": "smoothed per sample (12 ms)"
+  },
+  {
+   "key": "rotRate",
+   "label": "Rotate",
+   "group": "Blade 1",
+   "default": 0,
+   "kind": "continuous",
+   "min": -4,
+   "max": 4,
+   "curve": "linear",
+   "padAssignable": true,
+   "engine": "smoothed at control rate (16 samples, 12 ms)"
+  },
+  {
+   "key": "rotSync",
+   "label": "Rotation",
+   "group": "Both blades",
+   "default": 1,
+   "kind": "choice",
+   "options": [
+    "restart per note",
+    "free-running"
+   ],
+   "engine": "discrete (block rate)"
+  },
+  {
+   "key": "hard",
+   "label": "Edges",
+   "group": "Blade 1",
+   "default": 0,
+   "kind": "continuous",
+   "min": 0,
+   "max": 1,
+   "curve": "linear",
+   "padAssignable": true,
+   "engine": "smoothed per sample (12 ms)"
+  },
+  {
+   "key": "depth",
+   "label": "Depth",
+   "group": "Blade 1",
+   "default": 1,
+   "kind": "continuous",
+   "min": 0,
+   "max": 1,
+   "curve": "linear",
+   "padAssignable": true,
+   "engine": "smoothed per sample (12 ms)"
+  },
+  {
+   "key": "mirror",
+   "label": "Mirror",
+   "group": "Blade 1",
+   "default": 0,
+   "kind": "choice",
+   "options": [
+    "off",
+    "reflect",
+    "twin \u2212",
+    "twin +"
+   ],
+   "engine": "discrete (block rate)"
+  },
+  {
+   "key": "mode",
+   "label": "Mode",
+   "group": "Blade 1",
+   "default": 0,
+   "kind": "choice",
+   "options": [
+    "Sync",
+    "FM reset",
+    "FM free",
+    "Noise",
+    "Fold",
+    "Ring",
+    "Crush"
+   ],
+   "engine": "discrete (block rate)"
+  },
+  {
+   "key": "hot",
+   "label": "Blade wave",
+   "group": "Blade 1",
+   "default": 2,
+   "kind": "choice",
+   "options": [
+    "Sine",
+    "Tri",
+    "Saw",
+    "Rev saw",
+    "Square",
+    "Sine\u2192Saw"
+   ],
+   "engine": "discrete (block rate)"
+  },
+  {
+   "key": "morph",
+   "label": "Shape",
+   "group": "Blade 1",
+   "default": 0.5,
+   "kind": "continuous",
+   "min": 0,
+   "max": 1,
+   "curve": "linear",
+   "padAssignable": true,
+   "engine": "smoothed at control rate (16 samples, 12 ms)"
+  },
+  {
+   "key": "fmType",
+   "label": "FM type",
+   "group": "Blade 1 FM",
+   "default": 0,
+   "kind": "choice",
+   "options": [
+    "phase",
+    "pitch"
+   ],
+   "engine": "discrete (block rate)"
+  },
+  {
+   "key": "mshape",
+   "label": "Mod shape",
+   "group": "Blade 1 FM",
+   "default": 0,
+   "kind": "choice",
+   "options": [
+    "Sine",
+    "Tri",
+    "Saw",
+    "Rev saw",
+    "Square",
+    "Smooth noise",
+    "S&H noise"
+   ],
+   "engine": "discrete (block rate)"
+  },
+  {
+   "key": "I",
+   "label": "FM depth",
+   "group": "Blade 1 FM",
+   "default": 2,
+   "kind": "continuous",
+   "min": 0,
+   "max": 10,
+   "curve": "power",
+   "padAssignable": true,
+   "engine": "smoothed per sample (12 ms)"
+  },
+  {
+   "key": "fb",
+   "label": "Feedback",
+   "group": "Both blades",
+   "default": 0,
+   "kind": "continuous",
+   "min": 0,
+   "max": 1,
+   "curve": "power",
+   "padAssignable": true,
+   "engine": "smoothed at control rate (16 samples, 12 ms)"
+  },
+  {
+   "key": "m",
+   "label": "Mod rate",
+   "group": "Blade 1 FM",
+   "default": 3.37,
+   "kind": "continuous",
+   "min": 0.25,
+   "max": 24,
+   "curve": "log",
+   "padAssignable": true,
+   "engine": "smoothed at control rate (16 samples, 12 ms)"
+  },
+  {
+   "key": "mHz",
+   "label": "Mod rate Hz",
+   "group": "Blade 1 FM",
+   "default": 660,
+   "kind": "continuous",
+   "min": 1,
+   "max": 20000,
+   "curve": "log",
+   "padAssignable": true,
+   "engine": "smoothed at control rate (16 samples, 12 ms)"
+  },
+  {
+   "key": "mUnit",
+   "label": "Mod rate in",
+   "group": "Blade 1 FM",
+   "default": 0,
+   "kind": "choice",
+   "options": [
+    "\u00d7 f\u2080",
+    "Hz"
+   ],
+   "engine": "discrete (block rate)"
+  },
+  {
+   "key": "lock",
+   "label": "Cut rate in",
+   "group": "Blade 1",
+   "default": 0,
+   "kind": "choice",
+   "options": [
+    "\u00d7 f\u2080 per cycle",
+    "per blade",
+    "Hz (fixed)"
+   ],
+   "engine": "discrete (block rate)"
+  },
+  {
+   "key": "N",
+   "label": "Members",
+   "group": "Swarm",
+   "default": 5,
+   "kind": "continuous",
+   "min": 1,
+   "max": 9,
+   "curve": "linear",
+   "padAssignable": false,
+   "engine": "discrete (block rate)"
+  },
+  {
+   "key": "detune",
+   "label": "Detune",
+   "group": "Swarm",
+   "default": 14,
+   "kind": "continuous",
+   "min": 0,
+   "max": 100,
+   "curve": "linear",
+   "padAssignable": true,
+   "engine": "smoothed at control rate (16 samples, 12 ms)"
+  },
+  {
+   "key": "K",
+   "label": "Coupling K",
+   "group": "Swarm",
+   "default": 0.35,
+   "kind": "continuous",
+   "min": -1,
+   "max": 1,
+   "curve": "linear",
+   "padAssignable": true,
+   "engine": "smoothed at control rate (16 samples, 12 ms)"
+  },
+  {
+   "key": "width",
+   "label": "Stereo",
+   "group": "Swarm",
+   "default": 0.7,
+   "kind": "continuous",
+   "min": 0,
+   "max": 1,
+   "curve": "linear",
+   "padAssignable": true,
+   "engine": "smoothed at control rate (16 samples, 12 ms)"
+  },
+  {
+   "key": "panOrder",
+   "label": "Pan order",
+   "group": "Swarm",
+   "default": 0,
+   "kind": "choice",
+   "options": [
+    "balanced",
+    "fan"
+   ],
+   "engine": "discrete (block rate)"
+  },
+  {
+   "key": "xm",
+   "label": "Cross-mod",
+   "group": "Swarm",
+   "default": 0,
+   "kind": "continuous",
+   "min": 0,
+   "max": 1,
+   "curve": "power",
+   "padAssignable": true,
+   "engine": "smoothed at control rate (16 samples, 12 ms)"
+  },
+  {
+   "key": "phaseMode",
+   "label": "Start phases",
+   "group": "Swarm",
+   "default": 2,
+   "kind": "choice",
+   "options": [
+    "settled",
+    "random",
+    "aligned"
+   ],
+   "engine": "discrete (block rate)"
+  },
+  {
+   "key": "frame",
+   "label": "Blade frame",
+   "group": "Swarm",
+   "default": 0,
+   "kind": "choice",
+   "options": [
+    "member",
+    "swarm"
+   ],
+   "engine": "discrete (block rate)"
+  },
+  {
+   "key": "frame2",
+   "label": "Blade 2 frame",
+   "group": "Swarm",
+   "default": -1,
+   "kind": "choice",
+   "options": [
+    "same as blade 1",
+    "member",
+    "swarm"
+   ],
+   "engine": "discrete (block rate)"
+  },
+  {
+   "key": "cScale",
+   "label": "Coupling time",
+   "group": "Swarm",
+   "default": 0,
+   "kind": "choice",
+   "options": [
+    "seconds",
+    "cycles"
+   ],
+   "engine": "discrete (block rate)"
+  },
+  {
+   "key": "law",
+   "label": "Law",
+   "group": "Spread across members",
+   "default": 0,
+   "kind": "choice",
+   "options": [
+    "gradient",
+    "random",
+    "drift",
+    "alternate",
+    "swarm"
+   ],
+   "engine": "discrete (block rate)"
+  },
+  {
+   "key": "driftRate",
+   "label": "Drift rate",
+   "group": "Spread across members",
+   "default": 0.5,
+   "kind": "continuous",
+   "min": 0.02,
+   "max": 12,
+   "curve": "log",
+   "padAssignable": true,
+   "engine": "smoothed at control rate (16 samples, 12 ms)"
+  },
+  {
+   "key": "bspread",
+   "label": "Position",
+   "group": "Spread across members",
+   "default": 0,
+   "kind": "continuous",
+   "min": 0,
+   "max": 1,
+   "curve": "linear",
+   "padAssignable": true,
+   "engine": "smoothed at control rate (16 samples, 12 ms)"
+  },
+  {
+   "key": "kspread",
+   "label": "Cut rate",
+   "group": "Spread across members",
+   "default": 0,
+   "kind": "continuous",
+   "min": 0,
+   "max": 24,
+   "curve": "linear",
+   "padAssignable": true,
+   "engine": "smoothed at control rate (16 samples, 12 ms)"
+  },
+  {
+   "key": "kRule",
+   "label": "Cut rule",
+   "group": "Spread across members",
+   "default": 0,
+   "kind": "choice",
+   "options": [
+    "even",
+    "harmonic",
+    "undertone",
+    "octaves",
+    "major",
+    "minor",
+    "fifths",
+    "golden",
+    "primes",
+    "custom"
+   ],
+   "engine": "discrete (block rate)"
+  },
+  {
+   "key": "kRuleAmt",
+   "label": "Rule depth",
+   "group": "Spread across members",
+   "default": 1,
+   "kind": "continuous",
+   "min": 0,
+   "max": 1,
+   "curve": "linear",
+   "padAssignable": true,
+   "engine": "smoothed at control rate (16 samples, 12 ms)"
+  },
+  {
+   "key": "kCustom",
+   "label": "Ratios",
+   "group": "Spread across members",
+   "default": "1, 5/4, 3/2",
+   "kind": "other",
+   "engine": "discrete (block rate)"
+  },
+  {
+   "key": "kRuleOut",
+   "label": "Members",
+   "group": "Spread across members",
+   "default": null,
+   "kind": "other",
+   "engine": "UI / bench only"
+  },
+  {
+   "key": "kq",
+   "label": "Quantize",
+   "group": "Spread across members",
+   "default": 0,
+   "kind": "choice",
+   "options": [
+    "free",
+    "whole"
+   ],
+   "engine": "discrete (block rate)"
+  },
+  {
+   "key": "wspread",
+   "label": "Width",
+   "group": "Spread across members",
+   "default": 0,
+   "kind": "continuous",
+   "min": 0,
+   "max": 1,
+   "curve": "linear",
+   "padAssignable": true,
+   "engine": "smoothed at control rate (16 samples, 12 ms)"
+  },
+  {
+   "key": "dspread",
+   "label": "Depth",
+   "group": "Spread across members",
+   "default": 0,
+   "kind": "continuous",
+   "min": 0,
+   "max": 1,
+   "curve": "linear",
+   "padAssignable": true,
+   "engine": "smoothed at control rate (16 samples, 12 ms)"
+  },
+  {
+   "key": "mspread",
+   "label": "Shape",
+   "group": "Spread across members",
+   "default": 0,
+   "kind": "continuous",
+   "min": 0,
+   "max": 1,
+   "curve": "linear",
+   "padAssignable": true,
+   "engine": "smoothed at control rate (16 samples, 12 ms)"
+  },
+  {
+   "key": "ispread",
+   "label": "FM index",
+   "group": "Spread across members",
+   "default": 0,
+   "kind": "continuous",
+   "min": 0,
+   "max": 1,
+   "curve": "linear",
+   "padAssignable": true,
+   "engine": "smoothed at control rate (16 samples, 12 ms)"
+  },
+  {
+   "key": "rotSpread",
+   "label": "Rotate",
+   "group": "Spread across members",
+   "default": 0,
+   "kind": "continuous",
+   "min": 0,
+   "max": 2,
+   "curve": "power",
+   "padAssignable": true,
+   "engine": "smoothed at control rate (16 samples, 12 ms)"
+  },
+  {
+   "key": "base",
+   "label": "Base wave",
+   "group": "Voice",
+   "default": 0,
+   "kind": "choice",
+   "options": [
+    "Sine",
+    "Tri",
+    "Saw",
+    "Rev saw",
+    "Square"
+   ],
+   "engine": "discrete (block rate)"
+  },
+  {
+   "key": "A",
+   "label": "Attack",
+   "group": "Voice",
+   "default": 4,
+   "kind": "continuous",
+   "min": 1,
+   "max": 2000,
+   "curve": "log",
+   "padAssignable": false,
+   "engine": "smoothed at control rate (16 samples, 12 ms)"
+  },
+  {
+   "key": "D",
+   "label": "Decay",
+   "group": "Voice",
+   "default": 400,
+   "kind": "continuous",
+   "min": 10,
+   "max": 4000,
+   "curve": "log",
+   "padAssignable": false,
+   "engine": "smoothed at control rate (16 samples, 12 ms)"
+  },
+  {
+   "key": "S",
+   "label": "Sustain",
+   "group": "Voice",
+   "default": 0.85,
+   "kind": "continuous",
+   "min": 0,
+   "max": 1,
+   "curve": "linear",
+   "padAssignable": false,
+   "engine": "smoothed at control rate (16 samples, 12 ms)"
+  },
+  {
+   "key": "R",
+   "label": "Release",
+   "group": "Voice",
+   "default": 280,
+   "kind": "continuous",
+   "min": 10,
+   "max": 5000,
+   "curve": "log",
+   "padAssignable": false,
+   "engine": "smoothed at control rate (16 samples, 12 ms)"
+  },
+  {
+   "key": "f0Mode",
+   "label": "Drone pitch in",
+   "group": "Drone and output",
+   "default": 0,
+   "kind": "choice",
+   "options": [
+    "Hz",
+    "notes"
+   ],
+   "engine": "UI / bench only"
+  },
+  {
+   "key": "f0",
+   "label": "Drone pitch",
+   "group": "Drone and output",
+   "default": 110,
+   "kind": "continuous",
+   "min": 27.5,
+   "max": 880,
+   "curve": "log",
+   "padAssignable": false,
+   "engine": "UI / bench only"
+  },
+  {
+   "key": "f0Note",
+   "label": "Drone note",
+   "group": "Drone and output",
+   "default": 45,
+   "kind": "continuous",
+   "min": 12,
+   "max": 108,
+   "curve": "linear",
+   "padAssignable": false,
+   "engine": "UI / bench only"
+  },
+  {
+   "key": "nameAbleton",
+   "label": "Note names",
+   "group": "Drone and output",
+   "default": 1,
+   "kind": "choice",
+   "options": [
+    "C3 = middle C",
+    "C4 = middle C"
+   ],
+   "engine": "UI / bench only"
+  },
+  {
+   "key": "gain",
+   "label": "Volume",
+   "group": "Voice",
+   "default": 0.35,
+   "kind": "continuous",
+   "min": 0,
+   "max": 1,
+   "curve": "linear",
+   "padAssignable": false,
+   "engine": "smoothed at control rate (16 samples, 12 ms)"
+  },
+  {
+   "key": "polyMode",
+   "label": "Voicing",
+   "group": "Voice",
+   "default": 0,
+   "kind": "choice",
+   "options": [
+    "poly",
+    "mono",
+    "legato"
+   ],
+   "engine": "discrete (block rate)"
+  },
+  {
+   "key": "glide",
+   "label": "Glide",
+   "group": "Voice",
+   "default": 60,
+   "kind": "continuous",
+   "min": 0,
+   "max": 2000,
+   "curve": "power",
+   "padAssignable": false,
+   "engine": "smoothed at control rate (16 samples, 12 ms)"
+  },
+  {
+   "key": "glideAlways",
+   "label": "Glide when",
+   "group": "Voice",
+   "default": 0,
+   "kind": "choice",
+   "options": [
+    "overlapping",
+    "always"
+   ],
+   "engine": "discrete (block rate)"
+  },
+  {
+   "key": "os",
+   "label": "Oversample",
+   "group": "Drone and output",
+   "default": 2,
+   "kind": "choice",
+   "options": [
+    "1\u00d7",
+    "2\u00d7"
+   ],
+   "engine": "UI / bench only"
+  },
+  {
+   "key": "aa",
+   "label": "Band-limit",
+   "group": "Drone and output",
+   "default": 1,
+   "kind": "choice",
+   "options": [
+    "clean",
+    "raw"
+   ],
+   "engine": "discrete (block rate)"
+  },
+  {
+   "key": "b2on",
+   "label": "Blade 2",
+   "group": "Blade 2",
+   "default": 0,
+   "kind": "choice",
+   "options": [
+    "off",
+    "on"
+   ],
+   "engine": "discrete (block rate)"
+  },
+  {
+   "key": "mode2",
+   "label": "Mode",
+   "group": "Blade 2",
+   "default": 4,
+   "kind": "choice",
+   "options": [
+    "Sync",
+    "FM reset",
+    "FM free",
+    "Noise",
+    "Fold",
+    "Ring",
+    "Crush"
+   ],
+   "engine": "discrete (block rate)"
+  },
+  {
+   "key": "hot2",
+   "label": "Blade wave",
+   "group": "Blade 2",
+   "default": 2,
+   "kind": "choice",
+   "options": [
+    "Sine",
+    "Tri",
+    "Saw",
+    "Rev saw",
+    "Square",
+    "Sine\u2192Saw"
+   ],
+   "engine": "discrete (block rate)"
+  },
+  {
+   "key": "w2",
+   "label": "Width",
+   "group": "Blade 2",
+   "default": 0.2,
+   "kind": "continuous",
+   "min": 0,
+   "max": 1,
+   "curve": "log with bypass zone",
+   "padAssignable": true,
+   "engine": "smoothed per sample (12 ms)"
+  },
+  {
+   "key": "k2",
+   "label": "Cut rate k",
+   "group": "Blade 2",
+   "default": 3,
+   "kind": "continuous",
+   "min": 1,
+   "max": 64,
+   "curve": "log",
+   "padAssignable": true,
+   "engine": "smoothed per sample (12 ms)"
+  },
+  {
+   "key": "kHz2",
+   "label": "Cut rate Hz",
+   "group": "Blade 2",
+   "default": 800,
+   "kind": "continuous",
+   "min": 20,
+   "max": 12000,
+   "curve": "log",
+   "padAssignable": true,
+   "engine": "smoothed per sample (12 ms)"
+  },
+  {
+   "key": "lock2",
+   "label": "Cut rate in",
+   "group": "Blade 2",
+   "default": -1,
+   "kind": "choice",
+   "options": [
+    "same as blade 1",
+    "\u00d7 f\u2080",
+    "per blade",
+    "Hz"
+   ],
+   "engine": "discrete (block rate)"
+  },
+  {
+   "key": "mirror2",
+   "label": "Mirror",
+   "group": "Blade 2",
+   "default": -1,
+   "kind": "choice",
+   "options": [
+    "same as blade 1",
+    "off",
+    "reflect",
+    "twin \u2212",
+    "twin +"
+   ],
+   "engine": "discrete (block rate)"
+  },
+  {
+   "key": "morph2",
+   "label": "Shape",
+   "group": "Blade 2",
+   "default": 0.5,
+   "kind": "continuous",
+   "min": 0,
+   "max": 1,
+   "curve": "linear",
+   "padAssignable": true,
+   "engine": "smoothed at control rate (16 samples, 12 ms)"
+  },
+  {
+   "key": "rot2Follow",
+   "label": "Rotation",
+   "group": "Blade 2",
+   "default": 1,
+   "kind": "choice",
+   "options": [
+    "with blade 1",
+    "its own"
+   ],
+   "engine": "discrete (block rate)"
+  },
+  {
+   "key": "rotRate2",
+   "label": "Rotate",
+   "group": "Blade 2",
+   "default": 0,
+   "kind": "continuous",
+   "min": -4,
+   "max": 4,
+   "curve": "linear",
+   "padAssignable": true,
+   "engine": "smoothed at control rate (16 samples, 12 ms)"
+  },
+  {
+   "key": "c2",
+   "label": "Position",
+   "group": "Blade 2",
+   "default": 0.35,
+   "kind": "continuous",
+   "min": 0,
+   "max": 1,
+   "curve": "linear",
+   "padAssignable": true,
+   "engine": "smoothed per sample (12 ms)"
+  },
+  {
+   "key": "hard2",
+   "label": "Edges",
+   "group": "Blade 2",
+   "default": 0,
+   "kind": "continuous",
+   "min": 0,
+   "max": 1,
+   "curve": "linear",
+   "padAssignable": false,
+   "engine": "smoothed at control rate (16 samples, 12 ms)"
+  },
+  {
+   "key": "depth2",
+   "label": "Depth",
+   "group": "Blade 2",
+   "default": 1,
+   "kind": "continuous",
+   "min": 0,
+   "max": 1,
+   "curve": "linear",
+   "padAssignable": true,
+   "engine": "smoothed at control rate (16 samples, 12 ms)"
+  },
+  {
+   "key": "b2sp",
+   "label": "Blade 2 uses",
+   "group": "Blade 2 spread",
+   "default": 0,
+   "kind": "choice",
+   "options": [
+    "blade 1 spreads",
+    "its own"
+   ],
+   "engine": "discrete (block rate)"
+  },
+  {
+   "key": "bspread2",
+   "label": "Position",
+   "group": "Blade 2 spread",
+   "default": 0,
+   "kind": "continuous",
+   "min": 0,
+   "max": 1,
+   "curve": "linear",
+   "padAssignable": true,
+   "engine": "smoothed at control rate (16 samples, 12 ms)"
+  },
+  {
+   "key": "kRule2",
+   "label": "Cut rule",
+   "group": "Blade 2 spread",
+   "default": 0,
+   "kind": "choice",
+   "options": [
+    "even",
+    "harmonic",
+    "undertone",
+    "octaves",
+    "major",
+    "minor",
+    "fifths",
+    "golden",
+    "primes",
+    "custom"
+   ],
+   "engine": "discrete (block rate)"
+  },
+  {
+   "key": "kspread2",
+   "label": "Cut rate",
+   "group": "Blade 2 spread",
+   "default": 0,
+   "kind": "continuous",
+   "min": 0,
+   "max": 24,
+   "curve": "linear",
+   "padAssignable": true,
+   "engine": "smoothed at control rate (16 samples, 12 ms)"
+  },
+  {
+   "key": "kRuleAmt2",
+   "label": "Rule depth",
+   "group": "Blade 2 spread",
+   "default": 1,
+   "kind": "continuous",
+   "min": 0,
+   "max": 1,
+   "curve": "linear",
+   "padAssignable": true,
+   "engine": "smoothed at control rate (16 samples, 12 ms)"
+  },
+  {
+   "key": "wspread2",
+   "label": "Width",
+   "group": "Blade 2 spread",
+   "default": 0,
+   "kind": "continuous",
+   "min": 0,
+   "max": 1,
+   "curve": "linear",
+   "padAssignable": true,
+   "engine": "smoothed at control rate (16 samples, 12 ms)"
+  },
+  {
+   "key": "mspread2",
+   "label": "Shape",
+   "group": "Blade 2 spread",
+   "default": 0,
+   "kind": "continuous",
+   "min": 0,
+   "max": 1,
+   "curve": "linear",
+   "padAssignable": true,
+   "engine": "smoothed at control rate (16 samples, 12 ms)"
+  },
+  {
+   "key": "ispread2",
+   "label": "FM index",
+   "group": "Blade 2 spread",
+   "default": 0,
+   "kind": "continuous",
+   "min": 0,
+   "max": 1,
+   "curve": "linear",
+   "padAssignable": true,
+   "engine": "smoothed at control rate (16 samples, 12 ms)"
+  },
+  {
+   "key": "rotSpread2",
+   "label": "Rotate",
+   "group": "Blade 2 spread",
+   "default": 0,
+   "kind": "continuous",
+   "min": 0,
+   "max": 2,
+   "curve": "power",
+   "padAssignable": true,
+   "engine": "smoothed at control rate (16 samples, 12 ms)"
+  },
+  {
+   "key": "dspread2",
+   "label": "Depth",
+   "group": "Blade 2 spread",
+   "default": 0,
+   "kind": "continuous",
+   "min": 0,
+   "max": 1,
+   "curve": "linear",
+   "padAssignable": true,
+   "engine": "smoothed at control rate (16 samples, 12 ms)"
+  },
+  {
+   "key": "kRuleOut2",
+   "label": "Members",
+   "group": "Blade 2 spread",
+   "default": null,
+   "kind": "other",
+   "engine": "UI / bench only"
+  },
+  {
+   "key": "b2fm",
+   "label": "Blade 2 uses",
+   "group": "Blade 2 FM",
+   "default": 0,
+   "kind": "choice",
+   "options": [
+    "blade 1 FM",
+    "its own"
+   ],
+   "engine": "discrete (block rate)"
+  },
+  {
+   "key": "fmType2",
+   "label": "FM type",
+   "group": "Blade 2 FM",
+   "default": 0,
+   "kind": "choice",
+   "options": [
+    "phase",
+    "pitch"
+   ],
+   "engine": "discrete (block rate)"
+  },
+  {
+   "key": "mshape2",
+   "label": "Mod shape",
+   "group": "Blade 2 FM",
+   "default": 0,
+   "kind": "choice",
+   "options": [
+    "Sine",
+    "Tri",
+    "Saw",
+    "Rev saw",
+    "Square",
+    "Smooth noise",
+    "S&H noise"
+   ],
+   "engine": "discrete (block rate)"
+  },
+  {
+   "key": "I2",
+   "label": "FM depth",
+   "group": "Blade 2 FM",
+   "default": 2,
+   "kind": "continuous",
+   "min": 0,
+   "max": 10,
+   "curve": "power",
+   "padAssignable": true,
+   "engine": "smoothed at control rate (16 samples, 12 ms)"
+  },
+  {
+   "key": "mUnit2",
+   "label": "Mod rate in",
+   "group": "Blade 2 FM",
+   "default": 0,
+   "kind": "choice",
+   "options": [
+    "\u00d7 f\u2080",
+    "Hz"
+   ],
+   "engine": "discrete (block rate)"
+  },
+  {
+   "key": "m2",
+   "label": "Mod rate",
+   "group": "Blade 2 FM",
+   "default": 3.37,
+   "kind": "continuous",
+   "min": 0.25,
+   "max": 24,
+   "curve": "log",
+   "padAssignable": true,
+   "engine": "smoothed at control rate (16 samples, 12 ms)"
+  },
+  {
+   "key": "mHz2",
+   "label": "Mod rate Hz",
+   "group": "Blade 2 FM",
+   "default": 660,
+   "kind": "continuous",
+   "min": 1,
+   "max": 20000,
+   "curve": "log",
+   "padAssignable": true,
+   "engine": "smoothed at control rate (16 samples, 12 ms)"
+  },
+  {
+   "key": "b2env",
+   "label": "Blade 2 uses",
+   "group": "Blade 2 envelope",
+   "default": 0,
+   "kind": "choice",
+   "options": [
+    "blade 1 envelope",
+    "its own"
+   ],
+   "engine": "discrete (block rate)"
+  },
+  {
+   "key": "benvK2",
+   "label": "Cut rate",
+   "group": "Blade 2 envelope",
+   "default": 0,
+   "kind": "continuous",
+   "min": -1,
+   "max": 1,
+   "curve": "linear",
+   "padAssignable": true,
+   "engine": "smoothed at control rate (16 samples, 12 ms)"
+  },
+  {
+   "key": "benvW2",
+   "label": "Width",
+   "group": "Blade 2 envelope",
+   "default": 0,
+   "kind": "continuous",
+   "min": -1,
+   "max": 1,
+   "curve": "linear",
+   "padAssignable": true,
+   "engine": "smoothed at control rate (16 samples, 12 ms)"
+  },
+  {
+   "key": "benvA2",
+   "label": "Attack",
+   "group": "Blade 2 envelope",
+   "default": 2,
+   "kind": "continuous",
+   "min": 0.5,
+   "max": 2000,
+   "curve": "log",
+   "padAssignable": false,
+   "engine": "smoothed at control rate (16 samples, 12 ms)"
+  },
+  {
+   "key": "benvD2",
+   "label": "Decay",
+   "group": "Blade 2 envelope",
+   "default": 250,
+   "kind": "continuous",
+   "min": 10,
+   "max": 5000,
+   "curve": "log",
+   "padAssignable": true,
+   "engine": "smoothed at control rate (16 samples, 12 ms)"
+  },
+  {
+   "key": "benvVel2",
+   "label": "Velocity",
+   "group": "Blade 2 envelope",
+   "default": 0.5,
+   "kind": "continuous",
+   "min": 0,
+   "max": 1,
+   "curve": "linear",
+   "padAssignable": false,
+   "engine": "smoothed at control rate (16 samples, 12 ms)"
+  },
+  {
+   "key": "benvK",
+   "label": "Cut rate",
+   "group": "Blade 1 envelope",
+   "default": 0,
+   "kind": "continuous",
+   "min": -1,
+   "max": 1,
+   "curve": "linear",
+   "padAssignable": true,
+   "engine": "smoothed at control rate (16 samples, 12 ms)"
+  },
+  {
+   "key": "benvW",
+   "label": "Width",
+   "group": "Blade 1 envelope",
+   "default": 0,
+   "kind": "continuous",
+   "min": -1,
+   "max": 1,
+   "curve": "linear",
+   "padAssignable": true,
+   "engine": "smoothed at control rate (16 samples, 12 ms)"
+  },
+  {
+   "key": "benvA",
+   "label": "Attack",
+   "group": "Blade 1 envelope",
+   "default": 2,
+   "kind": "continuous",
+   "min": 0.5,
+   "max": 2000,
+   "curve": "log",
+   "padAssignable": false,
+   "engine": "smoothed at control rate (16 samples, 12 ms)"
+  },
+  {
+   "key": "benvD",
+   "label": "Decay",
+   "group": "Blade 1 envelope",
+   "default": 250,
+   "kind": "continuous",
+   "min": 10,
+   "max": 5000,
+   "curve": "log",
+   "padAssignable": true,
+   "engine": "smoothed at control rate (16 samples, 12 ms)"
+  },
+  {
+   "key": "benvVel",
+   "label": "Velocity",
+   "group": "Blade 1 envelope",
+   "default": 0.5,
+   "kind": "continuous",
+   "min": 0,
+   "max": 1,
+   "curve": "linear",
+   "padAssignable": false,
+   "engine": "smoothed at control rate (16 samples, 12 ms)"
+  },
+  {
+   "key": "wtMode",
+   "label": "Source",
+   "group": "Serum wavetable",
+   "default": 0,
+   "kind": "choice",
+   "options": [
+    "snapshot",
+    "sweep X",
+    "sweep Y",
+    "record"
+   ],
+   "engine": "UI / bench only"
+  },
+  {
+   "key": "wtFrames",
+   "label": "Frames",
+   "group": "Serum wavetable",
+   "default": 64,
+   "kind": "choice",
+   "options": [
+    "16",
+    "64",
+    "128",
+    "256"
+   ],
+   "engine": "UI / bench only"
+  },
+  {
+   "key": "wtDur",
+   "label": "Record for",
+   "group": "Serum wavetable",
+   "default": 4,
+   "kind": "continuous",
+   "min": 0.5,
+   "max": 16,
+   "curve": "log",
+   "padAssignable": false,
+   "engine": "UI / bench only"
+  },
+  {
+   "key": "wtNorm",
+   "label": "Level",
+   "group": "Serum wavetable",
+   "default": 1,
+   "kind": "choice",
+   "options": [
+    "normalize",
+    "as is"
+   ],
+   "engine": "UI / bench only"
+  },
+  {
+   "key": "dcMode",
+   "label": "DC fix",
+   "group": "Drone and output",
+   "default": 2,
+   "kind": "choice",
+   "options": [
+    "off",
+    "blocker",
+    "per cycle"
+   ],
+   "engine": "discrete (block rate)"
+  }
+ ]
+}

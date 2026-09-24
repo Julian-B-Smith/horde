@@ -1,0 +1,22 @@
+Scalpel engine verification — oracle: prototype/razor-core.js
+
+PASS  Kuramoto lock: r at K=+1, 7 members, ±40 ct                       0.966   (≥ 0.90)
+PASS  Kuramoto splay: r at K=−1, 4 members                              0.031   (≤ 0.10)
+PASS  Coupling time = cycles: lead spread range across A1–A5           0.0000   (< 0.01 cycles)
+PASS  Blade 2 in swarm frame: centre − lead identical across members       0.0e+0   (< 1e-6)
+PASS  Aliasing, A5, blade 1 saw sync: between-harmonic probe        -137.9 dB   (< −100 dB rel. h2)
+PASS  Aliasing, A5, blade 2 saw sync (blade 1 bypassed): between-harmonic probe    -137.9 dB   (< −100 dB rel. h2)
+PASS  Aliasing, A5, blade 1 rev-saw carrier under FM (reset, ratio 2): between-harmonic probe    -115.5 dB   (< −100 dB rel. h2)
+PASS  Per-cycle DC estimate, worst error over 240 cases                0.0055   (< 0.01)
+PASS  Output DC residual, per-cycle fix, k stepping 24→39              0.0014   (< 0.003)
+PASS  Crush with slew: largest jump as k sweeps 2→60                   0.0012   (< 0.01)
+PASS  Balanced pan: worst L/R brightness difference, width spread      0.84 dB   (< 1.5 dB)
+PASS  Cut rules (harmonic, undertone, major, golden, custom)           4.1e-4   (< 0.01 from spec lists)
+PASS  Blade envelopes independent: env 1 done while env 2 rising 1.00 / 2.00→2.52   (env1 ≈ 1, env2 rising)
+PASS  Legato: no retrigger, glide passes between notes           238.8 Hz, stage 2   (between 220 and 261.6, stage 2)
+PASS  Legato: glide settles on target                                  261.62   (261.63 ± 0.05)
+PASS  Stability: non-finite samples over 112 configurations                 0   (0)
+PASS  Stability: output bounded                                         0.710   (≤ 1 (soft clip))
+PASS  Determinism: same seed, same output                                   0   (identical)
+
+All checks passed

@@ -281,6 +281,13 @@ full() {
   "$build_dir/fxxfade_check"                            || return 1   # B117 crossfade handover as measured
   "$build_dir/polarity_check"                           || return 1   # B134 polarity before depth, as-is exact
   "$build_dir/lfoenv_check"                             || return 1   # B171 LFO 1/2 + ENV 3/4 as mod sources
+  # SCALPEL's own oracle battery (ADR-184, ingested 2026-09-24): 18 numeric checks
+  # against reference/scalpel/prototype/razor-core.js, ~6 s, exit 0 only when all
+  # pass. Wired at ingest so the reference is known-good BEFORE a port is measured
+  # against it — the packet's last-run.txt is the author's claim; this is ours.
+  node reference/scalpel/verify/verify.js > /tmp/scalpel.$$ 2>&1 || {
+    echo "verify: SCALPEL oracle battery FAILED" >&2; cat /tmp/scalpel.$$ >&2; rm -f /tmp/scalpel.$$; return 1; }
+  echo "scalpel oracle: $(grep -c '^PASS' /tmp/scalpel.$$) checks PASS ($(tail -1 /tmp/scalpel.$$))"; rm -f /tmp/scalpel.$$
 
   # THE B159 BACKLOG, ruled one at a time on evidence (2026-09-21). Nine checks
   # sat unwired: five stated no reason at all, four cited a "standing human

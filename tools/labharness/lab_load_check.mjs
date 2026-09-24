@@ -31,7 +31,10 @@ const labDir = join(root, 'docs/design');
 // 2026-09-07 layout move put the spec-in-code labs under reference/ and this
 // gate kept reading only docs/design, so fifteen labs loaded unchecked while
 // it printed GREEN. reference/ and its one packet directory are swept now.
-const refDirs = [join(root, 'reference'), join(root, 'reference/maw')];
+// reference/scalpel/prototype joined 2026-09-24 with the SCALPEL ingest: its bench is
+// the spec-in-code for the blade engine, and a reference that cannot load is a spec
+// nobody can read.
+const refDirs = [join(root, 'reference'), join(root, 'reference/maw'), join(root, 'reference/scalpel/prototype')];
 
 // A value that can be called, constructed, indexed, iterated and coerced
 // without ever throwing — so the ONLY errors that surface are the lab's own.
