@@ -42,7 +42,8 @@ extern "C"
   /* --- State and the preset JSON path ----------------------------------- */
 
   /* Writes the shell's stateJson() into `out`. Owner: state_check, bank_check,
-     corner_probe, gen_factory_bank, statefix_common.h. */
+     corner_probe, gen_factory_bank, statefix_common.h, morphlayout_check (T13
+     reads the morphLayout marker the state carries). */
   void hypersaw_debug_state(const clap_plugin_t *p, char *out, uint32_t cap);
 
   /* B241: a parameter's STORAGE (Plugin::readStored) — under a mod route, the
@@ -122,6 +123,12 @@ extern "C"
 
   /* The exemption set as JSON. Owner: state_check, corner_probe. */
   const char *hypersaw_debug_exemptjson(const clap_plugin_t *p);
+
+  /* B240: re-deal the quantum draws as if the morph field had `nSlots` slots
+     (frozen = the shell's layout-9 draw prefix; 0 = the pre-B240 whole-field
+     order, the must-flip control). Restore with (field length, 1).
+     Owner: morphlayout_check T14. */
+  void hypersaw_debug_morph_redraw(const clap_plugin_t *p, int nSlots, int frozen);
 
   /* --- Mod matrix (ADR-136) ---------------------------------------------- */
 

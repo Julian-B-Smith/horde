@@ -83,12 +83,19 @@ struct IntentCore
      the per-atom draws bit-identical to a stream without coupling, which is
      what makes the prototype's `reshuffle()` (8 params, home, unison) and this
      function agree atom for atom. Same ordering argument as MorphCore::
-     reshuffle, which draws its params before its shared vector. */
-  static void drawSeeds(uint32_t deviceSeed, double *seeds, int nAtoms, double *sharedSeed)
+     reshuffle, which draws its params before its shared vector.
+     `nPrefix` (B240), same law as MorphCore::reshuffle's: only the first
+     nPrefix atoms are drawn before the shared seed, the rest after it, so the
+     shell can append atoms without moving the shared seed or any earlier one.
+     The default (every atom) is the prototype's order exactly. */
+  static void drawSeeds(uint32_t deviceSeed, double *seeds, int nAtoms, double *sharedSeed,
+                        int nPrefix = 1 << 30)
   {
+    const int pre = nPrefix < nAtoms ? (nPrefix < 0 ? 0 : nPrefix) : nAtoms;
     uint32_t a = deviceSeed;
-    for (int i = 0; i < nAtoms; i++) seeds[i] = MorphCore::rnd01(a);
+    for (int i = 0; i < pre; i++) seeds[i] = MorphCore::rnd01(a);
     if (sharedSeed != nullptr) *sharedSeed = MorphCore::rnd01(a);
+    for (int i = pre; i < nAtoms; i++) seeds[i] = MorphCore::rnd01(a);
   }
 
   /* ---- §4.1 effective morph position ----------------------------------

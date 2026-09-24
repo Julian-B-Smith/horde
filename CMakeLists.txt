@@ -827,7 +827,7 @@ target_link_libraries(anchor_check PRIVATE ${PROJECT_NAME}-impl)
 add_executable(preset_probe tools/preset_probe.cpp)
 target_link_libraries(preset_probe PRIVATE ${PROJECT_NAME}-impl)
 
-# morphlayout_check: the morph field array layout is append-only (ADR-159). Standalone, unwired.
+# morphlayout_check: the morph field array layout is append-only (ADR-159). Wired in ./verify full (B124; B240 T13-T15).
 add_executable(morphlayout_check tools/morphlayout_check.cpp)
 target_link_libraries(morphlayout_check PRIVATE ${PROJECT_NAME}-impl)
 

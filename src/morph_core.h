@@ -43,16 +43,25 @@ struct MorphCore
     return -std::log(-std::log(u));
   }
 
-  void reshuffle(uint32_t seed, int nParams)
+  /* Param draws first, then the shared "mod" draw — the reference's order
+     (reshuffleAll: gPar before gMod), so a seed means the same field there
+     and here.
+     `nPrefix` (B240): draw only the first nPrefix rows before gShared and the
+     rest AFTER it. The shell passes its layout-9 length, so appending slots to
+     its field can never move gShared or any earlier row — without it, every
+     append re-dealt which corner every quantum slot draws. The default (the
+     whole field) is the reference's order exactly, and for a field no longer
+     than nPrefix the stream is the same either way, bit for bit. */
+  void reshuffle(uint32_t seed, int nParams, int nPrefix = kMaxParams)
   {
     n = nParams > kMaxParams ? kMaxParams : nParams;
+    const int pre = nPrefix < n ? (nPrefix < 0 ? 0 : nPrefix) : n;
     uint32_t a = seed;
-    // Param draws first, then the shared "mod" draw — the reference's order
-    // (reshuffleAll: gPar before gMod), so a seed means the same field there
-    // and here.
-    for (int i = 0; i < n; i++)
+    for (int i = 0; i < pre; i++)
       for (int k = 0; k < kCorners; k++) g[i][k] = gumbel(rnd01(a));
     for (int k = 0; k < kCorners; k++) gShared[k] = gumbel(rnd01(a));
+    for (int i = pre; i < n; i++)
+      for (int k = 0; k < kCorners; k++) g[i][k] = gumbel(rnd01(a));
   }
 
   // Bilinear pad weights — the reference's exact expression.
