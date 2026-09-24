@@ -2924,6 +2924,13 @@ struct Plugin
      -1 when the slot belongs to no switchable source. Sized and filled once in
      morphInit, so the blend reads it on the audio thread without allocating. */
   std::vector<int32_t> morphGateSlot;
+  /* ADR-183 / critic S1 (PR #744): the distinct gate slots, and per gate slot
+     whether its source was OFF when this tick began. Snapshotted at the top
+     of each morph tick because the gate itself is re-committed INSIDE the
+     slot loop, and its position in morphIds relative to the slots it gates
+     differs per source. Sized in morphInit; the audio thread only writes. */
+  std::vector<int32_t> morphGateSlotList;
+  std::vector<uint8_t> morphSrcWasOff;
   // ADR-115: MUST match the ParamDef defaults for 152/153 (corner A = 0,0).
   // paramscope_check's default-truth sweep exists for exactly this pair going
   // out of step, and caught it the first time this changed.
@@ -3163,6 +3170,12 @@ struct Plugin
       for (size_t j = 0; j < morphIds.size(); j++)
         if (morphIds[j] == gate) { morphGateSlot[i] = (int32_t)j; break; }
     }
+    morphGateSlotList.clear();
+    for (int32_t g : morphGateSlot)
+      if (g >= 0 && std::find(morphGateSlotList.begin(), morphGateSlotList.end(), g) ==
+                        morphGateSlotList.end())
+        morphGateSlotList.push_back(g);
+    morphSrcWasOff.assign(morphIds.size(), 0);
 
     for (int k = 0; k < 4; k++) morphCorner[k].assign(morphIds.size(), 0.0);
     morphCur.assign(morphIds.size(), -1e30);
@@ -4359,6 +4372,24 @@ struct Plugin
     const double coef = morphGlideS > 1e-4 ? 1 - std::exp(-dt / morphGlideS) : 1.0;
     // ADR-183: read ONCE per tick through the one read site B100 names.
     const bool offCornerRule = engineRevision() >= 2;
+    /* ADR-183 / critic S1 (PR #744) — A SOURCE THAT WAS OFF LANDS, IT DOES NOT
+       GLIDE. Below the floor the blend reads the plain sum, which near a pure
+       OFF corner IS that corner's value; the one-pole then carried the slot
+       from there toward the ON corners' value AFTER the source re-struck, so
+       the OFF corner was heard on the way up (the critic measured the sub at
+       -23 dB at the default glide and -13.5 dB at 0.5 s, osc 2 at about
+       -9.5 dB, against the as-if patch). Whatever a slot held while its source
+       was silent was never heard, so there is no audible position to glide
+       FROM: on the tick its source comes back, a gated continuous slot takes
+       its target outright — the "never applied yet" landing morphApplyTarget
+       gives the -1e29 sentinel, written as a direct commit so a slot whose
+       source stays off is not re-applied every tick. The state is read at the
+       TOP of the tick, before the loop re-commits the gate. Blend only, like
+       the rule itself; revision 1 never reads it. */
+    const bool landRule = offCornerRule && (int)morphMode == 1;
+    if (landRule)
+      for (int32_t g : morphGateSlotList)
+        morphSrcWasOff[(size_t)g] = readParam(morphIds[(size_t)g]) < 0.5 ? 1 : 0;
     for (size_t i = 0; i < morphIds.size(); i++)
     {
       const ParamDef *d = findParam(morphIds[i]);
@@ -4373,7 +4404,11 @@ struct Plugin
       if (baseIdOf(morphIds[i]) == 150) { morphApplyOscEnable(i, w); continue; }
       double target;
       if ((int)morphMode == 1 && !d->stepped)
+      {
         target = morphBlendTarget(i, w, offCornerRule);
+        const int32_t g = landRule && i < morphGateSlot.size() ? morphGateSlot[i] : -1;
+        if (g >= 0 && morphSrcWasOff[(size_t)g]) { morphCommitSlot(i, target); continue; }
+      }
       else
       {
         const int k = morph.pickCorner((int)morphGroupLead(i), lw, morphCoup);

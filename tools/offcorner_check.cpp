@@ -32,6 +32,12 @@
  * against origin/main's build), and statefix_check's revision-1 fixture corpus
  * and bank_check's renders are the standing half.
  *
+ * ADDED ON REVIEW (critic, PR #744): the puck MOVING up across the floor
+ * while a note sounds, at a real glide — the OFF corner must not be heard on
+ * the way up, so the render must equal the as-if patch's (5c); a patch whose
+ * ON corners DIFFER, so the renormalised mix itself is asserted (5b); and the
+ * off-grid control proving its own power (the two sums differ there).
+ *
  * WHICH SOURCES. Swarm 2 (1150 over the 1000-block), Swarm 1 (150 over osc 1's
  * ids) and the Sub (gate 4015 over 4000..4019) — every source the shell has,
  * each through the one declaration the shell reads (sourceGateOf).
@@ -223,6 +229,7 @@ struct Patch
   std::vector<PV> corner[4];       // per-corner overrides of the defaults
   double x = 0.5, y = 0.0;         // the puck
   int mode = 1;                    // 157: 1 = blend, 0 = quantum
+  double glide = 0.0;              // 158, seconds; 0 = land in one grid tick
   std::vector<clap_id> exempt;     // ADR-109 exemptions, written into the saved field
 };
 
@@ -238,9 +245,10 @@ std::string capture(const Patch &pt)
   for (int k = 0; k < 4; k++)
     if (!hypersaw_debug_cornerapply(r.p, k, cornerJson(pt.corner[k]).c_str()))
       check(false, "setup: corner " + std::to_string(k) + " applies");
-  // Glide 0 (coef 1): the field lands on its target in one grid tick, so a
-  // read after rendering is the target itself, not a point on a slew.
-  r.send({{157, (double)pt.mode}, {158, 0.0}, {152, pt.x}, {153, pt.y}});
+  // Glide 0 by default (coef 1): the field lands on its target in one grid
+  // tick, so a read after rendering is the target itself, not a point on a
+  // slew. The moving-puck rows set a real glide on purpose.
+  r.send({{157, (double)pt.mode}, {158, pt.glide}, {152, pt.x}, {153, pt.y}});
   r.send({{151, 1.0}});
   r.run(0.1);
   static char state[1 << 18];
@@ -306,6 +314,58 @@ Heard hear(const std::string &json, const std::vector<PV> &after = {})
   for (const auto &s : order()) h.v[s.id] = r.get(s.id);
   r.kill();
   return h;
+}
+
+/* THE PUCK MOVES WHILE A NOTE SOUNDS (critic S1, PR #744). Load a patch whose
+   puck rests on a pure OFF corner, strike, then move the puck to `x` inside
+   ONE block and keep rendering. The whole render is hashed, before and after
+   the move, so anything the OFF corner's settings leave behind — a glide that
+   starts from them — is in the hash. */
+Heard hearMove(const std::string &json, double x)
+{
+  Rig r;
+  r.boot();
+  if (!hypersaw_debug_apply(r.p, json.c_str())) check(false, "setup: the patch loads");
+  r.run(0.05);
+  r.hash = 1469598103934665603ull;
+  r.noteOn(48);
+  r.run(0.2);
+  r.send({{152, x}});
+  r.run(0.6);
+  Heard h;
+  h.rev = hypersaw_debug_engine_revision(r.p);
+  h.hash = r.hash;
+  for (const auto &s : order()) h.v[s.id] = r.get(s.id);
+  r.kill();
+  return h;
+}
+
+/* The bilinear weights exactly as MorphCore::weights computes them, and the
+   two sums the shell can take over them — so a row can state what the ON
+   corners' mix must be, and a control can prove that its position separates
+   the two laws at all. The expressions mirror morphBlendTarget /
+   morphLiveWeights term for term; a row that computed them differently would
+   be testing its own arithmetic. */
+void weightsAt(double x, double y, double w[4])
+{
+  w[0] = (1 - x) * (1 - y);
+  w[1] = x * (1 - y);
+  w[2] = (1 - x) * y;
+  w[3] = x * y;
+}
+double plainSum(const double w[4], const double c[4])
+{
+  double t = 0;
+  for (int k = 0; k < 4; k++) t += w[k] * c[k];
+  return t;
+}
+double liveSum(const double w[4], const double c[4], const double g[4])
+{
+  double liveW = 0;
+  for (int k = 0; k < 4; k++) liveW += w[k] * g[k];
+  double t = 0;
+  for (int k = 0; k < 4; k++) t += (w[k] * g[k] / liveW) * c[k];
+  return t;
 }
 
 bool same(double a, double b) { return std::memcmp(&a, &b, sizeof a) == 0; }
@@ -452,7 +512,23 @@ int main(int argc, char **argv)
        bitwise for an all-ON source whatever the code does. At (0.3, 0.4) they
        need not (0.42 + 0.18 + 0.28 + 0.12 in doubles), so this is a position
        where an all-ON parameter wrongly sent down the renormalising path would
-       show up in the last bit. */
+       show up in the last bit.
+       THE CONTROL PROVES ITS OWN POWER (critic (g), PR #744): it would pass
+       vacuously wherever the two sums agree anyway, which is what happened at
+       (0.3, 0.7). So assert, in the check's own doubles, that at THIS position
+       the plain and the renormalised sums of osc 1's detune DIFFER: only then
+       does "bit-identical across revisions" mean the all-ON source was kept
+       off the renormalising path. */
+    {
+      double w[4];
+      weightsAt(G.x, G.y, w);
+      const double c[4] = {0.2, 0.6, 0.2, 0.6}, on[4] = {1, 1, 1, 1};
+      const double ps = plainSum(w, c), ls = liveSum(w, c, on);
+      check(!same(ps, ls),
+            fmt("CONTROL POWER at (0.3, 0.4): the plain and the renormalised sums of the control "
+                "DIFFER in doubles (%.17g vs %.17g), so the row below cannot pass vacuously",
+                ps, ls));
+    }
     const Heard g1 = hear(atRevision(gj, 1)), g2 = hear(atRevision(gj, 2));
     check(same(g1.v.at(4), g2.v.at(4)) && diff(g1, g2) == std::set<clap_id>{1004},
           fmt("CONTROL off the grid (0.3, 0.4): swarm 1 detune bit-identical (%.17g / %.17g)",
@@ -555,6 +631,57 @@ int main(int argc, char **argv)
     check(diff(i1, i2).empty() && i1.hash == i2.hash && i1.hash != h1.hash,
           "unchanged: the intent-bus resolver renders bit-identically in both revisions (and "
           "differently from the flag-off blend, so the flag was on)");
+  }
+
+  /* ---- 5b. HOW the ON corners are mixed (critic S2, PR #744) -------------
+     Every patch above has B == D, so ANY mix of the ON corners reads the same
+     number and the renormalisation itself was never tested. Here D differs
+     from B, off the grid, and the value must be (wB vB + wD vD) / (wB + wD) —
+     not B's value, not D's, not their plain average. */
+  {
+    Patch m = P;
+    m.x = 0.3;
+    m.y = 0.4;
+    for (auto &q : m.corner[3])
+      if (q.id == 1004) q.v = 0.5;
+    const Heard m2 = hear(atRevision(capture(m), 2));
+    double w[4];
+    weightsAt(m.x, m.y, w);
+    const double want = (w[1] * kDetB + w[3] * 0.5) / (w[1] + w[3]);
+    check(std::fabs(m2.v.at(1004) - want) < 1e-12 && std::fabs(want - kDetB) > 0.05 &&
+              std::fabs(want - 0.65) > 0.01,
+          fmt("mix: at (0.3, 0.4) with B=0.8, D=0.5 (A, C off) rev 2 reads (wB vB + wD vD)/(wB + wD)"
+              " = %.17g (read %.17g; wB %.3g", want, m2.v.at(1004), w[1]) +
+              fmt(" wD %.3g)", w[3]));
+  }
+
+  /* ---- 5c. THE PUCK MOVES UP ACROSS THE FLOOR (critic S1, PR #744) -------
+     From a pure OFF corner to the midpoint in ONE block, while a note sounds,
+     at a real glide. Before the fix the continuous slots glided from the
+     plain blend — near a pure OFF corner that IS the OFF corner's value — so
+     the OFF corner was heard after the source re-struck (measured by the
+     critic: sub -23 dB at the default glide and -13.5 dB at 0.5 s, osc 2
+     about -9.5 dB). The as-if patch (the OFF corners holding the ON corners'
+     values) has nothing to glide from, so bit-identity with it is the claim.
+     Downward (source ON -> OFF) is pinned too: it was already identical. */
+  {
+    struct Mv { const char *what; Patch p; std::vector<clap_id> ids; };
+    const Mv mv[] = {{"osc 2", P, {1004}}, {"sub", subPatch(), {4007, 4010}}};
+    for (const auto &m : mv)
+      for (double glide : {0.5, 0.008})
+        for (int up = 1; up >= 0; up--)
+        {
+          Patch a = m.p;
+          a.x = up ? 0.0 : 0.5;
+          a.glide = glide;
+          const Heard real = hearMove(atRevision(capture(a), 2), up ? 0.5 : 0.0);
+          const Heard asif = hearMove(atRevision(capture(asIf(a, m.ids)), 2), up ? 0.5 : 0.0);
+          check(real.hash == asif.hash,
+                std::string("moving puck: ") + m.what + (up ? ", x 0 -> 0.5 (OFF -> across the floor)"
+                                                            : ", x 0.5 -> 0 (down to OFF)") +
+                    fmt(", glide %g s — rev 2 renders bit-identically to the as-if patch", glide) +
+                    " (" + hex(real.hash) + " vs " + hex(asif.hash) + ")");
+        }
   }
 
   /* ---- 6. the inverse: a live edit STICKS under the law that reads it ---- */
