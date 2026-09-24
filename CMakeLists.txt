@@ -567,6 +567,15 @@ if(NOT MSVC)
   target_compile_options(measure_cpu PRIVATE -O2)
 endif()
 
+# measure_modsources: ROADMAP B236 — computational cost of two candidate
+# modulation sources (Kuro LFO, ORBITAL) that exist only as JS. Self-contained
+# port, no CLAP link (neither law touches the shell). UNWIRED, same standing
+# as measure_alias/measure_cpu: it prints, never judges (see the file header).
+add_executable(measure_modsources tools/measure_modsources.cpp)
+if(NOT MSVC)
+  target_compile_options(measure_modsources PRIVATE -O3)
+endif()
+
 # ---- B147 layer 2: the SWARM SAW engine fidelity suite --------------------
 # Six checks closing the six oracle gaps docs/audits/2026-09-18-saw-engine-audit.md
 # §3 enumerated. ALL SIX ARE STANDALONE AND UNWIRED: ./verify is a protected
