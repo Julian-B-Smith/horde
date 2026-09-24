@@ -26,13 +26,25 @@
          the knob, wires, grid, trace — each judged by one question: "what is
          moving this knob, by how much, right now?" The human chooses; the lab
          does not.
+     (3) COHERENCE AS A SOURCE (B253, 2026-09-24). Slots 22/23 carry Coherence
+         1/2: the Kuramoto order parameter R of each oscillator's swarm,
+         unipolar 0..1. R is computed by a REAL swarm here (class Swarm — the
+         mean-field law of src/swarm_core.h, cited line by line there), one per
+         oscillator per held note, because R is a PER-NOTE quantity and the two
+         questions the port must answer only exist once there are several:
+         which rule projects three notes' R onto one global slot, and what
+         routing R back into Coupling does through the matrix's one-tick delay.
+         Both are prototyped live below; the answers are in Q3.
 
      WHAT THIS IS NOT. Not a port, not a parity oracle, not the shell. The core
      below (BLOCK A) is the LAB'S OWN: it follows src/mod_core.h's route table,
      SUM law and B134 polarity map, and adds the depth-route class B70 describes.
      Envelope contours are linear segments in seconds — NOT advanceAdsr()'s law,
      which this lab does not claim. One mono voice, global scope only (B34's
-     per-note scope is not modelled). The audio is a MONITOR on native WebAudio
+     per-note scope is not modelled) — EXCEPT the B253 voice pool: three note
+     slots whose only job is to own a swarm each, so per-note R is real; its
+     PER-VOICE switch is the one place a route is evaluated per note, and only
+     on the two Coupling destinations. The swarms are not sounded. The audio is a MONITOR on native WebAudio
      nodes updated per animation frame — it is not the 172 Hz tick and must not
      be used to judge B199 by ear.
 
@@ -50,7 +62,7 @@
      never over accumulated pixel positions — `x += w / n` with a stubbed w is
      `x += 0`, an infinite loop the gate would report as a timeout. -->
 <html><head><meta charset="utf-8">
-<meta name="lab-review" content="B207 · 2026-09-22">
+<meta name="lab-review" content="B207 + B253 · 2026-09-24">
 <title>mod matrix lab — depth modulation, and four ways to see a route</title>
 <style>
   /* ============================================================
@@ -390,14 +402,36 @@
   .axes .st { color:var(--t2); }
   .axes .st b { color:var(--text); }
   .axes .warn { color:var(--caution-tx); background:var(--caution-bg); padding:0 3px; border-radius:2px; }
+
+  /* ============ COHERENCE (B253) ============
+     Same idioms, no new vocabulary: the swarm pictures and both plots are
+     phosphor tubes (data wells), the knobs are gui2's .row, the rule and
+     feedback choices are pills. Violet = what the swarm does on its own (R,
+     the members), magenta = what you authored (base Coupling, the feedback
+     law's line), cyan/lime = the measured projection. */
+  .answers .wide { grid-column:1 / -1; }
+  .coh { display:grid; grid-template-columns:minmax(0,1.05fr) minmax(0,1fr) minmax(0,.95fr);
+         gap:10px; margin-top:10px; align-items:start; }
+  @media (max-width:1250px) { .coh { grid-template-columns:1fr; } }
+  #cohCv, #ruleCv, #fbCv { width:100%; height:240px; }
+  .coh3 { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:4px; }
+  .coh3 .row { grid-template-columns:54px minmax(0,1fr) 40px; gap:4px; margin:1px 0; }
+  .coh3 .row label { font-size:9.5px; }
+  .coh3 .row output { font-size:9.5px; }
+  .cohbar { display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin:0 0 6px; }
+  .cohbar .pill { min-height:22px; padding:1px 8px; font-size:9px; }
+  table.ledger.rules tr.pick td { color:var(--text); font-weight:700; }
+  table.ledger.rules tr.pick td:first-child { box-shadow:inset 3px 0 0 var(--value); }
+  table.ledger.rules tr { cursor:pointer; }
+  table.ledger.rules tr:hover td { background:var(--panel2); }
 </style></head><body>
 
 <div class="hdr">
   <div>
     <h1>mod matrix</h1>
     <div class="badges">
-      <span class="badge">LAB · B207</span>
-      <span class="sub">DEPTH MODULATION · FOUR WAYS TO SEE A ROUTE · ONE STATE, CHOOSE THE PICTURE</span>
+      <span class="badge">LAB · B207 + B253</span>
+      <span class="sub">DEPTH MODULATION · FOUR WAYS TO SEE A ROUTE · COHERENCE AS A SOURCE</span>
     </div>
   </div>
   <div class="hdrctl">
@@ -413,7 +447,8 @@
 <div class="tagline">The <b>modulation matrix</b> as it stands after B134/B171 — 22 source slots under
 <b>B179's new names</b>, per-route polarity, pitch as an ordinary <b>±48 st</b> destination per oscillator (B180,
 proposed) — plus the two things B207 exists to settle: <b>depth modulation</b> (a route's amount as a destination,
-B70) and <b>how a route should look</b>. The four treatments below all draw the SAME live state; edit routes in the
+B70) and <b>how a route should look</b> — plus B253's <b>Coherence 1/2</b> on the last two slots, driven by a real
+Kuramoto swarm per held note. The four treatments below all draw the SAME live state; edit routes in the
 editor or directly in the grid and watch all four answer. Drawn only in gui2's tokens: magenta is what you
 <b>authored</b>, violet is what <b>modulation</b> does to it (gui2's halo colour), cyan/lime is <b>measurement</b>.
 Keys <b>A</b>..<b>K</b> play (W/E/T/Y/U black); HOLD keeps a drone so the envelopes have something to do.</div>
@@ -461,6 +496,39 @@ Keys <b>A</b>..<b>K</b> play (W/E/T/Y/U black); HOLD keeps a drone so the envelo
     a categorical palette the design system does not have. So source identity rides <b>tag + ring order</b>.
     If you want hue, that is an ADR-116 amendment, not a lab choice.
   </div>
+  <div class="cluster wide"><h2>Q3 · Coherence as a source (B253) — what this lab proposes</h2>
+    <div class="verdict">Coherence is a per-note source. Where the destination is per-note, read the note's own R;
+      where it is global, read the gain-weighted mean. Feeding it back into Coupling is stable, but it is not tame.</div>
+    <b>What R does</b> (measured here, horde's mean-field law): a struck note starts at <b>R = 1</b> because the
+    phases retrigger at 0, then the law decides. Positive Coupling pulls it back up and, above about <b>K 0.75</b>
+    (0.74 with 5 members, 0.76 with 7), <b>locks</b> it to a steady value (0.80 at 0.75, 0.965 at +1). Negative
+    Coupling <b>splays</b> it toward 0 (0.046 at −1 with 4 members). In between, it <b>wanders</b>. Detune sets how
+    <i>fast</i> it wanders (at C3 with 7 members and K 0: 1, 3 and 7 peaks a second at detune 0.1, 0.28 and 0.6) but
+    not <i>where</i> it locks, because horde scales coupling by the spread (σ, swarm_core.h:1889). Higher notes
+    wander faster (8 a second at E4) because the detune is in cents. So three held notes have three different R.
+    <b>The rule, recommended</b>: <u>per-voice where the destination can be per-note</u>. Coupling, Coherence → Tone
+    and level are B34 Tier 1; there, route through the <code>kPerNote</code> scope mod_core already carries. For
+    <u>global destinations</u>, use <u>GAIN-WEIGHTED</u> (Σ gain·R / Σ gain), which is the coherence of what you
+    hear. Each note moves it by exactly its share of the sound. It has no hand-over jump. A releasing note fades out
+    of it instead of dropping out. The alternatives each break one case. LOUDEST jumps when the loudest note
+    changes: 0.235 at the chord's 1.07 s hand-over, and it ignores two thirds of the chord. NEWEST is a strike
+    detector: it jumps to 1 on every note-on (0.897). MAX shares that fault: any fresh note pins it near 1 (0.731).
+    It is the shell's rule for envelopes, where it is right, but it is wrong for R. MEAN counts a near-silent tail
+    the same as the lead (0.374). One honest caveat: GAIN-WEIGHTED also steps at a strike when the attack is shorter
+    than a tick (0.321 here, 5 ms attack), but its step is bounded by the new note's gain share.
+    <b>The feedback case</b> — Coherence 1 → OSC 1 Coupling, through the one-tick (5.8 ms) delay. The loop is stable
+    by construction because R is bounded to 0..1 and K is clamped to ±1. The delay changes nothing measurable: the
+    same law with 0, 1, 4 and 16 ticks of delay gives the same picture, because the swarm's own time is hundreds
+    of ms. The <b>sign</b> is what matters. <b>Positive</b> depth <u>latches</u>. Locking raises Coupling, which
+    holds the lock (+0.5 from base 0.3 → R 0.97, K pinned at +1). It has hysteresis: it holds with the base turned
+    down as far as 0 and lets go only below about −0.1. At a smaller depth it <u>bursts</u>: the swarm catches,
+    holds for a moment and lets go (+0.25 from 0.3 → R swings 0.03 ↔ 0.93, irregularly). <b>Negative</b> depth is
+    a <u>governor</u>. Rising R lowers Coupling, so the swarm can never lock (base 0.75 alone locks at R 0.80;
+    with −0.5 it wanders 0.06…0.61). Both are musically useful: the burst is the most alive thing on this page.
+    But "latch" means a patch can sit coherent for the whole note. A re-strike does NOT free it, because RETRIG
+    starts every note at R = 1, already inside the latch. Only turning the base down does, and a player must be
+    able to see that.
+  </div>
 </div>
 
 <div class="top">
@@ -469,8 +537,9 @@ Keys <b>A</b>..<b>K</b> play (W/E/T/Y/U black); HOLD keeps a drone so the envelo
     <div class="note">Slot order is frozen — it is what a saved route stores. <b>B179</b>: slots 20/21 display
       <b>ENV 1/2</b> (they were ENV 3/4), slot 0 is <b>Gain ENV (loudest voice)</b> and slot 1 <b>Pitch ENV</b>
       (they were ENV 1/2): a rename, never a renumber. Slots 10–13 are the retired pad aliases (ADR-156, read 0).
-      22/23 are the last two free — B180 proposes <i>Gain ENV OSC 1/2</i> there, unbuilt. The bar is each source's
-      value now; ◦n counts the routes reading it.</div>
+      <b>22/23 are B253's Coherence 1/2</b>, the last two slots. With them the array is <b>full</b>: B180's
+      proposed <i>Gain ENV OSC 1/2</i> named these same two slots, so it now needs kMaxSources to grow. The bar is
+      each source's value now; ◦n counts the routes reading it.</div>
     <div class="ctl4" id="srcCtl"></div>
     <div id="kbd"></div>
   </div>
@@ -489,6 +558,51 @@ Keys <b>A</b>..<b>K</b> play (W/E/T/Y/U black); HOLD keeps a drone so the envelo
       <span style="color:var(--physics)">now</span> · + DEPTH · remove. Pitch depths are semitones, ±48 (B180);
       everything else is ±1 of the destination's full range (ADR-136). Indented violet rows are depth routes.
       Click a destination name to inspect it.</div>
+  </div>
+</div>
+
+<div class="coh">
+  <div class="cluster"><h2>Coherence 1/2 — each held note's own swarm (slots 22/23)</h2>
+    <div class="cohbar">
+      <span class="lbl">PHASES AT A STRIKE</span>
+      <span class="pills"><button class="pill" id="cohRetrig" type="button" data-lab="phase start">RETRIG · 0</button><button class="pill" id="cohFree" type="button" data-lab="phase start">FREE · seeded</button></span>
+      <button class="pill" id="cohChord" type="button" data-lab="plays the three-note demonstration chord">CHORD C3 · G3 · E4</button>
+    </div>
+    <canvas id="cohCv"></canvas>
+    <div class="coh3" id="cohCtl"></div>
+    <div class="note">Columns are the three note slots and rows the two oscillators. Violet dots are the swarm's
+      members on the phase circle. The cyan arrow is <b>R·e<sup>iψ</sup></b>, whose length is the source value.
+      Coupling is the matrix destination's base, so the knob in view A moves it too. Members apply at the next
+      strike (CHORD re-strikes). Nothing here is sounded; the monitor audio is still the two plain saws.</div>
+  </div>
+  <div class="cluster"><h2>One number from three notes — the global rule</h2>
+    <div class="cohbar">
+      <span class="lbl">SLOTS READ</span><span class="pills" id="rulePills"></span>
+    </div>
+    <div class="cohbar">
+      <span class="lbl">COMPARE</span>
+      <span class="pills"><button class="pill" id="cmp1" type="button" data-lab="which oscillator the comparison draws">COH 1</button><button class="pill" id="cmp2" type="button" data-lab="which oscillator the comparison draws">COH 2</button></span>
+      <button class="pill" id="perVoice" type="button" data-lab="B34 per-note scope on the Coupling destinations">PER VOICE on Coupling</button>
+    </div>
+    <canvas id="ruleCv"></canvas>
+    <div id="ruleTab"></div>
+    <div class="note">All five rules run all the time over the same notes. Each lane draws the three notes' own R
+      faintly in violet and the rule's result in cyan, with a marker at every strike. <b>Largest step</b> is the
+      biggest single-tick jump in view. That is the number that clicks when the source drives a filter. Click a row
+      or pill to pick what slots 22/23 read. <b>PER VOICE</b> is a separate question. When it is on, routes into
+      Coupling read each note's OWN R (B34 scope), and the rule then only governs global destinations.</div>
+  </div>
+  <div class="cluster"><h2>Feedback — Coherence 1 → OSC 1 Coupling</h2>
+    <div class="cohbar">
+      <span class="lbl">LOOP</span><span class="pills" id="fbPills"></span>
+    </div>
+    <canvas id="fbCv"></canvas>
+    <div class="note" id="fbNote"></div>
+    <div class="note">The plane is Coupling (x, what the swarm ran at) against Coherence (y, what it made of it),
+      OSC 1, one trail per held note over 3 s. The dashed magenta line is the loop's own law,
+      <b>K = base + depth·2·R</b>, where 2 is the destination's span (ADR-136). Under PER VOICE every trail must lie
+      on it, one tick late. Under a global rule, only the note the rule reads does, and the others are dragged by
+      a neighbour's R. The dashed vertical is the base you set.</div>
   </div>
 </div>
 
@@ -512,7 +626,7 @@ Keys <b>A</b>..<b>K</b> play (W/E/T/Y/U black); HOLD keeps a drone so the envelo
     <div id="mgWell"><div id="mg"></div></div>
     <div class="reads"><b>What</b> — row × column. <b>How much</b> — the magenta fill is the depth you set (amber =
       negative). <b>Now</b> — the violet floor bar. A dashed violet ring = this cell's depth is itself modulated.
-      Cost: 18 × 7 cells to show ~6 routes; duplicates (two routes, one cell) show as ×2 and sum.</div>
+      Cost: 20 × 9 cells to show ~6 routes; duplicates (two routes, one cell) show as ×2 and sum.</div>
   </div>
   <div class="cluster view"><h2>D · Trace <span>tube · click a lane</span>
       <span class="pills" style="margin-left:auto"><button class="pill on" id="tzA" data-lab="trace span">3 s</button><button class="pill" id="tzB" data-lab="trace span">250 ms · ticks</button></span></h2>
@@ -567,7 +681,10 @@ function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; le
    under B179's table: slot 20 ENV 3 → ENV 1, 21 ENV 4 → ENV 2, 0 ENV 1 → Gain ENV
    (loudest voice), 1 ENV 2 → Pitch ENV. `bi` is the source's NATURAL polarity
    (ModCore::SrcPolarity); gui2's note says the LFOs are bipolar and the pitch
-   wheel is ±1. Slots 22/23 exist in kMaxSources but carry no source. */
+   wheel is ±1. Slots 22/23 are B253's Coherence 1/2 — this lab's proposal,
+   not yet in gui2 — and with them kMaxSources' 24 are FULL: B180's proposed
+   Gain ENV OSC 1/2, which had named these two slots, would need the cap to
+   grow (appending is safe; a saved route stores the slot, B179). */
 const SRC = (() => {
   const s = [
     { tag: 'GE', name: 'Gain ENV', long: 'Gain ENV (loudest voice)', was: 'was ENV 1', bi: false, kind: 'engine' },
@@ -584,10 +701,15 @@ const SRC = (() => {
   s.push({ tag: 'L2', name: 'LFO 2', long: 'LFO 2', bi: true, kind: 'lfo' });
   s.push({ tag: 'E1', name: 'ENV 1', long: 'ENV 1', was: 'was ENV 3', bi: false, kind: 'env' });
   s.push({ tag: 'E2', name: 'ENV 2', long: 'ENV 2', was: 'was ENV 4', bi: false, kind: 'env' });
+  /* B253. Natural polarity UNIPOLAR: R = |mean of e^(iθ)| is a magnitude,
+     0 (splay — the members cancel) … 1 (every member in phase). Player name
+     per B224 ("Coherence"); the physics keeps R. */
+  s.push({ tag: 'COH1', name: 'Coherence 1', long: 'Coherence 1 — OSC 1 swarm R (B253)', bi: false, kind: 'engine', coh: 0 });
+  s.push({ tag: 'COH2', name: 'Coherence 2', long: 'Coherence 2 — OSC 2 swarm R (B253)', bi: false, kind: 'engine', coh: 1 });
   return s;
 })();
 const S_GE = 0, S_PE = 1, S_M1 = 2, S_VEL = 14, S_MW = 15, S_AT = 16, S_PW = 17,
-      S_L1 = 18, S_L2 = 19, S_E1 = 20, S_E2 = 21;
+      S_L1 = 18, S_L2 = 19, S_E1 = 20, S_E2 = 21, S_C1 = 22, S_C2 = 23;
 /* A route sent from the matrix arrives on a default source. gui2's note says
    "the route arrives on ENV 1" — which today is slot 0, the loudest-voice gain
    envelope. Under B179 the general-purpose ENV 1 is slot 20, and that is what
@@ -610,6 +732,13 @@ const DEST = [
   { key: 'cut', short: 'CUT',  name: 'Cutoff',      unit: 'Hz', min: 20,  max: 20000, base: 900, log: true, axes: [1, 3, 5] },
   { key: 'res', short: 'RES',  name: 'Resonance',   unit: '',   min: 0,   max: 1,   base: 0.25, axes: [1, 3, 5] },
   { key: 'pan', short: 'PAN',  name: 'Pan',         unit: '',   min: -1,  max: 1,   base: 0, bip: true, axes: [1, 5] },
+  /* B253: each oscillator's Coupling (K, ids 6 / 1006 — B224's player name),
+     −1…+1. The two destinations the feedback question needs; the swarms below
+     READ them, one matrix tick late. Coupling is B34's Tier-1 per-note
+     parameter (km is computed inside the per-note tick), which is why the
+     PER-VOICE switch may evaluate routes onto it per note. */
+  { key: 'k1',  short: 'CPL1', name: 'OSC 1 Coupling', unit: '', min: -1, max: 1, base: 0.55, bip: true, axes: [1, 5] },
+  { key: 'k2',  short: 'CPL2', name: 'OSC 2 Coupling', unit: '', min: -1, max: 1, base: -0.6, bip: true, axes: [1, 5] },
 ];
 const DEST_BY = {};
 for (const d of DEST) DEST_BY[d.key] = d;
@@ -661,6 +790,161 @@ class Adsr {
   }
 }
 
+/* ============ COHERENCE — the swarm behind slots 22/23 (B253) ============
+   A mean-field Kuramoto swarm following horde's coupling law AS
+   src/swarm_core.h STATES IT, on its default path (topo 0 mean-field, poles 1,
+   pivot off, alpha 0, inertia 0, absK off, onset 0, drift 0, law 0 cents,
+   spread 1, anchor 0). Each line below names the lines it follows:
+     members   x[i]: dist 1, the JP table interpolated (swarm_core.h:1507-1516);
+               centre voice c0 = argmin |x| (:1551-1553).
+     pitch     vf[i] = f0 · 2^(x·detune·100/1200) (:1805 law 0, via :1791), ≥ 1 Hz.
+     spread    sigma = max(0.08, sd(vf)) Hz (:1853).
+     coupling  km = 4·K·|K| (:1886); sync target max(0,km)·sigma, splay target
+               max(0,−km)·3·sigma (:1894-1895); each approached by the B150
+               one-pole, tau 4.3512 ms in SECONDS (:152, :391 — ADR-009).
+     R, psi    from the PREVIOUS tick's phases (:1902-1911 — header :16).
+     force     couple[i] = KsmS·R·sin(psi − 2π·ph[i])
+                         + KsmP·sin(2π(ph[c0] + (i−c0)/n − ph[i]))  if KsmP > .001
+               (:1985-1992) — computed for EVERY member before ANY phase moves.
+     advance   ph[i] += (vf[i] + couple[i]) · 16/44100, once per 16-sample
+               tick (kTick, :54; eff = vf + couple at :2060). The engine
+               advances per sample at a constant eff within the tick; the sum
+               is the same number.
+   THE TRAP THE FIRST DRAFT FELL IN: advancing ph[i] inside the force loop
+   lets voices after c0 read c0's ALREADY-MOVED phase — a 16/44100·f0 ≈ 0.05
+   cycle bias at C3 that holds a K = −1 swarm at R ≈ 0.145 instead of 0.046.
+   It is kept below as LAW_SEQ, a planted wrong law the self-check must catch.
+   Phases start at 0 on a strike (p.retrig = 1, the default, :701), so a note
+   is BORN coherent (R = 1) and the law decides what happens next; FREE draws
+   them from this lab's own mulberry32 stream (never the engine's rngState).
+   NOT modelled: drift, inertia, onset/Kenv, topologies, the pacemaker, glide. */
+const SW_TICK = 16;                            // swarm_core.h:54 kTick
+const SW_DT = SW_TICK / 44100;
+const SW_SUB = 256 / SW_TICK;                  // 16 swarm ticks per matrix tick
+const SW_KSM_C = 1 - Math.exp(-SW_DT / 0.004351220802760264);   // :152 kKsmTauSeconds
+const SW_TAU = 6.283185307;                    // :153 — the reference's literal, kept
+const SW_JP = [-1, -0.5715, -0.1774, 0, 0.181, 0.565, 0.9766];   // :1507
+const SW_MAXN = 9;
+const LAW_HORDE = 0, LAW_FLIPPED = 1, LAW_SEQ = 2;   // 1 and 2 exist ONLY to be caught
+class Swarm {
+  constructor() {
+    this.ph = new Float64Array(SW_MAXN); this.x = new Float64Array(SW_MAXN);
+    this.vf = new Float64Array(SW_MAXN); this.cp = new Float64Array(SW_MAXN);
+    this.n = 0; this.f0 = 0; this.c0 = 0; this.KsmS = 0; this.KsmP = 0;
+    this.R = 0; this.psi = 0; this.sigma = 0.08; this.det = -1;
+  }
+  start(f0, n, rng) {
+    this.f0 = f0; this.n = n; this.KsmS = 0; this.KsmP = 0; this.det = -1;
+    for (let i = 0; i < n; i++) {
+      const u = n === 1 ? 0.5 : i / (n - 1), pos = u * 6, a = Math.floor(pos), b = a + 1 < 6 ? a + 1 : 6;
+      this.x[i] = n === 1 ? 0 : SW_JP[a] + (SW_JP[b] - SW_JP[a]) * (pos - a);
+      this.ph[i] = rng ? rng() : 0;
+    }
+    this.c0 = 0;
+    for (let i = 1; i < n; i++) if (Math.abs(this.x[i]) < Math.abs(this.x[this.c0])) this.c0 = i;
+    this.measure();
+  }
+  measure() {
+    const n = this.n;
+    let sx = 0, sy = 0;
+    for (let i = 0; i < n; i++) { const a = this.ph[i] * SW_TAU; sx += Math.cos(a); sy += Math.sin(a); }
+    sx /= n; sy /= n;
+    this.R = Math.sqrt(sx * sx + sy * sy); this.psi = Math.atan2(sy, sx);
+  }
+  /* vf and sigma depend on detune and f0 only — cached by VALUE, the B148/O3
+     idiom (swarm_core.h:1772-1797), so a held detune costs no pow() per tick. */
+  pitch(detune) {
+    if (detune === this.det) return;
+    const n = this.n;
+    let mean = 0, v = 0;
+    for (let i = 0; i < n; i++) { this.vf[i] = Math.max(1, this.f0 * Math.pow(2, (this.x[i] * detune * 100) / 1200)); mean += this.vf[i]; }
+    mean /= n;
+    for (let i = 0; i < n; i++) { const d = this.vf[i] - mean; v += d * d; }
+    this.sigma = Math.max(0.08, Math.sqrt(v / n));
+    this.det = detune;
+  }
+  step(K, detune, law) {
+    const n = this.n;
+    if (!n) return;
+    this.pitch(detune);
+    const km = 4 * K * Math.abs(K);
+    this.KsmS += (Math.max(0, km) * this.sigma - this.KsmS) * SW_KSM_C;
+    this.KsmP += (Math.max(0, -km) * 3 * this.sigma - this.KsmP) * SW_KSM_C;
+    this.measure();
+    const R = this.R, psi = this.psi, c0 = this.c0, sg = law === LAW_FLIPPED ? -1 : 1;
+    for (let i = 0; i < n; i++) {
+      let c = sg * this.KsmS * R * Math.sin(psi - this.ph[i] * SW_TAU);
+      if (this.KsmP > 0.001) c += this.KsmP * Math.sin(SW_TAU * (this.ph[c0] + (i - c0) / n - this.ph[i]));
+      this.cp[i] = c;
+      if (law === LAW_SEQ) { const p = this.ph[i] + (this.vf[i] + c) * SW_DT; this.ph[i] = p - Math.floor(p); }
+    }
+    if (law !== LAW_SEQ)
+      for (let i = 0; i < n; i++) { const p = this.ph[i] + (this.vf[i] + this.cp[i]) * SW_DT; this.ph[i] = p - Math.floor(p); }
+    this.measure();
+  }
+}
+
+/* THE SELF-CHECK (B253). Each claim about the law is paired with a planted
+   wrong law that MUST fail the same predicate — a probe that can only say yes
+   has not been shown to see anything (L0016/L0032). Numbers are this lab's
+   measurements at C3, detune 0.28, FREE phases from seed 0xC0E1, 2 s, reading
+   the MEAN R of the last 0.5 s (an instant can land anywhere on a wander):
+     C1 K +1, 7 members  → 0.965   (want ≥ 0.9)
+     C2 K −1, 4 members  → 0.046   (want ≤ 0.1)
+     X1 sync sign flipped, K +1, 7 → 0.208 — must NOT pass C1's predicate
+     X2 sequential update, K −1, 4 → 0.145 — must NOT pass C2's predicate
+   DOM-free and deterministic, so a harness can slice it like the rest of A. */
+function coherenceChecks() {
+  const tailR = (K, n, law) => {
+    const s = new Swarm();
+    s.start(130.8128, n, mulberry32(0xC0E1));
+    const N = Math.round(2 / SW_DT), T = Math.round(0.5 / SW_DT);
+    let acc = 0;
+    for (let t = 0; t < N; t++) { s.step(K, 0.28, law); if (t >= N - T) acc += s.R; }
+    return acc / T;
+  };
+  const c1 = tailR(1, 7, LAW_HORDE), c2 = tailR(-1, 4, LAW_HORDE);
+  const x1 = tailR(1, 7, LAW_FLIPPED), x2 = tailR(-1, 4, LAW_SEQ);
+  return [
+    { id: 'C1', what: 'K +1 · 7 members → R ≥ 0.9', got: c1, pass: c1 >= 0.9 },
+    { id: 'C2', what: 'K −1 · 4 members → R ≤ 0.1', got: c2, pass: c2 <= 0.1 },
+    { id: 'X1', what: 'planted: sync sign flipped — C1 must refuse it', got: x1, pass: !(x1 >= 0.9) },
+    { id: 'X2', what: 'planted: sequential update — C2 must refuse it', got: x2, pass: !(x2 <= 0.1) },
+  ];
+}
+
+/* THE PROJECTION RULES — how three notes' R become ONE global slot value.
+   The first three are B253's candidates. MAX is the shell's precedent: every
+   per-voice envelope it projects today is the max over slots (Gain ENV
+   hypersaw_clap.cpp:3876, ENV 2/3/4 :3919-3935). GAIN-WEIGHTED is this lab's
+   proposal: Σ gain·R / Σ gain, gain = velocity × that note's gain envelope. */
+const COH_RULES = [
+  { key: 'loud', label: 'LOUDEST', hint: 'the R of the note with the most gain now (vel × gain env)' },
+  { key: 'mean', label: 'MEAN', hint: 'the plain mean over sounding notes, release tails included' },
+  { key: 'new', label: 'NEWEST', hint: 'the R of the most recently struck note' },
+  { key: 'max', label: 'MAX', hint: 'the largest R — the shell’s rule for every per-voice envelope' },
+  { key: 'wmean', label: 'GAIN-WEIGHTED', hint: 'Σ gain·R / Σ gain — each note counts as loud as it is (this lab’s proposal)' },
+];
+const RULE_WMEAN = 4;
+const COH_POLY = 3;
+function cohProject(rule, V, k) {
+  let best = -1, sum = 0, sw = 0, wr = 0, cnt = 0, mx = 0;
+  for (let i = 0; i < V.length; i++) {
+    const v = V[i];
+    if (!v.on) continue;
+    const g = v.vel * v.env.lv, R = v.R[k];
+    cnt++; sum += R; sw += g; wr += g * R;
+    if (R > mx) mx = R;
+    if (rule === 0 && (best < 0 || g > V[best].vel * V[best].env.lv)) best = i;
+    if (rule === 2 && (best < 0 || v.order > V[best].order)) best = i;
+  }
+  if (!cnt) return 0;                       // no note: the slot reads 0, like every engine source
+  if (rule === 0 || rule === 2) return V[best].R[k];
+  if (rule === 1) return sum / cnt;
+  if (rule === 3) return mx;
+  return sw > 1e-9 ? wr / sw : sum / cnt;
+}
+
 /* Why recursion is refused — ONE string, read by every surface that refuses
    (editor button, slider right-click, grid), so the reason cannot drift. */
 function refuseWhy() {
@@ -691,21 +975,119 @@ class ModLabCore {
     for (const d of DEST) this.hist[d.key] = { now: new Float32Array(HIST), lo: new Float32Array(HIST),
       hi: new Float32Array(HIST), base: new Float32Array(HIST), clip: new Uint8Array(HIST) };
     this.hpos = 0; this.ticks = 0; this.note = -1; this.version = 0;
+    /* B253 — the voice pool. Three note slots, each owning one swarm per
+       oscillator and a gain envelope (Gain ENV's contour × velocity = what
+       LOUDEST and GAIN-WEIGHTED weigh). `osc` holds the per-oscillator swarm
+       knobs; Coupling itself is core.base.k1/k2, a matrix destination. */
+    this.coh = {
+      rule: RULE_WMEAN, perVoice: true, free: false, order: 0, rng: null, pend: [],
+      osc: [{ n: 7, detune: 0.28 }, { n: 5, detune: 0.4 }],
+      voices: [],
+      all: [new Float64Array(COH_RULES.length), new Float64Array(COH_RULES.length)],
+    };
+    for (let v = 0; v < COH_POLY; v++)
+      this.coh.voices.push({ on: false, gate: false, note: -1, vel: 0, order: 0,
+        env: new Adsr(0.005, 0.3, 0.75, 0.35), sw: [new Swarm(), new Swarm()], R: [0, 0], K: [0, 0] });
+    /* histories for the rule and feedback views: every rule's value per osc,
+       every voice's own R and the Coupling it actually ran at (NaN = no note) */
+    this.cohHist = {
+      rule: [0, 1].map(() => COH_RULES.map(() => new Float32Array(HIST))),
+      vR: [0, 1].map(() => [0, 1, 2].map(() => new Float32Array(HIST).fill(NaN))),   // NaN, not 0: "no note yet"
+      vK: [0, 1].map(() => [0, 1, 2].map(() => new Float32Array(HIST).fill(NaN))),
+      strike: new Uint8Array(HIST),
+    };
+    this.struck = false;
     this.reseed();
   }
   reseed() {
     for (const l of this.lfo) { l.rng = mulberry32(l.seed); l.sh = l.rng() * 2 - 1; l.ph = 0; }
+    this.coh.rng = mulberry32(0xC0E1);
   }
   noteOn(n, vel) {
     this.note = n; this.midi.vel = vel;
     for (const e of [this.genv, this.penv, this.env[0], this.env[1]]) e.gate(true);
+    this.cohOn(n, vel);
   }
   noteOff(n) {
+    this.cohOff(n);
     if (n !== this.note) return;
     this.note = -1;
     for (const e of [this.genv, this.penv, this.env[0], this.env[1]]) e.gate(false);
   }
-  panic() { this.note = -1; for (const e of [this.genv, this.penv, this.env[0], this.env[1]]) { e.stage = 0; e.lv = 0; } }
+  panic() {
+    this.note = -1; for (const e of [this.genv, this.penv, this.env[0], this.env[1]]) { e.stage = 0; e.lv = 0; }
+    this.coh.pend.length = 0;
+    for (const v of this.coh.voices) { v.on = false; v.gate = false; v.env.stage = 0; v.env.lv = 0; v.R[0] = v.R[1] = 0; }
+  }
+  /* A strike takes a free slot, else steals the OLDEST (lowest order). Its
+     swarms restart at the note's pitch with fresh phases — which is exactly
+     why NEWEST jumps to R = 1 at every note-on under RETRIG. */
+  cohOn(n, vel) {
+    const V = this.coh.voices;
+    let s = -1;
+    for (let i = 0; i < V.length; i++) if (!V[i].on) { s = i; break; }
+    if (s < 0) { s = 0; for (let i = 1; i < V.length; i++) if (V[i].order < V[s].order) s = i; }
+    const v = V[s], f0 = 440 * Math.pow(2, (n - 69) / 12);
+    v.on = true; v.gate = true; v.note = n; v.vel = vel; v.order = ++this.coh.order;
+    v.env.gate(true);
+    for (let k = 0; k < 2; k++) {
+      v.sw[k].start(f0, this.coh.osc[k].n, this.coh.free ? this.coh.rng : null);
+      v.R[k] = v.sw[k].R;
+    }
+    this.struck = true;
+  }
+  /* Releases the NEWEST gated slot on that note, so a key pressed and let go
+     on top of the held drone's own pitch does not release the drone. */
+  cohOff(n) {
+    const V = this.coh.voices;
+    let s = -1;
+    for (let i = 0; i < V.length; i++) if (V[i].gate && V[i].note === n && (s < 0 || V[i].order > V[s].order)) s = i;
+    if (s >= 0) { V[s].gate = false; V[s].env.gate(false); }
+  }
+  releaseAll() { this.coh.pend.length = 0; for (const v of this.coh.voices) if (v.gate) { v.gate = false; v.env.gate(false); } }
+  /* The B253 demonstration chord — three notes, staggered so NEWEST has
+     something to jump at and LOUDEST has a hand-over: C3 loud, G3 soft at
+     +0.5 s, E4 medium at +1 s. Scheduled in TICKS, not timers (no wall-clock
+     in the core), and fired at the top of tick(). */
+  chord() {
+    const t = this.ticks, q = Math.round(0.5 * TICK_HZ);
+    this.coh.pend.push({ at: t, n: 48, vel: 0.9 }, { at: t + q, n: 55, vel: 0.5 }, { at: t + 2 * q, n: 64, vel: 0.72 });
+  }
+  /* The Coupling a voice's swarm runs at. Read BEFORE this tick's evaluate(),
+     so it is LAST tick's matrix output — the one-tick delay (5.8 ms) any
+     source→engine→source loop has here (FOUNDATIONS OQ-23's unit delay, which
+     the matrix gets for free because sources are sampled before evaluation).
+     Global: the evaluated destination. PER VOICE: the same SUM, re-added with
+     THIS voice's own R standing in for slots 22/23 — B34's per-note scope,
+     applied to the one Tier-1 destination this lab has. */
+  kFor(v, k) {
+    const key = k ? 'k2' : 'k1', D = this.out.dest[key];
+    if (!this.coh.perVoice) return D.now;
+    const R = this.routes, O = this.out.route;
+    let sum = 0;
+    for (let i = 0; i < R.length; i++) {
+      const r = R[i], o = O[i];
+      if (r.tgt >= 0 || r.dest !== key || !o) continue;
+      const sv = SRC[r.src].coh !== undefined ? mapPolarity(v.R[SRC[r.src].coh], r.pol, false) : o.srcNow;
+      sum += o.depthNow * sv;
+    }
+    return clamp(this.base[key] + sum * 2, -1, 1);
+  }
+  stepSwarms() {
+    const C = this.coh, V = C.voices;
+    for (const v of V) {
+      if (!v.on) continue;
+      v.env.step();
+      if (!v.gate && v.env.stage === 0) { v.on = false; continue; }
+      for (let k = 0; k < 2; k++) {
+        const K = this.kFor(v, k), det = C.osc[k].detune, sw = v.sw[k];
+        for (let j = 0; j < SW_SUB; j++) sw.step(K, det, LAW_HORDE);
+        v.R[k] = sw.R; v.K[k] = K;
+      }
+    }
+    for (let k = 0; k < 2; k++)
+      for (let r = 0; r < COH_RULES.length; r++) C.all[k][r] = cohProject(r, V, k);
+  }
 
   /* ---- the route table ---------------------------------------------------
      Index-addressed like ModCore::routes. A value route has `dest` (a key) and
@@ -771,6 +1153,9 @@ class ModLabCore {
   /* ---- sources, one tick ---- */
   stepSources() {
     const s = this.src;
+    this.stepSwarms();                       // FIRST: it reads last tick's matrix output
+    s[S_C1] = this.coh.all[0][this.coh.rule];
+    s[S_C2] = this.coh.all[1][this.coh.rule];
     for (let k = 0; k < 2; k++) {
       const l = this.lfo[k];
       l.ph += l.rate * TICK_S;
@@ -855,9 +1240,24 @@ class ModLabCore {
       const h = this.hist[d.key], x = this.out.dest[d.key];
       h.now[p] = x.now; h.lo[p] = x.vLo; h.hi[p] = x.vHi; h.base[p] = this.base[d.key]; h.clip[p] = x.clip ? 1 : 0;
     }
+    const C = this.coh, H = this.cohHist;
+    for (let k = 0; k < 2; k++) {
+      for (let r = 0; r < COH_RULES.length; r++) H.rule[k][r][p] = C.all[k][r];
+      for (let v = 0; v < COH_POLY; v++) {
+        const on = C.voices[v].on;
+        H.vR[k][v][p] = on ? C.voices[v].R[k] : NaN;
+        H.vK[k][v][p] = on ? C.voices[v].K[k] : NaN;
+      }
+    }
+    H.strike[p] = this.struck ? 1 : 0; this.struck = false;
     this.hpos = (p + 1) % HIST;
   }
-  tick() { this.stepSources(); this.evaluate(); this.record(); this.ticks++; }
+  tick() {
+    const P = this.coh.pend;
+    for (let i = 0; i < P.length; i++)   // in scheduled order; splice, then re-test slot i
+      if (P[i].at <= this.ticks) { const e = P[i]; P.splice(i--, 1); this.noteOn(e.n, e.vel); }
+    this.stepSources(); this.evaluate(); this.record(); this.ticks++;
+  }
 }
 
 /* B199 axis 5, as ARITHMETIC: which harmonic of an LFO shape first lands above
@@ -902,6 +1302,22 @@ const tileRefs = [];             // per slot: { el, bar }
 const wireHits = [];             // dest hit rects, rebuilt every paint
 const laneHits = [];             // trace lanes, rebuilt every paint
 const SVGNS = 'http://www.w3.org/2000/svg';
+/* B253 state. The self-check runs ONCE, here: it is ~0.1 s of deterministic
+   swarm, and its verdict is part of the audit line like every other claim. */
+const COH_CHECKS = coherenceChecks();
+let cmpOsc = 0;                  // which oscillator the rule comparison draws
+const cohCtlPainters = [];
+const ruleRows = [];             // rule table rows: { tr, c1, c2, st }
+const ruleSteps = new Float64Array(COH_RULES.length);   // largest 1-tick step in view, per rule
+const NOTE_NAMES = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'];
+/* The feedback presets — each a (base Coupling, depth of Coherence 1 → OSC 1
+   Coupling) pair that lands in one of the loop's measured behaviours. */
+const FB_PRESETS = [
+  { label: 'OFF', base: 0.55, d: 0, says: 'No loop. OSC 1 wanders at base 0.55, below the lock (~0.76 with 7 members).' },
+  { label: '+0.25 · BURSTS', base: 0.3, d: 0.25, says: 'Positive and small: the swarm catches, holds a moment and lets go. Bursts of lock, irregular.' },
+  { label: '+0.5 · LATCH', base: 0.3, d: 0.5, says: 'Positive and large: locking raises Coupling, which holds the lock. Hysteresis: it holds with the base turned down as far as 0, and lets go only below about −0.1. A re-strike does not free it; RETRIG starts every note at R = 1, already inside the latch.' },
+  { label: '−0.5 · GOVERNOR', base: 0.75, d: -0.5, says: 'Negative: rising R lowers Coupling, so it can never lock. Base 0.75 alone would lock at R 0.80.' },
+];
 
 /* SCENES — deterministic starting states. Each names the case it demonstrates. */
 const SCENES = {
@@ -936,8 +1352,29 @@ const SCENES = {
     c.addRoute(S_VEL, 'cut', 0.1, 0); c.addRoute(S_L1, 'cut', 0.06, 2);
     c.addRoute(S_M1, 'cut', 0.15, 0); c.addRoute(S_L2, 'cut', 0.02, 2);
   } },
+  /* B253. `chord` scenes strike the three-note chord instead of the HOLD drone,
+     because both questions only exist once there are several notes. */
+  coh: { label: 'COHERENCE (B253)', chord: true, f(c) {
+    c.addRoute(S_C1, 'cut', 0.2, 0);               // OSC 1 locking opens the filter (global dest → the rule)
+    c.addRoute(S_C2, 'res', 0.3, 0);               // OSC 2 is splayed (K −0.6): R near 0, so little
+  } },
+  fb: { label: 'R → COUPLING (B253)', chord: true, f(c) { fbApply(c, FB_PRESETS[1]); } },
   blank: { label: 'BLANK', f() {} },
 };
+/* Find-or-make THE feedback route (Coherence 1 → OSC 1 Coupling, value route)
+   and set it; depth 0 removes it. Used by the fb scene and the LOOP pills, so
+   the loop the editor shows is the loop the pills describe. */
+function fbRoute(c) {
+  for (let i = 0; i < c.routes.length; i++) { const r = c.routes[i]; if (r.tgt < 0 && r.src === S_C1 && r.dest === 'k1') return i; }
+  return -1;
+}
+function fbApply(c, p) {
+  c.base.k1 = p.base;
+  const i = fbRoute(c);
+  if (!p.d) { if (i >= 0) c.removeRoute(i); }
+  else if (i >= 0) { c.routes[i].depth = p.d; c.routes[i].pol = 0; c.version++; }
+  else c.addRoute(S_C1, 'k1', p.d, 0);
+}
 let sceneKey = 'tour';
 
 /* ---- tokens: station-page-lab's TOK/TOKA (gui2:1627), cache keyed by name ---- */
@@ -1033,12 +1470,13 @@ function buildStrip() {
     t.appendChild(el('div', 'sn', String(i)));
     t.appendChild(el('div', 'st', s ? (s.retired ? '—' : s.tag) : '—'));
     t.appendChild(el('div', 'sl', s ? s.name : 'free'));
-    t.appendChild(el('div', 'sw', s ? (s.was || (s.bi ? 'bipolar ±1' : 'unipolar 0…1')) : (i === 22 ? 'B180: Gain ENV OSC 1?' : 'B180: Gain ENV OSC 2?')));
+    const sw = el('div', 'sw', s ? (s.was || (s.bi ? 'bipolar ±1' : 'unipolar 0…1')) : 'free');
+    t.appendChild(sw);
     const b = el('div', 'sb' + (s && s.bi ? ' bi' : ''));
     const bar = el('i'); b.appendChild(bar); t.appendChild(b);
-    t.title = s ? (s.long + ' — slot ' + i) : ('slot ' + i + ' — free; B180 proposes a per-oscillator gain envelope here (unbuilt)');
+    t.title = s ? (s.long + ' — slot ' + i) : ('slot ' + i + ' — free');
     box.appendChild(t);
-    tileRefs.push({ el: t, bar, s });
+    tileRefs.push({ el: t, bar, s, sw, swTxt: '' });
   }
 }
 function paintStrip() {
@@ -1053,6 +1491,12 @@ function paintStrip() {
     else { t.bar.style.left = '0%'; t.bar.style.width = (clamp(v, 0, 1) * 100).toFixed(1) + '%'; }
     t.el.classList.toggle('used', used[i] > 0);
     t.el.querySelector('.st').dataset.n = used[i] ? '◦' + used[i] : '';
+    /* a Coherence tile names the rule it is being read through — the slot is
+       ONE number, and which of three notes' R it is must not be hidden */
+    if (t.s.coh !== undefined) {
+      const txt = 'unipolar · ' + COH_RULES[core.coh.rule].label.toLowerCase();
+      if (txt !== t.swTxt) { t.sw.textContent = txt; t.swTxt = txt; }
+    }
   }
 }
 function mkRow(parent, label, min, max, step, get, set, fmt, logScale) {
@@ -1122,6 +1566,241 @@ function buildControls() {
 }
 function paintControls() { for (const p of ctlPainters) p(); }
 
+/* ============ COHERENCE (B253) — controls and three pictures ============ */
+function noteName(n) { return NOTE_NAMES[((n % 12) + 12) % 12] + (Math.floor(n / 12) - 1); }
+function sgn2(v) { return (v >= 0 ? '+' : '') + v.toFixed(2); }
+function buildCohCtl() {
+  const box = $('cohCtl'); box.textContent = '';
+  cohCtlPainters.length = 0;
+  for (let k = 0; k < 2; k++) {
+    const col = el('div'), key = k ? 'k2' : 'k1', o = () => core.coh.osc[k];
+    col.appendChild(el('h3', '', 'OSC ' + (k + 1) + ' · Coherence ' + (k + 1) + ' · slot ' + (22 + k)));
+    cohCtlPainters.push(mkRow(col, 'Coupling', -1, 1, 0.01, () => core.base[key], v => { core.base[key] = v; }, sgn2));
+    cohCtlPainters.push(mkRow(col, 'Detune', 0, 1, 0.005, () => o().detune, v => { o().detune = v; }, v => v.toFixed(3)));
+    cohCtlPainters.push(mkRow(col, 'Members', 2, SW_MAXN, 1, () => o().n, v => { o().n = Math.round(v); }, v => String(Math.round(v))));
+    box.appendChild(col);
+  }
+}
+function paintCohCtl() {
+  for (const p of cohCtlPainters) p();
+  $('cohRetrig').classList.toggle('on', !core.coh.free);
+  $('cohFree').classList.toggle('on', core.coh.free);
+  $('cmp1').classList.toggle('on', cmpOsc === 0);
+  $('cmp2').classList.toggle('on', cmpOsc === 1);
+  $('perVoice').classList.toggle('on', core.coh.perVoice);
+  const rp = $('rulePills').children;
+  for (let i = 0; i < rp.length; i++) rp[i].classList.toggle('on', i === core.coh.rule);
+  const fi = fbRoute(core), fp = $('fbPills').children;
+  for (let i = 0; i < fp.length; i++) {
+    const p = FB_PRESETS[i];
+    const on = p.d === 0 ? fi < 0 : fi >= 0 && Math.abs(core.routes[fi].depth - p.d) < 1e-9 && Math.abs(core.base.k1 - p.base) < 1e-9;
+    fp[i].classList.toggle('on', on);
+  }
+}
+function setRule(r) { core.coh.rule = r; paintCohCtl(); paintRuleTab(); }
+function buildRulePills() {
+  const box = $('rulePills'); box.textContent = '';
+  COH_RULES.forEach((R, i) => {
+    const b = el('button', 'pill', R.label); b.type = 'button'; b.title = R.hint;
+    b.addEventListener('click', () => setRule(i));
+    box.appendChild(b);
+  });
+  const fb = $('fbPills'); fb.textContent = '';
+  FB_PRESETS.forEach(p => {
+    const b = el('button', 'pill', p.label); b.type = 'button'; b.title = p.says;
+    b.addEventListener('click', () => { fbApply(core, p); say(''); rebuild(); paintCohCtl(); });
+    fb.appendChild(b);
+  });
+}
+function buildRuleTab() {
+  const box = $('ruleTab'); box.textContent = '';
+  ruleRows.length = 0;
+  const t = el('table', 'ledger rules');
+  const hd = el('tr');
+  for (const c of ['RULE', 'COH 1 NOW', 'COH 2 NOW', 'LARGEST STEP', 'WHAT IT READS']) hd.appendChild(el('th', '', c));
+  t.appendChild(hd);
+  COH_RULES.forEach((R, i) => {
+    const tr = el('tr');
+    tr.appendChild(el('td', '', R.label));
+    const c1 = el('td', 'n'), c2 = el('td', 'n'), st = el('td', 'n');
+    tr.appendChild(c1); tr.appendChild(c2); tr.appendChild(st);
+    tr.appendChild(el('td', '', R.hint));
+    tr.addEventListener('click', () => setRule(i));
+    t.appendChild(tr);
+    ruleRows.push({ tr, c1, c2, st });
+  });
+  box.appendChild(t);
+}
+function paintRuleTab() {
+  const A = core.coh.all;
+  for (let i = 0; i < ruleRows.length; i++) {
+    const r = ruleRows[i];
+    r.tr.classList.toggle('pick', i === core.coh.rule);
+    r.c1.textContent = A[0][i].toFixed(3); r.c2.textContent = A[1][i].toFixed(3);
+    r.st.textContent = ruleSteps[i].toFixed(3) + ' (COH ' + (cmpOsc + 1) + ')';
+  }
+}
+
+/* The swarms. Drawn in the frame that TURNS WITH ψ (ψ straight up): the whole
+   constellation spins at the note's pitch — 130 turns a second at C3 — so a
+   fixed frame would strobe at the display rate. In the turning frame the
+   arrow's length is R and the dots' spread is the physics. */
+function paintCoh() {
+  const G = ground($('cohCv'));
+  if (!G) return;
+  const { g, w, h, v } = G;
+  const V = core.coh.voices, cw = w / COH_POLY, ch = h / 2;
+  g.font = (9 * v) + 'px ui-monospace,Menlo,monospace';
+  for (let s = 0; s < COH_POLY; s++) for (let k = 0; k < 2; k++) {
+    const x0 = s * cw, y0 = k * ch, vo = V[s];
+    const r = Math.max(4 * v, Math.min(cw * 0.34, ch * 0.27)), cx = x0 + cw / 2, cy = y0 + ch / 2 + 7 * v;
+    g.fillStyle = TOKA('--scr-grid', 0.3);
+    if (s) g.fillRect(x0, y0, v, ch);
+    if (k) g.fillRect(x0, y0, cw, v);
+    g.strokeStyle = TOKA('--scr-grid', vo.on ? 0.55 : 0.18); g.lineWidth = v;
+    g.beginPath(); g.arc(cx, cy, r, 0, Math.PI * 2); g.stroke();
+    g.textBaseline = 'top'; g.fillStyle = TOKA('--scr-grid', vo.on ? 0.95 : 0.45);
+    g.fillText('OSC ' + (k + 1) + ' · ' + (vo.on ? noteName(vo.note) + (vo.gate ? '' : ' · rel') : 'slot ' + (s + 1) + ' free'), x0 + 5 * v, y0 + 4 * v);
+    if (vo.on) g.fillText('vel ' + vo.vel.toFixed(2) + ' · gain ' + (vo.vel * vo.env.lv).toFixed(2), x0 + 5 * v, y0 + 15 * v);
+    if (!vo.on) continue;
+    const sw = vo.sw[k], rot = Math.PI / 2 - sw.psi;
+    g.fillStyle = TOKA('--scr-physics', 0.95);
+    for (let i = 0; i < sw.n; i++) {
+      const a = sw.ph[i] * SW_TAU + rot;
+      g.beginPath(); g.arc(cx + r * Math.cos(a), cy - r * Math.sin(a), 2.6 * v, 0, Math.PI * 2); g.fill();
+    }
+    const ey = cy - r * sw.R;
+    g.strokeStyle = TOK('--scr-meter'); g.lineWidth = 2 * v;
+    g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx, ey); g.stroke();
+    g.fillStyle = TOK('--scr-meter'); g.beginPath(); g.arc(cx, ey, 2.4 * v, 0, Math.PI * 2); g.fill();
+    g.textBaseline = 'bottom'; g.fillStyle = TOKA('--scr-grid', 0.95);
+    g.fillText('R ' + vo.R[k].toFixed(2) + '   K ' + sgn2(vo.K[k]), x0 + 5 * v, y0 + ch - 3 * v);
+  }
+}
+
+/* Five lanes, one per rule, over the same 3 s: faint violet = each note's own
+   R, cyan = what the rule makes of them, amber tick = a strike. The picked
+   rule's lane is lit. ruleSteps is filled here and read by the table. */
+function paintRules() {
+  const G = ground($('ruleCv'));
+  ruleSteps.fill(0);
+  if (!G) return;
+  const { g, w, h, v } = G;
+  const H = core.cohHist, k = cmpOsc, N = HIST, nR = COH_RULES.length, lh = h / nR;
+  const at = i => (core.hpos - N + i + HIST * 2) % HIST;
+  const X = i => 4 * v + (w - 8 * v) * i / (N - 1);
+  const sounding = q => { for (let s = 0; s < COH_POLY; s++) { const r = H.vR[k][s][q]; if (r === r) return true; } return false; };
+  g.font = (9 * v) + 'px ui-monospace,Menlo,monospace';
+  for (let L = 0; L < nR; L++) {
+    const top = L * lh, Y = val => top + lh - 4 * v - val * (lh - 16 * v);
+    if (L === core.coh.rule) { g.fillStyle = TOKA('--scr-grid', 0.1); g.fillRect(0, top, w, lh); }
+    if (L) { g.fillStyle = TOKA('--scr-grid', 0.35); g.fillRect(0, top, w, v); }
+    g.fillStyle = TOK('--scr-marker');
+    for (let i = 0; i < N; i++) if (H.strike[at(i)]) g.fillRect(X(i) - v * 0.5, top + 12 * v, v, 5 * v);
+    g.strokeStyle = TOKA('--scr-physics', 0.45); g.lineWidth = v;
+    for (let s = 0; s < COH_POLY; s++) {
+      const a = H.vR[k][s];
+      g.beginPath();
+      let pen = false;
+      for (let i = 0; i < N; i++) {
+        const val = a[at(i)];
+        if (val !== val) { pen = false; continue; }          // NaN: no note in that slot
+        if (pen) g.lineTo(X(i), Y(val)); else { g.moveTo(X(i), Y(val)); pen = true; }
+      }
+      g.stroke();
+    }
+    const a = H.rule[k][L];
+    let mx = 0;
+    g.strokeStyle = TOK('--scr-meter'); g.lineWidth = 1.6 * v;
+    g.beginPath();
+    for (let i = 0; i < N; i++) {
+      const val = a[at(i)];
+      /* a step counts only if a note was sounding on BOTH ticks: 0 → R at the
+         first strike out of silence is the same jump under every rule, and
+         would read 1.00 in all five lanes, which says nothing about the rules */
+      if (i) { if (sounding(at(i - 1))) { const d = Math.abs(val - a[at(i - 1)]); if (d > mx) mx = d; } g.lineTo(X(i), Y(val)); }
+      else g.moveTo(X(i), Y(val));
+    }
+    g.stroke();
+    ruleSteps[L] = mx;
+    g.textBaseline = 'top';
+    g.fillStyle = L === core.coh.rule ? TOK('--scr-value') : TOKA('--scr-grid', 0.95);
+    g.fillText(COH_RULES[L].label + '  ' + a[at(N - 1)].toFixed(2) + (L === core.coh.rule ? '  ← slot ' + (22 + k) : ''), 6 * v, top + 3 * v);
+    const sl = 'largest step ' + mx.toFixed(2);
+    g.fillStyle = TOKA('--scr-grid', 0.75); g.fillText(sl, w - g.measureText(sl).width - 6 * v, top + 3 * v);
+  }
+}
+
+/* The loop's phase plane: Coupling the swarm RAN at (x) against the Coherence
+   it made (y), OSC 1, one trail per note. */
+function paintFb() {
+  const G = ground($('fbCv'));
+  if (!G) return;
+  const { g, w, h, v } = G;
+  const H = core.cohHist, N = HIST;
+  const at = i => (core.hpos - N + i + HIST * 2) % HIST;
+  const l = 26 * v, r = w - 10 * v, t = 12 * v, b = h - 18 * v;
+  const PX = K => l + (K + 1) / 2 * (r - l), PY = R => b - R * (b - t);
+  g.font = (9 * v) + 'px ui-monospace,Menlo,monospace';
+  g.fillStyle = TOKA('--scr-grid', 0.3);
+  g.fillRect(PX(0), t, v, b - t); g.fillRect(l, PY(0), r - l, v); g.fillRect(l, PY(1), r - l, v);
+  g.fillStyle = TOKA('--scr-grid', 0.8); g.textBaseline = 'top';
+  g.fillText('−1', l - 4 * v, b + 4 * v); g.fillText('0', PX(0) - 3 * v, b + 4 * v); g.fillText('+1', r - 12 * v, b + 4 * v);
+  g.fillText('Coupling →', PX(0) + 8 * v, b + 4 * v);
+  g.textBaseline = 'middle'; g.fillText('R 1', 2 * v, PY(1)); g.fillText('0', 12 * v, PY(0));
+  const base = core.base.k1;
+  g.strokeStyle = TOK('--scr-value'); g.lineWidth = v; g.setLineDash([3 * v, 3 * v]);
+  g.beginPath(); g.moveTo(PX(base), t); g.lineTo(PX(base), b); g.stroke();
+  const fi = fbRoute(core), o = fi >= 0 ? core.out.route[fi] : null;
+  if (o) {
+    const pol = core.routes[fi].pol;
+    g.lineWidth = 1.6 * v; g.beginPath();
+    for (let i = 0; i <= 40; i++) {
+      const R = i / 40, K = clamp(base + o.depthNow * 2 * mapPolarity(R, pol, false), -1, 1);
+      i ? g.lineTo(PX(K), PY(R)) : g.moveTo(PX(K), PY(R));
+    }
+    g.stroke();
+  }
+  g.setLineDash([]);
+  for (let s = 0; s < COH_POLY; s++) {
+    const vo = core.coh.voices[s], KK = H.vK[0][s], RR = H.vR[0][s];
+    g.strokeStyle = TOKA('--scr-physics', 0.55); g.lineWidth = v;
+    g.beginPath();
+    let pen = false;
+    for (let i = 0; i < N; i++) {
+      const q = at(i), K = KK[q], R = RR[q];
+      if (K !== K || R !== R) { pen = false; continue; }
+      if (pen) g.lineTo(PX(K), PY(R)); else { g.moveTo(PX(K), PY(R)); pen = true; }
+    }
+    g.stroke();
+    if (!vo.on) continue;
+    const x = PX(vo.K[0]), y = PY(vo.R[0]);
+    g.fillStyle = TOK('--scr-meter'); g.beginPath(); g.arc(x, y, 3 * v, 0, Math.PI * 2); g.fill();
+    g.fillStyle = TOKA('--scr-grid', 0.95); g.textBaseline = 'bottom';
+    g.fillText(noteName(vo.note), x + 5 * v, y - 2 * v);
+  }
+}
+/* The live verdict under the plane: each note's R range over the view,
+   classified by arithmetic only (a display, not a decision in any path). */
+function paintFbNote() {
+  const fi = fbRoute(core);
+  let p = null;
+  for (const q of FB_PRESETS) if (q.d === 0 ? fi < 0 : fi >= 0 && Math.abs(core.routes[fi].depth - q.d) < 1e-9 && Math.abs(core.base.k1 - q.base) < 1e-9) p = q;
+  const H = core.cohHist.vR[0], parts = [];
+  for (let s = 0; s < COH_POLY; s++) {
+    const vo = core.coh.voices[s];
+    if (!vo.on) continue;
+    let lo = 1, hi = 0, sum = 0, n = 0;
+    for (let i = 0; i < HIST; i++) { const R = H[s][i]; if (R !== R) continue; if (R < lo) lo = R; if (R > hi) hi = R; sum += R; n++; }
+    const m = n ? sum / n : 0;
+    const kind = hi - lo < 0.02 ? (m > 0.7 ? 'locked' : m < 0.2 ? 'splayed' : 'steady') : 'wandering';
+    parts.push('<b>' + noteName(vo.note) + '</b> R ' + lo.toFixed(2) + '…' + hi.toFixed(2) + ' · ' + kind);
+  }
+  $('fbNote').innerHTML = (p ? '<b>' + p.label + '</b>: ' + p.says : '<b>Custom loop</b>: edit the route in the editor; the line on the plane follows it.')
+    + '<br>' + (core.coh.perVoice ? 'PER VOICE: each note’s loop is its own. ' : 'GLOBAL (' + COH_RULES[core.coh.rule].label.toLowerCase() + '): one R drives every note’s Coupling. ')
+    + (parts.length ? 'Over the last 3 s: ' + parts.join(' · ') : 'No note held — CHORD strikes three.');
+}
+
 function buildKbd() {
   const box = $('kbd'); box.textContent = '';
   for (let n = 0; n < 25; n++) {
@@ -1148,7 +1827,7 @@ function release(n) {
   heldKey = -1;
   /* Under HOLD the drone resumes WITHOUT a re-gate: retriggering every
      envelope on key-up would make release sound like a second attack. */
-  if (hold) core.note = HOLD_NOTE; else core.noteOff(n);
+  if (hold) { core.note = HOLD_NOTE; core.cohOff(n); } else core.noteOff(n);   // B253: the key's own swarm slot releases either way
   paintKbd();
 }
 
@@ -1707,11 +2386,16 @@ function paintAudit() {
   const nd = core.routes.filter(r => r.tgt >= 0).length;
   const deep = core.routes.filter(r => r.tgt >= 0 && core.routes[r.tgt] && core.routes[r.tgt].tgt >= 0).length;
   const dangling = core.routes.filter(r => r.tgt >= 0 && !core.routes[r.tgt]).length;
-  const ok = SRC.length === 22 && deep === 0 && dangling === 0;
+  /* B253: 24 slots (22 shipped + Coherence 1/2), and the swarm self-check —
+     every row must hold, INCLUDING the two planted laws being refused. */
+  const chk = COH_CHECKS.filter(c => c.pass).length;
+  const ok = SRC.length === MAX_SOURCES && deep === 0 && dangling === 0 && chk === COH_CHECKS.length;
   const a = $('audit');
   a.className = 'audit' + (ok ? '' : ' bad');
-  a.innerHTML = 'audit — source slots <b>' + SRC.length + '/22</b> (' + live + ' live, ' + ret + ' retired, '
-    + (MAX_SOURCES - SRC.length) + ' free of kMaxSources ' + MAX_SOURCES + ') · destinations <b>' + DEST.length
+  a.innerHTML = 'audit — source slots <b>' + SRC.length + '/' + MAX_SOURCES + '</b> (' + live + ' live, ' + ret + ' retired, '
+    + (MAX_SOURCES - SRC.length) + ' free of kMaxSources ' + MAX_SOURCES + ') · coherence self-check <b>' + chk + '/'
+    + COH_CHECKS.length + '</b> (' + COH_CHECKS.map(c => c.id + ' ' + c.got.toFixed(3) + (c.pass ? '' : ' ✗')).join(', ')
+    + '; X = planted wrong law, must be refused) · destinations <b>' + DEST.length
     + '</b> · routes <b>' + core.routes.length + '/' + MAX_ROUTES + '</b>, of which depth routes <b>' + nd
     + '</b> · depth-of-depth <b>' + deep + '</b> · dangling depth targets <b>' + dangling + '</b>'
     + ' · tick ' + TICK_HZ.toFixed(2) + ' Hz · ticks run <b>' + core.ticks + '</b>' + (paused ? ' (PAUSED)' : '');
@@ -1773,7 +2457,8 @@ function rebuild() {
 }
 function paintAll(full) {
   paintStrip(); paintRoutes(); paintArcs(); paintWires(); paintGrid(); paintTrace();
-  if (full || frameNo % 4 === 0) { paintLedger(); paintAxes(); paintAudit(); }
+  paintCoh(); paintRules(); paintFb();
+  if (full || frameNo % 4 === 0) { paintLedger(); paintAxes(); paintAudit(); paintRuleTab(); paintFbNote(); paintCohCtl(); }
 }
 function loadScene(k) {
   sceneKey = k;
@@ -1782,14 +2467,18 @@ function loadScene(k) {
   core.midi.mw = 0; core.midi.at = 0; core.midi.pw = 0;
   for (const d of DEST) core.base[d.key] = d.base;
   lfoSet(0, 5.5, 0); lfoSet(1, 0.35, 1); envSet(0, 1.8, 0.5, 1, 0.6); envSet(1, 0.003, 0.45, 0, 0.3);
+  const C = core.coh;   // B253 defaults, restored like the LFO/ENV ones above
+  C.osc[0].n = 7; C.osc[0].detune = 0.28; C.osc[1].n = 5; C.osc[1].detune = 0.4;
+  C.rule = RULE_WMEAN; C.perVoice = true; C.free = false;
   SCENES[k].f(core);
   core.reseed();
   const first = core.routes.find(r => r.tgt < 0);
   selDest = first ? first.dest : 'p1';
   core.panic();
-  if (hold) core.noteOn(HOLD_NOTE, 0.8);
+  if (SCENES[k].chord) core.chord();
+  else if (hold) core.noteOn(HOLD_NOTE, 0.8);
   say('');
-  paintScenePills(); paintControls(); rebuild();
+  paintScenePills(); paintControls(); paintCohCtl(); rebuild();
 }
 function buildScenePills() {
   const box = $('scenePills'); box.textContent = '';
@@ -1846,6 +2535,9 @@ function applyTheme() {
    forward (L0026). ============ */
 buildStrip();
 buildControls();
+buildCohCtl();
+buildRulePills();
+buildRuleTab();
 buildKbd();
 buildScenePills();
 loadScene(sceneKey);
@@ -1863,8 +2555,15 @@ $('addGo').addEventListener('click', () => {
 $('pwr').addEventListener('click', () => { power(); $('pwr').classList.add('on'); });
 $('holdBtn').addEventListener('click', () => {
   hold = !hold; $('holdBtn').classList.toggle('on', hold);
-  if (hold) core.noteOn(HOLD_NOTE, 0.8); else if (heldKey < 0) core.noteOff(core.note);
+  if (hold) core.noteOn(HOLD_NOTE, 0.8);
+  else if (heldKey < 0) { core.noteOff(core.note); core.releaseAll(); }   // B253: the chord lets go too
 });
+$('cohRetrig').addEventListener('click', () => { core.coh.free = false; paintCohCtl(); });
+$('cohFree').addEventListener('click', () => { core.coh.free = true; paintCohCtl(); });
+$('cohChord').addEventListener('click', () => core.chord());
+$('cmp1').addEventListener('click', () => { cmpOsc = 0; paintCohCtl(); });
+$('cmp2').addEventListener('click', () => { cmpOsc = 1; paintCohCtl(); });
+$('perVoice').addEventListener('click', () => { core.coh.perVoice = !core.coh.perVoice; paintCohCtl(); });
 $('pauseBtn').addEventListener('click', () => { paused = !paused; $('pauseBtn').classList.toggle('on', paused); });
 $('panic').addEventListener('click', () => { hold = false; $('holdBtn').classList.remove('on'); heldKey = -1; core.panic(); });
 $('themeBtn').addEventListener('click', () => { dark = !dark; applyTheme(); });
