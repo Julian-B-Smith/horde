@@ -6490,3 +6490,11 @@ convergence worth noting and nothing we need to act on.
 - **H6 — cost.** The spec estimates 7–17 % of a core at 8 notes × 9 members; horde's swarm allows 32 members per oscillator and two oscillators. Measure a scalar port (the B236 pattern) before sizing anything.
 - **H7 — FOUNDATIONS.** The spec suggests blade geometry, BLEP event scanning and per-cycle DC as shared utilities — a cross-repo brief, later.
 
+## ADR-185 — Appending to the morph field may never change how an existing patch sounds: the quantum draw is frozen at the layout-9 prefix (2026-09-24)
+
+**Context (B240, measured by the implementer and confirmed by the critic).** `MorphCore::reshuffle` drew one Gumbel row per field slot and THEN the shared vector, so the field's LENGTH moved the shared draw. Under QUANTUM, at any off-corner pad position, a longer field changed which corner many existing slots picked: no stored value moved, but the sound did. A SCALPEL-sized append (+164 rows) flips 78–225 of 273 owners mid-pad on 'MO - Quantum Morph', and B203's own one-row bump had already changed that patch's render (66 flips). The revision gate CANNOT fix this: under revision 1 the draw depends on the BUILD's field length, not on anything the patch carries.
+
+**Decision.** The draw order is frozen at the layout-9 prefix: rows 0..272, then the shared vector, then every tail row. The same rule applies to `IntentCore::drawSeeds` (home-atom index and shared seed). 273 is a frozen constant, like `kMorphAdr150Size`, and is never recomputed. With nothing appended it is bit-identical to the previous law. `morphlayout_check` T14/T15 prove that a +164-row re-deal flips 0 owners across 27 sweep points and renders bit-identically, with a control (the old order) that flips 1915.
+
+**Consequences.** Future appends are sound-neutral for every existing patch, by construction. The morph lab's draw order was never a parity target (it draws per modulation group over its own list), so nothing is broken there. Patches whose quantum sound was already changed by earlier bumps (3 → 9) are NOT restored by this ADR; whether to restore them is the same question as B255 (as saved vs as today), and it is owed to the human.
+
