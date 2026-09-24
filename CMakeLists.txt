@@ -576,6 +576,20 @@ if(NOT MSVC)
   target_compile_options(measure_modsources PRIVATE -O3)
 endif()
 
+# measure_fx: ROADMAP B262 — computational cost of the rack's nine FX module
+# types (src/fx_rack.h) plus the engine's own baseline for scale. FxRack is
+# header-only so the module cells need no plugin link; the one engine-
+# baseline cell reuses measure_cpu.cpp's own method (CLAP factory), so this
+# target links ${PROJECT_NAME}-impl the same way measure_cpu does. UNWIRED,
+# same standing as measure_alias/measure_cpu/measure_modsources: it prints,
+# never judges (see the file's own header).
+add_executable(measure_fx tools/measure_fx.cpp)
+target_link_libraries(measure_fx PRIVATE ${PROJECT_NAME}-impl)
+target_include_directories(measure_fx PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/generated)
+if(NOT MSVC)
+  target_compile_options(measure_fx PRIVATE -O3)
+endif()
+
 # ---- B147 layer 2: the SWARM SAW engine fidelity suite --------------------
 # Six checks closing the six oracle gaps docs/audits/2026-09-18-saw-engine-audit.md
 # §3 enumerated. ALL SIX ARE STANDALONE AND UNWIRED: ./verify is a protected
