@@ -6927,7 +6927,11 @@ struct Plugin
         // under modulation must land its base here or the next mod tick puts
         // the old base back (B241, modreadback_check §B).
         if (!modFromMatrix)
-          if (ModDest *md = modDestFor(id, false)) md->base = v;
+          if (ModDest *md = modDestFor(id, false))
+          {
+            md->base = v;
+            md->lastApplied = 1e300;   // see the intercept below: storage now holds v
+          }
         core.setParam("inertia",
                       inertiaCurve == 0.5 ? std::sqrt(inertiaKnob) : std::pow(inertiaKnob, inertiaCurve));
         return;
@@ -6949,10 +6953,20 @@ struct Plugin
          number no route-free write could produce: Inertia (11) stores the KNOB
          but `applied` is already the tapered core value (a 0.1 write became a
          0.0032 base); Step Grid (148) snaps to a musical division below, after
-         this line. modreadback_check §B's write law measures both. */
+         this line. modreadback_check §B's write law measures both.
+         AND THE NEXT TICK MUST RE-APPLY. This write puts the bare base into
+         the row's storage; modStep only re-applies when its target differs
+         from `lastApplied`, and a target pinned at a bound (base+offset
+         clamped) does not differ — so the engine kept the bare write, without
+         its offset, for as long as the modulator stayed saturated (21 writes
+         in modreadback_check §B's "heard" law, 2026-09-24). Forgetting
+         lastApplied makes the next tick write base+offset whatever it was. */
       if (!modFromMatrix)
         if (ModDest *md = modDestFor(id, false))
+        {
           md->base = id == 11 ? inertiaKnob : id == 148 ? snapGridStep(applied) : applied;
+          md->lastApplied = 1e300;
+        }
       /* ADR-088 routing block. Placed AFTER the morph/mod hooks above (a
          crosspoint is morphable, so a corner edit has to route like any other
          parameter) and BEFORE every `baseIdOf` test below, which would alias a
@@ -7474,20 +7488,33 @@ struct Plugin
 
   double readParam(clap_id id) const
   {
+    /* ADR-136's BASE, BEFORE EVERY OTHER BRANCH (B241). A destination the
+       matrix is driving holds its modulated value in whatever storage
+       readStored reads — the core, the routing matrix, a shell field — so any
+       branch that returned first reported the modulation, and every caller of
+       this function persists it: get_value, state_save, stateJson, a history
+       node, corner capture, morph-on adoption. This check used to sit
+       two-thirds of the way down, after the routing, engine and shell-owned
+       returns, and was keyed on `d->id` — the BASE def, so oscillator 2's
+       rows asked oscillator 1's question (a route on detune made the UNROUTED
+       osc-2 detune read, and save, osc 1's base). Measured 2026-09-23: 172
+       routable rows read back modulated (modreadback_check §B). Keyed on
+       `id`, the full address the matrix stores. */
+    if (findParam(id))
+      if (const ModDest *md = const_cast<Plugin *>(this)->modDestFor(id, false)) return md->base;
+    return readStored(id);
+  }
+
+  /* What the parameter's STORAGE holds — under a route, the modulated value
+     the engine is consuming, not the base. Never a persistence read: every
+     save, snapshot and host readback goes through readParam above. Its one
+     other caller is the oracle's window (hypersaw_debug_stored), which is how
+     modreadback_check proves a write under a route is HEARD as write+offset
+     rather than inferring it from what the matrix asked for. */
+  double readStored(clap_id id) const
+  {
     if (const ParamDef *d = findParam(id))
     {
-      /* ADR-136's BASE, BEFORE EVERY OTHER BRANCH (B241). A destination the
-         matrix is driving holds its modulated value in whatever storage the
-         branches below read — the core, the routing matrix, a shell field —
-         so any branch that returns first reports the modulation, and every
-         caller of this function persists it: get_value, state_save,
-         stateJson, a history node, corner capture, morph-on adoption. This
-         check used to sit two-thirds of the way down, after the routing,
-         engine and shell-owned returns, and was keyed on `d->id` — the BASE
-         def, so oscillator 2's rows asked oscillator 1's question. Measured
-         2026-09-23: 172 routable rows read back modulated (modreadback_check
-         §B). Keyed on `id`, the full address the matrix stores. */
-      if (const ModDest *md = const_cast<Plugin *>(this)->modDestFor(id, false)) return md->base;
       // Shell-domain params first; everything else reads the core through the
       // SAME key map setParam uses — no parallel chain to drift (the
       // 2026-07-18 state bug: dynamics params were missing from a duplicated
@@ -9105,6 +9132,10 @@ extern "C" void hypersaw_debug_state(const clap_plugin_t *p, char *out, uint32_t
 {
   const std::string j = self(p)->stateJson();
   std::snprintf(out, cap, "%s", j.c_str());
+}
+extern "C" double hypersaw_debug_stored(const clap_plugin_t *p, uint32_t id)
+{
+  return findParam((clap_id)id) ? self(p)->readStored((clap_id)id) : NAN;
 }
 extern "C" void hypersaw_debug_subwave(const clap_plugin_t *p, char *out, uint32_t cap)
 {

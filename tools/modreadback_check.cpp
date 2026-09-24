@@ -40,16 +40,29 @@
  *      one row the report named: the defect was an ORDERING in readParam, and
  *      the next early return someone adds would reopen it for a family no
  *      example here names.
- *      And ADR-136's other half on the same rows: a host write made UNDER the
- *      route lands as the new base, reading back exactly what the same write
- *      reads with no route (so a row that quantises is held to its own law).
- *      Inertia (11, a tapered knob), Step Grid (148, snapped after the
- *      intercept) and Inertia Curve (70, returns before it) broke this.
+ *      The saved STATE CHUNK is read per row too, keyed as state_save keys
+ *      it, so a future persistence path that bypasses readParam is caught on
+ *      the row it breaks. And ADR-136's other half on the same rows, at two
+ *      write values each: a host write made UNDER the route (i) reads back
+ *      as the new base, (ii) is what the matrix's offset rides, and (iii) is
+ *      what the engine's STORAGE holds plus that offset (hypersaw_debug_stored,
+ *      not the matrix's own record of what it asked). Every expectation is the
+ *      same row's no-route law, so a row that quantises or clamps is held to
+ *      its own behaviour. Inertia (11, a tapered knob), Step Grid (148,
+ *      snapped after the intercept) and Inertia Curve (70, returns before it)
+ *      broke this on main — and changing that CHANGES WHAT THOSE ROWS SOUND
+ *      LIKE under a route plus a write (see the 2026-09-24 trace).
  *      CONTROL: at least one row per family actually moved — a family whose
  *      rows never moved would pass by never being tested.
  *   C  ROUTING CELLS PERSIST THROUGH THEIR OWN CHUNK. The `routing=` chunk and
  *      the history node's `routing` key read the matrix directly, not through
  *      readParam, so they are asserted separately on a continuous cell.
+ *   D  THE UNROUTED TWIN. On main a route on osc 1's detune (4) made osc 2's
+ *      detune (1004) read back and SAVE osc 1's base — the old lookup was
+ *      keyed on the base def id. Asserted on a probe (4 = 0.3, 1004 = 0.8)
+ *      and on the repo's own fixture tests/state_fixtures/chunk-v2-rev1.txt
+ *      (argv[1]; the default is that repo-relative path), which carries that
+ *      exact shape: load, render, re-save, both twins keep the file's values.
  */
 #include <algorithm>
 #include <cmath>
@@ -341,6 +354,37 @@ const char *familyOf(clap_id id)
   return "osc 1 + global (<1000)";
 }
 
+// hypersaw_test_mod_add's depth (modAddRoute passes 0.25); the sweep's
+// base+offset law is computed from it.
+constexpr double kDepth = 0.25;
+
+/* The value the host STATE CHUNK carries for `id`, keyed exactly as state_save
+   writes it: routing cells in the sparse `routing=` line (absent = default),
+   engine rows `sub.`-prefixed, oscillator 2 `o1.`-prefixed, the rest bare.
+   NaN when the key cannot be found — so a new engine block or prefix fails
+   here loudly rather than being skipped. */
+double savedValue(const Rig &r, clap_id id, const clap_param_info_t &info)
+{
+  const std::string chunk = r.save();
+  if (id >= 10000)
+  {
+    const size_t rt = chunk.find("\nrouting=");
+    if (rt == std::string::npos) return info.default_value;
+    const std::string line = chunk.substr(rt + 9, chunk.find('\n', rt + 1) - (rt + 9));
+    const std::string key = std::to_string(id) + ":";
+    for (size_t at = 0; (at = line.find(key, at)) != std::string::npos; at += key.size())
+      if (at == 0 || line[at - 1] == ',') return std::strtod(line.c_str() + at + key.size(), nullptr);
+    return info.default_value;
+  }
+  const char *core = nullptr;
+  if (hypersaw_debug_paramclass(id, &core, nullptr) < 0 || !core) return NAN;
+  std::string key = core;
+  if (id >= 4000 && id < 4100) key = "sub." + key;   // the one engine block today
+  else if (id >= 3000) return NAN;                   // a new block: teach this map
+  else if (id >= 1000) key = "o1." + key;
+  return chunkValue(chunk, key);
+}
+
 void sectionSweep()
 {
   std::printf("\n-- B. the sweep: every routable destination reads its base under LFO 1 --\n");
@@ -349,9 +393,13 @@ void sectionSweep()
   r.set(kLfo1Rate, 1.0);
   r.set(kLfo1Shape, kSquare);
   auto *ext = (const clap_plugin_params_t *)r.p->get_extension(r.p, CLAP_EXT_PARAMS);
-  struct Fam { int routable = 0, moved = 0, leaked = 0, baseLost = 0; std::string ex; };
+  struct Fam
+  {
+    int routable = 0, moved = 0, leaked = 0, chunkLeaked = 0, baseLost = 0, askLost = 0, heardLost = 0;
+    std::string ex;
+  };
   std::map<std::string, Fam> fams;
-  std::vector<std::string> leaks, writes;
+  std::vector<std::string> leaks, chunkLeaks, writes, asks, heards;
   const uint32_t n = ext->count(r.p);
   for (uint32_t i = 0; i < n; i++)
   {
@@ -366,51 +414,90 @@ void sectionSweep()
     // square is +1 then -1, so a base pinned at one bound still moves within
     // one cycle (172 ticks at 1 Hz).
     bool moved = false;
-    double seen = b0, ap = b0;
+    double seen = b0, ap = b0, chunkAt = NAN;
     for (int t = 0; t < 200 && !moved; t++)
     {
       r.tick();
       ap = r.applied(id);
-      if (ap > -1e299 && !same(ap, b0)) { moved = true; seen = r.get(id); }
+      if (ap > -1e299 && !same(ap, b0))
+      {
+        moved = true;
+        seen = r.get(id);
+        chunkAt = savedValue(r, id, info);
+      }
     }
-    /* ADR-136's other half, the "drag under modulation" law: a host write to
-       a destination the matrix is driving lands as its new BASE, and the base
-       is what reads back. The write is a tenth of the span away from b0
-       (toward the middle), so it is a real move for every row. The EXPECTED
-       reading is the same write made with no route (`wrote` below): a row
-       that quantises (23 snaps to a beat grid) reads its quantised value
-       either way, and that is the row's law, not a lost write. */
-    double wrote = NAN, gotW = NAN;
-    if (moved)
-    {
-      const double span = info.max_value - info.min_value;
-      const double w = b0 + (b0 < info.min_value + 0.5 * span ? 0.1 : -0.1) * span;
-      r.set(id, w);
-      r.tick(2);
-      gotW = r.get(id);
-      hypersaw_test_mod_remove(r.p, 0);
-      r.tick(2);
-      r.set(id, w);
-      r.tick(1);
-      wrote = r.get(id);
-    }
-    else
-    {
-      hypersaw_test_mod_remove(r.p, 0);
-      r.tick(2);
-    }
-    // Put the row back, so the next row is swept on the default patch.
+    hypersaw_test_mod_remove(r.p, 0);
+    r.tick(2);
     r.set(id, b0);
     r.tick(1);
     if (!moved) continue;
     f.moved++;
-    if (!same(gotW, wrote))
+    // (3b, critic 2026-09-24) The SAVED chunk too, not just get_value: the
+    // next persistence path that bypasses readParam — as `routing=` did —
+    // shows up here on the row it breaks.
+    if (!same(chunkAt, b0))
     {
-      f.baseLost++;
+      f.chunkLeaked++;
       char line[256];
-      std::snprintf(line, sizeof line, "%6u %-28s same write: no route reads %-12s under the route reads %s", (unsigned)id,
-                    info.name, num(wrote).c_str(), num(gotW).c_str());
-      writes.push_back(line);
+      std::snprintf(line, sizeof line, "%6u %-28s base %-12s saved chunk %s", (unsigned)id, info.name,
+                    num(b0).c_str(), num(chunkAt).c_str());
+      chunkLeaks.push_back(line);
+    }
+    /* ADR-136's other half, the "drag under modulation" law, at TWO write
+       values per row (a tenth and three tenths of the span, toward the
+       middle). Three readings, each against the SAME row's no-route law so a
+       row that quantises (23, 148) or clamps is held to its own behaviour:
+         base   — get_value under the route reads what the same write reads
+                  with no route (the write became the new base);
+         asked  — the matrix's target is that base + depth*src*span, clamped
+                  (the offset rides the NEW base, not a transformed copy);
+         heard  — the STORAGE the engine consumes (hypersaw_debug_stored)
+                  holds what a no-route write of the target would store. This
+                  is the critic's 3a: `asked` alone is what the matrix wanted,
+                  not what the engine got. */
+    const double span = info.max_value - info.min_value;
+    for (double fr : {0.1, 0.3})
+    {
+      const double w = b0 + (b0 < info.min_value + 0.5 * span ? fr : -fr) * span;
+      hypersaw_test_mod_add(r.p, kSlotLfo1, id);
+      r.tick(2);
+      r.set(id, w);
+      r.tick(2);
+      const double gotW = r.get(id), asked = r.applied(id), heard = hypersaw_debug_stored(r.p, id);
+      const double src = hypersaw_debug_modsrc(r.p, kSlotLfo1);
+      hypersaw_test_mod_remove(r.p, 0);
+      r.tick(2);
+      r.set(id, w);
+      r.tick(1);
+      const double wNR = r.get(id);
+      const double target = std::max(info.min_value, std::min(info.max_value, wNR + kDepth * src * span));
+      r.set(id, target);
+      r.tick(1);
+      const double heardNR = r.get(id);
+      r.set(id, b0);
+      r.tick(1);
+      char line[320];
+      if (!same(gotW, wNR))
+      {
+        f.baseLost++;
+        std::snprintf(line, sizeof line, "%6u %-28s write %-10s no route reads %-12s under the route reads %s",
+                      (unsigned)id, info.name, num(w).c_str(), num(wNR).c_str(), num(gotW).c_str());
+        writes.push_back(line);
+      }
+      if (!same(asked, target))
+      {
+        f.askLost++;
+        std::snprintf(line, sizeof line, "%6u %-28s write %-10s matrix asked %-12s want base+offset %s",
+                      (unsigned)id, info.name, num(w).c_str(), num(asked).c_str(), num(target).c_str());
+        asks.push_back(line);
+      }
+      if (!same(heard, heardNR))
+      {
+        f.heardLost++;
+        std::snprintf(line, sizeof line, "%6u %-28s write %-10s engine holds %-12s want (no-route law) %s",
+                      (unsigned)id, info.name, num(w).c_str(), num(heard).c_str(), num(heardNR).c_str());
+        heards.push_back(line);
+      }
     }
     if (!same(seen, b0))
     {
@@ -422,31 +509,43 @@ void sectionSweep()
       if (f.ex.size() < 60) f.ex += (f.ex.empty() ? "" : " ") + std::to_string(id);
     }
   }
-  std::printf("\n    %-24s %9s %6s %7s %9s  %s\n", "family", "routable", "moved", "LEAKED", "WRITELOST",
-              "leaked ids (first few)");
-  int leakedTotal = 0, lostTotal = 0;
+  // LEAKED/CHUNK count rows; the three write columns count (row, write) pairs,
+  // two writes per row.
+  std::printf("\n    %-24s %8s %5s %6s %6s %9s %6s %6s  %s\n", "family", "routable", "moved", "LEAKED",
+              "CHUNK", "BASELOST", "ASKED", "HEARD", "leaked ids (first few)");
+  int leakedTotal = 0, chunkTotal = 0, lostTotal = 0, askTotal = 0, heardTotal = 0;
   for (const auto &kv : fams)
   {
-    std::printf("    %-24s %9d %6d %7d %9d  %s\n", kv.first.c_str(), kv.second.routable, kv.second.moved,
-                kv.second.leaked, kv.second.baseLost, kv.second.ex.c_str());
-    leakedTotal += kv.second.leaked;
-    lostTotal += kv.second.baseLost;
-    check(kv.second.moved > 0, "control: " + kv.first + " has rows the LFO actually moved");
+    const Fam &f = kv.second;
+    std::printf("    %-24s %8d %5d %6d %6d %9d %6d %6d  %s\n", kv.first.c_str(), f.routable, f.moved, f.leaked,
+                f.chunkLeaked, f.baseLost, f.askLost, f.heardLost, f.ex.c_str());
+    leakedTotal += f.leaked;
+    chunkTotal += f.chunkLeaked;
+    lostTotal += f.baseLost;
+    askTotal += f.askLost;
+    heardTotal += f.heardLost;
+    check(f.moved > 0, "control: " + kv.first + " has rows the LFO actually moved");
   }
-  if (!leaks.empty())
-  {
-    std::printf("\n    every leaking row:\n");
-    for (const auto &l : leaks) std::printf("    %s\n", l.c_str());
-  }
-  if (!writes.empty())
-  {
-    std::printf("\n    every row whose write under modulation did not read back:\n");
-    for (const auto &l : writes) std::printf("    %s\n", l.c_str());
-  }
+  auto list = [](const char *what, const std::vector<std::string> &v) {
+    if (v.empty()) return;
+    std::printf("\n    %s:\n", what);
+    for (const auto &l : v) std::printf("    %s\n", l.c_str());
+  };
+  list("every row whose get_value leaked", leaks);
+  list("every row whose SAVED chunk leaked", chunkLeaks);
+  list("every write under modulation that did not become the base", writes);
+  list("every write under modulation whose offset did not ride the new base", asks);
+  list("every write under modulation the engine did not hold as base+offset", heards);
   check(leakedTotal == 0, "no routable destination reads back its modulated value",
         std::to_string(leakedTotal) + " leaked");
+  check(chunkTotal == 0, "no routable destination is SAVED at its modulated value",
+        std::to_string(chunkTotal) + " leaked into the chunk");
   check(lostTotal == 0, "a write under modulation reads back as the new base, on every row",
         std::to_string(lostTotal) + " lost");
+  check(askTotal == 0, "the matrix's target is the new base + offset, on every row",
+        std::to_string(askTotal) + " wrong");
+  check(heardTotal == 0, "the engine HOLDS the new base + offset, on every row",
+        std::to_string(heardTotal) + " wrong");
   r.kill();
 }
 
@@ -518,14 +617,77 @@ void sectionRoutingChunk()
          true);
   r.kill();
 }
+/* ---- D: a route on an osc-1 row must not touch its UNROUTED osc-2 twin ---
+   Main's worst symptom (critic, 2026-09-24): the old lookup was keyed on the
+   BASE def id, so a route on detune (4) made osc 2's detune (1004), which
+   nobody routed, read back — and save — osc 1's base. */
+void sectionTwin(const char *fixturePath)
+{
+  std::printf("\n-- D. a route on osc 1's detune leaves osc 2's detune its own --\n");
+  {
+    Rig r;
+    r.boot();
+    r.set(kLfo1Rate, 1.0);
+    r.set(kLfo1Shape, kSquare);
+    r.set(kDetune, 0.3);
+    r.set(1004, 0.8);
+    r.note(48);
+    hypersaw_test_mod_add(r.p, kSlotLfo1, kDetune);
+    r.tick(20);
+    check(!same(r.applied(kDetune), 0.3), "control (must MOVE): LFO 1 drives osc 1's detune",
+          num(r.applied(kDetune)));
+    check(r.applied(1004) < -1e299, "control: osc 2's detune has no route of its own");
+    const std::string chunk = r.save();
+    check(same(r.get(kDetune), 0.3), "osc 1 detune get_value reads its base 0.3", num(r.get(kDetune)));
+    check(same(r.get(1004), 0.8), "osc 2 detune get_value reads ITS OWN 0.8", num(r.get(1004)));
+    check(same(chunkValue(chunk, "detune"), 0.3), "saved `detune` is 0.3",
+          num(chunkValue(chunk, "detune")));
+    check(same(chunkValue(chunk, "o1.detune"), 0.8), "saved `o1.detune` is 0.8",
+          num(chunkValue(chunk, "o1.detune")));
+    r.kill();
+  }
+  /* The repo's own fixture carries exactly this shape: detune 0.35,
+     o1.detune 0.22, and `modroutes=0:4:0.5;` (ENV 1 -> detune). Load it,
+     render with a note held (ENV 1 live), re-save: both twins keep the
+     values the FIXTURE holds, read from the file rather than typed here. */
+  std::string fx;
+  if (FILE *f = std::fopen(fixturePath, "rb"))
+  {
+    char b[4096];
+    size_t k;
+    while ((k = std::fread(b, 1, sizeof b, f)) > 0) fx.append(b, k);
+    std::fclose(f);
+  }
+  check(!fx.empty(), std::string("fixture readable: ") + fixturePath);
+  if (fx.empty()) return;
+  fx = "\n" + fx;
+  const double d1 = chunkValue(fx, "detune"), d2 = chunkValue(fx, "o1.detune");
+  check(fx.find("\nmodroutes=0:4:") != std::string::npos && !same(d1, d2),
+        "fixture routes osc 1's detune and its twins differ", num(d1) + " / " + num(d2));
+  Rig r;
+  r.boot();
+  r.load(fx);
+  r.tick(4);
+  r.note(48);
+  r.tick(20);
+  const std::string out = r.save();
+  check(same(chunkValue(out, "detune"), d1), "re-saved `detune` is the fixture's",
+        num(chunkValue(out, "detune")));
+  check(same(chunkValue(out, "o1.detune"), d2), "re-saved `o1.detune` is the fixture's, not osc 1's",
+        num(chunkValue(out, "o1.detune")));
+  r.kill();
+}
 }  // namespace
 
-int main()
+int main(int argc, char **argv)
 {
   std::printf("modreadback_check — B241: modulated parameters persist at their BASE\n");
   sectionPaths();
   sectionSweep();
   sectionRoutingChunk();
+  // Repo-relative default: ./verify runs from the repo root, as statefix_check's
+  // `tests/state_fixtures` argument assumes.
+  sectionTwin(argc > 1 ? argv[1] : "tests/state_fixtures/chunk-v2-rev1.txt");
   std::printf("\n%s  (%d failure%s)\n", g_failures ? "FAIL" : "PASS", g_failures,
               g_failures == 1 ? "" : "s");
   return g_failures ? 1 : 0;
