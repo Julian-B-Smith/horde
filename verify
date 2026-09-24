@@ -295,6 +295,13 @@ full() {
   # The directory argument is where it finds the factory Init patch.
   "$build_dir/offcorner_check"   docs/presets/factory   || return 1   # B232 off-corner blend rule, rev-gated
   "$build_dir/modreadback_check" tests/state_fixtures/chunk-v2-rev1.txt || return 1   # B241 a modulated row persists at its BASE
+  # SCALPEL's own oracle battery (ADR-184, ingested 2026-09-24): 18 numeric checks
+  # against reference/scalpel/prototype/razor-core.js, ~6 s, exit 0 only when all
+  # pass. Wired at ingest so the reference is known-good BEFORE a port is measured
+  # against it — the packet's last-run.txt is the author's claim; this is ours.
+  node reference/scalpel/verify/verify.js > /tmp/scalpel.$$ 2>&1 || {
+    echo "verify: SCALPEL oracle battery FAILED" >&2; cat /tmp/scalpel.$$ >&2; rm -f /tmp/scalpel.$$; return 1; }
+  echo "scalpel oracle: $(grep -c '^PASS' /tmp/scalpel.$$) checks PASS ($(tail -1 /tmp/scalpel.$$))"; rm -f /tmp/scalpel.$$
 
   # THE B159 BACKLOG, ruled one at a time on evidence (2026-09-21). Nine checks
   # sat unwired: five stated no reason at all, four cited a "standing human
