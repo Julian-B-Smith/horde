@@ -13,7 +13,7 @@
 > marked **PROPOSED**.
 >
 > **Amended by B240** (2026-09-24, an implementer agent dispatched by the horde lead):
-> §3.1, §3.2, §10's pin list, §11, §12 items 3–4, §13 Q1/Q2/Q2b and checklist line 3
+> §3.1, §3.2, §10's pin list, §11, §12 items 3–4, §13 Q1/Q2/Q2b/Q2c and checklist line 3
 > were re-read against `origin/main` `6256301` plus the B240 change that added the morph
 > field's append site.
 >
@@ -212,18 +212,18 @@ position**, so the order is persisted data.
 
 ### 3.1 Membership and the append-only order
 
-**(a) Mechanism.** `src/hypersaw_clap.cpp:3044 void morphInit()` builds the order in this
+**(a) Mechanism.** `src/hypersaw_clap.cpp:3058 void morphInit()` builds the order in this
 sequence:
 
-1. **The frozen per-osc prefix.** `src/hypersaw_clap.cpp:3030 static std::vector<clap_id> buildMorphOrder`
+1. **The frozen per-osc prefix.** `src/hypersaw_clap.cpp:3044 static std::vector<clap_id> buildMorphOrder`
    walks `kParams`, skips globals, and pushes each id followed by its twin.
 2. **Hand-curated appends.** The FX slots come first, then the bend and note laws
    (ADR-104 A2), then the globals added in ADR-109 A1, then the scale.
-3. **The late per-osc rows.** `src/hypersaw_clap.cpp:3088 for (clap_id id : kMorphLateIds)`
+3. **The late per-osc rows.** `src/hypersaw_clap.cpp:3102 for (clap_id id : kMorphLateIds)`
    appends id 181 and its twin. This list is **closed** (B240).
-4. **The routing block.** `src/hypersaw_clap.cpp:3108 if (!isMorphTailId(d.id)) morphIds.push_back(d.id);`
+4. **The routing block.** `src/hypersaw_clap.cpp:3122 if (!isMorphTailId(d.id)) morphIds.push_back(d.id);`
 5. **The engine blocks, in three passes** (§3.2).
-6. **The tail** (B240). `src/hypersaw_clap.cpp:3192 for (clap_id id : kMorphTailIds)`
+6. **The tail** (B240). `src/hypersaw_clap.cpp:3206 for (clap_id id : kMorphTailIds)`
    appends every member added after layout 9, in listed order. **This is the only append
    site.**
 
@@ -231,23 +231,23 @@ Passes 1–5 are **frozen at layout 9** (B240). They produce the layout-9 order 
 grow, because each is bounded to the rows that existed then:
 
 - The per-osc prefix admits only base ids below 182
-  (`src/hypersaw_clap.cpp:3014 static constexpr clap_id kMorphL9OscIdEnd = 182;`). Every id
+  (`src/hypersaw_clap.cpp:3028 static constexpr clap_id kMorphL9OscIdEnd = 182;`). Every id
   from 1 to 181 is a row, every per-osc row is ≤ 181, and ids are never reused, so the bound
   is exactly the layout-9 set.
 - The engine passes admit only the SUB's 20 rows, 4000..4019
-  (`src/hypersaw_clap.cpp:3025 static bool inMorphL9EnginePasses`).
+  (`src/hypersaw_clap.cpp:3039 static bool inMorphL9EnginePasses`).
 - The routing pass cannot be bounded this way, because a new source row's cells get ids in
   the *middle* of the table. It skips tail-listed ids instead, and T13 catches an unlisted
   one.
 
 The **layout marker** names this order. It is written by four writers that must agree:
 
-- `src/hypersaw_clap.cpp:5934 "{\"morphLayout\":9,\"cornerPreset\":[";`
-- `src/hypersaw_clap.cpp:6058 "{\"morphLayout\":9,\"cornerPreset\":[";`
-- `src/hypersaw_clap.cpp:6222 ",\"morphLayout\":9,\"cornerNames\":"`
+- `src/hypersaw_clap.cpp:5971 "{\"morphLayout\":9,\"cornerPreset\":[";`
+- `src/hypersaw_clap.cpp:6095 "{\"morphLayout\":9,\"cornerPreset\":[";`
+- `src/hypersaw_clap.cpp:6259 ",\"morphLayout\":9,\"cornerNames\":"`
 - `tools/gen_factory_bank.cpp:456 std::string out = "{\"morphLayout\":9,\"cornerPreset\":[";`
 
-Old arrays are remapped by `src/hypersaw_clap.cpp:6096 std::vector<size_t> morphSlotMap`,
+Old arrays are remapped by `src/hypersaw_clap.cpp:6133 std::vector<size_t> morphSlotMap`,
 which treats **every layout ≥ 2 as a 1:1 prefix**. The only real remap is ADR-159's
 224-entry layout-1 case.
 
@@ -256,36 +256,47 @@ which treats **every layout ≥ 2 as a 1:1 prefix**. The only real remap is ADR-
 - **Append at the true tail; never insert.** An id added anywhere except after the last
   existing member silently re-reads every stored corner against the wrong parameter.
 - **HOW TO APPEND (B240).** Add **one line** to
-  `src/hypersaw_clap.cpp:3016 static inline const std::vector<clap_id> kMorphTailIds = {`
-  for each new member, in the order they join:
+  `src/hypersaw_clap.cpp:3030 static inline const std::vector<clap_id> kMorphTailIds = {`
+  for each new member, in the order they join. **Brand-new ids only** (see the next
+  bullet):
   - a **per-osc row**: list its **base** id only. Its +1000 twin is appended right behind
-    it, as `kMorphLateIds` does;
-  - a **global row**, including an existing global that is not yet a member: its id;
+    it, as `kMorphLateIds` does. T13g rejects a bare twin. T10 requires every non-Device
+    per-osc row to be in the field, so a new one that nobody lists turns T10 red;
+  - a **new global row**: its id;
   - an **engine-block row**, from any block and of any non-Device class: its id. T10
     requires every non-Device engine row to be in the field, and the frozen engine passes
     will not add it for you. A new block's **gate** is listed too;
   - a **routing cell**: its id. The routing pass skips tail-listed ids.
+- **An EXISTING parameter must not join through the tail without a load migration.** No
+  stored chunk carries its slot, so `resetCorner` puts its **default** into all four
+  corners. With morph on, `morphStep` then drives the live value to that default. The B240
+  critic measured it: `bassMonoHz` saved at 300 loads as 120 once id 41 is in the tail,
+  and stays at 300 with morph off. A brand-new id is safe only because its default *is*
+  what every old patch already sounds like. The migration is ROADMAP **B255** and is not
+  built.
 - **Every appending change bumps the marker by one, at all four writers**, however many
   lines it adds: 9 → 10 at the first append (the history is in the comment at
-  `src/hypersaw_clap.cpp:5905 THE LAYOUT MARKER, BUMPED ONCE HERE AND AT THE OTHER THREE WRITERS`).
-- **Old chunks need no migration.** `morphSlotMap` reads every layout ≥ 2 array 1:1 as a
-  prefix. A layout-9 chunk loads every stored slot where it was, and `resetCorner` (B124)
-  gives the new tail slots their defaults. The B240 demo append measured this on the 41
-  factory patches, the 4 corner presets and the 3 state fixtures (see its trace).
-- **But an append still moves the QUANTUM draw (OPEN, needs a ruling).**
-  `src/morph_core.h:55 for (int k = 0; k < kCorners; k++) gShared[k] = gumbel(rnd01(a));`
-  runs *after* one draw row per slot. A longer field therefore changes the shared vector,
-  and under quantum mode an off-corner pad position can give every slot a different
-  corner. No stored value moves, but the sound does. In the B240 demo, "MO - Quantum Morph"
-  rendered differently at pad (0.3, 0.7) and the other 95 renders were bit-identical.
-  With the shared draw taken at the layout-9 count (a scratch experiment, not committed),
-  all 96 renders were identical. Pure corners and blend mode do not read the draws.
+  `src/hypersaw_clap.cpp:5942 THE LAYOUT MARKER, BUMPED ONCE HERE AND AT THE OTHER THREE WRITERS`).
+- **Old chunks need no migration for brand-new ids.** `morphSlotMap` reads every layout
+  ≥ 2 array 1:1 as a prefix. A layout-9 chunk loads every stored slot where it was, and
+  `resetCorner` (B124) gives the new tail slots their defaults. The B240 demo append
+  measured this on the 41 factory patches, the 4 corner presets and the 3 state fixtures
+  (see its trace).
+- **The quantum and intent draws are frozen at layout 9 (B240).** `MorphCore::reshuffle`
+  used to draw one row per slot and *then* the shared vector, so a longer field re-dealt
+  which corner every quantum slot drew. The shell now passes the layout-9 length as the
+  draw prefix: rows 0..272, then the shared vector, then the tail rows
+  (`src/morph_core.h:55 void reshuffle(uint32_t seed, int nParams, int nPrefix = kMaxParams)`).
+  For a 273-slot field that is the same stream, bit for bit. `intentInit` numbers the
+  layout-9 atoms, then `home`, then tail atoms, and draws the shared seed after `home`.
+  T14 and T15 are the gates.
 - **The field must fit the draw table.** `src/morph_core.h:21 static constexpr int kMaxParams = 512;`
   The three `pickCorner` callers index it by slot with no guard. T13f fails past 512 slots.
 - **Freeze the append into `tests/morph_order.txt`.** Add the new ids at the end, in live
   order (base, then twin), and set its `layout` line
-  (`tests/morph_order.txt:13 layout 9`) to the new marker. Do it in the same change or
-  the next one: T13 admits at most **one** unfrozen append.
+  (`tests/morph_order.txt:14 layout 9`) to the new marker, and add one row for the new
+  layout to `kLayoutPins` in `tools/morphlayout_check.cpp` (T13h). Do it in the same change
+  or the next one: T13 admits at most **one** unfrozen append.
 - **Do not add a row to `kMorphLateIds`.** That list is appended *before* the routing
   block, so every routing and engine slot would shift. It is closed.
 - **A new routing source row still inserts unless it is listed.** Raising `kRoutingNSrc`
@@ -299,18 +310,27 @@ which treats **every layout ≥ 2 as a 1:1 prefix**. The only real remap is ADR-
 **(c) Check.** `morphlayout_check` (full, `verify:288 tests/morph_order.txt`):
 
 - **T13** (B240) freezes the **whole** layout-9 order
-  (`tools/morphlayout_check.cpp:37 T13 (B240) THE WHOLE ORDER IS FROZEN`). The fixture must
+  (`tools/morphlayout_check.cpp:40 T13 (B240) THE WHOLE ORDER IS FROZEN`). The fixture must
   be an exact prefix of the live order. Any insertion, removal or reorder fails and names
   the slot that moved. An append passes. The marker must equal the fixture's `layout`
   when nothing is appended, and be exactly one higher when something is. No id may hold
-  two slots. T13e plants an insertion, a removal and a swap, which must each be caught,
-  and an append, which must not be.
+  two slots (T13d). The field must fit the draw table (T13f). Every tail id must be
+  host-visible, in a real band, and a per-osc base with its twin behind it (T13g). The
+  fixture's length must be the count pinned for its `layout` line (T13h), so freezing an
+  append means adding one row to the check's `kLayoutPins`. T13e plants a fault for every
+  one of these, and a legal append that must pass.
+- **T14** (B240) re-deals the quantum draws as if the field were 164 rows longer, on
+  "MO - Quantum Morph", across 3 temperatures × 3 couplings × 3 pad positions. It
+  requires 0 owner flips and a bit-identical render. The pre-B240 order is its must-flip
+  control. **T15** checks the intent seeds the same way, at core level.
+- **T10** (widened by B240) requires every non-Device per-osc id, as well as every engine
+  id, to be a member.
 - **T1** freezes the 222-entry prefix and then requires 181/1181.
 - **T1b** requires everything after that to be an id ≥ 3000. So a **per-osc or global**
   row appended through `kMorphTailIds` turns T1b **RED** until the band is moved by a
   ruled pin move (§13 Q1). An engine or routing append passes it.
 - **T10b** checks only that the Structural engine ids form one contiguous run at the
-  tail (`tools/morphlayout_check.cpp:22 T10b the Structural engine ids form one contiguous run`).
+  tail (`tools/morphlayout_check.cpp:25 T10b the Structural engine ids form one contiguous run`).
   It **cannot see** an insertion; T13 can. **Any** append after the gate ends that run's
   tail position, so T10b also turns **RED** at the first real append until its pin is
   ruled (§13 Q1).
@@ -330,12 +350,12 @@ which treats **every layout ≥ 2 as a 1:1 prefix**. The only real remap is ADR-
 
 **(a) Mechanism.** Engine rows join the field in three passes over `kEngineBlocks`:
 
-1. **Morphable rows** (`src/hypersaw_clap.cpp:3158 cls == ParamClass::Morphable`).
-2. **Structural rows** (`src/hypersaw_clap.cpp:3168 cls == ParamClass::Structural`).
-3. **Gates** (`src/hypersaw_clap.cpp:3188 if (inMorphL9EnginePasses(b.gateId)) morphIds.push_back(b.gateId);`).
+1. **Morphable rows** (`src/hypersaw_clap.cpp:3172 cls == ParamClass::Morphable`).
+2. **Structural rows** (`src/hypersaw_clap.cpp:3182 cls == ParamClass::Structural`).
+3. **Gates** (`src/hypersaw_clap.cpp:3202 if (inMorphL9EnginePasses(b.gateId)) morphIds.push_back(b.gateId);`).
    Passes 1 and 2 skip the gate so that it lands here.
 
-The comment at `src/hypersaw_clap.cpp:3142 WHY TWO PASSES OVER THE SAME TABLE` explains why
+The comment at `src/hypersaw_clap.cpp:3156 WHY TWO PASSES OVER THE SAME TABLE` explains why
 the passes must stay separate.
 
 **(b) Invariant.** A pass is append-safe **only for the rows that existed when it was
@@ -352,7 +372,7 @@ So the passes are a record of B195 and B203, not a mechanism you can extend. Sin
 they are **bounded** to the SUB's layout-9 rows (`inMorphL9EnginePasses`), so a new block
 or a new SUB row is simply *absent* from them. T10 then fails ("MISSING from morphIds")
 until the row is listed in `kMorphTailIds` (§3.1(b)). The correction of the old "STATION
-appends here too" comment is at `src/hypersaw_clap.cpp:3117 CORRECTED BY B240`.
+appends here too" comment is at `src/hypersaw_clap.cpp:3131 CORRECTED BY B240`.
 
 **(c) Check.** `morphlayout_check` T13 (§3.1(c)) sees an insertion anywhere in the order.
 T10 sees a non-Device engine row that was never listed.
@@ -428,7 +448,7 @@ picked from one corner.
 - At a pure corner the ramp equals that corner's stored value exactly.
 - With morph off the ramp is 1.0, so it has no effect.
 
-**(c) Check.** `morphlayout_check` T12 (`tools/morphlayout_check.cpp:32 T12 (B203) the block's GATE is a corner value`):
+**(c) Check.** `morphlayout_check` T12 (`tools/morphlayout_check.cpp:35 T12 (B203) the block's GATE is a corner value`):
 the audio moves continuously, the value reads only 0 or 1, and a pure corner is exact.
 I found **no wired row for the oscillator case (B48)**. `grep B48 tools/` hits only T12's
 comments.
@@ -1019,12 +1039,12 @@ The prototype has not arrived, so this section is an **expectation, not a plan**
   first.
 - **Q2.** *Answered by B240 (ratified 2026-09-24):* the whole layout-9 order is frozen in
   `tests/morph_order.txt` and checked by `morphlayout_check` T13.
-- **Q2b** (found by B240). An append re-deals the quantum draw (§3.1(b)). The options
-  are: accept it and gate it behind `engine_revision`; or draw the shared vector at the
-  layout-9 count and put the new slots' rows after it. The second option is
-  bit-identical today and was measured bit-identical on the demo append. But it departs
-  from the morph lab's draw order, so it needs an ADR. SCALPEL's first append needs the
-  answer.
+- **Q2b** (found by B240). An append re-dealt the quantum draw. *Answered by B240:* the
+  lead adopted the layout-9 draw prefix (§3.1(b)), which is bit-identical today and gated
+  by T14/T15. It departs from the morph lab's draw order for fields longer than 273
+  slots, so the lead owns recording it in DECISIONS.md.
+- **Q2c** (the B240 critic). An **existing** parameter joining the field needs a load
+  migration (B255), or old patches load it at its default under morph (§3.1(b)).
 - **Q3.** What is B232's declaration channel? Options: a new column, a `depends` clause
   kind that does not hide the control, or accepting that an OFF source's panel hides.
   Related decisions: whether `,` becomes AND in the engine header, and whether an
@@ -1045,7 +1065,7 @@ The prototype has not arrived, so this section is an **expectation, not a plan**
 ```
 - [ ] 1  Ids: appended (next free 289 / a new ≥3000 block), never renumbered; retired ids kept in place; per-osc dispatch uses baseIdOf, global uses raw id; engine block < 35 rows or §1 sites guarded; new block has a dispatch row in its oracle; paramclass T1a pin moved with a reason
 - [ ] 2  Class: every new row's class stated; Device rows carry a kParamClassOverrides entry + reason; membership decided separately from class
-- [ ] 3  Morph: members APPENDED through kMorphTailIds, one line each (not kMorphLateIds, not a new pass-1/2 row); morphLayout bumped by one at all 4 writers; appended ids frozen into tests/morph_order.txt; atomic groups joined; switch is a level ramp (setEngineGateRamp line + renderer ramp, OFF silences, ON re-strikes, resume from weight); pure corner bit-identical; B232 declaration (switch id + belongs-to) stated
+- [ ] 3  Morph: members APPENDED through kMorphTailIds, one line each (not kMorphLateIds, not a new pass-1/2 row); morphLayout bumped by one at all 4 writers; brand-new ids only (an existing param needs B255's migration); appended ids frozen into tests/morph_order.txt + a kLayoutPins row; atomic groups joined; switch is a level ramp (setEngineGateRamp line + renderer ramp, OFF silences, ON re-strikes, resume from weight); pure corner bit-identical; B232 declaration (switch id + belongs-to) stated
 - [ ] 4  Mod: new sources appended (slots 22–23 left; srcPol + MOD_SRC_NAMES + modStep write); destinations continuous with a gui2 knob; depth unit = fraction of range; pitch surfaces the source follows stated
 - [ ] 5  History: every control marks once (gestureFor; hand-built builders lifted into gui_history_check); non-parameter state rides historyJson and is reset by initState; undo_check layer 5 renders
 - [ ] 6  Presets: defaults inert; absent key = default; gen_factory_bank re-run (Init follows); any sound change to existing patches gated on engine_revision with an ADR; queue headroom (kQCap) considered

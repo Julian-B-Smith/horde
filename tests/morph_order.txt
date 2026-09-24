@@ -8,8 +8,9 @@
 # requires this list to be an exact prefix of the live order.
 # To freeze a new append (Plugin::kMorphTailIds): add its ids at the END in
 # live order (a per-osc base, then its +1000 twin) and set the `layout` line to
-# the marker that append wrote. T13 admits at most one unfrozen append, and
-# only with the marker already bumped past this file's `layout`.
+# the marker that append wrote, and add that layout's slot count to kLayoutPins
+# in tools/morphlayout_check.cpp (T13h). T13 admits at most one unfrozen
+# append, and only with the marker already bumped past this file's `layout`.
 layout 9
 1
 1001

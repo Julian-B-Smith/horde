@@ -2955,6 +2955,11 @@ struct Plugin
      per-osc row goes in kMorphTailIds below, never here. */
   static constexpr clap_id kMorphLateIds[] = {181};
   static constexpr size_t kMorphAdr150Size = 224;   // the only layout that ever had 181 in the prefix
+  /* B240: the layout-9 field's length — where kMorphTailIds begins, and the
+     point the QUANTUM and intent draws are frozen at (see the tail comment).
+     Frozen like kMorphAdr150Size: it names a past order, so it never moves;
+     morphlayout_check pins the same number against tests/morph_order.txt. */
+  static constexpr int kMorphL9Slots = 273;
   static bool isMorphLateId(clap_id id)
   {
     for (clap_id l : kMorphLateIds) if (l == id) return true;
@@ -2984,10 +2989,18 @@ struct Plugin
      2. EVERY NEW MEMBER IS ONE LINE HERE, IN THE ORDER IT JOINED, and is
         appended after every pass. A per-osc base id (< 1000, not global)
         brings its +1000 twin right behind it, as kMorphLateIds does — list the
-        BASE only. A global, an engine-block row (any block, any class that
-        belongs in the field — morphlayout_check T10 requires every non-Device
-        engine row to be here) or a routing cell appends as itself. An existing
-        global that is not yet a member (bassMonoHz, say) joins the same way.
+        BASE only (morphlayout_check T13g rejects a bare twin). A global, an
+        engine-block row (any block, any class that belongs in the field —
+        morphlayout_check T10 requires every non-Device per-osc and engine row
+        to be a member) or a routing cell appends as itself.
+        BRAND-NEW IDS ONLY. An EXISTING parameter that is not yet a member
+        (bassMonoHz, say) must NOT be listed here without a load migration
+        (B255, not built): no stored chunk carries its slot, so resetCorner
+        puts its DEFAULT in all four corners, and with morph on morphStep then
+        drives the live value to that default — measured by the B240 critic:
+        bassMonoHz saved at 300 loads as 120 once id 41 is in the tail (it
+        stays 300 with morph off). A brand-new id is safe only because its
+        default IS what every old patch already sounds like.
 
      WHAT AN APPEND DOES TO THE MARKER AND TO OLD CHUNKS. One appending change
      bumps `morphLayout` by ONE at all four writers (cornerJson, liveCornerJson,
@@ -2997,19 +3010,20 @@ struct Plugin
      layout-9 chunk loads every stored slot where it was, and resetCorner (B124)
      gives the new tail slots their defaults — an old patch loads with the new
      member unmorphed at its (inert) default, which is what it said when saved.
-     WHAT AN APPEND STILL MOVES — OPEN, NOT FIXED HERE (B240's demo found it).
-     MorphCore::reshuffle draws one Gumbel row per slot and THEN the shared
-     vector, so the field's LENGTH moves gShared, and under QUANTUM every slot
-     can draw a different corner at an off-corner pad position: no stored value
-     moves, but the sound does. Measured on a scratch append of three slots:
-     the factory patch "MO - Quantum Morph" rendered differently at pad
-     (0.3, 0.7) with morph on; the other 95 renders were bit-identical, and so
-     were all 96 once the shared draw was taken at the layout-9 count. Pure
-     corners and BLEND do not read the draws. This needs a ruling before the
-     first real append — it is a sound change to existing patches.
+     THE DRAWS ARE FROZEN TOO (B240, the lead's ruling on the critic's S4).
+     MorphCore::reshuffle used to draw one Gumbel row per slot and THEN the
+     shared vector, so the field's LENGTH moved gShared, and under QUANTUM
+     every slot could draw a different corner at an off-corner pad position:
+     no stored value moved, but the sound did ("MO - Quantum Morph" at pad
+     (0.3, 0.7) on a scratch three-slot append). The shell now passes
+     kMorphL9Slots as the draw prefix: rows 0..272, then gShared, then the tail
+     rows — the same stream as before for a 273-slot field, bit for bit, and
+     unmoved by any append. intentInit does the same for the intent bus: the
+     layout-9 atoms, then `home`, then the shared seed, then the tail's atoms.
+     morphlayout_check T14 is the gate (0 owner flips under a +164-row draw).
      Freeze the appended ids into tests/morph_order.txt (add them at the end,
-     set its `layout` line to the new marker) in the same change or the next
-     one: morphlayout_check T13 admits at most ONE unfrozen append, and only
+     set its `layout` line to the new marker, add the layout's slot count to
+     morphlayout_check's kLayoutPins) in the same change or the next one: morphlayout_check T13 admits at most ONE unfrozen append, and only
      with the marker already bumped. */
   static constexpr clap_id kMorphL9OscIdEnd = 182;
   static constexpr clap_id kMorphL9EngineIdEnd = kSubOscIdBase + 20;
@@ -3248,7 +3262,7 @@ struct Plugin
     morphCur.assign(morphIds.size(), -1e30);
     morphExempt.assign(morphIds.size(), 0);
     morphGroupSplit.assign(morphIds.size(), 0);   // B222: sized here, never on the audio thread
-    morph.reshuffle(morphSeed, (int)morphIds.size());
+    morph.reshuffle(morphSeed, (int)morphIds.size(), kMorphL9Slots);   // B240: draws frozen at layout 9
     // A fresh instance's corners all hold the DEFAULT patch, so switching morph
     // on before capturing anything is silence-safe: every corner agrees.
     for (size_t i = 0; i < morphIds.size(); i++)
@@ -4404,8 +4418,9 @@ struct Plugin
      B142 the whole routing block is one. Nothing here knows what a group
      means; morphInit builds the map and IntentCore just indexes it. */
   std::vector<int> intentAtomOf;        // [N] -> atom index
-  int intentHomeAtom = 0;               // the `home` atom's index (the last one)
+  int intentHomeAtom = 0;               // the `home` atom's index (after the layout-9 atoms; B240)
   int intentNAtoms = 0;
+  int intentSeedPrefix = 0;             // atoms drawn before the shared seed (B240)
   std::vector<double> intentSeeds;      // [nAtoms], one per atom, from morphSeed
   double intentSharedSeed = 0;          // drawn AFTER them (ADR-176 Amendment 1)
   // Per-slot unit conversion, read off the ParamDef once (see UNITS above).
@@ -4474,16 +4489,25 @@ struct Plugin
 
     intentAtomOf.assign(n, 0);
     {
+      /* B240 — THE ATOMS ARE FROZEN AT LAYOUT 9, like MorphCore's draws. The
+         layout-9 slots' atoms come first, then `home`, then any atom a tail
+         slot introduces. Numbering home after EVERY atom (as this did) would
+         move home's index and seed with each append; with the tail after it,
+         a 273-slot field numbers every atom exactly as before and an append
+         only adds atoms past the ones that already existed. */
       std::vector<int> compact(n, -1);   // morphIds index -> atom, for leads only
       int na = 0;
-      for (size_t i = 0; i < n; i++)
-      {
+      const size_t pre = std::min(n, (size_t)kMorphL9Slots);
+      auto number = [&](size_t i) {
         const size_t lead = morphGroupLead(i);
         if (compact[lead] < 0) compact[lead] = na++;
         intentAtomOf[i] = compact[lead];
-      }
-      intentHomeAtom = na;
-      intentNAtoms = na + 1;
+      };
+      for (size_t i = 0; i < pre; i++) number(i);
+      intentHomeAtom = na++;
+      intentSeedPrefix = na;   // layout-9 atoms + home: drawn before the shared seed
+      for (size_t i = pre; i < n; i++) number(i);
+      intentNAtoms = na;
     }
     intentSeeds.assign((size_t)intentNAtoms, 0.0);
     intentDrawSeeds();
@@ -4496,8 +4520,9 @@ struct Plugin
     intentClamped.assign(n, 0);
   }
 
-  /* One seed per atom in ATOM-INDEX order, the shared seed appended last
-     (ADR-176 Amendment 1): appending it leaves every per-atom draw
+  /* One seed per atom in ATOM-INDEX order, the shared seed after the layout-9
+     atoms and `home` (ADR-176 Amendment 1; B240 put any tail atoms after it,
+     which for a 273-slot field is "last"): appending it leaves every per-atom draw
      bit-identical to a stream without coupling, so turning coupling on moves
      the blend and not the boundaries. Pure array writes over storage that
      already exists — the same RT-safety argument MorphCore::reshuffle makes at
@@ -4506,7 +4531,7 @@ struct Plugin
   {
     if (intentSeeds.empty()) return;
     hypersaw::IntentCore::drawSeeds(morphSeed, intentSeeds.data(), intentNAtoms,
-                                    &intentSharedSeed);
+                                    &intentSharedSeed, intentSeedPrefix);
   }
 
   /* ---- the `intent=` chunk ------------------------------------------------
@@ -4933,6 +4958,18 @@ struct Plugin
      is exactly "this member no longer follows its group" — with no table to
      resize and therefore nothing to allocate. NOT undoable: morphInit is
      once-per-instance, so the control runs on an instance of its own. */
+  /* B240 — morphlayout_check T14's door. Re-deals the quantum draws AS IF the
+     field were `nSlots` long, through the shell's own reshuffle call, so the
+     check can ask "does an append move any existing slot's corner?" without a
+     build that has one. `frozen` = false draws the whole field before the
+     shared vector (the pre-B240 order) — the check's must-flip control. The
+     draw table is preallocated, so this allocates nothing; callers restore with
+     (morphIds.size(), true), which is exactly morphInit's own call. */
+  void morphRedrawAs(int nSlots, bool frozen)
+  {
+    morphInit();
+    morph.reshuffle(morphSeed, nSlots, frozen ? kMorphL9Slots : nSlots);
+  }
   bool intentBreakAtom(int slot)
   {
     morphInit();
@@ -7386,7 +7423,7 @@ struct Plugin
             {
               morphSeed = (uint32_t)applied;
               // reshuffle is pure array writes — RT-safe; morphInit ran at activate
-              morph.reshuffle(morphSeed, (int)morphIds.size());
+              morph.reshuffle(morphSeed, (int)morphIds.size(), kMorphL9Slots);   // B240: draws frozen at layout 9
               // ADR-176: the resolver's per-atom seeds come from the same
               // device seed, so they re-draw in the same breath. One seed, two
               // laws — a second site would be a second chance to forget.
@@ -9258,6 +9295,8 @@ extern "C" const char *hypersaw_debug_ownersjson(const clap_plugin_t *p)
 { static std::string j; j = self(p)->morphOwnersJson(); return j.c_str(); }
 extern "C" const char *hypersaw_debug_exemptjson(const clap_plugin_t *p)
 { static std::string j; j = self(p)->morphExemptJson(); return j.c_str(); }
+extern "C" void hypersaw_debug_morph_redraw(const clap_plugin_t *p, int nSlots, int frozen)
+{ self(p)->morphRedrawAs(nSlots, frozen != 0); }
 /* B134: the GUI's own view of the route table, headless. polarity_check needs
    the SHELL's answer — that slot 17 is declared bipolar and slot 2 unipolar —
    and the bridge that normally carries it is a webview no oracle can drive. */
