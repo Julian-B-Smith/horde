@@ -2954,7 +2954,7 @@ struct Plugin
      (the plain blend near an OFF corner) for up to one grid tick (5.8 ms)
      before morphStep's landing — measured with 32-sample host blocks: osc 2
      sounded (peak 6.4e-2 above the no-toggle render) at detune 0.31, the
-     silent plain blend, for up to 5 blocks before landing on 0.1. The forced tick runs in the morphStep call
+     silent plain blend, for up to 6 blocks before landing on 0.1. The forced tick runs in the morphStep call
      that precedes the render of the event's span, so the landing happens
      before the first re-struck sample. It is keyed on the EVENT's position,
      not on block boundaries, so ADR-086's subdivision independence holds. */
