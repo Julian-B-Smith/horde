@@ -428,7 +428,7 @@ picked from one corner.
 - At a pure corner the ramp equals that corner's stored value exactly.
 - With morph off the ramp is 1.0, so it has no effect.
 
-**(c) Check.** `morphlayout_check` T12 (`tools/morphlayout_check.cpp:27 T12 (B203) the block's GATE is a corner value`):
+**(c) Check.** `morphlayout_check` T12 (`tools/morphlayout_check.cpp:32 T12 (B203) the block's GATE is a corner value`):
 the audio moves continuously, the value reads only 0 or 1, and a pure corner is exact.
 I found **no wired row for the oscillator case (B48)**. `grep B48 tools/` hits only T12's
 comments.
