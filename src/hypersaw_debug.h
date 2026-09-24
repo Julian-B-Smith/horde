@@ -45,6 +45,11 @@ extern "C"
      corner_probe, gen_factory_bank, statefix_common.h. */
   void hypersaw_debug_state(const clap_plugin_t *p, char *out, uint32_t cap);
 
+  /* B241: a parameter's STORAGE (Plugin::readStored) — under a mod route, the
+     modulated value the engine consumes, where get_value reports the base.
+     NaN for an unknown id. Owner: modreadback_check. */
+  double hypersaw_debug_stored(const clap_plugin_t *p, uint32_t id);
+
   /* B181 note 3: the SUB's published cycle — exactly what the GUI bridge's
      hzGetSubWave hands the wave display. Headless, so an oracle can ask
      whether the PICTURE is the engine's current configuration rather than a
