@@ -2997,6 +2997,16 @@ struct Plugin
      layout-9 chunk loads every stored slot where it was, and resetCorner (B124)
      gives the new tail slots their defaults — an old patch loads with the new
      member unmorphed at its (inert) default, which is what it said when saved.
+     WHAT AN APPEND STILL MOVES — OPEN, NOT FIXED HERE (B240's demo found it).
+     MorphCore::reshuffle draws one Gumbel row per slot and THEN the shared
+     vector, so the field's LENGTH moves gShared, and under QUANTUM every slot
+     can draw a different corner at an off-corner pad position: no stored value
+     moves, but the sound does. Measured on a scratch append of three slots:
+     the factory patch "MO - Quantum Morph" rendered differently at pad
+     (0.3, 0.7) with morph on; the other 95 renders were bit-identical, and so
+     were all 96 once the shared draw was taken at the layout-9 count. Pure
+     corners and BLEND do not read the draws. This needs a ruling before the
+     first real append — it is a sound change to existing patches.
      Freeze the appended ids into tests/morph_order.txt (add them at the end,
      set its `layout` line to the new marker) in the same change or the next
      one: morphlayout_check T13 admits at most ONE unfrozen append, and only

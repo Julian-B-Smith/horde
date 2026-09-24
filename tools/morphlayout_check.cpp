@@ -43,6 +43,7 @@
        be frozen into the file). No id may occupy two slots. T13e is the
        control: planted insertion, removal and swap must each be reported at
        the slot where they happen, and a planted append must not be.
+       T13f: the field fits MorphCore's Gumbel table (kMaxParams slots).
    Exit 1 on failure. */
 #include <algorithm>
 #include <cmath>
@@ -55,6 +56,7 @@
 #include <cstdlib>
 #include "../src/hypersaw_clap_entry.h"
 #include "../src/hypersaw_debug.h"
+#include "../src/morph_core.h"
 namespace {
 #include "notefuzz_scaffold.inc"
 const char *kFrozen = "1,1001,2,1002,3,1003,4,1004,5,1005,6,1006,7,1007,8,1008,9,1009,10,1010,12,1012,13,1013,14,1014,16,1016,17,1017,18,1018,19,1019,20,1020,21,1021,22,1022,23,1023,24,1024,25,1025,26,1026,27,1027,28,1028,29,1029,30,1030,31,1031,35,1035,36,1036,37,1037,39,1039,42,1042,43,1043,44,1044,45,1045,46,1046,47,1047,48,1048,49,1049,50,1050,51,1051,52,1052,53,1053,54,1054,55,1055,56,1056,65,1065,66,1066,67,1067,68,1068,69,1069,71,1071,72,1072,73,1073,74,1074,76,1076,77,1077,78,1078,79,1079,80,1080,81,1081,82,1082,83,1083,84,1084,85,1085,86,1086,87,1087,91,1091,92,1092,93,1093,94,1094,95,1095,104,1104,105,1105,129,1129,130,1130,131,1131,132,1132,150,1150,57,58,59,60,61,62,63,64,96,97,98,99,133,134,135,136,33,106,107,108,109,110,111,112,113,114,115,137,138,139,140,141,142,143,144,145,146,147,148,149,11,70,32,34,38,90,75,116,117,118,119,120,121,122,123,124,125,126,127,128";
@@ -581,6 +583,15 @@ int main(int argc, char **argv) {
                   "slot(s) — equal with none, exactly one bump with some",
                   marker, fx.layout, order.size() > fx.ids.size() ? order.size() - fx.ids.size() : 0);
     expect(markerOk(order.size(), fx.ids.size(), marker, fx.layout), m);
+
+    /* T13f THE FIELD FITS THE DRAW TABLE. MorphCore::reshuffle clamps its
+       Gumbel table to kMaxParams, and the three pickCorner callers index it by
+       slot with no guard, so slot 512 would read past the table — silently.
+       B240 found it while measuring what an append costs; SCALPEL's rows are
+       the first append large enough to approach it. */
+    std::snprintf(m, sizeof m, "T13f the field (%zu slots) fits MorphCore's draw table (%d)",
+                  order.size(), hypersaw::MorphCore::kMaxParams);
+    expect(!order.empty() && order.size() <= (size_t)hypersaw::MorphCore::kMaxParams, m);
 
     std::vector<std::string> sorted = order;
     std::sort(sorted.begin(), sorted.end());
