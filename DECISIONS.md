@@ -6455,3 +6455,17 @@ never as the source of truth. **horde's undo tree already does exactly this** �
 a full state JSON per node, confirmed by B186's gauntlet — so the two projects
 arrived at the same design without coordinating, which is the kind of
 convergence worth noting and nothing we need to act on.
+
+## ADR-183 — The off-corner blend rule is the first revision-2 law (2026-09-24)
+
+**Ruling (human, 2026-09-24):** "Let's use versioning. We're about to start really putting it to work anyway." B232's rule — in BLEND, a parameter whose source is OFF in a corner takes its weights only from the corners where the source is ON — lands behind B100's `engine_revision` gate as revision 2, the first law the gate has ever held.
+
+**What that means, stated so the port cannot drift from it:**
+1. `kEngineRevision` becomes 2. A NEW instance and the Init patch start at 2 and hear the rule.
+2. A loaded blob keeps the revision it carries; a blob with no header is revision 1 by definition (B100). A revision-1 patch renders exactly as before — the old law is not deleted, it is selected.
+3. **The factory bank moves to revision 2** (lead's reading of "putting it to work": the bank is the product, not a user's saved work). Regenerating it is expected to change `engine_revision` and `build` only, except where a factory patch blends a source that is off in some corner — any such patch is listed, not silently re-voiced.
+4. **Opting a user's patch forward is a patch-level act (B100), and no control for it exists yet.** Until one does, a revision-1 patch stays revision 1 forever; the control (and what it says to the player) is its own row.
+5. Every later sound-changing law follows the same path: it names the revision it arrives in, keeps the old law selectable, and ships with a row that proves both revisions render as specified.
+
+**Why gate rather than change everyone, pre-release:** the mechanism exists and is untested in anger; the first real law is the cheapest moment to prove it works, and B229's envelope redesign and B213's curves are both queued to need it.
+
