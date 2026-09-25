@@ -47,8 +47,8 @@
      L0026: every const/let the setup path reads is declared above the wiring at
      the bottom of block 2. -->
 <html><head><meta charset="utf-8">
-<meta name="lab-review" content="B265 · 2026-09-25">
-<title>fx-chain morph lab — four ways to morph an FX chain, raced on six invariants</title>
+<meta name="lab-review" content="B265 + B266 · 2026-09-25">
+<title>fx-chain morph lab — nine ways to morph an FX chain, fuzzed on seven invariants</title>
 <style>
   /* ============ TOKENS — gui2's, verbatim (see the header) ============ */
   :root {
@@ -135,9 +135,24 @@
   /* ============ PAGE SHAPE ============ */
   .row { display:grid; gap:10px; margin-top:10px; align-items:start; }
   .ends { grid-template-columns:repeat(2,minmax(0,1fr)) minmax(280px,.9fr); }
-  .algs { grid-template-columns:repeat(4,minmax(0,1fr)); }
+  .algs { grid-template-columns:repeat(3,minmax(0,1fr)); }
   .two { grid-template-columns:minmax(0,1.25fr) minmax(0,1fr); }
   @media (max-width:1400px) { .algs { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+  /* B266: the planned architectures carry a physics-violet rule, so the two families read apart at a glance */
+  .alg.planned { border-left:4px solid var(--physics); }
+  .unh { font-size:10px; color:var(--dim); border:1px dashed var(--div); border-radius:var(--r); padding:8px; margin-top:6px; }
+  .unh b { color:var(--t2); }
+  .gal { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:8px; }
+  .card { border:1px solid var(--div); border-radius:var(--r); padding:6px 8px; background:var(--well); }
+  .card.brk { border-color:var(--alarm); }
+  .card h3 { font-size:10px; letter-spacing:.06em; margin-bottom:3px; display:flex; justify-content:space-between; gap:6px; align-items:center; }
+  .card h3 .lt { display:inline-block; min-width:18px; text-align:center; padding:0 4px; border-radius:3px; background:var(--line); color:var(--bg); margin-right:5px; }
+  .card .k { color:var(--caution-tx); background:var(--caution-bg); border:1px solid var(--caution); border-radius:3px; padding:0 4px; font-weight:700; }
+  .card .k.cov { color:var(--t2); background:none; border-color:var(--div); }
+  .card canvas { width:100%; height:64px; margin-top:4px; }
+  .card .ptxt { margin-top:3px; }
+  .gfilter { display:flex; gap:4px; flex-wrap:wrap; margin-bottom:6px; }
+  td.hi { color:var(--text); font-weight:700; }
   @media (max-width:900px) { .ends, .algs, .two { grid-template-columns:1fr; } }
   .end h2 span { color:var(--t2); font-weight:400; letter-spacing:.04em; }
   .end.l h2 b, .end.r h2 b { color:var(--value); }
@@ -214,8 +229,8 @@
   <div>
     <h1>fx-chain morph</h1>
     <div class="badges">
-      <span class="badge">B265 LAB</span>
-      <span class="sub">RANK KEYS · EDIT PATH · APPROVED GRAPH · NAIVE SPLICE — SIX INVARIANTS</span>
+      <span class="badge">B265 + B266 LAB</span>
+      <span class="sub">A–D RACED · E–H + GC BY CONSTRUCTION · SEVEN INVARIANTS · FUZZED</span>
     </div>
   </div>
   <div class="hdrctl">
@@ -227,13 +242,15 @@
   </div>
 </div>
 
-<div class="tagline">Two FX chains, <b>L</b> and <b>R</b>, and a morph <b>x</b> between them, raced four ways on the
-same endpoint pairs: <b>A</b> rank keys, <b>B</b> edit path, <b>C</b> an approved-order graph, and <b>D</b> naive slot
-splicing (the control). Every structural change is a seeded, crossfaded event spread across x by the quantum morph's own
-threshold law (temperature spreads it; T = 0 is the old hard cut). Six invariants are checked at load at 601 x positions
-for every algorithm and pair, each with a planted fault that must fail: one module per type, acyclic with one bounded
-return, no edge that neither end has, approved orders, spread crossfades, and <b>every lane still reaching the output</b>.
-<b>It sounds</b>: POWER plays Body and Sub through the chain you LISTEN to, and the puck morphs it.</div>
+<div class="tagline">Two FX chains, <b>L</b> and <b>R</b>, and a morph <b>x</b> between them, done nine ways on the
+same endpoint pairs. <b>B265's four</b>: A rank keys, B edit path, C an approved-order graph, D naive slot splicing (the
+control), all but D on one shared router. <b>B266's five</b>, which avoid order collisions by construction: <b>E</b> a fixed
+order per patch with a per-module mix, <b>F</b> series↔parallel, <b>G</b> a forward-only send matrix, <b>H</b> continuous
+positions on a spine, and <b>GC</b> the send matrix walking C's approved orders — all on one <b>wiring planner</b> that
+searches for a legal sequence instead of repairing one. Seven invariants are checked at 601 x positions, each with a planted
+fault that must fail; the newest is <b>I7</b>, "no node without any inputs should have outputs", read two ways. A fuzzer
+(<b>tools/labharness/fxmorph_fuzz.mjs</b>) runs the same model on thousands of seeded random pairs and shrinks every failure
+to a minimal case — the gallery below. <b>It sounds</b>: POWER plays Body and Sub through the chain you LISTEN to.</div>
 
 <div class="audit" id="audit">self-check: pending</div>
 
@@ -259,7 +276,8 @@ return, no edge that neither end has, approved orders, spread crossfades, and <b
   <canvas id="strip"></canvas>
   <div class="legend">Flow maps below: x runs left to right, each module is a line at its place in the order.
     <i></i>live (on a lane-to-output path) <i class="d"></i>in the order, silent <i class="s"></i>the Sub runs through it
-    <i class="c"></i>an invariant fails at this x (rows I1–I6 under each map). Ticks: ▮ a crossfade, ▵ an order step (silent by construction).</div>
+    <i class="c"></i>an invariant fails at this x (rows I1–I7 under each map; I7t = I7 read TAIL-ALLOWED). Ticks: ▮ a crossfade, ▵ an order step (silent by construction).
+    Panels with a violet rule are the planned architectures (E–H, GC); E's small dots are its junctions, the wire every module sits on.</div>
 </div>
 
 <div class="row algs" id="algs"></div>
@@ -293,13 +311,28 @@ return, no edge that neither end has, approved orders, spread crossfades, and <b
 </div>
 
 <div class="row two">
-  <div class="cluster"><h2>Self-check — run at load; every claim has a planted fault that must fail it</h2>
-    <table class="chk"><thead><tr><th>#</th><th>claim</th><th>holds</th><th>must-fail control (planted fault)</th><th>caught</th></tr></thead>
-      <tbody id="chkBody"><tr><td colspan="5">running…</td></tr></tbody></table>
+  <div class="cluster"><h2>Fuzz — failure rate per paradigm × invariant × reading</h2>
+    <table id="fzTab"><tr><td>loading fx-chain-morph-gallery.json…</td></tr></table>
+    <div class="note" id="fzNote"></div>
   </div>
   <div class="cluster"><h2>Recommendation — and what remains open</h2>
     <div class="rec" id="rec"></div>
   </div>
+</div>
+
+<div class="cluster" style="margin-top:10px"><h2>Objectives — what each architecture buys, beyond the invariants</h2>
+  <table id="objTab"></table>
+  <div class="note" id="objNote"></div>
+</div>
+
+<div class="cluster" style="margin-top:10px"><h2>Counterexample gallery — every fuzz failure, shrunk to its smallest case <span style="color:var(--t2);font-weight:400" id="galCount"></span></h2>
+  <div class="gal" id="gal"><div class="ptxt">loading…</div></div>
+  <div class="note" id="galNote"></div>
+</div>
+
+<div class="cluster" style="margin-top:10px"><h2>Self-check — run at load; every claim has a planted fault that must fail it</h2>
+  <table class="chk"><thead><tr><th>#</th><th>claim</th><th>holds</th><th>must-fail control (planted fault)</th><th>caught</th></tr></thead>
+    <tbody id="chkBody"><tr><td colspan="5">running…</td></tr></tbody></table>
 </div>
 
 <script>
@@ -1026,14 +1059,60 @@ const SHORT_ORDER = o => o.length ? o.map(t => SHORT[t]).join(' ') : '(dry)';
    the weighted graph — sum over forward paths of the product of edge weights.
    Module gains are taken as 1 (static per-edge gains, not the DSP), and return
    edges are excluded: I6 asks for a FORWARD path, which a return never is. */
-function transmission(f, lane) {
+function transmission(f, lane) { const t = transAll(f, lane); return t ? t.OUT || 0 : NaN; }
+/* The same pass, returning the lane's transmission to EVERY node (null on a
+   forward cycle). I6 reads t.OUT; I7 reads a module's own entry. Cached on the
+   frame, because I6 and I7 both ask for it at every x. */
+function transAll(f, lane) {
+  const c = f._ta || (f._ta = {});
+  if (c[lane] !== undefined) return c[lane];
   const le = liveEdges(f), indeg = {}, adj = {}, ids = new Set([lane]);
   for (const e of le) { ids.add(e.u); ids.add(e.v); (adj[e.u] = adj[e.u] || []).push(e); indeg[e.v] = (indeg[e.v] || 0) + 1; }
   const t = {}; t[lane] = 1;
   const q = [...ids].filter(i => !indeg[i]); let n = 0;
   while (q.length) { const u = q.pop(); n++; for (const e of adj[u] || []) { t[e.v] = (t[e.v] || 0) + (e.u === lane ? 1 : t[e.u] || 0) * e.w; if (--indeg[e.v] === 0) q.push(e.v); } }
-  if (n !== ids.size) return NaN;
-  return t.OUT || 0;
+  return (c[lane] = n === ids.size ? t : null);
+}
+
+/* ---------- I7 (B266): a processing node with no input must not output ----------
+   The human, 2026-09-25: "no node (aside from sound-generating nodes) without any
+   inputs should have outputs". Read on the GAIN graph, like I6:
+     input  i(n) = the sum over lanes of the transmission lane → n, in absolute
+                   units: one full unit-gain path from a lane reads 1. Return
+                   edges are excluded: a return recirculates what is already
+                   there, it originates nothing.
+                   NOT normalised by the node's endpoint input. The first version
+                   was, and the fuzzer's first 16 000-run sweep caught it: a node
+                   fed by two or three paths at one end dropped to 1/2 or 1/3 when
+                   it kept only ONE full path, so E "broke" I7 at exactly 0.500
+                   and the planner "proved" pairs impossible that are not. The
+                   rule asks whether a node HAS input, not whether it has all of it.
+     output o(n) = the largest weight among n's live out-edges, a return it
+                   sources included.
+   STRICT: wherever o(n) > 0, i(n) ≥ I7_FLOOR. TAIL-ALLOWED: a Delay or Reverb
+   (a node with a memory that rings) may keep o(n) > 0 for TAIL_X of x after its
+   input last stood at the floor, provided o(n) does not RISE meanwhile; an output
+   that opens before any input arrived is not a tail and fails both readings.
+   Wires (E's junctions, D's empty slots) are not processing nodes, and lanes are
+   the sources the human exempted. The floor is I6's, for I6's reason: two
+   overlapping equal-power fades on one unit path read 0.5, a correct wiring
+   order never goes lower, and an output left open on no input reads 0. TAIL_X
+   is a stated window, not a render: 0.1 of x is 240 ms of the lab's 2.4 s
+   sweep, about a small room's decay. */
+const I7_FLOOR = 0.5, TAIL_X = 0.1, TAIL_TYPES = { DLY: 1, REV: 1 };
+function inputSum(f, id) { let s = 0; for (const l of LANES) { const t = transAll(f, l); s += t ? t[id] || 0 : 0; } return s; }
+/* every processing node with a live output, and its input level */
+function i7Nodes(f) {
+  const out = new Map();
+  for (const e of liveEdges(f)) if (!isLane(e.u) && typeOf(f, e.u) !== 'WIRE') out.set(e.u, Math.max(out.get(e.u) || 0, e.w));
+  for (const x of liveFb(f)) if (typeOf(f, x.u) !== 'WIRE') out.set(x.u, Math.max(out.get(x.u) || 0, x.g));
+  const res = [];
+  for (const [id, o] of out) res.push({ id, type: typeOf(f, id), o, i: inputSum(f, id) });
+  return res;
+}
+function checkI7(f) {
+  const bad = i7Nodes(f).filter(q => q.o > EPS && q.i < I7_FLOOR);
+  return { ok: !bad.length, why: bad.length ? bad.map(q => SHORT[q.type] + ' outputs ' + q.o.toFixed(3) + ' on input ' + q.i.toFixed(3)).join(', ') : '' };
 }
 function canon(f) {
   const wmax = new Map(); for (const q of liveEdges(f)) { const k = ek(typeOf(f, q.u), typeOf(f, q.v)); wmax.set(k, Math.max(wmax.get(k) || 0, q.w)); }
@@ -1047,18 +1126,33 @@ function canon(f) {
 }
 
 /* ---------- one sweep: every invariant at every x, plus the metrics ---------- */
-function sweep(frameAt, Lp, Rp, events, T, w) {
+function sweep(frameAt, Lp, Rp, events, T, w, ngrid) {
+  const NG = ngrid || NGRID;
   const ES = endpointSets(Lp, Rp), base = endpointGains(Lp, Rp);
-  const inv = { I1: 0, I2: 0, I3: 0, I3p: 0, I4: 0, I6: 0 }, first = {}, why = {};
-  const states = new Set(), bad = [];
-  let prev = null, maxStep = 0, minT = { BODY: Infinity, SUB: Infinity };
+  const inv = { I1: 0, I2: 0, I3: 0, I3p: 0, I4: 0, I6: 0, I7: 0, I7t: 0 }, first = {}, why = {};
+  const states = new Set(), bad = [], lastOk = new Map();
+  let prev = null, maxStep = 0, minT = { BODY: Infinity, SUB: Infinity }, maxLive = 0;
   const cL = canon(staticFrame(Lp)), cR = canon(staticFrame(Rp));
-  for (let i = 0; i < NGRID; i++) {
-    const x = i / (NGRID - 1), f = frameAt(x);
+  for (let i = 0; i < NG; i++) {
+    const x = i / (NG - 1), f = frameAt(x);
     const r = { I1: checkI1(f), I2: checkI2(f), I3: checkI3(f, ES), I3p: checkI3p(f, ES), I4: checkI4(f) };
     let i6ok = true;
     for (const l of LANES) { const g = transmission(f, l) / base[l]; const gg = isNaN(g) ? 0 : g; if (gg < minT[l]) minT[l] = gg; if (!(gg >= I6_FLOOR)) i6ok = false; }
     r.I6 = { ok: i6ok, why: i6ok ? '' : 'a lane below the floor' };
+    // I7 in both readings; TAIL-ALLOWED needs each node's history, so it lives here, not in checkI7.
+    let s7 = '', t7 = '';
+    for (const q of i7Nodes(f)) {
+      if (!(q.o > EPS && q.i < I7_FLOOR)) { if (q.i >= I7_FLOOR) lastOk.set(q.id, { x, o: q.o }); continue; }
+      const msg = SHORT[q.type] + ' outputs ' + q.o.toFixed(3) + ' on input ' + q.i.toFixed(3);
+      if (!s7) s7 = msg;
+      const lo = lastOk.get(q.id);
+      if (!(TAIL_TYPES[q.type] && lo && x - lo.x <= TAIL_X + 1e-9 && q.o <= lo.o + 1e-9) && !t7) t7 = msg;
+    }
+    r.I7 = { ok: !s7, why: s7 }; r.I7t = { ok: !t7, why: t7 };
+    // bounded compute: processing nodes touching any live edge
+    const liveN = new Set();
+    for (const e of liveEdges(f)) for (const id of [e.u, e.v]) if (!isLane(id) && id !== 'OUT' && typeOf(f, id) !== 'WIRE') liveN.add(id);
+    if (liveN.size > maxLive) maxLive = liveN.size;
     const b = {};
     for (const k in r) if (!r[k].ok) { inv[k]++; b[k] = 1; if (first[k] === undefined) { first[k] = x; why[k] = r[k].why; } }
     bad.push(b);
@@ -1078,8 +1172,389 @@ function sweep(frameAt, Lp, Rp, events, T, w) {
   for (let i = 1; i < ev.length; i++) if (ev[i].t - ev[i - 1].t < w - 1e-9) close++;
   const waived = T < T_STACK, smooth = maxStep < STEP_MAX;
   const I5ok = smooth && (close === 0 || waived);
-  return { inv, first, why, bad, n: NGRID, states: states.size, stateList: [...states], maxStep, close, waived, I5ok,
-           minT: Math.min(minT.BODY, minT.SUB), minLane: minT };
+  return { inv, first, why, bad, n: NG, states: states.size, stateList: [...states], maxStep, close, waived, I5ok,
+           minT: Math.min(minT.BODY, minT.SUB), minLane: minT, maxLive };
+}
+
+/* ======================================================================
+   B266 — FOUR ARCHITECTURES THAT AVOID ORDER COLLISIONS BY CONSTRUCTION,
+   AND THE WIRING PLANNER THEY SHARE
+   ======================================================================
+   B265 found that the invariants live in the router, not in the order
+   algorithm. B266 adds I7 and asks for architectures that never collide. One
+   structural fact organises all of them: TWO MODULES CAN TRADE PLACES ONLY AT A
+   MOMENT WHEN NOTHING CONNECTS THEM. The architectures differ in where that
+   moment comes from:
+     E and G never trade places inside a morph (the order is fixed per patch);
+     F makes the moment by putting every mover in PARALLEL at once;
+     H makes it pair by pair, as each pair crosses on a continuous spine;
+     GC walks C's approved orders and lets the planner find each moment.
+   All five share one scheduler, THE WIRING PLANNER, which replaces the B265
+   router's repair passes with a search. */
+
+const jType = id => /^J\d/.test(id) ? 'WIRE' : id;
+const fbKey = fb => 'fb:' + fb.src + '>' + fb.dst;
+const nodeTxt = id => /^J\d/.test(id) ? id : (SHORT[id] || id);
+/* An ENCODING is one end's edges as a Map key → { u, v, fb?, g? }. */
+function encGeneric(P) {
+  const m = new Map();
+  for (const [u, v] of edgesOf(P)) m.set(ek(u, v), { u, v });
+  if (P.fb) m.set(fbKey(P.fb), { u: P.fb.src, v: P.fb.dst, fb: true, g: P.fb.g });
+  return m;
+}
+/* E's encoding. The canonical order is a chain of junctions J0 … Jn with each
+   module between two of them. Present: J(k-1) → m (its SEND) and m → Jk (its
+   WET). Absent: J(k-1) → Jk (DRY). A lane entering m enters J(k-1); Jn → OUT
+   always. So "absent" is literally mix 0: the wire is the same at both ends and
+   only sends and the wet/dry split move. Junctions are WIRE nodes, which the
+   checker already collapses (typeEdges) — it was built for D's empty slots. */
+function encE(P, om) {
+  const m = new Map(), J = k => 'J' + k;
+  om.forEach((t, k) => {
+    if (P.order.includes(t)) { m.set(ek(J(k), t), { u: J(k), v: t }); m.set(ek(t, J(k + 1)), { u: t, v: J(k + 1) }); }
+    else m.set(ek(J(k), J(k + 1)), { u: J(k), v: J(k + 1) });
+  });
+  m.set(ek(J(om.length), 'OUT'), { u: J(om.length), v: 'OUT' });
+  for (const l of LANES) for (const t of P.lanes[l]) {
+    const e = t === 'OUT' ? { u: l, v: 'OUT' } : { u: l, v: J(om.indexOf(t)) };
+    m.set(ek(e.u, e.v), e);
+  }
+  if (P.fb) m.set(fbKey(P.fb), { u: P.fb.src, v: P.fb.dst, fb: true, g: P.fb.g });
+  return m;
+}
+function rankE(om) { const r = ['J0']; om.forEach((t, k) => r.push(t, 'J' + (k + 1))); return r; }
+function isSubseq(sub, full) { let i = 0; for (const t of full) if (t === sub[i]) i++; return i === sub.length; }
+function permutations(a) {
+  if (a.length <= 1) return [a.slice()];
+  const out = [];
+  a.forEach((x, i) => { for (const p of permutations(a.slice(0, i).concat(a.slice(i + 1)))) out.push([x].concat(p)); });
+  return out;
+}
+/* E's canonical order: the FIRST approved full order (C1 … C9, the list's own
+   order, so it is deterministic and the patch author's choice in a real UI)
+   that holds both ends as sub-orders. None → E cannot host the pair. */
+function omegaE(L, R) {
+  const U = unionMods(L, R);
+  for (const q of APPROVED_FULL) { const o = q.o.filter(t => U.includes(t)); if (isSubseq(L.order, o) && isSubseq(R.order, o)) return { o, id: q.id }; }
+  return null;
+}
+/* G's rank: ANY common linear extension of the two ends (approved ones first,
+   then TYPES order). None → the ends order some pair oppositely, G cannot host. */
+function omegaG(L, R) {
+  const U = unionMods(L, R), ti = o => o.map(t => TYPES.indexOf(t)).join('');
+  const c = permutations(U).filter(o => isSubseq(L.order, o) && isSubseq(R.order, o));
+  if (!c.length) return null;
+  c.sort((a, b) => (APPROVED.has(okey(b)) - APPROVED.has(okey(a))) || (ti(a) < ti(b) ? -1 : 1));
+  return c[0];
+}
+/* modules whose place changes anywhere along an order path */
+function movers(orders) {
+  const s = new Set();
+  for (let k = 1; k < orders.length; k++) orders[k - 1].forEach((t, i) => { if (orders[k][i] !== t) { s.add(t); s.add(orders[k][i]); } });
+  return [...s];
+}
+/* PARALLEL WAYPOINTS (F, H, and GC's fallback): the edges that put a module
+   BESIDE the chain instead of in it — fed by every lane that reaches it at either
+   end, straight to OUT — and BRIDGE the chain around it (u → v for every
+   u → m … → v it sat inside, at either end). None of them carries a lane anywhere
+   an end does not (I3·path), but they are edges neither end has (I3, edge
+   reading): that is the price, and the check reports it. */
+function waypoints(Lp, Rp, mods, have) {
+  const out = new Map(), reach = [Lp, Rp].map(P => reachOf(staticFrame(P)));
+  const add = (u, v) => { const k = ek(u, v); if (!have(k) && !out.has(k)) out.set(k, { u, v }); };
+  for (const m of mods) {
+    for (const l of LANES) if (reach[0][l].has(m) || reach[1][l].has(m)) add(l, m);
+    add(m, 'OUT');
+  }
+  const S = new Set(mods);
+  for (const P of [Lp, Rp]) {
+    const E = edgesOf(P), nx = {};
+    for (const [u, v] of E) (nx[u] = nx[u] || []).push(v);
+    for (const [u, v0] of E) if (!S.has(u) && S.has(v0)) {
+      const st = [v0], seen = new Set();
+      while (st.length) { const v = st.pop(); if (seen.has(v)) continue; seen.add(v); if (S.has(v)) (nx[v] || []).forEach(n => st.push(n)); else add(u, v); }
+    }
+  }
+  return out;
+}
+
+/* ---------- THE WIRING PLANNER ----------
+   The B265 router starts from seeded crossfade times and REPAIRS them toward the
+   invariants, and when it fails it cannot say whether anything could have
+   succeeded. The planner turns that round. It SEARCHES the order in which edges
+   change — one edge, or one paired wet/dry mix, at a time — through STATES that
+   each satisfy I2, I3·path, I6 and I7 (strict), and only then places the events
+   on x, one crossfade apart. Because two events never overlap, every quantity
+   the checks read (a lane's transmission, a node's input, its output) moves
+   monotonically between neighbouring states, so the states' checks cover every
+   x; the continuous sweep then re-checks every x anyway, independently.
+     UNITS: each edge that exists at one end only flips once (an L-only edge
+   drops, an R-only edge adds); E's mix is one PAIRED unit (wet up, dry down, a
+   linear crossfade, the one thing a mix knob is); a waypoint, when allowed, is
+   added and later dropped. A rank STEP (the order changing) is a silent move,
+   legal only when every live edge runs forward in the next rank — i.e. when
+   nothing connects the pair that trades places.
+     SEARCH: depth-first, with memo on (rank, units done); moves are tried in a
+   stated preference — adds whose source already has input, then steps, then
+   drops, then waypoints last, then any other add — with seeded tie-breaks, so
+   the seed chooses among legal plans. Exhausting the search is a PROOF: no
+   sequence of single changes over this vocabulary and this order path keeps
+   every state legal. A budget stops pathological cases; that is reported as
+   'budget', never as a proof.
+     TIMING: n moves get n seeded thresholds (the quantum law), sorted, then
+   spread one crossfade apart. The planner NEVER stacks: at T = 0 its moves are
+   packed one crossfade apart about x = 0.5 — the fastest legal cut, not the
+   hard cut — and when n moves cannot fit at width W, the crossfade narrows to
+   fit ((1 − 2W)/(n − 1)), because the sequence, not the width, is what holds
+   the invariants. */
+const PLAN_BUDGET = 30000;
+function planMorph(spec) {
+  const info = new Map();
+  for (const M of [spec.WP, spec.E1, spec.E0]) for (const [k, e] of M) info.set(k, e);
+  const units = [], claimed = new Set();
+  for (const p of spec.paired || []) { units.push({ adds: p.adds, drops: p.drops, paired: true, m: p.m }); p.adds.concat(p.drops).forEach(k => claimed.add(k)); }
+  for (const k of info.keys()) if (!claimed.has(k)) {
+    const a = spec.E0.has(k), b = spec.E1.has(k);
+    if (a && !b) units.push({ adds: [], drops: [k] });
+    else if (!a && b) units.push({ adds: [k], drops: [] });
+    else if (!a && !b) { units.push({ adds: [k], drops: [], wp: true }); units.push({ adds: [], drops: [k], wp: true, after: units.length - 1 }); }
+  }
+  const ES = endpointSets(spec.Lp, spec.Rp), base = endpointGains(spec.Lp, spec.Rp);
+  /* RANKS are a GRAPH, not only a path: next[r] lists the ranks a step may go
+     to, goalR is R's rank. E, F, G, H pass a path (next = [r + 1]). GC passes
+     the whole approved graph over its modules, so that "no plan" for GC means no
+     route through ANY approved orders, not just through the one shortest walk C
+     would pick. A step toward R (fewer inversions to goalR) is preferred; a step
+     away is the last resort. What still defeats GC is an approved graph whose
+     every route reverses a pair BOTH ends agree on (an edge both ends keep would
+     have to break and re-form: a detour, outside the planner's vocabulary) — the
+     gallery's smallest such case is Rv Dr Dl ⇒ Dl Rv Dr, where the one order
+     that avoids it (Rv Dl Dr) is not approved. */
+  const ranks = spec.ranks, last = spec.goalR !== undefined ? spec.goalR : ranks.length - 1;
+  const next = spec.next || ranks.map((_, r) => r < ranks.length - 1 ? [r + 1] : []);
+  const toGoal = ranks.map(o => kendall(o, ranks[last]));
+  const pos = ranks.map(r => { const o = {}; r.forEach((id, i) => { o[id] = i; }); return o; });
+  const legal = (k, r) => {
+    const e = info.get(k), p = pos[r];
+    if (e.fb) return p[e.v] !== undefined && p[e.u] !== undefined && p[e.v] < p[e.u];
+    return (isLane(e.u) || p[e.u] !== undefined) && (e.v === 'OUT' || (p[e.v] !== undefined && (isLane(e.u) || p[e.u] < p[e.v])));
+  };
+  const frameOf = (S, r) => {
+    const edges = [], fb = [];
+    for (const k of S) { const e = info.get(k); if (e.fb) fb.push({ u: e.u, v: e.v, g: e.g }); else edges.push({ u: e.u, v: e.v, w: 1 }); }
+    return { order: ranks[r], nodes: ranks[r].map(id => ({ id, type: jType(id) })), edges, fb };
+  };
+  const vc = new Map();
+  const valid = (S, r) => {
+    const key = r + '|' + [...S].sort().join(' ');
+    if (vc.has(key)) return vc.get(key);
+    const f = frameOf(S, r);
+    let ok = checkI2(f).ok && checkI3p(f, ES).ok;
+    if (ok) for (const l of LANES) if (!(transmission(f, l) / base[l] >= I6_FLOOR)) { ok = false; break; }
+    if (ok && spec.plant !== 'noi7') ok = checkI7(f).ok;
+    vc.set(key, ok);
+    return ok;
+  };
+  const unionOk = (S, r) => { const f = frameOf(S, r); return checkI2(f).ok && checkI3p(f, ES).ok; };
+  const rng = mulberry32((spec.seed ^ fnv('plan.' + spec.alg)) >>> 0);
+  const done = new Uint8Array(units.length), seen = new Set(), seq = [];
+  const E1k = [...spec.E1.keys()];
+  const goal = (S, r) => r === last && S.size === spec.E1.size && E1k.every(k => S.has(k));
+  const hasIn = (S, id) => { if (isLane(id)) return true; for (const k of S) { const e = info.get(k); if (!e.fb && e.v === id) return true; } return false; };
+  let visited = 0, over = false;
+  const budget = spec.budget || PLAN_BUDGET;
+  function dfs(S, r) {
+    if (goal(S, r)) return true;
+    if (over) return false;
+    const key = r + ':' + done.join('');
+    if (seen.has(key)) return false;
+    seen.add(key);
+    if (++visited > budget) { over = true; return false; }
+    const mv = [];
+    units.forEach((u, i) => {
+      if (done[i] || (u.after !== undefined && !done[u.after])) return;
+      if (!u.adds.every(k => legal(k, r))) return;
+      const pr = !u.adds.length ? 2 : u.wp ? 3 : u.adds.every(k => hasIn(S, info.get(k).u)) ? 0 : 4;
+      mv.push({ i, pr, z: rng() });
+    });
+    for (const r2 of next[r]) {
+      let ok = true; for (const k of S) if (!legal(k, r2)) { ok = false; break; }
+      if (ok) mv.push({ step: r2, pr: toGoal[r2] < toGoal[r] ? 1 : 5, z: rng() });
+    }
+    mv.sort((a, b) => a.pr - b.pr || a.z - b.z);
+    for (const m of mv) {
+      if (m.step !== undefined) {
+        if (!valid(S, m.step)) continue;
+        seq.push({ step: true, r: m.step });
+        if (dfs(S, m.step)) return true;
+        seq.pop(); continue;
+      }
+      const u = units[m.i], S2 = new Set(S);
+      u.drops.forEach(k => S2.delete(k)); u.adds.forEach(k => S2.add(k));
+      if (!valid(S2, r)) continue;
+      if (u.paired) { const U = new Set(S); u.adds.forEach(k => U.add(k)); if (!unionOk(U, r)) continue; }
+      done[m.i] = 1; seq.push({ i: m.i });
+      if (dfs(S2, r)) return true;
+      done[m.i] = 0; seq.pop();
+    }
+    return false;
+  }
+  const found = dfs(new Set(spec.E0.keys()), 0);
+  return { status: found ? 'ok' : over ? 'budget' : 'impossible', seq: found ? seq.slice() : null, units, info, visited };
+}
+/* PLANTS on a found plan (must-fail controls; each moves ONE module's moves):
+   'i7rev'  the first ARRIVING module (absent at L) gets its outputs connected
+            BEFORE its inputs — must fail I7 in BOTH readings;
+   'i7tail' the first LEAVING Delay or Reverb (absent at R) has its input
+            disconnected one move BEFORE its outputs — a ringing tail: must
+            fail STRICT and hold TAIL-ALLOWED;
+   'noplan' no search at all: the units in seeded order, the rank steps in the
+            middle — what "just crossfade everything" does.
+   Arriving and leaving are load-bearing: a module present at both ends already
+   has input, so moving ITS new output early is harmless — the first version of
+   this plant picked such a Filter and the check (rightly) read green. */
+function plantSeq(P, kind, seed, Lp, Rp) {
+  const seq = P.seq.slice(), U = P.units, I = P.info;
+  const touches = (s, pred) => s.i !== undefined && pred(U[s.i]);
+  const edgesIn = (u, m, side) => u[side].some(k => { const e = I.get(k); return !e.fb && e.v === m; });
+  const edgesOut = (u, m, side) => u[side].some(k => { const e = I.get(k); return e.u === m; });
+  const move = (from, to) => { const moved = from.map(j => seq[j]); for (const j of from.slice().sort((a, b) => b - a)) seq.splice(j, 1); seq.splice(to, 0, ...moved); };
+  if (kind === 'noplan') {
+    const r = mulberry32((seed ^ fnv('noplan')) >>> 0), us = seq.filter(s => !s.step), st = seq.filter(s => s.step);
+    for (let i = us.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); const t = us[i]; us[i] = us[j]; us[j] = t; }
+    const mid = us.length >> 1;
+    return us.slice(0, mid).concat(st, us.slice(mid));
+  }
+  for (const m of TYPES) {
+    const idx = side => pred => seq.map((s, j) => touches(s, u => pred(u, m, side)) ? j : -1).filter(j => j >= 0);
+    if (kind === 'i7rev' && !Lp.order.includes(m)) {
+      const ins = idx('adds')(edgesIn), outs = idx('adds')(edgesOut);
+      if (ins.length && outs.length && Math.min(...outs) > Math.max(...ins)) { move(outs, Math.min(...ins)); return seq; }
+    }
+  }
+  return seq;
+}
+/* 'i7tail' is a RETIME, not a reorder: the leaving Delay or Reverb's input
+   drops that come after its first output drop are moved to exactly one
+   crossfade before it. A reorder was tried first; it put the input drop in the
+   previous SLOT, wherever the seeded times had placed that, so the "tail" ran
+   0.102 of x on one seed and the plant was measuring the seed, not the reading. */
+function plantTail(M, Lp, Rp) {
+  for (const m of TYPES) if (TAIL_TYPES[m] && Lp.order.includes(m) && !Rp.order.includes(m)) {
+    const outT = [], late = [];
+    for (const [k, evs] of M.evOf) { const e = M.info.get(k); for (const ev of evs) if (!ev.add) { if (e.u === m) outT.push(ev.t); if (!e.fb && e.v === m) late.push(ev); } }
+    if (!outT.length) continue;
+    const t0 = Math.min(...outT), mv = late.filter(ev => ev.t > t0);
+    if (!mv.length) continue;
+    for (const ev of mv) ev.t = t0 - M.w;
+    for (const evs of M.evOf.values()) evs.sort((a, b) => a.t - b.t);
+    return m;
+  }
+  return null;
+}
+function modelFromPlan(spec, P, seq) {
+  const n = seq.length, w = n > 1 ? Math.min(W, (1 - 2 * W) / (n - 1)) : W;
+  const draw = drawer(spec.seed, 'plan.t.' + spec.alg, spec.T, spec.coup), t = [];
+  for (let i = 0; i < n; i++) t.push(W + (1 - 2 * W) * draw());
+  t.sort((a, b) => a - b);
+  if (spec.T < T_STACK) for (let i = 0; i < n; i++) t[i] = 0.5 + (i - (n - 1) / 2) * w;  // packed about 0.5: the fastest legal cut
+  spreadFixedWindow(t, W, 1 - W, w);
+  const Lf = spec.Lp.fb, Rf = spec.Rp.fb;
+  const M = { alg: spec.alg, ranks: spec.ranks, info: P.info, E0: spec.E0, w, h: w / 2, stepT: [], stepR: [], evOf: new Map(), events: [],
+              Lp: spec.Lp, Rp: spec.Rp, fbSame: Lf && Rf && fbKey(Lf) === fbKey(Rf) ? { gL: Lf.g, gR: Rf.g } : null, usedWP: false };
+  const et = k => { const e = P.info.get(k); return (e.fb ? 'fb ' : '') + nodeTxt(e.u) + '→' + nodeTxt(e.v); };
+  seq.forEach((s, i) => {
+    if (s.step) { M.stepT.push(t[i]); M.stepR.push(s.r); return; }
+    const u = P.units[s.i];
+    if (u.wp) M.usedWP = true;
+    for (const k of u.adds) { if (!M.evOf.has(k)) M.evOf.set(k, []); M.evOf.get(k).push({ t: t[i], add: true, paired: !!u.paired }); }
+    for (const k of u.drops) { if (!M.evOf.has(k)) M.evOf.set(k, []); M.evOf.get(k).push({ t: t[i], add: false, paired: !!u.paired }); }
+    const kind = u.paired ? 'x' : u.adds.length ? 'in' : 'out';
+    M.events.push({ kind, t: t[i], label: u.paired ? (u.adds.some(k => P.info.get(k).u === u.m) ? '◐' : '◑') + SHORT[u.m] : (u.adds.length ? '+' : '−') + et(u.adds[0] || u.drops[0]),
+                    edges: u.adds.map(k => '+' + et(k)).concat(u.drops.map(k => '−' + et(k))), forced: false, wp: !!u.wp });
+  });
+  for (const evs of M.evOf.values()) evs.sort((a, b) => a.t - b.t);
+  return M;
+}
+function framePlan(M, x) {
+  let r = 0; for (let i = 0; i < M.stepT.length; i++) if (x >= M.stepT[i]) r = M.stepR[i];
+  const order = M.ranks[r], edges = [], fb = [];
+  for (const [k, e] of M.info) {
+    const evs = M.evOf.get(k);
+    let w = M.E0.has(k) || evs ? 1 : 0;
+    if (evs) for (const ev of evs) { const u = clamp01((x - (ev.t - M.h)) / M.w), f = ev.paired ? u : rc(u); w *= ev.add ? f : 1 - f; }
+    if (w <= EPS) continue;
+    if (e.fb) fb.push({ u: e.u, v: e.v, g: w * (M.fbSame ? M.fbSame.gL + (M.fbSame.gR - M.fbSame.gL) * x : e.g) });
+    else edges.push({ u: e.u, v: e.v, w });
+  }
+  return { order, nodes: order.map(id => ({ id, type: jType(id), p: lerpP(M.Lp.p[id], M.Rp.p[id], x) })), edges, fb };
+}
+function unhosted(alg, Lp, Rp, why, plan) {
+  const f0 = staticFrame(Lp), f1 = staticFrame(Rp);
+  return { alg, Lp, Rp, unhosted: why, frameAt: x => x < 0.5 ? f0 : f1, events: [], flips: [], path: null,
+           info: { error: why, plan: plan || 'unrepresentable' } };
+}
+/* What each architecture guarantees BY CONSTRUCTION whenever it hosts a pair —
+   the fuzzer ASSERTS these (tools/labharness/fxmorph_fuzz.mjs) and only REPORTS
+   the rest. I3 (edge reading) is claimed only while the plan used no waypoint:
+   a waypoint is by definition an edge neither end has. E never claims it: its
+   dry wire collapses to lane → module edges neither end has while a module is
+   half-way (see the report). I4 is claimed where the rank path is approved. */
+const CLAIMS = {
+  E: ['I1', 'I2', 'I3p', 'I4', 'I5', 'I6', 'I7', 'I7t'],
+  F: ['I1', 'I2', 'I3', 'I3p', 'I5', 'I6', 'I7', 'I7t'],
+  G: ['I1', 'I2', 'I3', 'I3p', 'I5', 'I6', 'I7', 'I7t'],
+  H: ['I1', 'I2', 'I3', 'I3p', 'I5', 'I6', 'I7', 'I7t'],
+  GC: ['I1', 'I2', 'I3', 'I3p', 'I4', 'I5', 'I6', 'I7', 'I7t'],
+};
+function claimsOf(b) { const c = CLAIMS[b.alg] || []; return b.info && b.info.waypoints ? c.filter(k => k !== 'I3') : c.slice(); }
+const PLANNED = { E: 1, F: 1, G: 1, H: 1, GC: 1 };
+function buildPlanned(alg, Lp, Rp, o) {
+  let ranks, E0, E1, paired = [], mods = [], note = '', graph = null;
+  if (alg === 'E') {
+    const om = omegaE(Lp, Rp);
+    if (!om) return unhosted(alg, Lp, Rp, 'no approved order holds both ends');
+    ranks = [rankE(om.o)]; E0 = encE(Lp, om.o); E1 = encE(Rp, om.o); note = om.id + ' ' + om.o.map(t => SHORT[t]).join(' ');
+    om.o.forEach((t, k) => {
+      const a = Lp.order.includes(t), b = Rp.order.includes(t), dry = ek('J' + k, 'J' + (k + 1)), wet = ek(t, 'J' + (k + 1));
+      if (a && !b) paired.push({ m: t, adds: [dry], drops: [wet] });
+      if (!a && b) paired.push({ m: t, adds: [wet], drops: [dry] });
+    });
+  } else if (alg === 'G') {
+    const om = omegaG(Lp, Rp);
+    if (!om) return unhosted(alg, Lp, Rp, 'the ends order a pair oppositely: no single rank holds both');
+    ranks = [om]; E0 = encGeneric(Lp); E1 = encGeneric(Rp); note = om.map(t => SHORT[t]).join(' ');
+  } else {
+    let orders;
+    if (alg === 'F') { const ext = extend(Lp, Rp, kendall); orders = okey(ext.a) === okey(ext.b) ? [ext.a] : [ext.a, ext.b]; }
+    else if (alg === 'H') orders = pathA(Lp, Rp, o.seed, o.T, o.coup).orders;
+    else {
+      // GC: C's parking (both ends approved), then the WHOLE approved graph over these modules as the rank graph.
+      const p = pathC(Lp, Rp, o.seed, o.T, o.coup, false);
+      if (p.error) return unhosted(alg, Lp, Rp, 'an end is not an approved order');
+      const nodes = [p.Lx].concat(permutations(p.Lx).filter(q => APPROVED.has(okey(q)) && okey(q) !== okey(p.Lx)));
+      const ix = new Map(nodes.map((q, i) => [okey(q), i]));
+      graph = { next: nodes.map(q => { const out = []; for (let i = 0; i + 1 < q.length; i++) { const n = q.slice(); n[i] = q[i + 1]; n[i + 1] = q[i]; if (ix.has(okey(n))) out.push(ix.get(okey(n))); } return out; }),
+                goalR: ix.get(okey(p.Rx)) };
+      orders = nodes;
+    }
+    ranks = orders; E0 = encGeneric(Lp); E1 = encGeneric(Rp); mods = alg === 'GC' ? orders[0].slice() : movers(orders);
+  }
+  const spec = { alg, Lp, Rp, E0, E1, WP: new Map(), ranks, paired, seed: o.seed, T: o.T, coup: o.coup, plant: o.plant, budget: o.budget,
+                 next: graph && graph.next, goalR: graph ? graph.goalR : undefined };
+  // Pass 1: the ends' own edges only. Pass 2 (F, H, GC): parallel waypoints allowed.
+  let P = planMorph(spec), pass = 1;
+  if (P.status !== 'ok' && mods.length) {
+    spec.WP = waypoints(Lp, Rp, mods, k => E0.has(k) || E1.has(k));
+    const P2 = planMorph(spec); pass = 2;
+    if (P2.status === 'ok' || P.status !== 'impossible' || P2.status === 'impossible') P = P2;
+  }
+  if (P.status !== 'ok') return unhosted(alg, Lp, Rp, P.status === 'budget' ? 'planner budget exhausted (' + P.visited + ' states)' : 'no legal plan exists (search exhausted: ' + P.visited + ' states)', P.status);
+  const seq = o.plant === 'i7rev' || o.plant === 'noplan' ? plantSeq(P, o.plant, o.seed, Lp, Rp) : P.seq;
+  const M = modelFromPlan(spec, P, seq);
+  if (o.plant === 'i7tail') plantTail(M, Lp, Rp);
+  return { alg, Lp, Rp, M, frameAt: x => framePlan(M, x), events: M.events, flips: M.stepT.slice(), path: { orders: [ranks[0]].concat(M.stepR.map(r => ranks[r])), xs: M.stepT },
+           w: M.w, info: { plan: 'ok', pass, waypoints: M.usedWP, visited: P.visited, steps: M.stepT.length, note, w: M.w } };
 }
 
 /* ---------- the algorithms, assembled ---------- */
@@ -1088,9 +1563,15 @@ const ALGS = [
   { id: 'B', name: 'edit path', line: 'the minimal adjacent-swap sequence; each swap at a seeded threshold' },
   { id: 'C', name: 'approved-order graph', line: 'a shortest walk through tested orders, one swap at a time' },
   { id: 'D', name: 'naive slot splicing', line: 'THE CONTROL: slot k switches from L\'s k-th module to R\'s; lanes enter by slot index' },
+  { id: 'E', name: 'fixed order + mix', line: 'one approved order per patch, never morphed; absent = mix 0 on a wire that never moves', planned: true },
+  { id: 'F', name: 'series↔parallel', line: 'movers go PARALLEL, the order changes while nothing connects them, then back to series', planned: true },
+  { id: 'G', name: 'send matrix', line: 'fixed rank, forward-only sends: acyclic by construction; a morph moves only matrix cells', planned: true },
+  { id: 'H', name: 'spine positions', line: 'continuous positions on one spine; each crossing pair is pulled apart (parallel) as it crosses', planned: true },
+  { id: 'GC', name: 'hybrid G on C', line: 'the send matrix walking C\'s approved orders; the planner finds each moment nothing connects the pair', planned: true },
 ];
 function build(alg, pair, o) {
   const Lp = withFb(pair.L, o.fb), Rp = withFb(pair.R, o.fb);
+  if (PLANNED[alg]) return buildPlanned(alg, Lp, Rp, o);
   const spreadOn = o.spread !== false;
   if (alg === 'D') {
     const D = planD(Lp, Rp, o.seed, o.T, o.coup, spreadOn, o.w);
@@ -1120,7 +1601,10 @@ function build(alg, pair, o) {
 }
 function crowded(R) { let n = 0; const e = R.events; for (let i = 1; i < e.length; i++) if (e[i].t - e[i - 1].t < R.w - 1e-9) n++; return n; }
 function evaluate(b, o) {
-  const s = sweep(b.frameAt, b.Lp, b.Rp, b.events, o.T, o.w === undefined ? W : o.w);
+  if (b.unhosted) return { unhosted: b.unhosted, inv: { I1: 0, I2: 0, I3: 0, I3p: 0, I4: 0, I6: 0, I7: 0, I7t: 0 }, first: {}, why: {}, bad: [], n: 0,
+                           states: 0, stateList: [], maxStep: 0, close: 0, waived: false, I5ok: true, minT: NaN, minLane: {}, maxLive: 0, audible: 0, silent: 0 };
+  // a planned morph narrows its crossfade to fit its moves (see the planner); its spacing is judged at that width
+  const s = sweep(b.frameAt, b.Lp, b.Rp, b.events, o.T, b.w !== undefined ? b.w : o.w === undefined ? W : o.w, o.grid);
   s.audible = b.events.length; s.silent = b.flips.length;
   return s;
 }
@@ -1365,6 +1849,39 @@ function selfCheckSteps() {
         'the next seed, compared as if it were the same', h(b1) === h(b3) ? { ok: true, detail: 'identical — the seed does nothing' } : { ok: false, detail: 'events move: the seed decides' });
 
   });
+  // ---- B266: I7 in both readings, and the planner's claims ----
+  const PL = ['E', 'F', 'G', 'H', 'GC'];
+  const hosted = (algs, pred) => {
+    let n = 0, un = 0;
+    for (const a of algs) for (let pi = 0; pi < PAIRS.length; pi++) for (const fb of [false, true]) {
+      const { s, b } = get(a, pi, fb);
+      if (s.unhosted) { un++; continue; }
+      n++;
+      const r = pred(s, b); if (r) return { ok: false, detail: `${a} on '${PAIRS[pi].name}'${fb ? ' with the return' : ''}: ${r}` };
+    }
+    return { ok: true, detail: `${n} hosted morphs × ${NGRID} x (${un} pairs not hostable, reported, not failed)` };
+  };
+  const pi = id => PAIRS.findIndex(p => p.id === id);
+  step(() => {
+    add('I7 STRICT — a processing node outputs only while its input is at the floor: E, F, G, H and GC, every pair they host, both return settings',
+        hosted(PL, s => s.inv.I7 ? inv('I7')(s) : ''),
+        'GC with ONE arriving module wired outputs-first (two grow in): its output opens before its input', one('GC', pi('grow'), false, { plant: 'i7rev' }, inv('I7')));
+  });
+  step(() => {
+    // The two readings must DIFFER on a ringing tail, and agree on an output that opens early.
+    const tail = get('GC', pi('severed'), false, { plant: 'i7tail' }).s;
+    add('I7 TAIL-ALLOWED is a different reading: a leaving Reverb whose input goes one crossfade before its output fails STRICT and holds TAIL-ALLOWED (GC, Sub through a leaver)',
+        tail.inv.I7 && !tail.inv.I7t ? { ok: true, detail: `STRICT fails at ${tail.inv.I7}/${tail.n} x (${tail.why.I7}); TAIL-ALLOWED holds (window ${TAIL_X} of x)` }
+                                     : { ok: false, detail: `STRICT ${tail.inv.I7 ? 'fails' : 'holds'}, TAIL ${tail.inv.I7t ? 'fails' : 'holds'} — the readings do not separate` },
+        'the outputs-first plant is not a tail: it must fail TAIL-ALLOWED too (GC, two grow in)', one('GC', pi('grow'), false, { plant: 'i7rev' }, inv('I7t')));
+  });
+  step(() => {
+    add('The planner is sound on the five pairs: every morph E, F, G, H and GC host holds every invariant that architecture claims (CLAIMS), both return settings',
+        hosted(PL, (s, b) => { const bad = claimsOf(b).filter(k => k === 'I5' ? !s.I5ok : s.inv[k]); return bad.length ? 'breaks ' + bad.join(', ') + ' (' + bad.map(k => s.why[k] || '').join('; ') + ')' : ''; }),
+        'no search: the same moves in seeded order, the rank steps in the middle (GC, across the set)',
+        (() => { const { s, b } = get('GC', pi('across'), false, { plant: 'noplan' }); const bad = claimsOf(b).filter(k => k === 'I5' ? !s.I5ok : s.inv[k]);
+                 return bad.length ? { ok: false, detail: 'breaks ' + bad.join(', ') } : { ok: true, detail: 'held — NOT caught' }; })());
+  });
   return { rows, steps };
 }
 function runSelfCheck() { const c = selfCheckSteps(); for (const f of c.steps) f(); return c.rows; }
@@ -1379,9 +1896,9 @@ function runSelfCheck() { const c = selfCheckSteps(); for (const f of c.steps) f
 const $ = id => document.getElementById(id);
 const QS = (() => { try { const q = window.location && window.location.search; return typeof q === 'string' ? q : ''; } catch (_) { return ''; } })();
 const qv = (k, d) => { const m = QS.match(new RegExp('[?&]' + k + '=([^&]+)')); return m ? decodeURIComponent(m[1]) : d; };
-const ALG_IDS = ['A', 'B', 'C', 'D'];
-const INV = ['I1', 'I2', 'I3', 'I3p', 'I4', 'I5', 'I6'];
-const INV_LABEL = { I1: 'I1', I2: 'I2', I3: 'I3', I3p: 'I3·path', I4: 'I4', I5: 'I5', I6: 'I6' };
+const ALG_IDS = ALGS.map(a => a.id);
+const INV = ['I1', 'I2', 'I3', 'I3p', 'I4', 'I5', 'I6', 'I7', 'I7t'];
+const INV_LABEL = { I1: 'I1', I2: 'I2', I3: 'I3', I3p: 'I3·path', I4: 'I4', I5: 'I5', I6: 'I6', I7: 'I7', I7t: 'I7·tail' };
 const FLOWN = 241;                       // braid samples per flow map
 let pairIdx = Math.max(0, PAIRS.findIndex(p => p.id === qv('pair', 'across')));
 let fbOn = qv('fb', '0') === '1';
@@ -1389,15 +1906,53 @@ let T = +qv('T', String(DEFAULTS.T)), coup = +qv('c', String(DEFAULTS.coup)), se
 let X = Math.min(1, Math.max(0, +qv('x', '0.5'))), listen = ALG_IDS.includes(qv('listen', 'C')) ? qv('listen', 'C') : 'C';
 let dark = /theme=dark/.test(QS), sweeping = false, sweepT = 0, dragStrip = false, pulse = true, dirty = true;
 let BUILDS = {}, EVALS = {}, FLOW = {}, JUMPS = {}, RACE = {}, FBC = {}, CHECK = null, CHECK_N = 0;
+/* B266: the fuzzer's gallery (fetched; null until it arrives or if the page is opened from disk) and the
+   gallery case loaded into the view, if any. pairIdx = -1 means the view shows galPair, not a lab pair. */
+let GAL = null, GAL_ERR = '', galPair = null, galFilter = 'all';
+const pairNow = () => pairIdx < 0 && galPair ? galPair : PAIRS[Math.max(0, pairIdx)];
 let PAL = {};
 let AC = null, SPN = null, AN = null, ENG = null, scopeBuf = null, clipHold = 0, xAudio = X;
 let jobs = [], jobGen = 0;
 const opts = extra => Object.assign({ seed, T, coup, fb: fbOn }, extra || {});
+/* B266 page text: why an architecture declines a pair, and how each would replace
+   the rack's four selectable slots (src/fx_rack.h: kRackSlots = 4 slots in series,
+   order IS the slot index, a type per slot under per-type instance caps, a
+   rack-owned mix where 0 is a guaranteed bypass, and B117's equal-power presence
+   crossfade through a fading SHADOW instance). */
+const UNHOSTED_WHY = {
+  E: 'E fixes ONE approved order per patch; a pair whose ends need two different orders is two patches, not a morph.',
+  G: 'G fixes one rank per patch; two ends that order a pair of modules oppositely cannot share it.',
+  GC: 'GC walks the approved orders, so both ends must be approved chains (or sub-chains of one).',
+  F: 'The planner exhausted every legal sequence: see the gallery for the smallest such pair.',
+  H: 'The planner exhausted every legal sequence along the spine\'s crossings.',
+};
+const ORDERS = {
+  A: 'any → any', B: 'any → any', C: 'approved → approved', D: 'any → any (slots)',
+  E: 'one approved order per patch; a morph spans its sub-orders', F: 'any → any', G: 'one rank per patch; a morph spans its sub-orders',
+  H: 'any → any', GC: 'approved → approved',
+};
+const TESTABILITY = {
+  A: 'repair passes; a miss proves nothing', B: 'repair passes; a miss proves nothing', C: 'repair passes; a miss proves nothing', D: 'the control',
+  E: 'claims asserted; a miss is "not this patch"', F: 'claims asserted; a miss is a proof', G: 'claims asserted; a miss is "not this rank"',
+  H: 'claims asserted; a miss is a proof', GC: 'claims asserted; a miss is a proof',
+};
+const REPLACE = {
+  A: 'a position key per module instead of a type per slot; the shared router under it',
+  B: 'today\'s UI (types in an order); the morph computes the swaps; the shared router under it',
+  C: 'the order becomes a menu of tested chains (C1–C9 and their sub-chains)',
+  D: 'this IS the four slots, morphed naively',
+  E: 'four fixed module rows on one wire, a mix each (0 = the rack\'s existing guaranteed bypass); the patch picks its chain from the menu. No slots, no shadows',
+  F: 'fixed module rows with a series↔parallel control; to reorder, a morph passes the movers through parallel',
+  G: 'a send grid: module rows in the patch\'s rank, forward-only cells; parallel chains for free',
+  H: 'a position knob per module on one spine; order = sort by position',
+  GC: 'G\'s send grid plus C\'s menu of tested orders; the morph walks the menu. Order stays a choice, routing becomes a grid',
+};
 const pct = (n, d) => (100 * n / d < 1 ? '<1' : Math.round(100 * n / d)) + '%';
+const W_GLOBAL = W;   // the model's crossfade width; paintFlow shadows W with a planned build's own (narrower) width
 
 /* ---------- derived data ---------- */
 function invHeld(s) {
-  return { I1: !s.inv.I1, I2: !s.inv.I2, I3: !s.inv.I3, I3p: !s.inv.I3p, I4: !s.inv.I4, I5: s.I5ok, I6: !s.inv.I6 };
+  return { I1: !s.inv.I1, I2: !s.inv.I2, I3: !s.inv.I3, I3p: !s.inv.I3p, I4: !s.inv.I4, I5: s.I5ok, I6: !s.inv.I6, I7: !s.inv.I7, I7t: !s.inv.I7t };
 }
 function heldCount(s) { const h = invHeld(s); return INV.filter(k => h[k]).length; }
 /* A flow map's data: at FLOWN x positions, each node's row (its place in the
@@ -1405,13 +1960,14 @@ function heldCount(s) { const h = invHeld(s); return INV.filter(k => h[k]).lengt
    and whether the Sub reaches it. */
 function flowData(b) {
   const pts = [];
+  if (b.unhosted) return { pts, rowsN: 0 };
   for (let i = 0; i < FLOWN; i++) {
     const x = i / (FLOWN - 1), f = b.frameAt(x), live = liveSet(f), sub = reachOf(f).SUB, rows = {};
     if (b.alg === 'D') f.nodes.forEach(n => { if (n.w > EPS && n.type !== 'WIRE') rows[n.id] = { row: +n.id.slice(1, 2), type: n.type, live: live.has(n.id), sub: sub.has(n.type) }; });
-    else f.order.forEach((m, k) => { rows[m] = { row: k, type: m, live: live.has(m), sub: sub.has(m) }; });
+    else f.order.filter(m => typeOf(f, m) !== 'WIRE').forEach((m, k) => { rows[m] = { row: k, type: m, live: live.has(m), sub: sub.has(m) }; });
     pts.push(rows);
   }
-  return { pts, rowsN: b.alg === 'D' ? b.D.slots.length : b.R.U.length };
+  return { pts, rowsN: b.alg === 'D' ? b.D.slots.length : b.R ? b.R.U.length : b.path.orders[0].filter(id => jType(id) !== 'WIRE').length };
 }
 function liveSet(f) {
   const E = liveEdges(f).filter(e => e.w >= 0.5), fwd = new Set(LANES), bwd = new Set(['OUT']); let g = true;
@@ -1424,14 +1980,14 @@ function laneGains(f, Lp, Rp) { const base = endpointGains(Lp, Rp), o = {}; for 
 function recompute() {
   const o = opts();
   jobGen++;
-  for (const a of ALG_IDS) { BUILDS[a] = build(a, PAIRS[pairIdx], o); EVALS[a] = evaluate(BUILDS[a], o); FLOW[a] = flowData(BUILDS[a]); }
+  for (const a of ALG_IDS) { BUILDS[a] = build(a, pairNow(), o); EVALS[a] = evaluate(BUILDS[a], o); FLOW[a] = flowData(BUILDS[a]); }
   JUMPS = {}; RACE = {}; FBC = {};
   renderAll();
   jobs = [];
-  for (const a of ALG_IDS) jobs.push(() => { JUMPS[a] = jumpOf(BUILDS[a]); });
+  for (const a of ALG_IDS) jobs.push(() => { JUMPS[a] = BUILDS[a].unhosted ? null : jumpOf(BUILDS[a]); });
   for (let pi = 0; pi < PAIRS.length; pi++) for (const a of ALG_IDS) jobs.push(() => {
     const b = pi === pairIdx ? BUILDS[a] : build(a, PAIRS[pi], o), s = pi === pairIdx ? EVALS[a] : evaluate(b, o);
-    RACE[a + pi] = { s, b, j: pi === pairIdx && JUMPS[a] ? JUMPS[a] : jumpOf(b) };
+    RACE[a + pi] = { s, b, j: b.unhosted ? null : pi === pairIdx && JUMPS[a] ? JUMPS[a] : jumpOf(b) };
   });
   for (let pi = 0; pi < PAIRS.length; pi++) for (const a of ALG_IDS) jobs.push(() => {
     const out = {};
@@ -1465,10 +2021,11 @@ function fbLiveShare(b) {
 /* ---------- renderers (DOM) ---------- */
 function renderControls() {
   const pills = (el, items) => { $(el).innerHTML = items.map(([k, label, on]) => `<button class="pill${on ? ' on' : ' act'}" data-k="${k}">${label}</button>`).join(''); };
-  pills('pairPills', PAIRS.map((p, i) => [i, p.name + (p.adv ? ' <span class="adv">' + p.adv + '</span>' : ''), i === pairIdx]));
+  pills('pairPills', PAIRS.map((p, i) => [i, p.name + (p.adv ? ' <span class="adv">' + p.adv + '</span>' : ''), i === pairIdx])
+    .concat(galPair ? [[-1, galPair.name + ' <span class="adv">FUZZ</span>', pairIdx < 0]] : []));
   pills('fbPills', [['0', 'NONE', !fbOn], ['1', 'ONE BOUNDED RETURN', fbOn]]);
   pills('listenPills', ALG_IDS.map(a => [a, a, a === listen]));
-  $('pairWhy').innerHTML = PAIRS[pairIdx].why + '.';
+  $('pairWhy').innerHTML = pairNow().why + '.';
   $('tIn').value = T; $('tOut').textContent = T.toFixed(2) + (T < T_STACK ? ' cut' : '');
   $('cIn').value = coup; $('cOut').textContent = coup.toFixed(2);
   $('sOut').textContent = seed;
@@ -1483,12 +2040,12 @@ function patchTxt(P) {
   return `order <b>${ordTxt(P.order)}</b> · ${lanes}${fb}<br>${par}`;
 }
 function renderEnds() {
-  const P = PAIRS[pairIdx];
+  const P = pairNow();
   $('lName').textContent = '· ' + P.name; $('rName').textContent = '· ' + P.name;
   $('lTxt').innerHTML = patchTxt(withFb(P.L, fbOn)); $('rTxt').innerHTML = patchTxt(withFb(P.R, fbOn));
 }
 function renderAlgPanels() {
-  $('algs').innerHTML = ALGS.map(A => `<div class="cluster alg${A.id === listen ? ' listen' : ''}" id="panel${A.id}">
+  $('algs').innerHTML = ALGS.map(A => `<div class="cluster alg${A.id === listen ? ' listen' : ''}${A.planned ? ' planned' : ''}" id="panel${A.id}">
     <h2><span><span class="lt">${A.id}</span>${A.name.toUpperCase()}</span><button class="chip" data-listen="${A.id}">${A.id === listen ? '◉ LISTENING' : '○ listen'}</button></h2>
     <div class="line">${A.line}.</div>
     <div class="cap" style="margin-top:0">THE CHAIN AT x</div>
@@ -1500,16 +2057,23 @@ function renderAlgPanels() {
     <div class="mini" id="mi${A.id}"></div></div>`).join('');
   for (const a of ALG_IDS) {
     const s = EVALS[a], h = invHeld(s), b = BUILDS[a];
+    if (s.unhosted) {
+      $('iv' + a).innerHTML = `<div class="unh"><b>Cannot host this pair.</b> ${s.unhosted}. ${UNHOSTED_WHY[a] || ''}</div>`;
+      $('mi' + a).innerHTML = ''; continue;
+    }
+    const cl = PLANNED[a] ? claimsOf(b) : null;
     $('iv' + a).innerHTML = INV.map(k => {
       const waived = k === 'I5' && s.waived && s.maxStep < STEP_MAX;
-      return `<span class="ib ${waived ? 'na' : h[k] ? 'ok' : 'no'}" title="${k === 'I5' ? (s.close ? s.close + ' events closer than one crossfade' : 'spread') : (s.why[k] || 'holds')}">${INV_LABEL[k]}${waived ? ' waived' : h[k] ? ' ✓' : ' ✗'}</span>`;
+      return `<span class="ib ${waived ? 'na' : h[k] ? 'ok' : 'no'}" title="${k === 'I5' ? (s.close ? s.close + ' events closer than one crossfade' : 'spread') : (s.why[k] || 'holds')}${cl ? (cl.includes(k) ? ' — claimed by construction' : ' — not claimed, reported') : ''}">${INV_LABEL[k]}${waived ? ' waived' : h[k] ? ' ✓' : ' ✗'}${cl && cl.includes(k) ? '•' : ''}</span>`;
     }).join('');
     const info = b.info || {};
     $('mi' + a).innerHTML = `<b>${b.events.length}</b> crossfades · <b>${b.flips.length}</b> order steps${info.minimal !== undefined ? ' (minimal ' + info.minimal + ')' : ''}` +
-      ` · <b>${s.states}</b> distinct chains · lane gain ≥ <b>${s.minT.toFixed(2)}</b>` + (info.beta ? ` · steps relaxed ${info.beta === 1 ? 'fully' : 'half'} toward even` : '') + (info.error ? ` · ${info.error}` : '');
+      ` · <b>${s.states}</b> distinct chains · lane gain ≥ <b>${s.minT.toFixed(2)}</b>` + (info.beta ? ` · steps relaxed ${info.beta === 1 ? 'fully' : 'half'} toward even` : '') + (info.error ? ` · ${info.error}` : '') +
+      (PLANNED[a] ? ` · ${info.note ? 'rank <b>' + info.note + '</b> · ' : ''}planner ${info.visited} states${info.waypoints ? ' · <b>used parallel waypoints</b>' : ''}${info.w < W - 1e-9 ? ' · crossfade narrowed to ' + info.w.toFixed(3) : ''} · • = claimed` : '');
   }
 }
 function cellInv(s, k) {
+  if (s.unhosted) return '<span class="wv">—</span>';
   const h = invHeld(s);
   if (k === 'I5') {
     if (s.maxStep >= STEP_MAX) return '<span class="no">hard switch</span>';
@@ -1524,6 +2088,7 @@ function renderTables() {
   const maxSt = Math.max(1, ...ALG_IDS.map(a => EVALS[a].states));
   $('mTab').innerHTML = head + ALG_IDS.map(a => {
     const s = EVALS[a], b = BUILDS[a], j = JUMPS[a];
+    if (s.unhosted) return `<tr><td class="a">${a} ${ALGS.find(q => q.id === a).name}</td><td colspan="${INV.length + 4}"><span class="wv">cannot host this pair — ${s.unhosted}</span></td></tr>`;
     return `<tr class="${a === 'D' ? 'ctl' : ''}"><td class="a">${a} ${ALGS.find(q => q.id === a).name}</td>` + INV.map(k => `<td>${cellInv(s, k)}</td>`).join('') +
       `<td>${s.minT.toFixed(2)}<span class="bar2" style="width:${Math.min(40, 40 * s.minT)}px"></span></td>` +
       `<td>${b.events.length} · ${b.flips.length}</td><td>${s.states}<span class="bar2" style="width:${40 * s.states / maxSt}px"></span></td>` +
@@ -1543,23 +2108,25 @@ function renderTables() {
     '<th>all held</th><th>mean distinct</th><th>worst jump</th></tr>' + ALG_IDS.map(a => {
     const cells = PAIRS.map((_, pi) => {
       const r = RACE[a + pi]; if (!r) return '<td>…</td>';
+      if (r.s.unhosted) return '<td><span class="wv">— not hosted</span></td>';
       const h = invHeld(r.s), miss = INV.filter(k => !h[k] && !(k === 'I5' && r.s.waived && r.s.maxStep < STEP_MAX));
-      return `<td>${miss.length ? '<span class="no">✗ ' + miss.map(k => INV_LABEL[k]).join(' ') + '</span>' : '<span class="ok">7/7</span>'}<span class="sub">${r.s.states} chains · ${r.j.worst.toFixed(1)} dB</span></td>`;
+      return `<td>${miss.length ? '<span class="no">✗ ' + miss.map(k => INV_LABEL[k]).join(' ') + '</span>' : '<span class="ok">9/9</span>'}<span class="sub">${r.s.states} chains · ${r.j.worst.toFixed(1)} dB</span></td>`;
     }).join('');
-    const rs = PAIRS.map((_, pi) => RACE[a + pi]).filter(Boolean);
+    const rs = PAIRS.map((_, pi) => RACE[a + pi]).filter(r => r && !r.s.unhosted);
     const all = rs.filter(r => INV.every(k => invHeld(r.s)[k] || (k === 'I5' && r.s.waived && r.s.maxStep < STEP_MAX))).length;
     return `<tr class="${a === 'D' ? 'ctl' : ''}"><td class="a">${a}</td>${cells}<td>${rs.length ? all + '/' + rs.length : '…'}</td>` +
       `<td>${rs.length ? (rs.reduce((q, r) => q + r.s.states, 0) / rs.length).toFixed(1) : '…'}</td><td>${rs.length ? Math.max(...rs.map(r => r.j.worst)).toFixed(1) : '…'}</td></tr>`;
   }).join('');
   $('rNote').innerHTML = (done ? '' : '<b>computing…</b> ') + `Same seed (${seed}), temperature (${T.toFixed(2)}), coupling (${coup.toFixed(2)}) and return setting
-    (${fbOn ? 'one' : 'none'}) as above. "7/7" = all seven checks hold (I3 is checked in both readings).`;
+    (${fbOn ? 'one' : 'none'}) as above. "9/9" = all nine checks hold (seven invariants; I3 and I7 each read two ways). "All held" counts hosted pairs.`;
   // feedback comparison
   const fdone = ALG_IDS.every(a => PAIRS.every((_, pi) => FBC[a + pi]));
   $('fbTab').innerHTML = '<tr><th></th><th>checks held · none</th><th>checks held · one</th><th>crossfades none → one</th><th>distinct none → one</th><th>return live across x (both ends have one)</th></tr>' +
     ALG_IDS.map(a => {
-      const rs = PAIRS.map((_, pi) => FBC[a + pi]).filter(Boolean);
-      if (!rs.length) return `<tr><td class="a">${a}</td><td colspan="5">…</td></tr>`;
-      const held = k => rs.reduce((q, r) => q + heldCount(r[k].s), 0), tot = rs.length * 7;
+      const rs0 = PAIRS.map((_, pi) => FBC[a + pi]).filter(Boolean), rs = rs0.filter(r => !r.none.s.unhosted && !r.one.s.unhosted);
+      if (!rs0.length) return `<tr><td class="a">${a}</td><td colspan="5">…</td></tr>`;
+      if (!rs.length) return `<tr><td class="a">${a}</td><td colspan="5"><span class="wv">hosts none of the five pairs in both settings</span></td></tr>`;
+      const held = k => rs.reduce((q, r) => q + heldCount(r[k].s), 0), tot = rs.length * INV.length;
       const ev = k => rs.reduce((q, r) => q + r[k].events, 0), st = k => rs.reduce((q, r) => q + r[k].s.states, 0);
       const liv = rs.map(r => r.one.fbLive).filter(v => v !== null);
       const i23 = rs.every(r => !r.one.s.inv.I2 && !r.one.s.inv.I3);
@@ -1586,45 +2153,127 @@ function renderChecks() {
     (good ? ' — over all five pairs, both return settings, seed ' + DEFAULTS.seed + ', T ' + DEFAULTS.T + '.' : ' — SEE THE TABLE: a claim or a control failed.');
 }
 function renderRec() {
-  const r = (a, pi) => RACE[a + pi];
-  const done = ALG_IDS.every(a => PAIRS.every((_, pi) => r(a, pi)));
-  const allHeld = a => PAIRS.filter((_, pi) => r(a, pi) && INV.every(k => invHeld(r(a, pi).s)[k] || (k === 'I5' && r(a, pi).s.waived))).length;
-  const nums = done ? ` At this seed and temperature: A holds all seven checks on <b>${allHeld('A')}/5</b> pairs, B on <b>${allHeld('B')}/5</b>,
-    C on <b>${allHeld('C')}/5</b>, D on <b>${allHeld('D')}/5</b>.` : '';
+  /* The numbers come from the fuzzer's summary (GAL) so the text cannot drift from the data it cites;
+     until the gallery loads, the paragraph says so rather than printing a stale figure. */
+  const S = GAL && GAL.summary, n = GAL ? GAL.runsPerParadigm : 0;
+  const f = (a, k) => S ? fzPct(S[a].fail[k], S[a].hosted) : '…', h = a => S ? fzPct(S[a].hosted, S[a].runs) : '…';
+  const imp = a => S ? fzPct(S[a].unhosted['unhosted:impossible'] || 0, S[a].runs) : '…';
+  const brk = S ? GAL.asserted.reduce((q, a) => q + S[a].brokenClaims, 0) : '…';
   $('rec').innerHTML = `
-  <p><b>The invariants are not a property of the order algorithm.</b> I1, I2, I3 and I6 hold for A, B and C alike because they live in the
-    ROUTER under all three: one input port per module, edges that only ever come from an end, the order used as a topological gate,
-    make-before-break, and a reach guard. Swap in any order path and they still hold; take the router away (D, or the planted
-    serial and no-gate routers) and they break at once.${nums}</p>
-  <p><b>What the order algorithm does decide</b> is I4, I5 and how exploratory the middle is. <b>A, rank keys,</b> leaves the approved set on
-    the hard pairs, and its steps land wherever two keys cross, so nothing can re-space them when they crowd. At T = 0 it IS the hard
-    cut (a reversal crosses every key at x = 0.5). <b>B, the edit path,</b> is minimal and spaces cleanly, but a minimal path can pass
-    through an order nobody tested (across the set: Fl Dr Rv Dl). <b>C, the approved graph,</b> holds I4 by construction and, on these
-    pairs, its walk is as short as B's. Its cost is crowding: on the adversarial Sub-on-the-glue pair, five swaps plus the edges they
-    pin can leave crossfades closer than one width. The check reports that crowding rather than hiding it.</p>
-  <p><b>Recommendation: C's walk on B's discipline, over the shared router.</b> Use the approved graph for WHICH orders the chain passes
-    through; place its steps by the quantum threshold law, relaxed toward even spacing when they crowd (B's rule); and let the
-    router own every edge: ports, the order gate, make-before-break for I6, and the reach guard for the Sub-into-Reverb rule. The
-    middle stays exploratory, because each port crossfades at its own seeded x. The distinct-chains column counts it: the middle
-    passes through parallel states (Body into Drive and Filter at once) that neither end has but that break no rule.</p>
+  <p><b>1 · I7 breaks the shared router, and no order algorithm can fix it.</b> Over ${n || '…'} fuzz runs each, A, B and C break I7
+    STRICT in ${f('A', 'I7')}, ${f('B', 'I7')} and ${f('C', 'I7')} of morphs (TAIL-ALLOWED barely helps: ${f('A', 'I7t')}, ${f('B', 'I7t')},
+    ${f('C', 'I7t')}). The smallest case has ONE module: <b>L dry ⇒ R Reverb</b>. The router gives each input port its own seeded time, so a
+    module's output port and input port fade in together (or the output first): the Reverb speaks before it hears. It is a property of
+    per-port timing, not of which orders the chain passes through.</p>
+  <p><b>2 · Sequencing, not repairing, holds every invariant.</b> The wiring planner changes one edge at a time through states that each
+    satisfy I1–I7, so it needs no floor tuning and no repair passes. Across E, F, G, H and GC, ${brk} claimed invariants broke in the whole
+    sweep, and the fuzzer fails ./verify full if one ever does. The dual of make-before-break is simply "inputs connect before
+    outputs, outputs disconnect before inputs", and a search enforces it where a schedule cannot.</p>
+  <p><b>3 · The architectures differ in what they can HOST.</b> <b>E</b> (fixed approved order + mix) hosts ${h('E')} of random pairs,
+    and its dry wire makes edges neither end has in ${f('E', 'I3')} of its morphs (I3 edge reading; the path reading holds). <b>G</b> (one
+    rank, send matrix) hosts ${h('G')}. Neither can morph a pair whose ends order two modules oppositely: to them that is two patches.
+    <b>F</b> and <b>H</b> host ${h('F')} and ${h('H')} and hold every claim, but they visit any order, approved or not (I4 fails in ${f('F', 'I4')}
+    and ${f('H', 'I4')}). <b>GC</b> holds all nine readings on every pair it hosts. It hosts ${h('GC')}, and it refuses the rest by design,
+    because an end is not an approved order. Only ${imp('GC')} of runs are genuinely impossible for it.</p>
+  <p><b>Recommendation: GC, with F's jump as its fallback.</b> Structure from <b>G</b>: four fixed module rows (one per type, so I1 and
+    the four-module compute bound are structural, not policed) and a forward-only send grid. Order from <b>C</b>: each patch picks from the
+    approved menu, and a morph may walk the whole approved graph. Timing from <b>the planner</b>: one edge at a time, spread by the quantum law.
+    <b>Does the hybrid meet every objective and every invariant?</b> On invariants, yes: all nine readings on everything it hosts, asserted.
+    On objectives: bounded compute 4, order variety = the approved set and any morph between two of its members, a middle as exploratory
+    as C's, about ${S ? S.GC.meanEvents : '…'} crossfades per morph, and misses that come with a proof. There are two gaps. It will not morph
+    to an unapproved order, which is the "bounded domain" the human asked for. And the rare impossible route (the gallery's smallest:
+    Rv Dr Dl ⇒ Dl Rv Dr, where the one order that avoids reversing a pair both ends share is not approved) needs either that order added
+    to the menu, or F's direct jump through a parallel moment. F holds every claim too, so the jump costs nothing in guarantees.
+    <b>It replaces the four slots</b> with rows, a grid and a menu: no type-per-slot selector, and no fading shadow instance.</p>
   <p><b>Open.</b></p>
   <ol class="q">
-    <li><b>Crowding on dense reorders.</b> C can pin many edge moves between two steps. <i>Next:</i> place steps by the demand the router
-      reports (how many edges each step pins), not by seed alone, so the gaps fall where the crossfades are.</li>
-    <li><b>I3 has two readings, and they disagree.</b> On edges it holds by construction. On paths, make-before-break alone breaks it: the
-      union of the old and new wiring carries the Sub into the Reverb (the planted "reach guard off" control). The guard fixes it here.
-      <i>Decide</i> whether the path reading is the rule. It is closer to the human's words ("routing unrelated channels together").</li>
-    <li><b>Make-before-break is louder.</b> While both paths are live a lane sums through two chains, up to +6 dB. The render metric sees it
-      (the worst-jump column: several dB above the same endpoints held still). <i>Next:</i> normalise each lane by its own transmission, which the I6 machinery
-      already computes.</li>
-    <li><b>The approved set is a proposal.</b> Nine orders with reasons, closed under deletion. It wants a listening pass. An order the human
-      rejects is one line out, and C will route around it if the graph stays connected.</li>
-    <li><b>Feedback.</b> One bounded return survives the morph and costs little. Two different returns cannot crossfade (F4), so the loop
-      vanishes for part of x. <i>Decide</i> whether that gap is acceptable or whether patches should share one return edge.</li>
-    <li><b>Per-edge crossfades are many.</b> A four-swap morph is up to 14 crossfades. <i>Decide</i> whether "every edge at its own seeded
-      x" is the discovery the human wants, or whether it is busy. Coupling toward 1 bunches them. The spacing rule keeps them from
-      stacking.</li>
+    <li><b>I7's floor is absolute</b> (half of one unit path), so it asks whether a node HAS input, not whether it has all of it. A first,
+      endpoint-normalised floor made the fuzzer report false breaks at exactly 0.500. <i>Confirm</i> this is the human's rule.</li>
+    <li><b>STRICT or TAIL-ALLOWED.</b> The planner holds STRICT, so for the recommendation the reading only matters as a design freedom:
+      TAIL-ALLOWED would let a leaving Delay or Reverb keep ringing for ${TAIL_X} of x. <i>Decide</i> whether tails should be kept on
+      purpose, which would be a planner rule and not a checker excuse.</li>
+    <li><b>The approved set now decides reachability, not just taste.</b> GC's impossible routes are gaps in the menu.
+      <i>Decide</i> whether to add Rv Dl Dr or to allow the F jump.</li>
+    <li><b>T = 0 means something new here.</b> The planner never stacks events, so at T = 0 its moves are packed one crossfade apart about
+      x = 0.5: the fastest legal cut, not the hard cut. <i>Confirm</i> that is the right reading of "temperature 0".</li>
+    <li><b>E's dry wire and I3.</b> E's path reading holds, but half-way through a module's mix the wire carries a lane straight past the
+      module, an edge neither end has. <i>Decide</i> whether the edge reading still matters once the path reading is the rule (B265 open 1).</li>
+    <li><b>Make-before-break is still louder</b> (B265 open 3), in the planner as in the router: while both paths are live a lane sums
+      through two. The per-lane normalisation remains the fix.</li>
   </ol>`;
+}
+/* ---------- B266: the fuzzer's results (docs/design/fx-chain-morph-gallery.json) ---------- */
+const FZ_KEYS = ['I1', 'I2', 'I3', 'I3p', 'I4', 'I5', 'I6', 'I7', 'I7t'];
+const FZ_LABEL = { I1: 'I1', I2: 'I2', I3: 'I3 edge', I3p: 'I3 path', I4: 'I4', I5: 'I5', I6: 'I6', I7: 'I7 STRICT', I7t: 'I7 TAIL' };
+const fzPct = (n, d) => !d ? '—' : n === 0 ? '0' : (100 * n / d < 0.1 ? '<0.1' : (100 * n / d).toFixed(1)) + '%';
+function renderFuzz() {
+  if (!GAL) {
+    const why = GAL_ERR ? `the gallery did not load (${GAL_ERR}). Serve the repo with <b>python3 tools/serve_labs.py</b> and open this lab through it — a page opened from disk cannot fetch its JSON.` : 'loading…';
+    $('fzTab').innerHTML = `<tr><td>${why}</td></tr>`; $('objTab').innerHTML = ''; $('gal').innerHTML = `<div class="ptxt">${why}</div>`; return;
+  }
+  const S = GAL.summary, planned = new Set(GAL.asserted);
+  $('fzTab').innerHTML = '<tr><th></th><th>hosted</th>' + FZ_KEYS.map(k => `<th>${FZ_LABEL[k]}</th>`).join('') + '<th>no plan (proved)</th><th>broken claims</th></tr>' +
+    ALG_IDS.map(a => {
+      const q = S[a]; if (!q) return '';
+      const cl = CLAIMS[a] || [];
+      return `<tr class="${a === 'D' ? 'ctl' : ''}"><td class="a">${a}${planned.has(a) ? ' •' : ''}</td><td>${fzPct(q.hosted, q.runs)}</td>` +
+        FZ_KEYS.map(k => { const n = q.fail[k]; const c = cl.includes(k) && !(k === 'I3' && (a === 'F' || a === 'H' || a === 'GC') && q.waypointShare > 0);
+          return `<td>${n ? `<span class="no">${fzPct(n, q.hosted)}</span>` : `<span class="ok">0${c ? ' •' : ''}</span>`}</td>`; }).join('') +
+        `<td>${fzPct((q.unhosted['unhosted:impossible'] || 0), q.runs)}</td><td>${planned.has(a) ? (q.brokenClaims ? `<span class="no">${q.brokenClaims}</span>` : '<span class="ok">0</span>') : '<span class="wv">n/a</span>'}</td></tr>`;
+    }).join('');
+  $('fzNote').innerHTML = `<b>${GAL.pairs}</b> seeded random endpoint pairs (half independent draws, half a patch and a local edit of it;
+    the five lab pairs run in ./verify full's gate, not here), × temperatures ${GAL.temperatures.join(', ')} × ${GAL.seedsPerTemperature} seeds = <b>${GAL.runsPerParadigm}</b> runs per paradigm, each checked at
+    ${NGRID} x positions. A cell is the share of HOSTED runs where the invariant fails at one x or more. <b>•</b> on a paradigm = ASSERTED: the fuzzer
+    fails ./verify if it ever breaks a claimed invariant (<b>•</b> on a cell = claimed by construction); unmarked paradigms are REPORTED, under study.
+    "Hosted" = the share of runs the architecture can morph at all; I4 on random pairs mostly measures unapproved ENDS, not the morph.`;
+  // objectives
+  const nApp = APPROVED.size;
+  $('objTab').innerHTML = '<tr><th></th><th>max live modules</th><th>orders a morph connects</th><th>hosted</th><th>distinct middle states</th><th>crossfades · steps per morph</th><th>guaranteed</th><th>testability</th><th>replaces the four slots with</th></tr>' +
+    ALG_IDS.map(a => {
+      const q = S[a]; if (!q) return '';
+      const g = planned.has(a) ? (CLAIMS[a] || []).length + '/9' : '0/9';
+      return `<tr class="${a === 'D' ? 'ctl' : ''}"><td class="a">${a}</td><td class="${q.maxLive > 4 ? '' : 'hi'}">${q.maxLive > 4 ? `<span class="no">${q.maxLive}</span>` : q.maxLive}</td>` +
+        `<td>${ORDERS[a].replace('approved', 'approved (' + nApp + ')')}</td><td>${fzPct(q.hosted, q.runs)}</td><td>${q.meanStates ?? '—'}</td>` +
+        `<td>${q.meanEvents ?? '—'} · ${q.meanSteps ?? '—'}</td><td>${g}</td><td>${TESTABILITY[a]}</td><td>${REPLACE[a]}</td></tr>`;
+    }).join('');
+  $('objNote').innerHTML = `<b>Max live modules</b>: bounded compute — the most processing nodes carrying signal at any x, over every fuzz run (D's
+    crossfading slots run two instances at once). <b>Orders a morph connects</b>: which endpoint orders one morph can join (${nApp} = the approved
+    set, closed under deletion). <b>Hosted</b>: coverage of random pairs. <b>Distinct middle states</b>: audible graphs strictly between the ends,
+    per morph (exploration). <b>Guaranteed</b>: invariant readings held by construction and asserted by the fuzzer (of nine). The last column is
+    how each would replace today's rack (src/fx_rack.h: four series slots, order = slot index, one type per slot).`;
+  renderGallery();
+}
+function renderGallery() {
+  if (!GAL) return;
+  const G = GAL.gallery.map((g, i) => Object.assign({ i }, g)).filter(g => galFilter === 'all' || g.alg === galFilter);
+  $('galCount').textContent = `${GAL.gallery.length} cases`;
+  const f = ['all'].concat(ALG_IDS).map(a => `<button class="pill${a === galFilter ? ' on' : ' act'}" data-galf="${a}">${a === 'all' ? 'ALL' : a}</button>`).join('');
+  $('gal').innerHTML = `<div class="gfilter" style="grid-column:1/-1">${f}</div>` + G.map(g => {
+    const cov = g.key.startsWith('unhosted:');
+    return `<div class="card${g.broken ? ' brk' : ''}"><h3><span><span class="lt">${g.alg}</span><span class="k${cov ? ' cov' : ''}">${cov ? 'cannot host: ' + g.key.slice(9) : g.label}</span></span>` +
+      `<button class="chip" data-gal="${g.i}">load ▸</button></h3>` +
+      `<div class="ptxt"><b>${g.rate}</b> · size ${g.size}${g.firstX !== null ? ' · first at x = ' + g.firstX.toFixed(3) : ''}</div>` +
+      `<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px"><canvas id="gl${g.i}"></canvas><canvas id="gr${g.i}"></canvas></div>` +
+      `<div class="ptxt">${g.text.replace(/</g, '&lt;')}</div><div class="ptxt"><b>${(g.why || '').replace(/</g, '&lt;')}</b></div></div>`;
+  }).join('');
+  paintGallery();
+}
+function paintGallery() {
+  if (!GAL) return;
+  for (const g of GAL.gallery) {
+    const cl = $('gl' + GAL.gallery.indexOf(g)); if (!cl) continue;
+    const i = GAL.gallery.indexOf(g);
+    paintGraph(cl, staticFrame(g.case.L), PAL['scr-value'], null);
+    paintGraph($('gr' + i), staticFrame(g.case.R), PAL['scr-value'], null);
+  }
+}
+function loadGallery(i) {
+  const g = GAL.gallery[i], c = g.case;
+  galPair = { id: 'gal', name: `case ${i + 1}: ${g.alg} ${g.key.startsWith('unhosted:') ? 'cannot host' : g.label}`,
+              why: `the fuzzer's minimal counterexample (${g.rate}): ${g.text} — ${g.why || ''}`, L: c.L, R: c.R };
+  pairIdx = -1; seed = c.seed; T = c.T; coup = c.coup || 0; fbOn = true; listen = g.alg;
+  recompute(); paintEnds();
+  if (window.scrollTo) window.scrollTo(0, 0);
 }
 function renderAll() { renderControls(); renderEnds(); renderAlgPanels(); renderTables(); readPal(); dirty = true; }
 
@@ -1677,6 +2326,7 @@ function paintGraph(c, f, ink, ES) {
   g.font = `${9 * dpr}px ui-monospace,Menlo,monospace`; g.textAlign = 'center'; g.textBaseline = 'middle';
   const box = (id, label, on, bad) => {
     const [x, y] = pos[id], w = isLane(id) || id === 'OUT' ? 24 * dpr : bw;
+    if (x === undefined) return;
     g.fillStyle = PAL['scr-tube']; g.fillRect(x - w / 2, y - bh / 2, w, bh);
     g.strokeStyle = bad ? PAL.caution : on ? ink : PAL['scr-grid']; g.globalAlpha = on || bad ? 1 : 0.45; g.lineWidth = (bad ? 2 : 1.2) * dpr;
     g.strokeRect(x - w / 2, y - bh / 2, w, bh);
@@ -1684,7 +2334,13 @@ function paintGraph(c, f, ink, ES) {
     if (!isLane(id) && id !== 'OUT' && reach.SUB.has(typeOf(f, id))) { g.fillStyle = PAL['scr-marker']; g.beginPath(); g.arc(x + w / 2 - 3 * dpr, y + bh / 2 + 3 * dpr, 2.2 * dpr, 0, 7); g.fill(); }
   };
   box('BODY', 'Bo', true, false); box('SUB', 'Su', true, false); box('OUT', 'Out', true, false);
-  for (const id of seen) box(id, SHORT[typeOf(f, id)], live.has(id), dupes.has(id));
+  for (const id of seen) {
+    if (typeOf(f, id) === 'WIRE' && /^J\d/.test(id)) {   // E's junctions: the wire itself, a dot
+      const [x, y] = pos[id]; g.fillStyle = live.has(id) ? ink : PAL['scr-grid']; g.globalAlpha = live.has(id) ? 1 : 0.5;
+      g.beginPath(); g.arc(x, y, 3 * dpr, 0, 7); g.fill(); g.globalAlpha = 1; continue;
+    }
+    box(id, SHORT[typeOf(f, id)], live.has(id), dupes.has(id));
+  }
 }
 /* The flow map: rows are places in the order (D: slots), x runs across. Each
    module is a line; thick = live, dashed = in the order but silent, dotted
@@ -1694,6 +2350,8 @@ function paintFlow(a) {
   const c = $('f' + a); if (!c) return;
   const dpr = fit(c), g = c.getContext('2d'), Wd = c.width, Ht = c.height, fd = FLOW[a], s = EVALS[a], b = BUILDS[a];
   g.clearRect(0, 0, Wd, Ht);
+  if (b.unhosted) { paintMsg(g, Wd, Ht, dpr, 'not hosted — ' + b.unhosted); return; }
+  const W = b.w || W_GLOBAL;
   const L = 26 * dpr, Rm = 8 * dpr, top = 12 * dpr, rowH = 25 * dpr, n = Math.max(1, fd.rowsN);
   const px = x => L + x * (Wd - L - Rm), py = r => top + r * rowH;
   const tickY = top + n * rowH + 2 * dpr, ribY = tickY + 16 * dpr, ribH = Math.max(3 * dpr, (Ht - ribY - 2 * dpr) / INV.length);
@@ -1734,10 +2392,10 @@ function paintFlow(a) {
   lab(fd.pts[0], L + 2 * dpr, 'left'); lab(fd.pts[FLOWN - 1], Wd - Rm - 1 * dpr, 'right');
   // invariant ribbons
   g.font = `${8 * dpr}px ui-monospace,Menlo,monospace`; g.textAlign = 'left';
-  const keyOf = { I1: 'I1', I2: 'I2', I3: 'I3', I3p: 'I3p', I4: 'I4', I6: 'I6' };
+  const keyOf = { I1: 'I1', I2: 'I2', I3: 'I3', I3p: 'I3p', I4: 'I4', I6: 'I6', I7: 'I7', I7t: 'I7t' };
   INV.forEach((k, r) => {
     const y = ribY + r * ribH;
-    g.fillStyle = PAL['scr-grid']; g.globalAlpha = 0.9; g.fillText(k === 'I3p' ? 'I3p' : k, 2 * dpr, y + ribH / 2); g.globalAlpha = 0.18;
+    g.fillStyle = PAL['scr-grid']; g.globalAlpha = 0.9; g.fillText(k, 2 * dpr, y + ribH / 2); g.globalAlpha = 0.18;
     g.fillRect(L, y + 0.5 * dpr, Wd - L - Rm, ribH - 1 * dpr); g.globalAlpha = 1;
     g.fillStyle = PAL.caution;
     if (k === 'I5') {
@@ -1755,6 +2413,10 @@ function paintFlow(a) {
   // the puck
   g.strokeStyle = PAL['scr-value']; g.lineWidth = 1.5 * dpr; g.globalAlpha = 0.9;
   g.beginPath(); g.moveTo(px(X), 2 * dpr); g.lineTo(px(X), Ht - 2 * dpr); g.stroke(); g.globalAlpha = 1;
+}
+function paintMsg(g, Wd, Ht, dpr, txt) {
+  g.font = `${10 * dpr}px ui-monospace,Menlo,monospace`; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillStyle = PAL['scr-grid']; g.globalAlpha = 0.9; g.fillText(txt.length > 60 ? txt.slice(0, 58) + '…' : txt, Wd / 2, Ht / 2); g.globalAlpha = 1;
 }
 function paintStrip() {
   const c = $('strip'), dpr = fit(c), g = c.getContext('2d'), Wd = c.width, Ht = c.height, b = BUILDS[listen];
@@ -1781,7 +2443,12 @@ function paintStrip() {
 function paintAt() {
   $('xOut').textContent = 'x = ' + X.toFixed(3);
   for (const a of ALG_IDS) {
-    const b = BUILDS[a], f = b.frameAt(X), ES = endpointSets(b.Lp, b.Rp);
+    const b = BUILDS[a];
+    if (b.unhosted) {
+      const c = $('g' + a), dpr = fit(c), g = c.getContext('2d'); g.clearRect(0, 0, c.width, c.height);
+      paintMsg(g, c.width, c.height, dpr, 'cannot host this pair'); $('ch' + a).innerHTML = '<span class="wv">' + b.unhosted + '</span>'; paintFlow(a); continue;
+    }
+    const f = b.frameAt(X), ES = endpointSets(b.Lp, b.Rp);
     paintGraph($('g' + a), f, PAL['scr-physics'], ES);
     const lg = laneGains(f, b.Lp, b.Rp), o = liveOrder(f);
     $('ch' + a).innerHTML = `live order <b>${o.length ? ordTxt(o) : '(dry)'}</b>${APPROVED.has(okey(o)) ? '' : ' <span class="no">not approved</span>'} · lane gain Bo <b>${lg.BODY.toFixed(2)}</b> Su <b>${lg.SUB.toFixed(2)}</b>`;
@@ -1790,7 +2457,7 @@ function paintAt() {
   paintStrip();
 }
 function paintEnds() {
-  const P = PAIRS[pairIdx];
+  const P = pairNow();
   paintGraph($('lC'), staticFrame(withFb(P.L, fbOn)), PAL['scr-value'], null);
   paintGraph($('rC'), staticFrame(withFb(P.R, fbOn)), PAL['scr-value'], null);
 }
@@ -1835,7 +2502,7 @@ function frame() {
 function applyTheme() {
   document.body.classList.toggle('dark', dark);
   $('themeBtn').innerHTML = 'theme <b>' + (dark ? 'DARK · TUBE' : 'LIGHT · ORCHID') + '</b>';
-  readPal(); paintEnds(); dirty = true; paintAt();
+  readPal(); paintEnds(); dirty = true; paintAt(); paintGallery();
 }
 
 /* ======================================================================
@@ -1858,6 +2525,10 @@ $('sDn').addEventListener('click', () => { seed = Math.max(0, seed - 1); recompu
 $('sUp').addEventListener('click', () => { seed = seed + 1; recompute(); });
 document.addEventListener('click', e => {
   const t = e.target && e.target.closest ? e.target : null; if (!t) return;
+  const gb = t.closest('[data-gal]');
+  if (gb) { loadGallery(+gb.dataset.gal); return; }
+  const gf = t.closest('[data-galf]');
+  if (gf) { galFilter = gf.dataset.galf; renderGallery(); return; }
   const lb = t.closest('[data-listen]');
   if (lb) { listen = lb.dataset.listen; renderControls(); renderAlgPanels(); dirty = true; if (AC) $('audioStat').textContent = `AUDIO — BODY + SUB THROUGH ${listen} (${ALGS.find(q => q.id === listen).name})`; return; }
   const b = t.closest('button[data-k]'); if (!b) return;
@@ -1873,7 +2544,14 @@ window.addEventListener('pointerup', () => { dragStrip = false; });
 window.addEventListener('resize', () => { paintEnds(); dirty = true; });
 $('apList').innerHTML = APPROVED_FULL.map(q => `<b>${q.id}</b><span class="o">${ordTxt(q.o)}</span><span>${q.why}</span>`).join('');
 
-readPal(); recompute(); applyTheme();
+readPal(); recompute(); applyTheme(); renderFuzz();
+/* The gallery is the fuzzer's output, fetched rather than inlined so the lab and
+   ./verify full read the SAME file (the fuzzer replays every case in it). typeof
+   guards a bare global, never a let/const (L0041). */
+if (typeof fetch === 'function') fetch('fx-chain-morph-gallery.json', { cache: 'no-store' })
+  .then(r => r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)))
+  .then(j => { GAL = j; renderFuzz(); renderRec(); const gi = +qv('gal', '-1'); if (gi >= 0 && gi < GAL.gallery.length) loadGallery(gi); })
+  .catch(e => { GAL_ERR = String(e && e.message || e); renderFuzz(); });
 requestAnimationFrame(frame);
 </script>
 </body></html>
