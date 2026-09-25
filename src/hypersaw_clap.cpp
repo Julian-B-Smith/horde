@@ -809,6 +809,7 @@ inline clap_id baseIdOf(clap_id id) { return (clap_id)((uint32_t)id % kOscStride
      coeff[from][to]   10000 + from*64 + to     -> 10000 .. 14095
      outAmount[to]     20000 + to               -> 20000 .. 20063
      slotInit[to]      21000 + to               -> 21000 .. 21063
+     srcOut[src]       22000 + src              -> 22000 .. 22063
 
    `from` indexes SOURCES first ([0, NSRC)) then SLOTS (NSRC + slot), exactly as
    routing_core.h's `coeff[from][to]` does — one indexing scheme, not two.
@@ -821,6 +822,12 @@ inline clap_id baseIdOf(clap_id id) { return (clap_id)((uint32_t)id % kOscStride
    reserved for those coordinates. 64 is double the ceiling routing_core.h's own
    `NSRC + NSLOT <= 32` static_assert imposes, so the layout cannot be outgrown
    before the crosspoint mask is — and the mask is the harder limit.
+
+   `srcOut` (B50 phase 1c) is THE DRY PATH — a source straight to OUT — and it
+   was APPENDED at 22000, never fitted into a gap, because these ids have been
+   append-only since their first release two days ago. It is the only kind with
+   no `to`: its destination is OUT, so `decodeRoutingId` reports `to = -1` and
+   every consumer branches on the kind before it reads a coordinate.
 
    PHASE 1 EXPOSES THE ACYCLIC SUBSET ONLY (B50 (f)). `edgeLive()` was widened
    by ADR-128 to accept every edge (cycle edges read zPrev, one sample late), so
@@ -839,12 +846,15 @@ constexpr uint32_t kRoutingFromStride = 64;
 constexpr uint32_t kRoutingCoeffBase = 10000;
 constexpr uint32_t kRoutingOutBase = 20000;
 constexpr uint32_t kRoutingInitBase = 21000;
+constexpr uint32_t kRoutingSrcOutBase = 22000;
 
 enum RoutingKind
 {
   kRoutingCoeff = 0,
   kRoutingOut = 1,
-  kRoutingInit = 2
+  kRoutingInit = 2,
+  kRoutingSrcOut = 3          // appended (B50 phase 1c); the numbering is the
+                              // oracle's wire format, so it grows at the end
 };
 
 /* Id -> cell. False for any id in the block that names no cell THIS build
@@ -866,6 +876,15 @@ inline bool decodeRoutingId(clap_id id, int &kind, int &from, int &to)
     from = -1;
     to = (int)(u - kRoutingInitBase);
     return to < kRoutingNSlot;
+  }
+  // THE DRY PATH: a SOURCE with no destination but OUT, so `to` is -1 and not
+  // a slot. Every source may reach OUT, so there is no legality test here.
+  if (u >= kRoutingSrcOutBase && u < kRoutingSrcOutBase + kRoutingFromStride)
+  {
+    kind = kRoutingSrcOut;
+    from = (int)(u - kRoutingSrcOutBase);
+    to = -1;
+    return from < kRoutingNSrc;
   }
   if (u < kRoutingCoeffBase || u >= kRoutingCoeffBase + kRoutingFromStride * kRoutingFromStride)
     return false;
@@ -911,6 +930,11 @@ static RoutingParamTable makeRoutingTable()
     }
   for (int t = 0; t < kRoutingNSlot; t++) ids.push_back((clap_id)(kRoutingOutBase + t));
   for (int t = 0; t < kRoutingNSlot; t++) ids.push_back((clap_id)(kRoutingInitBase + t));
+  /* THE DRY PATH LAST, and that is the morph field's append rule showing
+     through: `morphInit` pushes this table's ids in THIS order, so the order
+     here IS the corner chunk's order. New cells append; nothing is inserted
+     (ADR-159 / ADR-173). */
+  for (int s = 0; s < kRoutingNSrc; s++) ids.push_back((clap_id)(kRoutingSrcOutBase + s));
 
   // Reserve before filling: ParamDef keeps raw pointers into these vectors, so
   // a reallocation mid-build would leave earlier rows pointing at freed storage.
@@ -949,10 +973,19 @@ static RoutingParamTable makeRoutingTable()
       std::snprintf(kb, sizeof(kb), "rt.out.%d", to);
       lo = 0.0; hi = 1.0; dv = def.outAmount[to];   // same rule as a crosspoint
     }
+    else if (kind == kRoutingSrcOut)
+    {
+      // THE DRY PATH — the amount of this source that reaches OUT without
+      // passing through a slot. 0 by default: the shipped chain is unchanged.
+      std::snprintf(nb, sizeof(nb), "Out Src%d", from + 1);
+      std::snprintf(kb, sizeof(kb), "rt.srcout.%d", from);
+      lo = 0.0; hi = 1.0; dv = def.srcOut[from];
+    }
     else
     {
       std::snprintf(nb, sizeof(nb), "Init Slot%d", to + 1);
       std::snprintf(kb, sizeof(kb), "rt.in.%d", to);
+      // An OFFSET, not a feed: bipolar on purpose, unlike every other cell.
       lo = -1.0; hi = 1.0; dv = def.slotInit[to];
     }
     r.names.emplace_back(nb);
@@ -4212,6 +4245,7 @@ struct Plugin
       else routing.inFrom[to] &= ~(1u << from);
     }
     else if (kind == kRoutingOut) routing.outAmount[to] = v;
+    else if (kind == kRoutingSrcOut) routing.srcOut[from] = v;
     else routing.slotInit[to] = v;
   }
   double getRoutingParam(clap_id id) const
@@ -4220,6 +4254,7 @@ struct Plugin
     if (!decodeRoutingId(id, kind, from, to)) return 0.0;
     if (kind == kRoutingCoeff) return routing.coeff[from][to];
     if (kind == kRoutingOut) return routing.outAmount[to];
+    if (kind == kRoutingSrcOut) return routing.srcOut[from];
     return routing.slotInit[to];
   }
 
@@ -5966,6 +6001,11 @@ extern "C" double hypersaw_debug_routing_init(const clap_plugin_t *p, int to)
 {
   if (to < 0 || to >= kRoutingNSlot) return 0.0;
   return self(p)->routing.slotInit[to];
+}
+extern "C" double hypersaw_debug_routing_srcout(const clap_plugin_t *p, int from)
+{
+  if (from < 0 || from >= kRoutingNSrc) return 0.0;
+  return self(p)->routing.srcOut[from];
 }
 /* The id list the oracle (and any future consumer) enumerates instead of
    re-deriving the layout: `id,kind,from,to;` per cell. Re-deriving it would be

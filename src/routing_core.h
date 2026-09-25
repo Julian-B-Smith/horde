@@ -50,6 +50,14 @@ struct RoutingMatrix
   double coeff[NSRC + NSLOT][NSLOT] = {{0}};   // crosspoint gain, [from][to]
   double slotInit[NSLOT] = {0};                // the `in_i` term
   double outAmount[NSLOT] = {0};               // terminal contribution
+  /* THE DRY PATH (B50 phase 1c). A source straight to OUT, bypassing every
+     slot — human 2026-09-17: "is there a reason it can't feed directly from
+     SRC to OUT?". There was not: the rework's own premise is that bypass is an
+     EDGE PROPERTY (a coefficient of 0 is "not connected"), and without this
+     term a source could only reach OUT through a slot, so a fully bypassed
+     rack was the one topology the matrix could not express. 0 by default, so
+     `setSerialChain` leaves it silent and the engine is unchanged. */
+  double srcOut[NSRC] = {0};                   // source -> OUT, no slot
 
   /* A default-constructed matrix connects nothing, and "nothing connected"
      means every outAmount is 0 — i.e. SILENCE. That is the worst possible
@@ -105,7 +113,7 @@ struct RoutingMatrix
       outAmount[t] = (t == NSLOT - 1) ? 1.0 : 0.0;
       for (int f = 0; f < NSRC + NSLOT; f++) coeff[f][t] = 0.0;
     }
-    for (int s = 0; s < NSRC; s++) { inFrom[0] |= (1u << s); coeff[s][0] = 1.0; }
+    for (int s = 0; s < NSRC; s++) { inFrom[0] |= (1u << s); coeff[s][0] = 1.0; srcOut[s] = 0.0; }
     for (int t = 1; t < NSLOT; t++)
     {
       inFrom[t] |= (1u << (NSRC + t - 1));
@@ -158,6 +166,11 @@ struct RoutingMatrix
     }
     for (int t = 0; t < NSLOT; t++) zPrev[t] = slotOut[t];
     double y = 0;
+    // The dry path first, so the accumulation order matches processBlock's.
+    // At srcOut = 0 every term is an exact zero, which is what makes the
+    // default byte-identical to the pre-dry-path engine by construction
+    // rather than by measurement.
+    for (int s = 0; s < NSRC; s++) y += srcOut[s] * src[s];
     for (int t = 0; t < NSLOT; t++)
       if (isTerminal(t)) y += outAmount[t] * slotOut[t];
     return y;
@@ -203,7 +216,27 @@ struct RoutingMatrix
       }
       proc(t, slotL[t], slotR[t], n);
     }
-    for (int i = 0; i < n; i++) { outL[i] = 0.0f; outR[i] = 0.0f; }
+    /* THE DRY PATH INITIALISES THE OUTPUT — it does not accumulate onto a
+       zero fill, and that ordering is load-bearing rather than stylistic.
+       `outL` may ALIAS `srcL[0]` (the shell passes the mix bus as both source
+       and destination, hypersaw_clap.cpp's mix stage), so a dry term added
+       AFTER the zero fill would read a source this function had already
+       overwritten with zeros — silently, and only for the one topology the
+       term exists to express. Reading the sources before the first write is
+       the same rule the comment above states for the slots.
+       At srcOut = 0 the sum is exactly +0.0, so this writes the identical
+       0.0f the plain zero fill wrote: the default stays bit-identical by
+       construction. */
+    for (int i = 0; i < n; i++)
+    {
+      double dl = 0.0, dr = 0.0;
+      for (int s = 0; s < NSRC; s++)
+      {
+        dl += srcOut[s] * (double)srcL[s][i];
+        dr += srcOut[s] * (double)srcR[s][i];
+      }
+      outL[i] = (float)dl; outR[i] = (float)dr;
+    }
     for (int t = 0; t < NSLOT; t++)
     {
       if (!isTerminal(t)) continue;
