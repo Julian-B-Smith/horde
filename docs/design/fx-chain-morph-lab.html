@@ -1,0 +1,1879 @@
+<!doctype html>
+<!-- fx-chain-morph-lab — B265: how an FX chain morphs from one patch to another,
+     pared to its core and raced four ways. HYPERSAW, 2026-09-25.
+
+     THE HUMAN'S ASK (ROADMAP B265, verbatim in the row): "a stochastic or, when
+     achievable, gradual flow from left to right", no hard cut at 50 %, module
+     limits honoured, bounded feedback with rules, orders from "a bounded domain
+     based on common and tested experimental configurations", and parameters
+     that follow their module. Added 2026-09-25 (I6, the lead's relay): "there
+     needs to be a way to enforce that every input reaches an output".
+
+     THE PARED WORLD. Four module types (Drive, Filter, Delay, Reverb), at most
+     one of each, so a chain is an ORDERED SUBSET and there are never more than
+     four live modules. Two lanes (Body, a saw chord; Sub, a sine an octave
+     down). An endpoint patch is an order, the modules each lane enters, per-
+     module parameters and at most one return edge. Parameters match by type
+     and glide (log for cutoff and time).
+
+     WHAT WAS FOUND (the lab measures it; this is the summary). The order
+     algorithms (A rank keys, B edit path, C approved graph) only decide WHICH
+     ORDERS the chain passes through. The invariants live in one shared router
+     under them: every module has an input PORT whose L-only sources fade out
+     and R-only sources fade in; an edge exists only if an end has it (I3) and
+     only while it runs forward in the current order (I2: the order is the
+     topological gate, so a swap happens when nothing connects the pair);
+     make-before-break keeps every lane audible (I6); a reach guard stops
+     make-before-break's union states from carrying a lane where neither end
+     sends it (I3 read on paths). D, naive slot splicing, is the control.
+
+     STRUCTURE. Script block 1 is the MODEL: pure functions, seeded mulberry32
+     only, no DOM, no clock; it holds the algorithms, the router, the checker,
+     the audio engine (a sample counter, never a clock) and the self-check. The
+     self-check calls the same functions the page draws with and POWER plays, so
+     it certifies them rather than a twin. Block 2 is the page.
+
+     TOKENS ARE COPIED, NOT LINKED, from src/gui/gui2.html:26-212 by way of
+     docs/design/patch-model-lab.html (the same copy docs/design/station-page-lab.html
+     carries). Copy, therefore drift.
+
+     COLOUR ROLES (ADR-116): --value magenta = authored (the endpoint patches,
+     the puck); --physics violet = what the engine does on its own (the chain
+     at x, the braids, crossfade events); --meter cyan = analysers (scope,
+     metric bars, lane gain); --caution = an invariant the CONTROL breaks, or a
+     crowding the check reports (a finding, it loses nothing); --alarm = CLIP
+     only.
+
+     L0026: every const/let the setup path reads is declared above the wiring at
+     the bottom of block 2. -->
+<html><head><meta charset="utf-8">
+<meta name="lab-review" content="B265 · 2026-09-25">
+<title>fx-chain morph lab — four ways to morph an FX chain, raced on six invariants</title>
+<style>
+  /* ============ TOKENS — gui2's, verbatim (see the header) ============ */
+  :root {
+    --bg:#F2EDE2; --panel:#FCFAF4; --well:#FFFFFF; --panel2:#E9E3D4;
+    --line:#191521; --hair:#E5DFD0; --div:#D8D1C0;
+    --text:#191521; --t2:#494356; --dim:#9A93A3; --dis:#B6AFA0;
+    --value:#F5169C; --pull:#F5169C; --physics:#6431F0; --meter:#00D5C8;
+    --marker:#FFD702; --celebrate:#A6F219;
+    --caution:#F5A300; --caution-bg:#FBE9BD; --caution-tx:#6D570B;
+    --amber:#F5A300; --alarm:#C2261A; --ghost:#C9C2FF;
+    --cA:#FFD702; --cAtx:#D4A900; --cB:#FF2E88; --cBtx:#FF2E88;
+    --cC:#00D5C8; --cCtx:#00B3A8; --cD:#A6F219; --cDtx:#6FB200;
+    --text-hi:#191521; --dim2:#494356; --grid:#E5DFD0; --grid2:#E5DFD0;
+    --hot:#F5169C; --bad:#C2261A; --badge-bg:rgba(245,163,0,.9);
+    --scr-tube:#1B0733; --scr-value:#FF5ECF; --scr-meter:#B8F227;
+    --scr-physics:#B48CFF; --scr-marker:#FFB86B; --scr-grid:#4FD8BE;
+    --scr-scan:0.22; --scr-alpha:1;
+    --r-card:10px; --r-well:var(--r-card); --r:var(--r-card); --stroke:1.5px;
+    --shadow:1.5px 1.5px 0 var(--line); --shadow-hover:2.5px 2.5px 0 var(--line);
+    --focus:0 0 0 2.5px rgba(245,22,156,.45); }
+  * { box-sizing:border-box; margin:0; }
+  canvas { border:var(--stroke) solid var(--line); border-radius:var(--r-well);
+           background:var(--scr-tube); display:block; }
+  body:not(.dark) { --scr-tube:#F3EBFF; --scr-value:#D6006B; --scr-meter:#007A73;
+    --scr-physics:#6E14E8; --scr-marker:#C43A00; --scr-grid:#5A3FA8;
+    --scr-scan:0.05; --scr-alpha:1.6;
+    --marker:#8A6A00; --celebrate:#4E7A00; }
+  body.dark {
+    --bg:#151220; --panel:#1F1B2E; --well:#0E0C16; --panel2:#2C2740;
+    --line:#EFE9FA; --hair:#312B47; --div:#3B3455;
+    --text:#EFE9FA; --t2:#BDB4D4; --dim:#8A82A3; --dis:#514A6B;
+    --value:#FF3DAD; --pull:#FF3DAD; --physics:#A07CFF; --meter:#2DF2E2;
+    --marker:#FFE04D; --celebrate:#C2F53E;
+    --caution:#FFB627; --caution-bg:#4A3A12; --caution-tx:#FFD98A;
+    --amber:#FFB627; --alarm:#FF5A4D; --ghost:#5B4E8F;
+    --cA:#FFD702; --cAtx:#FFE566; --cB:#FF2E88; --cBtx:#FF6FAE;
+    --cC:#00D5C8; --cCtx:#4DEDE3; --cD:#A6F219; --cDtx:#C6F86A;
+    --text-hi:#FFFFFF; --dim2:#9A93A8; --grid:#312B47; --grid2:#312B47;
+    --hot:#FF3DAD; --bad:#FF5A4D; --badge-bg:rgba(255,182,39,.9);
+    --focus:0 0 0 2.5px rgba(255,61,173,.45); }
+
+  /* ============ CHROME — the station lab's idiom, same declarations ============ */
+  body { background:var(--bg); color:var(--text);
+    font:12px/1.45 ui-monospace,Menlo,monospace; padding:10px 12px; }
+  .hdr { display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; margin-bottom:8px; }
+  h1 { font-size:34px; line-height:1; letter-spacing:-1px; font-weight:800; }
+  .badges { display:flex; align-items:center; gap:8px; margin-top:4px; }
+  .badge { font-size:9.5px; letter-spacing:.1em; padding:2px 7px;
+           border:var(--stroke) solid var(--line); border-radius:3px;
+           background:var(--cA); color:var(--line); }
+  body.dark .badge { color:var(--bg); }
+  .sub { color:var(--t2); font-size:10.5px; letter-spacing:.12em; }
+  .hdrctl { display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-left:auto; }
+  .grp { display:flex; align-items:center; gap:7px; }
+  .lbl { font-size:10px; font-weight:700; letter-spacing:.1em; color:var(--t2); }
+  .pill { padding:3px 10px; border:var(--stroke) solid var(--line);
+    border-radius:999px; min-height:26px; cursor:pointer; color:var(--dim);
+    background:var(--panel); font:inherit; font-size:10px; letter-spacing:.06em; }
+  .pill:hover { box-shadow:var(--shadow); }
+  .pill.on { color:var(--bg); background:var(--line); font-weight:600; }
+  .pill.act { color:var(--text); }
+  .pills { display:flex; gap:4px; flex-wrap:wrap; margin:3px 0; }
+  .chip { padding:4px 8px; border:0; background:none; border-radius:var(--r);
+    cursor:pointer; font:inherit; font-size:10px; letter-spacing:.06em;
+    color:var(--dim); min-height:26px; }
+  .chip:hover { background:var(--panel2); }
+  .chip b { color:var(--t2); font-weight:600; letter-spacing:.1em; }
+  .tagline { color:var(--t2); font-size:11px; max-width:130ch; margin-bottom:6px; }
+  .tagline b { color:var(--text); }
+  .audit { font-size:10px; color:var(--t2); margin-bottom:10px;
+           border-left:3px solid var(--meter); padding-left:8px; }
+  .audit.bad { border-left-color:var(--caution); color:var(--caution-tx); }
+  .audit b { color:var(--text); }
+  .cluster { background:var(--panel); border:var(--stroke) solid var(--line);
+    border-radius:var(--r); padding:8px 10px; min-width:0; }
+  h2 { font-size:11px; color:var(--pull); letter-spacing:1px; margin-bottom:6px; }
+  .note { color:var(--t2); font-size:10px; line-height:1.5; margin-top:6px; }
+  .note b { color:var(--text); }
+  .sep { border-top:1px dashed var(--div); margin:8px 0 6px; }
+  .cap { font-size:9px; letter-spacing:.12em; color:var(--dim); margin:7px 0 2px; }
+  .dot { display:inline-block; width:8px; height:8px; border-radius:2px;
+         border:1px solid var(--line); margin-right:4px; vertical-align:-1px; }
+
+  /* ============ PAGE SHAPE ============ */
+  .row { display:grid; gap:10px; margin-top:10px; align-items:start; }
+  .ends { grid-template-columns:repeat(2,minmax(0,1fr)) minmax(280px,.9fr); }
+  .algs { grid-template-columns:repeat(4,minmax(0,1fr)); }
+  .two { grid-template-columns:minmax(0,1.25fr) minmax(0,1fr); }
+  @media (max-width:1400px) { .algs { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+  @media (max-width:900px) { .ends, .algs, .two { grid-template-columns:1fr; } }
+  .end h2 span { color:var(--t2); font-weight:400; letter-spacing:.04em; }
+  .end.l h2 b, .end.r h2 b { color:var(--value); }
+  .endC { width:100%; height:112px; }
+  .ptxt { font-size:9.5px; color:var(--t2); margin-top:4px; line-height:1.5; }
+  .ptxt b { color:var(--text); font-weight:600; }
+  .adv { display:inline-block; font-size:8.5px; letter-spacing:.1em; padding:1px 5px; border-radius:3px;
+         background:var(--caution-bg); color:var(--caution-tx); border:1px solid var(--caution); margin-left:4px; }
+
+  /* the morph strip: the puck is authored (--value), event ticks are engine motion (--physics) */
+  #strip { width:100%; height:58px; cursor:ew-resize; touch-action:none; }
+  .ctlrow { display:flex; gap:14px; align-items:center; flex-wrap:wrap; margin-top:6px; }
+  .rng { display:flex; align-items:center; gap:6px; font-size:10px; color:var(--t2); }
+  .rng input { width:120px; accent-color:var(--value); }
+  .rng b { color:var(--text); font-variant-numeric:tabular-nums; min-width:34px; display:inline-block; }
+  .seed { display:flex; align-items:center; gap:4px; }
+  .seed b { min-width:34px; text-align:center; font-variant-numeric:tabular-nums; }
+  .sq { padding:0 7px; min-height:22px; }
+
+  /* algorithm panels */
+  .alg h2 { display:flex; justify-content:space-between; gap:6px; }
+  .alg h2 .lt { display:inline-block; min-width:18px; text-align:center; padding:0 4px; border-radius:3px;
+                background:var(--line); color:var(--bg); margin-right:5px; }
+  .alg.listen { box-shadow:var(--shadow-hover); }
+  .alg .line { font-size:9.5px; color:var(--t2); margin:-3px 0 5px; min-height:26px; }
+  .gC { width:100%; height:128px; }
+  .fC { width:100%; height:190px; margin-top:6px; }
+  .chain { font-size:10px; margin-top:4px; color:var(--t2); min-height:15px; }
+  .chain b { color:var(--text); }
+  .pills.inv { gap:3px; margin-top:5px; }
+  .ib { font-size:9px; letter-spacing:.06em; padding:1px 5px; border-radius:3px; border:1px solid var(--div); color:var(--t2); }
+  .ib.ok { border-color:var(--line); color:var(--text); }
+  .ib.no { background:var(--caution-bg); color:var(--caution-tx); border-color:var(--caution); }
+  .ib.na { color:var(--dis); }
+  .mini { font-size:9.5px; color:var(--t2); margin-top:4px; }
+  .mini b { color:var(--text); font-variant-numeric:tabular-nums; }
+
+  /* tables */
+  table { width:100%; border-collapse:collapse; font-size:10px; }
+  th { font-size:9px; letter-spacing:.08em; color:var(--dim); font-weight:600; text-align:left; padding:3px 4px;
+       border-bottom:1px solid var(--div); vertical-align:bottom; }
+  td { padding:3px 4px; border-bottom:1px dashed var(--div); color:var(--t2); vertical-align:top;
+       font-variant-numeric:tabular-nums; }
+  td.a { color:var(--text); font-weight:700; white-space:nowrap; }
+  td .sub { display:block; color:var(--dim); font-size:9px; }
+  .ok { color:var(--celebrate); font-weight:700; }
+  .no { color:var(--caution-tx); background:var(--caution-bg); font-weight:700; padding:0 3px; border-radius:3px; }
+  .wv { color:var(--dim); }
+  .bar2 { display:inline-block; height:6px; vertical-align:1px; background:var(--meter); border-radius:2px; margin-left:4px; }
+  tr.ctl td.a::after { content:' control'; font-weight:400; font-size:8.5px; letter-spacing:.08em; color:var(--dim); }
+  .chk td.claim { color:var(--text); }
+  .chk td div { color:var(--dim); font-size:9px; margin-top:2px; }
+  .ap { display:grid; grid-template-columns:28px 128px 1fr; gap:3px 8px; font-size:9.5px; color:var(--t2); }
+  .ap b { color:var(--text); }
+  .ap .o { color:var(--text); letter-spacing:.04em; }
+  ol.q { padding-left:18px; }
+  ol.q li { font-size:10px; color:var(--t2); margin:0 0 7px; line-height:1.5; }
+  ol.q li b { color:var(--text); }
+  ol.q li i { font-style:normal; color:var(--value); font-weight:600; }
+  .rec { font-size:10.5px; line-height:1.55; color:var(--t2); }
+  .rec b { color:var(--text); }
+  .rec p { margin-bottom:7px; }
+  #scopeC { width:100%; height:46px; margin-top:4px; }
+  .clip { font-size:9px; font-weight:700; letter-spacing:.1em; color:var(--dis); }
+  .clip.on { color:var(--alarm); }
+  .legend { font-size:9px; color:var(--t2); margin-top:4px; line-height:1.6; }
+  .legend i { display:inline-block; width:18px; height:0; vertical-align:3px; margin:0 3px 0 8px; border-top:2.5px solid var(--physics); }
+  .legend i.d { border-top:1.5px dashed var(--dim); }
+  .legend i.s { border-top:2px dotted var(--marker); }
+  .legend i.c { border-top:6px solid var(--caution); }
+</style></head><body>
+
+<div class="hdr">
+  <div>
+    <h1>fx-chain morph</h1>
+    <div class="badges">
+      <span class="badge">B265 LAB</span>
+      <span class="sub">RANK KEYS · EDIT PATH · APPROVED GRAPH · NAIVE SPLICE — SIX INVARIANTS</span>
+    </div>
+  </div>
+  <div class="hdrctl">
+    <div class="grp"><span class="lbl">LISTEN</span><div class="pills" id="listenPills"></div></div>
+    <button class="pill" id="pwr">POWER</button>
+    <button class="pill" id="pulseBtn">PULSE</button>
+    <button class="pill" id="sweepBtn">SWEEP X</button>
+    <button class="chip" id="themeBtn">theme <b>LIGHT</b></button>
+  </div>
+</div>
+
+<div class="tagline">Two FX chains, <b>L</b> and <b>R</b>, and a morph <b>x</b> between them, raced four ways on the
+same endpoint pairs: <b>A</b> rank keys, <b>B</b> edit path, <b>C</b> an approved-order graph, and <b>D</b> naive slot
+splicing (the control). Every structural change is a seeded, crossfaded event spread across x by the quantum morph's own
+threshold law (temperature spreads it; T = 0 is the old hard cut). Six invariants are checked at load at 601 x positions
+for every algorithm and pair, each with a planted fault that must fail: one module per type, acyclic with one bounded
+return, no edge that neither end has, approved orders, spread crossfades, and <b>every lane still reaching the output</b>.
+<b>It sounds</b>: POWER plays Body and Sub through the chain you LISTEN to, and the puck morphs it.</div>
+
+<div class="audit" id="audit">self-check: pending</div>
+
+<div class="row ends">
+  <div class="cluster end l"><h2><b>L</b> <span id="lName"></span></h2><canvas class="endC" id="lC"></canvas><div class="ptxt" id="lTxt"></div></div>
+  <div class="cluster end r"><h2><b>R</b> <span id="rName"></span></h2><canvas class="endC" id="rC"></canvas><div class="ptxt" id="rTxt"></div></div>
+  <div class="cluster"><h2>Pair, return, law</h2>
+    <div class="cap">ENDPOINT PAIR</div><div class="pills" id="pairPills"></div>
+    <div class="ptxt" id="pairWhy"></div>
+    <div class="cap">RETURN EDGE (FEEDBACK)</div><div class="pills" id="fbPills"></div>
+    <div class="ctlrow">
+      <label class="rng">TEMPERATURE <input type="range" id="tIn" min="0" max="1.5" step="0.01"><b id="tOut"></b></label>
+      <label class="rng">COUPLING <input type="range" id="cIn" min="0" max="1" step="0.01"><b id="cOut"></b></label>
+    </div>
+    <div class="ctlrow"><span class="lbl">SEED</span><div class="seed"><button class="pill sq" id="sDn">−</button><b id="sOut"></b><button class="pill sq" id="sUp">+</button></div>
+      <span class="lbl" style="margin-left:auto">OUTPUT</span><span class="clip" id="clip">CLIP</span></div>
+    <canvas id="scopeC"></canvas>
+    <div class="cap" id="audioStat">AUDIO — OFF</div>
+  </div>
+</div>
+
+<div class="cluster" style="margin-top:10px"><h2>Morph x — drag the puck <span style="color:var(--t2);font-weight:400" id="xOut"></span></h2>
+  <canvas id="strip"></canvas>
+  <div class="legend">Flow maps below: x runs left to right, each module is a line at its place in the order.
+    <i></i>live (on a lane-to-output path) <i class="d"></i>in the order, silent <i class="s"></i>the Sub runs through it
+    <i class="c"></i>an invariant fails at this x (rows I1–I6 under each map). Ticks: ▮ a crossfade, ▵ an order step (silent by construction).</div>
+</div>
+
+<div class="row algs" id="algs"></div>
+
+<div class="row two">
+  <div class="cluster"><h2>Metrics — this pair, this seed, this temperature</h2>
+    <table id="mTab"></table>
+    <div class="note" id="mNote"></div>
+  </div>
+  <div class="cluster"><h2>Race — all five pairs</h2>
+    <table id="rTab"></table>
+    <div class="note" id="rNote"></div>
+  </div>
+</div>
+
+<div class="row two">
+  <div class="cluster"><h2>Feedback — none against one bounded return</h2>
+    <div class="ptxt"><b>Placement rules.</b> F1 a return lands only on a <b>Delay or Reverb</b> input (a module with a delay line, so the loop
+      is never zero-delay). F2 it runs <b>backward</b>: its target sits before its source in the order (the order gate enforces it at every x).
+      F3 gain <b>≤ <span id="gmax"></span></b>, and the return passes through tanh, so the loop is amplitude-bounded whatever the modules do. F4 <b>at most one</b>
+      at any x: two different returns hand over break-before-make (the only place the router breaks first — a return adds no forward
+      path, so I6 is untouched).</div>
+    <table id="fbTab" style="margin-top:6px"></table>
+    <div class="note" id="fbNote"></div>
+  </div>
+  <div class="cluster"><h2>The approved set (C, and I4 for everyone)</h2>
+    <div class="ap" id="apList"></div>
+    <div class="note">Every ordered SUBSET of an approved order is approved too (take a module out of a tested chain and it is still a tested
+      chain). The nine are linked by single adjacent swaps into one connected graph; C walks a shortest path through it.</div>
+  </div>
+</div>
+
+<div class="row two">
+  <div class="cluster"><h2>Self-check — run at load; every claim has a planted fault that must fail it</h2>
+    <table class="chk"><thead><tr><th>#</th><th>claim</th><th>holds</th><th>must-fail control (planted fault)</th><th>caught</th></tr></thead>
+      <tbody id="chkBody"><tr><td colspan="5">running…</td></tr></tbody></table>
+  </div>
+  <div class="cluster"><h2>Recommendation — and what remains open</h2>
+    <div class="rec" id="rec"></div>
+  </div>
+</div>
+
+<script>
+/* ======================================================================
+   BLOCK 1 — THE MODEL. Pure functions over plain data. No DOM, no clock,
+   no Math.random. The page (block 2) only calls what is defined here, and
+   the self-check at the bottom calls the same functions, so what it
+   certifies is what the page draws and what POWER plays.
+   ====================================================================== */
+'use strict';
+
+/* ---------- seeded streams and the quantum law ---------- */
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function fnv(s) { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); } return h >>> 0; }
+function gumbel(u) { u = Math.min(1 - 1e-9, Math.max(1e-9, u)); return -Math.log(-Math.log(u)); }
+const sigm = z => 1 / (1 + Math.exp(-z));
+/* THE THRESHOLD LAW is src/morph_core.h pickCorner reduced to two corners.
+   There, a parameter takes corner R over corner L when
+     log(wR)/T + gR  >  log(wL)/T + gL        (wL = 1-x, wR = x on a 1-D morph)
+   which rearranges to  x > sigmoid(T * (gL - gR)).  So every structural event
+   gets ONE committed threshold per seed, T = 0 puts every threshold at 0.5 (the
+   hard cut the human dislikes), and T = 1 makes them uniform on (0,1): gL - gR is
+   logistic, and the sigmoid of a logistic is uniform. Coupling mixes in one
+   SHARED draw exactly as morph_core does ((1-c)*g_i + c*gShared): at c = 1 every
+   event wants the same threshold. One deliberate difference: the shared draw is
+   taken FIRST, so adding an event never re-deals the shared one (B240's reason
+   for nPrefix). T = 0 is allowed here as the limit; morph_core clamps at 0.02. */
+function drawer(seed, tag, T, coup) {
+  const r = mulberry32((seed ^ fnv(tag)) >>> 0);
+  const shared = gumbel(r()) - gumbel(r());
+  return () => { const d = gumbel(r()) - gumbel(r()); return sigm(T * ((1 - coup) * d + coup * shared)); };
+}
+
+/* ---------- the pared world ---------- */
+const TYPES = ['DRV', 'FLT', 'DLY', 'REV'];
+const LANES = ['BODY', 'SUB'];
+const NAME = { DRV: 'Drive', FLT: 'Filter', DLY: 'Delay', REV: 'Reverb', BODY: 'Body', SUB: 'Sub', OUT: 'Out', WIRE: 'wire' };
+const SHORT = { DRV: 'Dr', FLT: 'Fl', DLY: 'Dl', REV: 'Rv', BODY: 'Bo', SUB: 'Su', OUT: 'Out', WIRE: '—' };
+const W = 0.04, H = W / 2;          // every structural event is a crossfade this wide in x
+const G_MAX = 0.5;                  // the one return edge's gain ceiling (feedback rule F3)
+const FB_TARGETS = { DLY: 1, REV: 1 }; // feedback rule F1: returns land only where there is a delay line
+const T_STACK = 0.05;               // below this the temperature ASKS for stacked events (I5 waived)
+const I6_FLOOR = 0.5;               // see I6_WHY
+const EPS = 1e-6;
+const NGRID = 601;                  // the load-time sweep: 601 x positions, dx = 1/600 (a crossfade spans 24)
+const STEP_MAX = 0.25;              // a weight may move this much per dx; a crossfade moves ≤ 0.07, a hard switch 1
+const I6_WHY = 'The floor is 0.5 of the lane\'s own endpoint gain (−6 dB of static path gain). A correct morph never goes near it: ' +
+  'one equal-power crossfade on a path sums cos+sin ≥ 1, and make-before-break only ever ADDS a path. The lowest a correct ' +
+  'schedule can reach is two equal-power crossfades overlapping on one path, 0.707 × 0.707 = 0.5, which I5 spacing already ' +
+  'prevents. Break-before-make reads 0. So 0.5 is the last value a crossfade artefact can produce, and anything below it is a break.';
+
+/* THE APPROVED SET (algorithm C, and I4 for everyone). Full orders of the four
+   types, each with the reason it earns a place; every ordered SUBSET of an
+   approved order is approved too (removing a module from a tested chain leaves
+   a tested chain), so the set is closed under deletion. The nine are linked by
+   single adjacent swaps into one connected graph: C1 is the hub, C8→C9 is the
+   one route to the glue-last order. */
+const APPROVED_FULL = [
+  { id: 'C1', o: ['DRV', 'FLT', 'DLY', 'REV'], why: 'the subtractive default: harmonics made, then carved; time effects last so echoes and tails stay clean' },
+  { id: 'C2', o: ['FLT', 'DRV', 'DLY', 'REV'], why: 'filter into drive: the resonant peak is what saturates (the acid squelch); cutoff moves the distortion\'s colour' },
+  { id: 'C3', o: ['DRV', 'FLT', 'REV', 'DLY'], why: 'reverb before delay: every echo repeats the whole wash (ambient, shoegaze trails)' },
+  { id: 'C4', o: ['DRV', 'DLY', 'FLT', 'REV'], why: 'filter after the delay: the sweep carves the echoes too (dub filtered delay)' },
+  { id: 'C5', o: ['DLY', 'DRV', 'FLT', 'REV'], why: 'delay into drive: repeats pile into the saturator and thicken as they stack (tape-echo grit)' },
+  { id: 'C6', o: ['DRV', 'REV', 'FLT', 'DLY'], why: 'filter after the reverb: a swept wash, the build-up filter on a reverb bus' },
+  { id: 'C7', o: ['REV', 'DRV', 'FLT', 'DLY'], why: 'reverb into drive: the distorted wash, a hyperpop and shoegaze staple' },
+  { id: 'C8', o: ['FLT', 'DLY', 'DRV', 'REV'], why: 'filtered echoes driven: grit accumulates on each repeat, then one room' },
+  { id: 'C9', o: ['FLT', 'DLY', 'REV', 'DRV'], why: 'glue last: time effects inside, one saturator at the end holding the whole bus like a compressor' },
+];
+const okey = o => o.join('>');
+const APPROVED = (() => {
+  const s = new Set();
+  for (const { o } of APPROVED_FULL) for (let m = 0; m < 1 << o.length; m++) s.add(okey(o.filter((_, i) => m >> i & 1)));
+  return s;
+})();
+
+/* ENDPOINT PAIRS. A patch is an order (an ordered subset), the modules each
+   lane enters, per-module parameters, and at most one return edge. Every
+   endpoint order is in the approved set, so C is never refused by its inputs. */
+const PAIRS = [
+  { id: 'swap', name: 'one swap', why: 'the smallest real move: Drive and Filter trade places, the Sub leaves the dry bus and joins the Drive',
+    L: { order: ['DRV', 'FLT', 'DLY', 'REV'], lanes: { BODY: ['DRV'], SUB: ['OUT'] }, fb: { src: 'REV', dst: 'DLY', g: 0.3 },
+         p: { DRV: { drive: 3 }, FLT: { cut: 2600, res: 0.25 }, DLY: { time: 0.18, fbk: 0.3, mix: 0.3 }, REV: { size: 0.5, mix: 0.25 } } },
+    R: { order: ['FLT', 'DRV', 'DLY', 'REV'], lanes: { BODY: ['FLT'], SUB: ['DRV'] }, fb: { src: 'REV', dst: 'DLY', g: 0.45 },
+         p: { FLT: { cut: 700, res: 0.72 }, DRV: { drive: 8 }, DLY: { time: 0.27, fbk: 0.35, mix: 0.35 }, REV: { size: 0.6, mix: 0.3 } } } },
+  { id: 'across', name: 'across the set', why: 'acid chain to distorted wash: four inversions, the Reverb travels from last to first',
+    L: { order: ['FLT', 'DRV', 'DLY', 'REV'], lanes: { BODY: ['FLT'], SUB: ['DRV'] }, fb: { src: 'REV', dst: 'DLY', g: 0.3 },
+         p: { FLT: { cut: 900, res: 0.7 }, DRV: { drive: 7 }, DLY: { time: 0.21, fbk: 0.35, mix: 0.3 }, REV: { size: 0.45, mix: 0.2 } } },
+    R: { order: ['REV', 'DRV', 'FLT', 'DLY'], lanes: { BODY: ['REV'], SUB: ['OUT'] }, fb: { src: 'DLY', dst: 'REV', g: 0.4 },
+         p: { REV: { size: 0.8, mix: 0.6 }, DRV: { drive: 5 }, FLT: { cut: 3200, res: 0.2 }, DLY: { time: 0.33, fbk: 0.4, mix: 0.35 } } } },
+  { id: 'grow', name: 'two grow in', why: 'a two-module chain becomes four: Delay arrives at the front, Reverb at the back, and the Sub moves in',
+    L: { order: ['DRV', 'FLT'], lanes: { BODY: ['DRV'], SUB: ['OUT'] }, fb: null,
+         p: { DRV: { drive: 4 }, FLT: { cut: 1800, res: 0.35 } } },
+    R: { order: ['DLY', 'DRV', 'FLT', 'REV'], lanes: { BODY: ['DLY'], SUB: ['FLT'] }, fb: { src: 'REV', dst: 'DLY', g: 0.4 },
+         p: { DLY: { time: 0.24, fbk: 0.4, mix: 0.4 }, DRV: { drive: 6 }, FLT: { cut: 1200, res: 0.5 }, REV: { size: 0.65, mix: 0.35 } } } },
+  { id: 'subend', name: 'adversarial · Sub on the glue', adv: 'I3',
+    why: 'tempts I3: in L the Sub enters ONLY the glue Drive at the chain end; in R it enters the Filter of a reversed chain. At neither end does the Sub touch the Reverb. The trap is a mid-morph Sub → Reverb',
+    L: { order: ['FLT', 'DLY', 'REV', 'DRV'], lanes: { BODY: ['FLT'], SUB: ['DRV'] }, fb: { src: 'REV', dst: 'DLY', g: 0.3 },
+         p: { FLT: { cut: 1500, res: 0.4 }, DLY: { time: 0.2, fbk: 0.35, mix: 0.3 }, REV: { size: 0.55, mix: 0.3 }, DRV: { drive: 2.5 } } },
+    R: { order: ['DRV', 'REV', 'FLT', 'DLY'], lanes: { BODY: ['DRV'], SUB: ['FLT'] }, fb: null,
+         p: { DRV: { drive: 9 }, REV: { size: 0.7, mix: 0.45 }, FLT: { cut: 800, res: 0.6 }, DLY: { time: 0.3, fbk: 0.3, mix: 0.3 } } } },
+  { id: 'severed', name: 'adversarial · Sub through a leaver', adv: 'I6',
+    why: 'tempts I6: in L the Sub\'s ONLY path runs through the Reverb, and R has no Reverb. The Sub must be rerouted into the Drive before the Reverb leaves',
+    L: { order: ['FLT', 'DLY', 'REV'], lanes: { BODY: ['FLT'], SUB: ['REV'] }, fb: { src: 'REV', dst: 'DLY', g: 0.3 },
+         p: { FLT: { cut: 2000, res: 0.3 }, DLY: { time: 0.22, fbk: 0.3, mix: 0.3 }, REV: { size: 0.6, mix: 0.5 } } },
+    R: { order: ['DRV', 'DLY', 'FLT'], lanes: { BODY: ['DRV'], SUB: ['DRV'] }, fb: { src: 'FLT', dst: 'DLY', g: 0.3 },
+         p: { DRV: { drive: 6 }, DLY: { time: 0.16, fbk: 0.25, mix: 0.25 }, FLT: { cut: 1100, res: 0.55 } } } },
+];
+const withFb = (P, on) => on ? P : Object.assign({}, P, { fb: null });
+
+/* ---------- graphs ---------- */
+const ek = (u, v) => u + '>' + v;
+const isLane = n => n === 'BODY' || n === 'SUB';
+function edgesOf(P) {
+  const E = [], o = P.order;
+  for (let i = 0; i + 1 < o.length; i++) E.push([o[i], o[i + 1]]);
+  if (o.length) E.push([o[o.length - 1], 'OUT']);
+  for (const l of LANES) for (const m of P.lanes[l]) E.push([l, m]);
+  return E;
+}
+function unionMods(L, R) { return TYPES.filter(t => L.order.includes(t) || R.order.includes(t)); }
+function kendall(a, b) {
+  const ix = {}; b.forEach((m, i) => { ix[m] = i; });
+  let n = 0; for (let i = 0; i < a.length; i++) for (let j = i + 1; j < a.length; j++) if (ix[a[i]] > ix[a[j]]) n++;
+  return n;
+}
+function insertions(base, extra) {
+  let outs = [base.slice()];
+  for (const m of extra) {
+    const nx = [];
+    for (const o of outs) for (let i = 0; i <= o.length; i++) nx.push(o.slice(0, i).concat([m], o.slice(i)));
+    outs = nx;
+  }
+  return outs;
+}
+/* PARKING. A module absent at one end still holds a place in that end's order;
+   it simply has no edges there. Presence is therefore an EDGE matter (its port
+   fades in or out, make-before-break), never an order event. Each algorithm
+   parks absent modules where its own cost is least; ties go to the first
+   candidate in enumeration order, so parking is deterministic. */
+function extend(L, R, cost) {
+  const LA = insertions(L.order, R.order.filter(m => !L.order.includes(m)));
+  const RA = insertions(R.order, L.order.filter(m => !R.order.includes(m)));
+  let best = null;
+  for (const a of LA) for (const b of RA) {
+    const c = cost(a, b);
+    if (!best || c < best.c - 1e-12) best = { a, b, c };
+  }
+  return best;
+}
+
+/* ---------- order paths: the four algorithms differ HERE ---------- */
+/* A path is a piecewise-constant order over x: orders[k] holds on
+   [xs[k-1], xs[k]) with xs[-1] = 0 and xs[n] = 1. */
+function orderAt(path, x) { let k = 0; while (k < path.xs.length && x >= path.xs[k]) k++; return path.orders[k]; }
+function placeSteps(n, draw, T, spreadOn) {
+  const t = []; for (let i = 0; i < n; i++) t.push(W + (1 - 2 * W) * draw());
+  t.sort((a, b) => a - b);
+  // TWO widths between order steps, not one: a swap needs room for the old edge
+  // to leave before it and the new edge to arrive after it (the router's windows).
+  if (spreadOn && T >= T_STACK) spreadFixedWindow(t, W, 1 - W, 2 * W);
+  return t;
+}
+function spreadFixedWindow(t, lo, hi, gap) {
+  for (let i = 1; i < t.length; i++) if (t[i] < t[i - 1] + gap) t[i] = Math.min(hi, t[i - 1] + gap);
+  for (let i = t.length - 2; i >= 0; i--) if (t[i] > t[i + 1] - gap) t[i] = Math.max(lo, t[i + 1] - gap);
+}
+
+/* (A) RANK KEYS. Each module's key slides from its L rank to its R rank at its
+   own seeded pace; the order is the sort, the seed breaks ties. Pace: a
+   piecewise-linear warp that puts the key halfway at the module's quantum
+   threshold. T = 0 makes every pace linear, so a reversal crosses everything at
+   x = 0.5 at once: the hard cut, reborn. */
+function pathA(L, R, seed, T, coup) {
+  const ext = extend(L, R, kendall), Lx = ext.a, Rx = ext.b, n = Lx.length;
+  const draw = drawer(seed, 'A.pace', T, coup);
+  const th = {}, kL = {}, kR = {};
+  for (const m of TYPES) th[m] = Math.min(0.97, Math.max(0.03, draw()));
+  Lx.forEach((m, i) => { kL[m] = (i + 0.5) / n; });
+  Rx.forEach((m, i) => { kR[m] = (i + 0.5) / n; });
+  const tr = mulberry32((seed ^ fnv('A.tie')) >>> 0), tie = {};
+  TYPES.forEach(m => { tie[m] = tr(); });
+  const warp = (x, t) => x < t ? 0.5 * x / t : 0.5 + 0.5 * (x - t) / (1 - t);
+  const at = x => Lx.slice().sort((a, b) => {
+    const ka = kL[a] + (kR[a] - kL[a]) * warp(x, th[a]), kb = kL[b] + (kR[b] - kL[b]) * warp(x, th[b]);
+    return Math.abs(ka - kb) > 1e-12 ? ka - kb : tie[a] - tie[b];
+  });
+  const K = 2400, orders = [at(0)], xs = [];
+  for (let i = 1; i <= K; i++) {
+    const o = at(i / K);
+    if (okey(o) !== okey(orders[orders.length - 1])) { xs.push((i - 0.5) / K); orders.push(o); }
+  }
+  orders[orders.length - 1] = Rx.slice();
+  return { alg: 'A', Lx, Rx, orders, xs, steps: xs.length, minimal: kendall(Lx, Rx) };
+}
+
+/* (B) EDIT PATH. The minimal adjacent-swap sequence between the parked orders
+   (one swap per inversion; the seed picks WHICH adjacent inversion goes next).
+   Inserts and removals are not order steps here: parking turned them into port
+   fades, which is what lets them be make-before-break (I6). */
+function pathB(L, R, seed, T, coup, spreadOn) {
+  const ext = extend(L, R, kendall), Lx = ext.a, Rx = ext.b;
+  const rix = {}; Rx.forEach((m, i) => { rix[m] = i; });
+  const pick = mulberry32((seed ^ fnv('B.pick')) >>> 0);
+  const orders = [Lx.slice()], cur = Lx.slice();
+  for (;;) {
+    const inv = [];
+    for (let i = 0; i + 1 < cur.length; i++) if (rix[cur[i]] > rix[cur[i + 1]]) inv.push(i);
+    if (!inv.length) break;
+    const i = inv[Math.floor(pick() * inv.length)];
+    const t = cur[i]; cur[i] = cur[i + 1]; cur[i + 1] = t;
+    orders.push(cur.slice());
+  }
+  const xs = placeSteps(orders.length - 1, drawer(seed, 'B.step', T, coup), T, spreadOn);
+  return { alg: 'B', Lx, Rx, orders, xs, steps: xs.length, minimal: kendall(Lx, Rx) };
+}
+
+/* (C) APPROVED-ORDER GRAPH. Nodes are the approved orders over this pair's
+   modules; edges are single adjacent swaps whose result is approved. BFS finds
+   a shortest walk; the seed shuffles neighbour order, so among equally short
+   walks the seed chooses. Parking is chosen so both ends are approved and the
+   walk is shortest. */
+function approvedWalk(a, b, rng) {
+  if (!APPROVED.has(okey(a)) || !APPROVED.has(okey(b))) return null;
+  const prev = new Map([[okey(a), null]]), q = [a];
+  while (q.length) {
+    const o = q.shift();
+    if (okey(o) === okey(b)) break;
+    const nb = [];
+    for (let i = 0; i + 1 < o.length; i++) {
+      const n = o.slice(); const t = n[i]; n[i] = n[i + 1]; n[i + 1] = t;
+      if (APPROVED.has(okey(n)) && !prev.has(okey(n))) nb.push(n);
+    }
+    if (rng) for (let i = nb.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); const t = nb[i]; nb[i] = nb[j]; nb[j] = t; }
+    for (const n of nb) { prev.set(okey(n), o); q.push(n); }
+  }
+  if (!prev.has(okey(b))) return null;
+  const walk = []; for (let o = b; o; o = prev.get(okey(o))) walk.unshift(o);
+  return walk;
+}
+function pathC(L, R, seed, T, coup, spreadOn, inject) {
+  const ext = extend(L, R, (a, b) => { const w = approvedWalk(a, b, null); return w ? w.length - 1 + kendall(a, b) * 1e-3 : 1e9; });
+  if (ext.c >= 1e9) return { alg: 'C', error: 'no approved walk between these endpoints', Lx: ext.a, Rx: ext.b, orders: [ext.a], xs: [], steps: 0 };
+  const orders = approvedWalk(ext.a, ext.b, mulberry32((seed ^ fnv('C.walk')) >>> 0));
+  if (inject && orders.length >= 2) {
+    // PLANT (I4 must-fail): a detour through an order that is NOT approved,
+    // spliced in after the first step, then straight back.
+    const o = orders[1].slice().reverse();
+    orders.splice(2, 0, o, orders[1].slice());
+  }
+  const xs = placeSteps(orders.length - 1, drawer(seed, 'C.step', T, coup), T, spreadOn);
+  return { alg: 'C', Lx: ext.a, Rx: ext.b, orders, xs, steps: xs.length, minimal: kendall(ext.a, ext.b) };
+}
+
+/* ---------- the shared router + make-before-break scheduler (A, B, C) ----------
+   PORTS. Every module and OUT has one input port: the set of nodes feeding it.
+   Across the morph a port's L-only sources fade OUT and its R-only sources fade
+   IN; sources in both stay. An edge exists mid-morph only if it exists at an end
+   (I3, by construction), and only while it runs FORWARD in the current order
+   (I2, by construction: the order is the topological gate, so a swap can only
+   happen when nothing connects the pair). I6 is the scheduler's job: it starts
+   from seeded crossfade times, then moves fade-outs later and fade-ins earlier
+   until every lane keeps a path to OUT at every x (make-before-break). */
+function legalIntervals(path, u, v, fbEdge) {
+  const iv = []; let s = null;
+  const segs = path.orders.length;
+  for (let k = 0; k < segs; k++) {
+    const o = path.orders[k], x0 = k ? path.xs[k - 1] : 0, x1 = k < path.xs.length ? path.xs[k] : 1;
+    let ok;
+    if (fbEdge) ok = o.indexOf(v) < o.indexOf(u);
+    else ok = isLane(u) || o.indexOf(u) < (v === 'OUT' ? 99 : o.indexOf(v));
+    if (x1 - x0 <= 0) continue;
+    if (ok && s === null) s = x0;
+    if (!ok && s !== null) { iv.push([s, x0]); s = null; }
+  }
+  if (s !== null) iv.push([s, 1]);
+  return iv;
+}
+const firstIllegal = iv => (iv.length && iv[0][0] === 0) ? iv[0][1] : 0;
+const lastLegalStart = iv => (iv.length && iv[iv.length - 1][1] === 1) ? iv[iv.length - 1][0] : 1;
+const inIv = (iv, x) => { for (const [s, e] of iv) if (x >= s && (x < e || e === 1)) return true; return false; };
+const clamp01 = u => u <= 0 ? 0 : u >= 1 ? 1 : u;
+const rc = u => { u = clamp01(u); return 0.5 - 0.5 * Math.cos(Math.PI * u); };
+function softGate(iv, x, w) {
+  for (const [s, e] of iv) if (x >= s && (x < e || e === 1)) {
+    const up = s > 0 ? (w > 0 ? rc((x - s) / w) : 1) : 1, dn = e < 1 ? (w > 0 ? rc((e - x) / w) : (x < e ? 1 : 0)) : 1;
+    return Math.min(up, dn);
+  }
+  return 0;
+}
+
+function route(Lp, Rp, path, opt) {
+  const w = opt.w === undefined ? W : opt.w, h = w / 2;
+  const U = path.Lx.slice(), EL = edgesOf(Lp), ER = edgesOf(Rp);
+  const E = new Map();
+  for (const [u, v] of EL) E.set(ek(u, v), { u, v, inL: true, inR: false });
+  for (const [u, v] of ER) { const e = E.get(ek(u, v)); if (e) e.inR = true; else E.set(ek(u, v), { u, v, inL: false, inR: true }); }
+  for (const e of E.values()) e.iv = legalIntervals(path, e.u, e.v, false);
+  const draw = drawer(opt.seed, 'route.' + path.alg, opt.T, opt.coup);
+  /* ITEMS: one per changing edge. An L-only edge fades OUT inside the window
+     where it is still forward; an R-only edge fades IN once it is forward for
+     good. Each port draws ONE seeded time, and every one of its edges whose
+     window contains that time crossfades there together — so a port that can
+     switch in one move does, and only an edge the order path pins elsewhere is
+     split off. (Grouping a port's edges unconditionally was tried first: an
+     always-legal lane edge then had to drop with an order-pinned sibling, and
+     the Sub went silent in the 'Sub on the glue' pair.) */
+  const items = [], ports = {};
+  for (const v of U.concat(['OUT'])) {
+    const it = [];
+    for (const e of E.values()) if (e.v === v) {
+      // PLANT 'nogate' (I2 must-fail): the router without the order gate — windows
+      // ignore the order path, and edgeWeight stops gating by it.
+      const ng = opt.plant === 'nogate';
+      if (e.inL && !e.inR) it.push({ e, v, kind: 'out', a: h, b: ng ? 1 - h : Math.min(1 - h, firstIllegal(e.iv) - h), t: 0 });
+      if (e.inR && !e.inL) it.push({ e, v, kind: 'in', a: ng ? h : Math.max(h, lastLegalStart(e.iv) + h), b: 1 - h, t: 0 });
+    }
+    const u = draw();                         // drawn for every port, used or not: stable streams
+    if (!it.length) continue;
+    const A = Math.max(...it.map(q => q.a)), B = Math.min(...it.map(q => q.b));
+    const lo = Math.min(...it.map(q => q.a)), hi = Math.max(...it.map(q => q.b));
+    const tau = A <= B ? A + (B - A) * u : lo + (hi - lo) * u;
+    for (const q of it) { q.t = q.a > q.b ? (q.kind === 'out' ? q.b : q.a) : Math.min(q.b, Math.max(q.a, tau)); items.push(q); }
+    ports[v] = { v, tau, items: it };
+  }
+  // THE RETURN EDGE (feedback rules F1-F4). Same edge at both ends: one soft-gated
+  // edge whose gain morphs. Different edges: break-before-make ON PURPOSE — at most
+  // one return may exist at any x (I2), and a return adds no forward path, so I6 is
+  // untouched by it.
+  const fbL = Lp.fb, fbR = Rp.fb, FB = { same: false, L: fbL, R: fbR, out: null, in: null };
+  const fu = draw();
+  if (fbL && fbR && fbL.src === fbR.src && fbL.dst === fbR.dst) { FB.same = true; FB.iv = legalIntervals(path, fbL.src, fbL.dst, true); }
+  else {
+    if (fbL) { FB.ivL = legalIntervals(path, fbL.src, fbL.dst, true); FB.out = { kind: 'fbout', a: h, b: Math.min(1 - h, firstIllegal(FB.ivL) - h), t: 0 }; }
+    if (fbR) { FB.ivR = legalIntervals(path, fbR.src, fbR.dst, true); FB.in = { kind: 'fbin', a: Math.max(h, lastLegalStart(FB.ivR) + h), b: 1 - h, t: 0 }; }
+    if (FB.out) FB.out.t = FB.out.a + Math.max(0, FB.out.b - FB.out.a) * fu;
+    if (FB.in) FB.in.t = FB.in.a + Math.max(0, FB.in.b - FB.in.a) * fu;
+    if (FB.out && FB.in && FB.in.t < FB.out.t + w) {
+      FB.out.t = Math.max(FB.out.a, Math.min(FB.out.t, FB.in.b - w));
+      FB.in.t = Math.max(FB.in.t, FB.out.t + w);
+    }
+  }
+  // DETOURS: an edge present at BOTH ends that the order path breaks for a while
+  // fades out and back in, pinned to the path. A minimal edit path never does
+  // this; rank keys can (a pair crosses and uncrosses).
+  const detours = [];
+  for (const e of E.values()) if (e.inL && e.inR) for (const [s, en] of e.iv) {
+    if (s > 0) detours.push({ kind: 'dIn', t: s + h, e });
+    if (en < 1) detours.push({ kind: 'dOut', t: en - h, e });
+  }
+  if (opt.plant === 'nowin') for (const q of items) { q.a = 0; q.b = 1; q.t = q.kind === 'out' ? 0.01 : 0.99; }  // PLANT: events allowed to hang off the ends
+  const R = { path, Lp, Rp, U, E, items, ports, FB, detours, w, h, opt, forced: 0, repairs: 0 };
+  R.itemOf = new Map(items.map(q => [ek(q.e.u, q.e.v), q]));
+  if (opt.plant === 'bbm') { breakBeforeMake(R); return finish(R); }
+  if (opt.plant === 'nowin') return finish(R);
+  if (opt.spread !== false && opt.T >= T_STACK) spreadEvents(R, false);
+  if (opt.mbb !== false) repairI6(R);
+  if (opt.spread !== false && opt.T >= T_STACK) spreadEvents(R, opt.mbb !== false);
+  return finish(R);
+}
+/* PLANT (I6 must-fail): the same ports, but every port that swaps sources does it
+   break-before-make — the old sources are fully out a crossfade width before the
+   new ones start. */
+function breakBeforeMake(R) {
+  for (const v in R.ports) {
+    const P = R.ports[v];
+    if (!P.items.some(q => q.kind === 'in') || !P.items.some(q => q.kind === 'out')) continue;
+    const c = Math.min(Math.max(P.tau, 2 * R.w), 1 - 2 * R.w);
+    for (const q of P.items) q.t = q.kind === 'out' ? c - R.w : c + R.w;
+  }
+}
+/* A UNIT is what one crossfade moves: the items of one port that share a time.
+   It is "paired" (an equal-power swap of sources) when it holds both an out and
+   an in; otherwise it is a lone fade, raised-cosine. */
+function unitList(R) {
+  const m = new Map();
+  for (const q of R.items) { const k = q.v + '@' + q.t.toFixed(12); if (!m.has(k)) m.set(k, []); m.get(k).push(q); }
+  return [...m.values()];
+}
+function finish(R) {
+  const ev = [];
+  for (const g of unitList(R)) {
+    const hasIn = g.some(q => q.kind === 'in'), hasOut = g.some(q => q.kind === 'out');
+    for (const q of g) q.paired = hasIn && hasOut;
+    const nm = SHORT[g[0].v] || g[0].v;
+    ev.push({ kind: hasIn && hasOut ? 'x' : hasIn ? 'in' : 'out', t: g[0].t, label: (hasIn && hasOut ? '' : hasIn ? '+' : '−') + nm,
+              port: g[0].v, edges: g.map(q => (q.kind === 'in' ? '+' : '−') + SHORT[q.e.u] + '→' + (SHORT[q.e.v] || q.e.v)),
+              forced: g.some(q => q.a > q.b + 1e-9) });
+  }
+  if (R.FB.out) ev.push({ kind: 'fbout', t: R.FB.out.t, label: '−fb', edges: [], forced: R.FB.out.a > R.FB.out.b + 1e-9 });
+  if (R.FB.in) ev.push({ kind: 'fbin', t: R.FB.in.t, label: '+fb', edges: [], forced: R.FB.in.a > R.FB.in.b + 1e-9 });
+  for (const d of R.detours) ev.push({ kind: d.kind, t: d.t, label: (d.kind === 'dOut' ? '−' : '+') + SHORT[d.e.u] + '→' + (SHORT[d.e.v] || d.e.v), edges: [], forced: false });
+  ev.sort((a, b) => a.t - b.t);
+  R.events = ev;
+  R.flips = R.path.xs.slice();
+  R.forced = ev.filter(e => e.forced).length;
+  return R;
+}
+function units(R) {
+  const u = [];
+  for (const g of unitList(R)) {
+    const a = Math.max(...g.map(q => q.a)), b = Math.min(...g.map(q => q.b));
+    u.push({ t: g[0].t, a, b, fixed: a > b, set: t => { for (const q of g) q.t = t; } });
+  }
+  if (R.FB.out) u.push({ t: R.FB.out.t, a: R.FB.out.a, b: R.FB.out.b, set: t => { R.FB.out.t = t; } });
+  if (R.FB.in) u.push({ t: R.FB.in.t, a: R.FB.in.a, b: R.FB.in.b, set: t => { R.FB.in.t = t; } });
+  for (const d of R.detours) u.push({ t: d.t, a: d.t, b: d.t, fixed: true, set() {} });
+  return u.sort((p, q) => p.t - q.t);
+}
+/* I5 SPREAD: no two crossfades closer than one crossfade width, each unit
+   moving only inside its legal window. ORDER-PRESERVING: the units keep the
+   sequence they already have (so the chain passes through the same states, in
+   the same order) and only the gaps stretch — forward pass pushes a crowded unit
+   later, backward pass pulls it earlier, detours stay pinned. With `guard`, a
+   respacing that would break I6 or the reach guard is refused whole: I6 outranks
+   I5 (a dip to silence is worse than two events close together), and the check
+   then reports the crowding honestly. */
+function spreadEvents(R, guard) {
+  const gap = R.w, u = units(R), n = u.length;
+  if (n < 2) return;
+  const old = u.map(q => q.t), v = old.slice();
+  for (let pass = 0; pass < 6; pass++) {
+    for (let i = 1; i < n; i++) if (!u[i].fixed && v[i] < v[i - 1] + gap) v[i] = Math.min(u[i].b, v[i - 1] + gap);
+    for (let i = n - 2; i >= 0; i--) if (!u[i].fixed && v[i] > v[i + 1] - gap) v[i] = Math.max(u[i].a, v[i + 1] - gap);
+  }
+  // Guarded: take the largest fraction of the respacing (1, 1/2, 1/4, 1/8) that
+  // keeps I6 and the reach guard; none of it if even 1/8 breaks one.
+  for (const lam of guard ? [1, 0.5, 0.25, 0.125, 0] : [1]) {
+    u.forEach((q, i) => q.set(old[i] + lam * (v[i] - old[i])));
+    if (R.FB.out && R.FB.in && R.FB.in.t < R.FB.out.t + R.w) R.FB.in.t = Math.min(R.FB.in.b, R.FB.out.t + R.w);
+    if (!guard || lam === 0 || !(i6Worst(R, 241).min < I6_FLOOR || (R.opt.reach !== false && firstBreach(R, 241)))) return;
+  }
+}
+/* I6 REPAIR (make-before-break). At the first x where a lane's transmission
+   dips below the floor, every fade-out on that lane's L paths is pushed later and
+   every fade-in on its R paths is pulled earlier, each inside its legal window.
+   Repeat to a fixpoint. A dip that survives means the ORDER PATH left no legal
+   moment for the old and new paths to coexist; the check reports it. */
+function lanePathEdges(P) {
+  const E = edgesOf(P), out = {};
+  for (const l of LANES) {
+    const fwd = new Set([l]); let grow = true;
+    while (grow) { grow = false; for (const [u, v] of E) if (fwd.has(u) && !fwd.has(v)) { fwd.add(v); grow = true; } }
+    const bwd = new Set(['OUT']); grow = true;
+    while (grow) { grow = false; for (const [u, v] of E) if (bwd.has(v) && !bwd.has(u)) { bwd.add(u); grow = true; } }
+    out[l] = new Set(E.filter(([u, v]) => fwd.has(u) && bwd.has(v)).map(([u, v]) => ek(u, v)));
+  }
+  return out;
+}
+function repairI6(R) {
+  const LP = lanePathEdges(R.Lp), RP = lanePathEdges(R.Rp), guard = R.opt.reach !== false;
+  for (let it = 0; it < 160; it++) {
+    const wv = i6Worst(R, 241);
+    let moved = false;
+    if (wv.min < I6_FLOOR) {
+      const x = wv.x, lane = wv.lane;
+      // Both at once, deliberately: delaying breaks first and hurrying makes only as
+      // a fallback was tried, and the I6 repair and the reach guard then undid each
+      // other's moves (subend lost I6 and the reach guard at every temperature).
+      for (const q of R.items) {
+        const k = ek(q.e.u, q.e.v);
+        if (q.kind === 'out' && LP[lane].has(k) && q.t <= x + R.h && q.t < q.b - 1e-12) { q.t = Math.min(q.b, Math.max(q.t, x) + R.w); moved = true; }
+        if (q.kind === 'in' && RP[lane].has(k) && q.t >= x - R.h && q.t > q.a + 1e-12) { q.t = Math.max(q.a, Math.min(q.t, x) - R.w); moved = true; }
+      }
+    } else if (guard) {
+      /* THE REACH GUARD. Make-before-break keeps old and new paths alive together,
+         and that union can carry a lane somewhere NEITHER end sends it (the Sub into
+         the Reverb): I3 read on paths rather than edges. At the first such x, the
+         L-only edges on the offending paths leave earlier; only if none can, the
+         R-only ones arrive later. I6 is re-checked first on every pass, so the
+         guard can never buy separation with silence. */
+      const br = firstBreach(R, 241);
+      if (!br) { R.repairs += it; return; }
+      const on = breachEdges(frameR(R, br.x), br.lane, br.m);
+      for (const q of R.items) if (q.kind === 'out' && on.has(ek(q.e.u, q.e.v)) && q.t > q.a + 1e-12) { q.t = Math.max(q.a, Math.min(q.t, br.x) - R.w); moved = true; }
+      if (!moved) for (const q of R.items) if (q.kind === 'in' && on.has(ek(q.e.u, q.e.v)) && q.t < q.b - 1e-12) { q.t = Math.min(q.b, Math.max(q.t, br.x) + R.w); moved = true; }
+      if (!moved && R.FB.out && on.has('fb') && R.FB.out.t > R.FB.out.a + 1e-12) { R.FB.out.t = Math.max(R.FB.out.a, Math.min(R.FB.out.t, br.x) - R.w); moved = true; }
+    } else { R.repairs += it; return; }
+    if (!moved) { R.repairs += it; return; }
+  }
+  R.repairs += 160;
+}
+/* The first x (coarse grid) where a lane reaches a module neither end lets it reach. */
+function firstBreach(R, n) {
+  const ES = R._es || (R._es = endpointSets(R.Lp, R.Rp));
+  for (let i = 0; i < n; i++) {
+    const x = i / (n - 1), r = reachOf(frameR(R, x));
+    for (const l of LANES) for (const m of r[l]) if (m !== 'OUT' && !ES.reach[0][l].has(m) && !ES.reach[1][l].has(m)) return { x, lane: l, m };
+  }
+  return null;
+}
+/* live edges lying on some lane → m path at this frame ('fb' if the return is one) */
+function breachEdges(f, lane, m) {
+  const le = liveEdges(f).map(e => [e.u, e.v]), fb = liveFb(f).map(e => [e.u, e.v]);
+  const all = le.concat(fb), fwd = new Set([lane]), bwd = new Set([m]); let g = true;
+  while (g) { g = false; for (const [u, v] of all) { if (fwd.has(u) && !fwd.has(v)) { fwd.add(v); g = true; } if (bwd.has(v) && !bwd.has(u)) { bwd.add(u); g = true; } } }
+  const on = new Set(le.filter(([u, v]) => fwd.has(u) && bwd.has(v)).map(([u, v]) => ek(u, v)));
+  if (fb.some(([u, v]) => fwd.has(u) && bwd.has(v))) on.add('fb');
+  return on;
+}
+function i6Worst(R, n) {
+  let min = Infinity, at = 0, lane = 'BODY';
+  const base = R._i6base || (R._i6base = endpointGains(R.Lp, R.Rp));
+  for (let i = 0; i < n; i++) {
+    const x = i / (n - 1), f = frameR(R, x);
+    for (const l of LANES) {
+      const g = transmission(f, l) / base[l];
+      if (!(g >= min)) { min = isNaN(g) ? 0 : g; at = x; lane = l; }
+    }
+  }
+  return { min, x: at, lane };
+}
+function endpointGains(Lp, Rp) {
+  const out = {};
+  for (const l of LANES) out[l] = Math.min(transmission(staticFrame(Lp), l), transmission(staticFrame(Rp), l)) || 1;
+  return out;
+}
+
+/* weights at x — the one function the checks, the render and the painters share */
+function edgeWeight(R, e, x) {
+  const w = R.w, h = R.h, gate = R.opt.plant === 'nogate';
+  if (e.inL && e.inR) return gate ? 1 : softGate(e.iv, x, w);
+  const G = gate ? 1 : (inIv(e.iv, x) ? 1 : 0);
+  const q = R.itemOf.get(ek(e.u, e.v));
+  const u = w > 0 ? clamp01((x - (q.t - h)) / w) : (x < q.t ? 0 : 1);
+  if (q.kind === 'out') return G * (q.paired ? Math.cos(Math.PI / 2 * u) : 1 - rc(u));
+  return G * (q.paired ? Math.sin(Math.PI / 2 * u) : rc(u));
+}
+function fbAt(R, x) {
+  const F = R.FB, w = R.w, h = R.h, out = [];
+  const gain = R.opt.plant === 'fbhot' ? 1.8 : 1;
+  if (F.same) { const g = softGate(F.iv, x, w) * (F.L.g + (F.R.g - F.L.g) * x) * gain; if (g > EPS) out.push({ u: F.L.src, v: F.L.dst, g }); return out; }
+  if (F.out) { const u = w > 0 ? clamp01((x - (F.out.t - h)) / w) : (x < F.out.t ? 0 : 1); const g = (1 - rc(u)) * (inIv(F.ivL, x) ? 1 : 0) * F.L.g * gain; if (g > EPS) out.push({ u: F.L.src, v: F.L.dst, g }); }
+  if (F.in) { const u = w > 0 ? clamp01((x - (F.in.t - h)) / w) : (x < F.in.t ? 0 : 1); const g = rc(u) * (inIv(F.ivR, x) ? 1 : 0) * F.R.g * gain; if (g > EPS) out.push({ u: F.R.src, v: F.R.dst, g }); }
+  return out;
+}
+function lerpP(pL, pR, x) {
+  if (!pL) return pR; if (!pR) return pL;
+  const o = {};
+  for (const k in pL) o[k] = (k === 'cut' || k === 'time') ? Math.exp(Math.log(pL[k]) + (Math.log(pR[k]) - Math.log(pL[k])) * x) : pL[k] + (pR[k] - pL[k]) * x;
+  return o;
+}
+/* A FRAME is everything the checker, the render and the painters need at one x:
+   nodes (instances), a processing order, weighted edges, return edges. */
+function frameR(R, x) {
+  const order = orderAt(R.path, x), edges = [];
+  for (const e of R.E.values()) { const w = edgeWeight(R, e, x); if (w > EPS) edges.push({ u: e.u, v: e.v, w }); }
+  const nodes = order.map(m => ({ id: m, type: m, p: lerpP(R.Lp.p[m], R.Rp.p[m], x) }));
+  if (R.opt.plant === 'dup') {
+    // PLANT (I1 must-fail): a move crossfaded as a SECOND instance of the moved module.
+    const f = R.path.xs[0];
+    if (f !== undefined && Math.abs(x - f) < R.w) {
+      const m = order[0];
+      nodes.push({ id: m + '#2', type: m, p: nodes[0].p });
+      edges.push({ u: 'BODY', v: m + '#2', w: 1 - Math.abs(x - f) / R.w }, { u: m + '#2', v: 'OUT', w: 1 - Math.abs(x - f) / R.w });
+    }
+  }
+  let fb = fbAt(R, x);
+  if (R.opt.plant === 'fbflt') fb = fb.map(f => Object.assign({}, f, { v: 'FLT' }));
+  return { order, nodes, edges, fb };
+}
+function staticFrame(P) {
+  return { order: P.order.slice(), nodes: P.order.map(m => ({ id: m, type: m, p: P.p[m] })),
+           edges: edgesOf(P).map(([u, v]) => ({ u, v, w: 1 })), fb: P.fb ? [{ u: P.fb.src, v: P.fb.dst, g: P.fb.g }] : [] };
+}
+
+/* PLANT (I3 must-fail): the "serial reading" — the same order path, but each x
+   wired as a plain serial chain of the modules the ports say are live, lanes
+   entering where the nearer end says. It invents every adjacency the path
+   passes through. */
+function frameSerial(R, x) {
+  const f = frameR(R, x), live = new Set();
+  for (const e of f.edges) if (e.w >= 0.5) { if (!isLane(e.u)) live.add(e.u); if (e.v !== 'OUT') live.add(e.v); }
+  const o = f.order.filter(m => live.has(m)), P = x < 0.5 ? R.Lp : R.Rp, edges = [];
+  for (let i = 0; i + 1 < o.length; i++) edges.push({ u: o[i], v: o[i + 1], w: 1 });
+  if (o.length) edges.push({ u: o[o.length - 1], v: 'OUT', w: 1 });
+  for (const l of LANES) for (const m of P.lanes[l]) edges.push({ u: l, v: m === 'OUT' || live.has(m) ? m : (o[0] || 'OUT'), w: 1 });
+  return { order: f.order, nodes: f.nodes, edges, fb: f.fb };
+}
+
+/* ---------- (D) NAIVE SLOT SPLICING — the control ----------
+   Slot k holds L's k-th module until its seeded threshold, then R's k-th; the
+   slots are wired in series; each lane enters by SLOT INDEX; the return edge is
+   kept by slot index too. Crossfades everywhere (it is smooth), and wrong: a
+   type can sit in two slots at once (I1), and the wiring invents edges neither
+   end has (I3). */
+function planD(Lp, Rp, seed, T, coup, spreadOn, w) {
+  w = w === undefined ? W : w;
+  const n = Math.max(Lp.order.length, Rp.order.length), draw = drawer(seed, 'D.slot', T, coup);
+  const slots = [];
+  for (let k = 0; k < n; k++) slots.push({ k, tL: Lp.order[k] || 'WIRE', tR: Rp.order[k] || 'WIRE', t: W + (1 - 2 * W) * draw() });
+  const ent = (P, l) => P.lanes[l].map(m => m === 'OUT' ? 'OUT' : P.order.indexOf(m));
+  const lanes = LANES.map(l => ({ l, eL: ent(Lp, l), eR: ent(Rp, l), t: W + (1 - 2 * W) * draw() }));
+  const fbI = P => P.fb ? { s: P.order.indexOf(P.fb.src), d: P.order.indexOf(P.fb.dst), g: P.fb.g } : null;
+  const fb = { L: fbI(Lp), R: fbI(Rp), t: W + (1 - 2 * W) * draw() };
+  const evs = [];
+  for (const s of slots) if (s.tL !== s.tR) evs.push({ t: s.t, set: t => { s.t = t; }, kind: 'x', label: 's' + (s.k + 1) });
+  for (const L of lanes) if (okey(L.eL) !== okey(L.eR)) evs.push({ t: L.t, set: t => { L.t = t; }, kind: 'x', label: SHORT[L.l] });
+  if (JSON.stringify(fb.L) !== JSON.stringify(fb.R)) evs.push({ t: fb.t, set: t => { fb.t = t; }, kind: 'x', label: 'fb' });
+  if (spreadOn && T >= T_STACK) {
+    evs.sort((a, b) => a.t - b.t);
+    const t = evs.map(e => e.t); spreadFixedWindow(t, W, 1 - W, W); evs.forEach((e, i) => { e.set(t[i]); e.t = t[i]; });
+  }
+  evs.sort((a, b) => a.t - b.t);
+  return { alg: 'D', Lp, Rp, slots, lanes, fb, w, events: evs.map(e => ({ kind: e.kind, t: e.t, label: e.label, forced: false })), flips: [] };
+}
+function xw(t, x, w) { const u = w > 0 ? clamp01((x - (t - w / 2)) / w) : (x < t ? 0 : 1); return [Math.cos(Math.PI / 2 * u), Math.sin(Math.PI / 2 * u)]; }
+function frameD(D, x) {
+  const nodes = [], order = [], edges = [], slotInst = [];
+  for (const s of D.slots) {
+    if (s.tL === s.tR) {
+      const id = 's' + s.k; slotInst.push([{ id, w: 1 }]); order.push(id);
+      nodes.push({ id, type: s.tL, w: 1, p: lerpP(D.Lp.p[s.tL], D.Rp.p[s.tR], x) });
+    } else {
+      const [a, b] = xw(s.t, x, D.w), L = { id: 's' + s.k + 'L', w: a }, R = { id: 's' + s.k + 'R', w: b };
+      slotInst.push([L, R]); order.push(L.id, R.id);
+      nodes.push({ id: L.id, type: s.tL, w: a, p: D.Lp.p[s.tL] }, { id: R.id, type: s.tR, w: b, p: D.Rp.p[s.tR] });
+    }
+  }
+  const n = slotInst.length;
+  for (let k = 1; k < n; k++) for (const P of slotInst[k - 1]) for (const Q of slotInst[k]) if (P.w > EPS) edges.push({ u: P.id, v: Q.id, w: P.w });
+  if (n) for (const P of slotInst[n - 1]) if (P.w > EPS) edges.push({ u: P.id, v: 'OUT', w: P.w });
+  for (const L of D.lanes) {
+    const same = okey(L.eL) === okey(L.eR), [a, b] = same ? [1, 0] : xw(L.t, x, D.w);
+    const put = (ents, g) => { if (g <= EPS) return; for (const k of ents) { if (k === 'OUT') edges.push({ u: L.l, v: 'OUT', w: g }); else for (const Q of slotInst[k]) edges.push({ u: L.l, v: Q.id, w: g }); } };
+    put(L.eL, a); if (!same) put(L.eR, b);
+  }
+  const fb = [];
+  const addFb = (f, g) => { if (!f || g <= EPS) return; for (const S of slotInst[f.s]) for (const T of slotInst[f.d]) if (S.w > EPS) fb.push({ u: S.id, v: T.id, g: f.g * g * S.w }); };
+  if (JSON.stringify(D.fb.L) === JSON.stringify(D.fb.R)) addFb(D.fb.L, 1);
+  else { const [a, b] = xw(D.fb.t, x, D.w); addFb(D.fb.L, a); addFb(D.fb.R, b); }
+  return { order, nodes, edges, fb };
+}
+
+/* ---------- the checker: one function per invariant, on a frame ---------- */
+/* Derived sets are cached ON the frame (_n, _le, _lf, _te): every checker reads
+   them, and recomputing them per check made the load-time sweep three times slower. */
+function nodeMap(f) { if (!f._n) { f._n = new Map(); for (const n of f.nodes) f._n.set(n.id, n); } return f._n; }
+function typeOf(f, id) { if (isLane(id) || id === 'OUT') return id; const n = nodeMap(f).get(id); return n ? n.type : id; }
+function liveNode(f, id) { const n = nodeMap(f).get(id); return !n || n.w === undefined || n.w > EPS; }
+function liveEdges(f) { return f._le || (f._le = f.edges.filter(e => e.w > EPS && liveNode(f, e.u) && liveNode(f, e.v))); }
+function liveFb(f) { return f._lf || (f._lf = f.fb.filter(x => x.g > EPS && liveNode(f, x.u) && liveNode(f, x.v))); }
+/* type-level edges: collapse WIRE nodes (D's empty slots) into the edges through them */
+function typeEdges(f) {
+  if (f._te) return f._te;
+  const le = liveEdges(f), out = new Set();
+  const adj = {}; for (const e of le) (adj[e.u] = adj[e.u] || []).push(e.v);
+  for (const e of le) {
+    if (typeOf(f, e.u) === 'WIRE') continue;
+    const stack = [e.v], seen = new Set();
+    while (stack.length) {
+      const v = stack.pop(); if (seen.has(v)) continue; seen.add(v);
+      if (typeOf(f, v) === 'WIRE') { for (const n of adj[v] || []) stack.push(n); } else out.add(ek(typeOf(f, e.u), typeOf(f, v)));
+    }
+  }
+  return (f._te = out);
+}
+function checkI1(f) {
+  const seen = {}, bad = [];
+  const touched = new Set(); for (const e of liveEdges(f)) { touched.add(e.u); touched.add(e.v); }
+  for (const x of liveFb(f)) { touched.add(x.u); touched.add(x.v); }
+  for (const n of f.nodes) if (n.type !== 'WIRE' && touched.has(n.id) && liveNode(f, n.id)) {
+    if (seen[n.type] && seen[n.type] !== n.id) bad.push(n.type); else seen[n.type] = n.id;
+  }
+  return { ok: !bad.length, why: bad.length ? 'two ' + bad.map(t => NAME[t]).join(', ') + ' live' : '' };
+}
+function acyclic(f) {
+  const le = liveEdges(f), indeg = {}, adj = {}, ids = new Set();
+  for (const e of le) { ids.add(e.u); ids.add(e.v); (adj[e.u] = adj[e.u] || []).push(e.v); indeg[e.v] = (indeg[e.v] || 0) + 1; }
+  const q = [...ids].filter(i => !indeg[i]); let n = 0;
+  while (q.length) { const u = q.pop(); n++; for (const v of adj[u] || []) if (--indeg[v] === 0) q.push(v); }
+  return n === ids.size;
+}
+function checkI2(f) {
+  if (!acyclic(f)) return { ok: false, why: 'a forward cycle' };
+  const fbT = new Set(liveFb(f).map(x => ek(typeOf(f, x.u), typeOf(f, x.v))));
+  if (fbT.size > 1) return { ok: false, why: fbT.size + ' return edges at once' };
+  for (const x of liveFb(f)) {
+    if (x.g > G_MAX + 1e-9) return { ok: false, why: 'return gain ' + x.g.toFixed(2) + ' > ' + G_MAX };
+    const dt = typeOf(f, x.v);
+    if (!FB_TARGETS[dt]) return { ok: false, why: 'return into ' + NAME[dt] };
+    if (f.order.indexOf(x.v) >= f.order.indexOf(x.u)) return { ok: false, why: 'return runs forward' };
+  }
+  return { ok: true, why: '' };
+}
+function endpointSets(Lp, Rp) {
+  const s = new Set(); for (const P of [Lp, Rp]) for (const [u, v] of edgesOf(P)) s.add(ek(u, v));
+  const fb = new Set(); for (const P of [Lp, Rp]) if (P.fb) fb.add(ek(P.fb.src, P.fb.dst));
+  return { E: s, fb, reach: [Lp, Rp].map(P => reachOf(staticFrame(P))) };
+}
+function checkI3(f, ES) {
+  const bad = [...typeEdges(f)].filter(k => !ES.E.has(k));
+  const fbBad = liveFb(f).map(x => ek(typeOf(f, x.u), typeOf(f, x.v))).filter(k => !ES.fb.has(k));
+  const all = bad.concat(fbBad.map(k => 'return ' + k));
+  return { ok: !all.length, why: all.length ? 'new: ' + all.map(k => k.split('>').map(t => SHORT[t] || t).join('→')).join(', ') : '', bad };
+}
+function reachOf(f) {
+  const adj = {};
+  for (const k of typeEdges(f)) { const [u, v] = k.split('>'); (adj[u] = adj[u] || []).push(v); }
+  for (const x of liveFb(f)) { const u = typeOf(f, x.u), v = typeOf(f, x.v); (adj[u] = adj[u] || []).push(v); }
+  const out = {};
+  for (const l of LANES) { const seen = new Set(), st = [l]; while (st.length) { const u = st.pop(); for (const v of adj[u] || []) if (!seen.has(v)) { seen.add(v); st.push(v); } } out[l] = seen; }
+  return out;
+}
+function checkI3p(f, ES) {
+  const r = reachOf(f), bad = [];
+  for (const l of LANES) for (const m of r[l]) if (m !== 'OUT' && !ES.reach[0][l].has(m) && !ES.reach[1][l].has(m)) bad.push(SHORT[l] + '→' + SHORT[m]);
+  return { ok: !bad.length, why: bad.length ? 'reaches ' + bad.join(', ') : '' };
+}
+function liveOrder(f) {
+  const le = liveEdges(f), live = new Set();
+  for (const e of le) if (e.w >= 0.5) { if (!isLane(e.u) && e.u !== 'OUT') live.add(e.u); if (e.v !== 'OUT') live.add(e.v); }
+  return f.order.filter(id => live.has(id) && typeOf(f, id) !== 'WIRE').map(id => typeOf(f, id));
+}
+function checkI4(f) { const o = liveOrder(f); return { ok: APPROVED.has(okey(o)), why: APPROVED.has(okey(o)) ? '' : SHORT_ORDER(o) + ' not approved' }; }
+const SHORT_ORDER = o => o.length ? o.map(t => SHORT[t]).join(' ') : '(dry)';
+/* I6 on GAIN: a lane's static transmission to OUT, i.e. the transfer matrix of
+   the weighted graph — sum over forward paths of the product of edge weights.
+   Module gains are taken as 1 (static per-edge gains, not the DSP), and return
+   edges are excluded: I6 asks for a FORWARD path, which a return never is. */
+function transmission(f, lane) {
+  const le = liveEdges(f), indeg = {}, adj = {}, ids = new Set([lane]);
+  for (const e of le) { ids.add(e.u); ids.add(e.v); (adj[e.u] = adj[e.u] || []).push(e); indeg[e.v] = (indeg[e.v] || 0) + 1; }
+  const t = {}; t[lane] = 1;
+  const q = [...ids].filter(i => !indeg[i]); let n = 0;
+  while (q.length) { const u = q.pop(); n++; for (const e of adj[u] || []) { t[e.v] = (t[e.v] || 0) + (e.u === lane ? 1 : t[e.u] || 0) * e.w; if (--indeg[e.v] === 0) q.push(e.v); } }
+  if (n !== ids.size) return NaN;
+  return t.OUT || 0;
+}
+function canon(f) {
+  const wmax = new Map(); for (const q of liveEdges(f)) { const k = ek(typeOf(f, q.u), typeOf(f, q.v)); wmax.set(k, Math.max(wmax.get(k) || 0, q.w)); }
+  const E = [...typeEdges(f)].filter(k => !wmax.has(k) || wmax.get(k) >= 0.5);
+  // keep only edges on some lane → OUT path: a dangling module is not something you hear
+  const fwd = new Set(LANES), bwd = new Set(['OUT']); let g = true;
+  while (g) { g = false; for (const k of E) { const [u, v] = k.split('>'); if (fwd.has(u) && !fwd.has(v)) { fwd.add(v); g = true; } if (bwd.has(v) && !bwd.has(u)) { bwd.add(u); g = true; } } }
+  const keep = E.filter(k => { const [u, v] = k.split('>'); return fwd.has(u) && bwd.has(v); }).sort();
+  const fb = liveFb(f).filter(x => x.g >= 0.05).map(x => 'fb' + ek(typeOf(f, x.u), typeOf(f, x.v)));
+  return keep.concat(fb).join(' ');
+}
+
+/* ---------- one sweep: every invariant at every x, plus the metrics ---------- */
+function sweep(frameAt, Lp, Rp, events, T, w) {
+  const ES = endpointSets(Lp, Rp), base = endpointGains(Lp, Rp);
+  const inv = { I1: 0, I2: 0, I3: 0, I3p: 0, I4: 0, I6: 0 }, first = {}, why = {};
+  const states = new Set(), bad = [];
+  let prev = null, maxStep = 0, minT = { BODY: Infinity, SUB: Infinity };
+  const cL = canon(staticFrame(Lp)), cR = canon(staticFrame(Rp));
+  for (let i = 0; i < NGRID; i++) {
+    const x = i / (NGRID - 1), f = frameAt(x);
+    const r = { I1: checkI1(f), I2: checkI2(f), I3: checkI3(f, ES), I3p: checkI3p(f, ES), I4: checkI4(f) };
+    let i6ok = true;
+    for (const l of LANES) { const g = transmission(f, l) / base[l]; const gg = isNaN(g) ? 0 : g; if (gg < minT[l]) minT[l] = gg; if (!(gg >= I6_FLOOR)) i6ok = false; }
+    r.I6 = { ok: i6ok, why: i6ok ? '' : 'a lane below the floor' };
+    const b = {};
+    for (const k in r) if (!r[k].ok) { inv[k]++; b[k] = 1; if (first[k] === undefined) { first[k] = x; why[k] = r[k].why; } }
+    bad.push(b);
+    // continuity: every edge, node and return weight between neighbouring x
+    const wm = new Map();
+    const add = (k, v) => wm.set(k, (wm.get(k) || 0) + v);
+    for (const e of f.edges) add('e' + ek(e.u, e.v), e.w);
+    for (const n of f.nodes) if (n.w !== undefined) wm.set('n' + n.id, n.w);
+    for (const e of f.fb) add('f' + ek(e.u, e.v), e.g);
+    if (prev) { for (const [k, v] of wm) maxStep = Math.max(maxStep, Math.abs(v - (prev.get(k) || 0))); for (const [k, v] of prev) if (!wm.has(k)) maxStep = Math.max(maxStep, v); }
+    prev = wm;
+    const c = canon(f); if (c !== cL && c !== cR) states.add(c);
+  }
+  // I5: spacing between crossfades, and each one a crossfade (a continuous weight path)
+  const ev = events.slice().sort((a, b) => a.t - b.t);
+  let close = 0;
+  for (let i = 1; i < ev.length; i++) if (ev[i].t - ev[i - 1].t < w - 1e-9) close++;
+  const waived = T < T_STACK, smooth = maxStep < STEP_MAX;
+  const I5ok = smooth && (close === 0 || waived);
+  return { inv, first, why, bad, n: NGRID, states: states.size, stateList: [...states], maxStep, close, waived, I5ok,
+           minT: Math.min(minT.BODY, minT.SUB), minLane: minT };
+}
+
+/* ---------- the algorithms, assembled ---------- */
+const ALGS = [
+  { id: 'A', name: 'rank keys', line: 'each module slides from its L rank to its R rank at its own seeded pace; the order is the sort' },
+  { id: 'B', name: 'edit path', line: 'the minimal adjacent-swap sequence; each swap at a seeded threshold' },
+  { id: 'C', name: 'approved-order graph', line: 'a shortest walk through tested orders, one swap at a time' },
+  { id: 'D', name: 'naive slot splicing', line: 'THE CONTROL: slot k switches from L\'s k-th module to R\'s; lanes enter by slot index' },
+];
+function build(alg, pair, o) {
+  const Lp = withFb(pair.L, o.fb), Rp = withFb(pair.R, o.fb);
+  const spreadOn = o.spread !== false;
+  if (alg === 'D') {
+    const D = planD(Lp, Rp, o.seed, o.T, o.coup, spreadOn, o.w);
+    return { alg, Lp, Rp, D, frameAt: x => frameD(D, x), events: D.events, flips: [], path: null, info: {} };
+  }
+  const path = alg === 'A' ? pathA(Lp, Rp, o.seed, o.T, o.coup)
+             : alg === 'B' ? pathB(Lp, Rp, o.seed, o.T, o.coup, spreadOn)
+             : pathC(Lp, Rp, o.seed, o.T, o.coup, spreadOn, o.plant === 'unapproved');
+  let R = route(Lp, Rp, path, o), beta = 0;
+  /* STEP RELAXATION (B and C only). If the seeded step times crowd the router
+     (I5), blend them toward even spacing — half way, then all the way — and keep
+     the first placement whose crossfades all fit. Deterministic, and the seed
+     still decides the path and every port time. Rank keys (A) cannot do this:
+     their steps are wherever the keys happen to cross. */
+  if (alg !== 'A' && spreadOn && o.T >= T_STACK && o.relax !== false && crowded(R) && path.xs.length) {
+    const seeded = path.xs.slice(), n = seeded.length;
+    for (const bt of [0.5, 1]) {
+      const p2 = Object.assign({}, path, { xs: seeded.map((t, k) => (1 - bt) * t + bt * (k + 1) / (n + 1)) });
+      const R2 = route(Lp, Rp, p2, o);
+      if (crowded(R2) < crowded(R)) { R = R2; beta = bt; }
+      if (!crowded(R)) break;
+    }
+  }
+  const frameAt = o.plant === 'serial' ? x => frameSerial(R, x) : x => frameR(R, x);
+  return { alg, Lp, Rp, R, path: R.path, frameAt, events: R.events, flips: R.flips,
+           info: { steps: path.steps, minimal: path.minimal, forced: R.forced, repairs: R.repairs, error: path.error, beta } };
+}
+function crowded(R) { let n = 0; const e = R.events; for (let i = 1; i < e.length; i++) if (e[i].t - e[i - 1].t < R.w - 1e-9) n++; return n; }
+function evaluate(b, o) {
+  const s = sweep(b.frameAt, b.Lp, b.Rp, b.events, o.T, o.w === undefined ? W : o.w);
+  s.audible = b.events.length; s.silent = b.flips.length;
+  return s;
+}
+
+/* ---------- the sound: a small sample-based engine, shared by POWER and the metrics ----------
+   Deliberately cheap DSP — this lab races ROUTING, not modules. Drive: tanh.
+   Filter: one TPT state-variable lowpass. Delay: one line with feedback and mix.
+   Reverb: a small Schroeder (four combs, two allpasses). Every node sums its
+   weighted inputs; a return edge adds tanh(its source's previous sample) × gain
+   (tanh: rule F3's amplitude bound, so a loop can never run away). Time is a
+   sample counter; nothing reads a clock. */
+const BODY_HZ = [110, 130.81, 164.81], SUB_HZ = 55;
+const OUT_GAIN = 0.45;   // headroom for make-before-break: two parallel paths sum to +6 dB
+function mkInst(type, sr) {
+  if (type === 'DRV') { let k = 3, n = 1; return { set(p) { k = p.drive; n = 0.5 / Math.tanh(0.5 * k); }, run: x => n * Math.tanh(k * x) }; }
+  if (type === 'FLT') {
+    let a1 = 0, a2 = 0, a3 = 0, ic1 = 0, ic2 = 0;
+    return { set(p) { const g = Math.tan(Math.PI * Math.min(p.cut, 0.45 * sr) / sr), k = 2 - 2 * p.res; a1 = 1 / (1 + g * (g + k)); a2 = g * a1; a3 = g * a2; },
+             run(x) { const v3 = x - ic2, v1 = a1 * ic1 + a2 * v3, v2 = ic2 + a2 * ic1 + a3 * v3; ic1 = 2 * v1 - ic1; ic2 = 2 * v2 - ic2; return v2; } };
+  }
+  if (type === 'DLY') {
+    const N = Math.ceil(sr * 0.6) + 2, buf = new Float32Array(N); let w = 0, d = sr * 0.2, dt = d, fb = 0.3, mix = 0.3;
+    const sm = Math.exp(-1 / (0.05 * sr));    // 50 ms slew on the delay time: seconds, converted per sample (ADR-009)
+    return { set(p) { dt = p.time * sr; fb = p.fbk; mix = p.mix; },
+             run(x) { d = dt + (d - dt) * sm; let r = w - d; if (r < 0) r += N; const i = Math.floor(r), f = r - i, j = (i + 1) % N;
+                      const y = buf[i] + (buf[j] - buf[i]) * f; buf[w] = x + fb * y; w = (w + 1) % N; return x + mix * y; } };
+  }
+  if (type === 'REV') {
+    const cl = [1116, 1188, 1277, 1356].map(n => Math.round(n * sr / 44100)), al = [556, 441].map(n => Math.round(n * sr / 44100));
+    const cb = cl.map(n => ({ b: new Float32Array(n), i: 0, lp: 0 })), ab = al.map(n => ({ b: new Float32Array(n), i: 0 }));
+    let f = 0.84, gi = 0.5, mix = 0.3;
+    return { set(p) { f = 0.7 + 0.26 * p.size; gi = Math.sqrt(1 - f * f); mix = p.mix; },
+             run(x) {
+               let s = 0;
+               for (const c of cb) { const y = c.b[c.i]; c.lp = y * 0.7 + c.lp * 0.3; c.b[c.i] = x * gi + c.lp * f; c.i = (c.i + 1) % c.b.length; s += y; }
+               s *= 0.5;
+               for (const a of ab) { const y = a.b[a.i]; const v = s + 0.5 * y; a.b[a.i] = v; a.i = (a.i + 1) % a.b.length; s = y - 0.5 * v; }
+               return x * (1 - 0.5 * mix) + s * mix; } };
+  }
+  return { set() {}, run: x => x };            // WIRE (D's empty slot)
+}
+function Engine(sr) {
+  this.sr = sr; this.inst = new Map(); this.prev = new Map(); this.ph = [0, 0, 0, 0]; this.n = 0;
+  this.last = new Map(); this.pulse = false;
+}
+/* Render n samples at frame f into out[off..]. Edge weights ramp linearly across
+   the block from the previous block's values: a new edge starts from 0, and an
+   edge that vanished ramps to 0 — nothing ever snaps inside the engine. */
+Engine.prototype.block = function (f, out, off, n) {
+  const sr = this.sr, ids = ['BODY', 'SUB'], ix = { BODY: 0, SUB: 1 };
+  for (const nd of f.nodes) {
+    ix[nd.id] = ids.length; ids.push(nd.id);
+    let it = this.inst.get(nd.id);
+    if (!it || it.type !== nd.type) { it = mkInst(nd.type, sr); it.type = nd.type; this.inst.set(nd.id, it); }
+    if (nd.p) it.set(nd.p);
+  }
+  const order = f.order.filter(id => ix[id] !== undefined).map(id => ix[id]);
+  for (const nd of f.nodes) if (!f.order.includes(nd.id)) order.push(ix[nd.id]);
+  const taps = ids.map(() => []), outT = [], fbT = ids.map(() => []), next = new Map();
+  const tap = (k, u, v, w0, w1) => {
+    if (ix[u] === undefined) return;
+    if (k.startsWith('fb')) { if (ix[v] !== undefined) fbT[ix[v]].push([ix[u], w0, w1]); }
+    else if (v === 'OUT') outT.push([ix[u], w0, w1]); else if (ix[v] !== undefined) taps[ix[v]].push([ix[u], w0, w1]);
+  };
+  for (const e of f.edges) { const k = ek(e.u, e.v); next.set(k, (next.get(k) || 0) + e.w); }
+  for (const e of f.fb) { const k = 'fb' + ek(e.u, e.v); next.set(k, (next.get(k) || 0) + e.g); }
+  for (const [k, w1] of next) { const [u, v] = k.replace(/^fb/, '').split('>'); tap(k, u, v, this.prev.has(k) ? this.prev.get(k) : 0, w1); }
+  for (const [k, w0] of this.prev) if (!next.has(k)) { const [u, v] = k.replace(/^fb/, '').split('>'); tap(k, u, v, w0, 0); }
+  this.prev = next;
+  const val = new Float64Array(ids.length), last = ids.map(id => this.last.get(id) || 0), insts = ids.map(id => this.inst.get(id));
+  const inc = BODY_HZ.map(hz => hz / sr), sinc = SUB_HZ / sr, gate = Math.round(sr * 0.25);
+  for (let s = 0; s < n; s++) {
+    const a = s / n;
+    let body = 0;
+    for (let v = 0; v < 3; v++) {                // PolyBLEP saws
+      let p = this.ph[v] + inc[v]; if (p >= 1) p -= 1; this.ph[v] = p;
+      let y = 2 * p - 1; const dt = inc[v];
+      if (p < dt) { const t = p / dt; y -= t + t - t * t - 1; } else if (p > 1 - dt) { const t = (p - 1) / dt; y -= t * t + t + t + 1; }
+      body += 0.16 * y;
+    }
+    if (this.pulse) { const c = (this.n % gate) / sr; body *= c < 0.004 ? c / 0.004 : c < 0.15 ? 1 : c < 0.158 ? (0.158 - c) / 0.008 : 0; }
+    this.ph[3] += sinc; if (this.ph[3] >= 1) this.ph[3] -= 1;
+    val[0] = body; val[1] = 0.35 * Math.sin(2 * Math.PI * this.ph[3]);
+    for (const i of order) {
+      let x = 0;
+      for (const [j, w0, w1] of taps[i]) x += (w0 + (w1 - w0) * a) * val[j];
+      for (const [j, w0, w1] of fbT[i]) x += (w0 + (w1 - w0) * a) * Math.tanh(last[j]);
+      val[i] = insts[i].run(x);
+    }
+    let y = 0; for (const [j, w0, w1] of outT) y += (w0 + (w1 - w0) * a) * val[j];
+    for (let i = 2; i < ids.length; i++) last[i] = val[i];
+    out[off + s] = OUT_GAIN * y; this.n++;
+  }
+  ids.forEach((id, i) => this.last.set(id, last[i]));
+};
+/* THE STEP METRIC. Render: 0.5 s settle at x = 0 (discarded), 0.2 s at x = 0,
+   a 2.4 s linear sweep to x = 1, 0.2 s at x = 1, at 16 kHz. Level in 32 ms
+   windows; the worst jump is the largest dB change between neighbouring
+   windows. The baseline is the same statistic on the two endpoints rendered
+   STILL — so what the table reports is what the MORPH adds, not the chord's own
+   beating. */
+const RSR = 16000, RBLK = 32, RWIN = 512;
+function renderSweep(frameAt, xFn, secs, sr) {
+  sr = sr || RSR;
+  const E = new Engine(sr), N = Math.round(secs * sr), y = new Float32Array(N), pre = Math.round(0.5 * sr);
+  const junk = new Float32Array(RBLK);
+  for (let s = 0; s < pre; s += RBLK) E.block(frameAt(xFn(0)), junk, 0, RBLK);
+  for (let s = 0; s < N; s += RBLK) E.block(frameAt(xFn(s / N)), y, s, Math.min(RBLK, N - s));
+  return y;
+}
+function stepDb(y) {
+  const db = [];
+  for (let s = 0; s + RWIN <= y.length; s += RWIN) { let e = 0; for (let i = s; i < s + RWIN; i++) e += y[i] * y[i]; db.push(10 * Math.log10(Math.max(1e-8, e / RWIN))); }
+  let worst = 0, at = 0;
+  for (let i = 1; i < db.length; i++) { const d = Math.abs(db[i] - db[i - 1]); if (d > worst) { worst = d; at = i; } }
+  let peak = 0; for (const v of y) peak = Math.max(peak, Math.abs(v));
+  return { worst, at: at * RWIN / y.length, peak, db };
+}
+const SWEEP_SECS = 2.8;
+const sweepX = u => u < 0.2 / 2.8 ? 0 : u > 2.6 / 2.8 ? 1 : (u - 0.2 / 2.8) / (2.4 / 2.8);
+function jumpOf(b) {
+  const m = stepDb(renderSweep(b.frameAt, sweepX, SWEEP_SECS));
+  const L = stepDb(renderSweep(b.frameAt, () => 0, SWEEP_SECS)), R = stepDb(renderSweep(b.frameAt, () => 1, SWEEP_SECS));
+  // A sample-step (click) ratio was tried beside this and dropped: the engine ramps
+  // every edge across one 2 ms block, so a hard switch in x never reaches the
+  // samples as a step (a w = 0 plant read 0.75x against 1-3.8x smooth). The
+  // structural continuity check in sweep() is what catches a hard switch.
+  return { worst: m.worst, at: sweepX(m.at), base: Math.max(L.worst, R.worst), peak: m.peak, db: m.db };
+}
+
+/* ---------- the self-check: every claim with a planted fault that must fail it ----------
+   Runs at load over all five pairs, both feedback modes, the default seed and
+   temperature, for A, B and C (D is reported, never asserted: it is the
+   control). Every claim's control is a real alternative built from the same
+   functions with one thing broken — so a check that passes because it cannot
+   see is caught by its own control reading green. */
+const DEFAULTS = { seed: 265, T: 0.7, coup: 0 };
+function endpointExact(b) {
+  const want = (P) => { const m = new Map(); for (const [u, v] of edgesOf(P)) m.set(ek(u, v), 1); return m; };
+  // D's empty slots are WIRE nodes: weigh the real edges, and count a path through
+  // wires as its collapsed type edge (typeEdges), which at an end has weight 1.
+  const got = (f) => { const m = new Map();
+    for (const e of liveEdges(f)) { if (typeOf(f, e.u) === 'WIRE' || typeOf(f, e.v) === 'WIRE') continue; const k = ek(typeOf(f, e.u), typeOf(f, e.v)); m.set(k, (m.get(k) || 0) + e.w); }
+    for (const k of typeEdges(f)) if (!m.has(k)) m.set(k, 1);
+    return m; };
+  const same = (a, b) => a.size === b.size && [...a].every(([k, v]) => b.has(k) && Math.abs(b.get(k) - v) < 1e-9);
+  const fbOk = (f, P) => { const l = liveFb(f); return P.fb ? l.length === 1 && Math.abs(l[0].g - P.fb.g) < 1e-9 : l.length === 0; };
+  const f0 = b.frameAt(0), f1 = b.frameAt(1);
+  return same(want(b.Lp), got(f0)) && same(want(b.Rp), got(f1)) && fbOk(f0, b.Lp) && fbOk(f1, b.Rp);
+}
+/* Split into steps so the page can run one per tick (the whole check is ~2 s of
+   model work) while a headless run calls runSelfCheck() and gets every row. */
+function selfCheckSteps() {
+  const rows = [], steps = [], add = (claim, res, control, cres) => rows.push({ claim, pass: res.ok, detail: res.detail, control, caught: !cres.ok, cdetail: cres.detail });
+  const step = f => steps.push(f);
+  const cache = new Map();
+  const get = (alg, pi, fb, extra) => {
+    const key = alg + pi + fb + JSON.stringify(extra || {});
+    if (!cache.has(key)) { const o = Object.assign({}, DEFAULTS, { fb }, extra || {}); const b = build(alg, PAIRS[pi], o); cache.set(key, { b, s: evaluate(b, o) }); }
+    return cache.get(key);
+  };
+  const ABC = ['A', 'B', 'C'];
+  const every = (algs, pred) => {
+    let n = 0;
+    for (const a of algs) for (let pi = 0; pi < PAIRS.length; pi++) for (const fb of [false, true]) {
+      const { s } = get(a, pi, fb); n++;
+      const r = pred(s, a, pi, fb); if (r) return { ok: false, detail: `${a} on '${PAIRS[pi].name}'${fb ? ' with the return' : ''}: ${r}` };
+    }
+    return { ok: true, detail: `${n} morphs × ${NGRID} x positions` };
+  };
+  const one = (alg, pi, fb, extra, pred) => { const { s } = get(alg, pi, fb, extra); const r = pred(s); return r ? { ok: false, detail: r } : { ok: true, detail: 'held — the plant was NOT caught' }; };
+  const inv = k => s => s.inv[k] ? `${s.inv[k]}/${s.n} positions fail from x=${s.first[k].toFixed(3)} (${s.why[k]})` : '';
+  step(() => {
+
+    add('I1 — one module per type at every x: A, B, C, all five pairs, with and without the return', every(ABC, inv('I1')),
+        'a swap crossfaded by a SECOND instance of the moved module (B, one swap)', one('B', 0, false, { plant: 'dup' }, inv('I1')));
+  });
+  step(() => {
+    add('I2 — the forward graph stays acyclic, at most one return, gain ≤ ' + G_MAX + ', landing on a Delay or Reverb', every(ABC, inv('I2')),
+        'three plants: the router without its order gate (B, across the set), a return at 1.8× its gain, a return re-aimed at the Filter',
+        (() => { const r = [one('B', 1, false, { plant: 'nogate' }, inv('I2')), one('B', 0, true, { plant: 'fbhot' }, inv('I2')), one('B', 0, true, { plant: 'fbflt' }, inv('I2'))];
+                 return r.every(q => !q.ok) ? { ok: false, detail: r.map(q => q.detail).join(' · ') } : { ok: true, detail: 'a plant was not caught' }; })());
+  });
+  step(() => {
+    add('I3 — no edge mid-morph that exists at neither end (edge reading)', every(ABC, inv('I3')),
+        'the "serial reading": the same order path wired as a plain series chain (B, across the set)', one('B', 1, false, { plant: 'serial' }, inv('I3')));
+  });
+  step(() => {
+    add('I3·path — no lane reaches a module mid-morph that it reaches at neither end (the Sub-into-Reverb rule, read on paths)', every(ABC, inv('I3p')),
+        'the same scheduler with the reach guard off (C, Sub on the glue): make-before-break alone', one('C', 3, false, { reach: false }, inv('I3p')));
+  });
+  step(() => {
+    add('I4 — algorithm C never leaves the approved set', every(['C'], inv('I4')),
+        'C with one unapproved order spliced into its walk (across the set)', one('C', 1, false, { plant: 'unapproved' }, inv('I4')));
+  });
+  step(() => {
+    add('I5 — every structural event is a crossfade: no weight moves more than ' + STEP_MAX + ' per dx, for all four algorithms',
+        every(['A', 'B', 'C', 'D'], s => s.maxStep >= STEP_MAX ? 'a weight stepped ' + s.maxStep.toFixed(2) : ''),
+        'the same morph with zero-width crossfades (B, across the set)', one('B', 1, false, { w: 0 }, s => s.maxStep >= STEP_MAX ? 'a weight stepped ' + s.maxStep.toFixed(2) + ' in one dx' : ''));
+  });
+  step(() => {
+    add('I5 — B spaces its events at least one crossfade apart on every pair (the check reports A and C, it does not assert them)',
+        every(['B'], s => s.close ? s.close + ' pairs of events closer than ' + W : ''),
+        'coupling 1 with the spread pass off: every event wants the same threshold (B, across the set)',
+        one('B', 1, false, { coup: 1, spread: false }, s => s.close ? s.close + ' pairs of events closer than ' + W : ''));
+  });
+  step(() => {
+    add('I6 — every lane keeps ≥ ' + I6_FLOOR + ' of its endpoint gain to the output at every x: A, B, C and D, all pairs', every(['A', 'B', 'C', 'D'], inv('I6')),
+        'break-before-make: every port drops its old sources a crossfade before the new ones arrive (B, Sub through a leaver)',
+        one('B', 4, false, { plant: 'bbm' }, s => s.inv.I6 ? `min lane gain ${s.minT.toFixed(2)}, below the floor at ${s.inv.I6}/${s.n} positions` : ''));
+  });
+  step(() => {
+    add('Endpoints are exact: at x = 0 every algorithm is L (edges at weight 1, the return at its gain), at x = 1 it is R',
+        (() => { for (const a of ['A', 'B', 'C', 'D']) for (let pi = 0; pi < PAIRS.length; pi++) for (const fb of [false, true]) if (!endpointExact(get(a, pi, fb).b)) return { ok: false, detail: a + ' on ' + PAIRS[pi].name }; return { ok: true, detail: '40 morphs, both ends' }; })(),
+        'crossfades allowed to hang off the ends of the pad (B, one swap)',
+        endpointExact(get('B', 0, false, { plant: 'nowin' }).b) ? { ok: true, detail: 'ends still exact — NOT caught' } : { ok: false, detail: 'x = 0 is no longer L' });
+  });
+  step(() => {
+    // the render metric sees a dip, and reads ~baseline when nothing moves
+    const jB = jumpOf(get('B', 4, false).b), jX = jumpOf(get('B', 4, false, { plant: 'bbm' }).b);
+    add('The render metric: B\'s morph on the leaver pair stays within 6 dB per 32 ms window, and a still render reads its own baseline',
+        jB.worst < 6 && jB.base < 3 ? { ok: true, detail: `morph ${jB.worst.toFixed(1)} dB, still endpoints ${jB.base.toFixed(1)} dB` } : { ok: false, detail: `morph ${jB.worst.toFixed(1)} dB, base ${jB.base.toFixed(1)} dB` },
+        'the break-before-make plant, rendered', jX.worst < 6 ? { ok: true, detail: jX.worst.toFixed(1) + ' dB — NOT caught' } : { ok: false, detail: `${jX.worst.toFixed(1)} dB step at x ≈ ${jX.at.toFixed(2)}: the Sub drops out` });
+  });
+  step(() => {
+    // the threshold law: temperature spreads, coupling collapses, T = 0 is the cut
+    const sd = (T, c) => { const d = drawer(265, 'law', T, c), v = []; for (let i = 0; i < 400; i++) v.push(d()); const m = v.reduce((a, b) => a + b) / v.length; return Math.sqrt(v.reduce((a, b) => a + (b - m) * (b - m), 0) / v.length); };
+    const s0 = sd(0, 0), s1 = sd(1, 0), sc = sd(1, 1);
+    add('The threshold law: T = 0 puts every threshold at 0.5 (the hard cut), T = 1 makes them uniform (σ ≈ 0.289)',
+        s0 < 1e-12 && Math.abs(s1 - 0.2887) < 0.03 ? { ok: true, detail: `σ at T=0: ${s0.toExponential(1)}; at T=1: ${s1.toFixed(3)}` } : { ok: false, detail: `σ ${s0} / ${s1}` },
+        'coupling 1 at T = 1: every event shares one draw', sc > 0.1 ? { ok: true, detail: 'still spread — NOT caught' } : { ok: false, detail: `σ = ${sc.toExponential(1)}: one shared threshold` });
+  });
+  step(() => {
+    // determinism
+    const h = b => b.events.map(e => e.label + e.t.toFixed(9)).join('|');
+    const b1 = build('C', PAIRS[1], Object.assign({}, DEFAULTS, { fb: true })), b2 = build('C', PAIRS[1], Object.assign({}, DEFAULTS, { fb: true }));
+    const b3 = build('C', PAIRS[1], Object.assign({}, DEFAULTS, { fb: true, seed: DEFAULTS.seed + 1 }));
+    const r1 = renderSweep(b1.frameAt, sweepX, 0.4), r2 = renderSweep(b2.frameAt, sweepX, 0.4);
+    let same = r1.length === r2.length; for (let i = 0; same && i < r1.length; i++) if (r1[i] !== r2[i]) same = false;
+    add('Deterministic: the same seed gives the same events and a bit-identical render',
+        same && h(b1) === h(b2) ? { ok: true, detail: `${b1.events.length} events, ${r1.length} samples identical` } : { ok: false, detail: 'differs' },
+        'the next seed, compared as if it were the same', h(b1) === h(b3) ? { ok: true, detail: 'identical — the seed does nothing' } : { ok: false, detail: 'events move: the seed decides' });
+
+  });
+  return { rows, steps };
+}
+function runSelfCheck() { const c = selfCheckSteps(); for (const f of c.steps) f(); return c.rows; }
+</script>
+
+<script>
+/* ======================================================================
+   BLOCK 2 — THE PAGE. State first, then derived data, renderers, painters,
+   audio, the deferred job queue, and the wiring at the very bottom (L0026:
+   nothing at setup reaches forward).
+   ====================================================================== */
+const $ = id => document.getElementById(id);
+const QS = (() => { try { const q = window.location && window.location.search; return typeof q === 'string' ? q : ''; } catch (_) { return ''; } })();
+const qv = (k, d) => { const m = QS.match(new RegExp('[?&]' + k + '=([^&]+)')); return m ? decodeURIComponent(m[1]) : d; };
+const ALG_IDS = ['A', 'B', 'C', 'D'];
+const INV = ['I1', 'I2', 'I3', 'I3p', 'I4', 'I5', 'I6'];
+const INV_LABEL = { I1: 'I1', I2: 'I2', I3: 'I3', I3p: 'I3·path', I4: 'I4', I5: 'I5', I6: 'I6' };
+const FLOWN = 241;                       // braid samples per flow map
+let pairIdx = Math.max(0, PAIRS.findIndex(p => p.id === qv('pair', 'across')));
+let fbOn = qv('fb', '0') === '1';
+let T = +qv('T', String(DEFAULTS.T)), coup = +qv('c', String(DEFAULTS.coup)), seed = +qv('seed', String(DEFAULTS.seed));
+let X = Math.min(1, Math.max(0, +qv('x', '0.5'))), listen = ALG_IDS.includes(qv('listen', 'C')) ? qv('listen', 'C') : 'C';
+let dark = /theme=dark/.test(QS), sweeping = false, sweepT = 0, dragStrip = false, pulse = true, dirty = true;
+let BUILDS = {}, EVALS = {}, FLOW = {}, JUMPS = {}, RACE = {}, FBC = {}, CHECK = null, CHECK_N = 0;
+let PAL = {};
+let AC = null, SPN = null, AN = null, ENG = null, scopeBuf = null, clipHold = 0, xAudio = X;
+let jobs = [], jobGen = 0;
+const opts = extra => Object.assign({ seed, T, coup, fb: fbOn }, extra || {});
+const pct = (n, d) => (100 * n / d < 1 ? '<1' : Math.round(100 * n / d)) + '%';
+
+/* ---------- derived data ---------- */
+function invHeld(s) {
+  return { I1: !s.inv.I1, I2: !s.inv.I2, I3: !s.inv.I3, I3p: !s.inv.I3p, I4: !s.inv.I4, I5: s.I5ok, I6: !s.inv.I6 };
+}
+function heldCount(s) { const h = invHeld(s); return INV.filter(k => h[k]).length; }
+/* A flow map's data: at FLOWN x positions, each node's row (its place in the
+   order; D: its slot), whether it is live (on a lane → out path at weight ≥ 0.5)
+   and whether the Sub reaches it. */
+function flowData(b) {
+  const pts = [];
+  for (let i = 0; i < FLOWN; i++) {
+    const x = i / (FLOWN - 1), f = b.frameAt(x), live = liveSet(f), sub = reachOf(f).SUB, rows = {};
+    if (b.alg === 'D') f.nodes.forEach(n => { if (n.w > EPS && n.type !== 'WIRE') rows[n.id] = { row: +n.id.slice(1, 2), type: n.type, live: live.has(n.id), sub: sub.has(n.type) }; });
+    else f.order.forEach((m, k) => { rows[m] = { row: k, type: m, live: live.has(m), sub: sub.has(m) }; });
+    pts.push(rows);
+  }
+  return { pts, rowsN: b.alg === 'D' ? b.D.slots.length : b.R.U.length };
+}
+function liveSet(f) {
+  const E = liveEdges(f).filter(e => e.w >= 0.5), fwd = new Set(LANES), bwd = new Set(['OUT']); let g = true;
+  while (g) { g = false; for (const e of E) { if (fwd.has(e.u) && !fwd.has(e.v)) { fwd.add(e.v); g = true; } if (bwd.has(e.v) && !bwd.has(e.u)) { bwd.add(e.u); g = true; } } }
+  const s = new Set(); for (const id of fwd) if (bwd.has(id)) s.add(id); return s;
+}
+function laneGains(f, Lp, Rp) { const base = endpointGains(Lp, Rp), o = {}; for (const l of LANES) o[l] = transmission(f, l) / base[l]; return o; }
+
+/* ---------- recompute + the deferred queue ---------- */
+function recompute() {
+  const o = opts();
+  jobGen++;
+  for (const a of ALG_IDS) { BUILDS[a] = build(a, PAIRS[pairIdx], o); EVALS[a] = evaluate(BUILDS[a], o); FLOW[a] = flowData(BUILDS[a]); }
+  JUMPS = {}; RACE = {}; FBC = {};
+  renderAll();
+  jobs = [];
+  for (const a of ALG_IDS) jobs.push(() => { JUMPS[a] = jumpOf(BUILDS[a]); });
+  for (let pi = 0; pi < PAIRS.length; pi++) for (const a of ALG_IDS) jobs.push(() => {
+    const b = pi === pairIdx ? BUILDS[a] : build(a, PAIRS[pi], o), s = pi === pairIdx ? EVALS[a] : evaluate(b, o);
+    RACE[a + pi] = { s, b, j: pi === pairIdx && JUMPS[a] ? JUMPS[a] : jumpOf(b) };
+  });
+  for (let pi = 0; pi < PAIRS.length; pi++) for (const a of ALG_IDS) jobs.push(() => {
+    const out = {};
+    for (const fb of [false, true]) {
+      const oo = opts({ fb }); const b = build(a, PAIRS[pi], oo), s = evaluate(b, oo);
+      out[fb ? 'one' : 'none'] = { s, events: b.events.length, fbLive: fbLiveShare(b) };
+    }
+    FBC[a + pi] = out;
+  });
+  if (!CHECK) {
+    const c = selfCheckSteps(); CHECK_N = c.steps.length;
+    for (const f of c.steps) jobs.push(() => { f(); CHECK = c.rows; });
+  }
+  const gen = jobGen;
+  const tick = () => {
+    if (gen !== jobGen) return;
+    const f = jobs.shift(); if (f) f();
+    renderTables();
+    if (jobs.length) setTimeout(tick, 0);
+  };
+  setTimeout(tick, 0);
+}
+/* Share of x at which a return edge is live, for a pair whose BOTH ends have one:
+   1.0 means the loop survives the whole morph; less is the handover gap. */
+function fbLiveShare(b) {
+  if (!b.Lp.fb || !b.Rp.fb) return null;
+  let n = 0; for (let i = 0; i < 201; i++) if (liveFb(b.frameAt(i / 200)).length) n++;
+  return n / 201;
+}
+
+/* ---------- renderers (DOM) ---------- */
+function renderControls() {
+  const pills = (el, items) => { $(el).innerHTML = items.map(([k, label, on]) => `<button class="pill${on ? ' on' : ' act'}" data-k="${k}">${label}</button>`).join(''); };
+  pills('pairPills', PAIRS.map((p, i) => [i, p.name + (p.adv ? ' <span class="adv">' + p.adv + '</span>' : ''), i === pairIdx]));
+  pills('fbPills', [['0', 'NONE', !fbOn], ['1', 'ONE BOUNDED RETURN', fbOn]]);
+  pills('listenPills', ALG_IDS.map(a => [a, a, a === listen]));
+  $('pairWhy').innerHTML = PAIRS[pairIdx].why + '.';
+  $('tIn').value = T; $('tOut').textContent = T.toFixed(2) + (T < T_STACK ? ' cut' : '');
+  $('cIn').value = coup; $('cOut').textContent = coup.toFixed(2);
+  $('sOut').textContent = seed;
+  $('pulseBtn').className = 'pill' + (pulse ? ' on' : '');
+  $('gmax').textContent = G_MAX;
+}
+const ordTxt = o => o.map(t => SHORT[t]).join(' ');
+function patchTxt(P) {
+  const lanes = LANES.map(l => `<b>${NAME[l]}</b> → ${P.lanes[l].map(m => NAME[m] || m).join(', ')}`).join(' · ');
+  const par = P.order.map(m => { const p = P.p[m]; return `${SHORT[m]} ` + Object.keys(p).map(k => k === 'cut' ? Math.round(p[k]) + 'Hz' : k === 'time' ? Math.round(p[k] * 1000) + 'ms' : k + ' ' + p[k]).join(' '); }).join(' · ');
+  const fb = fbOn && P.fb ? ` · return <b>${NAME[P.fb.src]} → ${NAME[P.fb.dst]}</b> ×${P.fb.g}` : fbOn ? ' · no return at this end' : '';
+  return `order <b>${ordTxt(P.order)}</b> · ${lanes}${fb}<br>${par}`;
+}
+function renderEnds() {
+  const P = PAIRS[pairIdx];
+  $('lName').textContent = '· ' + P.name; $('rName').textContent = '· ' + P.name;
+  $('lTxt').innerHTML = patchTxt(withFb(P.L, fbOn)); $('rTxt').innerHTML = patchTxt(withFb(P.R, fbOn));
+}
+function renderAlgPanels() {
+  $('algs').innerHTML = ALGS.map(A => `<div class="cluster alg${A.id === listen ? ' listen' : ''}" id="panel${A.id}">
+    <h2><span><span class="lt">${A.id}</span>${A.name.toUpperCase()}</span><button class="chip" data-listen="${A.id}">${A.id === listen ? '◉ LISTENING' : '○ listen'}</button></h2>
+    <div class="line">${A.line}.</div>
+    <div class="cap" style="margin-top:0">THE CHAIN AT x</div>
+    <canvas class="gC" id="g${A.id}"></canvas>
+    <div class="chain" id="ch${A.id}"></div>
+    <div class="cap">FLOW MAP — ORDER AND ROUTING ALONG x</div>
+    <canvas class="fC" id="f${A.id}"></canvas>
+    <div class="pills inv" id="iv${A.id}"></div>
+    <div class="mini" id="mi${A.id}"></div></div>`).join('');
+  for (const a of ALG_IDS) {
+    const s = EVALS[a], h = invHeld(s), b = BUILDS[a];
+    $('iv' + a).innerHTML = INV.map(k => {
+      const waived = k === 'I5' && s.waived && s.maxStep < STEP_MAX;
+      return `<span class="ib ${waived ? 'na' : h[k] ? 'ok' : 'no'}" title="${k === 'I5' ? (s.close ? s.close + ' events closer than one crossfade' : 'spread') : (s.why[k] || 'holds')}">${INV_LABEL[k]}${waived ? ' waived' : h[k] ? ' ✓' : ' ✗'}</span>`;
+    }).join('');
+    const info = b.info || {};
+    $('mi' + a).innerHTML = `<b>${b.events.length}</b> crossfades · <b>${b.flips.length}</b> order steps${info.minimal !== undefined ? ' (minimal ' + info.minimal + ')' : ''}` +
+      ` · <b>${s.states}</b> distinct chains · lane gain ≥ <b>${s.minT.toFixed(2)}</b>` + (info.beta ? ` · steps relaxed ${info.beta === 1 ? 'fully' : 'half'} toward even` : '') + (info.error ? ` · ${info.error}` : '');
+  }
+}
+function cellInv(s, k) {
+  const h = invHeld(s);
+  if (k === 'I5') {
+    if (s.maxStep >= STEP_MAX) return '<span class="no">hard switch</span>';
+    if (s.waived) return '<span class="wv">waived (T≈0)</span>';
+    return s.close ? `<span class="no">${s.close} crowded</span>` : '<span class="ok">HOLDS</span>';
+  }
+  return h[k] ? '<span class="ok">HOLDS</span>' : `<span class="no">${pct(s.inv[k], s.n)}</span><span class="sub">${s.why[k]}</span>`;
+}
+function renderTables() {
+  // metrics — this pair
+  const head = '<tr><th></th>' + INV.map(k => `<th>${INV_LABEL[k]}</th>`).join('') + '<th>min lane→out gain</th><th>crossfades · steps</th><th>distinct chains</th><th>worst jump dB (still)</th></tr>';
+  const maxSt = Math.max(1, ...ALG_IDS.map(a => EVALS[a].states));
+  $('mTab').innerHTML = head + ALG_IDS.map(a => {
+    const s = EVALS[a], b = BUILDS[a], j = JUMPS[a];
+    return `<tr class="${a === 'D' ? 'ctl' : ''}"><td class="a">${a} ${ALGS.find(q => q.id === a).name}</td>` + INV.map(k => `<td>${cellInv(s, k)}</td>`).join('') +
+      `<td>${s.minT.toFixed(2)}<span class="bar2" style="width:${Math.min(40, 40 * s.minT)}px"></span></td>` +
+      `<td>${b.events.length} · ${b.flips.length}</td><td>${s.states}<span class="bar2" style="width:${40 * s.states / maxSt}px"></span></td>` +
+      `<td>${j ? j.worst.toFixed(1) + ' <span class="wv">(' + j.base.toFixed(1) + ')</span>' : '…'}</td></tr>`;
+  }).join('');
+  $('mNote').innerHTML = `Invariant cells: HOLDS at every one of ${NGRID} x positions, or the share of x that fails. <b>I5</b> = every event a
+    crossfade (no weight moves more than ${STEP_MAX} per dx) AND events at least one crossfade (${W}) apart; below T = ${T_STACK} the
+    temperature asks for the stack and spacing is waived. <b>Min lane→out gain</b>: I6, the smaller lane's static transmission
+    to the output over its own endpoint gain; the floor is ${I6_FLOOR}. ${I6_WHY} <b>Distinct chains</b>: audible graphs
+    (edges at weight ≥ 0.5 on a lane-to-output path, plus the return) seen strictly between the ends — exploration as a number.
+    <b>Worst jump</b>: the largest level change between neighbouring 32 ms windows in a seeded 16 kHz render of a 2.4 s sweep, with
+    the same number for the two ends held still in brackets; the difference is what the morph adds. A hard switch does not show
+    here (the engine ramps every edge over one 2 ms block); the I5 weight check is what catches it.`;
+  // race — all pairs
+  const done = ALG_IDS.every(a => PAIRS.every((_, pi) => RACE[a + pi]));
+  $('rTab').innerHTML = '<tr><th></th>' + PAIRS.map((p, i) => `<th>${p.name}${p.adv ? ' <span class="adv">' + p.adv + '</span>' : ''}</th>`).join('') +
+    '<th>all held</th><th>mean distinct</th><th>worst jump</th></tr>' + ALG_IDS.map(a => {
+    const cells = PAIRS.map((_, pi) => {
+      const r = RACE[a + pi]; if (!r) return '<td>…</td>';
+      const h = invHeld(r.s), miss = INV.filter(k => !h[k] && !(k === 'I5' && r.s.waived && r.s.maxStep < STEP_MAX));
+      return `<td>${miss.length ? '<span class="no">✗ ' + miss.map(k => INV_LABEL[k]).join(' ') + '</span>' : '<span class="ok">7/7</span>'}<span class="sub">${r.s.states} chains · ${r.j.worst.toFixed(1)} dB</span></td>`;
+    }).join('');
+    const rs = PAIRS.map((_, pi) => RACE[a + pi]).filter(Boolean);
+    const all = rs.filter(r => INV.every(k => invHeld(r.s)[k] || (k === 'I5' && r.s.waived && r.s.maxStep < STEP_MAX))).length;
+    return `<tr class="${a === 'D' ? 'ctl' : ''}"><td class="a">${a}</td>${cells}<td>${rs.length ? all + '/' + rs.length : '…'}</td>` +
+      `<td>${rs.length ? (rs.reduce((q, r) => q + r.s.states, 0) / rs.length).toFixed(1) : '…'}</td><td>${rs.length ? Math.max(...rs.map(r => r.j.worst)).toFixed(1) : '…'}</td></tr>`;
+  }).join('');
+  $('rNote').innerHTML = (done ? '' : '<b>computing…</b> ') + `Same seed (${seed}), temperature (${T.toFixed(2)}), coupling (${coup.toFixed(2)}) and return setting
+    (${fbOn ? 'one' : 'none'}) as above. "7/7" = all seven checks hold (I3 is checked in both readings).`;
+  // feedback comparison
+  const fdone = ALG_IDS.every(a => PAIRS.every((_, pi) => FBC[a + pi]));
+  $('fbTab').innerHTML = '<tr><th></th><th>checks held · none</th><th>checks held · one</th><th>crossfades none → one</th><th>distinct none → one</th><th>return live across x (both ends have one)</th></tr>' +
+    ALG_IDS.map(a => {
+      const rs = PAIRS.map((_, pi) => FBC[a + pi]).filter(Boolean);
+      if (!rs.length) return `<tr><td class="a">${a}</td><td colspan="5">…</td></tr>`;
+      const held = k => rs.reduce((q, r) => q + heldCount(r[k].s), 0), tot = rs.length * 7;
+      const ev = k => rs.reduce((q, r) => q + r[k].events, 0), st = k => rs.reduce((q, r) => q + r[k].s.states, 0);
+      const liv = rs.map(r => r.one.fbLive).filter(v => v !== null);
+      const i23 = rs.every(r => !r.one.s.inv.I2 && !r.one.s.inv.I3);
+      return `<tr class="${a === 'D' ? 'ctl' : ''}"><td class="a">${a}</td><td>${held('none')}/${tot}</td><td>${held('one')}/${tot}${i23 ? ' <span class="ok">I2 I3 ✓</span>' : ' <span class="no">I2/I3 ✗</span>'}</td>` +
+        `<td>${ev('none')} → ${ev('one')} <span class="wv">(+${ev('one') - ev('none')})</span></td><td>${st('none')} → ${st('one')}</td>` +
+        `<td>${liv.length ? liv.map(v => Math.round(v * 100) + '%').join(' · ') : '—'}</td></tr>`;
+    }).join('');
+  $('fbNote').innerHTML = (fdone ? '' : '<b>computing…</b> ') + `Totals over the five pairs at this seed and temperature. The return survives the morph when
+    both ends use the SAME return (one swap: 100 % — its gain simply glides); two different returns hand over break-before-make, so
+    the loop is absent for a stretch of x (the handover gap). <b>What it costs:</b> one more port with its own legality window (target
+    before source in the order), one or two more crossfades per morph, one sample of loop latency and a tanh in the engine — and one
+    more failure the router has to be taught (F4: never two returns at once). It adds nothing to I1, I3 or I6.`;
+  renderChecks(); renderRec();
+}
+function renderChecks() {
+  if (!CHECK) return;
+  const pass = CHECK.filter(r => r.pass).length, caught = CHECK.filter(r => r.caught).length, n = CHECK.length, fin = n === CHECK_N;
+  $('chkBody').innerHTML = CHECK.map((r, i) => `<tr><td>${i + 1}</td><td class="claim">${r.claim}<div>${r.detail || ''}</div></td>` +
+    `<td>${r.pass ? '<span class="ok">HOLDS</span>' : '<span class="no">FAILS</span>'}</td><td>${r.control}<div>${r.cdetail || ''}</div></td>` +
+    `<td>${r.caught ? '<span class="ok">CAUGHT</span>' : '<span class="no">MISSED</span>'}</td></tr>`).join('') + (fin ? '' : `<tr><td colspan="5">running… ${n}/${CHECK_N}</td></tr>`);
+  const good = pass === n && caught === n;
+  $('audit').className = 'audit' + (good ? '' : ' bad');
+  $('audit').innerHTML = `self-check at load${fin ? '' : ' (running ' + n + '/' + CHECK_N + ')'}: <b>${pass}/${n}</b> claims hold · <b>${caught}/${n}</b> planted faults caught` +
+    (good ? ' — over all five pairs, both return settings, seed ' + DEFAULTS.seed + ', T ' + DEFAULTS.T + '.' : ' — SEE THE TABLE: a claim or a control failed.');
+}
+function renderRec() {
+  const r = (a, pi) => RACE[a + pi];
+  const done = ALG_IDS.every(a => PAIRS.every((_, pi) => r(a, pi)));
+  const allHeld = a => PAIRS.filter((_, pi) => r(a, pi) && INV.every(k => invHeld(r(a, pi).s)[k] || (k === 'I5' && r(a, pi).s.waived))).length;
+  const nums = done ? ` At this seed and temperature: A holds all seven checks on <b>${allHeld('A')}/5</b> pairs, B on <b>${allHeld('B')}/5</b>,
+    C on <b>${allHeld('C')}/5</b>, D on <b>${allHeld('D')}/5</b>.` : '';
+  $('rec').innerHTML = `
+  <p><b>The invariants are not a property of the order algorithm.</b> I1, I2, I3 and I6 hold for A, B and C alike because they live in the
+    ROUTER under all three: one input port per module, edges that only ever come from an end, the order used as a topological gate,
+    make-before-break, and a reach guard. Swap in any order path and they still hold; take the router away (D, or the planted
+    serial and no-gate routers) and they break at once.${nums}</p>
+  <p><b>What the order algorithm does decide</b> is I4, I5 and how exploratory the middle is. <b>A, rank keys,</b> leaves the approved set on
+    the hard pairs, and its steps land wherever two keys cross, so nothing can re-space them when they crowd. At T = 0 it IS the hard
+    cut (a reversal crosses every key at x = 0.5). <b>B, the edit path,</b> is minimal and spaces cleanly, but a minimal path can pass
+    through an order nobody tested (across the set: Fl Dr Rv Dl). <b>C, the approved graph,</b> holds I4 by construction and, on these
+    pairs, its walk is as short as B's. Its cost is crowding: on the adversarial Sub-on-the-glue pair, five swaps plus the edges they
+    pin can leave crossfades closer than one width. The check reports that crowding rather than hiding it.</p>
+  <p><b>Recommendation: C's walk on B's discipline, over the shared router.</b> Use the approved graph for WHICH orders the chain passes
+    through; place its steps by the quantum threshold law, relaxed toward even spacing when they crowd (B's rule); and let the
+    router own every edge: ports, the order gate, make-before-break for I6, and the reach guard for the Sub-into-Reverb rule. The
+    middle stays exploratory, because each port crossfades at its own seeded x. The distinct-chains column counts it: the middle
+    passes through parallel states (Body into Drive and Filter at once) that neither end has but that break no rule.</p>
+  <p><b>Open.</b></p>
+  <ol class="q">
+    <li><b>Crowding on dense reorders.</b> C can pin many edge moves between two steps. <i>Next:</i> place steps by the demand the router
+      reports (how many edges each step pins), not by seed alone, so the gaps fall where the crossfades are.</li>
+    <li><b>I3 has two readings, and they disagree.</b> On edges it holds by construction. On paths, make-before-break alone breaks it: the
+      union of the old and new wiring carries the Sub into the Reverb (the planted "reach guard off" control). The guard fixes it here.
+      <i>Decide</i> whether the path reading is the rule. It is closer to the human's words ("routing unrelated channels together").</li>
+    <li><b>Make-before-break is louder.</b> While both paths are live a lane sums through two chains, up to +6 dB. The render metric sees it
+      (the worst-jump column: several dB above the same endpoints held still). <i>Next:</i> normalise each lane by its own transmission, which the I6 machinery
+      already computes.</li>
+    <li><b>The approved set is a proposal.</b> Nine orders with reasons, closed under deletion. It wants a listening pass. An order the human
+      rejects is one line out, and C will route around it if the graph stays connected.</li>
+    <li><b>Feedback.</b> One bounded return survives the morph and costs little. Two different returns cannot crossfade (F4), so the loop
+      vanishes for part of x. <i>Decide</i> whether that gap is acceptable or whether patches should share one return edge.</li>
+    <li><b>Per-edge crossfades are many.</b> A four-swap morph is up to 14 crossfades. <i>Decide</i> whether "every edge at its own seeded
+      x" is the discovery the human wants, or whether it is busy. Coupling toward 1 bunches them. The spacing rule keeps them from
+      stacking.</li>
+  </ol>`;
+}
+function renderAll() { renderControls(); renderEnds(); renderAlgPanels(); renderTables(); readPal(); dirty = true; }
+
+/* ---------- painters: the only code that reads theme colours ---------- */
+function readPal() {
+  const cs = getComputedStyle(document.body);
+  for (const k of ['scr-tube', 'scr-value', 'scr-meter', 'scr-physics', 'scr-grid', 'scr-marker', 'caution', 'line', 'bg', 'alarm', 'dim'])
+    PAL[k] = String(cs.getPropertyValue('--' + k)).trim();
+}
+function fit(c) {
+  const dpr = window.devicePixelRatio || 1;
+  const w = Math.max(1, Math.round(c.clientWidth * dpr)), h = Math.max(1, Math.round(c.clientHeight * dpr));
+  if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
+  return dpr;
+}
+/* The chain as a small graph: lanes left, modules in order, OUT right; edge
+   width and opacity are the weight. ink = the colour of what is drawn: --value
+   for an authored endpoint, --physics for the chain the engine is at. */
+function paintGraph(c, f, ink, ES) {
+  const dpr = fit(c), g = c.getContext('2d'), Wd = c.width, Ht = c.height;
+  g.clearRect(0, 0, Wd, Ht);
+  const cols = [], seen = new Set();
+  const isD = f.nodes.some(n => /^s\d/.test(n.id));
+  if (isD) { const byK = {}; for (const n of f.nodes) if (n.w > EPS) { const k = +n.id.slice(1, 2); (byK[k] = byK[k] || []).push(n.id); } Object.keys(byK).sort((a, b) => a - b).forEach(k => cols.push(byK[k])); }
+  else f.order.forEach(m => cols.push([m]));
+  const live = liveSet(f), reach = reachOf(f), nc = cols.length;
+  const bw = 30 * dpr, bh = 17 * dpr, x0 = 22 * dpr, x1 = Wd - 22 * dpr, midY = Ht * 0.48;
+  const pos = { BODY: [x0, Ht * 0.24], SUB: [x0, Ht * 0.74], OUT: [x1, midY] };
+  cols.forEach((ids, k) => ids.forEach((id, j) => { pos[id] = [x0 + (x1 - x0) * (k + 1) / (nc + 1), midY + (ids.length > 1 ? (j ? 1 : -1) * 13 * dpr : 0)]; seen.add(id); }));
+  const colOf = {}; cols.forEach((ids, k) => ids.forEach(id => { colOf[id] = k + 1; })); colOf.BODY = colOf.SUB = 0; colOf.OUT = nc + 1;
+  const foreign = ES ? new Set(checkI3(f, ES).bad) : new Set();
+  const dupes = new Set(); if (ES) { const cnt = {}; for (const id of seen) { const t = typeOf(f, id); if (live.has(id) || liveEdges(f).some(e => e.u === id || e.v === id)) (cnt[t] = cnt[t] || []).push(id); } for (const t in cnt) if (cnt[t].length > 1 && t !== 'WIRE') cnt[t].forEach(id => dupes.add(id)); }
+  // edges
+  for (const e of liveEdges(f)) {
+    const a = pos[e.u], b = pos[e.v]; if (!a || !b) continue;
+    const span = Math.abs(colOf[e.v] - colOf[e.u]), lift = span > 1 ? -(10 + 9 * (span - 1)) * dpr : 0;
+    const k = ek(typeOf(f, e.u), typeOf(f, e.v)), bad = foreign.has(k);
+    g.strokeStyle = bad ? PAL.caution : ink; g.globalAlpha = 0.2 + 0.8 * Math.min(1, e.w); g.lineWidth = (1 + 2.2 * Math.min(1, e.w)) * dpr;
+    const ax = a[0] + (isLane(e.u) ? 12 * dpr : bw / 2), bx = b[0] - (e.v === 'OUT' ? 14 * dpr : bw / 2);
+    g.beginPath(); g.moveTo(ax, a[1]); g.bezierCurveTo(ax + (bx - ax) * 0.45, a[1] + lift, bx - (bx - ax) * 0.45, b[1] + lift, bx, b[1]); g.stroke();
+  }
+  // the return edge: an arc underneath, dashed
+  for (const e of liveFb(f)) {
+    const a = pos[e.u], b = pos[e.v]; if (!a || !b) continue;
+    g.strokeStyle = ES && !checkI2(f).ok ? PAL.caution : ink; g.globalAlpha = 0.35 + 0.65 * Math.min(1, e.g / G_MAX); g.lineWidth = 1.5 * dpr; g.setLineDash([4 * dpr, 3 * dpr]);
+    g.beginPath(); g.moveTo(a[0], a[1] + bh / 2); g.bezierCurveTo(a[0], Ht - 4 * dpr, b[0], Ht - 4 * dpr, b[0], b[1] + bh / 2); g.stroke(); g.setLineDash([]);
+  }
+  g.globalAlpha = 1;
+  // nodes
+  g.font = `${9 * dpr}px ui-monospace,Menlo,monospace`; g.textAlign = 'center'; g.textBaseline = 'middle';
+  const box = (id, label, on, bad) => {
+    const [x, y] = pos[id], w = isLane(id) || id === 'OUT' ? 24 * dpr : bw;
+    g.fillStyle = PAL['scr-tube']; g.fillRect(x - w / 2, y - bh / 2, w, bh);
+    g.strokeStyle = bad ? PAL.caution : on ? ink : PAL['scr-grid']; g.globalAlpha = on || bad ? 1 : 0.45; g.lineWidth = (bad ? 2 : 1.2) * dpr;
+    g.strokeRect(x - w / 2, y - bh / 2, w, bh);
+    g.fillStyle = bad ? PAL.caution : on ? ink : PAL['scr-grid']; g.fillText(label, x, y + 0.5 * dpr); g.globalAlpha = 1;
+    if (!isLane(id) && id !== 'OUT' && reach.SUB.has(typeOf(f, id))) { g.fillStyle = PAL['scr-marker']; g.beginPath(); g.arc(x + w / 2 - 3 * dpr, y + bh / 2 + 3 * dpr, 2.2 * dpr, 0, 7); g.fill(); }
+  };
+  box('BODY', 'Bo', true, false); box('SUB', 'Su', true, false); box('OUT', 'Out', true, false);
+  for (const id of seen) box(id, SHORT[typeOf(f, id)], live.has(id), dupes.has(id));
+}
+/* The flow map: rows are places in the order (D: slots), x runs across. Each
+   module is a line; thick = live, dashed = in the order but silent, dotted
+   marker = the Sub runs through it. Under it: event ticks, then one ribbon per
+   invariant, filled --caution wherever it fails. */
+function paintFlow(a) {
+  const c = $('f' + a); if (!c) return;
+  const dpr = fit(c), g = c.getContext('2d'), Wd = c.width, Ht = c.height, fd = FLOW[a], s = EVALS[a], b = BUILDS[a];
+  g.clearRect(0, 0, Wd, Ht);
+  const L = 26 * dpr, Rm = 8 * dpr, top = 12 * dpr, rowH = 25 * dpr, n = Math.max(1, fd.rowsN);
+  const px = x => L + x * (Wd - L - Rm), py = r => top + r * rowH;
+  const tickY = top + n * rowH + 2 * dpr, ribY = tickY + 16 * dpr, ribH = Math.max(3 * dpr, (Ht - ribY - 2 * dpr) / INV.length);
+  g.strokeStyle = PAL['scr-grid']; g.globalAlpha = 0.25; g.lineWidth = dpr;
+  for (let r = 0; r < n; r++) { g.beginPath(); g.moveTo(L, py(r)); g.lineTo(Wd - Rm, py(r)); g.stroke(); }
+  g.globalAlpha = 1;
+  // order steps (silent) and crossfades
+  g.fillStyle = PAL['scr-grid'];
+  for (const t of b.flips) { const x = px(t); g.beginPath(); g.moveTo(x, tickY + 1 * dpr); g.lineTo(x - 3.5 * dpr, tickY + 8 * dpr); g.lineTo(x + 3.5 * dpr, tickY + 8 * dpr); g.closePath(); g.globalAlpha = 0.8; g.stroke(); }
+  g.globalAlpha = 1;
+  for (const e of b.events) {
+    const x0 = px(Math.max(0, e.t - W / 2)), x1 = px(Math.min(1, e.t + W / 2));
+    g.fillStyle = e.forced ? PAL.caution : PAL['scr-physics']; g.globalAlpha = 0.85;
+    g.fillRect(x0, tickY + 9 * dpr, Math.max(dpr, x1 - x0), 5 * dpr);
+  }
+  g.globalAlpha = 1;
+  // braids
+  const ids = new Set(); fd.pts.forEach(p => Object.keys(p).forEach(k => ids.add(k)));
+  for (const id of ids) {
+    let prev = null;
+    for (let i = 0; i < FLOWN; i++) {
+      const p = fd.pts[i][id], x = px(i / (FLOWN - 1));
+      if (!p) { prev = null; continue; }
+      if (prev) {
+        const dup = a === 'D' && Object.keys(fd.pts[i]).filter(k => fd.pts[i][k].type === p.type && k !== id).length > 0;
+        g.strokeStyle = dup ? PAL.caution : p.live ? PAL['scr-physics'] : PAL['scr-grid'];
+        g.lineWidth = (p.live ? 2.5 : 1.2) * dpr; g.globalAlpha = p.live ? 1 : 0.6; g.setLineDash(p.live ? [] : [3 * dpr, 3 * dpr]);
+        g.beginPath(); g.moveTo(prev.x, py(prev.row)); g.lineTo(x, py(p.row)); g.stroke(); g.setLineDash([]);
+        if (p.sub && i % 4 === 0) { g.fillStyle = PAL['scr-marker']; g.globalAlpha = 1; g.beginPath(); g.arc(x, py(p.row) + 4.5 * dpr, 1.6 * dpr, 0, 7); g.fill(); }
+      }
+      prev = { x, row: p.row };
+    }
+  }
+  g.globalAlpha = 1;
+  // labels at both ends
+  g.font = `bold ${9 * dpr}px ui-monospace,Menlo,monospace`; g.textBaseline = 'middle';
+  const lab = (pts, x, align) => { g.textAlign = align; for (const id in pts) { const p = pts[id]; g.fillStyle = PAL['scr-value']; g.fillText(SHORT[p.type], x, py(p.row) - 7 * dpr); } };
+  lab(fd.pts[0], L + 2 * dpr, 'left'); lab(fd.pts[FLOWN - 1], Wd - Rm - 1 * dpr, 'right');
+  // invariant ribbons
+  g.font = `${8 * dpr}px ui-monospace,Menlo,monospace`; g.textAlign = 'left';
+  const keyOf = { I1: 'I1', I2: 'I2', I3: 'I3', I3p: 'I3p', I4: 'I4', I6: 'I6' };
+  INV.forEach((k, r) => {
+    const y = ribY + r * ribH;
+    g.fillStyle = PAL['scr-grid']; g.globalAlpha = 0.9; g.fillText(k === 'I3p' ? 'I3p' : k, 2 * dpr, y + ribH / 2); g.globalAlpha = 0.18;
+    g.fillRect(L, y + 0.5 * dpr, Wd - L - Rm, ribH - 1 * dpr); g.globalAlpha = 1;
+    g.fillStyle = PAL.caution;
+    if (k === 'I5') {
+      if (s.maxStep >= STEP_MAX) g.fillRect(L, y + 0.5 * dpr, Wd - L - Rm, ribH - 1 * dpr);
+      else if (!s.waived) { const ev = b.events.slice().sort((p, q) => p.t - q.t); for (let i = 1; i < ev.length; i++) if (ev[i].t - ev[i - 1].t < W - 1e-9) g.fillRect(px(ev[i - 1].t), y + 0.5 * dpr, Math.max(2 * dpr, px(ev[i].t) - px(ev[i - 1].t)), ribH - 1 * dpr); }
+      return;
+    }
+    let run = -1;
+    for (let i = 0; i <= s.n; i++) {
+      const bad = i < s.n && s.bad[i][keyOf[k]];
+      if (bad && run < 0) run = i;
+      if (!bad && run >= 0) { g.fillRect(px(run / (s.n - 1)), y + 0.5 * dpr, Math.max(dpr, px(i / (s.n - 1)) - px(run / (s.n - 1))), ribH - 1 * dpr); run = -1; }
+    }
+  });
+  // the puck
+  g.strokeStyle = PAL['scr-value']; g.lineWidth = 1.5 * dpr; g.globalAlpha = 0.9;
+  g.beginPath(); g.moveTo(px(X), 2 * dpr); g.lineTo(px(X), Ht - 2 * dpr); g.stroke(); g.globalAlpha = 1;
+}
+function paintStrip() {
+  const c = $('strip'), dpr = fit(c), g = c.getContext('2d'), Wd = c.width, Ht = c.height, b = BUILDS[listen];
+  g.clearRect(0, 0, Wd, Ht);
+  const L = 26 * dpr, Rm = 26 * dpr, px = x => L + x * (Wd - L - Rm), mid = Ht * 0.5;
+  g.strokeStyle = PAL['scr-grid']; g.lineWidth = dpr; g.globalAlpha = 0.5;
+  g.beginPath(); g.moveTo(px(0), mid); g.lineTo(px(1), mid); g.stroke();
+  for (let i = 0; i <= 10; i++) { g.beginPath(); g.moveTo(px(i / 10), mid - 4 * dpr); g.lineTo(px(i / 10), mid + 4 * dpr); g.stroke(); }
+  g.globalAlpha = 1;
+  g.font = `bold ${12 * dpr}px ui-monospace,Menlo,monospace`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = PAL['scr-value'];
+  g.fillText('L', L / 2, mid); g.fillText('R', Wd - Rm / 2, mid);
+  for (const e of b.events) {
+    const x0 = px(Math.max(0, e.t - W / 2)), x1 = px(Math.min(1, e.t + W / 2));
+    g.fillStyle = e.forced ? PAL.caution : PAL['scr-physics']; g.globalAlpha = 0.75; g.fillRect(x0, mid - 15 * dpr, Math.max(dpr, x1 - x0), 7 * dpr);
+  }
+  g.globalAlpha = 1; g.strokeStyle = PAL['scr-grid'];
+  for (const t of b.flips) { const x = px(t); g.beginPath(); g.moveTo(x, mid + 8 * dpr); g.lineTo(x - 4 * dpr, mid + 15 * dpr); g.lineTo(x + 4 * dpr, mid + 15 * dpr); g.closePath(); g.stroke(); }
+  g.font = `${9 * dpr}px ui-monospace,Menlo,monospace`; g.fillStyle = PAL['scr-grid']; g.textAlign = 'left';
+  g.fillText(`${listen} · ${b.events.length} crossfades ▮  ${b.flips.length} order steps ▵`, L, Ht - 6 * dpr);
+  // the puck: authored
+  g.fillStyle = PAL['scr-value']; g.beginPath(); g.arc(px(X), mid, 7 * dpr, 0, 7); g.fill();
+  if (AC) { g.strokeStyle = PAL['scr-value']; g.globalAlpha = 0.5; g.beginPath(); g.arc(px(xAudio), mid, 10 * dpr, 0, 7); g.stroke(); g.globalAlpha = 1; }
+}
+function paintAt() {
+  $('xOut').textContent = 'x = ' + X.toFixed(3);
+  for (const a of ALG_IDS) {
+    const b = BUILDS[a], f = b.frameAt(X), ES = endpointSets(b.Lp, b.Rp);
+    paintGraph($('g' + a), f, PAL['scr-physics'], ES);
+    const lg = laneGains(f, b.Lp, b.Rp), o = liveOrder(f);
+    $('ch' + a).innerHTML = `live order <b>${o.length ? ordTxt(o) : '(dry)'}</b>${APPROVED.has(okey(o)) ? '' : ' <span class="no">not approved</span>'} · lane gain Bo <b>${lg.BODY.toFixed(2)}</b> Su <b>${lg.SUB.toFixed(2)}</b>`;
+    paintFlow(a);
+  }
+  paintStrip();
+}
+function paintEnds() {
+  const P = PAIRS[pairIdx];
+  paintGraph($('lC'), staticFrame(withFb(P.L, fbOn)), PAL['scr-value'], null);
+  paintGraph($('rC'), staticFrame(withFb(P.R, fbOn)), PAL['scr-value'], null);
+}
+function paintScope() {
+  const c = $('scopeC'), dpr = fit(c), g = c.getContext('2d'), Wd = c.width, Ht = c.height;
+  g.clearRect(0, 0, Wd, Ht);
+  g.strokeStyle = PAL['scr-grid']; g.globalAlpha = 0.3; g.lineWidth = dpr; g.beginPath(); g.moveTo(0, Ht / 2); g.lineTo(Wd, Ht / 2); g.stroke(); g.globalAlpha = 1;
+  if (!AN || !scopeBuf) return;
+  AN.getFloatTimeDomainData(scopeBuf);
+  let peak = 0; for (const v of scopeBuf) peak = Math.max(peak, Math.abs(v));
+  if (peak >= 1) clipHold = 45; else if (clipHold > 0) clipHold--;
+  $('clip').className = 'clip' + (clipHold ? ' on' : '');
+  g.strokeStyle = PAL['scr-meter']; g.lineWidth = 1.5 * dpr; g.beginPath();
+  for (let i = 0; i < scopeBuf.length; i++) { const x = i / (scopeBuf.length - 1) * Wd, y = Ht / 2 - scopeBuf[i] * Ht * 0.45; i ? g.lineTo(x, y) : g.moveTo(x, y); }
+  g.stroke();
+}
+
+/* ---------- audio adapter: the model's own Engine, fed by a ScriptProcessor ----------
+   x slews toward the puck with a 40 ms time constant, stated in seconds and
+   converted per 64-sample chunk (ADR-009). The engine counts samples; the only
+   clock is the audio callback's own cadence. */
+function startAudio() {
+  AC = new (window.AudioContext || window.webkitAudioContext)();
+  ENG = new Engine(AC.sampleRate); ENG.pulse = pulse; xAudio = X;
+  const k = Math.exp(-64 / (0.04 * AC.sampleRate));
+  SPN = AC.createScriptProcessor(1024, 0, 1);
+  SPN.onaudioprocess = ev => {
+    const out = ev.outputBuffer.getChannelData(0), b = BUILDS[listen];
+    for (let s = 0; s < out.length; s += 64) { xAudio = X + (xAudio - X) * k; ENG.block(b.frameAt(xAudio), out, s, Math.min(64, out.length - s)); }
+  };
+  AN = AC.createAnalyser(); AN.fftSize = 1024; scopeBuf = new Float32Array(AN.fftSize);
+  SPN.connect(AN); AN.connect(AC.destination);
+}
+
+/* ---------- the frame ---------- */
+function frame() {
+  if (sweeping) { sweepT++; X = 0.5 - 0.5 * Math.cos(sweepT * 0.004); dirty = true; }
+  if (dirty) { paintAt(); dirty = false; } else if (AC) paintStrip();
+  paintScope();
+  requestAnimationFrame(frame);
+}
+function applyTheme() {
+  document.body.classList.toggle('dark', dark);
+  $('themeBtn').innerHTML = 'theme <b>' + (dark ? 'DARK · TUBE' : 'LIGHT · ORCHID') + '</b>';
+  readPal(); paintEnds(); dirty = true; paintAt();
+}
+
+/* ======================================================================
+   WIRING — last, so nothing above reaches forward.
+   ====================================================================== */
+$('themeBtn').addEventListener('click', () => { dark = !dark; applyTheme(); });
+$('pwr').addEventListener('click', () => {
+  if (!AC) startAudio(); else if (AC.state === 'running') AC.suspend(); else AC.resume();
+  setTimeout(() => {
+    const on = AC && AC.state === 'running';
+    $('pwr').className = 'pill' + (on ? ' on' : '');
+    $('audioStat').textContent = on ? `AUDIO — BODY + SUB THROUGH ${listen} (${ALGS.find(q => q.id === listen).name})` : 'AUDIO — OFF';
+  }, 60);
+});
+$('pulseBtn').addEventListener('click', () => { pulse = !pulse; if (ENG) ENG.pulse = pulse; renderControls(); });
+$('sweepBtn').addEventListener('click', () => { sweeping = !sweeping; $('sweepBtn').className = 'pill' + (sweeping ? ' on' : ''); });
+$('tIn').addEventListener('input', () => { T = +$('tIn').value; recompute(); paintEnds(); });
+$('cIn').addEventListener('input', () => { coup = +$('cIn').value; recompute(); });
+$('sDn').addEventListener('click', () => { seed = Math.max(0, seed - 1); recompute(); });
+$('sUp').addEventListener('click', () => { seed = seed + 1; recompute(); });
+document.addEventListener('click', e => {
+  const t = e.target && e.target.closest ? e.target : null; if (!t) return;
+  const lb = t.closest('[data-listen]');
+  if (lb) { listen = lb.dataset.listen; renderControls(); renderAlgPanels(); dirty = true; if (AC) $('audioStat').textContent = `AUDIO — BODY + SUB THROUGH ${listen} (${ALGS.find(q => q.id === listen).name})`; return; }
+  const b = t.closest('button[data-k]'); if (!b) return;
+  const k = b.dataset.k, box = b.parentElement.id;
+  if (box === 'pairPills') { pairIdx = +k; recompute(); paintEnds(); }
+  else if (box === 'fbPills') { fbOn = k === '1'; recompute(); paintEnds(); }
+  else if (box === 'listenPills') { listen = k; renderControls(); renderAlgPanels(); dirty = true; }
+});
+function stripAt(e) { const r = $('strip').getBoundingClientRect(), m = 26; X = Math.min(1, Math.max(0, (e.clientX - r.left - m) / (r.width - 2 * m))); dirty = true; }
+$('strip').addEventListener('pointerdown', e => { dragStrip = true; sweeping = false; $('sweepBtn').className = 'pill'; stripAt(e); });
+window.addEventListener('pointermove', e => { if (dragStrip) stripAt(e); });
+window.addEventListener('pointerup', () => { dragStrip = false; });
+window.addEventListener('resize', () => { paintEnds(); dirty = true; });
+$('apList').innerHTML = APPROVED_FULL.map(q => `<b>${q.id}</b><span class="o">${ordTxt(q.o)}</span><span>${q.why}</span>`).join('');
+
+readPal(); recompute(); applyTheme();
+requestAnimationFrame(frame);
+</script>
+</body></html>
