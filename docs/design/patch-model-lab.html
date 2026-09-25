@@ -1,0 +1,1306 @@
+<!doctype html>
+<!-- patch-model-lab — B263: the patch model, pared down to prove two things:
+     that it is SIMPLE TO USE and that it is BOUNDED. HYPERSAW, 2026-09-24.
+
+     THE MODEL (ROADMAP B263, accepted by the human 2026-09-24; the row is
+     authoritative, this is a summary):
+       1. VALUES are per corner. Every parameter morphs across the four corners.
+          An oscillator preset writes into one corner, or into all four.
+       2. SHARED LISTS are per patch and only GROW: which routes exist, which
+          modulators are in use. A preset ADDS to them. A route a corner does
+          not use sits at depth 0 in that corner. A full list refuses the load.
+       3. RACK LINEUP is per SIDE. At most two racks: A on the left (corners A,
+          C), B on the right (B, D). X crossfades their audio. Each corner sets
+          its own side's rack values. A rack preset loads into a side and is the
+          one true structural swap.
+       4. MOD-BANK ZONES. The bank is a fixed size with one zone per part
+          (source, rack A, rack B, global); a part's modulators land in its own
+          zone and never collide.
+       5. LOCKS are ADR-109's exempt: a locked value holds under morph.
+
+     WHAT THIS IS. A deliberately small instrument — one oscillator (five
+     values, one stepped, plus on/off), three module types with two or three
+     values each, two-slot racks, an 8-slot bank in four zones, an 8-route
+     list — so every consequence of the model is visible on one screen, and
+     the full-list refusal is reachable in two clicks (Duet, then Chip → C).
+
+     WHAT THIS IS NOT. Not a port and not the engine's patch format. The audio
+     is WebAudio stock nodes standing in for horde's modules; the COST readout
+     is B262's MEASURED C++ numbers for the plugin's modules of the same name,
+     not a measurement of this page's nodes.
+
+     STRUCTURE. Script block 1 is the MODEL — pure functions over a plain JSON
+     state, no DOM, no clock, no randomness except seeded mulberry32 — and ends
+     with the self-check. Block 2 is the page: DOM, audio, painters. The
+     self-check runs the model's own functions, so what it certifies is what the
+     buttons do.
+
+     TOKENS ARE COPIED, NOT LINKED, from src/gui/gui2.html:26-96 (:root),
+     :103 (canvas), :142-144 (scr-orchid, the light theme's screen pairing),
+     :167-169 (light legibility overrides) and :186-212 (body.dark) — the same
+     copy docs/design/station-page-lab.html carries. Copy, therefore drift.
+
+     COLOUR ROLES (ADR-116): --value magenta = what the player authored (corner
+     values, the puck); --physics violet = what the engine does on its own
+     (modulator motion, the modulated live value, the crossfade gains);
+     --meter cyan = analysers (scope, cost trace). --alarm = CLIP ONLY here: a
+     refusal in this model is atomic — it loses nothing — so it is --caution.
+
+     L0026: every const/let the setup path reads is declared above the wiring
+     at the bottom of block 2. No Math.random. Modulator time is a frame
+     COUNTER (fixed 1/60 s per tick), never a clock read; the only clock read
+     is AudioContext.currentTime inside the audio adapter, for AudioParam
+     scheduling, which is the adapter's job. -->
+<html><head><meta charset="utf-8">
+<meta name="lab-review" content="B263 · 2026-09-24">
+<title>patch model lab — values per corner, lists that grow, a rack per side, zoned mods, locks</title>
+<style>
+  /* ============ TOKENS — gui2's, verbatim (see the header) ============ */
+  :root {
+    --bg:#F2EDE2; --panel:#FCFAF4; --well:#FFFFFF; --panel2:#E9E3D4;
+    --line:#191521; --hair:#E5DFD0; --div:#D8D1C0;
+    --text:#191521; --t2:#494356; --dim:#9A93A3; --dis:#B6AFA0;
+    --value:#F5169C; --pull:#F5169C; --physics:#6431F0; --meter:#00D5C8;
+    --marker:#FFD702; --celebrate:#A6F219;
+    --caution:#F5A300; --caution-bg:#FBE9BD; --caution-tx:#6D570B;
+    --amber:#F5A300; --alarm:#C2261A; --ghost:#C9C2FF;
+    --cA:#FFD702; --cAtx:#D4A900; --cB:#FF2E88; --cBtx:#FF2E88;
+    --cC:#00D5C8; --cCtx:#00B3A8; --cD:#A6F219; --cDtx:#6FB200;
+    --text-hi:#191521; --dim2:#494356; --grid:#E5DFD0; --grid2:#E5DFD0;
+    --hot:#F5169C; --bad:#C2261A; --badge-bg:rgba(245,163,0,.9);
+    --scr-tube:#1B0733; --scr-value:#FF5ECF; --scr-meter:#B8F227;
+    --scr-physics:#B48CFF; --scr-marker:#FFB86B; --scr-grid:#4FD8BE;
+    --scr-scan:0.22; --scr-alpha:1;
+    --r-card:10px; --r-well:var(--r-card); --r:var(--r-card); --stroke:1.5px;
+    --shadow:1.5px 1.5px 0 var(--line); --shadow-hover:2.5px 2.5px 0 var(--line);
+    --focus:0 0 0 2.5px rgba(245,22,156,.45); }
+  * { box-sizing:border-box; margin:0; }
+  canvas { border:var(--stroke) solid var(--line); border-radius:var(--r-well);
+           background:var(--scr-tube); display:block; }
+  body:not(.dark) { --scr-tube:#F3EBFF; --scr-value:#D6006B; --scr-meter:#007A73;
+    --scr-physics:#6E14E8; --scr-marker:#C43A00; --scr-grid:#5A3FA8;
+    --scr-scan:0.05; --scr-alpha:1.6;
+    --marker:#8A6A00; --celebrate:#4E7A00; }
+  body.dark {
+    --bg:#151220; --panel:#1F1B2E; --well:#0E0C16; --panel2:#2C2740;
+    --line:#EFE9FA; --hair:#312B47; --div:#3B3455;
+    --text:#EFE9FA; --t2:#BDB4D4; --dim:#8A82A3; --dis:#514A6B;
+    --value:#FF3DAD; --pull:#FF3DAD; --physics:#A07CFF; --meter:#2DF2E2;
+    --marker:#FFE04D; --celebrate:#C2F53E;
+    --caution:#FFB627; --caution-bg:#4A3A12; --caution-tx:#FFD98A;
+    --amber:#FFB627; --alarm:#FF5A4D; --ghost:#5B4E8F;
+    --cA:#FFD702; --cAtx:#FFE566; --cB:#FF2E88; --cBtx:#FF6FAE;
+    --cC:#00D5C8; --cCtx:#4DEDE3; --cD:#A6F219; --cDtx:#C6F86A;
+    --text-hi:#FFFFFF; --dim2:#9A93A8; --grid:#312B47; --grid2:#312B47;
+    --hot:#FF3DAD; --bad:#FF5A4D; --badge-bg:rgba(255,182,39,.9);
+    --focus:0 0 0 2.5px rgba(255,61,173,.45); }
+
+  /* ============ CHROME — the station lab's idiom, same declarations ============ */
+  body { background:var(--bg); color:var(--text);
+    font:12px/1.45 ui-monospace,Menlo,monospace; padding:10px 12px; }
+  .hdr { display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; margin-bottom:8px; }
+  h1 { font-size:34px; line-height:1; letter-spacing:-1px; font-weight:800; }
+  .badges { display:flex; align-items:center; gap:8px; margin-top:4px; }
+  .badge { font-size:9.5px; letter-spacing:.1em; padding:2px 7px;
+           border:var(--stroke) solid var(--line); border-radius:3px;
+           background:var(--cA); color:var(--line); }
+  body.dark .badge { color:var(--bg); }
+  .sub { color:var(--t2); font-size:10.5px; letter-spacing:.12em; }
+  .hdrctl { display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-left:auto; }
+  .grp { display:flex; align-items:center; gap:7px; }
+  .lbl { font-size:10px; font-weight:700; letter-spacing:.1em; color:var(--t2); }
+  .pill { padding:3px 10px; border:var(--stroke) solid var(--line);
+    border-radius:999px; min-height:26px; cursor:pointer; color:var(--dim);
+    background:var(--panel); font:inherit; font-size:10px; letter-spacing:.06em; }
+  .pill:hover { box-shadow:var(--shadow); }
+  .pill.on { color:var(--bg); background:var(--line); font-weight:600; }
+  .pill.act { color:var(--text); }
+  .pills { display:flex; gap:4px; flex-wrap:wrap; margin:3px 0; }
+  .chip { padding:4px 8px; border:0; background:none; border-radius:var(--r);
+    cursor:pointer; font:inherit; font-size:10px; letter-spacing:.06em;
+    color:var(--dim); min-height:26px; }
+  .chip:hover { background:var(--panel2); }
+  .chip b { color:var(--t2); font-weight:600; letter-spacing:.1em; }
+  .tagline { color:var(--t2); font-size:11px; max-width:130ch; margin-bottom:6px; }
+  .tagline b { color:var(--text); }
+  .audit { font-size:10px; color:var(--t2); margin-bottom:10px;
+           border-left:3px solid var(--meter); padding-left:8px; }
+  .audit.bad { border-left-color:var(--caution); color:var(--caution-tx); }
+  .audit b { color:var(--text); }
+  .cluster { background:var(--panel); border:var(--stroke) solid var(--line);
+    border-radius:var(--r); padding:8px 10px; min-width:0; }
+  h2 { font-size:11px; color:var(--pull); letter-spacing:1px; margin-bottom:6px; }
+  .note { color:var(--t2); font-size:10px; line-height:1.5; margin-top:6px; }
+  .note b { color:var(--text); }
+  .sep { border-top:1px dashed var(--div); margin:8px 0 6px; }
+  .cap { font-size:9px; letter-spacing:.12em; color:var(--dim); margin:7px 0 2px; }
+  .dot { display:inline-block; width:8px; height:8px; border-radius:2px;
+         border:1px solid var(--line); margin-right:4px; vertical-align:-1px; }
+
+  /* ============ PAGE SHAPE ============ */
+  .main { display:grid; grid-template-columns:minmax(290px,330px) minmax(480px,1fr) minmax(290px,340px);
+          gap:10px; align-items:start; }
+  .col { display:grid; gap:10px; min-width:0; }
+  .lower { display:grid; grid-template-columns:minmax(0,1.25fr) minmax(0,1fr); gap:10px;
+           margin-top:10px; align-items:start; }
+  @media (max-width:1250px) { .main, .lower { grid-template-columns:1fr; } }
+
+  /* PAD — a data surface, so a tube. Square by aspect; the corners are drawn
+     inside a 26px inset so their labels never clip. */
+  #pad { width:100%; aspect-ratio:1 / 1; cursor:crosshair; touch-action:none; }
+  .readout { display:grid; grid-template-columns:repeat(4,1fr); gap:4px; margin-top:6px; }
+  .readout div { font-size:9.5px; color:var(--t2); text-align:center;
+                 border:1px solid var(--div); border-radius:6px; padding:2px 0; }
+  .readout b { color:var(--text); font-weight:600; font-variant-numeric:tabular-nums; }
+  .fade { display:grid; grid-template-columns:48px 1fr 40px; gap:6px; align-items:center;
+          font-size:10px; color:var(--t2); margin-top:4px; }
+  .bar { height:8px; border:var(--stroke) solid var(--line); border-radius:4px;
+         background:var(--panel2); overflow:hidden; }
+  .bar i { display:block; height:100%; width:0; background:var(--physics); }
+  .cost { margin-top:8px; border:var(--stroke) solid var(--line); border-radius:var(--r);
+          background:var(--well); padding:6px 8px; }
+  .cost .big { font-size:18px; font-weight:800; letter-spacing:-.5px;
+               font-variant-numeric:tabular-nums; }
+  .cost .why { font-size:9.5px; color:var(--t2); }
+  #costC { width:100%; height:34px; margin-top:4px; }
+
+  /* VALUE TABLE. Each cell is an authored value: its number, and a 3px
+     underline filled in --value to where it sits in range. The live column is
+     the morph result (magenta underline) with the modulated value as a violet
+     tick — the one thing on this table the engine does on its own. */
+  table { width:100%; border-collapse:separate; border-spacing:0 2px; font-size:10px; }
+  .vals th { font-weight:600; color:var(--t2); font-size:9.5px; padding-bottom:2px; }
+  .vals th.c { width:13%; }
+  .vals th .cn { display:inline-block; min-width:20px; padding:1px 5px; border-radius:3px;
+                 border:1px solid var(--line); color:var(--line); font-weight:800; }
+  body.dark .vals th .cn { color:var(--bg); }
+  .vals th .pn { display:block; color:var(--dim); font-weight:400; font-size:9px;
+                 overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .vals td { padding:1px 3px; }
+  .vals td.nm { color:var(--t2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+                max-width:170px; }
+  .vals td.cell, .vals td.live { text-align:right; font-variant-numeric:tabular-nums;
+     border:1px solid var(--div); border-radius:5px; color:var(--text); background:
+     linear-gradient(to right, var(--value) calc(var(--pct,0) * 100%), transparent 0)
+       left bottom / 100% 3px no-repeat, var(--well); }
+  .vals td.cell { cursor:ns-resize; user-select:none; touch-action:none; }
+  .vals td.cell:hover { outline:2px solid var(--physics); outline-offset:1px; }
+  .vals td.cell.zero { color:var(--dim); }
+  .vals td.live { border-color:var(--line); font-weight:600; background:
+     linear-gradient(to right, transparent calc(var(--mod,0) * 100% - 1px), var(--physics) 0,
+       var(--physics) calc(var(--mod,0) * 100% + 2px), transparent 0) left bottom / 100% 5px no-repeat,
+     linear-gradient(to right, var(--value) calc(var(--pct,0) * 100%), transparent 0)
+       left bottom / 100% 3px no-repeat, var(--well); }
+  .vals td.na { text-align:center; color:var(--dis); }
+  .vals tr.g td { padding-top:8px; font-size:9.5px; letter-spacing:.1em; color:var(--pull);
+                  font-weight:700; border-bottom:1px dashed var(--div); }
+  .vals tr.g td span { color:var(--dim); font-weight:400; letter-spacing:.04em; }
+  .vals tr.locked td.cell { opacity:.45; }
+  .lk { font:inherit; font-size:10px; width:20px; height:18px; padding:0; cursor:pointer;
+        border:1px solid var(--div); border-radius:4px; background:var(--panel); color:var(--dim); }
+  .lk.on { border-color:var(--line); background:var(--line); color:var(--bg); }
+
+  /* LISTS + ZONES */
+  .cap-bar { display:grid; grid-template-columns:repeat(8,1fr); gap:2px; margin:3px 0 5px; }
+  .cap-bar i { height:8px; border:1px solid var(--line); border-radius:2px; background:var(--panel2); }
+  .cap-bar i.u { background:var(--t2); }
+  .cap-bar.full i.u { background:var(--caution); }
+  .route { display:grid; grid-template-columns:minmax(0,1fr) repeat(4,34px); gap:2px;
+           font-size:9.5px; align-items:center; padding:1px 0; }
+  .route span { text-align:right; font-variant-numeric:tabular-nums; }
+  .route span.z { color:var(--dim); }
+  .route span.n { color:var(--dis); }
+  .route .rn { text-align:left; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--t2); }
+  .route .rn b { color:var(--text); font-weight:600; }
+  .zones { display:grid; grid-template-columns:3fr 2fr 2fr 1fr; gap:5px; }
+  .zone { border:1px dashed var(--div); border-radius:6px; padding:3px; }
+  .zone .zl { font-size:8.5px; letter-spacing:.08em; color:var(--dim); margin-bottom:2px;
+              white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .zone .slots { display:grid; grid-auto-flow:column; grid-auto-columns:1fr; gap:3px; }
+  .slot { border:1px solid var(--div); border-radius:5px; padding:2px 3px; font-size:9px;
+          color:var(--dis); min-height:34px; background:var(--panel2); }
+  .slot.on { border-color:var(--line); color:var(--text); background:var(--well); }
+  .slot b { display:block; font-size:8.5px; color:var(--dim); font-weight:600; }
+  .slot .mm { height:5px; margin-top:2px; border-radius:2px; background:var(--panel2);
+              position:relative; overflow:hidden; }
+  .slot .mm i { position:absolute; top:0; bottom:0; left:50%; width:0; background:var(--physics); }
+
+  /* RACKS */
+  .racks { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+  .rack { border:var(--stroke) solid var(--line); border-radius:var(--r); padding:5px 6px;
+          background:var(--well); min-width:0; }
+  .rack .rh { font-size:10px; font-weight:700; letter-spacing:.06em; }
+  .rack .rh span { font-weight:400; color:var(--t2); }
+  .rack .mods { display:flex; gap:3px; flex-wrap:wrap; margin:4px 0; min-height:22px; }
+  .rack .mod { font-size:9px; letter-spacing:.06em; padding:2px 6px; border-radius:999px;
+               border:1px solid var(--line); background:var(--panel); }
+  .rack .dry { font-size:9px; color:var(--dim); padding:3px 0; }
+  .rack .rs { font-size:9px; color:var(--t2); }
+
+  /* LOG — a refusal is --caution, not --alarm: it is atomic and loses nothing. */
+  #log { margin-top:6px; display:grid; gap:3px; }
+  .msg { font-size:9.5px; line-height:1.4; padding:3px 6px; border-radius:6px;
+         border:1px solid var(--div); color:var(--t2); }
+  .msg.first { border-color:var(--line); color:var(--text); }
+  .msg.refuse { background:var(--caution-bg); color:var(--caution-tx); border-color:var(--caution); }
+  .msg b { font-weight:700; }
+  #scopeC { width:100%; height:64px; margin-top:4px; }
+  .clip { font-size:9px; font-weight:700; letter-spacing:.1em; color:var(--dis); }
+  .clip.on { color:var(--alarm); }
+
+  /* SELF-CHECK + QUESTIONS */
+  .chk td, .chk th { padding:2px 4px; vertical-align:top; text-align:left; }
+  .chk th { font-size:9px; letter-spacing:.1em; color:var(--dim); font-weight:600; }
+  .chk td { font-size:9.5px; color:var(--t2); border-top:1px dashed var(--div); }
+  .chk td.claim { color:var(--text); }
+  .ok { color:var(--celebrate); font-weight:700; }
+  .no { color:var(--caution-tx); background:var(--caution-bg); font-weight:700; padding:0 3px;
+        border-radius:3px; }
+  ol.q { padding-left:18px; }
+  ol.q li { font-size:10px; color:var(--t2); margin:0 0 7px; line-height:1.45; }
+  ol.q li b { color:var(--text); }
+  ol.q li i { font-style:normal; color:var(--value); font-weight:600; }
+</style></head><body>
+
+<div class="hdr">
+  <div>
+    <h1>patch model</h1>
+    <div class="badges">
+      <span class="badge">B263 LAB</span>
+      <span class="sub">VALUES PER CORNER · LISTS THAT GROW · A RACK PER SIDE · ZONED MODS · LOCKS</span>
+    </div>
+  </div>
+  <div class="hdrctl">
+    <div class="grp"><span class="lbl">NOTE</span><div class="pills" id="notePills"></div></div>
+    <button class="pill" id="pwr">POWER</button>
+    <button class="pill" id="sweepBtn">SWEEP PUCK</button>
+    <button class="chip" id="themeBtn">theme <b>LIGHT</b></button>
+  </div>
+</div>
+
+<div class="tagline">The <b>B263 patch model</b>, pared down to one oscillator, two 2-slot racks, an 8-slot
+modulator bank and an 8-route list. Four corners hold every <b>value</b>; the patch holds two <b>shared lists</b>
+that only grow (routes, modulators); each side of the pad holds one <b>rack lineup</b>; the bank is split into
+fixed <b>zones</b>, one per part; a <b>lock</b> holds a value still under morph. Load presets and watch where they
+land: an oscillator preset writes one corner or all four, a rack preset swaps a side, a new route appears at depth
+0 in the corners that did not ask for it, and a full list refuses the whole load and says why. <b>It sounds</b> —
+POWER plays one voice through both racks, X is an equal-power crossfade — and the <b>cost</b> readout does not move
+with the puck, because both racks always run. Drag a value cell vertically to edit that corner; ⊘ locks a row.</div>
+
+<div class="audit" id="audit">self-check: pending</div>
+
+<div class="main">
+  <div class="col">
+    <div class="cluster"><h2>Morph pad</h2>
+      <canvas id="pad"></canvas>
+      <div class="readout" id="wread"></div>
+      <div class="fade"><span>RACK A</span><div class="bar"><i id="fadeA"></i></div><span id="fadeAv"></span></div>
+      <div class="fade"><span>RACK B</span><div class="bar"><i id="fadeB"></i></div><span id="fadeBv"></span></div>
+      <div class="cost">
+        <div class="cap" style="margin:0">COST — FIXED, WHEREVER THE PUCK IS</div>
+        <div class="big" id="costBig"></div>
+        <div class="why" id="costWhy"></div>
+        <canvas id="costC"></canvas>
+      </div>
+    </div>
+    <div class="cluster"><h2>Presets</h2>
+      <div class="cap">OSCILLATOR PRESET — writes the SOURCE part into</div>
+      <div class="pills" id="oscTarget"></div>
+      <div class="pills" id="oscPresets"></div>
+      <div class="cap">RACK PRESET — swaps the lineup of a side</div>
+      <div class="pills" id="rackSide"></div>
+      <div class="pills" id="rackPresets"></div>
+      <div class="cap">WHOLE PATCH</div>
+      <div class="pills" id="patchPills"></div>
+      <div class="pills"><button class="pill act" id="pruneBtn">PRUNE UNUSED</button></div>
+      <div id="log"></div>
+    </div>
+  </div>
+
+  <div class="cluster"><h2>Corner values — every parameter, per corner</h2>
+    <table class="vals"><thead id="vhead"></thead><tbody id="vbody"></tbody></table>
+    <div class="note"><b>·</b> in a cell means the value does not live in that corner: a rack's values live only in its
+      own side's two corners, and morph between them on Y. <b>Stepped</b> values (on, wave) do not blend — the corner
+      with the most weight owns them, as the engine resolves stepped parameters today. The live column is the morph
+      (magenta underline) plus modulation (violet tick). A lock holds the morph result; modulation still moves it.</div>
+  </div>
+
+  <div class="col">
+    <div class="cluster"><h2>Shared lists — per patch, only grow</h2>
+      <div class="cap" id="routeCap"></div>
+      <div class="cap-bar" id="routeBar"></div>
+      <div class="route" style="color:var(--dim)"><span class="rn" style="color:var(--dim)">route · depth in</span>
+        <span>A</span><span>B</span><span>C</span><span>D</span></div>
+      <div id="routes"></div>
+      <div class="sep"></div>
+      <div class="cap">MODULATOR BANK — 8 SLOTS, ONE ZONE PER PART</div>
+      <div class="zones" id="zones"></div>
+      <div class="note">A preset's k-th LFO lands on its zone's k-th LFO, so two oscillator presets in two corners
+        <b>share one LFO whose rate morphs between them</b>. A new kind takes a free slot in the zone; no free slot
+        refuses the load. No zone can write another's slots.</div>
+    </div>
+    <div class="cluster"><h2>Racks — one lineup per side</h2>
+      <div class="racks" id="racks"></div>
+      <div class="note">A rack preset replaces its side's lineup, its zone's modulators and the routes into it —
+        the only load that removes anything. An empty side passes the dry signal.</div>
+      <div class="sep"></div>
+      <div class="cap" style="display:flex;justify-content:space-between">OUTPUT <span class="clip" id="clip">CLIP</span></div>
+      <canvas id="scopeC"></canvas>
+      <div class="cap" id="audioStat">AUDIO — OFF</div>
+    </div>
+  </div>
+</div>
+
+<div class="lower">
+  <div class="cluster"><h2>Self-check — run at load; every claim has a planted fault that must fail it</h2>
+    <table class="chk"><thead><tr><th>#</th><th>claim</th><th>holds</th><th>must-fail control (planted fault)</th><th>caught</th></tr></thead>
+      <tbody id="chkBody"></tbody></table>
+  </div>
+  <div class="cluster"><h2>What the model still leaves open — with recommendations</h2>
+    <ol class="q">
+      <li><b>A rack swap and that side's corner values.</b> The lab discards the old modules' values — they belonged
+        to modules that no longer exist — and writes the preset's values into both corners of the side, along with its
+        modulators and routes. <i>Recommend:</i> keep that, and give the swap one level of undo. It is the only load
+        that removes anything, so it is the only one that needs a way back. Do not carry values across a swap even
+        when module types match: a preset should sound like itself.</li>
+      <li><b>How big each zone is.</b> The lab uses 3 source · 2 rack A · 2 rack B · 1 global. <i>Recommend:</i> make the
+        sizes format constants, like the route cap, never user-resizable: resizing renumbers slots and silently rewires
+        routes. Size the source zone from the preset library — the largest number of modulator KINDS any shipping
+        oscillator preset uses, plus one. Merge-by-kind means presets in four corners share slots, so the source zone
+        does not need to be four times a preset.</li>
+      <li><b>Whether a loaded modulator merges or claims a new slot.</b> The lab merges by (kind, ordinal): Glass's LFO
+        and Razor's LFO are one slot whose rate morphs from 5.5 Hz to 0.25 Hz across the pad. <i>Recommend:</i> merge.
+        It keeps the lists bounded, and it is where the discovery is: morphing between two presets morphs their shared
+        modulators rather than cross-fading two static ones.</li>
+      <li><b>How a list ever shrinks.</b> Lists only grow, so a patch fills up. The lab's PRUNE removes routes at depth 0
+        in every corner, then modulators no route uses. <i>Recommend:</i> make PRUNE an explicit action, never automatic.
+        Automatic cleanup would delete a route at the moment you set it to 0 in the last corner, just before you dial it
+        up in another.</li>
+      <li><b>A one-rack patch.</b> The lab passes the dry signal on the empty side, so X fades from wet to dry.
+        <i>Recommend:</i> keep it. It adds no rule, because an empty side is just a rack with no modules. To vary one
+        rack across all four corners, load the same rack preset into both sides; that honestly costs two racks.
+        Letting one rack span both sides would add a third lineup state and a special case to every side-load.</li>
+      <li><b>Locks and preset loads.</b> The lab skips a locked value on load and says so ("kept 1 locked value").
+        <i>Recommend:</i> skip. The main use of a lock is browsing presets while pitch or level stays put. A load that
+        wrote through a lock would change the corners underneath it, and unlocking would then jump, which ADR-109's
+        write-into-all-four rule exists to prevent.</li>
+      <li><b>Whether modulation moves a locked value.</b> The lab locks the MORPH (ADR-109: exempt leaves the morph
+        field), and routes still modulate the value. <i>Recommend:</i> keep. A lock that also froze modulation would be
+        a second feature, and depth 0 already provides it.</li>
+      <li><b>Partial loads.</b> A load that does not fit is refused whole; nothing is written. <i>Recommend:</i> keep it
+        atomic. Loading the values without the routes would give you a preset that does not sound like itself. That
+        silent partial load is the kind of refusal that loses data, and the only kind that would earn --alarm.</li>
+      <li><b>A modulator's rate in a corner whose preset does not use it.</b> A new slot's rate starts at the preset's
+        rate in every corner. After that, a load that does not use the slot leaves its rate there alone, so mid-pad the
+        rate blends toward a value no preset chose. The depth is 0 in that corner, so it is quiet at the corner itself.
+        <i>Recommend:</i> accept it for now, because it is part of the discovery. Revisit if players hear the blend as a
+        bug.</li>
+      <li><b>Routes between parts.</b> In the lab a part's modulators only reach its own values, so a rack swap can drop
+        routes without touching the source. <i>Recommend:</i> keep it, and make the GLOBAL zone the only one that crosses
+        parts. A global route into a rack is then the one route a swap can orphan, and the swap message has to name it.</li>
+    </ol>
+  </div>
+</div>
+
+<script>
+/* ======================================================================
+   BLOCK 1 — THE MODEL. Pure functions over a plain JSON state. No DOM, no
+   clock, no Math.random. Everything a button does is one of: loadPart,
+   loadPatch, setLock, prune — and the self-check at the bottom calls exactly
+   those, so it certifies the buttons rather than a twin of them.
+   ====================================================================== */
+'use strict';
+
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+/* Corners in the engine's order — A top-left, B top-right, C bottom-left,
+   D bottom-right — with the same bilinear law as morph-editor-lab.html:1030. */
+const CORNERS = ['A', 'B', 'C', 'D'];
+const ALL = [0, 1, 2, 3];
+function weights(x, y) { return [(1 - x) * (1 - y), x * (1 - y), (1 - x) * y, x * y]; }
+/* A rack's values live only in its side's corners (model point 3). */
+function cornersOf(part) { return part === 'rA' ? [0, 2] : part === 'rB' ? [1, 3] : ALL; }
+const PART_LABEL = { src: 'SOURCE', rA: 'RACK A', rB: 'RACK B', glb: 'GLOBAL' };
+const sgn = (v, d) => (v > 0 ? '+' : '') + v.toFixed(d);
+
+const WAVES = ['SIN', 'TRI', 'SAW', 'SQR'];
+const SRC_PARAMS = [
+  { k: 'on',     min: 0,   max: 1,  step: true, def: 1, fmt: v => v ? 'ON' : 'off' },
+  { k: 'wave',   min: 0,   max: 3,  step: true, def: 2, fmt: v => WAVES[v] },
+  { k: 'pitch',  min: -12, max: 12, def: 0,  fmt: v => sgn(v, 1) + 'st' },
+  { k: 'detune', min: 0,   max: 40, def: 10, fmt: v => v.toFixed(1) + 'ct' },
+  { k: 'level',  min: 0,   max: 1,  def: 0.6 },
+];
+const GLB_PARAMS = [
+  { k: 'master', min: 0,  max: 1, def: 0.7 },
+  { k: 'tilt',   min: -1, max: 1, def: 0, fmt: v => sgn(v, 2) },
+];
+/* COST: B262's MEASURED worst case, % of one core per slot at 44.1 kHz, for
+   the plugin's C++ modules of the same name (ROADMAP B262, PR #750). NOT a
+   measurement of this page's WebAudio nodes. */
+const MODULES = {
+  DRIVE:  { cost: 0.037, params: [{ k: 'amount', min: 0, max: 1, def: 0.5 }, { k: 'tone', min: 0, max: 1, def: 0.6 }] },
+  FILTER: { cost: 0.009, params: [{ k: 'cutoff', min: 0, max: 1, def: 0.6 }, { k: 'res', min: 0, max: 1, def: 0.3 }] },
+  DELAY:  { cost: 0.037, params: [{ k: 'time', min: 0, max: 1, def: 0.3 }, { k: 'fbk', min: 0, max: 0.9, def: 0.4 },
+                                  { k: 'mix', min: 0, max: 1, def: 0.3 }] },
+};
+const RATE = { min: 0.05, max: 10 };
+const DEPTH = { min: -1, max: 1 };
+const BANK = 8, ROUTE_CAP = 8, RACK_SLOTS = 2;
+/* Fixed at format level — see open question 2. They tile 0..BANK-1 exactly;
+   check 6 asserts that too. */
+const ZONES = [
+  { part: 'src', from: 0, size: 3 }, { part: 'rA', from: 3, size: 2 },
+  { part: 'rB', from: 5, size: 2 },  { part: 'glb', from: 7, size: 1 },
+];
+function zoneOfSlot(i) { return ZONES.find(z => i >= z.from && i < z.from + z.size); }
+function zoneOfPart(part) { return ZONES.find(z => z.part === part); }
+function zoneRange(z) { return Array.from({ length: z.size }, (_, j) => z.from + j); }
+
+/* ---- presets. Route `mod` indexes the preset's own mods; `dst` is relative
+   to the part (a rack preset says `s1.cutoff`, not which side). ---- */
+const OSC_PRESETS = [
+  { name: 'Glass', vals: { on: 1, wave: 0, pitch: 12, detune: 6, level: 0.55 },
+    mods: [{ kind: 'LFO', rate: 5.5 }],
+    routes: [{ mod: 0, dst: 'pitch', depth: 0.02 }] },
+  { name: 'Razor', vals: { on: 1, wave: 2, pitch: 0, detune: 28, level: 0.7 },
+    mods: [{ kind: 'LFO', rate: 0.25 }, { kind: 'S&H', rate: 6 }],
+    routes: [{ mod: 0, dst: 'detune', depth: 0.35 }, { mod: 1, dst: 'level', depth: 0.25 }] },
+  { name: 'Chip', vals: { on: 1, wave: 3, pitch: -12, detune: 0, level: 0.5 },
+    mods: [{ kind: 'S&H', rate: 8 }, { kind: 'LFO', rate: 3 }],
+    routes: [{ mod: 0, dst: 'pitch', depth: 0.15 }, { mod: 1, dst: 'level', depth: 0.3 }] },
+];
+const RACK_PRESETS = [
+  { name: 'Grit', modules: [{ type: 'DRIVE', vals: { amount: 0.7, tone: 0.4 } }, { type: 'FILTER', vals: { cutoff: 0.45, res: 0.5 } }],
+    mods: [{ kind: 'LFO', rate: 0.5 }], routes: [{ mod: 0, dst: 's1.cutoff', depth: 0.2 }] },
+  { name: 'Space', modules: [{ type: 'FILTER', vals: { cutoff: 0.7, res: 0.2 } }, { type: 'DELAY', vals: { time: 0.35, fbk: 0.55, mix: 0.4 } }],
+    mods: [{ kind: 'LFO', rate: 0.15 }, { kind: 'S&H', rate: 2 }],
+    routes: [{ mod: 0, dst: 's0.cutoff', depth: 0.15 }, { mod: 1, dst: 's1.mix', depth: 0.2 }] },
+  { name: 'Crunch', modules: [{ type: 'DRIVE', vals: { amount: 0.9, tone: 0.7 } }, { type: 'DELAY', vals: { time: 0.18, fbk: 0.35, mix: 0.3 } }],
+    mods: [{ kind: 'S&H', rate: 4 }], routes: [{ mod: 0, dst: 's0.amount', depth: 0.3 }] },
+  { name: 'empty', modules: [], mods: [], routes: [] },
+];
+const GLB_PRESETS = [
+  { name: 'Drift Tilt', vals: { master: 0.8, tilt: 0 }, mods: [{ kind: 'LFO', rate: 0.1 }],
+    routes: [{ mod: 0, dst: 'tilt', depth: 0.35 }] },
+];
+const byName = list => Object.fromEntries(list.map(p => [p.name, p]));
+const OSC_BY = byName(OSC_PRESETS), RACK_BY = byName(RACK_PRESETS), GLB_BY = byName(GLB_PRESETS);
+/* A whole patch is RECORDED LOADS — the same loadPart calls a player makes —
+   plus its locks. That is not shorthand: it means a patch can hold nothing
+   the part presets cannot, so the model has one write path, not two. */
+const PATCHES = [
+  { name: 'Duet', puck: [0.35, 0.4], locks: ['glb.master'],
+    steps: [['rack', 'A', 'Grit'], ['rack', 'B', 'Space'], ['osc', 'ALL', 'Glass'], ['osc', 1, 'Razor'],
+            ['glb', 'ALL', 'Drift Tilt']] },
+  { name: 'Solo', puck: [0.2, 0.5], locks: [],
+    steps: [['rack', 'A', 'Crunch'], ['osc', 'ALL', 'Chip'], ['osc', 3, 'Glass']] },
+];
+
+/* ---- state ---- */
+function initState() {
+  const st = { values: {}, locks: {}, held: {}, bank: new Array(BANK).fill(null), routes: [],
+               lineup: { A: [], B: [] }, loaded: { src: [null, null, null, null], A: null, B: null, glb: null, patch: null } };
+  for (const p of SRC_PARAMS) st.values['src.' + p.k] = ALL.map(() => p.def);
+  for (const p of GLB_PARAMS) st.values['glb.' + p.k] = ALL.map(() => p.def);
+  return st;
+}
+const clone = s => JSON.parse(JSON.stringify(s));
+const slotOfId = id => +id.slice(1, id.indexOf('.'));        // 'm3.rate' -> 3
+const ROUTE_RE = /^r:(\d+)>(.*)$/;                           // 'r:3>rA.s1.cutoff'
+
+function partOfId(st, id) {
+  if (id.startsWith('src.')) return 'src';
+  if (id.startsWith('glb.')) return 'glb';
+  if (/^r[AB]\./.test(id)) return id.slice(0, 2);
+  if (id[0] === 'm') return zoneOfSlot(slotOfId(id)).part;
+  return st.routes.find(r => r.id === id).owner;
+}
+function metaOf(st, id) {
+  if (id.startsWith('src.')) return SRC_PARAMS.find(p => 'src.' + p.k === id);
+  if (id.startsWith('glb.')) return GLB_PARAMS.find(p => 'glb.' + p.k === id);
+  if (/^r[AB]\./.test(id)) {
+    const [part, s, k] = id.split('.');
+    return MODULES[st.lineup[part[1]][+s.slice(1)]].params.find(p => p.k === k);
+  }
+  return id[0] === 'm' ? RATE : DEPTH;
+}
+
+/* The MORPH. Four-corner parts take the bilinear weights; a rack's two corners
+   take (1-y, y) — the same weights renormalised over its side, written directly
+   because at x = 1 the left side's bilinear weights are both 0. Stepped values
+   go to the heaviest corner (ties to the earlier one). A lock returns the held
+   value before any of that runs. */
+function baseValue(st, id, x, y) {
+  if (st.locks[id]) return st.held[id];
+  const v = st.values[id], m = metaOf(st, id), cs = cornersOf(partOfId(st, id));
+  const wAll = weights(x, y);
+  const w = cs.length === 2 ? [1 - y, y] : cs.map(c => wAll[c]);
+  if (m.step) { let b = 0; for (let i = 1; i < cs.length; i++) if (w[i] > w[b]) b = i; return v[cs[b]]; }
+  let s = 0; for (let i = 0; i < cs.length; i++) s += w[i] * v[cs[i]];
+  return s;
+}
+function liveValue(st, id, x, y, modOut) {
+  const m = metaOf(st, id); let v = baseValue(st, id, x, y);
+  if (!m.step && modOut) for (const r of st.routes) if (r.dst === id)
+    v += baseValue(st, r.id, x, y) * modOut[r.src] * (m.max - m.min);
+  return Math.min(m.max, Math.max(m.min, v));
+}
+
+/* ---- the one write path ----
+   Works on a CLONE and hands back either the clone (ok) or the untouched
+   input (refused). Atomicity is "commit only on success", not a pre-count
+   that could disagree with the write; `atomic = false` exists ONLY so the
+   self-check can build the naive loader as its must-fail control from the
+   very same code. */
+const ORD = ['an', 'a 2nd', 'a 3rd', 'a 4th', 'a 5th'];
+function loadPart(st0, part, preset, corners, atomic = true) {
+  const st = clone(st0);
+  const fail = msg => ({ ok: false, msg, state: atomic ? st0 : st });
+  const pre = part === 'src' ? 'src.' : part === 'glb' ? 'glb.' : part + '.';
+  const pc = cornersOf(part), zone = zoneOfPart(part);
+  const arr = v => ALL.map(c => pc.includes(c) ? v : null);
+  const forget = id => { delete st.values[id]; delete st.locks[id]; delete st.held[id]; };
+  let dropped = 0;
+
+  if (part === 'rA' || part === 'rB') {
+    // THE structural swap: lineup, zone and every route in or out of the side go.
+    for (const id of Object.keys(st.values)) if (id.startsWith(pre)) forget(id);
+    const gone = st.routes.filter(r => r.owner === part || r.dst.startsWith(pre));
+    for (const r of gone) forget(r.id);
+    dropped = gone.length;
+    st.routes = st.routes.filter(r => !gone.includes(r));
+    for (const i of zoneRange(zone)) { st.bank[i] = null; forget('m' + i + '.rate'); }
+    st.lineup[part[1]] = preset.modules.map(m => m.type);
+    preset.modules.forEach((m, s) => { for (const p of MODULES[m.type].params) st.values[`${pre}s${s}.${p.k}`] = arr(p.def); });
+  }
+
+  // Modulators: the preset's k-th of a kind lands on the zone's k-th of that kind.
+  const slots = [], seen = {};
+  for (const m of preset.mods) {
+    const ord = seen[m.kind] = (seen[m.kind] === undefined ? 0 : seen[m.kind] + 1);
+    let slot = -1, n = 0;
+    for (const i of zoneRange(zone)) if (st.bank[i] && st.bank[i].kind === m.kind && n++ === ord) { slot = i; break; }
+    if (slot < 0) {
+      slot = zoneRange(zone).find(i => !st.bank[i]);
+      if (slot === undefined)
+        return fail(`${PART_LABEL[part]} zone full (${zone.size}/${zone.size}): '${preset.name}' needs ${ORD[ord]} ${m.kind}. ` +
+                    `Nothing was loaded. PRUNE frees modulators that no route uses.`);
+      st.bank[slot] = { owner: part, kind: m.kind };
+      st.values['m' + slot + '.rate'] = arr(m.rate);   // a new slot starts at the preset's rate everywhere (Q9)
+    }
+    slots.push(slot);
+  }
+
+  // Routes: add the missing ones at depth 0 in every corner; the cap is checked per add.
+  const want = new Map();
+  for (const r of preset.routes) want.set(`r:${slots[r.mod]}>${pre}${r.dst}`, r.depth);
+  const fresh = [...want.keys()].filter(id => !st.routes.some(x => x.id === id));
+  const free = ROUTE_CAP - st.routes.length;
+  for (const id of fresh) {
+    if (st.routes.length >= ROUTE_CAP)
+      return fail(`Route list full (${ROUTE_CAP - free}/${ROUTE_CAP} in use): '${preset.name}' needs ${fresh.length} new ` +
+                  `route${fresh.length > 1 ? 's' : ''} and ${free} ${free === 1 ? 'is' : 'are'} free. Nothing was loaded. ` +
+                  `PRUNE clears routes that are 0 in every corner.`);
+    const m = ROUTE_RE.exec(id);
+    st.routes.push({ id, src: +m[1], dst: m[2], owner: part });
+    st.values[id] = arr(0);
+  }
+
+  // Values. A locked value is skipped and reported (Q6).
+  const kept = [];
+  const put = (id, v) => { if (st.locks[id]) { kept.push(id); return; } for (const c of corners) st.values[id][c] = v; };
+  if (part === 'src' || part === 'glb')
+    for (const p of (part === 'src' ? SRC_PARAMS : GLB_PARAMS)) put(pre + p.k, preset.vals[p.k] !== undefined ? preset.vals[p.k] : p.def);
+  else preset.modules.forEach((m, s) => { for (const p of MODULES[m.type].params) put(`${pre}s${s}.${p.k}`, m.vals[p.k]); });
+  preset.mods.forEach((m, j) => put('m' + slots[j] + '.rate', m.rate));
+  // Every route this part owns: the preset's depth if it uses it, else 0 — in the corners written.
+  for (const r of st.routes) if (r.owner === part) put(r.id, want.has(r.id) ? want.get(r.id) : 0);
+
+  if (part === 'src') for (const c of corners) st.loaded.src[c] = preset.name;
+  else if (part === 'glb') st.loaded.glb = preset.name;
+  else st.loaded[part[1]] = preset.name;
+  st.loaded.patch = null;
+
+  const where = part === 'src' || part === 'glb'
+    ? (corners.length === 4 ? 'all four corners' : 'corner ' + CORNERS[corners[0]])
+    : `side ${part[1]} (corners ${pc.map(c => CORNERS[c]).join('+')})`;
+  let msg = `'${preset.name}' → ${where}: ${slots.length} modulator${slots.length === 1 ? '' : 's'} in the ` +
+            `${PART_LABEL[part]} zone, ${want.size} route${want.size === 1 ? '' : 's'}, ${fresh.length} new`;
+  if (fresh.length && corners.length < pc.length) msg += ' (depth 0 in the other corners)';
+  if (dropped) msg += `; the swap removed ${dropped} old route${dropped === 1 ? '' : 's'}`;
+  if (kept.length) msg += `; kept ${kept.length} locked value${kept.length === 1 ? '' : 's'}`;
+  return { ok: true, msg, state: st, fresh };
+}
+
+function loadPatch(patch) {
+  let st = initState();
+  for (const [kind, where, name] of patch.steps) {
+    const r = kind === 'osc' ? loadPart(st, 'src', OSC_BY[name], where === 'ALL' ? ALL : [where])
+      : kind === 'rack' ? loadPart(st, 'r' + where, RACK_BY[name], cornersOf('r' + where))
+      : loadPart(st, 'glb', GLB_BY[name], ALL);
+    // A shipped patch that does not fit is a bug in the patch, and the load
+    // gate (lab_load_check) should see it: throw, do not swallow.
+    if (!r.ok) throw new Error(`patch '${patch.name}', step '${name}': ${r.msg}`);
+    st = r.state;
+  }
+  for (const id of patch.locks) st = setLock(st, id, true, patch.puck[0], patch.puck[1]);
+  st.loaded.patch = patch.name;
+  return st;
+}
+
+/* ADR-109 exempt: lock captures the live morph value and writes it into all of
+   the part's corners, so unlocking never jumps. */
+function setLock(st0, id, on, x, y) {
+  const st = clone(st0);
+  if (on) {
+    const v = baseValue(st, id, x, y);
+    st.held[id] = v; st.locks[id] = true;
+    for (const c of cornersOf(partOfId(st, id))) st.values[id][c] = v;
+  } else { delete st.locks[id]; delete st.held[id]; }
+  return st;
+}
+
+/* The only way a shared list shrinks outside a rack swap (Q4). */
+function prune(st0) {
+  const st = clone(st0);
+  const dead = st.routes.filter(r => !st.locks[r.id] && cornersOf(r.owner).every(c => st.values[r.id][c] === 0));
+  for (const r of dead) delete st.values[r.id];
+  st.routes = st.routes.filter(r => !dead.includes(r));
+  let mods = 0;
+  st.bank.forEach((b, i) => {
+    if (b && !st.routes.some(r => r.src === i) && !st.locks['m' + i + '.rate']) {
+      st.bank[i] = null; delete st.values['m' + i + '.rate']; mods++;
+    }
+  });
+  return { ok: true, state: st,
+           msg: `PRUNE: removed ${dead.length} route${dead.length === 1 ? '' : 's'} at 0 in every corner and ${mods} unused modulator${mods === 1 ? '' : 's'}` };
+}
+
+/* ---- the audio plan and its cost. `x` is accepted and deliberately unused:
+   both racks run at every puck position and X only scales their outputs.
+   Skipping the silent rack would save nothing at the midline, make the cost
+   move with the puck, and cut the delay tail the moment you crossed an edge. */
+function graphPlan(st, x) { return ['A', 'B'].flatMap(s => st.lineup[s].map(type => ({ side: s, type }))); }
+function planCost(plan) { return plan.reduce((a, m) => a + MODULES[m.type].cost, 0); }
+function rackCount(st) { return ['A', 'B'].filter(s => st.lineup[s].length).length; }
+const COST_BOUND = 2 * RACK_SLOTS * Math.max(...Object.values(MODULES).map(m => m.cost));
+/* Equal-power crossfade on X: gA² + gB² = 1, so the mid-pad is not a dip. */
+function fade(x) { return [Math.cos(x * Math.PI / 2), Math.sin(x * Math.PI / 2)]; }
+
+/* ======================================================================
+   SELF-CHECK. Each row: a predicate P, the REAL input (must hold) and a
+   PLANTED fault (must fail P). A check whose control passes has proved
+   nothing — the detector-shares-assumption trap — so both columns count.
+   ====================================================================== */
+function runSelfCheck() {
+  const rows = [];
+  const add = (claim, real, control, planted) =>
+    rows.push({ claim, pass: real.ok, detail: real.detail, control, caught: !planted.ok, cdetail: planted.detail });
+  const init = initState();
+  const srcIds = SRC_PARAMS.map(p => 'src.' + p.k);
+  const G = OSC_BY.Glass, R = OSC_BY.Razor, CH = OSC_BY.Chip;
+  const duet = loadPatch(PATCHES[0]), solo = loadPatch(PATCHES[1]);
+
+  // 1 — osc → one corner
+  const P1 = (before, after, target, preset) => {
+    for (const id of srcIds) for (const c of ALL) {
+      const want = target.includes(c) ? preset.vals[id.slice(4)] : before.values[id][c];
+      if (after.values[id][c] !== want) return { ok: false, detail: `${id} in ${CORNERS[c]} = ${after.values[id][c]}, expected ${want}` };
+    }
+    return { ok: true, detail: `Glass → B: B equals the preset; A, C, D unchanged (${srcIds.length} values × 4 corners)` };
+  };
+  add('An oscillator preset loaded into ONE corner writes that corner and no other',
+      P1(init, loadPart(init, 'src', G, [1]).state, [1], G),
+      'a loader that writes all four corners when asked for B',
+      P1(init, loadPart(init, 'src', G, ALL).state, [1], G));
+
+  // 2 — osc → all four
+  const P2 = (after, preset) => {
+    for (const id of srcIds) for (const c of ALL)
+      if (after.values[id][c] !== preset.vals[id.slice(4)]) return { ok: false, detail: `${id} in ${CORNERS[c]} = ${after.values[id][c]}` };
+    return { ok: true, detail: 'Glass → ALL: every source value equal to the preset in all four corners' };
+  };
+  add('An oscillator preset loaded into ALL writes all four corners',
+      P2(loadPart(init, 'src', G, ALL).state, G),
+      'a loader that writes corner A only when asked for ALL',
+      P2(loadPart(init, 'src', G, [0]).state, G));
+
+  // 3 — new routes read 0 in the corners that did not load them
+  const base3 = loadPart(init, 'src', G, ALL).state;
+  const r3 = loadPart(base3, 'src', R, [0]);
+  const P3 = (st, fresh, target) => {
+    for (const id of fresh) for (const c of ALL) {
+      const v = st.values[id][c];
+      if (c !== target && v !== 0) return { ok: false, detail: `${id} reads ${v} in ${CORNERS[c]}` };
+      if (c === target && v === 0) return { ok: false, detail: `${id} is 0 in the corner that loaded it` };
+    }
+    const glassRoute = 'r:0>src.pitch';
+    if (st.values[glassRoute][target] !== 0) return { ok: false, detail: 'Glass\'s route still sounds in the corner Razor replaced' };
+    return { ok: true, detail: `Razor → A on Glass-everywhere: ${fresh.length} new routes read 0 in B, C, D; Glass's vibrato reads 0 in A` };
+  };
+  const planted3 = clone(r3.state); planted3.values[r3.fresh[0]][2] = 0.1;
+  add('A route added in one corner reads depth 0 in the others; one the corner no longer uses reads 0 there',
+      P3(r3.state, r3.fresh, 0), 'the same state with a planted depth of 0.1 in corner C', P3(planted3, r3.fresh, 0));
+
+  // 4 — rack → a side, and only that side
+  const projOut = (st, part) => {
+    const pre = part + '.', z = zoneOfPart(part);
+    const mine = id => id.startsWith(pre) || (id[0] === 'm' && zoneOfSlot(slotOfId(id)) === z) ||
+      (ROUTE_RE.test(id) && (zoneOfSlot(+ROUTE_RE.exec(id)[1]) === z || ROUTE_RE.exec(id)[2].startsWith(pre)));
+    const keep = o => Object.fromEntries(Object.entries(o).filter(([id]) => !mine(id)));
+    return JSON.stringify({ values: keep(st.values), locks: keep(st.locks), held: keep(st.held),
+      bank: st.bank.map((b, i) => zoneOfSlot(i) === z ? 'x' : b), routes: st.routes.filter(r => !mine(r.id)),
+      lineup: part === 'rA' ? st.lineup.B : st.lineup.A, src: st.loaded.src, glb: st.loaded.glb });
+  };
+  const P4 = (before, after, part, preset) => {
+    const side = part[1], pc = cornersOf(part);
+    if (after.lineup[side].join() !== preset.modules.map(m => m.type).join()) return { ok: false, detail: 'lineup not the preset\'s' };
+    for (const [s, m] of preset.modules.entries()) for (const p of MODULES[m.type].params) for (const c of pc)
+      if (after.values[`${part}.s${s}.${p.k}`][c] !== m.vals[p.k]) return { ok: false, detail: `${part}.s${s}.${p.k} wrong in ${CORNERS[c]}` };
+    if (projOut(before, part) !== projOut(after, part)) return { ok: false, detail: 'something outside the side changed' };
+    return { ok: true, detail: `Duet, Crunch → side B: lineup DRIVE+DELAY, values in B and D; rack A, source, global, other zones and routes byte-identical` };
+  };
+  add('A rack preset loads into ONE side: its lineup, its corners, its zone — nothing else changes',
+      P4(duet, loadPart(duet, 'rB', RACK_BY.Crunch, [1, 3]).state, 'rB', RACK_BY.Crunch),
+      'a loader that also swaps side A',
+      P4(duet, loadPart(loadPart(duet, 'rA', RACK_BY.Crunch, [0, 2]).state, 'rB', RACK_BY.Crunch, [1, 3]).state, 'rB', RACK_BY.Crunch));
+
+  // 5 — a full list refuses, with a message, and writes nothing
+  const QUAD = { name: 'Quad LFO (synthetic)', vals: G.vals, mods: [0, 1, 2, 3].map(() => ({ kind: 'LFO', rate: 1 })), routes: [] };
+  const P5 = (res, before, re) => {
+    if (res.ok) return { ok: false, detail: 'the load was accepted' };
+    if (!re.test(res.msg)) return { ok: false, detail: 'no message naming the full list' };
+    if (JSON.stringify(res.state) !== JSON.stringify(before)) return { ok: false, detail: 'the refused load changed the patch' };
+    return { ok: true, detail: res.msg };
+  };
+  const p5a = P5(loadPart(duet, 'src', CH, [2]), duet, /Route list full/);
+  const p5b = P5(loadPart(duet, 'src', QUAD, [0]), duet, /zone full/);
+  add('A full list refuses the whole load with a message, and the patch is byte-identical afterwards (routes: Duet, then Chip → C; zone: 4 LFOs into a 3-slot zone)',
+      { ok: p5a.ok && p5b.ok, detail: p5a.detail + ' ‖ ' + p5b.detail },
+      'the naive loader that writes routes until the cap, then stops',
+      P5(loadPart(duet, 'src', CH, [2], false), duet, /Route list full/));
+
+  // 6 — zones never collide
+  const P6 = st => {
+    const cover = new Array(BANK).fill(0);
+    for (const z of ZONES) for (const i of zoneRange(z)) cover[i]++;
+    if (cover.some(n => n !== 1)) return { ok: false, detail: 'zones do not tile the bank' };
+    for (let i = 0; i < BANK; i++) if (st.bank[i] && st.bank[i].owner !== zoneOfSlot(i).part)
+      return { ok: false, detail: `slot M${i + 1} holds a ${PART_LABEL[st.bank[i].owner]} modulator inside the ${PART_LABEL[zoneOfSlot(i).part]} zone` };
+    for (const r of st.routes) {
+      if (!st.bank[r.src]) return { ok: false, detail: `${r.id} reads an empty slot` };
+      if (st.bank[r.src].owner !== r.owner || !r.dst.startsWith(r.owner + '.'))
+        return { ok: false, detail: `${r.id} crosses parts` };
+    }
+    return { ok: true };
+  };
+  const walk = () => {
+    const rng = mulberry32(0xB263), pick = a => a[Math.floor(rng() * a.length)];
+    let s = initState(), refused = 0;
+    const N = 400;
+    for (let n = 0; n < N; n++) {
+      const op = rng(); let r;
+      if (op < 0.45) r = loadPart(s, 'src', pick(OSC_PRESETS), rng() < 0.2 ? ALL : [Math.floor(rng() * 4)]);
+      else if (op < 0.75) { const part = rng() < 0.5 ? 'rA' : 'rB'; r = loadPart(s, part, pick(RACK_PRESETS), cornersOf(part)); }
+      else if (op < 0.8) r = { ok: true, state: loadPatch(pick(PATCHES)) };
+      else if (op < 0.9) r = prune(s);
+      else { const id = pick(Object.keys(s.values)); r = { ok: true, state: setLock(s, id, !s.locks[id], rng(), rng()) }; }
+      if (!r.ok) refused++;
+      s = r.state;
+      const p = P6(s);
+      if (!p.ok) return { ok: false, detail: `operation ${n}: ${p.detail}` };
+    }
+    return { ok: true, detail: `${N} seeded operations (mulberry32 0xB263): every slot in its owner's zone, every route inside its part; ${refused} loads refused as full` };
+  };
+  const planted6 = clone(duet); planted6.bank[1] = { owner: 'rA', kind: 'LFO' };
+  add('Zones never collide: every modulator sits in its own part\'s zone, every route stays inside its part',
+      walk(), 'Duet with a rack-A LFO planted in source slot M2', P6(planted6));
+
+  // 7 — a lock holds under morph
+  const sweepDev = (st, id) => {
+    const v0 = baseValue(st, id, 0, 0); let dev = 0;
+    for (let i = 0; i <= 32; i++) for (let j = 0; j <= 32; j++) dev = Math.max(dev, Math.abs(baseValue(st, id, i / 32, j / 32) - v0));
+    return dev;
+  };
+  const P7 = (st, id) => { const d = sweepDev(st, id); return d === 0 ? { ok: true, detail: `glb.master held at ${st.held[id].toFixed(3)} across a 33×33 sweep, with corners planted at 0.1/0.9/0.3/0.7` } : { ok: false, detail: `moved by up to ${d.toFixed(3)}` }; };
+  const locked7 = clone(duet); locked7.values['glb.master'] = [0.1, 0.9, 0.3, 0.7];
+  const unlocked7 = clone(locked7); delete unlocked7.locks['glb.master'];
+  add('A locked value does not move across a pad sweep, even with its corners planted apart',
+      P7(locked7, 'glb.master'), 'the same planted corners with the lock flag cleared', P7(unlocked7, 'glb.master'));
+
+  // 7b — a load skips a locked value
+  const lockedPitch = setLock(duet, 'src.pitch', true, 0.35, 0.4);
+  // A REFUSED load would leave pitch alone trivially, so the load must succeed AND report the kept value.
+  const P7b = (before, res) => !res.ok ? { ok: false, detail: 'the load was refused, which proves nothing' }
+    : JSON.stringify(before.values['src.pitch']) !== JSON.stringify(res.state.values['src.pitch'])
+      ? { ok: false, detail: 'the load wrote through the lock' }
+      : !/kept 1 locked value/.test(res.msg) ? { ok: false, detail: 'the load did not say it kept the lock' }
+      : { ok: true, detail: `Razor → ALL left src.pitch at ${before.values['src.pitch'].map(v => v.toFixed(2)).join('/')}; "${res.msg}"` };
+  add('A preset load skips a locked value and says so',
+      P7b(lockedPitch, loadPart(lockedPitch, 'src', R, ALL)),
+      'the same load with pitch unlocked', P7b(duet, loadPart(duet, 'src', R, ALL)));
+
+  // 8 — X is an equal-power crossfade of the two racks
+  const P8 = f => {
+    const [a0, b0] = f(0), [a1, b1] = f(1);
+    if (Math.abs(a0 - 1) > 1e-12 || Math.abs(b0) > 1e-12 || Math.abs(a1) > 1e-12 || Math.abs(b1 - 1) > 1e-12) return { ok: false, detail: 'endpoints are not pure A / pure B' };
+    let worst = 0; for (let i = 0; i <= 100; i++) { const [a, b] = f(i / 100); worst = Math.max(worst, Math.abs(a * a + b * b - 1)); }
+    return worst < 1e-12 ? { ok: true, detail: `x=0 is rack A only, x=1 rack B only, gA²+gB² = 1 within ${worst.toExponential(1)} at 101 points` }
+                         : { ok: false, detail: `power off by ${worst.toFixed(3)} mid-pad` };
+  };
+  add('X crossfades the two racks: pure A at the left, pure B at the right, equal power between',
+      P8(fade), 'a linear crossfade (−3 dB hole at the midline)', P8(x => [1 - x, x]));
+
+  // 9 — cost is constant across the sweep
+  const P9 = (plan, st, racks) => {
+    const c0 = planCost(plan(st, 0));
+    for (let i = 0; i <= 32; i++) for (let j = 0; j <= 32; j++) if (planCost(plan(st, i / 32)) !== c0)
+      return { ok: false, detail: `cost moved to ${planCost(plan(st, i / 32)).toFixed(3)} % at x=${(i / 32).toFixed(2)}` };
+    if (rackCount(st) !== racks) return { ok: false, detail: `expected ${racks} rack(s)` };
+    return { ok: true, detail: `${racks} rack${racks > 1 ? 's' : ''}: ${c0.toFixed(3)} % of a core at all 1089 positions` };
+  };
+  const skipSilent = (st, x) => graphPlan(st, x).filter(m => fade(x)[m.side === 'A' ? 0 : 1] > 1e-9);
+  const p9a = P9(graphPlan, duet, 2), p9b = P9(graphPlan, solo, 1);
+  add('The cost is constant across a pad sweep: two racks\' worth, or one if the patch uses one rack',
+      { ok: p9a.ok && p9b.ok, detail: 'Duet ' + p9a.detail + ' ‖ Solo ' + p9b.detail },
+      'a plan that skips the rack whose gain is 0', P9(skipSilent, duet, 2));
+
+  return rows;
+}
+</script>
+
+<script>
+/* ======================================================================
+   BLOCK 2 — THE PAGE. State first, then renderers, then audio, then the
+   wiring at the very bottom (L0026: nothing at setup reaches forward).
+   ====================================================================== */
+const $ = id => document.getElementById(id);
+const NOTES = [['A1', 33], ['A2', 45], ['E3', 52]];
+const OSC_TYPES = ['sine', 'triangle', 'sawtooth', 'square'];
+const MARGIN = 26;                          // pad inset, CSS px
+const DT = 1 / 60;                          // modulator time per frame: a counter, not a clock
+let S = loadPatch(PATCHES[0]);
+let X = PATCHES[0].puck[0], Y = PATCHES[0].puck[1];
+let oscTarget = 2, rackSide = 'B', note = 45, dark = false, sweeping = false, sweepT = 0, dragPad = false;
+const LOG = [];
+const modPhase = new Array(BANK).fill(0), modOut = new Array(BANK).fill(0);
+const shRng = Array.from({ length: BANK }, (_, i) => mulberry32(0xB263 + 7919 * i));
+const costHist = [];
+let CELLS = [], LIVES = [], PAL = {};
+let AC = null, AU = null, lastWave = -1, scopeBuf = null, clipHold = 0, editing = null;
+const CHECK = runSelfCheck();
+
+/* ---- helpers ---- */
+function fmtVal(m, v) {
+  if (v === null || v === undefined) return '·';
+  if (m.fmt) return m.fmt(Math.round(v * 1000) / 1000);
+  if (m === RATE) return v.toFixed(2) + 'Hz';
+  if (m === DEPTH) return v === 0 ? '0' : sgn(v, 2);
+  return v.toFixed(2);
+}
+function pctOf(m, v) { if (v === null || v === undefined) return 0; return m === DEPTH ? Math.abs(v) : (v - m.min) / (m.max - m.min); }
+function labelOf(st, id) {
+  if (id.startsWith('src.') || id.startsWith('glb.')) return id.slice(4);
+  if (/^r[AB]\./.test(id)) { const [part, s, k] = id.split('.'); const n = +s.slice(1); return `${n + 1} ${st.lineup[part[1]][n].toLowerCase()} · ${k}`; }
+  if (id[0] === 'm') { const i = slotOfId(id); return `M${i + 1} ${st.bank[i].kind} rate`; }
+  const r = st.routes.find(q => q.id === id);
+  return `M${r.src + 1} ${st.bank[r.src].kind} → ${labelOf(st, r.dst)}`;
+}
+function idsOfPart(st, part) {
+  const pre = part === 'src' ? 'src.' : part === 'glb' ? 'glb.' : part + '.';
+  const own = Object.keys(st.values).filter(id => id.startsWith(pre));
+  const mods = zoneRange(zoneOfPart(part)).filter(i => st.bank[i]).map(i => 'm' + i + '.rate');
+  const routes = st.routes.filter(r => r.owner === part).map(r => r.id);
+  return own.concat(mods, routes);
+}
+function log(kind, msg) { LOG.unshift({ kind, msg }); LOG.length = Math.min(LOG.length, 5); renderLog(); }
+function commit(res) {
+  if (res.ok) { S = res.state; log('ok', res.msg); renderAll(); }
+  else log('refuse', res.msg);                      // S untouched: the refusal is atomic
+}
+
+/* ---- renderers (structure) ---- */
+function renderHead() {
+  $('vhead').innerHTML = '<tr><th style="width:24px"></th><th style="text-align:left">parameter</th>' +
+    ALL.map(c => `<th class="c"><span class="cn" style="background:var(--c${CORNERS[c]})">${CORNERS[c]}</span>` +
+      `<span class="pn">${S.loaded.src[c] || 'init'}</span></th>`).join('') + '<th class="c">live</th></tr>';
+}
+function renderTable() {
+  renderHead();
+  let h = '';
+  const group = (part, title, extra) => {
+    const z = zoneOfPart(part);
+    h += `<tr class="g"><td></td><td colspan="6">${title} <span>· ${extra} · zone M${z.from + 1}${z.size > 1 ? '–M' + (z.from + z.size) : ''}</span></td></tr>`;
+    const ids = idsOfPart(S, part);
+    if (!ids.length) h += `<tr><td></td><td class="nm" colspan="6" style="color:var(--dim)">empty — this side passes dry</td></tr>`;
+    for (const id of ids) {
+      const pc = cornersOf(part), lk = !!S.locks[id];
+      h += `<tr class="${lk ? 'locked' : ''}"><td><button class="lk${lk ? ' on' : ''}" data-lock="${id}" title="lock (ADR-109 exempt)">${lk ? '⊘' : '·'}</button></td>` +
+        `<td class="nm" title="${id}">${labelOf(S, id)}</td>` +
+        ALL.map(c => pc.includes(c) ? `<td class="cell" data-id="${id}" data-c="${c}"></td>` : '<td class="na">·</td>').join('') +
+        `<td class="live" data-live="${id}"></td></tr>`;
+    }
+  };
+  group('src', 'SOURCE', 'oscillator presets write here, per corner');
+  group('rA', 'RACK A · ' + (S.loaded.A || 'empty'), 'corners A + C');
+  group('rB', 'RACK B · ' + (S.loaded.B || 'empty'), 'corners B + D');
+  group('glb', 'GLOBAL', 'an unlocked global is just another corner value');
+  $('vbody').innerHTML = h;
+  CELLS = Array.from($('vbody').querySelectorAll('td.cell')).map(el => ({ el, id: el.dataset.id, c: +el.dataset.c }));
+  LIVES = Array.from($('vbody').querySelectorAll('td.live')).map(el => ({ el, id: el.dataset.live }));
+}
+function renderLists() {
+  const n = S.routes.length;
+  $('routeCap').textContent = `ROUTES — ${n}/${ROUTE_CAP}${n === ROUTE_CAP ? ' · FULL: the next new route refuses its load' : ''}`;
+  $('routeBar').className = 'cap-bar' + (n === ROUTE_CAP ? ' full' : '');
+  $('routeBar').innerHTML = Array.from({ length: ROUTE_CAP }, (_, i) => `<i class="${i < n ? 'u' : ''}"></i>`).join('');
+  $('routes').innerHTML = S.routes.map(r => {
+    const pc = cornersOf(r.owner);
+    return `<div class="route"><span class="rn" title="${r.id}"><b>${labelOf(S, r.id)}</b> · ${PART_LABEL[r.owner].toLowerCase()}</span>` +
+      ALL.map(c => !pc.includes(c) ? '<span class="n">·</span>' :
+        `<span class="${S.values[r.id][c] === 0 ? 'z' : ''}">${fmtVal(DEPTH, S.values[r.id][c])}</span>`).join('') + '</div>';
+  }).join('') || '<div class="note">no routes</div>';
+  $('zones').innerHTML = ZONES.map(z => `<div class="zone"><div class="zl">${PART_LABEL[z.part]} M${z.from + 1}${z.size > 1 ? '–' + (z.from + z.size) : ''}</div><div class="slots">` +
+    zoneRange(z).map(i => S.bank[i]
+      ? `<div class="slot on"><b>M${i + 1}</b>${S.bank[i].kind}<div class="mm"><i id="mm${i}"></i></div></div>`
+      : `<div class="slot"><b>M${i + 1}</b>free</div>`).join('') + '</div></div>').join('');
+}
+function renderRacks() {
+  $('racks').innerHTML = ['A', 'B'].map(s => {
+    const lu = S.lineup[s];
+    return `<div class="rack"><div class="rh">RACK ${s} <span>· ${S.loaded[s] || 'empty'}</span></div><div class="mods">` +
+      (lu.length ? lu.map((t, i) => `<span class="mod">${i + 1} ${t}</span>`).join('') : '<span class="dry">no modules — dry</span>') +
+      `</div><div class="rs">corners ${cornersOf('r' + s).map(c => CORNERS[c]).join(' + ')} · ${planCost(graphPlan(S).filter(m => m.side === s)).toFixed(3)} %</div></div>`;
+  }).join('');
+}
+function renderPresets() {
+  const pills = (el, items) => { $(el).innerHTML = items.map(([key, label, on]) => `<button class="pill${on ? ' on' : ''}" data-k="${key}">${label}</button>`).join(''); };
+  pills('oscTarget', ALL.map(c => [c, `<span class="dot" style="background:var(--c${CORNERS[c]})"></span>${CORNERS[c]}`, oscTarget === c])
+    .concat([['ALL', 'ALL FOUR', oscTarget === 'ALL']]));
+  pills('oscPresets', OSC_PRESETS.map(p => [p.name, p.name, false]));
+  pills('rackSide', [['A', 'LEFT · RACK A', rackSide === 'A'], ['B', 'RIGHT · RACK B', rackSide === 'B']]);
+  pills('rackPresets', RACK_PRESETS.map(p => [p.name, p.name === 'empty' ? '— empty' : p.name, false]));
+  pills('patchPills', PATCHES.map(p => [p.name, p.name + (S.loaded.patch === p.name ? ' ✓' : ''), false]).concat([['INIT', 'INIT', false]]));
+  pills('notePills', NOTES.map(([n, m]) => [m, n, note === m]));
+  document.querySelectorAll('#oscPresets .pill, #rackPresets .pill, #patchPills .pill').forEach(b => b.classList.add('act'));
+}
+function renderLog() {
+  $('log').innerHTML = LOG.map((m, i) => `<div class="msg${m.kind === 'refuse' ? ' refuse' : ''}${i === 0 ? ' first' : ''}">` +
+    `${m.kind === 'refuse' ? '<b>REFUSED</b> — ' : ''}${m.msg}</div>`).join('');
+}
+function renderChecks() {
+  const pass = CHECK.filter(r => r.pass).length, caught = CHECK.filter(r => r.caught).length, n = CHECK.length;
+  $('chkBody').innerHTML = CHECK.map((r, i) => `<tr><td>${i + 1}</td><td class="claim">${r.claim}<div>${r.detail || ''}</div></td>` +
+    `<td>${r.pass ? '<span class="ok">HOLDS</span>' : '<span class="no">FAILS</span>'}</td>` +
+    `<td>${r.control}<div>${r.cdetail || ''}</div></td>` +
+    `<td>${r.caught ? '<span class="ok">CAUGHT</span>' : '<span class="no">MISSED</span>'}</td></tr>`).join('');
+  const good = pass === n && caught === n;
+  $('audit').className = 'audit' + (good ? '' : ' bad');
+  $('audit').innerHTML = `self-check at load: <b>${pass}/${n}</b> claims hold · <b>${caught}/${n}</b> planted faults caught` +
+    (good ? ' — the model below is the one the checks ran.' : ' — SEE THE TABLE: a claim or a control failed.');
+}
+function renderAll() { renderPresets(); renderTable(); renderLists(); renderRacks(); refresh(); if (AU) { rewire('A'); rewire('B'); } }
+
+/* ---- per-frame refresh (values, meters, pad) ---- */
+function refresh() {
+  for (const { el, id, c } of CELLS) {
+    const m = metaOf(S, id), v = S.values[id][c];
+    el.textContent = fmtVal(m, v);
+    el.style.setProperty('--pct', pctOf(m, v));
+    el.classList.toggle('zero', m === DEPTH && v === 0);
+  }
+  for (const { el, id } of LIVES) {
+    const m = metaOf(S, id), b = baseValue(S, id, X, Y), l = liveValue(S, id, X, Y, modOut);
+    el.textContent = (S.locks[id] ? '⊘ ' : '') + fmtVal(m, m.step ? b : l);
+    el.style.setProperty('--pct', pctOf(m, b));
+    el.style.setProperty('--mod', m === DEPTH ? Math.abs(l) : pctOf(m, l));
+  }
+  for (let i = 0; i < BANK; i++) {
+    const el = document.getElementById('mm' + i);
+    if (el && el.style) { const o = modOut[i]; el.style.left = (o < 0 ? 50 + o * 50 : 50) + '%'; el.style.width = Math.abs(o) * 50 + '%'; }
+  }
+  const w = weights(X, Y);
+  $('wread').innerHTML = ALL.map(c => `<div><span class="dot" style="background:var(--c${CORNERS[c]})"></span>${CORNERS[c]} <b>${w[c].toFixed(2)}</b></div>`).join('');
+  const [ga, gb] = fade(X);
+  $('fadeA').style.width = (ga * 100) + '%'; $('fadeB').style.width = (gb * 100) + '%';
+  $('fadeAv').textContent = ga.toFixed(2); $('fadeBv').textContent = gb.toFixed(2);
+  const cost = planCost(graphPlan(S, X)), rc = rackCount(S);
+  costHist.push(cost); if (costHist.length > 180) costHist.shift();
+  $('costBig').textContent = `${rc} rack${rc === 1 ? '' : 's'} · ${cost.toFixed(3)} % of a core`;
+  $('costWhy').innerHTML = `Both racks run at every puck position; X only scales their outputs. Numbers: B262, measured C++, ` +
+    `worst case, 44.1 kHz. Ceiling for ANY patch: 2 racks × ${RACK_SLOTS} slots × dearest module = ${COST_BOUND.toFixed(3)} %. ` +
+    `The trace below is the cost over the last ${costHist.length} frames.`;
+  paintPad(); paintCost();
+}
+
+/* ---- painters: the only code that reads theme colours ---- */
+function readPal() {
+  const cs = getComputedStyle(document.body);
+  for (const k of ['scr-tube', 'scr-value', 'scr-meter', 'scr-physics', 'scr-grid', 'scr-marker', 'cA', 'cB', 'cC', 'cD', 'line', 'bg', 'alarm'])
+    PAL[k] = String(cs.getPropertyValue('--' + k)).trim();
+}
+function fit(c) {
+  const dpr = window.devicePixelRatio || 1;
+  const w = Math.max(1, Math.round(c.clientWidth * dpr)), h = Math.max(1, Math.round(c.clientHeight * dpr));
+  if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
+  return dpr;
+}
+function paintPad() {
+  const c = $('pad'), dpr = fit(c), g = c.getContext('2d'), W = c.width, H = c.height, m = MARGIN * dpr;
+  const px = x => m + x * (W - 2 * m), py = y => m + y * (H - 2 * m);
+  g.clearRect(0, 0, W, H);
+  g.strokeStyle = PAL['scr-grid']; g.lineWidth = dpr; g.globalAlpha = 0.25;
+  for (let i = 0; i <= 4; i++) { g.beginPath(); g.moveTo(px(i / 4), py(0)); g.lineTo(px(i / 4), py(1)); g.stroke();
+                                 g.beginPath(); g.moveTo(px(0), py(i / 4)); g.lineTo(px(1), py(i / 4)); g.stroke(); }
+  // the side boundary: where the crossfade is 50/50
+  g.globalAlpha = 0.8; g.setLineDash([4 * dpr, 4 * dpr]);
+  g.beginPath(); g.moveTo(px(0.5), py(0) - 8 * dpr); g.lineTo(px(0.5), py(1) + 8 * dpr); g.stroke(); g.setLineDash([]);
+  g.globalAlpha = 1; g.fillStyle = PAL['scr-grid']; g.font = `${9 * dpr}px ui-monospace,Menlo,monospace`;
+  g.textAlign = 'center';
+  g.fillText('RACK A · ' + (S.loaded.A || 'dry'), px(0.25), H - 8 * dpr);
+  g.fillText('RACK B · ' + (S.loaded.B || 'dry'), px(0.75), H - 8 * dpr);
+  // corners
+  const pos = [[0, 0], [1, 0], [0, 1], [1, 1]];
+  g.font = `bold ${10 * dpr}px ui-monospace,Menlo,monospace`;
+  ALL.forEach(k => {
+    const [cx, cy] = pos[k], x = px(cx), y = py(cy), s = 8 * dpr;
+    g.fillStyle = PAL['c' + CORNERS[k]]; g.fillRect(x - s, y - s, 2 * s, 2 * s);
+    g.strokeStyle = PAL.line; g.lineWidth = dpr; g.strokeRect(x - s, y - s, 2 * s, 2 * s);
+    // corner hues are the same in both chassis, so their ink is the DARK token in each (the .badge rule)
+    g.fillStyle = dark ? PAL.bg : PAL.line; g.textAlign = 'center'; g.fillText(CORNERS[k], x, y + 3.5 * dpr);
+    g.fillStyle = PAL['scr-grid']; g.textAlign = cx ? 'right' : 'left';
+    g.font = `${9 * dpr}px ui-monospace,Menlo,monospace`;
+    g.fillText(S.loaded.src[k] || 'init', cx ? x - 12 * dpr : x + 12 * dpr, cy ? y - 12 * dpr : y + 18 * dpr);
+    g.font = `bold ${10 * dpr}px ui-monospace,Menlo,monospace`;
+  });
+  // puck — the player's position is an authored value
+  const x = px(X), y = py(Y);
+  g.strokeStyle = PAL['scr-value']; g.lineWidth = 1.5 * dpr; g.globalAlpha = 0.5;
+  g.beginPath(); g.moveTo(x, py(0)); g.lineTo(x, py(1)); g.moveTo(px(0), y); g.lineTo(px(1), y); g.stroke();
+  g.globalAlpha = 1; g.fillStyle = PAL['scr-value'];
+  g.beginPath(); g.arc(x, y, 7 * dpr, 0, Math.PI * 2); g.fill();
+}
+function paintCost() {
+  const c = $('costC'), dpr = fit(c), g = c.getContext('2d'), W = c.width, H = c.height;
+  g.clearRect(0, 0, W, H);
+  if (!costHist.length) return;
+  const yOf = v => H - 4 * dpr - (v / COST_BOUND) * (H - 8 * dpr);
+  g.strokeStyle = PAL['scr-grid']; g.globalAlpha = 0.5; g.setLineDash([3 * dpr, 3 * dpr]); g.lineWidth = dpr;
+  g.beginPath(); g.moveTo(0, yOf(COST_BOUND)); g.lineTo(W, yOf(COST_BOUND)); g.stroke(); g.setLineDash([]);
+  g.globalAlpha = 1; g.strokeStyle = PAL['scr-meter']; g.lineWidth = 2 * dpr; g.beginPath();
+  costHist.forEach((v, i) => { const xx = i / 179 * W; i ? g.lineTo(xx, yOf(v)) : g.moveTo(xx, yOf(v)); });
+  g.stroke();
+}
+function paintScope() {
+  const c = $('scopeC'), dpr = fit(c), g = c.getContext('2d'), W = c.width, H = c.height;
+  g.clearRect(0, 0, W, H);
+  g.strokeStyle = PAL['scr-grid']; g.globalAlpha = 0.3; g.lineWidth = dpr;
+  g.beginPath(); g.moveTo(0, H / 2); g.lineTo(W, H / 2); g.stroke(); g.globalAlpha = 1;
+  if (!AU || !scopeBuf) return;
+  AU.an.getFloatTimeDomainData(scopeBuf);
+  let peak = 0; for (const v of scopeBuf) peak = Math.max(peak, Math.abs(v));
+  if (peak >= 1) clipHold = 45; else if (clipHold > 0) clipHold--;
+  $('clip').className = 'clip' + (clipHold ? ' on' : '');
+  g.strokeStyle = PAL['scr-meter']; g.lineWidth = 1.5 * dpr; g.beginPath();
+  for (let i = 0; i < scopeBuf.length; i++) { const xx = i / (scopeBuf.length - 1) * W, yy = H / 2 - scopeBuf[i] * H * 0.45; i ? g.lineTo(xx, yy) : g.moveTo(xx, yy); }
+  g.stroke();
+}
+
+/* ---- modulators: advanced by a frame counter, seeded S&H ---- */
+function stepMods() {
+  for (let i = 0; i < BANK; i++) {
+    const b = S.bank[i];
+    if (!b) { modOut[i] = 0; continue; }
+    const before = Math.floor(modPhase[i]);
+    modPhase[i] += baseValue(S, 'm' + i + '.rate', X, Y) * DT;
+    if (b.kind === 'LFO') modOut[i] = Math.sin(2 * Math.PI * modPhase[i]);
+    else if (Math.floor(modPhase[i]) !== before) modOut[i] = shRng[i]() * 2 - 1;
+  }
+}
+
+/* ---- audio adapter: stock WebAudio nodes standing in for horde's modules ---- */
+function makeModule(type) {
+  const t = () => AC.currentTime;
+  if (type === 'DRIVE') {
+    const ws = AC.createWaveShaper(), lp = AC.createBiquadFilter(); let lastK = -1;
+    ws.oversample = '2x'; lp.type = 'lowpass'; ws.connect(lp);
+    return { input: ws, output: lp, nodes: [ws, lp], set(p) {
+      const k = 1 + p.amount * 24;
+      if (Math.abs(k - lastK) > 0.25) {
+        lastK = k; const n = 1024, cv = new Float32Array(n), d = Math.tanh(k);
+        for (let i = 0; i < n; i++) cv[i] = Math.tanh(k * (i / (n - 1) * 2 - 1)) / d;
+        ws.curve = cv;
+      }
+      lp.frequency.setTargetAtTime(600 * Math.pow(2, p.tone * 5), t(), 0.02);
+    } };
+  }
+  if (type === 'FILTER') {
+    const f = AC.createBiquadFilter(); f.type = 'lowpass';
+    return { input: f, output: f, nodes: [f], set(p) {
+      f.frequency.setTargetAtTime(60 * Math.pow(2, p.cutoff * 8.3), t(), 0.02);
+      f.Q.setTargetAtTime(0.7 + p.res * 12, t(), 0.02);
+    } };
+  }
+  const inp = AC.createGain(), out = AC.createGain(), dry = AC.createGain(), wet = AC.createGain(),
+        dl = AC.createDelay(1), fb = AC.createGain();
+  inp.connect(dry); dry.connect(out); inp.connect(dl); dl.connect(wet); wet.connect(out); dl.connect(fb); fb.connect(dl);
+  return { input: inp, output: out, nodes: [inp, out, dry, wet, dl, fb], set(p) {
+    dl.delayTime.setTargetAtTime(0.03 + p.time * 0.57, t(), 0.05);
+    fb.gain.setTargetAtTime(p.fbk, t(), 0.02);
+    wet.gain.setTargetAtTime(p.mix, t(), 0.02); dry.gain.setTargetAtTime(1 - p.mix * 0.5, t(), 0.02);
+  } };
+}
+function buildAudio() {
+  AC = new (window.AudioContext || window.webkitAudioContext)();
+  const oscs = [0, 1, 2].map(() => AC.createOscillator()), srcG = AC.createGain();
+  srcG.gain.value = 0;
+  oscs.forEach(o => { o.connect(srcG); o.start(); });
+  const busIn = { A: AC.createGain(), B: AC.createGain() }, fadeG = { A: AC.createGain(), B: AC.createGain() };
+  srcG.connect(busIn.A); srcG.connect(busIn.B);
+  const lo = AC.createBiquadFilter(), hi = AC.createBiquadFilter(), master = AC.createGain(), an = AC.createAnalyser();
+  lo.type = 'lowshelf'; lo.frequency.value = 600; hi.type = 'highshelf'; hi.frequency.value = 2500;
+  fadeG.A.connect(lo); fadeG.B.connect(lo); lo.connect(hi); hi.connect(master); master.connect(an); an.connect(AC.destination);
+  an.fftSize = 1024; scopeBuf = new Float32Array(an.fftSize);
+  AU = { oscs, srcG, busIn, fade: fadeG, lo, hi, master, an, chain: { A: [], B: [] }, key: { A: null, B: null } };
+  rewire('A'); rewire('B');
+}
+/* Rebuilt only when the LINEUP changes — a same-lineup preset just moves values. */
+function rewire(side) {
+  const key = S.lineup[side].join('+');
+  if (AU.key[side] === key) return;
+  AU.key[side] = key;
+  AU.busIn[side].disconnect();
+  for (const m of AU.chain[side]) for (const n of m.nodes) n.disconnect();
+  AU.chain[side] = S.lineup[side].map(makeModule);
+  let prev = AU.busIn[side];
+  for (const m of AU.chain[side]) { prev.connect(m.input); prev = m.output; }
+  prev.connect(AU.fade[side]);
+}
+function applyAudio() {
+  const t = AC.currentTime, L = id => liveValue(S, id, X, Y, modOut);
+  const w = Math.round(L('src.wave'));
+  if (w !== lastWave) { lastWave = w; AU.oscs.forEach(o => { o.type = OSC_TYPES[w]; }); }
+  const f = 440 * Math.pow(2, (note - 69 + L('src.pitch')) / 12);
+  AU.oscs.forEach((o, i) => { o.frequency.setTargetAtTime(f, t, 0.01); o.detune.setTargetAtTime((i - 1) * L('src.detune'), t, 0.02); });
+  AU.srcG.gain.setTargetAtTime(L('src.on') ? L('src.level') * 0.22 : 0, t, 0.02);
+  const [ga, gb] = fade(X);
+  AU.fade.A.gain.setTargetAtTime(ga, t, 0.02); AU.fade.B.gain.setTargetAtTime(gb, t, 0.02);
+  for (const side of ['A', 'B']) AU.chain[side].forEach((m, s) => {
+    const p = {}; for (const q of MODULES[S.lineup[side][s]].params) p[q.k] = L(`r${side}.s${s}.${q.k}`); m.set(p);
+  });
+  const tl = L('glb.tilt');
+  AU.lo.gain.setTargetAtTime(-tl * 9, t, 0.03); AU.hi.gain.setTargetAtTime(tl * 9, t, 0.03);
+  AU.master.gain.setTargetAtTime(L('glb.master') * 0.9, t, 0.03);
+}
+
+/* ---- the frame ---- */
+function frame() {
+  if (sweeping) { sweepT++; X = 0.5 + 0.47 * Math.sin(sweepT * 0.013); Y = 0.5 + 0.47 * Math.sin(sweepT * 0.021 + 1); }
+  stepMods();
+  if (AU && AC.state === 'running') applyAudio();
+  refresh(); paintScope();
+  requestAnimationFrame(frame);
+}
+
+/* ---- theme ---- */
+function applyTheme() {
+  document.body.classList.toggle('dark', dark);
+  $('themeBtn').innerHTML = 'theme <b>' + (dark ? 'DARK · TUBE' : 'LIGHT · ORCHID') + '</b>';
+  readPal(); refresh(); paintScope();
+}
+
+/* ======================================================================
+   WIRING — last, so nothing above reaches forward.
+   ====================================================================== */
+try { const q = window.location && window.location.search; if (typeof q === 'string' && /theme=dark/.test(q)) dark = true; } catch (_) {}
+$('themeBtn').addEventListener('click', () => { dark = !dark; applyTheme(); });
+$('pwr').addEventListener('click', () => {
+  if (!AC) buildAudio(); else if (AC.state === 'running') AC.suspend(); else AC.resume();
+  setTimeout(() => {
+    const on = AC && AC.state === 'running';
+    $('pwr').className = 'pill' + (on ? ' on' : '');
+    $('audioStat').textContent = on ? `AUDIO — ONE VOICE, ${NOTES.find(n => n[1] === note)[0]}, THROUGH BOTH RACKS` : 'AUDIO — OFF';
+  }, 60);
+});
+$('sweepBtn').addEventListener('click', () => { sweeping = !sweeping; $('sweepBtn').className = 'pill' + (sweeping ? ' on' : ''); });
+document.addEventListener('click', e => {
+  const b = e.target.closest && e.target.closest('button[data-k]');
+  if (!b) return;
+  const k = b.dataset.k, box = b.parentElement.id;
+  if (box === 'oscTarget') { oscTarget = k === 'ALL' ? 'ALL' : +k; renderPresets(); }
+  else if (box === 'rackSide') { rackSide = k; renderPresets(); }
+  else if (box === 'notePills') { note = +k; renderPresets(); }
+  else if (box === 'oscPresets') commit(loadPart(S, 'src', OSC_BY[k], oscTarget === 'ALL' ? ALL : [oscTarget]));
+  else if (box === 'rackPresets') commit(loadPart(S, 'r' + rackSide, RACK_BY[k], cornersOf('r' + rackSide)));
+  else if (box === 'patchPills') {
+    if (k === 'INIT') { S = initState(); log('ok', 'INIT: one default oscillator in all four corners, no racks, empty lists'); renderAll(); }
+    else { const p = PATCHES.find(q => q.name === k); S = loadPatch(p); X = p.puck[0]; Y = p.puck[1];
+           log('ok', `patch '${k}': ${p.steps.length} recorded loads${p.locks.length ? ', ' + p.locks.length + ' lock' : ''}`); renderAll(); }
+  }
+});
+$('pruneBtn').addEventListener('click', () => commit(prune(S)));
+$('vbody').addEventListener('click', e => {
+  const b = e.target.closest && e.target.closest('[data-lock]');
+  if (!b) return;
+  const id = b.dataset.lock;
+  S = setLock(S, id, !S.locks[id], X, Y);
+  log('ok', `${S.locks[id] ? 'locked' : 'unlocked'} ${labelOf(S, id)}${S.locks[id] ? ' at ' + fmtVal(metaOf(S, id), S.held[id]) + ' — written into all its corners (ADR-109)' : ''}`);
+  renderTable(); refresh();
+});
+/* Cell edit: drag vertically; a stepped cell cycles on click. A locked row
+   edits the held value and all its corners together (it has no per-corner
+   identity while locked). */
+function editValue(id, c, v) {
+  const m = metaOf(S, id);
+  v = Math.min(m.max, Math.max(m.min, m.step ? Math.round(v) : v));
+  if (S.locks[id]) { S.held[id] = v; for (const k of cornersOf(partOfId(S, id))) S.values[id][k] = v; }
+  else S.values[id][c] = v;
+}
+$('vbody').addEventListener('pointerdown', e => {
+  const td = e.target.closest && e.target.closest('td.cell');
+  if (!td) return;
+  const id = td.dataset.id, c = +td.dataset.c;
+  editing = { id, c, y0: e.clientY, v0: S.values[id][c], moved: false };
+  e.preventDefault();
+});
+window.addEventListener('pointermove', e => {
+  if (dragPad) { padAt(e); return; }
+  if (!editing) return;
+  const m = metaOf(S, editing.id), dy = editing.y0 - e.clientY;
+  if (Math.abs(dy) > 2) editing.moved = true;
+  if (!m.step && editing.moved) { editValue(editing.id, editing.c, editing.v0 + dy / 160 * (m.max - m.min)); renderLists(); }
+});
+window.addEventListener('pointerup', () => {
+  dragPad = false;
+  if (!editing) return;
+  const m = metaOf(S, editing.id);
+  if (m.step && !editing.moved) editValue(editing.id, editing.c, editing.v0 >= m.max ? m.min : editing.v0 + 1);
+  editing = null; renderLists();
+});
+function padAt(e) {
+  const r = $('pad').getBoundingClientRect();
+  X = Math.min(1, Math.max(0, (e.clientX - r.left - MARGIN) / (r.width - 2 * MARGIN)));
+  Y = Math.min(1, Math.max(0, (e.clientY - r.top - MARGIN) / (r.height - 2 * MARGIN)));
+}
+$('pad').addEventListener('pointerdown', e => { dragPad = true; sweeping = false; $('sweepBtn').className = 'pill'; padAt(e); });
+window.addEventListener('resize', () => refresh());
+
+/* `?demo=refuse` replays Duet → Chip into C, so a headless screenshot shows
+   the refusal as a LOAD, not a synthetic click that might not land. */
+log('ok', `patch 'Duet': ${PATCHES[0].steps.length} recorded loads, 1 lock (glb.master)`);
+try {
+  const q = window.location && window.location.search;
+  if (typeof q === 'string' && /demo=refuse/.test(q)) { oscTarget = 2; commit(loadPart(S, 'src', OSC_BY.Chip, [2])); }
+} catch (_) {}
+readPal(); applyTheme(); renderAll(); renderChecks();
+requestAnimationFrame(frame);
+</script>
+</body></html>
