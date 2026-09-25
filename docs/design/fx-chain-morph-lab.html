@@ -249,7 +249,7 @@ order per patch with a per-module mix, <b>F</b> series↔parallel, <b>G</b> a fo
 positions on a spine, and <b>GC</b> the send matrix walking C's approved orders — all on one <b>wiring planner</b> that
 searches for a legal sequence instead of repairing one. Seven invariants are checked at 601 x positions, each with a planted
 fault that must fail; the newest is <b>I7</b>, "no node without any inputs should have outputs", read two ways. A fuzzer
-(<b>tools/labharness/fxmorph_fuzz.mjs</b>) runs the same model on thousands of seeded random pairs and shrinks every failure
+(<b>tools/labharness/fxmorph_check.mjs</b>) runs the same model on thousands of seeded random pairs and shrinks every failure
 to a minimal case — the gallery below. <b>It sounds</b>: POWER plays Body and Sub through the chain you LISTEN to.</div>
 
 <div class="audit" id="audit">self-check: pending</div>
@@ -1495,7 +1495,7 @@ function unhosted(alg, Lp, Rp, why, plan) {
            info: { error: why, plan: plan || 'unrepresentable' } };
 }
 /* What each architecture guarantees BY CONSTRUCTION whenever it hosts a pair —
-   the fuzzer ASSERTS these (tools/labharness/fxmorph_fuzz.mjs) and only REPORTS
+   the fuzzer ASSERTS these (tools/labharness/fxmorph_check.mjs) and only REPORTS
    the rest. I3 (edge reading) is claimed only while the plan used no waypoint:
    a waypoint is by definition an edge neither end has. E never claims it: its
    dry wire collapses to lane → module edges neither end has while a module is

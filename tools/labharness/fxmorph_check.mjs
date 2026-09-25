@@ -1,5 +1,5 @@
 /*
- * fxmorph_fuzz.mjs — property-based fuzzer for the FX-chain morph (B266).
+ * fxmorph_check.mjs — property-based fuzzer for the FX-chain morph (B266).
  * WIRED: ./verify full
  *
  * WHAT IT TESTS. docs/design/fx-chain-morph-lab.html races nine ways to morph
@@ -30,13 +30,13 @@
  * generator and the shrinker live here, because the lab never needs them.
  *
  * MODES
- *   node tools/labharness/fxmorph_fuzz.mjs
+ *   node tools/labharness/fxmorph_check.mjs
  *        the gate: self-check, the five lab pairs plus GATE_PAIRS random pairs
  *        x four temperatures, gallery replay. Prints the rates. ~20-40 s.
- *   node tools/labharness/fxmorph_fuzz.mjs --sweep --pairs 2000 --chunk 3/8 --out DIR
+ *   node tools/labharness/fxmorph_check.mjs --sweep --pairs 2000 --chunk 3/8 --out DIR
  *        one chunk of the big sweep (run chunks in parallel; each prints
  *        progress every 50 pairs, so no watchdog sees silence).
- *   node tools/labharness/fxmorph_fuzz.mjs --merge DIR [--write]
+ *   node tools/labharness/fxmorph_check.mjs --merge DIR [--write]
  *        merge the chunks, shrink one witness per (paradigm, failure), print the
  *        tables, and with --write replace the committed gallery.
  *
@@ -58,7 +58,7 @@ const GALLERY = join(ROOT, 'docs/design/fx-chain-morph-gallery.json');
 // ---------------------------------------------------------------- the core --
 const html = readFileSync(LAB, 'utf8');
 const blocks = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)];
-if (!blocks.length) throw new Error('fxmorph_fuzz: no <script> block in ' + LAB);
+if (!blocks.length) throw new Error('fxmorph_check: no <script> block in ' + LAB);
 const core = new Function(blocks[0][1] + `
 ;return { build, evaluate, runSelfCheck, claimsOf, mulberry32, fnv, kendall, PAIRS, ALGS, TYPES, LANES, APPROVED,
           APPROVED_FULL, NGRID, W, SHORT, NAME, I6_FLOOR, I7_FLOOR, TAIL_X };`)();
@@ -324,7 +324,7 @@ if (args.includes('--merge')) {
     say(`  ${w.alg.padEnd(3)} ${(LABEL[w.key] || w.key).padEnd(22)} size ${String(w.size).padStart(4)} → ${String(s.size).padStart(4)}  ${describe(s.c)}  ${g.why || ''}  (${s.tried} tried, ${((Date.now() - t0) / 1000).toFixed(1)} s)`);
   }
   if (args.includes('--write')) {
-    const doc = { generated: 'tools/labharness/fxmorph_fuzz.mjs --merge (B266)', pairs: n, temperatures: TEMPS, seedsPerTemperature: 2, runsPerParadigm: runs,
+    const doc = { generated: 'tools/labharness/fxmorph_check.mjs --merge (B266)', pairs: n, temperatures: TEMPS, seedsPerTemperature: 2, runsPerParadigm: runs,
                   asserted: ASSERTED, studied: STUDIED, summary: summaryOf(agg), gallery };
     writeFileSync(GALLERY, JSON.stringify(doc, null, 1) + '\n');
     say(`\nwrote ${GALLERY.slice(ROOT.length + 1)} (${gallery.length} counterexamples)`);
@@ -363,5 +363,5 @@ if (existsSync(GALLERY)) {
 
 say(`\nASSERTED: ${ASSERTED.join(' ')} hold every claimed invariant whenever they host a pair; the self-check and gallery replay.`);
 say(`REPORTED: ${STUDIED.join(' ')} failure rates (under study; D is the control), and every paradigm's coverage.`);
-say(bad ? `fxmorph_fuzz: FAILED (${bad}) in ${((Date.now() - t0) / 1000).toFixed(1)} s` : `fxmorph_fuzz: GREEN in ${((Date.now() - t0) / 1000).toFixed(1)} s`);
+say(bad ? `fxmorph_check: FAILED (${bad}) in ${((Date.now() - t0) / 1000).toFixed(1)} s` : `fxmorph_check: GREEN in ${((Date.now() - t0) / 1000).toFixed(1)} s`);
 process.exit(bad ? 1 : 0);

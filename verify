@@ -248,7 +248,7 @@ full() {
     echo "verify[full]: node missing — SUB OSC lab check SKIPPED" >&2
   fi
 
-  # FX-CHAIN MORPH FUZZER (tools/labharness/fxmorph_fuzz.mjs, B266) — the
+  # FX-CHAIN MORPH FUZZER (tools/labharness/fxmorph_check.mjs, B266) — the
   # property-based check over docs/design/fx-chain-morph-lab.html's own model
   # (its first <script> block, sliced, not re-implemented). ASSERTS: the lab's
   # self-check (every claim holds, every planted fault caught); that the five
@@ -259,10 +259,10 @@ full() {
   # failure rates (under study) and every architecture's coverage. Wired under
   # ADR-180 §1 in the PR that created it. HERE, not in fast(): ~30 s.
   if command -v node >/dev/null; then
-    node tools/labharness/fxmorph_fuzz.mjs > /tmp/fxmorph.$$ 2>&1 || {
+    node tools/labharness/fxmorph_check.mjs > /tmp/fxmorph.$$ 2>&1 || {
       echo "verify[full]: FX-chain morph fuzzer FAILED" >&2; cat /tmp/fxmorph.$$ >&2
       rm -f /tmp/fxmorph.$$; return 1; }
-    echo "fxmorph_fuzz.mjs: $(tail -1 /tmp/fxmorph.$$)"
+    echo "fxmorph_check.mjs: $(tail -1 /tmp/fxmorph.$$)"
     rm -f /tmp/fxmorph.$$
   else
     echo "verify[full]: node missing — FX-chain morph fuzzer SKIPPED" >&2

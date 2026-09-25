@@ -117,3 +117,5 @@ Both are headless Chrome at 1680×5600 against `tools/serve_labs.py 8266`; Chrom
 5. `test_table_check` only cross-checks `*_check.mjs`. Should `fxmorph_fuzz.mjs` be renamed `fxmorph_check.mjs` so its WIRED declaration is machine-checked? (The brief fixed the name.)
 6. E's dry wire fails I3 edge by design. Does the edge reading still matter once the path reading is the rule (B265 open 1)?
 7. Make-before-break loudness (B265 open 3) applies to the planner too.
+
+**Renamed by the lead after hand-back (2026-09-25):** `tools/labharness/fxmorph_fuzz.mjs` → `fxmorph_check.mjs`, so `test_table_check`'s wired-or-explained census (which scans `*_check.mjs`) verifies its `WIRED:` header.
