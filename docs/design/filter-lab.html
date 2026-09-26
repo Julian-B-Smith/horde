@@ -1,8 +1,24 @@
 <!doctype html>
 <!-- filter-lab — B209 (placement: where a filter sits) + B274 (many types, a
-     fidelity programme, ONE signal-path picture). HYPERSAW, 2026-09-22 and
+     fidelity programme, ONE signal-path picture) + B287 phase A (fixes for the
+     findings whose tolerance is not in question). HYPERSAW, 2026-09-22 and
      2026-09-26. Spec-in-code per ADR-003. Round 2 extends round 1 in place (the
      index link stays valid; no successor file).
+
+     WHAT B287 PHASE A CHANGED (human 2026-09-26: "Let's fix all failures."):
+       · C6 resonance gain compensation, its law stated per type (`law` in
+         TYPES, printed in the types card): SVF 12 / SVF 24 BP, HP, PEAK × √(k/k₀);
+         LADDER × (1 + k/2); FORMANT bands × √qs.
+       · C3 LADDER: the resonance law's self-oscillation segment (k 4 → 4·1.05⁴
+         above the unchanged onset) — the 6.7 ¢ was start-up, not tuning.
+       · C2 COMB: the fractional delay is read by 3rd-order Lagrange, not linearly.
+       · C2 SWARM · PROPOSED: P4 range (fitted placement, [10 Hz, 0.49·fs]).
+       · NOT changed, each for a stated reason: COMB ± C6 (compensation would
+         trade the keytracked comb's level), SWARM · REF C2 / C6 (properties of the
+         protected reference), and phase B (C4, C5 — held for the B290 ruling).
+       · THE LAB'S SVF TYPES NOW DIVERGE FROM src/svf_core.h, by exactly one law:
+         the BP, HP and PEAK taps × √(k/k₀) (k₀ = √2 for SVF 12). The Svf class
+         itself is still the literal transcription; porting is B289.
 
      WHAT ROUND 2 ADDS (B274, human 2026-09-26: "I want quite a few more filter
      options. We'll need to do extensive fidelity testing. Let's represent the
@@ -36,9 +52,10 @@
      Any change to the bank's LAW is a PROPOSAL (P1-P3), never an edit to it.
 
      WHAT THIS IS NOT. Not a port and not an oracle. The sources are the lab's
-     own saw stacks and a sine sub. The SVF is a literal transcription of
+     own saw stacks and a sine sub. The Svf class is a literal transcription of
      src/svf_core.h (B81; svf_check is its oracle) plus two more TAPS of the
-     same pass (NOTCH, PEAK) and a setK() the other types use. Nothing in src/,
+     same pass (NOTCH, PEAK) and a setK() the other types use; the SVF 12 TYPE
+     adds B287's √(k/k₀) on BP/HP/PEAK on top of it. Nothing in src/,
      specs/ or reference/ is touched.
 
      L0026/L0041: every const/let is declared above all wiring; nothing at setup
@@ -46,7 +63,7 @@
      in the audio path or the fidelity programme — both count samples; only
      painters read time. TOKENS are copied verbatim from src/gui/gui2.html. -->
 <html lang="en"><head><meta charset="utf-8">
-<meta name="lab-review" content="B209 + B274 · 2026-09-26">
+<meta name="lab-review" content="B274 + B287 · 2026-09-26">
 <title>filter lab — twelve types, a fidelity programme, one signal path</title>
 <style>
   /* ============================================================
@@ -248,6 +265,13 @@
   table.fid td .v { display:block; color:inherit; opacity:.85; overflow-wrap:anywhere; }
   table.fid td .c { display:block; font-size:8px; color:var(--dim); overflow-wrap:anywhere; }
   body.dark table.fid td.fail .c { color:var(--caution-tx); }
+  /* A HELD finding (B287): a FAIL kept on purpose — a property of the protected
+     reference, or a fix that would trade another behaviour — says so in the cell. */
+  table.fid td .held { display:block; font-size:8px; font-weight:700; letter-spacing:.02em; margin-top:2px; overflow-wrap:anywhere; }
+  .findings .held { font-weight:700; }
+  table.fid td.tname span.heldtag { color:var(--caution-tx); font-weight:700; }
+  body.dark table.fid td.tname span.heldtag { color:var(--caution); }
+  .qa div .law { display:block; margin-top:4px; }
   .chips { display:flex; gap:3px; flex-wrap:wrap; margin:6px 0; }
   .chip2 { font-size:8.5px; letter-spacing:.08em; padding:1px 5px; border-radius:3px; border:var(--stroke) solid var(--line); color:var(--t2); background:var(--panel); }
   .chip2.fail { background:var(--caution-bg); color:var(--caution-tx); }
@@ -370,7 +394,7 @@ by the fidelity programme at the bottom of the page.</div>
 <div class="cluster full" id="propCard">
   <h2>Proposed changes to the swarm bank's law — beside <code>reference/swarmfilter.html</code></h2>
   <div class="note" style="margin-top:0">The rack's <b>SWARM · REF</b> type is the reference's own code, unmodified.
-    <b>SWARM · PROPOSED</b> is the same code plus the switches in its editor, each marked <span class="prop">PROPOSED</span>:
+    <b>SWARM · PROPOSED</b> is the same code plus the switches in its editor (P4 added by B287), each marked <span class="prop">PROPOSED</span>:
     a spec change for the human to rule on, auditioned here and made nowhere else. While PROPOSED plays, a shadow
     copy of the reference runs beside it under the same notes and is drawn as the <b>dashed ghost</b> in the rack
     box, so the two are compared live, not from memory. Numbers below are measured on fresh instances of the
@@ -403,6 +427,14 @@ by the fidelity programme at the bottom of the page.</div>
       <td>Rigid modulation — keytrack and env TRANSPOSE the whole bank at coefficient time (v + Δ); the physics keeps
       running in unmodulated coordinates, so the swarm's own motion and the modulation stop fighting.</td>
       <td class="n" id="dP3r">—</td><td class="n" id="dP3p">—</td></tr>
+    <tr><td>P4</td><td><b>The bank cannot reach the ends of the range</b> (B287, fidelity C2). Band homes are clipped to
+      [40 Hz, 11 kHz] (reference :240), the bands to 5.32…13.42 log2 Hz (:303-304), the coefficients to 0.24·fs
+      (:327), and the ERB placement floors at ERB 1 (:234): near either end the bands pile on the clamp and the
+      bank's centre stops following the knob. Shown: where the centre lands for a 55 Hz and a 12 kHz knob.</td>
+      <td>Range — the SVF core's own range, [10 Hz, 0.49·fs]; the placement FITTED, not clipped (the spread
+      contracts about the centre where it would cross an end, so the centre stays on the knob); the physics run in
+      a frame that keeps the reference's own band clamp out of reach.</td>
+      <td class="n" id="dP4r">—</td><td class="n" id="dP4p">—</td></tr>
   </table>
   <div class="note" id="propNote">Diagnostics need the reference; they fill in when it loads.</div>
 </div>
@@ -433,14 +465,17 @@ by the fidelity programme at the bottom of the page.</div>
       source. Drawing SERIAL as one line through two boxes makes it <b>global</b> (Serum's shape): a source into A runs
       on through B, and "A only" exists in PARALLEL (or with B set to a flat type). A source may still enter the line
       at B. Is the global serial line the instrument horde wants, or should serial stay per source?</div>
-    <div><span class="q">Q6 · WHICH FINDINGS SHOULD BE FIXED?</span>The fidelity table's 17 FAILs are findings, not bugs
-      filed. <b>Level</b> (C6): the B81 core's BP and HP taps get LOUDER with resonance (+10 dB over 0 → 0.9), and so do
-      SVF 24's BP/HP/PEAK; the ladder, both combs and the formant get QUIETER (8.5-18 dB). <b>Aliasing</b> (C5): LADDER
-      (−13 dBc) and MS-20 (−36 dBc) under full drive at 7 kHz — oversampling or ADAA would fix both. <b>Self-oscillation</b>
-      (C3): the ladder sings at −30 dBFS and 6.7 ¢ flat at 110 Hz. <b>COMB +</b> (C2): its peak sags 0.74 dB at 3.5 kHz
-      (the linear-interpolated delay). <b>PHASER</b> (C4): +20 dB bursts under audio-rate sweeps at full feedback.
-      <b>SWARM bank</b> (C2): the bands cannot follow the centre to 55 Hz (lands 1027 ¢ high) or 12 kHz (388 ¢ low) —
-      the reference's 40 Hz / 11 kHz clamps. Each wants a ruling: fix, compensate, or keep as character.</div>
+    <div><span class="q">Q6 · WHICH FINDINGS SHOULD BE FIXED? — B287 PHASE A DONE</span>Round 2 found 17 FAILs; the human
+      ruled "fix all failures". <b>Fixed</b> (phase A): <b>level</b> (C6) — SVF 12 BP/HP, SVF 24 BP/HP/PEAK, the ladder
+      and the formant now carry a stated compensation law (each type's LEVEL LAW, in the types card); the ladder's
+      <b>self-oscillation</b> (C3) — its 6.7 ¢ was start-up, not tuning: k now climbs to 4·1.05⁴ over the top of the
+      knob, so it blooms at the MS-20's rate; <b>COMB</b> (C2) — Lagrange, not linear, delay read; <b>SWARM · PROPOSED</b>
+      (C2) — P4 range. <b>Held, with numbers</b>: COMB ± C6 — compensating trades the keytracked comb's level (its
+      LEVEL LAW says by how much); <b>SWARM · REF</b> C2 and C6 — properties of the protected reference, pinned
+      (PROPOSED carries P1 and P4). <b>Phase B</b>, held for the tolerance ruling (B290): <b>aliasing</b> (C5) —
+      LADDER −13 dBc, MS-20 −36 dBc; <b>PHASER</b> (C4) +20 dB bursts under audio-rate sweeps; ALL-PASS ×4 C4 marginal.
+      <b>Open</b>: C6 measures ONE geometry (cutoff 1 kHz over a 110 Hz saw). Every scalar level law assumes where the
+      source's energy sits; BP's is the only one exact for any source.</div>
   </div>
 </div>
 
@@ -480,7 +515,8 @@ function gauss(rng) { let u = 0, v = 0; while (u === 0) u = rng(); while (v === 
 
 /* Svf — TRANSCRIBED from src/svf_core.h (B81 inc 2 slice 1, ADR-153; svf_check is
    its oracle). set() and modes 1-3 are literal on purpose: the per-voice SVF this
-   page auditions IS that core — fc clamped to [10, 0.49·fs], k = max(0.05,
+   page auditions IS that core (before B287's level law, which the SVF 12 TYPE
+   applies on top — see svfComp) — fc clamped to [10, 0.49·fs], k = max(0.05,
    √2·(1 − res)) (Butterworth at rest, a bounded ring at the top), LP/BP/HP from
    one TPT pass. LAB ADDITIONS, not in the core: modes 4 NOTCH (x − k·v1) and
    5 PEAK (lp − hp), two more taps of the same pass; and setK(), the same
@@ -546,8 +582,29 @@ const k24b = res => Math.max(0.05, K24B * (1 - clamp01(res)));
 /* Drive: gain into a type's nonlinearity, divided back out after it, so a small
    signal is unchanged and only the saturation depth moves. */
 const driveGain = d => 1 + 15 * clamp01(d) * clamp01(d);
-const LADDER_KMAX = 4.2;          /* res 1 → k 4.2: self-oscillates above k = 4, i.e. res > 0.952 */
-const SK_KMAX = 2.1;              /* MS-20 / Sallen-Key: self-oscillates above K = 2, same res     */
+const SK_KMAX = 2.1;              /* MS-20 / Sallen-Key: self-oscillates above K = 2, i.e. res > 0.952 */
+/* LADDER resonance law (B287, C3). Below the onset, k = 4.2·res, as round 2 had it
+   (self-oscillation starts at k = 4, res = 0.952 — unchanged). Round 2 ran that line
+   on to res 1, so the top of the knob was k = 4.2: only 5 % past the threshold on the
+   loop gain, which is 1.2 % per STAGE (4.2^¼ = 1.012·√2). The ring's growth rate is
+   the pole's real part, σ = (k^¼/√2 − 1)·ωc = 0.012·ωc, so at 110 Hz it needed about
+   a second to bloom from a small kick (C3 read it still growing: 6.7 ¢, −31.5 dBFS;
+   in steady state it is −0.03 ¢ at every pitch — there is NO tuning error), and the
+   limit cycle sat barely into the tanh (describing-function gain 4/4.2 = 0.95).
+   The self-oscillation segment [onset, 1] now runs k from 4 to 4·1.05⁴ = 4.862: 5 %
+   per stage, which puts the pole at σ = 0.05·ωc — exactly the MS-20's at res 1
+   ((K − 2)/2 = 0.05), so both self-oscillating types bloom at the same rate per
+   cycle. Nothing below the onset moves. */
+const LADDER_KON = 4.2, LADDER_RON = 4 / LADDER_KON, LADDER_KTOP = 4 * Math.pow(1.05, 4);
+const ladderK = res => { const r = clamp01(res); return r <= LADDER_RON ? LADDER_KON * r : 4 + (LADDER_KTOP - 4) * (r - LADDER_RON) / (1 - LADDER_RON); };
+/* LADDER level law (B287, C6): the output × (1 + k/2). The linear ladder's passband
+   is 1/(1 + k); this restores HALF of the loop's k in the numerator — the published
+   half-compensation (Välimäki & Huovilainen 2006, Gcomp = ½, which they apply at the
+   loop input; identical for the linear response, and applied here at the output so
+   the drive into the tanh — and C5 — is untouched). The passband still sinks, to
+   (1 + k/2)/(1 + k) (−4.4 dB at res 0.9 instead of −13.6), and the resonance still
+   rises against the bass by exactly as much as before: the thinning is kept. */
+const ladderComp = k => 1 + k / 2;
 const COMB_N = 8192, COMB_GMAX = 0.98;
 const PHASER_FBMAX = 0.9;
 const DJ_LO = 50, DJ_HI = 12000, DJ_XF = 0.1;
@@ -561,15 +618,28 @@ const VOWELS = [
   [[350, 0, 40], [600, -20, 80], [2400, -32, 100]],
 ];
 
+/* RESONANCE GAIN COMPENSATION of the SVF types (B287, C6). THIS IS WHERE THE LAB'S
+   SVF TYPES DIVERGE FROM src/svf_core.h: the BP, HP and PEAK taps are multiplied
+   by √(k / k₀), k₀ = the damping at res 0 (√2 for SVF 12; K24B, the resonant
+   stage, for SVF 24). LP and NOTCH are untouched. The Svf class above stays the
+   literal transcription (DJ, FORMANT and the SVF 24 stages call it bare); the gain
+   is applied by the TYPE, so porting it is one multiply per tap (B289).
+   Why √k: the band-pass tap's energy for a broadband input is ∝ 1/k exactly (its
+   peak is 1/k tall and k·fc wide), so √(k/k₀) holds it constant. HP and PEAK take
+   the same law because, with the cutoff above the note's fundamental (C6's
+   geometry, and the usual one), their level is carried by the same 1/k peak; LP
+   and NOTCH are carried by their passband and are left alone. This is exact for
+   BP only — for HP/PEAK it assumes where the source's energy sits (see the trace). */
+const svfComp = (k, k0, mode) => (mode === 2 || mode === 3 || mode === 5 ? Math.sqrt(k / k0) : 1);
 class Svf12 {
-  constructor() { this.f = new Svf(); this.m = 1; }
-  set(sr, P) { this.f.set(sr, fcOf(P), P.res); this.m = P.mode || 1; }
-  tick(x) { return this.f.process(x, this.m); }
+  constructor() { this.f = new Svf(); this.m = 1; this.g = 1; }
+  set(sr, P) { this.f.set(sr, fcOf(P), P.res); this.m = P.mode || 1; this.g = svfComp(this.f.k, Math.SQRT2, this.m); }
+  tick(x) { return this.g * this.f.process(x, this.m); }
 }
 class Svf24 {
-  constructor() { this.s1 = new Svf(); this.s2 = new Svf(); this.m = 1; }
-  set(sr, P) { const fc = fcOf(P); this.s1.setK(sr, fc, K24A); this.s2.setK(sr, fc, k24b(P.res)); this.m = P.mode || 1; }
-  tick(x) { return this.s2.process(this.s1.process(x, this.m), this.m); }
+  constructor() { this.s1 = new Svf(); this.s2 = new Svf(); this.m = 1; this.g = 1; }
+  set(sr, P) { const fc = fcOf(P), kb = k24b(P.res); this.s1.setK(sr, fc, K24A); this.s2.setK(sr, fc, kb); this.m = P.mode || 1; this.g = svfComp(kb, K24B, this.m); }
+  tick(x) { return this.g * this.s2.process(this.s1.process(x, this.m), this.m); }
 }
 /* LADDER — four TPT one-poles in a negative loop, solved zero-delay (the linear
    loop exactly), with ONE tanh on the loop input: u = tanh(dg·(x − k·y4))/dg.
@@ -577,10 +647,10 @@ class Svf24 {
    that estimate, and the stages then run on the saturated u — the standard
    one-nonlinearity ZDF ladder. Linear below saturation, bounded above it. */
 class Ladder {
-  constructor() { this.s = new Float64Array(4); this.G = 0.5; this.k = 0; this.dg = 1; }
+  constructor() { this.s = new Float64Array(4); this.G = 0.5; this.k = 0; this.dg = 1; this.out = 1; }
   set(sr, P) {
     const g = Math.tan(Math.PI * clampFc(sr, fcOf(P)) / sr);
-    this.G = g / (1 + g); this.k = LADDER_KMAX * clamp01(P.res); this.dg = driveGain(P.drive || 0);
+    this.G = g / (1 + g); this.k = ladderK(P.res); this.dg = driveGain(P.drive || 0); this.out = ladderComp(this.k);
   }
   tick(x) {
     const G = this.G, s = this.s, k = this.k, dg = this.dg;
@@ -589,7 +659,7 @@ class Ladder {
     const y4 = (G4 * x + S) / (1 + k * G4);
     let u = Math.tanh(dg * (x - k * y4)) / dg;
     for (let i = 0; i < 4; i++) { const v = (u - s[i]) * G, y = v + s[i]; s[i] = y + v; u = y; }
-    return u;
+    return u * this.out;
   }
 }
 /* MS-20 / SALLEN-KEY — LP → LP with the output high-passed back into the second
@@ -614,40 +684,60 @@ class Ms20 {
     return y;
   }
 }
-/* COMB — y[n] = x[n] + g·y[n − D], D = fs/f0 read by linear interpolation, the
-   output scaled by (1 − |g|) so every peak sits at 0 dB. Negative g puts the
-   peaks at the ODD half-multiples: a hollow, octave-down voice. */
+/* COMB — y[n] = x[n] + g·y[n − D], D = fs/f0, the output scaled by (1 − |g|) so
+   every peak sits at 0 dB. Negative g puts the peaks at the ODD half-multiples: a
+   hollow, octave-down voice.
+   THE FRACTIONAL DELAY IS READ BY 3rd-ORDER LAGRANGE (B287, C2), not linearly.
+   Round 2's linear read (1 − fr)·y[n−N] + fr·y[n−N−1] is itself a low-pass,
+   |1 − fr + fr·e^{−jω}| < 1 above DC, so the loop gain at a high peak was less than
+   g and the peak sank below the 0 dB its (1 − |g|) promises: −0.74 dB at 3.52 kHz,
+   res 0.8 (fr ≈ 0.64: |L| = 0.976, and the peak magnifies the shortfall by
+   g/(1 − g)). The 4-tap Lagrange read over y[n−N+1 … n−N−2] is maximally flat at
+   DC to 3rd order, so its magnitude error falls from O(ω²) to O(ω⁴) — at 3.52 kHz
+   from 2.4 % to under 0.1 % — and, centred on [N, N+1], it never exceeds unity, so
+   the loop stays passive (gain ≤ g). REJECTED: a Thiran all-pass, which is exactly
+   unity and put this peak at 0.000 dB, but carries state, and under C4's
+   per-sample delay sweep that state injected transients COMB − turned into a
+   +13.5 dB C4 failure (was −2.2 dB) — a C2 pass bought with a C4 fail. Lagrange
+   is an FIR: no state, so modulation behaves as the linear read did. */
+/* Lagrange weights for a delay of 1 + fr samples past the first tap. */
+function lagr3(fr, h) { const d = 1 + fr; h[0] = -(d - 1) * (d - 2) * (d - 3) / 6; h[1] = d * (d - 2) * (d - 3) / 2; h[2] = -d * (d - 1) * (d - 3) / 2; h[3] = d * (d - 1) * (d - 2) / 6; return h; }
 class Comb {
-  constructor(sign) { this.sign = sign; this.buf = new Float64Array(COMB_N); this.w = 0; this.N = 48; this.fr = 0; this.g = 0; this.norm = 1; }
+  constructor(sign) { this.sign = sign; this.buf = new Float64Array(COMB_N); this.w = 0; this.N = 48; this.h = new Float64Array(4); this.g = 0; this.norm = 1; lagr3(0, this.h); }
   set(sr, P) {
     const D = Math.max(2, Math.min(COMB_N - 2, sr / Math.max(1, fcOf(P))));
-    this.N = Math.floor(D); this.fr = D - this.N;
+    this.N = Math.floor(D); lagr3(D - this.N, this.h);
     this.g = this.sign * COMB_GMAX * clamp01(P.res); this.norm = 1 - Math.abs(this.g);
   }
   tick(x) {
-    const m = COMB_N - 1, w = this.w, b = this.buf;
-    const d = (1 - this.fr) * b[(w - this.N) & m] + this.fr * b[(w - this.N - 1) & m];
+    const m = COMB_N - 1, w = this.w, b = this.buf, h = this.h, i = w - this.N + 1;
+    const d = h[0] * b[i & m] + h[1] * b[(i - 1) & m] + h[2] * b[(i - 2) & m] + h[3] * b[(i - 3) & m];
     const y = x + this.g * d; b[w] = y; this.w = (w + 1) & m;
     return y * this.norm;
   }
 }
 function combH(f, sr, P) {
-  const D = Math.max(2, Math.min(COMB_N - 2, sr / Math.max(1, fcOf(P)))), N = Math.floor(D), fr = D - N;
+  const D = Math.max(2, Math.min(COMB_N - 2, sr / Math.max(1, fcOf(P)))), N = Math.floor(D), h = lagr3(D - N, [0, 0, 0, 0]);
   const g = (P.sign || 1) * COMB_GMAX * clamp01(P.res), w = TAU * f / sr;
-  const dr = 1 - g * ((1 - fr) * Math.cos(w * N) + fr * Math.cos(w * (N + 1)));
-  const di = g * ((1 - fr) * Math.sin(w * N) + fr * Math.sin(w * (N + 1)));
-  return cdiv(1 - Math.abs(g), 0, dr, di);
+  let lr = 0, li = 0;
+  for (let t = 0; t < 4; t++) { lr += h[t] * Math.cos(w * (N - 1 + t)); li -= h[t] * Math.sin(w * (N - 1 + t)); }   /* Σ h·z^−(N−1+t) */
+  return cdiv(1 - Math.abs(g), 0, 1 - g * lr, -g * li);
 }
 /* FORMANT — three band-passes (unity at their centres, k·v1) summed, placed from
    the vowel table: morph walks A→E→I→O→U, cutoff SHIFTS every formant
-   (1 kHz = the table's own voice), resonance scales every Q by ½…2. */
+   (1 kHz = the table's own voice), resonance scales every Q by ½…2.
+   RESONANCE GAIN COMPENSATION (B287, C6): every band's gain is also × √qs. A
+   unity-peak band-pass passes energy ∝ its bandwidth ∝ 1/Q, so as resonance
+   multiplies every Q by qs the vowel lost 10·log10(qs) dB; √qs holds its energy
+   (exact for a broadband source), and res 0.5 (qs = 1) — the table's own voice —
+   is untouched. Folded into amp[], so the DSP and H() cannot disagree. */
 function formantBands(sr, P, fc, k, amp) {
   const p = clamp01(P.morph) * 4, i0 = Math.min(3, Math.floor(p)), t = p - i0;
-  const shift = fcOf(P) / 1000, qs = Math.pow(2, 2 * (clamp01(P.res) - 0.5));
+  const shift = fcOf(P) / 1000, qs = Math.pow(2, 2 * (clamp01(P.res) - 0.5)), qg = Math.sqrt(qs);
   for (let j = 0; j < 3; j++) {
     const a = VOWELS[i0][j], b = VOWELS[i0 + 1][j];
     const F = a[0] + (b[0] - a[0]) * t, dB = a[1] + (b[1] - a[1]) * t, BW = a[2] + (b[2] - a[2]) * t;
-    fc[j] = clampFc(sr, F * shift); k[j] = BW / F / qs; amp[j] = Math.pow(10, dB / 20);
+    fc[j] = clampFc(sr, F * shift); k[j] = BW / F / qs; amp[j] = Math.pow(10, dB / 20) * qg;
   }
 }
 class Formant {
@@ -702,20 +792,69 @@ class Dj {
    coefficients). tick() is the per-sample bank loop, the one thing COPIED
    (reference :362-374), because FilterLab.render() hard-wires its own exciter.
    `prop` switches on the PROPOSED law (P1 Q compensation, P2 LF keep, P3 rigid
-   modulation); null is the reference, untouched. */
+   modulation, P4 range); null is the reference, untouched.
+   P4 RANGE (B287, C2). The reference clips every band's home to [40 Hz, 11 kHz]
+   (:240), clamps the bands themselves to 5.32…13.42 log2 Hz (:303-304) and its
+   coefficients to 0.24·fs (:327), and floors the ERB placement at ERB 1 (:234). A
+   centre near either end therefore piles bands on the clamp and the bank's centre
+   cannot follow the knob (55 Hz lands 1027 ¢ high, 12 kHz 388 ¢ low). P4 keeps
+   the reference's placement formula and physics and changes only the ends:
+     · the band range is the SVF core's own, [10 Hz, 0.49·fs] (clampFc);
+     · the placement is FITTED, not clipped: where the spread would push a band
+       past an end, the spread (in the placement's own scale — ERB or octaves)
+       contracts symmetrically about the centre, so the bands' centroid stays on
+       the knob. (HARMONIC placement has no centre; it is clipped to the range.)
+     · the reference's physics runs in a FRAME shifted by `frame` octaves, which
+       centres the bank's span in the reference's own 5.32…13.42 window, so its
+       band clamp never binds (spans are ≤ 5.3 octaves, the window is 8.1). The
+       physics is translation-invariant in log2 — home spring, sync, splay, drift
+       — except gravity, which reads f0last and which the lab never switches on.
+     · coefficients are the reference's formula at v + frame (+ P3's Δ), capped
+       at 0.49·fs instead of 0.24·fs.
+   The placement is installed as an instance override of placeTargets(), so the
+   reference's own rebuild() calls it; the reference file is not touched. */
+const REF_VLO = 5.32, REF_VHI = 13.42, RANGE_LO = 10;       /* reference :303-304; SVF core's 10 Hz */
 class SwarmBank {
   constructor(Cls, sr, B, prop) {
-    this.b = new Cls(sr); this.B = B; this.prop = prop || null;
+    this.b = new Cls(sr); this.B = B; this.prop = prop || null; this.sr = sr;
     const b = this.b;
+    this.frame = 0; this.rangeOn = false; this.top = 0.24;
+    if (this.prop) { this.rangeOn = !!this.prop.range; b.placeTargets = () => this.place(); }
     b.setParam('place', B.place); b.setParam('spread', B.spread); b.setParam('K', B.K);
     b.setParam('driftDepth', B.drift); b.setParam('seed', B.seed);
     this.centre = NaN; this.q = NaN; this.live = false;
     this.shift = 0; this.rigidOn = false; this.qcomp = 1; this.lfC = 0; this.lpZ = 0;
     this.rc = { a1: new Float64Array(24), a2: new Float64Array(24), a3: new Float64Array(24) };
   }
+  /* P4's placement (or, with P4 off, the reference's own at frame 0). Moving the
+     frame moves v with it, so the bands' TRUE positions never jump. */
+  place() {
+    const b = this.b, p = b.p, n = p.nb;
+    let fr = 0;
+    if (!this.rangeOn) Object.getPrototypeOf(b).placeTargets.call(b);
+    else {
+      const cF = Math.pow(2, p.center), lo = RANGE_LO, hi = clampFc(this.sr, Infinity);
+      let hMin = 99, hMax = -99;
+      const e = erbN(cF), sE = Math.max(0, Math.min(p.spread, Math.min(e - erbN(lo), erbN(hi) - e) / 12));
+      const sL = Math.max(0, Math.min(p.spread, Math.min(Math.log2(cF / lo), Math.log2(hi / cF)) / 2.5));
+      for (let i = 0; i < n; i++) {
+        const f = p.place === 0 ? erbInv(e + b.x[i] * sE * 12)                    /* the reference's :234, fitted */
+          : p.place === 1 ? cF * Math.pow(2, b.x[i] * sL * 2.5)                     /* :236, fitted */
+          : (i + 1) * b.f0last * Math.pow(2, b.x[i] * p.spread * 0.12);             /* :238, clipped */
+        const h = Math.log2(Math.min(hi, Math.max(lo, f)));
+        b.tHome[i] = h; hMin = Math.min(hMin, h); hMax = Math.max(hMax, h);
+      }
+      fr = (hMin + hMax) / 2 - (REF_VLO + REF_VHI) / 2;
+      for (let i = 0; i < n; i++) b.tHome[i] -= fr;
+    }
+    const d = this.frame - fr;
+    if (d !== 0) for (let i = 0; i < b.v.length; i++) b.v[i] += d;
+    this.frame = fr;
+  }
   set(sr, P) {
     const b = this.b, pr = this.prop, base = Math.log2(Math.max(20, P.cutoff)), oct = P.oct || 0;
     const rigid = !!(pr && pr.rigid), centre = rigid ? base : base + oct;
+    if (pr && !!pr.range !== this.rangeOn) { this.rangeOn = !!pr.range; b.placeTargets(); }    /* P4 toggled live */
     if (!this.live) {
       /* nb LAST: setParam('nb') re-homes every band (v = tHome) — the reference's
          own reset — so the bank starts placed instead of gliding in from 800 Hz. */
@@ -726,13 +865,14 @@ class SwarmBank {
     if (P.res !== this.q) { b.setParam('qbase', P.res); this.q = P.res; }
     b.controlTick();
     const n = b.p.nb;
-    this.shift = rigid ? oct : 0;
-    this.rigidOn = rigid && oct !== 0;
+    this.shift = this.frame + (rigid ? oct : 0);
+    this.top = this.rangeOn ? 0.49 : 0.24;
+    this.rigidOn = this.shift !== 0 || this.rangeOn;          /* own coefficients: P3 moved, or P4's frame / cap */
     if (this.rigidOn) {
-      /* P3: coefficients from v + Δ, the reference's formula (:324-330) otherwise. */
+      /* P3/P4: coefficients from v + shift, the reference's formula (:324-330) otherwise. */
       const k = 1 / b.qEff;
       for (let i = 0; i < n; i++) {
-        const g = Math.tan(PI_REF * Math.min(0.24, Math.pow(2, b.v[i] + oct) / sr));
+        const g = Math.tan(PI_REF * Math.min(this.top, Math.pow(2, b.v[i] + this.shift) / sr));
         const a1 = 1 / (1 + g * (g + k));
         this.rc.a1[i] = a1; this.rc.a2[i] = g * a1; this.rc.a3[i] = g * this.rc.a2[i];
       }
@@ -765,12 +905,13 @@ class SwarmBank {
 }
 /* A bank's response, bands summed COMPLEX (they run in parallel; the phase between
    them carves the inter-band nulls), plus the P2 one-pole when lfC > 0; `shift`
-   is P3's rigid transposition in octaves. */
-function bankC(f, sr, v, n, qEff, scale, lfC, shift) {
+   is P3's rigid transposition plus P4's frame, in octaves; `top` the coefficient
+   cap as a fraction of fs (the reference's 0.24, P4's 0.49). */
+function bankC(f, sr, v, n, qEff, scale, lfC, shift, top = 0.24) {
   const k = 1 / qEff, t = Math.tan(Math.min(Math.PI * f / sr, Math.PI * 0.4999));
   let re = 0, im = 0;
   for (let i = 0; i < n; i++) {
-    const g = Math.tan(PI_REF * Math.min(0.24, Math.pow(2, v[i] + shift) / sr));
+    const g = Math.tan(PI_REF * Math.min(top, Math.pow(2, v[i] + shift) / sr));
     const O = t / g, ni = k * O, dr = 1 - O * O, di = k * O, dd = dr * dr + di * di;
     re += ni * di / dd; im += ni * dr / dd;
   }
@@ -781,11 +922,11 @@ function bankC(f, sr, v, n, qEff, scale, lfC, shift) {
   }
   return [re, im];
 }
-function bankDb(f, sr, v, n, qEff, scale, lfC, shift) {
-  const c = bankC(f, sr, v, n, qEff, scale, lfC, shift), m = Math.hypot(c[0], c[1]);
+function bankDb(f, sr, v, n, qEff, scale, lfC, shift, top) {
+  const c = bankC(f, sr, v, n, qEff, scale, lfC, shift, top), m = Math.hypot(c[0], c[1]);
   return m > 0 ? 20 * Math.log10(m) : -120;
 }
-const bankInstH = (f, sr, inst) => { const b = inst.b, n = b.p.nb; return bankC(f, sr, b.v, n, b.qEff, 1.6 / Math.sqrt(n) * inst.qcomp, inst.lfC, inst.shift); };
+const bankInstH = (f, sr, inst) => { const b = inst.b, n = b.p.nb; return bankC(f, sr, b.v, n, b.qEff, 1.6 / Math.sqrt(n) * inst.qcomp, inst.lfC, inst.shift, inst.top); };
 const erbN = f => 21.4 * Math.log10(1 + 0.00437 * f);         /* the reference's own ERB scale (:4-5) */
 const erbInv = E => (Math.pow(10, E / 21.4) - 1) / 0.00437;
 
@@ -794,7 +935,8 @@ const erbInv = E => (Math.pow(10, E / 21.4) - 1) / 0.00437;
    printed in the types card. `uses` names the knobs the type reads. */
 const USES_ALL = { cutoff: 1, res: 1, drive: 0, morph: 0 };
 function svfClaim(P, k, stages) {
-  const f = fcOf(P), m = P.mode || 1, K = stages === 2 ? K24A * k : k, L = 20 * Math.log10(1 / K);
+  const f = fcOf(P), m = P.mode || 1, K = stages === 2 ? K24A * k : k;
+  const L = 20 * Math.log10(svfComp(k, stages === 2 ? K24B : Math.SQRT2, m) / K);     /* the compensated law */
   const ph = stages === 2 ? [0, -Math.PI, 0, Math.PI, 0, -Math.PI] : [0, -Math.PI / 2, 0, Math.PI / 2, 0, -Math.PI / 2];
   if (m === 4) return { kind: 'min', f, lvl: -60 };
   return { kind: 'phase', f, ph: ph[m], lvl: m === 5 ? L + stages * 20 * Math.log10(2) : L };
@@ -803,30 +945,35 @@ const TYPES = {
   svf12: {
     name: 'SVF 12', fam: '2-pole state-variable', modes: SVF_MODES, uses: USES_ALL, rackOnly: false, selfOsc: false, nl: false,
     why: 'B81\'s own core (a literal transcription of src/svf_core.h): zero-delay, stable under any modulation, exact analytic response. LP/BP/HP are its three taps; NOTCH and PEAK are two more taps of the same pass, free.',
+    law: 'BP, HP and PEAK × √(k/√2), k = max(0.05, √2·(1 − res)) — unity at res 0, −10 dB at res 0.9. The band-pass passes energy ∝ 1/k (a peak 1/k tall, k·fc wide), so √k holds it: exact for BP on any broadband source; HP and PEAK take it because with the cutoff above the note their level is that same peak. LP and NOTCH are uncompensated (their level is their passband). THIS IS THE LAB\'S DIVERGENCE FROM src/svf_core.h (B287; port = B289). DJ calls the bare core and is unchanged.',
     make: () => new Svf12(),
-    H: (f, sr, P) => svfH(warpO(f, sr, Math.tan(Math.PI * clampFc(sr, fcOf(P)) / sr)), kOfRes(P.res), P.mode || 1),
+    H: (f, sr, P) => { const k = kOfRes(P.res), m = P.mode || 1, g = svfComp(k, Math.SQRT2, m), h = svfH(warpO(f, sr, Math.tan(Math.PI * clampFc(sr, fcOf(P)) / sr)), k, m);
+      return [g * h[0], g * h[1]]; },
     claim: P => svfClaim(P, kOfRes(P.res), 1),
   },
   svf24: {
     name: 'SVF 24', fam: '4-pole state-variable', modes: SVF_MODES, uses: USES_ALL, rackOnly: false, selfOsc: false, nl: false,
     why: 'The same core twice in series, Butterworth-4 at rest, resonance on the second stage: a 24 dB/oct slope for basses and pads without giving up the SVF\'s stability.',
+    law: 'BP, HP and PEAK × √(k_b / K24B), k_b the resonant second stage\'s damping (K24B = 2cos(3π/8) at res 0) — the SVF 12 law applied to the stage that carries the resonance. LP and NOTCH uncompensated.',
     make: () => new Svf24(),
     H: (f, sr, P) => {
       const g = Math.tan(Math.PI * clampFc(sr, fcOf(P)) / sr), O = warpO(f, sr, g), m = P.mode || 1;
-      const a = svfH(O, K24A, m), b = svfH(O, k24b(P.res), m); return cmul(a[0], a[1], b[0], b[1]);
+      const kb = k24b(P.res), c = svfComp(kb, K24B, m), a = svfH(O, K24A, m), b = svfH(O, kb, m);
+      return cmul(c * a[0], c * a[1], b[0], b[1]);
     },
     claim: P => svfClaim(P, k24b(P.res), 2),
   },
   ladder: {
     name: 'LADDER', fam: '4-pole ladder', modes: ['LP 24'], uses: { cutoff: 1, res: 1, drive: 1, morph: 0 }, rackOnly: false, selfOsc: true, nl: true,
     why: 'The Moog shape: four poles in a negative loop, so resonance THINS the bass (passband 1/(1+k)) and past k = 4 it sings a sine at the cutoff. One tanh in the loop gives it drive. The classic acid/bass filter.',
+    law: 'Output × (1 + k/2): half the loop\'s k restored to the numerator (Välimäki & Huovilainen\'s Gcomp = ½, applied after the tanh so drive is untouched). The passband still sinks, to (1 + k/2)/(1 + k), −4.4 dB at res 0.9 instead of −13.6, and the resonance rises against the bass exactly as before — the thinning is kept. Resonance law: k = 4.2·res to the onset (0.952), then 4 → 4·1.05⁴ over the top 5 % of the knob, so it self-oscillates at the MS-20\'s growth rate (B287 C3).',
     make: () => new Ladder(),
     H: (f, sr, P) => {
-      const O = warpO(f, sr, Math.tan(Math.PI * clampFc(sr, fcOf(P)) / sr)), k = LADDER_KMAX * clamp01(P.res);
-      const a = cmul(1, O, 1, O), a4 = cmul(a[0], a[1], a[0], a[1]); return cdiv(1, 0, a4[0] + k, a4[1]);
+      const O = warpO(f, sr, Math.tan(Math.PI * clampFc(sr, fcOf(P)) / sr)), k = ladderK(P.res);
+      const a = cmul(1, O, 1, O), a4 = cmul(a[0], a[1], a[0], a[1]); return cdiv(ladderComp(k), 0, a4[0] + k, a4[1]);
     },
-    claim: P => ({ kind: 'phase', f: fcOf(P), ph: -Math.PI, lvl: 20 * Math.log10(1 / (4 - LADDER_KMAX * clamp01(P.res))) }),
-    onset: 4 / LADDER_KMAX,
+    claim: P => { const k = ladderK(P.res); return { kind: 'phase', f: fcOf(P), ph: -Math.PI, lvl: 20 * Math.log10(ladderComp(k) / (4 - k)) }; },
+    onset: LADDER_RON,
   },
   ms20: {
     name: 'MS-20', fam: '2-pole Sallen-Key', modes: ['LP 12'], uses: { cutoff: 1, res: 1, drive: 1, morph: 0 }, rackOnly: false, selfOsc: true, nl: true,
@@ -842,6 +989,8 @@ const TYPES = {
   combP: {
     name: 'COMB +', fam: 'feedback comb', modes: ['+'], uses: { cutoff: 1, res: 1, drive: 0, morph: 0 }, rackOnly: false, selfOsc: false, nl: false,
     why: 'A pitched resonator: cutoff is a PITCH (peaks at every harmonic of it), so keytracked at 100 % it plays the note — metallic, plucked, Karplus-like tones from any source.',
+    law: 'Output × (1 − |g|): every peak at 0 dB — uncompensated on purpose. Played as designed (keytracked, a harmonic on every peak) its level holds within 0.1 dB from res 0 to 0.9; the energy law √(1 − g²) would pass C6 (3.8 dB) but make that keytracked note 12.0 dB louder at res 0.9. C6\'s fixed 1 kHz / 110 Hz geometry puts the peaks BETWEEN the saw\'s harmonics, the one case the peak law cannot hold. Held for a ruling (B287).',
+    held: { C6: 'HELD — compensating would trade the keytracked comb\'s level (see its level law). A ruling, not a fix.' },
     make: () => new Comb(1),
     H: (f, sr, P) => combH(f, sr, Object.assign({}, P, { sign: 1 })),
     claim: P => ({ kind: 'max', f: fcOf(P), lvl: 0 }),
@@ -849,6 +998,8 @@ const TYPES = {
   combN: {
     name: 'COMB −', fam: 'feedback comb', modes: ['−'], uses: { cutoff: 1, res: 1, drive: 0, morph: 0 }, rackOnly: false, selfOsc: false, nl: false,
     why: 'The same comb with the feedback inverted: peaks at the odd half-multiples only, so the pitch drops an octave and the tone goes hollow (square-like). Costs nothing beside COMB +.',
+    law: 'Output × (1 − |g|), as COMB +, uncompensated for the same reason: tuned to its source (cutoff = 2·f0, peaks on the odd harmonics) its level holds within 1.2 dB, and the energy law would still FAIL C6 here (6.1 dB) while making the tuned case 10.8 dB louder. Held for a ruling (B287).',
+    held: { C6: 'HELD — compensating would trade the tuned comb\'s level and still fail here (see its level law). A ruling, not a fix.' },
     make: () => new Comb(-1),
     H: (f, sr, P) => combH(f, sr, Object.assign({}, P, { sign: -1 })),
     claim: P => ({ kind: 'max', f: fcOf(P) / 2, lvl: 0 }),
@@ -856,6 +1007,7 @@ const TYPES = {
   formant: {
     name: 'FORMANT', fam: 'vowel (3 band-passes)', modes: ['A·E·I·O·U'], uses: { cutoff: 1, res: 1, drive: 0, morph: 1 }, rackOnly: false, selfOsc: false, nl: false,
     why: 'Talking synths — the vowel is the morph knob, cutoff shifts the whole voice. It is a filter over any source, not the formant ENGINE (CANTO, SPEC-FORMANT), and the one type hyperpop leans on that no classic filter gives.',
+    law: 'Every band × √qs, qs = 2^(2(res − ½)) the Q multiplier. A unity-peak band passes energy ∝ its bandwidth ∝ 1/Q, so √qs holds the vowel\'s energy (exact for a broadband source); res 0.5 — the table\'s own voice — is unchanged.',
     make: () => new Formant(),
     H: (f, sr, P) => {
       const fc = [0, 0, 0], k = [0, 0, 0], a = [0, 0, 0]; formantBands(sr, P, fc, k, a);
@@ -894,14 +1046,17 @@ const TYPES = {
   bank: {
     name: 'SWARM · REF', fam: 'coupled resonator bank', modes: ['bank'], uses: { cutoff: 1, res: 1, drive: 0, morph: 0 }, rackOnly: true, selfOsc: false, nl: false, needsRef: true,
     why: 'reference/swarmfilter.html itself — the E1 filter the plan of record folds into the rack (B50): band-passes whose centres are a physical swarm. Rack slot only: 16 resonators and a physics tick.',
+    law: 'The reference\'s own: N unity-peak bands × 1.6/√N, no resonance compensation — so it sinks 21 dB as qbase rises (C6), and its 40 Hz / 11 kHz clamps stop it following the centre (C2). Both are PROPERTIES OF THE PROTECTED REFERENCE, pinned as such; SWARM · PROPOSED carries the fixes (P1, P4).',
+    held: { C2: 'PINNED — a property of reference/swarmfilter.html (its 40 Hz / 11 kHz clamps). PROPOSED P4 is the fix.', C6: 'PINNED — a property of reference/swarmfilter.html (no Q compensation). PROPOSED P1 is the fix.' },
     make: (env, sr) => new SwarmBank(env.bankClass, sr, env.bank, null),
     H: (f, sr, P, inst) => bankInstH(f, sr, inst),
     claim: null,          /* measured on the bands' state — see fidC2 */
   },
   bankP: {
-    name: 'SWARM · PROPOSED', fam: 'bank + P1-P3', modes: ['bank'], uses: { cutoff: 1, res: 1, drive: 0, morph: 0 }, rackOnly: true, selfOsc: false, nl: false, needsRef: true,
-    why: 'The reference plus the three law changes the B209 round proposed (P1 Q compensation, P2 LF keep, P3 rigid modulation): a spec change for the human, auditioned here, made nowhere else.',
-    make: (env, sr) => new SwarmBank(env.bankClass, sr, env.bank, env.prop || { qcomp: 1, lfkeep: 1, rigid: 1 }),
+    name: 'SWARM · PROPOSED', fam: 'bank + P1-P4', modes: ['bank'], uses: { cutoff: 1, res: 1, drive: 0, morph: 0 }, rackOnly: true, selfOsc: false, nl: false, needsRef: true,
+    why: 'The reference plus four law changes — P1 Q compensation, P2 LF keep, P3 rigid modulation (B209) and P4 range (B287) — a spec change for the human, auditioned here, made nowhere else.',
+    law: 'P1: the bank sum × √(Q_eff / Q_mid). P4: bands fitted into [10 Hz, 0.49·fs] about the centre, so the centre follows the knob from 55 Hz to 12 kHz.',
+    make: (env, sr) => new SwarmBank(env.bankClass, sr, env.bank, env.prop || { qcomp: 1, lfkeep: 1, rigid: 1, range: 1 }),
     H: (f, sr, P, inst) => bankInstH(f, sr, inst),
     claim: null,
   },
@@ -1049,6 +1204,16 @@ function fidC1(T, row, env) {
   const ok = wm <= C.magTol && wp <= C.phTol, ctlOk = cm > C.magTol || cp > C.phTol;
   return { ok, val: fmt(wm, 4) + ' dB · ' + fmt(wp, 3) + '°', ctl: fmt(cm, 2) + ' dB · ' + fmt(cp, 1) + '°', ctlOk, irs };
 }
+/* The bank's centre, in cents from `fc`: the ERB-mean (ERB placement) or log-mean
+   (LOG) of every band's REALISED centre — its state v + shift, capped where its
+   coefficient is capped (`top`·fs), so a band the state places above the cap is read
+   where it actually rings (B287: without the cap, P4's 0.49·fs reverted to 0.24
+   passed C2 while the bands piled at 11.5 kHz). Shared by C2 and the P4 diagnostic. */
+function bankCentreCents(i, fc, sr) {
+  const b = i.b, n = b.p.nb, s = i.shift; let m = 0;
+  for (let j = 0; j < n; j++) { const fj = Math.min(i.top * sr, Math.pow(2, b.v[j] + s)); m += i.B.place === 0 ? erbN(fj) : Math.log2(fj); }
+  m /= n; return 1200 * Math.log2((i.B.place === 0 ? erbInv(m) : Math.pow(2, m)) / fc);
+}
 /* C2 — cutoff and resonance land where the knobs say, across the range. The swarm
    bank has no single landmark (it is sixteen peaks), so its C2 reads the bands'
    STATE instead: their centre (ERB-mean for ERB placement, log-mean for LOG,
@@ -1066,9 +1231,7 @@ function fidC2(T, row, env) {
       P = fidP(row, { res, morph: lp ? 0.5 - t / 2 : 0.5 + t / 2 });
     }
     if (T.needsRef) {
-      const st = i => { const b = i.b, n = b.p.nb, s = i.shift; let m = 0;
-        for (let j = 0; j < n; j++) m += i.B.place === 0 ? erbN(Math.pow(2, b.v[j] + s)) : b.v[j] + s;
-        m /= n; return 1200 * Math.log2((i.B.place === 0 ? erbInv(m) : Math.pow(2, m)) / fc); };
+      const st = i => bankCentreCents(i, fc, sr);
       const inst = fidMake(T, env, P), ci = fidMake(T, env, Object.assign({}, P, { oct: dOct }));
       const e = st(inst), q = Math.abs(20 * Math.log10(inst.b.qEff) - 20 * Math.log10(2 * Math.pow(20, res)));
       wc = Math.max(wc, Math.abs(e)); wd = Math.max(wd, q); cc = Math.max(cc, Math.abs(st(ci)));
@@ -1271,7 +1434,7 @@ function runFidelity(env, only) {
 /* The programme's fixed bank setup — the rack's defaults, frozen here so the page
    and the headless check measure the same thing whatever the knobs say. */
 const FID_BANK = { nb: 16, spread: 0.5, K: 0, drift: 0, place: 0, seed: 1234 };
-function fidEnv(Cls) { return { bankClass: Cls || null, bank: FID_BANK, prop: { qcomp: 1, lfkeep: 1, rigid: 1 } }; }
+function fidEnv(Cls) { return { bankClass: Cls || null, bank: FID_BANK, prop: { qcomp: 1, lfkeep: 1, rigid: 1, range: 1 } }; }
 
 /* The shared envelope law, stepped at the TICK in SECONDS (ADR-009): linear
    attack, then one-pole toward sustain (4.6 τ = "done" in the stated time, the
@@ -1290,7 +1453,7 @@ function defaultPatch() {
   const flt = (type, mode, cutoff, res, ktrack, env) => ({ type, mode, cutoff, res, drive: 0.3, morph: 0.3, ktrack, env, ktPitch: 'key', ktRef: 'last', wet: 1 });
   const R = flt('svf12', 1, 650, 0.4, 0.35, 0.6);
   R.bank = Object.assign({}, FID_BANK);
-  R.prop = { qcomp: 1, lfkeep: 1, rigid: 1 };
+  R.prop = { qcomp: 1, lfkeep: 1, rigid: 1, range: 1 };
   return {
     place: 'pre', master: 0.7, topo: 'par',
     port: ['A', 'B', 'R'],                 /* SWARM 1 → A, SWARM 2 → B, SUB → the mix bus */
@@ -1580,7 +1743,7 @@ const _tok = {};
 const DIAG = { dirty: true };
 /* The fidelity programme's page state: one row measured per timer tick, so the
    page paints first and fills the table in as rows finish. */
-const FIDS = { res: {}, queue: [], busy: false, cells: {} };
+const FIDS = { res: {}, queue: [], busy: false, cells: {}, type: {} };
 let REP = REPAINT, GH = GHOSTROWS;     /* where builders register, swapped while the editor builds */
 let rig = new FilterRig(48000, S);
 let ac = null, spn = null, blocks = 0, preview = false, dark = false, baseNote = 48, sel = 'A';
@@ -2048,6 +2211,7 @@ function buildInspector() {
         toggleRow(host, 'P1 Q comp', () => F.prop.qcomp, x => { F.prop.qcomp = x; }, true);
         toggleRow(host, 'P2 LF keep', () => F.prop.lfkeep, x => { F.prop.lfkeep = x; }, true);
         toggleRow(host, 'P3 rigid', () => F.prop.rigid, x => { F.prop.rigid = x; }, true);
+        toggleRow(host, 'P4 range', () => F.prop.range, x => { F.prop.range = x; }, true);
       }
     }
   } else {
@@ -2065,6 +2229,7 @@ function buildInspector() {
     }
   });
   host.appendChild(el('div', 'note', T.why));
+  if (T.law) host.appendChild(el('div', 'note', 'LEVEL LAW — ' + T.law));
   REP = REPAINT; GH = GHOSTROWS;
 }
 
@@ -2116,6 +2281,7 @@ function buildTypes() {
     const T = TYPES[id], d = el('div');
     const q = el('span', 'q', T.name + ' · ' + T.fam.toUpperCase() + (T.rackOnly ? ' · RACK ONLY' : '')); d.appendChild(q);
     d.appendChild(document.createTextNode(T.why + (T.modes.length > 1 ? ' Modes: ' + T.modes.join(' / ') + '.' : '')));
+    if (T.law) { const lw = el('span', 'law'); lw.appendChild(el('b', null, 'LEVEL LAW · ')); lw.appendChild(document.createTextNode(T.law)); d.appendChild(lw); }
     host.appendChild(d);
   }
 }
@@ -2235,6 +2401,12 @@ function runDiag() {
   set('dP2p', '<b>' + lfP.toFixed(1) + ' dB</b> down at 40 Hz');
   set('dP3r', '<b>' + (ticks >= cap ? '> 8 s' : tRef.toFixed(2) + ' s') + '</b> to 90 %');
   set('dP3p', '<b>' + (tick * 1000).toFixed(2) + ' ms</b> — the next tick');
+  /* P4: fresh wrapped instances at the rack's bands/spread/placement, the centre
+     measured by the same function C2 uses. */
+  const p4 = (prop, fc) => { const i = new SwarmBank(FL, sr, B, prop); i.set(sr, { cutoff: fc, oct: 0, res: R.res }); return bankCentreCents(i, fc, sr); };
+  const c4 = x => (x >= 0 ? '+' : '') + Math.round(x) + ' ¢';
+  set('dP4r', '55 Hz → <b>' + c4(p4(null, 55)) + '</b><br>12 kHz → <b>' + c4(p4(null, 12000)) + '</b>');
+  set('dP4p', '55 Hz → <b>' + c4(p4({ range: 1 }, 55)) + '</b><br>12 kHz → <b>' + c4(p4({ range: 1 }, 12000)) + '</b>');
   set('propNote', 'Measured just now on fresh <code>FilterLab</code> instances at the rack\'s current centre ('
     + fHz(R.cutoff) + ' Hz), bands (' + B.nb + '), spread (' + f2(B.spread) + ') and placement ('
     + PLACEMENTS_BANK[B.place] + '); P2 and P3 at the current resonance (qbase ' + f2(R.res) + '). Re-measured whenever those move.');
@@ -2253,8 +2425,11 @@ function buildFid() {
   t.appendChild(hr);
   for (const row of fidRows(true)) {
     const tr = el('tr'), td = el('td', 'tname', row.label);
-    td.appendChild(el('span', null, TYPES[row.type].fam)); tr.appendChild(td);
-    FIDS.cells[row.id] = {};
+    td.appendChild(el('span', null, TYPES[row.type].fam));
+    const hk = TYPES[row.type].held ? Object.keys(TYPES[row.type].held) : [];
+    if (hk.length) td.appendChild(el('span', 'heldtag', (row.type === 'bank' ? 'pinned: ' : 'held: ') + hk.join(' · ')));
+    tr.appendChild(td);
+    FIDS.cells[row.id] = {}; FIDS.type[row.id] = row.type;
     for (const c of FID_CHECKS) { const cell = el('td', 'pend', '…'); FIDS.cells[row.id][c.id] = cell; tr.appendChild(cell); }
     t.appendChild(tr);
   }
@@ -2269,7 +2444,9 @@ function paintFidRow(id) {
     td.appendChild(el('b', null, x.ok ? 'PASS' : 'FAIL'));
     td.appendChild(el('span', 'v', x.val));
     td.appendChild(el('span', 'c', (x.ctlOk ? 'ctl ✓ ' : 'CTL BLIND ') + (x.ctl || '')));
-    td.title = c.id + ' ' + c.name + '\n' + x.val + (x.note ? '\n' + x.note : '') + '\ncontrol: ' + (x.ctl || '') + (x.ctlOk ? ' (fails, as it must)' : ' (PASSED — the check is blind)');
+    const hd = !x.ok && TYPES[FIDS.type[id]].held && TYPES[FIDS.type[id]].held[c.id];
+    if (hd) td.appendChild(el('span', 'held', hd));
+    td.title = (hd ? hd + '\n' : '') + c.id + ' ' + c.name + '\n' + x.val + (x.note ? '\n' + x.note : '') + '\ncontrol: ' + (x.ctl || '') + (x.ctlOk ? ' (fails, as it must)' : ' (PASSED — the check is blind)');
   }
 }
 function paintFid() {
@@ -2299,6 +2476,8 @@ function paintFid() {
     for (const [c, row, x] of finds) {
       const d = el('div'); d.appendChild(el('b', null, row.label + ' — ' + c.id + ' ' + c.name + ': '));
       d.appendChild(document.createTextNode(x.val + (x.note ? ' (' + x.note + ')' : '')));
+      const hd = TYPES[row.type].held && TYPES[row.type].held[c.id];
+      if (hd) d.appendChild(el('span', 'held', ' ' + hd));
       fb.appendChild(d);
     }
   }
