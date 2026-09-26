@@ -173,6 +173,19 @@ PY
     tail -1 /tmp/fxlab.$$
     rm -f /tmp/fxlab.$$
 
+    # THE MORPH EDITOR LAB'S FOUR IN-PAGE AUDITS ARE A GATE (B269). The lab
+    # (docs/design/morph-editor-lab.html) checks itself at load — ownership
+    # parity against the engine's morphOwnersJson (B211), the waypoint laws
+    # (B235), the pad's gestures through the one pin write path (B268), and
+    # round 3's puck / hover / lock / STEP properties (B269) — and only PRINTED
+    # the verdict. This reads the verdicts back under a stub DOM, pins how many
+    # properties each audit ran, and plants one fault per audit in scratch
+    # copies that must come back red (~1.3 s, the loads run in parallel).
+    node tools/labharness/morph_editor_check.mjs > /tmp/morphed.$$ 2>&1 || {
+      echo "verify: morph editor lab audit FAILED" >&2; cat /tmp/morphed.$$ >&2; ok=1; }
+    tail -1 /tmp/morphed.$$   # the harness prints its own name; do not prefix it twice
+    rm -f /tmp/morphed.$$
+
     # EVERY GUI CONTROL MARKS THE HISTORY EXACTLY ONCE (B191). The human
     # changed the sub's Wave and no node appeared; the cause was general, not
     # the sub's — a history node exists only where a gesture bracket CLOSES,
