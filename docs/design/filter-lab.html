@@ -1,51 +1,53 @@
 <!doctype html>
-<!-- filter-lab — B209: filters — functionality, design and ROUTING.
-     HYPERSAW, 2026-09-22. Spec-in-code per ADR-003. Rewritten in place over the
-     2026-08-17 "swarm bank as a rack filter" bench; that bench's measurements
-     (the bank's Q-sweep level loss and its LF deficit) are carried forward as
-     PROPOSALS P1/P2 below, re-measured here on the reference's own code.
+<!-- filter-lab — B209 (placement: where a filter sits) + B274 (many types, a
+     fidelity programme, ONE signal-path picture). HYPERSAW, 2026-09-22 and
+     2026-09-26. Spec-in-code per ADR-003. Round 2 extends round 1 in place (the
+     index link stays valid; no successor file).
 
-     WHAT THIS IS. A design lab for the question nobody had designed: WHERE a
-     filter sits. Three placements you can HEAR, flipped live under one held
-     chord or the seeded DEMO pattern:
-       · PER SOURCE — before the mix, per VOICE: B81's SVF pair (A, B), each of
-         SWARM 1 / SWARM 2 / SUB assigned OFF / A / B / A+B.
-       · RACK SLOT — after the sum: one filter inside the FX routing matrix
-         (ADR-088's well: sources feed the slot, or go DRY around it).
-       · BOTH.
-     plus the controls and visualisation a filter page needs: the response
-     curve IS the control (drag = cutoff × resonance), violet shows the filter's
-     own live state (one curve per sounding voice, or the rack's single one),
-     cyan shows the spectra going in and coming out.
+     WHAT ROUND 2 ADDS (B274, human 2026-09-26: "I want quite a few more filter
+     options. We'll need to do extensive fidelity testing. Let's represent the
+     signal path more coherently; only one representation of each filter,
+     oscillators plugging directly in, a distinct representation of serial
+     versus parallel filters"):
+       · TYPES — twelve filter types behind ONE interface (the registry
+         `TYPES`, DSP section): SVF 12 and SVF 24 (LP/BP/HP/NOTCH/PEAK), LADDER,
+         MS-20, COMB + / COMB −, FORMANT, ALL-PASS ×4, PHASER 4, DJ, and the
+         swarm bank (REF and PROPOSED, rack slot only). Each carries its reason.
+       · FIDELITY — seven checks (C1-C7) run on every type at load, each with a
+         stated tolerance and a must-fail control; the same code runs headless in
+         tools/labharness/filter_fidelity_check.mjs, wired into ./verify fast.
+       · ONE PICTURE — the signal path draws each filter exactly once, as a box
+         holding its own response curve (the curve is still the control);
+         sources plug straight into a filter's input; SERIAL is one line through
+         two boxes, PARALLEL is a split into two branches that sum. Round 1's
+         duplicates are gone: the per-source filter boxes of its flow chart
+         (filter A drawn once per source), the separate filter cards, and the
+         matrix well (routing drawn a second time).
+
+     WHAT ROUND 1 SETTLED AND STILL HOLDS (B209). Three placements you can HEAR
+     under one seeded pattern — PER SOURCE (per voice, before the mix), RACK
+     SLOT (one filter after the sum) and BOTH — and the swarm bank CALLED from
+     reference/swarmfilter.html, never copied: the page fetches the protected
+     reference, slices its DSP section by the banners tools/golden/extract_core
+     .mjs uses, and runs its FilterLab class (placement, forces, drift,
+     coefficients). The ONE thing copied is the per-sample bank loop (reference
+     :362-374), because FilterLab.render() hard-wires its own exciter. Over
+     file:// the fetch is refused and the page says so instead of faking it.
+     Any change to the bank's LAW is a PROPOSAL (P1-P3), never an edit to it.
 
      WHAT THIS IS NOT. Not a port and not an oracle. The sources are the lab's
-     own small saw stacks and a sine sub, not swarm_core/subosc_core. The
-     per-voice SVF is a literal TRANSCRIPTION of src/svf_core.h (the core B81
-     ships, svf_check its oracle). Nothing in src/, specs/ or reference/ is
-     touched.
-
-     THE SWARM BANK IS CALLED, NOT COPIED. reference/swarmfilter.html is the
-     protected parity oracle for src/filter_core.h. This page fetches it at load
-     and slices its DSP section by the banners tools/golden/extract_core.mjs
-     uses, so the rack's SWARM · REF law runs the oracle's own FilterLab class
-     (placement, forces, drift, coefficients — its controlTick() and noteOn()).
-     The ONE thing copied is the per-sample bank loop (reference lines 362-374),
-     because FilterLab.render() hard-wires its own saw+noise exciter and a rack
-     filter must take an external input. Consequence: the bank needs HTTP — open
-     this page through the labs server (.claude/launch.json `labs`); over
-     file:// the fetch is refused and the page says so instead of faking it.
-
-     ANY CHANGE TO THE BANK'S LAW IS A PROPOSAL (P1-P3, law SWARM · PROPOSED),
-     played beside the reference with a live shadow of the reference drawn as a
-     dashed ghost — never an edit to the reference.
+     own saw stacks and a sine sub. The SVF is a literal transcription of
+     src/svf_core.h (B81; svf_check is its oracle) plus two more TAPS of the
+     same pass (NOTCH, PEAK) and a setK() the other types use. Nothing in src/,
+     specs/ or reference/ is touched.
 
      L0026/L0041: every const/let is declared above all wiring; nothing at setup
      reaches forward. No Math.random (mulberry32 only, SPEC §5.7). No wall clock
-     in the audio path — the core counts samples; only painters read time.
-     TOKENS are copied verbatim from src/gui/gui2.html (see the :root note). -->
+     in the audio path or the fidelity programme — both count samples; only
+     painters read time. TOKENS are copied verbatim from src/gui/gui2.html. -->
 <html lang="en"><head><meta charset="utf-8">
-<meta name="lab-review" content="B209 · 2026-09-22">
-<title>filter lab — where a filter sits: per source, rack slot, or both</title>
+<meta name="lab-review" content="B209 + B274 · 2026-09-26">
+<title>filter lab — twelve types, a fidelity programme, one signal path</title>
 <style>
   /* ============================================================
      TOKENS — copied VERBATIM from src/gui/gui2.html:26-96 (:root),
@@ -190,39 +192,30 @@
     background-size:4px 4px, 4px 4px; background-repeat:no-repeat; }
   select:hover { box-shadow:var(--shadow); }
 
+
   /* ============ PAGE SHAPE ============ */
-  .routing { display:grid; grid-template-columns:minmax(380px,1.5fr) minmax(250px,1fr) minmax(230px,.9fr);
-             gap:10px; align-items:start; }
-  .filters { display:grid; grid-template-columns:repeat(3, minmax(270px,1fr)); gap:10px;
-             margin-top:10px; align-items:start; }
+  .pathgrid { display:grid; grid-template-columns:minmax(560px,2.3fr) minmax(300px,1fr); gap:10px; align-items:start; }
   .lower { display:grid; grid-template-columns:minmax(250px,1fr) minmax(230px,.8fr) minmax(300px,1.2fr);
            gap:10px; margin-top:10px; align-items:start; }
   .full { margin-top:10px; }
-  @media (max-width:1180px) { .routing, .filters, .lower { grid-template-columns:1fr; } }
-  #flowC { width:100%; height:200px; }
-  canvas.resp { width:100%; height:168px; cursor:crosshair; touch-action:none; }
+  @media (max-width:1180px) { .pathgrid, .lower { grid-template-columns:1fr; } }
+  /* THE ONE PICTURE. Every filter is drawn exactly once, as a box in this
+     canvas holding its own response curve — the curve is the control. */
+  #pathC { width:100%; height:430px; cursor:crosshair; touch-action:none; }
   #envC { width:100%; height:70px; }
   #scopeC { width:100%; height:70px; }
   .arow { display:grid; grid-template-columns:62px minmax(0,1fr); gap:6px; align-items:center; margin:5px 0; }
   .arow label { font-size:10px; color:var(--t2); }
-
-  /* MATRIX WELL — gui2:404 (#mxWell) / :429 (.mxc), two columns: FILT is the
-     rack slot's input (ADR-088 coeff[src][slot]), DRY is the dry path around
-     the rack (B50 1c srcOut). Fill rises in --value: a gain is an authored value. */
-  #mxWell { background:var(--well); border:var(--stroke) solid var(--line);
-            border-radius:var(--r); padding:9px; }
-  #mxGrid { display:grid; grid-template-columns:52px repeat(2, minmax(0,1fr)); gap:5px; align-items:center; }
-  .mxh { font-size:9px; letter-spacing:.5px; color:var(--t2); text-align:center; }
-  .mxh.r { text-align:right; padding-right:4px; }
-  .mxc { position:relative; display:block; aspect-ratio:1 / 1; min-height:24px; max-height:40px;
-         line-height:1; padding-top:4px; text-align:center; font-size:9.5px;
-         font-variant-numeric:tabular-nums; border:var(--stroke) solid var(--line);
-         border-radius:var(--r); background:var(--panel2); color:var(--dim);
-         cursor:ns-resize; user-select:none; touch-action:none; }
-  .mxc.on { color:var(--text);
-            background:linear-gradient(to top, var(--value) calc(var(--mx) * 100%), var(--panel2) 0); }
-  .mxc:hover { outline:2.5px solid var(--physics); outline-offset:3px; }
-  .mxc.drag { outline:var(--stroke) solid var(--value); }
+  .plugs { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:4px 14px; margin-top:6px; }
+  @media (max-width:1180px) { .plugs { grid-template-columns:1fr; } }
+  .pill.sm { font-size:9px; padding:2px 7px; min-height:22px; }
+  .pill.dis { opacity:.35; pointer-events:none; }
+  .typegrid { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:4px; margin:4px 0 6px; }
+  .typegrid .pill { width:100%; text-align:center; }
+  .ihead { display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; margin-bottom:4px; }
+  .ihead b { font-size:13px; letter-spacing:.06em; }
+  .ihead .where { color:var(--t2); font-size:9.5px; letter-spacing:.1em; }
+  .keys { display:flex; gap:4px; margin-left:auto; }
 
   table.diag { width:100%; border-collapse:collapse; font-size:10.5px; margin-top:6px; }
   table.diag th { text-align:left; font-size:9px; letter-spacing:.1em; color:var(--dim); font-weight:600;
@@ -230,6 +223,38 @@
   table.diag td { padding:4px 6px; border-bottom:1px dashed var(--div); vertical-align:top; }
   table.diag td.n { font-variant-numeric:tabular-nums; white-space:nowrap; }
   table.diag td.n b { color:var(--value); }
+
+  /* FIDELITY TABLE. A measured verdict is an analyser's reading, so a pass is
+     marked in --meter; a FAIL is a finding and takes --caution (it needs a
+     human's eye, not an alarm); a BLIND control is the one real ALARM — the
+     check could not see the fault it exists for. */
+  .fidwrap { overflow-x:auto; }
+  table.fid { width:100%; table-layout:fixed; border-collapse:separate; border-spacing:3px; font-size:9.5px; margin-top:6px; }
+  table.fid col.tn { width:128px; }
+  table.fid th { text-align:left; font-size:8.5px; letter-spacing:.08em; color:var(--t2); font-weight:700;
+                 padding:3px 5px; vertical-align:bottom; }
+  table.fid th small { display:block; font-weight:400; color:var(--dim); letter-spacing:0; font-size:8.5px; line-height:1.3; margin-top:2px; }
+  table.fid td { padding:3px 5px; border:var(--stroke) solid var(--line); border-radius:4px; vertical-align:top;
+                 font-variant-numeric:tabular-nums; background:var(--panel); line-height:1.3; }
+  table.fid td.tname { border:0; background:none; font-weight:700; letter-spacing:.04em; white-space:nowrap; font-size:10px; }
+  table.fid td.tname span { display:block; font-weight:400; color:var(--dim); font-size:8.5px; }
+  table.fid td b { font-size:9px; letter-spacing:.1em; }
+  table.fid td.pass { border-left:4px solid var(--meter); }
+  table.fid td.pass b { color:var(--t2); }
+  table.fid td.fail { background:var(--caution-bg); color:var(--caution-tx); border-left:4px solid var(--caution); }
+  body.dark table.fid td.fail { color:var(--caution); }
+  table.fid td.blind { outline:2.5px solid var(--alarm); }
+  table.fid td.pend { color:var(--dim); border-style:dashed; }
+  table.fid td .v { display:block; color:inherit; opacity:.85; overflow-wrap:anywhere; }
+  table.fid td .c { display:block; font-size:8px; color:var(--dim); overflow-wrap:anywhere; }
+  body.dark table.fid td.fail .c { color:var(--caution-tx); }
+  .chips { display:flex; gap:3px; flex-wrap:wrap; margin:6px 0; }
+  .chip2 { font-size:8.5px; letter-spacing:.08em; padding:1px 5px; border-radius:3px; border:var(--stroke) solid var(--line); color:var(--t2); background:var(--panel); }
+  .chip2.fail { background:var(--caution-bg); color:var(--caution-tx); }
+  .chip2.pend { border-style:dashed; color:var(--dim); }
+  .findings { columns:2 380px; column-gap:22px; font-size:10.5px; color:var(--t2); margin-top:8px; }
+  .findings div { break-inside:avoid; margin-bottom:5px; line-height:1.5; }
+  .findings b { color:var(--text); }
   .qa { display:grid; grid-template-columns:repeat(3, minmax(260px,1fr)); gap:10px 18px; }
   @media (max-width:1180px) { .qa { grid-template-columns:1fr; } }
   .qa div { font-size:10.5px; line-height:1.55; color:var(--t2); }
@@ -258,8 +283,8 @@
   <div>
     <h1>filters</h1>
     <div class="badges">
-      <span class="badge">LAB · B209</span>
-      <span class="sub">WHERE A FILTER SITS — PER SOURCE, IN THE RACK, OR BOTH</span>
+      <span class="badge">LAB · B209 + B274</span>
+      <span class="sub">TWELVE TYPES · A FIDELITY PROGRAMME · ONE SIGNAL PATH</span>
     </div>
   </div>
   <div class="hdrctl">
@@ -274,42 +299,31 @@
   </div>
 </div>
 
-<div class="tagline">A filter's <b>placement</b> is not a layout choice — per-source and post-sum filtering are
-audibly different instruments. <b>PER SOURCE</b> gives every voice of every source its own filter (B81's SVF pair,
-<code>src/svf_core.h</code>): each note carries its own cutoff, keytrack and envelope. <b>RACK SLOT</b> puts one filter
-after the sum, inside the FX routing matrix (ADR-088): one cutoff for everything, so a new note re-sweeps the whole mix
-and keytracking has to pick a note. <b>BOTH</b> stacks them. POWER, then hold a chord (A..L, Z/X octave) or press
-<b>DEMO</b> (space), and flip placements with <b>1 / 2 / 3</b> while it plays. Drag any response curve: across =
-cutoff, up = resonance. <b>Violet</b> is what the filter is doing on its own right now; <b>magenta</b> is what you
-set; <b>cyan</b> is the spectrum out, over the dimmed spectrum in.</div>
+<div class="tagline">Every filter is drawn <b>once</b>, in the signal path below, as a box holding its own response curve —
+drag inside a box: across = cutoff, up = resonance; click a box to edit it on the right. Sources plug <b>straight
+in</b>: click a source's jack (or its pills) to move its cable. Filters A and B are either <b>SERIAL</b> — one line through
+two boxes — or <b>PARALLEL</b> — a split into two branches that sum. <b>PLACEMENT</b> still decides which filters are in
+force: A and B run per voice before the mix, the RACK filter runs once on the sum. POWER, then hold a chord (A..L, Z/X
+octave) or press <b>DEMO</b> (space); 1 / 2 / 3 flip placement. <b>Violet</b> is what a filter is doing on its own right now;
+<b>magenta</b> is what you set; <b>cyan</b> is the spectrum out, over the dimmed spectrum in. Every type is measured at load
+by the fidelity programme at the bottom of the page.</div>
 <div class="audit" id="refStat">reference: loading…</div>
+<div class="audit" id="fidStat">fidelity: queued…</div>
 
-<div class="routing">
-  <div class="cluster"><h2>Signal path</h2>
-    <canvas id="flowC"></canvas>
-    <div class="note">Magenta edges are the routing you set (width = gain); cyan dots are live level; the violet
-      count under each pre-mix box is how many <b>per-voice instances</b> are running right now. Parts not in the
-      current placement are drawn dashed and faint rather than removed.</div>
+<div class="pathgrid">
+  <div class="cluster" id="pathCard"><h2>Signal path — each filter drawn once, sources plugged straight in</h2>
+    <canvas id="pathC"></canvas>
+    <div class="arow" style="margin-top:7px"><label>A · B are</label><div class="pills" id="topoPills"></div></div>
+    <div class="plugs" id="plugRows"></div>
+    <div class="note">A cable ends where the source enters. <b>A</b> / <b>B</b>: into that filter's input — in SERIAL, a
+      source into A runs on through B (one line), and a source into B enters the line between them. <b>A+B</b>
+      (PARALLEL only): into the split, so it feeds both branches, which sum at ½Σ. <b>MIX</b>: straight onto the mix
+      bus Σ, past A and B, into the rack filter. <b>DRY</b>: around everything, straight to OUT. A filter out of the
+      current placement is drawn dashed and passes its input through; the violet count on A and B is how many
+      <b>per-voice instances</b> are running.</div>
   </div>
-  <div class="cluster" id="preCard"><h2>Pre-mix · per source</h2>
-    <div id="assignRows"></div>
-    <div class="arow"><label>A+B is</label><div class="pills" id="serPills"></div></div>
-    <div class="note"><b>Settings are shared, state is per source.</b> A source assigned to A runs its OWN
-      instance of A, with A's settings — so the matrix downstream still receives three separate sources. For a
-      linear filter that is exactly equal to filtering the sum (see the questions card, Q3). The sub defaults to
-      <b>OFF</b>: a sub's job is to stay clean.</div>
-  </div>
-  <div class="cluster" id="rackCard"><h2>Rack · matrix</h2>
-    <div id="mxWell"><div id="mxGrid"></div></div>
-    <div class="pills" id="mxRecall" style="margin-top:7px"></div>
-    <div class="note">The FX page's well, reduced to the one slot under test. <b>FILT</b> feeds the rack
-      filter (<code>coeff[src][slot]</code>); <b>DRY</b> goes around the whole rack (the B50 dry path). Drag or
-      scroll a cell; double-click toggles 0 / 1. With the rack filter out of the placement, every source reaches
-      OUT directly.</div>
-  </div>
+  <div class="cluster" id="inspCard"><h2>Edit</h2><div id="insp"></div></div>
 </div>
-
-<div class="filters" id="filters"></div>
 
 <div class="lower">
   <div class="cluster"><h2>Sources</h2><div id="srcRows"></div>
@@ -330,15 +344,39 @@ set; <b>cyan</b> is the spectrum out, over the dimmed spectrum in.</div>
       counted in samples, so every run is identical and the placements can be compared by ear.</div></div>
 </div>
 
+<div class="cluster full" id="fidCard">
+  <h2>Fidelity programme — seven checks × every type, each with a must-fail control</h2>
+  <div class="note" style="margin-top:0">Stated as checks, not taste. Every cell is a measurement on the type's own
+    running DSP (48 kHz, fresh instance, seeded input) against a tolerance written in the column head, and every
+    column carries a <b>control</b> — a planted fault or a known-bad signal that the check MUST fail (its reading is the
+    small second line). A control that passes would mean the check is blind; it is drawn with a red outline and counts
+    as an error. A <b>FAIL</b> is a finding about the type, reported as it is — never met by loosening a tolerance. The
+    same code runs headless in <code>tools/labharness/filter_fidelity_check.mjs</code> (wired into
+    <code>./verify fast</code>), which also pins today's verdicts, so a type that starts or stops passing is a
+    deliberate, reviewed change. Hover a cell for its numbers.</div>
+  <div class="fidwrap"><table class="fid" id="fidT"></table></div>
+  <div class="findings" id="fidFind"></div>
+</div>
+
+<div class="cluster full" id="typesCard"><h2>The types — and why each is on the menu</h2>
+  <div class="note" style="margin-top:0">One interface for all of them (<code>TYPES</code> in the DSP section):
+    <code>make()</code> an instance with <code>set(sr, P)</code> at control rate and <code>tick(x)</code> per sample,
+    <code>H(f)</code> its analytic small-signal response (what the curve draws and C1 checks), and <code>claim(P)</code> —
+    where its cutoff and resonance knobs say the landmark is (what C2 checks). P is the same six knobs for every type:
+    cutoff, modulation (octaves), resonance, drive, morph, mode; a type ghosts the knobs it does not read.</div>
+  <div class="qa" id="typeList" style="margin-top:8px"></div>
+</div>
+
 <div class="cluster full" id="propCard">
   <h2>Proposed changes to the swarm bank's law — beside <code>reference/swarmfilter.html</code></h2>
-  <div class="note" style="margin-top:0">The rack's <b>SWARM · REF</b> law is the reference's own code, unmodified.
-    <b>SWARM · PROPOSED</b> is the same code plus the switches below, each marked <span class="prop">PROPOSED</span>:
+  <div class="note" style="margin-top:0">The rack's <b>SWARM · REF</b> type is the reference's own code, unmodified.
+    <b>SWARM · PROPOSED</b> is the same code plus the switches in its editor, each marked <span class="prop">PROPOSED</span>:
     a spec change for the human to rule on, auditioned here and made nowhere else. While PROPOSED plays, a shadow
     copy of the reference runs beside it under the same notes and is drawn as the <b>dashed ghost</b> in the rack
-    card, so the two are compared live, not from memory. Numbers below are measured on fresh instances of the
+    box, so the two are compared live, not from memory. Numbers below are measured on fresh instances of the
     reference class (48 kHz, current bands/spread/placement, K = 0, drift 0), analytically for the curves and by
-    running its own <code>controlTick()</code> for the timing.</div>
+    running its own <code>controlTick()</code> for the timing. The fidelity table's two SWARM rows measure both laws
+    through the same seven checks.</div>
   <table class="diag">
     <tr><th>#</th><th>WHAT THE REFERENCE DOES</th><th>PROPOSED</th><th>REFERENCE</th><th>PROPOSED</th></tr>
     <tr><td>P1</td><td><b>Resonance is a volume knob.</b> N unity-gain bandpasses summed capture less power as they
@@ -369,52 +407,53 @@ set; <b>cyan</b> is the spectrum out, over the dimmed spectrum in.</div>
   <div class="note" id="propNote">Diagnostics need the reference; they fill in when it loads.</div>
 </div>
 
-<div class="cluster full"><h2>What the placements answer — and what is left for the human</h2>
+<div class="cluster full"><h2>What the lab answers — and what is left for the human</h2>
   <div class="qa">
     <div><span class="q">Q1 · WHERE DOES THE FILTER SIT?</span>Hear DEMO in each placement. <b>Per source</b>: each
       stab plucks on its own envelope while the held bass keeps its own, untouched; chords voice evenly because every
       note's cutoff follows that note. <b>Rack</b>: one envelope, re-fired by every stab, so the held bass
-      <i>wah</i>s along with the melody — a pumping, glued, mono-synth character. <b>Both</b>: the per-voice SVF does
+      <i>wah</i>s along with the melody — a pumping, glued, mono-synth character. <b>Both</b>: the per-voice pair does
       the tone, the rack slot does the motion (the plan of record — B81 per voice, B50 folds the E1 bank into the
       rack). The lab's lean is BOTH, but the choice of default placement for a new patch is yours.</div>
-    <div><span class="q">Q2 · DOES THE SUB GET ITS OWN FILTER?</span>The lab says <b>no third filter</b>. The pair
-      already lets SWARM 1 and SWARM 2 be shaped independently (A and B), and the sub defaults to <b>OFF</b> before
-      the mix and can take the <b>DRY</b> cell around the rack — the "sub stays clean" patch is two clicks
-      (<i>SUB AROUND</i>). If a sub needs shaping it can share A or B. A dedicated third per-voice filter would be
-      a new parameter block to earn with a named patch the pair cannot express.</div>
+    <div><span class="q">Q2 · DOES THE SUB GET ITS OWN FILTER?</span>The lab says <b>no third filter</b>. The sub's cable
+      defaults to <b>MIX</b> (past A and B, into the rack) and one click sends it <b>DRY</b> — around everything — so
+      "the sub stays clean" is one cable. If a sub needs shaping it can plug into A or B. A dedicated third per-voice
+      filter would be a new parameter block to earn with a named patch the pair cannot express.</div>
     <div><span class="q">Q3 · SHARED FILTER vs PER-SOURCE MATRIX</span>B81's pair (sources <i>share</i> A) collides
-      with B23 increment 3 (the matrix wants each source <i>separately</i>): if A filters SWARM 1 + SWARM 2 summed,
-      no per-source signal is left for the matrix. The lab's resolution: share the <b>settings</b>, instance the
-      <b>state</b> per source — exact for a linear filter (Σ filtered = filtered Σ), and 2→6 SVFs per voice against
-      B81's measured 0.21 % of a core for 2. It stops being exact the day a drive stage enters the filter. Ruling
-      owed.</div>
+      with B23 increment 3 (the matrix wants each source <i>separately</i>). The lab still shares the <b>settings</b>
+      and instances the <b>state</b> per source — exact for a linear filter (Σ filtered = filtered Σ, measured
+      5.55e-16 in round 1). Round 2 makes the caveat concrete: LADDER and MS-20 have a tanh in the loop, and with
+      drive up per-source instancing is no longer the same as filtering the sum. Ruling owed.</div>
     <div><span class="q">Q4 · KEYTRACK — FROM WHICH NOTE?</span>Per voice the answer is local: each voice tracks
-      its own note, and the only choice is <b>PLAYED KEY</b> (a transposed source shares its key's cutoff) or
-      <b>SOURCE PITCH</b> (the sub's cutoff sits an octave below, so brightness is constant per source). On the
-      rack there is one cutoff, so the note is a policy: <b>LAST</b> (mono-synth convention), <b>LOWEST</b> (follows
-      the bass, steady under chords) or <b>HIGHEST</b> (follows the melody). All three hold their value when keys
-      lift, so the cutoff never jumps on release.</div>
-    <div><span class="q">Q5 · SERIAL / PARALLEL</span>The lab applies it per source, to sources assigned <b>A+B</b>
-      only: SERIAL = B(A(x)), PARALLEL = ½(A(x) + B(x)). Serum's global serial also runs A-only sources through B;
-      that is a different instrument (B stops being independently reachable). Which does horde want?</div>
-    <div><span class="q">Q6 · WHAT THE CONTROLS LOOK LIKE</span>The curve is the control: drag = cutoff × resonance,
-      wheel = resonance, double-click = reset; the magenta handle rides the resonance peak. The filter's state is
-      visible as violet — a fan of curves, one per sounding voice, per voice; a single curve on the rack; the swarm
-      bank's resonators as violet bars whose height is their energy. The spectrum in (dim) and out (cyan) sit under
-      the curve so what it does to THIS sound is read, not inferred.</div>
+      its own note, and the only choice is <b>PLAYED KEY</b> or <b>SOURCE PITCH</b>. On the rack there is one cutoff,
+      so the note is a policy: <b>LAST</b>, <b>LOWEST</b> or <b>HIGHEST</b>, each held when keys lift. COMB + / COMB −
+      make this sharper than before: their cutoff IS a pitch, so a rack comb keytracked to LAST re-tunes the whole
+      mix to the melody.</div>
+    <div><span class="q">Q5 · SERIAL / PARALLEL — NOW A PICTURE, AND A CHOICE</span>Round 1 applied serial/parallel per
+      source. Drawing SERIAL as one line through two boxes makes it <b>global</b> (Serum's shape): a source into A runs
+      on through B, and "A only" exists in PARALLEL (or with B set to a flat type). A source may still enter the line
+      at B. Is the global serial line the instrument horde wants, or should serial stay per source?</div>
+    <div><span class="q">Q6 · WHICH FINDINGS SHOULD BE FIXED?</span>The fidelity table's 17 FAILs are findings, not bugs
+      filed. <b>Level</b> (C6): the B81 core's BP and HP taps get LOUDER with resonance (+10 dB over 0 → 0.9), and so do
+      SVF 24's BP/HP/PEAK; the ladder, both combs and the formant get QUIETER (8.5-18 dB). <b>Aliasing</b> (C5): LADDER
+      (−13 dBc) and MS-20 (−36 dBc) under full drive at 7 kHz — oversampling or ADAA would fix both. <b>Self-oscillation</b>
+      (C3): the ladder sings at −30 dBFS and 6.7 ¢ flat at 110 Hz. <b>COMB +</b> (C2): its peak sags 0.74 dB at 3.5 kHz
+      (the linear-interpolated delay). <b>PHASER</b> (C4): +20 dB bursts under audio-rate sweeps at full feedback.
+      <b>SWARM bank</b> (C2): the bands cannot follow the centre to 55 Hz (lands 1027 ¢ high) or 12 kHz (388 ¢ low) —
+      the reference's 40 Hz / 11 kHz clamps. Each wants a ruling: fix, compensate, or keep as character.</div>
   </div>
 </div>
 
 <script>
 "use strict";
 /* ================= DSP ================= */
-/* The lab's audio core: three sources, a per-voice SVF pair, one rack slot, a
-   seeded demo sequencer. Self-contained by contract — no DOM, no wall clock,
-   mulberry32 only — so tools/golden/extract_core.mjs loads it headless with the
-   'design' banner set (`DSP` … `UI`); the audibility numbers in the B209 trace
-   were measured exactly that way. The swarm bank is NOT in here: it is INJECTED
-   (attachBank) as the FilterLab class sliced out of reference/swarmfilter.html,
-   so the law the rack plays is the oracle's own code. */
+/* The lab's audio core: three sources, the per-voice filter pair A/B, one rack
+   slot, a seeded demo sequencer — plus the filter TYPE registry and the FIDELITY
+   programme. Self-contained by contract — no DOM, no wall clock, mulberry32
+   only — so tools/golden/extract_core.mjs's 'design' banners (`DSP` … `UI`)
+   slice it headless: tools/labharness/filter_fidelity_check.mjs runs the
+   fidelity programme exactly that way. The swarm bank is NOT in here: its class
+   is INJECTED (the FilterLab sliced out of reference/swarmfilter.html). */
 const TAU = 6.283185307179586;
 const TICK = 16;                 /* control tick, samples — the house tick (SPEC §5)    */
 const MAXV = 8;                  /* lab polyphony                                        */
@@ -440,10 +479,13 @@ function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; le
 function gauss(rng) { let u = 0, v = 0; while (u === 0) u = rng(); while (v === 0) v = rng(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(TAU * v); }
 
 /* Svf — TRANSCRIBED from src/svf_core.h (B81 inc 2 slice 1, ADR-153; svf_check is
-   its oracle). Literal on purpose: the per-voice filter this page auditions IS
-   that core — fc clamped to [10, 0.49·fs], k = max(0.05, √2·(1 − res)) (Butterworth
-   at rest, a bounded ring at the top), LP/BP/HP from one TPT pass. Mode ints are
-   the core's enum: 1 LP, 2 BP, 3 HP. */
+   its oracle). set() and modes 1-3 are literal on purpose: the per-voice SVF this
+   page auditions IS that core — fc clamped to [10, 0.49·fs], k = max(0.05,
+   √2·(1 − res)) (Butterworth at rest, a bounded ring at the top), LP/BP/HP from
+   one TPT pass. LAB ADDITIONS, not in the core: modes 4 NOTCH (x − k·v1) and
+   5 PEAK (lp − hp), two more taps of the same pass; and setK(), the same
+   coefficients with k given directly, which SVF 24, FORMANT and the inner stages
+   of other types use. */
 class Svf {
   constructor() { this.ic1 = 0; this.ic2 = 0; this.a1 = 0; this.a2 = 0; this.a3 = 0; this.k = Math.SQRT2; this.fc = 1000; }
   set(sr, fcHz, res) {
@@ -454,30 +496,277 @@ class Svf {
     this.fc = fc; this.k = k;
     this.a1 = 1 / (1 + g * (g + k)); this.a2 = g * this.a1; this.a3 = g * this.a2;
   }
+  setK(sr, fcHz, k) {
+    const fc = Math.max(10, Math.min(0.49 * sr, fcHz)), g = Math.tan(Math.PI * fc / sr);
+    this.fc = fc; this.k = k;
+    this.a1 = 1 / (1 + g * (g + k)); this.a2 = g * this.a1; this.a3 = g * this.a2;
+  }
   process(x, mode) {
     const v3 = x - this.ic2;
     const v1 = this.a1 * this.ic1 + this.a2 * v3;
     const v2 = this.ic2 + this.a2 * this.ic1 + this.a3 * v3;
     this.ic1 = 2 * v1 - this.ic1; this.ic2 = 2 * v2 - this.ic2;
-    return mode === 1 ? v2 : mode === 2 ? v1 : x - this.k * v1 - v2;
+    return mode === 1 ? v2 : mode === 2 ? v1 : mode === 3 ? x - this.k * v1 - v2
+      : mode === 4 ? x - this.k * v1 : 2 * v2 - x + this.k * v1;
   }
 }
-/* |H| of the SVF above, closed form. The TPT SVF is the bilinear transform of
-   the analog prototype, so with the input frequency prewarped the same way the
-   cutoff is (O = tan(πf/fs)/g) the digital response IS the analog one. */
-function svfDb(f, sr, fcHz, res, mode) {
-  const fc = Math.max(10, Math.min(0.49 * sr, fcHz));
-  const g = Math.tan(Math.PI * fc / sr);
-  const k = Math.max(0.05, Math.SQRT2 * (1 - Math.max(0, Math.min(1, res))));
-  const O = Math.tan(Math.min(Math.PI * f / sr, Math.PI * 0.4999)) / g;
-  const dr = 1 - O * O, di = k * O, dd = dr * dr + di * di;
-  const m2 = mode === 1 ? 1 / dd : mode === 2 ? O * O / dd : O * O * O * O / dd;
-  return 10 * Math.log10(Math.max(1e-12, m2));
+
+/* ---- ONE FILTER INTERFACE ------------------------------------------------
+   Every type the lab offers is a registry entry with the same shape, so the
+   signal path, the inspector and the fidelity programme never branch on a
+   type's name:
+     make(env)           -> an instance: set(sr, P) at control rate, tick(x) -> y
+     H(f, sr, P, inst)   -> [re, im], the ANALYTIC small-signal response (drive
+                            linearised) — what the drawn curve and check C1 use
+     claim(P, sr, inst)  -> what the cutoff and resonance knobs CLAIM, for C2
+   P = { cutoff Hz, oct (modulation, octaves), res 0..1, drive 0..1,
+         morph 0..1, mode 1.. }. A type ignores what it has no use for and
+   says so in `uses`, so the inspector ghosts those rows rather than lying. */
+const clamp01 = x => Math.max(0, Math.min(1, x));
+const clampFc = (sr, f) => Math.max(10, Math.min(0.49 * sr, f));
+const fcOf = P => P.cutoff * Math.pow(2, P.oct || 0);
+const kOfRes = res => Math.max(0.05, Math.SQRT2 * (1 - clamp01(res)));   /* B81 law (svf_core.h) */
+const warpO = (f, sr, g) => Math.tan(Math.PI * Math.min(f / sr, 0.4999)) / g;
+function cdiv(ar, ai, br, bi) { const d = br * br + bi * bi; return [(ar * br + ai * bi) / d, (ai * br - ar * bi) / d]; }
+function cmul(ar, ai, br, bi) { return [ar * br - ai * bi, ar * bi + ai * br]; }
+/* The SVF's five outputs over one denominator D = 1 − O² + jkO (s = jO). NOTCH
+   and PEAK are the lab's additions to the core's three: same TPT pass, other
+   taps (notch = x − k·v1, peak = lp − hp). */
+function svfH(O, k, mode) {
+  const dr = 1 - O * O, di = k * O;
+  const n = mode === 1 ? [1, 0] : mode === 2 ? [0, O] : mode === 3 ? [-O * O, 0] : mode === 4 ? [1 - O * O, 0] : [1 + O * O, 0];
+  return cdiv(n[0], n[1], dr, di);
 }
-/* |H| of a swarm bank: bands summed COMPLEX (they run in parallel; the phase
-   between them is what carves the inter-band nulls), band = k·v1 = k·jO/D, plus
-   the P2 one-pole when lfC > 0. `shift` is P3's rigid transposition, octaves. */
-function bankDb(f, sr, v, n, qEff, scale, lfC, shift) {
+const SVF_MODES = ['LP', 'BP', 'HP', 'NOTCH', 'PEAK'];
+/* 24 dB: two cascaded SVFs, Butterworth-4 at rest (k = 2cos(π/8), 2cos(3π/8)),
+   the resonance on the second stage only — so res 0 is a clean 4-pole, and the
+   B81 floor (k ≥ 0.05) keeps it a bounded ring. */
+const K24A = 2 * Math.cos(Math.PI / 8), K24B = 2 * Math.cos(3 * Math.PI / 8);
+const k24b = res => Math.max(0.05, K24B * (1 - clamp01(res)));
+/* Drive: gain into a type's nonlinearity, divided back out after it, so a small
+   signal is unchanged and only the saturation depth moves. */
+const driveGain = d => 1 + 15 * clamp01(d) * clamp01(d);
+const LADDER_KMAX = 4.2;          /* res 1 → k 4.2: self-oscillates above k = 4, i.e. res > 0.952 */
+const SK_KMAX = 2.1;              /* MS-20 / Sallen-Key: self-oscillates above K = 2, same res     */
+const COMB_N = 8192, COMB_GMAX = 0.98;
+const PHASER_FBMAX = 0.9;
+const DJ_LO = 50, DJ_HI = 12000, DJ_XF = 0.1;
+/* Formants, F1-F3 of the bass voice (the widely published Csound formant table):
+   [Hz, dB, bandwidth Hz] per formant, vowels A E I O U. */
+const VOWELS = [
+  [[600, 0, 60], [1040, -7, 70], [2250, -9, 110]],
+  [[400, 0, 40], [1620, -12, 80], [2400, -9, 100]],
+  [[250, 0, 60], [1750, -30, 90], [2600, -16, 100]],
+  [[400, 0, 40], [750, -11, 80], [2400, -21, 100]],
+  [[350, 0, 40], [600, -20, 80], [2400, -32, 100]],
+];
+
+class Svf12 {
+  constructor() { this.f = new Svf(); this.m = 1; }
+  set(sr, P) { this.f.set(sr, fcOf(P), P.res); this.m = P.mode || 1; }
+  tick(x) { return this.f.process(x, this.m); }
+}
+class Svf24 {
+  constructor() { this.s1 = new Svf(); this.s2 = new Svf(); this.m = 1; }
+  set(sr, P) { const fc = fcOf(P); this.s1.setK(sr, fc, K24A); this.s2.setK(sr, fc, k24b(P.res)); this.m = P.mode || 1; }
+  tick(x) { return this.s2.process(this.s1.process(x, this.m), this.m); }
+}
+/* LADDER — four TPT one-poles in a negative loop, solved zero-delay (the linear
+   loop exactly), with ONE tanh on the loop input: u = tanh(dg·(x − k·y4))/dg.
+   y4 is first solved linearly (y4 = (G⁴x + S)/(1 + kG⁴)), the tanh is applied to
+   that estimate, and the stages then run on the saturated u — the standard
+   one-nonlinearity ZDF ladder. Linear below saturation, bounded above it. */
+class Ladder {
+  constructor() { this.s = new Float64Array(4); this.G = 0.5; this.k = 0; this.dg = 1; }
+  set(sr, P) {
+    const g = Math.tan(Math.PI * clampFc(sr, fcOf(P)) / sr);
+    this.G = g / (1 + g); this.k = LADDER_KMAX * clamp01(P.res); this.dg = driveGain(P.drive || 0);
+  }
+  tick(x) {
+    const G = this.G, s = this.s, k = this.k, dg = this.dg;
+    const S = (1 - G) * (((G * s[0] + s[1]) * G + s[2]) * G + s[3]);
+    const G4 = G * G * G * G;
+    const y4 = (G4 * x + S) / (1 + k * G4);
+    let u = Math.tanh(dg * (x - k * y4)) / dg;
+    for (let i = 0; i < 4; i++) { const v = (u - s[i]) * G, y = v + s[i]; s[i] = y + v; u = y; }
+    return u;
+  }
+}
+/* MS-20 / SALLEN-KEY — LP → LP with the output high-passed back into the second
+   stage's input, gain K (Zavalishin's SKF topology; the Korg35 shape). Linear:
+   H = 1/(s² + (2 − K)s + 1), so the passband does NOT sag with resonance (unlike
+   the ladder). The tanh sits in the FEEDBACK path, where the MS-20 puts its
+   diodes, which is why it screams rather than thickens. */
+class Ms20 {
+  constructor() { this.s1 = 0; this.s2 = 0; this.s3 = 0; this.G = 0.5; this.K = 0; this.dg = 1; }
+  set(sr, P) {
+    const g = Math.tan(Math.PI * clampFc(sr, fcOf(P)) / sr);
+    this.G = g / (1 + g); this.K = SK_KMAX * clamp01(P.res); this.dg = driveGain(P.drive || 0);
+  }
+  tick(x) {
+    const G = this.G, K = this.K, dg = this.dg, H = 1 - G;
+    const y1 = G * x + H * this.s1;
+    const yl = (G * y1 - G * K * H * this.s3 + H * this.s2) / (1 - G * K * H);
+    const u = y1 + Math.tanh(dg * K * H * (yl - this.s3)) / dg;
+    const v1 = (x - this.s1) * G; this.s1 = y1 + v1;
+    const v2 = (u - this.s2) * G, y = v2 + this.s2; this.s2 = y + v2;
+    const v3 = (y - this.s3) * G; this.s3 = v3 + this.s3 + v3;
+    return y;
+  }
+}
+/* COMB — y[n] = x[n] + g·y[n − D], D = fs/f0 read by linear interpolation, the
+   output scaled by (1 − |g|) so every peak sits at 0 dB. Negative g puts the
+   peaks at the ODD half-multiples: a hollow, octave-down voice. */
+class Comb {
+  constructor(sign) { this.sign = sign; this.buf = new Float64Array(COMB_N); this.w = 0; this.N = 48; this.fr = 0; this.g = 0; this.norm = 1; }
+  set(sr, P) {
+    const D = Math.max(2, Math.min(COMB_N - 2, sr / Math.max(1, fcOf(P))));
+    this.N = Math.floor(D); this.fr = D - this.N;
+    this.g = this.sign * COMB_GMAX * clamp01(P.res); this.norm = 1 - Math.abs(this.g);
+  }
+  tick(x) {
+    const m = COMB_N - 1, w = this.w, b = this.buf;
+    const d = (1 - this.fr) * b[(w - this.N) & m] + this.fr * b[(w - this.N - 1) & m];
+    const y = x + this.g * d; b[w] = y; this.w = (w + 1) & m;
+    return y * this.norm;
+  }
+}
+function combH(f, sr, P) {
+  const D = Math.max(2, Math.min(COMB_N - 2, sr / Math.max(1, fcOf(P)))), N = Math.floor(D), fr = D - N;
+  const g = (P.sign || 1) * COMB_GMAX * clamp01(P.res), w = TAU * f / sr;
+  const dr = 1 - g * ((1 - fr) * Math.cos(w * N) + fr * Math.cos(w * (N + 1)));
+  const di = g * ((1 - fr) * Math.sin(w * N) + fr * Math.sin(w * (N + 1)));
+  return cdiv(1 - Math.abs(g), 0, dr, di);
+}
+/* FORMANT — three band-passes (unity at their centres, k·v1) summed, placed from
+   the vowel table: morph walks A→E→I→O→U, cutoff SHIFTS every formant
+   (1 kHz = the table's own voice), resonance scales every Q by ½…2. */
+function formantBands(sr, P, fc, k, amp) {
+  const p = clamp01(P.morph) * 4, i0 = Math.min(3, Math.floor(p)), t = p - i0;
+  const shift = fcOf(P) / 1000, qs = Math.pow(2, 2 * (clamp01(P.res) - 0.5));
+  for (let j = 0; j < 3; j++) {
+    const a = VOWELS[i0][j], b = VOWELS[i0 + 1][j];
+    const F = a[0] + (b[0] - a[0]) * t, dB = a[1] + (b[1] - a[1]) * t, BW = a[2] + (b[2] - a[2]) * t;
+    fc[j] = clampFc(sr, F * shift); k[j] = BW / F / qs; amp[j] = Math.pow(10, dB / 20);
+  }
+}
+class Formant {
+  constructor() { this.f = [new Svf(), new Svf(), new Svf()]; this.fc = new Float64Array(3); this.k = new Float64Array(3); this.a = new Float64Array(3); }
+  set(sr, P) { formantBands(sr, P, this.fc, this.k, this.a); for (let j = 0; j < 3; j++) this.f[j].setK(sr, this.fc[j], this.k[j]); }
+  tick(x) { let y = 0; for (let j = 0; j < 3; j++) y += this.a[j] * this.k[j] * this.f[j].process(x, 2); return y; }
+}
+/* ALL-PASS ×4 — four identical TPT first-order all-passes (ap = 2·lp − x): flat
+   magnitude, −360° at the cutoff. The phase is the product; C1 checks it. */
+class Ap4 {
+  constructor() { this.s = new Float64Array(4); this.G = 0.5; }
+  set(sr, P) { const g = Math.tan(Math.PI * clampFc(sr, fcOf(P)) / sr); this.G = g / (1 + g); }
+  tick(x) { const s = this.s, G = this.G; for (let i = 0; i < 4; i++) { const v = (x - s[i]) * G, lp = v + s[i]; s[i] = lp + v; x = 2 * lp - x; } return x; }
+}
+function ap4H(f, sr, P) {
+  const O = warpO(f, sr, Math.tan(Math.PI * clampFc(sr, fcOf(P)) / sr));
+  const a = cdiv(1, -O, 1, O); const a2 = cmul(a[0], a[1], a[0], a[1]);
+  return cmul(a2[0], a2[1], a2[0], a2[1]);
+}
+/* PHASER — ½(x + AP4(x + fb·w[n−1])): the all-pass chain mixed with the dry
+   signal, notches where the chain reaches −180° (first at fc·tan(π/8) warped),
+   feedback through one sample of delay for the resonance. */
+class Phaser {
+  constructor() { this.ap = new Ap4(); this.fb = 0; this.w = 0; }
+  set(sr, P) { this.ap.set(sr, P); this.fb = PHASER_FBMAX * clamp01(P.res); }
+  tick(x) { const w = this.ap.tick(x + this.fb * this.w); this.w = w; return 0.5 * (x + w); }
+}
+function phaserH(f, sr, P) {
+  const A = ap4H(f, sr, P), fb = PHASER_FBMAX * clamp01(P.res), w = TAU * f / sr;
+  const zr = Math.cos(w), zi = -Math.sin(w);
+  const za = cmul(zr, zi, A[0], A[1]);
+  const W = cdiv(A[0], A[1], 1 - fb * za[0], -fb * za[1]);
+  return [0.5 * (1 + W[0]), 0.5 * W[1]];
+}
+/* DJ — ONE knob (morph): left of centre an LP sweeps down from 20 kHz to 50 Hz,
+   right of centre an HP sweeps up from 20 Hz to 12 kHz, the centre is EXACT
+   bypass. The first 10 % of travel either way crossfades dry → filtered, so
+   leaving the centre never clicks. Resonance is the B81 SVF's. */
+function djMap(P) {
+  const m = clamp01(P.morph), lp = m < 0.5, t = lp ? (0.5 - m) / 0.5 : (m - 0.5) / 0.5;
+  const fc = (lp ? 20000 * Math.pow(DJ_LO / 20000, t) : 20 * Math.pow(DJ_HI / 20, t)) * Math.pow(2, P.oct || 0);
+  return { side: lp ? 1 : 3, fc, w: Math.min(1, t / DJ_XF) };
+}
+class Dj {
+  constructor() { this.f = new Svf(); this.side = 1; this.w = 0; }
+  set(sr, P) { const d = djMap(P); this.side = d.side; this.w = d.w; this.f.set(sr, d.fc, P.res); }
+  tick(x) { const y = this.f.process(x, this.side); return x + this.w * (y - x); }
+}
+/* SWARM BANK — reference/swarmfilter.html's FilterLab, INJECTED (never copied),
+   wrapped in the one interface. set() is the reference route: modulation moves
+   its `center` parameter and runs its own controlTick() (forces, drift,
+   coefficients). tick() is the per-sample bank loop, the one thing COPIED
+   (reference :362-374), because FilterLab.render() hard-wires its own exciter.
+   `prop` switches on the PROPOSED law (P1 Q compensation, P2 LF keep, P3 rigid
+   modulation); null is the reference, untouched. */
+class SwarmBank {
+  constructor(Cls, sr, B, prop) {
+    this.b = new Cls(sr); this.B = B; this.prop = prop || null;
+    const b = this.b;
+    b.setParam('place', B.place); b.setParam('spread', B.spread); b.setParam('K', B.K);
+    b.setParam('driftDepth', B.drift); b.setParam('seed', B.seed);
+    this.centre = NaN; this.q = NaN; this.live = false;
+    this.shift = 0; this.rigidOn = false; this.qcomp = 1; this.lfC = 0; this.lpZ = 0;
+    this.rc = { a1: new Float64Array(24), a2: new Float64Array(24), a3: new Float64Array(24) };
+  }
+  set(sr, P) {
+    const b = this.b, pr = this.prop, base = Math.log2(Math.max(20, P.cutoff)), oct = P.oct || 0;
+    const rigid = !!(pr && pr.rigid), centre = rigid ? base : base + oct;
+    if (!this.live) {
+      /* nb LAST: setParam('nb') re-homes every band (v = tHome) — the reference's
+         own reset — so the bank starts placed instead of gliding in from 800 Hz. */
+      b.setParam('center', centre); b.setParam('qbase', P.res); b.setParam('nb', this.B.nb);
+      this.centre = centre; this.q = P.res; this.live = true;
+    }
+    if (Math.abs(centre - this.centre) > 1e-6) { b.setParam('center', centre); this.centre = centre; }
+    if (P.res !== this.q) { b.setParam('qbase', P.res); this.q = P.res; }
+    b.controlTick();
+    const n = b.p.nb;
+    this.shift = rigid ? oct : 0;
+    this.rigidOn = rigid && oct !== 0;
+    if (this.rigidOn) {
+      /* P3: coefficients from v + Δ, the reference's formula (:324-330) otherwise. */
+      const k = 1 / b.qEff;
+      for (let i = 0; i < n; i++) {
+        const g = Math.tan(PI_REF * Math.min(0.24, Math.pow(2, b.v[i] + oct) / sr));
+        const a1 = 1 / (1 + g * (g + k));
+        this.rc.a1[i] = a1; this.rc.a2[i] = g * a1; this.rc.a3[i] = g * this.rc.a2[i];
+      }
+    }
+    this.qcomp = pr && pr.qcomp ? Math.sqrt(b.qEff / Q_MID) : 1;                 /* P1 */
+    if (pr && pr.lfkeep) {                                                         /* P2 */
+      let lo = 99; for (let i = 0; i < n; i++) lo = Math.min(lo, b.v[i]);
+      this.lfC = 1 - Math.exp(-TAU * Math.pow(2, lo + this.shift) / sr);
+    } else this.lfC = 0;
+  }
+  tick(x) {
+    const b = this.b, n = b.p.nb, c = this.rigidOn ? this.rc : null;
+    const A1 = c ? c.a1 : b.cA1, A2 = c ? c.a2 : b.cA2, A3 = c ? c.a3 : b.cA3;
+    let wetS = 0;
+    for (let i = 0; i < n; i++) {
+      const v3 = x - b.ic2[i];
+      const v1 = A1[i] * b.ic1[i] + A2[i] * v3;
+      const v2 = b.ic2[i] + A2[i] * b.ic1[i] + A3[i] * v3;
+      b.ic1[i] = 2 * v1 - b.ic1[i];
+      b.ic2[i] = 2 * v2 - b.ic2[i];
+      const band = v1 * b.cK[i];
+      wetS += band;
+      const ab = Math.abs(band);
+      b.eEnv[i] += 0.004 * (ab - b.eEnv[i]);
+    }
+    wetS *= 1.6 / Math.sqrt(n) * this.qcomp;
+    if (this.lfC > 0) { this.lpZ += this.lfC * (x - this.lpZ); wetS += this.lpZ; }
+    return wetS;
+  }
+}
+/* A bank's response, bands summed COMPLEX (they run in parallel; the phase between
+   them carves the inter-band nulls), plus the P2 one-pole when lfC > 0; `shift`
+   is P3's rigid transposition in octaves. */
+function bankC(f, sr, v, n, qEff, scale, lfC, shift) {
   const k = 1 / qEff, t = Math.tan(Math.min(Math.PI * f / sr, Math.PI * 0.4999));
   let re = 0, im = 0;
   for (let i = 0; i < n; i++) {
@@ -490,9 +779,500 @@ function bankDb(f, sr, v, n, qEff, scale, lfC, shift) {
     const w = TAU * f / sr, dr2 = 1 - (1 - lfC) * Math.cos(w), di2 = (1 - lfC) * Math.sin(w), dd2 = dr2 * dr2 + di2 * di2;
     re += lfC * dr2 / dd2; im += -lfC * di2 / dd2;
   }
-  const m = Math.hypot(re, im);
+  return [re, im];
+}
+function bankDb(f, sr, v, n, qEff, scale, lfC, shift) {
+  const c = bankC(f, sr, v, n, qEff, scale, lfC, shift), m = Math.hypot(c[0], c[1]);
   return m > 0 ? 20 * Math.log10(m) : -120;
 }
+const bankInstH = (f, sr, inst) => { const b = inst.b, n = b.p.nb; return bankC(f, sr, b.v, n, b.qEff, 1.6 / Math.sqrt(n) * inst.qcomp, inst.lfC, inst.shift); };
+const erbN = f => 21.4 * Math.log10(1 + 0.00437 * f);         /* the reference's own ERB scale (:4-5) */
+const erbInv = E => (Math.pow(10, E / 21.4) - 1) / 0.00437;
+
+/* ---- the registry --------------------------------------------------------
+   `why` is the lab's REASON for offering the type — part of the B274 proposal,
+   printed in the types card. `uses` names the knobs the type reads. */
+const USES_ALL = { cutoff: 1, res: 1, drive: 0, morph: 0 };
+function svfClaim(P, k, stages) {
+  const f = fcOf(P), m = P.mode || 1, K = stages === 2 ? K24A * k : k, L = 20 * Math.log10(1 / K);
+  const ph = stages === 2 ? [0, -Math.PI, 0, Math.PI, 0, -Math.PI] : [0, -Math.PI / 2, 0, Math.PI / 2, 0, -Math.PI / 2];
+  if (m === 4) return { kind: 'min', f, lvl: -60 };
+  return { kind: 'phase', f, ph: ph[m], lvl: m === 5 ? L + stages * 20 * Math.log10(2) : L };
+}
+const TYPES = {
+  svf12: {
+    name: 'SVF 12', fam: '2-pole state-variable', modes: SVF_MODES, uses: USES_ALL, rackOnly: false, selfOsc: false, nl: false,
+    why: 'B81\'s own core (a literal transcription of src/svf_core.h): zero-delay, stable under any modulation, exact analytic response. LP/BP/HP are its three taps; NOTCH and PEAK are two more taps of the same pass, free.',
+    make: () => new Svf12(),
+    H: (f, sr, P) => svfH(warpO(f, sr, Math.tan(Math.PI * clampFc(sr, fcOf(P)) / sr)), kOfRes(P.res), P.mode || 1),
+    claim: P => svfClaim(P, kOfRes(P.res), 1),
+  },
+  svf24: {
+    name: 'SVF 24', fam: '4-pole state-variable', modes: SVF_MODES, uses: USES_ALL, rackOnly: false, selfOsc: false, nl: false,
+    why: 'The same core twice in series, Butterworth-4 at rest, resonance on the second stage: a 24 dB/oct slope for basses and pads without giving up the SVF\'s stability.',
+    make: () => new Svf24(),
+    H: (f, sr, P) => {
+      const g = Math.tan(Math.PI * clampFc(sr, fcOf(P)) / sr), O = warpO(f, sr, g), m = P.mode || 1;
+      const a = svfH(O, K24A, m), b = svfH(O, k24b(P.res), m); return cmul(a[0], a[1], b[0], b[1]);
+    },
+    claim: P => svfClaim(P, k24b(P.res), 2),
+  },
+  ladder: {
+    name: 'LADDER', fam: '4-pole ladder', modes: ['LP 24'], uses: { cutoff: 1, res: 1, drive: 1, morph: 0 }, rackOnly: false, selfOsc: true, nl: true,
+    why: 'The Moog shape: four poles in a negative loop, so resonance THINS the bass (passband 1/(1+k)) and past k = 4 it sings a sine at the cutoff. One tanh in the loop gives it drive. The classic acid/bass filter.',
+    make: () => new Ladder(),
+    H: (f, sr, P) => {
+      const O = warpO(f, sr, Math.tan(Math.PI * clampFc(sr, fcOf(P)) / sr)), k = LADDER_KMAX * clamp01(P.res);
+      const a = cmul(1, O, 1, O), a4 = cmul(a[0], a[1], a[0], a[1]); return cdiv(1, 0, a4[0] + k, a4[1]);
+    },
+    claim: P => ({ kind: 'phase', f: fcOf(P), ph: -Math.PI, lvl: 20 * Math.log10(1 / (4 - LADDER_KMAX * clamp01(P.res))) }),
+    onset: 4 / LADDER_KMAX,
+  },
+  ms20: {
+    name: 'MS-20', fam: '2-pole Sallen-Key', modes: ['LP 12'], uses: { cutoff: 1, res: 1, drive: 1, morph: 0 }, rackOnly: false, selfOsc: true, nl: true,
+    why: 'The aggressive 2-pole: no bass loss with resonance (unlike the ladder), saturation in the FEEDBACK path, so pushing it screams. The hyperpop lead/brass filter the ladder cannot do.',
+    make: () => new Ms20(),
+    H: (f, sr, P) => {
+      const O = warpO(f, sr, Math.tan(Math.PI * clampFc(sr, fcOf(P)) / sr)), K = SK_KMAX * clamp01(P.res);
+      return cdiv(1, 0, 1 - O * O, (2 - K) * O);
+    },
+    claim: P => ({ kind: 'phase', f: fcOf(P), ph: -Math.PI / 2, lvl: 20 * Math.log10(1 / (2 - SK_KMAX * clamp01(P.res))) }),
+    onset: 2 / SK_KMAX,
+  },
+  combP: {
+    name: 'COMB +', fam: 'feedback comb', modes: ['+'], uses: { cutoff: 1, res: 1, drive: 0, morph: 0 }, rackOnly: false, selfOsc: false, nl: false,
+    why: 'A pitched resonator: cutoff is a PITCH (peaks at every harmonic of it), so keytracked at 100 % it plays the note — metallic, plucked, Karplus-like tones from any source.',
+    make: () => new Comb(1),
+    H: (f, sr, P) => combH(f, sr, Object.assign({}, P, { sign: 1 })),
+    claim: P => ({ kind: 'max', f: fcOf(P), lvl: 0 }),
+  },
+  combN: {
+    name: 'COMB −', fam: 'feedback comb', modes: ['−'], uses: { cutoff: 1, res: 1, drive: 0, morph: 0 }, rackOnly: false, selfOsc: false, nl: false,
+    why: 'The same comb with the feedback inverted: peaks at the odd half-multiples only, so the pitch drops an octave and the tone goes hollow (square-like). Costs nothing beside COMB +.',
+    make: () => new Comb(-1),
+    H: (f, sr, P) => combH(f, sr, Object.assign({}, P, { sign: -1 })),
+    claim: P => ({ kind: 'max', f: fcOf(P) / 2, lvl: 0 }),
+  },
+  formant: {
+    name: 'FORMANT', fam: 'vowel (3 band-passes)', modes: ['A·E·I·O·U'], uses: { cutoff: 1, res: 1, drive: 0, morph: 1 }, rackOnly: false, selfOsc: false, nl: false,
+    why: 'Talking synths — the vowel is the morph knob, cutoff shifts the whole voice. It is a filter over any source, not the formant ENGINE (CANTO, SPEC-FORMANT), and the one type hyperpop leans on that no classic filter gives.',
+    make: () => new Formant(),
+    H: (f, sr, P) => {
+      const fc = [0, 0, 0], k = [0, 0, 0], a = [0, 0, 0]; formantBands(sr, P, fc, k, a);
+      let re = 0, im = 0;
+      for (let j = 0; j < 3; j++) { const O = warpO(f, sr, Math.tan(Math.PI * fc[j] / sr)), h = svfH(O, k[j], 2); re += a[j] * k[j] * h[0]; im += a[j] * k[j] * h[1]; }
+      return [re, im];
+    },
+    claim: null,          /* its landmark is the ANALYTIC's F1 peak — see fidClaim */
+  },
+  ap4: {
+    name: 'ALL-PASS ×4', fam: 'phase stages', modes: ['AP4'], uses: { cutoff: 1, res: 0, drive: 0, morph: 0 }, rackOnly: false, selfOsc: false, nl: false,
+    why: 'The phaser\'s building block, offered bare: flat magnitude, all phase. Alone on one source it is inaudible; in a PARALLEL pair beside another branch it carves notches — the pair topology is what makes it an instrument.',
+    make: () => new Ap4(),
+    H: ap4H,
+    /* bracket O = 1/1.5 … 1.5 in the WARPED domain: −270° … −450°, one clean crossing */
+    claim: (P, sr) => { const f = fcOf(P), t = Math.tan(Math.PI * clampFc(sr, f) / sr), w = r => sr / Math.PI * Math.atan(r * t);
+      return { kind: 'phase', f, ph: 0, lvl: 0, lo: w(1 / 1.5), hi: w(1.5) }; },
+  },
+  phaser: {
+    name: 'PHASER 4', fam: 'all-pass + dry, feedback', modes: ['4-stage'], uses: { cutoff: 1, res: 1, drive: 0, morph: 0 }, rackOnly: false, selfOsc: false, nl: false,
+    why: 'Two notches you can play: the ×4 chain summed with the dry signal, feedback as resonance. Static here (cutoff places the notches); the sweep is the mod matrix\'s job.',
+    make: () => new Phaser(),
+    H: phaserH,
+    claim: null,          /* its landmark is the ANALYTIC's first notch — see fidClaim */
+  },
+  dj: {
+    name: 'DJ', fam: 'one-knob LP ↔ HP', modes: ['LP|HP'], uses: { cutoff: 0, res: 1, drive: 0, morph: 1 }, rackOnly: false, selfOsc: false, nl: false,
+    why: 'The performance gesture: one knob (morph), centre is EXACT bypass, left darkens, right thins. Best on the rack slot, where one knob sweeps the whole mix.',
+    make: () => new Dj(),
+    H: (f, sr, P) => {
+      const d = djMap(P), fc = clampFc(sr, d.fc), h = svfH(warpO(f, sr, Math.tan(Math.PI * fc / sr)), kOfRes(P.res), d.side);
+      return [1 - d.w + d.w * h[0], d.w * h[1]];
+    },
+    claim: P => { const d = djMap(P); return { kind: 'phase', f: d.fc, ph: d.side === 1 ? -Math.PI / 2 : Math.PI / 2, lvl: 20 * Math.log10(1 / kOfRes(P.res)) }; },
+  },
+  bank: {
+    name: 'SWARM · REF', fam: 'coupled resonator bank', modes: ['bank'], uses: { cutoff: 1, res: 1, drive: 0, morph: 0 }, rackOnly: true, selfOsc: false, nl: false, needsRef: true,
+    why: 'reference/swarmfilter.html itself — the E1 filter the plan of record folds into the rack (B50): band-passes whose centres are a physical swarm. Rack slot only: 16 resonators and a physics tick.',
+    make: (env, sr) => new SwarmBank(env.bankClass, sr, env.bank, null),
+    H: (f, sr, P, inst) => bankInstH(f, sr, inst),
+    claim: null,          /* measured on the bands' state — see fidC2 */
+  },
+  bankP: {
+    name: 'SWARM · PROPOSED', fam: 'bank + P1-P3', modes: ['bank'], uses: { cutoff: 1, res: 1, drive: 0, morph: 0 }, rackOnly: true, selfOsc: false, nl: false, needsRef: true,
+    why: 'The reference plus the three law changes the B209 round proposed (P1 Q compensation, P2 LF keep, P3 rigid modulation): a spec change for the human, auditioned here, made nowhere else.',
+    make: (env, sr) => new SwarmBank(env.bankClass, sr, env.bank, env.prop || { qcomp: 1, lfkeep: 1, rigid: 1 }),
+    H: (f, sr, P, inst) => bankInstH(f, sr, inst),
+    claim: null,
+  },
+};
+const TYPE_ORDER = ['svf12', 'svf24', 'ladder', 'ms20', 'combP', 'combN', 'formant', 'ap4', 'phaser', 'dj', 'bank', 'bankP'];
+/* ---- FIDELITY PROGRAMME (B274) --------------------------------------------
+   Seven checks, run on EVERY type through the one interface, each with a stated
+   tolerance and a MUST-FAIL control. A control that passes means the check
+   cannot see the fault it exists for, and is reported as an ERROR, never as a
+   pass (L0016/L0032: calibrate the detector). A type that fails a check is a
+   FINDING — reported as FAIL, never met by loosening the tolerance.
+   Pure: no DOM, no clock; the only randomness is mulberry32 with fixed seeds.
+   The page runs it at load (one row per frame); tools/labharness/
+   filter_fidelity_check.mjs slices this DSP section and runs the same code. */
+const FID_SR = 48000;
+const FID = {
+  c1: { magTol: 0.05, phTol: 0.5, magFloor: -60, phFloor: -40, ctlF: 1.01, nf: 64 },
+  c2: { centsTol: 5, dbTol: 0.25, cutoffs: [55, 220, 880, 3520, 12000], res: [0.2, 0.8], ctlCents: 10 },
+  c3: { centsTol: 5, lvlMin: -30, spreadTol: 3, onsetTol: 0.01, pitches: [110, 440, 1760, 7040], decayDb: 1 },
+  c4: { tolDb: 12, staticDb: 40, dur: 0.5, depthOct: 4, rateHz: 1000 },
+  c5: { tolDbc: -60, N: 8192, bin: 1195, amp: 0.9, zeroDbc: -150 },
+  c6: { tolDb: 6, res: [0, 0.3, 0.6, 0.9], f0: 110, fc: 1000 },
+  c7: { tolDb: 0.05, blockDb: -80, meanTol: 1e-4 },
+};
+const FID_CHECKS = [
+  { id: 'C1', name: 'ANALYTIC', what: 'magnitude and phase of the impulse response against the analytic response, 64 frequencies 20 Hz–20 kHz, two settings',
+    tol: '|Δ| ≤ 0.05 dB where the curve is above −60 dB; ≤ 0.5° where above −40 dB', ctl: 'the same curve read 1 % sharp (f × 1.01) must miss' },
+  { id: 'C2', name: 'CUTOFF · RES', what: 'where the landmark actually lands (phase crossing, peak or null) and its level, 5 cutoffs 55 Hz–12 kHz × res 0.2 / 0.8',
+    tol: '≤ 5 cents from the knob\'s claim; level ≤ 0.25 dB from the resonance law', ctl: 'the cutoff planted 10 cents sharp must miss' },
+  { id: 'C3', name: 'SELF-OSC', what: 'self-oscillating types: pitch, level and onset at res 1, cutoff 110–7040 Hz; all others: a ring at res 1 must decay',
+    tol: 'pitch ≤ 5 cents, level ≥ −30 dBFS with ≤ 3 dB spread, onset within 0.01 of the law; others decay ≥ 1 dB per 0.9 s', ctl: 'res planted below onset must stop; a sine 20 cents off must read > 5 cents; a steady sine must read as sustaining' },
+  { id: 'C4', name: 'FAST MOD', what: 'noise in, cutoff jumped at random every 16-sample tick, then swept ±4 oct at 1 kHz per sample (B199), res 1',
+    tol: 'finite; peak ≤ +12 dB over the worst static setting, which is itself ≤ +40 dB over the input', ctl: 'a direct-form biquad under the same modulation must exceed it' },
+  { id: 'C5', name: 'ALIASING', what: 'a bin-exact 7 kHz sine at −1 dBFS, cutoff 12 kHz, drive 1: energy on the FOLDED harmonic bins only',
+    tol: '≤ −60 dBc', ctl: 'a pure sine must read ≤ −150 dBc (zero); the output hard-clipped must read above −60 dBc' },
+  { id: 'C6', name: 'LEVEL @ RES', what: 'RMS of a 110 Hz saw through cutoff 1 kHz as resonance goes 0 → 0.9',
+    tol: 'swing ≤ 6 dB', ctl: 'a planted resonance-dependent gain (+11 dB at 0.9) must exceed it' },
+  { id: 'C7', name: 'DC', what: 'DC gain (the impulse response summed) against the analytic H(0); DC generated from a 1 kHz sine at drive 1',
+    tol: '|Δ| ≤ 0.05 dB (or both ≤ −80 dB); |mean| ≤ 1e-4', ctl: 'a planted 2 % dry leak plus a 1e-3 offset must fail both' },
+];
+function fidRows(withBank) {
+  const rows = [];
+  for (const id of TYPE_ORDER) {
+    const T = TYPES[id];
+    if (T.needsRef && !withBank) continue;
+    if (T.modes.length > 1) T.modes.forEach((m, i) => rows.push({ id: id + '.' + m, type: id, mode: i + 1, label: T.name + ' ' + m }));
+    else rows.push({ id, type: id, mode: 1, label: T.name });
+  }
+  return rows;
+}
+const dbOf = c => 20 * Math.log10(Math.max(1e-300, Math.hypot(c[0], c[1])));
+const wrapPi = a => { while (a > Math.PI) a -= TAU; while (a < -Math.PI) a += TAU; return a; };
+const rmsDb = (y, a, b) => { let s = 0; for (let i = a; i < b; i++) s += y[i] * y[i]; return 10 * Math.log10(Math.max(1e-300, s / (b - a))); };
+function fidP(row, o) { return Object.assign({ cutoff: 1000, oct: 0, res: 0.5, drive: 0, morph: 0.5, mode: row.mode }, o || {}); }
+function fidMake(T, env, P) { const i = T.make(env, FID_SR); i.set(FID_SR, P); return i; }
+/* Impulse response, divided back by the impulse height (nonlinear types are
+   probed at 1e-5, far below their tanh), stopped once a 1024-block is 200 dB
+   under the peak or at 2^17 samples. null if it went non-finite. */
+function fidIR(inst, amp) {
+  let h = new Float64Array(8192), n = 0, peak = 0;
+  for (;;) {
+    if (n + 1024 > h.length) { const g = new Float64Array(h.length * 2); g.set(h); h = g; }
+    let bm = 0;
+    for (let i = 0; i < 1024; i++) { const y = inst.tick(n === 0 ? amp : 0) / amp; h[n++] = y; const a = Math.abs(y); if (a > bm) bm = a; }
+    if (!Number.isFinite(bm)) return null;
+    if (bm > peak) peak = bm;
+    if ((n >= 4096 && bm <= 1e-10 * peak) || n >= (1 << 17)) break;
+  }
+  return h.subarray(0, n);
+}
+/* One DFT bin at an arbitrary frequency, by a rotating phasor. */
+function dftAt(h, f, sr) {
+  const w = TAU * f / sr, c = Math.cos(w), s = Math.sin(w);
+  let re = 0, im = 0, cr = 1, ci = 0;
+  for (let n = 0; n < h.length; n++) { re += h[n] * cr; im -= h[n] * ci; const t = cr * c - ci * s; ci = cr * s + ci * c; cr = t; }
+  return [re, im];
+}
+function render(inst, n, xf) { const y = new Float64Array(n); for (let i = 0; i < n; i++) y[i] = inst.tick(xf(i)); return y; }
+/* Golden section on log-frequency: the peak (max) or null (min) of fn in [lo, hi]. */
+function golden(fn, lo, hi, max) {
+  let a = Math.log(lo), b = Math.log(hi); const r = 0.6180339887498949;
+  let c = b - r * (b - a), d = a + r * (b - a), fc = fn(Math.exp(c)), fd = fn(Math.exp(d));
+  for (let i = 0; i < 48; i++) {
+    if (max ? fc > fd : fc < fd) { b = d; d = c; fd = fc; c = b - r * (b - a); fc = fn(Math.exp(c)); }
+    else { a = c; c = d; fc = fd; d = a + r * (b - a); fd = fn(Math.exp(d)); }
+  }
+  return Math.exp((a + b) / 2);
+}
+/* The landmark of a response `Hf` (f -> [re, im]) for a claim. PHASE: where
+   arg(H·e^{−jφ}) crosses zero going down (bisection, 40 steps); MAX / MIN: the
+   peak or null within a quarter-octave. null = not found (itself a failure). */
+function landmark(Hf, cl, sr) {
+  const top = 0.499 * sr;
+  if (cl.kind === 'phase') {
+    const c = Math.cos(cl.ph), s = Math.sin(cl.ph);
+    const rot = f => { const h = Hf(f); return Math.atan2(h[1] * c - h[0] * s, h[0] * c + h[1] * s); };
+    let lo = cl.lo || cl.f / 2, hi = Math.min(top, cl.hi || cl.f * 2);
+    if (!(rot(lo) > 0 && rot(hi) < 0)) return null;
+    for (let i = 0; i < 40; i++) { const m = Math.sqrt(lo * hi); if (rot(m) > 0) lo = m; else hi = m; }
+    const f = Math.sqrt(lo * hi);
+    if (Math.abs(rot(f)) > 0.05) return null;          /* landed on a phase wrap, not the crossing */
+    return { f, db: dbOf(Hf(f)) };
+  }
+  const q = Math.pow(2, 0.25), f = golden(x => dbOf(Hf(x)), cl.lo || cl.f / q, Math.min(top, cl.hi || cl.f * q), cl.kind === 'max');
+  return { f, db: dbOf(Hf(f)) };
+}
+/* Where the knobs say the landmark is. Most types claim it in closed form; the
+   FORMANT and PHASER landmarks are their own analytic's (F1 peak, first notch),
+   so for those C2 checks the DSP lands where the DESIGN says, across the range. */
+function fidClaim(T, row, P, sr) {
+  if (T.claim) return T.claim(P, sr);
+  const Hf = f => T.H(f, sr, P);
+  if (row.type === 'formant') {
+    const fc = [0, 0, 0], k = [0, 0, 0], a = [0, 0, 0]; formantBands(sr, P, fc, k, a);
+    const lo = fc[0] / 1.19, hi = Math.min(0.499 * sr, fc[0] * 1.19), f = golden(x => dbOf(Hf(x)), lo, hi, true);
+    return { kind: 'max', f, lvl: dbOf(Hf(f)), design: true, lo, hi };
+  }
+  const g = Math.tan(Math.PI * clampFc(sr, fcOf(P)) / sr), f0 = sr / Math.PI * Math.atan(Math.tan(Math.PI / 8) * g);
+  const lo = f0 / 1.19, hi = Math.min(0.499 * sr, f0 * 1.19), f = golden(x => dbOf(Hf(x)), lo, hi, false);
+  return { kind: 'min', f, lvl: dbOf(Hf(f)), design: true, lo, hi };
+}
+const fmt = (x, d) => (Number.isFinite(x) ? x.toFixed(d) : String(x));
+
+/* C1 — the measured response IS the analytic one. */
+function fidC1(T, row, env) {
+  const C = FID.c1, sr = FID_SR, sets = [
+    fidP(row, { cutoff: 1100, res: 0.5, drive: 0.3, morph: 0.3 }),
+    fidP(row, { cutoff: 5300, res: 0.85, drive: 0.8, morph: 0.8 })];
+  let wm = 0, wp = 0, cm = 0, cp = 0; const irs = [];
+  for (const P of sets) {
+    const inst = fidMake(T, env, P), h = fidIR(inst, T.nl ? 1e-5 : 1);
+    if (!h) return { ok: false, val: 'non-finite', ctlOk: true, irs };
+    irs.push({ P, h, inst });
+    for (let i = 0; i < C.nf; i++) {
+      const f = 20 * Math.pow(1000, i / (C.nf - 1)), m = dftAt(h, f, sr), a = T.H(f, sr, P, inst), c = T.H(Math.min(f * C.ctlF, 0.4999 * sr), sr, P, inst);
+      const ad = dbOf(a);
+      if (ad >= C.magFloor) { wm = Math.max(wm, Math.abs(dbOf(m) - ad)); cm = Math.max(cm, Math.abs(dbOf(m) - dbOf(c))); }
+      if (ad >= C.phFloor) {
+        const am = Math.atan2(m[1], m[0]);
+        wp = Math.max(wp, Math.abs(wrapPi(am - Math.atan2(a[1], a[0]))) * 180 / Math.PI);
+        cp = Math.max(cp, Math.abs(wrapPi(am - Math.atan2(c[1], c[0]))) * 180 / Math.PI);
+      }
+    }
+  }
+  const ok = wm <= C.magTol && wp <= C.phTol, ctlOk = cm > C.magTol || cp > C.phTol;
+  return { ok, val: fmt(wm, 4) + ' dB · ' + fmt(wp, 3) + '°', ctl: fmt(cm, 2) + ' dB · ' + fmt(cp, 1) + '°', ctlOk, irs };
+}
+/* C2 — cutoff and resonance land where the knobs say, across the range. The swarm
+   bank has no single landmark (it is sixteen peaks), so its C2 reads the bands'
+   STATE instead: their centre (ERB-mean for ERB placement, log-mean for LOG,
+   the reference's own scales) against `center`, and qEff against the qbase law
+   2·20^q. C1 has already tied that state to the measured response. */
+function fidC2(T, row, env) {
+  const C = FID.c2, sr = FID_SR, dOct = C.ctlCents / 1200;
+  let wc = 0, wd = 0, cc = 0, miss = 0; const notes = [];
+  for (const fc of C.cutoffs) for (const res of C.res) {
+    let P = fidP(row, { cutoff: fc, res, drive: 0.3, morph: 0.3 });
+    if (row.type === 'dj') {
+      /* DJ ignores cutoff; its sweep is morph. Pick the morph that puts it at fc,
+         LP side below 3 kHz, HP side above (w = 1 at every one of them). */
+      const lp = fc < 3000, t = lp ? Math.log(fc / 20000) / Math.log(DJ_LO / 20000) : Math.log(fc / 20) / Math.log(DJ_HI / 20);
+      P = fidP(row, { res, morph: lp ? 0.5 - t / 2 : 0.5 + t / 2 });
+    }
+    if (T.needsRef) {
+      const st = i => { const b = i.b, n = b.p.nb, s = i.shift; let m = 0;
+        for (let j = 0; j < n; j++) m += i.B.place === 0 ? erbN(Math.pow(2, b.v[j] + s)) : b.v[j] + s;
+        m /= n; return 1200 * Math.log2((i.B.place === 0 ? erbInv(m) : Math.pow(2, m)) / fc); };
+      const inst = fidMake(T, env, P), ci = fidMake(T, env, Object.assign({}, P, { oct: dOct }));
+      const e = st(inst), q = Math.abs(20 * Math.log10(inst.b.qEff) - 20 * Math.log10(2 * Math.pow(20, res)));
+      wc = Math.max(wc, Math.abs(e)); wd = Math.max(wd, q); cc = Math.max(cc, Math.abs(st(ci)));
+      if (Math.abs(e) > C.centsTol && notes.length < 3) notes.push(fc + ' Hz: ' + fmt(e, 1) + ' ¢');
+      continue;
+    }
+    const cl = fidClaim(T, row, P, sr);
+    const inst = fidMake(T, env, P), h = fidIR(inst, T.nl ? 1e-5 : 1);
+    const hc = fidIR(fidMake(T, env, Object.assign({}, P, { oct: dOct })), T.nl ? 1e-5 : 1);
+    const lm = h && landmark(f => dftAt(h, f, sr), cl, sr), lc = hc && landmark(f => dftAt(hc, f, sr), cl, sr);
+    if (!lm) { miss++; if (notes.length < 3) notes.push(fc + ' Hz res ' + res + ': no landmark'); continue; }
+    const e = 1200 * Math.log2(lm.f / cl.f);
+    wc = Math.max(wc, Math.abs(e));
+    if (Math.abs(e) > C.centsTol && notes.length < 3) notes.push(fmt(fc, 0) + ' Hz: ' + fmt(e, 1) + ' ¢');
+    if (cl.lvl !== null && cl.lvl !== undefined) {
+      const d = cl.kind === 'min' && !cl.design ? Math.max(0, lm.db - cl.lvl) : Math.abs(lm.db - cl.lvl);
+      wd = Math.max(wd, d);
+      if (d > C.dbTol && notes.length < 3) notes.push(fmt(fc, 0) + ' Hz res ' + res + ': level ' + fmt(lm.db - cl.lvl, 2) + ' dB');
+    }
+    cc = Math.max(cc, lc ? Math.abs(1200 * Math.log2(lc.f / cl.f)) : 1e9);
+  }
+  const ok = !miss && wc <= C.centsTol && wd <= C.dbTol, ctlOk = cc > C.centsTol;
+  return { ok, val: fmt(wc, 2) + ' ¢ · ' + fmt(wd, 3) + ' dB', ctl: fmt(cc, 1) + ' ¢', ctlOk, note: notes.join('; ') };
+}
+/* Frequency of a steady oscillation from its upward zero crossings (linear
+   interpolation between samples). */
+function zcFreq(y, a, b, sr) {
+  let first = -1, last = -1, n = 0;
+  for (let i = a + 1; i < b; i++) if (y[i - 1] < 0 && y[i] >= 0) {
+    const t = i - 1 + y[i - 1] / (y[i - 1] - y[i]);
+    if (first < 0) first = t; last = t; n++;
+  }
+  return n > 1 ? (n - 1) * sr / (last - first) : 0;
+}
+/* C3 — self-oscillation where a type claims it; a decaying ring where it does not. */
+function fidC3(T, row, env) {
+  const C = FID.c3, sr = FID_SR;
+  const sineAt = (f, n) => { const y = new Float64Array(n); for (let i = 0; i < n; i++) y[i] = 0.5 * Math.sin(TAU * f * i / sr); return y; };
+  const decays = y => { const e = rmsDb(y, Math.round(0.2 * sr), Math.round(0.3 * sr)), l = rmsDb(y, Math.round(1.1 * sr), Math.round(1.2 * sr));
+    return { ok: y.every(Number.isFinite) && (l <= e - C.decayDb || l < -240), e, l, silent: l < -240 }; };
+  if (!T.selfOsc) {
+    const P = fidP(row, { cutoff: 440, res: 1, drive: 0.3, morph: row.type === 'dj' ? 0.25 : 0.5 });
+    const y = render(fidMake(T, env, P), Math.round(1.2 * sr), i => (i === 0 ? 1 : 0)), d = decays(y);
+    const ctl = decays(sineAt(440, Math.round(1.2 * sr)));
+    return { ok: d.ok, val: d.silent ? 'silent by 1.1 s' : 'rings down ' + fmt(d.e - d.l, 1) + ' dB', ctl: 'steady sine: ' + (ctl.ok ? 'read as decaying' : 'sustains'), ctlOk: !ctl.ok };
+  }
+  const n = Math.round(1.5 * sr), a = n - Math.round(0.5 * sr);
+  let wc = 0, lo = 1e9, hi = -1e9; const notes = [];
+  for (const f of C.pitches) {
+    const y = render(fidMake(T, env, fidP(row, { cutoff: f, res: 1, drive: 0.3 })), n, i => (i === 0 ? 1e-3 : 0));
+    const fz = zcFreq(y, a, n, sr), e = fz > 0 ? 1200 * Math.log2(fz / f) : 1e9, L = rmsDb(y, a, n);
+    wc = Math.max(wc, Math.abs(e)); lo = Math.min(lo, L); hi = Math.max(hi, L);
+    notes.push(f + ' Hz ' + fmt(e, 1) + ' ¢ ' + fmt(L, 1) + ' dBFS');
+  }
+  const sustains = res => {
+    const y = render(fidMake(T, env, fidP(row, { cutoff: 440, res, drive: 0.3 })), sr, i => (i === 0 ? 1e-3 : 0));
+    /* growing OR saturated-steady (within 0.5 dB): a ring that has already hit its
+       tanh by 0.3 s reads EQUAL, not louder, so `>=` alone calls it decaying. */
+    return y.every(Number.isFinite) && rmsDb(y, Math.round(0.9 * sr), sr) >= rmsDb(y, Math.round(0.3 * sr), Math.round(0.4 * sr)) - 0.5;
+  };
+  let r0 = 0.8, r1 = 1;
+  for (let i = 0; i < 12; i++) { const m = 0.5 * (r0 + r1); if (sustains(m)) r1 = m; else r0 = m; }
+  const onset = 0.5 * (r0 + r1), dOn = Math.abs(onset - T.onset);
+  const ok = wc <= C.centsTol && lo >= C.lvlMin && hi - lo <= C.spreadTol && dOn <= C.onsetTol;
+  const ctlStop = !sustains(0.9 * T.onset);
+  const probe = sineAt(440 * Math.pow(2, 20 / 1200), sr), ctlPitch = Math.abs(1200 * Math.log2(zcFreq(probe, 0, sr, sr) / 440)) > C.centsTol;
+  return { ok, val: fmt(wc, 1) + ' ¢ · ' + fmt(lo, 1) + '…' + fmt(hi, 1) + ' dBFS · onset ' + fmt(onset, 3),
+    ctl: (ctlStop ? 'stops' : 'STILL SINGS') + ' below onset; 20 ¢ probe ' + (ctlPitch ? 'caught' : 'MISSED'), ctlOk: ctlStop && ctlPitch, note: notes.join('; ') };
+}
+/* A direct-form-II-transposed RBJ low-pass: the control for C4. Stable at every
+   static setting and known to misbehave when its coefficients jump. */
+class Df2Lp {
+  constructor() { this.z1 = 0; this.z2 = 0; this.b0 = 1; this.b1 = 0; this.b2 = 0; this.a1 = 0; this.a2 = 0; }
+  set(sr, P) {
+    const w = TAU * clampFc(sr, fcOf(P)) / sr, al = Math.sin(w) / (2 * 20), c = Math.cos(w), a0 = 1 + al;
+    this.b0 = (1 - c) / 2 / a0; this.b1 = (1 - c) / a0; this.b2 = this.b0; this.a1 = -2 * c / a0; this.a2 = (1 - al) / a0;
+  }
+  tick(x) { const y = this.b0 * x + this.z1; this.z1 = this.b1 * x - this.a1 * y + this.z2; this.z2 = this.b2 * x - this.a2 * y; return y; }
+}
+/* C4 — stability under fast modulation. */
+function fidC4(T, row, env) {
+  const C = FID.c4, sr = FID_SR, n = Math.round(C.dur * sr), perTick = !!T.needsRef;
+  /* Everything moves `oct` around a 1 kHz base, so every type — the DJ included,
+     which ignores cutoff — sweeps the same 20 Hz–20 kHz, and the static bound is
+     taken over that same span. */
+  const base = fidP(row, { cutoff: 1000, res: 1, drive: 0.5, morph: row.type === 'dj' ? 0.25 : 0.5 }), lo = Math.log2(0.02), span = Math.log2(1000);
+  const run = make => {
+    let bound = 0;
+    for (let s = 0; s <= 8; s++) {
+      const inst = make(Object.assign({}, base, { oct: lo + span * s / 8 })), rn = mulberry32(0xF17E);
+      for (let i = 0; i < Math.round(0.2 * sr); i++) bound = Math.max(bound, Math.abs(inst.tick((rn() * 2 - 1) * 0.5)));
+    }
+    let peak = 0;
+    { const P = Object.assign({}, base), inst = make(P), rn = mulberry32(0xF17E), rj = mulberry32(0xC4);
+      for (let i = 0; i < n; i++) { if (i % TICK === 0) { P.oct = lo + span * rj(); inst.set(sr, P); } peak = Math.max(peak, Math.abs(inst.tick((rn() * 2 - 1) * 0.5))); } }
+    { const P = Object.assign({}, base), inst = make(P), rn = mulberry32(0xF17E);
+      for (let i = 0; i < n; i++) { if (!perTick || i % TICK === 0) { P.oct = C.depthOct * Math.sin(TAU * C.rateHz * i / sr); inst.set(sr, P); } peak = Math.max(peak, Math.abs(inst.tick((rn() * 2 - 1) * 0.5))); } }
+    /* The static ceiling matters as much as the ratio: a type that is unstable at
+       a STATIC setting inflates its own bound and would pass the ratio (found by
+       the ladder-without-tanh plant in filter_fidelity_check.mjs). */
+    const st = Number.isFinite(bound) && bound > 0 ? 20 * Math.log10(bound / 0.5) : Infinity;
+    return { ex: Number.isFinite(peak) && st <= C.staticDb ? 20 * Math.log10(peak / bound) : Infinity, st };
+  };
+  const r = run(P => fidMake(T, env, P)), ex = r.ex;
+  const cx = run(P => { const b = new Df2Lp(); b.set(sr, P); return b; }).ex;
+  return { ok: ex <= C.tolDb, val: (ex >= 0 ? '+' : '') + fmt(ex, 1) + ' dB over static (static ' + (r.st >= 0 ? '+' : '') + fmt(r.st, 1) + ' dB)', ctl: 'DF2 biquad ' + (cx >= 0 ? '+' : '') + fmt(cx, 1) + ' dB', ctlOk: !(cx <= C.tolDb) };
+}
+/* Radix-2 power spectrum (rectangular window: the input is bin-exact and the
+   filter in steady state, so every harmonic and every alias lands ON a bin). */
+function fidPow(x) {
+  const N = x.length, re = Float64Array.from(x), im = new Float64Array(N);
+  for (let i = 1, j = 0; i < N; i++) { let b = N >> 1; for (; j & b; b >>= 1) j ^= b; j ^= b; if (i < j) { const t = re[i]; re[i] = re[j]; re[j] = t; } }
+  for (let len = 2; len <= N; len <<= 1) {
+    const w = -TAU / len;
+    for (let i = 0; i < N; i += len) for (let k = 0; k < len / 2; k++) {
+      const c = Math.cos(w * k), s = Math.sin(w * k), a = i + k, b = a + len / 2;
+      const tr = re[b] * c - im[b] * s, ti = re[b] * s + im[b] * c;
+      re[b] = re[a] - tr; im[b] = im[a] - ti; re[a] += tr; im[a] += ti;
+    }
+  }
+  const p = new Float64Array(N / 2 + 1); for (let i = 0; i <= N / 2; i++) p[i] = re[i] * re[i] + im[i] * im[i];
+  return p;
+}
+/* Energy on the folded-harmonic bins only, relative to the fundamental — the
+   residue measured where the signal structurally ISN'T (L0016), never as
+   "total minus fundamental". */
+function aliasDbc(y, bin) {
+  const N = y.length, p = fidPow(y), legit = new Set([bin]);
+  for (let h = 2; h * bin < N / 2; h++) legit.add(h * bin);
+  let e = 0;
+  for (let h = 2; h <= 64; h++) {
+    const r = (h * bin) % N, b = r > N / 2 ? N - r : r;
+    if (h * bin >= N / 2 && !legit.has(b)) e += p[b];
+  }
+  return 10 * Math.log10(Math.max(1e-300, e) / p[bin]);
+}
+/* C5 — aliasing at high cutoff and under drive. */
+function fidC5(T, row, env) {
+  const C = FID.c5, sr = FID_SR, f = C.bin * sr / C.N, warm = 2 * C.N;
+  const P = fidP(row, { cutoff: 12000, res: 0.5, drive: 1, morph: row.type === 'dj' ? 0.45 : 0.5 });
+  const y = render(fidMake(T, env, P), warm + C.N, i => C.amp * Math.sin(TAU * f * i / sr)).subarray(warm);
+  const d = aliasDbc(y, C.bin);
+  const pure = new Float64Array(C.N); for (let i = 0; i < C.N; i++) pure[i] = Math.sin(TAU * C.bin * i / C.N);
+  let pk = 0; for (const v of y) pk = Math.max(pk, Math.abs(v));
+  const clip = y.map(v => Math.max(-0.3 * pk, Math.min(0.3 * pk, v)));
+  const z = aliasDbc(pure, C.bin), c = aliasDbc(clip, C.bin);
+  return { ok: Number.isFinite(d) && d <= C.tolDbc, val: fmt(d, 1) + ' dBc', ctl: 'pure ' + fmt(z, 0) + ' · clipped ' + fmt(c, 1) + ' dBc',
+    ctlOk: z <= C.zeroDbc && c > C.tolDbc };
+}
+/* The lab's own polyBLEP saw, deterministic from phase 0. */
+function sawAt(f, sr, n, amp) {
+  const y = new Float64Array(n), d = f / sr; let p = 0;
+  for (let i = 0; i < n; i++) {
+    p += d; if (p >= 1) p -= 1;
+    let s = 2 * p - 1;
+    if (p < d) { const t = p / d; s -= t + t - t * t - 1; } else if (p > 1 - d) { const t = (p - 1) / d; s -= t * t + t + t + 1; }
+    y[i] = amp * s;
+  }
+  return y;
+}
+/* C6 — resonance must not be a volume knob. */
+function fidC6(T, row, env) {
+  const C = FID.c6, sr = FID_SR, n = Math.round(0.75 * sr), a = Math.round(0.25 * sr), x = sawAt(C.f0, sr, n, 0.25);
+  const lv = C.res.map(res => rmsDb(render(fidMake(T, env, fidP(row, { cutoff: C.fc, res, drive: 0, morph: row.type === 'dj' ? 0.25 : 0 })), n, i => x[i]), a, n));
+  const swing = Math.max(...lv) - Math.min(...lv), sg = lv[lv.length - 1] >= lv[0] ? 1 : -1;
+  const pl = lv.map((L, i) => L + sg * 20 * Math.log10(1 + 3 * C.res[i])), cs = Math.max(...pl) - Math.min(...pl);
+  return { ok: swing <= C.tolDb, val: fmt(swing, 1) + ' dB (' + lv.map(L => fmt(L, 1)).join(' / ') + ')', ctl: fmt(cs, 1) + ' dB', ctlOk: cs > C.tolDb };
+}
+/* C7 — DC: the gain the analytic says, and none generated. Reuses C1's first
+   impulse response. */
+function fidC7(T, row, env, c1) {
+  const C = FID.c7, sr = FID_SR, ir = c1.irs && c1.irs[0];
+  if (!ir) return { ok: false, val: 'no impulse response', ctlOk: true };
+  let s = 0; for (const v of ir.h) s += v;
+  const a = dbOf(T.H(0, sr, ir.P, ir.inst));
+  const dcOk = (m, an) => (m <= C.blockDb && an <= C.blockDb) || Math.abs(m - an) <= C.tolDb;
+  const m = 20 * Math.log10(Math.max(1e-300, Math.abs(s))), mc = 20 * Math.log10(Math.abs(s + 0.02));
+  const P = fidP(row, { cutoff: 2000, res: 0.9, drive: 1, morph: row.type === 'dj' ? 0.25 : 0.5 });
+  const n = Math.round(0.75 * sr), w = Math.round(0.25 * sr);
+  const y = render(fidMake(T, env, P), n, i => 0.9 * Math.sin(TAU * 1000 * i / sr));
+  let mu = 0; for (let i = w; i < n; i++) mu += y[i]; mu /= n - w;
+  const ok = dcOk(m, a) && Math.abs(mu) <= C.meanTol;
+  const ctlOk = !dcOk(mc, a) && !(Math.abs(mu + 1e-3) <= C.meanTol);
+  return { ok, val: (m <= C.blockDb && a <= C.blockDb ? 'blocks' : fmt(m, 3) + ' dB vs ' + fmt(a, 3)) + ' · mean ' + mu.toExponential(1),
+    ctl: fmt(mc, 2) + ' dB · mean ' + (mu + 1e-3).toExponential(1), ctlOk };
+}
+/* One row: all seven checks. env = { bankClass, bank, prop }. */
+function fidRow(row, env) {
+  const T = TYPES[row.type], c1 = fidC1(T, row, env);
+  const cells = { C1: c1, C2: fidC2(T, row, env), C3: fidC3(T, row, env), C4: fidC4(T, row, env),
+    C5: fidC5(T, row, env), C6: fidC6(T, row, env), C7: fidC7(T, row, env, c1) };
+  delete c1.irs;
+  return cells;
+}
+function runFidelity(env, only) {
+  const out = [];
+  for (const row of fidRows(!!(env && env.bankClass))) if (!only || only.indexOf(row.id) >= 0) out.push({ row, cells: fidRow(row, env || {}) });
+  return out;
+}
+/* The programme's fixed bank setup — the rack's defaults, frozen here so the page
+   and the headless check measure the same thing whatever the knobs say. */
+const FID_BANK = { nb: 16, spread: 0.5, K: 0, drift: 0, place: 0, seed: 1234 };
+function fidEnv(Cls) { return { bankClass: Cls || null, bank: FID_BANK, prop: { qcomp: 1, lfkeep: 1, rigid: 1 } }; }
+
 /* The shared envelope law, stepped at the TICK in SECONDS (ADR-009): linear
    attack, then one-pole toward sustain (4.6 τ = "done" in the stated time, the
    station-lab convention), one-pole release. */
@@ -502,16 +1282,18 @@ function envTick(e, gate, E, dt) {
   else if (e.stage === 1) e.lvl += (E.s - e.lvl) * (1 - Math.exp(-dt * 4.6 / Math.max(0.001, E.d)));
   else if (e.stage === 3) { e.lvl += -e.lvl * (1 - Math.exp(-dt * 4.6 / Math.max(0.001, E.r))); if (e.lvl < 1e-4) { e.lvl = 0; e.stage = 4; } }
 }
-/* A patch the core reads live. The page owns one; a headless caller builds one. */
+/* A patch the core reads live. The page owns one; a headless caller builds one.
+   port[k] is where source k's cable ENDS: 'A' / 'B' (that filter's input), 'AB'
+   (the parallel split), 'R' (the mix bus, past A and B, into the rack) or 'OUT'
+   (dry, around everything). topo: 'par' | 'ser'. */
 function defaultPatch() {
-  const svf = (cutoff, res, ktrack, env) => ({ law: 'svf', mode: 1, cutoff, res, ktrack, env, ktPitch: 'key', ktRef: 'last', wet: 1 });
-  const R = svf(650, 0.4, 0.35, 0.6);
-  R.bank = { nb: 16, spread: 0.5, K: 0, drift: 0, place: 0, seed: 1234 };
+  const flt = (type, mode, cutoff, res, ktrack, env) => ({ type, mode, cutoff, res, drive: 0.3, morph: 0.3, ktrack, env, ktPitch: 'key', ktRef: 'last', wet: 1 });
+  const R = flt('svf12', 1, 650, 0.4, 0.35, 0.6);
+  R.bank = Object.assign({}, FID_BANK);
   R.prop = { qcomp: 1, lfkeep: 1, rigid: 1 };
   return {
-    place: 'pre', master: 0.7, serial: 0,
-    assign: [1, 2, 0],                     /* SWARM 1 → A, SWARM 2 → B, SUB → OFF      */
-    feed: [1, 1, 1], dry: [0, 0, 0],       /* ADR-088 default: every source → slot 1   */
+    place: 'pre', master: 0.7, topo: 'par',
+    port: ['A', 'B', 'R'],                 /* SWARM 1 → A, SWARM 2 → B, SUB → the mix bus */
     src: [
       { name: 'SWARM 1', lvl: 0.8, semi: 0, n: 7, det: 14, seed: 11 },
       { name: 'SWARM 2', lvl: 0.55, semi: 12, n: 5, det: 24, seed: 23 },
@@ -521,8 +1303,15 @@ function defaultPatch() {
        polite: low cutoffs, a strong short envelope, so each stab visibly and
        audibly plucks — and so does the held bass, when the envelope is shared. */
     fenv: { a: 0.003, d: 0.28, s: 0.15, r: 0.35 },
-    flt: { A: svf(700, 0.5, 0.5, 0.55), B: svf(1800, 0.3, 0.4, 0.3), R },
+    flt: { A: flt('svf12', 1, 700, 0.5, 0.5, 0.55), B: flt('svf12', 2, 1800, 0.3, 0.4, 0.3), R },
   };
+}
+/* Does source k's cable reach filter `key`? SERIAL: into A runs on through B;
+   into B enters between them. PARALLEL: A, B, or both via the split. */
+function routesTo(S, k, key) {
+  const p = S.port[k];
+  if (S.topo === 'ser') return key === 'A' ? (p === 'A' || p === 'AB') : (p === 'A' || p === 'AB' || p === 'B');
+  return p === key || p === 'AB';
 }
 
 class FilterRig {
@@ -531,11 +1320,10 @@ class FilterRig {
     this.voices = []; this.seq = 0; this.tick = 0;
     this.held = []; this.ktNote = KT_REF;
     this.renv = { lvl: 0, stage: 4 };
-    this.rSvf = new Svf(); this.rFc = S.flt.R.cutoff;
-    this.BankClass = null; this.bank = null; this.shadow = null;
-    this.bankCentre = 0; this.shadowCentre = 0; this.lastQ = -1;
-    this.rigidOn = false; this.bankShift = 0; this.qcomp = 1; this.lfC = 0; this.lpZ = 0;
-    this.rc = { a1: new Float64Array(24), a2: new Float64Array(24), a3: new Float64Array(24) };
+    this.BankClass = null; this.rInst = null; this.rType = ''; this.shadow = null; this.rOct = 0;
+    /* ONE scratch parameter object, refilled every tick — the audio path allocates
+       nothing per tick (instances are made at note-on and on a type change). */
+    this.Pv = { cutoff: 1000, oct: 0, res: 0, drive: 0, morph: 0.5, mode: 1 };
     this.tap = {};
     for (const k of ['A', 'B', 'R']) this.tap[k] = { i: new Float32Array(TAPN), o: new Float32Array(TAPN) };
     this.tw = 0;
@@ -552,7 +1340,8 @@ class FilterRig {
     this.cMeter = 1 - Math.exp(-1 / (METER_S * sr));
     this.stepLen = Math.round(sr * 60 / DEMO_BPM / 4);
     this.reseedSources();
-    if (this.BankClass) this.rebuildBank();
+    this.rebuildRack();
+    for (const v of this.voices) v.f = { A: [null, null, null], B: [null, null, null] };
   }
   /* Detune offsets, one seeded gaussian per saw — drawn once per seed, never per note. */
   reseedSources() {
@@ -563,28 +1352,25 @@ class FilterRig {
     }
     this.detuneEpoch++;
   }
-  /* ---- the reference bank, injected --------------------------------------- */
-  attachBank(FilterLabClass) { this.BankClass = FilterLabClass; this.rebuildBank(); }
-  makeBank() {
-    const b = new this.BankClass(this.sr), B = this.S.flt.R.bank, R = this.S.flt.R;
-    /* Placement params first, nb LAST: FilterLab.setParam('nb') re-homes every
-       band (v = tHome) — the reference's own reset — so the bank starts placed
-       instead of gliding in from its constructor's default 800 Hz. */
-    b.setParam('place', B.place); b.setParam('spread', B.spread);
-    b.setParam('center', Math.log2(R.cutoff)); b.setParam('K', B.K);
-    b.setParam('driftDepth', B.drift); b.setParam('qbase', R.res);
-    b.setParam('seed', B.seed); b.setParam('nb', B.nb);
-    return b;
+  /* ---- instances, through the one interface ------------------------------ */
+  makeInst(key) {
+    const F = this.S.flt[key], T = TYPES[F.type];
+    if (!T || (T.needsRef && !this.BankClass)) return null;
+    const i = T.make({ bankClass: this.BankClass, bank: this.S.flt.R.bank, prop: this.S.flt.R.prop }, this.sr);
+    i.tid = F.type;
+    return i;
   }
-  rebuildBank() {
-    this.bank = this.makeBank(); this.shadow = this.makeBank();
-    this.bankCentre = this.shadowCentre = Math.log2(this.S.flt.R.cutoff);
-    this.lastQ = this.S.flt.R.res; this.lpZ = 0;
+  rebuildRack() {
+    const R = this.S.flt.R;
+    this.rType = R.type; this.rInst = this.makeInst('R');
+    this.shadow = R.type === 'bankP' && this.BankClass ? new SwarmBank(this.BankClass, this.sr, R.bank, null) : null;
   }
+  attachBank(Cls) { this.BankClass = Cls; this.rebuildRack(); }
   bankParam(key, val) {
     const map = { nb: 'nb', spread: 'spread', K: 'K', drift: 'driftDepth', place: 'place' };
-    for (const b of [this.bank, this.shadow]) if (b) b.setParam(map[key], val);
+    for (const i of [this.rInst, this.shadow]) if (i && i.b) i.b.setParam(map[key], val);
   }
+  fillP(F, oct) { const P = this.Pv; P.cutoff = F.cutoff; P.oct = oct; P.res = F.res; P.drive = F.drive; P.morph = F.morph; P.mode = F.mode; return P; }
   /* ---- notes -------------------------------------------------------------- */
   noteOn(note) {
     if (this.voices.length >= MAXV) {
@@ -598,16 +1384,20 @@ class FilterRig {
     const rng = mulberry32(0x9E3779B9 ^ this.seq);
     const ph = [new Float64Array(MAXSW), new Float64Array(MAXSW), new Float64Array(1)];
     for (let k = 0; k < 2; k++) for (let i = 0; i < MAXSW; i++) ph[k][i] = rng();
-    this.voices.push({
+    const v = {
       note, gate: true, seq: this.seq++, amp: 0, fe: { lvl: 0, stage: 0 }, ph,
       inc: [new Float64Array(MAXSW), new Float64Array(MAXSW), new Float64Array(1)], epoch: 0,
-      A: [new Svf(), new Svf(), new Svf()], B: [new Svf(), new Svf(), new Svf()],
-      fcA: [0, 0, 0], fcB: [0, 0, 0], dead: false,
-    });
+      f: { A: [null, null, null], B: [null, null, null] },
+      oct: { A: [NaN, NaN, NaN], B: [NaN, NaN, NaN] },
+    };
+    this.voices.push(v);
+    /* Set the new voice's filters NOW, not at the next tick, so its first samples
+       are filtered rather than passed through. */
+    this.voiceIncs(v); this.voiceFilters(v);
     this.held = this.held.filter(n => n !== note); this.held.push(note);
     this.pickKt(note);
     this.renv.stage = 0;                   /* the rack's ONE env re-fires on every note */
-    for (const b of [this.bank, this.shadow]) if (b) b.noteOn(note, 440 * Math.pow(2, (note - 69) / 12));
+    for (const b of [this.rInst, this.shadow]) if (b && b.b) b.b.noteOn(note, 440 * Math.pow(2, (note - 69) / 12));
   }
   noteOff(note) {
     for (const v of this.voices) if (v.note === note) v.gate = false;
@@ -648,115 +1438,66 @@ class FilterRig {
     v.inc[2][0] = f * Math.pow(2, S.src[2].semi / 12) / sr;
     v.epoch = this.detuneEpoch;
   }
+  /* Each voice runs its OWN instance per (filter, source) — shared settings, own
+     state (Q3) — made through the registry, re-made when the type changes. */
+  voiceFilters(v) {
+    const S = this.S, sr = this.sr;
+    for (const key of ['A', 'B']) {
+      const F = S.flt[key], inst = v.f[key], oc = v.oct[key];
+      for (let k = 0; k < 3; k++) {
+        if (!routesTo(S, k, key)) { oc[k] = NaN; continue; }
+        const pitch = F.ktPitch === 'src' ? v.note + S.src[k].semi : v.note;
+        const oct = F.ktrack * (pitch - KT_REF) / 12 + F.env * ENV_OCT * v.fe.lvl;
+        if (!inst[k] || inst[k].tid !== F.type) inst[k] = this.makeInst(key);
+        if (inst[k]) inst[k].set(sr, this.fillP(F, oct));
+        oc[k] = oct;
+      }
+    }
+  }
   control() {
-    const S = this.S, sr = this.sr, dt = TICK / sr, pre = S.place !== 'post';
+    const S = this.S, dt = TICK / this.sr, pre = S.place !== 'post';
     for (let i = this.voices.length - 1; i >= 0; i--) {
       const v = this.voices[i];
       if (!v.gate && v.amp < 1e-4) { this.voices.splice(i, 1); continue; }
       if (v.epoch !== this.detuneEpoch) this.voiceIncs(v);
       envTick(v.fe, v.gate, S.fenv, dt);
-      if (!pre) continue;
-      for (const key of ['A', 'B']) {
-        const F = S.flt[key], inst = v[key], fc = key === 'A' ? v.fcA : v.fcB;
-        for (let k = 0; k < 3; k++) {
-          const a = S.assign[k];
-          if (!(a === 3 || (key === 'A' ? a === 1 : a === 2))) { fc[k] = 0; continue; }
-          const pitch = F.ktPitch === 'src' ? v.note + S.src[k].semi : v.note;
-          fc[k] = F.cutoff * Math.pow(2, F.ktrack * (pitch - KT_REF) / 12 + F.env * ENV_OCT * v.fe.lvl);
-          inst[k].set(sr, fc[k], F.res);
-        }
-      }
+      if (pre) this.voiceFilters(v);
     }
     if (S.place === 'pre') return;
     const R = S.flt.R;
+    if (this.rType !== R.type) this.rebuildRack();
     envTick(this.renv, this.held.length > 0, S.fenv, dt);
     const oct = R.ktrack * (this.ktNote - KT_REF) / 12 + R.env * ENV_OCT * this.renv.lvl;
-    if (R.law === 'svf') { this.rFc = R.cutoff * Math.pow(2, oct); this.rSvf.set(sr, this.rFc, R.res); return; }
-    this.bankControl(oct);
-  }
-  bankControl(oct) {
-    const R = this.S.flt.R, b = this.bank;
-    if (!b) return;
-    const prop = R.law === 'bankP', P = R.prop, base = Math.log2(R.cutoff);
-    const rigid = prop && !!P.rigid;
-    /* REFERENCE ROUTE: modulation moves the `center` PARAMETER — which is how any
-       mod route would reach the shipped core — and the reference re-homes its
-       bands on that (setParam → rebuild → placeTargets). */
-    const centre = rigid ? base : base + oct;
-    if (Math.abs(centre - this.bankCentre) > 1e-6) { b.setParam('center', centre); this.bankCentre = centre; }
-    if (R.res !== this.lastQ) { b.setParam('qbase', R.res); if (this.shadow) this.shadow.setParam('qbase', R.res); this.lastQ = R.res; }
-    b.controlTick();                       /* the reference's own forces + coefficients */
-    if (prop && this.shadow) {
-      /* The shadow is the reference under the same notes — the dashed ghost. */
-      const c2 = base + oct;
-      if (Math.abs(c2 - this.shadowCentre) > 1e-6) { this.shadow.setParam('center', c2); this.shadowCentre = c2; }
-      this.shadow.controlTick();
-    }
-    const n = b.p.nb;
-    this.bankShift = rigid ? oct : 0;
-    this.rigidOn = rigid && oct !== 0;
-    if (this.rigidOn) {
-      /* P3 (PROPOSED): coefficients from v + Δ. Formula copied from the reference
-         controlTick (:324-330) so the only difference is the shift. */
-      const k = 1 / b.qEff;
-      for (let i = 0; i < n; i++) {
-        const g = Math.tan(PI_REF * Math.min(0.24, Math.pow(2, b.v[i] + oct) / this.sr));
-        const a1 = 1 / (1 + g * (g + k));
-        this.rc.a1[i] = a1; this.rc.a2[i] = g * a1; this.rc.a3[i] = g * this.rc.a2[i];
-      }
-    }
-    this.qcomp = prop && P.qcomp ? Math.sqrt(b.qEff / Q_MID) : 1;          /* P1 */
-    if (prop && P.lfkeep) {                                                /* P2 */
-      let lo = 99; for (let i = 0; i < n; i++) lo = Math.min(lo, b.v[i]);
-      this.lfC = 1 - Math.exp(-TAU * Math.pow(2, lo + this.bankShift) / this.sr);
-    } else this.lfC = 0;
-    this.rFc = Math.pow(2, base + oct);
+    this.rOct = oct;
+    if (this.rInst) this.rInst.set(this.sr, this.fillP(R, oct));
+    if (this.shadow) this.shadow.set(this.sr, this.fillP(R, oct));
   }
   /* ---- per-sample --------------------------------------------------------- */
-  route(v, k, x, asg, par, mA, mB) {
-    const a = asg[k], acc = this.acc;
-    if (a === 0) return x;
-    if (a === 1) { const y = v.A[k].process(x, mA); acc.iA += x; acc.oA += y; return y; }
-    if (a === 2) { const y = v.B[k].process(x, mB); acc.iB += x; acc.oB += y; return y; }
-    if (!par) { const ya = v.A[k].process(x, mA), y = v.B[k].process(ya, mB); acc.iA += x; acc.oA += ya; acc.iB += ya; acc.oB += y; return y; }
-    const ya = v.A[k].process(x, mA), yb = v.B[k].process(x, mB);
+  /* Source k's sample through the per-voice section, along its cable. */
+  route(v, k, x) {
+    const S = this.S, p = S.port[k], acc = this.acc;
+    if (p === 'R' || p === 'OUT') return x;
+    const fa = v.f.A[k], fb = v.f.B[k];
+    if (S.topo === 'ser') {                 /* one line: [A →] B */
+      let y = x;
+      if (p !== 'B' && fa) { acc.iA += y; y = fa.tick(y); acc.oA += y; }
+      if (fb) { acc.iB += y; y = fb.tick(y); acc.oB += y; }
+      return y;
+    }
+    if (p === 'A') { if (!fa) return x; const y = fa.tick(x); acc.iA += x; acc.oA += y; return y; }
+    if (p === 'B') { if (!fb) return x; const y = fb.tick(x); acc.iB += x; acc.oB += y; return y; }
+    const ya = fa ? fa.tick(x) : x, yb = fb ? fb.tick(x) : x;   /* the split: both branches, summed at ½Σ */
     acc.iA += x; acc.oA += ya; acc.iB += x; acc.oB += yb;
     return 0.5 * (ya + yb);
   }
-  rack(x) {
-    const R = this.S.flt.R;
-    if (R.law === 'svf') return this.rSvf.process(x, R.mode);
-    const b = this.bank;
-    if (!b) return x;       /* no reference loaded: the page's status line says so */
-    /* The bank loop — COPIED from reference/swarmfilter.html:362-374 because its
-       render() owns an exciter; only the coefficient source differs under P3. */
-    const n = b.p.nb, c = this.rigidOn ? this.rc : null;
-    const A1 = c ? c.a1 : b.cA1, A2 = c ? c.a2 : b.cA2, A3 = c ? c.a3 : b.cA3;
-    let wetS = 0;
-    for (let i = 0; i < n; i++) {
-      const v3 = x - b.ic2[i];
-      const v1 = A1[i] * b.ic1[i] + A2[i] * v3;
-      const v2 = b.ic2[i] + A2[i] * b.ic1[i] + A3[i] * v3;
-      b.ic1[i] = 2 * v1 - b.ic1[i];
-      b.ic2[i] = 2 * v2 - b.ic2[i];
-      const band = v1 * b.cK[i];
-      wetS += band;
-      const ab = Math.abs(band);
-      b.eEnv[i] += 0.004 * (ab - b.eEnv[i]);
-    }
-    wetS *= 1.6 / Math.sqrt(n) * this.qcomp;
-    if (this.lfC > 0) { this.lpZ += this.lfC * (x - this.lpZ); wetS += this.lpZ; }
-    return wetS;
-  }
   render(L, Rt, N) {
-    const S = this.S, src = S.src, asg = S.assign, par = !S.serial, acc = this.acc;
+    const S = this.S, src = S.src, port = S.port, acc = this.acc;
     const cA = this.cAtk, cR = this.cRel, cM = this.cMeter, m = this.meter, T = this.tap;
     for (let n = 0; n < N; n++) {
       if (this.demo) this.demoTick();
       if (this.tick === 0) this.control();
       this.tick = (this.tick + 1) % TICK;
       const pre = S.place !== 'post', post = S.place !== 'pre';
-      const mA = S.flt.A.mode, mB = S.flt.B.mode;
       const n0 = src[0].n | 0, n1 = src[1].n | 0;
       const g0 = src[0].lvl * 0.5 / Math.pow(n0, 0.75), g1 = src[1].lvl * 0.5 / Math.pow(n1, 0.75), g2 = src[2].lvl * 0.6;
       let s0 = 0, s1 = 0, s2 = 0;
@@ -781,28 +1522,27 @@ class FilterRig {
         }
         let p2 = v.ph[2][0] + v.inc[2][0]; if (p2 >= 1) p2 -= 1; v.ph[2][0] = p2;
         const x2 = Math.sin(TAU * p2) * g2 * a;
-        if (pre) {
-          s0 += this.route(v, 0, x0, asg, par, mA, mB);
-          s1 += this.route(v, 1, x1, asg, par, mA, mB);
-          s2 += this.route(v, 2, x2, asg, par, mA, mB);
-        } else { s0 += x0; s1 += x1; s2 += x2; }
+        if (pre) { s0 += this.route(v, 0, x0); s1 += this.route(v, 1, x1); s2 += this.route(v, 2, x2); }
+        else { s0 += x0; s1 += x1; s2 += x2; }
       }
-      let out, bus = 0, yR = 0;
+      /* DRY cables skip the bus (and the rack); everything else sums onto it. */
+      const d0 = port[0] === 'OUT', d1 = port[1] === 'OUT', d2 = port[2] === 'OUT';
+      const bus = (d0 ? 0 : s0) + (d1 ? 0 : s1) + (d2 ? 0 : s2), dry = (d0 ? s0 : 0) + (d1 ? s1 : 0) + (d2 ? s2 : 0);
+      let out, yR = 0;
       if (post) {
-        bus = s0 * S.feed[0] + s1 * S.feed[1] + s2 * S.feed[2];
-        yR = this.rack(bus);
         const R = S.flt.R;
-        out = R.wet * yR + (1 - R.wet) * bus + s0 * S.dry[0] + s1 * S.dry[1] + s2 * S.dry[2];
-      } else out = s0 + s1 + s2;
+        yR = this.rInst ? this.rInst.tick(bus) : bus;     /* no reference loaded: the status line says so */
+        out = R.wet * yR + (1 - R.wet) * bus + dry;
+      } else out = bus + dry;
       const tw = this.tw;
       T.A.i[tw] = acc.iA; T.A.o[tw] = acc.oA; T.B.i[tw] = acc.iB; T.B.o[tw] = acc.oB;
       T.R.i[tw] = bus; T.R.o[tw] = yR;
       this.tw = (tw + 1) & (TAPN - 1);
       m.src[0] += (s0 * s0 - m.src[0]) * cM; m.src[1] += (s1 * s1 - m.src[1]) * cM; m.src[2] += (s2 * s2 - m.src[2]) * cM;
       m.bus += (bus * bus - m.bus) * cM; m.rack += (yR * yR - m.rack) * cM;
-      /* The tanh is MONITORING convenience (as in every lab), not part of either
+      /* The tanh is MONITORING convenience (as in every lab), not part of any
          filter: it keeps a resonant peak from clipping the DAC. The 0.6 is
-         MEASURED headroom — at 1.6 the demo drove it to 2.2 peak, and a
+         MEASURED headroom (B209) — at 1.6 the demo drove it to 2.2 peak, and a
          saturated monitor squashes exactly the level differences between
          placements this page exists to let you hear. */
       const y = Math.tanh(out * S.master * 0.6);
@@ -818,29 +1558,34 @@ class FilterRig {
 /* ============ BLOCK A — state and vocabulary, above all wiring (L0026) ====== */
 const S = defaultPatch();
 const PLACES = [['pre', 'PER SOURCE'], ['post', 'RACK SLOT'], ['both', 'BOTH']];
-const ASSIGN_NAMES = ['OFF', 'A', 'B', 'A+B'];
-const MODES = ['LP', 'BP', 'HP'];
-const LAWS = [['svf', 'SVF'], ['bank', 'SWARM · REF'], ['bankP', 'SWARM · PROPOSED']];
+const TOPOS = [['par', 'PARALLEL'], ['ser', 'SERIAL']];
+const PORTS = ['A', 'B', 'AB', 'R', 'OUT'];
+const PORT_NAMES = { A: 'A', B: 'B', AB: 'A+B', R: 'MIX', OUT: 'DRY' };
 const PLACEMENTS_BANK = ['ERB', 'LOG', 'HARMONIC'];
+const LAW_ALIAS = { svf: 'svf12', bank: 'bank', bankP: 'bankP' };   /* round-1 ?law= deep links */
 const KEYMAP = { a: 0, w: 1, s: 2, e: 3, d: 4, f: 5, t: 6, g: 7, y: 8, h: 9, u: 10, j: 11, k: 12, o: 13, l: 14 };
 const BLACK = { 1: 1, 3: 1, 6: 1, 8: 1, 10: 1 };
 const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-const FMIN = 20, FMAX = 20000, DBTOP = 30, DBBOT = -42, NPTS = 220;
+const FMIN = 20, FMAX = 20000, DBTOP = 30, DBBOT = -42, NPTS = 150;
 const SPEC_OFF = 14;             /* spectra share the response axis, lifted by this many dB */
 const REF_URL = '../../reference/swarmfilter.html';
 const REF = { cls: null, state: 'loading' };
-const RESP = {};                 /* key -> canvas                                   */
-const CARD = {};                 /* key -> card element                             */
 const SPEC = {};                 /* key -> { i: Float32Array(NPTS), o: ... } in dB  */
 const REPAINT = [];
-const GHOSTROWS = [];            /* rows whose relevance depends on the rack's law  */
+const GHOSTROWS = [];            /* [row, predicate] — ghosted while the predicate is false */
+const INSP = { rep: [], ghost: [] };   /* the editor's own lists, emptied on every rebuild */
+const HIT = [];                  /* signal-path hit regions, rebuilt by every draw */
 const KEYEL = {}, held = {};
 const _tok = {};
 const DIAG = { dirty: true };
+/* The fidelity programme's page state: one row measured per timer tick, so the
+   page paints first and fills the table in as rows finish. */
+const FIDS = { res: {}, queue: [], busy: false, cells: {} };
+let REP = REPAINT, GH = GHOSTROWS;     /* where builders register, swapped while the editor builds */
 let rig = new FilterRig(48000, S);
-let ac = null, spn = null, blocks = 0, preview = false, dark = false, baseNote = 48;
+let ac = null, spn = null, blocks = 0, preview = false, dark = false, baseNote = 48, sel = 'A';
 let fftRe = null, fftIm = null, hann = null, rev = null;
-let flowC = null, envC = null, scopeC = null;
+let pathC = null, envC = null, scopeC = null, drag = null;
 
 /* ============ BLOCK B — token reader, DPR, painters, builders ============ */
 /* station-page-lab:691 — cache keyed by token NAME, read from BODY (the screen
@@ -886,6 +1631,11 @@ const nn = m => NOTE_NAMES[((m % 12) + 12) % 12] + (Math.floor(m / 12) - 1);
 const fHz = x => x >= 1000 ? (x / 1000).toFixed(x >= 10000 ? 1 : 2) + 'k' : Math.round(x) + '';
 const f2 = x => (Math.round(x * 100) / 100).toFixed(2);
 const fPct = x => Math.round(x * 100) + '%';
+const typeOf = key => TYPES[S.flt[key].type];
+const modeName = key => { const T = typeOf(key); return T.modes.length > 1 ? T.modes[(S.flt[key].mode || 1) - 1] : ''; };
+const fidRowId = key => { const F = S.flt[key], T = TYPES[F.type]; return T.modes.length > 1 ? F.type + '.' + T.modes[(F.mode || 1) - 1] : F.type; };
+function inForce(key) { return key === 'R' ? S.place !== 'pre' : S.place !== 'post'; }
+function routedTo(key) { return [0, 1, 2].filter(k => routesTo(S, k, key)); }
 
 /* ---- spectrum: a small radix-2 FFT, so the taps need no AnalyserNode and the
    silent preview draws the same picture the audio path would ------------------ */
@@ -923,175 +1673,238 @@ function spectrumInto(ring, tw, dst) {
   }
 }
 
-/* ---- response canvas ---------------------------------------------------- */
-function axes(w, h, v) {
-  const pl = 4 * v, pr = 4 * v, pt = 6 * v, pb = 12 * v;
-  const X = f => pl + Math.log(f / FMIN) / Math.log(FMAX / FMIN) * (w - pl - pr);
-  const Y = db => pt + (DBTOP - db) / (DBTOP - DBBOT) * (h - pt - pb);
-  const Xinv = x => FMIN * Math.pow(FMAX / FMIN, (x - pl) / (w - pl - pr));
-  const Yinv = y => DBTOP - (y - pt) / (h - pt - pb) * (DBTOP - DBBOT);
-  return { X, Y, Xinv, Yinv, pt, pb };
-}
-const fAt = p => FMIN * Math.pow(FMAX / FMIN, p / (NPTS - 1));
-function strokeCurve(g, X, Y, fn) {
-  g.beginPath();
-  for (let p = 0; p < NPTS; p++) { const f = fAt(p), y = Y(Math.max(DBBOT - 6, Math.min(DBTOP + 6, fn(f)))); if (p) g.lineTo(X(f), y); else g.moveTo(X(f), y); }
-  g.stroke();
-}
-/* Resonance handle height: the SVF's gain AT its cutoff is 1/k for LP, BP and HP
-   alike, so the handle rides the peak and dragging it IS pulling the peak. */
-const svfPeakDb = res => -20 * Math.log10(Math.max(0.05, Math.SQRT2 * (1 - res)));
-const bankHandleDb = res => -12 + 30 * res;
-function isSvf(key) { return key !== 'R' || S.flt.R.law === 'svf'; }
-function inForce(key) { return key === 'R' ? S.place !== 'pre' : S.place !== 'post'; }
-function routedTo(key) {
-  return [0, 1, 2].filter(k => S.assign[k] === 3 || S.assign[k] === (key === 'A' ? 1 : 2));
-}
-function drawResp(key) {
-  const cv = RESP[key]; const G = ground(cv); if (!G) return;
-  const { g, w, h, v } = G, F = S.flt[key], sr = rig.sr;
-  const { X, Y } = axes(w, h, v);
-  g.lineWidth = v; g.strokeStyle = TOKA('--scr-grid', 0.16);
-  for (const f of [50, 100, 200, 500, 1000, 2000, 5000, 10000]) { g.beginPath(); g.moveTo(X(f), 0); g.lineTo(X(f), h); g.stroke(); }
-  for (const d of [24, 12, -12, -24, -36]) { g.beginPath(); g.moveTo(0, Y(d)); g.lineTo(w, Y(d)); g.stroke(); }
-  g.strokeStyle = TOKA('--scr-grid', 0.45); g.beginPath(); g.moveTo(0, Y(0)); g.lineTo(w, Y(0)); g.stroke();
-  g.fillStyle = TOKA('--scr-grid', 0.8); g.font = font(8, v);
-  g.fillText('100', X(100) + 2 * v, h - 3 * v); g.fillText('1k', X(1000) + 2 * v, h - 3 * v); g.fillText('10k', X(10000) + 2 * v, h - 3 * v);
-  g.fillText('0 dB', 3 * v, Y(0) - 2 * v);
-  /* spectra: in (dim fill), out (cyan line) */
-  const sp = SPEC[key], on = inForce(key) && (ac || preview);
-  if (on && sp) {
-    g.fillStyle = TOKA('--scr-grid', 0.14); g.beginPath(); g.moveTo(X(FMIN), h);
-    for (let p = 0; p < NPTS; p++) g.lineTo(X(fAt(p)), Y(Math.max(DBBOT - 6, sp.i[p] + SPEC_OFF)));
-    g.lineTo(X(FMAX), h); g.closePath(); g.fill();
-    g.strokeStyle = TOKA('--scr-meter', 0.85); g.lineWidth = 1.2 * v; g.beginPath();
-    for (let p = 0; p < NPTS; p++) { const y = Y(Math.max(DBBOT - 6, sp.o[p] + SPEC_OFF)); if (p) g.lineTo(X(fAt(p)), y); else g.moveTo(X(fAt(p)), y); }
-    g.stroke();
-  }
-  let hx = X(F.cutoff), hy;
-  if (isSvf(key)) {
-    /* live state: one violet curve per sounding voice (per voice), one for the rack */
-    g.strokeStyle = TOKA('--scr-physics', 0.55); g.lineWidth = v;
-    g.fillStyle = TOKA('--scr-physics', 0.95); g.font = font(8, v);
-    if (key !== 'R') {
-      const ks = routedTo(key);
-      let lab = 0;
-      if (inForce(key)) for (const vo of rig.voices) {
-        const fcs = key === 'A' ? vo.fcA : vo.fcB;
-        for (const k of ks) {
-          const fc = fcs[k]; if (!(fc > 0)) continue;
-          strokeCurve(g, X, Y, f => svfDb(f, sr, fc, F.res, F.mode));
-          if (k === ks[0] && lab++ < 8) g.fillText(nn(vo.note + (F.ktPitch === 'src' ? S.src[k].semi : 0)), X(Math.min(fc, 18000)) + 2 * v, 10 * v + (lab - 1) * 9 * v);
-        }
-      }
-    } else if (inForce('R')) {
-      g.lineWidth = 1.3 * v; g.strokeStyle = TOKA('--scr-physics', 0.9);
-      strokeCurve(g, X, Y, f => svfDb(f, sr, rig.rFc, F.res, F.mode));
-      g.fillText('tracks ' + nn(rig.ktNote) + ' · ' + F.ktRef.toUpperCase(), X(Math.min(rig.rFc, 9000)) + 3 * v, 10 * v);
-    }
-    g.strokeStyle = TOK('--scr-value'); g.lineWidth = 1.6 * v;
-    strokeCurve(g, X, Y, f => svfDb(f, sr, F.cutoff, F.res, F.mode));
-    hy = Y(svfPeakDb(F.res));
+/* ---- the ONE picture: the signal path ------------------------------------ */
+/* Geometry in canvas pixels. Boxes are {x, y (centre), w, h}. SERIAL puts A and
+   B on one line; PARALLEL splits into two branches that meet at ½Σ. The two
+   are different DRAWINGS, not the same boxes moved. */
+function pathLayout(w, h) {
+  const L = { src: [0.2, 0.5, 0.8].map(fy => ({ x: 0.06 * w, y: fy * h, w: 0.095 * w, h: 0.12 * h })) };
+  L.jack = L.src.map(b => ({ x: b.x + b.w / 2 + 0.012 * w, y: b.y }));
+  L.mix = { x: 0.67 * w, y: 0.5 * h };
+  L.R = { x: 0.815 * w, y: 0.5 * h, w: 0.2 * w, h: 0.44 * h };
+  L.out = { x: 0.962 * w, y: 0.5 * h, w: 0.056 * w, h: 0.12 * h };
+  if (S.topo === 'ser') {
+    L.A = { x: 0.3 * w, y: 0.5 * h, w: 0.175 * w, h: 0.46 * h };
+    L.B = { x: 0.525 * w, y: 0.5 * h, w: 0.175 * w, h: 0.46 * h };
+    L.inB = { x: 0.4125 * w, y: 0.5 * h };
   } else {
-    const b = rig.bank;
-    if (!b) {
-      g.fillStyle = TOKA('--scr-marker', 0.95); g.font = font(9.5, v);
-      g.fillText('reference not loaded — ' + REF.state, 8 * v, h / 2 - 6 * v);
-      g.fillText('the bank law needs the labs server', 8 * v, h / 2 + 8 * v);
-    } else {
-      const n = b.p.nb, prop = F.law === 'bankP';
-      if (prop && rig.shadow) {       /* the reference, same notes — dashed ghost */
-        const sh = rig.shadow;
-        g.setLineDash([4 * v, 3 * v]); g.strokeStyle = TOKA('--scr-grid', 0.75); g.lineWidth = 1.2 * v;
-        strokeCurve(g, X, Y, f => bankDb(f, sr, sh.v, n, sh.qEff, 1.6 / Math.sqrt(n), 0, 0));
-        g.setLineDash([]);
-      }
-      let eMax = 1e-9; for (let i = 0; i < n; i++) eMax = Math.max(eMax, b.eEnv[i]);
-      g.fillStyle = TOKA('--scr-physics', 0.55);
-      for (let i = 0; i < n; i++) {
-        const x = X(Math.pow(2, b.v[i] + rig.bankShift)), bh = (6 + Math.sqrt(b.eEnv[i] / eMax) * 0.4 * h) * (ac || preview ? 1 : 0.4);
-        g.fillRect(x - 1.2 * v, h - 12 * v - bh, 2.4 * v, bh);
-      }
-      g.strokeStyle = TOK('--scr-physics'); g.lineWidth = 1.6 * v;
-      strokeCurve(g, X, Y, f => bankDb(f, sr, b.v, n, b.qEff, 1.6 / Math.sqrt(n) * rig.qcomp, rig.lfC, rig.bankShift));
-      g.fillStyle = TOKA('--scr-physics', 0.95); g.font = font(8, v);
-      g.fillText(n + ' bands · Q ' + b.qEff.toFixed(1) + (prop ? '' : ' · tracks ' + nn(rig.ktNote)), 6 * v, 10 * v);
-    }
-    hy = Y(bankHandleDb(F.res));
+    L.split = { x: 0.195 * w, y: 0.5 * h };
+    L.A = { x: 0.39 * w, y: 0.29 * h, w: 0.21 * w, h: 0.36 * h };
+    L.B = { x: 0.39 * w, y: 0.71 * h, w: 0.21 * w, h: 0.36 * h };
+    L.half = { x: 0.575 * w, y: 0.5 * h };
   }
-  g.fillStyle = TOK('--scr-value'); g.strokeStyle = TOK('--scr-tube'); g.lineWidth = 1.5 * v;
-  g.beginPath(); g.arc(hx, hy, 5 * v, 0, TAU); g.fill(); g.stroke();
-  if (!inForce(key)) {
-    g.fillStyle = TOKA('--scr-marker', 0.95); g.font = font(9, v);
-    g.fillText('NOT IN THIS PLACEMENT', w - 128 * v, 11 * v);
-  }
+  return L;
 }
-
-/* ---- the signal-path rail ------------------------------------------------ */
-function node(g, x, y, w, h, v, label, live, ghost) {
-  g.lineWidth = 1.2 * v; g.setLineDash(ghost ? [3 * v, 3 * v] : []);
-  g.strokeStyle = TOKA('--scr-grid', ghost ? 0.3 : 0.85);
-  const r = 5 * v;
-  g.beginPath(); g.moveTo(x - w / 2 + r, y - h / 2); g.arcTo(x + w / 2, y - h / 2, x + w / 2, y + h / 2, r);
-  g.arcTo(x + w / 2, y + h / 2, x - w / 2, y + h / 2, r); g.arcTo(x - w / 2, y + h / 2, x - w / 2, y - h / 2, r);
-  g.arcTo(x - w / 2, y - h / 2, x + w / 2, y - h / 2, r); g.closePath(); g.stroke(); g.setLineDash([]);
-  g.fillStyle = TOKA('--scr-grid', ghost ? 0.35 : 0.95); g.font = font(8.5, v); g.textAlign = 'center';
-  g.fillText(label, x, y + 3 * v); g.textAlign = 'left';
-  if (live !== undefined && !ghost) {
+const inPt = b => ({ x: b.x - b.w / 2, y: b.y });
+const outPt = b => ({ x: b.x + b.w / 2, y: b.y });
+function rrect(g, b, r) {
+  const x0 = b.x - b.w / 2, y0 = b.y - b.h / 2, x1 = b.x + b.w / 2, y1 = b.y + b.h / 2;
+  g.beginPath(); g.moveTo(x0 + r, y0); g.arcTo(x1, y0, x1, y1, r); g.arcTo(x1, y1, x0, y1, r);
+  g.arcTo(x0, y1, x0, y0, r); g.arcTo(x0, y0, x1, y0, r); g.closePath();
+}
+/* A signal line (neutral ink): the path the audio takes between boxes. */
+function wire(g, a, b, v, ghost) {
+  g.setLineDash(ghost ? [4 * v, 3 * v] : []); g.lineWidth = 1.6 * v;
+  g.strokeStyle = TOKA('--scr-grid', ghost ? 0.35 : 0.85);
+  const mx = (a.x + b.x) / 2;
+  g.beginPath(); g.moveTo(a.x, a.y); g.bezierCurveTo(mx, a.y, mx, b.y, b.x, b.y); g.stroke(); g.setLineDash([]);
+  arrow(g, b, v, TOKA('--scr-grid', ghost ? 0.35 : 0.85));
+}
+function arrow(g, p, v, col) {
+  g.fillStyle = col; g.beginPath(); g.moveTo(p.x, p.y); g.lineTo(p.x - 6 * v, p.y - 3.5 * v); g.lineTo(p.x - 6 * v, p.y + 3.5 * v); g.closePath(); g.fill();
+}
+/* A cable (magenta — the routing you set) from a source jack to where it plugs in.
+   `lane` routes it over the top or under the bottom of the boxes instead of
+   through them; `drop` ends it vertically into a point on a line. */
+function cable(g, a, b, v, lane, drop, off) {
+  g.strokeStyle = TOKA('--scr-value', 0.9); g.lineWidth = 2 * v; g.beginPath(); g.moveTo(a.x, a.y);
+  if (lane === undefined) { const mx = (a.x + b.x) / 2; g.bezierCurveTo(mx, a.y, mx, b.y, b.x, b.y); }
+  else {
+    /* `off` staggers each source's riser so two cables never share one line */
+    const r = 14 * v, up = lane < a.y ? -1 : 1, rx = a.x + r + (off || 0);
+    g.lineTo(rx - r * 0.6, a.y); g.quadraticCurveTo(rx, a.y, rx, a.y + up * r);
+    g.lineTo(rx, lane - up * r); g.quadraticCurveTo(rx, lane, rx + r, lane);
+    if (drop) { g.lineTo(b.x - r, lane); g.quadraticCurveTo(b.x, lane, b.x, lane - up * r); g.lineTo(b.x, b.y); }
+    else { g.lineTo(b.x - 2 * r, lane); g.quadraticCurveTo(b.x - r, lane, b.x - r, lane - up * r * 0.5); g.quadraticCurveTo(b.x - r, b.y, b.x, b.y); }
+  }
+  g.stroke();
+  g.fillStyle = TOKA('--scr-value', 0.95); g.beginPath(); g.arc(b.x, b.y, 2.6 * v, 0, TAU); g.fill();
+}
+function junction(g, p, v, label, diamond) {
+  g.fillStyle = TOK('--scr-tube'); g.strokeStyle = TOKA('--scr-grid', 0.9); g.lineWidth = 1.5 * v;
+  const r = 10 * v;
+  g.beginPath();
+  if (diamond) { g.moveTo(p.x - r, p.y); g.lineTo(p.x, p.y - r); g.lineTo(p.x + r, p.y); g.lineTo(p.x, p.y + r); g.closePath(); }
+  else g.arc(p.x, p.y, r, 0, TAU);
+  g.fill(); g.stroke();
+  g.fillStyle = TOKA('--scr-grid', 0.95); g.font = font(8.5, v); g.textAlign = 'center';
+  g.fillText(label, p.x, p.y + 3 * v); g.textAlign = 'left';
+}
+function plainBox(g, b, v, label, live) {
+  g.lineWidth = 1.4 * v; g.strokeStyle = TOKA('--scr-grid', 0.9); rrect(g, b, 5 * v); g.stroke();
+  g.fillStyle = TOKA('--scr-grid', 0.95); g.font = font(9, v); g.textAlign = 'center';
+  g.fillText(label, b.x, b.y + 3 * v); g.textAlign = 'left';
+  if (live !== undefined) {
     const lv = Math.min(1, Math.sqrt(live) * 4);
     g.fillStyle = TOKA('--scr-meter', 0.25 + 0.75 * lv);
-    g.beginPath(); g.arc(x + w / 2 - 5 * v, y - h / 2 + 5 * v, (1.5 + 2 * lv) * v, 0, TAU); g.fill();
+    g.beginPath(); g.arc(b.x + b.w / 2 - 6 * v, b.y - b.h / 2 + 6 * v, (1.5 + 2 * lv) * v, 0, TAU); g.fill();
   }
 }
-function edge(g, x0, y0, x1, y1, v, gain, ghost) {
-  if (!(gain > 0)) return;
-  g.setLineDash(ghost ? [3 * v, 3 * v] : []);
-  g.strokeStyle = TOKA('--scr-value', ghost ? 0.22 : 0.85); g.lineWidth = Math.max(0.8, 2.6 * Math.min(1.5, gain)) * v;
-  const mx = (x0 + x1) / 2;
-  g.beginPath(); g.moveTo(x0, y0); g.bezierCurveTo(mx, y0, mx, y1, x1, y1); g.stroke(); g.setLineDash([]);
+/* The response axes inside a filter box. */
+function boxAxes(b, v) {
+  const pl = 5 * v, pr = 5 * v, pt = 17 * v, pb = 11 * v;
+  const x0 = b.x - b.w / 2 + pl, x1 = b.x + b.w / 2 - pr, y0 = b.y - b.h / 2 + pt, y1 = b.y + b.h / 2 - pb;
+  const X = f => x0 + Math.log(f / FMIN) / Math.log(FMAX / FMIN) * (x1 - x0);
+  const Y = db => y0 + (DBTOP - db) / (DBTOP - DBBOT) * (y1 - y0);
+  const Xinv = x => FMIN * Math.pow(FMAX / FMIN, (x - x0) / (x1 - x0));
+  const Yinv = y => DBTOP - (y - y0) / (y1 - y0) * (DBTOP - DBBOT);
+  return { x0, x1, y0, y1, X, Y, Xinv, Yinv };
 }
-function drawFlow() {
-  const G = ground(flowC); if (!G) return;
-  const { g, w, h, v } = G;
-  const pre = S.place !== 'post', post = S.place !== 'pre';
-  const cx = [0.09, 0.3, 0.52, 0.73, 0.92].map(f => f * w), ry = [0.2, 0.5, 0.8].map(f => f * h), my = 0.5 * h;
-  const nw = 0.13 * w, nh = 0.15 * h, mw = 0.08 * w;
-  const pw = 0.12 * w;
-  for (let k = 0; k < 3; k++) {
-    const a = S.assign[k], through = !pre || a === 0;
-    edge(g, cx[0] + nw / 2, ry[k], through ? cx[2] - mw / 2 : cx[1] - pw / 2, ry[k], v, 1, false);
-    if (!through) edge(g, cx[1] + pw / 2, ry[k], cx[2] - mw / 2, ry[k], v, 1, false);
-    if (post) {
-      edge(g, cx[2] + mw / 2, ry[k], cx[3] - nw / 2, my, v, S.feed[k], false);
-      edge(g, cx[2] + mw / 2, ry[k], cx[4] - nw / 2, my, v, S.dry[k], false);
-    } else edge(g, cx[2] + mw / 2, ry[k], cx[4] - nw / 2, my, v, 1, false);
+const fAt = p => FMIN * Math.pow(FMAX / FMIN, p / (NPTS - 1));
+function strokeCurve(g, A, fn) {
+  g.beginPath();
+  for (let p = 0; p < NPTS; p++) { const f = fAt(p), y = A.Y(Math.max(DBBOT - 4, Math.min(DBTOP + 4, fn(f)))); if (p) g.lineTo(A.X(f), y); else g.moveTo(A.X(f), y); }
+  g.stroke();
+}
+/* The handle rides a uniform resonance scale for every type (−12 dB at res 0,
+   +18 dB at res 1), so dragging up means "more resonance" whatever the law. */
+const resHandleDb = res => -12 + 30 * res;
+const scratchP = { cutoff: 1000, oct: 0, res: 0, drive: 0, morph: 0.5, mode: 1 };
+function pOf(F, oct) { const P = scratchP; P.cutoff = F.cutoff; P.oct = oct; P.res = F.res; P.drive = F.drive; P.morph = F.morph; P.mode = F.mode; return P; }
+function curveDb(T, f, P, inst) { return dbOf(T.H(f, rig.sr, P, inst)); }
+/* One filter's box: title, spectra, live state (violet), the set curve (magenta),
+   the handle. This box IS the filter's representation — there is no other. */
+function drawFilterBox(g, key, b, v) {
+  const F = S.flt[key], T = TYPES[F.type], on = inForce(key), A = boxAxes(b, v), sr = rig.sr;
+  g.save();
+  g.globalAlpha = on ? 1 : 0.45;
+  g.fillStyle = TOK('--scr-tube'); rrect(g, b, 6 * v); g.fill();
+  g.save(); rrect(g, b, 6 * v); g.clip();
+  g.lineWidth = v; g.strokeStyle = TOKA('--scr-grid', 0.14);
+  for (const f of [100, 1000, 10000]) { g.beginPath(); g.moveTo(A.X(f), A.y0); g.lineTo(A.X(f), A.y1); g.stroke(); }
+  g.strokeStyle = TOKA('--scr-grid', 0.4); g.beginPath(); g.moveTo(A.x0, A.Y(0)); g.lineTo(A.x1, A.Y(0)); g.stroke();
+  const sp = SPEC[key];
+  if (on && sp && (ac || preview)) {
+    g.fillStyle = TOKA('--scr-grid', 0.14); g.beginPath(); g.moveTo(A.X(FMIN), A.y1);
+    for (let p = 0; p < NPTS; p++) g.lineTo(A.X(fAt(p)), A.Y(Math.max(DBBOT - 4, sp.i[p] + SPEC_OFF)));
+    g.lineTo(A.X(FMAX), A.y1); g.closePath(); g.fill();
+    g.strokeStyle = TOKA('--scr-meter', 0.85); g.lineWidth = 1.1 * v; g.beginPath();
+    for (let p = 0; p < NPTS; p++) { const y = A.Y(Math.max(DBBOT - 4, sp.o[p] + SPEC_OFF)); if (p) g.lineTo(A.X(fAt(p)), y); else g.moveTo(A.X(fAt(p)), y); }
+    g.stroke();
   }
-  edge(g, cx[3] + nw / 2, my, cx[4] - nw / 2, my, v, post ? 1 : 1, !post);
-  for (let k = 0; k < 3; k++) {
-    node(g, cx[0], ry[k], nw, nh, v, S.src[k].name, rig.meter.src[k], false);
-    const a = S.assign[k];
-    if (a !== 0) {
-      const lab = a === 3 ? (S.serial ? 'A → B' : 'A ‖ B') : ASSIGN_NAMES[a];
-      node(g, cx[1], ry[k], pw, nh, v, lab, undefined, !pre);
-      if (pre) {
-        const live = rig.voices.length;
-        g.fillStyle = TOKA('--scr-physics', live ? 0.95 : 0.5); g.font = font(8, v); g.textAlign = 'center';
-        g.fillText('×' + live + ' voice' + (live === 1 ? '' : 's'), cx[1], ry[k] + nh / 2 + 9 * v); g.textAlign = 'left';
+  let state = '';
+  if (T.needsRef) {
+    const inst = rig.rInst;
+    if (!inst) {
+      g.fillStyle = TOKA('--scr-marker', 0.95); g.font = font(8.5, v);
+      g.fillText('reference not loaded', A.x0 + 4 * v, b.y); g.fillText('(needs the labs server)', A.x0 + 4 * v, b.y + 11 * v);
+    } else {
+      const bk = inst.b, n = bk.p.nb;
+      if (rig.shadow) {       /* the reference, same notes — dashed ghost */
+        g.setLineDash([4 * v, 3 * v]); g.strokeStyle = TOKA('--scr-grid', 0.75); g.lineWidth = 1.1 * v;
+        strokeCurve(g, A, f => curveDb(T, f, null, rig.shadow)); g.setLineDash([]);
       }
-    } else if (pre) {
-      g.fillStyle = TOKA('--scr-grid', 0.6); g.font = font(8, v); g.textAlign = 'center';
-      g.fillText('— bypass —', cx[1], ry[k] - 5 * v); g.textAlign = 'left';
+      let eMax = 1e-9; for (let i = 0; i < n; i++) eMax = Math.max(eMax, bk.eEnv[i]);
+      g.fillStyle = TOKA('--scr-physics', 0.55);
+      for (let i = 0; i < n; i++) {
+        const x = A.X(Math.pow(2, bk.v[i] + inst.shift)), bh = (4 + Math.sqrt(bk.eEnv[i] / eMax) * 0.35 * (A.y1 - A.y0)) * (ac || preview ? 1 : 0.4);
+        g.fillRect(x - v, A.y1 - bh, 2 * v, bh);
+      }
+      g.strokeStyle = TOK('--scr-physics'); g.lineWidth = 1.5 * v;
+      strokeCurve(g, A, f => curveDb(T, f, null, inst));
+      state = n + ' bands · Q ' + bk.qEff.toFixed(1);
     }
+  } else {
+    /* live state: one violet curve per sounding (voice, source), or the rack's one */
+    g.strokeStyle = TOKA('--scr-physics', 0.55); g.lineWidth = v;
+    if (key !== 'R') {
+      let drawn = 0;
+      if (on) for (const vo of rig.voices) for (let k = 0; k < 3 && drawn < 9; k++) {
+        const oct = vo.oct[key][k]; if (!Number.isFinite(oct)) continue;
+        strokeCurve(g, A, f => curveDb(T, f, pOf(F, oct))); drawn++;
+      }
+    } else if (on) {
+      g.lineWidth = 1.3 * v; g.strokeStyle = TOKA('--scr-physics', 0.9);
+      strokeCurve(g, A, f => curveDb(T, f, pOf(F, rig.rOct)));
+      state = 'tracks ' + nn(rig.ktNote) + ' · ' + F.ktRef.toUpperCase();
+    }
+    g.strokeStyle = TOK('--scr-value'); g.lineWidth = 1.6 * v;
+    strokeCurve(g, A, f => curveDb(T, f, pOf(F, 0)));
   }
-  node(g, cx[2], my, mw, 0.86 * h, v, 'MATRIX', undefined, false);
-  const R = S.flt.R, lawName = LAWS.find(l => l[0] === R.law)[1];
-  node(g, cx[3], my, nw * 1.15, nh * 1.3, v, 'RACK · ' + (R.law === 'svf' ? 'SVF' : 'SWARM'), rig.meter.rack, !post);
-  if (post) { g.fillStyle = TOKA('--scr-physics', 0.9); g.font = font(8, v); g.textAlign = 'center';
-    g.fillText(lawName + ' · ' + fHz(rig.rFc) + ' Hz', cx[3], my + nh * 0.65 + 10 * v); g.textAlign = 'left'; }
-  node(g, cx[4], my, nw, nh, v, 'OUT', rig.meter.out, false);
+  /* handle — the DJ's sweep is morph, drawn at the frequency it lands on */
+  const hx = F.type === 'dj' ? A.X(Math.max(FMIN, Math.min(FMAX, djMap(pOf(F, 0)).fc))) : A.X(Math.max(FMIN, Math.min(FMAX, F.cutoff)));
+  const hy = A.Y(resHandleDb(F.res));
+  g.fillStyle = TOK('--scr-value'); g.strokeStyle = TOK('--scr-tube'); g.lineWidth = 1.5 * v;
+  g.beginPath(); g.arc(hx, hy, 4.5 * v, 0, TAU); g.fill(); g.stroke();
+  g.restore();
+  /* frame + title */
+  g.setLineDash(on ? [] : [5 * v, 4 * v]);
+  g.lineWidth = (sel === key ? 2.6 : 1.4) * v; g.strokeStyle = sel === key ? TOK('--scr-value') : TOKA('--scr-grid', 0.9);
+  rrect(g, b, 6 * v); g.stroke(); g.setLineDash([]);
+  g.font = font(9.5, v); g.fillStyle = TOKA('--scr-grid', 0.98);
+  const title = (key === 'R' ? 'RACK' : key) + ' · ' + T.name + (modeName(key) ? ' ' + modeName(key) : '');
+  g.fillText(title, b.x - b.w / 2 + 6 * v, b.y - b.h / 2 + 12 * v);
+  g.font = font(8, v); g.textAlign = 'right';
+  let right;
+  if (!on) right = 'BYPASSED';
+  else if (key === 'R') right = 'ON THE SUM';
+  else { const r = routedTo(key); right = r.length ? 'PER VOICE ×' + rig.voices.length * r.length : 'NO INPUT'; }
+  g.fillStyle = on ? TOKA('--scr-physics', 0.95) : TOKA('--scr-marker', 0.95);
+  g.fillText(right, b.x + b.w / 2 - 6 * v, b.y - b.h / 2 + 12 * v);
+  g.textAlign = 'left';
+  g.fillStyle = TOKA('--scr-grid', 0.8);
+  const readout = F.type === 'dj' ? 'morph ' + f2(F.morph) : fHz(F.cutoff) + ' Hz';
+  g.fillText(readout + ' · res ' + f2(F.res) + (state ? ' · ' + state : ''), b.x - b.w / 2 + 6 * v, b.y + b.h / 2 - 3 * v);
+  g.restore();
+  HIT.push({ kind: 'box', key, x0: b.x - b.w / 2, y0: b.y - b.h / 2, x1: b.x + b.w / 2, y1: b.y + b.h / 2, A });
+}
+function drawPath() {
+  const G = ground(pathC); if (!G) return;
+  const { g, w, h, v } = G, L = pathLayout(w, h), pre = inForce('A'), post = inForce('R');
+  HIT.length = 0;
+  /* 1. the signal lines between the fixed parts */
+  if (S.topo === 'ser') {
+    wire(g, outPt(L.A), inPt(L.B), v, !pre);
+    wire(g, outPt(L.B), L.mix, v, !pre);
+  } else {
+    wire(g, L.split, inPt(L.A), v, !pre); wire(g, L.split, inPt(L.B), v, !pre);
+    wire(g, outPt(L.A), L.half, v, !pre); wire(g, outPt(L.B), L.half, v, !pre);
+    wire(g, L.half, L.mix, v, !pre);
+  }
+  wire(g, L.mix, inPt(L.R), v, !post);
+  wire(g, outPt(L.R), inPt(L.out), v, !post);
+  if (!post) wire(g, { x: L.mix.x, y: L.mix.y }, inPt(L.out), v, false);
+  /* 2. the cables — each source plugged straight into where it enters */
+  for (let k = 0; k < 3; k++) {
+    const p = S.port[k], j = L.jack[k], top = (0.022 + 0.016 * k) * h, bot = (0.94 - 0.016 * k) * h;   /* lanes clear every box */
+    if (p === 'A' || (p === 'AB' && S.topo === 'ser')) cable(g, j, inPt(L.A), v);
+    else if (p === 'B') S.topo === 'ser' ? cable(g, j, L.inB, v, top, true, 6 * v * k) : cable(g, j, inPt(L.B), v);
+    else if (p === 'AB') cable(g, j, L.split, v);
+    else if (p === 'R') cable(g, j, { x: L.mix.x, y: L.mix.y - 10 * v }, v, top, true, 6 * v * k);
+    else cable(g, j, { x: L.out.x, y: L.out.y + L.out.h / 2 }, v, bot, true, 6 * v * k);
+  }
+  /* 3. the parts */
+  for (let k = 0; k < 3; k++) {
+    plainBox(g, L.src[k], v, S.src[k].name, rig.meter.src[k]);
+    g.fillStyle = TOK('--scr-value'); g.beginPath(); g.arc(L.jack[k].x, L.jack[k].y, 5 * v, 0, TAU); g.fill();
+    g.fillStyle = TOKA('--scr-value', 0.95); g.font = font(8, v);
+    g.fillText('→ ' + PORT_NAMES[S.port[k]], L.jack[k].x - 12 * v, L.jack[k].y + 17 * v);
+    HIT.push({ kind: 'jack', k, x: L.jack[k].x, y: L.jack[k].y, r: 14 * v });
+    HIT.push({ kind: 'jack', k, x0: L.src[k].x - L.src[k].w / 2, y0: L.src[k].y - L.src[k].h / 2, x1: L.src[k].x + L.src[k].w / 2, y1: L.src[k].y + L.src[k].h / 2 });
+  }
+  if (S.topo === 'ser') junction(g, L.inB, v, '+', false);
+  else { junction(g, L.split, v, '', true); junction(g, L.half, v, '½Σ', false); }
+  junction(g, L.mix, v, 'Σ', false);
+  drawFilterBox(g, 'A', L.A, v);
+  drawFilterBox(g, 'B', L.B, v);
+  drawFilterBox(g, 'R', L.R, v);
+  plainBox(g, L.out, v, 'OUT', rig.meter.out);
+  /* 4. captions */
   g.fillStyle = TOKA('--scr-grid', 0.7); g.font = font(8, v);
-  g.fillText('SOURCES', cx[0] - nw / 2, 10 * v); g.fillText('PRE-MIX · PER VOICE', cx[1] - pw / 2 - 8 * v, 10 * v);
-  g.fillText('FX RACK', cx[3] - nw / 2, 10 * v);
+  g.fillText('SOURCES', 6 * v, 11 * v);
+  g.fillText((S.topo === 'ser' ? 'SERIAL — ONE LINE: A → B' : 'PARALLEL — SPLIT, TWO BRANCHES, SUM') + ' · PER VOICE, BEFORE THE MIX',
+    (S.topo === 'ser' ? L.A.x - L.A.w / 2 : L.split.x - 10 * v), h - 5 * v);
+  g.fillText('RACK SLOT — ONCE, ON THE SUM', L.R.x - L.R.w / 2, L.R.y + L.R.h / 2 + 12 * v);
 }
 
 /* ---- envelope + scope ---------------------------------------------------- */
@@ -1149,12 +1962,12 @@ function slider(host, label, min, max, step, get, set, fmt, toUi, fromUi) {
   const show = () => { inp.value = String(tu(get())); out.textContent = fmt(get()); setPct(inp, min, max); };
   inp.addEventListener('input', () => { set(fu(parseFloat(inp.value))); onEdit(); });
   row.appendChild(el('label', null, label)); row.appendChild(inp); row.appendChild(out);
-  host.appendChild(row); REPAINT.push(show); show();
+  host.appendChild(row); REP.push(show); show();
   return row;
 }
-function pillRow(host, label, names, get, set, extraCls) {
-  const row = el('div', label === null ? 'pills' : 'arow');
-  const box = label === null ? row : el('div', 'pills');
+function pillRow(host, label, names, get, set, extraCls, boxCls) {
+  const row = el('div', label === null ? (boxCls || 'pills') : 'arow');
+  const box = label === null ? row : el('div', boxCls || 'pills');
   if (label !== null) { row.appendChild(el('label', null, label)); row.appendChild(box); }
   const btns = names.map((nm, i) => {
     const b = el('button', 'pill' + (extraCls ? ' ' + extraCls : ''), nm);
@@ -1162,8 +1975,8 @@ function pillRow(host, label, names, get, set, extraCls) {
     box.appendChild(b); return b;
   });
   const show = () => { const v = get(); btns.forEach((b, i) => { if (b.classList) b.classList.toggle('on', i === v); }); };
-  host.appendChild(row); REPAINT.push(show); show();
-  return row;
+  host.appendChild(row); REP.push(show); show();
+  return { row, btns };
 }
 function toggleRow(host, label, get, set, tag) {
   const row = el('div', 'row');
@@ -1174,132 +1987,105 @@ function toggleRow(host, label, get, set, tag) {
   const lb = el('label', null, label);
   row.appendChild(lb); row.appendChild(inp); row.appendChild(out);
   if (tag) { const t = el('span', 'prop', 'PROPOSED'); t.style.marginLeft = '6px'; lb.appendChild(t); }
-  host.appendChild(row); REPAINT.push(show); show();
+  host.appendChild(row); REP.push(show); show();
   return row;
 }
 const cutToUi = hz => Math.log(hz / 20) / Math.log(1000);
 const cutFromUi = t => 20 * Math.pow(1000, t);
-
-function buildFilterCard(key) {
-  const host = document.getElementById('filters'); if (!host) return;
-  const F = S.flt[key], card = el('div', 'cluster'); CARD[key] = card;
-  const head = el('div', 'ohead');
-  head.appendChild(el('b', null, key === 'R' ? 'RACK FILTER' : 'FILTER ' + key));
-  head.appendChild(el('span', 'where', key === 'R' ? 'BUS · FX RACK SLOT' : 'PER VOICE · PRE-MIX'));
-  const st = el('span', 'state'); head.appendChild(st);
-  REPAINT.push(() => {
-    if (key === 'R') st.textContent = inForce('R') ? 'IN FORCE' : 'NOT IN THIS PLACEMENT';
-    else { const r = routedTo(key); st.textContent = !inForce(key) ? 'NOT IN THIS PLACEMENT' : (r.length ? r.map(k => S.src[k].name).join(' + ') : 'NO SOURCE ASSIGNED'); }
-    if (card.classList) card.classList.toggle('off', !inForce(key));
-  });
-  card.appendChild(head);
-  const cv = el('canvas', 'resp'); card.appendChild(cv); RESP[key] = cv;
-  SPEC[key] = { i: new Float32Array(NPTS).fill(-140), o: new Float32Array(NPTS).fill(-140) };
-  wireResp(cv, key);
-  if (key === 'R') {
-    pillRow(card, 'Law', LAWS.map(l => l[1]), () => LAWS.findIndex(l => l[0] === F.law), i => { F.law = LAWS[i][0]; DIAG.dirty = true; });
-  }
-  const modeRow = pillRow(card, 'Mode', MODES, () => F.mode - 1, i => { F.mode = i + 1; });
-  if (key === 'R') GHOSTROWS.push([modeRow, () => F.law === 'svf']);
-  slider(card, key === 'R' ? 'Cutoff/ctr' : 'Cutoff', 0, 1, 0.001, () => F.cutoff, x => { F.cutoff = x; DIAG.dirty = true; }, x => fHz(x) + ' Hz', cutToUi, cutFromUi);
-  slider(card, 'Resonance', 0, 1, 0.005, () => F.res, x => { F.res = x; }, x => key === 'R' && F.law !== 'svf' ? 'q ' + f2(x) : f2(x));
-  slider(card, 'Keytrack', 0, 1, 0.01, () => F.ktrack, x => { F.ktrack = x; }, fPct);
-  slider(card, 'Env amt', -1, 1, 0.01, () => F.env, x => { F.env = x; }, x => (x > 0 ? '+' : '') + (x * ENV_OCT).toFixed(1) + ' oct');
-  if (key === 'R') {
-    pillRow(card, 'Track', ['LAST', 'LOWEST', 'HIGHEST'], () => ['last', 'low', 'high'].indexOf(F.ktRef), i => { F.ktRef = ['last', 'low', 'high'][i]; rig.pickKt(null); });
-    slider(card, 'Wet', 0, 1, 0.01, () => F.wet, x => { F.wet = x; }, fPct);
-    const B = F.bank;
-    card.appendChild(el('div', 'sep'));
-    card.appendChild(el('div', 'cap', 'SWARM BANK — the reference\'s own controls'));
-    const bankRows = [
-      slider(card, 'Bands', 4, 24, 1, () => B.nb, x => { B.nb = x | 0; rig.bankParam('nb', B.nb); DIAG.dirty = true; }, x => String(x | 0)),
-      slider(card, 'Spread', 0, 1, 0.01, () => B.spread, x => { B.spread = x; rig.bankParam('spread', x); DIAG.dirty = true; }, f2),
-      slider(card, 'Pull K', -1, 1, 0.01, () => B.K, x => { B.K = x; rig.bankParam('K', x); }, x => Math.abs(x) < 0.005 ? 'free' : (x > 0 ? 'clps ' : 'comb ') + f2(Math.abs(x))),
-      slider(card, 'Drift', 0, 200, 1, () => B.drift, x => { B.drift = x; rig.bankParam('drift', x); }, x => Math.round(x) + ' ¢'),
-      pillRow(card, 'Placing', PLACEMENTS_BANK, () => B.place, i => { B.place = i; rig.bankParam('place', i); DIAG.dirty = true; }),
-    ];
-    for (const r of bankRows) GHOSTROWS.push([r, () => F.law !== 'svf']);
-    const pr = [
-      toggleRow(card, 'P1 Q comp', () => F.prop.qcomp, x => { F.prop.qcomp = x; }, true),
-      toggleRow(card, 'P2 LF keep', () => F.prop.lfkeep, x => { F.prop.lfkeep = x; }, true),
-      toggleRow(card, 'P3 rigid', () => F.prop.rigid, x => { F.prop.rigid = x; }, true),
-    ];
-    for (const r of pr) GHOSTROWS.push([r, () => F.law === 'bankP']);
-    card.appendChild(el('div', 'note', 'One filter over the sum: one cutoff, one envelope, one keytracked note. '
-      + 'SVF is the B81 law placed post-sum for comparison; SWARM · REF is reference/swarmfilter.html itself; '
-      + 'SWARM · PROPOSED adds P1-P3. On the bank, Cutoff moves the centre and Resonance is qbase.'));
-  } else {
-    pillRow(card, 'Track', ['PLAYED KEY', 'SOURCE PITCH'], () => (F.ktPitch === 'src' ? 1 : 0), i => { F.ktPitch = i ? 'src' : 'key'; });
-    card.appendChild(el('div', 'note', key === 'A'
-      ? 'Each sounding voice runs its own copy — watch one violet curve per note. Keytrack and envelope are per note, so a chord voices evenly and a stab never drags a held note with it.'
-      : 'The second of B81\'s pair. Independent settings let SWARM 2 take a different shape from SWARM 1; A+B sources run through both (serial or parallel, set in the pre-mix card).'));
-  }
-  host.appendChild(card);
+function morphFmt(type) {
+  if (type === 'formant') return x => { const p = x * 4, i = Math.min(3, Math.floor(p)), t = p - i; return 'AEIOU'[i] + (t > 0.02 ? '→' + 'AEIOU'[i + 1] + ' ' + Math.round(t * 100) + '%' : ''); };
+  if (type === 'dj') return x => (Math.abs(x - 0.5) < 1e-3 ? 'BYPASS' : (x < 0.5 ? 'LP ' : 'HP ') + Math.round(Math.abs(x - 0.5) * 200) + '%');
+  return f2;
 }
-function wireResp(cv, key) {
-  if (!cv || !cv.addEventListener) return;
-  let drag = false;
-  const apply = e => {
-    const r = cv.getBoundingClientRect(), v = VS();
-    const { Xinv, Yinv } = axes(r.width * v, r.height * v, v);
-    const F = S.flt[key];
-    F.cutoff = Math.max(20, Math.min(20000, Xinv((e.clientX - r.left) * v)));
-    const db = Yinv((e.clientY - r.top) * v);
-    if (isSvf(key)) {
-      const k = Math.pow(10, -db / 20);
-      F.res = Math.max(0, Math.min(1, 1 - k / Math.SQRT2));
-    } else F.res = Math.max(0, Math.min(1, (db + 12) / 30));
-    DIAG.dirty = true; onEdit();
-  };
-  cv.addEventListener('pointerdown', e => { drag = true; if (cv.setPointerCapture) cv.setPointerCapture(e.pointerId); apply(e); });
-  cv.addEventListener('pointermove', e => { if (drag) apply(e); });
-  cv.addEventListener('pointerup', () => { drag = false; });
-  cv.addEventListener('pointercancel', () => { drag = false; });
-  cv.addEventListener('wheel', e => { e.preventDefault(); const F = S.flt[key]; F.res = Math.max(0, Math.min(1, F.res - Math.sign(e.deltaY) * 0.02)); onEdit(); }, { passive: false });
-  cv.addEventListener('dblclick', () => { const d = defaultPatch().flt[key]; S.flt[key].cutoff = d.cutoff; S.flt[key].res = d.res; DIAG.dirty = true; onEdit(); });
+
+/* ---- the editor: controls for the ONE selected filter (no second picture) - */
+function buildInspector() {
+  const host = document.getElementById('insp'); if (!host) return;
+  host.innerHTML = '';
+  INSP.rep.length = 0; INSP.ghost.length = 0; REP = INSP.rep; GH = INSP.ghost;
+  const key = sel, F = S.flt[key], T = TYPES[F.type];
+  const head = el('div', 'ihead');
+  head.appendChild(el('b', null, key === 'R' ? 'RACK FILTER' : 'FILTER ' + key));
+  head.appendChild(el('span', 'where', key === 'R' ? 'ONCE, ON THE SUM · FX RACK SLOT' : 'PER VOICE · BEFORE THE MIX'));
+  const keys = el('div', 'keys');
+  for (const k of ['A', 'B', 'R']) {
+    const b = el('button', 'pill sm' + (k === key ? ' on' : ''), k === 'R' ? 'RACK' : k);
+    b.addEventListener('click', () => { sel = k; buildInspector(); onEdit(); });
+    keys.appendChild(b);
+  }
+  head.appendChild(keys); host.appendChild(head);
+  host.appendChild(el('div', 'cap', 'TYPE'));
+  const ids = TYPE_ORDER.filter(id => key === 'R' || !TYPES[id].rackOnly);
+  const tp = pillRow(host, null, ids.map(id => TYPES[id].name), () => ids.indexOf(F.type),
+    i => { F.type = ids[i]; F.mode = 1; DIAG.dirty = true; buildInspector(); }, 'sm', 'typegrid');
+  tp.btns.forEach((b, i) => { b.title = TYPES[ids[i]].fam; });
+  if (T.modes.length > 1) pillRow(host, 'Mode', T.modes, () => (F.mode || 1) - 1, i => { F.mode = i + 1; });
+  const U = T.uses;
+  const g1 = slider(host, key === 'R' && T.needsRef ? 'Centre' : (F.type === 'combP' || F.type === 'combN' ? 'Pitch' : F.type === 'formant' ? 'Shift' : 'Cutoff'),
+    0, 1, 0.001, () => F.cutoff, x => { F.cutoff = x; DIAG.dirty = true; }, x => fHz(x) + ' Hz', cutToUi, cutFromUi);
+  GH.push([g1, () => !!U.cutoff]);
+  const g2 = slider(host, 'Resonance', 0, 1, 0.005, () => F.res, x => { F.res = x; }, x => (T.needsRef ? 'q ' : '') + f2(x));
+  GH.push([g2, () => !!U.res]);
+  const g3 = slider(host, 'Drive', 0, 1, 0.01, () => F.drive, x => { F.drive = x; }, x => '×' + driveGain(x).toFixed(1));
+  GH.push([g3, () => !!U.drive]);
+  const g4 = slider(host, F.type === 'formant' ? 'Vowel' : F.type === 'dj' ? 'LP ↔ HP' : 'Morph', 0, 1, 0.005, () => F.morph, x => { F.morph = x; }, morphFmt(F.type));
+  GH.push([g4, () => !!U.morph]);
+  slider(host, 'Keytrack', 0, 1, 0.01, () => F.ktrack, x => { F.ktrack = x; }, fPct);
+  slider(host, 'Env amt', -1, 1, 0.01, () => F.env, x => { F.env = x; }, x => (x > 0 ? '+' : '') + (x * ENV_OCT).toFixed(1) + ' oct');
+  if (key === 'R') {
+    pillRow(host, 'Track', ['LAST', 'LOWEST', 'HIGHEST'], () => ['last', 'low', 'high'].indexOf(F.ktRef), i => { F.ktRef = ['last', 'low', 'high'][i]; rig.pickKt(null); });
+    slider(host, 'Wet', 0, 1, 0.01, () => F.wet, x => { F.wet = x; }, fPct);
+    if (T.needsRef) {
+      const B = F.bank;
+      host.appendChild(el('div', 'sep'));
+      host.appendChild(el('div', 'cap', 'SWARM BANK — the reference\'s own controls'));
+      slider(host, 'Bands', 4, 24, 1, () => B.nb, x => { B.nb = x | 0; rig.bankParam('nb', B.nb); DIAG.dirty = true; }, x => String(x | 0));
+      slider(host, 'Spread', 0, 1, 0.01, () => B.spread, x => { B.spread = x; rig.bankParam('spread', x); DIAG.dirty = true; }, f2);
+      slider(host, 'Pull K', -1, 1, 0.01, () => B.K, x => { B.K = x; rig.bankParam('K', x); }, x => Math.abs(x) < 0.005 ? 'free' : (x > 0 ? 'clps ' : 'comb ') + f2(Math.abs(x)));
+      slider(host, 'Drift', 0, 200, 1, () => B.drift, x => { B.drift = x; rig.bankParam('drift', x); }, x => Math.round(x) + ' ¢');
+      pillRow(host, 'Placing', PLACEMENTS_BANK, () => B.place, i => { B.place = i; rig.bankParam('place', i); DIAG.dirty = true; });
+      if (F.type === 'bankP') {
+        toggleRow(host, 'P1 Q comp', () => F.prop.qcomp, x => { F.prop.qcomp = x; }, true);
+        toggleRow(host, 'P2 LF keep', () => F.prop.lfkeep, x => { F.prop.lfkeep = x; }, true);
+        toggleRow(host, 'P3 rigid', () => F.prop.rigid, x => { F.prop.rigid = x; }, true);
+      }
+    }
+  } else {
+    pillRow(host, 'Track', ['PLAYED KEY', 'SOURCE PITCH'], () => (F.ktPitch === 'src' ? 1 : 0), i => { F.ktPitch = i ? 'src' : 'key'; });
+  }
+  host.appendChild(el('div', 'cap', 'FIDELITY · ' + fidRowId(key)));
+  const chips = el('div', 'chips'); host.appendChild(chips);
+  REP.push(() => {
+    chips.innerHTML = '';
+    const r = FIDS.res[fidRowId(key)];
+    for (const c of FID_CHECKS) {
+      const cell = r && r[c.id], ch = el('span', 'chip2' + (!cell ? ' pend' : cell.ok ? '' : ' fail'), c.id + ' ' + (!cell ? '…' : cell.ok ? 'PASS' : 'FAIL'));
+      ch.title = c.name + (cell ? ' — ' + cell.val : '');
+      chips.appendChild(ch);
+    }
+  });
+  host.appendChild(el('div', 'note', T.why));
+  REP = REPAINT; GH = GHOSTROWS;
 }
 
 function buildRouting() {
   const pp = document.getElementById('placePills');
   if (pp) pillRow(pp, null, PLACES.map(p => p[1]), () => PLACES.findIndex(p => p[0] === S.place), i => { S.place = PLACES[i][0]; }, 'big');
-  const ar = document.getElementById('assignRows');
-  if (ar) for (let k = 0; k < 3; k++) pillRow(ar, S.src[k].name, ASSIGN_NAMES, () => S.assign[k], i => { S.assign[k] = i; });
-  const sp = document.getElementById('serPills');
-  if (sp) pillRow(sp, null, ['PARALLEL', 'SERIAL'], () => S.serial, i => { S.serial = i; });
-  const grid = document.getElementById('mxGrid');
-  if (grid) {
-    grid.appendChild(el('div', 'mxh')); grid.appendChild(el('div', 'mxh', 'FILT')); grid.appendChild(el('div', 'mxh', 'DRY'));
-    for (let k = 0; k < 3; k++) {
-      grid.appendChild(el('div', 'mxh r', S.src[k].name));
-      for (const col of ['feed', 'dry']) {
-        const cell = el('div', 'mxc');
-        cell.title = S.src[k].name + ' → ' + (col === 'feed' ? 'rack filter' : 'dry path around the rack');
-        const show = () => {
-          const x = S[col][k];
-          cell.textContent = x ? f2(x) : '–';
-          cell.style.setProperty('--mx', String(Math.min(1, x / 2)));
-          if (cell.classList) cell.classList.toggle('on', x > 0);
-        };
-        let dragging = false, y0 = 0, v0 = 0;
-        cell.addEventListener('pointerdown', e => { dragging = true; y0 = e.clientY; v0 = S[col][k]; if (cell.classList) cell.classList.add('drag'); if (cell.setPointerCapture) cell.setPointerCapture(e.pointerId); });
-        cell.addEventListener('pointermove', e => { if (!dragging) return; S[col][k] = Math.round(Math.min(2, Math.max(0, v0 + (y0 - e.clientY) * 0.02)) * 100) / 100; onEdit(); });
-        const up = () => { dragging = false; if (cell.classList) cell.classList.remove('drag'); };
-        cell.addEventListener('pointerup', up); cell.addEventListener('pointercancel', up);
-        cell.addEventListener('wheel', e => { e.preventDefault(); S[col][k] = Math.round(Math.min(2, Math.max(0, S[col][k] - Math.sign(e.deltaY) * 0.05)) * 100) / 100; onEdit(); }, { passive: false });
-        cell.addEventListener('dblclick', () => { S[col][k] = S[col][k] ? 0 : 1; onEdit(); });
-        grid.appendChild(cell); REPAINT.push(show); show();
-      }
-    }
+  const tp = document.getElementById('topoPills');
+  if (tp) pillRow(tp, null, TOPOS.map(t => t[1]), () => TOPOS.findIndex(t => t[0] === S.topo), i => {
+    S.topo = TOPOS[i][0];
+    if (S.topo === 'ser') for (let k = 0; k < 3; k++) if (S.port[k] === 'AB') S.port[k] = 'A';   /* no split on one line */
+  });
+  const pr = document.getElementById('plugRows');
+  if (pr) for (let k = 0; k < 3; k++) {
+    const r = pillRow(pr, S.src[k].name, PORTS.map(p => PORT_NAMES[p]), () => PORTS.indexOf(S.port[k]), i => { S.port[k] = PORTS[i]; }, 'sm');
+    const ab = r.btns[PORTS.indexOf('AB')];
+    REPAINT.push(() => { if (ab && ab.classList) ab.classList.toggle('dis', S.topo === 'ser'); });
   }
-  const rc = document.getElementById('mxRecall');
-  if (rc) {
-    const recalls = [
-      ['ALL → FILT', () => { S.feed = [1, 1, 1]; S.dry = [0, 0, 0]; }],
-      ['SUB AROUND', () => { S.feed = [1, 1, 0]; S.dry = [0, 0, 1]; S.assign[2] = 0; }],
-      ['SWARMS DRY', () => { S.feed = [0, 0, 1]; S.dry = [1, 1, 0]; }],
-    ];
-    for (const [nm, fn] of recalls) { const b = el('button', 'pill', nm); b.addEventListener('click', () => { fn(); onEdit(); }); rc.appendChild(b); }
-  }
+}
+function cyclePort(k) {
+  const list = S.topo === 'ser' ? ['A', 'B', 'R', 'OUT'] : PORTS;
+  S.port[k] = list[(list.indexOf(S.port[k]) + 1) % list.length];
 }
 function buildSources() {
   const host = document.getElementById('srcRows'); if (!host) return;
@@ -1324,6 +2110,58 @@ function buildEnv() {
   slider(host, 'Sustain', 0, 1, 0.01, () => E.s, x => { E.s = x; }, f2);
   slider(host, 'Release', 0, 1, 0.001, () => E.r, x => { E.r = x; }, ms, rT, rF);
 }
+function buildTypes() {
+  const host = document.getElementById('typeList'); if (!host) return;
+  for (const id of TYPE_ORDER) {
+    const T = TYPES[id], d = el('div');
+    const q = el('span', 'q', T.name + ' · ' + T.fam.toUpperCase() + (T.rackOnly ? ' · RACK ONLY' : '')); d.appendChild(q);
+    d.appendChild(document.createTextNode(T.why + (T.modes.length > 1 ? ' Modes: ' + T.modes.join(' / ') + '.' : '')));
+    host.appendChild(d);
+  }
+}
+
+/* ---- the path canvas is also the control surface ------------------------ */
+function hitAt(e) {
+  const r = pathC.getBoundingClientRect(), v = VS(), x = (e.clientX - r.left) * v, y = (e.clientY - r.top) * v;
+  for (let i = HIT.length - 1; i >= 0; i--) {
+    const H = HIT[i];
+    if (H.r !== undefined) { if (Math.hypot(x - H.x, y - H.y) <= H.r) return { H, x, y }; }
+    else if (x >= H.x0 && x <= H.x1 && y >= H.y0 && y <= H.y1) return { H, x, y };
+  }
+  return null;
+}
+function dragTo(key, A, x, y) {
+  const F = S.flt[key];
+  if (F.type === 'dj') F.morph = Math.max(0, Math.min(1, (x - A.x0) / (A.x1 - A.x0)));
+  else F.cutoff = Math.max(20, Math.min(20000, A.Xinv(x)));
+  F.res = Math.max(0, Math.min(1, (A.Yinv(y) + 12) / 30));
+  DIAG.dirty = true; onEdit();
+}
+function wirePath() {
+  if (!pathC || !pathC.addEventListener) return;
+  pathC.addEventListener('pointerdown', e => {
+    const h = hitAt(e); if (!h) return;
+    if (h.H.kind === 'jack') { cyclePort(h.H.k); onEdit(); return; }
+    if (sel !== h.H.key) { sel = h.H.key; buildInspector(); }
+    drag = h.H; if (pathC.setPointerCapture) pathC.setPointerCapture(e.pointerId);
+    dragTo(drag.key, drag.A, h.x, h.y);
+  });
+  pathC.addEventListener('pointermove', e => {
+    if (!drag) return;
+    const r = pathC.getBoundingClientRect(), v = VS();
+    dragTo(drag.key, drag.A, (e.clientX - r.left) * v, (e.clientY - r.top) * v);
+  });
+  pathC.addEventListener('pointerup', () => { drag = null; });
+  pathC.addEventListener('pointercancel', () => { drag = null; });
+  pathC.addEventListener('wheel', e => {
+    const h = hitAt(e); if (!h || h.H.kind !== 'box') return;
+    e.preventDefault(); const F = S.flt[h.H.key]; F.res = Math.max(0, Math.min(1, F.res - Math.sign(e.deltaY) * 0.02)); onEdit();
+  }, { passive: false });
+  pathC.addEventListener('dblclick', e => {
+    const h = hitAt(e); if (!h || h.H.kind !== 'box') return;
+    const d = defaultPatch().flt[h.H.key], F = S.flt[h.H.key]; F.cutoff = d.cutoff; F.res = d.res; F.morph = d.morph; DIAG.dirty = true; onEdit();
+  });
+}
 
 /* ---- the reference: fetched, sliced, called ------------------------------ */
 /* Same slice as tools/golden/extract_core.mjs's 'reference' banner set, and it
@@ -1342,8 +2180,8 @@ function paintRef() {
   const ok = REF.state === 'ok';
   if (box.classList) box.classList.toggle('bad', !ok);
   box.innerHTML = ok
-    ? 'reference: <b>reference/swarmfilter.html</b> fetched and its <code>FilterLab</code> class sliced out — the rack\'s SWARM laws run the oracle\'s own placement, forces and coefficients (called, unmodified); only the per-sample bank loop is copied (:362-374).'
-    : 'reference: <b>' + REF.state + '</b>. The SVF laws work regardless; the SWARM laws need the reference, which needs HTTP — open this page through the labs server (<code>.claude/launch.json</code> → <code>labs</code>), not from the filesystem.';
+    ? 'reference: <b>reference/swarmfilter.html</b> fetched and its <code>FilterLab</code> class sliced out — the SWARM types run the oracle\'s own placement, forces and coefficients (called, unmodified); only the per-sample bank loop is copied (:362-374).'
+    : 'reference: <b>' + REF.state + '</b>. Every other type works regardless; the two SWARM types (and their fidelity rows) need the reference, which needs HTTP — open this page through the labs server (<code>python3 tools/serve_labs.py</code>), not from the filesystem.';
 }
 function loadReference() {
   if (typeof fetch !== 'function') { REF.state = 'unavailable (no fetch in this environment)'; paintRef(); return; }
@@ -1351,8 +2189,11 @@ function loadReference() {
   try { p = fetch(REF_URL, { cache: 'no-store' }); } catch (e) { p = null; REF.state = 'fetch refused: ' + String((e && e.message) || e); }
   if (!p || typeof p.then !== 'function') { if (REF.state === 'loading') REF.state = 'fetch unavailable'; paintRef(); return; }
   p.then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
-    .then(t => { REF.cls = sliceReference(t); rig.attachBank(REF.cls); REF.state = 'ok'; DIAG.dirty = true; paintRef(); onEdit(); })
-    .catch(e => { REF.state = 'not reachable (' + String((e && e.message) || e) + ')'; paintRef(); onEdit(); });
+    .then(t => {
+      REF.cls = sliceReference(t); rig.attachBank(REF.cls); REF.state = 'ok'; DIAG.dirty = true; paintRef();
+      fidStart(fidRows(true).filter(r => TYPES[r.type].needsRef)); onEdit();
+    })
+    .catch(e => { REF.state = 'not reachable (' + String((e && e.message) || e) + ')'; paintRef(); paintFid(); onEdit(); });
 }
 
 /* ---- proposal diagnostics, measured on fresh reference instances ---------- */
@@ -1394,9 +2235,87 @@ function runDiag() {
   set('dP2p', '<b>' + lfP.toFixed(1) + ' dB</b> down at 40 Hz');
   set('dP3r', '<b>' + (ticks >= cap ? '> 8 s' : tRef.toFixed(2) + ' s') + '</b> to 90 %');
   set('dP3p', '<b>' + (tick * 1000).toFixed(2) + ' ms</b> — the next tick');
-  set('propNote', 'Measured just now on fresh <code>FilterLab</code> instances at the rack card\'s current centre ('
+  set('propNote', 'Measured just now on fresh <code>FilterLab</code> instances at the rack\'s current centre ('
     + fHz(R.cutoff) + ' Hz), bands (' + B.nb + '), spread (' + f2(B.spread) + ') and placement ('
     + PLACEMENTS_BANK[B.place] + '); P2 and P3 at the current resonance (qbase ' + f2(R.res) + '). Re-measured whenever those move.');
+}
+
+/* ---- the fidelity programme, in the page --------------------------------- */
+function buildFid() {
+  const t = document.getElementById('fidT'); if (!t) return;
+  const cg = el('colgroup'); cg.appendChild(el('col', 'tn')); for (let i = 0; i < FID_CHECKS.length; i++) cg.appendChild(el('col')); t.appendChild(cg);
+  const hr = el('tr'); hr.appendChild(el('th', null, 'TYPE'));
+  for (const c of FID_CHECKS) {
+    const th = el('th', null, c.id + ' · ' + c.name);
+    const sm = el('small', null, c.tol); th.appendChild(sm); th.title = c.what + '\nCONTROL: ' + c.ctl;
+    hr.appendChild(th);
+  }
+  t.appendChild(hr);
+  for (const row of fidRows(true)) {
+    const tr = el('tr'), td = el('td', 'tname', row.label);
+    td.appendChild(el('span', null, TYPES[row.type].fam)); tr.appendChild(td);
+    FIDS.cells[row.id] = {};
+    for (const c of FID_CHECKS) { const cell = el('td', 'pend', '…'); FIDS.cells[row.id][c.id] = cell; tr.appendChild(cell); }
+    t.appendChild(tr);
+  }
+}
+function paintFidRow(id) {
+  const cells = FIDS.cells[id], r = FIDS.res[id]; if (!cells || !r) return;
+  for (const c of FID_CHECKS) {
+    const td = cells[c.id], x = r[c.id]; if (!td) continue;
+    if (!x) { td.className = 'fail'; td.textContent = r.error ? 'ERROR' : '—'; td.title = r.error || ''; continue; }
+    td.className = (x.ok ? 'pass' : 'fail') + (x.ctlOk ? '' : ' blind');
+    td.innerHTML = '';
+    td.appendChild(el('b', null, x.ok ? 'PASS' : 'FAIL'));
+    td.appendChild(el('span', 'v', x.val));
+    td.appendChild(el('span', 'c', (x.ctlOk ? 'ctl ✓ ' : 'CTL BLIND ') + (x.ctl || '')));
+    td.title = c.id + ' ' + c.name + '\n' + x.val + (x.note ? '\n' + x.note : '') + '\ncontrol: ' + (x.ctl || '') + (x.ctlOk ? ' (fails, as it must)' : ' (PASSED — the check is blind)');
+  }
+}
+function paintFid() {
+  const box = document.getElementById('fidStat'), rows = fidRows(true);
+  let done = 0, pass = 0, fail = 0, blind = 0, err = 0;
+  const finds = [];
+  for (const row of rows) {
+    const r = FIDS.res[row.id]; if (!r) continue;
+    done++; if (r.error) { err++; continue; }
+    for (const c of FID_CHECKS) {
+      const x = r[c.id];
+      if (x.ok) pass++; else { fail++; finds.push([c, row, x]); }
+      if (!x.ctlOk) blind++;
+    }
+  }
+  const needRef = !REF.cls ? rows.filter(r => TYPES[r.type].needsRef).length : 0;
+  if (box) {
+    if (box.classList) box.classList.toggle('bad', blind > 0 || err > 0);
+    box.innerHTML = 'fidelity: <b>' + done + ' / ' + rows.length + '</b> types measured × 7 checks — <b>' + pass + '</b> pass, <b>' + fail
+      + '</b> findings (FAIL, reported as found), controls ' + (blind ? '<b>' + blind + ' BLIND</b>' : 'all fail as they must')
+      + (err ? ' · <b>' + err + ' ERRORED</b>' : '') + (FIDS.busy ? ' · measuring…' : '')
+      + (needRef && REF.state !== 'loading' ? ' · ' + needRef + ' SWARM rows need the reference (HTTP)' : '');
+  }
+  const fb = document.getElementById('fidFind');
+  if (fb) {
+    fb.innerHTML = '';
+    for (const [c, row, x] of finds) {
+      const d = el('div'); d.appendChild(el('b', null, row.label + ' — ' + c.id + ' ' + c.name + ': '));
+      d.appendChild(document.createTextNode(x.val + (x.note ? ' (' + x.note + ')' : '')));
+      fb.appendChild(d);
+    }
+  }
+  for (const f of INSP.rep) f();
+}
+function fidStep() {
+  const row = FIDS.queue.shift();
+  if (!row) { FIDS.busy = false; paintFid(); return; }
+  try { FIDS.res[row.id] = fidRow(row, fidEnv(REF.cls)); }
+  catch (e) { FIDS.res[row.id] = { error: String((e && e.message) || e) }; }
+  paintFidRow(row.id); paintFid();
+  setTimeout(fidStep, 0);
+}
+function fidStart(rows) {
+  for (const r of rows) FIDS.queue.push(r);
+  if (!FIDS.busy) { FIDS.busy = true; setTimeout(fidStep, 60); }
+  paintFid();
 }
 
 /* ---- keyboard ------------------------------------------------------------ */
@@ -1449,7 +2368,9 @@ function audioStat() {
 /* ---- wiring -------------------------------------------------------------- */
 function onEdit() {
   for (const f of REPAINT) f();
+  for (const f of INSP.rep) f();
   for (const [row, pred] of GHOSTROWS) if (row && row.classList) row.classList.toggle('ghost', !pred());
+  for (const [row, pred] of INSP.ghost) if (row && row.classList) row.classList.toggle('ghost', !pred());
   const mo = document.getElementById('masterOut'); if (mo) mo.textContent = f2(S.master);
   drawEnv();
 }
@@ -1471,34 +2392,44 @@ function frame() {
     spectrumInto(rig.tap[key].i, rig.tw, SPEC[key].i); spectrumInto(rig.tap[key].o, rig.tw, SPEC[key].o);
   }
   if (DIAG.dirty && REF.cls) runDiag();
-  for (const key of ['A', 'B', 'R']) drawResp(key);
-  drawFlow(); drawEnv(); drawScope(); audioStat();
+  drawPath(); drawEnv(); drawScope(); audioStat();
   if (window.requestAnimationFrame) window.requestAnimationFrame(frame);
 }
 
 /* ============ SETUP — everything above is declared; nothing here reaches
    forward to a const below it (L0026). ============ */
 fftInit();
-flowC = document.getElementById('flowC');
+for (const key of ['A', 'B', 'R']) SPEC[key] = { i: new Float32Array(NPTS).fill(-140), o: new Float32Array(NPTS).fill(-140) };
+pathC = document.getElementById('pathC');
 envC = document.getElementById('envC');
 scopeC = document.getElementById('scopeC');
-buildRouting();
-for (const key of ['A', 'B', 'R']) buildFilterCard(key);
-buildSources();
-buildEnv();
-buildKbd();
 /* Deep links — so a headless screenshot of a state is a LOAD, not a synthetic
    click that can silently fail to land (station-page-lab:1294):
-   ?theme=dark  ?place=pre|post|both  ?law=svf|bank|bankP  ?demo=1 */
+   ?theme=dark ?place=pre|post|both ?topo=ser|par ?sel=A|B|R ?law=svf|bank|bankP
+   ?atype= ?btype= ?rtype= (a TYPES id) ?demo=1 */
 try {
   const q = window.location && window.location.search;
   if (typeof q === 'string') {
     if (/theme=dark/.test(q)) dark = true;
     const pl = /place=(pre|post|both)/.exec(q); if (pl) S.place = pl[1];
-    const lw = /law=(svf|bankP|bank)/.exec(q); if (lw) S.flt.R.law = lw[1];
+    const tp = /topo=(ser|par)/.exec(q); if (tp) S.topo = tp[1];
+    const sl = /sel=(A|B|R)/.exec(q); if (sl) sel = sl[1];
+    const lw = /law=(svf|bankP|bank)/.exec(q); if (lw) S.flt.R.type = LAW_ALIAS[lw[1]];
+    for (const key of ['A', 'B', 'R']) {
+      const m = new RegExp(key.toLowerCase() + 'type=([a-zA-Z0-9]+)').exec(q);
+      if (m && TYPES[m[1]] && (key === 'R' || !TYPES[m[1]].rackOnly)) { S.flt[key].type = m[1]; S.flt[key].mode = 1; }
+    }
     if (/demo=1/.test(q)) { preview = true; setDemo(true); }
   }
 } catch (_) { /* headless: no location */ }
+buildRouting();
+buildInspector();
+buildSources();
+buildEnv();
+buildKbd();
+buildTypes();
+buildFid();
+wirePath();
 const masterIn = document.getElementById('master');
 if (masterIn && masterIn.addEventListener) {
   masterIn.addEventListener('input', () => { S.master = parseFloat(masterIn.value); setPct(masterIn, 0, 1); onEdit(); });
@@ -1531,6 +2462,7 @@ if (window.addEventListener) {
 }
 applyTheme();
 paintRef();
+fidStart(fidRows(false));
 loadReference();
 frame();
 </script>
