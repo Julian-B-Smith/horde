@@ -97,20 +97,20 @@ for (const id of ids) if (!(id in PINS)) errors.push(`lab row ${id} has no pin �
 const res = M.runFidelity(env);
 const checks = M.FID_CHECKS.map(c => c.id);
 console.log('row'.padEnd(13) + checks.map(c => c.padEnd(5)).join(' ') + '  (P pass · F finding · ! control blind)');
-let pass = 0, fail = 0, ctl = 0;
+let pass = 0, fail = 0, pinned = 0, ctl = 0;
 for (const { row, cells } of res) {
   const got = checks.map(c => (cells[c].ok ? 'P' : 'F')).join('');
   const marks = checks.map(c => ((cells[c].ok ? 'P' : 'F') + (cells[c].ctlOk ? ' ' : '!')).padEnd(5)).join(' ');
   console.log(row.id.padEnd(13) + marks + (PINS[row.id] && got !== PINS[row.id] ? `  ≠ pin ${PINS[row.id]}` : ''));
   for (let i = 0; i < checks.length; i++) {
     const c = cells[checks[i]];
-    if (c.ok) pass++; else fail++;
+    if (c.ok) pass++; else { fail++; if (PINS[row.id] && PINS[row.id][i] === 'F') pinned++; }
     if (c.ctlOk) ctl++; else errors.push(`${row.id} ${checks[i]}: control PASSED (${c.ctl}) — the check is blind`);
     const want = PINS[row.id] && PINS[row.id][i];
     if (want && want !== got[i]) errors.push(`${row.id} ${checks[i]}: ${got[i] === 'F' ? 'now FAILS' : 'now PASSES'} (pinned ${want}) — ${c.val}${c.note ? ' — ' + c.note : ''}`);
   }
 }
-console.log('\nfindings (pinned FAILs, each reported as measured):');
+console.log('\nFAILs — findings, each reported as measured:');
 for (const { row, cells } of res) for (const c of checks) if (!cells[c].ok) console.log(`  ${row.id.padEnd(12)} ${c}  ${cells[c].val}${cells[c].note ? '  — ' + cells[c].note : ''}`);
 
 // 4. planted faults
@@ -130,6 +130,6 @@ for (const [what, anchor, repl, rowId, check] of PLANTS) {
 }
 
 for (const e of errors) console.log(`ERROR ${e}`);
-console.log(`\n${errors.length ? 'RED' : 'GREEN'} — filter_fidelity_check: ${res.length} types × ${checks.length} checks, ${pass} pass, ${fail} findings pinned, `
+console.log(`\n${errors.length ? 'RED' : 'GREEN'} — filter_fidelity_check: ${res.length} types × ${checks.length} checks, ${pass} pass, ${fail} FAIL (${pinned} of them pinned findings), `
   + `${ctl}/${res.length * checks.length} controls fail as they must, ${caught}/${PLANTS.length} planted faults caught, ${errors.length} error(s)`);
 process.exit(errors.length ? 1 : 0);
