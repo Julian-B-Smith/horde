@@ -248,6 +248,26 @@ full() {
     echo "verify[full]: node missing — SUB OSC lab check SKIPPED" >&2
   fi
 
+  # FX-CHAIN MORPH FUZZER (tools/labharness/fxmorph_check.mjs, B266) — the
+  # property-based check over docs/design/fx-chain-morph-lab.html's own model
+  # (its first <script> block, sliced, not re-implemented). ASSERTS: the lab's
+  # self-check (every claim holds, every planted fault caught); that the five
+  # architectures built to hold invariants by construction (E, F, G, H, GC)
+  # never break a claimed invariant on the lab pairs plus 40 seeded random
+  # pairs × 4 temperatures × 2 seeds; and that every committed gallery
+  # counterexample still fails as recorded. REPORTS without failing: A-D's
+  # failure rates (under study) and every architecture's coverage. Wired under
+  # ADR-180 §1 in the PR that created it. HERE, not in fast(): ~30 s.
+  if command -v node >/dev/null; then
+    node tools/labharness/fxmorph_check.mjs > /tmp/fxmorph.$$ 2>&1 || {
+      echo "verify[full]: FX-chain morph fuzzer FAILED" >&2; cat /tmp/fxmorph.$$ >&2
+      rm -f /tmp/fxmorph.$$; return 1; }
+    echo "fxmorph_check.mjs: $(tail -1 /tmp/fxmorph.$$)"
+    rm -f /tmp/fxmorph.$$
+  else
+    echo "verify[full]: node missing — FX-chain morph fuzzer SKIPPED" >&2
+  fi
+
   # ---- Layer-E: the whole gate. Run before closing a queue item. -----------
   # Phase 0: the plugin builds cleanly (CI additionally runs pluginval on the
   # artifact every push; auval/host loads stay human-run — CLAUDE.md §Domain).

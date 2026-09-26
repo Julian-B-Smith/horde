@@ -1,0 +1,2522 @@
+{
+ "generated": "tools/labharness/fxmorph_fuzz.mjs --merge (B266)",
+ "pairs": 2000,
+ "temperatures": [
+  0,
+  0.3,
+  0.7,
+  1
+ ],
+ "seedsPerTemperature": 2,
+ "runsPerParadigm": 16000,
+ "asserted": [
+  "E",
+  "F",
+  "G",
+  "H",
+  "GC"
+ ],
+ "studied": [
+  "A",
+  "B",
+  "C",
+  "D"
+ ],
+ "summary": {
+  "A": {
+   "runs": 16000,
+   "hosted": 16000,
+   "fail": {
+    "I1": 0,
+    "I2": 0,
+    "I3": 0,
+    "I3p": 10,
+    "I4": 6265,
+    "I5": 513,
+    "I6": 27,
+    "I7": 7491,
+    "I7t": 6771
+   },
+   "unhosted": {},
+   "meanEvents": 4.46,
+   "meanSteps": 0.45,
+   "meanStates": 2.66,
+   "maxLive": 4,
+   "waypointShare": 0,
+   "brokenClaims": 0
+  },
+  "B": {
+   "runs": 16000,
+   "hosted": 16000,
+   "fail": {
+    "I1": 0,
+    "I2": 0,
+    "I3": 0,
+    "I3p": 14,
+    "I4": 6236,
+    "I5": 176,
+    "I6": 17,
+    "I7": 7373,
+    "I7t": 6721
+   },
+   "unhosted": {},
+   "meanEvents": 4.44,
+   "meanSteps": 0.45,
+   "meanStates": 2.66,
+   "maxLive": 4,
+   "waypointShare": 0,
+   "brokenClaims": 0
+  },
+  "C": {
+   "runs": 16000,
+   "hosted": 16000,
+   "fail": {
+    "I1": 0,
+    "I2": 0,
+    "I3": 0,
+    "I3p": 239,
+    "I4": 4288,
+    "I5": 1816,
+    "I6": 2414,
+    "I7": 8225,
+    "I7t": 7380
+   },
+   "unhosted": {},
+   "meanEvents": 4.6,
+   "meanSteps": 0.25,
+   "meanStates": 2.42,
+   "maxLive": 4,
+   "waypointShare": 0,
+   "brokenClaims": 0
+  },
+  "D": {
+   "runs": 16000,
+   "hosted": 16000,
+   "fail": {
+    "I1": 6473,
+    "I2": 3294,
+    "I3": 10592,
+    "I3p": 3460,
+    "I4": 8955,
+    "I5": 0,
+    "I6": 0,
+    "I7": 2385,
+    "I7t": 2168
+   },
+   "unhosted": {},
+   "meanEvents": 3.53,
+   "meanSteps": 0,
+   "meanStates": 5.21,
+   "maxLive": 8,
+   "waypointShare": 0,
+   "brokenClaims": 0
+  },
+  "E": {
+   "runs": 16000,
+   "hosted": 8608,
+   "fail": {
+    "I1": 0,
+    "I2": 0,
+    "I3": 3500,
+    "I3p": 0,
+    "I4": 0,
+    "I5": 0,
+    "I6": 0,
+    "I7": 0,
+    "I7t": 0
+   },
+   "unhosted": {
+    "unhosted:unrepresentable": 7392
+   },
+   "meanEvents": 5.01,
+   "meanSteps": 0,
+   "meanStates": 2.88,
+   "maxLive": 4,
+   "waypointShare": 0,
+   "brokenClaims": 0
+  },
+  "F": {
+   "runs": 16000,
+   "hosted": 16000,
+   "fail": {
+    "I1": 0,
+    "I2": 0,
+    "I3": 24,
+    "I3p": 0,
+    "I4": 6184,
+    "I5": 0,
+    "I6": 0,
+    "I7": 0,
+    "I7t": 0
+   },
+   "unhosted": {},
+   "meanEvents": 5.76,
+   "meanSteps": 0.26,
+   "meanStates": 3.3,
+   "maxLive": 4,
+   "waypointShare": 0.0015,
+   "brokenClaims": 0
+  },
+  "G": {
+   "runs": 16000,
+   "hosted": 11824,
+   "fail": {
+    "I1": 0,
+    "I2": 0,
+    "I3": 0,
+    "I3p": 0,
+    "I4": 3212,
+    "I5": 0,
+    "I6": 0,
+    "I7": 0,
+    "I7t": 0
+   },
+   "unhosted": {
+    "unhosted:unrepresentable": 4176
+   },
+   "meanEvents": 4.69,
+   "meanSteps": 0,
+   "meanStates": 2.23,
+   "maxLive": 4,
+   "waypointShare": 0,
+   "brokenClaims": 0
+  },
+  "H": {
+   "runs": 16000,
+   "hosted": 16000,
+   "fail": {
+    "I1": 0,
+    "I2": 0,
+    "I3": 18,
+    "I3p": 0,
+    "I4": 6279,
+    "I5": 0,
+    "I6": 0,
+    "I7": 0,
+    "I7t": 0
+   },
+   "unhosted": {},
+   "meanEvents": 5.76,
+   "meanSteps": 0.45,
+   "meanStates": 3.29,
+   "maxLive": 4,
+   "waypointShare": 0.0011,
+   "brokenClaims": 0
+  },
+  "GC": {
+   "runs": 16000,
+   "hosted": 10640,
+   "fail": {
+    "I1": 0,
+    "I2": 0,
+    "I3": 24,
+    "I3p": 0,
+    "I4": 0,
+    "I5": 0,
+    "I6": 0,
+    "I7": 0,
+    "I7t": 0
+   },
+   "unhosted": {
+    "unhosted:unrepresentable": 5328,
+    "unhosted:impossible": 32
+   },
+   "meanEvents": 5.1,
+   "meanSteps": 0.37,
+   "meanStates": 2.72,
+   "maxLive": 4,
+   "waypointShare": 0.0023,
+   "brokenClaims": 0
+  }
+ },
+ "gallery": [
+  {
+   "alg": "A",
+   "key": "I3p",
+   "label": "I3 path",
+   "broken": false,
+   "size": 10.5,
+   "case": {
+    "i": 1519,
+    "L": {
+     "order": [
+      "FLT",
+      "REV",
+      "DRV"
+     ],
+     "lanes": {
+      "BODY": [
+       "DRV"
+      ],
+      "SUB": [
+       "FLT"
+      ]
+     },
+     "fb": {
+      "src": "DRV",
+      "dst": "REV",
+      "g": 0.41
+     },
+     "p": {
+      "FLT": {
+       "cut": 2726,
+       "res": 0.69
+      },
+      "REV": {
+       "size": 0.46,
+       "mix": 0.42
+      },
+      "DRV": {
+       "drive": 7.7
+      }
+     }
+    },
+    "R": {
+     "order": [
+      "FLT",
+      "REV",
+      "DLY"
+     ],
+     "lanes": {
+      "BODY": [
+       "OUT"
+      ],
+      "SUB": [
+       "FLT"
+      ]
+     },
+     "fb": null,
+     "p": {
+      "FLT": {
+       "cut": 2726,
+       "res": 0.69
+      },
+      "REV": {
+       "size": 0.46,
+       "mix": 0.42
+      },
+      "DLY": {
+       "time": 0.331,
+       "fbk": 0.23,
+       "mix": 0.42
+      }
+     }
+    },
+    "kind": "edit",
+    "seed": 644998,
+    "T": 0,
+    "coup": 0
+   },
+   "rate": "<0.1% of hosted runs",
+   "firstX": 0.0017,
+   "why": "reaches Bo→Dl",
+   "text": "L Fl Rv Dr · Bo→Dr Su→Fl · fb Dr→Rv  ⇒  R Fl Rv Dl · Bo→Out Su→Fl  (seed 644998, T 0)"
+  },
+  {
+   "alg": "A",
+   "key": "I4",
+   "label": "I4",
+   "broken": false,
+   "size": 4,
+   "case": {
+    "i": 468,
+    "L": {
+     "order": [
+      "DLY",
+      "FLT",
+      "DRV"
+     ],
+     "lanes": {
+      "BODY": [
+       "OUT"
+      ],
+      "SUB": [
+       "DLY"
+      ]
+     },
+     "fb": null,
+     "p": {
+      "DLY": {
+       "time": 0.2,
+       "fbk": 0.3,
+       "mix": 0.3
+      },
+      "FLT": {
+       "cut": 1500,
+       "res": 0.4
+      },
+      "DRV": {
+       "drive": 4
+      }
+     }
+    },
+    "R": {
+     "order": [],
+     "lanes": {
+      "BODY": [
+       "OUT"
+      ],
+      "SUB": [
+       "OUT"
+      ]
+     },
+     "fb": null,
+     "p": {}
+    },
+    "kind": "independent",
+    "seed": 166750,
+    "T": 0,
+    "coup": 0
+   },
+   "rate": "39.2% of hosted runs",
+   "firstX": 0,
+   "why": "Dl Fl Dr not approved",
+   "text": "L Dl Fl Dr · Bo→Out Su→Dl  ⇒  R (dry) · Bo→Out Su→Out  (seed 166750, T 0)"
+  },
+  {
+   "alg": "A",
+   "key": "I5",
+   "label": "I5",
+   "broken": false,
+   "size": 6.5,
+   "case": {
+    "i": 275,
+    "L": {
+     "order": [
+      "DLY"
+     ],
+     "lanes": {
+      "BODY": [
+       "OUT"
+      ],
+      "SUB": [
+       "DLY"
+      ]
+     },
+     "fb": null,
+     "p": {
+      "DLY": {
+       "time": 0.301,
+       "fbk": 0.33,
+       "mix": 0.26
+      }
+     }
+    },
+    "R": {
+     "order": [
+      "DLY",
+      "DRV",
+      "REV"
+     ],
+     "lanes": {
+      "BODY": [
+       "DLY"
+      ],
+      "SUB": [
+       "OUT"
+      ]
+     },
+     "fb": null,
+     "p": {
+      "DLY": {
+       "time": 0.26,
+       "fbk": 0.22,
+       "mix": 0.42
+      },
+      "DRV": {
+       "drive": 5.68
+      },
+      "REV": {
+       "size": 0.56,
+       "mix": 0.33
+      }
+     }
+    },
+    "kind": "independent",
+    "seed": 234584,
+    "T": 0.3,
+    "coup": 0
+   },
+   "rate": "3.2% of hosted runs",
+   "firstX": null,
+   "why": "5 crowded, max step 0.07",
+   "text": "L Dl · Bo→Out Su→Dl  ⇒  R Dl Dr Rv · Bo→Dl Su→Out  (seed 234584, T 0.3)"
+  },
+  {
+   "alg": "A",
+   "key": "I6",
+   "label": "I6",
+   "broken": false,
+   "size": 9.5,
+   "case": {
+    "i": 1151,
+    "L": {
+     "order": [
+      "DLY",
+      "FLT",
+      "DRV",
+      "REV"
+     ],
+     "lanes": {
+      "BODY": [
+       "OUT"
+      ],
+      "SUB": [
+       "DLY"
+      ]
+     },
+     "fb": null,
+     "p": {
+      "DLY": {
+       "time": 0.265,
+       "fbk": 0.18,
+       "mix": 0.28
+      },
+      "FLT": {
+       "cut": 844,
+       "res": 0.47
+      },
+      "DRV": {
+       "drive": 6.51
+      },
+      "REV": {
+       "size": 0.33,
+       "mix": 0.18
+      }
+     }
+    },
+    "R": {
+     "order": [
+      "REV",
+      "DLY"
+     ],
+     "lanes": {
+      "BODY": [
+       "OUT"
+      ],
+      "SUB": [
+       "REV"
+      ]
+     },
+     "fb": null,
+     "p": {
+      "REV": {
+       "size": 0.38,
+       "mix": 0.32
+      },
+      "DLY": {
+       "time": 0.207,
+       "fbk": 0.35,
+       "mix": 0.22
+      }
+     }
+    },
+    "kind": "independent",
+    "seed": 206429,
+    "T": 1,
+    "coup": 0
+   },
+   "rate": "0.2% of hosted runs",
+   "firstX": 0,
+   "why": "a lane below the floor",
+   "text": "L Dl Fl Dr Rv · Bo→Out Su→Dl  ⇒  R Rv Dl · Bo→Out Su→Rv  (seed 206429, T 1)"
+  },
+  {
+   "alg": "A",
+   "key": "I7",
+   "label": "I7 STRICT",
+   "broken": false,
+   "size": 2,
+   "case": {
+    "i": 120,
+    "L": {
+     "order": [],
+     "lanes": {
+      "BODY": [
+       "OUT"
+      ],
+      "SUB": [
+       "OUT"
+      ]
+     },
+     "fb": null,
+     "p": {}
+    },
+    "R": {
+     "order": [
+      "REV"
+     ],
+     "lanes": {
+      "BODY": [
+       "REV"
+      ],
+      "SUB": [
+       "OUT"
+      ]
+     },
+     "fb": null,
+     "p": {
+      "REV": {
+       "size": 0.5,
+       "mix": 0.3
+      }
+     }
+    },
+    "kind": "edit",
+    "seed": 940207,
+    "T": 0,
+    "coup": 0
+   },
+   "rate": "46.8% of hosted runs",
+   "firstX": 0.4817,
+   "why": "Rv outputs 0.065 on input 0.004",
+   "text": "L (dry) · Bo→Out Su→Out  ⇒  R Rv · Bo→Rv Su→Out  (seed 940207, T 0)"
+  },
+  {
+   "alg": "A",
+   "key": "I7t",
+   "label": "I7 TAIL",
+   "broken": false,
+   "size": 2,
+   "case": {
+    "i": 120,
+    "L": {
+     "order": [],
+     "lanes": {
+      "BODY": [
+       "OUT"
+      ],
+      "SUB": [
+       "OUT"
+      ]
+     },
+     "fb": null,
+     "p": {}
+    },
+    "R": {
+     "order": [
+      "REV"
+     ],
+     "lanes": {
+      "BODY": [
+       "REV"
+      ],
+      "SUB": [
+       "OUT"
+      ]
+     },
+     "fb": null,
+     "p": {
+      "REV": {
+       "size": 0.5,
+       "mix": 0.3
+      }
+     }
+    },
+    "kind": "edit",
+    "seed": 940207,
+    "T": 0,
+    "coup": 0
+   },
+   "rate": "42.3% of hosted runs",
+   "firstX": 0.4817,
+   "why": "Rv outputs 0.065 on input 0.004",
+   "text": "L (dry) · Bo→Out Su→Out  ⇒  R Rv · Bo→Rv Su→Out  (seed 940207, T 0)"
+  },
+  {
+   "alg": "B",
+   "key": "I3p",
+   "label": "I3 path",
+   "broken": false,
+   "size": 10.5,
+   "case": {
+    "i": 1519,
+    "L": {
+     "order": [
+      "FLT",
+      "REV",
+      "DRV"
+     ],
+     "lanes": {
+      "BODY": [
+       "DRV"
+      ],
+      "SUB": [
+       "FLT"
+      ]
+     },
+     "fb": {
+      "src": "DRV",
+      "dst": "REV",
+      "g": 0.41
+     },
+     "p": {
+      "FLT": {
+       "cut": 2726,
+       "res": 0.69
+      },
+      "REV": {
+       "size": 0.46,
+       "mix": 0.42
+      },
+      "DRV": {
+       "drive": 7.7
+      }
+     }
+    },
+    "R": {
+     "order": [
+      "FLT",
+      "REV",
+      "DLY"
+     ],
+     "lanes": {
+      "BODY": [
+       "OUT"
+      ],
+      "SUB": [
+       "FLT"
+      ]
+     },
+     "fb": null,
+     "p": {
+      "FLT": {
+       "cut": 2726,
+       "res": 0.69
+      },
+      "REV": {
+       "size": 0.46,
+       "mix": 0.42
+      },
+      "DLY": {
+       "time": 0.331,
+       "fbk": 0.23,
+       "mix": 0.42
+      }
+     }
+    },
+    "kind": "edit",
+    "seed": 644998,
+    "T": 0,
+    "coup": 0
+   },
+   "rate": "<0.1% of hosted runs",
+   "firstX": 0.0017,
+   "why": "reaches Bo→Dl",
+   "text": "L Fl Rv Dr · Bo→Dr Su→Fl · fb Dr→Rv  ⇒  R Fl Rv Dl · Bo→Out Su→Fl  (seed 644998, T 0)"
+  },
+  {
+   "alg": "B",
+   "key": "I4",
+   "label": "I4",
+   "broken": false,
+   "size": 4,
+   "case": {
+    "i": 468,
+    "L": {
+     "order": [
+      "DLY",
+      "FLT",
+      "DRV"
+     ],
+     "lanes": {
+      "BODY": [
+       "OUT"
+      ],
+      "SUB": [
+       "DLY"
+      ]
+     },
+     "fb": null,
+     "p": {
+      "DLY": {
+       "time": 0.2,
+       "fbk": 0.3,
+       "mix": 0.3
+      },
+      "FLT": {
+       "cut": 1500,
+       "res": 0.4
+      },
+      "DRV": {
+       "drive": 4
+      }
+     }
+    },
+    "R": {
+     "order": [],
+     "lanes": {
+      "BODY": [
+       "OUT"
+      ],
+      "SUB": [
+       "OUT"
+      ]
+     },
+     "fb": null,
+     "p": {}
+    },
+    "kind": "independent",
+    "seed": 166750,
+    "T": 0,
+    "coup": 0
+   },
+   "rate": "39.0% of hosted runs",
+   "firstX": 0,
+   "why": "Dl Fl Dr not approved",
+   "text": "L Dl Fl Dr · Bo→Out Su→Dl  ⇒  R (dry) · Bo→Out Su→Out  (seed 166750, T 0)"
+  },
+  {
+   "alg": "B",
+   "key": "I5",
+   "label": "I5",
+   "broken": false,
+   "size": 5.5,
+   "case": {
+    "i": 389,
+    "L": {
+     "order": [
+      "REV",
+      "DLY"
+     ],
+     "lanes": {
+      "BODY": [
+       "OUT"
+      ],
+      "SUB": [
+       "REV"
+      ]
+     },
+     "fb": null,
+     "p": {
+      "REV": {
+       "size": 0.3,
+       "mix": 0.41
+      },
+      "DLY": {
+       "time": 0.324,
+       "fbk": 0.22,
+       "mix": 0.48
+      }
+     }
+    },
+    "R": {
+     "order": [
+      "REV"
+     ],
+     "lanes": {
+      "BODY": [
+       "REV"
+      ],
+      "SUB": [
+       "OUT"
+      ]
+     },
+     "fb": null,
+     "p": {
+      "REV": {
+       "size": 0.3,
+       "mix": 0.41
+      }
+     }
+    },
+    "kind": "edit",
+    "seed": 49080,
+    "T": 0.7,
+    "coup": 0
+   },
+   "rate": "1.1% of hosted runs",
+   "firstX": null,
+   "why": "2 crowded, max step 0.07",
+   "text": "L Rv Dl · Bo→Out Su→Rv  ⇒  R Rv · Bo→Rv Su→Out  (seed 49080, T 0.7)"
+  },
+  {
+   "alg": "B",
+   "key": "I6",
+   "label": "I6",
+   "broken": false,
+   "size": 11.5,
+   "case": {
+    "i": 1519,
+    "L": {
+     "order": [
+      "FLT",
+      "REV",
+      "DRV"
+     ],
+     "lanes": {
+      "BODY": [
+       "DRV"
+      ],
+      "SUB": [
+       "FLT"
+      ]
+     },
+     "fb": {
+      "src": "DRV",
+      "dst": "REV",
+      "g": 0.41
+     },
+     "p": {
+      "FLT": {
+       "cut": 2726,
+       "res": 0.69
+      },
+      "REV": {
+       "size": 0.46,
+       "mix": 0.42
+      },
+      "DRV": {
+       "drive": 7.7
+      }
+     }
+    },
+    "R": {
+     "order": [
+      "FLT",
+      "REV",
+      "DLY",
+      "DRV"
+     ],
+     "lanes": {
+      "BODY": [
+       "OUT"
+      ],
+      "SUB": [
+       "FLT"
+      ]
+     },
+     "fb": null,
+     "p": {
+      "FLT": {
+       "cut": 2726,
+       "res": 0.69
+      },
+      "REV": {
+       "size": 0.46,
+       "mix": 0.42
+      },
+      "DLY": {
+       "time": 0.331,
+       "fbk": 0.23,
+       "mix": 0.42
+      },
+      "DRV": {
+       "drive": 7.7
+      }
+     }
+    },
+    "kind": "edit",
+    "seed": 644998,
+    "T": 0.7,
+    "coup": 0
+   },
+   "rate": "0.1% of hosted runs",
+   "firstX": 0.0217,
+   "why": "a lane below the floor",
+   "text": "L Fl Rv Dr · Bo→Dr Su→Fl · fb Dr→Rv  ⇒  R Fl Rv Dl Dr · Bo→Out Su→Fl  (seed 644998, T 0.7)"
+  },
+  {
+   "alg": "B",
+   "key": "I7",
+   "label": "I7 STRICT",
+   "broken": false,
+   "size": 2,
+   "case": {
+    "i": 120,
+    "L": {
+     "order": [],
+     "lanes": {
+      "BODY": [
+       "OUT"
+      ],
+      "SUB": [
+       "OUT"
+      ]
+     },
+     "fb": null,
+     "p": {}
+    },
+    "R": {
+     "order": [
+      "REV"
+     ],
+     "lanes": {
+      "BODY": [
+       "REV"
+      ],
+      "SUB": [
+       "OUT"
+      ]
+     },
+     "fb": null,
+     "p": {
+      "REV": {
+       "size": 0.5,
+       "mix": 0.3
+      }
+     }
+    },
+    "kind": "edit",
+    "seed": 940207,
+    "T": 0,
+    "coup": 0
+   },
+   "rate": "46.1% of hosted runs",
+   "firstX": 0.4817,
+   "why": "Rv outputs 0.065 on input 0.004",
+   "text": "L (dry) · Bo→Out Su→Out  ⇒  R Rv · Bo→Rv Su→Out  (seed 940207, T 0)"
+  },
+  {
+   "alg": "B",
+   "key": "I7t",
+   "label": "I7 TAIL",
+   "broken": false,
+   "size": 2,
+   "case": {
+    "i": 120,
+    "L": {
+     "order": [],
+     "lanes": {
+      "BODY": [
+       "OUT"
+      ],
+      "SUB": [
+       "OUT"
+      ]
+     },
+     "fb": null,
+     "p": {}
+    },
+    "R": {
+     "order": [
+      "REV"
+     ],
+     "lanes": {
+      "BODY": [
+       "REV"
+      ],
+      "SUB": [
+       "OUT"
+      ]
+     },
+     "fb": null,
+     "p": {
+      "REV": {
+       "size": 0.5,
+       "mix": 0.3
+      }
+     }
+    },
+    "kind": "edit",
+    "seed": 940207,
+    "T": 0,
+    "coup": 0
+   },
+   "rate": "42.0% of hosted runs",
+   "firstX": 0.4817,
+   "why": "Rv outputs 0.065 on input 0.004",
+   "text": "L (dry) · Bo→Out Su→Out  ⇒  R Rv · Bo→Rv Su→Out  (seed 940207, T 0)"
+  },
+  {
+   "alg": "C",
+   "key": "I3p",
+   "label": "I3 path",
+   "broken": false,
+   "size": 8.5,
+   "case": {
+    "i": 401,
+    "L": {
+     "order": [
+      "DRV",
+      "DLY"
+     ],
+     "lanes": {
+      "BODY": [
+       "OUT"
+      ],
+      "SUB": [
+       "DRV"
+      ]
+     },
+     "fb": null,
+     "p": {
+      "DRV": {
+       "drive": 8.07
+      },
+      "DLY": {
+       "time": 0.182,
+       "fbk": 0.34,
+       "mix": 0.29
+      }
+     }
+    },
+    "R": {
+     "order": [
+      "REV",
+      "DLY",
+      "FLT"
+     ],
+     "lanes": {
+      "BODY": [
+       "REV"
+      ],
+      "SUB": [
+       "OUT"
+      ]
+     },
+     "fb": {
+      "src": "DLY",
+      "dst": "REV",
+      "g": 0.17
+     },
+     "p": {
+      "REV": {
+       "size": 0.76,
+       "mix": 0.51
+      },
+      "DLY": {
+       "time": 0.249,
+       "fbk": 0.14,
+       "mix": 0.26
+      },
+      "FLT": {
+       "cut": 1465,
+       "res": 0.29
+      }
+     }
+    },
+    "kind": "independent",
+    "seed": 815108,
+    "T": 0,
+    "coup": 0
+   },
+   "rate": "1.5% of hosted runs",
+   "firstX": 0.4817,
+   "why": "reaches Su→Rv",
+   "text": "L Dr Dl · Bo→Out Su→Dr  ⇒  R Rv Dl Fl · Bo→Rv Su→Out · fb Dl→Rv  (seed 815108, T 0)"
+  },
+  {
+   "alg": "C",
+   "key": "I4",
+   "label": "I4",
+   "broken": false,
+   "size": 4,
+   "case": {
+    "i": 468,
+    "L": {
+     "order": [
+      "DLY",
+      "FLT",
+      "DRV"
+     ],
+     "lanes": {
+      "BODY": [
+       "OUT"
+      ],
+      "SUB": [
+       "DLY"
+      ]
+     },
+     "fb": null,
+     "p": {
+      "DLY": {
+       "time": 0.2,
+       "fbk": 0.3,
+       "mix": 0.3
+      },
+      "FLT": {
+       "cut": 1500,
+       "res": 0.4
+      },
+      "DRV": {
+       "drive": 4
+      }
+     }
+    },
+    "R": {
+     "order": [],
+     "lanes": {
+      "BODY": [
+       "OUT"
+      ],
+      "SUB": [
+       "OUT"
+      ]
+     },
+     "fb": null,
+     "p": {}
+    },
+    "kind": "independent",
+    "seed": 166750,
+    "T": 0,
+    "coup": 0
+   },
+   "rate": "26.8% of hosted runs",
+   "firstX": 0,
+   "why": "Dl Fl Dr not approved",
+   "text": "L Dl Fl Dr · Bo→Out Su→Dl  ⇒  R (dry) · Bo→Out Su→Out  (seed 166750, T 0)"
+  },
+  {
+   "alg": "C",
+   "key": "I5",
+   "label": "I5",
+   "broken": false,
+   "size": 4,
+   "case": {
+    "i": 1002,
+    "L": {
+     "order": [],
+     "lanes": {
+      "BODY": [
+       "OUT"
+      ],
+      "SUB": [
+       "OUT"
+      ]
+     },
+     "fb": null,
+     "p": {}
+    },
+    "R": {
+     "order": [
+      "DLY",
+      "FLT",
+      "DRV"
+     ],
+     "lanes": {
+      "BODY": [
+       "DLY"
+      ],
+      "SUB": [
+       "OUT"
+      ]
+     },
+     "fb": null,
+     "p": {
+      "DLY": {
+       "time": 0.2,
+       "fbk": 0.3,
+       "mix": 0.3
+      },
+      "FLT": {
+       "cut": 1500,
+       "res": 0.4
+      },
+      "DRV": {
+       "drive": 4
+      }
+     }
+    },
+    "kind": "independent",
+    "seed": 564169,
+    "T": 0.3,
+    "coup": 0
+   },
+   "rate": "11.3% of hosted runs",
+   "firstX": null,
+   "why": "2 crowded, max step 0.07",
+   "text": "L (dry) · Bo→Out Su→Out  ⇒  R Dl Fl Dr · Bo→Dl Su→Out  (seed 564169, T 0.3)"
+  },
+  {
+   "alg": "C",
+   "key": "I6",
+   "label": "I6",
+   "broken": false,
+   "size": 4,
+   "case": {
+    "i": 1002,
+    "L": {
+     "order": [],
+     "lanes": {
+      "BODY": [
+       "OUT"
+      ],
+      "SUB": [
+       "OUT"
+      ]
+     },
+     "fb": null,
+     "p": {}
+    },
+    "R": {
+     "order": [
+      "DLY",
+      "FLT",
+      "DRV"
+     ],
+     "lanes": {
+      "BODY": [
+       "DLY"
+      ],
+      "SUB": [
+       "OUT"
+      ]
+     },
+     "fb": null,
+     "p": {
+      "DLY": {
+       "time": 0.2,
+       "fbk": 0.3,
+       "mix": 0.3
+      },
+      "FLT": {
+       "cut": 1500,
+       "res": 0.4
+      },
+      "DRV": {
+       "drive": 4
+      }
+     }
+    },
+    "kind": "independent",
+    "seed": 564169,
+    "T": 0,
+    "coup": 0
+   },
+   "rate": "15.1% of hosted runs",
+   "firstX": 0.98,
+   "why": "a lane below the floor",
+   "text": "L (dry) · Bo→Out Su→Out  ⇒  R Dl Fl Dr · Bo→Dl Su→Out  (seed 564169, T 0)"
+  },
+  {
+   "alg": "C",
+   "key": "I7",
+   "label": "I7 STRICT",
+   "broken": false,
+   "size": 2,
+   "case": {
+    "i": 120,
+    "L": {
+     "order": [],
+     "lanes": {
+      "BODY": [
+       "OUT"
+      ],
+      "SUB": [
+       "OUT"
+      ]
+     },
+     "fb": null,
+     "p": {}
+    },
+    "R": {
+     "order": [
+      "REV"
+     ],
+     "lanes": {
+      "BODY": [
+       "REV"
+      ],
+      "SUB": [
+       "OUT"
+      ]
+     },
+     "fb": null,
+     "p": {
+      "REV": {
+       "size": 0.5,
+       "mix": 0.3
+      }
+     }
+    },
+    "kind": "edit",
+    "seed": 940207,
+    "T": 0,
+    "coup": 0
+   },
+   "rate": "51.4% of hosted runs",
+   "firstX": 0.4817,
+   "why": "Rv outputs 0.065 on input 0.004",
+   "text": "L (dry) · Bo→Out Su→Out  ⇒  R Rv · Bo→Rv Su→Out  (seed 940207, T 0)"
+  },
+  {
+   "alg": "C",
+   "key": "I7t",
+   "label": "I7 TAIL",
+   "broken": false,
+   "size": 2,
+   "case": {
+    "i": 120,
+    "L": {
+     "order": [],
+     "lanes": {
+      "BODY": [
+       "OUT"
+      ],
+      "SUB": [
+       "OUT"
+      ]
+     },
+     "fb": null,
+     "p": {}
+    },
+    "R": {
+     "order": [
+      "REV"
+     ],
+     "lanes": {
+      "BODY": [
+       "REV"
+      ],
+      "SUB": [
+       "OUT"
+      ]
+     },
+     "fb": null,
+     "p": {
+      "REV": {
+       "size": 0.5,
+       "mix": 0.3
+      }
+     }
+    },
+    "kind": "edit",
+    "seed": 940207,
+    "T": 0,
+    "coup": 0
+   },
+   "rate": "46.1% of hosted runs",
+   "firstX": 0.4817,
+   "why": "Rv outputs 0.065 on input 0.004",
+   "text": "L (dry) · Bo→Out Su→Out  ⇒  R Rv · Bo→Rv Su→Out  (seed 940207, T 0)"
+  },
+  {
+   "alg": "D",
+   "key": "I1",
+   "label": "I1",
+   "broken": false,
+   "size": 5.5,
+   "case": {
+    "i": 1256,
+    "L": {
+     "order": [
+      "DLY",
+      "FLT"
+     ],
+     "lanes": {
+      "BODY": [
+       "DLY"
+      ],
+      "SUB": [
+       "OUT"
+      ]
+     },
+     "fb": null,
+     "p": {
+      "DLY": {
+       "time": 0.097,
+       "fbk": 0.5,
+       "mix": 0.36
+      },
+      "FLT": {
+       "cut": 761,
+       "res": 0.51
+      }
+     }
+    },
+    "R": {
+     "order": [
+      "FLT"
+     ],
+     "lanes": {
+      "BODY": [
+       "FLT"
+      ],
+      "SUB": [
+       "OUT"
+      ]
+     },
+     "fb": null,
+     "p": {
+      "FLT": {
+       "cut": 2032,
+       "res": 0.68
+      }
+     }
+    },
+    "kind": "edit",
+    "seed": 991334,
+    "T": 0,
+    "coup": 0
+   },
+   "rate": "40.5% of hosted runs",
+   "firstX": 0.4817,
+   "why": "two Filter live",
+   "text": "L Dl Fl · Bo→Dl Su→Out  ⇒  R Fl · Bo→Fl Su→Out  (seed 991334, T 0)"
+  },
+  {
+   "alg": "D",
+   "key": "I2",
+   "label": "I2",
+   "broken": false,
+   "size": 4,
+   "case": {
+    "i": 522,
+    "L": {
+     "order": [
+      "REV",
+      "FLT"
+     ],
+     "lanes": {
+      "BODY": [
+       "REV"
+      ],
+      "SUB": [
+       "OUT"
+      ]
+     },
+     "fb": {
+      "src": "FLT",
+      "dst": "REV",
+      "g": 0.49
+     },
+     "p": {
+      "REV": {
+       "size": 0.5,
+       "mix": 0.3
+      },
+      "FLT": {
+       "cut": 1500,
+       "res": 0.4
+      }
+     }
+    },
+    "R": {
+     "order": [],
+     "lanes": {
+      "BODY": [
+       "OUT"
+      ],
+      "SUB": [
+       "OUT"
+      ]
+     },
+     "fb": null,
+     "p": {}
+    },
+    "kind": "independent",
+    "seed": 463536,
+    "T": 0,
+    "coup": 0
+   },
+   "rate": "20.6% of hosted runs",
+   "firstX": 0.4817,
+   "why": "4 return edges at once",
+   "text": "L Rv Fl · Bo→Rv Su→Out · fb Fl→Rv  ⇒  R (dry) · Bo→Out Su→Out  (seed 463536, T 0)"
+  },
+  {
+   "alg": "D",
+   "key": "I3",
+   "label": "I3 edge",
+   "broken": false,
+   "size": 3,
+   "case": {
+    "i": 1960,
+    "L": {
+     "order": [
+      "DRV",
+      "REV"
+     ],
+     "lanes": {
+      "BODY": [
+       "DRV"
+      ],
+      "SUB": [
+       "OUT"
+      ]
+     },
+     "fb": null,
+     "p": {
+      "DRV": {
+       "drive": 4
+      },
+      "REV": {
+       "size": 0.5,
+       "mix": 0.3
+      }
+     }
+    },
+    "R": {
+     "order": [],
+     "lanes": {
+      "BODY": [
+       "OUT"
+      ],
+      "SUB": [
+       "OUT"
+      ]
+     },
+     "fb": null,
+     "p": {}
+    },
+    "kind": "independent",
+    "seed": 167098,
+    "T": 0,
+    "coup": 0
+   },
+   "rate": "66.2% of hosted runs",
+   "firstX": 0.4817,
+   "why": "new: Dr→Out, Bo→Rv",
+   "text": "L Dr Rv · Bo→Dr Su→Out  ⇒  R (dry) · Bo→Out Su→Out  (seed 167098, T 0)"
+  },
+  {
+   "alg": "D",
+   "key": "I3p",
+   "label": "I3 path",
+   "broken": false,
+   "size": 4,
+   "case": {
+    "i": 522,
+    "L": {
+     "order": [
+      "REV",
+      "FLT"
+     ],
+     "lanes": {
+      "BODY": [
+       "REV"
+      ],
+      "SUB": [
+       "OUT"
+      ]
+     },
+     "fb": {
+      "src": "FLT",
+      "dst": "REV",
+      "g": 0.49
+     },
+     "p": {
+      "REV": {
+       "size": 0.5,
+       "mix": 0.3
+      },
+      "FLT": {
+       "cut": 1500,
+       "res": 0.4
+      }
+     }
+    },
+    "R": {
+     "order": [],
+     "lanes": {
+      "BODY": [
+       "OUT"
+      ],
+      "SUB": [
+       "OUT"
+      ]
+     },
+     "fb": null,
+     "p": {}
+    },
+    "kind": "independent",
+    "seed": 463536,
+    "T": 0,
+    "coup": 0
+   },
+   "rate": "21.6% of hosted runs",
+   "firstX": 0.4817,
+   "why": "reaches Bo→—",
+   "text": "L Rv Fl · Bo→Rv Su→Out · fb Fl→Rv  ⇒  R (dry) · Bo→Out Su→Out  (seed 463536, T 0)"
+  },
+  {
+   "alg": "D",
+   "key": "I4",
+   "label": "I4",
+   "broken": false,
+   "size": 5.5,
+   "case": {
+    "i": 1256,
+    "L": {
+     "order": [
+      "DLY",
+      "FLT"
+     ],
+     "lanes": {
+      "BODY": [
+       "DLY"
+      ],
+      "SUB": [
+       "OUT"
+      ]
+     },
+     "fb": null,
+     "p": {
+      "DLY": {
+       "time": 0.097,
+       "fbk": 0.5,
+       "mix": 0.36
+      },
+      "FLT": {
+       "cut": 761,
+       "res": 0.51
+      }
+     }
+    },
+    "R": {
+     "order": [
+      "FLT"
+     ],
+     "lanes": {
+      "BODY": [
+       "FLT"
+      ],
+      "SUB": [
+       "OUT"
+      ]
+     },
+     "fb": null,
+     "p": {
+      "FLT": {
+       "cut": 2032,
+       "res": 0.68
+      }
+     }
+    },
+    "kind": "edit",
+    "seed": 991334,
+    "T": 0,
+    "coup": 0
+   },
+   "rate": "56.0% of hosted runs",
+   "firstX": 0.4817,
+   "why": "Dl Fl Fl not approved",
+   "text": "L Dl Fl · Bo→Dl Su→Out  ⇒  R Fl · Bo→Fl Su→Out  (seed 991334, T 0)"
+  },
+  {
+   "alg": "D",
+   "key": "I7",
+   "label": "I7 STRICT",
+   "broken": false,
+   "size": 2,
+   "case": {
+    "i": 120,
+    "L": {
+     "order": [],
+     "lanes": {
+      "BODY": [
+       "OUT"
+      ],
+      "SUB": [
+       "OUT"
+      ]
+     },
+     "fb": null,
+     "p": {}
+    },
+    "R": {
+     "order": [
+      "REV"
+     ],
+     "lanes": {
+      "BODY": [
+       "REV"
+      ],
+      "SUB": [
+       "OUT"
+      ]
+     },
+     "fb": null,
+     "p": {
+      "REV": {
+       "size": 0.5,
+       "mix": 0.3
+      }
+     }
+    },
+    "kind": "edit",
+    "seed": 940207,
+    "T": 0,
+    "coup": 0
+   },
+   "rate": "14.9% of hosted runs",
+   "firstX": 0.4817,
+   "why": "Rv outputs 0.065 on input 0.065",
+   "text": "L (dry) · Bo→Out Su→Out  ⇒  R Rv · Bo→Rv Su→Out  (seed 940207, T 0)"
+  },
+  {
+   "alg": "D",
+   "key": "I7t",
+   "label": "I7 TAIL",
+   "broken": false,
+   "size": 2,
+   "case": {
+    "i": 120,
+    "L": {
+     "order": [],
+     "lanes": {
+      "BODY": [
+       "OUT"
+      ],
+      "SUB": [
+       "OUT"
+      ]
+     },
+     "fb": null,
+     "p": {}
+    },
+    "R": {
+     "order": [
+      "REV"
+     ],
+     "lanes": {
+      "BODY": [
+       "REV"
+      ],
+      "SUB": [
+       "OUT"
+      ]
+     },
+     "fb": null,
+     "p": {
+      "REV": {
+       "size": 0.5,
+       "mix": 0.3
+      }
+     }
+    },
+    "kind": "edit",
+    "seed": 940207,
+    "T": 0,
+    "coup": 0
+   },
+   "rate": "13.6% of hosted runs",
+   "firstX": 0.4817,
+   "why": "Rv outputs 0.065 on input 0.065",
+   "text": "L (dry) · Bo→Out Su→Out  ⇒  R Rv · Bo→Rv Su→Out  (seed 940207, T 0)"
+  },
+  {
+   "alg": "E",
+   "key": "I3",
+   "label": "I3 edge",
+   "broken": false,
+   "size": 3,
+   "case": {
+    "i": 1960,
+    "L": {
+     "order": [
+      "DRV",
+      "REV"
+     ],
+     "lanes": {
+      "BODY": [
+       "DRV"
+      ],
+      "SUB": [
+       "OUT"
+      ]
+     },
+     "fb": null,
+     "p": {
+      "DRV": {
+       "drive": 4
+      },
+      "REV": {
+       "size": 0.5,
+       "mix": 0.3
+      }
+     }
+    },
+    "R": {
+     "order": [],
+     "lanes": {
+      "BODY": [
+       "OUT"
+      ],
+      "SUB": [
+       "OUT"
+      ]
+     },
+     "fb": null,
+     "p": {}
+    },
+    "kind": "independent",
+    "seed": 167098,
+    "T": 0,
+    "coup": 0
+   },
+   "rate": "40.7% of hosted runs",
+   "firstX": 0.3817,
+   "why": "new: Bo→Rv",
+   "text": "L Dr Rv · Bo→Dr Su→Out  ⇒  R (dry) · Bo→Out Su→Out  (seed 167098, T 0)"
+  },
+  {
+   "alg": "E",
+   "key": "unhosted:unrepresentable",
+   "label": "unhosted:unrepresentable",
+   "broken": false,
+   "size": 4,
+   "case": {
+    "i": 468,
+    "L": {
+     "order": [
+      "DLY",
+      "FLT",
+      "DRV"
+     ],
+     "lanes": {
+      "BODY": [
+       "OUT"
+      ],
+      "SUB": [
+       "DLY"
+      ]
+     },
+     "fb": null,
+     "p": {
+      "DLY": {
+       "time": 0.2,
+       "fbk": 0.3,
+       "mix": 0.3
+      },
+      "FLT": {
+       "cut": 1500,
+       "res": 0.4
+      },
+      "DRV": {
+       "drive": 4
+      }
+     }
+    },
+    "R": {
+     "order": [],
+     "lanes": {
+      "BODY": [
+       "OUT"
+      ],
+      "SUB": [
+       "OUT"
+      ]
+     },
+     "fb": null,
+     "p": {}
+    },
+    "kind": "independent",
+    "seed": 166750,
+    "T": 0,
+    "coup": 0
+   },
+   "rate": "46.2% of runs",
+   "firstX": null,
+   "why": "no approved order holds both ends",
+   "text": "L Dl Fl Dr · Bo→Out Su→Dl  ⇒  R (dry) · Bo→Out Su→Out  (seed 166750, T 0)"
+  },
+  {
+   "alg": "F",
+   "key": "I3",
+   "label": "I3 edge",
+   "broken": false,
+   "size": 13.5,
+   "case": {
+    "i": 929,
+    "L": {
+     "order": [
+      "REV",
+      "DLY",
+      "FLT"
+     ],
+     "lanes": {
+      "BODY": [
+       "REV"
+      ],
+      "SUB": [
+       "DLY"
+      ]
+     },
+     "fb": null,
+     "p": {
+      "REV": {
+       "size": 0.53,
+       "mix": 0.32
+      },
+      "DLY": {
+       "time": 0.32,
+       "fbk": 0.44,
+       "mix": 0.29
+      },
+      "FLT": {
+       "cut": 6090,
+       "res": 0.28
+      }
+     }
+    },
+    "R": {
+     "order": [
+      "FLT",
+      "DLY",
+      "REV"
+     ],
+     "lanes": {
+      "BODY": [
+       "FLT"
+      ],
+      "SUB": [
+       "DLY"
+      ]
+     },
+     "fb": null,
+     "p": {
+      "FLT": {
+       "cut": 2476,
+       "res": 0.7
+      },
+      "DLY": {
+       "time": 0.289,
+       "fbk": 0.33,
+       "mix": 0.36
+      },
+      "REV": {
+       "size": 0.66,
+       "mix": 0.29
+      }
+     }
+    },
+    "kind": "independent",
+    "seed": 836731,
+    "T": 0,
+    "coup": 0
+   },
+   "rate": "0.1% of hosted runs",
+   "firstX": 0.4017,
+   "why": "new: Su→Rv",
+   "text": "L Rv Dl Fl · Bo→Rv Su→Dl  ⇒  R Fl Dl Rv · Bo→Fl Su→Dl  (seed 836731, T 0)"
+  },
+  {
+   "alg": "F",
+   "key": "I4",
+   "label": "I4",
+   "broken": false,
+   "size": 4,
+   "case": {
+    "i": 468,
+    "L": {
+     "order": [
+      "DLY",
+      "FLT",
+      "DRV"
+     ],
+     "lanes": {
+      "BODY": [
+       "OUT"
+      ],
+      "SUB": [
+       "DLY"
+      ]
+     },
+     "fb": null,
+     "p": {
+      "DLY": {
+       "time": 0.2,
+       "fbk": 0.3,
+       "mix": 0.3
+      },
+      "FLT": {
+       "cut": 1500,
+       "res": 0.4
+      },
+      "DRV": {
+       "drive": 4
+      }
+     }
+    },
+    "R": {
+     "order": [],
+     "lanes": {
+      "BODY": [
+       "OUT"
+      ],
+      "SUB": [
+       "OUT"
+      ]
+     },
+     "fb": null,
+     "p": {}
+    },
+    "kind": "independent",
+    "seed": 166750,
+    "T": 0,
+    "coup": 0
+   },
+   "rate": "38.6% of hosted runs",
+   "firstX": 0,
+   "why": "Dl Fl Dr not approved",
+   "text": "L Dl Fl Dr · Bo→Out Su→Dl  ⇒  R (dry) · Bo→Out Su→Out  (seed 166750, T 0)"
+  },
+  {
+   "alg": "G",
+   "key": "I4",
+   "label": "I4",
+   "broken": false,
+   "size": 4,
+   "case": {
+    "i": 468,
+    "L": {
+     "order": [
+      "DLY",
+      "FLT",
+      "DRV"
+     ],
+     "lanes": {
+      "BODY": [
+       "OUT"
+      ],
+      "SUB": [
+       "DLY"
+      ]
+     },
+     "fb": null,
+     "p": {
+      "DLY": {
+       "time": 0.2,
+       "fbk": 0.3,
+       "mix": 0.3
+      },
+      "FLT": {
+       "cut": 1500,
+       "res": 0.4
+      },
+      "DRV": {
+       "drive": 4
+      }
+     }
+    },
+    "R": {
+     "order": [],
+     "lanes": {
+      "BODY": [
+       "OUT"
+      ],
+      "SUB": [
+       "OUT"
+      ]
+     },
+     "fb": null,
+     "p": {}
+    },
+    "kind": "independent",
+    "seed": 166750,
+    "T": 0,
+    "coup": 0
+   },
+   "rate": "27.2% of hosted runs",
+   "firstX": 0,
+   "why": "Dl Fl Dr not approved",
+   "text": "L Dl Fl Dr · Bo→Out Su→Dl  ⇒  R (dry) · Bo→Out Su→Out  (seed 166750, T 0)"
+  },
+  {
+   "alg": "G",
+   "key": "unhosted:unrepresentable",
+   "label": "unhosted:unrepresentable",
+   "broken": false,
+   "size": 7.5,
+   "case": {
+    "i": 841,
+    "L": {
+     "order": [
+      "REV",
+      "DRV"
+     ],
+     "lanes": {
+      "BODY": [
+       "OUT"
+      ],
+      "SUB": [
+       "REV"
+      ]
+     },
+     "fb": null,
+     "p": {
+      "REV": {
+       "size": 0.71,
+       "mix": 0.21
+      },
+      "DRV": {
+       "drive": 9.71
+      }
+     }
+    },
+    "R": {
+     "order": [
+      "DRV",
+      "REV"
+     ],
+     "lanes": {
+      "BODY": [
+       "OUT"
+      ],
+      "SUB": [
+       "DRV"
+      ]
+     },
+     "fb": null,
+     "p": {
+      "DRV": {
+       "drive": 1.74
+      },
+      "REV": {
+       "size": 0.72,
+       "mix": 0.35
+      }
+     }
+    },
+    "kind": "edit",
+    "seed": 111943,
+    "T": 0,
+    "coup": 0
+   },
+   "rate": "26.1% of runs",
+   "firstX": null,
+   "why": "the ends order a pair oppositely: no single rank holds both",
+   "text": "L Rv Dr · Bo→Out Su→Rv  ⇒  R Dr Rv · Bo→Out Su→Dr  (seed 111943, T 0)"
+  },
+  {
+   "alg": "H",
+   "key": "I3",
+   "label": "I3 edge",
+   "broken": false,
+   "size": 13.5,
+   "case": {
+    "i": 929,
+    "L": {
+     "order": [
+      "REV",
+      "DLY",
+      "FLT"
+     ],
+     "lanes": {
+      "BODY": [
+       "REV"
+      ],
+      "SUB": [
+       "DLY"
+      ]
+     },
+     "fb": null,
+     "p": {
+      "REV": {
+       "size": 0.53,
+       "mix": 0.32
+      },
+      "DLY": {
+       "time": 0.32,
+       "fbk": 0.44,
+       "mix": 0.29
+      },
+      "FLT": {
+       "cut": 6090,
+       "res": 0.28
+      }
+     }
+    },
+    "R": {
+     "order": [
+      "FLT",
+      "DLY",
+      "REV"
+     ],
+     "lanes": {
+      "BODY": [
+       "FLT"
+      ],
+      "SUB": [
+       "DLY"
+      ]
+     },
+     "fb": null,
+     "p": {
+      "FLT": {
+       "cut": 2476,
+       "res": 0.7
+      },
+      "DLY": {
+       "time": 0.289,
+       "fbk": 0.33,
+       "mix": 0.36
+      },
+      "REV": {
+       "size": 0.66,
+       "mix": 0.29
+      }
+     }
+    },
+    "kind": "independent",
+    "seed": 836731,
+    "T": 0,
+    "coup": 0
+   },
+   "rate": "0.1% of hosted runs",
+   "firstX": 0.3617,
+   "why": "new: Dl→Out",
+   "text": "L Rv Dl Fl · Bo→Rv Su→Dl  ⇒  R Fl Dl Rv · Bo→Fl Su→Dl  (seed 836731, T 0)"
+  },
+  {
+   "alg": "H",
+   "key": "I4",
+   "label": "I4",
+   "broken": false,
+   "size": 4,
+   "case": {
+    "i": 468,
+    "L": {
+     "order": [
+      "DLY",
+      "FLT",
+      "DRV"
+     ],
+     "lanes": {
+      "BODY": [
+       "OUT"
+      ],
+      "SUB": [
+       "DLY"
+      ]
+     },
+     "fb": null,
+     "p": {
+      "DLY": {
+       "time": 0.2,
+       "fbk": 0.3,
+       "mix": 0.3
+      },
+      "FLT": {
+       "cut": 1500,
+       "res": 0.4
+      },
+      "DRV": {
+       "drive": 4
+      }
+     }
+    },
+    "R": {
+     "order": [],
+     "lanes": {
+      "BODY": [
+       "OUT"
+      ],
+      "SUB": [
+       "OUT"
+      ]
+     },
+     "fb": null,
+     "p": {}
+    },
+    "kind": "independent",
+    "seed": 166750,
+    "T": 0,
+    "coup": 0
+   },
+   "rate": "39.2% of hosted runs",
+   "firstX": 0,
+   "why": "Dl Fl Dr not approved",
+   "text": "L Dl Fl Dr · Bo→Out Su→Dl  ⇒  R (dry) · Bo→Out Su→Out  (seed 166750, T 0)"
+  },
+  {
+   "alg": "GC",
+   "key": "I3",
+   "label": "I3 edge",
+   "broken": false,
+   "size": 6.5,
+   "case": {
+    "i": 474,
+    "L": {
+     "order": [
+      "DLY",
+      "FLT"
+     ],
+     "lanes": {
+      "BODY": [
+       "DLY"
+      ],
+      "SUB": [
+       "OUT"
+      ]
+     },
+     "fb": null,
+     "p": {
+      "DLY": {
+       "time": 0.209,
+       "fbk": 0.4,
+       "mix": 0.29
+      },
+      "FLT": {
+       "cut": 5236,
+       "res": 0.17
+      }
+     }
+    },
+    "R": {
+     "order": [
+      "REV",
+      "DRV"
+     ],
+     "lanes": {
+      "BODY": [
+       "REV"
+      ],
+      "SUB": [
+       "OUT"
+      ]
+     },
+     "fb": null,
+     "p": {
+      "REV": {
+       "size": 0.84,
+       "mix": 0.59
+      },
+      "DRV": {
+       "drive": 2.71
+      }
+     }
+    },
+    "kind": "independent",
+    "seed": 8685,
+    "T": 0,
+    "coup": 0
+   },
+   "rate": "0.2% of hosted runs",
+   "firstX": 0.1417,
+   "why": "new: Dl→Out",
+   "text": "L Dl Fl · Bo→Dl Su→Out  ⇒  R Rv Dr · Bo→Rv Su→Out  (seed 8685, T 0)"
+  },
+  {
+   "alg": "GC",
+   "key": "unhosted:impossible",
+   "label": "unhosted:impossible",
+   "broken": false,
+   "size": 10.5,
+   "case": {
+    "i": 1884,
+    "L": {
+     "order": [
+      "REV",
+      "DRV",
+      "DLY"
+     ],
+     "lanes": {
+      "BODY": [
+       "REV"
+      ],
+      "SUB": [
+       "OUT"
+      ]
+     },
+     "fb": null,
+     "p": {
+      "REV": {
+       "size": 0.43,
+       "mix": 0.3
+      },
+      "DRV": {
+       "drive": 6.13
+      },
+      "DLY": {
+       "time": 0.385,
+       "fbk": 0.26,
+       "mix": 0.45
+      }
+     }
+    },
+    "R": {
+     "order": [
+      "DLY",
+      "REV",
+      "DRV"
+     ],
+     "lanes": {
+      "BODY": [
+       "OUT"
+      ],
+      "SUB": [
+       "DLY"
+      ]
+     },
+     "fb": null,
+     "p": {
+      "DLY": {
+       "time": 0.361,
+       "fbk": 0.4,
+       "mix": 0.28
+      },
+      "REV": {
+       "size": 0.85,
+       "mix": 0.4
+      },
+      "DRV": {
+       "drive": 5.45
+      }
+     }
+    },
+    "kind": "independent",
+    "seed": 861071,
+    "T": 0,
+    "coup": 0
+   },
+   "rate": "0.2% of runs",
+   "firstX": null,
+   "why": "no legal plan exists (search exhausted: 13104 states)",
+   "text": "L Rv Dr Dl · Bo→Rv Su→Out  ⇒  R Dl Rv Dr · Bo→Out Su→Dl  (seed 861071, T 0)"
+  },
+  {
+   "alg": "GC",
+   "key": "unhosted:unrepresentable",
+   "label": "unhosted:unrepresentable",
+   "broken": false,
+   "size": 4,
+   "case": {
+    "i": 468,
+    "L": {
+     "order": [
+      "DLY",
+      "FLT",
+      "DRV"
+     ],
+     "lanes": {
+      "BODY": [
+       "OUT"
+      ],
+      "SUB": [
+       "DLY"
+      ]
+     },
+     "fb": null,
+     "p": {
+      "DLY": {
+       "time": 0.2,
+       "fbk": 0.3,
+       "mix": 0.3
+      },
+      "FLT": {
+       "cut": 1500,
+       "res": 0.4
+      },
+      "DRV": {
+       "drive": 4
+      }
+     }
+    },
+    "R": {
+     "order": [],
+     "lanes": {
+      "BODY": [
+       "OUT"
+      ],
+      "SUB": [
+       "OUT"
+      ]
+     },
+     "fb": null,
+     "p": {}
+    },
+    "kind": "independent",
+    "seed": 166750,
+    "T": 0,
+    "coup": 0
+   },
+   "rate": "33.3% of runs",
+   "firstX": null,
+   "why": "an end is not an approved order",
+   "text": "L Dl Fl Dr · Bo→Out Su→Dl  ⇒  R (dry) · Bo→Out Su→Out  (seed 166750, T 0)"
+  }
+ ]
+}
