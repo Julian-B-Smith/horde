@@ -173,6 +173,18 @@ PY
     tail -1 /tmp/fxlab.$$
     rm -f /tmp/fxlab.$$
 
+    # THE FILTER LAB'S FIDELITY PROGRAMME IS A GATE (B274). docs/design/filter-lab.html
+    # measures twelve filter types with seven checks each (analytic response,
+    # cutoff/res accuracy, self-oscillation, fast modulation, aliasing, level at
+    # resonance, DC), every check with a must-fail control. This runs the lab's own
+    # DSP section headless (~1.5 s): red on a blind control, on a verdict that
+    # differs from its pin (a FAIL is a pinned FINDING, never a loosened
+    # tolerance), or on a planted fault it fails to catch. Added under ADR-180 §1.
+    node tools/labharness/filter_fidelity_check.mjs > /tmp/filtfid.$$ 2>&1 || {
+      echo "verify: filter lab fidelity check FAILED" >&2; cat /tmp/filtfid.$$ >&2; ok=1; }
+    tail -1 /tmp/filtfid.$$   # the harness prints its own name; do not prefix it twice
+    rm -f /tmp/filtfid.$$
+
     # THE MORPH EDITOR LAB'S FOUR IN-PAGE AUDITS ARE A GATE (B269). The lab
     # (docs/design/morph-editor-lab.html) checks itself at load — ownership
     # parity against the engine's morphOwnersJson (B211), the waypoint laws
