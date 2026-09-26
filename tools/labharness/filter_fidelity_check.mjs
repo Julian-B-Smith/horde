@@ -62,22 +62,40 @@ function plant(src, anchor, repl) {
 }
 
 /* Today's verdicts, C1..C7, P = PASS, F = FAIL (a finding). Measured 2026-09-26
-   on the lab as committed in the B274 PR; see the trace for every number. */
+   on the lab as committed in the B274 PR; see the trace for every number.
+   B287 phase A (2026-09-26) moved twelve pins F → P, each a fixed finding (a
+   tightening): svf12 BP/HP C6, svf24 BP/HP/PEAK C6, ladder C3 + C6, combP C2,
+   formant C6, bankP C2. Still F: ladder/ms20 C5 and phaser C4 (phase B, held for
+   the B290 tolerance ruling); combP/combN C6 (compensating them trades the
+   keytracked comb's level — refused, see traces/2026-09-26-b287-filter-fixes-a.md);
+   bank C2 + C6 (properties of the protected reference; PROPOSED is the fix). */
 const PINS = {
-  'svf12.LP': 'PPPPPPP', 'svf12.BP': 'PPPPPFP', 'svf12.HP': 'PPPPPFP', 'svf12.NOTCH': 'PPPPPPP', 'svf12.PEAK': 'PPPPPPP',
-  'svf24.LP': 'PPPPPPP', 'svf24.BP': 'PPPPPFP', 'svf24.HP': 'PPPPPFP', 'svf24.NOTCH': 'PPPPPPP', 'svf24.PEAK': 'PPPPPFP',
-  ladder: 'PPFPFFP', ms20: 'PPPPFPP', combP: 'PFPPPFP', combN: 'PPPPPFP', formant: 'PPPPPFP',
-  ap4: 'PPPPPPP', phaser: 'PPPFPPP', dj: 'PPPPPPP', bank: 'PFPPPFP', bankP: 'PFPPPPP',
+  'svf12.LP': 'PPPPPPP', 'svf12.BP': 'PPPPPPP', 'svf12.HP': 'PPPPPPP', 'svf12.NOTCH': 'PPPPPPP', 'svf12.PEAK': 'PPPPPPP',
+  'svf24.LP': 'PPPPPPP', 'svf24.BP': 'PPPPPPP', 'svf24.HP': 'PPPPPPP', 'svf24.NOTCH': 'PPPPPPP', 'svf24.PEAK': 'PPPPPPP',
+  ladder: 'PPPPFPP', ms20: 'PPPPFPP', combP: 'PPPPPFP', combN: 'PPPPPFP', formant: 'PPPPPPP',
+  ap4: 'PPPPPPP', phaser: 'PPPFPPP', dj: 'PPPPPPP', bank: 'PFPPPFP', bankP: 'PPPPPPP',
 };
 /* Planted faults: [what, anchor, replacement, row, check that must go FAIL]. */
 const PLANTS = [
   ['SVF prewarp removed (bilinear cutoff mapping)', 'const g = Math.tan(Math.PI * fc / sr);\n    const k = Math.max(0.05',
     'const g = Math.PI * fc / sr;\n    const k = Math.max(0.05', 'svf12.LP', 'C1'],
   ['ladder loop tanh removed', 'let u = Math.tanh(dg * (x - k * y4)) / dg;', 'let u = x - k * y4;', 'ladder', 'C4'],
-  ['comb fractional delay dropped', 'this.N = Math.floor(D); this.fr = D - this.N;', 'this.N = Math.floor(D); this.fr = 0;', 'combP', 'C1'],
+  ['comb fractional delay dropped', 'this.N = Math.floor(D); lagr3(D - this.N, this.h);', 'this.N = Math.floor(D); lagr3(0, this.h);', 'combP', 'C1'],
   ['MS-20 output offset by 1e-3', 'const v3 = (y - this.s3) * G; this.s3 = v3 + this.s3 + v3;\n    return y;',
     'const v3 = (y - this.s3) * G; this.s3 = v3 + this.s3 + v3;\n    return y + 1e-3;', 'ms20', 'C7'],
   ['copied bank loop gain 1.6 → 1.7', 'wetS *= 1.6 / Math.sqrt(n) * this.qcomp;', 'wetS *= 1.7 / Math.sqrt(n) * this.qcomp;', 'bank', 'C1'],
+  /* B287 phase A: one plant per new resonance-compensation law (removing it must
+     turn C6 red), and one per other fix (reverting it must turn its check red). */
+  ['SVF 12 resonance compensation removed', 'this.g = svfComp(this.f.k, Math.SQRT2, this.m); }', 'this.g = 1; }', 'svf12.BP', 'C6'],
+  ['SVF 24 resonance compensation removed', 'this.g = svfComp(kb, K24B, this.m); }', 'this.g = 1; }', 'svf24.BP', 'C6'],
+  ['ladder half-compensation removed', 'this.out = ladderComp(this.k);', 'this.out = 1;', 'ladder', 'C6'],
+  ['formant √qs compensation removed', 'amp[j] = Math.pow(10, dB / 20) * qg;', 'amp[j] = Math.pow(10, dB / 20);', 'formant', 'C6'],
+  ['ladder self-oscillation segment removed (k = 4.2·res to the top)',
+    'return r <= LADDER_RON ? LADDER_KON * r : 4 + (LADDER_KTOP - 4) * (r - LADDER_RON) / (1 - LADDER_RON); };', 'return LADDER_KON * r; };', 'ladder', 'C3'],
+  ['comb delay read back to linear interpolation', 'this.N = Math.floor(D); lagr3(D - this.N, this.h);',
+    'this.N = Math.floor(D); { const fr = D - this.N; this.h[0] = 0; this.h[1] = 1 - fr; this.h[2] = fr; this.h[3] = 0; }', 'combP', 'C2'],
+  ['P4 spread fit removed (bands pushed past the range)', 'sE = Math.max(0, Math.min(p.spread, Math.min(e - erbN(lo), erbN(hi) - e) / 12));', 'sE = p.spread;', 'bankP', 'C2'],
+  ['P4 coefficient cap back to the reference\'s 0.24·fs', 'this.top = this.rangeOn ? 0.49 : 0.24;', 'this.top = 0.24;', 'bankP', 'C2'],
 ];
 
 const errors = [];
