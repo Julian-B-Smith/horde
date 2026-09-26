@@ -1,0 +1,2381 @@
+<!doctype html>
+<!-- scalpel-interface-lab — B271: what horde looks and feels like once SCALPEL is
+     its sound-design centre. HYPERSAW, 2026-09-26, dispatched by the horde lead
+     on ROADMAP B271 (carried in the records PR on branch lead-records-94). The
+     human: "Let's also start another agent building a post-scalpel
+     interface/aesthetics lab for the updated engine". Spec-in-code per ADR-003.
+
+     WHAT THIS IS. A design lab, not a port. It shows the OSC page and the MAIN
+     page of one plugin window (980×720, the default size B227 measured the
+     human's wireframes at) with the blade core on the face in the priority
+     order of docs/scalpel/ACCOUNTING.md §2, the surviving swarm controls one
+     level down, Advanced below, and three visualizers that make blades legible
+     (the cycle view, the phase ring, the spectrum with the predicted formant
+     band — SPEC-SCALPEL §1). It offers clearly marked aesthetic ALTERNATIVES
+     for the blade section and ends in a list of open design questions.
+
+     THE ORACLE IS LOADED, NEVER COPIED. reference/scalpel/prototype/razor-core.js
+     is PROTECTED; the <script src> below loads it as-is. Every blade drawn is
+     computed by the oracle's own static functions (RazorCore.voice, .out-style
+     twin sum, .fillG2, .fmStep, .wave) from the per-member state the oracle's
+     own visualizer feed (`post({t:'viz', mem})`) publishes from a running
+     instance, and every sound heard is a second instance of the same class in an
+     AudioWorklet built from RazorCore.toString() — the bench's own route
+     (scalpel-bench.html:1008). The load checker (tools/labharness/
+     lab_load_check.mjs) runs inline blocks only, so under it RazorCore is absent
+     and the page says so rather than drawing an invented blade.
+
+     SEEDED. The oracle calls Math.random (SPEC §9). Before every oracle instance
+     this page renders from, Math.random is replaced by a seeded mulberry32 —
+     the job reference/scalpel/verify/rng.js does with xorshift. The page's own
+     variations (the morph corners) draw from their own mulberry32 stream. No
+     wall clock reaches any rendered output: the monitor instance advances a
+     WHOLE NUMBER OF NOTE PERIODS per animation frame (a stroboscope, so the
+     blade windows stand still and only the swarm's own motion moves), counted
+     in samples.
+
+     TOKENS ARE COPIED, NOT LINKED — verbatim from docs/design/station-page-lab.html
+     :50-134, which copies them verbatim from src/gui/gui2.html (:26-96, :103-105,
+     :142-144, :167-185, :186-212). Copy, therefore drift: if gui2's tokens move,
+     this file is stale until re-copied.
+
+     L0026: every const is declared above the code that runs at setup; the boot
+     call is the last statement of the script. -->
+<html><head><meta charset="utf-8">
+<meta name="lab-review" content="B271 · 2026-09-26">
+<title>SCALPEL interface lab — horde with blades at its centre</title>
+<style>
+  :root {
+    /* ground */
+    --bg:#F2EDE2;        /* page ground (cream)                    */
+    --panel:#FCFAF4;     /* module cards                           */
+    --well:#FFFFFF;      /* DATA surfaces: viz, pads, keyboards     */
+    --panel2:#E9E3D4;    /* well-alt: control tracks, empty meters  */
+    --line:#191521;      /* ink — ALL outlines                     */
+    --hair:#E5DFD0;      /* in-well gridlines ONLY, never borders   */
+    --div:#D8D1C0;       /* dashed intra-card separators           */
+    /* text */
+    --text:#191521;      /* primary (ink)                          */
+    --t2:#494356;        /* secondary                              */
+    --dim:#9A93A3;       /* hint                                   */
+    --dis:#B6AFA0;       /* disabled                               */
+    /* signal — one job each, never borrowed */
+    --value:#F5169C;     /* the user's authored value              */
+    --pull:#F5169C;      /* legacy name for the accent = value      */
+    --physics:#6431F0;   /* order parameter, K vector, rotor lead   */
+    --meter:#00D5C8;     /* analyzers, R rim arc                   */
+    --marker:#FFD702;    /* attention: root, overshoot, lock front  */
+    --celebrate:#A6F219; /* OK / meters in the green               */
+    --caution:#F5A300;   --caution-bg:#FBE9BD; --caution-tx:#6D570B;
+    --amber:#F5A300;     /* legacy name for caution                 */
+    --alarm:#C2261A;     /* PANIC, clip, mute — NOTHING else        */
+    --ghost:#C9C2FF;     /* dry/reference traces behind wet         */
+    /* corners — preset identity (fill / dark text pair) */
+    --cA:#FFD702; --cAtx:#D4A900;
+    --cB:#FF2E88; --cBtx:#FF2E88;
+    --cC:#00D5C8; --cCtx:#00B3A8;
+    --cD:#A6F219; --cDtx:#6FB200;
+    /* canvas-only names from ADR-118 A2, re-pointed at spec roles */
+    --text-hi:#191521;
+    --dim2:#494356;      /* canvas axis labels — secondary          */
+    --grid:#E5DFD0;      /* gridlines = hairline                    */
+    --grid2:#E5DFD0;
+    --hot:#F5169C;       /* live-value marks = value                */
+    --bad:#C2261A;
+    --badge-bg:rgba(245,163,0,.9);
+    /* SCREEN TOKENS — vaporwave phosphor (ADR-119). The chrome stays cream;
+       only the DATA WELLS become phosphor tubes, so canvases read these while
+       every CSS control keeps the chrome set. */
+    --scr-tube:#1B0733;      /* the tube ground — deep violet            */
+    --scr-value:#FF5ECF;     /* your value, as hot-pink phosphor        */
+    --scr-meter:#B8F227;     /* meter/measure, as LIME                  */
+    --scr-physics:#B48CFF;   /* the system's own state                  */
+    --scr-marker:#FFB86B;    /* attention/root, as amber                */
+    --scr-grid:#4FD8BE;      /* in-tube structure — painted at low alpha */
+    --scr-scan:0.22;         /* scanline strength                        */
+    --scr-alpha:1;           /* multiplier on every TOKA() alpha         */
+    /* geometry */
+    --r-card:10px; --r-well:var(--r-card); --r:var(--r-card); --stroke:1.5px;
+    --shadow:1.5px 1.5px 0 var(--line);
+    --shadow-hover:2.5px 2.5px 0 var(--line);
+    --focus:0 0 0 2.5px rgba(245,22,156,.45); }
+  * { box-sizing:border-box; margin:0; }
+  /* gui2:103 — every canvas is a phosphor tube, and a tube gets the same ink
+     border language as the cards. No shadow: shadows are for interactive
+     elements, never wells. */
+  canvas { border:var(--stroke) solid var(--line); border-radius:var(--r-well);
+           background:var(--scr-tube); display:block; }
+  /* gui2:142 — ORCHID is the screen scheme the LIGHT chassis pairs with
+     (gui2:1654-1657: LIGHT/ORCHID, DARK/TUBE). A lab with two themes carries
+     both pairings or it is showing a chassis nobody ships. */
+  body:not(.dark) { --scr-tube:#F3EBFF; --scr-value:#D6006B; --scr-meter:#007A73;
+    --scr-physics:#6E14E8; --scr-marker:#C43A00; --scr-grid:#5A3FA8;
+    --scr-scan:0.05; --scr-alpha:1.6;
+    /* gui2:167 — yellow and lime cannot survive a light ground (measured
+       1.20:1 and 1.17:1 against --bg, where the graphical floor is 3:1). */
+    --marker:#8A6A00; --celebrate:#4E7A00; }
+  body.dark {
+    --bg:#151220; --panel:#1F1B2E; --well:#0E0C16; --panel2:#2C2740;
+    --line:#EFE9FA; --hair:#312B47; --div:#3B3455;
+    --text:#EFE9FA; --t2:#BDB4D4; --dim:#8A82A3; --dis:#514A6B;
+    --value:#FF3DAD; --pull:#FF3DAD; --physics:#A07CFF; --meter:#2DF2E2;
+    --marker:#FFE04D; --celebrate:#C2F53E;
+    --caution:#FFB627; --caution-bg:#4A3A12; --caution-tx:#FFD98A;
+    --amber:#FFB627; --alarm:#FF5A4D;
+    --ghost:#5B4E8F;
+    --cA:#FFD702; --cAtx:#FFE566;
+    --cB:#FF2E88; --cBtx:#FF6FAE;
+    --cC:#00D5C8; --cCtx:#4DEDE3;
+    --cD:#A6F219; --cDtx:#C6F86A;
+    --text-hi:#FFFFFF; --dim2:#9A93A8; --grid:#312B47; --grid2:#312B47;
+    --hot:#FF3DAD; --bad:#FF5A4D; --badge-bg:rgba(255,182,39,.9);
+    --focus:0 0 0 2.5px rgba(255,61,173,.45); }
+
+  /* ============ DEPARTURE TOKEN (alternative "BLADE 2: HUE" only) ============
+     NOT in gui2 and NOT in ADR-116. Every named colour in the set is a status
+     (--value authored, --physics the engine's own, --meter a measure …), so a
+     second blade cannot borrow one without lying about what it is. This pair
+     exists only while the HUE alternative is selected; adopting it would be an
+     ADR-116 amendment, which is the human's call (open question 8). */
+  body.b2hue { --b2:#0B6FC4; --scr-b2:#0A63B8; }
+  body.b2hue.dark { --b2:#5CB8FF; --scr-b2:#7CC8FF; }
+
+  /* ============ LAB CHROME — station-page-lab's idiom (gui2:245-560) ============ */
+  body { background:var(--bg); color:var(--text);
+    font:12px/1.45 ui-monospace,Menlo,monospace; padding:10px 12px; }
+  .hdr { display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; margin-bottom:8px; }
+  h1 { font-size:34px; line-height:1; letter-spacing:-1px; font-weight:800; }
+  .badges { display:flex; align-items:center; gap:8px; margin-top:4px; }
+  .badge { font-size:9.5px; letter-spacing:.1em; padding:2px 7px;
+           border:var(--stroke) solid var(--line); border-radius:3px;
+           background:var(--cA); color:var(--line); }
+  body.dark .badge { color:var(--bg); }
+  .sub { color:var(--t2); font-size:10.5px; letter-spacing:.12em; }
+  .hdrctl { display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-left:auto; }
+  .grp { display:flex; align-items:center; gap:7px; }
+  .lbl { font-size:10px; font-weight:700; letter-spacing:.1em; color:var(--t2); }
+  .pill { padding:3px 10px; border:var(--stroke) solid var(--line);
+    border-radius:999px; min-height:26px; cursor:pointer; color:var(--dim);
+    background:var(--panel); font:inherit; font-size:10px; letter-spacing:.06em; }
+  .pill:hover { box-shadow:var(--shadow); }
+  .pill.on { color:var(--bg); background:var(--line); font-weight:600; }
+  .pill.panic { border-color:var(--alarm); color:var(--alarm); font-weight:700; }
+  .pill.panic:hover { background:var(--alarm); color:var(--bg); }
+  .pills { display:flex; gap:4px; flex-wrap:wrap; align-items:center; }
+  .chip { padding:4px 8px; border:0; background:none; border-radius:var(--r);
+    cursor:pointer; font:inherit; font-size:10px; letter-spacing:.06em;
+    color:var(--dim); min-height:26px; }
+  .chip:hover { background:var(--panel2); }
+  .chip b { color:var(--t2); font-weight:600; letter-spacing:.1em; }
+  .tagline { color:var(--t2); font-size:11px; max-width:130ch; margin-bottom:6px; }
+  .tagline b { color:var(--text); }
+  .audit { font-size:10px; color:var(--t2); margin-bottom:8px;
+           border-left:3px solid var(--meter); padding-left:8px; max-width:150ch; }
+  .audit.bad { border-left-color:var(--alarm); color:var(--alarm); }
+  .audit b { color:var(--value); }
+  .audit .ok { color:var(--celebrate); font-weight:700; }
+  .audit .no { color:var(--alarm); font-weight:700; }
+  /* a departure from the standard is marked in caution, the one status whose job
+     is "look at this before you accept it" (gui2's --caution-bg/--caution-tx pair) */
+  .dep { display:inline-block; font-size:8.5px; letter-spacing:.1em; font-weight:700;
+    padding:0 5px; border-radius:3px; background:var(--caution-bg); color:var(--caution-tx);
+    border:1px solid var(--caution); margin-left:4px; vertical-align:1px; }
+  .std { display:inline-block; font-size:8.5px; letter-spacing:.1em; font-weight:700;
+    padding:0 5px; border-radius:3px; color:var(--t2); border:1px solid var(--div);
+    margin-left:4px; vertical-align:1px; }
+  .altbar { display:flex; flex-wrap:wrap; gap:8px 18px; align-items:center; margin:4px 0 10px;
+    padding:6px 10px; border:var(--stroke) solid var(--line); border-radius:var(--r);
+    background:var(--panel); }
+  .altbar select { max-width:230px; }
+
+  /* ============ CONTROLS — gui2:490 slider, :513 toggle, :538 enum ============ */
+  input[type=range] { -webkit-appearance:none; appearance:none; width:100%; min-width:0;
+    height:20px; background:transparent; cursor:pointer; margin:0; }
+  input[type=range]::-webkit-slider-runnable-track { height:6px; border-radius:3px;
+    border:var(--stroke) solid var(--line);
+    background:linear-gradient(to right, var(--value) 0 calc(var(--pct, 0) * 100%),
+      var(--panel2) calc(var(--pct, 0) * 100%) 100%); }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; appearance:none;
+    width:13px; height:13px; border-radius:4px; margin-top:-3.5px;
+    background:var(--panel); border:var(--stroke) solid var(--line); box-shadow:var(--shadow); }
+  input[type=range]:active::-webkit-slider-thumb { background:var(--value); box-shadow:none; }
+  input[type=checkbox] { -webkit-appearance:none; appearance:none; margin:0; flex:0 0 auto;
+    width:30px; height:16px; border-radius:999px; cursor:pointer;
+    background:var(--panel2); border:var(--stroke) solid var(--line); position:relative; }
+  input[type=checkbox]::after { content:''; position:absolute; top:1px; left:1px;
+    width:10px; height:10px; border-radius:999px; background:var(--panel);
+    border:var(--stroke) solid var(--line); transition:transform .12s ease; }
+  input[type=checkbox]:checked { background:var(--value); }
+  input[type=checkbox]:checked::after { transform:translateX(14px); }
+  select { -webkit-appearance:none; appearance:none; font:inherit; font-size:10px;
+    padding:2px 18px 2px 9px; min-width:0; border-radius:999px;
+    border:var(--stroke) solid var(--line); background:var(--panel); color:var(--t2);
+    cursor:pointer; min-height:22px;
+    background-image:linear-gradient(45deg,transparent 50%,var(--t2) 50%),
+                     linear-gradient(135deg,var(--t2) 50%,transparent 50%);
+    background-position:calc(100% - 11px) 50%, calc(100% - 7px) 50%;
+    background-size:4px 4px, 4px 4px; background-repeat:no-repeat; }
+  input[type=text] { font:inherit; font-size:10px; padding:2px 8px; border-radius:999px;
+    min-height:22px; border:var(--stroke) solid var(--line); background:var(--panel);
+    color:var(--text); min-width:0; width:100%; }
+
+  /* ============ KNOB — gui2:617-730 (ADR-120 skin, ADR-137 halo), via compact-lab:195-235 ============ */
+  .knob { position:relative; width:36px; height:36px; flex:0 0 auto; cursor:ns-resize; touch-action:none; }
+  .karc { position:absolute; inset:1.7px; border-radius:50%;
+    background:conic-gradient(from 220deg,
+      var(--panel2) 0deg var(--a0,0deg), var(--value) var(--a0,0deg) var(--a1,0deg),
+      var(--panel2) var(--a1,0deg) 280deg, transparent 280deg 360deg); }
+  /* Position is CIRCULAR (ACCOUNTING §1 finding 5): no end stops, so the track is
+     a full turn and the arc is a small window at the value, not a fill from zero */
+  .knob.circ .karc { background:conic-gradient(from 0deg,
+      var(--panel2) 0deg var(--a0,0deg), var(--value) var(--a0,0deg) var(--a1,0deg),
+      var(--panel2) var(--a1,0deg) 360deg); }
+  .kmod { position:absolute; inset:0; border-radius:50%;
+    background:conic-gradient(from 220deg,
+      transparent 0deg var(--m0,0deg), var(--physics) var(--m0,0deg) var(--m1,0deg),
+      transparent var(--m1,0deg) 360deg); opacity:.85; }
+  .knob.circ .kmod { background:conic-gradient(from 0deg,
+      transparent 0deg var(--m0,0deg), var(--physics) var(--m0,0deg) var(--m1,0deg),
+      transparent var(--m1,0deg) 360deg); }
+  .kmnow { position:absolute; left:50%; top:0; width:2.5px; height:5px;
+    margin-left:-1.25px; border-radius:1.25px; background:var(--physics);
+    transform-origin:50% 18px; transform:rotate(var(--mang,0deg)); opacity:0; z-index:2; }
+  .knob.mod .kmnow { opacity:1; }
+  .kcap { position:absolute; inset:4.5px; border-radius:50%;
+    background:var(--panel); border:var(--stroke) solid var(--line); box-shadow:var(--shadow); }
+  .kptr { position:absolute; left:50%; top:7px; width:2.5px; height:9px;
+    margin-left:-1.25px; border-radius:1.5px; background:var(--line);
+    transform-origin:50% 11px; transform:rotate(var(--ang,0deg)); }
+  .knob:hover .kcap { box-shadow:var(--shadow-hover); }
+  .knob.drag .kcap { background:var(--value); box-shadow:none; }
+  .knob.drag .kptr { background:var(--bg); }
+  .knob.big { width:44px; height:44px; }
+  .knob.big .kcap { inset:5px; }
+  .knob.big .kptr { top:8px; height:10px; transform-origin:50% 14px; }
+  .knob.big .kmnow { transform-origin:50% 22px; }
+  .kcell { position:relative; display:flex; flex-direction:column; align-items:center;
+    gap:1px; padding:2px 0 0; text-align:center; width:52px; min-width:0; }
+  .kcell.big { width:70px; }
+  .kcell > label { font-size:9.5px; line-height:1.15; max-width:100%; color:var(--t2);
+    letter-spacing:-.01em; display:-webkit-box; -webkit-box-orient:vertical;
+    -webkit-line-clamp:2; overflow:hidden; overflow-wrap:break-word; min-height:2.3em; }
+  .kcell > output { position:absolute; left:0; right:0; top:2px; min-height:2.3em;
+    display:flex; align-items:center; justify-content:center; font-size:10px;
+    line-height:1.15; color:var(--text); font-weight:600;
+    font-variant-numeric:tabular-nums; opacity:0; pointer-events:none; transition:opacity .08s; }
+  .kcell:hover > output, .kcell:has(.knob.drag) > output { opacity:1; }
+  .kcell:hover > label, .kcell:has(.knob.drag) > label { opacity:0; }
+  /* the lab's opt-in: value under every knob, for screenshots read without hovering */
+  body.showvals .kcell > output { position:static; opacity:1; min-height:0; font-size:9px; font-weight:500; color:var(--t2); }
+  body.showvals .kcell > label { opacity:1 !important; }
+  .kcell.ghost > .knob, .kcell.inert > .knob { opacity:.45; }
+  .kcell.ghost > label, .kcell.inert > label { color:var(--dim); }
+  /* FOLLOWING blade 1: the knob shows blade 1's value, dashed, and "=1" in its label */
+  .kcell.follow > .knob .kcap { border-style:dashed; box-shadow:none; }
+  .kcell.follow > .knob .karc { opacity:.4; }
+  .kcell.follow > label::after { content:' =1'; color:var(--physics); font-weight:700; }
+
+  /* ============ THE PLUGIN WINDOW ============ */
+  .stage { display:flex; gap:14px; align-items:flex-start; flex-wrap:wrap; }
+  .plug { width:980px; height:720px; flex:0 0 auto; background:var(--bg);
+    border:var(--stroke) solid var(--line); border-radius:12px; box-shadow:var(--shadow);
+    padding:8px 10px; display:flex; flex-direction:column; gap:6px; overflow:hidden; }
+  .side { flex:1 1 280px; max-width:360px; font-size:10.5px; color:var(--t2); line-height:1.5; }
+  .side h2, .notes h2 { font-size:11px; color:var(--pull); letter-spacing:1px; margin:0 0 5px; }
+  .side .box { background:var(--panel); border:var(--stroke) solid var(--line); border-radius:var(--r);
+    padding:8px 10px; margin-bottom:10px; }
+  .side b, .notes b { color:var(--text); }
+  .phdr { display:flex; align-items:flex-start; gap:12px; flex:0 0 auto; }
+  .brand { font-size:27px; font-weight:800; letter-spacing:-1.2px; line-height:1; padding-top:2px; }
+  .tabrows { display:flex; flex-direction:column; gap:3px; flex:1 1 auto; }
+  .tabs { display:flex; gap:4px; flex-wrap:wrap; align-items:center; }
+  /* gui2:274 — the page tab */
+  .tab { padding:2px 12px; border:var(--stroke) solid var(--line); border-radius:999px; min-height:22px;
+    cursor:pointer; color:var(--t2); background:var(--panel); font:inherit; font-size:10px; }
+  .tab.on { color:var(--bg); background:var(--line); font-weight:600; }
+  .tab.stub { opacity:.35; cursor:default; }
+  .tab .dot { display:inline-block; width:7px; height:7px; border-radius:50%; margin-left:5px;
+    border:1px solid currentColor; vertical-align:0; }
+  .tab .dot.on { background:var(--value); border-color:var(--value); }
+  .phdr-r { text-align:right; font-size:10px; color:var(--t2); line-height:1.35; max-width:260px; }
+  .phdr-r b { color:var(--text); }
+  .pbody { flex:1 1 auto; min-height:0; display:grid; gap:7px; }
+  .pbody.osc { grid-template-columns:282px minmax(0,1fr); }
+  .pbody.main { grid-template-columns:272px minmax(0,1fr); }
+  .col { display:flex; flex-direction:column; gap:6px; min-height:0; min-width:0; }
+  .cell { background:var(--panel); border:var(--stroke) solid var(--line); border-radius:var(--r);
+    padding:5px 7px; min-width:0; }
+  .cell > h3 { font-size:10px; color:var(--pull); letter-spacing:1px; margin:0 0 3px;
+    display:flex; align-items:center; gap:6px; font-weight:700; }
+  .cell > h3 .own { font-size:8.5px; color:var(--dim); letter-spacing:.1em; font-weight:500; }
+  .cell > h3 .sp { margin-left:auto; display:flex; gap:4px; align-items:center; }
+  .cell.grow { flex:1 1 auto; min-height:0; display:flex; flex-direction:column; }
+  .scroll { overflow:auto; min-height:0; flex:1 1 auto; padding-right:2px; }
+  canvas.viz { width:100%; display:block; border:var(--stroke) solid var(--line);
+    border-radius:var(--r-well); background:var(--scr-tube); }
+  canvas.edit { cursor:crosshair; touch-action:none; }
+  .cap { font-size:9px; letter-spacing:.1em; color:var(--dim); margin:4px 0 2px; }
+  .vnote { font-size:9.5px; color:var(--t2); margin-top:2px; line-height:1.35; min-height:1.35em; }
+  .pill.mini { min-height:19px; padding:0 7px; font-size:9.5px; letter-spacing:.02em; }
+  .pill.ghoston { border-style:dashed; color:var(--t2); background:var(--panel2); }
+  .pill.link { font-weight:700; color:var(--physics); border-color:var(--physics); }
+  .pill.link.on { background:var(--physics); color:var(--bg); }
+  .advbtn { margin-top:auto; align-self:flex-start; }
+
+  /* strip at the top of Controls: tab power, members, base wave, volume */
+  .ostrip { display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:2px 0 4px;
+    border-bottom:1px dashed var(--div); margin-bottom:4px; }
+  .ostrip .lbl { font-size:9.5px; }
+  .ostrip .kcell { width:48px; }
+  .cyctools { display:flex; align-items:center; gap:6px; margin:0 0 3px; flex-wrap:wrap; }
+  .cyctools .lbl { font-size:9px; }
+
+  /* ============ THE BLADE ROW ============ */
+  .blade { position:relative; border:var(--stroke) solid var(--line); border-radius:var(--r);
+    padding:4px 7px 3px 12px; background:var(--panel); margin-top:5px; }
+  /* a blade's identity stripe on its left edge: solid for blade 1; for blade 2
+     the SAME authored colour, hatched (standard) — or its own hue (departure) */
+  .blade::before { content:''; position:absolute; left:3px; top:5px; bottom:5px; width:4px;
+    border-radius:2px; background:var(--value); }
+  .blade.b2::before { background:repeating-linear-gradient(180deg, var(--value) 0 3px, transparent 3px 6px); }
+  body.b2hue .blade.b2 { --value:var(--b2); }
+  body.b2hue .blade.b2::before { background:var(--b2); }
+  .bhead { display:flex; align-items:center; gap:6px; flex-wrap:wrap; min-height:22px; }
+  .bnum { width:18px; height:18px; border-radius:50%; border:var(--stroke) solid var(--line);
+    display:grid; place-items:center; font-size:10px; font-weight:800;
+    background:var(--value); color:var(--bg); flex:0 0 auto; }
+  .blade.b2 .bnum { background:repeating-linear-gradient(135deg, var(--value) 0 2px, var(--panel) 2px 4px);
+    color:var(--text); }
+  body.b2hue .blade.b2 .bnum { background:var(--b2); color:var(--bg); }
+  .bname { font-size:10px; font-weight:700; letter-spacing:.08em; }
+  .bsum { font-size:9.5px; color:var(--dim); margin-left:auto; white-space:nowrap; }
+  .bline { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:3px; }
+  .bline .lbl { font-size:9px; width:34px; }
+  .bbody { display:flex; align-items:flex-start; gap:4px 6px; flex-wrap:wrap; margin-top:2px; }
+  .blade.off .bbody, .blade.off .bline { opacity:.42; }
+  .blade .kcell { width:46px; }
+  .blade .pill.mini { padding:0 6px; }
+  .blade .kgrp { padding-left:5px; }
+  .blade .bbody { gap:2px 5px; flex-wrap:nowrap; }
+  .kgrp { display:flex; flex-direction:column; gap:1px; padding-left:6px; border-left:1px dashed var(--div); }
+  .kgrp:first-child { border-left:0; padding-left:0; }
+  .kgrp > .gcap { font-size:8.5px; letter-spacing:.12em; color:var(--dim); display:flex; gap:4px; align-items:center; min-height:14px; }
+  .kgrp > .krow { display:flex; gap:0 2px; align-items:flex-start; }
+  .kgrp.ghost > .krow { opacity:.45; }
+  .mgrid2 { display:grid; grid-template-columns:repeat(2, auto); gap:3px; padding-top:3px; }
+  .mgrid3 { display:grid; grid-template-columns:repeat(3, auto); gap:3px; padding-top:3px; }
+  /* SKIN B: the blade face as gui2 rows */
+  .srows { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:0 14px; width:100%; }
+  .srow { display:grid; grid-template-columns:78px minmax(0,1fr) 54px; align-items:center; gap:6px; min-height:22px; }
+  .srow > label { color:var(--t2); font-size:9.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .srow > output { font-size:9.5px; text-align:right; font-variant-numeric:tabular-nums; }
+  .srow.follow > label::after { content:' =1'; color:var(--physics); font-weight:700; }
+  .srow.follow input[type=range] { opacity:.45; }
+  .srow.ghost > *, .srow.inert > * { opacity:.5; }
+  /* SKIN C: numbers you can scrub, no knobs — the cycle view is the editor */
+  .scrubs { display:flex; flex-wrap:wrap; gap:4px; }
+  .scrub { display:inline-flex; gap:5px; align-items:baseline; padding:2px 8px;
+    border:var(--stroke) solid var(--line); border-radius:999px; background:var(--panel);
+    cursor:ns-resize; user-select:none; touch-action:none; font-size:9.5px; min-height:20px; }
+  .scrub i { font-style:normal; color:var(--t2); }
+  .scrub b { font-weight:600; color:var(--text); font-variant-numeric:tabular-nums; }
+  .scrub.drag { background:var(--value); } .scrub.drag i, .scrub.drag b { color:var(--bg); }
+  .scrub.follow { border-style:dashed; } .scrub.follow i::after { content:' =1'; color:var(--physics); font-weight:700; }
+  .scrub.ghost { opacity:.45; }
+
+  /* ============ TIERS 2 AND 3 ============ */
+  .tier { border:var(--stroke) solid var(--line); border-radius:var(--r); margin-top:6px; background:var(--bg); }
+  .thead { display:flex; align-items:center; gap:6px; padding:4px 7px; cursor:pointer; flex-wrap:wrap; }
+  .thead .tt { font-size:9.5px; font-weight:700; letter-spacing:.12em; color:var(--t2); }
+  .thead .tri { font-size:9px; color:var(--t2); width:10px; }
+  .sumchip { font-size:9px; padding:0 6px; border-radius:999px; border:1px solid var(--physics);
+    color:var(--physics); white-space:nowrap; }
+  .sumchip.none { border-color:var(--div); color:var(--dim); }
+  .tbody { padding:2px 8px 7px; display:grid; gap:4px 16px; }
+  .tier.closed .tbody { display:none; }
+  .tbody.t2 { grid-template-columns:repeat(2, minmax(0,1fr)); }
+  .tbody.t3 { grid-template-columns:repeat(2, minmax(0,1fr)); }
+  .tgrp h4 { font-size:9px; letter-spacing:.12em; color:var(--pull); margin:4px 0 2px; font-weight:700; }
+  .cmp { display:grid; grid-template-columns:82px minmax(0,1fr) minmax(0,1fr); gap:2px 6px; align-items:center; }
+  .cmp.one { grid-template-columns:82px minmax(0,1fr); }
+  .cmp .h { font-size:8.5px; color:var(--dim); letter-spacing:.1em; }
+  .cmp > label { color:var(--t2); font-size:9.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .cc { display:flex; align-items:center; gap:4px; min-width:0; min-height:22px; }
+  .cc input[type=range] { flex:1 1 auto; }
+  .cc output { font-size:9px; width:46px; text-align:right; font-variant-numeric:tabular-nums; flex:0 0 auto; }
+  .cc.follow input[type=range], .cc.follow select, .cc.follow .pills { opacity:.45; }
+  .cc.follow::after { content:'=1'; color:var(--physics); font-size:9px; font-weight:700; }
+  .cc.ghost { opacity:.5; }
+  .cc.inert { opacity:.5; }
+  .cc > .cc.cin { flex:1 1 auto; }
+  .inertlist { font-size:9.5px; color:var(--dim); line-height:1.5; }
+
+  /* ============ MAIN ============ */
+  .prow { display:flex; align-items:center; gap:6px; }
+  .pname { font-weight:700; font-size:11px; }
+  .pcat { color:var(--dim); font-size:9.5px; }
+  /* 2 × 4, as the human's MAIN wireframe draws the macros (B227) */
+  .mgrid { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:0 4px; justify-items:center; }
+  .mgrid .kcell.big > label { min-height:1.3em; }
+  .wtwo { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+  .kr { display:flex; flex-wrap:wrap; gap:0 2px; align-items:flex-start; }
+  .fxstrip { display:grid; grid-template-columns:1fr 90px 1fr; gap:8px; align-items:center; }
+  .rack { display:flex; gap:3px; align-items:center; flex-wrap:wrap; font-size:9.5px; }
+  .rack .m { padding:0 6px; border:1px solid var(--line); border-radius:4px; background:var(--panel2); }
+  .xfade { height:8px; border:var(--stroke) solid var(--line); border-radius:4px; position:relative; background:var(--panel2); }
+  .xfade i { position:absolute; top:-4px; width:4px; height:14px; margin-left:-2px; background:var(--physics); border-radius:2px; }
+  .octabs { display:flex; gap:4px; align-items:center; border-bottom:1px dashed var(--div); padding-bottom:4px; margin-bottom:4px; }
+  .ocbody { display:grid; grid-template-columns:140px minmax(0,1fr) 150px; gap:8px; }
+  .bsel { display:flex; gap:4px; align-items:center; flex-wrap:wrap; }
+
+  /* ============ BELOW THE STAGE ============ */
+  .labstrip { display:flex; gap:14px; align-items:center; flex-wrap:wrap; margin:10px 0; padding:6px 10px;
+    border:var(--stroke) solid var(--line); border-radius:var(--r); background:var(--panel); max-width:980px; }
+  #kbd { display:flex; height:46px; width:420px; user-select:none; border:var(--stroke) solid var(--line);
+    border-radius:var(--r); background:var(--well); overflow:hidden; }
+  .key { flex:1 1 0; border-right:1px solid var(--line); background:var(--well); position:relative; cursor:pointer; }
+  .key:last-child { border-right:0; }
+  .key.blk { flex:0 0 12px; margin:0 -6px; z-index:2; height:62%; background:var(--line); border:0; border-radius:0 0 3px 3px; }
+  .key.down { background:var(--value); }
+  .notes { max-width:1320px; margin-top:12px; display:grid; grid-template-columns:repeat(auto-fit, minmax(420px,1fr)); gap:12px; }
+  .notes .box { background:var(--panel); border:var(--stroke) solid var(--line); border-radius:var(--r); padding:8px 12px; font-size:10.5px; color:var(--t2); line-height:1.5; }
+  .notes ol, .notes ul { padding-left:18px; margin:4px 0 0; }
+  .notes li { margin:4px 0; }
+  .notes .rec { color:var(--physics); font-weight:700; }
+  .notes table { border-collapse:collapse; font-size:9.5px; width:100%; }
+  .notes td, .notes th { border-bottom:1px dashed var(--div); padding:2px 4px; text-align:left; vertical-align:top; }
+  .notes th { color:var(--dim); font-weight:600; letter-spacing:.08em; }
+</style>
+<!-- THE ORACLE, read-only (reference/scalpel/ is PROTECTED). A classic script,
+     so it works from the filesystem and from tools/serve_labs.py alike. -->
+<script src="../../reference/scalpel/prototype/razor-core.js"></script>
+</head><body>
+
+<div class="hdr">
+  <div>
+    <h1>scalpel</h1>
+    <div class="badges">
+      <span class="badge">B271 · DESIGN LAB</span>
+      <span class="sub">BLADES AT THE CENTRE · OSC + MAIN AT 980×720 · VISUALS DRIVEN BY THE ORACLE · AESTHETIC ALTERNATIVES</span>
+    </div>
+  </div>
+  <div class="hdrctl">
+    <div class="grp"><span class="lbl">PAGE</span><div class="pills" id="pagePills"></div></div>
+    <button class="chip" id="valsBtn" data-lab="show every knob's value, not only on hover">values <b>HOVER</b></button>
+    <button class="chip" id="themeBtn" data-lab="theme audition">theme <b>LIGHT</b></button>
+    <button class="pill" id="pwr" data-lab="audio context — a lab affordance, not a parameter">POWER</button>
+    <button class="pill panic" id="panic" data-lab="all notes off">PANIC</button>
+  </div>
+</div>
+
+<div class="tagline">What horde looks like with <b>SCALPEL</b> as its sound-design centre. The <b>OSC</b> page puts both blades on the face in
+the accounting's priority order (mode, width, cut rate, position, depth, edges, mirror, FM, spreads), the surviving swarm controls one
+level down, and Advanced below. The <b>MAIN</b> page follows the human's wireframe with the blade core surfaced. The cycle view, phase ring
+and formant-band spectrum are drawn and heard through the <b>real oracle</b> (<code>razor-core.js</code>, loaded, seeded), and three
+marked <b>aesthetic alternatives</b> sit beside the standard.</div>
+
+<div class="audit" id="audit">oracle: pending</div>
+
+<div class="altbar" id="altbar">
+  <div class="grp"><span class="lbl">SKIN</span><div class="pills" id="skinPills"></div></div>
+  <div class="grp"><span class="lbl">WINDOW</span><div class="pills" id="winPills"></div></div>
+  <div class="grp"><span class="lbl">BLADE 2</span><div class="pills" id="b2Pills"></div></div>
+  <div class="grp"><span class="lbl">CYCLE EDITS</span><div class="pills" id="dirPills"></div></div>
+  <div class="grp"><span class="lbl">PATCH</span><select id="presetSel" data-lab="the 76 packet presets (served) — reference/scalpel/data/presets.json, fetched, never copied"></select>
+    <button class="pill" id="initBtn" data-lab="ACCOUNTING §1.7's proposed horde INIT: blade 1 off, saw base">horde INIT</button></div>
+</div>
+
+<div class="stage">
+  <div class="plug" id="frame"></div>
+  <aside class="side" id="side"></aside>
+</div>
+
+<div class="labstrip">
+  <span class="lbl">AUDITION</span>
+  <div id="kbd"></div>
+  <span class="vnote" id="audioStat">AUDIO — OFF. POWER, then the keys (A..L, W/E/T/Y/U/O; Z/X octave).</span>
+  <button class="pill" id="droneBtn" data-lab="hold the monitor note in the audible instance">HOLD</button>
+  <button class="pill" id="probeBtn" data-lab="render 0.5 s offline through the same worklet and print its level">TEST AUDIO PATH</button>
+</div>
+
+<div class="notes" id="notes">
+  <div class="box">
+    <h2>What sits where (ACCOUNTING §2, as built)</h2>
+    <div id="tierTable"></div>
+  </div>
+  <div class="box">
+    <h2>Open design questions — each with the lab's recommendation</h2>
+    <ol>
+      <li><b>Blade core above the swarm (ACCOUNTING Q I1).</b> The face here is: the Coupling × Detune pad, Members, Base wave and
+        Volume (the swarm's identity), then both blades. Everything else of the swarm is one level down.
+        <span class="rec">Recommend: as built.</span> The pad is kept on the face because it IS the swarm. Stereo, the
+        amp envelope, Coherence → Tone, Onset, Dissolve, Drift and Pitch drop a level, and a summary strip names any of them that is off its default.</li>
+      <li><b>Stacked or tabbed blades (Q I2).</b> The OSC page stacks both blades. MAIN has room for one, so it uses a 1 | 2 selector.
+        <span class="rec">Recommend: stacked on OSC, tabbed on MAIN.</span> The cycle view always draws both windows, so a tab never hides the other blade's effect.</li>
+      <li><b>The brief puts mirror, FM and spreads on the face; the accounting's §2 puts mirror and the spreads at T2.</b> The lab follows
+        the brief and shows each promotion in the tier table.
+        <span class="rec">Recommend: keep mirror on the face.</span> It is four pills, and twin − alone removes the even harmonics.
+        <span class="rec">Recommend: keep only Position and Cut spread on the face.</span> The accounting counts every other spread in three or fewer presets. Leave the spread law one level down.</li>
+      <li><b>How blade 2's "same as blade 1" reads.</b> Each following control shows <i>blade 1's</i> value with a dashed cap and an
+        <b>=1</b> mark. Touching it copies blade 1's group into blade 2 and takes ownership (copy-on-write). The =1 pill re-links without
+        erasing blade 2's own values. <span class="rec">Recommend: as built.</span> It is stored in the rows that already exist (the −1 sentinels
+        and the b2fm / b2sp / b2env / rot2Follow switches). It adds no parameter.</li>
+      <li><b>Two controls named "Width".</b> The blade's Width (id 303) and the swarm's stereo Width (id 14, a SCALPEL merge) would
+        sit on the same page. <span class="rec">Recommend: rename the swarm's to "Stereo" in the presentation table and the host name.</span>
+        That is a B224-style label change, and it moves no id. The lab already calls it Stereo.</li>
+      <li><b>Knobs, sliders or direct manipulation.</b> <span class="rec">Recommend: knobs (A) as the face, with CYCLE EDITS on.</span>
+        Knobs carry gui2's modulation halo and morph stripe. Direct edits on the cycle view give the "intuitive" feel the human
+        asked for. They write the same addresses through the same path, so that is a view and not a second parameter (B212
+        decision 6). Skin C (no knobs) loses the halo, and the modulation view with it. Skin B belongs in the depths, where it already is.</li>
+      <li><b>How a window is drawn.</b> <span class="rec">Recommend: II GATE.</span> A plain band hides Edges and Depth. The gate shape
+        draws the real taper g(e)·depth (SPEC §4.1), so both read at a glance, and it still uses only standard tokens.</li>
+      <li><b>Blade 2's identity.</b> The standard gives blade 2 the same authored colour, hatched. The HUE alternative adds a token, and
+        every named colour in the set is a status. <span class="rec">Recommend: the hatch.</span> Adopt a hue only if the human wants one,
+        as an ADR-116 amendment.</li>
+      <li><b>Position is a circle.</b> The Position knob here has no end stops. The MAIN morph blends it on the shortest arc (toggle
+        CIRCULAR off to see today's linear blend run 0.95 → 0.05 through 0.5). <span class="rec">Recommend: an endless dial plus a
+        circular morph rule in the shell (ACCOUNTING finding 5).</span> The matrix clamp needs the same rule.</li>
+      <li><b>The Coupling pad voices the oracle's law.</b> The accounting recommends horde's law (§1.6), which couples 1–9× softer at the
+        same K. The pad's feel will change when that lands. <span class="rec">Recommend: settle the law in the B252 discussion first,
+        then re-label the pad's y axis from the measured lock boundary, not from K.</span></li>
+      <li><b>What the cycle view cannot show.</b> Cross-mod and feedback act sample to sample. The cycle shows the blades without them,
+        and the ring draws the cross-mod arrows. <span class="rec">Recommend: accept this for v1.</span> Add a per-member lane estimate only if
+        the port provides one (SPEC §10 calls the bench's three-pass estimate a display approximation).</li>
+      <li><b>Visualizers on MAIN.</b> <span class="rec">Recommend: the cycle view and the ring on MAIN, and the spectrum on OSC only.</span>
+        The formant band is a sound-design read, not a performance read.</li>
+    </ol>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ======================================================================
+   A. THE ORACLE, THE SEED, THE PARAMETER TABLE
+   ====================================================================== */
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+/* `class RazorCore` in a classic script is a global LEXICAL binding: visible here
+   by name, never as window.RazorCore, hence the typeof test. */
+const CORE = (typeof RazorCore === 'function') ? RazorCore : null;
+/* The seeded shim over Math.random, installed ONLY when the oracle is present
+   (under the load checker Math is the checker's own, and must not be touched). */
+function seedOracle(n) { if (CORE) Math.random = mulberry32(n >>> 0); }
+const SR = 48000;
+const frac = x => x - Math.floor(x);
+const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+const mtof = n => 440 * Math.pow(2, (n - 69) / 12);
+const TAU = 2 * Math.PI;
+
+/* Enum stored values in DISPLAY order. parameters.json lists options in display
+   order, not value order, and some value sets have holes (ACCOUNTING §1.8.1-2);
+   these pairs are the bench's own seg() definitions as the accounting's §1.4 prints them. */
+const E_MODE = [[0, 'Sync'], [1, 'FM reset'], [2, 'FM free'], [3, 'Noise'], [4, 'Fold'], [5, 'Ring'], [6, 'Crush']];
+const E_WAVE = [[0, 'Sine'], [1, 'Tri'], [2, 'Saw'], [4, 'Rev saw'], [3, 'Square'], [6, 'Sine→Saw']];
+const E_BASE = [[0, 'Sine'], [1, 'Tri'], [2, 'Saw'], [4, 'Rev saw'], [3, 'Square']];
+const E_MIRROR = [[0, 'off'], [1, 'reflect'], [2, 'twin −'], [3, 'twin +']];
+const E_LOCK = [[0, '× f₀'], [1, 'per blade'], [2, 'Hz']];
+const E_MSHAPE = [[0, 'Sine'], [1, 'Tri'], [2, 'Saw'], [4, 'Rev saw'], [3, 'Square'], [5, 'Smooth noise'], [7, 'S&H noise']];
+const E_RULE = [[0, 'even'], [1, 'harmonic'], [2, 'undertone'], [3, 'octaves'], [4, 'major'], [5, 'minor'], [6, 'fifths'], [7, 'golden'], [8, 'primes'], [9, 'custom']];
+const E_LAW = [[0, 'gradient'], [1, 'random'], [4, 'drift'], [2, 'alternate'], [3, 'swarm']];
+const SAME = [-1, '=1'];
+
+/* THE TABLE. key = the oracle's key (so a value goes to the oracle unrenamed);
+   id = ACCOUNTING §1.4's PROPOSED per-osc id (osc 2 = +1000, key prefix `bl.`)
+   or, for a MERGE, the horde row it lands on; tier = the accounting's §2 tier.
+   kind: c continuous · e enum · t toggle · s string · x horde row the oracle
+   does not have (drawn, not voiced) · L lab-only. A copy of the accounting read
+   at origin/main f749faa; it drifts if the accounting is revised. */
+const SP = {};
+function R(key, label, id, tier, kind, min, max, curve, unit, opts) {
+  SP[key] = { key, label, id, tier, kind, min, max, curve: curve || 'lin', unit: unit || '', opts: opts || null };
+}
+/* blade 1 */
+R('b1on', 'Blade 1', 300, 'T1', 't', 0, 1);
+R('mode', 'Mode', 301, 'T1', 'e', 0, 6, '', '', E_MODE);
+R('hot', 'Blade wave', 302, 'T1', 'e', 0, 6, '', '', E_WAVE);
+R('w', 'Width', 303, 'T1', 'c', 0, 1, 'wlog', 'w');
+R('k', 'Cut rate', 304, 'T1', 'c', 1, 64, 'log', 'x');
+R('kHz', 'Cut rate', 305, 'T1', 'c', 20, 12000, 'log', 'Hz');
+R('lock', 'Cut rate in', 306, 'T2', 'e', 0, 2, '', '', E_LOCK);
+R('c', 'Position', 307, 'T1', 'c', 0, 1, 'circ', 'deg');
+R('hard', 'Edges', 308, 'T1', 'c', 0, 1, 'lin', '%');
+R('depth', 'Depth', 309, 'T1', 'c', 0, 1, 'lin', '%');
+R('mirror', 'Mirror', 310, 'T2', 'e', 0, 3, '', '', E_MIRROR);
+R('morph', 'Shape', 311, 'T2', 'c', 0, 1, 'lin', '%');
+R('rotRate', 'Rotate', 312, 'T2', 'c', -4, 4, 'lin', 'Hz±');
+R('rotSync', 'Rotation', 313, 'T3', 'e', 0, 1, '', '', [[1, 'restart per note'], [0, 'free-running']]);
+R('fb', 'Feedback', 314, 'T2', 'c', 0, 1, 'pow', '%');
+R('fmType', 'FM type', 315, 'T2', 'e', 0, 1, '', '', [[0, 'phase'], [1, 'pitch']]);
+R('mshape', 'Mod shape', 316, 'T2', 'e', 0, 7, '', '', E_MSHAPE);
+R('I', 'FM depth', 317, 'T1', 'c', 0, 10, 'pow', 'n');
+R('mUnit', 'Mod rate in', 318, 'T2', 'e', 0, 1, '', '', [[0, '× f₀'], [1, 'Hz']]);
+R('m', 'Mod rate', 319, 'T1', 'c', 0.25, 24, 'log', 'x');
+R('mHz', 'Mod rate', 320, 'T1', 'c', 1, 20000, 'log', 'Hz');
+R('benvK', 'Env → cut', 321, 'T2', 'c', -1, 1, 'lin', 'bi');
+R('benvW', 'Env → width', 322, 'T2', 'c', -1, 1, 'lin', 'bi');
+R('benvA', 'Env attack', 323, 'T2', 'c', 0.5, 2000, 'log', 'ms');
+R('benvD', 'Env decay', 324, 'T2', 'c', 10, 5000, 'log', 'ms');
+R('benvVel', 'Env velocity', 325, 'T3', 'c', 0, 1, 'lin', '%');
+R('base', 'Base wave', 326, 'T1', 'e', 0, 4, '', '', E_BASE);
+R('dcMode', 'DC fix', 327, 'T3', 'e', 0, 2, '', '', [[0, 'off'], [1, 'blocker'], [2, 'per cycle']]);
+R('xm', 'Cross-mod', 328, 'T2', 'c', 0, 1, 'pow', '%');
+R('frame', 'Blade frame', 329, 'T2', 'e', 0, 1, '', '', [[0, 'member'], [1, 'swarm']]);
+R('phaseMode', 'Start phases', '330 + 18', 'T2', 'e', 0, 2, '', '', [[2, 'settled'], [0, 'random'], [1, 'aligned']]);
+R('panOrder', 'Pan order', 331, 'T3', 'e', 0, 1, '', '', [[0, 'balanced'], [1, 'fan']]);
+R('law', 'Spread law', 332, 'T2', 'e', 0, 4, '', '', E_LAW);
+R('driftRate', 'Drift rate', 333, 'T3', 'c', 0.02, 12, 'log', 'Hz');
+R('bspread', 'Pos spread', 334, 'T2', 'c', 0, 1, 'lin', '%');
+R('kspread', 'Cut spread', 335, 'T2', 'c', 0, 24, 'lin', 'h');
+R('kRule', 'Cut rule', 336, 'T2', 'e', 0, 9, '', '', E_RULE);
+R('kRuleAmt', 'Rule depth', 337, 'T2', 'c', 0, 1, 'lin', '%');
+R('kq', 'Quantize', 338, 'T3', 'e', 0, 1, '', '', [[0, 'free'], [1, 'whole']]);
+R('wspread', 'Width spread', 339, 'T3', 'c', 0, 1, 'lin', '%');
+R('dspread', 'Depth spread', 340, 'T3', 'c', 0, 1, 'lin', '%');
+R('mspread', 'Shape spread', 341, 'T3', 'c', 0, 1, 'lin', '%');
+R('ispread', 'FM idx spread', 342, 'T3', 'c', 0, 1, 'lin', '%');
+R('rotSpread', 'Rotate spread', 343, 'T3', 'c', 0, 2, 'pow', 'Hz');
+R('kCustom', 'Ratios', 'state', 'T3', 's');
+/* blade 2 */
+R('b2on', 'Blade 2', 344, 'T1', 't', 0, 1);
+R('mode2', 'Mode', 345, 'T1', 'e', 0, 6, '', '', E_MODE);
+R('hot2', 'Blade wave', 346, 'T1', 'e', 0, 6, '', '', E_WAVE);
+R('w2', 'Width', 347, 'T1', 'c', 0, 1, 'wlog', 'w');
+R('k2', 'Cut rate', 348, 'T1', 'c', 1, 64, 'log', 'x');
+R('kHz2', 'Cut rate', 349, 'T1', 'c', 20, 12000, 'log', 'Hz');
+R('lock2', 'Cut rate in', 350, 'T2', 'e', -1, 2, '', '', [SAME].concat(E_LOCK));
+R('c2', 'Position', 351, 'T1', 'c', 0, 1, 'circ', 'deg');
+R('hard2', 'Edges', 352, 'T1', 'c', 0, 1, 'lin', '%');
+R('depth2', 'Depth', 353, 'T1', 'c', 0, 1, 'lin', '%');
+R('mirror2', 'Mirror', 354, 'T2', 'e', -1, 3, '', '', [SAME].concat(E_MIRROR));
+R('morph2', 'Shape', 355, 'T2', 'c', 0, 1, 'lin', '%');
+R('rot2Follow', 'Rotation', 356, 'T3', 'e', 0, 1, '', '', [[1, 'with blade 1'], [0, 'its own']]);
+R('rotRate2', 'Rotate', 357, 'T2', 'c', -4, 4, 'lin', 'Hz±');
+R('frame2', 'Blade frame', 358, 'T3', 'e', -1, 1, '', '', [SAME, [0, 'member'], [1, 'swarm']]);
+R('b2sp', 'Spreads', 359, 'T3', 'e', 0, 1, '', '', [[0, "blade 1's"], [1, 'its own']]);
+R('bspread2', 'Pos spread', 360, 'T3', 'c', 0, 1, 'lin', '%');
+R('kspread2', 'Cut spread', 361, 'T3', 'c', 0, 24, 'lin', 'h');
+R('kRule2', 'Cut rule', 362, 'T3', 'e', 0, 9, '', '', E_RULE);
+R('kRuleAmt2', 'Rule depth', 363, 'T3', 'c', 0, 1, 'lin', '%');
+R('wspread2', 'Width spread', 364, 'T3', 'c', 0, 1, 'lin', '%');
+R('dspread2', 'Depth spread', 365, 'T3', 'c', 0, 1, 'lin', '%');
+R('mspread2', 'Shape spread', 366, 'T3', 'c', 0, 1, 'lin', '%');
+R('ispread2', 'FM idx spread', 367, 'T3', 'c', 0, 1, 'lin', '%');
+R('rotSpread2', 'Rotate spread', 368, 'T3', 'c', 0, 2, 'pow', 'Hz');
+R('b2fm', 'FM', 369, 'T3', 'e', 0, 1, '', '', [[0, "blade 1's"], [1, 'its own']]);
+R('fmType2', 'FM type', 370, 'T2', 'e', 0, 1, '', '', [[0, 'phase'], [1, 'pitch']]);
+R('mshape2', 'Mod shape', 371, 'T2', 'e', 0, 7, '', '', E_MSHAPE);
+R('I2', 'FM depth', 372, 'T1', 'c', 0, 10, 'pow', 'n');
+R('mUnit2', 'Mod rate in', 373, 'T2', 'e', 0, 1, '', '', [[0, '× f₀'], [1, 'Hz']]);
+R('m2', 'Mod rate', 374, 'T1', 'c', 0.25, 24, 'log', 'x');
+R('mHz2', 'Mod rate', 375, 'T1', 'c', 1, 20000, 'log', 'Hz');
+R('b2env', 'Envelope', 376, 'T2', 'e', 0, 1, '', '', [[0, "blade 1's"], [1, 'its own']]);
+R('benvK2', 'Env → cut', 377, 'T2', 'c', -1, 1, 'lin', 'bi');
+R('benvW2', 'Env → width', 378, 'T2', 'c', -1, 1, 'lin', 'bi');
+R('benvA2', 'Env attack', 379, 'T2', 'c', 0.5, 2000, 'log', 'ms');
+R('benvD2', 'Env decay', 380, 'T2', 'c', 10, 5000, 'log', 'ms');
+R('benvVel2', 'Env velocity', 381, 'T3', 'c', 0, 1, 'lin', '%');
+/* SCALPEL rows that MERGE into horde rows (horde's id; the oracle's key and law) */
+R('N', 'Members', '1 (n)', 'T1', 'c', 1, 9, 'int', 'int');
+R('detune', 'Detune', '4', 'T1', 'c', 0, 100, 'lin', 'c');
+R('K', 'Coupling', '6', 'T1', 'c', -1, 1, 'lin', 'bi');
+R('width', 'Stereo', '14', 'T2', 'c', 0, 1, 'lin', '%');
+R('A', 'Attack', '19', 'T2', 'c', 1, 2000, 'log', 'ms');
+R('D', 'Decay', '20', 'T2', 'c', 10, 4000, 'log', 'ms');
+R('S', 'Sustain', '21', 'T2', 'c', 0, 1, 'lin', '%');
+R('R', 'Release', '22', 'T2', 'c', 10, 5000, 'log', 'ms');
+R('gain', 'Volume', '17', 'T1', 'c', 0, 1, 'lin', '%');
+R('polyMode', 'Voicing', '32 + 34', 'T3', 'e', 0, 2, '', '', [[0, 'poly'], [1, 'mono'], [2, 'legato']]);
+R('glide', 'Note lag', '33', 'T3', 'c', 0, 2000, 'pow', 'ms');
+R('glideAlways', 'Glide when', '90', 'T3', 'e', 0, 1, '', '', [[0, 'overlapping'], [1, 'always']]);
+R('os', 'Oversample', '88', 'T3', 'e', 1, 2, '', '', [[1, '1×'], [2, '2×']]);
+R('aa', 'Band-limit', '16', 'T3', 'e', 0, 1, '', '', [[1, 'clean'], [0, 'raw']]);
+/* horde rows that SURVIVE: tab power and pitch are voiced through lab mappings
+   (enable → gain 0; octave/semi/fine → the oracle's `bend`); the rest are drawn,
+   not voiced, because the oracle has no such law */
+R('enable', 'Osc on', '150', 'T1', 't', 0, 1);
+R('octave', 'Octave', '35', 'T2', 'c', -2, 2, 'int', 'st');
+R('semi', 'Semitones', '36', 'T2', 'c', -12, 12, 'int', 'st');
+R('fine', 'Fine', '37', 'T2', 'c', -100, 100, 'lin', 'c');
+R('rtone', 'Coherence → Tone', '12', 'T2', 'x', -1, 1, 'lin', 'bi');
+R('onset', 'Onset lock', '7', 'T2', 'x', -1, 1, 'lin', 'bi');
+R('dissolve', 'Dissolve', '8', 'T2', 'x', 0.05, 7.94, 'log', 's');
+R('driftDepth', 'Drift', '9', 'T2', 'x', 0, 100, 'lin', 'c');
+R('vol2', 'Swarm 2', '1017', 'T1', 'x', 0, 1, 'lin', '%');
+R('subLvl', 'Sub level', '53', 'T1', 'x', 0, 1, 'lin', '%');
+R('master', 'Master', '100', 'T1', 'c', 0, 1.5, 'lin', '%');
+/* horde's specialist swarm rows (T3, ACCOUNTING §1.1): named in Advanced, not drawn as controls */
+const HORDE_T3 = ['Distribution', 'Seed', 'Detune Law', 'Density Comp', 'Digital', 'Topology', 'Ring Reach', 'Cluster Link',
+  'Phase Lag', 'Poles q', 'Gravity', 'Basin', 'Absolute Coupling', 'Phase Scatter', 'Pan Scatter', 'A/B Balance', 'Tone Tilt',
+  'Hi Tame', 'Drift Mode', 'Keep Phase', 'Pan Motion', 'Pan Motion Mode', 'Centre Pin', 'Harmonic Reach', 'Stretch B',
+  'Octave Spread', 'Root Anchor', 'Pivot', 'Pan Image', 'Fan Curve', 'Fan Invert', 'Super-Width Mode', 'Onset Scatter',
+  'Timing Correction', 'Attack Scatter', 'Per-Partial Env', 'Release Scatter', 'Drift Rate'];
+const TIER_RANK = { T1: 1, T2: 2, T3: 3 };
+
+/* keys the oracle knows: t (smoothed) ∪ d (discrete), read from a live instance */
+const REF = CORE ? new CORE(SR) : null;
+/* `os` is neither smoothed nor discrete in the oracle: set() routes it to setOS() and the value lives
+   on the instance (razor-core.js set/setOS), so it is added by hand or it would never be sent */
+const ORK = new Set(REF ? Object.keys(REF.t).concat(Object.keys(REF.d), ['os']) : []);
+/* defaults: the ORACLE's own constructor values (read, not copied), plus the
+   horde rows it lacks at the accounting's defaults */
+const LAB_DEF = { b1on: 1, enable: 1, octave: 0, semi: 0, fine: 0, rtone: 0, onset: 0, dissolve: 0.63, driftDepth: 0,
+  vol2: 0.4, subLvl: 0, master: 0.8 };
+function oracleDefaults() {
+  if (REF) return Object.assign({}, REF.t, REF.d, { os: REF.os });
+  const o = {};                                           // load-checker fallback: nothing is drawn from it
+  for (const k in SP) o[k] = SP[k].opts ? SP[k].opts[0][0] : (SP[k].min || 0);
+  return o;
+}
+const DEF = Object.assign(oracleDefaults(), LAB_DEF);
+
+/* ---- curves: position 0..1 ↔ value ---- */
+function toPos(sp, v) {
+  const mn = sp.min, mx = sp.max;
+  switch (sp.curve) {
+    case 'log': return clamp(Math.log(Math.max(v, mn) / mn) / Math.log(mx / mn), 0, 1);
+    case 'pow': return clamp(Math.sqrt(Math.max(0, (v - mn) / (mx - mn))), 0, 1);
+    /* width: log with a bypass zone — the bottom 5% of travel is OFF (w < 0.004 bypasses, SPEC §4.1) */
+    case 'wlog': return v < 0.004 ? 0 : clamp(0.05 + 0.95 * Math.log(v / 0.005) / Math.log(200), 0.05, 1);
+    case 'circ': return frac(v);
+    default: return clamp((v - mn) / (mx - mn), 0, 1);
+  }
+}
+function fromPos(sp, p) {
+  const mn = sp.min, mx = sp.max;
+  if (sp.curve === 'circ') return frac(p);
+  p = clamp(p, 0, 1);
+  switch (sp.curve) {
+    case 'log': return mn * Math.pow(mx / mn, p);
+    case 'pow': return mn + (mx - mn) * p * p;
+    case 'wlog': return p < 0.05 ? 0 : 0.005 * Math.pow(200, (p - 0.05) / 0.95);
+    case 'int': return Math.round(mn + (mx - mn) * p);
+    default: return mn + (mx - mn) * p;
+  }
+}
+function fmtHz(f) { return f >= 1000 ? (f / 1000).toFixed(f >= 10000 ? 1 : 2) + ' kHz' : Math.round(f) + ' Hz'; }
+function fmtVal(sp, v) {
+  if (typeof v === 'string') return v;
+  if (v === undefined || v === null || !isFinite(v)) return '—';
+  if (sp.opts) { const o = sp.opts.find(q => q[0] === v); return o ? o[1] : String(v); }
+  switch (sp.unit) {
+    case 'w': return v < 0.004 ? 'off' : (v * 100).toFixed(v < 0.1 ? 1 : 0) + '%';
+    case 'x': return v.toFixed(v < 10 ? 2 : 1) + '×';
+    case 'Hz': return fmtHz(v);
+    case 'deg': return Math.round(frac(v) * 360) + '°';
+    case '%': return Math.round(v * 100) + '%';
+    case 'bi': return (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(2);
+    case 'Hz±': return (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(2) + ' Hz';
+    case 'ms': return v < 1000 ? v.toFixed(v < 10 ? 1 : 0) + ' ms' : (v / 1000).toFixed(2) + ' s';
+    case 'c': return Math.round(v) + ' c';
+    case 'n': return v.toFixed(2);
+    case 'h': return v.toFixed(1);
+    case 's': return v.toFixed(2) + ' s';
+    case 'st': return (v > 0 ? '+' : '') + Math.round(v);
+    case 'int': return String(Math.round(v));
+    default: return String(Math.round(v * 100) / 100);
+  }
+}
+function addrOf(key) {
+  const sp = SP[key]; if (!sp) return key;
+  if (typeof sp.id === 'number') return 'bl.' + key + ' · id ' + sp.id + ' (osc 2: ' + (sp.id + 1000) + ') · ' + sp.tier;
+  return (sp.kind === 'x' ? 'horde row ' : 'horde ') + sp.id + ' · ' + sp.tier + (sp.kind === 'x' ? ' · not in the oracle: drawn, not voiced' : '');
+}
+
+/* ======================================================================
+   B. STATE — declared before anything that runs at setup (L0026)
+   ====================================================================== */
+const Q = (typeof URLSearchParams === 'function' && typeof location !== 'undefined' && typeof location.search === 'string')
+  ? new URLSearchParams(location.search) : null;
+const qp = (k, d) => (Q && Q.get(k) !== null ? Q.get(k) : d);
+const LAB = {
+  page: qp('page', 'osc'), skin: String(qp('skin', 'a')).toUpperCase(), win: qp('win', 'band'),
+  b2look: qp('b2', 'hatch'), direct: qp('direct', '0') === '1', theme: qp('theme', 'light'),
+  view: qp('view', 'sum'), contrib: qp('contrib', '1') === '1', t2open: qp('t2', '0') === '1',
+  advOpen: qp('adv', '0') === '1', mainBlade: 1, still: parseInt(qp('still', '0'), 10) || 0,
+  frozen: false, showVals: qp('vals', '0') === '1', presetName: '', presets: null
+};
+let P = Object.assign({}, DEF, { b2on: 1 });   // the patch (the morph's home corner A). Opens on the oracle's defaults, blade 2 on.
+let EFF = Object.assign({}, P);                 // what is heard: P, then the morph, then the macros
+const MORPH = { on: qp('morph', '0') === '1', x: parseFloat(qp('mx', '0.62')), y: parseFloat(qp('my', '0.3')),
+  circ: qp('circ', '1') === '1', seed: 0x5CA1, delta: null };
+const MORPH_CONT = ['w', 'k', 'kHz', 'c', 'hard', 'depth', 'I', 'w2', 'k2', 'kHz2', 'c2', 'hard2', 'depth2', 'bspread', 'kspread'];
+const MORPH_STEP = ['mode', 'hot', 'mode2', 'mirror'];
+/* the preset's eight macros (B170's intent bus): names and bindings are the LAB's
+   proposal for a SCALPEL patch, depth in position units (Position in cycles). A
+   macro offsets its targets from home; at 0 it changes nothing. */
+const MACROS = [
+  { name: 'Cut', v: 0, binds: [['k', 0.35], ['kHz', 0.35]] },
+  { name: 'Blade', v: 0, binds: [['w', 0.3], ['depth', -0.2]] },
+  { name: 'Sweep', v: 0, binds: [['c', 0.5], ['c2', -0.5]] },
+  { name: 'Bite', v: 0, binds: [['hard', -0.5], ['I', 0.4]] },
+  { name: 'Spread', v: 0, binds: [['bspread', 0.5], ['kspread', 0.25]] },
+  { name: 'Swarm', v: 0, binds: [['K', -0.4], ['detune', 0.3]] },
+  { name: 'Blade 2', v: 0, binds: [['w2', 0.3], ['k2', 0.3]] },
+  { name: 'Motion', v: 0, binds: [['rotRate', 0.12], ['rotSpread', 0.3]] }
+];
+const MON = { core: null, viz: null, vizN: 0, note: 45, f: 110, t: 0, L: null, R: null,
+  buf: new Float32Array(8192), pos: 0, cyc: null, cycN: -1 };
+const AUD = { ctx: null, node: null, out: null, on: false, spn: null, err: '', drone: false, held: new Set(), oct: 0 };
+const AUDIT = { oracle: false, checks: [], tiers: null, probe: '' };
+let CTLS = [];    // paint functions of the controls on screen
+let CANV = [];    // [canvas, painter] pairs on screen
+const RESTRIKE = new Set(['N', 'phaseMode', 'law', 'polyMode', 'kRule', 'kRule2', 'b2sp', 'frame', 'frame2', 'octave', 'semi', 'fine']);
+/* blade 2's "same as blade 1" groups: a switch (or a −1 sentinel) and the pairs it links */
+const FOLLOW = [
+  { id: 'fm', sw: 'b2fm', own: 1, pairs: [['I2', 'I'], ['m2', 'm'], ['mHz2', 'mHz'], ['mUnit2', 'mUnit'], ['fmType2', 'fmType'], ['mshape2', 'mshape']] },
+  { id: 'sp', sw: 'b2sp', own: 1, pairs: [['bspread2', 'bspread'], ['kspread2', 'kspread'], ['kRule2', 'kRule'], ['kRuleAmt2', 'kRuleAmt'],
+      ['wspread2', 'wspread'], ['dspread2', 'dspread'], ['mspread2', 'mspread'], ['ispread2', 'ispread'], ['rotSpread2', 'rotSpread']] },
+  { id: 'env', sw: 'b2env', own: 1, pairs: [['benvK2', 'benvK'], ['benvW2', 'benvW'], ['benvA2', 'benvA'], ['benvD2', 'benvD'], ['benvVel2', 'benvVel']] },
+  { id: 'rot', sw: 'rot2Follow', own: 0, pairs: [['rotRate2', 'rotRate']] },
+  { id: 'lock', sentinel: 'lock2', pairs: [['lock2', 'lock']] },
+  { id: 'mirror', sentinel: 'mirror2', pairs: [['mirror2', 'mirror']] },
+  { id: 'frame', sentinel: 'frame2', pairs: [['frame2', 'frame']] }
+];
+const FOLLOW_OF = {};
+for (const g of FOLLOW) for (const [k2, k1] of g.pairs) FOLLOW_OF[k2] = { g, src: k1 };
+const KEYMAP = { a: 0, w: 1, s: 2, e: 3, d: 4, f: 5, t: 6, g: 7, y: 8, h: 9, u: 10, j: 11, k: 12, o: 13, l: 14 };
+const $ = id => document.getElementById(id);
+const FR = $('frame');
+
+/* ======================================================================
+   C. THE WRITE PATH — one writer, every view goes through it (B212 decision 6)
+   ====================================================================== */
+function linked(key2) {
+  const f = FOLLOW_OF[key2]; if (!f) return null;
+  const g = f.g;
+  if (g.sentinel) return P[g.sentinel] === -1 ? f : null;
+  return P[g.sw] === g.own ? null : f;
+}
+/* the value a control SHOWS: blade 1's when it follows, else its own */
+function shown(key, eff) { const f = linked(key); const src = eff ? EFF : P; return f && !FOLLOW_OF[key].g.sentinel ? src[f.src] : src[key]; }
+/* touching a following control takes ownership: copy blade 1's group across,
+   flip the switch, THEN write — copy-on-write, so nothing jumps */
+function takeOwnership(key2) {
+  const f = linked(key2); if (!f) return;
+  const g = f.g;
+  if (g.sentinel) { P[g.sentinel] = P[f.src]; return; }
+  for (const [k2, k1] of g.pairs) P[k2] = P[k1];
+  P[g.sw] = g.own;
+}
+function write(key, v) {
+  if (linked(key)) takeOwnership(key);
+  P[key] = v;
+  afterWrite(key);
+}
+function afterWrite(key) {
+  EFF = effective();
+  pushOracle();
+  if (RESTRIKE.has(key)) monStrike();
+  if (LAB.frozen) for (let i = 0; i < 6; i++) monStep();
+  const sp = SP[key];
+  if (sp && (sp.kind === 'e' || sp.kind === 't' || sp.kind === 's')) rebuild(); else repaintControls();
+}
+function effective() {
+  const E = Object.assign({}, P);
+  if (MORPH.on) {
+    if (!MORPH.delta) morphReseed();
+    const x = MORPH.x, y = MORPH.y, W = [(1 - x) * (1 - y), x * (1 - y), (1 - x) * y, x * y];
+    for (const k of MORPH_CONT) {
+      const sp = SP[k];
+      if (sp.curve === 'circ') {
+        if (MORPH.circ) {                    // shortest arc: blend unit phasors
+          let sx = 0, sy = 0;
+          for (let j = 0; j < 4; j++) { const a = TAU * cornerVal(j, k); sx += W[j] * Math.cos(a); sy += W[j] * Math.sin(a); }
+          E[k] = frac(Math.atan2(sy, sx) / TAU);
+        } else { let s = 0; for (let j = 0; j < 4; j++) s += W[j] * frac(cornerVal(j, k)); E[k] = s; }   // today's linear blend
+      } else { let p = 0; for (let j = 0; j < 4; j++) p += W[j] * toPos(sp, cornerVal(j, k)); E[k] = fromPos(sp, p); }
+    }
+    let jb = 0; for (let j = 1; j < 4; j++) if (W[j] > W[jb]) jb = j;
+    for (const k of MORPH_STEP) E[k] = cornerVal(jb, k);
+  }
+  for (const mc of MACROS) if (mc.v) for (const [k, d] of mc.binds) {
+    const sp = SP[k];
+    E[k] = sp.curve === 'circ' ? frac(E[k] + mc.v * d) : fromPos(sp, toPos(sp, E[k]) + mc.v * d);
+  }
+  E.bend = (E.octave || 0) * 12 + (E.semi || 0) + (E.fine || 0) / 100;
+  return E;
+}
+function morphReseed() {
+  const r = mulberry32(MORPH.seed);
+  MORPH.delta = [null];
+  for (let j = 1; j < 4; j++) {
+    const d = { step: {} };
+    for (const k of MORPH_CONT) d[k] = (r() * 2 - 1) * (SP[k].curve === 'circ' ? 0.5 : 0.3);
+    for (const k of MORPH_STEP) if (r() < 0.35) { const o = SP[k].opts; d.step[k] = o[Math.floor(r() * o.length)][0]; }
+    MORPH.delta.push(d);
+  }
+}
+function cornerVal(j, k) {
+  if (!j || !MORPH.delta) return P[k];
+  const d = MORPH.delta[j], sp = SP[k];
+  if (MORPH_STEP.indexOf(k) >= 0) return (k in d.step) ? d.step[k] : P[k];
+  return sp.curve === 'circ' ? frac(P[k] + d[k]) : fromPos(sp, toPos(sp, P[k]) + d[k]);
+}
+/* what the oracle receives: only its own keys, plus three stated lab mappings —
+   blade 1 off ⇒ width 0 (the oracle's bypass), tab power off ⇒ gain 0, pitch ⇒ bend */
+function oracleParams(E) {
+  const o = {};
+  for (const k in E) if (ORK.has(k)) o[k] = E[k];
+  if (!E.b1on) o.w = 0;
+  if (!E.enable) o.gain = 0;
+  return o;
+}
+function pushOracle() {
+  const o = oracleParams(EFF);
+  if (MON.core) MON.core.set(o);
+  if (AUD.node && AUD.node.port) AUD.node.port.postMessage(Object.assign({ t: 'p' }, o));
+  else if (AUD.spn && AUD.core) AUD.core.set(o);
+  if (AUD.out) AUD.out.gain.value = EFF.master;
+}
+
+/* ======================================================================
+   D. THE MONITOR — a seeded oracle instance the visualizers read
+   ====================================================================== */
+function monStrike() {
+  if (!CORE) return;
+  seedOracle(0xB271 + MON.note);
+  const c = new CORE(SR);
+  c.set(oracleParams(EFF)); Object.assign(c.s, c.t);
+  c.post = m => { if (m && m.t === 'viz' && m.mem) { MON.viz = m; MON.vizN++; } };
+  MON.f = mtof(MON.note);
+  c.noteOn(MON.note, MON.f, 0.9);
+  MON.core = c; MON.t = 0; MON.viz = null; MON.buf.fill(0); MON.pos = 0;
+  monStep();
+}
+/* one frame of engine time: a WHOLE number of note periods (a stroboscope), so a
+   blade window stands still and the members move only as the swarm moves */
+function monStep() {
+  const c = MON.core; if (!c) return;
+  const f = MON.f * Math.pow(2, (EFF.bend || 0) / 12), per = SR / f;
+  const n = Math.max(64, Math.round(Math.max(1, Math.round(512 / per)) * per));
+  if (!MON.L || MON.L.length !== n) { MON.L = new Float32Array(n); MON.R = new Float32Array(n); }
+  c.render(MON.L, MON.R);
+  const B = MON.buf;
+  for (let i = 0; i < n; i++) { B[MON.pos] = MON.L[i]; MON.pos = (MON.pos + 1) & 8191; }
+  MON.t += n;
+  if (MON.t > 2 * SR && !LAB.frozen) monStrike();     // re-strike every 2 s of engine time: settle and blade envelopes stay visible
+}
+function liveVoice(c) { let v = null; if (c) for (const x of c.voices) if (x.active && (!v || x.age > v.age)) v = x; return v; }
+
+/* The per-member blade context, from the oracle's OWN visualizer feed (the
+   `post({t:'viz', mem})` its render() publishes) and its smoothed state `s`. */
+function memberCtx(c, viz, i) {
+  const s = c.s, d = c.d, m = viz.mem, f = viz.freq;
+  const P1 = Object.assign({}, s);
+  P1.w = m.w[i]; P1.depth = m.dep[i]; P1.I = m.I[i]; P1.mEff = d.mUnit ? s.mHz / f : s.m;
+  const x = { P1, c1: frac(s.c + m.c[i]), k1: m.k[i], mr1: m.mr[i], mn1: m.mn[i], G: null, i };
+  if (s.b2on) {
+    const G = CORE.g2(), mEff2 = d.b2fm ? (d.mUnit2 ? s.mHz2 / f : s.m2) : P1.mEff;
+    CORE.fillG2(G, s, m.w2[i], m.dep2[i], m.I2[i], mEff2);
+    x.G = G; x.c2 = frac(s.c2 + m.c[i] + m.c2[i]); x.k2 = m.k2[i]; x.mr2 = m.mr2[i]; x.mn2 = m.mn2[i];
+  }
+  return x;
+}
+function newNs(seed) { const r = mulberry32(seed); return { idx: -1, val: 0, inside: false, g: 0, seed: 0, acc: 0, xin: 0, rnd: () => r() * 2 - 1 }; }
+/* the contribution of one blade at phase phi: voice() − base, plus its twin half a
+   cycle later (the sum RazorCore.out forms). mr/mn are the oracle's static
+   Sine→Saw fields, set per blade exactly as out() and render() set them. */
+function bladeAt(p, phi, cc, kk, mr, mn, ns, ns2, modX) {
+  CORE.mr = mr; CORE.mn = mn;
+  let y = CORE.voice(p, phi, cc, kk, modX, ns) - CORE.wave(p.base, phi);
+  if (p.mirror >= 2) {
+    const ph2 = frac(phi - 0.5);
+    ns2.acc = ns.acc; ns2.xin = ns.xin;
+    const t = CORE.voice(p, ph2, cc, kk, modX, ns2) - CORE.wave(p.base, ph2);
+    y += p.mirror === 2 ? -t : t;
+  }
+  return y;
+}
+/* one member's full cycle: base, blade 1's and blade 2's contributions, over M points */
+function memberCycle(c, x, M) {
+  const P1 = x.P1, base = new Float64Array(M), d1 = new Float64Array(M), d2 = new Float64Array(M);
+  const ns = newNs(0x51 + x.i), ns2 = newNs(0x52 + x.i), ns3 = newNs(0x53 + x.i), ns4 = newNs(0x54 + x.i);
+  const on1 = P1.w >= 0.004, st1 = frac(x.c1 - P1.w / 2), kk1 = P1.lock === 1 ? x.k1 / Math.max(P1.w, 1e-3) : x.k1;
+  const G = x.G, on2 = !!G && G.w >= 0.004, st2 = G ? frac(x.c2 - G.w / 2) : 0, kk2 = G ? (G.lock === 1 ? x.k2 / Math.max(G.w, 1e-3) : x.k2) : 0;
+  let pe1 = 2, pe2 = 2;
+  for (let n = 0; n < M; n++) {
+    const phi = n / M;
+    base[n] = CORE.wave(P1.base, phi);
+    if (on1) {
+      const e = frac(phi - st1);
+      CORE.fmStep(P1, ns, e, e < pe1, kk1, P1.mEff * phi, 1 / M); pe1 = e;
+      d1[n] = bladeAt(P1, phi, x.c1, x.k1, x.mr1, x.mn1, ns, ns2, P1.mEff * phi);
+    }
+    if (on2) {
+      const e = frac(phi - st2);
+      CORE.fmStep(G, ns3, e, e < pe2, kk2, G.mEff * phi, 1 / M); pe2 = e;
+      d2[n] = bladeAt(G, phi, x.c2, x.k2, x.mr2, x.mn2, ns3, ns4, G.mEff * phi);
+    }
+  }
+  return { base, d1, d2, st1, w1: on1 ? P1.w : 0, st2, w2: on2 ? G.w : 0,
+    p1: P1, p2: G, c1: x.c1, c2: x.c2 };
+}
+/* the whole swarm's cycle, cached per oracle viz message */
+function cycleData() {
+  const c = MON.core, viz = MON.viz;
+  if (!c || !viz || !viz.mem) return null;
+  if (MON.cycN === MON.vizN && MON.cyc) return MON.cyc;
+  const N = c.d.N, M = 384, mem = [], sum = new Float64Array(M), s1 = new Float64Array(M), s2 = new Float64Array(M);
+  for (let i = 0; i < N; i++) {
+    const cy = memberCycle(c, memberCtx(c, viz, i), M);
+    const y = new Float64Array(M); let mean = 0;
+    for (let n = 0; n < M; n++) { y[n] = cy.base[n] + cy.d1[n] + cy.d2[n]; mean += y[n]; }
+    mean /= M;
+    /* per-cycle DC (SPEC §7, the default): the heard cycle is the drawn one minus its mean */
+    if (c.d.dcMode > 0) for (let n = 0; n < M; n++) y[n] -= mean;
+    for (let n = 0; n < M; n++) { sum[n] += y[n] / N; s1[n] += cy.d1[n] / N; s2[n] += cy.d2[n] / N; }
+    cy.y = y; mem.push(cy);
+  }
+  MON.cyc = { N, M, mem, sum, s1, s2, base: mem.length ? mem[0].base : new Float64Array(M), r: viz.r, f: viz.freq };
+  MON.cycN = MON.vizN;
+  return MON.cyc;
+}
+/* the predicted formant band — the bench's own display rule (scalpel-bench.html:2197-2201),
+   per blade: centre = cut rate as a frequency, main lobe ± f0/width·(1 + edges) */
+function formant(b, f0) {
+  const E = EFF, s = b === 1 ? '' : '2';
+  const on = b === 1 ? E.b1on : E.b2on;
+  const lock = b === 1 ? E.lock : (E.lock2 < 0 ? E.lock : E.lock2);
+  const w = E['w' + s], k = E['k' + s], kHz = E['kHz' + s], hard = E['hard' + s], mode = E['mode' + s];
+  if (!on || w < 0.004) return { kind: 'off' };
+  const fc = lock === 2 ? kHz : lock === 1 ? k * f0 / Math.max(w, 1e-3) : k * f0;
+  const bw = (f0 / Math.max(w, 1e-3)) * (1 + hard);
+  const kind = ({ 3: 'hold', 4: 'fold', 6: 'hold' })[mode] || 'formant';
+  return { kind, fc, bw, drive: 1 + ((lock === 2 ? kHz / f0 : k) - 1) * 0.25 };
+}
+/* a plain radix-2 FFT over the monitor's last 4096 output samples */
+const FFT_N = 4096;
+const FFT_RE = new Float64Array(FFT_N), FFT_IM = new Float64Array(FFT_N);
+function spectrum() {
+  const B = MON.buf; let pos = MON.pos, wsum = 0;
+  for (let i = 0; i < FFT_N; i++) {
+    const w = 0.5 - 0.5 * Math.cos(TAU * i / FFT_N); wsum += w;
+    FFT_RE[i] = B[(pos - FFT_N + i + 8192) & 8191] * w; FFT_IM[i] = 0;
+  }
+  const re = FFT_RE, im = FFT_IM;
+  for (let i = 1, j = 0; i < FFT_N; i++) {
+    let bit = FFT_N >> 1; for (; j & bit; bit >>= 1) j ^= bit; j ^= bit;
+    if (i < j) { let t = re[i]; re[i] = re[j]; re[j] = t; t = im[i]; im[i] = im[j]; im[j] = t; }
+  }
+  for (let len = 2; len <= FFT_N; len <<= 1) {
+    const ang = -TAU / len, wr = Math.cos(ang), wi = Math.sin(ang), hl = len >> 1;
+    for (let i = 0; i < FFT_N; i += len) {
+      let cr = 1, ci = 0;
+      for (let k = 0; k < hl; k++) {
+        const ar = re[i + k], ai = im[i + k];
+        const br = re[i + k + hl] * cr - im[i + k + hl] * ci, bi = re[i + k + hl] * ci + im[i + k + hl] * cr;
+        re[i + k] = ar + br; im[i + k] = ai + bi; re[i + k + hl] = ar - br; im[i + k + hl] = ai - bi;
+        const t = cr * wr - ci * wi; ci = cr * wi + ci * wr; cr = t;
+      }
+    }
+  }
+  const out = new Float64Array(FFT_N / 2);
+  for (let k = 0; k < FFT_N / 2; k++) out[k] = 20 * Math.log10(2 * Math.hypot(re[k], im[k]) / wsum + 1e-9);
+  return out;
+}
+
+/* ======================================================================
+   E. TOKENS AND CANVAS (fx-design-lab's reader: keyed by name, cleared on theme change)
+   ====================================================================== */
+let _tok = {};
+function TOK(name, fallback) {
+  if (_tok[name] === undefined) {
+    let v = '';
+    try { v = getComputedStyle(document.body || document.documentElement).getPropertyValue(name).trim(); } catch (_) { v = ''; }
+    _tok[name] = (typeof v === 'string' && v) ? v : (fallback || '#888');
+  }
+  return _tok[name];
+}
+function RGBA(hex, a) {
+  const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(hex).trim());
+  if (!m) return hex;
+  return `rgba(${parseInt(m[1], 16)},${parseInt(m[2], 16)},${parseInt(m[3], 16)},${a})`;
+}
+/* gui2's TOKA: every screen alpha passes through --scr-alpha, so the light
+   (orchid) tube can lift faint strokes that would vanish on it */
+function TOKA(name, a) { const m = parseFloat(TOK('--scr-alpha', '1')) || 1; return RGBA(TOK(name), Math.min(1, a * m)); }
+function fit(cv) {
+  const g = cv.getContext ? cv.getContext('2d') : null;
+  if (!g) return [null, 0, 0];
+  const dpr = (typeof devicePixelRatio === 'number' && devicePixelRatio) || 1;
+  const W = cv.clientWidth | 0, H = cv.clientHeight | 0;
+  if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return [g, W, H];
+}
+function tube(g, W, H) { g.fillStyle = TOK('--scr-tube'); g.fillRect(0, 0, W, H); }
+function say(g, W, H, t) { g.fillStyle = TOKA('--scr-marker', 0.9); g.font = '10px ui-monospace,Menlo,monospace'; g.textAlign = 'center'; g.fillText(t, W / 2, H / 2); g.textAlign = 'left'; }
+/* blade identity on a tube: blade 1 = the authored phosphor; blade 2 = the same,
+   hatched (standard) or its own hue (departure) */
+function bladeInk(b) { return b === 2 && LAB.b2look === 'hue' ? '--scr-b2' : '--scr-value'; }
+function hatch(g, x0, x1, y0, y1, ink, a) {
+  g.save(); g.beginPath(); g.rect(x0, y0, x1 - x0, y1 - y0); g.clip();
+  g.strokeStyle = TOKA(ink, a); g.lineWidth = 1.2; g.beginPath();
+  for (let x = x0 - (y1 - y0); x < x1; x += 6) { g.moveTo(x, y1); g.lineTo(x + (y1 - y0), y0); }
+  g.stroke(); g.restore();
+}
+
+/* ======================================================================
+   F. PAINTERS
+   ====================================================================== */
+/* gate of a blade at in-blade offset e: SPEC §4.1's raised-cosine edges (crush: none) */
+function gateAt(e, w, hard, mode) {
+  if (mode === 6) return 1;
+  const t = hard * w * 0.5;
+  if (t <= 1e-9) return 1;
+  if (e < t) return 0.5 - 0.5 * Math.cos(Math.PI * e / t);
+  if (e > w - t) return 0.5 - 0.5 * Math.cos(Math.PI * (w - e) / t);
+  return 1;
+}
+/* one window [st, st+w) of blade b on a cycle of width W — band (I) or gate (II) */
+function drawWindow(g, st, w, b, p, W, top, bot, alpha, twin) {
+  if (w < 0.004) return;
+  const ink = bladeInk(b), segs = [];
+  const a = st * W, z = (st + w) * W;
+  if (z <= W) segs.push([a, z, 0]); else { segs.push([a, W, 0]); segs.push([0, z - W, W - a]); }
+  for (const [x0, x1] of segs) {
+    if (LAB.win === 'gate') {
+      /* II · GATE: the window drawn as its own gate g(e)·depth — Edges and Depth become shape */
+      const hgt = bot - top;
+      const gatePath = () => {
+        g.beginPath(); g.moveTo(x0, bot);
+        for (let x = x0; x <= x1 + 0.01; x += 1.5) {
+          const e = frac((x / W) - st + 1e-9);
+          g.lineTo(x, bot - gateAt(e, w, p.hard, p.mode) * p.depth * hgt * 0.92);
+        }
+        g.lineTo(x1, bot); g.closePath();
+      };
+      gatePath();
+      if (b === 2 && LAB.b2look !== 'hue') {
+        g.save(); g.clip(); hatch(g, x0, x1, top, bot, ink, alpha * 1.6); g.restore();
+      } else { g.fillStyle = TOKA(ink, alpha); g.fill(); }
+      /* hatch() leaves its own lines as the current path — re-trace the gate before the outline */
+      gatePath();
+      g.strokeStyle = TOKA(ink, 0.8); g.lineWidth = 1.2; if (twin) g.setLineDash([3, 3]); g.stroke(); g.setLineDash([]);
+    } else {
+      /* I · BAND: a translucent band over the whole height, ink edges */
+      if (b === 2 && LAB.b2look !== 'hue') hatch(g, x0, x1, top, bot, ink, alpha * 1.6);
+      else { g.fillStyle = TOKA(ink, alpha); g.fillRect(x0, top, x1 - x0, bot - top); }
+      g.strokeStyle = TOKA(ink, 0.75); g.lineWidth = 1.2; if (twin) g.setLineDash([3, 3]);
+      g.beginPath(); g.moveTo(x0 + 0.5, top); g.lineTo(x0 + 0.5, bot); g.moveTo(x1 - 0.5, top); g.lineTo(x1 - 0.5, bot); g.stroke(); g.setLineDash([]);
+    }
+  }
+}
+function paintCycle(cv, mini) {
+  const [g, W, H] = fit(cv); if (!g) return;
+  tube(g, W, H);
+  if (!CORE) { say(g, W, H, 'oracle not loaded — open via tools/serve_labs.py'); return; }
+  const cy = cycleData(); if (!cy) { say(g, W, H, 'monitor warming up'); return; }
+  const top = 3, bot = H - 3, mid = H / 2;
+  g.strokeStyle = TOKA('--scr-grid', 0.18); g.lineWidth = 1; g.beginPath();
+  for (let q = 1; q < 4; q++) { const x = Math.round(q * W / 4) + 0.5; g.moveTo(x, top); g.lineTo(x, bot); }
+  g.moveTo(0, Math.round(mid) + 0.5); g.lineTo(W, Math.round(mid) + 0.5); g.stroke();
+  const lanes = LAB.view === 'members' && !mini && cy.N > 1;
+  const nL = lanes ? cy.N : 1;
+  for (let L = 0; L < nL; L++) {
+    const y0 = top + (bot - top) * L / nL, y1 = top + (bot - top) * (L + 1) / nL, ym = (y0 + y1) / 2, amp = (y1 - y0) / 2 / 1.25;
+    /* windows: in SUM view every member's own window at low alpha, so a spread reads as a smear */
+    const who = lanes ? [cy.mem[L]] : cy.mem;
+    const a = lanes ? 0.2 : Math.max(0.07, 0.22 / Math.sqrt(who.length));
+    for (const m of who) {
+      if (m.w1) { drawWindow(g, m.st1, m.w1, 1, m.p1, W, y0, y1, a, false); if (m.p1.mirror >= 2) drawWindow(g, frac(m.st1 + 0.5), m.w1, 1, m.p1, W, y0, y1, a * 0.6, true); }
+      if (m.w2) { drawWindow(g, m.st2, m.w2, 2, m.p2, W, y0, y1, a, false); if (m.p2.mirror >= 2) drawWindow(g, frac(m.st2 + 0.5), m.w2, 2, m.p2, W, y0, y1, a * 0.6, true); }
+    }
+    const line = (arr, ink, alpha, lw, dash) => {
+      g.strokeStyle = TOKA(ink, alpha); g.lineWidth = lw; if (dash) g.setLineDash(dash);
+      g.beginPath();
+      for (let n = 0; n <= cy.M; n++) { const v = arr[n % cy.M], x = n / cy.M * W, y = ym - v * amp; n ? g.lineTo(x, y) : g.moveTo(x, y); }
+      g.stroke(); g.setLineDash([]);
+    };
+    line(cy.base, '--scr-grid', 0.55, 1, [3, 3]);                    // the base wave, the reference behind
+    if (lanes) line(cy.mem[L].y, '--scr-meter', 0.95, 1.5);
+    else {
+      if (cy.N > 1 && !mini) for (const m of cy.mem) line(m.y, '--scr-physics', 0.28, 1);   // each member, faint
+      if (LAB.contrib && !mini) { line(cy.s1, bladeInk(1), 0.8, 1, [1, 2]); if (P.b2on) line(cy.s2, bladeInk(2), 0.8, 1, [4, 2]); }
+      line(cy.sum, '--scr-meter', 1, mini ? 1.4 : 1.8);                // what is heard (per-cycle DC applied)
+    }
+  }
+  if (!mini) {
+    g.font = '9.5px ui-monospace,Menlo,monospace'; g.textBaseline = 'top';
+    const m0 = cy.mem[0];
+    const tag = (st, w, b) => { if (!w) return; g.fillStyle = TOKA(bladeInk(b), 1); g.fillText(b === 1 ? '①' : '②', frac(st + w / 2) * W - 4, top + 2); };
+    tag(m0.st1, m0.w1, 1); tag(m0.st2, m0.w2, 2);
+    if (LAB.skin === 'C' || LAB.direct) drawGrips(g, W, top, bot);
+    g.textBaseline = 'alphabetic';
+  }
+}
+/* direct-manipulation grips, drawn at the EFFECTIVE window (what is heard) */
+function drawGrips(g, W, top, bot) {
+  for (const b of [1, 2]) {
+    const s = b === 1 ? '' : '2', on = b === 1 ? EFF.b1on : EFF.b2on, w = EFF['w' + s];
+    if (!on || w < 0.004) continue;
+    const c = EFF['c' + s], st = frac(c - w / 2), ink = bladeInk(b);
+    g.fillStyle = TOKA(ink, 1); g.strokeStyle = TOK('--scr-tube');
+    const cx = c * W;
+    g.fillRect(cx - 7, top + 13, 14, 5);                                        // position/depth grip
+    for (const e of [st, frac(st + w)]) { g.fillRect(e * W - 2, bot - 22, 4, 18); }   // width grips
+    const t = EFF['hard' + s] * w * 0.5;                                        // edges grip: a tick at the taper's end
+    g.beginPath(); g.moveTo(frac(st + t) * W, top + 22); g.lineTo(frac(st + t) * W - 4, top + 30); g.lineTo(frac(st + t) * W + 4, top + 30); g.closePath(); g.fill();
+  }
+}
+function paintRing(cv, mini) {
+  const [g, W, H] = fit(cv); if (!g) return;
+  tube(g, W, H);
+  if (!CORE) { say(g, W, H, 'oracle not loaded'); return; }
+  const c = MON.core, v = liveVoice(c), cy = cycleData();
+  if (!v || !cy) { say(g, W, H, 'monitor warming up'); return; }
+  const N = c.d.N, cx = W / 2, cyy = H / 2;
+  const Rr = Math.max(8, Math.min(W, H) / 2 - (mini ? 10 : 8) - (mini ? 0 : Math.min(9, N) * 2.2));
+  const P2 = p => [cx + Math.cos(TAU * p) * Rr, cyy - Math.sin(TAU * p) * Rr];
+  g.strokeStyle = TOKA('--scr-grid', 0.3); g.lineWidth = 1;
+  g.beginPath(); g.arc(cx, cyy, Rr, 0, TAU); g.stroke();
+  /* each member's OWN blade windows as a concentric arc outside the circle
+     (member 1 innermost), so position spreads read as a fan */
+  const arc = (st, w, rad, b, lw) => {
+    if (w < 0.004) return;
+    g.strokeStyle = TOKA(bladeInk(b), b === 2 && LAB.b2look !== 'hue' ? 0.55 : 0.85); g.lineWidth = lw;
+    if (b === 2 && LAB.b2look !== 'hue') g.setLineDash([3, 2]);
+    g.beginPath(); g.arc(cx, cyy, rad, -TAU * (st + w), -TAU * st); g.stroke(); g.setLineDash([]);
+  };
+  for (let i = 0; i < cy.mem.length; i++) {
+    const m = cy.mem[i], rad = Rr + 5 + (mini ? 0 : i * 2.2);
+    arc(m.st1, m.w1, rad, 1, mini ? 3 : 1.8); arc(m.st2, m.w2, rad + (mini ? 3.5 : 0.001), 2, mini ? 3 : 1.8);
+    if (mini) break;
+  }
+  /* the mean field R·e^iψ (--physics: the engine's own state) */
+  let sx = 0, sy = 0; const ph = [];
+  for (let i = 0; i < N; i++) { const p = v.m[i].phi; ph.push(p); sx += Math.cos(TAU * p); sy += Math.sin(TAU * p); }
+  sx /= N; sy /= N; const r = Math.hypot(sx, sy);
+  g.strokeStyle = TOKA('--scr-physics', 1); g.lineWidth = 2;
+  g.beginPath(); g.moveTo(cx, cyy); g.lineTo(cx + sx * Rr, cyy - sy * Rr); g.stroke();
+  const pos = ph.map(P2);
+  /* cross-member modulation: member i+1 pushes member i (ring topology, SPEC §6) */
+  if (EFF.xm > 0.0005 && N > 1) {
+    g.strokeStyle = TOKA('--scr-value', Math.min(0.9, 0.3 + EFF.xm)); g.fillStyle = g.strokeStyle; g.lineWidth = 1 + 1.5 * EFF.xm;
+    for (let i = 0; i < N; i++) {
+      const [x1, y1] = pos[(i + 1) % N], [x2, y2] = pos[i], dx = x2 - x1, dy = y2 - y1, Lh = Math.hypot(dx, dy);
+      if (Lh < 12) continue;
+      const ux = dx / Lh, uy = dy / Lh, ex = x2 - ux * 7, ey = y2 - uy * 7;
+      g.beginPath(); g.moveTo(x1 + ux * 6, y1 + uy * 6); g.lineTo(ex, ey); g.stroke();
+      g.beginPath(); g.moveTo(ex, ey); g.lineTo(ex - ux * 5 - uy * 3, ey - uy * 5 + ux * 3); g.lineTo(ex - ux * 5 + uy * 3, ey - uy * 5 - ux * 3); g.closePath(); g.fill();
+    }
+  }
+  if (EFF.fb > 0.0005) {
+    g.strokeStyle = TOKA('--scr-value', Math.min(0.9, 0.3 + EFF.fb)); g.lineWidth = 1;
+    for (const [x, y] of pos) { g.beginPath(); g.arc(x, y, 7 + 4 * EFF.fb, 0, TAU); g.stroke(); }
+  }
+  /* members: filled in the value phosphor while they are inside one of their blades */
+  for (let i = 0; i < N; i++) {
+    const m = cy.mem[i] || cy.mem[0], p = ph[i];
+    const in1 = m.w1 && frac(p - m.st1) < m.w1, in2 = m.w2 && frac(p - m.st2) < m.w2;
+    const [x, y] = pos[i];
+    g.beginPath(); g.arc(x, y, mini ? 3 : 4.5, 0, TAU);
+    g.fillStyle = in1 || in2 ? TOKA(in2 && !in1 ? bladeInk(2) : '--scr-value', 1) : TOKA('--scr-physics', 1);
+    g.fill();
+  }
+  if (!mini) {
+    g.font = '9.5px ui-monospace,Menlo,monospace'; g.fillStyle = TOKA('--scr-meter', 1);
+    g.fillText('Coherence ' + r.toFixed(2), 5, H - 6);
+    g.fillStyle = TOKA('--scr-grid', 0.9); g.fillText(N + ' members', 5, 12);
+  }
+}
+function paintSpectrum(cv) {
+  const [g, W, H] = fit(cv); if (!g) return;
+  tube(g, W, H);
+  if (!CORE || !MON.core) { say(g, W, H, 'oracle not loaded'); return; }
+  const fLo = 30, fHi = 20000, top = 4, bot = H - 13;
+  const fx = f => Math.log(f / fLo) / Math.log(fHi / fLo) * W;
+  const dy = db => top + (1 - (db + 100) / 100) * (bot - top);
+  g.strokeStyle = TOKA('--scr-grid', 0.18); g.lineWidth = 1; g.beginPath();
+  for (const f of [100, 1000, 10000]) { const x = Math.round(fx(f)) + 0.5; g.moveTo(x, top); g.lineTo(x, bot); }
+  g.stroke();
+  g.fillStyle = TOKA('--scr-grid', 0.8); g.font = '8.5px ui-monospace,Menlo,monospace';
+  for (const [f, t] of [[100, '100'], [1000, '1k'], [10000, '10k']]) g.fillText(t, fx(f) + 2, H - 3);
+  const f0 = MON.f * Math.pow(2, (EFF.bend || 0) / 12);
+  /* predicted formant bands (the bench's rule), drawn BEHIND the measured line */
+  const notes = [];
+  for (const b of [1, 2]) {
+    const F = formant(b, f0);
+    if (F.kind === 'off') continue;
+    const ink = bladeInk(b);
+    if (F.kind === 'formant') {
+      const x0 = fx(Math.max(fLo, F.fc - F.bw)), x1 = fx(Math.min(fHi, F.fc + F.bw));
+      if (x1 > x0) { if (b === 2 && LAB.b2look !== 'hue') hatch(g, x0, x1, top, bot, ink, 0.3); else { g.fillStyle = TOKA(ink, 0.16); g.fillRect(x0, top, x1 - x0, bot - top); } }
+      if (F.fc > fLo && F.fc < fHi) { g.strokeStyle = TOKA(ink, 0.9); g.setLineDash([3, 3]); g.beginPath(); g.moveTo(fx(F.fc), top); g.lineTo(fx(F.fc), bot); g.stroke(); g.setLineDash([]); }
+      notes.push((b === 1 ? '①' : '②') + ' formant ' + fmtHz(F.fc) + ' ±' + fmtHz(F.bw));
+    } else if (F.kind === 'hold') notes.push((b === 1 ? '①' : '②') + ' hold ' + fmtHz(F.fc) + ' (a null)');
+    else notes.push((b === 1 ? '①' : '②') + ' fold ×' + F.drive.toFixed(2));
+  }
+  const sp = spectrum(), binHz = SR / FFT_N;
+  g.strokeStyle = TOKA('--scr-meter', 1); g.lineWidth = 1.2; g.beginPath();
+  let started = false, lastX = -1, peak = -200;
+  for (let k = 1; k < sp.length; k++) {
+    const f = k * binHz; if (f < fLo || f > fHi) continue;
+    const x = Math.floor(fx(f));
+    peak = Math.max(peak, sp[k]);
+    if (x === lastX) continue;
+    const y = dy(Math.max(-100, peak)); peak = -200; lastX = x;
+    started ? g.lineTo(x, y) : g.moveTo(x, y); started = true;
+  }
+  g.stroke();
+  g.fillStyle = TOKA('--scr-marker', 1); g.fillRect(fx(f0) - 1, bot - 5, 2, 5);
+  const n = cv._note; if (n) n.textContent = notes.length ? notes.join(' · ') : 'no blade on';
+}
+function padGrid(g, W, H) {
+  g.strokeStyle = TOKA('--scr-grid', 0.18); g.lineWidth = 1; g.beginPath();
+  for (let q = 1; q < 4; q++) { const x = Math.round(q * W / 4) + 0.5, y = Math.round(q * H / 4) + 0.5; g.moveTo(x, 0); g.lineTo(x, H); g.moveTo(0, y); g.lineTo(W, y); }
+  g.stroke();
+}
+function puck(g, x, y, ink, ring) {
+  g.beginPath(); g.arc(x, y, 6, 0, TAU); g.fillStyle = TOKA(ink, 1); g.fill();
+  g.lineWidth = 1.5; g.strokeStyle = TOK('--scr-tube'); g.stroke();
+  if (ring) { g.beginPath(); g.arc(x, y, 6 + ring, 0, TAU); g.strokeStyle = TOKA('--scr-meter', 0.9); g.lineWidth = 1.2; g.stroke(); }
+}
+/* the Coupling × Detune pad: gui2's x = Detune, y = Coupling (B227's reading kept) */
+function paintKD(cv) {
+  const [g, W, H] = fit(cv); if (!g) return;
+  tube(g, W, H); padGrid(g, W, H);
+  g.strokeStyle = TOKA('--scr-grid', 0.5); g.beginPath(); g.moveTo(0, H / 2 + 0.5); g.lineTo(W, H / 2 + 0.5); g.stroke();
+  g.font = '8.5px ui-monospace,Menlo,monospace'; g.fillStyle = TOKA('--scr-grid', 0.9);
+  g.fillText('lock', 4, 11); g.fillText('splay', 4, H - 4); g.textAlign = 'right'; g.fillText('detune →', W - 4, H - 4); g.textAlign = 'left';
+  const X = v => clamp(v / 100, 0, 1) * W, Y = k => (1 - (k + 1) / 2) * H;
+  const v = liveVoice(MON.core), r = v ? v.r : 0;
+  if (Math.abs(EFF.K - P.K) > 1e-4 || Math.abs(EFF.detune - P.detune) > 1e-4) {
+    g.strokeStyle = TOKA('--scr-physics', 0.8); g.setLineDash([2, 2]); g.beginPath(); g.moveTo(X(P.detune), Y(P.K)); g.lineTo(X(EFF.detune), Y(EFF.K)); g.stroke(); g.setLineDash([]);
+    g.beginPath(); g.arc(X(EFF.detune), Y(EFF.K), 4, 0, TAU); g.fillStyle = TOKA('--scr-physics', 1); g.fill();
+  }
+  puck(g, X(P.detune), Y(P.K), '--scr-value', 3 + 7 * r);
+  g.fillStyle = TOKA('--scr-meter', 1); g.textAlign = 'right';
+  g.fillText(W < 200 ? 'Coh ' + r.toFixed(2) : 'K ' + fmtVal(SP.K, P.K) + ' · ' + Math.round(P.detune) + ' c · Coherence ' + r.toFixed(2), W - 4, 11); g.textAlign = 'left';
+}
+function paintMorph(cv) {
+  const [g, W, H] = fit(cv); if (!g) return;
+  tube(g, W, H); padGrid(g, W, H);
+  const cs = [['A', '--cA', 0, 0], ['B', '--cB', 1, 0], ['C', '--cC', 0, 1], ['D', '--cD', 1, 1]];
+  g.font = 'bold 10px ui-monospace,Menlo,monospace';
+  for (const [n, t, x, y] of cs) {
+    const px = x ? W - 16 : 2, py = y ? H - 16 : 2;
+    g.fillStyle = TOK(t); g.fillRect(px, py, 14, 14); g.fillStyle = '#191521'; g.fillText(n, px + 4, py + 11);
+  }
+  if (!MORPH.on) { g.fillStyle = TOKA('--scr-grid', 0.9); g.font = '9.5px ui-monospace,Menlo,monospace'; g.textAlign = 'center'; g.fillText('MORPH OFF — the patch is corner A', W / 2, H / 2 + 3); g.textAlign = 'left'; }
+  puck(g, MORPH.x * W, MORPH.y * H, MORPH.on ? '--scr-physics' : '--scr-grid');
+}
+function paintXY(cv) {
+  const [g, W, H] = fit(cv); if (!g) return;
+  tube(g, W, H); padGrid(g, W, H);
+  const kKey = EFF.lock === 2 ? 'kHz' : 'k';
+  const X = w => toPos(SP.w, w) * W, Y = k => (1 - toPos(SP[kKey], k)) * H;
+  g.font = '8.5px ui-monospace,Menlo,monospace'; g.fillStyle = TOKA('--scr-grid', 0.9);
+  g.fillText('cut rate ↑', 4, 11); g.textAlign = 'right'; g.fillText('width →', W - 4, H - 4); g.textAlign = 'left';
+  g.fillStyle = TOKA('--scr-grid', 0.25); g.fillRect(0, 0, 0.05 * W, H);
+  if (Math.abs(toPos(SP.w, EFF.w) - toPos(SP.w, P.w)) > 1e-4 || Math.abs(EFF[kKey] - P[kKey]) > 1e-6) {
+    g.beginPath(); g.arc(X(EFF.w), Y(EFF[kKey]), 4, 0, TAU); g.fillStyle = TOKA('--scr-physics', 1); g.fill();
+  }
+  puck(g, X(P.w), Y(P[kKey]), '--scr-value');
+  g.fillStyle = TOKA('--scr-meter', 1); g.textAlign = 'right';
+  g.fillText(fmtVal(SP.w, P.w) + ' · ' + fmtVal(SP[kKey], P[kKey]), W - 4, 11); g.textAlign = 'left';
+}
+function paintCanvases() { for (const [cv, f] of CANV) f(cv); }
+
+/* ======================================================================
+   G. CONTROL BUILDERS — every control carries its address (data-key, title)
+   ====================================================================== */
+function el(tag, cls, txt) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (txt !== undefined && txt !== null) e.textContent = txt;
+  return e;
+}
+function tagCtl(node, keys, tier) {
+  node.dataset.key = keys.join(' '); node.dataset.tier = tier || '';
+  node.title = keys.map(addrOf).join('\n');
+}
+function knob(host, key, o) {
+  o = o || {};
+  const K = () => (o.keyFn ? o.keyFn() : key);
+  const cell = el('div', 'kcell' + (o.big ? ' big' : ''));
+  tagCtl(cell, o.keys || [key], o.tier);
+  const lab = el('label', null, o.label || (SP[key] ? SP[key].label : key));
+  const k = el('span', 'knob' + (o.big ? ' big' : ''));
+  for (const c of ['kmod', 'karc', 'kcap', 'kptr', 'kmnow']) k.appendChild(el('span', c));
+  const out = el('output');
+  cell.appendChild(lab); cell.appendChild(k); cell.appendChild(out);
+  host.appendChild(cell);
+  let drag = false, y0 = 0, p0 = 0;
+  k.addEventListener('pointerdown', e => {
+    const sp = SP[K()]; if (!sp) return;
+    drag = true; y0 = e.clientY; p0 = toPos(sp, shown(K(), false));
+    k.classList.add('drag'); try { k.setPointerCapture(e.pointerId); } catch (_) {}
+  });
+  k.addEventListener('pointermove', e => {
+    if (!drag) return;
+    const sp = SP[K()], dp = (y0 - e.clientY) / (e.shiftKey ? 600 : 160);
+    write(K(), fromPos(sp, p0 + dp));
+  });
+  const up = () => { drag = false; k.classList.remove('drag'); };
+  k.addEventListener('pointerup', up); k.addEventListener('pointercancel', up);
+  k.addEventListener('dblclick', () => write(K(), DEF[K()]));
+  k.addEventListener('wheel', e => { e.preventDefault(); const sp = SP[K()]; write(K(), fromPos(sp, toPos(sp, shown(K(), false)) - Math.sign(e.deltaY) * 0.02)); }, { passive: false });
+  CTLS.push(() => {
+    const key0 = K(), sp = SP[key0]; if (!sp) return;
+    const fol = !!linked(key0) && !FOLLOW_OF[key0].g.sentinel;
+    const v = o.get ? o.get() : shown(key0, false), ve = o.getEff ? o.getEff() : shown(key0, true);
+    const p = toPos(sp, v), pe = toPos(sp, ve), circ = sp.curve === 'circ';
+    const span = circ ? 360 : 280;
+    k.classList.toggle('circ', circ);
+    if (circ) { k.style.setProperty('--a0', (p * 360 - 9) + 'deg'); k.style.setProperty('--a1', (p * 360 + 9) + 'deg'); }
+    else if (sp.min < 0 && sp.max > 0) { const z = toPos(sp, 0); k.style.setProperty('--a0', Math.min(p, z) * 280 + 'deg'); k.style.setProperty('--a1', Math.max(p, z) * 280 + 'deg'); }
+    else { k.style.setProperty('--a0', '0deg'); k.style.setProperty('--a1', p * 280 + 'deg'); }
+    k.style.setProperty('--ang', (circ ? p * 360 : p * 280 - 140) + 'deg');
+    const moved = Math.abs(pe - p) > 1e-4;
+    k.classList.toggle('mod', moved);
+    k.style.setProperty('--m0', Math.min(p, pe) * span + 'deg'); k.style.setProperty('--m1', Math.max(p, pe) * span + 'deg');
+    k.style.setProperty('--mang', (circ ? pe * 360 : pe * 280 - 140) + 'deg');
+    cell.classList.toggle('follow', fol);
+    cell.classList.toggle('ghost', !!(o.ghost && o.ghost()));
+    cell.classList.toggle('inert', sp.kind === 'x');
+    out.textContent = fmtVal(sp, v) + (moved ? ' → ' + fmtVal(sp, ve) : '');
+  });
+  return cell;
+}
+/* skin B / the depths: gui2's labelled slider row */
+function sliderRow(host, key, o) {
+  o = o || {};
+  const K = () => (o.keyFn ? o.keyFn() : key);
+  const row = el('div', o.cls || 'srow');
+  tagCtl(row, o.keys || [key], o.tier);
+  if (!o.nolabel) row.appendChild(el('label', null, o.label || SP[key].label));
+  const inp = el('input'); inp.type = 'range'; inp.min = 0; inp.max = 1; inp.step = 0.001;
+  const out = el('output');
+  row.appendChild(inp); row.appendChild(out); host.appendChild(row);
+  inp.addEventListener('input', () => write(K(), fromPos(SP[K()], parseFloat(inp.value))));
+  inp.addEventListener('dblclick', () => write(K(), DEF[K()]));
+  CTLS.push(() => {
+    const key0 = K(), sp = SP[key0]; if (!sp) return;
+    const v = shown(key0, false), p = toPos(sp, v);
+    inp.value = p; inp.style.setProperty('--pct', p);
+    const fol = !!linked(key0) && !FOLLOW_OF[key0].g.sentinel;
+    row.classList.toggle('follow', fol);
+    row.classList.toggle('ghost', !!(o.ghost && o.ghost()));
+    row.classList.toggle('inert', sp.kind === 'x');
+    out.textContent = fmtVal(sp, v);
+  });
+  return row;
+}
+/* skin C: a number you scrub vertically */
+function scrub(host, key, o) {
+  o = o || {};
+  const K = () => (o.keyFn ? o.keyFn() : key);
+  const s = el('span', 'scrub');
+  tagCtl(s, o.keys || [key], o.tier);
+  const i = el('i', null, o.label || SP[key].label), b = el('b');
+  s.appendChild(i); s.appendChild(b); host.appendChild(s);
+  let drag = false, y0 = 0, p0 = 0;
+  s.addEventListener('pointerdown', e => { drag = true; y0 = e.clientY; p0 = toPos(SP[K()], shown(K(), false)); s.classList.add('drag'); try { s.setPointerCapture(e.pointerId); } catch (_) {} });
+  s.addEventListener('pointermove', e => { if (drag) write(K(), fromPos(SP[K()], p0 + (y0 - e.clientY) / (e.shiftKey ? 600 : 160))); });
+  const up = () => { drag = false; s.classList.remove('drag'); };
+  s.addEventListener('pointerup', up); s.addEventListener('pointercancel', up);
+  s.addEventListener('dblclick', () => write(K(), DEF[K()]));
+  CTLS.push(() => {
+    const key0 = K(), sp = SP[key0]; if (!sp) return;
+    s.classList.toggle('follow', !!linked(key0) && !FOLLOW_OF[key0].g.sentinel);
+    s.classList.toggle('ghost', !!(o.ghost && o.ghost()));
+    const v = shown(key0, false), ve = shown(key0, true);
+    b.textContent = fmtVal(sp, v) + (Math.abs(toPos(sp, ve) - toPos(sp, v)) > 1e-4 ? ' → ' + fmtVal(sp, ve) : '');
+  });
+  return s;
+}
+/* the skin decides what a continuous face control is */
+function faceCtl(host, key, o) {
+  if (LAB.skin === 'B') return sliderRow(host, key, o);
+  if (LAB.skin === 'C') return scrub(host, key, o);
+  return knob(host, key, o);
+}
+/* an enum as pills; a −1 "same as blade 1" sentinel shows as a =1 link pill, with
+   blade 1's choice drawn dashed among the options while it follows */
+function pills(host, key, o) {
+  o = o || {};
+  const sp = SP[key], wrap = el('div', 'pills' + (o.cls ? ' ' + o.cls : ''));
+  tagCtl(wrap, [key], o.tier);
+  const fol = linked(key), sent = fol && FOLLOW_OF[key].g.sentinel;
+  const cur = P[key], srcV = fol ? P[FOLLOW_OF[key].src] : null;
+  for (const [v, t] of (o.opts || sp.opts)) {
+    const isLink = v === -1;
+    const b = el('button', 'pill mini' + (isLink ? ' link' : ''), t);
+    let on = cur === v;
+    if (fol && !sent && !isLink) on = srcV === v;            // switch-linked group: show blade 1's pick
+    if (on && !(fol && !sent)) b.classList.add('on');
+    if (fol && !isLink && srcV === v) b.classList.add('ghoston');
+    if (isLink && cur === -1) b.classList.add('on');
+    b.title = addrOf(key) + (isLink ? '\n=1: follow blade 1 (the −1 sentinel)' : '');
+    b.addEventListener('click', () => write(key, v));
+    wrap.appendChild(b);
+  }
+  host.appendChild(wrap);
+  return wrap;
+}
+function sel(host, key, o) {
+  o = o || {};
+  const sp = SP[key], s = el('select');
+  tagCtl(s, [key], o.tier);
+  const fol = linked(key), cur = fol && !FOLLOW_OF[key].g.sentinel ? P[FOLLOW_OF[key].src] : P[key];
+  for (const [v, t] of sp.opts) { const op = el('option', null, t); op.value = String(v); if (v === cur) op.selected = true; s.appendChild(op); }
+  s.addEventListener('change', () => write(key, parseFloat(s.value)));
+  host.appendChild(s);
+  return s;
+}
+function toggle(host, key, o) {
+  o = o || {};
+  const c = el('input'); c.type = 'checkbox'; c.checked = !!P[key];
+  tagCtl(c, [key], o.tier);
+  c.addEventListener('change', () => write(key, c.checked ? 1 : 0));
+  host.appendChild(c);
+  return c;
+}
+/* the =1 pill of a switch-linked group (b2fm / b2sp / b2env / rot2Follow) */
+/* Its state is read LIVE, at paint and at click: touching a following knob takes
+   ownership mid-drag without a rebuild (a rebuild would drop the drag), so a state
+   captured at build time would be stale — and a stale "=1" click would copy blade
+   1 over the values blade 2 had just been given. */
+function linkPill(host, gid, tier) {
+  const g = FOLLOW.find(q => q.id === gid);
+  const b = el('button', 'pill mini link');
+  tagCtl(b, [g.sw], tier);
+  const following = () => P[g.sw] !== g.own;
+  b.addEventListener('click', () => {
+    if (following()) { for (const [k2, k1] of g.pairs) P[k2] = P[k1]; P[g.sw] = g.own; }
+    else P[g.sw] = 1 - g.own;
+    afterWrite(g.sw);
+  });
+  CTLS.push(() => {
+    const on = following();
+    b.classList.toggle('on', on); b.textContent = on ? '=1' : 'own';
+    b.title = addrOf(g.sw) + '\n' + (on ? 'following blade 1 — touch any control in the group to take it over'
+      : "blade 2's own — click to follow blade 1 again (its own values are kept)");
+  });
+  host.appendChild(b);
+  return b;
+}
+function repaintControls() { for (const f of CTLS) f(); }
+
+/* ======================================================================
+   H. PAGES
+   ====================================================================== */
+function cell(host, title, own, cls) {
+  const c = el('div', 'cell' + (cls ? ' ' + cls : ''));
+  if (title) { const h = el('h3', null, title); if (own) h.appendChild(el('span', 'own', own)); c.appendChild(h); }
+  host.appendChild(c);
+  return c;
+}
+function canvas(host, h, painter, cls) {
+  const cv = el('canvas', 'viz' + (cls ? ' ' + cls : ''));
+  cv.style.height = h + 'px';
+  host.appendChild(cv);
+  CANV.push([cv, painter]);
+  return cv;
+}
+function rebuild() {
+  CTLS = []; CANV = [];
+  FR.innerHTML = '';
+  frameHeader(FR);
+  if (LAB.page === 'main') buildMain(FR); else buildOsc(FR);
+  repaintControls();
+  paintCanvases();
+  buildSide();
+  tierAudit();
+  paintAudit();
+}
+function frameHeader(host) {
+  const h = el('div', 'phdr'); host.appendChild(h);
+  h.appendChild(el('div', 'brand', 'horde'));
+  const rows = el('div', 'tabrows'); h.appendChild(rows);
+  const r1 = el('div', 'tabs'), r2 = el('div', 'tabs');
+  rows.appendChild(r1); rows.appendChild(r2);
+  const tab = (row, name, page) => {
+    const t = el('button', 'tab' + (page ? (LAB.page === page ? ' on' : '') : ' stub'), name);
+    if (page) t.addEventListener('click', () => { LAB.page = page; rebuild(); }); else t.title = 'not built in this lab';
+    row.appendChild(t);
+  };
+  tab(r1, 'Main', 'main'); tab(r1, 'Osc (+ Filt)', 'osc'); tab(r1, 'FX'); tab(r1, 'Mod');
+  tab(r2, 'Morph'); tab(r2, 'Mix'); tab(r2, 'Hist'); tab(r2, 'Set');
+  if (LAB.page === 'osc') {
+    const r3 = el('div', 'tabs'); rows.appendChild(r3);
+    for (const [n, on, live] of [['Sub', P.subLvl > 0, false], ['Swarm 1', !!P.enable, true], ['Swarm 2', P.vol2 > 0, false], ['Filters', false, false]]) {
+      const t = el('button', 'tab' + (live ? ' on' : ' stub'), n);
+      if (n !== 'Filters') { const d = el('span', 'dot' + (on ? ' on' : '')); t.appendChild(d); }
+      t.title = live ? 'the swarm this lab voices through the oracle' : 'drawn, not voiced: the lab runs ONE oracle swarm (Swarm 2 is the same page at ids +1000)';
+      r3.appendChild(t);
+    }
+  }
+  const r = el('div', 'phdr-r'); h.appendChild(r);
+  r.innerHTML = '<b>' + escapeHtml(LAB.presetName || "oracle defaults · blade 2 on") + '</b><br>' +
+    (LAB.page === 'osc' ? 'OSC · SWARM 1 · SCALPEL' : 'MAIN') + ' · 980×720';
+}
+function escapeHtml(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]); }
+
+/* ---------------- THE OSC PAGE ---------------- */
+function buildOsc(host) {
+  const body = el('div', 'pbody osc'); host.appendChild(body);
+  const L = el('div', 'col'), Rt = el('div', 'col'); body.appendChild(L); body.appendChild(Rt);
+  /* left: the swarm's pad and the visualizers (B227's OSC reading) */
+  const cp = cell(L, 'Coupling × Detune', 'T1 · the swarm');
+  const pad = canvas(cp, 150, paintKD, 'edit');
+  tagCtl(pad, ['K', 'detune'], 'T1');
+  padDrag(pad, (u, v) => { P.detune = clamp(u, 0, 1) * 100; P.K = clamp(1 - 2 * v, -1, 1); afterWrite('K'); });
+  const cv = cell(L, 'Visualizers', 'phase ring · spectrum', 'grow');
+  canvas(cv, 158, c => paintRing(c, false));
+  cv.appendChild(el('div', 'vnote', 'Ring: members at their phase (stroboscopic), each one\'s blade windows outside it, R in violet, cross-mod arrows.'));
+  const sc = canvas(cv, 104, paintSpectrum);
+  sc._note = el('div', 'vnote'); cv.appendChild(sc._note);
+  const adv = el('button', 'pill advbtn' + (LAB.advOpen ? ' on' : ''), 'Advanced');
+  adv.title = 'the global Advanced (B227): opens the tier-3 drawer';
+  adv.addEventListener('click', () => { LAB.advOpen = !LAB.advOpen; rebuild(); });
+  cv.appendChild(adv);
+
+  /* right: Controls */
+  const cc = cell(Rt, 'Controls', 'SWARM 1 — SCALPEL', 'grow');
+  const sc2 = el('div', 'scroll'); cc.appendChild(sc2);
+  /* the strip: tab power, Members, Base wave, Volume — the rest of T1's swarm identity */
+  const strip = el('div', 'ostrip'); sc2.appendChild(strip);
+  const g0 = el('div', 'grp'); strip.appendChild(g0);
+  g0.appendChild(el('span', 'lbl', 'ON')); toggle(g0, 'enable', { tier: 'T1' });
+  const km = el('div', 'kr'); strip.appendChild(km);
+  knob(km, 'N', { tier: 'T1', label: 'Members' });
+  const gb = el('div', 'grp'); strip.appendChild(gb);
+  gb.appendChild(el('span', 'lbl', 'BASE')); pills(gb, 'base', { tier: 'T1' });
+  const kv = el('div', 'kr'); strip.appendChild(kv);
+  knob(kv, 'gain', { tier: 'T1', label: 'Volume' });
+  /* the cycle view — the blades' own picture, and in skin C (or CYCLE EDITS) the editor */
+  const tools = el('div', 'cyctools'); sc2.appendChild(tools);
+  tools.appendChild(el('span', 'lbl', 'CYCLE'));
+  for (const [v, t] of [['sum', 'SUM'], ['members', 'MEMBERS']]) {
+    const b = el('button', 'pill mini' + (LAB.view === v ? ' on' : ''), t);
+    b.addEventListener('click', () => { LAB.view = v; rebuild(); }); tools.appendChild(b);
+  }
+  const cb = el('button', 'pill mini' + (LAB.contrib ? ' on' : ''), 'CONTRIBUTIONS');
+  cb.title = 'each blade\'s contribution D(φ), dotted (① ) and dashed (②), around the zero line';
+  cb.addEventListener('click', () => { LAB.contrib = !LAB.contrib; rebuild(); }); tools.appendChild(cb);
+  const hint = el('span', 'vnote', cycleCaption()); hint.style.marginLeft = 'auto'; tools.appendChild(hint);
+  const editable = LAB.skin === 'C' || LAB.direct;
+  const cyc = canvas(sc2, LAB.skin === 'C' ? 200 : 132, c => paintCycle(c, false), editable ? 'edit' : '');
+  if (editable) { tagCtl(cyc, ['c', 'w', 'depth', 'hard', 'k', 'c2', 'w2', 'depth2', 'hard2', 'k2'], 'T1'); cycleEdits(cyc); }
+  bladeRow(sc2, 1); bladeRow(sc2, 2);
+  tier2(sc2);
+  tier3(sc2);
+}
+function cycleCaption() {
+  const bits = ['dashed = base', 'solid = heard'];
+  if (P.xm > 0.0005 || P.fb > 0.0005) bits.push('cross-mod/feedback not drawn (sample-to-sample)');
+  if (LAB.skin === 'C' || LAB.direct) bits.push('drag window = position · vertical = depth · edge = width · ▲ = edges · wheel = cut rate');
+  return bits.join(' · ');
+}
+function bladeKey(b, k) { return b === 1 ? k : k + '2'; }
+function effLock(b) { return b === 1 ? P.lock : (P.lock2 < 0 ? P.lock : P.lock2); }
+function effMode(b) { return P[bladeKey(b, 'mode')]; }
+function isFM(b) { const m = effMode(b); return m === 1 || m === 2; }
+function mUnitOf(b) { return b === 1 ? P.mUnit : (linked('mUnit2') ? P.mUnit : P.mUnit2); }
+function bladeSummary(b) {
+  const s = b === 1 ? '' : '2', E = EFF;
+  const on = b === 1 ? E.b1on : E.b2on;
+  if (!on) return 'off';
+  const mode = SP.mode.opts.find(q => q[0] === E['mode' + s]), wave = SP.hot.opts.find(q => q[0] === E['hot' + s]);
+  return (mode ? mode[1] : '?') + ' · ' + (wave ? wave[1] : '?') + ' · ' + fmtVal(SP.w, E['w' + s]) + ' @ ' + fmtVal(SP.c, E['c' + s]);
+}
+function bladeRow(host, b) {
+  const on = b === 1 ? P.b1on : P.b2on;
+  const row = el('div', 'blade' + (b === 2 ? ' b2' : '') + (on ? '' : ' off'));
+  host.appendChild(row);
+  const hd = el('div', 'bhead'); row.appendChild(hd);
+  hd.appendChild(el('span', 'bnum', String(b)));
+  toggle(hd, b === 1 ? 'b1on' : 'b2on', { tier: 'T1' });
+  hd.appendChild(el('span', 'bname', 'BLADE ' + b));
+  pills(hd, bladeKey(b, 'mode'), { tier: 'T1' });
+  const sum = el('span', 'bsum'); hd.appendChild(sum);
+  CTLS.push(() => { sum.textContent = bladeSummary(b); });
+  const l2 = el('div', 'bline'); row.appendChild(l2);
+  l2.appendChild(el('span', 'lbl', 'WAVE')); pills(l2, bladeKey(b, 'hot'), { tier: 'T1' });
+  const cutKey = () => (effLock(b) === 2 ? bladeKey(b, 'kHz') : bladeKey(b, 'k'));
+  const modKey = () => (mUnitOf(b) ? bladeKey(b, 'mHz') : bladeKey(b, 'm'));
+  const bb = el('div', LAB.skin === 'B' ? 'srows' : LAB.skin === 'C' ? 'scrubs' : 'bbody'); row.appendChild(bb);
+  /* the face, in the accounting's priority order */
+  const grp = (cap, ghostFn, linkId) => {
+    if (LAB.skin !== 'A') return bb;
+    const gdiv = el('div', 'kgrp'); bb.appendChild(gdiv);
+    const c = el('div', 'gcap', cap); gdiv.appendChild(c);
+    if (linkId && b === 2) linkPill(c, linkId, 'T1');
+    const kr = el('div', 'krow'); gdiv.appendChild(kr);
+    if (ghostFn && ghostFn()) gdiv.classList.add('ghost');
+    return kr;
+  };
+  const g1 = grp('CUT');
+  faceCtl(g1, bladeKey(b, 'w'), { tier: 'T1' });
+  faceCtl(g1, bladeKey(b, 'k'), { tier: 'T1', keyFn: cutKey, keys: [bladeKey(b, 'k'), bladeKey(b, 'kHz')], label: 'Cut rate' });
+  faceCtl(g1, bladeKey(b, 'c'), { tier: 'T1' });
+  faceCtl(g1, bladeKey(b, 'depth'), { tier: 'T1' });
+  faceCtl(g1, bladeKey(b, 'hard'), { tier: 'T1', label: P[bladeKey(b, 'mode')] === 6 ? 'Edges (slew)' : 'Edges' });
+  /* mirror: a 2×2 pill grid on the face (the brief's promotion from T2) */
+  if (LAB.skin === 'A') {
+    const gm = el('div', 'kgrp'); bb.appendChild(gm);
+    gm.appendChild(el('div', 'gcap', 'MIRROR'));
+    pills(gm, bladeKey(b, 'mirror'), { tier: 'T1', cls: b === 1 ? 'mgrid2' : 'mgrid3' });
+  } else {
+    const gm = LAB.skin === 'B' ? el('div', 'srow') : el('span', 'grp');
+    if (LAB.skin === 'B') gm.appendChild(el('label', null, 'Mirror'));
+    pills(gm, bladeKey(b, 'mirror'), { tier: 'T1' });
+    if (LAB.skin === 'B') gm.style.gridTemplateColumns = '78px 1fr';
+    bb.appendChild(gm);
+  }
+  const g3 = grp('FM', () => !isFM(b), 'fm');
+  const fmGhost = LAB.skin === 'A' ? null : () => !isFM(b);
+  faceCtl(g3, bladeKey(b, 'I'), { tier: 'T1', ghost: fmGhost });
+  faceCtl(g3, bladeKey(b, 'm'), { tier: 'T1', keyFn: modKey, keys: [bladeKey(b, 'm'), bladeKey(b, 'mHz')], label: 'Mod rate', ghost: fmGhost });
+  const g4 = grp('SPREAD', null, 'sp');
+  faceCtl(g4, bladeKey(b, 'bspread'), { tier: 'T1', label: LAB.skin === 'A' ? 'Position' : 'Pos spread' });
+  faceCtl(g4, bladeKey(b, 'kspread'), { tier: 'T1', label: LAB.skin === 'A' ? 'Cut rate' : 'Cut spread' });
+  if (LAB.skin !== 'A' && b === 2) {
+    const lk = el('span', 'grp'); lk.appendChild(el('span', 'lbl', 'FM')); linkPill(lk, 'fm', 'T1');
+    lk.appendChild(el('span', 'lbl', 'SPREAD')); linkPill(lk, 'sp', 'T1'); bb.appendChild(lk);
+  }
+}
+/* a B1 | B2 comparison row for the depths: label, blade 1's control, blade 2's */
+function cmpRow(host, label, k1, k2, tier, o) {
+  o = o || {};
+  host.appendChild(el('label', null, label));
+  for (const k of (k2 === null && host.classList.contains('one')) ? [k1] : [k1, k2]) {
+    const c = el('div', 'cc'); host.appendChild(c);
+    if (!k) { c.appendChild(el('span', 'vnote', '—')); continue; }
+    const sp = SP[k];
+    if (sp.kind === 'e') { if (sp.opts.length > 3) sel(c, k, { tier }); else pills(c, k, { tier }); }
+    else if (sp.kind === 's') {
+      const t = el('input'); t.type = 'text'; t.value = P[k]; tagCtl(t, [k], tier);
+      t.addEventListener('change', () => write(k, t.value)); c.appendChild(t);
+    } else { sliderRow(c, k, { tier, nolabel: true, cls: 'cc cin', ghost: o.ghost ? () => o.ghost(k === k1 ? 1 : 2) : null }); continue; }
+    if (linked(k) && !FOLLOW_OF[k].g.sentinel) c.classList.add('follow');
+  }
+}
+/* the summary strip names every hidden control that is off its default (B212
+   decision 5: what the compact face shows of what it hides) */
+function summaryChips(host, keys) {
+  let n = 0;
+  for (const k of keys) {
+    const sp = SP[k]; if (!sp) continue;
+    const v = P[k], d = DEF[k];
+    const off = typeof v === 'number' ? Math.abs(v - d) > 1e-6 : v !== d;
+    if (!off || (FOLLOW_OF[k] && linked(k))) continue;
+    const c = el('span', 'sumchip', sp.label + (k.endsWith('2') && /[a-z]2$/.test(k) ? ' ②' : '') + ' ' + fmtVal(sp, v));
+    c.title = addrOf(k);
+    host.appendChild(c); n++;
+    if (n >= 9) { host.appendChild(el('span', 'sumchip none', '…')); break; }
+  }
+  if (!n) host.appendChild(el('span', 'sumchip none', 'all at default'));
+}
+const T2_KEYS = ['lock', 'lock2', 'morph', 'morph2', 'rotRate', 'rotRate2', 'fmType', 'fmType2', 'mshape', 'mshape2', 'mUnit', 'mUnit2',
+  'fb', 'frame', 'b2env', 'benvK', 'benvW', 'benvA', 'benvD', 'benvK2', 'benvW2', 'benvA2', 'benvD2', 'xm', 'phaseMode', 'law', 'kRule',
+  'kRuleAmt', 'width', 'A', 'D', 'S', 'R', 'octave', 'semi', 'fine', 'rtone', 'onset', 'dissolve', 'driftDepth'];
+const T3_KEYS = ['wspread', 'dspread', 'mspread', 'ispread', 'rotSpread', 'bspread2', 'kspread2', 'kRule2', 'kRuleAmt2', 'wspread2', 'dspread2',
+  'mspread2', 'ispread2', 'rotSpread2', 'b2sp', 'b2fm', 'rot2Follow', 'frame2', 'driftRate', 'kq', 'kCustom', 'dcMode', 'panOrder',
+  'rotSync', 'benvVel', 'benvVel2', 'polyMode', 'glide', 'glideAlways', 'os', 'aa'];
+function tierBox(host, title, open, keys, onToggle, cls) {
+  const t = el('div', 'tier' + (open ? '' : ' closed')); host.appendChild(t);
+  const h = el('div', 'thead'); t.appendChild(h);
+  h.appendChild(el('span', 'tri', open ? '▾' : '▸'));
+  h.appendChild(el('span', 'tt', title));
+  summaryChips(h, keys);
+  h.addEventListener('click', onToggle);
+  const b = el('div', 'tbody ' + cls); t.appendChild(b);
+  return b;
+}
+function tier2(host) {
+  const b = tierBox(host, 'ONE LEVEL DOWN', LAB.t2open, T2_KEYS, () => { LAB.t2open = !LAB.t2open; rebuild(); }, 't2');
+  const T = 'T2';
+  const g1 = el('div', 'tgrp'); b.appendChild(g1);
+  g1.appendChild(el('h4', null, 'BLADE DETAIL'));
+  const c1 = el('div', 'cmp'); g1.appendChild(c1);
+  c1.appendChild(el('span', 'h', '')); c1.appendChild(el('span', 'h', 'BLADE 1')); c1.appendChild(el('span', 'h', 'BLADE 2'));
+  cmpRow(c1, 'Cut rate in', 'lock', 'lock2', T);
+  cmpRow(c1, 'Shape', 'morph', 'morph2', T, { ghost: bl => P[bladeKey(bl, 'hot')] !== 6 });
+  cmpRow(c1, 'Rotate', 'rotRate', 'rotRate2', T);
+  cmpRow(c1, 'FM type', 'fmType', 'fmType2', T);
+  cmpRow(c1, 'Mod shape', 'mshape', 'mshape2', T);
+  cmpRow(c1, 'Mod rate in', 'mUnit', 'mUnit2', T);
+  cmpRow(c1, 'Env → cut', 'benvK', 'benvK2', T);
+  cmpRow(c1, 'Env → width', 'benvW', 'benvW2', T);
+  cmpRow(c1, 'Env attack', 'benvA', 'benvA2', T);
+  cmpRow(c1, 'Env decay', 'benvD', 'benvD2', T);
+  const lk = el('div', 'cc'); lk.appendChild(el('span', 'vnote', 'blade 2 envelope ')); linkPill(lk, 'env', T);
+  lk.appendChild(el('span', 'vnote', ' rotation ')); linkPill(lk, 'rot', 'T3');
+  g1.appendChild(lk);
+  const g2 = el('div', 'tgrp'); b.appendChild(g2);
+  g2.appendChild(el('h4', null, 'SWARM MOTION'));
+  const c2 = el('div', 'cmp one'); g2.appendChild(c2);
+  cmpRow(c2, 'Cross-mod', 'xm', null, T);
+  cmpRow(c2, 'Feedback', 'fb', null, T);
+  cmpRow(c2, 'Blade frame', 'frame', null, T);
+  cmpRow(c2, 'Start phases', 'phaseMode', null, T);
+  cmpRow(c2, 'Spread law', 'law', null, T);
+  cmpRow(c2, 'Cut rule', 'kRule', null, T);
+  cmpRow(c2, 'Rule depth', 'kRuleAmt', null, T);
+  g2.appendChild(el('h4', null, 'SWARM — survivors from today\'s face'));
+  const c3 = el('div', 'cmp one'); g2.appendChild(c3);
+  for (const k of ['width', 'A', 'D', 'S', 'R', 'octave', 'semi', 'fine', 'rtone', 'onset', 'dissolve', 'driftDepth']) cmpRow(c3, SP[k].label, k, null, T);
+}
+function tier3(host) {
+  const b = tierBox(host, 'ADVANCED', LAB.advOpen, T3_KEYS, () => { LAB.advOpen = !LAB.advOpen; rebuild(); }, 't3');
+  const T = 'T3';
+  const g1 = el('div', 'tgrp'); b.appendChild(g1);
+  g1.appendChild(el('h4', null, 'SPREADS'));
+  const c1 = el('div', 'cmp'); g1.appendChild(c1);
+  c1.appendChild(el('span', 'h', '')); c1.appendChild(el('span', 'h', 'BLADE 1')); c1.appendChild(el('span', 'h', 'BLADE 2'));
+  cmpRow(c1, 'Blade 2 uses', null, 'b2sp', T);
+  cmpRow(c1, 'Pos spread', null, 'bspread2', T);
+  cmpRow(c1, 'Cut spread', null, 'kspread2', T);
+  cmpRow(c1, 'Cut rule', null, 'kRule2', T);
+  cmpRow(c1, 'Rule depth', null, 'kRuleAmt2', T);
+  for (const k of ['wspread', 'dspread', 'mspread', 'ispread', 'rotSpread']) cmpRow(c1, SP[k].label, k, k + '2', T);
+  cmpRow(c1, 'Drift rate', 'driftRate', null, T);
+  cmpRow(c1, 'Quantize', 'kq', null, T);
+  cmpRow(c1, 'Ratios', 'kCustom', null, T);
+  const g2 = el('div', 'tgrp'); b.appendChild(g2);
+  g2.appendChild(el('h4', null, 'BLADE 2 LINKS · ENVELOPE'));
+  const c2 = el('div', 'cmp'); g2.appendChild(c2);
+  cmpRow(c2, 'FM', null, 'b2fm', T);
+  cmpRow(c2, 'Rotation', null, 'rot2Follow', T);
+  cmpRow(c2, 'Blade frame', null, 'frame2', T);
+  cmpRow(c2, 'Env velocity', 'benvVel', 'benvVel2', T);
+  g2.appendChild(el('h4', null, 'VOICE · OUTPUT'));
+  const c3 = el('div', 'cmp one'); g2.appendChild(c3);
+  for (const k of ['rotSync', 'dcMode', 'panOrder', 'polyMode', 'glide', 'glideAlways', 'os', 'aa']) cmpRow(c3, SP[k].label, k, null, T);
+  g2.appendChild(el('h4', null, "HORDE'S SPECIALISTS (not in the oracle)"));
+  g2.appendChild(el('div', 'inertlist', HORDE_T3.join(' · ')));
+}
+
+/* ---------------- THE MAIN PAGE ---------------- */
+function buildMain(host) {
+  const body = el('div', 'pbody main'); host.appendChild(body);
+  const L = el('div', 'col'), Rt = el('div', 'col'); body.appendChild(L); body.appendChild(Rt);
+  const cm = cell(L, 'Morph', 'OURS');
+  const mp = canvas(cm, 138, paintMorph, 'edit');
+  padDrag(mp, (u, v) => { MORPH.x = clamp(u, 0, 1); MORPH.y = clamp(v, 0, 1); afterWrite('morph'); });
+  const mf = el('div', 'pills'); mf.style.marginTop = '4px'; cm.appendChild(mf);
+  const mb = (t, on, f, tip) => { const b = el('button', 'pill mini' + (on ? ' on' : ''), t); b.title = tip; b.addEventListener('click', f); mf.appendChild(b); };
+  mb('MORPH', MORPH.on, () => { MORPH.on = !MORPH.on; afterWrite('morphOn'); rebuild(); }, 'blend the blade core across four corners: A is the patch, B–D seeded variations');
+  mb('CIRCULAR', MORPH.circ, () => { MORPH.circ = !MORPH.circ; afterWrite('morphCirc'); rebuild(); }, 'Position blends on the shortest arc (on) or as a line, as the shell does today (off)');
+  mb('RESEED', false, () => { MORPH.seed = (MORPH.seed * 1664525 + 1013904223) >>> 0; MORPH.delta = null; afterWrite('morphSeed'); rebuild(); }, 'new seeded corners B–D (mulberry32)');
+  const cx = cell(L, 'XY', 'PRESET · X Width · Y Cut rate');
+  const xy = canvas(cx, 108, paintXY, 'edit');
+  tagCtl(xy, ['w', 'k'], 'T1');
+  padDrag(xy, (u, v) => { P.w = fromPos(SP.w, u); const kk = P.lock === 2 ? 'kHz' : 'k'; P[kk] = fromPos(SP[kk], 1 - v); afterWrite('w'); });
+  const cv = cell(L, 'Visualizers', 'cycle · ring', 'grow');
+  const vz = el('div'); vz.style.display = 'grid'; vz.style.gridTemplateColumns = '1fr 118px'; vz.style.gap = '4px'; cv.appendChild(vz);
+  canvas(vz, 118, c => paintCycle(c, true)); canvas(vz, 118, c => paintRing(c, true));
+  cv.appendChild(el('div', 'vnote', 'The same monitor as the OSC page: both blade windows on the cycle, the swarm on the ring.'));
+  const adv = el('button', 'pill advbtn', 'Advanced');
+  adv.title = 'jumps to the OSC page with the tier-3 drawer open';
+  adv.addEventListener('click', () => { LAB.page = 'osc'; LAB.advOpen = true; rebuild(); });
+  cv.appendChild(adv);
+
+  const pc = cell(Rt, null);
+  const pr = el('div', 'prow'); pc.appendChild(pr);
+  const step = d => { const L2 = LAB.presets; if (!L2) return; let i = L2.findIndex(p => p.name === LAB.presetName); i = (i + d + L2.length) % L2.length; applyPreset(L2[i].name); };
+  const pv = el('button', 'pill mini', '◀'); pv.addEventListener('click', () => step(-1)); pr.appendChild(pv);
+  pr.appendChild(el('span', 'pname', LAB.presetName || 'oracle defaults · blade 2 on'));
+  const nx = el('button', 'pill mini', '▶'); nx.addEventListener('click', () => step(1)); pr.appendChild(nx);
+  const cat = LAB.presets && LAB.presetName ? (LAB.presets.find(p => p.name === LAB.presetName) || {}).category : '';
+  pr.appendChild(el('span', 'pcat', cat ? '· ' + cat : (LAB.presets ? '' : '· presets load when served (tools/serve_labs.py)')));
+
+  const mc = cell(Rt, 'Macros', "PRESET · the lab's proposed eight for a SCALPEL patch");
+  const mg = el('div', 'mgrid'); mc.appendChild(mg);
+  MACROS.forEach((m, i) => macroKnob(mg, i));
+  const two = el('div', 'wtwo'); Rt.appendChild(two);
+  const cmx = cell(two, 'Mix', 'OURS'); const kmx = el('div', 'kr'); cmx.appendChild(kmx);
+  knob(kmx, 'gain', { tier: 'T1', label: 'Swarm 1' }); knob(kmx, 'vol2', { tier: 'T1', label: 'Swarm 2' }); knob(kmx, 'subLvl', { tier: 'T1', label: 'Sub' });
+  const cgl = cell(two, 'Global Controls', 'OURS'); const kgl = el('div', 'kr'); cgl.appendChild(kgl);
+  knob(kgl, 'master', { tier: 'T1', label: 'Master' }); knob(kgl, 'glide', { tier: 'T3', label: 'Note lag' });
+  const vg = el('div'); vg.style.paddingTop = '8px'; kgl.appendChild(vg); pills(vg, 'polyMode', { tier: 'T3' });
+  const fx = cell(Rt, 'FX', 'two racks on the morph X (B263) · drawn, not voiced');
+  const fs = el('div', 'fxstrip'); fx.appendChild(fs);
+  const rack = (name, mods) => { const r = el('div', 'rack'); r.appendChild(el('b', null, name + ' ')); mods.forEach((m, i) => { if (i) r.appendChild(el('span', null, '→')); r.appendChild(el('span', 'm', m)); }); return r; };
+  fs.appendChild(rack('A', ['Drive', 'Filter', 'Delay']));
+  const xf = el('div', 'xfade'); const xi = el('i'); xf.appendChild(xi); fs.appendChild(xf);
+  CTLS.push(() => { xi.style.left = ((MORPH.on ? MORPH.x : 0) * 100) + '%'; });
+  fs.appendChild(rack('B', ['Filter', 'Reverb']));
+  oscControlsMain(Rt);
+}
+function macroKnob(host, i) {
+  const m = MACROS[i];
+  const cellK = el('div', 'kcell big'); host.appendChild(cellK);
+  cellK.dataset.key = 'macro' + (i + 1); cellK.dataset.tier = 'T1';
+  cellK.title = 'Macro ' + (i + 1) + ' · ' + m.name + ' → ' + m.binds.map(([k, d]) => SP[k].label + (SP[k].key.endsWith('2') ? ' ②' : '') + (d < 0 ? ' (inverted)' : '')).join(', ');
+  const lab = el('label', null, m.name);
+  const k = el('span', 'knob big'); for (const c of ['kmod', 'karc', 'kcap', 'kptr', 'kmnow']) k.appendChild(el('span', c));
+  const out = el('output'); cellK.appendChild(lab); cellK.appendChild(k); cellK.appendChild(out);
+  let drag = false, y0 = 0, p0 = 0;
+  k.addEventListener('pointerdown', e => { drag = true; y0 = e.clientY; p0 = m.v; k.classList.add('drag'); try { k.setPointerCapture(e.pointerId); } catch (_) {} });
+  k.addEventListener('pointermove', e => { if (!drag) return; m.v = clamp(p0 + (y0 - e.clientY) / 160, 0, 1); afterWrite('macro'); });
+  const up = () => { drag = false; k.classList.remove('drag'); };
+  k.addEventListener('pointerup', up); k.addEventListener('pointercancel', up);
+  k.addEventListener('dblclick', () => { m.v = 0; afterWrite('macro'); });
+  CTLS.push(() => { k.style.setProperty('--a0', '0deg'); k.style.setProperty('--a1', m.v * 280 + 'deg'); k.style.setProperty('--ang', (m.v * 280 - 140) + 'deg'); out.textContent = Math.round(m.v * 100) + '%'; });
+}
+function oscControlsMain(host) {
+  const c = cell(host, null, null, 'grow');
+  const tb = el('div', 'octabs'); c.appendChild(tb);
+  tb.appendChild(el('span', 'lbl', 'OSC CONTROLS'));
+  for (const [n, on, live] of [['Sub', P.subLvl > 0, false], ['Swarm 1', !!P.enable, true], ['Swarm 2', P.vol2 > 0, false]]) {
+    const t = el('button', 'tab' + (live ? ' on' : ' stub'), n); t.appendChild(el('span', 'dot' + (on ? ' on' : ''))); tb.appendChild(t);
+  }
+  const bs = el('div', 'bsel'); bs.style.marginLeft = 'auto'; tb.appendChild(bs);
+  bs.appendChild(el('span', 'lbl', 'BLADE'));
+  for (const b of [1, 2]) {
+    const on = b === 1 ? P.b1on : P.b2on;
+    const t = el('button', 'pill mini' + (LAB.mainBlade === b ? ' on' : ''), (b === 1 ? '① ' : '② ') + (on ? 'on' : 'off'));
+    t.title = 'which blade the face shows — both are drawn on the cycle view';
+    t.addEventListener('click', () => { LAB.mainBlade = b; rebuild(); });
+    bs.appendChild(t);
+  }
+  const body = el('div', 'ocbody'); c.appendChild(body);
+  const a = el('div'), m = el('div'), v = el('div'); body.appendChild(a); body.appendChild(m); body.appendChild(v);
+  const pad = canvas(a, 92, paintKD, 'edit');
+  tagCtl(pad, ['K', 'detune'], 'T1');
+  padDrag(pad, (u, w) => { P.detune = clamp(u, 0, 1) * 100; P.K = clamp(1 - 2 * w, -1, 1); afterWrite('K'); });
+  const kk = el('div', 'kr'); a.appendChild(kk); knob(kk, 'N', { tier: 'T1', label: 'Members' });
+  const bb = el('div'); bb.style.paddingTop = '8px'; kk.appendChild(bb); toggle(bb, 'enable', { tier: 'T1' });
+  const b = LAB.mainBlade;
+  const hd = el('div', 'bline'); m.appendChild(hd);
+  toggle(hd, b === 1 ? 'b1on' : 'b2on', { tier: 'T1' });
+  pills(hd, bladeKey(b, 'mode'), { tier: 'T1' });
+  const row = el('div', 'kr'); row.style.marginTop = '4px'; m.appendChild(row);
+  const cutKey = () => (effLock(b) === 2 ? bladeKey(b, 'kHz') : bladeKey(b, 'k'));
+  knob(row, bladeKey(b, 'w'), { tier: 'T1' });
+  knob(row, bladeKey(b, 'k'), { tier: 'T1', keyFn: cutKey, keys: [bladeKey(b, 'k'), bladeKey(b, 'kHz')], label: 'Cut rate' });
+  knob(row, bladeKey(b, 'c'), { tier: 'T1' });
+  knob(row, bladeKey(b, 'depth'), { tier: 'T1' });
+  knob(row, bladeKey(b, 'hard'), { tier: 'T1' });
+  if (isFM(b)) {
+    knob(row, bladeKey(b, 'I'), { tier: 'T1' });
+    knob(row, bladeKey(b, 'm'), { tier: 'T1', keyFn: () => (mUnitOf(b) ? bladeKey(b, 'mHz') : bladeKey(b, 'm')), label: 'Mod rate' });
+  }
+  const wl = el('div', 'bline'); m.appendChild(wl); wl.appendChild(el('span', 'lbl', 'WAVE')); pills(wl, bladeKey(b, 'hot'), { tier: 'T1' });
+  canvas(v, 92, cv => paintCycle(cv, true));
+  const n = el('div', 'vnote'); v.appendChild(n); CTLS.push(() => { n.textContent = '① ' + bladeSummary(1) + (P.b2on ? ' · ② ' + bladeSummary(2) : ''); });
+}
+function padDrag(cv, f) {
+  let drag = false;
+  const at = e => { const r = cv.getBoundingClientRect(); f((e.clientX - r.left) / Math.max(1, r.width), (e.clientY - r.top) / Math.max(1, r.height)); };
+  cv.addEventListener('pointerdown', e => { drag = true; try { cv.setPointerCapture(e.pointerId); } catch (_) {} at(e); });
+  cv.addEventListener('pointermove', e => { if (drag) at(e); });
+  cv.addEventListener('pointerup', () => { drag = false; });
+  cv.addEventListener('pointercancel', () => { drag = false; });
+}
+
+/* ======================================================================
+   I. DIRECT MANIPULATION ON THE CYCLE VIEW — the same write path, a different view
+   ====================================================================== */
+function cycleHit(cv, e) {
+  const r = cv.getBoundingClientRect(), W = Math.max(1, r.width), x = e.clientX - r.left, y = e.clientY - r.top, ph = x / W;
+  let best = null;
+  for (const b of [2, 1]) {
+    const s = b === 1 ? '' : '2', on = b === 1 ? EFF.b1on : EFF.b2on, w = EFF['w' + s];
+    if (!on || w < 0.004) continue;
+    const c = EFF['c' + s], st = frac(c - w / 2), en = frac(st + w);
+    const dpx = a => { let d = Math.abs(frac(ph - a + 0.5) - 0.5); return d * W; };
+    const t = frac(st + EFF['hard' + s] * w * 0.5);
+    let kind = null;
+    if (y > 16 && y < 34 && dpx(t) < 7) kind = 'edge';
+    else if (dpx(st) < 6 || dpx(en) < 6) kind = 'width';
+    else if (frac(ph - st) < w) kind = 'body';
+    if (kind && (!best || kind !== 'body' || best.kind === 'body')) { best = { b, s, kind, W, H: Math.max(1, r.height) }; if (kind !== 'body') break; }
+  }
+  return best;
+}
+function cycleEdits(cv) {
+  let drag = null;
+  cv.addEventListener('pointermove', e => {
+    if (!drag) { const h = cycleHit(cv, e); cv.style.cursor = !h ? 'crosshair' : h.kind === 'width' ? 'ew-resize' : h.kind === 'edge' ? 'col-resize' : 'move'; return; }
+    const dx = (e.clientX - drag.x0) / drag.W, dy = (e.clientY - drag.y0) / drag.H, s = drag.s;
+    if (drag.kind === 'body') {
+      if (!drag.axis && Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) > 4) drag.axis = Math.abs(e.clientX - drag.x0) >= Math.abs(e.clientY - drag.y0) ? 'x' : 'y';
+      if (drag.axis === 'x') write('c' + s, frac(drag.c0 + dx));
+      else if (drag.axis === 'y') write('depth' + s, clamp(drag.d0 - dy * 1.2, 0, 1));
+    } else if (drag.kind === 'width') {
+      const r = cv.getBoundingClientRect(), ph = (e.clientX - r.left) / drag.W;
+      const half = Math.abs(frac(ph - drag.c0 + 0.5) - 0.5);
+      write('w' + s, clamp(2 * half, 0.005, 1));
+    } else if (drag.kind === 'edge') {
+      write('hard' + s, clamp(drag.h0 + dx / Math.max(0.01, drag.w0 / 2), 0, 1));
+    }
+  });
+  cv.addEventListener('pointerdown', e => {
+    const h = cycleHit(cv, e); if (!h) return;
+    drag = Object.assign(h, { x0: e.clientX, y0: e.clientY, c0: P['c' + h.s], d0: P['depth' + h.s], w0: P['w' + h.s], h0: P['hard' + h.s], axis: null });
+    try { cv.setPointerCapture(e.pointerId); } catch (_) {}
+  });
+  const up = () => { drag = null; };
+  cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+  cv.addEventListener('wheel', e => {
+    const h = cycleHit(cv, e); if (!h) return;
+    e.preventDefault();
+    const b = h.b, key = effLock(b) === 2 ? bladeKey(b, 'kHz') : bladeKey(b, 'k'), sp = SP[key];
+    write(key, clamp(P[key] * Math.pow(2, -Math.sign(e.deltaY) / (e.shiftKey ? 48 : 12)), sp.min, sp.max));
+  }, { passive: false });
+}
+
+/* ======================================================================
+   J. AUDIO — a second oracle instance in an AudioWorklet, built from RazorCore.toString()
+   ====================================================================== */
+function workletSource() {
+  return CORE.toString() + '\nRazorCore.PANS = ' + JSON.stringify(CORE.PANS) + ';\n' + mulberry32.toString() +
+    '\nMath.random = mulberry32(' + 0xB271 + ');\n' +
+    'class B271Razor extends AudioWorkletProcessor {\n' +
+    '  constructor(o) { super(); const q = (o && o.processorOptions) || {}; this.c = new RazorCore(sampleRate);\n' +
+    '    if (q.params) { this.c.set(q.params); Object.assign(this.c.s, this.c.t); }\n' +
+    '    if (q.note) this.c.noteOn(q.note.note, q.note.freq, q.note.vel);\n' +
+    '    this.port.onmessage = e => this.c.msg(e.data); }\n' +
+    '  process(_, outs) { const o = outs[0]; this.c.render(o[0], o[1] || o[0]); return true; }\n' +
+    '}\nregisterProcessor("b271-razor", B271Razor);\n';
+}
+async function makeNode(ctx, init) {
+  const url = URL.createObjectURL(new Blob([workletSource()], { type: 'application/javascript' }));
+  await ctx.audioWorklet.addModule(url);
+  return new AudioWorkletNode(ctx, 'b271-razor', { numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2], processorOptions: init || {} });
+}
+async function audioStart() {
+  if (!CORE) { AUD.err = 'oracle not loaded'; paintAudioStat(); return; }
+  if (AUD.on) { try { await AUD.ctx.close(); } catch (_) {} AUD.on = false; AUD.node = null; AUD.spn = null; AUD.ctx = null; paintAudioStat(); return; }
+  const AC = window.AudioContext || window.webkitAudioContext;
+  const ctx = new AC({ sampleRate: SR });
+  AUD.ctx = ctx; AUD.out = ctx.createGain(); AUD.out.gain.value = EFF.master; AUD.out.connect(ctx.destination);
+  try {
+    AUD.node = await makeNode(ctx, { params: oracleParams(EFF) });
+    AUD.node.connect(AUD.out);
+    AUD.err = '';
+  } catch (e) {
+    /* fallback: the oracle on the main thread (shares the page's Math.random — the
+       monitor's draw order is then no longer reproducible; said on screen) */
+    AUD.err = 'worklet unavailable (' + String(e && e.message || e) + ') — ScriptProcessor fallback';
+    AUD.core = new CORE(ctx.sampleRate); AUD.core.set(oracleParams(EFF)); Object.assign(AUD.core.s, AUD.core.t);
+    AUD.spn = ctx.createScriptProcessor(1024, 0, 2);
+    AUD.spn.onaudioprocess = ev => { const L = ev.outputBuffer.getChannelData(0), Rr = ev.outputBuffer.getChannelData(1); AUD.core.render(L, Rr); };
+    AUD.spn.connect(AUD.out);
+  }
+  AUD.on = true;
+  if (AUD.drone) noteOn(MON.note, true);
+  paintAudioStat();
+}
+function audioMsg(m) { if (AUD.node && AUD.node.port) AUD.node.port.postMessage(m); else if (AUD.core) AUD.core.msg(m); }
+function noteOn(n, keepMon) {
+  audioMsg({ t: 'on', note: n, freq: mtof(n), vel: 0.85 });
+  if (!keepMon) { MON.note = n; monStrike(); }
+}
+function noteOff(n) { if (!(AUD.drone && n === MON.note)) audioMsg({ t: 'off', note: n }); }
+function paintAudioStat() {
+  const s = $('audioStat'); if (!s) return;
+  s.textContent = !AUD.on ? 'AUDIO — OFF. POWER, then the keys (A..L, W/E/T/Y/U/O; Z/X octave).' :
+    'AUDIO — ON · ' + (AUD.node ? 'AudioWorklet running razor-core.js (seeded)' : 'fallback') + (AUD.err ? ' · ' + AUD.err : '') +
+    ' · monitor note ' + MON.note;
+  const p = $('pwr'); if (p) p.classList.toggle('on', AUD.on);
+}
+/* offline proof that the audible path is live: 0.5 s through the SAME worklet */
+async function probeAudio() {
+  const OAC = window.OfflineAudioContext;
+  if (!OAC || !CORE) return 'no OfflineAudioContext or no oracle';
+  const ctx = new OAC(2, SR / 2, SR);
+  const node = await makeNode(ctx, { params: oracleParams(EFF), note: { note: 57, freq: mtof(57), vel: 0.9 } });
+  node.connect(ctx.destination);
+  const buf = await ctx.startRendering();
+  const L = buf.getChannelData(0); let e = 0, pk = 0, bad = 0;
+  for (let i = 0; i < L.length; i++) { if (!isFinite(L[i])) bad++; e += L[i] * L[i]; pk = Math.max(pk, Math.abs(L[i])); }
+  const rms = Math.sqrt(e / L.length);
+  return 'offline worklet render, 0.5 s of A3: RMS ' + (20 * Math.log10(rms + 1e-12)).toFixed(1) + ' dBFS, peak ' + pk.toFixed(3) + ', non-finite ' + bad + (rms > 1e-3 && !bad ? ' — AUDIBLE PATH OK' : ' — SILENT OR BROKEN');
+}
+
+/* ======================================================================
+   K. SELF-CHECKS — each with a control that must fail
+   ====================================================================== */
+/* a scratch oracle instance, seeded, for a check */
+function scratch(params, note, freq, seed) {
+  seedOracle(seed);
+  const c = new CORE(SR);
+  c.set(Object.assign({}, DEF, params)); Object.assign(c.s, c.t);
+  let viz = null; c.post = m => { if (m && m.mem) viz = m; };
+  c.noteOn(note, freq, 1);
+  return { c, viz: () => viz };
+}
+/* THE DRAWN BLADE IS THE HEARD BLADE. With oversampling 1×, band-limiting raw and
+   DC fix off, the oracle's output sample n is tanh(gain·1.6·pan·x[n−1]) where x
+   is out() at the member's phase after tick n−1 (razor-core.js stepM/render). The
+   painter's per-point function, evaluated at that phase, must reproduce the
+   inverted output; the same function shifted a quarter cycle must not. */
+function checkDrawnHeard(cfg, shift) {
+  const f = SR / 128, gain = 0.05;
+  const S = scratch(Object.assign({ os: 1, aa: 0, dcMode: 0, N: 1, gain, A: 1, S: 1, phaseMode: 1, rotRate: 0, xm: 0, fb: 0, bend: 0 }, cfg), 69, f, 0xC0DE);
+  const L = new Float32Array(1), Rr = new Float32Array(1);
+  for (let i = 0; i < 2000; i++) S.c.render(L, Rr);
+  const v = liveVoice(S.c), mm = v.m[0];
+  const x = memberCtx(S.c, S.viz(), 0);
+  const G = gain * 1.6 * Math.cos(Math.PI / 4);
+  let prev = mm.phi, worst = 0, peak = 0;
+  for (let i = 0; i < 512; i++) {
+    S.c.render(L, Rr);
+    const heard = Math.atanh(L[0]) / G, phi = frac(prev + shift);
+    let d = CORE.wave(x.P1.base, phi);
+    const nsA = newNs(1), nsB = newNs(2), nsC = newNs(3), nsD = newNs(4);
+    if (x.P1.w >= 0.004) d += bladeAt(x.P1, phi, x.c1, x.k1, x.mr1, x.mn1, nsA, nsB, 0);
+    if (x.G && x.G.w >= 0.004) d += bladeAt(x.G, phi, x.c2, x.k2, x.mr2, x.mn2, nsC, nsD, 0);
+    worst = Math.max(worst, Math.abs(heard - d)); peak = Math.max(peak, Math.abs(heard));
+    prev = mm.phi;
+  }
+  return { worst, peak };
+}
+function runChecks() {
+  if (!CORE) return;
+  const out = [];
+  const cfgA = { mode: 0, hot: 2, base: 0, w: 0.3, c: 0.5, k: 7, hard: 0.3, depth: 0.8, mirror: 2, lock: 0, b2on: 0 };
+  const cfgB = { mode: 6, hot: 2, base: 2, w: 0.35, c: 0.25, k: 9, hard: 0.2, depth: 1, mirror: 1, lock: 0,
+    b2on: 1, mode2: 4, w2: 0.3, c2: 0.75, k2: 3, hard2: 0.4, depth2: 0.7 };
+  const a = checkDrawnHeard(cfgA, 0), b = checkDrawnHeard(cfgB, 0), ax = checkDrawnHeard(cfgA, 0.25);
+  out.push({ name: 'drawn = heard (sync + twin −)', ok: a.worst < 1e-4 && a.peak > 0.1, detail: 'max err ' + a.worst.toExponential(1) + ' of peak ' + a.peak.toFixed(2) });
+  out.push({ name: 'drawn = heard (crush + reflect, blade 2 fold)', ok: b.worst < 1e-4 && b.peak > 0.1, detail: 'max err ' + b.worst.toExponential(1) });
+  out.push({ name: 'CONTROL: the drawing shifted ¼ cycle', ok: ax.worst > 0.05, control: true, detail: 'max err ' + ax.worst.toFixed(2) + ' (must be large)' });
+  /* the window is zero outside itself; a bypassed blade (w < 0.004) is zero everywhere */
+  const zeroOutside = (w) => {
+    const S = scratch({ mode: 0, hot: 2, base: 2, w, c: 0.4, k: 5, hard: 0, depth: 1, mirror: 0, N: 1, b2on: 0, phaseMode: 1 }, 57, mtof(57), 7);
+    const L = new Float32Array(256), Rr = new Float32Array(256); S.c.render(L, Rr);
+    const cy = memberCycle(S.c, memberCtx(S.c, S.viz(), 0), 384);
+    let outMax = 0, inMax = 0;
+    for (let n = 0; n < 384; n++) {
+      const e = frac(n / 384 - cy.st1);
+      /* a boundary point is neither: voice() and frac() may round it to opposite sides */
+      if (e < w - 1e-6) inMax = Math.max(inMax, Math.abs(cy.d1[n]));
+      else if (e > w + 1e-6 && e < 1 - 1e-6) outMax = Math.max(outMax, Math.abs(cy.d1[n]));
+    }
+    return { outMax, inMax };
+  };
+  const z1 = zeroOutside(0.3), z0 = zeroOutside(0.002);
+  out.push({ name: 'window: zero outside, alive inside', ok: z1.outMax === 0 && z1.inMax > 0.05, detail: 'outside ' + z1.outMax + ', inside ' + z1.inMax.toFixed(2) });
+  out.push({ name: 'CONTROL: a bypassed blade reads zero everywhere', ok: z0.outMax === 0 && z0.inMax === 0, control: true, detail: 'max ' + Math.max(z0.outMax, z0.inMax) });
+  /* the ring reads coupling: lock clumps (r ≥ .9), splay spreads (r ≤ .1) — verify.js's own thresholds */
+  const ringR = (p, secs) => {
+    const S = scratch(Object.assign({ phaseMode: 2 }, p), 45, mtof(45), 0x1234567);
+    const L = new Float32Array(128), Rr = new Float32Array(128);
+    for (let i = 0; i < secs * SR / 128; i++) S.c.render(L, Rr);
+    const v = liveVoice(S.c); let sx = 0, sy = 0;
+    for (let i = 0; i < p.N; i++) { sx += Math.cos(TAU * v.m[i].phi); sy += Math.sin(TAU * v.m[i].phi); }
+    return Math.hypot(sx, sy) / p.N;
+  };
+  const rL = ringR({ N: 7, K: 1, detune: 40 }, 0.5), rS = ringR({ N: 4, K: -1, detune: 3 }, 1.0);
+  out.push({ name: 'ring: Coupling +1 clumps', ok: rL >= 0.9, detail: 'r ' + rL.toFixed(3) + ' (≥ 0.90)' });
+  out.push({ name: 'ring: Coupling −1 splays', ok: rS <= 0.1, detail: 'r ' + rS.toFixed(3) + ' (≤ 0.10)' });
+  /* seeded: the same strike twice is bit-identical; a different seed is not */
+  const strike = seed => { const S = scratch({ phaseMode: 0, law: 1, bspread: 0.4, N: 5 }, 50, mtof(50), seed); const L = new Float32Array(2048), Rr = new Float32Array(2048); S.c.render(L, Rr); return L; };
+  const s1 = strike(0xB271), s2 = strike(0xB271), s3 = strike(0xB272);
+  let same = true, diff = false; for (let i = 0; i < 2048; i++) { if (s1[i] !== s2[i]) same = false; if (s1[i] !== s3[i]) diff = true; }
+  out.push({ name: 'seeded: one seed, one sound', ok: same, detail: same ? 'bit-identical' : 'DIFFERS' });
+  out.push({ name: 'CONTROL: another seed differs', ok: diff, control: true, detail: diff ? 'differs' : 'IDENTICAL' });
+  AUDIT.checks = out;
+  seedOracle(0xB271 + MON.note);
+}
+/* where every SCALPEL row sits on the OSC page, against the accounting's tier */
+function tierAudit() {
+  if (LAB.page !== 'osc' || !FR.querySelectorAll) { return; }
+  const found = {};
+  const nodes = FR.querySelectorAll('[data-key]');
+  for (const n of nodes) {
+    const t = n.dataset.tier; if (!t) continue;
+    for (const k of String(n.dataset.key).split(' ')) if (!found[k] || TIER_RANK[t] < TIER_RANK[found[k]]) found[k] = t;
+  }
+  const res = { same: [], promoted: [], demoted: [], missing: [] };
+  for (const k in SP) {
+    const sp = SP[k];
+    if (sp.kind === 'x' || sp.kind === 'L' || ['enable', 'master', 'vol2', 'subLvl'].indexOf(k) >= 0) continue;
+    const f = found[k];
+    if (!f) res.missing.push(k);
+    else if (f === sp.tier) res.same.push(k);
+    else if (TIER_RANK[f] < TIER_RANK[sp.tier]) res.promoted.push(k + ' ' + sp.tier + '→' + f);
+    else res.demoted.push(k + ' ' + sp.tier + '→' + f);
+  }
+  AUDIT.tiers = res;
+  const tt = $('tierTable');
+  if (tt) {
+    const rows = [['T1 · the face', 'T1'], ['T2 · one level down', 'T2'], ['T3 · Advanced', 'T3']].map(([n, t]) => {
+      const ks = Object.keys(found).filter(k => found[k] === t && SP[k]).map(k => SP[k].label + (/[a-z]2$/.test(k) ? ' ②' : ''));
+      return '<tr><th>' + n + '</th><td>' + escapeHtml(Array.from(new Set(ks)).join(' · ')) + '</td></tr>';
+    });
+    tt.innerHTML = '<table>' + rows.join('') + '<tr><th>promoted by the brief</th><td>' + escapeHtml(res.promoted.join(' · ') || 'none') +
+      '</td></tr><tr><th>demoted</th><td>' + escapeHtml(res.demoted.join(' · ') || 'none') + '</td></tr><tr><th>not placed</th><td>' +
+      escapeHtml(res.missing.join(' · ') || 'none') + '</td></tr></table><div class="vnote">Read from the OSC page\'s own DOM at every rebuild: each control carries ' +
+      'data-key and data-tier, and the table\'s tier is ACCOUNTING §1.4\'s. Dropped/deferred rows (drone pitch, note names, wavetable export, ' +
+      'the kRuleOut display) are not in the table.</div>';
+  }
+}
+function paintAudit() {
+  const a = $('audit'); if (!a) return;
+  if (!CORE) {
+    a.className = 'audit bad';
+    a.textContent = 'oracle NOT loaded: reference/scalpel/prototype/razor-core.js was not reachable (the load checker runs inline blocks only, so this is expected there). Nothing on this page is drawn from an invented blade.';
+    return;
+  }
+  const ch = AUDIT.checks, pass = ch.filter(c => c.ok).length, ctl = ch.filter(c => c.control).length;
+  const t = AUDIT.tiers;
+  a.className = 'audit' + (ch.length && pass < ch.length ? ' bad' : '');
+  a.innerHTML = 'oracle <b>razor-core.js</b> loaded · Math.random seeded (mulberry32) before every instance · self-check ' +
+    (ch.length ? '<span class="' + (pass === ch.length ? 'ok' : 'no') + '">' + pass + '/' + ch.length + '</span> (' + ctl + ' controls fail as they must): ' +
+      ch.map(c => '<span class="' + (c.ok ? 'ok' : 'no') + '">' + (c.ok ? '✓' : '✗') + '</span> ' + escapeHtml(c.name) + ' — ' + escapeHtml(c.detail)).join(' · ') : 'running…') +
+    (t ? ' · tiers: ' + t.same.length + ' rows at their accounting tier, ' + t.promoted.length + ' promoted, ' + t.demoted.length + ' demoted, ' + t.missing.length + ' not placed' : '') +
+    (AUDIT.probe ? ' · ' + escapeHtml(AUDIT.probe) : '');
+  const exp = typeof window !== 'undefined' ? window : null;
+  if (exp) exp.__b271 = { checks: AUDIT.checks, tiers: AUDIT.tiers, probe: AUDIT.probe };
+}
+
+/* ======================================================================
+   L. THE SIDE PANEL, THE LAB CHROME, THE PRESETS, BOOT
+   ====================================================================== */
+function buildSide() {
+  const s = $('side'); if (!s) return;
+  const skin = { A: ['A · KNOBS', 'std', "gui2's knob (ADR-120) with its halo: the magenta arc is your value; a violet arc and tick show where morph or a macro has moved it. The face in the accounting's order."],
+    B: ['B · SLIDERS', 'std', "gui2's labelled row (the station-page idiom): denser, every number visible, no halo. It is how the depths below are drawn in every skin."],
+    C: ['C · DIRECT', 'dep', 'No knobs for the core five. The cycle view is the editor: drag a window to move it, drag vertically for depth, drag an edge for width, the ▲ for edges, scroll for cut rate; numbers are scrubbable chips. Departs from gui2, where every parameter has a knob or row.'] }[LAB.skin] || ['?', 'std', ''];
+  s.innerHTML = '<div class="box"><h2>THIS VIEW</h2>' +
+    '<p><b>Skin ' + skin[0] + '</b><span class="' + skin[1] + '">' + (skin[1] === 'dep' ? 'DEPARTURE' : 'STANDARD') + '</span><br>' + skin[2] + '</p>' +
+    '<p><b>Window ' + (LAB.win === 'gate' ? 'II · GATE' : 'I · BAND') + '</b><span class="std">STANDARD TOKENS</span><br>' +
+    (LAB.win === 'gate' ? 'Each window is drawn as its real gate g(e)·depth (SPEC §4.1): a soft Edge is a slope, a shallow Depth a low roof.' : 'Each window is a translucent band over the full height; Edges and Depth are read from the knobs.') + '</p>' +
+    '<p><b>Blade 2 · ' + (LAB.b2look === 'hue' ? 'HUE' : 'HATCH') + '</b><span class="' + (LAB.b2look === 'hue' ? 'dep">DEPARTURE' : 'std">STANDARD') + '</span><br>' +
+    (LAB.b2look === 'hue' ? 'Blade 2 gets its own colour (a proposed token, --b2 / --scr-b2). ADR-116 has no such token.' : 'Blade 2 is drawn in the same authored magenta, hatched; its row carries a dashed identity stripe.') + '</p>' +
+    '<p><b>Cycle edits ' + (LAB.skin === 'C' || LAB.direct ? 'ON' : 'OFF') + '</b><br>With them on, every drag on the cycle view writes the same address a knob writes.</p></div>' +
+    '<div class="box"><h2>READING THE VIEWS</h2><p><b>Cycle</b>: the dashed curve is the base wave, the solid meter-phosphor curve (teal on the light tube, lime on the dark) is what is heard (DC removed per cycle), ' +
+    'the faint violet curves are the members and the magenta windows are the blades. <b>Ring</b>: each dot is a member at its phase and turns magenta while it is inside a blade. ' +
+    'The arcs outside the circle are each member\'s own blade window, the violet needle is the mean field R, and arrows show cross-mod. <b>Spectrum</b>: the meter line is the measured output, ' +
+    'bands are the predicted formant ± main lobe (the bench\'s rule), and the amber tick marks f₀.</p><p>All three read one seeded oracle instance that holds the monitor note (A2, or the last key played). ' +
+    'It advances a whole number of note periods per frame, so a blade window holds still.</p></div>';
+}
+function mkPills(host, list, cur, f) {
+  host.innerHTML = '';
+  for (const [v, t, dep] of list) {
+    const b = el('button', 'pill' + (cur === v ? ' on' : ''), t);
+    if (dep) b.appendChild(el('span', 'dep', '⚑'));
+    b.addEventListener('click', () => f(v));
+    host.appendChild(b);
+  }
+}
+function chrome() {
+  mkPills($('pagePills'), [['osc', 'OSC'], ['main', 'MAIN']], LAB.page, v => { LAB.page = v; chrome(); rebuild(); });
+  mkPills($('skinPills'), [['A', 'A knobs'], ['B', 'B sliders'], ['C', 'C direct', true]], LAB.skin, v => { LAB.skin = v; chrome(); rebuild(); });
+  mkPills($('winPills'), [['band', 'I band'], ['gate', 'II gate']], LAB.win, v => { LAB.win = v; chrome(); rebuild(); });
+  mkPills($('b2Pills'), [['hatch', 'hatch'], ['hue', 'hue', true]], LAB.b2look, v => { LAB.b2look = v; applyBodyClasses(); chrome(); rebuild(); });
+  mkPills($('dirPills'), [[false, 'off'], [true, 'on']], LAB.direct || LAB.skin === 'C', v => { LAB.direct = v; chrome(); rebuild(); });
+  const tb = $('themeBtn'); if (tb) tb.innerHTML = 'theme <b>' + (LAB.theme === 'dark' ? 'DARK' : 'LIGHT') + '</b>';
+  const vb = $('valsBtn'); if (vb) vb.innerHTML = 'values <b>' + (LAB.showVals ? 'SHOWN' : 'HOVER') + '</b>';
+}
+function applyBodyClasses() {
+  if (!document.body || !document.body.classList) return;
+  document.body.classList.toggle('dark', LAB.theme === 'dark');
+  document.body.classList.toggle('b2hue', LAB.b2look === 'hue');
+  document.body.classList.toggle('showvals', LAB.showVals);
+  _tok = {};
+}
+function applyPreset(name) {
+  const pr = LAB.presets && LAB.presets.find(p => p.name === name);
+  if (!pr) return;
+  P = Object.assign({}, DEF, pr.params, { b1on: 1 });
+  LAB.presetName = pr.name;
+  for (const m of MACROS) m.v = 0;
+  EFF = effective(); pushOracle(); monStrike();
+  const s = $('presetSel'); if (s) s.value = name;
+  rebuild();
+}
+function fillPresetSelect() {
+  const s = $('presetSel'); if (!s) return;
+  s.innerHTML = '';
+  const o0 = el('option', null, LAB.presets ? '— ' + LAB.presets.length + ' packet presets —' : 'presets need tools/serve_labs.py'); o0.value = ''; s.appendChild(o0);
+  if (LAB.presets) {
+    let cat = null, og = null;
+    for (const p of LAB.presets) {
+      if (p.category !== cat) { cat = p.category; og = el('optgroup'); og.label = cat; s.appendChild(og); }
+      const o = el('option', null, p.name); o.value = p.name; og.appendChild(o);
+    }
+  }
+  s.value = LAB.presetName || '';
+}
+async function loadPresets() {
+  if (typeof fetch !== 'function') return;
+  try {
+    const r = await fetch('../../reference/scalpel/data/presets.json');
+    if (!r.ok) return;
+    const j = await r.json();
+    LAB.presets = j.presets || null;
+  } catch (_) { LAB.presets = null; }
+}
+function buildKbd() {
+  const k = $('kbd'); if (!k) return;
+  k.innerHTML = '';
+  const base = 48;
+  for (let i = 0; i < 25; i++) {
+    const n = base + i, blk = [1, 3, 6, 8, 10].indexOf(n % 12) >= 0;
+    const d = el('div', 'key' + (blk ? ' blk' : '')); d.dataset.n = n;
+    d.addEventListener('pointerdown', () => { d.classList.add('down'); noteOn(n); });
+    const up = () => { d.classList.remove('down'); noteOff(n); };
+    d.addEventListener('pointerup', up); d.addEventListener('pointerleave', () => { if (d.classList.contains('down')) up(); });
+    k.appendChild(d);
+  }
+}
+function wireChrome() {
+  const on = (id, ev, f) => { const n = $(id); if (n && n.addEventListener) n.addEventListener(ev, f); };
+  on('themeBtn', 'click', () => { LAB.theme = LAB.theme === 'dark' ? 'light' : 'dark'; applyBodyClasses(); chrome(); rebuild(); });
+  on('valsBtn', 'click', () => { LAB.showVals = !LAB.showVals; applyBodyClasses(); chrome(); });
+  on('pwr', 'click', () => { audioStart(); });
+  on('panic', 'click', () => { audioMsg({ t: 'panic' }); AUD.drone = false; const d = $('droneBtn'); if (d) d.classList.remove('on'); });
+  on('droneBtn', 'click', () => { AUD.drone = !AUD.drone; $('droneBtn').classList.toggle('on', AUD.drone); if (AUD.drone) noteOn(MON.note, true); else audioMsg({ t: 'off', note: MON.note }); });
+  on('probeBtn', 'click', async () => { AUDIT.probe = 'rendering…'; paintAudit(); try { AUDIT.probe = await probeAudio(); } catch (e) { AUDIT.probe = 'probe failed: ' + String(e && e.message || e); } paintAudit(); });
+  on('presetSel', 'change', () => { const v = $('presetSel').value; if (v) applyPreset(v); });
+  on('initBtn', 'click', () => { P = Object.assign({}, DEF, { b1on: 0, base: 2, b2on: 0 }); LAB.presetName = 'horde INIT (blade 1 off, saw base — ACCOUNTING §1.7)'; EFF = effective(); pushOracle(); monStrike(); fillPresetSelect(); rebuild(); });
+  if (typeof window !== 'undefined' && window.addEventListener) {
+    window.addEventListener('keydown', e => {
+      if (e.repeat || (e.target && /INPUT|SELECT|TEXTAREA/.test(e.target.tagName || ''))) return;
+      const ch = String(e.key || '').toLowerCase();
+      if (ch === 'z') { AUD.oct = Math.max(-2, AUD.oct - 1); return; }
+      if (ch === 'x') { AUD.oct = Math.min(2, AUD.oct + 1); return; }
+      if (ch in KEYMAP) { const n = 48 + 12 * AUD.oct + KEYMAP[ch]; AUD.held.add(ch); noteOn(n); }
+    });
+    window.addEventListener('keyup', e => {
+      const ch = String(e.key || '').toLowerCase();
+      if (ch in KEYMAP && AUD.held.has(ch)) { AUD.held.delete(ch); noteOff(48 + 12 * AUD.oct + KEYMAP[ch]); }
+    });
+  }
+}
+function frame() {
+  if (!LAB.frozen) monStep();
+  paintCanvases();
+  requestAnimationFrame(frame);
+}
+async function boot() {
+  applyBodyClasses();
+  chrome();
+  wireChrome();
+  buildKbd();
+  EFF = effective();
+  monStrike();
+  rebuild();
+  try { await bootLate(); } catch (e) {
+    const a = $('audit'); if (a) { a.className = 'audit bad'; a.textContent = 'boot failed after load: ' + String(e && e.stack || e); }
+  }
+}
+async function bootLate() {
+  await loadPresets();
+  fillPresetSelect();
+  const want = qp('preset', '');
+  if (want && LAB.presets) applyPreset(want);
+  if (LAB.still > 0) { for (let i = 0; i < LAB.still; i++) monStep(); LAB.frozen = true; }
+  runChecks();
+  rebuild();
+  if (qp('probe', '0') === '1') { try { AUDIT.probe = await probeAudio(); } catch (e) { AUDIT.probe = 'probe failed: ' + String(e && e.message || e); } paintAudit(); }
+  requestAnimationFrame(frame);
+}
+boot();
+</script>
+</body></html>
