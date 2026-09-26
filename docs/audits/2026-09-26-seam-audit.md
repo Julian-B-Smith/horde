@@ -987,7 +987,8 @@ joined the rack after the contract was written), G2's master-transpose half and 
   row by row.
 - **`private_name_gate` and `mailbox_delivery_check` did not run inside this audit's worktree** (no
   untracked names file and no sibling checkouts beside it); the mailbox check was run from the main
-  checkout (G20). This file names only FOUNDATIONS, Sluice and MAW among siblings.
+  checkout (G20), and the private-name gate's own pattern was applied from the main checkout to
+  this file and its trace: 0 hits. This file names only FOUNDATIONS, Sluice and MAW among siblings.
 - **I did not score SPECTRA** (parked indefinitely; not in the brief's list) or the parked SWARM-FX
   shell.
 
