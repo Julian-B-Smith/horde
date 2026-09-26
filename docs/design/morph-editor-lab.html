@@ -78,6 +78,30 @@
          "difference from the recommended law" view.
      The laws, limits, state proposal and both earlier self-checks are B235's, unchanged.
 
+     B269, 2026-09-26 — ROUND 3, THE HUMAN'S REVIEW OF B268 ("Great so far"):
+       - THE PUCK STAYS PUT. "It will be necessary to be able to hear how the value
+         changes at the current position." A click on empty pad moves nothing; only
+         dragging the puck (○) moves it; adding, moving and re-valuing pins never
+         touches the heard position. The pad's gestures are now functions of a STATE
+         (padDown / padMove / padUp / padDbl / padCtx / padWheel), so the round-3
+         audit drives the very code the pointer drives, on a scratch copy.
+       - A HOVER PREVIEW: the value the page would resolve under the pointer, printed
+         at the pointer and ticked on the colour scale, before any click.
+       - QUANTUM BOUNDARIES, EDITABLE, WITH LOCKS. A picking row's pad shows which
+         corner owns it where (pickCorner, the real law). Dragging a boundary LOCKS
+         the row: its four scores' offsets (β, one per corner — the "authored bias"
+         morph_core.h:4 names as a term of the one score) are snapshotted from the
+         seed, Temperature and Cohesion at that moment and edited from there, so a
+         reseed, a temperature move or a Cohesion move no longer reaches it. One
+         click unlocks. Proposed state: a sparse `morphLocks` key by the unit lead's
+         parameter id — the `morphWaypoints` precedent.
+       - COUPLING IS NOW COHESION in this lab (the swarm's Coupling, B224, is another
+         control). The shell's parameter id 155 still carries the old name.
+       - A THIRD MODE, STEPPED: BLEND in steps of one global STEP. Two readings, both
+         built for an A/B — (a) the pad POSITION snaps to a grid, (b) each row's
+         blended VALUE snaps to steps of its own range. STEP 0 is BLEND, bit for bit.
+       - The four audits are a wired gate: tools/labharness/morph_editor_check.mjs.
+
      TOKENS ARE COPIED, NOT LINKED — verbatim from src/gui/gui2.html (:root 26-96,
      body.scr-orchid 142-144, body:not(.dark) 167-185, body.dark 186-212), by way of
      docs/design/station-page-lab.html, the batch's model. Copy, therefore drift.
@@ -86,7 +110,7 @@
      const declared below it. No Math.random (mulberry32 only, SPEC §5.7); no wall
      clock anywhere. -->
 <html><head><meta charset="utf-8">
-<meta name="lab-review" content="B211 + B235 + B268 · 2026-09-26">
+<meta name="lab-review" content="B211 + B235 + B268 + B269 · 2026-09-26">
 <title>Morph editor lab — four corners × the whole field, and waypoints between them</title>
 <style>
   /* ============================================================
@@ -508,18 +532,48 @@
   details.ansbox[open] > summary { margin-bottom:8px; }
   .about { color:var(--t2); font-size:10.5px; max-width:130ch; margin-bottom:8px; line-height:1.5; }
   .about b { color:var(--text); }
+
+  /* ============ B269 — HOVER, BOUNDARIES, LOCKS, STEPPED ============
+     The hover readout is what the ENGINE would resolve under the pointer — its own
+     doing, so the physics ink, like the HEARING column. A LOCK is authored (the
+     player froze these regions), so --value, the same ink as a pin; a lock that is
+     not acting in this mode is drawn dashed, as a dormant pin is. */
+  .stepgrp input[type=range] { width:120px; }
+  .stepgrp output { font-size:10px; min-width:13ch; font-variant-numeric:tabular-nums; color:var(--text); }
+  .padhover { position:absolute; z-index:5; padding:2px 6px; border-radius:5px; font-size:10px; line-height:1.35;
+    pointer-events:none; border:var(--stroke) solid var(--line); background:var(--panel); color:var(--t2);
+    box-shadow:var(--shadow); white-space:nowrap; font-variant-numeric:tabular-nums; }
+  .padhover b { color:var(--physics); font-weight:700; }
+  .padhover .own { display:inline-block; width:9px; height:9px; border:1px solid var(--line); border-radius:2px;
+    vertical-align:-1px; margin-right:3px; background:var(--cc); }
+  .qlockbar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:10px; color:var(--t2);
+    margin:0 0 6px; padding:4px 8px; border:var(--stroke) dashed var(--div); border-radius:8px; background:var(--well); }
+  .qlockbar.locked { border-style:solid; border-color:var(--value); }
+  .qlockbar b { color:var(--text); }
+  .qlockbar .pill { min-height:22px; padding:1px 8px; font-size:9.5px; }
+  .qlk { display:inline-flex; align-items:center; gap:3px; margin-left:5px; padding:0 5px; border:1px solid var(--value);
+    border-radius:999px; font:inherit; font-size:8.5px; letter-spacing:.06em; color:var(--value); cursor:pointer;
+    line-height:1.5; background:none; }
+  .qlk:hover { background:color-mix(in srgb, var(--value) 12%, transparent); }
+  .qlk.dorm { border-style:dashed; border-color:var(--dim); color:var(--dim); }
+  .qlk svg { width:8px; height:10px; }
+  .cohsay { margin:0 0 4px; }
+  #padC.bd { cursor:move; }
 </style></head><body>
 
 <div class="hdr">
   <div>
     <h1>morph editor</h1>
     <div class="badges">
-      <span class="badge">LAB · B211 + B235 + B268</span>
+      <span class="badge">LAB · B211 + B235 + B268 + B269</span>
       <span class="sub">FOUR CORNERS × THE WHOLE FIELD — AND VALUES PINNED BETWEEN THEM</span>
     </div>
   </div>
   <div class="hdrctl">
     <div class="grp"><span class="lbl">MORPH MODE</span><div class="pills" id="modePills"></div></div>
+    <div class="grp stepgrp" id="stepGrp" hidden data-lab="B269, proposed: STEPPED mode's global step — 0 is BLEND exactly">
+      <span class="lbl">STEP</span><input id="stepIn" type="range" min="0" max="1" step="0.01"><output id="stepOut"></output>
+      <span class="lbl">READING</span><div class="pills" id="readPills"></div></div>
     <button class="chip" id="demoBtn" data-lab="toggles the lab's own corner edits on top of the factory patch">corners <b>FACTORY + LAB EDITS</b></button>
     <button class="chip" id="themeBtn" data-lab="theme audition">theme <b>LIGHT</b></button>
   </div>
@@ -528,22 +582,29 @@
 <div class="tagline">Every member of the real morph field against the four corners of <b>MO - Quantum Morph</b>. A
 <b>waypoint (◆)</b> pins one parameter's value at a spot on the pad, and BLEND passes through it. Start at the pad:
 drag a ◆, drag its value tag, double-click to add one — and watch the <b>cross-section</b>, where the four candidate laws
-part. The table and the inspector are directly below; what the lab answers is at the bottom.</div>
+part. The puck stays where you are listening while you edit; hover to preview the value under the pointer. In
+<b>QUANTUM</b>, drag a boundary between two corner colours to hand ground from one corner to the other — that <b>locks</b>
+the row against reseeding. <b>STEPPED</b> is blend in steps. The table and the inspector are directly below; what the lab
+answers is at the bottom.</div>
 
 <div class="audit" id="audit">field audit: pending</div>
 <div class="audit" id="wpAudit">waypoint audit: pending</div>
 <div class="audit" id="uxAudit">interaction audit: pending</div>
+<div class="audit" id="r3Audit">round-3 audit: pending</div>
 
-<div class="qbanner" id="qBanner" hidden><span>◇ <b>Waypoints only act in BLEND; they’re dormant here.</b>
-  QUANTUM hands each row to one corner, so a value pinned <i>between</i> corners has nothing to be. The pins are kept.</span>
+<div class="qbanner" id="qBanner" hidden><span>◇ <b>Waypoints only act in BLEND and STEPPED; they’re dormant here.</b>
+  QUANTUM hands each row to one corner, so a value pinned <i>between</i> corners has nothing to be. The pins are kept.
+  What you edit here is the <b>boundaries</b>: drag the line between two corner colours on the pad.</span>
   <button class="pill go commit" id="qToBlend">SWITCH TO BLEND</button></div>
 
 <div class="work">
   <div class="cluster" id="padPane"><h2 id="padH">Pad</h2>
     <div class="pinsay" id="pinSay"></div>
+    <div class="qlockbar" id="qLockBar" hidden></div>
     <div class="padwrap">
-      <canvas id="padC" data-lab="the morph pad — drag to move the listening position; pins are edited here directly"></canvas>
+      <canvas id="padC" data-lab="the morph pad — drag the puck to move the listening position; pins and boundaries are edited here directly"></canvas>
       <div class="padmsg" id="padMsg" hidden></div>
+      <div class="padhover" id="padHover" hidden></div>
     </div>
     <div class="scale" id="scale"><span id="scLo"></span><canvas id="scaleC" data-lab="the pad's colour scale, in the parameter's own values"></canvas><span id="scHi"></span></div>
     <div class="scalecap" id="scaleCap"></div>
@@ -553,8 +614,10 @@ part. The table and the inspector are directly below; what the lab answers is at
     <div class="sep"></div>
     <div class="cap">RESOLVER — DEVICE CONTROLS, NEVER CORNER VALUES</div>
     <div class="row" data-lab="morph Temperature (id 154)"><label>Temp</label><input id="tempIn" type="range" min="0.02" max="3" step="0.01"><output id="tempOut"></output></div>
-    <div class="row" data-lab="morph Coupling (id 155)"><label>Coupling</label><input id="coupIn" type="range" min="0" max="1" step="0.01"><output id="coupOut"></output></div>
-    <div class="row" data-lab="morph Seed (id 156)"><label>Seed</label><input id="seedIn" type="number" step="1" min="0"><output></output></div>
+    <div class="row" data-lab="morph Cohesion (id 155; the shell still names it Coupling)"><label>Cohesion</label><input id="cohIn" type="range" min="0" max="1" step="0.01"><output id="cohOut"></output></div>
+    <div class="note cohsay"><b>Cohesion</b> — how strongly the parameters pick the <b>same corner together</b>: at 0 each draws its own, at 1 the whole field flips as one (a unit always does). Not the swarm’s Coupling (B224).</div>
+    <div class="row" data-lab="morph Seed (id 156)"><label>Seed</label><input id="seedIn" type="number" step="1" min="0"><button class="pill go" id="reseedBtn" title="a new seed — every UNLOCKED picking row re-deals; locked rows keep their regions">⟳</button></div>
+    <div class="note" id="lockCount"></div>
   </div>
 
   <div class="cluster" id="lawPane"><h2>Waypoints — one row, four laws (B235 · B268)</h2>
@@ -932,7 +995,7 @@ const ABSENT_ROWS = [
 [152,"Morph X","",2,"morph position — §3.2: a source, not a destination"],
 [153,"Morph Y","",2,"morph position — §3.2: a source, not a destination"],
 [154,"Temperature","",2,"morph control — shapes the resolver itself"],
-[155,"Coupling","",2,"morph control — shapes the resolver itself"],
+[155,"Cohesion","",2,"morph control — shapes the resolver itself (B269: the shell still labels id 155 \u201cCoupling\u201d)"],
 [156,"Morph Seed","",2,"morph control — the field's flip topology"],
 [157,"Morph Mode","",2,"morph control — how the field resolves"],
 [158,"Morph Glide (s)","",2,"morph control — the field's own rate"],
@@ -1173,9 +1236,11 @@ function freshCorners(withDemo) {
    any deep link can change it. */
 const S = {
   x: 0.62, y: 0.37,
-  temp: FACTORY_MORPH.morphTemp, coup: FACTORY_MORPH.morphCoup, seed: FACTORY_MORPH.morphSeed,
+  // morphCoup is the shell's state key and stays; the player-facing name is Cohesion (B269).
+  temp: FACTORY_MORPH.morphTemp, cohesion: FACTORY_MORPH.morphCoup, seed: FACTORY_MORPH.morphSeed,
   glide: FACTORY_MORPH.morphGlide,
-  mode: 1,                                   // 0 quantum, 1 blend (id 157) — B268 opens in BLEND
+  G: null,                                   // the seed's Gumbel draws — reshuffle(seed), set below
+  mode: 1,                                   // 0 quantum, 1 blend, 2 stepped (id 157; 2 is B269's proposal) — B268 opens in BLEND
   demo: true,
   corners: null,
   exempt: new Uint8Array(N),
@@ -1201,9 +1266,14 @@ const S = {
   maps: 'value',                             // the four minis: 'value' | 'diff' (from the recommended law)
   drag: null,                                // the pad gesture in flight: { kind, j, from, … }
   padMsg: null,                              // a refusal shown ON the pad: { t, x, y }
+  // ---- B269 ----
+  qlock: {},                                 // unit-lead row index -> Float64Array(4) β: a LOCKED row's own score offsets
+  step: 0.1,                                 // STEPPED: the global step (0 = BLEND exactly); n = round(1/step) per axis / per range
+  stepRead: 'pos',                           // 'pos' (a) the pad position snaps · 'val' (b) each row's value snaps
+  hover: null,                               // the pointer over the pad, in pad units: { x, y } — the preview reads it
 };
 const OPEN_STATE = { mode: S.mode, sel: S.sel, x: S.x, y: S.y, law: S.law };
-let G = reshuffle(S.seed, N);
+S.G = reshuffle(S.seed, N);
 
 function resetCorners() {
   S.corners = freshCorners(S.demo);
@@ -1218,6 +1288,7 @@ function resetCorners() {
     S.live[i] = e.live;
   }
   S.wp = {}; S.wpSel = -1; S.wpMsg = ''; S.wpVer++;
+  S.qlock = {};                              // B269: locks are the player's, like the pins — a fresh patch has none
   if (S.demo) for (const d of DEMO_WAYPOINTS) {
     const i = idxOf[d.id]; if (i !== undefined) S.wp[i] = d.pts.map(p => p.slice());
   }
@@ -1231,34 +1302,150 @@ resetCorners();
    position, not just the four weights. A row with no pin (and B232 off) never
    enters the law: it takes the unchanged bilinear lines below, which is the
    structural half of "a patch without waypoints sounds exactly as today". */
-function resolveRow(i, w, lw, corners, x, y) {
+/* B269: `st` is the state resolved against — the page's S by default, or a
+   scratch copy (scratchState, below) when an audit drives the same code. It
+   carries mode, exempt/live, the law and clamp, the Gumbel draws, Cohesion, the
+   locks, the step and the held values. A scratch state's pins are its own: the
+   surface is built from st.wp, not the page's cached S.wp. */
+function resolveRow(i, w, lw, corners, x, y, st) {
+  st = st || S;
   const row = FIELD_ROWS[i];
-  if (S.exempt[i]) return { v: S.live[i], owner: -1, how: 'exempt' };
+  if (st.exempt[i]) return { v: st.live[i], owner: -1, how: 'exempt' };
   if (row[R_KIND] === 'g') {
     let on = 0;
     for (let k = 0; k < 4; k++) on += w[k] * corners[k][i];
     on = on < 0 ? 0 : (on > 1 ? 1 : on);
     return { v: on > 1e-3 ? 1 : 0, ramp: on, owner: -1, how: 'ramp' };
   }
-  if (S.mode === 1 && row[R_KIND] === 'c') {
-    const sf = surfaceFor(i, corners);
+  if (st.mode !== 0 && row[R_KIND] === 'c') {
+    let px = x === undefined ? w[1] + w[3] : x, py = y === undefined ? w[2] + w[3] : y;
+    // B269 STEPPED (a): the pad position snaps to an n×n grid before anything is read.
+    const n = stepN(st);
+    if (n && st.stepRead === 'pos') { px = Math.round(px * n) / n; py = Math.round(py * n) / n; w = weights(px, py); }
+    const sf = surfaceFor(i, corners, st.law, st === S ? undefined : (st.wp[i] || []), st.b232);
+    let o;
     if (sf) {
-      const px = x === undefined ? w[1] + w[3] : x, py = y === undefined ? w[2] + w[3] : y;
-      const r = surfAt(sf, px, py, row[R_MIN], row[R_MAX], S.hullClamp);
-      return { v: r.v, raw: r.raw, clip: r.clip, wp: sf.n, owner: -1, how: 'blend' };
+      const r = surfAt(sf, px, py, row[R_MIN], row[R_MAX], st.hullClamp);
+      o = { v: r.v, raw: r.raw, clip: r.clip, wp: sf.n, owner: -1, how: 'blend' };
+    } else {
+      let v = 0;
+      for (let k = 0; k < 4; k++) v += w[k] * corners[k][i];
+      o = { v, owner: -1, how: 'blend' };
     }
-    let v = 0;
-    for (let k = 0; k < 4; k++) v += w[k] * corners[k][i];
-    return { v, owner: -1, how: 'blend' };
+    // B269 STEPPED (b): the row's own blended value snaps to n steps of its range.
+    if (n && st.stepRead === 'val') o.v = snapVal(i, o.v, n);
+    if (n) o.step = n;
+    return o;
   }
-  const k = pickCorner(G, LEAD[i], lw, S.coup);
+  const k = pickFor(st, i, w, lw, corners);
   if (!depLive(corners, row[R_ID], k)) {
-    const held = S.cur[i] < -1e29 ? corners[k][i] : S.cur[i];
+    const held = st.cur[i] < -1e29 ? corners[k][i] : st.cur[i];
     return { v: held, owner: k, held: true, how: 'held' };
   }
   let v = corners[k][i];
   if (row[R_KIND] === 's') v = Math.round(v);
   return { v, owner: k, how: row[R_KIND] === 's' ? 'snap' : 'flip' };
+}
+
+/* ======================================================================
+   B269 — THE ONE PICK, LOCKS, AND THE STEP. Pure, like Block W.
+
+   UNLOCKED, a row picks exactly as morph_core.h does — pickFor falls through to
+   pickCorner, so the 1092/1092 parity and every unlocked map are untouched:
+       score_k = log(w_k)/T + (1−c)·g_ik + c·gs_k          (T temperature, c Cohesion)
+   LOCKED, the row carries its own four offsets β and ignores T, c and the draws:
+       score_k = log(w_k) + β_k
+   Lock snapshots β_k = T·((1−c)·g_ik + c·gs_k) — the unlocked score times T>0,
+   which has the same argmax, so locking changes no region (round-3 audit L0) —
+   then subtracts β_A, because only differences between corners matter: a lock
+   is THREE numbers. Reseed, Temperature and Cohesion no longer reach it (L1).
+   Dragging the boundary between corners k and m to a point p sets
+   β_k − β_m = log w_m(p) − log w_k(p), which is the one equation that puts p on
+   the k|m line; β_k + β_m is kept, so the edit is symmetric (L4).
+   THE FAMILY GUARANTEE: every region stays a pickCorner region — the set where
+   one corner's score leads — so each region is connected and always contains
+   its own corner (there the other weights are 0 and their scores −1e12). A
+   corner's own snapshot is therefore always what you hear AT that corner, the
+   quantum twin of B235's P2. Painting cells freely would lose that; it is why
+   the gesture is a boundary drag, not a brush (see the answers).
+   A UNIT (morphInit's lead map: scale, FX slot, routing) flips as one, so it
+   locks as one: the lock is keyed by the unit's lead. */
+const Q_BETA_MAX = 40;         // |β| bound: past e^40 a region is the whole pad but its own corners
+function stepN(st) {           // STEPPED's steps per axis (a) / per range (b); 0 = continuous
+  return st.mode === 2 && st.step > 0 ? Math.max(1, Math.round(1 / st.step)) : 0;
+}
+function snapVal(i, v, n) {
+  const r = FIELD_ROWS[i], sp = (r[R_MAX] - r[R_MIN]) || 1;
+  const q = r[R_MIN] + Math.round((v - r[R_MIN]) / sp * n) / n * sp;
+  return Math.min(r[R_MAX], Math.max(r[R_MIN], q));
+}
+function logw(v) { return v > 1e-9 ? Math.log(v) : -1e12; }        // logW's floor, without the 1/T
+// B232 in QUANTUM (proposed with the switch): where the source is audible, a
+// corner that holds it OFF cannot win its parameters — the pick's reading of
+// "blend only from ON corners". Null when the rule does not apply here.
+function b232Mask(st, i, w, corners) {
+  const on = b232On(i, corners, st.b232);
+  if (!on) return null;
+  let live = 0;
+  for (let k = 0; k < 4; k++) if (on[k]) live += w[k];
+  return live > 1e-3 ? on : null;
+}
+function pickFor(st, i, w, lw, corners) {
+  const L = st.qlock[LEAD[i]] || null;
+  const mask = b232Mask(st, i, w, corners);
+  if (!L && !mask) return pickCorner(st.G, LEAD[i], lw, st.cohesion);     // today's law, the same call
+  let best = -1e300, bi = 0;
+  for (let k = 0; k < 4; k++) {
+    if (mask && !mask[k]) continue;
+    const s = L ? logw(w[k]) + L[k] : lw[k] + (1 - st.cohesion) * st.G.g[LEAD[i] * 4 + k] + st.cohesion * st.G.gs[k];
+    if (s > best) { best = s; bi = k; }
+  }
+  return bi;
+}
+// The four scores at (x, y) in the lock's own units (log w + β), for hit-testing a
+// boundary and for the audit — an unlocked row's are its would-be snapshot's.
+function scoresAt(st, i, x, y) {
+  const L = st.qlock[LEAD[i]] || lockSnapshot(st, LEAD[i]), w = weights(x, y);
+  return [0, 1, 2, 3].map(k => logw(w[k]) + L[k]);
+}
+function lockSnapshot(st, lead) {
+  const T = st.temp < 0.02 ? 0.02 : st.temp, c = st.cohesion;
+  const b = [0, 1, 2, 3].map(k => T * ((1 - c) * st.G.g[lead * 4 + k] + c * st.G.gs[k]));
+  return Float64Array.from(b, v => v - b[0]);
+}
+function isLocked(st, i) { return !!st.qlock[LEAD[i]]; }
+/* Does row i PICK in this state — i.e. does it have regions to show and edit?
+   Structural rows pick in every mode (BLEND never interpolates them); a
+   continuous row picks only under QUANTUM; a gate never picks (it ramps). */
+function qRefusal(st, i) {
+  if (i < 0) return 'Select a row first — boundaries belong to one parameter.';
+  const k = FIELD_ROWS[i][R_KIND];
+  if (k === 'g') return 'A gate has no regions — its level ramps with the pad (B48/B203).';
+  if (st.exempt[i]) return 'This row is exempt (ADR-109): no corner owns it, so it has no regions. Its lock, if any, is kept for its return.';
+  if (k === 'c' && st.mode !== 0) return 'In BLEND a continuous row blends — it has no regions. Its boundaries act in QUANTUM.';
+  return '';
+}
+/* THE LOCK WRITE PATH — the pad, the inspector, the row's lock chip and the
+   round-3 audit all call these three and nothing else writes st.qlock. */
+function qLock(st, i) {
+  if (FIELD_ROWS[i][R_KIND] === 'g') return 'A gate has no regions to lock.';
+  const lead = LEAD[i];
+  if (!st.qlock[lead]) st.qlock[lead] = lockSnapshot(st, lead);
+  return '';
+}
+function qUnlock(st, i) { delete st.qlock[LEAD[i]]; return ''; }
+function qDrag(st, i, k, m, x, y) {
+  const why = qRefusal(st, i); if (why) return why;
+  if (k === m) return 'Two sides of a boundary must be two corners.';
+  qLock(st, i);
+  const L = st.qlock[LEAD[i]];
+  x = Math.min(0.998, Math.max(0.002, x)); y = Math.min(0.998, Math.max(0.002, y));   // an edge has log 0 = −∞
+  const w = weights(x, y), d = logw(w[m]) - logw(w[k]), s = L[k] + L[m];
+  const clamp = v => Math.min(Q_BETA_MAX, Math.max(-Q_BETA_MAX, v));
+  L[k] = clamp((s + d) / 2); L[m] = clamp((s - d) / 2);
+  const b0 = L[0];
+  for (let q = 0; q < 4; q++) L[q] -= b0;
+  return '';
 }
 let HEARD = [];
 function resolveAll() {
@@ -1508,10 +1695,10 @@ function b232On(i, corners, flag) {            // flag: a scratch state's B232 s
   const j = idxOf[g];
   return [0, 1, 2, 3].map(k => (corners[k][j] > 0.5 ? 1 : 0));
 }
-function surfaceFor(i, corners, law, pinsOverride) {
+function surfaceFor(i, corners, law, pinsOverride, b232flag) {
   law = law || S.law;
   const pins = pinsOverride || S.wp[i] || [];
-  const on = b232On(i, corners);
+  const on = b232On(i, corners, b232flag);
   if (!pins.length && !on) return null;
   const c = [corners[0][i], corners[1][i], corners[2][i], corners[3][i]];
   if (pinsOverride) return makeSurface(c, pins, law, on);
@@ -1841,7 +2028,7 @@ function rowHTML(i) {
   const same = differs(i) || nPins(i) ? '' : ' same';
   const sel = i === S.sel ? ' sel' : '';
   let h = `<div class="grow${same}${sel}" data-i="${i}"><div class="gk">${kindGlyph(r[R_KIND])}</div>`
-    + `<div class="gp"><span class="pl">${esc(r[R_LABEL])}${unit}${wpBadge(i)}</span><span class="ph">${esc(r[R_HOST])} · ${r[R_ID]}</span></div>`;
+    + `<div class="gp"><span class="pl">${esc(r[R_LABEL])}${unit}${wpBadge(i)}${qBadge(i)}</span><span class="ph">${esc(r[R_HOST])} · ${r[R_ID]}</span></div>`;
   if (S.exempt[i]) {
     let stored = S.corners[0][i];
     const jump = Math.abs(stored - S.live[i]) > 1e-9;
@@ -1961,13 +2148,105 @@ function renderWeights(w) {
   el.innerHTML = w.map((v, k) => `<div class="wt" style="--cc:var(${CVAR[k]});--f:${v.toFixed(3)}">${CORNERS[k]} ${(v * 100).toFixed(0)}%<i></i></div>`).join('');
 }
 /* THE PAD PAINTS THE SELECTED ROW. Sampled on a grid, each cell is the value the
-   row would resolve to if the pad stood there — so the three behaviours become
-   three PICTURES: a continuous row under BLEND is a smooth gradient; a structural
-   row (and, under QUANTUM, a continuous one) is a patchwork of flat regions with
-   hard edges (edges drawn in the marker colour); a gate is a smooth LEVEL gradient
-   with a single contour where the switch would flip (the −60 dB floor). With no
-   row selected the pad shows corner identity only. Deterministic: the same seed
-   and corners paint the same map, every time. */
+   row would resolve to if the pad stood there — so the behaviours become
+   PICTURES: a continuous row under BLEND is a smooth gradient (STEPPED: terraces);
+   a row that PICKS (structural always, continuous under QUANTUM) is its corners'
+   REGIONS, each in its corner's colour, with the boundaries drawn — B269, which
+   makes them the thing you edit; a gate is a smooth LEVEL gradient with a single
+   contour where the switch would flip (the −60 dB floor). With no row selected
+   the pad shows corner identity only. Deterministic: the same seed and corners
+   paint the same map, every time. */
+
+/* B269 — WHAT THE PAD PAINTS, as numbers, for any state. A continuous row in plain
+   BLEND reads its surface through sampleRow (the four maps' sampler); everything
+   else goes cell by cell through resolveRow, the HEARING column's own function.
+   The hover readout is a different path (hoverInfo → resolveRow at the pointer),
+   which is what lets the round-3 audit check the preview against the colour under
+   it (H1). Cell centres only — never a corner, so the corner guard never fires. */
+function padSamples(st, i, M, corners) {
+  corners = corners || st.corners;
+  const kind = FIELD_ROWS[i][R_KIND], n = M * M;
+  const out = { i, M, kind: '', vals: new Float64Array(n), raw: new Float64Array(n), clip: new Uint8Array(n),
+                owner: new Int8Array(n).fill(-1), held: new Uint8Array(n), sf: null };
+  if (kind === 'c' && st.mode === 1) {
+    const smp = sampleRow(i, corners, st.law, M, st === S ? undefined : (st.wp[i] || []));
+    return Object.assign(out, { kind: 'surface', vals: smp.vals, raw: smp.raw, clip: smp.clip, sf: smp.sf });
+  }
+  out.kind = kind === 'g' ? 'ramp' : (kind === 'c' && st.mode === 2 ? 'stepped' : 'pick');
+  for (let yy = 0; yy < M; yy++) for (let xx = 0; xx < M; xx++) {
+    const x = (xx + 0.5) / M, y = (yy + 0.5) / M, q = yy * M + xx;
+    const w = weights(x, y), r = resolveRow(i, w, logW(w, st.temp), corners, x, y, st);
+    out.vals[q] = r.how === 'ramp' ? r.ramp : r.v;
+    out.raw[q] = r.raw !== undefined ? r.raw : out.vals[q];
+    out.clip[q] = r.clip || 0; out.owner[q] = r.owner; out.held[q] = r.held ? 1 : 0;
+  }
+  return out;
+}
+/* A picking row's REGIONS: the owning corner's colour, alpha by the value it
+   holds (so a region still reads as brighter = higher, like every other map);
+   HELD cells (ADR-108 — the corner won but its switch is off there) ticked over;
+   the boundaries in ink — the marker phosphor while they follow the seed, the
+   value phosphor (authored) once LOCKED; the boundary being dragged, thickest.
+   Each region is labelled with its corner and the value it holds. */
+function paintRegions(g, W, H, v, smp, corners, locked, hot) {
+  const i = smp.i, M = smp.M, cw = W / M, chh = H / M, am = Math.min(1, parseFloat(TOK('--scr-alpha', '1')) || 1);
+  const cnt = [0, 0, 0, 0], cx = [0, 0, 0, 0], cy = [0, 0, 0, 0];
+  for (let q = 0; q < M * M; q++) {
+    const o = smp.owner[q]; if (o < 0) continue;
+    g.fillStyle = RGBA(TOK(CVAR[o]), (0.22 + 0.5 * norm(i, smp.vals[q])) * am);
+    g.fillRect((q % M) * cw, Math.floor(q / M) * chh, cw + 0.5, chh + 0.5);
+    cnt[o]++; cx[o] += (q % M) + 0.5; cy[o] += Math.floor(q / M) + 0.5;
+  }
+  g.strokeStyle = TOKA('--scr-grid', 0.8); g.lineWidth = 1 * v; g.beginPath();
+  for (let q = 0; q < M * M; q++) if (smp.held[q]) {
+    const x0 = (q % M) * cw, y0 = Math.floor(q / M) * chh;
+    g.moveTo(x0, y0 + chh * 0.5); g.lineTo(x0 + cw * 0.5, y0);
+  }
+  g.stroke();
+  const edges = (pred) => {
+    g.beginPath();
+    for (let yy = 0; yy < M; yy++) for (let xx = 0; xx < M; xx++) {
+      const q = yy * M + xx, a = smp.owner[q];
+      if (xx + 1 < M && a !== smp.owner[q + 1] && pred(a, smp.owner[q + 1])) { g.moveTo((xx + 1) * cw, yy * chh); g.lineTo((xx + 1) * cw, (yy + 1) * chh); }
+      if (yy + 1 < M && a !== smp.owner[q + M] && pred(a, smp.owner[q + M])) { g.moveTo(xx * cw, (yy + 1) * chh); g.lineTo((xx + 1) * cw, (yy + 1) * chh); }
+    }
+    g.stroke();
+  };
+  g.strokeStyle = locked ? TOK('--scr-value') : TOKA('--scr-marker', 0.95);
+  g.lineWidth = (locked ? 2.2 : 1.5) * v;
+  edges(() => true);
+  if (hot) {
+    g.strokeStyle = TOK('--text'); g.lineWidth = 3.4 * v;
+    edges((a, b) => (a === hot.k && b === hot.m) || (a === hot.m && b === hot.k));
+  }
+  g.font = `bold ${9.5 * v}px ui-monospace,Menlo,monospace`; g.textBaseline = 'middle'; g.textAlign = 'center';
+  for (let k = 0; k < 4; k++) {
+    if (cnt[k] < M * M * 0.006) continue;
+    const x = cx[k] / cnt[k] * cw, y = cy[k] / cnt[k] * chh, t = `${CORNERS[k]} ${fmt(i, corners[k][i])}`;
+    const tw = g.measureText(t).width + 8 * v, th = 14 * v;
+    g.fillStyle = TOKA('--scr-tube', 0.8); g.fillRect(x - tw / 2, y - th / 2, tw, th);
+    g.strokeStyle = TOK(CVAR[k]); g.lineWidth = 1.2 * v; g.strokeRect(x - tw / 2, y - th / 2, tw, th);
+    g.fillStyle = TOK('--text'); g.fillText(t, x, y + 0.5);
+  }
+}
+// A gate's level gradient and the one line where its switch flips (B211's picture).
+function paintRamp(g, W, H, v, smp) {
+  const M = smp.M, cw = W / M, chh = H / M;
+  const phys = TOK('--scr-physics'), am = Math.min(1, parseFloat(TOK('--scr-alpha', '1')) || 1);
+  for (let q = 0; q < M * M; q++) {
+    g.fillStyle = RGBA(phys, (0.06 + 0.86 * smp.vals[q]) * am);
+    g.fillRect((q % M) * cw, Math.floor(q / M) * chh, cw + 0.5, chh + 0.5);
+  }
+  const sw = q => (smp.vals[q] > 1e-3 ? 1 : 0);
+  g.strokeStyle = TOKA('--scr-marker', 0.95); g.lineWidth = 1.5 * v;
+  g.beginPath();
+  for (let yy = 0; yy < M; yy++) for (let xx = 0; xx < M; xx++) {
+    const q = yy * M + xx;
+    if (xx + 1 < M && sw(q) !== sw(q + 1)) { g.moveTo((xx + 1) * cw, yy * chh); g.lineTo((xx + 1) * cw, (yy + 1) * chh); }
+    if (yy + 1 < M && sw(q) !== sw(q + M)) { g.moveTo(xx * cw, (yy + 1) * chh); g.lineTo((xx + 1) * cw, (yy + 1) * chh); }
+  }
+  g.stroke();
+}
 function paintPad() {
   const cv = $('padC');
   const G2 = ground(cv); if (!G2) return;
@@ -1975,40 +2254,15 @@ function paintPad() {
   const i = S.sel;
   const M = 56;
   const dc = draftCorners();
-  const kind = i >= 0 ? FIELD_ROWS[i][R_KIND] : '';
-  if (i >= 0 && !S.exempt[i] && kind === 'c' && S.mode === 1) {
+  let smp = null;
+  if (i >= 0 && !S.exempt[i]) {
     // B235: a continuous row under BLEND is painted from its SURFACE — the same
     // makeSurface/surfAt the HEARING column and the self-check use.
-    const smp = sampleRow(i, dc, S.law, M);
-    paintField(g, W, H, v, M, smp);
-    drawTriangulation(g, W, H, v, smp.sf);
-  } else if (i >= 0 && !S.exempt[i]) {
-    const vals = new Float64Array(M * M), sw = new Uint8Array(M * M);
-    const savedCur = S.cur[i];
-    for (let yy = 0; yy < M; yy++) for (let xx = 0; xx < M; xx++) {
-      const x = (xx + 0.5) / M, y = (yy + 0.5) / M;
-      const ww = weights(x, y), lw = logW(ww, S.temp);
-      const r = resolveRow(i, ww, lw, dc, x, y);
-      const q = yy * M + xx;
-      vals[q] = r.how === 'ramp' ? r.ramp : norm(i, r.v);
-      sw[q] = r.v > 0.5 ? 1 : 0;
-    }
-    S.cur[i] = savedCur;
-    const cw = W / M, chh = H / M;
-    const phys = TOK('--scr-physics');
-    for (let q = 0; q < M * M; q++) {
-      g.fillStyle = RGBA(phys, (0.06 + 0.86 * vals[q]) * Math.min(1, parseFloat(TOK('--scr-alpha', '1')) || 1));
-      g.fillRect((q % M) * cw, Math.floor(q / M) * chh, cw + 0.5, chh + 0.5);
-    }
-    g.strokeStyle = TOKA('--scr-marker', 0.95); g.lineWidth = 1.5 * v;
-    g.beginPath();
-    for (let yy = 0; yy < M; yy++) for (let xx = 0; xx < M; xx++) {
-      const q = yy * M + xx;
-      const edge = (a, b) => kind === 'g' ? sw[a] !== sw[b] : Math.abs(vals[a] - vals[b]) > 1e-9;
-      if (xx + 1 < M && edge(q, q + 1)) { g.moveTo((xx + 1) * cw, yy * chh); g.lineTo((xx + 1) * cw, (yy + 1) * chh); }
-      if (yy + 1 < M && edge(q, q + M)) { g.moveTo(xx * cw, (yy + 1) * chh); g.lineTo((xx + 1) * cw, (yy + 1) * chh); }
-    }
-    g.stroke();
+    smp = padSamples(S, i, M, dc);
+    if (smp.kind === 'surface') { paintField(g, W, H, v, M, smp); drawTriangulation(g, W, H, v, smp.sf); }
+    else if (smp.kind === 'stepped') paintField(g, W, H, v, M, smp);
+    else if (smp.kind === 'pick') paintRegions(g, W, H, v, smp, dc, isLocked(S, i), S.drag && S.drag.kind === 'qb' ? S.drag : null);
+    else paintRamp(g, W, H, v, smp);
   }
   // B235, GLOBAL: every position that carries ANY row's pin, as a small ink
   // square — the "stations". Drawn under the selected row's own pins.
@@ -2025,10 +2279,21 @@ function paintPad() {
     g.strokeStyle = TOK('--line'); g.lineWidth = v; g.strokeRect(x0, y0, s, s);
     g.fillStyle = '#191521'; g.fillText(CORNERS[k], x0 + s / 2, y0 + s / 2 + 0.5);
   });
-  // the listening position — your value, so the value phosphor
+  // the listening position — your value, so the value phosphor. B269: it is a
+  // HANDLE now (only dragging it moves it), so it carries a grip ring; in
+  // STEPPED (a) a tick shows the grid point it is heard at.
   g.strokeStyle = TOK('--scr-value'); g.lineWidth = 2 * v;
   g.beginPath(); g.arc(S.x * W, S.y * H, 7 * v, 0, 6.2832); g.stroke();
   g.beginPath(); g.arc(S.x * W, S.y * H, 1.5 * v, 0, 6.2832); g.fillStyle = TOK('--scr-value'); g.fill();
+  g.strokeStyle = TOKA('--scr-value', 0.45); g.lineWidth = 1 * v;
+  g.beginPath(); g.arc(S.x * W, S.y * H, 10 * v, 0, 6.2832); g.stroke();
+  const n = stepN(S);
+  if (n && S.stepRead === 'pos') {
+    const gx = Math.round(S.x * n) / n * W, gy = Math.round(S.y * n) / n * H;
+    g.strokeStyle = TOK('--text'); g.lineWidth = 1.2 * v;
+    g.beginPath(); g.moveTo(S.x * W, S.y * H); g.lineTo(gx, gy); g.stroke();
+    g.fillStyle = TOK('--text'); g.fillRect(gx - 2.5 * v, gy - 2.5 * v, 5 * v, 5 * v);
+  }
   // ON A PIN: a dashed attention ring round the puck — the marker phosphor.
   const on = i >= 0 ? pinAtPuck(i) : -1;
   if (on >= 0) {
@@ -2037,40 +2302,72 @@ function paintPad() {
     g.beginPath(); g.arc(S.x * W, S.y * H, 13 * v, 0, 6.2832); g.stroke();
     if (g.setLineDash) g.setLineDash([]);
   }
+  // B269: the hover cross — where the preview is reading.
+  if (S.hover && !S.drag) {
+    g.strokeStyle = TOK('--text'); g.lineWidth = 1 * v;
+    const hx = S.hover.x * W, hy = S.hover.y * H;
+    g.beginPath(); g.moveTo(hx - 5 * v, hy); g.lineTo(hx + 5 * v, hy); g.moveTo(hx, hy - 5 * v); g.lineTo(hx, hy + 5 * v); g.stroke();
+  }
   const cap = $('padCap');
   if (cap) {
     const st = stationCensus();
     const glob = st.pins ? ` <b>${st.pins}</b> pin${st.pins > 1 ? 's' : ''} on <b>${st.rows}</b> row${st.rows > 1 ? 's' : ''} at <b>${st.pos}</b> position${st.pos > 1 ? 's' : ''} (▫).` : '';
     if (i < 0) cap.innerHTML = 'Select a row and the pad paints <b>that row</b> across every position.' + glob;
     else if (S.exempt[i]) cap.innerHTML = `<b>${esc(FIELD_ROWS[i][R_LABEL])}</b> is exempt — it has no map; it holds its live value everywhere.`;
-    else if (kind === 'c' && S.mode === 1) cap.innerHTML = `Painted: <b>${esc(FIELD_ROWS[i][R_LABEL])}</b> under <b>${LAW_NAME[S.law]}</b>${nPins(i) ? ` through ${nPins(i)} pin${nPins(i) > 1 ? 's' : ''} (◆, drag to move)` : ' — no pins: today’s blend, untouched'}.`
+    else if (smp && (smp.kind === 'surface' || smp.kind === 'stepped')) cap.innerHTML = `Painted: <b>${esc(FIELD_ROWS[i][R_LABEL])}</b> under <b>${LAW_NAME[S.law]}</b>${nPins(i) ? ` through ${nPins(i)} pin${nPins(i) > 1 ? 's' : ''} (◆, drag to move)` : ' — no pins: today’s blend, untouched'}`
+      + (smp.kind === 'stepped' ? ` — <b>STEPPED ${S.stepRead === 'pos' ? '(a) position' : '(b) value'}</b>, ${n} steps` : '') + '.'
       + (on >= 0 ? ` <b>The puck is ON ◆${on + 1}</b> — an armed edit changes its value.` : '');
-    else cap.innerHTML = `Painted: <b>${esc(FIELD_ROWS[i][R_LABEL])}</b> (${esc(FIELD_ROWS[i][R_HOST])}) — ${
-      kind === 'g' ? 'level gradient; the line is where the switch flips'
-      : 'flat regions; lines are where it jumps'}.` + (nPins(i) ? ` Its ${nPins(i)} pin${nPins(i) > 1 ? 's are' : ' is'} <b>dormant</b> (◇) under ${wpDormant(i)}.` : '');
+    else if (smp && smp.kind === 'pick') cap.innerHTML = `Painted: <b>${esc(FIELD_ROWS[i][R_LABEL])}</b> — which corner <b>owns</b> it where (colour = corner, brighter = a higher value; ⟋ held). `
+      + (isLocked(S, i) ? '<b>Locked</b>: its boundaries are its own.' : 'Its boundaries follow the seed, Temperature and Cohesion until you drag one.')
+      + (nPins(i) ? ` Its ${nPins(i)} pin${nPins(i) > 1 ? 's are' : ' is'} <b>dormant</b> (◇) under ${wpDormant(i)}.` : '');
+    else cap.innerHTML = `Painted: <b>${esc(FIELD_ROWS[i][R_LABEL])}</b> (${esc(FIELD_ROWS[i][R_HOST])}) — level gradient; the line is where the switch flips.`;
   }
   renderPadText();
 }
-
 /* B268 — THE WORDS AND THE SCALE AT THE PAD. What a pin IS, in one sentence;
    which gestures act, or the one reason none do on this row; the colour scale in
    the parameter's own values; a refusal printed where the hand is; and the
-   QUANTUM banner. */
+   QUANTUM banner. B269 adds the lock bar (a picking row's lock state, with its
+   one-click LOCK / UNLOCK) and the hover readout. */
+const LOCK_SVG = '<svg viewBox="0 0 8 10" aria-hidden="true"><rect x="0.5" y="4.3" width="7" height="5.2" rx="1" fill="currentColor"/><path d="M1.9 4.3 V3 a2.1 2.1 0 0 1 4.2 0 V4.3" stroke="currentColor" stroke-width="1.3" fill="none"/></svg>';
 function renderPadText() {
   const i = S.sel;
   const hd = $('padH');
   if (hd) hd.innerHTML = i >= 0 ? `Pad — painting ${esc(FIELD_ROWS[i][R_LABEL])} <span style="color:var(--t2);font-weight:400">· ${esc(SECTIONS[FIELD_ROWS[i][R_SEC]])}</span>` : 'Pad';
+  const picks = i >= 0 && !qRefusal(S, i);
   const say = $('pinSay');
-  if (say) say.innerHTML = `A <b>pin</b> (◆) says: at this spot on the pad, ${i >= 0 ? '<b>' + esc(FIELD_ROWS[i][R_LABEL]) + '</b>' : 'this parameter'} should be <b>this value</b>. `
-    + 'The colour shows the value it takes <b>everywhere</b> — brighter is higher, on the scale below the pad.';
+  if (say) say.innerHTML = picks
+    ? `A <b>region</b> says: wherever the puck is inside it, ${'<b>' + esc(FIELD_ROWS[i][R_LABEL]) + '</b>'} plays <b>that corner’s value</b>. `
+      + 'The lines between the colours are its <b>boundaries</b> — drag one to hand ground from one corner to the other.'
+    : `A <b>pin</b> (◆) says: at this spot on the pad, ${i >= 0 ? '<b>' + esc(FIELD_ROWS[i][R_LABEL]) + '</b>' : 'this parameter'} should be <b>this value</b>. `
+      + 'The colour shows the value it takes <b>everywhere</b> — brighter is higher, on the scale below the pad.';
   const gs = $('gest');
   if (gs) {
     const why = i >= 0 ? pinRefusal(S, i) : '';
-    gs.innerHTML = i < 0 ? 'Select a row in the table below and the pad paints it.'
-      : why ? `<b>No pin gestures on this row right now.</b> ${esc(why)}`
+    const puck = '<b>drag the ○ puck</b> to move where you listen — a click anywhere else moves nothing, so what you hear stays put while you edit · <b>hover</b>: the value under the pointer';
+    gs.innerHTML = i < 0 ? 'Select a row in the table below and the pad paints it. ' + puck + '.'
+      : picks ? '<b>drag a boundary</b> (a line between two colours) to move it — the row <b>locks</b> · ' + puck
+        + (nPins(i) ? ` · its ◇ pins are dormant here (${esc(wpDormant(i) || '')})` : '') + '.'
+      : why ? `<b>No pin gestures on this row right now.</b> ${esc(why)} ${puck}.`
       : '<b>drag</b> a ◆ to move it · <b>drag its value tag ↕</b>, or <b>scroll</b> on it, to change its value (<kbd>alt</kbd>-drag the ◆ too; <kbd>shift</kbd> = fine) · '
-        + '<b>double-click</b> empty pad: a new pin at what you hear there · <b>right-click</b> a ◆, or <kbd>Delete</kbd>: remove it · '
-        + 'drag the line’s <b>‹ ›</b> ends: move the cross-section · drag anywhere else: move the puck.';
+        + '<b>double-click</b> empty pad: a new pin there, at the value the law <i>already gives there</i> — so adding it changes nothing you hear until you move its value · '
+        + '<b>right-click</b> a ◆, or <kbd>Delete</kbd>: remove it · drag the line’s <b>‹ ›</b> ends: move the cross-section · ' + puck + '.';
+  }
+  const lb = $('qLockBar');
+  if (lb) {
+    const show = i >= 0 && FIELD_ROWS[i][R_KIND] !== 'g' && (picks || isLocked(S, i));
+    lb.hidden = !show;
+    if (show) {
+      const lk = isLocked(S, i), u = FIELD_ROWS[i][R_UNITLEAD];
+      const unit = u ? ` (with its unit of ${UNIT_SIZE[u]} — a unit flips, so locks, as one)` : '';
+      if (lb.classList) lb.classList.toggle('locked', lk && picks);
+      lb.innerHTML = lk
+        ? `<span class="qlk${picks ? '' : ' dorm'}">${LOCK_SVG} LOCKED</span><span>${picks
+            ? '<b>Its regions are its own</b>' : '<b>Locked, dormant here</b> — its regions act in QUANTUM'}${unit}: reseed, Temperature and Cohesion no longer move them.</span>`
+          + '<button class="pill go" data-q="unlock" title="one click: back to the seed’s boundaries">UNLOCK</button>'
+        : `<span>Boundaries <b>follow the seed</b>, Temperature and Cohesion${unit}. Drag one to edit — that locks the row.</span>`
+          + '<button class="pill go" data-q="lock" title="freeze the regions exactly as they are now">LOCK AS IS</button>';
+    }
   }
   paintScale();
   const m = $('padMsg');
@@ -2085,11 +2382,43 @@ function renderPadText() {
       m.style.bottom = y < 0.7 ? 'auto' : `calc(${((1 - y) * 100).toFixed(1)}% + 10px)`;
     }
   }
-  const b = $('qBanner'); if (b) b.hidden = S.mode === 1;
+  renderHover();
+  const b = $('qBanner'); if (b) b.hidden = S.mode !== 0;
+}
+/* B269 — THE HOVER PREVIEW. What the page would resolve if the puck stood under
+   the pointer: resolveRow at that spot, in the page's own state (mode, law,
+   clamp, locks, step, a staged edit) — the HEARING column's function, so the
+   preview is the value you would hear there, not an estimate of it. */
+function hoverInfo(st, i, x, y, corners) {
+  const w = weights(x, y);
+  return resolveRow(i, w, logW(w, st.temp), corners || st.corners, x, y, st);
+}
+function hoverText(i, r) {
+  return r.how === 'ramp' ? `level ${(r.ramp * 100).toFixed(0)}%` : fmt(i, r.v);
+}
+function renderHover() {
+  const el = $('padHover'); if (!el) return;
+  const i = S.sel, h = S.hover;
+  const show = !!h && i >= 0 && !S.exempt[i] && !S.drag;
+  el.hidden = !show;
+  if (!show || !el.style) return;
+  const r = hoverInfo(S, i, h.x, h.y, draftCorners());
+  let t = `<b>${esc(hoverText(i, r))}</b>`;
+  if (r.owner >= 0) t = `<span class="own" style="--cc:var(${CVAR[r.owner]})"></span>${CORNERS[r.owner]}${r.held ? ' · held' : ''} · ` + t;
+  else if (r.how === 'blend') t += ` · ${LAW_NAME[S.law]}${r.step ? ` · ${S.stepRead === 'pos' ? '(a)' : '(b)'} ${r.step} steps` : ''}`;
+  const bd = h.w ? boundaryUnder(S, h) : null;
+  if (bd) t += ` · drag: <b>${CORNERS[bd.k]} | ${CORNERS[bd.m]}</b>`;
+  el.innerHTML = t;
+  el.style.left = h.x < 0.6 ? `calc(${(h.x * 100).toFixed(1)}% + 14px)` : 'auto';
+  el.style.right = h.x < 0.6 ? 'auto' : `calc(${((1 - h.x) * 100).toFixed(1)}% + 14px)`;
+  el.style.top = h.y < 0.85 ? `calc(${(h.y * 100).toFixed(1)}% + 12px)` : 'auto';
+  el.style.bottom = h.y < 0.85 ? 'auto' : `calc(${((1 - h.y) * 100).toFixed(1)}% + 12px)`;
 }
 /* The pad's brightness ramp, laid out flat: the same RGBA the painters use, so
    the key cannot drift from the picture. Marks: every pin's value (◆, value
-   phosphor) and what you hear at the puck (ink bar). */
+   phosphor), what you hear at the puck (ink bar) and — B269 — the value under
+   the pointer (ink triangles, top and bottom), so the right value can be found
+   on the scale before anything is clicked. */
 function paintScale() {
   const i = S.sel, show = i >= 0 && !S.exempt[i];
   const sc = $('scale'), cap = $('scaleCap');
@@ -2110,16 +2439,24 @@ function paintScale() {
   }
   const Hd = HEARD[i], hn = !Hd ? 0 : (Hd.how === 'ramp' ? Hd.ramp : norm(i, Hd.v));
   g.fillStyle = TOK('--text'); g.fillRect(hn * W - 1.25 * v, 0, 2.5 * v, H);
+  let hov = null;
+  if (S.hover && !S.drag) {
+    hov = hoverInfo(S, i, S.hover.x, S.hover.y, draftCorners());
+    const x = (hov.how === 'ramp' ? hov.ramp : norm(i, hov.v)) * W, t = 5 * v;
+    g.fillStyle = TOK('--text'); g.strokeStyle = TOK('--scr-tube'); g.lineWidth = 1 * v;
+    g.beginPath(); g.moveTo(x - t, 0); g.lineTo(x + t, 0); g.lineTo(x, t * 1.3); g.closePath(); g.fill(); g.stroke();
+    g.beginPath(); g.moveTo(x - t, H); g.lineTo(x + t, H); g.lineTo(x, H - t * 1.3); g.closePath(); g.fill(); g.stroke();
+  }
   const lo = $('scLo'), hi = $('scHi');
   if (lo) lo.innerHTML = `<b>${esc(kind === 'g' ? 'level 0%' : fmt(i, r[R_MIN]))}</b>`;
   if (hi) hi.innerHTML = `<b>${esc(kind === 'g' ? '100%' : fmt(i, r[R_MAX]))}</b>`;
   const unit = /\(([^)]+)\)\s*$/.exec(r[R_LABEL]);
   if (cap) cap.innerHTML = `colour = ${esc(r[R_LABEL])}${unit ? ' in ' + esc(unit[1]) : ''}, its whole range`
     + (kind === 'c' && nPins(i) ? ' · ◆ each pin’s value' : '')
-    + ` · ▌ heard at the puck: ${esc(Hd ? (Hd.how === 'ramp' ? `level ${(Hd.ramp * 100).toFixed(0)}%` : fmt(i, Hd.v)) : '—')}`;
+    + ` · ▌ heard at the puck: ${esc(Hd ? hoverText(i, Hd) : '—')}`
+    + (hov ? ` · ▼ under the pointer: <b>${esc(hoverText(i, hov))}</b>` : ' · ▼ hover the pad to preview');
 }
 function setMode(m) { S.mode = m; S.padMsg = null; S.wpMsg = ''; buildMode(); buildLegend(); renderGrid(); renderInspector(); }
-
 /* ============ B268 — THE INTERACTION AUDIT (the third audit line) ============
    Two questions, each with controls that must FAIL, or the answer proves nothing.
    OPEN: does the page open in BLEND, on a continuous row that carries pins, with
@@ -2250,6 +2587,243 @@ function renderUxAudit(A) {
     + `MO2 a flat unpinned row (${esc(A.flat)}) paints <b>${A.mo2.panels}</b>/4 maps · MG1 a pin 5% off the heard value moves the pad by <b>${pctOfSpan(A.mg1)}</b> of range · `
     + `MG2 a legal spot is refused by ${A.mg2 ? '<b>' + esc(A.mg2) + '</b>' : 'nothing'}.`
     + (A.ok ? '' : ' — FAILING: ' + (O.ok ? '' : 'open ') + f.join(', '));
+}
+
+/* ============ B269 — THE ROUND-3 AUDIT (the fourth audit line) ============
+   Every property runs the page's OWN functions (padDown/padMove/padUp/padDbl/
+   padCtx/padWheel, hoverInfo, padSamples, pickFor, qLock/qUnlock/qDrag,
+   resolveRow) on a SCRATCH copy of the opening state, and each has a control
+   that must FAIL — a planted fault the property's detector has to see — or the
+   property proves nothing (L0016/L0032).
+     P   the puck does not move on any pin gesture (click on empty pad, double-
+         click, pin drag, value drag, wheel, a click on a pin, right-click delete)
+         nor on a boundary drag — and DOES move, exactly, when it is dragged.
+         MP  B268's rules replayed (a click on empty pad puts the puck there; a
+             click on a pin jumps onto it; a double-click moves it onto the new
+             pin) must be SEEN moving it.
+     H   the hover readout equals the colour under it — hoverInfo (resolveRow at
+         the pointer) against padSamples (the painter's own sampler) at every cell
+         of a 24×24 pad, in BLEND, STEPPED (a) and (b), QUANTUM, on a structural
+         row and on a gate. MH the same comparison with the readout reading a
+         different law must see a difference.
+     L0  locking changes no region at the moment it is taken (every picking row,
+         T = 0.5, so the snapshot's factor T is exercised). ML0 a snapshot that
+         forgets T must change some.
+     L1  a LOCKED row survives a reseed, a temperature move and a Cohesion move,
+         all at once, bit for bit. ML1 a "lock" re-taken after the change (a
+         lock that is only a flag) must fail it.
+     L2  an UNLOCKED row does not: a reseed alone re-deals it. ML2 the same
+         detector, "reseeded" to the same seed, must read zero.
+     L3  one click (qUnlock) hands a locked row back to the live law exactly.
+         ML3 before the click, the locked map must differ from the live one — or
+         unlocking was shown to change nothing.
+     L4  a boundary drag through the pad's own gestures lands the k|m boundary on
+         the pointer (score gap < 1e-9), locks the row, and every corner still
+         owns its own corner (the family guarantee). ML4 a point 0.1 away must
+         NOT be on it.
+     S0  STEP 0 is BLEND bit for bit, both readings, every continuous row with
+         the demo pins, on a 17×17 grid that includes the corners and edges.
+         MS0 STEP 0.01 must differ somewhere under both readings.
+     S1  pins act in STEPPED: a pin can be added there; under (a) a spot that
+         snaps onto a pin's grid point hears the pin's value; under (b) the pin's
+         spot hears its value snapped. MS1 the same off-grid spot in BLEND must
+         NOT hear the pin's value — the snap is what put it there. */
+function scratchState(base) {
+  const wp = {}; for (const k in base.wp) wp[k] = base.wp[k].map(p => p.slice());
+  const ql = {}; for (const k in base.qlock) ql[k] = Float64Array.from(base.qlock[k]);
+  return Object.assign({}, base, {
+    wp, qlock: ql, exempt: Uint8Array.from(base.exempt), live: Float64Array.from(base.live),
+    cur: new Float64Array(N).fill(-1e30), xs: { auto: base.xs.auto, a: base.xs.a.slice(), b: base.xs.b.slice() },
+    drag: null, padMsg: null, hover: null, wpSel: -1, wpVer: 0,
+  });
+}
+function roundThreeAudit() {
+  const base = scratchState(S);                 // setup time: the page as it OPENS (before readLinks)
+  base.corners = freshCorners(true);            // the demo corners, whatever the page later shows
+  const iV = idxOf[17], iS = idxOf[4000], iG = idxOf[1150];
+  const P = (x, y) => ({ x, y, w: 390, h: 390 });
+  const props = {}, controls = {}, info = {};
+
+  // ---- P / MP: the puck ----------------------------------------------------------
+  const api = st => ({
+    down: (p, m) => padDown(st, p, m || {}, []), move: (g, p) => padMove(st, g, p, {}), up: g => padUp(st, g),
+    dbl: p => padDbl(st, p, []), ctx: p => padCtx(st, p, []), wheel: (p, dy) => padWheel(st, p, dy, false, []),
+  });
+  const legacy = st => {                        // B268's rules, planted back — the control
+    const a = api(st);
+    return Object.assign({}, a, {
+      down: (p, m) => { const g = a.down(p, m); if (g && g.kind === 'none') { st.x = p.x; st.y = p.y; } return g; },
+      up: g => { a.up(g); if (g && g.kind === 'move' && !g.moved) { const q = st.wp[st.sel][g.j]; st.x = q[0]; st.y = q[1]; } },
+      dbl: p => { const n = (st.wp[st.sel] || []).length; a.dbl(p); const L = st.wp[st.sel] || []; if (L.length > n) { st.x = L[L.length - 1][0]; st.y = L[L.length - 1][1]; } },
+    });
+  };
+  const puckRun = mkApi => {
+    const st = scratchState(base); st.mode = 1; st.sel = iV;
+    const A = mkApi(st), x0 = st.x, y0 = st.y, steps = {}, did = {};
+    const still = () => st.x === x0 && st.y === y0;
+    const L = () => st.wp[iV] || [];
+    const step = (name, fn) => { fn(); steps[name] = still(); };
+    step('click', () => A.up(A.down(P(0.2, 0.8))));
+    const n0 = L().length;
+    step('dblclick', () => { A.up(A.down(P(0.3, 0.7))); A.up(A.down(P(0.3, 0.7))); A.dbl(P(0.3, 0.7)); });
+    did.add = L().length === n0 + 1;
+    step('pinDrag', () => { const q = L()[0], g = A.down(P(q[0], q[1])); A.move(g, P(0.35, 0.42)); A.up(g); });
+    did.move = L()[0][0] === 0.35 && L()[0][1] === 0.42;
+    const v1 = L()[1][2];
+    step('valueDrag', () => { const q = L()[1], g = A.down(P(q[0], q[1]), { alt: true }); A.move(g, P(q[0], q[1] - 0.1)); A.up(g); });
+    did.value = L()[1][2] > v1;
+    const v0 = L()[0][2];
+    step('wheel', () => A.wheel(P(L()[0][0], L()[0][1]), -1));
+    did.wheel = L()[0][2] > v0;
+    step('pinClick', () => { const q = L()[1]; A.up(A.down(P(q[0], q[1]))); });
+    const n1 = L().length;
+    step('rightClick', () => { const q = L()[n1 - 1]; A.ctx(P(q[0], q[1])); });
+    did.del = L().length === n1 - 1;
+    // a boundary drag on a structural row under QUANTUM: find a boundary on y = 0.5
+    st.mode = 0; st.sel = iS;
+    let bx = -1;
+    for (let k = 1; k < 100 && bx < 0; k++) if (boundaryUnder(st, P(k / 100, 0.5))) bx = k / 100;
+    step('boundaryDrag', () => { const g = A.down(P(bx, 0.5)); A.move(g, P(bx + 0.06, 0.53)); A.up(g); });
+    did.lock = bx > 0 && isLocked(st, iS);
+    // and the puck DOES move when it is the thing dragged — by exactly the drag
+    const g = A.down(P(st.x, st.y)), tx = st.x + 0.1, ty = st.y - 0.05;
+    A.move(g, P(st.x + 0.1, st.y - 0.05)); A.up(g);
+    did.puck = g && g.kind === 'puck' && Math.abs(st.x - tx) < 1e-12 && Math.abs(st.y - ty) < 1e-12;
+    return { steps, did };
+  };
+  const pr = puckRun(api), pl = puckRun(legacy);
+  props.P = Object.values(pr.steps).every(Boolean) && Object.values(pr.did).every(Boolean);
+  controls.MP = Object.values(pl.steps).filter(ok => !ok).length > 0;
+  info.P = pr; info.MP = Object.keys(pl.steps).filter(k => !pl.steps[k]);
+
+  // ---- H / MH: the hover readout is the colour under it ---------------------------
+  const cases = [[1, 'pos', iV], [2, 'pos', iV], [2, 'val', iV], [0, 'pos', iV], [1, 'pos', iS], [0, 'pos', iS], [1, 'pos', iG]];
+  let hMiss = 0, hCells = 0;
+  const hoverVsPaint = (st, stH, i) => {
+    const M = 24, smp = padSamples(st, i, M, st.corners);
+    let miss = 0;
+    for (let q = 0; q < M * M; q++) {
+      const x = ((q % M) + 0.5) / M, y = (Math.floor(q / M) + 0.5) / M, r = hoverInfo(stH, i, x, y, st.corners);
+      const v = r.how === 'ramp' ? r.ramp : r.v;
+      if (v !== smp.vals[q] || (smp.kind === 'pick' && r.owner !== smp.owner[q])) miss++;
+    }
+    return { miss, cells: M * M };
+  };
+  for (const [mode, read, i] of cases) {
+    const st = scratchState(base); st.mode = mode; st.stepRead = read; st.step = 0.1;
+    const o = hoverVsPaint(st, st, i); hMiss += o.miss; hCells += o.cells;
+  }
+  props.H = hMiss === 0 && hCells > 0;
+  { const st = scratchState(base); st.mode = 1; const o = hoverVsPaint(st, Object.assign({}, st, { law: 'idw' }), iV); controls.MH = o.miss > 0; info.MH = o.miss; }
+  info.H = { cases: cases.length, cells: hCells, miss: hMiss };
+
+  // ---- L0..L3: locks ---------------------------------------------------------------
+  const GN = 15;                                // 225 cell centres × every picking row × 9 maps — the audit's cost centre
+  const rows = [];
+  for (let i = 0; i < N; i++) if (FIELD_ROWS[i][R_KIND] !== 'g' && !base.exempt[i]) rows.push(i);
+  // One ownership map per row, GN×GN cell centres. The weights depend only on the
+  // cell and logW only on the temperature, so both are computed once per state.
+  const maps = st => {
+    const C = [];
+    for (let q = 0; q < GN * GN; q++) { const w = weights(((q % GN) + 0.5) / GN, (Math.floor(q / GN) + 0.5) / GN); C.push([w, logW(w, st.temp)]); }
+    return rows.map(i => { const m = new Int8Array(GN * GN); for (let q = 0; q < GN * GN; q++) m[q] = pickFor(st, i, C[q][0], C[q][1], st.corners); return m; });
+  };
+  const same = (a, b) => { for (let q = 0; q < a.length; q++) if (a[q] !== b[q]) return false; return true; };
+  const nDiff = (A, B) => A.filter((m, r) => !same(m, B[r])).length;
+  const qst = () => { const st = scratchState(base); st.mode = 0; st.temp = 0.5; st.cohesion = FACTORY_MORPH.morphCoup; st.qlock = {}; return st; };
+  const moveAll = st => { st.G = reshuffle(nextSeed(st.seed), N); st.temp = 2.0; st.cohesion = 0.85; };
+  const locked = qst(), before = maps(locked);
+  for (const i of rows) qLock(locked, i);
+  const atLock = maps(locked);
+  props.L0 = nDiff(before, atLock) === 0;
+  { const st = qst();
+    for (const i of rows) { const lead = LEAD[i], c = st.cohesion;       // the planted fault: β without the factor T
+      st.qlock[lead] = Float64Array.from([0, 1, 2, 3], k => ((1 - c) * st.G.g[lead * 4 + k] + c * st.G.gs[k]) - ((1 - c) * st.G.g[lead * 4] + c * st.G.gs[0])); }
+    info.ML0 = nDiff(before, maps(st)); controls.ML0 = info.ML0 > 0; }
+  moveAll(locked);
+  const afterMove = maps(locked);
+  info.L1 = nDiff(before, afterMove); props.L1 = info.L1 === 0;
+  { const st = qst(); moveAll(st); for (const i of rows) { qUnlock(st, i); qLock(st, i); }
+    info.ML1 = nDiff(before, maps(st)); controls.ML1 = info.ML1 > 0; }
+  { const st = qst(); st.G = reshuffle(nextSeed(st.seed), N);          // `before` IS qst()'s map: same seed, T, Cohesion
+    info.L2 = nDiff(before, maps(st)); props.L2 = info.L2 >= Math.ceil(0.9 * rows.length);
+    const s2 = qst(); s2.G = reshuffle(s2.seed, N); info.ML2 = nDiff(before, maps(s2)); controls.ML2 = info.ML2 === 0; }
+  { const live = qst(); moveAll(live); const liveMaps = maps(live);
+    info.ML3 = nDiff(afterMove, liveMaps); controls.ML3 = info.ML3 > 0;
+    for (const i of rows) qUnlock(locked, i);
+    info.L3 = nDiff(maps(locked), liveMaps); props.L3 = info.L3 === 0 && Object.keys(locked.qlock).length === 0; }
+  info.rows = rows.length;
+
+  // ---- L4 / ML4: a boundary drag lands on the pointer ------------------------------
+  { const st = scratchState(base); st.mode = 0; st.sel = iS; st.qlock = {};
+    let bx = -1;
+    for (let k = 1; k < 100 && bx < 0; k++) if (boundaryUnder(st, P(k / 100, 0.5))) bx = k / 100;
+    const g = bx > 0 ? padDown(st, P(bx, 0.5), {}, []) : null, tx = bx + 0.07, ty = 0.54;
+    let gap = Infinity, off = 0, own = false;
+    if (g && g.kind === 'qb') {
+      padMove(st, g, P(tx, ty), {}); padUp(st, g);
+      const sc = scoresAt(st, iS, tx, ty), sc2 = scoresAt(st, iS, tx + 0.1, ty);
+      gap = Math.abs(sc[g.k] - sc[g.m]); off = Math.abs(sc2[g.k] - sc2[g.m]);
+      own = CORNER_XY.every((c, k) => { const w = weights(c[0], c[1]); return pickFor(st, iS, w, logW(w, st.temp), st.corners) === k; });
+    }
+    props.L4 = gap < 1e-9 && isLocked(st, iS) && own;
+    controls.ML4 = off > 1e-3;
+    info.L4 = { bx, gap, off, sides: g ? CORNERS[g.k] + '|' + CORNERS[g.m] : '—' }; }
+
+  // ---- S0 / MS0: STEP 0 is BLEND bit for bit ---------------------------------------
+  // A pinned row on 17×17, every other continuous row on 9×9 — both grids hold the
+  // corners and the edges, and an unpinned row runs the same lines as a pinned one
+  // minus the surface, so the finer grid is spent where the surface is.
+  const grid = n => { const o = []; for (let gy = 0; gy < n; gy++) for (let gx = 0; gx < n; gx++) o.push([gx / (n - 1), gy / (n - 1)]); return o; };
+  const g17 = grid(17), g9 = grid(9);
+  const blendSt = Object.assign(scratchState(base), { mode: 1 });
+  const cfg = [[0, 'pos'], [0, 'val'], [0.01, 'pos'], [0.01, 'val']].map(([step, read]) => Object.assign(scratchState(base), { mode: 2, step, stepRead: read }));
+  const miss = [0, 0, 0, 0];
+  let samples = 0;
+  for (let i = 0; i < N; i++) {
+    if (FIELD_ROWS[i][R_KIND] !== 'c' || base.exempt[i]) continue;
+    for (const [x, y] of (base.wp[i] ? g17 : g9)) {
+      const w = weights(x, y), lw = logW(w, blendSt.temp), v = resolveRow(i, w, lw, blendSt.corners, x, y, blendSt).v;
+      samples++;
+      cfg.forEach((s, c) => { if (resolveRow(i, w, lw, s.corners, x, y, s).v !== v) miss[c]++; });
+    }
+  }
+  info.S0 = { pos: miss[0], val: miss[1], samples };
+  props.S0 = miss[0] === 0 && miss[1] === 0;
+  info.MS0 = { pos: miss[2], val: miss[3] };
+  controls.MS0 = miss[2] > 0 && miss[3] > 0;
+
+  // ---- S1 / MS1: pins act in STEPPED ------------------------------------------------
+  { const st = scratchState(base); st.mode = 2; st.step = 0.1; st.stepRead = 'pos';
+    const pin = st.wp[iV][0], heard = (s, x, y) => { const w = weights(x, y); return resolveRow(iV, w, logW(w, s.temp), s.corners, x, y, s).v; };
+    const blend = Object.assign(scratchState(base), { mode: 1 });
+    const atPin = heard(blend, pin[0], pin[1]);
+    const a = heard(st, pin[0] + 0.02, pin[1] - 0.01) === atPin;
+    const sv = Object.assign(scratchState(base), { mode: 2, step: 0.1, stepRead: 'val' });
+    const b = heard(sv, pin[0], pin[1]) === snapVal(iV, atPin, 10);
+    const add = pinAdd(scratchState(Object.assign({}, base, { mode: 2 })), iV, 0.2, 0.2, 0.5).msg === '';
+    props.S1 = a && b && add;
+    controls.MS1 = heard(blend, pin[0] + 0.02, pin[1] - 0.01) !== atPin;
+    info.S1 = { a, b, add }; }
+
+  const nP = Object.keys(props).length, nC = Object.keys(controls).length;
+  const okP = Object.keys(props).filter(k => props[k]).length, okC = Object.keys(controls).filter(k => controls[k]).length;
+  return { props, controls, nProps: nP, nControls: nC, okP, okC, info, ok: okP === nP && okC === nC };
+}
+function renderR3Audit(A) {
+  const el = $('r3Audit'); if (!el) return;
+  if (el.classList) el.classList.toggle('bad', !A.ok);
+  const I = A.info, f = Object.keys(A.props).filter(k => !A.props[k]).concat(Object.keys(A.controls).filter(k => !A.controls[k]));
+  el.innerHTML = `round-3 audit (B269) — properties <b>${A.okP}/${A.nProps}</b>: P the puck stays put through 8 pin and boundary gestures and moves exactly when dragged · `
+    + `H the hover readout is the colour under it (${I.H.cells} cells, ${I.H.cases} modes/rows, ${I.H.miss} off) · `
+    + `L0 locking moves no region (${I.rows} rows) · L1 a locked row survives reseed + Temperature + Cohesion (${I.L1} moved) · `
+    + `L2 an unlocked one does not (${I.L2}/${I.rows} re-dealt) · L3 one click unlocks, exactly · `
+    + `L4 a boundary drag (${esc(I.L4.sides)}) lands on the pointer (gap ${I.L4.gap.toExponential(0)}) · `
+    + `S0 STEP 0 = BLEND bit for bit (${I.S0.samples} samples × 2 readings) · S1 pins act in STEPPED. `
+    + `Controls <b>${A.okC}/${A.nControls}</b>: MP B268’s click-moves-puck, replayed, is seen (${I.MP.join(', ') || 'NOT seen'}) · MH a readout on another law is seen (${I.MH} cells) · `
+    + `ML0 a snapshot without T moves ${I.ML0} rows · ML1 a lock re-taken after the change moves ${I.ML1} · ML2 the same seed re-deals ${I.ML2} · `
+    + `ML3 locked ≠ live before the click (${I.ML3} rows) · ML4 0.1 away is off the line (gap ${I.L4.off.toFixed(2)}) · MS0 STEP 0.01 differs (${I.MS0.pos} / ${I.MS0.val}) · MS1 unstepped, the off-grid spot is not the pin.`
+    + (A.ok ? '' : ' — FAILING: ' + f.join(', '));
 }
 
 // ---- B235 painters: one per overlay, shared by the pad and the four law minis --
@@ -2402,7 +2976,7 @@ function buildLegend() {
   const el = $('legend'); if (!el) return;
   const iC = idxOf[6], iS = idxOf[24], iG = idxOf[1150];
   el.innerHTML =
-      `<div>${kindChip('c')}</div><div class="say"><b>Continuous</b> — ${CENSUS.c} rows. ${S.mode === 1
+      `<div>${kindChip('c')}</div><div class="say"><b>Continuous</b> — ${CENSUS.c} rows. ${S.mode !== 0
         ? 'BLEND: the value moves through the space between corners.'
         : 'QUANTUM: across the pad it flips like a snap (below) — but it GLIDES to each new winner over the morph glide, so it is never heard jumping.'} <i>Pull K, swept A→D:</i></div><canvas id="lgC"></canvas>`
     + `<div>${kindChip('s')}</div><div class="say"><b>Structural</b> — ${CENSUS.s} rows. Jumps to ONE corner's value, whole; a waveform or a mode never passes through values nobody chose (B195). <i>Topology:</i></div><canvas id="lgS"></canvas>`
@@ -2426,7 +3000,7 @@ function wpBlocked(i) {
 }
 function wpDormant(i) {
   if (S.exempt[i]) return 'EXEMPT';
-  if (S.mode !== 1) return 'QUANTUM';
+  if (S.mode === 0) return 'QUANTUM';
   return null;
 }
 function pinAtPuck(i) {
@@ -2464,7 +3038,7 @@ function pinRefusal(st, i) {
   if (k === 's') return 'A stepped row takes no pins — it snaps to one corner’s value, whole (B195), so there is no between to shape.';
   if (k === 'g') return 'A gate takes no pins — its ramp is a de-click law (B48/B203); pin the source’s level row instead.';
   if (st.exempt[i]) return 'This row is exempt (ADR-109): it holds its live value everywhere. Return it to the field first.';
-  if (st.mode !== 1) return 'Waypoints only act in BLEND; they’re dormant here (QUANTUM). Switch to BLEND to edit them.';
+  if (st.mode === 0) return 'Waypoints only act in BLEND and STEPPED; they’re dormant here (QUANTUM). Switch to BLEND to edit them.';
   return '';
 }
 function pinAdd(st, i, x, y, val) {
@@ -2526,7 +3100,7 @@ function setPinAtPuck(i, val) {
   const j = pinAtPuck(i);
   if (j >= 0) { const m = pinSetValue(S, i, j, val); if (!m) S.wpSel = j; return m; }
   const r = pinAdd(S, i, S.x, S.y, val);
-  if (!r.msg) { S.x = r.x; S.y = r.y; S.wpSel = r.j; }
+  if (!r.msg) S.wpSel = r.j;                 // B269: the puck stays; a pin snapped to a shared station sits beside it
   return r.msg;
 }
 function delPin(i, j) {
@@ -2539,6 +3113,13 @@ function jumpToPin(i, j) {
   if (i !== S.sel) select(i);
   S.x = L[j][0]; S.y = L[j][1]; S.wpSel = j; S.wpMsg = '';
   renderGrid(); renderInspector();
+}
+/* B269: a LOCKED row says so in the table, and the mark is the unlock — one click.
+   Dashed when the lock is not acting in this mode (a continuous row in BLEND). */
+function qBadge(i) {
+  if (!isLocked(S, i)) return '';
+  const act = !qRefusal(S, i);
+  return `<button class="qlk${act ? '' : ' dorm'}" data-qunlock="${i}" title="boundaries LOCKED${act ? '' : ' (dormant in this mode — acts in QUANTUM)'}: reseed, Temperature and Cohesion no longer move them. Click to unlock.">${LOCK_SVG} LOCK</button>`;
 }
 function wpBadge(i) {
   const n = nPins(i); if (!n) return '';
@@ -2579,8 +3160,9 @@ function xsDefault(pins, px, py) {
   }
   return clipToSquare(p, q) || [[0, 0], [1, 1]];
 }
-function xsLine() {
-  return S.xs.auto ? xsDefault(S.sel >= 0 ? (S.wp[S.sel] || []) : [], S.x, S.y) : [S.xs.a, S.xs.b];
+function xsLine(st) {
+  st = st || S;
+  return st.xs.auto ? xsDefault(st.sel >= 0 ? (st.wp[st.sel] || []) : [], st.x, st.y) : [st.xs.a, st.xs.b];
 }
 /* The row along a→b under `law`: what is HEARD (v, after the clamps), the RAW
    law, and today's plain blend — through the same surfaceFor/surfAt as the pad,
@@ -2757,7 +3339,7 @@ function paintLaws() {
       ? `Each map is that law <b>minus ${LAW_NAME[REC_LAW]}</b>: magenta phosphor where it sits above, cyan where below, one scale for all four (largest gap ${pctOfSpan(dmax / (span(i)))} of range). `
       : `Brightness = value, one scale for all four — the colour scale under the pad. `)
       + `Painting <b>${esc(FIELD_ROWS[i][R_LABEL])}</b> (${esc(FIELD_ROWS[i][R_HOST])}) as BLEND would${
-      S.mode !== 1 ? ' — the patch is in QUANTUM, where these pins are dormant' : ''}. The ring is the puck; the dashed line is the cross-section. ${
+      S.mode === 0 ? ' — the patch is in QUANTUM, where these pins are dormant' : (S.mode === 2 ? ' — unstepped: the maps compare the laws, STEP applies after them' : '')}. The ring is the puck; the dashed line is the cross-section. ${
       S.b232 && b232On(i, S.corners) ? '<b>B232 is on</b>: the base blends only the corners where this source is ON. ' : ''}`;
   }
 }
@@ -2883,7 +3465,7 @@ function paintSection() {
     });
     const sp = span(i);
     const worst = LAWS.map((l, k) => [l, past[k]]).filter(x => x[1] > 1e-3 * sp);   // under 0.1% of range is not a visible hump
-    note.innerHTML = (S.mode !== 1 ? '<b>QUANTUM — the pins are dormant; this is what BLEND would play.</b> ' : '')
+    note.innerHTML = (S.mode === 0 ? '<b>QUANTUM — the pins are dormant; this is what BLEND would play.</b> ' : (S.mode === 2 ? '<b>STEPPED — the curves are the unstepped laws; the pad and the HEARING column apply the step.</b> ' : ''))
       + `<b>${esc(r[R_LABEL])}</b> along the dashed line on the pad (${onLine} of ${L.length} pin${L.length === 1 ? '' : 's'} on it${S.xs.auto ? ', line through the pins' : ', line placed by hand'}). `
       + (worst.length ? 'Past the values you set, along this line: ' + worst.map(([l, pk]) => `${LAW_NAME[l]} +${pctOfSpan(pk / sp)} of range`).join(' · ')
         + (S.hullClamp ? ' — clamped flat (shaded), because CLAMP TO SET VALUES is on.' : ' — heard, because CLAMP is off.')
@@ -2938,6 +3520,16 @@ function waypointChunk() {
   for (const i of rows) for (const p of S.wp[i]) toks.push(`W:${FIELD_ROWS[i][R_ID]}:${g4(p[0])}:${g4(p[1])}:${g6(p[2])}`);
   return toks.length > 1 ? `,"morphWaypoints":"${toks.join(',')}"` : '';
 }
+// B269: the proposed lock key, same grammar as morphWaypoints — L:1 first, then one
+// Q:<unit lead's parameter id>:<βB>:<βC>:<βD> per lock (β_A is 0 by construction).
+function lockChunk() {
+  const toks = ['L:1'];
+  for (const k of Object.keys(S.qlock).map(Number).sort((a, b) => a - b)) {
+    const L = S.qlock[k];
+    toks.push(`Q:${FIELD_ROWS[k][R_ID]}:${g6(L[1])}:${g6(L[2])}:${g6(L[3])}`);
+  }
+  return toks.length > 1 ? `"morphLocks":"${toks.join(',')}"` : '';
+}
 function renderAnswers() {
   const el = $('answers'); if (!el) return;
   const T = WP_AUDIT.table;
@@ -2969,7 +3561,7 @@ function renderAnswers() {
   li.push(`<b>Interaction.</b> ON THE PAD (B268): drag a ◆ to move it; drag its value tag up or down, or scroll on it, to change its value; double-click empty pad for a new pin at what you hear there; right-click it, or Delete, to remove it. Every one of those, and the inspector’s path, writes through the same four functions the interaction audit calls. IN THE INSPECTOR: move the puck, select the row, <b>◆ ARM</b>, turn HERE — a pin appears at the puck; the corners do not move. ON A PIN: a dashed ring round the puck, the row’s ◆n fills, the list row is striped, and an armed edit changes that pin rather than making a new one. `
     + `REFUSED, with the reason stated: at a corner (within ${WP_GUARD} it IS the corner — edit the cell), at either limit, too close to another pin, a stepped or gate row, under QUANTUM, on an exempt row, and (with B232) where the source is silent. `
     + `Unarmed, a knob turned mid-pad stays ADR-109’s weighted corner edit — it moves all four corners so the blend lands on the new value. Arming is what makes it a pin instead.`);
-  li.push(`<b>With the rest of morph.</b> <b>QUANTUM:</b> pins are kept but <b>dormant</b> (◇, hollow): a pick means "exactly one corner’s value", and a pin is a value between corners — nothing for a pick to land on. Making a pin a fifth candidate would change reshuffle’s draw order (morph_core.h draws n×4 in a fixed order), moving every seeded patch’s map. Quantum’s own authoring handle is the edited BOUNDARY the human already named: pins shape blend’s values, boundaries shape quantum’s regions. `
+  li.push(`<b>With the rest of morph.</b> <b>QUANTUM:</b> pins are kept but <b>dormant</b> (◇, hollow): a pick means "exactly one corner’s value", and a pin is a value between corners — nothing for a pick to land on. Making a pin a fifth candidate would change reshuffle’s draw order (morph_core.h draws n×4 in a fixed order), moving every seeded patch’s map. Quantum’s own authoring handle is the edited BOUNDARY the human already named — built in B269, below: pins shape blend’s values, boundaries shape quantum’s regions. `
     + `<b>EXEMPT:</b> ADR-109 writes the live value into all four corners so returning never jumps; writing it into the pins too makes each one a no-op under a Δ law, so exempting a row <b>removes</b> its pins (the inspector warns with the count). `
     + `<b>STEPPED:</b> none — blend never interpolates them (morphStep: <code>morphMode == 1 &amp;&amp; !d->stepped</code>), and B195’s rule is that they never pass through a value no corner chose; a pin on a waveform would be a REGION claim ("saw around here"), which is boundary editing, not a curve. <b>GATES:</b> none — the ramp is a de-click law (B48/B203); shape the source’s level instead. `
     + `<b>B232:</b> pins sit on B232’s base — the residual is measured against the ON-corner blend (toggle it on the osc 2 Detune row). A pin where the source is silent is refused. Raw TIN ignores any base, so B232 could not reach a pinned row under TIN — one more reason against it. `
@@ -2979,6 +3571,26 @@ function renderAnswers() {
     + `Keyed on the parameter ID, not the morphIds index — ADR-159’s scar, and the <code>intent=</code> chunk’s precedent (hypersaw_clap.cpp ~4413) — so <b>morphLayout stays 9</b>: the marker names the order of the index-keyed arrays, and this list has none; an id this build does not expose is skipped. `
     + `Append-only grammar: <code>L:1</code> first, new token kinds appended, never re-meant. Within a row the STORED ORDER is the insertion order and is contract — it breaks TIN’s ties and fixes the TPS solve’s rounding. `
     + `No engine_revision: no pins renders exactly as today (P1), and a pinned patch did not exist before. But once shipped, the law IS behaviour — changing it later is a B100 revision, which is why the law is chosen now. An older build ignores the key (plays the plain blend) and a re-save there drops the pins. Pin edits ride stateJson, so each is an undo node (B193). The audio thread only evaluates: pins and solved coefficients live in a pool preallocated at ${WP_CAP_PATCH}, solved and swapped in from the main thread.`);
+  // ---- B269 ----
+  const lc = lockChunk(), nLk = Object.keys(S.qlock).length;
+  li.push(`<b>Quantum boundaries, editable, with locks (B269).</b> On a row that PICKS — every structural row, and a continuous row under QUANTUM — the pad shows which corner owns it where: `
+    + `pickCorner itself, sampled (score = log w / T + (1−c)·g + c·g<sub>shared</sub>), so the picture is the sound (the field audit still reads ${PARITY.agree}/${PARITY.total}). `
+    + `<b>The gesture is a boundary drag</b>: press the line between two colours and drag; the boundary follows the pointer. That edit is one equation — it sets the difference of the two corners’ offsets so that the pointer sits exactly on their boundary (round-3 audit L4) — and it keeps every region a pickCorner region, so each stays in one piece and <b>always contains its own corner</b>: a corner’s snapshot is still what you hear at that corner. `
+    + `A brush that painted cells to a corner was the other candidate; it can make regions nobody could reach from their corner, and it needs a grid per row where a boundary needs three numbers — so it is not built. `
+    + `<b>An edited row is LOCKED</b>: the lock snapshots its four offsets β = T·((1−c)·g + c·g<sub>shared</sub>) − β<sub>A</sub> — the same argmax, so locking moves nothing (L0) — and from then on the row scores log w + β, which no seed, Temperature or Cohesion reaches (L1); an unlocked row re-deals on a reseed (L2). `
+    + `It is visible three times — the lock chip on the row, the bar over the pad, the inspector — and <b>one click unlocks</b> (L3), handing the row back to the seed’s current deal. LOCK AS IS freezes a row without editing it. A unit (scale, FX slot, routing) locks as one, keyed by its lead. `
+    + `<b>State (proposed, not built):</b> a sparse <code>morphLocks</code> key beside <code>morphWaypoints</code>, keyed on the unit lead’s <b>parameter id</b> (ADR-159’s scar; morphLayout stays 9), three offsets per lock — `
+    + (lc ? `<code>${esc(lc)}</code>` : '<code>(no locks — no key)</code>') + ` (${nLk} now). It is the “authored bias” morph_core.h:4 names as a term of the one score, a term the port does not have yet. `
+    + `<b>EXEMPT</b> resolves before any pick, so a lock does nothing while a row is out of the field — and it is <b>kept</b>: a lock holds WHERE, not WHAT, so ADR-109’s live write does not make it a no-op the way it does a pin. `
+    + `<b>B232</b>, read for picks: where a source is audible, a corner holding it OFF cannot win its parameters — the region is masked at resolve time, and the lock’s offset for that corner is kept for when B232 is off (try it on osc 2 Detune under QUANTUM with the switch on).`);
+  li.push(`<b>STEPPED — blend in steps (B269, proposed as morph mode 2).</b> One global STEP; n = round(1/STEP) steps; STEP 0 is BLEND bit for bit (round-3 audit S0, every continuous row, both readings). `
+    + `<b>(a) POSITION</b>: the pad position snaps to an n×n grid and the row blends there — every row steps TOGETHER, at the same pad moments, and each still passes through values no corner holds (the grid point’s blend). At n = 1 only the four corners remain: nearest-corner quantum with no dice. `
+    + `<b>(b) VALUE</b>: each row blends at the true position and its own value snaps to n steps of its range — rows step at DIFFERENT pad moments (wherever each crosses a step), and at coarse steps a row lands on round values no corner set (the range’s, not the corners’). `
+    + `So (a) is “the morph moves in jumps”, (b) is “each parameter is quantized”; (a) is nearer quantum, (b) nearer a bit-crusher on the blend. `
+    + `<b>Pins</b> stay live in both (editing them is BLEND’s gesture set): under (a) a spot that snaps onto a pin’s grid point hears the pin’s value, under (b) the pin’s value is heard snapped (S1). <b>Locks</b>: a structural row still picks, so its lock acts; a continuous row blends, so its lock is dormant, as in BLEND. Gates keep ramping on the true position in both, because a stepped level is a click. The four law maps and the cross-section stay unstepped — they compare laws; the pad and the HEARING column apply the step. In the shell a stepped value would glide over the morph glide like a quantum flip.`);
+  li.push(`<b>The puck, the preview, and Cohesion (B269).</b> The puck moves <b>only when it is dragged</b> (grab it: it never jumps to the pointer); a click on empty pad, a pin drag, a value drag, a wheel, a double-click, a right-click and a boundary drag all leave the heard position where it is (round-3 audit P, against B268’s rules replayed as the control). A double-click still adds a pin — at the clicked spot, with the value the heard law <b>already gives there</b>: under TPS·Δ that pin changes nothing until its value is moved (B235’s Nth-pin property), so adding one never surprises the ear. `
+    + `<b>Hover</b> prints what you would hear under the pointer (value, law or owning corner, the boundary you would grab) and ticks it on the colour scale — the HEARING column’s own function at the pointer, checked against the painted colour cell by cell (H). `
+    + `<b>Cohesion</b> is the morph’s old “Coupling”: how strongly the parameters pick the same corner together — 0, each draws its own; 1, the whole field flips as one. It is one shared draw for the <b>whole field</b> (morph_core.h:84, gShared), not per group; only a unit always moves as one. The swarm’s Coupling (B224) is a different control. The shell still names id 155 “Coupling”.`);
   el.innerHTML = li.map(x => `<li>${x}</li>`).join('');
 }
 
@@ -3035,7 +3647,7 @@ function renderInspector() {
   let h = `<h2>${esc(SECTIONS[r[R_SEC]])} · ${esc(GROUPS[r[R_GRP]])}</h2><div class="ititle">${esc(r[R_LABEL])}</div>`
     + `<div class="imeta">${esc(r[R_HOST])} · id ${r[R_ID]} · ${esc(fmt(i, r[R_MIN]))} … ${esc(fmt(i, r[R_MAX]))} · default ${esc(fmt(i, r[R_DEF]))}${unit}</div>`;
   h += `<div class="ikind">${kindChip(kind)}<div class="say">${
-    kind === 'c' ? (S.mode === 1 ? '<b>Blends</b>: what you hear is every corner at its weight — every corner you edit is audible in proportion.' : '<b>Flips, then glides</b>: one corner wins it at a time; the value slides to the winner over the morph glide.')
+    kind === 'c' ? (S.mode !== 0 ? (S.mode === 2 ? '<b>Blends in steps</b> (STEPPED): every corner at its weight, heard through the global STEP.' : '<b>Blends</b>: what you hear is every corner at its weight — every corner you edit is audible in proportion.') : '<b>Flips, then glides</b>: one corner wins it at a time; the value slides to the winner over the morph glide.')
     : kind === 's' ? '<b>Snaps</b>: the winning corner’s value, whole and at once. Editing a corner that is not winning is silent.'
     : '<b>Ramps</b>: level = the weighted share of corners holding it ON; the switch flips only below −60 dB.'}</div></div>`;
   if (S.exempt[i]) {
@@ -3062,6 +3674,7 @@ function renderInspector() {
       + `<button class="pill go" id="exBtn" title="ADR-109: pull it out of the morph; the live value is written into all four corners${nPins(i) ? ' — and, B235, its pins are removed (they would all hold the live value, which makes each one a no-op)' : ''}">⊘ EXEMPT${r[R_UNITLEAD] ? ' UNIT' : ''}${nPins(i) ? ` · REMOVES ◆${nPins(i)}` : ''}</button></div>`;
   }
   h += wpInspectorHTML(i);
+  h += qInspectorHTML(i);
   h += '<div class="kbdh">↑/↓ row · ←/→ corner · Enter commit · Esc discard · Delete removes the selected pin (or the one under the puck) · pins also edit directly on the pad</div>';
   el.innerHTML = h;
   wireInspector(i);
@@ -3094,6 +3707,43 @@ function wpInspectorHTML(i) {
       + `<span class="pv">${esc(fmt(i, p[2]))} <small>at ${p[0].toFixed(2)}, ${p[1].toFixed(2)}</small></span>`
       + `<button class="pill go" data-wpjump="${j}" title="move the puck onto this pin">JUMP</button><button class="pill go" data-wpdel="${j}" title="delete this pin">✕</button>`).join('') + '</div>';
   return h;
+}
+/* B269's half: the row's regions as shares of the pad, its lock state with the
+   one-click LOCK AS IS / UNLOCK, the stored offsets (what the state would carry),
+   and how the lock meets exempt and B232. */
+function ownerShares(st, i, GN) {
+  const n = [0, 0, 0, 0];
+  for (let gy = 0; gy < GN; gy++) for (let gx = 0; gx < GN; gx++) {
+    const x = (gx + 0.5) / GN, y = (gy + 0.5) / GN, w = weights(x, y);
+    n[pickFor(st, i, w, logW(w, st.temp), st.corners)]++;
+  }
+  return n.map(c => c / (GN * GN));
+}
+function qInspectorHTML(i) {
+  const kind = FIELD_ROWS[i][R_KIND];
+  let h = '<div class="sep"></div><div class="cap">▦ QUANTUM BOUNDARIES — WHICH CORNER OWNS IT WHERE (B269)</div>';
+  if (kind === 'g') return h + '<div class="note"><b>No boundaries on a gate.</b> It never picks — its level ramps with the pad (B48/B203).</div>';
+  const lk = isLocked(S, i), why = qRefusal(S, i), L = S.qlock[LEAD[i]], nL = Object.keys(S.qlock).length;
+  const sh = ownerShares(S, i, 33);
+  h += `<div class="wpst">${lk ? `<span class="qlk${why ? ' dorm' : ''}">${LOCK_SVG} LOCKED</span>` : '<b>following the seed</b>'} · <b>${nL}</b> locked in the patch`
+    + (why ? ` · <b>dormant here</b> — ${S.exempt[i] ? 'exempt' : 'acts in QUANTUM'}` : '') + '</div>';
+  h += '<div class="wpst">' + sh.map((f, k) => `<span class="sw" style="--cc:var(${CVAR[k]});width:9px;height:9px;vertical-align:-1px"></span> ${CORNERS[k]} <b>${(100 * f).toFixed(0)}%</b>`).join(' · ') + ' of the pad</div>';
+  if (lk) h += `<div class="wpst">stored offsets β (against A): ${[1, 2, 3].map(k => `${CORNERS[k]} <b>${(L[k] >= 0 ? '+' : '') + L[k].toFixed(3)}</b>`).join(' · ')}</div>`;
+  h += `<div class="iact">${lk ? '<button class="pill go" data-q="unlock" title="one click: back to the seed’s boundaries">UNLOCK</button>'
+    : '<button class="pill go" data-q="lock" title="freeze the regions exactly as they are now">LOCK AS IS</button>'}</div>`;
+  h += `<div class="impact">${why && !S.exempt[i] ? 'In this mode the row blends, so it has no regions; ' + (lk ? 'its lock is kept and acts again in QUANTUM.' : 'switch to QUANTUM to see and drag them.')
+    : S.exempt[i] ? 'Exempt resolves before any pick, so a lock does nothing while the row is out of the field — and it is <b>kept</b> for the return: a lock holds WHERE, not WHAT, so ADR-109’s live write cannot make it a no-op the way it does a pin.'
+    : (lk ? 'Reseed, Temperature and Cohesion no longer move these regions. <b>UNLOCK</b> hands them back to the seed — they jump to whatever the current seed deals.'
+          : 'Drag a boundary on the pad and the row <b>locks</b>: its regions are then its own, and reseeding, Temperature and Cohesion stop reaching it.')}`
+    + (S.b232 && b232On(i, S.corners) ? ' <b>B232 is on</b>: where this source is audible, a corner holding it OFF cannot win — its region is masked, and its offset kept for when B232 is off.' : '')
+    + '</div>';
+  return h;
+}
+// The lock bar above the pad, the inspector and the row's chip all land here.
+function qAction(i, what) {
+  if (i < 0) return;
+  if (what === 'lock') qLock(S, i); else if (what === 'unlock') qUnlock(S, i);
+  renderGrid(); renderInspector();
 }
 function wireInspector(i) {
   const el = $('insp'); if (!el || !el.querySelectorAll) return;
@@ -3142,6 +3792,7 @@ function wireInspector(i) {
   for (const b of el.querySelectorAll('[data-wpjump]')) b.addEventListener('click', () => jumpToPin(i, parseInt(b.getAttribute('data-wpjump'), 10)));
   for (const b of el.querySelectorAll('[data-wpdel]')) b.addEventListener('click', () => { S.wpMsg = delPin(i, parseInt(b.getAttribute('data-wpdel'), 10)); renderGrid(); renderInspector(); });
   on('wpToBlend', () => setMode(1));
+  for (const b of el.querySelectorAll('[data-q]')) b.addEventListener('click', () => qAction(i, b.getAttribute('data-q')));
   on('unexBtn', () => setExempt(i, false));
   on('unexKeepBtn', () => { for (let k = 0; k < 4; k++) S.corners[k][i] = S.live[i]; setExempt(i, false); });
 }
@@ -3205,161 +3856,243 @@ function renderAudit() {
 function buildMode() {
   const el = $('modePills'); if (!el) return;
   el.innerHTML = '';
-  [['QUANTUM', 0], ['BLEND', 1]].forEach(([t, m]) => {
+  [['QUANTUM', 0], ['BLEND', 1], ['STEPPED', 2]].forEach(([t, m]) => {
     const b = document.createElement('button'); b.className = 'pill' + (S.mode === m ? ' on' : ''); b.textContent = t;
-    b.title = m ? 'id 157 = 1: continuous rows interpolate by weight' : 'id 157 = 0: every row flips to one corner (Gumbel draw)';
+    b.title = m === 1 ? 'id 157 = 1: continuous rows interpolate by weight'
+      : m === 2 ? 'B269, proposed (id 157 = 2): BLEND in steps of the global STEP — a midway between blend and quantum'
+      : 'id 157 = 0: every row flips to one corner (Gumbel draw)';
     b.addEventListener('click', () => setMode(m));
     el.appendChild(b);
   });
+  const sg = $('stepGrp'); if (sg) sg.hidden = S.mode !== 2;
+  const si = $('stepIn'), so = $('stepOut');
+  if (si) { si.value = String(S.step); if (si.style) si.style.setProperty('--pct', String(S.step)); }
+  const n = stepN(Object.assign({}, S, { mode: 2 }));
+  if (so) so.textContent = S.step > 0 ? `${(1 / n).toFixed(3)} · ${n} step${n > 1 ? 's' : ''}` : '0 · = BLEND';
+  const rp = $('readPills');
+  if (rp) {
+    rp.innerHTML = '';
+    [['pos', '(a) POSITION', 'the pad position snaps to an n×n grid, then blends — pins are read at grid points'],
+     ['val', '(b) VALUE', 'each row blends at the true position, then its value snaps to n steps of its own range']].forEach(([r, t, tt]) => {
+      const b = document.createElement('button'); b.className = 'pill' + (S.stepRead === r ? ' on' : ''); b.textContent = t; b.title = tt;
+      b.addEventListener('click', () => { S.stepRead = r; buildMode(); renderGrid(); renderInspector(); });
+      rp.appendChild(b);
+    });
+  }
 }
+/* B269: the next seed is drawn from the current one by mulberry32 — a reseed is
+   reproducible (same seed, same next seed), never a clock or Math.random. */
+function nextSeed(seed) { const st = { a: seed | 0 }; return Math.floor(mulberry32Next(st) * 65536); }
+function setSeed(v) { S.seed = v >>> 0; S.G = reshuffle(S.seed, N); const s = $('seedIn'); if (s) s.value = String(S.seed); buildLegend(); renderGrid(); renderInspector(); }
 function wireResolver() {
-  const t = $('tempIn'), c = $('coupIn'), s = $('seedIn');
+  const t = $('tempIn'), c = $('cohIn'), s = $('seedIn');
   const show = () => {
-    const to = $('tempOut'), co = $('coupOut');
-    if (to) to.textContent = S.temp.toFixed(2); if (co) co.textContent = S.coup.toFixed(2);
+    const to = $('tempOut'), co = $('cohOut');
+    if (to) to.textContent = S.temp.toFixed(2); if (co) co.textContent = S.cohesion.toFixed(2);
     if (t && t.style) t.style.setProperty('--pct', String((S.temp - 0.02) / 2.98));
-    if (c && c.style) c.style.setProperty('--pct', String(S.coup));
+    if (c && c.style) c.style.setProperty('--pct', String(S.cohesion));
   };
   if (t) { t.value = String(S.temp); t.addEventListener('input', () => { S.temp = parseFloat(t.value); show(); buildLegend(); renderGrid(); renderInspector(); }); }
-  if (c) { c.value = String(S.coup); c.addEventListener('input', () => { S.coup = parseFloat(c.value); show(); buildLegend(); renderGrid(); renderInspector(); }); }
-  if (s) { s.value = String(S.seed); s.addEventListener('change', () => { S.seed = (parseInt(s.value, 10) >>> 0); G = reshuffle(S.seed, N); buildLegend(); renderGrid(); renderInspector(); }); }
+  if (c) { c.value = String(S.cohesion); c.addEventListener('input', () => { S.cohesion = parseFloat(c.value); show(); buildLegend(); renderGrid(); renderInspector(); }); }
+  if (s) { s.value = String(S.seed); s.addEventListener('change', () => setSeed(parseInt(s.value, 10))); }
+  const rb = $('reseedBtn'); if (rb && rb.addEventListener) rb.addEventListener('click', () => setSeed(nextSeed(S.seed)));
+  const si = $('stepIn');
+  if (si && si.addEventListener) si.addEventListener('input', () => { S.step = parseFloat(si.value) || 0; buildMode(); renderGrid(); renderInspector(); });
   const gl = $('glideS'); if (gl) gl.textContent = S.glide + ' s in this patch';
   show();
 }
 let padTags = [];   // the pad's value tags, in pad units — drawPins writes them, the pointer reads them
-let gest = null;    // the pad gesture in flight: puck | move | value | xs (S.drag mirrors a pin gesture for the painter)
+let gest = null;    // the pad gesture in flight (padDown's return); st.drag mirrors a pin/boundary gesture for the painter
 function padXY(e) {
   const cv = $('padC'); if (!cv || !cv.getBoundingClientRect) return null;
   const r = cv.getBoundingClientRect();
   return { x: Math.min(1, Math.max(0, (e.clientX - r.left) / (r.width || 1))),
            y: Math.min(1, Math.max(0, (e.clientY - r.top) / (r.height || 1))), w: r.width || 1, h: r.height || 1 };
 }
-function padAt(e) {
-  const p = padXY(e); if (!p) return;
-  S.x = p.x; S.y = p.y; S.wpMsg = ''; S.padMsg = null;
-  renderGrid(); if (S.sel >= 0 || S.selAbsent >= 0) renderInspector();
-}
-/* HIT-TESTING, in priority order: a pin's value TAG (value handle), a pin's
-   diamond (move handle; alt = value), an end of the section line, else the puck.
-   Pins are hit-tested dormant or not — touching a dormant pin is exactly when
-   the player needs to be told WHY it will not move. */
-function pinUnder(p) {
-  if (S.sel < 0 || !nPins(S.sel)) return -1;
-  const L = S.wp[S.sel];
-  let best = -1, bd = 11;
+/* B269 — THE PAD'S GESTURES ARE FUNCTIONS OF A STATE. `st` is S for the pointer,
+   or a scratch copy for the round-3 audit; `p` is { x, y } in pad units plus the
+   pad's size in px { w, h } (hit radii are in px); `tags` is the value-tag list
+   drawPins recorded (the audit passes none — it reaches a pin's value by alt).
+   wirePad below only translates events into these calls and repaints, so what
+   the audit drives IS what the hand drives.
+   HIT-TESTING, in priority order: a pin's value TAG (value handle), a pin's
+   diamond (move handle; alt = value), the PUCK, an end of the section line, a
+   BOUNDARY (a picking row only), else nothing. Pins are hit-tested dormant or
+   not — touching a dormant pin is exactly when the player needs to be told WHY it
+   will not move. THE PUCK MOVES ONLY WHEN IT IS DRAGGED: "it will be necessary to
+   be able to hear how the value changes at the current position" (B269). */
+const HIT_PX = 11, PUCK_PX = 14, EDGE_PX = 5;
+function pinUnder(st, p) {
+  const L = st.sel >= 0 ? st.wp[st.sel] : null;
+  if (!L || !L.length) return -1;
+  let best = -1, bd = HIT_PX;
   for (let j = 0; j < L.length; j++) {
     const d = Math.hypot((L[j][0] - p.x) * p.w, (L[j][1] - p.y) * p.h);
     if (d < bd) { bd = d; best = j; }
   }
   return best;
 }
-function tagUnder(p) {
-  if (S.sel < 0) return -1;
-  for (let k = padTags.length - 1; k >= 0; k--) {
-    const t = padTags[k];
+function tagUnder(tags, p) {
+  for (let k = tags.length - 1; k >= 0; k--) {
+    const t = tags[k];
     if (p.x >= t.x0 && p.x <= t.x1 && p.y >= t.y0 && p.y <= t.y1) return t.j;
   }
   return -1;
 }
-function xsEndUnder(p) {
-  if (!lawPanelsLive(S.sel)) return -1;
-  const ends = xsLine();
-  for (let e = 0; e < 2; e++) if (Math.hypot((ends[e][0] - p.x) * p.w, (ends[e][1] - p.y) * p.h) < 11) return e;
+function xsEndUnder(st, p) {
+  if (!lawPanelsLive(st.sel, st.exempt)) return -1;
+  const ends = xsLine(st);
+  for (let e = 0; e < 2; e++) if (Math.hypot((ends[e][0] - p.x) * p.w, (ends[e][1] - p.y) * p.h) < HIT_PX) return e;
   return -1;
 }
-function padSay(t, p) { S.padMsg = t ? { t, x: p.x, y: p.y } : null; }
-// What the selected row resolves to at (x, y) — what a double-click pins.
-function heardAt(i, x, y) {
-  const w = weights(x, y), lw = logW(w, S.temp), saved = S.cur[i];
-  const r = resolveRow(i, w, lw, draftCorners(), x, y);
-  S.cur[i] = saved;
-  return r.v;
+function puckUnder(st, p) { return Math.hypot((st.x - p.x) * p.w, (st.y - p.y) * p.h) < PUCK_PX; }
+/* A BOUNDARY is under the pointer when the owner a few px away differs from the
+   owner here; its two sides are the two corners whose scores lead at the pointer
+   (among those B232 lets win here). */
+function boundaryUnder(st, p) {
+  const i = st.sel;
+  if (qRefusal(st, i)) return null;
+  const own = (x, y) => { const w = weights(Math.min(1, Math.max(0, x)), Math.min(1, Math.max(0, y))); return pickFor(st, i, w, logW(w, st.temp), st.corners); };
+  const dx = EDGE_PX / p.w, dy = EDGE_PX / p.h, o = own(p.x, p.y);
+  if ([own(p.x + dx, p.y), own(p.x - dx, p.y), own(p.x, p.y + dy), own(p.x, p.y - dy)].every(v => v === o)) return null;
+  const sc = scoresAt(st, i, p.x, p.y), mask = b232Mask(st, i, weights(p.x, p.y), st.corners);
+  const ks = [0, 1, 2, 3].filter(k => !mask || mask[k]).sort((a, b) => sc[b] - sc[a]);
+  return ks.length >= 2 ? { k: ks[0], m: ks[1] } : null;
+}
+function padSay(st, t, p) { st.padMsg = t ? { t, x: p.x, y: p.y } : null; }
+/* What a double-click pins: the value the heard LAW gives at the clicked spot —
+   not the value at the puck, and not a stepped one. That makes the new pin a
+   no-op under the recommended law (B235's P5 / Nth-pin property: it changes
+   nothing anywhere until its value is moved), so adding a pin never surprises
+   the ear; pinning the puck's value instead would bend the whole row the moment
+   the pin appeared, away from where you are listening. */
+function lawAt(st, i, x, y) {
+  const w = weights(x, y), c = st === S ? draftCorners() : st.corners;
+  return resolveRow(i, w, logW(w, st.temp), c, x, y, Object.assign({}, st, { mode: 1 })).v;
+}
+function padDown(st, p, mods, tags) {
+  st.padMsg = null;
+  const tg = tagUnder(tags, p), j = tg >= 0 ? tg : pinUnder(st, p);
+  if (j >= 0) {
+    st.wpSel = j;
+    const why = pinRefusal(st, st.sel);
+    if (why) { padSay(st, why, p); st.drag = null; return null; }
+    const P = st.wp[st.sel][j];
+    const g = (tg >= 0 || mods.alt) ? { kind: 'value', j, y0: p.y, v0: P[2], moved: false }
+                                    : { kind: 'move', j, from: [P[0], P[1]], moved: false };
+    st.drag = g;
+    return g;
+  }
+  let g = null;
+  if (puckUnder(st, p)) g = { kind: 'puck', dx: st.x - p.x, dy: st.y - p.y, moved: false };   // grab offset: the puck never jumps to the pointer
+  if (!g) {
+    const end = xsEndUnder(st, p);
+    if (end >= 0) {
+      if (st.xs.auto) { const ab = xsLine(st); st.xs = { auto: false, a: ab[0].slice(), b: ab[1].slice() }; }
+      g = { kind: 'xs', end };
+    }
+  }
+  if (!g) { const bd = boundaryUnder(st, p); if (bd) { g = { kind: 'qb', k: bd.k, m: bd.m, moved: false }; st.drag = g; } }
+  if (!g) { g = { kind: 'none' }; st.wpSel = -1; }   // B269: a click on empty pad moves NOTHING
+  return g;
+}
+function padMove(st, g, p, mods) {
+  if (!g) return;
+  if (g.kind === 'move') {
+    const m = pinMove(st, st.sel, g.j, p.x, p.y);   // refused → the pin stays at its last legal spot
+    if (m) padSay(st, m, p); else { g.moved = true; st.padMsg = null; }
+  } else if (g.kind === 'value') {
+    // the pad's full height is the parameter's full range; shift = a tenth of that
+    const dv = (g.y0 - p.y) * span(st.sel) * (mods.shift ? 0.1 : 1);
+    const m = pinSetValue(st, st.sel, g.j, g.v0 + dv);
+    if (m) padSay(st, m, p); else g.moved = true;
+  } else if (g.kind === 'xs') {
+    st.xs[g.end ? 'b' : 'a'] = [p.x, p.y];
+  } else if (g.kind === 'puck') {
+    st.x = Math.min(1, Math.max(0, p.x + g.dx)); st.y = Math.min(1, Math.max(0, p.y + g.dy));
+    g.moved = true; st.wpMsg = ''; st.padMsg = null;
+  } else if (g.kind === 'qb') {
+    const m = qDrag(st, st.sel, g.k, g.m, p.x, p.y);   // the first move LOCKS the row (qDrag → qLock)
+    if (m) padSay(st, m, p); else { g.moved = true; st.padMsg = null; }
+  }
+}
+function padUp(st, g) { st.drag = null; return g; }
+function padDbl(st, p, tags) {
+  if (tagUnder(tags, p) >= 0 || pinUnder(st, p) >= 0) return;
+  const i = st.sel, why = pinRefusal(st, i);
+  if (why) { padSay(st, why, p); return; }
+  const r = pinAdd(st, i, p.x, p.y, lawAt(st, i, p.x, p.y));
+  if (r.msg) padSay(st, r.msg, p);
+  else { st.wpSel = r.j; st.wpMsg = ''; st.padMsg = null; }   // B269: the puck stays where you are listening
+}
+function padCtx(st, p, tags) {
+  const tg = tagUnder(tags, p), j = tg >= 0 ? tg : pinUnder(st, p);
+  if (j < 0) return false;                     // off a pin, the browser's menu is left alone
+  const m = pinDelete(st, st.sel, j);
+  if (m) padSay(st, m, p); else { st.padMsg = null; st.wpMsg = ''; st.wpSel = -1; }
+  return true;
+}
+function padWheel(st, p, deltaY, fine, tags) {
+  const tg = tagUnder(tags, p), j = tg >= 0 ? tg : pinUnder(st, p);
+  if (j < 0) return false;                     // off a pin the page scrolls as usual
+  const L = st.wp[st.sel], step = span(st.sel) * (fine ? 0.001 : 0.01) * (deltaY < 0 ? 1 : -1);
+  st.wpSel = j;
+  const m = pinSetValue(st, st.sel, j, L[j][2] + step);
+  if (m) padSay(st, m, p); else st.padMsg = null;
+  return true;
 }
 function wirePad() {
   const cv = $('padC'); if (!cv || !cv.addEventListener) return;
   const cursor = c => { if (typeof cv.className === 'string') cv.className = c; };
+  const mods = e => ({ alt: !!e.altKey, shift: !!e.shiftKey });
   cv.addEventListener('pointerdown', e => {
     if (e.button === 2) return;                  // the right button belongs to contextmenu
     const p = padXY(e); if (!p) return;
     // capture can throw for a pointer the browser no longer tracks — never let that eat the gesture
     try { if (cv.setPointerCapture) cv.setPointerCapture(e.pointerId); } catch (_) { /* uncaptured is fine */ }
-    S.padMsg = null;
-    const tg = tagUnder(p), j = tg >= 0 ? tg : pinUnder(p);
-    if (j >= 0) {
-      S.wpSel = j;
-      const why = pinRefusal(S, S.sel);
-      if (why) { padSay(why, p); gest = null; S.drag = null; renderGrid(); return; }
-      const P = S.wp[S.sel][j];
-      gest = (tg >= 0 || e.altKey) ? { kind: 'value', j, y0: p.y, v0: P[2], moved: false }
-                                   : { kind: 'move', j, from: [P[0], P[1]], moved: false };
-      S.drag = gest; cursor(gest.kind === 'value' ? 'ns' : 'moving');
-      renderGrid(); return;
-    }
-    const end = xsEndUnder(p);
-    if (end >= 0) {
-      if (S.xs.auto) { const ab = xsLine(); S.xs.a = ab[0].slice(); S.xs.b = ab[1].slice(); S.xs.auto = false; }
-      gest = { kind: 'xs', end }; cursor('moving'); return;
-    }
-    gest = { kind: 'puck' }; padAt(e);
+    S.hover = null;
+    gest = padDown(S, p, mods(e), padTags);
+    cursor(!gest || gest.kind === 'none' ? '' : gest.kind === 'value' ? 'ns' : gest.kind === 'qb' ? 'bd' : 'moving');
+    renderGrid();
   });
   cv.addEventListener('pointermove', e => {
     const p = padXY(e); if (!p) return;
-    if (!gest) { cursor(tagUnder(p) >= 0 ? 'ns' : (pinUnder(p) >= 0 || xsEndUnder(p) >= 0 ? 'grab' : '')); return; }
-    if (gest.kind === 'move') {
-      const m = pinMove(S, S.sel, gest.j, p.x, p.y);   // refused → the pin stays at its last legal spot
-      if (m) padSay(m, p); else { gest.moved = true; S.padMsg = null; }
-      renderGrid();
-    } else if (gest.kind === 'value') {
-      // the pad's full height is the parameter's full range; shift = a tenth of that
-      const dv = (gest.y0 - p.y) * span(S.sel) * (e.shiftKey ? 0.1 : 1);
-      const m = pinSetValue(S, S.sel, gest.j, gest.v0 + dv);
-      if (m) padSay(m, p); else gest.moved = true;
-      renderGrid();
-    } else if (gest.kind === 'xs') {
-      S.xs[gest.end ? 'b' : 'a'] = [p.x, p.y]; renderGrid();
-    } else if (gest.kind === 'puck') padAt(e);
+    if (!gest) {
+      S.hover = p;
+      cursor(tagUnder(padTags, p) >= 0 ? 'ns' : (pinUnder(S, p) >= 0 || puckUnder(S, p) || xsEndUnder(S, p) >= 0 ? 'grab' : (boundaryUnder(S, p) ? 'bd' : '')));
+      paintPad();
+      return;
+    }
+    if (gest.kind === 'none') return;
+    padMove(S, gest, p, mods(e));
+    renderGrid();
   });
   const up = () => {
-    const g0 = gest; gest = null; S.drag = null; cursor('');
-    if (!g0) return;
-    if (g0.kind === 'move' && !g0.moved) { jumpToPin(S.sel, g0.j); return; }   // a click on a pin: puck onto it
-    if (g0.kind === 'puck') buildLegend();
+    const g0 = padUp(S, gest); gest = null; cursor('');
+    if (g0 && g0.kind === 'puck' && g0.moved) buildLegend();
     renderGrid(); renderInspector();
   };
   cv.addEventListener('pointerup', up);
   cv.addEventListener('pointercancel', up);
+  cv.addEventListener('pointerleave', () => { S.hover = null; if (!gest) paintPad(); });
   cv.addEventListener('dblclick', e => {
     const p = padXY(e); if (!p) return;
-    if (tagUnder(p) >= 0 || pinUnder(p) >= 0) return;
-    const i = S.sel, why = pinRefusal(S, i);
-    if (why) { padSay(why, p); renderGrid(); return; }
-    const r = pinAdd(S, i, p.x, p.y, heardAt(i, p.x, p.y));
-    if (r.msg) padSay(r.msg, p);
-    else { S.x = r.x; S.y = r.y; S.wpSel = r.j; S.wpMsg = ''; S.padMsg = null; }
+    padDbl(S, p, padTags);
     renderGrid(); renderInspector();
   });
   cv.addEventListener('contextmenu', e => {
     const p = padXY(e); if (!p) return;
-    const tg = tagUnder(p), j = tg >= 0 ? tg : pinUnder(p);
-    if (j < 0) return;                           // off a pin, the browser's menu is left alone
+    if (!padCtx(S, p, padTags)) return;
     if (e.preventDefault) e.preventDefault();
-    const m = delPin(S.sel, j);
-    if (m) padSay(m, p); else { S.padMsg = null; S.wpMsg = ''; }
     renderGrid(); renderInspector();
   });
   cv.addEventListener('wheel', e => {
     const p = padXY(e); if (!p) return;
-    const tg = tagUnder(p), j = tg >= 0 ? tg : pinUnder(p);
-    if (j < 0) return;                           // off a pin the page scrolls as usual
+    if (!padWheel(S, p, e.deltaY, e.shiftKey, padTags)) return;
     if (e.preventDefault) e.preventDefault();
-    const L = S.wp[S.sel], step = span(S.sel) * (e.shiftKey ? 0.001 : 0.01) * (e.deltaY < 0 ? 1 : -1);
-    S.wpSel = j;
-    const m = pinSetValue(S, S.sel, j, L[j][2] + step);
-    if (m) padSay(m, p); else S.padMsg = null;
     renderGrid(); renderInspector();
   }, { passive: false });
 }
-
 function wireGrid() {
   const rows = $('rows'); if (!rows || !rows.addEventListener) return;
   rows.addEventListener('click', e => {
@@ -3368,6 +4101,8 @@ function wireGrid() {
     if (sec) { const n = sec.getAttribute('data-sec'); S.collapsed[n] = !S.collapsed[n]; renderGrid(); return; }
     const ab = t.closest('[data-a]');
     if (ab) { S.selAbsent = parseInt(ab.getAttribute('data-a'), 10); S.sel = -1; S.draft = null; renderGrid(); renderInspector(); return; }
+    const qu = t.closest('[data-qunlock]');
+    if (qu) { qUnlock(S, parseInt(qu.getAttribute('data-qunlock'), 10)); renderGrid(); renderInspector(); return; }   // B269: one click unlocks
     const wj = t.closest('[data-wpj]');
     if (wj) {                                    // B235: the count is also a jump — cycle the puck through the pins
       const i = parseInt(wj.getAttribute('data-wpj'), 10), L = S.wp[i]; if (!L || !L.length) return;
@@ -3419,8 +4154,12 @@ function wireKeys() {
    (the page now opens in BLEND), `?sel=none`, `?maps=diff`, `?xs=x0,y0,x1,y1` (a hand-placed
    section line), `?answers=1` (opens the prose), and `?drag=<n>&to=x,y` — pin n of the
    selected row MOVED to (x, y) through pinMove, the write path the hand uses, and left
-   drawn MID-DRAG (ghost, trail). Deep links, not conveniences: a headless screenshot of a state
-   is then a LOAD rather than a synthetic click that can silently fail to land. */
+   drawn MID-DRAG (ghost, trail). B269: `?mode=stepped&step=0.2&read=pos|val`, `?temp=`,
+   `?cohesion=`, `?seed=`, `?lock=<id>,<id>` (lock rows as they are), `?reseed=<n>` (n new
+   seeds AFTER the locks — the locked rows must not move), `?qdrag=x0,y0,x1,y1` (press a
+   boundary of the selected row and drag it, through padDown/padMove, left MID-DRAG) and
+   `?hover=x,y` (the pointer there, for the preview). Deep links, not conveniences: a headless
+   screenshot of a state is then a LOAD rather than a synthetic click that can silently fail to land. */
 let dark = false;
 function readLinks() {
   let q = '';
@@ -3430,7 +4169,12 @@ function readLinks() {
   if (get('theme') === 'dark') dark = true;
   if (get('demo') === '0') { S.demo = false; resetCorners(); }
   const v = get('view'); if (v) S.view = v;
-  const m = get('mode'); if (m === 'blend') S.mode = 1; else if (m === 'quantum') S.mode = 0;
+  const m = get('mode'); if (m === 'blend') S.mode = 1; else if (m === 'quantum') S.mode = 0; else if (m === 'stepped') S.mode = 2;
+  const sp = get('step'); if (sp !== null && isFinite(+sp)) S.step = Math.min(1, Math.max(0, +sp));
+  const rd = get('read'); if (rd === 'pos' || rd === 'val') S.stepRead = rd;
+  const tp = get('temp'); if (tp !== null && isFinite(+tp)) S.temp = +tp;
+  const co = get('cohesion'); if (co !== null && isFinite(+co)) S.cohesion = +co;
+  const sd = get('seed'); if (sd !== null && isFinite(+sd)) { S.seed = (+sd) >>> 0; S.G = reshuffle(S.seed, N); }
   const x = get('x'), y = get('y'); if (x !== null) S.x = +x; if (y !== null) S.y = +y;
   const qq = get('q'); if (qq) { S.q = qq; const qi = $('q'); if (qi) qi.value = qq; }
   const sel = get('sel'); if (sel === 'none') S.sel = -1; else if (sel !== null && idxOf[+sel] !== undefined) S.sel = idxOf[+sel];
@@ -3451,6 +4195,23 @@ function readLinks() {
     S.wpSel = j;
     if (msg) S.padMsg = { t: msg, x: t[0], y: t[1] }; else S.drag = { kind: 'move', j, from, moved: true };
   }
+  // B269: `?lock=<id>,<id>` locks rows as they are; `?reseed=<n>` then draws n new seeds
+  // (the locked rows must not move — the screenshot of L1); `?qdrag=x0,y0,x1,y1` presses
+  // at (x0, y0) — a boundary of the selected row — and drags to (x1, y1) through
+  // padDown/padMove, left MID-DRAG; `?hover=x,y` puts the pointer there for the preview.
+  const PX = { w: 390, h: 390 };                // the pad's CSS size at the 1600 px review width
+  const lk = get('lock'); if (lk) for (const id of lk.split(',')) if (idxOf[+id] !== undefined) qLock(S, idxOf[+id]);
+  const rs = get('reseed'); if (rs !== null) for (let k = 0; k < Math.min(64, +rs || 0); k++) { S.seed = nextSeed(S.seed); S.G = reshuffle(S.seed, N); }
+  const qd = get('qdrag');
+  if (qd) {
+    const n = qd.split(',').map(Number);
+    if (n.length === 4 && n.every(isFinite)) {
+      const g = padDown(S, Object.assign({ x: n[0], y: n[1] }, PX), {}, []);
+      if (g && g.kind === 'qb') padMove(S, g, Object.assign({ x: n[2], y: n[3] }, PX), {});
+      else S.padMsg = { t: '?qdrag: no boundary of the selected row under the press', x: n[0], y: n[1] };
+    }
+  }
+  const hv = get('hover'); if (hv) { const n = hv.split(',').map(Number); if (n.length === 2 && n.every(isFinite)) S.hover = Object.assign({ x: n[0], y: n[1] }, PX); }
 }
 function wireLawCtl() {
   const h = $('hullIn'), b = $('b232In');
@@ -3473,6 +4234,12 @@ function wireHeader() {
   showDemo();
   if (window.addEventListener) window.addEventListener('resize', () => { buildLegend(); paintPad(); paintLaws(); paintSection(); });
   const qb = $('qToBlend'); if (qb && qb.addEventListener) qb.addEventListener('click', () => setMode(1));
+  // B269: the lock bar above the pad is re-rendered with the pad, so it is wired once, by delegation
+  const lb = $('qLockBar');
+  if (lb && lb.addEventListener) lb.addEventListener('click', e => {
+    const t = e.target && e.target.closest ? e.target.closest('[data-q]') : null;
+    if (t) qAction(S.sel, t.getAttribute('data-q'));
+  });
   const xa = $('xsAuto'); if (xa && xa.addEventListener) xa.addEventListener('click', () => { S.xs.auto = true; renderGrid(); });
   const xd = $('xsDiag'); if (xd && xd.addEventListener) xd.addEventListener('click', () => { S.xs = { auto: false, a: [0, 0], b: [1, 1] }; renderGrid(); });
   // TRY: the three demo rows with pins, one click each — Volume (a swell and a dip),
@@ -3491,7 +4258,11 @@ function wireHeader() {
 /* ============ SETUP — everything above is declared; nothing here reaches
    forward to a const below it (L0026). ============ */
 const UX_AUDIT = interactionAudit();     // B268: BEFORE readLinks — it audits the page as it OPENS
-if (typeof window !== 'undefined' && window.__morphEditorAudit) window.__morphEditorAudit.interaction = UX_AUDIT;
+const R3_AUDIT = roundThreeAudit();      // B269: likewise, on a scratch copy of the opening state
+if (typeof window !== 'undefined' && window.__morphEditorAudit) {
+  window.__morphEditorAudit.interaction = UX_AUDIT;
+  window.__morphEditorAudit.b269 = R3_AUDIT;   // read back by tools/labharness/morph_editor_check.mjs (./verify fast)
+}
 readLinks();
 buildMode();
 buildFind();
@@ -3505,6 +4276,7 @@ wireHeader();
 renderAudit();
 renderWpAudit();
 renderUxAudit(UX_AUDIT);
+renderR3Audit(R3_AUDIT);
 renderFixtureTable();
 resolveAll();
 applyTheme();
