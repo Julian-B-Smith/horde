@@ -41,3 +41,6 @@ __pycache__/
 # SCALPEL golden renders (reference/scalpel/verify/render-goldens.js) — ~45 MB of
 # float WAVs, regenerated on demand, never tracked (the packet says so itself).
 reference/scalpel/verify/goldens/
+
+# Agent worktrees and the local labs preview (tools/labs_preview.sh) — never tracked.
+.claude/worktrees/
