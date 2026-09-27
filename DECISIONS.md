@@ -6498,3 +6498,25 @@ convergence worth noting and nothing we need to act on.
 
 **Consequences.** Future appends are sound-neutral for every existing patch, by construction. The morph lab's draw order was never a parity target (it draws per modulation group over its own list), so nothing is broken there. Patches whose quantum sound was already changed by earlier bumps (3 → 9) are NOT restored by this ADR; whether to restore them is the same question as B255 (as saved vs as today), and it is owed to the human.
 
+## ADR-186 — PROPOSED: horde 2 is a new plugin shell; the current shell is frozen as the legacy plugin (2026-09-27)
+
+**Status.** PROPOSED. It is architectural and irreversible, so the charter requires a critic review before ratification. The human has approved the direction and the timing (B305): "I approve of your recommendation then."
+
+**Context.** Compatibility with the shipped shell (plugin id `com.lifted-truck.hypersaw`, frozen; `src/hypersaw_clap.cpp`) now costs more than it protects. Every audible change needs an `engine_revision` gate (B100; ADR-183 is the first revision-2 law). The morph field is append-only and its draw order frozen (ADR-185). Retired parameters stay declared forever (B252 H2). Engine blocks are hand-listed, and the seam audit (B276) found 20 gaps, several of them compat-shaped. Each new feature (SCALPEL, the comb move B288, R → Tone B304, v1.1 interplay) arrives with a migration question. The human's words: "It isn't worth making the entire future of the device suffer to accommodate a handful of incomplete Ableton projects on my laptop" and "I don't want to make that switch until we have everything worked out, to avoid the same problem emerging in the new shell."
+
+**Decision (proposed).**
+1. **The legacy plugin.** The current shell keeps its id, codes and state format unchanged and is FROZEN from 2026-09-27: real bugs only, no features, no new compat work, no new revision gates. Old projects keep loading it.
+2. **horde 2 is a separate product.** It gets a NEW CLAP id under the convention for new plugins, `com.mind-lathe.<Plugin>`, vendor "Mindlathe" (autonomous CONVENTIONS §Audio plugins), with new VST3/AU identities derived from it. It owes nothing to legacy state; no loader for legacy patches is promised (whether one is wanted is an open question, not a default).
+3. **What carries over is the framework-free CORES** (swarm, filters, morph, mod, SCALPEL once ported, the SUB), with their parity oracles. What is REPLACED is the shell: param table, state schema, routing, GUI (GUI 3, B302).
+4. **The skeleton's rules are built FIRST, before features settle, because the rules are what stop the debt from regrowing:**
+   - (a) parameters are generated from engine manifests (B275; FOUNDATIONS' schema when it lands), never hand-listed;
+   - (b) the state carries an explicit schema version from day one, and migrations are data with tests, not branches in the loader;
+   - (c) the patch model is B263;
+   - (d) a feature enters only through the readiness gate (B275);
+   - (e) there is no retire-in-place: removing a parameter is a schema migration.
+5. **Features move in as the labs ratify them.** The human switches their own work over when it is ready; there is no forced date.
+
+**Consequences.**
+- Old-shell work queued in ROADMAP becomes new-shell work, or is dropped: B278 (Sub/Comb pitch), B279 (tempo to both oscillators), B288's legacy-comb migration, B289 (the SVF port), and ids 382–385 for SCALPEL v1.1.
+- `./verify` must gate both shells until the legacy plugin is formally parked.
+- Open for the critic and the human: (i) the product name and id string; (ii) whether horde 2 offers a one-way importer for legacy patches; (iii) where horde 2 lives (this repo, or a new one); (iv) how the frozen legacy shell's `./verify` stays green without anyone working in it.
