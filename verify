@@ -225,6 +225,20 @@ PY
       echo "verify: lab wheel/scroll check FAILED" >&2; cat /tmp/labwheel.$$ >&2; ok=1; }
     tail -1 /tmp/labwheel.$$   # the harness prints its own name; do not prefix it twice
     rm -f /tmp/labwheel.$$
+
+    # THE LEGACY PRESET PORTER MAPS EVERY VALUE BY ITS ACCOUNTING FATE (B312).
+    # tools/port_legacy_presets.mjs ports the human's legacy user presets onto
+    # the composed engine's keys through docs/scalpel/ACCOUNTING.md §1.1/§1.2.
+    # On SYNTHETIC fixtures only: every row has one rule and the same fate,
+    # SURVIVES round-trips, each MERGES matches its stated formula, RETIRED is
+    # reported and carried nowhere, corners decode by position against
+    # tests/morph_order.txt, nothing is silently lost, the output dir is
+    # git-ignored; four planted faults must come back red (~1 s). Added under
+    # ADR-180 §1.
+    node tools/labharness/port_legacy_presets_check.mjs > /tmp/legacyport.$$ 2>&1 || {
+      echo "verify: legacy preset porter check FAILED" >&2; cat /tmp/legacyport.$$ >&2; ok=1; }
+    tail -1 /tmp/legacyport.$$   # the harness prints its own name; do not prefix it twice
+    rm -f /tmp/legacyport.$$
   else
     echo "verify: node missing — lab load check SKIPPED" >&2
   fi

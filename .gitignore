@@ -44,3 +44,9 @@ reference/scalpel/verify/goldens/
 
 # Agent worktrees and the local labs preview (tools/labs_preview.sh) — never tracked.
 .claude/worktrees/
+
+# B312: the legacy preset porter's OUTPUT (tools/port_legacy_presets.mjs) — the
+# human's own presets, names and values, converted. PRIVATE creative data in a
+# public repo: never tracked. The porter refuses an in-repo output directory
+# that this file does not ignore.
+local/
