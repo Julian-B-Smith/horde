@@ -6490,6 +6490,16 @@ convergence worth noting and nothing we need to act on.
 - **H6 — cost.** The spec estimates 7–17 % of a core at 8 notes × 9 members; horde's swarm allows 32 members per oscillator and two oscillators. Measure a scalar port (the B236 pattern) before sizing anything.
 - **H7 — FOUNDATIONS.** The spec suggests blade geometry, BLEP event scanning and per-cycle DC as shared utilities — a cross-repo brief, later.
 
+**A1 (2026-09-27): SCALPEL v1.1 (blade interplay) ingested** (B300, sanctioned by the human: "I approve of your ingest plan"). v1.1 replaces v1 byte-for-byte in `reference/scalpel/**` and `specs/SPEC-SCALPEL.md` (SPEC §13 is new). It adds four parameters (`b2order`, `b2mix` λ, `colK`, `colB`; 107 → 111) and seven Interplay presets (76 → 83, inserted before Oddities).
+- With the four at their defaults, v1.1 is sample-identical to v1 on all 76 v1 presets (Δ 0, the lead's own harness; not the packet's claim).
+- The packet's staged decisions, recorded here rather than filed:
+  - D12 (ship interplay in v1): its "free when off" claim holds.
+  - D13 (blade 2 over blade 1): already the default.
+  - D14 (collision overlap `ov` as a per-member mod source): DECLINED as written, because `ov` repeats at the note frequency and aliases at the 16-sample tick (ACCOUNTING §4.2), and the matrix has no per-member scope. It is refiled as a control-rate overlap-fraction question.
+- The packet's ADR draft conflicts with B252's rulings H3 (the C++ port is the golden) and H2 (the retired set is ratified behind the revision gate). Those rulings stand.
+- The packet's CPU claims were not reproduced (JS: serial +6–14%, serial with collision +22–30%, twin with overlap +62–79%).
+- Ids 382–385 are proposed, not allocated. Under ADR-186 they belong to horde 2's manifest, not the legacy id space.
+
 ## ADR-185 — Appending to the morph field may never change how an existing patch sounds: the quantum draw is frozen at the layout-9 prefix (2026-09-24)
 
 **Context (B240, measured by the implementer and confirmed by the critic).** `MorphCore::reshuffle` drew one Gumbel row per field slot and THEN the shared vector, so the field's LENGTH moved the shared draw. Under QUANTUM, at any off-corner pad position, a longer field changed which corner many existing slots picked: no stored value moved, but the sound did. A SCALPEL-sized append (+164 rows) flips 78–225 of 273 owners mid-pad on 'MO - Quantum Morph', and B203's own one-row bump had already changed that patch's render (66 flips). The revision gate CANNOT fix this: under revision 1 the draw depends on the BUILD's field length, not on anything the patch carries.
