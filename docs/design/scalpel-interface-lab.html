@@ -39,10 +39,26 @@
      :142-144, :167-185, :186-212). Copy, therefore drift: if gui2's tokens move,
      this file is stale until re-copied.
 
+     ROUND 2 — B293, 2026-09-27, dispatched by the horde lead on ROADMAP B293
+     (carried in the records PR on branch lead-records-101). The human, on round 1:
+     (1) "the color scheme can get a little overwhelming in light mode; can we make
+     the blades in light mode a little less opaque, and maybe do something to make
+     the signal pop more?" (2) "I would like to turn the waveform itself into an XY;
+     horizontal drag should increase the blade width, vertical drag should increase
+     the cut rate, and shift + horizontal drag should drag the position … maybe these
+     commands could be settable in the interface, as in the XY grid of the bench you
+     ingested." (3) "Can we recreate some of the presets from the bench in here?"
+     Built as: (1) four numeric screen weights (--scr-blade-a … ) that only the
+     LIGHT tube changes — no colour changes job; (2) section I2, a RELATIVE XY on
+     the cycle view with the bench's axis selectors plus a shift slot, writing
+     through the one writer; (3) all 76 bench presets in a grouped browser in the
+     side column, marked as the bench's voicings. Load-time checks for (2) and (3)
+     sit in section K with the rest.
+
      L0026: every const is declared above the code that runs at setup; the boot
      call is the last statement of the script. -->
 <html><head><meta charset="utf-8">
-<meta name="lab-review" content="B271 · 2026-09-26">
+<meta name="lab-review" content="B271 + B293 · 2026-09-27">
 <title>SCALPEL interface lab — horde with blades at its centre</title>
 <style>
   :root {
@@ -94,6 +110,13 @@
     --scr-grid:#4FD8BE;      /* in-tube structure — painted at low alpha */
     --scr-scan:0.22;         /* scanline strength                        */
     --scr-alpha:1;           /* multiplier on every TOKA() alpha         */
+    /* B293 — the cycle view's weights, as NUMBERS beside --scr-alpha, not new
+       colours: every ink below is still a gui2 token. These are the DARK values
+       (the human likes dark as it is); the light tube overrides them further down. */
+    --scr-blade-a:1;         /* multiplier on blade-window fills          */
+    --scr-sig-w:1.8;         /* the heard trace's stroke, px              */
+    --scr-halo-w:0;          /* tube-coloured underlay each side of it, px */
+    --scr-member-a:1;        /* multiplier on the faint member traces     */
     /* geometry */
     --r-card:10px; --r-well:var(--r-card); --r:var(--r-card); --stroke:1.5px;
     --shadow:1.5px 1.5px 0 var(--line);
@@ -111,6 +134,16 @@
   body:not(.dark) { --scr-tube:#F3EBFF; --scr-value:#D6006B; --scr-meter:#007A73;
     --scr-physics:#6E14E8; --scr-marker:#C43A00; --scr-grid:#5A3FA8;
     --scr-scan:0.05; --scr-alpha:1.6;
+    /* B293 (human 2026-09-27: "the color scheme can get a little overwhelming in
+       light mode … make the blades in light mode a little less opaque, and maybe
+       do something to make the signal pop more"). --scr-alpha 1.6 lifts faint
+       strokes on the orchid tube, and it lifted the blade FILLS with them, so
+       several overlapping member windows went solid magenta and swallowed the
+       teal trace. The fills drop to ~0.4 of that; the trace goes heavier and gets
+       a thin tube-coloured halo so it cuts through whatever is under it. Its ink
+       stays --scr-meter (a measure — what is heard), which is already not the
+       blade hue, so no colour changes job. */
+    --scr-blade-a:.4; --scr-sig-w:2.6; --scr-halo-w:2; --scr-member-a:.6;
     /* gui2:167 — yellow and lime cannot survive a light ground (measured
        1.20:1 and 1.17:1 against --bg, where the graphical floor is 3:1). */
     --marker:#8A6A00; --celebrate:#4E7A00; }
@@ -329,6 +362,18 @@
   .ostrip .kcell { width:48px; }
   .cyctools { display:flex; align-items:center; gap:6px; margin:0 0 3px; flex-wrap:wrap; }
   .cyctools .lbl { font-size:9px; }
+  /* B293: the XY mapping row under the cycle view — the bench's axis selectors */
+  .xymap { display:flex; align-items:center; gap:4px 12px; flex-wrap:wrap; margin:0 0 4px; padding:3px 6px;
+    border:1px dashed var(--div); border-radius:var(--r); }
+  .xymap .grp { gap:4px; }
+  .xymap .lbl { font-size:9px; min-width:22px; }
+  .xymap select { max-width:118px; }
+  .xymap .inv { font-size:9px; color:var(--t2); display:inline-flex; align-items:center; gap:3px; }
+  .xymap .inv input[type=checkbox] { width:22px; height:12px; }
+  .xymap .inv input[type=checkbox]::after { width:7px; height:7px; }
+  .xymap .inv input[type=checkbox]:checked::after { transform:translateX(9px); }
+  .xymap .inv input:disabled { opacity:.35; }
+  canvas.xy { cursor:grab; } canvas.xy:active { cursor:grabbing; }
 
   /* ============ THE BLADE ROW ============ */
   .blade { position:relative; border:var(--stroke) solid var(--line); border-radius:var(--r);
@@ -442,6 +487,17 @@
   .notes ol, .notes ul { padding-left:18px; margin:4px 0 0; }
   .notes li { margin:4px 0; }
   .notes .rec { color:var(--physics); font-weight:700; }
+  /* B293: the preset browser in the side column */
+  .pbrowse .pills { gap:3px; }
+  .pbrowse .pill.mini { font-size:9px; min-height:18px; padding:0 6px; }
+  .pbrowse .pill.bad { border-color:var(--alarm); color:var(--alarm); text-decoration:line-through; cursor:not-allowed; }
+  .pcath { font-size:9px; letter-spacing:.12em; color:var(--t2); font-weight:700; margin:7px 0 3px; }
+  /* "look at this before you accept it" — gui2's caution pair, the job .dep already uses */
+  .voicing { font-size:9.5px; line-height:1.4; color:var(--caution-tx); background:var(--caution-bg);
+    border:1px solid var(--caution); border-radius:4px; padding:4px 7px; margin:2px 0 4px; }
+  .voicing b { color:var(--caution-tx); }
+  .phdr-r .bv { font-size:8.5px; letter-spacing:.08em; font-weight:700; color:var(--caution-tx); background:var(--caution-bg);
+    border:1px solid var(--caution); border-radius:3px; padding:0 4px; }
   .notes table { border-collapse:collapse; font-size:9.5px; width:100%; }
   .notes td, .notes th { border-bottom:1px dashed var(--div); padding:2px 4px; text-align:left; vertical-align:top; }
   .notes th { color:var(--dim); font-weight:600; letter-spacing:.08em; }
@@ -455,8 +511,8 @@
   <div>
     <h1>scalpel</h1>
     <div class="badges">
-      <span class="badge">B271 · DESIGN LAB</span>
-      <span class="sub">BLADES AT THE CENTRE · OSC + MAIN AT 980×720 · VISUALS DRIVEN BY THE ORACLE · AESTHETIC ALTERNATIVES</span>
+      <span class="badge">B271 + B293 · DESIGN LAB</span>
+      <span class="sub">BLADES AT THE CENTRE · OSC + MAIN AT 980×720 · VISUALS DRIVEN BY THE ORACLE · THE WAVEFORM IS AN XY · 76 BENCH PRESETS</span>
     </div>
   </div>
   <div class="hdrctl">
@@ -543,6 +599,27 @@ marked <b>aesthetic alternatives</b> sit beside the standard.</div>
         the port provides one (SPEC §10 calls the bench's three-pass estimate a display approximation).</li>
       <li><b>Visualizers on MAIN.</b> <span class="rec">Recommend: the cycle view and the ring on MAIN, and the spectrum on OSC only.</span>
         The formant band is a sound-design read, not a performance read.</li>
+    </ol>
+    <h2 style="margin-top:10px">Round 2 (B293) — open questions</h2>
+    <ol start="13">
+      <li><b>What does a drag on the waveform target?</b> Width, cut rate and position exist once per blade. As built, a drag moves
+        the blade whose window is under the pointer when you grab it. Grabbing empty space moves every blade that is on, each by the
+        same amount along its own taper, so their relation holds. The target is outlined in the attention ink while you hover and
+        while you drag. <span class="rec">Recommend: as built.</span> The alternatives are "always blade 1" or following the MAIN
+        page's 1 | 2 selector. Both hide which blade moves until you hear it.</li>
+      <li><b>Relative, not absolute.</b> The bench's pad is absolute: the puck is the value, so a grab jumps the sound to the
+        pointer. The waveform has no puck, because its x axis is phase. So every drag here is a delta from the value at grab, and a
+        grab alone moves nothing. <span class="rec">Recommend: keep it relative.</span> The MAIN page's XY pad stays absolute because it
+        does have a puck.</li>
+      <li><b>CYCLE EDITS and the XY share one surface.</b> With CYCLE EDITS on (or skin C), round 1's grips take the waveform back:
+        drag a window to move it, drag an edge for width. With it off, the waveform is the XY. <span class="rec">Recommend: the XY by default,
+        and CYCLE EDITS as the advanced alternative.</span> The two cannot both own a plain horizontal drag.</li>
+      <li><b>Should the mapping be per patch?</b> The bench's pad assignments are bench state, not preset state. Here the mapping is a
+        lab setting and resets on reload. <span class="rec">Recommend: a global UI preference, not a patch parameter.</span> A patch
+        parameter would need ids, and ACCOUNTING's J2 already settles that pads become intents (ADR-176).</li>
+      <li><b>The presets are the bench's voicings.</b> They play exactly as the oracle defines them, so their Coupling is SCALPEL's law
+        (ACCOUNTING §1.6), not horde's. The browser and the patch name say so. Re-voicing is Q B3. The lab has no undo history, so
+        loading a preset is not a history step.</li>
     </ol>
   </div>
 </div>
@@ -695,6 +772,9 @@ R('glide', 'Note lag', '33', 'T3', 'c', 0, 2000, 'pow', 'ms');
 R('glideAlways', 'Glide when', '90', 'T3', 'e', 0, 1, '', '', [[0, 'overlapping'], [1, 'always']]);
 R('os', 'Oversample', '88', 'T3', 'e', 1, 2, '', '', [[1, '1×'], [2, '2×']]);
 R('aa', 'Band-limit', '16', 'T3', 'e', 0, 1, '', '', [[1, 'clean'], [0, 'raw']]);
+/* B293: the one key the bench presets carry that B271's table lacked (5 of the 76
+   set it to 1). ACCOUNTING §1.4 row 30: MERGES → absK (31) under horde's law, T3. */
+R('cScale', 'Coupling time', '31', 'T3', 'e', 0, 1, '', '', [[0, 'seconds'], [1, 'cycles']]);
 /* horde rows that SURVIVE: tab power and pitch are voiced through lab mappings
    (enable → gain 0; octave/semi/fine → the oracle's `bend`); the rest are drawn,
    not voiced, because the oracle has no such law */
@@ -798,7 +878,8 @@ const LAB = {
   b2look: qp('b2', 'hatch'), direct: qp('direct', '0') === '1', theme: qp('theme', 'light'),
   view: qp('view', 'sum'), contrib: qp('contrib', '1') === '1', t2open: qp('t2', '0') === '1',
   advOpen: qp('adv', '0') === '1', mainBlade: 1, still: parseInt(qp('still', '0'), 10) || 0,
-  frozen: false, showVals: qp('vals', '0') === '1', presetName: '', presets: null
+  frozen: false, showVals: qp('vals', '0') === '1', presetName: '', presets: null,
+  params: null, presetStat: {}, openCats: null
 };
 let P = Object.assign({}, DEF, { b2on: 1 });   // the patch (the morph's home corner A). Opens on the oracle's defaults, blade 2 on.
 let EFF = Object.assign({}, P);                 // what is heard: P, then the morph, then the macros
@@ -839,6 +920,31 @@ const FOLLOW = [
 ];
 const FOLLOW_OF = {};
 for (const g of FOLLOW) for (const [k2, k1] of g.pairs) FOLLOW_OF[k2] = { g, src: k1 };
+/* ---- B293: the cycle view as an XY surface ----
+   ROLES are what an axis can drive: the bench's pad-assignable set (parameters.json
+   `padAssignable`, the bench's PAD_KEYS at scalpel-bench.html:1411), folded so a
+   blade-1 key and its blade-2 twin are ONE role — the drag decides which blade
+   (XY_TARGET below). `k`/`kHz` and `m`/`mHz` fold further into one role each:
+   which of the pair is live follows the blade's own "Cut rate in" / "Mod rate in"
+   at grab time, the job the bench's swapAxis() does. SWARM roles have no blade. */
+const XY_ROLES = [
+  ['w', 'Width'], ['cut', 'Cut rate'], ['c', 'Position'], ['depth', 'Depth'], ['hard', 'Edges'],
+  ['I', 'FM depth'], ['mrate', 'Mod rate'], ['morph', 'Shape'], ['rotRate', 'Rotate'],
+  ['bspread', 'Pos spread'], ['kspread', 'Cut spread'], ['wspread', 'Width spread'], ['dspread', 'Depth spread'],
+  ['mspread', 'Shape spread'], ['ispread', 'FM idx spread'], ['rotSpread', 'Rotate spread'], ['kRuleAmt', 'Rule depth'],
+  ['benvK', 'Env → cut'], ['benvW', 'Env → width'], ['benvD', 'Env decay']
+];
+const XY_SWARM = [['detune', 'Detune'], ['K', 'Coupling'], ['width', 'Stereo'], ['xm', 'Cross-mod'], ['fb', 'Feedback'], ['driftRate', 'Drift rate']];
+/* travel: a non-circular parameter crosses its whole taper in XY_PX pixels (in
+   position units, so Width's bypass zone and Cut rate's log law are respected);
+   a CIRCULAR one (Position) moves one cycle per canvas width, so the window
+   tracks the hand exactly. Alt/Option = fine (×¼). */
+const XY_PX = 420, XY_FINE = 0.25;
+/* the default mapping is the human's (2026-09-27): horizontal = Width, vertical =
+   Cut rate, shift + horizontal = Position. Each slot: [primary, second, invert-second]
+   — the bench's axis row (scalpel-bench.html:158-159), plus the ⇧ slot. */
+const XY_DEFAULT = { x: ['w', '', 0], y: ['cut', '', 0], sx: ['c', '', 0] };
+const XY = { map: JSON.parse(JSON.stringify(XY_DEFAULT)), open: qp('xymap', '0') === '1', drag: null, hover: null, cv: null, last: null };
 const KEYMAP = { a: 0, w: 1, s: 2, e: 3, d: 4, f: 5, t: 6, g: 7, y: 8, h: 9, u: 10, j: 11, k: 12, o: 13, l: 14 };
 const $ = id => document.getElementById(id);
 const FR = $('frame');
@@ -867,6 +973,13 @@ function write(key, v) {
   if (linked(key)) takeOwnership(key);
   P[key] = v;
   afterWrite(key);
+}
+/* several continuous rows in one gesture step (the XY writes up to six): the same
+   copy-on-write per key, ONE afterWrite, so the oracle gets one coherent update */
+function writeMany(o) {
+  let last = null;
+  for (const k in o) { if (linked(k)) takeOwnership(k); P[k] = o[k]; last = k; }
+  if (last) afterWrite(last);
 }
 function afterWrite(key) {
   EFF = effective();
@@ -1100,6 +1213,8 @@ function RGBA(hex, a) {
 /* gui2's TOKA: every screen alpha passes through --scr-alpha, so the light
    (orchid) tube can lift faint strokes that would vanish on it */
 function TOKA(name, a) { const m = parseFloat(TOK('--scr-alpha', '1')) || 1; return RGBA(TOK(name), Math.min(1, a * m)); }
+/* a numeric screen token (B293's weights); `d` when unset or unparsable */
+function TOKN(name, d) { const v = parseFloat(TOK(name, String(d))); return isFinite(v) ? v : d; }
 function fit(cv) {
   const g = cv.getContext ? cv.getContext('2d') : null;
   if (!g) return [null, 0, 0];
@@ -1136,6 +1251,10 @@ function gateAt(e, w, hard, mode) {
 /* one window [st, st+w) of blade b on a cycle of width W — band (I) or gate (II) */
 function drawWindow(g, st, w, b, p, W, top, bot, alpha, twin) {
   if (w < 0.004) return;
+  /* B293: the light tube thins the fills (--scr-blade-a); edges thin by its root,
+     so a window's extent still reads when its body is faint */
+  const ba = TOKN('--scr-blade-a', 1), ea = Math.sqrt(ba);
+  alpha *= ba;
   const ink = bladeInk(b), segs = [];
   const a = st * W, z = (st + w) * W;
   if (z <= W) segs.push([a, z, 0]); else { segs.push([a, W, 0]); segs.push([0, z - W, W - a]); }
@@ -1157,12 +1276,12 @@ function drawWindow(g, st, w, b, p, W, top, bot, alpha, twin) {
       } else { g.fillStyle = TOKA(ink, alpha); g.fill(); }
       /* hatch() leaves its own lines as the current path — re-trace the gate before the outline */
       gatePath();
-      g.strokeStyle = TOKA(ink, 0.8); g.lineWidth = 1.2; if (twin) g.setLineDash([3, 3]); g.stroke(); g.setLineDash([]);
+      g.strokeStyle = TOKA(ink, 0.8 * ea); g.lineWidth = 1.2; if (twin) g.setLineDash([3, 3]); g.stroke(); g.setLineDash([]);
     } else {
       /* I · BAND: a translucent band over the whole height, ink edges */
       if (b === 2 && LAB.b2look !== 'hue') hatch(g, x0, x1, top, bot, ink, alpha * 1.6);
       else { g.fillStyle = TOKA(ink, alpha); g.fillRect(x0, top, x1 - x0, bot - top); }
-      g.strokeStyle = TOKA(ink, 0.75); g.lineWidth = 1.2; if (twin) g.setLineDash([3, 3]);
+      g.strokeStyle = TOKA(ink, 0.75 * ea); g.lineWidth = 1.2; if (twin) g.setLineDash([3, 3]);
       g.beginPath(); g.moveTo(x0 + 0.5, top); g.lineTo(x0 + 0.5, bot); g.moveTo(x1 - 0.5, top); g.lineTo(x1 - 0.5, bot); g.stroke(); g.setLineDash([]);
     }
   }
@@ -1194,11 +1313,16 @@ function paintCycle(cv, mini) {
       g.stroke(); g.setLineDash([]);
     };
     line(cy.base, '--scr-grid', 0.55, 1, [3, 3]);                    // the base wave, the reference behind
-    if (lanes) line(cy.mem[L].y, '--scr-meter', 0.95, 1.5);
+    /* the heard trace (B293): a tube-coloured halo first, so it separates from the
+       blade fills under it, then the trace at the theme's weight. Dark: no halo, 1.8 px. */
+    const sigW = TOKN('--scr-sig-w', 1.8) * (mini ? 0.78 : 1), halo = TOKN('--scr-halo-w', 0);
+    const heard = (arr, a, lw) => { if (halo > 0) line(arr, '--scr-tube', 0.62, lw + 2 * halo); line(arr, '--scr-meter', a, lw); };
+    if (lanes) heard(cy.mem[L].y, 0.95, sigW * 0.83);
     else {
-      if (cy.N > 1 && !mini) for (const m of cy.mem) line(m.y, '--scr-physics', 0.28, 1);   // each member, faint
+      const ma = TOKN('--scr-member-a', 1);
+      if (cy.N > 1 && !mini) for (const m of cy.mem) line(m.y, '--scr-physics', 0.28 * ma, 1);   // each member, faint
       if (LAB.contrib && !mini) { line(cy.s1, bladeInk(1), 0.8, 1, [1, 2]); if (P.b2on) line(cy.s2, bladeInk(2), 0.8, 1, [4, 2]); }
-      line(cy.sum, '--scr-meter', 1, mini ? 1.4 : 1.8);                // what is heard (per-cycle DC applied)
+      heard(cy.sum, 1, sigW);                                           // what is heard (per-cycle DC applied)
     }
   }
   if (!mini) {
@@ -1207,6 +1331,7 @@ function paintCycle(cv, mini) {
     const tag = (st, w, b) => { if (!w) return; g.fillStyle = TOKA(bladeInk(b), 1); g.fillText(b === 1 ? '①' : '②', frac(st + w / 2) * W - 4, top + 2); };
     tag(m0.st1, m0.w1, 1); tag(m0.st2, m0.w2, 2);
     if (LAB.skin === 'C' || LAB.direct) drawGrips(g, W, top, bot);
+    else if (cv === XY.cv) xyOverlay(g, W, top, bot);
     g.textBaseline = 'alphabetic';
   }
 }
@@ -1306,7 +1431,8 @@ function paintSpectrum(cv) {
     const ink = bladeInk(b);
     if (F.kind === 'formant') {
       const x0 = fx(Math.max(fLo, F.fc - F.bw)), x1 = fx(Math.min(fHi, F.fc + F.bw));
-      if (x1 > x0) { if (b === 2 && LAB.b2look !== 'hue') hatch(g, x0, x1, top, bot, ink, 0.3); else { g.fillStyle = TOKA(ink, 0.16); g.fillRect(x0, top, x1 - x0, bot - top); } }
+      const ba = TOKN('--scr-blade-a', 1);                        // B293: the same light-tube thinning as the cycle view
+      if (x1 > x0) { if (b === 2 && LAB.b2look !== 'hue') hatch(g, x0, x1, top, bot, ink, 0.3 * ba); else { g.fillStyle = TOKA(ink, 0.16 * ba); g.fillRect(x0, top, x1 - x0, bot - top); } }
       if (F.fc > fLo && F.fc < fHi) { g.strokeStyle = TOKA(ink, 0.9); g.setLineDash([3, 3]); g.beginPath(); g.moveTo(fx(F.fc), top); g.lineTo(fx(F.fc), bot); g.stroke(); g.setLineDash([]); }
       notes.push((b === 1 ? '①' : '②') + ' formant ' + fmtHz(F.fc) + ' ±' + fmtHz(F.bw));
     } else if (F.kind === 'hold') notes.push((b === 1 ? '①' : '②') + ' hold ' + fmtHz(F.fc) + ' (a null)');
@@ -1614,9 +1740,11 @@ function frameHeader(host) {
     }
   }
   const r = el('div', 'phdr-r'); h.appendChild(r);
-  r.innerHTML = '<b>' + escapeHtml(LAB.presetName || "oracle defaults · blade 2 on") + '</b><br>' +
+  r.innerHTML = '<b>' + escapeHtml(LAB.presetName || "oracle defaults · blade 2 on") + '</b>' +
+    (benchLoaded() ? ' <span class="bv" title="played as the bench voiced it: SCALPEL\'s coupling law, not re-voiced for horde (ACCOUNTING §1.6, Q B3)">BENCH VOICING</span>' : '') + '<br>' +
     (LAB.page === 'osc' ? 'OSC · SWARM 1 · SCALPEL' : 'MAIN') + ' · 980×720';
 }
+function benchLoaded() { return !!(LAB.presets && LAB.presetName && LAB.presets.some(p => p.name === LAB.presetName)); }
 function escapeHtml(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]); }
 
 /* ---------------- THE OSC PAGE ---------------- */
@@ -1661,10 +1789,19 @@ function buildOsc(host) {
   const cb = el('button', 'pill mini' + (LAB.contrib ? ' on' : ''), 'CONTRIBUTIONS');
   cb.title = 'each blade\'s contribution D(φ), dotted (① ) and dashed (②), around the zero line';
   cb.addEventListener('click', () => { LAB.contrib = !LAB.contrib; rebuild(); }); tools.appendChild(cb);
-  const hint = el('span', 'vnote', cycleCaption()); hint.style.marginLeft = 'auto'; tools.appendChild(hint);
   const editable = LAB.skin === 'C' || LAB.direct;
-  const cyc = canvas(sc2, LAB.skin === 'C' ? 200 : 132, c => paintCycle(c, false), editable ? 'edit' : '');
+  /* B293: with CYCLE EDITS off the waveform is the XY; its mapping row folds open here */
+  if (!editable) {
+    /* the pill IS the legend: it names the live mapping, so the caption stays one line */
+    const xb = el('button', 'pill mini' + (XY.open ? ' on' : ''), 'XY ↔ ' + xyRoleLabel(XY.map.x[0]) + ' ↕ ' + xyRoleLabel(XY.map.y[0]) + ' ⇧↔ ' + xyRoleLabel(XY.map.sx[0]));
+    xb.title = 'drag the waveform: what each gesture drives. Click to set it (the bench\'s XY axis selectors, plus a shift slot).';
+    xb.addEventListener('click', () => { XY.open = !XY.open; rebuild(); }); tools.appendChild(xb);
+  }
+  const hint = el('span', 'vnote', cycleCaption()); hint.style.marginLeft = 'auto'; tools.appendChild(hint);
+  if (!editable && XY.open) xyMapRow(sc2);
+  const cyc = canvas(sc2, LAB.skin === 'C' ? 200 : 132, c => paintCycle(c, false), 'edit');
   if (editable) { tagCtl(cyc, ['c', 'w', 'depth', 'hard', 'k', 'c2', 'w2', 'depth2', 'hard2', 'k2'], 'T1'); cycleEdits(cyc); }
+  else { tagCtl(cyc, ['w', 'k', 'kHz', 'c', 'w2', 'k2', 'kHz2', 'c2'], 'T1'); cyc.classList.add('xy'); xyWire(cyc); }
   bladeRow(sc2, 1); bladeRow(sc2, 2);
   tier2(sc2);
   tier3(sc2);
@@ -1780,7 +1917,7 @@ const T2_KEYS = ['lock', 'lock2', 'morph', 'morph2', 'rotRate', 'rotRate2', 'fmT
   'kRuleAmt', 'width', 'A', 'D', 'S', 'R', 'octave', 'semi', 'fine', 'rtone', 'onset', 'dissolve', 'driftDepth'];
 const T3_KEYS = ['wspread', 'dspread', 'mspread', 'ispread', 'rotSpread', 'bspread2', 'kspread2', 'kRule2', 'kRuleAmt2', 'wspread2', 'dspread2',
   'mspread2', 'ispread2', 'rotSpread2', 'b2sp', 'b2fm', 'rot2Follow', 'frame2', 'driftRate', 'kq', 'kCustom', 'dcMode', 'panOrder',
-  'rotSync', 'benvVel', 'benvVel2', 'polyMode', 'glide', 'glideAlways', 'os', 'aa'];
+  'rotSync', 'benvVel', 'benvVel2', 'polyMode', 'glide', 'glideAlways', 'os', 'aa', 'cScale'];
 function tierBox(host, title, open, keys, onToggle, cls) {
   const t = el('div', 'tier' + (open ? '' : ' closed')); host.appendChild(t);
   const h = el('div', 'thead'); t.appendChild(h);
@@ -1850,7 +1987,7 @@ function tier3(host) {
   cmpRow(c2, 'Env velocity', 'benvVel', 'benvVel2', T);
   g2.appendChild(el('h4', null, 'VOICE · OUTPUT'));
   const c3 = el('div', 'cmp one'); g2.appendChild(c3);
-  for (const k of ['rotSync', 'dcMode', 'panOrder', 'polyMode', 'glide', 'glideAlways', 'os', 'aa']) cmpRow(c3, SP[k].label, k, null, T);
+  for (const k of ['rotSync', 'dcMode', 'panOrder', 'polyMode', 'glide', 'glideAlways', 'os', 'aa', 'cScale']) cmpRow(c3, SP[k].label, k, null, T);
   g2.appendChild(el('h4', null, "HORDE'S SPECIALISTS (not in the oracle)"));
   g2.appendChild(el('div', 'inertlist', HORDE_T3.join(' · ')));
 }
@@ -1887,7 +2024,7 @@ function buildMain(host) {
   pr.appendChild(el('span', 'pname', LAB.presetName || 'oracle defaults · blade 2 on'));
   const nx = el('button', 'pill mini', '▶'); nx.addEventListener('click', () => step(1)); pr.appendChild(nx);
   const cat = LAB.presets && LAB.presetName ? (LAB.presets.find(p => p.name === LAB.presetName) || {}).category : '';
-  pr.appendChild(el('span', 'pcat', cat ? '· ' + cat : (LAB.presets ? '' : '· presets load when served (tools/serve_labs.py)')));
+  pr.appendChild(el('span', 'pcat', cat ? '· ' + cat + ' · bench voicing, not re-voiced for horde' : (LAB.presets ? '' : '· presets load when served (tools/serve_labs.py)')));
 
   const mc = cell(Rt, 'Macros', "PRESET · the lab's proposed eight for a SCALPEL patch");
   const mg = el('div', 'mgrid'); mc.appendChild(mg);
@@ -2024,6 +2161,196 @@ function cycleEdits(cv) {
     const b = h.b, key = effLock(b) === 2 ? bladeKey(b, 'kHz') : bladeKey(b, 'k'), sp = SP[key];
     write(key, clamp(P[key] * Math.pow(2, -Math.sign(e.deltaY) / (e.shiftKey ? 48 : 12)), sp.min, sp.max));
   }, { passive: false });
+}
+
+/* ======================================================================
+   I2. THE XY SURFACE (B293) — the cycle view itself, when CYCLE EDITS is off
+   Human, 2026-09-27: "horizontal drag should increase the blade width, vertical
+   drag should increase the cut rate, and shift + horizontal drag should drag the
+   position … maybe these commands could be settable in the interface, as in the
+   XY grid of the bench".
+   RELATIVE, not absolute. The bench's pad is absolute (the puck IS the value), so
+   grabbing it anywhere jumps the sound there. The waveform has no puck — its x is
+   PHASE — so every drag here is a delta from the value at grab: nothing moves on
+   pointerdown, and each move adds its pixels (in taper units) to a per-key
+   accumulator that is clamped at the ends (so reversing responds at once) and
+   wrapped for Position (circular, ACCOUNTING finding 5).
+   TARGET (open question in the page): the blade whose window is under the
+   pointer at grab; empty space grabs every blade that is on, each moved by the
+   same taper delta, so their relation is kept. Swarm roles ignore the target.
+   ONE WRITER: every step lands through writeMany → afterWrite, the path every
+   knob uses, so the knobs, the summaries and the oracle all read the same P.
+   ====================================================================== */
+function xyRoleLabel(r) { const f = XY_ROLES.concat(XY_SWARM).find(q => q[0] === r); return f ? f[1] : r; }
+function xyIsSwarm(r) { return XY_SWARM.some(q => q[0] === r); }
+/* a role on a blade → the live key (k/kHz and m/mHz resolved the way the face resolves them) */
+function xyKey(role, b) {
+  if (xyIsSwarm(role)) return role;
+  if (role === 'cut') return effLock(b) === 2 ? bladeKey(b, 'kHz') : bladeKey(b, 'k');
+  if (role === 'mrate') return mUnitOf(b) ? bladeKey(b, 'mHz') : bladeKey(b, 'm');
+  return bladeKey(b, role);
+}
+function xyBladeOn(b) { return !!(b === 1 ? P.b1on : P.b2on); }
+/* every window AS DRAWN, per blade: [[start, width], …] — one per member, read from
+   the monitor oracle's viz (cycleData), because rotation, the blade envelope and the
+   spreads all move a window away from the static Position. Hit-testing EFF.c instead
+   grabbed the wrong blade whenever Rotate was non-zero (caught by the B293 harness). */
+function xyEffWindows() {
+  const out = { 1: [], 2: [] };
+  for (const b of [1, 2]) {
+    const s = b === 1 ? '' : '2', w = EFF['w' + s];
+    if (w >= 0.004) out[b].push([frac(EFF['c' + s] - w / 2), w]);
+  }
+  return out;
+}
+function xyWindows() {
+  const cy = cycleData();
+  if (!cy) return xyEffWindows();
+  const out = { 1: [], 2: [] };
+  for (const m of cy.mem) { if (m.w1) out[1].push([m.st1, m.w1]); if (m.w2) out[2].push([m.st2, m.w2]); }
+  return out;
+}
+/* which blade is under phase `ph`; if windows overlap, the one whose centre is nearer */
+function xyBladeAt(ph, wins) {
+  let best = 0, bd = 9;
+  for (const b of [1, 2]) {
+    if (!xyBladeOn(b)) continue;
+    for (const [st, w] of wins[b]) {
+      if (frac(ph - st) >= w) continue;
+      const d = Math.abs(frac(ph - st - w / 2 + 0.5) - 0.5);
+      if (d < bd) { bd = d; best = b; }
+    }
+  }
+  return best;
+}
+function xyTarget(ph, wins) {
+  const b = xyBladeAt(ph, wins || xyWindows());
+  if (b) return { blades: [b], why: 'under cursor' };
+  const on = [1, 2].filter(xyBladeOn);
+  return { blades: on, why: on.length ? 'empty space → all blades' : 'no blade is on' };
+}
+/* the keys a slot drives on the current target: [[key, sign, blade (0 = swarm)], …] */
+function xySlotKeys(slot, blades) {
+  const [a, b2nd, inv] = XY.map[slot], out = [];
+  const add = (role, sgn) => {
+    if (!role) return;
+    if (xyIsSwarm(role)) { out.push([role, sgn, 0]); return; }
+    for (const b of blades) out.push([xyKey(role, b), sgn, b]);
+  };
+  add(a, 1); add(b2nd, inv ? -1 : 1);
+  return out;
+}
+/* one gesture as three calls, so a real pointer and the load-time self-check drive
+   the SAME code: xyBegin(ph, x, y, W, H), xyMove(x, y, shift, fine), xyEnd() */
+function xyBegin(ph, x, y, W, H, wins) {
+  const t = xyTarget(ph, wins);
+  XY.drag = { blades: t.blades, why: t.why, x, y, W: Math.max(1, W), H: Math.max(1, H), acc: {}, shift: false, touched: [] };
+  return XY.drag;
+}
+function xyMove(x, y, shift, fine) {
+  const d = XY.drag; if (!d) return;
+  const dx = x - d.x, dy = y - d.y; d.x = x; d.y = y; d.shift = !!shift;
+  if (!dx && !dy) return;                                   // no motion, no write: nothing jumps
+  const g = fine ? XY_FINE : 1, step = {};
+  const push = (slot, px, span) => {
+    if (!px) return;
+    for (const [k, sgn] of xySlotKeys(slot, d.blades)) {
+      const sp = SP[k]; if (!sp || sp.kind !== 'c') continue;
+      const u = sp.curve === 'circ' ? px / d.W : px / XY_PX;
+      step[k] = (step[k] || 0) + sgn * u * g * (span || 1);
+    }
+  };
+  push(shift ? 'sx' : 'x', dx);
+  push('y', -dy);                                           // up = more
+  const upd = {};
+  for (const k in step) {
+    const sp = SP[k];
+    if (!(k in d.acc)) { d.acc[k] = toPos(sp, shown(k, false)); d.touched.push(k); }
+    d.acc[k] += step[k];
+    if (sp.curve !== 'circ') d.acc[k] = clamp(d.acc[k], 0, 1);
+    upd[k] = fromPos(sp, d.acc[k]);
+  }
+  writeMany(upd);
+}
+function xyEnd() { if (XY.drag) XY.last = XY.drag; XY.drag = null; }
+function xyWire(cv) {
+  XY.cv = cv;
+  const ph = e => { const r = cv.getBoundingClientRect(); return frac((e.clientX - r.left) / Math.max(1, r.width)); };
+  cv.addEventListener('pointerdown', e => {
+    const r = cv.getBoundingClientRect();
+    xyBegin(ph(e), e.clientX, e.clientY, r.width, r.height);
+    XY.drag.shift = e.shiftKey;
+    try { cv.setPointerCapture(e.pointerId); } catch (_) {}
+  });
+  cv.addEventListener('pointermove', e => {
+    if (XY.drag) { xyMove(e.clientX, e.clientY, e.shiftKey, e.altKey); return; }
+    XY.hover = xyTarget(ph(e));
+  });
+  const up = () => xyEnd();
+  cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+  cv.addEventListener('pointerleave', () => { if (!XY.drag) XY.hover = null; });
+}
+/* the overlay: the target outlined in the ATTENTION ink (--scr-marker), and while
+   dragging a readout of every value the gesture is moving */
+function xyOverlay(g, W, top, bot) {
+  const d = XY.drag, t = d || XY.hover;
+  if (!t) return;
+  g.save();
+  const wins = xyWindows();
+  for (const b of t.blades) for (const [st, w] of wins[b]) {
+    const a = st * W, z = (st + w) * W;
+    const segs = z <= W ? [[a, z]] : [[a, W], [0, z - W]];
+    g.strokeStyle = TOKA('--scr-marker', d ? 0.9 : 0.55); g.lineWidth = d ? 1.6 : 1.1; g.setLineDash(d ? [] : [4, 3]);
+    for (const [x0, x1] of segs) g.strokeRect(x0 + 1, top + 1, Math.max(2, x1 - x0 - 2), bot - top - 2);
+  }
+  g.setLineDash([]);
+  const name = t.blades.length === 2 ? 'BOTH BLADES' : t.blades.length ? 'BLADE ' + t.blades[0] : 'NO BLADE';
+  const lines = [];
+  if (d) {
+    const slot = d.shift ? 'sx' : 'x';
+    lines.push('TARGET ' + name + ' · ' + d.why);
+    const row = (tag, sl) => {
+      const ks = xySlotKeys(sl, d.blades);
+      if (!ks.length) return;
+      lines.push(tag + ' ' + ks.map(([k, , b]) => SP[k].label + (b === 2 ? ' ②' : b === 1 && t.blades.length > 1 ? ' ①' : '') + ' ' + fmtVal(SP[k], shown(k, false))).join(' · '));
+    };
+    row(d.shift ? '⇧↔' : '↔', slot); row('↕', 'y');
+  } else {
+    lines.push('drag → ' + name + ' (' + t.why + ') · ↔ ' + xyRoleLabel(XY.map.x[0]) + ' · ↕ ' + xyRoleLabel(XY.map.y[0]) + ' · ⇧↔ ' + xyRoleLabel(XY.map.sx[0]));
+  }
+  g.font = '9.5px ui-monospace,Menlo,monospace'; g.textBaseline = 'top';
+  let wmax = 0; for (const l of lines) wmax = Math.max(wmax, g.measureText(l).width);
+  const bx = 6, by = bot - 6 - lines.length * 13;
+  g.fillStyle = TOKA('--scr-tube', 0.62); g.fillRect(bx - 3, by - 3, wmax + 8, lines.length * 13 + 4);
+  g.fillStyle = TOKA('--scr-marker', 1);
+  lines.forEach((l, i) => g.fillText(l, bx, by + i * 13));
+  g.restore();
+}
+/* the mapping row: the bench's axis selectors (primary, "+ second…", inv) per slot */
+function xyMapRow(host) {
+  const row = el('div', 'xymap'); host.appendChild(row);
+  const opts = (s, withNone) => {
+    if (withNone) { const o = el('option', null, '+ second…'); o.value = ''; s.appendChild(o); }
+    const g1 = el('optgroup'); g1.label = 'the grabbed blade'; s.appendChild(g1);
+    for (const [r, l] of XY_ROLES) { const o = el('option', null, l); o.value = r; g1.appendChild(o); }
+    const g2 = el('optgroup'); g2.label = 'the swarm'; s.appendChild(g2);
+    for (const [r, l] of XY_SWARM) { const o = el('option', null, l); o.value = r; g2.appendChild(o); }
+  };
+  for (const [slot, tag, tip] of [['x', '↔ X', 'horizontal drag'], ['y', '↕ Y', 'vertical drag (up = more)'], ['sx', '⇧↔', 'shift + horizontal drag']]) {
+    const gp = el('span', 'grp'); gp.dataset.xyslot = slot; row.appendChild(gp);
+    const lb = el('span', 'lbl', tag); lb.title = tip; gp.appendChild(lb);
+    const a = el('select'); opts(a, false); a.value = XY.map[slot][0]; gp.appendChild(a);
+    const b = el('select'); opts(b, true); b.value = XY.map[slot][1]; gp.appendChild(b);
+    const iv = el('label', 'inv'); const cb = el('input'); cb.type = 'checkbox'; cb.checked = !!XY.map[slot][2]; cb.disabled = !XY.map[slot][1];
+    iv.appendChild(cb); iv.appendChild(document.createTextNode(' inv')); iv.title = 'the second parameter runs the opposite way'; gp.appendChild(iv);
+    a.addEventListener('change', () => { XY.map[slot][0] = a.value; rebuild(); });
+    b.addEventListener('change', () => { XY.map[slot][1] = b.value; if (!b.value) XY.map[slot][2] = 0; rebuild(); });
+    cb.addEventListener('change', () => { XY.map[slot][2] = cb.checked ? 1 : 0; rebuild(); });
+  }
+  const rs = el('button', 'pill mini', 'default'); rs.title = "the human's mapping: ↔ Width · ↕ Cut rate · ⇧↔ Position";
+  rs.addEventListener('click', () => { XY.map = JSON.parse(JSON.stringify(XY_DEFAULT)); rebuild(); });
+  row.appendChild(rs);
+  row.appendChild(el('span', 'vnote', 'Alt = fine · grab a window to move that blade, empty space to move both'));
 }
 
 /* ======================================================================
@@ -2178,8 +2505,124 @@ function runChecks() {
   let same = true, diff = false; for (let i = 0; i < 2048; i++) { if (s1[i] !== s2[i]) same = false; if (s1[i] !== s3[i]) diff = true; }
   out.push({ name: 'seeded: one seed, one sound', ok: same, detail: same ? 'bit-identical' : 'DIFFERS' });
   out.push({ name: 'CONTROL: another seed differs', ok: diff, control: true, detail: diff ? 'differs' : 'IDENTICAL' });
+  for (const c of checkXY()) out.push(c);
+  for (const c of checkPresets()) out.push(c);
   AUDIT.checks = out;
   seedOracle(0xB271 + MON.note);
+}
+/* B293 — THE XY ROUND-TRIP. Drives the gesture through the same xyBegin/xyMove/xyEnd
+   a pointer drives, on a known patch, then reads each parameter back twice: from P
+   (what every knob shows) and from the monitor oracle's own target `t` (what is
+   heard). Restores the patch afterwards. The hit-test here is handed the STATIC
+   windows (xyEffWindows) because the monitor still shows the page's patch, not the
+   test patch; a real pointer hit-tests the drawn ones — the B293 harness drove that
+   path with real mouse events (trace). */
+function checkXY() {
+  const out = [], snap = Object.assign({}, P), mOn = MORPH.on, map = XY.map, mv = MACROS.map(m => m.v), fz = LAB.frozen;
+  /* frozen (?still=) makes afterWrite step the monitor; the check must not leave its
+     test patch in a frozen screenshot, so it runs unfrozen (it is synchronous: no frame interleaves) */
+  LAB.frozen = false;
+  MORPH.on = false; for (const m of MACROS) m.v = 0; XY.map = JSON.parse(JSON.stringify(XY_DEFAULT));
+  const set = o => { Object.assign(P, o); EFF = effective(); pushOracle(); };
+  const near = (a, b) => Math.abs(a - b) < 1e-9;
+  const heardOk = ks => MON.core ? ks.every(k => near(MON.core.t[k], P[k])) : false;
+  const W = 400, H = 100, base = { b1on: 1, b2on: 1, w: 0.2, c: 0.3, k: 6, lock: 0, w2: 0.2, c2: 0.8, k2: 3, lock2: -1, depth: 0.8, hard: 0.3 };
+  try {
+    /* 1 · a blade under the cursor: ↔ width, ↕ cut rate, ⇧↔ position (with a wrap) */
+    set(base);
+    const d = xyBegin(0.3, 100, 50, W, H, xyEffWindows());
+    xyMove(100, 50, false, false);
+    const still = P.w === base.w && P.k === base.k && P.c === base.c;
+    xyMove(142, 50, false, false);                                   // +42 px → Width +0.1 of its taper
+    const wExp = fromPos(SP.w, toPos(SP.w, base.w) + 42 / XY_PX);
+    xyMove(142, 29, false, false);                                   // 21 px up → Cut rate +0.05 of its log taper
+    const kExp = fromPos(SP.k, toPos(SP.k, base.k) + 21 / XY_PX);
+    xyMove(182, 29, true, false);                                    // ⇧ +40 px → Position +0.1 cycle
+    xyMove(482, 29, true, false);                                    // ⇧ +300 px → +0.75 more: 1.15 wraps to 0.15
+    xyEnd();
+    const cExp = frac(base.c + 340 / W);
+    out.push({ name: 'XY: the grab alone moves nothing', ok: still && d.blades.join() === '1', detail: 'target ' + d.blades.join('+') + ' (' + d.why + ')' });
+    const rt = near(P.w, wExp) && near(P.k, kExp) && near(P.c, cExp) && P.w2 === base.w2 && P.k2 === base.k2 && P.c2 === base.c2;
+    out.push({ name: 'XY round-trip: drag, read back (knob + oracle)', ok: rt && heardOk(['w', 'k', 'c']),
+      detail: 'w ' + P.w.toFixed(4) + '=' + wExp.toFixed(4) + ' · k ' + P.k.toFixed(3) + '=' + kExp.toFixed(3) + ' · c ' + P.c.toFixed(3) +
+        ' (wrapped) · blade 2 untouched · oracle t ' + (heardOk(['w', 'k', 'c']) ? 'agrees' : 'DISAGREES') });
+    /* 2 · empty space: both blades, the same taper delta each */
+    set(Object.assign({}, base, { w: 0.1, c: 0.2, w2: 0.1, c2: 0.7 }));
+    const d2 = xyBegin(0.45, 0, 0, W, H, xyEffWindows()); xyMove(42, 0, false, false); xyEnd();
+    const both = fromPos(SP.w, toPos(SP.w, 0.1) + 42 / XY_PX);
+    out.push({ name: 'XY: empty space moves every blade', ok: d2.blades.join() === '1,2' && near(P.w, both) && near(P.w2, both) && heardOk(['w', 'w2']),
+      detail: 'w ' + P.w.toFixed(4) + ' · w2 ' + P.w2.toFixed(4) });
+    /* 3 · the mapping is settable: X = Depth with Edges as an inverted second */
+    set(base); XY.map.x = ['depth', 'hard', 1];
+    xyBegin(0.3, 0, 0, W, H, xyEffWindows()); xyMove(42, 0, false, false); xyEnd();
+    out.push({ name: 'XY: a remapped axis (Depth + inverted Edges)', ok: near(P.depth, base.depth + 0.1) && near(P.hard, base.hard - 0.1) && near(P.w, base.w),
+      detail: 'depth ' + P.depth.toFixed(3) + ' · edges ' + P.hard.toFixed(3) + ' · width held' });
+  } catch (e) {
+    out.push({ name: 'XY checks', ok: false, detail: 'threw: ' + String(e && e.message || e) });
+  }
+  XY.drag = null; XY.last = null; XY.map = map; MORPH.on = mOn; MACROS.forEach((m, i) => { m.v = mv[i]; }); LAB.frozen = fz;
+  P = snap; EFF = effective(); pushOracle();
+  return out;
+}
+/* B293 — THE PRESETS. The oracle's set() silently IGNORES a key it does not know
+   (razor-core.js set: `else if (k in this.d)`), so a misspelt or retired key in a
+   preset would load "fine" and sound wrong. Every key is held against three sets:
+   the lab's table (SP, the accounting's copy), the oracle's own keys, and the
+   packet's parameters.json. Then each preset plays 2048 samples through a seeded
+   scratch oracle: it must be finite and not silent. */
+function presetKeyFaults(params) {
+  const pj = LAB.params ? new Set(LAB.params.map(p => p.key)) : null, bad = [];
+  for (const k in params) {
+    const why = [];
+    if (!SP[k]) why.push('not in the lab table');
+    if (!ORK.has(k)) why.push('the oracle ignores it');
+    if (pj && !pj.has(k)) why.push('not in parameters.json');
+    if (why.length) bad.push(k + ' (' + why.join(', ') + ')');
+  }
+  return bad;
+}
+function checkPresets() {
+  const out = [];
+  if (!LAB.presets) return out;
+  let keyBad = 0, playBad = 0, worst = '';
+  const L = new Float32Array(2048), Rr = new Float32Array(2048);
+  LAB.presets.forEach((pr, i) => {
+    const bad = presetKeyFaults(pr.params);
+    const S = scratch(pr.params, 57, mtof(57), 0xB293 + i);
+    S.c.render(L, Rr);
+    let pk = 0, nf = 0;
+    for (let n = 0; n < L.length; n++) { if (!isFinite(L[n]) || !isFinite(Rr[n])) nf++; else pk = Math.max(pk, Math.abs(L[n]), Math.abs(Rr[n])); }
+    const why = bad.length ? 'keys: ' + bad.join('; ') : nf ? nf + ' non-finite samples' : pk < 1e-6 ? 'silent in its first 2048 samples' : '';
+    LAB.presetStat[pr.name] = { ok: !why, why, peak: pk };
+    if (bad.length) keyBad++;
+    if (nf || pk < 1e-6) playBad++;
+    if (why && !worst) worst = pr.name + ': ' + why;
+  });
+  const n = LAB.presets.length;
+  out.push({ name: 'presets: every key in the parameter set', ok: !keyBad,
+    detail: (n - keyBad) + '/' + n + ' clean against the lab table, the oracle' + (LAB.params ? ' and parameters.json (' + LAB.params.length + ')' : ' (parameters.json not fetched)') + (worst ? ' · first fault ' + worst : '') });
+  const ctl = presetKeyFaults({ w: 0.2, zzzBlade: 1 });
+  out.push({ name: 'CONTROL: an invented key is caught', ok: ctl.length === 1, control: true, detail: ctl.join('; ') || 'NOT CAUGHT' });
+  out.push({ name: 'presets: every one plays through the oracle', ok: !playBad, detail: (n - playBad) + '/' + n + ' finite and audible in 2048 samples at A3' });
+  /* the XY's ranges are the packet's: every key an axis can reach, held against parameters.json */
+  if (LAB.params) {
+    const pj = {}; for (const p of LAB.params) pj[p.key] = p;
+    const keys = new Set();
+    for (const [r] of XY_ROLES.concat(XY_SWARM)) {
+      if (xyIsSwarm(r)) { keys.add(r); continue; }
+      for (const b of [1, 2]) for (const k of r === 'cut' ? ['k', 'kHz'] : r === 'mrate' ? ['m', 'mHz'] : [r]) keys.add(bladeKey(b, k));
+    }
+    const drift = [], notPad = [];
+    for (const k of keys) {
+      const p = pj[k], s = SP[k];
+      if (!p || !s) { drift.push(k + ' missing'); continue; }
+      if (p.kind !== 'continuous' || p.min !== s.min || p.max !== s.max) drift.push(k + ' ' + p.min + '..' + p.max + ' vs ' + s.min + '..' + s.max);
+      if (!p.padAssignable) notPad.push(k);
+    }
+    out.push({ name: 'XY ranges = parameters.json', ok: !drift.length,
+      detail: keys.size + ' reachable keys' + (drift.length ? ' · DRIFT ' + drift.join('; ') : ' match') + (notPad.length ? ' · not pad-assignable in the bench: ' + notPad.join(', ') : '') });
+  }
+  return out;
 }
 /* where every SCALPEL row sits on the OSC page, against the accounting's tier */
 function tierAudit() {
@@ -2253,6 +2696,42 @@ function buildSide() {
     'The arcs outside the circle are each member\'s own blade window, the violet needle is the mean field R, and arrows show cross-mod. <b>Spectrum</b>: the meter line is the measured output, ' +
     'bands are the predicted formant ± main lobe (the bench\'s rule), and the amber tick marks f₀.</p><p>All three read one seeded oracle instance that holds the monitor note (A2, or the last key played). ' +
     'It advances a whole number of note periods per frame, so a blade window holds still.</p></div>';
+  s.insertBefore(presetBrowser(), s.firstChild);
+}
+/* B293 — the bench's 76 presets as a browsable list, grouped as the bench groups
+   them (its "Starting points" row, its "Two-blade" row, then the showcase rows:
+   presets.json's `category`, in file order). They are played EXACTLY as the oracle
+   defines them — which means their K is SCALPEL's coupling law, not horde's
+   (ACCOUNTING §1.6: at the presets' K SCALPEL couples ≈1–9× harder; Q B3 re-voices
+   them). The box says so in the caution ink, and so does the patch name. */
+function presetBrowser() {
+  const box = el('div', 'box pbrowse');
+  const h = el('h2', null, 'BENCH PRESETS'); box.appendChild(h);
+  if (!LAB.presets) { box.appendChild(el('p', null, 'The 76 presets load when the lab is served (python3 tools/serve_labs.py) — reference/scalpel/data/presets.json is fetched, never copied.')); return box; }
+  h.appendChild(el('span', 'std', LAB.presets.length + ''));
+  const warn = el('div', 'voicing');
+  warn.innerHTML = '<b>BENCH VOICINGS, NOT RE-VOICED FOR HORDE.</b> Played as the oracle defines them: their Coupling is SCALPEL\'s law, ' +
+    'which pulls ≈1–9× harder than horde\'s at the same K (ACCOUNTING §1.6). Re-voicing is open question B3.';
+  box.appendChild(warn);
+  let cat = null, row = null;
+  for (const p of LAB.presets) {
+    if (p.category !== cat) {
+      cat = p.category;
+      const parts = cat.split(' / ');
+      const n = LAB.presets.filter(q => q.category === cat).length;
+      box.appendChild(el('div', 'pcath', (parts.length > 1 ? parts[0].toUpperCase() + ' · ' + parts[1] : cat) + ' (' + n + ')'));
+      row = el('div', 'pills'); box.appendChild(row);
+    }
+    const st = LAB.presetStat[p.name];
+    const b = el('button', 'pill mini' + (LAB.presetName === p.name ? ' on' : '') + (st && !st.ok ? ' bad' : ''), p.name);
+    b.dataset.preset = p.name;
+    b.title = p.category + ' · ' + p.name + (st ? (st.ok ? ' · plays (peak ' + st.peak.toFixed(3) + ' in its first 2048 samples)' : ' · FAILED: ' + st.why) : '') +
+      '\nthe bench\'s voicing — not re-voiced for horde';
+    if (st && !st.ok) b.disabled = true;
+    else b.addEventListener('click', () => applyPreset(p.name));
+    row.appendChild(b);
+  }
+  return box;
 }
 function mkPills(host, list, cur, f) {
   host.innerHTML = '';
@@ -2282,6 +2761,7 @@ function applyBodyClasses() {
 function applyPreset(name) {
   const pr = LAB.presets && LAB.presets.find(p => p.name === name);
   if (!pr) return;
+  const st = LAB.presetStat[name]; if (st && !st.ok) return;      // B293: a preset the load-time check failed is not loaded
   P = Object.assign({}, DEF, pr.params, { b1on: 1 });
   LAB.presetName = pr.name;
   for (const m of MACROS) m.v = 0;
@@ -2292,7 +2772,7 @@ function applyPreset(name) {
 function fillPresetSelect() {
   const s = $('presetSel'); if (!s) return;
   s.innerHTML = '';
-  const o0 = el('option', null, LAB.presets ? '— ' + LAB.presets.length + ' packet presets —' : 'presets need tools/serve_labs.py'); o0.value = ''; s.appendChild(o0);
+  const o0 = el('option', null, LAB.presets ? '— ' + LAB.presets.length + ' bench presets (bench voicings) —' : 'presets need tools/serve_labs.py'); o0.value = ''; s.appendChild(o0);
   if (LAB.presets) {
     let cat = null, og = null;
     for (const p of LAB.presets) {
@@ -2310,6 +2790,12 @@ async function loadPresets() {
     const j = await r.json();
     LAB.presets = j.presets || null;
   } catch (_) { LAB.presets = null; }
+  /* B293: the packet's parameter list, fetched (never copied) so the load-time
+     checks can hold the presets' keys and the XY's ranges against it */
+  try {
+    const r = await fetch('../../reference/scalpel/data/parameters.json');
+    if (r.ok) { const j = await r.json(); LAB.params = j.parameters || null; }
+  } catch (_) { LAB.params = null; }
 }
 function buildKbd() {
   const k = $('kbd'); if (!k) return;
