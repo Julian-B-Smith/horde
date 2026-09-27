@@ -1,0 +1,1647 @@
+<!doctype html>
+<!-- blade-clock-lab — B296: the blade on its own clock. A LISTENING PROTOTYPE,
+     not a product page and not a decision. HYPERSAW, 2026-09-27, dispatched by the
+     horde lead on ROADMAP B296 (carried in records PR #781, branch lead-records-105;
+     the demo presets added the same day on records PR #782, lead-records-106). The
+     human: "is there a way of desynchronizing the blade distance from the phase of
+     the governing waveform, to create irrational frequency relationships?" and
+     "Let's prototype it so I can make sure I like the sound before deciding on
+     locking it in"; then "Could you please add some presets demonstrating the
+     effect?" Spec-in-code per ADR-003.
+
+     THE IDEA. SCALPEL's blade window lives in the carrier's phase (Position c,
+     Width w per cycle), so the output repeats at f0. The oracle's Rotate (rotRate,
+     Hz, ±4 on the bench) already advances the window independently of pitch
+     (razor-core.js render, :700-713), so the cut recurs at f0 − Rotate. This lab
+     asks what that sounds like at AUDIO rate, in two modes:
+       Hz    — Rotate itself, past the bench's ±4 Hz. NO NEW LAW: the oracle's set()
+               stores any value and its render() advances the window by rotRate/sr
+               whatever the size. The self-check proves it sample-exact.
+       × f0  — the window advances r·f0 per second, per voice, so the cut recurs at
+               (1 − r)·f0 and the relation to the note holds on every key. THIS IS
+               THE DIVERGENCE: the oracle has no per-voice, pitch-tracking rotation.
+
+     THE WRAPPER — how the rotation path is extended, and nothing else.
+     reference/scalpel/** is PROTECTED and is loaded, never edited. The oracle's
+     render() is one monolithic per-sample loop, so there is no smaller method to
+     override (the filter lab's SWARM·PROPOSED could override placeTargets(); here
+     the rotation is four lines inside render). BladeClockCore is therefore a
+     subclass whose render() is the ORACLE'S OWN SOURCE TEXT, read at load from
+     RazorCore.prototype.render.toString(), with four ANCHORED substitutions, each
+     required to match exactly once or the class is not built (BC_PATCHES, section
+     B). All four touch only rotation: rotBase and rotBase2 (per-voice when the
+     × f0 clock is on) and the v.rot / v.rot2 advance (r·f0/sr per sample when on).
+     With the clock off every substituted line reduces to the oracle's own, and the
+     self-check renders the same patches through both classes and compares every
+     sample. If razor-core.js changes those lines, the anchors miss and the page
+     says so; it never silently plays a stale copy. The AudioWorklet is built the
+     SCALPEL lab's way (RazorCore.toString(), scalpel-interface-lab.html section J),
+     plus the same patched class, so what plays is what the checks measured.
+
+     WHAT IS MEASURED, NOT ASSUMED. SCALPEL's band-limiting (PolyBLEP on the
+     window edges, stepM/tryE) and its per-cycle DC estimate (dcEst) both assume
+     the window is still within a cycle. Under the blade clock the window moves
+     once per SAMPLE (the oracle's own rotation step) while the carrier moves once
+     per oversampled substep, so an edge can be crossed by the window's jump
+     rather than by the carrier, and that crossing is not band-limited. The page
+     measures the consequence three ways (section J): folded energy against a
+     4×-rate render of the same wrapper, DC and sub-20 Hz energy under each of the
+     oracle's DC modes, and a count of window edges crossed by the jump.
+
+     SEEDED, NO CLOCK. The oracle calls Math.random (SPEC §9). Before every
+     instance the page renders from, Math.random is a seeded mulberry32 (the
+     SCALPEL lab's seedOracle). Every picture is an offline render counted in
+     samples; nothing on screen is read from an AnalyserNode or the wall clock.
+
+     TOKENS ARE COPIED, NOT LINKED — verbatim from docs/design/scalpel-interface-lab.html
+     :93-194 and :205-282, which copies them from station-page-lab / src/gui/gui2.html.
+     Copy, therefore drift: if gui2's tokens move, this file is stale until re-copied.
+
+     NOBODY HAS LISTENED. Every claim on this page is a render, a count or a
+     spectrum. Whether it sounds good is the human's call; the page says nothing
+     about it.
+
+     L0026: every const is declared above the code that runs at setup; the boot
+     call is the last statement of the script. -->
+<html><head><meta charset="utf-8">
+<meta name="lab-review" content="B296 · 2026-09-27">
+<title>BLADE CLOCK — PROTOTYPE · the blade on its own clock, at audio rate (B296)</title>
+<style>
+  :root {
+    /* ground */
+    --bg:#F2EDE2;        /* page ground (cream)                    */
+    --panel:#FCFAF4;     /* module cards                           */
+    --well:#FFFFFF;      /* DATA surfaces: viz, pads, keyboards     */
+    --panel2:#E9E3D4;    /* well-alt: control tracks, empty meters  */
+    --line:#191521;      /* ink — ALL outlines                     */
+    --hair:#E5DFD0;      /* in-well gridlines ONLY, never borders   */
+    --div:#D8D1C0;       /* dashed intra-card separators           */
+    /* text */
+    --text:#191521;      /* primary (ink)                          */
+    --t2:#494356;        /* secondary                              */
+    --dim:#9A93A3;       /* hint                                   */
+    --dis:#B6AFA0;       /* disabled                               */
+    /* signal — one job each, never borrowed */
+    --value:#F5169C;     /* the user's authored value              */
+    --pull:#F5169C;      /* legacy name for the accent = value      */
+    --physics:#6431F0;   /* order parameter, K vector, rotor lead   */
+    --meter:#00D5C8;     /* analyzers, R rim arc                   */
+    --marker:#FFD702;    /* attention: root, overshoot, lock front  */
+    --celebrate:#A6F219; /* OK / meters in the green               */
+    --caution:#F5A300;   --caution-bg:#FBE9BD; --caution-tx:#6D570B;
+    --amber:#F5A300;     /* legacy name for caution                 */
+    --alarm:#C2261A;     /* PANIC, clip, mute — NOTHING else        */
+    --ghost:#C9C2FF;     /* dry/reference traces behind wet         */
+    /* corners — preset identity (fill / dark text pair) */
+    --cA:#FFD702; --cAtx:#D4A900;
+    --cB:#FF2E88; --cBtx:#FF2E88;
+    --cC:#00D5C8; --cCtx:#00B3A8;
+    --cD:#A6F219; --cDtx:#6FB200;
+    /* canvas-only names from ADR-118 A2, re-pointed at spec roles */
+    --text-hi:#191521;
+    --dim2:#494356;      /* canvas axis labels — secondary          */
+    --grid:#E5DFD0;      /* gridlines = hairline                    */
+    --grid2:#E5DFD0;
+    --hot:#F5169C;       /* live-value marks = value                */
+    --bad:#C2261A;
+    --badge-bg:rgba(245,163,0,.9);
+    /* SCREEN TOKENS — vaporwave phosphor (ADR-119). The chrome stays cream;
+       only the DATA WELLS become phosphor tubes, so canvases read these while
+       every CSS control keeps the chrome set. */
+    --scr-tube:#1B0733;      /* the tube ground — deep violet            */
+    --scr-value:#FF5ECF;     /* your value, as hot-pink phosphor        */
+    --scr-meter:#B8F227;     /* meter/measure, as LIME                  */
+    --scr-physics:#B48CFF;   /* the system's own state                  */
+    --scr-marker:#FFB86B;    /* attention/root, as amber                */
+    --scr-grid:#4FD8BE;      /* in-tube structure — painted at low alpha */
+    --scr-scan:0.22;         /* scanline strength                        */
+    --scr-alpha:1;           /* multiplier on every TOKA() alpha         */
+    /* B293 — the cycle view's weights, as NUMBERS beside --scr-alpha, not new
+       colours: every ink below is still a gui2 token. These are the DARK values
+       (the human likes dark as it is); the light tube overrides them further down. */
+    --scr-blade-a:1;         /* multiplier on blade-window fills          */
+    --scr-sig-w:1.8;         /* the heard trace's stroke, px              */
+    --scr-halo-w:0;          /* tube-coloured underlay each side of it, px */
+    --scr-member-a:1;        /* multiplier on the faint member traces     */
+    /* geometry */
+    --r-card:10px; --r-well:var(--r-card); --r:var(--r-card); --stroke:1.5px;
+    --shadow:1.5px 1.5px 0 var(--line);
+    --shadow-hover:2.5px 2.5px 0 var(--line);
+    --focus:0 0 0 2.5px rgba(245,22,156,.45); }
+  * { box-sizing:border-box; margin:0; }
+  /* gui2:103 — every canvas is a phosphor tube, and a tube gets the same ink
+     border language as the cards. No shadow: shadows are for interactive
+     elements, never wells. */
+  canvas { border:var(--stroke) solid var(--line); border-radius:var(--r-well);
+           background:var(--scr-tube); display:block; }
+  /* gui2:142 — ORCHID is the screen scheme the LIGHT chassis pairs with
+     (gui2:1654-1657: LIGHT/ORCHID, DARK/TUBE). A lab with two themes carries
+     both pairings or it is showing a chassis nobody ships. */
+  body:not(.dark) { --scr-tube:#F3EBFF; --scr-value:#D6006B; --scr-meter:#007A73;
+    --scr-physics:#6E14E8; --scr-marker:#C43A00; --scr-grid:#5A3FA8;
+    --scr-scan:0.05; --scr-alpha:1.6;
+    /* B293 (human 2026-09-27: "the color scheme can get a little overwhelming in
+       light mode … make the blades in light mode a little less opaque, and maybe
+       do something to make the signal pop more"). --scr-alpha 1.6 lifts faint
+       strokes on the orchid tube, and it lifted the blade FILLS with them, so
+       several overlapping member windows went solid magenta and swallowed the
+       teal trace. The fills drop to ~0.4 of that; the trace goes heavier and gets
+       a thin tube-coloured halo so it cuts through whatever is under it. Its ink
+       stays --scr-meter (a measure — what is heard), which is already not the
+       blade hue, so no colour changes job. */
+    --scr-blade-a:.4; --scr-sig-w:2.6; --scr-halo-w:2; --scr-member-a:.6;
+    /* gui2:167 — yellow and lime cannot survive a light ground (measured
+       1.20:1 and 1.17:1 against --bg, where the graphical floor is 3:1). */
+    --marker:#8A6A00; --celebrate:#4E7A00; }
+  body.dark {
+    --bg:#151220; --panel:#1F1B2E; --well:#0E0C16; --panel2:#2C2740;
+    --line:#EFE9FA; --hair:#312B47; --div:#3B3455;
+    --text:#EFE9FA; --t2:#BDB4D4; --dim:#8A82A3; --dis:#514A6B;
+    --value:#FF3DAD; --pull:#FF3DAD; --physics:#A07CFF; --meter:#2DF2E2;
+    --marker:#FFE04D; --celebrate:#C2F53E;
+    --caution:#FFB627; --caution-bg:#4A3A12; --caution-tx:#FFD98A;
+    --amber:#FFB627; --alarm:#FF5A4D;
+    --ghost:#5B4E8F;
+    --cA:#FFD702; --cAtx:#FFE566;
+    --cB:#FF2E88; --cBtx:#FF6FAE;
+    --cC:#00D5C8; --cCtx:#4DEDE3;
+    --cD:#A6F219; --cDtx:#C6F86A;
+    --text-hi:#FFFFFF; --dim2:#9A93A8; --grid:#312B47; --grid2:#312B47;
+    --hot:#FF3DAD; --bad:#FF5A4D; --badge-bg:rgba(255,182,39,.9);
+    --focus:0 0 0 2.5px rgba(255,61,173,.45); }
+
+  /* ============ LAB CHROME — station-page-lab's idiom (gui2:245-560) ============ */
+  body { background:var(--bg); color:var(--text);
+    font:12px/1.45 ui-monospace,Menlo,monospace; padding:10px 12px; }
+  .hdr { display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; margin-bottom:8px; }
+  h1 { font-size:34px; line-height:1; letter-spacing:-1px; font-weight:800; }
+  .badges { display:flex; align-items:center; gap:8px; margin-top:4px; }
+  .badge { font-size:9.5px; letter-spacing:.1em; padding:2px 7px;
+           border:var(--stroke) solid var(--line); border-radius:3px;
+           background:var(--cA); color:var(--line); }
+  body.dark .badge { color:var(--bg); }
+  .sub { color:var(--t2); font-size:10.5px; letter-spacing:.12em; }
+  .hdrctl { display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-left:auto; }
+  .grp { display:flex; align-items:center; gap:7px; }
+  .lbl { font-size:10px; font-weight:700; letter-spacing:.1em; color:var(--t2); }
+  .pill { padding:3px 10px; border:var(--stroke) solid var(--line);
+    border-radius:999px; min-height:26px; cursor:pointer; color:var(--dim);
+    background:var(--panel); font:inherit; font-size:10px; letter-spacing:.06em; }
+  .pill:hover { box-shadow:var(--shadow); }
+  .pill.on { color:var(--bg); background:var(--line); font-weight:600; }
+  .pill.panic { border-color:var(--alarm); color:var(--alarm); font-weight:700; }
+  .pill.panic:hover { background:var(--alarm); color:var(--bg); }
+  .pills { display:flex; gap:4px; flex-wrap:wrap; align-items:center; }
+  .chip { padding:4px 8px; border:0; background:none; border-radius:var(--r);
+    cursor:pointer; font:inherit; font-size:10px; letter-spacing:.06em;
+    color:var(--dim); min-height:26px; }
+  .chip:hover { background:var(--panel2); }
+  .chip b { color:var(--t2); font-weight:600; letter-spacing:.1em; }
+  .tagline { color:var(--t2); font-size:11px; max-width:130ch; margin-bottom:6px; }
+  .tagline b { color:var(--text); }
+  .audit { font-size:10px; color:var(--t2); margin-bottom:8px;
+           border-left:3px solid var(--meter); padding-left:8px; max-width:150ch; }
+  .audit.bad { border-left-color:var(--alarm); color:var(--alarm); }
+  .audit b { color:var(--value); }
+  .audit .ok { color:var(--celebrate); font-weight:700; }
+  .audit .no { color:var(--alarm); font-weight:700; }
+  /* a departure from the standard is marked in caution, the one status whose job
+     is "look at this before you accept it" (gui2's --caution-bg/--caution-tx pair) */
+  .dep { display:inline-block; font-size:8.5px; letter-spacing:.1em; font-weight:700;
+    padding:0 5px; border-radius:3px; background:var(--caution-bg); color:var(--caution-tx);
+    border:1px solid var(--caution); margin-left:4px; vertical-align:1px; }
+  .std { display:inline-block; font-size:8.5px; letter-spacing:.1em; font-weight:700;
+    padding:0 5px; border-radius:3px; color:var(--t2); border:1px solid var(--div);
+    margin-left:4px; vertical-align:1px; }
+  .altbar { display:flex; flex-wrap:wrap; gap:8px 18px; align-items:center; margin:4px 0 10px;
+    padding:6px 10px; border:var(--stroke) solid var(--line); border-radius:var(--r);
+    background:var(--panel); }
+  .altbar select { max-width:230px; }
+
+  /* ============ CONTROLS — gui2:490 slider, :513 toggle, :538 enum ============ */
+  input[type=range] { -webkit-appearance:none; appearance:none; width:100%; min-width:0;
+    height:20px; background:transparent; cursor:pointer; margin:0; }
+  input[type=range]::-webkit-slider-runnable-track { height:6px; border-radius:3px;
+    border:var(--stroke) solid var(--line);
+    background:linear-gradient(to right, var(--value) 0 calc(var(--pct, 0) * 100%),
+      var(--panel2) calc(var(--pct, 0) * 100%) 100%); }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; appearance:none;
+    width:13px; height:13px; border-radius:4px; margin-top:-3.5px;
+    background:var(--panel); border:var(--stroke) solid var(--line); box-shadow:var(--shadow); }
+  input[type=range]:active::-webkit-slider-thumb { background:var(--value); box-shadow:none; }
+  input[type=checkbox] { -webkit-appearance:none; appearance:none; margin:0; flex:0 0 auto;
+    width:30px; height:16px; border-radius:999px; cursor:pointer;
+    background:var(--panel2); border:var(--stroke) solid var(--line); position:relative; }
+  input[type=checkbox]::after { content:''; position:absolute; top:1px; left:1px;
+    width:10px; height:10px; border-radius:999px; background:var(--panel);
+    border:var(--stroke) solid var(--line); transition:transform .12s ease; }
+  input[type=checkbox]:checked { background:var(--value); }
+  input[type=checkbox]:checked::after { transform:translateX(14px); }
+  select { -webkit-appearance:none; appearance:none; font:inherit; font-size:10px;
+    padding:2px 18px 2px 9px; min-width:0; border-radius:999px;
+    border:var(--stroke) solid var(--line); background:var(--panel); color:var(--t2);
+    cursor:pointer; min-height:22px;
+    background-image:linear-gradient(45deg,transparent 50%,var(--t2) 50%),
+                     linear-gradient(135deg,var(--t2) 50%,transparent 50%);
+    background-position:calc(100% - 11px) 50%, calc(100% - 7px) 50%;
+    background-size:4px 4px, 4px 4px; background-repeat:no-repeat; }
+  input[type=text] { font:inherit; font-size:10px; padding:2px 8px; border-radius:999px;
+    min-height:22px; border:var(--stroke) solid var(--line); background:var(--panel);
+    color:var(--text); min-width:0; width:100%; }
+
+  /* ============ THIS LAB — the SCALPEL lab's card, strip and notes idiom ============ */
+  input[type=number] { font:inherit; font-size:10px; padding:2px 6px; border-radius:999px; width:78px;
+    min-height:22px; border:var(--stroke) solid var(--line); background:var(--panel); color:var(--text); }
+  .stage { display:grid; grid-template-columns:304px minmax(520px,1fr) 336px; gap:12px; align-items:start; max-width:1520px; }
+  .card { background:var(--panel); border:var(--stroke) solid var(--line); border-radius:var(--r);
+    padding:8px 10px; min-width:0; }
+  .card > h2 { font-size:11px; color:var(--pull); letter-spacing:1px; margin:0 0 6px; display:flex;
+    align-items:center; gap:6px; }
+  .card > h2 .sp { margin-left:auto; display:flex; gap:4px; align-items:center; }
+  .sec { border-top:1px dashed var(--div); padding-top:6px; margin-top:8px; }
+  .sec > h3 { font-size:9.5px; font-weight:700; letter-spacing:.12em; color:var(--t2); margin:0 0 4px;
+    display:flex; align-items:center; gap:6px; }
+  /* A/B: the one control the human asked for by name. B is the authored divergence,
+     so it takes the value ink; A is the oracle, so it takes the ink (the chrome's own). */
+  .ab { display:grid; grid-template-columns:1fr 1fr; border:var(--stroke) solid var(--line);
+    border-radius:var(--r); overflow:hidden; box-shadow:var(--shadow); }
+  .ab button { font:inherit; font-size:12px; font-weight:800; letter-spacing:.06em; padding:8px 8px 7px;
+    border:0; background:var(--panel); color:var(--dim); cursor:pointer; text-align:left; line-height:1.2; }
+  .ab button + button { border-left:var(--stroke) solid var(--line); }
+  .ab button small { display:block; font-weight:500; font-size:9px; letter-spacing:.02em; margin-top:2px; }
+  .ab button.on { background:var(--line); color:var(--bg); }
+  .ab button.on.b { background:var(--value); color:var(--bg); }
+  .row { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin:4px 0; }
+  .row > .lbl { width:44px; flex:0 0 auto; }
+  .row input[type=range] { flex:1 1 90px; }
+  .row.dim { opacity:.4; }
+  .readout { font-size:10px; color:var(--t2); line-height:1.45; margin-top:4px; }
+  .readout b { color:var(--text); font-variant-numeric:tabular-nums; }
+  .readout .irr { color:var(--value); font-weight:700; }
+  .readout .rat { color:var(--physics); font-weight:700; }
+  .pcath { font-size:9px; letter-spacing:.12em; color:var(--t2); font-weight:700; margin:8px 0 3px; }
+  .voicing { font-size:9.5px; line-height:1.4; color:var(--caution-tx); background:var(--caution-bg);
+    border:1px solid var(--caution); border-radius:4px; padding:4px 7px; margin:2px 0 4px; }
+  .voicing b { color:var(--caution-tx); }
+  .plist .pi { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:1px 6px; padding:4px 0 5px;
+    border-bottom:1px dashed var(--div); align-items:center; }
+  .pi .nm { font-weight:700; font-size:10.5px; cursor:pointer; }
+  .pi .nm:hover { text-decoration:underline; }
+  .pi.cur .nm { color:var(--value); }
+  .pi .tg { font-size:9px; color:var(--t2); font-weight:500; margin-left:4px; }
+  .pi .ds { grid-column:1 / -1; font-size:9.5px; color:var(--t2); line-height:1.4; }
+  .pi .bt { display:flex; gap:3px; }
+  .pill.mini { min-height:19px; padding:0 7px; font-size:9.5px; letter-spacing:.02em; }
+  .pill.mini.bon { background:var(--value); color:var(--bg); border-color:var(--line); font-weight:700; }
+  canvas.viz { width:100%; display:block; }
+  .legend { font-size:9.5px; color:var(--t2); display:flex; gap:4px 14px; flex-wrap:wrap; margin:4px 0 2px; }
+  .sw { display:inline-block; width:16px; height:3px; vertical-align:middle; margin-right:5px; border-radius:2px; }
+  .sw.dot { width:7px; height:7px; border-radius:50%; }
+  .sw.dash { height:0; border-top:2px dashed; border-radius:0; }
+  .labstrip { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  #kbd { display:flex; height:46px; width:100%; user-select:none; border:var(--stroke) solid var(--line);
+    border-radius:var(--r); background:var(--well); overflow:hidden; margin:4px 0; touch-action:none; }
+  .key { flex:1 1 0; border-right:1px solid var(--line); background:var(--well); position:relative; cursor:pointer; }
+  .key:last-child { border-right:0; }
+  .key.blk { flex:0 0 10px; margin:0 -5px; z-index:2; height:62%; background:var(--line); border:0; border-radius:0 0 3px 3px; }
+  .key.down { background:var(--value); }
+  .key.mon::after { content:''; position:absolute; left:50%; bottom:3px; width:5px; height:5px; margin-left:-2.5px;
+    border-radius:50%; background:var(--marker); }
+  .notes { max-width:1520px; margin-top:12px; display:grid; grid-template-columns:repeat(auto-fit, minmax(460px,1fr)); gap:12px; }
+  .notes .box { background:var(--panel); border:var(--stroke) solid var(--line); border-radius:var(--r);
+    padding:8px 12px; font-size:10.5px; color:var(--t2); line-height:1.5; min-width:0; }
+  .notes h2 { font-size:11px; color:var(--pull); letter-spacing:1px; margin:0 0 5px; }
+  .notes b { color:var(--text); }
+  .notes ol, .notes ul { padding-left:18px; margin:4px 0 0; }
+  .notes li { margin:3px 0; }
+  .notes .box.wide { grid-column:1 / -1; }
+  .notes table { border-collapse:collapse; font-size:9.5px; width:100%; margin-top:4px; }
+  .notes td, .notes th { border-bottom:1px dashed var(--div); padding:2px 4px; text-align:left; vertical-align:top; }
+  .notes th { color:var(--dim); font-weight:600; letter-spacing:.06em; }
+  .notes td.n { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .notes td.worse { color:var(--caution-tx); background:var(--caution-bg); }
+  .notes td.zero { color:var(--dim); }
+  .notes pre { font:inherit; font-size:9.5px; white-space:pre-wrap; overflow-wrap:anywhere; margin:4px 0 0;
+    background:var(--bg); border:1px solid var(--div); border-radius:4px; padding:6px 8px; color:var(--text); }
+  .notes pre .del { color:var(--dim); text-decoration:line-through; }
+  .notes pre .add { color:var(--value); }
+  .chk li { list-style:none; margin-left:-16px; }
+  .chk .ok { color:var(--celebrate); font-weight:700; }
+  .chk .no { color:var(--alarm); font-weight:700; }
+  .chk .kind { font-size:8.5px; letter-spacing:.1em; color:var(--physics); font-weight:700; margin-right:4px; }
+  .pending { color:var(--dim); font-style:italic; }
+</style>
+<!-- THE ORACLE, read-only (reference/scalpel/ is PROTECTED). A classic script,
+     so it works from the filesystem and from tools/serve_labs.py alike. -->
+<script src="../../reference/scalpel/prototype/razor-core.js"></script>
+</head>
+<body>
+<div class="hdr">
+  <div>
+    <h1>BLADE CLOCK</h1>
+    <div class="badges"><span class="badge">PROTOTYPE</span><span class="badge">B296</span>
+      <span class="dep">DIVERGENCE · × f₀ IS NOT IN razor-core.js</span><span class="dep">NOBODY HAS LISTENED</span></div>
+    <div class="sub">SCALPEL · THE BLADE WINDOW ON ITS OWN CLOCK · A LISTENING DECISION, NOT A SHIP DECISION</div>
+  </div>
+  <div class="hdrctl">
+    <button class="chip" id="themeBtn" data-lab="theme audition">theme <b>LIGHT</b></button>
+    <button class="pill" id="pwr" data-lab="audio context — a lab affordance, not a parameter">POWER</button>
+    <button class="pill panic" id="panic" data-lab="all notes off">PANIC</button>
+  </div>
+</div>
+
+<div class="tagline">A listening prototype for <b>desynchronising the blade from the carrier</b>. SCALPEL's window lives in the carrier's
+phase, so the output repeats at f₀. Here the window runs on <b>its own clock</b>: <b>Hz</b> (the oracle's Rotate, driven past its ±4 Hz
+range, no new law) or <b>× f₀</b> (the window advances r·f₀, so the cut recurs at (1 − r)·f₀ on every key; the one divergence). An
+<b>A/B</b> switches between the oracle, bit-identical, and the clock. A harmonic-grid spectrum shows the partials leave the grid. Aliasing, DC
+and edge clicks are <b>measured</b> against a 4×-rate render, and <b>12 demo presets</b> sit beside 8 of the bench's.</div>
+
+<div class="audit" id="audit">oracle: pending</div>
+
+<div class="stage">
+  <section class="card" id="playCard">
+    <h2>A / B<span class="sp"><span class="lbl" id="abKey">SPACE</span></span></h2>
+    <div class="ab" id="ab"></div>
+    <div class="readout" id="abNote"></div>
+    <div class="sec" id="clk1"></div>
+    <div class="sec" id="clk2"></div>
+    <div class="sec" id="orc"></div>
+    <div class="sec">
+      <h3>PLAY <span class="lbl" style="margin-left:auto" id="octLbl"></span></h3>
+      <div id="kbd"></div>
+      <div class="labstrip">
+        <button class="pill mini" id="droneBtn" data-lab="hold the analysed note in the audible instance">HOLD</button>
+        <button class="pill mini" id="probeBtn" data-lab="render 0.5 s offline through the same worklet and print its level">TEST AUDIO PATH</button>
+      </div>
+      <div class="readout" id="audioStat">AUDIO — OFF. POWER, then the keys (A..L, W/E/T/Y/U/O; Z/X octave; SPACE = A/B).</div>
+    </div>
+  </section>
+
+  <section class="card" id="vizCard">
+    <h2>WHAT HAPPENS TO THE PARTIALS <span class="sp"><span class="lbl">AXIS</span><span class="pills" id="axisPills"></span></span></h2>
+    <canvas class="viz" id="spec" style="height:300px"></canvas>
+    <div class="legend" id="specLegend"></div>
+    <div class="readout" id="specNote"></div>
+    <h2 style="margin-top:10px">SCOPE <span class="sp"><span class="lbl" id="scopeLbl"></span></span></h2>
+    <canvas class="viz" id="scope" style="height:120px"></canvas>
+    <div class="legend" id="scopeLegend"></div>
+    <div class="readout">Both pictures are OFFLINE renders of the note marked on the keyboard, counted in samples (seeded; no
+      AnalyserNode, no wall clock): 0.25 s to settle, then 32768 samples, Blackman-Harris window. A is the oracle, B the same patch on
+      the clock. No one-cycle view: under an irrational clock there is no cycle to draw.</div>
+  </section>
+
+  <aside class="card" id="presetCard">
+    <h2>PRESETS</h2>
+    <div class="pcath">DEMO · PROTOTYPE VOICING</div>
+    <div class="voicing"><b>PROTOTYPE VOICING.</b> Each demo is a bench preset (named) plus a blade clock, with the oracle's DC
+      <b>blocker</b> in place of its per-cycle estimate (measured: the estimate chases the moving window — see the DC table). Each
+      description says what the setting DOES; none says how it sounds, because nobody has listened. <b>B</b> plays the demo; <b>A</b>
+      plays its locked twin (the same patch, clock off: the oracle, bit-identical).</div>
+    <div id="demoList" class="plist"></div>
+    <div class="pcath">BENCH · ORACLE VOICING</div>
+    <div class="readout" style="margin-top:0">Eight of the bench's 76, one or two per mode where the clock moves something
+      (partial-width windows). Fetched from <code>reference/scalpel/data/presets.json</code>, never copied. Loading one keeps
+      the clock settings; A/B still applies.</div>
+    <div id="benchList" class="plist"></div>
+  </aside>
+</div>
+
+<div class="notes">
+  <div class="box"><h2>Self-checks at load — each property with a control that must fail</h2><ol class="chk" id="checks"><li class="pending">pending</li></ol></div>
+  <div class="box wide"><h2>Measured · folded energy against a 4×-rate render of the same wrapper</h2><div id="mAlias" class="pending">pending</div></div>
+  <div class="box wide"><h2>Measured · DC, sub-20 Hz energy, and the per-cycle estimate's own wobble, under each of the oracle's DC modes</h2><div id="mDC" class="pending">pending</div></div>
+  <div class="box wide"><h2>Measured · window edges crossed by the window's jump (the click mechanism)</h2><div id="mEdge" class="pending">pending</div></div>
+  <div class="box"><h2>The override, exactly — four anchored lines of razor-core.js render()</h2><div id="diff" class="pending">pending</div></div>
+  <div class="box">
+    <h2>Open questions — for the human, after listening</h2>
+    <ol>
+      <li><b>Keep it at all?</b> This page cannot answer that. Nothing here says the clock sounds good or bad; the A/B and the demos
+        exist so the ear can.</li>
+      <li><b>Hz, × f₀, or both.</b> Hz is already the oracle's law (only its ±4 Hz range is a bench UI limit), and its relation to the
+        note changes on every key. × f₀ keeps the relation on every key, and it is the one new law (a divergence, an ADR).</li>
+      <li><b>The ratio's range.</b> Built as −2…2. At r = 1 the window rides the carrier and the cut stops recurring (the blade freezes
+        into a gain and an offset). Near r = 1 the edges chatter (see the edge table). Should the range stop short of 1, or should a port
+        fix the edge instead?</li>
+      <li><b>The edge fix a port would need.</b> The window moves once per sample and the carrier once per substep, so a moving edge
+        can jump over the carrier without being band-limited. A C++ port would detect edge crossings in window-relative phase. That is
+        a change to the band-limiting in stepM, not to the rotation, so it is out of this lab's scope.</li>
+      <li><b>The DC estimate.</b> The oracle's per-cycle estimate (DC mode 2) assumes a still window. The DC table shows where it helps
+        and where it adds sub-audio wobble under the clock; the blocker (mode 1) is the oracle's other option.</li>
+      <li><b>Blade 2.</b> Built as either following blade 1's clock or on its own (Hz or × f₀). Is a second clock worth a control?</li>
+      <li><b>Morph and modulation (B275's readiness fields).</b> Not built. The ratio would need a morph behaviour, and its maximum
+        viable modulation rate and pitch relation are still open.</li>
+    </ol>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ======================================================================
+   A. THE ORACLE, THE SEED
+   ====================================================================== */
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+/* `class RazorCore` in a classic script is a global LEXICAL binding: visible here
+   by name, never as window.RazorCore, hence the typeof test. */
+const CORE = (typeof RazorCore === 'function') ? RazorCore : null;
+/* The seeded shim over Math.random, installed ONLY when the oracle is present
+   (under the load checker Math is the checker's own and must not be touched). */
+function seedOracle(n) { if (CORE) Math.random = mulberry32(n >>> 0); }
+const SR = 48000;
+const TAU = 2 * Math.PI;
+const frac = x => x - Math.floor(x);
+const mtof = n => 440 * Math.pow(2, (n - 69) / 12);
+const $ = id => document.getElementById(id);
+const PHI1 = (Math.sqrt(5) - 1) / 2;             /* φ − 1 = 1/φ ≈ 0.618 */
+const SEED_VIEW = 0xB296, SEED_CHECK = 0xB2961, SEED_MEAS = 0xB2962;
+
+/* ======================================================================
+   B. THE WRAPPER — the oracle's render(), four anchored lines changed
+   ====================================================================== */
+/* Each pair is [the oracle's line, verbatim; the lab's replacement]. Every
+   replacement keeps the oracle's line as its `else` branch, so with the clock
+   OFF (x1 = x2 = 0) each line reduces to the oracle's own and the render is the
+   oracle's, sample for sample (self-check 2). What the × f₀ clock changes:
+   - rotBase/rotBase2: the oracle's "free-running" mode shares ONE global phase
+     (gRot) across voices, which cannot track each voice's pitch; with the clock
+     on, rotation is per voice (v.rot), whatever rotSync says. rotSync still
+     decides whether a retriggered note restarts it (startVoice, untouched).
+   - v.rot / v.rot2: advance by r·f0/sr per sample, f0 = the voice's glided pitch
+     with bend (the same f the oracle's couple() uses), instead of rotRate/sr.
+   Hz mode needs NO line here: it is rotRate itself. The rotation step stays the
+   oracle's: once per output sample, outside the oversampling loop (section J
+   measures what that costs at audio rate). */
+const BC_PATCHES = [
+  ['      const rotBase = d.rotSync ? null : this.gRot;',
+   '      const rotBase = (d.rotSync || this.bc.x1) ? null : this.gRot;'],
+  ['      const rotBase2 = d.rotSync ? null : this.gRot2;',
+   '      const rotBase2 = (d.rotSync || this.bc.x2) ? null : this.gRot2;'],
+  ['        if (rOn){ v.rot += rs; v.rot -= Math.floor(v.rot); } else v.rot = RazorCore.home(v.rot, hk);',
+   '        if (this.bc.x1){ v.rot += this.bc.r1*v.freq*Math.pow(2, s.bend/12)/sr; v.rot -= Math.floor(v.rot); }\n' +
+   '        else if (rOn){ v.rot += rs; v.rot -= Math.floor(v.rot); } else v.rot = RazorCore.home(v.rot, hk);'],
+  ['        if (own2){ if (rOn2){ v.rot2 += rs2; v.rot2 -= Math.floor(v.rot2); } else v.rot2 = RazorCore.home(v.rot2, hk); }',
+   '        if (own2){ if (this.bc.x2){ v.rot2 += this.bc.r2*v.freq*Math.pow(2, s.bend/12)/sr; v.rot2 -= Math.floor(v.rot2); }\n' +
+   '          else if (rOn2){ v.rot2 += rs2; v.rot2 -= Math.floor(v.rot2); } else v.rot2 = RazorCore.home(v.rot2, hk); }'],
+];
+/* how many times each anchor occurs in the oracle's render() text */
+function anchorCounts(Core, list) {
+  const s = Core.prototype.render.toString();
+  return list.map(a => s.split(a).length - 1);
+}
+/* the subclass's SOURCE: the oracle's render() text with the four lines swapped.
+   Refuses (throws) unless every anchor matches exactly once — a stale anchor must
+   never leave the lab playing an unpatched or half-patched render. */
+function bladeClockClassSource(Core, patches) {
+  let src = Core.prototype.render.toString();
+  for (const [a, b] of (patches || BC_PATCHES)) {
+    const n = src.split(a).length - 1;
+    if (n !== 1) throw new Error('blade-clock anchor matched ' + n + '× (must be 1): ' + a.trim().slice(0, 64));
+    src = src.replace(a, () => b);                  // a function replacement: `$` in the text stays literal
+  }
+  return 'class BladeClockCore extends RazorCore {\n' +
+    '  constructor(sr){ super(sr); this.bc = {x1:0, r1:0, x2:0, r2:0}; }\n' +
+    '  ' + src + '\n}\n';
+}
+let BC_SRC = '', BC_ERR = '', BCORE = null;
+if (CORE) {
+  try {
+    BC_SRC = bladeClockClassSource(CORE);
+    /* the parameter binds the name `RazorCore` inside the class body (its render
+       calls RazorCore.home and shares the static RazorCore.mr/mn with voice()) */
+    BCORE = new Function('RazorCore', BC_SRC + 'return BladeClockCore;')(CORE);
+  } catch (e) { BC_ERR = String(e && e.message || e); }
+}
+function setBc(bc, m) {
+  bc.x1 = m.x1 ? 1 : 0; bc.r1 = +m.r1 || 0; bc.x2 = m.x2 ? 1 : 0; bc.r2 = +m.r2 || 0;
+  if (m.nan) bc.r1 = NaN;                           /* self-check 7's planted fault only */
+}
+
+/* the oracle's own keys, read from a live instance: t (smoothed) ∪ d (discrete) ∪ os */
+const REF = CORE ? new CORE(SR) : null;
+const ORK = new Set(REF ? Object.keys(REF.t).concat(Object.keys(REF.d), ['os']) : []);
+const DEF = REF ? Object.assign({}, REF.t, REF.d, { os: REF.os }) : {};
+function oracleOnly(p) { const o = {}; for (const k in p) if (ORK.has(k)) o[k] = p[k]; return o; }
+
+/* ======================================================================
+   C. THE CLOCK — two modes beside the oracle's, and the A/B
+   ====================================================================== */
+/* Hz: a signed log taper with a 1 Hz knee, so u = ±0.1 is ~1 Hz, ±0.5 is ~44 Hz
+   and ±1 is ±2 kHz — slow rates stay usable on the same slider as audio rates. */
+const HZ_MAX = 2000, HZ_KNEE = 1;
+const hzFromU = u => Math.sign(u) * HZ_KNEE * (Math.pow(1 + HZ_MAX / HZ_KNEE, Math.abs(u)) - 1);
+const uFromHz = hz => Math.sign(hz) * Math.log(1 + Math.abs(hz) / HZ_KNEE) / Math.log(1 + HZ_MAX / HZ_KNEE);
+const R_MIN = -2, R_MAX = 2;
+/* one-click ratios: four irrational, two rational for contrast */
+const RATIOS = [['φ−1', PHI1, true], ['1/√2', Math.SQRT1_2, true], ['π−3', Math.PI - 3, true], ['√2−1', Math.SQRT2 - 1, true],
+  ['1/2', 0.5, false], ['1/4', 0.25, false]];
+const CLK_DEF = { m1: 'ratio', r1: PHI1, hz1: 150, b2: 'follow', m2: 'ratio', r2: Math.SQRT1_2, hz2: 90 };
+/* What the oracle receives, and the lab's bc, for one side of the A/B.
+   A (on = false): the patch as it is — the oracle, including its own Rotate.
+   B: blade 1 on Hz (rotRate := Hz; no bc) or × f₀ (bc.x1); blade 2 follows blade
+   1's clock (the oracle's rot2Follow = 1) or runs its own (rot2Follow = 0, then
+   rotRate2 := Hz or bc.x2). */
+function applyClock(patch, clk, on) {
+  const p = Object.assign({}, patch), bc = { x1: 0, r1: 0, x2: 0, r2: 0 };
+  if (!on) return { p, bc };
+  if (clk.m1 === 'hz') p.rotRate = clk.hz1; else { bc.x1 = 1; bc.r1 = clk.r1; }
+  if (p.b2on) {
+    if (clk.b2 === 'own') {
+      p.rot2Follow = 0;
+      if (clk.m2 === 'hz') p.rotRate2 = clk.hz2; else { bc.x2 = 1; bc.r2 = clk.r2; }
+    } else p.rot2Follow = 1;
+  }
+  return { p, bc };
+}
+/* the cut's recurrence (Hz, signed) for one blade at the note f0 */
+function recurrence(clk, f0, b, patch, on) {
+  if (!on) return f0 - (b === 2 && patch.b2on && !patch.rot2Follow ? patch.rotRate2 : patch.rotRate);
+  if (b === 2 && clk.b2 !== 'own') b = 1;
+  const m = b === 2 ? clk.m2 : clk.m1;
+  return m === 'ratio' ? (1 - (b === 2 ? clk.r2 : clk.r1)) * f0 : f0 - (b === 2 ? clk.hz2 : clk.hz1);
+}
+/* the nearest p/q with q ≤ qmax (continued fractions) */
+function nearestFraction(x, qmax) {
+  const s = Math.sign(x) || 1; let a = Math.abs(x);
+  let h0 = 1, h1 = Math.floor(a), k0 = 0, k1 = 1, r = a - Math.floor(a);
+  while (r > 1e-12) {
+    const ai = Math.floor(1 / r); r = 1 / r - ai;
+    const h2 = ai * h1 + h0, k2 = ai * k1 + k0;
+    if (k2 > qmax) break;
+    h0 = h1; h1 = h2; k0 = k1; k1 = k2;
+  }
+  return { p: s * h1, q: k1, err: x - s * h1 / k1 };
+}
+function ratioName(r) {
+  for (const [n, v] of RATIOS) { if (Math.abs(r - v) < 1e-12) return n; if (Math.abs(r + v) < 1e-12) return '−(' + n + ')'; }
+  return null;
+}
+function isIrr(r) { for (const [, v, irr] of RATIOS) if (irr && (Math.abs(r - v) < 1e-12 || Math.abs(r + v) < 1e-12)) return true; return false; }
+function fmtHz(f) { const a = Math.abs(f); return (f < 0 ? '−' : '') + (a >= 1000 ? (a / 1000).toFixed(2) + ' kHz' : a >= 10 ? a.toFixed(1) + ' Hz' : a.toFixed(2) + ' Hz'); }
+function fmtR(r) { return (r < 0 ? '−' : '') + Math.abs(r).toFixed(4); }
+
+/* ======================================================================
+   D. PRESETS — eight of the bench's, and twelve demos built on them
+   ====================================================================== */
+/* Why these eight: one or two per mode the human named (Sync, FM reset, Ring,
+   Crush), each with a PARTIAL-width window, where moving the window moves an edge.
+   The w = 1 presets (Crunch, Trance jitter, Fixed crush) keep the whole cycle
+   inside the window, so the clock only moves a reset point. */
+const BENCH_PICK = [
+  ['Quarter sync', 'Sync', 'one member, hard edges: the clock alone, nothing else moving'],
+  ['Locked horde', 'Sync', 'seven locked members, hard edges: the swarm version of the same cut'],
+  ['Zap bass', 'FM reset', 'hard-edged FM reset: the modulator restarts at every window entry'],
+  ['Vowel choir', 'FM reset', 'soft-edged FM reset, five members, sine carrier'],
+  ['Ring saw', 'Ring', 'ring blade on a sine base, three members'],
+  ['Golden bells', 'Ring', 'ring blade, six members on the golden cut-rate rule'],
+  ['Slewed crush', 'Crush', 'crush with slew, width 0.6, three members'],
+  ['Crush vs FM', 'Crush', 'crush plus an FM blade 2; already moves on the oracle\'s own Rotate (0.15 Hz)'],
+];
+/* The demos (human, 2026-09-27: "Could you please add some presets demonstrating
+   the effect?"). Each is a bench preset (base, by name) + parameter overrides +
+   a clock. `desc` says what the setting DOES, never how it sounds. */
+const DEMOS = [
+  { id: 'golden-cut', name: 'Golden cut', base: 'Quarter sync', over: {}, clk: { m1: 'ratio', r1: PHI1 },
+    desc: 'One member, hard-edged saw sync. The window advances 0.618·f₀ per second, so the cut recurs at 0.382·f₀; the ratio is irrational, so cut and carrier never share a period.' },
+  { id: 'half-rate', name: 'Half-rate cut (rational)', base: 'Quarter sync', over: {}, clk: { m1: 'ratio', r1: 0.5 },
+    desc: 'The same patch at r = 1/2: the cut recurs at f₀/2, so the output repeats every 2/f₀, a subharmonic. The periodic control for Golden cut.' },
+  { id: 'horde-rt2', name: 'Horde at 1/√2', base: 'Locked horde', over: {}, clk: { m1: 'ratio', r1: Math.SQRT1_2 },
+    desc: 'Seven locked members share one window running at 0.707·f₀, so the cut recurs at 0.293·f₀. Each detuned member meets it at its own offset.' },
+  { id: 'fm-pi', name: 'FM reset at π−3', base: 'Zap bass', over: {}, clk: { m1: 'ratio', r1: Math.PI - 3 },
+    desc: 'FM reset restarts the modulator at each window entry. The window runs at 0.1416·f₀, so the restart recurs at 0.858·f₀, just under the note.' },
+  { id: 'vowel-rt2m1', name: 'Vowel on a √2−1 clock', base: 'Vowel choir', over: {}, clk: { m1: 'ratio', r1: Math.SQRT2 - 1 },
+    desc: 'Soft-edged FM reset, five members. The window runs at 0.414·f₀, so the restart recurs at 0.586·f₀.' },
+  { id: 'ring-golden', name: 'Ring at φ−1', base: 'Ring saw', over: {}, clk: { m1: 'ratio', r1: PHI1 },
+    desc: 'Ring blade: inside the window, the base is multiplied by a saw restarted at the window edge. The window runs at 0.618·f₀, so the ringing segment recurs at 0.382·f₀.' },
+  { id: 'crush-rt2', name: 'Crush at 1/√2', base: 'Slewed crush', over: {}, clk: { m1: 'ratio', r1: Math.SQRT1_2 },
+    desc: 'Crush holds the base in steps laid out from the window start. The window runs at 0.707·f₀, so the step grid slides against the carrier and restarts at 0.293·f₀.' },
+  { id: 'fold-quarter', name: 'Fold at 1/4 (rational)', base: 'Folded slice', over: {}, clk: { m1: 'ratio', r1: 0.25 },
+    desc: 'Fold reshapes the base inside the window (it reads the base, not the window phase), so only the soft-edged gate moves: it recurs at 0.75·f₀ and the output repeats every 4/f₀.' },
+  { id: 'fixed-300', name: 'Fixed 300 Hz clock (Hz mode)', base: 'Quarter sync', over: {}, clk: { m1: 'hz', hz1: 300 },
+    desc: 'Hz mode: the window runs at 300 Hz whatever the note, so the cut recurs at f₀ − 300 Hz. It runs backwards below ~D4 (294 Hz), stands still near it and recurs faster above: the relation changes up the keyboard.' },
+  { id: 'phase-slow', name: 'Phasing · slow (1.5 Hz)', base: 'Hollow twin', over: {}, clk: { m1: 'hz', hz1: 1.5 },
+    desc: 'Hz mode at 1.5 Hz, inside the oracle\'s own ±4 Hz Rotate range, so the bench can already make this: the cut drifts round the cycle 1.5 times a second. Slow twin of the next preset.' },
+  { id: 'phase-fast', name: 'Phasing · audio (150 Hz)', base: 'Hollow twin', over: {}, clk: { m1: 'hz', hz1: 150 },
+    desc: 'The same patch, clock 100× faster: the cut recurs at f₀ − 150 Hz (70 Hz at A3). Step between the two to hear the drift become a tone.' },
+  { id: 'two-clocks', name: 'Two blades, two clocks', base: 'Hollow double', over: {}, clk: { m1: 'ratio', r1: PHI1, b2: 'own', m2: 'ratio', r2: Math.SQRT1_2 },
+    desc: 'Both blades sync. Blade 1 runs at 0.618·f₀ (cuts at 0.382·f₀); blade 2 has its own clock at 0.707·f₀ (cuts at 0.293·f₀). Neither cut is in ratio with the note or with the other.' },
+];
+
+/* ======================================================================
+   E. STATE AND AUDIO — the worklet runs the SAME patched class
+   ====================================================================== */
+const Q = (typeof URLSearchParams === 'function' && typeof location !== 'undefined' && typeof location.search === 'string')
+  ? new URLSearchParams(location.search) : null;
+const qp = (k, d) => (Q && Q.get(k) !== null ? Q.get(k) : d);
+const LAB = { theme: qp('theme', 'light') === 'dark' ? 'dark' : 'light', axis: qp('axis', 'log') === 'lin' ? 'lin' : 'log',
+  presets: null, cur: null, curKind: '', presetErr: '' };
+let PATCH = Object.assign({}, DEF);
+let CLK = Object.assign({}, CLK_DEF);
+let AB = qp('ab', 'B') === 'A' ? 'A' : 'B';
+const AUD = { ctx: null, node: null, out: null, on: false, err: '', drone: false, held: new Set(), oct: 0, core: null, spn: null };
+const KEYMAP = { a: 0, w: 1, s: 2, e: 3, d: 4, f: 5, t: 6, g: 7, y: 8, h: 9, u: 10, j: 11, k: 12, o: 13, l: 14 };
+const AN = { note: parseInt(qp('note', '57'), 10) || 57, N: 32768, settle: 12000, A: null, B: null, f0: 220, timer: 0, stamp: '' };
+const CHK = { list: [], done: false };
+const MEAS = { alias: null, dc: null, edge: null, plant: null, done: false };
+
+function workletSource() {
+  return CORE.toString() + '\nRazorCore.PANS = ' + JSON.stringify(CORE.PANS) + ';\n' + BC_SRC + mulberry32.toString() +
+    '\nMath.random = mulberry32(' + SEED_VIEW + ');\n' + setBc.toString() + '\n' +
+    'class B296Clock extends AudioWorkletProcessor {\n' +
+    '  constructor(o) { super(); const q = (o && o.processorOptions) || {}; this.c = new BladeClockCore(sampleRate);\n' +
+    '    if (q.params) { this.c.set(q.params); Object.assign(this.c.s, this.c.t); }\n' +
+    '    if (q.bc) setBc(this.c.bc, q.bc);\n' +
+    '    if (q.note) this.c.noteOn(q.note.note, q.note.freq, q.note.vel);\n' +
+    '    this.port.onmessage = e => { const m = e.data; if (m && m.t === "bc") setBc(this.c.bc, m); else this.c.msg(m); }; }\n' +
+    '  process(_, outs) { const o = outs[0]; this.c.render(o[0], o[1] || o[0]); return true; }\n' +
+    '}\nregisterProcessor("b296-clock", B296Clock);\n';
+}
+async function makeNode(ctx, init) {
+  const url = URL.createObjectURL(new Blob([workletSource()], { type: 'application/javascript' }));
+  await ctx.audioWorklet.addModule(url);
+  return new AudioWorkletNode(ctx, 'b296-clock', { numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2], processorOptions: init || {} });
+}
+function heard() { return applyClock(PATCH, CLK, AB === 'B'); }
+async function audioStart() {
+  if (!BCORE) { AUD.err = 'oracle or wrapper not loaded'; paintAudioStat(); return; }
+  if (AUD.on) { try { await AUD.ctx.close(); } catch (_) {} AUD.on = false; AUD.node = null; AUD.spn = null; AUD.core = null; AUD.ctx = null; paintAudioStat(); return; }
+  const AC = window.AudioContext || window.webkitAudioContext;
+  const ctx = new AC({ sampleRate: SR });
+  AUD.ctx = ctx; AUD.out = ctx.createGain(); AUD.out.gain.value = 0.8; AUD.out.connect(ctx.destination);
+  const h = heard();
+  try {
+    AUD.node = await makeNode(ctx, { params: oracleOnly(h.p), bc: h.bc });
+    AUD.node.connect(AUD.out); AUD.err = '';
+  } catch (e) {
+    /* fallback: the same class on the main thread (said on screen) */
+    AUD.err = 'worklet unavailable (' + String(e && e.message || e) + ') — ScriptProcessor fallback';
+    seedOracle(SEED_VIEW);
+    AUD.core = new BCORE(ctx.sampleRate); AUD.core.set(oracleOnly(h.p)); Object.assign(AUD.core.s, AUD.core.t); setBc(AUD.core.bc, h.bc);
+    AUD.spn = ctx.createScriptProcessor(1024, 0, 2);
+    AUD.spn.onaudioprocess = ev => AUD.core.render(ev.outputBuffer.getChannelData(0), ev.outputBuffer.getChannelData(1));
+    AUD.spn.connect(AUD.out);
+  }
+  AUD.on = true;
+  if (AUD.drone) noteOn(AN.note, true);
+  paintAudioStat();
+}
+function audioMsg(m) {
+  if (AUD.node && AUD.node.port) AUD.node.port.postMessage(m);
+  else if (AUD.core) { if (m.t === 'bc') setBc(AUD.core.bc, m); else AUD.core.msg(m); }
+}
+function pushAudio() {
+  const h = heard();
+  audioMsg(Object.assign({ t: 'p' }, oracleOnly(h.p)));
+  audioMsg(Object.assign({ t: 'bc' }, h.bc));
+}
+function noteOn(n, keep) {
+  audioMsg({ t: 'on', note: n, freq: mtof(n), vel: 0.85 });
+  if (!keep && n !== AN.note) { AN.note = n; paintKbd(); scheduleAnalyse(); }
+}
+function noteOff(n) { if (!(AUD.drone && n === AN.note)) audioMsg({ t: 'off', note: n }); }
+function paintAudioStat() {
+  const s = $('audioStat'); if (!s) return;
+  s.textContent = !AUD.on ? 'AUDIO — OFF. POWER, then the keys (A..L, W/E/T/Y/U/O; Z/X octave; SPACE = A/B).' :
+    'AUDIO — ON · ' + (AUD.node ? 'AudioWorklet running razor-core.js + the blade-clock subclass (seeded)' : 'fallback') +
+    (AUD.err ? ' · ' + AUD.err : '') + ' · hearing ' + (AB === 'B' ? 'B, the clock' : 'A, the oracle');
+  const p = $('pwr'); if (p) p.classList.toggle('on', AUD.on);
+}
+/* offline proof that the audible path is live: 0.5 s through the SAME worklet */
+async function probeAudio() {
+  const OAC = window.OfflineAudioContext;
+  if (!OAC || !BCORE) return 'no OfflineAudioContext or no wrapper';
+  const ctx = new OAC(2, SR / 2, SR), h = heard();
+  const node = await makeNode(ctx, { params: oracleOnly(h.p), bc: h.bc, note: { note: AN.note, freq: mtof(AN.note), vel: 0.9 } });
+  node.connect(ctx.destination);
+  const buf = await ctx.startRendering();
+  const L = buf.getChannelData(0); let e = 0, pk = 0, bad = 0;
+  for (let i = 0; i < L.length; i++) { if (!isFinite(L[i])) bad++; e += L[i] * L[i]; pk = Math.max(pk, Math.abs(L[i])); }
+  const rms = Math.sqrt(e / L.length);
+  /* WHAT PLAYS IS WHAT WAS MEASURED: the worklet seeds Math.random with SEED_VIEW at
+     module load and then makes the same calls in the same order as this main-thread
+     render, so the two agree sample for sample once the main thread's doubles are
+     rounded to the worklet's float32 buffer */
+  const ref = renderOne(BCORE, h.p, h.bc, AN.note, mtof(AN.note), L.length, SEED_VIEW, SR, true).L;
+  let same = 0; for (let i = 0; i < L.length; i++) if (Math.fround(ref[i]) === L[i]) same++;
+  return 'offline worklet render, 0.5 s, side ' + AB + ': RMS ' + (20 * Math.log10(rms + 1e-12)).toFixed(1) + ' dBFS, peak ' + pk.toFixed(3) +
+    ', non-finite ' + bad + (rms > 1e-3 && !bad ? ' — AUDIBLE PATH OK' : ' — SILENT OR BROKEN') +
+    ' · equals the main-thread BladeClockCore render in ' + same + '/' + L.length + ' samples (float32)';
+}
+
+/* ======================================================================
+   F. RENDERS AND SPECTRA — every picture is an offline, seeded render
+   ====================================================================== */
+/* one instance, one note, n samples of the mid channel. Float64 buffers: the
+   oracle writes doubles, and bit-identity is checked on them, not on float32. */
+function renderOne(Cls, p, bc, note, f, n, seed, sr, both) {
+  seedOracle(seed);
+  const c = new Cls(sr || SR);
+  c.set(oracleOnly(p)); Object.assign(c.s, c.t);
+  if (bc && c.bc) setBc(c.bc, bc);
+  c.noteOn(note, f, 0.9);
+  const L = new Float64Array(n), R = new Float64Array(n);
+  for (let i = 0; i < n; i += 128) { const j = Math.min(n, i + 128); c.render(L.subarray(i, j), R.subarray(i, j)); }
+  if (both) return { L, R, c };
+  const M = new Float64Array(n); for (let i = 0; i < n; i++) M[i] = 0.5 * (L[i] + R[i]);
+  return M;
+}
+function fftInPlace(re, im) {
+  const n = re.length;
+  for (let i = 1, j = 0; i < n; i++) {
+    let bit = n >> 1; for (; j & bit; bit >>= 1) j ^= bit; j ^= bit;
+    if (i < j) { let t = re[i]; re[i] = re[j]; re[j] = t; t = im[i]; im[i] = im[j]; im[j] = t; }
+  }
+  for (let len = 2; len <= n; len <<= 1) {
+    const ang = -TAU / len, wr = Math.cos(ang), wi = Math.sin(ang), hl = len >> 1;
+    for (let i = 0; i < n; i += len) {
+      let cr = 1, ci = 0;
+      for (let k = 0; k < hl; k++) {
+        const ar = re[i + k], ai = im[i + k];
+        const br = re[i + k + hl] * cr - im[i + k + hl] * ci, bi = re[i + k + hl] * ci + im[i + k + hl] * cr;
+        re[i + k] = ar + br; im[i + k] = ai + bi; re[i + k + hl] = ar - br; im[i + k + hl] = ai - bi;
+        const t = cr * wr - ci * wi; ci = cr * wi + ci * wr; cr = t;
+      }
+    }
+  }
+}
+/* power spectrum, Blackman-Harris 4-term (sidelobes ≈ −92 dB, so leakage cannot
+   pose as a partial), scaled so a sine of amplitude a peaks at a² */
+function bhPower(x, off, N) {
+  const re = new Float64Array(N), im = new Float64Array(N); let ws = 0;
+  for (let i = 0; i < N; i++) {
+    const t = TAU * i / N, w = 0.35875 - 0.48829 * Math.cos(t) + 0.14128 * Math.cos(2 * t) - 0.01168 * Math.cos(3 * t);
+    re[i] = x[off + i] * w; ws += w;
+  }
+  fftInPlace(re, im);
+  const p = new Float64Array(N / 2), g = 2 / ws;
+  for (let i = 0; i < N / 2; i++) p[i] = (re[i] * re[i] + im[i] * im[i]) * g * g;
+  return p;
+}
+const dB = v => 10 * Math.log10(v + 1e-30);
+/* local maxima, parabolic in dB, strongest first; within `floor` dB of the top */
+function peaksOf(p, N, sr, k, floor) {
+  let top = -300; for (let i = 2; i < p.length; i++) top = Math.max(top, dB(p[i]));
+  const out = [];
+  for (let i = 3; i < p.length - 1; i++) {
+    if (!(p[i] > p[i - 1] && p[i] >= p[i + 1])) continue;
+    const a = dB(p[i - 1]), b = dB(p[i]), c = dB(p[i + 1]);
+    if (b < top - floor) continue;
+    const den = a - 2 * b + c, d = den ? 0.5 * (a - c) / den : 0;
+    out.push({ f: (i + d) * sr / N, db: b - 0.25 * (a - c) * d });
+  }
+  out.sort((u, v) => v.db - u.db);
+  return out.slice(0, k);
+}
+/* the distance of f from the nearest harmonic, in harmonics (0…0.5) */
+function offGrid(f, f0) { const h = f / f0; return Math.abs(h - Math.round(h)); }
+const GRID_TOL = 0.01;
+
+function analyse() {
+  AN.timer = 0;
+  if (!BCORE) return;
+  const f0 = mtof(AN.note) * Math.pow(2, (PATCH.bend || 0) / 12), n = AN.settle + AN.N;
+  const side = on => {
+    const h = applyClock(PATCH, CLK, on);
+    const x = renderOne(BCORE, h.p, h.bc, AN.note, mtof(AN.note), n, SEED_VIEW + AN.note);
+    const p = bhPower(x, AN.settle, AN.N);
+    const db = new Float32Array(p.length); for (let i = 0; i < p.length; i++) db[i] = dB(p[i]);
+    const pk = peaksOf(p, AN.N, SR, 24, 70).map(o => Object.assign(o, { off: offGrid(o.f, f0) }));
+    const stems = peaksOf(p, AN.N, SR, 96, 60).map(o => Object.assign(o, { off: offGrid(o.f, f0) }));
+    return { db, pk, stems, scope: x.slice(AN.settle, AN.settle + 1920), offN: pk.filter(o => o.off > GRID_TOL).length };
+  };
+  AN.A = side(false); AN.B = side(true); AN.f0 = f0;
+  paintSpec($('spec')); paintScope($('scope')); paintSpecNote();
+}
+function scheduleAnalyse() {
+  if (!BCORE || typeof setTimeout !== 'function') return;
+  if (AN.timer) clearTimeout(AN.timer);
+  AN.timer = setTimeout(analyse, 80);
+}
+
+/* ======================================================================
+   G. PAINTERS — gui2's tube tokens (read, keyed by name, cleared on theme change)
+   ====================================================================== */
+let _tok = {};
+function TOK(name, fallback) {
+  if (_tok[name] === undefined) {
+    let v = '';
+    try { v = getComputedStyle(document.body || document.documentElement).getPropertyValue(name).trim(); } catch (_) { v = ''; }
+    _tok[name] = (typeof v === 'string' && v) ? v : (fallback || '#888');
+  }
+  return _tok[name];
+}
+function RGBA(hex, a) {
+  const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(hex).trim());
+  if (!m) return hex;
+  return `rgba(${parseInt(m[1], 16)},${parseInt(m[2], 16)},${parseInt(m[3], 16)},${a})`;
+}
+function TOKA(name, a) { const m = parseFloat(TOK('--scr-alpha', '1')) || 1; return RGBA(TOK(name), Math.min(1, a * m)); }
+function TOKN(name, d) { const v = parseFloat(TOK(name, String(d))); return isFinite(v) ? v : d; }
+function fit(cv) {
+  const g = cv && cv.getContext ? cv.getContext('2d') : null;
+  if (!g) return [null, 0, 0];
+  const dpr = (typeof devicePixelRatio === 'number' && devicePixelRatio) || 1;
+  const W = cv.clientWidth | 0, H = cv.clientHeight | 0;
+  if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return [g, W, H];
+}
+function tube(g, W, H) { g.fillStyle = TOK('--scr-tube'); g.fillRect(0, 0, W, H); }
+function say(g, W, H, t) { g.fillStyle = TOKA('--scr-marker', 0.9); g.font = '10px ui-monospace,Menlo,monospace'; g.textAlign = 'center'; g.fillText(t, W / 2, H / 2); g.textAlign = 'left'; }
+/* INKS. B (the clock, what is heard) is a measure: --scr-meter, with the SCALPEL
+   lab's light-tube weight and halo. A (the oracle) is the reference trace behind
+   it: --ghost, gui2's "dry/reference traces behind wet" (a first draft used
+   --scr-grid, and A's harmonic lines vanished into the grid's). The harmonic grid
+   is --scr-grid hairlines; the PREDICTION is attention, --scr-marker, dashed; a
+   measured peak OFF the grid is --scr-marker, a peak ON it --scr-meter (a hollow
+   ring on LOG, a stem on LIN). No colour changes job; no token is added. */
+function specX(f, W) {
+  const f0 = AN.f0;
+  if (LAB.axis === 'lin') { const hi = Math.min(SR / 2, 16.5 * f0); return f / hi * W; }
+  const lo = Math.max(20, f0 / 4);
+  return Math.log(f / lo) / Math.log(20000 / lo) * W;
+}
+function specRange() { const f0 = AN.f0; return LAB.axis === 'lin' ? [0, Math.min(SR / 2, 16.5 * f0)] : [Math.max(20, f0 / 4), 20000]; }
+function paintSpec(cv) {
+  const [g, W, H] = fit(cv); if (!g) return;
+  tube(g, W, H);
+  if (!BCORE) { say(g, W, H, BC_ERR ? 'wrapper refused: ' + BC_ERR : 'oracle not loaded (razor-core.js unreachable)'); return; }
+  if (!AN.B) { say(g, W, H, 'rendering…'); return; }
+  const top = 14, bot = H - 14, f0 = AN.f0, [fLo, fHi] = specRange();
+  const dy = v => top + (1 - (Math.max(-100, Math.min(0, v)) + 100) / 100) * (bot - top);
+  g.font = '8.5px ui-monospace,Menlo,monospace';
+  /* dB rules */
+  g.strokeStyle = TOKA('--scr-grid', 0.1); g.lineWidth = 1; g.beginPath();
+  for (let v = -20; v >= -80; v -= 20) { const y = Math.round(dy(v)) + 0.5; g.moveTo(0, y); g.lineTo(W, y); }
+  g.stroke();
+  g.fillStyle = TOKA('--scr-grid', 0.6);
+  for (let v = -20; v >= -80; v -= 20) g.fillText(v + ' dB', 3, dy(v) - 2);
+  /* the HARMONIC GRID: every f0 multiple in range, while the lines stay ≥ 4 px apart
+     (on the log axis they crowd into a solid block at the top; a block reads nothing) */
+  g.strokeStyle = TOKA('--scr-grid', 0.32); g.beginPath();
+  const kAll = Math.floor(fHi / f0);
+  let kHi = kAll;
+  for (let k = 2; k <= kAll; k++) if (specX(k * f0, W) - specX((k - 1) * f0, W) < 4) { kHi = k - 1; break; }
+  for (let k = 1; k <= kHi; k++) { const f = k * f0; if (f < fLo) continue; const x = Math.round(specX(f, W)) + 0.5; g.moveTo(x, top); g.lineTo(x, bot); }
+  g.stroke();
+  if (kHi < kAll) { g.fillStyle = TOKA('--scr-grid', 0.07); const x0 = specX((kHi + 0.5) * f0, W); g.fillRect(x0, top, W - x0, bot - top); }
+  g.fillStyle = TOKA('--scr-grid', 0.85); g.textAlign = 'center';
+  let lastLab = -99;
+  for (let k = 1; k <= kHi; k++) {
+    const f = k * f0; if (f < fLo) continue; const x = specX(f, W);
+    if (x - lastLab < 16) continue; lastLab = x; g.fillText(String(k), x, top - 4);
+  }
+  /* frequency labels */
+  g.fillStyle = TOKA('--scr-grid', 0.6);
+  const ticks = LAB.axis === 'lin' ? [1000, 2000, 3000, 4000, 5000, 6000, 8000, 10000, 12000, 16000, 20000] : [50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000];
+  let lastT = -99;
+  for (const f of ticks) { if (f < fLo || f > fHi) continue; const x = specX(f, W); if (x - lastT < 34) continue; lastT = x; g.fillText(f >= 1000 ? f / 1000 + 'k' : String(f), x, H - 3); }
+  g.textAlign = 'left';
+  /* the PREDICTION: the cut's recurrence and the first sideband pair round each harmonic */
+  const recs = [];
+  const r1 = recurrence(CLK, f0, 1, PATCH, true);            /* the prediction is always B's */
+  recs.push(r1);
+  if (PATCH.b2on && CLK.b2 === 'own') recs.push(recurrence(CLK, f0, 2, PATCH, true));
+  g.strokeStyle = TOKA('--scr-marker', 0.75); g.setLineDash([3, 3]); g.lineWidth = 1;
+  for (const rc of recs) {
+    const a = Math.abs(rc);
+    if (a > fLo && a < fHi) { const x = Math.round(specX(a, W)) + 0.5; g.beginPath(); g.moveTo(x, top); g.lineTo(x, bot); g.stroke(); }
+  }
+  g.setLineDash([]);
+  g.fillStyle = TOKA('--scr-marker', 0.7);
+  for (const rc of recs) for (let k = 0; k <= kHi; k++) for (const sgn of [-1, 1]) {
+    const f = k * f0 + sgn * Math.abs(rc); if (f <= fLo || f >= fHi) continue;
+    g.fillRect(Math.round(specX(f, W)) - 0.5, bot - 6, 1.5, 6);
+  }
+  /* the traces: A behind, B in front */
+  const trace = (sd, ink, a, w) => {
+    const binHz = SR / AN.N; g.strokeStyle = TOKA(ink, a); g.lineWidth = w; g.beginPath();
+    let started = false, lastX = -1, pk = -300;
+    for (let k = 1; k < sd.db.length; k++) {
+      const f = k * binHz; if (f < fLo || f > fHi) continue;
+      const x = Math.floor(specX(f, W)); pk = Math.max(pk, sd.db[k]);
+      if (x === lastX) continue;
+      const y = dy(pk); pk = -300; lastX = x;
+      started ? g.lineTo(x, y) : g.moveTo(x, y); started = true;
+    }
+    g.stroke();
+  };
+  trace(AN.A, '--ghost', 0.9, 1);
+  const halo = TOKN('--scr-halo-w', 0), sw = Math.min(1.8, TOKN('--scr-sig-w', 1.8) * 0.7);
+  if (LAB.axis === 'lin') {
+    /* LIN: B's continuous trace goes faint and its partials stand as STEMS (the 96
+       strongest within 60 dB), so a partial's place against the grid is read at a
+       glance: meter ink on the grid, marker ink off it */
+    trace(AN.B, '--scr-meter', 0.3, 1);
+    for (const o of AN.B.stems) {
+      if (o.f < fLo || o.f > fHi) continue;
+      const x = Math.round(specX(o.f, W)) + 0.5, y = dy(o.db), off = o.off > GRID_TOL;
+      g.strokeStyle = TOKA(off ? '--scr-marker' : '--scr-meter', 1); g.lineWidth = 1.6;
+      g.beginPath(); g.moveTo(x, bot); g.lineTo(x, y); g.stroke();
+      g.fillStyle = TOKA(off ? '--scr-marker' : '--scr-meter', 1); g.beginPath(); g.arc(x, y, 2.2, 0, TAU); g.fill();
+    }
+  } else {
+    if (halo > 0) { g.save(); g.strokeStyle = TOK('--scr-tube'); trace(AN.B, '--scr-tube', 1, sw + 2 * halo * 0.6); g.restore(); }
+    trace(AN.B, '--scr-meter', 1, sw);
+    /* B's 24 strongest peaks: off the grid (attention) or on it */
+    for (const o of AN.B.pk) {
+      if (o.f < fLo || o.f > fHi) continue;
+      const x = specX(o.f, W), y = dy(o.db) - 5;
+      if (o.off > GRID_TOL) { g.fillStyle = TOKA('--scr-marker', 1); g.beginPath(); g.arc(x, y, 2.6, 0, TAU); g.fill(); }
+      else { g.strokeStyle = TOKA('--scr-meter', 1); g.lineWidth = 1.2; g.beginPath(); g.arc(x, y, 2.6, 0, TAU); g.stroke(); }
+    }
+  }
+  /* dB labels again, on a tube-coloured tab, so the traces never cover them */
+  g.font = '8.5px ui-monospace,Menlo,monospace';
+  for (let v = -20; v >= -80; v -= 20) { const y = dy(v); g.fillStyle = TOK('--scr-tube'); g.fillRect(1, y - 10, 36, 10); g.fillStyle = TOKA('--scr-grid', 0.8); g.fillText(v + ' dB', 3, y - 2); }
+  /* the recurrence label, top right */
+  g.font = '9.5px ui-monospace,Menlo,monospace';
+  const lab = 'B: cut recurs at ' + fmtHz(Math.abs(r1)) + ' = ' + Math.abs(r1 / f0).toFixed(4) + '·f₀' + (r1 < 0 ? ' (window overtakes: backwards)' : '');
+  const tw = g.measureText(lab).width;
+  g.fillStyle = TOK('--scr-tube'); g.fillRect(W - tw - 14, top + 4, tw + 10, 15);
+  g.strokeStyle = TOKA('--scr-marker', 0.6); g.lineWidth = 1; g.strokeRect(W - tw - 13.5, top + 4.5, tw + 9, 14);
+  g.fillStyle = TOKA('--scr-marker', 1); g.textAlign = 'right'; g.fillText(lab, W - 9, top + 15);
+  g.textAlign = 'left';
+}
+function paintScope(cv) {
+  const [g, W, H] = fit(cv); if (!g) return;
+  tube(g, W, H);
+  if (!BCORE) { say(g, W, H, 'oracle not loaded'); return; }
+  if (!AN.B) { say(g, W, H, 'rendering…'); return; }
+  const mid = H / 2, amp = H * 0.44;
+  g.strokeStyle = TOKA('--scr-grid', 0.18); g.lineWidth = 1; g.beginPath(); g.moveTo(0, Math.round(mid) + 0.5); g.lineTo(W, Math.round(mid) + 0.5); g.stroke();
+  /* one tick per carrier period, so the eye can see the cut drift against it */
+  const per = SR / AN.f0, n = AN.B.scope.length;
+  g.strokeStyle = TOKA('--scr-grid', 0.22); g.beginPath();
+  for (let t = per; t < n; t += per) { const x = Math.round(t / n * W) + 0.5; g.moveTo(x, H - 5); g.lineTo(x, H); }
+  g.stroke();
+  const line = (x, ink, a, w) => {
+    g.strokeStyle = TOKA(ink, a); g.lineWidth = w; g.beginPath();
+    for (let i = 0; i < n; i++) { const X = i / (n - 1) * W, Y = mid - x[i] * amp; i ? g.lineTo(X, Y) : g.moveTo(X, Y); }
+    g.stroke();
+  };
+  line(AN.A.scope, '--ghost', 0.9, 1);
+  line(AN.B.scope, '--scr-meter', 1, Math.min(1.8, TOKN('--scr-sig-w', 1.8) * 0.7));
+  const l = $('scopeLbl'); if (l) l.textContent = (n / SR * 1000).toFixed(0) + ' ms · ticks = carrier periods';
+}
+function paintSpecNote() {
+  const s = $('specNote'); if (!s || !AN.B) return;
+  const f0 = AN.f0, r1 = recurrence(CLK, f0, 1, PATCH, true), nm = noteName(AN.note);
+  let t = '<b>' + nm + '</b> · f₀ <b>' + fmtHz(f0) + '</b> · ';
+  if (CLK.m1 === 'ratio') t += 'window advances <b>' + fmtR(CLK.r1) + '·f₀ = ' + fmtHz(CLK.r1 * f0) + '</b>';
+  else t += 'window advances <b>' + fmtHz(CLK.hz1) + '</b> (= ' + (CLK.hz1 / f0).toFixed(4) + '·f₀ on this note)';
+  t += ' · cuts recur at <b>' + (CLK.m1 === 'ratio' ? '(1 − r)·f₀' : 'f₀ − Hz') + ' = ' + fmtHz(r1) + ' = ' + (r1 / f0).toFixed(4) + '·f₀</b> (on B)';
+  if (PATCH.b2on && CLK.b2 === 'own') { const r2 = recurrence(CLK, f0, 2, PATCH, true); t += ' · blade 2 recurs at <b>' + fmtHz(r2) + ' = ' + (r2 / f0).toFixed(4) + '·f₀</b>'; }
+  t += '<br>strongest 24 peaks off the harmonic grid (more than ' + GRID_TOL + ' of a harmonic): <b>A ' + AN.A.offN + '</b> · <b>B ' + AN.B.offN + '</b>';
+  if (PATCH.N > 1 && PATCH.detune > 0) t += ' (detuned members sit off the grid in A too)';
+  s.innerHTML = t;
+  const lg = $('specLegend');
+  if (lg && !lg._built) {
+    lg._built = true;
+    lg.innerHTML = '<span><i class="sw" data-ink="--scr-meter"></i>B · the clock (heard on B)</span>' +
+      '<span><i class="sw" data-ink="--ghost" data-a=".9"></i>A · locked, the oracle</span>' +
+      '<span><i class="sw dash" data-bink="--scr-marker"></i>predicted recurrence; ticks = f₀ multiples ± it</span>' +
+      '<span><i class="sw dot" data-ink="--scr-marker"></i>peak OFF the grid</span>' +
+      '<span><i class="sw dot" data-ring="--scr-meter"></i>peak on the grid (LIN: stems in these two inks)</span>';
+    const sl = $('scopeLegend');
+    if (sl) sl.innerHTML = '<span><i class="sw" data-ink="--scr-meter"></i>B · the clock</span><span><i class="sw" data-ink="--ghost" data-a=".9"></i>A · locked, the oracle</span>';
+  }
+  paintSwatches();
+}
+function paintSwatches() {
+  for (const e of document.querySelectorAll('.sw')) {
+    if (e.dataset.ink) e.style.background = TOKA(e.dataset.ink, parseFloat(e.dataset.a || '1'));
+    if (e.dataset.bink) e.style.borderTopColor = TOKA(e.dataset.bink, 0.9);
+    if (e.dataset.ring) { e.style.background = 'transparent'; e.style.border = '1.5px solid ' + TOKA(e.dataset.ring, 0.9); }
+    e.style.outline = '2px solid ' + TOK('--scr-tube'); e.style.outlineOffset = '0';
+  }
+}
+const NOTE_NAMES = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'];
+function noteName(n) { return NOTE_NAMES[((n % 12) + 12) % 12] + (Math.floor(n / 12) - 1); }
+
+/* ======================================================================
+   H. CONTROLS
+   ====================================================================== */
+function el(tag, cls, txt) { const e = document.createElement(tag); if (cls) e.className = cls; if (txt !== undefined) e.textContent = txt; return e; }
+function pill(host, label, on, fn, tip) {
+  const b = el('button', 'pill mini' + (on ? ' on' : ''), label); if (tip) b.title = tip;
+  b.addEventListener('click', fn); host.appendChild(b); return b;
+}
+function setPct(r) { const mn = +r.min, mx = +r.max; r.style.setProperty('--pct', String((+r.value - mn) / (mx - mn))); }
+/* any change: the worklet, the controls, then (debounced) the pictures */
+function changed() { pushAudio(); buildControls(); scheduleAnalyse(); paintAudioStat(); }
+function setAB(s) { AB = s; changed(); }
+
+function buildAB() {
+  const h = $('ab'); if (!h) return; h.innerHTML = '';
+  const a = el('button', AB === 'A' ? 'on' : ''); a.innerHTML = 'A · LOCKED<small>the oracle, bit-identical</small>';
+  const b = el('button', 'b' + (AB === 'B' ? ' on' : '')); b.innerHTML = 'B · BLADE CLOCK<small>' + clockSummary() + '</small>';
+  a.addEventListener('click', () => setAB('A')); b.addEventListener('click', () => setAB('B'));
+  h.appendChild(a); h.appendChild(b);
+  const n = $('abNote');
+  if (n) n.innerHTML = AB === 'A'
+    ? 'Hearing <b>A</b>: the patch exactly as the oracle plays it, its own Rotate (' + fmtHz(PATCH.rotRate) + ') included.'
+    : 'Hearing <b>B</b>: the same patch, blade window on the clock below. Only the rotation differs from A.';
+}
+function clockSummary() {
+  const one = CLK.m1 === 'ratio' ? '× f₀ ' + (ratioName(CLK.r1) || fmtR(CLK.r1)) : 'Hz ' + fmtHz(CLK.hz1);
+  const two = PATCH.b2on ? (CLK.b2 === 'own' ? ' · ② ' + (CLK.m2 === 'ratio' ? '× f₀ ' + (ratioName(CLK.r2) || fmtR(CLK.r2)) : fmtHz(CLK.hz2)) : ' · ② follows') : '';
+  return one + two;
+}
+/* one blade's clock: mode pills, the Hz slider (log taper), the ratio slider and presets */
+function clockBlock(host, b) {
+  const mk = b === 1 ? 'm1' : 'm2', rk = b === 1 ? 'r1' : 'r2', hk = b === 1 ? 'hz1' : 'hz2';
+  const row = el('div', 'row'); row.appendChild(el('span', 'lbl', 'MODE'));
+  const pp = el('span', 'pills'); row.appendChild(pp);
+  pill(pp, '× f₀', CLK[mk] === 'ratio', () => { CLK[mk] = 'ratio'; changed(); }, 'the window advances r·f₀ per second: tracks the key (the divergence)');
+  pill(pp, 'Hz', CLK[mk] === 'hz', () => { CLK[mk] = 'hz'; changed(); }, 'the oracle\'s Rotate, past its ±4 Hz range: a fixed rate, whatever the note');
+  host.appendChild(row);
+  /* ratio */
+  const rr = el('div', 'row' + (CLK[mk] === 'ratio' ? '' : ' dim')); rr.appendChild(el('span', 'lbl', 'r'));
+  const rs = el('input'); rs.type = 'range'; rs.min = R_MIN; rs.max = R_MAX; rs.step = 0.0001; rs.value = CLK[rk]; setPct(rs);
+  const rn = el('input'); rn.type = 'number'; rn.min = R_MIN; rn.max = R_MAX; rn.step = 0.001; rn.value = CLK[rk].toFixed(4);
+  rs.addEventListener('input', () => { CLK[rk] = +rs.value; CLK[mk] = 'ratio'; rn.value = (+rs.value).toFixed(4); setPct(rs); pushAudio(); scheduleAnalyse(); buildAB(); paintReadout(b); });
+  rs.addEventListener('change', () => changed());
+  rn.addEventListener('change', () => { const v = Math.max(R_MIN, Math.min(R_MAX, +rn.value || 0)); CLK[rk] = v; CLK[mk] = 'ratio'; changed(); });
+  rr.appendChild(rs); rr.appendChild(rn); host.appendChild(rr);
+  const pr = el('div', 'row'); pr.appendChild(el('span', 'lbl', ''));
+  const pps = el('span', 'pills'); pr.appendChild(pps);
+  for (const [n, v, irr] of RATIOS) pill(pps, n, CLK[mk] === 'ratio' && Math.abs(CLK[rk] - v) < 1e-12, () => { CLK[rk] = v; CLK[mk] = 'ratio'; changed(); },
+    (irr ? 'irrational: ' : 'rational: ') + v.toFixed(10));
+  host.appendChild(pr);
+  /* Hz */
+  const hr = el('div', 'row' + (CLK[mk] === 'hz' ? '' : ' dim')); hr.appendChild(el('span', 'lbl', 'Hz'));
+  const hs = el('input'); hs.type = 'range'; hs.min = -1; hs.max = 1; hs.step = 0.001; hs.value = uFromHz(CLK[hk]); setPct(hs);
+  const hn = el('input'); hn.type = 'number'; hn.min = -HZ_MAX; hn.max = HZ_MAX; hn.step = 0.1; hn.value = (+CLK[hk]).toFixed(2);
+  hs.addEventListener('input', () => { CLK[hk] = +hzFromU(+hs.value).toFixed(3); CLK[mk] = 'hz'; hn.value = CLK[hk].toFixed(2); setPct(hs); pushAudio(); scheduleAnalyse(); buildAB(); paintReadout(b); });
+  hs.addEventListener('change', () => changed());
+  hn.addEventListener('change', () => { CLK[hk] = Math.max(-HZ_MAX, Math.min(HZ_MAX, +hn.value || 0)); CLK[mk] = 'hz'; changed(); });
+  hr.appendChild(hs); hr.appendChild(hn); host.appendChild(hr);
+  const ro = el('div', 'readout'); ro.id = 'ro' + b; host.appendChild(ro);
+}
+function paintReadout(b) {
+  const ro = $('ro' + b); if (!ro) return;
+  const f0 = mtof(AN.note), m = b === 1 ? CLK.m1 : CLK.m2, r = b === 1 ? CLK.r1 : CLK.r2, hz = b === 1 ? CLK.hz1 : CLK.hz2;
+  const rec = recurrence(CLK, f0, b, PATCH, true);
+  let t;
+  if (m === 'ratio') {
+    const fr = nearestFraction(r, 64), nm = ratioName(r);
+    const kind = isIrr(r) ? '<span class="irr">irrational</span> — no common period with the note'
+      : Math.abs(fr.err) < 1e-9 ? '<span class="rat">rational ' + fr.p + '/' + fr.q + '</span> — the output repeats every ' + fr.q + '/f₀'
+      : 'nearest p/q (q ≤ 64): ' + fr.p + '/' + fr.q + ' (off by ' + Math.abs(fr.err).toExponential(1) + ')';
+    t = 'r = <b>' + (nm ? nm + ' = ' : '') + fmtR(r) + '</b> · ' + kind + '<br>cuts recur at <b>(1 − r)·f₀ = ' + (1 - r).toFixed(4) + '·f₀</b> on every key (' + fmtHz(rec) + ' at ' + noteName(AN.note) + ')';
+    if (Math.abs(1 - r) < 0.02) t += '<br><span class="irr">near r = 1 the window rides the carrier: the cut stops recurring</span>';
+  } else {
+    t = '<b>' + fmtHz(hz) + '</b> whatever the note · cuts recur at <b>f₀ − ' + fmtHz(hz) + '</b> = ' + fmtHz(rec) + ' at ' + noteName(AN.note) +
+      ' (' + (rec / f0).toFixed(4) + '·f₀; changes with the key)' + (Math.abs(hz) <= 4 ? ' · inside the bench\'s own ±4 Hz' : '');
+  }
+  ro.innerHTML = t;
+}
+function buildControls() {
+  buildAB();
+  const c1 = $('clk1');
+  if (c1) { c1.innerHTML = ''; const h = el('h3', '', 'BLADE 1 CLOCK (on B)'); c1.appendChild(h); clockBlock(c1, 1); paintReadout(1); }
+  const c2 = $('clk2');
+  if (c2) {
+    c2.innerHTML = ''; c2.appendChild(el('h3', '', 'BLADE 2 CLOCK (on B)'));
+    if (!PATCH.b2on) c2.appendChild(el('div', 'readout', 'Blade 2 is off in this patch.'));
+    else {
+      const row = el('div', 'row'); row.appendChild(el('span', 'lbl', '②'));
+      const pp = el('span', 'pills'); row.appendChild(pp);
+      pill(pp, 'follows blade 1', CLK.b2 !== 'own', () => { CLK.b2 = 'follow'; changed(); }, 'the oracle\'s rot2Follow = 1: blade 2 rides blade 1\'s clock');
+      pill(pp, 'own clock', CLK.b2 === 'own', () => { CLK.b2 = 'own'; changed(); }, 'rot2Follow = 0, and blade 2 gets its own Hz or × f₀ clock');
+      c2.appendChild(row);
+      if (CLK.b2 === 'own') { clockBlock(c2, 2); paintReadout(2); }
+    }
+  }
+  const o = $('orc');
+  if (o) {
+    o.innerHTML = ''; o.appendChild(el('h3', '', 'ORACLE SETTINGS THAT MATTER HERE (A and B)'));
+    const r1 = el('div', 'row'); r1.appendChild(el('span', 'lbl', 'ROTATE'));
+    const p1 = el('span', 'pills'); r1.appendChild(p1);
+    pill(p1, 'restart per note', !!PATCH.rotSync, () => { PATCH.rotSync = 1; changed(); }, 'rotSync = 1: every note starts with its window at Position');
+    pill(p1, 'free-running', !PATCH.rotSync, () => { PATCH.rotSync = 0; changed(); }, 'rotSync = 0. Under × f₀ the clock is still per voice; only a retrigger keeps its phase');
+    o.appendChild(r1);
+    const r2 = el('div', 'row'); r2.appendChild(el('span', 'lbl', 'DC'));
+    const p2 = el('span', 'pills'); r2.appendChild(p2);
+    pill(p2, 'per-cycle', PATCH.dcMode === 2, () => { PATCH.dcMode = 2; changed(); }, 'dcMode 2, the oracle default: the per-cycle estimate (assumes a still window)');
+    pill(p2, 'blocker', PATCH.dcMode === 1, () => { PATCH.dcMode = 1; changed(); }, 'dcMode 1: an 8 Hz high-pass');
+    pill(p2, 'off', PATCH.dcMode === 0, () => { PATCH.dcMode = 0; changed(); }, 'dcMode 0');
+    o.appendChild(r2);
+  }
+  const ax = $('axisPills');
+  if (ax) { ax.innerHTML = ''; pill(ax, 'LOG', LAB.axis === 'log', () => { LAB.axis = 'log'; buildControls(); paintSpec($('spec')); }); pill(ax, 'LIN · 16 harmonics', LAB.axis === 'lin', () => { LAB.axis = 'lin'; buildControls(); paintSpec($('spec')); }); }
+  buildPresetLists();
+}
+
+/* ---- presets ---- */
+function benchParams(name) { const p = LAB.presets && LAB.presets.find(x => x.name === name); return p ? p.params : null; }
+function loadBench(name) {
+  const bp = benchParams(name); if (!bp) return;
+  PATCH = Object.assign({}, DEF, bp); LAB.cur = name; LAB.curKind = 'bench'; changed();
+}
+/* DEMO VOICING: every demo runs the oracle's DC BLOCKER (dcMode 1), not its default
+   per-cycle estimate (dcMode 2). Measured, not preferred: the per-cycle estimate is
+   recomputed every 256 samples for the window where it happens to be, so under the
+   clock it chases a moving target and injects a wobble (the DC table's "wob" column;
+   in a scratch render of Quarter sync at A3, r = 1/2, it put the energy off the f₀/2
+   lines 11 dB higher than the blocker did, −20.7 vs −31.9 dB). The locked twin carries the same setting, so A vs B is still the
+   clock and nothing else. The DC pills change it for any patch. */
+const DEMO_VOICING = { dcMode: 1 };
+function demoPatch(dm) { const bp = benchParams(dm.base); return bp ? Object.assign({}, DEF, bp, DEMO_VOICING, dm.over) : null; }
+function loadDemo(id, side) {
+  const dm = DEMOS.find(x => x.id === id); if (!dm) return;
+  const p = demoPatch(dm); if (!p) return;
+  PATCH = p; CLK = Object.assign({}, CLK_DEF, dm.clk); AB = side || 'B'; LAB.cur = id; LAB.curKind = 'demo'; changed();
+}
+function clockTag(clk) {
+  const one = clk.m1 === 'hz' ? 'Hz ' + fmtHz(clk.hz1) : '× f₀ ' + (ratioName(clk.r1) || fmtR(clk.r1));
+  return one + (clk.b2 === 'own' ? ' · ② ' + (clk.m2 === 'hz' ? fmtHz(clk.hz2) : '× f₀ ' + (ratioName(clk.r2) || fmtR(clk.r2))) : '');
+}
+function buildPresetLists() {
+  const dl = $('demoList'), bl = $('benchList'); if (!dl || !bl) return;
+  dl.innerHTML = ''; bl.innerHTML = '';
+  if (!LAB.presets) { const m = LAB.presetErr || 'loading reference/scalpel/data/presets.json…'; dl.appendChild(el('div', 'readout', m)); return; }
+  for (const dm of DEMOS) {
+    const cur = LAB.curKind === 'demo' && LAB.cur === dm.id;
+    const it = el('div', 'pi' + (cur ? ' cur' : ''));
+    const nm = el('div', 'nm', dm.name); nm.appendChild(el('span', 'tg', clockTag(Object.assign({}, CLK_DEF, dm.clk))));
+    nm.addEventListener('click', () => loadDemo(dm.id, 'B'));
+    const bt = el('div', 'bt');
+    const bB = pill(bt, 'B', false, () => loadDemo(dm.id, 'B'), 'play this demo on the clock');
+    const bA = pill(bt, 'A', false, () => loadDemo(dm.id, 'A'), 'its locked twin: the same patch, the oracle, bit-identical');
+    if (cur) (AB === 'B' ? bB : bA).classList.add('bon');
+    const ds = el('div', 'ds', dm.desc + ' · on ' + dm.base + '.');
+    it.appendChild(nm); it.appendChild(bt); it.appendChild(ds); dl.appendChild(it);
+  }
+  for (const [name, mode, why] of BENCH_PICK) {
+    const ok = !!benchParams(name), cur = LAB.curKind === 'bench' && LAB.cur === name;
+    const it = el('div', 'pi' + (cur ? ' cur' : ''));
+    const nm = el('div', 'nm', name); nm.appendChild(el('span', 'tg', mode));
+    if (ok) nm.addEventListener('click', () => loadBench(name));
+    const bt = el('div', 'bt');
+    const bB = pill(bt, 'B', false, () => { loadBench(name); setAB('B'); });
+    const bA = pill(bt, 'A', false, () => { loadBench(name); setAB('A'); });
+    if (cur) (AB === 'B' ? bB : bA).classList.add('bon');
+    it.appendChild(nm); it.appendChild(bt); it.appendChild(el('div', 'ds', ok ? why : 'NOT FOUND in presets.json'));
+    bl.appendChild(it);
+  }
+}
+
+/* ---- keyboard: two octaves on screen, the analysed note marked ---- */
+function buildKbd() {
+  const k = $('kbd'); if (!k) return; k.innerHTML = '';
+  const base = 48 + 12 * AUD.oct;
+  for (let n = base; n < base + 25; n++) {
+    const blk = [1, 3, 6, 8, 10].indexOf(((n % 12) + 12) % 12) >= 0;
+    const key = el('div', 'key' + (blk ? ' blk' : '')); key.dataset.note = String(n);
+    key.addEventListener('pointerdown', e => { e.preventDefault(); key.classList.add('down'); noteOn(n); });
+    const up = () => { if (key.classList.contains('down')) { key.classList.remove('down'); noteOff(n); } };
+    key.addEventListener('pointerup', up); key.addEventListener('pointerleave', up);
+    k.appendChild(key);
+  }
+  paintKbd();
+}
+function paintKbd() {
+  const k = $('kbd'); if (!k || !k.children) return;
+  for (const key of k.children) key.classList.toggle('mon', +key.dataset.note === AN.note);
+  const o = $('octLbl'); if (o) o.textContent = 'analysed: ' + noteName(AN.note) + ' · octave ' + (AUD.oct >= 0 ? '+' : '') + AUD.oct;
+}
+
+/* ======================================================================
+   I. SELF-CHECKS — each property with a control that must fail
+   ====================================================================== */
+function sameSamples(a, b) { if (a.length !== b.length) return false; for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false; return true; }
+function maxDiff(a, b) { let m = 0; for (let i = 0; i < a.length; i++) m = Math.max(m, Math.abs(a[i] - b[i])); return m; }
+/* the same patch through the plain oracle and the wrapper: every L and R sample */
+function identical(p, bc, n, note) {
+  const a = renderOne(CORE, p, null, note || 57, mtof(note || 57), n, SEED_CHECK, SR, true);
+  const b = renderOne(BCORE, p, bc || { x1: 0, r1: 0, x2: 0, r2: 0 }, note || 57, mtof(note || 57), n, SEED_CHECK, SR, true);
+  return { same: sameSamples(a.L, b.L) && sameSamples(a.R, b.R), diff: Math.max(maxDiff(a.L, b.L), maxDiff(a.R, b.R)) };
+}
+/* relative error of x against itself shifted by `lag`, over 4096 samples from `o` */
+function lagErr(x, o, lag) { let a = 0, b = 0; for (let i = 0; i < 4096; i++) { const d = x[o + i + lag] - x[o + i]; a += d * d; b += x[o + i] * x[o + i]; } return Math.sqrt(a / (b || 1e-30)); }
+function bestLag(x, o, lo, hi) { let best = 1e9, at = 0; for (let l = lo; l <= hi; l++) { const e = lagErr(x, o, l); if (e < best) { best = e; at = l; } } return { err: best, lag: at }; }
+/* do the peaks sit on the lattice f = a·f0 + b·(1 − r)·f0, |b| ≤ bMax? (in harmonics) */
+function latticeFit(pk, f0, r, bMax, tol) {
+  const q = 1 - r; let worst = 0, offN = 0;
+  const bs = pk.map(o => {
+    const h = o.f / f0; let best = 9, bb = 0;
+    for (let b = -bMax; b <= bMax; b++) { const d = Math.abs(frac(h - b * q + 0.5) - 0.5); if (d < best - 1e-12) { best = d; bb = b; } }
+    worst = Math.max(worst, best); if (bb !== 0) offN++;
+    return bb;
+  });
+  return { ok: worst < tol, worst, offN, bs };
+}
+function push(name, kind, ok, detail) { CHK.list.push({ name, kind, ok: !!ok, detail }); paintChecks(); }
+const Q_SYNC = () => Object.assign({}, DEF, benchParams('Quarter sync') || {}, { dcMode: 0 });
+const PERIOD_F0 = 187.5;   /* SR/256: the carrier's period is 256 samples, and r = 1/2 steps the window by exactly 2⁻⁹ */
+const CHECKS = [
+  function anchors() {
+    const n = anchorCounts(CORE, BC_PATCHES.map(x => x[0]));
+    push('The override is anchored: each of the 4 oracle lines it replaces occurs exactly once in render()', 'prop',
+      n.every(v => v === 1) && !!BCORE, 'counts ' + n.join(', ') + (BC_ERR ? ' · ' + BC_ERR : ''));
+    /* a copy of the list with one anchor gone stale, as a razor-core.js edit would leave it */
+    const stale = BC_PATCHES.map(([a, b], i) => [i === 2 ? a.replace('v.rot += rs', 'v.rot += rs2') : a, b]);
+    const bad = anchorCounts(CORE, [stale[2][0]])[0];
+    let refused = false; try { bladeClockClassSource(CORE, stale); } catch (_) { refused = true; }
+    push('CONTROL: a stale anchor (one character changed) matches 0× and the builder REFUSES to build the class', 'control', bad === 0 && refused, 'matches ' + bad + ', refused ' + refused);
+  },
+  function offIsOracle() {
+    /* one job per patch (a render pair each), then the verdict */
+    const names = BENCH_PICK.map(x => x[0]).concat(['Two clocks', 'Counter-rotation']);
+    const acc = { n: 0, bad: [] };
+    const cases = names.map(nm => [nm, benchParams(nm) ? Object.assign({}, DEF, benchParams(nm)) : null]);
+    cases.push(['Two clocks, free-running', Object.assign({}, DEF, benchParams('Two clocks') || {}, { rotSync: 0 })]);
+    const jobs = cases.map(([nm, p]) => () => {
+      if (!p) { acc.bad.push(nm + ' (missing)'); return; }
+      const r = identical(p, null, 8192); acc.n++; if (!r.same) acc.bad.push(nm + ' Δ' + r.diff.toExponential(1));
+    });
+    jobs.push(() => {
+      push('Clock OFF is the oracle, sample-exact: ' + acc.n + ' patches × 8192 samples × L and R (the 8 bench picks, Two clocks and Counter-rotation — both already on the oracle\'s own Rotate, blade 2 on its own clock in the second — and a free-running variant)',
+        'prop', acc.bad.length === 0 && acc.n === cases.length, acc.bad.length ? 'differs: ' + acc.bad.join('; ') : acc.n + '/' + acc.n + ' identical');
+      const c = identical(Q_SYNC(), { x1: 1, r1: PHI1 }, 8192);
+      push('CONTROL: the same comparison with the clock ON (r = φ−1) must differ', 'control', !c.same && c.diff > 0.01, 'max |Δ| ' + c.diff.toFixed(4));
+    });
+    return jobs;
+  },
+  function hzIsOracleLaw() {
+    const p = Object.assign(Q_SYNC(), { rotRate: 1000 });
+    const r = identical(p, null, 8192);
+    push('Hz mode is the oracle\'s own law: rotRate = 1000 Hz (250× the bench\'s range) through the wrapper equals the plain oracle, sample-exact', 'prop', r.same, r.same ? 'identical' : 'max |Δ| ' + r.diff);
+    /* without this, "identical" could mean the oracle ignores the value (a clamp we did not see) */
+    const a = renderOne(CORE, Object.assign(Q_SYNC(), { rotRate: 4 }), null, 57, mtof(57), 8192, SEED_CHECK);
+    const b = renderOne(CORE, p, null, 57, mtof(57), 8192, SEED_CHECK);
+    push('CONTROL: 1000 Hz is not clamped or ignored — the oracle at 1000 Hz differs from the oracle at 4 Hz', 'control', maxDiff(a, b) > 0.01, 'max |Δ| ' + maxDiff(a, b).toFixed(4));
+  },
+  function tracksKey() {
+    const n = 4800, r = PHI1, rot = note => { const o = renderOne(BCORE, Q_SYNC(), { x1: 1, r1: r }, note, mtof(note), n, SEED_CHECK, SR, true); return o.c.voices.find(v => v.active).rot; };
+    const e1 = Math.abs(frac(rot(57) - r * mtof(57) * n / SR + 0.5) - 0.5), e2 = Math.abs(frac(rot(81) - r * mtof(81) * n / SR + 0.5) - 0.5);
+    push('× f₀ tracks the key: after 4800 samples the window has advanced r·f₀·t at A3 and at A5 (r = φ−1)', 'prop', e1 < 1e-9 && e2 < 1e-9, 'errors ' + e1.toExponential(1) + ', ' + e2.toExponential(1) + ' cycles');
+    const hz = r * mtof(57), o = renderOne(BCORE, Object.assign(Q_SYNC(), { rotRate: hz }), null, 81, mtof(81), n, SEED_CHECK, SR, true);
+    const e3 = Math.abs(frac(o.c.voices.find(v => v.active).rot - r * mtof(81) * n / SR + 0.5) - 0.5);
+    push('CONTROL: Hz mode at A3\'s rate does NOT track: at A5 it misses r·f₀(A5)·t', 'control', e3 > 0.01, 'miss ' + e3.toFixed(3) + ' cycles');
+  },
+  function periodic() {
+    const n = 96000 + 8192, o = 96000, p = Q_SYNC(); p.N = 1;
+    const half = renderOne(BCORE, p, { x1: 1, r1: 0.5 }, 60, PERIOD_F0, n, SEED_CHECK);
+    const gold = renderOne(BCORE, p, { x1: 1, r1: PHI1 }, 60, PERIOD_F0, n, SEED_CHECK);
+    const off = renderOne(BCORE, p, null, 60, PERIOD_F0, n, SEED_CHECK);
+    const eH = lagErr(half, o, 512), bG = bestLag(gold, o, 64, 4096);
+    push('r = 1/2 is periodic at the PREDICTED period, 2/f₀ = 512 samples (one member, f₀ = 187.5 Hz, 2 s settled)', 'prop', eH < 1e-6, 'relative error at 512: ' + eH.toExponential(1));
+    push('r = φ−1 is NOT periodic: no lag from 64 to 4096 samples repeats it', 'prop', bG.err > 0.1, 'best lag ' + bG.lag + ', relative error ' + bG.err.toFixed(3));
+    const eH2 = lagErr(half, o, 256);
+    push('CONTROL: r = 1/2 at the CARRIER\'s period (256) must fail — the period really is 2/f₀', 'control', eH2 > 0.1, 'relative error at 256: ' + eH2.toFixed(3));
+    const eO = lagErr(off, o, 256);
+    push('CONTROL: clock OFF repeats at 256 — the detector CAN say "periodic", so its "no" for φ−1 is not blindness', 'control', eO < 1e-6, 'relative error at 256: ' + eO.toExponential(1));
+  },
+  function offGridPeaks() {
+    const N = 65536, set = 24000, p = Q_SYNC(); p.N = 1;
+    const pk = r => peaksOf(bhPower(renderOne(BCORE, p, { x1: 1, r1: r }, 60, PERIOD_F0, set + N, SEED_CHECK), set, N), N, SR, 12, 60);
+    const g = pk(PHI1), fit = latticeFit(g, PERIOD_F0, PHI1, 12, 0.003);
+    const offs = g.filter(o => offGrid(o.f, PERIOD_F0) > GRID_TOL);
+    const first = offs.slice(0, 2).map(o => frac(o.f / PERIOD_F0)).sort();
+    const want = [1 - PHI1, PHI1].sort(), firstOk = first.length === 2 && Math.abs(first[0] - want[0]) < 0.003 && Math.abs(first[1] - want[1]) < 0.003;
+    push('r = φ−1 moves partials OFF the grid by the predicted amount: the two strongest off-grid peaks sit (1 − r) = 0.382 and r = 0.618 of a harmonic past one (the first sideband pair, ±(1 − r)·f₀), and all 12 strongest sit on the lattice a·f₀ + b·(1 − r)·f₀',
+      'prop', firstOk && fit.ok && offs.length >= 4, 'first off-grid at ' + first.map(v => v.toFixed(4)).join(' / ') + ' · lattice worst ' + fit.worst.toFixed(4) + ' · ' + offs.length + '/12 off the grid');
+    const h = pk(0.5), hf = latticeFit(h, PERIOD_F0, 0.5, 1, 0.003);
+    const near = h.some(o => Math.min(Math.abs(frac(o.f / PERIOD_F0) - (1 - PHI1)), Math.abs(frac(o.f / PERIOD_F0) - PHI1)) < 0.003);
+    push('CONTROL: at r = 1/2 every strong peak sits on the half-harmonic grid and none at 0.382 / 0.618', 'control', hf.ok && !near, 'half-grid worst ' + hf.worst.toFixed(4));
+    const gf = latticeFit(g, PERIOD_F0, 0.5, 1, 0.003);
+    push('CONTROL: the φ−1 peaks do NOT fit the half-harmonic grid (the fit can fail)', 'control', !gf.ok, 'worst ' + gf.worst.toFixed(4));
+  },
+  function finiteSweep() {
+    /* one job per bench pick, then the verdict and its planted-NaN control */
+    const rs = [-2, -1, -PHI1, 0.25, 0.5, PHI1, 0.999, 1, 1.5, 2], hzs = [-2000, -300, 2, 300, 2000], notes = [24, 60, 96];
+    const acc = { n: 0, bad: 0, where: '' };
+    const scan = (x, w) => { acc.n++; for (const v of x) if (!isFinite(v)) { acc.bad++; acc.where = w; break; } };
+    const jobs = BENCH_PICK.map(([nm]) => () => {
+      const bp = benchParams(nm); if (!bp) return;
+      const base = Object.assign({}, DEF, bp);
+      for (const note of notes) {
+        for (const r of rs) scan(renderOne(BCORE, base, { x1: 1, r1: r, x2: 1, r2: -r }, note, mtof(note), 1024, SEED_CHECK), nm + ' r ' + r);
+        for (const hz of hzs) scan(renderOne(BCORE, Object.assign({}, base, { rotRate: hz, rotRate2: -hz, rot2Follow: 0 }), null, note, mtof(note), 1024, SEED_CHECK), nm + ' Hz ' + hz);
+      }
+    });
+    jobs.push(() => {
+      push('No NaN or non-finite sample across a sweep: 8 bench picks × 3 notes (C1, C4, C7) × 10 ratios (−2…2, incl. 1) and 5 Hz rates (±2 kHz), blade 2 on the opposite clock, 1024 samples each',
+        'prop', acc.bad === 0 && acc.n === 8 * 3 * 15, acc.n + ' renders, ' + acc.bad + ' non-finite' + (acc.where ? ' (' + acc.where + ')' : ''));
+      const x = renderOne(BCORE, Q_SYNC(), { x1: 1, r1: 0.5, nan: 1 }, 60, mtof(60), 1024, SEED_CHECK);
+      let nf = 0; for (const v of x) if (!isFinite(v)) nf++;
+      push('CONTROL: a planted NaN clock is caught by the same scan', 'control', nf > 0, nf + ' non-finite samples found');
+    });
+    return jobs;
+  },
+  function aliasMeter() {
+    /* the folded-energy meter (section J) must be able to see what it claims to: a
+       pure sine (blade width 0) reads near nothing, and a tone planted into the 48 kHz
+       render at a known level reads at that level */
+    const p = Object.assign(Q_SYNC(), { N: 1, w: 0 });
+    MEAS.plant = { want: -40, base: aliasExcess(p, null, 220), got: aliasExcess(p, null, 220, { f: 7528.8, dbc: -40 }) };
+    push('CONTROL: the aliasing meter reads a tone planted at −40 dBc at −40 ± 1 dBc, and the pure sine it was planted in below −60 dBc',
+      'control', Math.abs(MEAS.plant.got + 40) < 1 && MEAS.plant.base < -60, 'planted reads ' + fmtDb(MEAS.plant.got) + ', sine alone ' + fmtDb(MEAS.plant.base));
+  },
+  function demosLoad() {
+    /* one job per demo, then the verdict and its planted-key control */
+    const acc = { bad: [], n: 0 };
+    const clkKeys = new Set(Object.keys(CLK_DEF));
+    const keyCheck = dm => Object.keys(dm.over).filter(k => !ORK.has(k)).concat(Object.keys(dm.clk).filter(k => !clkKeys.has(k)));
+    const jobs = DEMOS.map(dm => () => {
+      const p = demoPatch(dm); if (!p) { acc.bad.push(dm.name + ': base "' + dm.base + '" not found'); return; }
+      const unk = keyCheck(dm); if (unk.length) { acc.bad.push(dm.name + ': unknown keys ' + unk.join(',')); return; }
+      const h = applyClock(p, Object.assign({}, CLK_DEF, dm.clk), true);
+      const x = renderOne(BCORE, h.p, h.bc, 57, mtof(57), 8192, SEED_CHECK);
+      let e = 0, nf = 0; for (let i = 2048; i < x.length; i++) { if (!isFinite(x[i])) nf++; e += x[i] * x[i]; }
+      const rms = Math.sqrt(e / (x.length - 2048));
+      if (nf || rms < 1e-3) { acc.bad.push(dm.name + ': ' + (nf ? nf + ' non-finite' : 'silent, RMS ' + rms.toExponential(1))); return; }
+      const tw = identical(applyClock(p, CLK_DEF, false).p, null, 8192);
+      if (!tw.same) { acc.bad.push(dm.name + ': locked twin differs from the oracle'); return; }
+      acc.n++;
+    });
+    jobs.push(() => {
+      push('Every demo preset loads (base found, keys known), renders finite and audible (> −60 dBFS) on its clock, and its locked twin A equals the oracle sample-exact', 'prop',
+        acc.bad.length === 0 && acc.n === DEMOS.length, acc.bad.length ? acc.bad.join('; ') : acc.n + '/' + DEMOS.length);
+      const planted = Object.assign({}, DEMOS[0], { over: { rotRat: 3 } });
+      push('CONTROL: a demo carrying an invented key (rotRat) is caught by the key check', 'control', keyCheck(planted).length === 1, 'caught: ' + keyCheck(planted).join(','));
+    });
+    return jobs;
+  },
+];
+function paintChecks() {
+  const o = $('checks'); if (!o) return;
+  o.innerHTML = '';
+  for (const c of CHK.list) {
+    const li = el('li');
+    li.innerHTML = '<span class="' + (c.ok ? 'ok' : 'no') + '">' + (c.ok ? 'PASS' : 'FAIL') + '</span> <span class="kind">' + (c.kind === 'control' ? 'CONTROL' : 'PROPERTY') + '</span>' +
+      escapeHtml(c.name) + ' — <i>' + escapeHtml(String(c.detail)) + '</i>';
+    o.appendChild(li);
+  }
+  if (!CHK.done) o.appendChild(el('li', 'pending', 'running…'));
+  paintAudit();
+}
+function escapeHtml(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]); }
+function paintAudit() {
+  const a = $('audit'); if (!a) return;
+  if (!CORE) { a.className = 'audit bad'; a.textContent = 'oracle NOT loaded: reference/scalpel/prototype/razor-core.js was not reachable (the load checker runs inline blocks only, so this is expected there). Nothing on this page is drawn or heard without it.'; return; }
+  if (!BCORE) { a.className = 'audit bad'; a.textContent = 'wrapper REFUSED: ' + BC_ERR + ' — razor-core.js changed under the anchors; the lab will not play a stale override.'; return; }
+  const pass = CHK.list.filter(c => c.ok).length, ctl = CHK.list.filter(c => c.kind === 'control').length;
+  const allOk = CHK.done && pass === CHK.list.length;
+  a.className = 'audit' + (CHK.done && !allOk ? ' bad' : '');
+  a.innerHTML = 'oracle <b>razor-core.js</b> loaded · BladeClockCore built from its render() with 4 anchored lines · Math.random seeded (mulberry32) before every instance · self-check ' +
+    (CHK.done ? '<span class="' + (allOk ? 'ok' : 'no') + '">' + pass + '/' + CHK.list.length + '</span>' : pass + '/' + CHK.list.length + ' so far…') +
+    ' (' + ctl + ' of them controls that must fail) · ' + (LAB.presets ? LAB.presets.length + ' bench presets fetched' : (LAB.presetErr || 'presets loading')) +
+    (MEAS.done ? ' · measurements done (below)' : MEAS.alias ? ' · measuring (tables below fill in)…' : ' · measurements pending');
+}
+
+/* ======================================================================
+   J. MEASUREMENTS — aliasing, DC, edge jumps (reported, not gated)
+   ====================================================================== */
+/* 4× → 1×: a 1025-tap Blackman windowed sinc at 192 kHz, cut at 21.5 kHz (−74 dB
+   stopband from ~23 kHz), every 4th sample. Odd length, so its delay is exactly
+   128 output samples; the comparison is of power spectra, so delay is moot anyway. */
+let _dec = null;
+function decimate4(x, from, count) {
+  const M = 1025;
+  if (!_dec) {
+    const h = new Float64Array(M), fc = 21500 / (4 * SR); let s = 0;
+    for (let i = 0; i < M; i++) {
+      const n = i - (M - 1) / 2, w = 0.42 - 0.5 * Math.cos(TAU * i / (M - 1)) + 0.08 * Math.cos(2 * TAU * i / (M - 1));
+      h[i] = (n === 0 ? 2 * fc : Math.sin(TAU * fc * n) / (Math.PI * n)) * w; s += h[i];
+    }
+    for (let i = 0; i < M; i++) h[i] /= s;
+    _dec = h;
+  }
+  /* only the outputs asked for (out[k] is output sample from + k) — the FIR is the costly part */
+  const h = _dec, out = new Float64Array(count);
+  for (let k = 0; k < count; k++) { let a = 0; const b = (from + k) * 4; for (let i = 0; i < M; i++) a += h[i] * x[b + i]; out[k] = a; }
+  return out;
+}
+/* FOLDED ENERGY, dBc. P₁ is the lab's own rate (48 kHz, the oracle's 2×
+   oversampling); P₄ the SAME wrapper and patch run at 192 kHz and decimated. The
+   figure is Σ (P₁ − P₄) over the bins of 30 Hz–19 kHz where P₁ > 4·P₄ (6 dB),
+   against Σ P₄: energy the 1× render has WHERE THE 4× RENDER HAS NONE, which is
+   folded (and discretisation) energy. The 6 dB gate is load-bearing: without it a
+   0.1 % level mismatch on the strongest partials (the FIR's passband ripple, a
+   decaying envelope read 128 samples apart) summed to about −34 dBc on a PURE SINE,
+   and the meter read its own ripple as aliasing (self-check "aliasing meter" caught
+   it). What the gate costs: an alias landing on top of a real partial is not
+   counted, so the figure is a lower bound. `plant` adds a tone to the 1× render at
+   a stated level — the meter's control. 0.3 s settles the envelope; the FIR's 128-
+   sample delay is taken out so both windows cover the same instants. */
+function aliasExcess(p, bc, f, plant) {
+  const N = 8192, set = 14400, D = 128;
+  const x1 = renderOne(BCORE, p, bc, 60, f, set + N, SEED_MEAS);
+  const x4 = renderOne(BCORE, p, bc, 60, f, (set + N) * 4 + 1100, SEED_MEAS, 4 * SR);
+  const xr = decimate4(x4, set - D, N);          /* xr[k] ↔ x1[set + k] */
+  if (plant) { let v = 0; for (let k = 0; k < N; k++) v += xr[k] * xr[k]; v /= N; const a = Math.sqrt(2 * v * Math.pow(10, plant.dbc / 10)); for (let i = 0; i < x1.length; i++) x1[i] += a * Math.sin(TAU * plant.f * i / SR); }
+  const p1 = bhPower(x1, set, N), pr = bhPower(xr, 0, N);
+  let ex = 0, tot = 0; const lo = Math.ceil(30 * N / SR), hi = Math.floor(19000 * N / SR);
+  for (let i = lo; i <= hi; i++) { tot += pr[i]; if (p1[i] > 4 * pr[i]) ex += p1[i] - pr[i]; }
+  return 10 * Math.log10(ex / tot + 1e-30);
+}
+const M_CLOCKS = [['locked', null, {}], ['r ½', { x1: 1, r1: 0.5 }, {}], ['r φ−1', { x1: 1, r1: PHI1 }, {}], ['r 0.9', { x1: 1, r1: 0.9 }, {}],
+  ['r −(φ−1)', { x1: 1, r1: -PHI1 }, {}], ['Hz 1000', null, { rotRate: 1000 }]];
+const M_ALIAS_PATCHES = [['Quarter sync', 'Sync'], ['Zap bass', 'FM reset'], ['Ring saw', 'Ring'], ['Slewed crush', 'Crush']];
+/* DC FIGURES for one patch and clock, under each of the oracle's DC modes, 1 s at A3,
+   read over the last 0.5 s and relative to the RMS of the uncorrected render:
+   dc  — the mean;
+   lf  — energy under 20 Hz once the mean is removed (two one-pole low-passes);
+   inj — the AC energy of the correction: the corrected render minus the uncorrected
+         one (mode 0), its mean removed. Shown for the per-cycle estimate only (the
+         table's "wob"): its correction should be a constant, so any AC is the
+         estimate chasing a moving window. For the blocker the same difference is
+         mostly its phase shift on real partials, which is not junk. */
+function dcCell(p, bc, f) {
+  const n = 48000, h = n / 2, out = {};
+  const x0 = renderOne(BCORE, Object.assign({}, p, { dcMode: 0 }), bc, 57, f, n, SEED_MEAS);
+  let e0 = 0; for (let i = h; i < n; i++) e0 += x0[i] * x0[i]; const ms0 = e0 / h || 1e-30;
+  for (const dm of [2, 1, 0]) {
+    const x = dm ? renderOne(BCORE, Object.assign({}, p, { dcMode: dm }), bc, 57, f, n, SEED_MEAS) : x0;
+    let m = 0, md = 0; for (let i = h; i < n; i++) { m += x[i]; md += x[i] - x0[i]; } m /= h; md /= h;
+    const a = 1 - Math.exp(-TAU * 20 / SR); let y1 = 0, y2 = 0, el = 0, ei = 0;
+    for (let i = 0; i < n; i++) { y1 += (x[i] - m - y1) * a; y2 += (y1 - y2) * a; if (i >= h) { el += y2 * y2; const d = x[i] - x0[i] - md; ei += d * d; } }
+    out[dm] = { dc: 10 * Math.log10(m * m / ms0 + 1e-24), lf: 10 * Math.log10(el / h / ms0 + 1e-30), inj: 10 * Math.log10(ei / h / ms0 + 1e-30) };
+  }
+  return out;
+}
+/* EDGE JUMPS. An instance override of stepM on the MEASURING instance only (never
+   the audio path): after each call, if blade 1's primary window (ns) changed
+   inside/outside, find the edge it crossed (entry st, or exit st + w) and ask
+   whether the CARRIER crossed it in this substep, E ∈ (p0, p0 + dphi] — the case
+   stepM's tryE band-limits — or the WINDOW jumped over the carrier between
+   substeps, which nothing band-limits. Counted after 0.05 s. */
+function edgeCount(p, bc, f, n) {
+  seedOracle(SEED_MEAS);
+  const c = new BCORE(SR); c.set(oracleOnly(p)); Object.assign(c.s, c.t); if (bc) setBc(c.bc, bc);
+  c.noteOn(57, f, 0.9);
+  const orig = CORE.prototype.stepM; let total = 0, jump = 0, t = 0;
+  c.stepM = function (m, dphi, cc, k, s) {
+    const p0 = m.phi, w = s.w, was = m.ns.inside;
+    const y = orig.call(this, m, dphi, cc, k, s);
+    const now = m.ns.inside;
+    if (t > 2400 && now !== was && w >= 0.004 && w < 0.9999) {
+      total++;
+      let st = cc - w * 0.5; st -= Math.floor(st);
+      let dd = (now ? st : st + w) - p0; dd -= Math.floor(dd);
+      if (!(dd > 0 && dd <= dphi)) jump++;
+    }
+    return y;
+  };
+  const L = new Float64Array(128), R = new Float64Array(128);
+  for (t = 0; t < n; t += 128) c.render(L, R);
+  const sec = (n - 2400) / SR;
+  return { total: total / sec, jump: jump / sec };
+}
+const M_EDGE_CLOCKS = [['locked', null, {}], ['Rotate 4 Hz (oracle)', null, { rotRate: 4 }], ['r ½', { x1: 1, r1: 0.5 }, {}], ['r φ−1', { x1: 1, r1: PHI1 }, {}],
+  ['r 0.9', { x1: 1, r1: 0.9 }, {}], ['r −(φ−1)', { x1: 1, r1: -PHI1 }, {}], ['Hz 1000', null, { rotRate: 1000 }], ['Hz −1000', null, { rotRate: -1000 }]];
+const M_EDGE_PATCHES = ['Quarter sync', 'Locked horde', 'Zap bass', 'Slewed crush'];
+const M_DC_PATCHES = ['Quarter sync', 'Locked horde', 'Ring saw'];
+const M_DC_CLOCKS = [['locked', null], ['r ½', { x1: 1, r1: 0.5 }], ['r φ−1', { x1: 1, r1: PHI1 }], ['r 0.9', { x1: 1, r1: 0.9 }]];
+function measureJobs() {
+  const jobs = [];
+  /* every table is laid out first (null = not measured yet) and filled one cell per job */
+  MEAS.alias = { rows: [] }; MEAS.dc = { rows: [] }; MEAS.edge = { rows: [] };
+  for (const [nm, mode] of M_ALIAS_PATCHES) for (const f of [220, 880]) {
+    const row = { nm, mode, f, v: M_CLOCKS.map(() => null) }; MEAS.alias.rows.push(row);
+    const p = Object.assign({}, DEF, benchParams(nm) || {}, { dcMode: 0, N: 1 });
+    M_CLOCKS.forEach(([, bc, over], i) => jobs.push(() => { row.v[i] = aliasExcess(Object.assign({}, p, over), bc, f); paintMeas(); }));
+  }
+  for (const nm of M_DC_PATCHES) {
+    const row = { nm, v: M_DC_CLOCKS.map(() => null) }; MEAS.dc.rows.push(row);
+    const p = Object.assign({}, DEF, benchParams(nm) || {});
+    M_DC_CLOCKS.forEach(([, bc], i) => jobs.push(() => { row.v[i] = dcCell(p, bc, mtof(57)); paintMeas(); }));
+  }
+  for (const nm of M_EDGE_PATCHES) {
+    const p = Object.assign({}, DEF, benchParams(nm) || {});
+    const row = { nm, hard: p.hard, v: M_EDGE_CLOCKS.map(() => null) }; MEAS.edge.rows.push(row);
+    M_EDGE_CLOCKS.forEach(([, bc, over], i) => jobs.push(() => { row.v[i] = edgeCount(Object.assign({}, p, over), bc, mtof(57), 12000 + 2400); paintMeas(); }));
+  }
+  jobs.push(() => { MEAS.done = true; paintMeas(); });
+  return jobs;
+}
+function fmtDb(v) { return (v > -200 ? v.toFixed(1) : '−∞'); }
+function paintMeas() {
+  const A = $('mAlias');
+  if (A && MEAS.alias) {
+    let t = '<div>One member (N = 1, so both renders are the same deterministic signal), DC correction off, 2× oversampling as the oracle ships. ' +
+      'dBc = energy the 48 kHz render has where the 192 kHz render of the same wrapper has none (bins ≥ 6 dB above it), 30 Hz–19 kHz, relative to the 192 kHz render; ' +
+      'an alias landing on a real partial is not counted, so it is a lower bound. <b>locked</b> is the oracle\'s own figure; ' +
+      'shaded cells are ≥ 3 dB worse than it.</div>';
+    if (MEAS.plant) { const pl = MEAS.plant; t += '<div>The meter\'s own control (self-check): on a pure sine (blade width 0) it reads <b>' + fmtDb(pl.base) + ' dBc</b>; a tone planted at <b>' + pl.want + ' dBc</b> reads <b>' + fmtDb(pl.got) + ' dBc</b>.</div>'; }
+    t += '<table><tr><th>patch</th><th>f₀</th>' + M_CLOCKS.map(c => '<th>' + c[0] + '</th>').join('') + '</tr>';
+    for (const r of MEAS.alias.rows) t += '<tr><td>' + r.nm + ' <span class="tg">' + r.mode + '</span></td><td class="n">' + r.f + '</td>' +
+      r.v.map((v, i) => v === null ? '<td class="n zero">…</td>' : '<td class="n' + (i && r.v[0] !== null && v > r.v[0] + 3 ? ' worse' : '') + '">' + fmtDb(v) + '</td>').join('') + '</tr>';
+    A.innerHTML = t + '</table>'; A.className = '';
+  }
+  const D = $('mDC');
+  if (D && MEAS.dc && MEAS.dc.rows.length) {
+    let t = '<div>The bench voicing (its own members), A3, 1 s; figures over the last 0.5 s in dB relative to the power of the uncorrected render. ' +
+      '<b>DC</b> = the mean; <b>&lt;20</b> = energy under 20 Hz once the mean is removed; <b>wob</b> (per-cycle mode only) = the AC energy of ' +
+      'the correction itself (corrected minus uncorrected, mean removed): an estimate that only removes DC would read near nothing. ' +
+      '(For the blocker that difference is mostly its phase shift on real partials, not junk, so it is not shown.) Shaded: ≥ 6 dB above the same mode\'s locked cell.</div>';
+    t += '<table><tr><th>patch</th><th>DC mode</th>' + M_DC_CLOCKS.map(c => '<th>' + c[0] + '<br>DC · &lt;20 · wob</th>').join('') + '</tr>';
+    const dn = { 2: 'per-cycle (default)', 1: 'blocker', 0: 'off' };
+    for (const r of MEAS.dc.rows) for (const dm of [2, 1, 0]) {
+      t += '<tr><td>' + (dm === 2 ? r.nm : '') + '</td><td>' + dn[dm] + '</td>' + r.v.map((c, i) => {
+        if (c === null) return '<td class="n zero">…</td>';
+        const v = c[dm], l = r.v[0] ? r.v[0][dm] : null;
+        const worse = i && l && (v.dc > l.dc + 6 || v.lf > l.lf + 6 || (dm === 2 && v.inj > l.inj + 6));
+        return '<td class="n' + (worse ? ' worse' : '') + '">' + fmtDb(v.dc) + ' · ' + fmtDb(v.lf) + ' · ' + (dm === 2 ? fmtDb(v.inj) : '—') + '</td>';
+      }).join('') + '</tr>';
+    }
+    D.innerHTML = t + '</table>'; D.className = '';
+  }
+  const E = $('mEdge');
+  if (E && MEAS.edge && MEAS.edge.rows.length) {
+    let t = '<div>Blade 1\'s edge crossings per second at A3 (bench voicing, all members), and how many of them the <b>window\'s jump</b> made rather ' +
+      'than the carrier — those are steps nothing band-limits, one click each at hard edges (hard = 0), attenuated by the taper at soft ones. ' +
+      '<b>locked</b> must read 0 (a still window is only ever crossed by the carrier).</div>';
+    t += '<table><tr><th>patch</th><th>edges</th>' + M_EDGE_CLOCKS.map(c => '<th>' + c[0] + '</th>').join('') + '</tr>';
+    for (const r of MEAS.edge.rows) t += '<tr><td>' + r.nm + '</td><td>' + (r.hard > 0 ? 'soft ' + r.hard : 'hard') + '</td>' +
+      r.v.map(v => v === null ? '<td class="n zero">…</td>' : '<td class="n' + (v.jump > 0 ? ' worse' : ' zero') + '">' + Math.round(v.jump) + ' / ' + Math.round(v.total) + '</td>').join('') + '</tr>';
+    E.innerHTML = t + '</table><div>Cells: jumped / all crossings, per second.</div>'; E.className = '';
+  }
+  paintAudit();
+}
+function paintDiff() {
+  const d = $('diff'); if (!d) return;
+  let t = '<div>Read at load from <code>RazorCore.prototype.render.toString()</code>; each anchor must match once or the class is not built. ' +
+    'Struck = the oracle\'s line; magenta = what the lab runs. Everything else in render(), and every other method, is the oracle\'s.</div>';
+  for (const [a, b] of BC_PATCHES) t += '<pre><span class="del">' + escapeHtml(a.trim()) + '</span>\n<span class="add">' + escapeHtml(b.split('\n').map(s => s.trim()).join('\n')) + '</span></pre>';
+  d.innerHTML = t; d.className = '';
+}
+/* the job queue: one render-sized job per tick, so the page stays responsive. A job
+   may return more jobs; they run next, ahead of the rest of the queue. */
+function runJobs(jobs, done) {
+  const step = () => {
+    const j = jobs.shift();
+    if (!j) { if (done) done(); return; }
+    try { const more = j(); if (Array.isArray(more)) jobs.unshift(...more); } catch (e) { push('job threw: ' + String(e && e.message || e), 'prop', false, String(e && e.stack || e).slice(0, 200)); }
+    setTimeout(step, 0);
+  };
+  setTimeout(step, 0);
+}
+
+/* ======================================================================
+   K. CHROME AND BOOT
+   ====================================================================== */
+function applyTheme() {
+  document.body.classList.toggle('dark', LAB.theme === 'dark'); _tok = {};
+  const tb = $('themeBtn'); if (tb) tb.innerHTML = 'theme <b>' + (LAB.theme === 'dark' ? 'DARK' : 'LIGHT') + '</b>';
+}
+function wire() {
+  const on = (id, ev, fn) => { const e = $(id); if (e) e.addEventListener(ev, fn); };
+  on('themeBtn', 'click', () => { LAB.theme = LAB.theme === 'dark' ? 'light' : 'dark'; applyTheme(); paintSpec($('spec')); paintScope($('scope')); paintSwatches(); });
+  on('pwr', 'click', () => audioStart());
+  on('panic', 'click', () => audioMsg({ t: 'panic' }));
+  on('droneBtn', 'click', () => {
+    AUD.drone = !AUD.drone; const b = $('droneBtn'); if (b) b.classList.toggle('on', AUD.drone);
+    if (AUD.drone) noteOn(AN.note, true); else audioMsg({ t: 'off', note: AN.note });
+  });
+  on('probeBtn', 'click', async () => { const s = $('audioStat'); if (s) s.textContent = 'rendering…'; const r = await probeAudio(); if (s) s.textContent = r; });
+  if (typeof window !== 'undefined' && window.addEventListener) {
+    window.addEventListener('keydown', e => {
+      if (e.repeat || (e.target && /INPUT|SELECT|TEXTAREA/.test(e.target.tagName || ''))) return;
+      const ch = String(e.key || '').toLowerCase();
+      if (ch === ' ') { e.preventDefault(); setAB(AB === 'A' ? 'B' : 'A'); return; }
+      if (ch === 'z') { AUD.oct = Math.max(-2, AUD.oct - 1); buildKbd(); return; }
+      if (ch === 'x') { AUD.oct = Math.min(2, AUD.oct + 1); buildKbd(); return; }
+      if (ch in KEYMAP) { AUD.held.add(ch); noteOn(48 + 12 * AUD.oct + KEYMAP[ch]); }
+    });
+    window.addEventListener('keyup', e => {
+      const ch = String(e.key || '').toLowerCase();
+      if (ch in KEYMAP && AUD.held.has(ch)) { AUD.held.delete(ch); noteOff(48 + 12 * AUD.oct + KEYMAP[ch]); }
+    });
+    window.addEventListener('resize', () => { paintSpec($('spec')); paintScope($('scope')); });
+  }
+}
+async function fetchPresets() {
+  if (typeof fetch !== 'function') { LAB.presetErr = 'no fetch'; return; }
+  try {
+    const r = await fetch('../../reference/scalpel/data/presets.json');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const j = await r.json(); LAB.presets = j.presets || [];
+  } catch (e) { LAB.presetErr = 'presets.json unreachable (' + String(e && e.message || e) + ') — serve the repo with tools/serve_labs.py'; }
+}
+async function boot() {
+  applyTheme(); wire(); buildKbd(); paintDiff(); buildControls(); paintAudit();
+  paintSpec($('spec')); paintScope($('scope'));
+  if (!BCORE) return;
+  await fetchPresets();
+  const want = qp('demo', 'golden-cut'), bench = qp('bench', '');
+  if (bench && benchParams(bench)) { loadBench(bench); if (qp('ab', '')) AB = qp('ab', 'B') === 'A' ? 'A' : 'B'; }
+  else if (LAB.presets) loadDemo(DEMOS.some(d => d.id === want) ? want : 'golden-cut', AB);
+  const qr = qp('r', ''); if (qr !== '' && isFinite(+qr)) { CLK.r1 = +qr; CLK.m1 = 'ratio'; }
+  changed();
+  analyse();
+  if (!LAB.presets) { paintAudit(); return; }
+  runJobs(CHECKS.map(f => f), () => { CHK.done = true; paintChecks(); if (qp('meas', '1') !== '0') runJobs(measureJobs(), () => paintAudit()); });
+}
+boot();
+</script>
+</body></html>
