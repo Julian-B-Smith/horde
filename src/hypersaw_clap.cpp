@@ -64,8 +64,8 @@ static const clap_plugin_descriptor_t s_desc = {
     CLAP_VERSION_INIT,
     "com.lifted-truck.hypersaw",   // FROZEN — see above; not a display string
     "horde",
-    "Lifted Truck",
-    "https://github.com/Lifted-Truck/horde",
+    "Mindlathe",
+    "https://github.com/Julian-B-Smith/horde",
     "",
     "",
     "0.1.0",

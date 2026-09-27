@@ -158,7 +158,7 @@ make_clapfirst_plugins(
 
         ASSET_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/HYPERSAW_assets
 
-        AUV2_MANUFACTURER_NAME "Lifted Truck"
+        AUV2_MANUFACTURER_NAME "Mindlathe"
         AUV2_MANUFACTURER_CODE "LfTk"
         # FROZEN, exactly like the CLAP id: `aumu`/`Hsaw`/`LfTk` is the triple a
         # host stores to re-find this AU in a saved session. The DISPLAY name may
@@ -184,7 +184,7 @@ make_clapfirst_plugins(
         COPY_AFTER_BUILD FALSE
         PLUGIN_FORMATS ${HYPERSAW_PLUGIN_FORMATS}
         ASSET_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/SWARMFX_assets
-        AUV2_MANUFACTURER_NAME "Lifted Truck"
+        AUV2_MANUFACTURER_NAME "Mindlathe"
         AUV2_MANUFACTURER_CODE "LfTk"
         AUV2_SUBTYPE_CODE "Swfx"
         AUV2_INSTRUMENT_TYPE "aufx"
