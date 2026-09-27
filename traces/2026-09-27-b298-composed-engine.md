@@ -1,0 +1,32 @@
+# b298-composed-engine — horde's swarm drives the members, SCALPEL's blades ride on them (lab-side engine)
+
+- **Queue item:** B298 (records PR #783, branch `lead-records-107`), dispatched by the horde lead 2026-09-27.
+- **Why:** The SCALPEL interface lab plays the SCALPEL oracle alone, so it greys onset lock, dissolve, drift, inertia and the detune laws, and it plays SCALPEL's coupling law where ACCOUNTING row 6 says horde's wins. A composed engine lets the lab (in a later round, after B297) voice what horde will sound like.
+- **What landed (new files plus one `verify` block):**
+  - `docs/design/scalpel-horde-engine.js`: `makeComposedEngine(RazorCore, swarmSrc)` returns `ComposedEngine extends RazorCore`. A `SwarmSynth` instance, evaluated from `reference/swarmsaw.html`'s DSP section, owns one swarm per RazorCore voice. Its own `noteOn`/`controlTick` run the swarm. RazorCore's inherited methods run every blade path. Copied code, cited in the file header: SwarmSynth's per-sample phase advance and glide leg (`swarmsaw.html:661-672`) and the shell's inertia taper (`hypersaw_clap.cpp:7307-7313`). Neither reference was edited.
+  - `tools/labharness/composed_engine_check.mjs`: O1, O2, O3, DET and API rows, 60 in all, each property with a must-fail control. `WIRED: ./verify full.`
+  - `docs/design/composed-engine-check.html`: A/B listening page with six fetched bench presets. Onset, dissolve, drift, inertia and its curve, the detune law and its sub-parameters are live. It shows phase rings, R(t), member pitches, and a coupling-law panel computed from both engines. `lab-review` meta `B298 · 2026-09-27`.
+  - `verify`: one block in `full()` beside `subosc_check`. It runs in full because it takes about 10 s (O1 steps both engines one sample at a time for 4096 samples, O2 renders 24 two-note passes at 2× oversampling). That is station_check's reason.
+- **Composition, per ACCOUNTING row:** row 4 detune: horde law, d c ≡ knob d/100. Row 5 law as `h.law` (key collision, §1.8.4). Row 6 K: horde law. Rows 7/8 onset and dissolve: SwarmSynth's Kenv. Rows 9/10/56/60 drift: `h.driftRate` for the key collision. Row 16 retrig ↔ phaseMode: random/aligned. G6/G7 inertia: knob^curve (the shell's taper). G9 freqGlide. G3 glide: RazorCore's lag read by the swarm on its 16-sample tick. §1.6.6: blades read frac(φ_horde + ½). Not composed: `settle` (Q B4 is open), `absK`/`cScale` (C++ only), the output stage and envelope (rows 12-20 and 66, D11, left as RazorCore's this round).
+- **Evidence (verified, `node tools/labharness/composed_engine_check.mjs`, exit 0, 60 rows):**
+  - **O1**, 19 scenarios, 0.5 s at 48 kHz: every detune law 0/1/2/4/5 with harmReach, stretchB, spread and anchor; onset −1/0/+1 with dissolve 0.3; inertia 0, 0.7, and 0.7 at curve 0.5; drift in modes 0/1/2; K −1, −0.5 (JP) and +1; freqGlide. max|Δφ_horde| = 0 and max|Δf| = 0 against SwarmSynth in every scenario. The blade phase stays within 3.2e-13 cycles of frac(φ_H + ½). Trajectories are blade-independent: with the blade off, and with xm/fb/blade 2 on, the difference is 0.
+  - **O2**, 12 presets × phaseMode 0/1 (24 renders, two notes and a release): max|Δ| = 0 against RazorCore on every render.
+  - **O3**: K 0, dist 0, law 0: member frequency relative Δ = 0. Output Δ = 0 once the oracle's start is moved to φ_S ½. The coupling-law table is printed in the check's output: at N5 · 14 c · 440 Hz · K 0.35, max|ΔR(t)| = 0.756. Peak pulls match ACCOUNTING §1.6.1 (0.31/1.52, 1.23/2.93, 10.06/8.36, 6.78/6.86, 6.64/11.85, 0.04/1.05).
+  - **Controls:**
+    - SCALPEL's law swapped in (same start), K +1: Δφ 0.0209; K −1: Δφ 0.498. Its must-read-zero twin at K 0 reads 1.3e-12.
+    - Reference missing the taper: 0.19. Drift seed +1 (aligned start): 0.50. Onset dropped: 0.50.
+    - Origin 0 in O2: Δ 1.29. Unmoved oracle start in O3: Δ 1.32. Horde seed +1: Δ 1.31.
+  - **Planted faults** (scratch copies of the engine, not committed), all CAUGHT: tick every 32 samples (20 rows red), detune /99 (22), no taper (3), blade phase not driven by the swarm (20), origin dropped (45).
+  - **Browser:** headless Chrome ran the page's AudioWorklet offline for 0.5 s of A3: A −15.2 dBFS, B −14.3 dBFS, no errors. `lab_load_check` OK. Controls exercised through CDP reach the engine (onset 0.9 gives Kenv 4.20; law 4).
+- **Findings:**
+  - (1) SwarmSynth's onset is symmetric (8·onset², `swarmsaw.html:355`). Horde's C++ is bipolar (ADR-056, C++-only). The check measured R at 0.5 s as 0.778666 at both −1 and +1. The composed engine therefore plays a sync burst at onset −1 where horde plays a splay burst.
+  - (2) SwarmSynth has no inertia curve. The curve lives in the shell.
+  - (3) SwarmSynth has no law 3 (tempo grid) and no absK.
+  - (4) At the presets' K 0.35, horde does not lock where SCALPEL nearly does. At 110 Hz the mean R over the last 0.5 s is 0.42 for horde and 0.87 for SCALPEL. At 0 c, horde's σ floor gives 0.04 Hz of pull, so R reaches 0.60 by the end, against SCALPEL's lock in 210 ms. The B3 re-voicing is real.
+- **Alternatives rejected:**
+  - Calling SwarmSynth.renderSeg for the phases: it renders the saw and gates the swarm on its own 160 ms envelope, so members would freeze in a long RazorCore release.
+  - Splitting render into 16-sample sub-blocks: that would change RazorCore's per-call smoothing reads. The tick runs in member 0's first step instead.
+  - Implementing ADR-056's signed onset in the wrapper: that means copying controlTick, and it would invent sound. It is left for the lead.
+  - `verify fast`: about 10 s, not a few.
+- **Verify:** see the PR body for `./verify fast` and `./verify full` on the committed hash (`.harness/last-verify.json`).
+- **Open questions:** onset < 0 (JS reference vs ADR-056); settle-vs-onset (Q B4) before `settle` can be voiced; whether a non-fresh retrigger should restart the swarm (SwarmSynth would, RazorCore keeps phases); `dist` default 0 (row 4's preset translation) vs horde's default 1; the output stage (D11) still SCALPEL's.

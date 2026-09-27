@@ -1,0 +1,504 @@
+<!doctype html>
+<!-- composed-engine-check — B298: hear horde's swarm under SCALPEL's blades, A/B
+     against the SCALPEL oracle alone. HYPERSAW, 2026-09-27, dispatched by the horde
+     lead on ROADMAP B298 (records PR #783, branch lead-records-107). The human:
+     "Why am I seeing onset lock, dissolve, and drift grayed out? And is there a
+     reason inertia doesn't survive? Also, I'm noticing we no longer have the detune
+     laws ... Can they be reintroduced?"
+
+     WHAT THIS IS. A listening page, not the lab. A = the SCALPEL oracle alone
+     (reference/scalpel/prototype/razor-core.js, as the interface lab plays it
+     today). B = the COMPOSED engine (docs/design/scalpel-horde-engine.js): horde's
+     swarm (reference/swarmsaw.html SwarmSynth) drives the members, SCALPEL's blades
+     ride on them, per docs/scalpel/ACCOUNTING.md §1.6. Six bench presets; onset
+     lock, dissolve, drift, inertia (with its curve) and the detune laws (with their
+     sub-parameters) are live on B and ignored by A, which has none of them.
+
+     NOTHING IS COPIED. Both references and the engine are loaded; the six presets
+     are fetched from reference/scalpel/data/presets.json; SwarmSynth's source is
+     fetched from reference/swarmsaw.html and sliced by its banners. So the page
+     needs serving (python3 tools/serve_labs.py). The load checker
+     (tools/labharness/lab_load_check.mjs) runs the inline block only; there the
+     engines are absent and the page says so.
+
+     THE ORACLES are headless: tools/labharness/composed_engine_check.mjs (O1 swarm
+     parity with SwarmSynth, O2 blade parity with RazorCore, O3 the neutral case and
+     the measured coupling-law difference, each with a must-fail control). This page
+     draws the same engines; the LAW panel is computed on load from both engines on
+     identical start phases.
+
+     SEEDED. Each engine gets its own mulberry32 in place of Math.random around
+     every call (the lab's convention), in the worklet and on the page. No clock
+     reaches a rendered sample: the monitor advances a whole number of note periods
+     per animation frame, counted in samples.
+
+     TOKENS: a subset copied from docs/design/scalpel-interface-lab.html :88-194
+     (which copies gui2). Copy, therefore drift.
+
+     L0026: every const is declared above the code that runs at setup; boot() is
+     the last statement. -->
+<html lang="en"><head><meta charset="utf-8">
+<meta name="lab-review" content="B298 · 2026-09-27">
+<title>Composed engine check — horde's swarm under SCALPEL's blades (B298)</title>
+<style>
+  :root {
+    --bg:#F2EDE2; --panel:#FCFAF4; --well:#FFFFFF; --panel2:#E9E3D4;
+    --line:#191521; --hair:#E5DFD0; --div:#D8D1C0;
+    --text:#191521; --t2:#494356; --dim:#9A93A3;
+    --value:#F5169C; --physics:#6431F0; --meter:#00D5C8; --marker:#FFD702;
+    --caution:#F5A300; --caution-bg:#FBE9BD; --caution-tx:#6D570B; --ghost:#C9C2FF;
+    --celebrate:#A6F219; --alarm:#C2261A;
+  }
+  body.dark {
+    --bg:#151220; --panel:#1F1B2E; --well:#0E0C16; --panel2:#2C2740;
+    --line:#EFE9FA; --hair:#312B47; --div:#3B3455;
+    --text:#EFE9FA; --t2:#BDB4D4; --dim:#8A82A3;
+    --value:#FF3DAD; --physics:#A07CFF; --meter:#2DF2E2; --marker:#FFE04D;
+    --caution:#FFB627; --caution-bg:#4A3A12; --caution-tx:#FFD98A; --ghost:#5B4E8F;
+    --celebrate:#C2F53E; --alarm:#FF5A4D;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 13px/1.45 ui-monospace, Menlo, monospace; }
+  header { padding: 14px 20px 10px; border-bottom: 1.5px solid var(--line); display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+  h1 { font-size: 15px; margin: 0; letter-spacing: .04em; }
+  .sub { color: var(--t2); font-size: 11px; }
+  .chip { border: 1.5px solid var(--line); background: var(--panel); color: var(--text); border-radius: 999px; padding: 4px 11px; font: inherit; cursor: pointer; }
+  .chip.on { background: var(--value); color: #fff; border-color: var(--value); }
+  .ab { display: inline-flex; border: 1.5px solid var(--line); border-radius: 999px; overflow: hidden; }
+  .ab button { border: 0; background: var(--panel); color: var(--text); font: inherit; padding: 4px 12px; cursor: pointer; }
+  .ab button.on { background: var(--line); color: var(--bg); }
+  main { display: grid; grid-template-columns: 330px 1fr; gap: 16px; padding: 16px 20px 30px; }
+  .card { background: var(--panel); border: 1.5px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  .card h2 { font-size: 11px; letter-spacing: .12em; margin: 0 0 8px; color: var(--t2); }
+  .row { display: grid; grid-template-columns: 112px 1fr 64px; gap: 8px; align-items: center; margin: 5px 0; }
+  .row label { color: var(--t2); font-size: 11.5px; }
+  .row output { text-align: right; font-size: 11.5px; }
+  .row select, .row input[type=number] { font: inherit; background: var(--well); color: var(--text); border: 1px solid var(--div); border-radius: 5px; padding: 2px 4px; }
+  input[type=range] { width: 100%; accent-color: var(--value); }
+  .grp { border-top: 1px dashed var(--div); margin-top: 8px; padding-top: 6px; }
+  .grp b { font-size: 10.5px; letter-spacing: .1em; color: var(--dim); }
+  .viz { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  canvas { width: 100%; background: var(--well); border: 1px solid var(--div); border-radius: 8px; display: block; }
+  .legend { display: flex; gap: 14px; font-size: 11px; color: var(--t2); margin: 6px 0 0; flex-wrap: wrap; }
+  .sw { display: inline-block; width: 18px; height: 3px; vertical-align: middle; margin-right: 5px; }
+  .note { background: var(--caution-bg); color: var(--caution-tx); border-radius: 8px; padding: 8px 10px; font-size: 11.5px; margin-top: 10px; }
+  .status { color: var(--t2); font-size: 11.5px; }
+  table.law { border-collapse: collapse; width: 100%; font-size: 11.5px; margin-top: 8px; }
+  table.law td, table.law th { border-bottom: 1px solid var(--hair); padding: 3px 6px; text-align: right; }
+  table.law th:first-child, table.law td:first-child { text-align: left; }
+  ul { margin: 6px 0 0 16px; padding: 0; } li { margin: 2px 0; }
+  .keys { color: var(--dim); font-size: 11px; }
+</style></head>
+<body>
+<header>
+  <h1>COMPOSED ENGINE CHECK</h1>
+  <span class="sub">B298 · horde's swarm drives the members · SCALPEL's blades ride on them · A/B against the oracle alone</span>
+  <span style="flex:1"></span>
+  <button class="chip" id="pwr">POWER</button>
+  <span class="ab"><button id="abA">A · oracle alone</button><button id="abB" class="on">B · composed</button></span>
+  <button class="chip" id="drone">drone A3</button>
+  <button class="chip" id="strike">re-strike</button>
+  <button class="chip" id="themeBtn">theme</button>
+</header>
+<main>
+  <section>
+    <div class="card">
+      <h2>PRESET (bench voicing, fetched)</h2>
+      <div class="row" style="grid-template-columns:56px 1fr"><label for="preset">preset</label><select id="preset" style="width:100%"></select></div>
+      <div class="status" id="status">loading…</div>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <h2>THE SWARM — K, detune, members on both; the rest heard on B only</h2>
+      <div class="grp"><b>COUPLING (row 6: horde's law on B, SCALPEL's on A)</b></div>
+      <div id="ctlCoupling"></div>
+      <div class="grp"><b>ONSET LOCK · DISSOLVE (rows 7, 8)</b></div>
+      <div id="ctlOnset"></div>
+      <div class="grp"><b>DRIFT (rows 9, 10, 56)</b></div>
+      <div id="ctlDrift"></div>
+      <div class="grp"><b>INERTIA (G6, G7: knob → knob^curve)</b></div>
+      <div id="ctlInertia"></div>
+      <div class="grp"><b>DETUNE LAW (row 5) and its sub-parameters</b></div>
+      <div id="ctlLaw"></div>
+      <p class="keys">keys A W S E D F T G Y H U J K — Z / X octave</p>
+    </div>
+  </section>
+  <section>
+    <div class="viz">
+      <div class="card"><h2>A · SCALPEL ORACLE ALONE — phase ring</h2><canvas id="ringA" width="520" height="300"></canvas></div>
+      <div class="card"><h2>B · COMPOSED — phase ring</h2><canvas id="ringB" width="520" height="300"></canvas></div>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <h2>ORDER R(t) SINCE THE STRIKE — the monitor, both engines, same note</h2>
+      <canvas id="rTrace" width="1080" height="200"></canvas>
+      <div class="legend"><span><i class="sw" style="background:var(--ghost)"></i>A · oracle</span><span><i class="sw" style="background:var(--physics)"></i>B · composed</span><span><i class="sw" style="background:var(--marker)"></i>B · onset Kenv (scaled)</span><span id="rRead"></span></div>
+    </div>
+    <div class="viz" style="margin-top:12px">
+      <div class="card"><h2>MEMBER PITCHES (cents from the note)</h2><canvas id="cents" width="520" height="220"></canvas>
+        <div class="legend"><span><i class="sw" style="background:var(--ghost)"></i>A · oracle, live (its law pulls members together)</span><span><i class="sw" style="background:var(--value)"></i>B · composed, live (horde law, drift)</span></div></div>
+      <div class="card"><h2>THE COUPLING LAW — same start phases, 1.5 s</h2><canvas id="lawChart" width="520" height="220"></canvas>
+        <div class="legend"><span><i class="sw" style="background:var(--ghost)"></i>SCALPEL's law (A)</span><span><i class="sw" style="background:var(--physics)"></i>horde's law (B, blades off)</span></div>
+        <table class="law" id="lawTable"></table></div>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <h2>WHAT B COMPOSES — AND WHAT IT DOES NOT (ACCOUNTING rows)</h2>
+      <ul>
+        <li><b>Yields to horde:</b> the coupling law (row 6), detune (row 4: d cents ≡ knob d/100), the detune laws 0 · 1 · 2 · 4 · 5 with harmonic reach, stretch, octave spread and root anchor (row 5, 61-64), onset lock and dissolve (7, 8), drift (9, 10, 56, 60), inertia with the shell's taper (G6, G7), start phases random/aligned (row 16).</li>
+        <li><b>Composes:</b> SCALPEL's blades read φ<sub>SCALPEL</sub> = frac(φ<sub>horde</sub> + ½) (§1.6.6); horde's swarm steps on its 16-sample tick, the blades per sample.</li>
+        <li><b>SCALPEL keeps:</b> blades, spreads, rules, cross-mod, feedback, frames, DC and band-limit (§1.5).</li>
+        <li><b>Not composed this round:</b> the output stage and envelope (vol, width, tanh, ADSR, pan: rows 12-20, 66) stay SCALPEL's on both A and B, so the A/B difference is the swarm alone.</li>
+      </ul>
+      <div class="note" id="caveats">
+        <b>Heard differently from horde, and stated:</b>
+        (1) <b>onset below 0</b> — the JS reference's onset is symmetric (8·onset², swarmsaw.html:355), so −1 plays the same SYNC burst as +1; horde's C++ plays a SPLAY burst there (ADR-056). B follows the JS reference.
+        (2) <b>settled start</b> (phaseMode 2, most presets) is not voiced on B: it plays horde's aligned start (§1.7), because settle-vs-onset sequencing is open (Q B4).
+        (3) <b>law 3</b> (tempo grid) and <b>Absolute Coupling</b> exist only in the C++, so they are not offered.
+      </div>
+    </div>
+  </section>
+</main>
+<script src="../../reference/scalpel/prototype/razor-core.js"></script>
+<script src="scalpel-horde-engine.js"></script>
+<script>
+"use strict";
+/* ================================================================ A. ENGINES */
+/* classic-script class/function declarations are global lexical bindings, visible by name */
+const CORE = (typeof RazorCore === 'function') ? RazorCore : null;
+const MAKE = (typeof makeComposedEngine === 'function') ? makeComposedEngine : null;
+const SLICE = (typeof swarmSourceFromHtml === 'function') ? swarmSourceFromHtml : null;
+const SR = 48000;
+const TAU = 2 * Math.PI;
+const frac = x => x - Math.floor(x);
+const mtof = n => 440 * Math.pow(2, (n - 69) / 12);
+const $ = id => document.getElementById(id);
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const PRESET_NAMES = ['Two blades', 'Harmonic stack', 'Locked horde', 'Splayed blades', 'Cross-mod horde', 'Glass horde pad'];
+const LAB = { swarmSrc: null, Composed: null, presets: [], preset: 0, ab: 'B', theme: 'light', note: 57, octave: 48,
+  err: '', horde: {} };
+
+/* ---- the controls: horde keys as the engine's `d` carries them (scalpel-horde-engine.js header) ---- */
+const CTL = [
+  ['ctlCoupling', 'K', 'Coupling K', -1, 1, 0.01, 'lin'],
+  ['ctlCoupling', 'detune', 'Detune (c)', 0, 100, 0.5, 'lin'],
+  ['ctlCoupling', 'N', 'Members', 1, 9, 1, 'lin'],
+  ['ctlCoupling', 'dist', 'Distribution', 0, 4, 1, 'sel', [[0, 'even'], [1, 'JP-8000'], [2, 'gaussian'], [3, 'cauchy'], [4, 'golden']]],
+  ['ctlCoupling', 'seed', 'Seed', 0, 999999, 1, 'num'],
+  ['ctlOnset', 'onset', 'Onset lock', -1, 1, 0.01, 'lin'],
+  ['ctlOnset', 'dissolve', 'Dissolve (s)', 0.05, 7.94, 0, 'log'],
+  ['ctlDrift', 'driftDepth', 'Drift (c)', 0, 100, 0.5, 'lin'],
+  ['ctlDrift', 'h.driftRate', 'Drift rate', 0, 1, 0.01, 'lin'],
+  ['ctlDrift', 'driftMode', 'Drift mode', 0, 2, 1, 'sel', [[0, 'walk'], [1, 'sine'], [2, 'S&H']]],
+  ['ctlInertia', 'inertia', 'Inertia', 0, 1, 0.01, 'lin'],
+  ['ctlInertia', 'inertiaCurve', 'Curve (dev)', 0.3, 5, 0.05, 'lin'],
+  ['ctlLaw', 'h.law', 'Detune law', 0, 5, 1, 'sel', [[0, 'cents'], [1, 'Hz'], [2, 'ERB'], [4, 'harmonic'], [5, 'stretch']]],
+  ['ctlLaw', 'harmReach', 'Harm. reach', 0.25, 4, 0.01, 'lin'],
+  ['ctlLaw', 'stretchB', 'Stretch B', 0, 6, 0.05, 'lin'],
+  ['ctlLaw', 'spread', 'Oct. spread', 1, 24, 0.1, 'lin'],
+  ['ctlLaw', 'anchor', 'Root anchor', 0, 1, 0.01, 'lin'],
+];
+const fmtV = (k, v) => k === 'dissolve' ? (+v).toFixed(2) + ' s' : k === 'detune' || k === 'driftDepth' ? (+v).toFixed(1) + ' c'
+  : k === 'N' || k === 'seed' ? String(Math.round(v)) : (+v).toFixed(2);
+const logPos = (v, a, b) => Math.log(v / a) / Math.log(b / a);
+const logVal = (p, a, b) => a * Math.pow(b / a, p);
+
+/* ================================================================ B. THE MONITOR (main thread, seeded) */
+const MON = { a: null, b: null, ra: null, rb: null, t: 0, hist: [], L: null, R: null };
+function makePair(params) {
+  const ra = mulberry32(0xB298), rb = mulberry32(0xB298);
+  const keep = Math.random;
+  Math.random = ra; const a = new CORE(SR); a.set(params); Object.assign(a.s, a.t);
+  Math.random = rb; const b = new LAB.Composed(SR); b.set(params); Object.assign(b.s, b.t);
+  Math.random = keep;
+  return { a, b, ra, rb };
+}
+function withRng(r, f) { const keep = Math.random; Math.random = r; try { return f(); } finally { Math.random = keep; } }
+function currentParams() {
+  const pr = LAB.presets[LAB.preset];
+  return Object.assign({}, pr ? pr.params : {}, LAB.horde);
+}
+function monStrike() {
+  if (!LAB.Composed) return;
+  const P = makePair(currentParams());
+  Object.assign(MON, P);
+  const f = mtof(LAB.note);
+  withRng(MON.ra, () => MON.a.noteOn(LAB.note, f, 0.9));
+  withRng(MON.rb, () => MON.b.noteOn(LAB.note, f, 0.9));
+  MON.t = 0; MON.hist = [];
+}
+function strobeLen(f) { const per = SR / f; return Math.max(64, Math.round(Math.max(1, Math.round(512 / per)) * per)); }
+function orderOf(v, N) { let sx = 0, sy = 0; for (let i = 0; i < N; i++) { sx += Math.cos(TAU * v.m[i].phi); sy += Math.sin(TAU * v.m[i].phi); } return Math.hypot(sx, sy) / N; }
+function monStep() {
+  if (!MON.a) return;
+  const n = strobeLen(mtof(LAB.note));
+  if (!MON.L || MON.L.length !== n) { MON.L = new Float32Array(n); MON.R = new Float32Array(n); }
+  withRng(MON.ra, () => MON.a.render(MON.L, MON.R));
+  withRng(MON.rb, () => MON.b.render(MON.L, MON.R));
+  MON.t += n;
+  const va = MON.a.voices.find(v => v.active), vb = MON.b.voices.find(v => v.active);
+  const N = MON.b.d.N, S = vb ? MON.b.sw.swarms[vb.si] : null;
+  MON.hist.push([MON.t / SR, va ? orderOf(va, N) : 0, vb ? orderOf(vb, N) : 0, S ? S.Kenv : 0]);
+  if (MON.t > 3 * SR) monStrike();
+}
+
+/* ================================================================ C. DRAWING */
+function css(n) { return getComputedStyle(document.body).getPropertyValue(n).trim() || '#888'; }
+function ring(cv, eng) {
+  const g = cv.getContext('2d'), w = cv.width, h = cv.height, cx = w / 2, cy = h / 2, rad = h * 0.4;
+  g.clearRect(0, 0, w, h);
+  g.strokeStyle = css('--hair'); g.lineWidth = 1;
+  g.beginPath(); g.arc(cx, cy, rad, 0, TAU); g.stroke();
+  const v = eng && eng.voices.find(x => x.active);
+  if (!v) { g.fillStyle = css('--dim'); g.fillText('no voice', 10, 16); return; }
+  const N = eng.d.N; let sx = 0, sy = 0;
+  for (let i = 0; i < N; i++) {
+    const a = TAU * v.m[i].phi; sx += Math.cos(a); sy += Math.sin(a);
+    g.fillStyle = css('--value'); g.beginPath(); g.arc(cx + rad * Math.cos(a), cy - rad * Math.sin(a), 5, 0, TAU); g.fill();
+  }
+  sx /= N; sy /= N;
+  g.strokeStyle = css('--physics'); g.lineWidth = 2.5;
+  g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + rad * sx, cy - rad * sy); g.stroke();
+  g.fillStyle = css('--text'); g.font = '12px ui-monospace, monospace';
+  g.fillText('R ' + Math.hypot(sx, sy).toFixed(3) + '   (members in the blade frame, φ_SCALPEL)', 10, 18);
+}
+function rTrace() {
+  const cv = $('rTrace'), g = cv.getContext('2d'), w = cv.width, h = cv.height, H = MON.hist;
+  g.clearRect(0, 0, w, h);
+  g.strokeStyle = css('--hair'); g.lineWidth = 1;
+  for (let k = 1; k < 4; k++) { const y = h - k / 4 * (h - 20) - 10; g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke(); }
+  const X = t => t / 3 * w, Y = r => h - 10 - r * (h - 20);
+  const line = (col, idx, sc) => { g.strokeStyle = col; g.lineWidth = 2; g.beginPath();
+    H.forEach((p, i) => { const y = Y(Math.min(1, p[idx] * (sc || 1))); if (i) g.lineTo(X(p[0]), y); else g.moveTo(X(p[0]), y); }); g.stroke(); };
+  if (H.length > 1) { line(css('--ghost'), 1); line(css('--physics'), 2); line(css('--marker'), 3, 1 / 8); }
+  g.fillStyle = css('--dim'); g.font = '11px ui-monospace, monospace';
+  g.fillText('0 s', 4, h - 2); g.fillText('3 s', w - 26, h - 2); g.fillText('R 1', 4, 18);
+  const last = H[H.length - 1];
+  $('rRead').textContent = last ? 'now: A R ' + last[1].toFixed(3) + ' · B R ' + last[2].toFixed(3) + ' · Kenv ' + last[3].toFixed(2) : '';
+}
+function centsChart() {
+  const cv = $('cents'), g = cv.getContext('2d'), w = cv.width, h = cv.height;
+  g.clearRect(0, 0, w, h);
+  if (!MON.a) return;
+  const f = mtof(LAB.note), va = MON.a.voices.find(v => v.active), vb = MON.b.voices.find(v => v.active);
+  if (!va || !vb) return;
+  const N = MON.b.d.N, ca = [], cb = [];
+  for (let i = 0; i < N; i++) { ca.push(1200 * Math.log2(Math.max(1e-9, va.m[i].inc * va.gr) / f)); cb.push(1200 * Math.log2(Math.max(1e-9, vb.m[i].inc * vb.gr) / f)); }
+  const span = Math.max(20, ...ca.map(Math.abs), ...cb.map(Math.abs)) * 1.1;
+  const X = c => w / 2 + c / span * (w / 2 - 14), rowH = (h - 30) / N;
+  g.strokeStyle = css('--hair'); g.beginPath(); g.moveTo(w / 2, 4); g.lineTo(w / 2, h - 22); g.stroke();
+  for (let i = 0; i < N; i++) {
+    const y = 12 + (i + 0.5) * rowH;
+    g.fillStyle = css('--ghost'); g.fillRect(X(ca[i]) - 3, y - 7, 6, 6);
+    g.fillStyle = css('--value'); g.beginPath(); g.arc(X(cb[i]), y + 3, 4, 0, TAU); g.fill();
+  }
+  g.fillStyle = css('--dim'); g.font = '11px ui-monospace, monospace';
+  g.fillText('−' + span.toFixed(0) + ' c', 4, h - 6); g.fillText('+' + span.toFixed(0) + ' c', w - 52, h - 6);
+}
+
+/* ================================================================ D. THE LAW PANEL (offline, deterministic) */
+function lawRun(src) {
+  const P = Object.assign(currentParams(), { w: 0, b2on: 0, xm: 0, fb: 0 });
+  const r = mulberry32(0xB2A4), keep = Math.random; Math.random = r;
+  const c = new LAB.Composed(SR); c.src = src; c.set(P); Object.assign(c.s, c.t);
+  c.noteOn(LAB.note, mtof(LAB.note), 1);
+  const v = c.voices[0], N = c.d.N, S = c.sw.swarms[v.si], st = mulberry32(0xC0FFEE);
+  for (let i = 0; i < N; i++) { const p = st(); S.phase[i] = p; v.m[i].phi = frac(p + 0.5); }
+  const L = new Float32Array(64), Rr = new Float32Array(64), out = [];
+  for (let s = 0; s < 1.5 * SR; s += 64) { c.render(L, Rr); out.push(orderOf(v, N)); }
+  Math.random = keep;
+  return out;
+}
+function lawPanel() {
+  const cv = $('lawChart'), g = cv.getContext('2d'), w = cv.width, h = cv.height;
+  g.clearRect(0, 0, w, h);
+  if (!LAB.Composed) return;
+  const H = lawRun('horde'), Z = lawRun('razor');
+  const X = i => i / H.length * w, Y = r => h - 8 - r * (h - 16);
+  for (const [arr, col] of [[Z, css('--ghost')], [H, css('--physics')]]) {
+    g.strokeStyle = col; g.lineWidth = 2; g.beginPath(); arr.forEach((r, i) => i ? g.lineTo(X(i), Y(r)) : g.moveTo(X(i), Y(r))); g.stroke();
+  }
+  const t90 = a => { const i = a.findIndex(r => r >= 0.9); return i < 0 ? '—' : ((i + 1) * 64 / SR * 1000).toFixed(0) + ' ms'; };
+  const mean = a => { const b = a.slice(Math.floor(a.length * 2 / 3)); return (b.reduce((x, y) => x + y, 0) / b.length).toFixed(3); };
+  const at = (a, t) => a[Math.min(a.length - 1, Math.round(t * SR / 64) - 1)].toFixed(3);
+  $('lawTable').innerHTML = '<tr><th>law</th><th>R 50 ms</th><th>R 250 ms</th><th>R 1 s</th><th>first R ≥ .9</th><th>mean R, last .5 s</th></tr>' +
+    '<tr><td>SCALPEL (A)</td><td>' + at(Z, .05) + '</td><td>' + at(Z, .25) + '</td><td>' + at(Z, 1) + '</td><td>' + t90(Z) + '</td><td>' + mean(Z) + '</td></tr>' +
+    '<tr><td>horde (B)</td><td>' + at(H, .05) + '</td><td>' + at(H, .25) + '</td><td>' + at(H, 1) + '</td><td>' + t90(H) + '</td><td>' + mean(H) + '</td></tr>';
+}
+
+/* ================================================================ E. AUDIO — one AudioWorklet, both engines, A/B picks the output */
+const AUD = { ctx: null, node: null, on: false, drone: false };
+function workletSource() {
+  return CORE.toString() + '\nRazorCore.PANS = ' + JSON.stringify(CORE.PANS) + ';\n' + MAKE.toString() +
+    '\nconst Composed = makeComposedEngine(RazorCore, ' + JSON.stringify(LAB.swarmSrc) + ');\n' + mulberry32.toString() + '\n' +
+    'class B298AB extends AudioWorkletProcessor {\n' +
+    '  constructor(o) { super(); const q = (o && o.processorOptions) || {}; this.ab = q.ab || "B"; this.reset(q.params || {});\n' +
+    '    if (q.note) this.both(e => e.noteOn(q.note.note, q.note.freq, q.note.vel));\n' +
+    '    this.port.onmessage = e => this.msg(e.data); }\n' +
+    '  reset(p) { const keep = Math.random; this.ra = mulberry32(0xB298); this.rb = mulberry32(0xB298);\n' +
+    '    Math.random = this.ra; this.a = new RazorCore(sampleRate); this.a.set(p); Object.assign(this.a.s, this.a.t);\n' +
+    '    Math.random = this.rb; this.b = new Composed(sampleRate); this.b.set(p); Object.assign(this.b.s, this.b.t); Math.random = keep; }\n' +
+    '  both(f) { const keep = Math.random; Math.random = this.ra; f(this.a); Math.random = this.rb; f(this.b); Math.random = keep; }\n' +
+    '  msg(m) { if (m.t === "reset") this.reset(m.p); else if (m.t === "ab") this.ab = m.v; else this.both(e => e.msg(m)); }\n' +
+    '  process(_, outs) { const o = outs[0], L = o[0], R = o[1] || o[0];\n' +
+    '    if (!this.sL || this.sL.length !== L.length) { this.sL = new Float32Array(L.length); this.sR = new Float32Array(L.length); }\n' +
+    '    const keep = Math.random; Math.random = this.ra; (this.ab === "A" ? this.a.render(L, R) : this.a.render(this.sL, this.sR));\n' +
+    '    Math.random = this.rb; (this.ab === "B" ? this.b.render(L, R) : this.b.render(this.sL, this.sR)); Math.random = keep; return true; }\n' +
+    '}\nregisterProcessor("b298-ab", B298AB);\n';
+}
+async function audioToggle() {
+  if (!LAB.Composed) return;
+  if (AUD.on) { try { await AUD.ctx.close(); } catch (_) {} AUD.on = false; AUD.node = null; AUD.ctx = null; paint(); return; }
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: SR });
+    const url = URL.createObjectURL(new Blob([workletSource()], { type: 'application/javascript' }));
+    await ctx.audioWorklet.addModule(url);
+    AUD.node = new AudioWorkletNode(ctx, 'b298-ab', { numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2] });
+    AUD.node.connect(ctx.destination);
+    AUD.ctx = ctx; AUD.on = true; LAB.err = '';
+    AUD.node.port.postMessage({ t: 'reset', p: currentParams() });
+    AUD.node.port.postMessage({ t: 'ab', v: LAB.ab });
+    if (AUD.drone) AUD.node.port.postMessage({ t: 'on', note: LAB.note, freq: mtof(LAB.note), vel: 0.85 });
+  } catch (e) { LAB.err = 'audio failed: ' + String(e && e.message || e); }
+  paint();
+}
+function send(m) { if (AUD.node) AUD.node.port.postMessage(m); }
+/* offline proof that the audible path runs: 0.5 s of A3 through the SAME worklet, once per side */
+async function probeAudio() {
+  const OAC = window.OfflineAudioContext;
+  if (!OAC) return 'probe: no OfflineAudioContext';
+  const out = [];
+  for (const side of ['A', 'B']) {
+    const ctx = new OAC(2, SR / 2, SR);
+    await ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([workletSource()], { type: 'application/javascript' })));
+    /* processorOptions, not port messages: an offline render can finish before a posted message lands */
+    const node = new AudioWorkletNode(ctx, 'b298-ab', { numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2],
+      processorOptions: { params: currentParams(), ab: side, note: { note: 57, freq: mtof(57), vel: 0.9 } } });
+    node.connect(ctx.destination);
+    const L = (await ctx.startRendering()).getChannelData(0);
+    let e = 0, bad = 0; for (let i = 0; i < L.length; i++) { if (!isFinite(L[i])) bad++; e += L[i] * L[i]; }
+    out.push(side + ' ' + (20 * Math.log10(Math.sqrt(e / L.length) + 1e-12)).toFixed(1) + ' dBFS' + (bad ? ' NON-FINITE ' + bad : ''));
+  }
+  return 'probe (offline worklet, 0.5 s A3): ' + out.join(' · ');
+}
+
+/* ================================================================ F. CONTROLS AND CHROME */
+function engineDefaults() {
+  if (!LAB.Composed) return {};
+  const e = new LAB.Composed(SR), o = {};
+  for (const c of CTL) o[c[1]] = c[1] in e.d ? e.d[c[1]] : e.t[c[1]];
+  return o;
+}
+function buildControls() {
+  for (const c of CTL) {
+    const [box, key, label, lo, hi, step, kind, opts] = c, host = $(box);
+    const r = document.createElement('div'); r.className = 'row';
+    const l = document.createElement('label'); l.textContent = label; r.appendChild(l);
+    let inp;
+    if (kind === 'sel') { inp = document.createElement('select'); for (const [v, t] of opts) { const o = document.createElement('option'); o.value = v; o.textContent = t; inp.appendChild(o); } }
+    else if (kind === 'num') { inp = document.createElement('input'); inp.type = 'number'; inp.min = lo; inp.max = hi; inp.step = 1; }
+    else { inp = document.createElement('input'); inp.type = 'range'; inp.min = kind === 'log' ? 0 : lo; inp.max = kind === 'log' ? 1 : hi; inp.step = kind === 'log' ? 0.001 : step; }
+    inp.id = 'c_' + key; r.appendChild(inp);
+    if (kind === 'sel') inp.style.gridColumn = 'span 2';
+    const out = document.createElement('output'); out.id = 'o_' + key; if (kind !== 'sel') r.appendChild(out);
+    host.appendChild(r);
+    inp.addEventListener('input', () => {
+      const raw = +inp.value, v = kind === 'log' ? logVal(raw, lo, hi) : raw;
+      LAB.horde[key] = v; out.textContent = fmtV(key, v);
+      const m = { t: 'p' }; m[key] = v; send(m);
+      if (MON.a) { withRng(MON.ra, () => MON.a.set(m)); withRng(MON.rb, () => MON.b.set(m)); }
+      lawDirty = true;
+    });
+  }
+}
+let lawDirty = true;
+function syncControls() {
+  const P = currentParams();
+  for (const c of CTL) {
+    const [, key, , lo, hi, , kind] = c, inp = $('c_' + key), out = $('o_' + key);
+    if (!inp || !(key in P)) continue;
+    inp.value = kind === 'log' ? logPos(P[key], lo, hi) : P[key];
+    if (out) out.textContent = fmtV(key, P[key]);           // selects carry no readout
+  }
+}
+function loadPreset(i) {
+  LAB.preset = i;
+  const pr = LAB.presets[i];
+  /* a preset carries SCALPEL's swarm keys (N, detune, K); horde's own rows go back to the engine's defaults */
+  LAB.horde = engineDefaults();
+  for (const k of ['N', 'detune', 'K']) if (pr && k in pr.params) LAB.horde[k] = pr.params[k];
+  syncControls();
+  send({ t: 'reset', p: currentParams() });
+  if (AUD.drone) send({ t: 'on', note: LAB.note, freq: mtof(LAB.note), vel: 0.85 });
+  monStrike(); lawDirty = true;
+}
+function paint() {
+  $('pwr').classList.toggle('on', AUD.on);
+  $('abA').classList.toggle('on', LAB.ab === 'A'); $('abB').classList.toggle('on', LAB.ab === 'B');
+  $('drone').classList.toggle('on', AUD.drone);
+  $('themeBtn').textContent = 'theme ' + (LAB.theme === 'dark' ? 'DARK' : 'LIGHT');
+  document.body.classList.toggle('dark', LAB.theme === 'dark');
+  $('status').textContent = !LAB.Composed ? (LAB.err || 'engines not loaded: serve the repo (python3 tools/serve_labs.py) — the load checker runs this block without them, which is expected there')
+    : (AUD.on ? 'AUDIO ON · hearing ' + (LAB.ab === 'A' ? 'A, the oracle alone' : 'B, the composed engine') : 'AUDIO OFF · POWER, then the keys or drone') + (LAB.err ? ' · ' + LAB.err : '');
+}
+const KMAP = { a: 0, w: 1, s: 2, e: 3, d: 4, f: 5, t: 6, g: 7, y: 8, h: 9, u: 10, j: 11, k: 12 };
+function wire() {
+  $('pwr').addEventListener('click', audioToggle);
+  $('abA').addEventListener('click', () => { LAB.ab = 'A'; send({ t: 'ab', v: 'A' }); paint(); });
+  $('abB').addEventListener('click', () => { LAB.ab = 'B'; send({ t: 'ab', v: 'B' }); paint(); });
+  $('drone').addEventListener('click', () => { AUD.drone = !AUD.drone; send(AUD.drone ? { t: 'on', note: LAB.note, freq: mtof(LAB.note), vel: 0.85 } : { t: 'off', note: LAB.note }); paint(); });
+  $('strike').addEventListener('click', () => { monStrike(); if (AUD.drone) { send({ t: 'off', note: LAB.note }); send({ t: 'on', note: LAB.note, freq: mtof(LAB.note), vel: 0.85 }); } });
+  $('themeBtn').addEventListener('click', () => { LAB.theme = LAB.theme === 'dark' ? 'light' : 'dark'; paint(); lawDirty = true; });
+  $('preset').addEventListener('change', e => loadPreset(+e.target.value));
+  window.addEventListener('keydown', e => {
+    if (e.repeat || e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+    const k = e.key.toLowerCase();
+    if (k === 'z') { LAB.octave = Math.max(24, LAB.octave - 12); return; }
+    if (k === 'x') { LAB.octave = Math.min(84, LAB.octave + 12); return; }
+    if (k in KMAP) { const n = LAB.octave + KMAP[k]; send({ t: 'on', note: n, freq: mtof(n), vel: 0.85 }); LAB.note = n; monStrike(); lawDirty = true; }
+  });
+  window.addEventListener('keyup', e => { const k = e.key.toLowerCase(); if (k in KMAP) send({ t: 'off', note: LAB.octave + KMAP[k] }); });
+}
+function frame() {
+  if (LAB.Composed) {
+    monStep(); ring($('ringA'), MON.a); ring($('ringB'), MON.b); rTrace(); centsChart();
+    if (lawDirty) { lawDirty = false; lawPanel(); }
+  }
+  requestAnimationFrame(frame);
+}
+async function boot() {
+  const q = typeof URLSearchParams === 'function' ? new URLSearchParams(location.search || '') : { get: () => null };
+  LAB.theme = q.get('theme') === 'dark' ? 'dark' : 'light';
+  wire(); buildControls(); paint();
+  if (!CORE || !MAKE || !SLICE || typeof fetch !== 'function') return;
+  try {
+    const [html, pj] = await Promise.all([fetch('../../reference/swarmsaw.html').then(r => r.text()),
+      fetch('../../reference/scalpel/data/presets.json').then(r => r.json())]);
+    LAB.swarmSrc = SLICE(html);
+    LAB.Composed = MAKE(CORE, LAB.swarmSrc);
+    LAB.presets = PRESET_NAMES.map(n => pj.presets.find(p => p.name === n)).filter(Boolean);
+    const sel = $('preset');
+    LAB.presets.forEach((p, i) => { const o = document.createElement('option'); o.value = i; o.textContent = p.name + ' — ' + p.category; sel.appendChild(o); });
+    const want = +(q.get('preset') || 0);
+    sel.value = want; loadPreset(want);
+    /* ?onset=1&driftDepth=20 … : a still capture of a stated setting (screenshots, links) */
+    let over = false;
+    for (const c of CTL) { const v = q.get(c[1]); if (v !== null && v !== '') { LAB.horde[c[1]] = +v; over = true; } }
+    if (over) { syncControls(); monStrike(); lawDirty = true; }
+    /* a whole number of frames advanced before the first paint, so a still capture shows motion history */
+    const warm = +(q.get('warm') || 0); for (let i = 0; i < warm; i++) monStep();
+  } catch (e) { LAB.err = 'load failed: ' + String(e && e.message || e); }
+  paint();
+  requestAnimationFrame(frame);
+  if (LAB.Composed && q.get('probe')) {
+    try { LAB.err = await probeAudio(); } catch (e) { LAB.err = 'probe failed: ' + String(e && e.message || e); }
+    paint();
+  }
+}
+boot();
+</script>
+</body></html>
