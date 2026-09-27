@@ -63,7 +63,7 @@
      in the audio path or the fidelity programme — both count samples; only
      painters read time. TOKENS are copied verbatim from src/gui/gui2.html. -->
 <html lang="en"><head><meta charset="utf-8">
-<meta name="lab-review" content="B274 + B287 · 2026-09-26">
+<meta name="lab-review" content="B274 + B287 + B290 · 2026-09-26">
 <title>filter lab — twelve types, a fidelity programme, one signal path</title>
 <style>
   /* ============================================================
@@ -262,6 +262,8 @@
   body.dark table.fid td.fail { color:var(--caution); }
   table.fid td.blind { outline:2.5px solid var(--alarm); }
   table.fid td.pend { color:var(--dim); border-style:dashed; }
+  table.fid th.rep, table.fid td.rep { background:none; border-style:dotted; }
+  table.fid td.rep b { color:var(--value); letter-spacing:0; }
   table.fid td .v { display:block; color:inherit; opacity:.85; overflow-wrap:anywhere; }
   table.fid td .c { display:block; font-size:8px; color:var(--dim); overflow-wrap:anywhere; }
   body.dark table.fid td.fail .c { color:var(--caution-tx); }
@@ -377,9 +379,37 @@ by the fidelity programme at the bottom of the page.</div>
     as an error. A <b>FAIL</b> is a finding about the type, reported as it is — never met by loosening a tolerance. The
     same code runs headless in <code>tools/labharness/filter_fidelity_check.mjs</code> (wired into
     <code>./verify fast</code>), which also pins today's verdicts, so a type that starts or stops passing is a
-    deliberate, reviewed change. Hover a cell for its numbers.</div>
+    deliberate, reviewed change. Hover a cell for its numbers.
+    <b>B290 re-cut four checks</b> (ruled 2026-09-26, "ratified for all tolerances"): C3's level is now relative to
+    the unfiltered source; C4 gates at the plugin's real mod tick (≈ 172 Hz) and <b>C4b</b> reports the fastest
+    modulation each type survives; C5 judges a stated nominal drive (0.3, the knob default) and <b>COST</b> is
+    reported beside it; C6 measures two geometries, fixed and keytracked. The last two columns are REPORTS, never
+    gated.</div>
   <div class="fidwrap"><table class="fid" id="fidT"></table></div>
   <div class="findings" id="fidFind"></div>
+</div>
+
+<div class="cluster full" id="manCard">
+  <h2>Manifest — anti-aliasing, cost and maximum modulation rate, per type (B290)</h2>
+  <div class="note" style="margin-top:0">One line per type: the anti-aliasing each nonlinear type carries (chosen from the
+    evaluation below), its C5 reading at the nominal drive, its <b>cost</b> — time per sample of a running instance
+    relative to SVF 12 LP, the median of seven runs, timed in this browser (the harness times the same code in node)
+    — and its <b>maximum viable modulation rate</b> (C4b): the fastest per-sample modulation at which every slower
+    rate still meets C4's bounds. That rate is the filter's manifest value (B275).</div>
+  <table class="diag" id="manT"></table>
+</div>
+
+<div class="cluster full" id="aaCard">
+  <h2>ADAA first — every anti-aliasing option for LADDER and MS-20, through the same checks</h2>
+  <div class="note" style="margin-top:0">The human asked whether antiderivative anti-aliasing could reduce the need for
+    oversampling, so each option runs through C5 (at the nominal drive; full drive is reported beside it) and through
+    the checks ADAA's half-sample delay threatens: C1 and C2 (the small-signal filter) and C3 (self-oscillation's
+    pitch), plus C7 for DC. <b>ADAA ON THE WHOLE tanh</b> breaks the zero-delay solve (C1). <b>ADAA ON THE RESIDUAL</b>
+    tanh − identity keeps the linear filter exact, but its delay detunes self-oscillation (C3), and the
+    <b>CENTRED</b> window that removes the delay gives back most of the suppression. The chosen option is the
+    cheapest that passes every check. Measured live, one option per frame, after the table above.</div>
+  <table class="diag" id="aaT"></table>
+  <div class="note" id="aaNote">Queued behind the fidelity table…</div>
 </div>
 
 <div class="cluster full" id="typesCard"><h2>The types — and why each is on the menu</h2>
@@ -472,10 +502,16 @@ by the fidelity programme at the bottom of the page.</div>
       knob, so it blooms at the MS-20's rate; <b>COMB</b> (C2) — Lagrange, not linear, delay read; <b>SWARM · PROPOSED</b>
       (C2) — P4 range. <b>Held, with numbers</b>: COMB ± C6 — compensating trades the keytracked comb's level (its
       LEVEL LAW says by how much); <b>SWARM · REF</b> C2 and C6 — properties of the protected reference, pinned
-      (PROPOSED carries P1 and P4). <b>Phase B</b>, held for the tolerance ruling (B290): <b>aliasing</b> (C5) —
-      LADDER −13 dBc, MS-20 −36 dBc; <b>PHASER</b> (C4) +20 dB bursts under audio-rate sweeps; ALL-PASS ×4 C4 marginal.
-      <b>Open</b>: C6 measures ONE geometry (cutoff 1 kHz over a 110 Hz saw). Every scalar level law assumes where the
-      source's energy sits; BP's is the only one exact for any source.</div>
+      (PROPOSED carries P1 and P4). <b>Phase B</b>, under B290's ruled tolerances: <b>aliasing</b> (C5, now at the
+      nominal drive 0.3) — the LADDER runs 2× oversampled (−35.9 → −64.7 dBc), the MS-20 runs centred first-order
+      ADAA with no oversampling (−55.3 → −61.3 dBc, marginal: see the ADAA card); <b>PHASER</b> (C4, now at the real
+      mod tick) — its all-pass chain is a normalised lattice, same response, and it holds C4's bounds at every rate
+      to 22 kHz; ALL-PASS ×4 passes the tick gate either way. <b>New, from the keytracked C6 geometry</b>: SVF 12 and
+      SVF 24 LP/BP/HP/PEAK, LADDER, MS-20, PHASER and SWARM · PROPOSED now FAIL C6, each REFUSED with its law room —
+      where the two geometries disagree by more than 12 dB no resonance law can pass both (SVF LP and PEAK, the
+      ladder, the MS-20, COMB +, PROPOSED); elsewhere only a law fitted between them could. Every scalar level law
+      assumes where the source's energy sits, and the two geometries sit it in different places: whether C6 should
+      demand both is the open question these numbers put to the human.</div>
   </div>
 </div>
 
@@ -641,13 +677,140 @@ class Svf24 {
   set(sr, P) { const fc = fcOf(P), kb = k24b(P.res); this.s1.setK(sr, fc, K24A); this.s2.setK(sr, fc, kb); this.m = P.mode || 1; this.g = svfComp(kb, K24B, this.m); }
   tick(x) { return this.g * this.s2.process(this.s1.process(x, this.m), this.m); }
 }
+/* ---- ANTI-ALIASING FOR THE NONLINEAR TYPES (B287 phase B, C5; B290) -------
+   The human (2026-09-26): "Is there a way to incorporate ADAA to reduce the need
+   for oversampling?" So LADDER and MS-20 were each measured with antiderivative
+   anti-aliasing (ADAA) FIRST and oversampling second. Every option is kept here,
+   so the evaluation (aaEval, the page's "ADAA first" card, and the harness's
+   report) re-runs from this file; each type's `aa` field records the option it
+   uses, the cheapest one that passes every check.
+   Sources, cited FROM MEMORY and UNVERIFIED here: first-order ADAA, Parker,
+   Zavalishin & Le Bivic (DAFx-16); second order and the ill-conditioning
+   fallbacks, Bilbao, Esqueda, Parker & Välimäki (IEEE SPL 2017); ADAA inside
+   stateful systems, Holters (DAFx-19).
+   THE TRAP, MEASURED RATHER THAN ASSUMED. ADAA outputs the AVERAGE of the
+   nonlinearity over the last sample interval, which is half a sample of delay
+   and a mild low-pass. Inside a feedback loop that delay moves the resonance:
+     1. ADAA on the whole tanh ('adaa1t') delays the LINEAR part as well, so the
+        zero-delay solve's linear prediction no longer matches the loop it
+        predicts: C1 misses by 115 dB on the ladder. The small-signal filter is no
+        longer the filter.
+     2. So the other options apply ADAA to the RESIDUAL only, r(a) = tanh(a) − a.
+        The linear part stays exact (C1 and C2 are unchanged to the last digit),
+        and every alias comes from r, so the suppression is kept. But r is large
+        exactly when the filter SELF-OSCILLATES, and there its half-sample delay
+        detunes the loop: 51 ¢ (ladder) and 40 ¢ (MS-20) at 7 kHz for 'adaa1';
+        88 ¢ and 134 ¢ for the one-sample 'adaa2'.
+     3. Compensated analytically ('…c'): the ADAA window is CENTRED on the
+        current sample, [½(a + a₁), a + ½(a − a₁)] (the last segment extended half
+        a sample), so its small-step limit is r(a) itself and the delay is gone.
+        C3 comes back (6.2 ¢ / 3.4 ¢), but the half-sample extrapolation lifts the
+        top octave (×2 at Nyquist) and gives back most of the suppression.
+   ILL-CONDITIONING: (R(a) − R(a₁))/(a − a₁) loses its digits as |a − a₁| → 0, so
+   below AA_EPS the midpoint value r(½(a + a₁)) is used (error O(Δ²)); and R is a
+   series near 0, where log cosh a − a²/2 would cancel to noise. Silence in gives
+   0/0 at the first repeated sample without the fallback, and the harness plants
+   exactly that. */
+const AA_EPS = 1e-5, AA_EPS2 = 1e-3;
+const lcosh = x => { const a = Math.abs(x); return a + Math.log1p(Math.exp(-2 * a)) - Math.LN2; };
+const aaRes = x => Math.tanh(x) - x;
+/* R = ∫r = log cosh x − x²/2; the series (from tanh's) below |x| = 0.1, where the
+   first omitted term is < 1e-17. */
+function aaR(x) {
+  if (Math.abs(x) >= 0.1) return lcosh(x) - 0.5 * x * x;
+  const q = x * x;
+  return q * q * (-1 / 12 + q * (1 / 45 + q * (-17 / 2520 + q * (31 / 14175 + q * (-691 / 935550 + q * 21844 / 85135050)))));
+}
+/* Li2(z) on [−1, 0) by its Bernoulli series in u = −ln(1 − z) (|u| ≤ ln 2). */
+const LI2_B = [1, -1 / 2, 1 / 6, 0, -1 / 30, 0, 1 / 42, 0, -1 / 30, 0, 5 / 66, 0, -691 / 2730, 0, 7 / 6, 0, -3617 / 510, 0, 43867 / 798, 0, -174611 / 330];
+function li2m(z) { const u = -Math.log1p(-z); let s = 0, p = u, f = 1; for (let n = 0; n < LI2_B.length; n++) { f *= n + 1; s += LI2_B[n] * p / f; p *= u; } return s; }
+/* R2 = ∫R = ∫log cosh − x³/6, with ∫log cosh = x²/2 − x ln2 + ½Li2(−e^{−2x}) + π²/24
+   (x ≥ 0, odd); a series below 0.1 for the same reason as aaR. */
+function aaR2(x) {
+  const a = Math.abs(x);
+  if (a < 0.1) { const q = x * x; return x * q * q * (-1 / 60 + q * (1 / 315 + q * (-17 / 22680 + q * (31 / 155925 + q * (-691 / 12162150 + q * 21844 / 1277025750))))); }
+  const v = 0.5 * a * a - a * Math.LN2 + 0.5 * li2m(-Math.exp(-2 * a)) + Math.PI * Math.PI / 24 - a * a * a / 6;
+  return x < 0 ? -v : v;
+}
+/* First- and second-order divided differences, with the fallbacks. */
+function aaD1(F, f, a, b) { const d = a - b; return Math.abs(d) > AA_EPS ? (F(a) - F(b)) / d : f(0.5 * (a + b)); }
+function aaD2(x0, x1, x2) {
+  const D = (a, b) => { const d = a - b; return Math.abs(d) > AA_EPS2 ? (aaR2(a) - aaR2(b)) / d : aaR(0.5 * (a + b)); };
+  const d02 = x0 - x2;
+  if (Math.abs(d02) > AA_EPS2) return 2 / d02 * (D(x0, x1) - D(x1, x2));
+  const xb = 0.5 * (x0 + x2), dl = xb - x1;
+  if (Math.abs(dl) > AA_EPS2) return 2 / dl * (aaR(xb) + (aaR2(x1) - aaR2(xb)) / dl);
+  return aaRes(0.5 * (xb + x1));
+}
+/* The nonlinearity per option: tanh(a) for an argument a, given the instance's
+   argument history s.a1, s.a2 (the instance advances it after the call). */
+const AA_NL = {
+  none: a => Math.tanh(a),
+  adaa1t: (a, s) => aaD1(lcosh, Math.tanh, a, s.a1),
+  adaa1: (a, s) => a + aaD1(aaR, aaRes, a, s.a1),
+  adaa1c: (a, s) => a + aaD1(aaR, aaRes, a + 0.5 * (a - s.a1), 0.5 * (a + s.a1)),
+  adaa2: (a, s) => a + aaD2(a, s.a1, s.a2),
+  adaa2c: (a, s) => a + aaD2(a + (a - s.a1), a, s.a1),
+};
+/* OVERSAMPLING: 2× stages, each a 55-tap Kaiser (β = 10) half-band FIR, linear
+   phase, applied polyphase (14 multiplies each way). Both filters together are
+   flat within ±0.01 dB to 19 kHz, −0.15 dB at 20 kHz, and ≥ 90 dB down above
+   29.6 kHz (scratch hbdesign). Latency 27 samples at the stage's input rate per
+   stage; the analytic H carries it (osResp), and so does the C2 claim (`lat`). */
+const HB_L = 55, HB_BETA = 10, HB_C = (HB_L - 1) / 2, HB_K = (HB_C + 1) / 2;
+const HB_H = (() => {
+  const i0 = x => { let s = 1, t = 1; for (let k = 1; k < 50; k++) { t *= (x / (2 * k)) * (x / (2 * k)); s += t; } return s; };
+  const h = new Float64Array(HB_K);     /* h[c ± (2k+1)], the odd offsets; even offsets are 0, the centre ½ */
+  for (let k = 0; k < HB_K; k++) { const n = 2 * k + 1; h[k] = Math.sin(Math.PI * n / 2) / (Math.PI * n) * i0(HB_BETA * Math.sqrt(1 - (n / HB_C) * (n / HB_C))) / i0(HB_BETA); }
+  return h;
+})();
+class HalfBand {
+  constructor() { this.x = new Float64Array(32); this.e = new Float64Array(32); this.o = new Float64Array(32); this.i = 0; this.j = 0; }
+  /* one input sample -> its two 2×-rate samples: out[0] the filtered one, out[1]
+     the centre tap alone (a delay; the other odd-phase taps are the zeros). */
+  up(x, out) {
+    const b = this.x, i = (this.i + 1) & 31, h = HB_H; this.i = i; b[i] = x;
+    let s = 0; for (let k = 0; k < HB_K; k++) s += h[k] * (b[(i - HB_K - k) & 31] + b[(i - HB_K + 1 + k) & 31]);
+    out[0] = 2 * s; out[1] = b[(i - HB_K + 1) & 31];
+  }
+  /* two 2×-rate samples (even, odd) -> one output sample. */
+  down(e, o) {
+    const E = this.e, O = this.o, j = (this.j + 1) & 31, h = HB_H; this.j = j; E[j] = e; O[j] = o;
+    let s = 0.5 * O[(j - HB_K) & 31]; for (let k = 0; k < HB_K; k++) s += h[k] * (E[(j - HB_K - k) & 31] + E[(j - HB_K + 1 + k) & 31]);
+    return s;
+  }
+}
+class Os {
+  constructor(inner, stages) { this.inner = inner; this.n = stages; this.hb = []; this.t = []; for (let d = 0; d < stages; d++) { this.hb.push(new HalfBand()); this.t.push(new Float64Array(2)); } }
+  set(sr, P) { this.inner.set(sr * (1 << this.n), P); }
+  tick(x) { return this.run(x, 0); }
+  run(x, d) {
+    if (d === this.n) return this.inner.tick(x);
+    const t = this.t[d]; this.hb[d].up(x, t); const a = t[0], b = t[1];
+    const ya = this.run(a, d + 1); return this.hb[d].down(ya, this.run(b, d + 1));
+  }
+}
+const hbAmp = w => { let s = 0.5; for (let k = 0; k < HB_K; k++) s += 2 * HB_H[k] * Math.cos(w * (2 * k + 1)); return s; };
+const osLat = st => { let l = 0; for (let d = 0; d < st; d++) l += HB_C / (1 << d); return l; };   /* samples at the base rate */
+function osResp(f, sr, st) {
+  let m = 1; for (let d = 0; d < st; d++) { const a = hbAmp(2 * Math.PI * f / (sr * (2 << d))); m *= a * a; }
+  const ph = -2 * Math.PI * f * osLat(st) / sr; return [m * Math.cos(ph), m * Math.sin(ph)];
+}
+/* The options evaluated, in the brief's order: (a) first-order ADAA, (b) second
+   order, (c) 2×, (d) ADAA + 2×, (e) 4× and 8× alone; then ADAA + 4×, which shows
+   what ADAA buys at full drive (it passes there where 8× alone does not). */
+const AA_OPTS = ['none', 'adaa1t', 'adaa1', 'adaa1c', 'adaa2', 'adaa2c', 'os2', 'os2+adaa1c', 'os4', 'os8', 'os4+adaa1c'];
+const aaSpec = opt => { const m = /^os(\d)\+?(.*)$/.exec(opt); return m ? { st: Math.round(Math.log2(+m[1])), nl: m[2] || 'none' } : { st: 0, nl: opt }; };
+
 /* LADDER — four TPT one-poles in a negative loop, solved zero-delay (the linear
    loop exactly), with ONE tanh on the loop input: u = tanh(dg·(x − k·y4))/dg.
    y4 is first solved linearly (y4 = (G⁴x + S)/(1 + kG⁴)), the tanh is applied to
    that estimate, and the stages then run on the saturated u — the standard
-   one-nonlinearity ZDF ladder. Linear below saturation, bounded above it. */
+   one-nonlinearity ZDF ladder. Linear below saturation, bounded above it.
+   `nl` is the anti-aliasing option's nonlinearity (AA_NL); the type runs 2×
+   oversampled (TYPES.ladder.aa). */
 class Ladder {
-  constructor() { this.s = new Float64Array(4); this.G = 0.5; this.k = 0; this.dg = 1; this.out = 1; }
+  constructor(nl) { this.s = new Float64Array(4); this.G = 0.5; this.k = 0; this.dg = 1; this.out = 1; this.nl = AA_NL[nl || 'none']; this.a1 = 0; this.a2 = 0; }
   set(sr, P) {
     const g = Math.tan(Math.PI * clampFc(sr, fcOf(P)) / sr);
     this.G = g / (1 + g); this.k = ladderK(P.res); this.dg = driveGain(P.drive || 0); this.out = ladderComp(this.k);
@@ -656,19 +819,24 @@ class Ladder {
     const G = this.G, s = this.s, k = this.k, dg = this.dg;
     const S = (1 - G) * (((G * s[0] + s[1]) * G + s[2]) * G + s[3]);
     const G4 = G * G * G * G;
-    const y4 = (G4 * x + S) / (1 + k * G4);
-    let u = Math.tanh(dg * (x - k * y4)) / dg;
+    const y4 = (G4 * x + S) / (1 + k * G4), a = dg * (x - k * y4);
+    let u = this.nl(a, this) / dg; this.a2 = this.a1; this.a1 = a;
     for (let i = 0; i < 4; i++) { const v = (u - s[i]) * G, y = v + s[i]; s[i] = y + v; u = y; }
     return u * this.out;
   }
+}
+function ladderH(f, sr, P) {
+  const O = warpO(f, sr, Math.tan(Math.PI * clampFc(sr, fcOf(P)) / sr)), k = ladderK(P.res);
+  const a = cmul(1, O, 1, O), a4 = cmul(a[0], a[1], a[0], a[1]); return cdiv(ladderComp(k), 0, a4[0] + k, a4[1]);
 }
 /* MS-20 / SALLEN-KEY — LP → LP with the output high-passed back into the second
    stage's input, gain K (Zavalishin's SKF topology; the Korg35 shape). Linear:
    H = 1/(s² + (2 − K)s + 1), so the passband does NOT sag with resonance (unlike
    the ladder). The tanh sits in the FEEDBACK path, where the MS-20 puts its
-   diodes, which is why it screams rather than thickens. */
+   diodes, which is why it screams rather than thickens. `nl` as the ladder's; the
+   type runs centred first-order ADAA at the base rate (TYPES.ms20.aa). */
 class Ms20 {
-  constructor() { this.s1 = 0; this.s2 = 0; this.s3 = 0; this.G = 0.5; this.K = 0; this.dg = 1; }
+  constructor(nl) { this.s1 = 0; this.s2 = 0; this.s3 = 0; this.G = 0.5; this.K = 0; this.dg = 1; this.nl = AA_NL[nl || 'none']; this.a1 = 0; this.a2 = 0; }
   set(sr, P) {
     const g = Math.tan(Math.PI * clampFc(sr, fcOf(P)) / sr);
     this.G = g / (1 + g); this.K = SK_KMAX * clamp01(P.res); this.dg = driveGain(P.drive || 0);
@@ -676,8 +844,8 @@ class Ms20 {
   tick(x) {
     const G = this.G, K = this.K, dg = this.dg, H = 1 - G;
     const y1 = G * x + H * this.s1;
-    const yl = (G * y1 - G * K * H * this.s3 + H * this.s2) / (1 - G * K * H);
-    const u = y1 + Math.tanh(dg * K * H * (yl - this.s3)) / dg;
+    const yl = (G * y1 - G * K * H * this.s3 + H * this.s2) / (1 - G * K * H), a = dg * K * H * (yl - this.s3);
+    const u = y1 + this.nl(a, this) / dg; this.a2 = this.a1; this.a1 = a;
     const v1 = (x - this.s1) * G; this.s1 = y1 + v1;
     const v2 = (u - this.s2) * G, y = v2 + this.s2; this.s2 = y + v2;
     const v3 = (y - this.s3) * G; this.s3 = v3 + this.s3 + v3;
@@ -745,12 +913,23 @@ class Formant {
   set(sr, P) { formantBands(sr, P, this.fc, this.k, this.a); for (let j = 0; j < 3; j++) this.f[j].setK(sr, this.fc[j], this.k[j]); }
   tick(x) { let y = 0; for (let j = 0; j < 3; j++) y += this.a[j] * this.k[j] * this.f[j].process(x, 2); return y; }
 }
-/* ALL-PASS ×4 — four identical TPT first-order all-passes (ap = 2·lp − x): flat
-   magnitude, −360° at the cutoff. The phase is the product; C1 checks it. */
+/* ALL-PASS ×4 — four identical first-order all-passes, H = (−a + z⁻¹)/(1 − a·z⁻¹),
+   a = (1 − g)/(1 + g) = 1 − 2G: the bilinear (TPT) all-pass, flat magnitude, −360°
+   at the cutoff. The phase is the product; C1 checks it.
+   REALISED AS A NORMALISED LATTICE (B287 phase B, C4): y = c·s − a·x, s ← c·x + a·s,
+   c = √(1 − a²). Same transfer function as round 2's TPT form (2·lp − x), to the
+   last digit (C1), but the map (x, s) → (y, s') is a REFLECTION, orthogonal for any
+   a: a coefficient change can move energy between the state and the output, never
+   create it. The TPT state is not energy-normalised, so a jump in G re-scaled
+   what the state held, and in PHASER's feedback loop those steps rang up: +14.1 dB
+   over static under C4's stimuli on the real mod tick (+20.5 dB under round 2's
+   per-sample sweep), and C4b read < 172 Hz. The lattice reads −0.9 dB on the tick
+   and holds C4's bounds at every C4b rate to 22 kHz; ALL-PASS ×4 alone moves from
+   +7.1 dB and 2.8 kHz to −0.3 dB and ≥ 22 kHz. */
 class Ap4 {
-  constructor() { this.s = new Float64Array(4); this.G = 0.5; }
-  set(sr, P) { const g = Math.tan(Math.PI * clampFc(sr, fcOf(P)) / sr); this.G = g / (1 + g); }
-  tick(x) { const s = this.s, G = this.G; for (let i = 0; i < 4; i++) { const v = (x - s[i]) * G, lp = v + s[i]; s[i] = lp + v; x = 2 * lp - x; } return x; }
+  constructor() { this.s = new Float64Array(4); this.a = 0; this.c = 1; }
+  set(sr, P) { const g = Math.tan(Math.PI * clampFc(sr, fcOf(P)) / sr); this.a = (1 - g) / (1 + g); this.c = Math.sqrt(Math.max(0, 1 - this.a * this.a)); }
+  tick(x) { const s = this.s, a = this.a, c = this.c; for (let i = 0; i < 4; i++) { const y = c * s[i] - a * x; s[i] = c * x + a * s[i]; x = y; } return x; }
 }
 function ap4H(f, sr, P) {
   const O = warpO(f, sr, Math.tan(Math.PI * clampFc(sr, fcOf(P)) / sr));
@@ -966,31 +1145,32 @@ const TYPES = {
   ladder: {
     name: 'LADDER', fam: '4-pole ladder', modes: ['LP 24'], uses: { cutoff: 1, res: 1, drive: 1, morph: 0 }, rackOnly: false, selfOsc: true, nl: true,
     why: 'The Moog shape: four poles in a negative loop, so resonance THINS the bass (passband 1/(1+k)) and past k = 4 it sings a sine at the cutoff. One tanh in the loop gives it drive. The classic acid/bass filter.',
-    law: 'Output × (1 + k/2): half the loop\'s k restored to the numerator (Välimäki & Huovilainen\'s Gcomp = ½, applied after the tanh so drive is untouched). The passband still sinks, to (1 + k/2)/(1 + k), −4.4 dB at res 0.9 instead of −13.6, and the resonance rises against the bass exactly as before — the thinning is kept. Resonance law: k = 4.2·res to the onset (0.952), then 4 → 4·1.05⁴ over the top 5 % of the knob, so it self-oscillates at the MS-20\'s growth rate (B287 C3).',
-    make: () => new Ladder(),
-    H: (f, sr, P) => {
-      const O = warpO(f, sr, Math.tan(Math.PI * clampFc(sr, fcOf(P)) / sr)), k = ladderK(P.res);
-      const a = cmul(1, O, 1, O), a4 = cmul(a[0], a[1], a[0], a[1]); return cdiv(ladderComp(k), 0, a4[0] + k, a4[1]);
-    },
-    claim: P => { const k = ladderK(P.res); return { kind: 'phase', f: fcOf(P), ph: -Math.PI, lvl: 20 * Math.log10(ladderComp(k) / (4 - k)) }; },
+    law: 'Output × (1 + k/2): half the loop\'s k restored to the numerator (Välimäki & Huovilainen\'s Gcomp = ½, applied after the tanh so drive is untouched). The passband still sinks, to (1 + k/2)/(1 + k), −4.4 dB at res 0.9 instead of −13.6, and the resonance rises against the bass exactly as before — the thinning is kept. Resonance law: k = 4.2·res to the onset (0.952), then 4 → 4·1.05⁴ over the top 5 % of the knob, so it self-oscillates at the MS-20\'s growth rate (B287 C3). B290\'s keytracked geometry (cutoff = f0) swings 22.5 dB with this law (13.3 without), because the fundamental sits on the peak: the two geometries disagree by 19.8 dB over res, so no law can hold both (C6, refused). The law is kept because it holds the fixed geometry (4.2 dB).',
+    /* make / H / claim are built from these by aaType() below, for the option in `aa`. */
+    mk: nl => new Ladder(nl), H0: ladderH,
+    claim0: P => { const k = ladderK(P.res); return { kind: 'phase', f: fcOf(P), ph: -Math.PI, lvl: 20 * Math.log10(ladderComp(k) / (4 - k)) }; },
+    aa: 'os2',
+    aaWhy: '2× OVERSAMPLED (C5, B290): −35.9 → −64.7 dBc at the nominal drive, self-oscillation untouched (0.4 ¢). No ADAA option passes at 1×: on the residual it reaches −56.2 dBc but detunes self-oscillation 51 ¢; second order −88.9 dBc but 88 ¢; compensated for the delay, −40.6 dBc. ADAA + 2× (−77.3 dBc, 1.2 ¢) passes too, at more cost. Latency 27 samples.',
     onset: LADDER_RON,
   },
   ms20: {
     name: 'MS-20', fam: '2-pole Sallen-Key', modes: ['LP 12'], uses: { cutoff: 1, res: 1, drive: 1, morph: 0 }, rackOnly: false, selfOsc: true, nl: true,
     why: 'The aggressive 2-pole: no bass loss with resonance (unlike the ladder), saturation in the FEEDBACK path, so pushing it screams. The hyperpop lead/brass filter the ladder cannot do.',
-    make: () => new Ms20(),
-    H: (f, sr, P) => {
+    mk: nl => new Ms20(nl),
+    H0: (f, sr, P) => {
       const O = warpO(f, sr, Math.tan(Math.PI * clampFc(sr, fcOf(P)) / sr)), K = SK_KMAX * clamp01(P.res);
       return cdiv(1, 0, 1 - O * O, (2 - K) * O);
     },
-    claim: P => ({ kind: 'phase', f: fcOf(P), ph: -Math.PI / 2, lvl: 20 * Math.log10(1 / (2 - SK_KMAX * clamp01(P.res))) }),
+    claim0: P => ({ kind: 'phase', f: fcOf(P), ph: -Math.PI / 2, lvl: 20 * Math.log10(1 / (2 - SK_KMAX * clamp01(P.res))) }),
+    aa: 'adaa1c',
+    aaWhy: 'ADAA, NO OVERSAMPLING (C5, B290): first-order ADAA on the tanh\'s residual, its window centred on the current sample so the half-sample delay does not detune self-oscillation. −55.3 → −61.3 dBc at the nominal drive, 3.4 ¢. MARGINAL: 1.3 dB inside the bound, and at res 0.8 (outside C5\'s one stimulus) it reads −44 dBc. Uncompensated ADAA reads −66.0 dBc but detunes 40 ¢; 2× reads −109 dBc. The cheapest option that passes every check, flagged for the ruling.',
     onset: 2 / SK_KMAX,
   },
   combP: {
     name: 'COMB +', fam: 'feedback comb', modes: ['+'], uses: { cutoff: 1, res: 1, drive: 0, morph: 0 }, rackOnly: false, selfOsc: false, nl: false,
     why: 'A pitched resonator: cutoff is a PITCH (peaks at every harmonic of it), so keytracked at 100 % it plays the note — metallic, plucked, Karplus-like tones from any source.',
     law: 'Output × (1 − |g|): every peak at 0 dB — uncompensated on purpose. Played as designed (keytracked, a harmonic on every peak) its level holds within 0.1 dB from res 0 to 0.9; the energy law √(1 − g²) would pass C6 (3.8 dB) but make that keytracked note 12.0 dB louder at res 0.9. C6\'s fixed 1 kHz / 110 Hz geometry puts the peaks BETWEEN the saw\'s harmonics, the one case the peak law cannot hold. Held for a ruling (B287).',
-    held: { C6: 'HELD — compensating would trade the keytracked comb\'s level (see its level law). A ruling, not a fix.' },
+    held: { C6: 'REFUSED — NO LAW (B290, both geometries): the peak law holds the keytracked comb flat (0.0 dB) and cannot hold the fixed one, whose peaks sit between the harmonics; the two geometries disagree by 15.0 dB over res, and no resonance law can close more than 12. The fitted midpoint would cost the keytracked comb 7.5 dB. A ruling, not a fix.' },
     make: () => new Comb(1),
     H: (f, sr, P) => combH(f, sr, Object.assign({}, P, { sign: 1 })),
     claim: P => ({ kind: 'max', f: fcOf(P), lvl: 0 }),
@@ -999,7 +1179,7 @@ const TYPES = {
     name: 'COMB −', fam: 'feedback comb', modes: ['−'], uses: { cutoff: 1, res: 1, drive: 0, morph: 0 }, rackOnly: false, selfOsc: false, nl: false,
     why: 'The same comb with the feedback inverted: peaks at the odd half-multiples only, so the pitch drops an octave and the tone goes hollow (square-like). Costs nothing beside COMB +.',
     law: 'Output × (1 − |g|), as COMB +, uncompensated for the same reason: tuned to its source (cutoff = 2·f0, peaks on the odd harmonics) its level holds within 1.2 dB, and the energy law would still FAIL C6 here (6.1 dB) while making the tuned case 10.8 dB louder. Held for a ruling (B287).',
-    held: { C6: 'HELD — compensating would trade the tuned comb\'s level and still fail here (see its level law). A ruling, not a fix.' },
+    held: { C6: 'REFUSED (B290, both geometries): keytracked at cutoff = f0, COMB − plays an octave DOWN with the saw\'s harmonics on its nulls (24.1 dB swing); tuned at 2·f0 it holds within 1.2 dB. A law holding both test geometries exists only fitted between them, and it would take the tuned comb from 1.2 to 19.9 dB. A ruling, not a fix.' },
     make: () => new Comb(-1),
     H: (f, sr, P) => combH(f, sr, Object.assign({}, P, { sign: -1 })),
     claim: P => ({ kind: 'max', f: fcOf(P) / 2, lvl: 0 }),
@@ -1047,7 +1227,7 @@ const TYPES = {
     name: 'SWARM · REF', fam: 'coupled resonator bank', modes: ['bank'], uses: { cutoff: 1, res: 1, drive: 0, morph: 0 }, rackOnly: true, selfOsc: false, nl: false, needsRef: true,
     why: 'reference/swarmfilter.html itself — the E1 filter the plan of record folds into the rack (B50): band-passes whose centres are a physical swarm. Rack slot only: 16 resonators and a physics tick.',
     law: 'The reference\'s own: N unity-peak bands × 1.6/√N, no resonance compensation — so it sinks 21 dB as qbase rises (C6), and its 40 Hz / 11 kHz clamps stop it following the centre (C2). Both are PROPERTIES OF THE PROTECTED REFERENCE, pinned as such; SWARM · PROPOSED carries the fixes (P1, P4).',
-    held: { C2: 'PINNED — a property of reference/swarmfilter.html (its 40 Hz / 11 kHz clamps). PROPOSED P4 is the fix.', C6: 'PINNED — a property of reference/swarmfilter.html (no Q compensation). PROPOSED P1 is the fix.' },
+    held: { C2: 'PINNED — a property of reference/swarmfilter.html (its 40 Hz / 11 kHz clamps). PROPOSED P4 is the fix.', C6: 'PINNED — a property of reference/swarmfilter.html (no Q compensation; it sinks at both geometries). PROPOSED P1 is the fix at the fixed geometry.' },
     make: (env, sr) => new SwarmBank(env.bankClass, sr, env.bank, null),
     H: (f, sr, P, inst) => bankInstH(f, sr, inst),
     claim: null,          /* measured on the bands' state — see fidC2 */
@@ -1062,6 +1242,22 @@ const TYPES = {
   },
 };
 const TYPE_ORDER = ['svf12', 'svf24', 'ladder', 'ms20', 'combP', 'combN', 'formant', 'ap4', 'phaser', 'dj', 'bank', 'bankP'];
+/* A nonlinear type as built with anti-aliasing option `opt` (AA_OPTS): the
+   instance (mk with the option's nonlinearity, inside Os when oversampled), its
+   analytic H (the inner filter's at the oversampled rate, times the half-band
+   pair's response and latency) and its claim (plus `lat`, so C2's phase landmark
+   is read net of the latency). The registry's own make/H/claim are this, for the
+   type's `aa`; aaEval builds the others. */
+function aaType(T, opt) {
+  const sp = aaSpec(opt), st = sp.st, M = 1 << st;
+  return Object.assign({}, T, {
+    aa: opt,
+    make: () => { const i = T.mk(sp.nl); return st ? new Os(i, st) : i; },
+    H: (f, sr, P) => { const h = T.H0(f, sr * M, P); if (!st) return h; const o = osResp(f, sr, st); return cmul(h[0], h[1], o[0], o[1]); },
+    claim: (P, sr) => Object.assign(T.claim0(P, sr), { lat: osLat(st) }),
+  });
+}
+for (const id of TYPE_ORDER) if (TYPES[id].mk) TYPES[id] = aaType(TYPES[id], TYPES[id].aa);
 /* ---- FIDELITY PROGRAMME (B274) --------------------------------------------
    Seven checks, run on EVERY type through the one interface, each with a stated
    tolerance and a MUST-FAIL control. A control that passes means the check
@@ -1070,16 +1266,44 @@ const TYPE_ORDER = ['svf12', 'svf24', 'ladder', 'ms20', 'combP', 'combN', 'forma
    FINDING — reported as FAIL, never met by loosening the tolerance.
    Pure: no DOM, no clock; the only randomness is mulberry32 with fixed seeds.
    The page runs it at load (one row per frame); tools/labharness/
-   filter_fidelity_check.mjs slices this DSP section and runs the same code. */
+   filter_fidelity_check.mjs slices this DSP section and runs the same code.
+   B290 (RULED 2026-09-26, human: "your recommendation is ratified for all
+   tolerances") re-cut C3, C4, C5 and C6; each tolerance below says how. That is a
+   recorded human decision to change these gates, carried out by B287 phase B. */
 const FID_SR = 48000;
+/* THE PLUGIN'S MODULATION TICK: kGravGridSeconds = 256/44100 s (src/swarm_core.h:136),
+   ≈ 172 Hz, 279 samples at 48 kHz. C4's gate delivers its modulation on it (B290,
+   B199 point 5: modulation above ~86 Hz aliases in the modulator anyway). */
+const MOD_GRID_S = 256 / 44100;
+const modGrid = sr => Math.round(sr * MOD_GRID_S);
+/* THE NOMINAL DRIVE for C5 (B290: "−60 dBc at a stated nominal drive"): 0.3 on the
+   0…1 knob, ×2.35 into the nonlinearity (driveGain). It is the knob's DEFAULT (every
+   filter defaultPatch() builds starts at 0.3), and it is the drive C1, C2 and C3
+   already measure at, so C5 now judges the same operating point as the rest of the
+   programme. Applied to every type (the linear ones ignore drive). Full drive (×16,
+   round 2's C5) is reported beside it in the ADAA evaluation, never gated. */
+const DRIVE_NOM = 0.3;
 const FID = {
+  /* THE UNFILTERED SOURCE: C6's saw, and (B290) C3's level reference. */
+  src: { f0: 110, amp: 0.25 },
   c1: { magTol: 0.05, phTol: 0.5, magFloor: -60, phFloor: -40, ctlF: 1.01, nf: 64 },
   c2: { centsTol: 5, dbTol: 0.25, cutoffs: [55, 220, 880, 3520, 12000], res: [0.2, 0.8], ctlCents: 10 },
-  c3: { centsTol: 5, lvlMin: -30, spreadTol: 3, onsetTol: 0.01, pitches: [110, 440, 1760, 7040], decayDb: 1 },
+  /* lvlTol: the self-oscillation level within ±6 dB of the source's RMS — the lead's
+     choice, the same bound as C6's swing (B290). Was: an absolute ≥ −30 dBFS floor. */
+  c3: { centsTol: 5, lvlTol: 6, spreadTol: 3, onsetTol: 0.01, pitches: [110, 440, 1760, 7040], decayDb: 1, ctlLvlDb: 12 },
+  /* The GATE (B290 C4a): round 2's two stimuli, now delivered on the real mod tick. */
   c4: { tolDb: 12, staticDb: 40, dur: 0.5, depthOct: 4, rateHz: 1000 },
-  c5: { tolDbc: -60, N: 8192, bin: 1195, amp: 0.9, zeroDbc: -150 },
-  c6: { tolDb: 6, res: [0, 0.3, 0.6, 0.9], f0: 110, fc: 1000 },
+  /* C4b REPORTS, never gates (B290): the same two stimuli at a rate r delivered every
+     sample, r stepped by half-octaves from the tick rate to 22 kHz; the highest r at
+     which every rate up to it meets C4's bounds is the type's MAXIMUM VIABLE
+     MODULATION RATE, the filter's manifest value (B275). */
+  c4b: { dur: 0.25, steps: 15 },
+  c5: { tolDbc: -60, N: 8192, bin: 1195, amp: 0.9, zeroDbc: -150, drive: DRIVE_NOM },
+  /* Two geometries (B290 addendum): FIXED, cutoff 1 kHz over the 110 Hz saw (round 2's),
+     and KEYTRACKED, cutoff = f0. */
+  c6: { tolDb: 6, res: [0, 0.3, 0.6, 0.9], fc: 1000 },
   c7: { tolDb: 0.05, blockDb: -80, meanTol: 1e-4 },
+  cost: { n: 1 << 16, reps: 7 },
 };
 const FID_CHECKS = [
   { id: 'C1', name: 'ANALYTIC', what: 'magnitude and phase of the impulse response against the analytic response, 64 frequencies 20 Hz–20 kHz, two settings',
@@ -1087,15 +1311,23 @@ const FID_CHECKS = [
   { id: 'C2', name: 'CUTOFF · RES', what: 'where the landmark actually lands (phase crossing, peak or null) and its level, 5 cutoffs 55 Hz–12 kHz × res 0.2 / 0.8',
     tol: '≤ 5 cents from the knob\'s claim; level ≤ 0.25 dB from the resonance law', ctl: 'the cutoff planted 10 cents sharp must miss' },
   { id: 'C3', name: 'SELF-OSC', what: 'self-oscillating types: pitch, level and onset at res 1, cutoff 110–7040 Hz; all others: a ring at res 1 must decay',
-    tol: 'pitch ≤ 5 cents, level ≥ −30 dBFS with ≤ 3 dB spread, onset within 0.01 of the law; others decay ≥ 1 dB per 0.9 s', ctl: 'res planted below onset must stop; a sine 20 cents off must read > 5 cents; a steady sine must read as sustaining' },
-  { id: 'C4', name: 'FAST MOD', what: 'noise in, cutoff jumped at random every 16-sample tick, then swept ±4 oct at 1 kHz per sample (B199), res 1',
+    tol: 'pitch ≤ 5 cents; level within ±6 dB of the unfiltered source\'s RMS (B290; the lead\'s choice, C6\'s bound) with ≤ 3 dB spread; onset within 0.01 of the law; others decay ≥ 1 dB per 0.9 s',
+    ctl: 'res planted below onset must stop; a sine 20 cents off must read > 5 cents; the ring +12 dB must read out of bounds; a steady sine must read as sustaining' },
+  { id: 'C4', name: 'FAST MOD', what: 'noise in, res 1: cutoff jumped at random across 20 Hz–20 kHz, then swept ±4 oct at 1 kHz — both delivered on the plugin\'s mod tick (kGravGridSeconds, ≈ 172 Hz; B290 C4a, B199)',
     tol: 'finite; peak ≤ +12 dB over the worst static setting, which is itself ≤ +40 dB over the input', ctl: 'a direct-form biquad under the same modulation must exceed it' },
-  { id: 'C5', name: 'ALIASING', what: 'a bin-exact 7 kHz sine at −1 dBFS, cutoff 12 kHz, drive 1: energy on the FOLDED harmonic bins only',
-    tol: '≤ −60 dBc', ctl: 'a pure sine must read ≤ −150 dBc (zero); the output hard-clipped must read above −60 dBc' },
-  { id: 'C6', name: 'LEVEL @ RES', what: 'RMS of a 110 Hz saw through cutoff 1 kHz as resonance goes 0 → 0.9',
-    tol: 'swing ≤ 6 dB', ctl: 'a planted resonance-dependent gain (+11 dB at 0.9) must exceed it' },
+  { id: 'C5', name: 'ALIASING', what: 'a bin-exact 7 kHz sine at −1 dBFS, cutoff 12 kHz, at the NOMINAL drive 0.3 (×2.35, the knob default; B290): energy on the FOLDED harmonic bins only',
+    tol: '≤ −60 dBc at drive 0.3', ctl: 'a pure sine must read ≤ −150 dBc (zero); the output hard-clipped must read above −60 dBc' },
+  { id: 'C6', name: 'LEVEL @ RES', what: 'RMS of a 110 Hz saw as resonance goes 0 → 0.9, at TWO geometries (B290): FIXED, cutoff 1 kHz; KEYTRACKED, cutoff = f0',
+    tol: 'swing ≤ 6 dB at each', ctl: 'a planted resonance-dependent gain (+11 dB at 0.9) must exceed it at each' },
   { id: 'C7', name: 'DC', what: 'DC gain (the impulse response summed) against the analytic H(0); DC generated from a 1 kHz sine at drive 1',
     tol: '|Δ| ≤ 0.05 dB (or both ≤ −80 dB); |mean| ≤ 1e-4', ctl: 'a planted 2 % dry leak plus a 1e-3 offset must fail both' },
+];
+/* Measured and REPORTED, never gated: beside the seven checks, not among them. */
+const FID_REPORTS = [
+  { id: 'C4b', name: 'MAX MOD RATE', what: 'C4\'s stimuli delivered EVERY SAMPLE at a rate stepped by half-octaves from the tick (172 Hz) to 22 kHz; the highest rate at which every rate up to it meets C4\'s bounds (B290 C4b; the B275 manifest value)',
+    tol: 'reported, not gated', ctl: 'the direct-form biquad must read below the tick rate' },
+  { id: 'COST', name: 'COST', what: 'time per sample of a running instance (noise in, cutoff 1 kHz, res 0.5, the nominal drive), the median of 7 runs, relative to SVF 12 LP measured the same way (B290 C5)',
+    tol: 'reported, not gated', ctl: '—' },
 ];
 function fidRows(withBank) {
   const rows = [];
@@ -1147,12 +1379,15 @@ function golden(fn, lo, hi, max) {
 }
 /* The landmark of a response `Hf` (f -> [re, im]) for a claim. PHASE: where
    arg(H·e^{−jφ}) crosses zero going down (bisection, 40 steps); MAX / MIN: the
-   peak or null within a quarter-octave. null = not found (itself a failure). */
+   peak or null within a quarter-octave. null = not found (itself a failure).
+   A claim's `lat` (an oversampled type's latency, samples) is taken out of the
+   phase first — it is a pure delay, not where the filter lands. */
 function landmark(Hf, cl, sr) {
-  const top = 0.499 * sr;
+  const top = 0.499 * sr, lat = cl.lat || 0;
   if (cl.kind === 'phase') {
     const c = Math.cos(cl.ph), s = Math.sin(cl.ph);
-    const rot = f => { const h = Hf(f); return Math.atan2(h[1] * c - h[0] * s, h[0] * c + h[1] * s); };
+    const rot = f => { let h = Hf(f); if (lat) h = cmul(h[0], h[1], Math.cos(TAU * f * lat / sr), Math.sin(TAU * f * lat / sr));
+      return Math.atan2(h[1] * c - h[0] * s, h[0] * c + h[1] * s); };
     let lo = cl.lo || cl.f / 2, hi = Math.min(top, cl.hi || cl.f * 2);
     if (!(rot(lo) > 0 && rot(hi) < 0)) return null;
     for (let i = 0; i < 40; i++) { const m = Math.sqrt(lo * hi); if (rot(m) > 0) lo = m; else hi = m; }
@@ -1295,11 +1530,21 @@ function fidC3(T, row, env) {
   let r0 = 0.8, r1 = 1;
   for (let i = 0; i < 12; i++) { const m = 0.5 * (r0 + r1); if (sustains(m)) r1 = m; else r0 = m; }
   const onset = 0.5 * (r0 + r1), dOn = Math.abs(onset - T.onset);
-  const ok = wc <= C.centsTol && lo >= C.lvlMin && hi - lo <= C.spreadTol && dOn <= C.onsetTol;
-  const ctlStop = !sustains(0.9 * T.onset);
+  /* The level (B290): relative to the unfiltered source's RMS, measured here on the
+     source itself (fidSrcDb), never typed. */
+  const src = fidSrcDb(), inLvl = L => Math.abs(L - src) <= C.lvlTol;
+  const ok = wc <= C.centsTol && inLvl(lo) && inLvl(hi) && hi - lo <= C.spreadTol && dOn <= C.onsetTol;
+  const ctlStop = !sustains(0.9 * T.onset), ctlLvl = !inLvl(hi + C.ctlLvlDb);
   const probe = sineAt(440 * Math.pow(2, 20 / 1200), sr), ctlPitch = Math.abs(1200 * Math.log2(zcFreq(probe, 0, sr, sr) / 440)) > C.centsTol;
-  return { ok, val: fmt(wc, 1) + ' ¢ · ' + fmt(lo, 1) + '…' + fmt(hi, 1) + ' dBFS · onset ' + fmt(onset, 3),
-    ctl: (ctlStop ? 'stops' : 'STILL SINGS') + ' below onset; 20 ¢ probe ' + (ctlPitch ? 'caught' : 'MISSED'), ctlOk: ctlStop && ctlPitch, note: notes.join('; ') };
+  const rel = L => (L - src >= 0 ? '+' : '') + fmt(L - src, 1);
+  return { ok, val: fmt(wc, 1) + ' ¢ · ' + rel(lo) + '…' + rel(hi) + ' dB re source · onset ' + fmt(onset, 3),
+    ctl: (ctlStop ? 'stops' : 'STILL SINGS') + ' below onset; 20 ¢ probe ' + (ctlPitch ? 'caught' : 'MISSED') + '; +12 dB ' + (ctlLvl ? 'caught' : 'MISSED'),
+    ctlOk: ctlStop && ctlPitch && ctlLvl, note: 'source ' + fmt(src, 1) + ' dBFS; ' + notes.join('; ') };
+}
+/* The unfiltered source's RMS (FID.src, C6's saw) — C3's level reference. */
+function fidSrcDb() {
+  const sr = FID_SR, n = Math.round(0.75 * sr);
+  return rmsDb(sawAt(FID.src.f0, sr, n, FID.src.amp), Math.round(0.25 * sr), n);
 }
 /* A direct-form-II-transposed RBJ low-pass: the control for C4. Stable at every
    static setting and known to misbehave when its coefficients jump. */
@@ -1311,33 +1556,69 @@ class Df2Lp {
   }
   tick(x) { const y = this.b0 * x + this.z1; this.z1 = this.b1 * x - this.a1 * y + this.z2; this.z2 = this.b2 * x - this.a2 * y; return y; }
 }
-/* C4 — stability under fast modulation. */
+/* C4 — stability under fast modulation. Everything moves `oct` around a 1 kHz base,
+   so every type (the DJ included, which ignores cutoff) sweeps the same 20 Hz–20 kHz,
+   and the static bound is taken over that same span. */
+const c4Base = row => fidP(row, { cutoff: 1000, res: 1, drive: 0.5, morph: row.type === 'dj' ? 0.25 : 0.5 });
+const C4_LO = Math.log2(0.02), C4_SPAN = Math.log2(1000);
+function c4Bound(make, base) {
+  const sr = FID_SR; let bound = 0;
+  for (let s = 0; s <= 8; s++) {
+    const inst = make(Object.assign({}, base, { oct: C4_LO + C4_SPAN * s / 8 })), rn = mulberry32(0xF17E);
+    for (let i = 0; i < Math.round(0.2 * sr); i++) bound = Math.max(bound, Math.abs(inst.tick((rn() * 2 - 1) * 0.5)));
+  }
+  /* The static ceiling matters as much as the ratio: a type that is unstable at a
+     STATIC setting inflates its own bound and would pass the ratio (found by the
+     ladder-without-tanh plant in filter_fidelity_check.mjs). */
+  return { bound, st: Number.isFinite(bound) && bound > 0 ? 20 * Math.log10(bound / 0.5) : Infinity };
+}
+/* The two stimuli, noise in: (1) a uniformly random `oct` across the span, new every
+   `jump` samples; (2) `oct` = ±4·sin(2π·rate·t). Either way the value reaches the
+   filter only every `hold` samples (sampled and held: the delivery). set() also runs
+   every TICK, for the bank's physics; for every other type it is idempotent. Returns
+   the peak in dB over the static bound (Infinity if non-finite or the bound is). */
+function c4Excess(make, base, B, rate, jump, hold, dur) {
+  const sr = FID_SR, n = Math.round(dur * sr); let peak = 0;
+  { const P = Object.assign({}, base), inst = make(P), rn = mulberry32(0xF17E), rj = mulberry32(0xC4); let v = 0;
+    for (let i = 0; i < n; i++) { if (i % jump === 0) v = C4_LO + C4_SPAN * rj(); if (i % hold === 0) P.oct = v; if (i % hold === 0 || i % TICK === 0) inst.set(sr, P); peak = Math.max(peak, Math.abs(inst.tick((rn() * 2 - 1) * 0.5))); } }
+  { const P = Object.assign({}, base), inst = make(P), rn = mulberry32(0xF17E);
+    for (let i = 0; i < n; i++) { if (i % hold === 0) P.oct = FID.c4.depthOct * Math.sin(TAU * rate * i / sr); if (i % hold === 0 || i % TICK === 0) inst.set(sr, P); peak = Math.max(peak, Math.abs(inst.tick((rn() * 2 - 1) * 0.5))); } }
+  return Number.isFinite(peak) && B.st <= FID.c4.staticDb ? 20 * Math.log10(peak / B.bound) : Infinity;
+}
+const df2Make = P => { const b = new Df2Lp(); b.set(FID_SR, P); return b; };
+/* C4 (the GATE, B290 C4a): round 2's stimuli — random jumps across the span, and the
+   ±4 oct sweep at 1 kHz — delivered on the plugin's mod tick (modGrid: 279 samples at
+   48 kHz). Round 2 delivered them every 16-sample tick and every sample, which the
+   plugin never does; that rate is C4b's question now. */
 function fidC4(T, row, env) {
-  const C = FID.c4, sr = FID_SR, n = Math.round(C.dur * sr), perTick = !!T.needsRef;
-  /* Everything moves `oct` around a 1 kHz base, so every type — the DJ included,
-     which ignores cutoff — sweeps the same 20 Hz–20 kHz, and the static bound is
-     taken over that same span. */
-  const base = fidP(row, { cutoff: 1000, res: 1, drive: 0.5, morph: row.type === 'dj' ? 0.25 : 0.5 }), lo = Math.log2(0.02), span = Math.log2(1000);
-  const run = make => {
-    let bound = 0;
-    for (let s = 0; s <= 8; s++) {
-      const inst = make(Object.assign({}, base, { oct: lo + span * s / 8 })), rn = mulberry32(0xF17E);
-      for (let i = 0; i < Math.round(0.2 * sr); i++) bound = Math.max(bound, Math.abs(inst.tick((rn() * 2 - 1) * 0.5)));
-    }
-    let peak = 0;
-    { const P = Object.assign({}, base), inst = make(P), rn = mulberry32(0xF17E), rj = mulberry32(0xC4);
-      for (let i = 0; i < n; i++) { if (i % TICK === 0) { P.oct = lo + span * rj(); inst.set(sr, P); } peak = Math.max(peak, Math.abs(inst.tick((rn() * 2 - 1) * 0.5))); } }
-    { const P = Object.assign({}, base), inst = make(P), rn = mulberry32(0xF17E);
-      for (let i = 0; i < n; i++) { if (!perTick || i % TICK === 0) { P.oct = C.depthOct * Math.sin(TAU * C.rateHz * i / sr); inst.set(sr, P); } peak = Math.max(peak, Math.abs(inst.tick((rn() * 2 - 1) * 0.5))); } }
-    /* The static ceiling matters as much as the ratio: a type that is unstable at
-       a STATIC setting inflates its own bound and would pass the ratio (found by
-       the ladder-without-tanh plant in filter_fidelity_check.mjs). */
-    const st = Number.isFinite(bound) && bound > 0 ? 20 * Math.log10(bound / 0.5) : Infinity;
-    return { ex: Number.isFinite(peak) && st <= C.staticDb ? 20 * Math.log10(peak / bound) : Infinity, st };
-  };
-  const r = run(P => fidMake(T, env, P)), ex = r.ex;
-  const cx = run(P => { const b = new Df2Lp(); b.set(sr, P); return b; }).ex;
-  return { ok: ex <= C.tolDb, val: (ex >= 0 ? '+' : '') + fmt(ex, 1) + ' dB over static (static ' + (r.st >= 0 ? '+' : '') + fmt(r.st, 1) + ' dB)', ctl: 'DF2 biquad ' + (cx >= 0 ? '+' : '') + fmt(cx, 1) + ' dB', ctlOk: !(cx <= C.tolDb) };
+  const C = FID.c4, sr = FID_SR, grid = modGrid(sr), base = c4Base(row);
+  const make = P => fidMake(T, env, P), B = c4Bound(make, base);
+  const ex = c4Excess(make, base, B, C.rateHz, grid, grid, C.dur);
+  const cx = c4Excess(df2Make, base, c4Bound(df2Make, base), C.rateHz, grid, grid, C.dur);
+  return { ok: ex <= C.tolDb, val: (ex >= 0 ? '+' : '') + fmt(ex, 1) + ' dB over static (static ' + (B.st >= 0 ? '+' : '') + fmt(B.st, 1) + ' dB)',
+    ctl: 'DF2 biquad ' + (cx >= 0 ? '+' : '') + fmt(cx, 1) + ' dB', ctlOk: !(cx <= C.tolDb), B };
+}
+/* C4b (REPORTED, B290): the same stimuli at rate r, delivered EVERY SAMPLE (the swarm
+   bank reads its modulation per TICK, so its rows are tick-limited above 3 kHz and
+   say so), for r = the tick rate × 2^(k/2). The maximum viable rate is the last r
+   before the first that breaks C4's bounds. Its control: the DF2 biquad must break
+   at the first rate — a scan that cannot see it fail is blind. */
+const c4Rates = () => { const r = []; for (let k = 0; k < FID.c4b.steps; k++) r.push(Math.pow(2, k / 2) / MOD_GRID_S); return r; };
+function fidC4b(T, row, env, B0) {
+  const C = FID.c4b, sr = FID_SR, base = c4Base(row), make = P => fidMake(T, env, P), B = B0 || c4Bound(make, base);
+  const rates = c4Rates(), hold = T.needsRef ? TICK : 1, scan = [];
+  let max = 0;
+  for (const r of rates) {
+    const ex = c4Excess(make, base, B, r, Math.max(1, Math.round(sr / r)), hold, C.dur); scan.push(ex);
+    if (!(ex <= FID.c4.tolDb)) break;
+    max = r;
+  }
+  const cx = c4Excess(df2Make, base, c4Bound(df2Make, base), rates[0], Math.round(sr / rates[0]), 1, C.dur);
+  const top = max === rates[rates.length - 1];
+  const hz = x => (x >= 1000 ? fmt(x / 1000, 1) + ' kHz' : fmt(x, 0) + ' Hz');
+  return { max, top, val: !max ? '< ' + hz(rates[0]) : (top ? '≥ ' : '') + hz(max) + (top && T.needsRef ? ' (tick-limited)' : ''),
+    ctl: 'DF2 ' + (cx >= 0 ? '+' : '') + fmt(cx, 1) + ' dB at ' + hz(rates[0]), ctlOk: !(cx <= FID.c4.tolDb),
+    note: 'dB over static per rate: ' + scan.map(x => fmt(x, 1)).join(' ') };
 }
 /* Radix-2 power spectrum (rectangular window: the input is bin-exact and the
    filter in steady state, so every harmonic and every alias lands ON a bin). */
@@ -1368,10 +1649,11 @@ function aliasDbc(y, bin) {
   }
   return 10 * Math.log10(Math.max(1e-300, e) / p[bin]);
 }
-/* C5 — aliasing at high cutoff and under drive. */
-function fidC5(T, row, env) {
+/* C5 — aliasing at high cutoff, at the nominal drive (B290). `drive` overrides it
+   for the ADAA evaluation's full-drive column (reported, never gated). */
+function fidC5(T, row, env, drive) {
   const C = FID.c5, sr = FID_SR, f = C.bin * sr / C.N, warm = 2 * C.N;
-  const P = fidP(row, { cutoff: 12000, res: 0.5, drive: 1, morph: row.type === 'dj' ? 0.45 : 0.5 });
+  const P = fidP(row, { cutoff: 12000, res: 0.5, drive: drive === undefined ? C.drive : drive, morph: row.type === 'dj' ? 0.45 : 0.5 });
   const y = render(fidMake(T, env, P), warm + C.N, i => C.amp * Math.sin(TAU * f * i / sr)).subarray(warm);
   const d = aliasDbc(y, C.bin);
   const pure = new Float64Array(C.N); for (let i = 0; i < C.N; i++) pure[i] = Math.sin(TAU * C.bin * i / C.N);
@@ -1392,13 +1674,32 @@ function sawAt(f, sr, n, amp) {
   }
   return y;
 }
-/* C6 — resonance must not be a volume knob. */
+/* C6 — resonance must not be a volume knob, at BOTH geometries (B290): FIXED (cutoff
+   1 kHz over the 110 Hz saw, round 2's) and KEYTRACKED (cutoff = f0, how the filters
+   and now the comb, B288, are played).
+   LAW ROOM. A resonance law is a gain c(res) applied the same at both geometries, so
+   the difference D(res) = L_fixed − L_key does not depend on it. A law holding BOTH
+   swings within 6 dB exists if and only if range(D) ≤ 12 dB (c = −(L_fixed + L_key)/2
+   leaves each exactly range(D)/2). So when range(D) > 12, NO source-independent law
+   can pass this check, and the cell says so; when it is ≤ 12, a law exists at these
+   four points, but the one that passes is fitted to the two geometries (B287 phase B
+   declines to fit an exponent to the test). The cell reports range(D) either way. */
 function fidC6(T, row, env) {
-  const C = FID.c6, sr = FID_SR, n = Math.round(0.75 * sr), a = Math.round(0.25 * sr), x = sawAt(C.f0, sr, n, 0.25);
-  const lv = C.res.map(res => rmsDb(render(fidMake(T, env, fidP(row, { cutoff: C.fc, res, drive: 0, morph: row.type === 'dj' ? 0.25 : 0 })), n, i => x[i]), a, n));
-  const swing = Math.max(...lv) - Math.min(...lv), sg = lv[lv.length - 1] >= lv[0] ? 1 : -1;
-  const pl = lv.map((L, i) => L + sg * 20 * Math.log10(1 + 3 * C.res[i])), cs = Math.max(...pl) - Math.min(...pl);
-  return { ok: swing <= C.tolDb, val: fmt(swing, 1) + ' dB (' + lv.map(L => fmt(L, 1)).join(' / ') + ')', ctl: fmt(cs, 1) + ' dB', ctlOk: cs > C.tolDb };
+  const C = FID.c6, sr = FID_SR, f0 = FID.src.f0, n = Math.round(0.75 * sr), a = Math.round(0.25 * sr), x = sawAt(f0, sr, n, FID.src.amp);
+  const geo = fc => {
+    const lv = C.res.map(res => rmsDb(render(fidMake(T, env, fidP(row, { cutoff: fc, res, drive: 0, morph: row.type === 'dj' ? 0.25 : 0 })), n, i => x[i]), a, n));
+    const swing = Math.max(...lv) - Math.min(...lv), sg = lv[lv.length - 1] >= lv[0] ? 1 : -1;
+    const pl = lv.map((L, i) => L + sg * 20 * Math.log10(1 + 3 * C.res[i]));
+    return { lv, swing, cs: Math.max(...pl) - Math.min(...pl) };
+  };
+  const g1 = geo(C.fc), g2 = geo(f0);
+  const D = g1.lv.map((L, i) => L - g2.lv[i]), room = Math.max(...D) - Math.min(...D);
+  const ok = g1.swing <= C.tolDb && g2.swing <= C.tolDb;
+  const why = ok ? '' : room > 2 * C.tolDb ? 'NO LAW — the two geometries disagree by ' + fmt(room, 1) + ' dB over res (> 12): no resonance law can hold both'
+    : 'FITTED ONLY — a law holding both exists (range ' + fmt(room, 1) + ' dB ≤ 12) only as a gain fitted between the two geometries: declined';
+  return { ok, val: 'fixed ' + fmt(g1.swing, 1) + ' · key ' + fmt(g2.swing, 1) + ' dB', ctl: fmt(g1.cs, 1) + ' · ' + fmt(g2.cs, 1) + ' dB',
+    ctlOk: g1.cs > C.tolDb && g2.cs > C.tolDb, room, why,
+    note: 'fixed ' + g1.lv.map(L => fmt(L, 1)).join(' / ') + '; key ' + g2.lv.map(L => fmt(L, 1)).join(' / ') + ' dBFS; law room ' + fmt(room, 1) + ' dB' + (why ? ' — ' + why : '') };
 }
 /* C7 — DC: the gain the analytic says, and none generated. Reuses C1's first
    impulse response. */
@@ -1418,17 +1719,49 @@ function fidC7(T, row, env, c1) {
   return { ok, val: (m <= C.blockDb && a <= C.blockDb ? 'blocks' : fmt(m, 3) + ' dB vs ' + fmt(a, 3)) + ' · mean ' + mu.toExponential(1),
     ctl: fmt(mc, 2) + ' dB · mean ' + (mu + 1e-3).toExponential(1), ctlOk };
 }
-/* One row: all seven checks. env = { bankClass, bank, prop }. */
+/* COST (B290 C5, reported): seconds per sample of a running instance, the median of
+   `reps` timed runs after one warm-up. The CLOCK IS INJECTED (`now`), so this
+   section still reads no wall clock of its own: the page passes performance.now,
+   the harness passes node's, and a caller without one gets no cost. Relative costs
+   are taken against SVF 12 LP measured the same way, in the same session. */
+function fidCost(T, row, env, now) {
+  const C = FID.cost, P = fidP(row, { cutoff: 1000, res: 0.5, drive: DRIVE_NOM, morph: 0.5 }), inst = fidMake(T, env, P);
+  const rn = mulberry32(0xC057), x = new Float64Array(C.n); for (let i = 0; i < C.n; i++) x[i] = (rn() * 2 - 1) * 0.5;
+  const t = []; let sink = 0;
+  for (let r = 0; r <= C.reps; r++) { const t0 = now(); for (let i = 0; i < C.n; i++) sink += inst.tick(x[i]); if (r) t.push(now() - t0); }
+  t.sort((p, q) => p - q);
+  return { perSample: t[t.length >> 1] / C.n, finite: Number.isFinite(sink) };
+}
+const COST_REF = { type: 'svf12', mode: 1, id: 'svf12.LP' };
+/* One row: all seven checks, and the reports. env = { bankClass, bank, prop }. */
 function fidRow(row, env) {
-  const T = TYPES[row.type], c1 = fidC1(T, row, env);
-  const cells = { C1: c1, C2: fidC2(T, row, env), C3: fidC3(T, row, env), C4: fidC4(T, row, env),
-    C5: fidC5(T, row, env), C6: fidC6(T, row, env), C7: fidC7(T, row, env, c1) };
-  delete c1.irs;
+  const T = TYPES[row.type], c1 = fidC1(T, row, env), c4 = fidC4(T, row, env);
+  const cells = { C1: c1, C2: fidC2(T, row, env), C3: fidC3(T, row, env), C4: c4,
+    C5: fidC5(T, row, env), C6: fidC6(T, row, env), C7: fidC7(T, row, env, c1), C4b: fidC4b(T, row, env, c4.B) };
+  delete c1.irs; delete c4.B;
   return cells;
 }
 function runFidelity(env, only) {
   const out = [];
   for (const row of fidRows(!!(env && env.bankClass))) if (!only || only.indexOf(row.id) >= 0) out.push({ row, cells: fidRow(row, env || {}) });
+  return out;
+}
+/* THE ADAA-FIRST EVALUATION (B287 phase B): every option in AA_OPTS for a nonlinear
+   type, through the SAME checks — C5 at the nominal drive (and, reported, at full
+   drive), C1, C2, C3 (the delay's victims) and C7 (no DC) — plus its cost when a
+   clock is given. `passes` is C1, C2, C3, C5 and C7 together; the registry's `aa`
+   is the cheapest option that passes, chosen from this table and recorded (a
+   timing never picks it at run time: the choice must not depend on the machine). */
+function aaEval(id, env, now, opts) {
+  const T = TYPES[id], row = { id, type: id, mode: 1 }, out = [];
+  for (const opt of opts || AA_OPTS) {
+    const Tv = aaType(T, opt), c1 = fidC1(Tv, row, env), r = { opt, C1: c1, C2: fidC2(Tv, row, env), C3: fidC3(Tv, row, env), C5: fidC5(Tv, row, env) };
+    r.C7 = fidC7(Tv, row, env, c1); delete c1.irs;
+    r.full = fidC5(Tv, row, env, 1);
+    r.passes = r.C1.ok && r.C2.ok && r.C3.ok && r.C5.ok && r.C7.ok;
+    if (now) r.cost = fidCost(Tv, row, env, now).perSample;
+    out.push(r);
+  }
   return out;
 }
 /* The programme's fixed bank setup — the rack's defaults, frozen here so the page
@@ -1626,9 +1959,14 @@ class FilterRig {
       envTick(v.fe, v.gate, S.fenv, dt);
       if (pre) this.voiceFilters(v);
     }
-    if (S.place === 'pre') return;
+    /* The rack instance follows its type in EVERY placement, PER SOURCE included:
+       the path canvas draws the rack box (ghosted) from rInst even when it is out
+       of the signal path, and a SWARM type there reads rInst.b. Rebuilding only
+       past the early return left a stale non-bank instance and threw in drawPath
+       (B291; filter_fidelity_check's rig row catches the old order). */
     const R = S.flt.R;
     if (this.rType !== R.type) this.rebuildRack();
+    if (S.place === 'pre') return;
     envTick(this.renv, this.held.length > 0, S.fenv, dt);
     const oct = R.ktrack * (this.ktNote - KT_REF) / 12 + R.env * ENV_OCT * this.renv.lvl;
     this.rOct = oct;
@@ -1743,7 +2081,8 @@ const _tok = {};
 const DIAG = { dirty: true };
 /* The fidelity programme's page state: one row measured per timer tick, so the
    page paints first and fills the table in as rows finish. */
-const FIDS = { res: {}, queue: [], busy: false, cells: {}, type: {} };
+const FIDS = { res: {}, queue: [], busy: false, cells: {}, type: {}, cost: {}, costRef: 0,
+  aa: {}, aaQueue: [], aaStarted: false };
 let REP = REPAINT, GH = GHOSTROWS;     /* where builders register, swapped while the editor builds */
 let rig = new FilterRig(48000, S);
 let ac = null, spn = null, blocks = 0, preview = false, dark = false, baseNote = 48, sel = 'A';
@@ -2230,6 +2569,7 @@ function buildInspector() {
   });
   host.appendChild(el('div', 'note', T.why));
   if (T.law) host.appendChild(el('div', 'note', 'LEVEL LAW — ' + T.law));
+  if (T.aaWhy) host.appendChild(el('div', 'note', 'ANTI-ALIASING — ' + T.aaWhy));
   REP = REPAINT; GH = GHOSTROWS;
 }
 
@@ -2282,6 +2622,7 @@ function buildTypes() {
     const q = el('span', 'q', T.name + ' · ' + T.fam.toUpperCase() + (T.rackOnly ? ' · RACK ONLY' : '')); d.appendChild(q);
     d.appendChild(document.createTextNode(T.why + (T.modes.length > 1 ? ' Modes: ' + T.modes.join(' / ') + '.' : '')));
     if (T.law) { const lw = el('span', 'law'); lw.appendChild(el('b', null, 'LEVEL LAW · ')); lw.appendChild(document.createTextNode(T.law)); d.appendChild(lw); }
+    if (T.aaWhy) { const lw = el('span', 'law'); lw.appendChild(el('b', null, 'ANTI-ALIASING · ')); lw.appendChild(document.createTextNode(T.aaWhy)); d.appendChild(lw); }
     host.appendChild(d);
   }
 }
@@ -2415,24 +2756,32 @@ function runDiag() {
 /* ---- the fidelity programme, in the page --------------------------------- */
 function buildFid() {
   const t = document.getElementById('fidT'); if (!t) return;
-  const cg = el('colgroup'); cg.appendChild(el('col', 'tn')); for (let i = 0; i < FID_CHECKS.length; i++) cg.appendChild(el('col')); t.appendChild(cg);
+  const cg = el('colgroup'); cg.appendChild(el('col', 'tn')); for (let i = 0; i < FID_CHECKS.length + FID_REPORTS.length; i++) cg.appendChild(el('col')); t.appendChild(cg);
   const hr = el('tr'); hr.appendChild(el('th', null, 'TYPE'));
-  for (const c of FID_CHECKS) {
-    const th = el('th', null, c.id + ' · ' + c.name);
+  for (const c of FID_CHECKS.concat(FID_REPORTS)) {
+    const th = el('th', FID_REPORTS.indexOf(c) >= 0 ? 'rep' : null, c.id + ' · ' + c.name);
     const sm = el('small', null, c.tol); th.appendChild(sm); th.title = c.what + '\nCONTROL: ' + c.ctl;
     hr.appendChild(th);
   }
   t.appendChild(hr);
   for (const row of fidRows(true)) {
     const tr = el('tr'), td = el('td', 'tname', row.label);
-    td.appendChild(el('span', null, TYPES[row.type].fam));
+    td.appendChild(el('span', null, TYPES[row.type].fam + (TYPES[row.type].aa ? ' · AA ' + TYPES[row.type].aa : '')));
     const hk = TYPES[row.type].held ? Object.keys(TYPES[row.type].held) : [];
     if (hk.length) td.appendChild(el('span', 'heldtag', (row.type === 'bank' ? 'pinned: ' : 'held: ') + hk.join(' · ')));
     tr.appendChild(td);
     FIDS.cells[row.id] = {}; FIDS.type[row.id] = row.type;
-    for (const c of FID_CHECKS) { const cell = el('td', 'pend', '…'); FIDS.cells[row.id][c.id] = cell; tr.appendChild(cell); }
+    for (const c of FID_CHECKS.concat(FID_REPORTS)) { const cell = el('td', 'pend', '…'); FIDS.cells[row.id][c.id] = cell; tr.appendChild(cell); }
     t.appendChild(tr);
   }
+}
+/* A failing cell's held/refused note: the type's own (a ruling or a property of the
+   reference), else C6's law-room verdict (B290: NO LAW / FITTED ONLY). */
+function heldNote(id, cid, x) {
+  const T = TYPES[FIDS.type[id]];
+  if (x.ok) return '';
+  if (T.held && T.held[cid]) return T.held[cid];
+  return cid === 'C6' && x.why ? 'REFUSED — ' + x.why : '';
 }
 function paintFidRow(id) {
   const cells = FIDS.cells[id], r = FIDS.res[id]; if (!cells || !r) return;
@@ -2444,10 +2793,80 @@ function paintFidRow(id) {
     td.appendChild(el('b', null, x.ok ? 'PASS' : 'FAIL'));
     td.appendChild(el('span', 'v', x.val));
     td.appendChild(el('span', 'c', (x.ctlOk ? 'ctl ✓ ' : 'CTL BLIND ') + (x.ctl || '')));
-    const hd = !x.ok && TYPES[FIDS.type[id]].held && TYPES[FIDS.type[id]].held[c.id];
+    const hd = heldNote(id, c.id, x);
     if (hd) td.appendChild(el('span', 'held', hd));
     td.title = (hd ? hd + '\n' : '') + c.id + ' ' + c.name + '\n' + x.val + (x.note ? '\n' + x.note : '') + '\ncontrol: ' + (x.ctl || '') + (x.ctlOk ? ' (fails, as it must)' : ' (PASSED — the check is blind)');
   }
+  /* the reports: a value, no verdict */
+  const b = r.C4b, tb = cells.C4b;
+  if (tb && b) { tb.className = 'rep' + (b.ctlOk ? '' : ' blind'); tb.innerHTML = ''; tb.appendChild(el('b', null, b.val)); tb.appendChild(el('span', 'c', (b.ctlOk ? 'ctl ✓ ' : 'CTL BLIND ') + b.ctl)); tb.title = FID_REPORTS[0].what + '\n' + b.note; }
+  const tc = cells.COST;
+  if (tc && FIDS.cost[id] !== undefined) { tc.className = 'rep'; tc.innerHTML = ''; tc.appendChild(el('b', null, Number.isFinite(FIDS.cost[id]) ? '×' + FIDS.cost[id].toFixed(1) : 'no clock')); tc.appendChild(el('span', 'c', 'vs SVF 12 LP')); tc.title = FID_REPORTS[1].what; }
+}
+/* COST in the page: the same fidCost, timed with this browser's clock (injected: the
+   DSP section reads none), relative to SVF 12 LP measured first. The timer here is
+   coarser than node's, so the harness's figures are the ones the trace quotes. */
+const pageNow = () => (typeof performance !== 'undefined' && performance.now ? performance.now() : 0);
+function fidCostRel(row) {
+  const env = fidEnv(REF.cls);
+  if (!FIDS.costRef) {
+    const ref = fidRows(false).find(r => r.id === COST_REF.id);
+    for (let w = 0; w < 2; w++) fidCost(TYPES[ref.type], ref, env, pageNow);
+    FIDS.costRef = fidCost(TYPES[ref.type], ref, env, pageNow).perSample;
+  }
+  const c = fidCost(TYPES[row.type], row, env, pageNow).perSample;
+  return FIDS.costRef > 0 ? c / FIDS.costRef : NaN;       /* NaN: this clock did not advance (e.g. virtual time) */
+}
+function paintManifest() {
+  const t = document.getElementById('manT'); if (!t) return;
+  t.innerHTML = '';
+  const hr = el('tr'); for (const h of ['TYPE', 'ANTI-ALIASING (C5)', 'C5 @ DRIVE ' + DRIVE_NOM, 'COST × SVF 12 LP', 'MAX VIABLE MOD RATE (C4b)']) hr.appendChild(el('th', null, h)); t.appendChild(hr);
+  for (const row of fidRows(true)) {
+    const r = FIDS.res[row.id], T = TYPES[row.type], tr = el('tr');
+    tr.appendChild(el('td', null, row.label));
+    tr.appendChild(el('td', null, T.aa ? T.aa : 'none needed (linear)'));
+    const c5 = el('td', 'n'); c5.innerHTML = r && r.C5 ? '<b>' + r.C5.val + '</b> ' + (r.C5.ok ? 'PASS' : 'FAIL') : '…'; tr.appendChild(c5);
+    const co = el('td', 'n'); co.innerHTML = FIDS.cost[row.id] === undefined ? '…' : Number.isFinite(FIDS.cost[row.id]) ? '<b>×' + FIDS.cost[row.id].toFixed(1) + '</b>' : 'no clock'; tr.appendChild(co);
+    const mr = el('td', 'n'); mr.innerHTML = r && r.C4b ? '<b>' + r.C4b.val + '</b>' : '…'; tr.appendChild(mr);
+    t.appendChild(tr);
+  }
+}
+/* The ADAA-first evaluation, one option per timer tick once the table is done. */
+function aaStart() {
+  if (FIDS.aaStarted) return;
+  FIDS.aaStarted = true;
+  for (const id of TYPE_ORDER) if (TYPES[id].aa) { FIDS.aa[id] = []; for (const opt of AA_OPTS) FIDS.aaQueue.push([id, opt]); }
+  setTimeout(aaStep, 30);
+}
+function aaStep() {
+  const job = FIDS.aaQueue.shift();
+  if (!job) { paintAa(); return; }
+  try { FIDS.aa[job[0]].push(aaEval(job[0], fidEnv(REF.cls), pageNow, [job[1]])[0]); }
+  catch (e) { FIDS.aa[job[0]].push({ opt: job[1], error: String((e && e.message) || e) }); }
+  paintAa();
+  setTimeout(aaStep, 0);
+}
+function paintAa() {
+  const t = document.getElementById('aaT'); if (!t) return;
+  t.innerHTML = '';
+  const hr = el('tr');
+  for (const h of ['TYPE · OPTION', 'C5 @ ' + DRIVE_NOM + ' (GATE)', 'C5 @ 1 (REPORTED)', 'C1', 'C2', 'C3', 'C7', 'COST ×', 'EVERY CHECK']) hr.appendChild(el('th', null, h));
+  t.appendChild(hr);
+  const ref = FIDS.costRef, cell = (x, short) => { const d = el('td', 'n'); d.innerHTML = x ? (x.ok ? '' : '<b>FAIL</b> ') + (short ? String(x.val).split(' · ')[0] : x.val) : '—'; return d; };
+  let pending = FIDS.aaQueue.length;
+  for (const id of Object.keys(FIDS.aa)) for (const r of FIDS.aa[id]) {
+    const tr = el('tr'), chosen = r.opt === TYPES[id].aa;
+    tr.appendChild(el('td', null, TYPES[id].name + ' · ' + r.opt + (chosen ? '  ← CHOSEN' : '')));
+    if (r.error) { tr.appendChild(el('td', null, 'ERROR ' + r.error)); t.appendChild(tr); continue; }
+    tr.appendChild(cell(r.C5)); tr.appendChild(cell(Object.assign({}, r.full, { ok: true })));
+    tr.appendChild(cell(r.C1)); tr.appendChild(cell(r.C2)); tr.appendChild(cell(r.C3, true)); tr.appendChild(cell(r.C7, true));
+    const co = el('td', 'n'); co.innerHTML = ref && r.cost ? '<b>×' + (r.cost / ref).toFixed(1) + '</b>' : '—'; tr.appendChild(co);
+    const ev = el('td', 'n'); ev.innerHTML = r.passes ? '<b>PASS</b>' : 'fails'; tr.appendChild(ev);
+    t.appendChild(tr);
+  }
+  const note = document.getElementById('aaNote');
+  if (note) note.innerHTML = pending ? 'measuring… ' + pending + ' option(s) to go' : '<b>Chosen</b> (recorded in each type\'s <code>aa</code>, never picked by a timing at run time): '
+    + TYPE_ORDER.filter(id => TYPES[id].aa).map(id => TYPES[id].name + ' — ' + TYPES[id].aaWhy).join(' &nbsp; ');
 }
 function paintFid() {
   const box = document.getElementById('fidStat'), rows = fidRows(true);
@@ -2461,6 +2880,7 @@ function paintFid() {
       if (x.ok) pass++; else { fail++; finds.push([c, row, x]); }
       if (!x.ctlOk) blind++;
     }
+    if (r.C4b && !r.C4b.ctlOk) blind++;
   }
   const needRef = !REF.cls ? rows.filter(r => TYPES[r.type].needsRef).length : 0;
   if (box) {
@@ -2475,18 +2895,20 @@ function paintFid() {
     fb.innerHTML = '';
     for (const [c, row, x] of finds) {
       const d = el('div'); d.appendChild(el('b', null, row.label + ' — ' + c.id + ' ' + c.name + ': '));
-      d.appendChild(document.createTextNode(x.val + (x.note ? ' (' + x.note + ')' : '')));
+      d.appendChild(document.createTextNode(x.val + (x.note && c.id !== 'C6' ? ' (' + x.note + ')' : '')));
       const hd = TYPES[row.type].held && TYPES[row.type].held[c.id];
       if (hd) d.appendChild(el('span', 'held', ' ' + hd));
+      else if (c.id === 'C6' && x.why) d.appendChild(el('span', 'held', ' REFUSED — ' + x.why + '.'));
       fb.appendChild(d);
     }
   }
+  paintManifest();
   for (const f of INSP.rep) f();
 }
 function fidStep() {
   const row = FIDS.queue.shift();
-  if (!row) { FIDS.busy = false; paintFid(); return; }
-  try { FIDS.res[row.id] = fidRow(row, fidEnv(REF.cls)); }
+  if (!row) { FIDS.busy = false; paintFid(); aaStart(); return; }
+  try { FIDS.res[row.id] = fidRow(row, fidEnv(REF.cls)); FIDS.cost[row.id] = fidCostRel(row); }
   catch (e) { FIDS.res[row.id] = { error: String((e && e.message) || e) }; }
   paintFidRow(row.id); paintFid();
   setTimeout(fidStep, 0);
