@@ -74,10 +74,20 @@
      bench's 3-pass estimate of the oracle's push, drawn as weighted ring arrows and a
      CONTRIBUTIONS lane. Checks in section K.
 
+     ROUND 4 — B295, 2026-09-27, dispatched by the horde lead on ROADMAP B295
+     (carried in the records PR on branch lead-records-104). The human: "please make
+     the XY point on the phase circle snap to where the mouse clicks instead of staying
+     put and dragging. Also can we add back in the phase carpet and voice map?" Built
+     as: (1) the ring is ABSOLUTE for ↔ and ↕ (absGrab / absStep in I2: a click lands
+     the value, the drag follows, alt = ¼ from where alt goes down, the ⇧ slot stays
+     relative); the waveform XY is unchanged. (2) gui2's phase carpet and voice map,
+     ported and fed from the oracle (section F, after the spectrum), side by side under
+     the spectrum on OSC and under the cycle view on MAIN. Checks in section K.
+
      L0026: every const is declared above the code that runs at setup; the boot
      call is the last statement of the script. -->
 <html><head><meta charset="utf-8">
-<meta name="lab-review" content="B271 + B293 + B294 · 2026-09-27">
+<meta name="lab-review" content="B271 + B293–B295 · 2026-09-27">
 <title>SCALPEL interface lab — horde with blades at its centre</title>
 <style>
   :root {
@@ -402,6 +412,10 @@
   .ringread { font-variant-numeric:tabular-nums; }
   .ringread.live { color:var(--text); font-weight:600; }
   .ringtools { display:flex; align-items:center; gap:6px; margin:3px 0 2px; flex-wrap:wrap; }
+  /* B295: the phase carpet and the voice map, side by side */
+  .vtwin { display:flex; gap:6px; margin-top:2px; }
+  .vtwin > div { flex:1 1 0; min-width:0; }
+  .vtwin .cap { margin:2px 0 1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
   /* ============ THE BLADE ROW ============ */
   .blade { position:relative; border:var(--stroke) solid var(--line); border-radius:var(--r);
@@ -539,8 +553,8 @@
   <div>
     <h1>scalpel</h1>
     <div class="badges">
-      <span class="badge">B271 + B293 + B294 · DESIGN LAB</span>
-      <span class="sub">BLADES AT THE CENTRE · OSC + MAIN AT 980×720 · VISUALS DRIVEN BY THE ORACLE · THE WAVEFORM IS AN XY · THE RING IS COUPLING × DETUNE · 76 BENCH PRESETS</span>
+      <span class="badge">B271 + B293–B295 · DESIGN LAB</span>
+      <span class="sub">BLADES AT THE CENTRE · OSC + MAIN AT 980×720 · VISUALS DRIVEN BY THE ORACLE · THE WAVEFORM IS AN XY · THE RING IS COUPLING × DETUNE (CLICK TO SET) · CARPET + VOICE MAP · 76 BENCH PRESETS</span>
     </div>
   </div>
   <div class="hdrctl">
@@ -664,7 +678,7 @@ Coupling × Detune XY</b> for the swarm.</div>
         carry it (0 to 1 on every macro), which is B227's recommended reach box. No trail: nothing in this lab moves Coupling over time (there is no
         LFO), and a trail would need a wall-clock history. <span class="rec">Recommend: as built. Add a trail only when the port has
         time-based sources.</span></li>
-      <li><b>Relative, like the waveform, but the marker tracks the hand.</b> A grab moves nothing. A drag adds a delta, and alt makes it
+      <li><b>Relative, like the waveform, but the marker tracks the hand.</b> <i>Superseded in round 4 (question 25): the ring is now absolute.</i> A grab moves nothing. A drag adds a delta, and alt makes it
         ¼. On the ring, a whole canvas width (or height) is the whole taper, so the crosshair moves exactly with the pointer. On the
         waveform, the whole taper is 420 px, because its x axis is phase and there is no marker to track. The ring is as
         sensitive as the pad it replaces (150 px for the whole Coupling range before, about 256 px now).</li>
@@ -693,6 +707,44 @@ Coupling × Detune XY</b> for the swarm.</div>
       <li><b>The waveform XY's defaults are swapped</b> (the human: "Maybe we should swap the width and position dragging after all;
         it's less inuitive this way"). Horizontal is now Position (it wraps), shift + horizontal is Width, and vertical is still Cut rate. The
         mapping stays settable, and "default" restores this order. The ring's defaults (Detune, Coupling) are independent of it.</li>
+    </ol>
+    <h2 style="margin-top:10px">Round 4 (B295) — the ring snaps to the click; the carpet and the voice map return</h2>
+    <ol start="25">
+      <li><b>The ring is absolute</b> (the human: "please make the XY point on the phase circle snap to where the mouse clicks instead
+        of staying put and dragging"). A click puts ↔ and ↕ (Detune and Coupling by default) at the clicked point, and the drag
+        follows the pointer. A remapped or second parameter lands through its own taper, and an inverted second lands mirrored.
+        This reverses round 2's "a grab moves nothing" for the ring only. The waveform XY stays relative, because its x axis is phase, not a value.
+        <span class="rec">Recommend: as built.</span></li>
+      <li><b>Alt and ⇧ on an absolute plane.</b> <b>Alt</b> is fine: from the point where alt goes down, the value moves a quarter
+        as far as the hand. Letting go of alt does not jump the value back under the pointer. The drag goes on 1:1 from where the
+        fine drag left it, so the marker then sits a little off the hand until the next click. <b>⇧</b> drives a third
+        parameter (Cross-mod by default), and a 2-D plane has no place for a third axis, so the ⇧ slot stays relative: a ⇧-click
+        lands nothing, ⇧ + horizontal moves Cross-mod by the step, and Detune holds while ⇧ is down.
+        <span class="rec">Recommend: as built.</span> The other choice for alt, snapping back under the pointer on release, would undo the fine adjustment.</li>
+      <li><b>A blade role on the absolute ring.</b> The targeting is round 3's: the arc under the pointer, or every blade from
+        inside the circle. The click lands the value on each target. When both blades are targeted they land on the SAME position of
+        their taper, so their relation is not kept (the relative drag kept it). <span class="rec">Recommend: accept it.</span> A
+        blade role on the ring is a remap, and the swarm roles are the default.</li>
+      <li><b>The phase carpet</b> (gui2's, from reference/swarmdynamics.html drawCarpet). One row per member, phase across the strip,
+        and a trail of the monitor's last 16 frames at 0.75 per frame (gui2's fade). Each frame is a whole number of note periods of rendered audio, so a member
+        at the note's pitch stands still, as on the ring. It never reads the clock. Each row carries that member's own blade windows as faint bands, and a
+        dot is magenta while it is inside one, as on the ring. It reads each member's phase <code>m.phi</code>, the field the oracle's
+        viz post publishes as <code>mem.phi</code>. The windows come from <code>mem.c / mem.w / mem.c2 / mem.w2</code> via the cycle view. What changed from gui2:
+        rows instead of columns, so phase gets the long axis of a short strip; the trail is counted in frames, not in paints; and the
+        members are violet. In this lab magenta is the authored value (the ring's puck), and gui2 draws members in the value ink.
+        <span class="rec">Recommend: as built.</span></li>
+      <li><b>The voice map</b> (gui2's, from the detune lab). x = pan, y = pitch against the note, ○ target, ● actual, ★ root (the member
+        nearest pan centre), and gui2's stepped zoom (±50 ¢ … ±10 oct). The viz post carries <b>no pan per member</b>, so the pan is read
+        off the instance: the gains <code>gl[i] / gr[i]</code> it applies, which include Stereo. No field holds the target pitch
+        either, so it is couple()'s law, <code>detune·(2i/(N−1) − 1)</code>, recomputed from <code>s.detune</code> and <code>d.N</code>. The actual pitch is the heard increment
+        <code>m.inc·v.gr</code>, pull included, so the gap from ○ to ● is the coupling's pull. At the default Coupling the swarm is locked:
+        every ● sits on 0 ¢ while the ○ fan out.</li>
+      <li><b>Where they sit.</b> On OSC they sit side by side under the spectrum (about 130 × 78 px each). The spectrum gives up 40 px (132 → 92) and the cell's
+        empty foot gives the rest. The ring keeps its 250 px. On MAIN they sit under the cycle view in the left Visualizers cell, whose empty foot they fill. The cycle view keeps its 150 px, and
+        its caption is one line shorter. <span class="rec">Recommend: always shown, not a toggle.</span> They show what the ring's
+        drag does: Coupling moves the carpet between lock and splay, and Detune spreads the voice map. A toggle with the spectrum would
+        hide one of them while your hand is on the ring. The alternative is a SPECTRUM / CARPET / VOICE MAP toggle in the spectrum's slot,
+        which gives the spectrum back its 132 px. While the ring's mapping row is open, the strip is folded away, as the spectrum shrank for it in round 3.</li>
     </ol>
   </div>
 </div>
@@ -974,7 +1026,16 @@ const MACROS = [
   { name: 'Motion', v: 0, binds: [['rotRate', 0.12], ['rotSpread', 0.3]] }
 ];
 const MON = { core: null, viz: null, vizN: 0, note: 45, f: 110, t: 0, L: null, R: null,
-  buf: new Float32Array(8192), pos: 0, cyc: null, cycN: -1 };
+  buf: new Float32Array(8192), pos: 0, cyc: null, cycN: -1, hist: [] };
+/* B295: the phase carpet's time axis is the monitor's own STROBOSCOPE FRAMES (monStep:
+   each a whole number of note periods of rendered audio), so it advances with rendered
+   samples, never with the clock: a frozen monitor (?still=) is a frozen carpet, and a
+   member at the note's pitch stands still, exactly as on the ring. NOT the oracle's viz
+   posts: they come every floor(sr/30) samples, which is not a whole number of periods,
+   so a trail of them walks by the note's own phase (0.67 cycle per post at A2) and
+   draws aliasing, not the swarm. Running, one frame is one paint, so the trail's
+   0.75^age is gui2's per-frame wash; CARPET_T frames. */
+const CARPET_T = 16;
 const AUD = { ctx: null, node: null, out: null, on: false, spn: null, err: '', drone: false, held: new Set(), oct: 0 };
 const AUDIT = { oracle: false, checks: [], tiers: null, probe: '' };
 let CTLS = [];    // paint functions of the controls on screen
@@ -1030,10 +1091,12 @@ const XY = { map: JSON.parse(JSON.stringify(XY_DEFAULT)), def: XY_DEFAULT, open:
    (gui2's x = Detune, y = Coupling, B227's reading) and do NOT follow the cycle
    view's swap; ⇧ + horizontal = Cross-mod is the lab's proposal (the ring is where
    cross-mod is drawn). The ring's canvas IS the parameter plane, so a whole canvas
-   width (height) is a whole taper and the crosshair moves exactly with the hand. */
+   width (height) is a whole taper and the crosshair moves exactly with the hand.
+   B295: `abs` — a click LANDS ↔/↕ at the clicked point (absGrab); the cycle view has
+   no `abs` and stays relative (its x is phase, not a value). */
 const RXY_DEFAULT = { x: ['detune', '', 0], y: ['K', '', 0], sx: ['xm', '', 0] };
 const RXY = { map: JSON.parse(JSON.stringify(RXY_DEFAULT)), def: RXY_DEFAULT, open: qp('ringmap', '0') === '1', drag: null, hover: null, cv: null, last: null,
-  note: null, xnote: null, span: (sp, axis, d) => (axis === 'y' ? d.H : d.W) };
+  note: null, xnote: null, span: (sp, axis, d) => (axis === 'y' ? d.H : d.W), abs: true };
 const KEYMAP = { a: 0, w: 1, s: 2, e: 3, d: 4, f: 5, t: 6, g: 7, y: 8, h: 9, u: 10, j: 11, k: 12, o: 13, l: 14 };
 const $ = id => document.getElementById(id);
 const FR = $('frame');
@@ -1146,18 +1209,20 @@ function monStrike() {
   c.set(oracleParams(EFF)); Object.assign(c.s, c.t);
   c.post = m => { if (m && m.t === 'viz' && m.mem) { MON.viz = m; MON.vizN++; } };
   MON.f = mtof(MON.note);
+  MON.hist = [];                                   // a new strike is a new voice: its carpet starts empty
   c.noteOn(MON.note, MON.f, 0.9);
   MON.core = c; MON.t = 0; MON.viz = null; MON.buf.fill(0); MON.pos = 0;
   monStep();
 }
 /* one frame of engine time: a WHOLE number of note periods (a stroboscope), so a
    blade window stands still and the members move only as the swarm moves */
+function strobeLen(f) { const per = SR / f; return Math.max(64, Math.round(Math.max(1, Math.round(512 / per)) * per)); }
 function monStep() {
   const c = MON.core; if (!c) return;
-  const f = MON.f * Math.pow(2, (EFF.bend || 0) / 12), per = SR / f;
-  const n = Math.max(64, Math.round(Math.max(1, Math.round(512 / per)) * per));
+  const n = strobeLen(MON.f * Math.pow(2, (EFF.bend || 0) / 12));
   if (!MON.L || MON.L.length !== n) { MON.L = new Float32Array(n); MON.R = new Float32Array(n); }
   c.render(MON.L, MON.R);
+  carpetFrame(MON.hist, c);
   const B = MON.buf;
   for (let i = 0; i < n; i++) { B[MON.pos] = MON.L[i]; MON.pos = (MON.pos + 1) & 8191; }
   MON.t += n;
@@ -1686,7 +1751,7 @@ function ringReadout() {
     const who = ringUsesBlades() ? (d.blades.length === 2 ? 'BOTH BLADES' : d.blades.length ? 'BLADE ' + d.blades[0] : 'NO BLADE') + ' (' + d.why + ') · ' : '';
     return 'DRAG · ' + who + parts.join(' · ');
   }
-  if (RXY.hover) return 'drag: ' + xyLegend(RXY) + ' · alt = fine · a grab alone moves nothing';
+  if (RXY.hover) return 'click lands ↔ ' + xyRoleLabel(RXY.map.x[0]) + ' ↕ ' + xyRoleLabel(RXY.map.y[0]) + ' here · alt = fine (¼) · ⇧↔ ' + xyRoleLabel(RXY.map.sx[0]) + ' is relative';
   const m = ringMarks(1, 1); if (!m) return '';
   const val = (k, eff) => SP[k].label + ' ' + fmtVal(SP[k], shown(k, eff));
   return val(m.kx, false) + ' · ' + val(m.ky, false) + (m.mod ? ' · carried to ' + fmtVal(SP[m.kx], shown(m.kx, true)) + ' · ' + fmtVal(SP[m.ky], shown(m.ky, true)) : '') +
@@ -1734,6 +1799,170 @@ function paintSpectrum(cv) {
   g.stroke();
   g.fillStyle = TOKA('--scr-marker', 1); g.fillRect(fx(f0) - 1, bot - 5, 2, 5);
   const n = cv._note; if (n) n.textContent = notes.length ? notes.join(' · ') : 'no blade on';
+}
+
+/* ---- B295: THE PHASE CARPET and THE VOICE MAP, back from gui2 ----
+   Human, 2026-09-27: "can we add back in the phase carpet and voice map?" Both are
+   PORTS of src/gui/gui2.html's painters (paintCarpet :5966, drawVmap :6037, star :6107, which are
+   gui.html's, the carpet itself reference/swarmdynamics.html drawCarpet), fed from the
+   SCALPEL oracle instead of the plugin's viz snapshot. What changed in the port, and why:
+   - CARPET AXES. gui2 draws voices as columns and phase down a 58 px height. Here a
+     member is a ROW and phase runs along the strip's width, so phase gets the long axis
+     in a short strip, and each row can carry that member's own blade windows as faint
+     bands (the arcs the ring draws, unrolled): a dot inside a band is a member inside a
+     blade, coloured exactly as the ring colours it.
+   - CARPET TIME. gui2's trail is a 0.25-alpha tube wash per paint (so its length
+     depends on the frame rate). Here the trail is the last CARPET_T stroboscope frames
+     of the monitor (MON.hist, see CARPET_T), each drawn at 0.75^age: the same decay per
+     frame, but stepped by rendered samples.
+   - INKS. gui2 draws members in the value ink. In this lab magenta is the AUTHORED
+     value (the ring's puck) and a member is a violet (--scr-physics) dot on the ring,
+     so both views draw members violet, magenta only while inside a blade.
+   The drawing's own rules are kept: gui2's dot sizes, the voice map's hollow TARGET
+   ring and filled ACTUAL dot with its bloom, the root star, and the stepped
+   auto-zoom with its shrink hysteresis. */
+/* one frame: each member's phase m.phi on the live voice — the field the oracle's viz
+   post publishes as mem.phi (razor-core.js render), and the one the ring draws */
+function carpetFrame(hist, c) {
+  const v = liveVoice(c); if (!v) return;
+  const row = []; for (let i = 0; i < c.d.N; i++) row.push(v.m[i].phi);
+  hist.push(row);
+  if (hist.length > CARPET_T) hist.shift();
+}
+/* what the carpet draws, shared by the painter and the self-check: one ROW per member
+   (the newest frame's length is the oracle's N), the frames that have that many members
+   (a change of Members mid-trail starts a new trail), oldest first, and the newest
+   row set's order parameter r — the ring's Coherence, read off the carpet */
+function carpetModel(hist) {
+  if (!hist || !hist.length) return null;
+  const rows = hist[hist.length - 1].length;
+  const frames = hist.filter(f => f.length === rows);
+  let sx = 0, sy = 0; for (const p of frames[frames.length - 1]) { sx += Math.cos(TAU * p); sy += Math.sin(TAU * p); }
+  return { rows, frames, r: Math.hypot(sx, sy) / Math.max(1, rows) };
+}
+function paintCarpet(cv) {
+  const [g, W, H] = fit(cv); if (!g) return;
+  tube(g, W, H);
+  if (!CORE) { say(g, W, H, 'oracle not loaded'); return; }
+  const m = carpetModel(MON.hist);
+  if (!m) { say(g, W, H, 'monitor warming up'); return; }
+  const n = m.rows, rowH = (H - 4) / n, X = p => 4 + p * (W - 8), Y = i => 2 + (i + 0.5) * rowH;
+  /* each member's OWN blade windows behind its row (cycleData: the ring's arcs, from the oracle's viz) */
+  const cy = cycleData(), ba = TOKN('--scr-blade-a', 1);
+  if (cy) for (let i = 0; i < n && i < cy.mem.length; i++) {
+    const mm = cy.mem[i], y0 = Y(i) - rowH / 2 + 0.5, y1 = y0 + Math.max(1, rowH - 1);
+    for (const [st, w, b] of [[mm.st1, mm.w1, 1], [mm.st2, mm.w2, 2]]) {
+      if (!w) continue;
+      const segs = st + w <= 1 ? [[st, st + w]] : [[st, 1], [0, st + w - 1]];
+      for (const [a, z] of segs) {
+        if (b === 2 && LAB.b2look !== 'hue') hatch(g, X(a), X(z), y0, y1, bladeInk(2), 0.3 * ba);
+        else { g.fillStyle = TOKA(bladeInk(b), 0.14 * ba); g.fillRect(X(a), y0, X(z) - X(a), y1 - y0); }
+      }
+    }
+  }
+  if (n > 1 && rowH >= 5) {
+    g.strokeStyle = TOKA('--scr-grid', 0.14); g.lineWidth = 1; g.beginPath();
+    for (let i = 1; i < n; i++) { const y = Math.round(2 + i * rowH) + 0.5; g.moveTo(0, y); g.lineTo(W, y); }
+    g.stroke();
+  }
+  const rad = Math.max(1.4, Math.min(2.6, rowH * 0.38)), F = m.frames;
+  /* the trail, oldest first: age a (0 = newest frame) at 0.75^a, gui2's decay per frame */
+  for (let j = 0; j < F.length - 1; j++) {
+    const a = F.length - 1 - j;
+    g.fillStyle = TOKA('--scr-physics', Math.pow(0.75, a) * 0.8);
+    for (let i = 0; i < n; i++) { g.beginPath(); g.arc(X(F[j][i]), Y(i), rad * 0.8, 0, TAU); g.fill(); }
+  }
+  /* the newest frame: the ring's colouring — value ink while inside one of its own blades */
+  const last = F[F.length - 1];
+  for (let i = 0; i < n; i++) {
+    const mm = cy && (cy.mem[i] || cy.mem[0]), p = last[i];
+    const in1 = mm && mm.w1 && frac(p - mm.st1) < mm.w1, in2 = mm && mm.w2 && frac(p - mm.st2) < mm.w2;
+    g.fillStyle = in1 || in2 ? TOKA(in2 && !in1 ? bladeInk(2) : '--scr-value', 1) : TOKA('--scr-physics', 1);
+    g.beginPath(); g.arc(X(p), Y(i), rad, 0, TAU); g.fill();
+  }
+}
+/* the voice map's data, shared by the painter and the self-check. Every field is the
+   oracle's, from the monitor's live voice (liveVoice) and the instance:
+   - PAN: the gains the oracle applies, c.gl[i] / c.gr[i] (razor-core.js render: ang =
+     (pos·width + 1)·π/4, gl = cos, gr = sin), inverted to pos·width ∈ [−1, 1]. The viz
+     post carries no pan, so it is read off the instance; it includes Stereo.
+   - TARGET pitch: couple()'s own law, cents_i = detune·(2i/(N−1) − 1) (razor-core.js
+     couple), recomputed here from the oracle's smoothed s.detune and d.N: couple() folds
+     it into `inc` at once, so no field holds it.
+   - ACTUAL pitch: the heard increment, m.inc·v.gr (couple() sets inc = target + the
+     coupling pull; render advances by inc·gr), against v.freq·2^(bend/12).
+   The root (gui2's star) is the member seated nearest pan centre, min |pan|. */
+function vmapModel(c) {
+  const v = liveVoice(c); if (!v) return null;
+  const N = c.d.N, s = c.s, f = v.freq * Math.pow(2, (s.bend || 0) / 12), gr = v.gr || 1;
+  const pan = [], tgt = [], act = [];
+  for (let i = 0; i < N; i++) {
+    pan.push(Math.atan2(c.gr[i], c.gl[i]) * 4 / Math.PI - 1);
+    tgt.push(N > 1 ? s.detune * (2 * i / (N - 1) - 1) : 0);
+    act.push(1200 * Math.log2(Math.max(1e-9, v.m[i].inc * gr) / f));
+  }
+  let root = 0; for (let i = 1; i < N; i++) if (Math.abs(pan[i]) < Math.abs(pan[root])) root = i;
+  return { N, pan, tgt, act, root };
+}
+/* gui2's stepped zoom (VM_RANGES in octaves): the smallest range that holds the widest
+   member with 12% to spare */
+const VM_RANGES = [50 / 1200, 100 / 1200, 200 / 1200, 1, 2.5, 5, 10];
+const VM_LABELS = ['±50 ¢', '±100 ¢', '±200 ¢', '±1 oct', '±2.5 oct', '±5 oct', '±10 oct'];
+function vmZoomFor(m) {
+  let dev = 1e-6;
+  for (let i = 0; i < m.N; i++) dev = Math.max(dev, Math.abs(m.tgt[i]) / 1200, Math.abs(m.act[i]) / 1200);
+  for (let z = 0; z < VM_RANGES.length; z++) if (dev * 1.12 <= VM_RANGES[z]) return { z, dev };
+  return { z: VM_RANGES.length - 1, dev };
+}
+/* the painter's coordinates, exported for the check: x = pan, y = cents at zoom z */
+function vmXY(W, H, z, pan, cents) {
+  const mid = H / 2;
+  return [(clamp(pan, -1, 1) * 0.5 + 0.5) * (W - 10) + 5, mid - (cents / 1200 / VM_RANGES[z]) * (mid - 4)];
+}
+function star(g, cx, cy, r, fill, ink) {          // gui2's, verbatim: an ink-outlined five-point star
+  g.beginPath();
+  for (let k = 0; k < 10; k++) {
+    const rr = k % 2 ? r * 0.42 : r, a = -Math.PI / 2 + k * Math.PI / 5;
+    const px = cx + rr * Math.cos(a), py = cy + rr * Math.sin(a);
+    k ? g.lineTo(px, py) : g.moveTo(px, py);
+  }
+  g.closePath();
+  g.fillStyle = fill; g.fill();
+  g.strokeStyle = ink; g.lineWidth = 1; g.stroke();
+}
+function paintVmap(cv) {
+  const [g, W, H] = fit(cv); if (!g) return;
+  tube(g, W, H);
+  if (!CORE) { say(g, W, H, 'oracle not loaded'); return; }
+  const m = MON.core ? vmapModel(MON.core) : null;
+  if (!m) { say(g, W, H, 'monitor warming up'); return; }
+  /* gui2's hysteresis: grow at once, shrink only after 30 paints that all want it
+     smaller (a display choice — the dots' data never depends on it). The first paint
+     lands on the right range instead of gui2's ±2.5 oct start. */
+  const { z: want, dev } = vmZoomFor(m);
+  if (cv._vz === undefined) { cv._vz = want; cv._vs = 0; }
+  if (want > cv._vz) { cv._vz = want; cv._vs = 0; }
+  else if (want < cv._vz && dev * 1.6 <= VM_RANGES[want] && ++cv._vs > 30) { cv._vz = want; cv._vs = 0; }
+  else if (want >= cv._vz) cv._vs = 0;
+  const z = cv._vz, mid = H / 2;
+  g.strokeStyle = TOKA('--scr-grid', 0.45); g.lineWidth = 1; g.beginPath();
+  g.moveTo(0, Math.round(mid) + 0.5); g.lineTo(W, Math.round(mid) + 0.5); g.moveTo(Math.round(W / 2) + 0.5, 0); g.lineTo(Math.round(W / 2) + 0.5, H); g.stroke();
+  g.fillStyle = TOKA('--scr-grid', 0.9); g.font = '8.5px ui-monospace,Menlo,monospace';
+  g.fillText(VM_LABELS[z], 4, 10);
+  /* the legend only where it clears the zoom label (MAIN's strip is narrower; the tooltip carries it there) */
+  const lg = '○ target ● actual', fitsLg = g.measureText(VM_LABELS[z]).width + g.measureText(lg).width + 18 <= W;
+  g.textAlign = 'right'; if (fitsLg) g.fillText(lg, W - 4, 10); g.fillText('L · pan · R', W - 4, H - 4); g.textAlign = 'left';
+  g.fillText('↑ pitch', 4, H - 4);
+  for (let i = 0; i < m.N; i++) {
+    const [x, yT] = vmXY(W, H, z, m.pan[i], m.tgt[i]), yA = vmXY(W, H, z, m.pan[i], m.act[i])[1];
+    /* TARGET is structure: a hollow grid-ink ring, the pitch the law asks for */
+    g.strokeStyle = TOKA('--scr-grid', 0.85); g.lineWidth = 1.5;
+    g.beginPath(); g.arc(x, yT, 3.8, 0, TAU); g.stroke();
+    /* ACTUAL is the member: a filled dot with its bloom; the gap to its ring IS the coupling's pull */
+    g.fillStyle = TOKA('--scr-physics', 0.3); g.beginPath(); g.arc(x, yA, 6.5, 0, TAU); g.fill();
+    g.fillStyle = TOKA('--scr-physics', 1); g.beginPath(); g.arc(x, yA, 3, 0, TAU); g.fill();
+    if (i === m.root) star(g, x, yT, 6.2, TOK('--scr-marker'), TOK('--scr-tube'));
+  }
 }
 function padGrid(g, W, H) {
   g.strokeStyle = TOKA('--scr-grid', 0.18); g.lineWidth = 1; g.beginPath();
@@ -2022,9 +2251,14 @@ function buildOsc(host) {
   const cv = cell(L, 'Visualizers', 'the ring is Coupling × Detune', 'grow');
   ringSurface(cv, 250, false);
   cv.appendChild(el('div', 'vnote', 'arcs = blade windows · needle = R · arrows = cross-mod'));
-  /* the mapping row, when open, borrows the spectrum's height rather than push Advanced out of the window */
-  const sc = canvas(cv, RXY.open ? 44 : 132, paintSpectrum);
+  /* the mapping row, when open, borrows the spectrum's height rather than push Advanced
+     out of the window. B295: the spectrum gives 40 px (132 → 92) and the cell's unused
+     foot gives the rest to the carpet and the voice map, side by side. While the ring's
+     mapping row is open it also borrows their strip (a settings moment; measured: with
+     both, the column overflows and the flex column squeezes the ring) */
+  const sc = canvas(cv, RXY.open ? 44 : 92, paintSpectrum);
   sc._note = el('div', 'vnote'); cv.appendChild(sc._note);
+  if (!RXY.open) swarmTwin(cv, 78);
   const adv = el('button', 'pill advbtn' + (LAB.advOpen ? ' on' : ''), 'Advanced');
   adv.title = 'the global Advanced (B227): opens the tier-3 drawer';
   adv.addEventListener('click', () => { LAB.advOpen = !LAB.advOpen; rebuild(); });
@@ -2070,6 +2304,18 @@ function buildOsc(host) {
   bladeRow(sc2, 1); bladeRow(sc2, 2);
   tier2(sc2);
   tier3(sc2);
+}
+/* B295: the phase carpet and the voice map, side by side under their labels — the
+   swarm's two other pictures, beside the ring that drives them (Coupling moves the
+   carpet between lock and splay, Detune spreads the voice map) */
+function swarmTwin(host, h) {
+  const tw = el('div', 'vtwin'); host.appendChild(tw);
+  for (const [t, tip, f] of [['PHASE CARPET', 'one row per member, phase across; the trail is the monitor\'s last ' + CARPET_T + ' stroboscope frames (whole note periods of rendered audio); bands = each member\'s own blade windows', paintCarpet],
+    ['VOICE MAP', '○ target (the detune law) · ● actual (the heard increment, coupling included) · ★ root (nearest pan centre) · x = the pan the oracle applies, Stereo included', paintVmap]]) {
+    const c = el('div'); tw.appendChild(c);
+    const lb = el('div', 'cap', t); lb.title = tip; c.appendChild(lb);
+    canvas(c, h, f).title = tip;
+  }
 }
 function cycleCaption() {
   const bits = ['dashed = base', 'solid = heard'];
@@ -2277,9 +2523,11 @@ function buildMain(host) {
   padDrag(xy, (u, v) => { P.w = fromPos(SP.w, u); const kk = P.lock === 2 ? 'kHz' : 'k'; P[kk] = fromPos(SP[kk], 1 - v); afterWrite('w'); });
   /* B294: the ring that sat beside the cycle here is now the Coupling × Detune XY in
      Osc Controls (the pad's slot), so the cycle view takes the whole width */
-  const cv = cell(L, 'Visualizers', 'cycle', 'grow');
+  const cv = cell(L, 'Visualizers', 'cycle · carpet · voice map', 'grow');
   canvas(cv, 150, c => paintCycle(c, true));
-  cv.appendChild(el('div', 'vnote', 'The same monitor as the OSC page: both blade windows on the cycle. The swarm\'s ring is the Coupling × Detune XY in Osc Controls.'));
+  /* B295: the carpet and the voice map take the cell's unused foot; the cycle keeps round 3's 150 px */
+  cv.appendChild(el('div', 'vnote', 'Both blade windows on the cycle. The ring is in Osc Controls.'));
+  swarmTwin(cv, 54);
   const adv = el('button', 'pill advbtn', 'Advanced');
   adv.title = 'jumps to the OSC page with the tier-3 drawer open';
   adv.addEventListener('click', () => { LAB.page = 'osc'; LAB.advOpen = true; rebuild(); });
@@ -2512,11 +2760,52 @@ function xySlotKeys(slot, blades, S) {
    the SAME code: xyBegin(ph, x, y, W, H), xyMove(x, y, shift, fine), xyEnd(). The
    trailing S names the surface (B294): the cycle view (XY, the default) or the ring
    (RXY); both run this one gesture, only the target rule and `span` differ. */
-function xyGrab(S, t, x, y, W, H) {
+/* `at` (B295, absolute surfaces only): [canvas-local x, local y, shift] at the grab */
+function xyGrab(S, t, x, y, W, H, at) {
   S.drag = { blades: t.blades, why: t.why, x, y, W: Math.max(1, W), H: Math.max(1, H), acc: {}, shift: false, touched: [] };
+  if (S.abs && at) absGrab(S, S.drag, at[0], at[1], !!at[2]);
   return S.drag;
 }
 function xyBegin(ph, x, y, W, H, wins) { return xyGrab(XY, xyTarget(ph, wins), x, y, W, H); }
+
+/* ---- B295: THE ABSOLUTE PLANE (the ring only: RXY.abs) ----
+   Human, 2026-09-27: "please make the XY point on the phase circle snap to where the
+   mouse clicks instead of staying put and dragging." The ring's canvas IS the parameter
+   plane (B294), so a click can mean a value: the ↔ and ↕ slots' keys land at the
+   clicked point, and the drag follows the pointer. Each key is `hand + off[k]` in taper
+   position, where the hand is the pointer across the canvas (x → right, y → up) and an
+   inverted second reads 1 − hand; the value is clamped (wrapped when circular). off is 0
+   after a plain click; it absorbs motion that must NOT carry the value:
+   - alt (fine): from where alt goes down, ¾ of each step goes into off, so the value
+     moves ¼ as far as the hand. Letting go of alt keeps off: the drag goes on 1:1 from
+     where the fine drag left it, rather than jumping back under the pointer.
+   - ⇧: the ⇧ slot is a third axis on a 2-D plane, so it stays RELATIVE (round 3's step,
+     below); the ↔ keys hold while it owns the horizontal motion (off takes it all).
+     A ⇧-grab therefore lands nothing: off starts at value − hand, no key moves.
+   Why off and not a relative accumulator: an accumulator clamped at the edge drifts
+   away from the hand when the pointer comes back; value = hand + off cannot. */
+function absGrab(S, d, lx, ly, shift) {
+  d.ox = d.x - lx; d.oy = d.y - ly; d.off = {}; d.abs = [];
+  const h = { x: lx / d.W, y: 1 - ly / d.H }, upd = {};
+  for (const axis of ['x', 'y']) for (const [k, sgn] of xySlotKeys(axis, d.blades, S)) {
+    const sp = SP[k]; if (!sp || sp.kind !== 'c' || k in d.off) continue;   // a key on two slots: the first claims it
+    d.abs.push([k, sgn, axis]);
+    const t = sgn > 0 ? h[axis] : 1 - h[axis];
+    d.off[k] = shift ? toPos(sp, shown(k, false)) - t : 0;
+    if (!shift) upd[k] = fromPos(sp, sp.curve === 'circ' ? frac(t) : clamp(t, 0, 1));
+  }
+  d.landed = !shift;
+  writeMany(upd);
+}
+function absStep(d, dx, dy, shift, fine, upd) {
+  const h = { x: (d.x - d.ox) / d.W, y: 1 - (d.y - d.oy) / d.H }, dh = { x: dx / d.W, y: -dy / d.H };
+  for (const [k, sgn, axis] of d.abs) {
+    if (axis === 'x' && shift) d.off[k] -= sgn * dh.x;                    // the ⇧ slot owns ↔: hold
+    else if (fine) d.off[k] -= (1 - XY_FINE) * sgn * dh[axis];            // alt: the value moves ¼
+    const sp = SP[k], p = (sgn > 0 ? h[axis] : 1 - h[axis]) + d.off[k];
+    upd[k] = fromPos(sp, sp.curve === 'circ' ? frac(p) : clamp(p, 0, 1));
+  }
+}
 function xyMove(x, y, shift, fine, S) {
   S = S || XY;
   const d = S.drag; if (!d) return;
@@ -2530,9 +2819,12 @@ function xyMove(x, y, shift, fine, S) {
       step[k] = (step[k] || 0) + sgn * (px / S.span(sp, axis, d)) * g;
     }
   };
-  push(shift ? 'sx' : 'x', dx, 'x');
-  push('y', -dy, 'y');                                      // up = more
   const upd = {};
+  if (d.abs) { absStep(d, dx, dy, shift, fine, upd); if (shift) push('sx', dx, 'x'); }   // B295: only ⇧ stays relative
+  else {
+    push(shift ? 'sx' : 'x', dx, 'x');
+    push('y', -dy, 'y');                                    // up = more
+  }
   for (const k in step) {
     const sp = SP[k];
     if (!(k in d.acc)) { d.acc[k] = toPos(sp, shown(k, false)); d.touched.push(k); }
@@ -2627,14 +2919,18 @@ function xyMapRow(host, S) {
     : "the human's mapping (round 3): ↔ Position · ↕ Cut rate · ⇧↔ Width";
   rs.addEventListener('click', () => { S.map = JSON.parse(JSON.stringify(S.def)); rebuild(); });
   row.appendChild(rs);
-  row.appendChild(el('span', 'vnote', ring ? 'Alt = fine · a blade role moves the arc under the pointer, or every blade from inside'
+  row.appendChild(el('span', 'vnote', ring ? 'A click lands ↔ ↕ · ⇧ relative · alt = fine · a blade role: the arc under the pointer, or every blade from inside'
     : 'Alt = fine · grab a window to move that blade, empty space to move both'));
 }
 
 /* ======================================================================
-   I3. THE RING AS THE COUPLING × DETUNE XY (B294)
+   I3. THE RING AS THE COUPLING × DETUNE XY (B294; absolute since B295)
    Human, 2026-09-27: "Maybe the phase ring visualizer also can become the surface
    for the coupling/detune XY to preserve space."
+   B295 (the human, the same day): "please make the XY point on the phase circle snap
+   to where the mouse clicks instead of staying put and dragging." So the ring is now
+   ABSOLUTE for ↔ and ↕ (absGrab / absStep above), and only its ⇧ slot keeps the
+   relative step. Round 3's text below describes the relative build it replaced.
    The ring keeps every mark it drew (members, arcs, R, cross-mod) and becomes a
    drag surface with round 2's conventions exactly: RELATIVE (a grab moves nothing),
    alt = fine, a live readout, one writer (xyMove → writeMany), a settable mapping
@@ -2677,10 +2973,12 @@ function ringTarget(x, y, W, H, mini) {
 }
 function ringWire(cv, mini) {
   RXY.cv = cv;
-  const at = e => { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top, r.width, r.height]; };
+  /* B295: the painter's own box (the content box: clientWidth/Height inside the 1.5 px
+     border), so a click lands on the pixel the marker is then drawn at */
+  const at = e => { const r = cv.getBoundingClientRect(); return [e.clientX - r.left - cv.clientLeft, e.clientY - r.top - cv.clientTop, cv.clientWidth || r.width, cv.clientHeight || r.height]; };
   cv.addEventListener('pointerdown', e => {
     const [x, y, W, H] = at(e);
-    xyGrab(RXY, ringTarget(x, y, W, H, mini), e.clientX, e.clientY, W, H);
+    xyGrab(RXY, ringTarget(x, y, W, H, mini), e.clientX, e.clientY, W, H, [x, y, e.shiftKey]);   // B295: the click lands
     RXY.drag.shift = e.shiftKey;
     try { cv.setPointerCapture(e.pointerId); } catch (_) {}
   });
@@ -2848,6 +3146,8 @@ function runChecks() {
   for (const c of checkXY()) out.push(c);
   for (const c of checkRingXY()) out.push(c);
   for (const c of checkXmVisual()) out.push(c);
+  for (const c of checkCarpet()) out.push(c);
+  for (const c of checkVmap()) out.push(c);
   for (const c of checkPresets()) out.push(c);
   AUDIT.checks = out;
   seedOracle(0xB271 + MON.note);
@@ -2907,11 +3207,12 @@ function checkXY() {
   P = snap; EFF = effective(); pushOracle();
   return out;
 }
-/* B294 — THE RING XY. The same three calls a pointer drives through ringWire
-   (xyGrab / xyMove / xyEnd on RXY), read back from P (every knob) and from the
-   monitor oracle (what is heard), and from ringMarks — the function the painter
-   draws the marker from — so "the crosshair tracks the hand" is checked on what is
-   drawn. Restores the patch, the macros and the mapping afterwards. */
+/* B294 — THE RING XY; ABSOLUTE since B295. The same three calls a pointer drives
+   through ringWire (xyGrab with the click point / xyMove / xyEnd on RXY), read back
+   from P (every knob), from the monitor oracle's own target `t` (what is heard), and
+   from ringMarks — the function the painter draws the marker from — so "the value
+   lands where you click" is checked on what is drawn. Restores the patch, the macros,
+   the mapping and RXY.abs afterwards. */
 function checkRingXY() {
   const out = [], snap = Object.assign({}, P), mOn = MORPH.on, map = RXY.map, mv = MACROS.map(m => m.v), fz = LAB.frozen;
   LAB.frozen = false;
@@ -2923,34 +3224,66 @@ function checkRingXY() {
   const W = 260, H = 250, all = { blades: [1, 2], why: 'the ring → every blade' };
   const base = { K: 0.2, detune: 20, xm: 0, b1on: 1, b2on: 1, w: 0.2, w2: 0.3, width: 0.5 };
   const swarm = MACROS.find(m => m.name === 'Swarm');
+  /* the check's pointer: client = canvas-local (the canvas at the origin) */
+  const grab = (x, y, shift) => xyGrab(RXY, all, x, y, W, H, [x, y, shift]);
+  const lx = 91, ly = 70;                                   // Detune 35 c, Coupling +0.44: far from the base (20 c, +0.20)
   try {
-    /* 1 · the grab alone moves nothing (the pad it replaces jumped K and Detune to the pointer) */
+    /* 1 · A CLICK LANDS THE VALUE AT THE CLICKED POINT: (Detune, Coupling) = the click's
+       (x / W, 1 − y / H) of their tapers, and the marker sits under the pointer */
     set(base);
-    const m0 = ringMarks(W, H);
-    xyGrab(RXY, all, 100, 100, W, H); xyMove(100, 100, false, false, RXY);
-    const still = P.K === base.K && P.detune === base.detune && P.xm === base.xm;
-    out.push({ name: 'ring XY: the grab alone moves nothing', ok: still, detail: 'Coupling ' + fmtVal(SP.K, P.K) + ' · Detune ' + fmtVal(SP.detune, P.detune) + ' · Cross-mod ' + fmtVal(SP.xm, P.xm) });
-    /* 2 · round trip: ↔ +26 px (a tenth of the width: +10 c), ↕ 25 px up (a tenth of the
-       height: +0.2 Coupling), then alt + 10 px (a quarter: +0.96 c) */
-    xyMove(126, 100, false, false, RXY);
-    xyMove(126, 75, false, false, RXY);
-    xyMove(136, 75, false, true, RXY);
+    grab(lx, ly, false);
+    const dL = fromPos(SP.detune, lx / W), kL = fromPos(SP.K, 1 - ly / H), mk = ringMarks(W, H);
+    const onMark = Math.abs(mk.bx - lx) < 1e-6 && Math.abs(mk.by - ly) < 1e-6;
+    out.push({ name: 'ring XY: a click lands the value at the clicked point',
+      ok: near(P.detune, dL) && near(P.K, kL) && P.xm === base.xm && P.w === base.w && heardOk(['K', 'detune']) && onMark,
+      detail: 'click (' + lx + ', ' + ly + ') → Detune ' + P.detune.toFixed(4) + '=' + dL.toFixed(4) + ' · Coupling ' + P.K.toFixed(4) + '=' + kL.toFixed(4) +
+        ' · oracle ' + (heardOk(['K', 'detune']) ? 'agrees' : 'DISAGREES') + ' · marker at ' + mk.bx.toFixed(2) + ', ' + mk.by.toFixed(2) });
+    /* 2 · the same gesture goes on: ↔ +26 and ↕ −25 px follow 1:1, alt + 10 px moves a
+       quarter (2.5 px), and after alt is let go + 8 px is 1:1 again from there (no jump
+       back under the pointer): Detune at 127.5 / 260, Coupling at 1 − 45 / 250 */
+    xyMove(lx + 26, ly, false, false, RXY);
+    xyMove(lx + 26, ly - 25, false, false, RXY);
+    xyMove(lx + 36, ly - 25, false, true, RXY);
+    xyMove(lx + 44, ly - 25, false, false, RXY);
     xyEnd(RXY);
-    const dExp = fromPos(SP.detune, toPos(SP.detune, base.detune) + (26 + XY_FINE * 10) / W), kExp = fromPos(SP.K, toPos(SP.K, base.K) + 25 / H);
-    const m1 = ringMarks(W, H), dx = m1.bx - m0.bx, dy = m1.by - m0.by;
-    const track = Math.abs(dx - (26 + XY_FINE * 10)) < 1e-6 && Math.abs(dy + 25) < 1e-6;
-    const rt = near(P.detune, dExp) && near(P.K, kExp) && P.w === base.w && P.w2 === base.w2 && P.xm === base.xm;
-    out.push({ name: 'ring XY round-trip: drag, read back (P + oracle + marker)', ok: rt && heardOk(['K', 'detune']) && track,
-      detail: 'Detune ' + P.detune.toFixed(4) + '=' + dExp.toFixed(4) + ' · Coupling ' + P.K.toFixed(4) + '=' + kExp.toFixed(4) +
-        ' · oracle ' + (heardOk(['K', 'detune']) ? 'agrees' : 'DISAGREES') + ' · marker moved ' + dx.toFixed(2) + ', ' + dy.toFixed(2) + ' px (the hand: 28.50, −25.00)' });
-    /* 3 · a remapped axis: ↔ = Width (a blade role: from inside the circle, every blade)
-       with Stereo as an inverted second; Coupling and Detune must hold */
+    const dx2 = lx + 26 + XY_FINE * 10 + 8, dE = fromPos(SP.detune, dx2 / W), kE = fromPos(SP.K, 1 - (ly - 25) / H), m1 = ringMarks(W, H);
+    out.push({ name: 'ring XY: the drag follows the pointer, alt = ¼ (read back: P + oracle + marker)',
+      ok: near(P.detune, dE) && near(P.K, kE) && heardOk(['K', 'detune']) && Math.abs(m1.bx - dx2) < 1e-6 && Math.abs(m1.by - (ly - 25)) < 1e-6 && P.xm === base.xm,
+      detail: 'Detune ' + P.detune.toFixed(4) + '=' + dE.toFixed(4) + ' · Coupling ' + P.K.toFixed(4) + '=' + kE.toFixed(4) + ' · marker ' + m1.bx.toFixed(2) + ', ' + m1.by.toFixed(2) +
+        ' (the hand ' + (lx + 44) + ', ' + (ly - 25) + ': alt left it 7.5 px behind)' });
+    /* 3 · ⇧ STAYS RELATIVE: a ⇧-click lands nothing; ⇧ + 26 px moves Cross-mod by a tenth
+       of its taper while Detune holds; ↕ during it still moves Coupling (its offset kept);
+       letting go of ⇧ and moving 10 px moves Detune 10 px' worth from where it held */
+    set(base);
+    grab(200, 30, true);
+    const held = P.detune === base.detune && P.K === base.K && P.xm === base.xm;
+    xyMove(226, 30, true, false, RXY);
+    xyMove(226, 5, true, false, RXY);
+    xyMove(236, 5, false, false, RXY);
+    xyEnd(RXY);
+    const xE = fromPos(SP.xm, 26 / W), kS = fromPos(SP.K, toPos(SP.K, base.K) + 25 / H), dS = fromPos(SP.detune, toPos(SP.detune, base.detune) + 10 / W);
+    out.push({ name: 'ring XY: ⇧ stays relative (a ⇧-click lands nothing)',
+      ok: held && near(P.xm, xE) && near(P.K, kS) && near(P.detune, dS) && heardOk(['xm', 'K', 'detune']),
+      detail: '⇧-click: ' + (held ? 'nothing moved' : 'MOVED') + ' · Cross-mod ' + P.xm.toFixed(4) + '=' + xE.toFixed(4) + ' · Coupling ' + P.K.toFixed(4) + '=' + kS.toFixed(4) +
+        ' · Detune ' + P.detune.toFixed(4) + '=' + dS.toFixed(4) + ' (no jump when ⇧ is let go)' });
+    /* CONTROL: the same click on a RELATIVE surface (round 3's rule, abs off) must NOT
+       land — so check 1 can tell a landing from none */
+    set(base); RXY.abs = false;
+    grab(lx, ly, false); xyEnd(RXY);
+    RXY.abs = true;
+    const mc = ringMarks(W, H), miss = Math.hypot(mc.bx - lx, mc.by - ly);
+    out.push({ name: 'CONTROL: a relative surface does not land the click', ok: P.detune === base.detune && P.K === base.K && miss > 20, control: true,
+      detail: 'abs off: Detune ' + fmtVal(SP.detune, P.detune) + ', Coupling ' + fmtVal(SP.K, P.K) + ' · the marker ' + miss.toFixed(1) + ' px from the click (must stay away)' });
+    /* 4 · a remapped axis lands through its own taper: ↔ = Width (a blade role: from
+       inside the circle, both blades) with Stereo as an inverted second. A click at x 26
+       (a tenth) lands w and w2 at a tenth of Width's taper and Stereo at nine tenths;
+       y 100 lands Coupling at 0.6 of its taper, which is the base; Detune is not mapped */
     set(base); RXY.map.x = ['w', 'width', 1];
-    xyGrab(RXY, all, 0, 0, W, H); xyMove(26, 0, false, false, RXY); xyEnd(RXY);
-    const wE = fromPos(SP.w, toPos(SP.w, base.w) + 26 / W), w2E = fromPos(SP.w2, toPos(SP.w2, base.w2) + 26 / W);
-    out.push({ name: 'ring XY: a remapped axis (Width + inverted Stereo)',
-      ok: near(P.w, wE) && near(P.w2, w2E) && near(P.width, base.width - 0.1) && P.K === base.K && P.detune === base.detune && heardOk(['w', 'w2', 'width']),
-      detail: 'w ' + P.w.toFixed(4) + ' · w2 ' + P.w2.toFixed(4) + ' · Stereo ' + P.width.toFixed(3) + ' · Coupling and Detune held' });
+    grab(26, 100, false); xyEnd(RXY);
+    const wE = fromPos(SP.w, 0.1), w2E = fromPos(SP.w2, 0.1), sE = fromPos(SP.width, 0.9);
+    out.push({ name: 'ring XY: a remapped axis lands (Width + inverted Stereo)',
+      ok: near(P.w, wE) && near(P.w2, w2E) && near(P.width, sE) && near(P.K, base.K) && P.detune === base.detune && heardOk(['w', 'w2', 'width']),
+      detail: 'w ' + P.w.toFixed(4) + '=' + wE.toFixed(4) + ' · w2 ' + P.w2.toFixed(4) + ' · Stereo ' + P.width.toFixed(3) + '=' + sE.toFixed(3) + ' · Detune held' });
     /* 4 · modulation on the ring: the Swarm macro (K −0.4, Detune +0.3 of their tapers)
        at 0.5 — the hollow diamond sits at the carried value, the puck stays on P, the
        reach box spans the macro's full depth. CONTROL: at 0 there is no diamond. */
@@ -2966,7 +3299,7 @@ function checkRingXY() {
   } catch (e) {
     out.push({ name: 'ring XY checks', ok: false, detail: 'threw: ' + String(e && e.message || e) });
   }
-  RXY.drag = null; RXY.last = null; RXY.map = map; MORPH.on = mOn; MACROS.forEach((m, i) => { m.v = mv[i]; }); LAB.frozen = fz;
+  RXY.drag = null; RXY.last = null; RXY.abs = true; RXY.map = map; MORPH.on = mOn; MACROS.forEach((m, i) => { m.v = mv[i]; }); LAB.frozen = fz;
   P = snap; EFF = effective(); pushOracle();
   return out;
 }
@@ -2997,6 +3330,85 @@ function checkXmVisual() {
       detail: 'xm 0.8, mode Fold: lane ' + f(f8.lane) + ', arrows ' + f(f8.arrows) + ' (must be 0)' });
   } catch (e) {
     out.push({ name: 'cross-mod visual', ok: false, detail: 'threw: ' + String(e && e.message || e) });
+  }
+  return out;
+}
+/* B295 — THE PHASE CARPET. Two seeded scratch swarms that differ ONLY in Coupling
+   (+1 lock, −1 splay; N 5, Detune 3 as in the ring check — the splay's steady r grows
+   with Detune: 0.03 at 3 c, 0.09 at 10 c), rendered in the monitor's stroboscope
+   frames (strobeLen) and recorded by carpetFrame — the monitor's own path — then read
+   through carpetModel, the painter's own function: one
+   row per member, a full trail, and the newest rows clumped (r ≥ 0.9) at lock and
+   spread (r ≤ 0.1) at splay — the ring check's thresholds (verify.js's). The live
+   carpet's row count is held against the monitor's N too.
+   CONTROL (must read zero): at Detune 0 and Coupling 0 every member runs at exactly
+   f, so no row may drift against member 0 along the trail; the same statistic at
+   Detune 20 must not be zero (a trail that did not come from rendered samples, or
+   rows that were not the members, would fail one arm or the other). */
+function carpetRun(p, secs) {
+  const hist = [];
+  const S = scratch(Object.assign({ N: 5, detune: 3, phaseMode: 2, law: 0, rotRate: 0 }, p), 45, mtof(45), 0xB295);
+  const n = strobeLen(mtof(45)), L = new Float32Array(n), Rr = new Float32Array(n);
+  for (let t = 0; t < secs * SR; t += n) { S.c.render(L, Rr); carpetFrame(hist, S.c); }
+  return carpetModel(hist);
+}
+function carpetDrift(m) {
+  let d = 0; const F = m.frames, f0 = F[0];
+  for (const f of F) for (let i = 1; i < m.rows; i++) d = Math.max(d, Math.abs(frac(f[i] - f[0] - (f0[i] - f0[0]) + 0.5) - 0.5));
+  return d;
+}
+function checkCarpet() {
+  const out = [];
+  try {
+    const lk = carpetRun({ K: 1 }, 0.6), sp = carpetRun({ K: -1 }, 1.0);
+    const live = carpetModel(MON.hist), liveOk = !!live && !!MON.core && live.rows === MON.core.d.N;
+    const ok = lk.rows === 5 && sp.rows === 5 && lk.frames.length === CARPET_T && sp.frames.length === CARPET_T && lk.r >= 0.9 && sp.r <= 0.1 && liveOk;
+    out.push({ name: 'phase carpet: a row per member; lock → splay changes it', ok,
+      detail: 'rows ' + lk.rows + ' / ' + sp.rows + ' (N 5) · trail ' + lk.frames.length + ' frames · newest r ' + lk.r.toFixed(3) + ' at Coupling +1 (≥ 0.90) → ' + sp.r.toFixed(3) +
+        ' at −1 (≤ 0.10) · live carpet ' + (live ? live.rows : '—') + ' rows = monitor N ' + (MON.core ? MON.core.d.N : '—') });
+    const z = carpetDrift(carpetRun({ K: 0, detune: 0 }, 0.6)), dz = carpetDrift(carpetRun({ K: 0, detune: 20 }, 0.6));
+    out.push({ name: 'CONTROL: no detune, no coupling → no row drifts', ok: z < 1e-9 && dz > 1e-3, control: true,
+      detail: 'drift against member 0 along the trail: ' + z.toExponential(1) + ' at Detune 0 (must be 0) · ' + dz.toFixed(3) + ' cycle at Detune 20 (must not)' });
+  } catch (e) {
+    out.push({ name: 'phase carpet', ok: false, detail: 'threw: ' + String(e && e.message || e) });
+  }
+  return out;
+}
+/* B295 — THE VOICE MAP. Seeded scratch swarms (N 5, Coupling 0, Stereo 100 %) at
+   Detune 10 and 40, read through vmapModel and vmXY — the painter's own functions:
+   one dot per member; each target at the law's cents; each actual on its target
+   (Coupling 0 adds no pull); the pan the gains encode equals the oracle's own slot
+   (RazorCore.PANS) × Stereo; and the drawn y spread grows 4× with Detune on one zoom.
+   The live map's dot count is held against the monitor's N.
+   CONTROL (must read zero): Detune 0 → every dot, target and actual, at 0 ¢. */
+function vmapRun(p) {
+  const S = scratch(Object.assign({ N: 5, K: 0, width: 1, phaseMode: 2, law: 0 }, p), 45, mtof(45), 0xB295);
+  const L = new Float32Array(2048), Rr = new Float32Array(2048);
+  S.c.render(L, Rr); S.c.render(L, Rr);
+  return vmapModel(S.c);
+}
+function checkVmap() {
+  const out = [];
+  try {
+    const W = 130, H = 78, a = vmapRun({ detune: 10 }), b = vmapRun({ detune: 40 });
+    const law = (m, det) => m.tgt.every((c, i) => Math.abs(c - det * (2 * i / (m.N - 1) - 1)) < 1e-9);
+    const onT = m => m.act.every((c, i) => Math.abs(c - m.tgt[i]) < 1e-6);
+    const panOk = m => m.pan.every((p, i) => Math.abs(p - CORE.PANS[m.N - 1][i]) < 1e-9);
+    const za = vmZoomFor(a).z, zb = vmZoomFor(b).z;
+    const spread = (m, z) => { const ys = m.act.map((c, i) => vmXY(W, H, z, m.pan[i], c)[1]); return Math.max(...ys) - Math.min(...ys); };
+    const sa = spread(a, za), sb = spread(b, zb);
+    const live = MON.core ? vmapModel(MON.core) : null, liveOk = !!live && live.N === MON.core.d.N && live.pan.length === live.N;
+    const ok = a.N === 5 && b.N === 5 && a.pan.length === 5 && a.act.length === 5 && law(a, 10) && law(b, 40) && onT(a) && onT(b) && panOk(a) && panOk(b) &&
+      za === zb && Math.abs(sb / sa - 4) < 1e-6 && liveOk;
+    out.push({ name: 'voice map: a dot per member; positions track Detune', ok,
+      detail: 'dots ' + a.N + ' / ' + b.N + ' (N 5) · targets = the law · actuals on them (Coupling 0) · pan = the oracle\'s slot × Stereo · y spread ' + sa.toFixed(2) + ' → ' + sb.toFixed(2) +
+        ' px at Detune 10 → 40 c (' + VM_LABELS[za] + ') · live map ' + (live ? live.N : '—') + ' dots = monitor N ' + (MON.core ? MON.core.d.N : '—') });
+    const z = vmapRun({ detune: 0 });
+    let mx = 0; for (let i = 0; i < z.N; i++) mx = Math.max(mx, Math.abs(z.tgt[i]), Math.abs(z.act[i]));
+    out.push({ name: 'CONTROL: Detune 0 puts every dot at 0 ¢', ok: z.N === 5 && mx < 1e-9, control: true,
+      detail: 'largest |cents| ' + mx.toExponential(1) + ' over ' + z.N + ' targets and actuals (must be 0)' });
+  } catch (e) {
+    out.push({ name: 'voice map', ok: false, detail: 'threw: ' + String(e && e.message || e) });
   }
   return out;
 }
