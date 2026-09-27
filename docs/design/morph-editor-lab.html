@@ -2349,7 +2349,7 @@ function renderPadText() {
       : picks ? '<b>drag a boundary</b> (a line between two colours) to move it — the row <b>locks</b> · ' + puck
         + (nPins(i) ? ` · its ◇ pins are dormant here (${esc(wpDormant(i) || '')})` : '') + '.'
       : why ? `<b>No pin gestures on this row right now.</b> ${esc(why)} ${puck}.`
-      : '<b>drag</b> a ◆ to move it · <b>drag its value tag ↕</b>, or <b>scroll</b> on it, to change its value (<kbd>alt</kbd>-drag the ◆ too; <kbd>shift</kbd> = fine) · '
+      : '<b>drag</b> a ◆ to move it · <b>drag its value tag ↕</b>, or <kbd>alt</kbd> + <b>scroll</b> on it, to change its value (a plain scroll scrolls the page, B301) (<kbd>alt</kbd>-drag the ◆ too; <kbd>shift</kbd> = fine) · '
         + '<b>double-click</b> empty pad: a new pin there, at the value the law <i>already gives there</i> — so adding it changes nothing you hear until you move its value · '
         + '<b>right-click</b> a ◆, or <kbd>Delete</kbd>: remove it · drag the line’s <b>‹ ›</b> ends: move the cross-section · ' + puck + '.';
   }
@@ -3558,7 +3558,7 @@ function renderAnswers() {
   li.push(`<b>Representation.</b> B268: the page opens on a pinned row in BLEND; every pin prints its value in a tag beside it, a colour scale in the parameter’s own values sits under the pad, and a CROSS-SECTION plots the row along a draggable line with all four laws on one plot — where creases, overshoot and flat tops are visible at a glance, which the four heatmaps alone were not (the maps can also show each law’s difference from the recommended one). With a row selected, the pad paints THAT row’s surface under the chosen law — brightness = value, faint contours, dashed triangulation for the TIN laws (every dashed line is a crease), ◆ pins with number and value, alarm hatch where the range clamp acted, caution hatch where the law left the values set. `
     + `In the row: a <b>◆n</b> count beside the name; clicking it jumps the puck to the next pin (a count AND a jump), and it fills when the puck is on one. The inspector lists every pin with JUMP and ✕. `
     + `Globally: every position that carries any row’s pin is a small ▫ on the pad, with ×n where rows share it — now <b>${st.pins}</b> pin${st.pins === 1 ? '' : 's'} on ${st.rows} row${st.rows === 1 ? '' : 's'} at ${st.pos} position${st.pos === 1 ? '' : 's'}. New pins snap to an existing position within ${WP_SNAP}, so rows gather at shared stations instead of scattering.`);
-  li.push(`<b>Interaction.</b> ON THE PAD (B268): drag a ◆ to move it; drag its value tag up or down, or scroll on it, to change its value; double-click empty pad for a new pin at what you hear there; right-click it, or Delete, to remove it. Every one of those, and the inspector’s path, writes through the same four functions the interaction audit calls. IN THE INSPECTOR: move the puck, select the row, <b>◆ ARM</b>, turn HERE — a pin appears at the puck; the corners do not move. ON A PIN: a dashed ring round the puck, the row’s ◆n fills, the list row is striped, and an armed edit changes that pin rather than making a new one. `
+  li.push(`<b>Interaction.</b> ON THE PAD (B268): drag a ◆ to move it; drag its value tag up or down, or ⌥/alt + scroll on it, to change its value (a plain scroll scrolls the page, B301); double-click empty pad for a new pin at what you hear there; right-click it, or Delete, to remove it. Every one of those, and the inspector’s path, writes through the same four functions the interaction audit calls. IN THE INSPECTOR: move the puck, select the row, <b>◆ ARM</b>, turn HERE — a pin appears at the puck; the corners do not move. ON A PIN: a dashed ring round the puck, the row’s ◆n fills, the list row is striped, and an armed edit changes that pin rather than making a new one. `
     + `REFUSED, with the reason stated: at a corner (within ${WP_GUARD} it IS the corner — edit the cell), at either limit, too close to another pin, a stepped or gate row, under QUANTUM, on an exempt row, and (with B232) where the source is silent. `
     + `Unarmed, a knob turned mid-pad stays ADR-109’s weighted corner edit — it moves all four corners so the blend lands on the new value. Arming is what makes it a pin instead.`);
   li.push(`<b>With the rest of morph.</b> <b>QUANTUM:</b> pins are kept but <b>dormant</b> (◇, hollow): a pick means "exactly one corner’s value", and a pin is a value between corners — nothing for a pick to land on. Making a pin a fifth candidate would change reshuffle’s draw order (morph_core.h draws n×4 in a fixed order), moving every seeded patch’s map. Quantum’s own authoring handle is the edited BOUNDARY the human already named — built in B269, below: pins shape blend’s values, boundaries shape quantum’s regions. `
@@ -4041,6 +4041,21 @@ function padWheel(st, p, deltaY, fine, tags) {
   if (m) padSay(st, m, p); else st.padMsg = null;
   return true;
 }
+/* B301 — THE WHEEL SCROLLS; ⌥/alt + WHEEL ADJUSTS. A plain wheel or trackpad scroll
+   over a control used to turn it, and its preventDefault ate the scroll, so moving down
+   a column of knobs rewrote the patch on the way past (human, 2026-09-27: "it makes
+   navigation a real headache"). Now a plain wheel returns untouched: no value changes and
+   nothing calls preventDefault, so the page or the panel scrolls. With alt held `f`
+   adjusts and the event is claimed, unless `f` returns false (a canvas whose hit-test
+   missed), which leaves the scroll alone. The same copy is in every lab that adjusts on
+   the wheel (labs are single-file by design); tools/labharness/lab_wheel_scroll_check.mjs
+   holds all of them to it. */
+function onAltWheel(node, f) {
+  node.addEventListener('wheel', e => {
+    if (!e.altKey) return;
+    if (f(e) !== false) e.preventDefault();
+  }, { passive: false });
+}
 function wirePad() {
   const cv = $('padC'); if (!cv || !cv.addEventListener) return;
   const cursor = c => { if (typeof cv.className === 'string') cv.className = c; };
@@ -4086,12 +4101,11 @@ function wirePad() {
     if (e.preventDefault) e.preventDefault();
     renderGrid(); renderInspector();
   });
-  cv.addEventListener('wheel', e => {
-    const p = padXY(e); if (!p) return;
-    if (!padWheel(S, p, e.deltaY, e.shiftKey, padTags)) return;
-    if (e.preventDefault) e.preventDefault();
+  onAltWheel(cv, e => {
+    const p = padXY(e); if (!p) return false;
+    if (!padWheel(S, p, e.deltaY, e.shiftKey, padTags)) return false;
     renderGrid(); renderInspector();
-  }, { passive: false });
+  });
 }
 function wireGrid() {
   const rows = $('rows'); if (!rows || !rows.addEventListener) return;

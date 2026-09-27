@@ -2490,6 +2490,35 @@ function tagCtl(node, keys, tier) {
   node.dataset.key = keys.join(' '); node.dataset.tier = tier || '';
   node.title = keys.map(addrOf).join('\n');
 }
+/* B301 — THE WHEEL SCROLLS; ⌥/alt + WHEEL ADJUSTS. A plain wheel or trackpad scroll
+   over a control used to turn it, and its preventDefault ate the scroll, so moving down
+   a column of knobs rewrote the patch on the way past (human, 2026-09-27: "it makes
+   navigation a real headache"). Now a plain wheel returns untouched: no value changes and
+   nothing calls preventDefault, so the page or the panel scrolls. With alt held `f`
+   adjusts and the event is claimed, unless `f` returns false (a canvas whose hit-test
+   missed), which leaves the scroll alone. The same copy is in every lab that adjusts on
+   the wheel (labs are single-file by design); tools/labharness/lab_wheel_scroll_check.mjs
+   holds all of them to it. */
+function onAltWheel(node, f) {
+  node.addEventListener('wheel', e => {
+    if (!e.altKey) return;
+    if (f(e) !== false) e.preventDefault();
+  }, { passive: false });
+}
+/* B301 — A REBUILD KEEPS EVERY PANEL'S SCROLL. Clearing a container and building it
+   again hands the browser NEW scrolling elements, and a new element starts at scrollTop
+   0: every pill that rebuilt the frame threw the Controls column back to its top (human,
+   2026-09-27: "clicking button parameters resets the position of the control window").
+   Offsets are saved by position (the ordinal of each `sel` match inside `root`) and put
+   back after the build; the browser clamps them to the new height. `view` names what is
+   on screen: a different view is navigation, and starts at the top. */
+function keepScroll(root, sel, view, build) {
+  const all = () => (root && root.querySelectorAll ? [...root.querySelectorAll(sel)] : []);
+  const was = root && root._b301view === view ? all().map(e => e.scrollTop) : [];
+  build();
+  if (root) root._b301view = view;
+  all().forEach((e, i) => { if (was[i] > 0) e.scrollTop = was[i]; });
+}
 function knob(host, key, o) {
   o = o || {};
   const K = () => (o.keyFn ? o.keyFn() : key);
@@ -2515,7 +2544,7 @@ function knob(host, key, o) {
   const up = () => { drag = false; k.classList.remove('drag'); };
   k.addEventListener('pointerup', up); k.addEventListener('pointercancel', up);
   k.addEventListener('dblclick', () => write(K(), DEF[K()]));
-  k.addEventListener('wheel', e => { e.preventDefault(); const sp = SP[K()]; write(K(), fromPos(sp, toPos(sp, shown(K(), false)) - Math.sign(e.deltaY) * 0.02)); }, { passive: false });
+  onAltWheel(k, e => { const sp = SP[K()]; write(K(), fromPos(sp, toPos(sp, shown(K(), false)) - Math.sign(e.deltaY) * 0.02)); });
   CTLS.push(() => {
     const key0 = K(), sp = SP[key0]; if (!sp) return;
     const fol = !!linked(key0) && !FOLLOW_OF[key0].g.sentinel;
@@ -2688,9 +2717,12 @@ function canvas(host, h, painter, cls) {
 }
 function rebuild() {
   CTLS = []; CANV = [];
-  FR.innerHTML = '';
-  frameHeader(FR);
-  if (LAB.page === 'main') buildMain(FR); else buildOsc(FR);
+  /* B301: every .scroll (the Controls column) keeps its offset across the rebuild */
+  keepScroll(FR, '.scroll', LAB.page, () => {
+    FR.innerHTML = '';
+    frameHeader(FR);
+    if (LAB.page === 'main') buildMain(FR); else buildOsc(FR);
+  });
   repaintControls();
   paintCanvases();
   buildSide();
@@ -2830,7 +2862,7 @@ function cycleCaption() {
   /* B294: cross-mod is drawn by the bench's 3-pass estimate (SPEC §10); feedback still is not */
   if (P.xm > XM_ON) bits.push('dash-dot = what cross-mod adds (3-pass estimate)');
   if (P.fb > 0.0005) bits.push('feedback not drawn (sample-to-sample)');
-  if (LAB.skin === 'C' || LAB.direct) bits.push('drag window = position · vertical = depth · edge = width · ▲ = edges · wheel = cut rate');
+  if (LAB.skin === 'C' || LAB.direct) bits.push('drag window = position · vertical = depth · edge = width · ▲ = edges · ⌥ + wheel = cut rate');
   return bits.join(' · ');
 }
 function bladeKey(b, k) { return b === 1 ? k : k + '2'; }
@@ -3207,12 +3239,11 @@ function cycleEdits(cv) {
   });
   const up = () => { drag = null; };
   cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
-  cv.addEventListener('wheel', e => {
-    const h = cycleHit(cv, e); if (!h) return;
-    e.preventDefault();
+  onAltWheel(cv, e => {
+    const h = cycleHit(cv, e); if (!h) return false;
     const b = h.b, key = effLock(b) === 2 ? bladeKey(b, 'kHz') : bladeKey(b, 'k'), sp = SP[key];
     write(key, clamp(P[key] * Math.pow(2, -Math.sign(e.deltaY) / (e.shiftKey ? 48 : 12)), sp.min, sp.max));
-  }, { passive: false });
+  });
 }
 
 /* ======================================================================
@@ -4525,9 +4556,9 @@ function paintAudit() {
    ====================================================================== */
 function buildSide() {
   const s = $('side'); if (!s) return;
-  const skin = { A: ['A · KNOBS', 'std', "gui2's knob (ADR-120) with its halo: the magenta arc is your value; a violet arc and tick show where morph or a macro has moved it. The face in the accounting's order."],
+  const skin = { A: ['A · KNOBS', 'std', "gui2's knob (ADR-120) with its halo: the magenta arc is your value; a violet arc and tick show where morph or a macro has moved it. The face in the accounting's order. Drag to turn (shift = fine), double-click for the default, ⌥/alt + wheel to nudge; a plain wheel scrolls and never turns a knob (B301)."],
     B: ['B · SLIDERS', 'std', "gui2's labelled row (the station-page idiom): denser, every number visible, no halo. It is how the depths below are drawn in every skin."],
-    C: ['C · DIRECT', 'dep', 'No knobs for the core five. The cycle view is the editor: drag a window to move it, drag vertically for depth, drag an edge for width, the ▲ for edges, scroll for cut rate; numbers are scrubbable chips. Departs from gui2, where every parameter has a knob or row.'] }[LAB.skin] || ['?', 'std', ''];
+    C: ['C · DIRECT', 'dep', 'No knobs for the core five. The cycle view is the editor: drag a window to move it, drag vertically for depth, drag an edge for width, the ▲ for edges, ⌥/alt + wheel for cut rate (a plain wheel scrolls, B301); numbers are scrubbable chips. Departs from gui2, where every parameter has a knob or row.'] }[LAB.skin] || ['?', 'std', ''];
   s.innerHTML = '<div class="box"><h2>THIS VIEW</h2>' +
     '<p><b>Skin ' + skin[0] + '</b><span class="' + skin[1] + '">' + (skin[1] === 'dep' ? 'DEPARTURE' : 'STANDARD') + '</span><br>' + skin[2] + '</p>' +
     '<p><b>Window ' + (LAB.win === 'gate' ? 'II · GATE' : 'I · BAND') + '</b><span class="std">STANDARD TOKENS</span><br>' +

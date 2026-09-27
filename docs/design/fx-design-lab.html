@@ -454,7 +454,7 @@ with proposed controls. Sluice's face is drawn <b>both</b> ways for the open rul
 computed from the parameters, not heard: this lab answers what a module <i>shows</i>. <b>B234</b> adds a parametric
 <b>EQ</b> and a <b>compressor</b> that run real DSP on a lab source — the EQ curve is draggable over a live analyser,
 the compressor shows its transfer curve, operating point and gain reduction — and both prove their pictures
-against sines at load (the audit line). Drag a knob vertically (shift = fine, double-click = the preset's value),
+against sines at load (the audit line). Drag a knob vertically (shift = fine, double-click = the preset's value, ⌥/alt + wheel nudges; a plain wheel only scrolls, B301),
 or move any row.</div>
 
 <div class="audit" id="audit">module audit: pending</div>
@@ -1444,7 +1444,7 @@ function eqModule() {
       + 'an EQ has no loop. Bands, types, Q and slope decide WHICH curve — the preset\'s job, in the panel.',
     notes: '<b>Curve</b> (magenta, drag it): the product of every enabled band\'s biquad, evaluated as the digital '
       + '<code>|H(e^jω)|</code> of the coefficients the running filter uses — the self-check measures that claim with '
-      + 'sines at load. Faint magenta: each band alone. Drag a node for frequency and gain, wheel for Q, double-click '
+      + 'sines at load. Faint magenta: each band alone. Drag a node for frequency and gain, ⌥/alt + wheel for Q (a plain wheel scrolls), double-click '
       + 'for on/off. Types are the RBJ cookbook\'s; a 24/48 dB cut is a Butterworth cascade whose sections all scale '
       + 'with Q. <b>Analyser</b> (cyan, behind): the lab source after the EQ, 4096-point Hann FFT, +3 dB/oct display '
       + 'tilt so pink noise reads flat; dashed = before the EQ. <b>OUT</b>: the output peak; red = clip. '
@@ -2271,6 +2271,21 @@ function drawCompHistory(cv, M) {
     6 * v, h - 3 * v, '--scr-grid', 0.9, 8);
 }
 
+/* B301 — THE WHEEL SCROLLS; ⌥/alt + WHEEL ADJUSTS. A plain wheel or trackpad scroll
+   over a control used to turn it, and its preventDefault ate the scroll, so moving down
+   a column of knobs rewrote the patch on the way past (human, 2026-09-27: "it makes
+   navigation a real headache"). Now a plain wheel returns untouched: no value changes and
+   nothing calls preventDefault, so the page or the panel scrolls. With alt held `f`
+   adjusts and the event is claimed, unless `f` returns false (a canvas whose hit-test
+   missed), which leaves the scroll alone. The same copy is in every lab that adjusts on
+   the wheel (labs are single-file by design); tools/labharness/lab_wheel_scroll_check.mjs
+   holds all of them to it. */
+function onAltWheel(node, f) {
+  node.addEventListener('wheel', e => {
+    if (!e.altKey) return;
+    if (f(e) !== false) e.preventDefault();
+  }, { passive: false });
+}
 /* ---- EQ: drag the curve. The painter left `cv._map` (its own mapping and the
    node positions), so the pointer maps through the SAME arithmetic that drew
    what it is pointing at. ---------------------------------------------------- */
@@ -2305,12 +2320,11 @@ function wireEq(M) {
     });
     const up = () => { drag = -1; };
     cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
-    cv.addEventListener('wheel', e => {
+    onAltWheel(cv, e => {
       const [px, py] = at(e), i = hit(px, py);
-      if (i < 0) return;
-      e.preventDefault();
+      if (i < 0) return false;
       const b = M.P.bands[i]; b.q = clamp(b.q * (e.deltaY < 0 ? 1.1 : 1 / 1.1), 0.1, 18); M.sel = i; refresh(M);
-    }, { passive: false });
+    });
     cv.addEventListener('dblclick', e => {
       const [px, py] = at(e), i = hit(px, py);
       if (i < 0) return;
@@ -2400,10 +2414,10 @@ function wireKnob(k, inp, dflt, onInput) {
   const up = () => { id = null; k.classList.remove('drag'); };
   k.addEventListener('pointerup', up); k.addEventListener('pointercancel', up);
   k.addEventListener('dblclick', () => { if (!inp.disabled) { inp.value = String(dflt()); onInput(); } });
-  k.addEventListener('wheel', e => {
-    if (inp.disabled) return;
-    e.preventDefault(); inp.value = String(clamp(+inp.value - Math.sign(e.deltaY) * 0.01, 0, 1)); onInput();
-  }, { passive: false });
+  onAltWheel(k, e => {
+    if (inp.disabled) return false;
+    inp.value = String(clamp(+inp.value - Math.sign(e.deltaY) * 0.01, 0, 1)); onInput();
+  });
   inp.addEventListener('input', onInput);
 }
 

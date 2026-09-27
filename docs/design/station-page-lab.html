@@ -359,7 +359,7 @@ golden generator uses. Every control names its §10 address, and the page audits
     <div class="cluster" id="mxPane"><h2>PM Matrix</h2>
       <div id="mxWell"><div id="mxGrid"></div></div>
       <div class="note">Rows FEED columns; a cell is a PM <b>index</b> (0–8) and 0 IS "not connected", so
-        connecting and disconnecting is one continuous motion. Drag a cell vertically or scroll it;
+        connecting and disconnecting is one continuous motion. Drag a cell vertically or ⌥/alt + wheel over it (a plain wheel scrolls the page, B301);
         double-click restores the boot patch. The diagonal is self-<b>FB</b>. Every tap reads the
         <b>previous sample</b> (§2), which is what makes any cycle stable. <b>NS has no column</b>: noise
         receives no PM, so the destination does not exist — absent, not disabled (gui2:473).</div>
@@ -1108,6 +1108,21 @@ function modeGhost() {
   }
 }
 
+/* B301 — THE WHEEL SCROLLS; ⌥/alt + WHEEL ADJUSTS. A plain wheel or trackpad scroll
+   over a control used to turn it, and its preventDefault ate the scroll, so moving down
+   a column of knobs rewrote the patch on the way past (human, 2026-09-27: "it makes
+   navigation a real headache"). Now a plain wheel returns untouched: no value changes and
+   nothing calls preventDefault, so the page or the panel scrolls. With alt held `f`
+   adjusts and the event is claimed, unless `f` returns false (a canvas whose hit-test
+   missed), which leaves the scroll alone. The same copy is in every lab that adjusts on
+   the wheel (labs are single-file by design); tools/labharness/lab_wheel_scroll_check.mjs
+   holds all of them to it. */
+function onAltWheel(node, f) {
+  node.addEventListener('wheel', e => {
+    if (!e.altKey) return;
+    if (f(e) !== false) e.preventDefault();
+  }, { passive: false });
+}
 /* ---- the PM matrix well (§4) --------------------------------------------- */
 const MXCELLS = [];
 function buildMatrix() {
@@ -1141,11 +1156,10 @@ function buildMatrix() {
       const up = () => { drag = false; cell.classList.remove('drag'); };
       cell.addEventListener('pointerup', up);
       cell.addEventListener('pointercancel', up);
-      cell.addEventListener('wheel', e => {
-        e.preventDefault();
+      onAltWheel(cell, e => {
         const v = Math.min(8, Math.max(0, S.mtx[r][c] - Math.sign(e.deltaY) * 0.1));
         S.mtx[r][c] = Math.round(v * 100) / 100; show(); onEdit();
-      }, { passive: false });
+      });
       cell.addEventListener('dblclick', () => {
         const boot = defaultState().mtx;
         S.mtx[r][c] = boot[r][c]; show(); onEdit();
