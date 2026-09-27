@@ -369,8 +369,9 @@ full() {
   # The directory argument is where it finds the factory Init patch.
   "$build_dir/offcorner_check"   docs/presets/factory   || return 1   # B232 off-corner blend rule, rev-gated
   "$build_dir/modreadback_check" tests/state_fixtures/chunk-v2-rev1.txt || return 1   # B241 a modulated row persists at its BASE
-  # SCALPEL's own oracle battery (ADR-184, ingested 2026-09-24): 18 numeric checks
-  # against reference/scalpel/prototype/razor-core.js, ~6 s, exit 0 only when all
+  # SCALPEL's own oracle battery (ADR-184, ingested 2026-09-24; v1.1 2026-09-27, B300):
+  # 24 numeric checks (18 at v1; v1.1 adds six on blade interplay) against
+  # reference/scalpel/prototype/razor-core.js, ~9 s, exit 0 only when all
   # pass. Wired at ingest so the reference is known-good BEFORE a port is measured
   # against it — the packet's last-run.txt is the author's claim; this is ours.
   node reference/scalpel/verify/verify.js > /tmp/scalpel.$$ 2>&1 || {

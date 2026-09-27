@@ -169,23 +169,26 @@ class RazorCore {
     ns.acc += d; ns.acc -= Math.floor(ns.acc);
     return d;
   }
-  static voice(p, phi, c, k, modX, ns){
-    const base = RazorCore.wave(p.base, phi);
+  // inp: what this blade transforms. Omitted, it is the base wave; in serial interplay it is base + λ·(lower blade).
+  static voice(p, phi, c, k, modX, ns, inp){
+    const base = RazorCore.wave(p.base, phi), xin0 = inp === undefined ? base : inp;
     const w = p.w;
-    if (w < 0.004){ ns.g = 0; ns.inside = false; return base; }
+    if (w < 0.004){ ns.g = 0; ns.inside = false; return xin0; }
     let st = c - w*0.5; st -= Math.floor(st);
     let e = phi - st; if (e < 0) e += 1;
-    if (e >= w){ ns.g = 0; ns.inside = false; return base; }
+    if (e >= w){ ns.g = 0; ns.inside = false; return xin0; }
     const kk = p.lock === 1 ? k / w : k;
     // reflect: the second half of the blade replays the first half backwards (a palindrome)
     const er = p.mirror === 1 && e > w*0.5 ? w - e : e;
     const hp = kk * er;
     let hot, x;
     switch (p.mode){
-      case 0: { const cp = hp + ns.xin; hot = RazorCore.wave(p.hot, cp - Math.floor(cp)); break; }
+      // ns.cacc: extra carrier phase from collision pitch; ns.ov: current overlap with the other blade (bite)
+      case 0: { const cp = hp + ns.xin + ns.cacc; hot = RazorCore.wave(p.hot, cp - Math.floor(cp)); break; }
       case 1: case 2: {
-        const cp = ns.xin + (p.fmType === 1 ? hp + ns.acc
-          : hp + p.I*0.15915494309189535*RazorCore.mod(p.mshape, p.mode === 1 ? p.mEff*er : modX, ns.seed));
+        const Ib = ns.ov > 0 ? p.I*(1 + 4*p.colB*ns.ov) : p.I;
+        const cp = ns.xin + ns.cacc + (p.fmType === 1 ? hp + ns.acc
+          : hp + Ib*0.15915494309189535*RazorCore.mod(p.mshape, p.mode === 1 ? p.mEff*er : modX, ns.seed));
         hot = RazorCore.wave(p.hot, cp - Math.floor(cp)); break;
       }
       case 3: {
@@ -193,8 +196,8 @@ class RazorCore {
         if (!ns.inside || idx !== ns.idx){ ns.idx = idx; ns.val = ns.rnd(idx); }
         hot = ns.val; break;
       }
-      case 4: hot = Math.sin(1.5707963267948966*(1 + (k - 1)*0.25)*base); break;          // fold
-      case 5: { const cp = hp + ns.xin; hot = base*RazorCore.wave(p.hot, cp - Math.floor(cp)); break; }  // ring
+      case 4: hot = Math.sin(1.5707963267948966*(1 + (k - 1)*0.25)*(ns.ov > 0 ? 1 + 2*p.colB*ns.ov : 1)*xin0); break;   // fold
+      case 5: { const cp = hp + ns.xin + ns.cacc; hot = xin0*RazorCore.wave(p.hot, cp - Math.floor(cp)); break; }  // ring
       case 6: {                                                                           // crush
         // each hold level is the AVERAGE of the base over its hold interval (box-filtered decimation), so levels move
         // continuously as k changes instead of flipping when a sample point slides across the base wave's jump
@@ -209,10 +212,19 @@ class RazorCore {
             hot = from + (tgt - from)*(hp - h0)/rlE;
           }
         }
+        if (inp !== undefined){
+          // serial: the lower blade's content (inp − base) is sampled and held per step on top of the averaged base;
+          // with slew it glides between held values, and lands on the live input at the blade exit
+          const extra = inp - base, j = Math.floor(hp), f = hp - j;
+          if (!ns.inside || j !== ns.idx){ ns.pv = ns.inside ? ns.val : extra; ns.idx = j; ns.val = extra; }
+          let ex = sl > 0.001 && f < sl ? ns.pv + (ns.val - ns.pv)*f/sl : ns.val;
+          if (sl > 0.001){ const rlE = Math.min(sl, hpEnd), h0 = hpEnd - rlE; if (rlE > 1e-9 && hp > h0) ex += (extra - ex)*(hp - h0)/rlE; }
+          hot += ex;
+        }
         ns.inside = true; ns.g = 1;
-        return base + p.depth*(hot - base);
+        return xin0 + p.depth*(hot - xin0);
       }
-      default: hot = base;
+      default: hot = xin0;
     }
     ns.inside = true;
     const t = p.hard * w * 0.5;
@@ -222,10 +234,26 @@ class RazorCore {
       else if (e > w - t) g = 0.5 - 0.5*Math.cos(Math.PI*(w - e)/t);
     }
     ns.g = g;
-    return base + g*p.depth*(hot - base);
+    return xin0 + g*p.depth*(hot - xin0);
+  }
+  // edge gate of a blade at blade-local position e (0 outside); crush has hard edges inside
+  static gate(e, w, hard, mode){
+    if (w < 0.004 || e >= w) return 0;
+    if (mode === 6) return 1;
+    const t = hard*w*0.5;
+    if (t > 1e-9){ if (e < t) return 0.5 - 0.5*Math.cos(Math.PI*e/t); if (e > w - t) return 0.5 - 0.5*Math.cos(Math.PI*(w - e)/t); }
+    return 1;
+  }
+  // collision pitch: while the blades overlap, the upper blade's carrier runs faster (or slower) — integrated, so it chirps
+  static collide(amt, nsU, eU0, eU1, kkU, ov, dphi){
+    nsU.ov = ov;
+    if (eU1 < eU0) nsU.cacc = 0;                                   // blade entry
+    const d = amt ? (Math.pow(4, amt*ov) - 1)*kkU*dphi : 0;       // ±2 octaves at full overlap
+    nsU.cacc += d; nsU.cd = d;
   }
   // full output: the blade, plus an optional twin half a cycle later (inverted or not)
   static out(p, phi, c, k, modX, ns, ns2, bx){
+    if (bx && p.b2mix > 1e-6) return RazorCore.outSerial(p, phi, c, k, modX, ns, ns2, bx);
     let y = RazorCore.voice(p, phi, c, k, modX, ns);
     let ph2 = -1;
     if (p.mirror >= 2){
@@ -249,34 +277,58 @@ class RazorCore {
     }
     return y;
   }
+  // serial interplay: the upper blade transforms base + λ·(lower blade's full contribution, twins included)
+  static outSerial(p, phi, c, k, modX, ns, ns2, bx){
+    const g = bx.g, lam = p.b2mix, up2 = !p.b2order;                // default: blade 2 over blade 1
+    const base = RazorCore.wave(p.base, phi);
+    let ph2 = phi - 0.5; if (ph2 < 0) ph2 += 1;
+    const base2 = RazorCore.wave(p.base, ph2);
+    const mr0 = RazorCore.mr, mn0 = RazorCore.mn, mr1 = mr0, mn1 = mn0;
+    // blade descriptors: params, centre, rate, modulator, state, twin state, morph view
+    const A = up2 ? [p, c, k, modX, ns, ns2, mr1, mn1] : [g, bx.c, bx.k, bx.modX, bx.ns3, bx.ns4, bx.mr, bx.mn];
+    const B = up2 ? [g, bx.c, bx.k, bx.modX, bx.ns3, bx.ns4, bx.mr, bx.mn] : [p, c, k, modX, ns, ns2, mr1, mn1];
+    const ev = (D, ph, st, inp) => { RazorCore.mr = D[6]; RazorCore.mn = D[7]; return RazorCore.voice(D[0], ph, D[1], D[2], D[3], st, inp); };
+    // lower blade, evaluated at φ and φ−½ (the second is its twin, or just what the upper twin needs to hear)
+    const pa = A[0], sa = pa.mirror === 2 ? -1 : pa.mirror === 3 ? 1 : 0, pb = B[0], sb = pb.mirror === 2 ? -1 : pb.mirror === 3 ? 1 : 0;
+    const dA = ev(A, phi, A[4]) - base;
+    let dA2 = 0;
+    if (sa || sb){ A[5].acc = A[4].acc; A[5].xin = A[4].xin; dA2 = ev(A, ph2, A[5]) - base2; }
+    const L = dA + sa*dA2, L2 = dA2 + sa*dA;
+    // upper blade hears base + λ·L
+    const x1 = base + lam*L, dB = ev(B, phi, B[4], x1) - x1;
+    let dB2 = 0;
+    if (sb){ B[5].acc = B[4].acc; B[5].xin = B[4].xin; const x2 = base2 + lam*L2; dB2 = ev(B, ph2, B[5], x2) - x2; }
+    RazorCore.mr = mr0; RazorCore.mn = mn0;
+    return base + L + dB + sb*dB2;
+  }
   // blade-2 view: every field voice() reads, so it can be passed in place of the main params
-  static g2(){ return {mode:4,hot:2,base:0,w:.2,depth:1,hard:0,lock:0,mirror:0,fmType:0,I:2,mshape:0,mEff:3.37,m:3.37}; }
+  static g2(){ return {mode:4,hot:2,base:0,w:.2,depth:1,hard:0,lock:0,mirror:0,fmType:0,I:2,mshape:0,mEff:3.37,m:3.37,colB:0}; }
   // blade 2's settings: units and mirror can follow blade 1 (-1) or be its own; FM follows blade 1 unless b2fm
   static fillG2(g, s, w2e, dep2, I2e, mEff2){
     g.mode = s.mode2; g.hot = s.hot2; g.base = s.base; g.w = w2e; g.depth = dep2; g.hard = s.hard2;
     g.lock = s.lock2 < 0 ? s.lock : s.lock2; g.mirror = s.mirror2 < 0 ? s.mirror : s.mirror2;
     g.fmType = s.b2fm ? s.fmType2 : s.fmType; g.mshape = s.b2fm ? s.mshape2 : s.mshape;
-    g.I = I2e; g.mEff = mEff2; g.m = s.b2fm ? s.m2 : s.m;
+    g.I = I2e; g.mEff = mEff2; g.m = s.b2fm ? s.m2 : s.m; g.colB = s.colB;
   }
   constructor(sr){
     this.sr = sr; this.age = 0; this.cnt = 0; this.vc = 0;
-    this.t = {I2:2,m2:3.37,mHz2:660,morph2:.5,mspread2:0,ispread2:0,rotRate2:0,rotSpread2:0,kRuleAmt2:1,bspread2:0,kspread2:0,wspread2:0,dspread2:0,benvA2:2,benvD2:250,benvK2:0,benvW2:0,benvVel2:.5,kRuleAmt:1,w2:.2,k2:3,kHz2:800,c2:.35,depth2:1,hard2:0,xm:0,fb:0,benvA:2,benvD:250,benvK:0,benvW:0,benvVel:.5,glide:60,driftRate:.5,morph:.5,wspread:0,dspread:0,mspread:0,ispread:0,w:.25,k:6,kHz:1320,mHz:660,c:.875,rotRate:0,rotSpread:0,hard:0,depth:1,I:2,m:3.37,gain:.35,
+    this.t = {b2mix:0,colK:0,colB:0,I2:2,m2:3.37,mHz2:660,morph2:.5,mspread2:0,ispread2:0,rotRate2:0,rotSpread2:0,kRuleAmt2:1,bspread2:0,kspread2:0,wspread2:0,dspread2:0,benvA2:2,benvD2:250,benvK2:0,benvW2:0,benvVel2:.5,kRuleAmt:1,w2:.2,k2:3,kHz2:800,c2:.35,depth2:1,hard2:0,xm:0,fb:0,benvA:2,benvD:250,benvK:0,benvW:0,benvVel:.5,glide:60,driftRate:.5,morph:.5,wspread:0,dspread:0,mspread:0,ispread:0,w:.25,k:6,kHz:1320,mHz:660,c:.875,rotRate:0,rotSpread:0,hard:0,depth:1,I:2,m:3.37,gain:.35,
       detune:14,K:.35,bspread:0,kspread:0,width:.7,A:4,D:400,S:.85,R:280,bend:0};
     // every field declared up front so the hot object keeps one fast shape
-    this.s = {lock2:-1,mirror2:-1,b2fm:0,fmType2:0,mshape2:0,mUnit2:0,I2:2,m2:3.37,mHz2:660,morph2:.5,mspread2:0,ispread2:0,rotRate2:0,rotSpread2:0,b2sp:0,kRule2:0,kRuleAmt2:1,bspread2:0,kspread2:0,wspread2:0,dspread2:0,benvA2:2,benvD2:250,benvK2:0,benvW2:0,benvVel2:.5,kRule:0,kCustom:'1, 5/4, 3/2',kRuleAmt:1,mode2:4,hot2:2,b2on:0,w2:.2,k2:3,kHz2:800,c2:.35,depth2:1,hard2:0,xm:0,fb:0,benvA:2,benvD:250,benvK:0,benvW:0,benvVel:.5,aa:1,glide:60,driftRate:.5,morph:.5,wspread:0,dspread:0,mspread:0,ispread:0,kq:0,law:0,w:.25,k:6,kHz:1320,mHz:660,c:.875,rotRate:0,rotSpread:0,hard:0,depth:1,I:2,m:3.37,gain:.35,
+    this.s = {b2mix:0,b2order:0,colK:0,colB:0,lock2:-1,mirror2:-1,b2fm:0,fmType2:0,mshape2:0,mUnit2:0,I2:2,m2:3.37,mHz2:660,morph2:.5,mspread2:0,ispread2:0,rotRate2:0,rotSpread2:0,b2sp:0,kRule2:0,kRuleAmt2:1,bspread2:0,kspread2:0,wspread2:0,dspread2:0,benvA2:2,benvD2:250,benvK2:0,benvW2:0,benvVel2:.5,kRule:0,kCustom:'1, 5/4, 3/2',kRuleAmt:1,mode2:4,hot2:2,b2on:0,w2:.2,k2:3,kHz2:800,c2:.35,depth2:1,hard2:0,xm:0,fb:0,benvA:2,benvD:250,benvK:0,benvW:0,benvVel:.5,aa:1,glide:60,driftRate:.5,morph:.5,wspread:0,dspread:0,mspread:0,ispread:0,kq:0,law:0,w:.25,k:6,kHz:1320,mHz:660,c:.875,rotRate:0,rotSpread:0,hard:0,depth:1,I:2,m:3.37,gain:.35,
       detune:14,K:.35,bspread:0,kspread:0,width:.7,A:4,D:400,S:.85,R:280,bend:0,
       mode:0,hot:2,base:0,lock:0,mshape:0,fmType:0,mirror:0,mEff:3.37};
-    this.keys = Object.keys(this.t).filter(k => !['k','kHz','w','c','depth','I','hard','w2','k2','kHz2','c2'].includes(k));
+    this.keys = Object.keys(this.t).filter(k => !['k','kHz','w','c','depth','I','hard','w2','k2','kHz2','c2','b2mix'].includes(k));
     this.sm = 0;
-    this.d = {mode:0,hot:2,base:0,lock:0,N:5,phaseMode:2,poly:6,mshape:0,kq:0,fmType:0,mUnit:0,mirror:0,dcMode:2,law:0,frame:0,frame2:-1,rot2Follow:1,lock2:-1,mirror2:-1,b2fm:0,fmType2:0,mshape2:0,mUnit2:0,cScale:0,rotSync:1,panOrder:0,aa:1,polyMode:0,glideAlways:0,b2on:0,mode2:4,hot2:2,kRule:0,kCustom:'1, 5/4, 3/2',b2sp:0,kRule2:0,b2env:0};
+    this.d = {mode:0,hot:2,base:0,lock:0,N:5,phaseMode:2,poly:6,mshape:0,kq:0,fmType:0,mUnit:0,mirror:0,dcMode:2,law:0,frame:0,frame2:-1,rot2Follow:1,lock2:-1,mirror2:-1,b2fm:0,fmType2:0,mshape2:0,mUnit2:0,cScale:0,rotSync:1,panOrder:0,aa:1,polyMode:0,glideAlways:0,b2on:0,mode2:4,hot2:2,kRule:0,kCustom:'1, 5/4, 3/2',b2sp:0,kRule2:0,b2env:0,b2order:0};
     this.voices = [];
     for (let i = 0; i < 8; i++) this.voices.push(this.newVoice());
     this.Rx = new Float64Array(8); this.Ry = new Float64Array(8);
     this.gl = new Float64Array(9); this.gr = new Float64Array(9);
-    this.sc = {idx:0,val:0,inside:true,g:0,seed:0,acc:0,xin:0,rnd:function(){ return this.val; }};
-    this.sc2 = {idx:0,val:0,inside:true,g:0,seed:0,acc:0,xin:0,rnd:function(){ return this.val; }};
-    this.bxs = {g:null,c:0,k:1,modX:0,mr:0,mn:1,ns3:{idx:0,val:0,inside:true,g:0,seed:0,acc:0,xin:0,rnd:function(){ return this.val; }},
-      ns4:{idx:0,val:0,inside:true,g:0,seed:0,acc:0,xin:0,rnd:function(){ return this.val; }}};
+    this.sc = {idx:0,val:0,inside:true,g:0,seed:0,acc:0,xin:0,cacc:0,cd:0,ov:0,pv:0,rnd:function(){ return this.val; }};
+    this.sc2 = {idx:0,val:0,inside:true,g:0,seed:0,acc:0,xin:0,cacc:0,cd:0,ov:0,pv:0,rnd:function(){ return this.val; }};
+    this.bxs = {g:null,c:0,k:1,modX:0,mr:0,mn:1,ns3:{idx:0,val:0,inside:true,g:0,seed:0,acc:0,xin:0,cacc:0,cd:0,ov:0,pv:0,rnd:function(){ return this.val; }},
+      ns4:{idx:0,val:0,inside:true,g:0,seed:0,acc:0,xin:0,cacc:0,cd:0,ov:0,pv:0,rnd:function(){ return this.val; }}};
     this.dcCnt = 0; this.hx = [0, 0]; this.hy = [0, 0]; this.gRot = 0; this.gRot2 = 0;
     this.stack = []; this.nf = {};
     this._cc = 0; this._cp = 0;
@@ -287,10 +339,10 @@ class RazorCore {
     const ms = [];
     for (let i = 0; i < 9; i++) ms.push({phi:0,modX:0,inc:0,prev:0,dc:0,dcS:0,dcInit:true,
       rv:new Float64Array(14),rvT:new Float64Array(14),dcWait:0,lead:0,kMul:1,rot2:0,rotOff2:0,iMul2:1,mr2:0,mn2:1,cOff2:0,kAdd2:0,kMul2:1,wMul2:1,dAdd2:0,rot:0,cOff:0,kAdd:0,rotOff:0,wMul:1,dAdd:0,iMul:1,mor:0,kEff:6,mr:0,mn:1,
-      ns:{idx:0,val:0,inside:false,g:0,seed:i*97,acc:0,xin:0,rnd:RazorCore.rnd},
-      ns2:{idx:0,val:0,inside:false,g:0,seed:i*97 + 7,acc:0,xin:0,rnd:RazorCore.rnd},
+      ns:{idx:0,val:0,inside:false,g:0,seed:i*97,acc:0,xin:0,cacc:0,cd:0,ov:0,pv:0,rnd:RazorCore.rnd},
+      ns2:{idx:0,val:0,inside:false,g:0,seed:i*97 + 7,acc:0,xin:0,cacc:0,cd:0,ov:0,pv:0,rnd:RazorCore.rnd},
       y1:0,y2:0,
-      bx:{g:RazorCore.g2(),c:0,k:3,modX:0,mr:0,mn:1,ns3:{idx:0,val:0,inside:false,g:0,seed:i*97 + 13,acc:0,xin:0,rnd:RazorCore.rnd},ns4:{idx:0,val:0,inside:false,g:0,seed:i*97 + 19,acc:0,xin:0,rnd:RazorCore.rnd}}});
+      bx:{g:RazorCore.g2(),c:0,k:3,modX:0,mr:0,mn:1,ns3:{idx:0,val:0,inside:false,g:0,seed:i*97 + 13,acc:0,xin:0,cacc:0,cd:0,ov:0,pv:0,rnd:RazorCore.rnd},ns4:{idx:0,val:0,inside:false,g:0,seed:i*97 + 19,acc:0,xin:0,cacc:0,cd:0,ov:0,pv:0,rnd:RazorCore.rnd}}});
     return {active:false,note:null,freq:110,freqT:110,fc:110,vel:1,env:0,stage:0,gate:false,age:0,r:1,rot:0,m:ms,
       rot2:0,be:0,bst:0,bv:1,kE:1,wE:1,be2:0,bst2:0,bv2:1,kE2:1,wE2:1,gr:1,xb:new Float64Array(9)};
   }
@@ -471,12 +523,14 @@ class RazorCore {
     sc.idx = m.ns.idx; sc.val = m.ns.val; sc.inside = true;
     sc2.idx = m.ns2.idx; sc2.val = m.ns2.val; sc2.inside = true;
     sc.xin = m.ns.xin; sc2.xin = m.ns.xin;
+    sc.cacc = m.ns.cacc; sc.ov = m.ns.ov; sc.pv = m.ns.pv; sc2.cacc = 0; sc2.ov = 0; sc2.pv = m.ns2.pv;
     let bx = null;
     if (s.b2on){
       const src = m.bx, b = this.bxs; bx = b;
       b.g = src.g; b.c = src.c; b.k = src.k; b.modX = src.modX; b.mr = src.mr; b.mn = src.mn;
       b.ns3.seed = src.ns3.seed; b.ns3.acc = src.ns3.acc; b.ns3.idx = src.ns3.idx; b.ns3.val = src.ns3.val; b.ns3.inside = true; b.ns3.xin = src.ns3.xin;
       b.ns4.seed = src.ns4.seed; b.ns4.idx = src.ns4.idx; b.ns4.val = src.ns4.val; b.ns4.inside = true;
+      b.ns3.cacc = src.ns3.cacc; b.ns3.ov = src.ns3.ov; b.ns3.pv = src.ns3.pv; b.ns4.cacc = 0; b.ns4.ov = 0; b.ns4.pv = src.ns4.pv;
     }
     const a = RazorCore.out(s, F(E + 1e-7), c, k, m.modX, sc, sc2, bx);
     sc.idx = m.ns.idx; sc.inside = true; sc2.idx = m.ns2.idx; sc2.inside = true;
@@ -533,6 +587,25 @@ class RazorCore {
     }
     return fac*w*sum/J;
   }
+  // serial interplay: mean of (composite − base) over one cycle, numerically, with scratch states
+  dcPair(m, c, k, s){
+    const bx = m.bx, g = bx.g, sc = this.sc, sc2 = this.sc2, b = this.bxs;
+    const kk1 = s.w >= 0.004 ? (s.lock === 1 ? k/Math.max(s.w, 1e-3) : k) : 0;
+    const kk2 = g.w >= 0.004 ? (g.lock === 1 ? bx.k/Math.max(g.w, 1e-3) : bx.k) : 0;
+    let feats = kk1*(RazorCore.isFM(s) ? 1 + 0.5*s.I : 1) + kk2*(RazorCore.isFM(g) ? 1 + 0.5*g.I : 1) + 2*(s.mEff + g.mEff) + 4;
+    const J = Math.min(2048, Math.max(64, Math.ceil(feats*32)));
+    this._dcJ = J;
+    const z = (d, src, noise) => { d.seed = src.seed; d.acc = src.acc; d.xin = src.xin; d.cacc = 0; d.ov = 0; d.cd = 0; d.idx = 0; d.val = noise ? 0 : 0; d.pv = 0; d.inside = false; };
+    z(sc, m.ns, s.mode === 3); z(sc2, m.ns2, s.mode === 3);
+    b.g = g; b.c = bx.c; b.k = bx.k; b.modX = bx.modX; b.mr = bx.mr; b.mn = bx.mn;
+    z(b.ns3, bx.ns3, g.mode === 3); z(b.ns4, bx.ns4, g.mode === 3);
+    let sum = 0;
+    for (let j = 0; j < J; j++){
+      const phi = (j + 0.5)/J;
+      sum += RazorCore.out(s, phi, c, k, m.modX, sc, sc2, b) - RazorCore.wave(s.base, phi);
+    }
+    return sum/J;
+  }
   // PolyBLEP for discontinuities inside one blade (primary or twin), tracked in carrier phase
   scan(m, st, p0, dphi, c, k, s, dAcc, modX0, g, kB, nsB, modX1){
     const w = g.w, ns = nsB;
@@ -557,6 +630,7 @@ class RazorCore {
         o1 = sc*RazorCore.mod(g.mshape, g.mode === 1 ? g.mEff*r1 : modX1, ns.seed);
       }
     }
+    if (ns.cd){ o0 += ns.cacc - ns.cd; o1 += ns.cacc; }
     const cp0 = kk*r0 + o0, cp1 = kk*r1 + o0 + (o1 - o0)*tmax;
     const lo = Math.min(cp0, cp1), hi = Math.max(cp0, cp1);
     if (!(hi - lo > 1e-12 && hi - lo < 8)) return;
@@ -604,6 +678,15 @@ class RazorCore {
         RazorCore.mr = mr0;
       }
     }
+    if (bx && on && on2 && (s.colK || s.colB)){
+      const g = bx.g, w2 = g.w;
+      let a0 = p0 - st3; a0 -= Math.floor(a0); let a1 = p1 - st3; a1 -= Math.floor(a1);
+      const ov = RazorCore.gate(e1, w, s.hard, s.mode)*RazorCore.gate(a1, w2, g.hard, g.mode);
+      if (s.b2order){ RazorCore.collide(s.colK, ns, e0, e1, kk, ov, dphi); bx.ns3.ov = 0; bx.ns3.cacc = 0; bx.ns3.cd = 0; }
+      else { RazorCore.collide(s.colK, bx.ns3, a0, a1, g.lock === 1 ? bx.k/w2 : bx.k, ov, dphi); ns.ov = 0; ns.cacc = 0; ns.cd = 0; }
+    } else if (ns.ov || ns.cacc || (bx && (bx.ns3.ov || bx.ns3.cacc))){
+      ns.ov = 0; ns.cacc = 0; ns.cd = 0; if (bx){ bx.ns3.ov = 0; bx.ns3.cacc = 0; bx.ns3.cd = 0; }
+    }
     const x = RazorCore.out(s, p1, c, k, m.modX, ns, m.ns2, bx);
     this._cc = 0; this._cp = 0;
     if (s.aa && dphi > 0 && dphi < 0.5){
@@ -643,7 +726,7 @@ class RazorCore {
     const a = 1 - Math.exp(-16/(0.012*sr));
     const a1 = 1 - Math.exp(-1/(0.012*sr));
     s.mode = d.mode; s.hot = d.hot; s.base = d.base; s.lock = d.lock; s.mshape = d.mshape; s.fmType = d.fmType; s.mirror = d.mirror; s.aa = d.aa; s.mEff = s.m;
-    s.b2on = d.b2on; s.mode2 = d.mode2; s.hot2 = d.hot2;
+    s.b2on = d.b2on; s.mode2 = d.mode2; s.hot2 = d.hot2; s.b2order = d.b2order;
     s.lock2 = d.lock2; s.mirror2 = d.mirror2; s.b2fm = d.b2fm; s.fmType2 = d.fmType2; s.mshape2 = d.mshape2; s.mUnit2 = d.mUnit2;
     s.kq = d.kq; s.law = d.law; s.kRule = d.kRule; s.kCustom = d.kCustom; s.b2sp = d.b2sp; s.kRule2 = d.kRule2;
     const N = d.N, gl = this.gl, gr = this.gr;
@@ -665,6 +748,7 @@ class RazorCore {
       s.k += (t.k - s.k)*a1; s.kHz += (t.kHz - s.kHz)*a1; s.w += (t.w - s.w)*a1; s.c += (t.c - s.c)*a1;
       s.depth += (t.depth - s.depth)*a1; s.I += (t.I - s.I)*a1; s.hard += (t.hard - s.hard)*a1;
       s.w2 += (t.w2 - s.w2)*a1; s.k2 += (t.k2 - s.k2)*a1; s.kHz2 += (t.kHz2 - s.kHz2)*a1; s.c2 += (t.c2 - s.c2)*a1;
+      s.b2mix += (t.b2mix - s.b2mix)*a1;
       if (--this.cnt <= 0){ this.cnt = 32; for (const v of voices) if (v.active){ this.couple(v, s, d); this.spread(v); } }
       const gk = 1 - Math.exp(-3/Math.max(1, s.glide*0.001*sr));
       const beA = 1/Math.max(1, s.benvA*0.001*sr), beD = 1 - Math.exp(-4/Math.max(1, s.benvD*0.001*sr));
@@ -757,12 +841,15 @@ class RazorCore {
             if (dcOn){
               // big numeric estimates refresh less often, so the cost stays about constant
               if (dcTick && j === 0 && (--mm.dcWait <= 0 || mm.dcInit)){
+                if (s.b2on && s.b2mix > 1e-6) mm.dc = this.dcPair(mm, c, kq, s);
+                else {
                 mm.dc = this.dcEst(mm.ns, mm.modX, c, kq, s);
                 const j1 = this._dcJ;
                 if (s.b2on){
                   const mr0 = RazorCore.mr, mn0 = RazorCore.mn; RazorCore.mr = mm.bx.mr; RazorCore.mn = mm.bx.mn;
                   mm.dc += this.dcEst(mm.bx.ns3, mm.bx.modX, mm.bx.c, mm.bx.k, mm.bx.g); this._dcJ += j1;
                   RazorCore.mr = mr0; RazorCore.mn = mn0;
+                }
                 }
                 mm.dcWait = Math.max(1, Math.ceil(this._dcJ/64));
                 if (mm.dcInit){ mm.dcS = mm.dc; mm.dcInit = false; }
@@ -784,7 +871,7 @@ class RazorCore {
       }
       // cross-mod and feedback make the cycle depend on the previous sample, which the per-cycle estimate can't see:
       // back it up with the blocker so any residual offset still drains away
-      if (d.dcMode === 1 || (d.dcMode === 2 && (s.xm > 0.0005 || s.fb > 0.0005))){
+      if (d.dcMode === 1 || (d.dcMode === 2 && (s.xm > 0.0005 || s.fb > 0.0005 || (s.b2on && (s.colK || s.colB))))){
         const ol = yl - hx[0] + hpR*hy[0]; hx[0] = yl; hy[0] = ol; yl = ol;
         const or = yr - hx[1] + hpR*hy[1]; hx[1] = yr; hy[1] = or; yr = or;
       }

@@ -10,7 +10,7 @@ const arg = (k, d) => { const i = process.argv.indexOf(k); return i > 0 ? proces
 const secs = parseFloat(arg('--seconds', '1.5')), only = arg('--only', null);
 const presets = JSON.parse(fs.readFileSync(path.join(__dirname, '../data/presets.json'), 'utf8')).presets;
 // register per category (MIDI notes, Ableton naming: 60 = C3)
-const NOTES = {'Growls':[33], 'FM sines':[60,64,67], 'Movement':[48,55], 'Leads':[62], 'Pads':[48,55,60,64], 'Oddities':[52,59]};
+const NOTES = {'Growls':[33], 'FM sines':[60,64,67], 'Movement':[48,55], 'Leads':[62], 'Pads':[48,55,60,64], 'Interplay':[45], 'Oddities':[52,59]};
 const notesFor = cat => { for (const k in NOTES) if (cat.endsWith(k)) return NOTES[k]; return [45]; };
 function wav(l, r){
   const n = l.length, buf = Buffer.alloc(44 + n*8);

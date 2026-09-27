@@ -57,7 +57,7 @@ for (const [lab, p] of [['blade 1 saw sync', {N:1, w:.3, c:.5, k:7, mode:0, hot:
 
 // 5. Per-cycle DC estimate vs brute force
 { const c = new RazorCore(SR), s = c.s, m = c.voices[0].m[0]; let worst = 0, cases = 0;
-  const truth = (cc, k) => { const ns = {inside:false, seed:0, acc:0, xin:0, rnd:() => 0}; let sum = 0; const N = 100000;
+  const truth = (cc, k) => { const ns = {inside:false, seed:0, acc:0, xin:0, cacc:0, cd:0, ov:0, pv:0, rnd:() => 0}; let sum = 0; const N = 100000;
     for (let n = 0; n < N; n++){ const phi = (n + .5)/N; sum += RazorCore.voice(s, phi, cc, k, 0, ns) - RazorCore.wave(s.base, phi); } return sum/N; };
   for (const mode of [0, 1, 4, 5, 6]) for (const hot of [0, 2, 3, 4]) for (const hard of [0, .4]) for (const mirror of [0, 1]) for (const [w, k] of [[.25, 6], [.8, 40], [.5, 64]]){
     Object.assign(s, {mode, hot, base:(mode + hot)%2 ? 2 : 0, lock:0, mirror, mEff:2, fmType:0, mshape:0, hard, depth:1, w, I:1});
@@ -114,9 +114,55 @@ for (const [lab, p] of [['blade 1 saw sync', {N:1, w:.3, c:.5, k:7, mode:0, hot:
   let md = 0; for (let i = 0; i < a.length; i++) md = Math.max(md, Math.abs(a[i] - b[i]));
   check('Determinism: same seed, same output', md, md === 0, 'identical'); }
 
+// 14. Blade interplay (serial): exact composition and occlusion
+{ const nsN = () => ({idx:0, val:0, inside:false, g:0, seed:0, acc:0, xin:0, cacc:0, cd:0, ov:0, pv:0, rnd:() => 0});
+  const c = new RazorCore(SR), s = c.s;
+  Object.assign(s, {base:0, mode:0, hot:2, w:.35, lock:0, mirror:0, hard:0, depth:1, fmType:0, mshape:0, I:1, mEff:1, b2mix:1, b2order:0, colB:0});
+  const g = RazorCore.g2(); Object.assign(g, {mode:4, hot:2, base:0, w:.3, depth:1, hard:0, lock:0, mirror:0, colB:0});
+  const bx = {g, c:.55, k:9, modX:0, mr:0, mn:1, ns3:nsN(), ns4:nsN()};
+  let eFold = 0, eOcc = 0, eHalf = 0;
+  for (let n = 0; n < 4000; n++){
+    const phi = (n + .5)/4000, e2 = ((phi - .4)%1 + 1)%1, y1 = RazorCore.voice(s, phi, .4, 6, 0, nsN()), base = RazorCore.wave(0, phi);
+    s.b2mix = 1; g.mode = 4; const yf = RazorCore.out(s, phi, .4, 6, 0, nsN(), nsN(), bx);
+    g.mode = 0; const yo = RazorCore.out(s, phi, .4, 6, 0, nsN(), nsN(), bx);
+    s.b2mix = .5; g.mode = 4; const yh = RazorCore.out(s, phi, .4, 6, 0, nsN(), nsN(), bx);
+    if (e2 < .3){
+      eFold = Math.max(eFold, Math.abs(yf - Math.sin(Math.PI/2*3*y1)));
+      const hp = 9*e2; eOcc = Math.max(eOcc, Math.abs(yo - RazorCore.wave(2, hp - Math.floor(hp))));
+      const x = base + .5*(y1 - base); eHalf = Math.max(eHalf, Math.abs(yh - (y1 + Math.sin(Math.PI/2*3*x) - x)));
+    }
+  }
+  const worst = Math.max(eFold, eOcc, eHalf);
+  check('Interplay: fold-over-sync, occlusion, λ=½ match closed form', worst.toExponential(1), worst < 1e-9, '< 1e-9'); }
+
+// 15. Interplay at λ = 0 is the parallel sum (defaults unchanged)
+{ const p = {N:4, b2on:1, mode:1, mode2:4, mirror:2, w:.4, w2:.35, c2:.6, I:1.2, m:2}, q = Object.assign({}, p, {b2mix:0, b2order:1, colK:0, colB:0});
+  const a = render(engine(p), .3)[0], b = render(engine(q), .3)[0]; let md = 0; for (let i = 0; i < a.length; i++) md = Math.max(md, Math.abs(a[i] - b[i]));
+  check('Interplay off (λ=0, no collision) ignores stacking order', md, md === 0, 'identical'); }
+
+// 16. Serial DC and aliasing
+{ const res = []; for (const p of [{b2on:1, N:4, mode:0, mode2:4, w:.4, w2:.35, c2:.6, k:7, k2:9, b2mix:1}, {b2on:1, N:3, mode:1, mode2:6, w:.5, w2:.4, b2mix:1, hard2:.4, c:.3, c2:.5}, {b2on:1, N:3, mode:5, mode2:5, w:.45, w2:.35, c2:.55, b2mix:.7, b2order:1}]){
+    const c = engine(Object.assign({dcMode:2}, p)); render(c, .3); const [l] = render(c, .6); res.push(Math.abs(mean(l))); }
+  const w = Math.max(...res); check('Interplay: output DC residual, serial patches', w.toFixed(4), w < 0.003, '< 0.003');
+  const [l] = render(engine({N:1, os:2, mode:0, hot:2, w:.3, c:.4, k:5, hard:.05, b2on:1, mode2:4, w2:.3, c2:.55, k2:7, hard2:.3, b2mix:1}, [81]), .6);
+  const al = mag(l, 880*2.5) - mag(l, 880*2); check('Interplay: aliasing, A5, fold over sync', al.toFixed(1) + ' dB', al < -100, '< −100 dB rel. h2'); }
+
+// 17. Collision acts only where the blades overlap
+{ const run = c2 => { const c = engine({N:1, b2on:1, mode:0, mode2:0, hot2:2, w:.3, c:.4, k:5, w2:.25, c2, k2:7, colK:1}); const m = c.voices[0].m[0];
+    const L = new Float32Array(1), R = new Float32Array(1); let mx = 0; for (let i = 0; i < 4000; i++){ c.render(L, R); mx = Math.max(mx, Math.abs(m.bx.ns3.cacc)); } return mx; };
+  const on = run(.55), off = run(.05);
+  check('Collision pitch: extra carrier phase only when blades overlap', `${on.toFixed(2)} / ${off.toFixed(2)}`, on > 0.5 && off === 0, 'overlap > 0.5, apart = 0'); }
+
+// 18. Interplay stability over every mode pair, both stacking orders
+{ let bad = 0, pk = 0, n = 0;
+  for (let m1 = 0; m1 < 7; m1++) for (let m2 = 0; m2 < 7; m2++) for (const o of [0, 1]){
+    const [l] = render(engine({N:3, b2on:1, mode:m1, mode2:m2, hot:6, hot2:2, b2order:o, mshape:7, I:.6, hard:.3, w:.4, w2:.35, c2:.6, b2mix:1, mirror:2, colK:.8, colB:.8}, [57, 64]), .1);
+    for (const x of l){ if (!isFinite(x)) bad++; pk = Math.max(pk, Math.abs(x)); } n++; }
+  check(`Interplay stability: non-finite samples over ${n} configurations`, bad, bad === 0, '0'); }
+
 if (process.argv.includes('--bench')){
   console.log('\nCost per member-tick (JS reference; see SPEC §8 for C++ expectations):');
-  for (const [lab, p] of [['default sync blade', {}], ['two blades', {b2on:1}], ['two blades + twin + cross-mod + envelopes', {b2on:1, mirror:2, xm:.5, benvK:.5}]]){
+  for (const [lab, p] of [['default sync blade', {}], ['two blades', {b2on:1}], ['two blades, serial', {b2on:1, b2mix:1}], ['two blades, serial + collision', {b2on:1, b2mix:1, colK:.5, colB:.5}], ['two blades + twin + cross-mod + envelopes', {b2on:1, mirror:2, xm:.5, benvK:.5}]]){
     const c = new RazorCore(SR); c.set(Object.assign({N:9, os:2}, p)); for (let n = 0; n < 6; n++) c.noteOn(48 + n*4, 200, 1);
     const L = new Float32Array(128), R = new Float32Array(128); for (let b = 0; b < 60; b++) c.render(L, R);
     const t0 = process.hrtime.bigint(); for (let b = 0; b < SR/128; b++) c.render(L, R);

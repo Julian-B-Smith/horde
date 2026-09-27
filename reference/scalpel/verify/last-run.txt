@@ -18,5 +18,18 @@ PASS  Legato: glide settles on target                                  261.62   
 PASS  Stability: non-finite samples over 112 configurations                 0   (0)
 PASS  Stability: output bounded                                         0.710   (≤ 1 (soft clip))
 PASS  Determinism: same seed, same output                                   0   (identical)
+PASS  Interplay: fold-over-sync, occlusion, λ=½ match closed form      2.0e-15   (< 1e-9)
+PASS  Interplay off (λ=0, no collision) ignores stacking order              0   (identical)
+PASS  Interplay: output DC residual, serial patches                    0.0002   (< 0.003)
+PASS  Interplay: aliasing, A5, fold over sync                       -141.4 dB   (< −100 dB rel. h2)
+PASS  Collision pitch: extra carrier phase only when blades overlap  2.62 / 0.00   (overlap > 0.5, apart = 0)
+PASS  Interplay stability: non-finite samples over 98 configurations            0   (0)
+
+Cost per member-tick (JS reference; see SPEC §8 for C++ expectations):
+  default sync blade                           261.0 ns
+  two blades                                   483.4 ns
+  two blades, serial                           662.9 ns
+  two blades, serial + collision               741.6 ns
+  two blades + twin + cross-mod + envelopes    863.6 ns
 
 All checks passed
