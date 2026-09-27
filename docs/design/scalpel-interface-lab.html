@@ -84,10 +84,26 @@
      ported and fed from the oracle (section F, after the spectrum), side by side under
      the spectrum on OSC and under the cycle view on MAIN. Checks in section K.
 
+     ROUND 5 — B297, 2026-09-27, dispatched by the horde lead on ROADMAP B297
+     (carried in the records PR on branch lead-records-107). The human: (1) "Could we
+     add a view mode that shows the members at their relative phase position, or would
+     that get too messy?" (2) "There are a couple presets where I get the distinct
+     impression that what I'm seeing is not what I'm hearing. Maybe we can bring back the
+     waveform view as well (the one that changes color based on the value of R)" (3)
+     "When the cut rule is switched to something else (like harmonic), the cut rate
+     spread knob stops working". Built as: (1) the cycle view's AT PHASE mode
+     (phaseModel, section D): each member's heard cycle shifted by its offset from the
+     mean field, read from the viz feed's mem.phi; (2) gui2's scope beam (paintBeam,
+     section F), fed from the monitor's RENDERED samples and hued by R exactly as gui2
+     hues it, under the cycle view on OSC; and a measurement of the cycle view against
+     the rendered output for all 76 presets (misread*, section K2); (3) Cut spread is
+     drawn INERT under a rule (inertWhy, section C) with Rule depth beside it on the
+     face. The oracle's law is unchanged. Checks in section K.
+
      L0026: every const is declared above the code that runs at setup; the boot
      call is the last statement of the script. -->
 <html><head><meta charset="utf-8">
-<meta name="lab-review" content="B271 + B293–B295 · 2026-09-27">
+<meta name="lab-review" content="B271 + B293–B297 · 2026-09-27">
 <title>SCALPEL interface lab — horde with blades at its centre</title>
 <style>
   :root {
@@ -332,6 +348,11 @@
   body.showvals .kcell > label { opacity:1 !important; }
   .kcell.ghost > .knob, .kcell.inert > .knob { opacity:.45; }
   .kcell.ghost > label, .kcell.inert > label { color:var(--dim); }
+  /* B297: inert because the oracle's law does not read it NOW (a Cut rule is on): the
+     label is struck through, which the FM group's ghost (dimmed only) never is */
+  .kcell.ruled > label, .srow.ruled > label, .scrub.ruled i, .cc.ruled output { text-decoration:line-through; }
+  .kcell.ruled > .knob .kcap { border-style:dotted; box-shadow:none; }
+  .scrub.inert { opacity:.45; }
   /* FOLLOWING blade 1: the knob shows blade 1's value, dashed, and "=1" in its label */
   .kcell.follow > .knob .kcap { border-style:dashed; box-shadow:none; }
   .kcell.follow > .knob .karc { opacity:.4; }
@@ -553,8 +574,8 @@
   <div>
     <h1>scalpel</h1>
     <div class="badges">
-      <span class="badge">B271 + B293–B295 · DESIGN LAB</span>
-      <span class="sub">BLADES AT THE CENTRE · OSC + MAIN AT 980×720 · VISUALS DRIVEN BY THE ORACLE · THE WAVEFORM IS AN XY · THE RING IS COUPLING × DETUNE (CLICK TO SET) · CARPET + VOICE MAP · 76 BENCH PRESETS</span>
+      <span class="badge">B271 + B293–B297 · DESIGN LAB</span>
+      <span class="sub">BLADES AT THE CENTRE · OSC + MAIN AT 980×720 · VISUALS DRIVEN BY THE ORACLE · THE WAVEFORM IS AN XY · THE RING IS COUPLING × DETUNE (CLICK TO SET) · CARPET + VOICE MAP · MEMBERS AT PHASE · THE R-HUED BEAM · 76 BENCH PRESETS</span>
     </div>
   </div>
   <div class="hdrctl">
@@ -746,6 +767,64 @@ Coupling × Detune XY</b> for the swarm.</div>
         hide one of them while your hand is on the ring. The alternative is a SPECTRUM / CARPET / VOICE MAP toggle in the spectrum's slot,
         which gives the spectrum back its 132 px. While the ring's mapping row is open, the strip is folded away, as the spectrum shrank for it in round 3.</li>
     </ol>
+    <h2 style="margin-top:10px">Round 5 (B297) — members at their phase, the beam, Cut spread under a rule</h2>
+    <ol start="31">
+      <li><b>AT PHASE, and "would that get too messy?"</b> SUM draws every member over its <i>own</i> phase, so it shows the swarm
+        as if it were locked. AT PHASE shifts each member's heard cycle by where it actually is against the mean field ψ (the ring's
+        needle): δ<sub>i</sub> = φ<sub>i</sub> − ψ, from the viz feed's <code>mem.phi</code>, the same instant as the windows. Its blade windows
+        move with it. The heard trace becomes the sum of the shifted members, the swarm as it lines up now. To stay legible at N = 9, the members are
+        1 px violet at low alpha. A comb of ticks on the top edge marks where each member's own cycle starts. Hovering a line lifts that
+        member (2 px, full ink, its windows brighter, its offset named) and a drag keeps it lifted. At lock every δ is 0, so AT PHASE is SUM.
+        <span class="rec">Answer: not too messy at 3 or 5, busy but readable at 9</span> (screenshots in the trace). The comb carries the
+        spread when the lines do not. <span class="rec">Recommend: as built, and make AT PHASE the default view</span>
+        (measured 2026-09-27, the box below: it is nearer the heard wave than SUM on 62 of the 63 presets with more than one member,
+        and the median error falls from 0.55 to 0.11. The default stays SUM here, because changing a default is the human's call).</li>
+      <li><b>ψ at deep splay.</b> ψ is the phase of the sum's fundamental. At R → 0 that fundamental cancels, so ψ is weakly defined and
+        the whole picture can slide sideways. The offsets <i>between</i> members stay exact. <span class="rec">Recommend: accept.</span> The
+        alternative reference, the root member (the voice map's ★), holds still but is not physical: it favours one member.</li>
+      <li><b>The beam</b> (gui2's scope, ADR-119 A2). It reads the monitor's rendered samples (left channel as the beam, right dotted),
+        triggered on the fundamental with gui2's low-pass trigger, one period across. Its hue is gui2's mapping,
+        <code>mixHex(--scr-value, --scr-marker, R̃)</code>: pink while the swarm drifts, amber as it locks. R̃ is smoothed at 0.35 per
+        stroboscope frame, as gui2 smooths it per viz frame. <b>Placement:</b> directly under the cycle view on OSC, the same width, so
+        one period of what you hear sits under one cycle of what is drawn. It costs the Controls column 60 px, so the column now scrolls
+        a little and the ADVANCED bar sits under the fold. The left column (rounds 3–4) is untouched. MAIN has no room without shrinking
+        round 3's 150 px cycle view, so MAIN has no beam. MAIN's cycle view also keeps SUM, because it has no view pills.
+        <span class="rec">Recommend: as built on OSC, and ask whether MAIN wants a beam. If AT PHASE becomes the default, MAIN's cycle should follow it.</span></li>
+      <li><b>What the cycle view gets wrong, measured</b> (the box below: MEASURE, or <code>?misread=1</code>). For every preset, the drawn
+        wave is compared with the rendered output as a normalised RMS error at the best alignment, and each cause is named by removing
+        it and re-measuring. Measured 2026-09-27: SUM's error is 0.5 or more on 41 of the 76 presets, and AT PHASE's on 6. On 62
+        presets the largest cause is SUM's as-if-locked drawing, even near lock: at R ≈ 0.97, offsets of ±0.03 cycle smear a sync edge
+        or a high formant. What AT PHASE still misses is the sample-to-sample part: undrawn feedback (Feedback screech 0.78, Feedback
+        snarl 0.76), the noise and S&amp;H shapes (Jitter swarm 0.69), non-periodic FM (FM bell 0.59, where consecutive periods already
+        differ by 0.89), and the cross-mod estimate (Cross-mod roar 0.49).
+        <span class="rec">Recommend: AT PHASE as the default; keep the beam under it.</span> Feedback and the noise shapes stay undrawn by
+        design. The beam is where they show.</li>
+      <li><b>Cut spread under a rule</b> (the human: "When the cut rule is switched to something else (like harmonic), the cut rate
+        spread knob stops working"). The oracle's law: <code>RazorCore.kSpread</code> reads Cut spread only while the rule is "even".
+        Any other rule sets each member's cut-rate ratio, and Rule depth sets how far. The lab now draws Cut spread <b>inert</b> under a
+        rule: dimmed, label struck through, a dotted cap, and the reason in its tooltip. It adds <b>Rule depth</b> beside it on the face,
+        and the group's caption names the rule. The mirror holds too: Rule depth is drawn inert under "even". The law is unchanged.
+        <span class="rec">Open for the human: should spread MEAN something under a rule?</span> One concrete proposal:
+        <b>stack them</b>. kSpread already returns two numbers, an offset (the even spread) and a multiplier (the rule's ratio), and render
+        applies <code>(k + offset)·ratio</code>. Computing the offset under a rule too makes each member's cut rate
+        (k + spread·slot)·ratio<sup>depth</sup>: the rule's chord, with each member detuned by the spread law. No new parameter, and
+        both knobs live. It is a change to the protected oracle, so it needs an ADR.</li>
+      <li><b>Rule depth on the face only while a rule is on.</b> That makes the tier audit's promotion conditional: kRuleAmt (T2) and kRuleAmt2 (T3) count as
+        promoted to the face while their blade has a rule. <span class="rec">Recommend: as built.</span> A knob that appears with its
+        reason beats one the hand has to go one level down for.</li>
+    </ol>
+  </div>
+  <div class="box" id="misread" style="grid-column:1 / -1">
+    <h2>What you see vs what you hear (B297)</h2>
+    <p>For each bench preset, played as the monitor plays it (A2, velocity 0.9, seeded): the cycle view's heard trace against the
+      <b>rendered</b> output's last period, at eight viz posts from 0.2 to 1.8 s. Both waves are normalised (zero mean, unit RMS) and
+      aligned at their best circular shift. <b>0</b> = the same shape, <b>1.41</b> = unrelated, <b>2</b> = inverted.
+      <b>SUM err</b> is what the default view shows, and <b>AT PHASE err</b> is what the new mode shows. <b>self</b> compares the heard
+      period with the one before it (no alignment): how much the heard wave changes in one period, which no single static cycle can
+      follow. <b>SUM's largest cause</b> is the removal that cuts SUM's error most. <b>What AT PHASE still misses</b> is the same test
+      run on AT PHASE's error, when that error is 0.15 or more (section K2 of the source). Click a row to load the preset.</p>
+    <div class="pills" style="margin:4px 0"><button class="pill mini" id="misreadBtn">MEASURE ALL 76</button><span class="vnote" id="misreadStat"></span></div>
+    <div id="misreadTable" style="max-height:420px;overflow:auto"></div>
   </div>
 </div>
 
@@ -1025,8 +1104,11 @@ const MACROS = [
   { name: 'Blade 2', v: 0, binds: [['w2', 0.3], ['k2', 0.3]] },
   { name: 'Motion', v: 0, binds: [['rotRate', 0.12], ['rotSpread', 0.3]] }
 ];
+/* B297: bufR keeps the right channel beside `buf` (the left), so the beam can draw both
+   as gui2 does; rSm is the order parameter smoothed per stroboscope frame at gui2's
+   0.35 (kSmR, gui2.html:4957) — stepped by rendered frames, so it never reads the clock */
 const MON = { core: null, viz: null, vizN: 0, note: 45, f: 110, t: 0, L: null, R: null,
-  buf: new Float32Array(8192), pos: 0, cyc: null, cycN: -1, hist: [] };
+  buf: new Float32Array(8192), bufR: new Float32Array(8192), pos: 0, cyc: null, cycN: -1, hist: [], rSm: -1 };
 /* B295: the phase carpet's time axis is the monitor's own STROBOSCOPE FRAMES (monStep:
    each a whole number of note periods of rendered audio), so it advances with rendered
    samples, never with the clock: a frozen monitor (?still=) is a frozen carpet, and a
@@ -1085,7 +1167,7 @@ const XY_DEFAULT = { x: ['c', '', 0], y: ['cut', '', 0], sx: ['w', '', 0] };
    and `span` — how many pixels cross a parameter's whole taper on it. The cycle
    view's x is PHASE, so there is no marker to track and a taper is XY_PX long
    (Position, circular, is one canvas width, so its window follows the hand). */
-const XY = { map: JSON.parse(JSON.stringify(XY_DEFAULT)), def: XY_DEFAULT, open: qp('xymap', '0') === '1', drag: null, hover: null, cv: null, last: null,
+const XY = { map: JSON.parse(JSON.stringify(XY_DEFAULT)), def: XY_DEFAULT, open: qp('xymap', '0') === '1', drag: null, hover: null, cv: null, last: null, pt: null,
   span: (sp, axis, d) => (sp.curve === 'circ' ? d.W : XY_PX) };
 /* B294 — the phase ring as the Coupling × Detune XY. Its defaults are the pad's
    (gui2's x = Detune, y = Coupling, B227's reading) and do NOT follow the cycle
@@ -1132,6 +1214,30 @@ function writeMany(o) {
   let last = null;
   for (const k in o) { if (linked(k)) takeOwnership(k); P[k] = o[k]; last = k; }
   if (last) afterWrite(last);
+}
+/* B297 — A CONTROL THE ORACLE DOES NOT READ, MARKED AS SUCH. Human, 2026-09-27: "When
+   the cut rule is switched to something else (like harmonic), the cut rate spread knob
+   stops working". That is the oracle's law, not a bug. RazorCore.kSpread
+   (razor-core.js:144-161) adds `spread` to each member's cut rate only while the rule is
+   0 ("even"). Under any other rule, each member's cut rate is multiplied by
+   ruleList(rule)[slot]^amt, where the spread law picks the slot and Rule depth (kRuleAmt)
+   is amt; `spread` is never read. The mirror also holds: under "even", Rule depth is
+   never read. So the lab draws whichever of the pair is not read as INERT (dimmed, with
+   the reason in its tooltip), and while a rule is on, Rule depth sits beside Cut spread
+   on the face (bladeRow). Blade 2 follows blade 1's spreads, rule included, unless it
+   owns them (b2sp). The value of an inert control is still stored and still editable,
+   and it comes back the moment the rule is switched to "even". Whether spread should
+   MEAN something under a rule is the human's call (open question 35). */
+const RULE_OWN = { kspread: 1, kspread2: 2, kRuleAmt: 1, kRuleAmt2: 2 };
+function ruleOf(b) { return b === 1 ? P.kRule : (linked('kRule2') ? P.kRule : P.kRule2); }
+function ruleName(r) { const o = E_RULE.find(q => q[0] === r); return o ? o[1] : String(r); }
+function inertWhy(key) {
+  const b = RULE_OWN[key]; if (!b) return '';
+  const r = ruleOf(b), who = b === 2 ? (linked('kRule2') ? " (blade 2 follows blade 1's spreads)" : " (blade 2's own)") : '';
+  if (key === 'kspread' || key === 'kspread2')
+    return r ? 'INERT under Cut rule "' + ruleName(r) + '"' + who + ': the rule sets each member\'s cut-rate ratio and Rule depth sets how far ' +
+      '(RazorCore.kSpread reads this spread only under "even"). Turn Rule depth, beside it. The value is kept for when the rule is "even".' : '';
+  return r ? '' : 'INERT under Cut rule "even"' + who + ': even spreads by Cut spread; Rule depth scales a rule\'s ratios.';
 }
 function afterWrite(key) {
   EFF = effective();
@@ -1211,8 +1317,13 @@ function monStrike() {
   MON.f = mtof(MON.note);
   MON.hist = [];                                   // a new strike is a new voice: its carpet starts empty
   c.noteOn(MON.note, MON.f, 0.9);
-  MON.core = c; MON.t = 0; MON.viz = null; MON.buf.fill(0); MON.pos = 0;
+  MON.core = c; MON.t = 0; MON.viz = null; MON.buf.fill(0); MON.bufR.fill(0); MON.pos = 0; MON.rSm = -1;
   monStep();
+}
+/* the order parameter r = |mean e^{2πiφ}| of a voice's members — the ring's Coherence */
+function orderR(v, N) {
+  let sx = 0, sy = 0; for (let i = 0; i < N; i++) { sx += Math.cos(TAU * v.m[i].phi); sy += Math.sin(TAU * v.m[i].phi); }
+  return Math.hypot(sx, sy) / Math.max(1, N);
 }
 /* one frame of engine time: a WHOLE number of note periods (a stroboscope), so a
    blade window stands still and the members move only as the swarm moves */
@@ -1223,8 +1334,10 @@ function monStep() {
   if (!MON.L || MON.L.length !== n) { MON.L = new Float32Array(n); MON.R = new Float32Array(n); }
   c.render(MON.L, MON.R);
   carpetFrame(MON.hist, c);
-  const B = MON.buf;
-  for (let i = 0; i < n; i++) { B[MON.pos] = MON.L[i]; MON.pos = (MON.pos + 1) & 8191; }
+  const v = liveVoice(c);
+  if (v) { const r = orderR(v, c.d.N); MON.rSm = MON.rSm < 0 ? r : MON.rSm + (r - MON.rSm) * 0.35; }
+  const B = MON.buf, BR = MON.bufR;
+  for (let i = 0; i < n; i++) { B[MON.pos] = MON.L[i]; BR[MON.pos] = MON.R[i]; MON.pos = (MON.pos + 1) & 8191; }
   MON.t += n;
   if (MON.t > 2 * SR && !LAB.frozen) monStrike();     // re-strike every 2 s of engine time: settle and blade envelopes stay visible
 }
@@ -1345,7 +1458,55 @@ function cycleFrom(c, viz) {
     cy.y = y; cy.xd = xd; cy.xrms = Math.sqrt(e / M);   // what member i+1's push adds to member i, RMS over the cycle
   }
   let sxr = 0; for (let n = 0; n < M; n++) sxr += sx[n] * sx[n];
-  return { N, M, mem, sum, s1, s2, sx, sxRms: Math.sqrt(sxr / M), xm, xOn, base: mem.length ? mem[0].base : new Float64Array(M), r: viz.r, f: viz.freq };
+  /* B297: `phi` is the viz post's own member phases, the SAME instant as every window
+     above (the ring and the carpet read the live voice, up to one post later) */
+  return { N, M, mem, sum, s1, s2, sx, sxRms: Math.sqrt(sxr / M), xm, xOn, base: mem.length ? mem[0].base : new Float64Array(M), r: viz.r, f: viz.freq,
+    phi: Array.from(viz.mem.phi || viz.phases || []).slice(0, N) };
+}
+/* B297 — THE MEMBERS AT THEIR RELATIVE PHASE (the cycle view's AT PHASE mode).
+   Human, 2026-09-27: "Could we add a view mode that shows the members at their relative
+   phase position, or would that get too messy?"
+   What SUM draws: every member's heard cycle over its OWN phase, summed — i.e. the
+   swarm as if every member were at the same phase. That is exact when the swarm is
+   locked and wrong when it is not. At one instant member i sits at φ_i. Measured against
+   the mean field ψ (the ring's needle, arg Σ e^{2πiφ}), its offset is δ_i = φ_i − ψ,
+   wrapped to [−½, ½). Over the next cycle, with every member near the note's pitch,
+   member i is at phase x + δ_i when the mean field is at x. So member i is drawn as
+   y_i(x + δ_i): its own cycle, shifted, with its own-phase 0 at x = −δ_i. Its blade
+   windows move with it. The shifted sum is the swarm as it lines up now, which is what
+   the ear gets over one period (the pan weights, tanh and detune drift aside; section
+   K2 measures what is left).
+   ψ is the phase of the sum's fundamental, so the reference is physical. It also has a
+   known weakness: at deep splay (R → 0) the fundamental cancels and ψ is weakly
+   defined. The picture may then slide sideways as a whole. The offsets BETWEEN members
+   (what the mode is for) are exact at any R. At lock every δ_i is 0 and this mode draws
+   exactly SUM. Cached per viz post with the cycle. */
+function wrapHalf(x) { return x - Math.floor(x + 0.5); }
+function phaseModel(cy) {
+  if (cy._pm) return cy._pm;
+  const N = cy.N, M = cy.M, ph = cy.phi;
+  let sx = 0, sy = 0;
+  for (let i = 0; i < N; i++) { sx += Math.cos(TAU * (ph[i] || 0)); sy += Math.sin(TAU * (ph[i] || 0)); }
+  const R = Math.hypot(sx, sy) / Math.max(1, N), psi = frac(Math.atan2(sy, sx) / TAU);
+  const off = []; for (let i = 0; i < N; i++) off.push(wrapHalf((ph[i] || 0) - psi));
+  /* arr at own phase x + d, linear between the M points */
+  const shift = (arr, d) => {
+    const o = new Float64Array(M), s = d * M;
+    for (let n = 0; n < M; n++) {
+      const u = n + s, i0 = Math.floor(u), f = u - i0, a = arr[((i0 % M) + M) % M], b = arr[(((i0 + 1) % M) + M) % M];
+      o[n] = a + (b - a) * f;
+    }
+    return o;
+  };
+  const mem = [], sum = new Float64Array(M), s1 = new Float64Array(M), s2 = new Float64Array(M), sxx = new Float64Array(M);
+  for (let i = 0; i < N; i++) {
+    const m = cy.mem[i], d = off[i], sm = { y: shift(m.y, d), d1: shift(m.d1, d), d2: shift(m.d2, d), xd: shift(m.xd, d),
+      st1: frac(m.st1 - d), w1: m.w1, st2: frac(m.st2 - d), w2: m.w2, p1: m.p1, p2: m.p2 };
+    for (let n = 0; n < M; n++) { sum[n] += sm.y[n] / N; s1[n] += sm.d1[n] / N; s2[n] += sm.d2[n] / N; sxx[n] += sm.xd[n] / N; }
+    mem.push(sm);
+  }
+  cy._pm = { N, M, R, psi, off, mem, sum, s1, s2, sx: sxx };
+  return cy._pm;
 }
 /* the predicted formant band — the bench's own display rule (scalpel-bench.html:2197-2201),
    per blade: centre = cut rate as a frequency, main lobe ± f0/width·(1 + edges) */
@@ -1447,11 +1608,11 @@ function gateAt(e, w, hard, mode) {
   return 1;
 }
 /* one window [st, st+w) of blade b on a cycle of width W — band (I) or gate (II) */
-function drawWindow(g, st, w, b, p, W, top, bot, alpha, twin) {
+function drawWindow(g, st, w, b, p, W, top, bot, alpha, twin, edge) {
   if (w < 0.004) return;
   /* B293: the light tube thins the fills (--scr-blade-a); edges thin by its root,
      so a window's extent still reads when its body is faint */
-  const ba = TOKN('--scr-blade-a', 1), ea = Math.sqrt(ba);
+  const ba = TOKN('--scr-blade-a', 1), ea = Math.sqrt(ba) * (edge === undefined ? 1 : edge);   // B297: `edge` thins the outline (AT PHASE)
   alpha *= ba;
   const ink = bladeInk(b), segs = [];
   const a = st * W, z = (st + w) * W;
@@ -1474,13 +1635,13 @@ function drawWindow(g, st, w, b, p, W, top, bot, alpha, twin) {
       } else { g.fillStyle = TOKA(ink, alpha); g.fill(); }
       /* hatch() leaves its own lines as the current path — re-trace the gate before the outline */
       gatePath();
-      g.strokeStyle = TOKA(ink, 0.8 * ea); g.lineWidth = 1.2; if (twin) g.setLineDash([3, 3]); g.stroke(); g.setLineDash([]);
+      g.strokeStyle = TOKA(ink, 0.8 * ea); g.lineWidth = 1.2; if (twin) g.setLineDash([3, 3]); if (ea > 0) g.stroke(); g.setLineDash([]);
     } else {
       /* I · BAND: a translucent band over the whole height, ink edges */
       if (b === 2 && LAB.b2look !== 'hue') hatch(g, x0, x1, top, bot, ink, alpha * 1.6);
       else { g.fillStyle = TOKA(ink, alpha); g.fillRect(x0, top, x1 - x0, bot - top); }
       g.strokeStyle = TOKA(ink, 0.75 * ea); g.lineWidth = 1.2; if (twin) g.setLineDash([3, 3]);
-      g.beginPath(); g.moveTo(x0 + 0.5, top); g.lineTo(x0 + 0.5, bot); g.moveTo(x1 - 0.5, top); g.lineTo(x1 - 0.5, bot); g.stroke(); g.setLineDash([]);
+      g.beginPath(); g.moveTo(x0 + 0.5, top); g.lineTo(x0 + 0.5, bot); g.moveTo(x1 - 0.5, top); g.lineTo(x1 - 0.5, bot); if (ea > 0) g.stroke(); g.setLineDash([]);
     }
   }
 }
@@ -1494,16 +1655,24 @@ function paintCycle(cv, mini) {
   for (let q = 1; q < 4; q++) { const x = Math.round(q * W / 4) + 0.5; g.moveTo(x, top); g.lineTo(x, bot); }
   g.moveTo(0, Math.round(mid) + 0.5); g.lineTo(W, Math.round(mid) + 0.5); g.stroke();
   const lanes = LAB.view === 'members' && !mini && cy.N > 1;
+  /* B297: AT PHASE draws phaseModel's shifted members in SUM's single lane (MAIN's mini
+     view keeps SUM, as it keeps SUM under MEMBERS) */
+  const pm = LAB.view === 'phase' && !mini ? phaseModel(cy) : null;
+  const src = pm || cy, hi = pm ? phaseHi(pm, W, H) : -1;
   const nL = lanes ? cy.N : 1;
   for (let L = 0; L < nL; L++) {
     const y0 = top + (bot - top) * L / nL, y1 = top + (bot - top) * (L + 1) / nL, ym = (y0 + y1) / 2, amp = (y1 - y0) / 2 / 1.25;
-    /* windows: in SUM view every member's own window at low alpha, so a spread reads as a smear */
-    const who = lanes ? [cy.mem[L]] : cy.mem;
-    const a = lanes ? 0.2 : Math.max(0.07, 0.22 / Math.sqrt(who.length));
-    for (const m of who) {
-      if (m.w1) { drawWindow(g, m.st1, m.w1, 1, m.p1, W, y0, y1, a, false); if (m.p1.mirror >= 2) drawWindow(g, frac(m.st1 + 0.5), m.w1, 1, m.p1, W, y0, y1, a * 0.6, true); }
-      if (m.w2) { drawWindow(g, m.st2, m.w2, 2, m.p2, W, y0, y1, a, false); if (m.p2.mirror >= 2) drawWindow(g, frac(m.st2 + 0.5), m.w2, 2, m.p2, W, y0, y1, a * 0.6, true); }
-    }
+    /* windows: in SUM view every member's own window at low alpha, so a spread reads as a smear;
+       AT PHASE puts each where its member is, and lifts the highlighted member's */
+    const who = lanes ? [cy.mem[L]] : src.mem;
+    const a0 = lanes ? 0.2 : Math.max(0.07, 0.22 / Math.sqrt(who.length));
+    who.forEach((m, i) => {
+      /* AT PHASE: N members' windows tile the cycle, so only the lifted member's keep their
+         edges (and a stronger fill); the rest are fills, faint edges while nobody is lifted */
+      const lift = pm && i === hi, a = lift ? 0.34 : a0, ed = !pm || lift ? 1 : hi < 0 ? 0.3 : 0;
+      if (m.w1) { drawWindow(g, m.st1, m.w1, 1, m.p1, W, y0, y1, a, false, ed); if (m.p1.mirror >= 2) drawWindow(g, frac(m.st1 + 0.5), m.w1, 1, m.p1, W, y0, y1, a * 0.6, true, ed); }
+      if (m.w2) { drawWindow(g, m.st2, m.w2, 2, m.p2, W, y0, y1, a, false, ed); if (m.p2.mirror >= 2) drawWindow(g, frac(m.st2 + 0.5), m.w2, 2, m.p2, W, y0, y1, a * 0.6, true, ed); }
+    });
     const line = (arr, ink, alpha, lw, dash) => {
       g.strokeStyle = TOKA(ink, alpha); g.lineWidth = lw; if (dash) g.setLineDash(dash);
       g.beginPath();
@@ -1523,23 +1692,59 @@ function paintCycle(cv, mini) {
       heard(cy.mem[L].y, 0.95, sigW * 0.83);
     } else {
       const ma = TOKN('--scr-member-a', 1);
-      if (cy.N > 1 && !mini) for (const m of cy.mem) line(m.y, '--scr-physics', 0.28 * ma, 1);   // each member, faint
+      if (cy.N > 1 && !mini) src.mem.forEach((m, i) => { if (i !== hi) line(m.y, '--scr-physics', (pm ? 0.34 : 0.28) * ma, 1); });   // each member, faint
       if (LAB.contrib && !mini) {
-        line(cy.s1, bladeInk(1), 0.8, 1, [1, 2]); if (P.b2on) line(cy.s2, bladeInk(2), 0.8, 1, [4, 2]);
-        if (cy.xOn) line(cy.sx, '--scr-meter', 0.85, 1.3, XDASH);
+        line(src.s1, bladeInk(1), 0.8, 1, [1, 2]); if (P.b2on) line(src.s2, bladeInk(2), 0.8, 1, [4, 2]);
+        if (cy.xOn) line(src.sx, '--scr-meter', 0.85, 1.3, XDASH);
       }
-      heard(cy.sum, 1, sigW);                                           // what is heard (per-cycle DC applied)
+      heard(src.sum, 1, sigW);                                          // what is heard (per-cycle DC applied)
+      /* the highlighted member goes over the sum: it is the one the hand is asking about */
+      if (pm && hi >= 0 && cy.N > 1) line(pm.mem[hi].y, '--scr-physics', 1, 1.8);
     }
   }
+  if (pm && cy.N > 1) phaseTicks(g, pm, W, top, hi);
   if (!mini) {
     g.font = '9.5px ui-monospace,Menlo,monospace'; g.textBaseline = 'top';
-    const m0 = cy.mem[0];
-    const tag = (st, w, b) => { if (!w) return; g.fillStyle = TOKA(bladeInk(b), 1); g.fillText(b === 1 ? '①' : '②', frac(st + w / 2) * W - 4, top + 2); };
+    const m0 = pm ? pm.mem[Math.max(0, hi)] : cy.mem[0];
+    const tag =(st, w, b) => { if (!w) return; g.fillStyle = TOKA(bladeInk(b), 1); g.fillText(b === 1 ? '①' : '②', frac(st + w / 2) * W - 4, top + 2); };
     tag(m0.st1, m0.w1, 1); tag(m0.st2, m0.w2, 2);
     if (LAB.skin === 'C' || LAB.direct) drawGrips(g, W, top, bot);
     else if (cv === XY.cv) xyOverlay(g, W, top, bot);
     g.textBaseline = 'alphabetic';
   }
+}
+/* B297 — which member AT PHASE lifts: the one grabbed with the drag, else the one whose
+   curve is nearest the pointer (within 14 px), else none. XY.pt is the pointer in the
+   canvas (xyWire). The member under the hand is what the human asks about, and a
+   fixed highlight would favour one member over the rest. */
+function phaseHi(pm, W, H) {
+  if (XY.drag && XY.drag.mem >= 0 && XY.drag.mem < pm.N) return XY.drag.mem;
+  const p = XY.pt; if (!p || pm.N < 2) return -1;
+  const n = Math.round(clamp(p.x / Math.max(1, W), 0, 1) * pm.M) % pm.M, amp = (H - 6) / 2 / 1.25;
+  let best = -1, bd = 14;
+  for (let i = 0; i < pm.N; i++) { const d = Math.abs(H / 2 - pm.mem[i].y[n] * amp - p.y); if (d < bd) { bd = d; best = i; } }
+  return best;
+}
+/* where each member's own cycle BEGINS (its own phase 0, at x = −δ_i) as a comb of
+   short ticks on the top edge; the lifted member's tick is long, with its offset named */
+function phaseTicks(g, pm, W, top, hi) {
+  g.save();
+  for (let i = 0; i < pm.N; i++) {
+    const x = Math.round(frac(-pm.off[i]) * W) + 0.5, on = i === hi;
+    g.strokeStyle = TOKA('--scr-physics', on ? 1 : 0.7); g.lineWidth = on ? 2 : 1.2;
+    g.beginPath(); g.moveTo(x, top); g.lineTo(x, top + (on ? 10 : 5)); g.stroke();
+  }
+  g.font = '9.5px ui-monospace,Menlo,monospace'; g.textBaseline = 'top'; g.textAlign = 'right';
+  const t = hi >= 0 ? 'member ' + (hi + 1) + ' · ' + (pm.off[hi] >= 0 ? '+' : '−') + Math.abs(pm.off[hi]).toFixed(2) + ' cycle from ψ'
+    : 'R ' + pm.R.toFixed(2) + ' · ticks = cycle starts';
+  labelBox(g, t, W - 5, top + 2, '--scr-physics');
+  g.restore();
+}
+/* a canvas label on a tube-coloured backing, right-aligned at (x, y), so a trace under it cannot eat it */
+function labelBox(g, t, x, y, ink) {
+  const w = g.measureText(t).width;
+  g.fillStyle = TOKA('--scr-tube', 0.72); g.fillRect(x - w - 3, y - 1, w + 6, 12);
+  g.fillStyle = TOKA(ink, 1); g.fillText(t, x, y);
 }
 /* direct-manipulation grips, drawn at the EFFECTIVE window (what is heard) */
 function drawGrips(g, W, top, bot) {
@@ -1801,6 +2006,118 @@ function paintSpectrum(cv) {
   const n = cv._note; if (n) n.textContent = notes.length ? notes.join(' · ') : 'no blade on';
 }
 
+/* ---- B297: THE SCOPE BEAM, back from gui2 ----
+   Human, 2026-09-27: "There are a couple presets where I get the distinct impression that
+   what I'm seeing is not what I'm hearing. Maybe we can bring back the waveform view as
+   well (the one that changes color based on the value of R)". This is a port of gui2's
+   paintScopeInto (src/gui/gui2.html:5648-5745). The cycle view is built from the viz
+   feed's member state. The beam reads only the monitor instance's RENDERED samples
+   (MON.buf / MON.bufR, written by monStep from the oracle's render), so it shows what
+   the ear gets, not a model of it.
+   ONE CHANGE from gui2, THE ALIGNMENT. gui2 triggers on the fundamental: a one-pole
+   cascade at 1.1·f0, then the last rising zero-crossing. For members of one shape, the
+   sum's fundamental is A·N·R·e^{2πi(ψ + θ)}: its phase is the mean field's ψ plus a
+   constant θ set by the wave's shape. So gui2's trigger IS ψ-alignment, shifted by θ.
+   Here the beam starts where the mean field last crossed phase 0 with a whole period
+   still to draw. ψ is read off the live voice at the buffer's last sample, and a sample
+   carries the phase of the tick before it (razor-core.js stepM's one-sample `prev`). So
+   x = 0 on the beam is x = 0 on the cycle view above: in AT PHASE (and in SUM at lock)
+   the drawn trace and the heard one should line up column by column, and where they do
+   not, that is the misread (checked in K: at N = 1 they agree without any shift).
+   gui2's trigger stays as the fallback when there is no live voice. gui2's comments
+   hold for both: a detuned swarm is quasi-periodic, the alignment holds the
+   FUNDAMENTAL's phase, and the detail keeps moving. That motion IS the detune. At deep
+   splay the fundamental cancels, so both references wander, and they should.
+   One period (sr/f0 samples) goes across the width, the cycle view's cycle.
+   Kept from gui2:
+   - THE HUE (ADR-119 A2). The beam mixes, per RGB channel, from --scr-value (pink,
+     drifting) toward --scr-marker (amber, locked) by the smoothed order parameter:
+     mixHex(value, marker, clamp(R̃, 0, 1)). This is gui2:5734, with gui2's own mixHex.
+     R̃ is the monitor's r smoothed at 0.35 per stroboscope frame (gui2 smooths at 0.35
+     per viz frame).
+   - THE INKS. Left is the beam: a 22 % underlay 8 px wide, then a 2.2 px core. Right is
+     the dotted meter etch at 0.65. The scale is auto, to the buffer's peak.
+   Not kept: gui2's click-to-freeze (?still= freezes the whole lab) and its scanlines. */
+const BEAM_NB = 2048;                    // samples searched: 43 ms, over 4 periods at A2
+const BEAM_TIP = 'THE BEAM (gui2\'s scope, B297): the monitor\'s rendered output, left channel as the beam, right dotted. ' +
+  'One period across, starting where the swarm\'s mean phase ψ is 0, so it shares the cycle view\'s x axis above (gui2 triggers on the fundamental, which is ψ plus a constant). ' +
+  'Its hue rides R: pink while the swarm drifts, amber as it locks (ADR-119 A2).';
+function mixHex(a, b, t) {               // gui2's, verbatim (gui2.html:1920)
+  const pa = /^#?(..)(..)(..)$/.exec(a), pb = /^#?(..)(..)(..)$/.exec(b);
+  if (!pa || !pb) return a;
+  const c = i => Math.round(parseInt(pa[i], 16) + (parseInt(pb[i], 16) - parseInt(pa[i], 16)) * t).toString(16).padStart(2, '0');
+  return '#' + c(1) + c(2) + c(3);
+}
+function beamInk(R) { return mixHex(TOK('--scr-value'), TOK('--scr-marker'), clamp(R, 0, 1)); }
+/* the last n samples of a monitor ring, oldest first */
+function ringTail(buf, pos, n) { const o = new Float32Array(n); for (let i = 0; i < n; i++) o[i] = buf[(pos - n + i + 8192) & 8191]; return o; }
+/* the mean-field phase ψ of a live voice (the ring's needle angle), in cycles */
+function psiOf(v, N) {
+  let sx = 0, sy = 0; for (let i = 0; i < N; i++) { sx += Math.cos(TAU * v.m[i].phi); sy += Math.sin(TAU * v.m[i].phi); }
+  return frac(Math.atan2(sy, sx) / TAU);
+}
+/* what the beam draws, shared by the painter and the self-check: one period of l from
+   `trig`, `per` samples (fractional) across. psiEnd (the mean phase after the buffer's last
+   tick) aligns it to ψ = 0 (the sample i carries the phase after tick i − 1, so ψ is 0 at
+   i = N − (frac(psiEnd) + 1)·per); without it, gui2's trigger (gui2.html:5695-5724) */
+function beamModel(l, r, f0, sr, psiEnd) {
+  const N = l.length;
+  let pk = 1e-4;
+  for (let i = 0; i < N; i++) pk = Math.max(pk, Math.abs(l[i]), Math.abs(r[i]));
+  let trig = 0, per = Math.floor(N * 0.6), how = 'none';
+  if (f0 > 0 && sr > 0) {
+    per = Math.max(24, Math.min(N - 2, sr / f0));
+    if (typeof psiEnd === 'number' && isFinite(psiEnd)) { trig = N - (frac(psiEnd) + 1) * per; how = 'ψ'; }
+    else {
+      const span = Math.round(per), c = 1 - Math.exp(-2 * Math.PI * (f0 * 1.1) / sr);
+      let lp = Float64Array.from(l);
+      const poles = f0 < 150 ? 2 : 4;
+      for (let pole = 0; pole < poles; pole++) {
+        let z = 0; const t = new Float64Array(N);
+        for (let i = 0; i < N; i++) { z += c * (lp[i] - z); t[i] = z; }
+        lp = t;
+      }
+      for (let i = N - span - 1; i > 1; i--) if (lp[i - 1] <= 0 && lp[i] > 0) { trig = i; how = 'trigger'; break; }
+    }
+  }
+  return { trig, per, pk, l, r, how };
+}
+/* the beam's samples at x ∈ [0, 1): linear between rendered samples (M points, for the checks and K2) */
+function beamAt(m, arr, x) { const t = clamp(m.trig + x * m.per, 0, arr.length - 1), i0 = Math.floor(t), f = t - i0; return arr[i0] * (1 - f) + arr[Math.min(arr.length - 1, i0 + 1)] * f; }
+function beamPeriod(m, M) { const o = new Float64Array(M); for (let n = 0; n < M; n++) o[n] = beamAt(m, m.l, n / M); return o; }
+function paintBeam(cv) {
+  const [g, W, H] = fit(cv); if (!g) return;
+  tube(g, W, H);
+  if (!CORE || !MON.core) { say(g, W, H, 'oracle not loaded'); return; }
+  g.strokeStyle = TOKA('--scr-grid', 0.40); g.lineWidth = 1;
+  g.beginPath(); g.moveTo(0, Math.round(H / 2) + 0.5); g.lineTo(W, Math.round(H / 2) + 0.5); g.stroke();
+  const f0 = MON.f * Math.pow(2, (EFF.bend || 0) / 12), v = liveVoice(MON.core);
+  const m = beamModel(ringTail(MON.buf, MON.pos, BEAM_NB), ringTail(MON.bufR, MON.pos, BEAM_NB), f0, SR, v ? psiOf(v, MON.core.d.N) : null);
+  const R = MON.rSm < 0 ? 0 : MON.rSm, wet = beamInk(R), k = (H / 2 - 3) / m.pk;
+  /* the cycle view's quarter lines, so a column can be read across both */
+  g.strokeStyle = TOKA('--scr-grid', 0.18); g.beginPath();
+  for (let q = 1; q < 4; q++) { const x = Math.round(q * W / 4) + 0.5; g.moveTo(x, 0); g.lineTo(x, H); }
+  g.stroke();
+  const steps = Math.max(2, Math.ceil(m.per));
+  for (const [arr, col, beam] of [[m.r, TOKA('--scr-meter', 0.65), false], [m.l, wet, true]]) {
+    g.setLineDash(beam ? [] : [2, 3]);
+    for (const pass of beam ? [0, 1] : [1]) {
+      g.strokeStyle = pass === 0 ? RGBA(wet, 0.22) : col;
+      g.lineWidth = pass === 0 ? 8 : (beam ? 2.2 : 1.4);
+      g.beginPath();
+      for (let i = 0; i <= steps; i++) { const x = i / steps, y = H / 2 - beamAt(m, arr, x) * k; i ? g.lineTo(x * W, y) : g.moveTo(0, y); }
+      g.stroke();
+    }
+    g.setLineDash([]);
+  }
+  g.font = '8.5px ui-monospace,Menlo,monospace'; g.textBaseline = 'top'; g.textAlign = 'right';
+  const lb = 'BEAM · heard · one period' + (m.how === 'ψ' ? ' from ψ = 0' : m.how === 'trigger' ? ' · triggered' : '');
+  labelBox(g, lb, 4 + g.measureText(lb).width, 3, '--scr-grid');
+  g.fillStyle = TOKA('--scr-tube', 0.72); g.fillRect(W - 4 - g.measureText('R 0.00').width - 3, 2, g.measureText('R 0.00').width + 6, 12);
+  g.fillStyle = wet; g.fillText('R ' + R.toFixed(2), W - 4, 3);
+  g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+}
+
 /* ---- B295: THE PHASE CARPET and THE VOICE MAP, back from gui2 ----
    Human, 2026-09-27: "can we add back in the phase carpet and voice map?" Both are
    PORTS of src/gui/gui2.html's painters (paintCarpet :5966, drawVmap :6037, star :6107, which are
@@ -2059,10 +2376,20 @@ function knob(host, key, o) {
     k.style.setProperty('--mang', (circ ? pe * 360 : pe * 280 - 140) + 'deg');
     cell.classList.toggle('follow', fol);
     cell.classList.toggle('ghost', !!(o.ghost && o.ghost()));
-    cell.classList.toggle('inert', sp.kind === 'x');
+    inertMark(cell, key0, sp);
     out.textContent = fmtVal(sp, v) + (moved ? ' → ' + fmtVal(sp, ve) : '');
   });
   return cell;
+}
+/* B297: 'inert' (a row the oracle lacks, kind x, or one its law does not read now, inertWhy)
+   plus 'ruled' for the second kind, whose tooltip leads with the reason */
+function inertMark(node, key, sp) {
+  const why = inertWhy(key);
+  node.classList.toggle('inert', sp.kind === 'x' || !!why);
+  node.classList.toggle('ruled', !!why);
+  if (!node._t0) node._t0 = node.title;
+  const t = why ? why + '\n' + node._t0 : node._t0;
+  if (node.title !== t) node.title = t;
 }
 /* skin B / the depths: gui2's labelled slider row */
 function sliderRow(host, key, o) {
@@ -2083,7 +2410,7 @@ function sliderRow(host, key, o) {
     const fol = !!linked(key0) && !FOLLOW_OF[key0].g.sentinel;
     row.classList.toggle('follow', fol);
     row.classList.toggle('ghost', !!(o.ghost && o.ghost()));
-    row.classList.toggle('inert', sp.kind === 'x');
+    inertMark(row, key0, sp);
     out.textContent = fmtVal(sp, v);
   });
   return row;
@@ -2106,6 +2433,7 @@ function scrub(host, key, o) {
     const key0 = K(), sp = SP[key0]; if (!sp) return;
     s.classList.toggle('follow', !!linked(key0) && !FOLLOW_OF[key0].g.sentinel);
     s.classList.toggle('ghost', !!(o.ghost && o.ghost()));
+    inertMark(s, key0, sp);
     const v = shown(key0, false), ve = shown(key0, true);
     b.textContent = fmtVal(sp, v) + (Math.abs(toPos(sp, ve) - toPos(sp, v)) > 1e-4 ? ' → ' + fmtVal(sp, ve) : '');
   });
@@ -2279,9 +2607,11 @@ function buildOsc(host) {
   knob(kv, 'gain', { tier: 'T1', label: 'Volume' });
   /* the cycle view — the blades' own picture, and in skin C (or CYCLE EDITS) the editor */
   const tools = el('div', 'cyctools'); sc2.appendChild(tools);
-  tools.appendChild(el('span', 'lbl', 'CYCLE'));
-  for (const [v, t] of [['sum', 'SUM'], ['members', 'MEMBERS']]) {
-    const b = el('button', 'pill mini' + (LAB.view === v ? ' on' : ''), t);
+  /* B297: the row's CYCLE label gave its 38 px to the third view pill, so the row stays one line */
+  for (const [v, t, tip] of [['sum', 'SUM', 'every member over its own phase, summed: the swarm as if it were locked'],
+    ['members', 'MEMBERS', 'one lane per member, each over its own phase'],
+    ['phase', 'AT PHASE', 'B297: each member shifted to where it is against the mean field (the viz feed\'s mem.phi), summed as they line up now; hover a line to lift that member']]) {
+    const b = el('button', 'pill mini' + (LAB.view === v ? ' on' : ''), t); b.title = tip;
     b.addEventListener('click', () => { LAB.view = v; rebuild(); }); tools.appendChild(b);
   }
   const cb = el('button', 'pill mini' + (LAB.contrib ? ' on' : ''), 'CONTRIBUTIONS');
@@ -2301,6 +2631,11 @@ function buildOsc(host) {
   const cyc = canvas(sc2, LAB.skin === 'C' ? 200 : 132, c => paintCycle(c, false), 'edit');
   if (editable) { tagCtl(cyc, ['c', 'w', 'depth', 'hard', 'k', 'c2', 'w2', 'depth2', 'hard2', 'k2'], 'T1'); cycleEdits(cyc); }
   else { tagCtl(cyc, ['w', 'k', 'kHz', 'c', 'w2', 'k2', 'kHz2', 'c2'], 'T1'); cyc.classList.add('xy'); xyWire(cyc); }
+  /* B297: the beam sits directly under the cycle view, the same width, one period across,
+     so "what is drawn" and "what is heard" read against each other. It costs the Controls
+     column 60 px (its last tier bar goes under the fold, the column scrolls); the left
+     column (rounds 3–4's ring, spectrum, carpet, voice map) is untouched. */
+  canvas(sc2, 56, paintBeam).title = BEAM_TIP;
   bladeRow(sc2, 1); bladeRow(sc2, 2);
   tier2(sc2);
   tier3(sc2);
@@ -2318,7 +2653,7 @@ function swarmTwin(host, h) {
   }
 }
 function cycleCaption() {
-  const bits = ['dashed = base', 'solid = heard'];
+  const bits = ['dashed base', 'solid heard'];
   /* B294: cross-mod is drawn by the bench's 3-pass estimate (SPEC §10); feedback still is not */
   if (P.xm > XM_ON) bits.push('dash-dot = what cross-mod adds (3-pass estimate)');
   if (P.fb > 0.0005) bits.push('feedback not drawn (sample-to-sample)');
@@ -2385,9 +2720,13 @@ function bladeRow(host, b) {
   const fmGhost = LAB.skin === 'A' ? null : () => !isFM(b);
   faceCtl(g3, bladeKey(b, 'I'), { tier: 'T1', ghost: fmGhost });
   faceCtl(g3, bladeKey(b, 'm'), { tier: 'T1', keyFn: modKey, keys: [bladeKey(b, 'm'), bladeKey(b, 'mHz')], label: 'Mod rate', ghost: fmGhost });
-  const g4 = grp('SPREAD', null, 'sp');
+  /* B297: under a Cut rule, Cut spread is drawn inert (inertWhy) and the knob the oracle
+     does read, Rule depth, joins the face beside it; the group's caption names the rule */
+  const rule = ruleOf(b);
+  const g4 = grp(rule ? 'SPREAD · ' + ruleName(rule).toUpperCase() : 'SPREAD', null, 'sp');
   faceCtl(g4, bladeKey(b, 'bspread'), { tier: 'T1', label: LAB.skin === 'A' ? 'Position' : 'Pos spread' });
   faceCtl(g4, bladeKey(b, 'kspread'), { tier: 'T1', label: LAB.skin === 'A' ? 'Cut rate' : 'Cut spread' });
+  if (rule) faceCtl(g4, bladeKey(b, 'kRuleAmt'), { tier: 'T1', label: 'Rule depth' });
   if (LAB.skin !== 'A' && b === 2) {
     const lk = el('span', 'grp'); lk.appendChild(el('span', 'lbl', 'FM')); linkPill(lk, 'fm', 'T1');
     lk.appendChild(el('span', 'lbl', 'SPREAD')); linkPill(lk, 'sp', 'T1'); bb.appendChild(lk);
@@ -2723,7 +3062,9 @@ function xyWindows() {
   const cy = cycleData();
   if (!cy) return xyEffWindows();
   const out = { 1: [], 2: [] };
-  for (const m of cy.mem) { if (m.w1) out[1].push([m.st1, m.w1]); if (m.w2) out[2].push([m.st2, m.w2]); }
+  /* B297: AT PHASE draws each window where its member is, so the hit-test reads those */
+  const src = LAB.view === 'phase' ? phaseModel(cy) : cy;
+  for (const m of src.mem) { if (m.w1) out[1].push([m.st1, m.w1]); if (m.w2) out[2].push([m.st2, m.w2]); }
   return out;
 }
 /* which blade is under phase `ph`; if windows overlap, the one whose centre is nearer */
@@ -2840,19 +3181,23 @@ function xyLegend(S) { return '↔ ' + xyRoleLabel(S.map.x[0]) + ' ↕ ' + xyRol
 function xyWire(cv) {
   XY.cv = cv;
   const ph = e => { const r = cv.getBoundingClientRect(); return frac((e.clientX - r.left) / Math.max(1, r.width)); };
+  /* B297: the pointer in the painter's box, for AT PHASE's member highlight (phaseHi) */
+  const pt = e => { const r = cv.getBoundingClientRect(); return { x: e.clientX - r.left - cv.clientLeft, y: e.clientY - r.top - cv.clientTop }; };
   cv.addEventListener('pointerdown', e => {
     const r = cv.getBoundingClientRect();
+    const cy = cycleData(), hi = LAB.view === 'phase' && cy ? phaseHi(phaseModel(cy), cv.clientWidth, cv.clientHeight) : -1;
     xyBegin(ph(e), e.clientX, e.clientY, r.width, r.height);
-    XY.drag.shift = e.shiftKey;
+    XY.drag.shift = e.shiftKey; XY.drag.mem = hi;             // the lifted member stays lifted through the drag
     try { cv.setPointerCapture(e.pointerId); } catch (_) {}
   });
   cv.addEventListener('pointermove', e => {
     if (XY.drag) { xyMove(e.clientX, e.clientY, e.shiftKey, e.altKey); return; }
+    XY.pt = pt(e);
     XY.hover = xyTarget(ph(e));
   });
   const up = () => xyEnd();
   cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
-  cv.addEventListener('pointerleave', () => { if (!XY.drag) XY.hover = null; });
+  cv.addEventListener('pointerleave', () => { if (!XY.drag) { XY.hover = null; XY.pt = null; } });
 }
 /* the overlay: the target outlined in the ATTENTION ink (--scr-marker), and while
    dragging a readout of every value the gesture is moving */
@@ -3148,6 +3493,9 @@ function runChecks() {
   for (const c of checkXmVisual()) out.push(c);
   for (const c of checkCarpet()) out.push(c);
   for (const c of checkVmap()) out.push(c);
+  for (const c of checkPhase()) out.push(c);
+  for (const c of checkBeam()) out.push(c);
+  for (const c of checkInert()) out.push(c);
   for (const c of checkPresets()) out.push(c);
   AUDIT.checks = out;
   seedOracle(0xB271 + MON.note);
@@ -3412,6 +3760,154 @@ function checkVmap() {
   }
   return out;
 }
+/* B297 — AT PHASE. A seeded scratch swarm SPLAYED (Coupling −1, N 5), rendered 1 s,
+   then read through cycleFrom + phaseModel, the painter's own functions: every drawn
+   offset δ_i must equal the viz post's mem.phi[i] − mem.phi[0] (mod 1) — the members
+   are drawn exactly where the oracle says they are — and the offsets are taken from the
+   mean field (Σ e^{2πiδ} has angle 0). The same numbers are checked against the AUDIO:
+   misreadRun (section K2) compares AT PHASE's sum and SUM's with the rendered period at
+   that post. CONTROL (must fail): the offsets SUM draws, all zero, against the same
+   mem.phi differences — at splay they are off by a large part of a cycle. */
+function checkPhase() {
+  const out = [];
+  try {
+    const p = { N: 5, K: -1, detune: 3, phaseMode: 2, law: 0, rotRate: 0, mode: 0, hot: 2, base: 2, w: 0.3, c: 0.5, k: 4, b2on: 0, xm: 0, fb: 0 };
+    const S = scratch(p, 45, mtof(45), 0xB297);
+    const L = new Float32Array(1600), Rr = new Float32Array(1600);
+    for (let i = 0; i < 31; i++) S.c.render(L, Rr);
+    const viz = S.viz(), cy = cycleFrom(S.c, viz), pm = phaseModel(cy), ph = viz.mem.phi;
+    let dev = 0, zdev = 0, spread = 0, sx = 0, sy = 0;
+    for (let i = 0; i < pm.N; i++) {
+      dev = Math.max(dev, Math.abs(wrapHalf((pm.off[i] - pm.off[0]) - (ph[i] - ph[0]))));
+      zdev = Math.max(zdev, Math.abs(wrapHalf(0 - (ph[i] - ph[0]))));
+      spread = Math.max(spread, Math.abs(pm.off[i]));
+      sx += Math.cos(TAU * pm.off[i]); sy += Math.sin(TAU * pm.off[i]);
+    }
+    const ref = Math.abs(Math.atan2(sy, sx) / TAU);
+    const heard = misreadRun(p, null, [31]).at[0] || {};
+    out.push({ name: 'AT PHASE: each member drawn at the oracle\'s phase offset', ok: pm.N === 5 && dev < 1e-12 && ref < 1e-9 && pm.R <= 0.1 && spread > 0.1,
+      detail: 'splay (R ' + pm.R.toFixed(3) + '): max |δ_i − δ_0 − (mem.phi_i − mem.phi_0)| ' + dev.toExponential(1) + ' · offsets up to ' + spread.toFixed(3) +
+        ' cycle, taken from ψ (residual angle ' + ref.toExponential(1) + ')' });
+    /* the same patch, against the AUDIO: AT PHASE's sum must be the nearer to the rendered
+       period (K2's normalised error at the best alignment), and near in absolute terms */
+    out.push({ name: 'AT PHASE is nearer the heard wave than SUM (splay)', ok: heard.phase < 0.5 && heard.phase < heard.sum,
+      detail: 'error against the rendered period at 1.03 s: AT PHASE ' + (heard.phase || NaN).toFixed(3) + ' · SUM ' + (heard.sum || NaN).toFixed(3) + ' (0 = same shape, 1.41 = unrelated)' });
+    out.push({ name: 'CONTROL: SUM\'s offsets (all zero) at splay', ok: zdev > 0.1, control: true,
+      detail: 'max |0 − (mem.phi_i − mem.phi_0)| = ' + zdev.toFixed(3) + ' cycle (must be large: SUM draws the swarm as if locked)' });
+  } catch (e) {
+    out.push({ name: 'AT PHASE', ok: false, detail: 'threw: ' + String(e && e.message || e) });
+  }
+  return out;
+}
+/* B297 — THE BEAM. (1) It reads the RENDERED buffer: the live beam's source (ringTail of
+   MON.buf / MON.bufR, what paintBeam draws from) ends with exactly the samples the
+   monitor's last render wrote (MON.L / MON.R), bit for bit. (2) It shares the cycle view's
+   x axis: on the page's drawn = heard voicing (N 1, 1×, raw, the first check's cfgA), the
+   ψ-aligned beam period (beamModel + beamPeriod, the painter's own functions) matches the
+   cycle's heard trace WITHOUT any shift. (3) The hue follows R: on seeded scratch swarms
+   locked (Coupling +1) and splayed (−1), the lock's ink sits nearer --scr-marker and the
+   splay's nearer --scr-value, with the hues well apart.
+   CONTROL (must fail): the same beam started a quarter period late must NOT match, so
+   (2) can tell an aligned beam from a misaligned one. */
+function hueOf(hex) {
+  const m = /^#?(..)(..)(..)$/.exec(hex); if (!m) return NaN;
+  const r = parseInt(m[1], 16) / 255, g = parseInt(m[2], 16) / 255, b = parseInt(m[3], 16) / 255, mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+  if (d < 1e-9) return 0;
+  const h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return ((h * 60) + 360) % 360;
+}
+function hueDist(a, b) { const d = Math.abs(a - b) % 360; return d > 180 ? 360 - d : d; }
+function checkBeam() {
+  const out = [];
+  try {
+    let live = false, liveN = 0;
+    if (MON.core && MON.L) {
+      const n = Math.min(MON.L.length, BEAM_NB), tl = ringTail(MON.buf, MON.pos, BEAM_NB), tr = ringTail(MON.bufR, MON.pos, BEAM_NB);
+      live = true; liveN = n;
+      for (let i = 0; i < n; i++) if (tl[BEAM_NB - n + i] !== MON.L[MON.L.length - n + i] || tr[BEAM_NB - n + i] !== MON.R[MON.R.length - n + i]) { live = false; break; }
+    }
+    const f0 = mtof(45);
+    const run = (p, blocks) => {
+      const S = scratch(Object.assign({ N: 5, detune: 3, phaseMode: 2, law: 0, rotRate: 0 }, p), 45, f0, 0xB297);
+      const L = new Float32Array(BEAM_NB), Rr = new Float32Array(BEAM_NB);
+      for (let i = 0; i < blocks; i++) S.c.render(L, Rr);            // the last block is the beam's buffer
+      const v = liveVoice(S.c), N = S.c.d.N, m = beamModel(L, Rr, f0, SR, psiOf(v, N)), R = orderR(v, N);
+      return { S, m, R, ink: beamInk(R) };
+    };
+    /* (2) the drawn = heard voicing: gain 0.05 keeps tanh linear, 1× and raw leave no filter */
+    const one = run({ N: 1, os: 1, aa: 0, dcMode: 0, gain: 0.05, A: 1, S: 1, phaseMode: 1, xm: 0, fb: 0, mode: 0, hot: 2, base: 0, w: 0.3, c: 0.5, k: 7, hard: 0.3,
+      depth: 0.8, mirror: 2, lock: 0, b2on: 0 }, 6);
+    const cy1 = cycleFrom(one.S.c, one.S.viz()), e1 = nrmse(beamPeriod(one.m, cy1.M), cy1.sum, false);
+    const late = Object.assign({}, one.m, { trig: one.m.trig + one.m.per / 4 }), eLate = nrmse(beamPeriod(late, cy1.M), cy1.sum, false);
+    out.push({ name: 'beam: reads the rendered buffer, on the cycle view\'s axis', ok: live && one.m.how === 'ψ' && Math.abs(one.m.per - SR / f0) < 1e-9 && e1 < 0.1,
+      detail: 'live source = the monitor\'s last ' + liveN + ' rendered samples, L and R ' + (live ? 'bit-identical' : 'DIFFER') + ' · one period = ' + one.m.per.toFixed(2) +
+        ' samples from ψ = 0 · against the cycle\'s heard trace, no shift: error ' + e1.toFixed(3) + ' (drawn = heard voicing; 0 = same shape)' });
+    out.push({ name: 'CONTROL: the beam a quarter period late', ok: eLate > 0.5, control: true,
+      detail: 'error ' + eLate.toFixed(3) + ' against the same trace (must be large)' });
+    const lk = run({ K: 1 }, 24), sp = run({ K: -1 }, 24);                          // ~1 s each
+    const hv = hueOf(TOK('--scr-value')), hm = hueOf(TOK('--scr-marker')), hl = hueOf(lk.ink), hs = hueOf(sp.ink);
+    const hueOk = lk.R >= 0.9 && sp.R <= 0.1 && hueDist(hl, hm) < hueDist(hl, hv) && hueDist(hs, hv) < hueDist(hs, hm) && hueDist(hl, hs) > 20;
+    out.push({ name: 'beam: the hue rides R (lock → amber, splay → pink)', ok: hueOk,
+      detail: 'R ' + lk.R.toFixed(3) + ' → ' + lk.ink + ' (hue ' + hl.toFixed(0) + '°) · R ' + sp.R.toFixed(3) + ' → ' + sp.ink + ' (hue ' + hs.toFixed(0) + '°) · value ' + hv.toFixed(0) + '°, marker ' + hm.toFixed(0) + '°' });
+  } catch (e) {
+    out.push({ name: 'beam', ok: false, detail: 'threw: ' + String(e && e.message || e) });
+  }
+  return out;
+}
+/* B297 — CUT SPREAD UNDER A RULE. (1) The face, built for real (rebuild on OSC, skin A)
+   with Cut rule "harmonic" on both blades (blade 2 owning its spreads): each blade's Cut
+   spread knob carries .inert and .ruled, and a live Rule depth knob sits in its SPREAD
+   group; the Advanced row of blade 2's Cut spread is inert too. (2) Turning Cut spread
+   through the knob's own writer (write) under "harmonic", on each blade, changes neither
+   the oracle's rendered output (bit-identical) nor any member's cut rate (the viz post's
+   mem.k / mem.k2), though the oracle did receive the new value: it truly does nothing.
+   CONTROL (must fail): the same turn under "even" changes both, so the test can see a
+   live spread when there is one, and the face then draws the knob live, with no Rule depth. */
+function checkInert() {
+  const out = [], snap = Object.assign({}, P), page = LAB.page, skin = LAB.skin, fz = LAB.frozen, mOn = MORPH.on, mv = MACROS.map(m => m.v);
+  LAB.frozen = false; MORPH.on = false; for (const m of MACROS) m.v = 0;
+  const base = { N: 5, law: 0, K: 0.1, detune: 10, b1on: 1, b2on: 1, mode: 0, mode2: 0, w: 0.3, w2: 0.2, k: 4, k2: 3, lock: 0, lock2: -1, kspread: 0, kspread2: 0,
+    kq: 0, kRuleAmt: 1, kRuleAmt2: 1, rotRate: 0, xm: 0, fb: 0 };
+  const hear = () => {
+    const S = scratch(oracleParams(effective()), 45, mtof(45), 0xB297);
+    const L = new Float32Array(4096), Rr = new Float32Array(4096); S.c.render(L, Rr);
+    const v = S.viz(); return { L, k: v.mem.k.slice(), k2: v.mem.k2.slice() };
+  };
+  const same = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
+  const turn = (key, extra) => {
+    P = Object.assign({}, DEF, base, extra); EFF = effective(); pushOracle();
+    const a = hear(); write(key, 12); const b = hear();
+    return { out: same(a.L, b.L), k: same(a.k, b.k) && same(a.k2, b.k2), sent: oracleParams(effective())[key] === 12 };
+  };
+  const face = extra => {
+    P = Object.assign({}, DEF, base, extra); EFF = effective(); LAB.page = 'osc'; LAB.skin = 'A'; rebuild();
+    const q = s => FR.querySelector(s), has = (n, c) => !!n && n.classList.contains(c);
+    const k1 = q('.blade:not(.b2) .kcell[data-key="kspread"]'), k2 = q('.blade.b2 .kcell[data-key="kspread2"]');
+    return { k1: has(k1, 'inert') && has(k1, 'ruled'), k2: has(k2, 'inert') && has(k2, 'ruled'),
+      rd1: !!q('.blade:not(.b2) .kcell[data-key="kRuleAmt"]') && !has(q('.blade:not(.b2) .kcell[data-key="kRuleAmt"]'), 'inert'),
+      rd2: !!q('.blade.b2 .kcell[data-key="kRuleAmt2"]') && !has(q('.blade.b2 .kcell[data-key="kRuleAmt2"]'), 'inert'),
+      adv2: has(q('.tbody.t3 .cc[data-key="kspread2"]'), 'inert'), tip: k1 ? k1.title.split('\n')[0] : '' };
+  };
+  try {
+    const F = face({ kRule: 1, kRule2: 1, b2sp: 1 });
+    const t1 = turn('kspread', { kRule: 1, b2sp: 0 }), t2 = turn('kspread2', { kRule: 0, kRule2: 1, b2sp: 1 });
+    const faceOk = F.k1 && F.k2 && F.rd1 && F.rd2 && F.adv2;
+    out.push({ name: 'Cut spread under "harmonic": drawn inert, and truly inert', ok: faceOk && t1.out && t1.k && t1.sent && t2.out && t2.k && t2.sent,
+      detail: 'face: ① ' + (F.k1 ? 'inert' : 'LIVE') + ' + Rule depth ' + (F.rd1 ? 'beside it' : 'MISSING') + ' · ② ' + (F.k2 ? 'inert' : 'LIVE') + ' + Rule depth ' + (F.rd2 ? 'beside it' : 'MISSING') +
+        ' · Advanced ② ' + (F.adv2 ? 'inert' : 'LIVE') + ' · turning 0 → 12 (the oracle received it: ' + (t1.sent && t2.sent) + '): output ' + (t1.out && t2.out ? 'bit-identical' : 'CHANGED') +
+        ', member cut rates ' + (t1.k && t2.k ? 'identical' : 'CHANGED') + ' · tooltip "' + F.tip.slice(0, 48) + '…"' });
+    const G = face({ kRule: 0, kRule2: 0, b2sp: 1 });
+    const c1 = turn('kspread', { kRule: 0, b2sp: 0 }), c2 = turn('kspread2', { kRule: 0, kRule2: 0, b2sp: 1 });
+    out.push({ name: 'CONTROL: under "even" the same turn is live', ok: !c1.out && !c1.k && !c2.k && !G.k1 && !G.k2 && !G.rd1 && !G.rd2, control: true,
+      detail: 'output ' + (c1.out ? 'IDENTICAL' : 'changed') + ', member cut rates ' + (c1.k ? 'IDENTICAL' : 'changed') + ' (① ) / ' + (c2.k ? 'IDENTICAL' : 'changed') + ' (② ) · face: Cut spread ' +
+        (G.k1 || G.k2 ? 'INERT' : 'live') + ', Rule depth ' + (G.rd1 || G.rd2 ? 'ON THE FACE' : 'one level down') + ' (must all be live)' });
+  } catch (e) {
+    out.push({ name: 'Cut spread under a rule', ok: false, detail: 'threw: ' + String(e && e.message || e) });
+  }
+  LAB.page = page; LAB.skin = skin; LAB.frozen = fz; MORPH.on = mOn; MACROS.forEach((m, i) => { m.v = mv[i]; });
+  P = snap; EFF = effective(); pushOracle();
+  return out;
+}
 /* B293 — THE PRESETS. The oracle's set() silently IGNORES a key it does not know
    (razor-core.js set: `else if (k in this.d)`), so a misspelt or retired key in a
    preset would load "fine" and sound wrong. Every key is held against three sets:
@@ -3472,6 +3968,152 @@ function checkPresets() {
   }
   return out;
 }
+/* ======================================================================
+   K2. WHAT YOU SEE vs WHAT YOU HEAR (B297) — the cycle view against the rendered output
+   Human, 2026-09-27: "There are a couple presets where I get the distinct impression that
+   what I'm seeing is not what I'm hearing." This measures it instead of guessing. Each
+   preset is played exactly as the monitor plays it: note 45 (A2) at velocity 0.9, seeded
+   0xB271 + 45, the patch as applyPreset loads it. The render runs in blocks of
+   floor(sr/30) = 1600 samples after a first single sample, so each block ENDS on a viz
+   post (razor-core.js render: vc counts from 0, one post per 1600 samples). At eight
+   posts (MIS_TIMES, 0.2 to 1.8 s, across the monitor's 2 s re-strike) three waves are
+   compared:
+   - DRAWN: cycleFrom's heard trace, the one SUM draws (and phaseModel's, the one AT PHASE
+     draws), built from that same post;
+   - HEARD: the last period (sr/f samples) of the rendered MID, (L + R)/2, ending on the
+     post's sample, resampled to the cycle's M points;
+   - HEARD ONE PERIOD EARLIER: for the self-comparison.
+   The error is a normalised RMS: both waves are made zero-mean and unit-RMS, then compared
+   at their best circular alignment (the trigger's job). 0 = the same shape, √2 ≈ 1.41 =
+   uncorrelated, 2 = inverted. `self` compares the heard wave with the period before it,
+   WITHOUT alignment. It is how far any single static cycle could ever be right: a
+   periodic output reads 0, noise or fast detune beats read high.
+   CAUSES by ablation. The view is re-measured with ONE thing removed from the patch,
+   and the removal that cuts the error most is named:
+   - "as if locked": AT PHASE's error instead of SUM's (the members' relative phase);
+   - "feedback not drawn": fb → 0 (cycleFrom leaves feedback out);
+   - "cross-mod estimate": xm → 0 (the 3-pass estimate, SPEC §10);
+   - "output stage": Stereo 0, gain 0.02, band-limit raw, 1× (the pan weights, tanh and
+     BLEP that the cycle does not draw).
+   Noise and S&H are named by the patch (a Noise blade, or an FM blade on a noise mod
+   shape): the view draws its own seeded draws, never the oracle's. A preset is also
+   called non-periodic when `self` is at least half its error.
+   Deterministic: seeded, no clock. It runs on demand (MEASURE, or ?misread=1), about
+   20 s for all 76, because it renders 2 s of audio per run. */
+const MIS_TIMES = [6, 13, 20, 27, 34, 41, 48, 55];
+const MIS_BLOCK = Math.floor(SR / 30);
+const MIS = { rows: null, running: false, done: 0 };
+function normWave(a) {
+  const M = a.length; let mu = 0; for (let n = 0; n < M; n++) mu += a[n]; mu /= M;
+  let e = 0; for (let n = 0; n < M; n++) e += (a[n] - mu) * (a[n] - mu);
+  const rms = Math.sqrt(e / M); if (rms < 1e-9) return null;
+  const o = new Float64Array(M); for (let n = 0; n < M; n++) o[n] = (a[n] - mu) / rms;
+  return o;
+}
+/* the normalised RMS difference, at the best circular alignment of b against a (or at none) */
+function nrmse(a, b, aligned) {
+  const x = normWave(a), y = normWave(b); if (!x || !y) return NaN;
+  const M = x.length; let best = Infinity;
+  for (let s = 0; s < (aligned ? M : 1); s++) {
+    let e = 0; for (let n = 0; n < M && e < best * M; n++) { const d = x[n] - y[(n + s) % M]; e += d * d; }
+    best = Math.min(best, e / M);
+  }
+  return Math.sqrt(best);
+}
+/* M points of one period of the ring `h` (length H, write head hp), ending `back` periods before its newest sample */
+function periodOf(h, hp, P0, M, back) {
+  const H = h.length, end = hp - 1 - back * P0, o = new Float64Array(M);
+  for (let n = 0; n < M; n++) {
+    const t = end - P0 + (n + 1) * P0 / M, i0 = Math.floor(t), f = t - i0;
+    o[n] = h[((i0 % H) + H) % H] * (1 - f) + h[(((i0 + 1) % H) + H) % H] * f;
+  }
+  return o;
+}
+function misreadRun(params, abl, times) {
+  times = times || MIS_TIMES;
+  const E = Object.assign({}, DEF, params, { b1on: 1 }, abl || {}); E.bend = 0;
+  seedOracle(0xB271 + 45);
+  const c = new CORE(SR); c.set(oracleParams(E)); Object.assign(c.s, c.t);
+  let viz = null; c.post = m => { if (m && m.t === 'viz' && m.mem) viz = m; };
+  c.noteOn(45, mtof(45), 0.9);
+  const H = 4096, h = new Float64Array(H); let hp = 0;
+  const L = new Float32Array(MIS_BLOCK), Rr = new Float32Array(MIS_BLOCK), push = (l, r) => { for (let i = 0; i < l.length; i++) { h[hp % H] = 0.5 * (l[i] + r[i]); hp++; } };
+  const l1 = new Float32Array(1), r1 = new Float32Array(1); c.render(l1, r1); push(l1, r1);
+  const at = [];
+  for (let k = 1; k <= times[times.length - 1]; k++) {
+    viz = null; c.render(L, Rr); push(L, Rr);
+    if (times.indexOf(k) < 0 || !viz) continue;
+    const cy = cycleFrom(c, viz), pm = phaseModel(cy), P0 = SR / viz.freq;
+    const cur = periodOf(h, hp, P0, cy.M, 0), prev = periodOf(h, hp, P0, cy.M, 1);
+    const eSum = nrmse(cy.sum, cur, true);
+    if (!isFinite(eSum)) continue;                                  // silent at this post
+    at.push({ sum: eSum, phase: nrmse(pm.sum, cur, true), self: nrmse(prev, cur, false), R: pm.R, N: cy.N });
+  }
+  const mean = k => at.length ? at.reduce((s, q) => s + q[k], 0) / at.length : NaN;
+  return { sum: mean('sum'), phase: mean('phase'), self: mean('self'), R: mean('R'), N: at.length ? at[0].N : 0, n: at.length, at };
+}
+const MIS_CAUSE = { phase: 'as if locked (SUM aligns the members)', fb: 'feedback not drawn', xm: 'cross-mod estimate',
+  out: 'output stage (pan weights, tanh, band-limit)', noise: 'noise / S&H (the view draws its own draws)', nonper: 'non-periodic (the heard wave changes period to period)',
+  residual: 'residual (no single removal explains it)' };
+function misreadNoise(p) {
+  const E = Object.assign({}, DEF, p);
+  const blade = (on, mode, fm, shape) => on && (mode === 3 || ((mode === 1 || mode === 2) && (shape === 5 || shape === 7)));
+  return blade(1, E.mode, 1, E.mshape) || blade(E.b2on, E.mode2, 1, E.b2fm ? E.mshape2 : E.mshape);
+}
+/* Two attributions, because the phase cause is so large that it masks the rest:
+   `cause` names the largest cut in SUM's error; `rest` names what is left in AT PHASE's
+   (the removals re-measured on AT PHASE's error). A cut counts if it is at least 10 %
+   (`cause`) or 25 % (`rest`) of the error; else noise, then non-periodic, then residual. */
+function misreadPreset(pr) {
+  const p = pr.params, base = misreadRun(p);
+  const red = { phase: base.sum - base.phase }, redP = {};
+  const abl = { out: { width: 0, gain: 0.02, aa: 0, os: 1 } };
+  if ((p.fb || 0) > 0.0005) abl.fb = { fb: 0 };
+  if ((p.xm || 0) > 0.0005) abl.xm = { xm: 0 };
+  const ablE = {};
+  for (const k in abl) { const r = misreadRun(p, abl[k]); ablE[k] = { sum: r.sum, phase: r.phase }; red[k] = base.sum - r.sum; redP[k] = base.phase - r.phase; }
+  const noise = misreadNoise(p);
+  const pick = (reds, err, frac0) => {
+    let c = 'residual', top = frac0 * err;
+    for (const k in reds) if (reds[k] > top) { top = reds[k]; c = k; }
+    if (c === 'residual' && noise) c = 'noise';
+    if (c === 'residual' && base.self >= 0.5 * err) c = 'nonper';
+    return c;
+  };
+  const cause = pick(red, base.sum, 0.1), rest = base.phase >= 0.15 ? pick(redP, base.phase, 0.25) : '';
+  return { name: pr.name, category: pr.category, N: base.N, R: base.R, sum: base.sum, phase: base.phase, self: base.self, ablE, red, redP, noise, cause, rest, n: base.n };
+}
+/* all 76, one preset per task so the page stays live; rows sorted by the SUM view's error */
+function misreadAll(done) {
+  if (!CORE || !LAB.presets || MIS.running) return;
+  MIS.running = true; MIS.rows = []; MIS.done = 0;
+  const list = LAB.presets.slice();
+  const step = () => {
+    if (!list.length) {
+      MIS.running = false; MIS.rows.sort((a, b) => b.sum - a.sum);
+      seedOracle(0xB271 + MON.note); paintMisread(); if (done) done(); return;
+    }
+    try { MIS.rows.push(misreadPreset(list.shift())); } catch (e) { MIS.rows.push({ name: 'error', cause: 'residual', sum: NaN, why: String(e && e.message || e) }); }
+    MIS.done++; paintMisread(); setTimeout(step, 0);
+  };
+  setTimeout(step, 0);
+}
+function paintMisread() {
+  const box = $('misread'); if (!box) return;
+  const exp = typeof window !== 'undefined' ? window : null;
+  if (exp && exp.__b271) exp.__b271.misread = MIS.rows;
+  const st = $('misreadStat');
+  if (st) st.textContent = MIS.running ? 'measuring… ' + MIS.done + '/' + (LAB.presets ? LAB.presets.length : 0) :
+    MIS.rows ? MIS.rows.length + ' presets measured · sorted by the SUM view\'s error' : (LAB.presets ? 'not measured yet' : 'presets load when served (tools/serve_labs.py)');
+  const tb = $('misreadTable'); if (!tb || !MIS.rows || MIS.running) return;
+  const f = v => (isFinite(v) ? v.toFixed(2) : '—');
+  const row = r => '<tr data-preset="' + escapeHtml(r.name) + '"><td>' + escapeHtml(r.name) + '</td><td>' + r.N + '</td><td>' + f(r.R) + '</td><td><b>' + f(r.sum) + '</b></td><td>' + f(r.phase) +
+    '</td><td>' + f(r.self) + '</td><td>' + escapeHtml(MIS_CAUSE[r.cause] || r.cause) + '</td><td>' + escapeHtml(r.rest ? MIS_CAUSE[r.rest] || r.rest : '—') + '</td></tr>';
+  tb.innerHTML = '<table><tr><th>preset</th><th>N</th><th>R</th><th>SUM err</th><th>AT PHASE err</th><th>self</th><th>SUM\'s largest cause</th><th>what AT PHASE still misses</th></tr>' +
+    MIS.rows.map(row).join('') + '</table>';
+  for (const tr of tb.querySelectorAll('tr[data-preset]')) tr.addEventListener('click', () => applyPreset(tr.dataset.preset));
+}
+
 /* where every SCALPEL row sits on the OSC page, against the accounting's tier */
 function tierAudit() {
   if (LAB.page !== 'osc' || !FR.querySelectorAll) { return; }
@@ -3521,7 +4163,7 @@ function paintAudit() {
     (t ? ' · tiers: ' + t.same.length + ' rows at their accounting tier, ' + t.promoted.length + ' promoted, ' + t.demoted.length + ' demoted, ' + t.missing.length + ' not placed' : '') +
     (AUDIT.probe ? ' · ' + escapeHtml(AUDIT.probe) : '');
   const exp = typeof window !== 'undefined' ? window : null;
-  if (exp) exp.__b271 = { checks: AUDIT.checks, tiers: AUDIT.tiers, probe: AUDIT.probe };
+  if (exp) exp.__b271 = { checks: AUDIT.checks, tiers: AUDIT.tiers, probe: AUDIT.probe, misread: MIS.rows };
 }
 
 /* ======================================================================
@@ -3540,10 +4182,12 @@ function buildSide() {
     (LAB.b2look === 'hue' ? 'Blade 2 gets its own colour (a proposed token, --b2 / --scr-b2). ADR-116 has no such token.' : 'Blade 2 is drawn in the same authored magenta, hatched; its row carries a dashed identity stripe.') + '</p>' +
     '<p><b>Cycle edits ' + (LAB.skin === 'C' || LAB.direct ? 'ON' : 'OFF') + '</b><br>With them on, every drag on the cycle view writes the same address a knob writes.</p></div>' +
     '<div class="box"><h2>READING THE VIEWS</h2><p><b>Cycle</b>: the dashed curve is the base wave, the solid meter-phosphor curve (teal on the light tube, lime on the dark) is what is heard (DC removed per cycle), ' +
-    'the faint violet curves are the members and the magenta windows are the blades. <b>Ring</b>: each dot is a member at its phase and turns magenta while it is inside a blade. ' +
+    'the faint violet curves are the members and the magenta windows are the blades. SUM draws every member over its own phase (the swarm as if locked); ' +
+    '<b>AT PHASE</b> shifts each to where it is, which is what the ear gets. <b>Beam</b> (under the cycle): the rendered output itself, one period from the swarm\'s mean phase, ' +
+    'so it shares the cycle\'s x axis; pink while the swarm drifts, amber as it locks. <b>Ring</b>: each dot is a member at its phase and turns magenta while it is inside a blade. ' +
     'The arcs outside the circle are each member\'s own blade window, the violet needle is the mean field R, and the meter-ink arrows are cross-mod, each weighted by what that push adds. ' +
     'The ring is also the <b>Coupling × Detune XY</b>: the faint magenta crosshair and hollow puck are the value, a hollow violet diamond is where morph or a macro ' +
-    'carries it, and the dashed box is how far the bound macros can. Drag anywhere; a grab alone moves nothing. <b>Spectrum</b>: the meter line is the measured output, ' +
+    'carries it, and the dashed box is how far the bound macros can. A click lands the value there (round 4). <b>Spectrum</b>: the meter line is the measured output, ' +
     'bands are the predicted formant ± main lobe (the bench\'s rule), and the amber tick marks f₀.</p><p>All three read one seeded oracle instance that holds the monitor note (A2, or the last key played). ' +
     'It advances a whole number of note periods per frame, so a blade window holds still.</p></div>';
   s.insertBefore(presetBrowser(), s.firstChild);
@@ -3669,6 +4313,7 @@ function wireChrome() {
   on('droneBtn', 'click', () => { AUD.drone = !AUD.drone; $('droneBtn').classList.toggle('on', AUD.drone); if (AUD.drone) noteOn(MON.note, true); else audioMsg({ t: 'off', note: MON.note }); });
   on('probeBtn', 'click', async () => { AUDIT.probe = 'rendering…'; paintAudit(); try { AUDIT.probe = await probeAudio(); } catch (e) { AUDIT.probe = 'probe failed: ' + String(e && e.message || e); } paintAudit(); });
   on('presetSel', 'change', () => { const v = $('presetSel').value; if (v) applyPreset(v); });
+  on('misreadBtn', 'click', () => misreadAll());
   on('initBtn', 'click', () => { P = Object.assign({}, DEF, { b1on: 0, base: 2, b2on: 0 }); LAB.presetName = 'horde INIT (blade 1 off, saw base — ACCOUNTING §1.7)'; EFF = effective(); pushOracle(); monStrike(); fillPresetSelect(); rebuild(); });
   if (typeof window !== 'undefined' && window.addEventListener) {
     window.addEventListener('keydown', e => {
@@ -3709,6 +4354,8 @@ async function bootLate() {
   if (LAB.still > 0) { for (let i = 0; i < LAB.still; i++) monStep(); LAB.frozen = true; }
   runChecks();
   rebuild();
+  paintMisread();
+  if (qp('misread', '0') === '1') misreadAll();
   if (qp('probe', '0') === '1') { try { AUDIT.probe = await probeAudio(); } catch (e) { AUDIT.probe = 'probe failed: ' + String(e && e.message || e); } paintAudit(); }
   requestAnimationFrame(frame);
 }
