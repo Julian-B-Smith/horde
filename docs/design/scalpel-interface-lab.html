@@ -23,7 +23,9 @@
      AudioWorklet built from RazorCore.toString() — the bench's own route
      (scalpel-bench.html:1008). The load checker (tools/labharness/
      lab_load_check.mjs) runs inline blocks only, so under it RazorCore is absent
-     and the page says so rather than drawing an invented blade.
+     and the page says so rather than drawing an invented blade. Since round 7 (B309)
+     the class every instance is built from is the COMPOSED engine, which extends this
+     oracle and adds horde's swarm; the blades drawn and heard are still the oracle's.
 
      SEEDED. The oracle calls Math.random (SPEC §9). Before every oracle instance
      this page renders from, Math.random is replaced by a seeded mulberry32 —
@@ -118,10 +120,31 @@
      uses, hit-tested on the SUM windows they draw; the XY pad is marked free to reassign.
      The oracle and its defaults are unchanged. Checks in section K.
 
+     ROUND 7 — B309, 2026-09-27, dispatched by the horde lead on ROADMAP B309 (carried in the
+     records PR on branch lead-records-115). The human: (1) "Could we have the waveforms stay
+     visible at the top of the controls panel when scrolling to the advanced controls? It's hard
+     to estimate effects without visuals." (2) on horde's swarm laws greyed out: "Can they be
+     reintroduced?" Built as: (1) THE PIN (buildOsc): the view row, the cycle view and the beam
+     are one sticky block at the top of the Controls scroller; One level down and Advanced
+     scroll beneath it, and the scroller's scroll-padding keeps what it brings into view below
+     it. (2) THE LAB PLAYS THE COMPOSED ENGINE (section A, loadEngine): CORE is B298's
+     ComposedEngine (docs/design/scalpel-horde-engine.js, loaded, never edited), built at boot
+     from the oracle and reference/swarmsaw.html's DSP section. The monitor, the audio worklet
+     (CORE.toString() is the engine's self-contained bundle) and every self-check build it, so
+     horde's coupling law plays and Onset lock, Dissolve, Drift, Inertia (with its curve) and
+     the detune law with its sub-parameters are VOICED controls at the accounting's tiers. The
+     tempo-grid law is listed and disabled (not in the JS reference), and Onset below 0 is
+     labelled (the JS reference plays sync where horde's C++ plays splay, B298's gap 1). The
+     voice map's target is the swarm's own. (3) INTERPLAY DRAWN AS HEARD (memberCycleStepped):
+     where v1.1's serial mix or collision is live, each member is drawn by the oracle's own
+     per-sample step (RazorCore.prototype.stepM: collide, gate, out → outSerial) over the cycle,
+     replacing B300's "drawn as parallel" notice; Upper hears, Collision → pitch and → bite are
+     roles on both XY surfaces. (4) The razor-core.js line citations are v1.1's. Checks in K.
+
      L0026: every const is declared above the code that runs at setup; the boot
      call is the last statement of the script. -->
 <html><head><meta charset="utf-8">
-<meta name="lab-review" content="B271 + B293–B299 · 2026-09-27">
+<meta name="lab-review" content="B271 + B293–B309 · 2026-09-27">
 <title>SCALPEL interface lab — horde with blades at its centre</title>
 <style>
   :root {
@@ -415,6 +438,12 @@
   .cell.free { border-style:dashed; }
   .cell.free > h3 .own { color:var(--caution-tx); font-weight:700; }
   .scroll { overflow:auto; min-height:0; flex:1 1 auto; padding-right:2px; }
+  /* B309: the cycle view and the beam stay in view while the tiers scroll beneath them. The
+     panel ground, so what passes under it is hidden rather than drawn through; above the
+     knobs' own layers (.kmnow is z-index 2); a dashed foot like the strip's, so the edge the
+     content slides under reads as an edge */
+  .pin { position:sticky; top:0; z-index:5; background:var(--panel); padding-bottom:4px; margin-bottom:2px;
+    border-bottom:1px dashed var(--div); }
   canvas.viz { width:100%; display:block; border:var(--stroke) solid var(--line);
     border-radius:var(--r-well); background:var(--scr-tube); }
   canvas.edit { cursor:crosshair; touch-action:none; }
@@ -595,14 +624,18 @@
 <!-- THE ORACLE, read-only (reference/scalpel/ is PROTECTED). A classic script,
      so it works from the filesystem and from tools/serve_labs.py alike. -->
 <script src="../../reference/scalpel/prototype/razor-core.js"></script>
+<!-- B309: THE ENGINE the lab plays, B298's composed engine (horde's swarm under the oracle's
+     blades). Loaded, never copied; it is built at boot from the oracle above and
+     reference/swarmsaw.html's DSP section, which the page fetches (loadEngine). -->
+<script src="scalpel-horde-engine.js"></script>
 </head><body>
 
 <div class="hdr">
   <div>
     <h1>scalpel</h1>
     <div class="badges">
-      <span class="badge">B271 + B293–B297 · DESIGN LAB</span>
-      <span class="sub">BLADES AT THE CENTRE · OSC + MAIN AT 980×720 · VISUALS DRIVEN BY THE ORACLE · THE WAVEFORM IS AN XY · THE RING IS COUPLING × DETUNE (CLICK TO SET) · CARPET + VOICE MAP · MEMBERS AT PHASE · THE R-HUED BEAM · 83 BENCH PRESETS</span>
+      <span class="badge">B271 + B293–B309 · DESIGN LAB</span>
+      <span class="sub">BLADES AT THE CENTRE · OSC + MAIN AT 980×720 · VISUALS DRIVEN BY THE ENGINE · THE WAVEFORM IS AN XY · THE RING IS COUPLING × DETUNE (CLICK TO SET) · CARPET + VOICE MAP · MEMBERS AT PHASE · THE R-HUED BEAM · 83 BENCH PRESETS · HORDE'S SWARM VOICED · INTERPLAY DRAWN AS HEARD · THE WAVEFORM STAYS IN VIEW</span>
     </div>
   </div>
   <div class="hdrctl">
@@ -617,11 +650,12 @@
 <div class="tagline">What horde looks like with <b>SCALPEL</b> as its sound-design centre. The <b>OSC</b> page puts both blades on the face in
 the accounting's priority order (mode, width, cut rate, position, depth, edges, mirror, FM, spreads), the surviving swarm controls one
 level down, and Advanced below. The <b>MAIN</b> page follows the human's wireframe with the blade core surfaced. The cycle view, phase ring
-and formant-band spectrum are drawn and heard through the <b>real oracle</b> (<code>razor-core.js</code>, loaded, seeded), and three
+and formant-band spectrum are drawn and heard through the <b>composed engine</b> (round 7): horde's swarm (<code>swarmsaw.html</code>'s
+coupling law, onset, dissolve, drift, inertia and detune laws) under the <b>real oracle's</b> blades (<code>razor-core.js</code>), both loaded, seeded. Three
 marked <b>aesthetic alternatives</b> sit beside the standard. The waveform is an XY for the blades, and the <b>phase ring is the
 Coupling × Detune XY</b> for the swarm.</div>
 
-<div class="audit" id="audit">oracle: pending</div>
+<div class="audit" id="audit">engine: pending</div>
 
 <div class="altbar" id="altbar">
   <div class="grp"><span class="lbl">SKIN</span><div class="pills" id="skinPills"></div></div>
@@ -683,7 +717,7 @@ Coupling × Detune XY</b> for the swarm.</div>
       <li><b>Position is a circle.</b> The Position knob here has no end stops. The MAIN morph blends it on the shortest arc (toggle
         CIRCULAR off to see today's linear blend run 0.95 → 0.05 through 0.5). <span class="rec">Recommend: an endless dial plus a
         circular morph rule in the shell (ACCOUNTING finding 5).</span> The matrix clamp needs the same rule.</li>
-      <li><b>The Coupling axis voices the oracle's law.</b> The accounting recommends horde's law (§1.6), which couples 1–9× softer at the
+      <li><b>The Coupling axis voices the oracle's law.</b> <i>Superseded in round 7: the lab plays horde's law now (question 45).</i> The accounting recommends horde's law (§1.6), which couples 1–9× softer at the
         same K. The ring's feel will change when that lands. <span class="rec">Recommend: settle the law in the B252 discussion first,
         then re-label the ring's y axis from the measured lock boundary, not from K.</span></li>
       <li><b>What the cycle view cannot show.</b> Cross-mod and feedback act sample to sample. <i>Round 3:</i> cross-mod is now drawn
@@ -709,7 +743,7 @@ Coupling × Detune XY</b> for the swarm.</div>
       <li><b>Should the mapping be per patch?</b> The bench's pad assignments are bench state, not preset state. Here the mapping is a
         lab setting and resets on reload. <span class="rec">Recommend: a global UI preference, not a patch parameter.</span> A patch
         parameter would need ids, and ACCOUNTING's J2 already settles that pads become intents (ADR-176).</li>
-      <li><b>The presets are the bench's voicings.</b> They play exactly as the oracle defines them, so their Coupling is SCALPEL's law
+      <li><b>The presets are the bench's voicings.</b> <i>Superseded in round 7: the lab plays horde's coupling law, so they lock less than on the bench (question 49).</i> They play exactly as the oracle defines them, so their Coupling is SCALPEL's law
         (ACCOUNTING §1.6), not horde's. The browser and the patch name say so. Re-voicing is Q B3. The lab has no undo history, so
         loading a preset is not a history step.</li>
     </ol>
@@ -881,6 +915,49 @@ Coupling × Detune XY</b> for the swarm.</div>
         (scalpel-bench.html:1238) and as ACCOUNTING §1.8.1 already records. It is not a data bug. The same holds for
         <code>rot2Follow</code> ([with blade 1, its own], default 1 = with blade 1), which §1.8.1's list of affected rows omits.</li>
     </ol>
+    <h2 style="margin-top:10px">Round 7 (B309) — the waveform stays in view; the lab plays horde's swarm; interplay drawn as heard</h2>
+    <ol start="43">
+      <li><b>The pin</b> (the human: "Could we have the waveforms stay visible at the top of the controls panel when scrolling to the advanced
+        controls?"). On OSC the view row, the cycle view and the beam are one sticky block at the top of the Controls scroller; the strip above
+        (Osc on, Members, Base, Volume) scrolls away, and One level down and Advanced scroll beneath. Measured with both tiers open: skin A pins
+        215 px of the 595 px column and leaves 380 px to scroll in; skin C, whose cycle view is its editor at 200 px, pins 317 px and leaves 278.
+        Every control can be brought fully below the pin (a self-check brings each one there). MAIN has no scroller, so its cycle views are always
+        in view and nothing changes there. <span class="rec">Recommend: as built for skins A and B.</span> For skin C, see question 44.</li>
+      <li><b>A compact pin for skin C?</b> 278 px beneath is one blade row and a tier heading. <span class="rec">Recommend: not yet.</span> In skin C the
+        cycle view is the editor, so shrinking it where it is pinned shrinks the editing surface exactly when the hand is on it. If the human finds
+        the band too short, the proposal is the cycle view at skin A's 132 px while the pin is stuck (the full 200 px at the top), which gives 346 px beneath.</li>
+      <li><b>The lab plays the composed engine</b> (the human, on the greyed swarm laws: "Can they be reintroduced?"). B298's engine: horde's swarm
+        (<code>swarmsaw.html</code>'s SwarmSynth: its coupling law, onset lock, dissolve, drift, inertia and detune laws) drives the members, and the
+        oracle's blades ride on them. The monitor, the audio worklet and every self-check build the same class (a check renders the worklet's own
+        source against the monitor's class, bit-identical). Voiced now: Onset lock, Dissolve and Drift (T2), and the detune law, Octave spread, Root
+        anchor, Harmonic reach, Stretch B, Drift rate, Inertia and its curve (T3). A sub-parameter the current law does not read is drawn inert with
+        the reason, as Cut spread is under a rule. <b>Not voiced</b>, said where they sit: Coherence → Tone and the output stage and envelope (still
+        the oracle's, D11), and the specialists listed in Advanced, which the engine plays at their defaults where SwarmSynth has them.</li>
+      <li><b>Onset below 0.</b> The JS reference is symmetric (8·onset², <code>swarmsaw.html:355</code>), so −1 plays the same sync burst as +1;
+        horde's C++ plays a splay burst there (ADR-056). The lab labels it on the control and under it. <span class="rec">Open for the human (B298 gap 1):</span>
+        amend the protected reference (a human gate), or override the engine's control tick (about 170 copied lines).</li>
+      <li><b>The tempo-grid law</b> (law 3) is listed and disabled: SwarmSynth has no law 3 and would play it as ERB (B298 finding 3).</li>
+      <li><b>Inertia's tier.</b> ACCOUNTING's global table (G6, G7) has no tier column, and §2's T2 list ("Onset, Dissolve, Drift depth, …") does
+        not name Inertia, so it sits at T3 by "every surviving specialist control". <span class="rec">Ask the human:</span> they asked for it by name,
+        which argues for T2 beside Onset and Dissolve.</li>
+      <li><b>The presets lock less here.</b> The 83 bench presets were voiced on SCALPEL's coupling law, which pulls ≈1–9× harder than horde's at the
+        same K. B298 measured it: at N 5, 14 c, 110 Hz, K 0.35, R 0.42 under horde's law against 0.87 under SCALPEL's. The preset box and the
+        patch name say so. <span class="rec">Recommend: re-voice their K for horde (Q B3)</span>, from the measured lock boundary.</li>
+      <li><b>Interplay, drawn as heard.</b> Where v1.1's serial mix or collision is live, each member is drawn by the oracle's own per-sample step
+        (<code>RazorCore.prototype.stepM</code>: gate and collide, then out → outSerial) over the cycle, so the chirp and the bite are drawn as they
+        integrate. CONTRIBUTIONS then show what each blade <i>adds as heard</i>: the lower blade alone, and the upper as the rest. Measured on the 7
+        Interplay presets: at one member, per sample, the drawing equals the output to float precision (round 6's parallel drawing missed by
+        0.09–2.49); as played, AT PHASE's error falls on every one (for example Fold over sync 0.55 → 0.09, Crushed burst 0.71 → 0.16, Collision
+        chirps 0.25 → 0.19). <span class="rec">Recommend: as built.</span> The cost is two stepped runs per member per viz post, only while interplay is live.</li>
+      <li><b>Interplay on the XY surfaces.</b> Upper hears, Collision → pitch and Collision → bite are roles on the waveform's and the ring's
+        mapping (the bench marks them pad-assignable); Stacking is a choice and is not. They have no blade target: one value for the pair.
+        MAIN's free XY pad still holds Width × Cut rate: what it should hold is question 38, the human's.</li>
+      <li><b>Two "Drift rate" controls.</b> Horde's Drift rate (pitch drift, row 10) is on the page now, so SCALPEL's spread-drift rate takes
+        ACCOUNTING F2's label, <b>Spread drift</b>. Its key and id do not move.</li>
+      <li><b>The lab needs serving now.</b> The engine reads <code>reference/swarmsaw.html</code> as text, which only a fetch can do, so a lab
+        opened from the filesystem plays and draws nothing and says why, rather than fall back to the oracle alone behind the same controls.
+        <span class="rec">Recommend: as built</span> (the presets already needed serving).</li>
+    </ol>
   </div>
   <div class="box" id="misread" style="grid-column:1 / -1">
     <h2>What you see vs what you hear (B297)</h2>
@@ -910,11 +987,28 @@ function mulberry32(a) {
   };
 }
 /* `class RazorCore` in a classic script is a global LEXICAL binding: visible here
-   by name, never as window.RazorCore, hence the typeof test. */
-const CORE = (typeof RazorCore === 'function') ? RazorCore : null;
+   by name, never as window.RazorCore, hence the typeof test. The same holds for the
+   engine module's two functions. */
+const RAZOR = (typeof RazorCore === 'function') ? RazorCore : null;
+const MAKE = (typeof makeComposedEngine === 'function') ? makeComposedEngine : null;
+const SLICE = (typeof swarmSourceFromHtml === 'function') ? swarmSourceFromHtml : null;
+/* B309 — THE LAB PLAYS THE COMPOSED ENGINE. Human, 2026-09-27, on horde's swarm laws being
+   greyed out: "Can they be reintroduced?" CORE, the class every instance on this page is
+   built from (the monitor, the audio worklet, every self-check's scratch), is B298's
+   ComposedEngine (docs/design/scalpel-horde-engine.js): horde's swarm (reference/
+   swarmsaw.html's SwarmSynth: its coupling law, onset lock, dissolve, drift, inertia, the
+   detune laws) drives the members, and RazorCore's own blade paths ride on them. It needs
+   swarmsaw.html's DSP section as TEXT, which only a fetch can read, so CORE is built at
+   boot (loadEngine) and stays null until then; a page that cannot fetch (opened from the
+   filesystem, or under the load checker) plays and draws nothing rather than fall back to
+   the oracle alone, which would be a second engine behind the same controls. RAZOR, the
+   oracle class, still supplies the SCALPEL defaults (REF) synchronously, so the controls
+   build before the engine arrives. */
+let CORE = null;
+const ENGINE = { src: null, err: '' };
 /* The seeded shim over Math.random, installed ONLY when the oracle is present
    (under the load checker Math is the checker's own, and must not be touched). */
-function seedOracle(n) { if (CORE) Math.random = mulberry32(n >>> 0); }
+function seedOracle(n) { if (RAZOR) Math.random = mulberry32(n >>> 0); }
 const SR = 48000;
 const frac = x => x - Math.floor(x);
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -978,7 +1072,7 @@ R('frame', 'Blade frame', 329, 'T2', 'e', 0, 1, '', '', [[0, 'member'], [1, 'swa
 R('phaseMode', 'Start phases', '330 + 18', 'T2', 'e', 0, 2, '', '', [[2, 'settled'], [0, 'random'], [1, 'aligned']]);
 R('panOrder', 'Pan order', 331, 'T3', 'e', 0, 1, '', '', [[0, 'balanced'], [1, 'fan']]);
 R('law', 'Spread law', 332, 'T2', 'e', 0, 4, '', '', E_LAW);
-R('driftRate', 'Drift rate', 333, 'T3', 'c', 0.02, 12, 'log', 'Hz');
+R('driftRate', 'Spread drift', 333, 'T3', 'c', 0.02, 12, 'log', 'Hz');   // B309: ACCOUNTING F2's label, now horde's Drift rate is on the page too
 R('bspread', 'Pos spread', 334, 'T2', 'c', 0, 1, 'lin', '%');
 R('kspread', 'Cut spread', 335, 'T2', 'c', 0, 24, 'lin', 'h');
 R('kRule', 'Cut rule', 336, 'T2', 'e', 0, 9, '', '', E_RULE);
@@ -1059,35 +1153,57 @@ R('aa', 'Band-limit', '16', 'T3', 'e', 0, 1, '', '', [[1, 'clean'], [0, 'raw']])
    set it to 1). ACCOUNTING §1.4 row 30: MERGES → absK (31) under horde's law, T3. */
 R('cScale', 'Coupling time', '31', 'T3', 'e', 0, 1, '', '', [[0, 'seconds'], [1, 'cycles']]);
 /* horde rows that SURVIVE: tab power and pitch are voiced through lab mappings
-   (enable → gain 0; octave/semi/fine → the oracle's `bend`); the rest are drawn,
-   not voiced, because the oracle has no such law */
+   (enable → gain 0; octave/semi/fine → the engine's `bend`); the rest marked x are
+   drawn, not voiced, because the lab's engine has no such law */
 R('enable', 'Osc on', '150', 'T1', 't', 0, 1);
 R('octave', 'Octave', '35', 'T2', 'c', -2, 2, 'int', 'st');
 R('semi', 'Semitones', '36', 'T2', 'c', -12, 12, 'int', 'st');
 R('fine', 'Fine', '37', 'T2', 'c', -100, 100, 'lin', 'c');
 R('rtone', 'Coherence → Tone', '12', 'T2', 'x', -1, 1, 'lin', 'bi');
-R('onset', 'Onset lock', '7', 'T2', 'x', -1, 1, 'lin', 'bi');
-R('dissolve', 'Dissolve', '8', 'T2', 'x', 0.05, 7.94, 'log', 's');
-R('driftDepth', 'Drift', '9', 'T2', 'x', 0, 100, 'lin', 'c');
+/* B309 — horde's swarm rows the COMPOSED engine voices (scalpel-horde-engine.js header, its
+   `d` keys, read unsmoothed). Ranges, defaults and ids are ACCOUNTING §1.1/§1.2's (rows 5, 7,
+   8, 9, 10, 61-64, G6, G7); tiers are §1.4's where the row has one, and T3 for G6/G7, whose
+   table has no tier column: §2's T2 list ("Onset, Dissolve, Drift depth, …") does not name
+   Inertia, and T3 takes "every surviving specialist control". Two keys carry an `h.` prefix
+   because SCALPEL owns the plain name (§1.8.4): `h.law` (horde's Detune Law; SCALPEL's `law`
+   is the spread law) and `h.driftRate` (horde's pitch Drift Rate; SCALPEL's `driftRate` walks
+   blade offsets). Law 3, the tempo grid, is NOT in the JS reference (SwarmSynth plays it as
+   ERB, trace b298 finding 3), so it is listed and disabled (the third element: why). */
+const LAW3 = 'not in the JS reference: SwarmSynth has no law 3 (it would play as ERB) — B298 finding 3';
+R('onset', 'Onset lock', '7', 'T2', 'c', -1, 1, 'lin', 'bi');
+R('dissolve', 'Dissolve', '8', 'T2', 'c', 0.05, 7.94, 'log', 's');
+R('driftDepth', 'Drift', '9', 'T2', 'c', 0, 100, 'lin', 'c');
+R('h.driftRate', 'Drift rate', '10', 'T3', 'c', 0, 1, 'lin', 'n');
+R('h.law', 'Detune law', '5', 'T3', 'e', 0, 5, '', '', [[0, 'cents'], [1, 'Hz'], [2, 'ERB'], [3, 'tempo grid', LAW3], [4, 'harmonic'], [5, 'stretch']]);
+R('harmReach', 'Harmonic reach', '79', 'T3', 'c', 0.25, 4, 'lin', 'n');
+R('stretchB', 'Stretch B', '80', 'T3', 'c', 0, 6, 'lin', 'n');
+R('spread', 'Octave spread', '81', 'T3', 'c', 1, 24, 'lin', 'x');
+R('anchor', 'Root anchor', '82', 'T3', 'c', 0, 1, 'lin', '%');
+R('inertia', 'Inertia', '11', 'T3', 'c', 0, 1, 'lin', '%');
+R('inertiaCurve', 'Inertia curve', '70', 'T3', 'c', 0.3, 5, 'lin', 'n');
 R('vol2', 'Swarm 2', '1017', 'T1', 'x', 0, 1, 'lin', '%');
 R('subLvl', 'Sub level', '53', 'T1', 'x', 0, 1, 'lin', '%');
 R('master', 'Master', '100', 'T1', 'c', 0, 1.5, 'lin', '%');
-/* horde's specialist swarm rows (T3, ACCOUNTING §1.1): named in Advanced, not drawn as controls */
-const HORDE_T3 = ['Distribution', 'Seed', 'Detune Law', 'Density Comp', 'Digital', 'Topology', 'Ring Reach', 'Cluster Link',
+/* horde's specialist swarm rows (T3, ACCOUNTING §1.1): named in Advanced, not drawn as controls.
+   B309: the detune law, its sub-parameters and Drift Rate left this list for real controls (above) */
+const HORDE_T3 = ['Distribution', 'Seed', 'Density Comp', 'Digital', 'Topology', 'Ring Reach', 'Cluster Link',
   'Phase Lag', 'Poles q', 'Gravity', 'Basin', 'Absolute Coupling', 'Phase Scatter', 'Pan Scatter', 'A/B Balance', 'Tone Tilt',
-  'Hi Tame', 'Drift Mode', 'Keep Phase', 'Pan Motion', 'Pan Motion Mode', 'Centre Pin', 'Harmonic Reach', 'Stretch B',
-  'Octave Spread', 'Root Anchor', 'Pivot', 'Pan Image', 'Fan Curve', 'Fan Invert', 'Super-Width Mode', 'Onset Scatter',
-  'Timing Correction', 'Attack Scatter', 'Per-Partial Env', 'Release Scatter', 'Drift Rate'];
+  'Hi Tame', 'Drift Mode', 'Keep Phase', 'Pan Motion', 'Pan Motion Mode', 'Centre Pin',
+  'Pivot', 'Pan Image', 'Fan Curve', 'Fan Invert', 'Super-Width Mode', 'Onset Scatter',
+  'Timing Correction', 'Attack Scatter', 'Per-Partial Env', 'Release Scatter'];
 const TIER_RANK = { T1: 1, T2: 2, T3: 3 };
 
-/* keys the oracle knows: t (smoothed) ∪ d (discrete), read from a live instance */
-const REF = CORE ? new CORE(SR) : null;
+/* keys the engine knows: t (smoothed) ∪ d (discrete), read from a live instance. REF is the
+   ORACLE (its keys and defaults are the composed engine's too: ComposedEngine extends it and
+   only adds `d` keys); loadEngine() adds the engine's own horde keys to ORK and DEF */
+const REF = RAZOR ? new RAZOR(SR) : null;
 /* `os` is neither smoothed nor discrete in the oracle: set() routes it to setOS() and the value lives
    on the instance (razor-core.js set/setOS), so it is added by hand or it would never be sent */
 const ORK = new Set(REF ? Object.keys(REF.t).concat(Object.keys(REF.d), ['os']) : []);
 /* defaults: the ORACLE's own constructor values (read, not copied), plus the
-   horde rows it lacks at the accounting's defaults */
-const LAB_DEF = { b1on: 1, enable: 1, octave: 0, semi: 0, fine: 0, rtone: 0, onset: 0, dissolve: 0.63, driftDepth: 0,
+   horde rows it lacks at the accounting's defaults. B309: onset, dissolve and driftDepth
+   left this list; the composed engine's constructor supplies them (loadEngine) */
+const LAB_DEF = { b1on: 1, enable: 1, octave: 0, semi: 0, fine: 0, rtone: 0,
   vol2: 0.4, subLvl: 0, master: 0.8 };
 function oracleDefaults() {
   if (REF) return Object.assign({}, REF.t, REF.d, { os: REF.os });
@@ -1148,8 +1264,16 @@ function addrOf(key) {
   const sp = SP[key]; if (!sp) return key;
   if (typeof sp.id === 'number') return 'bl.' + key + ' · id ' + sp.id + ' (osc 2: ' + (sp.id + 1000) + ') · ' + sp.tier;
   if (sp.id === 'unallocated') return 'bl.' + key + ' · id not yet allocated (SCALPEL v1.1, B300) · ' + sp.tier;
-  return (sp.kind === 'x' ? 'horde row ' : 'horde ') + sp.id + ' · ' + sp.tier + (sp.kind === 'x' ? ' · not in the oracle: drawn, not voiced' : '');
+  return (sp.kind === 'x' ? 'horde row ' : 'horde ') + sp.id + ' · ' + sp.tier +
+    (/^h\./.test(key) ? ' · key ' + key + ' (SCALPEL owns `' + key.slice(2) + '`, ACCOUNTING §1.8.4)' : '') +
+    (sp.kind === 'x' ? ' · not in the lab\'s engine: drawn, not voiced' : '') + (HORDE_NOTE[key] ? '\n' + HORDE_NOTE[key] : '');
 }
+/* B309: what a voiced horde row does, and where its JS reference and horde's C++ part */
+const HORDE_NOTE = {
+  onset: 'Onset below 0: the JS reference (SwarmSynth, 8·onset², swarmsaw.html:355) plays the SAME sync burst as above 0; horde\'s C++ plays a SPLAY burst there (ADR-056). The lab plays the JS reference: a known gap (B298 finding 1).',
+  'h.law': 'Tempo grid (law 3) is not offered: the JS reference has no law 3 (B298 finding 3).',
+  inertiaCurve: 'The engine receives Inertia^curve (the shell\'s taper, hypersaw_clap.cpp:7307-7313); SwarmSynth itself has no curve.'
+};
 
 /* ======================================================================
    B. STATE — declared before anything that runs at setup (L0026)
@@ -1251,7 +1375,12 @@ const XY_ROLES = [
   ['mspread', 'Shape spread'], ['ispread', 'FM idx spread'], ['rotSpread', 'Rotate spread'], ['kRuleAmt', 'Rule depth'],
   ['benvK', 'Env → cut'], ['benvW', 'Env → width'], ['benvD', 'Env decay']
 ];
-const XY_SWARM = [['detune', 'Detune'], ['K', 'Coupling'], ['width', 'Stereo'], ['xm', 'Cross-mod'], ['fb', 'Feedback'], ['driftRate', 'Drift rate']];
+const XY_SWARM = [['detune', 'Detune'], ['K', 'Coupling'], ['width', 'Stereo'], ['xm', 'Cross-mod'], ['fb', 'Feedback'], ['driftRate', 'Spread drift']];
+/* B309: v1.1's blade interplay, pad-assignable in the bench (parameters.json rows 85-87,
+   `padAssignable`). One value for the PAIR of blades, not one per blade, so like a swarm
+   role it has no target: a drag moves it wherever it starts (xyIsSwarm). b2order is a
+   choice, not pad-assignable, and stays off the surfaces. */
+const XY_PLAY = [['b2mix', 'Upper hears'], ['colK', 'Collision → pitch'], ['colB', 'Collision → bite']];
 /* travel on the cycle view: a non-circular parameter crosses its whole taper in
    XY_PX pixels (in position units, so Width's bypass zone and Cut rate's log law
    are respected); a CIRCULAR one (Position) moves one cycle per canvas width, so
@@ -1332,7 +1461,18 @@ function writeMany(o) {
 const RULE_OWN = { kspread: 1, kspread2: 2, kRuleAmt: 1, kRuleAmt2: 2 };
 function ruleOf(b) { return b === 1 ? P.kRule : (linked('kRule2') ? P.kRule : P.kRule2); }
 function ruleName(r) { const o = E_RULE.find(q => q[0] === r); return o ? o[1] : String(r); }
+/* B309: the same rule for horde's swarm rows, from SwarmSynth.controlTick (swarmsaw.html:388-439,
+   :525): what each law reads, drift's rate only while there is drift, the curve only with inertia */
+const HORDE_INERT = {
+  harmReach: () => (P['h.law'] === 4 ? '' : 'INERT under Detune law "' + lawName(P['h.law']) + '": only "harmonic" reads Harmonic reach.'),
+  stretchB: () => (P['h.law'] === 5 ? '' : 'INERT under Detune law "' + lawName(P['h.law']) + '": only "stretch" reads Stretch B.'),
+  anchor: () => (P['h.law'] === 4 ? 'INERT under Detune law "harmonic": it is root-anchored by construction and ignores Root anchor.' : ''),
+  'h.driftRate': () => ((P.driftDepth || 0) > 0 ? '' : 'INERT while Drift is 0: the swarm drifts, at this rate, only when Drift is above 0.'),
+  inertiaCurve: () => ((P.inertia || 0) > 0 ? '' : 'INERT while Inertia is 0: the engine receives Inertia^curve, and 0^curve is 0.')
+};
+function lawName(v) { const o = SP['h.law'].opts.find(q => q[0] === v); return o ? o[1] : String(v); }
 function inertWhy(key) {
+  if (HORDE_INERT[key]) return HORDE_INERT[key]();
   const b = RULE_OWN[key]; if (!b) return '';
   const r = ruleOf(b), who = b === 2 ? (linked('kRule2') ? " (blade 2 follows blade 1's spreads)" : " (blade 2's own)") : '';
   if (key === 'kspread' || key === 'kspread2')
@@ -1442,7 +1582,7 @@ function monStrike(kind, what) {
 }
 /* hand the new instance the rotation the old one had reached: the free-running clocks
    always, and for a patch strike the voice's and every member's own (rotSpread) too.
-   These are the oracle's own fields (razor-core.js:280, :289, :294); nothing is computed. */
+   These are the oracle's own fields (razor-core.js:332, :341, :346); nothing is computed. */
 function rotCarry(old, ov, c, voice) {
   c.gRot = old.gRot; c.gRot2 = old.gRot2;
   const v = liveVoice(c); if (!voice || !ov || !v) return;
@@ -1452,7 +1592,7 @@ function rotCarry(old, ov, c, voice) {
 /* B299: the RE-STRIKE pill's re-trigger — the held note struck again on the SAME instance,
    as a key struck again reaches the audio's: RazorCore.noteOn finds the sounding voice
    (fresh = false), so the phases and the free-running clocks run on and only "restart per
-   note" restarts (razor-core.js:360). While the audio holds the note (HOLD) it gets the same
+   note" restarts (razor-core.js:412). While the audio holds the note (HOLD) it gets the same
    message, so drawn and heard re-strike together; while it plays keys, the monitor waits
    for them instead, so it never re-strikes something nobody hears re-struck. */
 function monRetrigger() {
@@ -1543,7 +1683,8 @@ function bladeAt(p, phi, cc, kk, mr, mn, ns, ns2, modX) {
    `xin` (B294, optional): the cross-mod phase push at each point, in cycles of the
    blade carrier — the oracle's own `ns.xin`, which voice() adds to the Sync, FM and
    Ring carriers (razor-core.js voice, cases 0/1/2/5) and nothing else reads. */
-function memberCycle(c, x, M, xin) {
+function memberCycle(c, x, M, xin, parallel) {
+  if (!parallel && x.G && interplayLive(x.P1)) return memberCycleStepped(x, M, xin);   // B309, below
   const P1 = x.P1, base = new Float64Array(M), d1 = new Float64Array(M), d2 = new Float64Array(M);
   const ns = newNs(0x51 + x.i), ns2 = newNs(0x52 + x.i), ns3 = newNs(0x53 + x.i), ns4 = newNs(0x54 + x.i);
   const on1 = P1.w >= 0.004, st1 = frac(x.c1 - P1.w / 2), kk1 = P1.lock === 1 ? x.k1 / Math.max(P1.w, 1e-3) : x.k1;
@@ -1567,6 +1708,60 @@ function memberCycle(c, x, M, xin) {
   return { base, d1, d2, st1, w1: on1 ? P1.w : 0, st2, w2: on2 ? G.w : 0,
     p1: P1, p2: G, c1: x.c1, c2: x.c2 };
 }
+/* B309 — BLADE INTERPLAY, DRAWN AS HEARD. SCALPEL v1.1 (SPEC-SCALPEL §13) makes the two
+   blades act on each other, so the member is no longer base + blade 1 + blade 2:
+   - SERIAL MIX λ (`b2mix`): the upper blade transforms base + λ·(the lower blade's whole
+     contribution, twins included) instead of the base (razor-core.js outSerial, :281-303);
+   - COLLISION (`colK`, `colB`): while the windows overlap (the product of the two gates,
+     `gate`, :240-246) the upper blade's carrier runs faster or slower, INTEGRATED from its
+     window entry (`collide`, :248-253, so it chirps), and an upper FM/Fold bites harder;
+   - STACKING (`b2order`) says which blade is upper.
+   Collision is state carried from one sample to the next, so no per-point formula can draw
+   it. So the member is drawn by the ORACLE'S OWN per-sample step, RazorCore.prototype.stepM
+   (:655-723: fmStep, the collision block, then out(), which calls outSerial), run on a scratch
+   member over the drawn cycle, one step per point. It is RazorCore's stepM, not the composed
+   engine's override (that one also ticks the swarm, which a drawing must not). With band-
+   limiting off stepM's result is out() at the new phase, one sample late (m.prev), which is
+   read after each step. Two cycles are stepped and the second is kept, so a window that wraps
+   past 0 enters with the state it has in steady state (the collision chirp restarts at each
+   entry; FM reset's integrator too). Each point's phase and modulator phase are set as the
+   parallel path sets them (φ = n/M, modX = mEff·φ), so the two paths agree when nothing
+   interacts (a check holds that).
+   The CONTRIBUTIONS are what each blade ADDS as heard: a second run with the upper blade
+   bypassed (w 0: outSerial then returns base + the lower's contribution, and no collision
+   fires) gives the lower's; the upper's is the rest. They still sum to the drawn member. */
+const STEP_M = RAZOR ? RAZOR.prototype.stepM : null;
+/* interplay is live exactly where the oracle takes it (out(): b2mix > 1e-6; stepM: colK || colB) */
+function interplayLive(p) { return !!p.b2on && (p.b2mix > 1e-6 || !!p.colK || !!p.colB); }
+function steppedCycle(x, M, xin, dropUpper) {
+  const P1 = Object.assign({}, x.P1, { aa: 0 }), G = Object.assign({}, x.G);
+  if (dropUpper) { if (P1.b2order) P1.w = 0; else G.w = 0; }
+  const m = { phi: 0, modX: 0, prev: 0, ns: newNs(0x51 + x.i), ns2: newNs(0x52 + x.i),
+    bx: { g: G, c: x.c2, k: x.k2, modX: 0, mr: x.mr2, mn: x.mn2, ns3: newNs(0x53 + x.i), ns4: newNs(0x54 + x.i) } };
+  const acc = { _cc: 0, _cp: 0 }, y = new Float64Array(M), dphi = 1 / M;   // stepM's BLEP sums: 0 with aa off
+  for (let k = 0; k < 2 * M; k++) {
+    const n = k % M, t = n / M;
+    m.phi = frac(t - dphi); m.modX = P1.mEff * (t - dphi);                 // the step lands on φ = t, modX = mEff·t
+    if (P1.b2fm) m.bx.modX = G.mEff * (t - dphi);
+    if (xin) { const v = xin[n]; m.ns.xin = v; m.ns2.xin = v; m.bx.ns3.xin = v; m.bx.ns4.xin = v; }   // render sets all four
+    CORE.mr = x.mr1; CORE.mn = x.mn1;
+    STEP_M.call(acc, m, dphi, x.c1, x.k1, P1);
+    if (k >= M) y[n] = m.prev;
+  }
+  return y;
+}
+function memberCycleStepped(x, M, xin) {
+  const P1 = x.P1, G = x.G, base = new Float64Array(M), d1 = new Float64Array(M), d2 = new Float64Array(M);
+  const all = steppedCycle(x, M, xin, false), lower = steppedCycle(x, M, xin, true), up2 = !P1.b2order;
+  for (let n = 0; n < M; n++) {
+    base[n] = CORE.wave(P1.base, n / M);
+    const dl = lower[n] - base[n], du = all[n] - lower[n];
+    d1[n] = up2 ? dl : du; d2[n] = up2 ? du : dl;
+  }
+  const on1 = P1.w >= 0.004, on2 = G.w >= 0.004;
+  return { base, d1, d2, st1: frac(x.c1 - P1.w / 2), w1: on1 ? P1.w : 0, st2: frac(x.c2 - G.w / 2), w2: on2 ? G.w : 0,
+    p1: P1, p2: G, c1: x.c1, c2: x.c2, stepped: true };
+}
 /* the whole swarm's cycle, cached per oracle viz message */
 function cycleData() {
   const c = MON.core, viz = MON.viz;
@@ -1589,13 +1784,15 @@ function cycleData() {
    Its magnitude is zero by construction at xm = 0, and zero for a blade whose mode
    ignores the push (Noise, Fold, Crush) — the check in K holds both. */
 const XM_ON = 0.0005;                       // the oracle's own threshold (render: s.xm > 0.0005)
-function cycleFrom(c, viz) {
+/* `parallel` (B309): draw every member as the parallel sum even where interplay is live —
+   round 6's drawing, kept only as the checks' must-fail control */
+function cycleFrom(c, viz, parallel) {
   /* N = 1 is not special-cased: the oracle's ring index (q + 1) % N makes a lone member push itself */
   const N = c.d.N, M = 384, xm = c.s.xm || 0, xOn = xm > XM_ON;
   const ctx = [];
   for (let i = 0; i < N; i++) ctx.push(memberCtx(c, viz, i));
   const outOf = cy => { const o = new Float64Array(M); for (let n = 0; n < M; n++) o[n] = cy.base[n] + cy.d1[n] + cy.d2[n]; return o; };
-  let mem = ctx.map(x => memberCycle(c, x, M, null));
+  let mem = ctx.map(x => memberCycle(c, x, M, null, parallel));
   const stat = mem.map(outOf);
   if (xOn) {
     const ph = viz.mem.phi || viz.phases || [];
@@ -1606,7 +1803,7 @@ function cycleFrom(c, viz) {
         const j = (i + 1) % N, off = Math.round(frac((ph[j] || 0) - (ph[i] || 0)) * M), nb = prev[j], xin = new Float64Array(M);
         /* at member i's phase n/M, member j sits `off` points further on; [n−1] is the previous sample */
         for (let n = 0; n < M; n++) xin[n] = 0.5 * xm * nb[(n - 1 + off + M) % M];
-        const cy = memberCycle(c, x, M, xin);
+        const cy = memberCycle(c, x, M, xin, parallel);
         next.push(outOf(cy));
         return cy;
       });
@@ -1815,7 +2012,7 @@ function drawWindow(g, st, w, b, p, W, top, bot, alpha, twin, edge) {
 function paintCycle(cv, mini) {
   const [g, W, H] = fit(cv); if (!g) return;
   tube(g, W, H);
-  if (!CORE) { say(g, W, H, 'oracle not loaded — open via tools/serve_labs.py'); return; }
+  if (!CORE) { say(g, W, H, 'engine not loaded — open via tools/serve_labs.py'); return; }
   const cy = cycleData(); if (!cy) { say(g, W, H, 'monitor warming up'); return; }
   const top = 3, bot = H - 3, mid = H / 2;
   g.strokeStyle = TOKA('--scr-grid', 0.18); g.lineWidth = 1; g.beginPath();
@@ -1884,17 +2081,24 @@ function paintCycle(cv, mini) {
   else if (cv === XY.cv) xyOverlay(g, W, top, bot, cycleView(cv));
   /* B299: a strike names itself for a second of monitor time, so no jump is unexplained */
   if (MON.why && MON.clock - MON.whyAt < MON_WHY) { g.textAlign = 'right'; labelBox(g, '↻ ' + MON.why, W - 5, bot - 14, '--scr-marker'); g.textAlign = 'left'; }
-  if (interplayOn(EFF)) { g.textAlign = 'right'; labelBox(g, INTERPLAY_NOTE, W - 5, bot - 28, '--scr-marker'); g.textAlign = 'left'; }
+  if (!mini && interplayOn(EFF)) { g.textAlign = 'right'; labelBox(g, interplayTag(EFF), W - 5, bot - 28, '--scr-grid'); g.textAlign = 'left'; }
   g.textBaseline = 'alphabetic';
 }
-/* B300 — the cycle view builds each member as base + blade 1 + blade 2 (memberCycle), a
-   PARALLEL sum. SCALPEL v1.1's serial mix (λ, `b2mix`) and collision (`colK`, `colB`) change
-   what is heard in ways that sum cannot show (L0064: drawing is not hearing), so while either
-   is live the view says so. Both need blade 2 (razor-core.js out(): `bx && p.b2mix > 1e-6`;
-   stepM's collision block: `bx && on && on2`), so with blade 2 off the drawing is still right
-   and no notice is shown. Drawing interplay itself is the next lab round, not this one. */
-const INTERPLAY_NOTE = 'interplay: drawn as parallel — the beam is what you hear';
+/* B300 put a notice here ("interplay: drawn as parallel — the beam is what you hear"): the
+   cycle view summed the blades in parallel, which v1.1's serial mix and collision are not.
+   B309 draws them as the oracle steps them (memberCycleStepped), so the notice is gone and
+   the view names what it is drawing instead: which blade is upper, λ, and the collision
+   amounts. Both need blade 2 (razor-core.js out(): `bx && p.b2mix > 1e-6`; stepM's collision
+   block: `bx && on && on2`), so with blade 2 off nothing is named. */
 function interplayOn(p) { return !!p.b2on && (p.b2mix > 1e-6 || p.colK !== 0 || p.colB !== 0); }
+function interplayTag(p) {
+  const up = p.b2order ? '① over ②' : '② over ①', bits = [];
+  if (p.b2mix > 1e-6) bits.push(up + ' · upper hears λ ' + p.b2mix.toFixed(2));
+  else if (p.colK || p.colB) bits.push(up);
+  if (p.colK) bits.push('collision → pitch ' + fmtVal(SP.colK, p.colK));
+  if (p.colB) bits.push('→ bite ' + fmtVal(SP.colB, p.colB));
+  return 'INTERPLAY · ' + bits.join(' · ') + ' (drawn as heard)';
+}
 /* B297 — which member AT PHASE lifts: the one grabbed with the drag, else the one whose
    curve is nearest the pointer (within 14 px), else none. XY.pt is the pointer in the
    canvas (xyWire). The member under the hand is what the human asks about, and a
@@ -1953,7 +2157,7 @@ const XM_FULL = 1;
 function paintRing(cv, mini) {
   const [g, W, H] = fit(cv); if (!g) return;
   tube(g, W, H);
-  if (!CORE) { say(g, W, H, 'oracle not loaded'); return; }
+  if (!CORE) { say(g, W, H, 'engine not loaded'); return; }
   const c = MON.core, v = liveVoice(c), cy = cycleData();
   if (!v || !cy) { say(g, W, H, 'monitor warming up'); return; }
   const N = c.d.N, G = ringGeom(W, H, N, mini), cx = G.cx, cyy = G.cy, Rr = G.Rr;
@@ -2147,7 +2351,7 @@ function ringReadout() {
 function paintSpectrum(cv) {
   const [g, W, H] = fit(cv); if (!g) return;
   tube(g, W, H);
-  if (!CORE || !MON.core) { say(g, W, H, 'oracle not loaded'); return; }
+  if (!CORE || !MON.core) { say(g, W, H, 'engine not loaded'); return; }
   const fLo = 30, fHi = 20000, top = 4, bot = H - 13;
   const fx = f => Math.log(f / fLo) / Math.log(fHi / fLo) * W;
   const dy = db => top + (1 - (db + 100) / 100) * (bot - top);
@@ -2270,7 +2474,7 @@ function beamPeriod(m, M) { const o = new Float64Array(M); for (let n = 0; n < M
 function paintBeam(cv) {
   const [g, W, H] = fit(cv); if (!g) return;
   tube(g, W, H);
-  if (!CORE || !MON.core) { say(g, W, H, 'oracle not loaded'); return; }
+  if (!CORE || !MON.core) { say(g, W, H, 'engine not loaded'); return; }
   g.strokeStyle = TOKA('--scr-grid', 0.40); g.lineWidth = 1;
   g.beginPath(); g.moveTo(0, Math.round(H / 2) + 0.5); g.lineTo(W, Math.round(H / 2) + 0.5); g.stroke();
   const f0 = MON.f * Math.pow(2, (EFF.bend || 0) / 12), v = liveVoice(MON.core);
@@ -2342,7 +2546,7 @@ function carpetModel(hist) {
 function paintCarpet(cv) {
   const [g, W, H] = fit(cv); if (!g) return;
   tube(g, W, H);
-  if (!CORE) { say(g, W, H, 'oracle not loaded'); return; }
+  if (!CORE) { say(g, W, H, 'engine not loaded'); return; }
   const m = carpetModel(MON.hist);
   if (!m) { say(g, W, H, 'monitor warming up'); return; }
   const n = m.rows, rowH = (H - 4) / n, X = p => 4 + p * (W - 8), Y = i => 2 + (i + 0.5) * rowH;
@@ -2385,19 +2589,23 @@ function paintCarpet(cv) {
    - PAN: the gains the oracle applies, c.gl[i] / c.gr[i] (razor-core.js render: ang =
      (pos·width + 1)·π/4, gl = cos, gr = sin), inverted to pos·width ∈ [−1, 1]. The viz
      post carries no pan, so it is read off the instance; it includes Stereo.
-   - TARGET pitch: couple()'s own law, cents_i = detune·(2i/(N−1) − 1) (razor-core.js
-     couple), recomputed here from the oracle's smoothed s.detune and d.N: couple() folds
-     it into `inc` at once, so no field holds it.
-   - ACTUAL pitch: the heard increment, m.inc·v.gr (couple() sets inc = target + the
-     coupling pull; render advances by inc·gr), against v.freq·2^(bend/12).
+   - TARGET pitch (B309): the swarm's own natural frequency, SwarmSynth's vf[i] (swarmsaw.html
+     controlTick: the detune law, its sub-parameters and the drift, before the coupling), read
+     off the composed engine's swarm for this voice (c.sw.swarms[v.si]) against its f0. Round 4
+     recomputed couple()'s cents law, detune·(2i/(N−1) − 1): the ORACLE's law, which the lab no
+     longer plays (it is still what horde's law 0 gives at Distribution even).
+   - ACTUAL pitch: the heard increment, m.inc·v.gr (the composed couple() sets inc to the
+     swarm's eff[i] = target + the coupling pull; render advances by inc·gr), against
+     v.freq·2^(bend/12).
    The root (gui2's star) is the member seated nearest pan centre, min |pan|. */
 function vmapModel(c) {
   const v = liveVoice(c); if (!v) return null;
   const N = c.d.N, s = c.s, f = v.freq * Math.pow(2, (s.bend || 0) / 12), gr = v.gr || 1;
+  const S = c.sw && v.si !== undefined ? c.sw.swarms[v.si] : null;
   const pan = [], tgt = [], act = [];
   for (let i = 0; i < N; i++) {
     pan.push(Math.atan2(c.gr[i], c.gl[i]) * 4 / Math.PI - 1);
-    tgt.push(N > 1 ? s.detune * (2 * i / (N - 1) - 1) : 0);
+    tgt.push(S && S.vfInit ? 1200 * Math.log2(Math.max(1e-9, S.vf[i]) / S.f0) : 0);
     act.push(1200 * Math.log2(Math.max(1e-9, v.m[i].inc * gr) / f));
   }
   let root = 0; for (let i = 1; i < N; i++) if (Math.abs(pan[i]) < Math.abs(pan[root])) root = i;
@@ -2432,7 +2640,7 @@ function star(g, cx, cy, r, fill, ink) {          // gui2's, verbatim: an ink-ou
 function paintVmap(cv) {
   const [g, W, H] = fit(cv); if (!g) return;
   tube(g, W, H);
-  if (!CORE) { say(g, W, H, 'oracle not loaded'); return; }
+  if (!CORE) { say(g, W, H, 'engine not loaded'); return; }
   const m = MON.core ? vmapModel(MON.core) : null;
   if (!m) { say(g, W, H, 'monitor warming up'); return; }
   /* gui2's hysteresis: grow at once, shrink only after 30 paints that all want it
@@ -2664,9 +2872,10 @@ function pills(host, key, o) {
   tagCtl(wrap, [key], o.tier);
   const fol = linked(key), sent = fol && FOLLOW_OF[key].g.sentinel;
   const cur = P[key], srcV = fol ? P[FOLLOW_OF[key].src] : null;
-  for (const [v, t] of (o.opts || sp.opts)) {
+  for (const [v, t, off] of (o.opts || sp.opts)) {
     const isLink = v === -1;
     const b = el('button', 'pill mini' + (isLink ? ' link' : ''), t);
+    if (off) { b.disabled = true; b.title = addrOf(key) + '\n' + off; wrap.appendChild(b); continue; }   // B309: an option the engine lacks
     let on = cur === v;
     if (fol && !sent && !isLink) on = srcV === v;            // switch-linked group: show blade 1's pick
     if (on && !(fol && !sent)) b.classList.add('on');
@@ -2684,7 +2893,8 @@ function sel(host, key, o) {
   const sp = SP[key], s = el('select');
   tagCtl(s, [key], o.tier);
   const fol = linked(key), cur = fol && !FOLLOW_OF[key].g.sentinel ? P[FOLLOW_OF[key].src] : P[key];
-  for (const [v, t] of sp.opts) { const op = el('option', null, t); op.value = String(v); if (v === cur) op.selected = true; s.appendChild(op); }
+  /* B309: an option with a reason (the third element) is one the engine lacks: listed, disabled, labelled */
+  for (const [v, t, off] of sp.opts) { const op = el('option', null, off ? t + ' — not available' : t); op.value = String(v); op.disabled = !!off; if (off) op.title = off; if (v === cur) op.selected = true; s.appendChild(op); }
   s.addEventListener('change', () => write(key, parseFloat(s.value)));
   host.appendChild(s);
   return s;
@@ -2748,6 +2958,8 @@ function rebuild() {
     frameHeader(FR);
     if (LAB.page === 'main') buildMain(FR); else buildOsc(FR);
   });
+  /* B309: a pinned scroller keeps what it scrolls into view clear of the pin (buildOsc) */
+  for (const sc of (FR.querySelectorAll ? FR.querySelectorAll('.scroll') : [])) if (sc._pin) sc.style.scrollPaddingTop = sc._pin.offsetHeight + 'px';
   repaintControls();
   paintCanvases();
   buildSide();
@@ -2772,13 +2984,13 @@ function frameHeader(host) {
     for (const [n, on, live] of [['Sub', P.subLvl > 0, false], ['Swarm 1', !!P.enable, true], ['Swarm 2', P.vol2 > 0, false], ['Filters', false, false]]) {
       const t = el('button', 'tab' + (live ? ' on' : ' stub'), n);
       if (n !== 'Filters') { const d = el('span', 'dot' + (on ? ' on' : '')); t.appendChild(d); }
-      t.title = live ? 'the swarm this lab voices through the oracle' : 'drawn, not voiced: the lab runs ONE oracle swarm (Swarm 2 is the same page at ids +1000)';
+      t.title = live ? 'the swarm this lab voices through the composed engine' : 'drawn, not voiced: the lab runs ONE engine swarm (Swarm 2 is the same page at ids +1000)';
       r3.appendChild(t);
     }
   }
   const r = el('div', 'phdr-r'); h.appendChild(r);
   r.innerHTML = '<b>' + escapeHtml(LAB.presetName || "oracle defaults · blade 2 on") + '</b>' +
-    (benchLoaded() ? ' <span class="bv" title="played as the bench voiced it: SCALPEL\'s coupling law, not re-voiced for horde (ACCOUNTING §1.6, Q B3)">BENCH VOICING</span>' : '') + '<br>' +
+    (benchLoaded() ? ' <span class="bv" title="voiced on the bench for SCALPEL\'s coupling law; the lab plays horde\'s, which pulls ≈1–9× softer, so it locks less here (B298; not re-voiced: ACCOUNTING §1.6, Q B3)">BENCH VOICING</span>' : '') + '<br>' +
     (LAB.page === 'osc' ? 'OSC · SWARM 1 · SCALPEL' : 'MAIN') + ' · 980×720';
 }
 function benchLoaded() { return !!(LAB.presets && LAB.presetName && LAB.presets.some(p => p.name === LAB.presetName)); }
@@ -2820,8 +3032,15 @@ function buildOsc(host) {
   gb.appendChild(el('span', 'lbl', 'BASE')); pills(gb, 'base', { tier: 'T1' });
   const kv = el('div', 'kr'); strip.appendChild(kv);
   knob(kv, 'gain', { tier: 'T1', label: 'Volume' });
-  /* the cycle view — the blades' own picture, and in skin C (or CYCLE EDITS) the editor */
-  const tools = el('div', 'cyctools'); sc2.appendChild(tools);
+  /* the cycle view — the blades' own picture, and in skin C (or CYCLE EDITS) the editor.
+     B309 (human, 2026-09-27: "Could we have the waveforms stay visible at the top of the
+     controls panel when scrolling to the advanced controls? It's hard to estimate effects
+     without visuals."): the view row, the cycle view and the beam sit in one PIN, sticky at the
+     top of this scroller, so One level down and Advanced scroll beneath them. Only the strip
+     above scrolls away. The scroller's scroll-padding is the pin's height, so a control the
+     keyboard or the browser brings into view lands below the pin, never under it. */
+  const pin = el('div', 'pin'); sc2.appendChild(pin);
+  const tools = el('div', 'cyctools'); pin.appendChild(tools);
   /* B297: the row's CYCLE label gave its 38 px to the third view pill, so the row stays one line */
   for (const [v, t, tip] of [['sum', 'SUM', 'every member over its own phase, summed: the swarm as if it were locked'],
     ['members', 'MEMBERS', 'one lane per member, each over its own phase'],
@@ -2840,13 +3059,14 @@ function buildOsc(host) {
   }
   const hint = el('span', 'vnote', cycleCaption()); hint.style.marginLeft = 'auto'; tools.appendChild(hint);
   CTLS.push(() => { hint.textContent = cycleCaption(); });      // Cross-mod is a knob, not a rebuild: keep the legend current
-  if (!editable && XY.open) xyMapRow(sc2);
-  cycleSurface(canvas(sc2, LAB.skin === 'C' ? 200 : 132, c => paintCycle(c, false), 'edit'), false);
+  if (!editable && XY.open) xyMapRow(pin);
+  cycleSurface(canvas(pin, LAB.skin === 'C' ? 200 : 132, c => paintCycle(c, false), 'edit'), false);
   /* B297: the beam sits directly under the cycle view, the same width, one period across,
      so "what is drawn" and "what is heard" read against each other. It costs the Controls
      column 60 px (its last tier bar goes under the fold, the column scrolls); the left
      column (rounds 3–4's ring, spectrum, carpet, voice map) is untouched. */
-  canvas(sc2, 56, paintBeam).title = BEAM_TIP;
+  canvas(pin, 56, paintBeam).title = BEAM_TIP;
+  sc2._pin = pin;
   bladeRow(sc2, 1); bladeRow(sc2, 2);
   tier2(sc2);
   tier3(sc2);
@@ -2919,7 +3139,7 @@ function bladeRow(host, b) {
      2026-09-27: "rotate currently isn't continuous; it jumps back to its beginning position
      at a rate I can't seem to control anywhere." Rotation (rotSync, one switch for both
      blades, T3 in the accounting) was in Advanced, and restart per note is the oracle's
-     default (razor-core.js:271, :360), so the choice that decides the jump was three levels
+     default (razor-core.js:323, :412), so the choice that decides the jump was three levels
      from the knob that shows it. Blade 2 adds its own clock switch (rot2Follow), worded as
      the oracle's options, with the copy-on-write of every blade-2 link (linkPill). A scrub,
      not a knob: it rides the WAVE line, so the face does not grow. */
@@ -3013,7 +3233,8 @@ const T2_KEYS = ['lock', 'lock2', 'morph', 'morph2', 'rotRate', 'rotRate2', 'fmT
   'kRuleAmt', 'width', 'A', 'D', 'S', 'R', 'octave', 'semi', 'fine', 'rtone', 'onset', 'dissolve', 'driftDepth', 'b2mix'];
 const T3_KEYS = ['wspread', 'dspread', 'mspread', 'ispread', 'rotSpread', 'bspread2', 'kspread2', 'kRule2', 'kRuleAmt2', 'wspread2', 'dspread2',
   'mspread2', 'ispread2', 'rotSpread2', 'b2sp', 'b2fm', 'rot2Follow', 'frame2', 'driftRate', 'kq', 'kCustom', 'dcMode', 'panOrder',
-  'rotSync', 'benvVel', 'benvVel2', 'polyMode', 'glide', 'glideAlways', 'os', 'aa', 'cScale', 'b2order', 'colK', 'colB'];
+  'rotSync', 'benvVel', 'benvVel2', 'polyMode', 'glide', 'glideAlways', 'os', 'aa', 'cScale', 'b2order', 'colK', 'colB',
+  'h.law', 'spread', 'anchor', 'harmReach', 'stretchB', 'h.driftRate', 'inertia', 'inertiaCurve'];
 function tierBox(host, title, open, keys, onToggle, cls) {
   const t = el('div', 'tier' + (open ? '' : ' closed')); host.appendChild(t);
   const h = el('div', 'thead'); t.appendChild(h);
@@ -3054,14 +3275,19 @@ function tier2(host) {
   cmpRow(c2, 'Spread law', 'law', null, T);
   cmpRow(c2, 'Cut rule', 'kRule', null, T);
   cmpRow(c2, 'Rule depth', 'kRuleAmt', null, T);
-  /* B300: v1.1's serial mix λ. It acts only with blade 2 on, and the cycle view still
-     draws the blades as a parallel sum (INTERPLAY_NOTE says so there) */
+  /* B300: v1.1's serial mix λ. It acts only with blade 2 on; the cycle view draws it as
+     heard since B309 (memberCycleStepped) */
   g2.appendChild(el('h4', null, 'BLADE INTERPLAY (v1.1)'));
   const ci = el('div', 'cmp one'); g2.appendChild(ci);
   cmpRow(ci, SP.b2mix.label, 'b2mix', null, T);
   g2.appendChild(el('h4', null, 'SWARM — survivors from today\'s face'));
   const c3 = el('div', 'cmp one'); g2.appendChild(c3);
   for (const k of ['width', 'A', 'D', 'S', 'R', 'octave', 'semi', 'fine', 'rtone', 'onset', 'dissolve', 'driftDepth']) cmpRow(c3, SP[k].label, k, null, T);
+  /* B309: Onset, Dissolve and Drift are voiced now (the composed engine). Below 0 Onset plays
+     the JS reference's SYNC burst where horde's C++ plays SPLAY: a known gap, said while it applies */
+  const og = el('div', 'voicing'); og.dataset.gap = 'onset'; g2.appendChild(og);
+  og.innerHTML = '<b>ONSET BELOW 0 IS THE JS REFERENCE\'S.</b> It plays the same sync burst as above 0 (8·onset², swarmsaw.html:355); horde\'s C++ plays a splay burst there (ADR-056). A known gap, B298 finding 1.';
+  CTLS.push(() => { og.style.display = (P.onset || 0) < 0 ? '' : 'none'; });
 }
 function tier3(host) {
   const b = tierBox(host, 'ADVANCED', LAB.advOpen, T3_KEYS, () => { LAB.advOpen = !LAB.advOpen; rebuild(); }, 't3');
@@ -3076,7 +3302,7 @@ function tier3(host) {
   cmpRow(c1, 'Cut rule', null, 'kRule2', T);
   cmpRow(c1, 'Rule depth', null, 'kRuleAmt2', T);
   for (const k of ['wspread', 'dspread', 'mspread', 'ispread', 'rotSpread']) cmpRow(c1, SP[k].label, k, k + '2', T);
-  cmpRow(c1, 'Drift rate', 'driftRate', null, T);
+  cmpRow(c1, SP.driftRate.label, 'driftRate', null, T);
   cmpRow(c1, 'Quantize', 'kq', null, T);
   cmpRow(c1, 'Ratios', 'kCustom', null, T);
   const g2 = el('div', 'tgrp'); b.appendChild(g2);
@@ -3094,8 +3320,15 @@ function tier3(host) {
   g2.appendChild(el('h4', null, 'BLADE INTERPLAY (v1.1)'));
   const c4 = el('div', 'cmp one'); g2.appendChild(c4);
   for (const k of ['b2order', 'colK', 'colB']) cmpRow(c4, SP[k].label, k, null, T);
-  g2.appendChild(el('h4', null, "HORDE'S SPECIALISTS (not in the oracle)"));
-  g2.appendChild(el('div', 'inertlist', HORDE_T3.join(' · ')));
+  /* B309: horde's swarm laws, voiced by the composed engine, at ACCOUNTING's T3 (rows 5, 10,
+     61-64; G6/G7 by §2's "every surviving specialist control"). A sub-parameter the engine does
+     not read under the current law is drawn inert with the reason (inertWhy, HORDE_INERT). */
+  const g3 = el('div', 'tgrp'); b.appendChild(g3);
+  g3.appendChild(el('h4', null, "HORDE'S SWARM · the composed engine plays these"));
+  const c5 = el('div', 'cmp one'); g3.appendChild(c5);
+  for (const k of ['h.law', 'spread', 'anchor', 'harmReach', 'stretchB', 'h.driftRate', 'inertia', 'inertiaCurve']) cmpRow(c5, SP[k].label, k, null, T);
+  g3.appendChild(el('h4', null, "HORDE'S SPECIALISTS (no control in this lab)"));
+  g3.appendChild(el('div', 'inertlist', HORDE_T3.join(' · ')));
 }
 
 /* ---------------- THE MAIN PAGE ---------------- */
@@ -3143,7 +3376,7 @@ function buildMain(host) {
   pr.appendChild(el('span', 'pname', LAB.presetName || 'oracle defaults · blade 2 on'));
   const nx = el('button', 'pill mini', '▶'); nx.addEventListener('click', () => step(1)); pr.appendChild(nx);
   const cat = LAB.presets && LAB.presetName ? (LAB.presets.find(p => p.name === LAB.presetName) || {}).category : '';
-  pr.appendChild(el('span', 'pcat', cat ? '· ' + cat + ' · bench voicing, not re-voiced for horde' : (LAB.presets ? '' : '· presets load when served (tools/serve_labs.py)')));
+  pr.appendChild(el('span', 'pcat', cat ? '· ' + cat + ' · bench voicing, not re-voiced for horde: locks less here' : (LAB.presets ? '' : '· presets load when served (tools/serve_labs.py)')));
 
   const mc = cell(Rt, 'Macros', "PRESET · the lab's proposed eight for a SCALPEL patch");
   const mg = el('div', 'mgrid'); mc.appendChild(mg);
@@ -3299,8 +3532,9 @@ function cycleEdits(cv) {
    ONE WRITER: every step lands through writeMany → afterWrite, the path every
    knob uses, so the knobs, the summaries and the oracle all read the same P.
    ====================================================================== */
-function xyRoleLabel(r) { const f = XY_ROLES.concat(XY_SWARM).find(q => q[0] === r); return f ? f[1] : r; }
-function xyIsSwarm(r) { return XY_SWARM.some(q => q[0] === r); }
+function xyRoleLabel(r) { const f = XY_ROLES.concat(XY_SWARM, XY_PLAY).find(q => q[0] === r); return f ? f[1] : r; }
+/* a role with no blade to target: the swarm's, and (B309) the blade pair's interplay */
+function xyIsSwarm(r) { return XY_SWARM.concat(XY_PLAY).some(q => q[0] === r); }
 /* a role on a blade → the live key (k/kHz and m/mHz resolved the way the face resolves them) */
 function xyKey(role, b) {
   if (xyIsSwarm(role)) return role;
@@ -3524,6 +3758,8 @@ function xyMapRow(host, S, narrow) {
     for (const [r, l] of XY_ROLES) { const o = el('option', null, l); o.value = r; g1.appendChild(o); }
     const g2 = el('optgroup'); g2.label = 'the swarm'; s.appendChild(g2);
     for (const [r, l] of XY_SWARM) { const o = el('option', null, l); o.value = r; g2.appendChild(o); }
+    const g3 = el('optgroup'); g3.label = 'blade interplay (both blades)'; s.appendChild(g3);
+    for (const [r, l] of XY_PLAY) { const o = el('option', null, l); o.value = r; g3.appendChild(o); }
   };
   for (const [slot, tag, tip] of [['x', '↔ X', 'horizontal drag'], ['y', '↕ Y', 'vertical drag (up = more)'], ['sx', '⇧↔', 'shift + horizontal drag']]) {
     const gp = el('span', 'grp'); gp.dataset.xyslot = slot; row.appendChild(gp);
@@ -3633,7 +3869,7 @@ async function makeNode(ctx, init) {
   return new AudioWorkletNode(ctx, 'b271-razor', { numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2], processorOptions: init || {} });
 }
 async function audioStart() {
-  if (!CORE) { AUD.err = 'oracle not loaded'; paintAudioStat(); return; }
+  if (!CORE) { AUD.err = 'engine not loaded'; paintAudioStat(); return; }
   if (AUD.on) { try { await AUD.ctx.close(); } catch (_) {} AUD.on = false; AUD.node = null; AUD.spn = null; AUD.ctx = null; MON.a0 = null; paintAudioStat(); return; }
   const AC = window.AudioContext || window.webkitAudioContext;
   const ctx = new AC({ sampleRate: SR });
@@ -3668,7 +3904,7 @@ function noteOff(n) { if (!(AUD.drone && n === MON.note)) audioMsg({ t: 'off', n
 function paintAudioStat() {
   const s = $('audioStat'); if (!s) return;
   s.textContent = !AUD.on ? 'AUDIO — OFF. POWER, then the keys (A..L, W/E/T/Y/U/O; Z/X octave).' :
-    'AUDIO — ON · ' + (AUD.node ? 'AudioWorklet running razor-core.js (seeded)' : 'fallback') + (AUD.err ? ' · ' + AUD.err : '') +
+    'AUDIO — ON · ' + (AUD.node ? 'AudioWorklet running the composed engine (seeded)' : 'fallback') + (AUD.err ? ' · ' + AUD.err : '') +
     ' · monitor note ' + MON.note + (MON.a0 !== null ? ' · the drawing follows the audio clock' : '');
   const p = $('pwr'); if (p) p.classList.toggle('on', AUD.on);
 }
@@ -3689,10 +3925,11 @@ async function probeAudio() {
 /* ======================================================================
    K. SELF-CHECKS — each with a control that must fail
    ====================================================================== */
-/* a scratch oracle instance, seeded, for a check */
-function scratch(params, note, freq, seed) {
+/* a scratch engine instance, seeded, for a check. `cls` (B309): the class to build, CORE
+   (the composed engine the lab plays) unless a check asks for the oracle alone (RAZOR) */
+function scratch(params, note, freq, seed, cls) {
   seedOracle(seed);
-  const c = new CORE(SR);
+  const c = new (cls || CORE)(SR);
   c.set(Object.assign({}, DEF, params)); Object.assign(c.s, c.t);
   let viz = null; c.post = m => { if (m && m.mem) viz = m; };
   c.noteOn(note, freq, 1);
@@ -3779,6 +4016,10 @@ function runChecks() {
   for (const c of checkInert()) out.push(c);
   for (const c of checkRotation()) out.push(c);
   for (const c of checkMainXY()) out.push(c);
+  for (const c of checkEngine()) out.push(c);
+  for (const c of checkInterplay()) out.push(c);
+  for (const c of checkXYPlay()) out.push(c);
+  for (const c of checkSticky()) out.push(c);
   for (const c of checkPresets()) out.push(c);
   AUDIT.checks = out;
   seedOracle(0xB271 + MON.note);
@@ -3817,9 +4058,9 @@ function checkXY() {
     const cExp = frac(base.c + 342 / W);
     out.push({ name: 'XY: the grab alone moves nothing', ok: still && d.blades.join() === '1', detail: 'target ' + d.blades.join('+') + ' (' + d.why + ')' });
     const rt = near(P.w, wExp) && near(P.k, kExp) && near(P.c, cExp) && P.w2 === base.w2 && P.k2 === base.k2 && P.c2 === base.c2;
-    out.push({ name: 'XY round-trip: drag, read back (knob + oracle)', ok: rt && heardOk(['w', 'k', 'c']),
+    out.push({ name: 'XY round-trip: drag, read back (knob + engine)', ok: rt && heardOk(['w', 'k', 'c']),
       detail: 'w ' + P.w.toFixed(4) + '=' + wExp.toFixed(4) + ' · k ' + P.k.toFixed(3) + '=' + kExp.toFixed(3) + ' · c ' + P.c.toFixed(3) +
-        ' (wrapped) · blade 2 untouched · oracle t ' + (heardOk(['w', 'k', 'c']) ? 'agrees' : 'DISAGREES') });
+        ' (wrapped) · blade 2 untouched · engine t ' + (heardOk(['w', 'k', 'c']) ? 'agrees' : 'DISAGREES') });
     /* 2 · empty space: both blades, the same taper delta each */
     set(Object.assign({}, base, { w: 0.1, c: 0.2, w2: 0.1, c2: 0.7 }));
     const d2 = xyBegin(0.45, 0, 0, W, H, xyEffWindows()); xyMove(42, 0, true, false); xyEnd();   // ⇧ = Width since round 3
@@ -3868,7 +4109,7 @@ function checkRingXY() {
     out.push({ name: 'ring XY: a click lands the value at the clicked point',
       ok: near(P.detune, dL) && near(P.K, kL) && P.xm === base.xm && P.w === base.w && heardOk(['K', 'detune']) && onMark,
       detail: 'click (' + lx + ', ' + ly + ') → Detune ' + P.detune.toFixed(4) + '=' + dL.toFixed(4) + ' · Coupling ' + P.K.toFixed(4) + '=' + kL.toFixed(4) +
-        ' · oracle ' + (heardOk(['K', 'detune']) ? 'agrees' : 'DISAGREES') + ' · marker at ' + mk.bx.toFixed(2) + ', ' + mk.by.toFixed(2) });
+        ' · engine ' + (heardOk(['K', 'detune']) ? 'agrees' : 'DISAGREES') + ' · marker at ' + mk.bx.toFixed(2) + ', ' + mk.by.toFixed(2) });
     /* 2 · the same gesture goes on: ↔ +26 and ↕ −25 px follow 1:1, alt + 10 px moves a
        quarter (2.5 px), and after alt is let go + 8 px is 1:1 again from there (no jump
        back under the pointer): Detune at 127.5 / 260, Coupling at 1 − 45 / 250 */
@@ -3925,7 +4166,7 @@ function checkRingXY() {
     const mOk = r1.mod && near(r1.ex, (px + 0.15) * W) && near(r1.ey, (1 - (py - 0.2)) * H) && near(r1.bx, r0.bx) && near(r1.by, r0.by) &&
       !!r1.reach && near(r1.reach[1], (px + 0.3) * W) && near(r1.reach[3], (1 - (py - 0.4)) * H) && near(orc('K'), EFF.K);
     out.push({ name: 'ring XY: modulation drawn at the carried value', ok: mOk,
-      detail: 'Swarm macro 0.5 → Coupling ' + fmtVal(SP.K, EFF.K) + ', Detune ' + fmtVal(SP.detune, EFF.detune) + ' (oracle ' + (near(orc('K'), EFF.K) ? 'agrees' : 'DISAGREES') + ') · puck held on the base' });
+      detail: 'Swarm macro 0.5 → Coupling ' + fmtVal(SP.K, EFF.K) + ', Detune ' + fmtVal(SP.detune, EFF.detune) + ' (engine ' + (near(orc('K'), EFF.K) ? 'agrees' : 'DISAGREES') + ') · puck held on the base' });
     out.push({ name: 'CONTROL: macro at 0 draws no diamond', ok: !r0.mod && !!r0.reach, control: true, detail: r0.mod ? 'DIAMOND DRAWN' : 'no diamond · the reach box stays (the macro is still bound)' });
   } catch (e) {
     out.push({ name: 'ring XY checks', ok: false, detail: 'threw: ' + String(e && e.message || e) });
@@ -4068,7 +4309,7 @@ function checkPhase() {
     }
     const ref = Math.abs(Math.atan2(sy, sx) / TAU);
     const heard = misreadRun(p, null, [31]).at[0] || {};
-    out.push({ name: 'AT PHASE: each member drawn at the oracle\'s phase offset', ok: pm.N === 5 && dev < 1e-12 && ref < 1e-9 && pm.R <= 0.1 && spread > 0.1,
+    out.push({ name: 'AT PHASE: each member drawn at the engine\'s phase offset', ok: pm.N === 5 && dev < 1e-12 && ref < 1e-9 && pm.R <= 0.1 && spread > 0.1,
       detail: 'splay (R ' + pm.R.toFixed(3) + '): max |δ_i − δ_0 − (mem.phi_i − mem.phi_0)| ' + dev.toExponential(1) + ' · offsets up to ' + spread.toFixed(3) +
         ' cycle, taken from ψ (residual angle ' + ref.toExponential(1) + ')' });
     /* the same patch, against the AUDIO: AT PHASE's sum must be the nearer to the rendered
@@ -4177,7 +4418,7 @@ function checkInert() {
     const faceOk = F.k1 && F.k2 && F.rd1 && F.rd2 && F.adv2;
     out.push({ name: 'Cut spread under "harmonic": drawn inert, and truly inert', ok: faceOk && t1.out && t1.k && t1.sent && t2.out && t2.k && t2.sent,
       detail: 'face: ① ' + (F.k1 ? 'inert' : 'LIVE') + ' + Rule depth ' + (F.rd1 ? 'beside it' : 'MISSING') + ' · ② ' + (F.k2 ? 'inert' : 'LIVE') + ' + Rule depth ' + (F.rd2 ? 'beside it' : 'MISSING') +
-        ' · Advanced ② ' + (F.adv2 ? 'inert' : 'LIVE') + ' · turning 0 → 12 (the oracle received it: ' + (t1.sent && t2.sent) + '): output ' + (t1.out && t2.out ? 'bit-identical' : 'CHANGED') +
+        ' · Advanced ② ' + (F.adv2 ? 'inert' : 'LIVE') + ' · turning 0 → 12 (the engine received it: ' + (t1.sent && t2.sent) + '): output ' + (t1.out && t2.out ? 'bit-identical' : 'CHANGED') +
         ', member cut rates ' + (t1.k && t2.k ? 'identical' : 'CHANGED') + ' · tooltip "' + F.tip.slice(0, 48) + '…"' });
     const G = face({ kRule: 0, kRule2: 0, b2sp: 1 });
     const c1 = turn('kspread', { kRule: 0, b2sp: 0 }), c2 = turn('kspread2', { kRule: 0, kRule2: 0, b2sp: 1 });
@@ -4212,7 +4453,7 @@ function audioTwin(params, note) {
   a.msg({ t: 'on', note, freq: mtof(note), vel: 0.85 });
   return a;
 }
-/* blade 1's rotation as render() adds it to Position (razor-core.js:704, :737), member 0 */
+/* blade 1's rotation as render() adds it to Position (razor-core.js:788, :821), member 0 */
 function rotNow(c) { const v = liveVoice(c); return frac((c.d.rotSync ? (v ? v.rot : 0) : c.gRot) + (v ? v.m[0].rot : 0)); }
 const wrapH = x => x - Math.round(x);                          // a phase difference in [−½, ½)
 function checkRotation() {
@@ -4318,7 +4559,7 @@ function checkMainXY() {
         ' · SUM and AT PHASE windows ' + (sumVsPhase ? 'differ' : 'AGREE') + ', MAIN reads SUM while OSC shows AT PHASE' });
     out.push({ name: 'MAIN: drag round trip (↔ Position, ↕ Cut rate, ⇧↔ Width)', ok: near(P.c, cExp) && near(P.k, kExp) && near(P.w, wExp) && P.c2 === base.c2 && P.w2 === base.w2 && heard,
       detail: 'c ' + P.c.toFixed(4) + '=' + cExp.toFixed(4) + ' · k ' + P.k.toFixed(3) + '=' + kExp.toFixed(3) + ' · w ' + P.w.toFixed(4) + '=' + wExp.toFixed(4) +
-        ' · blade 2 untouched · oracle t ' + (heard ? 'agrees' : 'DISAGREES') });
+        ' · blade 2 untouched · engine t ' + (heard ? 'agrees' : 'DISAGREES') });
   } catch (e) {
     out.push({ name: 'MAIN XY', ok: false, detail: 'threw: ' + String(e && e.stack || e) });
   }
@@ -4326,6 +4567,234 @@ function checkMainXY() {
   P = snap; EFF = effective(); pushOracle();
   Object.assign(MON, monSnap); MON.buf.set(bufs[0]); MON.bufR.set(bufs[1]); MON.cycN = -1;
   if (MON.core) MON.core.set(oracleParams(EFF));
+  return out;
+}
+/* B309 — THE ENGINE THE LAB PLAYS.
+   (1) CORE is B298's ComposedEngine: a subclass of the oracle (RAZOR) whose instances carry
+       horde's swarm (src 'horde', one SwarmSynth), and the monitor is one. The AUDIO is one
+       too, checked on the worklet's OWN source: workletSource(), evaluated here with stand-ins
+       for the worklet globals, renders bit-identically to a page-side instance built and driven
+       as audioTwin builds it (seed 0xB271, the params, s = t, the note at velocity 0.85,
+       128-frame quanta). CONTROL (must fail): the oracle alone, seeded and driven the same,
+       does not match that render.
+   (2) Onset lock, Inertia and the detune law CHANGE WHAT IS HEARD: each, turned from its
+       default on a seeded scratch swarm, changes the composed engine's render. CONTROL (must
+       fail): the same turns on the oracle alone leave its render bit-identical, because it has
+       no such law; that is what the lab played before this round, and why it greyed them. */
+function workletRender(params, note, n) {
+  const keep = Math.random; let Proc = null;
+  class AWP { constructor() { this.port = {}; } }
+  try {
+    new Function('AudioWorkletProcessor', 'registerProcessor', 'sampleRate', workletSource())(AWP, (_, c) => { Proc = c; }, SR);
+    const p = new Proc({ processorOptions: { params, note: { note, freq: mtof(note), vel: 0.85 } } });
+    const L = new Float32Array(n), qL = new Float32Array(ROT_QUANT), qR = new Float32Array(ROT_QUANT);
+    for (let i = 0; i < n; i += ROT_QUANT) { p.process([], [[qL, qR]]); L.set(qL, i); }
+    return { L, inst: p.c };
+  } finally { Math.random = keep; }
+}
+function twinRender(cls, params, note, n) {
+  seedOracle(0xB271);
+  const a = new cls(SR); a.set(params); Object.assign(a.s, a.t);
+  a.noteOn(note, mtof(note), 0.85);
+  const L = new Float32Array(n), qL = new Float32Array(ROT_QUANT), qR = new Float32Array(ROT_QUANT);
+  for (let i = 0; i < n; i += ROT_QUANT) { a.render(qL, qR); L.set(qL, i); }
+  return L;
+}
+function maxDiff(a, b) { let d = 0; for (let i = 0; i < a.length; i++) d = Math.max(d, Math.abs(a[i] - b[i])); return d; }
+function checkEngine() {
+  const out = [];
+  try {
+    const params = oracleParams(Object.assign({}, DEF, { b2on: 1, N: 5, detune: 20, K: 0.3, phaseMode: 0, onset: 0.5, inertia: 0.6 }));
+    const n = 40 * ROT_QUANT, W = workletRender(params, 45, n), T = twinRender(CORE, params, 45, n), O = twinRender(RAZOR, params, 45, n);
+    const isComposed = CORE !== RAZOR && Object.getPrototypeOf(CORE) === RAZOR && !!MON.core && MON.core instanceof CORE && MON.core.src === 'horde' && !!MON.core.sw;
+    const wOk = !!W.inst && W.inst.src === 'horde' && !!W.inst.sw, dW = maxDiff(W.L, T), dO = maxDiff(W.L, O);
+    out.push({ name: 'engine: the composed engine plays, in the monitor and in the audio', ok: isComposed && wOk && dW === 0,
+      detail: 'CORE extends the oracle, horde swarm on: ' + isComposed + ' · the worklet\'s own source builds it: ' + wOk +
+        ' · its render against the page\'s instance, ' + n + ' samples: max |Δ| ' + dW + ' (bit-identical)' });
+    out.push({ name: 'CONTROL: the oracle alone is not what the worklet plays', ok: dO > 1e-3, control: true,
+      detail: 'max |Δ| ' + dO.toFixed(4) + ' against the same render (must be large)' });
+    const base = { b2on: 0, N: 5, detune: 20, K: 0.3, phaseMode: 0 };
+    const hear = (cls, extra) => { const S = scratch(Object.assign({}, base, extra), 45, mtof(45), 0xB309, cls); const L = new Float32Array(12000), R = new Float32Array(12000); S.c.render(L, R); return { L, c: S.c }; };
+    const turns = [['Onset lock', { onset: 0.8 }], ['Inertia', { inertia: 0.8 }], ['Detune law harmonic', { 'h.law': 4 }]];
+    const c0 = hear(CORE, {}), o0 = hear(RAZOR, {});
+    const eng = turns.map(([n1, x]) => { const h = hear(CORE, x); return [n1, maxDiff(h.L, c0.L), h.c]; });
+    const orc = turns.map(([n1, x]) => [n1, maxDiff(hear(RAZOR, x).L, o0.L)]);
+    const top = c => { const m = vmapModel(c); return m ? m.tgt[m.N - 1] : NaN; };
+    const t0 = top(c0.c), t4 = top(eng[2][2]);                   // harmonic: the top member at 1 + dep·4 = 1.8 × f0, 1017.6 ¢
+    out.push({ name: 'engine: Onset lock, Inertia and the detune law change what is heard', ok: eng.every(q => q[1] > 1e-3) && Math.abs(t0 - 20) < 1e-6 && Math.abs(t4 - 1200 * Math.log2(1.8)) < 1e-6,
+      detail: eng.map(q => q[0] + ' max |Δ| ' + q[1].toFixed(3)).join(' · ') + ' (0.25 s, N 5, Detune 20 c, K 0.3) · the top member\'s target: ' +
+        top(c0.c).toFixed(1) + ' ¢ under cents → ' + top(eng[2][2]).toFixed(1) + ' ¢ under harmonic (the voice map\'s ○)' });
+    out.push({ name: 'CONTROL: the oracle alone ignores them', ok: orc.every(q => q[1] === 0), control: true,
+      detail: orc.map(q => q[0] + ' max |Δ| ' + q[1]).join(' · ') + ' (must all be 0: no such law, which is why round 6 greyed them)' });
+  } catch (e) {
+    out.push({ name: 'the engine', ok: false, detail: 'threw: ' + String(e && e.stack || e) });
+  }
+  seedOracle(0xB271 + MON.note);
+  return out;
+}
+/* B309 — INTERPLAY, DRAWN AS HEARD, on the 7 presets of the packet's Interplay row.
+   (1) EXACT, per sample. Each preset voiced as the first check's drawn = heard kernel (one
+       member, 1×, band-limit raw, DC fix off, gain 0.05 so tanh inverts, attack 1 ms, no
+       rotation, no cross-mod or feedback) at f = sr/384, so the audio's phase steps land on the
+       cycle view's 384 points. cycleFrom, the painter's own function, draws the cycle from a
+       viz post; the next 768 rendered samples, inverted, must equal it at the phase each
+       sample was computed at (one sample late: stepM's `prev`). Two presets only meet under
+       their rotation (Collision chirps, Collision bite: their windows are apart at rest), so
+       rotation stopped, blade 2 is parked on blade 1's Position; the detail names them.
+       CONTROL (must fail): round 6's parallel drawing (cycleFrom's `parallel`) against the
+       same samples.
+   (2) AS PLAYED, within one viz post: each preset exactly as the monitor plays it (its own N,
+       rotation, horde's coupling law) through misreadRun, section K2's measurement: at each of
+       its eight posts, AT PHASE's drawing against the rendered period ending on that post.
+       The interplay drawing must be the nearer to what is heard on every preset where the two
+       drawings differ. */
+const INTERPLAY_CAT = 'Showcase / Interplay';
+function interplayKernel(pr) {
+  const M = 384, f = SR / M, gain = 0.05, G = gain * 1.6 * Math.cos(Math.PI / 4);
+  const p = Object.assign({}, pr.params, { N: 1, os: 1, aa: 0, dcMode: 0, gain, A: 1, S: 1, phaseMode: 1, rotRate: 0, rotRate2: 0,
+    rotSpread: 0, rotSpread2: 0, xm: 0, fb: 0, bend: 0 });
+  const apart = Math.abs(frac(p.c - p.c2 + 0.5) - 0.5) >= (p.w + p.w2) / 2;
+  if (apart) p.c2 = p.c;
+  /* the audio's phase steps accumulate 1/384 (not exact in binary), so a sample that lands on
+     a jump is on either side of it by a rounding. Two kinds are kept off the grid: every
+     window edge, by moving both Positions half a step (0.47°), which no preset hears; and the
+     base wave's own jump (saw, reverse saw: φ ½; square: 0 and ½), whose sample is skipped
+     and counted. Hold and sync steps inside a window then fall between samples too (for a
+     whole cut rate below 256, kk·(2m − 1)/768 is never whole). */
+  p.c = frac(p.c + 0.5 / M); p.c2 = frac(p.c2 + 0.5 / M);
+  const jumps = p.base === 2 || p.base === 4 ? [M / 2] : p.base === 3 ? [0, M / 2] : [];
+  const S = scratch(p, 69, f, 0xC0DE), L = new Float32Array(1), R = new Float32Array(1);
+  for (let i = 0; i < 2000; i++) S.c.render(L, R);
+  const cy = cycleFrom(S.c, S.viz()), cp = cycleFrom(S.c, S.viz(), true), mm = liveVoice(S.c).m[0];
+  let prev = mm.phi, eN = 0, eP = 0, pk = 0, skip = 0;
+  for (let i = 0; i < 2 * M; i++) {
+    S.c.render(L, R);
+    const heard = Math.atanh(L[0]) / G, n = Math.round(prev * M) % M;
+    prev = mm.phi;
+    if (jumps.indexOf(n) >= 0) { skip++; continue; }
+    eN = Math.max(eN, Math.abs(heard - cy.sum[n])); eP = Math.max(eP, Math.abs(heard - cp.sum[n])); pk = Math.max(pk, Math.abs(heard));
+  }
+  return { name: pr.name, eN, eP, pk, skip, parked: apart, stepped: !!(cy.mem[0] && cy.mem[0].stepped) };
+}
+function checkInterplay() {
+  const out = [];
+  if (!LAB.presets) return out;
+  try {
+    const list = LAB.presets.filter(p => p.category === INTERPLAY_CAT);
+    const K = list.map(interplayKernel);
+    const f3 = v => v.toExponential(1);
+    out.push({ name: 'interplay drawn = heard, per sample, on the ' + list.length + ' Interplay presets', ok: list.length === 7 && K.every(k => k.stepped && k.eN < 1e-4 && k.pk > 0.1),
+      detail: K.map(k => k.name + ' ' + f3(k.eN) + (k.parked ? ' (parked)' : '')).join(' · ') + ' — max |heard − drawn|, peak ≥ ' +
+        Math.min(...K.map(k => k.pk)).toFixed(2) + ' over ' + (2 * 384) + ' samples each, ' + K.reduce((a, k) => a + k.skip, 0) + ' base-jump samples skipped in all' +
+        ' (one member, 1×, raw, f = sr/384, Positions +½ step; "parked": blade 2 on blade 1\'s Position, rotation off)' });
+    out.push({ name: 'CONTROL: round 6\'s parallel drawing misses them', ok: K.every(k => k.eP > 0.05), control: true,
+      detail: K.map(k => k.name + ' ' + k.eP.toFixed(2)).join(' · ') + ' (must all be large)' });
+    const A = list.map(pr => { const a = misreadRun(pr.params), b = misreadRun(pr.params, null, null, true); return { name: pr.name, n: a.phase, p: b.phase, R: a.R, N: a.N }; });
+    const moved = A.filter(a => Math.abs(a.n - a.p) > 1e-6);
+    out.push({ name: 'interplay as played: the drawing is nearer what is heard, post by post', ok: moved.length > 0 && moved.every(a => a.n < a.p),
+      detail: A.map(a => a.name + ' ' + a.n.toFixed(2) + ' (was ' + a.p.toFixed(2) + ')').join(' · ') +
+        ' — AT PHASE against the rendered period ending on each of 8 viz posts, mean normalised RMS (0 = the same shape; section K2), each preset as the monitor plays it' });
+  } catch (e) {
+    out.push({ name: 'interplay drawing', ok: false, detail: 'threw: ' + String(e && e.stack || e) });
+  }
+  seedOracle(0xB271 + MON.note);
+  return out;
+}
+/* B309 — THE NEW XY ROLES ROUND-TRIP. Upper hears (b2mix), Collision → pitch (colK) and
+   Collision → bite (colB) are pad-assignable in the bench, so both XY surfaces offer them
+   (XY_PLAY). On the waveform (relative): ↔ Upper hears, ↕ Collision → pitch, ⇧↔ Collision →
+   bite, each moved by its taper step; on the ring (absolute): a click lands ↔ Collision →
+   pitch and ↕ Upper hears at the clicked point. Read back from P (every knob) and from the
+   monitor engine's target `t` (what is heard). CONTROL (must fail): the same drags on the
+   default mappings move none of the three. */
+function checkXYPlay() {
+  const out = [], snap = Object.assign({}, P), fz = LAB.frozen, mOn = MORPH.on, mv = MACROS.map(m => m.v), xmap = XY.map, rmap = RXY.map;
+  LAB.frozen = false; MORPH.on = false; for (const m of MACROS) m.v = 0;
+  const near = (a, b) => Math.abs(a - b) < 1e-9, heardOk = ks => !!MON.core && ks.every(k => near(MON.core.t[k], P[k]));
+  const base = { b1on: 1, b2on: 1, b2mix: 0.2, colK: 0, colB: 0.1, w: 0.2, c: 0.3, w2: 0.2, c2: 0.8 };
+  const set = o => { P = Object.assign({}, DEF, o); EFF = effective(); pushOracle(); };
+  const moves = () => {
+    set(base);
+    xyBegin(0.55, 0, 0, 400, 100, xyEffWindows()); xyMove(42, 0, false, false); xyMove(42, -21, false, false); xyMove(84, -21, true, false); xyEnd();
+    const a = { b2mix: P.b2mix, colK: P.colK, colB: P.colB };
+    set(base);
+    xyGrab(RXY, { blades: [1, 2], why: 'the ring → every blade' }, 65, 62.5, 260, 250, [65, 62.5, false]); xyEnd(RXY);
+    return { a, r: { b2mix: P.b2mix, colK: P.colK, colB: P.colB } };
+  };
+  try {
+    XY.map = { x: ['b2mix', '', 0], y: ['colK', '', 0], sx: ['colB', '', 0] }; RXY.map = { x: ['colK', '', 0], y: ['b2mix', '', 0], sx: ['xm', '', 0] };
+    const m = moves(), rOk = heardOk(['b2mix', 'colK']);
+    const e = { b2mix: fromPos(SP.b2mix, toPos(SP.b2mix, 0.2) + 42 / XY_PX), colK: fromPos(SP.colK, toPos(SP.colK, 0) + 21 / XY_PX), colB: fromPos(SP.colB, toPos(SP.colB, 0.1) + 42 / XY_PX) };
+    const er = { colK: fromPos(SP.colK, 65 / 260), b2mix: fromPos(SP.b2mix, 1 - 62.5 / 250) };
+    const ok = near(m.a.b2mix, e.b2mix) && near(m.a.colK, e.colK) && near(m.a.colB, e.colB) && near(m.r.colK, er.colK) && near(m.r.b2mix, er.b2mix) && m.r.colB === base.colB && rOk;
+    out.push({ name: 'XY: the interplay roles round-trip (waveform + ring)', ok,
+      detail: 'waveform: Upper hears ' + m.a.b2mix.toFixed(4) + '=' + e.b2mix.toFixed(4) + ' · Collision → pitch ' + m.a.colK.toFixed(4) + '=' + e.colK.toFixed(4) +
+        ' · → bite ' + m.a.colB.toFixed(4) + '=' + e.colB.toFixed(4) + ' · ring click: → pitch ' + m.r.colK.toFixed(3) + '=' + er.colK.toFixed(3) + ', Upper hears ' +
+        m.r.b2mix.toFixed(3) + '=' + er.b2mix.toFixed(3) + ' · engine t ' + (rOk ? 'agrees' : 'DISAGREES') });
+    XY.map = JSON.parse(JSON.stringify(XY_DEFAULT)); RXY.map = JSON.parse(JSON.stringify(RXY_DEFAULT));
+    const d = moves(), still = ['a', 'r'].every(s => d[s].b2mix === base.b2mix && d[s].colK === base.colK && d[s].colB === base.colB);
+    out.push({ name: 'CONTROL: the default mappings leave them alone', ok: still, control: true,
+      detail: still ? 'the same gestures on ↔ Position / ↕ Cut rate and ↔ Detune / ↕ Coupling: Upper hears, → pitch, → bite unmoved' : 'MOVED' });
+  } catch (e) {
+    out.push({ name: 'XY interplay roles', ok: false, detail: 'threw: ' + String(e && e.stack || e) });
+  }
+  XY.drag = null; XY.last = null; RXY.drag = null; RXY.last = null; XY.map = xmap; RXY.map = rmap;
+  LAB.frozen = fz; MORPH.on = mOn; MACROS.forEach((m, i) => { m.v = mv[i]; });
+  P = snap; EFF = effective(); pushOracle();
+  return out;
+}
+/* B309 — THE PIN. On the built OSC page (both tiers open, skins A and C), with the Controls
+   scroller scrolled to its end so Advanced is in view: the cycle view's top and bottom lie
+   inside the scroller's viewport. And the pin covers no control: every control in the
+   scroller, brought to just below the pin (or, above it in the flow, to the top), is fully
+   visible between the pin and the scroller's foot. CONTROL (must fail): the same scroll with
+   the pin made static carries the cycle view out of view. Needs a real layout; the load
+   checkers have none, and the row says so rather than pass. */
+function checkSticky() {
+  const out = [], page = LAB.page, skin = LAB.skin, t2 = LAB.t2open, adv = LAB.advOpen;
+  const sc0 = FR.querySelector && FR.querySelector('.scroll'), top0 = sc0 ? sc0.scrollTop : 0;
+  const res = [];
+  try {
+    for (const sk of ['A', 'C']) {
+      LAB.page = 'osc'; LAB.skin = sk; LAB.t2open = true; LAB.advOpen = true; rebuild();
+      const sc = FR.querySelector('.scroll'), pin = sc && sc._pin, cyc = pin && pin.querySelector('canvas');
+      if (!sc || !pin || !cyc || !sc.getBoundingClientRect || !(sc.clientHeight > 0)) { res.push({ sk, nolayout: true }); continue; }
+      const box = () => { const r = sc.getBoundingClientRect(); return { top: r.top + sc.clientTop, bot: r.top + sc.clientTop + sc.clientHeight }; };
+      sc.scrollTop = sc.scrollHeight;
+      const b = box(), cr = cyc.getBoundingClientRect(), advT = FR.querySelector('.tier .tbody.t3'), ar = advT.getBoundingClientRect();
+      const inView = cr.top >= b.top - 0.5 && cr.bottom <= b.bot + 0.5, advIn = ar.bottom > cr.bottom && ar.top < b.bot;
+      /* every control, brought where it can be seen */
+      const pr = () => pin.getBoundingClientRect();
+      let n = 0, hidden = [];
+      for (const el of sc.querySelectorAll('[data-key]')) {
+        if (pin.contains(el)) continue;
+        const before = !!(el.compareDocumentPosition(pin) & 4);          // el precedes the pin in the flow
+        n++;
+        if (before) sc.scrollTop = 0;
+        else sc.scrollTop = el.getBoundingClientRect().top - box().top + sc.scrollTop - pin.offsetHeight - 2;
+        const r = el.getBoundingClientRect(), p = pr(), bb = box();
+        const ok = before ? r.bottom <= p.top + 0.5 && r.top >= bb.top - 0.5 : r.top >= p.bottom - 0.5 && r.bottom <= bb.bot + 0.5;
+        if (!ok) hidden.push(el.dataset.key);
+      }
+      pin.style.position = 'static'; sc.scrollTop = sc.scrollHeight;
+      const cs = cyc.getBoundingClientRect(), gone = cs.bottom < box().top;
+      pin.style.position = '';
+      res.push({ sk, inView, advIn, n, hidden, gone, pinH: pin.offsetHeight, band: sc.clientHeight - pin.offsetHeight, view: sc.clientHeight });
+    }
+    if (res.some(r => r.nolayout)) out.push({ name: 'pin: the cycle view stays in view', ok: false, detail: 'no layout here (a load checker): not measured' });
+    else {
+      out.push({ name: 'pin: the waveform stays in view with Advanced scrolled in, and covers no control', ok: res.every(r => r.inView && r.advIn && !r.hidden.length),
+        detail: res.map(r => 'skin ' + r.sk + ': cycle view in view ' + r.inView + ', Advanced in view ' + r.advIn + ' · pin ' + r.pinH + ' px of ' + r.view +
+          ' (' + r.band + ' px scroll beneath) · ' + (r.n - r.hidden.length) + '/' + r.n + ' controls brought fully below it' + (r.hidden.length ? ' · COVERED ' + r.hidden.slice(0, 4).join(', ') : '')).join(' · ') });
+      out.push({ name: 'CONTROL: unpinned, the same scroll loses the waveform', ok: res.every(r => r.gone), control: true,
+        detail: res.map(r => 'skin ' + r.sk + ': ' + (r.gone ? 'scrolled out of view' : 'STILL IN VIEW')).join(' · ') + ' (must be out)' });
+    }
+  } catch (e) {
+    out.push({ name: 'pin', ok: false, detail: 'threw: ' + String(e && e.stack || e) });
+  }
+  LAB.page = page; LAB.skin = skin; LAB.t2open = t2; LAB.advOpen = adv;
+  const sc1 = FR.querySelector && FR.querySelector('.scroll'); if (sc1) sc1.scrollTop = top0;
+  rebuild();
   return out;
 }
 /* B293 — THE PRESETS. The oracle's set() silently IGNORES a key it does not know
@@ -4367,12 +4836,12 @@ function checkPresets() {
     detail: (n - keyBad) + '/' + n + ' clean against the lab table, the oracle' + (LAB.params ? ' and parameters.json (' + LAB.params.length + ')' : ' (parameters.json not fetched)') + (worst ? ' · first fault ' + worst : '') });
   const ctl = presetKeyFaults({ w: 0.2, zzzBlade: 1 });
   out.push({ name: 'CONTROL: an invented key is caught', ok: ctl.length === 1, control: true, detail: ctl.join('; ') || 'NOT CAUGHT' });
-  out.push({ name: 'presets: every one plays through the oracle', ok: !playBad, detail: (n - playBad) + '/' + n + ' finite and audible in 2048 samples at A3' });
+  out.push({ name: 'presets: every one plays through the engine', ok: !playBad, detail: (n - playBad) + '/' + n + ' finite and audible in 2048 samples at A3' });
   /* the XY's ranges are the packet's: every key an axis can reach, held against parameters.json */
   if (LAB.params) {
     const pj = {}; for (const p of LAB.params) pj[p.key] = p;
     const keys = new Set();
-    for (const [r] of XY_ROLES.concat(XY_SWARM)) {
+    for (const [r] of XY_ROLES.concat(XY_SWARM, XY_PLAY)) {
       if (xyIsSwarm(r)) { keys.add(r); continue; }
       for (const b of [1, 2]) for (const k of r === 'cut' ? ['k', 'kHz'] : r === 'mrate' ? ['m', 'mHz'] : [r]) keys.add(bladeKey(b, k));
     }
@@ -4449,7 +4918,8 @@ function periodOf(h, hp, P0, M, back) {
   }
   return o;
 }
-function misreadRun(params, abl, times) {
+/* `parallel` (B309): draw with round 6's parallel sum, the interplay check's control */
+function misreadRun(params, abl, times, parallel) {
   times = times || MIS_TIMES;
   const E = Object.assign({}, DEF, params, { b1on: 1 }, abl || {}); E.bend = 0;
   seedOracle(0xB271 + 45);
@@ -4463,7 +4933,7 @@ function misreadRun(params, abl, times) {
   for (let k = 1; k <= times[times.length - 1]; k++) {
     viz = null; c.render(L, Rr); push(L, Rr);
     if (times.indexOf(k) < 0 || !viz) continue;
-    const cy = cycleFrom(c, viz), pm = phaseModel(cy), P0 = SR / viz.freq;
+    const cy = cycleFrom(c, viz, parallel), pm = phaseModel(cy), P0 = SR / viz.freq;
     const cur = periodOf(h, hp, P0, cy.M, 0), prev = periodOf(h, hp, P0, cy.M, 1);
     const eSum = nrmse(cy.sum, cur, true);
     if (!isFinite(eSum)) continue;                                  // silent at this post
@@ -4571,13 +5041,15 @@ function paintAudit() {
   const a = $('audit'); if (!a) return;
   if (!CORE) {
     a.className = 'audit bad';
-    a.textContent = 'oracle NOT loaded: reference/scalpel/prototype/razor-core.js was not reachable (the load checker runs inline blocks only, so this is expected there). Nothing on this page is drawn from an invented blade.';
+    a.textContent = 'engine NOT loaded' + (ENGINE.err ? ': ' + ENGINE.err : ' yet') + '. The lab plays and draws the composed engine only ' +
+      '(the load checkers run without it, so this is expected there). Nothing on this page is drawn from an invented blade.';
     return;
   }
   const ch = AUDIT.checks, pass = ch.filter(c => c.ok).length, ctl = ch.filter(c => c.control).length;
   const t = AUDIT.tiers;
   a.className = 'audit' + (ch.length && pass < ch.length ? ' bad' : '');
-  a.innerHTML = 'oracle <b>razor-core.js</b> loaded · Math.random seeded (mulberry32) before every instance · self-check ' +
+  a.innerHTML = 'engine <b>composed</b> (B298: horde\'s swarm, <b>swarmsaw.html</b> SwarmSynth, drives the members; <b>razor-core.js</b>\'s blades ride them) · ' +
+    'monitor, audio and every check build it · Math.random seeded (mulberry32) before every instance · self-check ' +
     (ch.length ? '<span class="' + (pass === ch.length ? 'ok' : 'no') + '">' + pass + '/' + ch.length + '</span> (' + ctl + ' controls fail as they must): ' +
       ch.map(c => '<span class="' + (c.ok ? 'ok' : 'no') + '">' + (c.ok ? '✓' : '✗') + '</span> ' + escapeHtml(c.name) + ' — ' + escapeHtml(c.detail)).join(' · ') : 'running…') +
     (t ? ' · tiers: ' + t.same.length + ' rows at their accounting tier, ' + t.promoted.length + ' promoted, ' + t.demoted.length + ' demoted, ' + t.missing.length + ' not placed' : '') +
@@ -4608,13 +5080,17 @@ function buildSide() {
     'The arcs outside the circle are each member\'s own blade window, the violet needle is the mean field R, and the meter-ink arrows are cross-mod, each weighted by what that push adds. ' +
     'The ring is also the <b>Coupling × Detune XY</b>: the faint magenta crosshair and hollow puck are the value, a hollow violet diamond is where morph or a macro ' +
     'carries it, and the dashed box is how far the bound macros can. A click lands the value there (round 4). <b>Spectrum</b>: the meter line is the measured output, ' +
-    'bands are the predicted formant ± main lobe (the bench\'s rule), and the amber tick marks f₀.</p><p>All three read one seeded oracle instance that holds the monitor note (A2, or the last key played). ' +
+    'bands are the predicted formant ± main lobe (the bench\'s rule), and the amber tick marks f₀.</p><p>All of them read one seeded engine instance that holds the monitor note (A2, or the last key played). ' +
+    '<b>Round 7:</b> the engine is the composed one (horde\'s swarm under the oracle\'s blades), the same class the audio plays; where the blades interplay (v1.1), ' +
+    'the cycle view draws them as the oracle steps them; and on OSC the cycle view and the beam stay pinned while the tiers scroll beneath. ' +
     'It advances a whole number of note periods per frame, so a blade window holds still. <b>Round 6:</b> with the audio on it renders as much as the audio has rendered, so ' +
     'Rotate turns the drawn window at the heard speed; with it off it runs at the display\'s pace. The note is held unless RE-STRIKE (under the keys) is on, and any strike ' +
     'names itself on the cycle view (↻). On MAIN the cycle views are the same XY as OSC\'s waveform, with the same mapping.</p></div>';
   s.insertBefore(presetBrowser(), s.firstChild);
 }
 /* B293 — the bench's presets (76; 83 since v1.1, B300) as a browsable list, grouped as the bench groups
+   (B309: the paragraph below is round 2's; the lab now plays horde's coupling law, so the
+   presets lock LESS than on the bench, and the box says that instead)
    them (its "Starting points" row, its "Two-blade" row, then the showcase rows:
    presets.json's `category`, in file order). They are played EXACTLY as the oracle
    defines them — which means their K is SCALPEL's coupling law, not horde's
@@ -4626,8 +5102,11 @@ function presetBrowser() {
   if (!LAB.presets) { box.appendChild(el('p', null, 'The 83 presets load when the lab is served (python3 tools/serve_labs.py) — reference/scalpel/data/presets.json is fetched, never copied.')); return box; }
   h.appendChild(el('span', 'std', LAB.presets.length + ''));
   const warn = el('div', 'voicing');
-  warn.innerHTML = '<b>BENCH VOICINGS, NOT RE-VOICED FOR HORDE.</b> Played as the oracle defines them: their Coupling is SCALPEL\'s law, ' +
-    'which pulls ≈1–9× harder than horde\'s at the same K (ACCOUNTING §1.6). Re-voicing is open question B3.';
+  /* B309: the lab plays horde's coupling law now, so a bench preset locks LESS here than on the
+     bench it was voiced on (B298 measured it); the banner says so, with the number */
+  warn.innerHTML = '<b>BENCH VOICINGS, NOT RE-VOICED FOR HORDE. THEY LOCK LESS HERE.</b> They were voiced on SCALPEL\'s coupling law, which pulls ' +
+    '≈1–9× harder than horde\'s at the same K (ACCOUNTING §1.6). The lab now plays horde\'s law (the composed engine), so at the presets\' K ' +
+    'the swarm drifts where the bench locked: at N 5, 14 c, 110 Hz, K 0.35, R 0.42 here against 0.87 on the bench (B298). Re-voicing their K is open question B3.';
   box.appendChild(warn);
   let cat = null, row = null;
   for (const p of LAB.presets) {
@@ -4758,11 +5237,33 @@ function frame() {
   paintCanvases();
   requestAnimationFrame(frame);
 }
+/* B309: build CORE, the composed engine, from the oracle class and swarmsaw.html's DSP
+   section (sliced by its banners, scalpel-horde-engine.js swarmSourceFromHtml: the route
+   B298's check page uses). The engine's own `d` keys (horde's rows) join the keys the page
+   sends (ORK) and the defaults (DEF, at the engine's constructor values), and the opening
+   patch is rebuilt on them. Any failure leaves CORE null and says why (paintAudit). */
+async function loadEngine() {
+  if (!RAZOR) { ENGINE.err = 'reference/scalpel/prototype/razor-core.js did not load'; return; }
+  if (!MAKE || !SLICE) { ENGINE.err = 'docs/design/scalpel-horde-engine.js did not load'; return; }
+  if (typeof fetch !== 'function') { ENGINE.err = 'no fetch here, so reference/swarmsaw.html cannot be read'; return; }
+  try {
+    const r = await fetch('../../reference/swarmsaw.html');
+    if (!r.ok) throw new Error('reference/swarmsaw.html: HTTP ' + r.status);
+    ENGINE.src = SLICE(await r.text());
+    const C = MAKE(RAZOR, ENGINE.src), e = new C(SR);
+    for (const k of Object.keys(e.d)) { ORK.add(k); if (!(k in DEF)) DEF[k] = e.d[k]; }
+    CORE = C;
+    P = Object.assign({}, DEF, { b2on: 1 });
+  } catch (e) {
+    ENGINE.err = 'the composed engine did not build: ' + String(e && e.message || e) + ' (serve the repo: python3 tools/serve_labs.py)';
+  }
+}
 async function boot() {
   applyBodyClasses();
   chrome();
   wireChrome();
   buildKbd();
+  await loadEngine();
   EFF = effective();
   monStrike('boot');
   rebuild();
