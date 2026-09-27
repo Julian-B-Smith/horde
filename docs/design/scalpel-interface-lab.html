@@ -100,10 +100,28 @@
      drawn INERT under a rule (inertWhy, section C) with Rule depth beside it on the
      face. The oracle's law is unchanged. Checks in section K.
 
+     ROUND 6 — B299, 2026-09-27, dispatched by the horde lead on ROADMAP B299 (carried in
+     the records PR on branch lead-records-108), stacked on round 5's branch. The human:
+     (1) "Noticing that rotate currently isn't continuous; it jumps back to its beginning
+     position at a rate I can't seem to control anywhere." (2) "Please implement the scalpel
+     waveform click/drag interactions on the main page to leave the XY pad clear for
+     different" (the message ends there). Measured first (trace b299): the oracle's
+     rotation is continuous under a held note in both Rotation modes; the jump was the
+     monitor's own 2 s re-strike, a NEW instance each time (every rotation clock back to 0,
+     free-running included), every 3.67 s at a 60 Hz display and 1.83 s at 120 Hz, and the
+     drawn rotation ran at 0.55× / 1.09× of the heard. Built as: (1) section D's monitor
+     keeps a clock of its own, follows the audio's rendered-sample count while the audio
+     runs (monAdvance), carries the rotation clocks across its strikes (rotCarry), re-strikes
+     only when RE-STRIKE is on (and then in the audio too, monRetrigger), and names every
+     strike on the cycle view; Rotate and Rotation (and blade 2's clock switch) sit on the
+     face's WAVE line. (2) MAIN's two cycle views are wired by cycleSurface, the path OSC's
+     uses, hit-tested on the SUM windows they draw; the XY pad is marked free to reassign.
+     The oracle and its defaults are unchanged. Checks in section K.
+
      L0026: every const is declared above the code that runs at setup; the boot
      call is the last statement of the script. -->
 <html><head><meta charset="utf-8">
-<meta name="lab-review" content="B271 + B293–B297 · 2026-09-27">
+<meta name="lab-review" content="B271 + B293–B299 · 2026-09-27">
 <title>SCALPEL interface lab — horde with blades at its centre</title>
 <style>
   :root {
@@ -393,6 +411,9 @@
   .cell > h3 .own { font-size:8.5px; color:var(--dim); letter-spacing:.1em; font-weight:500; }
   .cell > h3 .sp { margin-left:auto; display:flex; gap:4px; align-items:center; }
   .cell.grow { flex:1 1 auto; min-height:0; display:flex; flex-direction:column; }
+  /* B299: MAIN's XY pad, free to reassign — a dashed card, the caption in the caution ink */
+  .cell.free { border-style:dashed; }
+  .cell.free > h3 .own { color:var(--caution-tx); font-weight:700; }
   .scroll { overflow:auto; min-height:0; flex:1 1 auto; padding-right:2px; }
   canvas.viz { width:100%; display:block; border:var(--stroke) solid var(--line);
     border-radius:var(--r-well); background:var(--scr-tube); }
@@ -459,6 +480,12 @@
   .bsum { font-size:9.5px; color:var(--dim); margin-left:auto; white-space:nowrap; }
   .bline { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:3px; }
   .bline .lbl { font-size:9px; width:34px; }
+  /* B299: Rotate + Rotation (+ blade 2's clock) at the right end of the WAVE line */
+  .bline .brot { display:flex; gap:3px; align-items:center; margin-left:auto; }
+  .bline .brot .pills { gap:3px; }
+  .bline .brot .scrub { min-height:18px; padding:1px 6px; gap:4px; }
+  .blade .bline .brot .pill.mini { padding:0 5px; }
+  .bline .brot .pill.mini, .bline .brot .scrub { font-size:8.5px; }
   .bbody { display:flex; align-items:flex-start; gap:4px 6px; flex-wrap:wrap; margin-top:2px; }
   .blade.off .bbody, .blade.off .bline { opacity:.42; }
   .blade .kcell { width:46px; }
@@ -615,6 +642,7 @@ Coupling × Detune XY</b> for the swarm.</div>
   <div id="kbd"></div>
   <span class="vnote" id="audioStat">AUDIO — OFF. POWER, then the keys (A..L, W/E/T/Y/U/O; Z/X octave).</span>
   <button class="pill" id="droneBtn" data-lab="hold the monitor note in the audible instance">HOLD</button>
+  <button class="pill" id="restrikeBtn" data-lab="B299: re-trigger the held note every 2 s of monitor time, in the drawing and (while HOLD is on) in the audio together. Off: the note is held, so Rotate runs uninterrupted. It was always on, unmarked, before round 6.">RE-STRIKE 2 s</button>
   <button class="pill" id="probeBtn" data-lab="render 0.5 s offline through the same worklet and print its level">TEST AUDIO PATH</button>
 </div>
 
@@ -812,6 +840,46 @@ Coupling × Detune XY</b> for the swarm.</div>
       <li><b>Rule depth on the face only while a rule is on.</b> That makes the tier audit's promotion conditional: kRuleAmt (T2) and kRuleAmt2 (T3) count as
         promoted to the face while their blade has a rule. <span class="rec">Recommend: as built.</span> A knob that appears with its
         reason beats one the hand has to go one level down for.</li>
+    </ol>
+    <h2 style="margin-top:10px">Round 6 (B299) — Rotate keeps turning; the waveform gestures on MAIN</h2>
+    <ol start="37">
+      <li><b>Why Rotate jumped</b> (the human: "rotate currently isn't continuous; it jumps back to its beginning position at a rate
+        I can't seem to control anywhere"). Measured, not guessed (trace b299, 10 s at Rotate 0.3 and 0.5 Hz). The oracle's rotation
+        is continuous under a held note in <i>both</i> Rotation modes: the heard blade never jumped. The <i>drawing</i> did. Every 2 s
+        of its own time the monitor built a new oracle instance and struck the note again, and a new instance starts every rotation
+        clock at 0, so even "free-running" went back to Position. Its time was one stroboscope frame per animation frame, so the jump
+        came every 3.67 s on a 60 Hz display and every 1.83 s on a 120 Hz one: the display's rate, which no control reaches. The drawn
+        blade also turned at 0.55× (60 Hz) or 1.09× (120 Hz) of the heard one. At exactly 0.5 Hz the jump hid: 2 s is one whole turn.
+        <b>Fixed in the lab</b>: the note is held (RE-STRIKE, under the keys, brings the 2 s re-trigger back, and then it re-triggers
+        the audio too); a strike carries the rotation the audio would still have; with the audio on, the monitor renders exactly as
+        much as the audio has, so the drawn window stays within one viz post (33 ms) of the heard one; and any strike names itself on the
+        cycle view (↻). <b>Rotation</b> now sits beside <b>Rotate</b> on the face, on both blades, with blade 2's clock switch
+        ("with ①" / "its own") beside its own Rotate.
+        <span class="rec">Recommend: keep "restart per note" as the default, in the lab and in horde.</span> The jump was the monitor's,
+        not the patch's. Restart per note makes a note's attack start where Position says, every time; 8 of the 76 bench presets rotate
+        and all 8 rely on it (none sets free-running), so changing the default would re-voice them. Free-running is now one click on the face.</li>
+      <li><b>What MAIN's XY pad should hold</b> (the human's message ends at "to leave the XY pad clear for different"). MAIN's cycle
+        views now take OSC's waveform gestures: ↔ Position (wraps), ⇧↔ Width, ↕ Cut rate, alt = fine, the window under the pointer or
+        every blade from empty space, the same readout and outline, and the one mapping (the XY pill on MAIN opens the same row as on
+        OSC). So the pad no longer has to hold blade control. It keeps today's Width × Cut rate for now, marked
+        <b>FREE TO REASSIGN</b>. The ring (Coupling × Detune) is unchanged. <span class="rec">Open for the human: what goes on the pad?</span>
+        Candidates the lab can already drive: two macros (e.g. Sweep × Motion), Cross-mod × Feedback
+        (the swarm's sample-to-sample pair), or a second waveform-style mapping for blade 2.</li>
+      <li><b>With the audio off, the drawing runs at the display's pace.</b> Nothing is heard, so there is nothing to disagree with,
+        and B271's rule stands: no wall clock reaches what is drawn. But Rotate at 0.5 Hz then turns the drawn blade at 0.27 Hz on
+        a 60 Hz display. <span class="rec">Recommend: accept.</span> The alternative, pacing by the wall clock when silent, breaks
+        the lab's reproducible stills.</li>
+      <li><b>The audio's clock is a clock.</b> While the audio runs, the monitor reads <code>AudioContext.currentTime</code>, which
+        is the audio's own count of rendered samples, not the wall's. A stalled or glitching audio stalls the drawing with it, which is
+        the point. A hidden tab pauses the paints but not the audio, so on return the monitor catches up at most 32 strobes a paint.
+        <span class="rec">Recommend: as built</span>; say so if the "no clock" rule should be read more strictly.</li>
+      <li><b>MAIN draws SUM.</b> MAIN's cycle views have no view pills, so they draw SUM, and their hit-test reads SUM's windows
+        even while OSC shows AT PHASE (a check proves they differ). If AT PHASE becomes the default (question 31), MAIN's views,
+        their hit-test and their outline follow it by one line (<code>cycleView</code>).</li>
+      <li><b>The packet's parameter list.</b> <code>parameters.json</code> lists rotSync's options as [restart per note,
+        free-running] with default 1. That is display order: 1 = restart per note, as the bench's own <code>seg()</code> defines it
+        (scalpel-bench.html:1238) and as ACCOUNTING §1.8.1 already records. It is not a data bug. The same holds for
+        <code>rot2Follow</code> ([with blade 1, its own], default 1 = with blade 1), which §1.8.1's list of affected rows omits.</li>
     </ol>
   </div>
   <div class="box" id="misread" style="grid-column:1 / -1">
@@ -1083,7 +1151,7 @@ const LAB = {
   view: qp('view', 'sum'), contrib: qp('contrib', '1') === '1', t2open: qp('t2', '0') === '1',
   advOpen: qp('adv', '0') === '1', mainBlade: 1, still: parseInt(qp('still', '0'), 10) || 0,
   frozen: false, showVals: qp('vals', '0') === '1', presetName: '', presets: null,
-  params: null, presetStat: {}, openCats: null
+  params: null, presetStat: {}, openCats: null, restrike: qp('restrike', '0') === '1'
 };
 let P = Object.assign({}, DEF, { b2on: 1 });   // the patch (the morph's home corner A). Opens on the oracle's defaults, blade 2 on.
 let EFF = Object.assign({}, P);                 // what is heard: P, then the morph, then the macros
@@ -1108,7 +1176,28 @@ const MACROS = [
    as gui2 does; rSm is the order parameter smoothed per stroboscope frame at gui2's
    0.35 (kSmR, gui2.html:4957) — stepped by rendered frames, so it never reads the clock */
 const MON = { core: null, viz: null, vizN: 0, note: 45, f: 110, t: 0, L: null, R: null,
-  buf: new Float32Array(8192), bufR: new Float32Array(8192), pos: 0, cyc: null, cycN: -1, hist: [], rSm: -1 };
+  buf: new Float32Array(8192), bufR: new Float32Array(8192), pos: 0, cyc: null, cycN: -1, hist: [], rSm: -1,
+  clock: 0, a0: null, why: '', whyAt: -1e9, lag: 0 };
+/* B299 — THE MONITOR'S TIME, and what re-strikes it. Human, 2026-09-27: "rotate currently
+   isn't continuous; it jumps back to its beginning position at a rate I can't seem to
+   control anywhere." Measured on round 5 (trace b299): the oracle's rotation is continuous
+   under a held note in both Rotation modes; the jump was the MONITOR's. Every 2 s of its
+   engine time it built a NEW oracle instance and struck the note again, and a new instance
+   starts every rotation clock at 0, so even "free-running" snapped back to Position. Its
+   engine time is one stroboscope frame per animation frame, so the jump came every 3.67 s
+   at 60 Hz, 1.83 s at 120 Hz: the display's refresh, a rate no control reached. Worse, the
+   drawn rotation ran at 0.55× (60 Hz) or 1.09× (120 Hz) of the heard one. So:
+   - `clock` counts the monitor's rendered samples and is never reset by a strike;
+   - `a0`, while the audio runs, anchors that clock to the audio's own count of rendered
+     samples (monAdvance), so the monitor renders what the audio renders, strobe by strobe;
+   - a strike carries the rotation clocks the audio would still have (monStrike, rotCarry);
+   - the periodic re-strike is the RE-STRIKE pill (LAB.restrike, default off = the note is
+     held), and when it fires it re-triggers the held note in the audio too;
+   - `why` / `whyAt` name the last strike on the cycle view for MON_WHY samples of monitor
+     time, so a jump always says what caused it. */
+const MON_LOOP = 2 * SR;          // the re-strike period, in the monitor's engine samples (B271's 2 s)
+const MON_WHY = SR;               // how long (monitor samples) the cycle view names the last strike
+const MON_CATCHUP = 32;           // strobes one paint may render to catch the audio up (a hidden tab pauses paints, not audio)
 /* B295: the phase carpet's time axis is the monitor's own STROBOSCOPE FRAMES (monStep:
    each a whole number of note periods of rendered audio), so it advances with rendered
    samples, never with the clock: a frozen monitor (?still=) is a frozen carpet, and a
@@ -1242,7 +1331,7 @@ function inertWhy(key) {
 function afterWrite(key) {
   EFF = effective();
   pushOracle();
-  if (RESTRIKE.has(key)) monStrike();
+  if (RESTRIKE.has(key)) monStrike('patch', SP[key] ? SP[key].label : key);   // B299: a patch strike keeps every rotation clock
   if (LAB.frozen) for (let i = 0; i < 6; i++) monStep();
   const sp = SP[key];
   if (sp && (sp.kind === 'e' || sp.kind === 't' || sp.kind === 's')) rebuild(); else repaintControls();
@@ -1308,8 +1397,20 @@ function pushOracle() {
 /* ======================================================================
    D. THE MONITOR — a seeded oracle instance the visualizers read
    ====================================================================== */
-function monStrike() {
+/* B299: `kind` is what the strike stands for, because the audio does different things:
+   - 'note'  a key (or HOLD) struck MON.note: the audio starts a voice too, so "restart per
+             note" restarts; the free-running clocks (gRot, gRot2) tick on every sample
+             whether a voice sounds or not, so they run on: carried;
+   - 'patch' a structural edit (the RESTRIKE set, a preset, INIT): the audio's voice is not
+             struck at all, so every rotation clock is carried, the voice's and each member's;
+   - 'audio' the audio has just started with a new instance: the monitor starts with it,
+             nothing carried, its clock re-anchored (audioStart);
+   - 'boot'  the first strike: nothing to carry, nothing to name.
+   `what` names the cause, shown on the cycle view for a moment (monWhy). */
+function monStrike(kind, what) {
   if (!CORE) return;
+  kind = kind || 'note';
+  const old = MON.core, ov = liveVoice(old);
   seedOracle(0xB271 + MON.note);
   const c = new CORE(SR);
   c.set(oracleParams(EFF)); Object.assign(c.s, c.t);
@@ -1317,8 +1418,38 @@ function monStrike() {
   MON.f = mtof(MON.note);
   MON.hist = [];                                   // a new strike is a new voice: its carpet starts empty
   c.noteOn(MON.note, MON.f, 0.9);
+  if (old && (kind === 'note' || kind === 'patch')) rotCarry(old, ov, c, kind === 'patch');
+  if (kind === 'audio') MON.clock = 0;
   MON.core = c; MON.t = 0; MON.viz = null; MON.buf.fill(0); MON.bufR.fill(0); MON.pos = 0; MON.rSm = -1;
+  const sync = !!c.d.rotSync;
+  MON.why = kind === 'boot' ? '' : kind === 'audio' ? 'audio on · the drawing follows its clock'
+    : kind === 'patch' ? (what || 'patch') + ' · re-struck, rotation kept'
+    : (what || 'note') + ' · ' + (sync ? 'rotation restarts (per note)' : 'rotation runs on (free)');
+  MON.whyAt = MON.clock;
   monStep();
+}
+/* hand the new instance the rotation the old one had reached: the free-running clocks
+   always, and for a patch strike the voice's and every member's own (rotSpread) too.
+   These are the oracle's own fields (razor-core.js:280, :289, :294); nothing is computed. */
+function rotCarry(old, ov, c, voice) {
+  c.gRot = old.gRot; c.gRot2 = old.gRot2;
+  const v = liveVoice(c); if (!voice || !ov || !v) return;
+  v.rot = ov.rot; v.rot2 = ov.rot2;
+  for (let i = 0; i < Math.min(v.m.length, ov.m.length); i++) { v.m[i].rot = ov.m[i].rot; v.m[i].rot2 = ov.m[i].rot2; }
+}
+/* B299: the RE-STRIKE pill's re-trigger — the held note struck again on the SAME instance,
+   as a key struck again reaches the audio's: RazorCore.noteOn finds the sounding voice
+   (fresh = false), so the phases and the free-running clocks run on and only "restart per
+   note" restarts (razor-core.js:360). While the audio holds the note (HOLD) it gets the same
+   message, so drawn and heard re-strike together; while it plays keys, the monitor waits
+   for them instead, so it never re-strikes something nobody hears re-struck. */
+function monRetrigger() {
+  MON.t = 0;
+  if (AUD.on && !AUD.drone) return;
+  MON.core.noteOn(MON.note, MON.f, 0.9);
+  if (AUD.on) audioMsg({ t: 'on', note: MON.note, freq: mtof(MON.note), vel: 0.85 });
+  MON.why = 'RE-STRIKE (2 s) · ' + (MON.core.d.rotSync ? 'rotation restarts (per note)' : 'rotation runs on (free)');
+  MON.whyAt = MON.clock;
 }
 /* the order parameter r = |mean e^{2πiφ}| of a voice's members — the ring's Coherence */
 function orderR(v, N) {
@@ -1328,9 +1459,27 @@ function orderR(v, N) {
 /* one frame of engine time: a WHOLE number of note periods (a stroboscope), so a
    blade window stands still and the members move only as the swarm moves */
 function strobeLen(f) { const per = SR / f; return Math.max(64, Math.round(Math.max(1, Math.round(512 / per)) * per)); }
+function monFreq() { return MON.f * Math.pow(2, (EFF.bend || 0) / 12); }
+/* B299 — one paint's worth of monitor time. Audio off: one stroboscope frame, as B271
+   built it (deterministic; its speed against the wall is the display's, and nothing is
+   heard to disagree with). Audio on: as many whole strobes as bring the monitor's clock
+   level with the audio's own count of rendered samples (AudioContext.currentTime is that
+   count over the rate), so what is drawn moves at the heard speed. That reads the audio's
+   clock, never the wall's: a stalled audio stalls the drawing with it. */
+function audioClock() { return AUD.on && AUD.ctx && MON.a0 !== null ? Math.round(AUD.ctx.currentTime * SR) - MON.a0 : null; }
+function monAdvance() {
+  if (LAB.frozen) return;
+  const a = audioClock();
+  if (a === null) monStep(); else monFollow(a);
+}
+/* render whole strobes until the monitor is within half a strobe of `target` samples */
+function monFollow(target) {
+  for (let k = 0; k < MON_CATCHUP && MON.clock + strobeLen(monFreq()) / 2 <= target; k++) monStep();
+  MON.lag = target - MON.clock;
+}
 function monStep() {
   const c = MON.core; if (!c) return;
-  const n = strobeLen(MON.f * Math.pow(2, (EFF.bend || 0) / 12));
+  const n = strobeLen(monFreq());
   if (!MON.L || MON.L.length !== n) { MON.L = new Float32Array(n); MON.R = new Float32Array(n); }
   c.render(MON.L, MON.R);
   carpetFrame(MON.hist, c);
@@ -1338,8 +1487,10 @@ function monStep() {
   if (v) { const r = orderR(v, c.d.N); MON.rSm = MON.rSm < 0 ? r : MON.rSm + (r - MON.rSm) * 0.35; }
   const B = MON.buf, BR = MON.bufR;
   for (let i = 0; i < n; i++) { B[MON.pos] = MON.L[i]; BR[MON.pos] = MON.R[i]; MON.pos = (MON.pos + 1) & 8191; }
-  MON.t += n;
-  if (MON.t > 2 * SR && !LAB.frozen) monStrike();     // re-strike every 2 s of engine time: settle and blade envelopes stay visible
+  MON.t += n; MON.clock += n;
+  /* B271 re-struck here every 2 s, always, with a new instance (so every rotation clock
+     restarted). B299: only while RE-STRIKE is on, and as a re-trigger (monRetrigger) */
+  if (LAB.restrike && MON.t >= MON_LOOP && !LAB.frozen) monRetrigger();
 }
 function liveVoice(c) { let v = null; if (c) for (const x of c.voices) if (x.active && (!v || x.age > v.age)) v = x; return v; }
 
@@ -1708,10 +1859,16 @@ function paintCycle(cv, mini) {
     const m0 = pm ? pm.mem[Math.max(0, hi)] : cy.mem[0];
     const tag =(st, w, b) => { if (!w) return; g.fillStyle = TOKA(bladeInk(b), 1); g.fillText(b === 1 ? '①' : '②', frac(st + w / 2) * W - 4, top + 2); };
     tag(m0.st1, m0.w1, 1); tag(m0.st2, m0.w2, 2);
-    if (LAB.skin === 'C' || LAB.direct) drawGrips(g, W, top, bot);
-    else if (cv === XY.cv) xyOverlay(g, W, top, bot);
     g.textBaseline = 'alphabetic';
   }
+  /* B299: MAIN's views (mini) are drag surfaces too, so the grips / the XY's outline and
+     readout are drawn on whichever view is wired and under the hand */
+  g.font = '9.5px ui-monospace,Menlo,monospace'; g.textBaseline = 'top';
+  if (LAB.skin === 'C' || LAB.direct) drawGrips(g, W, top, bot);
+  else if (cv === XY.cv) xyOverlay(g, W, top, bot, cycleView(cv));
+  /* B299: a strike names itself for a second of monitor time, so no jump is unexplained */
+  if (MON.why && MON.clock - MON.whyAt < MON_WHY) { g.textAlign = 'right'; labelBox(g, '↻ ' + MON.why, W - 5, bot - 14, '--scr-marker'); g.textAlign = 'left'; }
+  g.textBaseline = 'alphabetic';
 }
 /* B297 — which member AT PHASE lifts: the one grabbed with the drag, else the one whose
    curve is nearest the pointer (within 14 px), else none. XY.pt is the pointer in the
@@ -2491,7 +2648,8 @@ function toggle(host, key, o) {
    ownership mid-drag without a rebuild (a rebuild would drop the drag), so a state
    captured at build time would be stale — and a stale "=1" click would copy blade
    1 over the values blade 2 had just been given. */
-function linkPill(host, gid, tier) {
+/* `names` (B299, optional): [following, own] words for the pill instead of =1 / own */
+function linkPill(host, gid, tier, names) {
   const g = FOLLOW.find(q => q.id === gid);
   const b = el('button', 'pill mini link');
   tagCtl(b, [g.sw], tier);
@@ -2503,7 +2661,7 @@ function linkPill(host, gid, tier) {
   });
   CTLS.push(() => {
     const on = following();
-    b.classList.toggle('on', on); b.textContent = on ? '=1' : 'own';
+    b.classList.toggle('on', on); b.textContent = names ? names[on ? 0 : 1] : on ? '=1' : 'own';
     b.title = addrOf(g.sw) + '\n' + (on ? 'following blade 1 — touch any control in the group to take it over'
       : "blade 2's own — click to follow blade 1 again (its own values are kept)");
   });
@@ -2621,16 +2779,12 @@ function buildOsc(host) {
   /* B293: with CYCLE EDITS off the waveform is the XY; its mapping row folds open here */
   if (!editable) {
     /* the pill IS the legend: it names the live mapping, so the caption stays one line */
-    const xb = el('button', 'pill mini' + (XY.open ? ' on' : ''), 'XY ' + xyLegend(XY));
-    xb.title = 'drag the waveform: what each gesture drives. Click to set it (the bench\'s XY axis selectors, plus a shift slot).';
-    xb.addEventListener('click', () => { XY.open = !XY.open; rebuild(); }); tools.appendChild(xb);
+    xyPill(tools);
   }
   const hint = el('span', 'vnote', cycleCaption()); hint.style.marginLeft = 'auto'; tools.appendChild(hint);
   CTLS.push(() => { hint.textContent = cycleCaption(); });      // Cross-mod is a knob, not a rebuild: keep the legend current
   if (!editable && XY.open) xyMapRow(sc2);
-  const cyc = canvas(sc2, LAB.skin === 'C' ? 200 : 132, c => paintCycle(c, false), 'edit');
-  if (editable) { tagCtl(cyc, ['c', 'w', 'depth', 'hard', 'k', 'c2', 'w2', 'depth2', 'hard2', 'k2'], 'T1'); cycleEdits(cyc); }
-  else { tagCtl(cyc, ['w', 'k', 'kHz', 'c', 'w2', 'k2', 'kHz2', 'c2'], 'T1'); cyc.classList.add('xy'); xyWire(cyc); }
+  cycleSurface(canvas(sc2, LAB.skin === 'C' ? 200 : 132, c => paintCycle(c, false), 'edit'), false);
   /* B297: the beam sits directly under the cycle view, the same width, one period across,
      so "what is drawn" and "what is heard" read against each other. It costs the Controls
      column 60 px (its last tier bar goes under the fold, the column scrolls); the left
@@ -2651,6 +2805,25 @@ function swarmTwin(host, h) {
     const lb = el('div', 'cap', t); lb.title = tip; c.appendChild(lb);
     canvas(c, h, f).title = tip;
   }
+}
+/* A cycle view as a drag surface — the ONE wiring, for OSC's cycle view and (B299) MAIN's
+   two: CYCLE EDITS' grips when those are on (skin C or the CYCLE EDITS pill), else the
+   waveform XY (xyWire: XY's gesture, XY's one mapping). `sum` marks a view drawn in SUM
+   whatever LAB.view says (MAIN has no view pills), so its hit-test reads SUM's windows. */
+function cycleSurface(cv, sum) {
+  cv._sum = !!sum;
+  if (LAB.skin === 'C' || LAB.direct) { tagCtl(cv, ['c', 'w', 'depth', 'hard', 'k', 'c2', 'w2', 'depth2', 'hard2', 'k2'], 'T1'); cycleEdits(cv); }
+  else { tagCtl(cv, ['w', 'k', 'kHz', 'c', 'w2', 'k2', 'kHz2', 'c2'], 'T1'); cv.classList.add('xy'); xyWire(cv); }
+  return cv;
+}
+/* the windows a cycle view DRAWS, so hit-tests and outlines read those (B297 phase, B299 MAIN) */
+function cycleView(cv) { return cv && cv._sum ? 'sum' : LAB.view; }
+/* the XY's legend pill: it names the live mapping and opens the mapping row (OSC and MAIN share XY) */
+function xyPill(host) {
+  const xb = el('button', 'pill mini' + (XY.open ? ' on' : ''), 'XY ' + xyLegend(XY));
+  xb.title = 'drag the waveform: what each gesture drives. Click to set it (the bench\'s XY axis selectors, plus a shift slot). One mapping for OSC and MAIN.';
+  xb.addEventListener('click', () => { XY.open = !XY.open; rebuild(); }); host.appendChild(xb);
+  return xb;
 }
 function cycleCaption() {
   const bits = ['dashed base', 'solid heard'];
@@ -2685,6 +2858,20 @@ function bladeRow(host, b) {
   CTLS.push(() => { sum.textContent = bladeSummary(b); });
   const l2 = el('div', 'bline'); row.appendChild(l2);
   l2.appendChild(el('span', 'lbl', 'WAVE')); pills(l2, bladeKey(b, 'hot'), { tier: 'T1' });
+  /* B299 — ROTATE on the face, beside what decides whether it ever restarts. Human,
+     2026-09-27: "rotate currently isn't continuous; it jumps back to its beginning position
+     at a rate I can't seem to control anywhere." Rotation (rotSync, one switch for both
+     blades, T3 in the accounting) was in Advanced, and restart per note is the oracle's
+     default (razor-core.js:271, :360), so the choice that decides the jump was three levels
+     from the knob that shows it. Blade 2 adds its own clock switch (rot2Follow), worded as
+     the oracle's options, with the copy-on-write of every blade-2 link (linkPill). A scrub,
+     not a knob: it rides the WAVE line, so the face does not grow. */
+  const rt = el('span', 'grp brot'); l2.appendChild(rt);
+  scrub(rt, bladeKey(b, 'rotRate'), { tier: 'T1' });
+  /* the oracle's words, shortened to fit the line: "per note" = restart per note */
+  pills(rt, 'rotSync', { tier: 'T1', opts: [[1, 'per note'], [0, 'free-running']] }).title +=
+    '\nRotation, one switch for both blades: "restart per note" puts every blade back at Position at each note-on; "free-running" never resets';
+  if (b === 2) linkPill(rt, 'rot', 'T1', ['with ①', 'its own']);
   const cutKey = () => (effLock(b) === 2 ? bladeKey(b, 'kHz') : bladeKey(b, 'k'));
   const modKey = () => (mUnitOf(b) ? bladeKey(b, 'mHz') : bladeKey(b, 'm'));
   const bb = el('div', LAB.skin === 'B' ? 'srows' : LAB.skin === 'C' ? 'scrubs' : 'bbody'); row.appendChild(bb);
@@ -2856,17 +3043,27 @@ function buildMain(host) {
   mb('MORPH', MORPH.on, () => { MORPH.on = !MORPH.on; afterWrite('morphOn'); rebuild(); }, 'blend the blade core across four corners: A is the patch, B–D seeded variations');
   mb('CIRCULAR', MORPH.circ, () => { MORPH.circ = !MORPH.circ; afterWrite('morphCirc'); rebuild(); }, 'Position blends on the shortest arc (on) or as a line, as the shell does today (off)');
   mb('RESEED', false, () => { MORPH.seed = (MORPH.seed * 1664525 + 1013904223) >>> 0; MORPH.delta = null; afterWrite('morphSeed'); rebuild(); }, 'new seeded corners B–D (mulberry32)');
-  const cx = cell(L, 'XY', 'PRESET · X Width · Y Cut rate');
+  /* B299 — the human, 2026-09-27: "Please implement the scalpel waveform click/drag
+     interactions on the main page to leave the XY pad clear for different" (the message
+     ends there). MAIN's cycle views now carry the waveform XY, so this pad no longer has to
+     hold blade control. What it should hold is the human's answer (open question 38); until
+     then it keeps today's Width × Cut rate, marked free to reassign. */
+  const cx = cell(L, 'XY', 'FREE TO REASSIGN');
+  cx.classList.add('free');
+  cx.title = 'free to reassign (B299): today X = Width, Y = Cut rate (blade 1), absolute. The cycle view below drives Position, Width and Cut rate now; what this pad should hold is an open question for the human.';
   const xy = canvas(cx, 108, paintXY, 'edit');
   tagCtl(xy, ['w', 'k'], 'T1');
   padDrag(xy, (u, v) => { P.w = fromPos(SP.w, u); const kk = P.lock === 2 ? 'kHz' : 'k'; P[kk] = fromPos(SP[kk], 1 - v); afterWrite('w'); });
   /* B294: the ring that sat beside the cycle here is now the Coupling × Detune XY in
      Osc Controls (the pad's slot), so the cycle view takes the whole width */
   const cv = cell(L, 'Visualizers', 'cycle · carpet · voice map', 'grow');
-  canvas(cv, 150, c => paintCycle(c, true));
-  /* B295: the carpet and the voice map take the cell's unused foot; the cycle keeps round 3's 150 px */
-  cv.appendChild(el('div', 'vnote', 'Both blade windows on the cycle. The ring is in Osc Controls.'));
-  swarmTwin(cv, 54);
+  /* B299: the cycle view is OSC's waveform XY (cycleSurface), drawn and hit-tested in SUM */
+  cycleSurface(canvas(cv, 150, c => paintCycle(c, true), 'edit'), true);
+  /* B295: the carpet and the voice map take the cell's unused foot; the cycle keeps round 3's 150 px.
+     B299: the caption line gives way to the XY's legend pill (the ring is in Osc Controls, as before) */
+  if (LAB.skin === 'C' || LAB.direct) cv.appendChild(el('div', 'vnote', 'CYCLE EDITS: drag a window to move it, an edge for width.'));
+  else { const t = el('div', 'cyctools'); cv.appendChild(t); xyPill(t); if (XY.open) xyMapRow(cv, XY, true); }
+  if (!XY.open || LAB.skin === 'C' || LAB.direct) swarmTwin(cv, 54);    // the open mapping row borrows their strip, as the ring's does on OSC
   const adv = el('button', 'pill advbtn', 'Advanced');
   adv.title = 'jumps to the OSC page with the tier-3 drawer open';
   adv.addEventListener('click', () => { LAB.page = 'osc'; LAB.advOpen = true; rebuild(); });
@@ -2954,7 +3151,7 @@ function oscControlsMain(host) {
     knob(row, bladeKey(b, 'm'), { tier: 'T1', keyFn: () => (mUnitOf(b) ? bladeKey(b, 'mHz') : bladeKey(b, 'm')), label: 'Mod rate' });
   }
   const wl = el('div', 'bline'); m.appendChild(wl); wl.appendChild(el('span', 'lbl', 'WAVE')); pills(wl, bladeKey(b, 'hot'), { tier: 'T1' });
-  canvas(v, 92, cv => paintCycle(cv, true));
+  cycleSurface(canvas(v, 92, cv => paintCycle(cv, true), 'edit'), true);   // B299: the same XY, the same mapping
   const n = el('div', 'vnote'); v.appendChild(n); CTLS.push(() => { n.textContent = '① ' + bladeSummary(1) + (P.b2on ? ' · ② ' + bladeSummary(2) : ''); });
 }
 function padDrag(cv, f) {
@@ -3058,12 +3255,13 @@ function xyEffWindows() {
   }
   return out;
 }
-function xyWindows() {
+function xyWindows(view) {
   const cy = cycleData();
   if (!cy) return xyEffWindows();
   const out = { 1: [], 2: [] };
-  /* B297: AT PHASE draws each window where its member is, so the hit-test reads those */
-  const src = LAB.view === 'phase' ? phaseModel(cy) : cy;
+  /* B297: AT PHASE draws each window where its member is, so the hit-test reads those.
+     B299: `view` is the surface's (cycleView): MAIN draws SUM whatever LAB.view is */
+  const src = (view || LAB.view) === 'phase' ? phaseModel(cy) : cy;
   for (const m of src.mem) { if (m.w1) out[1].push([m.st1, m.w1]); if (m.w2) out[2].push([m.st2, m.w2]); }
   return out;
 }
@@ -3178,34 +3376,38 @@ function xyMove(x, y, shift, fine, S) {
 function xyEnd(S) { S = S || XY; if (S.drag) S.last = S.drag; S.drag = null; }
 /* the pill IS the legend: the live mapping in one line */
 function xyLegend(S) { return '↔ ' + xyRoleLabel(S.map.x[0]) + ' ↕ ' + xyRoleLabel(S.map.y[0]) + ' ⇧↔ ' + xyRoleLabel(S.map.sx[0]); }
+/* B299: every cycle view wired here shares XY (one gesture state, one mapping); XY.cv is
+   the one under the hand, the only one that draws the outline and the readout. MAIN has
+   two (the Visualizers cell's and Osc Controls' mini), OSC one. */
 function xyWire(cv) {
   XY.cv = cv;
   const ph = e => { const r = cv.getBoundingClientRect(); return frac((e.clientX - r.left) / Math.max(1, r.width)); };
   /* B297: the pointer in the painter's box, for AT PHASE's member highlight (phaseHi) */
   const pt = e => { const r = cv.getBoundingClientRect(); return { x: e.clientX - r.left - cv.clientLeft, y: e.clientY - r.top - cv.clientTop }; };
   cv.addEventListener('pointerdown', e => {
-    const r = cv.getBoundingClientRect();
-    const cy = cycleData(), hi = LAB.view === 'phase' && cy ? phaseHi(phaseModel(cy), cv.clientWidth, cv.clientHeight) : -1;
-    xyBegin(ph(e), e.clientX, e.clientY, r.width, r.height);
+    const r = cv.getBoundingClientRect(), view = cycleView(cv);
+    XY.cv = cv;
+    const cy = cycleData(), hi = view === 'phase' && cy ? phaseHi(phaseModel(cy), cv.clientWidth, cv.clientHeight) : -1;
+    xyBegin(ph(e), e.clientX, e.clientY, r.width, r.height, xyWindows(view));
     XY.drag.shift = e.shiftKey; XY.drag.mem = hi;             // the lifted member stays lifted through the drag
     try { cv.setPointerCapture(e.pointerId); } catch (_) {}
   });
   cv.addEventListener('pointermove', e => {
     if (XY.drag) { xyMove(e.clientX, e.clientY, e.shiftKey, e.altKey); return; }
-    XY.pt = pt(e);
-    XY.hover = xyTarget(ph(e));
+    XY.cv = cv; XY.pt = pt(e);
+    XY.hover = xyTarget(ph(e), xyWindows(cycleView(cv)));
   });
   const up = () => xyEnd();
   cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
-  cv.addEventListener('pointerleave', () => { if (!XY.drag) { XY.hover = null; XY.pt = null; } });
+  cv.addEventListener('pointerleave', () => { if (!XY.drag && XY.cv === cv) { XY.hover = null; XY.pt = null; } });
 }
 /* the overlay: the target outlined in the ATTENTION ink (--scr-marker), and while
    dragging a readout of every value the gesture is moving */
-function xyOverlay(g, W, top, bot) {
+function xyOverlay(g, W, top, bot, view) {
   const d = XY.drag, t = d || XY.hover;
   if (!t) return;
   g.save();
-  const wins = xyWindows();
+  const wins = xyWindows(view);
   for (const b of t.blades) for (const [st, w] of wins[b]) {
     const a = st * W, z = (st + w) * W;
     const segs = z <= W ? [[a, z]] : [[a, W], [0, z - W]];
@@ -3215,17 +3417,26 @@ function xyOverlay(g, W, top, bot) {
   g.setLineDash([]);
   const name = t.blades.length === 2 ? 'BOTH BLADES' : t.blades.length ? 'BLADE ' + t.blades[0] : 'NO BLADE';
   const lines = [];
+  /* B299: MAIN's views are 254 and 148 px wide, so the readout breaks where OSC's does not:
+     under 420 px the hover legend takes two lines; under 200 px one line per key, no reason */
+  const narrow = W < 420, tiny = W < 200;
   if (d) {
     const slot = d.shift ? 'sx' : 'x';
-    lines.push('TARGET ' + name + ' · ' + d.why);
+    if (tiny) lines.push(name);
+    else if (narrow) { lines.push('TARGET ' + name); lines.push('  ' + d.why); }
+    else lines.push('TARGET ' + name + ' · ' + d.why);
     const row = (tag, sl) => {
       const ks = xySlotKeys(sl, d.blades);
       if (!ks.length) return;
-      lines.push(tag + ' ' + ks.map(([k, , b]) => SP[k].label + (b === 2 ? ' ②' : b === 1 && t.blades.length > 1 ? ' ①' : '') + ' ' + fmtVal(SP[k], shown(k, false))).join(' · '));
+      const txt = ks.map(([k, , b]) => SP[k].label + (b === 2 ? ' ②' : b === 1 && t.blades.length > 1 ? ' ①' : '') + ' ' + fmtVal(SP[k], shown(k, false)));
+      if (tiny) txt.forEach((x, i) => lines.push((i ? '  ' : tag + ' ') + x)); else lines.push(tag + ' ' + txt.join(' · '));
     };
     row(d.shift ? '⇧↔' : '↔', slot); row('↕', 'y');
   } else {
-    lines.push('drag → ' + name + ' (' + t.why + ') · ↔ ' + xyRoleLabel(XY.map.x[0]) + ' · ↕ ' + xyRoleLabel(XY.map.y[0]) + ' · ⇧↔ ' + xyRoleLabel(XY.map.sx[0]));
+    const legend = '↔ ' + xyRoleLabel(XY.map.x[0]) + ' · ↕ ' + xyRoleLabel(XY.map.y[0]) + ' · ⇧↔ ' + xyRoleLabel(XY.map.sx[0]);
+    if (tiny) lines.push('drag → ' + name);
+    else if (narrow) { lines.push('drag → ' + name + ' (' + t.why + ')'); lines.push(legend); }
+    else lines.push('drag → ' + name + ' (' + t.why + ') · ' + legend);
   }
   g.font = '9.5px ui-monospace,Menlo,monospace'; g.textBaseline = 'top';
   let wmax = 0; for (const l of lines) wmax = Math.max(wmax, g.measureText(l).width);
@@ -3237,10 +3448,10 @@ function xyOverlay(g, W, top, bot) {
 }
 /* the mapping row: the bench's axis selectors (primary, "+ second…", inv) per slot —
    the same row for both surfaces, the same roles on both (B294) */
-function xyMapRow(host, S) {
+function xyMapRow(host, S, narrow) {
   S = S || XY;
   const ring = S === RXY;
-  const row = el('div', 'xymap' + (ring ? ' narrow' : '')); host.appendChild(row);
+  const row = el('div', 'xymap' + (ring || narrow ? ' narrow' : '')); host.appendChild(row);   // B299: MAIN's 254 px column is narrow too
   const opts = (s, withNone) => {
     if (withNone) { const o = el('option', null, '+ second…'); o.value = ''; s.appendChild(o); }
     const g1 = el('optgroup'); g1.label = 'the grabbed blade'; s.appendChild(g1);
@@ -3357,7 +3568,7 @@ async function makeNode(ctx, init) {
 }
 async function audioStart() {
   if (!CORE) { AUD.err = 'oracle not loaded'; paintAudioStat(); return; }
-  if (AUD.on) { try { await AUD.ctx.close(); } catch (_) {} AUD.on = false; AUD.node = null; AUD.spn = null; AUD.ctx = null; paintAudioStat(); return; }
+  if (AUD.on) { try { await AUD.ctx.close(); } catch (_) {} AUD.on = false; AUD.node = null; AUD.spn = null; AUD.ctx = null; MON.a0 = null; paintAudioStat(); return; }
   const AC = window.AudioContext || window.webkitAudioContext;
   const ctx = new AC({ sampleRate: SR });
   AUD.ctx = ctx; AUD.out = ctx.createGain(); AUD.out.gain.value = EFF.master; AUD.out.connect(ctx.destination);
@@ -3375,20 +3586,24 @@ async function audioStart() {
     AUD.spn.connect(AUD.out);
   }
   AUD.on = true;
+  /* B299: the instance just built starts every rotation clock at 0 on its first sample, so
+     the monitor starts over with it and counts from here (audioClock, monAdvance) */
+  MON.a0 = Math.round(ctx.currentTime * SR);
+  monStrike('audio');
   if (AUD.drone) noteOn(MON.note, true);
   paintAudioStat();
 }
 function audioMsg(m) { if (AUD.node && AUD.node.port) AUD.node.port.postMessage(m); else if (AUD.core) AUD.core.msg(m); }
-function noteOn(n, keepMon) {
+function noteOn(n, keepMon, what) {
   audioMsg({ t: 'on', note: n, freq: mtof(n), vel: 0.85 });
-  if (!keepMon) { MON.note = n; monStrike(); }
+  if (!keepMon) { MON.note = n; monStrike('note', what || 'key'); }
 }
 function noteOff(n) { if (!(AUD.drone && n === MON.note)) audioMsg({ t: 'off', note: n }); }
 function paintAudioStat() {
   const s = $('audioStat'); if (!s) return;
   s.textContent = !AUD.on ? 'AUDIO — OFF. POWER, then the keys (A..L, W/E/T/Y/U/O; Z/X octave).' :
     'AUDIO — ON · ' + (AUD.node ? 'AudioWorklet running razor-core.js (seeded)' : 'fallback') + (AUD.err ? ' · ' + AUD.err : '') +
-    ' · monitor note ' + MON.note;
+    ' · monitor note ' + MON.note + (MON.a0 !== null ? ' · the drawing follows the audio clock' : '');
   const p = $('pwr'); if (p) p.classList.toggle('on', AUD.on);
 }
 /* offline proof that the audible path is live: 0.5 s through the SAME worklet */
@@ -3496,6 +3711,8 @@ function runChecks() {
   for (const c of checkPhase()) out.push(c);
   for (const c of checkBeam()) out.push(c);
   for (const c of checkInert()) out.push(c);
+  for (const c of checkRotation()) out.push(c);
+  for (const c of checkMainXY()) out.push(c);
   for (const c of checkPresets()) out.push(c);
   AUDIT.checks = out;
   seedOracle(0xB271 + MON.note);
@@ -3908,6 +4125,143 @@ function checkInert() {
   P = snap; EFF = effective(); pushOracle();
   return out;
 }
+/* B299 — ROTATE IS CONTINUOUS, AND THE DRAWING KEEPS THE AUDIO'S TIME.
+   The AUDIO side is a twin of the worklet's instance, built as workletSource() builds it
+   (seeded 0xB271, the params, s = t) and driven as the page drives it (HOLD's note-on
+   message, 128-frame render quanta). The DRAWN side is the page's own monitor, advanced by
+   monFollow against the twin's sample count exactly as frame() advances it against the real
+   audio's (audioClock), and read from what the cycle view draws (cycleData: blade 1's window
+   centre, less the monitor's Position). Rotate 0.5 Hz throughout.
+   (1) free-running, 10 s held: every quantum's rotation step is +0.5·128/SR (mod 1), so no
+       reset and monotonic. CONTROL (must fail): restart per note, and the same note struck
+       again at 3.3 s (what a key, or RE-STRIKE with HOLD, sends): the step there is a reset.
+   (2) free-running, 10 s at 60 paints a second, through a patch strike (Members, at 4.2 s)
+       and a key strike (6.7 s): the drawn window stays within one viz post of rotation of
+       the twin's, and at the post's own sample it matches. CONTROL (must fail): round 5's
+       pacing, one stroboscope frame per paint whatever the audio has rendered. */
+const ROT_HZ = 0.5, ROT_QUANT = 128, ROT_POST = Math.floor(SR / 30);
+function audioTwin(params, note) {
+  seedOracle(0xB271);
+  const a = new CORE(SR); a.set(params); Object.assign(a.s, a.t);
+  a.msg({ t: 'on', note, freq: mtof(note), vel: 0.85 });
+  return a;
+}
+/* blade 1's rotation as render() adds it to Position (razor-core.js:704, :737), member 0 */
+function rotNow(c) { const v = liveVoice(c); return frac((c.d.rotSync ? (v ? v.rot : 0) : c.gRot) + (v ? v.m[0].rot : 0)); }
+const wrapH = x => x - Math.round(x);                          // a phase difference in [−½, ½)
+function checkRotation() {
+  const out = [], snap = Object.assign({}, P), fz = LAB.frozen, mOn = MORPH.on, mv = MACROS.map(m => m.v), rs = LAB.restrike, page = LAB.page, skin = LAB.skin;
+  const monSnap = Object.assign({}, MON), bufs = [MON.buf.slice(), MON.bufR.slice()], note = MON.note;
+  LAB.frozen = false; MORPH.on = false; for (const m of MACROS) m.v = 0; LAB.restrike = false;
+  const patch = sync => { P = Object.assign({}, DEF, { b2on: 1, N: 1, os: 1, rotRate: ROT_HZ, rotSync: sync, rotSpread: 0, bspread: 0 }); EFF = effective(); pushOracle(); };
+  /* (1) the twin alone: steps per quantum; `at` = the sample of a same-note strike, or none */
+  const steps = (sync, at, secs) => {
+    patch(sync);
+    const a = audioTwin(oracleParams(EFF), 45), L = new Float32Array(ROT_QUANT), Rr = new Float32Array(ROT_QUANT), e = ROT_HZ * ROT_QUANT / SR;
+    let prev = rotNow(a), resets = 0, worst = 0, from = 0, mono = true, n = 0;
+    while (n < secs * SR) {
+      if (at && n <= at && at < n + ROT_QUANT) a.msg({ t: 'on', note: 45, freq: mtof(45), vel: 0.85 });
+      a.render(L, Rr); n += ROT_QUANT;
+      const r = rotNow(a), step = wrapH(r - prev), d = step - e; prev = r;
+      if (Math.abs(d) > 1e-6) { resets++; if (Math.abs(d) > worst) { worst = Math.abs(d); from = frac(r - step); } }
+      if (!(step > 0)) mono = false;
+    }
+    return { resets, worst, from, mono, q: Math.round(secs * SR / ROT_QUANT) };
+  };
+  /* (2) the monitor against the twin, `follow` = monFollow (round 6) or one strobe per paint (round 5) */
+  const drawn = follow => {
+    patch(0); MON.note = 45; monStrike('audio');
+    const a = audioTwin(oracleParams(EFF), 45), L = new Float32Array(ROT_QUANT), Rr = new Float32Array(ROT_QUANT);
+    const hist = [0]; let n = 0, worst = 0, matched = 0, posts = 0, lastVz = -1;
+    const twinTo = t => { while (n + ROT_QUANT <= t) { a.render(L, Rr); n += ROT_QUANT; hist.push(rotNow(a)); } };
+    const twinAt = p => { const q = Math.min(hist.length - 1, Math.floor(p / ROT_QUANT)); return hist[q] + ROT_HZ * (p - q * ROT_QUANT) / SR; };
+    for (let f = 1; f <= 600; f++) {
+      twinTo(Math.round(f * SR / 60));
+      if (f === 252) { write('N', 2); a.set(oracleParams(EFF)); }                           // a patch strike (RESTRIKE), the audio not struck
+      if (f === 400) { noteOn(45); a.msg({ t: 'on', note: 45, freq: mtof(45), vel: 0.85 }); }   // a key strike, heard and drawn
+      if (follow) monFollow(n); else monStep();
+      const cy = cycleData(); if (!cy) continue;
+      const dr = frac(cy.mem[0].c1 - MON.core.s.c);
+      worst = Math.max(worst, Math.abs(wrapH(dr - rotNow(a))));
+      if (MON.vizN !== lastVz) {                                  // a new post: its own sample, on the global clock
+        lastVz = MON.vizN; posts++;
+        const p = MON.clock - MON.t + 1 + ROT_POST * Math.floor((MON.t - 1) / ROT_POST);
+        if (p <= n) matched = Math.max(matched, Math.abs(wrapH(dr - twinAt(p))));
+      }
+    }
+    return { worst, matched, posts, clock: MON.clock, n };
+  };
+  const tol = ROT_HZ * (ROT_POST + strobeLen(mtof(45))) / SR;     // one viz post of rotation, plus the monitor's half-strobe either side
+  try {
+    const hold = steps(0, 0, 10), ctl = steps(1, Math.round(3.3 * SR), 10), free = steps(0, Math.round(3.3 * SR), 10);
+    LAB.page = 'osc'; LAB.skin = 'A'; rebuild();
+    const q = s => FR.querySelectorAll(s).length;
+    const face = q('.blade:not(.b2) .brot [data-key="rotSync"]') === 1 && q('.blade.b2 .brot [data-key="rotSync"]') === 1 &&
+      q('.blade:not(.b2) .brot [data-key="rotRate"]') === 1 && q('.blade.b2 .brot [data-key="rotRate2"]') === 1 && q('.blade.b2 .brot [data-key="rot2Follow"]') === 1;
+    out.push({ name: 'Rotate free-running: continuous over 10 s held', ok: hold.resets === 0 && hold.mono && free.resets === 0 && face,
+      detail: 'audio twin, 0.5 Hz, ' + hold.q + ' quanta: ' + hold.resets + ' resets, monotonic ' + hold.mono + ' · the same with the note struck again at 3.3 s: ' +
+        free.resets + ' resets · on the face: Rotation beside Rotate on both blades, blade 2\'s clock switch ' + (face ? 'present' : 'MISSING') });
+    out.push({ name: 'CONTROL: restart per note + a re-strike resets', ok: ctl.resets >= 1, control: true,
+      detail: ctl.resets + ' reset(s): at 3.3 s the blade went from ' + ctl.from.toFixed(3) + ' cycle past Position back to 0 (must be ≥ 1)' });
+    const now = drawn(true), old = drawn(false);
+    out.push({ name: 'drawn rotation = heard, through a patch and a key strike', ok: now.worst <= tol && now.matched < 1e-3 && now.posts > 250,
+      detail: 'monitor following the audio clock, 600 paints: max |drawn − heard now| ' + now.worst.toFixed(4) + ' cycle (≤ ' + tol.toFixed(4) +
+        ', one viz post) · at each of ' + now.posts + ' posts\' own sample ' + now.matched.toExponential(1) + ' · clocks ' + now.clock + ' / ' + now.n });
+    out.push({ name: 'CONTROL: round 5\'s pacing (a strobe per paint)', ok: old.worst > tol, control: true,
+      detail: 'max |drawn − heard now| ' + old.worst.toFixed(3) + ' cycle; the monitor rendered ' + (old.clock / SR).toFixed(2) + ' s while the audio rendered ' + (old.n / SR).toFixed(2) + ' s (must exceed ' + tol.toFixed(4) + ')' });
+  } catch (e) {
+    out.push({ name: 'Rotate continuity', ok: false, detail: 'threw: ' + String(e && e.stack || e) });
+  }
+  LAB.page = page; LAB.skin = skin; LAB.frozen = fz; MORPH.on = mOn; MACROS.forEach((m, i) => { m.v = mv[i]; }); LAB.restrike = rs;
+  P = snap; EFF = effective(); pushOracle();
+  Object.assign(MON, monSnap); MON.buf.set(bufs[0]); MON.bufR.set(bufs[1]); MON.note = note; MON.cycN = -1;
+  if (MON.core) MON.core.set(oracleParams(EFF));
+  return out;
+}
+/* B299 — MAIN'S WAVEFORM XY. MAIN's cycle views are wired by cycleSurface → xyWire, OSC's
+   path, so this is checkXY's gesture on MAIN's terms: the target is hit-tested on the
+   windows MAIN DRAWS (cycleView of a `_sum` surface = SUM) as the monitor draws them, with
+   Rotate turning them away from the static Position, while OSC's own view is AT PHASE; the
+   drag reads back from P (the knobs) and from the monitor oracle's target `t` (the heard). */
+function checkMainXY() {
+  const out = [], snap = Object.assign({}, P), fz = LAB.frozen, mOn = MORPH.on, mv = MACROS.map(m => m.v), map = XY.map, view = LAB.view;
+  const monSnap = Object.assign({}, MON), bufs = [MON.buf.slice(), MON.bufR.slice()];
+  LAB.frozen = false; MORPH.on = false; for (const m of MACROS) m.v = 0; XY.map = JSON.parse(JSON.stringify(XY_DEFAULT));
+  const near = (a, b) => Math.abs(a - b) < 1e-9;
+  try {
+    const base = { b1on: 1, b2on: 1, N: 5, K: -1, detune: 3, phaseMode: 2, law: 0, w: 0.2, c: 0.3, k: 6, lock: 0, w2: 0.2, c2: 0.8, k2: 3, lock2: -1,
+      rotRate: ROT_HZ, rotSync: 0, rotSpread: 0, bspread: 0, kspread: 0 };
+    P = Object.assign({}, DEF, base); EFF = effective(); pushOracle(); monStrike('patch', 'check');
+    for (let i = 0; i < 60; i++) monStep();                     // ~0.55 s: the windows have turned ~0.27 cycle
+    LAB.view = 'phase';
+    const W = 254, H = 150, main = { _sum: true }, wins = xyWindows(cycleView(main)), winsP = xyWindows(cycleView({}));
+    const [st, w] = wins[1][0], ph = frac(st + w / 2);
+    const turned = frac(ph - (EFF.c - EFF.w / 2)) >= EFF.w;     // the static window does not hold the grab: only the drawn one does
+    const sumVsPhase = wins[1].some((q, i) => Math.abs(wrapH(q[0] - winsP[1][i][0])) > 1e-3);
+    const d = xyBegin(ph, 100, 50, W, H, wins);
+    xyMove(100, 50, false, false);
+    const still = P.c === base.c && P.w === base.w && P.k === base.k && P.c2 === base.c2;
+    xyMove(142, 50, false, false);                               // ↔ +42 px on a 254 px view → Position + 42/254 (wraps)
+    xyMove(142, 29, false, false);                               // ↕ 21 px up → Cut rate + 21/420 of its log taper
+    xyMove(182, 29, true, false);                                // ⇧↔ +40 px → Width + 40/420 of its taper
+    xyEnd();
+    const cExp = frac(base.c + 42 / W), kExp = fromPos(SP.k, toPos(SP.k, base.k) + 21 / XY_PX), wExp = fromPos(SP.w, toPos(SP.w, base.w) + 40 / XY_PX);
+    const heard = ['c', 'k', 'w'].every(k => near(MON.core.t[k], P[k]));
+    out.push({ name: 'MAIN: the grab alone moves nothing; the target is the drawn window', ok: still && d.blades.join() === '1' && turned && sumVsPhase,
+      detail: 'grab at ' + ph.toFixed(3) + ' (blade 1\'s SUM window as MAIN draws it; the static window ' + (turned ? 'misses it' : 'HOLDS it') + ') → target ' + d.blades.join('+') +
+        ' · SUM and AT PHASE windows ' + (sumVsPhase ? 'differ' : 'AGREE') + ', MAIN reads SUM while OSC shows AT PHASE' });
+    out.push({ name: 'MAIN: drag round trip (↔ Position, ↕ Cut rate, ⇧↔ Width)', ok: near(P.c, cExp) && near(P.k, kExp) && near(P.w, wExp) && P.c2 === base.c2 && P.w2 === base.w2 && heard,
+      detail: 'c ' + P.c.toFixed(4) + '=' + cExp.toFixed(4) + ' · k ' + P.k.toFixed(3) + '=' + kExp.toFixed(3) + ' · w ' + P.w.toFixed(4) + '=' + wExp.toFixed(4) +
+        ' · blade 2 untouched · oracle t ' + (heard ? 'agrees' : 'DISAGREES') });
+  } catch (e) {
+    out.push({ name: 'MAIN XY', ok: false, detail: 'threw: ' + String(e && e.stack || e) });
+  }
+  XY.drag = null; XY.last = null; XY.map = map; LAB.view = view; LAB.frozen = fz; MORPH.on = mOn; MACROS.forEach((m, i) => { m.v = mv[i]; });
+  P = snap; EFF = effective(); pushOracle();
+  Object.assign(MON, monSnap); MON.buf.set(bufs[0]); MON.bufR.set(bufs[1]); MON.cycN = -1;
+  if (MON.core) MON.core.set(oracleParams(EFF));
+  return out;
+}
 /* B293 — THE PRESETS. The oracle's set() silently IGNORES a key it does not know
    (razor-core.js set: `else if (k in this.d)`), so a misspelt or retired key in a
    preset would load "fine" and sound wrong. Every key is held against three sets:
@@ -3976,7 +4330,7 @@ function checkPresets() {
    0xB271 + 45, the patch as applyPreset loads it. The render runs in blocks of
    floor(sr/30) = 1600 samples after a first single sample, so each block ENDS on a viz
    post (razor-core.js render: vc counts from 0, one post per 1600 samples). At eight
-   posts (MIS_TIMES, 0.2 to 1.8 s, across the monitor's 2 s re-strike) three waves are
+   posts (MIS_TIMES, 0.2 to 1.8 s; its own instance, so the monitor's RE-STRIKE never reaches it) three waves are
    compared:
    - DRAWN: cycleFrom's heard trace, the one SUM draws (and phaseModel's, the one AT PHASE
      draws), built from that same post;
@@ -4189,7 +4543,9 @@ function buildSide() {
     'The ring is also the <b>Coupling × Detune XY</b>: the faint magenta crosshair and hollow puck are the value, a hollow violet diamond is where morph or a macro ' +
     'carries it, and the dashed box is how far the bound macros can. A click lands the value there (round 4). <b>Spectrum</b>: the meter line is the measured output, ' +
     'bands are the predicted formant ± main lobe (the bench\'s rule), and the amber tick marks f₀.</p><p>All three read one seeded oracle instance that holds the monitor note (A2, or the last key played). ' +
-    'It advances a whole number of note periods per frame, so a blade window holds still.</p></div>';
+    'It advances a whole number of note periods per frame, so a blade window holds still. <b>Round 6:</b> with the audio on it renders as much as the audio has rendered, so ' +
+    'Rotate turns the drawn window at the heard speed; with it off it runs at the display\'s pace. The note is held unless RE-STRIKE (under the keys) is on, and any strike ' +
+    'names itself on the cycle view (↻). On MAIN the cycle views are the same XY as OSC\'s waveform, with the same mapping.</p></div>';
   s.insertBefore(presetBrowser(), s.firstChild);
 }
 /* B293 — the bench's 76 presets as a browsable list, grouped as the bench groups
@@ -4244,6 +4600,7 @@ function chrome() {
   mkPills($('dirPills'), [[false, 'off'], [true, 'on']], LAB.direct || LAB.skin === 'C', v => { LAB.direct = v; chrome(); rebuild(); });
   const tb = $('themeBtn'); if (tb) tb.innerHTML = 'theme <b>' + (LAB.theme === 'dark' ? 'DARK' : 'LIGHT') + '</b>';
   const vb = $('valsBtn'); if (vb) vb.innerHTML = 'values <b>' + (LAB.showVals ? 'SHOWN' : 'HOVER') + '</b>';
+  const rb = $('restrikeBtn'); if (rb && rb.classList) rb.classList.toggle('on', LAB.restrike);
 }
 function applyBodyClasses() {
   if (!document.body || !document.body.classList) return;
@@ -4259,7 +4616,7 @@ function applyPreset(name) {
   P = Object.assign({}, DEF, pr.params, { b1on: 1 });
   LAB.presetName = pr.name;
   for (const m of MACROS) m.v = 0;
-  EFF = effective(); pushOracle(); monStrike();
+  EFF = effective(); pushOracle(); monStrike('patch', 'preset');
   const s = $('presetSel'); if (s) s.value = name;
   rebuild();
 }
@@ -4310,11 +4667,12 @@ function wireChrome() {
   on('valsBtn', 'click', () => { LAB.showVals = !LAB.showVals; applyBodyClasses(); chrome(); });
   on('pwr', 'click', () => { audioStart(); });
   on('panic', 'click', () => { audioMsg({ t: 'panic' }); AUD.drone = false; const d = $('droneBtn'); if (d) d.classList.remove('on'); });
-  on('droneBtn', 'click', () => { AUD.drone = !AUD.drone; $('droneBtn').classList.toggle('on', AUD.drone); if (AUD.drone) noteOn(MON.note, true); else audioMsg({ t: 'off', note: MON.note }); });
+  on('droneBtn', 'click', () => { AUD.drone = !AUD.drone; $('droneBtn').classList.toggle('on', AUD.drone); if (AUD.drone) noteOn(MON.note, false, 'HOLD'); else audioMsg({ t: 'off', note: MON.note }); });
+  on('restrikeBtn', 'click', () => { LAB.restrike = !LAB.restrike; MON.t = 0; chrome(); });
   on('probeBtn', 'click', async () => { AUDIT.probe = 'rendering…'; paintAudit(); try { AUDIT.probe = await probeAudio(); } catch (e) { AUDIT.probe = 'probe failed: ' + String(e && e.message || e); } paintAudit(); });
   on('presetSel', 'change', () => { const v = $('presetSel').value; if (v) applyPreset(v); });
   on('misreadBtn', 'click', () => misreadAll());
-  on('initBtn', 'click', () => { P = Object.assign({}, DEF, { b1on: 0, base: 2, b2on: 0 }); LAB.presetName = 'horde INIT (blade 1 off, saw base — ACCOUNTING §1.7)'; EFF = effective(); pushOracle(); monStrike(); fillPresetSelect(); rebuild(); });
+  on('initBtn', 'click', () => { P = Object.assign({}, DEF, { b1on: 0, base: 2, b2on: 0 }); LAB.presetName = 'horde INIT (blade 1 off, saw base — ACCOUNTING §1.7)'; EFF = effective(); pushOracle(); monStrike('patch', 'INIT'); fillPresetSelect(); rebuild(); });
   if (typeof window !== 'undefined' && window.addEventListener) {
     window.addEventListener('keydown', e => {
       if (e.repeat || (e.target && /INPUT|SELECT|TEXTAREA/.test(e.target.tagName || ''))) return;
@@ -4330,7 +4688,7 @@ function wireChrome() {
   }
 }
 function frame() {
-  if (!LAB.frozen) monStep();
+  monAdvance();
   paintCanvases();
   requestAnimationFrame(frame);
 }
@@ -4340,7 +4698,7 @@ async function boot() {
   wireChrome();
   buildKbd();
   EFF = effective();
-  monStrike();
+  monStrike('boot');
   rebuild();
   try { await bootLate(); } catch (e) {
     const a = $('audit'); if (a) { a.className = 'audit bad'; a.textContent = 'boot failed after load: ' + String(e && e.stack || e); }
