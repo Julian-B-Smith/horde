@@ -55,10 +55,29 @@
      side column, marked as the bench's voicings. Load-time checks for (2) and (3)
      sit in section K with the rest.
 
+     ROUND 3 — B294, 2026-09-27, dispatched by the horde lead on ROADMAP B294
+     (carried in the records PR on branch lead-records-102). The human: "Maybe the
+     phase ring visualizer also can become the surface for the coupling/detune XY
+     to preserve space." Built as section I3: the ring stays the visualizer and is
+     now a RELATIVE XY with round 2's conventions (x = Detune, y = Coupling, B227's
+     reading; ⇧x settable; alt = fine; one writer), its mapping row the same
+     selectors as the cycle view's. The ring's canvas IS the parameter plane: a
+     faint value crosshair and a hollow puck mark (Detune, Coupling) UNDER the
+     members, with edge rails and a hollow violet diamond for where modulation
+     carries it and a dashed reach box for how far the bound macros can. The
+     separate pad cell is gone; on OSC the ring and the spectrum take its height,
+     on MAIN the pad's slot in Osc Controls becomes the ring and the left
+     Visualizers cell gives the cycle view the whole width. Scope added the same day
+     (B294, lead-records-103): (a) the waveform XY's defaults swap — "Maybe we should
+     swap the width and position dragging after all; it's less inuitive this way" —
+     ↔ Position, ⇧↔ Width; (b) "can we visualize the cross-mod?" — cycleFrom runs the
+     bench's 3-pass estimate of the oracle's push, drawn as weighted ring arrows and a
+     CONTRIBUTIONS lane. Checks in section K.
+
      L0026: every const is declared above the code that runs at setup; the boot
      call is the last statement of the script. -->
 <html><head><meta charset="utf-8">
-<meta name="lab-review" content="B271 + B293 · 2026-09-27">
+<meta name="lab-review" content="B271 + B293 + B294 · 2026-09-27">
 <title>SCALPEL interface lab — horde with blades at its centre</title>
 <style>
   :root {
@@ -374,6 +393,15 @@
   .xymap .inv input[type=checkbox]:checked::after { transform:translateX(9px); }
   .xymap .inv input:disabled { opacity:.35; }
   canvas.xy { cursor:grab; } canvas.xy:active { cursor:grabbing; }
+  /* B294: the ring's mapping row is the same selectors in a 264 px column — one slot per line */
+  .xymap.narrow { gap:3px; padding:3px 4px; }
+  .xymap.narrow .grp { width:100%; flex-wrap:nowrap; }
+  .xymap.narrow .lbl { min-width:20px; }
+  .xymap.narrow select { max-width:88px; }
+  /* the ring's live readout: the values under the hand, beside the surface, never over the members */
+  .ringread { font-variant-numeric:tabular-nums; }
+  .ringread.live { color:var(--text); font-weight:600; }
+  .ringtools { display:flex; align-items:center; gap:6px; margin:3px 0 2px; flex-wrap:wrap; }
 
   /* ============ THE BLADE ROW ============ */
   .blade { position:relative; border:var(--stroke) solid var(--line); border-radius:var(--r);
@@ -511,8 +539,8 @@
   <div>
     <h1>scalpel</h1>
     <div class="badges">
-      <span class="badge">B271 + B293 · DESIGN LAB</span>
-      <span class="sub">BLADES AT THE CENTRE · OSC + MAIN AT 980×720 · VISUALS DRIVEN BY THE ORACLE · THE WAVEFORM IS AN XY · 76 BENCH PRESETS</span>
+      <span class="badge">B271 + B293 + B294 · DESIGN LAB</span>
+      <span class="sub">BLADES AT THE CENTRE · OSC + MAIN AT 980×720 · VISUALS DRIVEN BY THE ORACLE · THE WAVEFORM IS AN XY · THE RING IS COUPLING × DETUNE · 76 BENCH PRESETS</span>
     </div>
   </div>
   <div class="hdrctl">
@@ -528,7 +556,8 @@
 the accounting's priority order (mode, width, cut rate, position, depth, edges, mirror, FM, spreads), the surviving swarm controls one
 level down, and Advanced below. The <b>MAIN</b> page follows the human's wireframe with the blade core surfaced. The cycle view, phase ring
 and formant-band spectrum are drawn and heard through the <b>real oracle</b> (<code>razor-core.js</code>, loaded, seeded), and three
-marked <b>aesthetic alternatives</b> sit beside the standard.</div>
+marked <b>aesthetic alternatives</b> sit beside the standard. The waveform is an XY for the blades, and the <b>phase ring is the
+Coupling × Detune XY</b> for the swarm.</div>
 
 <div class="audit" id="audit">oracle: pending</div>
 
@@ -562,9 +591,9 @@ marked <b>aesthetic alternatives</b> sit beside the standard.</div>
   <div class="box">
     <h2>Open design questions — each with the lab's recommendation</h2>
     <ol>
-      <li><b>Blade core above the swarm (ACCOUNTING Q I1).</b> The face here is: the Coupling × Detune pad, Members, Base wave and
-        Volume (the swarm's identity), then both blades. Everything else of the swarm is one level down.
-        <span class="rec">Recommend: as built.</span> The pad is kept on the face because it IS the swarm. Stereo, the
+      <li><b>Blade core above the swarm (ACCOUNTING Q I1).</b> The face here is: Coupling × Detune (since round 3, the phase ring
+        itself), Members, Base wave and Volume (the swarm's identity), then both blades. Everything else of the swarm is one level down.
+        <span class="rec">Recommend: as built.</span> Coupling × Detune stays on the face because it IS the swarm. Stereo, the
         amp envelope, Coherence → Tone, Onset, Dissolve, Drift and Pitch drop a level, and a summary strip names any of them that is off its default.</li>
       <li><b>Stacked or tabbed blades (Q I2).</b> The OSC page stacks both blades. MAIN has room for one, so it uses a 1 | 2 selector.
         <span class="rec">Recommend: stacked on OSC, tabbed on MAIN.</span> The cycle view always draws both windows, so a tab never hides the other blade's effect.</li>
@@ -591,12 +620,12 @@ marked <b>aesthetic alternatives</b> sit beside the standard.</div>
       <li><b>Position is a circle.</b> The Position knob here has no end stops. The MAIN morph blends it on the shortest arc (toggle
         CIRCULAR off to see today's linear blend run 0.95 → 0.05 through 0.5). <span class="rec">Recommend: an endless dial plus a
         circular morph rule in the shell (ACCOUNTING finding 5).</span> The matrix clamp needs the same rule.</li>
-      <li><b>The Coupling pad voices the oracle's law.</b> The accounting recommends horde's law (§1.6), which couples 1–9× softer at the
-        same K. The pad's feel will change when that lands. <span class="rec">Recommend: settle the law in the B252 discussion first,
-        then re-label the pad's y axis from the measured lock boundary, not from K.</span></li>
-      <li><b>What the cycle view cannot show.</b> Cross-mod and feedback act sample to sample. The cycle shows the blades without them,
-        and the ring draws the cross-mod arrows. <span class="rec">Recommend: accept this for v1.</span> Add a per-member lane estimate only if
-        the port provides one (SPEC §10 calls the bench's three-pass estimate a display approximation).</li>
+      <li><b>The Coupling axis voices the oracle's law.</b> The accounting recommends horde's law (§1.6), which couples 1–9× softer at the
+        same K. The ring's feel will change when that lands. <span class="rec">Recommend: settle the law in the B252 discussion first,
+        then re-label the ring's y axis from the measured lock boundary, not from K.</span></li>
+      <li><b>What the cycle view cannot show.</b> Cross-mod and feedback act sample to sample. <i>Round 3:</i> cross-mod is now drawn
+        (question 23). Feedback still is not: the cycle shows the blades without it. <span class="rec">Recommend: accept feedback as undrawn for v1.</span>
+        Add it through the same three-pass estimate only if the human asks.</li>
       <li><b>Visualizers on MAIN.</b> <span class="rec">Recommend: the cycle view and the ring on MAIN, and the spectrum on OSC only.</span>
         The formant band is a sound-design read, not a performance read.</li>
     </ol>
@@ -620,6 +649,50 @@ marked <b>aesthetic alternatives</b> sit beside the standard.</div>
       <li><b>The presets are the bench's voicings.</b> They play exactly as the oracle defines them, so their Coupling is SCALPEL's law
         (ACCOUNTING §1.6), not horde's. The browser and the patch name say so. Re-voicing is Q B3. The lab has no undo history, so
         loading a preset is not a history step.</li>
+    </ol>
+    <h2 style="margin-top:10px">Round 3 (B294) — the ring is the Coupling × Detune XY</h2>
+    <ol start="18">
+      <li><b>How the ring shows the pad's position.</b> The ring's canvas is the pad's plane: x = Detune, y = Coupling, both across
+        the whole canvas along their own taper. A faint magenta crosshair and a hollow puck mark the value. They are drawn
+        <i>under</i> the members, the arcs and the R needle, so they never cover the phase picture. Short magenta rails on the left and
+        bottom edges repeat the value where nothing else is drawn. The corner labels are the pad's: lock, splay, detune →.
+        Coherence moves to the top-right corner. <span class="rec">Recommend: as built.</span></li>
+      <li><b>How the ring shows modulation.</b> Violet is the knob halo's ink. A <b>hollow violet diamond</b> marks where the morph and
+        the macros carry the value, joined to the puck by a dashed line. It is hollow and diamond-shaped because the members are
+        filled violet dots, and a filled violet dot would read as one more member. The edge rails grow a violet segment from the value to the
+        carried value: the knob halo's arc, one per axis. A dashed violet <b>reach box</b> shows how far the bound macros can
+        carry it (0 to 1 on every macro), which is B227's recommended reach box. No trail: nothing in this lab moves Coupling over time (there is no
+        LFO), and a trail would need a wall-clock history. <span class="rec">Recommend: as built. Add a trail only when the port has
+        time-based sources.</span></li>
+      <li><b>Relative, like the waveform, but the marker tracks the hand.</b> A grab moves nothing. A drag adds a delta, and alt makes it
+        ¼. On the ring, a whole canvas width (or height) is the whole taper, so the crosshair moves exactly with the pointer. On the
+        waveform, the whole taper is 420 px, because its x axis is phase and there is no marker to track. The ring is as
+        sensitive as the pad it replaces (150 px for the whole Coupling range before, about 256 px now).</li>
+      <li><b>What the ⇧ slot drives on the ring.</b> The default is Cross-mod, the lab's proposal: the ring draws cross-mod (its
+        arrows), so the gesture shows its own effect. The ring's mapping row has the waveform's selectors and roles. A blade role on the ring
+        moves the blade whose arc is under the pointer (outside the circle). Inside the circle it moves every blade that is on.
+        <span class="rec">Recommend: ask the human.</span> Stereo is the other candidate.</li>
+      <li><b>MAIN was folded too.</b> MAIN had its own Coupling × Detune pad in Osc Controls, and a second, mini ring in its left
+        Visualizers cell. The pad's slot in Osc Controls is now the ring: it is still the K × Detune XY the human's MAIN wireframe asks for there, and
+        it is now also the mini visualizer the wireframe puts beside it. The left Visualizers cell loses the duplicate ring, and the
+        cycle view takes its whole width. Both pages share one ring mapping.
+        <span class="rec">Recommend: as built.</span> The alternative, folding into the left Visualizers ring, would take the swarm's
+        XY out of Osc Controls.</li>
+      <li><b>Cross-mod, made visible</b> (the human: "can we visualize the cross-mod?"). What the oracle does: each member's blade
+        carrier phase is pushed by ½·xm times the <i>next</i> member's previous output sample (razor-core.js render; SPEC §6). This
+        acts only on Sync, FM and Ring carriers, and only inside a blade window. So the lab computes what the push <i>adds</i>, using the
+        bench's own three-pass static estimate (SPEC §10 calls it a display approximation; audio stays exact). It shows the result in two
+        places, both in the meter ink, because each is a measure:
+        (1) <b>the ring's arrows</b> run from member i+1 to member i, each weighted by the RMS of what that push adds to member i. A push with no
+        effect is a dotted hairline, so "on, but doing nothing here" reads differently from "off". Each arrow bows toward the centre,
+        so it still shows as a small loop when a locked swarm stacks two members on one point.
+        (2) <b>a dash-dot CONTRIBUTIONS lane</b> on the cycle view shows what cross-mod adds to the heard wave. The heard trace now includes it.
+        At xm 0 nothing is drawn, and the ring's legend line reads "Cross-mod off".
+        The arrows were magenta in round 1. They move to the meter ink because they are now a measurement, not an authored value.
+        <span class="rec">Recommend: as built.</span></li>
+      <li><b>The waveform XY's defaults are swapped</b> (the human: "Maybe we should swap the width and position dragging after all;
+        it's less inuitive this way"). Horizontal is now Position (it wraps), shift + horizontal is Width, and vertical is still Cut rate. The
+        mapping stays settable, and "default" restores this order. The ring's defaults (Detune, Coupling) are independent of it.</li>
     </ol>
   </div>
 </div>
@@ -935,16 +1008,32 @@ const XY_ROLES = [
   ['benvK', 'Env → cut'], ['benvW', 'Env → width'], ['benvD', 'Env decay']
 ];
 const XY_SWARM = [['detune', 'Detune'], ['K', 'Coupling'], ['width', 'Stereo'], ['xm', 'Cross-mod'], ['fb', 'Feedback'], ['driftRate', 'Drift rate']];
-/* travel: a non-circular parameter crosses its whole taper in XY_PX pixels (in
-   position units, so Width's bypass zone and Cut rate's log law are respected);
-   a CIRCULAR one (Position) moves one cycle per canvas width, so the window
-   tracks the hand exactly. Alt/Option = fine (×¼). */
+/* travel on the cycle view: a non-circular parameter crosses its whole taper in
+   XY_PX pixels (in position units, so Width's bypass zone and Cut rate's log law
+   are respected); a CIRCULAR one (Position) moves one cycle per canvas width, so
+   the window tracks the hand exactly. Alt/Option = fine (×¼), on every surface. */
 const XY_PX = 420, XY_FINE = 0.25;
-/* the default mapping is the human's (2026-09-27): horizontal = Width, vertical =
-   Cut rate, shift + horizontal = Position. Each slot: [primary, second, invert-second]
-   — the bench's axis row (scalpel-bench.html:158-159), plus the ⇧ slot. */
-const XY_DEFAULT = { x: ['w', '', 0], y: ['cut', '', 0], sx: ['c', '', 0] };
-const XY = { map: JSON.parse(JSON.stringify(XY_DEFAULT)), open: qp('xymap', '0') === '1', drag: null, hover: null, cv: null, last: null };
+/* the default mapping is the human's. Round 2 built their first ordering (horizontal =
+   Width, ⇧ + horizontal = Position); round 3 swaps it on their word (B294, 2026-09-27:
+   "Maybe we should swap the width and position dragging after all; it's less inuitive
+   this way"): horizontal = Position (wraps), vertical = Cut rate, ⇧ + horizontal =
+   Width. Each slot: [primary, second, invert-second] — the bench's axis row
+   (scalpel-bench.html:158-159), plus the ⇧ slot. */
+const XY_DEFAULT = { x: ['c', '', 0], y: ['cut', '', 0], sx: ['w', '', 0] };
+/* A SURFACE is one relative-XY drag target: its mapping, its default, its drag state,
+   and `span` — how many pixels cross a parameter's whole taper on it. The cycle
+   view's x is PHASE, so there is no marker to track and a taper is XY_PX long
+   (Position, circular, is one canvas width, so its window follows the hand). */
+const XY = { map: JSON.parse(JSON.stringify(XY_DEFAULT)), def: XY_DEFAULT, open: qp('xymap', '0') === '1', drag: null, hover: null, cv: null, last: null,
+  span: (sp, axis, d) => (sp.curve === 'circ' ? d.W : XY_PX) };
+/* B294 — the phase ring as the Coupling × Detune XY. Its defaults are the pad's
+   (gui2's x = Detune, y = Coupling, B227's reading) and do NOT follow the cycle
+   view's swap; ⇧ + horizontal = Cross-mod is the lab's proposal (the ring is where
+   cross-mod is drawn). The ring's canvas IS the parameter plane, so a whole canvas
+   width (height) is a whole taper and the crosshair moves exactly with the hand. */
+const RXY_DEFAULT = { x: ['detune', '', 0], y: ['K', '', 0], sx: ['xm', '', 0] };
+const RXY = { map: JSON.parse(JSON.stringify(RXY_DEFAULT)), def: RXY_DEFAULT, open: qp('ringmap', '0') === '1', drag: null, hover: null, cv: null, last: null,
+  note: null, xnote: null, span: (sp, axis, d) => (axis === 'y' ? d.H : d.W) };
 const KEYMAP = { a: 0, w: 1, s: 2, e: 3, d: 4, f: 5, t: 6, g: 7, y: 8, h: 9, u: 10, j: 11, k: 12, o: 13, l: 14 };
 const $ = id => document.getElementById(id);
 const FR = $('frame');
@@ -1105,8 +1194,11 @@ function bladeAt(p, phi, cc, kk, mr, mn, ns, ns2, modX) {
   }
   return y;
 }
-/* one member's full cycle: base, blade 1's and blade 2's contributions, over M points */
-function memberCycle(c, x, M) {
+/* one member's full cycle: base, blade 1's and blade 2's contributions, over M points.
+   `xin` (B294, optional): the cross-mod phase push at each point, in cycles of the
+   blade carrier — the oracle's own `ns.xin`, which voice() adds to the Sync, FM and
+   Ring carriers (razor-core.js voice, cases 0/1/2/5) and nothing else reads. */
+function memberCycle(c, x, M, xin) {
   const P1 = x.P1, base = new Float64Array(M), d1 = new Float64Array(M), d2 = new Float64Array(M);
   const ns = newNs(0x51 + x.i), ns2 = newNs(0x52 + x.i), ns3 = newNs(0x53 + x.i), ns4 = newNs(0x54 + x.i);
   const on1 = P1.w >= 0.004, st1 = frac(x.c1 - P1.w / 2), kk1 = P1.lock === 1 ? x.k1 / Math.max(P1.w, 1e-3) : x.k1;
@@ -1115,6 +1207,7 @@ function memberCycle(c, x, M) {
   for (let n = 0; n < M; n++) {
     const phi = n / M;
     base[n] = CORE.wave(P1.base, phi);
+    if (xin) { ns.xin = xin[n]; ns3.xin = xin[n]; }        // bladeAt copies it to the twins, as out() does
     if (on1) {
       const e = frac(phi - st1);
       CORE.fmStep(P1, ns, e, e < pe1, kk1, P1.mEff * phi, 1 / M); pe1 = e;
@@ -1134,20 +1227,60 @@ function cycleData() {
   const c = MON.core, viz = MON.viz;
   if (!c || !viz || !viz.mem) return null;
   if (MON.cycN === MON.vizN && MON.cyc) return MON.cyc;
-  const N = c.d.N, M = 384, mem = [], sum = new Float64Array(M), s1 = new Float64Array(M), s2 = new Float64Array(M);
+  MON.cyc = cycleFrom(c, viz);
+  MON.cycN = MON.vizN;
+  return MON.cyc;
+}
+/* B294 — CROSS-MOD, as the oracle computes it (razor-core.js render, and SPEC §6):
+   member q's blade carriers are pushed by xin = ½·xm·y_{q+1}[n−1] cycles, where
+   y_{q+1} is the NEXT member round the ring's previous output sample (feedback adds
+   ½·fb·… of its own; that term is left out here, so what is drawn is cross-mod
+   alone). A static cycle cannot hold a sample-to-sample loop, so this is the
+   bench's own display approximation (scalpel-bench.html computeCycle; SPEC §10
+   names it): three passes, each member's push read from its neighbour's previous
+   pass, the neighbour's phase offset taken from the oracle's viz feed (mem.phi).
+   Pass 0 is the static cycle; what cross-mod ADDS is the last pass minus pass 0,
+   per member (`xd`, the ring's arrows) and summed (`sx`, the CONTRIBUTIONS lane).
+   Its magnitude is zero by construction at xm = 0, and zero for a blade whose mode
+   ignores the push (Noise, Fold, Crush) — the check in K holds both. */
+const XM_ON = 0.0005;                       // the oracle's own threshold (render: s.xm > 0.0005)
+function cycleFrom(c, viz) {
+  /* N = 1 is not special-cased: the oracle's ring index (q + 1) % N makes a lone member push itself */
+  const N = c.d.N, M = 384, xm = c.s.xm || 0, xOn = xm > XM_ON;
+  const ctx = [];
+  for (let i = 0; i < N; i++) ctx.push(memberCtx(c, viz, i));
+  const outOf = cy => { const o = new Float64Array(M); for (let n = 0; n < M; n++) o[n] = cy.base[n] + cy.d1[n] + cy.d2[n]; return o; };
+  let mem = ctx.map(x => memberCycle(c, x, M, null));
+  const stat = mem.map(outOf);
+  if (xOn) {
+    const ph = viz.mem.phi || viz.phases || [];
+    let prev = stat;
+    for (let pass = 1; pass < 3; pass++) {
+      const next = [];
+      mem = ctx.map((x, i) => {
+        const j = (i + 1) % N, off = Math.round(frac((ph[j] || 0) - (ph[i] || 0)) * M), nb = prev[j], xin = new Float64Array(M);
+        /* at member i's phase n/M, member j sits `off` points further on; [n−1] is the previous sample */
+        for (let n = 0; n < M; n++) xin[n] = 0.5 * xm * nb[(n - 1 + off + M) % M];
+        const cy = memberCycle(c, x, M, xin);
+        next.push(outOf(cy));
+        return cy;
+      });
+      prev = next;
+    }
+  }
+  const sum = new Float64Array(M), s1 = new Float64Array(M), s2 = new Float64Array(M), sx = new Float64Array(M);
   for (let i = 0; i < N; i++) {
-    const cy = memberCycle(c, memberCtx(c, viz, i), M);
-    const y = new Float64Array(M); let mean = 0;
-    for (let n = 0; n < M; n++) { y[n] = cy.base[n] + cy.d1[n] + cy.d2[n]; mean += y[n]; }
+    const cy = mem[i], y = outOf(cy), xd = new Float64Array(M);
+    let mean = 0, e = 0;
+    for (let n = 0; n < M; n++) { mean += y[n]; xd[n] = y[n] - stat[i][n]; e += xd[n] * xd[n]; }
     mean /= M;
     /* per-cycle DC (SPEC §7, the default): the heard cycle is the drawn one minus its mean */
     if (c.d.dcMode > 0) for (let n = 0; n < M; n++) y[n] -= mean;
-    for (let n = 0; n < M; n++) { sum[n] += y[n] / N; s1[n] += cy.d1[n] / N; s2[n] += cy.d2[n] / N; }
-    cy.y = y; mem.push(cy);
+    for (let n = 0; n < M; n++) { sum[n] += y[n] / N; s1[n] += cy.d1[n] / N; s2[n] += cy.d2[n] / N; sx[n] += xd[n] / N; }
+    cy.y = y; cy.xd = xd; cy.xrms = Math.sqrt(e / M);   // what member i+1's push adds to member i, RMS over the cycle
   }
-  MON.cyc = { N, M, mem, sum, s1, s2, base: mem.length ? mem[0].base : new Float64Array(M), r: viz.r, f: viz.freq };
-  MON.cycN = MON.vizN;
-  return MON.cyc;
+  let sxr = 0; for (let n = 0; n < M; n++) sxr += sx[n] * sx[n];
+  return { N, M, mem, sum, s1, s2, sx, sxRms: Math.sqrt(sxr / M), xm, xOn, base: mem.length ? mem[0].base : new Float64Array(M), r: viz.r, f: viz.freq };
 }
 /* the predicted formant band — the bench's own display rule (scalpel-bench.html:2197-2201),
    per blade: centre = cut rate as a frequency, main lobe ± f0/width·(1 + edges) */
@@ -1317,11 +1450,19 @@ function paintCycle(cv, mini) {
        blade fills under it, then the trace at the theme's weight. Dark: no halo, 1.8 px. */
     const sigW = TOKN('--scr-sig-w', 1.8) * (mini ? 0.78 : 1), halo = TOKN('--scr-halo-w', 0);
     const heard = (arr, a, lw) => { if (halo > 0) line(arr, '--scr-tube', 0.62, lw + 2 * halo); line(arr, '--scr-meter', a, lw); };
-    if (lanes) heard(cy.mem[L].y, 0.95, sigW * 0.83);
-    else {
+    /* B294: what cross-mod adds, dash-dot in the meter ink (a measure of the heard
+       wave, like the trace itself), only while the oracle's xm is on */
+    const XDASH = [6, 3, 1, 3];
+    if (lanes) {
+      if (LAB.contrib && cy.xOn) line(cy.mem[L].xd, '--scr-meter', 0.85, 1.1, XDASH);
+      heard(cy.mem[L].y, 0.95, sigW * 0.83);
+    } else {
       const ma = TOKN('--scr-member-a', 1);
       if (cy.N > 1 && !mini) for (const m of cy.mem) line(m.y, '--scr-physics', 0.28 * ma, 1);   // each member, faint
-      if (LAB.contrib && !mini) { line(cy.s1, bladeInk(1), 0.8, 1, [1, 2]); if (P.b2on) line(cy.s2, bladeInk(2), 0.8, 1, [4, 2]); }
+      if (LAB.contrib && !mini) {
+        line(cy.s1, bladeInk(1), 0.8, 1, [1, 2]); if (P.b2on) line(cy.s2, bladeInk(2), 0.8, 1, [4, 2]);
+        if (cy.xOn) line(cy.sx, '--scr-meter', 0.85, 1.3, XDASH);
+      }
       heard(cy.sum, 1, sigW);                                           // what is heard (per-cycle DC applied)
     }
   }
@@ -1349,24 +1490,36 @@ function drawGrips(g, W, top, bot) {
     g.beginPath(); g.moveTo(frac(st + t) * W, top + 22); g.lineTo(frac(st + t) * W - 4, top + 30); g.lineTo(frac(st + t) * W + 4, top + 30); g.closePath(); g.fill();
   }
 }
+/* the ring's geometry, shared by the painter and the hit-test so they cannot disagree */
+function ringGeom(W, H, N, mini) {
+  return { cx: W / 2, cy: H / 2, Rr: Math.max(8, Math.min(W, H) / 2 - (mini ? 10 : 8) - (mini ? 0 : Math.min(9, N) * 2.2)) };
+}
+/* B294: a push whose effect RMS reaches this draws at full weight — a scale, not a
+   gate: anything above zero is drawn, zero is drawn as "no effect". 1 keeps xm 0.3 and
+   0.8 apart (the check's watch voicing: strongest push 0.35 and 0.83 RMS) */
+const XM_FULL = 1;
 function paintRing(cv, mini) {
   const [g, W, H] = fit(cv); if (!g) return;
   tube(g, W, H);
   if (!CORE) { say(g, W, H, 'oracle not loaded'); return; }
   const c = MON.core, v = liveVoice(c), cy = cycleData();
   if (!v || !cy) { say(g, W, H, 'monitor warming up'); return; }
-  const N = c.d.N, cx = W / 2, cyy = H / 2;
-  const Rr = Math.max(8, Math.min(W, H) / 2 - (mini ? 10 : 8) - (mini ? 0 : Math.min(9, N) * 2.2));
+  const N = c.d.N, G = ringGeom(W, H, N, mini), cx = G.cx, cyy = G.cy, Rr = G.Rr;
   const P2 = p => [cx + Math.cos(TAU * p) * Rr, cyy - Math.sin(TAU * p) * Rr];
+  /* B294: the XY's own marks go FIRST, under everything the ring already draws */
+  if (cv === RXY.cv) ringXYLayer(g, W, H, mini);
   g.strokeStyle = TOKA('--scr-grid', 0.3); g.lineWidth = 1;
   g.beginPath(); g.arc(cx, cyy, Rr, 0, TAU); g.stroke();
   /* each member's OWN blade windows as a concentric arc outside the circle
      (member 1 innermost), so position spreads read as a fan */
+  const tgt = (RXY.drag || RXY.hover) && ringUsesBlades() ? (RXY.drag || RXY.hover).blades : [];
   const arc = (st, w, rad, b, lw) => {
     if (w < 0.004) return;
     g.strokeStyle = TOKA(bladeInk(b), b === 2 && LAB.b2look !== 'hue' ? 0.55 : 0.85); g.lineWidth = lw;
     if (b === 2 && LAB.b2look !== 'hue') g.setLineDash([3, 2]);
     g.beginPath(); g.arc(cx, cyy, rad, -TAU * (st + w), -TAU * st); g.stroke(); g.setLineDash([]);
+    /* a blade role mapped on the ring: its target outlined in the attention ink, as on the waveform */
+    if (tgt.indexOf(b) >= 0) { g.strokeStyle = TOKA('--scr-marker', RXY.drag ? 0.9 : 0.55); g.lineWidth = 1; g.beginPath(); g.arc(cx, cyy, rad + lw, -TAU * (st + w), -TAU * st); g.stroke(); }
   };
   for (let i = 0; i < cy.mem.length; i++) {
     const m = cy.mem[i], rad = Rr + 5 + (mini ? 0 : i * 2.2);
@@ -1380,15 +1533,28 @@ function paintRing(cv, mini) {
   g.strokeStyle = TOKA('--scr-physics', 1); g.lineWidth = 2;
   g.beginPath(); g.moveTo(cx, cyy); g.lineTo(cx + sx * Rr, cyy - sy * Rr); g.stroke();
   const pos = ph.map(P2);
-  /* cross-member modulation: member i+1 pushes member i (ring topology, SPEC §6) */
-  if (EFF.xm > 0.0005 && N > 1) {
-    g.strokeStyle = TOKA('--scr-value', Math.min(0.9, 0.3 + EFF.xm)); g.fillStyle = g.strokeStyle; g.lineWidth = 1 + 1.5 * EFF.xm;
+  /* cross-member modulation: member i+1 pushes member i (ring topology, SPEC §6).
+     B294: each arrow's weight is what that push ADDS to member i's output (cy.mem[i].xrms,
+     the oracle's law through the bench's 3-pass estimate, cycleFrom), not the knob; a
+     push with no effect (its blade mode ignores it, or it lands outside every window)
+     is a dotted hairline. Meter ink: it is a measure, like the lane it matches on the
+     cycle view. Each arrow bows toward the centre, so it still reads as a small loop
+     when the two members coincide (a locked swarm), instead of vanishing. */
+  if (cy.xOn && N > 1) {
     for (let i = 0; i < N; i++) {
-      const [x1, y1] = pos[(i + 1) % N], [x2, y2] = pos[i], dx = x2 - x1, dy = y2 - y1, Lh = Math.hypot(dx, dy);
-      if (Lh < 12) continue;
-      const ux = dx / Lh, uy = dy / Lh, ex = x2 - ux * 7, ey = y2 - uy * 7;
-      g.beginPath(); g.moveTo(x1 + ux * 6, y1 + uy * 6); g.lineTo(ex, ey); g.stroke();
-      g.beginPath(); g.moveTo(ex, ey); g.lineTo(ex - ux * 5 - uy * 3, ey - uy * 5 + ux * 3); g.lineTo(ex - ux * 5 + uy * 3, ey - uy * 5 - ux * 3); g.closePath(); g.fill();
+      const [x1, y1] = pos[(i + 1) % N], [x2, y2] = pos[i];
+      const wgt = clamp(cy.mem[i].xrms / XM_FULL, 0, 1), none = cy.mem[i].xrms < 1e-6;
+      const mx = (x1 + x2) / 2, my = (y1 + y2) / 2, dcx = cx - mx, dcy = cyy - my, dl = Math.hypot(dcx, dcy) || 1;
+      const bow = (mini ? 8 : 12) + 0.12 * Math.hypot(x2 - x1, y2 - y1);
+      const qx = mx + dcx / dl * bow, qy = my + dcy / dl * bow;
+      g.strokeStyle = TOKA('--scr-meter', none ? 0.35 : 0.3 + 0.65 * wgt); g.fillStyle = g.strokeStyle;
+      g.lineWidth = none ? 0.8 : 0.9 + 2.6 * wgt; g.setLineDash(none ? [1, 3] : []);
+      g.beginPath(); g.moveTo(x1, y1); g.quadraticCurveTo(qx, qy, x2, y2); g.stroke(); g.setLineDash([]);
+      if (none) continue;
+      /* the head sits at member i, along the curve's last tangent, clear of its dot */
+      const tx = x2 - qx, ty = y2 - qy, tl = Math.hypot(tx, ty) || 1, ux = tx / tl, uy = ty / tl;
+      const ex = x2 - ux * 6, ey = y2 - uy * 6, hs = 3.5 + 2 * wgt;
+      g.beginPath(); g.moveTo(ex, ey); g.lineTo(ex - ux * hs - uy * hs * 0.6, ey - uy * hs + ux * hs * 0.6); g.lineTo(ex - ux * hs + uy * hs * 0.6, ey - uy * hs - ux * hs * 0.6); g.closePath(); g.fill();
     }
   }
   if (EFF.fb > 0.0005) {
@@ -1404,11 +1570,127 @@ function paintRing(cv, mini) {
     g.fillStyle = in1 || in2 ? TOKA(in2 && !in1 ? bladeInk(2) : '--scr-value', 1) : TOKA('--scr-physics', 1);
     g.fill();
   }
-  if (!mini) {
-    g.font = '9.5px ui-monospace,Menlo,monospace'; g.fillStyle = TOKA('--scr-meter', 1);
-    g.fillText('Coherence ' + r.toFixed(2), 5, H - 6);
-    g.fillStyle = TOKA('--scr-grid', 0.9); g.fillText(N + ' members', 5, 12);
+  /* the phase readout: top-right, since the pad's lock / splay / detune → own the other corners */
+  g.font = (mini ? '8.5px' : '9.5px') + ' ui-monospace,Menlo,monospace'; g.textAlign = 'right';
+  g.fillStyle = TOKA('--scr-meter', 1); g.fillText((mini ? 'Coh ' : 'Coherence ') + r.toFixed(2), W - 4, 11);
+  if (!mini) { g.fillStyle = TOKA('--scr-grid', 0.9); g.fillText(N + ' members', W - 4, 23); }
+  g.textAlign = 'left';
+  if (cv === RXY.cv) ringNotes(cy);
+}
+
+/* ---- B294: the ring's XY layer — the pad's information, drawn under the ring ---- */
+/* the key an axis slot SHOWS: a swarm role is itself; a blade role shows blade 1 (or
+   blade 2 when 1 is off), the blade the face lists first */
+function ringAxisKey(slot) {
+  const role = RXY.map[slot][0]; if (!role) return null;
+  return xyIsSwarm(role) ? role : xyKey(role, xyBladeOn(1) || !xyBladeOn(2) ? 1 : 2);
+}
+function ringUsesBlades() { return ['x', 'y', 'sx'].some(s => [RXY.map[s][0], RXY.map[s][1]].some(r => r && !xyIsSwarm(r))); }
+/* how far the bound macros can carry a key, in taper position: [down, up] with every
+   macro 0 → 1 (the intent bus's depth, MACROS[].binds) */
+function macroReach(k) {
+  let lo = 0, hi = 0;
+  for (const mc of MACROS) for (const [kk, d] of mc.binds) if (kk === k) { if (d < 0) lo += d; else hi += d; }
+  return [lo, hi];
+}
+/* the marker in canvas pixels: base (P), carried (EFF) and the reach box — shared by
+   the painter and the self-check, so the check reads what is drawn */
+function ringMarks(W, H) {
+  const kx = ringAxisKey('x'), ky = ringAxisKey('y');
+  if (!kx || !ky) return null;
+  const sx = SP[kx], sy = SP[ky];
+  const px = toPos(sx, shown(kx, false)), py = toPos(sy, shown(ky, false));
+  const ex = toPos(sx, shown(kx, true)), ey = toPos(sy, shown(ky, true));
+  const rx = sx.curve === 'circ' ? [0, 0] : macroReach(kx), ry = sy.curve === 'circ' ? [0, 0] : macroReach(ky);
+  return { kx, ky, bx: px * W, by: (1 - py) * H, ex: ex * W, ey: (1 - ey) * H,
+    mod: Math.abs(ex - px) > 1e-4 || Math.abs(ey - py) > 1e-4,
+    reach: (rx[0] || rx[1] || ry[0] || ry[1]) ? [clamp(px + rx[0], 0, 1) * W, clamp(px + rx[1], 0, 1) * W,
+      (1 - clamp(py + ry[1], 0, 1)) * H, (1 - clamp(py + ry[0], 0, 1)) * H] : null };
+}
+function ringXYLayer(g, W, H, mini) {
+  const m = ringMarks(W, H); if (!m) return;
+  g.save();
+  /* the pad's corner labels, kept: lock / splay on Coupling's poles, detune → on x.
+     A remapped axis names its role instead. */
+  g.font = (mini ? '8px' : '8.5px') + ' ui-monospace,Menlo,monospace'; g.fillStyle = TOKA('--scr-grid', 0.9);
+  const yr = RXY.map.y[0], xr = RXY.map.x[0];
+  if (yr === 'K') { g.fillText('lock', 4, 11); g.fillText('splay', 4, H - 4); }
+  else g.fillText('↑ ' + xyRoleLabel(yr).toLowerCase(), 4, 11);
+  g.textAlign = 'right'; g.fillText((xr === 'detune' ? 'detune' : xyRoleLabel(xr).toLowerCase()) + ' →', W - 4, H - 4); g.textAlign = 'left';
+  /* K = 0 (the lock/splay boundary) as two short edge ticks, not a line through the ring */
+  if (yr === 'K') { g.strokeStyle = TOKA('--scr-grid', 0.5); g.lineWidth = 1; g.beginPath(); g.moveTo(0, H / 2 + 0.5); g.lineTo(7, H / 2 + 0.5); g.moveTo(W - 7, H / 2 + 0.5); g.lineTo(W, H / 2 + 0.5); g.stroke(); }
+  /* REACH (B227's recommended view): how far the bound macros can carry it, dashed violet */
+  if (m.reach) {
+    const [x0, x1, y0, y1] = m.reach;
+    g.strokeStyle = TOKA('--scr-physics', 0.45); g.lineWidth = 1; g.setLineDash([3, 3]);
+    g.strokeRect(Math.min(x0, x1) + 0.5, Math.min(y0, y1) + 0.5, Math.max(1, Math.abs(x1 - x0)), Math.max(1, Math.abs(y1 - y0)));
+    g.setLineDash([]);
   }
+  /* the value: a faint magenta crosshair (the authored value's ink) and edge rails */
+  g.strokeStyle = TOKA('--scr-value', 0.2); g.lineWidth = 1; g.beginPath();
+  g.moveTo(Math.round(m.bx) + 0.5, 0); g.lineTo(Math.round(m.bx) + 0.5, H); g.moveTo(0, Math.round(m.by) + 0.5); g.lineTo(W, Math.round(m.by) + 0.5); g.stroke();
+  /* rails: on the bottom and left edges, the knob halo's language — the value as a
+     magenta tick, where modulation carries it as a violet segment from there */
+  const rail = 4;
+  if (m.mod) {
+    g.fillStyle = TOKA('--scr-physics', 0.85);
+    g.fillRect(Math.min(m.bx, m.ex), H - rail, Math.max(2, Math.abs(m.ex - m.bx)), rail);
+    g.fillRect(0, Math.min(m.by, m.ey), rail, Math.max(2, Math.abs(m.ey - m.by)));
+  }
+  g.fillStyle = TOKA('--scr-value', 1);
+  g.fillRect(m.bx - 1.5, H - rail - 3, 3, rail + 3); g.fillRect(0, m.by - 1.5, rail + 3, 3);
+  /* the carried value: a HOLLOW violet diamond (members are filled violet dots, so a
+     filled one would read as a member), joined to the value by a dashed line */
+  if (m.mod) {
+    g.strokeStyle = TOKA('--scr-physics', 0.9); g.lineWidth = 1.3; g.setLineDash([2, 2]);
+    g.beginPath(); g.moveTo(m.bx, m.by); g.lineTo(m.ex, m.ey); g.stroke(); g.setLineDash([]);
+    const s = mini ? 4 : 5;
+    g.lineWidth = 1.8; g.beginPath(); g.moveTo(m.ex, m.ey - s); g.lineTo(m.ex + s, m.ey); g.lineTo(m.ex, m.ey + s); g.lineTo(m.ex - s, m.ey); g.closePath(); g.stroke();
+  }
+  /* the value itself: a hollow magenta puck — hollow, so a member under it still shows */
+  g.strokeStyle = TOKA('--scr-value', 0.95); g.lineWidth = RXY.drag ? 2.4 : 1.8;
+  g.beginPath(); g.arc(m.bx, m.by, mini ? 5 : 6.5, 0, TAU); g.stroke();
+  g.fillStyle = TOKA('--scr-value', 0.95); g.beginPath(); g.arc(m.bx, m.by, 1.4, 0, TAU); g.fill();
+  g.restore();
+}
+/* the ring's two text lines, beside the surface (DOM), never on top of the members:
+   the XY readout (live while dragging) and the cross-mod legend */
+function ringNotes(cy) {
+  const n = RXY.note;
+  if (n) {
+    const t = ringReadout();
+    if (n.textContent !== t) n.textContent = t;
+    n.classList.toggle('live', !!RXY.drag);
+  }
+  const x = RXY.xnote;
+  if (x) {
+    let t;
+    if (!cy.xOn) t = 'Cross-mod off.';
+    else {
+      let mx = 0; for (const m of cy.mem) mx = Math.max(mx, m.xrms);
+      t = 'Cross-mod ' + fmtVal(SP.xm, cy.xm) + ' · member i+1 pushes member i · ' +
+        (mx < 1e-6 ? 'no effect: every push lands outside a Sync/FM/Ring window (dotted)' : 'arrow weight = what the push adds, up to ' + mx.toFixed(3) + ' RMS');
+    }
+    if (x.textContent !== t) x.textContent = t;
+  }
+}
+function ringReadout() {
+  const d = RXY.drag;
+  const one = ([k, , b], many) => SP[k].label + (b === 2 ? ' ②' : b === 1 && many ? ' ①' : '') + ' ' + fmtVal(SP[k], shown(k, false));
+  if (d) {
+    const parts = [];
+    for (const [tag, sl] of [[d.shift ? '⇧↔' : '↔', d.shift ? 'sx' : 'x'], ['↕', 'y']]) {
+      const ks = xySlotKeys(sl, d.blades, RXY);
+      if (ks.length) parts.push(tag + ' ' + ks.map(q => one(q, d.blades.length > 1)).join(' · '));
+    }
+    const who = ringUsesBlades() ? (d.blades.length === 2 ? 'BOTH BLADES' : d.blades.length ? 'BLADE ' + d.blades[0] : 'NO BLADE') + ' (' + d.why + ') · ' : '';
+    return 'DRAG · ' + who + parts.join(' · ');
+  }
+  if (RXY.hover) return 'drag: ' + xyLegend(RXY) + ' · alt = fine · a grab alone moves nothing';
+  const m = ringMarks(1, 1); if (!m) return '';
+  const val = (k, eff) => SP[k].label + ' ' + fmtVal(SP[k], shown(k, eff));
+  return val(m.kx, false) + ' · ' + val(m.ky, false) + (m.mod ? ' · carried to ' + fmtVal(SP[m.kx], shown(m.kx, true)) + ' · ' + fmtVal(SP[m.ky], shown(m.ky, true)) : '') +
+    (m.reach ? ' · dashed box = macro reach' : '');
 }
 function paintSpectrum(cv) {
   const [g, W, H] = fit(cv); if (!g) return;
@@ -1462,23 +1744,6 @@ function puck(g, x, y, ink, ring) {
   g.beginPath(); g.arc(x, y, 6, 0, TAU); g.fillStyle = TOKA(ink, 1); g.fill();
   g.lineWidth = 1.5; g.strokeStyle = TOK('--scr-tube'); g.stroke();
   if (ring) { g.beginPath(); g.arc(x, y, 6 + ring, 0, TAU); g.strokeStyle = TOKA('--scr-meter', 0.9); g.lineWidth = 1.2; g.stroke(); }
-}
-/* the Coupling × Detune pad: gui2's x = Detune, y = Coupling (B227's reading kept) */
-function paintKD(cv) {
-  const [g, W, H] = fit(cv); if (!g) return;
-  tube(g, W, H); padGrid(g, W, H);
-  g.strokeStyle = TOKA('--scr-grid', 0.5); g.beginPath(); g.moveTo(0, H / 2 + 0.5); g.lineTo(W, H / 2 + 0.5); g.stroke();
-  g.font = '8.5px ui-monospace,Menlo,monospace'; g.fillStyle = TOKA('--scr-grid', 0.9);
-  g.fillText('lock', 4, 11); g.fillText('splay', 4, H - 4); g.textAlign = 'right'; g.fillText('detune →', W - 4, H - 4); g.textAlign = 'left';
-  const X = v => clamp(v / 100, 0, 1) * W, Y = k => (1 - (k + 1) / 2) * H;
-  const v = liveVoice(MON.core), r = v ? v.r : 0;
-  if (Math.abs(EFF.K - P.K) > 1e-4 || Math.abs(EFF.detune - P.detune) > 1e-4) {
-    g.strokeStyle = TOKA('--scr-physics', 0.8); g.setLineDash([2, 2]); g.beginPath(); g.moveTo(X(P.detune), Y(P.K)); g.lineTo(X(EFF.detune), Y(EFF.K)); g.stroke(); g.setLineDash([]);
-    g.beginPath(); g.arc(X(EFF.detune), Y(EFF.K), 4, 0, TAU); g.fillStyle = TOKA('--scr-physics', 1); g.fill();
-  }
-  puck(g, X(P.detune), Y(P.K), '--scr-value', 3 + 7 * r);
-  g.fillStyle = TOKA('--scr-meter', 1); g.textAlign = 'right';
-  g.fillText(W < 200 ? 'Coh ' + r.toFixed(2) : 'K ' + fmtVal(SP.K, P.K) + ' · ' + Math.round(P.detune) + ' c · Coherence ' + r.toFixed(2), W - 4, 11); g.textAlign = 'left';
 }
 function paintMorph(cv) {
   const [g, W, H] = fit(cv); if (!g) return;
@@ -1751,15 +2016,14 @@ function escapeHtml(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;
 function buildOsc(host) {
   const body = el('div', 'pbody osc'); host.appendChild(body);
   const L = el('div', 'col'), Rt = el('div', 'col'); body.appendChild(L); body.appendChild(Rt);
-  /* left: the swarm's pad and the visualizers (B227's OSC reading) */
-  const cp = cell(L, 'Coupling × Detune', 'T1 · the swarm');
-  const pad = canvas(cp, 150, paintKD, 'edit');
-  tagCtl(pad, ['K', 'detune'], 'T1');
-  padDrag(pad, (u, v) => { P.detune = clamp(u, 0, 1) * 100; P.K = clamp(1 - 2 * v, -1, 1); afterWrite('K'); });
-  const cv = cell(L, 'Visualizers', 'phase ring · spectrum', 'grow');
-  canvas(cv, 158, c => paintRing(c, false));
-  cv.appendChild(el('div', 'vnote', 'Ring: members at their phase (stroboscopic), each one\'s blade windows outside it, R in violet, cross-mod arrows.'));
-  const sc = canvas(cv, 104, paintSpectrum);
+  /* left: the visualizers (B227's OSC reading). B294: the separate Coupling × Detune
+     pad cell is gone — the phase ring IS that XY now, and the ring and the spectrum
+     take the pad's 180 px (ring 158 → 250, spectrum 104 → 132) */
+  const cv = cell(L, 'Visualizers', 'the ring is Coupling × Detune', 'grow');
+  ringSurface(cv, 250, false);
+  cv.appendChild(el('div', 'vnote', 'arcs = blade windows · needle = R · arrows = cross-mod'));
+  /* the mapping row, when open, borrows the spectrum's height rather than push Advanced out of the window */
+  const sc = canvas(cv, RXY.open ? 44 : 132, paintSpectrum);
   sc._note = el('div', 'vnote'); cv.appendChild(sc._note);
   const adv = el('button', 'pill advbtn' + (LAB.advOpen ? ' on' : ''), 'Advanced');
   adv.title = 'the global Advanced (B227): opens the tier-3 drawer';
@@ -1793,11 +2057,12 @@ function buildOsc(host) {
   /* B293: with CYCLE EDITS off the waveform is the XY; its mapping row folds open here */
   if (!editable) {
     /* the pill IS the legend: it names the live mapping, so the caption stays one line */
-    const xb = el('button', 'pill mini' + (XY.open ? ' on' : ''), 'XY ↔ ' + xyRoleLabel(XY.map.x[0]) + ' ↕ ' + xyRoleLabel(XY.map.y[0]) + ' ⇧↔ ' + xyRoleLabel(XY.map.sx[0]));
+    const xb = el('button', 'pill mini' + (XY.open ? ' on' : ''), 'XY ' + xyLegend(XY));
     xb.title = 'drag the waveform: what each gesture drives. Click to set it (the bench\'s XY axis selectors, plus a shift slot).';
     xb.addEventListener('click', () => { XY.open = !XY.open; rebuild(); }); tools.appendChild(xb);
   }
   const hint = el('span', 'vnote', cycleCaption()); hint.style.marginLeft = 'auto'; tools.appendChild(hint);
+  CTLS.push(() => { hint.textContent = cycleCaption(); });      // Cross-mod is a knob, not a rebuild: keep the legend current
   if (!editable && XY.open) xyMapRow(sc2);
   const cyc = canvas(sc2, LAB.skin === 'C' ? 200 : 132, c => paintCycle(c, false), 'edit');
   if (editable) { tagCtl(cyc, ['c', 'w', 'depth', 'hard', 'k', 'c2', 'w2', 'depth2', 'hard2', 'k2'], 'T1'); cycleEdits(cyc); }
@@ -1808,7 +2073,9 @@ function buildOsc(host) {
 }
 function cycleCaption() {
   const bits = ['dashed = base', 'solid = heard'];
-  if (P.xm > 0.0005 || P.fb > 0.0005) bits.push('cross-mod/feedback not drawn (sample-to-sample)');
+  /* B294: cross-mod is drawn by the bench's 3-pass estimate (SPEC §10); feedback still is not */
+  if (P.xm > XM_ON) bits.push('dash-dot = what cross-mod adds (3-pass estimate)');
+  if (P.fb > 0.0005) bits.push('feedback not drawn (sample-to-sample)');
   if (LAB.skin === 'C' || LAB.direct) bits.push('drag window = position · vertical = depth · edge = width · ▲ = edges · wheel = cut rate');
   return bits.join(' · ');
 }
@@ -2008,10 +2275,11 @@ function buildMain(host) {
   const xy = canvas(cx, 108, paintXY, 'edit');
   tagCtl(xy, ['w', 'k'], 'T1');
   padDrag(xy, (u, v) => { P.w = fromPos(SP.w, u); const kk = P.lock === 2 ? 'kHz' : 'k'; P[kk] = fromPos(SP[kk], 1 - v); afterWrite('w'); });
-  const cv = cell(L, 'Visualizers', 'cycle · ring', 'grow');
-  const vz = el('div'); vz.style.display = 'grid'; vz.style.gridTemplateColumns = '1fr 118px'; vz.style.gap = '4px'; cv.appendChild(vz);
-  canvas(vz, 118, c => paintCycle(c, true)); canvas(vz, 118, c => paintRing(c, true));
-  cv.appendChild(el('div', 'vnote', 'The same monitor as the OSC page: both blade windows on the cycle, the swarm on the ring.'));
+  /* B294: the ring that sat beside the cycle here is now the Coupling × Detune XY in
+     Osc Controls (the pad's slot), so the cycle view takes the whole width */
+  const cv = cell(L, 'Visualizers', 'cycle', 'grow');
+  canvas(cv, 150, c => paintCycle(c, true));
+  cv.appendChild(el('div', 'vnote', 'The same monitor as the OSC page: both blade windows on the cycle. The swarm\'s ring is the Coupling × Detune XY in Osc Controls.'));
   const adv = el('button', 'pill advbtn', 'Advanced');
   adv.title = 'jumps to the OSC page with the tier-3 drawer open';
   adv.addEventListener('click', () => { LAB.page = 'osc'; LAB.advOpen = true; rebuild(); });
@@ -2078,9 +2346,9 @@ function oscControlsMain(host) {
   }
   const body = el('div', 'ocbody'); c.appendChild(body);
   const a = el('div'), m = el('div'), v = el('div'); body.appendChild(a); body.appendChild(m); body.appendChild(v);
-  const pad = canvas(a, 92, paintKD, 'edit');
-  tagCtl(pad, ['K', 'detune'], 'T1');
-  padDrag(pad, (u, w) => { P.detune = clamp(u, 0, 1) * 100; P.K = clamp(1 - 2 * w, -1, 1); afterWrite('K'); });
+  /* B294: the pad's slot holds the ring — still the K × Detune XY the human's MAIN
+     wireframe puts here, and now also the mini visualizer it puts beside it */
+  ringSurface(a, 118, true);
   const kk = el('div', 'kr'); a.appendChild(kk); knob(kk, 'N', { tier: 'T1', label: 'Members' });
   const bb = el('div'); bb.style.paddingTop = '8px'; kk.appendChild(bb); toggle(bb, 'enable', { tier: 'T1' });
   const b = LAB.mainBlade;
@@ -2230,8 +2498,8 @@ function xyTarget(ph, wins) {
   return { blades: on, why: on.length ? 'empty space → all blades' : 'no blade is on' };
 }
 /* the keys a slot drives on the current target: [[key, sign, blade (0 = swarm)], …] */
-function xySlotKeys(slot, blades) {
-  const [a, b2nd, inv] = XY.map[slot], out = [];
+function xySlotKeys(slot, blades, S) {
+  const [a, b2nd, inv] = (S || XY).map[slot], out = [];
   const add = (role, sgn) => {
     if (!role) return;
     if (xyIsSwarm(role)) { out.push([role, sgn, 0]); return; }
@@ -2241,27 +2509,29 @@ function xySlotKeys(slot, blades) {
   return out;
 }
 /* one gesture as three calls, so a real pointer and the load-time self-check drive
-   the SAME code: xyBegin(ph, x, y, W, H), xyMove(x, y, shift, fine), xyEnd() */
-function xyBegin(ph, x, y, W, H, wins) {
-  const t = xyTarget(ph, wins);
-  XY.drag = { blades: t.blades, why: t.why, x, y, W: Math.max(1, W), H: Math.max(1, H), acc: {}, shift: false, touched: [] };
-  return XY.drag;
+   the SAME code: xyBegin(ph, x, y, W, H), xyMove(x, y, shift, fine), xyEnd(). The
+   trailing S names the surface (B294): the cycle view (XY, the default) or the ring
+   (RXY); both run this one gesture, only the target rule and `span` differ. */
+function xyGrab(S, t, x, y, W, H) {
+  S.drag = { blades: t.blades, why: t.why, x, y, W: Math.max(1, W), H: Math.max(1, H), acc: {}, shift: false, touched: [] };
+  return S.drag;
 }
-function xyMove(x, y, shift, fine) {
-  const d = XY.drag; if (!d) return;
+function xyBegin(ph, x, y, W, H, wins) { return xyGrab(XY, xyTarget(ph, wins), x, y, W, H); }
+function xyMove(x, y, shift, fine, S) {
+  S = S || XY;
+  const d = S.drag; if (!d) return;
   const dx = x - d.x, dy = y - d.y; d.x = x; d.y = y; d.shift = !!shift;
   if (!dx && !dy) return;                                   // no motion, no write: nothing jumps
   const g = fine ? XY_FINE : 1, step = {};
-  const push = (slot, px, span) => {
+  const push = (slot, px, axis) => {
     if (!px) return;
-    for (const [k, sgn] of xySlotKeys(slot, d.blades)) {
+    for (const [k, sgn] of xySlotKeys(slot, d.blades, S)) {
       const sp = SP[k]; if (!sp || sp.kind !== 'c') continue;
-      const u = sp.curve === 'circ' ? px / d.W : px / XY_PX;
-      step[k] = (step[k] || 0) + sgn * u * g * (span || 1);
+      step[k] = (step[k] || 0) + sgn * (px / S.span(sp, axis, d)) * g;
     }
   };
-  push(shift ? 'sx' : 'x', dx);
-  push('y', -dy);                                           // up = more
+  push(shift ? 'sx' : 'x', dx, 'x');
+  push('y', -dy, 'y');                                      // up = more
   const upd = {};
   for (const k in step) {
     const sp = SP[k];
@@ -2272,7 +2542,9 @@ function xyMove(x, y, shift, fine) {
   }
   writeMany(upd);
 }
-function xyEnd() { if (XY.drag) XY.last = XY.drag; XY.drag = null; }
+function xyEnd(S) { S = S || XY; if (S.drag) S.last = S.drag; S.drag = null; }
+/* the pill IS the legend: the live mapping in one line */
+function xyLegend(S) { return '↔ ' + xyRoleLabel(S.map.x[0]) + ' ↕ ' + xyRoleLabel(S.map.y[0]) + ' ⇧↔ ' + xyRoleLabel(S.map.sx[0]); }
 function xyWire(cv) {
   XY.cv = cv;
   const ph = e => { const r = cv.getBoundingClientRect(); return frac((e.clientX - r.left) / Math.max(1, r.width)); };
@@ -2326,9 +2598,12 @@ function xyOverlay(g, W, top, bot) {
   lines.forEach((l, i) => g.fillText(l, bx, by + i * 13));
   g.restore();
 }
-/* the mapping row: the bench's axis selectors (primary, "+ second…", inv) per slot */
-function xyMapRow(host) {
-  const row = el('div', 'xymap'); host.appendChild(row);
+/* the mapping row: the bench's axis selectors (primary, "+ second…", inv) per slot —
+   the same row for both surfaces, the same roles on both (B294) */
+function xyMapRow(host, S) {
+  S = S || XY;
+  const ring = S === RXY;
+  const row = el('div', 'xymap' + (ring ? ' narrow' : '')); host.appendChild(row);
   const opts = (s, withNone) => {
     if (withNone) { const o = el('option', null, '+ second…'); o.value = ''; s.appendChild(o); }
     const g1 = el('optgroup'); g1.label = 'the grabbed blade'; s.appendChild(g1);
@@ -2339,18 +2614,83 @@ function xyMapRow(host) {
   for (const [slot, tag, tip] of [['x', '↔ X', 'horizontal drag'], ['y', '↕ Y', 'vertical drag (up = more)'], ['sx', '⇧↔', 'shift + horizontal drag']]) {
     const gp = el('span', 'grp'); gp.dataset.xyslot = slot; row.appendChild(gp);
     const lb = el('span', 'lbl', tag); lb.title = tip; gp.appendChild(lb);
-    const a = el('select'); opts(a, false); a.value = XY.map[slot][0]; gp.appendChild(a);
-    const b = el('select'); opts(b, true); b.value = XY.map[slot][1]; gp.appendChild(b);
-    const iv = el('label', 'inv'); const cb = el('input'); cb.type = 'checkbox'; cb.checked = !!XY.map[slot][2]; cb.disabled = !XY.map[slot][1];
+    const a = el('select'); opts(a, false); a.value = S.map[slot][0]; gp.appendChild(a);
+    const b = el('select'); opts(b, true); b.value = S.map[slot][1]; gp.appendChild(b);
+    const iv = el('label', 'inv'); const cb = el('input'); cb.type = 'checkbox'; cb.checked = !!S.map[slot][2]; cb.disabled = !S.map[slot][1];
     iv.appendChild(cb); iv.appendChild(document.createTextNode(' inv')); iv.title = 'the second parameter runs the opposite way'; gp.appendChild(iv);
-    a.addEventListener('change', () => { XY.map[slot][0] = a.value; rebuild(); });
-    b.addEventListener('change', () => { XY.map[slot][1] = b.value; if (!b.value) XY.map[slot][2] = 0; rebuild(); });
-    cb.addEventListener('change', () => { XY.map[slot][2] = cb.checked ? 1 : 0; rebuild(); });
+    a.addEventListener('change', () => { S.map[slot][0] = a.value; rebuild(); });
+    b.addEventListener('change', () => { S.map[slot][1] = b.value; if (!b.value) S.map[slot][2] = 0; rebuild(); });
+    cb.addEventListener('change', () => { S.map[slot][2] = cb.checked ? 1 : 0; rebuild(); });
   }
-  const rs = el('button', 'pill mini', 'default'); rs.title = "the human's mapping: ↔ Width · ↕ Cut rate · ⇧↔ Position";
-  rs.addEventListener('click', () => { XY.map = JSON.parse(JSON.stringify(XY_DEFAULT)); rebuild(); });
+  const rs = el('button', 'pill mini', 'default');
+  rs.title = ring ? "the pad's mapping: ↔ Detune · ↕ Coupling · ⇧↔ Cross-mod (the ⇧ slot is the lab's proposal)"
+    : "the human's mapping (round 3): ↔ Position · ↕ Cut rate · ⇧↔ Width";
+  rs.addEventListener('click', () => { S.map = JSON.parse(JSON.stringify(S.def)); rebuild(); });
   row.appendChild(rs);
-  row.appendChild(el('span', 'vnote', 'Alt = fine · grab a window to move that blade, empty space to move both'));
+  row.appendChild(el('span', 'vnote', ring ? 'Alt = fine · a blade role moves the arc under the pointer, or every blade from inside'
+    : 'Alt = fine · grab a window to move that blade, empty space to move both'));
+}
+
+/* ======================================================================
+   I3. THE RING AS THE COUPLING × DETUNE XY (B294)
+   Human, 2026-09-27: "Maybe the phase ring visualizer also can become the surface
+   for the coupling/detune XY to preserve space."
+   The ring keeps every mark it drew (members, arcs, R, cross-mod) and becomes a
+   drag surface with round 2's conventions exactly: RELATIVE (a grab moves nothing),
+   alt = fine, a live readout, one writer (xyMove → writeMany), a settable mapping
+   (xyMapRow, the same selectors and roles as the cycle view). What differs is only
+   the surface's own geometry: its canvas IS the pad's plane (x = Detune, y =
+   Coupling across the whole canvas), so a whole canvas width (height) is a whole
+   taper (RXY.span) and the crosshair tracks the hand; and a blade role targets the
+   blade whose ARC is under the pointer, or every blade from inside the circle.
+   The pad was absolute (a grab jumped K and Detune to the pointer); that is gone.
+   ====================================================================== */
+function ringSurface(host, h, mini) {
+  const cv = canvas(host, h, c => paintRing(c, mini), 'xy');
+  /* the tier audit reads what the surface SHOWS (the marker's two axes); the ⇧ slot is
+     a gesture, not a control on the face, so it does not promote Cross-mod to T1 */
+  tagCtl(cv, [ringAxisKey('x'), ringAxisKey('y')].filter(Boolean), 'T1');
+  ringWire(cv, mini);
+  if (!mini) {
+    const tl = el('div', 'ringtools'); host.appendChild(tl);
+    const xb = el('button', 'pill mini' + (RXY.open ? ' on' : ''), 'XY ' + xyLegend(RXY));
+    xb.title = 'drag the ring: what each gesture drives. Click to set it (the same selectors as the waveform\'s XY).';
+    xb.addEventListener('click', () => { RXY.open = !RXY.open; rebuild(); }); tl.appendChild(xb);
+    if (RXY.open) xyMapRow(host, RXY);
+  }
+  RXY.note = el('div', 'vnote ringread'); host.appendChild(RXY.note);
+  /* the cross-mod legend needs a line of its own; MAIN's 140 px column has no room, and
+     MAIN shares OSC's mapping (set there) */
+  RXY.xnote = mini ? null : el('div', 'vnote'); if (RXY.xnote) host.appendChild(RXY.xnote);
+  return cv;
+}
+/* who a ring grab moves when a BLADE role is mapped: the blade whose arc (outside the
+   circle, as drawn from the oracle's viz) is under the pointer; else every blade on */
+function ringTarget(x, y, W, H, mini) {
+  const N = MON.core ? MON.core.d.N : 1, G = ringGeom(W, H, N, mini), dx = x - G.cx, dy = y - G.cy;
+  if (Math.hypot(dx, dy) > G.Rr + 2) {
+    const t = xyTarget(frac(Math.atan2(-dy, dx) / TAU));        // the painter draws phase p at angle 2πp, y up
+    if (t.why === 'under cursor') return { blades: t.blades, why: 'its arc is under the pointer' };
+  }
+  const on = [1, 2].filter(xyBladeOn);
+  return { blades: on, why: on.length ? 'the ring → every blade' : 'no blade is on' };
+}
+function ringWire(cv, mini) {
+  RXY.cv = cv;
+  const at = e => { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top, r.width, r.height]; };
+  cv.addEventListener('pointerdown', e => {
+    const [x, y, W, H] = at(e);
+    xyGrab(RXY, ringTarget(x, y, W, H, mini), e.clientX, e.clientY, W, H);
+    RXY.drag.shift = e.shiftKey;
+    try { cv.setPointerCapture(e.pointerId); } catch (_) {}
+  });
+  cv.addEventListener('pointermove', e => {
+    if (RXY.drag) { xyMove(e.clientX, e.clientY, e.shiftKey, e.altKey, RXY); return; }
+    const [x, y, W, H] = at(e); RXY.hover = ringTarget(x, y, W, H, mini);
+  });
+  const up = () => xyEnd(RXY);
+  cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+  cv.addEventListener('pointerleave', () => { if (!RXY.drag) RXY.hover = null; });
 }
 
 /* ======================================================================
@@ -2506,6 +2846,8 @@ function runChecks() {
   out.push({ name: 'seeded: one seed, one sound', ok: same, detail: same ? 'bit-identical' : 'DIFFERS' });
   out.push({ name: 'CONTROL: another seed differs', ok: diff, control: true, detail: diff ? 'differs' : 'IDENTICAL' });
   for (const c of checkXY()) out.push(c);
+  for (const c of checkRingXY()) out.push(c);
+  for (const c of checkXmVisual()) out.push(c);
   for (const c of checkPresets()) out.push(c);
   AUDIT.checks = out;
   seedOracle(0xB271 + MON.note);
@@ -2528,19 +2870,20 @@ function checkXY() {
   const heardOk = ks => MON.core ? ks.every(k => near(MON.core.t[k], P[k])) : false;
   const W = 400, H = 100, base = { b1on: 1, b2on: 1, w: 0.2, c: 0.3, k: 6, lock: 0, w2: 0.2, c2: 0.8, k2: 3, lock2: -1, depth: 0.8, hard: 0.3 };
   try {
-    /* 1 · a blade under the cursor: ↔ width, ↕ cut rate, ⇧↔ position (with a wrap) */
+    /* 1 · a blade under the cursor, on round 3's defaults (B294): ↔ position (with a
+       wrap), ↕ cut rate, ⇧↔ width */
     set(base);
     const d = xyBegin(0.3, 100, 50, W, H, xyEffWindows());
     xyMove(100, 50, false, false);
     const still = P.w === base.w && P.k === base.k && P.c === base.c;
-    xyMove(142, 50, false, false);                                   // +42 px → Width +0.1 of its taper
-    const wExp = fromPos(SP.w, toPos(SP.w, base.w) + 42 / XY_PX);
+    xyMove(142, 50, false, false);                                   // +42 px → Position +0.105 cycle
     xyMove(142, 29, false, false);                                   // 21 px up → Cut rate +0.05 of its log taper
     const kExp = fromPos(SP.k, toPos(SP.k, base.k) + 21 / XY_PX);
-    xyMove(182, 29, true, false);                                    // ⇧ +40 px → Position +0.1 cycle
-    xyMove(482, 29, true, false);                                    // ⇧ +300 px → +0.75 more: 1.15 wraps to 0.15
+    xyMove(182, 29, true, false);                                    // ⇧ +40 px → Width +40/420 of its taper
+    const wExp = fromPos(SP.w, toPos(SP.w, base.w) + 40 / XY_PX);
+    xyMove(482, 29, false, false);                                   // +300 px → +0.75 more: 1.155 wraps to 0.155
     xyEnd();
-    const cExp = frac(base.c + 340 / W);
+    const cExp = frac(base.c + 342 / W);
     out.push({ name: 'XY: the grab alone moves nothing', ok: still && d.blades.join() === '1', detail: 'target ' + d.blades.join('+') + ' (' + d.why + ')' });
     const rt = near(P.w, wExp) && near(P.k, kExp) && near(P.c, cExp) && P.w2 === base.w2 && P.k2 === base.k2 && P.c2 === base.c2;
     out.push({ name: 'XY round-trip: drag, read back (knob + oracle)', ok: rt && heardOk(['w', 'k', 'c']),
@@ -2548,7 +2891,7 @@ function checkXY() {
         ' (wrapped) · blade 2 untouched · oracle t ' + (heardOk(['w', 'k', 'c']) ? 'agrees' : 'DISAGREES') });
     /* 2 · empty space: both blades, the same taper delta each */
     set(Object.assign({}, base, { w: 0.1, c: 0.2, w2: 0.1, c2: 0.7 }));
-    const d2 = xyBegin(0.45, 0, 0, W, H, xyEffWindows()); xyMove(42, 0, false, false); xyEnd();
+    const d2 = xyBegin(0.45, 0, 0, W, H, xyEffWindows()); xyMove(42, 0, true, false); xyEnd();   // ⇧ = Width since round 3
     const both = fromPos(SP.w, toPos(SP.w, 0.1) + 42 / XY_PX);
     out.push({ name: 'XY: empty space moves every blade', ok: d2.blades.join() === '1,2' && near(P.w, both) && near(P.w2, both) && heardOk(['w', 'w2']),
       detail: 'w ' + P.w.toFixed(4) + ' · w2 ' + P.w2.toFixed(4) });
@@ -2562,6 +2905,99 @@ function checkXY() {
   }
   XY.drag = null; XY.last = null; XY.map = map; MORPH.on = mOn; MACROS.forEach((m, i) => { m.v = mv[i]; }); LAB.frozen = fz;
   P = snap; EFF = effective(); pushOracle();
+  return out;
+}
+/* B294 — THE RING XY. The same three calls a pointer drives through ringWire
+   (xyGrab / xyMove / xyEnd on RXY), read back from P (every knob) and from the
+   monitor oracle (what is heard), and from ringMarks — the function the painter
+   draws the marker from — so "the crosshair tracks the hand" is checked on what is
+   drawn. Restores the patch, the macros and the mapping afterwards. */
+function checkRingXY() {
+  const out = [], snap = Object.assign({}, P), mOn = MORPH.on, map = RXY.map, mv = MACROS.map(m => m.v), fz = LAB.frozen;
+  LAB.frozen = false;
+  MORPH.on = false; for (const m of MACROS) m.v = 0; RXY.map = JSON.parse(JSON.stringify(RXY_DEFAULT));
+  const set = o => { Object.assign(P, o); EFF = effective(); pushOracle(); };
+  const near = (a, b) => Math.abs(a - b) < 1e-9;
+  const orc = k => (MON.core ? (k in MON.core.t ? MON.core.t[k] : MON.core.d[k]) : NaN);
+  const heardOk = ks => ks.every(k => near(orc(k), P[k]));
+  const W = 260, H = 250, all = { blades: [1, 2], why: 'the ring → every blade' };
+  const base = { K: 0.2, detune: 20, xm: 0, b1on: 1, b2on: 1, w: 0.2, w2: 0.3, width: 0.5 };
+  const swarm = MACROS.find(m => m.name === 'Swarm');
+  try {
+    /* 1 · the grab alone moves nothing (the pad it replaces jumped K and Detune to the pointer) */
+    set(base);
+    const m0 = ringMarks(W, H);
+    xyGrab(RXY, all, 100, 100, W, H); xyMove(100, 100, false, false, RXY);
+    const still = P.K === base.K && P.detune === base.detune && P.xm === base.xm;
+    out.push({ name: 'ring XY: the grab alone moves nothing', ok: still, detail: 'Coupling ' + fmtVal(SP.K, P.K) + ' · Detune ' + fmtVal(SP.detune, P.detune) + ' · Cross-mod ' + fmtVal(SP.xm, P.xm) });
+    /* 2 · round trip: ↔ +26 px (a tenth of the width: +10 c), ↕ 25 px up (a tenth of the
+       height: +0.2 Coupling), then alt + 10 px (a quarter: +0.96 c) */
+    xyMove(126, 100, false, false, RXY);
+    xyMove(126, 75, false, false, RXY);
+    xyMove(136, 75, false, true, RXY);
+    xyEnd(RXY);
+    const dExp = fromPos(SP.detune, toPos(SP.detune, base.detune) + (26 + XY_FINE * 10) / W), kExp = fromPos(SP.K, toPos(SP.K, base.K) + 25 / H);
+    const m1 = ringMarks(W, H), dx = m1.bx - m0.bx, dy = m1.by - m0.by;
+    const track = Math.abs(dx - (26 + XY_FINE * 10)) < 1e-6 && Math.abs(dy + 25) < 1e-6;
+    const rt = near(P.detune, dExp) && near(P.K, kExp) && P.w === base.w && P.w2 === base.w2 && P.xm === base.xm;
+    out.push({ name: 'ring XY round-trip: drag, read back (P + oracle + marker)', ok: rt && heardOk(['K', 'detune']) && track,
+      detail: 'Detune ' + P.detune.toFixed(4) + '=' + dExp.toFixed(4) + ' · Coupling ' + P.K.toFixed(4) + '=' + kExp.toFixed(4) +
+        ' · oracle ' + (heardOk(['K', 'detune']) ? 'agrees' : 'DISAGREES') + ' · marker moved ' + dx.toFixed(2) + ', ' + dy.toFixed(2) + ' px (the hand: 28.50, −25.00)' });
+    /* 3 · a remapped axis: ↔ = Width (a blade role: from inside the circle, every blade)
+       with Stereo as an inverted second; Coupling and Detune must hold */
+    set(base); RXY.map.x = ['w', 'width', 1];
+    xyGrab(RXY, all, 0, 0, W, H); xyMove(26, 0, false, false, RXY); xyEnd(RXY);
+    const wE = fromPos(SP.w, toPos(SP.w, base.w) + 26 / W), w2E = fromPos(SP.w2, toPos(SP.w2, base.w2) + 26 / W);
+    out.push({ name: 'ring XY: a remapped axis (Width + inverted Stereo)',
+      ok: near(P.w, wE) && near(P.w2, w2E) && near(P.width, base.width - 0.1) && P.K === base.K && P.detune === base.detune && heardOk(['w', 'w2', 'width']),
+      detail: 'w ' + P.w.toFixed(4) + ' · w2 ' + P.w2.toFixed(4) + ' · Stereo ' + P.width.toFixed(3) + ' · Coupling and Detune held' });
+    /* 4 · modulation on the ring: the Swarm macro (K −0.4, Detune +0.3 of their tapers)
+       at 0.5 — the hollow diamond sits at the carried value, the puck stays on P, the
+       reach box spans the macro's full depth. CONTROL: at 0 there is no diamond. */
+    RXY.map = JSON.parse(JSON.stringify(RXY_DEFAULT)); set(base);
+    const r0 = ringMarks(W, H);
+    swarm.v = 0.5; EFF = effective(); pushOracle();
+    const r1 = ringMarks(W, H), px = toPos(SP.detune, base.detune), py = toPos(SP.K, base.K);
+    const mOk = r1.mod && near(r1.ex, (px + 0.15) * W) && near(r1.ey, (1 - (py - 0.2)) * H) && near(r1.bx, r0.bx) && near(r1.by, r0.by) &&
+      !!r1.reach && near(r1.reach[1], (px + 0.3) * W) && near(r1.reach[3], (1 - (py - 0.4)) * H) && near(orc('K'), EFF.K);
+    out.push({ name: 'ring XY: modulation drawn at the carried value', ok: mOk,
+      detail: 'Swarm macro 0.5 → Coupling ' + fmtVal(SP.K, EFF.K) + ', Detune ' + fmtVal(SP.detune, EFF.detune) + ' (oracle ' + (near(orc('K'), EFF.K) ? 'agrees' : 'DISAGREES') + ') · puck held on the base' });
+    out.push({ name: 'CONTROL: macro at 0 draws no diamond', ok: !r0.mod && !!r0.reach, control: true, detail: r0.mod ? 'DIAMOND DRAWN' : 'no diamond · the reach box stays (the macro is still bound)' });
+  } catch (e) {
+    out.push({ name: 'ring XY checks', ok: false, detail: 'threw: ' + String(e && e.message || e) });
+  }
+  RXY.drag = null; RXY.last = null; RXY.map = map; MORPH.on = mOn; MACROS.forEach((m, i) => { m.v = mv[i]; }); LAB.frozen = fz;
+  P = snap; EFF = effective(); pushOracle();
+  return out;
+}
+/* B294 — CROSS-MOD IS DRAWN FROM THE ORACLE'S LAW, NOT FROM THE KNOB. On a seeded
+   scratch swarm (the bench's "Cross-mod ring (watch)" voicing), cycleFrom — the
+   painter's own function — gives the lane's RMS (sxRms) and the strongest arrow's
+   (xrms): zero at xm 0, and growing through 0.3 and 0.8. CONTROL: a Fold blade,
+   whose mode never reads the push (razor-core.js voice case 4), draws nothing at
+   0.8; a decoration keyed to the xm knob would draw it anyway. */
+function checkXmVisual() {
+  const mag = (xm, cfg) => {
+    const S = scratch(Object.assign({ N: 5, K: 0.2, detune: 18, mode: 0, hot: 0, base: 0, w: 0.45, c: 0.6, k: 3, hard: 0.15, depth: 1,
+      mirror: 0, lock: 0, b2on: 0, rotRate: 0, bspread: 0, kspread: 0, phaseMode: 2, xm }, cfg), 45, mtof(45), 0xB294);
+    const L = new Float32Array(2048), Rr = new Float32Array(2048);
+    for (let i = 0; i < 4; i++) S.c.render(L, Rr);                    // 8192 samples: several viz posts
+    const cy = cycleFrom(S.c, S.viz());
+    let arrows = 0; for (const m of cy.mem) arrows = Math.max(arrows, m.xrms);
+    return { lane: cy.sxRms, arrows };
+  };
+  const out = [];
+  try {
+    const a0 = mag(0), a3 = mag(0.3), a8 = mag(0.8), f8 = mag(0.8, { mode: 4 });
+    const ok = a0.lane === 0 && a0.arrows === 0 && a3.lane > 1e-4 && a3.arrows > 1e-4 && a8.lane > a3.lane && a8.arrows > a3.arrows;
+    const f = v => v.toFixed(4);
+    out.push({ name: 'cross-mod visual: zero at xm 0, grows with xm', ok,
+      detail: 'lane RMS ' + f(a0.lane) + ' → ' + f(a3.lane) + ' → ' + f(a8.lane) + ' · strongest arrow ' + f(a0.arrows) + ' → ' + f(a3.arrows) + ' → ' + f(a8.arrows) + ' (xm 0 / 0.3 / 0.8)' });
+    out.push({ name: 'CONTROL: a Fold blade ignores the push', ok: f8.lane === 0 && f8.arrows === 0, control: true,
+      detail: 'xm 0.8, mode Fold: lane ' + f(f8.lane) + ', arrows ' + f(f8.arrows) + ' (must be 0)' });
+  } catch (e) {
+    out.push({ name: 'cross-mod visual', ok: false, detail: 'threw: ' + String(e && e.message || e) });
+  }
   return out;
 }
 /* B293 — THE PRESETS. The oracle's set() silently IGNORES a key it does not know
@@ -2693,7 +3129,9 @@ function buildSide() {
     '<p><b>Cycle edits ' + (LAB.skin === 'C' || LAB.direct ? 'ON' : 'OFF') + '</b><br>With them on, every drag on the cycle view writes the same address a knob writes.</p></div>' +
     '<div class="box"><h2>READING THE VIEWS</h2><p><b>Cycle</b>: the dashed curve is the base wave, the solid meter-phosphor curve (teal on the light tube, lime on the dark) is what is heard (DC removed per cycle), ' +
     'the faint violet curves are the members and the magenta windows are the blades. <b>Ring</b>: each dot is a member at its phase and turns magenta while it is inside a blade. ' +
-    'The arcs outside the circle are each member\'s own blade window, the violet needle is the mean field R, and arrows show cross-mod. <b>Spectrum</b>: the meter line is the measured output, ' +
+    'The arcs outside the circle are each member\'s own blade window, the violet needle is the mean field R, and the meter-ink arrows are cross-mod, each weighted by what that push adds. ' +
+    'The ring is also the <b>Coupling × Detune XY</b>: the faint magenta crosshair and hollow puck are the value, a hollow violet diamond is where morph or a macro ' +
+    'carries it, and the dashed box is how far the bound macros can. Drag anywhere; a grab alone moves nothing. <b>Spectrum</b>: the meter line is the measured output, ' +
     'bands are the predicted formant ± main lobe (the bench\'s rule), and the amber tick marks f₀.</p><p>All three read one seeded oracle instance that holds the monitor note (A2, or the last key played). ' +
     'It advances a whole number of note periods per frame, so a blade window holds still.</p></div>';
   s.insertBefore(presetBrowser(), s.firstChild);
