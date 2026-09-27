@@ -602,7 +602,7 @@
     <h1>scalpel</h1>
     <div class="badges">
       <span class="badge">B271 + B293–B297 · DESIGN LAB</span>
-      <span class="sub">BLADES AT THE CENTRE · OSC + MAIN AT 980×720 · VISUALS DRIVEN BY THE ORACLE · THE WAVEFORM IS AN XY · THE RING IS COUPLING × DETUNE (CLICK TO SET) · CARPET + VOICE MAP · MEMBERS AT PHASE · THE R-HUED BEAM · 76 BENCH PRESETS</span>
+      <span class="sub">BLADES AT THE CENTRE · OSC + MAIN AT 980×720 · VISUALS DRIVEN BY THE ORACLE · THE WAVEFORM IS AN XY · THE RING IS COUPLING × DETUNE (CLICK TO SET) · CARPET + VOICE MAP · MEMBERS AT PHASE · THE R-HUED BEAM · 83 BENCH PRESETS</span>
     </div>
   </div>
   <div class="hdrctl">
@@ -628,7 +628,7 @@ Coupling × Detune XY</b> for the swarm.</div>
   <div class="grp"><span class="lbl">WINDOW</span><div class="pills" id="winPills"></div></div>
   <div class="grp"><span class="lbl">BLADE 2</span><div class="pills" id="b2Pills"></div></div>
   <div class="grp"><span class="lbl">CYCLE EDITS</span><div class="pills" id="dirPills"></div></div>
-  <div class="grp"><span class="lbl">PATCH</span><select id="presetSel" data-lab="the 76 packet presets (served) — reference/scalpel/data/presets.json, fetched, never copied"></select>
+  <div class="grp"><span class="lbl">PATCH</span><select id="presetSel" data-lab="the 83 packet presets (served, SCALPEL v1.1) — reference/scalpel/data/presets.json, fetched, never copied"></select>
     <button class="pill" id="initBtn" data-lab="ACCOUNTING §1.7's proposed horde INIT: blade 1 off, saw base">horde INIT</button></div>
 </div>
 
@@ -891,7 +891,7 @@ Coupling × Detune XY</b> for the swarm.</div>
       period with the one before it (no alignment): how much the heard wave changes in one period, which no single static cycle can
       follow. <b>SUM's largest cause</b> is the removal that cuts SUM's error most. <b>What AT PHASE still misses</b> is the same test
       run on AT PHASE's error, when that error is 0.15 or more (section K2 of the source). Click a row to load the preset.</p>
-    <div class="pills" style="margin:4px 0"><button class="pill mini" id="misreadBtn">MEASURE ALL 76</button><span class="vnote" id="misreadStat"></span></div>
+    <div class="pills" style="margin:4px 0"><button class="pill mini" id="misreadBtn">MEASURE ALL 83</button><span class="vnote" id="misreadStat"></span></div>
     <div id="misreadTable" style="max-height:420px;overflow:auto"></div>
   </div>
 </div>
@@ -1029,6 +1029,17 @@ R('benvW2', 'Env → width', 378, 'T2', 'c', -1, 1, 'lin', 'bi');
 R('benvA2', 'Env attack', 379, 'T2', 'c', 0.5, 2000, 'log', 'ms');
 R('benvD2', 'Env decay', 380, 'T2', 'c', 10, 5000, 'log', 'ms');
 R('benvVel2', 'Env velocity', 381, 'T3', 'c', 0, 1, 'lin', '%');
+/* B300 — SCALPEL v1.1's blade interplay (parameters.json rows 84–87: kinds, ranges and
+   options copied from there; defaults are the oracle's own, read through DEF). Not yet in
+   ACCOUNTING §1.4 and no id allocated (ACCOUNTING's rule: ids land with each port phase),
+   so the id is the string 'unallocated'. Tiers follow §2's evidence (off-default use across
+   the presets): Upper hears is moved in 7 of the 83, as often as Mirror (T2); Stacking in
+   2, each collision amount in 1, like the spreads (T3). b2order's stored 0 is "blade 2 over
+   1" (razor-core.js:282, `up2 = !p.b2order`). */
+R('b2order', 'Stacking', 'unallocated', 'T3', 'e', 0, 1, '', '', [[0, 'blade 2 over 1'], [1, 'blade 1 over 2']]);
+R('b2mix', 'Upper hears', 'unallocated', 'T2', 'c', 0, 1, 'lin', '%');
+R('colK', 'Collision → pitch', 'unallocated', 'T3', 'c', -1, 1, 'lin', 'bi');
+R('colB', 'Collision → bite', 'unallocated', 'T3', 'c', 0, 1, 'lin', '%');
 /* SCALPEL rows that MERGE into horde rows (horde's id; the oracle's key and law) */
 R('N', 'Members', '1 (n)', 'T1', 'c', 1, 9, 'int', 'int');
 R('detune', 'Detune', '4', 'T1', 'c', 0, 100, 'lin', 'c');
@@ -1136,6 +1147,7 @@ function fmtVal(sp, v) {
 function addrOf(key) {
   const sp = SP[key]; if (!sp) return key;
   if (typeof sp.id === 'number') return 'bl.' + key + ' · id ' + sp.id + ' (osc 2: ' + (sp.id + 1000) + ') · ' + sp.tier;
+  if (sp.id === 'unallocated') return 'bl.' + key + ' · id not yet allocated (SCALPEL v1.1, B300) · ' + sp.tier;
   return (sp.kind === 'x' ? 'horde row ' : 'horde ') + sp.id + ' · ' + sp.tier + (sp.kind === 'x' ? ' · not in the oracle: drawn, not voiced' : '');
 }
 
@@ -1508,7 +1520,11 @@ function memberCtx(c, viz, i) {
   }
   return x;
 }
-function newNs(seed) { const r = mulberry32(seed); return { idx: -1, val: 0, inside: false, g: 0, seed: 0, acc: 0, xin: 0, rnd: () => r() * 2 - 1 }; }
+/* B300: v1.1's blade state adds cacc (collision's carrier phase), cd (its last step), ov
+   (the overlap that drives bite) and pv (serial crush's held input), all 0 as the oracle's
+   newVoice builds them (razor-core.js:342-345). voice() READS cacc on Sync/FM/Ring and ov on
+   FM/Fold, so a missing field is `hp + xin + undefined` = NaN inside the blade. */
+function newNs(seed) { const r = mulberry32(seed); return { idx: -1, val: 0, inside: false, g: 0, seed: 0, acc: 0, xin: 0, cacc: 0, cd: 0, ov: 0, pv: 0, rnd: () => r() * 2 - 1 }; }
 /* the contribution of one blade at phase phi: voice() − base, plus its twin half a
    cycle later (the sum RazorCore.out forms). mr/mn are the oracle's static
    Sine→Saw fields, set per blade exactly as out() and render() set them. */
@@ -1868,8 +1884,17 @@ function paintCycle(cv, mini) {
   else if (cv === XY.cv) xyOverlay(g, W, top, bot, cycleView(cv));
   /* B299: a strike names itself for a second of monitor time, so no jump is unexplained */
   if (MON.why && MON.clock - MON.whyAt < MON_WHY) { g.textAlign = 'right'; labelBox(g, '↻ ' + MON.why, W - 5, bot - 14, '--scr-marker'); g.textAlign = 'left'; }
+  if (interplayOn(EFF)) { g.textAlign = 'right'; labelBox(g, INTERPLAY_NOTE, W - 5, bot - 28, '--scr-marker'); g.textAlign = 'left'; }
   g.textBaseline = 'alphabetic';
 }
+/* B300 — the cycle view builds each member as base + blade 1 + blade 2 (memberCycle), a
+   PARALLEL sum. SCALPEL v1.1's serial mix (λ, `b2mix`) and collision (`colK`, `colB`) change
+   what is heard in ways that sum cannot show (L0064: drawing is not hearing), so while either
+   is live the view says so. Both need blade 2 (razor-core.js out(): `bx && p.b2mix > 1e-6`;
+   stepM's collision block: `bx && on && on2`), so with blade 2 off the drawing is still right
+   and no notice is shown. Drawing interplay itself is the next lab round, not this one. */
+const INTERPLAY_NOTE = 'interplay: drawn as parallel — the beam is what you hear';
+function interplayOn(p) { return !!p.b2on && (p.b2mix > 1e-6 || p.colK !== 0 || p.colB !== 0); }
 /* B297 — which member AT PHASE lifts: the one grabbed with the drag, else the one whose
    curve is nearest the pointer (within 14 px), else none. XY.pt is the pointer in the
    canvas (xyWire). The member under the hand is what the human asks about, and a
@@ -2985,10 +3010,10 @@ function summaryChips(host, keys) {
 }
 const T2_KEYS = ['lock', 'lock2', 'morph', 'morph2', 'rotRate', 'rotRate2', 'fmType', 'fmType2', 'mshape', 'mshape2', 'mUnit', 'mUnit2',
   'fb', 'frame', 'b2env', 'benvK', 'benvW', 'benvA', 'benvD', 'benvK2', 'benvW2', 'benvA2', 'benvD2', 'xm', 'phaseMode', 'law', 'kRule',
-  'kRuleAmt', 'width', 'A', 'D', 'S', 'R', 'octave', 'semi', 'fine', 'rtone', 'onset', 'dissolve', 'driftDepth'];
+  'kRuleAmt', 'width', 'A', 'D', 'S', 'R', 'octave', 'semi', 'fine', 'rtone', 'onset', 'dissolve', 'driftDepth', 'b2mix'];
 const T3_KEYS = ['wspread', 'dspread', 'mspread', 'ispread', 'rotSpread', 'bspread2', 'kspread2', 'kRule2', 'kRuleAmt2', 'wspread2', 'dspread2',
   'mspread2', 'ispread2', 'rotSpread2', 'b2sp', 'b2fm', 'rot2Follow', 'frame2', 'driftRate', 'kq', 'kCustom', 'dcMode', 'panOrder',
-  'rotSync', 'benvVel', 'benvVel2', 'polyMode', 'glide', 'glideAlways', 'os', 'aa', 'cScale'];
+  'rotSync', 'benvVel', 'benvVel2', 'polyMode', 'glide', 'glideAlways', 'os', 'aa', 'cScale', 'b2order', 'colK', 'colB'];
 function tierBox(host, title, open, keys, onToggle, cls) {
   const t = el('div', 'tier' + (open ? '' : ' closed')); host.appendChild(t);
   const h = el('div', 'thead'); t.appendChild(h);
@@ -3029,6 +3054,11 @@ function tier2(host) {
   cmpRow(c2, 'Spread law', 'law', null, T);
   cmpRow(c2, 'Cut rule', 'kRule', null, T);
   cmpRow(c2, 'Rule depth', 'kRuleAmt', null, T);
+  /* B300: v1.1's serial mix λ. It acts only with blade 2 on, and the cycle view still
+     draws the blades as a parallel sum (INTERPLAY_NOTE says so there) */
+  g2.appendChild(el('h4', null, 'BLADE INTERPLAY (v1.1)'));
+  const ci = el('div', 'cmp one'); g2.appendChild(ci);
+  cmpRow(ci, SP.b2mix.label, 'b2mix', null, T);
   g2.appendChild(el('h4', null, 'SWARM — survivors from today\'s face'));
   const c3 = el('div', 'cmp one'); g2.appendChild(c3);
   for (const k of ['width', 'A', 'D', 'S', 'R', 'octave', 'semi', 'fine', 'rtone', 'onset', 'dissolve', 'driftDepth']) cmpRow(c3, SP[k].label, k, null, T);
@@ -3059,6 +3089,11 @@ function tier3(host) {
   g2.appendChild(el('h4', null, 'VOICE · OUTPUT'));
   const c3 = el('div', 'cmp one'); g2.appendChild(c3);
   for (const k of ['rotSync', 'dcMode', 'panOrder', 'polyMode', 'glide', 'glideAlways', 'os', 'aa', 'cScale']) cmpRow(c3, SP[k].label, k, null, T);
+  /* B300: v1.1's stacking and collision (collision acts only where the blades overlap,
+     pitch on an upper Sync/FM/Ring, bite on an upper FM/Fold: SPEC-SCALPEL §13.1, §13.3) */
+  g2.appendChild(el('h4', null, 'BLADE INTERPLAY (v1.1)'));
+  const c4 = el('div', 'cmp one'); g2.appendChild(c4);
+  for (const k of ['b2order', 'colK', 'colB']) cmpRow(c4, SP[k].label, k, null, T);
   g2.appendChild(el('h4', null, "HORDE'S SPECIALISTS (not in the oracle)"));
   g2.appendChild(el('div', 'inertlist', HORDE_T3.join(' · ')));
 }
@@ -4579,7 +4614,7 @@ function buildSide() {
     'names itself on the cycle view (↻). On MAIN the cycle views are the same XY as OSC\'s waveform, with the same mapping.</p></div>';
   s.insertBefore(presetBrowser(), s.firstChild);
 }
-/* B293 — the bench's 76 presets as a browsable list, grouped as the bench groups
+/* B293 — the bench's presets (76; 83 since v1.1, B300) as a browsable list, grouped as the bench groups
    them (its "Starting points" row, its "Two-blade" row, then the showcase rows:
    presets.json's `category`, in file order). They are played EXACTLY as the oracle
    defines them — which means their K is SCALPEL's coupling law, not horde's
@@ -4588,7 +4623,7 @@ function buildSide() {
 function presetBrowser() {
   const box = el('div', 'box pbrowse');
   const h = el('h2', null, 'BENCH PRESETS'); box.appendChild(h);
-  if (!LAB.presets) { box.appendChild(el('p', null, 'The 76 presets load when the lab is served (python3 tools/serve_labs.py) — reference/scalpel/data/presets.json is fetched, never copied.')); return box; }
+  if (!LAB.presets) { box.appendChild(el('p', null, 'The 83 presets load when the lab is served (python3 tools/serve_labs.py) — reference/scalpel/data/presets.json is fetched, never copied.')); return box; }
   h.appendChild(el('span', 'std', LAB.presets.length + ''));
   const warn = el('div', 'voicing');
   warn.innerHTML = '<b>BENCH VOICINGS, NOT RE-VOICED FOR HORDE.</b> Played as the oracle defines them: their Coupling is SCALPEL\'s law, ' +

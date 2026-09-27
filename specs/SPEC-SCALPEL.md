@@ -19,10 +19,11 @@ The bench validated the design musically and numerically: 76 starting points cov
 - Swarm integration: coupling, coupling time (seconds/cycles), start phases (settled/random/aligned), blade frame (member/swarm), cross-member modulation, feedback, balanced pan order.
 - Spread laws (gradient, random, drift, alternate, swarm) and cut rules (even, harmonic, undertone, octaves, major, minor, fifths, golden, primes, custom).
 - Voicing: poly, mono, legato, glide. Blade envelopes.
+- Blade interplay (§13, addendum): serial stacking with a continuous "upper hears lower" blend, stacking order, and collision → pitch / bite. Zero cost when λ = 0 and collision is off.
 - Anti-aliasing (PolyBLEP + 2×), per-cycle DC with blocker fallback.
 - Monitor visuals: cycle view (sum/members), phase ring with cross-mod arrows, spectrum with predicted formant band.
 
-**Defer** (v1.x): Serum wavetable export (bench feature; see §10), soft/reverse sync, more than two blades.
+**Defer** (v1.x): Serum wavetable export (bench feature; see §10), soft/reverse sync, more than two blades, cross-sync and inter-blade FM (§13.6), blade-centre coupling (§13.6).
 
 **Do not port**: the bench UI layout, preset buttons and pads as implemented — HORDE's intent bus, quantum-morph corners and macro system replace them (§11).
 
@@ -210,6 +211,11 @@ The oracle is `prototype/razor-core.js`. It calls `Math.random`; `verify/rng.js`
 - [ ] No non-finite samples across the verifier's 112-configuration sweep; output bounded
 - [ ] Blade 2 with every per-blade setting at *same as blade 1* matches the oracle goldens for the Two-blade presets (regression guard for the follow defaults)
 - [ ] With every new parameter at its default, existing HORDE sets load and render unchanged (ADR-draft)
+- [ ] Interplay: serial fold-over-sync, occlusion and λ = ½ match the §13.2 closed forms to 1e-9
+- [ ] Interplay off (λ = 0, collision off): output identical regardless of stacking order
+- [ ] Interplay: output DC residual < 0.003 on the verifier's serial patches; aliasing at A5 (fold over sync) < −100 dB re h2
+- [ ] Collision pitch: extra carrier phase > 0.5 cycles with overlapping blades, exactly 0 when they don't overlap
+- [ ] No non-finite samples over all 7 × 7 mode pairs × both stacking orders with twins and collision on
 - [ ] C++ cost at 2×, default path, ≤ 25 ns per member-tick on the reference machine (target; re-baseline after first port)
 
 ---
@@ -248,3 +254,66 @@ The oracle is `prototype/razor-core.js`. It calls `Math.random`; `verify/rng.js`
 - The per-cycle DC estimate for the sine→saw morph is numeric (no closed-form integral).
 - Two-member swarms cannot be pan-balanced.
 - Rotation and spreads are control-rate; very fast rotate-spread settings step at 32-sample resolution.
+- Collision acts on primary cuts only; mirror twins neither cause nor receive it.
+- Serial crush point-samples the lower blade's content per step (only the base part is box-averaged); with slew 0 its steps can move when k changes.
+
+---
+
+## 13. Addendum — blade interplay (v1.1)
+
+Added after the initial packet. The bench prototype and oracle in this packet include it; verifier checks 14–18 cover it.
+
+### 13.1 Parameters
+
+| Key | Range | Default | Meaning |
+|---|---|---|---|
+| `b2order` | 0, 1 | 0 | Stacking: 0 = blade 2 over blade 1 (blade 2 is *upper*), 1 = blade 1 over blade 2 |
+| `b2mix` (λ) | 0…1 | 0 | What the upper blade transforms: base (0) → base + lower blade's full contribution (1). Smoothed per sample |
+| `colK` | −1…1 | 0 | Collision → pitch: upper carrier rate × 4^(colK·ov), i.e. ±2 octaves at full overlap |
+| `colB` | 0…1 | 0 | Collision → bite: upper FM depth × (1 + 4·colB·ov), fold drive × (1 + 2·colB·ov) |
+
+All four only apply with blade 2 on. With λ = 0 and both collision amounts 0 the engine takes the parallel path and is sample-identical to v1.
+
+### 13.2 Serial composition (normative)
+
+Let `D_A(φ)` be the lower blade's delta computed from the base (as in v1: `voice − base`), and `s_A, s_B ∈ {−1, 0, +1}` the twin signs (twin −, off/reflect, twin +). Evaluate the lower blade at φ and φ − ½:
+
+  `L(φ) = D_A(φ) + s_A·D_A(φ−½)`  `L(φ−½) = D_A(φ−½) + s_A·D_A(φ)`
+
+The second evaluation is needed whenever *either* blade has a twin (the upper twin must hear the lower blade at φ − ½); it uses the lower blade's twin state.
+
+The upper blade transforms `x = base + λ·L`. Every mode's formula replaces *base* with *x* (§4.2): fold `sin(drive·x)`, ring `x · carrier`, and the lerp `x + g·depth·(hot − x)`; outside the blade the upper returns *x*. Its delta is `D_B = voice_B(x) − x`, and similarly at φ − ½ with `x₂ = base(φ−½) + λ·L(φ−½)`.
+
+  **out = base + L(φ) + D_B(φ) + s_B·D_B(φ−½)**
+
+Consequences, verified to machine precision: at λ = 1 a generator mode on top (sync, FM, noise) *occludes* the lower blade inside its span (`out = (1 − g·d)·(base + L) + g·d·hot`); fold and ring on top process the lower blade's content; at λ = 0 this reduces exactly to the v1 parallel sum.
+
+**Serial crush.** The base part of each hold level stays box-averaged (§4.4). The lower blade's part, `x − base`, is sampled at each step start and held; with slew it glides from the previous held value over the first `slew` fraction of the step, and over the exit ramp it glides onto the live `x − base`, so the blade exit stays continuous. Held state: `idx`, `val`, `pv` per blade state.
+
+### 13.3 Collision
+
+Per member and tick, with blade-local positions `e₁`, `e₂` and the §4.1 edge gates (crush counts as hard-edged, gate 1 inside):
+
+  `ov = gate₁(e₁) · gate₂(e₂)`
+
+*Pitch* is an integrator on the upper blade, so the carrier chirps smoothly rather than jumping: `cacc ← 0` at upper-blade entry; `cacc += (4^(colK·ov) − 1)·kk_upper·Δφ`; carrier phase `cp = hp + xin + cacc` for sync, FM and ring. `cacc` is not wrapped (it is bounded by blade length), which keeps the PolyBLEP carrier-wrap scan valid: the scan adds `cacc − Δcacc` and `cacc` to its tick-start and tick-end offsets.
+
+*Bite* reads `ov` at the current tick. Only the upper blade's state carries `ov`/`cacc`; the lower's stay 0. When both amounts are 0 the fields are cleared once and cost nothing afterwards.
+
+### 13.4 DC with interplay
+
+Closed-form per-blade estimates no longer hold once the upper hears the lower. For `b2on && λ > 0` the pair is estimated together: the mean of `(out − base)` over one cycle, numerically, with scratch copies of all four blade states, `J = clamp(32·(kk₁·fm₁ + kk₂·fm₂ + 2(m₁ + m₂) + 4), 64, 2048)` points (`fm = 1 + I/2` for FM blades, else 1). Refresh interval scales with J/64 as before. Collision makes the cycle time-varying, so when either collision amount is on the 8 Hz blocker also runs. Verified: output residual ≤ 0.0002 on serial patches; estimate error ≤ 0.0034 against brute force over 48 serial configurations.
+
+### 13.5 Cost
+
+JS reference ratios (absolute numbers vary by machine; see `verify/last-run.txt`): serial ≈ +35 % over parallel two blades (the lower twin evaluation and the pair DC estimate), serial + collision ≈ +55 %. In C++: the upper/lower role swap should be a template or branch-free pointer swap at block rate, not per-sample descriptor arrays (the bench builds small arrays per call; do not replicate); `ov` needs only the two gates the engine already computes.
+
+### 13.6 Staged extensions (not implemented)
+
+- **Cross-sync:** upper-blade entry resets the lower carrier (sync within sync).
+- **Inter-blade FM:** the upper output phase-modulates the lower carrier, through the same one-sample delay as cross-member modulation.
+- **Blade-centre coupling:** treat the two centres as coupled oscillators on the cycle (attract/repel), so counter-rotating blades lock, slip, or push each other apart. Control rate; pairs naturally with collision.
+
+### 13.7 Presets
+
+The *Showcase / Interplay* row: Fold over sync, Sync over fold (same patch, opposite stacking), Occlusion sweep, Ring on ring, Crushed burst, Collision chirps, Collision bite. All in `data/presets.json`.

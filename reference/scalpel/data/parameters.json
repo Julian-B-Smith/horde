@@ -64,7 +64,7 @@
   {
    "key": "rotSync",
    "label": "Rotation",
-   "group": "Both blades",
+   "group": "Blade interplay",
    "default": 1,
    "kind": "choice",
    "options": [
@@ -200,7 +200,7 @@
   {
    "key": "fb",
    "label": "Feedback",
-   "group": "Both blades",
+   "group": "Blade interplay",
    "default": 0,
    "kind": "continuous",
    "min": 0,
@@ -1052,6 +1052,54 @@
    "default": null,
    "kind": "other",
    "engine": "UI / bench only"
+  },
+  {
+   "key": "b2order",
+   "label": "Stacking",
+   "group": "Blade interplay",
+   "default": 0,
+   "kind": "choice",
+   "options": [
+    "blade 2 over 1",
+    "blade 1 over 2"
+   ],
+   "engine": "discrete (block rate)"
+  },
+  {
+   "key": "b2mix",
+   "label": "Upper hears",
+   "group": "Blade interplay",
+   "default": 0,
+   "kind": "continuous",
+   "min": 0,
+   "max": 1,
+   "curve": "linear",
+   "padAssignable": true,
+   "engine": "smoothed per sample (12 ms)"
+  },
+  {
+   "key": "colK",
+   "label": "Collision \u2192 pitch",
+   "group": "Blade interplay",
+   "default": 0,
+   "kind": "continuous",
+   "min": -1,
+   "max": 1,
+   "curve": "linear",
+   "padAssignable": true,
+   "engine": "smoothed at control rate (16 samples, 12 ms)"
+  },
+  {
+   "key": "colB",
+   "label": "Collision \u2192 bite",
+   "group": "Blade interplay",
+   "default": 0,
+   "kind": "continuous",
+   "min": 0,
+   "max": 1,
+   "curve": "linear",
+   "padAssignable": true,
+   "engine": "smoothed at control rate (16 samples, 12 ms)"
   },
   {
    "key": "b2fm",
