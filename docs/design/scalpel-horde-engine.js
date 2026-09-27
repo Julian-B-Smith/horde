@@ -65,6 +65,10 @@
  *   §1.6.6 phase origin  horde's saw has its jump at 0, SCALPEL's at ½, so
  *                    φ_SCALPEL = frac(φ_horde + ½). The swarm keeps horde's phase
  *                    state and start; every blade formula reads φ_SCALPEL.
+ *   voice law (B310)  HORDE LAW WINS: poly note-on allocates by ADR-083's three
+ *                    tiers (free, quietest releasing tail, oldest held), never
+ *                    RazorCore's same-note reuse, so a repeated note's first
+ *                    release keeps ringing. See noteOn() below.
  * NOT COMPOSED THIS ROUND (stated, not hidden): the output stage and voice
  * (rows 12, 13, 15, 17-20, 66 and D11: vol/normExp, width, the tanh, ADSR, the
  * pan image) stay RazorCore's. SwarmSynth's per-member amplitude terms (hiTame,
@@ -178,6 +182,49 @@ function makeComposedEngine(RazorCore, swarmSrc) {
       p.harmReach = d.harmReach; p.stretchB = d.stretchB; p.spread = d.spread; p.anchor = d.anchor;
       p.retrig = d.phaseMode === 0 ? 0 : 1;            // row 16; settled (2) is not voiced
       this.gCoefS = p.freqGlide > 0 ? 1 - Math.exp(-1 / (p.freqGlide * 0.25 * this.sr)) : 0;   // swarmsaw.html:655
+    }
+
+    /* B310, HORDE'S VOICE LAW (ADR-083, src/swarm_core.h alloc()). The human:
+       "when I play the same note twice in a row, the release of the first note
+       doesn't continue and instead the note gets stolen". RazorCore's poly
+       noteOn (razor-core.js:368-379) first reuses ANY active voice holding the
+       same note, releasing ones included, so a repeat cut the first release off.
+       horde has no same-note reuse: a note-on takes
+         1) a FREE slot (released and faded), oldest first;
+         2) else a RELEASING tail, quietest first, age as the tiebreak;
+         3) else (every slot gated) the oldest held voice.
+       "Faded" maps onto RazorCore's own voice envelope `v.env` (the ADSR,
+       razor-core.js:777-779, which scales the voice's output as v.env*v.vel*norm,
+       :862), with horde's threshold: !gate && env < 1e-3, the same test on the
+       same kind of field (swarm_core.h, Voice::env). RazorCore's `!active` is
+       env < 1e-4 and is a subset of it. Ages are RazorCore's v.age (++this.age
+       per start; 0 for a never-used slot), strict `<` so ties fall to pool order,
+       as horde's loop does. The pool is RazorCore's (voices 0..d.poly-1).
+       Every allocated slot is a NEW voice, so startVoice runs with fresh = true
+       (the oracle's steal path did the same; only its same-note reuse was not).
+       Mono/legato (d.polyMode) is RazorCore's path, untouched.
+       NOTE-OFF IS INHERITED, deliberately: RazorCore releases every voice with
+       that note that is STILL GATED (razor-core.js:433), which is horde's rule
+       (SwarmCore::noteOff releases by key, every gated match, swarm_core.h
+       noteOff; the shell releases by key, hypersaw_clap.cpp noteOffAll). So on
+       A-on, A-off, A-on, A-off the second off finds the new, gated voice and the
+       first tail is left to ring; a doubly-held A is released whole by one off,
+       so a host that merges the two offs into one cannot strand a stuck note.
+       Deterministic: no draw, no clock. */
+    noteOn(note, freq, vel) {
+      const d = this.d;
+      if (d.polyMode) return super.noteOn(note, freq, vel);
+      const pool = this.voices.slice(0, d.poly);
+      let v = null;
+      for (const x of pool) if (!x.gate && x.env < 1e-3 && (!v || x.age < v.age)) v = x;
+      if (!v) for (const x of pool)
+        if (!x.gate && (!v || x.env < v.env || (x.env === v.env && x.age < v.age))) v = x;
+      if (!v) for (const x of pool) if (!v || x.age < v.age) v = x;
+      // the rest is RazorCore's noteOn tail (razor-core.js:376-379), unchanged
+      this.startVoice(v, note, freq, vel, true, true);
+      v.freq = v.freqT = freq;
+      this.couple(v, this.s, d);
+      this.spread(v);
     }
 
     startVoice(v, note, freq, vel, fresh, retrig) {

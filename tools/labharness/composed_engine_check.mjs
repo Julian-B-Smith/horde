@@ -19,6 +19,12 @@
  *       coincide once the §1.6.6 start is aligned; where they must differ (the
  *       coupling law, row 6) the difference is MEASURED and printed (R(t), lock
  *       time, peak pull) and it is asserted only to be non-zero.
+ *   VL  voice law (B310). Poly note-on follows horde's allocator (ADR-083):
+ *       a repeated note leaves the first voice releasing, untouched; tier 1
+ *       (oldest faded, env < 1e-3), tier 2 (quietest tail, never a held note)
+ *       and tier 3 (oldest held) each have a row, and a stolen slot starts
+ *       fresh. The must-fail control is the oracle's own law (RazorCore's
+ *       same-note reuse and steal-oldest) through the same detector.
  *   DET determinism: same seed and note order give identical output; a
  *       different horde seed does not; the module reads no clock and draws no
  *       unseeded random of its own; the toString() bundle (the AudioWorklet
@@ -315,6 +321,134 @@ section('O3 — neutral case and the coupling-law difference');
         `${t90(X.Rt).padStart(10)} | ${held(X.Rt).padStart(13)} | ${tail(X.Rt).toFixed(3).padStart(16)} | ${pull.toFixed(2)}`);
   }
   row(maxGap > 1e-3, 'O3', `the coupling law DIFFERS (row 6, horde's wins): max|ΔR(t)| ${maxGap.toFixed(3)} at N 5 · 14 c · 440 Hz · K 0.35 — measured above, not hidden`);
+}
+
+/* ---------------------------------------------------------------- voice law (B310) */
+/* horde's allocator (ADR-083, src/swarm_core.h alloc()): free slot oldest first,
+   else the quietest releasing tail, else the oldest held. The engine overrides
+   RazorCore's poly noteOn, whose same-note reuse cut a repeated note's first
+   release off (razor-core.js:372). The MUST-FAIL control for every row is the
+   ORACLE ITSELF run through the same detector: RazorCore's own law must read
+   the old behaviour, so the detector is proven able to see the difference.
+   O1-O3 above use one note or distinct notes on an empty pool, where every law
+   picks slots 0, 1, … in order: their numbers are unchanged by this override. */
+section('VOICE — horde\'s voice law (ADR-083) in the poly note-on, oracle as the must-fail control');
+{
+  const vlMake = oracle => {
+    Math.random = mulberry32(0xB310);
+    const c = oracle ? new RazorCore(SR) : new Composed(SR);
+    c.set({ N: 5, detune: 14, K: 0.35, phaseMode: 1 }); Object.assign(c.s, c.t);   // poly 6, R 280 ms (defaults)
+    return c;
+  };
+  const hz = n => 440 * Math.pow(2, (n - 69) / 12);
+  /* ev: [sample, 'on'|'off', note]; probe(sampleIndex) is called after each 128 block */
+  const play = (c, ev, total, probe) => {
+    const L = new Float32Array(128), R = new Float32Array(128);
+    let e = 0;
+    for (let i = 0; i < total; i += 128) {
+      while (e < ev.length && ev[e][0] <= i) { const [, k, n] = ev[e++]; if (k === 'on') c.noteOn(n, hz(n), 0.9); else c.noteOff(n); }
+      c.render(L, R);
+      if (probe) probe(i + 128);
+    }
+  };
+  const pool = c => c.voices.slice(0, c.d.poly);
+  const snap = c => pool(c).map(v => ({ note: v.note, gate: v.gate, active: v.active, env: v.env, age: v.age }));
+
+  /* (1) the human's report: A on, A off, A on again inside the release */
+  const A = 57, T_OFF = 9600, T_RE = 14400, T_END = 24064;          // off at 0.2 s, re-strike 0.1 s into the release
+  const repeat = oracle => {
+    const c = vlMake(oracle), env1 = [];
+    play(c, [[0, 'on', A], [T_OFF, 'off', A], [T_RE, 'on', A]], T_END, () => env1.push(c.voices[0].env));
+    return { c, env1, s: snap(c) };
+  };
+  const hc = repeat(false), oc = repeat(true);
+  const alone = (() => { const c = vlMake(false), env1 = []; play(c, [[0, 'on', A], [T_OFF, 'off', A]], T_END, () => env1.push(c.voices[0].env)); return env1; })();
+  const act = s => s.filter(v => v.active);
+  const first = hc.s[0], second = hc.s[1];
+  let tailD = 0; for (let i = 0; i < alone.length; i++) tailD = Math.max(tailD, Math.abs(hc.env1[i] - alone[i]));
+  row(act(hc.s).length === 2 && first.note === A && !first.gate && first.env > 1e-3 && second.note === A && second.gate,
+    'VL', `repeat A: ${act(hc.s).length} active voices at 0.5 s; first (slot 0) releasing, gate ${first.gate}, env ${first.env.toExponential(2)}; ` +
+    `second (slot 1) gated ${second.gate}`);
+  row(tailD === 0, 'VL', `the first release is untouched by the repeat: max|Δenv| vs the same A released alone ${tailD.toExponential(1)} over ${alone.length} blocks`);
+  row(act(oc.s).length === 1 && oc.s[0].gate, 'VLc',
+    `CONTROL the oracle's reuse law (RazorCore): ${act(oc.s).length} active voice, slot 0 re-gated ${oc.s[0].gate} — must be 1 (the report's "the note gets stolen")`);
+
+  /* (2) note-off targets the voice still gated: a second A-off releases the NEW voice, the tail rings on */
+  {
+    const c = vlMake(false);
+    play(c, [[0, 'on', A], [T_OFF, 'off', A], [T_RE, 'on', A], [19200, 'off', A]], T_END);
+    const s = snap(c);
+    row(!s[0].gate && s[0].active && !s[1].gate && s[1].active && c.voices[1].stage === 4 && s[1].env > s[0].env,
+      'VL', `second A-off releases the gated voice: slot 1 gate ${s[1].gate} stage ${c.voices[1].stage} env ${s[1].env.toExponential(2)}; ` +
+      `slot 0 tail still active, env ${s[0].env.toExponential(2)}`);
+    /* doubly-held A (two ons, no off): one off releases every gated A, horde's by-key rule (swarm_core.h noteOff) */
+    const d = vlMake(false);
+    play(d, [[0, 'on', A], [4800, 'on', A], [9600, 'off', A]], 12032);
+    const g = pool(d).filter(v => v.gate).length, both = pool(d).filter(v => v.active && v.note === A).length;
+    row(g === 0 && both === 2, 'VL', `doubly-held A, one off: ${both} voices hold A, ${g} still gated — must be 0 (no stuck note)`);
+  }
+
+  /* A stolen slot is a NEW voice: startVoice runs fresh, so the swarm restarts at
+     horde's aligned retrig start (SwarmSynth noteOn: phase 0, swarmsaw.html:365;
+     blade frame ½, §1.6.6) and its glide snaps (vfInit 0). The reading before the
+     steal is the must-read-non-zero twin: the slot was running, off that start. */
+  const off = (c, slot) => { let m = 0; for (let i = 0; i < c.d.N; i++) m = Math.max(m, Math.abs(c.voices[slot].m[i].phi - 0.5)); return m; };
+  const steal = (oracle, ev, upTo) => {
+    const c = vlMake(oracle);
+    play(c, ev, upTo);                                  // every event lands before the last block
+    const pre = snap(c), was = pre.map((_, i) => off(c, i));
+    c.noteOn(70, hz(70), 0.9);                          // the steal, probed before any render
+    const post = snap(c), slot = post.findIndex(v => v.note === 70);
+    const fresh = !oracle && off(c, slot) === 0 && c.sw.swarms[c.voices[slot].si].vfInit === 0;
+    return { pre, post, slot, fresh, was: was[slot] };
+  };
+
+  /* (2b) tier 1's "faded" is horde's env < 1e-3, not RazorCore's !active (env
+     < 1e-4). 62-65 held; 61 released first, 60 (OLDER) 50 ms later, so both
+     tails sit in the 1e-4..1e-3 window with the older one LOUDER. Tier 1 takes
+     the oldest faded slot (60's); a free test of !active would find nothing
+     and fall to tier 2, which takes the quietest (61's). */
+  {
+    const ev = [[0, 'on', 60], [128, 'on', 61], [256, 'on', 62], [384, 'on', 63], [512, 'on', 64], [640, 'on', 65],
+      [9600, 'off', 61], [12032, 'off', 60]];
+    const h = steal(false, ev, 36096);
+    const win = [0, 1].every(i => h.pre[i].active && h.pre[i].env >= 1e-4 && h.pre[i].env < 1e-3);
+    row(win && h.pre[0].env > h.pre[1].env && h.slot === 0, 'VL1',
+      `tier 1: tails 60/61 env ${h.pre[0].env.toExponential(2)}/${h.pre[1].env.toExponential(2)} (both faded, both still active); ` +
+      `note 70 took slot ${h.slot} (was ${h.pre[h.slot].note}, the OLDEST faded, not the quietest)`);
+  }
+
+  /* (3) tier 2: 60-62 HELD (the oldest), 63-65 released newest-first so the
+     quietest tail (65) is the YOUNGEST voice. Tier 2 must take 65's slot:
+     not a held note (the ADR-083 bug), and not merely the oldest tail (63). */
+  {
+    const ev = [[0, 'on', 60], [128, 'on', 61], [256, 'on', 62], [384, 'on', 63], [512, 'on', 64], [640, 'on', 65],
+      [9600, 'off', 65], [11520, 'off', 64], [13440, 'off', 63]];
+    const h = steal(false, ev, 16896), o = steal(true, ev, 16896);
+    const tails = h.pre.map((v, i) => ({ i, ...v })).filter(v => !v.gate);
+    const quiet = tails.reduce((a, b) => (b.env < a.env ? b : a));
+    const heldKept = [60, 61, 62].every(n => h.post.some(v => v.note === n && v.gate));
+    row(tails.length === 3 && tails.every(v => v.env >= 1e-3) && h.slot === quiet.i && h.pre[h.slot].note === 65 && heldKept,
+      'VL2', `tier 2: tails 63/64/65 env ${tails.map(v => v.env.toFixed(3)).join('/')}, none free; note 70 took slot ${h.slot} ` +
+      `(was ${h.pre[h.slot].note}; quietest tail ${quiet.note}); held 60-62 kept ${heldKept}`);
+    row(h.fresh && h.was > 1e-3, 'VL2', `the stolen slot starts FRESH: max|φ_S − ½| ${h.was.toFixed(4)} before the steal → 0 after, swarm glide re-snapped`);
+    row(o.slot !== h.slot && o.pre[o.slot].gate, 'VL2c',
+      `CONTROL the oracle's law steals slot ${o.slot} (was ${o.pre[o.slot].note}, gated ${o.pre[o.slot].gate}) — must differ: a held note is lost`);
+  }
+
+  /* (4) tier 3: every slot gated. Slot 0 is re-struck after its first note fades,
+     so the OLDEST held voice is slot 1, not the first index: an index-order
+     allocator would fail this row. */
+  {
+    const ev = [[0, 'on', 60], [128, 'on', 61], [256, 'on', 62], [384, 'on', 63], [512, 'on', 64], [640, 'on', 65],
+      [1280, 'off', 60], [38400, 'on', 66]];
+    const { pre, post, slot, fresh, was } = steal(false, ev, 38528);
+    const oldest = pre.reduce((a, v, i) => (v.age < pre[a].age ? i : a), 0);
+    row(pre.every(v => v.gate) && pre[0].note === 66 && slot === oldest && slot === 1 && post[0].note === 66 && post.filter(v => v.gate).length === 6,
+      'VL3', `tier 3: all ${pre.filter(v => v.gate).length} gated (slot 0 re-struck as 66); note 70 took slot ${slot} ` +
+      `(was ${pre[slot].note}, age ${pre[slot].age}, the oldest held); 66 kept in slot 0`);
+    row(fresh && was > 1e-3, 'VL3', `the stolen held slot starts FRESH: max|φ_S − ½| ${was.toFixed(4)} before → 0 after`);
+  }
 }
 
 /* ---------------------------------------------------------------- determinism */
