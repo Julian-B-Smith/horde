@@ -1,0 +1,34 @@
+# b312-legacy-preset-porter — an offline porter for the legacy user presets, mapped by ACCOUNTING's fates
+
+- **Queue item:** B312 (records PR #801, branch `lead-records-117`). ADR-186 revision 2, item (ii).
+- **Why:** The human: "Sure, let's try to port over my user presets; it will help ground the whole process." A one-way, offline tool (never in a loader) that reads the legacy store and maps every value through `docs/scalpel/ACCOUNTING.md` §1.1/§1.2 onto the composed engine's keys, so the migration question is answered on real patches rather than in the abstract.
+- **What changed:**
+  - `tools/port_legacy_presets.mjs`: the porter. ACCOUNTING's tables are PARSED at run time (key, range, default, fate); a RULES table adds only the target key and the conversion ACCOUNTING states in prose. A MERGES row with no stated conversion (row 14 fractional Digital, row 66 Pan Image, G4 glideMode 1) is carried in `unported`, never guessed. Corners decode positionally as `morphSlotMap()` does, including the layout-1 224-slot ADR-150 shape. Blades off (`b1on` 0, `b2on` 0), base Saw, panOrder 1: the §1.7 legacy defaults. The engine defaults are read from a live `ComposedEngine`, never copied.
+  - `tools/labharness/port_legacy_presets_check.mjs`: synthetic fixtures only, wired into `./verify fast`. It has 8 oracles (coverage, SURVIVES round-trip, MERGES formulas, RETIRED reported and not carried, corner decode, nothing silently lost, privacy, blades off and determinism) and 4 must-fail controls (detune ×10, a retired row carried, a corner decoded one slot off, a fate that drifted), all caught.
+  - `.gitignore`: `local/`. The porter refuses an in-repo output directory that git would track.
+- **Privacy:** the tool ran once on the real store, and its output went to the worktree's git-ignored `local/legacy-presets/`. This trace, the commit and the PR carry counts only: no preset name and no value.
+- **Real-store run (counts):**
+  - Files: 10 preset files and 29 corner files; 39 ported, 0 parse failures.
+  - Formats found: presets at schema 2 (3 files, no header) and schema 3 (7 files: 6 at revision 1 and one with no header), morphLayout absent/2/5/6/8; corners at morphLayout absent (lengths 178/202/222/224, one of them the ADR-150 224 shape), 2, 5, 7 and 8.
+  - Fields over all 94 ACCOUNTING rows per port: mapped 936, merged 657, retired 195 (77 non-default), dropped 0, unported 8159.
+  - Of the fields the files actually stored: mapped 886, merged 606, retired 195, unported 8048.
+  - Member clamps: 0. Osc 2 enabled in 7 presets.
+- **Decode evidence (counts):**
+  - Every stored ACCOUNTING-row value decoded from the real corners lies inside its declared range: 0 out of range among 2521 corner-file values and 3520 preset-morph values.
+  - The same detector reads 683 out of range under a one-slot shift and 684 under a two-slot shift. The ADR-150 file reads 0 under its own decode and 2 under the plain-prefix decode.
+- **Evidence consulted:** ROADMAP B252/B298/B305/B312 (`origin/lead-records-117`); DECISIONS ADR-186; `docs/scalpel/ACCOUNTING.md` in full; `src/gui/preset_store.h`; `src/hypersaw_clap.cpp` stateJson, liveCornerJson, morphJson, applyMorphChunk, morphSlotMap, applyStateJson migrations, defaultFor, kParams; `tests/morph_order.txt`; `tools/registry_decl.py` (reused for id→key); `docs/design/scalpel-horde-engine.js`; `reference/scalpel/prototype/razor-core.js`; `reference/scalpel/data/presets.json` / `parameters.json`; `docs/design/scalpel-interface-lab.html` (the R table, applyPreset).
+- **Alternatives rejected:**
+  - Porting osc 2 into the output as a second preset: invention. The composed engine is one swarm, so osc 2 is carried whole in `unported.osc2`.
+  - Clamping out-of-range converted values (for example width > 1, or D/R below the oracle's floor): a note is written instead of a clamp. The only clamp is the one ACCOUNTING §3 states (members, cap 9).
+  - A Python porter: the defaults must be read from the JS engine.
+- **Verify:** `./verify fast` exited 0 on `ff3ca07`, the code commit.
+  - `.harness/last-verify.json`: `{"target":"fast","exit":0,"git":"ff3ca07"}`.
+  - The new check printed `port_legacy_presets_check: PASS — 8 oracles, 4 must-fail controls`.
+  - test_table_check counts the new check as WIRED and verified so.
+  - The private-name gate is SKIPPED in a worktree, because there is no `.leakcheck-names` here. The new files were scanned by hand against the main checkout's list: 0 hits, 0 absolute paths.
+- **Open questions:** see the PR body and the report back to the lead:
+  - the lab's applyPreset forces `b1on: 1`;
+  - the corners category;
+  - no stated conversion for rows 14 (fractional), 66 and G4=1;
+  - rows 13/15 are identity with the output stage not composed;
+  - the output lives in the worktree.
