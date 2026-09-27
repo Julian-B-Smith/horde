@@ -43,7 +43,7 @@ packet.
 1. **The two coupling laws are different laws, not one law normalised two ways** (§1.6). Horde
    pulls with `4K|K|·σ` Hz: quadratic in K, and proportional to the standard deviation of the
    member frequencies (`src/swarm_core.h:1885-1896`). SCALPEL pulls with
-   `K·(1.5·Δf_max + 3·s)` Hz: linear in K, with a fixed 3 Hz floor (`prototype/razor-core.js:383-389`).
+   `K·(1.5·Δf_max + 3·s)` Hz: linear in K, with a fixed 3 Hz floor (`prototype/razor-core.js:435-441`).
    At the packet presets' typical K (0.3–0.6), SCALPEL couples **≈ 2–9× harder at K 0.35 and ≈ 1–5× at K 0.6** than horde does (the gap shrinks with K because horde is quadratic).
    At zero detune it couples **9–27× harder**. SPEC §11 says to use horde's law. If that holds,
    exact parity against the JS oracle is possible only where coupling is off (Q B1, B2).
@@ -221,7 +221,7 @@ SCALPEL's Voice group is per-engine. Horde's voicing, glide and oversampling are
 |---|---|---|---|---|---|---|---|---|---|---|
 | G1 | 32 · `hypersaw_clap.cpp:218` | `voiceMono` · Mono | 0..1 (0) | Bend (:133) | **MERGES** | `polyMode` (with 34): poly = Mono off; mono = Mono on + Legato off; legato = Mono on + Legato on. Horde's shell voicing wins; it is GLOBAL, so both oscillators share it. | S | in field (ADR-109 A1 append) | no (stepped) | U |
 | G2 | 34 · `hypersaw_clap.cpp:220` | `voiceLegato` · Legato | 0..1 (1) | Bend (:135) | **MERGES** | `polyMode` (with 32). | S | in field (ADR-109 A1 append) | no (stepped) | U |
-| G3 | 33 · `hypersaw_clap.cpp:219` | `glide` · Note Lag (s) | 0..2 (0) | Bend (:134) | **MERGES** | `glide`: SCALPEL's exponential-in-log-f glide IS horde's lag law in semitones; SCALPEL time-to-95 % T ms ≡ horde τ = T/3000 s (razor-core.js:669, `gk = 1−exp(−3/(glide·sr))`). Horde steps it on the 16-sample tick; SCALPEL per sample. | M | in field (note-lane append) | yes · span 2 | U |
+| G3 | 33 · `hypersaw_clap.cpp:219` | `glide` · Note Lag (s) | 0..2 (0) | Bend (:134) | **MERGES** | `glide`: SCALPEL's exponential-in-log-f glide IS horde's lag law in semitones; SCALPEL time-to-95 % T ms ≡ horde τ = T/3000 s (razor-core.js:753, `gk = 1−exp(−3/(glide·sr))`). Horde steps it on the 16-sample tick; SCALPEL per sample. | M | in field (note-lane append) | yes · span 2 | U |
 | G4 | 90 · `hypersaw_clap.cpp:323` | `glideMode` · Glide From | 0..2 (0) | Bend (:231) | **MERGES** | `glideAlways`: *overlapping* ≡ 0 held note; *always* ≡ 2. Horde's third mode (1, last note ringing) has no SCALPEL twin. | S | in field (ADR-109 A1 append) | no (stepped) | U |
 | G5 | 88 · `hypersaw_clap.cpp:316` | `oversample` · Oversample 2x | 0..1 (0) | Output & perception (:229) | **MERGES** | `os` (bench-only in the packet). Horde's 2× (halfband decimator) is GLOBAL and ships OFF; SCALPEL's alias claims assume 2× with a Butterworth pair. Q D2. | S | not in field | no (stepped) | RB |
 | G6 | 11 · `hypersaw_clap.cpp:192` | `inertia` · Inertia | 0..1 (0) | The coupling (:93) | **SURVIVES** | Second-order member inertia; composes with coupling. No counterpart. | M | in field | yes · span 1 | U |
@@ -390,9 +390,9 @@ frames and DC.
 |---|---|---|---|
 | `base` | none (always saw) | SCALPEL | NEW. Default Saw. Squareness (69) is retired, and base = Square is its nearest successor. |
 | `A` `D` `S` `R` (ms, linear attack) | 19–22 (s, one-pole, ADR-021) | horde | The amp envelope is the voice's, and rev-1 identity needs it. SCALPEL presets translate ms → s; the linear-vs-one-pole attack shape differs (listen, not map). |
-| `gain` | `vol` 17 | horde | D11: horde's output stage (`gain = vol·0.9/n^normExp`, `swarm_core.h:943`; `tanh`, `:1331`). SCALPEL's `tanh(1.6·gain·y)` (`razor-core.js:791`) is dropped. |
+| `gain` | `vol` 17 | horde | D11: horde's output stage (`gain = vol·0.9/n^normExp`, `swarm_core.h:943`; `tanh`, `:1331`). SCALPEL's `tanh(1.6·gain·y)` (`razor-core.js:878`) is dropped. |
 | `polyMode` | `voiceMono` 32 + `voiceLegato` 34 (global) | horde | Horde's allocator and shell voicing. |
-| `glide` | `glide` 33 (lag τ, s) | horde | Same law family: τ = T/3000 (`razor-core.js:669`). |
+| `glide` | `glide` 33 (lag τ, s) | horde | Same law family: τ = T/3000 (`razor-core.js:753`). |
 | `glideAlways` | `glideMode` 90 | horde | *overlapping* = 0, *always* = 2. |
 
 **Drone and output (7).**
@@ -402,7 +402,7 @@ frames and DC.
 | `f0Mode`, `f0`, `f0Note`, `nameAbleton` | — | DROPPED | The bench's drone test-tone and its note-naming convention (`engine`: "UI / bench only"). Horde is played from MIDI. |
 | `os` | `oversample` 88 (global, ships off) | MERGES | SCALPEL's AA claims (SPEC §1, §7) assume 2×. Q D2. |
 | `aa` | `digital` 16 | MERGES | clean = 1, raw = 0. `digital` becomes the scalar on every BLEP correction. |
-| `dcMode` | — | NEW | Inert without blades: the per-cycle estimate is of blade contributions only (SPEC §7), and the blocker runs only with `xm`/`fb` active (`razor-core.js:787-790`). The default can stay *per cycle*. |
+| `dcMode` | — | NEW | Inert without blades: the per-cycle estimate is of blade contributions only (SPEC §7), and the blocker runs only with `xm`/`fb` active (`razor-core.js:874-877`). The default can stay *per cycle*. |
 
 ### 1.6 The coupling law, checked against `src/swarm_core.h`
 
@@ -411,13 +411,13 @@ section records where the two actually differ.
 
 **1.6.1 Normalised K.**
 
-| | horde (`swarm_core.h:1885-1897`, `:1987-1992`) | SCALPEL (`razor-core.js:383-389`, `:401-428`) |
+| | horde (`swarm_core.h:1885-1897`, `:1987-1992`) | SCALPEL (`razor-core.js:435-441`, `:401-428`) |
 |---|---|---|
 | strength | `KsmS → (4K\|K\| + Kenv)·σ` Hz, where σ = std-dev of member freqs, floor 0.08 Hz; `absK` replaces σ with 2.5 Hz | `Keff/2π = K·(1.5·Δf_max + 3·s)` Hz, Δf_max = f·(2^(detune/1200) − 1) |
 | shape in K | quadratic, signed | linear |
 | pull | `couple = KsmS·R·sin(ψ − θᵢ)` Hz, added to the member frequency | `Keff/2π · Σₕ(1/h)(Im Rₕ cos − Re Rₕ sin)` Hz; the same form at H = 1 |
 | smoothing | τ 4.35 ms on KsmS (`:152`, `:1896`) | none beyond K's own 12 ms control-rate smoother |
-| update | every **16** samples (`kTick`, `:54`) | every **32** samples (`razor-core.js:668`) |
+| update | every **16** samples (`kTick`, `:54`) | every **32** samples (`razor-core.js:752`) |
 | transient | onset lock `Kenv` decays over `dissolve` (`:635`, `:1740`) | none (settled start is its answer) |
 | second order | `inertia` (`:2055-2085`) | none |
 
@@ -450,7 +450,7 @@ horde's law at law 0, once detune is above the floor.
 **1.6.3 Settled start.** Horde has no fast-forward. Its start phases are all 0 (`retrig` on, the
 default), a seeded random draw (`retrig` off), a partial draw (`scatter`), or the last phases
 (`keepPhase`) (`swarm_core.h:693-702`). SCALPEL's *settled* re-draws the phases, then runs 150
-coupling steps (`razor-core.js:391-400`). K > 0 draws uniform [0, 0.15); K ≤ 0 draws uniform
+coupling steps (`razor-core.js:443-452`). K > 0 draws uniform [0, 0.15); K ≤ 0 draws uniform
 [0, 1). Under horde's law the port would settle with horde's coupling function, at horde's
 16-sample grid spacing in simulated time. Two things are new:
 
@@ -469,7 +469,7 @@ an explicit rank lattice, `KsmP·sin(2π(θ_c0 + (i−c0)/n − θᵢ))` with ga
 unrelated: an attractive q-cluster law at K > 0 (`:1945-1960`). Under horde's law, SCALPEL's
 "r ≤ 0.10 at K = −1" criterion needs re-measuring. *Hypothesis:* it passes.
 
-**1.6.5 Balanced pan order.** SCALPEL's tables (`razor-core.js:817`) permute evenly spaced slots so
+**1.6.5 Balanced pan order.** SCALPEL's tables (`razor-core.js:904`) permute evenly spaced slots so
 that pan does not correlate with member index. Horde's default (ADR-070,
 `swarm_core.h:1585-1632`) is an **alternating pitch-ranked fan**: rank 0 in the centre, then out
 alternately left and right. That already breaks the monotone tilt SCALPEL measured under *fan*,
@@ -516,7 +516,7 @@ default off):
 
 1. **`parameters.json` options are in display order, not value order.** `phaseMode` lists
    *settled|random|aligned* with default 2. The stored values are 2 = settled, 0 = random,
-   1 = aligned (`scalpel-bench.html:1261`; `razor-core.js:347`, `:364`). `rotSync` default 1 is
+   1 = aligned (`scalpel-bench.html:1261`; `razor-core.js:399`, `:364`). `rotSync` default 1 is
    *restart per note* (`:1238`). Reading `default` as an index into `options` gives the wrong
    answer for `phaseMode`, `rotSync`, `law`, `hot`/`hot2`, `mshape`/`mshape2`, `wtNorm` and
    `nameAbleton`. The table in §1.4 prints the real value→label pairs.
@@ -526,7 +526,7 @@ default off):
    order, with the mapping to oracle values held by the parity harness (Q E4).
 3. **SPEC §7 vs the oracle on smoothing.** SPEC §7 says per-sample smoothing applies to "cut rate
    (k, Hz), width, position, depth, FM depth, edges — for both blades". The oracle smooths
-   `depth2`, `I2` and `hard2` at the 16-sample rate (`razor-core.js:665-667`), as
+   `depth2`, `I2` and `hard2` at the 16-sample rate (`razor-core.js:748-750`), as
    `parameters.json` also says. Parity follows the oracle; the spec line needs a ruling (Q E5).
 4. **Key collisions.** SCALPEL keys that already exist as horde core keys: `law` (5), `width` (14),
    `detune` (4), `K` (6), `driftRate` (10), `glide` (33). SCALPEL keys that are dangerously short:
@@ -539,7 +539,7 @@ default off):
    CLAP host and a saved patch are safe. A VST3 lane stores normalised values and is not.
    `mainAsnX/Y` (179/180) were widened 0..8 → 0..10 on 2026-09-19 without addressing this
    (`hypersaw_clap.cpp:637-648`). That shipped case is worth a separate look.
-6. **N ≤ 9 is baked into the oracle.** Member arrays are fixed at 9 (`razor-core.js:275`, `:288`,
+6. **N ≤ 9 is baked into the oracle.** Member arrays are fixed at 9 (`razor-core.js:327`, `:288`,
    `:295`), `PANS` has 9 rows (`:817`), and the *primes* rule has 9 primes (`:84`), so a 10th
    member reads `undefined` → NaN. A 16-member cap has no oracle to be measured against above 9.
 7. **`N` is typed `continuous` in `parameters.json`** but is discrete (block rate).
@@ -717,7 +717,7 @@ That leaves **45 per osc, 90 in all**.
 
 | candidate | nature | proposal |
 |---|---|---|
-| Blade 1 / Blade 2 envelope (×2 osc = 4) | per **voice** (AD, velocity-scaled; `razor-core.js:678-690`) | **Internal for v1.** They drive their fixed targets (cut rate ×2^(±4·level), width ×2^(±3·level)) per voice, as the oracle does. Horde's matrix is global scope (`mod_core.h:46`, routes evaluated with `kGlobal`, `hypersaw_clap.cpp:4001`), so exposing them now means a loudest-voice projection, and the mod lab's finding #2 says per-note sources must not be projected globally (ROADMAP, Modulation lab status). Expose them as sources when per-note scope (B82) exists. |
+| Blade 1 / Blade 2 envelope (×2 osc = 4) | per **voice** (AD, velocity-scaled; `razor-core.js:762-774`) | **Internal for v1.** They drive their fixed targets (cut rate ×2^(±4·level), width ×2^(±3·level)) per voice, as the oracle does. Horde's matrix is global scope (`mod_core.h:46`, routes evaluated with `kGlobal`, `hypersaw_clap.cpp:4001`), so exposing them now means a loudest-voice projection, and the mod lab's finding #2 says per-note sources must not be projected globally (ROADMAP, Modulation lab status). Expose them as sources when per-note scope (B82) exists. |
 | Swarm lead ψ | ψ = arg R₁ **rotates at the note frequency** | **Not a source.** Sampled at the 16-sample control tick, it aliases. What SCALPEL uses internally is the per-member *lead* θᵢ − ψ, and that stays internal (swarm frame, swarm spread law). The swarm's control-rate observable is **R**, which B253 adds as Coherence 1/2. |
 | (for completeness) spread positions `pn` | per member | Not a source (internal). |
 
