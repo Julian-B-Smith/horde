@@ -211,6 +211,20 @@ PY
       echo "verify: GUI history check FAILED" >&2; cat /tmp/guihist.$$ >&2; ok=1; }
     tail -1 /tmp/guihist.$$   # the harness prints its own name; do not prefix it twice
     rm -f /tmp/guihist.$$
+
+    # SCROLLING NEVER TURNS A LAB CONTROL; A PILL CLICK KEEPS ITS PANEL'S SCROLL
+    # (B301). The human: "scrolling in the lab no longer turns knobs … clicking
+    # button parameters resets the position of the control window." Six labs
+    # turned a control on a plain wheel (and ate the scroll); the SCALPEL and
+    # compact labs rebuilt their Controls scroller on every pill click. Every lab
+    # wheel listener must go through one identical onAltWheel (plain wheel: no
+    # change, no preventDefault; alt + wheel adjusts), each inventoried lab is run
+    # under a fake DOM and wheeled and clicked for real, and two planted faults
+    # must come back red (~3 s, one worker per load). Added under ADR-180 §1.
+    node tools/labharness/lab_wheel_scroll_check.mjs > /tmp/labwheel.$$ 2>&1 || {
+      echo "verify: lab wheel/scroll check FAILED" >&2; cat /tmp/labwheel.$$ >&2; ok=1; }
+    tail -1 /tmp/labwheel.$$   # the harness prints its own name; do not prefix it twice
+    rm -f /tmp/labwheel.$$
   else
     echo "verify: node missing — lab load check SKIPPED" >&2
   fi

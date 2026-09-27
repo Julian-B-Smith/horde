@@ -504,7 +504,8 @@
 <b>src/param_presentation.tsv</b> with the shell's ranges — <b>A</b> a fixed spine we choose, <b>B</b> the preset's eight named
 macros, <b>C</b> both (recommended). All three and the full surface read and write <b>one store</b>, so history, automation,
 morph and presets see nothing new. The six decisions B212 names sit below each as a choice with a recommendation; their pills
-drive the frames. Drag knobs and pads; LFO and morph keep moving what the face hides.</div>
+drive the frames. Drag knobs and pads (shift = fine, double-click resets); ⌥/alt + wheel nudges a knob, and a plain wheel
+only scrolls (B301). LFO and morph keep moving what the face hides.</div>
 
 <div class="audit" id="audit">audit: pending</div>
 <div class="legend">
@@ -1527,6 +1528,35 @@ function el(tag, cls, txt) {
   if (txt !== undefined) e.textContent = txt;
   return e;
 }
+/* B301 — THE WHEEL SCROLLS; ⌥/alt + WHEEL ADJUSTS. A plain wheel or trackpad scroll
+   over a control used to turn it, and its preventDefault ate the scroll, so moving down
+   a column of knobs rewrote the patch on the way past (human, 2026-09-27: "it makes
+   navigation a real headache"). Now a plain wheel returns untouched: no value changes and
+   nothing calls preventDefault, so the page or the panel scrolls. With alt held `f`
+   adjusts and the event is claimed, unless `f` returns false (a canvas whose hit-test
+   missed), which leaves the scroll alone. The same copy is in every lab that adjusts on
+   the wheel (labs are single-file by design); tools/labharness/lab_wheel_scroll_check.mjs
+   holds all of them to it. */
+function onAltWheel(node, f) {
+  node.addEventListener('wheel', e => {
+    if (!e.altKey) return;
+    if (f(e) !== false) e.preventDefault();
+  }, { passive: false });
+}
+/* B301 — A REBUILD KEEPS EVERY PANEL'S SCROLL. Clearing a container and building it
+   again hands the browser NEW scrolling elements, and a new element starts at scrollTop
+   0: every pill that rebuilt the frame threw the Controls column back to its top (human,
+   2026-09-27: "clicking button parameters resets the position of the control window").
+   Offsets are saved by position (the ordinal of each `sel` match inside `root`) and put
+   back after the build; the browser clamps them to the new height. `view` names what is
+   on screen: a different view is navigation, and starts at the top. */
+function keepScroll(root, sel, view, build) {
+  const all = () => (root && root.querySelectorAll ? [...root.querySelectorAll(sel)] : []);
+  const was = root && root._b301view === view ? all().map(e => e.scrollTop) : [];
+  build();
+  if (root) root._b301view = view;
+  all().forEach((e, i) => { if (was[i] > 0) e.scrollTop = was[i]; });
+}
 function oscAddr(F, key) { return 'osc' + F.osc + '.' + key; }
 
 /* THE KNOB CELL. It holds an ADDRESS. Its paint reads the store; its gesture
@@ -1568,10 +1598,9 @@ function knobCell(F, host, a, opts) {
   k.addEventListener('pointerup', up);
   k.addEventListener('pointercancel', up);
   k.addEventListener('dblclick', () => write(addr, R.df, F.id + ' · compact'));
-  k.addEventListener('wheel', e => {
-    e.preventDefault();
+  onAltWheel(k, e => {
     write(addr, fromPos(R, toPos(R, get(addr)) - Math.sign(e.deltaY) * 0.02), F.id + ' · compact');
-  }, { passive: false });
+  });
   const paint = () => {
     const v = get(addr), p = toPos(R, v);
     const bip = R.min < 0 && R.max > 0, c = bip ? toPos(R, 0) : 0;
@@ -1988,7 +2017,15 @@ function renderBar(F) {
     bar.appendChild(el('span', 'wsize', 'expand: + on each cluster')).style.marginLeft = '0';
   }
 }
+/* B301: a frame's Controls area (.ctlscroll) is built new on every render, so it
+   keeps its offset through keepScroll. The view key is what a click can NAVIGATE (page,
+   source, full surface, Advanced page); a click that only changes a value, or opens the
+   Controls area's own Advanced in place, is the same view and keeps the scroll. */
 function renderFrame(F) {
+  const view = [F.page, F.wpage, F.src, F.view, F.adv, F.alt].join('|');
+  keepScroll(F.el && F.el.win, '.ctlscroll', view, () => renderFrameNow(F));
+}
+function renderFrameNow(F) {
   /* round 2's frames (the human's wireframes, B223's pads) bring their own
      renderer; everything else about them — binds, vis, strip — is shared */
   if (F.render) { F.render(F); return; }

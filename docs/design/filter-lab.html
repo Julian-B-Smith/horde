@@ -326,7 +326,7 @@
 </div>
 
 <div class="tagline">Every filter is drawn <b>once</b>, in the signal path below, as a box holding its own response curve —
-drag inside a box: across = cutoff, up = resonance; click a box to edit it on the right. Sources plug <b>straight
+drag inside a box: across = cutoff, up = resonance (⌥/alt + wheel nudges resonance; a plain wheel only scrolls, B301); click a box to edit it on the right. Sources plug <b>straight
 in</b>: click a source's jack (or its pills) to move its cable. Filters A and B are either <b>SERIAL</b> — one line through
 two boxes — or <b>PARALLEL</b> — a split into two branches that sum. <b>PLACEMENT</b> still decides which filters are in
 force: A and B run per voice before the mix, the RACK filter runs once on the sum. POWER, then hold a chord (A..L, Z/X
@@ -2644,6 +2644,21 @@ function dragTo(key, A, x, y) {
   F.res = Math.max(0, Math.min(1, (A.Yinv(y) + 12) / 30));
   DIAG.dirty = true; onEdit();
 }
+/* B301 — THE WHEEL SCROLLS; ⌥/alt + WHEEL ADJUSTS. A plain wheel or trackpad scroll
+   over a control used to turn it, and its preventDefault ate the scroll, so moving down
+   a column of knobs rewrote the patch on the way past (human, 2026-09-27: "it makes
+   navigation a real headache"). Now a plain wheel returns untouched: no value changes and
+   nothing calls preventDefault, so the page or the panel scrolls. With alt held `f`
+   adjusts and the event is claimed, unless `f` returns false (a canvas whose hit-test
+   missed), which leaves the scroll alone. The same copy is in every lab that adjusts on
+   the wheel (labs are single-file by design); tools/labharness/lab_wheel_scroll_check.mjs
+   holds all of them to it. */
+function onAltWheel(node, f) {
+  node.addEventListener('wheel', e => {
+    if (!e.altKey) return;
+    if (f(e) !== false) e.preventDefault();
+  }, { passive: false });
+}
 function wirePath() {
   if (!pathC || !pathC.addEventListener) return;
   pathC.addEventListener('pointerdown', e => {
@@ -2660,10 +2675,10 @@ function wirePath() {
   });
   pathC.addEventListener('pointerup', () => { drag = null; });
   pathC.addEventListener('pointercancel', () => { drag = null; });
-  pathC.addEventListener('wheel', e => {
-    const h = hitAt(e); if (!h || h.H.kind !== 'box') return;
-    e.preventDefault(); const F = S.flt[h.H.key]; F.res = Math.max(0, Math.min(1, F.res - Math.sign(e.deltaY) * 0.02)); onEdit();
-  }, { passive: false });
+  onAltWheel(pathC, e => {
+    const h = hitAt(e); if (!h || h.H.kind !== 'box') return false;
+    const F = S.flt[h.H.key]; F.res = Math.max(0, Math.min(1, F.res - Math.sign(e.deltaY) * 0.02)); onEdit();
+  });
   pathC.addEventListener('dblclick', e => {
     const h = hitAt(e); if (!h || h.H.kind !== 'box') return;
     const d = defaultPatch().flt[h.H.key], F = S.flt[h.H.key]; F.cutoff = d.cutoff; F.res = d.res; F.morph = d.morph; DIAG.dirty = true; onEdit();
