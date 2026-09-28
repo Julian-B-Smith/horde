@@ -30,15 +30,23 @@
  *
  * WHY A COMMITTED FILE and not a live call: composed_engine_check runs in `verify full` before the
  * C++ build and with node alone; this tool, built by that same `verify full`, re-derives the file
- * and fails if the committed copy is STALE (byte comparison: same compiler, same libm, same
- * numbers). So the JS is compared with the C++ of the day on every full run, in two legs.
+ * and fails if the committed copy is STALE (identical structure, integers exact, every other
+ * number within 1e-9 relative: see compare()). So the JS is compared with the C++ of the day on
+ * every full run, in two legs.
  *
  * Usage:  onset_ref_check --emit                 print the JSON (regenerate: > the fixture)
- *         onset_ref_check <fixture.json>         exit 1 unless the fixture is exactly this output
- * CALIBRATION (L0032): a fixture that is not this output must fail. The check mode plants a
- * one-byte change into a copy of its own output and requires the comparison to catch it.
+ *         onset_ref_check [fixture.json]         exit 1 unless the fixture is this output; with no
+ *                                                argument, tools/labharness/onset_ref_cpp.json from
+ *                                                the repo root (how tools/sanitize_oracles.sh runs
+ *                                                every oracle). A missing fixture FAILS.
+ * CALIBRATION (L0032): a fixture that is not this output must fail. The check mode plants a 1e-6
+ * relative change into one offset of a copy of its own output and requires the comparison to
+ * catch it.
  */
+#include <algorithm>
+#include <cctype>
 #include <cmath>
+#include <cstdlib>
 #include <cstdio>
 #include <cstring>
 #include <fstream>
@@ -227,6 +235,49 @@ void build()
 }
 }  // namespace
 
+/* THE COMPARISON. Structure (every non-numeric byte) must be IDENTICAL; each number must agree
+   within 1e-9 relative (plus 1e-12 absolute, for values at 0), and an INTEGER (no '.', no
+   exponent: entries, half-times, counts) must agree exactly. Not a byte comparison, because the
+   same source is also built on other platforms and flags (the CI sanitize jobs: Linux, glibc's
+   libm, RelWithDebInfo), whose exp/log/cos may differ from this Mac's in the last ulp; 1e-9 is
+   four orders looser than any such ulp and four orders tighter than composed_engine_check's own
+   tolerances, so a real change in swarm_core.h's law still reads STALE. Returns the first
+   mismatching byte offset in `a`, or npos; `worst` is the largest relative difference seen. */
+static size_t compare(const std::string &a, const std::string &b, double &worst, long &nums)
+{
+  worst = 0; nums = 0;
+  size_t i = 0, j = 0;
+  auto numStart = [](const std::string &s, size_t k) {
+    return k < s.size() && (std::isdigit((unsigned char)s[k]) ||
+                            (s[k] == '-' && k + 1 < s.size() && std::isdigit((unsigned char)s[k + 1])));
+  };
+  while (i < a.size() && j < b.size())
+  {
+    const bool na = numStart(a, i), nb = numStart(b, j);
+    if (na != nb) return i;
+    if (!na) { if (a[i] != b[j]) return i; i++; j++; continue; }
+    char *ea = nullptr, *eb = nullptr;
+    const double x = std::strtod(a.c_str() + i, &ea), y = std::strtod(b.c_str() + j, &eb);
+    const size_t la = (size_t)(ea - (a.c_str() + i)), lb = (size_t)(eb - (b.c_str() + j));
+    const std::string ta = a.substr(i, la), tb = b.substr(j, lb);
+    const bool intA = ta.find_first_of(".eE") == std::string::npos, intB = tb.find_first_of(".eE") == std::string::npos;
+    nums++;
+    if (intA || intB) { if (!(intA && intB && x == y)) return i; }
+    else
+    {
+      const double m = std::max(std::fabs(x), std::fabs(y)), d = std::fabs(x - y);
+      if (d > 1e-9 * m + 1e-12) return i;
+      if (m > 0) worst = std::max(worst, d / m);
+    }
+    i += la; j += lb;
+  }
+  return (i == a.size() && j == b.size()) ? std::string::npos : i;
+}
+
+/* the committed fixture, repo-relative: ./verify and tools/sanitize_oracles.sh both run from the
+   repo root, and the sanitizer jobs run every wired oracle with NO arguments */
+constexpr const char *kFixture = "tools/labharness/onset_ref_cpp.json";
+
 int main(int argc, char **argv)
 {
   build();
@@ -235,38 +286,44 @@ int main(int argc, char **argv)
     std::fputs(out.c_str(), stdout);
     return 0;
   }
-  if (argc < 2)
-  {
-    std::fprintf(stderr, "usage: onset_ref_check --emit | onset_ref_check <fixture.json>\n");
-    return 2;
-  }
-  std::ifstream f(argv[1], std::ios::binary);
+  const char *path = argc > 1 ? argv[1] : kFixture;
+  std::ifstream f(path, std::ios::binary);
   if (!f)
   {
-    std::fprintf(stderr, "onset_ref_check: cannot read %s\n", argv[1]);
+    /* a missing fixture is a FAILURE, never a skip: without it nothing is compared */
+    std::fprintf(stderr, "onset_ref_check: FAIL — cannot read %s (run from the repo root, or pass the path)\n", path);
     return 1;
   }
   std::stringstream ss;
   ss << f.rdbuf();
   const std::string fixture = ss.str();
-  /* calibration: the comparison must see a one-byte change (the last digit of the first number) */
-  std::string planted = out;
-  const size_t at = planted.find_first_of("0123456789", planted.find("\"tOff\":["));
-  planted[at] = planted[at] == '9' ? '8' : (char)(planted[at] + 1);
-  if (planted == out)
+  double worst = 0;
+  long nums = 0;
+  /* calibration: the comparison must see a planted change of 1e-6 relative in one offset */
   {
-    std::fprintf(stderr, "onset_ref_check: CALIBRATION FAILED — a planted one-byte change compared equal\n");
+    std::string planted = out;
+    const size_t at = planted.find_first_of("-0123456789", planted.find("\"tOff\":["));
+    char *e = nullptr;
+    const double x = std::strtod(planted.c_str() + at, &e);
+    char b[40];
+    std::snprintf(b, sizeof b, "%.17g", x * (1 + 1e-6) + 1e-9);
+    planted.replace(at, (size_t)(e - (planted.c_str() + at)), b);
+    double w = 0;
+    long n = 0;
+    if (compare(planted, out, w, n) == std::string::npos)
+    {
+      std::fprintf(stderr, "onset_ref_check: CALIBRATION FAILED — a planted 1e-6 change compared equal\n");
+      return 1;
+    }
+  }
+  const size_t k = compare(fixture, out, worst, nums);
+  if (k != std::string::npos)
+  {
+    std::fprintf(stderr, "onset_ref_check: FAIL — %s is STALE against src/swarm_core.h (first difference at byte %zu: \"%.40s\").\n"
+                         "  regenerate: build-release/onset_ref_check --emit > %s\n", path, k, fixture.c_str() + std::min(k, fixture.size()), path);
     return 1;
   }
-  if (fixture != out)
-  {
-    size_t k = 0;
-    while (k < fixture.size() && k < out.size() && fixture[k] == out[k]) k++;
-    std::fprintf(stderr, "onset_ref_check: FAIL — %s is STALE against src/swarm_core.h (first difference at byte %zu).\n"
-                         "  regenerate: build-release/onset_ref_check --emit > %s\n", argv[1], k, argv[1]);
-    return 1;
-  }
-  std::printf("onset_ref_check: OK — %s is swarm_core.h's own output (%zu bytes; a planted one-byte change is caught)\n",
-              argv[1], out.size());
+  std::printf("onset_ref_check: OK — %s is swarm_core.h's own output (%ld numbers, worst relative difference %.1e, "
+              "integers exact; a planted 1e-6 change is caught)\n", path, nums, worst);
   return 0;
 }
