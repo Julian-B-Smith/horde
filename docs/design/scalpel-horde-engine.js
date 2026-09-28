@@ -69,6 +69,24 @@
  *                    tiers (free, quietest releasing tail, oldest held), never
  *                    RazorCore's same-note reuse, so a repeated note's first
  *                    release keeps ringing. See noteOn() below.
+ *   B315     BIPOLAR ROTATE SPREAD, A DIVERGENCE FROM THE ORACLE (ADR note owed).
+ *                    The human (2026-09-27) asked for every spread to be bipolar.
+ *                    RazorCore's spread law already reads a negative amount as
+ *                    the mirror (every member offset is amount·pn(j), and pn is
+ *                    centred on 0: razor-core.js:106-115, :127-135), EXCEPT
+ *                    rotation: its render gates member rotation on
+ *                    `t.rotSpread > 0.004` (and rotSpread2, :786, :791), so a
+ *                    negative Rotate spread homes every member to 0 instead of
+ *                    turning them the other way. Here the gate reads |x|: set()
+ *                    hands the oracle the magnitude and keeps the sign, and
+ *                    spread() negates rotOff/rotOff2 after the oracle's own law
+ *                    has run. The result is exactly the oracle's formula,
+ *                    rotSpread·2·pn(2), with the sign kept; at x >= 0 nothing
+ *                    here runs, so every non-negative patch is bit-identical.
+ *                    The sign switches at once (the magnitude is still the
+ *                    oracle's smoothed one): members change direction, their
+ *                    positions do not jump (rot is integrated). See set() and
+ *                    spread() below.
  * NOT COMPOSED THIS ROUND (stated, not hidden): the output stage and voice
  * (rows 12, 13, 15, 17-20, 66 and D11: vol/normExp, width, the tanh, ADSR, the
  * pan image) stay RazorCore's. SwarmSynth's per-member amplitude terms (hiTame,
@@ -157,6 +175,33 @@ function makeComposedEngine(RazorCore, swarmSrc) {
       };
       Object.defineProperty(this, 'post', { configurable: true, enumerable: true,
         get() { return user ? wrap : null; }, set(f) { user = f || null; } });
+    }
+
+    /* B315: Rotate spread is bipolar (header, "BIPOLAR ROTATE SPREAD"). The oracle is handed
+       |x|, so its gate (razor-core.js:786, :791) opens for either sign; the sign waits here
+       for spread(). The sign store is created lazily: RazorCore's constructor runs before
+       this class's fields would exist. */
+    set(m) {
+      if (m && ('rotSpread' in m || 'rotSpread2' in m)) {
+        const g = this.rotSign || (this.rotSign = { rotSpread: 1, rotSpread2: 1 });
+        m = Object.assign({}, m);
+        for (const k of ['rotSpread', 'rotSpread2']) if (k in m) { const x = +m[k]; g[k] = x < 0 ? -1 : 1; m[k] = Math.abs(x); }
+      }
+      super.set(m);
+    }
+
+    /* the oracle's spread law, then the sign it could not keep: rotOff = x·2·pn(2) with x signed.
+       Blade 2 follows blade 1's offsets unless it owns its spreads (b2sp), as spreadMember does. */
+    spread(v) {
+      super.spread(v);
+      const g = this.rotSign;
+      if (!g || (g.rotSpread > 0 && g.rotSpread2 > 0)) return;
+      const own = this.d.b2sp, N = this.d.N;
+      for (let i = 0; i < N; i++) {
+        const m = v.m[i];
+        if (g.rotSpread < 0) m.rotOff = -m.rotOff;
+        m.rotOff2 = own ? (g.rotSpread2 < 0 ? -m.rotOff2 : m.rotOff2) : m.rotOff;
+      }
     }
 
     setOS(n) {
