@@ -6500,6 +6500,8 @@ convergence worth noting and nothing we need to act on.
 - The packet's CPU claims were not reproduced (JS: serial +6–14%, serial with collision +22–30%, twin with overlap +62–79%).
 - Ids 382–385 are proposed, not allocated. Under ADR-186 they belong to horde 2's manifest, not the legacy id space.
 
+**A2 (2026-09-28): two lab-side divergences from the SCALPEL oracle, for bipolar spreads** (B315; the human: "Everything seems to be working", taken as acceptance of the lead's recommendations). (1) **Rotate spread:** the oracle rotates members only when `t.rotSpread > 0.004` (`razor-core.js` :786, :791), so a negative value homes them to 0. The composed engine tests |x| and keeps the sign; x ≥ 0 is bit-identical to the oracle. (2) **Cut spread under Quantize:** the oracle's `Math.round` rounds halves up, so a mirrored spread is one step off at exact half-integers. The composed engine rounds half away from zero, so −x mirrors +x exactly; unquantised or non-half values are bit-identical. The oracle file is not edited, and `parameters.json`'s 0..max ranges stay as shipped. Both divergences are carried into the C++ port (ADR-187).
+
 ## ADR-185 — Appending to the morph field may never change how an existing patch sounds: the quantum draw is frozen at the layout-9 prefix (2026-09-24)
 
 **Context (B240, measured by the implementer and confirmed by the critic).** `MorphCore::reshuffle` drew one Gumbel row per field slot and THEN the shared vector, so the field's LENGTH moved the shared draw. Under QUANTUM, at any off-corner pad position, a longer field changed which corner many existing slots picked: no stored value moved, but the sound did. A SCALPEL-sized append (+164 rows) flips 78–225 of 273 owners mid-pad on 'MO - Quantum Morph', and B203's own one-row bump had already changed that patch's render (66 flips). The revision gate CANNOT fix this: under revision 1 the draw depends on the BUILD's field length, not on anything the patch carries.
@@ -6581,4 +6583,30 @@ The human: "It isn't worth making the entire future of the device suffer to acco
 - **User presets:** ported by the offline tool (B312).
 
 The 2026-09-23 installed bundles are archived outside the repo (`~/Documents/Claude/synthetic-worlds/horde-legacy-archive/2026-09-23-installed/`, with a MANIFEST of bundle ids, codesign results and tree hashes). The human's freeze tag (item 2) is still owed, after B255 lands.
+
+## ADR-187 — PROPOSED: a C++ golden before the plugin; the JS reference's last job is a one-time parity proof (2026-09-28)
+
+**Status.** PROPOSED. It amends a charter invariant, so a critic review comes before ratification. The human asked for this draft ("Let's do it", on B314).
+
+**Context.** The charter defines C++ correctness as "parity with the JS reference (L0-1, ε=1e-6 RMS) plus the L0 trajectory criteria". The human: "I don't trust the JS labs to provide the kind of quality standards I would want to impose on the final plugin." The labs have shown the limits of JS as a standard:
+- drawings driven by a parallel model misled twice (L0064);
+- the JS SCALPEL engine costs ~15–25% of real time per voice in the heavy class (B313, B316);
+- v1.2 made existing JS paths slower (B311);
+- the gauntlet's probe found five oracle quirks: the DC-estimator leak, Crush reading the collision accumulator, the reflected-Crush exit jump, the drift law shifting the shared RNG stream, and the pair DC estimate at λ > 0 (B316).
+
+B252 H3 already made the C++ the golden for SCALPEL. This ADR generalises that.
+
+**Decision (proposed).**
+1. **Port faithfully first.** Each core gets a standalone, framework-free C++ render harness (no plugin, no host) and is ported as literally as possible.
+2. **Prove parity with the JS ONCE**, at the existing L0-1 tolerance or tighter, on the reference's own presets and the L0 trajectories. This is the port-bug detector and the JS reference's last normative job. A port that fails parity is fixed; the tolerance is never relaxed (oracle discipline).
+3. **Diverge deliberately, and only after parity.** Each removal of a JS artefact (the five quirks above, the filter-lab fidelity fixes B287, v1.2's slow paths, ADR-184 A2's two sign rules) is a numbered divergence with an ADR amendment and before/after numbers from the B316 metric suite. So a port bug can never pass as an intended change.
+4. **Freeze the C++ goldens.** Correctness is then defined by rendered C++ fixtures plus INVARIANT oracles: aliasing, DC, stability under modulation, determinism, CPU per voice against a stated budget, and the filter fidelity programme's checks. These are measured by the B316 suite and the fidelity checks. The JS reference becomes a design sketchpad for the labs, and is no longer normative for that core.
+5. **The cores enter horde 2 by ADR-186's copy-forward,** at their readiness event (B275), carrying their goldens.
+6. **Charter amendment** (the §Domain invariant): "C++ correctness is defined by the frozen C++ goldens and invariant oracles of ADR-187. The JS reference defines it for a core only until that core's parity proof completes."
+
+**Consequences.**
+- Every lab-born feature that wants to enter horde goes through port → parity → deliberate divergence.
+- CPU is measured in Release in the C++ harness, which answers the lab-overload questions with real numbers.
+- The charter text changes on ratification.
+- The order of cores is the human's call (lead recommendation: SCALPEL first, since it is the heaviest and has the most quirks, with the swarm core already C++).
 
