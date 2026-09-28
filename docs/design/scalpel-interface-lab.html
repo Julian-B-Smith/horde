@@ -189,10 +189,24 @@
      readout's ink, and an R bar beside the ring tracks the same number. Also ADR-184 A2 (2) in the
      engine (the exact Cut-spread mirror). Checks in K (checkB323).
 
+     ROUND 11 — B334, 2026-09-28, dispatched by the horde lead on ROADMAP B334 (carried in the
+     records PR on branch lead-records-133). The human: "Could we test a stylized drop shadow under
+     the horde logo? Or perhaps a small inner shadow ... Also the logo sits a little high in its
+     frame. I'm also considering adding a mild gradient to the fill. Maybe we can audition a few
+     styles that I can cycle through by clicking the logo.", "can we return the 4-way color gradient
+     to the morph XY from the original device?", and a screenshot of blade 2's SPREAD group clipping
+     at the card's edge under GOLDEN. Built as: (1) LOGO STYLES (E2, LOGO_STYLES): FLAT, DROP, INSET,
+     GRADIENT, INSET + GRADIENT, SOFT DROP, cycled by a click, kept in this browser's storage, the
+     name shown for a moment; the mark is baked lower (LOGO_TEXT_Y), so its warped mass sits on its
+     box's middle. (2) THE MORPH PAD (paintMorph, morphField): gui2's paintMorphField, its four corner
+     glows at gui2's strength. (3) THE BLADE FACE: blade 2's mirror uses blade 1's two-column grid
+     with its "=1" on a row of its own, which gives SPREAD the room Rule depth needs under a rule.
+     Checks in K (checkB334).
+
      L0026: every const is declared above the code that runs at setup; the boot
      call is the last statement of the script. -->
 <html><head><meta charset="utf-8">
-<meta name="lab-review" content="B271 + B293–B323 · 2026-09-28">
+<meta name="lab-review" content="B271 + B293–B334 · 2026-09-28">
 <title>SCALPEL interface lab — horde with blades at its centre</title>
 <style>
   :root {
@@ -508,9 +522,18 @@
      the header may not grow. The mark takes the frame's top padding (7 of its 8 px) and the gap
      below the header (all 6 px) with negative margins: its margin box stays 47 px, so the row, the
      body and the 720 px frame are exactly where they were (checkB323 measures all three). Larger
-     would have to push the header or leave the frame. It takes no pointer: it is chrome. */
+     would have to push the header or leave the frame. It took no pointer (it is chrome) until B334's style click. */
+  /* B334: it takes the pointer again, for one gesture only: a click cycles its style (E2, LOGO_STYLES).
+     The style's name shows briefly under it (.logoname, absolute, so it never moves the layout). */
   canvas.logo { width:91px; height:60px; margin:-7px 0 -6px; flex:0 0 auto; border:0; background:transparent;
-    border-radius:0; pointer-events:none; }
+    border-radius:0; cursor:pointer; }
+  .phdr { position:relative; }
+  .logoname { position:absolute; left:2px; top:43px; z-index:5;   /* left-anchored: the longest name is wider than the mark */
+    pointer-events:none;
+    white-space:nowrap; font-size:8.5px; letter-spacing:.1em; font-weight:700; color:var(--text); background:var(--panel);
+    border:var(--stroke) solid var(--line); border-radius:999px; padding:0 7px; opacity:0; }
+  .logoname.show { animation:logoname 1.6s ease-in forwards; }
+  @keyframes logoname { 0%, 70% { opacity:1; } 100% { opacity:0; } }
   .tabrows { display:flex; flex-direction:column; gap:3px; flex:1 1 auto; }
   .tabs { display:flex; gap:4px; flex-wrap:wrap; align-items:center; }
   /* gui2:274 — the page tab */
@@ -650,8 +673,17 @@
   .kgrp > .gcap { font-size:8.5px; letter-spacing:.12em; color:var(--dim); display:flex; gap:4px; align-items:center; min-height:14px; }
   .kgrp > .krow { display:flex; gap:0 2px; align-items:flex-start; }
   .kgrp.ghost > .krow { opacity:.45; }
+  /* B334 (the human's screenshot: blade 2's SPREAD group under GOLDEN clipped at the card's right edge).
+     Blade 2's mirror carries one more pill, its "=1" (follow blade 1), and was a THREE-column grid
+     (.mgrid3): 166 px against blade 1's 114, which left no room for Rule depth, the third knob a Cut rule
+     adds to SPREAD (B297): the face needed 667 px of a 630 px card, the flex row squeezed the mirror
+     until "twin −" broke onto two lines, and still ran 14 px past the edge. Now both blades use the
+     same two columns and blade 2's "=1" takes a row of its own above them (at its own width), so the
+     four mirror options sit exactly where blade 1 has them. The group is one pill-row taller and still
+     shorter than the knob groups beside it, so the card does not grow. checkB334 walks every Cut rule. */
   .mgrid2 { display:grid; grid-template-columns:repeat(2, auto); gap:3px; padding-top:3px; }
-  .mgrid3 { display:grid; grid-template-columns:repeat(3, auto); gap:3px; padding-top:3px; }
+  .mgrid2 > .pill.link { grid-column:1 / -1; justify-self:start; }
+  .mgrid2 > .pill { white-space:nowrap; }
   /* SKIN B: the blade face as gui2 rows */
   .srows { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:0 14px; width:100%; }
   .srow { display:grid; grid-template-columns:78px minmax(0,1fr) 54px; align-items:center; gap:6px; min-height:22px; }
@@ -758,8 +790,8 @@
   <div>
     <h1>scalpel</h1>
     <div class="badges">
-      <span class="badge">B271 + B293–B323 · DESIGN LAB</span>
-      <span class="sub">BLADES AT THE CENTRE · OSC + MAIN AT 980×720 · VISUALS DRIVEN BY THE ENGINE · THE WAVEFORM IS AN XY · THE RING IS COUPLING × DETUNE (CLICK TO SET) · CARPET + VOICE MAP · MEMBERS AT PHASE · THE R-HUED BEAM · 83 BENCH PRESETS · HORDE'S SWARM VOICED · INTERPLAY DRAWN AS HEARD · THE WAVEFORM STAYS IN VIEW · BIPOLAR SPREADS · THE MORPHING LOGO · THE SPECIMEN UNDER MAIN'S XY · THE LOGO'S COLOUR-SHIFTING EDGE · THE XY ORBITS THE SPECIMEN · GUI2'S SCREEN SCHEMES</span>
+      <span class="badge">B271 + B293–B334 · DESIGN LAB</span>
+      <span class="sub">BLADES AT THE CENTRE · OSC + MAIN AT 980×720 · VISUALS DRIVEN BY THE ENGINE · THE WAVEFORM IS AN XY · THE RING IS COUPLING × DETUNE (CLICK TO SET) · CARPET + VOICE MAP · MEMBERS AT PHASE · THE R-HUED BEAM · 83 BENCH PRESETS · HORDE'S SWARM VOICED · INTERPLAY DRAWN AS HEARD · THE WAVEFORM STAYS IN VIEW · BIPOLAR SPREADS · THE MORPHING LOGO · THE SPECIMEN UNDER MAIN'S XY · THE LOGO'S COLOUR-SHIFTING EDGE · THE XY ORBITS THE SPECIMEN · GUI2'S SCREEN SCHEMES · LOGO STYLES ON A CLICK · THE MORPH PAD'S FOUR-WAY GRADIENT</span>
     </div>
   </div>
   <div class="hdrctl">
@@ -1174,6 +1206,28 @@ Coupling × Detune XY</b> for the swarm.</div>
         The needle now takes the readout's ink in every scheme and theme, and an <b>R bar</b> at the ring's right edge fills to the same R.
         <span class="rec">Open:</span> the readout is the per-frame R, not the smoothed R the logo and the Specimen use; the bar follows the
         number. Smooth all three?</li>
+    </ol>
+    <h2 style="margin-top:10px">Round 11 (B334) — logo styles; the morph pad's four-way gradient; blade 2's overflow</h2>
+    <ol start="69">
+      <li><b>Logo styles</b> (the human: "Maybe we can audition a few styles that I can cycle through by clicking the logo"). <b>Click the
+        logo</b>: FLAT (as it was) → DROP (a crisp offset shadow in the fill's third triad colour) → INSET (a small inner shadow inside the
+        stroke) → GRADIENT (the fill lifted at the top of the letters, lowered at their foot) → INSET + GRADIENT → SOFT DROP (a blurred
+        shadow; on the dark chassis a glow). Its name shows for a moment, and the choice is kept in this browser (<code>?logo=</code> picks
+        one for a link). Every colour follows the fill, so each style still shifts with the morph and the drift. Each costs a few canvas
+        composites on top of the warp: measured here, 1.85 ms a paint for FLAT and 1.91 for the heaviest, and a loaded page still skips
+        their frames. <span class="rec">Open:</span> which one stays (or none); the triad colour for DROP, or a darker one.</li>
+      <li><b>Centred</b> (the human: "the logo sits a little high in its frame"). Its box is its frame (the header's top padding to the
+        body's top). Measured over 64 moments of its motion, its centre of mass sat 5.2 px above the box's middle. The mark is now baked
+        lower and sits on the middle (0.02 px). At one moment in 64, the deepest pull of the warp touches the box's bottom edge.</li>
+      <li><b>The morph pad's gradient</b> (the human: "can we return the 4-way color gradient to the morph XY from the original device?").
+        It is gui2's own painter: each corner's colour glows from its corner at a third of its strength, fading out at 0.7 of the pad's
+        width. On this wide pad the glow of the corner above or below reaches a little way into each corner, as it does on gui2's MAIN
+        pad. The strength is gui2's, unchanged: the swatches are opaque, the puck carries its ring, and the "MORPH OFF" text now sits on a
+        plate, so no mark rests on the colour. Checked in all five screens and both themes. OSC has no morph surface.</li>
+      <li><b>Blade 2's overflow</b> (the human's screenshot, GOLDEN). Blade 2's mirror had a three-column grid for its extra "=1", which
+        left too little room for Rule depth, the knob a rule adds. The face needed 667 px of 630. Now its mirror is laid out like blade 1's,
+        with the "=1" on its own row above. It checks clean under all ten rules, with blade 2 following and on its own. MAIN shows no
+        spreads.</li>
     </ol>
   </div>
   <div class="box" id="misread" style="grid-column:1 / -1">
@@ -2987,17 +3041,50 @@ function puck(g, x, y, ink, ring) {
   g.lineWidth = 1.5; g.strokeStyle = TOK('--scr-tube'); g.stroke();
   if (ring) { g.beginPath(); g.arc(x, y, 6 + ring, 0, TAU); g.strokeStyle = TOKA('--scr-meter', 0.9); g.lineWidth = 1.2; g.stroke(); }
 }
+/* B334 — THE MORPH PAD'S FOUR-WAY GRADIENT, from the original device. Human, 2026-09-28: "can we
+   return the 4-way color gradient to the morph XY from the original device?" gui2 has ONE morph-field
+   painter, paintMorphField (gui2.html:2833-2842), which its big MORPH pad and MAIN's mini pad both
+   call ("so they cannot drift apart"; the mini's first hand-rolled bilinear blend was flagged "the
+   wrong aesthetic"). It is ported here verbatim in its law: the tube, then per corner a radial
+   gradient centred ON the corner, radius max(W, H), from the corner colour (MCOLORS = --cA..--cD,
+   gui2.html:1941) at alpha 0x55 (1/3) to nothing at 0.7 of the radius. Corners: A top-left, B
+   top-right, C bottom-left, D bottom-right, as gui2's (k % 2 → right, k > 1 → bottom) and as this
+   pad's swatches. On a wide pad the vertical neighbours' glows reach each other's corners (gui2's mini
+   pad, 340×212, does the same), so the corner is its own colour over a trace of the one below or
+   above. Its scanlines are left out: no screen in this lab draws them. STRENGTH: gui2's, unchanged
+   (MORPH_FIELD_A); checkB334 measures every mark on it in the five screens × two themes. Legibility
+   is carried as on the XY: the swatches are opaque, the puck carries its tube ring (puck()), and the
+   one text sits on a tube plate (below), so none rests on the ground's colour. */
+const MORPH_FIELD_A = 0x55 / 255, MORPH_FIELD_REACH = 0.7;
+const MORPH_CORNERS = [['A', '--cA', 0, 0], ['B', '--cB', 1, 0], ['C', '--cC', 0, 1], ['D', '--cD', 1, 1]];
+let MORPH_PAINT = null;
+function morphField(g, W, H, corners) {
+  const R = Math.max(W, H);
+  for (const [, t, x, y] of corners || MORPH_CORNERS) {
+    const gx = x * W, gy = y * H, gr = g.createRadialGradient(gx, gy, 0, gx, gy, R), c = TOK(t);
+    gr.addColorStop(0, RGBA(c, MORPH_FIELD_A)); gr.addColorStop(MORPH_FIELD_REACH, RGBA(c, 0));
+    g.fillStyle = gr; g.fillRect(0, 0, W, H);
+  }
+}
 function paintMorph(cv) {
   const [g, W, H] = fit(cv); if (!g) return;
-  tube(g, W, H); padGrid(g, W, H);
-  const cs = [['A', '--cA', 0, 0], ['B', '--cB', 1, 0], ['C', '--cC', 0, 1], ['D', '--cD', 1, 1]];
+  tube(g, W, H); morphField(g, W, H); padGrid(g, W, H);
   g.font = 'bold 10px ui-monospace,Menlo,monospace';
-  for (const [n, t, x, y] of cs) {
+  for (const [n, t, x, y] of MORPH_CORNERS) {
     const px = x ? W - 16 : 2, py = y ? H - 16 : 2;
     g.fillStyle = TOK(t); g.fillRect(px, py, 14, 14); g.fillStyle = '#191521'; g.fillText(n, px + 4, py + 11);
   }
-  if (!MORPH.on) { g.fillStyle = TOKA('--scr-grid', 0.9); g.font = '9.5px ui-monospace,Menlo,monospace'; g.textAlign = 'center'; g.fillText('MORPH OFF — the patch is corner A', W / 2, H / 2 + 3); g.textAlign = 'left'; }
+  let plate = null;
+  if (!MORPH.on) {
+    const t = 'MORPH OFF — the patch is corner A';
+    g.font = '9.5px ui-monospace,Menlo,monospace';
+    const w = g.measureText(t).width;
+    plate = [Math.floor(W / 2 - w / 2 - 3), Math.round(H / 2 - 7), Math.ceil(w + 6), 13];
+    g.fillStyle = TOK('--scr-tube'); g.fillRect(plate[0], plate[1], plate[2], plate[3]);   // B334: its plate, as the XY's texts have
+    g.fillStyle = TOKA('--scr-grid', 0.9); g.textAlign = 'center'; g.fillText(t, W / 2, H / 2 + 3); g.textAlign = 'left';
+  }
   puck(g, MORPH.x * W, MORPH.y * H, MORPH.on ? '--scr-physics' : '--scr-grid');
+  MORPH_PAINT = { cv, W, H, plate, puck: [MORPH.x * W, MORPH.y * H] };
 }
 /* MAIN's XY pad. B315: with the Specimen live beneath it (specimenLive) the pad is not a tube
    but a VEIL, the tube ink at XY_VEIL alpha, so the material reads through as an underlay while
@@ -3165,9 +3252,68 @@ function tdWarp(seed) {
 /* the mark's CSS box and its 2× bitmap (gui2: "2x BITMAP, SAME CSS BOX"); everything else is
    gui2's 146×96 box scaled by LOGO_H/96, so the authored look holds at this size */
 const LOGO_W = 91, LOGO_H = 60;                  // B323: was 70×46 (B315); the CSS box says why this size
+/* B334 (human 2026-09-28: "the logo sits a little high in its frame"): where the undistorted mark's
+   middle line is baked, as a fraction of the box. B315 baked it at 0.38 ("high in the box: the blobs
+   pull downward hardest"), and measured over the warp's motion (64 moments) its ink's centre of mass
+   (the fill and its edge) then sat 5.2 CSS px above the box's middle. The box IS its frame: it spans the frame's top padding to
+   the body's top edge (B323's negative margins), so centring in the box centres it in the frame. 0.46
+   puts the time-averaged centre of mass on the middle (checkB334 measures it, with 0.38 as its
+   control); the warp's deepest pull touches the box's bottom row at 1 moment in 64. */
+const LOGO_TEXT_Y = 0.46;
 const LOGO = { cv: null, ctx: null, W: 2 * LOGO_W, H: 2 * LOGO_H, SRC: null, DST: null, ink: '', warp: null,
   baseWave: 0, baseTrem: 0, t: 0, clk: -1, n: 0, paints: 0, smD: 0.28, smX: 0.5, smY: 0.5, hue: 0, tint: '', edge: '', ms: 0, reduce: false,
-  aux: null };
+  aux: null, textY: LOGO_TEXT_Y, style: 0, tag: null };
+/* B334 — THE LOGO'S STYLES, auditioned by clicking it. Human, 2026-09-28: "Could we test a stylized
+   drop shadow under the horde logo? Or perhaps a small inner shadow, giving the fill some depth within
+   the stroke? ... I'm also considering adding a mild gradient to the fill. Maybe we can audition a few
+   styles that I can cycle through by clicking the logo." Every style is a few canvas composites on the
+   mark's own 182×120 bitmap after the warp (logoOutline), never per-pixel script, so its cost is a
+   small fixed add to the warp's (checkB334 reports it per style), and a shed frame skips it with the
+   warp (J2). Every colour is derived from the fill of the moment (LOGO.tint), so each style still
+   shifts with the morph cursor and the drift.
+     FLAT      — rounds 8-10's mark: the fill and its 120° edge.
+     DROP      — a crisp offset shadow (1.5, 2 CSS px), in the fill's third triad colour (turned 240°,
+                 the edge being 120°) pulled 35% toward the chassis ink: a printed, off-register look.
+     INSET     — a small inner shadow inside the stroke: the fill's own colour, darkened, cast 1.2 px
+                 down from the top inner edge with a 1 px blur, clipped to the fill.
+     GRADIENT  — a mild vertical gradient on the fill: its colour lifted 24% toward white at the top of
+                 the letters, lowered 20% toward black at their foot, the colour itself at the middle.
+     INSET + GRADIENT — both.
+     SOFT DROP — the soft alternative to DROP (B334's brief: "crisp or soft"): a blurred shadow straight
+                 down, the chassis ink at 38% on the light chassis; on the dark one, where a dark shadow
+                 cannot show, the fill's own colour at 55%, which reads as a glow. */
+const LOGO_STYLES = [
+  { id: 'flat', name: 'FLAT' },
+  { id: 'drop', name: 'DROP', drop: 'crisp' },
+  { id: 'inset', name: 'INSET', inset: true },
+  { id: 'gradient', name: 'GRADIENT', grad: true },
+  { id: 'inset-gradient', name: 'INSET + GRADIENT', inset: true, grad: true },
+  { id: 'soft', name: 'SOFT DROP', drop: 'soft' }
+];
+/* per viewer: this browser's storage, read once when the mark is made; ?logo=<id> overrides it for a
+   link or a screenshot. Storage can throw (a file: page, a locked-down profile): the lab then just
+   forgets, and the style is FLAT on the next load. */
+const LOGO_STYLE_KEY = 'scalpel-lab.logo-style';
+function logoStyleLoad() {
+  let id = qp('logo', '');
+  if (!id) { try { id = localStorage.getItem(LOGO_STYLE_KEY) || ''; } catch (_) { id = ''; } }
+  return Math.max(0, LOGO_STYLES.findIndex(s => s.id === id));
+}
+function logoStyleSave(i) { try { localStorage.setItem(LOGO_STYLE_KEY, LOGO_STYLES[i].id); return true; } catch (_) { return false; } }
+/* the click: the next style, saved, painted now (even with the clock standing: a still keeps its
+   motion frozen but shows the new style), and its name shown for a moment under the mark */
+function logoCycle() {
+  LOGO.style = (LOGO.style + 1) % LOGO_STYLES.length;
+  logoStyleSave(LOGO.style);
+  if (LOGO.reduce) logoBake(); else logoFrame(true);
+  const t = LOGO.tag;
+  if (t) { t.textContent = LOGO_STYLES[LOGO.style].name; t.classList.remove('show'); void t.offsetWidth; t.classList.add('show'); }
+  if (LOGO.cv) LOGO.cv.title = logoTitle();
+}
+function logoTitle() {
+  return 'horde — gui2\'s warping wordmark (B315): colour = the morph cursor (morph on) or a slow drift (off) · edge = that colour turned 120° (gui2 hue-test, B317) · ripple = R · wiggle = Detune' +
+    '\nstyle: ' + LOGO_STYLES[LOGO.style].name + ' (' + (LOGO.style + 1) + ' of ' + LOGO_STYLES.length + ') — click for the next (B334); your choice is kept in this browser';
+}
 const LOGO_LG = ['--lgA', '--lgB', '--lgC', '--lgD'];
 function logoMix(a, b, f) {
   const pa = /^#?(..)(..)(..)$/.exec(a), pb = /^#?(..)(..)(..)$/.exec(b);
@@ -3200,7 +3346,10 @@ function logoCanvas() {
   const cv = el('canvas', 'logo');
   cv.width = LOGO.W; cv.height = LOGO.H;
   cv.setAttribute && cv.setAttribute('role', 'img'); cv.setAttribute && cv.setAttribute('aria-label', 'horde');
-  cv.title = 'horde — gui2\'s warping wordmark (B315): colour = the morph cursor (morph on) or a slow drift (off) · edge = that colour turned 120° (gui2 hue-test, B317) · ripple = R · wiggle = Detune';
+  LOGO.style = logoStyleLoad();
+  cv.title = logoTitle();
+  cv.addEventListener('click', logoCycle);
+  LOGO.tag = el('span', 'logoname');
   LOGO.cv = cv;
   LOGO.ctx = cv.getContext ? cv.getContext('2d', { willReadFrequently: true }) : null;
   LOGO.reduce = !!(typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches);
@@ -3222,14 +3371,16 @@ function logoBake() {
   const W = LOGO.W, H = LOGO.H;
   if (!LOGO.ctx || typeof document === 'undefined' || !document.createElement) return;
   const mk = () => { const c = document.createElement('canvas'); c.width = W; c.height = H; return c; };
-  if (!LOGO.aux) { const s = mk(), e = mk(), f = mk(); LOGO.aux = { s, e, f, sx: s.getContext('2d', { willReadFrequently: true }), ex: e.getContext('2d'), fx: f.getContext('2d') }; }
+  if (!LOGO.aux) { const s = mk(), e = mk(), f = mk(), i = mk(), j = mk(), d = mk();   // i, j, d: B334's style layers
+    LOGO.aux = { s, e, f, i, j, d, sx: s.getContext('2d', { willReadFrequently: true }), ex: e.getContext('2d'), fx: f.getContext('2d'),
+      ix: i.getContext('2d'), jx: j.getContext('2d'), dx: d.getContext('2d') }; }
   const A = LOGO.aux, ink = TOK('--text', '#191521');
   if (!A.sx || !A.sx.getImageData) return;
   A.sx.clearRect(0, 0, W, H);
   A.sx.fillStyle = ink;
   A.sx.font = '700 ' + (90 * H / 192).toFixed(2) + 'px Helvetica,"Helvetica Neue",Arial,sans-serif';
   A.sx.textBaseline = 'middle';
-  A.sx.fillText('horde', 16 * H / 192, H * 0.38);   // high in the box: the blobs pull downward hardest
+  A.sx.fillText('horde', 16 * H / 192, H * LOGO.textY);   // B334: centred by its warped mass (LOGO_TEXT_Y), was 0.38
   LOGO.SRC = A.sx.getImageData(0, 0, W, H);
   LOGO.DST = LOGO.ctx.createImageData(W, H);
   LOGO.ink = ink;
@@ -3257,7 +3408,50 @@ function logoTint(dt) {
     fill = logoMix(top, bot, LOGO.smY);
   }
   LOGO.tint = fill;
-  g.globalCompositeOperation = 'source-in'; g.fillStyle = fill; g.fillRect(0, 0, W, H); g.globalCompositeOperation = 'source-over';
+  g.globalCompositeOperation = 'source-in'; g.fillStyle = LOGO_STYLES[LOGO.style].grad ? logoGradient(g, fill) : fill; g.fillRect(0, 0, W, H); g.globalCompositeOperation = 'source-over';
+}
+/* B334's GRADIENT: the fill of the moment, lifted at the top of the letters and lowered at their
+   foot. The stops span the baked x-height band (textY ∓ 0.2 of the box), where the letters are; the
+   warp moves ink beyond it, and beyond the stops the gradient holds its end colours. */
+const LOGO_GRAD_UP = 0.24, LOGO_GRAD_DOWN = 0.14;
+function logoGradient(g, fill) {
+  const H = LOGO.H, gr = g.createLinearGradient(0, H * (LOGO.textY - 0.2), 0, H * (LOGO.textY + 0.2));
+  gr.addColorStop(0, logoMix(fill, '#ffffff', LOGO_GRAD_UP));
+  gr.addColorStop(0.5, fill);
+  gr.addColorStop(1, logoMix(fill, '#000000', LOGO_GRAD_DOWN));
+  return gr;
+}
+/* B334's shadows. Both use the canvas shadow (universal, unlike ctx.filter): the source is drawn a
+   whole box-width off to the left and the shadow offset brings only the shadow back, so nothing
+   but the shadow lands. Offsets and blurs are in bitmap px (2× the CSS px). */
+function logoShadowOf(g, src, col, dx, dy, blur) {
+  const W = LOGO.W;
+  g.save(); g.shadowColor = col; g.shadowBlur = blur; g.shadowOffsetX = 2 * W + dx; g.shadowOffsetY = dy;
+  g.drawImage(src, -2 * W, 0); g.restore();
+}
+function logoDarkChassis() { const c = /^#?([0-9a-f]{6})$/i.exec(TOK('--bg', '#F2EDE2')); if (!c) return false; const v = parseInt(c[1], 16); return (0.299 * (v >> 16 & 255) + 0.587 * (v >> 8 & 255) + 0.114 * (v & 255)) < 110; }
+/* INSET: the inverse of the fill (opaque everywhere but the letters) casts its shadow down into
+   them, and only what lands inside the fill is kept */
+function logoInset(g) {
+  const A = LOGO.aux, W = LOGO.W, H = LOGO.H;
+  A.ix.globalCompositeOperation = 'source-over'; A.ix.clearRect(0, 0, W, H); A.ix.fillStyle = '#000'; A.ix.fillRect(0, 0, W, H);
+  A.ix.globalCompositeOperation = 'destination-out'; A.ix.drawImage(A.f, 0, 0); A.ix.globalCompositeOperation = 'source-over';
+  A.jx.clearRect(0, 0, W, H);
+  logoShadowOf(A.jx, A.i, RGBA(logoMix(LOGO.tint, '#000000', 0.5), 0.8), 0.8, 2.4, 2);
+  A.jx.globalCompositeOperation = 'destination-in'; A.jx.drawImage(A.f, 0, 0); A.jx.globalCompositeOperation = 'source-over';
+  g.drawImage(A.j, 0, 0);
+}
+/* DROP and SOFT DROP: the composed mark (edge and fill) casts its shadow BEHIND itself */
+function logoDropColour(soft) {
+  if (!soft) return logoMix(logoHueRot(LOGO.tint, 240), TOK('--text', '#191521'), 0.35);
+  return logoDarkChassis() ? RGBA(LOGO.tint, 0.55) : RGBA(TOK('--text', '#191521'), 0.38);
+}
+function logoDrop(g, soft) {
+  const A = LOGO.aux, W = LOGO.W, H = LOGO.H;
+  A.dx.clearRect(0, 0, W, H); A.dx.drawImage(LOGO.cv, 0, 0);
+  g.save(); g.globalCompositeOperation = 'destination-over';
+  if (soft) logoShadowOf(g, A.d, logoDropColour(true), 0, 3, 5); else logoShadowOf(g, A.d, logoDropColour(false), 3, 4, 0);
+  g.restore();
 }
 /* THE EDGE (B317). Human, 2026-09-28: "please replace the black border with the version that
    shifts color". gui2 has two edges (gui2.html:6384-6420): its DEFAULT is the ink one, --lg-edge
@@ -3282,6 +3476,9 @@ function logoOutline() {
   const R = 2.6;                                    // gui2's EDGE_R on a 2× bitmap (~1.3 px on screen)
   for (const [x, y] of [[1, 0], [-1, 0], [0, 1], [0, -1], [0.7, 0.7], [-0.7, 0.7], [0.7, -0.7], [-0.7, -0.7]]) g.drawImage(A.e, x * R, y * R);
   g.drawImage(A.f, 0, 0);
+  const st = LOGO_STYLES[LOGO.style];               // B334: the style's passes, on the composed mark
+  if (st.inset && A.ix) logoInset(g);
+  if (st.drop && A.dx) logoDrop(g, st.drop === 'soft');
 }
 /* one paint's worth: advance on the ENGINE clock, at most every other frame (gui2's 30 fps cap on
    a 60 Hz display), and nothing at all while the clock stands (a frozen still keeps its mark) */
@@ -3909,6 +4106,7 @@ function rebuild() {
 function frameHeader(host) {
   const h = el('div', 'phdr'); host.appendChild(h);
   h.appendChild(logoCanvas());                      // B315: gui2's warping wordmark, where gui2 has it
+  h.appendChild(LOGO.tag);                          // B334: the style's name, shown on a click
   const rows = el('div', 'tabrows'); h.appendChild(rows);
   const r1 = el('div', 'tabs'), r2 = el('div', 'tabs');
   rows.appendChild(r1); rows.appendChild(r2);
@@ -4114,7 +4312,7 @@ function bladeRow(host, b) {
   if (LAB.skin === 'A') {
     const gm = el('div', 'kgrp'); bb.appendChild(gm);
     gm.appendChild(el('div', 'gcap', 'MIRROR'));
-    pills(gm, bladeKey(b, 'mirror'), { tier: 'T1', cls: b === 1 ? 'mgrid2' : 'mgrid3' });
+    pills(gm, bladeKey(b, 'mirror'), { tier: 'T1', cls: 'mgrid2' });   // B334: one grid for both blades (was mgrid3 on blade 2)
   } else {
     const gm = LAB.skin === 'B' ? el('div', 'srow') : el('span', 'grp');
     if (LAB.skin === 'B') gm.appendChild(el('label', null, 'Mirror'));
@@ -5070,6 +5268,7 @@ function runChecks() {
   for (const c of checkLogoSpecimen()) out.push(c);
   for (const c of checkB317()) out.push(c);
   for (const c of checkB323()) out.push(c);
+  for (const c of checkB334()) out.push(c);
   for (const c of checkPresets()) out.push(c);
   AUDIT.checks = out;
   seedOracle(0xB271 + MON.note);
@@ -6492,6 +6691,204 @@ function checkB323() {
   P = snap; EFF = effective(); pushOracle(); applyBodyClasses();
   Object.assign(MON, monSnap); MON.buf.set(bufs[0]); MON.bufR.set(bufs[1]); MON.cycN = -1;
   if (MON.core) MON.core.set(oracleParams(EFF));
+  rebuild();
+  return out;
+}
+/* B334 — ROUND 11's rows. Read off what was drawn or laid out.
+   LOGO STYLES: real clicks on the mark (dispatched at the canvas, which the pointer now reaches:
+   elementFromPoint at its centre) step through every style and back to the first; each click shows
+   the style's name and stores its id; every style paints differently from FLAT; a store then a
+   re-read (logoStyleLoad, what a reload runs) returns the stored style; cost per paint by style, and
+   the heaviest style still sheds (J2). CONTROL: storage cleared, the re-read is FLAT (so the
+   persistence reading is not a default coinciding), and FLAT against itself differs in 0 px.
+   CENTRED: over 64 moments of the warp the mark's centre of mass (alpha-weighted) averages within
+   1 CSS px of its box's middle, the box is the frame's strip (frame top padding to the body's top),
+   and the ink grazes the box's edge in at most 2 moments. CONTROL: B323's bake (0.38) reads high.
+   MORPH GRADIENT, in the five screens × two themes on MAIN's pad: each corner's layer alone is that
+   corner's token at its own corner (RGB, alpha 1/3, gui2's 0x55) and nothing at the far corner; on
+   the live pad each corner pixel is nearest to ITS token over the tube of the four; the marks: the
+   text's plate and the puck's ring are the tube. CONTROL: the corners flipped on the diagonal fail.
+   OVERFLOW: under every Cut rule (all ten), blade 2 following blade 1's spreads and on its own, every
+   control of both blade cards lies inside its card (its padding box), no label is clipped, and no
+   card grows over its no-rule height (skin A; skins B and C add Rule depth as a row); MAIN's Osc Controls face the same (it shows no spreads, so a
+   rule changes nothing there, and the row says so). CONTROL: the planted overflow, B323's blade-2
+   mirror (three columns) under GOLDEN, or on skins without the grid a 200 px control, is caught. */
+function checkB334() {
+  const out = [], page = LAB.page, advOpen = LAB.advOpen, theme = LAB.theme, scheme = LAB.scheme, snap = Object.assign({}, P), mOn = MORPH.on, fz = LAB.frozen;
+  const logoSnap = { clk: LOGO.clk, n: LOGO.n, t: LOGO.t, hue: LOGO.hue, style: LOGO.style, textY: LOGO.textY, paints: LOGO.paints }, shedSnap = LOAD.shed, clk0 = MON.clock;
+  let stored = null; try { stored = localStorage.getItem(LOGO_STYLE_KEY); } catch (_) { stored = undefined; }
+  const rgbOf = h => { const m = /^#?([0-9a-f]{6})$/i.exec(String(h).trim()); if (!m) return null; const v = parseInt(m[1], 16); return [v >> 16 & 255, v >> 8 & 255, v & 255]; };
+  const dist = (a, b) => (a && b ? Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) + Math.abs(a[2] - b[2]) : 999);
+  const over = (c, t, a) => c.map((v, i) => t[i] * (1 - a) + v * a);
+  LAB.frozen = false;
+  try {
+    /* ---- the logo's styles ---- */
+    LAB.page = 'main'; rebuild();
+    const lc = LOGO.cv, hdr = FR.querySelector('.phdr');
+    if (!lc || !lc.isConnected || !(lc.clientWidth > 0) || !LOGO.ctx || LOGO.reduce) out.push({ name: 'logo styles', ok: false, detail: 'no layout here (a load checker) or reduced motion: not measured' });
+    else {
+      /* smD pinned at its target, so a repaint of the same style is identical */
+      const paint = () => { LOGO.clk = MON.clock; LOGO.t = 3.1; LOGO.smD = clamp((EFF.detune || 0) / 100, 0, 1); logoFrame(true); return LOGO.ctx.getImageData(0, 0, LOGO.W, LOGO.H).data; };
+      const differ = (a, b) => { let n = 0; for (let i = 0; i < a.length; i += 4) if (Math.abs(a[i] - b[i]) + Math.abs(a[i + 1] - b[i + 1]) + Math.abs(a[i + 2] - b[i + 2]) + Math.abs(a[i + 3] - b[i + 3]) > 8) n++; return n; };
+      const r = lc.getBoundingClientRect(), hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2) === lc;
+      LOGO.style = 0; logoStyleSave(0);
+      const flat = paint(), seen = [];
+      for (let i = 0; i < LOGO_STYLES.length; i++) {
+        lc.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        let id = null; try { id = localStorage.getItem(LOGO_STYLE_KEY); } catch (_) { id = null; }
+        const px = paint();
+        seen.push({ i: LOGO.style, name: LOGO.tag.textContent, shown: LOGO.tag.classList.contains('show') && LOGO.tag.isConnected, id, diff: differ(px, flat) });
+      }
+      const all = seen.slice(0, -1).map(q => q.i).join() === LOGO_STYLES.slice(1).map((_, k) => k + 1).join() && seen[seen.length - 1].i === 0;
+      const named = seen.every(q => q.shown && q.name === LOGO_STYLES[q.i].name && q.id === LOGO_STYLES[q.i].id);
+      const distinct = seen.filter(q => q.i !== 0).every(q => q.diff >= 200);
+      LOGO.style = 3; logoStyleSave(3); const reread = logoStyleLoad();
+      /* cost per paint, and the heaviest style under shedding (60 frames of monitor time) */
+      const cost = LOGO_STYLES.map((s, k) => { LOGO.style = k; let ms = 0; for (let i = 0; i < 20; i++) { paint(); ms += LOGO.ms; } return ms / 20; });
+      const heavy = cost.indexOf(Math.max(...cost));
+      const run = shed => { LOGO.style = heavy; LOAD.shed = shed; LOGO.clk = MON.clock; const p0 = LOGO.paints; for (let i = 0; i < 60; i++) { MON.clock += Math.round(SR / 60); logoFrame(false); } LOAD.shed = false; return LOGO.paints - p0; };
+      const calm = run(false), shed = run(true);
+      out.push({ name: 'logo styles: a click cycles all ' + LOGO_STYLES.length + ' and back, shows the name, keeps the choice; each paints differently; the heaviest still sheds',
+        ok: hit && all && named && distinct && reread === 3 && shed > 0 && shed * 3 <= calm,
+        detail: 'the pointer reaches the mark ' + hit + ' · clicks: ' + seen.map(q => q.name + ' (' + q.id + (q.i ? ', ' + q.diff + ' px differ from FLAT' : '') + ')').join(' → ') +
+          ' · stored "gradient", re-read → ' + LOGO_STYLES[reread].name + ' · cost per paint (warp included): ' + LOGO_STYLES.map((s, k) => s.name + ' ' + cost[k].toFixed(2) + ' ms').join(', ') +
+          ' · shedding with ' + LOGO_STYLES[heavy].name + ': ' + calm + ' → ' + shed + ' paints in 60 frames' });
+      try { localStorage.removeItem(LOGO_STYLE_KEY); } catch (_) { /* storage refused: the re-read is FLAT either way */ }
+      const cleared = logoStyleLoad();
+      LOGO.style = 0; const f1 = paint(); LOGO.style = 5; paint(); LOGO.style = 0; const f2 = differ(paint(), f1);
+      out.push({ name: 'CONTROL: storage cleared, the re-read is FLAT; FLAT against itself', ok: cleared === 0 && f2 === 0, control: true,
+        detail: 're-read ' + LOGO_STYLES[cleared].name + ' (must be FLAT, not the stored GRADIENT) · ' + f2 + ' px differ between two FLAT paints with a SOFT DROP paint between them (must be 0)' });
+      /* ---- centred ---- */
+      const mass = () => {
+        const W = LOGO.W, H = LOGO.H; let cy = 0, n = 0, graze = 0;
+        for (let i = 0; i < 64; i++) {
+          LOGO.clk = MON.clock; LOGO.t = i * 0.37; logoFrame(true);
+          const d = LOGO.ctx.getImageData(0, 0, W, H).data; let m = 0, sy = 0, y0 = H, y1 = -1;
+          for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const a = d[(y * W + x) * 4 + 3]; if (a > 0) { if (y < y0) y0 = y; y1 = y; } m += a; sy += a * y; }
+          if (!m) continue;
+          n++; cy += sy / m; if (y0 <= 0 || y1 >= H - 1) graze++;
+        }
+        return { off: (cy / n - (LOGO.H - 1) / 2) / 2, graze, n };   // CSS px, + = below the middle
+      };
+      LOGO.style = 0; LOGO.textY = LOGO_TEXT_Y; logoBake();
+      const now = mass();
+      const fr = FR.getBoundingClientRect(), body = FR.querySelector('.pbody').getBoundingClientRect(), lr = lc.getBoundingClientRect();
+      const stripTop = fr.top + FR.clientTop, strip = Math.abs(lr.top - (stripTop + 1)) <= 1 && Math.abs(lr.bottom - body.top) <= 0.5;
+      LOGO.textY = 0.38; logoBake(); const was = mass(); LOGO.textY = LOGO_TEXT_Y; logoBake();
+      out.push({ name: 'logo centred: its warped mass sits on the middle of its box, which is its frame\'s strip', ok: now.n === 64 && Math.abs(now.off) <= 1 && now.graze <= 2 && strip,
+        detail: 'over ' + now.n + ' moments the centre of mass averages ' + Math.abs(now.off).toFixed(2) + ' CSS px ' + (now.off < 0 ? 'above' : 'below') + ' the middle (was ' + Math.abs(was.off).toFixed(2) + ' ' + (was.off < 0 ? 'above' : 'below') + ' at 0.38) · the ink grazes the box edge in ' + now.graze + ' of 64 (0.38: ' + was.graze + ') · the box spans the frame\'s top padding (' + (lr.top - fr.top).toFixed(1) + ' px from the frame\'s edge) to the body\'s top (' + (body.top - lr.bottom).toFixed(1) + ' px) ' + strip });
+      out.push({ name: 'CONTROL: B323\'s bake (0.38) through the same measure reads high', ok: was.off <= -3, control: true, detail: Math.abs(was.off).toFixed(2) + ' CSS px ' + (was.off < 0 ? 'above' : 'below') + ' the middle (must be ≥ 3 above)' });
+    }
+    LOGO.style = logoSnap.style; MON.clock = clk0; LOAD.shed = shedSnap;
+    /* ---- the morph pad's four-way gradient ---- */
+    {
+      const combos = [];
+      const cornerPx = (x, y, W, H) => [x ? W - 1 : 0, y ? H - 1 : 0];
+      const layerOk = (W, H) => {
+        const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d'); let worst = 0, far = 0, aw = 0;
+        for (const cn of MORPH_CORNERS) {
+          g.clearRect(0, 0, W, H); morphField(g, W, H, [cn]);
+          const [x, y] = cornerPx(cn[2], cn[3], W, H), [fx, fy] = cornerPx(1 - cn[2], 1 - cn[3], W, H);
+          const d = g.getImageData(x, y, 1, 1).data, e = g.getImageData(fx, fy, 1, 1).data;
+          worst = Math.max(worst, dist([d[0], d[1], d[2]], rgbOf(TOK(cn[1])))); aw = Math.max(aw, Math.abs(d[3] - 85)); far = Math.max(far, e[3]);
+        }
+        return { worst, aw, far };
+      };
+      /* the corner pixel against gui2's law computed by hand: the tube, then each corner's glow in
+         order, alpha a·(1 − d / (0.7·max(W, H))) of its token at that pixel's centre (so a wide pad's
+         vertical neighbour is in the expectation, as it is on the pad). Error = Σ|ΔRGB|. */
+      const cornerErr = (g, BW, BH, k) => MORPH_CORNERS.map(cn => {
+        const [x, y] = cornerPx(cn[2], cn[3], BW, BH), d = g.getImageData(x, y, 1, 1).data;
+        const W = BW / k, H = BH / k, px = (x + 0.5) / k, py = (y + 0.5) / k, R = Math.max(W, H);
+        let col = rgbOf(TOK('--scr-tube'));
+        for (const o of MORPH_CORNERS) { const t = Math.hypot(px - o[2] * W, py - o[3] * H) / R, al = t >= MORPH_FIELD_REACH ? 0 : MORPH_FIELD_A * (1 - t / MORPH_FIELD_REACH); col = over(rgbOf(TOK(o[1])), col, al); }
+        return Math.round(dist([d[0], d[1], d[2]], col));
+      });
+      for (const th of ['light', 'dark']) for (const sc of SCHEMES) {
+        LAB.theme = th; LAB.scheme = sc.name; applyBodyClasses();
+        for (const on of [true, false]) {
+          MORPH.on = on; rebuild(); paintCanvases();
+          const M = MORPH_PAINT; if (!M || !M.cv.isConnected || !(M.cv.clientWidth > 0)) { combos.push({ th, sc: sc.name, nolayout: true }); continue; }
+          const g = M.cv.getContext('2d'), k = M.cv.width / M.cv.clientWidth, tb = rgbOf(TOK('--scr-tube'));
+          const at = (x, y) => { const d = g.getImageData(Math.floor(x * k), Math.floor(y * k), 1, 1).data; return [d[0], d[1], d[2]]; };
+          const row = { th, sc: sc.name, on };
+          if (on) {
+            row.own = cornerErr(g, M.cv.width, M.cv.height, k);
+            const c = document.createElement('canvas'); c.width = M.cv.width; c.height = M.cv.height; const f = c.getContext('2d');
+            f.fillStyle = TOK('--scr-tube'); f.fillRect(0, 0, c.width, c.height);
+            morphField(f, c.width, c.height, [MORPH_CORNERS[3], MORPH_CORNERS[2], MORPH_CORNERS[1], MORPH_CORNERS[0]].map((q, i) => [q[0], q[1], MORPH_CORNERS[i][2], MORPH_CORNERS[i][3]]));
+            row.flip = cornerErr(f, c.width, c.height, 1);
+            row.layer = layerOk(M.W, M.H);
+          } else if (M.plate) row.plate = dist(at(M.plate[0] + 1, M.plate[1] + 1), tb);
+          row.ring = dist(at(M.puck[0] + 6, M.puck[1]), tb);   // the ring's stroke is centred on radius 6 (puck())
+          combos.push(row);
+        }
+      }
+      const ons = combos.filter(q => q.on && !q.nolayout), offs = combos.filter(q => q.on === false && !q.nolayout);
+      const gOk = ons.length === 10 && ons.every(q => q.own.every(e => e <= 10) && q.layer.worst <= 12 && q.layer.aw <= 2 && q.layer.far === 0);
+      const mOk = offs.length === 10 && offs.every(q => q.plate <= 3) && combos.every(q => q.nolayout || q.ring <= 12);
+      out.push({ name: 'morph pad: gui2\'s four-way gradient, each corner its own token, the marks legible on it (5 screens × 2 themes)', ok: gOk && mOk,
+        detail: ons.length ? ('each corner layer alone at its own corner: RGB within ' + Math.max(...ons.map(q => q.layer.worst)) + ' of its token, alpha within ' + Math.max(...ons.map(q => q.layer.aw)) + ' of 85 (1/3), at the far corner ' + Math.max(...ons.map(q => q.layer.far)) +
+          ' (gradients are dithered, hence 12) · the live pad\'s four corner pixels against gui2\'s law: within ' + Math.max(...ons.map(q => Math.max(...q.own))) + ' (Σ|ΔRGB| ≤ 10) in ' + ons.filter(q => q.own.every(e => e <= 10)).length + ' of ' + ons.length + ' screens · the text\'s plate is the tube within ' + Math.max(...offs.map(q => q.plate)) + ' · the puck\'s ring within ' + Math.max(...combos.filter(q => !q.nolayout).map(q => q.ring))) : 'no layout here: not measured' });
+      out.push({ name: 'CONTROL: the corners flipped on the diagonal (A↔D, B↔C)', ok: ons.length > 0 && ons.every(q => q.flip.every(e => e > 10)), control: true,
+        detail: ons.length ? ('the flipped field\'s corners against the same law: off by ' + Math.min(...ons.map(q => Math.min(...q.flip))) + ' at the least (must fail the same ≤ 10 test at every corner of every screen)') : 'not measured' });
+      LAB.theme = theme; LAB.scheme = scheme; applyBodyClasses(); MORPH.on = mOn;
+    }
+    /* ---- no overflow under any rule ---- */
+    {
+      const SEL = '.kcell, .kgrp, .krow, .gcap, .pills, .pill, .scrub, .srow, label, button, select, input';
+      const scan = cards => {
+        const bad = []; const hs = [];
+        for (const card of cards) {
+          const cr = card.getBoundingClientRect(), L = cr.left + card.clientLeft, R = L + card.clientWidth;
+          hs.push(cr.height);
+          for (const c of card.querySelectorAll(SEL)) {
+            const r = c.getBoundingClientRect(); if (!(r.width > 0 && r.height > 0)) continue;
+            const what = (c.className || c.tagName.toLowerCase()) + ' "' + (c.textContent || '').trim().slice(0, 14) + '"';
+            if (r.left < L - 0.5 || r.right > R + 0.5) bad.push(what + ' ' + (r.right > R ? '+' + (r.right - R).toFixed(1) : (r.left - L).toFixed(1)) + ' px');
+            if (c.tagName === 'LABEL' && (c.scrollWidth > c.clientWidth + 1 || c.scrollHeight > c.clientHeight + 1)) bad.push(what + ' clipped');
+          }
+        }
+        return { bad, hs };
+      };
+      const set = (r, own) => { P = Object.assign({}, snap, { b1on: 1, b2on: 1, kRule: r, kRule2: r, b2sp: own ? 1 : 0 }); EFF = effective(); };
+      LAB.page = 'osc'; LAB.advOpen = false;
+      set(0, false); rebuild();
+      if (!FR.querySelector('.blade') || !(FR.querySelector('.blade').clientWidth > 0)) out.push({ name: 'no overflow under the Cut rules', ok: false, detail: 'no layout here: not measured' });
+      else {
+        const base = {}; for (const own of [false, true]) { set(0, own); rebuild(); base[own] = scan(FR.querySelectorAll('.blade')).hs; }
+        let n = 0, grow = 0; const bad = [];
+        for (const [v, nm] of E_RULE) for (const own of [false, true]) {
+          set(v, own); rebuild(); n++;
+          const s = scan(FR.querySelectorAll('.blade'));
+          s.bad.forEach(b => bad.push(nm + (own ? '/own' : '/=1') + ': ' + b));
+          s.hs.forEach((h, i) => { grow = Math.max(grow, h - base[own][i]); });
+        }
+        LAB.page = 'main'; set(7, false); rebuild();
+        const oc = FR.querySelector('.ocbody'), mainS = oc ? scan([oc.parentNode]) : { bad: ['no Osc Controls face'] };
+        mainS.bad.forEach(b => bad.push('MAIN: ' + b));
+        const spreadsOnMain = oc ? oc.querySelectorAll('[data-key*="spread"]').length : 0;
+        out.push({ name: 'no overflow: under every Cut rule, both blades, following or own, every control inside its card', ok: n === 2 * E_RULE.length && bad.length === 0 && (LAB.skin !== 'A' || grow <= 0.5),
+          detail: n + ' layouts (' + E_RULE.length + ' rules × blade 2 following or own, skin ' + LAB.skin + '), 2 cards each: ' + (bad.length ? bad.length + ' outside: ' + bad.slice(0, 4).join(' · ') : 'every control inside, no label clipped') +
+            ' · the cards grow ' + grow.toFixed(1) + ' px at most over their no-rule height' + (LAB.skin === 'A' ? '' : ' (skin ' + LAB.skin + ' lays a rule\'s Rule depth as one more row, B297: growth is gated on skin A only, whose face is one row of groups)') + ' (' + base[false].map(h => h.toFixed(1)).join(', ') + ') · MAIN\'s Osc Controls under GOLDEN: ' + (mainS.bad.length ? mainS.bad.length + ' outside' : 'inside') + ', and it shows ' + spreadsOnMain + ' spread controls' });
+        /* the planted overflow: B323's blade-2 mirror, three columns, under GOLDEN */
+        LAB.page = 'osc'; set(7, false); rebuild();
+        const b2 = FR.querySelectorAll('.blade')[1], grid = b2 && b2.querySelector('.mgrid2');
+        let how;
+        if (grid) { grid.style.gridTemplateColumns = 'repeat(3, auto)'; const lk = grid.querySelector('.pill.link'); if (lk) lk.style.gridColumn = 'auto'; how = 'B323\'s three-column blade-2 mirror'; }
+        else { const cs = b2 ? b2.querySelectorAll('.kcell, .srow, .scrub') : []; if (cs.length) cs[cs.length - 1].style.minWidth = '700px'; how = 'a 700 px control'; }
+        const pl = scan(FR.querySelectorAll('.blade'));
+        out.push({ name: 'CONTROL: a planted overflow under GOLDEN (' + how + ')', ok: pl.bad.length > 0, control: true, detail: pl.bad.length + ' outside (must be > 0): ' + pl.bad.slice(0, 3).join(' · ') });
+      }
+    }
+  } catch (e) {
+    out.push({ name: 'B334', ok: false, detail: 'threw: ' + String(e && e.stack || e) });
+  }
+  try { if (stored === null) localStorage.removeItem(LOGO_STYLE_KEY); else if (stored !== undefined) localStorage.setItem(LOGO_STYLE_KEY, stored); } catch (_) { /* nothing was stored */ }
+  LAB.page = page; LAB.theme = theme; LAB.scheme = scheme; MORPH.on = mOn; LAB.frozen = fz; LOAD.shed = shedSnap; MON.clock = clk0; LAB.advOpen = advOpen;
+  Object.assign(LOGO, logoSnap); logoBake();
+  if (LOGO.tag) LOGO.tag.classList.remove('show');
+  P = snap; EFF = effective(); pushOracle(); applyBodyClasses();
   rebuild();
   return out;
 }
