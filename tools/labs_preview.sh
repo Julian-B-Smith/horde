@@ -29,6 +29,18 @@ fi
 if [ -d "$PREVIEW" ]; then git worktree remove --force "$PREVIEW" >/dev/null 2>&1 || rm -rf "$PREVIEW"; fi
 git worktree prune
 git worktree add -q --detach "$PREVIEW" origin/main || exit 1
+
+# B329: the Sluice lab reads Sluice's spec IN PLACE through the gitignored link local/sluice (the
+# human's hold: nothing of Sluice's is committed here). A fresh worktree has no local/, so point the
+# preview's link at the MAIN checkout's link when there is one. The main checkout is computed from
+# git's common dir (this script may run from any worktree), never written down: no machine path is
+# committed. local/ is gitignored, so the preview's commit below never picks the link up; the
+# worktree is rebuilt from nothing above on every run and ln -sfn replaces, so this is idempotent.
+MAIN=$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")
+sluice="absent (the Sluice lab shows its no-spec state)"
+if [ -e "$MAIN/local/sluice" ]; then
+  mkdir -p "$PREVIEW/local" && ln -sfn "$MAIN/local/sluice" "$PREVIEW/local/sluice" && sluice="linked"
+fi
 cd "$PREVIEW" || exit 1
 
 merged=""; skipped=""
@@ -48,4 +60,5 @@ python3 tools/gen_lab_index.py >/dev/null && git add docs/design/index.html && \
 echo "labs_preview: origin/main$( [ -n "$merged" ] && echo " +$merged" )"
 [ -n "$skipped" ] && echo "labs_preview: SKIPPED (conflicts with main or another lab):$skipped"
 echo "labs_preview: $(grep -o 'AWAITING YOUR REVIEW ([0-9]*)' docs/design/index.html || echo 'no labs awaiting review')"
+echo "labs_preview: local/sluice $sluice"
 exit 0
