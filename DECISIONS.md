@@ -6508,7 +6508,7 @@ convergence worth noting and nothing we need to act on.
 
 **Consequences.** Future appends are sound-neutral for every existing patch, by construction. The morph lab's draw order was never a parity target (it draws per modulation group over its own list), so nothing is broken there. Patches whose quantum sound was already changed by earlier bumps (3 → 9) are NOT restored by this ADR; whether to restore them is the same question as B255 (as saved vs as today), and it is owed to the human.
 
-## ADR-186 — PROPOSED (revision 2, after critic): horde 2 is a new plugin shell; the current shell is frozen as the legacy plugin (2026-09-27)
+## ADR-186 — RATIFIED (revision 2, after critic): horde 2 is a new plugin shell; the current shell is frozen as the legacy plugin (2026-09-27)
 
 **Status.** PROPOSED, revision 2. Revision 1 went to an Opus critic, whose verdict was REWORK. This revision folds in the four ratification blockers (C1, C2, H1, H2) and the freeze definition (M1). The remaining findings are ROADMAP B308. Ratification waits on the human's answers to the stability-line question and to (i)–(iv) below. The human approved the direction and timing (B305): "I approve of your recommendation then."
 
@@ -6571,3 +6571,14 @@ The human: "It isn't worth making the entire future of the device suffer to acco
 - (ii) A one-way OFFLINE preset importer as a tool, never in the loader, built after the stability line and only if the user presets matter (10 user presets and 29 user corners exist). ACCOUNTING's parameter fates are its mapping data.
 - (iii) This repo: the protected references, parity chains and shell oracles are all here, and copy-forward is trivial within one repo.
 - (iv) An untouched legacy tree, a pinned runner, a real-blob corpus, bit-identical build fixes only, and the park trigger.
+
+**Ratified 2026-09-27** (human: "ADR-186 ratified"). The open questions are resolved:
+- **Stability line:** "I agree with the recommended stability line."
+- **B255:** "Go ahead and fix as the last legacy change." It lands before the freeze tag.
+- **Where horde 2 lives:** "This repo, as the critic recommends."
+- **Names:** "Horde" (new) and "Horde Legacy" (display only, class β).
+- **Factory patches:** none carried over; their names are kept as inspiration.
+- **User presets:** ported by the offline tool (B312).
+
+The 2026-09-23 installed bundles are archived outside the repo (`~/Documents/Claude/synthetic-worlds/horde-legacy-archive/2026-09-23-installed/`, with a MANIFEST of bundle ids, codesign results and tree hashes). The human's freeze tag (item 2) is still owed, after B255 lands.
+

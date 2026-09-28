@@ -23,13 +23,13 @@
 ## 0. Summary
 
 **Counts.** 82 existing per-oscillator parameters (164 host ids, osc 1 + osc 2), 12 global
-parameters SCALPEL overlaps, and all 107 SCALPEL parameters, each with exactly one fate:
+parameters SCALPEL overlaps, and all 111 SCALPEL parameters (107 at v1, +4 at v1.1), each with exactly one fate:
 
 | table | SURVIVES | MERGES | RETIRED | NEW | DEFERRED | DROPPED | total |
 |---|---|---|---|---|---|---|---|
 | horde per-osc (§1.1) | 64 | 13 | 5 | — | — | — | 82 |
 | horde global overlaps (§1.2) | 7 | 5 | — | — | — | — | 12 |
-| SCALPEL (§1.4) | — | 17 | — | 80 | 4 | 6 | 107 |
+| SCALPEL (§1.4) | — | 17 | — | 84 | 4 | 6 | 111 |
 
 The 17 SCALPEL MERGES land on 18 horde rows (13 per-osc + 5 global). `polyMode` is the one that
 needs two (32 + 34). The 80 NEW become **82 new per-oscillator rows**, 164 host ids. That is 79
@@ -255,7 +255,7 @@ order (§1.8.1).
 | 3 | `kHz` · Cut rate Hz | Blade 1 | continuous: 20..12000 (1320) | log | **NEW** |  | M | blends · B232 | yes · octaves (log) | P | 305 / 1305 · key `bl.kHz` | T1 |
 | 4 | `c` · Position | Blade 1 | continuous: 0..1 (0.875) | linear | **NEW** | Circular: morph and matrix must wrap (§4.3). | M | blends SHORTEST ARC (needs a circular rule) · B232 | yes · cycles, WRAPPING (circular; the linear clamp is wrong, §4.3) | P | 307 / 1307 · key `bl.c` | T1 |
 | 5 | `rotRate` · Rotate | Blade 1 | continuous: -4..4 (0) | linear | **NEW** |  | M | blends · B232 | yes · Hz, linear | C | 312 / 1312 · key `bl.rotRate` | T2 |
-| 6 | `rotSync` · Rotation | Both blades | choice: 1=restart per note, 0=free-running (1) |  | **NEW** |  | S | snaps | no (stepped) | B | 313 / 1313 · key `bl.rotSync` | T3 |
+| 6 | `rotSync` · Rotation | Blade interplay | choice: 1=restart per note, 0=free-running (1) |  | **NEW** |  | S | snaps | no (stepped) | B | 313 / 1313 · key `bl.rotSync` | T3 |
 | 7 | `hard` · Edges | Blade 1 | continuous: 0..1 (0) | linear | **NEW** |  | M | blends · B232 | yes · span 1 | P | 308 / 1308 · key `bl.hard` | T1 |
 | 8 | `depth` · Depth | Blade 1 | continuous: 0..1 (1) | linear | **NEW** |  | M | blends · B232 | yes · span 1 | P | 309 / 1309 · key `bl.depth` | T1 |
 | 9 | `mirror` · Mirror | Blade 1 | choice: 0=off, 1=reflect, 2=twin −, 3=twin + (0) |  | **NEW** |  | S | snaps | no (stepped) | B | 310 / 1310 · key `bl.mirror` | T2 |
@@ -265,7 +265,7 @@ order (§1.8.1).
 | 13 | `fmType` · FM type | Blade 1 FM | choice: 0=phase, 1=pitch (0) |  | **NEW** |  | S | snaps | no (stepped) | B | 315 / 1315 · key `bl.fmType` | T2 |
 | 14 | `mshape` · Mod shape | Blade 1 FM | choice: 0=Sine, 1=Tri, 2=Saw, 4=Rev saw, 3=Square, 5=Smooth noise, 7=S&H noise (0) |  | **NEW** | Stored values are non-contiguous or out of display order; re-index (§1.8.2). | S | snaps | no (stepped) | B | 316 / 1316 · key `bl.mshape` | T2 |
 | 15 | `I` · FM depth | Blade 1 FM | continuous: 0..10 (2) | power | **NEW** |  | M | blends · B232 | yes · span 10 (index) | P | 317 / 1317 · key `bl.I` | T1 |
-| 16 | `fb` · Feedback | Both blades | continuous: 0..1 (0) | power | **NEW** |  | M | blends · B232 | yes · span 1 | C | 314 / 1314 · key `bl.fb` | T2 |
+| 16 | `fb` · Feedback | Blade interplay | continuous: 0..1 (0) | power | **NEW** |  | M | blends · B232 | yes · span 1 | C | 314 / 1314 · key `bl.fb` | T2 |
 | 17 | `m` · Mod rate | Blade 1 FM | continuous: 0.25..24 (3.37) | log | **NEW** |  | M | blends · B232 | yes · octaves (log) | C | 319 / 1319 · key `bl.m` | T1 |
 | 18 | `mHz` · Mod rate Hz | Blade 1 FM | continuous: 1..20000 (660) | log | **NEW** |  | M | blends · B232 | yes · octaves (log) | C | 320 / 1320 · key `bl.mHz` | T1 |
 | 19 | `mUnit` · Mod rate in | Blade 1 FM | choice: 0=× f₀, 1=Hz (0) |  | **NEW** |  | S | snaps | no (stepped) | B | 318 / 1318 · key `bl.mUnit` | T2 |
@@ -357,6 +357,10 @@ order (§1.8.1).
 | 105 | `wtDur` · Record for | Serum wavetable | continuous: 0.5..16 (4) | log | **DEFERRED** | Serum wavetable export (D9; SPEC §1, §10). | — | — | — | UI | none | — |
 | 106 | `wtNorm` · Level | Serum wavetable | choice: 1=normalize, 0=as is (1) |  | **DEFERRED** | Serum wavetable export (D9; SPEC §1, §10). | — | — | — | UI | none | — |
 | 107 | `dcMode` · DC fix | Drone and output | choice: 0=off, 1=blocker, 2=per cycle (2) |  | **NEW** |  | S | snaps | no (stepped) | B | 327 / 1327 · key `bl.dcMode` | T3 |
+| 108 | `b2order` · Stacking | Blade interplay | choice: 0=blade 2 over 1, 1=blade 1 over 2 (0) |  | **NEW** | v1.1 (SPEC §13); human-approved 2026-09-27. | S | snaps | no (stepped) | B | horde 2 manifest (ADR-186) · key `bl.b2order` | T3 |
+| 109 | `b2mix` · Upper hears (λ) | Blade interplay | continuous: 0..1 (0) | linear | **NEW** | v1.1 serial mix; human-approved 2026-09-27. | M | blends · B232 | yes · span 1 | P | horde 2 manifest (ADR-186) · key `bl.b2mix` | T2 |
+| 110 | `colK` · Collision → pitch | Blade interplay | continuous: -1..1 (0) | linear | **NEW** | v1.1; acts only when the upper blade is Sync, FM or Ring (§13.3). Human-approved 2026-09-27. | M | blends · B232 | yes · span 2 | C | horde 2 manifest (ADR-186) · key `bl.colK` | T3 |
+| 111 | `colB` · Collision → bite | Blade interplay | continuous: 0..1 (0) | linear | **NEW** | v1.1; acts only when the upper blade is FM or Fold (§13.1). Human-approved 2026-09-27. | M | blends · B232 | yes · span 1 | C | horde 2 manifest (ADR-186) · key `bl.colB` | T3 |
 
 ### 1.5 The three overlapping groups: whose law, and why
 
