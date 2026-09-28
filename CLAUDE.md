@@ -133,6 +133,12 @@ the global CLAUDE.md audio-plugin section before any build/install/validate.
 - C++ correctness is defined as parity with the JS reference (L0-1, ε=1e-6
   RMS) plus the L0 trajectory criteria — never as plausible-sounding audio.
   Any intentional divergence from the prototypes requires an ADR.
+  **Scoped by ADR-187 (RATIFIED 2026-09-28):** the above holds for the legacy shell
+  unchanged. For horde 2's cores, C++ correctness is defined by the core's JS parity
+  target on every scenario no ratified divergence claims, and, once the core's JS is
+  demoted by ruling, by its frozen goldens, divergence ledger and Layer-0 invariant
+  suite. Divergences are mirrored into the lab JS where possible; `js_limit` marks
+  where the browser cannot follow, and it never slows the C++.
 - All slew/time-constant math is expressed in seconds and converted to
   per-tick coefficients (16-sample tick = 2756/s at 44.1 kHz). Hand-tuned
   per-tick constants are banned — ADR-009 records the trap.

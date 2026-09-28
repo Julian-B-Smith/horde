@@ -364,6 +364,26 @@ full() {
     echo "verify[full]: node missing — DSP fidelity scan SKIPPED" >&2
   fi
 
+  # THE BLIND LISTENING PASS PLAYS WHAT WAS MEASURED (B324, tools/patchspace/
+  # listening_pass_check.mjs). docs/design/listening-pass.html regenerates each patch
+  # from its committed gauntlet seed; this slices the page's pure block and proves its
+  # sampler is gauntlet.mjs's, its phrase starts with the measured renders bit for bit,
+  # every seed re-measures to the committed metrics, the views before the reveal are
+  # blind, and its export passes calibrate.mjs's validator — with seven must-fail
+  # controls (a perturbed seed, the reveal's own text, timestamped and malformed
+  # exports, a coin-flip rater). Added under ADR-180 §1; HERE, not in fast(): ~60 s of
+  # DSP, and the sample is a golden against the engine of the day (an engine edit that
+  # moves a patch reddens it by design; listening_sample.mjs regenerates it).
+  if command -v node >/dev/null; then
+    node tools/patchspace/listening_pass_check.mjs > /tmp/listenpass.$$ 2>&1 || {
+      echo "verify[full]: listening pass check FAILED" >&2; cat /tmp/listenpass.$$ >&2
+      rm -f /tmp/listenpass.$$; return 1; }
+    echo "listening_pass_check.mjs: $(tail -1 /tmp/listenpass.$$)"
+    rm -f /tmp/listenpass.$$
+  else
+    echo "verify[full]: node missing — listening pass check SKIPPED" >&2
+  fi
+
   # FX-CHAIN MORPH FUZZER (tools/labharness/fxmorph_check.mjs, B266) — the
   # property-based check over docs/design/fx-chain-morph-lab.html's own model
   # (its first <script> block, sliced, not re-implemented). ASSERTS: the lab's
