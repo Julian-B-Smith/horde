@@ -76,3 +76,4 @@ swarm-dynamics · parity-oracle · plugin-platform · realtime-perf
 - [L0064] A view must be driven by what was rendered, not a parallel model or monitor instance — check drawn vs heard (labs · visualization)
 - [L0065] A definition-changing ADR must state its scope and a gap-free transition, or it silently retires existing gates (decisions · oracles)
 - [L0066] Node and Chrome are two numerical platforms (libm): key cross-runtime work to exact seeds and measure what plays (oracles · determinism)
+- [L0067] Reading a private sibling ≠ permission to transcribe it: forbid copying in the brief and gate with an identifier scan (privacy · briefs)
