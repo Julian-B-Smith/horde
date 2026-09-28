@@ -77,3 +77,4 @@ swarm-dynamics · parity-oracle · plugin-platform · realtime-perf
 - [L0065] A definition-changing ADR must state its scope and a gap-free transition, or it silently retires existing gates (decisions · oracles)
 - [L0066] Node and Chrome are two numerical platforms (libm): key cross-runtime work to exact seeds and measure what plays (oracles · determinism)
 - [L0067] Reading a private sibling ≠ permission to transcribe it: forbid copying in the brief and gate with an identifier scan (privacy · briefs)
+- [L0068] A build-variant control must run the full scenario stream; subsets miss amplifier paths and under-report (oracles · ports)
