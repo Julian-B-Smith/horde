@@ -74,3 +74,4 @@ swarm-dynamics · parity-oracle · plugin-platform · realtime-perf
 - [L0062] A ruling must amend the agent charters that restate the old rule — the charter outranks the brief (harness · delegation)
 - [L0063] A state oracle must RENDER — snapshot equality cannot see what the audio thread rewrites after a restore (oracles · history)
 - [L0064] A view must be driven by what was rendered, not a parallel model or monitor instance — check drawn vs heard (labs · visualization)
+- [L0065] A definition-changing ADR must state its scope and a gap-free transition, or it silently retires existing gates (decisions · oracles)
