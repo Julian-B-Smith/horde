@@ -472,11 +472,11 @@ full() {
   "$build_dir/h2_scalpel_parity_check" > /tmp/h2scalpel.$$ 2>&1 || {
     echo "verify[full]: h2_scalpel_parity_check FAILED" >&2; grep -v '^PASS  rms' /tmp/h2scalpel.$$ >&2
     rm -f /tmp/h2scalpel.$$; return 1; }
-  echo "h2_scalpel_parity_check: $(tail -1 /tmp/h2scalpel.$$)"; rm -f /tmp/h2scalpel.$$
+  tail -1 /tmp/h2scalpel.$$; rm -f /tmp/h2scalpel.$$
   "$build_dir/h2_scalpel_fma_control" > /tmp/h2fma.$$ 2>&1 || {
     echo "verify[full]: h2_scalpel_fma_control did not fire (the FMA-contracted build passed parity)" >&2
     grep -v '^PASS  rms' /tmp/h2fma.$$ >&2; rm -f /tmp/h2fma.$$; return 1; }
-  echo "$(tail -1 /tmp/h2fma.$$)"; rm -f /tmp/h2fma.$$
+  tail -1 /tmp/h2fma.$$; rm -f /tmp/h2fma.$$
 
   # THE B159 BACKLOG, ruled one at a time on evidence (2026-09-21). Nine checks
   # sat unwired: five stated no reason at all, four cited a "standing human
