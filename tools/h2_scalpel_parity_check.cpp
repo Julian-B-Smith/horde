@@ -255,7 +255,7 @@ int main(int argc, char** argv) {
   // port fault (V8 never fuses). Exit 0 iff the parity gate caught it.
   const bool caught = red > 0;
   std::printf("h2_scalpel_fma_control: %s — the -ffp-contract=fast build of the same core %s the parity gate "
-              "(%d of %d scenarios red; worst passing rms %.3e, max %.3e; mean bit-exact %.2f%%)\n",
+              "(%d of %d scenarios red; worst rms %.3e, worst max %.3e; mean bit-exact %.2f%%)\n",
               caught ? "FIRED" : "DID NOT FIRE", caught ? "fails" : "PASSES", red, total, worstRms, worstMax,
               total - excluded > 0 ? 100 * sumExact / (total - excluded) : 0.0);
   return caught ? 0 : 1;
