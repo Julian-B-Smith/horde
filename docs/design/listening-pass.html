@@ -116,10 +116,19 @@
      (git-ignored). URL: ?theme=dark, ?demo=landing|calib|rate|reveal (screenshot states with
      SYNTHETIC answers, labelled as such, never saved), ?xverify=1.
 
+     B345 (2026-09-28, the human: "Let's fix the metrics first, then re-fit"). metrics.mjs's
+     aliasing was fixed (it went blind over long windows, and read two renders of the same noise
+     as folding) and a noise measure, noiseDb, was added beside flatness; measureWindows records
+     it per segment. listening-pass.json was re-measured IN PLACE (same patches, seeds and order),
+     so its id changed; the file lists the ids it replaced (`remeasured`) and this page treats a
+     pass saved against one of them as a pass on the same sounds: the v1 pass still exports
+     exactly, and a v2 pass keeps its answers while its segments are measured again with the
+     fixed metrics (sameSoundsAs, load).
+
      L0026: every const is declared above the code that runs at setup; the boot call is the
      last statement of the script. -->
 <html><head><meta charset="utf-8">
-<meta name="lab-review" content="B324 + B340 · 2026-09-28">
+<meta name="lab-review" content="B324 + B340 + B345 · 2026-09-28">
 <title>Listening pass v2 — blind calibration, with controls</title>
 <style>
   /* TOKENS: the SCALPEL lab's (scalpel-interface-lab.html :178-306), the subset this page uses */
@@ -488,12 +497,14 @@ function heardDiff(h, m) {
    window's interval). So a segment's first window is exactly the gauntlet's measurement
    (listening_pass_check T12), and every later window is the same measurement again.
    WHY NOT ONE LONG WINDOW (measured 2026-09-28, B340): over the whole 1.45 s hold the
-   aliasing reading of many patches collapses to the -120 dB floor while EVERY 0.25 s
-   sub-window of the same render reads -20 to -33 dB (broad#511: -29.9, -32.0, -33.0 on its
-   sub-windows, -120 whole; broad#857, broad#828, broad#169 alike). A long Welch average is
-   not measuring what its own parts measure; why is not yet known (a naive saw with vibrato
-   or slow drift does NOT reproduce it, so it is not simple pitch smearing). The detector
-   controls include moving-pitch rows for that reason.
+   aliasing reading of many patches collapsed to the -120 dB floor while EVERY 0.25 s
+   sub-window of the same render read -20 to -33 dB (broad#511: -29.9, -32.0, -33.0 on its
+   sub-windows, -120 whole; broad#857, broad#828, broad#169 alike). EXPLAINED AND FIXED by B345
+   (metrics.mjs aliasing, (1)): the old aliasing averaged the whole window before comparing, so
+   partials that move more slowly than a window but within a long one smeared into an envelope
+   that hid the aliases between them. It now compares 2-frame units and sums, so one long
+   window reads like its parts; the sliding worst-window here is kept because the ear answers
+   for the worst thing it heard.
    The sweep holds no single pitch: tonal metrics are null; aliasing is windowed the same way,
    with the pitch at the worst window's centre (aliasAtNote, MIDI). rmsDb is the level over the
    whole hold (not a worst). */
@@ -512,15 +523,16 @@ function measureWindows(M, seg, test, ref) {
   const fin = x => x.map(v => (Number.isFinite(v) ? v : 0));
   const rmsDb = M.level(fin(test.L.subarray(MEAS.tonal.from, H)), fin(test.R.subarray(MEAS.tonal.from, H)), SR).rmsDb;
   if (seg.sweep) return { seg: seg.id, aliasDb: r6(alias), aliasAtNote: at === null ? null : Math.round(pitchAt(seg, at) * 10) / 10,
-    roughness: null, rootPresence: null, rootInterval: null, flatness: null, rmsDb: r6(rmsDb) };
-  let rough = null, flat = null, root = null, ri = null;
+    roughness: null, rootPresence: null, rootInterval: null, flatness: null, noiseDb: null, rmsDb: r6(rmsDb) };
+  let rough = null, flat = null, noise = null, root = null, ri = null;
   for (const a of winStarts(MEAS.tonal.from, WIN_TONAL, H)) {
     const m = M.analyse(test.L.subarray(a, a + WIN_TONAL), test.R.subarray(a, a + WIN_TONAL), SR, mtof(seg.note));
     if (m.roughness !== null && (rough === null || m.roughness > rough)) rough = m.roughness;
     if (m.flatness !== null && (flat === null || m.flatness > flat)) flat = m.flatness;
+    if (m.noiseDb !== null && m.noiseDb !== undefined && (noise === null || m.noiseDb > noise)) noise = m.noiseDb;
     if (m.rootPresence !== null && (root === null || m.rootPresence < root)) { root = m.rootPresence; ri = m.rootInterval; }
   }
-  return { seg: seg.id, aliasDb: r6(alias), roughness: r6(rough), rootPresence: r6(root), rootInterval: r6(ri), flatness: r6(flat), rmsDb: r6(rmsDb) };
+  return { seg: seg.id, aliasDb: r6(alias), roughness: r6(rough), rootPresence: r6(root), rootInterval: r6(ri), flatness: r6(flat), noiseDb: r6(noise), rmsDb: r6(rmsDb) };
 }
 /* a patch segment: its reference is the same segment (note-on only, the held part) rendered at
    4x the patch's oversampling, the gauntlet's alias reference */
@@ -638,12 +650,13 @@ const segLabel = s => (s.sweep ? 'SWEEP A1→A6' : s.id);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const answered = a => !!a && QUI.every(q => a[q.key] === 0 || a[q.key] === 1);
 const REF_BEFORE = ['off', 'sine', 'saw'];
-/* v1 = null or { n, total, complete, which: current|earlier|unknown, id, demo } — the human's v1
+/* v1 = null or { n, total, complete, which: current|same|earlier|unknown, id, demo } — the human's v1
    pass, read-only */
 function viewIntro(st, v1) {
   const n = st.order.length, done = st.order.filter(k => answered(st.answers[k])).length;
   const min = Math.round(n * SECONDS_PER_PATCH / 60), minRef = Math.round(n * (SECONDS_PER_PATCH + PROGRAM_SECONDS) / 60);
   const where = !v1 ? '' : v1.which === 'current' ? 'It was rated on the same sample this page plays.'
+    : v1.which === 'same' ? `It was rated on sample ${esc(v1.id)}: the same patches and sounds this page plays, whose committed measurements were re-measured since (B345). The export names ${esc(v1.id)}; calibrate matches it by key.`
     : v1.which === 'earlier' ? `It was rated on the <b>earlier</b> B324 sample (${esc(v1.id)}): different patches, heard before the B325 engine fix. To fit it, give calibrate that sample: <b>git show 1726739:docs/design/listening-pass.json</b> into local/, then <b>--sample</b> it.`
     : `It was saved against a sample this page does not know (${esc(v1.id)}), so it cannot be exported here; it stays untouched in this browser.`;
   const v1card = !v1 || !v1.n ? '' : `<div class="card v1"><h2>Your first pass (v1) is saved in this browser${v1.demo ? '<span class="demo">DEMO — SYNTHETIC v1 PASS</span>' : ''}</h2>
@@ -795,8 +808,14 @@ function buildExport(st, sample, schema) {
 const V1_SAMPLES = { '03c97d3e': { run: 45846, orderSeed: 12875, keys: ('broad#612 broad#726 broad#728 broad#402 broad#181 broad#825 broad#878 broad#792 broad#408 ' +
   'broad#254 broad#700 broad#1 broad#760 broad#90 broad#801 edge#216 edge#159 broad#482 broad#392 broad#672 broad#198 broad#568 edge#19 broad#350 broad#896 ' +
   'broad#371 broad#764 broad#88 edge#194 broad#462 broad#395 broad#626 broad#118 broad#629 broad#198~r broad#1~r').split(' ') } };
+/* the ids of earlier files of THIS sample: the same patches, seeds and order, whose committed
+   numbers were re-measured in place when metrics.mjs changed (B345; listening_sample.mjs
+   --remeasure lists them in `remeasured`). An answer given against one of them was given to the
+   same sound. */
+function sameSoundsAs(id, sample) { return id === sample.id || (sample.remeasured || []).some(r => r.from === id); }
 function v1SampleOf(id, current) {
   if (id === current.id) return current;
+  if (sameSoundsAs(id, current)) return Object.assign({}, current, { id });   // same items; the export names the id it was rated on
   const d = V1_SAMPLES[id];
   if (!d) return null;
   const items = d.keys.map(key => { const m = /^(broad|edge)#(\d+)(~r)?$/.exec(key);
@@ -842,7 +861,16 @@ const CHECK = { rows: [], blindScans: 0, blindHits: [], tokens: [], xv: null, de
 const $ = id => document.getElementById(id);
 
 function load() {
-  try { const s = JSON.parse(localStorage.getItem(STORE_KEY) || 'null'); return s && s.sampleId === SAMPLE.id && s.phrase === PHRASE_ID ? s : null; } catch (_) { return null; }
+  try {
+    const s = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
+    if (!s || s.phrase !== PHRASE_ID || !sameSoundsAs(s.sampleId, SAMPLE)) return null;
+    /* a pass saved against an earlier file of this sample (re-measured in place, B345): its answers
+       were given to the same sounds and stay; its segments were measured with the earlier metrics,
+       so they are dropped and measured again, and a revealed pass returns to the step before the
+       reveal (START goes to it once every patch is measured) */
+    if (s.sampleId !== SAMPLE.id) Object.assign(s, { segs: {}, heard: {}, revealed: false });
+    return s;
+  } catch (_) { return null; }
 }
 function save() {
   if (DEMO) return;                                  // a demo state is never saved over real ratings
@@ -858,7 +886,7 @@ function v1Info() {
   if (!s || !s.answers) return null;
   const smp = v1SampleOf(s.sampleId, SAMPLE), keys = smp ? smp.items.map(it => it.key) : Object.keys(s.answers);
   const n = keys.filter(k => answered(s.answers[k])).length;
-  return { n, total: keys.length, complete: !!smp && n === keys.length, which: !smp ? 'unknown' : smp === SAMPLE ? 'current' : 'earlier', id: String(s.sampleId) };
+  return { n, total: keys.length, complete: !!smp && n === keys.length, which: !smp ? 'unknown' : smp === SAMPLE ? 'current' : sameSoundsAs(s.sampleId, SAMPLE) ? 'same' : 'earlier', id: String(s.sampleId) };
 }
 
 async function fetchText(url) { const r = await fetch(url); if (!r.ok) throw new Error(url + ': HTTP ' + r.status); return r.text(); }

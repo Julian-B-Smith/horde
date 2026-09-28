@@ -21,7 +21,20 @@
  *   E3 CPU must-read-HIGHER: nine members and two blades at 2x oversampling against one
  *      member, no blades, 1x — min of three timings each; the ratio is asserted (>= 2),
  *      never an absolute time (CPU is noisy; CI machines differ).
- * ~3 s. By hand: node tools/patchspace/metrics_check.mjs (exit 1 on any red row).
+ * B345 ROWS (2026-09-28; the human: "Let's fix the metrics first, then re-fit"), one per change:
+ *   M11  aliasing reads the same at 0.25 / 0.5 / 1.0 / 1.45 s (tolerance 1 dB) on a steady naive saw
+ *        and on naive saws gliding 2 semitones/s; the additive saw reads -120 at every length.
+ *   M11c CONTROL: the same glide compared after averaging the whole window (the pre-B345 order)
+ *        spreads by ~10 dB — the invariant can fail.
+ *   M12  must-read-zero: band-limited seeded noise against an INDEPENDENT realisation of itself
+ *        (worst 0.25 s window, the page's rule) reads clean; M12h must-read-high: a tone planted
+ *        in the test only, 15 dB under the noise, reads in every window. INFO M12i: folded white
+ *        noise (+6 dB in band) still reads (folding, not tonal: the stated limit).
+ *   M13  a silent (subnormal) window is not measured; a quiet naive saw still reads aliased.
+ *   N1-N4 noiseDb: lines read below -60 dB (sine, saws, beating pairs, an inharmonic cloud); white
+ *        noise reads 0 dB; saw + noise reads the known share within 2 dB; the same at any window
+ *        length. INFO N3i: its measured limits (A1, a dense supersaw).
+ * ~5 s. By hand: node tools/patchspace/metrics_check.mjs (exit 1 on any red row).
  */
 import * as M from './metrics.mjs';
 import { measure } from './gauntlet.mjs';
@@ -99,6 +112,97 @@ const f4 = x => (Number.isFinite(x) ? +x.toPrecision(4) : x);
   row(Math.abs(a - 0.5) < 1e-12 && Math.abs(b - 0.2) < 1e-12, 'M10', `cpuFraction: 0.5 s per 1 s ${a} (must be 0.5); median of 0.1/0.3/0.2 ${f4(b)} (must be 0.2)`);
 }
 
+/* ---- B345 (2026-09-28): the aliasing fixes and the noise measure, each with its controls */
+const info = (id, text) => console.log(`INFO  ${id.padEnd(4)} ${text}`);
+/* signals over 1.5 s at a rate `r`: a naive or additive saw on a pitch path (semitones/s from f0),
+   so the 4x-rate reference is the same generator (for the additive saw: nothing above 20 kHz, so
+   nothing folds at either rate). The additive saw uses the angle-addition recurrence. */
+const DUR = 1.5;
+const glideSaw = (kind, f0, stPerS, r) => {
+  const N = Math.round(DUR * r), x = new Float64Array(N); let ph = 0;
+  for (let i = 0; i < N; i++) {
+    const f = f0 * Math.pow(2, stPerS * (i / r) / 12);
+    if (kind === 'naive') x[i] = 2 * ph - 1;
+    else { const s1 = Math.sin(TAU * ph), c1 = Math.cos(TAU * ph); let s = s1, c = c1, acc = 0;
+      for (let h = 1; h * f < 20000; h++) { acc += ((h & 1) ? 1 : -1) * s / h; const t = s * c1 + c * s1; c = c * c1 - s * s1; s = t; } x[i] = (2 / Math.PI) * acc; }
+    ph += f / r; ph -= Math.floor(ph);
+  }
+  return x;
+};
+const LENS = [0.25, 0.5, 1.0, 1.45], A0 = Math.round(0.05 * SR);
+/* aliasing of test (at SR) against ref (at 4·SR, a 4x FFT so the bins and frame starts match) over [0.05 s, 0.05 s + len) */
+const al = (t, r, len, pre) => { const b = A0 + Math.round(len * SR), St = M.spectrum(t.subarray(A0, b), SR, 8192), Sr = M.spectrum(r.subarray(4 * A0, 4 * b), 4 * SR, 32768);
+  /* `pre`: the PRE-B345 ORDER — average the whole window first, compare once (a single "frame"
+     that is the Welch mean) — kept here only as the control that proves M11 can fail */
+  return (pre ? M.aliasing(Object.assign({}, St, { F: [St.P] }), Object.assign({}, Sr, { F: [Sr.P] })) : M.aliasing(St, Sr)).aliasDb; };
+const spread = v => Math.max(...v) - Math.min(...v), f1 = v => v.toFixed(1);
+/* M11 ALIASING READS THE SAME AT ANY WINDOW LENGTH (B342(1)): 0.25 / 0.5 / 1.0 / 1.45 s, tolerance 1 dB,
+   on a steady naive saw and on naive saws gliding a steady 2 semitones a second (partials that move
+   slower than one window but far within the long one: the case that went blind) */
+{
+  const cases = [['naive saw E5, steady', 'naive', 659.26, 0], ['naive saw A3, gliding 2 st/s', 'naive', 220, 2], ['naive saw E5, gliding 2 st/s', 'naive', 659.26, 2]];
+  const rows = cases.map(([name, kind, f0, g]) => { const t = glideSaw(kind, f0, g, SR), r = glideSaw('saw', f0, g, 4 * SR); return { name, v: LENS.map(L => al(t, r, L)), pre: LENS.map(L => al(t, r, L, true)) }; });
+  const clean = (() => { const t = glideSaw('saw', 220, 2, SR), r = glideSaw('saw', 220, 2, 4 * SR); return LENS.map(L => al(t, r, L)); })();
+  row(rows.every(x => spread(x.v) <= 1 && Math.min(...x.v) > -40) && clean.every(v => v === -120), 'M11',
+    `aliasing vs window length ${LENS.join(' / ')} s (spread must be <= 1 dB, reading > -40): ` + rows.map(x => `${x.name} ${x.v.map(f1).join(' / ')} (spread ${f1(spread(x.v))})`).join('; ') +
+    `; additive saw A3 gliding ${clean.map(f1).join(' / ')} (must be -120 at every length)`);
+  const g = rows[1];
+  row(spread(g.pre) > 5, 'M11c', `CONTROL: the same glide compared AFTER averaging the whole window (the pre-B345 order) reads ${g.pre.map(f1).join(' / ')} dB — spread ${f1(spread(g.pre))} (must be > 5 dB: the invariant can fail, and did)`);
+}
+/* band-limited seeded noise: white at 4·SR through a 511-tap Blackman windowed-sinc at 20 kHz; its 1x
+   version is the same stream decimated by 4 (nothing above 20 kHz, so nothing folds) */
+const BLF = (() => { const L = 511, fc = 20000 / (4 * SR), h = new Float64Array(L), c = (L - 1) / 2; let s = 0;
+  for (let i = 0; i < L; i++) { const t = i - c, w = 0.42 - 0.5 * Math.cos(TAU * i / (L - 1)) + 0.08 * Math.cos(2 * TAU * i / (L - 1)); h[i] = (t === 0 ? 2 * fc : Math.sin(TAU * fc * t) / (Math.PI * t)) * w; s += h[i]; } return h.map(v => v / s); })();
+const blNoise4 = seed => { st = seed; const N = Math.round(DUR * 4 * SR), w = new Float64Array(N), y = new Float64Array(N); for (let i = 0; i < N; i++) w[i] = rnd() * 2 - 1;
+  for (let i = 0; i < N; i++) { let a = 0; for (let j = 0; j < BLF.length && j <= i; j++) a += BLF[j] * w[i - j]; y[i] = a; } return y; };
+const dec4 = x => { const y = new Float64Array(x.length / 4); for (let i = 0; i < y.length; i++) y[i] = x[4 * i]; return y; };
+/* the page's rule: the worst 0.25 s window (hop 0.125 s) over a 1.45 s hold */
+const worstWin = (t, r) => { let w = -Infinity; for (let a = A0; a + 12000 <= A0 + Math.round(1.45 * SR); a += 6000) w = Math.max(w, M.aliasing(M.spectrum(t.subarray(a, a + 12000), SR, 8192), M.spectrum(r.subarray(4 * a, 4 * a + 48000), 4 * SR, 32768)).aliasDb); return w; };
+/* M12 TWO RENDERS OF THE SAME NOISE ARE NOT FOLDING (B342(2)): the reference is ANOTHER realisation of the
+   same band-limited process (what the 1x and 4x renders of a noise-like patch are); a planted tone in
+   the test only, 15 dB under the noise, is folding by construction and must read */
+{
+  const a4 = blNoise4(0xB345), b4 = blNoise4(0x5B43), a1 = dec4(a4);
+  const pw = x => { let s = 0; for (const v of x) s += v * v; return s / x.length; };
+  const amp = Math.sqrt(2 * pw(a1) * Math.pow(10, -15 / 10)), withTone = a1.map((v, i) => v + amp * Math.sin(TAU * 3517 * i / SR));
+  const indep = worstWin(a1, b4), same = worstWin(a1, a4), planted = worstWin(withTone, b4);
+  const plantedAll = []; for (let a = A0; a + 12000 <= A0 + Math.round(1.45 * SR); a += 6000) plantedAll.push(M.aliasing(M.spectrum(withTone.subarray(a, a + 12000), SR, 8192), M.spectrum(b4.subarray(4 * a, 4 * a + 48000), 4 * SR, 32768)).aliasDb);
+  row(indep <= -90 && same === -120, 'M12', `aliasing, worst 0.25 s window over 1.45 s: band-limited noise vs an INDEPENDENT realisation of it ${f1(indep)} dB, vs its own stream ${f1(same)} dB (must be <= -90 and -120: decorrelation is not folding)`);
+  row(Math.min(...plantedAll) > -20 && planted > -20, 'M12h', `aliasing: the same noise with a planted 3517 Hz tone 15 dB under it (test only) reads ${plantedAll.map(v => v.toFixed(0)).join(' ')} dB per window (every window must be > -20: its ~-15 dB share)`);
+  /* INFORMATION: noise drawn per sample at EACH rate (the 1x floor 6 dB higher in band: folded noise)
+     still reads — folding, but not tonal; the limit stated in metrics.mjs */
+  st = 0x77; const w1 = gen(() => rnd() * 2 - 1); st = 0x78; const w4 = new Float64Array(4 * n); for (let i = 0; i < w4.length; i++) w4[i] = rnd() * 2 - 1;
+  info('M12i', `folded white noise (drawn per sample at 48 kHz vs at 192 kHz: +6 dB in band) reads ${f1(M.aliasing(M.spectrum(w1.subarray(A0, A0 + 12000), SR, 8192), M.spectrum(w4.subarray(4 * A0, 4 * A0 + 48000), 4 * SR, 32768)).aliasDb)} dB over 0.25 s (not asserted: folded noise is folding, but not tonal)`);
+}
+/* M13 A SILENT WINDOW IS NOT MEASURED (edge#145's sweep read 0 dB: subnormal samples against an exact-zero reference) */
+{
+  const sub = gen(t => 1e-40 * Math.sin(TAU * 659.26 * t)), zero = new Float64Array(4 * n);
+  const quiet = gen(t => 3e-4 * (2 * ((659.26 * t) % 1) - 1)), quietRef = glideSaw('saw', 659.26, 0, 4 * SR).map(v => 3e-4 * v);
+  const a = M.aliasing(M.spectrum(sub.subarray(0, 12000), SR, 8192), M.spectrum(zero.subarray(0, 48000), 4 * SR, 32768)).aliasDb;
+  const b = M.aliasing(M.spectrum(quiet.subarray(0, 12000), SR, 8192), M.spectrum(quietRef.subarray(0, 48000), 4 * SR, 32768)).aliasDb;
+  row(a === -120 && b > -30, 'M13', `aliasing on silence: a 1e-40 sine vs an all-zero reference ${a} dB (must be -120, not 0); a naive saw at -75 dBFS vs its clean reference ${f1(b)} dB (must still read aliased, > -30)`);
+}
+/* N1-N4 noiseDb, the aperiodic share (B345's proposed replacement for flatness) */
+{
+  const nz = x => M.aperiodic(S(x)).noiseDb;
+  const inBand = x => { const Sx = S(x); let s = 0; for (let k = Math.ceil(50 / Sx.binHz); k <= Math.floor(16000 / Sx.binHz); k++) s += Sx.P[k]; return s; };
+  const mix = (tone, shareDb, seed) => { st = seed; const w = gen(() => rnd() * 2 - 1), pt = inBand(tone), pn = inBand(w), fr = Math.pow(10, shareDb / 10); const g = Math.sqrt(fr / (1 - fr) * pt / pn); return add(tone, w.map(v => v * g)); };
+  const cloud = (() => { st = 0x9; const parts = Array.from({ length: 40 }, () => [200 + 3800 * rnd(), TAU * rnd()]); return gen(t => parts.reduce((s, [f, p]) => s + Math.sin(TAU * f * t + p), 0) / 6); })();
+  const zeroRows = [['sine A3', nz(sine(220))], ['saw A1', nz(blSaw(55))], ['saw A3', nz(blSaw(220))], ['saw E5', nz(blSaw(659.26))], ['saws a minor second apart', nz(add(blSaw(220).map(v => v / 2), blSaw(233.08).map(v => v / 2)))],
+    ['sines a minor second apart', nz(add(sine(440, .5), sine(466.16, .5)))], ['40 seeded inharmonic sines', nz(cloud)]];
+  row(zeroRows.every(([, v]) => v <= -60), 'N1', 'noiseDb must-read-zero (lines, not noise; each must be <= -60 dB): ' + zeroRows.map(([k, v]) => `${k} ${f1(v)}`).join(', '));
+  const wn = nz(noise);
+  row(wn >= -1, 'N2', `noiseDb must-read-high: seeded white noise ${f1(wn)} dB (must be >= -1)`);
+  const snr = [[220, -40], [220, -30], [220, -20], [220, -10], [659.26, -20]].map(([f, d], k) => ({ f, d, v: nz(mix(blSaw(f), d, 0x100 + k)) }));
+  row(snr.every(x => Math.abs(x.v - x.d) <= 2), 'N3', 'noiseDb reads a known noise share (saw + white noise; within 2 dB): ' + snr.map(x => `${x.f === 220 ? 'A3' : 'E5'} ${x.d} -> ${f1(x.v)}`).join(', '));
+  const lo = nz(mix(blSaw(55), -30, 0x200)), ens = nz([-25, -17, -8, 0, 8, 17, 25].map((c, k) => blSaw(220 * Math.pow(2, c / 1200)).map(v => v / 7)).reduce((a, b) => add(a, b)));
+  info('N3i', `measured limits (not asserted): saw A1 + noise at -30 dB reads ${f1(lo)} (the floor sits on the lobe skirts at A1); a 7-voice ±25-cent supersaw at A3 reads ${f1(ens)} (partials closer than the resolution fill the valleys)`);
+  const w20 = (() => { st = 0x300; const N = Math.round(DUR * SR), t = new Float64Array(N); for (let i = 0; i < N; i++) { let s = 0; for (let h = 1; h * 220 < 20000; h++) s += (2 / Math.PI) * ((h % 2) ? 1 : -1) * Math.sin(TAU * h * 220 * i / SR) / h; t[i] = s; }
+    const pt = inBand(t.subarray(0, n)), w = new Float64Array(N); for (let i = 0; i < N; i++) w[i] = rnd() * 2 - 1; const pn = inBand(w.subarray(0, n)), g = Math.sqrt(0.01 / 0.99 * pt / pn); return t.map((v, i) => v + g * w[i]); })();
+  const nl = LENS.map(L => M.aperiodic(M.spectrum(w20.subarray(A0, A0 + Math.round(L * SR)), SR)).noiseDb);
+  row(spread(nl) <= 1, 'N4', `noiseDb vs window length ${LENS.join(' / ')} s, saw A3 + noise at -20 dB: ${nl.map(f1).join(' / ')} (spread ${f1(spread(nl))}, must be <= 1 dB)`);
+}
+
 /* ---- engine controls */
 const D = loadSpace().defaults;
 {
@@ -117,5 +221,5 @@ const D = loadSpace().defaults;
   const heavy = t(Object.assign({}, D, { N: 9, b2on: 1, os: 2, b1on: 1 })), light = t(Object.assign({}, D, { N: 1, b1on: 0, b2on: 0, os: 1 }));
   row(heavy / light >= 2, 'E3', `engine CPU: N 9 + two blades at 2x ${(100 * heavy).toFixed(1)}% vs N 1, no blades, 1x ${(100 * light).toFixed(1)}% of real time per voice — ratio ${f4(heavy / light)} (must be >= 2; min of 3 timings, noisy by nature)`);
 }
-console.log(`metrics_check: ${red ? red + ' RED' : 'GREEN'} — 10 metric rows on constructed signals + 3 engine controls (metrics are measurements, not gates)`);
+console.log(`metrics_check: ${red ? red + ' RED' : 'GREEN'} — 10 metric rows + 9 B345 rows (aliasing window-length invariance, decorrelation, silence; noiseDb) on constructed signals, 3 INFO rows, + 3 engine controls (metrics are measurements, not gates)`);
 process.exit(red ? 1 : 0);

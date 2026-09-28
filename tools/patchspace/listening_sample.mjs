@@ -7,6 +7,8 @@
  *   node tools/patchspace/gauntlet.mjs run --run lp324 --n 900 --edge 300     (the pool, ~6 min)
  *   node tools/patchspace/listening_sample.mjs --run lp324 [--exclude KEY,KEY]   (this, ~30 s)
  *   then open docs/design/listening-pass.html?xverify=1 (served) and read its cross-runtime table
+ *   node tools/patchspace/listening_sample.mjs --remeasure --note "why"   (B345: after a metrics.mjs
+ *     change, re-measure the SAME items in place; no gauntlet run needed — see remeasure() below)
  *
  * WHAT IS COMMITTED, AND WHY NOTHING ELSE IS. A patch is its gauntlet SEED: (run seed, index,
  * mode) through gauntlet.mjs samplePatch, rendered with the gauntlet's own per-patch render
@@ -46,20 +48,34 @@
  * (`heard: drift`) and calibrate.mjs leaves it out of the fit. The roughness-origin render (N 1) is only computed for the draws it
  * needs, in the same seeded order.
  */
-import { writeFileSync } from 'node:fs';
+import { writeFileSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { readRun, samplePatch, THRESH, A_SCRIPT, B_SCRIPT } from './gauntlet.mjs';
+import { readRun, samplePatch, measure, THRESH, A_SCRIPT, B_SCRIPT } from './gauntlet.mjs';
 import { ROOT, SR, mulberry32, render, mtof } from './space.mjs';
 import { analyse } from './metrics.mjs';
 import { hash32 } from './gen_dependency_tree.mjs';
 
 export const SAMPLE_FILE = 'docs/design/listening-pass.json';
+export const PAGE_FILE = 'docs/design/listening-pass.html';
+/* THE LISTENING PAGE'S PURE BLOCK (between its PURE-BEGIN / PURE-END markers), sliced and run in
+   Node: the page's sampler, render route, program and measurement, never re-implemented. One
+   loader: listening_pass_check.mjs proves the block, calibrate.mjs --remeasure (B345) uses it to
+   re-render and re-measure what the human heard. */
+export function loadPage(html) {
+  html = html || readFileSync(join(ROOT, PAGE_FILE), 'utf8');
+  const a = html.indexOf('// PURE-BEGIN'), b = html.indexOf('// PURE-END');
+  if (a < 0 || b < a) throw new Error(`${PAGE_FILE}: PURE-BEGIN / PURE-END markers not found`);
+  return new Function('"use strict";\n' + html.slice(a, b) + '\nreturn { labFrom, spaceFrom, asEvalTree, samplePatch, renderScript, renderSteps, runSync, pseedOf, ' +
+    'presentationOrder, QUI, viewIntro, viewCalib, viewRate, viewDone, viewReveal, fmtM, blindTokens, blindScan, buildExport, buildExportV2, exportV1FromStore, ' +
+    'patchHash, measureHeard, heardDiff, TOL, SEGS, SEG_A3, SEG_E5, SEG_SWEEP, MEAS, PHRASE_ID, renderSegmentSteps, programFp, measureWindows, measureSegmentSteps, ' +
+    'detectorControls, detectorLine, refTone, programGain, assembleProgram, segScript, PROGRAM_SECONDS, v1SampleOf, sameSoundsAs };')();
+}
 export const SELECT_SEED = 0xB324;
 export const ORDER_SEED = 0x324B;
 export const RENDER_SALT = 77;                                   // gauntlet.mjs: pseed = hash32(seed, i, 77)
 /* the deterministic fields gauntlet.mjs measure() writes that the pass keeps (no CPU: it is noisy) */
-export const KEEP = ['aliasDb', 'roughness', 'rootPresence', 'rootInterval', 'flatness', 'rmsDb', 'lufs', 'peakDb', 'crestDb',
-  'dcRatio', 'clicks', 'clicksC', 'peakC'];
+export const KEEP = ['aliasDb', 'roughness', 'rootPresence', 'rootInterval', 'flatness', 'noiseDb', 'rmsDb', 'lufs', 'peakDb', 'crestDb',
+  'dcRatio', 'clicks', 'clicksC', 'peakC'];                     // noiseDb: B345, flatness's proposed replacement
 const r6 = x => (typeof x === 'number' && Number.isFinite(x) ? +x.toPrecision(6) : x);
 
 /* FNV-1a over the float32 BITS: two renders agree here only if every sample agrees exactly */
@@ -118,8 +134,40 @@ export const CONTROLS = {
   broken: r => r.aliasDb >= -15 && r.roughness >= 0.15 && (r.flatness >= 0.3 || r.rootPresence <= 0.3),
 };
 
+/* RE-MEASURE IN PLACE (B345, 2026-09-28; the human: "Let's fix the metrics first, then re-fit").
+   When metrics.mjs changes, the committed numbers must be the current metrics' numbers of the
+   SAME sounds, or listening_pass_check T4 reddens. This rewrites each item's `metrics` with
+   gauntlet.mjs measure() (and roughnessSolo) for the same seeds, and changes nothing else: the
+   same items in the same order, the same strata labels (a record of how each patch was DRAWN,
+   on the numbers of its day), the same exclusions, ph and fp (asserted unchanged: the sounds
+   are the sounds). A fresh selection would draw different patches from the new numbers and
+   orphan the human's ratings, so this never re-selects. The id changes with the numbers; the
+   file records every id it replaced in `remeasured`, so the page and calibrate.mjs know an
+   export on an earlier id rated the same sounds. */
+export function remeasure(json, note) {
+  const run = json.run.seed, items = json.items.map(it => {
+    const patch = samplePatch(run, it.i, it.mode).patch, pseed = hash32(run, it.i, RENDER_SALT);
+    if (patchHash(patch) !== it.ph || fingerprintOf(patch, pseed) !== it.fp) throw new Error(`${it.key}: the sound changed (ph/fp) — a re-measure keeps the sounds; re-select instead`);
+    const r = measure(patch, pseed), metrics = Object.fromEntries(KEEP.map(k => [k, r[k]]));
+    metrics.roughnessSolo = roughnessSolo(patch, pseed);
+    return Object.assign({}, it, { roughOrigin: roughOrigin(metrics.roughness, metrics.roughnessSolo, T.roughness), metrics });
+  });
+  const id = sampleId(items);
+  const remeasured = (json.remeasured || []).concat(id === json.id ? [] : [{ from: json.id, to: id, note }]);
+  const { id: _, items: __, remeasured: ___, ...rest } = json;
+  return Object.assign(rest, { remeasured, id, items });
+}
+
 function main() {
   const arg = (n, d) => { const i = process.argv.indexOf('--' + n); return i > 0 ? process.argv[i + 1] : d; };
+  if (process.argv.includes('--remeasure')) {
+    const note = arg('note', '');
+    if (!note) throw new Error('--remeasure needs --note "why the metrics changed" (recorded in the file)');
+    const file = join(ROOT, SAMPLE_FILE), old = JSON.parse(readFileSync(file, 'utf8')), json = remeasure(old, note);
+    writeFileSync(file, JSON.stringify(json, null, 1) + '\n');
+    console.error(`listening_sample: re-measured ${json.items.length} items in place, id ${old.id} -> ${json.id}`);
+    return;
+  }
   const run = arg('run', 'lp324'), exclude = new Set(String(arg('exclude', '')).split(',').filter(Boolean));
   const { rows, meta } = readRun(run);
   if (!meta) throw new Error(`no gauntlet run "${run}" under local/patchspace/ — run gauntlet.mjs first`);

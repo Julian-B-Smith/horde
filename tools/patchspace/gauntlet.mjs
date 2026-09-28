@@ -37,6 +37,11 @@
  *              = 0.45·sr·os/fi, spreadMember's 0.9·nyq and the Sine→Saw r cap), so where a
  *              cap binds the reference is a slightly different (brighter) patch, and FM
  *              partials that move with the cap can read as aliasing. Best available, not pure.
+ *              B345 (2026-09-28): aliasing() compares 2-frame units and floors the reference's
+ *              local level by its noise floor (metrics.mjs header); this 0.25 s window is exactly
+ *              one unit, so only the floor moved its numbers (noise-like patches read lower). The
+ *              A leg also records noiseDb (analyse()). Runs and reports made before B345 (the P3
+ *              report, docs/patchspace/2026-09-27-gauntlet-p3.md) carry the earlier aliasing.
  *   C  POLY    four overlapping notes (A2, A3, E4, A5 entering every 0.15 s), all off at 0.9 s,
  *              rendered to 1.4 s: nonFinite, peak, clicks and silence over the whole render,
  *              and its wall-clock load (cpuPoly, all voices together).
