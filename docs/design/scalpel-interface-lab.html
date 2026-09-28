@@ -155,10 +155,25 @@
      engine clock. (3) THE SPECIMEN (section E3): gui2's CHROME-002 as the WebGL underlay of MAIN's
      XY pad, with a toggle and a plain fallback. Checks in K (checkBipolar, checkLogoSpecimen).
 
+     ROUND 9 — B317, 2026-09-28, dispatched by the horde lead on ROADMAP B317 (carried in the
+     records PR on branch lead-records-123). The human: "please replace the black border with the
+     version that shifts color. The specimen also needs to be bigger, and could you make it so moving
+     the XY moves it like it's being clicked and rotated? Also realizing I would like to see the
+     different display color schemes from the original plugin." Then: "Actually maybe the size of the
+     logo is alright for now". Built as: (1) THE EDGE (logoOutline, E2): the logo keeps its 70×46 box;
+     gui2's ink edge gives way to gui2's hue-test edge, the fill's colour turned 120°, so it shifts as
+     the fill does. (2) BIGGER (buildMain, E3): the Morph cell's pills move into its title bar and the
+     XY pad takes their row (108 → 127 px; the column had no other slack), and the camera's focal
+     length is 1.25× gui2's (SPECIMEN_ZOOM). (3) THE XY ORBITS IT (specimenFollowXY, E3): the puck's
+     travel, in pad pixels, turns the pearl with gui2's drag gains and gui2's easing, on the engine
+     clock. (4) SCREEN SCHEMES (A's CSS, SCHEMES): gui2's five (TUBE, ORCHID, FROST, EMBER, DUSK)
+     behind a "screen" chip beside the theme chip, and ?scheme=; the theme picks its pair, as in
+     gui2. Checks in K (checkB317).
+
      L0026: every const is declared above the code that runs at setup; the boot
      call is the last statement of the script. -->
 <html><head><meta charset="utf-8">
-<meta name="lab-review" content="B271 + B293–B315 · 2026-09-27">
+<meta name="lab-review" content="B271 + B293–B317 · 2026-09-28">
 <title>SCALPEL interface lab — horde with blades at its centre</title>
 <style>
   :root {
@@ -231,12 +246,31 @@
      elements, never wells. */
   canvas { border:var(--stroke) solid var(--line); border-radius:var(--r-well);
            background:var(--scr-tube); display:block; }
-  /* gui2:142 — ORCHID is the screen scheme the LIGHT chassis pairs with
-     (gui2:1654-1657: LIGHT/ORCHID, DARK/TUBE). A lab with two themes carries
-     both pairings or it is showing a chassis nobody ships. */
-  body:not(.dark) { --scr-tube:#F3EBFF; --scr-value:#D6006B; --scr-meter:#007A73;
+  /* SCREEN SCHEMES (B317; gui2.html:105-150, ADR-121) — the SCREEN axis, separate from the
+     chassis theme. Each redefines the seven --scr-* roles and nothing else; no painter knows a
+     scheme exists. TUBE is the absence of a class (the :root set above); the other four are
+     gui2's body classes, values verbatim. The theme only picks the DEFAULT scheme (gui2's
+     MODES pairs, :1864-1867: LIGHT → ORCHID, DARK → TUBE); the screen chip moves it alone, so a
+     pale screen in a dark chassis is on offer, as in gui2. Neither chassis block sets a --scr-*
+     role any more, so the two axes cannot fight over one. */
+  body.scr-dusk   { --scr-tube:#2A2140; --scr-value:#FF4FA3; --scr-meter:#C8FF3D;
+    --scr-physics:#3DE8FF; --scr-marker:#FFE94A; --scr-grid:#8A6FD4;
+    --scr-scan:0.16; --scr-alpha:1; }
+  /* gui2:142 — ORCHID is the screen scheme the LIGHT chassis pairs with */
+  body.scr-orchid { --scr-tube:#F3EBFF; --scr-value:#D6006B; --scr-meter:#007A73;
     --scr-physics:#6E14E8; --scr-marker:#C43A00; --scr-grid:#5A3FA8;
-    --scr-scan:0.05; --scr-alpha:1.6;
+    --scr-scan:0.05; --scr-alpha:1.6; }
+  body.scr-frost  { --scr-tube:#E6F8FF; --scr-value:#D6006B; --scr-meter:#007A73;
+    --scr-physics:#6E14E8; --scr-marker:#C43A00; --scr-grid:#00618C;
+    --scr-scan:0.05; --scr-alpha:1.6; }
+  body.scr-ember  { --scr-tube:#FFF0E4; --scr-value:#D6006B; --scr-meter:#007A73;
+    --scr-physics:#6E14E8; --scr-marker:#B03000; --scr-grid:#8A5A2E;
+    --scr-scan:0.05; --scr-alpha:1.6; }
+  /* B293's weights belong to the PALE tube, not to the light chassis: they were tuned on ORCHID,
+     and FROST and EMBER share its ink family and --scr-alpha, so the three pale grounds carry
+     them. TUBE and DUSK are dark grounds and keep the :root (dark) weights. (Before B317 these
+     sat in body:not(.dark), which was the same thing while light meant ORCHID.) */
+  body.scr-orchid, body.scr-frost, body.scr-ember {
     /* B293 (human 2026-09-27: "the color scheme can get a little overwhelming in
        light mode … make the blades in light mode a little less opaque, and maybe
        do something to make the signal pop more"). --scr-alpha 1.6 lifts faint
@@ -246,7 +280,8 @@
        a thin tube-coloured halo so it cuts through whatever is under it. Its ink
        stays --scr-meter (a measure — what is heard), which is already not the
        blade hue, so no colour changes job. */
-    --scr-blade-a:.4; --scr-sig-w:2.6; --scr-halo-w:2; --scr-member-a:.6;
+    --scr-blade-a:.4; --scr-sig-w:2.6; --scr-halo-w:2; --scr-member-a:.6; }
+  body:not(.dark) {
     /* gui2:167 — yellow and lime cannot survive a light ground (measured
        1.20:1 and 1.17:1 against --bg, where the graphical floor is 3:1). */
     --marker:#8A6A00; --celebrate:#4E7A00; }
@@ -276,8 +311,11 @@
      second blade cannot borrow one without lying about what it is. This pair
      exists only while the HUE alternative is selected; adopting it would be an
      ADR-116 amendment, which is the human's call (open question 8). */
-  body.b2hue { --b2:#0B6FC4; --scr-b2:#0A63B8; }
-  body.b2hue.dark { --b2:#5CB8FF; --scr-b2:#7CC8FF; }
+  /* B317: --b2 follows the chassis, --scr-b2 the SCREEN (the dark-ground ink on TUBE and DUSK,
+     the pale-ground ink on the three tints), so the paired combinations are unchanged */
+  body.b2hue { --b2:#0B6FC4; --scr-b2:#7CC8FF; }
+  body.b2hue.dark { --b2:#5CB8FF; }
+  body.b2hue.scr-orchid, body.b2hue.scr-frost, body.b2hue.scr-ember { --scr-b2:#0A63B8; }
 
   /* ============ LAB CHROME — station-page-lab's idiom (gui2:245-560) ============ */
   body { background:var(--bg); color:var(--text);
@@ -675,14 +713,15 @@
   <div>
     <h1>scalpel</h1>
     <div class="badges">
-      <span class="badge">B271 + B293–B315 · DESIGN LAB</span>
-      <span class="sub">BLADES AT THE CENTRE · OSC + MAIN AT 980×720 · VISUALS DRIVEN BY THE ENGINE · THE WAVEFORM IS AN XY · THE RING IS COUPLING × DETUNE (CLICK TO SET) · CARPET + VOICE MAP · MEMBERS AT PHASE · THE R-HUED BEAM · 83 BENCH PRESETS · HORDE'S SWARM VOICED · INTERPLAY DRAWN AS HEARD · THE WAVEFORM STAYS IN VIEW · BIPOLAR SPREADS · THE MORPHING LOGO · THE SPECIMEN UNDER MAIN'S XY</span>
+      <span class="badge">B271 + B293–B317 · DESIGN LAB</span>
+      <span class="sub">BLADES AT THE CENTRE · OSC + MAIN AT 980×720 · VISUALS DRIVEN BY THE ENGINE · THE WAVEFORM IS AN XY · THE RING IS COUPLING × DETUNE (CLICK TO SET) · CARPET + VOICE MAP · MEMBERS AT PHASE · THE R-HUED BEAM · 83 BENCH PRESETS · HORDE'S SWARM VOICED · INTERPLAY DRAWN AS HEARD · THE WAVEFORM STAYS IN VIEW · BIPOLAR SPREADS · THE MORPHING LOGO · THE SPECIMEN UNDER MAIN'S XY · THE LOGO'S COLOUR-SHIFTING EDGE · THE XY ORBITS THE SPECIMEN · GUI2'S SCREEN SCHEMES</span>
     </div>
   </div>
   <div class="hdrctl">
     <div class="grp"><span class="lbl">PAGE</span><div class="pills" id="pagePills"></div></div>
     <button class="chip" id="valsBtn" data-lab="show every knob's value, not only on hover">values <b>HOVER</b></button>
     <button class="chip" id="themeBtn" data-lab="theme audition">theme <b>LIGHT</b></button>
+    <button class="chip" id="scrBtn" data-lab="audition the screen scheme (the data wells only) — gui2's SCR chip, ADR-121" title="audition the screen scheme (the data wells only): TUBE · ORCHID · FROST · EMBER · DUSK">screen <b>ORCHID</b></button>
     <button class="pill" id="pwr" data-lab="audio context — a lab affordance, not a parameter">POWER</button>
     <button class="pill panic" id="panic" data-lab="all notes off">PANIC</button>
   </div>
@@ -1033,6 +1072,35 @@ Coupling × Detune XY</b> for the swarm.</div>
         Measured headless (M3, dpr 2, 508×212 px): about 1.0 ms a draw with the GPU synced, drawn every third frame, so about 0.33 ms a frame.
         <span class="rec">Open for the human:</span> is this the XY they meant, and should the pearl take the pad's gestures (gui2's
         drag-to-orbit, click-to-strike) when the pad gets its job?</li>
+    </ol>
+    <h2 style="margin-top:10px">Round 9 (B317) — the logo's shifting edge; a bigger Specimen the XY turns; gui2's screen schemes</h2>
+    <ol start="60">
+      <li><b>The logo's edge</b> (the human: "please replace the black border with the version that shifts color"; the size stays, "maybe the
+        size of the logo is alright for now"). gui2 has two edges. Its default is the ink one, the black border round 8 ported. The other is
+        the human's own hue-test of 2026-08-29: the fill's colour turned <b>120°</b> round the hue wheel (90° was tried first). The fill shifts
+        (the morph cursor, or the slow drift), so the edge shifts with it. Ported as gui2's code runs it, in both themes, so the dark theme now
+        has an edge too. There is a cost on the cream ground. The ink edge was the mark's contrast. A turned edge is only as dark as the
+        turn lands, so a yellow fill gets a cyan edge, and both are pale on cream (trace b317, shot 01). <span class="rec">Open:</span>
+        keep the edge in dark, or drop it there as gui2's ink edge did? Is 120° the turn, or 90°? And does the light ground need the edge
+        darkened to keep 3:1?</li>
+      <li><b>A bigger Specimen.</b> MAIN's left column had no free height (measured: the Visualizers cell's content fills it to within 5 px).
+        The Morph cell's three pills now sit in its title bar, like the XY's SPECIMEN pill, and the XY pad takes their row: <b>108 → 127 px</b>.
+        Nothing else moves. The camera's focal length is also <b>1.25×</b> gui2's, the lab's one shader edit. The pearl now spans up to about 131 px
+        across, where it spanned about 88, and it covers up to 22% of the pad, where it covered up to 12% (60 sampled moments each, trace b317). At the default tilt its top clears the pad by 11 px; only its floor shadow reaches the foot, as before.
+        At the tilt limits (±1.1 rad) it grazes the top edge in 3 and 1 of 60 moments. <span class="rec">Recommend: as built.</span>
+        Trim SPECIMEN_ZOOM if the graze bothers you.</li>
+      <li><b>The XY turns the Specimen</b> (the human: "moving the XY moves it like it's being clicked and rotated"). The pad keeps the
+        pointer and its job (the round trip is checked). The marker's travel drives the pearl with gui2's drag gains: 0.006 rad of yaw per
+        pixel across and 0.005 rad of pitch per pixel down, with the pitch clamped at ±1.1. gui2's easing is kept too: it is damping, with no
+        momentum, so none was invented. Because it reads the <b>marker</b> and not the pointer, the pearl turns however the marker moves: a
+        drag, a click that lands it, a Width or Cut rate knob, a preset. <span class="rec">Open:</span> should knob and preset moves turn it
+        too, or only the pad's own gestures?</li>
+      <li><b>gui2's screen schemes</b> (the human: "I would like to see the different display color schemes from the original plugin").
+        The <b>screen</b> chip beside the theme chip cycles gui2's five: <b>TUBE</b>, <b>ORCHID</b>, <b>FROST</b>, <b>EMBER</b> and <b>DUSK</b>
+        (?scheme=NAME also sets it). They repaint every screen: the cycle view, beam, ring, spectrum, carpet, voice map and pads, and the
+        Specimen's ground. The logo and the chassis do not change. The theme picks its pair (light ORCHID, dark TUBE), as in gui2, and the
+        chip then moves the scheme alone, so crossed pairs can be seen. gui2's comment says "four", but its list has five, so all five are
+        here. Round 2's light-tube weights now go with the three pale grounds rather than with the light chassis.</li>
     </ol>
   </div>
   <div class="box" id="misread" style="grid-column:1 / -1">
@@ -1386,8 +1454,18 @@ const LAB = {
   view: qp('view', 'sum'), contrib: qp('contrib', '1') === '1', t2open: qp('t2', '0') === '1',
   advOpen: qp('adv', '0') === '1', mainBlade: 1, still: parseInt(qp('still', '0'), 10) || 0,
   frozen: false, showVals: qp('vals', '0') === '1', presetName: '', presets: null,
-  params: null, presetStat: {}, openCats: null, restrike: qp('restrike', '0') === '1'
+  params: null, presetStat: {}, openCats: null, restrike: qp('restrike', '0') === '1', scheme: ''
 };
+/* B317 — gui2's auditionable SCREEN SCHEMES (gui2.html:1846-1856, ADR-121), in its cycle order;
+   `cls` is the body class the stylesheet carries, TUBE is its absence. The theme picks the
+   default (MODES_PAIR, gui2.html:1864-1867); the screen chip, or ?scheme=NAME, moves the scheme
+   alone. (gui2's comment says "four": it predates DUSK; the array it ships has five rows.) */
+const SCHEMES = [
+  { cls: '', name: 'TUBE' }, { cls: 'scr-orchid', name: 'ORCHID' }, { cls: 'scr-frost', name: 'FROST' },
+  { cls: 'scr-ember', name: 'EMBER' }, { cls: 'scr-dusk', name: 'DUSK' }
+];
+const MODES_PAIR = { light: 'ORCHID', dark: 'TUBE' };
+LAB.scheme = SCHEMES.some(s => s.name === String(qp('scheme', '')).toUpperCase()) ? String(qp('scheme', '')).toUpperCase() : MODES_PAIR[LAB.theme === 'dark' ? 'dark' : 'light'];
 let P = Object.assign({}, DEF, { b2on: 1 });   // the patch (the morph's home corner A). Opens on the oracle's defaults, blade 2 on.
 let EFF = Object.assign({}, P);                 // what is heard: P, then the morph, then the macros
 const MORPH = { on: qp('morph', '0') === '1', x: parseFloat(qp('mx', '0.62')), y: parseFloat(qp('my', '0.3')),
@@ -2803,7 +2881,16 @@ function paintMorph(cv) {
    pearl is doing behind them. The plates and the puck are recorded in XY_PAINT for the check,
    which reads the pixels the painter wrote (checkSpecimen). */
 const XY_VEIL = 0.35;
+/* B317 (human 2026-09-28: "The specimen also needs to be bigger"): the pad is taller by the row
+   the Morph cell's pills gave up (buildMain), so the Specimen under it is too; see SPECIMEN_ZOOM */
+const XY_PAD_H = 127;
 let XY_PAINT = null;
+/* where the pad's marker (the puck, P's Width × Cut rate) sits, as fractions of the pad: the one
+   mapping paintXY draws it by and the Specimen follows it by (B317) */
+function xyMarker() {
+  const kKey = EFF.lock === 2 ? 'kHz' : 'k';
+  return [toPos(SP.w, P.w), 1 - toPos(SP[kKey], P[kKey])];
+}
 function paintXY(cv) {
   const [g, W, H] = fit(cv); if (!g) return;
   const under = specimenLive(), wrap = cv.parentNode;
@@ -2828,10 +2915,11 @@ function paintXY(cv) {
     g.beginPath(); g.arc(X(EFF.w), Y(EFF[kKey]), 4, 0, TAU); g.fillStyle = TOKA('--scr-physics', 1); g.fill();
     if (under) { g.lineWidth = 1.5; g.strokeStyle = TOK('--scr-tube'); g.stroke(); }
   }
-  puck(g, X(P.w), Y(P[kKey]), '--scr-value');
+  const [mu, mv] = xyMarker();
+  puck(g, mu * W, mv * H, '--scr-value');
   txt(fmtVal(SP.w, P.w) + ' · ' + fmtVal(SP[kKey], P[kKey]), W - 4, 11, 'right', TOKA('--scr-meter', 1));
   if (SPECIMEN.on && SPECIMEN.fail) txt('SPECIMEN UNAVAILABLE — ' + SPECIMEN.fail, 4, H - 4, 'left', TOKA('--scr-marker', 0.9));
-  XY_PAINT = { plates, puck: [X(P.w), Y(P[kKey])], W, H, under };
+  XY_PAINT = { plates, puck: [mu * W, mv * H], W, H, under };
 }
 
 /* ======================================================================
@@ -2850,8 +2938,9 @@ function paintXY(cv) {
      R         → tremor (the ripple): MON.rSm, the smoothed order parameter, gui2's kSmR;
      detune    → waveAmp (the wiggle): the swarm knob, EFF.detune/100 (row 4: d cents ≡ knob
                  d/100), one-pole smoothed as gui2 does.
-   gui2's LESSONS, kept: a logo is DISPLAY type (the four corner colours at full value, the ink
-   outline --lg-edge carrying contrast on the light ground, none on the dark); it must not push
+   gui2's LESSONS, kept: a logo is DISPLAY type (the four corner colours at full value, an
+   outline carrying contrast: since B317 gui2's hue-test edge, the fill turned 120°, in place of
+   the ink --lg-edge; see logoOutline); it must not push
    layout (a FIXED box, in flow, no taller than the tab rows beside it: the check measures it);
    and its cost is capped by its backing store (the warp is O(W·H) with a sin per pixel, so the
    store IS the cost: 2× bitmap of a 70×46 box, a quarter of gui2's 146×96, at most 30 paints a
@@ -2949,7 +3038,7 @@ function tdWarp(seed) {
    gui2's 146×96 box scaled by LOGO_H/96, so the authored look holds at this size */
 const LOGO_W = 70, LOGO_H = 46;
 const LOGO = { cv: null, ctx: null, W: 2 * LOGO_W, H: 2 * LOGO_H, SRC: null, DST: null, ink: '', warp: null,
-  baseWave: 0, baseTrem: 0, t: 0, clk: -1, n: 0, smD: 0.28, smX: 0.5, smY: 0.5, hue: 0, tint: '', ms: 0, reduce: false,
+  baseWave: 0, baseTrem: 0, t: 0, clk: -1, n: 0, smD: 0.28, smX: 0.5, smY: 0.5, hue: 0, tint: '', edge: '', ms: 0, reduce: false,
   aux: null };
 const LOGO_LG = ['--lgA', '--lgB', '--lgC', '--lgD'];
 function logoMix(a, b, f) {
@@ -2983,7 +3072,7 @@ function logoCanvas() {
   const cv = el('canvas', 'logo');
   cv.width = LOGO.W; cv.height = LOGO.H;
   cv.setAttribute && cv.setAttribute('role', 'img'); cv.setAttribute && cv.setAttribute('aria-label', 'horde');
-  cv.title = 'horde — gui2\'s warping wordmark (B315): colour = the morph cursor (morph on) or a slow drift (off) · ripple = R · wiggle = Detune';
+  cv.title = 'horde — gui2\'s warping wordmark (B315): colour = the morph cursor (morph on) or a slow drift (off) · edge = that colour turned 120° (gui2 hue-test, B317) · ripple = R · wiggle = Detune';
   LOGO.cv = cv;
   LOGO.ctx = cv.getContext ? cv.getContext('2d', { willReadFrequently: true }) : null;
   LOGO.reduce = !!(typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches);
@@ -3042,10 +3131,21 @@ function logoTint(dt) {
   LOGO.tint = fill;
   g.globalCompositeOperation = 'source-in'; g.fillStyle = fill; g.fillRect(0, 0, W, H); g.globalCompositeOperation = 'source-over';
 }
-/* the ink edge on the light ground (gui2.html:6408-6420: eight stamps of the mark in --lg-edge,
-   the fill back on top); dark mode has none */
+/* THE EDGE (B317). Human, 2026-09-28: "please replace the black border with the version that
+   shifts color". gui2 has two edges (gui2.html:6384-6420): its DEFAULT is the ink one, --lg-edge
+   (#191521 on the light chassis, none on the dark: B315 ported that, and it is the black border
+   the human means), and its HUE-TEST, the human's own audition of 2026-08-29, where the edge is
+   the fill's colour turned 120° round the hue wheel (`hueRot(lastTint, 120)`, :6414; 90° was
+   auditioned first and the human asked for 120). The fill already shifts (the morph cursor, or
+   the ADR-150 drift), so the edge shifts with it and stays a third of the wheel away. Ported as
+   gui2's code path runs it: the hue-test edge replaces the ink one in BOTH themes (gui2's
+   `if (brandHueTest && lastTint) edge = …` overrides dark's `none` too). --lg-edge stays in the
+   token set (copied from gui2) and is no longer read. Same eight stamps, fill on top. */
+const LOGO_EDGE_TURN = 120;
+function logoEdgeColour() { return LOGO.tint ? logoHueRot(LOGO.tint, LOGO_EDGE_TURN) : TOK('--lg-edge', 'none'); }
 function logoOutline() {
-  const edge = TOK('--lg-edge', 'none'), A = LOGO.aux, g = LOGO.ctx, W = LOGO.W, H = LOGO.H;
+  const edge = logoEdgeColour(), A = LOGO.aux, g = LOGO.ctx, W = LOGO.W, H = LOGO.H;
+  LOGO.edge = edge;
   if (!edge || edge === 'none' || !A) return;
   A.fx.clearRect(0, 0, W, H); A.fx.drawImage(LOGO.cv, 0, 0);
   A.ex.clearRect(0, 0, W, H); A.ex.drawImage(LOGO.cv, 0, 0);
@@ -3105,9 +3205,23 @@ function logoFrame(force) {
    idle "plate", by engine time rather than a 1.5 s wall timeout); gui2's adaptive resolution
    read wall-clock frame times, so here the resolution is FIXED at gui2's ceiling, min(dpr, 2)
    (the frame cost is measured instead, trace b315); gui2's drag-to-orbit and click-to-strike are
-   the XY's gestures here, so the pearl turns only on gui2's slow turntable and notes strike it.
+   the XY's gestures here, so notes strike the pearl, and (B317) THE XY'S MARKER ORBITS IT.
+   B317 — human, 2026-09-28: "could you make it so moving the XY moves it like it's being clicked
+   and rotated?" gui2's drag (gui2.html:5218-5226) adds dx·0.006 rad to the yaw target and
+   dy·0.005 to the pitch target (clamped ±1.1) per pointer pixel, and the frame eases the view
+   to its target at min(1, dt·7) (:5375-5378): damping, no momentum, so none is invented here.
+   The pad owns the pointer, so the same gains read the MARKER instead: every Specimen frame
+   takes how far the puck moved since the last one, in the pad's CSS pixels (specimenFollowXY).
+   Driven by the marker, not by pointer events, so it follows the puck however it moved (a drag,
+   a click that lands it, a Width or Cut rate knob, a preset), and a still marker adds nothing.
+   It is visual only: nothing reads the orbit back, and the easing runs on the engine clock.
+   BIGGER: the pad is taller (XY_PAD_H), and the camera's focal length is SPECIMEN_ZOOM × gui2's
+   2.1, a lab departure (the only shader edit) sized so the pearl fills more of the pad without
+   leaving it (trace b317 measures its reach).
    ====================================================================== */
+const SPECIMEN_ZOOM = 1.25;
 const SPECIMEN = { on: qp('specimen', '1') !== '0', cv: null, gl: null, u: {}, fail: '', ms: 0, draws: 0,
+  xyLast: null, xyYaw: 0, xyPit: 0,
   yaw: 0.55, pit: 0.18, yawT: 0.55, pitT: 0.18, dent: { x: 0, v: 0 }, poke: [0, 0, 1], time: 3.7, clk: -1, n: 0,
   gates: {}, shySm: 0, kSm: undefined, bgTok: '', bg: [0.95, 0.93, 0.89], w: 0, h: 0, frontIx: 0, rng: mulberry32(0xC0FFEE),
   fronts: [0, 1, 2, 3].map(() => ({ age: 100, az: 0, el: 0, wave: 9, hold: -1, heldAmt: 0 })) };
@@ -3122,7 +3236,7 @@ uniform vec2 uRes;uniform float uTime;uniform float uK;uniform int uVariant;
 uniform vec3 uPoke;uniform float uDent;uniform vec2 uOrbit;uniform float uThick;
 uniform vec3 uPokeN[4];uniform float uStrikeN[4];uniform float uRWaveN[4];uniform float uHeldN[4];
 uniform float uRAmp;uniform float uShy;
-uniform vec3 uBg;
+uniform vec3 uBg;uniform float uZoom;
 float smin(float a,float b,float k){float h=clamp(.5+.5*(b-a)/k,0.,1.);return mix(b,a,h)-k*h*(1.-h);}
 float map(vec3 p){
  float t=uTime*.35;
@@ -3179,7 +3293,7 @@ void main(){
  vec3 ww=normalize(-ro);
  vec3 uu=normalize(cross(vec3(0.,1.,0.),ww));
  vec3 vv=cross(ww,uu);
- vec3 rd=normalize(uv.x*uu+uv.y*vv+2.1*ww);
+ vec3 rd=normalize(uv.x*uu+uv.y*vv+2.1*uZoom*ww);
  vec3 paperHi=uBg*1.035;vec3 paperLo=uBg*.93;
  vec3 bg=mix(paperLo,paperHi,smoothstep(-1.,.9,uv.y));
  vec3 col=bg;
@@ -3234,7 +3348,7 @@ function specimenInit() {
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
   const loc = gl.getAttribLocation(prog, 'a');
   gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
-  for (const n of ['uRes', 'uTime', 'uK', 'uVariant', 'uPoke', 'uDent', 'uOrbit', 'uThick', 'uPokeN', 'uStrikeN', 'uRWaveN', 'uHeldN', 'uRAmp', 'uShy', 'uBg'])
+  for (const n of ['uRes', 'uTime', 'uK', 'uVariant', 'uPoke', 'uDent', 'uOrbit', 'uThick', 'uPokeN', 'uStrikeN', 'uRWaveN', 'uHeldN', 'uRAmp', 'uShy', 'uBg', 'uZoom'])
     S.u[n] = gl.getUniformLocation(prog, n);
   S.gl = gl;
 }
@@ -3263,12 +3377,27 @@ function specimenNotePoke(midi) {
    envelopes and gates (MON.core), the level of the last rendered strobe (MON.L), R (MON.rSm) and
    Detune. Draws only when the engine clock moved, the canvas resized, the theme changed, or
    `force` (a check); returns true when it drew. */
+/* B317: the XY's marker orbits the pearl with gui2's drag gains (E3's header). The baseline is
+   dropped whenever the Specimen is not showing (specimenFrame's early returns), so a marker
+   moved elsewhere (OSC's knobs, a preset) while it was hidden cannot land as one jolt on return.
+   xyYaw / xyPit total the XY's share of the targets (the check reads them; nothing else does). */
+function specimenFollowXY(S, cv) {
+  const [u, v] = xyMarker(), W = cv.clientWidth, H = cv.clientHeight;
+  if (S.xyLast && W > 0 && H > 0) {
+    const y0 = S.yawT, p0 = S.pitT;
+    S.yawT += (u - S.xyLast[0]) * W * 0.006;
+    S.pitT = Math.max(-1.1, Math.min(1.1, S.pitT + (v - S.xyLast[1]) * H * 0.005));
+    S.xyYaw += S.yawT - y0; S.xyPit += S.pitT - p0;
+  }
+  S.xyLast = [u, v];
+}
 function specimenFrame(force) {
   const S = SPECIMEN;
-  if (!S.on || S.fail || LAB.page !== 'main') return false;
+  if (!S.on || S.fail || LAB.page !== 'main') { S.xyLast = null; return false; }
   const cv = specimenCanvas();
-  if (!cv.isConnected || !cv.offsetParent) return false;              // create-on-show
+  if (!cv.isConnected || !cv.offsetParent) { S.xyLast = null; return false; }   // create-on-show
   if (!S.gl) { specimenInit(); if (!S.gl) return false; }
+  specimenFollowXY(S, cv);                                            // every frame, drawn or not
   const clk = MON.clock, dt = S.clk < 0 ? 0.033 : Math.min(0.05, Math.max(0, clk - S.clk) / SR);
   const scale = Math.min((typeof devicePixelRatio === 'number' && devicePixelRatio) || 1, 2);
   const pw = Math.max(2, Math.round(cv.clientWidth * scale)), ph = Math.max(2, Math.round(cv.clientHeight * scale));
@@ -3325,6 +3454,7 @@ function specimenFrame(force) {
     if (hx) { const v = parseInt(hx[1], 16); S.bg = [(v >> 16 & 255) / 255, (v >> 8 & 255) / 255, (v & 255) / 255]; }
   }
   gl.uniform3f(S.u.uBg, S.bg[0], S.bg[1], S.bg[2]);
+  gl.uniform1f(S.u.uZoom, SPECIMEN_ZOOM);
   gl.drawArrays(gl.TRIANGLES, 0, 3);
   S.draws++;
   if (typeof performance === 'object') S.ms = performance.now() - t0;   // cost only (GPU work is asynchronous)
@@ -3966,9 +4096,13 @@ function buildMain(host) {
   const body = el('div', 'pbody main'); host.appendChild(body);
   const L = el('div', 'col'), Rt = el('div', 'col'); body.appendChild(L); body.appendChild(Rt);
   const cm = cell(L, 'Morph', 'OURS');
+  /* B317: the Morph cell's three pills ride in its title bar (the idiom of the XY's SPECIMEN
+     pill), which hands the row they filled to the XY pad below: the column has no other slack
+     (measured, trace b317), and the Morph pad itself keeps its 138 px */
+  const mh = cm.querySelector && cm.querySelector('h3'), mf = el('span', 'sp');
+  if (mh) mh.appendChild(mf); else cm.appendChild(mf);
   const mp = canvas(cm, 138, paintMorph, 'edit');
   padDrag(mp, (u, v) => { MORPH.x = clamp(u, 0, 1); MORPH.y = clamp(v, 0, 1); afterWrite('morph'); });
-  const mf = el('div', 'pills'); mf.style.marginTop = '4px'; cm.appendChild(mf);
   const mb = (t, on, f, tip) => { const b = el('button', 'pill mini' + (on ? ' on' : ''), t); b.title = tip; b.addEventListener('click', f); mf.appendChild(b); };
   mb('MORPH', MORPH.on, () => { MORPH.on = !MORPH.on; afterWrite('morphOn'); rebuild(); }, 'blend the blade core across four corners: A is the patch, B–D seeded variations');
   mb('CIRCULAR', MORPH.circ, () => { MORPH.circ = !MORPH.circ; afterWrite('morphCirc'); rebuild(); }, 'Position blends on the shortest arc (on) or as a line, as the shell does today (off)');
@@ -3994,7 +4128,7 @@ function buildMain(host) {
   }
   const xyw = el('div', 'xywrap'); cx.appendChild(xyw);
   xyw.appendChild(specimenCanvas());
-  const xy = canvas(xyw, 108, paintXY, 'edit');
+  const xy = canvas(xyw, XY_PAD_H, paintXY, 'edit');
   tagCtl(xy, ['w', 'k'], 'T1');
   padDrag(xy, (u, v) => { P.w = fromPos(SP.w, u); const kk = P.lock === 2 ? 'kHz' : 'k'; P[kk] = fromPos(SP[kk], 1 - v); afterWrite('w'); });
   /* B294: the ring that sat beside the cycle here is now the Coupling × Detune XY in
@@ -4665,6 +4799,7 @@ function runChecks() {
   for (const c of checkSticky()) out.push(c);
   for (const c of checkBipolar()) out.push(c);
   for (const c of checkLogoSpecimen()) out.push(c);
+  for (const c of checkB317()) out.push(c);
   for (const c of checkPresets()) out.push(c);
   AUDIT.checks = out;
   seedOracle(0xB271 + MON.note);
@@ -5230,7 +5365,7 @@ function checkMainXY() {
    simulated refusal), the underlay hides, the pad is its plain opaque surface, the pill says so.
    Needs a real layout and WebGL; the load checkers have neither, and the rows say so. */
 function checkLogoSpecimen() {
-  const out = [], page = LAB.page, theme = LAB.theme, snap = Object.assign({}, P), mOn = MORPH.on, mx = MORPH.x, my = MORPH.y, spOn = SPECIMEN.on;
+  const out = [], page = LAB.page, theme = LAB.theme, scheme = LAB.scheme, snap = Object.assign({}, P), mOn = MORPH.on, mx = MORPH.x, my = MORPH.y, spOn = SPECIMEN.on;
   const mv = MACROS.map(m => m.v), logoSm = [LOGO.smX, LOGO.smY], monSnap = Object.assign({}, MON), bufs = [MON.buf.slice(), MON.bufR.slice()], fz = LAB.frozen;
   const alphaAt = (cv, x, y) => {                  // CSS px → the bitmap's pixel
     const g = cv.getContext('2d'), k = cv.width / Math.max(1, cv.clientWidth);
@@ -5271,7 +5406,7 @@ function checkLogoSpecimen() {
     /* the Specimen */
     const probe = th => {
       MORPH.on = false; for (const m of MACROS) m.v = 0;   // the pad writes P; the engine hears P only with no morph or macro on top
-      LAB.theme = th; applyBodyClasses(); rebuild();
+      LAB.theme = th; LAB.scheme = MODES_PAIR[th]; applyBodyClasses(); rebuild();   // B317: the paired screen
       const wrap = FR.querySelector('.xywrap'), xy = wrap && wrap.querySelector('canvas.viz'), un = SPECIMEN.cv;
       if (!wrap || !xy || !(xy.clientWidth > 0)) return { nolayout: true };
       const drew = specimenFrame(true);
@@ -5332,7 +5467,7 @@ function checkLogoSpecimen() {
         detail: res.map(q => q.th + ': pad alpha ' + q.seeOff).join(' · ') + ' (must be 255, opaque)' });
     }
     /* the fallback: a refused context */
-    LAB.theme = theme; applyBodyClasses();
+    LAB.theme = theme; LAB.scheme = scheme; applyBodyClasses();
     const fail0 = SPECIMEN.fail; SPECIMEN.fail = 'simulated refusal (self-check)'; rebuild(); paintCanvases();
     const wrap = FR.querySelector('.xywrap'), xy = wrap && wrap.querySelector('canvas.viz');
     if (wrap && xy && xy.clientWidth > 0) {
@@ -5345,9 +5480,161 @@ function checkLogoSpecimen() {
   } catch (e) {
     out.push({ name: 'logo + Specimen', ok: false, detail: 'threw: ' + String(e && e.stack || e) });
   }
-  LAB.page = page; LAB.theme = theme; SPECIMEN.on = spOn; MORPH.on = mOn; MORPH.x = mx; MORPH.y = my; LAB.frozen = fz;
+  LAB.page = page; LAB.theme = theme; LAB.scheme = scheme; SPECIMEN.on = spOn; MORPH.on = mOn; MORPH.x = mx; MORPH.y = my; LAB.frozen = fz;
   MACROS.forEach((m, i) => { m.v = mv[i]; });
   P = snap; EFF = effective(); pushOracle(); applyBodyClasses();
+  Object.assign(MON, monSnap); MON.buf.set(bufs[0]); MON.bufR.set(bufs[1]); MON.cycN = -1;
+  if (MON.core) MON.core.set(oracleParams(EFF));
+  rebuild();
+  return out;
+}
+/* B317 — THE LOGO'S EDGE, THE XY ORBITING THE SPECIMEN, THE SCREEN SCHEMES. Read off what was
+   drawn wherever a drawing exists.
+   EDGE, in both themes, morph off: the edge pixels (opaque in the mark, empty in its fill) are
+   averaged after a paint; the engine clock is advanced 5 s in paints and they are read again. They
+   must change colour, sit on logoEdgeColour() (the fill turned 120°), and not be the ink.
+   CONTROL: 20 more paints with the clock standing, the edge must not change colour.
+   ORBIT: a real pointer drag across MAIN's pad (down on the puck, a move, up) is run from a fixed
+   Specimen state, and the same frames are run again with no drag. The XY's share of the targets
+   must be gui2's gains times the marker's pixel travel, the drawn view (after 0.5 s of engine
+   time) must have turned with it against the undragged run, and the drag must round-trip
+   Width and Cut rate into P and the engine exactly as before. CONTROL: the undragged run's XY
+   share is zero and its targets moved by the turntable alone.
+   SCHEMES, each of gui2's five in both themes, on OSC's screens: the tube token is gui2's value
+   for that scheme, the most common pixel of every screen canvas is that tube, the Specimen's
+   ground takes it (MAIN), the roles are the same in both themes (the scheme is the SCREEN axis,
+   the theme does not reach it), the chip names it, and the five grounds are distinct.
+   CONTROL: DUSK selected but its class stripped, the screens are not DUSK's. */
+const SCHEME_TUBE = { TUBE: '#1b0733', ORCHID: '#f3ebff', FROST: '#e6f8ff', EMBER: '#fff0e4', DUSK: '#2a2140' };   // gui2.html:74, :139-150
+function checkB317() {
+  const out = [], page = LAB.page, theme = LAB.theme, scheme = LAB.scheme, snap = Object.assign({}, P), mOn = MORPH.on, spOn = SPECIMEN.on;
+  const mv = MACROS.map(m => m.v), monSnap = Object.assign({}, MON), bufs = [MON.buf.slice(), MON.bufR.slice()], fz = LAB.frozen;
+  const logoSnap = { hue: LOGO.hue, clk: LOGO.clk, t: LOGO.t, n: LOGO.n, smX: LOGO.smX, smY: LOGO.smY };
+  const S = SPECIMEN, specSnap = {};
+  for (const k of ['yaw', 'pit', 'yawT', 'pitT', 'clk', 'n', 'time', 'xyLast', 'xyYaw', 'xyPit']) specSnap[k] = S[k];
+  const hex3 = c => (c ? '#' + c.map(v => Math.round(v).toString(16).padStart(2, '0')).join('') : 'none');
+  const rgbOf = h => { const m = /^#?([0-9a-f]{6})$/i.exec(String(h).trim()); if (!m) return null; const v = parseInt(m[1], 16); return [v >> 16 & 255, v >> 8 & 255, v & 255]; };
+  const dist = (a, b) => (a && b ? Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) + Math.abs(a[2] - b[2]) : 999);
+  LAB.frozen = false; MORPH.on = false; for (const m of MACROS) m.v = 0;
+  try {
+    LAB.page = 'main'; SPECIMEN.on = true;
+    /* ---- the edge ---- */
+    const edgeOf = () => {
+      const A = LOGO.aux, c = LOGO.ctx.getImageData(0, 0, LOGO.W, LOGO.H).data, f = A.fx.getImageData(0, 0, LOGO.W, LOGO.H).data;
+      let n = 0, r = 0, g = 0, b = 0;
+      for (let i = 0; i < c.length; i += 4) if (c[i + 3] === 255 && f[i + 3] === 0) { n++; r += c[i]; g += c[i + 1]; b += c[i + 2]; }
+      return n ? { n, rgb: [r / n, g / n, b / n] } : { n: 0, rgb: null };
+    };
+    const edgeRes = [];
+    for (const th of ['light', 'dark']) {
+      LAB.theme = th; LAB.scheme = MODES_PAIR[th]; applyBodyClasses(); rebuild();
+      if (!LOGO.ctx || !LOGO.aux || !LOGO.aux.fx || !LOGO.cv.isConnected || !(LOGO.cv.clientWidth > 0)) { edgeRes.push({ th, nolayout: true }); continue; }
+      if (LOGO.reduce) { edgeRes.push({ th, reduce: true }); continue; }
+      LOGO.clk = MON.clock; logoFrame(true);
+      const e0 = edgeOf(), want0 = rgbOf(LOGO.edge);
+      for (let i = 0; i < 20; i++) { MON.clock += SR * 0.25; logoFrame(true); }
+      const e1 = edgeOf(), want1 = rgbOf(LOGO.edge), tint1 = LOGO.tint;
+      for (let i = 0; i < 20; i++) logoFrame(true);                  // CONTROL: the clock stands
+      const e2 = edgeOf();
+      edgeRes.push({ th, e0, e1, e2, want0, want1, tint1, turned: LOGO.edge === logoHueRot(tint1, LOGO_EDGE_TURN) });
+    }
+    if (edgeRes.some(q => q.nolayout)) out.push({ name: 'logo edge', ok: false, detail: 'no layout here (a load checker): not measured' });
+    else if (edgeRes.some(q => q.reduce)) out.push({ name: 'logo edge', ok: false, detail: 'prefers-reduced-motion: the mark is static here, so it cannot be seen to animate' });
+    else {
+      const ink = rgbOf('#191521');
+      const okOf = q => q.e0.n > 100 && q.e1.n > 100 && dist(q.e0.rgb, q.e1.rgb) > 30 && dist(q.e0.rgb, q.want0) <= 6 && dist(q.e1.rgb, q.want1) <= 6 && q.turned && dist(q.e1.rgb, ink) > 60;
+      out.push({ name: 'logo: the edge is gui2\'s colour-shifting one (the fill turned 120°), and it changes over engine time (light + dark)', ok: edgeRes.every(okOf),
+        detail: edgeRes.map(q => q.th + ': ' + q.e0.n + ' edge px ' + hex3(q.e0.rgb) + ' → after 5 s of engine time ' + q.e1.n + ' px ' + hex3(q.e1.rgb) + ' (Δ ' + dist(q.e0.rgb, q.e1.rgb).toFixed(0) + ', drawn = logoEdgeColour() within ' + dist(q.e0.rgb, q.want0).toFixed(1) + ' and ' + dist(q.e1.rgb, q.want1).toFixed(1) +
+          ', fill ' + q.tint1 + ' turned 120° ' + q.turned + ', ' + dist(q.e1.rgb, ink).toFixed(0) + ' from the ink #191521)').join(' · ') });
+      out.push({ name: 'CONTROL: the engine clock standing, the edge does not change colour', ok: edgeRes.every(q => dist(q.e1.rgb, q.e2.rgb) < 1), control: true,
+        detail: edgeRes.map(q => q.th + ': ' + hex3(q.e1.rgb) + ' → ' + hex3(q.e2.rgb) + ' after 20 paints at one clock (Δ ' + dist(q.e1.rgb, q.e2.rgb).toFixed(2) + ', must be ~0)').join(' · ') });
+    }
+    /* ---- the orbit ---- */
+    LAB.theme = theme; LAB.scheme = scheme; applyBodyClasses(); rebuild(); paintCanvases();
+    const wrap = FR.querySelector('.xywrap'), xy = wrap && wrap.querySelector('canvas.viz');
+    if (!wrap || !xy || !(xy.clientWidth > 0)) out.push({ name: 'Specimen orbit', ok: false, detail: 'no layout here (a load checker): not measured' });
+    else if (!specimenFrame(true) || !S.gl) out.push({ name: 'Specimen orbit', ok: false, detail: 'WebGL unavailable here: ' + (S.fail || 'no context') });
+    else {
+      const start = () => {
+        P = Object.assign({}, snap, { lock: 0, w: fromPos(SP.w, 0.3), k: fromPos(SP.k, 0.5) }); EFF = effective(); pushOracle(); paintCanvases();
+        Object.assign(S, { yaw: 0.55, pit: 0.18, yawT: 0.55, pitT: 0.18, xyLast: null, xyYaw: 0, xyPit: 0, clk: MON.clock, n: 0 });
+        specimenFrame(true);                                             // the baseline sample
+      };
+      const run = drag => {
+        start();
+        const r = xy.getBoundingClientRect(), [u0, v0] = xyMarker();
+        const x0 = Math.round(r.left + u0 * r.width), y0 = Math.round(r.top + v0 * r.height);
+        const x1 = x0 + Math.round(0.25 * r.width), y1 = y0 - Math.round(0.2 * r.height);
+        let trip = null;
+        if (drag) {
+          const o = (x, y) => ({ clientX: x, clientY: y, pointerId: 9, bubbles: true, button: 0 });
+          xy.dispatchEvent(new PointerEvent('pointerdown', o(x0, y0)));
+          xy.dispatchEvent(new PointerEvent('pointermove', o(x1, y1)));
+          xy.dispatchEvent(new PointerEvent('pointerup', o(x1, y1)));
+          const wExp = fromPos(SP.w, (x1 - r.left) / r.width), kExp = fromPos(SP.k, 1 - (y1 - r.top) / r.height);
+          trip = Math.abs(P.w - wExp) < 1e-9 && Math.abs(P.k - kExp) < 1e-9 && Math.abs(MON.core.t.w - P.w) < 1e-9 && Math.abs(MON.core.t.k - P.k) < 1e-9;
+        }
+        const [u1, v1] = xyMarker();
+        specimenFrame(true);                                             // the clock stands: targets only
+        const T = { yawT: S.yawT, pitT: S.pitT, xyYaw: S.xyYaw, xyPit: S.xyPit, dxPx: (u1 - u0) * xy.clientWidth, dyPx: (v1 - v0) * xy.clientHeight, px: [x1 - x0, y1 - y0], land: Math.hypot(u1 * r.width - (x1 - r.left), v1 * r.height - (y1 - r.top)) };
+        let drew = 0;
+        for (let i = 0; i < 10; i++) { MON.clock += SR * 0.05; if (specimenFrame(true)) drew++; }
+        return Object.assign(T, { yaw: S.yaw, pit: S.pit, yawT2: S.yawT, drew, trip });
+      };
+      const A = run(true), B = run(false);
+      const gain = Math.abs(A.xyYaw - 0.006 * A.dxPx) < 1e-9 && Math.abs(A.xyPit - 0.005 * A.dyPx) < 1e-9 && A.land < 1e-6;   // the pad is absolute: the marker ends under the pointer
+      const turned = A.yaw - B.yaw > 0.9 * A.xyYaw && A.xyYaw > 0.1 && A.pit - B.pit < 0.9 * A.xyPit && A.xyPit < -0.05;
+      out.push({ name: 'Specimen: moving the XY orbits it with gui2\'s drag gains, the view follows on engine time, the pad still round-trips',
+        ok: gain && turned && A.drew === 10 && A.trip === true,
+        detail: 'drag ' + A.px[0] + ',' + A.px[1] + ' px → marker ' + A.dxPx.toFixed(2) + ',' + A.dyPx.toFixed(2) + ' px → yaw target +' + A.xyYaw.toFixed(4) + ' (0.006/px), pitch ' + A.xyPit.toFixed(4) + ' (0.005/px) · after 0.5 s the view is ' +
+          (A.yaw - B.yaw).toFixed(4) + ' yaw, ' + (A.pit - B.pit).toFixed(4) + ' pitch from the undragged run (eased, gui2\'s min(1, dt·7)) · ' + A.drew + ' draws · Width and Cut rate ' + (A.trip ? 'round-trip into P and the engine' : 'DID NOT ROUND-TRIP') });
+      const turntable = 10 * 0.05 * 0.03;
+      out.push({ name: 'CONTROL: the XY still, the Specimen does not orbit', ok: B.xyYaw === 0 && B.xyPit === 0 && Math.abs(B.yawT - 0.55) < 1e-12 && Math.abs(B.yawT2 - 0.55 - turntable) < 1e-9 && Math.abs(B.pitT - 0.18) < 1e-12, control: true,
+        detail: 'XY share yaw ' + B.xyYaw + ', pitch ' + B.xyPit + ' · targets moved ' + (B.yawT2 - 0.55).toFixed(6) + ' yaw (the turntable alone: ' + turntable.toFixed(6) + '), ' + (B.pitT - 0.18).toFixed(6) + ' pitch (must be 0)' });
+    }
+    /* ---- the schemes (on the page patch: the drag above moved the pad) ---- */
+    P = Object.assign({}, snap); EFF = effective(); pushOracle();
+    const modal = cv => {
+      const g = cv.getContext('2d'), d = g.getImageData(0, 0, cv.width, cv.height).data, m = new Map();
+      let best = 0, bn = 0;
+      for (let i = 0; i < d.length; i += 28) { const k = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2], c = (m.get(k) || 0) + 1; m.set(k, c); if (c > bn) { bn = c; best = k; } }
+      return [best >> 16 & 255, best >> 8 & 255, best & 255];
+    };
+    const ROLES = ['--scr-tube', '--scr-value', '--scr-meter', '--scr-physics', '--scr-marker', '--scr-grid', '--scr-alpha'];
+    const probe = (th, name, strip) => {
+      LAB.theme = th; LAB.scheme = name; applyBodyClasses(); chrome();
+      LAB.page = 'osc'; rebuild();
+      if (strip) { const c = SCHEMES.find(s => s.name === name).cls; if (c) document.body.classList.remove(c); _tok = {}; }
+      paintCanvases();
+      const tube = TOK('--scr-tube').toLowerCase(), want = rgbOf(SCHEME_TUBE[name]);
+      const screens = CANV.filter(([cv]) => cv.clientWidth > 0 && cv.width > 0).map(([cv]) => dist(modal(cv), want) <= 3);
+      const roles = ROLES.map(r => TOK(r).toLowerCase()).join(' ');
+      const chip = $('scrBtn') ? $('scrBtn').textContent : '';
+      let spec = null;
+      if (!strip && S.gl) { LAB.page = 'main'; rebuild(); specimenFrame(true); spec = dist(S.bg.map(v => v * 255), want) <= 1; }
+      return { th, name, tube, tokOk: tube === SCHEME_TUBE[name], nScr: screens.length, nOk: screens.filter(Boolean).length, roles, chip: chip.indexOf(name) >= 0, spec };
+    };
+    const hasLayout = (() => { LAB.page = 'osc'; rebuild(); return CANV.some(([cv]) => cv.clientWidth > 0); })();
+    if (!hasLayout) out.push({ name: 'screen schemes', ok: false, detail: 'no layout here (a load checker): not measured' });
+    else {
+      const res = [];
+      for (const th of ['light', 'dark']) for (const s of SCHEMES) res.push(probe(th, s.name, false));
+      const per = SCHEMES.map(s => { const L = res.find(q => q.name === s.name && q.th === 'light'), D = res.find(q => q.name === s.name && q.th === 'dark'); return { s, L, D, ok: [L, D].every(q => q.tokOk && q.nScr >= 5 && q.nOk === q.nScr && q.chip && q.spec !== false) && L.roles === D.roles }; });
+      const grounds = new Set(res.map(q => q.tube));
+      out.push({ name: 'screen schemes: gui2\'s five apply their colours to every screen, in both themes', ok: per.every(p => p.ok) && grounds.size === SCHEMES.length,
+        detail: per.map(p => p.s.name + ' ' + p.L.tube + ': screens ' + p.L.nOk + '/' + p.L.nScr + ' light, ' + p.D.nOk + '/' + p.D.nScr + ' dark · Specimen ground ' + (p.L.spec === null ? 'n/a' : p.L.spec && p.D.spec ? 'follows' : 'DOES NOT FOLLOW') +
+          ' · roles ' + (p.L.roles === p.D.roles ? 'theme-independent' : 'DIFFER BY THEME') + (p.L.chip && p.D.chip ? '' : ' · CHIP MISNAMED')).join(' · ') + ' · ' + grounds.size + ' distinct grounds' });
+      const C = probe('light', 'DUSK', true);
+      out.push({ name: 'CONTROL: DUSK selected with its class stripped, the screens are not DUSK\'s', ok: C.nOk === 0 && !C.tokOk, control: true,
+        detail: 'tube token ' + C.tube + ' · ' + C.nOk + ' of ' + C.nScr + ' screens on #2a2140 (must be 0)' });
+    }
+  } catch (e) {
+    out.push({ name: 'B317 logo edge / orbit / schemes', ok: false, detail: 'threw: ' + String(e && e.stack || e) });
+  }
+  Object.assign(LOGO, logoSnap); Object.assign(S, specSnap);
+  LAB.page = page; LAB.theme = theme; LAB.scheme = scheme; SPECIMEN.on = spOn; MORPH.on = mOn; LAB.frozen = fz;
+  MACROS.forEach((m, i) => { m.v = mv[i]; });
+  P = snap; EFF = effective(); pushOracle(); applyBodyClasses(); chrome();
   Object.assign(MON, monSnap); MON.buf.set(bufs[0]); MON.bufR.set(bufs[1]); MON.cycN = -1;
   if (MON.core) MON.core.set(oracleParams(EFF));
   rebuild();
@@ -6016,6 +6303,7 @@ function chrome() {
   mkPills($('b2Pills'), [['hatch', 'hatch'], ['hue', 'hue', true]], LAB.b2look, v => { LAB.b2look = v; applyBodyClasses(); chrome(); rebuild(); });
   mkPills($('dirPills'), [[false, 'off'], [true, 'on']], LAB.direct || LAB.skin === 'C', v => { LAB.direct = v; chrome(); rebuild(); });
   const tb = $('themeBtn'); if (tb) tb.innerHTML = 'theme <b>' + (LAB.theme === 'dark' ? 'DARK' : 'LIGHT') + '</b>';
+  const sb = $('scrBtn'); if (sb) sb.innerHTML = 'screen <b>' + LAB.scheme + '</b>';
   const vb = $('valsBtn'); if (vb) vb.innerHTML = 'values <b>' + (LAB.showVals ? 'SHOWN' : 'HOVER') + '</b>';
   const rb = $('restrikeBtn'); if (rb && rb.classList) rb.classList.toggle('on', LAB.restrike);
 }
@@ -6024,6 +6312,8 @@ function applyBodyClasses() {
   document.body.classList.toggle('dark', LAB.theme === 'dark');
   document.body.classList.toggle('b2hue', LAB.b2look === 'hue');
   document.body.classList.toggle('showvals', LAB.showVals);
+  /* B317: exactly one scheme class (or none, for TUBE), as gui2's applyScheme does */
+  for (const s of SCHEMES) if (s.cls) document.body.classList.toggle(s.cls, s.name === LAB.scheme);
   _tok = {};
 }
 function applyPreset(name) {
@@ -6080,7 +6370,11 @@ function buildKbd() {
 }
 function wireChrome() {
   const on = (id, ev, f) => { const n = $(id); if (n && n.addEventListener) n.addEventListener(ev, f); };
-  on('themeBtn', 'click', () => { LAB.theme = LAB.theme === 'dark' ? 'light' : 'dark'; applyBodyClasses(); chrome(); rebuild(); });
+  /* gui2's rule (applyMode, gui2.html:2176-2186): switching the theme moves the scheme to the
+     theme's pair; the screen chip afterwards moves the scheme alone. rebuild() repaints every
+     canvas on the new ground (gui2 had to clear trail-fade canvases by hand; here they are new). */
+  on('themeBtn', 'click', () => { LAB.theme = LAB.theme === 'dark' ? 'light' : 'dark'; LAB.scheme = MODES_PAIR[LAB.theme]; applyBodyClasses(); chrome(); rebuild(); });
+  on('scrBtn', 'click', () => { const i = SCHEMES.findIndex(s => s.name === LAB.scheme); LAB.scheme = SCHEMES[(i + 1) % SCHEMES.length].name; applyBodyClasses(); chrome(); rebuild(); });
   on('valsBtn', 'click', () => { LAB.showVals = !LAB.showVals; applyBodyClasses(); chrome(); });
   on('pwr', 'click', () => { audioStart(); });
   on('panic', 'click', () => { audioMsg({ t: 'panic' }); AUD.drone = false; const d = $('droneBtn'); if (d) d.classList.remove('on'); });
