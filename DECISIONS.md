@@ -6584,29 +6584,66 @@ The human: "It isn't worth making the entire future of the device suffer to acco
 
 The 2026-09-23 installed bundles are archived outside the repo (`~/Documents/Claude/synthetic-worlds/horde-legacy-archive/2026-09-23-installed/`, with a MANIFEST of bundle ids, codesign results and tree hashes). The human's freeze tag (item 2) is still owed, after B255 lands.
 
-## ADR-187 — PROPOSED: a C++ golden before the plugin; the JS reference's last job is a one-time parity proof (2026-09-28)
+## ADR-187 — PROPOSED (revision 2, after critic): C++ goldens for horde 2's cores; the JS stays a continuous differential oracle, never the quality standard (2026-09-28)
 
-**Status.** PROPOSED. It amends a charter invariant, so a critic review comes before ratification. The human asked for this draft ("Let's do it", on B314).
+**Status.** PROPOSED, revision 2. Revision 1 went to an Opus critic, whose verdict was REWORK (narrow). This revision folds in C1, C2, H1–H5 and M1. The human asked for this draft ("Let's do it", on B314). Ratification waits on the human's answer to the lab question below.
 
-**Context.** The charter defines C++ correctness as "parity with the JS reference (L0-1, ε=1e-6 RMS) plus the L0 trajectory criteria". The human: "I don't trust the JS labs to provide the kind of quality standards I would want to impose on the final plugin." The labs have shown the limits of JS as a standard:
-- drawings driven by a parallel model misled twice (L0064);
-- the JS SCALPEL engine costs ~15–25% of real time per voice in the heavy class (B313, B316);
-- v1.2 made existing JS paths slower (B311);
-- the gauntlet's probe found five oracle quirks: the DC-estimator leak, Crush reading the collision accumulator, the reflected-Crush exit jump, the drift law shifting the shared RNG stream, and the pair DC estimate at λ > 0 (B316).
+**Context.** The charter defines C++ correctness as "parity with the JS reference (L0-1, ε=1e-6 RMS) plus the L0 trajectory criteria" (also ADR-003; `specs/ACCEPTANCE.md` L0-1). The human: "I don't trust the JS labs to provide the kind of quality standards I would want to impose on the final plugin." Two failure classes must be kept apart (critic M2):
+- **Lab architecture and cost:** L0064's misleading views, JS CPU (B313/B316) and v1.2's slower JS paths (B311). These say nothing about output correctness.
+- **Output defects in a reference:** the five quirks B316's probe found in the SCALPEL oracle.
 
-B252 H3 already made the C++ the golden for SCALPEL. This ADR generalises that.
+B252 H3 already made the C++ the golden for SCALPEL. This ADR says how, without leaving any core undefined.
 
 **Decision (proposed).**
-1. **Port faithfully first.** Each core gets a standalone, framework-free C++ render harness (no plugin, no host) and is ported as literally as possible.
-2. **Prove parity with the JS ONCE**, at the existing L0-1 tolerance or tighter, on the reference's own presets and the L0 trajectories. This is the port-bug detector and the JS reference's last normative job. A port that fails parity is fixed; the tolerance is never relaxed (oracle discipline).
-3. **Diverge deliberately, and only after parity.** Each removal of a JS artefact (the five quirks above, the filter-lab fidelity fixes B287, v1.2's slow paths, ADR-184 A2's two sign rules) is a numbered divergence with an ADR amendment and before/after numbers from the B316 metric suite. So a port bug can never pass as an intended change.
-4. **Freeze the C++ goldens.** Correctness is then defined by rendered C++ fixtures plus INVARIANT oracles: aliasing, DC, stability under modulation, determinism, CPU per voice against a stated budget, and the filter fidelity programme's checks. These are measured by the B316 suite and the fidelity checks. The JS reference becomes a design sketchpad for the labs, and is no longer normative for that core.
-5. **The cores enter horde 2 by ADR-186's copy-forward,** at their readiness event (B275), carrying their goldens.
-6. **Charter amendment** (the §Domain invariant): "C++ correctness is defined by the frozen C++ goldens and invariant oracles of ADR-187. The JS reference defines it for a core only until that core's parity proof completes."
+
+1. **Scope: horde 2 only (C1).** Legacy's cores and chains stay JS-normative and unchanged until legacy is parked (ADR-186 §1, §6). Nothing here retroactively changes any existing gate.
+
+2. **The JS has two roles, separated (C2):**
+   - **As the quality standard:** demoted per core, by ruling (item 4).
+   - **As an independent DIFFERENTIAL oracle:** kept, continuously. Parity keeps running on every scenario that no divergence claims, so the port-bug detector never disappears for the ongoing feature stream, which keeps arriving as JS (provider packets, lab features).
+
+3. **A named parity target per core (H1),** recorded in the core's status row (L1) as a file at a version, plus a fixture set.
+   - For SCALPEL: the composed engine (`docs/design/scalpel-horde-engine.js`) at a pinned commit. It is already chained to SwarmSynth and RazorCore by `composed_engine_check`, and it already carries horde's coupling law, horde's voice law (B310) and ADR-184 A2's sign rules. So A2 is part of the TARGET, not a post-parity divergence (this resolves the A2 contradiction).
+   - Where the SPEC and the oracle disagree, the oracle (the target) wins, and the disagreement becomes a numbered item.
+   - Seeding the target's RNG sites is a precondition for random-configuration parity; the unsanctioned SCALPEL seed edit is avoided by using the composed engine's seeded wrapper.
+
+4. **Demoting a core's JS as the quality standard** takes a per-core human ruling recorded in ROADMAP, which lands in the same PR as:
+   - (a) a frozen golden set rendered by the build that passed parity (H5);
+   - (b) the wired Layer-0 invariant suite with ratified thresholds and must-fail controls (H3), namely:
+     - non-finite values; bit-determinism;
+     - block-size and sample-rate independence;
+     - DC and peak bounds; long-run stability; denormals;
+     - an aliasing floor at a ratified threshold; RT-safety;
+     - the B316 dependency-tree probe re-run against the C++ (live parameters move the output, inert ones don't);
+     - per-parameter claim anchors (the ADR-065 / `trajectory_check` style).
+
+   Until then the JS stays normative for that core. The invariants are NECESSARY, not sufficient: they cannot judge a divergence good on their own, which is why items 5 and 6 exist.
+
+5. **Divergences are ledgered and checked (H4).** Each core has a `divergences.json` (id, ADR ref, declared fixture/scenario scope, metric before/after, metric-suite version) and a check:
+   - every changed golden digest must be claimed by a divergence in the same commit, and a claimed-but-unchanged fixture is red (the must-fail control);
+   - every scenario removed from JS parity cites a divergence id;
+   - output-neutral work (SIMD, float, refactors, cost fixes such as v1.2's slow paths) must leave every digest unchanged, or within ε; it is NOT a divergence.
+
+   One divergence per PR. Global-scope divergences (e.g. the RNG-stream layout) go in PRs of their own with no feature work.
+
+6. **Parity strength (M1).** Parity requires ALL of:
+   - RMS < 1e-6;
+   - a max-abs bound;
+   - identical blade-event counts and times (BLEP events, window entries).
+
+   The parity build uses doubles and `-ffp-contract=off` and is named separately from the shipped Release build. ADR-065's evidence rule for exclusions (chaotic regimes) is inherited explicitly. JS `Math.round` ports as `floor(x+0.5)`, never `std::round`.
+
+7. **Goldens: storage and platform (H5).** One canonical golden platform and set of flags is declared. The repo commits digests plus a compact fixture subset, never raw audio (the repo is public; SCALPEL's full renders are ~45 MB). Goldens are a protected path (charter), so a re-baseline happens ONLY through a divergence record (item 5), a human gate.
+
+8. **CPU is Layer-E, never correctness (H2).** It is measured by hand in Release on a named machine as a ratio to a calibration loop (the B236 pattern), recorded in a per-core ledger, and never a verify gate (the existing ruling, `verify` ~458). An optional Layer-0 proxy is deterministic work counters per voice-second.
+
+9. **Cores with no JS reference (M3)** (`svf_core`, `mod_core`, `routing_core`, `morph_core`, `strata_core`, `delay_core`, `fx_rack`) are defined by their named existing checks until their goldens freeze. B289 is re-stated under this ADR: the lab SVF fixes are a divergence against svf_core's existing checks, not a new JS norm.
+
+10. **Charter amendment (on ratification; with ADR-003, the second §Domain invariant and `specs/ACCEPTANCE.md` L0-1, the last a protected-path human gate):** "For horde 2's cores, C++ correctness is defined by the core's JS parity target on every scenario no ratified divergence claims, and, once the core's JS is demoted by ruling, by its frozen goldens, its divergence ledger and its Layer-0 invariant suite. Legacy is unchanged."
 
 **Consequences.**
-- Every lab-born feature that wants to enter horde goes through port → parity → deliberate divergence.
-- CPU is measured in Release in the C++ harness, which answers the lab-overload questions with real numbers.
-- The charter text changes on ratification.
-- The order of cores is the human's call (lead recommendation: SCALPEL first, since it is the heaviest and has the most quirks, with the swarm core already C++).
+- The lab-born feature path is port → parity → ledgered divergence, with parity continuing.
+- Every core carries a status row: JS-normative, parity-proven@hash, or demoted@ruling.
+- A lift under ADR-186 copy-forward (byte-identical apart from the namespace) IS the core's parity proof at that commit (L3).
+- **Open for the human (the critic's question), deciding C2's mirror policy and H6:** when the C++ diverges from the JS (a quirk fixed, a law changed), must the LAB keep sounding like the plugin, with every divergence mirrored into the lab's JS so parity keeps running on it? Or is the lab accepted as an approximate sketch after demotion, which would push toward running the real C++ in the lab (e.g. WASM) for listening passes?
 
