@@ -39,4 +39,21 @@ The workshop checks a dropped file against all three rules and prints the result
    than the canvas is shown at ×1 and clipped.
 4. Delete a file to get the placeholder back.
 
+## Lead proposals (B326)
+
+Until you drop a file, the workshop can show a **lead proposal** in each slot: one MAW mark and
+one Sluice mark per screen treatment, title and icon, each drawn in that medium's own terms
+(pixel art for the GBC, character cells for the CRT, strokes for the vector monitor, 1-bit for
+the workstation, segments for the glass, mosaics for teletext). They live as data inside the
+workshop page, not as files here.
+
+- The **LOGOS** toggle picks what an empty slot shows: **PROPOSALS** (the default), **FILES**
+  (a placeholder until your file exists), or **PLACEHOLDERS** (the canvas guides only, even
+  where a file exists).
+- A file you drop here **always wins** over a proposal. The page only reads this folder.
+- Each proposal has **export PNG** links (at the sizes above, and at ×4) in the workshop's
+  LEAD LOGO PROPOSALS box, to use as a starting point. To use one, rename it to the exact file
+  name above and save it here. The GBC exports pass the palette rule; the glass media's exports
+  carry their ground.
+
 The sizes are a proposal from the workshop, not a ruling (B322 is a comparison lab).

@@ -61,9 +61,25 @@
      lab_wheel_scroll_check's inventory does not need this lab.
 
      L0026: every const is declared above the code that runs at setup; boot() is the last
-     statement of the script. -->
+     statement of the script.
+
+     B326 (2026-09-28, ROADMAP B326, carried in records PR #821, branch lead-records-128). The
+     human: "the screens are amazing; I'm having a hard time choosing. In the meantime, could
+     you take a swing at the logos? The aesthetic in each of these is impeccable. You could try
+     a different one for each style". So each treatment now carries a LEAD PROPOSAL for MAW and
+     for Sluice, TITLE and ICON, designed in that medium's own terms and authored as DATA in
+     section K2: pixel grids with RGB555 palettes (GBC), 1-bit grids (workstation), character
+     cells on the terminal's own 5×8 cell (CRT), stroke paths (vector), segment glyphs and
+     segment shapes (segment glass), sextant grids with per-cell colours (teletext). The logo
+     slots show them in LOGOS: PROPOSALS mode (the default); FILES is B322's behaviour
+     (placeholder until a file exists); PLACEHOLDERS shows the canvas guides only. The human's
+     own drop-in PNGs still WIN over a proposal whenever they are present; this page never
+     writes them. Each proposal exports a PNG at the README's sizes (and ×4) from the LEAD LOGO
+     PROPOSALS box. Self-check 8 holds the GBC proposals to the page's own logo lint; check 9
+     holds every proposal to its size, its ink and its medium's rule; both have must-fail
+     controls. -->
 <html><head><meta charset="utf-8">
-<meta name="lab-review" content="B322 · 2026-09-28">
+<meta name="lab-review" content="B322 + B326 · 2026-09-28">
 <title>fx screens workshop — MAW and Sluice as software on horde's screens</title>
 <style>
   :root {
@@ -369,6 +385,19 @@
   .lsample { display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap; margin:4px 0; }
   .lsample figure { margin:0; font-size:9px; color:var(--dim); }
   #ctlArea { position:absolute; left:-9999px; top:0; }
+  /* B326 — the lead's logo proposals: each on its medium's ground, at ×4 and at true size */
+  .notes .box.gal { grid-column:1 / -1; }
+  .gtr { margin:8px 0 12px; }
+  .gtr > h3 { font-size:11px; letter-spacing:.1em; color:var(--text); margin:0 0 4px; }
+  .gtr > h3 span { font-weight:500; color:var(--t2); letter-spacing:.04em; margin-left:8px; }
+  .gpair { display:flex; flex-wrap:wrap; gap:12px; }
+  .gcard { flex:1 1 560px; max-width:760px; border:1px dashed var(--div); border-radius:var(--r); padding:6px 8px; }
+  .gsw { display:flex; align-items:flex-end; gap:14px; flex-wrap:wrap; padding:12px; border-radius:6px; border:var(--stroke) solid var(--line); }
+  .gsw figure { margin:0; display:flex; flex-direction:column; gap:3px; }
+  .gsw figcaption { font-size:8.5px; letter-spacing:.08em; color:#9A93A3; }
+  .gsw canvas { image-rendering:pixelated; border:0; border-radius:0; background:transparent; }
+  .gcon { margin:5px 0 3px; color:var(--t2); } .gcon b { color:var(--text); }
+  .glint { font-size:9.5px; } .gexp { font-size:9.5px; } .gexp a { color:var(--value); margin-right:10px; }
 </style>
 </head><body>
 
@@ -377,6 +406,7 @@
     <h1>fx screens</h1>
     <div class="badges">
       <span class="badge">B322 · WORKSHOP — NOT A RULING</span>
+      <span class="badge">B326 · LEAD LOGO PROPOSALS</span>
       <span class="sub">MAW + SLUICE AS SOFTWARE ON HORDE'S SCREENS · ONE CHASSIS · SIX RETRO-FUTURE GLASSES · LOGO SLOTS FOR THE HUMAN'S PIXEL ART</span>
     </div>
   </div>
@@ -384,7 +414,7 @@
     <button class="chip" id="themeBtn" data-lab="chassis theme">theme <b>LIGHT</b></button>
     <button class="chip" id="scrBtn" data-lab="screen scheme (gui2's SCR chip, ADR-121); each treatment states whether it takes it" title="TUBE · ORCHID · FROST · EMBER · DUSK">screen <b>ORCHID</b></button>
     <button class="chip" id="motionBtn" data-lab="animate the mock values (a frame counter, never the clock)">motion <b>ON</b></button>
-    <button class="chip" id="logoBtn" data-lab="show generated TEST patterns in the logo slots, to see the loaded path (not the human's art)">logos <b>FILES</b></button>
+    <button class="chip" id="logoBtn" data-lab="show generated TEST patterns in the logo slots, to see the loaded path (not the human's art)">test art <b>OFF</b></button>
   </div>
 </div>
 
@@ -398,6 +428,7 @@ Sluice's architecture spec lands (B321).</div>
 <div class="altbar">
   <div class="grp"><span class="lbl">VIEW</span><div class="pills" id="viewPills"></div></div>
   <div class="grp"><span class="lbl">MODULE</span><div class="pills" id="modPills"></div></div>
+  <div class="grp"><span class="lbl">LOGOS</span><div class="pills" id="logoPills" title="PROPOSALS: the lead's proposal for each treatment (a dropped file still wins) · FILES: your files, placeholder where absent · PLACEHOLDERS: the canvas guides only"></div></div>
 </div>
 
 <div id="stage"></div>
@@ -507,8 +538,12 @@ const LOCK_STATES = ['DEFAULT', 'LOCKED', 'UNLOCKED'];   // fz.h's tri-state loc
 const LAB = {
   view: qp('view', 'overview'), mod: qp('mod', 'both'), theme: qp('theme', 'light') === 'dark' ? 'dark' : 'light',
   scheme: '', animate: qp('still', null) === null, frame: parseInt(qp('still', '0'), 10) || 0,
-  logotest: qp('logotest', '0') === '1', rr: 0
+  logotest: qp('logotest', '0') === '1', rr: 0,
+  // B326: what an empty logo slot shows. PROPOSALS (default) and FILES both let a present file
+  // win; PLACEHOLDERS shows the canvas guides only, so the drawing sizes stay visible.
+  logos: ['proposals', 'files', 'placeholders'].includes(qp('logos', '')) ? qp('logos', '') : 'proposals'
 };
+const LOGO_MODES = [['proposals', 'PROPOSALS'], ['files', 'FILES'], ['placeholders', 'PLACEHOLDERS']];
 LAB.scheme = SCHEMES.some(s => s.name === String(qp('scheme', '')).toUpperCase()) ? String(qp('scheme', '')).toUpperCase() : MODES_PAIR[LAB.theme];
 const SCREENS = [];          // live screen instances, rebuilt with the view
 const LOGOS = {};            // file → { state: 'pending'|'present'|'absent', img, lint }
@@ -897,7 +932,7 @@ function termPlot(T, f, x0, y0, w, h, dotX, a) {
 function crtMaw(S, vm) {
   const T = new Term(64, 36);
   T.put(0, 0, ' '.repeat(64), 3); T.put(1, 0, 'MAW :: FX-C SATURATOR', 3); T.put(49, 0, 'HORDE/FX  MOCK', 3);
-  S.logo('title', 2.5, 4.5); S.logo('icon', 147.5, 5);
+  S.logo('title', 2.5, 4); S.logo('icon', 147.5, 4);   // on the terminal's cell grid (2.5 × 4 units), so a cell-map logo lines up with the text rows
   T.put(23, 1, 'MULTI-STAGE WAVESHAPER', 0);
   let x = T.put(23, 2, 'ROUTE ', 1);
   ROUTE_SHORT.forEach((r, i) => { x = T.put(x, 2, i === vm.route ? '[' + r + ']' : ' ' + r + ' ', i === vm.route ? 3 : 1); });
@@ -925,7 +960,7 @@ function crtMaw(S, vm) {
 function crtSluice(S, vm) {
   const T = new Term(64, 36);
   T.put(0, 0, ' '.repeat(64), 3); T.put(1, 0, 'SLUICE :: FX NETWORK', 3); T.put(49, 0, 'HORDE/FX  MOCK', 3);
-  S.logo('title', 2.5, 4.5); S.logo('icon', 147.5, 5);
+  S.logo('title', 2.5, 4); S.logo('icon', 147.5, 4);   // on the terminal's cell grid (2.5 × 4 units), so a cell-map logo lines up with the text rows
   T.put(23, 1, 'FEEDBACK NETWORK, ' + vm.n + ' MODULES', 0);
   T.put(23, 2, ' !! PROVISIONAL - AWAITS SPEC B321 ', 3); S.mark('provisional');
   T.put(23, 3, 'LOOP ON  POST LIMITER  12 TYPES', 1);
@@ -1509,8 +1544,15 @@ function fillSlot(S, kind, sl) {
   const file = logoFile(S.mod, kind), st = LOGOS[file], box = slotBox(S, kind);
   sl.style.width = box.w + 'px'; sl.style.height = box.h + 'px';
   let node, nw, nh;
+  // precedence (B326): test art > a present file (outside PLACEHOLDERS) > the lead proposal
+  // (PROPOSALS) > the placeholder. A file always beats a proposal: the human's art wins.
   if (LAB.logotest) { node = testArt(S.mod, kind); nw = node.width; nh = node.height; node.className = 'test'; node.title = 'TEST pattern (?logotest=1) — generated, not the human\'s art'; }
-  else if (st && st.state === 'present') { node = el('img'); node.src = st.img.src; node.alt = file; nw = st.img.naturalWidth; nh = st.img.naturalHeight; node.title = file + ' (' + nw + '×' + nh + ')'; }
+  else if (LAB.logos !== 'placeholders' && st && st.state === 'present') { node = el('img'); node.src = st.img.src; node.alt = file; nw = st.img.naturalWidth; nh = st.img.naturalHeight; node.title = file + ' (' + nw + '×' + nh + ')'; }
+  else if (LAB.logos === 'proposals' && S.T && hasProposal(S.T.id, S.mod, kind)) {
+    const L = LOGO_KINDS[kind], kp = intScale(L.w, L.h, box.w, box.h);
+    node = propCanvas(S.T.id, S.mod, kind, kp, { dpr: Math.min(2, (typeof devicePixelRatio === 'number' && devicePixelRatio) || 1) });
+    nw = L.w; nh = L.h; node.title = 'LEAD PROPOSAL (B326) for ' + MODNAME[S.mod] + ' on ' + S.T.name + ' — ' + L.w + '×' + L.h + '; drop ' + file + ' to replace it';
+  }
   else { node = drawPlaceholder(S.mod, kind); nw = node.width; nh = node.height; }
   const k = intScale(nw, nh, box.w, box.h);
   node.style.width = nw * k + 'px'; node.style.height = nh * k + 'px';
@@ -1556,14 +1598,533 @@ function palettesNeeded(sets) {
   }
   return pals.length;
 }
-function lintLogo(img) {
+function lintLogo(img) {   // an <img> (a dropped file) or a canvas (a B326 proposal): the same lint
   try {
-    const cv = el('canvas'); cv.width = img.naturalWidth; cv.height = img.naturalHeight;
+    const cv = el('canvas'); cv.width = img.naturalWidth || img.width; cv.height = img.naturalHeight || img.height;
     const g = cv.getContext('2d', { willReadFrequently: true }); g.drawImage(img, 0, 0);
     const d = g.getImageData(0, 0, cv.width, cv.height).data, A = tileAudit(d, cv.width, cv.height);
     return { ok: true, w: cv.width, h: cv.height, tiles: A.tiles, maxPer: A.maxPer, over: A.over, off555: A.off555, pals: palettesNeeded(A.sets) };
   } catch (e) { return { ok: false, why: 'pixels unreadable here (open the page through tools/serve_labs.py)' }; }
 }
+
+/* ======================================================================
+   K2. LEAD LOGO PROPOSALS (B326) — one MAW and one Sluice mark per treatment, TITLE 96×24 and
+   ICON 16×16, each authored as DATA in its medium's own terms and drawn by that medium's
+   painter below. They fill a slot only when no file is present (a dropped PNG always wins) and
+   the LOGOS mode is PROPOSALS. Each exports a PNG at the README's size and at ×4.
+
+   The through-line, so the two read as one family per glass and as themselves across glasses:
+   MAW is a JAW (teeth, heat, a clipped signal); Sluice is WATER (a waterline, a gate, a loop).
+   ====================================================================== */
+const PROPOSALS = {
+  /* GBC — pixel grids, one char per pixel, '.' transparent; the palette is on the RGB555 grid.
+     Three tile rows, one 4-colour palette each (transparent, the outline ink, two fills), so
+     the gradient is BANDED by tile row and the per-tile rule holds by construction. The
+     scratch generator that drew these masks is not committed; the grids are the design. */
+  gbc: {
+    maw: {
+      concept: 'The jaw. M and W mirror each other as upper and lower jaws (the M\'s V bites down, the W\'s peak bites up), in a fire gradient banded one palette per tile row; across the middle, orange fangs bite down and white-hot fangs bite up. Icon: a front-on jaw, red over orange, three fangs a side.',
+      title: { pal: {'k': '#180008', 'a': '#940821', 'b': '#EF2121', 'c': '#FF6B00', 'd': '#FFCE10', 'e': '#FFF7C6'},
+        rows: [
+          '................................................................................................',
+          '................................................................................................',
+          '......kkkkkkkkk..........kkkkkkkkk...........kkkkkk...........kkkkkkkk............kkkkkkkk......',
+          '......kaaaaaaakk........kkaaaaaaakk..........kaaaakk..........kaaaaaakk...........kaaaaaakk.....',
+          '......kaaaaaaaakk......kkaaaaaaaakk.........kkaaaakk..........kaaaaaakk...........kaaaaaakk.....',
+          '......kaaaaaaaaakk....kkaaaaaaaaakk.........kaaaaaakk.........kaaaaaakk...........kaaaaaakk.....',
+          '......kbbbbbbbbbbkk..kkbbbbbbbbbbkk........kkbbbbbbkk.........kbbbbbbkk...........kbbbbbbkk.....',
+          '......kbbbbbbbbbbbkkkkbbbbbbbbbbbkk........kbbbbbbbbkk........kbbbbbbkk...kkkk....kbbbbbbkk.....',
+          '......kcccccccccccckkcccccccccccckk.......kkcccccccckk........kcccccckk..kkcckk...kcccccckk.....',
+          '......kccccddccccddccccddccccddcckk.......kccccddcccckk.......kccddcckk.kkcccdkk..kddcccckk.....',
+          '......kccccddkcccddccccddckccddcckk......kkccccddcccckk.......kccddcckkkkccccddkk.kddcccckk.....',
+          '......kdccdddkkcddddccdddkkcddddckk.....kkddccdkkdccddkk......kcddddckkkddccddddkkkdddccdkk.....',
+          '......kdccdddkkkddddccddkkkcddddckk.....kdddccdkkdccdddkk.....kcddddckkdddccddddckkdddccdkk.....',
+          '......kddddddkkkkddddddkkkkddddddkk....kkdddddkkkkdddddkk.....kddddddkddddddddddddkddddddkk.....',
+          '......kddddddkk.kkddddkkk.kddddddkk....kddddddkkkkddddddkk....kddddddddddddddddddddddddddkk.....',
+          '......kddddddkk..kkddkkk..kddddddkk...kkddddddddddddddddkk....kddddddddddddkkddddddddddddkk.....',
+          '......kddddddkk...kkkkk...kddddddkk...kddddddddddddddddddkk...kdddddddddddkkkkdddddddddddkk.....',
+          '......kddddeekk....kkk....kddeeddkk..kkddeedkkkkkkkkdeeddkk...kddeeddddeekkkkkkddddeeddddkk.....',
+          '......kddddeekk...........kddeeddkk..kdddeekkkkkkkkkkeedddkk..kddeeddddekkk...kkdddeeddddkk.....',
+          '......keddeeekk...........kdeeeedkk.kkddeeekk.......keeeddkk..kdeeeeddekkk.....kkdeeeeddekk.....',
+          '......keddeeekk...........kdeeeedkk.keddeekkk.......kkeeddekk.kdeeeeddkkk.......kkeeeeddekk.....',
+          '......kkkkkkkkk...........kkkkkkkkk.kkkkkkkk.........kkkkkkkk.kkkkkkkkkk.........kkkkkkkkkk.....',
+          '.......kkkkkkk.............kkkkkkk...kkkkkk...........kkkkkk...kkkkkkkk...........kkkkkkkk......',
+          '................................................................................................'] },
+      icon: { pal: {'k': '#180008', 'b': '#EF2121', 'c': '#FF6B00', 'e': '#FFF7C6'},
+        rows: [
+          '................',
+          '..kkkkkkkkkkkk..',
+          '.kbbbbbbbbbbbbk.',
+          'kbbbbbbbbbbbbbbk',
+          'kbbbbbbbbbbbbbbk',
+          'keeeekeeeekeeeek',
+          'kkeekkkeekkkeekk',
+          'kkkkkkkkkkkkkkkk',
+          'kkkkkkkkkkkkkkkk',
+          'kkeekkkeekkkeekk',
+          'keeeekeeeekeeeek',
+          'kcccccccccccccck',
+          'kcccccccccccccck',
+          '.kcccccccccccck.',
+          '..kkkkkkkkkkkk..',
+          '................'] } },
+    sluice: {
+      concept: 'The waterline. Rounded letters in a surface-to-depth gradient (foam, cyan, blue, navy) with a sine waterline through the middle tile row; the I is a sluice gate, lifted, with water running under it. Icon: a whirlpool, the feedback loop.',
+      title: { pal: {'k': '#000821', 'a': '#E7FFFF', 'b': '#39DEFF', 'c': '#186BEF', 'd': '#10298C'},
+        rows: [
+          '................................................................................................',
+          '................................................................................................',
+          '......kkkkkkkkkkk.................................kkkkkkkkk...kkkkkkkkkkk....kkkkkkkkkkk........',
+          '.....kkaaaaaaaaakk...kkkk..........kkkk.....kkkk..kaaaaaaakk.kkaaaaaaaaakk..kkaaaaaaaaakk.......',
+          '....kkaaaaaaaaaaakk.kkaakk........kkaakk...kkaakk.kaaaaaaakkkkaaaaaaaaaaakk.kaaaaaaaaaaakk......',
+          '....kaaaaaaaaaaaakk.kaaaakk.......kaaaakk..kaaaakkkaaaaaaakkkaaaaaaaaaaaakk.kaaaaaaaaaaakk......',
+          '....kbbbbbbbbbbbkkk.kbbbbkk.......kbbbbkk..kbbbbkkkkbbbbbkkkkbbbbbbbbbbbkkk.kbbbbbbbbbbkkk......',
+          '....kbbbbkkkkkkkkk..kbbbbkk.......kbbbbkk..kbbbbkk.kbbbbbkk.kbbbbkkkkkkkkk..kbbbbkkkkkkkk.......',
+          '....kbbbbkkkkkkkk...kbbbbkk.......kbbbbkk..kbbbbkk.kbbbbbkk.kbbbbkkkkkkkk...kbbbbkkkkkkk........',
+          '....kbbbbkkkkkkkk...kbbbbkk.......kbbbbkk..kbbbbkk.kbbbbbkk.kbbbbkk.........kbbbbkkkkk..........',
+          '....kbbbcccbbbbbkk..kccbbkk.......kbbbbkk..kcccbkk.kbbbbckk.kbbbbkk.........kbbbcccbbkk.........',
+          '....kbcccccccbbbbkk.kcccckk.......kccbbkk..kcccckk.kbbbcckk.kbbbbkk.........kbbccccccbkk........',
+          '....kkccccccccbbbckkkcccckk.......kcccbkk..kcccckk.kbcccckk.kcbbbkk.........kccccccccckk........',
+          '.....kkccccccccccckkkcccckk.......kcccckk..kcccckkkkccccckk.kcccckk.........kcccccccckkk........',
+          '......kkkkkkkkcccckkkcccckk.......kcccckk..kcccckkkkkkkkkkkkkcccckk.........kcccckkkkkk.........',
+          '.......kkkkkkkcccckkkcccckk.......kcccckk..kcccckkkbbbbbbbkkkcccckk.........kcccckkkkk..........',
+          '......kkkkkkkkcccckkkcccckkkkkk...kcccckkkkkcccckkkccccccckkkcccckkkkkkkk...kcccckkkkkkk........',
+          '.....kkccccccccccckkkccccccccckk..kccccccccccccckkkkkkkkkkkkkccccccccccckk..kcccccccccckk.......',
+          '.....kddddddddddddkkkddddddddddkk.kdddddddddddddkkkdddddddkkkddddddddddddkk.kdddddddddddkk......',
+          '.....kdddddddddddkkkkkdddddddddkk.kkdddddddddddkkkkdddddddkkkkdddddddddddkk.kdddddddddddkk......',
+          '.....kkdddddddddkkk..kkdddddddkkk..kkdddddddddkkk.kdddddddkk.kkdddddddddkkk.kkdddddddddkkk......',
+          '......kkkkkkkkkkkk....kkkkkkkkkk....kkkkkkkkkkkk..kkkkkkkkkk..kkkkkkkkkkkk...kkkkkkkkkkkk.......',
+          '.......kkkkkkkkkk......kkkkkkkk......kkkkkkkkkk....kkkkkkkk....kkkkkkkkkk.....kkkkkkkkkk........',
+          '................................................................................................'] },
+      icon: { pal: {'k': '#000821', 'a': '#E7FFFF', 'b': '#39DEFF', 'c': '#186BEF', 'd': '#10298C'},
+        rows: [
+          '.......kkkkk....',
+          '.......kaaakk...',
+          '.......kkaaakk..',
+          '.....kkkkkaaak..',
+          '...kkkbbkkkbbkk.',
+          '..kkbbbbbkkkbbk.',
+          '..kbbbkbbbkkbbk.',
+          '..kbbkkkbbkkbbk.',
+          '..kcckkccckkcck.',
+          '..kcckkcckkccck.',
+          '..kccckkkkkcckk.',
+          '..kkcccckcccck..',
+          '...kkddddddkkk..',
+          '....kkkkdkkk....',
+          '.......kkk......',
+          '................'] } }
+  },
+  /* PHOSPHOR CRT — character cells on the terminal's own 5×8-pixel cell (2.5 × 4 screen units,
+     64×36 on the screen), so the logo is text the terminal could print. Box-drawing capitals in
+     the double-line "Calvin S" idiom of ANSI art; `at` is the attribute per cell (0 normal,
+     1 dim, 2 bright). The phosphor is the treatment's: MAW P3 amber, Sluice P1 green. */
+  crt: {
+    maw: {
+      concept: 'Double-line box-drawing capitals on the terminal\'s own 5×8 cell, in P3 amber, trailing a ▓▒░ heat haze. Icon: ▼▼▼ over ▲▲▲, a jaw in six CP437 glyphs.',
+      title: { cw: 5, ch: 8, rows: [
+        '╔╦╗╔═╗╦ ╦ ▓▓▒▒░░ · ',
+        '║║║╠═╣║║║ ▓▓▓▒▒░░ ·',
+        '╩ ╩╩ ╩╚╩╝ ▓▓▒▒░░ · '], at: [
+        '2222222220000011111',
+        '2222222220000001111',
+        '2222222220000011111'] },
+      icon: { cw: 5, ch: 8, rows: ['▼▼▼', '▲▲▲'], at: ['222', '000'] } },
+    sluice: {
+      concept: 'SLUICE in the same double-line capitals, in P1 green, trailing ≈ water where MAW trails heat. Icon: a double-line loop with a ◄ return arrow, the feedback path.',
+      title: { cw: 5, ch: 8, rows: [
+        '╔═╗╦  ╦ ╦╦╔═╗╔═╗ ≈≈',
+        '╚═╗║  ║ ║║║  ║╣  ≈≈',
+        '╚═╝╩═╝╚═╝╩╚═╝╚═╝ ≈≈'], at: [
+        '2222222222222222011',
+        '2222222222222222001',
+        '2222222222222222011'] },
+      icon: { cw: 5, ch: 8, rows: ['╔═╗', '╚◄╝'], at: ['000', '020'] } }
+  },
+  /* VECTOR — beam strokes in logo pixels. `c` names a vecInks() role (v value, m meter,
+     p physics, k marker, g grid) or 'hot' (white where the beam dwells); `w` is the width,
+     `a` the alpha. `arc` is [cx, cy, r, a0°, a1°] (clockwise on screen), `wave` is
+     [x0, x1, y, amplitude, period]; `arrow` puts a head on the stroke's end. */
+  vec: {
+    maw: {
+      concept: 'Clipped. The beam draws M, A and W as a waveform that slams into two rails, so every peak and trough is flattened; the flats burn white where the beam dwells, as a real XY scope\'s would. Icon: two rows of teeth, interlocking, inside the mouth.',
+      title: { strokes: [
+        { c: 'v', w: 0.5, a: 0.45, pts: [3, 3, 93, 3] }, { c: 'v', w: 0.5, a: 0.45, pts: [3, 21, 93, 21] },
+        { c: 'k', w: 1.1, pts: [12, 21, 16, 3, 20, 3, 24, 13, 28, 3, 32, 3, 36, 21] },
+        { c: 'k', w: 1.1, pts: [41, 21, 46, 3, 50, 3, 55, 21] }, { c: 'k', w: 1.1, pts: [43.2, 14, 52.8, 14] },
+        { c: 'k', w: 1.1, pts: [60, 3, 64, 21, 68, 21, 72, 11, 76, 21, 80, 21, 84, 3] },
+        { c: 'hot', w: 1.2, glow: 'k', pts: [16, 3, 20, 3] }, { c: 'hot', w: 1.2, glow: 'k', pts: [28, 3, 32, 3] },
+        { c: 'hot', w: 1.2, glow: 'k', pts: [46, 3, 50, 3] }, { c: 'hot', w: 1.2, glow: 'k', pts: [64, 21, 68, 21] },
+        { c: 'hot', w: 1.2, glow: 'k', pts: [76, 21, 80, 21] }] },
+      icon: { strokes: [
+        { c: 'v', w: 0.6, a: 0.6, pts: [4, 2.5, 12, 2.5, 14.5, 5, 14.5, 11, 12, 13.5, 4, 13.5, 1.5, 11, 1.5, 5, 4, 2.5] },
+        { c: 'k', w: 0.9, pts: [2.6, 5, 4.4, 7.4, 6.2, 5, 8, 7.4, 9.8, 5, 11.6, 7.4, 13.4, 5] },
+        { c: 'k', w: 0.9, pts: [2.6, 11, 3.5, 11, 5.3, 8.7, 7.1, 11, 8.9, 8.7, 10.7, 11, 12.5, 8.7, 13.4, 9.9] }] } },
+    sluice: {
+      concept: 'A stroked wordmark riding its own waterline, a sine that flows out through an arrow on the right. Icon: a loop arrow around a ripple.',
+      title: { strokes: [
+        { c: 'p', w: 1.0, pts: [26, 4.5, 24.5, 3, 19.5, 3, 18, 4.5, 18, 7.5, 19.5, 9, 24.5, 9, 26, 10.5, 26, 13.5, 24.5, 15, 19.5, 15, 18, 13.5] },
+        { c: 'p', w: 1.0, pts: [30, 3, 30, 15, 37, 15] },
+        { c: 'p', w: 1.0, pts: [41, 3, 41, 13.5, 42.5, 15, 47.5, 15, 49, 13.5, 49, 3] },
+        { c: 'p', w: 1.0, pts: [54, 3, 54, 15] },
+        { c: 'p', w: 1.0, pts: [67, 4.5, 65.5, 3, 60.5, 3, 59, 4.5, 59, 13.5, 60.5, 15, 65.5, 15, 67, 13.5] },
+        { c: 'p', w: 1.0, pts: [78, 3, 71, 3, 71, 15, 78, 15] }, { c: 'p', w: 1.0, pts: [71, 9, 76, 9] },
+        { c: 'g', w: 0.9, wave: [8, 86, 19.5, 1.6, 12], arrow: true }] },
+      icon: { strokes: [
+        { c: 'p', w: 0.9, arc: [8, 8.5, 5.6, -50, 235], arrow: true },
+        { c: 'g', w: 0.8, wave: [4.8, 11.2, 8.5, 1.1, 3.2] }] } }
+  },
+  /* 80s WORKSTATION — 1-bit grids: '#' ink, '.' paper, ' ' clear. Paper and ink are the
+     scheme's (the treatment's policy), so the same bits read as the screen's own window. The
+     plates are MacPaint fill patterns: zigzag teeth for MAW, waves for Sluice. */
+  ws: {
+    maw: {
+      concept: 'MacPaint. Solid capitals at Chicago\'s weight, knocked out of a rounded plate filled with the zigzag pattern (teeth), with the 50% drop shadow. Icon: a dithered jaw with white teeth.',
+      title: { rows: [
+          '                                                                                                ',
+          '   ##########################################################################################   ',
+          '  #...#...#...#...#...#...#...#...#...#...#...#...#...#...#...#...#...#...#...#...#...#...#..#  ',
+          ' #.#.#.............#.#.....#.......#.#...............#.......#.....#.#.....#.......#.#.....#.## ',
+          ' #..#......####.....#........####...#..############......###........#.......#.###...#.......#.# ',
+          ' #.........#####............#####.....##############.....###..................###.............# ',
+          ' #.........#####............#####.#...##############.....###..................###.#...........# ',
+          ' #.........###.##..........##.###....###..........###....###.#................###.............# ',
+          ' #......#..###..##........##..###.#..###..#.#.#.#.###....###....#.......#.....###.#.....#.....# ',
+          ' #.....#.#.###...##....#.##...###....###.#.....#..###..#.###.#.#.#..##...#....###......#.#....# ',
+          ' ##...#....###...##...#..##.#.###.#..###..#...#...###.#..###..#.....###...#...###.#...#...#...# ',
+          ' #.#.#.....###.#..##....##....###..#.###.#.#.#....###....###.#.....##.##...#..###..#.#.....#.## ',
+          ' #..#......###.....##..##...#.###.#..###..........###.#..###......##...##...#.###.#.#.......#.# ',
+          ' #.........###.#....####...#..###....################....###.#...##..#..##....###.............# ',
+          ' #.........###......####..#...###.#..################.#..###....##..#....##...###.#...........# ',
+          ' #.........###.#.....##..#....###....################....###...##..#......##..###.............# ',
+          ' #......#..###..#.......#.....###.#..###..........###.#..###..##..#.....#..##.###.#.....#.....# ',
+          ' #.....#.#.###.#.#.....#.#....###....###.#.#.#.#..###..#.###.##..#.....#.#..#####......#.#....# ',
+          ' ##...#....###....#...#...#...###.#..###..#...#...###.#..#####..#.#...#...#..####.#...#...#...# ',
+          ' #.#.#.....###.#...#.#.....#..###..#.###.#.#.#....###....####..#...#.#.....#..###..#.#.....#.## ',
+          ' #..#...............#.......#.....#.........#.........#.......#.....#.......#.....#.#.......#.# ',
+          '  #..........#.#.................#.....#.#...........#.....#.#...................#...........#  ',
+          '   ##########################################################################################   ',
+          '                                                                                                '] },
+      icon: { rows: [
+          '                ',
+          '  ############  ',
+          ' ##.#.#.#.#.#.# ',
+          '##.#.#.#.#.#.#.#',
+          '################',
+          '#....#....#....#',
+          '##..###..###..##',
+          '################',
+          '################',
+          '##..###..###..##',
+          '#....#....#....#',
+          '################',
+          '#.#.#.#.#.#.#.##',
+          ' #.#.#.#.#.#.## ',
+          '  ############  ',
+          '                '] } },
+    sluice: {
+      concept: 'The same plate, filled with MacPaint\'s wave pattern; the family is the plate, the individuality is the fill. Icon: a sluice gate raised over a channel.',
+      title: { rows: [
+          '                                                                                                ',
+          '   ##########################################################################################   ',
+          '  ###......####......####......####......####......####......####......####......####......###  ',
+          ' #............................................................................................# ',
+          ' #..........#########....###.........###.....###...###....#########....##########.............# ',
+          ' #....####.###########...###.#.......###.....###.#.###...###########.#.##########.....####....# ',
+          ' #...#.....###########...###..#....#.###.....###...###...###########...##########.#..#....#...# ',
+          ' ####......###.........#.###.#.####..###.###.###.#.###.#.###.........#.###.........##......#### ',
+          ' #.........###..#.#.#.#..###.........###.....###...###...###..#.#.#.#..###..#.#.#.#...........# ',
+          ' #.........###...........###.#.......###.#...###.#.###.#.###.#.........###....................# ',
+          ' #....####.##########....###.........###.....###...###...###......####.########.......####....# ',
+          ' #...#......##########...###.##....#.###.#...###.#.###.#.###.#...#.....########.#....#....#...# ',
+          ' ####.......##########.#.###...####..###..##.###...###...###..###......########.#####......#### ',
+          ' #.................###.#.###.#.......###.#...###.#.###.#.###.#.........###....................# ',
+          ' #............#.#..###...###.........###.....###...###...###...........###..#.#.#.............# ',
+          ' #....####......##.###.#.###.#.......###.#...###.#.###.#.###.#.......#.###.#####......####....# ',
+          ' #...#.....###.....###...###.......#.###.....###...###...###.....###...###...........#....#...# ',
+          ' ####......###########.#.#########...###########.#.###.#.###########...##########.###......#### ',
+          ' #..........##########...#########...###########...###...##########....##########.............# ',
+          ' #..........#########..#.#########.#..#########..#.###.#..#########..#.##########.............# ',
+          ' #....####............#.............#...........#.......#...........##............#...####....# ',
+          '  #..#....#....#.#.#.#...#.#.#.#.#.#.....#.#.#.#..#..#.#.....#.#.#.#..#..#.#.#.#.#...#....#..#  ',
+          '   ##########################################################################################   ',
+          '                                                                                                '] },
+      icon: { rows: [
+          '################',
+          '#..............#',
+          '################',
+          ' #.#        #.# ',
+          ' #.# ###### #.# ',
+          ' #.# #.#.## #.# ',
+          ' #.# ##.#.# #.# ',
+          ' #.# ###### #.# ',
+          ' #.#        #.# ',
+          '##.##########.##',
+          '#..............#',
+          '#...##....##...#',
+          '#.##..#..#..##.#',
+          '##.....##.....##',
+          '################',
+          '                '] } }
+  },
+  /* SEGMENT GLASS — the glass's own vocabulary: 14-segment glyphs (the page's SEG table) with
+     every unlit segment ghosted, plus fixed icon segments. `c` is a segInks() role (on, val,
+     att); null draws the segment unlit (its ghost only). */
+  seg: {
+    maw: {
+      concept: 'Three big 14-segment glyphs beside a VFD drive meter whose last two bars are the clip segments, all lit: an overdriven mark. Icon: a jaw of triangular segments.',
+      title: { items: [
+        { t: 'text', s: 'MAW', x: 4, y: 3, w: 11, h: 18, c: 'val' },
+        { t: 'bars', x: 54, y: 21, n: 7, w: 4, gap: 1.6, h0: 5, h1: 18, lit: 7, att: 2 }] },
+      icon: { items: [
+        { t: 'line', pts: [2, 2.5, 14, 2.5], c: 'on' }, { t: 'line', pts: [2, 13.5, 14, 13.5], c: 'on' },
+        { t: 'poly', pts: [2.3, 3.7, 5.7, 3.7, 4, 7.4], c: 'val' }, { t: 'poly', pts: [6.3, 3.7, 9.7, 3.7, 8, 7.4], c: 'val' },
+        { t: 'poly', pts: [10.3, 3.7, 13.7, 3.7, 12, 7.4], c: 'val' },
+        { t: 'poly', pts: [2.3, 12.3, 5.7, 12.3, 4, 8.6], c: 'val' }, { t: 'poly', pts: [6.3, 12.3, 9.7, 12.3, 8, 8.6], c: 'val' },
+        { t: 'poly', pts: [10.3, 12.3, 13.7, 12.3, 12, 8.6], c: 'val' }] } },
+    sluice: {
+      concept: 'SLUICE in 14-segment beside a gate segment lifted clear of its ghosted closed position, over a channel of wave segments with one pulse lit. Icon: a ring of arc segments, partly lit, with its arrow: flow round a loop.',
+      title: { items: [
+        { t: 'text', s: 'SLUICE', x: 4, y: 2, w: 7.5, h: 12, c: 'val' },
+        { t: 'line', pts: [73, 2, 73, 15], c: 'on' }, { t: 'line', pts: [89, 2, 89, 15], c: 'on' },
+        { t: 'rect', x: 76, y: 2.5, w: 10, h: 5.5, c: 'val' }, { t: 'rect', x: 76, y: 9, w: 10, h: 5.5, c: null },
+        { t: 'waves', x0: 4, x1: 92, y: 19.5, n: 11, amp: 1.5, lit: [4, 5, 6], c: 'on' }] },
+      icon: { items: [
+        { t: 'ring', cx: 8, cy: 8, r: 5.6, n: 8, lit: 5, c: 'on', head: 'val' }] } }
+  },
+  /* TELETEXT — sextant grids ('#' lit) at the page's own sextant (4×4 logo px; a cell is 2×3
+     sextants, 8×12 px). `fg`/`bg` are one colour letter per CELL (K R G Y B M C W, '.' none),
+     so one foreground per cell holds by construction, as on a real page. `sep` draws separated
+     mosaics. Spacing attributes are not simulated, as elsewhere on this page. */
+  ttx: {
+    maw: {
+      concept: 'A red banner, MAW in yellow contiguous mosaics at the two-sextant stroke of a Ceefax headline. Icon: a four-sextant zigzag bite, the jaw at the medium\'s coarsest.',
+      title: { sep: false, sext: [
+        '.##...##..####..##...##.',
+        '.###.###.##..##.##...##.',
+        '.##.#.##.##..##.##...##.',
+        '.##...##.######.##.#.##.',
+        '.##...##.##..##.###.###.',
+        '.##...##.##..##.##...##.'],
+        fg: ['YYYYYYYYYYYY', 'YYYYYYYYYYYY'], bg: ['RRRRRRRRRRRR', 'RRRRRRRRRRRR'] },   // one colour top and bottom: a mid-height colour change cut the letters in half
+      icon: { sep: false, sext: ['####', '#.#.', '.#.#', '####'], fg: ['YY', 'WW'], bg: ['RR', 'RR'] } },
+    sluice: {
+      concept: 'A blue banner, SLUICE in white SEPARATED mosaics, which read as droplets: the same banner as MAW, a different grain. Icon: a loop, white over cyan.',
+      title: { sep: true, sext: [
+        '..###.#...#.#.#.###.###.',
+        '..#...#...#.#.#.#...#...',
+        '..###.#...#.#.#.#...##..',
+        '....#.#...#.#.#.#...#...',
+        '....#.#...#.#.#.#...#...',
+        '..###.###.###.#.###.###.'],
+        fg: ['WWWWWWWWWWWW', 'WWWWWWWWWWWW'], bg: ['BBBBBBBBBBBB', 'BBBBBBBBBBBB'] },
+      icon: { sep: true, sext: ['.##.', '#..#', '#..#', '.##.'], fg: ['WW', 'CC'], bg: ['BB', 'BB'] } }
+  }
+};
+/* pixel media are drawn at their logical size and scaled by the browser (pixelated); the rest
+   draw at display resolution, so a stroke or a glow is not a staircase */
+const PROP_PIXEL = { gbc: true, ws: true, ttx: true };
+
+/* CRT glyphs. Double-line box drawing is built as a thick path (3 px wide through the cell's
+   centre) over the WHOLE logo, whose boundary is then lit: that yields CP437's two parallel
+   lines with correct joins, and arms that continue into the next cell do not close there. */
+const BOX_ARMS = { '═': 'EW', '║': 'NS', '╔': 'ES', '╗': 'SW', '╚': 'NE', '╝': 'NW', '╠': 'NES', '╣': 'NSW', '╦': 'ESW', '╩': 'NEW', '╬': 'NESW' };
+const CRT_BITS = {   // 5×8 bitmaps, MSB left
+  '▼': ['00000', '11111', '11111', '01110', '01110', '00100', '00000', '00000'],
+  '▲': ['00000', '00000', '00100', '01110', '01110', '11111', '11111', '00000'],
+  '◄': ['00000', '00011', '01111', '11111', '01111', '00011', '00000', '00000'],
+  '≈': ['00000', '01001', '10110', '00000', '01001', '10110', '00000', '00000'],
+  '·': ['00000', '00000', '00000', '00100', '00000', '00000', '00000', '00000'],
+  ' ': ['00000', '00000', '00000', '00000', '00000', '00000', '00000', '00000']
+};
+const CRT_SHADE = {   // CP437's shades as ordered patterns in logo-pixel coordinates, so they tile
+  '░': (x, y) => y % 2 === 0 && (x + (y >> 1)) % 2 === 0,
+  '▒': (x, y) => (x + y) % 2 === 0,
+  '▓': (x, y) => !(y % 2 === 1 && (x + (y >> 1)) % 2 === 0),
+  '█': () => true
+};
+const CRT_LEVEL = [0.8, 0.42, 1];
+function crtGlyphKnown(ch) { return BOX_ARMS[ch] !== undefined || CRT_BITS[ch] !== undefined || CRT_SHADE[ch] !== undefined; }
+/* the cell map → a logical-pixel intensity map (0 = dark) */
+function crtIntensity(art, w, h) {
+  const I = new Float32Array(w * h), path = new Uint8Array(w * h), lvl = new Float32Array(w * h), cw = art.cw, chh = art.ch;
+  const set = (x, y, v) => { if (x >= 0 && x < w && y >= 0 && y < h) I[y * w + x] = Math.max(I[y * w + x], v); };
+  const pth = (x0, y0, x1, y1, v) => { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (x >= 0 && x < w && y >= 0 && y < h) { path[y * w + x] = 1; lvl[y * w + x] = v; } };
+  art.rows.forEach((row, r) => {
+    for (let col = 0; col < row.length; col++) {
+      const ch = row[col], v = CRT_LEVEL[+((art.at && art.at[r] && art.at[r][col]) || 0)] || CRT_LEVEL[0];
+      const ox = col * cw, oy = r * chh, cx = ox + (cw >> 1), cy = oy + (chh >> 1) - 1;
+      const arms = BOX_ARMS[ch];
+      if (arms) {
+        if (arms.includes('N')) pth(cx - 1, oy, cx + 1, cy + 1, v);
+        if (arms.includes('S')) pth(cx - 1, cy - 1, cx + 1, oy + chh - 1, v);
+        if (arms.includes('E')) pth(cx - 1, cy - 1, ox + cw - 1, cy + 1, v);
+        if (arms.includes('W')) pth(ox, cy - 1, cx + 1, cy + 1, v);
+      } else if (CRT_SHADE[ch]) {
+        for (let y = oy; y < oy + chh - 1; y++) for (let x = ox; x < ox + cw; x++) if (CRT_SHADE[ch](x, y)) set(x, y, v);
+      } else {
+        const B = CRT_BITS[ch] || CRT_BITS[' '];
+        for (let y = 0; y < chh; y++) for (let x = 0; x < cw; x++) if (B[y] && B[y][x] === '1') set(ox + x, oy + y, v);
+      }
+    }
+  });
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const i = y * w + x; if (!path[i]) continue;
+    const out = (xx, yy) => xx < 0 || xx >= w || yy < 0 || yy >= h || !path[yy * w + xx];
+    if (out(x - 1, y) || out(x + 1, y) || out(x, y - 1) || out(x, y + 1)) set(x, y, lvl[i]);
+  }
+  return I;
+}
+function propDrawCRT(g, art, mod, w, h, s) {
+  const I = crtIntensity(art, w, h), P = PHOSPHOR[mod], off = el('canvas'); off.width = w * s; off.height = h * s;
+  const o = off.getContext('2d'); if (!o) return;
+  o.fillStyle = P.ink;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const v = I[y * w + x]; if (v > 0) { o.globalAlpha = v; o.fillRect(x * s, y * s, s, s); } }
+  o.globalAlpha = 1;
+  g.filter = 'blur(' + (0.9 * s).toFixed(1) + 'px)'; g.globalAlpha = 0.75; g.drawImage(off, 0, 0);   // the bloom
+  g.filter = 'none'; g.globalAlpha = 1; g.drawImage(off, 0, 0);
+}
+function arcPts(a) {
+  const [cx, cy, r, a0, a1] = a, pts = [], n = Math.max(8, Math.ceil(Math.abs(a1 - a0) / 6));
+  for (let i = 0; i <= n; i++) { const t = (a0 + (a1 - a0) * i / n) * Math.PI / 180; pts.push(cx + r * Math.cos(t), cy + r * Math.sin(t)); }
+  return pts;
+}
+function wavePts(wv) {
+  const [x0, x1, y, amp, per] = wv, pts = [];
+  for (let x = x0; x <= x1 + 1e-9; x += 0.5) pts.push(x, y + amp * Math.sin(2 * Math.PI * (x - x0) / per));
+  return pts;
+}
+function strokePts(st) { return st.arc ? arcPts(st.arc) : st.wave ? wavePts(st.wave) : st.pts; }
+function propDrawVEC(g, art, mod, w, h, s) {
+  const I = vecInks(), ink = c => (c === 'hot' ? '#FFFFFF' : I[c] || I.p);
+  g.save(); g.scale(s, s); g.lineJoin = 'round'; g.lineCap = 'round'; g.shadowBlur = 2.2 * s;
+  for (const st of art.strokes) {
+    const p = strokePts(st);
+    g.strokeStyle = ink(st.c); g.shadowColor = ink(st.glow || st.c); g.globalAlpha = st.a || 1; g.lineWidth = st.w || 1;
+    g.beginPath(); for (let i = 0; i + 1 < p.length; i += 2) (i ? g.lineTo(p[i], p[i + 1]) : g.moveTo(p[i], p[i + 1])); g.stroke();
+    if (st.arrow && p.length >= 4) {   // a head on the last segment's direction
+      const n = p.length, tx = p[n - 2], ty = p[n - 1], a = Math.atan2(ty - p[n - 3], tx - p[n - 4]);
+      g.beginPath(); g.moveTo(tx - 2.2 * Math.cos(a - 0.55), ty - 2.2 * Math.sin(a - 0.55)); g.lineTo(tx, ty);
+      g.lineTo(tx - 2.2 * Math.cos(a + 0.55), ty - 2.2 * Math.sin(a + 0.55)); g.stroke();
+    }
+  }
+  g.restore();
+}
+function propDrawSEG(g, art, mod, w, h, s) {
+  const I = segInks(), ink = c => (c ? I[c] || I.on : I.ghost);
+  g.save(); g.scale(s, s); g.lineCap = 'butt'; g.shadowBlur = I.pale ? 0 : 1.4 * s;   // a VFD glows, an LCD does not
+  const seg = (c, draw) => { g.shadowColor = c ? ink(c) : 'transparent'; g.strokeStyle = ink(c); g.fillStyle = ink(c); draw(); };
+  for (const it of art.items) {
+    if (it.t === 'text') { g.shadowColor = ink(it.c); segText(g, it.s, it.x, it.y, it.w, it.h, ink(it.c), { ghost: I.ghost, lw: it.h * 0.13, inset: 0.1, adv: it.adv || 1.45 }); }
+    else if (it.t === 'line') seg(it.c, () => { g.lineWidth = 1.4; g.beginPath(); for (let i = 0; i + 1 < it.pts.length; i += 2) (i ? g.lineTo(it.pts[i], it.pts[i + 1]) : g.moveTo(it.pts[i], it.pts[i + 1])); g.stroke(); });
+    else if (it.t === 'poly') seg(it.c, () => { g.beginPath(); for (let i = 0; i + 1 < it.pts.length; i += 2) (i ? g.lineTo(it.pts[i], it.pts[i + 1]) : g.moveTo(it.pts[i], it.pts[i + 1])); g.closePath(); g.fill(); });
+    else if (it.t === 'rect') seg(it.c, () => g.fillRect(it.x, it.y, it.w, it.h));
+    else if (it.t === 'bars') for (let i = 0; i < it.n; i++) {
+      const bh = it.h0 + (it.h1 - it.h0) * i / (it.n - 1), c = i < it.lit ? (i >= it.n - it.att ? 'att' : 'on') : null;
+      seg(c, () => g.fillRect(it.x + i * (it.w + it.gap), it.y - bh, it.w, bh));
+    }
+    else if (it.t === 'waves') {
+      const sw = (it.x1 - it.x0) / it.n;
+      for (let i = 0; i < it.n; i++) seg(it.lit.includes(i) ? it.c : null, () => {
+        g.lineWidth = 1.2; g.beginPath();
+        for (let k = 0; k <= 12; k++) { const x = it.x0 + i * sw + 0.6 + (sw - 1.2) * k / 12, y = it.y - it.amp * Math.sin(Math.PI * k / 12); k ? g.lineTo(x, y) : g.moveTo(x, y); }
+        g.stroke();
+      });
+    }
+    else if (it.t === 'ring') {
+      const span = 360 / it.n;
+      for (let i = 0; i < it.n; i++) seg(i < it.lit ? it.c : null, () => {
+        const a0 = (-90 + i * span + 5) * Math.PI / 180, a1 = (-90 + (i + 1) * span - 5) * Math.PI / 180;
+        g.lineWidth = 1.8; g.beginPath(); g.arc(it.cx, it.cy, it.r, a0, a1); g.stroke();
+      });
+      const ah = (-90 + it.lit * span + 5) * Math.PI / 180, hx = it.cx + it.r * Math.cos(ah), hy = it.cy + it.r * Math.sin(ah);
+      seg(it.head, () => { const tx = -Math.sin(ah), ty = Math.cos(ah), nx = Math.cos(ah), ny = Math.sin(ah);
+        g.beginPath(); g.moveTo(hx + tx * 2.4, hy + ty * 2.4); g.lineTo(hx + nx * 2, hy + ny * 2); g.lineTo(hx - nx * 2, hy - ny * 2); g.closePath(); g.fill(); });
+    }
+  }
+  g.restore();
+}
+function propDrawGBC(g, art) {
+  art.rows.forEach((row, y) => { for (let x = 0; x < row.length; x++) { const c = art.pal[row[x]]; if (c) { g.fillStyle = c; g.fillRect(x, y, 1, 1); } } });
+}
+function propDrawWS(g, art) {
+  const PI = wsPaperInk(), ink = hexOf(PI.ink), paper = hexOf(PI.paper);
+  art.rows.forEach((row, y) => { for (let x = 0; x < row.length; x++) { const ch = row[x]; if (ch === '#' || ch === '.') { g.fillStyle = ch === '#' ? ink : paper; g.fillRect(x, y, 1, 1); } } });
+}
+function propDrawTTX(g, art) {
+  const cols = art.sext[0].length >> 1, rows = Math.ceil(art.sext.length / 3);
+  for (let cy = 0; cy < rows; cy++) for (let cx = 0; cx < cols; cx++) { const b = art.bg[cy] && art.bg[cy][cx]; if (b && TTX[b]) { g.fillStyle = TTX[b]; g.fillRect(cx * 8, cy * 12, 8, 12); } }
+  art.sext.forEach((row, sy) => {
+    for (let sx = 0; sx < row.length; sx++) {
+      if (row[sx] !== '#') continue;
+      const f = art.fg[Math.floor(sy / 3)] && art.fg[Math.floor(sy / 3)][sx >> 1];
+      if (!f || !TTX[f]) continue;
+      g.fillStyle = TTX[f];
+      if (art.sep) g.fillRect(sx * 4 + 1, sy * 4, 3, 3); else g.fillRect(sx * 4, sy * 4, 4, 4);
+    }
+  });
+}
+const PROP_DRAW = { gbc: propDrawGBC, crt: propDrawCRT, vec: propDrawVEC, ws: propDrawWS, seg: propDrawSEG, ttx: propDrawTTX };
+/* the medium's ground, for the gallery swatches and the exported PNGs of the glass media
+   (a glow or a segment ghost means nothing on transparency); GBC and workstation export clear */
+function propGround(trId, mod) {
+  if (trId === 'crt') return PHOSPHOR[mod].ground;
+  if (trId === 'vec') return '#030205';
+  if (trId === 'ttx') return '#000000';
+  if (trId === 'seg') return segInks().ground;
+  if (trId === 'ws') return hexOf(wsPaperInk().paper);
+  return q555(TOK('--scr-tube'));
+}
+function hasProposal(trId, mod, kind) { return !!(PROPOSALS[trId] && PROPOSALS[trId][mod] && PROPOSALS[trId][mod][kind]); }
+/* a proposal drawn to a canvas: `k` is the whole-number display scale (logo px → CSS px) and
+   `dpr` the backing density; pixel media are drawn 1:1 and scaled by CSS unless `upscale`
+   asks for a nearest-neighbour copy (the ×4 export). `ground` fills the medium's ground. */
+function propCanvas(trId, mod, kind, k, o) {
+  o = o || {};
+  const L = LOGO_KINDS[kind], art = PROPOSALS[trId][mod][kind], pix = !!PROP_PIXEL[trId];
+  const res = pix ? 1 : Math.max(1, k * (o.dpr || 1));
+  const cv = el('canvas', 'prop'); cv.width = L.w * res; cv.height = L.h * res;
+  const g = cv.getContext('2d'); if (!g) return cv;
+  if (o.ground) { g.fillStyle = propGround(trId, mod); g.fillRect(0, 0, cv.width, cv.height); }
+  PROP_DRAW[trId](g, art, mod, L.w, L.h, res);
+  if (pix && o.upscale > 1) {
+    const up = el('canvas', 'prop'); up.width = L.w * o.upscale; up.height = L.h * o.upscale;
+    const u = up.getContext('2d'); if (u) { u.imageSmoothingEnabled = false; u.drawImage(cv, 0, 0, up.width, up.height); }
+    return up;
+  }
+  return cv;
+}
+/* a proposal's medium rule, read from its DATA and its 1× raster (the pixels the export
+   writes): GBC is held to the page's logo lint in self-check 8; the rest here. */
+function propRule(trId, art, data, w, h) {
+  const bad = [];
+  if (trId === 'ws' && data && data.length) {
+    const cs = new Set(); for (let i = 0; i < data.length; i += 4) if (data[i + 3] >= 128) cs.add(data[i] + ',' + data[i + 1] + ',' + data[i + 2]);
+    if (cs.size > 2) bad.push(cs.size + ' opaque colours (1-bit allows 2)');
+  }
+  if (trId === 'ttx' && data && data.length) {
+    const TT = new Set(Object.values(TTX).map(hx => rgbOf(hx).join(',')));
+    for (let cy = 0; cy < h; cy += 12) for (let cx = 0; cx < w; cx += 8) {
+      const cs = new Set();
+      for (let y = cy; y < Math.min(h, cy + 12); y++) for (let x = cx; x < Math.min(w, cx + 8); x++) {
+        const o = (y * w + x) * 4; if (data[o + 3] < 128) { cs.add('t'); continue; }
+        const k = data[o] + ',' + data[o + 1] + ',' + data[o + 2]; cs.add(k); if (!TT.has(k)) bad.push('a colour off the teletext eight at ' + x + ',' + y);
+      }
+      if (cs.size > 2) bad.push('cell ' + (cx / 8) + ',' + (cy / 12) + ' holds ' + cs.size + ' colours (a foreground and a background)');
+    }
+  }
+  if (trId === 'crt') {
+    art.rows.forEach(r => { for (const ch of r) if (!crtGlyphKnown(ch) && ch !== ' ') bad.push('glyph "' + ch + '" is not in the terminal\'s set'); });
+    if (Math.max(...art.rows.map(r => r.length)) * art.cw > w || art.rows.length * art.ch > h) bad.push('the cell map overflows ' + w + '×' + h);
+  }
+  if (trId === 'vec') for (const st of art.strokes) { const p = strokePts(st); for (let i = 0; i + 1 < p.length; i += 2) if (p[i] < 0 || p[i] > w || p[i + 1] < 0 || p[i + 1] > h) { bad.push('a stroke leaves the ' + w + '×' + h + ' canvas'); break; } }
+  if (trId === 'seg') for (const it of art.items) if (it.t === 'text') for (const ch of it.s) if (SEG[ch] === undefined) bad.push('"' + ch + '" has no 14-segment glyph');
+  return { ok: !bad.length, why: bad.slice(0, 3).join('; ') };
+}
+function rasterData(cv) {
+  try { const d = cv.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, cv.width, cv.height).data; return d && d.length ? d : null; } catch (_) { return null; }
+}
+function alphaFraction(d) { if (!d) return 0; let n = 0; for (let i = 3; i < d.length; i += 4) if (d[i] >= 128) n++; return n / (d.length / 4); }
 
 /* ======================================================================
    L. THE CHASSIS — constant across treatments: header, bezel, screen, four soft keys, four knobs
@@ -1641,7 +2202,8 @@ function buildChassis(host, trId, mod, U) {
 function updateFoots() {
   for (const S of SCREENS) {
     if (!S.foot) continue;
-    const st = k => { const f = logoFile(S.mod, k), s = LOGOS[f]; return LAB.logotest ? 'TEST' : s ? (s.state === 'present' ? f : s.state === 'pending' ? 'loading' : 'placeholder') : 'placeholder'; };
+    const empty = k => (LAB.logos === 'proposals' && hasProposal(S.T.id, S.mod, k) ? 'lead proposal' : 'placeholder');
+    const st = k => { const f = logoFile(S.mod, k), s = LOGOS[f]; return LAB.logotest ? 'TEST' : LAB.logos === 'placeholders' ? 'placeholder' : s ? (s.state === 'present' ? f : s.state === 'pending' ? 'loading' : empty(k)) : empty(k); };
     S.foot.textContent = 'logo: ' + st('title') + ' · icon: ' + st('icon') + ' · logo scale ×' + S.logoK;
   }
 }
@@ -1762,30 +2324,98 @@ function runChecks(done) {
         SCREENS.length + ' chassis on the page; ' + (bad.length ? 'unlabelled: ' + bad.map(S => S.T.id + '/' + S.mod).join(', ') : 'all labelled'),
         'a planted chassis with no tags: ' + (caught ? 'caught' : 'MISSED'));
     }
+    // 8. (B326) the GBC proposals pass the page's own logo lint — the one a dropped file gets
+    {
+      const lintOk = (Lr, kind) => Lr.ok && Lr.w === LOGO_KINDS[kind].w && Lr.h === LOGO_KINDS[kind].h && !Lr.over && Lr.maxPer <= 4 && Lr.pals <= 8 && !Lr.off555;
+      const res = [];
+      for (const m of MODULES) for (const kind of ['title', 'icon']) { const Lr = lintLogo(propCanvas('gbc', m, kind, 1)); res.push({ m, kind, Lr, ok: lintOk(Lr, kind) }); }
+      CHECKS.gbcLint = res;
+      // controls: a real proposal with one tile given a 5th colour; the same with an off-grid colour;
+      // and art needing 9 palettes (nine tiles, each 4 colours no other tile shares)
+      const planted = mut => { const a = PROPOSALS.gbc.maw.title, art = { pal: Object.assign({}, a.pal), rows: a.rows.slice() }; mut(art);
+        const cv = el('canvas'); cv.width = 96; cv.height = 24; const g = cv.getContext('2d'); if (g) propDrawGBC(g, art); return lintLogo(cv); };
+      const five = planted(art => { art.pal.z = '#08FF08'; art.rows[12] = art.rows[12].slice(0, 18) + 'z' + art.rows[12].slice(19); });   // tile (2,1) already holds 4: clear, ink, orange, yellow
+      const offg = planted(art => { art.pal.a = '#950821'; });
+      const nine = (() => { const cv = el('canvas'); cv.width = 96; cv.height = 24; const g = cv.getContext('2d');
+        if (g) for (let t = 0; t < 9; t++) for (let q = 0; q < 4; q++) { g.fillStyle = hexOf([e5((t * 3 + q) % 32), e5((t * 7 + q * 5) % 32), e5(t + 16)]); g.fillRect(t * 8 + (q & 1) * 4, (q >> 1) * 4, 4, 4); }
+        return lintLogo(cv); })();
+      const c5 = five.ok && five.over > 0, cO = offg.ok && offg.off555 > 0, c9 = nine.ok && nine.pals > 8;
+      row('the GBC logo proposals pass the page\'s logo lint', res.length === 4 && res.every(r => r.ok) && c5 && cO && c9,
+        res.map(r => r.m + ' ' + r.kind + ' ' + (r.Lr.ok ? r.Lr.w + '×' + r.Lr.h + ', max ' + r.Lr.maxPer + '/tile, ' + r.Lr.pals + ' palette(s), ' + r.Lr.off555 + ' px off RGB555' : r.Lr.why) + (r.ok ? ' ✓' : ' ✗')).join(' · '),
+        'a 5th colour planted in one tile of the MAW title: ' + (c5 ? 'caught (' + five.over + ' tile over 4)' : 'MISSED') + '; an off-grid palette colour (0x95): ' + (cO ? 'caught (' + offg.off555 + ' px)' : 'MISSED') + '; art needing 9 palettes: ' + (c9 ? 'caught (' + nine.pals + ')' : 'MISSED'));
+    }
+    // 9. (B326) every treatment has both proposals, title and icon, at the README's sizes, with
+    //    ink, and each within its medium's rule (1-bit; one foreground per teletext cell; glyphs
+    //    the terminal has; strokes inside the canvas; glyphs the glass has)
+    {
+      const res = [];
+      for (const T of TREATMENTS) for (const m of MODULES) for (const kind of ['title', 'icon']) {
+        const L = LOGO_KINDS[kind];
+        if (!hasProposal(T.id, m, kind)) { res.push({ what: T.id + '/' + m + ' ' + kind, ok: false, why: 'missing' }); continue; }
+        const cv = propCanvas(T.id, m, kind, 1), d = rasterData(cv), ink = alphaFraction(d), R = propRule(T.id, PROPOSALS[T.id][m][kind], d, L.w, L.h);
+        const sized = cv.width === L.w && cv.height === L.h;
+        res.push({ what: T.id + '/' + m + ' ' + kind, ok: sized && ink > 0.03 && R.ok, why: (sized ? '' : 'size ' + cv.width + '×' + cv.height + ' ') + (ink > 0.03 ? '' : 'ink ' + ink.toFixed(3) + ' ') + R.why, ink });
+      }
+      CHECKS.propRules = res;
+      const wsd = (() => { const cv = propCanvas('ws', 'maw', 'title', 1), g = cv.getContext('2d'); if (g) { g.fillStyle = '#7F7F7F'; g.fillRect(40, 12, 1, 1); } return rasterData(cv); })();
+      const ttd = (() => { const cv = propCanvas('ttx', 'maw', 'title', 1), g = cv.getContext('2d'); if (g) { g.fillStyle = TTX.G; g.fillRect(34, 2, 1, 1); } return rasterData(cv); })();
+      const cWs = !propRule('ws', PROPOSALS.ws.maw.title, wsd, 96, 24).ok && !!wsd;
+      const cTt = !propRule('ttx', PROPOSALS.ttx.maw.title, ttd, 96, 24).ok && !!ttd;
+      const cCr = !propRule('crt', { cw: 5, ch: 8, rows: ['╔╦╗@'], at: ['2222'] }, null, 96, 24).ok;
+      const cVe = !propRule('vec', { strokes: [{ c: 'k', pts: [4, 4, 120, 4] }] }, null, 96, 24).ok;
+      const bad = res.filter(r => !r.ok);
+      row('every treatment has both proposals at the README\'s sizes, inked, within its medium\'s rule', res.length === TREATMENTS.length * 4 && !bad.length && cWs && cTt && cCr && cVe,
+        res.length + ' proposals (' + TREATMENTS.length + ' treatments × 2 modules × title + icon); ' + (bad.length ? 'FAILED: ' + bad.map(r => r.what + ' ' + r.why).join('; ') : 'all 96×24 or 16×16, ink ' + Math.round(100 * Math.min(...res.map(r => r.ink))) + '–' + Math.round(100 * Math.max(...res.map(r => r.ink))) + '% of the canvas, every medium rule held'),
+        'a grey pixel in the 1-bit MAW title: ' + (cWs ? 'caught' : 'MISSED') + '; a third colour in a teletext cell: ' + (cTt ? 'caught' : 'MISSED') + '; a glyph the terminal lacks: ' + (cCr ? 'caught' : 'MISSED') + '; a stroke leaving the canvas: ' + (cVe ? 'caught' : 'MISSED'));
+    }
     if (run !== CHECKS.run) return;
     CHECKS.rows = rows; CHECKS.done = true; if (done) done();
   };
   const slots = [];
   for (const S of SCREENS) for (const kind in S.slots) slots.push({ S, kind, node: S.slots[kind].firstChild, st: LOGOS[logoFile(S.mod, kind)] });
   const pending = slots.filter(s => !s.st || s.st.state === 'pending').length;
+  // what each slot MUST show (B326): a present file wins except in PLACEHOLDERS; an empty slot
+  // shows the proposal in PROPOSALS and the placeholder otherwise. Read from the DOM node.
+  const kindOf = n => !n ? 'none' : n.className === 'test' ? 'test' : n.tagName === 'IMG' ? 'file' : n.classList.contains('prop') ? 'proposal' : n.classList.contains('lph') ? 'placeholder' : '?';
+  const expect = s => (LAB.logos !== 'placeholders' && s.st.state === 'present') ? 'file' : (LAB.logos === 'proposals' && hasProposal(s.S.T.id, s.S.mod, s.kind)) ? 'proposal' : 'placeholder';
   const wrong = LAB.logotest ? slots.filter(s => !s.node || s.node.className !== 'test')
-    : slots.filter(s => s.st && s.st.state !== 'pending' && ((s.st.state === 'absent') !== (!!s.node && s.node.classList.contains('lph'))));
+    : slots.filter(s => s.st && s.st.state !== 'pending' && kindOf(s.node) !== expect(s));
   const nAbsent = slots.filter(s => s.st && s.st.state === 'absent').length, nPresent = slots.filter(s => s.st && s.st.state === 'present').length;
-  let cA = null, cP = null;
+  const shown = {}; slots.forEach(s => { const k = kindOf(s.node); shown[k] = (shown[k] || 0) + 1; });
+  let cA = null, cP = null, cAp = null, cPp = null;
   const settle = () => {
-    if (cA === null || cP === null) return;
-    const ok = !wrong.length && cA && cP;
-    rows.push({ name: 'placeholders show exactly when the files are absent', ok: pending ? null : ok,
+    if (cA === null || cP === null || cAp === null || cPp === null) return;
+    const ok = !wrong.length && cA && cP && cAp && cPp;
+    rows.push({ name: 'each logo slot shows what its mode says: a present file wins (outside PLACEHOLDERS), else the proposal or the placeholder', ok: pending ? null : ok,
       detail: LAB.logotest ? slots.length + ' slots show generated TEST patterns (?logotest=1); files are not consulted in this mode'
-        : slots.length + ' slots: ' + nAbsent + ' with the file absent (placeholder shown), ' + nPresent + ' with it present (the file shown)' + (pending ? ', ' + pending + ' still loading' : '') + (wrong.length ? '; WRONG: ' + wrong.map(s => s.S.T.id + '/' + s.S.mod + ' ' + s.kind).join(', ') : ''),
-      ctl: 'a missing file probed through the same loader: ' + (cA ? 'caught (placeholder)' : 'MISSED') + '; a generated PNG: ' + (cP ? 'caught (image shown)' : 'MISSED') });
+        : 'mode ' + LAB.logos.toUpperCase() + ': ' + slots.length + ' slots, ' + nAbsent + ' with the file absent, ' + nPresent + ' with it present; shown: ' + Object.keys(shown).sort().map(k => shown[k] + ' ' + k).join(', ') + (pending ? ', ' + pending + ' still loading' : '') + (wrong.length ? '; WRONG: ' + wrong.map(s => s.S.T.id + '/' + s.S.mod + ' ' + s.kind + ' shows ' + kindOf(s.node) + ', expected ' + expect(s)).join(', ') : ''),
+      ctl: 'FILES mode, a missing file probed through the same loader: ' + (cA ? 'caught (placeholder)' : 'MISSED') + '; FILES mode, a generated PNG: ' + (cP ? 'caught (image shown)' : 'MISSED') +
+        '; PROPOSALS mode, the missing file: ' + (cAp ? 'caught (proposal shown)' : 'MISSED') + '; PROPOSALS mode, the generated PNG: ' + (cPp ? 'caught (the file beats the proposal)' : 'MISSED') });
     finish();
   };
-  const tmp = { mod: 'maw', logoK: 2, live: false };
-  probeLogo(LOGO_DIR + '__b322_absent__.png', st => { const f = logoFile('maw', 'title'), save = LOGOS[f], lt = LAB.logotest; LOGOS[f] = { state: st }; LAB.logotest = false; const sl = el('div'); fillSlot(tmp, 'title', sl); cA = st === 'absent' && sl.firstChild.classList.contains('lph'); LOGOS[f] = save; LAB.logotest = lt; settle(); });
+  // the controls fill a detached slot as a GBC MAW screen would, in a forced mode; state is restored
+  const tmp = { mod: 'maw', logoK: 2, live: false, T: TR.gbc };
+  const trial = (mode, st, img) => {
+    const f = logoFile('maw', 'title'), save = LOGOS[f], lt = LAB.logotest, lm = LAB.logos;
+    LOGOS[f] = img ? { state: st, img } : { state: st }; LAB.logotest = false; LAB.logos = mode;
+    const sl = el('div'); fillSlot(tmp, 'title', sl);
+    LOGOS[f] = save; LAB.logotest = lt; LAB.logos = lm;
+    return sl.firstChild;
+  };
+  probeLogo(LOGO_DIR + '__b322_absent__.png', st => {
+    const nf = trial('files', st), np = trial('proposals', st);
+    cA = st === 'absent' && !!nf && nf.classList.contains('lph');
+    cAp = st === 'absent' && !!np && np.classList.contains('prop');
+    settle();
+  });
   let dataUrl = ''; try { dataUrl = testArt('maw', 'title').toDataURL('image/png'); } catch (_) { dataUrl = ''; }
-  if (!dataUrl || dataUrl.indexOf('data:image/png') !== 0) { cP = false; settle(); }
-  else probeLogo(dataUrl, (st, img) => { const f = logoFile('maw', 'title'), save = LOGOS[f], lt = LAB.logotest; LOGOS[f] = { state: st, img }; LAB.logotest = false; const sl = el('div'); fillSlot(tmp, 'title', sl); cP = st === 'present' && !!sl.firstChild && sl.firstChild.tagName === 'IMG'; LOGOS[f] = save; LAB.logotest = lt; settle(); });
+  if (!dataUrl || dataUrl.indexOf('data:image/png') !== 0) { cP = false; cPp = false; settle(); }
+  else probeLogo(dataUrl, (st, img) => {
+    const nf = trial('files', st, img), np = trial('proposals', st, img);
+    cP = st === 'present' && !!nf && nf.tagName === 'IMG';
+    cPp = st === 'present' && !!np && np.tagName === 'IMG';
+    settle();
+  });
 }
 function showAudit() {
   const a = document.getElementById('audit'); if (!a) return;
@@ -1809,13 +2439,14 @@ function applyBody() {
 function chrome() {
   const set = (id, h) => { const n = document.getElementById(id); if (n) n.innerHTML = h; };
   set('themeBtn', 'theme <b>' + LAB.theme.toUpperCase() + '</b>'); set('scrBtn', 'screen <b>' + LAB.scheme + '</b>');
-  set('motionBtn', 'motion <b>' + (LAB.animate ? 'ON' : 'STILL') + '</b>'); set('logoBtn', 'logos <b>' + (LAB.logotest ? 'TEST' : 'FILES') + '</b>');
+  set('motionBtn', 'motion <b>' + (LAB.animate ? 'ON' : 'STILL') + '</b>'); set('logoBtn', 'test art <b>' + (LAB.logotest ? 'ON' : 'OFF') + '</b>');
   const pills = (id, items, cur, pick) => {
     const host = document.getElementById(id); if (!host) return; host.innerHTML = '';
     for (const [v, label] of items) { const b = el('button', 'pill' + (v === cur ? ' on' : ''), label); b.addEventListener('click', () => pick(v)); host.appendChild(b); }
   };
   pills('viewPills', [['overview', 'ALL SIDE BY SIDE']].concat(TREATMENTS.map(T => [T.id, T.name])), LAB.view, v => { LAB.view = v; rebuild(); });
   pills('modPills', [['both', 'BOTH'], ['maw', 'MAW'], ['sluice', 'SLUICE']], LAB.mod, v => { LAB.mod = v; rebuild(); });
+  pills('logoPills', LOGO_MODES, LAB.logos, v => { LAB.logos = v; chrome(); refillLogos(); CHECKS.done = false; runChecks(showAudit); });
 }
 let IO = null;
 function rebuild() {
@@ -1853,10 +2484,59 @@ function renderFrame(all) {
   });
 }
 function loop() { if (LAB.animate) LAB.frame++; renderFrame(false); requestAnimationFrame(loop); }
+/* B326 — the proposals gallery: every treatment, both modules, title and icon at ×4 and at
+   true size on the medium's ground, the concept in a line, its lint or rule, and PNG exports at
+   the README's sizes (and ×4). Exports are generated here and downloaded by the browser; the
+   page never writes docs/design/assets/fx-logos/. */
+const PROP_GROUND_EXPORT = { crt: true, vec: true, seg: true, ttx: true };
+const GAL = { node: null, key: '' };
+function buildGallery(host) {
+  host.innerHTML = '';
+  host.appendChild(el('h2', null, 'LEAD LOGO PROPOSALS (B326) — ONE MARK PER GLASS, FOR MAW AND FOR SLUICE'));
+  const intro = el('div', 'why');
+  intro.textContent = 'Proposals, not rulings, drawn in each medium\'s own terms and authored as data in this page (section K2). MAW is a jaw (teeth, heat, a clipped signal); Sluice is water (a waterline, a gate, a loop). They sit in the logo slots in LOGOS: PROPOSALS mode, and any file you drop in docs/design/assets/fx-logos/ beats them. Each exports as a PNG at the README\'s size (96×24, 16×16) and at ×4, as a starting point.';
+  host.appendChild(intro);
+  const dpr = Math.min(2, (typeof devicePixelRatio === 'number' && devicePixelRatio) || 1);
+  for (const T of TREATMENTS) {
+    const sec = el('div', 'gtr'), h3 = el('h3', null, T.name); h3.appendChild(el('span', null, T.policy)); sec.appendChild(h3);
+    const pair = el('div', 'gpair');
+    for (const m of MODULES) {
+      const P = PROPOSALS[T.id][m], card = el('div', 'gcard'), sw = el('div', 'gsw');
+      sw.style.background = propGround(T.id, m);
+      const fig = (kind, k) => {
+        const L = LOGO_KINDS[kind], f = el('figure'), cv = propCanvas(T.id, m, kind, k, { dpr });
+        cv.style.width = L.w * k + 'px'; cv.style.height = L.h * k + 'px';
+        f.appendChild(cv); f.appendChild(el('figcaption', null, kind.toUpperCase() + ' ' + L.w + '×' + L.h + ' at ×' + k)); sw.appendChild(f);
+      };
+      fig('title', 4); fig('icon', 4); fig('title', 1); fig('icon', 1);
+      card.appendChild(sw);
+      const con = el('div', 'gcon'); con.appendChild(el('b', null, MODNAME[m] + ': ')); con.appendChild(document.createTextNode(P.concept)); card.appendChild(con);
+      const lint = el('div', 'glint');
+      lint.textContent = ['title', 'icon'].map(kind => {
+        const L = LOGO_KINDS[kind], cv = propCanvas(T.id, m, kind, 1);
+        if (T.id === 'gbc') { const Lr = lintLogo(cv); return kind + ': ' + (Lr.ok ? Lr.w + '×' + Lr.h + ' · max ' + Lr.maxPer + ' colours/tile · ' + Lr.pals + ' palette(s) of 8 · ' + (Lr.off555 ? Lr.off555 + ' px off RGB555' : 'RGB555') + (Lr.over || Lr.pals > 8 || Lr.off555 ? ' ✗' : ' ✓') : Lr.why); }
+        const R = propRule(T.id, P[kind], rasterData(cv), L.w, L.h); return kind + ': ' + cv.width + '×' + cv.height + ' · medium rule ' + (R.ok ? '✓' : '✗ ' + R.why);
+      }).join('   ');
+      card.appendChild(lint);
+      const ex = el('div', 'gexp'); ex.appendChild(el('span', null, 'export PNG: '));
+      for (const kind of ['title', 'icon']) for (const k of [1, 4]) {
+        const L = LOGO_KINDS[kind], a = el('a', null, (kind === 'title' ? 'title ' : 'icon ') + L.w * k + '×' + L.h * k);
+        a.download = m + (kind === 'icon' ? '-icon' : '') + '-' + T.id + '-proposal' + (k > 1 ? '-x' + k : '') + '.png';
+        try { a.href = propCanvas(T.id, m, kind, k, { ground: !!PROP_GROUND_EXPORT[T.id], upscale: k }).toDataURL('image/png'); } catch (_) { a.removeAttribute && a.removeAttribute('href'); }
+        a.title = 'downloads ' + a.download + ' (a starting point; rename it to ' + logoFile(m, kind) + ' and drop it in docs/design/assets/fx-logos/ to use it)';
+        ex.appendChild(a);
+      }
+      card.appendChild(ex);
+      pair.appendChild(card);
+    }
+    sec.appendChild(pair); host.appendChild(sec);
+  }
+}
 function renderNotes() {
   const host = document.getElementById('notes'); if (!host) return;
   const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
-  let h = '<div class="box"><h2>THE TREATMENTS</h2><table><tr><th>treatment</th><th>why, and how the logo sits</th><th>screen scheme</th></tr>' +
+  let h = '<div class="box gal" id="propGal"></div>' +
+    '<div class="box"><h2>THE TREATMENTS</h2><table><tr><th>treatment</th><th>why, and how the logo sits</th><th>screen scheme</th></tr>' +
     TREATMENTS.map(T => '<tr><td><b>' + T.name + '</b></td><td>' + esc(T.why) + ' <i>' + esc(T.logo) + '</i></td><td>' + esc(T.policy) + '</td></tr>').join('') + '</table>' +
     '<p style="margin-top:6px">Kept from the brief\'s six: all of them. <b>Refined:</b> segmented LCD became SEGMENT GLASS, which is an LCD on a pale scheme and a VFD on a dark one, so it takes the scheme instead of overriding it; the vector monitor draws MAW\'s curve as an XY scope; teletext\'s Fastext keys are the chassis\'s soft keys; the GBC palettes are built from the scheme. <b>Not built:</b> a plasma/gas-discharge panel (one orange, too close to the CRT) and e-paper (no motion, which the mocks rely on).</p></div>';
   const lrow = (mod, kind) => {
@@ -1872,7 +2552,7 @@ function renderNotes() {
     '<tr><td><b>TITLE</b></td><td>96 × 24</td><td>12 × 3</td><td>the header of every screen; on the GBC one logo pixel is one screen pixel</td></tr>' +
     '<tr><td><b>ICON</b></td><td>16 × 16</td><td>2 × 2</td><td>the top-right corner; a window\'s proxy icon on the workstation</td></tr></table>' +
     '<p><b>Palette rule (the GBC treatment, as on real hardware):</b> at most <b>4 colours in each 8×8 tile</b> (fully transparent counts as one, as a sprite\'s colour 0 does); at most <b>8 palettes</b> across the whole logo; colours on the <b>RGB555</b> grid (5 bits a channel: each 8-bit value is (k&lt;&lt;3)|(k&gt;&gt;2), k = 0…31, so 0, 8, 16, 24, 33, … 247, 255). The page checks a dropped file against all three and says so below.</p>' +
-    '<p><b>Drop-in rule:</b> save PNGs as <code>docs/design/assets/fx-logos/maw.png</code>, <code>maw-icon.png</code>, <code>sluice.png</code>, <code>sluice-icon.png</code>, then reload. The page shows each at the largest <b>whole-number</b> scale that fits its slot, never resampled (image-rendering: pixelated). Art larger than the canvas is shown at ×1 and clipped. Until a file exists the slot shows a placeholder drawn in code.</p>' +
+    '<p><b>Drop-in rule:</b> save PNGs as <code>docs/design/assets/fx-logos/maw.png</code>, <code>maw-icon.png</code>, <code>sluice.png</code>, <code>sluice-icon.png</code>, then reload. The page shows each at the largest <b>whole-number</b> scale that fits its slot, never resampled (image-rendering: pixelated). Art larger than the canvas is shown at ×1 and clipped. Until a file exists the slot shows the lead\'s proposal (LOGOS: PROPOSALS, the default) or a placeholder drawn in code (FILES); PLACEHOLDERS shows the canvas guides even where a file exists. A present file always beats a proposal.</p>' +
     '<table><tr><th>file</th><th>canvas</th><th>status</th></tr>' + MODULES.map(m => lrow(m, 'title') + lrow(m, 'icon')).join('') + '</table>' +
     '<div class="lsample" id="lsample"></div></div>';
   h += '<div class="box"><h2>WHAT IS MOCKED, WHAT IS REAL</h2><ul>' +
@@ -1892,8 +2572,12 @@ function renderNotes() {
     '<li><b>Where does Sluice\'s RANDOMNESS live?</b> It is not on the four knobs here (they are its macros). A long-press on RAND, a fifth encoder, or a screen page?</li>' +
     '<li><b>How big is the screen?</b> Full size here is 640×576 (the GBC\'s 160×144 at ×4), most of a 980×720 window. Is the screen the whole FX page, or a panel inside it?</li>' +
     '<li><b>Flashing:</b> teletext\'s PROVISIONAL flashes at about 1 Hz and segment glass\'s PROV icon blinks. Keep, slow, or drop (photosensitivity)?</li>' +
+    '<li><b>Logo proposals (B326):</b> which marks survive, per glass? Should one concept (MAW the jaw, Sluice the water) carry across every glass, as proposed, or should a chosen glass get its own? Exports are starting points: the GBC and workstation PNGs are clear where the art is; the glass media carry their ground.</li>' +
     '<li><b>Cost in the plugin:</b> the CRT\'s bloom is a canvas blur here; in the plugin it would be a shader pass. Not measured.</li></ol></div>';
   host.innerHTML = h;
+  // the gallery draws ~100 canvases, so it is built once per screen scheme and re-attached after that
+  const gal = document.getElementById('propGal');
+  if (gal) { const key = LAB.scheme + '|' + LAB.theme; if (GAL.node && GAL.key === key) gal.replaceWith(GAL.node); else { GAL.node = gal; GAL.key = key; buildGallery(gal); } }
   const ls = document.getElementById('lsample');
   if (ls) for (const m of MODULES) for (const kind of ['title', 'icon']) {
     const f = el('figure'), cv = drawPlaceholder(m, kind); cv.style.width = cv.width * 3 + 'px'; cv.style.height = cv.height * 3 + 'px';
@@ -1912,7 +2596,7 @@ function boot() {
   for (const m of MODULES) for (const kind of ['title', 'icon']) {
     const f = logoFile(m, kind); LOGOS[f] = { state: 'pending' }; left++;
     probeLogo(LOGO_DIR + f, (st, img) => {
-      LOGOS[f] = { state: st, img }; if (st === 'present') LOGOS[f].lint = lintLogo(img);
+      LOGOS[f] = { state: st, img }; if (st === 'present') LOGOS[f].lint = lintLogo(img);   // probed read-only: this page never writes the files
       if (--left === 0) { refillLogos(); CHECKS.done = false; runChecks(showAudit); }
     });
   }
