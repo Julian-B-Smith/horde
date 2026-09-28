@@ -547,7 +547,7 @@ function makeComposedEngine(RazorCore, swarmSrc) {
          - ENTRY RAMP, onset scatter alone (:1137-1142): onsE += (1 − onsE)·onsC on top of the voice
            envelope, so a late entry cannot click in at the level the voice has reached.
          - PER-PARTIAL ENV (:1118-1135, :1198-1204): every member runs RazorCore's ADSR (this
-           call's A, D, S, R: razor-core.js render :737-739, :772-774) with its own drawn attack
+           call's A, D, S, R: razor-core.js render :740-742, :777-779) with its own drawn attack
            and release times; the voice envelope becomes BOOKKEEPING, the loudest member, so
            liveness, the voice law and the cull key off it unchanged (ADR-078's design), and each
            member's gain is its level over that loudest level.
@@ -721,9 +721,9 @@ function makeComposedEngine(RazorCore, swarmSrc) {
       }
       if (++m.j >= this.os) m.j = 0;
       /* B335 THE MEMBER'S GAIN rides RazorCore's pan gains. Its render sums each member as
-         `vl += y·gl[q]` right after this call returns (razor-core.js :841-866), with the DC estimate
+         `vl += y·gl[q]` right after this call returns (razor-core.js :839-860), with the DC estimate
          already taken off y, so scaling gl[q] here scales the member's DC-corrected output and
-         nothing else. gl/gr are rebuilt at the top of every render call (:733-737): the first
+         nothing else. gl/gr are rebuilt at the top of every render call (:733-738): the first
          step of a call snapshots them, and every step of that call writes base·gain, 1 for a voice
          with no per-member state. Untouched unless some sounding voice has it (pvLive). */
       if (this.pvLive) {
@@ -778,7 +778,7 @@ function makeComposedEngine(RazorCore, swarmSrc) {
     }
 
     /* B335: the state RazorCore's render reads ONCE PER CALL, taken just before the call so that it
-       is the very value that call reads (razor-core.js :737-739): the per-partial envelopes use it,
+       is the very value that call reads (razor-core.js :740-742): the per-partial envelopes use it,
        and the render-call counter tells stepM that RazorCore has rebuilt its pan gains. */
     preCall() {
       this.rCall++;
