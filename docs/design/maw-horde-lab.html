@@ -1,0 +1,1390 @@
+<!doctype html>
+<!-- maw-horde-lab — B318: MAW as it will live inside horde. HYPERSAW, 2026-09-28,
+     dispatched by the horde lead on ROADMAP B318 (carried in records PR #811,
+     branch lead-records-123). The human: "Could you also please start agents
+     building the design labs for Maw and Sluice as they'll live in Horde?"
+
+     WHAT THIS IS. A design lab, not a port. One plugin window (980×720, the
+     SCALPEL lab's frame) on horde's FX page, with MAW in rack slot 1 as FX-C, the
+     saturator every source hands off to (ADR-092 amendment "Maw eats it",
+     ADR-170). Its face is the four role macros (ADR-169, the A2 distillation) over
+     MAW's full panel; its visualisers are drawn from what MAW RENDERED (L0064);
+     a horde voice feeds it so it is heard in context.
+
+     THE ORACLE IS LOADED, NEVER COPIED. reference/maw/core.js and presets.js are
+     PROTECTED (horde's intake record of MAW, ADR-170 A2); the <script src> tags
+     below load them as-is, and every sample heard or measured here is
+     MawCore.process(). The curves are not a UI twin: they are Stage.shapeDriven()
+     evaluated on the rendering instance's own control state, and a self-check
+     proves that equals the stage's own process() sample by sample. The load
+     checker (tools/labharness/lab_load_check.mjs) runs inline blocks only, so
+     under it MAW is absent and the page says so rather than drawing an invented
+     curve.
+
+     THE INPUT. A horde voice: the COMPOSED engine (docs/design/scalpel-horde-
+     engine.js, B298: horde's swarm under SCALPEL's blades), loaded exactly as the
+     SCALPEL lab loads it (it slices reference/swarmsaw.html's DSP section, so the
+     page must be served: python3 tools/serve_labs.py). Two engine sources: SAW
+     SWARM (the engine with blade depth 0 and a saw base, which renders a saw
+     swarm — measured: harmonics within 0.2 dB of 1/n) and SCALPEL PATCH (any of
+     the 83 bench presets). Two engine-free sources work from the filesystem too:
+     NOISE and DRUM (seeded). WHY THE ENGINE AND NOT A TOY OSCILLATOR: FX-C sees
+     the voice sum, and a swarm's beating and a blade's formant band are what a
+     saturator's curve and ecology actually react to. WHY STILL A SWITCH: a drum
+     transient is where drive-ref, ecology and the floor show themselves, and noise
+     makes the spectra read as the curve's own response. Every source is
+     normalised to 0.5 peak (−6 dBFS), MAW's static auto-gain reference level
+     (SPEC-MAW §2.4); that is a lab choice (open question 5).
+
+     RENDERED, NOT LIVE. The source and MAW render OFFLINE into a 2 s buffer
+     (note held 1.41 s) that loops; a parameter change re-renders (≈80 ms). So
+     every picture is a measurement of the buffer you hear. SEEDED: the engine's
+     Math.random is a mulberry32 installed around every call (the SCALPEL lab's
+     convention); MAW's own xorshift is its own, seeded 0x51ED. The only clock
+     read is the AudioContext's, for the playhead cursor — never in a sample.
+
+     TAKEN FROM OTHER LABS (cited, not re-derived):
+       - docs/design/fx-design-lab.html :705-795 — MAW's parameter rows, their
+         ranges and ghost rules; the four-role declaration (Amount = drive, Tone =
+         shape/cutoff, Motion = inertia/flux, Regen = feedback, ADR-170 A1) and
+         its rule that Feedback goes IDLE outside the feedback route; the D3/§10
+         ghost rows (tracked auto-gain dropped, per-stage oversampling not ported).
+       - docs/design/fx-design-lab.html :1752-1790 — the topology drawing layout.
+       - docs/design/scalpel-interface-lab.html :164-230 (gui2's :root, both
+         themes), its chrome, knob, pill and plugin-window CSS, TOK/TOKA/fit, el,
+         mulberry32, and the engine load route (:6119-6135).
+       - reference/maw/fidelity.js :4-5 — the radix-2 FFT (the report's own).
+       NOT taken: fx-design-lab's drawMaw curve, which computes from UI params —
+       the method SPEC-MAW §10 says is not evidence. Here it is the must-fail
+       control of the transfer self-check.
+     fx-page-lab.html and fx-chain-morph-lab.html hold no MAW material (grep).
+
+     L0026: every const is declared above the code that runs at setup; boot() is
+     the last statement. No wheel-driven controls (drag, double-click to reset),
+     so lab_wheel_scroll_check's inventory is untouched. -->
+<html lang="en"><head><meta charset="utf-8">
+<meta name="lab-review" content="B318 · 2026-09-28">
+<title>MAW design lab — the FX-C saturator as it lives in horde</title>
+<style>
+  /* gui2's tokens, via docs/design/scalpel-interface-lab.html :164-230 (a copy, therefore
+     drift: B302 is where one token set is shared) */
+  :root {
+    --bg:#F2EDE2; --panel:#FCFAF4; --well:#FFFFFF; --panel2:#E9E3D4;
+    --line:#191521; --hair:#E5DFD0; --div:#D8D1C0;
+    --text:#191521; --t2:#494356; --dim:#9A93A3; --dis:#B6AFA0;
+    --value:#F5169C; --pull:#F5169C; --physics:#6431F0; --meter:#00D5C8;
+    --marker:#FFD702; --celebrate:#A6F219;
+    --caution:#F5A300; --caution-bg:#FBE9BD; --caution-tx:#6D570B;
+    --alarm:#C2261A; --ghost:#C9C2FF;
+    --cA:#FFD702; --cB:#FF2E88; --cC:#00D5C8; --cD:#A6F219;
+    --scr-tube:#1B0733; --scr-value:#FF5ECF; --scr-meter:#B8F227; --scr-physics:#B48CFF;
+    --scr-marker:#FFB86B; --scr-grid:#4FD8BE; --scr-alpha:1;
+    --r-card:10px; --r-well:var(--r-card); --r:var(--r-card); --stroke:1.5px;
+    --shadow:1.5px 1.5px 0 var(--line); --shadow-hover:2.5px 2.5px 0 var(--line); }
+  * { box-sizing:border-box; margin:0; }
+  canvas { border:var(--stroke) solid var(--line); border-radius:var(--r-well);
+           background:var(--scr-tube); display:block; }
+  /* gui2:142 — ORCHID is the screen scheme the LIGHT chassis pairs with */
+  body:not(.dark) { --scr-tube:#F3EBFF; --scr-value:#D6006B; --scr-meter:#007A73;
+    --scr-physics:#6E14E8; --scr-marker:#C43A00; --scr-grid:#5A3FA8; --scr-alpha:1.6;
+    --marker:#8A6A00; --celebrate:#4E7A00; }
+  body.dark {
+    --bg:#151220; --panel:#1F1B2E; --well:#0E0C16; --panel2:#2C2740;
+    --line:#EFE9FA; --hair:#312B47; --div:#3B3455;
+    --text:#EFE9FA; --t2:#BDB4D4; --dim:#8A82A3; --dis:#514A6B;
+    --value:#FF3DAD; --pull:#FF3DAD; --physics:#A07CFF; --meter:#2DF2E2;
+    --marker:#FFE04D; --celebrate:#C2F53E;
+    --caution:#FFB627; --caution-bg:#4A3A12; --caution-tx:#FFD98A;
+    --alarm:#FF5A4D; --ghost:#5B4E8F; }
+
+  /* ============ LAB CHROME (scalpel-interface-lab's) ============ */
+  body { background:var(--bg); color:var(--text); font:12px/1.45 ui-monospace,Menlo,monospace; padding:10px 12px; }
+  .hdr { display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; margin-bottom:8px; }
+  h1 { font-size:34px; line-height:1; letter-spacing:-1px; font-weight:800; }
+  .badges { display:flex; align-items:center; gap:8px; margin-top:4px; }
+  .badge { font-size:9.5px; letter-spacing:.1em; padding:2px 7px; border:var(--stroke) solid var(--line);
+           border-radius:3px; background:var(--cA); color:var(--line); }
+  body.dark .badge { color:var(--bg); }
+  .sub { color:var(--t2); font-size:10.5px; letter-spacing:.12em; }
+  .hdrctl { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-left:auto; }
+  .lbl { font-size:10px; font-weight:700; letter-spacing:.1em; color:var(--t2); }
+  .pill { padding:3px 10px; border:var(--stroke) solid var(--line); border-radius:999px; min-height:26px;
+    cursor:pointer; color:var(--dim); background:var(--panel); font:inherit; font-size:10px; letter-spacing:.06em; }
+  .pill:hover { box-shadow:var(--shadow); }
+  .pill.on { color:var(--bg); background:var(--line); font-weight:600; }
+  .pill.byp.on { background:var(--caution); border-color:var(--caution); color:var(--line); }
+  .pill.dis { opacity:.4; cursor:not-allowed; text-decoration:line-through; }
+  .pill.mini { min-height:19px; padding:0 7px; font-size:9.5px; letter-spacing:.02em; }
+  .pills { display:flex; gap:4px; flex-wrap:wrap; align-items:center; }
+  .pills.ghost { opacity:.4; }
+  .chip { padding:4px 8px; border:0; background:none; border-radius:var(--r); cursor:pointer; font:inherit;
+    font-size:10px; letter-spacing:.06em; color:var(--dim); min-height:26px; }
+  .chip:hover { background:var(--panel2); }
+  .chip b { color:var(--t2); font-weight:600; letter-spacing:.1em; }
+  .tagline { color:var(--t2); font-size:11px; max-width:150ch; margin-bottom:6px; }
+  .tagline b { color:var(--text); }
+  .audit { font-size:10px; color:var(--t2); margin-bottom:8px; border-left:3px solid var(--meter);
+           padding-left:8px; max-width:170ch; }
+  .audit.bad { border-left-color:var(--alarm); }
+  .audit b { color:var(--value); }
+  .audit .ok { color:var(--celebrate); font-weight:700; }
+  .audit .no { color:var(--alarm); font-weight:700; }
+  .audit ol { padding-left:18px; margin:2px 0 0; }
+  .audit li { margin:1px 0; }
+  .dep { display:inline-block; font-size:8.5px; letter-spacing:.1em; font-weight:700; padding:0 5px; border-radius:3px;
+    background:var(--caution-bg); color:var(--caution-tx); border:1px solid var(--caution); margin-left:4px; vertical-align:1px; }
+
+  /* ============ CONTROLS (gui2:538 enum via the SCALPEL lab) ============ */
+  select { -webkit-appearance:none; appearance:none; font:inherit; font-size:10px; padding:2px 18px 2px 9px; min-width:0;
+    border-radius:999px; border:var(--stroke) solid var(--line); background:var(--panel); color:var(--t2); cursor:pointer;
+    min-height:22px; max-width:100%;
+    background-image:linear-gradient(45deg,transparent 50%,var(--t2) 50%), linear-gradient(135deg,var(--t2) 50%,transparent 50%);
+    background-position:calc(100% - 11px) 50%, calc(100% - 7px) 50%; background-size:4px 4px, 4px 4px; background-repeat:no-repeat; }
+  select.ghost { opacity:.4; }
+
+  /* ============ KNOB — gui2:617-730 via scalpel-interface-lab :365-415 ============ */
+  .knob { position:relative; width:32px; height:32px; flex:0 0 auto; cursor:ns-resize; touch-action:none; }
+  .karc { position:absolute; inset:1.5px; border-radius:50%;
+    background:conic-gradient(from 220deg, var(--panel2) 0deg var(--a0,0deg), var(--value) var(--a0,0deg) var(--a1,0deg),
+      var(--panel2) var(--a1,0deg) 280deg, transparent 280deg 360deg); }
+  .kmod { position:absolute; inset:0; border-radius:50%;
+    background:conic-gradient(from 220deg, transparent 0deg var(--m0,0deg), var(--physics) var(--m0,0deg) var(--m1,0deg),
+      transparent var(--m1,0deg) 360deg); opacity:.85; }
+  .kcap { position:absolute; inset:4px; border-radius:50%; background:var(--panel); border:var(--stroke) solid var(--line); box-shadow:var(--shadow); }
+  .kptr { position:absolute; left:50%; top:6px; width:2.5px; height:8px; margin-left:-1.25px; border-radius:1.5px;
+    background:var(--line); transform-origin:50% 10px; transform:rotate(var(--ang,0deg)); }
+  .knob:hover .kcap { box-shadow:var(--shadow-hover); }
+  .knob.drag .kcap { background:var(--value); box-shadow:none; }
+  .knob.drag .kptr { background:var(--bg); }
+  .knob.big { width:44px; height:44px; }
+  .knob.big .kcap { inset:5px; }
+  .knob.big .kptr { top:8px; height:10px; transform-origin:50% 14px; }
+  .kcell { display:flex; flex-direction:column; align-items:center; gap:1px; text-align:center; width:52px; min-width:0; }
+  .kcell > label { font-size:9px; line-height:1.15; max-width:100%; color:var(--t2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .kcell > output { font-size:8.5px; color:var(--text); font-variant-numeric:tabular-nums; white-space:nowrap; max-width:100%; overflow:hidden; }
+  .kcell.ghost > .knob { opacity:.35; }
+  .kcell.ghost > label, .kcell.ghost > output { color:var(--dim); }
+  .kcell.big { width:100%; }
+  .kcell.big > label { font-size:11px; font-weight:700; color:var(--text); }
+
+  /* ============ THE PLUGIN WINDOW (scalpel-interface-lab :428-470) ============ */
+  .stage { display:flex; gap:14px; align-items:flex-start; flex-wrap:wrap; }
+  .plug { width:980px; height:720px; flex:0 0 auto; background:var(--bg); border:var(--stroke) solid var(--line);
+    border-radius:12px; box-shadow:var(--shadow); padding:8px 10px; display:flex; flex-direction:column; gap:6px; overflow:hidden; }
+  .side { flex:1 1 300px; max-width:380px; font-size:10.5px; color:var(--t2); line-height:1.5; }
+  .side h2, .notes h2 { font-size:11px; color:var(--pull); letter-spacing:1px; margin:0 0 5px; }
+  .side .box { background:var(--panel); border:var(--stroke) solid var(--line); border-radius:var(--r); padding:8px 10px; margin-bottom:10px; }
+  .side b, .notes b { color:var(--text); }
+  .side .row { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin:3px 0; }
+  .side .row .lbl { min-width:44px; font-size:9px; }
+  .side pre { font-size:8.5px; line-height:1.3; max-height:260px; overflow:auto; background:var(--well); border:1px solid var(--div);
+    border-radius:4px; padding:4px 6px; color:var(--t2); white-space:pre; }
+  .side details summary { cursor:pointer; font-size:9.5px; color:var(--t2); }
+  .dawlist { font-size:9.5px; }
+  .dawlist div { display:flex; gap:6px; }
+  .dawlist code { color:var(--text); }
+  .phdr { display:flex; align-items:center; gap:12px; flex:0 0 auto; }
+  .brand { font:800 22px/1 Helvetica,"Helvetica Neue",Arial,sans-serif; letter-spacing:-.5px; color:var(--text); width:70px; }
+  .tabs { display:flex; gap:4px; align-items:center; }
+  .tab { padding:2px 12px; border:var(--stroke) solid var(--line); border-radius:999px; min-height:22px; color:var(--t2);
+    background:var(--panel); font:inherit; font-size:10px; }
+  .tab.on { color:var(--bg); background:var(--line); font-weight:600; }
+  .tab.stub { opacity:.35; }
+  .phdr-r { margin-left:auto; text-align:right; font-size:10px; color:var(--t2); line-height:1.35; }
+  .phdr-r b { color:var(--text); }
+  /* the rack strip: horde's FX rack, compact — MAW is slot 1, the others are context */
+  .rackbar { display:flex; align-items:center; gap:5px; flex:0 0 auto; font-size:9.5px; padding:3px 6px;
+    border:var(--stroke) solid var(--line); border-radius:var(--r); background:var(--panel); }
+  .rackbar .arr { color:var(--dim); }
+  .rackbar .io { color:var(--t2); padding:1px 6px; border:1px dashed var(--div); border-radius:4px; }
+  .rackbar .slot { padding:1px 7px; border:1px solid var(--line); border-radius:5px; background:var(--panel2); color:var(--dim); }
+  .rackbar .slot.maw { background:var(--value); color:var(--bg); font-weight:700; border-color:var(--line); box-shadow:var(--shadow); }
+  .rackbar .slot.maw.byp { background:var(--panel2); color:var(--t2); text-decoration:line-through; box-shadow:none; }
+  .rackbar .note { margin-left:auto; color:var(--dim); }
+  .pbody { flex:1 1 auto; min-height:0; display:grid; gap:7px; grid-template-columns:292px minmax(0,1fr); }
+  .col { display:flex; flex-direction:column; gap:6px; min-height:0; min-width:0; }
+  .cell { background:var(--panel); border:var(--stroke) solid var(--line); border-radius:var(--r); padding:5px 7px; min-width:0; }
+  .cell > h3 { font-size:10px; color:var(--pull); letter-spacing:1px; margin:0 0 3px; display:flex; align-items:center; gap:6px; font-weight:700; white-space:nowrap; }
+  .cell > h3 .own { font-size:8.5px; color:var(--dim); letter-spacing:.06em; font-weight:500; margin-left:auto; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; }
+  .cell.grow { flex:1 1 auto; min-height:0; display:flex; flex-direction:column; }
+  .scroll { overflow:auto; min-height:0; flex:1 1 auto; padding-right:2px; }
+  .pin { flex:0 0 auto; padding-bottom:4px; margin-bottom:2px; border-bottom:1px dashed var(--div); }
+  .cap { font-size:8.5px; letter-spacing:.08em; color:var(--dim); margin:3px 0 2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  canvas.viz { width:100%; }
+  .trow { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:5px; }
+  .tlab { font-size:8.5px; color:var(--t2); line-height:1.25; min-height:2.5em; margin-top:1px; }
+  .tlab b { color:var(--text); }
+  .srow2 { display:grid; grid-template-columns:minmax(0,1fr) 180px; gap:5px; }
+  .kr { display:flex; flex-wrap:wrap; gap:2px 2px; align-items:flex-start; }
+  /* the face: four role macros, fixed role order (SPEC-MODULE-MACROS §9) */
+  .face { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:4px; }
+  .slotc { display:flex; flex-direction:column; align-items:center; gap:2px; min-width:0; }
+  .slotc .role { font-size:8px; letter-spacing:.12em; color:var(--dim); }
+  .slotc .rd { font-size:8.5px; color:var(--t2); text-align:center; line-height:1.2; min-height:3.6em; }
+  .slotc .rd.idle { color:var(--caution-tx); }
+  .tier { font:inherit; font-size:8.5px; letter-spacing:.06em; padding:0 6px; min-height:17px; border-radius:999px; cursor:pointer;
+    border:var(--stroke) solid var(--line); background:var(--panel); color:var(--t2); }
+  .tier.g { background:var(--line); color:var(--bg); font-weight:700; }
+  .legend { font-size:8.5px; color:var(--t2); line-height:1.35; margin-top:4px; border-top:1px dashed var(--div); padding-top:3px; }
+  .legend b { color:var(--text); }
+  .grow2 { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin:2px 0; }
+  .grow2 .lbl { font-size:9px; min-width:54px; }
+  .stg { border:var(--stroke) solid var(--line); border-radius:var(--r); padding:4px 6px 3px; margin-top:5px; background:var(--bg); }
+  .stg.off .kr, .stg.off .grow2.sel { opacity:.4; }
+  .stg h4, .sec h4 { font-size:9.5px; letter-spacing:.12em; color:var(--pull); display:flex; gap:8px; align-items:center; margin-bottom:2px; }
+  .stg h4 .own, .sec h4 .own { font-size:8.5px; color:var(--dim); letter-spacing:.04em; font-weight:500; }
+  .sec { border-top:1px dashed var(--div); margin-top:6px; padding-top:4px; }
+  .sec.ghost .kr { opacity:.45; }
+  .inside { font-size:9px; color:var(--t2); line-height:1.35; margin-bottom:3px; }
+  .notes { max-width:1380px; margin-top:12px; display:grid; grid-template-columns:repeat(auto-fit, minmax(440px,1fr)); gap:12px; }
+  .notes .box { background:var(--panel); border:var(--stroke) solid var(--line); border-radius:var(--r); padding:8px 12px;
+    font-size:10.5px; color:var(--t2); line-height:1.5; }
+  .notes ol, .notes ul { padding-left:18px; margin:4px 0 0; }
+  .notes li { margin:4px 0; }
+  .notes .rec { color:var(--physics); font-weight:700; }
+</style>
+<!-- MAW'S OWN CORE AND PRESETS, read-only (reference/maw/ is PROTECTED). Classic
+     scripts, so they load from the filesystem and from tools/serve_labs.py alike. -->
+<script src="../../reference/maw/core.js"></script>
+<script src="../../reference/maw/presets.js"></script>
+<!-- THE HORDE VOICE at MAW's input: the SCALPEL oracle and B298's composed engine,
+     loaded as scalpel-interface-lab.html loads them (reference/scalpel/ is PROTECTED). -->
+<script src="../../reference/scalpel/prototype/razor-core.js"></script>
+<script src="scalpel-horde-engine.js"></script>
+</head><body>
+
+<div class="hdr">
+  <div>
+    <h1>maw</h1>
+    <div class="badges">
+      <span class="badge">B318 · DESIGN LAB</span>
+      <span class="sub">MAW AS HORDE'S FX-C · ITS OWN CORE PLAYING · A HORDE VOICE AT ITS INPUT · CURVES, SPECTRA AND DRIVE DRAWN FROM THE RENDER · FOUR ROLE MACROS OVER THE FULL PANEL</span>
+    </div>
+  </div>
+  <div class="hdrctl">
+    <button class="pill" id="playBtn" data-lab="play the rendered loop (a lab affordance, not a parameter)">PLAY</button>
+    <button class="pill byp" id="bypBtn" data-lab="rack-slot bypass: the speaker gets the rack input, untouched">MAW IN</button>
+    <button class="chip" id="themeBtn" data-lab="theme audition">theme <b>LIGHT</b></button>
+  </div>
+</div>
+
+<div class="tagline"><b>MAW</b> (ADR-170) is horde's <b>FX-C</b>: the three-stage saturator every source hands off to (ADR-092
+amendment, "Maw eats it"). Here it sits in rack slot 1 of horde's FX page. Its <b>face</b> is four role macros (ADR-169; the A2
+distillation) over its <b>full panel</b>: three stages, five topologies, fourteen curves. What you hear and see is <b>MAW's own
+core</b> (<code>reference/maw/core.js</code>, loaded) rendering a <b>horde voice</b>: the composed engine's saw swarm, a SCALPEL patch,
+noise or a drum. The transfer curves, spectra and drive meter are read from that render. The self-checks below
+prove each picture against the rendered signal.</div>
+
+<div class="audit" id="audit">self-check: pending</div>
+
+<div class="stage">
+  <div class="plug" id="plug">
+    <div class="phdr">
+      <div class="brand" title="horde (the colour-shifting logo is not ported here: a later round unifies chrome)">horde</div>
+      <div class="tabs"><span class="tab stub">MAIN</span><span class="tab stub">OSC</span><span class="tab stub">MOD</span><span class="tab on">FX</span></div>
+      <div class="phdr-r" id="phdrR">FX PAGE · <b>slot 1 · MAW</b> · FX-C</div>
+    </div>
+    <div class="rackbar" id="rackbar"></div>
+    <div class="pbody">
+      <div class="col" id="colL"></div>
+      <div class="col" id="colR"></div>
+    </div>
+  </div>
+  <div class="side" id="side"></div>
+</div>
+
+<div class="notes">
+  <div class="box">
+    <h2>HOW TO READ THE WINDOW</h2>
+    <ul>
+      <li><b>Rack strip.</b> Voice sum → <b>MAW (slot 1, FX-C)</b> → today's rack types as context (Filter, Delay, Room:
+        <code>src/fx_rack.h</code> FxType). Only MAW renders here. The slot's bypass is the MAW IN / BYPASS button.</li>
+      <li><b>Face (left, top).</b> The four roles in fixed order (SPEC-MODULE-MACROS §9). Each knob's <b>home</b> reproduces
+        the preset exactly: 0.5 for Amount, Tone and Regen, 0 for Motion. Each has a tier toggle. <b>GLOBAL</b> = on horde's
+        face and in the DAW's list as <code>FX1 &lt;Role&gt;</code> (ids 300 + 8·host + role, ADR-169 A1).
+        <b>CORNER</b> = a per-corner base the morph owns, not DAW-exposed. The readout under each knob shows what it moves.</li>
+      <li><b>Transfer (right, top).</b> Each stage's static curve, stage input to stage output, with auto-gain,
+        drive-ref, floor and mix. It is read from the <b>rendering instance</b> at the playhead, so modulation, inertia,
+        ecology and flux move it as you listen. The shaded band is where the signal sits: ±the stage's own input follower
+        (SPEC-MAW §2.5). The tone filter is not part of a static curve and is named under it.</li>
+      <li><b>Spectra.</b> Rack input (ghost) and MAW's output (meter ink), Hann 8192 from the analysis point. The scope
+        beside them shows the same two signals.</li>
+      <li><b>Drive meter.</b> Per stage over the 2 s loop: the gain into the curve (dB, value ink), the measured
+        auto-gain makeup (physics ink) and the stage's output level (meter area). MAW has no gain-reduction stage. Its
+        dynamics are drive-ref, ecology and the env/LFO drive routes, and all three show here.</li>
+      <li><b>Inside the module (right, scrolling).</b> Every internal parameter (ADR-169 A2: the face summarises and never
+        hides). None of them is a DAW parameter (ADR-172). A knob's violet arc runs from the authored value to the
+        value after the macros.</li>
+    </ul>
+  </div>
+  <div class="box">
+    <h2>OPEN QUESTIONS — MAW IN HORDE (for the human)</h2>
+    <ol>
+      <li><b>Placement.</b> Is FX-C a <b>fixed post-stage</b> (every source → MAW → the rack), or MAW in a <b>matrix slot</b>
+        (B50) that a patch can move? The lab draws slot 1, which reads as both. <span class="rec">Recommend: a matrix slot
+        whose default patch puts it first.</span> ADR-172's one-instance rule already makes it singular.</li>
+      <li><b>MAW hears notes.</b> The feedback route's pitch tracking reads the last note (SPEC-MAW §6). On a bus-level MAW
+        (D2) that makes it horde's <b>second note-hearing FX</b>, which is B92's registered trigger for the transport ruling.
+        Which note of a chord should it get? The core takes the last; the lab feeds the last note played.</li>
+      <li><b>Who authors the macro distillation?</b> MAW's presets carry no macros. The lab's bindings are one proposal:
+        relative, home = the preset (Sluice's G-70 rule), Amount ±18 dB on all stages, Tone shape ±0.5 with cutoff ±2 oct,
+        Motion adding inertia and flux, Regen ±fb. Should MAW's project own per-preset labels and bindings in its preset
+        format, with horde only presenting them?</li>
+      <li><b>Regen outside the feedback route.</b> Regen is IDLE on four of five topologies (fx-design-lab's rule, drawn in
+        caution). Should it rebind per route instead, for example to ecology (which is pending its A/B, ADR-170 A1)?</li>
+      <li><b>Input level.</b> Static auto-gain and drive are calibrated at 0.5 peak, and the lab normalises every source to it.
+        In horde the voice sum's level is the mix's. Should FX-C get an input trim calibrated to the voice bus, or should
+        drive-ref be on by default?</li>
+      <li><b>This is the intake core.</b> <code>reference/maw/core.js</code> still has what MAW's project fixed (ADR-170 A3):
+        the ±1 output clamp (the lab counts clamp hits), NaN poisoning (a self-check control shows it), the mid/side
+        drive-ref follower, and the point-slope feedback normaliser. Should the lab switch to MAW's current core when
+        their module ABI lands?</li>
+      <li><b>Oversampling.</b> The lab plays the prototype's per-stage 2× FIR (incidental, SPEC-MAW §10). Horde's global 2×
+        will replace it, so aliasing will be close to what you hear here but not identical, and the ~10-sample per-stage
+        latency will go.</li>
+      <li><b>The deep panel on horde.</b> The panel shows everything (A2). Should MAW's internals be <b>mod-matrix
+        destinations</b>, or only its four slots? Host exposure is ADR-172's test and stays off here.</li>
+      <li><b>Chrome.</b> The colour-shifting logo is not ported. It is not cheap (td::Warp is ~200 lines), and a later
+        round unifies chrome. Knobs are drag-only, so there is no alt-wheel yet.</li>
+    </ol>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ======================================================================
+   A. THE REFERENCES (loaded by <script src>, read here, never redeclared)
+   `defineCore`, `PRESETS`/`applyPresetTo`, `RazorCore` and the engine's two
+   functions are global bindings of classic scripts: visible by name, hence the
+   typeof tests (under the load checker they are absent and the page says so).
+   ====================================================================== */
+let LIB = null, LIB_ERR = '';
+try { if (typeof defineCore === 'function') LIB = defineCore(); else LIB_ERR = 'reference/maw/core.js did not load'; }
+catch (e) { LIB_ERR = 'reference/maw/core.js threw: ' + String((e && e.message) || e); }
+const MPRE = (typeof PRESETS === 'object' && PRESETS && typeof applyPresetTo === 'function') ? PRESETS : null;
+const RAZOR = (typeof RazorCore === 'function') ? RazorCore : null;
+const MAKE = (typeof makeComposedEngine === 'function') ? makeComposedEngine : null;
+const SLICE = (typeof swarmSourceFromHtml === 'function') ? swarmSourceFromHtml : null;
+
+const SR = 48000;
+/* The loop, in samples, every edge a whole number of 1024-sample snapshot steps (and so of
+   the 128-sample render blocks): the note is held to OFF_N, the analysis point is A_N. */
+const SNAP_N = 1024, BLOCK = 128;
+const SRC_N = 94 * SNAP_N, OFF_N = 66 * SNAP_N, A_N = 28 * SNAP_N;
+const FFT_N = 8192;
+const XS = Array.from({ length: 161 }, (_, i) => -1 + 2 * i / 160);   // transfer grid, stage input ±1
+const CHECK_N = 12 * SNAP_N;                                             // self-check renders (0.26 s)
+const TAU = 2 * Math.PI;
+const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+const mtof = n => 440 * Math.pow(2, (n - 69) / 12);
+const dB = x => 20 * Math.log10(Math.max(Math.abs(x), 1e-12));
+/* scalpel-interface-lab.html :1057-1064 */
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+/* The engine calls Math.random (razor-core.js); every call is wrapped in a seeded stream. */
+function withRng(r, f) { const keep = Math.random; Math.random = r; try { return f(); } finally { Math.random = keep; } }
+function qp(k, d) {
+  let s = '';
+  try { s = String((typeof location === 'object' && location && location.search) || ''); } catch (_) { s = ''; }
+  const m = new RegExp('[?&]' + k + '=([^&]*)').exec(s);
+  if (!m) return d;
+  try { return decodeURIComponent(m[1].replace(/\+/g, ' ')); } catch (_) { return d; }
+}
+const clone = o => JSON.parse(JSON.stringify(o));
+function getp(o, path) { const k = path.split('.'); let v = o; for (const p of k) { if (v == null) return undefined; v = v[p]; } return v; }
+function setp(o, path, v) { const k = path.split('.'); let t = o; for (let i = 0; i < k.length - 1; i++) t = t[k[i]]; t[k[k.length - 1]] = v; }
+
+/* ======================================================================
+   B. MAW'S PARAMETER SET — ranges and labels from fx-design-lab.html :705-775
+   (fbAmt runs to 1.2: SPEC-MAW §6, "self-oscillation from a signal at >100% is intended")
+   ====================================================================== */
+const fDb = v => (v > 0.05 ? '+' : '') + v.toFixed(1) + ' dB';
+const fHz = v => v >= 1000 ? (v / 1000).toFixed(v >= 10000 ? 1 : 2) + ' kHz' : v.toFixed(v < 10 ? 2 : 0) + ' Hz';
+const fPct = v => Math.round(v * 100) + '%';
+const f2 = v => v.toFixed(2);
+const fBi = v => (v > 0.005 ? '+' : '') + v.toFixed(2);
+const fMs = v => (v < 10 ? v.toFixed(1) : v.toFixed(0)) + ' ms';
+const fSt = v => (v > 0 ? '+' : '') + v.toFixed(0) + ' st';
+const SP = (label, min, max, fmt, o) => Object.assign({ label, min, max, fmt, log: false, step: 0 }, o || {});
+const PSPEC = {
+  inGain: SP('input', -24, 24, fDb), wet: SP('wet', 0, 1, fPct), out: SP('output', -24, 12, fDb), auto: SP('auto-gain', 0, 1, f2),
+  inertia: SP('inertia', 0, 1, f2), eco: SP('ecology', -1, 1, fBi), flux: SP('flux', 0, 1, f2),
+  xo1: SP('low | mid', 40, 1000, fHz, { log: true }), xo2: SP('mid | high', 500, 12000, fHz, { log: true }),
+  fbAmt: SP('amount', 0, 1.2, fPct), fbSemi: SP('pitch', -24, 24, fSt, { step: 1 }), fbMs: SP('time', 1, 200, fMs, { log: true }),
+  fbDamp: SP('damp', 500, 16000, fHz, { log: true }), fbHp: SP('low cut', 20, 1000, fHz, { log: true }),
+  envA: SP('env att', 0.5, 100, fMs, { log: true }), envR: SP('env rel', 5, 1000, fMs, { log: true }),
+  lfoRate: SP('LFO rate', 0.02, 20, fHz, { log: true }),
+  'mod.ed': SP('env→drive', -1, 1, fBi), 'mod.ec': SP('env→cut', -1, 1, fBi), 'mod.em': SP('env→morph', -1, 1, fBi),
+  'mod.ld': SP('LFO→drive', -1, 1, fBi), 'mod.lc': SP('LFO→cut', -1, 1, fBi), 'mod.lb': SP('LFO→bias', -1, 1, fBi),
+  's.morph': SP('morph A→B', 0, 1, f2), 's.shape': SP('shape', 0, 1, f2), 's.drive': SP('drive', -12, 48, fDb),
+  's.bias': SP('bias', -1, 1, fBi), 's.floor': SP('floor', 0, 0.2, f2), 's.cut': SP('cutoff', 20, 20000, fHz, { log: true }),
+  's.res': SP('res', 0, 1, f2), 's.level': SP('level', -24, 12, fDb), 's.mix': SP('mix', 0, 1, fPct),
+};
+function specOf(key) { const k = key.split('.'); return k[0] === 'stages' ? PSPEC['s.' + k[2]] : PSPEC[key]; }
+/* names VERBATIM from core.js SHAPERS[].name — the fallback for when the core is absent */
+const CURVES = LIB ? LIB.SHAPERS.map(s => s.name) : ['soft (tanh→clip)', 'hard clip (knee↑)', 'overdrive (bite↑)', 'tube (cubic+even)',
+  'diode (asym ceiling)', 'fold (sine→triangle)', 'rectify (half→full)', 'crush (bits↓)', 'clip→wrap', 'cheby (harmonic n)',
+  'polynomial (wiggle↑)', 'fractal (ridges↑)', 'shards (count↑)', 'noise (amount↑)'];
+const ROUTES = LIB ? LIB.ROUTES : ['series', 'parallel', 'multiband', 'mid/side', 'feedback'];
+const cname = i => (CURVES[i] || '?').split(' (')[0];
+
+/* ======================================================================
+   C. MAW'S PRESETS (presets.js, applied by its own applyPresetTo)
+   ====================================================================== */
+const PRESET_NAMES = MPRE ? Object.keys(MPRE) : [];
+function presetParams(name) {
+  if (!LIB || !MPRE || !MPRE[name]) return null;
+  return applyPresetTo(LIB.defaultParams(), clone(MPRE[name]), LIB.SHAPERS);
+}
+
+/* ======================================================================
+   D. THE FACE — four role slots (SPEC-MODULE-MACROS §2-§6, ADR-169 A1/A2)
+   MAW's presets carry no macros, so this is the lab's distillation, applied to every
+   preset: the roles are MAW's own declaration (ADR-170 A1, fx-design-lab :776-786); the
+   bindings are RELATIVE (A2) with the home reproducing the preset, the rule Sluice's
+   presets follow (G-70, fx-design-lab :812). offset: v = base + (s − home)·span;
+   ratio: v = base · span^(s − home); toward: v = base + (s − home)/(1 − home)·(hi − base).
+   Every result is clamped to [lo, hi]; at the home each is exactly `base` (self-check 5).
+   ====================================================================== */
+const ROLES = ['Amount', 'Tone', 'Motion', 'Regen'];
+const HOST = 0;                                     // MAW's rack slot (0-based): ids 300 + 8·HOST + role
+const SLOT_DEF = {
+  Amount: { label: 'Drive', home: 0.5, bind: [0, 1, 2].map(i => ({ key: 'stages.' + i + '.drive', kind: 'offset', span: 36, lo: -12, hi: 60 })) },
+  Tone: { label: 'Tone', home: 0.5, bind: [0, 1, 2].map(i => ({ key: 'stages.' + i + '.shape', kind: 'offset', span: 1, lo: 0, hi: 1 }))
+    .concat([0, 1, 2].map(i => ({ key: 'stages.' + i + '.cut', kind: 'ratio', span: 16, lo: 20, hi: 20000 }))) },
+  Motion: { label: 'Motion', home: 0, bind: [{ key: 'inertia', kind: 'toward', lo: 0, hi: 1 }, { key: 'flux', kind: 'toward', lo: 0, hi: 0.8 }] },
+  Regen: { label: 'Feedback', home: 0.5, bind: [{ key: 'fbAmt', kind: 'offset', span: 1, lo: 0, hi: 1.2 }], idle: P => P.route !== 4 },
+};
+function freshSlots() { const s = {}; ROLES.forEach(r => { s[r] = { v: SLOT_DEF[r].home, tier: 'global' }; }); return s; }
+function resolve(base, slots) {
+  const P = clone(base);
+  for (const r of ROLES) {
+    const d = SLOT_DEF[r], s = slots[r].v, h = d.home;
+    for (const b of d.bind) {
+      const v0 = getp(base, b.key);
+      let v;
+      if (b.kind === 'offset') v = v0 + (s - h) * b.span;
+      else if (b.kind === 'ratio') v = v0 * Math.pow(b.span, s - h);
+      else v = v0 + (s - h) / (1 - h) * (b.hi - v0);
+      setp(P, b.key, clamp(v, b.lo, b.hi));
+    }
+  }
+  return P;
+}
+
+/* ======================================================================
+   E. THE RACK INPUT — a horde voice (the composed engine) or a seeded test source
+   ====================================================================== */
+const SOURCES = [['saw', 'SAW SWARM'], ['scalpel', 'SCALPEL PATCH'], ['noise', 'NOISE'], ['drum', 'DRUM']];
+const ENGINE = { C: null, err: '', presets: null, perr: '' };
+/* scalpel-interface-lab.html :6119-6135's route: the oracle class + swarmsaw.html's DSP
+   section (fetched, sliced by its banners) → B298's ComposedEngine */
+async function loadEngine() {
+  if (!RAZOR) { ENGINE.err = 'reference/scalpel/prototype/razor-core.js did not load'; return; }
+  if (!MAKE || !SLICE) { ENGINE.err = 'docs/design/scalpel-horde-engine.js did not load'; return; }
+  if (typeof fetch !== 'function') { ENGINE.err = 'no fetch here, so reference/swarmsaw.html cannot be read'; return; }
+  try {
+    const r = await fetch('../../reference/swarmsaw.html');
+    if (!r.ok) throw new Error('reference/swarmsaw.html: HTTP ' + r.status);
+    const src = SLICE(await r.text());
+    ENGINE.C = withRng(mulberry32(0xB318), () => MAKE(RAZOR, src));
+  } catch (e) {
+    ENGINE.err = 'the composed engine did not build: ' + String((e && e.message) || e) + ' (serve the repo: python3 tools/serve_labs.py 8318)';
+  }
+  try {
+    const r = await fetch('../../reference/scalpel/data/presets.json');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    ENGINE.presets = (await r.json()).presets;
+  } catch (e) { ENGINE.perr = 'reference/scalpel/data/presets.json: ' + String((e && e.message) || e); }
+}
+function noteList() { return LAB.chord ? [LAB.note, LAB.note + 7, LAB.note + 12] : [LAB.note]; }
+/* One call renders what the rack hands MAW. Normalised to 0.5 peak, and written as v + 0 so
+   no sample is −0: an IEEE −0 in the input would come back +0 through MAW's dry sum and a
+   bit-exact comparison would report the sign of zero, not the audio. */
+function finishSource(L, R, kind, label, notes, a) {
+  let pk = 0;
+  for (let i = 0; i < L.length; i++) pk = Math.max(pk, Math.abs(L[i]), Math.abs(R[i]));
+  const g = pk > 0 ? 0.5 / pk : 1;
+  for (let i = 0; i < L.length; i++) { L[i] = L[i] * g + 0; R[i] = R[i] * g + 0; }
+  return { L, R, n: L.length, kind, label, notes, a, spec: null };
+}
+function engineSource(P, n) {
+  const C = ENGINE.C, L = new Float32Array(n), R = new Float32Array(n);
+  const bl = new Float32Array(BLOCK), br = new Float32Array(BLOCK), notes = noteList();
+  withRng(mulberry32(0xB318), () => {
+    const e = new C(SR); e.set(P); Object.assign(e.s, e.t);
+    for (const k of notes) e.noteOn(k, mtof(k), 0.9);
+    for (let i = 0; i < n; i += BLOCK) {
+      if (i === OFF_N) for (const k of notes) e.noteOff(k);
+      e.render(bl, br);
+      const m = Math.min(BLOCK, n - i);
+      L.set(bl.subarray(0, m), i); R.set(br.subarray(0, m), i);
+    }
+  });
+  return [L, R];
+}
+function scalpelPatch() {
+  const list = ENGINE.presets || [];
+  return list.find(p => p.name === LAB.sp) || list[0] || null;
+}
+function makeSource(kind, n) {
+  n = n || SRC_N;
+  const notes = noteList();
+  if ((kind === 'saw' || kind === 'scalpel') && ENGINE.C) {
+    if (kind === 'saw') {
+      // measured (B318 trace): depth 0 + base Saw renders a saw swarm, H2..H8 within 0.2 dB of 1/n
+      const [L, R] = engineSource({ depth: 0, base: 2 }, n);
+      return finishSource(L, R, kind, 'saw swarm (composed engine, blades at depth 0)', notes, A_N);
+    }
+    const pr = scalpelPatch();
+    if (pr) {
+      const [L, R] = engineSource(pr.params, n);
+      return finishSource(L, R, kind, 'SCALPEL · ' + pr.name, notes, A_N);
+    }
+  }
+  const r = mulberry32(kind === 'drum' ? 0xD7B3 : 0x5EED), L = new Float32Array(n), R = new Float32Array(n);
+  if (kind === 'drum') {
+    // a seeded kit: kick on 0 and 1.0 s (a swept sine), snare on 0.5 and 1.5 s (noise over a 190 Hz body)
+    let ph = 0;
+    for (let i = 0; i < n; i++) {
+      const t = i / SR, tk = t % 1.0, ts = (t + 0.5) % 1.0;
+      ph += TAU * (45 + 110 * Math.exp(-tk / 0.04)) / SR; if (tk * SR < 1) ph = 0;
+      const nz = r() * 2 - 1;
+      const kick = Math.sin(ph) * Math.exp(-tk / 0.35) + 0.3 * nz * Math.exp(-tk / 0.004);
+      const sn = 0.6 * nz * Math.exp(-ts / 0.11) + 0.4 * Math.sin(TAU * 190 * ts) * Math.exp(-ts / 0.06);
+      L[i] = R[i] = kick + sn;
+    }
+    return finishSource(L, R, kind, 'drum (seeded kick + snare)', notes, 0);
+  }
+  // noise, gated like the note: 5 ms attack, held to OFF_N, 150 ms release
+  for (let i = 0; i < n; i++) {
+    const env = i < OFF_N ? Math.min(1, i / (0.005 * SR)) : Math.exp(-(i - OFF_N) / (0.15 * SR));
+    L[i] = (r() * 2 - 1) * env; R[i] = (r() * 2 - 1) * env;
+  }
+  return finishSource(L, R, 'noise', 'white noise (seeded, gated)', notes, A_N);
+}
+
+/* ======================================================================
+   F. MAW RENDERS — and what is measured from the render
+   ====================================================================== */
+/* The transfer of stage k, read from the INSTANCE: Stage.shapeDriven() at the control
+   targets (tick(1): the values the next block ends on), times the measured auto-gain and
+   drive-ref, through the stage's mix and level — process()'s arithmetic, in its order
+   (core.js :145-149), without the DC blocker (a fresh one passes its first sample
+   exactly) and the tone filter (not a static curve). The noise curve draws from `rng`
+   (a silent one by default), never from the instance's own stream, and every field this
+   touches is put back, so drawing never changes what is heard. Self-check 2 holds this to
+   the stage's own process(). */
+const ZERO_RNG = { next: () => 0.5, bi: () => 0, gauss: () => 0 };
+function mawTransfer(core, k, xs, rng) {
+  const st = core.stages[k], p = st.p;
+  if (!p.on) return xs.map(x => x);
+  const keep = [st.g, st.bs, st.m, st.comp, st.pk, st.rnd];
+  st.tick(1); st.rnd = rng || ZERO_RNG;
+  const mix = p.mix, lvl = st.lvl;
+  const ys = xs.map(x => { const y = st.shapeDriven(x) * st.comp * st.pk; return (x * (1 - mix) + y * mix) * lvl; });
+  [st.g, st.bs, st.m, st.comp, st.pk, st.rnd] = keep;
+  return ys;
+}
+function mawRender(P, src, o) {
+  o = o || {};
+  const c = new LIB.MawCore(SR), Q = clone(P);
+  Q.src = 'sample';
+  if (o.set) o.set(Q);
+  c.setParams(Q);
+  c.msg({ t: 'smp', L: src.L, R: src.R });
+  // sample mode never plays the core's voices; noteOn only sets lastF, which the
+  // pitch-tracked feedback route reads (SPEC-MAW §6; open question 2)
+  for (const k of src.notes) c.noteOn(k, 1);
+  const n = src.n, L = new Float32Array(n), R = new Float32Array(n), nb = Math.ceil(n / BLOCK);
+  const tr = o.trace ? { g: [0, 1, 2].map(() => new Float32Array(nb)), comp: [0, 1, 2].map(() => new Float32Array(nb)),
+    env: [0, 1, 2].map(() => new Float32Array(nb)) } : null;
+  const snaps = o.snaps ? [] : null;
+  for (let b = 0, i = 0; i < n; b++, i += BLOCK) {
+    const m = Math.min(BLOCK, n - i);
+    c.process(L.subarray(i, i + m), R.subarray(i, i + m), m);
+    if (tr) for (let k = 0; k < 3; k++) {
+      const st = c.stages[k];
+      tr.g[k][b] = dB(st.g1); tr.comp[k][b] = dB(st.comp1); tr.env[k][b] = st.env;
+    }
+    if (snaps && (i + m) % SNAP_N === 0) snaps.push([0, 1, 2].map(k => ({
+      on: c.stages[k].p.on, ys: mawTransfer(c, k, XS), band: c.stages[k].envIn * Math.PI / 2 })));
+  }
+  return { L, R, n, core: c, trace: tr, snaps, P: Q };
+}
+/* radix-2 FFT, reference/maw/fidelity.js :4-5 (the report's own) */
+function fft(re, im) {
+  const n = re.length;
+  for (let i = 1, j = 0; i < n; i++) { let bit = n >> 1; for (; j & bit; bit >>= 1) j ^= bit; j ^= bit;
+    if (i < j) { [re[i], re[j]] = [re[j], re[i]]; [im[i], im[j]] = [im[j], im[i]]; } }
+  for (let len = 2; len <= n; len <<= 1) { const ang = -2 * Math.PI / len, wr = Math.cos(ang), wi = Math.sin(ang);
+    for (let i = 0; i < n; i += len) { let cr = 1, ci = 0;
+      for (let j = 0; j < len / 2; j++) { const a = i + j, b = a + len / 2; const tr = re[b] * cr - im[b] * ci, ti = re[b] * ci + im[b] * cr;
+        re[b] = re[a] - tr; im[b] = im[a] - ti; re[a] += tr; im[a] += ti; const t = cr * wr - ci * wi; ci = cr * wi + ci * wr; cr = t; } } }
+}
+/* dB re a full-scale sine (Hann: a sine of amplitude A peaks at A·N/4) */
+function spectrumDb(L, R, a) {
+  const re = new Float64Array(FFT_N), im = new Float64Array(FFT_N);
+  for (let i = 0; i < FFT_N; i++) { const j = a + i, x = j < L.length ? 0.5 * (L[j] + R[j]) : 0; re[i] = x * (0.5 - 0.5 * Math.cos(TAU * i / FFT_N)); }
+  fft(re, im);
+  const m = new Float32Array(FFT_N / 2);
+  for (let i = 0; i < FFT_N / 2; i++) m[i] = dB(Math.hypot(re[i], im[i]) / (FFT_N / 4));
+  return m;
+}
+function analyse(out, src) {
+  if (!src.spec) src.spec = spectrumDb(src.L, src.R, src.a);
+  out.spec = spectrumDb(out.L, out.R, src.a);
+  let pk = 0, s = 0, hits = 0, bad = 0;
+  const e = Math.min(out.n, OFF_N);
+  for (let i = 0; i < out.n; i++) {
+    const l = out.L[i], r = out.R[i];
+    if (!isFinite(l) || !isFinite(r)) { bad++; continue; }
+    if (Math.abs(l) >= 1 || Math.abs(r) >= 1) hits++;
+    pk = Math.max(pk, Math.abs(l), Math.abs(r));
+    if (i < e) s += 0.5 * (l * l + r * r);
+  }
+  out.pk = pk; out.rms = Math.sqrt(s / e); out.hits = hits; out.bad = bad;
+  return out;
+}
+
+/* ======================================================================
+   G. SELF-CHECKS — each with a control that must fail (L0032/L0033)
+   ====================================================================== */
+const AUDIT = { rows: [], note: '' };
+const bitsEq = (a, b) => { if (a.length !== b.length) return false; const x = new Uint32Array(a.buffer, a.byteOffset, a.length), y = new Uint32Array(b.buffer, b.byteOffset, b.length); for (let i = 0; i < x.length; i++) if (x[i] !== y[i]) return false; return true; };
+function leavesEq(a, b) {
+  if (typeof a !== 'object' || a === null) return Object.is(a, b);
+  if (typeof b !== 'object' || b === null) return false;
+  const ka = Object.keys(a), kb = Object.keys(b);
+  if (ka.length !== kb.length) return false;
+  return ka.every(k => leavesEq(a[k], b[k]));
+}
+function trimSource(src, n) {
+  return { L: src.L.slice(0, n), R: src.R.slice(0, n), n, kind: src.kind, label: src.label, notes: src.notes, a: 0 };
+}
+/* the prototype's preview method — curves from UI params (drive, bias, morph), no auto-gain,
+   drive-ref or floor. SPEC-MAW §10: "computes from UI params and is not evidence". */
+function uiTwin(p, x) {
+  const u = x * Math.pow(10, p.drive / 20) + p.bias, fa = LIB.SHAPERS[p.a].f, fb = LIB.SHAPERS[p.b].f, m = p.morph;
+  const y = m <= 0 ? fa(u, p.shape, ZERO_RNG) : m >= 1 ? fb(u, p.shape, ZERO_RNG) : (1 - m) * fa(u, p.shape, ZERO_RNG) + m * fb(u, p.shape, ZERO_RNG);
+  return (x * (1 - p.mix) + y * p.mix) * Math.pow(10, p.level / 20);
+}
+function runChecks() {
+  const rows = AUDIT.rows = [];
+  if (!LIB || !MPRE) { rows.push({ ok: false, name: 'MAW loaded', detail: LIB_ERR || 'reference/maw/presets.js did not load', ctl: [] }); return; }
+  const add = (name, ok, detail, ctl) => rows.push({ name, ok, detail, ctl: ctl || [] });
+  const srcs = [makeSource('noise', CHECK_N), makeSource('drum', CHECK_N)];
+  if (SRC && (SRC.kind === 'saw' || SRC.kind === 'scalpel')) srcs.push(trimSource(SRC, CHECK_N));
+  try {
+    /* 1. FINITE — every preset, on its own intake source (preset-test.js's condition) and on
+       every lab source. CONTROL: one NaN in the input must be caught. */
+    let n1 = 0, bad1 = 0, silent = [];
+    for (const name of PRESET_NAMES) {
+      const P = presetParams(name);
+      const c = new LIB.MawCore(SR); c.setParams(clone(P)); c.noteOn(45, 1); c.noteOn(52, 1);
+      const L = new Float32Array(CHECK_N), R = new Float32Array(CHECK_N);
+      c.process(L, R, CHECK_N / 2); c.noteOff(45); c.noteOff(52);
+      c.process(L.subarray(CHECK_N / 2), R.subarray(CHECK_N / 2), CHECK_N / 2);
+      let pk = 0; for (let i = 0; i < CHECK_N; i++) { if (!isFinite(L[i]) || !isFinite(R[i])) bad1++; pk = Math.max(pk, Math.abs(L[i])); }
+      if (pk < 1e-3) silent.push(name);
+      n1++;
+      for (const s of srcs) {
+        const o = mawRender(P, s);
+        for (let i = 0; i < o.n; i++) if (!isFinite(o.L[i]) || !isFinite(o.R[i])) bad1++;
+        n1++;
+      }
+    }
+    const planted = trimSource(srcs[0], CHECK_N); planted.L[100] = NaN;
+    const po = mawRender(presetParams(PRESET_NAMES[0]), planted);
+    let pbad = 0; for (let i = 0; i < po.n; i++) if (!isFinite(po.L[i])) pbad++;
+    add('MAW renders finite and audible for every preset', bad1 === 0 && !silent.length,
+      `${PRESET_NAMES.length} presets × (own intake source + ${srcs.length} lab sources) = ${n1} renders, ${bad1} non-finite samples` + (silent.length ? `; SILENT: ${silent.join(', ')}` : ''),
+      [{ name: 'one NaN planted at input sample 100', caught: pbad > 0,
+        detail: `${pbad} of the ${po.n - 100} samples after it are non-finite (the intake core has no watchdog; MAW's project added one, ADR-170 A3)` }]);
+
+    /* 2. DRAWN CURVE = RENDERED TRANSFER — for every preset and every stage that is on:
+       the curve the page draws (mawTransfer) against the stage's own process(), one sample at
+       a time, on a scratch instance primed with a sine. Observability: os 1 (the prototype's
+       FIR is band-limiting, not the curve), ADAA off (it has one sample of memory), tone
+       filter off, DC blocker fresh per sample. The noise curve gets the same seeded stream on
+       both sides. CONTROL: the UI-param preview (uiTwin) must be caught on every preset. */
+    let n2 = 0, e2 = 0, twinCaught = 0;
+    const prime = makeSource('noise', 4 * SNAP_N);
+    for (let i = 0; i < prime.n; i++) { prime.L[i] = prime.R[i] = 0.5 * Math.sin(TAU * 110 * i / SR); }
+    for (const name of PRESET_NAMES) {
+      const Q = clone(presetParams(name)); Q.src = 'sample'; Q.os = 1; Q.adaa = false; Q.stages.forEach(s => { s.ft = 0; });
+      const c = new LIB.MawCore(SR); c.setParams(Q); c.msg({ t: 'smp', L: prime.L, R: prime.R }); c.noteOn(45, 1);
+      c.process(new Float32Array(prime.n), new Float32Array(prime.n), prime.n);
+      let tw = 0;
+      for (let k = 0; k < 3; k++) {
+        const st = c.stages[k]; if (!st.p.on) continue;
+        const drawn = mawTransfer(c, k, XS, new LIB.RNG(0xB318));
+        const keep = [st.g, st.bs, st.m, st.comp, st.pk, st.rnd, st.envIn, st.env, st.dc[0].x1, st.dc[0].y1];
+        st.tick(1); st.rnd = new LIB.RNG(0xB318);
+        const rendered = XS.map(x => { st.dc[0].x1 = 0; st.dc[0].y1 = 0; return st.process(x, 0); });
+        [st.g, st.bs, st.m, st.comp, st.pk, st.rnd, st.envIn, st.env, st.dc[0].x1, st.dc[0].y1] = keep;
+        for (let j = 0; j < XS.length; j++) {
+          e2 = Math.max(e2, Math.abs(drawn[j] - rendered[j]));
+          tw = Math.max(tw, Math.abs(uiTwin(st.p, XS[j]) - rendered[j]));
+        }
+        n2++;
+      }
+      if (tw > 1e-2) twinCaught++;
+    }
+    add('drawn curve = rendered transfer', e2 <= 1e-12,
+      `${n2} stage curves over ${PRESET_NAMES.length} presets, ${XS.length} points each: max |drawn − process()| = ${e2.toExponential(1)}`,
+      [{ name: 'the UI-param preview (SPEC-MAW §10) in place of the instance', caught: twinCaught === PRESET_NAMES.length,
+        detail: `caught on ${twinCaught}/${PRESET_NAMES.length} presets (error > 0.01)` }]);
+
+    /* 3. BYPASS IS BIT-IDENTICAL — (a) the rack slot's bypass, the path the speaker gets
+       (slotOut); (b) MAW's own dry path, SPEC-MAW §11 row 2: wet 0 at 0 dB output, every
+       preset, every lab source, compared bit for bit. CONTROLS: the slot engaged, and wet 0
+       at the prototype's default −6 dB output, must both differ. */
+    let n3 = 0, same3 = 0, ctlA = 0, ctlB = 0, nB = 0;
+    for (const s of srcs) {
+      const o = mawRender(presetParams(PRESET_NAMES[0]), s);
+      const by = slotOut(s, o, true), on = slotOut(s, o, false);
+      n3++; if (bitsEq(by.L, s.L) && bitsEq(by.R, s.R)) same3++;
+      if (!bitsEq(on.L, s.L)) ctlA++;
+    }
+    for (const name of PRESET_NAMES) for (const s of srcs) {
+      const o = mawRender(presetParams(name), s, { set: Q => { Q.wet = 0; Q.out = 0; } });
+      n3++; if (bitsEq(o.L, s.L) && bitsEq(o.R, s.R)) same3++;
+      const q = mawRender(presetParams(name), s, { set: Q => { Q.wet = 0; Q.out = -6; } });
+      nB++; if (!bitsEq(q.L, s.L)) ctlB++;
+    }
+    add('bypass is bit-identical to the input', same3 === n3,
+      `${same3}/${n3} bit-identical: the rack slot's bypass on ${srcs.length} sources, and MAW at wet 0 / output 0 dB on ${PRESET_NAMES.length} presets × ${srcs.length} sources`,
+      [{ name: 'the slot engaged (MAW in)', caught: ctlA === srcs.length, detail: `differs on ${ctlA}/${srcs.length}` },
+       { name: 'wet 0 at the prototype default output −6 dB', caught: ctlB === nB, detail: `differs on ${ctlB}/${nB}` }]);
+
+    /* 4. EVERY PRESET KEY EXISTS IN MAW'S PARAMETER SET — presets.js against core.js's
+       defaultParams()/defaultStage(), and every curve name resolves. CONTROLS: a planted
+       misspelt stage key, a planted unknown curve and a planted misspelt global key. */
+    const auditKeys = pr => {
+      const D = LIB.defaultParams(), S = LIB.defaultStage(), bad = [];
+      for (const k in pr) {
+        if (!(k in D)) { bad.push(k); continue; }
+        if (k === 'mod') { for (const m in pr.mod) if (!(m in D.mod)) bad.push('mod.' + m); }
+        if (k === 'stages') {
+          if (pr.stages.length > 3) bad.push('stages[' + pr.stages.length + ']');
+          pr.stages.forEach((s, i) => { for (const sk in s) {
+            if (!(sk in S)) bad.push('stages.' + i + '.' + sk);
+            else if ((sk === 'a' || sk === 'b') && typeof s[sk] === 'string' && LIB.SHAPERS.findIndex(c => c.name.startsWith(s[sk])) < 0) bad.push('stages.' + i + '.' + sk + '=' + s[sk]);
+          } });
+        }
+      }
+      return bad;
+    };
+    const n4 = PRESET_NAMES.length, bad4 = [];
+    for (const name of PRESET_NAMES) auditKeys(MPRE[name]).forEach(k => bad4.push(name + ': ' + k));
+    const plants = [{ stages: [{ drvie: 3 }] }, { stages: [{ a: 'tubee' }] }, { wett: 0.5 }];
+    const caught4 = plants.filter(p => auditKeys(p).length > 0).length;
+    let keys4 = 0; for (const name of PRESET_NAMES) { const pr = MPRE[name]; keys4 += Object.keys(pr).length; (pr.stages || []).forEach(s => { keys4 += Object.keys(s).length; }); if (pr.mod) keys4 += Object.keys(pr.mod).length; }
+    add('every preset key exists in MAW\'s parameter set', bad4.length === 0,
+      `${keys4} keys over ${n4} presets checked against defaultParams()/defaultStage()` + (bad4.length ? '; UNKNOWN: ' + bad4.join(', ') : '; every curve name resolves'),
+      [{ name: 'planted: stages[0].drvie · curve "tubee" · wett', caught: caught4 === plants.length, detail: `caught ${caught4}/${plants.length}` }]);
+
+    /* 5. THE FACE'S HOMES REPRODUCE THE PRESET — every slot at its home leaves every internal
+       exactly where the preset put it (Sluice's G-70 rule). CONTROL: Amount 0.05 off home. */
+    let same5 = 0, moved5 = 0;
+    for (const name of PRESET_NAMES) {
+      const P = presetParams(name), s = freshSlots();
+      if (leavesEq(resolve(P, s), P)) same5++;
+      s.Amount.v = SLOT_DEF.Amount.home + 0.05;
+      if (!leavesEq(resolve(P, s), P)) moved5++;
+    }
+    add('every macro at its home reproduces the preset', same5 === PRESET_NAMES.length,
+      `${same5}/${PRESET_NAMES.length} presets bit-identical through resolve() with all four slots at home`,
+      [{ name: 'Amount 0.05 off its home', caught: moved5 === PRESET_NAMES.length, detail: `moves an internal on ${moved5}/${PRESET_NAMES.length}` }]);
+  } catch (e) {
+    add('self-checks ran', false, 'threw: ' + String((e && e.stack) || e));
+  }
+  AUDIT.note = srcs.map(s => s.kind).join(', ');
+}
+/* what the speaker gets from slot 1: the rack input untouched when bypassed, MAW's output
+   otherwise (self-check 3a holds the bypass half to the input, bit for bit) */
+function slotOut(src, out, bypass) { return bypass ? { L: src.L, R: src.R } : { L: out.L, R: out.R }; }
+
+/* ======================================================================
+   H. MAW'S FIDELITY REPORT — reference/maw/fidelity-report.txt, fetched, summarised
+   ====================================================================== */
+const FID = { text: '', err: '', pass: 0, fail: 0, alias: {} };
+async function loadFidelity() {
+  if (typeof fetch !== 'function') { FID.err = 'no fetch here (serve the repo to read the report)'; return; }
+  try {
+    const r = await fetch('../../reference/maw/fidelity-report.txt');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const t = FID.text = await r.text();
+    FID.pass = (t.match(/^\s+PASS /mg) || []).length; FID.fail = (t.match(/^\s+FAIL /mg) || []).length;
+    // §4: the aliasing ladder, one row per curve (the 2× and ADAA 2× columns)
+    const a = t.indexOf('== 4. aliasing ladder'), b = t.indexOf('== 4a.');
+    if (a >= 0 && b > a) for (const line of t.slice(a, b).split('\n').slice(2)) {
+      const cols = line.trim().split(/\s{2,}/);
+      if (cols.length >= 7 && CURVES.indexOf(cols[0]) >= 0) FID.alias[cols[0]] = { x2: cols[2], ad2: cols[6] };
+    }
+  } catch (e) { FID.err = 'reference/maw/fidelity-report.txt: ' + String((e && e.message) || e); }
+}
+
+/* ======================================================================
+   I. TOKENS, CANVAS, PAINTERS (scalpel-interface-lab :2023-2050)
+   ====================================================================== */
+let _tok = {};
+function TOK(name, fallback) {
+  if (_tok[name] === undefined) {
+    let v = '';
+    try { v = getComputedStyle(document.body || document.documentElement).getPropertyValue(name).trim(); } catch (_) { v = ''; }
+    _tok[name] = (typeof v === 'string' && v) ? v : (fallback || '#888');
+  }
+  return _tok[name];
+}
+function RGBA(hex, a) {
+  const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(hex).trim());
+  if (!m) return hex;
+  return `rgba(${parseInt(m[1], 16)},${parseInt(m[2], 16)},${parseInt(m[3], 16)},${a})`;
+}
+function TOKA(name, a) { const m = parseFloat(TOK('--scr-alpha', '1')) || 1; return RGBA(TOK(name), Math.min(1, a * m)); }
+function fit(cv) {
+  const g = cv && cv.getContext ? cv.getContext('2d') : null;
+  if (!g) return [null, 0, 0];
+  const dpr = (typeof devicePixelRatio === 'number' && devicePixelRatio) || 1;
+  const W = cv.clientWidth | 0, H = cv.clientHeight | 0;
+  if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return [g, W, H];
+}
+function tube(g, W, H) { g.fillStyle = TOK('--scr-tube'); g.fillRect(0, 0, W, H); }
+function say(g, W, H, t) { g.fillStyle = TOKA('--scr-marker', 0.9); g.font = '10px ui-monospace,Menlo,monospace'; g.textAlign = 'center'; g.fillText(t, W / 2, H / 2); g.textAlign = 'left'; }
+function txt(g, s, x, y, ink, a, px) { g.fillStyle = TOKA(ink, a == null ? 1 : a); g.font = (px || 9) + 'px ui-monospace,Menlo,monospace'; g.fillText(s, x, y); }
+function dash(g, on) { if (g.setLineDash) g.setLineDash(on ? [3, 3] : []); }
+
+/* the snapshot on screen: at the playhead while playing, else at the analysis point */
+function snapAt() {
+  if (!OUT || !OUT.snaps || !OUT.snaps.length) return null;
+  const s = AUD.playing ? playSample() : SRC.a + FFT_N / 2;
+  return OUT.snaps[clamp(Math.floor(s / SNAP_N) - 1, 0, OUT.snaps.length - 1)];
+}
+function paintTransfer(cv, k) {
+  const [g, W, H] = fit(cv); if (!g) return;
+  tube(g, W, H);
+  if (!OUT) { say(g, W, H, LIB ? 'rendering…' : 'MAW core absent'); return; }
+  const sn = snapAt(); if (!sn) { say(g, W, H, 'rendering…'); return; }
+  const s = sn[k], pad = 4, yr = 1.25;
+  const X = x => pad + (x + 1) / 2 * (W - 2 * pad), Y = y => H / 2 - clamp(y, -yr, yr) / yr * (H / 2 - pad);
+  g.strokeStyle = TOKA('--scr-grid', 0.18); g.lineWidth = 1;
+  g.beginPath(); g.moveTo(X(-1), Y(0)); g.lineTo(X(1), Y(0)); g.moveTo(X(0), Y(-yr)); g.lineTo(X(0), Y(yr));
+  g.moveTo(X(-1), Y(1)); g.lineTo(X(1), Y(1)); g.moveTo(X(-1), Y(-1)); g.lineTo(X(1), Y(-1)); g.stroke();
+  if (s.on) {                                            // where the signal sits: ±the stage's input follower
+    const b = clamp(s.band, 0, 1);
+    g.fillStyle = TOKA('--scr-meter', 0.13); g.fillRect(X(-b), pad, X(b) - X(-b), H - 2 * pad);
+    g.strokeStyle = TOKA('--scr-meter', 0.55); dash(g, true); g.beginPath();
+    g.moveTo(X(-b), pad); g.lineTo(X(-b), H - pad); g.moveTo(X(b), pad); g.lineTo(X(b), H - pad); g.stroke(); dash(g, false);
+  }
+  g.strokeStyle = TOKA('--scr-grid', 0.4); dash(g, true);
+  g.beginPath(); g.moveTo(X(-1), Y(-1)); g.lineTo(X(1), Y(1)); g.stroke(); dash(g, false);
+  g.strokeStyle = s.on ? TOK('--scr-value') : TOKA('--scr-grid', 0.5); g.lineWidth = s.on ? 2 : 1;
+  g.beginPath();
+  for (let j = 0; j < XS.length; j++) { const x = X(XS[j]), y = Y(s.ys[j]); if (j) g.lineTo(x, y); else g.moveTo(x, y); }
+  g.stroke();
+  txt(g, 'S' + (k + 1) + (s.on ? '' : ' OFF'), 6, 12, s.on ? '--scr-value' : '--scr-grid', 1, 10);
+}
+function paintSpectrum(cv) {
+  const [g, W, H] = fit(cv); if (!g) return;
+  tube(g, W, H);
+  if (!OUT || !SRC || !SRC.spec) { say(g, W, H, LIB ? 'rendering…' : 'MAW core absent'); return; }
+  const f0 = 20, f1 = 20000, d0 = -100, d1 = 0, pl = 24, pb = 12;
+  const X = f => pl + Math.log(f / f0) / Math.log(f1 / f0) * (W - pl - 4), Y = d => 4 + (d1 - clamp(d, d0, d1)) / (d1 - d0) * (H - 4 - pb);
+  g.strokeStyle = TOKA('--scr-grid', 0.16); g.lineWidth = 1; g.beginPath();
+  for (const f of [100, 1000, 10000]) { g.moveTo(X(f), 4); g.lineTo(X(f), H - pb); }
+  for (let d = -20; d > d0; d -= 20) { g.moveTo(pl, Y(d)); g.lineTo(W - 4, Y(d)); }
+  g.stroke();
+  for (const [f, t] of [[100, '100'], [1000, '1k'], [10000, '10k']]) txt(g, t, X(f) - 6, H - 2, '--scr-grid', 0.7, 8);
+  for (let d = -20; d > d0; d -= 40) txt(g, String(d), 2, Y(d) + 3, '--scr-grid', 0.7, 8);
+  const binHz = SR / FFT_N;
+  const draw = (m, ink, a, w) => {                     // max over each pixel column, log-f
+    g.strokeStyle = TOKA(ink, a); g.lineWidth = w; g.beginPath();
+    let first = true;
+    for (let px = pl; px < W - 4; px++) {
+      const fa = f0 * Math.pow(f1 / f0, (px - pl) / (W - pl - 4)), fb = f0 * Math.pow(f1 / f0, (px + 1 - pl) / (W - pl - 4));
+      const ia = Math.max(1, Math.floor(fa / binHz)), ib = Math.max(ia, Math.min(m.length - 1, Math.floor(fb / binHz)));
+      let v = -200; for (let i = ia; i <= ib; i++) v = Math.max(v, m[i]);
+      if (first) { g.moveTo(px, Y(v)); first = false; } else g.lineTo(px, Y(v));
+    }
+    g.stroke();
+  };
+  draw(SRC.spec, '--scr-grid', 0.45, 1);
+  draw(OUT.spec, '--scr-meter', 0.95, 1.4);
+  txt(g, 'in', W - 64, 13, '--scr-grid', 0.8); txt(g, 'MAW out', W - 46, 13, '--scr-meter', 1);
+}
+function paintScope(cv) {
+  const [g, W, H] = fit(cv); if (!g) return;
+  tube(g, W, H);
+  if (!OUT) { say(g, W, H, '—'); return; }
+  const tonal = SRC.kind === 'saw' || SRC.kind === 'scalpel';
+  const per = SR / mtof(Math.min(...SRC.notes)), span = Math.round(tonal ? 2 * per : 0.012 * SR);
+  let a = SRC.a;
+  if (tonal) {                                           // trigger: the input's rising zero crossing
+    const m = i => SRC.L[i] + SRC.R[i];
+    for (let i = SRC.a + 1; i < SRC.a + per * 2; i++) if (m(i - 1) < 0 && m(i) >= 0) { a = i; break; }
+  }
+  const X = i => 3 + i / span * (W - 6), Y = v => H / 2 - clamp(v, -1.1, 1.1) / 1.1 * (H / 2 - 4);
+  g.strokeStyle = TOKA('--scr-grid', 0.18); g.beginPath(); g.moveTo(0, H / 2); g.lineTo(W, H / 2); g.stroke();
+  const line = (L, R, ink, al, w) => { g.strokeStyle = TOKA(ink, al); g.lineWidth = w; g.beginPath();
+    for (let i = 0; i < span; i++) { const v = 0.5 * (L[a + i] + R[a + i]); if (i) g.lineTo(X(i), Y(v)); else g.moveTo(X(i), Y(v)); } g.stroke(); };
+  line(SRC.L, SRC.R, '--scr-grid', 0.5, 1);
+  line(OUT.L, OUT.R, '--scr-meter', 0.95, 1.4);
+  txt(g, tonal ? '2 periods' : '12 ms', 5, 11, '--scr-grid', 0.8, 8);
+}
+function paintMeter(cv) {
+  const [g, W, H] = fit(cv); if (!g) return;
+  tube(g, W, H);
+  if (!OUT || !OUT.trace) { say(g, W, H, LIB ? 'rendering…' : 'MAW core absent'); return; }
+  const T = OUT.trace, nb = T.g[0].length, lh = (H - 4) / 3, pr = 128;
+  const X = b => 22 + b / nb * (W - 22 - pr);
+  const cur = clamp(Math.floor((AUD.playing ? playSample() : SRC.a + FFT_N / 2) / BLOCK), 0, nb - 1);
+  for (let k = 0; k < 3; k++) {
+    const y0 = 2 + k * lh, on = OUT.P.stages[k].on, Yd = d => y0 + 2 + (60 - clamp(d, -24, 60)) / 84 * (lh - 5);
+    g.strokeStyle = TOKA('--scr-grid', 0.18); g.beginPath(); g.moveTo(22, Yd(0)); g.lineTo(W - pr, Yd(0)); g.stroke();
+    g.fillStyle = TOKA('--scr-meter', 0.28); g.beginPath(); g.moveTo(X(0), y0 + lh - 1);   // stage output level, 0..−48 dB
+    for (let b = 0; b < nb; b++) g.lineTo(X(b), y0 + lh - 1 - clamp((dB(T.env[k][b]) + 48) / 48, 0, 1) * (lh - 4));
+    g.lineTo(X(nb - 1), y0 + lh - 1); g.closePath(); g.fill();
+    const lineOf = (arr, ink, a, w) => { g.strokeStyle = TOKA(ink, a); g.lineWidth = w; g.beginPath();
+      for (let b = 0; b < nb; b++) { if (b) g.lineTo(X(b), Yd(arr[b])); else g.moveTo(X(b), Yd(arr[b])); } g.stroke(); };
+    if (on) { lineOf(T.comp[k], '--scr-physics', 0.9, 1); lineOf(T.g[k], '--scr-value', 1, 1.6); }
+    txt(g, 'S' + (k + 1), 3, y0 + lh / 2 + 3, on ? '--scr-value' : '--scr-grid', 1, 9);
+    txt(g, on ? 'drive ' + fDb(T.g[k][cur]) : 'off', W - pr + 6, y0 + lh / 2 - 2, '--scr-value', 1, 8.5);
+    if (on) txt(g, 'makeup ' + fDb(T.comp[k][cur]), W - pr + 6, y0 + lh / 2 + 9, '--scr-physics', 1, 8.5);
+  }
+  g.strokeStyle = TOKA('--scr-marker', 0.9); g.lineWidth = 1; g.beginPath(); g.moveTo(X(cur), 2); g.lineTo(X(cur), H - 2); g.stroke();
+  g.strokeStyle = TOKA('--scr-grid', 0.35); dash(g, true); g.beginPath(); g.moveTo(X(OFF_N / BLOCK), 2); g.lineTo(X(OFF_N / BLOCK), H - 2); g.stroke(); dash(g, false);
+}
+/* fx-design-lab.html :1752-1790's topology layout, redrawn on this page's tokens */
+function paintTopo(cv) {
+  const [g, W, H] = fit(cv); if (!g) return;
+  tube(g, W, H);
+  if (!RES) return;
+  const P = RES, r = P.route, on = i => P.stages[i].on, bw = 40, bh = 20, cy = H / 2 + 4;
+  const box = (x, y, t, i) => {
+    g.strokeStyle = on(i) ? TOK('--scr-value') : TOKA('--scr-grid', 0.6); g.lineWidth = 1.6; dash(g, !on(i));
+    g.strokeRect(x - bw / 2, y - bh / 2, bw, bh); dash(g, false);
+    txt(g, t, x - bw / 2 + 5, y + 3, on(i) ? '--scr-value' : '--scr-grid', 1, 9);
+  };
+  const wire = pts => { g.strokeStyle = TOKA('--scr-grid', 0.8); g.lineWidth = 1.2; g.beginPath(); g.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) g.lineTo(pts[i][0], pts[i][1]); g.stroke(); };
+  const xin = 18, xout = W - 22;
+  txt(g, 'IN', 3, cy + 3, '--scr-grid', 1, 8); txt(g, 'OUT', xout + 1, cy + 3, '--scr-grid', 1, 8);
+  txt(g, ROUTES[r].toUpperCase(), 6, 11, '--scr-marker', 1, 9);
+  const xs = [W * 0.3, W * 0.5, W * 0.7];
+  if (r === 0 || r === 4) {
+    wire([[xin, cy], [xout, cy]]);
+    for (let i = 0; i < 3; i++) box(xs[i], cy, 'S' + (i + 1), i);
+    if (r === 4) {
+      const tapX = xs[P.fbTap] + bw / 2 + 5, yb = cy + bh / 2 + 10;
+      g.strokeStyle = TOK('--scr-physics'); g.lineWidth = 1.4; g.beginPath();
+      g.moveTo(tapX, cy); g.lineTo(tapX, yb); g.lineTo(xs[0] - bw / 2 - 7, yb); g.lineTo(xs[0] - bw / 2 - 7, cy); g.stroke();
+      txt(g, 'fb ' + fPct(P.fbAmt) + ' · ' + (P.fbMode === 0 ? 'pitch ' + fSt(P.fbSemi) : fMs(P.fbMs)) + ' · tap S' + (P.fbTap + 1), W * 0.5 + 18, 11, '--scr-physics', 1, 8.5);
+    }
+  } else if (r === 1 || r === 2) {
+    const ys = [cy - 24, cy, cy + 24];
+    for (let i = 0; i < 3; i++) { wire([[xin, cy], [W * 0.38, ys[i]], [W * 0.62, ys[i]], [xout, cy]]); box(W * 0.5, ys[i], 'S' + (i + 1), i); }
+    if (r === 2) {
+      const x2 = Math.max(P.xo2, P.xo1 * 1.5);
+      txt(g, '<' + fHz(P.xo1), W * 0.5 + bw / 2 + 4, ys[0] + 3, '--scr-grid', 0.9, 8);
+      txt(g, '>' + fHz(x2), W * 0.5 + bw / 2 + 4, ys[2] + 3, '--scr-grid', 0.9, 8);
+    }
+  } else {
+    const ym = cy - 15, ys2 = cy + 15;
+    wire([[xin, cy], [W * 0.3, ym], [W * 0.58, cy]]); wire([[xin, cy], [W * 0.3, ys2], [W * 0.58, cy]]); wire([[W * 0.58, cy], [xout, cy]]);
+    box(W * 0.36, ym, 'S1 M', 0); box(W * 0.36, ys2, 'S2 S', 1); box(W * 0.7, cy, 'S3', 2);
+  }
+}
+
+/* ======================================================================
+   J. STATE, CONTROLS AND THE WINDOW
+   ====================================================================== */
+const LAB = { theme: qp('theme', 'light'), src: qp('src', 'saw'), note: parseInt(qp('note', '45'), 10) || 45,
+  chord: qp('chord', '0') === '1', sp: qp('sp', 'Quarter sync'), preset: qp('preset', 'init'), bypass: false, srcNote: '' };
+let BASE = null, SLOTS = freshSlots(), RES = null, SRC = null, OUT = null, PEND = 0, SRCPEND = 0;
+const CTLS = [], CANV = [];
+const $ = id => document.getElementById(id);
+function el(tag, cls, t) { const e = document.createElement(tag); if (cls) e.className = cls; if (t !== undefined && t !== null) e.textContent = t; return e; }
+function refresh() { for (const f of CTLS) f(); }
+function paintAll() { for (const [cv, f] of CANV) f(cv); }
+function toPos(sp, v) { return clamp(sp.log ? Math.log(v / sp.min) / Math.log(sp.max / sp.min) : (v - sp.min) / (sp.max - sp.min), 0, 1); }
+function fromPos(sp, p) { p = clamp(p, 0, 1); let v = sp.log ? sp.min * Math.pow(sp.max / sp.min, p) : sp.min + p * (sp.max - sp.min); if (sp.step) v = Math.round(v / sp.step) * sp.step; return v; }
+
+/* A knob: drag vertically (shift = fine), double-click = reset. The value arc runs from
+   the knob's origin (0 for a bipolar range, the home for a slot) to the authored value;
+   the violet arc from there to the value after the macros. */
+function knob(host, o) {
+  const cell = el('div', 'kcell' + (o.big ? ' big' : ''));
+  cell.title = o.title || '';
+  const lab = el('label', null, o.label), k = el('span', 'knob' + (o.big ? ' big' : ''));
+  for (const c of ['kmod', 'karc', 'kcap', 'kptr']) k.appendChild(el('span', c));
+  const out = el('output');
+  cell.appendChild(lab); cell.appendChild(k); cell.appendChild(out); host.appendChild(cell);
+  let drag = false, y0 = 0, p0 = 0;
+  k.addEventListener('pointerdown', e => { drag = true; y0 = e.clientY; p0 = toPos(o.sp, o.get()); k.classList.add('drag'); try { k.setPointerCapture(e.pointerId); } catch (_) {} });
+  k.addEventListener('pointermove', e => { if (!drag) return; o.set(fromPos(o.sp, p0 + (y0 - e.clientY) / (e.shiftKey ? 600 : 160))); });
+  const up = () => { drag = false; k.classList.remove('drag'); };
+  k.addEventListener('pointerup', up); k.addEventListener('pointercancel', up);
+  k.addEventListener('dblclick', () => { if (o.reset) o.set(o.reset()); });
+  CTLS.push(() => {
+    const v = o.get(); if (v === undefined) return;
+    const sp = o.sp, p = toPos(sp, v), ve = o.eff ? o.eff() : v, pe = toPos(sp, ve);
+    const z = o.origin !== undefined ? toPos(sp, o.origin) : (sp.min < 0 && sp.max > 0 ? toPos(sp, 0) : 0);
+    k.style.setProperty('--a0', Math.min(p, z) * 280 + 'deg'); k.style.setProperty('--a1', Math.max(p, z) * 280 + 'deg');
+    k.style.setProperty('--ang', (p * 280 - 140) + 'deg');
+    k.style.setProperty('--m0', Math.min(p, pe) * 280 + 'deg'); k.style.setProperty('--m1', Math.max(p, pe) * 280 + 'deg');
+    cell.classList.toggle('ghost', !!(o.ghost && o.ghost()));
+    // a 52 px cell cannot hold both values: it shows what is heard (→ after the macros); the
+    // arc and the tooltip keep the authored one
+    const moved = Math.abs(pe - p) > 1e-4;
+    out.textContent = o.fmt ? o.fmt(v, ve) : moved ? '→' + sp.fmt(ve) : sp.fmt(v);
+    cell.title = (o.title || '') + (moved ? '\nauthored ' + sp.fmt(v) + ' → after the macros ' + sp.fmt(ve) : '');
+  });
+  return cell;
+}
+function pills(host, labels, get, set, o) {
+  o = o || {};
+  const w = el('div', 'pills'), bs = [];
+  labels.forEach((t, i) => { const b = el('button', 'pill mini', t); b.addEventListener('click', () => set(o.map ? o.map[i] : i)); w.appendChild(b); bs.push(b); });
+  host.appendChild(w);
+  CTLS.push(() => { const v = get(); bs.forEach((b, i) => b.classList.toggle('on', (o.map ? o.map[i] : i) === v)); w.classList.toggle('ghost', !!(o.ghost && o.ghost())); });
+  return w;
+}
+function curveSel(host, key, ghost) {
+  const s = el('select');
+  CURVES.forEach((n, i) => { const op = el('option', null, n); op.value = String(i); s.appendChild(op); });
+  s.addEventListener('change', () => write(key, parseInt(s.value, 10)));
+  host.appendChild(s);
+  CTLS.push(() => { if (!BASE) return; s.value = String(getp(BASE, key)); s.classList.toggle('ghost', !!(ghost && ghost())); });
+  return s;
+}
+/* a parameter knob on MAW's panel: authored value = BASE (the module preset's embedded
+   copy), effective = RES (after the four slots) */
+function pknob(host, key, ghost) {
+  const sp = specOf(key);
+  return knob(host, { label: sp.label, sp, title: key,
+    get: () => BASE ? getp(BASE, key) : undefined, eff: () => RES ? getp(RES, key) : undefined,
+    set: v => write(key, v), reset: () => { const P = presetParams(LAB.preset); return P ? getp(P, key) : 0; }, ghost });
+}
+function write(key, v) { if (!BASE) return; setp(BASE, key, v); changed(); }
+function changed() { if (!BASE) return; RES = resolve(BASE, SLOTS); refresh(); scheduleRender(); }
+function scheduleRender() {
+  if (PEND) return;
+  PEND = setTimeout(() => { PEND = 0; doRender(); }, 30) || 0;
+}
+function doRender() {
+  if (LIB && SRC && RES) { OUT = analyse(mawRender(RES, SRC, { trace: true, snaps: true }), SRC); if (AUD.playing) audioSwap(); }
+  paintAll(); paintStatus();
+}
+function loadPreset(name) {
+  if (MPRE && !MPRE[name]) name = /^\d+$/.test(name) && PRESET_NAMES[+name] ? PRESET_NAMES[+name] : PRESET_NAMES[0];
+  LAB.preset = name;
+  BASE = presetParams(name); SLOTS = freshSlots();
+  if (BASE) changed();
+}
+function setSource(kind) {
+  let why = '';
+  if ((kind === 'saw' || kind === 'scalpel') && !ENGINE.C) { why = ENGINE.err || 'the composed engine is still loading'; kind = 'noise'; }
+  if (kind === 'scalpel' && !ENGINE.presets) { why = ENGINE.perr || 'no SCALPEL presets'; kind = 'noise'; }
+  LAB.src = kind; LAB.srcNote = why;
+  SRC = makeSource(kind);
+  refresh(); doRender();
+}
+function sourceSoon() {                                   // a source re-render costs ~200 ms: coalesce clicks
+  if (SRCPEND) return;
+  SRCPEND = setTimeout(() => { SRCPEND = 0; setSource(LAB.src); }, 30) || 0;
+}
+
+/* ---- the frame ---- */
+function buildRack() {
+  const r = $('rackbar');
+  r.appendChild(el('span', 'io', 'VOICE Σ'));
+  r.appendChild(el('span', 'arr', '→'));
+  const m = el('span', 'slot maw', '1 · MAW · FX-C'); m.title = 'MAW in rack slot 1: FX-C, the stage every source hands off to (ADR-092 amendment, ADR-170)';
+  r.appendChild(m);
+  for (const [i, t] of [[2, 'FILTER'], [3, 'DELAY'], [4, 'ROOM']]) { r.appendChild(el('span', 'arr', '→')); const s = el('span', 'slot', i + ' · ' + t); s.title = 'today\'s rack type (src/fx_rack.h FxType), context only: not rendered in this lab'; r.appendChild(s); }
+  r.appendChild(el('span', 'arr', '→')); r.appendChild(el('span', 'io', 'OUT'));
+  const nt = el('span', 'note', 'slots 2–4: context, not rendered'); r.appendChild(nt);
+  CTLS.push(() => { m.classList.toggle('byp', LAB.bypass); m.textContent = '1 · MAW · FX-C' + (LAB.bypass ? ' · BYPASSED' : ''); });
+}
+function slotReadout(r) {
+  if (!BASE || !RES) return '';
+  const d = SLOT_DEF[r];
+  if (d.idle && d.idle(RES)) return 'IDLE — ' + ROUTES[RES.route] + ' route has no loop';
+  if (r === 'Amount') { const on = [0, 1, 2].filter(i => RES.stages[i].on); return on.length ? on.map(i => 'S' + (i + 1) + ' ' + RES.stages[i].drive.toFixed(1)).join(' · ') + ' dB' : 'no stage on'; }
+  if (r === 'Tone') { const i = [0, 1, 2].find(j => RES.stages[j].on); if (i === undefined) return ''; const f = RES.stages[i].cut / BASE.stages[i].cut;
+    return 'shape ' + fBi(RES.stages[i].shape - BASE.stages[i].shape) + ' · cut ×' + f.toFixed(2) + ' (S' + (i + 1) + ')'; }
+  if (r === 'Motion') return 'inertia ' + f2(RES.inertia) + ' · flux ' + f2(RES.flux);
+  return 'fb ' + fPct(RES.fbAmt);
+}
+function buildFace(host) {
+  const c = el('div', 'cell'); host.appendChild(c);
+  const h = el('h3', null, 'MAW · FACE'); h.appendChild(el('span', 'own', 'the preset\'s distillation · ADR-169 A2')); c.appendChild(h);
+  const row = el('div', 'grow2'); row.appendChild(el('span', 'lbl', 'PRESET'));
+  const sel = el('select'); PRESET_NAMES.forEach(n => { const o = el('option', null, n); o.value = n; sel.appendChild(o); });
+  sel.addEventListener('change', () => loadPreset(sel.value)); row.appendChild(sel); c.appendChild(row);
+  CTLS.push(() => { sel.value = LAB.preset; });
+  const f = el('div', 'face'); c.appendChild(f);
+  ROLES.forEach((r, ri) => {
+    const d = SLOT_DEF[r], col = el('div', 'slotc'); f.appendChild(col);
+    col.appendChild(el('span', 'role', r.toUpperCase()));
+    knob(col, { big: true, label: d.label, sp: SP(d.label, 0, 1, f2), origin: d.home,
+      title: r + ' — home ' + d.home + ' reproduces the preset; bindings: ' + d.bind.map(b => b.key + ' (' + b.kind + ')').join(', '),
+      get: () => SLOTS[r].v, set: v => { SLOTS[r].v = v; changed(); }, reset: () => d.home,
+      ghost: () => !!(d.idle && RES && d.idle(RES)),
+      fmt: v => (v === d.home ? 'home' : f2(v)) });
+    const tb = el('button', 'tier'); tb.addEventListener('click', () => { SLOTS[r].tier = SLOTS[r].tier === 'global' ? 'corner' : 'global'; refresh(); });
+    col.appendChild(tb);
+    const rd = el('div', 'rd'); col.appendChild(rd);
+    CTLS.push(() => {
+      const g = SLOTS[r].tier === 'global';
+      tb.classList.toggle('g', g); tb.textContent = g ? '▲ GLOBAL' : '◇ CORNER';
+      tb.title = g ? `on horde's face and the DAW's list: "FX${HOST + 1} ${r}", id ${300 + 8 * HOST + ri} (ADR-169 A1)` : 'a per-corner base the morph interpolates; not a DAW parameter (SPEC-MODULE-MACROS §2)';
+      const t = slotReadout(r); rd.textContent = t; rd.classList.toggle('idle', t.indexOf('IDLE') === 0);
+    });
+  });
+  const lg = el('div', 'legend');
+  lg.innerHTML = '<b>▲ GLOBAL</b> = on horde\'s face and the DAW\'s list (<code>FX1 Amount</code> …, ids 300–303). ' +
+    '<b>◇ CORNER</b> = a per-corner base the morph owns, not DAW-exposed. The DAW sees the role, never the label.';
+  c.appendChild(lg);
+}
+function buildTopo(host) {
+  const c = el('div', 'cell'); host.appendChild(c);
+  const h = el('h3', null, 'TOPOLOGY'); h.appendChild(el('span', 'own', 'SPEC-MAW §2.1')); c.appendChild(h);
+  pills(c, ROUTES.map(s => s.toUpperCase()), () => BASE ? BASE.route : -1, v => write('route', v));
+  const cv = el('canvas', 'viz'); cv.style.height = '76px'; cv.style.marginTop = '4px'; c.appendChild(cv); CANV.push([cv, paintTopo]);
+  CTLS.push(() => paintTopo(cv));
+}
+function buildGlobal(host) {
+  const c = el('div', 'cell'); host.appendChild(c);
+  const h = el('h3', null, 'IN · OUT · BEHAVIOUR'); h.appendChild(el('span', 'own', '§2.4 §2.5 §7')); c.appendChild(h);
+  const k1 = el('div', 'kr'); c.appendChild(k1);
+  for (const key of ['inGain', 'wet', 'out', 'auto', 'inertia']) pknob(k1, key);
+  const k2 = el('div', 'kr'); c.appendChild(k2);
+  for (const key of ['eco', 'flux']) pknob(k2, key);
+  const tg = el('div'); tg.style.marginLeft = '6px'; k2.appendChild(tg);
+  const r1 = el('div', 'grow2'); r1.appendChild(el('span', 'lbl', 'DRIVE-REF')); tg.appendChild(r1);
+  pills(r1, ['OFF', 'PEAK'], () => BASE ? BASE.driveRef : -1, v => write('driveRef', v), { map: [0, 1] });
+  const r2 = el('div', 'grow2'); r2.appendChild(el('span', 'lbl', 'ADAA')); tg.appendChild(r2);
+  pills(r2, ['OFF', 'ON'], () => BASE ? !!BASE.adaa : null, v => write('adaa', v), { map: [false, true] });
+  const nt = el('div', 'inside');
+  nt.innerHTML = 'Not on horde: tracked auto-gain (D3), per-stage oversampling (global 2×, SPEC-MAW §10). Ecology waits for its A/B before a face slot (ADR-170 A1).';
+  c.appendChild(nt);
+}
+function buildViz(host) {
+  const c = el('div', 'cell grow'); host.appendChild(c);
+  const h = el('h3', null, 'WHAT MAW RENDERED'); const own = el('span', 'own'); h.appendChild(own); c.appendChild(h);
+  CTLS.push(() => { own.textContent = OUT ? `out peak ${dB(OUT.pk).toFixed(1)} dBFS · RMS ${dB(OUT.rms).toFixed(1)} · clamp hits ${OUT.hits}` + (OUT.bad ? ` · ${OUT.bad} NON-FINITE` : '') : ''; });
+  const pin = el('div', 'pin'); c.appendChild(pin);
+  pin.appendChild(el('div', 'cap', 'TRANSFER per stage · stage in → stage out · read from the rendering instance · band = where the signal sits'));
+  const tr = el('div', 'trow'); pin.appendChild(tr);
+  const labs = [];
+  for (let k = 0; k < 3; k++) {
+    const w = el('div'); tr.appendChild(w);
+    const cv = el('canvas', 'viz'); cv.style.height = '112px'; w.appendChild(cv); CANV.push([cv, x => paintTransfer(x, k)]);
+    const tl = el('div', 'tlab'); w.appendChild(tl); labs.push(tl);
+  }
+  CTLS.push(() => labs.forEach((tl, k) => {
+    if (!RES) { tl.textContent = ''; return; }
+    const s = RES.stages[k];
+    if (!s.on) { tl.textContent = 'off'; return; }
+    const al = FID.alias[CURVES[s.a]];
+    tl.innerHTML = '<b>' + cname(s.a) + (s.morph > 0 ? ' → ' + cname(s.b) + ' ' + fPct(s.morph) : '') + '</b> · ' + fDb(s.drive) +
+      (s.ft ? ' · ' + ['', 'LP', 'BP', 'HP'][s.ft] + ' ' + fHz(s.cut) + (s.fpos ? ' post' : ' pre') : '') +
+      (al ? '<br>alias @4.7 kHz, 2×: ' + al.x2 + ' dB' + (al.ad2 !== '—' ? ' · ADAA ' + al.ad2 : '') + ' (fidelity §4)' : '');
+  }));
+  pin.appendChild(el('div', 'cap', 'SPECTRA · rack input (ghost) vs MAW out · Hann 8192 at the analysis point  |  SCOPE'));
+  const sr = el('div', 'srow2'); pin.appendChild(sr);
+  const sp = el('canvas', 'viz'); sp.style.height = '118px'; sr.appendChild(sp); CANV.push([sp, paintSpectrum]);
+  const sc = el('canvas', 'viz'); sc.style.height = '118px'; sr.appendChild(sc); CANV.push([sc, paintScope]);
+  pin.appendChild(el('div', 'cap', 'DRIVE METER per stage over the loop · gain into the curve · auto-gain makeup · stage level · dashed = note off'));
+  const mt = el('canvas', 'viz'); mt.style.height = '88px'; pin.appendChild(mt); CANV.push([mt, paintMeter]);
+  const sc2 = el('div', 'scroll'); c.appendChild(sc2);
+  buildInside(sc2);
+}
+function buildInside(host) {
+  const h = el('div', 'inside');
+  h.innerHTML = '<b>INSIDE THE MODULE</b> — every internal parameter, always in the panel (ADR-169 A2). ' +
+    'None of them is a DAW parameter (ADR-172). The violet arc = the value after the four slots.';
+  host.appendChild(h);
+  for (let i = 0; i < 3; i++) {
+    const s = 'stages.' + i + '.', off = () => BASE && !BASE.stages[i].on, noFilt = () => BASE && (!BASE.stages[i].on || !BASE.stages[i].ft);
+    const b = el('div', 'stg'); host.appendChild(b);
+    const h4 = el('h4', null, 'STAGE ' + (i + 1)); b.appendChild(h4);
+    pills(h4, ['ON', 'OFF'], () => BASE ? BASE.stages[i].on : null, v => write(s + 'on', v), { map: [true, false] });
+    const sel = el('div', 'grow2 sel'); b.appendChild(sel);
+    sel.appendChild(el('span', 'lbl', 'CURVE A')); curveSel(sel, s + 'a', off);
+    sel.appendChild(el('span', 'lbl', 'B')); curveSel(sel, s + 'b', off);
+    const fr = el('div', 'grow2 sel'); b.appendChild(fr);
+    fr.appendChild(el('span', 'lbl', 'TONE'));
+    pills(fr, ['OFF', 'LP', 'BP', 'HP'], () => BASE ? BASE.stages[i].ft : -1, v => write(s + 'ft', v), { ghost: off });
+    pills(fr, ['PRE', 'POST'], () => BASE ? BASE.stages[i].fpos : -1, v => write(s + 'fpos', v), { ghost: noFilt });
+    const kr = el('div', 'kr'); b.appendChild(kr);
+    for (const k of ['morph', 'shape', 'drive', 'bias', 'floor']) pknob(kr, s + k, off);
+    for (const k of ['cut', 'res']) pknob(kr, s + k, noFilt);
+    for (const k of ['level', 'mix']) pknob(kr, s + k, off);
+    CTLS.push(() => b.classList.toggle('off', !!off()));
+  }
+  const sec = (title, own, keys, ghost, extra) => {
+    const d = el('div', 'sec'); host.appendChild(d);
+    const h4 = el('h4', null, title); h4.appendChild(el('span', 'own', own)); d.appendChild(h4);
+    if (extra) extra(d);
+    const kr = el('div', 'kr'); d.appendChild(kr);
+    keys.forEach(k => pknob(kr, k, ghost));
+    CTLS.push(() => d.classList.toggle('ghost', !!(ghost && ghost())));
+  };
+  const notFb = () => BASE && BASE.route !== 4;
+  sec('CROSSOVER', 'multiband route', ['xo1', 'xo2'], () => BASE && BASE.route !== 2);
+  sec('FEEDBACK', 'feedback route · §6', ['fbAmt', 'fbSemi', 'fbMs', 'fbDamp', 'fbHp'], notFb, d => {
+    const r = el('div', 'grow2'); d.appendChild(r);
+    r.appendChild(el('span', 'lbl', 'TIME FROM')); pills(r, ['PITCH', 'MS'], () => BASE ? BASE.fbMode : -1, v => write('fbMode', v), { ghost: notFb });
+    r.appendChild(el('span', 'lbl', 'TAP AFTER')); pills(r, ['S1', 'S2', 'S3'], () => BASE ? BASE.fbTap : -1, v => write('fbTap', v), { ghost: notFb });
+  });
+  sec('MODULATION', 'prototype-local: horde\'s mod matrix replaces the sources, §7', ['envA', 'envR', 'lfoRate', 'mod.ed', 'mod.ec', 'mod.em', 'mod.ld', 'mod.lc', 'mod.lb']);
+}
+function buildSide() {
+  const side = $('side');
+  const b1 = el('div', 'box'); side.appendChild(b1);
+  b1.appendChild(el('h2', null, 'THE RACK INPUT'));
+  const r1 = el('div', 'row'); b1.appendChild(r1); r1.appendChild(el('span', 'lbl', 'SOURCE'));
+  const sw = el('div', 'pills'); r1.appendChild(sw);
+  const sbs = SOURCES.map(([k, t]) => { const b = el('button', 'pill mini', t); b.addEventListener('click', () => { LAB.src = k; sourceSoon(); }); sw.appendChild(b); return [k, b]; });
+  const r2 = el('div', 'row'); b1.appendChild(r2); r2.appendChild(el('span', 'lbl', 'PATCH'));
+  const ps = el('select'); ps.title = 'the 83 SCALPEL bench presets (reference/scalpel/data/presets.json, fetched, never copied)';
+  ps.addEventListener('change', () => { LAB.sp = ps.value; if (LAB.src === 'scalpel') sourceSoon(); }); r2.appendChild(ps);
+  const r3 = el('div', 'row'); b1.appendChild(r3); r3.appendChild(el('span', 'lbl', 'NOTE'));
+  pills(r3, ['A1', 'E2', 'A2', 'E3', 'A3'], () => LAB.note, v => { LAB.note = v; sourceSoon(); }, { map: [33, 40, 45, 52, 57] });
+  pills(r3, ['CHORD'], () => LAB.chord ? 0 : -1, () => { LAB.chord = !LAB.chord; sourceSoon(); });
+  const info = el('div'); info.style.marginTop = '4px'; b1.appendChild(info);
+  CTLS.push(() => {
+    sbs.forEach(([k, b]) => { b.classList.toggle('on', LAB.src === k); b.classList.toggle('dis', (k === 'saw' || k === 'scalpel') && !ENGINE.C); b.title = (k === 'saw' || k === 'scalpel') && !ENGINE.C ? ENGINE.err : ''; });
+    if (ENGINE.presets && ps.options.length !== ENGINE.presets.length) {
+      ps.innerHTML = '';
+      const groups = {};
+      for (const p of ENGINE.presets) { if (!groups[p.category]) { groups[p.category] = el('optgroup'); groups[p.category].label = p.category; ps.appendChild(groups[p.category]); }
+        const o = el('option', null, p.name); o.value = p.name; groups[p.category].appendChild(o); }
+    }
+    ps.value = LAB.sp; ps.disabled = !ENGINE.presets;
+    info.innerHTML = SRC ? '<b>' + SRC.label + '</b> · notes ' + SRC.notes.join(', ') + ' · normalised to 0.5 peak (§2.4\'s reference level)' +
+      (LAB.srcNote ? '<br><span class="dep">FALLBACK</span> ' + LAB.srcNote : '') : '';
+  });
+  const b2 = el('div', 'box'); side.appendChild(b2);
+  b2.appendChild(el('h2', null, 'THE DAW SEES (from MAW)'));
+  const dl = el('div', 'dawlist'); b2.appendChild(dl);
+  CTLS.push(() => {
+    dl.innerHTML = '';
+    ROLES.forEach((r, ri) => { if (SLOTS[r].tier !== 'global') return; const d = el('div'); d.innerHTML = `<code>FX${HOST + 1} ${r}</code> <span>id ${300 + 8 * HOST + ri} · label "${SLOT_DEF[r].label}" is UI-only</span>`; dl.appendChild(d); });
+    const n = ROLES.filter(r => SLOTS[r].tier === 'global').length;
+    const t = el('div'); t.style.marginTop = '4px';
+    // MAW's own set minus the prototype-only rows (SPEC-MAW §10: the intake oscillator's
+    // src/spread/latch, the per-stage oversampler; D3: tracked auto-gain)
+    const leaves = BASE ? 3 * Object.keys(BASE.stages[0]).length + Object.keys(BASE.mod).length +
+      Object.keys(BASE).filter(k => typeof BASE[k] !== 'object' && ['src', 'spread', 'latch', 'os', 'autoMode'].indexOf(k) < 0).length : 0;
+    t.textContent = n + ' of 4 slots exposed (corner-tier slots are hidden, SPEC-MODULE-MACROS §6). Never exposed: ' + leaves + ' internals of MAW, and morph and the global intents are horde\'s, not MAW\'s.';
+    dl.appendChild(t);
+  });
+  const b3 = el('div', 'box'); side.appendChild(b3);
+  b3.appendChild(el('h2', null, 'MAW\'S FIDELITY REPORT'));
+  const fs = el('div'); b3.appendChild(fs);
+  const det = el('details'); const sm = el('summary', null, 'reference/maw/fidelity-report.txt (regenerate: node reference/maw/fidelity.js)'); det.appendChild(sm);
+  const pre = el('pre'); det.appendChild(pre); b3.appendChild(det);
+  CTLS.push(() => {
+    fs.innerHTML = FID.text ? `<b>${FID.pass} PASS · ${FID.fail} FAIL</b>. The FAIL is §7's deliberate control: block-held coefficients staircase 28.5×, and the core interpolates instead (1.0×). The per-curve aliasing figures (§4) sit under each transfer curve.`
+      : (FID.err || 'loading…');
+    if (pre.textContent !== FID.text) pre.textContent = FID.text;
+  });
+}
+
+/* ======================================================================
+   K. AUDIO — the rendered loop, played; the AudioContext clock only moves the cursor
+   ====================================================================== */
+const AUD = { ctx: null, node: null, t0: 0, playing: false };
+function playSample() {
+  if (!AUD.ctx || !SRC) return 0;
+  const t = (AUD.ctx.currentTime - AUD.t0) * SR;
+  return ((t % SRC.n) + SRC.n) % SRC.n;
+}
+function audioStart(offset) {
+  const h = slotOut(SRC, OUT || SRC, LAB.bypass), ctx = AUD.ctx;
+  const b = ctx.createBuffer(2, SRC.n, SR);
+  b.copyToChannel ? (b.copyToChannel(h.L, 0), b.copyToChannel(h.R, 1)) : (b.getChannelData(0).set(h.L), b.getChannelData(1).set(h.R));
+  const n = ctx.createBufferSource(); n.buffer = b; n.loop = true; n.connect(ctx.destination);
+  n.start(0, offset / SR); AUD.node = n; AUD.t0 = ctx.currentTime - offset / SR;
+}
+function audioStop() { if (AUD.node) { try { AUD.node.stop(); } catch (_) {} try { AUD.node.disconnect(); } catch (_) {} AUD.node = null; } }
+function audioSwap() { if (!AUD.playing || !AUD.ctx) return; const at = playSample(); audioStop(); audioStart(at); }
+function togglePlay() {
+  if (!SRC) return;
+  if (AUD.playing) { audioStop(); AUD.playing = false; refresh(); paintAll(); return; }
+  if (!AUD.ctx) { const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return; AUD.ctx = new AC(); }
+  if (AUD.ctx.resume) AUD.ctx.resume();
+  AUD.playing = true; audioStart(0); refresh(); requestAnimationFrame(frame);
+}
+function frame() { if (!AUD.playing) return; paintAll(); paintStatus(); requestAnimationFrame(frame); }
+
+/* ======================================================================
+   L. CHROME AND BOOT
+   ====================================================================== */
+function applyTheme() {
+  document.body.classList.toggle('dark', LAB.theme === 'dark');
+  _tok = {};
+  const t = $('themeBtn'); if (t) t.innerHTML = 'theme <b>' + (LAB.theme === 'dark' ? 'DARK' : 'LIGHT') + '</b>';
+}
+function paintStatus() {
+  const p = $('playBtn'); if (p) { p.textContent = AUD.playing ? 'STOP' : 'PLAY'; p.classList.toggle('on', AUD.playing); }
+  const b = $('bypBtn'); if (b) { b.textContent = LAB.bypass ? 'BYPASS (rack input)' : 'MAW IN'; b.classList.toggle('on', LAB.bypass); }
+}
+function paintAudit() {
+  const a = $('audit'); if (!a) return;
+  const rows = AUDIT.rows, ok = rows.filter(r => r.ok).length, ctl = rows.reduce((n, r) => n + r.ctl.length, 0), caught = rows.reduce((n, r) => n + r.ctl.filter(c => c.caught).length, 0);
+  const all = ok === rows.length && caught === ctl && rows.length > 0;
+  a.className = 'audit' + (all ? '' : ' bad');
+  const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  a.innerHTML = `<b>self-check ${ok}/${rows.length}</b>, ${caught}/${ctl} must-fail controls caught ` + (all ? '<span class="ok">GREEN</span>' : '<span class="no">RED</span>') +
+    ` · sources checked: ${esc(AUDIT.note || '—')}` + (ENGINE.err ? ` · <span class="dep">ENGINE</span> ${esc(ENGINE.err)}` : '') +
+    '<ol>' + rows.map(r => `<li><span class="${r.ok ? 'ok' : 'no'}">${r.ok ? 'PASS' : 'FAIL'}</span> ${esc(r.name)}: ${esc(r.detail)}` +
+      r.ctl.map(c => ` · CONTROL ${esc(c.name)}: <span class="${c.caught ? 'ok' : 'no'}">${c.caught ? 'CAUGHT' : 'MISSED'}</span> (${esc(c.detail)})`).join('') + '</li>').join('') + '</ol>';
+}
+function buildUI() {
+  buildRack();
+  const L = $('colL'), R = $('colR');
+  buildFace(L); buildTopo(L); buildGlobal(L);
+  buildViz(R);
+  buildSide();
+  const on = (id, f) => { const e = $(id); if (e) e.addEventListener('click', f); };
+  on('playBtn', togglePlay);
+  on('bypBtn', () => { LAB.bypass = !LAB.bypass; refresh(); paintStatus(); audioSwap(); });
+  on('themeBtn', () => { LAB.theme = LAB.theme === 'dark' ? 'light' : 'dark'; applyTheme(); paintAll(); });
+  if (typeof window === 'object' && window && window.addEventListener) window.addEventListener('resize', () => paintAll());
+}
+async function boot() {
+  try {
+    applyTheme();
+    buildUI();
+    loadPreset(LAB.preset);
+    // stills for review: ?amount=0.7&tone=…&motion=…&regen=… and ?corner=Tone,Motion
+    ROLES.forEach(r => { const v = parseFloat(qp(r.toLowerCase(), '')); if (isFinite(v)) SLOTS[r].v = clamp(v, 0, 1);
+      if (qp('corner', '').split(',').indexOf(r) >= 0) SLOTS[r].tier = 'corner'; });
+    changed();
+    paintStatus();
+    await loadEngine();
+    await loadFidelity();
+    setSource(LAB.src);
+    runChecks();
+    paintAudit();
+    refresh(); paintAll();
+  } catch (e) {
+    const a = $('audit'); if (a) { a.className = 'audit bad'; a.textContent = 'boot failed: ' + String((e && e.stack) || e); }
+  }
+}
+boot();
+</script>
+</body></html>
