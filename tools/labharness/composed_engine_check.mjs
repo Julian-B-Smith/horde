@@ -25,6 +25,22 @@
  *       and tier 3 (oldest held) each have a row, and a stolen slot starts
  *       fresh. The must-fail control is the oracle's own law (RazorCore's
  *       same-note reuse and steal-oldest) through the same detector.
+ *   CULL voice cap (B323). Over a host-set cap the quietest releasing tails
+ *       fade out (tier 1, then tier 2), a held note is never culled, the
+ *       survivors are bit-identical to an uncapped twin, the culled tail's gain
+ *       ramps linearly to 0 over 8 ms and B316's click metric reads no new
+ *       click (a pure sine and Crushed bells), a cap that does not bind changes
+ *       nothing, and at the cap a note-on replaces a sounding tail. Controls: a
+ *       tier-blind culler; the same cull as an instant cut, which the metric
+ *       must catch.
+ *   KQ  ADR-184 A2 (2). Snapped Cut spread mirrors exactly (half away from
+ *       zero) and is the oracle's bit for bit except at negative halves.
+ *       Control: the oracle's own Math.round at ±2.5.
+ *   B325 first-sample frequencies. RazorCore reads the swarm's member
+ *       frequencies (m.inc) from note-on, not the undetuned pitch, and the
+ *       neutral case is exact on the Hz-unit presets that exposed the gap and on
+ *       a chord struck on a mono voice; the must-fail controls rebuild the old
+ *       placeholder and the fix's own first attempt.
  *   DET determinism: same seed and note order give identical output; a
  *       different horde seed does not; the module reads no clock and draws no
  *       unseeded random of its own; the toString() bundle (the AudioWorklet
@@ -51,6 +67,7 @@ import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { extractCore } from '../golden/extract_core.mjs';
+import { clicks } from '../patchspace/metrics.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const require = createRequire(import.meta.url);
@@ -390,8 +407,14 @@ section('VOICE — horde\'s voice law (ADR-083) in the poly note-on, oracle as t
 
   /* A stolen slot is a NEW voice: startVoice runs fresh, so the swarm restarts at
      horde's aligned retrig start (SwarmSynth noteOn: phase 0, swarmsaw.html:365;
-     blade frame ½, §1.6.6) and its glide snaps (vfInit 0). The reading before the
-     steal is the must-read-non-zero twin: the slot was running, off that start. */
+     blade frame ½, §1.6.6) and its glide snaps. The reading before the
+     steal is the must-read-non-zero twin: the slot was running, off that start.
+     EVIDENCE OF THE RE-STRIKE (B325). This row read `vfInit === 0` (the snap still
+     pending) until B325 moved the note's first swarm tick into startVoice, which takes
+     the snap at the strike itself and leaves vfInit 1. The re-strike is now read
+     directly: the swarm holds the NEW note (midi 70) as SwarmSynth's newest strike
+     (age = noteCounter − 1), and its first tick was taken at the strike (tick0), or
+     is still pending (vfInit 0). This is stricter than the old reading, not looser. */
   const off = (c, slot) => { let m = 0; for (let i = 0; i < c.d.N; i++) m = Math.max(m, Math.abs(c.voices[slot].m[i].phi - 0.5)); return m; };
   const steal = (oracle, ev, upTo) => {
     const c = vlMake(oracle);
@@ -399,7 +422,8 @@ section('VOICE — horde\'s voice law (ADR-083) in the poly note-on, oracle as t
     const pre = snap(c), was = pre.map((_, i) => off(c, i));
     c.noteOn(70, hz(70), 0.9);                          // the steal, probed before any render
     const post = snap(c), slot = post.findIndex(v => v.note === 70);
-    const fresh = !oracle && off(c, slot) === 0 && c.sw.swarms[c.voices[slot].si].vfInit === 0;
+    const S = oracle ? null : c.sw.swarms[c.voices[slot].si];
+    const fresh = !oracle && off(c, slot) === 0 && S.midi === 70 && S.age === c.sw.noteCounter - 1 && (S.vfInit === 0 || c.voices[slot].tick0 === true);
     return { pre, post, slot, fresh, was: was[slot] };
   };
 
@@ -449,6 +473,267 @@ section('VOICE — horde\'s voice law (ADR-083) in the poly note-on, oracle as t
       `(was ${pre[slot].note}, age ${pre[slot].age}, the oldest held); 66 kept in slot 0`);
     row(fresh && was > 1e-3, 'VL3', `the stolen held slot starts FRESH: max|φ_S − ½| ${was.toFixed(4)} before → 0 after`);
   }
+}
+
+/* ---------------------------------------------------------------- B323 cull */
+/* THE CULL (B323, engine cull()): over a host-set voice cap, the quietest RELEASING tails fade
+   out fast by ADR-083's tiers 1 and 2; a held voice is never culled. Each row reads the pool
+   after a cap is sent; the must-fail control is a culler that ignores the tiers (the oldest
+   sounding voice, held or not) run through the same detector. The survivors are compared with
+   an uncapped twin of the same run: the cull may touch the culled voice and nothing else. */
+section('CULL — the voice cap (B323): quietest tails first by ADR-083\'s tiers, never a held note');
+{
+  const hz = n => 440 * Math.pow(2, (n - 69) / 12);
+  const make = cls => {
+    Math.random = mulberry32(0xB323);
+    const c = new (cls || Composed)(SR);
+    c.set({ N: 5, detune: 14, K: 0.35, phaseMode: 1 }); Object.assign(c.s, c.t);   // poly 6, R 280 ms (defaults)
+    return c;
+  };
+  const play = (c, ev, total, probe) => {
+    const L = new Float32Array(128), R = new Float32Array(128);
+    for (let i = 0, e = 0; i < total; i += 128) {
+      while (e < ev.length && ev[e][0] <= i) { const [, k, n] = ev[e++]; if (k === 'on') c.noteOn(n, hz(n), 0.9); else c.noteOff(n); }
+      c.render(L, R);
+      if (probe) probe();
+    }
+  };
+  const pool = c => c.voices.slice(0, c.d.poly);
+  const state = c => pool(c).map(v => ({ note: v.note, gate: v.gate, active: v.active, env: v.env, cull: !!v.cull }));
+  /* 60-62 HELD (the oldest); 63-65 released newest-first, so the quietest tail (65) is the youngest */
+  const EV = [[0, 'on', 60], [128, 'on', 61], [256, 'on', 62], [384, 'on', 63], [512, 'on', 64], [640, 'on', 65],
+    [9600, 'off', 65], [11520, 'off', 64], [13440, 'off', 63]];
+  const T0 = 16896;
+  /* the run: EV, then `cap` sent, then `after` samples; the twin is the same run uncapped */
+  const run = (cap, after, cls) => {
+    const c = make(cls), twin = make();
+    play(c, EV, T0); play(twin, EV, T0);
+    const pre = state(c);
+    c.msg({ t: 'cap', n: cap });
+    const envs = [];
+    const L = new Float32Array(8), R = new Float32Array(8), L2 = new Float32Array(8), R2 = new Float32Array(8);
+    let dSurv = 0;
+    for (let i = 0; i < after; i += 8) {
+      c.render(L, R); twin.render(L2, R2);
+      envs.push(pool(c).map(v => v.env));
+      pool(c).forEach((v, k) => {
+        if (pre[k].active && !v.cull && v.active) {
+          const w = twin.voices[k];
+          dSurv = Math.max(dSurv, Math.abs(v.env - w.env));
+          for (let q = 0; q < c.d.N; q++) dSurv = Math.max(dSurv, Math.abs(v.m[q].phi - w.m[q].phi));
+        }
+      });
+    }
+    return { c, pre, post: state(c), envs, dSurv, culled: c.culled };
+  };
+  const gone = (r, note) => { const k = r.pre.findIndex(v => v.note === note); return !r.post[k].active; };
+  const kept = (r, notes) => notes.every(n => { const k = r.pre.findIndex(v => v.note === n); return r.post[k].active; });
+  const heldOk = r => [60, 61, 62].every(n => { const k = r.pre.findIndex(v => v.note === n); return r.post[k].active && r.post[k].gate; });
+  {
+    const r = run(5, 512);
+    const tails = r.pre.filter(v => !v.gate).map(v => `${v.note} ${v.env.toFixed(3)}`).join(' · ');
+    row(r.culled === 1 && gone(r, 65) && kept(r, [63, 64]) && heldOk(r) && r.dSurv === 0, 'CULL',
+      `cap 5 over 6 sounding (tails ${tails}): culled ${r.culled}, 65 (the quietest tail, the youngest voice) gone in 512 samples; ` +
+      `63/64 and held 60-62 kept; survivors vs the uncapped twin max|Δ env, φ| ${r.dSurv.toExponential(1)} — must be 0`);
+  }
+  {
+    const r = run(2, 512);
+    const live = r.post.filter(v => v.active).length;
+    row(r.culled === 3 && [63, 64, 65].every(n => gone(r, n)) && heldOk(r) && live === 3, 'CULL',
+      `cap 2 under 3 held notes: every tail culled (${r.culled}), all 3 held kept gated; ${live} sounding > cap — a held note is never culled`);
+  }
+  {
+    /* the fade (the lead's addendum: never a cut): the culled tail's gain, env over the uncapped
+       twin's env, ramps LINEARLY 1 → 0 over CULL_FADE (8 ms = 384 samples), one step a sample */
+    const c = make(), twin = make();
+    play(c, EV, T0); play(twin, EV, T0);
+    const k = pool(c).findIndex(v => v.note === 65), e0 = c.voices[k].env;
+    c.msg({ t: 'cap', n: 5 });
+    const L = new Float32Array(1), R = new Float32Array(1), L2 = new Float32Array(1), R2 = new Float32Array(1);
+    let end = -1, worst = 0, maxStep = 0, prevG = 1;
+    for (let i = 1; i <= 512 && end < 0; i++) {
+      c.render(L, R); twin.render(L2, R2);
+      const g = c.voices[k].active ? c.voices[k].env / twin.voices[k].env : 0;
+      if (!c.voices[k].active) end = i;
+      else worst = Math.max(worst, Math.abs(g - (1 - i / (0.008 * SR))));
+      maxStep = Math.max(maxStep, prevG - g); prevG = g;
+    }
+    row(end > 0.005 * SR && end <= 0.010 * SR + 1 && worst < 1e-9 && maxStep < 1.01 / (0.008 * SR), 'CULL',
+      `the culled tail FADES, never cuts: env ${e0.toFixed(3)}, gain vs the uncapped twin follows 1 − t/8 ms within ${worst.toExponential(1)}, ` +
+      `largest step ${maxStep.toExponential(2)} a sample (1/384), freed after ${end} samples (${(end / SR * 1000).toFixed(2)} ms, in the 5-10 ms asked)`);
+  }
+  {
+    /* tier 1 before tier 2 (VL1's scenario): 60/61 both faded (env < 1e-3), 60 OLDER and LOUDER. One cull takes 60 */
+    const c = make();
+    play(c, [[0, 'on', 60], [128, 'on', 61], [256, 'on', 62], [384, 'on', 63], [512, 'on', 64], [640, 'on', 65],
+      [9600, 'off', 61], [12032, 'off', 60]], 36096);
+    const pre = state(c);
+    c.msg({ t: 'cap', n: 5 });
+    c.cull();                                            // the pick itself, read before any fade
+    const cut = pool(c).findIndex(v => v.cull);
+    row(c.culled === 1 && pre[cut] && pre[cut].note === 60 && pre[0].env > pre[1].env, 'CULL',
+      `tier 1 first: tails 60/61 env ${pre[0].env.toExponential(2)}/${pre[1].env.toExponential(2)} (both faded); the cull took ${pre[cut] ? pre[cut].note : '—'} (the OLDEST faded)`);
+  }
+  {
+    /* at the cap a note-on REPLACES a sounding voice: 3 held, 2 tails and one never-used slot, cap 5 */
+    const ev = EV.filter(e => e[2] !== 65);
+    const at = cap => { const c = make(); play(c, ev, T0); if (cap) c.msg({ t: 'cap', n: cap }); const pre = state(c); c.noteOn(70, hz(70), 0.9); return { pre, slot: state(c).findIndex(v => v.note === 70) }; };
+    const capd = at(5), free = at(0);
+    row(capd.pre[capd.slot].active && capd.pre[capd.slot].note === 64 && !free.pre[free.slot].active && capd.slot !== free.slot, 'CULL',
+      `note-on at the cap (5 sounding, cap 5) takes slot ${capd.slot} (was ${capd.pre[capd.slot].note}, the quietest tail) instead of the free slot ${free.slot} it takes uncapped`);
+  }
+  {
+    /* no-op: cap 0 (off) and a cap above the live count render the uncapped samples exactly */
+    const out = cap => { const c = make(), L = new Float32Array(4096), R = new Float32Array(4096); play(c, EV, T0); if (cap) c.msg({ t: 'cap', n: cap }); c.render(L, R); return { L, R }; };
+    const a = out(0), b = out(6), cOff = out(0);
+    row(maxDiff(a, b) === 0 && maxDiff(a, cOff) === 0 && rms(a) > 1e-4, 'CULL',
+      `cap 6 over 6 sounding, and cap 0 (off): max|Δ| vs uncapped ${maxDiff(a, b).toExponential(1)} — the cap costs nothing until it binds`);
+  }
+  {
+    /* NO NEW CLICKS (the lead's addendum, 2026-09-28: the human hears "more noise and clicks that I'm
+       not certain are supposed to be part of the waveforms"). B316's click metric
+       (tools/patchspace/metrics.mjs clicks: 512-sample frames of the second difference, a click is a
+       frame > 20 dB over the median) on the mono sum, a render with the cull forced against the same
+       render uncapped. Two patches: a PURE SINE (N 1, blades off, no detune), where any step stands
+       far above the median, so the metric is at its most sensitive; and Crushed bells, the heavy class
+       (B313), from the packet's presets (read, never edited). MUST-FAIL CONTROL: the same cull as an
+       INSTANT cut (a culler that zeroes the voice at once) through the same metric. */
+    const PRESETS = JSON.parse(readFileSync(join(root, 'reference/scalpel/data/presets.json'), 'utf8')).presets;
+    const bells = PRESETS.find(p => p.name === 'Crushed bells');
+    class Cut extends Composed { cull() { super.cull(); for (const v of this.voices) if (v.cull) { v.env = 0; v.active = false; v.cull = false; } } }
+    const sine = { N: 1, detune: 0, K: 0, phaseMode: 1, w: 0, b2on: 0, base: 0, xm: 0, fb: 0, dcMode: 0 };
+    /* A2, C3 and E3 (low, so the sines' own second difference is small); C3 released at 0.30 s, the
+       cap dropped to 2 at 0.312 s, so C3's tail is culled 12 ms into its release, near full level */
+    const clickRun = (params, cap, cls) => {
+      Math.random = mulberry32(0xC11C);
+      const c = new (cls || Composed)(SR); c.set(params); Object.assign(c.s, c.t);
+      const total = 48000, L = new Float32Array(total), R = new Float32Array(total), B = 128;
+      const ev = [[0, 'on', 45], [0, 'on', 48], [0, 'on', 52], [14400, 'off', 48], [28800, 'off', 52]];
+      let e = 0, culledAt = -1;
+      for (let i = 0; i < total; i += B) {
+        while (e < ev.length && ev[e][0] <= i) { const [, k, n] = ev[e++]; if (k === 'on') c.noteOn(n, hz(n), 0.9); else c.noteOff(n); }
+        if (cap && i === 14976) c.msg({ t: 'cap', n: cap });
+        const before = c.culled;
+        c.render(L.subarray(i, i + B), R.subarray(i, i + B));
+        if (culledAt < 0 && c.culled > before) culledAt = i;
+      }
+      const m = new Float64Array(total); for (let i = 0; i < total; i++) m[i] = 0.5 * (L[i] + R[i]);
+      return { m, culled: c.culled, culledAt };
+    };
+    for (const [name, params] of [['pure sine', sine], ['Crushed bells', Object.assign({}, bells.params)]]) {
+      const base = clicks(clickRun(params, 0).m), faded = clickRun(params, 2), cut = clickRun(params, 2, Cut);
+      const f = clicks(faded.m), k = clicks(cut.m);
+      row(faded.culled === 1 && f.clicks <= base.clicks, 'CULL',
+        `${name}: B316's click metric with the cull forced (1 tail culled at ${(faded.culledAt / SR).toFixed(3)} s) reads ${f.clicks} clicks, worst frame ${f.worstDb.toFixed(1)} dB over the median; uncapped ${base.clicks}, ${base.worstDb.toFixed(1)} dB — no new click`);
+      if (name === 'pure sine')
+        row(cut.culled === 1 && k.clicks > base.clicks, 'CULLc',
+          `CONTROL the same cull as an INSTANT cut: ${k.clicks} click(s), worst frame ${k.worstDb.toFixed(1)} dB over the median — the metric must catch it`);
+      else note(`${name}, instant cut for scale: ${k.clicks} click(s), worst ${k.worstDb.toFixed(1)} dB (a dense, bright patch masks a step; the sine row is the stringent one)`);
+    }
+  }
+  {
+    /* CONTROL: a culler that ignores ADR-083 (the oldest sounding voice, held or not) through the same detector */
+    class Naive extends Composed {
+      tierPick(pool, skip) { let v = null; for (const x of pool) if (!(skip && skip(x)) && (!v || x.age < v.age)) v = x; return v; }
+    }
+    const r = run(5, 512, Naive);
+    row(!(gone(r, 65) && heldOk(r)), 'CULLc',
+      `CONTROL a tier-blind culler (oldest sounding): 65 gone ${gone(r, 65)}, held 60-62 kept ${heldOk(r)} — must fail the CULL detector (it takes held 60)`);
+  }
+}
+
+/* ---------------------------------------------------------------- ADR-184 A2 (2) */
+/* THE EXACT CUT-SPREAD MIRROR UNDER QUANTIZE: every member's snapped offset at −x is exactly
+   minus its offset at +x, half-integers included; every value but a negative half is
+   bit-identical to the oracle. The must-fail control is the oracle's own Math.round. */
+section('KQ — ADR-184 A2 (2): snapped Cut spread rounds half away from zero, the oracle elsewhere');
+{
+  const offs = (cls, x, two) => {
+    Math.random = mulberry32(0xA2);
+    const c = new cls(SR);
+    c.set({ N: 5, law: 0, kq: 1, kRule: 0, kRule2: 0, b2sp: two ? 1 : 0, kspread: x, kspread2: two ? x * 0.6 : 0 });   // blade 2 at 0.6x: ±1.5 and ±4.5 are halves too
+    Object.assign(c.s, c.t);
+    c.noteOn(57, F57, 1);
+    return c.voices[0].m.slice(0, 5).map(m => [m.kAdd, m.kAdd2]);
+  };
+  const mirr = (cls, x, two) => { const a = offs(cls, x, two), b = offs(cls, -x, two); let e = 0; for (let i = 0; i < 5; i++) for (let j = 0; j < 2; j++) e = Math.max(e, Math.abs(a[i][j] + b[i][j])); return e; };
+  const same = (x, two) => { const a = offs(Composed, x, two), b = offs(RazorCore, x, two); let e = 0; for (let i = 0; i < 5; i++) for (let j = 0; j < 2; j++) if (a[i][j] !== b[i][j]) e++; return e; };
+  const HALF = [0.5, 1.5, 2.5, 7.5, 11.5], PLAIN = [2.3, 6.7, 3, 12, 0.49];
+  let worst = 0; for (const x of HALF.concat(PLAIN)) { worst = Math.max(worst, mirr(Composed, x, false), mirr(Composed, x, true)); }
+  row(worst === 0, 'KQ', `mirror at ±{${HALF.concat(PLAIN).join(', ')}}, both blades (blade 2 owning its spread): max|kAdd(−x) + kAdd(+x)| ${worst} — must be 0`);
+  let diff = 0; const tested = [];
+  for (const x of PLAIN.concat(PLAIN.map(v => -v), HALF)) { diff += same(x, false) + same(x, true); tested.push(x); }
+  row(diff === 0, 'KQ', `bit-identical to the oracle except the negative halves: ${tested.length} values incl. every positive half, ${diff} members differ`);
+  const at = offs(Composed, -2.5, false).map(v => v[0]), ot = offs(RazorCore, -2.5, false).map(v => v[0]);
+  row(at[0] === 2 && ot[0] === 1, 'KQ', `−2.5 at the gradient's first member (pn −½): composed ${at[0]} (−3 · −½ = 1.5, snapped to 2: the mirror of +2.5's −2), oracle ${ot[0]} (Math.round(−2.5) = −2)`);
+  const oc = mirr(RazorCore, 2.5, false);
+  row(oc >= 0.5, 'KQc', `CONTROL the oracle's Math.round at ±2.5: max|kAdd(−x) + kAdd(+x)| ${oc} — must be ≥ 0.5 (a step off)`);
+}
+
+/* ---------------------------------------------------------------- first-sample frequencies (B325) */
+/* The B325 fidelity audit found the one composed-engine-introduced defect: until the swarm's
+   first tick reached couple() (its 32-sample pass), RazorCore read the UNDETUNED pitch as every
+   member's frequency (m.inc), and m.inc feeds the Hz-unit cut rate (lock 2), the Hz-unit
+   modulator (mUnit) and the per-cycle DC estimate taken on the note's first sample. In the
+   neutral case (K 0, the aligned start, where the composed engine must equal the oracle) it
+   read a slow offset of up to 2.5e-2 per note on Formant pluck (lock 2) and a modulator phase
+   offset that never recovered on Crunch horde (mUnit 1). The fix takes the first tick in
+   startVoice. The rows: m.inc is the swarm's own frequency before any render, and those two
+   presets are exact in the neutral case. The MUST-FAIL control rebuilds the old placeholder
+   (no early tick) and must read the defect through the same detectors. */
+section('B325 — the blade reads the swarm\'s member frequencies from the first sample; the old placeholder as the must-fail control');
+{
+  /* the pre-B325 behaviour, rebuilt: no tick in startVoice, so couple() hands RazorCore the pitch */
+  class Placeholder extends Composed {
+    startVoice(v, n, f, vel, fresh, re) { this.noEarly = true; super.startVoice(v, n, f, vel, fresh, re); this.noEarly = false; v.tick0 = false; }
+    tickSwarm(v, S) { if (!this.noEarly) super.tickSwarm(v, S); }
+  }
+  class Shifted extends RazorCore { startVoice(v, n, f, vel, fresh, re) { super.startVoice(v, n, f, vel, fresh, re); if (fresh) for (const m of v.m) m.phi = 0.5; } }
+  const incGap = Cls => {
+    Math.random = mulberry32(0xB325);
+    const c = new Cls(SR); c.set(Object.assign({}, byName('Formant pluck'), { K: 0.5 })); Object.assign(c.s, c.t);
+    c.noteOn(NOTE, F57, 0.9);
+    const v = c.voices[0], S = c.sw.swarms[v.si]; let g = 0;
+    for (let i = 0; i < c.d.N; i++) g = Math.max(g, Math.abs(v.m[i].inc - S.eff[i]));
+    return { g, vfInit: S.vfInit };
+  };
+  /* the neutral case: four notes on a fresh pool (every law allocates slots 0..3 alike), 0.5 s */
+  const neutral = (Cls, name, ev, over) => {
+    ev = ev || [[0, 57], [3072, 64], [6144, 60], [9216, 67]];
+    const go = (make) => {
+      Math.random = mulberry32(0xB325);
+      const c = make(); c.set(Object.assign({}, byName(name), { K: 0, phaseMode: 1 }, over || {})); Object.assign(c.s, c.t);
+      const L = new Float32Array(24064), R = new Float32Array(24064);
+      let e = 0;
+      for (let i = 0; i < L.length; i += 128) {
+        while (e < ev.length && ev[e][0] <= i) { const n = ev[e++][1]; c.noteOn(n, 440 * Math.pow(2, (n - 69) / 12), 0.9); }
+        c.render(L.subarray(i, i + 128), R.subarray(i, i + 128));
+      }
+      return { L, R };
+    };
+    return maxDiff(go(() => new Shifted(SR)), go(() => new Cls(SR)));
+  };
+  const a = incGap(Composed), b = incGap(Placeholder);
+  row(a.g === 0 && a.vfInit === 1, 'B325', `after noteOn, before any render (Formant pluck, K 0.5): max|m.inc − S.eff| ${a.g.toExponential(1)} Hz, swarm ticked ${a.vfInit === 1}`);
+  const fp = neutral(Composed, 'Formant pluck'), ch = neutral(Composed, 'Crunch horde');
+  row(fp === 0 && ch === 0, 'B325', `neutral case (K 0, aligned) ≡ oracle: Formant pluck (lock 2, Hz cut rate) max|Δ| ${fp.toExponential(1)} · Crunch horde (mUnit 1, Hz modulator) max|Δ| ${ch.toExponential(1)}`);
+  const fpc = neutral(Placeholder, 'Formant pluck'), chc = neutral(Placeholder, 'Crunch horde');
+  row(b.g > 0.1 && fpc > 1e-3 && chc > 1e-3, 'B325c', `CONTROL the old placeholder (no early tick): max|m.inc − S.eff| ${b.g.toFixed(3)} Hz; neutral max|Δ| Formant pluck ${fpc.toExponential(1)}, Crunch horde ${chc.toExponential(1)} — must be large`);
+  /* the case that caught the fix's first attempt, which KEPT the look-ahead tick and skipped the
+     scheduled one: a chord struck on a mono voice (four note-ons in one block) froze the swarm
+     at the FIRST note's pitch for 16 samples, a phase offset that never recovered. The look-
+     ahead is now undone before the real first tick, and re-taken when the pitch moves. Glide off
+     (1 ms): a glide is stepped at the swarm's tick by design (G3), so it could not be exact. */
+  class FirstTry extends Composed {
+    lookAhead(v, S, first) { if (first) { this.tickSwarm(v, S); v.tick0 = true; } }
+    unLookAhead(v) { v.tick0 = false; v.skip0 = true; }
+    tickSwarm(v, S) { if (v.skip0) { v.skip0 = false; return; } super.tickSwarm(v, S); }
+  }
+  const monoChord = [[0, 48], [0, 55], [0, 60], [0, 64]];
+  const mz = neutral(Composed, 'Zap bass', monoChord, { glide: 1 }), ms = neutral(Composed, 'Screamer', monoChord, { glide: 1 });
+  row(mz === 0 && ms === 0, 'B325', `mono chord, four note-ons in one block (legato presets, glide off), neutral case ≡ oracle: Zap bass max|Δ| ${mz.toExponential(1)} · Screamer ${ms.toExponential(1)}`);
+  const fz = neutral(FirstTry, 'Zap bass', monoChord, { glide: 1 });
+  row(fz > 1e-3, 'B325c', `CONTROL the fix's first attempt (look-ahead kept, scheduled tick skipped): Zap bass mono chord max|Δ| ${fz.toExponential(1)} — must be large`);
 }
 
 /* ---------------------------------------------------------------- determinism */
