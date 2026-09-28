@@ -56,7 +56,8 @@
  *
  * FAULT INJECTION (H2_SCALPEL_FAULTS): compiled ONLY into the parity check, so
  * its must-fail controls plant real port faults into this code rather than into
- * a copy of it. Undefined elsewhere, the sites fold to `false`.
+ * a copy of it. Undefined elsewhere, the sites fold to `false` and H2_EPS(x) to
+ * x, so a shipping build contains none of them.
  *
  * DOMAIN. Inputs the oracle cannot survive are clamped here rather than read
  * out of bounds: N outside 1..9 (the JS indexes PANS[N-1] and throws), a poly
@@ -229,9 +230,12 @@ class RazorCore {
   EventLog* events = nullptr;   // non-invasive counters (see header)
 #ifdef H2_SCALPEL_FAULTS
   int fault = 0;                // must-fail controls only (tools/h2_scalpel_parity_check.cpp)
+  double faultEps = 0;          // the detection-floor ladder: a relative error on the swarm's pitch
 #define H2_FAULT(n) (fault == (n))
+#define H2_EPS(x) ((x) * (1 + faultEps))
 #else
 #define H2_FAULT(n) false
+#define H2_EPS(x) (x)
 #endif
 
   explicit RazorCore(double sampleRate) : sr(sampleRate) {
@@ -784,7 +788,7 @@ class RazorCore {
   }
   void couple(Voice& v) {
     const int N = static_cast<int>(d.N);
-    const double f = v.freq * js::pow(2, s.bend / 12);
+    const double f = H2_EPS(v.freq * js::pow(2, s.bend / 12));
     v.fc = v.freq;
     const double Keff = keff(v);
     const int H = N < 2 ? 1 : (s.K < 0 ? (N - 1 < 6 ? N - 1 : 6) : 1);
@@ -981,7 +985,8 @@ class RazorCore {
     double dd = E - p0; dd -= std::floor(dd);
     if (dd > 0 && dd <= dphi) { emit(1); addE(m, E, dd / dphi, c, k, s_); }
   }
-  void emit(uint32_t kind) { if (events) events->add(evTick, evId, kind); }
+  // fault 5 (must-fail control): every event reported one tick late, samples untouched
+  void emit(uint32_t kind) { if (events) events->add(evTick + (H2_FAULT(5) ? 1u : 0u), evId, kind); }
   double stepM(Member& m, double dphi, double c, double k, SP& s_) {
     const double w = s_.w, p0 = m.phi;
     NS& ns = m.ns;
@@ -1250,5 +1255,6 @@ template <class T> void RazorCore::render(T* L, T* R, int n) {
 }
 
 #undef H2_FAULT
+#undef H2_EPS
 
 }  // namespace horde2::scalpel

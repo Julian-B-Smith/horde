@@ -782,8 +782,10 @@ if(NOT MSVC)
   target_compile_options(h2_scalpel_parity_check PRIVATE -O2 -ffp-contract=off)
 endif()
 # h2_scalpel_fma_control: the same source with contraction FORCED ON — the
-# must-fail control for "FMA contraction on". Its exit 0 means the parity gate
-# caught the fused build. On x86-64 contraction needs -mfma to have an
+# must-fail control for "FMA contraction on", and the ONE declared exception to
+# the contraction-off rule (tools/h2_rules_check.py). Exit 0 means the parity
+# gate caught the fused build over the full stream; exit 2 means the run itself
+# broke, never counted as firing. On x86-64 contraction needs -mfma to have an
 # instruction to emit; arm64 always has one. Wired in ./verify full.
 add_executable(h2_scalpel_fma_control tools/h2_scalpel_parity_check.cpp)
 target_compile_definitions(h2_scalpel_fma_control PRIVATE H2_SCALPEL_FMA_CONTROL)
@@ -794,11 +796,15 @@ if(NOT MSVC)
   endif()
 endif()
 # measure_h2_scalpel: CPU per voice vs the JS oracle (ADR-187 item 8, Layer-E).
-# The RELEASE build (-O3, default contraction), a separate target from the
-# parity build. Prints, never judges; unwired.
+# The RELEASE build: -O3, a separate target from the parity build — but with
+# contraction OFF, like every target that compiles an h2 core (PENDING HUMAN
+# RULING on whether the shipped build must be the build that passed parity: at
+# clang's default contraction the same core misses parity on 19 of 386
+# scenarios; tools/h2_rules_check.py enforces the flag, docs/port/scalpel-phase-1a.md
+# has the numbers). Prints, never judges; unwired.
 add_executable(measure_h2_scalpel tools/measure_h2_scalpel.cpp)
 if(NOT MSVC)
-  target_compile_options(measure_h2_scalpel PRIVATE -O3)
+  target_compile_options(measure_h2_scalpel PRIVATE -O3 -ffp-contract=off)
 endif()
 
 # MSVC gives a process a 1 MB main-thread stack; macOS and Linux give 8 MB. A

@@ -16,14 +16,19 @@
  *   node tools/h2_scalpel_render.mjs --bench              JS CPU per voice (Layer-E)
  *
  * THE ORACLE IS NEVER EDITED. Two copies are loaded from its text at run time:
- *   - PRISTINE: `require`d as is. The non-invasiveness row renders a spread of
- *     scenarios through it and demands the instrumented copy's samples be
- *     bit-identical, so the counters provably change no arithmetic.
+ *   - PRISTINE: `require`d as is. ITS samples are the ones streamed and
+ *     compared (critic review 2026-09-28: the parity target is the untouched
+ *     file, not a copy of it).
  *   - INSTRUMENTED: an in-memory SCRATCH copy with seven literal insertions that
  *     report blade events (tryE and scan BLEP corrections, blade-window entries)
  *     with the oversampled tick and member id. Each insertion must match exactly
  *     once; if the oracle text moves, this fails loudly instead of counting
- *     nothing.
+ *     nothing. It is rendered alongside every scenario for its event digest
+ *     only, and its samples must equal the pristine ones bit for bit (the NI
+ *     line; the check's NONINV row), so the counters provably change no
+ *     arithmetic on any scenario.
+ * The oracle's git blob hash is streamed too (ORACLE), pinning the parity
+ * target by content (ADR-187 item 3).
  *
  * SEEDING. Math.random is replaced by mulberry32(seed) around every oracle
  * instance (composed_engine_check.mjs's convention); the C++ consumes the same
@@ -48,6 +53,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { Worker, isMainThread, parentPort, workerData } from 'node:worker_threads';
 import { availableParallelism } from 'node:os';
+import { createHash } from 'node:crypto';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ORACLE = join(root, 'reference/scalpel/prototype/razor-core.js');
@@ -152,6 +158,24 @@ const PHRASES = {
     const a = root[0], b = a + 5, c = a + 12;
     return [on(a), blocks(25), on(b), blocks(25), off(b), blocks(20), on(c), blocks(15), off(a), off(c), blocks(25)];
   },
+  // struck, released until the voice goes inactive (a short R), struck again:
+  // the freed slot is reused as a FRESH voice
+  restrike: root => { const n = root[0]; return [on(n), blocks(20), off(n), blocks(30), on(n, 0.7), blocks(20), off(n), blocks(20)]; },
+  // the bench's retune message ('re') on two held notes
+  retune: root => {
+    const a = root[0], b = a + 7;
+    return [on(a), on(b), blocks(30), ['re', a, mtof(a + 2)], blocks(30), ['re', b, mtof(b - 1)], blocks(20), off(a), off(b), blocks(30)];
+  },
+  // the bench's panic message mid-chord, then a fresh strike
+  panic: root => {
+    const ns = [root[0], root[0] + 7, root[0] + 12];
+    return [...ns.map(n => on(n)), blocks(30), ['panic'], blocks(30), on(root[0]), blocks(30), off(root[0]), blocks(20)];
+  },
+  // long enough for a fast modulator's phase to pass the 65536 wrap
+  long: root => {
+    const ns = [root[0], root[0] + 7, root[0] + 12];
+    return [...ns.map(n => on(n)), blocks(250), ...ns.map(off), blocks(20)];
+  },
 };
 
 // Targeted rows: every blade mode, twin, mirror, frame, rotation, the v1.1
@@ -232,6 +256,22 @@ function targeted() {
   add('poly 2 steals', { ...B1, poly: 2 }, 'arp');
   add('mono retrig', { ...B1, polyMode: 1 }, 'legato');
   add('legato glide always', { ...B1, polyMode: 2, glideAlways: 1, glide: 120 }, 'legato');
+  // Rework rows (critic M2, 2026-09-28): paths the first 111 rows never reached.
+  add('restrike after full release', { ...B1, R: 5 }, 'restrike');
+  add('blade 1 off (w 0)', { ...B1, w: 0 });
+  add('blade 2 off (w2 0)', { ...B2, w2: 0 });
+  add('collision swept off', { ...B2, colK: 0.9, colB: 0.5, w: 0.5, w2: 0.5 }, 'chord', [45], [[40, ['set', 'colK', 0]], [40, ['set', 'colB', 0]]]);
+  add('b2 own clock at rest', { ...B2, N: 5, rot2Follow: 0, rotRate2: 0, rotRate: 0.3 });
+  add('b2 own clock homing', { ...B2, N: 5, rot2Follow: 0, rotRate2: 0.8, rotRate: 0.2, b2sp: 1, rotSpread2: 0.3 }, 'chord', [45],
+      [[35, ['set', 'rotRate2', 0]], [35, ['set', 'rotSpread2', 0]]]);
+  add('mono glide 1 ms', { ...B1, polyMode: 2, glide: 1 }, 'legato');
+  add('settle skipped (K 0)', { ...B1, N: 5, K: 0 });
+  add('gate mode 6 collision', { ...B2, mode: 6, mode2: 6, colK: 0.9, colB: 0.5, w: 0.5, w2: 0.5 });
+  add('b2 lock 1 FM collision', { ...B2, lock2: 1, mode2: 2, b2fm: 1, fmType2: 1, I2: 2, colK: 0.9, colB: 0.6, w: 0.5, w2: 0.5 });
+  add('retune message', { ...B1 }, 'retune');
+  add('panic message', { ...B1 }, 'panic');
+  add('polyMode switch mid-note', { ...B1 }, 'chord', [45], [[30, ['set', 'polyMode', 2]], [50, on(57)]]);
+  add('modX wrap', { ...B2, mode: 2, m: 64, I: 1, b2fm: 1, mode2: 2, m2: 64, I2: 1 }, 'long', [100]);
   return T;
 }
 
@@ -284,6 +324,8 @@ function renderWith(RC, sc, { instrument = false, perturb = false } = {}) {
       case 'snap': Object.assign(c.s, c.t); break;
       case 'on': c.noteOn(cm[1], perturb ? nextUp(cm[2]) : cm[2], cm[3]); break;
       case 'off': c.noteOff(cm[1]); break;
+      case 're': c.msg({ t: 're', note: cm[1], freq: perturb ? nextUp(cm[2]) : cm[2] }); break;   // the bench's retune message
+      case 'panic': c.msg({ t: 'panic' }); break;
       case 'render': {
         const L = new Float64Array(cm[1]), R = new Float64Array(cm[1]);
         for (let b = 0; b < cm[2]; b++) { c.render(L, R); for (let i = 0; i < cm[1]; i++) { buf[pos++] = L[i]; buf[pos++] = R[i]; } }
@@ -305,10 +347,17 @@ function diff(a, b) {
   for (let i = 0; i < a.length; i++) { const d = Math.abs(a[i] - b[i]); e += d * d; if (d > mx || d !== d) mx = d !== d ? Infinity : d; }
   return { rms: Math.sqrt(e / a.length), max: mx };
 }
+// The samples streamed are the PRISTINE oracle's; the instrumented copy is
+// rendered alongside only for its event digest, and its samples must equal the
+// pristine ones bit for bit (NI 1) on every scenario, or the counters are not
+// provably non-invasive.
 function job(RCi, RCp, i, sc) {
-  const { buf, log } = renderWith(RCi, sc, { instrument: true });
+  const { buf } = renderWith(RCp, sc);
+  const ins = renderWith(RCi, sc, { instrument: true }), log = ins.log;
+  let same = ins.buf.length === buf.length;
+  for (let k = 0; same && k < buf.length; k++) if (!Object.is(buf[k], ins.buf[k])) same = false;
   let head = scriptText(i, sc);
-  head += `EV ${log.count[1]} ${log.count[2]} ${log.count[3]} ${log.count[4]} ${log.h1} ${log.h2}\n`;
+  head += `EV ${log.count[1]} ${log.count[2]} ${log.count[3]} ${log.count[4]} ${log.h1} ${log.h2}\nNI ${same ? 1 : 0}\n`;
   if (CHAOTIC[sc.name]) {
     const p = renderWith(RCp, sc, { perturb: true });
     const d = diff(buf, p.buf);
@@ -357,7 +406,11 @@ async function main() {
       cos: () => { const x = U(-10, 10); return [x, 0, Math.cos(x)]; },
       exp: () => { const x = U(-60, 5); return [x, 0, Math.exp(x)]; },
       log: () => { const x = r() < 0.5 ? U(1e-9, 1) : U(1, 10); return [x, 0, Math.log(x)]; },
-      pow: () => { const b = r() < 0.5 ? 2 : U(0.01, 4), e = U(-8, 8); return [b, e, Math.pow(b, e)]; },
+      pow: () => { const b = U(0.01, 4), e = U(-8, 8); return [b, e, Math.pow(b, e)]; },
+      // Math.pow(2, x): the core's constant-base-2 sites (spreads, envelopes,
+      // cents) which clang lowers to exp2 (non-integral x) or ldexp; the check
+      // evaluates this row with std::exp2, i.e. as the core is compiled.
+      pow2: () => { const e = U(-8, 8); return [2, e, Math.pow(2, e)]; },
       atan2: () => { const y = U(-1, 1), x = U(-1, 1); return [y, x, Math.atan2(y, x)]; },
       asin: () => { const x = U(0, 0.995); return [x, 0, Math.asin(x)]; },
       tanh: () => { const x = U(-4, 4); return [x, 0, Math.tanh(x)]; },
@@ -372,18 +425,13 @@ async function main() {
     }
   }
 
-  // Non-invasiveness: the instrumented scratch copy must render the pristine
-  // oracle's samples bit for bit, on scenarios that reach every inserted site.
+  // The parity target, pinned by content: the oracle file's git blob hash
+  // (ADR-187 item 3). The check prints it; h2/README.md's status row pins it and
+  // tools/h2_rules_check.py fails when the two disagree.
   {
-    const RCi = loadInstrumented(), RCp = require(ORACLE);
-    const probe = all.filter(s => /T\/(mode 2|mirror 3|b2 twin mirror|serial twins|collision pitch|crush hard|os 4|noise S&H)/.test(s.name));
-    let bad = 0, samples = 0;
-    for (const sc of probe) {
-      const a = renderWith(RCi, sc, { instrument: true }).buf, b = renderWith(RCp, sc).buf;
-      samples += a.length;
-      for (let i = 0; i < a.length; i++) if (!Object.is(a[i], b[i])) { bad++; break; }
-    }
-    await write(`NONINV ${bad === 0 && probe.length >= 8 ? 1 : 0} ${probe.length} ${samples}\n`);
+    const bytes = readFileSync(ORACLE);
+    const blob = createHash('sha1').update(`blob ${bytes.length}\0`).update(bytes).digest('hex');
+    await write(`ORACLE reference/scalpel/prototype/razor-core.js ${blob}\n`);
   }
 
   const W = Math.max(1, Math.min(Number(arg('--workers', availableParallelism() - 1)), idx.length));
@@ -433,7 +481,7 @@ function benchScenarios() {
 function bench() {
   const RC = require(ORACLE), sc = benchScenarios();
   if (argv.includes('--emit')) {   // the scripts, for the C++ half
-    process.stdout.write(`H2SCALPEL 1 ${sc.length}\nNONINV 1 0 0\n`);
+    process.stdout.write(`H2SCALPEL 1 ${sc.length}\n`);
     for (const [i, s] of sc.entries()) {
       const { buf } = renderWith(RC, s);
       process.stdout.write(scriptText(i, s) + `EV 0 0 0 0 0 0\nDATA ${buf.length / 2}\n`);

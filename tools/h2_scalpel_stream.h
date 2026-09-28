@@ -9,11 +9,13 @@
  * The stream is line-oriented text with binary payloads:
  *   H2SCALPEL 1 <n>                       header
  *   LIBM <fn> <n>  + n*3 float64 (x, y, JS f(x[, y]))     libm probes (optional)
- *   NONINV <ok> <scenarios> <samples>     the instrumentation proof
- *   SCN <i> <name> / SR / SEED / commands / EV ... / [EXCL / SELF] / DATA <frames> + frames*2 float64
+ *   ORACLE <path> <git blob sha1>         the parity target, pinned by content
+ *   SCN <i> <name> / SR / SEED / commands / EV ... / NI <0|1> / [EXCL / SELF]
+ *       / DATA <frames> + frames*2 float64 (the PRISTINE oracle's samples)
  *   END <n>
  * Commands: set <key> <number> | sets <key> <string> | snap | on <note> <freq> <vel>
- *           | off <note> | render <block> <count>. Numbers are JS's shortest
+ *           | off <note> | re <note> <freq> | panic | render <block> <count>.
+ * `re` and `panic` are the bench's msg() retune and panic. Numbers are JS's shortest
  * round-trip spelling, so strtod recovers the exact double the oracle used.
  */
 #pragma once
@@ -35,6 +37,7 @@ struct Scenario {
   std::vector<Cmd> cmds;
   uint64_t ev[5] = {0, 0, 0, 0, 0};
   uint32_t h1 = 0, h2 = 0;
+  int ni = -1;   // 1: the instrumented copy's samples equal the pristine oracle's
   bool hasSelf = false;
   double selfRms = 0, selfMax = 0;
   std::vector<double> js;   // the oracle's samples, interleaved L/R
@@ -70,7 +73,7 @@ inline bool readScenario(FILE* f, const std::string& first, Scenario& sc) {
     else if (op == "SEED") sc.seed = static_cast<uint32_t>(std::strtoul(word(line, p).c_str(), nullptr, 10));
     else if (op == "set") { Cmd c; c.op = op; c.key = word(line, p); c.a = std::strtod(word(line, p).c_str(), nullptr); sc.cmds.push_back(c); }
     else if (op == "sets") { Cmd c; c.op = op; c.key = word(line, p); c.str = rest(line, p); sc.cmds.push_back(c); }
-    else if (op == "snap" || op == "off" || op == "on" || op == "render") {
+    else if (op == "snap" || op == "off" || op == "on" || op == "render" || op == "re" || op == "panic") {
       Cmd c; c.op = op;
       c.a = std::strtod(word(line, p).c_str(), nullptr);
       c.b = std::strtod(word(line, p).c_str(), nullptr);
@@ -82,6 +85,7 @@ inline bool readScenario(FILE* f, const std::string& first, Scenario& sc) {
       sc.h1 = static_cast<uint32_t>(std::strtoul(word(line, p).c_str(), nullptr, 10));
       sc.h2 = static_cast<uint32_t>(std::strtoul(word(line, p).c_str(), nullptr, 10));
     }
+    else if (op == "NI") sc.ni = std::atoi(word(line, p).c_str());
     else if (op == "EXCL") sc.excl = rest(line, p);
     else if (op == "SELF") { sc.hasSelf = true; sc.selfRms = std::strtod(word(line, p).c_str(), nullptr); sc.selfMax = std::strtod(word(line, p).c_str(), nullptr); }
     else if (op == "DATA") {
@@ -94,14 +98,16 @@ inline bool readScenario(FILE* f, const std::string& first, Scenario& sc) {
 }
 
 // Replays `sc` through a fresh core (seeded as the oracle was). `out` receives
-// the interleaved samples. `fault` plants a must-fail control where the core was
-// compiled with H2_SCALPEL_FAULTS; `log` receives the blade events if non-null.
-inline void replay(const Scenario& sc, std::vector<double>& out, int fault = 0, horde2::scalpel::EventLog* log = nullptr) {
+// the interleaved samples. `fault` / `eps` plant a must-fail control where the
+// core was compiled with H2_SCALPEL_FAULTS; `log` receives the blade events.
+inline void replay(const Scenario& sc, std::vector<double>& out, int fault = 0, horde2::scalpel::EventLog* log = nullptr,
+                   double eps = 0) {
   auto* c = new horde2::scalpel::RazorCore(sc.sr);
 #ifdef H2_SCALPEL_FAULTS
   c->fault = fault;
+  c->faultEps = eps;
 #else
-  (void)fault;
+  (void)fault; (void)eps;
 #endif
   c->events = log;
   c->seedRandom(sc.seed);
@@ -114,6 +120,8 @@ inline void replay(const Scenario& sc, std::vector<double>& out, int fault = 0, 
     else if (m.op == "snap") c->snap();
     else if (m.op == "on") c->noteOn(static_cast<int>(m.a), m.b, m.c);
     else if (m.op == "off") c->noteOff(static_cast<int>(m.a));
+    else if (m.op == "re") c->retune(static_cast<int>(m.a), m.b);
+    else if (m.op == "panic") c->panic();
     else if (m.op == "render") {
       const int n = static_cast<int>(m.a), k = static_cast<int>(m.b);
       L.assign(n, 0); R.assign(n, 0);

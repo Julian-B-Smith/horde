@@ -27,7 +27,10 @@ import re
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-GLOBS = ("tools/*.cpp", "src/*.h", "src/*.cpp", "src/gui/*.h", "src/gui/*.cpp", "src/gui/*.mm")
+GLOBS = ("tools/*.cpp", "src/*.h", "src/*.cpp", "src/gui/*.h", "src/gui/*.cpp", "src/gui/*.mm",
+         # widened 2026-09-28 (B332 critic review): horde 2's cores and the tools'
+         # shared headers compile into MSVC targets too
+         "tools/*.h", "h2/**/*.h", "h2/**/*.cpp")
 TABLE = {
     "string": ("string",), "vector": ("vector",), "array": ("array",), "map": ("map",),
     "unordered_map": ("unordered_map",), "set": ("set",), "unique_ptr": ("memory",), "shared_ptr": ("memory",),
