@@ -126,7 +126,11 @@
 
 ## Verify
 
-- See the PR: `./verify fast` and `./verify full` run on the committed hash, read from `.harness/last-verify.json`.
+- On the change-set commit adb06dd:
+  - `./verify fast` exit 0: `{"target":"fast","exit":0,"git":"adb06dd","ts":"2026-09-28T17:34:43Z"}`.
+  - `./verify full` exit 0: `{"target":"full","exit":0,"git":"adb06dd","ts":"2026-09-28T17:40:08Z"}`. Its line: `listening_pass_check.mjs: GREEN — listening pass: 53/53 checks, 17 must-fail controls, 36 patches, 46 s`.
+- Chrome `?xverify=1` on adb06dd: self-checks 6/6; 36/36 measured windows within tolerance; 36/36 full programs pass the v2 schema; every detector row OK.
+- This trace's own commit was re-verified fast; the hash is in the PR.
 
 ## Open questions
 
