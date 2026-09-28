@@ -2342,35 +2342,35 @@ const GBC_KEYS = ['NEW', 'RAND', 'SAVE', 'DISCARD'];
    (144,0). The human's own file wins (the workshop's rule): docs/design/assets/fx-logos/. */
 const GBC_SLOT = { title: { x: 8, y: 0, w: 96, h: 24, file: 'sluice.png' }, icon: { x: 144, y: 0, w: 16, h: 16, file: 'sluice-icon.png' } };
 const GBC_LOGO_DIR = 'assets/fx-logos/';
-/* B326's GBC Sluice logo PROPOSAL, copied from fx-screens-workshop.html:1671-1716 (the waterline
-   title and the whirlpool icon): pixel grids, one char per pixel, '.' transparent, the palette on
+/* B326's GBC Sluice logo PROPOSAL as B343 redrew its title, copied from fx-screens-workshop.html:1736-1781
+   (the waterline title and the whirlpool icon): pixel grids, one char per pixel, '.' transparent, the palette on
    the RGB555 grid, one palette per tile row. A lead proposal, never the human's art. */
 const GBC_LOGO_PROP = {
   title: { pal: {'k': '#000821', 'a': '#E7FFFF', 'b': '#39DEFF', 'c': '#186BEF', 'd': '#10298C'},
     rows: [
       '................................................................................................',
       '................................................................................................',
-      '......kkkkkkkkkkk.................................kkkkkkkkk...kkkkkkkkkkk....kkkkkkkkkkk........',
-      '.....kkaaaaaaaaakk...kkkk..........kkkk.....kkkk..kaaaaaaakk.kkaaaaaaaaakk..kkaaaaaaaaakk.......',
-      '....kkaaaaaaaaaaakk.kkaakk........kkaakk...kkaakk.kaaaaaaakkkkaaaaaaaaaaakk.kaaaaaaaaaaakk......',
-      '....kaaaaaaaaaaaakk.kaaaakk.......kaaaakk..kaaaakkkaaaaaaakkkaaaaaaaaaaaakk.kaaaaaaaaaaakk......',
-      '....kbbbbbbbbbbbkkk.kbbbbkk.......kbbbbkk..kbbbbkkkkbbbbbkkkkbbbbbbbbbbbkkk.kbbbbbbbbbbkkk......',
-      '....kbbbbkkkkkkkkk..kbbbbkk.......kbbbbkk..kbbbbkk.kbbbbbkk.kbbbbkkkkkkkkk..kbbbbkkkkkkkk.......',
-      '....kbbbbkkkkkkkk...kbbbbkk.......kbbbbkk..kbbbbkk.kbbbbbkk.kbbbbkkkkkkkk...kbbbbkkkkkkk........',
-      '....kbbbbkkkkkkkk...kbbbbkk.......kbbbbkk..kbbbbkk.kbbbbbkk.kbbbbkk.........kbbbbkkkkk..........',
-      '....kbbbcccbbbbbkk..kccbbkk.......kbbbbkk..kcccbkk.kbbbbckk.kbbbbkk.........kbbbcccbbkk.........',
-      '....kbcccccccbbbbkk.kcccckk.......kccbbkk..kcccckk.kbbbcckk.kbbbbkk.........kbbccccccbkk........',
-      '....kkccccccccbbbckkkcccckk.......kcccbkk..kcccckk.kbcccckk.kcbbbkk.........kccccccccckk........',
-      '.....kkccccccccccckkkcccckk.......kcccckk..kcccckkkkccccckk.kcccckk.........kcccccccckkk........',
-      '......kkkkkkkkcccckkkcccckk.......kcccckk..kcccckkkkkkkkkkkkkcccckk.........kcccckkkkkk.........',
-      '.......kkkkkkkcccckkkcccckk.......kcccckk..kcccckkkbbbbbbbkkkcccckk.........kcccckkkkk..........',
-      '......kkkkkkkkcccckkkcccckkkkkk...kcccckkkkkcccckkkccccccckkkcccckkkkkkkk...kcccckkkkkkk........',
-      '.....kkccccccccccckkkccccccccckk..kccccccccccccckkkkkkkkkkkkkccccccccccckk..kcccccccccckk.......',
-      '.....kddddddddddddkkkddddddddddkk.kdddddddddddddkkkdddddddkkkddddddddddddkk.kdddddddddddkk......',
-      '.....kdddddddddddkkkkkdddddddddkk.kkdddddddddddkkkkdddddddkkkkdddddddddddkk.kdddddddddddkk......',
-      '.....kkdddddddddkkk..kkdddddddkkk..kkdddddddddkkk.kdddddddkk.kkdddddddddkkk.kkdddddddddkkk......',
-      '......kkkkkkkkkkkk....kkkkkkkkkk....kkkkkkkkkkkk..kkkkkkkkkk..kkkkkkkkkkkk...kkkkkkkkkkkk.......',
-      '.......kkkkkkkkkk......kkkkkkkk......kkkkkkkkkk....kkkkkkkk....kkkkkkkkkk.....kkkkkkkkkk........',
+      '........kkkkkkkkkkkk..kkkkkk.......kkkkkk..kkkkkk...kkkkkk.....kkkkkkkkkkkk...kkkkkkkkkkk.......',
+      '.......kkaaaaaaaaaakk.kaaaakk......kaaaakk.kaaaakk..kaaaakk...kkaaaaaaaaaakk.kkaaaaaaaaakk......',
+      '......kkaaaaaaaaaaakk.kaaaakk......kaaaakk.kaaaakk..kaaaakk..kkaaaaaaaaaaakkkkaaaaaaaaaakk......',
+      '......kaaaaaaaaaaaakk.kaaaakk......kaaaakk.kaaaakk..kaaaakk..kaaaaaaaaaaaakkkaaaaaaaaaaakk......',
+      '......kbbbbbbbbbbbbkk.kbbbbkk......kbbbbkk.kbbbbkk..kbbbbkk..kbbbbbbbbbbbbkkkbbbbbbbbbbbkk......',
+      '......kbbbbkkkkkkkkkk.kbbbbkk......kbbbbkk.kbbbbkk..kbbbbkk..kbbbbkkkkkkkkkkkbbbbkkkkkkkkk......',
+      '......kbbbbkkkkkkkkkk.kbbbbkk......kbbbbkk.kbbbbkk..kbbbbkk..kbbbbkkkkkkkkkkkbbbbkkkkkkkkk......',
+      '......kbbbbkkkkkkk....kbbbbkk......kbbbbkk.kbbbbkk..kbbbbkk..kbbbbkk........kbbbbkkkkkk.........',
+      '......kbcccccbbbbkk...kbccckk......kbbbbkk.kcbbbkk..kbbbckk..kbbbbkk........kbbbbbbbbbkk........',
+      '......kcccccccccbbkk..kcccckk......kbccckk.kcccckk..kcccckk..kccbbkk........kcccbbbbbckk........',
+      '......kkccccccccccckk.kcccckk......kcccckk.kcccckk..kcccckk..kcccckk........kccccccccckk........',
+      '.......kkcccccccccckk.kcccckk......kcccckk.kcccckk..kcccckk..kcccckk........kccccccccckk........',
+      '........kkkkkkkcccckk.kcccckk......kcccckk.kcccckk..kcccckk..kcccckk........kcccckkkkkkk........',
+      '.........kkkkkkcccckk.kcccckk......kcccckk.kcccckk..kcccckk..kcccckk........kcccckkkkkkk........',
+      '......kkkkkkkkkcccckk.kcccckkkkkkk.kcccckkkkcccckk..kcccckk..kcccckkkkkkkkk.kcccckkkkkkkk.......',
+      '......kcccccccccccckk.kcccccccccckkkcccccccccccckk..kcccckk..kcccccccccccckkkccccccccccckk......',
+      '......kddddddddddddkk.kddddddddddkkkddddddddddddkk..kddddkk..kddddddddddddkkkdddddddddddkk......',
+      '......kdddddddddddkkk.kkdddddddddkkkkddddddddddkkk..kddddkk..kkdddddddddddkkkkddddddddddkk......',
+      '......kddddddddddkkkk..kkddddddddkk.kkddddddddkkkk..kddddkk...kkddddddddddkk.kkdddddddddkk......',
+      '......kkkkkkkkkkkkkk....kkkkkkkkkkk..kkkkkkkkkkkk...kkkkkkk....kkkkkkkkkkkkk..kkkkkkkkkkkk......',
+      '.......kkkkkkkkkkkk......kkkkkkkkkk...kkkkkkkkkk.....kkkkkk.....kkkkkkkkkkkk...kkkkkkkkkkk......',
       '................................................................................................'] },
   icon: { pal: {'k': '#000821', 'a': '#E7FFFF', 'b': '#39DEFF', 'c': '#186BEF', 'd': '#10298C'},
     rows: [
@@ -2391,6 +2391,184 @@ const GBC_LOGO_PROP = {
       '.......kkk......',
       '................'] }
 };
+/* ================================================================ N3. THE GBC LETTERING AUDIT (B343)
+   The human: "the GBA sluice logo needs a consistency audit; not all characters are properly spaced
+   or sized, and there's a strange stripe across the 'I'". The stripe was in B326's glyph data (the I
+   drawn as a lifted gate: a 1-row outline, a light-cyan row and another outline across its stem, logo
+   rows 14-17), so the title above is the workshop's B343 redraw, and glyphAudit() + GA_TOL below are
+   copied VERBATIM from fx-screens-workshop.html:2289-2428 (its section M2; edit both or neither). C27
+   holds this copy of the title to the same numbers the workshop's self-check 15 does. */
+/* B343 — the GBC lettering audit, MEASURED FROM THE PIXELS of a rendered title (RGBA, w×h).
+   One metric set for every letter of a word, so a mis-sized letter, an uneven gap or a stripe
+   is a number, not an impression. The logo's DATA supplies only the key to its colours: `ink`
+   (the outline) and `bands`, its fill colours top to bottom (a band may hold several colours of
+   one rank, as SINGE's char and embers do). Everything else is read off the raster.
+   - a GLYPH is the fill pixels of the 8-connected components of ≥ GA_TOL.minPx px (smaller ones
+     are sparks, decoration), grouped by overlapping x-extent; one glyph per letter of `word`.
+   - CAP TOP and BASELINE: the glyph's first and last fill row. Tolerance 0: pixel type is exact.
+   - STEM (vertical stroke width): the modal horizontal fill run in the glyph, among runs
+     narrower than the glyph (the rest are bars); a glyph that is all stem (an I) uses all runs;
+     ties go to the thinner. Tolerance ±1 px of the word's mode: a diagonal's horizontal section
+     reads up to a pixel wider or thinner than a vertical stem of the same weight.
+   - BAR (horizontal stroke thickness): the modal vertical fill run whose top and bottom match
+     the runs in both neighbouring columns (a flat bar, not a diagonal), shorter than 0.6 of the
+     cap height (not a stem). n/a for a letter with no flat bar (N, M, W). Tolerance ±1 px.
+   - GAP, optically: for each row of the word's cap band, the blank between the two glyphs'
+     boxes plus how far each glyph's profile recedes from its box in that row, each recess
+     clamped at GA_TOL.depth px (3 px, 1/6 of an 18 px cap: roughly the 15 %-of-height depth
+     of the usual area-based letterspacer), averaged over the band = the effective gap in px.
+     An L's open side or an I's straight stem is counted as the eye counts it, which is why an
+     I needs the widest box gap to LOOK evenly spaced. Tolerance: the word's effective gaps span
+     ≤ GA_TOL.gapRange = 1.0 px (a pixel is the grain; a range under one pixel is as even as a
+     pixel grid can be).
+   - STRIPE: down each column of a glyph, a fill colour that goes BACK up the bands (a lighter
+     band under a darker one, within one stroke), or a single outline row with fill directly
+     above and below (a line cut across a stroke; the thinnest counter any GBC title draws is
+     2 rows). Tolerance 0.
+   - PIECES: a letter drawn in more than one component (a stroke cut through). Tolerance 0.
+   - PALETTE: every opaque pixel is fully opaque and is the ink or a band colour: no
+     anti-aliasing or blending leaked into the pixel canvas. Tolerance 0. */
+const GA_TOL = { cap: 0, base: 0, stem: 1, bar: 1, gapRange: 1.0, depth: 3, minPx: 4 };
+function glyphAudit(d, w, h, spec) {
+  const hx = c => String(c).replace('#', '').toUpperCase();
+  const key = (r, g, b) => ((r << 16) | (g << 8) | b).toString(16).toUpperCase().padStart(6, '0');
+  const rank = {}; spec.bands.forEach((band, i) => band.forEach(c => { rank[hx(c)] = i; }));
+  const INK = hx(spec.ink), R = new Int8Array(w * h).fill(-2), faults = [];   // -2 clear, -1 ink, ≥0 band rank
+  let offPal = 0, part = 0;
+  for (let i = 0; i < w * h; i++) {
+    const a = d[i * 4 + 3]; if (a === 0) continue;
+    if (a !== 255) part++;
+    const k = key(d[i * 4], d[i * 4 + 1], d[i * 4 + 2]);
+    if (k === INK) R[i] = -1; else if (k in rank) R[i] = rank[k]; else { offPal++; R[i] = -1; }
+  }
+  if (offPal || part) faults.push((offPal ? offPal + ' px off the palette' : '') + (offPal && part ? ', ' : '') + (part ? part + ' px part-transparent' : '') + ' (anti-aliasing or blending in a pixel canvas)');
+  // components of fill, 8-connected
+  const comp = new Int32Array(w * h).fill(-1), comps = [];
+  for (let s = 0; s < w * h; s++) {
+    if (R[s] < 0 || comp[s] >= 0) continue;
+    const st = [s], px = []; comp[s] = comps.length;
+    while (st.length) {
+      const p = st.pop(), x = p % w, y = (p / w) | 0; px.push(p);
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const X = x + dx, Y = y + dy, q = Y * w + X;
+        if (X >= 0 && X < w && Y >= 0 && Y < h && R[q] >= 0 && comp[q] < 0) { comp[q] = comps.length; st.push(q); }
+      }
+    }
+    comps.push(px);
+  }
+  const big = comps.filter(px => px.length >= GA_TOL.minPx).map(px => ({ px, x0: Math.min(...px.map(p => p % w)), x1: Math.max(...px.map(p => p % w)) })).sort((a, b) => a.x0 - b.x0);
+  const G = [];
+  for (const c of big) { const g = G[G.length - 1]; if (g && c.x0 <= g.x1) { g.x1 = Math.max(g.x1, c.x1); g.px = g.px.concat(c.px); g.pieces++; } else G.push({ x0: c.x0, x1: c.x1, px: c.px.slice(), pieces: 1 }); }
+  const mode = arr => { const n = {}; arr.forEach(v => { n[v] = (n[v] || 0) + 1; }); let best = null; for (const v in n) if (best === null || n[v] > n[best] || (n[v] === n[best] && +v < +best)) best = v; return best === null ? null : +best; };
+  for (const g of G) {
+    const on = new Set(g.px); g.on = on;
+    const ys = g.px.map(p => (p / w) | 0); g.y0 = Math.min(...ys); g.y1 = Math.max(...ys); g.w = g.x1 - g.x0 + 1; g.h = g.y1 - g.y0 + 1;
+    const hr = [], hrAll = [], colRuns = [];
+    g.left = []; g.right = [];
+    for (let y = g.y0; y <= g.y1; y++) {
+      let run = 0, L = null, Rt = null;
+      for (let x = g.x0; x <= g.x1 + 1; x++) {
+        const f = x <= g.x1 && on.has(y * w + x);
+        if (f) { run++; if (L === null) L = x; Rt = x; } else if (run) { hrAll.push(run); if (run < g.w) hr.push(run); run = 0; }
+      }
+      g.left.push(L); g.right.push(Rt);
+    }
+    for (let x = g.x0; x <= g.x1; x++) {
+      const runs = []; let t = null;
+      for (let y = g.y0; y <= g.y1 + 1; y++) { const f = y <= g.y1 && on.has(y * w + x); if (f && t === null) t = y; if (!f && t !== null) { runs.push([t, y - 1]); t = null; } }
+      colRuns.push(runs);
+    }
+    const bars = [];
+    colRuns.forEach((runs, i) => runs.forEach(([t, b]) => {
+      const len = b - t + 1; if (len >= 0.6 * g.h || i === 0 || i === colRuns.length - 1) return;
+      const same = rr => rr.some(([t2, b2]) => t2 === t && b2 === b);
+      if (same(colRuns[i - 1]) && same(colRuns[i + 1])) bars.push(len);
+    }));
+    g.stem = mode(hr.length ? hr : hrAll); g.bar = mode(bars);
+  }
+  // the word's metrics: the mode of each, and each letter against it
+  const word = spec.word || '', letters = G.map((g, i) => word[i] || '?');
+  if (word && G.length !== word.length) faults.push(G.length + ' glyphs for the ' + word.length + ' letters of ' + word);
+  const mCap = mode(G.map(g => g.y0)), mBase = mode(G.map(g => g.y1)), mStem = mode(G.map(g => g.stem)), mBar = mode(G.filter(g => g.bar !== null).map(g => g.bar));
+  G.forEach((g, i) => {
+    const L = letters[i];
+    if (Math.abs(g.y0 - mCap) > GA_TOL.cap) faults.push(L + ': cap top at row ' + g.y0 + ', the word\'s is ' + mCap);
+    if (Math.abs(g.y1 - mBase) > GA_TOL.base) faults.push(L + ': baseline at row ' + g.y1 + ', the word\'s is ' + mBase);
+    if (Math.abs(g.stem - mStem) > GA_TOL.stem) faults.push(L + ': stem ' + g.stem + ' px, the word\'s is ' + mStem);
+    if (g.bar !== null && mBar !== null && Math.abs(g.bar - mBar) > GA_TOL.bar) faults.push(L + ': bar ' + g.bar + ' px, the word\'s is ' + mBar);
+    if (g.pieces > 1) faults.push(L + ': drawn in ' + g.pieces + ' pieces (a stroke is cut through)');
+  });
+  // gaps: the box gap, and the effective (optical) gap over the word's cap band
+  const Y0 = Math.min(...G.map(g => g.y0)), Y1 = Math.max(...G.map(g => g.y1)), band = Y1 - Y0 + 1, D = GA_TOL.depth;
+  const gaps = [], eff = [];
+  for (let i = 0; i + 1 < G.length; i++) {
+    const a = G[i], b = G[i + 1], box = b.x0 - a.x1 - 1; let area = 0;
+    for (let y = Y0; y <= Y1; y++) {
+      const ra = y >= a.y0 && y <= a.y1 ? a.right[y - a.y0] : null, lb = y >= b.y0 && y <= b.y1 ? b.left[y - b.y0] : null;
+      area += box + (ra === null ? D : Math.min(D, a.x1 - ra)) + (lb === null ? D : Math.min(D, lb - b.x0));
+    }
+    gaps.push(box); eff.push(area / band);
+  }
+  const span = eff.length ? Math.max(...eff) - Math.min(...eff) : 0;
+  if (span > GA_TOL.gapRange + 1e-9) {
+    const lo = eff.indexOf(Math.min(...eff)), hi = eff.indexOf(Math.max(...eff));
+    faults.push('gaps uneven: ' + letters[lo] + letters[lo + 1] + ' ' + eff[lo].toFixed(2) + ' px to ' + letters[hi] + letters[hi + 1] + ' ' + eff[hi].toFixed(2) + ' px (span ' + span.toFixed(2) + ' > ' + GA_TOL.gapRange + ')');
+  }
+  // stripes, down each column of each glyph
+  const stripes = [];
+  G.forEach((g, i) => {
+    for (let x = g.x0; x <= g.x1; x++) {
+      let prev = null;
+      const col = [];
+      for (let y = 0; y < h; y++) { const p = y * w + x; col.push(g.on.has(p) ? R[p] : R[p] === -1 ? -1 : -2); }
+      for (let y = 0; y < h; y++) {
+        const v = col[y];
+        if (v >= 0) { if (prev !== null && v < prev) stripes.push({ L: letters[i], x, y, why: 'a lighter band under a darker one' }); prev = v; }
+        else if (v === -2) prev = null;
+        if (v === -1 && y > 0 && y + 1 < h && col[y - 1] >= 0 && col[y + 1] >= 0) stripes.push({ L: letters[i], x, y, why: 'a 1-row outline across the stroke' });
+      }
+    }
+  });
+  if (stripes.length) {
+    const by = {}; stripes.forEach(s => { const k = s.L + ' row ' + s.y + ' (' + s.why + ')'; by[k] = (by[k] || 0) + 1; });
+    faults.push('stripe: ' + Object.keys(by).map(k => k + ' ×' + by[k]).join('; '));
+  }
+  return {
+    glyphs: G.map((g, i) => ({ L: letters[i], x0: g.x0, x1: g.x1, cap: g.y0, base: g.y1, h: g.h, w: g.w, stem: g.stem, bar: g.bar, pieces: g.pieces })),
+    gaps, eff, span, stripes, faults, ok: !faults.length, capMode: mCap, baseMode: mBase, stemMode: mStem, barMode: mBar
+  };
+}
+/* the title's colour key (the workshop's GBC_LETTERING.sluice): the word, and its palette letters in
+   band order top to bottom */
+const GBC_LETTERING = { word: 'SLUICE', bands: ['a', 'b', 'c', 'd'] };
+const gbcLetterSpec = art => ({ word: GBC_LETTERING.word, ink: art.pal.k, bands: GBC_LETTERING.bands.map(b => [...b].map(ch => art.pal[ch])) });
+/* B326's title as it was BEFORE B343 (the workshop's B343_SLUICE_BEFORE), kept only as C27's detector
+   control: C27 must read it as failing for the stripe the human saw across the I. Not drawn anywhere. */
+const B343_SLUICE_BEFORE = [
+  '................................................................................................',
+  '................................................................................................',
+  '......kkkkkkkkkkk.................................kkkkkkkkk...kkkkkkkkkkk....kkkkkkkkkkk........',
+  '.....kkaaaaaaaaakk...kkkk..........kkkk.....kkkk..kaaaaaaakk.kkaaaaaaaaakk..kkaaaaaaaaakk.......',
+  '....kkaaaaaaaaaaakk.kkaakk........kkaakk...kkaakk.kaaaaaaakkkkaaaaaaaaaaakk.kaaaaaaaaaaakk......',
+  '....kaaaaaaaaaaaakk.kaaaakk.......kaaaakk..kaaaakkkaaaaaaakkkaaaaaaaaaaaakk.kaaaaaaaaaaakk......',
+  '....kbbbbbbbbbbbkkk.kbbbbkk.......kbbbbkk..kbbbbkkkkbbbbbkkkkbbbbbbbbbbbkkk.kbbbbbbbbbbkkk......',
+  '....kbbbbkkkkkkkkk..kbbbbkk.......kbbbbkk..kbbbbkk.kbbbbbkk.kbbbbkkkkkkkkk..kbbbbkkkkkkkk.......',
+  '....kbbbbkkkkkkkk...kbbbbkk.......kbbbbkk..kbbbbkk.kbbbbbkk.kbbbbkkkkkkkk...kbbbbkkkkkkk........',
+  '....kbbbbkkkkkkkk...kbbbbkk.......kbbbbkk..kbbbbkk.kbbbbbkk.kbbbbkk.........kbbbbkkkkk..........',
+  '....kbbbcccbbbbbkk..kccbbkk.......kbbbbkk..kcccbkk.kbbbbckk.kbbbbkk.........kbbbcccbbkk.........',
+  '....kbcccccccbbbbkk.kcccckk.......kccbbkk..kcccckk.kbbbcckk.kbbbbkk.........kbbccccccbkk........',
+  '....kkccccccccbbbckkkcccckk.......kcccbkk..kcccckk.kbcccckk.kcbbbkk.........kccccccccckk........',
+  '.....kkccccccccccckkkcccckk.......kcccckk..kcccckkkkccccckk.kcccckk.........kcccccccckkk........',
+  '......kkkkkkkkcccckkkcccckk.......kcccckk..kcccckkkkkkkkkkkkkcccckk.........kcccckkkkkk.........',
+  '.......kkkkkkkcccckkkcccckk.......kcccckk..kcccckkkbbbbbbbkkkcccckk.........kcccckkkkk..........',
+  '......kkkkkkkkcccckkkcccckkkkkk...kcccckkkkkcccckkkccccccckkkcccckkkkkkkk...kcccckkkkkkk........',
+  '.....kkccccccccccckkkccccccccckk..kccccccccccccckkkkkkkkkkkkkccccccccccckk..kcccccccccckk.......',
+  '.....kddddddddddddkkkddddddddddkk.kdddddddddddddkkkdddddddkkkddddddddddddkk.kdddddddddddkk......',
+  '.....kdddddddddddkkkkkdddddddddkk.kkdddddddddddkkkkdddddddkkkkdddddddddddkk.kdddddddddddkk......',
+  '.....kkdddddddddkkk..kkdddddddkkk..kkdddddddddkkk.kdddddddkk.kkdddddddddkkk.kkdddddddddkkk......',
+  '......kkkkkkkkkkkk....kkkkkkkkkk....kkkkkkkkkkkk..kkkkkkkkkk..kkkkkkkkkkkk...kkkkkkkkkkkk.......',
+  '.......kkkkkkkkkk......kkkkkkkk......kkkkkkkkkk....kkkkkkkk....kkkkkkkkkk.....kkkkkkkkkk........',
+  '................................................................................................'];
 /* the frame canvas is `fcv`, not the workshop's `fb`: that name followed by .width spells one of the
    manifest's bus keys, and C17 counted it (a real hit during the build, as B329's was) */
 const GBC = { buf: null, fcv: null, fcg: null, logo: { title: null, icon: null }, src: { title: 'proposal', icon: 'proposal' }, note: '' };
@@ -3244,10 +3422,29 @@ function C26() {
     + ' · the title slot shows ' + (GBC.src.title === 'file' ? 'the human\'s file' : 'B326\'s proposal') + ' pixel for pixel (' + lp + ' opaque px, ' + lbad + ' off) · LIVE: fixed macro ' + g0.label + ' moved → ' + nF + ' px change; variable macro 1 moved → ' + nV + ' px; both put back → the frame is identical again: ' + back
     + ' · controls: a planted 5-colour tile → ' + (c5 ? 'caught' : 'NOT caught') + '; an off-grid colour → ' + (cOff ? 'caught' : 'NOT caught') + '; a FROZEN view model (the state before the move) → ' + (frozenCaught ? 'no change, caught' : 'NOT caught'));
 }
+/* C27 (B343): the GBC title's letters on one metric set, measured by glyphAudit (N3) from the pixels
+   the skin blits into the title slot (logoFromGrid; C26 proves the frame shows them pixel for
+   pixel), and the slot on the 8×8 tile grid. Controls, each built by the same logoFromGrid and read
+   back: B326's pre-fix title (must fail for the stripe across the I); the E a row short; the E moved
+   2 px right; a light-cyan row across the U's stem; one half-transparent pixel. */
+function C27() {
+  const P = GBC_LOGO_PROP.title, S = GBC_SLOT.title;
+  const audit = rows => { const L = logoFromGrid({ pal: P.pal, rows }); return glyphAudit(L.px, L.w, L.h, gbcLetterSpec(P)); };
+  const A = audit(P.rows), tiled = S.x % 8 === 0 && S.y % 8 === 0, G = A.glyphs, E = G[5], U = G[2];
+  const before = audit(B343_SLUICE_BEFORE), cBefore = before.stripes.some(s => s.L === 'I');
+  const cShort = !!E && audit(P.rows.map((r, y) => (y === E.cap ? r.slice(0, E.x0) + r.slice(E.x0, E.x1 + 1).replace(/[^k.]/g, '.') + r.slice(E.x1 + 1) : r))).faults.some(f => f.indexOf('E: cap top') === 0);
+  const cMoved = !!E && audit(P.rows.map(r => r.slice(0, E.x0 - 1) + '..' + r.slice(E.x0 - 1, r.length - 2))).faults.some(f => f.indexOf('gaps uneven') === 0);
+  const cStripe = !!U && audit(P.rows.map((r, y) => (y === 15 ? r.slice(0, U.x0) + r.slice(U.x0, U.x1 + 1).replace(/c/g, 'b') + r.slice(U.x1 + 1) : r))).stripes.some(s => s.L === 'U');
+  const cBlend = (() => { const L = logoFromGrid(P); if (E) L.px[(12 * L.w + E.x0 + 1) * 4 + 3] = 128; return glyphAudit(L.px, L.w, L.h, gbcLetterSpec(P)).faults.some(f => f.indexOf('part-transparent') >= 0); })();
+  pushCheck('C27', 'the GBC title keeps one set of letter metrics, measured from its pixels (B343)', A.ok && tiled, cBefore && cShort && cMoved && cStripe && cBlend,
+    GBC_LETTERING.word + ': ' + G.map(g => g.L + ' cap ' + g.cap + '/base ' + g.base + '/stem ' + g.stem + '/bar ' + (g.bar === null ? 'n/a' : g.bar)).join(', ') + '; optical gaps ' + A.eff.map(v => v.toFixed(1)).join('/') + ' px (span ' + A.span.toFixed(2) + '); ' + A.stripes.length + ' stripe px; slot at (' + S.x + ',' + S.y + ')' + (tiled ? '' : ' OFF the tile grid') + (A.faults.length ? ' ✗ ' + A.faults.join('; ') : ' ✓')
+    + ' · tolerances: cap and baseline 0, stem and bar ±1 px, optical gap span ≤ ' + GA_TOL.gapRange + ' px, stripes, pieces and off-palette pixels 0'
+    + ' · controls: B326\'s pre-fix title → ' + (cBefore ? 'caught (' + before.faults.length + ' faults, the stripe across the I among them)' : 'NOT caught') + '; the E a row short → ' + (cShort ? 'caught' : 'NOT caught') + '; the E moved 2 px right → ' + (cMoved ? 'caught' : 'NOT caught') + '; a light-cyan row across the U → ' + (cStripe ? 'caught' : 'NOT caught') + '; a half-transparent pixel → ' + (cBlend ? 'caught' : 'NOT caught'));
+}
 async function runChecks() {
   if (!LAB.ready || LAB.checksRun) return;
   LAB.checksRun = true;
-  const list = SPEC.ok ? [C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14, C15, C16, C19, C20, C21, C22, C23, C24, C25, C26] : [C14];
+  const list = SPEC.ok ? [C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14, C15, C16, C19, C20, C21, C22, C23, C24, C25, C26, C27] : [C14];
   for (const f of list) { try { f(); } catch (e) { pushCheck(f.name, f.name + ' threw', false, false, String(e && e.message || e)); } }
   if (SPEC.ok) { try { await C17(); } catch (e) { pushCheck('C17', 'the scan threw', false, false, String(e && e.message || e)); } }
   LAB.k9Note = SPEC.ok ? 'C18 pending: the real AudioWorklet renders in an OfflineAudioContext (real time only)' : '';
@@ -3344,7 +3541,7 @@ function buildSide() {
     + '<li>docs/design/scalpel-horde-engine.js + reference/scalpel/prototype/razor-core.js + reference/swarmsaw.html — the horde voice.</li>'
     + '<li>The B319 lab this rebuilds: the one renderer, the worklet route, the taps, the chassis, and B320\'s canvas sizing (C15).</li>'
     + '<li>docs/design/shape-lab-mod.html — horde\'s 22 divisions (copied; compared when served).</li>'
-    + '<li>docs/design/fx-screens-workshop.html — B322\'s GBC renderer (index buffer, per-tile palettes, RGB555, the 3×5 font, the tile audit, the dot grid and ghosting) and B326\'s GBC Sluice logo proposal (copied, cited in section N2).</li></ul></div>';
+    + '<li>docs/design/fx-screens-workshop.html — B322\'s GBC renderer (index buffer, per-tile palettes, RGB555, the 3×5 font, the tile audit, the dot grid and ghosting) and B326\'s GBC Sluice logo proposal as B343 redrew its title (copied, cited in section N2), with B343\'s lettering audit (glyphAudit, copied verbatim, section N3; C27).</li></ul></div>';
   s.innerHTML = h;
 }
 function esc(t) { return String(t === undefined || t === null ? '' : t).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]); }
