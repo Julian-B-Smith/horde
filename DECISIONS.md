@@ -5497,6 +5497,8 @@ at 1e-6 over a fixture (morph, macros, corners, tiers) including an
 unbound-role and a global-tier case; the exposed CLAP list byte-identical
 across morph positions for fixed tiers.
 
+
+**A1 RULED (2026-09-28, the human's ruling relayed by Sluice, response seq 7, Sluice D-094):** module macros bind by ORDER, carrying the patch's own LABEL; Sluice presets carry up to 8 macros and author no roles. This closes this ADR's order-plus-label open ruling.
 ## ADR-170 — MAW ingested as a CANDIDATE: the three-stage saturator for the FX rebuild (2026-09-16)
 
 **Context.** Human (2026-09-16): "I just dropped a spec packet for Maw (the
