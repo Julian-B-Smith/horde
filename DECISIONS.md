@@ -7,7 +7,7 @@ SAW mode is the per-partial swarm engine at P=1 with a saw kernel; SPECTRA is th
 Carried from prior platform exploration (JUCE alternatives). Revisit only if a Phase 0 host-compat blocker appears.
 
 ## ADR-003 · JS prototypes are the reference implementation — ACCEPTED
-swarmsaw/swarmspectra/swarmdynamics HTML cores are the spec-in-code. C++ correctness is defined as parity (L0-1) plus trajectory regressions, not as independent reimplementation. The prototypes' headless Node harnesses are the templates for `./verify`. Divergence requires an ADR here.
+swarmsaw/swarmspectra/swarmdynamics HTML cores are the spec-in-code. C++ correctness is defined as parity (L0-1) plus trajectory regressions, not as independent reimplementation. The prototypes' headless Node harnesses are the templates for `./verify`. Divergence requires an ADR here. **Amended 2026-09-28 by ADR-187 (RATIFIED):** this holds for the legacy shell unchanged. For horde 2's cores, correctness follows ADR-187 item 10.
 
 ## ADR-004 · σ-normalized K with squared taper; absolute-K escape hatch — ACCEPTED
 K_Hz = 4·K·|K|·σ_measured places the phase transition mid-knob at any detune/law/register (validated). σ floored at 0.05–0.08 Hz. Normalization collapses for identical oscillators, so an absolute-K advanced mode is required for strict-chimera experiments (L0-10 note).
@@ -6584,7 +6584,7 @@ The human: "It isn't worth making the entire future of the device suffer to acco
 
 The 2026-09-23 installed bundles are archived outside the repo (`~/Documents/Claude/synthetic-worlds/horde-legacy-archive/2026-09-23-installed/`, with a MANIFEST of bundle ids, codesign results and tree hashes). The human's freeze tag (item 2) is still owed, after B255 lands.
 
-## ADR-187 — PROPOSED (revision 2, after critic): C++ goldens for horde 2's cores; the JS stays a continuous differential oracle, never the quality standard (2026-09-28)
+## ADR-187 — RATIFIED (revision 2, after critic): C++ goldens for horde 2's cores; the JS stays a continuous differential oracle, never the quality standard (2026-09-28)
 
 **Status.** PROPOSED, revision 2. Revision 1 went to an Opus critic, whose verdict was REWORK (narrow). This revision folds in C1, C2, H1–H5 and M1. The human asked for this draft ("Let's do it", on B314). Ratification waits on the human's answer to the lab question below.
 
@@ -6646,4 +6646,9 @@ B252 H3 already made the C++ the golden for SCALPEL. This ADR says how, without 
 - Every core carries a status row: JS-normative, parity-proven@hash, or demoted@ruling.
 - A lift under ADR-186 copy-forward (byte-identical apart from the namespace) IS the core's parity proof at that commit (L3).
 - **Open for the human (the critic's question), deciding C2's mirror policy and H6:** when the C++ diverges from the JS (a quirk fixed, a law changed), must the LAB keep sounding like the plugin, with every divergence mirrored into the lab's JS so parity keeps running on it? Or is the lab accepted as an approximate sketch after demotion, which would push toward running the real C++ in the lab (e.g. WASM) for listening passes?
+
+**Ratified 2026-09-28** (human: "I appreciate your revisions, and the reasoning here is sound", then, answering the lab question: "I do think mirroring fixes in the labs is a good idea, to the extent that it's possible, and JS limitations should be marked so they don't slow down the optimization of the C++ when it outpaces what's possible in a browser prototype."). Resolution of the open question:
+- **Mirror.** Every C++ divergence is MIRRORED into the lab's JS (the composed engine, or the lab-side wrapper) wherever the browser can express it, so the labs keep predicting the plugin and parity keeps running on the mirrored scope.
+- **JS-limit.** Where the browser cannot follow (SIMD, oversampling or filter structure beyond JS cost, precision, or real-time budget), the divergence's ledger entry carries a **`js_limit`** marker saying what the lab cannot reproduce and how it approximates. A `js_limit` entry NEVER blocks or slows a C++ optimisation; it removes its declared scope from lab parity, and the lab shows the approximation as such (L0064).
+- **Amendments that land with this ratification:** the charter's §Domain invariant (CLAUDE.md), ADR-003 (above), and `specs/ACCEPTANCE.md` L0-1 (a protected path, covered by this ruling). All are scoped to horde 2; legacy is unchanged.
 
