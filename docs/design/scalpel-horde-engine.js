@@ -354,11 +354,50 @@ function makeComposedEngine(RazorCore, swarmSrc) {
         delete this.sw.alloc;
         v.sn = this.nBase;
         for (const m of v.m) { m.j = 0; m.phi = frac(S.phase[m.i] + this.origin); }
+        /* B325: a PROVISIONAL first tick, so the member frequencies exist before RazorCore reads
+           them. noteOn's couple() and spread(), and the first sample's Hz-unit cut rates (lock 2),
+           Hz-unit modulators (mUnit) and per-cycle DC estimate, all read m.inc. Before this,
+           couple() handed them the UNDETUNED pitch until its next 32-sample pass. That produced
+           two artefacts that were the composition's own:
+           - a DC estimate taken with the wrong cut rate: a slow offset of up to 2.5e-2 per note
+             that took up to ~85 ms to correct, on lock-2 presets (Formant pluck, arpeggio);
+           - a modulator phase offset that never recovered (Crunch horde, mUnit 1).
+           The B325 audit found both in the neutral case, where the composed engine must equal
+           the oracle. The tick is only a LOOK-AHEAD. The swarm is snapshotted first, and stepM
+           restores it and takes the real first tick exactly where it always did, so the swarm's
+           trajectory (and oracle O1) is unchanged, whatever happens before the first sample.
+           A first try kept this tick and skipped the scheduled one. It froze the pitch of the
+           FIRST of several note-ons that land on a mono voice in the same block (a chord on a
+           mono preset), which the audit's neutral case caught at once. couple() re-takes the
+           look-ahead when the pitch moved before the first sample, so m.inc follows it.
+           Only when the first tick is due on the note's first sample: (v.sn & 15) === 0, always
+           so in the worklet's 128-sample blocks. */
+        v.tick0 = false;                               // a look-ahead left by a start this one replaces is void
+        if ((v.sn & 15) === 0) this.lookAhead(v, S, true);
       } else {
         /* the oracle's start, handed over in the horde frame and mapped back:
            exact for its aligned 0 and seeded-draw starts (multiples of 2^-32) */
         for (const m of v.m) { m.j = 0; m.phi = frac(frac(m.phi - 0.5) + this.origin); }
       }
+    }
+
+    /* B325: take (first) or re-take the look-ahead tick. v.pre0 holds the swarm as noteOn left
+       it: every field a copy, typed arrays into buffers allocated once per voice. `phase` is
+       left out on purpose. SwarmSynth.controlTick never writes it (renderSeg and noteOn do), so
+       the tick cannot have moved it, and a caller may set start phases between note-on and the
+       first sample (composed_engine_check's O3 coupling-law fixture does). */
+    lookAhead(v, S, first) {
+      if (first) {
+        const o = v.pre0 || (v.pre0 = {});
+        for (const k in S) { if (k === 'phase') continue; const x = S[k]; if (ArrayBuffer.isView(x)) { if (o[k]) o[k].set(x); else o[k] = x.slice(); } else o[k] = x; }
+      } else this.unLookAhead(v, S);
+      this.tickSwarm(v, S);
+      v.tick0 = true;
+    }
+    unLookAhead(v, S) {
+      const o = v.pre0;
+      for (const k in o) { const x = o[k]; if (ArrayBuffer.isView(x)) S[k].set(x); else S[k] = x; }
+      v.tick0 = false;
     }
 
     settle(v) { if (this.src === 'razor') super.settle(v); }
@@ -369,6 +408,9 @@ function makeComposedEngine(RazorCore, swarmSrc) {
       super.couple(v, s, d);
       if (this.src !== 'horde') return;
       const S = this.sw.swarms[v.si], N = d.N;
+      /* B325: the pitch moved since the look-ahead (a later note-on on a mono voice, a retune)
+         and no sample has rendered yet: look again, so m.inc is the swarm's for the pitch now */
+      if (v.tick0 && (S.fBase !== v.freq || S.f0 !== v.freq * Math.pow(2, s.bend / 12))) this.lookAhead(v, S, false);
       if (!S.vfInit) {                                 // no swarm tick yet this note: the pitch
         const f = v.freq * Math.pow(2, s.bend / 12);
         for (let i = 0; i < N; i++) v.m[i].inc = f;
@@ -393,7 +435,8 @@ function makeComposedEngine(RazorCore, swarmSrc) {
       if (this.src !== 'horde') return super.stepM(m, dphi, c, k, s);
       if (m.j === 0) {
         const v = m.v, S = this.sw.swarms[v.si], i = m.i;
-        if (i === 0) { if ((v.sn & 15) === 0) this.tickSwarm(v, S); v.sn++; }
+        /* B325: undo startVoice's look-ahead before the real first tick (see there) */
+        if (i === 0) { if ((v.sn & 15) === 0) { if (v.tick0) this.unLookAhead(v, S); this.tickSwarm(v, S); } v.sn++; }
         // swarmsaw.html:665-672 (renderSeg), per member
         const glideOn = this.sw.p.freqGlide > 0;
         if (glideOn) S.fRun[i] += this.gCoefS * (S.eff[i] - S.fRun[i]);

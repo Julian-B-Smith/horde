@@ -1,0 +1,42 @@
+# fx-logos — drop-in pixel logos for MAW and Sluice
+
+Read by `docs/design/fx-screens-workshop.html` (B322), the workshop that shows MAW and
+Sluice as software running on screens inside horde. Until a file exists, the page draws a
+labelled placeholder in code. No image is committed here unless the human has made it.
+
+## The canvases (logical pixels)
+
+| file | size | tiles (8×8) | what it is |
+|---|---|---|---|
+| `maw.png` | 96 × 24 | 12 × 3 | MAW title strip (the header of every screen) |
+| `maw-icon.png` | 16 × 16 | 2 × 2 | MAW square icon (top-right corner; a window's proxy icon) |
+| `sluice.png` | 96 × 24 | 12 × 3 | Sluice title strip |
+| `sluice-icon.png` | 16 × 16 | 2 × 2 | Sluice square icon |
+
+Draw one file pixel per logo pixel. On the Game Boy Color treatment one logo pixel is one
+screen pixel (the screen is 160 × 144).
+
+## The palette rule (Game Boy Color, as on the real hardware)
+
+- At most **4 colours in each 8×8 tile**. A fully transparent pixel counts as one of the
+  four, as a sprite's colour 0 does.
+- At most **8 palettes** across the whole logo. The page counts them by greedy packing, which
+  gives an upper bound.
+- Colours on the **RGB555** grid: 5 bits a channel, so each 8-bit value is `(k << 3) | (k >> 2)`
+  for k = 0…31 (0, 8, 16, 24, … 239, 247, 255). Colours off the grid are shown as drawn, and
+  the page reports how many pixels real hardware would round.
+
+The workshop checks a dropped file against all three rules and prints the result in its
+"Logo canvases" box.
+
+## The drop-in rule
+
+1. Save the PNG here under its exact name (above).
+2. Reload the workshop. Serve it with `python3 tools/serve_labs.py`, because the palette
+   check cannot read pixels from a `file://` page.
+3. Each file is shown at the **largest whole-number scale** that fits its slot, with
+   `image-rendering: pixelated`. It is never resampled to a fractional size. Art larger
+   than the canvas is shown at ×1 and clipped.
+4. Delete a file to get the placeholder back.
+
+The sizes are a proposal from the workshop, not a ruling (B322 is a comparison lab).

@@ -1,0 +1,1924 @@
+<!doctype html>
+<!-- fx-screens-workshop — B322: MAW and Sluice as software running on screens inside horde.
+     HYPERSAW, 2026-09-28, dispatched by the horde lead on ROADMAP B322 (carried in records
+     PR #817, branch lead-records-125). The human: "not exactly a decision until we test it
+     out, but I kind of like the idea of MAW and Sluice having the appearance of software
+     running on screens within Horde. That way they can each have their own aesthetic, but it
+     can have a coherence with the rest of the system. I want them to have a sort of
+     retro-futuristic appearance. Let's workshop some options while Sluice writes up the
+     actual specs. I might start working on a sort of Gameboy Color style logo for each of
+     Sluice and Maw."
+
+     WHAT THIS IS. A COMPARISON lab, not a ruling and not a port. One horde CHASSIS (the
+     SCALPEL lab's tokens, knob and card language, which B302 will assemble into GUI 3) holds
+     a SCREEN, and each FX module is software running on that screen. The chassis is the
+     same in every option: that is the coherence. The screen's contents change per treatment:
+     that is the individuality. Six treatments, each drawn for BOTH modules, side by side.
+
+     THE CHASSIS CONTRACT. Four soft keys and four knobs sit under every screen. The chassis
+     prints only their numbers; the SOFTWARE labels them, in the band at the foot of its
+     screen, each label directly above its key and knob (the soft-key idiom of hardware
+     samplers and workstations). MAW's knobs are its four ADR-169 roles (Amount, Tone,
+     Motion, Regen); Sluice's are its macros 1–4, bound by ORDER with Sluice's own labels
+     (Sluice notice seq 5, addendum 2). So a treatment can change everything about how the
+     screen looks and nothing about where a hand goes.
+
+     EVERYTHING ON THE SCREENS IS A MOCK. Values are sample values driven by a frame counter
+     (never the wall clock), and the transfer curves are SPEC-MAW §3's formulas evaluated by
+     this page, which SPEC-MAW §10 says is not evidence of what MAW renders. Nothing here is
+     a rendered signal; every chassis says MOCK. The real, rendered versions are the MAW lab
+     (maw-horde-lab.html, B318) and the Sluice lab (sluice-horde-lab.html, B319). The Sluice
+     layout is PROVISIONAL on every screen: Sluice is writing the architecture spec (B321),
+     and B319's review found our model of Sluice wrong in shape.
+
+     SCREEN SCHEMES. gui2's five (TUBE, ORCHID, FROST, EMBER, DUSK; ADR-121, ported in B317)
+     are copied with the tokens. Each treatment states its policy on the page: GBC,
+     WORKSTATION and SEGMENT GLASS take the scheme's colours; VECTOR takes the dark schemes'
+     inks and says why it cannot take a pale ground; CRT and TELETEXT override (a phosphor's
+     colour is its chemistry, teletext's eight colours are its idiom). Self-check 5 holds
+     each treatment to its stated policy.
+
+     LOGO SLOTS. Each screen has two slots, TITLE (96×24) and ICON (16×16), in logical
+     pixels. They load docs/design/assets/fx-logos/<module>.png and <module>-icon.png IF
+     present, always at a whole-number scale with image-rendering: pixelated, and draw a
+     labelled placeholder in code otherwise. The folder's README states the sizes and the
+     drop-in rule. No image is committed; ?logotest=1 swaps in generated TEST patterns
+     (labelled as such) so the loaded path can be seen.
+
+     SELF-CHECKS at load (the audit line and the side table), each with a must-fail control:
+     every treatment renders both modules with all their content; logo slots and pixel
+     screens integer-scale; placeholders show exactly when files are absent; the GBC frame
+     buffer keeps 4 colours per 8×8 tile in RGB555; each treatment honours its scheme policy;
+     renders are deterministic; every chassis carries its MOCK (and Sluice its PROVISIONAL)
+     label.
+
+     TOKENS, KNOB AND CHROME CSS ARE COPIED, NOT LINKED — verbatim from
+     docs/design/scalpel-interface-lab.html :179-307 (gui2's :root, both themes, the five
+     screen schemes), :320-366 (lab chrome) and :406-454 (gui2's knob skin); TOK/RGBA/el and
+     mulberry32 from its :2103-2116, :3468 and :1125. Copy, therefore drift.
+
+     NO WHEEL. No control listens to the wheel (knobs drag, double-click resets), so
+     lab_wheel_scroll_check's inventory does not need this lab.
+
+     L0026: every const is declared above the code that runs at setup; boot() is the last
+     statement of the script. -->
+<html><head><meta charset="utf-8">
+<meta name="lab-review" content="B322 · 2026-09-28">
+<title>fx screens workshop — MAW and Sluice as software on horde's screens</title>
+<style>
+  :root {
+    /* ground */
+    --bg:#F2EDE2;        /* page ground (cream)                    */
+    --panel:#FCFAF4;     /* module cards                           */
+    --well:#FFFFFF;      /* DATA surfaces: viz, pads, keyboards     */
+    --panel2:#E9E3D4;    /* well-alt: control tracks, empty meters  */
+    --line:#191521;      /* ink — ALL outlines                     */
+    --hair:#E5DFD0;      /* in-well gridlines ONLY, never borders   */
+    --div:#D8D1C0;       /* dashed intra-card separators           */
+    /* text */
+    --text:#191521;      /* primary (ink)                          */
+    --t2:#494356;        /* secondary                              */
+    --dim:#9A93A3;       /* hint                                   */
+    --dis:#B6AFA0;       /* disabled                               */
+    /* signal — one job each, never borrowed */
+    --value:#F5169C;     /* the user's authored value              */
+    --pull:#F5169C;      /* legacy name for the accent = value      */
+    --physics:#6431F0;   /* order parameter, K vector, rotor lead   */
+    --meter:#00D5C8;     /* analyzers, R rim arc                   */
+    --marker:#FFD702;    /* attention: root, overshoot, lock front  */
+    --celebrate:#A6F219; /* OK / meters in the green               */
+    --caution:#F5A300;   --caution-bg:#FBE9BD; --caution-tx:#6D570B;
+    --amber:#F5A300;     /* legacy name for caution                 */
+    --alarm:#C2261A;     /* PANIC, clip, mute — NOTHING else        */
+    --ghost:#C9C2FF;     /* dry/reference traces behind wet         */
+    /* corners — preset identity (fill / dark text pair) */
+    --cA:#FFD702; --cAtx:#D4A900;
+    --cB:#FF2E88; --cBtx:#FF2E88;
+    --cC:#00D5C8; --cCtx:#00B3A8;
+    --cD:#A6F219; --cDtx:#6FB200;
+    /* B315 — THE LOGO's four corner colours (gui2.html:170-186): the TRUE corner colours at
+       full value; on the light ground legibility is the ink outline's job (--lg-edge) */
+    --lgA:#FFD702; --lgB:#FF2E88; --lgC:#00D5C8; --lgD:#A6F219; --lg-edge:#191521;
+    /* canvas-only names from ADR-118 A2, re-pointed at spec roles */
+    --text-hi:#191521;
+    --dim2:#494356;      /* canvas axis labels — secondary          */
+    --grid:#E5DFD0;      /* gridlines = hairline                    */
+    --grid2:#E5DFD0;
+    --hot:#F5169C;       /* live-value marks = value                */
+    --bad:#C2261A;
+    --badge-bg:rgba(245,163,0,.9);
+    /* SCREEN TOKENS — vaporwave phosphor (ADR-119). The chrome stays cream;
+       only the DATA WELLS become phosphor tubes, so canvases read these while
+       every CSS control keeps the chrome set. */
+    --scr-tube:#1B0733;      /* the tube ground — deep violet            */
+    --scr-value:#FF5ECF;     /* your value, as hot-pink phosphor        */
+    --scr-meter:#B8F227;     /* meter/measure, as LIME                  */
+    --scr-physics:#B48CFF;   /* the system's own state                  */
+    --scr-marker:#FFB86B;    /* attention/root, as amber                */
+    --scr-grid:#4FD8BE;      /* in-tube structure — painted at low alpha */
+    --scr-scan:0.22;         /* scanline strength                        */
+    --scr-alpha:1;           /* multiplier on every TOKA() alpha         */
+    /* B293 — the cycle view's weights, as NUMBERS beside --scr-alpha, not new
+       colours: every ink below is still a gui2 token. These are the DARK values
+       (the human likes dark as it is); the light tube overrides them further down. */
+    --scr-blade-a:1;         /* multiplier on blade-window fills          */
+    --scr-sig-w:1.8;         /* the heard trace's stroke, px              */
+    --scr-halo-w:0;          /* tube-coloured underlay each side of it, px */
+    --scr-member-a:1;        /* multiplier on the faint member traces     */
+    /* geometry */
+    --r-card:10px; --r-well:var(--r-card); --r:var(--r-card); --stroke:1.5px;
+    --shadow:1.5px 1.5px 0 var(--line);
+    --shadow-hover:2.5px 2.5px 0 var(--line);
+    --focus:0 0 0 2.5px rgba(245,22,156,.45); }
+  * { box-sizing:border-box; margin:0; }
+  /* gui2:103 — every canvas is a phosphor tube, and a tube gets the same ink
+     border language as the cards. No shadow: shadows are for interactive
+     elements, never wells. */
+  canvas { border:var(--stroke) solid var(--line); border-radius:var(--r-well);
+           background:var(--scr-tube); display:block; }
+  /* SCREEN SCHEMES (B317; gui2.html:105-150, ADR-121) — the SCREEN axis, separate from the
+     chassis theme. Each redefines the seven --scr-* roles and nothing else; no painter knows a
+     scheme exists. TUBE is the absence of a class (the :root set above); the other four are
+     gui2's body classes, values verbatim. The theme only picks the DEFAULT scheme (gui2's
+     MODES pairs, :1864-1867: LIGHT → ORCHID, DARK → TUBE); the screen chip moves it alone, so a
+     pale screen in a dark chassis is on offer, as in gui2. Neither chassis block sets a --scr-*
+     role any more, so the two axes cannot fight over one. */
+  body.scr-dusk   { --scr-tube:#2A2140; --scr-value:#FF4FA3; --scr-meter:#C8FF3D;
+    --scr-physics:#3DE8FF; --scr-marker:#FFE94A; --scr-grid:#8A6FD4;
+    --scr-scan:0.16; --scr-alpha:1; }
+  /* gui2:142 — ORCHID is the screen scheme the LIGHT chassis pairs with */
+  body.scr-orchid { --scr-tube:#F3EBFF; --scr-value:#D6006B; --scr-meter:#007A73;
+    --scr-physics:#6E14E8; --scr-marker:#C43A00; --scr-grid:#5A3FA8;
+    --scr-scan:0.05; --scr-alpha:1.6; }
+  body.scr-frost  { --scr-tube:#E6F8FF; --scr-value:#D6006B; --scr-meter:#007A73;
+    --scr-physics:#6E14E8; --scr-marker:#C43A00; --scr-grid:#00618C;
+    --scr-scan:0.05; --scr-alpha:1.6; }
+  body.scr-ember  { --scr-tube:#FFF0E4; --scr-value:#D6006B; --scr-meter:#007A73;
+    --scr-physics:#6E14E8; --scr-marker:#B03000; --scr-grid:#8A5A2E;
+    --scr-scan:0.05; --scr-alpha:1.6; }
+  /* B293's weights belong to the PALE tube, not to the light chassis: they were tuned on ORCHID,
+     and FROST and EMBER share its ink family and --scr-alpha, so the three pale grounds carry
+     them. TUBE and DUSK are dark grounds and keep the :root (dark) weights. (Before B317 these
+     sat in body:not(.dark), which was the same thing while light meant ORCHID.) */
+  body.scr-orchid, body.scr-frost, body.scr-ember {
+    /* B293 (human 2026-09-27: "the color scheme can get a little overwhelming in
+       light mode … make the blades in light mode a little less opaque, and maybe
+       do something to make the signal pop more"). --scr-alpha 1.6 lifts faint
+       strokes on the orchid tube, and it lifted the blade FILLS with them, so
+       several overlapping member windows went solid magenta and swallowed the
+       teal trace. The fills drop to ~0.4 of that; the trace goes heavier and gets
+       a thin tube-coloured halo so it cuts through whatever is under it. Its ink
+       stays --scr-meter (a measure — what is heard), which is already not the
+       blade hue, so no colour changes job. */
+    --scr-blade-a:.4; --scr-sig-w:2.6; --scr-halo-w:2; --scr-member-a:.6; }
+  body:not(.dark) {
+    /* gui2:167 — yellow and lime cannot survive a light ground (measured
+       1.20:1 and 1.17:1 against --bg, where the graphical floor is 3:1). */
+    --marker:#8A6A00; --celebrate:#4E7A00; }
+  body.dark {
+    --bg:#151220; --panel:#1F1B2E; --well:#0E0C16; --panel2:#2C2740;
+    --line:#EFE9FA; --hair:#312B47; --div:#3B3455;
+    --text:#EFE9FA; --t2:#BDB4D4; --dim:#8A82A3; --dis:#514A6B;
+    --value:#FF3DAD; --pull:#FF3DAD; --physics:#A07CFF; --meter:#2DF2E2;
+    --marker:#FFE04D; --celebrate:#C2F53E;
+    --caution:#FFB627; --caution-bg:#4A3A12; --caution-tx:#FFD98A;
+    --amber:#FFB627; --alarm:#FF5A4D;
+    --ghost:#5B4E8F;
+    --cA:#FFD702; --cAtx:#FFE566;
+    --cB:#FF2E88; --cBtx:#FF6FAE;
+    --cC:#00D5C8; --cCtx:#4DEDE3;
+    --cD:#A6F219; --cDtx:#C6F86A;
+    /* gui2.html:204-207: on the dark ground the corner colours ARE legible, and need no
+       outline, which would read as a halo rather than an edge */
+    --lgA:#FFD702; --lgB:#FF2E88; --lgC:#00D5C8; --lgD:#A6F219; --lg-edge:none;
+    --text-hi:#FFFFFF; --dim2:#9A93A8; --grid:#312B47; --grid2:#312B47;
+    --hot:#FF3DAD; --bad:#FF5A4D; --badge-bg:rgba(255,182,39,.9);
+    --focus:0 0 0 2.5px rgba(255,61,173,.45); }
+
+
+  /* ============ LAB CHROME — station-page-lab's idiom (gui2:245-560) ============ */
+  body { background:var(--bg); color:var(--text);
+    font:12px/1.45 ui-monospace,Menlo,monospace; padding:10px 12px; }
+  .hdr { display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; margin-bottom:8px; }
+  h1 { font-size:34px; line-height:1; letter-spacing:-1px; font-weight:800; }
+  .badges { display:flex; align-items:center; gap:8px; margin-top:4px; }
+  .badge { font-size:9.5px; letter-spacing:.1em; padding:2px 7px;
+           border:var(--stroke) solid var(--line); border-radius:3px;
+           background:var(--cA); color:var(--line); }
+  body.dark .badge { color:var(--bg); }
+  .sub { color:var(--t2); font-size:10.5px; letter-spacing:.12em; }
+  .hdrctl { display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-left:auto; }
+  .grp { display:flex; align-items:center; gap:7px; }
+  .lbl { font-size:10px; font-weight:700; letter-spacing:.1em; color:var(--t2); }
+  .pill { padding:3px 10px; border:var(--stroke) solid var(--line);
+    border-radius:999px; min-height:26px; cursor:pointer; color:var(--dim);
+    background:var(--panel); font:inherit; font-size:10px; letter-spacing:.06em; }
+  .pill:hover { box-shadow:var(--shadow); }
+  .pill.on { color:var(--bg); background:var(--line); font-weight:600; }
+  .pill.panic { border-color:var(--alarm); color:var(--alarm); font-weight:700; }
+  .pill.panic:hover { background:var(--alarm); color:var(--bg); }
+  .pills { display:flex; gap:4px; flex-wrap:wrap; align-items:center; }
+  .chip { padding:4px 8px; border:0; background:none; border-radius:var(--r);
+    cursor:pointer; font:inherit; font-size:10px; letter-spacing:.06em;
+    color:var(--dim); min-height:26px; }
+  .chip:hover { background:var(--panel2); }
+  .chip b { color:var(--t2); font-weight:600; letter-spacing:.1em; }
+  .tagline { color:var(--t2); font-size:11px; max-width:130ch; margin-bottom:6px; }
+  .tagline b { color:var(--text); }
+  .audit { font-size:10px; color:var(--t2); margin-bottom:8px;
+           border-left:3px solid var(--meter); padding-left:8px; max-width:150ch; }
+  .audit.bad { border-left-color:var(--alarm); color:var(--alarm); }
+  .audit b { color:var(--value); }
+  .audit .ok { color:var(--celebrate); font-weight:700; }
+  .audit .no { color:var(--alarm); font-weight:700; }
+  /* a departure from the standard is marked in caution, the one status whose job
+     is "look at this before you accept it" (gui2's --caution-bg/--caution-tx pair) */
+  .dep { display:inline-block; font-size:8.5px; letter-spacing:.1em; font-weight:700;
+    padding:0 5px; border-radius:3px; background:var(--caution-bg); color:var(--caution-tx);
+    border:1px solid var(--caution); margin-left:4px; vertical-align:1px; }
+  .std { display:inline-block; font-size:8.5px; letter-spacing:.1em; font-weight:700;
+    padding:0 5px; border-radius:3px; color:var(--t2); border:1px solid var(--div);
+    margin-left:4px; vertical-align:1px; }
+  .altbar { display:flex; flex-wrap:wrap; gap:8px 18px; align-items:center; margin:4px 0 10px;
+    padding:6px 10px; border:var(--stroke) solid var(--line); border-radius:var(--r);
+    background:var(--panel); }
+  .altbar select { max-width:230px; }
+
+  /* ============ KNOB — gui2:617-730 (ADR-120 skin, ADR-137 halo), via compact-lab:195-235 ============ */
+  .knob { position:relative; width:36px; height:36px; flex:0 0 auto; cursor:ns-resize; touch-action:none; }
+  .karc { position:absolute; inset:1.7px; border-radius:50%;
+    background:conic-gradient(from 220deg,
+      var(--panel2) 0deg var(--a0,0deg), var(--value) var(--a0,0deg) var(--a1,0deg),
+      var(--panel2) var(--a1,0deg) 280deg, transparent 280deg 360deg); }
+  /* Position is CIRCULAR (ACCOUNTING §1 finding 5): no end stops, so the track is
+     a full turn and the arc is a small window at the value, not a fill from zero */
+  .knob.circ .karc { background:conic-gradient(from 0deg,
+      var(--panel2) 0deg var(--a0,0deg), var(--value) var(--a0,0deg) var(--a1,0deg),
+      var(--panel2) var(--a1,0deg) 360deg); }
+  .kmod { position:absolute; inset:0; border-radius:50%;
+    background:conic-gradient(from 220deg,
+      transparent 0deg var(--m0,0deg), var(--physics) var(--m0,0deg) var(--m1,0deg),
+      transparent var(--m1,0deg) 360deg); opacity:.85; }
+  .knob.circ .kmod { background:conic-gradient(from 0deg,
+      transparent 0deg var(--m0,0deg), var(--physics) var(--m0,0deg) var(--m1,0deg),
+      transparent var(--m1,0deg) 360deg); }
+  .kmnow { position:absolute; left:50%; top:0; width:2.5px; height:5px;
+    margin-left:-1.25px; border-radius:1.25px; background:var(--physics);
+    transform-origin:50% 18px; transform:rotate(var(--mang,0deg)); opacity:0; z-index:2; }
+  .knob.mod .kmnow { opacity:1; }
+  .kcap { position:absolute; inset:4.5px; border-radius:50%;
+    background:var(--panel); border:var(--stroke) solid var(--line); box-shadow:var(--shadow); }
+  .kptr { position:absolute; left:50%; top:7px; width:2.5px; height:9px;
+    margin-left:-1.25px; border-radius:1.5px; background:var(--line);
+    transform-origin:50% 11px; transform:rotate(var(--ang,0deg)); }
+  .knob:hover .kcap { box-shadow:var(--shadow-hover); }
+  .knob.drag .kcap { background:var(--value); box-shadow:none; }
+  .knob.drag .kptr { background:var(--bg); }
+  .knob.big { width:44px; height:44px; }
+  .knob.big .kcap { inset:5px; }
+  .knob.big .kptr { top:8px; height:10px; transform-origin:50% 14px; }
+  .knob.big .kmnow { transform-origin:50% 22px; }
+  .kcell { position:relative; display:flex; flex-direction:column; align-items:center;
+    gap:1px; padding:2px 0 0; text-align:center; width:52px; min-width:0; }
+  .kcell.big { width:70px; }
+  .kcell > label { font-size:9.5px; line-height:1.15; max-width:100%; color:var(--t2);
+    letter-spacing:-.01em; display:-webkit-box; -webkit-box-orient:vertical;
+    -webkit-line-clamp:2; overflow:hidden; overflow-wrap:break-word; min-height:2.3em; }
+  .kcell > output { position:absolute; left:0; right:0; top:2px; min-height:2.3em;
+    display:flex; align-items:center; justify-content:center; font-size:10px;
+    line-height:1.15; color:var(--text); font-weight:600;
+    font-variant-numeric:tabular-nums; opacity:0; pointer-events:none; transition:opacity .08s; }
+  .kcell:hover > output, .kcell:has(.knob.drag) > output { opacity:1; }
+  .kcell:hover > label, .kcell:has(.knob.drag) > label { opacity:0; }
+  /* the lab's opt-in: value under every knob, for screenshots read without hovering */
+  body.showvals .kcell > output { position:static; opacity:1; min-height:0; font-size:9px; font-weight:500; color:var(--t2); }
+  body.showvals .kcell > label { opacity:1 !important; }
+
+  /* ============ THIS LAB — the workshop frame ============ */
+  .notice { border:var(--stroke) solid var(--caution); background:var(--caution-bg); color:var(--caution-tx);
+    border-radius:var(--r); padding:6px 10px; margin:0 0 8px; font-size:11px; max-width:150ch; }
+  .notice b { color:inherit; }
+  .sect { margin:0 0 18px; }
+  .sect > h2 { font-size:12px; color:var(--pull); letter-spacing:1px; margin:0 0 3px; display:flex; gap:10px; align-items:baseline; }
+  .sect > h2 .pol { font-size:9.5px; letter-spacing:.08em; color:var(--t2); font-weight:600; }
+  .sect > .why { font-size:10.5px; color:var(--t2); max-width:150ch; margin:0 0 6px; }
+  .pair { display:flex; gap:14px; flex-wrap:wrap; align-items:flex-start; }
+  .ovgrid { display:flex; flex-wrap:wrap; gap:6px 26px; }
+  /* a section is as wide as its pair of chassis, so two treatments sit side by side on a wide
+     screen; the policy line wraps rather than widening the section */
+  .ovgrid > .sect { flex:0 0 auto; max-width:760px; }
+  .ovgrid > .sect > h2 { flex-wrap:wrap; }
+
+  /* THE CHASSIS — constant across every treatment. Card, ink border and shadow are the plugin
+     window's (.plug); the bezel is the well-alt ground; no colour here is new. */
+  .chassis { background:var(--panel); border:var(--stroke) solid var(--line); border-radius:12px;
+    box-shadow:var(--shadow); padding:7px 9px 7px; display:flex; flex-direction:column; gap:6px; flex:0 0 auto; }
+  .chead { display:flex; align-items:center; gap:8px; }
+  .cbrand { font-weight:800; font-size:15px; letter-spacing:-.5px; line-height:1; }
+  .ctab { padding:1px 9px; border:var(--stroke) solid var(--line); border-radius:999px; font-size:9.5px;
+    color:var(--bg); background:var(--line); font-weight:600; letter-spacing:.06em; }
+  .cled { width:8px; height:8px; border-radius:50%; background:var(--celebrate); border:1px solid var(--line); }
+  .ctr { margin-left:auto; font-size:9px; color:var(--dim); letter-spacing:.1em; }
+  .bezel { background:var(--panel2); border:var(--stroke) solid var(--line); border-radius:var(--r-card);
+    padding:8px; align-self:flex-start; }
+  /* content-box on purpose: the SCREEN's inner box is exactly 160U × 144U, so a logical
+     pixel lands on whole CSS pixels (an inherited border-box would eat 3 px of it) */
+  .screen { position:relative; overflow:hidden; box-sizing:content-box; border:var(--stroke) solid var(--line);
+    border-radius:var(--r-well); background:#000; }
+  .screen > canvas.scr { position:absolute; left:0; top:0; border:0; border-radius:0; background:transparent; }
+  .screen > canvas.px { image-rendering:pixelated; }
+  /* optical effects of the glass. Their rgba are OPTICS (shadow, sheen, scanline), not
+     roles, so they are not tokens. pointer-events none: the screen never takes the mouse. */
+  .fxo { position:absolute; inset:0; pointer-events:none; z-index:4; }
+  .fxo.gbc { background-image:linear-gradient(to right, rgba(0,0,0,var(--gridA)) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0,0,0,var(--gridA)) 1px, transparent 1px);
+    background-size:var(--u) var(--u); box-shadow:inset 0 0 12px rgba(0,0,0,.22); }
+  .fxo.crt { background:repeating-linear-gradient(to bottom, rgba(0,0,0,.34) 0 1px, transparent 1px 3px),
+    radial-gradient(ellipse at 50% 50%, transparent 70%, rgba(0,0,0,.4) 100%);
+    box-shadow:inset 0 0 18px rgba(0,0,0,.7); border-radius:18px; }
+  .fxo.vec { background:radial-gradient(ellipse at 30% 18%, rgba(255,255,255,.07), transparent 42%);
+    box-shadow:inset 0 0 22px rgba(0,0,0,.9); }
+  .fxo.seg { background:linear-gradient(160deg, rgba(255,255,255,.10), transparent 35%, transparent 70%, rgba(0,0,0,.06));
+    box-shadow:inset 0 0 0 3px rgba(0,0,0,.10), inset 0 0 14px rgba(0,0,0,.18); }
+  .fxo.ws { box-shadow:inset 0 0 6px rgba(0,0,0,.25); }
+  .fxo.ttx { background:repeating-linear-gradient(to bottom, rgba(0,0,0,.18) 0 1px, transparent 1px 2px);
+    box-shadow:inset 0 0 22px rgba(0,0,0,.6); }
+  /* LOGO SLOTS: whole-number scale only (the size is set in JS as natural × k, k an integer) */
+  .lslot { position:absolute; overflow:hidden; z-index:3; }
+  .lslot > img, .lslot > canvas, canvas.lph, img.lph { display:block; image-rendering:pixelated; border:0;
+    border-radius:0; background:transparent; }
+  .lslot.cel > img, .lslot.cel > canvas { opacity:.9; }
+  /* chassis controls: four columns across the screen's width, key over knob */
+  .cctl { display:grid; grid-template-columns:repeat(4, 1fr); gap:2px; }
+  .ccol { display:flex; flex-direction:column; align-items:center; gap:3px; }
+  .ckey { min-width:44px; }
+  .cfoot { display:flex; align-items:center; gap:6px; flex-wrap:wrap; font-size:9.5px; color:var(--t2); }
+  .tag { display:inline-block; font-size:8.5px; letter-spacing:.1em; font-weight:700; padding:0 5px;
+    border-radius:3px; color:var(--t2); border:1px solid var(--div); }
+  .tag.prov { background:var(--caution-bg); color:var(--caution-tx); border-color:var(--caution); }
+  .notes { display:grid; grid-template-columns:repeat(auto-fill, minmax(420px, 1fr)); gap:10px; margin-top:8px; }
+  .notes .box { background:var(--panel); border:var(--stroke) solid var(--line); border-radius:var(--r);
+    padding:8px 10px; font-size:10.5px; color:var(--t2); line-height:1.5; }
+  .notes h2 { font-size:11px; color:var(--pull); letter-spacing:1px; margin:0 0 5px; }
+  .notes b { color:var(--text); }
+  .notes table { border-collapse:collapse; width:100%; }
+  .notes td, .notes th { border-bottom:1px dashed var(--div); padding:2px 4px; text-align:left; vertical-align:top; }
+  .notes th { color:var(--dim); font-weight:600; letter-spacing:.08em; }
+  .notes ol, .notes ul { padding-left:18px; }
+  .ok { color:var(--celebrate); font-weight:700; } .no { color:var(--alarm); font-weight:700; } .pend { color:var(--caution-tx); font-weight:700; }
+  .lsample { display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap; margin:4px 0; }
+  .lsample figure { margin:0; font-size:9px; color:var(--dim); }
+  #ctlArea { position:absolute; left:-9999px; top:0; }
+</style>
+</head><body>
+
+<div class="hdr">
+  <div>
+    <h1>fx screens</h1>
+    <div class="badges">
+      <span class="badge">B322 · WORKSHOP — NOT A RULING</span>
+      <span class="sub">MAW + SLUICE AS SOFTWARE ON HORDE'S SCREENS · ONE CHASSIS · SIX RETRO-FUTURE GLASSES · LOGO SLOTS FOR THE HUMAN'S PIXEL ART</span>
+    </div>
+  </div>
+  <div class="hdrctl">
+    <button class="chip" id="themeBtn" data-lab="chassis theme">theme <b>LIGHT</b></button>
+    <button class="chip" id="scrBtn" data-lab="screen scheme (gui2's SCR chip, ADR-121); each treatment states whether it takes it" title="TUBE · ORCHID · FROST · EMBER · DUSK">screen <b>ORCHID</b></button>
+    <button class="chip" id="motionBtn" data-lab="animate the mock values (a frame counter, never the clock)">motion <b>ON</b></button>
+    <button class="chip" id="logoBtn" data-lab="show generated TEST patterns in the logo slots, to see the loaded path (not the human's art)">logos <b>FILES</b></button>
+  </div>
+</div>
+
+<div class="notice"><b>WORKSHOP, NOT A RULING.</b> The human: "not exactly a decision until we test it out". Six ways MAW and Sluice
+could look as software running on a screen inside horde, each in the <b>same</b> chassis. Everything on the screens is a <b>MOCK</b>
+(sample values, animated by a frame counter); nothing here is a rendered signal. The <b>Sluice</b> layout is <b>PROVISIONAL</b> until
+Sluice's architecture spec lands (B321).</div>
+
+<div class="audit" id="audit">self-checks: pending</div>
+
+<div class="altbar">
+  <div class="grp"><span class="lbl">VIEW</span><div class="pills" id="viewPills"></div></div>
+  <div class="grp"><span class="lbl">MODULE</span><div class="pills" id="modPills"></div></div>
+</div>
+
+<div id="stage"></div>
+
+<div class="notes" id="notes"></div>
+<div id="ctlArea" aria-hidden="true"></div>
+
+<script>
+/* ======================================================================
+   A. CONSTANTS AND STATE — declared before anything that runs at setup (L0026)
+   ====================================================================== */
+const Q = (typeof URLSearchParams === 'function' && typeof location !== 'undefined' && typeof location.search === 'string')
+  ? new URLSearchParams(location.search) : null;
+const qp = (k, d) => (Q && Q.get(k) !== null ? Q.get(k) : d);
+
+/* gui2's screen schemes (gui2.html:1851-1856 via scalpel-interface-lab.html:1463); TUBE is the
+   absence of a class. The theme picks the default (light → ORCHID, dark → TUBE); the chip
+   moves the scheme alone. */
+const SCHEMES = [
+  { cls: '', name: 'TUBE' }, { cls: 'scr-orchid', name: 'ORCHID' }, { cls: 'scr-frost', name: 'FROST' },
+  { cls: 'scr-ember', name: 'EMBER' }, { cls: 'scr-dusk', name: 'DUSK' }
+];
+const MODES_PAIR = { light: 'ORCHID', dark: 'TUBE' };
+const PALE = { ORCHID: 1, FROST: 1, EMBER: 1 };
+
+/* THE TREATMENTS. `lw × lh` is the treatment's logical grid; the screen is always
+   160U × 144U CSS px (U = 2 in the overview, 4 full-size), so a pixel treatment's scale is
+   U·160/lw, a whole number by construction. `pixel` treatments are drawn at their logical
+   size and scaled by the browser (image-rendering: pixelated); the rest are drawn at display
+   resolution. `logoK(U)` is the logo slots' whole-number scale. `scheme` is the policy
+   self-check 5 holds the treatment to. */
+const TREATMENTS = [
+  { id: 'gbc', name: 'GAME BOY COLOR LCD', lw: 160, lh: 144, pixel: true, logoK: U => U, scheme: 'respects',
+    policy: 'TAKES THE SCHEME — four 4-colour tile palettes built from its roles, rounded to RGB555',
+    why: 'The natural home for the human\'s logos: 160×144 logical pixels, one logo pixel = one screen pixel, 8×8 tiles with one 4-colour palette each (the hardware rule, enforced by drawing into a 2-bit index buffer), a 3×5 pixel font, the LCD\'s dot grid and its slow-pixel ghosting. Individuality comes from layout alone, since both modules share the scheme\'s palettes.',
+    logo: 'Native: the logo sits on the same pixel grid as the UI, at the screen\'s own scale.' },
+  { id: 'crt', name: 'PHOSPHOR CRT TERMINAL', lw: 160, lh: 144, pixel: false, logoK: U => U / 2, scheme: 'overrides',
+    policy: 'OVERRIDES — a phosphor\'s colour is its chemistry: MAW burns P3 amber, Sluice P1 green',
+    why: 'A 64×36 character-cell terminal: box drawing, inverse-video soft keys, a dumb-terminal plot of the transfer curve and an ASCII network, with scanlines, bloom and phosphor persistence. The two modules get the two classic phosphors, which is where their individuality lives. Retro-future as a working tool, not a toy.',
+    logo: 'Shown as-is, at half the screen scale, in the header rows. A tinted (monochrome) logo is an open question.' },
+  { id: 'vec', name: 'VECTOR MONITOR', lw: 160, lh: 144, pixel: false, logoK: U => U / 2, scheme: 'dark-only',
+    policy: 'DARK SCHEMES ONLY — takes TUBE/DUSK inks; a vector tube has no lit ground, so on a pale scheme it draws with TUBE\'s inks',
+    why: 'Glowing strokes on black, Vectrex/oscilloscope style. MAW\'s transfer curve becomes what an XY scope actually shows (input on X, output on Y, the beam tracing it); Sluice\'s network is a wireframe with pulses travelling the edges. Text is stroked in the same 14-segment font the segment glass uses, which is how early vector games lettered.',
+    logo: 'A vector beam cannot draw a bitmap, so the logo is a coloured cel laid over the glass, as the Vectrex\'s overlays were.' },
+  { id: 'ws', name: '80s WORKSTATION', lw: 320, lh: 288, pixel: true, logoK: U => U / 2, scheme: 'respects',
+    policy: 'TAKES THE SCHEME — 1-bit: paper = the scheme\'s tube, ink = its physics ink; grey is ordered dither',
+    why: 'A windowed desktop at 320×288, 1-bit with Bayer dithering: menu bar, overlapping windows, radio buttons, sliders, dialog buttons. MAW opens as a document with Transfer and Levels palettes; Sluice as a network window with Tempo and Randomise dialogs. The most "software", and the most crowded at this size.',
+    logo: 'Native in the document window (one logo pixel per screen pixel); the icon is the window\'s proxy icon. Colour art is shown in colour: a 1-bit logo is an open question.' },
+  { id: 'seg', name: 'SEGMENT GLASS', lw: 160, lh: 144, pixel: false, logoK: U => U / 2, scheme: 'respects',
+    policy: 'TAKES THE SCHEME — pale schemes are a reflective LCD (dark segments), dark schemes a VFD (glowing segments)',
+    why: 'Refines "segmented LCD": a custom instrument glass with 7-segment numerals, 14-segment labels, bar graphs and fixed icon segments, every unlit segment faintly visible. The scheme decides LCD or VFD, so it respects the scheme rather than overriding it. Custom glass is fabricated per product: every node of Sluice\'s network is a mask decision, so this is the worst fit for a provisional layout.',
+    logo: 'Printed on the glass (a silkscreened legend), not made of segments.' },
+  { id: 'ttx', name: 'TELETEXT PAGE', lw: 160, lh: 144, pixel: false, logoK: U => U / 2, scheme: 'overrides',
+    policy: 'OVERRIDES — the eight teletext colours are the idiom; the scheme does not reach this page',
+    why: 'A 40×24 teletext page: block-mosaic graphics (2×3 sextants per cell), double-height titles, flashing text, one foreground colour per cell, and the four Fastext colour keys, which map one-to-one onto the chassis\'s four soft keys. Spacing attributes are not simulated.',
+    logo: 'Laid over the page at half the screen scale; a mosaic rendering of the logo is an open question.' }
+];
+const TR = {}; for (const t of TREATMENTS) TR[t.id] = t;
+const MODULES = ['maw', 'sluice'];
+const MODNAME = { maw: 'MAW', sluice: 'SLUICE' };
+/* what every screen of a module must show — self-check 1 holds each renderer to it */
+const REQUIRED = {
+  maw: ['logo', 'roles', 'stages', 'route', 'curve', 'soft'],
+  sluice: ['logo', 'network', 'macros', 'sync', 'random', 'provisional', 'soft']
+};
+/* THE LOGO CANVASES the human draws to (logical pixels; both are whole 8×8 tiles) */
+const LOGO_DIR = 'assets/fx-logos/';
+const LOGO_KINDS = {
+  title: { w: 96, h: 24, file: m => m + '.png', what: 'title strip (12×3 tiles)' },
+  icon: { w: 16, h: 16, file: m => m + '-icon.png', what: 'square icon (2×2 tiles)' }
+};
+
+/* MAW — SPEC-MAW §2.1 routes and §3 curves. The formulas are §3's; this page evaluates them
+   for the mock, which SPEC-MAW §10 says is not evidence of what MAW renders. */
+const ROUTES = ['SERIES', 'PARALLEL', 'MULTIBAND', 'MID/SIDE', 'FEEDBACK'];
+const ROUTE_SHORT = ['SER', 'PAR', 'MB', 'M/S', 'FB'];
+const clip1 = x => Math.max(-1, Math.min(1, x));
+const trifold = x => { const t = (((x + 1) % 4) + 4) % 4; return t < 2 ? t - 1 : 3 - t; };
+const CURVES = [
+  { name: 'soft', short: 'SOFT', f: (x, s) => (1 - s) * Math.tanh(x) + s * clip1(x) },
+  { name: 'hard clip', short: 'HARD', f: (x, s) => { const k = 0.9 * s, a = Math.abs(x), sg = Math.sign(x);
+      if (k < 1e-6 || a <= 1 - k) return a <= 1 ? x : sg; if (a >= 1 + k) return sg; return sg * (a - (a - (1 - k)) * (a - (1 - k)) / (4 * k)); } },
+  { name: 'overdrive', short: 'ODRV', f: (x, s) => Math.tanh(x) * (1 + 0.5 * s * (1 - Math.tanh(x) ** 2)) },
+  { name: 'tube', short: 'TUBE', f: (x, s) => { const c = clip1(x); return 1.5 * (c - c * c * c / 3) + 0.5 * s * c * c; } },
+  { name: 'diode', short: 'DIOD', f: (x, s) => { const k = 1 + 6 * s; return x > 0 ? Math.tanh(x) : Math.tanh(k * x) / k; } },
+  { name: 'fold', short: 'FOLD', f: (x, s) => (1 - s) * Math.sin(Math.PI * x / 2) + s * trifold(x) }
+];
+const MAW_DEF = { roles: [0.55, 0.45, 0.3, 0.6], route: 0, sel: 0,
+  stages: [{ curve: 0, drive: 9, shape: 0.3 }, { curve: 5, drive: 3, shape: 0.55 }, { curve: 3, drive: 0, shape: 0.6 }] };
+const MAW = JSON.parse(JSON.stringify(MAW_DEF));
+const MAW_ROLES = ['AMOUNT', 'TONE', 'MOTION', 'REGEN'];
+
+/* SLUICE — the roster is our reference's eight types plus the four Sluice added (B319's drift
+   table: chorus, leveler, phaser, limiter). Leveler and limiter are locked by default
+   (Sluice notice seq 10). Division names and beats are horde's (shape-lab-mod.html:782-788,
+   Sluice notice seq 7: sync by NAME). Macro labels are MOCK labels, bound by order. */
+const ROSTER = ['shifter', 'diffuser', 'delay', 'combs', 'allpass', 'disperser', 'doppler', 'filter', 'chorus', 'phaser'];
+const SHORT3 = { shifter: 'SHF', diffuser: 'DIF', delay: 'DLY', combs: 'CMB', allpass: 'APS', disperser: 'DSP',
+  doppler: 'DOP', filter: 'FLT', chorus: 'CHO', phaser: 'PHS', leveler: 'LVL', limiter: 'LIM' };
+const DIVS = [['1/16', 0.25], ['1/8', 0.5], ['3/16', 0.75], ['1/4', 1], ['3/8', 1.5], ['1/2', 2]];
+const SL_DEF = { chain: ['shifter', 'allpass', 'delay', 'chorus'], vals: [3, 37, 0, 0.4], th: [0.2, 0.55, 0.1, 0.8],
+  macros: [{ label: 'SMEAR', v: 0.4 }, { label: 'DRIFT', v: 0.25 }, { label: 'LOOP', v: 0.6 }, { label: 'AIR', v: 0.5 }],
+  bpm: 120, div: 2, lfoDiv: 3, randomness: 0.35, seed: 7, clicks: 0, lvlLock: 0 };
+const SL = JSON.parse(JSON.stringify(SL_DEF));
+const LOCK_STATES = ['DEFAULT', 'LOCKED', 'UNLOCKED'];   // fz.h's tri-state lock
+
+const LAB = {
+  view: qp('view', 'overview'), mod: qp('mod', 'both'), theme: qp('theme', 'light') === 'dark' ? 'dark' : 'light',
+  scheme: '', animate: qp('still', null) === null, frame: parseInt(qp('still', '0'), 10) || 0,
+  logotest: qp('logotest', '0') === '1', rr: 0
+};
+LAB.scheme = SCHEMES.some(s => s.name === String(qp('scheme', '')).toUpperCase()) ? String(qp('scheme', '')).toUpperCase() : MODES_PAIR[LAB.theme];
+const SCREENS = [];          // live screen instances, rebuilt with the view
+const LOGOS = {};            // file → { state: 'pending'|'present'|'absent', img, lint }
+const CHECKS = { rows: [], done: false };
+const FPS = 60;              // the mock clock: t = frame / FPS. A frame counter, never the wall clock.
+
+/* ======================================================================
+   B. HELPERS — TOK/RGBA/el/mulberry32 copied from scalpel-interface-lab.html
+   ====================================================================== */
+let _tok = {};
+function TOK(name, fallback) {
+  if (_tok[name] === undefined) {
+    let v = '';
+    try { v = getComputedStyle(document.body || document.documentElement).getPropertyValue(name).trim(); } catch (_) { v = ''; }
+    _tok[name] = (typeof v === 'string' && v) ? v : (fallback || '#888888');
+  }
+  return _tok[name];
+}
+function RGBA(hex, a) {
+  const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(hex).trim());
+  if (!m) return hex;
+  return `rgba(${parseInt(m[1], 16)},${parseInt(m[2], 16)},${parseInt(m[3], 16)},${a})`;
+}
+function el(tag, cls, txt) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (txt !== undefined && txt !== null) e.textContent = txt;
+  return e;
+}
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+function rgbOf(hex) {
+  const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(hex).trim());
+  return m ? [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)] : [136, 136, 136];
+}
+const hexOf = c => '#' + c.map(v => (v | 0).toString(16).padStart(2, '0')).join('');
+const mixHex = (a, b, t) => { const A = rgbOf(a), B = rgbOf(b); return hexOf(A.map((v, i) => Math.round(v + (B[i] - v) * t))); };
+/* RGB555, the GBC's colour depth: 5 bits a channel, expanded to 8 as (k<<3)|(k>>2) */
+const e5 = k => (k << 3) | (k >> 2);
+const q5 = v => e5(Math.round(v * 31 / 255));
+const on555 = v => e5(v >> 3) === v;
+const q555 = hex => hexOf(rgbOf(hex).map(q5));
+const pct = v => Math.round(v * 100) + '%';
+function setCtx(cv, w, h) { if (cv.width !== w) cv.width = w; if (cv.height !== h) cv.height = h; return cv.getContext('2d', { willReadFrequently: true }); }
+
+/* the 3×5 pixel font (GBC and WORKSTATION). Five rows per glyph, each a 3-bit digit, MSB left. */
+const F35 = {
+  A: '25755', B: '65656', C: '34443', D: '65556', E: '74647', F: '74644', G: '34553', H: '55755', I: '72227',
+  J: '11152', K: '55655', L: '44447', M: '57755', N: '65555', O: '25552', P: '65644', Q: '25563', R: '65655',
+  S: '34216', T: '72222', U: '55557', V: '55552', W: '55775', X: '55255', Y: '55222', Z: '71247',
+  0: '75557', 1: '26227', 2: '61247', 3: '61216', 4: '55711', 5: '74616', 6: '34652', 7: '71222', 8: '25252',
+  9: '25316', ' ': '00000', '.': '00002', ',': '00024', ':': '02020', '-': '00700', '+': '02720', '/': '11244',
+  '%': '51245', '>': '42124', '<': '12421', '=': '07070', '(': '24442', ')': '21112', '#': '57575', '?': '61202',
+  '!': '22202', '_': '00007', '*': '05250', '|': '22222', '[': '64446', ']': '31113', "'": '22000', '^': '25000'
+};
+const glyph35 = ch => F35[ch] || F35[String(ch).toUpperCase()] || F35['?'];
+function text35(s, plot) {   // plot(dx, dy) per lit pixel; returns the advance in pixels
+  s = String(s); let x = 0;
+  for (const ch of s) {
+    const g = glyph35(ch);
+    for (let r = 0; r < 5; r++) { const bits = +g[r]; for (let c = 0; c < 3; c++) if ((bits >> (2 - c)) & 1) plot(x + c, r); }
+    x += 4;
+  }
+  return x;
+}
+
+/* the 14-segment font (SEGMENT GLASS lit and ghosted, VECTOR stroked). Segment names:
+   T top, UR/LR right, B bottom, LL/UL left, ML/MR the middle halves, VU/VD the centre
+   verticals, DUL/DUR/DLL/DLR the diagonals from the centre to each corner. */
+const SEG_ALL = ['T', 'UR', 'LR', 'B', 'LL', 'UL', 'ML', 'MR', 'DUL', 'VU', 'DUR', 'DLL', 'VD', 'DLR'];
+const SEG_7 = ['T', 'UR', 'LR', 'B', 'LL', 'UL', 'ML', 'MR'];
+const SEG = {
+  A: 'T UR LR UL LL ML MR', B: 'T UR LR B VU VD MR', C: 'T UL LL B', D: 'T UR LR B VU VD', E: 'T UL LL B ML',
+  F: 'T UL LL ML', G: 'T UL LL B LR MR', H: 'UL LL UR LR ML MR', I: 'T B VU VD', J: 'UR LR B LL',
+  K: 'UL LL ML DUR DLR', L: 'UL LL B', M: 'UL LL UR LR DUL DUR', N: 'UL LL UR LR DUL DLR', O: 'T UR LR B LL UL',
+  P: 'T UR UL LL ML MR', Q: 'T UR LR B LL UL DLR', R: 'T UR UL LL ML MR DLR', S: 'T UL ML MR LR B',
+  T: 'T VU VD', U: 'UL LL B LR UR', V: 'UL LL DLL DUR', W: 'UL LL UR LR DLL DLR', X: 'DUL DUR DLL DLR',
+  Y: 'DUL DUR VD', Z: 'T DUR DLL B',
+  0: 'T UR LR B LL UL', 1: 'UR LR', 2: 'T UR ML MR LL B', 3: 'T UR MR LR B', 4: 'UL ML MR UR LR',
+  5: 'T UL ML MR LR B', 6: 'T UL LL B LR ML MR', 7: 'T UR LR', 8: 'T UR LR B LL UL ML MR', 9: 'T UL UR ML MR LR B',
+  '-': 'ML MR', '+': 'ML MR VU VD', '/': 'DUR DLL', '*': 'DUL DUR DLL DLR VU VD', '>': 'DUL DLL', '<': 'DUR DLR',
+  '_': 'B', '=': 'ML MR B', "'": 'VU', ' ': ''
+};
+function segEnds(name, w, h) {
+  const c = [w / 2, h / 2];
+  switch (name) {
+    case 'T': return [[0, 0], [w, 0]]; case 'B': return [[0, h], [w, h]];
+    case 'UR': return [[w, 0], [w, h / 2]]; case 'LR': return [[w, h / 2], [w, h]];
+    case 'UL': return [[0, 0], [0, h / 2]]; case 'LL': return [[0, h / 2], [0, h]];
+    case 'ML': return [[0, h / 2], c]; case 'MR': return [c, [w, h / 2]];
+    case 'VU': return [c, [w / 2, 0]]; case 'VD': return [c, [w / 2, h]];
+    case 'DUL': return [c, [0, 0]]; case 'DUR': return [c, [w, 0]];
+    case 'DLL': return [c, [0, h]]; case 'DLR': return [c, [w, h]];
+  }
+  return [c, c];
+}
+/* draws a string of segment glyphs; `ghost` (an rgba or null) paints every unlit segment of
+   the chosen set first, the glass's "off" segments; `inset` shortens each segment so they read
+   as separate bars. Returns the advance. */
+function segText(g, s, x, y, w, h, ink, o) {
+  o = o || {};
+  const set = o.seven ? SEG_7 : SEG_ALL, adv = w * (o.adv || 1.45), inset = o.inset === undefined ? 0.16 : o.inset;
+  g.lineCap = o.round ? 'round' : 'butt'; g.lineWidth = o.lw || Math.max(1, w * 0.17);
+  let cx = x;
+  for (const ch of String(s).toUpperCase()) {
+    if (ch === '.') { const d = Math.max(0.7, g.lineWidth * 1.15); g.fillStyle = ink; g.fillRect(cx - (adv - w) / 2 - d / 2, y + h - d, d, d); continue; }   // centred in the gap between glyphs
+    const lit = (SEG[ch] !== undefined ? SEG[ch] : SEG['*']).split(' ').filter(Boolean);
+    for (const nm of set) {
+      const on = lit.includes(nm);
+      if (!on && !o.ghost) continue;
+      const [[x0, y0], [x1, y1]] = segEnds(nm, w, h), dx = x1 - x0, dy = y1 - y0;
+      g.strokeStyle = on ? ink : o.ghost;
+      g.beginPath(); g.moveTo(cx + x0 + dx * inset, y + y0 + dy * inset); g.lineTo(cx + x1 - dx * inset, y + y1 - dy * inset); g.stroke();
+    }
+    cx += adv;
+  }
+  return cx - x;
+}
+
+/* ======================================================================
+   C. THE MOCK MODELS — one view model per module, shared by every treatment
+   ====================================================================== */
+function mawVM(t) {
+  const R = MAW.roles;
+  const stages = MAW.stages.map((s, i) => {
+    const dB = clamp(s.drive + (R[0] - 0.5) * 36, -12, 48);     // Amount: ±18 dB on every stage (B318's proposal)
+    const shape = clamp(s.shape + (R[1] - 0.5), 0, 1);           // Tone: shape ±0.5
+    const g = Math.pow(10, dB / 20), C = CURVES[s.curve];
+    return { n: i + 1, name: C.short, long: C.name, dB, shape, f: x => clamp(C.f(g * x, shape), -1.3, 1.3) };
+  });
+  // the mock input: a level that swells at a Motion-set rate, and a slow sweep of the dot
+  const rate = 0.35 + 1.6 * R[2];
+  const env = 0.55 + 0.4 * Math.sin(2 * Math.PI * 0.21 * rate * t);
+  const x = env * Math.sin(2 * Math.PI * 0.45 * t);
+  let a = env; const lev = [];
+  for (const s of stages) { a = Math.abs(s.f(a)); lev.push(clamp(a / 1.3, 0, 1)); }
+  const fb = MAW.route === 4;
+  const roles = MAW_ROLES.map((label, i) => ({ label, short: label.slice(0, 3), v: R[i],
+    idle: i === 3 && !fb,
+    txt: i === 0 ? ((R[0] - 0.5) * 36 >= 0 ? '+' : '') + ((R[0] - 0.5) * 36).toFixed(1) + 'DB'
+      : i === 1 ? 'SHP ' + ((R[1] - 0.5) >= 0 ? '+' : '') + (R[1] - 0.5).toFixed(2)
+      : i === 3 && !fb ? 'IDLE' : pct(R[i]) }));
+  return { mod: 'maw', t, stages, sel: MAW.sel, route: MAW.route, routeName: ROUTES[MAW.route], x, env,
+    lev: { in: env, s: lev, out: lev[2] }, roles, keys: ['S1', 'S2', 'S3', 'ROUTE'],
+    topo: ['1>2>3', '1+2+3', 'LO|MID|HI', 'M1 S2 >3', '1>2>3 FB'][MAW.route] };
+}
+function nodeVal(type, v, div) {
+  switch (type) {
+    case 'shifter': return (v >= 0 ? '+' : '') + v.toFixed(0) + 'HZ';
+    case 'allpass': return v.toFixed(0) + 'MS';
+    case 'delay': return div;
+    case 'chorus': case 'phaser': return v.toFixed(1) + 'HZ';
+    case 'doppler': return '+' + v.toFixed(0) + 'ST';
+    case 'filter': return v.toFixed(0) + 'HZ';
+    default: return (v * 100).toFixed(0);
+  }
+}
+function sluiceVM(t) {
+  const beat = 60 / SL.bpm, div = DIVS[SL.div];
+  const nodes = [{ id: 'in', label: 'IN', x: 0.03, y: 0.34, io: true }];
+  const n = SL.chain.length;
+  SL.chain.forEach((type, i) => nodes.push({ id: 'c' + i, type, label: SHORT3[type], x: 0.14 + i * (0.5 / Math.max(1, n - 1)), y: 0.34,
+    val: nodeVal(type, SL.vals[i], div[0]) }));
+  nodes.push({ id: 'lim', type: 'limiter', label: 'LIM', x: 0.80, y: 0.34, locked: true, post: true });
+  nodes.push({ id: 'out', label: 'OUT', x: 0.955, y: 0.34, io: true });
+  const lvlLocked = SL.lvlLock !== 2;
+  nodes.push({ id: 'lvl', type: 'leveler', label: 'LVL', x: 0.39, y: 0.82, locked: lvlLocked, loop: true });
+  const idx = {}; nodes.forEach((d, i) => { idx[d.id] = i; });
+  const main = ['in'].concat(SL.chain.map((_, i) => 'c' + i), ['lim', 'out']);
+  const edges = [];
+  for (let i = 0; i + 1 < main.length; i++) edges.push({ a: idx[main[i]], b: idx[main[i + 1]] });
+  edges.push({ a: idx['c' + (n - 1)], b: idx.lvl, loop: true }, { a: idx.lvl, b: idx.c0, loop: true });
+  // mock pulses: one dry pulse a beat along the main path, echoes round the loop every
+  // division, each scaled by the LOOP macro (macro 3). Drawn, not heard.
+  const pulses = [];
+  const tb = t % (2 * beat), mainDur = 0.55 * beat;
+  if (tb < mainDur) pulses.push({ path: 'main', u: tb / mainDur, a: 1 });
+  const fbk = 0.35 + 0.6 * SL.macros[2].v;
+  for (let j = 1; j <= 3; j++) {
+    const t0 = j * div[1] * beat * 0.5, lu = (tb - t0) / (0.4 * beat);
+    if (lu >= 0 && lu < 1) pulses.push({ path: 'loop', u: lu, a: Math.pow(fbk, j) });
+  }
+  nodes.forEach(d => { d.act = 0; });
+  for (const p of pulses) {
+    const path = p.path === 'main' ? main : ['c' + (n - 1), 'lvl', 'c0'];
+    const f = p.u * (path.length - 1), k = Math.round(f);
+    if (Math.abs(f - k) < 0.35) nodes[idx[path[k]]].act = Math.max(nodes[idx[path[k]]].act, p.a);
+  }
+  const applied = SL.th.filter(th => th < SL.randomness).length;
+  return { mod: 'sluice', t, nodes, edges, idx, main, pulses, n,
+    macros: SL.macros.map(m => ({ label: m.label, v: m.v, txt: pct(m.v) })),
+    sync: { bpm: SL.bpm, div: div[0], ms: Math.round(div[1] * beat * 1000), lfo: DIVS[SL.lfoDiv][0] },
+    random: { amt: SL.randomness, seed: String(SL.seed).padStart(4, '0'), clicks: SL.clicks, applied, of: SL.th.length,
+      lvl: LOCK_STATES[SL.lvlLock], lvlLocked },
+    keys: ['NEW', 'RAND', 'SYNC', 'LOCK'] };
+}
+/* a node's centre and the edges' polylines, mapped into a rect; loop edges run orthogonally
+   (down from the tap, across, up into the first module) */
+function netGeom(vm, x0, y0, w, h) {
+  const P = vm.nodes.map(d => [x0 + d.x * w, y0 + d.y * h]);
+  const polys = vm.edges.map(e => {
+    const a = P[e.a], b = P[e.b];
+    if (!e.loop) return [a, b];
+    return vm.nodes[e.b].loop ? [a, [a[0], b[1]], b] : [a, [b[0], a[1]], b];
+  });
+  return { P, polys };
+}
+function polyAt(poly, u) {
+  const L = []; let tot = 0;
+  for (let i = 0; i + 1 < poly.length; i++) { const d = Math.hypot(poly[i + 1][0] - poly[i][0], poly[i + 1][1] - poly[i][1]); L.push(d); tot += d; }
+  let s = u * tot;
+  for (let i = 0; i < L.length; i++) {
+    if (s <= L[i] || i === L.length - 1) { const f = L[i] ? clamp(s / L[i], 0, 1) : 0; return [poly[i][0] + (poly[i + 1][0] - poly[i][0]) * f, poly[i][1] + (poly[i + 1][1] - poly[i][1]) * f]; }
+    s -= L[i];
+  }
+  return poly[0];
+}
+/* where each pulse is: the main path is the chain of main edges, the loop the two loop edges */
+function pulsePoints(vm, G) {
+  const mainPoly = [], loopPoly = [];
+  vm.edges.forEach((e, i) => { const p = G.polys[i]; const tgt = e.loop ? loopPoly : mainPoly; (tgt.length ? p.slice(1) : p).forEach(q => tgt.push(q)); });
+  return vm.pulses.map(p => ({ xy: polyAt(p.path === 'main' ? mainPoly : loopPoly, p.u), a: p.a }));
+}
+
+/* ======================================================================
+   D. GAME BOY COLOR — a 2-bit index buffer and a per-tile palette map, so the hardware rule
+   (one 4-colour palette per 8×8 tile) holds by construction; self-check 4 reads it back
+   ====================================================================== */
+function GBuf() { this.idx = new Uint8Array(160 * 144); this.attr = new Uint8Array(20 * 18); }
+GBuf.prototype.clear = function () { this.idx.fill(0); this.attr.fill(0); };
+GBuf.prototype.px = function (x, y, c) { x |= 0; y |= 0; if (x >= 0 && x < 160 && y >= 0 && y < 144) this.idx[y * 160 + x] = c; };
+GBuf.prototype.rect = function (x, y, w, h, c) { for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) this.px(x + i, y + j, c); };
+GBuf.prototype.box = function (x, y, w, h, c) { this.rect(x, y, w, 1, c); this.rect(x, y + h - 1, w, 1, c); this.rect(x, y, 1, h, c); this.rect(x + w - 1, y, 1, h, c); };
+GBuf.prototype.line = function (x0, y0, x1, y1, c, dash) {
+  x0 = Math.round(x0); y0 = Math.round(y0); x1 = Math.round(x1); y1 = Math.round(y1);
+  const dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+  let e = dx + dy, n = 0;
+  for (;;) {
+    if (!dash || (n >> 1) % 2 === 0) this.px(x0, y0, c);
+    n++;
+    if (x0 === x1 && y0 === y1) break;
+    const e2 = 2 * e; if (e2 >= dy) { e += dy; x0 += sx; } if (e2 <= dx) { e += dx; y0 += sy; }
+  }
+};
+GBuf.prototype.text = function (s, x, y, c) { return text35(s, (dx, dy) => this.px(x + dx, y + dy, c)); };
+GBuf.prototype.ctext = function (s, cx, y, c) { return this.text(s, Math.round(cx - (String(s).length * 4 - 1) / 2), y, c); };
+GBuf.prototype.pal = function (tx, ty, tw, th, p) { for (let j = 0; j < th; j++) for (let i = 0; i < tw; i++) if (tx + i < 20 && ty + j < 18) this.attr[(ty + j) * 20 + tx + i] = p; };
+GBuf.prototype.compose = function (img, pals) {
+  const d = img.data;
+  for (let y = 0; y < 144; y++) for (let x = 0; x < 160; x++) {
+    const c = pals[this.attr[(y >> 3) * 20 + (x >> 3)]][this.idx[y * 160 + x]], o = (y * 160 + x) * 4;
+    d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; d[o + 3] = 255;
+  }
+};
+/* four BG palettes from the scheme's roles: 0 structure (grid), 1 your values (value),
+   2 measures (meter), 3 attention (marker). Each is [ground, faint, role, ink]: the ground is
+   the tube, the ink (text) is the scheme's physics ink, and every colour is rounded to RGB555. */
+function gbcPalettes() {
+  const tube = TOK('--scr-tube'), ink = TOK('--scr-physics');
+  const role = r => [tube, mixHex(tube, r, 0.38), r, ink].map(h => rgbOf(q555(h)));
+  return [role(TOK('--scr-grid')), role(TOK('--scr-value')), role(TOK('--scr-meter')), role(TOK('--scr-marker'))];
+}
+function gbcCurve(b, f, x0, ymid, w, amp, c) {
+  let py = null;
+  for (let i = 0; i < w; i++) { const y = Math.round(ymid - f(i / (w - 1) * 2 - 1) * amp); if (py !== null) b.line(x0 + i - 1, py, x0 + i, y, c); py = y; }
+}
+function gbcSoft(b, vm, labels) {   // the soft band: rows 15–17, four 5-tile zones
+  labels.forEach((r, j) => {
+    const x = j * 40;
+    b.pal(j * 5, 15, 5, 2, r.idle ? 3 : 1); b.pal(j * 5, 17, 5, 1, 0);
+    b.text(r.label, x + 3, 121, 3);
+    b.text(r.txt, x + 3, 127, r.idle ? 2 : 3);
+    b.box(x + 3, 133, 34, 3, 1);
+    if (!r.idle) b.rect(x + 4, 134, Math.round(32 * r.v), 1, 2);
+    b.rect(x + 4, 137, 32, 7, 2); b.ctext(vm.keys[j], x + 20, 138, 0);
+  });
+}
+function gbcMaw(S, vm) {
+  const b = S.gb; b.clear();
+  S.logo('title', 8, 0); S.logo('icon', 112, 4);
+  b.text('FX-C', 132, 5, 3); b.text('SAT', 132, 12, 2); b.rect(0, 23, 160, 1, 1);
+  b.pal(0, 3, 20, 1, 3);
+  b.text('ROUTE', 4, 25, 3); b.text(vm.routeName, 28, 25, 2); b.text(vm.topo, 156 - vm.topo.length * 4, 25, 3);
+  S.mark('route');
+  vm.stages.forEach((s, i) => {
+    const x = 8 + i * 48, sel = i === vm.sel;
+    b.pal(1 + i * 6, 4, 6, 1, sel ? 3 : 0); b.pal(1 + i * 6, 5, 6, 4, 2); b.pal(1 + i * 6, 9, 6, 2, 1);
+    if (sel) b.rect(x + 1, 32, 46, 8, 2);
+    b.text('S' + s.n + ' ' + s.name, x + 3, 34, sel ? 0 : 3);
+    b.box(x + 1, 41, 46, 30, 1); b.line(x + 24, 42, x + 24, 69, 1); b.line(x + 2, 56, x + 45, 56, 1);
+    gbcCurve(b, s.f, x + 2, 56, 44, 11, 2);
+    const dx = x + 2 + Math.round((vm.x + 1) / 2 * 43), dy = Math.round(56 - s.f(vm.x) * 11);
+    b.rect(dx - 1, dy - 1, 2, 2, 3);
+    b.text((s.dB >= 0 ? '+' : '') + s.dB.toFixed(1) + 'DB', x + 3, 74, 3);
+    b.box(x + 3, 81, 42, 5, 1); b.rect(x + 4, 82, Math.round(40 * clamp((s.dB + 12) / 60, 0, 1)), 3, 2);
+  });
+  S.mark('stages');
+  const s = vm.stages[vm.sel];
+  b.pal(1, 11, 10, 4, 2); b.pal(11, 11, 8, 4, 1);
+  b.text('TRANSFER S' + s.n, 9, 89, 3);
+  b.box(8, 96, 80, 23, 1); b.line(48, 97, 48, 117, 1); b.line(9, 107, 86, 107, 1);
+  gbcCurve(b, s.f, 9, 107, 78, 8, 2);
+  b.rect(9 + Math.round((vm.x + 1) / 2 * 77) - 1, Math.round(107 - s.f(vm.x) * 8) - 1, 3, 3, 3);
+  S.mark('curve');
+  [['IN', vm.lev.in], ['S1', vm.lev.s[0]], ['S2', vm.lev.s[1]], ['S3', vm.lev.s[2]], ['OUT', vm.lev.out]].forEach(([n, v], j) => {
+    const y = 89 + j * 6; b.text(n, 90, y, 3); b.box(104, y, 48, 5, 1); b.rect(105, y + 1, Math.round(46 * clamp(v, 0, 1)), 3, 2);
+  });
+  gbcSoft(b, vm, vm.roles); S.mark('roles'); S.mark('soft');
+}
+function gbcSluice(S, vm) {
+  const b = S.gb; b.clear();
+  S.logo('title', 8, 0); S.logo('icon', 112, 4);
+  b.text('NET', 132, 5, 3); b.text('FX', 132, 12, 2); b.rect(0, 23, 160, 1, 1);
+  b.pal(0, 3, 20, 1, 3); b.rect(0, 24, 160, 8, 1); b.ctext('PROVISIONAL - AWAITS SPEC B321', 80, 25, 3);
+  S.mark('provisional');
+  b.pal(0, 4, 20, 9, 2);
+  const G = netGeom(vm, 8, 36, 144, 62);
+  vm.edges.forEach((e, i) => { const p = G.polys[i]; for (let k = 0; k + 1 < p.length; k++) b.line(p[k][0], p[k][1], p[k + 1][0], p[k + 1][1], 1, e.loop); });
+  vm.nodes.forEach((d, i) => {
+    const [cx, cy] = G.P[i];
+    if (d.io) { b.rect(cx - 7, cy - 4, 14, 9, 0); b.ctext(d.label, cx, cy - 2, 3); return; }
+    const hot = d.act > 0.5;
+    b.rect(cx - 8, cy - 5, 17, 11, hot ? 2 : d.act > 0.15 ? 1 : 0); b.box(cx - 8, cy - 5, 17, 11, 3);
+    b.ctext(d.label, cx, cy - 2, hot ? 0 : 3);
+    if (d.locked) b.rect(cx + 6, cy - 4, 2, 2, 2);
+    if (d.val) b.ctext(d.val, cx, cy + 8, 3);
+  });
+  for (const p of pulsePoints(vm, G)) b.rect(Math.round(p.xy[0]) - 1, Math.round(p.xy[1]) - 1, 3, 3, p.a > 0.5 ? 3 : 2);
+  S.mark('network');
+  b.text('SYNC ' + vm.sync.bpm + 'BPM  DLY ' + vm.sync.div + '  LFO ' + vm.sync.lfo, 4, 105, 3); S.mark('sync');
+  b.pal(0, 14, 20, 1, 1);
+  b.text('RND', 4, 113, 3); b.box(18, 113, 32, 5, 1); b.rect(19, 114, Math.round(30 * vm.random.amt), 3, 2);
+  b.text(pct(vm.random.amt), 53, 113, 3); b.text('#' + vm.random.seed, 73, 113, 3);
+  b.text('LVL' + (vm.random.lvlLocked ? '*' : '-') + ' LIM*', 118, 113, 3); S.mark('random');
+  gbcSoft(b, vm, vm.macros); S.mark('macros'); S.mark('soft');
+}
+function drawGBC(S, vm, still) {
+  (vm.mod === 'maw' ? gbcMaw : gbcSluice)(S, vm);
+  const img = S.fbg.createImageData(160, 144); S.gb.compose(img, gbcPalettes()); S.fbg.putImageData(img, 0, 0);
+  const g = S.g; g.imageSmoothingEnabled = false;
+  g.globalAlpha = still ? 1 : 0.5;          // the LCD's slow pixels: half of the new frame over the old
+  g.drawImage(S.fb, 0, 0); g.globalAlpha = 1;
+}
+
+/* ======================================================================
+   E. PHOSPHOR CRT — a 64×36 character grid; attributes 0 normal, 1 dim, 2 bright, 3 inverse
+   ====================================================================== */
+function Term(c, r) { this.c = c; this.r = r; this.ch = new Array(c * r).fill(' '); this.at = new Uint8Array(c * r); }
+Term.prototype.put = function (x, y, s, a) {
+  s = String(s);
+  for (let i = 0; i < s.length; i++) { const xx = x + i; if (xx < 0 || xx >= this.c || y < 0 || y >= this.r) continue; this.ch[y * this.c + xx] = s[i]; this.at[y * this.c + xx] = a || 0; }
+  return x + s.length;
+};
+Term.prototype.box = function (x, y, w, h, a, title) {
+  this.put(x, y, '┌' + '─'.repeat(w - 2) + '┐', a); this.put(x, y + h - 1, '└' + '─'.repeat(w - 2) + '┘', a);
+  for (let j = 1; j < h - 1; j++) { this.put(x, y + j, '│', a); this.put(x + w - 1, y + j, '│', a); }
+  if (title) this.put(x + 2, y, ' ' + title + ' ', a === 2 ? 3 : 0);
+};
+Term.prototype.bar = function (x, y, w, v, idle) {
+  if (idle) { this.put(x, y, '·'.repeat(w), 1); return; }
+  const n = Math.round(w * clamp(v, 0, 1)); this.put(x, y, '█'.repeat(n), 2); this.put(x + n, y, '░'.repeat(w - n), 1);
+};
+function termSoft(T, vm, labels) {
+  T.put(0, 31, '─'.repeat(64), 1);
+  labels.forEach((r, j) => {
+    const x = j * 16;
+    T.put(x + 1, 32, r.label, r.idle ? 1 : 0); T.put(x + 1, 33, r.txt, r.idle ? 1 : 2);
+    T.bar(x + 1, 34, 13, r.v, r.idle);
+    const k = ' F' + (j + 1) + ' ' + vm.keys[j] + ' '; T.put(x + Math.floor((16 - k.length) / 2), 35, k, 3);
+  });
+}
+function termPlot(T, f, x0, y0, w, h, dotX, a) {
+  const mid = y0 + (h - 1) / 2;
+  for (let j = 0; j < h; j++) T.put(x0 + (w >> 1), y0 + j, '│', 1);
+  T.put(x0, Math.round(mid), '─'.repeat(w), 1); T.put(x0 + (w >> 1), Math.round(mid), '┼', 1);
+  for (let i = 0; i < w; i++) { const y = f(i / (w - 1) * 2 - 1); T.put(x0 + i, clamp(Math.round(mid - y * (h - 1) / 2.2), y0, y0 + h - 1), '•', a); }
+  if (dotX !== null) { const i = Math.round((dotX + 1) / 2 * (w - 1)); T.put(x0 + i, clamp(Math.round(mid - f(dotX) * (h - 1) / 2.2), y0, y0 + h - 1), '@', 2); }
+}
+function crtMaw(S, vm) {
+  const T = new Term(64, 36);
+  T.put(0, 0, ' '.repeat(64), 3); T.put(1, 0, 'MAW :: FX-C SATURATOR', 3); T.put(49, 0, 'HORDE/FX  MOCK', 3);
+  S.logo('title', 2.5, 4.5); S.logo('icon', 147.5, 5);
+  T.put(23, 1, 'MULTI-STAGE WAVESHAPER', 0);
+  let x = T.put(23, 2, 'ROUTE ', 1);
+  ROUTE_SHORT.forEach((r, i) => { x = T.put(x, 2, i === vm.route ? '[' + r + ']' : ' ' + r + ' ', i === vm.route ? 3 : 1); });
+  T.put(23, 3, 'CHAIN IN ► ' + vm.topo + ' ► OUT', 0); S.mark('route');
+  vm.stages.forEach((s, i) => {
+    const x0 = 1 + i * 21, sel = i === vm.sel;
+    T.box(x0, 5, 20, 11, sel ? 2 : 1, 'S' + s.n + ' ' + s.name + (sel ? ' ◄' : ''));
+    termPlot(T, s.f, x0 + 2, 6, 16, 7, vm.x, sel ? 2 : 0);
+    T.put(x0 + 2, 13, 'DRV ' + (s.dB >= 0 ? '+' : '') + s.dB.toFixed(1) + 'dB', 0);
+    T.bar(x0 + 2, 14, 16, (s.dB + 12) / 60);
+  });
+  S.mark('stages');
+  const s = vm.stages[vm.sel];
+  T.box(1, 17, 41, 14, 1, 'TRANSFER S' + s.n + ' ' + s.long.toUpperCase() + ' · MOCK INPUT');
+  termPlot(T, s.f, 3, 18, 37, 12, vm.x, 0); S.mark('curve');
+  T.box(43, 17, 20, 14, 1, 'LEVELS');
+  [['IN', vm.lev.in], ['S1', vm.lev.s[0]], ['S2', vm.lev.s[1]], ['S3', vm.lev.s[2]], ['OUT', vm.lev.out]].forEach(([n, v], j) => {
+    const cx = 45 + j * 3 + (j === 4 ? 0 : 0), lit = Math.round(clamp(v, 0, 1) * 10);
+    for (let k = 0; k < 10; k++) T.put(cx, 28 - k, k < lit ? '█' : '░', k < lit ? (k > 7 ? 2 : 0) : 1);
+    T.put(cx, 29, n, 0);
+  });
+  termSoft(T, vm, vm.roles); S.mark('roles'); S.mark('soft');
+  return T;
+}
+function crtSluice(S, vm) {
+  const T = new Term(64, 36);
+  T.put(0, 0, ' '.repeat(64), 3); T.put(1, 0, 'SLUICE :: FX NETWORK', 3); T.put(49, 0, 'HORDE/FX  MOCK', 3);
+  S.logo('title', 2.5, 4.5); S.logo('icon', 147.5, 5);
+  T.put(23, 1, 'FEEDBACK NETWORK, ' + vm.n + ' MODULES', 0);
+  T.put(23, 2, ' !! PROVISIONAL - AWAITS SPEC B321 ', 3); S.mark('provisional');
+  T.put(23, 3, 'LOOP ON  POST LIMITER  12 TYPES', 1);
+  T.box(1, 5, 62, 12, 1, 'NETWORK');
+  const row = 8, cells = [], ctr = {};
+  let x = T.put(3, row, 'IN', 0); for (let c = 3; c < 5; c++) cells.push([c, row]);
+  const nodeAt = (id, lab, a) => { const s0 = x; for (let c = x; c < x + 3; c++) cells.push([c, row]); x = T.put(x, row, '──►', 1); ctr[id] = x + (lab.length >> 1); for (let c = x; c < x + lab.length; c++) cells.push([c, row]); x = T.put(x, row, lab, a); return s0; };
+  vm.nodes.forEach(d => { if (d.io || d.loop) return; nodeAt(d.id, '[' + d.label + (d.locked ? '*' : '') + ']', d.act > 0.5 ? 3 : d.post ? 1 : 0); });
+  for (let c = x; c < x + 3; c++) cells.push([c, row]); x = T.put(x, row, '──►', 1); T.put(x, row, 'OUT', 0); cells.push([x, row]);
+  vm.nodes.forEach(d => { if (d.val) T.put(ctr[d.id] - (d.val.length >> 1), row + 1, d.val, 1); });
+  const cL = ctr['c' + (vm.n - 1)], c0 = ctr.c0, loopRow = 13, loopCells = [];
+  for (let r = row + 2; r < loopRow; r++) { T.put(cL, r, '│', 1); loopCells.push([cL, r]); }
+  T.put(cL, loopRow, '┘', 1); T.put(c0, loopRow, '└', 1);
+  for (let c = cL; c >= c0; c--) { if (c !== cL && c !== c0) T.put(c, loopRow, (c % 6 === 0) ? '◄' : '─', 1); loopCells.push([c, loopRow]); }
+  for (let r = loopRow - 1; r >= row + 2; r--) { T.put(c0, r, r === row + 2 ? '▲' : '│', 1); loopCells.push([c0, r]); }
+  const lv = vm.nodes[vm.idx.lvl], lab = '[' + lv.label + (lv.locked ? '*' : '') + ']';
+  T.put(Math.round((c0 + cL) / 2 - lab.length / 2), loopRow, lab, lv.act > 0.5 ? 3 : 0);
+  for (const p of vm.pulses) { const P = p.path === 'main' ? cells : loopCells; const q = P[Math.round(p.u * (P.length - 1))]; if (q) T.put(q[0], q[1], '●', p.a > 0.4 ? 2 : 0); }
+  T.put(3, 15, 'LOOP RETURNS VIA THE LEVELER · * LOCKED BY DEFAULT', 1);
+  S.mark('network');
+  T.box(1, 18, 30, 7, 1, 'TEMPO SYNC');
+  T.put(3, 19, 'HOST    ' + vm.sync.bpm.toFixed(1) + ' BPM', 0); T.put(3, 20, 'DELAY   ' + vm.sync.div + ' = ' + vm.sync.ms + ' MS', 2);
+  T.put(3, 21, 'LFO     ' + vm.sync.lfo, 0); T.put(3, 22, 'STORED BY NAME', 1); S.mark('sync');
+  T.box(33, 18, 30, 7, 1, 'RANDOMISE');
+  T.put(35, 19, 'AMOUNT ', 0); T.bar(42, 19, 12, vm.random.amt); T.put(55, 19, pct(vm.random.amt), 2);
+  T.put(35, 20, 'SEED ' + vm.random.seed + '  CLICKS ' + vm.random.clicks, 0);
+  T.put(35, 21, 'LAST DRAW ' + vm.random.applied + '/' + vm.random.of + ' PARAMS', 0);
+  T.put(35, 22, 'LVL ' + vm.random.lvl + '  LIM DEF', 1); S.mark('random');
+  T.put(1, 26, 'CORNERS  A ■  B □  C □  D □   (HORDE\'S MORPH SLOTS)', 1);
+  T.put(1, 28, 'MACROS BIND BY ORDER; LABELS ARE SLUICE\'S', 1);
+  termSoft(T, vm, vm.macros); S.mark('macros'); S.mark('soft');
+  return T;
+}
+const PHOSPHOR = { maw: { ink: '#FFB000', ground: '#0B0803' }, sluice: { ink: '#39FF6A', ground: '#030B05' } };
+function drawCRT(S, vm, still) {
+  const T = (vm.mod === 'maw' ? crtMaw : crtSluice)(S, vm), P = PHOSPHOR[vm.mod], k = S.U * S.dpr;
+  const o = S.og; o.setTransform(1, 0, 0, 1, 0, 0); o.clearRect(0, 0, S.off.width, S.off.height); o.setTransform(k, 0, 0, k, 0, 0);
+  o.font = '3.55px ui-monospace, Menlo, monospace'; o.textBaseline = 'top';
+  for (let y = 0; y < T.r; y++) for (let x = 0; x < T.c; x++) {
+    const i = y * T.c + x, a = T.at[i], ch = T.ch[i];
+    if (a === 3) { o.fillStyle = P.ink; o.fillRect(x * 2.5, y * 4, 2.5, 4); if (ch !== ' ') { o.fillStyle = P.ground; o.fillText(ch, x * 2.5 + 0.1, y * 4 + 0.25); } continue; }
+    if (ch === ' ') continue;
+    o.fillStyle = a === 1 ? RGBA(P.ink, 0.42) : a === 2 ? P.ink : RGBA(P.ink, 0.8);
+    o.fillText(ch, x * 2.5 + 0.1, y * 4 + 0.25);
+  }
+  const g = S.g; g.setTransform(1, 0, 0, 1, 0, 0);
+  g.globalCompositeOperation = 'source-over';
+  g.fillStyle = still ? P.ground : RGBA(P.ground, 0.55);   // phosphor persistence: 45% of the last frame survives
+  g.fillRect(0, 0, S.cv.width, S.cv.height);
+  g.globalCompositeOperation = 'lighter';
+  g.filter = 'blur(' + (0.9 * k).toFixed(1) + 'px)'; g.globalAlpha = 0.6; g.drawImage(S.off, 0, 0);
+  g.filter = 'none'; g.globalAlpha = 1; g.drawImage(S.off, 0, 0);
+  g.globalCompositeOperation = 'source-over';
+}
+
+/* ======================================================================
+   F. VECTOR MONITOR — strokes only, in the 160×144 unit space
+   ====================================================================== */
+let _rootTok = {};
+function rootTOK(name) {   // the :root (TUBE) value, whatever scheme the body carries
+  if (_rootTok[name] === undefined) { let v = ''; try { v = getComputedStyle(document.documentElement).getPropertyValue(name).trim(); } catch (_) { v = ''; } _rootTok[name] = v || '#888888'; }
+  return _rootTok[name];
+}
+function vecInks() {
+  const T = PALE[LAB.scheme] ? rootTOK : TOK;   // a pale scheme cannot light a vector tube: TUBE's inks
+  return { v: T('--scr-value'), m: T('--scr-meter'), p: T('--scr-physics'), k: T('--scr-marker'), g: T('--scr-grid') };
+}
+function vstroke(g, pts, col, w, dash) {
+  g.strokeStyle = col; g.shadowColor = col; g.lineWidth = w || 0.45;
+  g.setLineDash(dash ? [1.2, 1.4] : []);
+  g.beginPath(); pts.forEach((p, i) => (i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]))); g.stroke();
+  g.setLineDash([]);
+}
+function vtext(g, s, x, y, h, col) { g.shadowColor = col; return segText(g, s, x, y, h * 0.55, h, col, { inset: 0.04, lw: Math.max(0.3, h * 0.09), round: true, adv: 1.5 }); }
+function vcurve(g, f, x0, y0, w, h, col, lw) {
+  const pts = []; for (let i = 0; i <= 48; i++) { const xi = i / 48 * 2 - 1; pts.push([x0 + (xi + 1) / 2 * w, y0 + h / 2 - clamp(f(xi), -1.2, 1.2) * h / 2.4]); }
+  vstroke(g, pts, col, lw);
+}
+function vecSoft(g, vm, labels, I) {
+  vstroke(g, [[4, 114], [156, 114]], RGBA(I.g, 0.35), 0.3);
+  labels.forEach((r, j) => {
+    const cx = j * 40 + 20, col = r.idle ? I.k : I.v;
+    const a0 = Math.PI * 0.75, span = Math.PI * 1.5;
+    g.strokeStyle = RGBA(I.g, 0.4); g.shadowColor = I.g; g.lineWidth = 0.35; g.beginPath(); g.arc(cx - 11, 124, 5, a0, a0 + span); g.stroke();
+    if (!r.idle) { g.strokeStyle = col; g.shadowColor = col; g.lineWidth = 0.7; g.beginPath(); g.arc(cx - 11, 124, 5, a0, a0 + span * r.v); g.stroke(); }
+    vtext(g, r.label.slice(0, 6), cx - 4, 119, 3.2, I.p); vtext(g, r.txt.slice(0, 7), cx - 4, 125, 2.6, col);
+    g.shadowColor = I.m; g.strokeStyle = I.m; g.lineWidth = 0.4; g.strokeRect(cx - 14, 134.5, 28, 7);
+    const kw = vm.keys[j].length * 2.4 * 1.5; vtext(g, vm.keys[j], cx - kw / 2 + 0.6, 136, 3.2, I.m);
+  });
+}
+function vecBegin(S, still) {
+  const g = S.g, k = S.U * S.dpr;
+  g.setTransform(1, 0, 0, 1, 0, 0); g.globalCompositeOperation = 'source-over'; g.shadowBlur = 0;
+  g.fillStyle = still ? '#030205' : 'rgba(3,2,5,0.45)'; g.fillRect(0, 0, S.cv.width, S.cv.height);
+  g.setTransform(k, 0, 0, k, 0, 0); g.globalCompositeOperation = 'lighter'; g.shadowBlur = 2.4 * k;
+  g.lineJoin = 'round'; g.lineCap = 'round';
+  return g;
+}
+function vecMaw(S, vm, I) {
+  const g = S.g;
+  S.logo('title', 5, 3, { cel: true }); S.logo('icon', 147, 3, { cel: true });
+  vtext(g, 'FX-C SATURATOR', 60, 4, 3.4, I.p);
+  vtext(g, 'ROUTE ' + vm.routeName, 60, 10, 3.4, I.k); S.mark('route');
+  const s = vm.stages[vm.sel], X0 = 6, Y0 = 22, SZ = 78;
+  vstroke(g, [[X0, Y0], [X0 + SZ, Y0], [X0 + SZ, Y0 + SZ], [X0, Y0 + SZ], [X0, Y0]], RGBA(I.g, 0.45), 0.3);
+  for (let i = 1; i < 8; i++) { const q = X0 + i * SZ / 8; vstroke(g, [[q, Y0 + SZ / 2 - 0.8], [q, Y0 + SZ / 2 + 0.8]], RGBA(I.g, 0.5), 0.25); vstroke(g, [[X0 + SZ / 2 - 0.8, q - X0 + Y0], [X0 + SZ / 2 + 0.8, q - X0 + Y0]], RGBA(I.g, 0.5), 0.25); }
+  vstroke(g, [[X0, Y0 + SZ / 2], [X0 + SZ, Y0 + SZ / 2]], RGBA(I.g, 0.4), 0.25); vstroke(g, [[X0 + SZ / 2, Y0], [X0 + SZ / 2, Y0 + SZ]], RGBA(I.g, 0.4), 0.25);
+  vcurve(g, s.f, X0, Y0, SZ, SZ, RGBA(I.m, 0.3), 0.3);
+  // the beam: an XY scope of a static curve traces the curve itself, as far as the level reaches
+  const reach = vm.env, pts = [];
+  for (let i = 0; i <= 40; i++) { const xi = -reach + 2 * reach * i / 40; pts.push([X0 + (xi + 1) / 2 * SZ, Y0 + SZ / 2 - clamp(s.f(xi), -1.2, 1.2) * SZ / 2.4]); }
+  vstroke(g, pts, I.m, 0.8);
+  const bx = X0 + (vm.x + 1) / 2 * SZ, by = Y0 + SZ / 2 - clamp(s.f(vm.x), -1.2, 1.2) * SZ / 2.4;
+  g.fillStyle = '#FFFFFF'; g.shadowColor = I.m; g.beginPath(); g.arc(bx, by, 1.1, 0, 7); g.fill();
+  vtext(g, 'XY IN>OUT S' + s.n + ' ' + s.name, X0, Y0 + SZ + 3, 3, I.m); S.mark('curve');
+  vm.stages.forEach((st, i) => {
+    const x = 92, y = 22 + i * 28, sel = i === vm.sel, col = sel ? I.v : I.p;
+    vstroke(g, [[x, y], [x + 62, y], [x + 62, y + 22], [x, y + 22], [x, y]], sel ? col : RGBA(col, 0.6), sel ? 0.6 : 0.35);
+    vtext(g, 'S' + st.n + ' ' + st.name, x + 3, y + 3, 3.4, col);
+    vtext(g, (st.dB >= 0 ? '+' : '') + st.dB.toFixed(1) + 'DB', x + 3, y + 10, 3, I.p);
+    vstroke(g, [[x + 3, y + 18], [x + 3 + 28 * clamp((st.dB + 12) / 60, 0, 1), y + 18]], I.v, 0.8);
+    vcurve(g, st.f, x + 38, y + 3, 21, 16, I.m, 0.45);
+    if (i < 2) { const ax = x + 31, ay = y + 22; vstroke(g, [[ax, ay], [ax, ay + 6]], RGBA(I.p, 0.7), 0.35); vstroke(g, [[ax - 1.3, ay + 4.3], [ax, ay + 6], [ax + 1.3, ay + 4.3]], RGBA(I.p, 0.7), 0.35); }
+  });
+  S.mark('stages');
+  [['IN', vm.lev.in], ['OUT', vm.lev.out]].forEach(([n, v], j) => { const y = 109 - j * 3.2 - 3; vtext(g, n, 92, y - 1.5, 2.4, I.p); vstroke(g, [[102, y], [102 + 52 * clamp(v, 0, 1), y]], I.m, 0.9); });
+  vecSoft(g, vm, vm.roles, I); S.mark('roles'); S.mark('soft');
+}
+function vecSluice(S, vm, I) {
+  const g = S.g;
+  S.logo('title', 5, 3, { cel: true }); S.logo('icon', 147, 3, { cel: true });
+  vtext(g, 'FX NETWORK', 60, 4, 3.4, I.p);
+  vtext(g, 'PROVISIONAL B321', 60, 10, 3.4, I.k); S.mark('provisional');
+  const G = netGeom(vm, 8, 26, 144, 70);
+  vm.edges.forEach((e, i) => {
+    const p = G.polys[i], a = p[p.length - 2], b = p[p.length - 1], ang = Math.atan2(b[1] - a[1], b[0] - a[0]);
+    const tip = [b[0] - Math.cos(ang) * 6, b[1] - Math.sin(ang) * 6], pts = p.slice(0, -1).concat([tip]);
+    const col = e.loop ? I.k : RGBA(I.p, 0.75);
+    vstroke(g, [[p[0][0] + Math.cos(Math.atan2(p[1][1] - p[0][1], p[1][0] - p[0][0])) * 6, p[0][1] + Math.sin(Math.atan2(p[1][1] - p[0][1], p[1][0] - p[0][0])) * 6]].concat(pts.slice(1)), col, 0.35, e.loop);
+    vstroke(g, [[tip[0] - Math.cos(ang - 0.5) * 2, tip[1] - Math.sin(ang - 0.5) * 2], tip, [tip[0] - Math.cos(ang + 0.5) * 2, tip[1] - Math.sin(ang + 0.5) * 2]], col, 0.35);
+  });
+  vm.nodes.forEach((d, i) => {
+    const [cx, cy] = G.P[i];
+    if (d.io) { vtext(g, d.label, cx - d.label.length * 1.5, cy - 1.6, 3.2, I.p); return; }
+    const col = d.act > 0.3 ? I.v : d.locked ? I.k : I.p, r = 5.5, hex = [];
+    for (let k = 0; k <= 6; k++) hex.push([cx + r * Math.cos(k * Math.PI / 3), cy + r * Math.sin(k * Math.PI / 3)]);
+    vstroke(g, hex, col, d.act > 0.3 ? 0.8 : 0.45);
+    vtext(g, d.label, cx - 4.3, cy - 1.6, 3.2, col);
+    if (d.val) vtext(g, d.val, cx - d.val.length * 1.25, cy + 7.5, 2.6, RGBA(I.p, 0.85));
+  });
+  for (const p of pulsePoints(vm, G)) { g.fillStyle = '#FFFFFF'; g.shadowColor = I.m; g.globalAlpha = clamp(p.a, 0.25, 1); g.beginPath(); g.arc(p.xy[0], p.xy[1], 1.2, 0, 7); g.fill(); g.globalAlpha = 1; }
+  S.mark('network');
+  vtext(g, 'SYNC ' + vm.sync.bpm + ' BPM', 8, 98, 3.2, I.p); vtext(g, 'DLY ' + vm.sync.div + ' ' + vm.sync.ms + 'MS', 8, 104, 3.2, I.v);
+  vtext(g, 'LFO ' + vm.sync.lfo, 60, 98, 3.2, I.p); S.mark('sync');
+  vtext(g, 'RND', 92, 98, 3.2, I.p); vstroke(g, [[104, 99.6], [104 + 30 * vm.random.amt, 99.6]], I.v, 0.9); vstroke(g, [[104, 99.6], [134, 99.6]], RGBA(I.g, 0.3), 0.3);
+  vtext(g, pct(vm.random.amt), 137, 98, 3.2, I.v);
+  vtext(g, 'SEED ' + vm.random.seed + ' LVL' + (vm.random.lvlLocked ? '*' : '-') + ' LIM*', 92, 104, 2.6, I.k); S.mark('random');
+  vecSoft(g, vm, vm.macros, I); S.mark('macros'); S.mark('soft');
+}
+function drawVEC(S, vm, still) { vecBegin(S, still); (vm.mod === 'maw' ? vecMaw : vecSluice)(S, vm, vecInks()); const g = S.g; g.globalCompositeOperation = 'source-over'; g.shadowBlur = 0; }
+
+/* ======================================================================
+   G. 80s WORKSTATION — drawn in greys at 320×288, then ordered-dithered to 1 bit
+   ====================================================================== */
+const BAYER4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+const K = '#000000', W = '#FFFFFF';
+function wsText(g, s, x, y, col, sc) { sc = sc || 1; g.fillStyle = col || K; return text35(s, (dx, dy) => g.fillRect(x + dx * sc, y + dy * sc, sc, sc)) * sc; }
+function wsCText(g, s, cx, y, col, sc) { sc = sc || 1; return wsText(g, s, Math.round(cx - (String(s).length * 4 - 1) * sc / 2), y, col, sc); }
+function wsWin(g, x, y, w, h, title) {
+  g.fillStyle = K; g.fillRect(x + 2, y + 2, w, h);
+  g.fillStyle = W; g.fillRect(x, y, w, h); g.fillStyle = K;
+  g.fillRect(x, y, w, 1); g.fillRect(x, y + h - 1, w, 1); g.fillRect(x, y, 1, h); g.fillRect(x + w - 1, y, 1, h);
+  for (let yy = y + 2; yy < y + 10; yy += 2) g.fillRect(x + 2, yy, w - 4, 1);    // the title bar's stripes
+  g.fillRect(x, y + 11, w, 1);
+  g.fillStyle = W; g.fillRect(x + 6, y + 2, 9, 8); g.fillStyle = K; g.fillRect(x + 7, y + 3, 7, 1); g.fillRect(x + 7, y + 8, 7, 1); g.fillRect(x + 7, y + 3, 1, 6); g.fillRect(x + 13, y + 3, 1, 6);
+  const tw = String(title).length * 4 + 6; g.fillStyle = W; g.fillRect(Math.round(x + w / 2 - tw / 2), y + 1, tw, 10);
+  wsCText(g, title, x + w / 2, y + 4, K);
+  return { x: x + 1, y: y + 12, w: w - 2, h: h - 13 };
+}
+function wsBtn(g, x, y, w, label, inv) {
+  g.fillStyle = K; g.fillRect(x + 1, y, w - 2, 1); g.fillRect(x + 1, y + 8, w - 2, 1); g.fillRect(x, y + 1, 1, 7); g.fillRect(x + w - 1, y + 1, 1, 7);
+  g.fillStyle = inv ? K : W; g.fillRect(x + 1, y + 1, w - 2, 7); wsCText(g, label, x + w / 2, y + 2, inv ? W : K);
+}
+function wsSlider(g, x, y, w, v, idle) {
+  g.fillStyle = K; g.fillRect(x, y, w, 1); g.fillRect(x, y + 4, w, 1); g.fillRect(x, y, 1, 5); g.fillRect(x + w - 1, y, 1, 5);
+  g.fillStyle = idle ? '#D0D0D0' : '#808080'; g.fillRect(x + 1, y + 1, Math.round((w - 2) * (idle ? 1 : v)), 3);
+  if (!idle) { const tx = x + Math.round((w - 4) * v); g.fillStyle = K; g.fillRect(tx, y - 2, 4, 9); g.fillStyle = W; g.fillRect(tx + 1, y - 1, 2, 7); }
+}
+function wsCurve(g, f, x, y, w, h, fill) {
+  const mid = y + h / 2;
+  g.fillStyle = '#C8C8C8'; g.fillRect(x, y, w, h);
+  g.fillStyle = K; g.fillRect(x, Math.round(mid), w, 1); g.fillRect(x + (w >> 1), y, 1, h);
+  let py = null;
+  for (let i = 0; i < w; i++) {
+    const yy = Math.round(mid - clamp(f(i / (w - 1) * 2 - 1), -1.2, 1.2) * h / 2.5);
+    if (fill) { g.fillStyle = '#7A7A7A'; const a = Math.min(yy, mid), b = Math.max(yy, mid); g.fillRect(x + i, a, 1, b - a); }
+    g.fillStyle = K; if (py !== null) g.fillRect(x + i, Math.min(py, yy), 1, Math.abs(py - yy) + 1); else g.fillRect(x + i, yy, 1, 1);
+    g.fillRect(x + i, yy + 1, 1, 1);
+    py = yy;
+  }
+}
+function wsMenu(g, items, right) {
+  g.fillStyle = W; g.fillRect(0, 0, 320, 11); g.fillStyle = K; g.fillRect(0, 11, 320, 1);
+  let x = wsText(g, '*', 6, 3, K) + 12; for (const it of items) x += wsText(g, it, x, 3, K) + 9;
+  wsText(g, right, 314 - right.length * 4, 3, K);
+}
+function wsSoft(g, vm, labels) {
+  g.fillStyle = W; g.fillRect(0, 256, 320, 32); g.fillStyle = K; g.fillRect(0, 256, 320, 1);
+  labels.forEach((r, j) => {
+    const x = j * 80;
+    if (j) { g.fillStyle = '#909090'; g.fillRect(x, 258, 1, 28); }
+    wsText(g, r.label, x + 5, 259, K); wsText(g, r.txt, x + 76 - r.txt.length * 4, 259, K);   // no grey text: 1 bit dithers it into noise
+    wsSlider(g, x + 5, 267, 70, r.v, r.idle);
+    wsBtn(g, x + 18, 277, 44, vm.keys[j]);
+  });
+}
+function wsMaw(S, vm, g) {
+  wsMenu(g, ['FILE', 'EDIT', 'STAGE', 'ROUTE', 'VIEW'], 'MAW');
+  const c = wsWin(g, 4, 15, 310, 134, 'MAW - FX-C SATURATOR');
+  S.logo('title', c.x + 8, c.y + 3); S.logo('icon', c.x + c.w - 22, c.y + 3);
+  wsText(g, 'MULTI-STAGE SATURATOR', c.x + 112, c.y + 5, K); wsText(g, 'MOCK VALUES', c.x + 112, c.y + 13, K);
+  let x = c.x + 8;
+  ROUTES.forEach((r, i) => {
+    g.fillStyle = K; g.fillRect(x + 1, c.y + 33, 3, 1); g.fillRect(x + 1, c.y + 37, 3, 1); g.fillRect(x, c.y + 34, 1, 3); g.fillRect(x + 4, c.y + 34, 1, 3);
+    if (i === vm.route) g.fillRect(x + 2, c.y + 35, 1, 1), g.fillRect(x + 1, c.y + 34, 3, 3);
+    x += wsText(g, r, x + 8, c.y + 33, K) + 16;
+  });
+  S.mark('route');
+  vm.stages.forEach((s, i) => {
+    const bx = c.x + 6 + i * 102, by = c.y + 44, sel = i === vm.sel;
+    g.fillStyle = K; g.fillRect(bx, by, 96, 1); g.fillRect(bx, by + 73, 96, 1); g.fillRect(bx, by, 1, 74); g.fillRect(bx + 95, by, 1, 74);
+    if (sel) { g.fillRect(bx + 2, by + 2, 92, 1); g.fillRect(bx + 2, by + 71, 92, 1); g.fillRect(bx + 2, by + 2, 1, 70); g.fillRect(bx + 93, by + 2, 1, 70); }
+    wsText(g, 'S' + s.n + ' ' + s.long.toUpperCase(), bx + 6, by + 6, K, 1);
+    wsCurve(g, s.f, bx + 6, by + 14, 84, 34, false);
+    wsText(g, 'DRIVE ' + (s.dB >= 0 ? '+' : '') + s.dB.toFixed(1) + ' DB', bx + 6, by + 53, K);
+    wsSlider(g, bx + 6, by + 62, 84, clamp((s.dB + 12) / 60, 0, 1));
+  });
+  S.mark('stages');
+  const s = vm.stages[vm.sel], t = wsWin(g, 8, 152, 186, 100, 'TRANSFER - S' + s.n + ' ' + s.name);
+  wsCurve(g, s.f, t.x + 6, t.y + 5, t.w - 12, t.h - 18, true);
+  const dx = t.x + 6 + Math.round((vm.x + 1) / 2 * (t.w - 13)), dy = Math.round(t.y + 5 + (t.h - 18) / 2 - clamp(s.f(vm.x), -1.2, 1.2) * (t.h - 18) / 2.5);
+  g.fillStyle = K; g.fillRect(dx - 2, dy - 2, 5, 5); g.fillStyle = W; g.fillRect(dx - 1, dy - 1, 3, 3);
+  wsText(g, 'MOCK INPUT', t.x + 6, t.y + t.h - 9, K); S.mark('curve');
+  const l = wsWin(g, 200, 152, 114, 100, 'LEVELS');
+  [['IN', vm.lev.in], ['S1', vm.lev.s[0]], ['S2', vm.lev.s[1]], ['S3', vm.lev.s[2]], ['OUT', vm.lev.out]].forEach(([n, v], j) => {
+    const bx = l.x + 8 + j * 21, h = l.h - 20, fh = Math.round(h * clamp(v, 0, 1));
+    g.fillStyle = K; g.fillRect(bx, l.y + 5, 12, 1); g.fillRect(bx, l.y + 5 + h, 12, 1); g.fillRect(bx, l.y + 5, 1, h); g.fillRect(bx + 11, l.y + 5, 1, h);
+    g.fillStyle = '#6A6A6A'; g.fillRect(bx + 1, l.y + 5 + h - fh, 10, fh);
+    wsCText(g, n, bx + 6, l.y + h + 9, K);
+  });
+  wsSoft(g, vm, vm.roles); S.mark('roles'); S.mark('soft');
+}
+function wsSluice(S, vm, g) {
+  wsMenu(g, ['FILE', 'EDIT', 'PATCH', 'MODULE', 'SYNC'], 'SLUICE');
+  const c = wsWin(g, 4, 15, 310, 150, 'SLUICE - NETWORK');
+  S.logo('title', c.x + 8, c.y + 3); S.logo('icon', c.x + c.w - 22, c.y + 3);
+  g.fillStyle = '#B0B0B0'; g.fillRect(c.x + 110, c.y + 3, 170, 24); g.fillStyle = K; g.fillRect(c.x + 110, c.y + 3, 170, 1); g.fillRect(c.x + 110, c.y + 26, 170, 1);
+  g.fillStyle = W; g.fillRect(c.x + 114, c.y + 6, 162, 8); g.fillRect(c.x + 114, c.y + 16, 162, 8);
+  wsText(g, '! PROVISIONAL LAYOUT', c.x + 117, c.y + 8, K); wsText(g, 'AWAITS SLUICE SPEC B321', c.x + 117, c.y + 18, K);
+  S.mark('provisional');
+  const G = netGeom(vm, c.x + 14, c.y + 32, c.w - 28, 100);
+  vm.edges.forEach((e, i) => {
+    const p = G.polys[i];
+    for (let k = 0; k + 1 < p.length; k++) {
+      const [x0, y0] = p[k], [x1, y1] = p[k + 1], n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0));
+      g.fillStyle = K; for (let s = 0; s <= n; s++) if (!e.loop || (s >> 1) % 2 === 0) g.fillRect(Math.round(x0 + (x1 - x0) * s / n), Math.round(y0 + (y1 - y0) * s / n), 1, 1);
+    }
+  });
+  vm.nodes.forEach((d, i) => {
+    const [cx, cy] = G.P[i].map(Math.round);
+    if (d.io) { g.fillStyle = W; g.fillRect(cx - 8, cy - 5, 17, 10); wsCText(g, d.label, cx, cy - 2, K); return; }
+    const inv = d.act > 0.45;
+    g.fillStyle = K; g.fillRect(cx - 14, cy - 8, 28, 16); g.fillStyle = inv ? K : W; g.fillRect(cx - 13, cy - 7, 26, 14);
+    if (d.locked) { g.fillStyle = inv ? W : K; g.fillRect(cx + 8, cy - 5, 3, 3); }
+    wsCText(g, d.label, cx, cy - 2, inv ? W : K);
+    if (d.val) { g.fillStyle = W; g.fillRect(cx - d.val.length * 2 - 1, cy + 10, d.val.length * 4 + 1, 7); wsCText(g, d.val, cx, cy + 11, K); }
+  });
+  for (const p of pulsePoints(vm, G)) { g.fillStyle = K; g.fillRect(Math.round(p.xy[0]) - 2, Math.round(p.xy[1]) - 2, 5, 5); }
+  S.mark('network');
+  const t = wsWin(g, 4, 170, 148, 82, 'TEMPO');
+  wsText(g, vm.sync.bpm + ' BPM', t.x + 8, t.y + 6, K, 2);
+  wsText(g, 'DELAY', t.x + 8, t.y + 26, K); wsBtn(g, t.x + 44, t.y + 24, 50, vm.sync.div + ' V'); wsText(g, vm.sync.ms + ' MS', t.x + 100, t.y + 26, K);
+  wsText(g, 'LFO', t.x + 8, t.y + 40, K); wsBtn(g, t.x + 44, t.y + 38, 50, vm.sync.lfo + ' V');
+  wsText(g, 'STORED BY NAME', t.x + 8, t.y + 56, K); S.mark('sync');
+  const r = wsWin(g, 158, 170, 156, 82, 'RANDOMISE...');
+  wsText(g, 'RANDOMNESS', r.x + 6, r.y + 5, K); wsText(g, pct(vm.random.amt), r.x + r.w - 22, r.y + 5, K);
+  wsSlider(g, r.x + 6, r.y + 14, r.w - 12, vm.random.amt);
+  wsBtn(g, r.x + 6, r.y + 24, 66, 'NEW PATCH'); wsBtn(g, r.x + 78, r.y + 24, 66, 'RANDOMISE', true);
+  const cb = (x, y, on, label) => { g.fillStyle = K; g.fillRect(x, y, 7, 7); g.fillStyle = W; g.fillRect(x + 1, y + 1, 5, 5); if (on) { g.fillStyle = K; for (let q = 0; q < 5; q++) { g.fillRect(x + 1 + q, y + 1 + q, 1, 1); g.fillRect(x + 5 - q, y + 1 + q, 1, 1); } } wsText(g, label, x + 10, y + 1, K); };
+  cb(r.x + 6, r.y + 38, vm.random.lvlLocked, 'LOCK LEVELER'); cb(r.x + 6, r.y + 48, true, 'LOCK LIMITER');
+  wsText(g, 'SEED ' + vm.random.seed + '  CLICKS ' + vm.random.clicks, r.x + 6, r.y + 60, K); S.mark('random');
+  wsSoft(g, vm, vm.macros); S.mark('macros'); S.mark('soft');
+}
+function wsPaperInk() {
+  const paper = rgbOf(TOK('--scr-tube')), ink = rgbOf(TOK('--scr-physics'));
+  return { paper, ink };
+}
+function drawWS(S, vm, still) {
+  const g = S.g; g.setTransform(1, 0, 0, 1, 0, 0);
+  g.fillStyle = '#A8A8A8'; g.fillRect(0, 0, 320, 288);    // the desktop, a grey the dither turns into a pattern
+  (vm.mod === 'maw' ? wsMaw : wsSluice)(S, vm, g);
+  const img = g.getImageData(0, 0, 320, 288), d = img.data, PI = wsPaperInk();
+  if (d && d.length) for (let y = 0; y < 288; y++) for (let x = 0; x < 320; x++) {
+    const o = (y * 320 + x) * 4, thr = (BAYER4[(y & 3) * 4 + (x & 3)] + 0.5) / 16 * 255, c = d[o] > thr ? PI.paper : PI.ink;
+    d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; d[o + 3] = 255;
+  }
+  g.putImageData(img, 0, 0);
+}
+
+/* ======================================================================
+   H. SEGMENT GLASS — reflective LCD on a pale scheme, VFD on a dark one
+   ====================================================================== */
+function segInks() {
+  const pale = !!PALE[LAB.scheme], tube = TOK('--scr-tube');
+  const on = pale ? mixHex(TOK('--scr-physics'), '#000000', 0.45) : TOK('--scr-meter');
+  return { pale, ground: pale ? mixHex(tube, '#9AA08A', 0.18) : tube, on, val: pale ? on : TOK('--scr-value'),
+    att: TOK('--scr-marker'), ghost: RGBA(pale ? on : TOK('--scr-meter'), pale ? 0.07 : 0.08), legend: RGBA(pale ? on : TOK('--scr-grid'), 0.55) };
+}
+function sBar(g, x, y, w, h, n, v, I, col) {
+  const lit = Math.round(n * clamp(v, 0, 1)), sw = (w - (n - 1) * 0.6) / n;
+  for (let i = 0; i < n; i++) { g.fillStyle = i < lit ? (col || I.on) : I.ghost; g.fillRect(x + i * (sw + 0.6), y, sw, h); }
+}
+function sVBar(g, x, y, w, h, n, v, I) {
+  const lit = Math.round(n * clamp(v, 0, 1)), sh = (h - (n - 1) * 0.6) / n;
+  for (let i = 0; i < n; i++) { g.fillStyle = i < lit ? (i >= n - 2 ? I.att : I.on) : I.ghost; g.fillRect(x, y + h - (i + 1) * sh - i * 0.6, w, sh); }
+}
+function sLbl(g, s, x, y, h, I, col, ghost) { g.shadowColor = col || I.on; return segText(g, s, x, y, h * 0.55, h, col || I.on, { ghost: ghost ? I.ghost : null, lw: h * 0.13, inset: 0.1 }); }
+function sNum(g, s, x, y, h, I, col) { g.shadowColor = col || I.on; return segText(g, s, x, y, h * 0.55, h, col || I.on, { ghost: I.ghost, seven: true, lw: h * 0.16, inset: 0.12, adv: 1.55 }); }
+/* an icon segment: off (only its ghost), 'line' (a lit outline and label: a key's or a node's
+   legend) or on (filled, the label cut out of it) */
+function sIcon(g, x, y, w, h, on, label, I, col) {
+  const ink = col || I.on, line = on === 'line';
+  g.strokeStyle = on ? ink : I.ghost; g.lineWidth = 0.5; g.strokeRect(x, y, w, h);
+  if (on && !line) { g.fillStyle = ink; g.fillRect(x + 0.8, y + 0.8, w - 1.6, h - 1.6); }
+  const hh = h * 0.55; g.shadowColor = I.on; segText(g, label, x + (w - label.length * hh * 0.55 * 1.45) / 2 + hh * 0.08, y + (h - hh) / 2, hh * 0.55, hh, line ? ink : on ? I.ground : I.ghost, { lw: hh * 0.14, inset: 0.1 });
+}
+function segSoft(g, vm, labels, I) {
+  g.fillStyle = I.legend; g.fillRect(4, 115, 152, 0.3);
+  labels.forEach((r, j) => {
+    const x = j * 40 + 4, col = r.idle ? I.att : I.on;
+    sLbl(g, r.label.slice(0, 6), x, 118, 4, I, col, true);
+    if (r.idle) sIcon(g, x, 124.5, 16, 4.6, true, 'IDLE', I, I.att);
+    else sBar(g, x, 125, 32, 2.6, 10, r.v, I, I.val);
+    sIcon(g, x + 4, 134, 24, 7, 'line', vm.keys[j], I);
+    g.fillStyle = I.legend; g.fillRect(x + 4, 142, 24, 0.3);
+  });
+}
+function segMaw(S, vm, I, g) {
+  S.logo('title', 4, 3); S.logo('icon', 148, 3);
+  g.strokeStyle = I.legend; g.lineWidth = 0.3; g.strokeRect(3, 2, 50, 14); g.strokeRect(147, 2, 10, 10);
+  ROUTE_SHORT.forEach((r, i) => sIcon(g, 58 + i * 17.6, 4, 16, 7, i === vm.route, r, I));
+  g.fillStyle = I.legend; g.font = '2.6px ui-monospace, Menlo, monospace'; g.fillText('ROUTE', 58, 14.5); S.mark('route');
+  vm.stages.forEach((s, i) => {
+    const x = 4 + i * 52, y = 20, sel = i === vm.sel;
+    g.strokeStyle = sel ? I.on : I.legend; g.lineWidth = sel ? 0.6 : 0.3; g.strokeRect(x - 1, y - 1, 49, 46);
+    sLbl(g, 'S' + s.n, x + 1, y + 1, 5, I, I.on, true); sLbl(g, s.name, x + 13, y + 1, 5, I, sel ? I.val : I.on, true);
+    sLbl(g, s.dB >= 0 ? '+' : '-', x + 1, y + 12, 5, I, I.val);
+    sNum(g, Math.abs(s.dB).toFixed(1).padStart(4, ' '), x + 6, y + 10, 9, I, I.val); sLbl(g, 'DB', x + 39, y + 14, 4, I, I.on);
+    // the stage's curve as a fixed dot matrix: 12 columns × 7 rows
+    for (let c = 0; c < 12; c++) {
+      const r = Math.round(3 - clamp(s.f(c / 11 * 2 - 1), -1.2, 1.2) * 2.5);
+      for (let q = 0; q < 7; q++) { g.fillStyle = q === r ? I.on : I.ghost; g.fillRect(x + 1 + c * 3.9, y + 23 + q * 2.4, 2.8, 1.7); }
+    }
+    sBar(g, x + 1, y + 41, 46, 2.4, 12, (s.dB + 12) / 60, I);
+  });
+  S.mark('stages');
+  const s = vm.stages[vm.sel], col = Math.round((vm.x + 1) / 2 * 31);
+  sLbl(g, 'TRANSFER S' + s.n, 4, 70, 3.6, I);
+  for (let c = 0; c < 32; c++) {
+    const r = Math.round(5.5 - clamp(s.f(c / 31 * 2 - 1), -1.2, 1.2) * 4.6);
+    for (let q = 0; q < 12; q++) { g.fillStyle = q === r ? (c === col ? I.att : I.on) : c === col ? RGBA(I.on, 0.22) : I.ghost; g.fillRect(4 + c * 3.1, 76 + q * 3.1, 2.4, 2.4); }
+  }
+  S.mark('curve');
+  [['IN', vm.lev.in], ['S1', vm.lev.s[0]], ['S2', vm.lev.s[1]], ['S3', vm.lev.s[2]], ['OUT', vm.lev.out]].forEach(([n, v], j) => {
+    const x = 108 + j * 10; sVBar(g, x, 72, 6, 34, 12, v, I); sLbl(g, n, x - (n.length > 2 ? 1.6 : 0), 108, 3, I);
+  });
+  segSoft(g, vm, vm.roles, I); S.mark('roles'); S.mark('soft');
+}
+function segSluice(S, vm, I, g) {
+  S.logo('title', 4, 3); S.logo('icon', 148, 3);
+  g.strokeStyle = I.legend; g.lineWidth = 0.3; g.strokeRect(3, 2, 50, 14); g.strokeRect(147, 2, 10, 10);
+  sIcon(g, 58, 4, 20, 7, (Math.floor(vm.t * 1) % 2) === 0, 'PROV', I, I.att);
+  g.fillStyle = I.legend; g.font = '2.6px ui-monospace, Menlo, monospace'; g.fillText('PROVISIONAL LAYOUT - SPEC B321', 81, 9); S.mark('provisional');
+  const G = netGeom(vm, 10, 22, 140, 58);
+  const pp = pulsePoints(vm, G);
+  vm.edges.forEach((e, i) => {
+    const p = G.polys[i];
+    for (let k = 0; k + 1 < p.length; k++) {
+      const [x0, y0] = p[k], [x1, y1] = p[k + 1], n = 3;
+      for (let q = 0; q < n; q++) {
+        const ax = x0 + (x1 - x0) * (q + 0.15) / n, ay = y0 + (y1 - y0) * (q + 0.15) / n, bx = x0 + (x1 - x0) * (q + 0.85) / n, by = y0 + (y1 - y0) * (q + 0.85) / n;
+        const lit = pp.some(pt => Math.hypot(pt.xy[0] - (ax + bx) / 2, pt.xy[1] - (ay + by) / 2) < Math.hypot(bx - ax, by - ay) * 0.7);
+        g.strokeStyle = I.legend; g.lineWidth = 0.25; g.beginPath(); g.moveTo(ax, ay); g.lineTo(bx, by); g.stroke();   // the printed route
+        g.strokeStyle = lit ? (e.loop ? I.att : I.on) : I.ghost; g.lineWidth = 1.1; g.beginPath(); g.moveTo(ax, ay); g.lineTo(bx, by); g.stroke();
+      }
+    }
+  });
+  vm.nodes.forEach((d, i) => {
+    const [cx, cy] = G.P[i];
+    if (d.io) { sLbl(g, d.label, cx - d.label.length * 1.6, cy - 2, 4, I); return; }
+    sIcon(g, cx - 9, cy - 4.5, 18, 9, d.act > 0.3 ? true : 'line', d.label, I, d.locked ? I.att : null);
+    if (d.locked) { g.fillStyle = I.att; g.fillRect(cx + 9.8, cy - 4.5, 1.6, 1.6); }
+    if (d.val) sLbl(g, d.val, cx - d.val.length * 1.45, cy + 7, 2.6, I, I.on);
+  });
+  S.mark('network');
+  sLbl(g, 'BPM', 8, 86, 3, I); sNum(g, String(vm.sync.bpm), 8, 91, 9, I, I.val);
+  sLbl(g, 'DLY', 34, 86, 3, I); sLbl(g, vm.sync.div, 34, 92, 6, I, I.val, true);
+  sLbl(g, 'LFO', 62, 86, 3, I); sLbl(g, vm.sync.lfo, 62, 92, 6, I, I.on, true); S.mark('sync');
+  sLbl(g, 'RND', 92, 86, 3, I); sNum(g, String(Math.round(vm.random.amt * 100)).padStart(3, ' '), 92, 91, 9, I, I.val); sLbl(g, '%', 116, 95, 4, I);
+  sBar(g, 92, 103, 30, 2.4, 10, vm.random.amt, I, I.val);
+  sIcon(g, 126, 86, 14, 6, vm.random.lvlLocked, 'LVL', I, I.att); sIcon(g, 126, 94, 14, 6, true, 'LIM', I, I.att);
+  sLbl(g, 'SEED', 142, 86, 2.6, I); sLbl(g, vm.random.seed, 141, 91, 3.4, I, I.on); S.mark('random');
+  segSoft(g, vm, vm.macros, I); S.mark('macros'); S.mark('soft');
+}
+function drawSEG(S, vm, still) {
+  const g = S.g, k = S.U * S.dpr, I = segInks();
+  g.setTransform(1, 0, 0, 1, 0, 0); g.shadowBlur = 0; g.fillStyle = I.ground; g.fillRect(0, 0, S.cv.width, S.cv.height);
+  g.setTransform(k, 0, 0, k, 0, 0); g.lineCap = 'butt';
+  if (!I.pale) g.shadowBlur = 1.6 * k;      // a VFD glows; a reflective LCD does not
+  (vm.mod === 'maw' ? segMaw : segSluice)(S, vm, I, g);
+  g.shadowBlur = 0;
+}
+
+/* ======================================================================
+   I. TELETEXT — a 40×24 page; each cell is 4×6 units, a mosaic cell 2×3 sextants
+   ====================================================================== */
+const TTX = { K: '#000000', R: '#FF0000', G: '#00FF00', Y: '#FFFF00', B: '#0000FF', M: '#FF00FF', C: '#00FFFF', W: '#FFFFFF' };
+function Page() { this.cells = []; for (let i = 0; i < 40 * 24; i++) this.cells.push({ ch: ' ', fg: 'W', bg: 'K', mos: -1, dh: 0 }); }
+Page.prototype.at = function (x, y) { return x >= 0 && x < 40 && y >= 0 && y < 24 ? this.cells[y * 40 + x] : null; };
+Page.prototype.put = function (x, y, s, fg, bg, dh) { s = String(s); for (let i = 0; i < s.length; i++) { const c = this.at(x + i, y); if (!c) continue; c.ch = s[i]; c.fg = fg || 'W'; if (bg) c.bg = bg; c.mos = -1; c.dh = dh || 0; } return x + s.length; };
+Page.prototype.fill = function (x, y, w, bg) { for (let i = 0; i < w; i++) { const c = this.at(x + i, y); if (c) { c.bg = bg; } } };
+Page.prototype.plot = function (sx, sy, fg) {   // one sextant; one foreground per cell, as on the real page
+  const c = this.at(sx >> 1, Math.floor(sy / 3)); if (!c) return;
+  if (c.mos < 0) { c.mos = 0; c.ch = ' '; } c.fg = fg; c.mos |= 1 << ((sy % 3) * 2 + (sx & 1));
+};
+Page.prototype.hbar = function (x, y, w, v, fg) { const n = Math.round(w * 2 * clamp(v, 0, 1)); for (let i = 0; i < n; i++) for (let r = 0; r < 3; r++) this.plot(x * 2 + i, y * 3 + r, fg); };
+Page.prototype.line = function (x0, y0, x1, y1, fg, dash) {   // in sextant coordinates
+  const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)) | 0;
+  for (let i = 0; i <= n; i++) if (!dash || (i >> 1) % 2 === 0) this.plot(Math.round(x0 + (x1 - x0) * i / (n || 1)), Math.round(y0 + (y1 - y0) * i / (n || 1)), fg);
+};
+function ttxHeader(P, page, name) {
+  P.fill(0, 0, 40, 'K'); P.put(1, 0, 'P' + page, 'W'); P.put(7, 0, 'HORDE FX', 'Y'); P.put(17, 0, name, 'C'); P.put(30, 0, 'MOCK', 'G'); P.put(35, 0, 'B322', 'W');
+}
+function ttxSoft(P, vm, labels) {
+  const FAST = ['R', 'G', 'Y', 'C'];
+  labels.forEach((r, j) => {
+    const x = j * 10;
+    P.put(x + 1, 20, r.label.slice(0, 8), r.idle ? 'Y' : 'W');
+    if (r.idle) P.put(x + 1, 21, 'IDLE', 'Y'); else { P.hbar(x + 1, 21, 5, r.v, 'G'); P.put(x + 7, 21, String(Math.round(r.v * 100)).padStart(3, ' '), 'C'); }
+    P.fill(x, 23, 10, FAST[j]); const k = vm.keys[j]; P.put(x + Math.floor((10 - k.length) / 2), 23, k, 'K', FAST[j]);
+  });
+}
+function ttxMaw(S, vm, P) {
+  ttxHeader(P, 322, 'MAW');
+  S.logo('title', 4, 6); S.logo('icon', 148, 6);
+  P.put(15, 1, 'FX-C SATURATOR', 'C', null, 1);
+  P.fill(0, 3, 40, 'B'); P.put(1, 3, 'ROUTE ' + vm.routeName, 'Y', 'B'); P.put(39 - vm.topo.length, 3, vm.topo, 'W', 'B'); S.mark('route');
+  const s = vm.stages[vm.sel];
+  P.put(1, 4, 'TRANSFER S' + s.n + ' ' + s.name, 'G');
+  const X0 = 2, Y0 = 15, WS = 38, HS = 27;    // sextants: cells 1..19, rows 5..13
+  P.line(X0, Y0 + 13, X0 + WS - 1, Y0 + 13, 'B'); P.line(X0 + 19, Y0, X0 + 19, Y0 + HS - 1, 'B');
+  let py = null;
+  for (let i = 0; i < WS; i++) { const y = Math.round(Y0 + 13 - clamp(s.f(i / (WS - 1) * 2 - 1), -1.2, 1.2) * 11); if (py !== null) P.line(X0 + i - 1, py, X0 + i, y, 'Y'); py = y; }
+  const dx = X0 + Math.round((vm.x + 1) / 2 * (WS - 1)), dy = Math.round(Y0 + 13 - clamp(s.f(vm.x), -1.2, 1.2) * 11);
+  P.plot(dx, dy, 'W'); P.plot(dx + 1, dy, 'W'); S.mark('curve');
+  const SC = ['C', 'M', 'G'];
+  vm.stages.forEach((st, i) => {
+    const y = 5 + i * 3, sel = i === vm.sel;
+    P.put(21, y, (sel ? '>' : ' ') + 'S' + st.n + ' ' + st.long.toUpperCase(), SC[i]);
+    P.put(23, y + 1, (st.dB >= 0 ? '+' : '') + st.dB.toFixed(1) + 'DB', 'W'); P.hbar(32, y + 1, 7, (st.dB + 12) / 60, SC[i]);
+  });
+  S.mark('stages');
+  [['IN', vm.lev.in], ['S1', vm.lev.s[0]], ['S2', vm.lev.s[1]], ['S3', vm.lev.s[2]], ['OUT', vm.lev.out]].forEach(([n, v], j) => {
+    const y = 14 + j; P.put(21, y, n, 'W'); P.hbar(25, y, 12, v, v > 0.85 ? 'R' : v > 0.6 ? 'Y' : 'G');
+  });
+  ttxSoft(P, vm, vm.roles); S.mark('roles'); S.mark('soft');
+}
+function ttxSluice(S, vm, P) {
+  ttxHeader(P, 323, 'SLUICE');
+  S.logo('title', 4, 6); S.logo('icon', 148, 6);
+  P.put(15, 1, 'FX NETWORK', 'C', null, 1);
+  const flash = Math.floor(vm.t * 2) % 2 === 0;   // teletext flash, ~1 Hz
+  P.fill(0, 3, 40, 'R'); P.put(2, 3, 'PROVISIONAL - AWAITS SPEC B321', flash ? 'Y' : 'R', 'R'); S.mark('provisional');
+  const G = netGeom(vm, 2, 15, 76, 18);   // sextant coordinates: main row ≈ sextant 21 (cell row 7), loop ≈ 30 (row 10)
+  vm.edges.forEach((e, i) => { const p = G.polys[i]; for (let k = 0; k + 1 < p.length; k++) P.line(p[k][0], p[k][1], p[k + 1][0], p[k + 1][1], e.loop ? 'M' : 'W', e.loop); });
+  for (const p of pulsePoints(vm, G)) if (p.a > 0.2) { P.plot(Math.round(p.xy[0]), Math.round(p.xy[1]), 'Y'); P.plot(Math.round(p.xy[0]) + 1, Math.round(p.xy[1]), 'Y'); }
+  vm.nodes.forEach((d, i) => {
+    const cx = Math.round(G.P[i][0] / 2), cy = Math.floor(Math.round(G.P[i][1]) / 3);   // the row the edges' sextants land in
+    if (d.io) { P.put(cx - 1, cy, d.label, 'W', 'K'); return; }
+    const bg = d.act > 0.4 ? 'Y' : d.locked ? 'M' : 'C';
+    P.put(cx - 2, cy, ' ' + d.label + ' ', 'K', bg);
+    if (d.val) P.put(cx - (d.val.length >> 1), cy + 1, d.val, 'G', 'K');
+  });
+  S.mark('network');
+  P.put(1, 13, 'TEMPO', 'C'); P.put(8, 13, vm.sync.bpm + ' BPM', 'W');
+  P.put(1, 14, 'DELAY', 'C'); P.put(8, 14, vm.sync.div + ' = ' + vm.sync.ms + 'MS', 'Y');
+  P.put(1, 15, 'LFO', 'C'); P.put(8, 15, vm.sync.lfo + '  BY NAME', 'W'); S.mark('sync');
+  P.put(22, 13, 'RANDOMNESS', 'C'); P.hbar(33, 13, 4, vm.random.amt, 'Y'); P.put(37, 13, String(Math.round(vm.random.amt * 100)).padStart(3, ' '), 'W');
+  P.put(22, 14, 'SEED ' + vm.random.seed + ' CLK ' + vm.random.clicks, 'W');
+  P.put(22, 15, 'LOCK LVL ' + (vm.random.lvlLocked ? 'Y' : 'N') + ' LIM Y', 'M'); S.mark('random');
+  P.put(1, 17, 'CORNERS A B C D = HORDE MORPH SLOTS', 'G');
+  ttxSoft(P, vm, vm.macros); S.mark('macros'); S.mark('soft');
+}
+function drawTTX(S, vm, still) {
+  const P = new Page(); (vm.mod === 'maw' ? ttxMaw : ttxSluice)(S, vm, P);
+  const g = S.g, k = S.U * S.dpr;
+  g.setTransform(1, 0, 0, 1, 0, 0); g.fillStyle = '#000000'; g.fillRect(0, 0, S.cv.width, S.cv.height); g.setTransform(k, 0, 0, k, 0, 0);
+  g.textBaseline = 'top';
+  // two passes: every background first, so a double-height glyph is not painted over by the row below
+  for (let y = 0; y < 24; y++) for (let x = 0; x < 40; x++) { const c = P.cells[y * 40 + x]; g.fillStyle = TTX[c.bg]; g.fillRect(x * 4, y * 6, 4, 6); }
+  for (let y = 0; y < 24; y++) for (let x = 0; x < 40; x++) {
+    const c = P.cells[y * 40 + x], px = x * 4, py = y * 6;
+    if (c.mos >= 0) { g.fillStyle = TTX[c.fg]; for (let b = 0; b < 6; b++) if (c.mos & (1 << b)) g.fillRect(px + (b & 1) * 2, py + (b >> 1) * 2, 2, 2); continue; }
+    if (c.ch === ' ') continue;
+    g.fillStyle = TTX[c.fg];
+    if (c.dh) { g.save(); g.translate(px, py); g.scale(1, 2); g.font = 'bold 5.4px ui-monospace, Menlo, monospace'; g.fillText(c.ch, 0.35, 0.2); g.restore(); }
+    else { g.font = 'bold 5.4px ui-monospace, Menlo, monospace'; g.fillText(c.ch, px + 0.35, py + 0.4); }
+  }
+}
+const RENDER = { gbc: drawGBC, crt: drawCRT, vec: drawVEC, ws: drawWS, seg: drawSEG, ttx: drawTTX };
+
+/* ======================================================================
+   J. SCREENS — one instance per chassis (live) or per self-check render (detached)
+   ====================================================================== */
+function makeScreen(trId, mod, U, scr) {
+  const T = TR[trId], live = !!scr;
+  const S = { T, mod, U, live, scr, cssPerUnit: U * 160 / T.lw, logoK: T.logoK(U), marks: new Set(), placed: {}, slots: {}, first: true, dirty: true, visible: true };
+  S.cv = el('canvas', 'scr' + (T.pixel ? ' px' : ''));
+  S.cv.style.width = 160 * U + 'px'; S.cv.style.height = 144 * U + 'px';
+  S.dpr = T.pixel ? 1 : (live ? Math.min(2, (typeof devicePixelRatio === 'number' && devicePixelRatio) || 1) : 1);
+  if (T.pixel) S.g = setCtx(S.cv, T.lw, T.lh); else S.g = setCtx(S.cv, Math.round(160 * U * S.dpr), Math.round(144 * U * S.dpr));
+  if (trId === 'gbc') { S.gb = new GBuf(); S.fb = el('canvas'); S.fbg = setCtx(S.fb, 160, 144); }
+  if (trId === 'crt') { S.off = el('canvas'); S.og = setCtx(S.off, S.cv.width, S.cv.height); }
+  S.mark = n => S.marks.add(n);
+  S.logo = (kind, ux, uy, o) => placeLogo(S, kind, ux, uy, o || {});
+  return S;
+}
+function drawScreen(S, vm, still) { S.marks.clear(); RENDER[S.T.id](S, vm, still); }
+
+/* ======================================================================
+   K. LOGO SLOTS — whole-number scale, pixelated, a placeholder drawn in code until a file exists
+   ====================================================================== */
+function logoFile(mod, kind) { return LOGO_KINDS[kind].file(mod); }
+function probeLogo(src, done) {
+  if (typeof Image !== 'function') { done('absent', null); return; }
+  const img = new Image();
+  img.onload = () => done(img.naturalWidth > 0 ? 'present' : 'absent', img);
+  img.onerror = () => done('absent', null);
+  img.src = src;
+}
+/* the placeholder: caution inks (the status whose job is "look at this before you accept
+   it"), a hatch, the module's name and the canvas size — so it cannot be mistaken for art */
+function drawPlaceholder(mod, kind) {
+  const L = LOGO_KINDS[kind], cv = el('canvas', 'lph'); cv.width = L.w; cv.height = L.h;
+  const g = cv.getContext('2d'); if (!g) return cv;
+  g.fillStyle = TOK('--caution-bg'); g.fillRect(0, 0, L.w, L.h);
+  g.fillStyle = RGBA(TOK('--caution'), 0.35); for (let i = -L.h; i < L.w; i += 4) for (let j = 0; j < L.h; j++) if (i + j >= 0 && i + j < L.w) g.fillRect(i + j, j, 1, 1);
+  g.fillStyle = TOK('--caution'); g.fillRect(0, 0, L.w, 1); g.fillRect(0, L.h - 1, L.w, 1); g.fillRect(0, 0, 1, L.h); g.fillRect(L.w - 1, 0, 1, L.h);
+  const ink = TOK('--caution-tx'), put = (s, x, y) => { g.fillStyle = TOK('--caution-bg'); g.fillRect(x - 1, y - 1, String(s).length * 4 + 1, 7); g.fillStyle = ink; text35(s, (dx, dy) => g.fillRect(x + dx, y + dy, 1, 1)); };
+  if (kind === 'title') { put(MODNAME[mod] + ' LOGO', 3, 3); put(L.w + 'X' + L.h + ' PLACEHOLDER', 3, 11); put(mod + '.png', 3, 18); }
+  else { put(MODNAME[mod][0], 7, 3); put('16', 5, 10); }
+  cv.title = 'PLACEHOLDER — drop docs/design/' + LOGO_DIR + logoFile(mod, kind) + ' (' + L.w + '×' + L.h + ' px) to replace it';
+  return cv;
+}
+/* generated TEST art (?logotest=1 and self-check 3's control): 8×8 tiles, 4 colours each,
+   RGB555 — a pattern, not a logo, labelled TEST */
+function testArt(mod, kind) {
+  const L = LOGO_KINDS[kind], cv = el('canvas'); cv.width = L.w; cv.height = L.h;
+  const g = cv.getContext('2d'); if (!g) return cv;
+  const P = mod === 'maw' ? ['#FF7B00', '#FFDE00', '#311000', '#FFFFFF'] : ['#007BFF', '#5AFF9C', '#001831', '#FFFFFF'];   // each channel (k<<3)|(k>>2)
+  for (let ty = 0; ty < L.h; ty += 8) for (let tx = 0; tx < L.w; tx += 8) { g.fillStyle = ((tx + ty) >> 3) % 2 ? P[0] : P[1]; g.fillRect(tx, ty, 8, 8); }
+  g.fillStyle = P[2]; text35(kind === 'title' ? 'TEST ' + MODNAME[mod] : 'T', (dx, dy) => g.fillRect(3 + dx * (kind === 'title' ? 2 : 2), 4 + dy * 2, 2, 2));
+  g.fillStyle = P[3]; g.fillRect(0, L.h - 2, L.w, 2);
+  return cv;
+}
+function slotBox(S, kind) { const L = LOGO_KINDS[kind]; return { w: L.w * S.logoK, h: L.h * S.logoK }; }
+/* the whole-number scale: the largest k with the art inside the slot, never below 1 */
+function intScale(nw, nh, bw, bh) { return Math.max(1, Math.floor(Math.min(bw / nw, bh / nh) + 1e-9)); }
+function fillSlot(S, kind, sl) {
+  sl.innerHTML = '';   // not `while (firstChild) remove`: under the load checker's stub DOM that never ends
+  const file = logoFile(S.mod, kind), st = LOGOS[file], box = slotBox(S, kind);
+  sl.style.width = box.w + 'px'; sl.style.height = box.h + 'px';
+  let node, nw, nh;
+  if (LAB.logotest) { node = testArt(S.mod, kind); nw = node.width; nh = node.height; node.className = 'test'; node.title = 'TEST pattern (?logotest=1) — generated, not the human\'s art'; }
+  else if (st && st.state === 'present') { node = el('img'); node.src = st.img.src; node.alt = file; nw = st.img.naturalWidth; nh = st.img.naturalHeight; node.title = file + ' (' + nw + '×' + nh + ')'; }
+  else { node = drawPlaceholder(S.mod, kind); nw = node.width; nh = node.height; }
+  const k = intScale(nw, nh, box.w, box.h);
+  node.style.width = nw * k + 'px'; node.style.height = nh * k + 'px';
+  node.dataset.nw = nw; node.dataset.nh = nh; node.dataset.k = k;
+  sl.appendChild(node);
+}
+function placeLogo(S, kind, ux, uy, o) {
+  if (kind === 'title') S.mark('logo');
+  S.placed[kind] = [ux, uy];
+  if (!S.live) return;
+  let sl = S.slots[kind];
+  if (!sl) { sl = el('div', 'lslot' + (o.cel ? ' cel' : '')); sl.dataset.kind = kind; S.scr.appendChild(sl); S.slots[kind] = sl; fillSlot(S, kind, sl); }
+  const x = ux * S.cssPerUnit, y = uy * S.cssPerUnit;
+  if (sl._x !== x || sl._y !== y) { sl.style.left = x + 'px'; sl.style.top = y + 'px'; sl._x = x; sl._y = y; }
+}
+function refillLogos() { for (const S of SCREENS) for (const kind in S.slots) fillSlot(S, kind, S.slots[kind]); updateFoots(); renderNotes(); }
+/* the GBC rule, read back from pixels: ≤ 4 colours per 8×8 tile (fully transparent counts as
+   one), every opaque colour on the RGB555 grid. Used on the GBC frame buffer, on the human's
+   files, and on the planted controls. */
+function tileAudit(data, w, h) {
+  const out = { tiles: 0, maxPer: 0, over: 0, off555: 0, sets: [] };
+  if (!data || !data.length) return out;
+  for (let ty = 0; ty < h; ty += 8) for (let tx = 0; tx < w; tx += 8) {
+    const set = new Set();
+    for (let y = ty; y < Math.min(h, ty + 8); y++) for (let x = tx; x < Math.min(w, tx + 8); x++) {
+      const o = (y * w + x) * 4;
+      if (data[o + 3] < 128) { set.add('t'); continue; }
+      set.add(data[o] + ',' + data[o + 1] + ',' + data[o + 2]);
+      if (!on555(data[o]) || !on555(data[o + 1]) || !on555(data[o + 2])) out.off555++;
+    }
+    out.tiles++; out.maxPer = Math.max(out.maxPer, set.size); if (set.size > 4) out.over++; out.sets.push(set);
+  }
+  return out;
+}
+/* greedy packing of the tiles' colour sets into 4-colour palettes (an upper bound on the
+   palettes the art needs; the GBC has 8 for the background) */
+function palettesNeeded(sets) {
+  const pals = [];
+  for (const s of sets.slice().sort((a, b) => b.size - a.size)) {
+    if (s.size > 4) continue;
+    const fit = pals.find(p => new Set([...p, ...s]).size <= 4);
+    if (fit) s.forEach(c => fit.add(c)); else pals.push(new Set(s));
+  }
+  return pals.length;
+}
+function lintLogo(img) {
+  try {
+    const cv = el('canvas'); cv.width = img.naturalWidth; cv.height = img.naturalHeight;
+    const g = cv.getContext('2d', { willReadFrequently: true }); g.drawImage(img, 0, 0);
+    const d = g.getImageData(0, 0, cv.width, cv.height).data, A = tileAudit(d, cv.width, cv.height);
+    return { ok: true, w: cv.width, h: cv.height, tiles: A.tiles, maxPer: A.maxPer, over: A.over, off555: A.off555, pals: palettesNeeded(A.sets) };
+  } catch (e) { return { ok: false, why: 'pixels unreadable here (open the page through tools/serve_labs.py)' }; }
+}
+
+/* ======================================================================
+   L. THE CHASSIS — constant across treatments: header, bezel, screen, four soft keys, four knobs
+   ====================================================================== */
+const KNOBS = [];
+function roleGet(mod, j) { return mod === 'maw' ? MAW.roles[j] : SL.macros[j].v; }
+function roleSet(mod, j, v) { v = clamp(v, 0, 1); if (mod === 'maw') MAW.roles[j] = v; else SL.macros[j].v = v; }
+function roleDef(mod, j) { return mod === 'maw' ? MAW_DEF.roles[j] : SL_DEF.macros[j].v; }
+/* gui2's knob skin (the copied CSS); drag up/down, shift = fine, double-click = default. No wheel. */
+function chKnob(host, mod, j) {
+  const cell = el('div', 'kcell'), lab = el('label', null, 'KNOB ' + (j + 1)), k = el('span', 'knob');
+  for (const c of ['kmod', 'karc', 'kcap', 'kptr', 'kmnow']) k.appendChild(el('span', c));
+  const out = el('output'); cell.appendChild(k); cell.appendChild(lab); cell.appendChild(out); host.appendChild(cell);
+  let drag = false, y0 = 0, v0 = 0;
+  k.addEventListener('pointerdown', e => { drag = true; y0 = e.clientY; v0 = roleGet(mod, j); k.classList.add('drag'); try { k.setPointerCapture(e.pointerId); } catch (_) {} });
+  k.addEventListener('pointermove', e => { if (!drag) return; roleSet(mod, j, v0 + (y0 - e.clientY) / (e.shiftKey ? 600 : 160)); changed(); });
+  const up = () => { drag = false; k.classList.remove('drag'); };
+  k.addEventListener('pointerup', up); k.addEventListener('pointercancel', up);
+  k.addEventListener('dblclick', () => { roleSet(mod, j, roleDef(mod, j)); changed(); });
+  const sync = () => { const v = roleGet(mod, j); k.style.setProperty('--a0', '0deg'); k.style.setProperty('--a1', v * 280 + 'deg'); k.style.setProperty('--ang', (v * 280 - 140) + 'deg'); out.textContent = pct(v); };
+  KNOBS.push(sync); sync();
+}
+function pressKey(mod, j) {
+  if (mod === 'maw') { if (j < 3) MAW.sel = j; else MAW.route = (MAW.route + 1) % ROUTES.length; }
+  else if (j === 0) slNew(); else if (j === 1) slRand(); else if (j === 2) SL.div = (SL.div + 1) % DIVS.length; else SL.lvlLock = (SL.lvlLock + 1) % 3;
+  changed();
+}
+/* Sluice's randomisers, mocked on fz.h's law (notice seq 10): every param draws on every
+   click, and a per-param threshold below RANDOMNESS decides which draws apply. Seeded. */
+function drawVal(type, r) {
+  switch (type) {
+    case 'shifter': return Math.round(r() * 24 - 12); case 'allpass': return 5 + r() * 60; case 'delay': return 0;
+    case 'chorus': case 'phaser': return 0.1 + r() * 2; case 'doppler': return Math.round(r() * 12);
+    case 'filter': return 100 + r() * 4000; default: return r();
+  }
+}
+function slNew() {
+  SL.clicks++; const r = mulberry32((SL.seed * 7919 + SL.clicks) >>> 0), n = 3 + Math.floor(r() * 3), pool = ROSTER.slice();
+  SL.chain = []; for (let i = 0; i < n; i++) SL.chain.push(pool.splice(Math.floor(r() * pool.length), 1)[0]);
+  SL.vals = SL.chain.map(t => drawVal(t, r)); SL.th = SL.chain.map(() => r());
+}
+function slRand() {
+  SL.clicks++; const r = mulberry32((SL.seed * 7919 + SL.clicks) >>> 0);
+  SL.chain.forEach((t, i) => { const v = drawVal(t, r); if (SL.th[i] < SL.randomness) SL.vals[i] = v; });
+}
+function changed() { for (const f of KNOBS) f(); for (const S of SCREENS) S.dirty = true; }
+function buildChassis(host, trId, mod, U) {
+  const T = TR[trId], c = el('div', 'chassis'); c.dataset.tr = trId; c.dataset.mod = mod;
+  const head = el('div', 'chead');
+  head.appendChild(el('span', 'cbrand', 'horde')); head.appendChild(el('span', 'ctab', mod === 'maw' ? 'FX-C · MAW' : 'FX · SLUICE'));
+  head.appendChild(el('span', 'cled')); head.appendChild(el('span', 'ctr', T.name));
+  c.appendChild(head);
+  const bez = el('div', 'bezel'), scr = el('div', 'screen');
+  scr.style.width = 160 * U + 'px'; scr.style.height = 144 * U + 'px';
+  const S = makeScreen(trId, mod, U, scr);
+  scr.appendChild(S.cv);
+  const fx = el('div', 'fxo ' + trId); fx.style.setProperty('--u', (U * 160 / T.lw) + 'px'); fx.style.setProperty('--gridA', U >= 4 ? 0.16 : 0.07);
+  scr.appendChild(fx); bez.appendChild(scr); c.appendChild(bez);
+  const ctl = el('div', 'cctl'); ctl.style.width = 160 * U + 'px'; ctl.style.marginLeft = '11px';
+  for (let j = 0; j < 4; j++) {
+    const col = el('div', 'ccol'), key = el('button', 'pill mini ckey', 'KEY ' + (j + 1));
+    key.title = 'soft key ' + (j + 1) + ': the screen names what it does'; key.addEventListener('click', () => pressKey(mod, j));
+    col.appendChild(key); chKnob(col, mod, j); ctl.appendChild(col);
+  }
+  c.appendChild(ctl);
+  const foot = el('div', 'cfoot'); foot.appendChild(el('span', 'tag mock', 'MOCK'));
+  if (mod === 'sluice') foot.appendChild(el('span', 'tag prov', 'PROVISIONAL'));
+  // the footer wraps inside the bezel's width (160U + 22: screen border 3, bezel padding 16 and
+  // border 3), so a longer status line never widens one chassis past its twin
+  foot.style.maxWidth = (160 * U + 22) + 'px';
+  const ls = el('span', 'lstat'); foot.appendChild(ls); c.appendChild(foot);
+  S.foot = ls; S.chassis = c; host.appendChild(c); SCREENS.push(S);
+  return S;
+}
+function updateFoots() {
+  for (const S of SCREENS) {
+    if (!S.foot) continue;
+    const st = k => { const f = logoFile(S.mod, k), s = LOGOS[f]; return LAB.logotest ? 'TEST' : s ? (s.state === 'present' ? f : s.state === 'pending' ? 'loading' : 'placeholder') : 'placeholder'; };
+    S.foot.textContent = 'logo: ' + st('title') + ' · icon: ' + st('icon') + ' · logo scale ×' + S.logoK;
+  }
+}
+
+/* ======================================================================
+   M. SELF-CHECKS — each with a must-fail control that the same code must report RED
+   ====================================================================== */
+const CHECK_FRAME = 97;   // a fixed mock time, so the check renders are reproducible
+function hashCanvas(cv) {
+  let h = 2166136261 >>> 0; try {
+    const d = cv.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, cv.width, cv.height).data;
+    if (!d || !d.length) return 'none';
+    for (let i = 0; i < d.length; i += 1) h = Math.imul(h ^ d[i], 16777619) >>> 0;
+  } catch (_) { return 'none'; }
+  return h.toString(16);
+}
+function inkFraction(cv) {
+  try {
+    const d = cv.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, cv.width, cv.height).data;
+    if (!d || !d.length) return 0;
+    const g0 = [d[4 * (cv.width + 1)], d[4 * (cv.width + 1) + 1], d[4 * (cv.width + 1) + 2]];
+    let n = 0, m = 0;
+    for (let i = 0; i < d.length; i += 16) { m++; if (Math.abs(d[i] - g0[0]) + Math.abs(d[i + 1] - g0[1]) + Math.abs(d[i + 2] - g0[2]) > 36) n++; }
+    return m ? n / m : 0;
+  } catch (_) { return 0; }
+}
+function vmsAt(frame) { return { maw: mawVM(frame / FPS), sluice: sluiceVM(frame / FPS) }; }
+function checkRender(trId, mod, renderFn) {
+  const S = makeScreen(trId, mod, 2, null), vm = vmsAt(CHECK_FRAME)[mod];
+  let err = '';
+  try { S.marks.clear(); (renderFn || RENDER[trId])(S, vm, true); } catch (e) { err = String(e && e.message || e); }
+  const miss = REQUIRED[mod].filter(m => !S.marks.has(m));
+  if (!S.placed.title || !S.placed.icon) miss.push('logo slots');
+  const ink = inkFraction(S.cv);
+  return { S, ok: !err && !miss.length && ink > 0.01, err, miss, ink };
+}
+function withScheme(name, fn) {
+  const was = LAB.scheme; LAB.scheme = name; applyBody(); _tok = {};
+  try { return fn(); } finally { LAB.scheme = was; applyBody(); _tok = {}; }
+}
+function intScaleAudit(node, originCv) {
+  const r = node.getBoundingClientRect(), nw = +node.dataset.nw || node.width, nh = +node.dataset.nh || node.height;
+  const kx = r.width / nw, ky = r.height / nh, whole = v => Math.abs(v - Math.round(v)) < 1e-6 && Math.round(v) >= 1;
+  let ir = ''; try { ir = getComputedStyle(node).imageRendering; } catch (_) { ir = ''; }
+  let aligned = true;
+  if (originCv) { const o = originCv.getBoundingClientRect(); aligned = whole(1 + (r.left - o.left) / kx) && whole(1 + (r.top - o.top) / ky); }
+  return { ok: whole(kx) && whole(ky) && Math.abs(kx - ky) < 1e-6 && ir === 'pixelated' && aligned, kx, ky, ir, aligned };
+}
+function runChecks(done) {
+  const run = CHECKS.run = (CHECKS.run || 0) + 1;   // a later run supersedes an earlier one still settling
+  const rows = [], row = (name, ok, detail, ctl) => rows.push({ name, ok, detail, ctl });
+  // 1. every treatment renders both modules, with all of each module's content
+  {
+    const res = []; for (const T of TREATMENTS) for (const m of MODULES) res.push(Object.assign({ tr: T.id, m }, checkRender(T.id, m)));
+    const bad = res.filter(r => !r.ok);
+    const blank = checkRender('gbc', 'sluice', S => { S.logo('title', 0, 0); S.logo('icon', 0, 0); REQUIRED.sluice.forEach(S.mark); });
+    const forgot = checkRender('crt', 'sluice', (S, vm, st) => { drawCRT(S, vm, st); S.marks.delete('network'); });
+    const ctlOk = !blank.ok && !forgot.ok;
+    row('every treatment renders both modules with all their content', !bad.length && ctlOk,
+      res.length + ' renders (' + TREATMENTS.length + ' treatments × 2); ' + (bad.length ? 'FAILED: ' + bad.map(r => r.tr + '/' + r.m + ' ' + (r.err || r.miss.join(',') || 'ink ' + r.ink.toFixed(3))).join('; ') : 'all carry ' + REQUIRED.maw.length + ' (MAW) / ' + REQUIRED.sluice.length + ' (Sluice) content marks and ink > 1% of the screen') + '. The marks are declared by each renderer as it draws; the ink test is the pixels.',
+      'a blank screen that declares every mark: ' + (blank.ok ? 'MISSED' : 'caught (ink ' + blank.ink.toFixed(3) + ')') + '; a CRT Sluice without its network: ' + (forgot.ok ? 'MISSED' : 'caught'));
+    CHECKS.renders = res;
+  }
+  // 2. logo slots (and the pixel screens) integer-scale, pixelated, on the screen's pixel grid
+  {
+    const items = [];
+    for (const S of SCREENS) {
+      for (const kind in S.slots) { const n = S.slots[kind].firstChild; if (n) items.push(Object.assign({ what: S.T.id + '/' + S.mod + ' ' + kind }, intScaleAudit(n, S.cv))); }
+      if (S.T.pixel) { S.cv.dataset.nw = S.T.lw; S.cv.dataset.nh = S.T.lh; items.push(Object.assign({ what: S.T.id + '/' + S.mod + ' screen' }, intScaleAudit(S.cv, null))); }
+    }
+    const area = document.getElementById('ctlArea');
+    const plant = (scale, ir) => { const cv = el('canvas'); cv.width = 96; cv.height = 24; cv.dataset.nw = 96; cv.dataset.nh = 24; cv.style.width = 96 * scale + 'px'; cv.style.height = 24 * scale + 'px'; cv.style.imageRendering = ir; cv.style.display = 'block'; cv.style.border = '0'; area.appendChild(cv); const a = intScaleAudit(cv, null); area.removeChild(cv); return a; };
+    const frac = plant(2.5, 'pixelated'), smooth = plant(2, 'auto');
+    const bad = items.filter(i => !i.ok), measured = items.length > 0 && items.every(i => i.kx > 0);
+    row('logo slots and pixel screens scale by whole numbers', measured && !bad.length && !frac.ok && !smooth.ok,
+      items.length + ' surfaces measured; ' + (bad.length ? 'FAILED: ' + bad.map(b => b.what + ' ×' + b.kx.toFixed(3) + ' ' + b.ir + (b.aligned ? '' : ' off-grid')).join('; ') : 'every one ×' + [...new Set(items.map(i => Math.round(i.kx)))].sort().join('/×') + ', image-rendering pixelated, slots on their logo-pixel grid'),
+      'a 96×24 canvas shown at ×2.5: ' + (frac.ok ? 'MISSED' : 'caught (×' + frac.kx + ')') + '; at ×2 with image-rendering auto: ' + (smooth.ok ? 'MISSED' : 'caught'));
+  }
+  // 3. placeholders show exactly when the files are absent (async: two probes)
+  const finish = () => {
+    // 4. the GBC frame buffer keeps the hardware's tile rule
+    {
+      const bufs = SCREENS.filter(S => S.T.id === 'gbc').concat((CHECKS.renders || []).filter(r => r.tr === 'gbc').map(r => r.S));
+      const au = bufs.map(S => { const d = S.fbg.getImageData(0, 0, 160, 144).data; return tileAudit(d, 160, 144); });
+      const okAll = au.length > 0 && au.every(a => a.tiles === 360 && a.maxPer <= 4 && a.off555 === 0);
+      const five = new Uint8ClampedArray(8 * 8 * 4); for (let i = 0; i < 64; i++) { const c = [[0, 0, 0], [255, 255, 255], [255, 0, 0], [0, 255, 0], [0, 0, 255]][i % 5]; five.set([c[0], c[1], c[2], 255], i * 4); }
+      const off = new Uint8ClampedArray(8 * 8 * 4); for (let i = 0; i < 64; i++) off.set([i ? 0 : 3, 0, 0, 255], i * 4);
+      const A5 = tileAudit(five, 8, 8), AO = tileAudit(off, 8, 8);
+      row('the GBC screen keeps 4 colours per 8×8 tile, in RGB555', okAll && A5.over === 1 && AO.off555 === 1,
+        au.length + ' frame buffers read back (' + au.reduce((s, a) => s + a.tiles, 0) + ' tiles); max ' + Math.max(0, ...au.map(a => a.maxPer)) + ' colours in a tile; ' + au.reduce((s, a) => s + a.off555, 0) + ' pixels off the RGB555 grid',
+        'a planted 5-colour tile: ' + (A5.over === 1 ? 'caught' : 'MISSED') + '; a planted off-grid colour (3,0,0): ' + (AO.off555 === 1 ? 'caught' : 'MISSED'));
+    }
+    // 5. each treatment honours its stated scheme policy
+    {
+      const H = (tr, rf) => ['TUBE', 'ORCHID', 'DUSK'].map(n => withScheme(n, () => { const S = makeScreen(tr, 'maw', 2, null); (rf || RENDER[tr])(S, vmsAt(CHECK_FRAME).maw, true); return hashCanvas(S.cv); }));
+      const judge = (pol, h) => h.includes('none') ? false : pol === 'respects' ? (h[0] !== h[1] && h[0] !== h[2]) : pol === 'overrides' ? (h[0] === h[1] && h[0] === h[2]) : (h[0] === h[1] && h[0] !== h[2]);
+      const res = TREATMENTS.map(T => ({ T, ok: judge(T.scheme, H(T.id)) }));
+      const deaf = judge('respects', H('gbc', S => { S.g.fillStyle = '#123456'; S.g.fillRect(0, 0, 160, 144); }));
+      row('each treatment honours its scheme policy', res.every(r => r.ok) && !deaf,
+        res.map(r => r.T.id + ' ' + r.T.scheme + (r.ok ? ' ✓' : ' ✗')).join(' · ') + ' (rendered under TUBE, ORCHID and DUSK: "respects" must change with both, "overrides" with neither, "dark-only" with DUSK but not ORCHID)',
+        'a renderer that claims "respects" and ignores the scheme: ' + (deaf ? 'MISSED' : 'caught'));
+    }
+    // 6. renders are deterministic (a frame counter, seeded draws, no clock)
+    {
+      const res = (CHECKS.renders || []).map(r => { const S2 = makeScreen(r.tr, r.m, 2, null); drawScreen(S2, vmsAt(CHECK_FRAME)[r.m], true); return hashCanvas(S2.cv) === hashCanvas(r.S.cv) && hashCanvas(S2.cv) !== 'none'; });
+      const noisy = (() => { const f = S => { S.g.fillStyle = 'rgb(' + Math.floor(Math.random() * 256) + ',9,9)'; S.g.fillRect(0, 0, 40, 40); }; const a = makeScreen('ws', 'maw', 2, null), b = makeScreen('ws', 'maw', 2, null); f(a); f(b); return hashCanvas(a.cv) !== hashCanvas(b.cv); })();
+      row('the same mock frame renders the same pixels', res.length > 0 && res.every(Boolean) && noisy,
+        res.filter(Boolean).length + '/' + res.length + ' treatment × module renders repeat bit for bit at frame ' + CHECK_FRAME,
+        'a renderer drawing from Math.random: ' + (noisy ? 'caught (the two renders differ)' : 'MISSED (hypothesis: the planted draw repeated by chance)'));
+    }
+    // 7. every chassis says MOCK; every Sluice chassis says PROVISIONAL
+    {
+      const has = (c, sel, txt) => { const n = c.querySelector(sel); return !!(n && n.textContent === txt && n.getClientRects().length); };
+      const bad = SCREENS.filter(S => !has(S.chassis, '.tag.mock', 'MOCK') || (S.mod === 'sluice' && !has(S.chassis, '.tag.prov', 'PROVISIONAL')));
+      const area = document.getElementById('ctlArea'), bare = el('div', 'chassis'); area.appendChild(bare);
+      const caught = !has(bare, '.tag.mock', 'MOCK'); area.removeChild(bare);
+      row('every chassis is labelled MOCK, and Sluice PROVISIONAL', SCREENS.length > 0 && !bad.length && caught,
+        SCREENS.length + ' chassis on the page; ' + (bad.length ? 'unlabelled: ' + bad.map(S => S.T.id + '/' + S.mod).join(', ') : 'all labelled'),
+        'a planted chassis with no tags: ' + (caught ? 'caught' : 'MISSED'));
+    }
+    if (run !== CHECKS.run) return;
+    CHECKS.rows = rows; CHECKS.done = true; if (done) done();
+  };
+  const slots = [];
+  for (const S of SCREENS) for (const kind in S.slots) slots.push({ S, kind, node: S.slots[kind].firstChild, st: LOGOS[logoFile(S.mod, kind)] });
+  const pending = slots.filter(s => !s.st || s.st.state === 'pending').length;
+  const wrong = LAB.logotest ? slots.filter(s => !s.node || s.node.className !== 'test')
+    : slots.filter(s => s.st && s.st.state !== 'pending' && ((s.st.state === 'absent') !== (!!s.node && s.node.classList.contains('lph'))));
+  const nAbsent = slots.filter(s => s.st && s.st.state === 'absent').length, nPresent = slots.filter(s => s.st && s.st.state === 'present').length;
+  let cA = null, cP = null;
+  const settle = () => {
+    if (cA === null || cP === null) return;
+    const ok = !wrong.length && cA && cP;
+    rows.push({ name: 'placeholders show exactly when the files are absent', ok: pending ? null : ok,
+      detail: LAB.logotest ? slots.length + ' slots show generated TEST patterns (?logotest=1); files are not consulted in this mode'
+        : slots.length + ' slots: ' + nAbsent + ' with the file absent (placeholder shown), ' + nPresent + ' with it present (the file shown)' + (pending ? ', ' + pending + ' still loading' : '') + (wrong.length ? '; WRONG: ' + wrong.map(s => s.S.T.id + '/' + s.S.mod + ' ' + s.kind).join(', ') : ''),
+      ctl: 'a missing file probed through the same loader: ' + (cA ? 'caught (placeholder)' : 'MISSED') + '; a generated PNG: ' + (cP ? 'caught (image shown)' : 'MISSED') });
+    finish();
+  };
+  const tmp = { mod: 'maw', logoK: 2, live: false };
+  probeLogo(LOGO_DIR + '__b322_absent__.png', st => { const f = logoFile('maw', 'title'), save = LOGOS[f], lt = LAB.logotest; LOGOS[f] = { state: st }; LAB.logotest = false; const sl = el('div'); fillSlot(tmp, 'title', sl); cA = st === 'absent' && sl.firstChild.classList.contains('lph'); LOGOS[f] = save; LAB.logotest = lt; settle(); });
+  let dataUrl = ''; try { dataUrl = testArt('maw', 'title').toDataURL('image/png'); } catch (_) { dataUrl = ''; }
+  if (!dataUrl || dataUrl.indexOf('data:image/png') !== 0) { cP = false; settle(); }
+  else probeLogo(dataUrl, (st, img) => { const f = logoFile('maw', 'title'), save = LOGOS[f], lt = LAB.logotest; LOGOS[f] = { state: st, img }; LAB.logotest = false; const sl = el('div'); fillSlot(tmp, 'title', sl); cP = st === 'present' && !!sl.firstChild && sl.firstChild.tagName === 'IMG'; LOGOS[f] = save; LAB.logotest = lt; settle(); });
+}
+function showAudit() {
+  const a = document.getElementById('audit'); if (!a) return;
+  if (!CHECKS.done) { a.textContent = 'self-checks: running'; return; }
+  const R = CHECKS.rows, pass = R.filter(r => r.ok === true).length, pend = R.filter(r => r.ok === null).length;
+  const ctl = R.reduce((n, r) => n + (String(r.ctl).match(/caught/g) || []).length, 0), ctlAll = R.reduce((n, r) => n + (String(r.ctl).match(/caught|MISSED/g) || []).length, 0);
+  a.className = 'audit' + (pass + pend < R.length ? ' bad' : '');
+  a.innerHTML = 'self-checks <b>' + pass + '/' + R.length + '</b>' + (pend ? ' (' + pend + ' pending)' : '') + ' · must-fail controls caught <b>' + ctl + '/' + ctlAll + '</b> · ' +
+    R.map((r, i) => '<span class="' + (r.ok === true ? 'ok' : r.ok === null ? 'pend' : 'no') + '">' + (i + 1) + (r.ok === true ? '✓' : r.ok === null ? '…' : '✗') + '</span>').join(' ') + ' — details in the Self-checks box below';
+  renderNotes();
+}
+
+/* ======================================================================
+   N. THE PAGE — pickers, views, notes
+   ====================================================================== */
+function applyBody() {
+  const b = document.body; if (!b || !b.classList) return;
+  b.classList.toggle('dark', LAB.theme === 'dark');
+  for (const s of SCHEMES) if (s.cls) b.classList.toggle(s.cls, s.name === LAB.scheme);
+}
+function chrome() {
+  const set = (id, h) => { const n = document.getElementById(id); if (n) n.innerHTML = h; };
+  set('themeBtn', 'theme <b>' + LAB.theme.toUpperCase() + '</b>'); set('scrBtn', 'screen <b>' + LAB.scheme + '</b>');
+  set('motionBtn', 'motion <b>' + (LAB.animate ? 'ON' : 'STILL') + '</b>'); set('logoBtn', 'logos <b>' + (LAB.logotest ? 'TEST' : 'FILES') + '</b>');
+  const pills = (id, items, cur, pick) => {
+    const host = document.getElementById(id); if (!host) return; host.innerHTML = '';
+    for (const [v, label] of items) { const b = el('button', 'pill' + (v === cur ? ' on' : ''), label); b.addEventListener('click', () => pick(v)); host.appendChild(b); }
+  };
+  pills('viewPills', [['overview', 'ALL SIDE BY SIDE']].concat(TREATMENTS.map(T => [T.id, T.name])), LAB.view, v => { LAB.view = v; rebuild(); });
+  pills('modPills', [['both', 'BOTH'], ['maw', 'MAW'], ['sluice', 'SLUICE']], LAB.mod, v => { LAB.mod = v; rebuild(); });
+}
+let IO = null;
+function rebuild() {
+  chrome();
+  const stage = document.getElementById('stage'); if (!stage) return;
+  stage.innerHTML = ''; SCREENS.length = 0; KNOBS.length = 0;
+  const mods = LAB.mod === 'both' ? MODULES : [LAB.mod];
+  const list = LAB.view === 'overview' ? TREATMENTS : TREATMENTS.filter(T => T.id === LAB.view);
+  const U = LAB.view === 'overview' ? 2 : 4;
+  const wrap = el('div', LAB.view === 'overview' ? 'ovgrid' : '');
+  for (const T of list) {
+    const sec = el('div', 'sect'), h = el('h2', null, T.name); h.appendChild(el('span', 'pol', T.policy)); sec.appendChild(h);
+    if (LAB.view !== 'overview') sec.appendChild(el('div', 'why', T.why + ' LOGO: ' + T.logo));
+    const pair = el('div', 'pair'); for (const m of mods) buildChassis(pair, T.id, m, U);
+    sec.appendChild(pair); wrap.appendChild(sec);
+  }
+  stage.appendChild(wrap);
+  if (typeof IntersectionObserver === 'function') {
+    if (IO) IO.disconnect();
+    IO = new IntersectionObserver(es => { for (const e of es) { const S = SCREENS.find(s => s.chassis === e.target); if (S) S.visible = e.isIntersecting; } });
+    for (const S of SCREENS) IO.observe(S.chassis);
+  }
+  updateFoots(); renderFrame(true);
+  CHECKS.done = false; showAudit(); runChecks(showAudit);
+}
+function renderFrame(all) {
+  const vms = vmsAt(LAB.frame), every = LAB.view === 'overview' ? 3 : 1;
+  SCREENS.forEach((S, i) => {
+    if (!all) {
+      if (!S.visible) return;
+      if (LAB.animate) { if (every > 1 && (i + LAB.frame) % every) return; }
+      else if (!S.dirty) return;
+    }
+    drawScreen(S, vms[S.mod], !LAB.animate || S.first); S.first = false; S.dirty = false;
+  });
+}
+function loop() { if (LAB.animate) LAB.frame++; renderFrame(false); requestAnimationFrame(loop); }
+function renderNotes() {
+  const host = document.getElementById('notes'); if (!host) return;
+  const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  let h = '<div class="box"><h2>THE TREATMENTS</h2><table><tr><th>treatment</th><th>why, and how the logo sits</th><th>screen scheme</th></tr>' +
+    TREATMENTS.map(T => '<tr><td><b>' + T.name + '</b></td><td>' + esc(T.why) + ' <i>' + esc(T.logo) + '</i></td><td>' + esc(T.policy) + '</td></tr>').join('') + '</table>' +
+    '<p style="margin-top:6px">Kept from the brief\'s six: all of them. <b>Refined:</b> segmented LCD became SEGMENT GLASS, which is an LCD on a pale scheme and a VFD on a dark one, so it takes the scheme instead of overriding it; the vector monitor draws MAW\'s curve as an XY scope; teletext\'s Fastext keys are the chassis\'s soft keys; the GBC palettes are built from the scheme. <b>Not built:</b> a plasma/gas-discharge panel (one orange, too close to the CRT) and e-paper (no motion, which the mocks rely on).</p></div>';
+  const lrow = (mod, kind) => {
+    const f = logoFile(mod, kind), s = LOGOS[f] || {}, L = LOGO_KINDS[kind];
+    let st = s.state === 'present' ? '<span class="ok">present</span>' : s.state === 'pending' ? '<span class="pend">loading</span>' : 'absent (placeholder)';
+    if (s.lint) st += s.lint.ok ? ' · ' + s.lint.w + '×' + s.lint.h + (s.lint.w === L.w && s.lint.h === L.h ? ' ✓' : ' <span class="no">(the canvas is ' + L.w + '×' + L.h + ')</span>') +
+      ' · max ' + s.lint.maxPer + ' colours/tile' + (s.lint.over ? ' <span class="no">(' + s.lint.over + ' tiles over 4)</span>' : ' ✓') + ' · ' + s.lint.pals + ' palette(s) of 8' + (s.lint.pals > 8 ? ' <span class="no">✗</span>' : ' ✓') + (s.lint.off555 ? ' · <span class="pend">' + s.lint.off555 + ' px off RGB555 (hardware would round them)</span>' : ' · RGB555 ✓')
+      : ' · ' + esc(s.lint.why);
+    return '<tr><td><code>' + f + '</code></td><td>' + L.w + '×' + L.h + '</td><td>' + st + '</td></tr>';
+  };
+  h += '<div class="box"><h2>LOGO CANVASES — WHAT TO DRAW</h2>' +
+    '<table><tr><th>slot</th><th>logical px</th><th>tiles</th><th>where it shows</th></tr>' +
+    '<tr><td><b>TITLE</b></td><td>96 × 24</td><td>12 × 3</td><td>the header of every screen; on the GBC one logo pixel is one screen pixel</td></tr>' +
+    '<tr><td><b>ICON</b></td><td>16 × 16</td><td>2 × 2</td><td>the top-right corner; a window\'s proxy icon on the workstation</td></tr></table>' +
+    '<p><b>Palette rule (the GBC treatment, as on real hardware):</b> at most <b>4 colours in each 8×8 tile</b> (fully transparent counts as one, as a sprite\'s colour 0 does); at most <b>8 palettes</b> across the whole logo; colours on the <b>RGB555</b> grid (5 bits a channel: each 8-bit value is (k&lt;&lt;3)|(k&gt;&gt;2), k = 0…31, so 0, 8, 16, 24, 33, … 247, 255). The page checks a dropped file against all three and says so below.</p>' +
+    '<p><b>Drop-in rule:</b> save PNGs as <code>docs/design/assets/fx-logos/maw.png</code>, <code>maw-icon.png</code>, <code>sluice.png</code>, <code>sluice-icon.png</code>, then reload. The page shows each at the largest <b>whole-number</b> scale that fits its slot, never resampled (image-rendering: pixelated). Art larger than the canvas is shown at ×1 and clipped. Until a file exists the slot shows a placeholder drawn in code.</p>' +
+    '<table><tr><th>file</th><th>canvas</th><th>status</th></tr>' + MODULES.map(m => lrow(m, 'title') + lrow(m, 'icon')).join('') + '</table>' +
+    '<div class="lsample" id="lsample"></div></div>';
+  h += '<div class="box"><h2>WHAT IS MOCKED, WHAT IS REAL</h2><ul>' +
+    '<li><b>Mocked (everything on the screens):</b> all values, meters, pulses and the moving dot are sample values driven by a frame counter at 60 per second of mock time (no wall clock; <code>?still=N</code> freezes frame N). Nothing is heard.</li>' +
+    '<li><b>MAW\'s curves</b> are SPEC-MAW §3\'s formulas (soft, fold, tube) evaluated by this page. SPEC-MAW §10 says a UI-computed curve is not evidence of what MAW renders; the rendered ones are in the MAW lab (B318).</li>' +
+    '<li><b>MAW\'s knobs</b> are the four ADR-169 roles. Their bindings here (Amount ±18 dB of drive, Tone ±0.5 of shape, Motion the mock\'s swell rate, Regen idle outside the feedback route) follow B318\'s proposal, which is itself open.</li>' +
+    '<li><b>Sluice (PROVISIONAL):</b> the roster is our reference\'s eight types plus Sluice\'s four; macro labels (SMEAR, DRIFT, LOOP, AIR) are invented placeholders bound by order; tempo sync uses horde\'s division names (shape-lab-mod DIVS, Sluice notice seq 7); NEW and RAND mock fz.h\'s law (every param draws, per-param thresholds below RANDOMNESS apply), seeded; LOCK cycles the leveler\'s tri-state lock. The real shape waits for B321.</li>' +
+    '<li><b>Real:</b> the chassis tokens, knob skin and screen schemes (copied from the SCALPEL lab); the GBC tile rule (enforced and read back); the logo slots\' scaling; the self-checks.</li></ul></div>';
+  h += '<div class="box"><h2>SELF-CHECKS</h2>' + (CHECKS.done ? '<table><tr><th>#</th><th>check</th><th>result</th><th>must-fail control</th></tr>' +
+    CHECKS.rows.map((r, i) => '<tr><td>' + (i + 1) + '</td><td><b>' + esc(r.name) + '</b><br>' + esc(r.detail) + '</td><td class="' + (r.ok === true ? 'ok' : r.ok === null ? 'pend' : 'no') + '">' + (r.ok === true ? 'PASS' : r.ok === null ? 'PENDING' : 'FAIL') + '</td><td>' + esc(r.ctl) + '</td></tr>').join('') + '</table>' : 'running') + '</div>';
+  h += '<div class="box"><h2>OPEN QUESTIONS FOR THE HUMAN</h2><ol>' +
+    '<li><b>Which treatments go forward?</b> One or two to build properly against the real renders (the MAW lab\'s MawCore output; Sluice once B321 lands).</li>' +
+    '<li><b>One glass for all FX, or one per module?</b> The same treatment for both is maximum coherence; the CRT already splits them by phosphor. A mix (say MAW on amber CRT, Sluice on vector) is maximum individuality.</li>' +
+    '<li><b>Is the chassis contract right?</b> Four soft keys and four knobs under every screen, labelled only by the software. It means every FX module\'s face is four knobs (ADR-169\'s roles), and anything else lives on the screen.</li>' +
+    '<li><b>Logos on mono glasses:</b> CRT, vector and the 1-bit workstation show your colour logo as-is (the vector as a cel overlay). Do you want mono variants (a second file, or a tint in code)?</li>' +
+    '<li><b>Do the screen schemes reach FX screens?</b> GBC, workstation and segment glass take them; CRT and teletext override; vector takes only the dark ones.</li>' +
+    '<li><b>Where does Sluice\'s RANDOMNESS live?</b> It is not on the four knobs here (they are its macros). A long-press on RAND, a fifth encoder, or a screen page?</li>' +
+    '<li><b>How big is the screen?</b> Full size here is 640×576 (the GBC\'s 160×144 at ×4), most of a 980×720 window. Is the screen the whole FX page, or a panel inside it?</li>' +
+    '<li><b>Flashing:</b> teletext\'s PROVISIONAL flashes at about 1 Hz and segment glass\'s PROV icon blinks. Keep, slow, or drop (photosensitivity)?</li>' +
+    '<li><b>Cost in the plugin:</b> the CRT\'s bloom is a canvas blur here; in the plugin it would be a shader pass. Not measured.</li></ol></div>';
+  host.innerHTML = h;
+  const ls = document.getElementById('lsample');
+  if (ls) for (const m of MODULES) for (const kind of ['title', 'icon']) {
+    const f = el('figure'), cv = drawPlaceholder(m, kind); cv.style.width = cv.width * 3 + 'px'; cv.style.height = cv.height * 3 + 'px';
+    f.appendChild(cv); f.appendChild(el('figcaption', null, 'placeholder ' + logoFile(m, kind) + ' at ×3')); ls.appendChild(f);
+  }
+}
+function boot() {
+  applyBody(); _tok = {};
+  const on = (id, f) => { const n = document.getElementById(id); if (n && n.addEventListener) n.addEventListener('click', f); };
+  on('themeBtn', () => { LAB.theme = LAB.theme === 'dark' ? 'light' : 'dark'; LAB.scheme = MODES_PAIR[LAB.theme]; applyBody(); _tok = {}; rebuild(); });
+  on('scrBtn', () => { const i = SCHEMES.findIndex(s => s.name === LAB.scheme); LAB.scheme = SCHEMES[(i + 1) % SCHEMES.length].name; applyBody(); _tok = {}; rebuild(); });
+  on('motionBtn', () => { LAB.animate = !LAB.animate; for (const S of SCREENS) S.dirty = true; chrome(); });
+  on('logoBtn', () => { LAB.logotest = !LAB.logotest; chrome(); refillLogos(); CHECKS.done = false; runChecks(showAudit); });
+  // probe the four logo files once; a slot shows its placeholder until (and unless) its file loads
+  let left = 0;
+  for (const m of MODULES) for (const kind of ['title', 'icon']) {
+    const f = logoFile(m, kind); LOGOS[f] = { state: 'pending' }; left++;
+    probeLogo(LOGO_DIR + f, (st, img) => {
+      LOGOS[f] = { state: st, img }; if (st === 'present') LOGOS[f].lint = lintLogo(img);
+      if (--left === 0) { refillLogos(); CHECKS.done = false; runChecks(showAudit); }
+    });
+  }
+  rebuild();
+  requestAnimationFrame(loop);
+}
+boot();
+</script>
+</body></html>

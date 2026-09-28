@@ -6500,6 +6500,8 @@ convergence worth noting and nothing we need to act on.
 - The packet's CPU claims were not reproduced (JS: serial +6–14%, serial with collision +22–30%, twin with overlap +62–79%).
 - Ids 382–385 are proposed, not allocated. Under ADR-186 they belong to horde 2's manifest, not the legacy id space.
 
+**A2 (2026-09-28): two lab-side divergences from the SCALPEL oracle, for bipolar spreads** (B315; the human: "Everything seems to be working", taken as acceptance of the lead's recommendations). (1) **Rotate spread:** the oracle rotates members only when `t.rotSpread > 0.004` (`razor-core.js` :786, :791), so a negative value homes them to 0. The composed engine tests |x| and keeps the sign; x ≥ 0 is bit-identical to the oracle. (2) **Cut spread under Quantize:** the oracle's `Math.round` rounds halves up, so a mirrored spread is one step off at exact half-integers. The composed engine rounds half away from zero, so −x mirrors +x exactly; unquantised or non-half values are bit-identical. The oracle file is not edited, and `parameters.json`'s 0..max ranges stay as shipped. Both divergences are carried into the C++ port (ADR-187).
+
 ## ADR-185 — Appending to the morph field may never change how an existing patch sounds: the quantum draw is frozen at the layout-9 prefix (2026-09-24)
 
 **Context (B240, measured by the implementer and confirmed by the critic).** `MorphCore::reshuffle` drew one Gumbel row per field slot and THEN the shared vector, so the field's LENGTH moved the shared draw. Under QUANTUM, at any off-corner pad position, a longer field changed which corner many existing slots picked: no stored value moved, but the sound did. A SCALPEL-sized append (+164 rows) flips 78–225 of 273 owners mid-pad on 'MO - Quantum Morph', and B203's own one-row bump had already changed that patch's render (66 flips). The revision gate CANNOT fix this: under revision 1 the draw depends on the BUILD's field length, not on anything the patch carries.
@@ -6581,4 +6583,67 @@ The human: "It isn't worth making the entire future of the device suffer to acco
 - **User presets:** ported by the offline tool (B312).
 
 The 2026-09-23 installed bundles are archived outside the repo (`~/Documents/Claude/synthetic-worlds/horde-legacy-archive/2026-09-23-installed/`, with a MANIFEST of bundle ids, codesign results and tree hashes). The human's freeze tag (item 2) is still owed, after B255 lands.
+
+## ADR-187 — PROPOSED (revision 2, after critic): C++ goldens for horde 2's cores; the JS stays a continuous differential oracle, never the quality standard (2026-09-28)
+
+**Status.** PROPOSED, revision 2. Revision 1 went to an Opus critic, whose verdict was REWORK (narrow). This revision folds in C1, C2, H1–H5 and M1. The human asked for this draft ("Let's do it", on B314). Ratification waits on the human's answer to the lab question below.
+
+**Context.** The charter defines C++ correctness as "parity with the JS reference (L0-1, ε=1e-6 RMS) plus the L0 trajectory criteria" (also ADR-003; `specs/ACCEPTANCE.md` L0-1). The human: "I don't trust the JS labs to provide the kind of quality standards I would want to impose on the final plugin." Two failure classes must be kept apart (critic M2):
+- **Lab architecture and cost:** L0064's misleading views, JS CPU (B313/B316) and v1.2's slower JS paths (B311). These say nothing about output correctness.
+- **Output defects in a reference:** the five quirks B316's probe found in the SCALPEL oracle.
+
+B252 H3 already made the C++ the golden for SCALPEL. This ADR says how, without leaving any core undefined.
+
+**Decision (proposed).**
+
+1. **Scope: horde 2 only (C1).** Legacy's cores and chains stay JS-normative and unchanged until legacy is parked (ADR-186 §1, §6). Nothing here retroactively changes any existing gate.
+
+2. **The JS has two roles, separated (C2):**
+   - **As the quality standard:** demoted per core, by ruling (item 4).
+   - **As an independent DIFFERENTIAL oracle:** kept, continuously. Parity keeps running on every scenario that no divergence claims, so the port-bug detector never disappears for the ongoing feature stream, which keeps arriving as JS (provider packets, lab features).
+
+3. **A named parity target per core (H1),** recorded in the core's status row (L1) as a file at a version, plus a fixture set.
+   - For SCALPEL: the composed engine (`docs/design/scalpel-horde-engine.js`) at a pinned commit. It is already chained to SwarmSynth and RazorCore by `composed_engine_check`, and it already carries horde's coupling law, horde's voice law (B310) and ADR-184 A2's sign rules. So A2 is part of the TARGET, not a post-parity divergence (this resolves the A2 contradiction).
+   - Where the SPEC and the oracle disagree, the oracle (the target) wins, and the disagreement becomes a numbered item.
+   - Seeding the target's RNG sites is a precondition for random-configuration parity; the unsanctioned SCALPEL seed edit is avoided by using the composed engine's seeded wrapper.
+
+4. **Demoting a core's JS as the quality standard** takes a per-core human ruling recorded in ROADMAP, which lands in the same PR as:
+   - (a) a frozen golden set rendered by the build that passed parity (H5);
+   - (b) the wired Layer-0 invariant suite with ratified thresholds and must-fail controls (H3), namely:
+     - non-finite values; bit-determinism;
+     - block-size and sample-rate independence;
+     - DC and peak bounds; long-run stability; denormals;
+     - an aliasing floor at a ratified threshold; RT-safety;
+     - the B316 dependency-tree probe re-run against the C++ (live parameters move the output, inert ones don't);
+     - per-parameter claim anchors (the ADR-065 / `trajectory_check` style).
+
+   Until then the JS stays normative for that core. The invariants are NECESSARY, not sufficient: they cannot judge a divergence good on their own, which is why items 5 and 6 exist.
+
+5. **Divergences are ledgered and checked (H4).** Each core has a `divergences.json` (id, ADR ref, declared fixture/scenario scope, metric before/after, metric-suite version) and a check:
+   - every changed golden digest must be claimed by a divergence in the same commit, and a claimed-but-unchanged fixture is red (the must-fail control);
+   - every scenario removed from JS parity cites a divergence id;
+   - output-neutral work (SIMD, float, refactors, cost fixes such as v1.2's slow paths) must leave every digest unchanged, or within ε; it is NOT a divergence.
+
+   One divergence per PR. Global-scope divergences (e.g. the RNG-stream layout) go in PRs of their own with no feature work.
+
+6. **Parity strength (M1).** Parity requires ALL of:
+   - RMS < 1e-6;
+   - a max-abs bound;
+   - identical blade-event counts and times (BLEP events, window entries).
+
+   The parity build uses doubles and `-ffp-contract=off` and is named separately from the shipped Release build. ADR-065's evidence rule for exclusions (chaotic regimes) is inherited explicitly. JS `Math.round` ports as `floor(x+0.5)`, never `std::round`.
+
+7. **Goldens: storage and platform (H5).** One canonical golden platform and set of flags is declared. The repo commits digests plus a compact fixture subset, never raw audio (the repo is public; SCALPEL's full renders are ~45 MB). Goldens are a protected path (charter), so a re-baseline happens ONLY through a divergence record (item 5), a human gate.
+
+8. **CPU is Layer-E, never correctness (H2).** It is measured by hand in Release on a named machine as a ratio to a calibration loop (the B236 pattern), recorded in a per-core ledger, and never a verify gate (the existing ruling, `verify` ~458). An optional Layer-0 proxy is deterministic work counters per voice-second.
+
+9. **Cores with no JS reference (M3)** (`svf_core`, `mod_core`, `routing_core`, `morph_core`, `strata_core`, `delay_core`, `fx_rack`) are defined by their named existing checks until their goldens freeze. B289 is re-stated under this ADR: the lab SVF fixes are a divergence against svf_core's existing checks, not a new JS norm.
+
+10. **Charter amendment (on ratification; with ADR-003, the second §Domain invariant and `specs/ACCEPTANCE.md` L0-1, the last a protected-path human gate):** "For horde 2's cores, C++ correctness is defined by the core's JS parity target on every scenario no ratified divergence claims, and, once the core's JS is demoted by ruling, by its frozen goldens, its divergence ledger and its Layer-0 invariant suite. Legacy is unchanged."
+
+**Consequences.**
+- The lab-born feature path is port → parity → ledgered divergence, with parity continuing.
+- Every core carries a status row: JS-normative, parity-proven@hash, or demoted@ruling.
+- A lift under ADR-186 copy-forward (byte-identical apart from the namespace) IS the core's parity proof at that commit (L3).
+- **Open for the human (the critic's question), deciding C2's mirror policy and H6:** when the C++ diverges from the JS (a quirk fixed, a law changed), must the LAB keep sounding like the plugin, with every divergence mirrored into the lab's JS so parity keeps running on it? Or is the lab accepted as an approximate sketch after demotion, which would push toward running the real C++ in the lab (e.g. WASM) for listening passes?
 

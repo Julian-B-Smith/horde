@@ -97,9 +97,9 @@ export function samplePatch(seed, i, mode) {
 }
 
 /* ---------------------------------------------------------------- the measurement */
-const A_SCRIPT = { n: 24000, ev: [[0, 'on', 57, 0.8]] };
+export const A_SCRIPT = { n: 24000, ev: [[0, 'on', 57, 0.8]] };
 const B_SCRIPT = { n: 14400, ev: [[0, 'on', 76, 0.8]] };
-const C_SCRIPT = { n: 67200, ev: [[0, 'on', 45, 0.8], [7200, 'on', 57, 0.8], [14400, 'on', 64, 0.8], [21600, 'on', 81, 0.8],
+export const C_SCRIPT = { n: 67200, ev: [[0, 'on', 45, 0.8], [7200, 'on', 57, 0.8], [14400, 'on', 64, 0.8], [21600, 'on', 81, 0.8],
   [43200, 'off', 45], [43200, 'off', 57], [43200, 'off', 64], [43200, 'off', 81]] };
 const sl = (x, a, b) => x.subarray(a, b);
 const r6 = x => (typeof x === 'number' && Number.isFinite(x) ? +x.toPrecision(6) : x);

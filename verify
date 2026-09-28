@@ -347,6 +347,23 @@ full() {
     echo "verify[full]: node missing — patch-space dependency tree check SKIPPED" >&2
   fi
 
+  # DSP FIDELITY SCAN (B325, tools/patchspace/fidelity_scan_check.mjs): on a fixed
+  # seeded preset subset, the composed engine adds no click and no noise over the
+  # SCALPEL oracle beyond a stated tolerance (the audit's own finding,
+  # docs/patchspace/2026-09-28-fidelity-audit.md), with planted composed-engine
+  # defects (a split-integrator slip, a rampless start, per-tick jitter) that must be
+  # caught and a must-read-zero twin. Added under ADR-180 §1; HERE, not in fast():
+  # ~30 s of DSP. Same capture idiom as above.
+  if command -v node >/dev/null; then
+    node tools/patchspace/fidelity_scan_check.mjs > /tmp/patchfid.$$ 2>&1 || {
+      echo "verify[full]: DSP fidelity scan FAILED" >&2; cat /tmp/patchfid.$$ >&2
+      rm -f /tmp/patchfid.$$; return 1; }
+    echo "fidelity_scan_check.mjs: $(tail -1 /tmp/patchfid.$$)"
+    rm -f /tmp/patchfid.$$
+  else
+    echo "verify[full]: node missing — DSP fidelity scan SKIPPED" >&2
+  fi
+
   # FX-CHAIN MORPH FUZZER (tools/labharness/fxmorph_check.mjs, B266) — the
   # property-based check over docs/design/fx-chain-morph-lab.html's own model
   # (its first <script> block, sliced, not re-implemented). ASSERTS: the lab's
