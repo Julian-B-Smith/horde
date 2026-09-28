@@ -1,7 +1,14 @@
 <!doctype html>
-<!-- listening-pass — B324: the gauntlet's BLIND listening pass. HYPERSAW, 2026-09-28,
-     dispatched by the horde lead on ROADMAP B324 (records PR #819, branch lead-records-126).
-     The human: "Help me organize the listening pass, please".
+<!-- listening-pass — the gauntlet's BLIND listening pass. HYPERSAW, 2026-09-28.
+     v1: ROADMAP B324 (records PR #819, branch lead-records-126). The human: "Help me organize
+     the listening pass, please".
+     v2: ROADMAP B340 (records PR #833, branch lead-records-135), after the human completed v1:
+     "I completed the listening pass but I don't entirely trust it. Before I can feel certain
+     about it, maybe we could add a simple sine or saw wave playing the same notes as a control
+     so I know the root is coming through. Also adding a pitch sweep would be helpful to confirm
+     there isn't any aliasing. And maybe the notes should play on a few octaves, and for a
+     little bit longer." The goal of v2 is TRUST: the root and any aliasing must be audible, and
+     the numbers must be shown to measure what the ear hears.
 
      WHY. B316's coherence metrics (tools/patchspace/metrics.mjs: aliasing, roughness, root
      presence, noise) are MEASUREMENTS with PROVISIONAL thresholds (gauntlet.mjs THRESH). P4
@@ -9,55 +16,111 @@
      first. This page runs the pass; tools/patchspace/calibrate.mjs fits the thresholds from
      its export and PROPOSES them (it never applies anything).
 
-     THE SAMPLE. docs/design/listening-pass.json, written offline by
-     tools/patchspace/listening_sample.mjs from a gauntlet run: a stratified, seeded choice
-     (per metric low / around the threshold / high; the roughness-origin split; clean and
-     broken patches; two repeats). It holds SEEDS and MEASURED METRICS only. Every sound is
-     REGENERATED here from its seed: the gauntlet's sampler (samplePatch over the SCALPEL
-     lab's own parameter table and tapers, sliced from scalpel-interface-lab.html exactly as
-     space.mjs slices it, and tools/patchspace/dependency_tree.json) and the COMPOSED engine
-     loaded by the SCALPEL lab's route (razor-core.js and scalpel-horde-engine.js by
-     <script src>, reference/swarmsaw.html's DSP section by fetch, so the page must be
-     served: python3 tools/serve_labs.py). The phrase is the two renders the metrics were
-     measured on — A3 held 0.5 s (512-sample blocks) and E5 held 0.3 s — each followed by
-     its release. In Node its first samples ARE the measured renders, bit for bit (the
-     committed `fp`, the check's T3). IN A BROWSER THEY ARE NOT: Chrome's sin/exp/tanh differ
-     from Node's in their last bits (measured 2026-09-28, Chrome 153 vs Node 24). The patch
-     itself is exact everywhere (`ph`: the sampler reads pow alone), and for most patches
-     the difference is invisible to every metric, but a chaotic patch amplifies it into a
-     different realisation. So the page MEASURES what it plays (measureHeard, metrics.mjs
-     imported) and marks a patch whose numbers fall outside TOL as `heard: drift`; the export
-     carries the mark and calibrate.mjs leaves those ratings out of the fit. ?xverify=1 runs
-     that measurement over the whole sample (differences only, never values); the committed
-     sample passes it 36/36 in Chrome 153 after four chaotic patches were excluded by key
-     (listening_sample.mjs --exclude, reasons in the JSON). Levels are matched per patch
-     (RMS of the held part to -20 dBFS, peak ceiling -1 dBFS, at most +40 dB) so loudness
-     does not steer the answers.
+     THE SAMPLE (unchanged in v2: the same 36 patches, seeds and file). docs/design/
+     listening-pass.json, written offline by tools/patchspace/listening_sample.mjs from a
+     gauntlet run: a stratified, seeded choice (per metric low / around the threshold / high;
+     the roughness-origin split; clean and broken patches; two repeats). It holds SEEDS and
+     MEASURED METRICS only. Every sound is REGENERATED here from its seed: the gauntlet's
+     sampler (samplePatch over the SCALPEL lab's own parameter table and tapers, sliced from
+     scalpel-interface-lab.html exactly as space.mjs slices it, and tools/patchspace/
+     dependency_tree.json) and the COMPOSED engine loaded by the SCALPEL lab's route
+     (razor-core.js and scalpel-horde-engine.js by <script src>, reference/swarmsaw.html's DSP
+     section by fetch, so the page must be served: python3 tools/serve_labs.py).
 
-     BLIND. Before the reveal the DOM holds no metric name, value, stratum or role: the
-     rating view is built from the patch's KEY alone, and a scan of every non-script
-     element runs after each view change against the exact strings the reveal would print
-     (self-check 3, with the reveal itself as its must-read-high control). The order is a
-     seeded shuffle (the sample's orderSeed); the two repeats sit half the list away from
-     their originals.
+     THE PROGRAM (v2). Per patch, seven SEGMENTS, each a fresh engine with the patch's render
+     seed (the gauntlet's route, so nothing later in a segment can reach back): A1 A2 A3 A4 E5
+     A5, each held 1.5 s then released 0.5 s, then a SWEEP A1 -> A6.
+       - The two renders the gauntlet MEASURED are inside it, bit for bit (in Node): A3 is
+         rendered in 512-sample blocks, so its first 0.5 s IS the TONAL render (gauntlet.mjs
+         A_SCRIPT); E5 in 128, so its first 0.3 s IS the ALIAS render (B_SCRIPT). programFp()
+         fingerprints those two prefixes and equals the committed `fp` (listening_pass_check T3).
+         v1's separate short phrase is not played any more: v2 plays it as those prefixes.
+       - THE SWEEP uses the engine's own continuous pitch path, `bend`: a smoothed `t`
+         parameter in semitones (12 ms, razor-core.js render), which the SCALPEL lab maps
+         octave/semi/fine onto and the swarm reads as f0 on its 16-sample tick
+         (scalpel-horde-engine.js tickSwarm). A3 is held and bend runs -24 -> +36 semitones over
+         5 s, with 0.25 s steady at each end, set once per 128-sample block through the
+         engine's set(). The engine is not edited. (It also has RazorCore's mono glide and a
+         per-note retune message {t:'re'}; bend is the one that moves a held voice smoothly.)
+       - Levels: ONE gain per program by v1's LOUD rule over every held part (-20 dBFS RMS,
+         -1 dBFS peak ceiling, at most +40 dB), so the notes keep their balance.
+       - About 19 s of sound per patch, ~31 s with the answers, ~19 min for all 36 (~30 min
+         with a reference before every patch). Every segment can be played alone or skipped.
 
-     THE PURE BLOCK (between the PURE-BEGIN / PURE-END markers) is the sampler, the render
-     route, the order, the views and the export builder, with no DOM, audio or fetch.
-     tools/patchspace/listening_pass_check.mjs slices it and proves: the sampler equals
-     gauntlet.mjs samplePatch, the renders equal space.mjs render, the views are blind, the
-     export passes calibrate.mjs's validator. The validator and the fit are IMPORTED from
-     calibrate.mjs (it is browser-importable), not copied.
+     REFERENCE CONTROLS. A pure SINE and a band-limited SAW, ADDITIVE (every harmonic below
+     20 kHz, faded out over 18-20 kHz, so nothing ever lies above Nyquist and nothing folds), on
+     exactly the same notes, timing and bend path (the bend TARGET: the engine's 12 ms smoother
+     is not modelled), level-matched by the same LOUD rule. S / W play the reference of what is
+     selected (the whole program, one note, or the sweep); a setting plays one before each
+     patch. They carry NO measurement and no patch information: the blind rule holds.
 
-     RESUMABLE: progress lives in localStorage (every access in try/catch). EXPORT: a JSON
-     with no timestamps (the order index is the sequence), saved by the human into
-     local/patchspace/ratings/ (git-ignored). URL: ?theme=dark, ?demo=rate|reveal (a
-     screenshot state with SYNTHETIC answers, labelled as such, never saved), ?xverify=1.
+     MEASURE WHAT IS PLAYED. Every segment played for rating is measured with metrics.mjs
+     (imported, never copied) by ONE function, measureWindows(): the gauntlet's own windows
+     (tonal 0.4 s from 0.1 s; aliasing 0.25 s from 0.05 s, against the same patch at 4x its
+     oversampling), SLID across the whole hold in half-window steps, the segment's value being
+     its worst window. Its first window IS the gauntlet's measurement (check T12). One long
+     window was tried first and REJECTED on evidence: over 1.45 s the aliasing of many patches
+     reads the -120 dB floor while every 0.25 s part of the same render reads -20 to -33 dB
+     (see measureWindows). The sweep holds no single pitch: aliasing only, windowed the same
+     way, with the pitch at the worst window. Measurement runs in the background (every render
+     is chunked, so the page stays responsive), is never shown before the reveal, and the v2
+     export carries it per segment with the program's id (PHRASE_ID). calibrate.mjs fits a v2
+     export against the WORST segment per metric; v1 exports validate and fit as before.
+
+     DETECTOR CONTROLS (the detector-shares-assumption trap: a detector must read zero where it
+     should and high where it should). detectorControls() runs the SAME measureWindows() on
+     signals whose answer is known by construction: the sine reads clean, root-clear and not
+     noisy on every note; a NAIVE saw (2*phase - 1) reads aliased at E5 (held, and with a
+     30-cent vibrato: the engine's partials move) and on the sweep, the additive saw clean in
+     all three; a sine a tritone off the note reads root-unclear; seeded noise reads noisy. For generated signals the aliasing reference is the same generator at 4x the
+     SAMPLE RATE, its spectrum taken with 4x the points so the bins are the same width. It runs
+     here (self-check 5) and in listening_pass_check (T10). A MEASURED LIMIT, reported not
+     hidden: at A1/A2 the root metric cannot tell a semitone (a sine a semitone sharp still
+     reads root-clear there: 8192-point bins are 5.9 Hz, a semitone at A1 is 3.3 Hz).
+     The CALIBRATE YOUR EARS step plays the naive-vs-band-limited saw pair (held E5 and the
+     sweep) with the detector's verdict beside each, before any patch is rated.
+
+     THE HUMAN'S v1 PASS. Its answers live in localStorage under 'hypersaw.b324.listening-pass'.
+     This page only READS that key (listening_pass_check T11 proves no write in this file can
+     reach it; self-check 6 shows it unchanged since load) and offers EXPORT THE V1 PASS at the
+     top of the landing view whenever it holds answers, producing the exact v1 file. The pass
+     may have been rated on the EARLIER B324 sample (03c97d3e, replaced by the B325 re-selection
+     the same day; no patch in common), so the page carries enough of that sample (V1_SAMPLES)
+     to export either exactly, and says which one the saved pass belongs to. v2 keeps its own
+     key, 'hypersaw.b340.listening-pass'.
+
+     WHAT THE EAR GETS vs WHAT WAS MEASURED (the B324 finding). Chrome's sin/exp/tanh differ
+     from Node's in their last bits (Chrome 153 vs Node 24), so a browser render is not
+     bit-identical to the gauntlet's; the PATCH is (`ph`: the sampler reads pow alone). The page
+     measures the two measured windows (measureHeard) against the committed numbers and marks a
+     patch outside TOL `heard: drift`. In v2 that mark is informational: the fit uses the
+     numbers measured where the rating was made. ?xverify=1 runs the whole sample (differences
+     only for the patches, plus the detector controls' own numbers).
+
+     BLIND. Before the reveal the DOM holds no metric name, value, stratum or role: the rating
+     view is built from the patch's KEY alone, and a scan of every non-script element runs
+     after each view change against the exact strings the reveal would print (self-check 3,
+     with the reveal itself as its must-read-high control). The order is v1's seeded shuffle
+     (the sample's orderSeed); the two repeats sit half the list away from their originals.
+     Developer numbers (xverify, detector controls) are printed with a middle-dot decimal
+     point, which no revealed value contains, so they cannot trip or hide from the scan.
+
+     THE PURE BLOCK (between the PURE-BEGIN / PURE-END markers): the sampler, the render route
+     (renderSteps, a generator so the page can yield between blocks; renderScript runs it to
+     the end), the program, the measurements, the reference tones, the detector controls, the
+     order, the views and both export builders, with no DOM, audio or fetch.
+     tools/patchspace/listening_pass_check.mjs slices it and proves it (see that file).
+
+     RESUMABLE (localStorage, every access in try/catch). EXPORT: JSON without timestamps (the
+     order index is the sequence), saved by the human into local/patchspace/ratings/
+     (git-ignored). URL: ?theme=dark, ?demo=landing|calib|rate|reveal (screenshot states with
+     SYNTHETIC answers, labelled as such, never saved), ?xverify=1.
 
      L0026: every const is declared above the code that runs at setup; the boot call is the
      last statement of the script. -->
 <html><head><meta charset="utf-8">
-<meta name="lab-review" content="B324 · 2026-09-28">
-<title>Listening pass — blind calibration</title>
+<meta name="lab-review" content="B324 + B340 · 2026-09-28">
+<title>Listening pass v2 — blind calibration, with controls</title>
 <style>
   /* TOKENS: the SCALPEL lab's (scalpel-interface-lab.html :178-306), the subset this page uses */
   :root {
@@ -93,17 +156,21 @@
   .pill { padding:4px 12px; border:var(--stroke) solid var(--line); border-radius:999px; min-height:28px; cursor:pointer;
           color:var(--t2); background:var(--panel); font:inherit; font-size:11px; letter-spacing:.06em; }
   .pill:hover { box-shadow:var(--shadow); }
-  .pill:focus-visible, .ans:focus-visible, input:focus-visible { outline:none; box-shadow:var(--focus); }
+  .pill:focus-visible, .ans:focus-visible, .seg:focus-visible, input:focus-visible { outline:none; box-shadow:var(--focus); }
   .pill.primary { background:var(--line); color:var(--bg); font-weight:700; }
   .pill.on { background:var(--line); color:var(--bg); }
+  .pill.ref { border-style:dashed; }
+  .pill.ref.on { background:var(--physics); border-color:var(--physics); color:#FFFFFF; }
   .pill[disabled] { opacity:.4; cursor:default; box-shadow:none; }
   kbd { font:inherit; font-size:9.5px; padding:0 4px; border:1px solid var(--div); border-radius:3px; color:var(--dim);
         background:var(--well); margin:0 2px; }
-  .pill.primary kbd, .pill.on kbd, .ans.on kbd { background:transparent; color:inherit; border-color:currentColor; opacity:.8; }
+  .pill.primary kbd, .pill.on kbd, .ans.on kbd, .seg.on kbd { background:transparent; color:inherit; border-color:currentColor; opacity:.8; }
   .card { background:var(--panel); border:var(--stroke) solid var(--line); border-radius:var(--r-card);
-          box-shadow:var(--shadow); padding:16px 18px; max-width:880px; }
+          box-shadow:var(--shadow); padding:16px 18px; max-width:960px; margin-bottom:12px; }
+  .card.v1 { border-color:var(--physics); box-shadow:1.5px 1.5px 0 var(--physics); }
   .card h2 { font-size:15px; letter-spacing:.04em; margin-bottom:8px; }
-  .card p { color:var(--t2); max-width:96ch; margin-bottom:8px; }
+  .card h3 { font-size:12px; letter-spacing:.06em; margin:10px 0 6px; }
+  .card p { color:var(--t2); max-width:100ch; margin-bottom:8px; }
   .card p b { color:var(--text); }
   .time { font-size:13px; color:var(--text) !important; }
   .keys { display:grid; grid-template-columns:max-content 1fr; gap:3px 14px; margin:10px 0 14px; color:var(--t2); }
@@ -113,11 +180,17 @@
   .bar { flex:1; height:8px; border:var(--stroke) solid var(--line); border-radius:4px; background:var(--panel2); overflow:hidden; }
   .bar i { display:block; height:100%; background:var(--meter); }
   .rem { color:var(--dim); white-space:nowrap; }
-  .play { display:flex; gap:10px; align-items:center; flex-wrap:wrap; padding:10px 12px; margin-bottom:12px;
+  .play { display:flex; flex-direction:column; gap:8px; padding:10px 12px; margin-bottom:12px;
           background:var(--well); border:var(--stroke) solid var(--line); border-radius:var(--r); }
-  .play .phr { color:var(--dim); font-size:10.5px; }
-  .play .stat { margin-left:auto; color:var(--t2); font-size:10.5px; }
-  .play .stat.warn { color:var(--caution-tx); background:var(--caution-bg); border:1px solid var(--caution); border-radius:3px; padding:1px 6px; }
+  .prow { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .prow .lbl { color:var(--dim); font-size:10px; letter-spacing:.08em; margin-left:6px; }
+  .seg { font:inherit; font-size:11px; padding:3px 9px; border:1px solid var(--div); border-radius:6px; background:var(--panel);
+         color:var(--t2); cursor:pointer; min-height:26px; }
+  .seg:hover { border-color:var(--line); }
+  .seg.sel { border-color:var(--line); font-weight:700; color:var(--text); }
+  .seg.on { background:var(--meter); border-color:var(--line); color:#191521; font-weight:700; }
+  .stat { color:var(--t2); font-size:10.5px; min-height:16px; }
+  .stat.warn { color:var(--caution-tx); background:var(--caution-bg); border:1px solid var(--caution); border-radius:3px; padding:1px 6px; }
   .qs { display:grid; grid-template-columns:150px 1fr 1fr; gap:6px 10px; align-items:stretch; margin-bottom:12px; }
   .qt { font-weight:700; letter-spacing:.04em; align-self:center; }
   .qt small { display:block; font-weight:400; color:var(--dim); font-size:10px; letter-spacing:0; line-height:1.3; }
@@ -142,17 +215,23 @@
   table.rv td { border-bottom:1px solid var(--hair); padding:4px 6px; white-space:nowrap; vertical-align:top; }
   table.rv td.dis { background:var(--caution-bg); color:var(--caution-tx); }
   table.rv td.num { text-align:right; font-variant-numeric:tabular-nums; }
-  table.rv .role { color:var(--dim); font-size:10px; }
-  .wide { max-width:1400px; }
+  table.rv .role, table.rv small { color:var(--dim); font-size:10px; }
+  table.cal { border-collapse:collapse; margin:6px 0 12px; }
+  table.cal td { padding:6px 10px 6px 0; vertical-align:middle; }
+  table.cal .pill { white-space:nowrap; }
+  .verdict { font-size:10.5px; padding:1px 7px; border-radius:3px; border:1px solid var(--div); color:var(--t2); white-space:nowrap; }
+  .verdict.clean { border-color:var(--celebrate); color:var(--celebrate); }
+  .verdict.bad { border-color:var(--alarm); color:var(--alarm); }
+  .wide { max-width:1500px; }
   .mini { font-size:10px; padding:1px 8px; min-height:20px; }
   pre.cmd { background:var(--well); border:1px solid var(--div); border-radius:6px; padding:6px 10px; margin:6px 0 10px;
             color:var(--text); white-space:pre-wrap; }
 </style>
 </head><body>
 <div class="hdr">
-  <div><h1>LISTENING PASS</h1>
-    <div class="badges"><span class="badge">B324</span><span class="badge">BLIND</span>
-      <span class="sub">THE GAUNTLET'S THRESHOLDS, SET BY EAR</span></div></div>
+  <div><h1>LISTENING PASS <span style="color:var(--value)">v2</span></h1>
+    <div class="badges"><span class="badge">B324</span><span class="badge">B340</span><span class="badge">BLIND</span>
+      <span class="sub">THE GAUNTLET'S THRESHOLDS, SET BY EAR — WITH CONTROLS</span></div></div>
   <div class="hdrctl"><button class="chip" id="themeBtn">theme <b>LIGHT</b></button></div>
 </div>
 <div id="app"><div class="card"><p>Loading the engine and the sample… (the page must be served: <b>python3 tools/serve_labs.py</b>)</p></div></div>
@@ -162,7 +241,8 @@
 <script>
 "use strict";
 /* ======================================================================
-   A. PURE — sampler, render route, order, views, export. No DOM, no audio, no fetch.
+   A. PURE — sampler, render route, program, measurements, reference tones, detector controls,
+   order, views, exports. No DOM, no audio, no fetch, no clock.
    tools/patchspace/listening_pass_check.mjs slices this block and runs it in Node.
    ====================================================================== */
 // PURE-BEGIN
@@ -257,31 +337,43 @@ function samplePatch(ctx, seed, i, mode) {
   return { patch: P, settled: !changed };
 }
 function engineParams(patch) { const o = {}; for (const k in patch) if (k !== 'b1on') o[k] = patch[k]; if (!patch.b1on) o.w = 0; return o; }
-/* space.mjs render (48 kHz, no timing): Math.random is a mulberry32 for the engine's lifetime */
-function renderScript(C, patch, script, opt) {
-  const seed = (opt.seed === undefined ? 0xB316 : opt.seed) >>> 0, saved = Math.random;
-  Math.random = mulberry32(seed);
-  try {
+/* THE SWEEP'S PITCH PATH: the engine's `bend` (semitones) as a function of the sample index —
+   steady at `from` for `pre` samples, linear in semitones over `move`, then steady at `to` */
+function bendAt(sw, pos) { return pos < sw.pre ? sw.from : pos >= sw.pre + sw.move ? sw.to : sw.from + (sw.to - sw.from) * (pos - sw.pre) / sw.move; }
+/* space.mjs render (48 kHz, no timing), as a GENERATOR so the page can yield between blocks
+   (opt.step samples at least; renderScript below runs it to the end in one go). The operations
+   and their order are space.mjs render's exactly — events fire when the render reaches them,
+   blocks restart at each event — and Math.random is the seeded mulberry32 for every engine
+   call, swapped in and out around each call so a yield can never lend the stream to anyone
+   else. A script with `sweep` also sets the engine's bend (its initial value before the
+   smoothers are snapped, then once per block); a script without one is untouched by that. */
+function* renderSteps(C, patch, script, opt) {
+  const seed = (opt.seed === undefined ? 0xB316 : opt.seed) >>> 0, rng = mulberry32(seed), block = opt.block || 128, step = opt.step || Infinity;
+  const withRng = f => { const saved = Math.random; Math.random = rng; try { return f(); } finally { Math.random = saved; } };
+  const c = withRng(() => {
     const c = new C(SR);
     c.set(engineParams(patch));
+    if (script.sweep) c.set({ bend: bendAt(script.sweep, 0) });
     Object.assign(c.s, c.t);
-    const n = script.n, L = new Float32Array(n), R = new Float32Array(n);
-    let pos = 0;
-    const upto = end => { while (pos < end) { const e = Math.min(end, pos + (opt.block || 128)); c.render(L.subarray(pos, e), R.subarray(pos, e)); pos = e; } };
-    for (const [t, kind, note, vel] of script.ev) { upto(t); if (kind === 'on') c.noteOn(note, mtof(note), vel); else c.noteOff(note); }
-    upto(n);
-    return { L, R };
-  } finally { Math.random = saved; }
+    return c;
+  });
+  const n = script.n, L = new Float32Array(n), R = new Float32Array(n), ev = script.ev;
+  let pos = 0, ei = 0, since = 0;
+  for (;;) {
+    while (ei < ev.length && ev[ei][0] <= pos) {
+      const [, kind, note, vel] = ev[ei++];
+      withRng(() => { if (kind === 'on') c.noteOn(note, mtof(note), vel); else c.noteOff(note); });
+    }
+    if (pos >= n) break;
+    const e = Math.min(ei < ev.length ? Math.min(ev[ei][0], n) : n, pos + block);
+    withRng(() => { if (script.sweep) c.set({ bend: bendAt(script.sweep, pos) }); c.render(L.subarray(pos, e), R.subarray(pos, e)); });
+    since += e - pos; pos = e;
+    if (since >= step && pos < n) { since = 0; yield pos; }
+  }
+  return { L, R };
 }
-/* THE PHRASE: gauntlet.mjs A_SCRIPT (A3, 0.5 s, 512-sample blocks) and B_SCRIPT (E5, 0.3 s,
-   128) with a note-off at their end and a release tail after it. Up to `held` the samples ARE
-   the measured renders (same seed, same blocks, same events), which the fingerprint proves. */
-const PHRASE = [
-  { script: { n: 38400, ev: [[0, 'on', 57, 0.8], [24000, 'off', 57]] }, block: 512, held: 24000 },
-  { script: { n: 24000, ev: [[0, 'on', 76, 0.8], [14400, 'off', 76]] }, block: 128, held: 14400 },
-];
-const LOUD = { target: 0.1, ceiling: 0.891, maxGain: 100 };      // -20 dBFS RMS, -1 dBFS peak, +40 dB
-const GAPS = [0.12, 0.4];                                        // s of silence after each note
+function runSync(g) { let r; while (!(r = g.next()).done); return r.value; }
+function renderScript(C, patch, script, opt) { return runSync(renderSteps(C, patch, script, opt)); }
 /* listening_sample.mjs fingerprint: FNV-1a over the float32 bits */
 function fingerprint(...chs) {
   let h = 0x811C9DC5;
@@ -291,28 +383,82 @@ function fingerprint(...chs) {
 function pseedOf(run, i) { return hash32(run, i, RENDER_SALT); }
 /* a patch's identity: FNV-1a over its JSON's UTF-16 code units (listening_sample.mjs patchHash) */
 function patchHash(patch) { const s = JSON.stringify(patch); let h = 0x811C9DC5; for (let k = 0; k < s.length; k++) { h ^= s.charCodeAt(k); h = Math.imul(h, 0x01000193) >>> 0; } return h.toString(16).padStart(8, '0'); }
-function renderPhrase(C, patch, pseed) {
-  const segs = PHRASE.map(ph => renderScript(C, patch, ph.script, { seed: pseed, block: ph.block }));
-  const fp = fingerprint(segs[0].L.subarray(0, PHRASE[0].held), segs[0].R.subarray(0, PHRASE[0].held),
-    segs[1].L.subarray(0, PHRASE[1].held), segs[1].R.subarray(0, PHRASE[1].held));
-  return { segs, fp };
+
+/* ---- THE PROGRAM (v2, B340) ---- */
+/* the two renders the gauntlet MEASURED (gauntlet.mjs A_SCRIPT / B_SCRIPT, measure()): TONAL =
+   A3 held 0.5 s in 512-sample blocks, window [0.1 s, 0.5 s); ALIAS = E5 held 0.3 s in 128-sample
+   blocks, window [0.05 s, 0.3 s) against the same patch at 4x the oversampling */
+const MEAS = { tonal: { note: 57, n: 24000, from: 4800 }, alias: { note: 76, n: 14400, from: 2400 } };
+const HOLD = 72000, TAIL = 24000;                   // per note: 1.5 s held, then 0.5 s of release
+const GAP = 7200, GAP_SWEEP = 19200;                // 0.15 s between notes, 0.4 s before the sweep
+const SWEEP = { from: -24, to: 36, pre: 12000, move: 240000, post: 12000 };   // A1 -> A6 on a held A3
+const noteSeg = (id, note, block) => ({ id, note, block, held: HOLD, n: HOLD + TAIL });
+/* A3 in 512-sample blocks and E5 in 128 so their prefixes ARE the measured renders; the rest in
+   128, the lab worklet's block */
+const SEGS = [noteSeg('A1', 33, 128), noteSeg('A2', 45, 128), noteSeg('A3', 57, 512), noteSeg('A4', 69, 128),
+  noteSeg('E5', 76, 128), noteSeg('A5', 81, 128),
+  { id: 'sweep', note: 57, block: 128, held: SWEEP.pre + SWEEP.move + SWEEP.post, n: SWEEP.pre + SWEEP.move + SWEEP.post + TAIL, sweep: SWEEP }];
+const SEG_A3 = SEGS.findIndex(s => s.id === 'A3'), SEG_E5 = SEGS.findIndex(s => s.id === 'E5'), SEG_SWEEP = SEGS.findIndex(s => s.sweep);
+const LOUD = { target: 0.1, ceiling: 0.891, maxGain: 100 };      // -20 dBFS RMS, -1 dBFS peak, +40 dB
+/* the program's identity, carried by every v2 export: FNV-1a over its definition */
+const PHRASE_ID = patchHash({ SEGS, GAP, GAP_SWEEP, MEAS, LOUD });
+const STEP = 12000;                                              // the page yields every 0.25 s of audio rendered
+const pitchAt = (seg, pos) => seg.note + (seg.sweep ? bendAt(seg.sweep, pos) : 0);
+function segScript(seg, withRelease) {
+  return withRelease ? { n: seg.n, ev: [[0, 'on', seg.note, 0.8], [seg.held, 'off', seg.note]], sweep: seg.sweep || null }
+    : { n: seg.held, ev: [[0, 'on', seg.note, 0.8]], sweep: seg.sweep || null };
 }
-/* WHAT THE EAR GETS vs WHAT WAS MEASURED. Chrome's V8 and Node's V8 do not share a libm: sin,
-   cos, exp, log, tanh … differ in their last bits (pow and sqrt agree; measured 2026-09-28,
-   Chrome 153 against Node 24 / V8 13.6), so a render in the browser is NOT bit-identical to the
-   gauntlet's render in Node, and the committed `fp` matches only in Node (the check's T3). The
-   sampler reads pow alone (the lab's fromPos), so the PATCH is exact everywhere (`ph`). What the
-   page can promise about the SOUND is that it measures like the committed numbers:
-   measureHeard() is gauntlet.mjs measure()'s TONAL and ALIAS legs over metrics.mjs (passed in as
-   M, imported, never copied), and TOL is how far a patch may read from them before it is
-   marked as drifted (and left out of the fit by calibrate.mjs). */
-function measureHeard(M, C, patch, pseed, segs) {
-  const a = segs[0], b = segs[1], held = PHRASE[1].held;
-  const m = M.analyse(a.L.subarray(4800, 24000), a.R.subarray(4800, 24000), SR, mtof(57));
+function renderSegmentSteps(C, patch, pseed, seg, step) { return renderSteps(C, patch, segScript(seg, true), { seed: pseed, block: seg.block, step }); }
+/* the committed fingerprint, over the two measured prefixes of the program */
+function programFp(rs) {
+  const a = rs[SEG_A3], b = rs[SEG_E5];
+  return fingerprint(a.L.subarray(0, MEAS.tonal.n), a.R.subarray(0, MEAS.tonal.n), b.L.subarray(0, MEAS.alias.n), b.R.subarray(0, MEAS.alias.n));
+}
+/* one gain for a list of rendered segments (the LOUD rule over every held part after 10 ms) */
+function programGain(rs, segs) {
+  segs = segs || SEGS;
+  let ms = 0, n = 0, pk = 0;
+  rs.forEach((s, k) => {
+    for (let j = 480; j < segs[k].held; j++) { const l = s.L[j], r = s.R[j]; if (Number.isFinite(l) && Number.isFinite(r)) { ms += l * l + r * r; n += 2; } }
+    for (let j = 0; j < s.L.length; j++) pk = Math.max(pk, Math.abs(s.L[j]) || 0, Math.abs(s.R[j]) || 0);
+  });
+  const rms = n ? Math.sqrt(ms / n) : 0;
+  if (!(rms > 1e-6)) return 1;
+  return Math.min(LOUD.target / rms, LOUD.ceiling / Math.max(pk, 1e-9), LOUD.maxGain);
+}
+/* the segments end to end with their gaps; `marks` locate each segment (samples) for the
+   per-segment player and the playhead. Non-finite samples play as 0; each cut tail fades 10 ms. */
+function assembleProgram(rs, gain, segs) {
+  segs = segs || SEGS;
+  const gapAfter = k => (k + 1 < segs.length ? (segs[k + 1].sweep ? GAP_SWEEP : GAP) : 0);
+  const n = rs.reduce((a, s, k) => a + s.L.length + gapAfter(k), 0);
+  const L = new Float32Array(n), R = new Float32Array(n), fade = Math.round(0.01 * SR), marks = [];
+  let o = 0;
+  rs.forEach((s, k) => {
+    const m = s.L.length;
+    for (let j = 0; j < m; j++) {
+      const f = j >= m - fade ? (m - j) / fade : 1;
+      L[o + j] = (Number.isFinite(s.L[j]) ? s.L[j] : 0) * gain * f;
+      R[o + j] = (Number.isFinite(s.R[j]) ? s.R[j] : 0) * gain * f;
+    }
+    marks.push({ id: segs[k].id, start: o, end: o + m });
+    o += m + gapAfter(k);
+  });
+  return { L, R, marks };
+}
+const PROGRAM_SECONDS = Math.round(SEGS.reduce((a, s, k) => a + s.n + (k + 1 < SEGS.length ? (SEGS[k + 1].sweep ? GAP_SWEEP : GAP) : 0), 0) / SR);
+
+/* WHAT THE EAR GETS vs WHAT WAS MEASURED (v1, kept): Chrome's libm is not Node's, so the page
+   measures the two MEASURED windows of what it plays against the committed numbers: gauntlet.mjs
+   measure()'s TONAL and ALIAS legs over metrics.mjs (passed in as M), with TOL the allowance. In
+   v2, `a` and `b` are the A3 and E5 segments, whose prefixes are those renders. */
+function measureHeard(M, C, patch, pseed, a, b) {
+  const held = MEAS.alias.n;
+  const m = M.analyse(a.L.subarray(MEAS.tonal.from, MEAS.tonal.n), a.R.subarray(MEAS.tonal.from, MEAS.tonal.n), SR, mtof(MEAS.tonal.note));
   const os = patch.os || 2;
-  const ref = renderScript(C, Object.assign({}, patch, { os: os * 4 }), { n: held, ev: [[0, 'on', 76, 0.8]] }, { seed: pseed });
-  const al = M.aliasing(M.spectrum(M.mono(b.L.subarray(2400, held), b.R.subarray(2400, held)), SR),
-    M.spectrum(M.mono(ref.L.subarray(2400, held), ref.R.subarray(2400, held)), SR));
+  const ref = renderScript(C, Object.assign({}, patch, { os: os * 4 }), { n: held, ev: [[0, 'on', MEAS.alias.note, 0.8]] }, { seed: pseed });
+  const al = M.aliasing(M.spectrum(M.mono(b.L.subarray(MEAS.alias.from, held), b.R.subarray(MEAS.alias.from, held)), SR),
+    M.spectrum(M.mono(ref.L.subarray(MEAS.alias.from, held), ref.R.subarray(MEAS.alias.from, held)), SR));
   const r6 = x => (typeof x === 'number' && Number.isFinite(x) ? +x.toPrecision(6) : x);   // gauntlet.mjs r6
   return { aliasDb: r6(al.aliasDb), roughness: r6(m.roughness), rootPresence: r6(m.rootPresence), flatness: r6(m.flatness), rmsDb: r6(m.rmsDb) };
 }
@@ -329,34 +475,144 @@ function heardDiff(h, m) {
   }
   return { ok: out.length === 0, over: out };
 }
-/* one gain per patch (the two notes keep their balance): RMS of the held parts after 10 ms */
-function phraseGain(segs) {
-  let ms = 0, n = 0, pk = 0;
-  segs.forEach((s, k) => {
-    for (let j = 480; j < PHRASE[k].held; j++) { const l = s.L[j], r = s.R[j]; if (Number.isFinite(l) && Number.isFinite(r)) { ms += l * l + r * r; n += 2; } }
-    for (let j = 0; j < s.L.length; j++) pk = Math.max(pk, Math.abs(s.L[j]) || 0, Math.abs(s.R[j]) || 0);
-  });
-  const rms = n ? Math.sqrt(ms / n) : 0;
-  if (!(rms > 1e-6)) return 1;
-  return Math.min(LOUD.target / rms, LOUD.ceiling / Math.max(pk, 1e-9), LOUD.maxGain);
+
+/* MEASURE WHAT IS PLAYED — ONE function for every sound the page plays or tests. `test` and
+   `ref` are { L, R, sr }; the test is at SR; the reference is either the same patch at 4x its
+   oversampling (same output rate) or, for a generated control, the same generator at 4x the
+   SAMPLE RATE, whose spectrum then takes 4x the points so its bins are the test's width (all
+   M.aliasing asks).
+   THE GAUNTLET'S OWN WINDOWS, SLID ACROSS WHAT IS PLAYED. Each metric is taken over windows
+   of the gauntlet's own length (tonal 19200 samples from 0.1 s, aliasing 12000 from 0.05 s:
+   MEAS), stepped by half a window to the end of the hold, and the segment's value is its
+   WORST window (aliasing, roughness, noise: the largest; root: the smallest, with that
+   window's interval). So a segment's first window is exactly the gauntlet's measurement
+   (listening_pass_check T12), and every later window is the same measurement again.
+   WHY NOT ONE LONG WINDOW (measured 2026-09-28, B340): over the whole 1.45 s hold the
+   aliasing reading of many patches collapses to the -120 dB floor while EVERY 0.25 s
+   sub-window of the same render reads -20 to -33 dB (broad#511: -29.9, -32.0, -33.0 on its
+   sub-windows, -120 whole; broad#857, broad#828, broad#169 alike). A long Welch average is
+   not measuring what its own parts measure; why is not yet known (a naive saw with vibrato
+   or slow drift does NOT reproduce it, so it is not simple pitch smearing). The detector
+   controls include moving-pitch rows for that reason.
+   The sweep holds no single pitch: tonal metrics are null; aliasing is windowed the same way,
+   with the pitch at the worst window's centre (aliasAtNote, MIDI). rmsDb is the level over the
+   whole hold (not a worst). */
+const WIN_TONAL = MEAS.tonal.n - MEAS.tonal.from, WIN_ALIAS = MEAS.alias.n - MEAS.alias.from;
+function winStarts(from, len, H) { const s = []; for (let a = from; a + len <= H; a += len / 2) s.push(a); return s; }
+function measureWindows(M, seg, test, ref) {
+  const k = Math.round(ref.sr / SR), H = seg.held;
+  const r6 = x => (typeof x === 'number' && Number.isFinite(x) ? +x.toPrecision(6) : null);   // a non-finite reading exports as null
+  const spT = (a, b) => M.spectrum(M.mono(test.L.subarray(a, b), test.R.subarray(a, b)), SR, 8192);
+  const spR = (a, b) => M.spectrum(M.mono(ref.L.subarray(a * k, b * k), ref.R.subarray(a * k, b * k)), ref.sr, 8192 * k);
+  let alias = null, at = null;
+  for (const a of winStarts(MEAS.alias.from, WIN_ALIAS, H)) {
+    const v = M.aliasing(spT(a, a + WIN_ALIAS), spR(a, a + WIN_ALIAS)).aliasDb;
+    if (alias === null || v > alias) { alias = v; at = a + WIN_ALIAS / 2; }
+  }
+  const fin = x => x.map(v => (Number.isFinite(v) ? v : 0));
+  const rmsDb = M.level(fin(test.L.subarray(MEAS.tonal.from, H)), fin(test.R.subarray(MEAS.tonal.from, H)), SR).rmsDb;
+  if (seg.sweep) return { seg: seg.id, aliasDb: r6(alias), aliasAtNote: at === null ? null : Math.round(pitchAt(seg, at) * 10) / 10,
+    roughness: null, rootPresence: null, rootInterval: null, flatness: null, rmsDb: r6(rmsDb) };
+  let rough = null, flat = null, root = null, ri = null;
+  for (const a of winStarts(MEAS.tonal.from, WIN_TONAL, H)) {
+    const m = M.analyse(test.L.subarray(a, a + WIN_TONAL), test.R.subarray(a, a + WIN_TONAL), SR, mtof(seg.note));
+    if (m.roughness !== null && (rough === null || m.roughness > rough)) rough = m.roughness;
+    if (m.flatness !== null && (flat === null || m.flatness > flat)) flat = m.flatness;
+    if (m.rootPresence !== null && (root === null || m.rootPresence < root)) { root = m.rootPresence; ri = m.rootInterval; }
+  }
+  return { seg: seg.id, aliasDb: r6(alias), roughness: r6(rough), rootPresence: r6(root), rootInterval: r6(ri), flatness: r6(flat), rmsDb: r6(rmsDb) };
 }
-function assemble(segs, gain) {
-  const gaps = GAPS.map(g => Math.round(g * SR)), n = segs.reduce((a, s, k) => a + s.L.length + gaps[k], 0);
-  const L = new Float32Array(n), R = new Float32Array(n), fade = Math.round(0.01 * SR);
-  let o = 0;
-  segs.forEach((s, k) => {
-    const m = s.L.length;
-    for (let j = 0; j < m; j++) {
-      const f = j >= m - fade ? (m - j) / fade : 1;           // the tail is cut: fade its last 10 ms
-      L[o + j] = (Number.isFinite(s.L[j]) ? s.L[j] : 0) * gain * f;
-      R[o + j] = (Number.isFinite(s.R[j]) ? s.R[j] : 0) * gain * f;
+/* a patch segment: its reference is the same segment (note-on only, the held part) rendered at
+   4x the patch's oversampling, the gauntlet's alias reference */
+function* measureSegmentSteps(M, C, patch, pseed, seg, test, step) {
+  const os = patch.os || 2;
+  const ref = yield* renderSteps(C, Object.assign({}, patch, { os: os * 4 }), segScript(seg, false), { seed: pseed, block: seg.block, step });
+  return measureWindows(M, seg, { L: test.L, R: test.R, sr: SR }, { L: ref.L, R: ref.R, sr: SR });
+}
+
+/* THE REFERENCE TONES (controls, never measured for rating): 'sine'; 'saw' = ADDITIVE, every
+   harmonic below 20 kHz, faded out over 18-20 kHz so a sweeping harmonic leaves without a step
+   (nothing is ever above Nyquist at 48 kHz or 192 kHz, so by construction nothing folds);
+   'naive' = 2*phase - 1, the textbook aliasing saw, for the ear calibration and the detector's
+   must-read-high control only. Same notes, timing and bend target as the segment; envelope 5 ms
+   linear attack, flat hold, exponential release reaching -60 dB at the segment's end. `rate`
+   may be 4*SR (the detector's reference); `upto` limits the length (in SR samples); `shift`
+   adds semitones, a number or a function of time in seconds (the detector's vibrato). The
+   harmonics are summed by the angle-addition recurrence (one sin/cos per sample). */
+function refTone(kind, seg, rate, upto, shift) {
+  const k = rate / SR, n = Math.round((upto === undefined ? seg.n : upto) * k), x = new Float32Array(n), TAU = 2 * Math.PI;
+  const att = 0.005 * rate, held = seg.held * k, decay = Math.log(1000) / Math.max(1, (seg.n - seg.held) * k);
+  const sh = typeof shift === 'function' ? shift : () => shift || 0;
+  let ph = 0;
+  for (let i = 0; i < n; i++) {
+    const f = mtof(pitchAt(seg, i / k) + sh(i / rate));
+    let v;
+    if (kind === 'sine') v = Math.sin(TAU * ph);
+    else if (kind === 'naive') v = 2 * ph - 1;
+    else {
+      const s1 = Math.sin(TAU * ph), c1 = Math.cos(TAU * ph);
+      let s = s1, c = c1, acc = 0;
+      for (let h = 1; h * f < 20000; h++) {
+        const hf = h * f, g = hf < 18000 ? 1 : (20000 - hf) / 2000;
+        acc += ((h & 1) ? g : -g) * s / h;
+        const t = s * c1 + c * s1; c = c * c1 - s * s1; s = t;
+      }
+      v = (2 / Math.PI) * acc;
     }
-    o += m + gaps[k];
-  });
-  return { L, R };
+    x[i] = v * (i < att ? i / att : i < held ? 1 : Math.exp(-(i - held) * decay));
+    ph += f / rate; ph -= Math.floor(ph);
+  }
+  return x;
 }
+/* DETECTOR CONTROLS: the SAME measureWindows() on signals whose answer is known. ok: true/false
+   for an asserted row, null for a MEASURED LIMIT reported as information. T = the thresholds. */
+const CLEAN_DB = -90;                               // "reads clean": folded power under a billionth
+function detectorControls(M, T) {
+  const rows = [], steady = SEGS.filter(s => !s.sweep), E5 = SEGS[SEG_E5], SW = SEGS[SEG_SWEEP];
+  const vs4x = (kind, seg, shift) => { const t = refTone(kind, seg, SR, seg.held, shift), r = refTone(kind, seg, 4 * SR, seg.held, shift);
+    return measureWindows(M, seg, { L: t, R: t, sr: SR }, { L: r, R: r, sr: 4 * SR }); };
+  const tonalOnly = (x, seg) => measureWindows(M, seg, { L: x, R: x, sr: SR }, { L: x, R: x, sr: SR });   // aliasing unused here
+  for (const seg of steady) {
+    const m = vs4x('sine', seg);
+    rows.push({ id: 'sine ' + seg.id, want: 'clean, root clear, not noisy', m,
+      ok: m.aliasDb <= CLEAN_DB && m.rootPresence >= 0.99 && m.rootPresence >= T.rootPresence && m.flatness < 0.01 && m.flatness < T.flatness && m.roughness < 1e-3 });
+  }
+  { const m = vs4x('sine', SW); rows.push({ id: 'sine sweep', want: 'clean', m, ok: m.aliasDb <= CLEAN_DB }); }
+  { const m = vs4x('naive', E5); rows.push({ id: 'naive saw E5', want: 'aliased', m, ok: m.aliasDb > T.aliasDb }); }
+  { const m = vs4x('saw', E5); rows.push({ id: 'band-limited saw E5', want: 'clean', m, ok: m.aliasDb <= CLEAN_DB }); }
+  /* a MOVING pitch (30-cent vibrato at 5 Hz): the engine's partials move, so the detector must
+     read through motion too, both ways */
+  const vib = t => 0.3 * Math.sin(2 * Math.PI * 5 * t);
+  { const m = vs4x('naive', E5, vib); rows.push({ id: 'naive saw E5 vibrato', want: 'aliased', m, ok: m.aliasDb > T.aliasDb }); }
+  { const m = vs4x('saw', E5, vib); rows.push({ id: 'band-limited saw E5 vibrato', want: 'clean', m, ok: m.aliasDb <= CLEAN_DB }); }
+  { const m = vs4x('naive', SW); rows.push({ id: 'naive saw sweep', want: 'aliased', m, ok: m.aliasDb > T.aliasDb }); }
+  { const m = vs4x('saw', SW); rows.push({ id: 'band-limited saw sweep', want: 'clean', m, ok: m.aliasDb <= CLEAN_DB }); }
+  for (const seg of steady) {
+    const m = tonalOnly(refTone('sine', seg, SR, seg.held, 6), seg);
+    rows.push({ id: 'tritone-off sine ' + seg.id, want: 'root unclear', m, ok: m.rootPresence < T.rootPresence });
+  }
+  { const rng = mulberry32(0xB340), seg = SEGS[SEG_A3], x = new Float32Array(seg.held); for (let i = 0; i < x.length; i++) x[i] = 0.5 * (rng() * 2 - 1);
+    const m = tonalOnly(x, seg); rows.push({ id: 'seeded white noise', want: 'noisy', m, ok: m.flatness > T.flatness }); }
+  for (const seg of steady) {
+    const m = tonalOnly(refTone('sine', seg, SR, seg.held, 1), seg);
+    rows.push({ id: 'semitone-sharp sine ' + seg.id, want: 'information: can the root metric tell a semitone here?', m, ok: null });
+  }
+  return rows;
+}
+/* developer numbers: a middle dot as the decimal point and a true minus, so no number printed
+   here can equal (or hide from) a revealed value in the blindness scan */
+const fmtDev = (v, d) => (v === null || v === undefined || !Number.isFinite(v) ? 'n/a' : v.toFixed(d === undefined ? 1 : d).replace('.', '·').replace('-', '−'));
+function detectorLine(r) {
+  const m = r.m, parts = [];
+  if (m.aliasDb !== null) parts.push('alias ' + fmtDev(m.aliasDb) + ' dB' + (m.aliasAtNote !== null && m.aliasAtNote !== undefined ? ' at note ' + fmtDev(m.aliasAtNote) : ''));
+  if (m.rootPresence !== null) parts.push('root ' + fmtDev(m.rootPresence, 3) + ' (Δ' + fmtDev(m.rootInterval, 0) + ' st)');
+  if (m.flatness !== null) parts.push('flat ' + fmtDev(m.flatness, 4));
+  return `${r.ok === null ? 'INFO' : r.ok ? 'OK  ' : 'FAIL'} ${r.id.padEnd(28)} want ${r.want.padEnd(28)} ${parts.join('  ')}`;
+}
+
+/* ---- ORDER, VIEWS, EXPORTS ---- */
 /* the presentation order: a seeded Fisher-Yates over the patches; each repeat is inserted half
-   the list away from its original, so the two hearings are never close */
+   the list away from its original, so the two hearings are never close (v1's, unchanged) */
 function presentationOrder(items, seed) {
   const rng = mulberry32(seed >>> 0), out = items.filter(it => it.role !== 'repeat').map(it => it.key);
   for (let k = out.length - 1; k > 0; k--) { const j = Math.floor(rng() * (k + 1)); [out[k], out[j]] = [out[j], out[k]]; }
@@ -370,45 +626,85 @@ function presentationOrder(items, seed) {
    fine answer (0), even key = the flag (1), left to right along the number row. The hints
    are the same for every patch: they describe what to listen for, never what was measured. */
 const QUI = [
-  { key: 'aliased', title: 'Aliasing', hint: 'metallic whistles that do not follow the pitch; listen to the high note', fine: 'clean', flag: 'aliased', keys: ['1', '2'] },
+  { key: 'aliased', title: 'Aliasing', hint: 'metallic whistles that do not follow the pitch; listen to the high notes and the sweep', fine: 'clean', flag: 'aliased', keys: ['1', '2'] },
   { key: 'rough', title: 'Roughness', hint: 'gritty, buzzing, sour', fine: 'smooth', flag: 'rough', keys: ['3', '4'] },
-  { key: 'rootUnclear', title: 'Root', hint: 'is the played note the pitch you hear?', fine: 'root clear', flag: 'root unclear', keys: ['5', '6'] },
+  { key: 'rootUnclear', title: 'Root', hint: 'is the played note the pitch you hear? compare with the sine (S)', fine: 'root clear', flag: 'root unclear', keys: ['5', '6'] },
   { key: 'noisy', title: 'Noise', hint: 'hiss or breath over the tone', fine: 'not noisy', flag: 'noisy', keys: ['7', '8'] },
   { key: 'unusable', title: 'Overall', hint: 'would you keep it as a starting patch?', fine: 'usable', flag: 'not usable', keys: ['9', '0'] },
 ];
-const SECONDS_PER_PATCH = 20;
+const ANSWER_SECONDS = 12;
+const SECONDS_PER_PATCH = PROGRAM_SECONDS + ANSWER_SECONDS;
+const segLabel = s => (s.sweep ? 'SWEEP A1→A6' : s.id);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const answered = a => !!a && QUI.every(q => a[q.key] === 0 || a[q.key] === 1);
-function viewIntro(st) {
-  const n = st.order.length, done = st.order.filter(k => answered(st.answers[k])).length, min = Math.round(n * SECONDS_PER_PATCH / 60);
-  return `<div class="card"><h2>A blind listening pass</h2>
-<p class="time">About <b>${min} minutes</b>: ${n} short patches, five quick answers each (~${SECONDS_PER_PATCH} s a patch).</p>
-<p>Every patch comes from the random-patch gauntlet. Rate each one by ear. Nothing about a patch is shown until all ${n} are rated; then a reveal puts your answers beside the measurements, and the export feeds the threshold fit.</p>
-<p>Each patch plays a <b>low A</b> (A3), then a <b>high E</b> (E5), each held half a second with its release, on a loop. Levels are matched so loudness does not steer you. Use headphones or monitors at one fixed, comfortable volume. Progress is saved in this browser: close the tab and come back any time.</p>
+const REF_BEFORE = ['off', 'sine', 'saw'];
+/* v1 = null or { n, total, complete, which: current|earlier|unknown, id, demo } — the human's v1
+   pass, read-only */
+function viewIntro(st, v1) {
+  const n = st.order.length, done = st.order.filter(k => answered(st.answers[k])).length;
+  const min = Math.round(n * SECONDS_PER_PATCH / 60), minRef = Math.round(n * (SECONDS_PER_PATCH + PROGRAM_SECONDS) / 60);
+  const where = !v1 ? '' : v1.which === 'current' ? 'It was rated on the same sample this page plays.'
+    : v1.which === 'earlier' ? `It was rated on the <b>earlier</b> B324 sample (${esc(v1.id)}): different patches, heard before the B325 engine fix. To fit it, give calibrate that sample: <b>git show 1726739:docs/design/listening-pass.json</b> into local/, then <b>--sample</b> it.`
+    : `It was saved against a sample this page does not know (${esc(v1.id)}), so it cannot be exported here; it stays untouched in this browser.`;
+  const v1card = !v1 || !v1.n ? '' : `<div class="card v1"><h2>Your first pass (v1) is saved in this browser${v1.demo ? '<span class="demo">DEMO — SYNTHETIC v1 PASS</span>' : ''}</h2>
+<p><b>${v1.n} of ${v1.total}</b> patches answered${v1.complete ? ' — complete' : ''}. This page never changes or clears it; v2 keeps its answers separately. ${where}
+${v1.which !== 'unknown' ? ' Export it first: the button writes the exact v1 file for <b>local/patchspace/ratings/</b>.' : ''}</p>
+<div class="row"><button class="pill primary" id="bExportV1"${v1.which !== 'unknown' && !v1.demo ? '' : ' disabled'}>EXPORT THE V1 PASS</button></div></div>`;
+  return `${v1card}<div class="card"><h2>Listening pass v2 — with controls you can check</h2>
+<p class="time">About <b>${min} minutes</b> (about ${minRef} with a reference before every patch): ${n} patches, ${PROGRAM_SECONDS} s of sound each, five quick answers.</p>
+<p>The same ${n} patches from the random-patch gauntlet, rated blind: nothing measured about a patch is shown until all ${n} are rated; then a reveal puts your answers beside the measurements, and the export feeds the threshold fit.</p>
+<p>Each patch plays <b>six notes over five octaves</b> — A1, A2, A3, A4, E5, A5 — each held one and a half seconds with its release, then a <b>sweep from A1 to A6</b> through the patch's own pitch bend. Play any one of them alone, or skip. Two references carry no measurement and exist so you can check your ears: a <b>pure sine</b> (<kbd>S</kbd>) shows where the root is, a <b>clean saw</b> (<kbd>W</kbd>) shows a bright tone with no aliasing; both play exactly the notes you selected, at the same loudness.</p>
+<p>Levels are matched so loudness does not steer you. Use headphones or monitors at one fixed, comfortable volume. Progress is saved in this browser.</p>
 <div class="keys"><span><kbd>1</kbd>–<kbd>0</kbd></span><span>answers, in pairs along the number row: the odd key is the fine answer, the even key the flag</span>
-<span><kbd>space</kbd></span><span>replay from the start</span><span><kbd>L</kbd></span><span>loop on / off</span>
+<span><kbd>space</kbd></span><span>play the patch (all six notes, then the sweep)</span><span><kbd>P</kbd></span><span>the sweep alone</span>
+<span><kbd>[</kbd> <kbd>]</kbd></span><span>previous / next note alone</span><span><kbd>S</kbd> <kbd>W</kbd></span><span>sine / clean saw reference on what is selected</span>
+<span><kbd>X</kbd></span><span>stop</span><span><kbd>L</kbd></span><span>loop on / off</span><span><kbd>B</kbd></span><span>reference before each patch: off, sine, saw</span>
 <span><kbd>⏎</kbd> <kbd>→</kbd></span><span>next (once all five are answered)</span><span><kbd>←</kbd></span><span>previous</span>
 <span><kbd>N</kbd></span><span>write a note (<kbd>esc</kbd> to leave it)</span><span><kbd>E</kbd></span><span>export at any time</span></div>
-<div class="row"><button class="pill primary" id="bStart">${done ? `RESUME AT ${Math.min(done + 1, n)} / ${n}` : 'START'} <kbd>⏎</kbd></button>
-${done ? '<button class="pill" id="bReset">start over</button>' : ''}</div></div>`;
+<div class="row"><button class="pill${st.calibrated ? '' : ' primary'}" id="bCalib">1 · CALIBRATE YOUR EARS${st.calibrated ? '' : ' <kbd>⏎</kbd>'}</button>
+<button class="pill${st.calibrated ? ' primary' : ''}" id="bStart">2 · ${done ? `RESUME AT ${Math.min(done + 1, n)} / ${n}` : 'START RATING'}${st.calibrated ? ' <kbd>⏎</kbd>' : ''}</button>
+${done ? '<button class="pill" id="bReset">start v2 over</button>' : ''}</div></div>`;
 }
-function viewRate(st, key, pos, n, stat, demo) {
-  const a = st.answers[key] || {}, left = Math.max(0, Math.round((n - pos) * SECONDS_PER_PATCH / 60));
+/* verdicts = null (still checking) or { e5: {naive, saw}, sweep: {naive, saw, sine} } of
+   'aliased' | 'clean' — the detector's reading of KNOWN signals, never a patch's */
+function viewCalib(st, verdicts, demo) {
+  const v = (grp, k) => { const w = verdicts && verdicts[grp] && verdicts[grp][k]; return `<span class="verdict${w === 'clean' ? ' clean' : w === 'aliased' ? ' bad' : ''}">${w ? 'the detector reads: ' + w : 'checking…'}</span>`; };
+  const b = (id, label, key) => `<button class="pill" data-cal="${id}">▶ ${esc(label)} <kbd>${key}</kbd></button>`;
+  return `<div class="card"><h2>Calibrate your ears${demo ? '<span class="demo">DEMO STATE</span>' : ''}</h2>
+<p>Aliasing is what a digital oscillator does when its harmonics pass half the sample rate: they fold back as tones that do not belong to the note. In a held note it is a faint metallic whistle or ring beside the pitch. In a sweep it gives itself away: thin tones that slide <b>down</b>, or wobble, while the note goes <b>up</b>.</p>
+<p>Below, the same saw is made two ways. The clean one is built from harmonics that all stay under 20 kHz, so nothing can fold. The naive one is the textbook oscillator that jumps from top to bottom once a cycle, and it folds. Listen to each pair a few times.</p>
+<table class="cal">
+<tr><td><b>Held E5</b><br><small>the note the aliasing measurement uses</small></td><td>${b('saw-E5', 'clean saw', '1')}</td><td>${v('e5', 'saw')}</td><td>${b('naive-E5', 'naive saw', '2')}</td><td>${v('e5', 'naive')}</td></tr>
+<tr><td><b>Sweep A1 → A6</b><br><small>the same path as every patch's sweep</small></td><td>${b('saw-sweep', 'clean saw', '3')}</td><td>${v('sweep', 'saw')}</td><td>${b('naive-sweep', 'naive saw', '4')}</td><td>${v('sweep', 'naive')}</td></tr>
+<tr><td><b>Sine sweep</b><br><small>one tone and nothing else: your root reference</small></td><td>${b('sine-sweep', 'sine', '5')}</td><td>${v('sweep', 'sine')}</td><td></td><td></td></tr>
+</table>
+<p>"The detector reads" is the page's own aliasing measurement run on these known signals: the same code that will measure every patch. If it did not call the naive saw aliased and the clean saw clean, its numbers could not be trusted. It is not shown for any patch until the reveal.</p>
+<div class="row"><button class="pill primary" id="bStart">START RATING <kbd>⏎</kbd></button><button class="pill" id="bStop">■ STOP <kbd>X</kbd></button><button class="pill" id="bHome">← back</button></div></div>`;
+}
+/* `play` = { busy, sel (-1 = the program, else a segment index), nowSeg, what, text, warn } */
+function viewRate(st, key, pos, n, play, demo) {
+  const a = st.answers[key] || {}, left = Math.max(0, Math.round((n - pos) * SECONDS_PER_PATCH / 60)), p = play || {};
   const btn = (q, v) => `<button class="ans${a[q.key] === v ? ' on' : ''}" data-q="${q.key}" data-v="${v}"><kbd>${q.keys[v]}</kbd> ${esc(v ? q.flag : q.fine)}</button>`;
+  const segs = SEGS.map((s, k) => `<button class="seg${p.sel === k ? ' sel' : ''}${p.nowSeg === k ? ' on' : ''}" data-seg="${k}">${esc(segLabel(s))}</button>`).join('');
   return `<div class="card"><div class="top"><span class="pos">PATCH ${pos + 1} / ${n}</span>${demo ? '<span class="demo">DEMO STATE</span>' : ''}
 <div class="bar"><i style="width:${(100 * pos / n).toFixed(1)}%"></i></div><span class="rem">~${left} min left</span></div>
-<div class="play"><button class="pill primary" id="bReplay">▶ REPLAY <kbd>space</kbd></button>
-<button class="pill${st.loop ? ' on' : ''}" id="bLoop">LOOP ${st.loop ? 'ON' : 'OFF'} <kbd>L</kbd></button>
-<span class="phr">low A, then high E</span><span class="stat${stat && stat.warn ? ' warn' : ''}" id="pstat">${esc(stat ? stat.text : '')}</span></div>
+<div class="play">
+<div class="prow"><button class="pill primary" id="bPlay">▶ PLAY PATCH <kbd>space</kbd></button><button class="pill" id="bSweep">▶ SWEEP <kbd>P</kbd></button>
+<button class="pill" id="bStop">■ <kbd>X</kbd></button><button class="pill${st.loop ? ' on' : ''}" id="bLoop">LOOP ${st.loop ? 'ON' : 'OFF'} <kbd>L</kbd></button>
+<span class="lbl">REFERENCE, SAME NOTES:</span><button class="pill ref${p.what === 'sine' ? ' on' : ''}" id="bSine">∿ SINE <kbd>S</kbd></button><button class="pill ref${p.what === 'saw' ? ' on' : ''}" id="bSaw">⊿ CLEAN SAW <kbd>W</kbd></button></div>
+<div class="prow">${segs}<span class="lbl"><kbd>[</kbd><kbd>]</kbd> one at a time</span>
+<span class="lbl">REFERENCE FIRST:</span><button class="pill" id="bRefB">${esc(String(st.refBefore || 'off').toUpperCase())} <kbd>B</kbd></button></div>
+<div class="stat${p.warn ? ' warn' : ''}" id="pstat">${esc(p.text || '')}</div></div>
 <div class="qs">${QUI.map(q => `<div class="qt">${esc(q.title)}<small>${esc(q.hint)}</small></div>${btn(q, 0)}${btn(q, 1)}`).join('')}</div>
 <div class="note"><input type="text" id="note" maxlength="2000" placeholder="optional note — N to write, esc to leave" value="${esc(a.note || '')}"></div>
 <div class="nav"><button class="pill" id="bPrev"${pos ? '' : ' disabled'}>← PREV</button><button class="pill" id="bExport">EXPORT <kbd>E</kbd></button>
 <span class="hint">${answered(a) ? '' : 'answer all five to go on'}</span>
 <button class="pill primary" id="bNext"${answered(a) ? '' : ' disabled'}>${pos + 1 < n ? 'NEXT' : 'FINISH'} <kbd>⏎</kbd></button></div></div>`;
 }
-function viewDone(st) {
+function viewDone(st, pending) {
   return `<div class="card"><h2>All ${st.order.length} rated</h2>
 <p>Export now or after the reveal: the file is the same. The reveal ends the blind part for this pass — it shows every measurement beside your answers.</p>
+${pending ? `<p><b>Measuring the last ${pending} patch${pending > 1 ? 'es' : ''} in the background…</b> the export and the reveal wait for it.</p>` : ''}
 <div class="row"><button class="pill primary" id="bReveal">REVEAL <kbd>R</kbd></button><button class="pill" id="bExport">EXPORT <kbd>E</kbd></button>
 <button class="pill" id="bBack">← back to the last patch</button></div></div>`;
 }
@@ -428,10 +724,12 @@ function blindTokens(sample) {
 function blindScan(text, tokens) { return tokens.filter(tok => text.includes(tok)); }
 /* the provisional call vs the answer, per pair (the four metrics each own one question) */
 const CALLS = [['aliasDb', 'aliased', 'above'], ['roughness', 'rough', 'above'], ['rootPresence', 'rootUnclear', 'below'], ['flatness', 'noisy', 'above']];
-function viewReveal(st, sample, A, demo) {
+/* A = calibrate.mjs analyse() of this pass's v2 export; W = { key: worstOf(segs) } (calibrate's);
+   ctl = detector rows (or null) */
+function viewReveal(st, sample, A, W, ctl, demo) {
   const f = (v, d) => (v === null || v === undefined ? '—' : v.toFixed(d));
   const T = sample.thresholds;
-  const sum = A.metrics.map(m => {
+  const sumRows = ms => ms.map(m => {
     const d = m.metric === 'aliasDb' ? 1 : m.metric === 'rootPresence' ? 2 : 3;
     return `<tr><td>${m.metric}</td><td>${esc(m.question)}</td><td>${m.when}</td><td class="num">${m.n}</td><td class="num">${m.flagged}</td>
 <td class="num">${m.insufficient ? '—' : f(m.auc, 2)}</td><td class="num">${f(m.provisional, d)} (${f(m.agreementProvisional, 2)})</td>
@@ -439,33 +737,44 @@ function viewReveal(st, sample, A, demo) {
 <td class="num">${m.insufficient ? '—' : `${f(m.bracket[0], d)} .. ${f(m.bracket[1], d)}`}</td>
 <td class="num">${m.insufficient || !m.logistic50 ? '—' : f(m.logistic50.at, d)}</td></tr>`;
   }).join('');
+  const head = '<tr><th>metric</th><th>question</th><th>flag when</th><th>n</th><th>yes</th><th>AUC</th><th>provisional (agree)</th><th>suggested cut (agree)</th><th>bracket</th><th>logistic 50%</th></tr>';
   const byKey = sample.itemsByKey;
   const rows = st.order.map((key, k) => {
-    const it = byKey[key], a = st.answers[key] || {};
+    const it = byKey[key], a = st.answers[key] || {}, w = W[key];
     const cell = (m) => {
-      const c = CALLS.find(x => x[0] === m), v = it.metrics[m];
-      if (!c || v === null || v === undefined || !(a[c[1]] === 0 || a[c[1]] === 1)) return `<td class="num">${fmtM(m, v)}</td>`;
-      const call = c[2] === 'below' ? v < T[m] : v > T[m];
-      return `<td class="num${(call ? 1 : 0) !== a[c[1]] ? ' dis' : ''}">${fmtM(m, v)}</td>`;
+      const c = CALLS.find(x => x[0] === m), v = it.metrics[m], hv = w && m !== 'roughnessSolo' ? w.values[m] : undefined;
+      const heardTxt = hv === undefined ? '' : `<br><small>heard ${fmtM(m, hv)}${w.from[m] ? ' · ' + esc(w.from[m]) : ''}</small>`;
+      const judged = c && hv !== undefined && hv !== null ? hv : v;
+      if (!c || judged === null || judged === undefined || !(a[c[1]] === 0 || a[c[1]] === 1)) return `<td class="num">${fmtM(m, v)}${heardTxt}</td>`;
+      const call = c[2] === 'below' ? judged < T[m] : judged > T[m];
+      return `<td class="num${(call ? 1 : 0) !== a[c[1]] ? ' dis' : ''}">${fmtM(m, v)}${heardTxt}</td>`;
     };
     const ans = QUI.map(q => `<td>${a[q.key] === 1 ? esc(q.flag) : a[q.key] === 0 ? esc(q.fine) : '—'}</td>`).join('');
     return `<tr><td class="num">${k + 1}</td><td><button class="pill mini" data-play="${esc(key)}">▶</button> ${esc(key)}</td>
-<td class="role">${esc(it.role === 'stratum' ? it.stratum : it.role + (it.repeatOf ? ' of ' + it.repeatOf : ''))}${it.roughOrigin ? ' · rough: ' + it.roughOrigin : ''}</td>
+<td class="role">${esc(it.role === 'stratum' ? it.stratum : it.role + (it.repeatOf ? ' of ' + it.repeatOf : ''))}${it.roughOrigin ? ' · rough: ' + it.roughOrigin : ''}${st.heard && st.heard[key] === 'drift' ? ' · drift' : ''}</td>
 ${ans}${METRIC_COLS.map(cell).join('')}<td>${esc(a.note || '')}</td></tr>`;
   }).join('');
-  const ctl = A.controls.map(c => `${esc(c.key)} (${c.role}): ${c.pass ? 'as expected' : '<b>not as expected</b>'}`).join(' · ') || 'none';
+  const ctlTxt = A.controls.map(c => `${esc(c.key)} (${c.role}): ${c.pass ? 'as expected' : '<b>not as expected</b>'}`).join(' · ') || 'none';
   const rt = A.retest.map(r => `${esc(r.key)} ${r.agree}/${r.of}`).join(' · ') || 'none';
   const og = Object.entries(A.roughOrigin).map(([g, s]) => `${g}: ${s.rough} of ${s.n} called rough`).join(' · ') || 'none';
-  return `<div class="card wide"><h2>Reveal${demo ? '<span class="demo">DEMO — SYNTHETIC ANSWERS</span>' : ''}</h2>
-<p>Your answers beside the measurements. A shaded metric cell is a disagreement between your answer and the <b>provisional</b> threshold. The fit below is <b>calibrate.mjs</b>'s own (imported, not copied); it is a <b>proposal</b> — nothing is applied.</p>
-<table class="rv"><tr><th>metric</th><th>question</th><th>flag when</th><th>n</th><th>yes</th><th>AUC</th><th>provisional (agree)</th><th>suggested cut (agree)</th><th>bracket</th><th>logistic 50%</th></tr>${sum}</table>
-<p>Clean and broken references: ${ctl}. Test-retest: ${rt}. Roughness origin: ${og}. AUC against "not usable": ${A.usable.map(u => `${u.metric} ${f(u.auc, 2)}`).join(' · ')}.</p>
-<div class="row"><button class="pill primary" id="bExport">EXPORT RATINGS <kbd>E</kbd></button><button class="pill" id="bReset">start over</button></div>
+  const wf = A.worstFrom ? Object.entries(A.worstFrom).map(([m, c]) => `${m}: ${Object.entries(c).map(([s, n]) => `${esc(s)} ×${n}`).join(', ') || '—'}`).join(' · ') : '';
+  const det = ctl ? ctl.map(r => esc(detectorLine(r))).join('\n') : 'not run';
+  return `<div class="card wide"><h2>Reveal${demo ? '<span class="demo">DEMO — SYNTHETIC ANSWERS; "heard" COPIED FROM THE COMMITTED NUMBERS</span>' : ''}</h2>
+<p>Your answers beside the measurements. Each metric cell shows the <b>gauntlet's committed number</b> (the A3 / E5 windows it measured) and under it the <b>worst this page heard</b> across the segments you were played, with the segment. A shaded cell is a disagreement between your answer and the <b>provisional</b> threshold applied to the heard number. The fit is <b>calibrate.mjs</b>'s own (imported, not copied), against the worst heard segment; it is a <b>proposal</b> — nothing is applied.</p>
+<table class="rv">${head}${sumRows(A.metrics)}</table>
+<p>Where the worst heard value came from: ${wf || '—'}.</p>
+<h3>For comparison only: the same answers against the committed gauntlet numbers</h3>
+<table class="rv">${head}${sumRows(A.metricsCommitted || [])}</table>
+<p>Clean and broken references: ${ctlTxt}. Test-retest: ${rt}. Roughness origin: ${og}. AUC against "not usable": ${A.usable.map(u => `${u.metric} ${f(u.auc, 2)}`).join(' · ')}.${A.warnings.length ? ' Warnings: ' + A.warnings.map(esc).join(' · ') : ''}</p>
+<div class="row"><button class="pill primary" id="bExport">EXPORT RATINGS <kbd>E</kbd></button><button class="pill" id="bReset">start v2 over</button></div>
 <p style="margin-top:8px">Save the file into <b>local/patchspace/ratings/</b> (git-ignored), then run:</p>
 <pre class="cmd">node tools/patchspace/calibrate.mjs</pre>
+<h3>Detector controls (known signals, the same measurement code)</h3>
+<pre class="cmd">${det}</pre>
 <table class="rv"><tr><th>#</th><th>patch</th><th>chosen as</th>${QUI.map(q => `<th>${esc(q.title)}</th>`).join('')}${METRIC_COLS.map(m => `<th>${m}</th>`).join('')}<th>note</th></tr>${rows}</table></div>`;
 }
-/* the export (calibrate.mjs validateExport is its contract): no timestamps, the order index is the sequence */
+/* the v1 export (calibrate.mjs validateExport is its contract), UNCHANGED: no timestamps, the
+   order index is the sequence. The v1-pass export below reuses it verbatim. */
 function buildExport(st, sample, schema) {
   const ratings = st.order.map((key, order) => {
     const it = sample.itemsByKey[key], a = st.answers[key] || {};
@@ -475,6 +784,37 @@ function buildExport(st, sample, schema) {
   });
   return { schema, sample: { file: 'docs/design/listening-pass.json', id: sample.id }, orderSeed: sample.orderSeed,
     complete: ratings.every(r => QUI.every(q => r.answers[q.key] !== null)), ratings };
+}
+/* EARLIER SAMPLES the human's v1 pass may have been rated on. The v1 page saved its answers under
+   the id of the sample it loaded: B324 shipped sample 03c97d3e (1726739, PR #823, merged 02:56
+   on 2026-09-28); the B325 engine fix re-selected it as today's file (d20082e, PR #829, merged
+   11:42). The two share NO patch, and which one the human rated is not known here. This keeps
+   enough of 03c97d3e to rebuild its v1 export exactly (listening_pass_check T7 pins it against
+   the 1726739 page's own export): the run seed, the order seed, and the item keys in file order
+   (i and mode are in the key; `~r` marks a repeat of its base key). */
+const V1_SAMPLES = { '03c97d3e': { run: 45846, orderSeed: 12875, keys: ('broad#612 broad#726 broad#728 broad#402 broad#181 broad#825 broad#878 broad#792 broad#408 ' +
+  'broad#254 broad#700 broad#1 broad#760 broad#90 broad#801 edge#216 edge#159 broad#482 broad#392 broad#672 broad#198 broad#568 edge#19 broad#350 broad#896 ' +
+  'broad#371 broad#764 broad#88 edge#194 broad#462 broad#395 broad#626 broad#118 broad#629 broad#198~r broad#1~r').split(' ') } };
+function v1SampleOf(id, current) {
+  if (id === current.id) return current;
+  const d = V1_SAMPLES[id];
+  if (!d) return null;
+  const items = d.keys.map(key => { const m = /^(broad|edge)#(\d+)(~r)?$/.exec(key);
+    return { key, i: +m[2], mode: m[1], role: m[3] ? 'repeat' : 'stratum', repeatOf: m[3] ? key.slice(0, -2) : undefined }; });
+  return { id, run: { seed: d.run }, orderSeed: d.orderSeed, items, itemsByKey: Object.fromEntries(items.map(it => [it.key, it])) };
+}
+/* the human's completed v1 pass, exactly as the v1 page exported it: its stored answers and
+   heard marks over that sample's own order. null for a store whose sample is unknown here. */
+function exportV1FromStore(s, sample, schema) {
+  const smp = s && v1SampleOf(s.sampleId, sample);
+  if (!smp) return null;
+  return buildExport({ order: presentationOrder(smp.items, smp.orderSeed), answers: s.answers || {}, heard: s.heard || {} }, smp, schema);
+}
+/* v2: v1's fields plus the program id and, per rating, the heard segments */
+function buildExportV2(st, sample, schema) {
+  const x = buildExport(st, sample, schema);
+  x.ratings.forEach(r => { r.segs = st.segs && st.segs[r.key] ? st.segs[r.key] : null; });
+  return { schema: x.schema, sample: x.sample, orderSeed: x.orderSeed, phrase: { version: 2, id: PHRASE_ID }, complete: x.complete, ratings: x.ratings };
 }
 // PURE-END
 
@@ -486,24 +826,40 @@ const MAKE = (typeof makeComposedEngine === 'function') ? makeComposedEngine : n
 const SLICE = (typeof swarmSourceFromHtml === 'function') ? swarmSourceFromHtml : null;
 const QS = (typeof URLSearchParams === 'function' && typeof location !== 'undefined') ? new URLSearchParams(location.search) : null;
 const qp = (k, d) => { try { const v = QS && QS.get(k); return v === null || v === undefined ? d : v; } catch (_) { return d; } };
-const STORE_KEY = 'hypersaw.b324.listening-pass';
-const DEMO = ['rate', 'reveal'].includes(qp('demo', '')) ? qp('demo', '') : '';
-const ST = { order: [], cursor: 0, answers: {}, heard: {}, revealed: false, loop: true, view: 'loading', theme: qp('theme', 'light') === 'dark' ? 'dark' : 'light' };
+/* STORAGE. v2 writes ONLY STORE_KEY. V1_STORE_KEY holds the human's completed v1 pass: this page
+   READS it (readV1) and never writes or removes it — listening_pass_check T11 scans this file for
+   any write that could reach it. */
+const STORE_KEY = 'hypersaw.b340.listening-pass';
+const V1_STORE_KEY = 'hypersaw.b324.listening-pass';
+const DEMO = ['landing', 'calib', 'rate', 'reveal'].includes(qp('demo', '')) ? qp('demo', '') : '';
+const ST = { order: [], cursor: 0, answers: {}, heard: {}, segs: {}, revealed: false, loop: false, refBefore: 'off', calibrated: false,
+  view: 'loading', theme: qp('theme', 'light') === 'dark' ? 'dark' : 'light' };
 const ENG = { C: null, ctx: null, err: '' };
 let SAMPLE = null, CAL = null, MET = null;
 const XVERIFY = qp('xverify', '0') === '1';
-const AUD = { ctx: null, gain: null, src: null, cache: new Map(), playing: '' };
-const CHECK = { rows: [], blindScans: 0, blindHits: [], rendered: 0, tokens: [], xv: null };
+const AUD = { ctx: null, gain: null, srcs: [], progs: new Map(), meas: new Map(), refs: {}, calib: {}, sched: [], timer: 0, sel: -1, gen: 0, pending: 0, busy: false };
+const CHECK = { rows: [], blindScans: 0, blindHits: [], tokens: [], xv: null, det: null, verdicts: null, v1Boot: null };
 const $ = id => document.getElementById(id);
 
 function load() {
-  try { const s = JSON.parse(localStorage.getItem(STORE_KEY) || 'null'); return s && s.sampleId === SAMPLE.id ? s : null; } catch (_) { return null; }
+  try { const s = JSON.parse(localStorage.getItem(STORE_KEY) || 'null'); return s && s.sampleId === SAMPLE.id && s.phrase === PHRASE_ID ? s : null; } catch (_) { return null; }
 }
 function save() {
   if (DEMO) return;                                  // a demo state is never saved over real ratings
-  try { localStorage.setItem(STORE_KEY, JSON.stringify({ sampleId: SAMPLE.id, cursor: ST.cursor, answers: ST.answers, heard: ST.heard, revealed: ST.revealed })); } catch (_) { /* private mode: the pass still runs, it just cannot resume */ }
+  try { localStorage.setItem(STORE_KEY, JSON.stringify({ sampleId: SAMPLE.id, phrase: PHRASE_ID, cursor: ST.cursor, answers: ST.answers, heard: ST.heard, segs: ST.segs,
+    revealed: ST.revealed, loop: ST.loop, refBefore: ST.refBefore, calibrated: ST.calibrated })); } catch (_) { /* private mode: the pass still runs, it just cannot resume */ }
 }
 function clearStore() { try { localStorage.removeItem(STORE_KEY); } catch (_) {} }
+/* the v1 pass, read only: { raw, s } (raw is the exact string, for the untouched-check) */
+function readV1() { try { const raw = localStorage.getItem(V1_STORE_KEY); return { raw, s: raw ? JSON.parse(raw) : null }; } catch (_) { return { raw: null, s: null }; } }
+function v1Info() {
+  if (DEMO === 'landing') return { n: ST.order.length, total: ST.order.length, complete: true, which: 'current', id: SAMPLE.id, demo: true };
+  const { s } = readV1();
+  if (!s || !s.answers) return null;
+  const smp = v1SampleOf(s.sampleId, SAMPLE), keys = smp ? smp.items.map(it => it.key) : Object.keys(s.answers);
+  const n = keys.filter(k => answered(s.answers[k])).length;
+  return { n, total: keys.length, complete: !!smp && n === keys.length, which: !smp ? 'unknown' : smp === SAMPLE ? 'current' : 'earlier', id: String(s.sampleId) };
+}
 
 async function fetchText(url) { const r = await fetch(url); if (!r.ok) throw new Error(url + ': HTTP ' + r.status); return r.text(); }
 async function loadAll() {
@@ -523,29 +879,56 @@ async function loadAll() {
   [CAL, MET] = await Promise.all([import('../../tools/patchspace/calibrate.mjs'), import('../../tools/patchspace/metrics.mjs')]);
 }
 function patchOf(key) { const it = SAMPLE.itemsByKey[key]; return samplePatch(ENG.ctx, SAMPLE.run.seed, it.i, it.mode).patch; }
-function phraseOf(key) {
-  if (AUD.cache.has(key)) return AUD.cache.get(key);
-  const it = SAMPLE.itemsByKey[key], patch = patchOf(key), pseed = pseedOf(SAMPLE.run.seed, it.i);
-  const { segs, fp } = renderPhrase(ENG.C, patch, pseed);
-  CHECK.rendered++;
-  const out = Object.assign(assemble(segs, phraseGain(segs)), { segs, fp, patch, pseed });
-  AUD.cache.set(key, out);
-  if (AUD.cache.size > 6) AUD.cache.delete(AUD.cache.keys().next().value);
-  return out;
+/* a yield to the event loop between render chunks, so keys and the UI stay live */
+const tick = () => new Promise(r => setTimeout(r, 0));
+async function drive(g) { let r; while (!(r = g.next()).done) await tick(); return r.value; }
+/* a patch's program, rendered segment by segment in chunks; memoised (a few kept) */
+function programOf(key) {
+  if (AUD.progs.has(key)) return AUD.progs.get(key);
+  const p = (async () => {
+    const it = SAMPLE.itemsByKey[key], patch = patchOf(key), pseed = pseedOf(SAMPLE.run.seed, it.i), rs = [];
+    for (const seg of SEGS) { rs.push(await drive(renderSegmentSteps(ENG.C, patch, pseed, seg, STEP))); await tick(); }
+    return Object.assign(assembleProgram(rs, programGain(rs)), { rs, patch, pseed, key });
+  })();
+  AUD.progs.set(key, p);
+  if (AUD.progs.size > 4) for (const k of AUD.progs.keys()) { if (AUD.progs.size <= 4) break; if (k !== key && k !== ST.order[ST.cursor]) AUD.progs.delete(k); }
+  return p;
 }
-/* does the sound played here measure like the committed numbers? Once per patch, after the
-   sound has started (the reference render at 4x oversampling costs a beat); kept with the
-   answers, exported as `heard`. It shows only "matches" or "DRIFT", never a number. */
-function heardFor(key) {
-  if (ST.heard[key]) return ST.heard[key];
-  const ph = phraseOf(key), it = SAMPLE.itemsByKey[key];
-  const d = heardDiff(measureHeard(MET, ENG.C, ph.patch, ph.pseed, ph.segs), it.metrics);
-  ST.heard[key] = d.ok ? 'match' : 'drift'; save();
-  return ST.heard[key];
+/* measure every segment of a patch (and its drift mark); kept with the answers, exported as
+   `segs`; never displayed before the reveal */
+function measureOf(key) {
+  if (ST.segs[key] && ST.heard[key]) return Promise.resolve(ST.segs[key]);
+  if (AUD.meas.has(key)) return AUD.meas.get(key);
+  const p = (async () => {
+    const prog = await programOf(key), out = [];
+    for (let k = 0; k < SEGS.length; k++) { out.push(await drive(measureSegmentSteps(MET, ENG.C, prog.patch, prog.pseed, SEGS[k], prog.rs[k], STEP))); await tick(); }
+    const d = heardDiff(measureHeard(MET, ENG.C, prog.patch, prog.pseed, prog.rs[SEG_A3], prog.rs[SEG_E5]), SAMPLE.itemsByKey[key].metrics);
+    ST.segs[key] = out; ST.heard[key] = d.ok ? 'match' : 'drift'; save();
+    AUD.meas.delete(key);
+    return out;
+  })();
+  AUD.meas.set(key, p);
+  return p;
+}
+/* the background: this patch's sound first, the next patch's, then measurements (this patch,
+   then any answered patch not yet measured). A newer call supersedes an older chain. */
+async function background() {
+  const gen = ++AUD.gen, cur = ST.order[ST.cursor], nxt = ST.order[ST.cursor + 1];
+  try {
+    await programOf(cur); if (gen !== AUD.gen) return;
+    if (nxt) { await programOf(nxt); if (gen !== AUD.gen) return; }
+    await measureOf(cur); if (gen !== AUD.gen) return;
+    for (const k of ST.order) { if (gen !== AUD.gen) return; if (answered(ST.answers[k]) && !ST.segs[k]) await measureOf(k); }
+  } catch (e) { setStat({ text: 'background work failed: ' + String(e && e.message || e), warn: true }); }
+}
+async function measureAnswered(onProgress) {
+  const todo = ST.order.filter(k => answered(ST.answers[k]) && !(ST.segs[k] && ST.heard[k]));
+  AUD.pending = todo.length; if (onProgress) onProgress(AUD.pending);
+  for (const k of todo) { await measureOf(k); AUD.pending--; if (onProgress) onProgress(AUD.pending); }
 }
 
 /* ======================================================================
-   C. AUDIO — an offline render per patch, played as a looping buffer
+   C. AUDIO — offline renders played as buffers; references are patch-independent
    ====================================================================== */
 function audioCtx() {
   if (!AUD.ctx) {
@@ -556,26 +939,97 @@ function audioCtx() {
   if (AUD.ctx.state === 'suspended') AUD.ctx.resume();
   return AUD.ctx;
 }
-function stop() { if (AUD.src) { try { AUD.src.stop(); } catch (_) {} AUD.src.disconnect(); AUD.src = null; } AUD.playing = ''; }
-function play(key) {
+function bufOf(prog) {
+  if (prog.buf) return prog.buf;
+  const buf = audioCtx().createBuffer(2, prog.L.length, SR);
+  buf.copyToChannel(prog.L, 0); buf.copyToChannel(prog.R, 1);
+  return (prog.buf = buf);
+}
+/* the references (sine, clean saw) over the whole program, one LOUD gain each */
+function refProgram(kind) {
+  if (AUD.refs[kind]) return AUD.refs[kind];
+  const rs = SEGS.map(seg => { const x = refTone(kind, seg, SR); return { L: x, R: x }; });
+  return (AUD.refs[kind] = assembleProgram(rs, programGain(rs)));
+}
+/* the calibration signals: one segment each, LOUD-matched alone */
+function calibSignal(id) {
+  if (AUD.calib[id]) return AUD.calib[id];
+  const [kind, which] = id.split('-'), seg = which === 'E5' ? SEGS[SEG_E5] : SEGS[SEG_SWEEP];
+  const x = refTone(kind, seg, SR), rs = [{ L: x, R: x }];
+  return (AUD.calib[id] = assembleProgram(rs, programGain(rs, [seg]), [seg]));
+}
+function stop() {
+  for (const s of AUD.srcs) { try { s.stop(); } catch (_) {} try { s.disconnect(); } catch (_) {} }
+  AUD.srcs = []; AUD.sched = []; if (AUD.timer) { clearInterval(AUD.timer); AUD.timer = 0; }
+  paintPlayhead();
+}
+/* items: [{ what: 'patch'|'sine'|'saw'|'calib', prog, sel }] played back to back (0.5 s apart);
+   only the last may loop. sel -1 = the whole program, else one segment. */
+function playSeq(items) {
   stop();
-  let ph;
-  try { ph = phraseOf(key); } catch (e) { setStat({ text: 'render failed: ' + String(e && e.message || e), warn: true }); return; }
-  try {
-    const ctx = audioCtx(), buf = ctx.createBuffer(2, ph.L.length, SR);
-    buf.copyToChannel(ph.L, 0); buf.copyToChannel(ph.R, 1);
-    const src = ctx.createBufferSource(); src.buffer = buf; src.loop = ST.loop; src.connect(AUD.gain); src.start();
-    src.onended = () => { if (AUD.src === src) { AUD.src = null; AUD.playing = ''; setStat(statFor(key)); } };
-    AUD.src = src; AUD.playing = key;
-  } catch (e) { setStat({ text: 'audio unavailable: ' + String(e && e.message || e), warn: true }); return; }
-  setStat(statFor(key));
-  if (!ST.heard[key]) setTimeout(() => { try { heardFor(key); } catch (_) {} if (ST.order[ST.cursor] === key) setStat(statFor(key)); }, 60);
+  let ctx;
+  try { ctx = audioCtx(); } catch (e) { setStat({ text: 'audio unavailable: ' + String(e && e.message || e), warn: true }); return; }
+  let t = ctx.currentTime + 0.05;
+  items.forEach((it, n) => {
+    const buf = bufOf(it.prog), m = it.sel >= 0 ? it.prog.marks[it.sel] : { start: 0, end: it.prog.L.length };
+    const off = m.start / SR, dur = (m.end - m.start) / SR, loop = ST.loop && n === items.length - 1;
+    const src = ctx.createBufferSource(); src.buffer = buf; src.connect(AUD.gain);
+    if (loop) { src.loop = true; src.loopStart = off; src.loopEnd = off + dur; src.start(t, off); }
+    else src.start(t, off, dur);
+    AUD.srcs.push(src); AUD.sched.push({ what: it.what, prog: it.prog, sel: it.sel, at: t, off, dur, loop });
+    if (n === items.length - 1) src.onended = () => { if (AUD.srcs.includes(src)) stop(); };
+    t += dur + 0.5;
+  });
+  AUD.timer = setInterval(paintPlayhead, 120);
+  paintPlayhead();
+}
+/* what is sounding now: { what, seg } or null */
+function nowPlaying() {
+  if (!AUD.ctx || !AUD.sched.length) return null;
+  const now = AUD.ctx.currentTime;
+  for (const s of AUD.sched) {
+    if (now < s.at) return { what: 'wait', seg: -1 };
+    let e = now - s.at;
+    if (s.loop) e %= s.dur; else if (e >= s.dur) continue;
+    const pos = Math.round((s.off + e) * SR), k = s.prog.marks.findIndex(m => pos >= m.start && pos < m.end);
+    return { what: s.what, seg: s.prog.marks.length === SEGS.length ? k : -1 };
+  }
+  return null;
+}
+function paintPlayhead() {
+  const np = nowPlaying();
+  for (const b of document.querySelectorAll('.seg')) b.classList.toggle('on', !!np && np.what === 'patch' && +b.dataset.seg === np.seg);
+  const bs = $('bSine'), bw = $('bSaw');
+  if (bs) bs.classList.toggle('on', !!np && np.what === 'sine'); if (bw) bw.classList.toggle('on', !!np && np.what === 'saw');
+  if (ST.view === 'rate') setStat(statFor(ST.order[ST.cursor]));
 }
 function statFor(key) {
-  if (ST.heard[key] === 'drift') return { text: 'DRIFT: this sound measures differently here than in the gauntlet — rate it anyway; it is marked and left out of the fit', warn: true };
-  return { text: AUD.playing === key ? (ST.loop ? 'playing, looped' : 'playing once') : 'stopped — space to play', warn: false };
+  if (ST.heard[key] === 'drift') return { text: 'DRIFT: this sound measures differently here than in the gauntlet — rate it anyway; your answer is fitted on what this page measured', warn: true };
+  const np = nowPlaying(), segName = k => (k >= 0 ? segLabel(SEGS[k]) : '');
+  if (AUD.busy) return { text: 'rendering this patch…', warn: false };
+  if (!np) return { text: 'stopped — space plays the patch, S / W a reference on the same notes', warn: false };
+  if (np.what === 'wait') return { text: 'about to play…', warn: false };
+  const who = np.what === 'patch' ? 'the patch' : np.what === 'sine' ? 'SINE reference' : np.what === 'saw' ? 'CLEAN SAW reference' : 'calibration signal';
+  return { text: `playing: ${who}${np.seg >= 0 ? ' · ' + segName(np.seg) : ''}${ST.loop ? ' (looped)' : ''}`, warn: false };
 }
 function setStat(s) { const e = $('pstat'); if (e) { e.textContent = s.text; e.className = 'stat' + (s.warn ? ' warn' : ''); } }
+/* play the patch (sel -1 = everything), optionally with the reference first */
+async function playPatch(sel, withRefFirst) {
+  const key = ST.order[ST.cursor];
+  AUD.sel = sel; paintSel();
+  AUD.busy = true; setStat(statFor(key));
+  let prog;
+  try { prog = await programOf(key); } catch (e) { AUD.busy = false; setStat({ text: 'render failed: ' + String(e && e.message || e), warn: true }); return; }
+  AUD.busy = false;
+  if (ST.order[ST.cursor] !== key || ST.view !== 'rate') return;
+  const items = [];
+  if (withRefFirst && ST.refBefore !== 'off') items.push({ what: ST.refBefore, prog: refProgram(ST.refBefore), sel });
+  items.push({ what: 'patch', prog, sel });
+  playSeq(items);
+}
+function playRef(kind) { playSeq([{ what: kind, prog: refProgram(kind), sel: AUD.sel }]); }
+function paintSel() { for (const b of document.querySelectorAll('.seg')) b.classList.toggle('sel', +b.dataset.seg === AUD.sel); }
+function stepSeg(d) { const n = SEGS.length, s = AUD.sel < 0 ? (d > 0 ? 0 : n - 1) : (AUD.sel + d + n) % n; playPatch(s, false); }
 
 /* ======================================================================
    D. VIEWS — mounted from the pure builders; the blindness scan runs after each mount
@@ -599,18 +1053,23 @@ function blindCheck() {
   paintAudit();
 }
 function mount(html) { $('app').innerHTML = html; wire(); blindCheck(); }
+function worstMap() { const W = {}; for (const k of ST.order) if (ST.segs[k]) W[k] = CAL.worstOf(ST.segs[k]); return W; }
 function render() {
-  if (ST.view === 'intro') mount(viewIntro(ST));
+  if (ST.view === 'intro') mount(viewIntro(ST, v1Info()));
+  else if (ST.view === 'calib') mount(viewCalib(ST, CHECK.verdicts, DEMO === 'calib'));
   else if (ST.view === 'rate') {
-    const key = ST.order[ST.cursor];
-    mount(viewRate(ST, key, ST.cursor, ST.order.length, statFor(key), DEMO === 'rate'));
-  } else if (ST.view === 'done') mount(viewDone(ST));
+    const key = ST.order[ST.cursor], np = nowPlaying();
+    mount(viewRate(ST, key, ST.cursor, ST.order.length, Object.assign({ sel: AUD.sel, nowSeg: np && np.what === 'patch' ? np.seg : -1, what: np ? np.what : '' }, statFor(key)), DEMO === 'rate'));
+  } else if (ST.view === 'done') mount(viewDone(ST, AUD.pending));
   else if (ST.view === 'reveal') {
-    const A = CAL.analyse(SAMPLE, [buildExport(ST, SAMPLE, CAL.SCHEMA)]);
-    $('app').innerHTML = viewReveal(ST, SAMPLE, A, DEMO === 'reveal'); wire(); paintAudit();
+    const A = CAL.analyse(SAMPLE, [buildExportV2(ST, SAMPLE, CAL.SCHEMA_V2)]);
+    $('app').innerHTML = viewReveal(ST, SAMPLE, A, worstMap(), CHECK.det, DEMO === 'reveal'); wire(); paintAudit();
   }
 }
-function go(view) { ST.view = view; render(); if (view === 'rate') play(ST.order[ST.cursor]); else stop(); }
+function go(view) {
+  ST.view = view; stop(); render();
+  if (view === 'rate') { AUD.sel = -1; background(); if (!DEMO) playPatch(-1, true); }
+}
 function answer(q, v) {
   const key = ST.order[ST.cursor], a = ST.answers[key] || (ST.answers[key] = {});
   a[q] = v; save();
@@ -621,51 +1080,94 @@ function answer(q, v) {
 function next() {
   const key = ST.order[ST.cursor];
   if (!answered(ST.answers[key])) return;
-  if (ST.cursor + 1 < ST.order.length) { ST.cursor++; save(); render(); play(ST.order[ST.cursor]); }
-  else { save(); go('done'); }
+  if (ST.cursor + 1 < ST.order.length) { ST.cursor++; save(); go('rate'); }
+  else { save(); finish(); }
 }
-function prev() { if (ST.cursor > 0) { ST.cursor--; save(); render(); play(ST.order[ST.cursor]); } }
+function prev() { if (ST.cursor > 0) { ST.cursor--; save(); go('rate'); } }
 function start() {
+  ST.calibrated = true;
   const first = ST.order.findIndex(k => !answered(ST.answers[k]));
-  if (first < 0) { ST.cursor = ST.order.length - 1; go(ST.revealed ? 'reveal' : 'done'); return; }
+  if (first < 0) { ST.cursor = ST.order.length - 1; save(); if (ST.revealed) go('reveal'); else finish(); return; }
   ST.cursor = first; save(); go('rate');
 }
-function reveal() { ST.revealed = true; save(); go('reveal'); }
-function resetAll() {
-  if (typeof confirm === 'function' && !confirm('Start over? Every answer in this browser is cleared (export first if you want them).')) return;
-  clearStore(); ST.answers = {}; ST.heard = {}; ST.cursor = 0; ST.revealed = false; go('intro');
+async function finish() {
+  go('done');
+  await measureAnswered(() => { if (ST.view === 'done') render(); });
+  if (ST.view === 'done') render();
 }
-function exportRatings() {
-  const x = buildExport(ST, SAMPLE, CAL.SCHEMA), v = CAL.validateExport(x);
-  if (!v.ok) { alert('export failed its own schema: ' + v.errors.join('; ')); return; }
+async function reveal() { await measureAnswered(() => { if (ST.view === 'done') render(); }); ST.revealed = true; save(); go('reveal'); }
+function resetAll() {
+  if (typeof confirm === 'function' && !confirm('Start v2 over? Every v2 answer in this browser is cleared (export first if you want them). Your v1 pass is not touched.')) return;
+  clearStore(); ST.answers = {}; ST.heard = {}; ST.segs = {}; ST.cursor = 0; ST.revealed = false; go('intro');
+}
+function download(x, name) {
   const url = URL.createObjectURL(new Blob([JSON.stringify(x, null, 1) + '\n'], { type: 'application/json' }));
-  const a = document.createElement('a'); a.href = url; a.download = `listening-pass-ratings-${SAMPLE.id}.json`;
+  const a = document.createElement('a'); a.href = url; a.download = name;
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+async function exportRatings() {
+  if (DEMO) return;
+  if (ST.order.some(k => answered(ST.answers[k]) && !ST.segs[k])) { setStat({ text: 'measuring the answered patches before the export…', warn: false }); await measureAnswered(); }
+  const x = buildExportV2(ST, SAMPLE, CAL.SCHEMA_V2), v = CAL.validateExport(x);
+  if (!v.ok) { alert('export failed its own schema: ' + v.errors.join('; ')); return; }
+  download(x, `listening-pass-v2-ratings-${SAMPLE.id}.json`);
+}
+function exportV1() {
+  if (DEMO) return;
+  const x = exportV1FromStore(readV1().s, SAMPLE, CAL.SCHEMA);
+  if (!x) { alert('the v1 pass in this browser was made on a sample this page does not know'); return; }
+  const v = CAL.validateExport(x);
+  if (!v.ok) { alert('the v1 export failed the v1 schema: ' + v.errors.join('; ')); return; }
+  download(x, `listening-pass-ratings-${x.sample.id}.json`);    // the v1 page's own file name, for the sample it was rated on
+}
+function playCalib(id) { playSeq([{ what: 'calib', prog: calibSignal(id), sel: -1 }]); }
 function wire() {
   const on = (id, f) => { const e = $(id); if (e) e.onclick = f; };
-  on('bStart', start); on('bReset', resetAll); on('bReplay', () => play(ST.order[ST.cursor]));
-  on('bLoop', () => { ST.loop = !ST.loop; render(); if (AUD.playing) play(ST.order[ST.cursor]); });
+  on('bStart', start); on('bReset', resetAll); on('bCalib', () => go('calib')); on('bHome', () => go('intro')); on('bExportV1', exportV1);
+  on('bPlay', () => playPatch(-1, false)); on('bSweep', () => playPatch(SEG_SWEEP, false)); on('bStop', stop);
+  on('bSine', () => playRef('sine')); on('bSaw', () => playRef('saw'));
+  on('bLoop', () => { ST.loop = !ST.loop; save(); const b = $('bLoop'); if (b) { b.classList.toggle('on', ST.loop); b.innerHTML = `LOOP ${ST.loop ? 'ON' : 'OFF'} <kbd>L</kbd>`; } });
+  on('bRefB', cycleRefBefore);
   on('bNext', next); on('bPrev', prev); on('bExport', exportRatings); on('bReveal', reveal);
   on('bBack', () => { ST.cursor = ST.order.length - 1; go('rate'); });
   for (const b of document.querySelectorAll('.ans')) b.onclick = () => answer(b.dataset.q, +b.dataset.v);
-  for (const b of document.querySelectorAll('[data-play]')) b.onclick = () => play(b.dataset.play);
+  for (const b of document.querySelectorAll('.seg')) b.onclick = () => playPatch(+b.dataset.seg, false);
+  for (const b of document.querySelectorAll('[data-cal]')) b.onclick = () => playCalib(b.dataset.cal);
+  for (const b of document.querySelectorAll('[data-play]')) b.onclick = async () => { stop(); const p = await programOf(b.dataset.play); playSeq([{ what: 'patch', prog: p, sel: -1 }]); };
   const note = $('note');
   if (note) note.oninput = () => { const key = ST.order[ST.cursor]; (ST.answers[key] || (ST.answers[key] = {})).note = note.value; save(); };
 }
+function cycleRefBefore() {
+  ST.refBefore = REF_BEFORE[(REF_BEFORE.indexOf(ST.refBefore) + 1) % REF_BEFORE.length]; save();
+  const b = $('bRefB'); if (b) b.innerHTML = `${ST.refBefore.toUpperCase()} <kbd>B</kbd>`;
+}
+const CAL_KEYS = { 1: 'saw-E5', 2: 'naive-E5', 3: 'saw-sweep', 4: 'naive-sweep', 5: 'sine-sweep' };
 function onKey(e) {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   const t = e.target;
   if (t && t.tagName === 'INPUT') { if (e.key === 'Escape' || e.key === 'Enter') { t.blur(); e.preventDefault(); } return; }
   const k = e.key;
-  if (ST.view === 'intro' && k === 'Enter') { e.preventDefault(); start(); return; }
+  if (ST.view === 'intro' && k === 'Enter') { e.preventDefault(); if (ST.calibrated) start(); else go('calib'); return; }
+  if (ST.view === 'calib') {
+    if (CAL_KEYS[k]) { playCalib(CAL_KEYS[k]); return; }
+    if (k === 'Enter') { e.preventDefault(); start(); } else if (k === 'x' || k === 'X' || k === ' ') { e.preventDefault(); stop(); }
+    else if (k === 'Escape' || k === 'ArrowLeft') go('intro');
+    return;
+  }
   if ((ST.view === 'done' || ST.view === 'reveal') && (k === 'e' || k === 'E')) { exportRatings(); return; }
   if (ST.view === 'done' && (k === 'r' || k === 'R')) { reveal(); return; }
   if (ST.view !== 'rate') return;
   const qi = '1234567890'.indexOf(k);
   if (qi >= 0) { answer(QUI[qi >> 1].key, qi & 1); e.preventDefault(); return; }
-  if (k === ' ') { play(ST.order[ST.cursor]); e.preventDefault(); }
-  else if (k === 'l' || k === 'L') { ST.loop = !ST.loop; render(); play(ST.order[ST.cursor]); }
+  if (k === ' ') { playPatch(-1, false); e.preventDefault(); }
+  else if (k === 'p' || k === 'P') playPatch(SEG_SWEEP, false);
+  else if (k === ']') stepSeg(1);
+  else if (k === '[') stepSeg(-1);
+  else if (k === 's' || k === 'S') playRef('sine');
+  else if (k === 'w' || k === 'W') playRef('saw');
+  else if (k === 'x' || k === 'X') stop();
+  else if (k === 'b' || k === 'B') cycleRefBefore();
+  else if (k === 'l' || k === 'L') { const b = $('bLoop'); if (b) b.click(); }
   else if (k === 'Enter' || k === 'ArrowRight') { e.preventDefault(); next(); }
   else if (k === 'ArrowLeft' || k === 'Backspace') { e.preventDefault(); prev(); }
   else if (k === 'n' || k === 'N') { const n = $('note'); if (n) { n.focus(); e.preventDefault(); } }
@@ -673,52 +1175,100 @@ function onKey(e) {
 }
 
 /* ======================================================================
-   E. SELF-CHECKS — shown without a single measured number (blindness holds here too)
+   E. SELF-CHECKS — shown without a single measured patch number (blindness holds here too)
    ====================================================================== */
 function selfChecks() {
   const rows = [], it0 = SAMPLE.items[0], run = SAMPLE.run.seed;
   /* 1. DETERMINISM. Exact where exactness is possible: every seed regenerates its committed patch
-        (the sampler reads pow alone, which both runtimes share) and a render repeated here is
-        bit-identical. Within tolerance where it is not: the sound played here measures like the
-        committed numbers (see measureHeard: the browser's libm is not Node's). */
+        (the sampler reads pow alone, which both runtimes share) and the measured segments
+        rendered twice here are bit-identical. Within tolerance where it is not: the measured
+        windows of what is played here measure like the committed numbers. */
   const ph = SAMPLE.items.filter(it => patchHash(patchOf(it.key)) === it.ph).length;
   const p0 = patchOf(it0.key), s0 = pseedOf(run, it0.i);
-  const r1 = renderPhrase(ENG.C, p0, s0), r2 = renderPhrase(ENG.C, p0, s0);
-  const d0 = heardDiff(measureHeard(MET, ENG.C, p0, s0, r1.segs), it0.metrics);
-  rows.push({ name: 'determinism', ok: ph === SAMPLE.items.length && r1.fp === r2.fp && d0.ok,
-    text: `every seed regenerates its committed patch (${ph}/${SAMPLE.items.length}); a render repeated here is bit-identical (${r1.fp === r2.fp ? 'yes' : 'NO'}); ` +
-      `the first patch measures within tolerance of its committed numbers (${d0.ok ? 'yes' : 'NO: ' + d0.over.map(o => o.k).join(', ')}); ` +
-      `bit-identical to the gauntlet's Node render: ${r1.fp === it0.fp ? 'yes' : 'no (this browser\'s sin, exp and tanh are not Node\'s)'}` });
+  const seg2 = () => [SEG_A3, SEG_E5].map(k => runSync(renderSegmentSteps(ENG.C, p0, s0, SEGS[k])));
+  const r1 = seg2(), r2 = seg2(), f1 = fingerprint(r1[0].L, r1[0].R, r1[1].L, r1[1].R), f2 = fingerprint(r2[0].L, r2[0].R, r2[1].L, r2[1].R);
+  const fpHere = fingerprint(r1[0].L.subarray(0, MEAS.tonal.n), r1[0].R.subarray(0, MEAS.tonal.n), r1[1].L.subarray(0, MEAS.alias.n), r1[1].R.subarray(0, MEAS.alias.n));
+  const d0 = heardDiff(measureHeard(MET, ENG.C, p0, s0, r1[0], r1[1]), it0.metrics);
+  rows.push({ name: 'determinism', ok: ph === SAMPLE.items.length && f1 === f2 && d0.ok,
+    text: `every seed regenerates its committed patch (${ph}/${SAMPLE.items.length}); segments rendered twice here are bit-identical (${f1 === f2 ? 'yes' : 'NO'}); ` +
+      `the first patch's measured windows are within tolerance (${d0.ok ? 'yes' : 'NO: ' + d0.over.map(o => o.k).join(', ')}); ` +
+      `bit-identical to the gauntlet's Node render: ${fpHere === it0.fp ? 'yes' : 'no (this browser\'s sin, exp and tanh are not Node\'s)'}` });
   /* 2. MUST-FAIL. A perturbed seed (index + 1) regenerates a different patch, and its sound,
         measured here, is flagged against the committed numbers of the seed it replaced. */
   const pp = samplePatch(ENG.ctx, run, it0.i + 1, it0.mode).patch, sp = pseedOf(run, it0.i + 1);
-  const dp = heardDiff(measureHeard(MET, ENG.C, pp, sp, renderPhrase(ENG.C, pp, sp).segs), it0.metrics);
+  const rp = [SEG_A3, SEG_E5].map(k => runSync(renderSegmentSteps(ENG.C, pp, sp, SEGS[k])));
+  const dp = heardDiff(measureHeard(MET, ENG.C, pp, sp, rp[0], rp[1]), it0.metrics);
   rows.push({ name: 'perturbed seed', ok: patchHash(pp) !== it0.ph && !dp.ok,
     text: `the neighbouring seed is a different patch (${patchHash(pp) !== it0.ph ? 'caught' : 'MISSED'}) and a different sound (${!dp.ok ? 'caught' : 'MISSED'})` });
   /* 3. BLINDNESS, with the reveal as its must-read-high control (a scanner that finds nothing
         anywhere proves nothing); re-scanned after every view change (blindCheck) */
-  const A = CAL.analyse(SAMPLE, [buildExport(ST, SAMPLE, CAL.SCHEMA)]);
-  const ctl = blindScan(viewReveal(ST, SAMPLE, A, false), CHECK.tokens);
+  const A = CAL.analyse(SAMPLE, [buildExportV2(ST, SAMPLE, CAL.SCHEMA_V2)]);
+  const ctl = blindScan(viewReveal(ST, SAMPLE, A, {}, null, false), CHECK.tokens);
   rows.push({ name: 'blind', ok: null, ctl: ctl.length, text: '' });
-  /* 4. EXPORT: passes calibrate.mjs's validator; a timestamped one does not */
-  const x = buildExport(ST, SAMPLE, CAL.SCHEMA), v = CAL.validateExport(x);
-  const bad = Object.assign({}, x, { savedAt: 'wall clock' }), vb = CAL.validateExport(bad);
+  /* 4. EXPORTS: v2 passes calibrate's validator and a timestamped one does not; the v1 pass (or a
+        synthetic stand-in when this browser holds none) exports in the exact v1 format */
+  const x = buildExportV2(ST, SAMPLE, CAL.SCHEMA_V2), v = CAL.validateExport(x);
+  const vb = CAL.validateExport(Object.assign({}, x, { savedAt: 'wall clock' }));
   const qk = QUI.map(q => q.key).join() === CAL.QUESTIONS.map(q => q.key).join();
-  rows.push({ name: 'export schema', ok: v.ok && !vb.ok && qk, text: `this pass's export validates (${v.ok ? 'yes' : 'NO: ' + v.errors[0]}), a timestamped one is rejected (${vb.ok ? 'MISSED' : 'caught'}), the questions match calibrate.mjs (${qk ? 'yes' : 'NO'})` });
+  const v1s = readV1().s, known = !!(v1s && v1s.answers && v1SampleOf(v1s.sampleId, SAMPLE));
+  const v1x = exportV1FromStore(known ? v1s : { sampleId: SAMPLE.id, answers: {}, heard: {} }, SAMPLE, CAL.SCHEMA);
+  const v1ok = !!v1x && CAL.validateExport(v1x).ok && v1x.schema === CAL.SCHEMA;
+  rows.push({ name: 'exports', ok: v.ok && !vb.ok && qk && v1ok, text: `the v2 export validates (${v.ok ? 'yes' : 'NO: ' + v.errors[0]}), a timestamped one is rejected (${vb.ok ? 'MISSED' : 'caught'}), ` +
+    `the questions match calibrate.mjs (${qk ? 'yes' : 'NO'}), the ${known ? 'saved v1 pass' : 'v1 format (no v1 pass in this browser)'} exports as v1 (${v1ok ? 'yes' : 'NO'})` });
   CHECK.rows = rows;
 }
-/* ?xverify=1 — the developer's cross-runtime pass: every patch rendered and measured HERE, as
-   DIFFERENCES from the committed numbers (never the numbers), against TOL */
-function crossVerify() {
+/* 5. DETECTOR CONTROLS (after first paint: ~1-3 s of known signals through measureWindows) */
+function detectorCheck() {
+  const det = detectorControls(MET, SAMPLE.thresholds), asserted = det.filter(r => r.ok !== null), bad = asserted.filter(r => !r.ok);
+  CHECK.det = det;
+  const verdict = id => { const r = det.find(x => x.id === id); return r ? (r.m.aliasDb > SAMPLE.thresholds.aliasDb ? 'aliased' : 'clean') : null; };
+  CHECK.verdicts = { e5: { saw: verdict('band-limited saw E5'), naive: verdict('naive saw E5') }, sweep: { saw: verdict('band-limited saw sweep'), naive: verdict('naive saw sweep'), sine: verdict('sine sweep') } };
+  const n = k => det.filter(r => r.id.startsWith(k) && r.ok).length, of = k => det.filter(r => r.id.startsWith(k)).length;
+  const semi = det.filter(r => r.ok === null && r.m.rootPresence >= SAMPLE.thresholds.rootPresence).map(r => r.id.split(' ').pop());
+  CHECK.rows.push({ name: 'detector controls', ok: bad.length === 0,
+    text: `the reference sine reads clean, root clear and not noisy on ${n('sine A') + n('sine E')}/${of('sine A') + of('sine E')} notes and clean on the sweep (${n('sine sweep') ? 'yes' : 'NO'}); ` +
+      `a naive saw reads aliased at E5, held and with vibrato (${n('naive saw E5')}/${of('naive saw E5')}), and on the sweep (${n('naive saw sweep') ? 'yes' : 'NO'}); ` +
+      `the clean saw reads clean there (${n('band-limited saw')}/${of('band-limited saw')}); ` +
+      `a tritone-off sine reads root unclear on ${n('tritone')}/${of('tritone')}; seeded noise reads noisy (${n('seeded') ? 'yes' : 'NO'})` +
+      (bad.length ? ` — FAILED: ${bad.map(r => r.id).join(', ')}: the metric is broken there` : '') +
+      (semi.length ? `; LIMIT: a sine a semitone sharp still reads root clear at ${semi.join(', ')}` : '') });
+  if (ST.view === 'calib') render();
+  paintAudit();
+}
+/* ?xverify=1 — the developer's cross-runtime pass: every patch's measured windows rendered and
+   measured HERE, as DIFFERENCES from the committed numbers (never the numbers), against TOL;
+   then every segment of every patch measured (what the pass itself does), with its cost */
+async function crossVerify() {
   const lines = [], fmt = x => (x === null || x === undefined || !Number.isFinite(x) ? 'n/a' : 'Δ' + Math.abs(x).toExponential(1));
   let okN = 0;
   for (const it of SAMPLE.items) {
-    const p = patchOf(it.key), sd = pseedOf(SAMPLE.run.seed, it.i), h = measureHeard(MET, ENG.C, p, sd, renderPhrase(ENG.C, p, sd).segs);
-    const d = heardDiff(h, it.metrics); if (d.ok) okN++;
+    const p = patchOf(it.key), sd = pseedOf(SAMPLE.run.seed, it.i), rs = [SEG_A3, SEG_E5].map(k => runSync(renderSegmentSteps(ENG.C, p, sd, SEGS[k])));
+    const h = measureHeard(MET, ENG.C, p, sd, rs[0], rs[1]), d = heardDiff(h, it.metrics); if (d.ok) okN++;
     lines.push(`${it.key.padEnd(12)} ${d.ok ? 'within ' : 'OUTSIDE'}  ` + Object.keys(TOL).map(k => `${k.slice(0, 5)} ${fmt(h[k] - it.metrics[k])}`).join('  ') +
       (d.ok ? '' : '  over: ' + d.over.map(o => `${o.k} x${o.over.toFixed(1)}`).join(', ')));
+    CHECK.xv = `CROSS-RUNTIME (developer, ?xverify=1): ${okN}/${SAMPLE.items.length} patches' measured windows within tolerance so far…`; paintAudit(); await tick();
   }
-  CHECK.xv = `CROSS-RUNTIME (developer, ?xverify=1): ${okN}/${SAMPLE.items.length} patches measure within tolerance here\n` + lines.join('\n');
+  const head = `CROSS-RUNTIME (developer, ?xverify=1): ${okN}/${SAMPLE.items.length} patches' measured windows are within tolerance here`;
+  /* the full program, every segment measured, per patch; the cost is the page's own adapter
+     timing (performance.now around the work, never inside the DSP) */
+  const cost = [], bad = [];
+  for (const it of SAMPLE.items) {
+    const t0 = performance.now(), prog = await programOf(it.key), t1 = performance.now();
+    const segs = []; for (let k = 0; k < SEGS.length; k++) segs.push(await drive(measureSegmentSteps(MET, ENG.C, prog.patch, prog.pseed, SEGS[k], prog.rs[k], STEP)));
+    const t2 = performance.now();
+    const v = CAL.validateExport({ schema: CAL.SCHEMA_V2, sample: { file: 'x', id: SAMPLE.id }, orderSeed: 0, phrase: { version: 2, id: PHRASE_ID }, complete: false,
+      ratings: [{ order: 0, key: it.key, run: SAMPLE.run.seed, i: it.i, mode: it.mode, answers: Object.fromEntries(QUI.map(q => [q.key, null])), note: '', heard: null, segs }] });
+    if (!v.ok) bad.push(it.key + ': ' + v.errors[0]);
+    cost.push([t1 - t0, t2 - t1]);
+    AUD.progs.delete(it.key);
+    CHECK.xv = head + `\nfull program: ${cost.length}/${SAMPLE.items.length} patches rendered and measured so far…\n` + lines.join('\n'); paintAudit(); await tick();
+  }
+  const med = a => { const s = a.slice().sort((x, y) => x - y); return s[s.length >> 1]; }, mx = a => Math.max(...a);
+  const ren = cost.map(c => c[0] / 1000), mea = cost.map(c => c[1] / 1000);
+  CHECK.xv = head + `\nfull program (${SEGS.length} segments): ${cost.length - bad.length}/${cost.length} patches' per-segment numbers pass the v2 schema` + (bad.length ? ' — ' + bad.join('; ') : '') +
+    `; page-clock s per patch (NOT wall time when headless Chrome runs on virtual time): render median ${fmtDev(med(ren))}, max ${fmtDev(mx(ren))}; measure median ${fmtDev(med(mea))}, max ${fmtDev(mx(mea))}\n` +
+    `DETECTOR CONTROLS (known signals, same code):\n${(CHECK.det || []).map(detectorLine).join('\n')}\n` + lines.join('\n');
+  paintAudit();
 }
 function paintAudit() {
   const el = $('audit'); if (!el) return;
@@ -730,11 +1280,15 @@ function paintAudit() {
     blind.text = ST.revealed ? `blind until the reveal (${CHECK.blindScans} scans before it, ${CHECK.blindHits.length} leaks)` :
       `the page shows no measurement (${CHECK.blindScans} scans, ${CHECK.blindHits.length} leaks); the reveal's own text trips the same scan (${blind.ctl > 0 ? 'caught' : 'MISSED'})`;
   }
-  const n = CHECK.rows.filter(r => r.ok).length, hv = Object.values(ST.heard), drift = hv.filter(h => h === 'drift').length;
-  el.className = 'audit' + (n === CHECK.rows.length ? '' : ' bad');
-  el.innerHTML = `SELF-CHECKS <span class="${n === CHECK.rows.length ? 'ok' : 'no'}">${n}/${CHECK.rows.length}</span> · ` +
-    CHECK.rows.map(r => `<span class="${r.ok ? 'ok' : 'no'}">${r.ok ? 'OK' : 'FAIL'}</span> ${esc(r.name)}: ${esc(r.text)}`).join(' · ') +
-    ` · heard here so far: ${hv.length - drift} match, ${drift} drift` + (DEMO ? ' · <span class="demo">DEMO STATE, not saved</span>' : '') +
+  /* 6. the human's v1 pass: byte-identical to what it was when this page loaded */
+  let v1row = null;
+  if (CHECK.v1Boot !== null) { const now = readV1().raw; v1row = { name: 'v1 pass untouched', ok: now === CHECK.v1Boot.raw, text: CHECK.v1Boot.raw ? `the saved v1 answers are unchanged since load (${now === CHECK.v1Boot.raw ? 'yes' : 'NO'})` : 'no v1 pass in this browser (nothing to protect)' }; }
+  const all = v1row ? CHECK.rows.concat([v1row]) : CHECK.rows;
+  const n = all.filter(r => r.ok).length, hv = Object.values(ST.heard), drift = hv.filter(h => h === 'drift').length;
+  el.className = 'audit' + (n === all.length ? '' : ' bad');
+  el.innerHTML = `SELF-CHECKS <span class="${n === all.length ? 'ok' : 'no'}">${n}/${all.length}</span>${CHECK.det ? '' : ' (detector controls running…)'} · ` +
+    all.map(r => `<span class="${r.ok ? 'ok' : 'no'}">${r.ok ? 'OK' : 'FAIL'}</span> ${esc(r.name)}: ${esc(r.text)}`).join(' · ') +
+    ` · measured here so far: ${hv.length - drift} match, ${drift} drift` + (DEMO ? ' · <span class="demo">DEMO STATE, not saved</span>' : '') +
     (CHECK.xv ? '<pre class="cmd">' + esc(CHECK.xv) + '</pre>' : '');
 }
 
@@ -759,15 +1313,27 @@ async function boot() {
   }
   ST.order = presentationOrder(SAMPLE.items, SAMPLE.orderSeed);
   CHECK.tokens = blindTokens(SAMPLE);
-  if (DEMO === 'rate') { demoFill(6); ST.answers[ST.order[6]] = { aliased: 0, rough: 1, rootUnclear: 0 }; ST.cursor = 6; }
-  else if (DEMO === 'reveal') { demoFill(ST.order.length); ST.revealed = true; }
-  else { const s = load(); if (s) { ST.answers = s.answers || {}; ST.heard = s.heard || {}; ST.cursor = Math.min(s.cursor || 0, ST.order.length - 1); ST.revealed = !!s.revealed; } }
+  CHECK.v1Boot = readV1();
+  if (DEMO === 'rate') { demoFill(6); ST.answers[ST.order[6]] = { aliased: 0, rough: 1, rootUnclear: 0 }; ST.cursor = 6; ST.calibrated = true; }
+  else if (DEMO === 'reveal') {
+    demoFill(ST.order.length); ST.revealed = true;
+    /* SYNTHETIC heard segments: the committed numbers as one pseudo-segment, labelled in the reveal */
+    for (const k of ST.order) { const m = SAMPLE.itemsByKey[k].metrics; ST.segs[k] = [{ seg: 'A3', aliasDb: m.aliasDb, roughness: m.roughness, rootPresence: m.rootPresence, rootInterval: m.rootInterval, flatness: m.flatness, rmsDb: m.rmsDb }]; ST.heard[k] = 'match'; }
+  } else if (!DEMO) {
+    const s = load();
+    if (s) Object.assign(ST, { answers: s.answers || {}, heard: s.heard || {}, segs: s.segs || {}, cursor: Math.min(s.cursor || 0, ST.order.length - 1), revealed: !!s.revealed,
+      loop: !!s.loop, refBefore: REF_BEFORE.includes(s.refBefore) ? s.refBefore : 'off', calibrated: !!s.calibrated });
+  }
   try { selfChecks(); } catch (e) { CHECK.rows.push({ name: 'self-checks', ok: false, text: 'threw: ' + String(e && e.message || e) }); }
-  if (XVERIFY) { try { crossVerify(); } catch (e) { CHECK.xv = 'cross-runtime pass threw: ' + String(e && e.message || e); } }
   document.addEventListener('keydown', onKey);
-  if (DEMO === 'rate') { ST.view = 'rate'; render(); phraseOf(ST.order[ST.cursor]); setStat(statFor(ST.order[ST.cursor])); }
+  if (DEMO === 'rate') { ST.view = 'rate'; render(); background(); }
+  else if (DEMO === 'calib') { ST.view = 'calib'; render(); }
   else { ST.view = DEMO === 'reveal' || ST.revealed ? 'reveal' : 'intro'; render(); }
   paintAudit();
+  await tick();
+  try { detectorCheck(); } catch (e) { CHECK.rows.push({ name: 'detector controls', ok: false, text: 'threw: ' + String(e && e.message || e) }); paintAudit(); }
+  if (ST.view === 'reveal') render();
+  if (XVERIFY) { try { await crossVerify(); } catch (e) { CHECK.xv = 'cross-runtime pass threw: ' + String(e && e.message || e); paintAudit(); } }
 }
 boot().catch(e => { ENG.err = 'boot failed: ' + String(e && e.stack || e); try { paintAudit(); } catch (_) {} });
 </script>
