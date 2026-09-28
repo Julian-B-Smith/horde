@@ -459,6 +459,24 @@ full() {
   node reference/scalpel/verify/verify.js > /tmp/scalpel.$$ 2>&1 || {
     echo "verify: SCALPEL oracle battery FAILED" >&2; cat /tmp/scalpel.$$ >&2; rm -f /tmp/scalpel.$$; return 1; }
   echo "scalpel oracle: $(grep -c '^PASS' /tmp/scalpel.$$) checks PASS ($(tail -1 /tmp/scalpel.$$))"; rm -f /tmp/scalpel.$$
+  # horde 2's SCALPEL blade engine, h2/cores/scalpel/razor_core.h (B332 phase 1a;
+  # ADR-186 copy-forward, ADR-187 item 6 parity strength). The check spawns
+  # `node tools/h2_scalpel_render.mjs`, which renders ~370 scenarios (all 83 bench
+  # presets x phrases, plus targeted rows) through the protected oracle above, and
+  # demands rms < 1e-6, max-abs < 1e-6 and identical blade events for each; a
+  # chaotic exclusion is re-justified every run (ADR-065's rule), and three planted
+  # port faults must each turn a row red. Wired in the PR that adds it (ADR-180 §1).
+  # ~20 s here, almost all Node. Captured (a row per scenario); the verdict line
+  # is echoed. The FMA control is the same source built with contraction forced
+  # on: its exit 0 means the parity gate CAUGHT the fused build.
+  "$build_dir/h2_scalpel_parity_check" > /tmp/h2scalpel.$$ 2>&1 || {
+    echo "verify[full]: h2_scalpel_parity_check FAILED" >&2; grep -v '^PASS  rms' /tmp/h2scalpel.$$ >&2
+    rm -f /tmp/h2scalpel.$$; return 1; }
+  echo "h2_scalpel_parity_check: $(tail -1 /tmp/h2scalpel.$$)"; rm -f /tmp/h2scalpel.$$
+  "$build_dir/h2_scalpel_fma_control" > /tmp/h2fma.$$ 2>&1 || {
+    echo "verify[full]: h2_scalpel_fma_control did not fire (the FMA-contracted build passed parity)" >&2
+    grep -v '^PASS  rms' /tmp/h2fma.$$ >&2; rm -f /tmp/h2fma.$$; return 1; }
+  echo "$(tail -1 /tmp/h2fma.$$)"; rm -f /tmp/h2fma.$$
 
   # THE B159 BACKLOG, ruled one at a time on evidence (2026-09-21). Nine checks
   # sat unwired: five stated no reason at all, four cited a "standing human

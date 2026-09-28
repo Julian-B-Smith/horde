@@ -111,7 +111,7 @@ const notesFor = cat => { for (const k in NOTES) if (cat.endsWith(k)) return NOT
 // at xm 0.7 feeds each member's phase from its neighbour's last output round the
 // ring, a feedback loop that amplifies a last-bit difference; measured
 // 2026-09-28, the oracle against itself with inputs one ULP apart diverges to
-// max 1e-3..1e-2, ~100x further than the C++ does (max 1.2e-5..2.6e-5), while
+// max 1e-3..1e-2, 80x or more further than the C++ does (max 1.5e-6..2.6e-5), while
 // the blade events still agree exactly. The check re-measures this every run.
 const XM_RING = 'cross-member modulation ring (xm 0.7): last-bit feedback amplification (ADR-065 class)';
 export const CHAOTIC = {
