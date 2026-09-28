@@ -62,7 +62,21 @@
        intact and render bit-identical to the layout-9 blob — chunk (idle and
        processing) and preset paths. Controls: morph off, a carried slot that
        disagrees with its parameter line (the carried value still wins), and a
-       corner-preset FILE (still the B124 default).
+       corner-preset FILE (still the B124 default). Rows b-d and g read the
+       slots in ALL FOUR corners, T16i renders with the pad at the centre and
+       T16k gives the corners different lengths, so a fill that reached
+       corner A only, or used corner A's mask for all four, cannot pass. T16j
+       pins the ORDER: the fill runs after the load's migrations (a
+       marker-less pre-note-lane preset keeps noteLawLink at the migrated 0
+       in every corner).
+       MUST-FAIL RECIPE (no in-repo fault switch: one would have to ship in
+       the plugin, or cost a second build of the whole shell). In a scratch
+       copy, measured 2026-09-27, each with a forced rebuild of the shell:
+       (1) both morphFillUncarried calls removed -> T16b-e, i, j, k red and
+       a, f, g, h green; (2) applyStateJson's chunk read + fill moved above
+       the pre-note-lane migration -> T16j red alone; (3) the fill's corner
+       loop cut to k = 0 -> T16b-d, i, j, k red; (4) corner A's mask used
+       for every corner -> T16k red alone.
    Exit 1 on failure. */
 #include <algorithm>
 #include <cmath>
@@ -946,27 +960,44 @@ int main(int argc, char **argv) {
     };
     // The patch: defaults, but the Sub (on or off) with wave 5 and morph on or
     // off, every corner captured from it — a player's patch saved at layout 9.
-    auto source = [&](int morphOn, int subOn) {
+    // `centre`: the pad at morphX = morphY = 0.5, where all four corners weigh
+    // in (at the default 0,0 the render hears corner A alone — M1 of the critic).
+    auto source = [&](int morphOn, int subOn, bool centre = false) {
       const clap_plugin_t *p = makePlugin();
       statefix::loadJson(p, "{\"schema\":3,\"params\":{\"enable\":1,\"morphOn\":" + std::to_string(morphOn) +
-                                ",\"sub.on\":" + std::to_string(subOn) + ",\"sub.wave\":5}}");
+                                ",\"sub.on\":" + std::to_string(subOn) + ",\"sub.wave\":5" +
+                                (centre ? ",\"morphX\":0.5,\"morphY\":0.5" : "") + "}}");
       for (int k = 0; k < 4; k++) hypersaw_debug_capture(p, k);
       return p; };
-    auto chunkOf = [&](int morphOn, int subOn) {
-      const clap_plugin_t *p = source(morphOn, subOn); std::string c = statefix::saveChunk(p); p->destroy(p); return c; };
+    auto chunkOf = [&](int morphOn, int subOn, bool centre = false) {
+      const clap_plugin_t *p = source(morphOn, subOn, centre); std::string c = statefix::saveChunk(p); p->destroy(p); return c; };
     auto jsonOf = [&]() {
       const clap_plugin_t *p = source(1, 1); std::string c = statefix::saveJson(p); p->destroy(p); return c; };
-    struct Heard { double on = -1, wave = -1; std::vector<float> audio; };
+    // on/wave: the live values after the render; cOn/cWave: slots 4015/4000 in
+    // each corner as the LOAD left them (read before morph runs).
+    struct Heard { double on = -1, wave = -1, cOn[4] = {-1, -1, -1, -1}, cWave[4] = {-1, -1, -1, -1}; std::vector<float> audio; };
     auto hear = [&](const std::string &blob, bool chunk) {
       Heard h; const clap_plugin_t *p = makePlugin();
       if (chunk) statefix::loadChunk(p, blob); else statefix::loadJson(p, blob);
+      for (int k = 0; k < 4; k++)
+      { const char *c = hypersaw_debug_cornervals(p, k); h.cOn[k] = valueOf(c, "4015"); h.cWave[k] = valueOf(c, "4000"); }
       statefix::render(p, h.audio);   // morph runs here: an unfixed load drives the slot to its default
       h.on = val(p, kSubOn); h.wave = val(p, kSubWave); p->destroy(p); return h; };
     auto same = [](const Heard &a, const Heard &b) { return !a.audio.empty() && a.audio == b.audio; };
+    // All four corners hold (on, wave) — a fill that reached corner A only, or
+    // read corner A's carried mask for every corner, fails here.
+    auto corners = [](const Heard &h, double on, double wave) {
+      for (int k = 0; k < 4; k++) if (h.cOn[k] != on || h.cWave[k] != wave) return false;
+      return true; };
+    auto cornerStr = [](const Heard &h) {
+      static char b[4][96]; static int n = 0; char *s = b[n++ & 3];
+      std::snprintf(s, 96, "corners on %.0f/%.0f/%.0f/%.0f wave %.0f/%.0f/%.0f/%.0f", h.cOn[0], h.cOn[1], h.cOn[2],
+                    h.cOn[3], h.cWave[0], h.cWave[1], h.cWave[2], h.cWave[3]);
+      return s; };
 
     const std::string l9 = chunkOf(1, 1), l8 = truncated(l9, 272, 8), l7 = truncated(l9, 264, 7);
     const Heard h9 = hear(l9, true), h8 = hear(l8, true), h7 = hear(l7, true), hOff = hear(chunkOf(1, 0), true);
-    char m[360];
+    char m[600];
     std::snprintf(m, sizeof m,
                   "T16a anchor: the layout-9 blob keeps Sub on %.0f / wave %.0f under morph, its arrays are "
                   "%s, and the Sub is audible (the Sub-off render %s)",
@@ -975,25 +1006,27 @@ int main(int argc, char **argv) {
     expect(h9.on == 1 && h9.wave == 5 && l8 != l9 && l7 != l8 && !same(h9, hOff), m);
     std::snprintf(m, sizeof m,
                   "T16b a LAYOUT-8 chunk (272 slots) with the Sub on and morph on loads with sub.on %.0f and "
-                  "renders %s the layout-9 blob (%s the Sub-off render) — RED before B255 (sub.on 0)",
-                  h8.on, same(h8, h9) ? "BIT-IDENTICAL to" : "DIFFERENTLY from", same(h8, hOff) ? "SAME as" : "not");
-    expect(h8.on == 1 && same(h8, h9), m);
+                  "renders %s the layout-9 blob (%s the Sub-off render); %s — RED before B255 (sub.on 0)",
+                  h8.on, same(h8, h9) ? "BIT-IDENTICAL to" : "DIFFERENTLY from", same(h8, hOff) ? "SAME as" : "not",
+                  cornerStr(h8));
+    expect(h8.on == 1 && same(h8, h9) && corners(h8, 1, 5), m);
     std::snprintf(m, sizeof m,
                   "T16c a LAYOUT-7 chunk (264 slots) keeps its Sub wave (%.0f, saved 5, default 3) and Sub on "
-                  "(%.0f), and renders %s the layout-9 blob — RED before B255 (wave 3)",
-                  h7.wave, h7.on, same(h7, h9) ? "BIT-IDENTICAL to" : "DIFFERENTLY from");
-    expect(h7.wave == 5 && h7.on == 1 && same(h7, h9), m);
+                  "(%.0f), and renders %s the layout-9 blob; %s — RED before B255 (wave 3)",
+                  h7.wave, h7.on, same(h7, h9) ? "BIT-IDENTICAL to" : "DIFFERENTLY from", cornerStr(h7));
+    expect(h7.wave == 5 && h7.on == 1 && same(h7, h9) && corners(h7, 1, 5), m);
 
     // The PRESET path: the same repair through applyStateJson (queued writes).
     { const std::string j9 = jsonOf(), j8 = truncated(j9, 272, 8), j7 = truncated(j9, 264, 7);
       const Heard g9 = hear(j9, false), g8 = hear(j8, false), g7 = hear(j7, false);
       std::snprintf(m, sizeof m,
                     "T16d the PRESET path: layout-8 and layout-7 presets load with sub.on %.0f / wave %.0f "
-                    "and render %s the layout-9 preset (anchor: that one keeps on %.0f, wave %.0f; arrays %s)",
+                    "and render %s the layout-9 preset (anchor: that one keeps on %.0f, wave %.0f; arrays %s); "
+                    "layout 8 %s; layout 7 %s",
                     g8.on, g7.wave, same(g8, g9) && same(g7, g9) ? "BIT-IDENTICAL to" : "DIFFERENTLY from",
-                    g9.on, g9.wave, j8 != j9 && j7 != j8 ? "truncated" : "NOT TRUNCATED");
+                    g9.on, g9.wave, j8 != j9 && j7 != j8 ? "truncated" : "NOT TRUNCATED", cornerStr(g8), cornerStr(g7));
       expect(g9.on == 1 && g9.wave == 5 && j8 != j9 && j7 != j8 && g8.on == 1 && g7.wave == 5 &&
-             same(g8, g9) && same(g7, g9), m); }
+             same(g8, g9) && same(g7, g9) && corners(g8, 1, 5) && corners(g7, 1, 5), m); }
 
     // The chunk path WHILE PROCESSING: the parameters are queued, not applied,
     // so the fill cannot read them back live — it must use what the chunk said.
@@ -1030,9 +1063,9 @@ int main(int argc, char **argv) {
       const Heard hg = hear(g, true);
       std::snprintf(m, sizeof m,
                     "T16g CONTROL carried slot wins: a layout-9 chunk with sub.on=1 in its params and 0 in all "
-                    "four corners (%d edited) loads with sub.on %.0f and renders %s the Sub-off blob",
-                    done, hg.on, same(hg, hOff) ? "BIT-IDENTICAL to" : "DIFFERENTLY from");
-      expect(done == 4 && hg.on == 0 && same(hg, hOff), m); }
+                    "four corners (%d edited) loads with sub.on %.0f and renders %s the Sub-off blob; %s",
+                    done, hg.on, same(hg, hOff) ? "BIT-IDENTICAL to" : "DIFFERENTLY from", cornerStr(hg));
+      expect(done == 4 && hg.on == 0 && same(hg, hOff) && corners(hg, 0, 5), m); }
     // (h) a corner-preset FILE carries no parameter values: B124's default rule stands.
     { const clap_plugin_t *p = source(1, 1);
       const std::string cj = hypersaw_debug_cornervals(p, 0);
@@ -1049,6 +1082,82 @@ int main(int argc, char **argv) {
                     "T16h CONTROL corner-preset FILE (B124 kept): a 272-entry corner file applied while the "
                     "Sub is on (captured %.0f) leaves slot 4015 at its default %.0f", before, c2);
       expect(before == 1 && c2 == 0, m); }
+    /* (i) THE PAD AT THE CENTRE. Every render above plays at morphX = morphY
+       = 0, where corner A alone sounds, so a fill that missed corners B-D
+       would still render right there. At (0.5, 0.5) all four weigh in: an
+       old blob must still render bit-identical to its layout-9 save, and the
+       Sub-off blob at the same pad is the calibration. */
+    { const std::string c9 = chunkOf(1, 1, true);
+      const Heard i9 = hear(c9, true), i8 = hear(truncated(c9, 272, 8), true),
+                  i7 = hear(truncated(c9, 264, 7), true), iOff = hear(chunkOf(1, 0, true), true);
+      std::snprintf(m, sizeof m,
+                    "T16i PAD AT THE CENTRE (0.5, 0.5): layout-8 and layout-7 chunks render %s the layout-9 blob "
+                    "there (the Sub-off render %s); layout 8 %s; layout 7 %s",
+                    same(i8, i9) && same(i7, i9) ? "BIT-IDENTICAL to" : "DIFFERENTLY from",
+                    same(i9, iOff) ? "is IDENTICAL — blind" : "differs", cornerStr(i8), cornerStr(i7));
+      expect(!same(i9, iOff) && same(i8, i9) && same(i7, i9) && corners(i8, 1, 5) && corners(i7, 1, 5), m); }
+    /* (j) THE FILL RUNS AFTER THE MIGRATIONS. A marker-less preset with a
+       SHORT corner array (150 slots; noteLawLink is slot 189, so it is not
+       carried) that names `glide` but not `noteLawLink` predates the note
+       lane, and applyStateJson migrates it to noteLawLink 0 (own settings),
+       which is what the patch played. The kParams loop wrote the default (1,
+       FOLLOW) first; the fill must take the LAST write, the migrated 0, in
+       every corner. A fill run above the migrations takes the 1. Anchor: the
+       same file without `glide` is not migrated and keeps 1 — the row can
+       tell the two apart. */
+    { const clap_plugin_t *q = makePlugin();
+      const char *cj = hypersaw_debug_cornervals(q, 0);
+      const std::vector<std::string> ord = liveOrder(cj);
+      std::vector<double> arr;
+      for (size_t i = 0; i < 150 && i < ord.size(); i++) arr.push_back(valueOf(cj, ord[i].c_str()));
+      q->destroy(q);
+      const bool uncarried = ord.size() > 189 && ord[189] == "137" && arr.size() == 150;
+      auto preset = [&](bool glide) {
+        std::string s = cornersJson(0, arr);   // no marker: layout 1, a 1:1 prefix
+        const std::string params = std::string("\"params\":{\"enable\":1,\"morphOn\":1") + (glide ? ",\"glide\":0.5" : "") + "}";
+        s.replace(s.find("\"params\":{}"), 11, params);
+        return s; };
+      auto link = [&](const std::string &j, double out[4]) {
+        const clap_plugin_t *p = makePlugin(); statefix::loadJson(p, j);
+        for (int k = 0; k < 4; k++) out[k] = valueOf(hypersaw_debug_cornervals(p, k), "137");
+        p->destroy(p); };
+      double mig[4], ctl[4];
+      link(preset(true), mig); link(preset(false), ctl);
+      bool ok = uncarried;
+      for (int k = 0; k < 4; k++) ok = ok && mig[k] == 0 && ctl[k] == 1;
+      std::snprintf(m, sizeof m,
+                    "T16j MIGRATION ORDER: a marker-less 150-slot preset naming `glide` without `noteLawLink` "
+                    "(slot 189 = 137 %s) loads noteLawLink %.0f/%.0f/%.0f/%.0f in its corners (the migrated 0); "
+                    "without `glide`, %.0f/%.0f/%.0f/%.0f (the default 1)",
+                    uncarried ? "uncarried" : "NOT WHERE EXPECTED", mig[0], mig[1], mig[2], mig[3], ctl[0], ctl[1],
+                    ctl[2], ctl[3]);
+      expect(ok, m); }
+    /* (k) THE MASK IS PER CORNER. Every blob above gives its four corner
+       arrays one length, so a fill that consulted corner A's carried mask
+       for every corner would pass them all. Here corner A is a full 273-slot
+       array holding the Sub OFF (it carries slot 4015), and B-D are cut to
+       272 (they do not): A must keep its carried 0, B-D take the patch's 1.
+       No writer produces mixed lengths; the row pins the mask's grain. */
+    { std::string g = l9;
+      size_t at = g.find("\"morphCorners\":[", g.find("\nmorph="));
+      size_t open[4] = {0, 0, 0, 0}, close[4] = {0, 0, 0, 0};
+      int found = 0;
+      for (int k = 0; k < 4 && at != std::string::npos; k++)
+      { at = g.find('[', at + (k == 0 ? 16 : 1));
+        if (at == std::string::npos) break;
+        open[k] = at; close[k] = g.find(']', at);
+        if (close[k] == std::string::npos) break;
+        found++; at = close[k]; }
+      for (int k = found - 1; k >= 0; k--)   // back to front: earlier offsets stay valid
+      { const size_t lastComma = g.rfind(',', close[k]);
+        if (lastComma == std::string::npos || lastComma < open[k]) { found = -1; break; }
+        if (k == 0) g.replace(lastComma + 1, close[k] - lastComma - 1, "0");
+        else g.erase(lastComma, close[k] - lastComma); }
+      const Heard hk = hear(g, true);
+      std::snprintf(m, sizeof m,
+                    "T16k MASK PER CORNER: corner A carries slot 4015 (Sub off, 273 slots), B-D predate it (272): "
+                    "%s (want on 0/1/1/1; %d arrays edited)", cornerStr(hk), found);
+      expect(found == 4 && hk.cOn[0] == 0 && hk.cOn[1] == 1 && hk.cOn[2] == 1 && hk.cOn[3] == 1, m); }
   }
 
   std::printf("morphlayout_check: %s\n", fails ? "FAIL" : "PASS"); r.kill(); hypersaw_entry_deinit(); return fails ? 1 : 0;

@@ -3031,8 +3031,12 @@ struct Plugin
         loaders fill a slot the chunk predates with the value the patch itself
         names (morphFillUncarried) — before B255 it got the DEFAULT in all four
         corners and morph drove the live value there (the B240 critic measured
-        bassMonoHz saved at 300 loading as 120). A corner-preset FILE still
-        fills with defaults (B124): it carries no parameter values to use.
+        bassMonoHz saved at 300 loading as 120). PARAMETER-LINE IDS ONLY: the
+        fill knows what the load wrote as a parameter (a chunk's key=value
+        lines, a preset's params). Routing cells (`routing=` /
+        applyRoutingChunk, whose writes are not recorded) and corner-preset
+        FILES (B124: they carry no parameter values) still take defaults, so
+        an existing routing cell is NOT safe to list without a migration.
 
      WHAT AN APPEND DOES TO THE MARKER AND TO OLD CHUNKS. One appending change
      bumps `morphLayout` by ONE at all four writers (cornerJson, liveCornerJson,
