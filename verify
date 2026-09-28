@@ -239,6 +239,18 @@ PY
       echo "verify: legacy preset porter check FAILED" >&2; cat /tmp/legacyport.$$ >&2; ok=1; }
     tail -1 /tmp/legacyport.$$   # the harness prints its own name; do not prefix it twice
     rm -f /tmp/legacyport.$$
+
+    # THE PATCH-SPACE METRICS READ WHAT THEY CLAIM (B316 P2). tools/patchspace/metrics.mjs
+    # measures rendered patches (aliasing, noise, root presence, roughness, DC, level,
+    # silence, clicks, non-finite, CPU) — MEASUREMENTS, not gates. This validates each
+    # metric on constructed signals with a must-read-zero and a must-read-high control
+    # (a saw's periodic jumps are not clicks; a lone sine is not rough), plus three
+    # engine controls (a pure sine through the engine reads zero; raw sync aliases more
+    # than clean; heavy costs more than light, as a ratio) (~4 s). Added under ADR-180 §1.
+    node tools/patchspace/metrics_check.mjs > /tmp/patchmetrics.$$ 2>&1 || {
+      echo "verify: patch-space metrics check FAILED" >&2; cat /tmp/patchmetrics.$$ >&2; ok=1; }
+    tail -1 /tmp/patchmetrics.$$   # the harness prints its own name; do not prefix it twice
+    rm -f /tmp/patchmetrics.$$
   else
     echo "verify: node missing — lab load check SKIPPED" >&2
   fi
@@ -314,6 +326,25 @@ full() {
     rm -f /tmp/labcomposed.$$
   else
     echo "verify[full]: node missing — composed engine check SKIPPED" >&2
+  fi
+
+  # THE PATCH-SPACE DEPENDENCY TREE (B316 P1, tools/patchspace/dependency_tree_check.mjs):
+  # which parameters are LIVE given which switches, for the composed engine, derived
+  # from the engine's guards (each pinned to its source line) and confirmed by a seeded
+  # perturbation probe. Re-runs the generator and byte-compares the committed
+  # dependency_tree.json (stale = red), requires zero structural static-vs-probe
+  # disagreements, and plants three wrong conditions that must be caught plus a
+  # vanished anchor that must throw. Added under ADR-180 §1; HERE, not in fast():
+  # ~35 s of DSP across worker threads on an idle machine (~115 s under load).
+  # Same capture idiom as above.
+  if command -v node >/dev/null; then
+    node tools/patchspace/dependency_tree_check.mjs > /tmp/patchtree.$$ 2>&1 || {
+      echo "verify[full]: patch-space dependency tree check FAILED" >&2; cat /tmp/patchtree.$$ >&2
+      rm -f /tmp/patchtree.$$; return 1; }
+    echo "dependency_tree_check.mjs: $(tail -1 /tmp/patchtree.$$)"
+    rm -f /tmp/patchtree.$$
+  else
+    echo "verify[full]: node missing — patch-space dependency tree check SKIPPED" >&2
   fi
 
   # FX-CHAIN MORPH FUZZER (tools/labharness/fxmorph_check.mjs, B266) — the

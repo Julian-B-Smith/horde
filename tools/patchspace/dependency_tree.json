@@ -1,0 +1,11021 @@
+{
+ "schema": "hypersaw.patchspace.dependency-tree/0 (PROVISIONAL, local; swap-in point for FOUNDATIONS' manifest schema, B275 P3)",
+ "generator": "tools/patchspace/gen_dependency_tree.mjs",
+ "queue": "B316 P1",
+ "engine": {
+  "composed": "docs/design/scalpel-horde-engine.js",
+  "oracle": "reference/scalpel/prototype/razor-core.js",
+  "swarm": "reference/swarmsaw.html",
+  "table": "docs/design/scalpel-interface-lab.html (SP rows, toPos/fromPos)"
+ },
+ "consumers": {
+  "b275": "This is the manifest's \"active_when\" field in embryo: one condition per parameter over switch and gate parameters, with its evidence. A B275 manifest row = {id, units/taper (range), morph class, modulation limits, preset participation, ACTIVE_WHEN (this)}.",
+  "morph": "Exemption and greying: a corner-to-corner morph need not interpolate a parameter whose active_when is false at BOTH ends (it is inaudible there); greying in a morph editor draws a lane inert where active_when reads false at the current point. A parameter whose active_when itself reads a morphing gate (role gate) is where a morph can switch audibility mid-travel: those are listed per switch/gate under `gates`.",
+  "modMatrix": "Destination eligibility: a destination is offered iff its active_when is satisfiable (cScale is not: it is never heard in this engine); a lane is drawn inert while active_when reads false under the current switches. A modulated GATE (e.g. w near 0.004, depth near 0) can toggle other parameters' audibility at modulation rate — B199's territory, flagged by role.",
+  "sampler": "P3 draws only parameters whose active_when holds (fixpoint over `order`); the rest stay at their defaults."
+ },
+ "grammar": "true | false | {\"eq\":[k,v]} {\"ne\":[k,v]} {\"in\":[k,[v…]]} {\"ge\":[k,x]} {\"gt\":[k,x]} {\"le\":[k,x]} {\"absgt\":[k,x]} | {\"all\":[…]} {\"any\":[…]} {\"not\":c} {\"pred\":name}. Evaluator: tools/patchspace/space.mjs evalCond. Keys are engine keys; b1on is the lab mapping (off => w 0).",
+ "probe": {
+  "tolerance": 0.000001,
+  "measure": "max |ΔL|,|ΔR| over the float32 render",
+  "sampleRate": 48000,
+  "script": {
+   "n": 4608,
+   "ev": [
+    [
+     256,
+     "on",
+     57,
+     0.8
+    ],
+    [
+     1500,
+     "on",
+     64,
+     0.8
+    ],
+    [
+     2400,
+     "off",
+     57
+    ],
+    [
+     2400,
+     "off",
+     64
+    ],
+    [
+     3000,
+     "on",
+     60,
+     0.8
+    ],
+    [
+     3800,
+     "off",
+     60
+    ]
+   ]
+  },
+  "alternatives": "enum: every option; toggle: 0/1; continuous: default, taper 0.15, taper 0.85; string: default, \"1, 7/4, 9/4\"",
+  "contexts": {
+   "shared": 24,
+   "targetedPerSide": 2,
+   "targetedPerSideChannel": 2,
+   "targetTries": 600,
+   "sideTries": 6000,
+   "sampler": "mulberry32 per context; toggles on w.p. 0.85 (b1on) / 0.7; enums uniform; continuous: default w.p. 0.3, else uniform in taper",
+   "overrides": {
+    "A": 20,
+    "benvA": 20,
+    "benvA2": 20
+   }
+  },
+  "tasks": 482,
+  "comparisons": 3170
+ },
+ "summary": {
+  "params": 113,
+  "switches": 24,
+  "gates": 40,
+  "leaves": 49,
+  "neverLive": [
+   "cScale"
+  ],
+  "alwaysLive": [
+   "base",
+   "dcMode",
+   "phaseMode",
+   "N",
+   "A",
+   "S",
+   "R",
+   "gain",
+   "polyMode",
+   "os",
+   "driftDepth"
+  ],
+  "structuralDisagreements": 0,
+  "regimeInert": 11,
+  "sideChannelHits": 46,
+  "labGreysButLive": 9
+ },
+ "disagreements": [],
+ "regime": {
+  "note": "role declared live, probe inert in THIS context (values leave nothing to hear). Per parameter: count and the first context.",
+  "byParam": {
+   "mirror": {
+    "regime": 1,
+    "of": 22,
+    "first": "target:mirror:live#1"
+   },
+   "kRule2": {
+    "regime": 2,
+    "of": 7,
+    "first": "shared#3"
+   },
+   "kRuleAmt2": {
+    "regime": 2,
+    "of": 6,
+    "first": "shared#3"
+   },
+   "colK": {
+    "regime": 2,
+    "of": 5,
+    "first": "shared#9"
+   },
+   "colB": {
+    "regime": 3,
+    "of": 7,
+    "first": "shared#14"
+   },
+   "aa": {
+    "regime": 1,
+    "of": 21,
+    "first": "shared#9"
+   }
+  }
+ },
+ "sideChannels": {
+  "SC_BLOCK_XM": {
+   "params": [
+    "xm"
+   ],
+   "probeHits": 3,
+   "status": "confirmed by the probe"
+  },
+  "SC_BLOCK_FB": {
+   "params": [
+    "fb"
+   ],
+   "probeHits": 2,
+   "status": "confirmed by the probe"
+  },
+  "SC_BLOCK_COLK": {
+   "params": [
+    "colK"
+   ],
+   "probeHits": 3,
+   "status": "confirmed by the probe"
+  },
+  "SC_BLOCK_COLB": {
+   "params": [
+    "colB"
+   ],
+   "probeHits": 3,
+   "status": "confirmed by the probe"
+  },
+  "SC_BLOCK_B2ON": {
+   "params": [
+    "b2on"
+   ],
+   "probeHits": 2,
+   "status": "confirmed by the probe"
+  },
+  "SC_DCRES1": {
+   "params": [
+    "mUnit",
+    "m",
+    "mHz"
+   ],
+   "probeHits": 11,
+   "status": "confirmed by the probe"
+  },
+  "SC_DCRES2": {
+   "params": [
+    "mUnit2",
+    "m2",
+    "mHz2"
+   ],
+   "probeHits": 7,
+   "status": "confirmed by the probe"
+  },
+  "SC_DCRES_B2FM": {
+   "params": [
+    "b2fm"
+   ],
+   "probeHits": 4,
+   "status": "confirmed by the probe"
+  },
+  "SC_DCPAIR": {
+   "params": [
+    "b2mix"
+   ],
+   "probeHits": 4,
+   "status": "confirmed by the probe"
+  },
+  "SC_DCPAIR_B2ON": {
+   "params": [
+    "b2on"
+   ],
+   "probeHits": 4,
+   "status": "confirmed by the probe"
+  },
+  "SC_DRAWS": {
+   "params": [
+    "law"
+   ],
+   "probeHits": 1,
+   "status": "confirmed by the probe"
+  },
+  "SC_SCANCOL": {
+   "params": [
+    "colK"
+   ],
+   "probeHits": 2,
+   "status": "confirmed by the probe"
+  }
+ },
+ "lab": {
+  "pins": {
+   "fmGhost": {
+    "file": "docs/design/scalpel-interface-lab.html",
+    "line": 3813,
+    "text": "const g3 = grp('FM', () => !isFM(b), 'fm');"
+   },
+   "shapeGhost": {
+    "file": "docs/design/scalpel-interface-lab.html",
+    "line": 3886,
+    "text": "cmpRow(c1, 'Shape', 'morph', 'morph2', T, { ghost: bl => P[bladeKey(bl, 'hot')] !== 6 });"
+   },
+   "bladeOff": {
+    "file": "docs/design/scalpel-interface-lab.html",
+    "line": 3757,
+    "text": "const row = el('div', 'blade' + (b === 2 ? ' b2' : '') + (on ? '' : ' off'));"
+   },
+   "inertWhy": {
+    "file": "docs/design/scalpel-interface-lab.html",
+    "line": 1575,
+    "text": "function inertWhy(key) {"
+   },
+   "follow": {
+    "file": "docs/design/scalpel-interface-lab.html",
+    "line": 1520,
+    "text": "function linked(key2) {"
+   }
+  },
+  "greysButLive": [
+   {
+    "key": "bspread",
+    "rule": "bladeOff",
+    "lab": "blade 1 row drawn off",
+    "liveVia": "role",
+    "liveIn": 3,
+    "example": "shared#0"
+   },
+   {
+    "key": "kRuleAmt",
+    "rule": "bladeOff",
+    "lab": "blade 1 row drawn off",
+    "liveVia": "role",
+    "liveIn": 2,
+    "example": "shared#0"
+   },
+   {
+    "key": "mHz2",
+    "rule": "fmGhost",
+    "lab": "FM group ghosted: blade 2 not in an FM mode",
+    "liveVia": "side channel",
+    "liveIn": 4,
+    "example": "shared#0"
+   },
+   {
+    "key": "mHz",
+    "rule": "fmGhost",
+    "lab": "FM group ghosted: blade 1 not in an FM mode",
+    "liveVia": "side channel",
+    "liveIn": 3,
+    "example": "shared#1"
+   },
+   {
+    "key": "m2",
+    "rule": "fmGhost",
+    "lab": "FM group ghosted: blade 2 not in an FM mode",
+    "liveVia": "side channel",
+    "liveIn": 1,
+    "example": "shared#1"
+   },
+   {
+    "key": "m",
+    "rule": "fmGhost",
+    "lab": "FM group ghosted: blade 1 not in an FM mode",
+    "liveVia": "side channel",
+    "liveIn": 2,
+    "example": "shared#4"
+   },
+   {
+    "key": "rotRate",
+    "rule": "bladeOff",
+    "lab": "blade 1 row drawn off",
+    "liveVia": "role",
+    "liveIn": 2,
+    "example": "shared#12"
+   },
+   {
+    "key": "kspread",
+    "rule": "bladeOff",
+    "lab": "blade 1 row drawn off",
+    "liveVia": "role",
+    "liveIn": 1,
+    "example": "shared#12"
+   },
+   {
+    "key": "mirror",
+    "rule": "bladeOff",
+    "lab": "blade 1 row drawn off",
+    "liveVia": "role",
+    "liveIn": 1,
+    "example": "shared#20"
+   }
+  ]
+ },
+ "predicates": {
+  "SW": {
+   "when": {
+    "ge": [
+     "N",
+     2
+    ]
+   },
+   "why": "a swarm: two or more members (N 1 has no spread, coupling, detune or pan image)",
+   "source": [
+    {
+     "file": "reference/swarmsaw.html",
+     "line": 293,
+     "text": "if (n === 1) this.x[0] = 0;"
+    },
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 105,
+     "text": "const pn = j => N < 2 ? 0"
+    }
+   ]
+  },
+  "B1CUT": {
+   "when": {
+    "all": [
+     {
+      "eq": [
+       "b1on",
+       1
+      ]
+     },
+     {
+      "ge": [
+       "w",
+       0.004
+      ]
+     }
+    ]
+   },
+   "why": "blade 1 cuts: switched on and its width outside the bypass zone (lab: off => w 0)",
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 176,
+     "text": "if (w < 0.004){ ns.g = 0; ns.inside = false; return xin0; }"
+    }
+   ]
+  },
+  "B1": {
+   "when": {
+    "all": [
+     {
+      "pred": "B1CUT"
+     },
+     {
+      "any": [
+       {
+        "gt": [
+         "depth",
+         0
+        ]
+       },
+       {
+        "all": [
+         {
+          "pred": "SW"
+         },
+         {
+          "ne": [
+           "dspread",
+           0
+          ]
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "why": "blade 1 SOUNDS: it cuts and some member has depth > 0",
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 237,
+     "text": "return xin0 + g*p.depth*(hot - xin0);"
+    },
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 818,
+     "text": "s.depth = Math.min(1, Math.max(0, d0 + mm.dAdd));"
+    }
+   ]
+  },
+  "B2CUT": {
+   "when": {
+    "all": [
+     {
+      "eq": [
+       "b2on",
+       1
+      ]
+     },
+     {
+      "ge": [
+       "w2",
+       0.004
+      ]
+     }
+    ]
+   },
+   "why": "blade 2 cuts",
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 671,
+     "text": "const g = bx.g, w2 = g.w;"
+    }
+   ]
+  },
+  "B2": {
+   "when": {
+    "all": [
+     {
+      "pred": "B2CUT"
+     },
+     {
+      "any": [
+       {
+        "gt": [
+         "depth2",
+         0
+        ]
+       },
+       {
+        "all": [
+         {
+          "pred": "SW"
+         },
+         {
+          "any": [
+           {
+            "all": [
+             {
+              "eq": [
+               "b2sp",
+               0
+              ]
+             },
+             {
+              "ne": [
+               "dspread",
+               0
+              ]
+             }
+            ]
+           },
+           {
+            "all": [
+             {
+              "eq": [
+               "b2sp",
+               1
+              ]
+             },
+             {
+              "ne": [
+               "dspread2",
+               0
+              ]
+             }
+            ]
+           }
+          ]
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "why": "blade 2 SOUNDS (its depth spread is blade 1's unless it owns its spreads)",
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 834,
+     "text": "Math.min(1, Math.max(0, s.depth2 + mm.dAdd2))"
+    }
+   ]
+  },
+  "BOTH": {
+   "when": {
+    "all": [
+     {
+      "pred": "B1"
+     },
+     {
+      "pred": "B2"
+     }
+    ]
+   },
+   "why": "both blades sound",
+   "source": []
+  },
+  "CAR1": {
+   "when": {
+    "all": [
+     {
+      "pred": "B1"
+     },
+     {
+      "in": [
+       "mode",
+       [
+        0,
+        1,
+        2,
+        5
+       ]
+      ]
+     }
+    ]
+   },
+   "why": "blade 1 sounds in a carrier mode (Sync, FM reset, FM free, Ring)",
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 187,
+     "text": "case 0: { const cp = hp + ns.xin + ns.cacc; hot = RazorCore.wave(p.hot"
+    },
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 200,
+     "text": "case 5: { const cp = hp + ns.xin + ns.cacc; hot = xin0*RazorCore.wave(p.hot"
+    }
+   ]
+  },
+  "CAR2": {
+   "when": {
+    "all": [
+     {
+      "pred": "B2"
+     },
+     {
+      "in": [
+       "mode2",
+       [
+        0,
+        1,
+        2,
+        5
+       ]
+      ]
+     }
+    ]
+   },
+   "why": "blade 2 sounds in a carrier mode",
+   "source": []
+  },
+  "FM1": {
+   "when": {
+    "all": [
+     {
+      "pred": "B1"
+     },
+     {
+      "in": [
+       "mode",
+       [
+        1,
+        2
+       ]
+      ]
+     }
+    ]
+   },
+   "why": "blade 1 sounds in an FM mode",
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 61,
+     "text": "static isFM(p){ return p.mode === 1 || p.mode === 2; }"
+    }
+   ]
+  },
+  "FM2": {
+   "when": {
+    "all": [
+     {
+      "pred": "B2"
+     },
+     {
+      "in": [
+       "mode2",
+       [
+        1,
+        2
+       ]
+      ]
+     }
+    ]
+   },
+   "why": "blade 2 sounds in an FM mode",
+   "source": []
+  },
+  "FMSH": {
+   "when": {
+    "any": [
+     {
+      "pred": "FM1"
+     },
+     {
+      "all": [
+       {
+        "pred": "FM2"
+       },
+       {
+        "eq": [
+         "b2fm",
+         0
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "why": "blade 1's modulator is read: by blade 1, or by blade 2 sharing it (b2fm 0)",
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 833,
+     "text": "const mEff2 = d.b2fm ? (d.mUnit2 ? s.mHz2/fi : s.m2) : (d.mUnit ? s.mHz/fi : s.m);"
+    },
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 310,
+     "text": "g.fmType = s.b2fm ? s.fmType2 : s.fmType; g.mshape = s.b2fm ? s.mshape2 : s.mshape;"
+    }
+   ]
+  },
+  "FMOWN2": {
+   "when": {
+    "all": [
+     {
+      "pred": "FM2"
+     },
+     {
+      "eq": [
+       "b2fm",
+       1
+      ]
+     }
+    ]
+   },
+   "why": "blade 2 runs its own modulator",
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 835,
+     "text": "(d.b2fm ? s.I2 : I0)*mm.iMul2, mEff2);"
+    }
+   ]
+  },
+  "SPR1": {
+   "when": {
+    "any": [
+     {
+      "pred": "B1"
+     },
+     {
+      "all": [
+       {
+        "pred": "B2"
+       },
+       {
+        "eq": [
+         "b2sp",
+         0
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "why": "blade 1's spread set is read: by blade 1, or by blade 2 following it (b2sp 0)",
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 124,
+     "text": "if (!s.b2sp){ m.cOff2 = m.cOff; m.kAdd2 = m.kAdd;"
+    }
+   ]
+  },
+  "SPR2": {
+   "when": {
+    "all": [
+     {
+      "pred": "B2"
+     },
+     {
+      "eq": [
+       "b2sp",
+       1
+      ]
+     }
+    ]
+   },
+   "why": "blade 2 owns its spreads",
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 127,
+     "text": "m.cOff2 = s.bspread2*pn(7);"
+    }
+   ]
+  },
+  "ENV1": {
+   "when": {
+    "any": [
+     {
+      "pred": "B1"
+     },
+     {
+      "all": [
+       {
+        "pred": "B2"
+       },
+       {
+        "eq": [
+         "b2env",
+         0
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "why": "blade 1's envelope is read (blade 2 follows it unless b2env)",
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 776,
+     "text": "} else { v.kE2 = v.kE; v.wE2 = v.wE; }"
+    }
+   ]
+  },
+  "ENV2": {
+   "when": {
+    "all": [
+     {
+      "pred": "B2"
+     },
+     {
+      "eq": [
+       "b2env",
+       1
+      ]
+     }
+    ]
+   },
+   "why": "blade 2 runs its own envelope",
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 769,
+     "text": "if (d.b2env){"
+    }
+   ]
+  },
+  "ROT1": {
+   "when": {
+    "any": [
+     {
+      "pred": "B1"
+     },
+     {
+      "all": [
+       {
+        "pred": "B2"
+       },
+       {
+        "eq": [
+         "rot2Follow",
+         1
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "why": "blade 1's rotation clock is read (blade 2 follows it unless rot2Follow 0)",
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 790,
+     "text": "const own2 = s.b2on && !d.rot2Follow"
+    },
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 829,
+     "text": "const rot2All = own2 ?"
+    }
+   ]
+  },
+  "ROT2": {
+   "when": {
+    "all": [
+     {
+      "pred": "B2"
+     },
+     {
+      "eq": [
+       "rot2Follow",
+       0
+      ]
+     }
+    ]
+   },
+   "why": "blade 2 rotates on its own clock",
+   "source": []
+  },
+  "L2HZ": {
+   "when": {
+    "all": [
+     {
+      "pred": "B2"
+     },
+     {
+      "any": [
+       {
+        "eq": [
+         "lock2",
+         2
+        ]
+       },
+       {
+        "all": [
+         {
+          "eq": [
+           "lock2",
+           -1
+          ]
+         },
+         {
+          "eq": [
+           "lock",
+           2
+          ]
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "why": "blade 2's cut rate is in Hz (its own lock, or blade 1's when \"=1\")",
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 831,
+     "text": "const lock2 = d.lock2 < 0 ? d.lock : d.lock2;"
+    }
+   ]
+  },
+  "SHAPE1": {
+   "when": {
+    "all": [
+     {
+      "pred": "CAR1"
+     },
+     {
+      "eq": [
+       "hot",
+       6
+      ]
+     }
+    ]
+   },
+   "why": "blade 1 plays Sine→Saw, the only wave that reads Shape",
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 22,
+     "text": "const r = RazorCore.mr || 0;"
+    }
+   ]
+  },
+  "SHAPE2": {
+   "when": {
+    "all": [
+     {
+      "pred": "CAR2"
+     },
+     {
+      "eq": [
+       "hot2",
+       6
+      ]
+     }
+    ]
+   },
+   "why": "blade 2 plays Sine→Saw",
+   "source": []
+  },
+  "DETUNED": {
+   "when": {
+    "all": [
+     {
+      "pred": "SW"
+     },
+     {
+      "ne": [
+       "detune",
+       0
+      ]
+     }
+    ]
+   },
+   "why": "a swarm with detune: every detune law multiplies dep = detune·spread",
+   "source": [
+    {
+     "file": "reference/swarmsaw.html",
+     "line": 414,
+     "text": "const dep = p.detune * p.spread;"
+    }
+   ]
+  },
+  "UPCAR": {
+   "when": {
+    "any": [
+     {
+      "all": [
+       {
+        "eq": [
+         "b2order",
+         0
+        ]
+       },
+       {
+        "in": [
+         "mode2",
+         [
+          0,
+          1,
+          2,
+          5
+         ]
+        ]
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "eq": [
+         "b2order",
+         1
+        ]
+       },
+       {
+        "in": [
+         "mode",
+         [
+          0,
+          1,
+          2,
+          5
+         ]
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "why": "the UPPER blade (b2order) reads collision pitch (cacc)",
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 685,
+     "text": "if (s.b2order){ RazorCore.collide(s.colK, ns"
+    }
+   ]
+  },
+  "UPBITE": {
+   "when": {
+    "any": [
+     {
+      "all": [
+       {
+        "eq": [
+         "b2order",
+         0
+        ]
+       },
+       {
+        "in": [
+         "mode2",
+         [
+          1,
+          2,
+          4
+         ]
+        ]
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "eq": [
+         "b2order",
+         1
+        ]
+       },
+       {
+        "in": [
+         "mode",
+         [
+          1,
+          2,
+          4
+         ]
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "why": "the UPPER blade reads collision bite (ov): FM index or fold drive",
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 189,
+     "text": "const Ib = ns.ov > 0 ? p.I*(1 + 4*p.colB*ns.ov) : p.I;"
+    }
+   ]
+  },
+  "NUM1": {
+   "when": {
+    "all": [
+     {
+      "pred": "B1"
+     },
+     {
+      "ne": [
+       "mirror",
+       2
+      ]
+     },
+     {
+      "not": {
+       "all": [
+        {
+         "eq": [
+          "mode",
+          0
+         ]
+        },
+        {
+         "ne": [
+          "hot",
+          6
+         ]
+        }
+       ]
+      }
+     }
+    ]
+   },
+   "why": "blade 1's per-cycle DC is estimated numerically",
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 552,
+     "text": "if (s.mode === 0 && s.hot !== 6){"
+    },
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 577,
+     "text": "feats += s.mEff*w;"
+    },
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 546,
+     "text": "const fac = s.mirror === 2 ? 0 : s.mirror === 3 ? 2 : 1;"
+    }
+   ]
+  },
+  "NUM2": {
+   "when": {
+    "all": [
+     {
+      "pred": "B2"
+     },
+     {
+      "not": {
+       "any": [
+        {
+         "eq": [
+          "mirror2",
+          2
+         ]
+        },
+        {
+         "all": [
+          {
+           "eq": [
+            "mirror2",
+            -1
+           ]
+          },
+          {
+           "eq": [
+            "mirror",
+            2
+           ]
+          }
+         ]
+        }
+       ]
+      }
+     },
+     {
+      "not": {
+       "all": [
+        {
+         "eq": [
+          "mode2",
+          0
+         ]
+        },
+        {
+         "ne": [
+          "hot2",
+          6
+         ]
+        }
+       ]
+      }
+     }
+    ]
+   },
+   "why": "blade 2's per-cycle DC is estimated numerically",
+   "source": []
+  },
+  "PAIR": {
+   "when": {
+    "all": [
+     {
+      "eq": [
+       "b2on",
+       1
+      ]
+     },
+     {
+      "gt": [
+       "b2mix",
+       0.000001
+      ]
+     },
+     {
+      "any": [
+       {
+        "pred": "B1"
+       },
+       {
+        "pred": "B2"
+       }
+      ]
+     }
+    ]
+   },
+   "why": "serial interplay on: per-cycle DC is the numeric PAIR estimate, whose resolution reads both blades' modulator rates",
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 844,
+     "text": "if (s.b2on && s.b2mix > 1e-6) mm.dc = this.dcPair(mm, c, kq, s);"
+    },
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 595,
+     "text": "2*(s.mEff + g.mEff) + 4;"
+    }
+   ]
+  },
+  "SC_BLOCK_XM": {
+   "when": {
+    "all": [
+     {
+      "eq": [
+       "dcMode",
+       2
+      ]
+     },
+     {
+      "le": [
+       "fb",
+       0.0005
+      ]
+     },
+     {
+      "not": {
+       "all": [
+        {
+         "eq": [
+          "b2on",
+          1
+         ]
+        },
+        {
+         "any": [
+          {
+           "ne": [
+            "colK",
+            0
+           ]
+          },
+          {
+           "ne": [
+            "colB",
+            0
+           ]
+          }
+         ]
+        }
+       ]
+      }
+     }
+    ]
+   },
+   "why": "THE BLOCKER FAMILY (SC_BLOCK_*): under per-cycle DC the fallback DC blocker (an 8 Hz HP on the whole output) is OFF until xm, fb, or (with b2on) colK/colB leave 0, so each of those, while the others are still 0, is heard as the blocker switching in, not as its role. This one: Cross-mod.",
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 874,
+     "text": "if (d.dcMode === 1 || (d.dcMode === 2 && (s.xm > 0.0005 || s.fb > 0.0005 || (s.b2on && (s.colK || s.colB))))){"
+    }
+   ]
+  },
+  "SC_BLOCK_FB": {
+   "when": {
+    "all": [
+     {
+      "eq": [
+       "dcMode",
+       2
+      ]
+     },
+     {
+      "le": [
+       "xm",
+       0.0005
+      ]
+     },
+     {
+      "not": {
+       "all": [
+        {
+         "eq": [
+          "b2on",
+          1
+         ]
+        },
+        {
+         "any": [
+          {
+           "ne": [
+            "colK",
+            0
+           ]
+          },
+          {
+           "ne": [
+            "colB",
+            0
+           ]
+          }
+         ]
+        }
+       ]
+      }
+     }
+    ]
+   },
+   "why": "Feedback toggles the blocker (SC_BLOCK_XM's family)",
+   "source": []
+  },
+  "SC_BLOCK_COLK": {
+   "when": {
+    "all": [
+     {
+      "eq": [
+       "b2on",
+       1
+      ]
+     },
+     {
+      "eq": [
+       "dcMode",
+       2
+      ]
+     },
+     {
+      "le": [
+       "xm",
+       0.0005
+      ]
+     },
+     {
+      "le": [
+       "fb",
+       0.0005
+      ]
+     },
+     {
+      "eq": [
+       "colB",
+       0
+      ]
+     }
+    ]
+   },
+   "why": "Collision → pitch toggles the blocker",
+   "source": []
+  },
+  "SC_BLOCK_COLB": {
+   "when": {
+    "all": [
+     {
+      "eq": [
+       "b2on",
+       1
+      ]
+     },
+     {
+      "eq": [
+       "dcMode",
+       2
+      ]
+     },
+     {
+      "le": [
+       "xm",
+       0.0005
+      ]
+     },
+     {
+      "le": [
+       "fb",
+       0.0005
+      ]
+     },
+     {
+      "eq": [
+       "colK",
+       0
+      ]
+     }
+    ]
+   },
+   "why": "Collision → bite toggles the blocker",
+   "source": []
+  },
+  "SC_BLOCK_B2ON": {
+   "when": {
+    "all": [
+     {
+      "eq": [
+       "dcMode",
+       2
+      ]
+     },
+     {
+      "le": [
+       "xm",
+       0.0005
+      ]
+     },
+     {
+      "le": [
+       "fb",
+       0.0005
+      ]
+     },
+     {
+      "any": [
+       {
+        "ne": [
+         "colK",
+         0
+        ]
+       },
+       {
+        "ne": [
+         "colB",
+         0
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "why": "Blade 2 on/off toggles the blocker when a collision amount is set",
+   "source": []
+  },
+  "SC_DCRES1": {
+   "when": {
+    "all": [
+     {
+      "eq": [
+       "dcMode",
+       2
+      ]
+     },
+     {
+      "any": [
+       {
+        "pred": "NUM1"
+       },
+       {
+        "all": [
+         {
+          "pred": "NUM2"
+         },
+         {
+          "eq": [
+           "b2fm",
+           0
+          ]
+         }
+        ]
+       },
+       {
+        "pred": "PAIR"
+       }
+      ]
+     }
+    ]
+   },
+   "why": "blade 1's modulator rate (m / mHz / mUnit) sets the resolution J of a NUMERIC per-cycle DC estimate even where no blade is in FM, so the estimate, and the output, move with it",
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 577,
+     "text": "feats += s.mEff*w;"
+    },
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 578,
+     "text": "const J = Math.min(1024, Math.max(48, Math.ceil(feats*32)));"
+    }
+   ]
+  },
+  "SC_DCRES2": {
+   "when": {
+    "all": [
+     {
+      "eq": [
+       "dcMode",
+       2
+      ]
+     },
+     {
+      "any": [
+       {
+        "all": [
+         {
+          "pred": "NUM2"
+         },
+         {
+          "eq": [
+           "b2fm",
+           1
+          ]
+         }
+        ]
+       },
+       {
+        "pred": "PAIR"
+       }
+      ]
+     }
+    ]
+   },
+   "why": "blade 2's own modulator rate sets the DC estimate's resolution (as SC_DCRES1)",
+   "source": []
+  },
+  "SC_DCRES_B2FM": {
+   "when": {
+    "all": [
+     {
+      "eq": [
+       "dcMode",
+       2
+      ]
+     },
+     {
+      "any": [
+       {
+        "pred": "NUM2"
+       },
+       {
+        "pred": "PAIR"
+       }
+      ]
+     }
+    ]
+   },
+   "why": "b2fm swaps which modulator rate blade 2's DC estimate resolves by",
+   "source": []
+  },
+  "SC_DCPAIR": {
+   "when": {
+    "all": [
+     {
+      "eq": [
+       "dcMode",
+       2
+      ]
+     },
+     {
+      "eq": [
+       "b2on",
+       1
+      ]
+     },
+     {
+      "any": [
+       {
+        "pred": "B1"
+       },
+       {
+        "pred": "B2"
+       }
+      ]
+     }
+    ]
+   },
+   "why": "Upper hears above 0 swaps per-cycle DC to the numeric PAIR estimate even when only one blade sounds",
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 844,
+     "text": "if (s.b2on && s.b2mix > 1e-6) mm.dc = this.dcPair(mm, c, kq, s);"
+    }
+   ]
+  },
+  "SC_DCPAIR_B2ON": {
+   "when": {
+    "all": [
+     {
+      "eq": [
+       "dcMode",
+       2
+      ]
+     },
+     {
+      "gt": [
+       "b2mix",
+       0.000001
+      ]
+     },
+     {
+      "pred": "B1"
+     }
+    ]
+   },
+   "why": "Blade 2 on/off swaps blade 1's per-cycle DC to the pair estimate when Upper hears is above 0",
+   "source": []
+  },
+  "SC_DRAWS": {
+   "when": {
+    "any": [
+     {
+      "all": [
+       {
+        "pred": "B1"
+       },
+       {
+        "in": [
+         "mode",
+         [
+          2,
+          3
+         ]
+        ]
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "pred": "B2"
+       },
+       {
+        "in": [
+         "mode2",
+         [
+          2,
+          3
+         ]
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "why": "a sounding blade reads state drawn from the ONE shared Math.random stream after note-on (Noise values; FM free's modulator phase modX, drawn at each later note-on): the drift law's per-tick draws shift that stream",
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 11,
+     "text": "static rnd(){ return Math.random()*2 - 1; }"
+    },
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 399,
+     "text": "m.phi = d.phaseMode === 1 ? 0 : Math.random(); m.modX = Math.random()*1000;"
+    },
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 495,
+     "text": "const u = Math.max(1e-12, Math.random())"
+    }
+   ]
+  },
+  "SC_SCANCOL": {
+   "when": {
+    "all": [
+     {
+      "eq": [
+       "aa",
+       1
+      ]
+     },
+     {
+      "pred": "BOTH"
+     },
+     {
+      "any": [
+       {
+        "all": [
+         {
+          "eq": [
+           "b2order",
+           0
+          ]
+         },
+         {
+          "eq": [
+           "mode2",
+           6
+          ]
+         },
+         {
+          "le": [
+           "hard2",
+           0.001
+          ]
+         }
+        ]
+       },
+       {
+        "all": [
+         {
+          "eq": [
+           "b2order",
+           1
+          ]
+         },
+         {
+          "eq": [
+           "mode",
+           6
+          ]
+         },
+         {
+          "le": [
+           "hard",
+           0.001
+          ]
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "why": "an UPPER Crush blade with hard steps: the PolyBLEP scanner places its step corrections using the collision accumulator (cacc), which the Crush voice itself never reads — collision pitch is heard as moved band-limiting corrections",
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 633,
+     "text": "if (ns.cd){ o0 += ns.cacc - ns.cd; o1 += ns.cacc; }"
+    },
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 616,
+     "text": "else if (g.mode === 6 && g.hard <= 0.001){ off = 0; step = 1; }"
+    }
+   ]
+  }
+ },
+ "order": [
+  "N",
+  "b1on",
+  "mode",
+  "hot",
+  "w",
+  "depth",
+  "rotRate",
+  "bspread",
+  "kspread",
+  "kRule",
+  "kRuleAmt",
+  "wspread",
+  "dspread",
+  "mspread",
+  "ispread",
+  "rotSpread",
+  "b2on",
+  "mode2",
+  "hot2",
+  "w2",
+  "depth2",
+  "rot2Follow",
+  "rotRate2",
+  "b2sp",
+  "bspread2",
+  "kspread2",
+  "kRule2",
+  "kRuleAmt2",
+  "wspread2",
+  "dspread2",
+  "mspread2",
+  "ispread2",
+  "rotSpread2",
+  "lock2",
+  "lock",
+  "k",
+  "kHz",
+  "c",
+  "hard",
+  "mirror2",
+  "mirror",
+  "morph",
+  "polyMode",
+  "rotSync",
+  "fb",
+  "b2fm",
+  "fmType",
+  "mshape",
+  "I",
+  "mUnit",
+  "m",
+  "mHz",
+  "benvK",
+  "benvW",
+  "b2env",
+  "benvK2",
+  "benvW2",
+  "benvA",
+  "benvD",
+  "benvVel",
+  "base",
+  "dcMode",
+  "xm",
+  "frame2",
+  "frame",
+  "phaseMode",
+  "width",
+  "panOrder",
+  "law",
+  "driftRate",
+  "kq",
+  "kCustom",
+  "k2",
+  "kHz2",
+  "c2",
+  "hard2",
+  "morph2",
+  "fmType2",
+  "mshape2",
+  "I2",
+  "mUnit2",
+  "m2",
+  "mHz2",
+  "benvA2",
+  "benvD2",
+  "benvVel2",
+  "b2mix",
+  "b2order",
+  "colK",
+  "colB",
+  "detune",
+  "K",
+  "A",
+  "S",
+  "D",
+  "R",
+  "gain",
+  "glide",
+  "glideAlways",
+  "os",
+  "aa",
+  "cScale",
+  "onset",
+  "dissolve",
+  "driftDepth",
+  "h.driftRate",
+  "h.law",
+  "harmReach",
+  "stretchB",
+  "spread",
+  "anchor",
+  "inertia",
+  "inertiaCurve"
+ ],
+ "cycles": [
+  [
+   "b1on",
+   "mode",
+   "hot",
+   "w",
+   "depth",
+   "rotRate",
+   "bspread",
+   "kspread",
+   "kRule",
+   "kRuleAmt",
+   "wspread",
+   "dspread",
+   "mspread",
+   "ispread",
+   "rotSpread",
+   "b2on",
+   "mode2",
+   "hot2",
+   "w2",
+   "depth2",
+   "rot2Follow",
+   "rotRate2",
+   "b2sp",
+   "bspread2",
+   "kspread2",
+   "kRule2",
+   "kRuleAmt2",
+   "wspread2",
+   "dspread2",
+   "mspread2",
+   "ispread2",
+   "rotSpread2"
+  ],
+  [
+   "benvK",
+   "benvW",
+   "b2env",
+   "benvK2",
+   "benvW2"
+  ],
+  [
+   "b2order",
+   "colK",
+   "colB"
+  ]
+ ],
+ "params": {
+  "b1on": {
+   "label": "Blade 1",
+   "kind": "t",
+   "tier": "T1",
+   "id": 300,
+   "range": {
+    "options": null,
+    "default": 1
+   },
+   "active_when": {
+    "all": [
+     {
+      "ge": [
+       "w",
+       0.004
+      ]
+     },
+     {
+      "any": [
+       {
+        "gt": [
+         "depth",
+         0
+        ]
+       },
+       {
+        "all": [
+         {
+          "pred": "SW"
+         },
+         {
+          "ne": [
+           "dspread",
+           0
+          ]
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "depends_on": [
+    "N",
+    "depth",
+    "dspread",
+    "w"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 176,
+     "text": "if (w < 0.004){ ns.g = 0; ns.inside = false; return xin0; }"
+    }
+   ],
+   "note": "lab mapping: off => w 0. Heard only when blade 1 would cut and sound.",
+   "role": "switch",
+   "gates": [
+    "I",
+    "aa",
+    "b2mix",
+    "b2order",
+    "benvA",
+    "benvD",
+    "benvK",
+    "benvVel",
+    "benvW",
+    "bspread",
+    "c",
+    "colB",
+    "colK",
+    "depth",
+    "driftRate",
+    "dspread",
+    "fb",
+    "fmType",
+    "frame",
+    "hard",
+    "hot",
+    "ispread",
+    "k",
+    "kCustom",
+    "kHz",
+    "kRule",
+    "kRuleAmt",
+    "kq",
+    "kspread",
+    "law",
+    "lock",
+    "m",
+    "mHz",
+    "mUnit",
+    "mirror",
+    "mode",
+    "morph",
+    "mshape",
+    "mspread",
+    "rotRate",
+    "rotSpread",
+    "rotSync",
+    "w",
+    "wspread",
+    "xm"
+   ],
+   "probe": {
+    "contexts": 28,
+    "live": 26,
+    "inert": 2,
+    "declaredLive": 26,
+    "declaredInert": 2,
+    "liveInDeclared": 26,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -3,
+    "inertExactlyZero": true
+   }
+  },
+  "mode": {
+   "label": "Mode",
+   "kind": "e",
+   "tier": "T1",
+   "id": 301,
+   "range": {
+    "options": [
+     0,
+     1,
+     2,
+     3,
+     4,
+     5,
+     6
+    ],
+    "default": 0
+   },
+   "active_when": {
+    "pred": "B1"
+   },
+   "depends_on": [
+    "N",
+    "b1on",
+    "depth",
+    "dspread",
+    "w"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 185,
+     "text": "switch (p.mode){"
+    }
+   ],
+   "note": "",
+   "role": "switch",
+   "gates": [
+    "I",
+    "aa",
+    "b2order",
+    "colB",
+    "colK",
+    "driftRate",
+    "fb",
+    "fmType",
+    "hot",
+    "ispread",
+    "law",
+    "m",
+    "mHz",
+    "mUnit",
+    "morph",
+    "mshape",
+    "mspread",
+    "xm"
+   ],
+   "probe": {
+    "contexts": 28,
+    "live": 21,
+    "inert": 7,
+    "declaredLive": 21,
+    "declaredInert": 7,
+    "liveInDeclared": 21,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -3,
+    "inertExactlyZero": true
+   }
+  },
+  "hot": {
+   "label": "Blade wave",
+   "kind": "e",
+   "tier": "T1",
+   "id": 302,
+   "range": {
+    "options": [
+     0,
+     1,
+     2,
+     4,
+     3,
+     6
+    ],
+    "default": 2
+   },
+   "active_when": {
+    "pred": "CAR1"
+   },
+   "depends_on": [
+    "N",
+    "b1on",
+    "depth",
+    "dspread",
+    "mode",
+    "w"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 187,
+     "text": "case 0: { const cp = hp + ns.xin + ns.cacc; hot = RazorCore.wave(p.hot"
+    }
+   ],
+   "note": "Noise, Fold and Crush never read the blade wave.",
+   "role": "switch",
+   "gates": [
+    "aa",
+    "driftRate",
+    "law",
+    "morph",
+    "mspread"
+   ],
+   "probe": {
+    "contexts": 28,
+    "live": 13,
+    "inert": 15,
+    "declaredLive": 13,
+    "declaredInert": 15,
+    "liveInDeclared": 13,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -3,
+    "inertExactlyZero": true
+   }
+  },
+  "w": {
+   "label": "Width",
+   "kind": "c",
+   "tier": "T1",
+   "id": 303,
+   "range": {
+    "min": 0,
+    "max": 1,
+    "taper": "wlog",
+    "default": 0.25
+   },
+   "active_when": {
+    "eq": [
+     "b1on",
+     1
+    ]
+   },
+   "depends_on": [
+    "b1on"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 176,
+     "text": "if (w < 0.004){ ns.g = 0; ns.inside = false; return xin0; }"
+    }
+   ],
+   "note": "Width IS blade 1's on/off below 0.004.",
+   "role": "gate",
+   "gates": [
+    "I",
+    "aa",
+    "b1on",
+    "b2mix",
+    "b2order",
+    "benvA",
+    "benvD",
+    "benvK",
+    "benvVel",
+    "benvW",
+    "bspread",
+    "c",
+    "colB",
+    "colK",
+    "depth",
+    "driftRate",
+    "dspread",
+    "fb",
+    "fmType",
+    "frame",
+    "hard",
+    "hot",
+    "ispread",
+    "k",
+    "kCustom",
+    "kHz",
+    "kRule",
+    "kRuleAmt",
+    "kq",
+    "kspread",
+    "law",
+    "lock",
+    "m",
+    "mHz",
+    "mUnit",
+    "mirror",
+    "mode",
+    "morph",
+    "mshape",
+    "mspread",
+    "rotRate",
+    "rotSpread",
+    "rotSync",
+    "wspread",
+    "xm"
+   ],
+   "probe": {
+    "contexts": 28,
+    "live": 21,
+    "inert": 7,
+    "declaredLive": 21,
+    "declaredInert": 7,
+    "liveInDeclared": 21,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -2,
+    "inertExactlyZero": true
+   }
+  },
+  "k": {
+   "label": "Cut rate",
+   "kind": "c",
+   "tier": "T1",
+   "id": 304,
+   "range": {
+    "min": 1,
+    "max": 64,
+    "taper": "log",
+    "default": 6
+   },
+   "active_when": {
+    "all": [
+     {
+      "pred": "B1"
+     },
+     {
+      "ne": [
+       "lock",
+       2
+      ]
+     }
+    ]
+   },
+   "depends_on": [
+    "N",
+    "b1on",
+    "depth",
+    "dspread",
+    "lock",
+    "w"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 826,
+     "text": "const kq = Math.min((d.lock === 2 ? Math.max(0.05, s.kHz/fi + mm.kAdd) : Math.max(0.25, s.k + mm.kAdd))"
+    }
+   ],
+   "note": "",
+   "role": "leaf",
+   "gates": [],
+   "probe": {
+    "contexts": 28,
+    "live": 12,
+    "inert": 16,
+    "declaredLive": 12,
+    "declaredInert": 16,
+    "liveInDeclared": 12,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -2,
+    "inertExactlyZero": true
+   }
+  },
+  "kHz": {
+   "label": "Cut rate",
+   "kind": "c",
+   "tier": "T1",
+   "id": 305,
+   "range": {
+    "min": 20,
+    "max": 12000,
+    "taper": "log",
+    "default": 1320
+   },
+   "active_when": {
+    "all": [
+     {
+      "pred": "B1"
+     },
+     {
+      "eq": [
+       "lock",
+       2
+      ]
+     }
+    ]
+   },
+   "depends_on": [
+    "N",
+    "b1on",
+    "depth",
+    "dspread",
+    "lock",
+    "w"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 826,
+     "text": "const kq = Math.min((d.lock === 2 ? Math.max(0.05, s.kHz/fi + mm.kAdd) : Math.max(0.25, s.k + mm.kAdd))"
+    }
+   ],
+   "note": "",
+   "role": "leaf",
+   "gates": [],
+   "probe": {
+    "contexts": 28,
+    "live": 11,
+    "inert": 17,
+    "declaredLive": 11,
+    "declaredInert": 17,
+    "liveInDeclared": 11,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -2,
+    "inertExactlyZero": true
+   }
+  },
+  "lock": {
+   "label": "Cut rate in",
+   "kind": "e",
+   "tier": "T2",
+   "id": 306,
+   "range": {
+    "options": [
+     0,
+     1,
+     2
+    ],
+    "default": 0
+   },
+   "active_when": {
+    "any": [
+     {
+      "pred": "B1"
+     },
+     {
+      "all": [
+       {
+        "pred": "B2"
+       },
+       {
+        "eq": [
+         "lock2",
+         -1
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "depends_on": [
+    "N",
+    "b1on",
+    "b2on",
+    "b2sp",
+    "depth",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "lock2",
+    "w",
+    "w2"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 180,
+     "text": "const kk = p.lock === 1 ? k / w : k;"
+    },
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 831,
+     "text": "const lock2 = d.lock2 < 0 ? d.lock : d.lock2;"
+    }
+   ],
+   "note": "",
+   "role": "switch",
+   "gates": [
+    "k",
+    "k2",
+    "kHz",
+    "kHz2"
+   ],
+   "probe": {
+    "contexts": 28,
+    "live": 22,
+    "inert": 6,
+    "declaredLive": 22,
+    "declaredInert": 6,
+    "liveInDeclared": 22,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -5,
+    "inertExactlyZero": true
+   }
+  },
+  "c": {
+   "label": "Position",
+   "kind": "c",
+   "tier": "T1",
+   "id": 307,
+   "range": {
+    "min": 0,
+    "max": 1,
+    "taper": "circ",
+    "default": 0.875
+   },
+   "active_when": {
+    "pred": "B1"
+   },
+   "depends_on": [
+    "N",
+    "b1on",
+    "depth",
+    "dspread",
+    "w"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 822,
+     "text": "let c = s.c + rotAll + mm.cOff + (d.frame ? mm.lead : 0);"
+    }
+   ],
+   "note": "",
+   "role": "leaf",
+   "gates": [],
+   "probe": {
+    "contexts": 28,
+    "live": 21,
+    "inert": 7,
+    "declaredLive": 21,
+    "declaredInert": 7,
+    "liveInDeclared": 21,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -2,
+    "inertExactlyZero": true
+   }
+  },
+  "hard": {
+   "label": "Edges",
+   "kind": "c",
+   "tier": "T1",
+   "id": 308,
+   "range": {
+    "min": 0,
+    "max": 1,
+    "taper": "lin",
+    "default": 0
+   },
+   "active_when": {
+    "pred": "B1"
+   },
+   "depends_on": [
+    "N",
+    "b1on",
+    "depth",
+    "dspread",
+    "w"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 230,
+     "text": "const t = p.hard * w * 0.5;"
+    },
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 204,
+     "text": "const wEff = p.mirror === 1 ? w*0.5 : w, hpEnd = kk*wEff, sl = p.hard;"
+    }
+   ],
+   "note": "Edges in every mode; Crush reads it as slew.",
+   "role": "gate",
+   "gates": [
+    "aa"
+   ],
+   "probe": {
+    "contexts": 28,
+    "live": 21,
+    "inert": 7,
+    "declaredLive": 21,
+    "declaredInert": 7,
+    "liveInDeclared": 21,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -3,
+    "inertExactlyZero": true
+   }
+  },
+  "depth": {
+   "label": "Depth",
+   "kind": "c",
+   "tier": "T1",
+   "id": 309,
+   "range": {
+    "min": 0,
+    "max": 1,
+    "taper": "lin",
+    "default": 1
+   },
+   "active_when": {
+    "pred": "B1CUT"
+   },
+   "depends_on": [
+    "b1on",
+    "w"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 237,
+     "text": "return xin0 + g*p.depth*(hot - xin0);"
+    }
+   ],
+   "note": "",
+   "role": "gate",
+   "gates": [
+    "I",
+    "aa",
+    "b1on",
+    "b2mix",
+    "b2order",
+    "benvA",
+    "benvD",
+    "benvK",
+    "benvVel",
+    "benvW",
+    "bspread",
+    "c",
+    "colB",
+    "colK",
+    "driftRate",
+    "dspread",
+    "fb",
+    "fmType",
+    "frame",
+    "hard",
+    "hot",
+    "ispread",
+    "k",
+    "kCustom",
+    "kHz",
+    "kRule",
+    "kRuleAmt",
+    "kq",
+    "kspread",
+    "law",
+    "lock",
+    "m",
+    "mHz",
+    "mUnit",
+    "mirror",
+    "mode",
+    "morph",
+    "mshape",
+    "mspread",
+    "rotRate",
+    "rotSpread",
+    "rotSync",
+    "wspread",
+    "xm"
+   ],
+   "probe": {
+    "contexts": 28,
+    "live": 21,
+    "inert": 7,
+    "declaredLive": 21,
+    "declaredInert": 7,
+    "liveInDeclared": 21,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -3,
+    "inertExactlyZero": true
+   }
+  },
+  "mirror": {
+   "label": "Mirror",
+   "kind": "e",
+   "tier": "T2",
+   "id": 310,
+   "range": {
+    "options": [
+     0,
+     1,
+     2,
+     3
+    ],
+    "default": 0
+   },
+   "active_when": {
+    "any": [
+     {
+      "pred": "B1"
+     },
+     {
+      "all": [
+       {
+        "pred": "B2"
+       },
+       {
+        "eq": [
+         "mirror2",
+         -1
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "depends_on": [
+    "N",
+    "b1on",
+    "b2on",
+    "b2sp",
+    "depth",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "mirror2",
+    "w",
+    "w2"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 309,
+     "text": "g.lock = s.lock2 < 0 ? s.lock : s.lock2; g.mirror = s.mirror2 < 0 ? s.mirror : s.mirror2;"
+    }
+   ],
+   "note": "",
+   "role": "switch",
+   "gates": [
+    "aa"
+   ],
+   "probe": {
+    "contexts": 28,
+    "live": 21,
+    "inert": 7,
+    "declaredLive": 22,
+    "declaredInert": 6,
+    "liveInDeclared": 21,
+    "regime": 1,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -5,
+    "inertExactlyZero": true
+   }
+  },
+  "morph": {
+   "label": "Shape",
+   "kind": "c",
+   "tier": "T2",
+   "id": 311,
+   "range": {
+    "min": 0,
+    "max": 1,
+    "taper": "lin",
+    "default": 0.5
+   },
+   "active_when": {
+    "pred": "SHAPE1"
+   },
+   "depends_on": [
+    "N",
+    "b1on",
+    "depth",
+    "dspread",
+    "hot",
+    "mode",
+    "w"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 115,
+     "text": "m.mor = Math.min(1, Math.max(0, s.morph + s.mspread*2*pn(6)));"
+    },
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 22,
+     "text": "const r = RazorCore.mr || 0;"
+    }
+   ],
+   "note": "",
+   "role": "leaf",
+   "gates": [],
+   "probe": {
+    "contexts": 28,
+    "live": 4,
+    "inert": 24,
+    "declaredLive": 4,
+    "declaredInert": 24,
+    "liveInDeclared": 4,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -3,
+    "inertExactlyZero": true
+   }
+  },
+  "rotRate": {
+   "label": "Rotate",
+   "kind": "c",
+   "tier": "T2",
+   "id": 312,
+   "range": {
+    "min": -4,
+    "max": 4,
+    "taper": "lin",
+    "default": 0
+   },
+   "active_when": {
+    "pred": "ROT1"
+   },
+   "depends_on": [
+    "N",
+    "b1on",
+    "b2on",
+    "b2sp",
+    "depth",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "rot2Follow",
+    "w",
+    "w2"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 786,
+     "text": "const rOn = Math.abs(t.rotRate) > 0.004, sOn = t.rotSpread > 0.004"
+    }
+   ],
+   "note": "",
+   "role": "gate",
+   "gates": [
+    "rot2Follow",
+    "rotSync"
+   ],
+   "probe": {
+    "contexts": 28,
+    "live": 23,
+    "inert": 5,
+    "declaredLive": 23,
+    "declaredInert": 5,
+    "liveInDeclared": 23,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -3,
+    "inertExactlyZero": true
+   }
+  },
+  "rotSync": {
+   "label": "Rotation",
+   "kind": "e",
+   "tier": "T3",
+   "id": 313,
+   "range": {
+    "options": [
+     1,
+     0
+    ],
+    "default": 1
+   },
+   "active_when": {
+    "any": [
+     {
+      "all": [
+       {
+        "pred": "ROT1"
+       },
+       {
+        "absgt": [
+         "rotRate",
+         0.004
+        ]
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "pred": "ROT2"
+       },
+       {
+        "absgt": [
+         "rotRate2",
+         0.004
+        ]
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "ne": [
+         "polyMode",
+         0
+        ]
+       },
+       {
+        "pred": "SW"
+       },
+       {
+        "any": [
+         {
+          "all": [
+           {
+            "pred": "ROT1"
+           },
+           {
+            "absgt": [
+             "rotSpread",
+             0.004
+            ]
+           }
+          ]
+         },
+         {
+          "all": [
+           {
+            "pred": "ROT2"
+           },
+           {
+            "any": [
+             {
+              "all": [
+               {
+                "eq": [
+                 "b2sp",
+                 0
+                ]
+               },
+               {
+                "absgt": [
+                 "rotSpread",
+                 0.004
+                ]
+               }
+              ]
+             },
+             {
+              "all": [
+               {
+                "eq": [
+                 "b2sp",
+                 1
+                ]
+               },
+               {
+                "absgt": [
+                 "rotSpread2",
+                 0.004
+                ]
+               }
+              ]
+             }
+            ]
+           }
+          ]
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "depends_on": [
+    "N",
+    "b1on",
+    "b2on",
+    "b2sp",
+    "depth",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "polyMode",
+    "rot2Follow",
+    "rotRate",
+    "rotRate2",
+    "rotSpread",
+    "rotSpread2",
+    "w",
+    "w2"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 788,
+     "text": "const rotBase = d.rotSync ? null : this.gRot;"
+    },
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 412,
+     "text": "if (d.rotSync || fresh){ v.rot = 0; v.rot2 = 0; for (const m of v.m){ m.rot = 0; m.rot2 = 0; } }"
+    }
+   ],
+   "note": "Restart-per-note vs the free-running clock: heard while a blade rotates, and in mono/legato (a non-fresh retrigger) while members rotate by spread.",
+   "role": "leaf",
+   "gates": [],
+   "probe": {
+    "contexts": 28,
+    "live": 24,
+    "inert": 4,
+    "declaredLive": 24,
+    "declaredInert": 4,
+    "liveInDeclared": 24,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -4,
+    "inertExactlyZero": true
+   }
+  },
+  "fb": {
+   "label": "Feedback",
+   "kind": "c",
+   "tier": "T2",
+   "id": 314,
+   "range": {
+    "min": 0,
+    "max": 1,
+    "taper": "pow",
+    "default": 0
+   },
+   "active_when": {
+    "any": [
+     {
+      "pred": "CAR1"
+     },
+     {
+      "pred": "CAR2"
+     }
+    ]
+   },
+   "depends_on": [
+    "N",
+    "b1on",
+    "b2on",
+    "b2sp",
+    "depth",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "mode",
+    "mode2",
+    "w",
+    "w2"
+   ],
+   "side_channels": [
+    "SC_BLOCK_FB"
+   ],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 814,
+     "text": "const xin = xOn ? 0.5*(s.xm*xb[(q + 1) % N] + s.fb*0.5*(mm.y1 + mm.y2)) : 0;"
+    }
+   ],
+   "note": "Read as a phase push by the carrier modes.",
+   "role": "leaf",
+   "gates": [],
+   "probe": {
+    "contexts": 30,
+    "live": 19,
+    "inert": 11,
+    "declaredLive": 17,
+    "declaredInert": 13,
+    "liveInDeclared": 17,
+    "regime": 0,
+    "sideChannelHits": 2,
+    "minLiveDeltaDecade": -4,
+    "inertExactlyZero": true
+   }
+  },
+  "fmType": {
+   "label": "FM type",
+   "kind": "e",
+   "tier": "T2",
+   "id": 315,
+   "range": {
+    "options": [
+     0,
+     1
+    ],
+    "default": 0
+   },
+   "active_when": {
+    "pred": "FMSH"
+   },
+   "depends_on": [
+    "N",
+    "b1on",
+    "b2fm",
+    "b2on",
+    "b2sp",
+    "depth",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "mode",
+    "mode2",
+    "w",
+    "w2"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 164,
+     "text": "if (p.fmType !== 1 || !RazorCore.isFM(p)) return 0;"
+    }
+   ],
+   "note": "",
+   "role": "leaf",
+   "gates": [],
+   "probe": {
+    "contexts": 28,
+    "live": 7,
+    "inert": 21,
+    "declaredLive": 7,
+    "declaredInert": 21,
+    "liveInDeclared": 7,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -3,
+    "inertExactlyZero": true
+   }
+  },
+  "mshape": {
+   "label": "Mod shape",
+   "kind": "e",
+   "tier": "T2",
+   "id": 316,
+   "range": {
+    "options": [
+     0,
+     1,
+     2,
+     4,
+     3,
+     5,
+     7
+    ],
+    "default": 0
+   },
+   "active_when": {
+    "pred": "FMSH"
+   },
+   "depends_on": [
+    "N",
+    "b1on",
+    "b2fm",
+    "b2on",
+    "b2sp",
+    "depth",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "mode",
+    "mode2",
+    "w",
+    "w2"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 191,
+     "text": "RazorCore.mod(p.mshape, p.mode === 1 ? p.mEff*er : modX, ns.seed)"
+    }
+   ],
+   "note": "",
+   "role": "leaf",
+   "gates": [],
+   "probe": {
+    "contexts": 28,
+    "live": 7,
+    "inert": 21,
+    "declaredLive": 7,
+    "declaredInert": 21,
+    "liveInDeclared": 7,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -3,
+    "inertExactlyZero": true
+   }
+  },
+  "I": {
+   "label": "FM depth",
+   "kind": "c",
+   "tier": "T1",
+   "id": 317,
+   "range": {
+    "min": 0,
+    "max": 10,
+    "taper": "pow",
+    "default": 2
+   },
+   "active_when": {
+    "pred": "FMSH"
+   },
+   "depends_on": [
+    "N",
+    "b1on",
+    "b2fm",
+    "b2on",
+    "b2sp",
+    "depth",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "mode",
+    "mode2",
+    "w",
+    "w2"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 189,
+     "text": "const Ib = ns.ov > 0 ? p.I*(1 + 4*p.colB*ns.ov) : p.I;"
+    }
+   ],
+   "note": "",
+   "role": "leaf",
+   "gates": [],
+   "probe": {
+    "contexts": 28,
+    "live": 7,
+    "inert": 21,
+    "declaredLive": 7,
+    "declaredInert": 21,
+    "liveInDeclared": 7,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -2,
+    "inertExactlyZero": true
+   }
+  },
+  "mUnit": {
+   "label": "Mod rate in",
+   "kind": "e",
+   "tier": "T2",
+   "id": 318,
+   "range": {
+    "options": [
+     0,
+     1
+    ],
+    "default": 0
+   },
+   "active_when": {
+    "pred": "FMSH"
+   },
+   "depends_on": [
+    "N",
+    "b1on",
+    "b2fm",
+    "b2on",
+    "b2sp",
+    "depth",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "mode",
+    "mode2",
+    "w",
+    "w2"
+   ],
+   "side_channels": [
+    "SC_DCRES1"
+   ],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 838,
+     "text": "s.mEff = d.mUnit ? s.mHz/fi : s.m;"
+    }
+   ],
+   "note": "",
+   "role": "switch",
+   "gates": [
+    "m",
+    "mHz"
+   ],
+   "probe": {
+    "contexts": 30,
+    "live": 13,
+    "inert": 17,
+    "declaredLive": 7,
+    "declaredInert": 23,
+    "liveInDeclared": 7,
+    "regime": 0,
+    "sideChannelHits": 6,
+    "minLiveDeltaDecade": -5,
+    "inertExactlyZero": false
+   }
+  },
+  "m": {
+   "label": "Mod rate",
+   "kind": "c",
+   "tier": "T1",
+   "id": 319,
+   "range": {
+    "min": 0.25,
+    "max": 24,
+    "taper": "log",
+    "default": 3.37
+   },
+   "active_when": {
+    "all": [
+     {
+      "pred": "FMSH"
+     },
+     {
+      "eq": [
+       "mUnit",
+       0
+      ]
+     }
+    ]
+   },
+   "depends_on": [
+    "N",
+    "b1on",
+    "b2fm",
+    "b2on",
+    "b2sp",
+    "depth",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "mUnit",
+    "mode",
+    "mode2",
+    "w",
+    "w2"
+   ],
+   "side_channels": [
+    "SC_DCRES1"
+   ],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 838,
+     "text": "s.mEff = d.mUnit ? s.mHz/fi : s.m;"
+    }
+   ],
+   "note": "",
+   "role": "leaf",
+   "gates": [],
+   "probe": {
+    "contexts": 30,
+    "live": 8,
+    "inert": 22,
+    "declaredLive": 6,
+    "declaredInert": 24,
+    "liveInDeclared": 6,
+    "regime": 0,
+    "sideChannelHits": 2,
+    "minLiveDeltaDecade": -4,
+    "inertExactlyZero": false
+   }
+  },
+  "mHz": {
+   "label": "Mod rate",
+   "kind": "c",
+   "tier": "T1",
+   "id": 320,
+   "range": {
+    "min": 1,
+    "max": 20000,
+    "taper": "log",
+    "default": 660
+   },
+   "active_when": {
+    "all": [
+     {
+      "pred": "FMSH"
+     },
+     {
+      "eq": [
+       "mUnit",
+       1
+      ]
+     }
+    ]
+   },
+   "depends_on": [
+    "N",
+    "b1on",
+    "b2fm",
+    "b2on",
+    "b2sp",
+    "depth",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "mUnit",
+    "mode",
+    "mode2",
+    "w",
+    "w2"
+   ],
+   "side_channels": [
+    "SC_DCRES1"
+   ],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 838,
+     "text": "s.mEff = d.mUnit ? s.mHz/fi : s.m;"
+    }
+   ],
+   "note": "",
+   "role": "leaf",
+   "gates": [],
+   "probe": {
+    "contexts": 30,
+    "live": 6,
+    "inert": 24,
+    "declaredLive": 3,
+    "declaredInert": 27,
+    "liveInDeclared": 3,
+    "regime": 0,
+    "sideChannelHits": 3,
+    "minLiveDeltaDecade": -5,
+    "inertExactlyZero": true
+   }
+  },
+  "benvK": {
+   "label": "Env → cut",
+   "kind": "c",
+   "tier": "T2",
+   "id": 321,
+   "range": {
+    "min": -1,
+    "max": 1,
+    "taper": "lin",
+    "default": 0
+   },
+   "active_when": {
+    "pred": "ENV1"
+   },
+   "depends_on": [
+    "N",
+    "b1on",
+    "b2env",
+    "b2on",
+    "b2sp",
+    "depth",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "w",
+    "w2"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 767,
+     "text": "v.kE = s.benvK ? Math.pow(2, s.benvK*4*bE) : 1;"
+    }
+   ],
+   "note": "",
+   "role": "gate",
+   "gates": [
+    "b2env",
+    "benvA",
+    "benvD",
+    "benvVel"
+   ],
+   "probe": {
+    "contexts": 28,
+    "live": 22,
+    "inert": 6,
+    "declaredLive": 22,
+    "declaredInert": 6,
+    "liveInDeclared": 22,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -3,
+    "inertExactlyZero": true
+   }
+  },
+  "benvW": {
+   "label": "Env → width",
+   "kind": "c",
+   "tier": "T2",
+   "id": 322,
+   "range": {
+    "min": -1,
+    "max": 1,
+    "taper": "lin",
+    "default": 0
+   },
+   "active_when": {
+    "pred": "ENV1"
+   },
+   "depends_on": [
+    "N",
+    "b1on",
+    "b2env",
+    "b2on",
+    "b2sp",
+    "depth",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "w",
+    "w2"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 768,
+     "text": "v.wE = s.benvW ? Math.pow(2, s.benvW*3*bE) : 1;"
+    }
+   ],
+   "note": "",
+   "role": "gate",
+   "gates": [
+    "b2env",
+    "benvA",
+    "benvD",
+    "benvVel"
+   ],
+   "probe": {
+    "contexts": 28,
+    "live": 22,
+    "inert": 6,
+    "declaredLive": 22,
+    "declaredInert": 6,
+    "liveInDeclared": 22,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -2,
+    "inertExactlyZero": true
+   }
+  },
+  "benvA": {
+   "label": "Env attack",
+   "kind": "c",
+   "tier": "T2",
+   "id": 323,
+   "range": {
+    "min": 0.5,
+    "max": 2000,
+    "taper": "log",
+    "default": 2
+   },
+   "active_when": {
+    "all": [
+     {
+      "pred": "ENV1"
+     },
+     {
+      "any": [
+       {
+        "ne": [
+         "benvK",
+         0
+        ]
+       },
+       {
+        "ne": [
+         "benvW",
+         0
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "depends_on": [
+    "N",
+    "b1on",
+    "b2env",
+    "b2on",
+    "b2sp",
+    "benvK",
+    "benvW",
+    "depth",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "w",
+    "w2"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 754,
+     "text": "const beA = 1/Math.max(1, s.benvA*0.001*sr)"
+    }
+   ],
+   "note": "The blade envelope is heard only through Env → cut / Env → width.",
+   "role": "leaf",
+   "gates": [],
+   "probe": {
+    "contexts": 28,
+    "live": 21,
+    "inert": 7,
+    "declaredLive": 21,
+    "declaredInert": 7,
+    "liveInDeclared": 21,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -3,
+    "inertExactlyZero": true
+   }
+  },
+  "benvD": {
+   "label": "Env decay",
+   "kind": "c",
+   "tier": "T2",
+   "id": 324,
+   "range": {
+    "min": 10,
+    "max": 5000,
+    "taper": "log",
+    "default": 250
+   },
+   "active_when": {
+    "all": [
+     {
+      "pred": "ENV1"
+     },
+     {
+      "any": [
+       {
+        "ne": [
+         "benvK",
+         0
+        ]
+       },
+       {
+        "ne": [
+         "benvW",
+         0
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "depends_on": [
+    "N",
+    "b1on",
+    "b2env",
+    "b2on",
+    "b2sp",
+    "benvK",
+    "benvW",
+    "depth",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "w",
+    "w2"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 754,
+     "text": "beD = 1 - Math.exp(-4/Math.max(1, s.benvD*0.001*sr));"
+    }
+   ],
+   "note": "",
+   "role": "leaf",
+   "gates": [],
+   "probe": {
+    "contexts": 28,
+    "live": 21,
+    "inert": 7,
+    "declaredLive": 21,
+    "declaredInert": 7,
+    "liveInDeclared": 21,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -4,
+    "inertExactlyZero": true
+   }
+  },
+  "benvVel": {
+   "label": "Env velocity",
+   "kind": "c",
+   "tier": "T3",
+   "id": 325,
+   "range": {
+    "min": 0,
+    "max": 1,
+    "taper": "lin",
+    "default": 0.5
+   },
+   "active_when": {
+    "all": [
+     {
+      "pred": "ENV1"
+     },
+     {
+      "any": [
+       {
+        "ne": [
+         "benvK",
+         0
+        ]
+       },
+       {
+        "ne": [
+         "benvW",
+         0
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "depends_on": [
+    "N",
+    "b1on",
+    "b2env",
+    "b2on",
+    "b2sp",
+    "benvK",
+    "benvW",
+    "depth",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "w",
+    "w2"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 407,
+     "text": "v.bv = 1 - this.s.benvVel + this.s.benvVel*vel;"
+    }
+   ],
+   "note": "At velocity 1 it is inert by arithmetic; the probe plays 0.8.",
+   "role": "leaf",
+   "gates": [],
+   "probe": {
+    "contexts": 28,
+    "live": 21,
+    "inert": 7,
+    "declaredLive": 21,
+    "declaredInert": 7,
+    "liveInDeclared": 21,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -4,
+    "inertExactlyZero": true
+   }
+  },
+  "base": {
+   "label": "Base wave",
+   "kind": "e",
+   "tier": "T1",
+   "id": 326,
+   "range": {
+    "options": [
+     0,
+     1,
+     2,
+     4,
+     3
+    ],
+    "default": 0
+   },
+   "active_when": true,
+   "depends_on": [],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 174,
+     "text": "const base = RazorCore.wave(p.base, phi)"
+    }
+   ],
+   "note": "The base wave is the sound when no blade cuts.",
+   "role": "switch",
+   "gates": [
+    "aa"
+   ],
+   "probe": {
+    "contexts": 26,
+    "live": 26,
+    "inert": 0,
+    "declaredLive": 26,
+    "declaredInert": 0,
+    "liveInDeclared": 26,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -2,
+    "inertExactlyZero": true
+   }
+  },
+  "dcMode": {
+   "label": "DC fix",
+   "kind": "e",
+   "tier": "T3",
+   "id": 327,
+   "range": {
+    "options": [
+     0,
+     1,
+     2
+    ],
+    "default": 2
+   },
+   "active_when": true,
+   "depends_on": [],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 874,
+     "text": "if (d.dcMode === 1 || (d.dcMode === 2 &&"
+    }
+   ],
+   "note": "1 (blocker) filters every output.",
+   "role": "leaf",
+   "gates": [],
+   "probe": {
+    "contexts": 26,
+    "live": 26,
+    "inert": 0,
+    "declaredLive": 26,
+    "declaredInert": 0,
+    "liveInDeclared": 26,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -3,
+    "inertExactlyZero": true
+   }
+  },
+  "xm": {
+   "label": "Cross-mod",
+   "kind": "c",
+   "tier": "T2",
+   "id": 328,
+   "range": {
+    "min": 0,
+    "max": 1,
+    "taper": "pow",
+    "default": 0
+   },
+   "active_when": {
+    "any": [
+     {
+      "pred": "CAR1"
+     },
+     {
+      "pred": "CAR2"
+     }
+    ]
+   },
+   "depends_on": [
+    "N",
+    "b1on",
+    "b2on",
+    "b2sp",
+    "depth",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "mode",
+    "mode2",
+    "w",
+    "w2"
+   ],
+   "side_channels": [
+    "SC_BLOCK_XM"
+   ],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 814,
+     "text": "const xin = xOn ? 0.5*(s.xm*xb[(q + 1) % N] + s.fb*0.5*(mm.y1 + mm.y2)) : 0;"
+    }
+   ],
+   "note": "As Feedback: the carrier modes read it (N 1 reads its own previous output).",
+   "role": "leaf",
+   "gates": [],
+   "probe": {
+    "contexts": 30,
+    "live": 20,
+    "inert": 10,
+    "declaredLive": 17,
+    "declaredInert": 13,
+    "liveInDeclared": 17,
+    "regime": 0,
+    "sideChannelHits": 3,
+    "minLiveDeltaDecade": -4,
+    "inertExactlyZero": true
+   }
+  },
+  "frame": {
+   "label": "Blade frame",
+   "kind": "e",
+   "tier": "T2",
+   "id": 329,
+   "range": {
+    "options": [
+     0,
+     1
+    ],
+    "default": 0
+   },
+   "active_when": {
+    "all": [
+     {
+      "pred": "SW"
+     },
+     {
+      "any": [
+       {
+        "pred": "B1"
+       },
+       {
+        "all": [
+         {
+          "pred": "B2"
+         },
+         {
+          "eq": [
+           "frame2",
+           -1
+          ]
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "depends_on": [
+    "N",
+    "b1on",
+    "b2on",
+    "b2sp",
+    "depth",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "frame2",
+    "w",
+    "w2"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 821,
+     "text": "fr2 = d.frame2 < 0 ? d.frame : d.frame2"
+    }
+   ],
+   "note": "",
+   "role": "leaf",
+   "gates": [],
+   "probe": {
+    "contexts": 28,
+    "live": 21,
+    "inert": 7,
+    "declaredLive": 21,
+    "declaredInert": 7,
+    "liveInDeclared": 21,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -3,
+    "inertExactlyZero": true
+   }
+  },
+  "phaseMode": {
+   "label": "Start phases",
+   "kind": "e",
+   "tier": "T2",
+   "id": "330 + 18",
+   "range": {
+    "options": [
+     2,
+     0,
+     1
+    ],
+    "default": 2
+   },
+   "active_when": true,
+   "depends_on": [],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "docs/design/scalpel-horde-engine.js",
+     "line": 228,
+     "text": "p.retrig = d.phaseMode === 0 ? 0 : 1;"
+    },
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 399,
+     "text": "m.phi = d.phaseMode === 1 ? 0 : Math.random();"
+    }
+   ],
+   "note": "random vs aligned starts; settled (2) plays as aligned in the composed engine but draws one Math.random per member that aligned (1) does not.",
+   "role": "leaf",
+   "gates": [],
+   "probe": {
+    "contexts": 26,
+    "live": 26,
+    "inert": 0,
+    "declaredLive": 26,
+    "declaredInert": 0,
+    "liveInDeclared": 26,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -2,
+    "inertExactlyZero": true
+   }
+  },
+  "panOrder": {
+   "label": "Pan order",
+   "kind": "e",
+   "tier": "T3",
+   "id": 331,
+   "range": {
+    "options": [
+     0,
+     1
+    ],
+    "default": 0
+   },
+   "active_when": {
+    "all": [
+     {
+      "ge": [
+       "N",
+       3
+      ]
+     },
+     {
+      "ne": [
+       "width",
+       0
+      ]
+     }
+    ]
+   },
+   "depends_on": [
+    "N",
+    "width"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 735,
+     "text": "const pos = d.panOrder ? pn*2 : RazorCore.panSlot(N, i);"
+    }
+   ],
+   "note": "N 2: the balanced slots ARE the fan (±1).",
+   "role": "leaf",
+   "gates": [],
+   "probe": {
+    "contexts": 28,
+    "live": 21,
+    "inert": 7,
+    "declaredLive": 21,
+    "declaredInert": 7,
+    "liveInDeclared": 21,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -2,
+    "inertExactlyZero": true
+   }
+  },
+  "law": {
+   "label": "Spread law",
+   "kind": "e",
+   "tier": "T2",
+   "id": 332,
+   "range": {
+    "options": [
+     0,
+     1,
+     4,
+     2,
+     3
+    ],
+    "default": 0
+   },
+   "active_when": {
+    "all": [
+     {
+      "pred": "SW"
+     },
+     {
+      "any": [
+       {
+        "all": [
+         {
+          "all": [
+           {
+            "pred": "SW"
+           },
+           {
+            "pred": "SPR1"
+           }
+          ]
+         },
+         {
+          "ne": [
+           "bspread",
+           0
+          ]
+         }
+        ]
+       },
+       {
+        "all": [
+         {
+          "all": [
+           {
+            "pred": "SW"
+           },
+           {
+            "pred": "SPR1"
+           },
+           {
+            "eq": [
+             "kRule",
+             0
+            ]
+           }
+          ]
+         },
+         {
+          "ne": [
+           "kspread",
+           0
+          ]
+         }
+        ]
+       },
+       {
+        "all": [
+         {
+          "all": [
+           {
+            "pred": "SW"
+           },
+           {
+            "pred": "SPR1"
+           },
+           {
+            "ne": [
+             "kRule",
+             0
+            ]
+           }
+          ]
+         },
+         {
+          "ne": [
+           "kRuleAmt",
+           0
+          ]
+         }
+        ]
+       },
+       {
+        "all": [
+         {
+          "all": [
+           {
+            "pred": "SW"
+           },
+           {
+            "pred": "SPR1"
+           }
+          ]
+         },
+         {
+          "ne": [
+           "wspread",
+           0
+          ]
+         }
+        ]
+       },
+       {
+        "all": [
+         {
+          "all": [
+           {
+            "pred": "SW"
+           },
+           {
+            "pred": "SPR1"
+           }
+          ]
+         },
+         {
+          "ne": [
+           "dspread",
+           0
+          ]
+         }
+        ]
+       },
+       {
+        "all": [
+         {
+          "all": [
+           {
+            "pred": "SW"
+           },
+           {
+            "any": [
+             {
+              "pred": "SHAPE1"
+             },
+             {
+              "all": [
+               {
+                "pred": "SHAPE2"
+               },
+               {
+                "eq": [
+                 "b2sp",
+                 0
+                ]
+               }
+              ]
+             }
+            ]
+           }
+          ]
+         },
+         {
+          "ne": [
+           "mspread",
+           0
+          ]
+         }
+        ]
+       },
+       {
+        "all": [
+         {
+          "all": [
+           {
+            "pred": "SW"
+           },
+           {
+            "any": [
+             {
+              "pred": "FM1"
+             },
+             {
+              "all": [
+               {
+                "pred": "FM2"
+               },
+               {
+                "eq": [
+                 "b2sp",
+                 0
+                ]
+               }
+              ]
+             }
+            ]
+           }
+          ]
+         },
+         {
+          "ne": [
+           "ispread",
+           0
+          ]
+         }
+        ]
+       },
+       {
+        "all": [
+         {
+          "all": [
+           {
+            "pred": "SW"
+           },
+           {
+            "any": [
+             {
+              "pred": "B1"
+             },
+             {
+              "all": [
+               {
+                "pred": "B2"
+               },
+               {
+                "any": [
+                 {
+                  "eq": [
+                   "rot2Follow",
+                   1
+                  ]
+                 },
+                 {
+                  "eq": [
+                   "b2sp",
+                   0
+                  ]
+                 }
+                ]
+               }
+              ]
+             }
+            ]
+           }
+          ]
+         },
+         {
+          "ne": [
+           "rotSpread",
+           0
+          ]
+         }
+        ]
+       },
+       {
+        "all": [
+         {
+          "all": [
+           {
+            "pred": "SW"
+           },
+           {
+            "pred": "SPR2"
+           }
+          ]
+         },
+         {
+          "ne": [
+           "bspread2",
+           0
+          ]
+         }
+        ]
+       },
+       {
+        "all": [
+         {
+          "all": [
+           {
+            "pred": "SW"
+           },
+           {
+            "pred": "SPR2"
+           },
+           {
+            "eq": [
+             "kRule2",
+             0
+            ]
+           }
+          ]
+         },
+         {
+          "ne": [
+           "kspread2",
+           0
+          ]
+         }
+        ]
+       },
+       {
+        "all": [
+         {
+          "all": [
+           {
+            "pred": "SW"
+           },
+           {
+            "pred": "SPR2"
+           },
+           {
+            "ne": [
+             "kRule2",
+             0
+            ]
+           }
+          ]
+         },
+         {
+          "ne": [
+           "kRuleAmt2",
+           0
+          ]
+         }
+        ]
+       },
+       {
+        "all": [
+         {
+          "all": [
+           {
+            "pred": "SW"
+           },
+           {
+            "pred": "SPR2"
+           }
+          ]
+         },
+         {
+          "ne": [
+           "wspread2",
+           0
+          ]
+         }
+        ]
+       },
+       {
+        "all": [
+         {
+          "all": [
+           {
+            "pred": "SW"
+           },
+           {
+            "pred": "SPR2"
+           }
+          ]
+         },
+         {
+          "ne": [
+           "dspread2",
+           0
+          ]
+         }
+        ]
+       },
+       {
+        "all": [
+         {
+          "all": [
+           {
+            "pred": "SW"
+           },
+           {
+            "pred": "SHAPE2"
+           },
+           {
+            "eq": [
+             "b2sp",
+             1
+            ]
+           }
+          ]
+         },
+         {
+          "ne": [
+           "mspread2",
+           0
+          ]
+         }
+        ]
+       },
+       {
+        "all": [
+         {
+          "all": [
+           {
+            "pred": "SW"
+           },
+           {
+            "pred": "FM2"
+           },
+           {
+            "eq": [
+             "b2sp",
+             1
+            ]
+           }
+          ]
+         },
+         {
+          "ne": [
+           "ispread2",
+           0
+          ]
+         }
+        ]
+       },
+       {
+        "all": [
+         {
+          "all": [
+           {
+            "pred": "SW"
+           },
+           {
+            "pred": "B2"
+           },
+           {
+            "eq": [
+             "rot2Follow",
+             0
+            ]
+           },
+           {
+            "eq": [
+             "b2sp",
+             1
+            ]
+           }
+          ]
+         },
+         {
+          "ne": [
+           "rotSpread2",
+           0
+          ]
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "depends_on": [
+    "N",
+    "b1on",
+    "b2on",
+    "b2sp",
+    "bspread",
+    "bspread2",
+    "depth",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "hot",
+    "hot2",
+    "ispread",
+    "ispread2",
+    "kRule",
+    "kRule2",
+    "kRuleAmt",
+    "kRuleAmt2",
+    "kspread",
+    "kspread2",
+    "mode",
+    "mode2",
+    "mspread",
+    "mspread2",
+    "rot2Follow",
+    "rotSpread",
+    "rotSpread2",
+    "w",
+    "w2",
+    "wspread",
+    "wspread2"
+   ],
+   "side_channels": [
+    "SC_DRAWS"
+   ],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 105,
+     "text": "const pn = j => N < 2 ? 0 : law === 0 ? g"
+    },
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 489,
+     "text": "} else if (d.law === 4){"
+    }
+   ],
+   "note": "Heard through any engaged spread.",
+   "role": "switch",
+   "gates": [
+    "driftRate",
+    "kq"
+   ],
+   "probe": {
+    "contexts": 30,
+    "live": 25,
+    "inert": 5,
+    "declaredLive": 24,
+    "declaredInert": 6,
+    "liveInDeclared": 24,
+    "regime": 0,
+    "sideChannelHits": 1,
+    "minLiveDeltaDecade": -3,
+    "inertExactlyZero": true
+   }
+  },
+  "driftRate": {
+   "label": "Spread drift",
+   "kind": "c",
+   "tier": "T3",
+   "id": 333,
+   "range": {
+    "min": 0.02,
+    "max": 12,
+    "taper": "log",
+    "default": 0.5
+   },
+   "active_when": {
+    "all": [
+     {
+      "eq": [
+       "law",
+       4
+      ]
+     },
+     {
+      "all": [
+       {
+        "pred": "SW"
+       },
+       {
+        "any": [
+         {
+          "all": [
+           {
+            "all": [
+             {
+              "pred": "SW"
+             },
+             {
+              "pred": "SPR1"
+             }
+            ]
+           },
+           {
+            "ne": [
+             "bspread",
+             0
+            ]
+           }
+          ]
+         },
+         {
+          "all": [
+           {
+            "all": [
+             {
+              "pred": "SW"
+             },
+             {
+              "pred": "SPR1"
+             },
+             {
+              "eq": [
+               "kRule",
+               0
+              ]
+             }
+            ]
+           },
+           {
+            "ne": [
+             "kspread",
+             0
+            ]
+           }
+          ]
+         },
+         {
+          "all": [
+           {
+            "all": [
+             {
+              "pred": "SW"
+             },
+             {
+              "pred": "SPR1"
+             },
+             {
+              "ne": [
+               "kRule",
+               0
+              ]
+             }
+            ]
+           },
+           {
+            "ne": [
+             "kRuleAmt",
+             0
+            ]
+           }
+          ]
+         },
+         {
+          "all": [
+           {
+            "all": [
+             {
+              "pred": "SW"
+             },
+             {
+              "pred": "SPR1"
+             }
+            ]
+           },
+           {
+            "ne": [
+             "wspread",
+             0
+            ]
+           }
+          ]
+         },
+         {
+          "all": [
+           {
+            "all": [
+             {
+              "pred": "SW"
+             },
+             {
+              "pred": "SPR1"
+             }
+            ]
+           },
+           {
+            "ne": [
+             "dspread",
+             0
+            ]
+           }
+          ]
+         },
+         {
+          "all": [
+           {
+            "all": [
+             {
+              "pred": "SW"
+             },
+             {
+              "any": [
+               {
+                "pred": "SHAPE1"
+               },
+               {
+                "all": [
+                 {
+                  "pred": "SHAPE2"
+                 },
+                 {
+                  "eq": [
+                   "b2sp",
+                   0
+                  ]
+                 }
+                ]
+               }
+              ]
+             }
+            ]
+           },
+           {
+            "ne": [
+             "mspread",
+             0
+            ]
+           }
+          ]
+         },
+         {
+          "all": [
+           {
+            "all": [
+             {
+              "pred": "SW"
+             },
+             {
+              "any": [
+               {
+                "pred": "FM1"
+               },
+               {
+                "all": [
+                 {
+                  "pred": "FM2"
+                 },
+                 {
+                  "eq": [
+                   "b2sp",
+                   0
+                  ]
+                 }
+                ]
+               }
+              ]
+             }
+            ]
+           },
+           {
+            "ne": [
+             "ispread",
+             0
+            ]
+           }
+          ]
+         },
+         {
+          "all": [
+           {
+            "all": [
+             {
+              "pred": "SW"
+             },
+             {
+              "any": [
+               {
+                "pred": "B1"
+               },
+               {
+                "all": [
+                 {
+                  "pred": "B2"
+                 },
+                 {
+                  "any": [
+                   {
+                    "eq": [
+                     "rot2Follow",
+                     1
+                    ]
+                   },
+                   {
+                    "eq": [
+                     "b2sp",
+                     0
+                    ]
+                   }
+                  ]
+                 }
+                ]
+               }
+              ]
+             }
+            ]
+           },
+           {
+            "ne": [
+             "rotSpread",
+             0
+            ]
+           }
+          ]
+         },
+         {
+          "all": [
+           {
+            "all": [
+             {
+              "pred": "SW"
+             },
+             {
+              "pred": "SPR2"
+             }
+            ]
+           },
+           {
+            "ne": [
+             "bspread2",
+             0
+            ]
+           }
+          ]
+         },
+         {
+          "all": [
+           {
+            "all": [
+             {
+              "pred": "SW"
+             },
+             {
+              "pred": "SPR2"
+             },
+             {
+              "eq": [
+               "kRule2",
+               0
+              ]
+             }
+            ]
+           },
+           {
+            "ne": [
+             "kspread2",
+             0
+            ]
+           }
+          ]
+         },
+         {
+          "all": [
+           {
+            "all": [
+             {
+              "pred": "SW"
+             },
+             {
+              "pred": "SPR2"
+             },
+             {
+              "ne": [
+               "kRule2",
+               0
+              ]
+             }
+            ]
+           },
+           {
+            "ne": [
+             "kRuleAmt2",
+             0
+            ]
+           }
+          ]
+         },
+         {
+          "all": [
+           {
+            "all": [
+             {
+              "pred": "SW"
+             },
+             {
+              "pred": "SPR2"
+             }
+            ]
+           },
+           {
+            "ne": [
+             "wspread2",
+             0
+            ]
+           }
+          ]
+         },
+         {
+          "all": [
+           {
+            "all": [
+             {
+              "pred": "SW"
+             },
+             {
+              "pred": "SPR2"
+             }
+            ]
+           },
+           {
+            "ne": [
+             "dspread2",
+             0
+            ]
+           }
+          ]
+         },
+         {
+          "all": [
+           {
+            "all": [
+             {
+              "pred": "SW"
+             },
+             {
+              "pred": "SHAPE2"
+             },
+             {
+              "eq": [
+               "b2sp",
+               1
+              ]
+             }
+            ]
+           },
+           {
+            "ne": [
+             "mspread2",
+             0
+            ]
+           }
+          ]
+         },
+         {
+          "all": [
+           {
+            "all": [
+             {
+              "pred": "SW"
+             },
+             {
+              "pred": "FM2"
+             },
+             {
+              "eq": [
+               "b2sp",
+               1
+              ]
+             }
+            ]
+           },
+           {
+            "ne": [
+             "ispread2",
+             0
+            ]
+           }
+          ]
+         },
+         {
+          "all": [
+           {
+            "all": [
+             {
+              "pred": "SW"
+             },
+             {
+              "pred": "B2"
+             },
+             {
+              "eq": [
+               "rot2Follow",
+               0
+              ]
+             },
+             {
+              "eq": [
+               "b2sp",
+               1
+              ]
+             }
+            ]
+           },
+           {
+            "ne": [
+             "rotSpread2",
+             0
+            ]
+           }
+          ]
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "depends_on": [
+    "N",
+    "b1on",
+    "b2on",
+    "b2sp",
+    "bspread",
+    "bspread2",
+    "depth",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "hot",
+    "hot2",
+    "ispread",
+    "ispread2",
+    "kRule",
+    "kRule2",
+    "kRuleAmt",
+    "kRuleAmt2",
+    "kspread",
+    "kspread2",
+    "law",
+    "mode",
+    "mode2",
+    "mspread",
+    "mspread2",
+    "rot2Follow",
+    "rotSpread",
+    "rotSpread2",
+    "w",
+    "w2",
+    "wspread",
+    "wspread2"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 491,
+     "text": "const th = 6.283185307179586*s.driftRate"
+    }
+   ],
+   "note": "",
+   "role": "leaf",
+   "gates": [],
+   "probe": {
+    "contexts": 28,
+    "live": 6,
+    "inert": 22,
+    "declaredLive": 6,
+    "declaredInert": 22,
+    "liveInDeclared": 6,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -1,
+    "inertExactlyZero": true
+   }
+  },
+  "bspread": {
+   "label": "Pos spread",
+   "kind": "c",
+   "tier": "T2",
+   "id": 334,
+   "range": {
+    "min": -1,
+    "max": 1,
+    "taper": "lin",
+    "default": 0
+   },
+   "active_when": {
+    "all": [
+     {
+      "pred": "SW"
+     },
+     {
+      "pred": "SPR1"
+     }
+    ]
+   },
+   "depends_on": [
+    "N",
+    "b1on",
+    "b2on",
+    "b2sp",
+    "depth",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "w",
+    "w2"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 106,
+     "text": "m.cOff = s.bspread*pn(0);"
+    }
+   ],
+   "note": "",
+   "role": "gate",
+   "gates": [
+    "b2sp",
+    "driftRate",
+    "law"
+   ],
+   "probe": {
+    "contexts": 28,
+    "live": 23,
+    "inert": 5,
+    "declaredLive": 23,
+    "declaredInert": 5,
+    "liveInDeclared": 23,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -3,
+    "inertExactlyZero": true
+   }
+  },
+  "kspread": {
+   "label": "Cut spread",
+   "kind": "c",
+   "tier": "T2",
+   "id": 335,
+   "range": {
+    "min": -24,
+    "max": 24,
+    "taper": "lin",
+    "default": 0
+   },
+   "active_when": {
+    "all": [
+     {
+      "pred": "SW"
+     },
+     {
+      "pred": "SPR1"
+     },
+     {
+      "eq": [
+       "kRule",
+       0
+      ]
+     }
+    ]
+   },
+   "depends_on": [
+    "N",
+    "b1on",
+    "b2on",
+    "b2sp",
+    "depth",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "kRule",
+    "w",
+    "w2"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 148,
+     "text": "let ko = (q ? Math.round(spread) : spread)*pv;"
+    }
+   ],
+   "note": "",
+   "role": "gate",
+   "gates": [
+    "b2sp",
+    "driftRate",
+    "kRule",
+    "kq",
+    "law"
+   ],
+   "probe": {
+    "contexts": 28,
+    "live": 5,
+    "inert": 23,
+    "declaredLive": 5,
+    "declaredInert": 23,
+    "liveInDeclared": 5,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -1,
+    "inertExactlyZero": true
+   }
+  },
+  "kRule": {
+   "label": "Cut rule",
+   "kind": "e",
+   "tier": "T2",
+   "id": 336,
+   "range": {
+    "options": [
+     0,
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8,
+     9
+    ],
+    "default": 0
+   },
+   "active_when": {
+    "all": [
+     {
+      "pred": "SW"
+     },
+     {
+      "pred": "SPR1"
+     },
+     {
+      "any": [
+       {
+        "ne": [
+         "kspread",
+         0
+        ]
+       },
+       {
+        "ne": [
+         "kRuleAmt",
+         0
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "depends_on": [
+    "N",
+    "b1on",
+    "b2on",
+    "b2sp",
+    "depth",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "kRuleAmt",
+    "kspread",
+    "w",
+    "w2"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 147,
+     "text": "if (!rule){"
+    }
+   ],
+   "note": "Even vs a rule: identical only when Cut spread and Rule depth are both 0.",
+   "role": "switch",
+   "gates": [
+    "b2sp",
+    "driftRate",
+    "kCustom",
+    "kRuleAmt",
+    "kq",
+    "kspread",
+    "law"
+   ],
+   "probe": {
+    "contexts": 28,
+    "live": 23,
+    "inert": 5,
+    "declaredLive": 23,
+    "declaredInert": 5,
+    "liveInDeclared": 23,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -5,
+    "inertExactlyZero": true
+   }
+  },
+  "kRuleAmt": {
+   "label": "Rule depth",
+   "kind": "c",
+   "tier": "T2",
+   "id": 337,
+   "range": {
+    "min": 0,
+    "max": 1,
+    "taper": "lin",
+    "default": 1
+   },
+   "active_when": {
+    "all": [
+     {
+      "pred": "SW"
+     },
+     {
+      "pred": "SPR1"
+     },
+     {
+      "ne": [
+       "kRule",
+       0
+      ]
+     }
+    ]
+   },
+   "depends_on": [
+    "N",
+    "b1on",
+    "b2on",
+    "b2sp",
+    "depth",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "kRule",
+    "w",
+    "w2"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 158,
+     "text": "out[1] = Math.pow(r, amt);"
+    }
+   ],
+   "note": "",
+   "role": "gate",
+   "gates": [
+    "b2sp",
+    "driftRate",
+    "kCustom",
+    "kRule",
+    "kq",
+    "law"
+   ],
+   "probe": {
+    "contexts": 28,
+    "live": 20,
+    "inert": 8,
+    "declaredLive": 20,
+    "declaredInert": 8,
+    "liveInDeclared": 20,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -4,
+    "inertExactlyZero": true
+   }
+  },
+  "kq": {
+   "label": "Quantize",
+   "kind": "e",
+   "tier": "T3",
+   "id": 338,
+   "range": {
+    "options": [
+     0,
+     1
+    ],
+    "default": 0
+   },
+   "active_when": {
+    "all": [
+     {
+      "pred": "SW"
+     },
+     {
+      "any": [
+       {
+        "all": [
+         {
+          "pred": "SPR1"
+         },
+         {
+          "any": [
+           {
+            "all": [
+             {
+              "eq": [
+               "kRule",
+               0
+              ]
+             },
+             {
+              "ne": [
+               "kspread",
+               0
+              ]
+             }
+            ]
+           },
+           {
+            "all": [
+             {
+              "ne": [
+               "kRule",
+               0
+              ]
+             },
+             {
+              "ne": [
+               "kRuleAmt",
+               0
+              ]
+             },
+             {
+              "in": [
+               "law",
+               [
+                1,
+                3,
+                4
+               ]
+              ]
+             }
+            ]
+           }
+          ]
+         }
+        ]
+       },
+       {
+        "all": [
+         {
+          "pred": "SPR2"
+         },
+         {
+          "any": [
+           {
+            "all": [
+             {
+              "eq": [
+               "kRule2",
+               0
+              ]
+             },
+             {
+              "ne": [
+               "kspread2",
+               0
+              ]
+             }
+            ]
+           },
+           {
+            "all": [
+             {
+              "ne": [
+               "kRule2",
+               0
+              ]
+             },
+             {
+              "ne": [
+               "kRuleAmt2",
+               0
+              ]
+             },
+             {
+              "in": [
+               "law",
+               [
+                1,
+                3,
+                4
+               ]
+              ]
+             }
+            ]
+           }
+          ]
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "depends_on": [
+    "N",
+    "b1on",
+    "b2on",
+    "b2sp",
+    "depth",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "kRule",
+    "kRule2",
+    "kRuleAmt",
+    "kRuleAmt2",
+    "kspread",
+    "kspread2",
+    "law",
+    "w",
+    "w2"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 148,
+     "text": "let ko = (q ? Math.round(spread) : spread)*pv;"
+    },
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 156,
+     "text": "if (q) r = L[Math.round(x)];"
+    }
+   ],
+   "note": "Under a rule, gradient and alternate laws already land on exact slots, so snapping changes nothing there.",
+   "role": "leaf",
+   "gates": [],
+   "probe": {
+    "contexts": 28,
+    "live": 15,
+    "inert": 13,
+    "declaredLive": 15,
+    "declaredInert": 13,
+    "liveInDeclared": 15,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -6,
+    "inertExactlyZero": true
+   }
+  },
+  "wspread": {
+   "label": "Width spread",
+   "kind": "c",
+   "tier": "T3",
+   "id": 339,
+   "range": {
+    "min": -1,
+    "max": 1,
+    "taper": "lin",
+    "default": 0
+   },
+   "active_when": {
+    "all": [
+     {
+      "pred": "SW"
+     },
+     {
+      "pred": "SPR1"
+     }
+    ]
+   },
+   "depends_on": [
+    "N",
+    "b1on",
+    "b2on",
+    "b2sp",
+    "depth",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "w",
+    "w2"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 112,
+     "text": "m.wMul = Math.pow(2, s.wspread*4*pn(3));"
+    }
+   ],
+   "note": "",
+   "role": "gate",
+   "gates": [
+    "b2sp",
+    "driftRate",
+    "law"
+   ],
+   "probe": {
+    "contexts": 28,
+    "live": 23,
+    "inert": 5,
+    "declaredLive": 23,
+    "declaredInert": 5,
+    "liveInDeclared": 23,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -4,
+    "inertExactlyZero": true
+   }
+  },
+  "dspread": {
+   "label": "Depth spread",
+   "kind": "c",
+   "tier": "T3",
+   "id": 340,
+   "range": {
+    "min": -1,
+    "max": 1,
+    "taper": "lin",
+    "default": 0
+   },
+   "active_when": {
+    "all": [
+     {
+      "pred": "SW"
+     },
+     {
+      "pred": "SPR1"
+     }
+    ]
+   },
+   "depends_on": [
+    "N",
+    "b1on",
+    "b2on",
+    "b2sp",
+    "depth",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "w",
+    "w2"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 113,
+     "text": "m.dAdd = s.dspread*2*pn(4);"
+    }
+   ],
+   "note": "",
+   "role": "gate",
+   "gates": [
+    "I",
+    "I2",
+    "aa",
+    "b1on",
+    "b2env",
+    "b2fm",
+    "b2mix",
+    "b2on",
+    "b2order",
+    "b2sp",
+    "benvA",
+    "benvA2",
+    "benvD",
+    "benvD2",
+    "benvK",
+    "benvK2",
+    "benvVel",
+    "benvVel2",
+    "benvW",
+    "benvW2",
+    "bspread",
+    "bspread2",
+    "c",
+    "c2",
+    "colB",
+    "colK",
+    "driftRate",
+    "dspread",
+    "dspread2",
+    "fb",
+    "fmType",
+    "fmType2",
+    "frame",
+    "frame2",
+    "hard",
+    "hard2",
+    "hot",
+    "hot2",
+    "ispread",
+    "ispread2",
+    "k",
+    "k2",
+    "kCustom",
+    "kHz",
+    "kHz2",
+    "kRule",
+    "kRule2",
+    "kRuleAmt",
+    "kRuleAmt2",
+    "kq",
+    "kspread",
+    "kspread2",
+    "law",
+    "lock",
+    "lock2",
+    "m",
+    "m2",
+    "mHz",
+    "mHz2",
+    "mUnit",
+    "mUnit2",
+    "mirror",
+    "mirror2",
+    "mode",
+    "mode2",
+    "morph",
+    "morph2",
+    "mshape",
+    "mshape2",
+    "mspread",
+    "mspread2",
+    "rot2Follow",
+    "rotRate",
+    "rotRate2",
+    "rotSpread",
+    "rotSpread2",
+    "rotSync",
+    "wspread",
+    "wspread2",
+    "xm"
+   ],
+   "probe": {
+    "contexts": 28,
+    "live": 23,
+    "inert": 5,
+    "declaredLive": 23,
+    "declaredInert": 5,
+    "liveInDeclared": 23,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -3,
+    "inertExactlyZero": true
+   }
+  },
+  "mspread": {
+   "label": "Shape spread",
+   "kind": "c",
+   "tier": "T3",
+   "id": 341,
+   "range": {
+    "min": -1,
+    "max": 1,
+    "taper": "lin",
+    "default": 0
+   },
+   "active_when": {
+    "all": [
+     {
+      "pred": "SW"
+     },
+     {
+      "any": [
+       {
+        "pred": "SHAPE1"
+       },
+       {
+        "all": [
+         {
+          "pred": "SHAPE2"
+         },
+         {
+          "eq": [
+           "b2sp",
+           0
+          ]
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "depends_on": [
+    "N",
+    "b1on",
+    "b2on",
+    "b2sp",
+    "depth",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "hot",
+    "hot2",
+    "mode",
+    "mode2",
+    "w",
+    "w2"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 115,
+     "text": "m.mor = Math.min(1, Math.max(0, s.morph + s.mspread*2*pn(6)));"
+    }
+   ],
+   "note": "",
+   "role": "gate",
+   "gates": [
+    "b2sp",
+    "driftRate",
+    "law"
+   ],
+   "probe": {
+    "contexts": 28,
+    "live": 5,
+    "inert": 23,
+    "declaredLive": 5,
+    "declaredInert": 23,
+    "liveInDeclared": 5,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -5,
+    "inertExactlyZero": true
+   }
+  },
+  "ispread": {
+   "label": "FM idx spread",
+   "kind": "c",
+   "tier": "T3",
+   "id": 342,
+   "range": {
+    "min": -1,
+    "max": 1,
+    "taper": "lin",
+    "default": 0
+   },
+   "active_when": {
+    "all": [
+     {
+      "pred": "SW"
+     },
+     {
+      "any": [
+       {
+        "pred": "FM1"
+       },
+       {
+        "all": [
+         {
+          "pred": "FM2"
+         },
+         {
+          "eq": [
+           "b2sp",
+           0
+          ]
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "depends_on": [
+    "N",
+    "b1on",
+    "b2on",
+    "b2sp",
+    "depth",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "mode",
+    "mode2",
+    "w",
+    "w2"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 114,
+     "text": "m.iMul = Math.pow(2, s.ispread*4*pn(5));"
+    }
+   ],
+   "note": "",
+   "role": "gate",
+   "gates": [
+    "b2sp",
+    "driftRate",
+    "law"
+   ],
+   "probe": {
+    "contexts": 28,
+    "live": 8,
+    "inert": 20,
+    "declaredLive": 8,
+    "declaredInert": 20,
+    "liveInDeclared": 8,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -4,
+    "inertExactlyZero": true
+   }
+  },
+  "rotSpread": {
+   "label": "Rotate spread",
+   "kind": "c",
+   "tier": "T3",
+   "id": 343,
+   "range": {
+    "min": -2,
+    "max": 2,
+    "taper": "bpow",
+    "default": 0
+   },
+   "active_when": {
+    "all": [
+     {
+      "pred": "SW"
+     },
+     {
+      "any": [
+       {
+        "pred": "B1"
+       },
+       {
+        "all": [
+         {
+          "pred": "B2"
+         },
+         {
+          "any": [
+           {
+            "eq": [
+             "rot2Follow",
+             1
+            ]
+           },
+           {
+            "eq": [
+             "b2sp",
+             0
+            ]
+           }
+          ]
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "depends_on": [
+    "N",
+    "b1on",
+    "b2on",
+    "b2sp",
+    "depth",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "rot2Follow",
+    "w",
+    "w2"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 110,
+     "text": "m.rotOff = s.rotSpread*2*pn(2);"
+    }
+   ],
+   "note": "",
+   "role": "gate",
+   "gates": [
+    "b2sp",
+    "driftRate",
+    "law",
+    "rot2Follow",
+    "rotSync"
+   ],
+   "probe": {
+    "contexts": 28,
+    "live": 24,
+    "inert": 4,
+    "declaredLive": 24,
+    "declaredInert": 4,
+    "liveInDeclared": 24,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -4,
+    "inertExactlyZero": true
+   }
+  },
+  "kCustom": {
+   "label": "Ratios",
+   "kind": "s",
+   "tier": "T3",
+   "id": "state",
+   "range": {
+    "options": null,
+    "default": "1, 5/4, 3/2"
+   },
+   "active_when": {
+    "any": [
+     {
+      "all": [
+       {
+        "pred": "SW"
+       },
+       {
+        "pred": "SPR1"
+       },
+       {
+        "eq": [
+         "kRule",
+         9
+        ]
+       },
+       {
+        "ne": [
+         "kRuleAmt",
+         0
+        ]
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "pred": "SW"
+       },
+       {
+        "pred": "SPR2"
+       },
+       {
+        "eq": [
+         "kRule2",
+         9
+        ]
+       },
+       {
+        "ne": [
+         "kRuleAmt2",
+         0
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "depends_on": [
+    "N",
+    "b1on",
+    "b2on",
+    "b2sp",
+    "depth",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "kRule",
+    "kRule2",
+    "kRuleAmt",
+    "kRuleAmt2",
+    "w",
+    "w2"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 97,
+     "text": "default: L.push(CU ? CU[j % CU.length]*Math.pow(2, Math.floor(j/CU.length)) : 1);"
+    }
+   ],
+   "note": "",
+   "role": "leaf",
+   "gates": [],
+   "probe": {
+    "contexts": 28,
+    "live": 3,
+    "inert": 25,
+    "declaredLive": 3,
+    "declaredInert": 25,
+    "liveInDeclared": 3,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -1,
+    "inertExactlyZero": true
+   }
+  },
+  "b2on": {
+   "label": "Blade 2",
+   "kind": "t",
+   "tier": "T1",
+   "id": 344,
+   "range": {
+    "options": null,
+    "default": 0
+   },
+   "active_when": {
+    "all": [
+     {
+      "ge": [
+       "w2",
+       0.004
+      ]
+     },
+     {
+      "any": [
+       {
+        "gt": [
+         "depth2",
+         0
+        ]
+       },
+       {
+        "all": [
+         {
+          "pred": "SW"
+         },
+         {
+          "any": [
+           {
+            "all": [
+             {
+              "eq": [
+               "b2sp",
+               0
+              ]
+             },
+             {
+              "ne": [
+               "dspread",
+               0
+              ]
+             }
+            ]
+           },
+           {
+            "all": [
+             {
+              "eq": [
+               "b2sp",
+               1
+              ]
+             },
+             {
+              "ne": [
+               "dspread2",
+               0
+              ]
+             }
+            ]
+           }
+          ]
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "depends_on": [
+    "N",
+    "b2sp",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "w2"
+   ],
+   "side_channels": [
+    "SC_BLOCK_B2ON",
+    "SC_DCPAIR_B2ON"
+   ],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 665,
+     "text": "const bx = s.b2on ? m.bx : null;"
+    }
+   ],
+   "note": "Heard when blade 2 would cut and sound.",
+   "role": "switch",
+   "gates": [
+    "I",
+    "I2",
+    "aa",
+    "b2env",
+    "b2fm",
+    "b2mix",
+    "b2order",
+    "b2sp",
+    "benvA",
+    "benvA2",
+    "benvD",
+    "benvD2",
+    "benvK",
+    "benvK2",
+    "benvVel",
+    "benvVel2",
+    "benvW",
+    "benvW2",
+    "bspread",
+    "bspread2",
+    "c2",
+    "colB",
+    "colK",
+    "depth2",
+    "driftRate",
+    "dspread",
+    "dspread2",
+    "fb",
+    "fmType",
+    "fmType2",
+    "frame",
+    "frame2",
+    "hard2",
+    "hot2",
+    "ispread",
+    "ispread2",
+    "k2",
+    "kCustom",
+    "kHz2",
+    "kRule",
+    "kRule2",
+    "kRuleAmt",
+    "kRuleAmt2",
+    "kq",
+    "kspread",
+    "kspread2",
+    "law",
+    "lock",
+    "lock2",
+    "m",
+    "m2",
+    "mHz",
+    "mHz2",
+    "mUnit",
+    "mUnit2",
+    "mirror",
+    "mirror2",
+    "mode2",
+    "morph2",
+    "mshape",
+    "mshape2",
+    "mspread",
+    "mspread2",
+    "rot2Follow",
+    "rotRate",
+    "rotRate2",
+    "rotSpread",
+    "rotSpread2",
+    "rotSync",
+    "w2",
+    "wspread",
+    "wspread2",
+    "xm"
+   ],
+   "probe": {
+    "contexts": 32,
+    "live": 28,
+    "inert": 4,
+    "declaredLive": 23,
+    "declaredInert": 9,
+    "liveInDeclared": 23,
+    "regime": 0,
+    "sideChannelHits": 5,
+    "minLiveDeltaDecade": -4,
+    "inertExactlyZero": false
+   }
+  },
+  "mode2": {
+   "label": "Mode",
+   "kind": "e",
+   "tier": "T1",
+   "id": 345,
+   "range": {
+    "options": [
+     0,
+     1,
+     2,
+     3,
+     4,
+     5,
+     6
+    ],
+    "default": 4
+   },
+   "active_when": {
+    "pred": "B2"
+   },
+   "depends_on": [
+    "N",
+    "b2on",
+    "b2sp",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "w2"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 308,
+     "text": "g.mode = s.mode2; g.hot = s.hot2;"
+    }
+   ],
+   "note": "",
+   "role": "switch",
+   "gates": [
+    "I",
+    "I2",
+    "aa",
+    "b2fm",
+    "b2order",
+    "b2sp",
+    "colB",
+    "colK",
+    "driftRate",
+    "fb",
+    "fmType",
+    "fmType2",
+    "hot2",
+    "ispread",
+    "ispread2",
+    "law",
+    "m",
+    "m2",
+    "mHz",
+    "mHz2",
+    "mUnit",
+    "mUnit2",
+    "morph2",
+    "mshape",
+    "mshape2",
+    "mspread",
+    "mspread2",
+    "xm"
+   ],
+   "probe": {
+    "contexts": 28,
+    "live": 17,
+    "inert": 11,
+    "declaredLive": 17,
+    "declaredInert": 11,
+    "liveInDeclared": 17,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -4,
+    "inertExactlyZero": true
+   }
+  },
+  "hot2": {
+   "label": "Blade wave",
+   "kind": "e",
+   "tier": "T1",
+   "id": 346,
+   "range": {
+    "options": [
+     0,
+     1,
+     2,
+     4,
+     3,
+     6
+    ],
+    "default": 2
+   },
+   "active_when": {
+    "pred": "CAR2"
+   },
+   "depends_on": [
+    "N",
+    "b2on",
+    "b2sp",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "mode2",
+    "w2"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 308,
+     "text": "g.mode = s.mode2; g.hot = s.hot2;"
+    }
+   ],
+   "note": "",
+   "role": "switch",
+   "gates": [
+    "aa",
+    "b2sp",
+    "driftRate",
+    "law",
+    "morph2",
+    "mspread",
+    "mspread2"
+   ],
+   "probe": {
+    "contexts": 28,
+    "live": 7,
+    "inert": 21,
+    "declaredLive": 7,
+    "declaredInert": 21,
+    "liveInDeclared": 7,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -4,
+    "inertExactlyZero": true
+   }
+  },
+  "w2": {
+   "label": "Width",
+   "kind": "c",
+   "tier": "T1",
+   "id": 347,
+   "range": {
+    "min": 0,
+    "max": 1,
+    "taper": "wlog",
+    "default": 0.2
+   },
+   "active_when": {
+    "eq": [
+     "b2on",
+     1
+    ]
+   },
+   "depends_on": [
+    "b2on"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 834,
+     "text": "RazorCore.fillG2(bx.g, s, s.w2 < 0.004 ? s.w2"
+    }
+   ],
+   "note": "",
+   "role": "gate",
+   "gates": [
+    "I",
+    "I2",
+    "aa",
+    "b2env",
+    "b2fm",
+    "b2mix",
+    "b2on",
+    "b2order",
+    "b2sp",
+    "benvA",
+    "benvA2",
+    "benvD",
+    "benvD2",
+    "benvK",
+    "benvK2",
+    "benvVel",
+    "benvVel2",
+    "benvW",
+    "benvW2",
+    "bspread",
+    "bspread2",
+    "c2",
+    "colB",
+    "colK",
+    "depth2",
+    "driftRate",
+    "dspread",
+    "dspread2",
+    "fb",
+    "fmType",
+    "fmType2",
+    "frame",
+    "frame2",
+    "hard2",
+    "hot2",
+    "ispread",
+    "ispread2",
+    "k2",
+    "kCustom",
+    "kHz2",
+    "kRule",
+    "kRule2",
+    "kRuleAmt",
+    "kRuleAmt2",
+    "kq",
+    "kspread",
+    "kspread2",
+    "law",
+    "lock",
+    "lock2",
+    "m",
+    "m2",
+    "mHz",
+    "mHz2",
+    "mUnit",
+    "mUnit2",
+    "mirror",
+    "mirror2",
+    "mode2",
+    "morph2",
+    "mshape",
+    "mshape2",
+    "mspread",
+    "mspread2",
+    "rot2Follow",
+    "rotRate",
+    "rotRate2",
+    "rotSpread",
+    "rotSpread2",
+    "rotSync",
+    "wspread",
+    "wspread2",
+    "xm"
+   ],
+   "probe": {
+    "contexts": 28,
+    "live": 18,
+    "inert": 10,
+    "declaredLive": 18,
+    "declaredInert": 10,
+    "liveInDeclared": 18,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -3,
+    "inertExactlyZero": true
+   }
+  },
+  "k2": {
+   "label": "Cut rate",
+   "kind": "c",
+   "tier": "T1",
+   "id": 348,
+   "range": {
+    "min": 1,
+    "max": 64,
+    "taper": "log",
+    "default": 3
+   },
+   "active_when": {
+    "all": [
+     {
+      "pred": "B2"
+     },
+     {
+      "not": {
+       "pred": "L2HZ"
+      }
+     }
+    ]
+   },
+   "depends_on": [
+    "N",
+    "b2on",
+    "b2sp",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "lock",
+    "lock2",
+    "w2"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 832,
+     "text": "bx.k = Math.min((lock2 === 2 ?"
+    }
+   ],
+   "note": "",
+   "role": "leaf",
+   "gates": [],
+   "probe": {
+    "contexts": 28,
+    "live": 10,
+    "inert": 18,
+    "declaredLive": 10,
+    "declaredInert": 18,
+    "liveInDeclared": 10,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -4,
+    "inertExactlyZero": true
+   }
+  },
+  "kHz2": {
+   "label": "Cut rate",
+   "kind": "c",
+   "tier": "T1",
+   "id": 349,
+   "range": {
+    "min": 20,
+    "max": 12000,
+    "taper": "log",
+    "default": 800
+   },
+   "active_when": {
+    "pred": "L2HZ"
+   },
+   "depends_on": [
+    "N",
+    "b2on",
+    "b2sp",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "lock",
+    "lock2",
+    "w2"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 832,
+     "text": "bx.k = Math.min((lock2 === 2 ?"
+    }
+   ],
+   "note": "",
+   "role": "leaf",
+   "gates": [],
+   "probe": {
+    "contexts": 28,
+    "live": 9,
+    "inert": 19,
+    "declaredLive": 9,
+    "declaredInert": 19,
+    "liveInDeclared": 9,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -3,
+    "inertExactlyZero": true
+   }
+  },
+  "lock2": {
+   "label": "Cut rate in",
+   "kind": "e",
+   "tier": "T2",
+   "id": 350,
+   "range": {
+    "options": [
+     -1,
+     0,
+     1,
+     2
+    ],
+    "default": -1
+   },
+   "active_when": {
+    "pred": "B2"
+   },
+   "depends_on": [
+    "N",
+    "b2on",
+    "b2sp",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "w2"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 309,
+     "text": "g.lock = s.lock2 < 0 ? s.lock : s.lock2;"
+    }
+   ],
+   "note": "",
+   "role": "switch",
+   "gates": [
+    "k2",
+    "kHz2",
+    "lock"
+   ],
+   "probe": {
+    "contexts": 28,
+    "live": 17,
+    "inert": 11,
+    "declaredLive": 17,
+    "declaredInert": 11,
+    "liveInDeclared": 17,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -4,
+    "inertExactlyZero": true
+   }
+  },
+  "c2": {
+   "label": "Position",
+   "kind": "c",
+   "tier": "T1",
+   "id": 351,
+   "range": {
+    "min": 0,
+    "max": 1,
+    "taper": "circ",
+    "default": 0.35
+   },
+   "active_when": {
+    "pred": "B2"
+   },
+   "depends_on": [
+    "N",
+    "b2on",
+    "b2sp",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "w2"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 830,
+     "text": "bx.c = s.c2 + rot2All + mm.cOff2 + (fr2 ? mm.lead : 0);"
+    }
+   ],
+   "note": "",
+   "role": "leaf",
+   "gates": [],
+   "probe": {
+    "contexts": 28,
+    "live": 17,
+    "inert": 11,
+    "declaredLive": 17,
+    "declaredInert": 11,
+    "liveInDeclared": 17,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -4,
+    "inertExactlyZero": true
+   }
+  },
+  "hard2": {
+   "label": "Edges",
+   "kind": "c",
+   "tier": "T1",
+   "id": 352,
+   "range": {
+    "min": 0,
+    "max": 1,
+    "taper": "lin",
+    "default": 0
+   },
+   "active_when": {
+    "pred": "B2"
+   },
+   "depends_on": [
+    "N",
+    "b2on",
+    "b2sp",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "w2"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 308,
+     "text": "g.hard = s.hard2;"
+    }
+   ],
+   "note": "",
+   "role": "gate",
+   "gates": [
+    "aa"
+   ],
+   "probe": {
+    "contexts": 28,
+    "live": 17,
+    "inert": 11,
+    "declaredLive": 17,
+    "declaredInert": 11,
+    "liveInDeclared": 17,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -4,
+    "inertExactlyZero": true
+   }
+  },
+  "depth2": {
+   "label": "Depth",
+   "kind": "c",
+   "tier": "T1",
+   "id": 353,
+   "range": {
+    "min": 0,
+    "max": 1,
+    "taper": "lin",
+    "default": 1
+   },
+   "active_when": {
+    "pred": "B2CUT"
+   },
+   "depends_on": [
+    "b2on",
+    "w2"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 834,
+     "text": "Math.min(1, Math.max(0, s.depth2 + mm.dAdd2))"
+    }
+   ],
+   "note": "",
+   "role": "gate",
+   "gates": [
+    "I",
+    "I2",
+    "aa",
+    "b2env",
+    "b2fm",
+    "b2mix",
+    "b2on",
+    "b2order",
+    "b2sp",
+    "benvA",
+    "benvA2",
+    "benvD",
+    "benvD2",
+    "benvK",
+    "benvK2",
+    "benvVel",
+    "benvVel2",
+    "benvW",
+    "benvW2",
+    "bspread",
+    "bspread2",
+    "c2",
+    "colB",
+    "colK",
+    "driftRate",
+    "dspread",
+    "dspread2",
+    "fb",
+    "fmType",
+    "fmType2",
+    "frame",
+    "frame2",
+    "hard2",
+    "hot2",
+    "ispread",
+    "ispread2",
+    "k2",
+    "kCustom",
+    "kHz2",
+    "kRule",
+    "kRule2",
+    "kRuleAmt",
+    "kRuleAmt2",
+    "kq",
+    "kspread",
+    "kspread2",
+    "law",
+    "lock",
+    "lock2",
+    "m",
+    "m2",
+    "mHz",
+    "mHz2",
+    "mUnit",
+    "mUnit2",
+    "mirror",
+    "mirror2",
+    "mode2",
+    "morph2",
+    "mshape",
+    "mshape2",
+    "mspread",
+    "mspread2",
+    "rot2Follow",
+    "rotRate",
+    "rotRate2",
+    "rotSpread",
+    "rotSpread2",
+    "rotSync",
+    "wspread",
+    "wspread2",
+    "xm"
+   ],
+   "probe": {
+    "contexts": 28,
+    "live": 17,
+    "inert": 11,
+    "declaredLive": 17,
+    "declaredInert": 11,
+    "liveInDeclared": 17,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -4,
+    "inertExactlyZero": true
+   }
+  },
+  "mirror2": {
+   "label": "Mirror",
+   "kind": "e",
+   "tier": "T2",
+   "id": 354,
+   "range": {
+    "options": [
+     -1,
+     0,
+     1,
+     2,
+     3
+    ],
+    "default": -1
+   },
+   "active_when": {
+    "pred": "B2"
+   },
+   "depends_on": [
+    "N",
+    "b2on",
+    "b2sp",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "w2"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 309,
+     "text": "g.mirror = s.mirror2 < 0 ? s.mirror : s.mirror2;"
+    }
+   ],
+   "note": "",
+   "role": "switch",
+   "gates": [
+    "aa",
+    "mirror"
+   ],
+   "probe": {
+    "contexts": 28,
+    "live": 17,
+    "inert": 11,
+    "declaredLive": 17,
+    "declaredInert": 11,
+    "liveInDeclared": 17,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -4,
+    "inertExactlyZero": true
+   }
+  },
+  "morph2": {
+   "label": "Shape",
+   "kind": "c",
+   "tier": "T2",
+   "id": 355,
+   "range": {
+    "min": 0,
+    "max": 1,
+    "taper": "lin",
+    "default": 0.5
+   },
+   "active_when": {
+    "pred": "SHAPE2"
+   },
+   "depends_on": [
+    "N",
+    "b2on",
+    "b2sp",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "hot2",
+    "mode2",
+    "w2"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 135,
+     "text": "const mor2 = Math.min(1, Math.max(0, s.morph2 +"
+    }
+   ],
+   "note": "",
+   "role": "leaf",
+   "gates": [],
+   "probe": {
+    "contexts": 28,
+    "live": 4,
+    "inert": 24,
+    "declaredLive": 4,
+    "declaredInert": 24,
+    "liveInDeclared": 4,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -4,
+    "inertExactlyZero": true
+   }
+  },
+  "rot2Follow": {
+   "label": "Rotation",
+   "kind": "e",
+   "tier": "T3",
+   "id": 356,
+   "range": {
+    "options": [
+     1,
+     0
+    ],
+    "default": 1
+   },
+   "active_when": {
+    "all": [
+     {
+      "pred": "B2"
+     },
+     {
+      "any": [
+       {
+        "absgt": [
+         "rotRate",
+         0.004
+        ]
+       },
+       {
+        "absgt": [
+         "rotRate2",
+         0.004
+        ]
+       },
+       {
+        "all": [
+         {
+          "pred": "SW"
+         },
+         {
+          "any": [
+           {
+            "absgt": [
+             "rotSpread",
+             0.004
+            ]
+           },
+           {
+            "all": [
+             {
+              "eq": [
+               "b2sp",
+               1
+              ]
+             },
+             {
+              "absgt": [
+               "rotSpread2",
+               0.004
+              ]
+             }
+            ]
+           }
+          ]
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "depends_on": [
+    "N",
+    "b2on",
+    "b2sp",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "rotRate",
+    "rotRate2",
+    "rotSpread",
+    "rotSpread2",
+    "w2"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 790,
+     "text": "const own2 = s.b2on && !d.rot2Follow"
+    }
+   ],
+   "note": "",
+   "role": "switch",
+   "gates": [
+    "b2sp",
+    "driftRate",
+    "law",
+    "rotRate",
+    "rotRate2",
+    "rotSpread",
+    "rotSpread2",
+    "rotSync"
+   ],
+   "probe": {
+    "contexts": 28,
+    "live": 16,
+    "inert": 12,
+    "declaredLive": 16,
+    "declaredInert": 12,
+    "liveInDeclared": 16,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -4,
+    "inertExactlyZero": true
+   }
+  },
+  "rotRate2": {
+   "label": "Rotate",
+   "kind": "c",
+   "tier": "T2",
+   "id": 357,
+   "range": {
+    "min": -4,
+    "max": 4,
+    "taper": "lin",
+    "default": 0
+   },
+   "active_when": {
+    "pred": "ROT2"
+   },
+   "depends_on": [
+    "N",
+    "b2on",
+    "b2sp",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "rot2Follow",
+    "w2"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 790,
+     "text": "const own2 = s.b2on && !d.rot2Follow, rs2 = s.rotRate2/sr"
+    }
+   ],
+   "note": "",
+   "role": "gate",
+   "gates": [
+    "rot2Follow",
+    "rotSync"
+   ],
+   "probe": {
+    "contexts": 28,
+    "live": 12,
+    "inert": 16,
+    "declaredLive": 12,
+    "declaredInert": 16,
+    "liveInDeclared": 12,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -3,
+    "inertExactlyZero": true
+   }
+  },
+  "frame2": {
+   "label": "Blade frame",
+   "kind": "e",
+   "tier": "T3",
+   "id": 358,
+   "range": {
+    "options": [
+     -1,
+     0,
+     1
+    ],
+    "default": -1
+   },
+   "active_when": {
+    "all": [
+     {
+      "pred": "SW"
+     },
+     {
+      "pred": "B2"
+     }
+    ]
+   },
+   "depends_on": [
+    "N",
+    "b2on",
+    "b2sp",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "w2"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 821,
+     "text": "fr2 = d.frame2 < 0 ? d.frame : d.frame2"
+    }
+   ],
+   "note": "",
+   "role": "switch",
+   "gates": [
+    "frame"
+   ],
+   "probe": {
+    "contexts": 28,
+    "live": 15,
+    "inert": 13,
+    "declaredLive": 15,
+    "declaredInert": 13,
+    "liveInDeclared": 15,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -3,
+    "inertExactlyZero": true
+   }
+  },
+  "b2sp": {
+   "label": "Spreads",
+   "kind": "e",
+   "tier": "T3",
+   "id": 359,
+   "range": {
+    "options": [
+     0,
+     1
+    ],
+    "default": 0
+   },
+   "active_when": {
+    "all": [
+     {
+      "pred": "SW"
+     },
+     {
+      "pred": "B2"
+     },
+     {
+      "any": [
+       {
+        "ne": [
+         "bspread",
+         0
+        ]
+       },
+       {
+        "ne": [
+         "bspread2",
+         0
+        ]
+       },
+       {
+        "all": [
+         {
+          "ne": [
+           "kspread",
+           0
+          ]
+         },
+         {
+          "eq": [
+           "kRule",
+           0
+          ]
+         }
+        ]
+       },
+       {
+        "all": [
+         {
+          "ne": [
+           "kspread2",
+           0
+          ]
+         },
+         {
+          "eq": [
+           "kRule2",
+           0
+          ]
+         }
+        ]
+       },
+       {
+        "all": [
+         {
+          "ne": [
+           "kRuleAmt",
+           0
+          ]
+         },
+         {
+          "ne": [
+           "kRule",
+           0
+          ]
+         }
+        ]
+       },
+       {
+        "all": [
+         {
+          "ne": [
+           "kRuleAmt2",
+           0
+          ]
+         },
+         {
+          "ne": [
+           "kRule2",
+           0
+          ]
+         }
+        ]
+       },
+       {
+        "ne": [
+         "wspread",
+         0
+        ]
+       },
+       {
+        "ne": [
+         "wspread2",
+         0
+        ]
+       },
+       {
+        "ne": [
+         "dspread",
+         0
+        ]
+       },
+       {
+        "ne": [
+         "dspread2",
+         0
+        ]
+       },
+       {
+        "all": [
+         {
+          "ne": [
+           "mspread",
+           0
+          ]
+         },
+         {
+          "pred": "SHAPE2"
+         }
+        ]
+       },
+       {
+        "all": [
+         {
+          "ne": [
+           "mspread2",
+           0
+          ]
+         },
+         {
+          "pred": "SHAPE2"
+         }
+        ]
+       },
+       {
+        "all": [
+         {
+          "ne": [
+           "ispread",
+           0
+          ]
+         },
+         {
+          "pred": "FM2"
+         }
+        ]
+       },
+       {
+        "all": [
+         {
+          "ne": [
+           "ispread2",
+           0
+          ]
+         },
+         {
+          "pred": "FM2"
+         }
+        ]
+       },
+       {
+        "all": [
+         {
+          "ne": [
+           "rotSpread",
+           0
+          ]
+         },
+         {
+          "eq": [
+           "rot2Follow",
+           0
+          ]
+         }
+        ]
+       },
+       {
+        "all": [
+         {
+          "ne": [
+           "rotSpread2",
+           0
+          ]
+         },
+         {
+          "eq": [
+           "rot2Follow",
+           0
+          ]
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "depends_on": [
+    "N",
+    "b2on",
+    "b2sp",
+    "bspread",
+    "bspread2",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "hot2",
+    "ispread",
+    "ispread2",
+    "kRule",
+    "kRule2",
+    "kRuleAmt",
+    "kRuleAmt2",
+    "kspread",
+    "kspread2",
+    "mode2",
+    "mspread",
+    "mspread2",
+    "rot2Follow",
+    "rotSpread",
+    "rotSpread2",
+    "w2",
+    "wspread",
+    "wspread2"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 124,
+     "text": "if (!s.b2sp){ m.cOff2 = m.cOff;"
+    }
+   ],
+   "note": "Following vs owning: heard when either set would move blade 2.",
+   "role": "switch",
+   "gates": [
+    "I",
+    "I2",
+    "aa",
+    "b2env",
+    "b2fm",
+    "b2mix",
+    "b2on",
+    "b2order",
+    "b2sp",
+    "benvA",
+    "benvA2",
+    "benvD",
+    "benvD2",
+    "benvK",
+    "benvK2",
+    "benvVel",
+    "benvVel2",
+    "benvW",
+    "benvW2",
+    "bspread",
+    "bspread2",
+    "c2",
+    "colB",
+    "colK",
+    "driftRate",
+    "dspread",
+    "dspread2",
+    "fb",
+    "fmType",
+    "fmType2",
+    "frame",
+    "frame2",
+    "hard2",
+    "hot2",
+    "ispread",
+    "ispread2",
+    "k2",
+    "kCustom",
+    "kHz2",
+    "kRule",
+    "kRule2",
+    "kRuleAmt",
+    "kRuleAmt2",
+    "kq",
+    "kspread",
+    "kspread2",
+    "law",
+    "lock",
+    "lock2",
+    "m",
+    "m2",
+    "mHz",
+    "mHz2",
+    "mUnit",
+    "mUnit2",
+    "mirror",
+    "mirror2",
+    "mode2",
+    "morph2",
+    "mshape",
+    "mshape2",
+    "mspread",
+    "mspread2",
+    "rot2Follow",
+    "rotRate",
+    "rotRate2",
+    "rotSpread",
+    "rotSpread2",
+    "rotSync",
+    "wspread",
+    "wspread2",
+    "xm"
+   ],
+   "probe": {
+    "contexts": 28,
+    "live": 15,
+    "inert": 13,
+    "declaredLive": 15,
+    "declaredInert": 13,
+    "liveInDeclared": 15,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -4,
+    "inertExactlyZero": true
+   }
+  },
+  "bspread2": {
+   "label": "Pos spread",
+   "kind": "c",
+   "tier": "T3",
+   "id": 360,
+   "range": {
+    "min": -1,
+    "max": 1,
+    "taper": "lin",
+    "default": 0
+   },
+   "active_when": {
+    "all": [
+     {
+      "pred": "SW"
+     },
+     {
+      "pred": "SPR2"
+     }
+    ]
+   },
+   "depends_on": [
+    "N",
+    "b2on",
+    "b2sp",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "w2"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 127,
+     "text": "m.cOff2 = s.bspread2*pn(7);"
+    }
+   ],
+   "note": "",
+   "role": "gate",
+   "gates": [
+    "b2sp",
+    "driftRate",
+    "law"
+   ],
+   "probe": {
+    "contexts": 28,
+    "live": 7,
+    "inert": 21,
+    "declaredLive": 7,
+    "declaredInert": 21,
+    "liveInDeclared": 7,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -3,
+    "inertExactlyZero": true
+   }
+  },
+  "kspread2": {
+   "label": "Cut spread",
+   "kind": "c",
+   "tier": "T3",
+   "id": 361,
+   "range": {
+    "min": -24,
+    "max": 24,
+    "taper": "lin",
+    "default": 0
+   },
+   "active_when": {
+    "all": [
+     {
+      "pred": "SW"
+     },
+     {
+      "pred": "SPR2"
+     },
+     {
+      "eq": [
+       "kRule2",
+       0
+      ]
+     }
+    ]
+   },
+   "depends_on": [
+    "N",
+    "b2on",
+    "b2sp",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "kRule2",
+    "w2"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 128,
+     "text": "const k2 = RazorCore.kSpread(s.kRule2, s.kRuleAmt2, s.kspread2"
+    }
+   ],
+   "note": "",
+   "role": "gate",
+   "gates": [
+    "b2sp",
+    "driftRate",
+    "kRule2",
+    "kq",
+    "law"
+   ],
+   "probe": {
+    "contexts": 28,
+    "live": 3,
+    "inert": 25,
+    "declaredLive": 3,
+    "declaredInert": 25,
+    "liveInDeclared": 3,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -2,
+    "inertExactlyZero": true
+   }
+  },
+  "kRule2": {
+   "label": "Cut rule",
+   "kind": "e",
+   "tier": "T3",
+   "id": 362,
+   "range": {
+    "options": [
+     0,
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8,
+     9
+    ],
+    "default": 0
+   },
+   "active_when": {
+    "all": [
+     {
+      "pred": "SW"
+     },
+     {
+      "pred": "SPR2"
+     },
+     {
+      "any": [
+       {
+        "ne": [
+         "kspread2",
+         0
+        ]
+       },
+       {
+        "ne": [
+         "kRuleAmt2",
+         0
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "depends_on": [
+    "N",
+    "b2on",
+    "b2sp",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "kRuleAmt2",
+    "kspread2",
+    "w2"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 128,
+     "text": "const k2 = RazorCore.kSpread(s.kRule2, s.kRuleAmt2, s.kspread2"
+    }
+   ],
+   "note": "",
+   "role": "switch",
+   "gates": [
+    "b2sp",
+    "driftRate",
+    "kCustom",
+    "kRuleAmt2",
+    "kq",
+    "kspread2",
+    "law"
+   ],
+   "probe": {
+    "contexts": 28,
+    "live": 5,
+    "inert": 23,
+    "declaredLive": 7,
+    "declaredInert": 21,
+    "liveInDeclared": 5,
+    "regime": 2,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -3,
+    "inertExactlyZero": true
+   }
+  },
+  "kRuleAmt2": {
+   "label": "Rule depth",
+   "kind": "c",
+   "tier": "T3",
+   "id": 363,
+   "range": {
+    "min": 0,
+    "max": 1,
+    "taper": "lin",
+    "default": 1
+   },
+   "active_when": {
+    "all": [
+     {
+      "pred": "SW"
+     },
+     {
+      "pred": "SPR2"
+     },
+     {
+      "ne": [
+       "kRule2",
+       0
+      ]
+     }
+    ]
+   },
+   "depends_on": [
+    "N",
+    "b2on",
+    "b2sp",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "kRule2",
+    "w2"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 128,
+     "text": "const k2 = RazorCore.kSpread(s.kRule2, s.kRuleAmt2, s.kspread2"
+    }
+   ],
+   "note": "",
+   "role": "gate",
+   "gates": [
+    "b2sp",
+    "driftRate",
+    "kCustom",
+    "kRule2",
+    "kq",
+    "law"
+   ],
+   "probe": {
+    "contexts": 28,
+    "live": 4,
+    "inert": 24,
+    "declaredLive": 6,
+    "declaredInert": 22,
+    "liveInDeclared": 4,
+    "regime": 2,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -4,
+    "inertExactlyZero": true
+   }
+  },
+  "wspread2": {
+   "label": "Width spread",
+   "kind": "c",
+   "tier": "T3",
+   "id": 364,
+   "range": {
+    "min": -1,
+    "max": 1,
+    "taper": "lin",
+    "default": 0
+   },
+   "active_when": {
+    "all": [
+     {
+      "pred": "SW"
+     },
+     {
+      "pred": "SPR2"
+     }
+    ]
+   },
+   "depends_on": [
+    "N",
+    "b2on",
+    "b2sp",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "w2"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 130,
+     "text": "m.wMul2 = Math.pow(2, s.wspread2*4*pn(9));"
+    }
+   ],
+   "note": "",
+   "role": "gate",
+   "gates": [
+    "b2sp",
+    "driftRate",
+    "law"
+   ],
+   "probe": {
+    "contexts": 28,
+    "live": 7,
+    "inert": 21,
+    "declaredLive": 7,
+    "declaredInert": 21,
+    "liveInDeclared": 7,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -4,
+    "inertExactlyZero": true
+   }
+  },
+  "dspread2": {
+   "label": "Depth spread",
+   "kind": "c",
+   "tier": "T3",
+   "id": 365,
+   "range": {
+    "min": -1,
+    "max": 1,
+    "taper": "lin",
+    "default": 0
+   },
+   "active_when": {
+    "all": [
+     {
+      "pred": "SW"
+     },
+     {
+      "pred": "SPR2"
+     }
+    ]
+   },
+   "depends_on": [
+    "N",
+    "b2on",
+    "b2sp",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "w2"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 131,
+     "text": "m.dAdd2 = s.dspread2*2*pn(10);"
+    }
+   ],
+   "note": "",
+   "role": "gate",
+   "gates": [
+    "I",
+    "I2",
+    "aa",
+    "b2env",
+    "b2fm",
+    "b2mix",
+    "b2on",
+    "b2order",
+    "b2sp",
+    "benvA",
+    "benvA2",
+    "benvD",
+    "benvD2",
+    "benvK",
+    "benvK2",
+    "benvVel",
+    "benvVel2",
+    "benvW",
+    "benvW2",
+    "bspread",
+    "bspread2",
+    "c2",
+    "colB",
+    "colK",
+    "driftRate",
+    "dspread",
+    "dspread2",
+    "fb",
+    "fmType",
+    "fmType2",
+    "frame",
+    "frame2",
+    "hard2",
+    "hot2",
+    "ispread",
+    "ispread2",
+    "k2",
+    "kCustom",
+    "kHz2",
+    "kRule",
+    "kRule2",
+    "kRuleAmt",
+    "kRuleAmt2",
+    "kq",
+    "kspread",
+    "kspread2",
+    "law",
+    "lock",
+    "lock2",
+    "m",
+    "m2",
+    "mHz",
+    "mHz2",
+    "mUnit",
+    "mUnit2",
+    "mirror",
+    "mirror2",
+    "mode2",
+    "morph2",
+    "mshape",
+    "mshape2",
+    "mspread",
+    "mspread2",
+    "rot2Follow",
+    "rotRate",
+    "rotRate2",
+    "rotSpread",
+    "rotSpread2",
+    "rotSync",
+    "wspread",
+    "wspread2",
+    "xm"
+   ],
+   "probe": {
+    "contexts": 28,
+    "live": 7,
+    "inert": 21,
+    "declaredLive": 7,
+    "declaredInert": 21,
+    "liveInDeclared": 7,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -2,
+    "inertExactlyZero": true
+   }
+  },
+  "mspread2": {
+   "label": "Shape spread",
+   "kind": "c",
+   "tier": "T3",
+   "id": 366,
+   "range": {
+    "min": -1,
+    "max": 1,
+    "taper": "lin",
+    "default": 0
+   },
+   "active_when": {
+    "all": [
+     {
+      "pred": "SW"
+     },
+     {
+      "pred": "SHAPE2"
+     },
+     {
+      "eq": [
+       "b2sp",
+       1
+      ]
+     }
+    ]
+   },
+   "depends_on": [
+    "N",
+    "b2on",
+    "b2sp",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "hot2",
+    "mode2",
+    "w2"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 135,
+     "text": "s.mspread2*2*pn(12)"
+    }
+   ],
+   "note": "",
+   "role": "gate",
+   "gates": [
+    "b2sp",
+    "driftRate",
+    "law"
+   ],
+   "probe": {
+    "contexts": 28,
+    "live": 2,
+    "inert": 26,
+    "declaredLive": 2,
+    "declaredInert": 26,
+    "liveInDeclared": 2,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -2,
+    "inertExactlyZero": true
+   }
+  },
+  "ispread2": {
+   "label": "FM idx spread",
+   "kind": "c",
+   "tier": "T3",
+   "id": 367,
+   "range": {
+    "min": -1,
+    "max": 1,
+    "taper": "lin",
+    "default": 0
+   },
+   "active_when": {
+    "all": [
+     {
+      "pred": "SW"
+     },
+     {
+      "pred": "FM2"
+     },
+     {
+      "eq": [
+       "b2sp",
+       1
+      ]
+     }
+    ]
+   },
+   "depends_on": [
+    "N",
+    "b2on",
+    "b2sp",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "mode2",
+    "w2"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 126,
+     "text": "m.iMul2 = Math.pow(2, s.ispread2*4*pn(13));"
+    }
+   ],
+   "note": "",
+   "role": "gate",
+   "gates": [
+    "b2sp",
+    "driftRate",
+    "law"
+   ],
+   "probe": {
+    "contexts": 28,
+    "live": 2,
+    "inert": 26,
+    "declaredLive": 2,
+    "declaredInert": 26,
+    "liveInDeclared": 2,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -1,
+    "inertExactlyZero": true
+   }
+  },
+  "rotSpread2": {
+   "label": "Rotate spread",
+   "kind": "c",
+   "tier": "T3",
+   "id": 368,
+   "range": {
+    "min": -2,
+    "max": 2,
+    "taper": "bpow",
+    "default": 0
+   },
+   "active_when": {
+    "all": [
+     {
+      "pred": "SW"
+     },
+     {
+      "pred": "B2"
+     },
+     {
+      "eq": [
+       "rot2Follow",
+       0
+      ]
+     },
+     {
+      "eq": [
+       "b2sp",
+       1
+      ]
+     }
+    ]
+   },
+   "depends_on": [
+    "N",
+    "b2on",
+    "b2sp",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "rot2Follow",
+    "w2"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 111,
+     "text": "m.rotOff2 = s.b2sp ? s.rotSpread2*2*pn(11) : m.rotOff;"
+    }
+   ],
+   "note": "",
+   "role": "gate",
+   "gates": [
+    "b2sp",
+    "driftRate",
+    "law",
+    "rot2Follow",
+    "rotSync"
+   ],
+   "probe": {
+    "contexts": 28,
+    "live": 5,
+    "inert": 23,
+    "declaredLive": 5,
+    "declaredInert": 23,
+    "liveInDeclared": 5,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -2,
+    "inertExactlyZero": true
+   }
+  },
+  "b2fm": {
+   "label": "FM",
+   "kind": "e",
+   "tier": "T3",
+   "id": 369,
+   "range": {
+    "options": [
+     0,
+     1
+    ],
+    "default": 0
+   },
+   "active_when": {
+    "pred": "FM2"
+   },
+   "depends_on": [
+    "N",
+    "b2on",
+    "b2sp",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "mode2",
+    "w2"
+   ],
+   "side_channels": [
+    "SC_DCRES_B2FM"
+   ],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 669,
+     "text": "if (s.b2fm){ modX20 = bx.modX;"
+    }
+   ],
+   "note": "",
+   "role": "switch",
+   "gates": [
+    "I",
+    "I2",
+    "fmType",
+    "fmType2",
+    "m",
+    "m2",
+    "mHz",
+    "mHz2",
+    "mUnit",
+    "mUnit2",
+    "mshape",
+    "mshape2"
+   ],
+   "probe": {
+    "contexts": 30,
+    "live": 8,
+    "inert": 22,
+    "declaredLive": 4,
+    "declaredInert": 26,
+    "liveInDeclared": 4,
+    "regime": 0,
+    "sideChannelHits": 4,
+    "minLiveDeltaDecade": -4,
+    "inertExactlyZero": false
+   }
+  },
+  "fmType2": {
+   "label": "FM type",
+   "kind": "e",
+   "tier": "T2",
+   "id": 370,
+   "range": {
+    "options": [
+     0,
+     1
+    ],
+    "default": 0
+   },
+   "active_when": {
+    "pred": "FMOWN2"
+   },
+   "depends_on": [
+    "N",
+    "b2fm",
+    "b2on",
+    "b2sp",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "mode2",
+    "w2"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 310,
+     "text": "g.fmType = s.b2fm ? s.fmType2 : s.fmType; g.mshape = s.b2fm ? s.mshape2 : s.mshape;"
+    }
+   ],
+   "note": "",
+   "role": "leaf",
+   "gates": [],
+   "probe": {
+    "contexts": 28,
+    "live": 4,
+    "inert": 24,
+    "declaredLive": 4,
+    "declaredInert": 24,
+    "liveInDeclared": 4,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -3,
+    "inertExactlyZero": true
+   }
+  },
+  "mshape2": {
+   "label": "Mod shape",
+   "kind": "e",
+   "tier": "T2",
+   "id": 371,
+   "range": {
+    "options": [
+     0,
+     1,
+     2,
+     4,
+     3,
+     5,
+     7
+    ],
+    "default": 0
+   },
+   "active_when": {
+    "pred": "FMOWN2"
+   },
+   "depends_on": [
+    "N",
+    "b2fm",
+    "b2on",
+    "b2sp",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "mode2",
+    "w2"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 310,
+     "text": "g.fmType = s.b2fm ? s.fmType2 : s.fmType; g.mshape = s.b2fm ? s.mshape2 : s.mshape;"
+    }
+   ],
+   "note": "",
+   "role": "leaf",
+   "gates": [],
+   "probe": {
+    "contexts": 28,
+    "live": 4,
+    "inert": 24,
+    "declaredLive": 4,
+    "declaredInert": 24,
+    "liveInDeclared": 4,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -3,
+    "inertExactlyZero": true
+   }
+  },
+  "I2": {
+   "label": "FM depth",
+   "kind": "c",
+   "tier": "T1",
+   "id": 372,
+   "range": {
+    "min": 0,
+    "max": 10,
+    "taper": "pow",
+    "default": 2
+   },
+   "active_when": {
+    "pred": "FMOWN2"
+   },
+   "depends_on": [
+    "N",
+    "b2fm",
+    "b2on",
+    "b2sp",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "mode2",
+    "w2"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 310,
+     "text": "g.fmType = s.b2fm ? s.fmType2 : s.fmType; g.mshape = s.b2fm ? s.mshape2 : s.mshape;"
+    }
+   ],
+   "note": "",
+   "role": "leaf",
+   "gates": [],
+   "probe": {
+    "contexts": 28,
+    "live": 4,
+    "inert": 24,
+    "declaredLive": 4,
+    "declaredInert": 24,
+    "liveInDeclared": 4,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -4,
+    "inertExactlyZero": true
+   }
+  },
+  "mUnit2": {
+   "label": "Mod rate in",
+   "kind": "e",
+   "tier": "T2",
+   "id": 373,
+   "range": {
+    "options": [
+     0,
+     1
+    ],
+    "default": 0
+   },
+   "active_when": {
+    "pred": "FMOWN2"
+   },
+   "depends_on": [
+    "N",
+    "b2fm",
+    "b2on",
+    "b2sp",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "mode2",
+    "w2"
+   ],
+   "side_channels": [
+    "SC_DCRES2"
+   ],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 833,
+     "text": "const mEff2 = d.b2fm ? (d.mUnit2 ? s.mHz2/fi : s.m2)"
+    }
+   ],
+   "note": "",
+   "role": "switch",
+   "gates": [
+    "m2",
+    "mHz2"
+   ],
+   "probe": {
+    "contexts": 30,
+    "live": 6,
+    "inert": 24,
+    "declaredLive": 4,
+    "declaredInert": 26,
+    "liveInDeclared": 4,
+    "regime": 0,
+    "sideChannelHits": 2,
+    "minLiveDeltaDecade": -4,
+    "inertExactlyZero": false
+   }
+  },
+  "m2": {
+   "label": "Mod rate",
+   "kind": "c",
+   "tier": "T1",
+   "id": 374,
+   "range": {
+    "min": 0.25,
+    "max": 24,
+    "taper": "log",
+    "default": 3.37
+   },
+   "active_when": {
+    "all": [
+     {
+      "pred": "FMOWN2"
+     },
+     {
+      "eq": [
+       "mUnit2",
+       0
+      ]
+     }
+    ]
+   },
+   "depends_on": [
+    "N",
+    "b2fm",
+    "b2on",
+    "b2sp",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "mUnit2",
+    "mode2",
+    "w2"
+   ],
+   "side_channels": [
+    "SC_DCRES2"
+   ],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 833,
+     "text": "const mEff2 = d.b2fm ? (d.mUnit2 ? s.mHz2/fi : s.m2)"
+    }
+   ],
+   "note": "",
+   "role": "leaf",
+   "gates": [],
+   "probe": {
+    "contexts": 30,
+    "live": 5,
+    "inert": 25,
+    "declaredLive": 4,
+    "declaredInert": 26,
+    "liveInDeclared": 4,
+    "regime": 0,
+    "sideChannelHits": 1,
+    "minLiveDeltaDecade": -5,
+    "inertExactlyZero": true
+   }
+  },
+  "mHz2": {
+   "label": "Mod rate",
+   "kind": "c",
+   "tier": "T1",
+   "id": 375,
+   "range": {
+    "min": 1,
+    "max": 20000,
+    "taper": "log",
+    "default": 660
+   },
+   "active_when": {
+    "all": [
+     {
+      "pred": "FMOWN2"
+     },
+     {
+      "eq": [
+       "mUnit2",
+       1
+      ]
+     }
+    ]
+   },
+   "depends_on": [
+    "N",
+    "b2fm",
+    "b2on",
+    "b2sp",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "mUnit2",
+    "mode2",
+    "w2"
+   ],
+   "side_channels": [
+    "SC_DCRES2"
+   ],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 833,
+     "text": "const mEff2 = d.b2fm ? (d.mUnit2 ? s.mHz2/fi : s.m2)"
+    }
+   ],
+   "note": "",
+   "role": "leaf",
+   "gates": [],
+   "probe": {
+    "contexts": 30,
+    "live": 6,
+    "inert": 24,
+    "declaredLive": 2,
+    "declaredInert": 28,
+    "liveInDeclared": 2,
+    "regime": 0,
+    "sideChannelHits": 4,
+    "minLiveDeltaDecade": -4,
+    "inertExactlyZero": true
+   }
+  },
+  "b2env": {
+   "label": "Envelope",
+   "kind": "e",
+   "tier": "T2",
+   "id": 376,
+   "range": {
+    "options": [
+     0,
+     1
+    ],
+    "default": 0
+   },
+   "active_when": {
+    "all": [
+     {
+      "pred": "B2"
+     },
+     {
+      "any": [
+       {
+        "ne": [
+         "benvK",
+         0
+        ]
+       },
+       {
+        "ne": [
+         "benvW",
+         0
+        ]
+       },
+       {
+        "ne": [
+         "benvK2",
+         0
+        ]
+       },
+       {
+        "ne": [
+         "benvW2",
+         0
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "depends_on": [
+    "N",
+    "b2on",
+    "b2sp",
+    "benvK",
+    "benvK2",
+    "benvW",
+    "benvW2",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "w2"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 769,
+     "text": "if (d.b2env){"
+    }
+   ],
+   "note": "",
+   "role": "switch",
+   "gates": [
+    "benvA",
+    "benvA2",
+    "benvD",
+    "benvD2",
+    "benvK",
+    "benvK2",
+    "benvVel",
+    "benvVel2",
+    "benvW",
+    "benvW2"
+   ],
+   "probe": {
+    "contexts": 28,
+    "live": 17,
+    "inert": 11,
+    "declaredLive": 17,
+    "declaredInert": 11,
+    "liveInDeclared": 17,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -4,
+    "inertExactlyZero": true
+   }
+  },
+  "benvK2": {
+   "label": "Env → cut",
+   "kind": "c",
+   "tier": "T2",
+   "id": 377,
+   "range": {
+    "min": -1,
+    "max": 1,
+    "taper": "lin",
+    "default": 0
+   },
+   "active_when": {
+    "pred": "ENV2"
+   },
+   "depends_on": [
+    "N",
+    "b2env",
+    "b2on",
+    "b2sp",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "w2"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 774,
+     "text": "v.kE2 = s.benvK2 ? Math.pow(2, s.benvK2*4*bE2) : 1;"
+    }
+   ],
+   "note": "",
+   "role": "gate",
+   "gates": [
+    "b2env",
+    "benvA2",
+    "benvD2",
+    "benvVel2"
+   ],
+   "probe": {
+    "contexts": 28,
+    "live": 13,
+    "inert": 15,
+    "declaredLive": 13,
+    "declaredInert": 15,
+    "liveInDeclared": 13,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -4,
+    "inertExactlyZero": true
+   }
+  },
+  "benvW2": {
+   "label": "Env → width",
+   "kind": "c",
+   "tier": "T2",
+   "id": 378,
+   "range": {
+    "min": -1,
+    "max": 1,
+    "taper": "lin",
+    "default": 0
+   },
+   "active_when": {
+    "pred": "ENV2"
+   },
+   "depends_on": [
+    "N",
+    "b2env",
+    "b2on",
+    "b2sp",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "w2"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 775,
+     "text": "v.wE2 = s.benvW2 ? Math.pow(2, s.benvW2*3*bE2) : 1;"
+    }
+   ],
+   "note": "",
+   "role": "gate",
+   "gates": [
+    "b2env",
+    "benvA2",
+    "benvD2",
+    "benvVel2"
+   ],
+   "probe": {
+    "contexts": 28,
+    "live": 13,
+    "inert": 15,
+    "declaredLive": 13,
+    "declaredInert": 15,
+    "liveInDeclared": 13,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -4,
+    "inertExactlyZero": true
+   }
+  },
+  "benvA2": {
+   "label": "Env attack",
+   "kind": "c",
+   "tier": "T2",
+   "id": 379,
+   "range": {
+    "min": 0.5,
+    "max": 2000,
+    "taper": "log",
+    "default": 2
+   },
+   "active_when": {
+    "all": [
+     {
+      "pred": "ENV2"
+     },
+     {
+      "any": [
+       {
+        "ne": [
+         "benvK2",
+         0
+        ]
+       },
+       {
+        "ne": [
+         "benvW2",
+         0
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "depends_on": [
+    "N",
+    "b2env",
+    "b2on",
+    "b2sp",
+    "benvK2",
+    "benvW2",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "w2"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 755,
+     "text": "const beA2 = 1/Math.max(1, s.benvA2*0.001*sr)"
+    }
+   ],
+   "note": "",
+   "role": "leaf",
+   "gates": [],
+   "probe": {
+    "contexts": 28,
+    "live": 12,
+    "inert": 16,
+    "declaredLive": 12,
+    "declaredInert": 16,
+    "liveInDeclared": 12,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -4,
+    "inertExactlyZero": true
+   }
+  },
+  "benvD2": {
+   "label": "Env decay",
+   "kind": "c",
+   "tier": "T2",
+   "id": 380,
+   "range": {
+    "min": 10,
+    "max": 5000,
+    "taper": "log",
+    "default": 250
+   },
+   "active_when": {
+    "all": [
+     {
+      "pred": "ENV2"
+     },
+     {
+      "any": [
+       {
+        "ne": [
+         "benvK2",
+         0
+        ]
+       },
+       {
+        "ne": [
+         "benvW2",
+         0
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "depends_on": [
+    "N",
+    "b2env",
+    "b2on",
+    "b2sp",
+    "benvK2",
+    "benvW2",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "w2"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 755,
+     "text": "beD2 = 1 - Math.exp(-4/Math.max(1, s.benvD2*0.001*sr));"
+    }
+   ],
+   "note": "",
+   "role": "leaf",
+   "gates": [],
+   "probe": {
+    "contexts": 28,
+    "live": 12,
+    "inert": 16,
+    "declaredLive": 12,
+    "declaredInert": 16,
+    "liveInDeclared": 12,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -3,
+    "inertExactlyZero": true
+   }
+  },
+  "benvVel2": {
+   "label": "Env velocity",
+   "kind": "c",
+   "tier": "T3",
+   "id": 381,
+   "range": {
+    "min": 0,
+    "max": 1,
+    "taper": "lin",
+    "default": 0.5
+   },
+   "active_when": {
+    "all": [
+     {
+      "pred": "ENV2"
+     },
+     {
+      "any": [
+       {
+        "ne": [
+         "benvK2",
+         0
+        ]
+       },
+       {
+        "ne": [
+         "benvW2",
+         0
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "depends_on": [
+    "N",
+    "b2env",
+    "b2on",
+    "b2sp",
+    "benvK2",
+    "benvW2",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "w2"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 408,
+     "text": "v.bv2 = 1 - this.s.benvVel2 + this.s.benvVel2*vel;"
+    }
+   ],
+   "note": "",
+   "role": "leaf",
+   "gates": [],
+   "probe": {
+    "contexts": 28,
+    "live": 12,
+    "inert": 16,
+    "declaredLive": 12,
+    "declaredInert": 16,
+    "liveInDeclared": 12,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -6,
+    "inertExactlyZero": true
+   }
+  },
+  "b2order": {
+   "label": "Stacking",
+   "kind": "e",
+   "tier": "T3",
+   "id": "unallocated",
+   "range": {
+    "options": [
+     0,
+     1
+    ],
+    "default": 0
+   },
+   "active_when": {
+    "all": [
+     {
+      "pred": "BOTH"
+     },
+     {
+      "any": [
+       {
+        "gt": [
+         "b2mix",
+         0.000001
+        ]
+       },
+       {
+        "all": [
+         {
+          "ne": [
+           "colK",
+           0
+          ]
+         },
+         {
+          "any": [
+           {
+            "in": [
+             "mode",
+             [
+              0,
+              1,
+              2,
+              5
+             ]
+            ]
+           },
+           {
+            "in": [
+             "mode2",
+             [
+              0,
+              1,
+              2,
+              5
+             ]
+            ]
+           }
+          ]
+         }
+        ]
+       },
+       {
+        "all": [
+         {
+          "ne": [
+           "colB",
+           0
+          ]
+         },
+         {
+          "any": [
+           {
+            "in": [
+             "mode",
+             [
+              1,
+              2,
+              4
+             ]
+            ]
+           },
+           {
+            "in": [
+             "mode2",
+             [
+              1,
+              2,
+              4
+             ]
+            ]
+           }
+          ]
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "depends_on": [
+    "N",
+    "b1on",
+    "b2mix",
+    "b2on",
+    "b2sp",
+    "colB",
+    "colK",
+    "depth",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "mode",
+    "mode2",
+    "w",
+    "w2"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 282,
+     "text": "const g = bx.g, lam = p.b2mix, up2 = !p.b2order;"
+    },
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 685,
+     "text": "if (s.b2order){ RazorCore.collide(s.colK, ns"
+    }
+   ],
+   "note": "Which blade is upper: heard through serial interplay, or through a collision the swapped blade reads.",
+   "role": "switch",
+   "gates": [
+    "colB",
+    "colK"
+   ],
+   "probe": {
+    "contexts": 28,
+    "live": 12,
+    "inert": 16,
+    "declaredLive": 12,
+    "declaredInert": 16,
+    "liveInDeclared": 12,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -6,
+    "inertExactlyZero": true
+   }
+  },
+  "b2mix": {
+   "label": "Upper hears",
+   "kind": "c",
+   "tier": "T2",
+   "id": "unallocated",
+   "range": {
+    "min": 0,
+    "max": 1,
+    "taper": "lin",
+    "default": 0
+   },
+   "active_when": {
+    "pred": "BOTH"
+   },
+   "depends_on": [
+    "N",
+    "b1on",
+    "b2on",
+    "b2sp",
+    "depth",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "w",
+    "w2"
+   ],
+   "side_channels": [
+    "SC_DCPAIR"
+   ],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 256,
+     "text": "if (bx && p.b2mix > 1e-6) return RazorCore.outSerial("
+    }
+   ],
+   "note": "Serial interplay: the upper blade hears the lower one; needs both blades sounding.",
+   "role": "gate",
+   "gates": [
+    "b2order"
+   ],
+   "probe": {
+    "contexts": 30,
+    "live": 16,
+    "inert": 14,
+    "declaredLive": 12,
+    "declaredInert": 18,
+    "liveInDeclared": 12,
+    "regime": 0,
+    "sideChannelHits": 4,
+    "minLiveDeltaDecade": -5,
+    "inertExactlyZero": true
+   }
+  },
+  "colK": {
+   "label": "Collision → pitch",
+   "kind": "c",
+   "tier": "T3",
+   "id": "unallocated",
+   "range": {
+    "min": -1,
+    "max": 1,
+    "taper": "lin",
+    "default": 0
+   },
+   "active_when": {
+    "all": [
+     {
+      "pred": "BOTH"
+     },
+     {
+      "pred": "UPCAR"
+     }
+    ]
+   },
+   "depends_on": [
+    "N",
+    "b1on",
+    "b2on",
+    "b2order",
+    "b2sp",
+    "depth",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "mode",
+    "mode2",
+    "w",
+    "w2"
+   ],
+   "side_channels": [
+    "SC_BLOCK_COLK",
+    "SC_SCANCOL"
+   ],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 251,
+     "text": "const d = amt ? (Math.pow(4, amt*ov) - 1)*kkU*dphi : 0;"
+    },
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 681,
+     "text": "if (bx && on && on2 && (s.colK || s.colB)){"
+    }
+   ],
+   "note": "v1.1 collision pitch acts only on an UPPER blade in Sync / FM / Ring, and only while the two blades overlap (geometry the grammar does not model: see regime).",
+   "role": "gate",
+   "gates": [
+    "b2order"
+   ],
+   "probe": {
+    "contexts": 32,
+    "live": 7,
+    "inert": 25,
+    "declaredLive": 5,
+    "declaredInert": 27,
+    "liveInDeclared": 3,
+    "regime": 2,
+    "sideChannelHits": 4,
+    "minLiveDeltaDecade": -4,
+    "inertExactlyZero": false
+   }
+  },
+  "colB": {
+   "label": "Collision → bite",
+   "kind": "c",
+   "tier": "T3",
+   "id": "unallocated",
+   "range": {
+    "min": 0,
+    "max": 1,
+    "taper": "lin",
+    "default": 0
+   },
+   "active_when": {
+    "all": [
+     {
+      "pred": "BOTH"
+     },
+     {
+      "pred": "UPBITE"
+     }
+    ]
+   },
+   "depends_on": [
+    "N",
+    "b1on",
+    "b2on",
+    "b2order",
+    "b2sp",
+    "depth",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "mode",
+    "mode2",
+    "w",
+    "w2"
+   ],
+   "side_channels": [
+    "SC_BLOCK_COLB"
+   ],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 189,
+     "text": "const Ib = ns.ov > 0 ? p.I*(1 + 4*p.colB*ns.ov) : p.I;"
+    },
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 199,
+     "text": "(ns.ov > 0 ? 1 + 2*p.colB*ns.ov : 1)"
+    }
+   ],
+   "note": "v1.1 collision bite acts only on an UPPER blade in FM or Fold, while the blades overlap.",
+   "role": "gate",
+   "gates": [
+    "b2order"
+   ],
+   "probe": {
+    "contexts": 30,
+    "live": 7,
+    "inert": 23,
+    "declaredLive": 7,
+    "declaredInert": 23,
+    "liveInDeclared": 4,
+    "regime": 3,
+    "sideChannelHits": 3,
+    "minLiveDeltaDecade": -2,
+    "inertExactlyZero": true
+   }
+  },
+  "N": {
+   "label": "Members",
+   "kind": "c",
+   "tier": "T1",
+   "id": "1 (n)",
+   "range": {
+    "min": 1,
+    "max": 9,
+    "taper": "int",
+    "default": 5
+   },
+   "active_when": true,
+   "depends_on": [],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "docs/design/scalpel-horde-engine.js",
+     "line": 215,
+     "text": "const want = { n: d.N, dist: d.dist, seed: d.seed, law: d['h.law'] };"
+    }
+   ],
+   "note": "",
+   "role": "gate",
+   "gates": [
+    "I",
+    "I2",
+    "K",
+    "aa",
+    "anchor",
+    "b1on",
+    "b2env",
+    "b2fm",
+    "b2mix",
+    "b2on",
+    "b2order",
+    "b2sp",
+    "benvA",
+    "benvA2",
+    "benvD",
+    "benvD2",
+    "benvK",
+    "benvK2",
+    "benvVel",
+    "benvVel2",
+    "benvW",
+    "benvW2",
+    "bspread",
+    "bspread2",
+    "c",
+    "c2",
+    "colB",
+    "colK",
+    "detune",
+    "dissolve",
+    "driftRate",
+    "dspread",
+    "dspread2",
+    "fb",
+    "fmType",
+    "fmType2",
+    "frame",
+    "frame2",
+    "h.law",
+    "hard",
+    "hard2",
+    "harmReach",
+    "hot",
+    "hot2",
+    "inertia",
+    "inertiaCurve",
+    "ispread",
+    "ispread2",
+    "k",
+    "k2",
+    "kCustom",
+    "kHz",
+    "kHz2",
+    "kRule",
+    "kRule2",
+    "kRuleAmt",
+    "kRuleAmt2",
+    "kq",
+    "kspread",
+    "kspread2",
+    "law",
+    "lock",
+    "lock2",
+    "m",
+    "m2",
+    "mHz",
+    "mHz2",
+    "mUnit",
+    "mUnit2",
+    "mirror",
+    "mirror2",
+    "mode",
+    "mode2",
+    "morph",
+    "morph2",
+    "mshape",
+    "mshape2",
+    "mspread",
+    "mspread2",
+    "onset",
+    "panOrder",
+    "rot2Follow",
+    "rotRate",
+    "rotRate2",
+    "rotSpread",
+    "rotSpread2",
+    "rotSync",
+    "spread",
+    "stretchB",
+    "width",
+    "wspread",
+    "wspread2",
+    "xm"
+   ],
+   "probe": {
+    "contexts": 26,
+    "live": 26,
+    "inert": 0,
+    "declaredLive": 26,
+    "declaredInert": 0,
+    "liveInDeclared": 26,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -1,
+    "inertExactlyZero": true
+   }
+  },
+  "detune": {
+   "label": "Detune",
+   "kind": "c",
+   "tier": "T1",
+   "id": "4",
+   "range": {
+    "min": 0,
+    "max": 100,
+    "taper": "lin",
+    "default": 14
+   },
+   "active_when": {
+    "pred": "SW"
+   },
+   "depends_on": [
+    "N"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "docs/design/scalpel-horde-engine.js",
+     "line": 219,
+     "text": "p.detune = t.detune / 100;"
+    },
+    {
+     "file": "reference/swarmsaw.html",
+     "line": 414,
+     "text": "const dep = p.detune * p.spread;"
+    }
+   ],
+   "note": "Row 4 MERGES: horde law.",
+   "role": "gate",
+   "gates": [
+    "anchor",
+    "h.law",
+    "harmReach",
+    "spread",
+    "stretchB"
+   ],
+   "probe": {
+    "contexts": 28,
+    "live": 24,
+    "inert": 4,
+    "declaredLive": 24,
+    "declaredInert": 4,
+    "liveInDeclared": 24,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -2,
+    "inertExactlyZero": true
+   }
+  },
+  "K": {
+   "label": "Coupling",
+   "kind": "c",
+   "tier": "T1",
+   "id": "6",
+   "range": {
+    "min": -1,
+    "max": 1,
+    "taper": "lin",
+    "default": 0.35
+   },
+   "active_when": {
+    "pred": "SW"
+   },
+   "depends_on": [
+    "N"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/swarmsaw.html",
+     "line": 486,
+     "text": "const km = 4 * p.K * Math.abs(p.K);"
+    }
+   ],
+   "note": "Row 6: horde law wins; one member has nothing to couple to.",
+   "role": "gate",
+   "gates": [
+    "inertia",
+    "inertiaCurve"
+   ],
+   "probe": {
+    "contexts": 28,
+    "live": 24,
+    "inert": 4,
+    "declaredLive": 24,
+    "declaredInert": 4,
+    "liveInDeclared": 24,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -3,
+    "inertExactlyZero": true
+   }
+  },
+  "width": {
+   "label": "Stereo",
+   "kind": "c",
+   "tier": "T2",
+   "id": "14",
+   "range": {
+    "min": 0,
+    "max": 1,
+    "taper": "lin",
+    "default": 0.7
+   },
+   "active_when": {
+    "pred": "SW"
+   },
+   "depends_on": [
+    "N"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 736,
+     "text": "const ang = (pos*s.width + 1)*Math.PI/4;"
+    }
+   ],
+   "note": "N 1 sits at the centre slot.",
+   "role": "gate",
+   "gates": [
+    "panOrder"
+   ],
+   "probe": {
+    "contexts": 28,
+    "live": 24,
+    "inert": 4,
+    "declaredLive": 24,
+    "declaredInert": 4,
+    "liveInDeclared": 24,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -3,
+    "inertExactlyZero": true
+   }
+  },
+  "A": {
+   "label": "Attack",
+   "kind": "c",
+   "tier": "T2",
+   "id": "19",
+   "range": {
+    "min": 1,
+    "max": 2000,
+    "taper": "log",
+    "default": 4
+   },
+   "active_when": true,
+   "depends_on": [],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 740,
+     "text": "const attInc = 1/Math.max(1, s.A*0.001*sr);"
+    }
+   ],
+   "note": "",
+   "role": "leaf",
+   "gates": [],
+   "probe": {
+    "contexts": 26,
+    "live": 26,
+    "inert": 0,
+    "declaredLive": 26,
+    "declaredInert": 0,
+    "liveInDeclared": 26,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -3,
+    "inertExactlyZero": true
+   }
+  },
+  "D": {
+   "label": "Decay",
+   "kind": "c",
+   "tier": "T2",
+   "id": "20",
+   "range": {
+    "min": 10,
+    "max": 4000,
+    "taper": "log",
+    "default": 400
+   },
+   "active_when": {
+    "ne": [
+     "S",
+     1
+    ]
+   },
+   "depends_on": [
+    "S"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 778,
+     "text": "else if (v.stage === 2) v.env += (s.S - v.env)*dC;"
+    }
+   ],
+   "note": "At Sustain 1 the decay has nowhere to go.",
+   "role": "leaf",
+   "gates": [],
+   "probe": {
+    "contexts": 26,
+    "live": 26,
+    "inert": 0,
+    "declaredLive": 26,
+    "declaredInert": 0,
+    "liveInDeclared": 26,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -4,
+    "inertExactlyZero": true
+   }
+  },
+  "S": {
+   "label": "Sustain",
+   "kind": "c",
+   "tier": "T2",
+   "id": "21",
+   "range": {
+    "min": 0,
+    "max": 1,
+    "taper": "lin",
+    "default": 0.85
+   },
+   "active_when": true,
+   "depends_on": [],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 778,
+     "text": "else if (v.stage === 2) v.env += (s.S - v.env)*dC;"
+    }
+   ],
+   "note": "",
+   "role": "gate",
+   "gates": [
+    "D"
+   ],
+   "probe": {
+    "contexts": 26,
+    "live": 26,
+    "inert": 0,
+    "declaredLive": 26,
+    "declaredInert": 0,
+    "liveInDeclared": 26,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -3,
+    "inertExactlyZero": true
+   }
+  },
+  "R": {
+   "label": "Release",
+   "kind": "c",
+   "tier": "T2",
+   "id": "22",
+   "range": {
+    "min": 10,
+    "max": 5000,
+    "taper": "log",
+    "default": 280
+   },
+   "active_when": true,
+   "depends_on": [],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 779,
+     "text": "else if (v.stage === 4){ v.env -= v.env*rC;"
+    }
+   ],
+   "note": "",
+   "role": "leaf",
+   "gates": [],
+   "probe": {
+    "contexts": 26,
+    "live": 26,
+    "inert": 0,
+    "declaredLive": 26,
+    "declaredInert": 0,
+    "liveInDeclared": 26,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -3,
+    "inertExactlyZero": true
+   }
+  },
+  "gain": {
+   "label": "Volume",
+   "kind": "c",
+   "tier": "T1",
+   "id": "17",
+   "range": {
+    "min": 0,
+    "max": 1,
+    "taper": "lin",
+    "default": 0.35
+   },
+   "active_when": true,
+   "depends_on": [],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 878,
+     "text": "L[i] = Math.tanh(yl*s.gain*1.6);"
+    }
+   ],
+   "note": "",
+   "role": "leaf",
+   "gates": [],
+   "probe": {
+    "contexts": 26,
+    "live": 26,
+    "inert": 0,
+    "declaredLive": 26,
+    "declaredInert": 0,
+    "liveInDeclared": 26,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -2,
+    "inertExactlyZero": true
+   }
+  },
+  "polyMode": {
+   "label": "Voicing",
+   "kind": "e",
+   "tier": "T3",
+   "id": "32 + 34",
+   "range": {
+    "options": [
+     0,
+     1,
+     2
+    ],
+    "default": 0
+   },
+   "active_when": true,
+   "depends_on": [],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "docs/design/scalpel-horde-engine.js",
+     "line": 261,
+     "text": "if (d.polyMode) return super.noteOn(note, freq, vel);"
+    }
+   ],
+   "note": "The probe overlaps notes, so mono/legato differ from poly.",
+   "role": "switch",
+   "gates": [
+    "glide",
+    "glideAlways",
+    "inertia",
+    "inertiaCurve",
+    "rotSync"
+   ],
+   "probe": {
+    "contexts": 26,
+    "live": 26,
+    "inert": 0,
+    "declaredLive": 26,
+    "declaredInert": 0,
+    "liveInDeclared": 26,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -1,
+    "inertExactlyZero": true
+   }
+  },
+  "glide": {
+   "label": "Note lag",
+   "kind": "c",
+   "tier": "T3",
+   "id": "33",
+   "range": {
+    "min": 0,
+    "max": 2000,
+    "taper": "pow",
+    "default": 60
+   },
+   "active_when": {
+    "ne": [
+     "polyMode",
+     0
+    ]
+   },
+   "depends_on": [
+    "polyMode"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 388,
+     "text": "const glide = !fresh && (held || d.glideAlways) && s.glide > 1;"
+    }
+   ],
+   "note": "Poly note-on sets the pitch outright.",
+   "role": "gate",
+   "gates": [
+    "glideAlways"
+   ],
+   "probe": {
+    "contexts": 28,
+    "live": 21,
+    "inert": 7,
+    "declaredLive": 21,
+    "declaredInert": 7,
+    "liveInDeclared": 21,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -1,
+    "inertExactlyZero": true
+   }
+  },
+  "glideAlways": {
+   "label": "Glide when",
+   "kind": "e",
+   "tier": "T3",
+   "id": "90",
+   "range": {
+    "options": [
+     0,
+     1
+    ],
+    "default": 0
+   },
+   "active_when": {
+    "all": [
+     {
+      "ne": [
+       "polyMode",
+       0
+      ]
+     },
+     {
+      "gt": [
+       "glide",
+       1
+      ]
+     }
+    ]
+   },
+   "depends_on": [
+    "glide",
+    "polyMode"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 388,
+     "text": "const glide = !fresh && (held || d.glideAlways) && s.glide > 1;"
+    }
+   ],
+   "note": "",
+   "role": "leaf",
+   "gates": [],
+   "probe": {
+    "contexts": 28,
+    "live": 21,
+    "inert": 7,
+    "declaredLive": 21,
+    "declaredInert": 7,
+    "liveInDeclared": 21,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -1,
+    "inertExactlyZero": true
+   }
+  },
+  "os": {
+   "label": "Oversample",
+   "kind": "e",
+   "tier": "T3",
+   "id": "88",
+   "range": {
+    "options": [
+     1,
+     2
+    ],
+    "default": 2
+   },
+   "active_when": true,
+   "depends_on": [],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 508,
+     "text": "setOS(n){"
+    }
+   ],
+   "note": "",
+   "role": "leaf",
+   "gates": [],
+   "probe": {
+    "contexts": 26,
+    "live": 26,
+    "inert": 0,
+    "declaredLive": 26,
+    "declaredInert": 0,
+    "liveInDeclared": 26,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -2,
+    "inertExactlyZero": true
+   }
+  },
+  "aa": {
+   "label": "Band-limit",
+   "kind": "e",
+   "tier": "T3",
+   "id": "16",
+   "range": {
+    "options": [
+     1,
+     0
+    ],
+    "default": 1
+   },
+   "active_when": {
+    "any": [
+     {
+      "in": [
+       "base",
+       [
+        2,
+        3,
+        4
+       ]
+      ]
+     },
+     {
+      "all": [
+       {
+        "pred": "B1"
+       },
+       {
+        "any": [
+         {
+          "eq": [
+           "hard",
+           0
+          ]
+         },
+         {
+          "all": [
+           {
+            "in": [
+             "mode",
+             [
+              0,
+              1,
+              2,
+              5
+             ]
+            ]
+           },
+           {
+            "in": [
+             "hot",
+             [
+              2,
+              3,
+              4
+             ]
+            ]
+           }
+          ]
+         },
+         {
+          "eq": [
+           "mode",
+           3
+          ]
+         },
+         {
+          "all": [
+           {
+            "eq": [
+             "mode",
+             6
+            ]
+           },
+           {
+            "any": [
+             {
+              "le": [
+               "hard",
+               0.001
+              ]
+             },
+             {
+              "eq": [
+               "mirror",
+               1
+              ]
+             }
+            ]
+           }
+          ]
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "pred": "B2"
+       },
+       {
+        "any": [
+         {
+          "eq": [
+           "hard2",
+           0
+          ]
+         },
+         {
+          "all": [
+           {
+            "in": [
+             "mode2",
+             [
+              0,
+              1,
+              2,
+              5
+             ]
+            ]
+           },
+           {
+            "in": [
+             "hot2",
+             [
+              2,
+              3,
+              4
+             ]
+            ]
+           }
+          ]
+         },
+         {
+          "eq": [
+           "mode2",
+           3
+          ]
+         },
+         {
+          "all": [
+           {
+            "eq": [
+             "mode2",
+             6
+            ]
+           },
+           {
+            "any": [
+             {
+              "le": [
+               "hard2",
+               0.001
+              ]
+             },
+             {
+              "any": [
+               {
+                "eq": [
+                 "mirror2",
+                 1
+                ]
+               },
+               {
+                "all": [
+                 {
+                  "eq": [
+                   "mirror2",
+                   -1
+                  ]
+                 },
+                 {
+                  "eq": [
+                   "mirror",
+                   1
+                  ]
+                 }
+                ]
+               }
+              ]
+             }
+            ]
+           }
+          ]
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "depends_on": [
+    "N",
+    "b1on",
+    "b2on",
+    "b2sp",
+    "base",
+    "depth",
+    "depth2",
+    "dspread",
+    "dspread2",
+    "hard",
+    "hard2",
+    "hot",
+    "hot2",
+    "mirror",
+    "mirror2",
+    "mode",
+    "mode2",
+    "w",
+    "w2"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 692,
+     "text": "if (s.aa && dphi > 0 && dphi < 0.5){"
+    },
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 694,
+     "text": "if (b === 2 || b === 4) this.tryE(m, 0.5, p0, dphi, c, k, s);"
+    },
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 614,
+     "text": "if (carrier && (g.hot === 2 || g.hot === 4)){ off = 0.5; step = 1; }"
+    }
+   ],
+   "note": "Band-limiting corrects JUMPS: the base wave's (saw, rev saw, square), a hard-edged blade's edges, a discontinuous blade wave in a carrier mode, Noise and hard Crush steps, and a REFLECTED Crush at any slew. FINDING (probe-found, then read): reflect replays the hold levels backwards, so at the blade EXIT the level returns to the blade START's base value (crushLevel's j 0 slews from wave(base, st)), while the slew-to-base lands at the blade's middle (st + wEff, wEff = w/2); the voice then jumps by depth·(base(st) − base(st + w)) at the exit. A smooth patch has nothing to correct.",
+   "role": "leaf",
+   "gates": [],
+   "probe": {
+    "contexts": 28,
+    "live": 20,
+    "inert": 8,
+    "declaredLive": 21,
+    "declaredInert": 7,
+    "liveInDeclared": 20,
+    "regime": 1,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -4,
+    "inertExactlyZero": false
+   }
+  },
+  "cScale": {
+   "label": "Coupling time",
+   "kind": "e",
+   "tier": "T3",
+   "id": "31",
+   "range": {
+    "options": [
+     0,
+     1
+    ],
+    "default": 0
+   },
+   "active_when": false,
+   "depends_on": [],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/scalpel/prototype/razor-core.js",
+     "line": 439,
+     "text": "const floor = 6.283185307179586*3*(this.d.cScale ? f/110 : 1);"
+    },
+    {
+     "file": "docs/design/scalpel-horde-engine.js",
+     "line": 295,
+     "text": "settle(v) { if (this.src === 'razor') super.settle(v); }"
+    },
+    {
+     "file": "docs/design/scalpel-horde-engine.js",
+     "line": 310,
+     "text": "for (let i = 0; i < N; i++) v.m[i].inc = Math.max(0, glideOn ? S.fRun[i] : S.eff[i]);"
+    }
+   ],
+   "note": "NEVER heard in the composed engine: keff() feeds only RazorCore's coupling increments (overwritten by the swarm) and settle() (skipped). ACCOUNTING row 29: absK/cScale not voiced.",
+   "role": "leaf",
+   "gates": [],
+   "probe": {
+    "contexts": 26,
+    "live": 0,
+    "inert": 26,
+    "declaredLive": 0,
+    "declaredInert": 26,
+    "liveInDeclared": 0,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": null,
+    "inertExactlyZero": true
+   }
+  },
+  "onset": {
+   "label": "Onset lock",
+   "kind": "c",
+   "tier": "T2",
+   "id": "7",
+   "range": {
+    "min": -1,
+    "max": 1,
+    "taper": "lin",
+    "default": 0
+   },
+   "active_when": {
+    "pred": "SW"
+   },
+   "depends_on": [
+    "N"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/swarmsaw.html",
+     "line": 355,
+     "text": "s.Kenv = 8 * this.p.onset * this.p.onset;"
+    }
+   ],
+   "note": "JS reference: ±onset play the same burst (B298 finding 1).",
+   "role": "gate",
+   "gates": [
+    "dissolve",
+    "inertia",
+    "inertiaCurve"
+   ],
+   "probe": {
+    "contexts": 28,
+    "live": 24,
+    "inert": 4,
+    "declaredLive": 24,
+    "declaredInert": 4,
+    "liveInDeclared": 24,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -1,
+    "inertExactlyZero": true
+   }
+  },
+  "dissolve": {
+   "label": "Dissolve",
+   "kind": "c",
+   "tier": "T2",
+   "id": "8",
+   "range": {
+    "min": 0.05,
+    "max": 7.94,
+    "taper": "log",
+    "default": 0.63
+   },
+   "active_when": {
+    "all": [
+     {
+      "pred": "SW"
+     },
+     {
+      "ne": [
+       "onset",
+       0
+      ]
+     }
+    ]
+   },
+   "depends_on": [
+    "N",
+    "onset"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/swarmsaw.html",
+     "line": 387,
+     "text": "s.Kenv *= Math.exp(-dt / Math.max(0.01, p.dissolve));"
+    }
+   ],
+   "note": "",
+   "role": "leaf",
+   "gates": [],
+   "probe": {
+    "contexts": 28,
+    "live": 15,
+    "inert": 13,
+    "declaredLive": 15,
+    "declaredInert": 13,
+    "liveInDeclared": 15,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -2,
+    "inertExactlyZero": true
+   }
+  },
+  "driftDepth": {
+   "label": "Drift",
+   "kind": "c",
+   "tier": "T2",
+   "id": "9",
+   "range": {
+    "min": 0,
+    "max": 100,
+    "taper": "lin",
+    "default": 0
+   },
+   "active_when": true,
+   "depends_on": [],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/swarmsaw.html",
+     "line": 388,
+     "text": "if (p.driftDepth > 0) {"
+    }
+   ],
+   "note": "Drift walks even a single member's pitch.",
+   "role": "gate",
+   "gates": [
+    "h.driftRate",
+    "inertia",
+    "inertiaCurve"
+   ],
+   "probe": {
+    "contexts": 26,
+    "live": 26,
+    "inert": 0,
+    "declaredLive": 26,
+    "declaredInert": 0,
+    "liveInDeclared": 26,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -3,
+    "inertExactlyZero": true
+   }
+  },
+  "h.driftRate": {
+   "label": "Drift rate",
+   "kind": "c",
+   "tier": "T3",
+   "id": "10",
+   "range": {
+    "min": 0,
+    "max": 1,
+    "taper": "lin",
+    "default": 0.4
+   },
+   "active_when": {
+    "gt": [
+     "driftDepth",
+     0
+    ]
+   },
+   "depends_on": [
+    "driftDepth"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/swarmsaw.html",
+     "line": 390,
+     "text": "const dm = p.driftMode | 0, rate = (0.2 + p.driftRate * 8);"
+    }
+   ],
+   "note": "",
+   "role": "leaf",
+   "gates": [],
+   "probe": {
+    "contexts": 28,
+    "live": 19,
+    "inert": 9,
+    "declaredLive": 19,
+    "declaredInert": 9,
+    "liveInDeclared": 19,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -3,
+    "inertExactlyZero": true
+   }
+  },
+  "h.law": {
+   "label": "Detune law",
+   "kind": "e",
+   "tier": "T3",
+   "id": "5",
+   "range": {
+    "options": [
+     0,
+     1,
+     2,
+     4,
+     5
+    ],
+    "default": 0,
+    "disabled": [
+     {
+      "v": 3,
+      "why": "not in the JS reference: SwarmSynth has no law 3 (it would play as ERB) — B298 finding 3"
+     }
+    ]
+   },
+   "active_when": {
+    "pred": "DETUNED"
+   },
+   "depends_on": [
+    "N",
+    "detune"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/swarmsaw.html",
+     "line": 418,
+     "text": "if (p.law === 0) { f = s.f0 * Math.pow(2, (x * dep * 100) / 1200); }"
+    }
+   ],
+   "note": "",
+   "role": "switch",
+   "gates": [
+    "anchor",
+    "harmReach",
+    "stretchB"
+   ],
+   "probe": {
+    "contexts": 28,
+    "live": 24,
+    "inert": 4,
+    "declaredLive": 24,
+    "declaredInert": 4,
+    "liveInDeclared": 24,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -2,
+    "inertExactlyZero": true
+   }
+  },
+  "harmReach": {
+   "label": "Harmonic reach",
+   "kind": "c",
+   "tier": "T3",
+   "id": "79",
+   "range": {
+    "min": 0.25,
+    "max": 4,
+    "taper": "lin",
+    "default": 1
+   },
+   "active_when": {
+    "all": [
+     {
+      "pred": "DETUNED"
+     },
+     {
+      "eq": [
+       "h.law",
+       4
+      ]
+     }
+    ]
+   },
+   "depends_on": [
+    "N",
+    "detune",
+    "h.law"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/swarmsaw.html",
+     "line": 425,
+     "text": "else if (p.law === 4) { f = s.f0 * (1 + dep * p.harmReach * i); }"
+    }
+   ],
+   "note": "",
+   "role": "leaf",
+   "gates": [],
+   "probe": {
+    "contexts": 28,
+    "live": 9,
+    "inert": 19,
+    "declaredLive": 9,
+    "declaredInert": 19,
+    "liveInDeclared": 9,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -1,
+    "inertExactlyZero": true
+   }
+  },
+  "stretchB": {
+   "label": "Stretch B",
+   "kind": "c",
+   "tier": "T3",
+   "id": "80",
+   "range": {
+    "min": 0,
+    "max": 6,
+    "taper": "lin",
+    "default": 0
+   },
+   "active_when": {
+    "all": [
+     {
+      "pred": "DETUNED"
+     },
+     {
+      "eq": [
+       "h.law",
+       5
+      ]
+     }
+    ]
+   },
+   "depends_on": [
+    "N",
+    "detune",
+    "h.law"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/swarmsaw.html",
+     "line": 434,
+     "text": "f = s.f0 * (1 + rat * (1 + p.stretchB * x * x));"
+    }
+   ],
+   "note": "",
+   "role": "leaf",
+   "gates": [],
+   "probe": {
+    "contexts": 28,
+    "live": 6,
+    "inert": 22,
+    "declaredLive": 6,
+    "declaredInert": 22,
+    "liveInDeclared": 6,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -1,
+    "inertExactlyZero": true
+   }
+  },
+  "spread": {
+   "label": "Octave spread",
+   "kind": "c",
+   "tier": "T3",
+   "id": "81",
+   "range": {
+    "min": 1,
+    "max": 24,
+    "taper": "lin",
+    "default": 1
+   },
+   "active_when": {
+    "pred": "DETUNED"
+   },
+   "depends_on": [
+    "N",
+    "detune"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/swarmsaw.html",
+     "line": 414,
+     "text": "const dep = p.detune * p.spread;"
+    }
+   ],
+   "note": "",
+   "role": "leaf",
+   "gates": [],
+   "probe": {
+    "contexts": 28,
+    "live": 24,
+    "inert": 4,
+    "declaredLive": 24,
+    "declaredInert": 4,
+    "liveInDeclared": 24,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -2,
+    "inertExactlyZero": true
+   }
+  },
+  "anchor": {
+   "label": "Root anchor",
+   "kind": "c",
+   "tier": "T3",
+   "id": "82",
+   "range": {
+    "min": 0,
+    "max": 1,
+    "taper": "lin",
+    "default": 0
+   },
+   "active_when": {
+    "all": [
+     {
+      "pred": "DETUNED"
+     },
+     {
+      "ne": [
+       "h.law",
+       4
+      ]
+     }
+    ]
+   },
+   "depends_on": [
+    "N",
+    "detune",
+    "h.law"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/swarmsaw.html",
+     "line": 417,
+     "text": "let f; const x = this.x[i] - p.anchor * this.xmin;"
+    }
+   ],
+   "note": "Harmonic ignores x, so it ignores the anchor.",
+   "role": "leaf",
+   "gates": [],
+   "probe": {
+    "contexts": 28,
+    "live": 17,
+    "inert": 11,
+    "declaredLive": 17,
+    "declaredInert": 11,
+    "liveInDeclared": 17,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -1,
+    "inertExactlyZero": true
+   }
+  },
+  "inertia": {
+   "label": "Inertia",
+   "kind": "c",
+   "tier": "T3",
+   "id": "11",
+   "range": {
+    "min": 0,
+    "max": 1,
+    "taper": "lin",
+    "default": 0
+   },
+   "active_when": {
+    "any": [
+     {
+      "all": [
+       {
+        "pred": "SW"
+       },
+       {
+        "any": [
+         {
+          "ne": [
+           "K",
+           0
+          ]
+         },
+         {
+          "ne": [
+           "onset",
+           0
+          ]
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "gt": [
+       "driftDepth",
+       0
+      ]
+     },
+     {
+      "ne": [
+       "polyMode",
+       0
+      ]
+     }
+    ]
+   },
+   "depends_on": [
+    "K",
+    "N",
+    "driftDepth",
+    "onset",
+    "polyMode"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "reference/swarmsaw.html",
+     "line": 526,
+     "text": "if (w <= 0.001) {"
+    },
+    {
+     "file": "docs/design/scalpel-horde-engine.js",
+     "line": 225,
+     "text": "p.inertia = c === 0.5 ? Math.sqrt(k) : Math.pow(k, c);"
+    }
+   ],
+   "note": "Momentum toward a target that never moves (no coupling, no onset burst, no drift, no mono/legato pitch change) changes nothing.",
+   "role": "gate",
+   "gates": [
+    "inertiaCurve"
+   ],
+   "probe": {
+    "contexts": 28,
+    "live": 25,
+    "inert": 3,
+    "declaredLive": 25,
+    "declaredInert": 3,
+    "liveInDeclared": 25,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -1,
+    "inertExactlyZero": true
+   }
+  },
+  "inertiaCurve": {
+   "label": "Inertia curve",
+   "kind": "c",
+   "tier": "T3",
+   "id": "70",
+   "range": {
+    "min": 0.3,
+    "max": 5,
+    "taper": "lin",
+    "default": 2.5
+   },
+   "active_when": {
+    "all": [
+     {
+      "gt": [
+       "inertia",
+       0
+      ]
+     },
+     {
+      "any": [
+       {
+        "all": [
+         {
+          "pred": "SW"
+         },
+         {
+          "any": [
+           {
+            "ne": [
+             "K",
+             0
+            ]
+           },
+           {
+            "ne": [
+             "onset",
+             0
+            ]
+           }
+          ]
+         }
+        ]
+       },
+       {
+        "gt": [
+         "driftDepth",
+         0
+        ]
+       },
+       {
+        "ne": [
+         "polyMode",
+         0
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "depends_on": [
+    "K",
+    "N",
+    "driftDepth",
+    "inertia",
+    "onset",
+    "polyMode"
+   ],
+   "side_channels": [],
+   "source": [
+    {
+     "file": "docs/design/scalpel-horde-engine.js",
+     "line": 225,
+     "text": "p.inertia = c === 0.5 ? Math.sqrt(k) : Math.pow(k, c);"
+    }
+   ],
+   "note": "",
+   "role": "leaf",
+   "gates": [],
+   "probe": {
+    "contexts": 28,
+    "live": 15,
+    "inert": 13,
+    "declaredLive": 15,
+    "declaredInert": 13,
+    "liveInDeclared": 15,
+    "regime": 0,
+    "sideChannelHits": 0,
+    "minLiveDeltaDecade": -2,
+    "inertExactlyZero": true
+   }
+  }
+ },
+ "excluded": [
+  {
+   "key": "enable",
+   "kind": "t",
+   "why": "tab power, a lab mapping onto gain (not a patch value)"
+  },
+  {
+   "key": "octave",
+   "kind": "c",
+   "why": "pitch, a lab mapping onto bend: the played note is the gauntlet's variable"
+  },
+  {
+   "key": "semi",
+   "kind": "c",
+   "why": "pitch, a lab mapping onto bend: the played note is the gauntlet's variable"
+  },
+  {
+   "key": "fine",
+   "kind": "c",
+   "why": "pitch, a lab mapping onto bend: the played note is the gauntlet's variable"
+  },
+  {
+   "key": "rtone",
+   "kind": "x",
+   "why": "kind x: a horde row the engine does not voice (drawn, not voiced)"
+  },
+  {
+   "key": "vol2",
+   "kind": "x",
+   "why": "kind x: a horde row the engine does not voice (drawn, not voiced)"
+  },
+  {
+   "key": "subLvl",
+   "kind": "x",
+   "why": "kind x: a horde row the engine does not voice (drawn, not voiced)"
+  },
+  {
+   "key": "master",
+   "kind": "c",
+   "why": "the lab's output gain node, after the engine"
+  }
+ ],
+ "unsampled": [
+  {
+   "key": "bend",
+   "fixed": 0
+  },
+  {
+   "key": "dist",
+   "fixed": 0
+  },
+  {
+   "key": "driftMode",
+   "fixed": 0
+  },
+  {
+   "key": "freqGlide",
+   "fixed": 0
+  },
+  {
+   "key": "keepPhase",
+   "fixed": 0
+  },
+  {
+   "key": "motionCenter",
+   "fixed": 0
+  },
+  {
+   "key": "pivotMode",
+   "fixed": 0
+  },
+  {
+   "key": "poly",
+   "fixed": 6
+  },
+  {
+   "key": "seed",
+   "fixed": 1234
+  }
+ ]
+}
