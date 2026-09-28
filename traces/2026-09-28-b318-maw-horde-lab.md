@@ -96,7 +96,7 @@
   - The −0 case. A seeded noise gate starts at `(r·2−1)·0`, which can be −0. MAW's dry sum returns +0 for it, and a bit-compare would report the sign of zero. Sources are canonicalised with `+ 0` at their one writer, and the comment says why.
   - Under Node's `vm` with the references loaded (a scratch harness, not the load checker, which loads no `<script src>`), the boot takes ~42 s: runChecks 27.9 s, one engine source 11.2 s, one MAW render 1.5 s. The same MAW render takes 60–130 ms in plain Node. My hypothesis is global-lookup interception in the contextified sandbox; it was not profiled. Chrome's boot was not timed. This is why the self-checks are not run headless in `./verify` this round (open question below).
 - **`lab_load_check`:** GREEN, 55 labs loaded, 0 broken, 1 skipped (the full sweep, including this lab).
-- **Verify:** see the section below (filled after the commit).
+- **Verify:** `./verify fast` exit 0 on the lab commit. `.harness/last-verify.json` reads `{"target":"fast","exit":0,"git":"3604f70","ts":"2026-09-28T01:47:35Z"}`. `lab_load_check` is quiet on green inside verify; run standalone it is GREEN (see above). `lab_wheel_scroll_check`: GREEN, 0 failure(s); 6 labs, 2 planted faults. `private_name_gate` was SKIPPED (`.leakcheck-names` is absent in this worktree). This trace's own commit was re-verified; the hash is in the PR.
 - **Not verified:**
   - Nobody has listened. Audio playback was read in the code, not heard.
   - Knob-drag cost in a real browser was not measured (a full re-render per change, ~100 ms estimated from Node timings of MAW's 1.5 s render at 60–130 ms).
