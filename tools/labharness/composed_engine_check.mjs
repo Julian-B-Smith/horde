@@ -41,6 +41,32 @@
  *       neutral case is exact on the Hz-unit presets that exposed the gap and on
  *       a chord struck on a mono voice; the must-fail controls rebuild the old
  *       placeholder and the fix's own first attempt.
+ *   GRAV consonance gravity (B335, ADR-008, ADR-086 + A1). Against DynSynth
+ *       (reference/swarmdynamics.html) on the same swarm, seed and notes: every
+ *       note's member phases, member frequencies and f0cur, EXACTLY (five
+ *       scenarios: a sharp fifth, K .35 from random phases, a late triad, an
+ *       octave-folded twelfth, and a pair outside the basin that must not move);
+ *       a 3 s settle onto 3/2. Controls: DynSynth without gravity; gravity
+ *       stepped per render call (the pre-ADR-086 law); a 256-SAMPLE grid at
+ *       48 kHz (the pre-Amendment-1 law).
+ *   ZERO the new parameters at their defaults are the pre-B335 engine, bit for
+ *       bit: three renders fingerprinted against main at c79be56. Must-differ
+ *       twins switch each feature on.
+ *   ONS  onset scatter and timing correction (B335, ADR-077, B149). NO JS
+ *       REFERENCE EXISTS: the C++ (src/swarm_core.h) is the reference, rendered by
+ *       tools/onset_ref_check.cpp into tools/labharness/onset_ref_cpp.json (which
+ *       `verify full` re-derives and fails when stale). The draws (offsets, waits,
+ *       coefficients) over 40-note phrases at four correction gains and two seeds;
+ *       ADR-077's structure law (lag-1 of the asynchrony falls with the gain);
+ *       rendered entries (exact), entry ramps and phases, coupled and uncoupled.
+ *       Controls: the wrong alpha sign, the stream not seeded (the pre-B149
+ *       literal), i.i.d. jitter with no memory, a waiting member whose phase runs.
+ *       A FINDING row records the C++'s wait counted per sub-sample at its 2x.
+ *   VENV per-partial envelopes and attack/release scatter (B335, ADR-078): entries
+ *       exact; each member's attack and release half-times scale by the C++'s
+ *       drawn factor (the ratio across the two envelope laws is one constant per
+ *       stage); unscattered ≡ the voice envelope bit for bit; liveness follows the
+ *       loudest member. Control: members without their drawn factors.
  *   DET determinism: same seed and note order give identical output; a
  *       different horde seed does not; the module reads no clock and draws no
  *       unseeded random of its own; the toString() bundle (the AudioWorklet
@@ -52,9 +78,10 @@
  * O2; an unaligned start must break O3's coincidence; a changed seed must break
  * determinism.
  *
- * WHY IN full, NOT fast: ~10 s of DSP on this Mac (O1 steps both engines one
- * sample at a time for its first 4096 samples; O2 renders 24 two-note passes at
- * 2x oversampling), and fast is the seconds-scale leg — station_check's reason.
+ * WHY IN full, NOT fast: ~30 s of DSP on this Mac since B335 (O1 and GRAV step
+ * two engines one sample at a time for their first 4096 samples; O2 renders 24
+ * two-note passes at 2x oversampling; ONS renders 44.1 kHz one sample per call),
+ * and fast is the seconds-scale leg — station_check's reason.
  * Deterministic, no model calls. Each section prints the previous one's cost.
  * By hand:  node tools/labharness/composed_engine_check.mjs   (exit 1 on any red row)
  * Both references are PROTECTED and are loaded, never edited: SwarmSynth through
@@ -63,6 +90,7 @@
  * instance (the lab's convention) and restored on exit.
  */
 import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -734,6 +762,306 @@ section('B325 — the blade reads the swarm\'s member frequencies from the first
   row(mz === 0 && ms === 0, 'B325', `mono chord, four note-ons in one block (legato presets, glide off), neutral case ≡ oracle: Zap bass max|Δ| ${mz.toExponential(1)} · Screamer ${ms.toExponential(1)}`);
   const fz = neutral(FirstTry, 'Zap bass', monoChord, { glide: 1 });
   row(fz > 1e-3, 'B325c', `CONTROL the fix's first attempt (look-ahead kept, scheduled tick skipped): Zap bass mono chord max|Δ| ${fz.toExponential(1)} — must be large`);
+}
+
+/* ---------------------------------------------------------------- B335 gravity */
+/* CONSONANCE GRAVITY (ADR-008; ADR-086 and Amendment 1), composed in B335. The reference is
+   DynSynth (reference/swarmdynamics.html), loaded here by the golden generator's own loader and
+   run beside the composed engine with the same swarm (N members, even distribution, law 0, K ≥ 0:
+   the laws coincide there, O3) and the same seed and notes. Blade off (w 0); the swarm half does
+   not read it (O1's blade-independence row). What is compared, every sample of the first 4096 and
+   every 32nd after: each note's member phases, member frequencies (DynSynth's vf + couple, the
+   engine's S.eff) and the note's f0cur (the pitch gravity moves). The must-fail controls plant
+   the two defects ADR-086 and its amendment record: gravity stepped once per render CALL (dt =
+   the block), and the grid as 256 SAMPLES at 48 kHz instead of a fixed time. */
+section('GRAV — consonance gravity vs DynSynth (reference/swarmdynamics.html), 48 kHz, blade off');
+const DynSynth = extractCore(join(root, 'reference/swarmdynamics.html'), 'DynSynth');
+const cents = r => 1200 * Math.log2(r);
+function gravRun(h, opt) {
+  opt = opt || {};
+  const ref = new DynSynth(SR);
+  const rp = { n: h.n, detune: h.cents / 100, seed: h.seed, retrig: h.retrig, K: h.K, grav: 'refGrav' in opt ? opt.refGrav : h.grav, basin: h.basin };
+  for (const k in rp) ref.setParam(k, rp[k]);
+  Math.random = mulberry32(0xB335);
+  const c = new (opt.cls || Composed)(SR);
+  c.set({ N: h.n, detune: h.cents, K: h.K, phaseMode: h.retrig ? 1 : 0, seed: h.seed, grav: h.grav, basin: h.basin, w: 0 });
+  Object.assign(c.s, c.t);
+  const total = Math.round((h.seconds || 1) * SR), bufL = new Float32Array(32), bufR = new Float32Array(32), cL = new Float32Array(32), cR = new Float32Array(32);
+  const vs = [], rs = [];
+  let ph = 0, eff = 0, f0 = 0, done = 0, e = 0;
+  const f0c = v => (v.gOn ? v.gf0 : v.freq);
+  while (done < total) {
+    while (e < h.notes.length && h.notes[e][0] <= done) {
+      const f = h.notes[e][1];
+      ref.noteOn(60 + e, f); rs.push(ref.swarms[e]);
+      c.noteOn(60 + e, f, 1); vs.push(c.voices.reduce((a, v) => (v.age > a.age ? v : a)));
+      e++;
+    }
+    const b = done < 4096 ? 1 : 32;
+    ref.render(bufL.subarray(0, b), bufR.subarray(0, b));
+    c.render(cL.subarray(0, b), cR.subarray(0, b));
+    done += b;
+    for (let j = 0; j < vs.length; j++) {
+      const S = c.sw.swarms[vs[j].si], rj = rs[j];
+      for (let i = 0; i < h.n; i++) {
+        ph = Math.max(ph, circ(S.phase[i], rj.phase[i]));
+        eff = Math.max(eff, Math.abs(S.eff[i] - (rj.vf[i] + rj.couple[i])));
+      }
+      f0 = Math.max(f0, Math.abs(f0c(vs[j]) / rj.f0cur - 1));
+    }
+  }
+  const last = vs.length - 1;
+  return { ph, eff, f0, c, iv: cents(f0c(vs[last]) / f0c(vs[0])), ivRef: cents(rs[last].f0cur / rs[0].f0cur), moved: vs.some(v => v.gOn), gravN: c.gravN };
+}
+const G0 = { n: 7, cents: 14, K: 0, retrig: 1, seed: 1234, grav: 1, basin: 35, seconds: 1 };
+const A3 = 220, above = c0 => A3 * Math.pow(2, c0 / 1200);
+const GRAV = [
+  ['fifth +13 c', { notes: [[0, A3], [0, above(713)]] }],
+  ['K .35 rand', { K: 0.35, retrig: 0, grav: 0.5, notes: [[0, A3], [0, above(713)]] }],
+  ['triad late', { K: 0.2, grav: 0.8, notes: [[0, A3], [2048, above(390)], [4096, above(708)]] }],
+  ['12th folded', { K: 0.1, notes: [[0, A3], [0, above(1200 + 715)]] }],
+  ['out of basin', { basin: 10, notes: [[0, A3], [0, above(713)]] }],
+];
+for (const [name, over] of GRAV) {
+  const h = Object.assign({}, G0, over);
+  const r = gravRun(h);
+  const exact = r.ph === 0 && r.eff === 0 && r.f0 === 0;
+  const pulls = over.basin === 10 ? !r.moved : r.moved;
+  row(exact && pulls, 'GRAV', `${name.padEnd(12)} max|Δφ| ${r.ph.toExponential(1)}  max|Δf| ${r.eff.toExponential(1)} Hz  max|Δf0cur|/f0cur ${r.f0.toExponential(1)}; ` +
+    `interval at ${h.seconds} s ${r.iv.toFixed(3)} c (DynSynth ${r.ivRef.toFixed(3)}; ${over.basin === 10 ? 'outside the 10 c basin: unmoved' : 'moved toward the just ratio'})`);
+}
+{
+  const long = gravRun(Object.assign({}, G0, { seconds: 3, notes: [[0, A3], [0, above(713)]] }));
+  row(Math.abs(long.iv - cents(1.5)) < 0.05 && long.ph === 0 && long.gravN === 1, 'GRAV',
+    `settles: a fifth 13 c sharp reaches ${long.iv.toFixed(4)} c after 3 s (3/2 is ${cents(1.5).toFixed(4)} c), with DynSynth to the bit; readout holds ${long.gravN} pair`);
+  const h = Object.assign({}, G0, { notes: [[0, A3], [0, above(713)]] });
+  const off = gravRun(h, { refGrav: 0 });
+  row(off.ph > 1e-3 && off.f0 > 1e-4, 'GRAVc', `CONTROL DynSynth without gravity: max|Δφ| ${off.ph.toFixed(4)}, max|Δf0cur|/f0cur ${off.f0.toExponential(2)} — must be large (the detector sees gravity)`);
+  class PerCall extends Composed {
+    render(L, R) { const g = this.d.grav; this.d.grav = 0; super.render(L, R); this.d.grav = g; this.gravityStep(L.length / this.sr); }
+  }
+  const pc = gravRun(h, { cls: PerCall });
+  row(pc.ph > 1e-9 || pc.f0 > 1e-12, 'GRAVc', `CONTROL gravity stepped once per render call (dt = the block, the pre-ADR-086 law): max|Δφ| ${pc.ph.toExponential(2)}, max|Δf0cur|/f0cur ${pc.f0.toExponential(2)} — must be non-zero`);
+  class Samples256 extends Composed { constructor(sr) { super(sr); this.gravGrid = 256; } }
+  const s256 = gravRun(h, { cls: Samples256 });
+  row(s256.ph > 1e-9 || s256.f0 > 1e-12, 'GRAVc', `CONTROL a 256-SAMPLE grid at 48 kHz (the pre-Amendment-1 law; the time grid is ${Math.round(SR * 256 / 44100)}): max|Δφ| ${s256.ph.toExponential(2)}, max|Δf0cur|/f0cur ${s256.f0.toExponential(2)} — must be non-zero`);
+}
+
+/* ---------------------------------------------------------------- B335 zero */
+/* NEW PARAMETERS AT THEIR DEFAULTS CHANGE NOTHING: three renders (a four-note script with a
+   release, 0.5 s) fingerprinted against the engine BEFORE B335 (main at c79be56, the same script
+   run on docs/design/scalpel-horde-engine.js as it stood). SHA-256 of the float32 output, first 16
+   hex digits. The must-DIFFER twins switch each feature on in the same script. */
+section('ZERO — gravity 0 and every scatter 0 are bit-identical to the pre-B335 engine');
+{
+  const ZERO = [['Glass horde pad', 'acfdf284a132da01'], ['Two blades', '7dbb7b19c2412b11'],
+    ['horde rows', '8aecd8e01b3da445']];
+  const pOf = name => (name === 'horde rows' ? { N: 7, detune: 28, K: 0.4, phaseMode: 0, driftDepth: 20, onset: 0.8, inertia: 0.6 } : byName(name));
+  const fp = (params, cls) => {
+    Math.random = mulberry32(0xB335);
+    const c = new (cls || Composed)(SR); c.set(params); Object.assign(c.s, c.t);
+    const total = 24064, L = new Float32Array(total), R = new Float32Array(total), B = 128;
+    const ev = [[0, 'on', 57], [0, 'on', 64], [0, 'on', 69], [9600, 'on', 60], [14336, 'off', 57], [14336, 'off', 64]];
+    for (let i = 0, e = 0; i < total; i += B) {
+      while (e < ev.length && ev[e][0] <= i) { const [, k, n] = ev[e++]; if (k === 'on') c.noteOn(n, 440 * Math.pow(2, (n - 69) / 12), 0.9); else c.noteOff(n); }
+      c.render(L.subarray(i, i + B), R.subarray(i, i + B));
+    }
+    return createHash('sha256').update(Buffer.from(L.buffer)).update(Buffer.from(R.buffer)).digest('hex').slice(0, 16);
+  };
+  for (const [name, want] of ZERO) {
+    const got = fp(pOf(name)), explicit = fp(Object.assign({}, pOf(name), { grav: 0.004, basin: 35, onsetScatter: 0, onsetAlpha: 0.25, attackScatter: 0, voiceEnv: 0, relScatter: 0 }));
+    row(got === want && explicit === want, 'ZERO', `${name.padEnd(16)} ${got} (pre-B335 ${want}); with grav 0.004 (under DynSynth's 0.005) and every scatter 0 written explicitly ${explicit}`);
+  }
+  const base = pOf('horde rows');
+  const twins = [['grav 0.5', { grav: 0.5 }], ['onsetScatter 10', { onsetScatter: 10 }], ['voiceEnv + relScatter .8', { voiceEnv: 1, relScatter: 0.8 }]];
+  for (const [tag, over] of twins) {
+    const d = fp(Object.assign({}, base, over));
+    row(d !== ZERO[2][1], 'ZEROc', `CONTROL ${tag} on the same script: ${d} — must differ from ${ZERO[2][1]}`);
+  }
+}
+
+/* ---------------------------------------------------------------- B335 onset / timing (C++ reference) */
+/* ONSET SCATTER, TIMING CORRECTION, ATTACK SCATTER, PER-PARTIAL ENV, RELEASE SCATTER (ADR-077/078,
+   B149). There is no JS reference: the C++ (src/swarm_core.h) is the reference, rendered by
+   tools/onset_ref_check.cpp into tools/labharness/onset_ref_cpp.json, which `verify full` re-derives
+   from the C++ of the day and fails when stale. This compares the engine's transcription with it,
+   same seeds, same notes. TOLERANCES, with reasons: the draws are the same expressions over the same
+   mulberry32 stream, so they differ only by libm's last ulp (V8's log/cos/exp are not macOS libm's):
+   offsets 1e-15 s, onset delays 1e-9 samples, coefficients 1e-11 relative (relC = 1 − exp(−x) at
+   x ~ 2e-4 cancels ~12 bits). The wait is an integer count, compared EXACTLY. Phases 1e-9 cycles. */
+section('ONS — the ensemble timing, JS transcription vs swarm_core.h (tools/labharness/onset_ref_cpp.json)');
+const REF = JSON.parse(readFileSync(join(root, 'tools/labharness/onset_ref_cpp.json'), 'utf8'));
+const onsMake = (sr, over, cls) => {
+  Math.random = mulberry32(0xB335);
+  const c = new (cls || Composed)(sr);
+  c.set(Object.assign({ N: 7, detune: 20, K: 0, phaseMode: 1, dist: 0, seed: 1234, 'h.law': 0, w: 0, S: 1 }, over));
+  Object.assign(c.s, c.t);
+  return c;
+};
+const newest = c => c.voices.reduce((a, v) => (v.age > a.age ? v : a));
+function serialRun(run, cls, alphaOver, notes) {
+  const S = REF.serial;
+  const c = onsMake(S.sr, { onsetScatter: S.scatter, onsetAlpha: alphaOver === undefined ? run.alpha : alphaOver, attackScatter: S.attackScatter, relScatter: S.relScatter, A: S.A, R: S.R, seed: run.seed }, cls);
+  const tOff = [], onsD0 = [], onsC = [], relC = [];
+  for (let k = 0; k < (notes || S.notes); k++) {
+    const midi = 57 + (k % 5);
+    c.noteOn(midi, S.f, 1);
+    const v = newest(c);
+    for (let i = 0; i < S.n; i++) { tOff.push(c.tOff[i]); onsD0.push(v.m[i].onsD0); onsC.push(v.m[i].onsC); relC.push(v.m[i].relC); }
+    c.noteOff(midi);
+  }
+  return { tOff, onsD0, onsC, relC };
+}
+const maxAbs = (a, b) => { let m = 0; for (let i = 0; i < a.length; i++) m = Math.max(m, Math.abs(a[i] - b[i])); return m; };
+const maxRel = (a, b) => { let m = 0; for (let i = 0; i < a.length; i++) m = Math.max(m, Math.abs(a[i] / b[i] - 1)); return m; };
+/* ADR-077's STRUCTURE statistic (L0021: a variance test cannot tell correction from jitter),
+   as tools/waveshape_check.cpp measures it: a member's ASYNCHRONY (its onset delay minus the
+   note's mean delay) across successive notes, lag-1 autocorrelation; here pooled over members */
+function lag1(onsD0, n, notes) {
+  let num = 0, den = 0;
+  for (let i = 0; i < n; i++) {
+    const a = [];
+    for (let k = 0; k < notes; k++) { let m = 0; for (let j = 0; j < n; j++) m += onsD0[k * n + j]; a.push(onsD0[k * n + i] - m / n); }
+    let mu = 0; for (const x of a) mu += x; mu /= notes;
+    for (let k = 0; k < notes; k++) { const d = a[k] - mu; den += d * d; if (k) num += d * (a[k - 1] - mu); }
+  }
+  return num / den;
+}
+const LAG_NOTES = 300;   // waveshape_check's phrase length: a 40-note window biases a random walk's lag-1 low
+{
+  const S = REF.serial, lagJ = {}, lagC = {};
+  for (const run of S.runs) {
+    const j = serialRun(run);
+    const dT = maxAbs(j.tOff, run.tOff), dD = maxAbs(j.onsD0, run.onsD0);
+    let waits = 0; for (let x = 0; x < j.onsD0.length; x++) if (Math.ceil(j.onsD0[x]) !== Math.ceil(run.onsD0[x])) waits++;
+    let coef = '', ok = dT <= 1e-15 && dD <= 1e-9 && waits === 0;
+    if (run.onsC) { const a = maxRel(j.onsC, run.onsC), b = maxRel(j.relC, run.relC); ok = ok && a <= 1e-11 && b <= 1e-11; coef = `; onsC ${a.toExponential(1)}, relC ${b.toExponential(1)} rel`; }
+    row(ok, 'ONS', `draws, alpha ${String(run.alpha).padEnd(4)} seed ${String(run.seed).padEnd(4)}: ${S.notes} notes × ${S.n} members, max|ΔtOff| ${dT.toExponential(1)} s, max|Δwait| ${dD.toExponential(1)} samples, ` +
+      `whole-sample waits differing ${waits}${coef}`);
+    if (run.seed === 1234) { lagJ[run.alpha] = lag1(j.onsD0, S.n, S.notes); lagC[run.alpha] = lag1(run.onsD0, S.n, S.notes); }
+  }
+  const a = [0, 0.25, 1, 1.5];
+  const L = a.map(x => lag1(serialRun(S.runs.find(r => r.alpha === x && r.seed === 1234), null, undefined, LAG_NOTES).onsD0, S.n, LAG_NOTES));
+  const same = a.every(x => Math.abs(lagJ[x] - lagC[x]) < 1e-9);
+  row(L[0] > 0.9 && L[1] > 0.4 && L[1] < L[0] && L[2] < 0.2 && L[3] < 0 && same, 'ONS',
+    `timing-correction law (ADR-077's gate, waveshape_check's statistic, ${LAG_NOTES} notes): lag-1 of the asynchrony at alpha 0 / .25 / 1 / 1.5 = ${L.map(x => x.toFixed(3)).join(' / ')} ` +
+    `(ADR-077 measured +0.985 / +0.679 / −0.072 / −0.550); over the fixture's ${S.notes} notes JS ${a.map(x => lagJ[x].toFixed(3)).join(' / ')} = C++ ${a.map(x => lagC[x].toFixed(3)).join(' / ')}`);
+  const s99 = S.runs.find(r => r.seed === 99), s1234 = S.runs.find(r => r.seed === 1234 && r.alpha === 0.25);
+  row(maxAbs(s99.tOff, s1234.tOff) > 1e-3, 'ONS', `the seed reaches the stream (B149): seed 99 vs 1234 at alpha .25, max|ΔtOff| ${maxAbs(s99.tOff, s1234.tOff).toExponential(2)} s`);
+  /* controls */
+  const r25 = s1234;
+  const neg = serialRun(r25, null, -0.25);
+  row(maxAbs(neg.tOff, r25.tOff) > 1e-3, 'ONSc', `CONTROL timing correction with the WRONG SIGN (−0.25 against the C++'s +0.25): max|ΔtOff| ${maxAbs(neg.tOff, r25.tOff).toExponential(2)} s — must be large`);
+  class Unseeded extends Composed { ensSync() { if (!this.ensSeeded) { this.ensSeeded = true; this.tRng = 12345; this.tOff.fill(0); } } }
+  const un = serialRun(r25, Unseeded);
+  row(maxAbs(un.tOff, r25.tOff) > 1e-3, 'ONSc', `CONTROL the stream NOT SEEDED from the seed (the pre-B149 literal 12345): max|ΔtOff| ${maxAbs(un.tOff, r25.tOff).toExponential(2)} s — must be large`);
+  class Jitter extends Composed { armMembers(v) { this.tOff.fill(0); super.armMembers(v); } }
+  const ji = serialRun(r25, Jitter, undefined, LAG_NOTES), lj = lag1(ji.onsD0, S.n, LAG_NOTES);
+  row(lj < 0.4, 'ONSc', `CONTROL no memory across notes (i.i.d. jitter, "conventional humanize"): lag-1 at alpha .25 reads ${lj.toFixed(3)} — must fail the law row's > 0.4`);
+}
+/* the rendered scenarios: entries (exact), and at checkpoints the entry ramp and the phases */
+function onsRender(q, cls) {
+  const Rn = REF.render;
+  const c = onsMake(Rn.sr, { K: q.K, onsetScatter: q.scatter, onsetAlpha: q.alpha, attackScatter: q.attackScatter, relScatter: q.relScatter, voiceEnv: q.voiceEnv, A: q.A, R: q.R }, cls);
+  const L = new Float32Array(1), R = new Float32Array(1), n = Rn.n;
+  let v1 = null, v2 = null, dPh = 0, dE = 0, k = 0;
+  const e1 = new Array(n).fill(-1), e2 = new Array(n).fill(-1), t50a = new Array(n).fill(-1), t50r = new Array(n).fill(-1), eOff = new Array(n).fill(0);
+  const lvl = m => (q.voiceEnv > 0.5 ? m.eE : m.onsE);
+  for (let t = 0; t < q.total; t++) {
+    if (t === 0) { c.noteOn(57, Rn.f, 1); v1 = newest(c); }
+    if (q.on2 && t === q.on2) { c.noteOn(57, Rn.f, 1); v2 = newest(c); }
+    if (t === q.off1) { for (let i = 0; i < n; i++) eOff[i] = lvl(v1.m[i]); c.noteOff(57); }
+    if (q.off2 && t === q.off2) c.noteOff(57);
+    c.render(L, R);
+    const S1 = c.sw.swarms[v1.si];
+    for (let i = 0; i < n; i++) {
+      if (e1[i] < 0 && S1.phase[i] !== 0) e1[i] = t;
+      if (q.t50a) {
+        if (t50a[i] < 0 && e1[i] >= 0 && lvl(v1.m[i]) >= 0.5) t50a[i] = t - e1[i];
+        if (t50r[i] < 0 && t >= q.off1 && lvl(v1.m[i]) <= 0.5 * eOff[i]) t50r[i] = t - q.off1;
+      }
+    }
+    if (v2 && t >= q.on2) { const S2 = c.sw.swarms[v2.si]; for (let i = 0; i < n; i++) if (e2[i] < 0 && S2.phase[i] !== 0) e2[i] = t - q.on2; }
+    if (q.cp && k < q.cp.length && q.cp[k] === t) {
+      for (let i = 0; i < n; i++) { dPh = Math.max(dPh, circ(S1.phase[i], q.phase[k * n + i])); dE = Math.max(dE, Math.abs(lvl(v1.m[i]) - q.onsE[k * n + i])); }
+      k++;
+    }
+  }
+  return { entries: e1.concat(q.on2 ? e2 : []), dPh, dE, t50a, t50r };
+}
+{
+  const scen = name => REF.render.scen.find(s => s.name === name);
+  const same = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
+  const ens = scen('ens'), rE = onsRender(ens);
+  row(same(rE.entries, ens.entries) && rE.dE <= 1e-12 && rE.dPh <= 1e-9, 'ONS',
+    `render 'ens' (44.1 kHz, scatter 15 ms, attack scatter .6, two notes): member entry samples [${rE.entries.join(' ')}] = C++ exactly; ` +
+    `entry ramp onsE max|Δ| ${rE.dE.toExponential(1)}, phase max|Δ| ${rE.dPh.toExponential(1)} cycles at ${ens.cp.length} checkpoints`);
+  const cpl = scen('coupled'), rC = onsRender(cpl);
+  row(same(rC.entries, cpl.entries) && rC.dPh <= 1e-9, 'ONS',
+    `render 'coupled' (K .35, scatter 20 ms): entries [${rC.entries.join(' ')}] = C++; phase max|Δ| ${rC.dPh.toExponential(1)} cycles — a waiting member's frozen phase sits in the mean field in both`);
+  class Drifts extends Composed { memberStep(v) { super.memberStep(v); for (const m of v.m) m.hold = false; } }
+  const rD = onsRender(ens, Drifts);
+  row(!same(rD.entries, ens.entries), 'ONSc', `CONTROL a waiting member that still advances its phase: entries [${rD.entries.slice(0, 7).join(' ')} …] — must differ from the C++'s`);
+  const os2 = scen('os2');
+  const half = ens.entries.slice(0, 7).every((x, i) => Math.abs(os2.entries[i] - x / 2) <= 1);
+  row(half, 'ONS', `FINDING (C++, not this engine): at its 2x oversampling swarm_core.h counts the wait per SUB-sample, entries [${os2.entries.join(' ')}] ≈ half of 1x ` +
+    `[${ens.entries.slice(0, 7).join(' ')}]: a 15 ms scatter plays as 7.5 ms. This engine counts output samples at every os (its default is 2x), which is the C++'s 1x law`);
+
+  /* PER-PARTIAL ENV: the draws and the waits are the C++'s exactly; the envelope SHAPE is this
+     engine's (RazorCore's ADSR, per member; engine header (2)). What must hold across the two
+     laws is that each member's attack and release TIMES are scaled by the same drawn factor, so
+     the ratio JS/C++ of each member's half-time is one constant per stage: (A/2)/(A·ln 2) = 0.7213
+     for the linear attack against the one-pole, (R·ln 2/4)/(R·ln 2) = 0.25 for the release.
+     Tolerance: each half-time is a whole number of samples, so ratio·(1/t_JS + 1/t_C++). */
+  const ve = scen('venv'), rV = onsRender(ve);
+  const lawRow = (tj, tc, expect) => { let worst = 0, ok = true; for (let i = 0; i < tj.length; i++) { const r = tj[i] / tc[i], tol = expect * (1 / tj[i] + 1 / tc[i]); worst = Math.max(worst, Math.abs(r - expect)); if (!(tj[i] > 0 && tc[i] > 0 && Math.abs(r - expect) <= tol)) ok = false; } return { ok, worst }; };
+  const la = lawRow(rV.t50a, ve.t50a, 1 / (2 * Math.LN2)), lr = lawRow(rV.t50r, ve.t50r, 0.25);
+  row(same(rV.entries, ve.entries) && la.ok && lr.ok, 'VENV',
+    `per-partial env + attack/release scatter .8: entries = C++ [${rV.entries.join(' ')}]; attack half-times JS [${rV.t50a.join(' ')}] vs C++ [${ve.t50a.join(' ')}]: ratio 0.7213 within ${la.worst.toExponential(1)}; ` +
+    `release [${rV.t50r.join(' ')}] vs [${ve.t50r.join(' ')}]: ratio 0.25 within ${lr.worst.toExponential(1)}`);
+  class Unscaled extends Composed { armMembers(v) { super.armMembers(v); for (const m of v.m) { m.aMul = 1; m.rMul = 1; } } }
+  const rU = onsRender(ve, Unscaled), lu = lawRow(rU.t50a, ve.t50a, 1 / (2 * Math.LN2)), lur = lawRow(rU.t50r, ve.t50r, 0.25);
+  row(!(lu.ok && lur.ok), 'VENVc', `CONTROL members without their drawn time factors: attack ratio off by up to ${lu.worst.toFixed(3)}, release by ${lur.worst.toFixed(3)} — the law row must fail`);
+  /* ADR-078: "voiceEnv on with scatter 0 — per-voice spread exactly 0": with nothing scattered
+     every member IS the voice envelope, so the render is the voiceEnv-off render, bit for bit
+     (the attack must be at least the C++'s 2 ms floor, which both engines keep) */
+  const uni = over => renderWith(() => new Composed(SR), Object.assign({}, byName('Glass horde pad'), { A: 40 }, over), 0xB335, 24064);
+  const u0 = uni({ voiceEnv: 0 }), u1 = uni({ voiceEnv: 1 });
+  row(maxDiff(u0, u1) === 0 && rms(u0) > 1e-4, 'VENV', `per-partial env with nothing scattered ≡ the voice envelope (Glass horde pad, A 40 ms, two notes and a release): max|Δ| ${maxDiff(u0, u1).toExponential(1)}`);
+  const u2 = uni({ voiceEnv: 1, relScatter: 0.8, attackScatter: 0.8 });
+  row(maxDiff(u0, u2) > 1e-3, 'VENVc', `CONTROL the same with attack and release scatter .8: max|Δ| ${maxDiff(u0, u2).toFixed(4)} — must differ`);
+  /* the voice law and the cull still read the bookkeeping level: a per-partial voice released
+     with a long-scattered member stays alive until its LAST member fades (ADR-078's design) */
+  const tailOf = relSc => {
+    Math.random = mulberry32(0xB335);
+    const c = new Composed(SR); c.set({ N: 5, detune: 14, K: 0.35, phaseMode: 1, voiceEnv: 1, relScatter: relSc, A: 5, R: 100 }); Object.assign(c.s, c.t);
+    c.noteOn(57, F57, 1);
+    const B = new Float32Array(128), B2 = new Float32Array(128);
+    for (let i = 0; i < 40; i++) c.render(B, B2);
+    c.noteOff(57);
+    const v = c.voices[0];
+    let alive = 0;
+    for (let i = 0; i < 2000 && v.active; i++) { c.render(B, B2); alive = (i + 1) * 128; }
+    return { alive, longest: Math.max(...v.m.slice(0, 5).map(m => m.rMul)) };
+  };
+  const t0 = tailOf(0), t1 = tailOf(1);
+  row(t1.longest > 1.2 && t1.alive > t0.alive * (t1.longest - 0.2), 'VENV', `liveness follows the loudest member: released with release scatter 1 (longest member ×${t1.longest.toFixed(2)} of R 100 ms) the voice rings ` +
+    `${(t1.alive / SR * 1000).toFixed(0)} ms, against ${(t0.alive / SR * 1000).toFixed(0)} ms unscattered`);
+}
+{
+  /* the lab's next round reads these: the new rows in t ∪ d, the viz fields */
+  Math.random = mulberry32(8);
+  const e = new Composed(SR); e.set({ N: 5, onsetScatter: 10, grav: 0.5 }); Object.assign(e.s, e.t);
+  let viz = null; e.post = m => { if (m && m.t === 'viz' && m.mem) viz = m; };
+  e.noteOn(57, F57, 1); e.noteOn(64, F57 * 1.5 * 1.004, 1);
+  const L = new Float32Array(4096), R = new Float32Array(4096); e.render(L, R);
+  const keys = new Set(Object.keys(e.t).concat(Object.keys(e.d)));
+  const want = ['grav', 'basin', 'onsetScatter', 'onsetAlpha', 'attackScatter', 'voiceEnv', 'relScatter'];
+  const miss = want.filter(k => !keys.has(k));
+  const h = viz && viz.horde;
+  row(!miss.length && h && typeof h.f0 === 'number' && Array.isArray(h.grav) && h.grav.length === 1 && h.onsetMs && h.onsetMs.length === 5 && h.gain.length === 5, 'API',
+    `B335 keys in t∪d${miss.length ? ' MISSING ' + miss.join(',') : ' (' + want.join(', ') + ')'}; viz.horde carries f0 ${h ? h.f0.toFixed(2) : '—'}, grav pairs ${h ? h.grav.length : '—'}` +
+    `${h && h.grav[0] ? ' (' + h.grav[0].ratio.toFixed(4) + ', ' + h.grav[0].err.toFixed(2) + ' c)' : ''}, onsetMs ×${h && h.onsetMs ? h.onsetMs.length : 0}, gain ×${h && h.gain ? h.gain.length : 0}`);
 }
 
 /* ---------------------------------------------------------------- determinism */
