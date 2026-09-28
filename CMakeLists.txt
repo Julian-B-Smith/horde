@@ -777,6 +777,47 @@ if(APPLE)
   target_link_libraries(renderer_bench PRIVATE "-framework Accelerate")
 endif()
 
+# ---- horde 2 cores (h2/, ADR-186) ----------------------------------------------
+# These targets NEVER link ${PROJECT_NAME}-impl: horde 2's cores are copied
+# forward into their own directory and namespace (ADR-186 item 4), and a link
+# that saw a legacy core and its horde-2 copy together is the ODR hazard the
+# namespace exists to prevent. Placed ABOVE the MSVC-stack and sanitizer loops
+# so both reach them (those loops only see targets already declared).
+#
+# h2_scalpel_parity_check (B332): the PARITY build — doubles, -O2 and
+# -ffp-contract=off, because clang (and GCC in gnu++ mode) would otherwise fuse
+# a*b+c, which V8 never does (ADR-187 item 6). Named apart from any shipped
+# build on purpose. Wired in ./verify full.
+add_executable(h2_scalpel_parity_check tools/h2_scalpel_parity_check.cpp)
+if(NOT MSVC)
+  target_compile_options(h2_scalpel_parity_check PRIVATE -O2 -ffp-contract=off)
+endif()
+# h2_scalpel_fma_control: the same source with contraction FORCED ON — the
+# must-fail control for "FMA contraction on", and the ONE declared exception to
+# the contraction-off rule (tools/h2_rules_check.py). Exit 0 means the parity
+# gate caught the fused build over the full stream; exit 2 means the run itself
+# broke, never counted as firing. On x86-64 contraction needs -mfma to have an
+# instruction to emit; arm64 always has one. Wired in ./verify full.
+add_executable(h2_scalpel_fma_control tools/h2_scalpel_parity_check.cpp)
+target_compile_definitions(h2_scalpel_fma_control PRIVATE H2_SCALPEL_FMA_CONTROL)
+if(NOT MSVC)
+  target_compile_options(h2_scalpel_fma_control PRIVATE -O2 -ffp-contract=fast)
+  if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|amd64)$")
+    target_compile_options(h2_scalpel_fma_control PRIVATE -mfma)
+  endif()
+endif()
+# measure_h2_scalpel: CPU per voice vs the JS oracle (ADR-187 item 8, Layer-E).
+# The RELEASE build: -O3, a separate target from the parity build — but with
+# contraction OFF, like every target that compiles an h2 core (PENDING HUMAN
+# RULING on whether the shipped build must be the build that passed parity: at
+# clang's default contraction the same core misses parity on 19 of 386
+# scenarios; tools/h2_rules_check.py enforces the flag, docs/port/scalpel-phase-1a.md
+# has the numbers). Prints, never judges; unwired.
+add_executable(measure_h2_scalpel tools/measure_h2_scalpel.cpp)
+if(NOT MSVC)
+  target_compile_options(measure_h2_scalpel PRIVATE -O3 -ffp-contract=off)
+endif()
+
 # MSVC gives a process a 1 MB main-thread stack; macOS and Linux give 8 MB. A
 # SwarmCore is 651 KB (sizeof, MSVC 14.51, 2026-09-09) and the host-side
 # oracles put cores on the stack freely: trajectory_check keeps two live at
