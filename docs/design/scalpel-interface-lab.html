@@ -141,10 +141,24 @@
      replacing B300's "drawn as parallel" notice; Upper hears, Collision → pitch and → bite are
      roles on both XY surfaces. (4) The razor-core.js line citations are v1.1's. Checks in K.
 
+     ROUND 8 — B315, 2026-09-27, dispatched by the horde lead on ROADMAP B315 (carried in the
+     records PR on branch lead-records-121). The human: "I want all the "spread" controls in
+     "advanced" (as well as position and cut rate spread) to be bipolar." and "I would like to port
+     over the dynamic morphing logo from the original Horde, as well as Specimen; this, I think, can
+     become an underlay of the surface for the main XY." Built as: (1) BIPOLAR SPREADS (section A,
+     BIPOLAR): the fourteen spreads run −max..+max with 0 at the centre; −x is the mirror (every
+     member's offset negated). Twelve are oracle-native; Rotate spread (both blades) is a
+     DIVERGENCE the composed engine plays (the oracle's rotation gate homes a negative spread),
+     owed an ADR note. Macro and morph depths on them are halved in taper units, so they reach the
+     values they reached. (2) THE LOGO (section E2): gui2's warping wordmark in the frame header,
+     driven by gui2's own lexicon (morph cursor → colour, R → ripple, Detune → wiggle) on the
+     engine clock. (3) THE SPECIMEN (section E3): gui2's CHROME-002 as the WebGL underlay of MAIN's
+     XY pad, with a toggle and a plain fallback. Checks in K (checkBipolar, checkLogoSpecimen).
+
      L0026: every const is declared above the code that runs at setup; the boot
      call is the last statement of the script. -->
 <html><head><meta charset="utf-8">
-<meta name="lab-review" content="B271 + B293–B309 · 2026-09-27">
+<meta name="lab-review" content="B271 + B293–B315 · 2026-09-27">
 <title>SCALPEL interface lab — horde with blades at its centre</title>
 <style>
   :root {
@@ -177,6 +191,9 @@
     --cB:#FF2E88; --cBtx:#FF2E88;
     --cC:#00D5C8; --cCtx:#00B3A8;
     --cD:#A6F219; --cDtx:#6FB200;
+    /* B315 — THE LOGO's four corner colours (gui2.html:170-186): the TRUE corner colours at
+       full value; on the light ground legibility is the ink outline's job (--lg-edge) */
+    --lgA:#FFD702; --lgB:#FF2E88; --lgC:#00D5C8; --lgD:#A6F219; --lg-edge:#191521;
     /* canvas-only names from ADR-118 A2, re-pointed at spec roles */
     --text-hi:#191521;
     --dim2:#494356;      /* canvas axis labels — secondary          */
@@ -246,6 +263,9 @@
     --cB:#FF2E88; --cBtx:#FF6FAE;
     --cC:#00D5C8; --cCtx:#4DEDE3;
     --cD:#A6F219; --cDtx:#C6F86A;
+    /* gui2.html:204-207: on the dark ground the corner colours ARE legible, and need no
+       outline, which would read as a halo rather than an edge */
+    --lgA:#FFD702; --lgB:#FF2E88; --lgC:#00D5C8; --lgD:#A6F219; --lg-edge:none;
     --text-hi:#FFFFFF; --dim2:#9A93A8; --grid:#312B47; --grid2:#312B47;
     --hot:#FF3DAD; --bad:#FF5A4D; --badge-bg:rgba(255,182,39,.9);
     --focus:0 0 0 2.5px rgba(255,61,173,.45); }
@@ -314,6 +334,13 @@
     border:var(--stroke) solid var(--line);
     background:linear-gradient(to right, var(--value) 0 calc(var(--pct, 0) * 100%),
       var(--panel2) calc(var(--pct, 0) * 100%) 100%); }
+  /* B315: a bipolar slider fills from its centre (0) to the value, as the knob's arc does, and
+     marks the centre. The track is built in JS (sliderRow, --trk), in THUMB-CENTRE coordinates
+     (6.5 px + p·(100% − 13 px)), so the fill ends under the thumb's middle, not a thumb-width off */
+  input[type=range].bip::-webkit-slider-runnable-track { background:var(--trk); }
+  /* ...and the zero tick also runs the input's full height, so it shows above and below a thumb
+     that sits on or near it (the thumb is 13 px; a small spread hides the fill under it) */
+  input[type=range].bip { background:linear-gradient(to right, transparent calc(50% - 0.75px), var(--dim) calc(50% - 0.75px) calc(50% + 0.75px), transparent calc(50% + 0.75px)); }
   input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; appearance:none;
     width:13px; height:13px; border-radius:4px; margin-top:-3.5px;
     background:var(--panel); border:var(--stroke) solid var(--line); box-shadow:var(--shadow); }
@@ -410,7 +437,11 @@
     padding:8px 10px; margin-bottom:10px; }
   .side b, .notes b { color:var(--text); }
   .phdr { display:flex; align-items:flex-start; gap:12px; flex:0 0 auto; }
-  .brand { font-size:27px; font-weight:800; letter-spacing:-1.2px; line-height:1; padding-top:2px; }
+  /* B315: gui2's warping wordmark (E2), in the slot of the plain .brand text it replaces. A FIXED box, in flow, no taller than the tab rows
+     beside it, so its motion can never move the layout (gui2.html:245-262: in flow beside the
+     tabs, not laid over them). It is chrome, not a data well: the global canvas tube rule
+     (border, ground, radius) is taken off it, as gui2's .brand does. */
+  canvas.logo { width:70px; height:46px; flex:0 0 auto; border:0; background:transparent; border-radius:0; }
   .tabrows { display:flex; flex-direction:column; gap:3px; flex:1 1 auto; }
   .tabs { display:flex; gap:4px; flex-wrap:wrap; align-items:center; }
   /* gui2:274 — the page tab */
@@ -447,6 +478,16 @@
   canvas.viz { width:100%; display:block; border:var(--stroke) solid var(--line);
     border-radius:var(--r-well); background:var(--scr-tube); }
   canvas.edit { cursor:crosshair; touch-action:none; }
+  /* B315: MAIN's XY over the Specimen (E3). One box: the WebGL underlay, pointer-events none,
+     beneath the pad's own canvas, which turns transparent (paintXY paints a veil) only while the
+     underlay is live. Hidden, not display:none, when it is not: create-on-show needs a layout. */
+  .xywrap { position:relative; }
+  .xywrap > canvas.specimen { position:absolute; left:0; top:0; width:100%; height:100%;
+    border:var(--stroke) solid transparent; border-radius:var(--r-well); background:var(--scr-tube);
+    pointer-events:none; z-index:0; }
+  .xywrap > canvas.viz { position:relative; z-index:1; }
+  .xywrap.under > canvas.viz { background:transparent; }
+  .xywrap:not(.under) > canvas.specimen { visibility:hidden; }
   .cap { font-size:9px; letter-spacing:.1em; color:var(--dim); margin:4px 0 2px; }
   .vnote { font-size:9.5px; color:var(--t2); margin-top:2px; line-height:1.35; min-height:1.35em; }
   .pill.mini { min-height:19px; padding:0 7px; font-size:9.5px; letter-spacing:.02em; }
@@ -634,8 +675,8 @@
   <div>
     <h1>scalpel</h1>
     <div class="badges">
-      <span class="badge">B271 + B293–B309 · DESIGN LAB</span>
-      <span class="sub">BLADES AT THE CENTRE · OSC + MAIN AT 980×720 · VISUALS DRIVEN BY THE ENGINE · THE WAVEFORM IS AN XY · THE RING IS COUPLING × DETUNE (CLICK TO SET) · CARPET + VOICE MAP · MEMBERS AT PHASE · THE R-HUED BEAM · 83 BENCH PRESETS · HORDE'S SWARM VOICED · INTERPLAY DRAWN AS HEARD · THE WAVEFORM STAYS IN VIEW</span>
+      <span class="badge">B271 + B293–B315 · DESIGN LAB</span>
+      <span class="sub">BLADES AT THE CENTRE · OSC + MAIN AT 980×720 · VISUALS DRIVEN BY THE ENGINE · THE WAVEFORM IS AN XY · THE RING IS COUPLING × DETUNE (CLICK TO SET) · CARPET + VOICE MAP · MEMBERS AT PHASE · THE R-HUED BEAM · 83 BENCH PRESETS · HORDE'S SWARM VOICED · INTERPLAY DRAWN AS HEARD · THE WAVEFORM STAYS IN VIEW · BIPOLAR SPREADS · THE MORPHING LOGO · THE SPECIMEN UNDER MAIN'S XY</span>
     </div>
   </div>
   <div class="hdrctl">
@@ -958,6 +999,41 @@ Coupling × Detune XY</b> for the swarm.</div>
         opened from the filesystem plays and draws nothing and says why, rather than fall back to the oracle alone behind the same controls.
         <span class="rec">Recommend: as built</span> (the presets already needed serving).</li>
     </ol>
+    <h2 style="margin-top:10px">Round 8 (B315) — bipolar spreads; the morphing logo; the Specimen under MAIN's XY</h2>
+    <ol start="54">
+      <li><b>Bipolar spreads</b> (the human: "I want all the "spread" controls in "advanced" (as well as position and cut rate spread) to be bipolar").
+        Fourteen controls, both blades: Pos spread, Cut spread, Width, Depth, Shape, FM idx and Rotate spread. Each runs −max..+max with 0 at the
+        knob's centre (the default, unchanged); a slider fills from a zero tick. −x is the <b>mirror</b> of +x: every member's offset is negated, so
+        under the gradient law the lowest member gets what the highest had. Read per parameter off <code>razor-core.js</code> spreadMember: every
+        offset is amount·pn and pn is centred on 0 under every spread law, so twelve of them already meant the mirror in the oracle.
+        <b>Rotate spread is the exception</b>: the oracle gates member rotation on <code>t.rotSpread &gt; 0.004</code> (:786, :791), so a negative
+        one homed the members. The composed engine reads the gate as |x| and keeps the sign (<code>scalpel-horde-engine.js</code>); a self-check
+        shows the oracle alone fails the same mirror. <span class="rec">Owed: an ADR note for that divergence</span> (or a sanctioned edit of the
+        oracle's two comparisons).</li>
+      <li><b>Where the ranges now differ from the packet.</b> <code>parameters.json</code> (protected) still says 0..max for all fourteen. The
+        XY-range check accepts exactly that widening for exactly these keys and flags anything else (with a control).
+        <span class="rec">Open:</span> amend the packet with the ADR, or keep the widening a horde-side fact.</li>
+      <li><b>Snapped Cut spread at half-integers.</b> With Quantize on, the oracle rounds the spread with <code>Math.round</code>, which rounds
+        halves up: +2.5 snaps to 3 and −2.5 to −2, so the mirror is off by one step at exact halves. Not changed (it is the oracle's law).
+        <span class="rec">Recommend: accept</span>, or round half away from zero in the same ADR.</li>
+      <li><b>Macro and morph reach on the spreads</b> are halved in taper units (Spread 0.5 → 0.25, 0.25 → 0.125; Motion's Rotate spread
+        0.3 → 0.15; the morph's corner offsets on Pos and Cut spread ×½), so they reach the values they reached before. The one change: a corner
+        or macro that pushed a spread below 0, which used to clamp at 0, now mirrors it.</li>
+      <li><b>The morphing logo</b> (the human: "port over the dynamic morphing logo from the original Horde"). gui2's warping wordmark, the
+        human's td::Warp with their tool session's blobs and swirls, is the frame header's mark, in the slot of the plain "horde" it replaces,
+        which is where gui2 has it. The page title "scalpel" is the lab's name and stays. It keeps gui2's lexicon because all of its inputs exist
+        here: <b>morph on</b>, its colour is the morph cursor (the corner colours blended at the pad's point); <b>morph off</b>, a slow hue drift
+        (ADR-150); <b>R</b> ripples it; <b>Detune</b> wiggles it. Its clock is the engine's, so a still freezes it. Fixed 70×46 box, no taller than
+        the tabs (checked); about 0.9 ms a paint, at most every other frame. <span class="rec">Recommend: as built.</span></li>
+      <li><b>The Specimen under MAIN's XY</b> (the human: "this, I think, can become an underlay of the surface for the main XY"). gui2's
+        CHROME-002 pearl sits beneath MAIN's pad titled XY. That pad is what MAIN calls its XY, its marks are sparse, and it has no data job yet
+        (question 38). The ring was the other candidate, but it is a data well and would compete with what it measures. Notes strike the pearl,
+        level quivers it, the envelope blooms it, R pulls it taut. The pad paints a 35% veil, opaque plates under its text, and a ringed puck;
+        the pointer is always the pad's. <b>SPECIMEN</b> toggles it (default on); with no WebGL the pad is its plain surface and says why.
+        Measured headless (M3, dpr 2, 508×212 px): about 1.0 ms a draw with the GPU synced, drawn every third frame, so about 0.33 ms a frame.
+        <span class="rec">Open for the human:</span> is this the XY they meant, and should the pearl take the pad's gestures (gui2's
+        drag-to-orbit, click-to-strike) when the pad gets its job?</li>
+    </ol>
   </div>
   <div class="box" id="misread" style="grid-column:1 / -1">
     <h2>What you see vs what you hear (B297)</h2>
@@ -1073,16 +1149,16 @@ R('phaseMode', 'Start phases', '330 + 18', 'T2', 'e', 0, 2, '', '', [[2, 'settle
 R('panOrder', 'Pan order', 331, 'T3', 'e', 0, 1, '', '', [[0, 'balanced'], [1, 'fan']]);
 R('law', 'Spread law', 332, 'T2', 'e', 0, 4, '', '', E_LAW);
 R('driftRate', 'Spread drift', 333, 'T3', 'c', 0.02, 12, 'log', 'Hz');   // B309: ACCOUNTING F2's label, now horde's Drift rate is on the page too
-R('bspread', 'Pos spread', 334, 'T2', 'c', 0, 1, 'lin', '%');
-R('kspread', 'Cut spread', 335, 'T2', 'c', 0, 24, 'lin', 'h');
+R('bspread', 'Pos spread', 334, 'T2', 'c', -1, 1, 'lin', '±%');
+R('kspread', 'Cut spread', 335, 'T2', 'c', -24, 24, 'lin', 'h±');
 R('kRule', 'Cut rule', 336, 'T2', 'e', 0, 9, '', '', E_RULE);
 R('kRuleAmt', 'Rule depth', 337, 'T2', 'c', 0, 1, 'lin', '%');
 R('kq', 'Quantize', 338, 'T3', 'e', 0, 1, '', '', [[0, 'free'], [1, 'whole']]);
-R('wspread', 'Width spread', 339, 'T3', 'c', 0, 1, 'lin', '%');
-R('dspread', 'Depth spread', 340, 'T3', 'c', 0, 1, 'lin', '%');
-R('mspread', 'Shape spread', 341, 'T3', 'c', 0, 1, 'lin', '%');
-R('ispread', 'FM idx spread', 342, 'T3', 'c', 0, 1, 'lin', '%');
-R('rotSpread', 'Rotate spread', 343, 'T3', 'c', 0, 2, 'pow', 'Hz');
+R('wspread', 'Width spread', 339, 'T3', 'c', -1, 1, 'lin', '±%');
+R('dspread', 'Depth spread', 340, 'T3', 'c', -1, 1, 'lin', '±%');
+R('mspread', 'Shape spread', 341, 'T3', 'c', -1, 1, 'lin', '±%');
+R('ispread', 'FM idx spread', 342, 'T3', 'c', -1, 1, 'lin', '±%');
+R('rotSpread', 'Rotate spread', 343, 'T3', 'c', -2, 2, 'bpow', 'Hz±');
 R('kCustom', 'Ratios', 'state', 'T3', 's');
 /* blade 2 */
 R('b2on', 'Blade 2', 344, 'T1', 't', 0, 1);
@@ -1101,15 +1177,15 @@ R('rot2Follow', 'Rotation', 356, 'T3', 'e', 0, 1, '', '', [[1, 'with blade 1'], 
 R('rotRate2', 'Rotate', 357, 'T2', 'c', -4, 4, 'lin', 'Hz±');
 R('frame2', 'Blade frame', 358, 'T3', 'e', -1, 1, '', '', [SAME, [0, 'member'], [1, 'swarm']]);
 R('b2sp', 'Spreads', 359, 'T3', 'e', 0, 1, '', '', [[0, "blade 1's"], [1, 'its own']]);
-R('bspread2', 'Pos spread', 360, 'T3', 'c', 0, 1, 'lin', '%');
-R('kspread2', 'Cut spread', 361, 'T3', 'c', 0, 24, 'lin', 'h');
+R('bspread2', 'Pos spread', 360, 'T3', 'c', -1, 1, 'lin', '±%');
+R('kspread2', 'Cut spread', 361, 'T3', 'c', -24, 24, 'lin', 'h±');
 R('kRule2', 'Cut rule', 362, 'T3', 'e', 0, 9, '', '', E_RULE);
 R('kRuleAmt2', 'Rule depth', 363, 'T3', 'c', 0, 1, 'lin', '%');
-R('wspread2', 'Width spread', 364, 'T3', 'c', 0, 1, 'lin', '%');
-R('dspread2', 'Depth spread', 365, 'T3', 'c', 0, 1, 'lin', '%');
-R('mspread2', 'Shape spread', 366, 'T3', 'c', 0, 1, 'lin', '%');
-R('ispread2', 'FM idx spread', 367, 'T3', 'c', 0, 1, 'lin', '%');
-R('rotSpread2', 'Rotate spread', 368, 'T3', 'c', 0, 2, 'pow', 'Hz');
+R('wspread2', 'Width spread', 364, 'T3', 'c', -1, 1, 'lin', '±%');
+R('dspread2', 'Depth spread', 365, 'T3', 'c', -1, 1, 'lin', '±%');
+R('mspread2', 'Shape spread', 366, 'T3', 'c', -1, 1, 'lin', '±%');
+R('ispread2', 'FM idx spread', 367, 'T3', 'c', -1, 1, 'lin', '±%');
+R('rotSpread2', 'Rotate spread', 368, 'T3', 'c', -2, 2, 'bpow', 'Hz±');
 R('b2fm', 'FM', 369, 'T3', 'e', 0, 1, '', '', [[0, "blade 1's"], [1, 'its own']]);
 R('fmType2', 'FM type', 370, 'T2', 'e', 0, 1, '', '', [[0, 'phase'], [1, 'pitch']]);
 R('mshape2', 'Mod shape', 371, 'T2', 'e', 0, 7, '', '', E_MSHAPE);
@@ -1193,6 +1269,23 @@ const HORDE_T3 = ['Distribution', 'Seed', 'Density Comp', 'Digital', 'Topology',
   'Timing Correction', 'Attack Scatter', 'Per-Partial Env', 'Release Scatter'];
 const TIER_RANK = { T1: 1, T2: 2, T3: 3 };
 
+/* B315 — BIPOLAR SPREADS (human 2026-09-27: "I want all the "spread" controls in "advanced"
+   (as well as position and cut rate spread) to be bipolar."). These fourteen run −max..+max
+   with 0 at the knob's centre, where the packet's parameters.json (protected) says 0..max.
+   −x is the MIRROR of +x: every member's offset negated. Read per parameter off
+   razor-core.js spreadMember (:103-136): each offset is amount·pn(j) (cOff, kAdd, the log2 of
+   wMul/iMul, dAdd, mor − morph; blade 2's twins on slots 7-13), and pn is centred on 0 under
+   every spread law (gradient ±½, alternate ±½, random and drift draws around 0, the swarm
+   lead in [−½, ½)), so a negative amount already means the mirror there: ORACLE-NATIVE. The
+   exception is Rotate spread (both blades): the oracle's render gates member rotation on
+   `t.rotSpread > 0.004` (:786, :791), so a negative one would home every member to 0. That
+   one is a DIVERGENCE, played by the composed engine (scalpel-horde-engine.js, "BIPOLAR
+   ROTATE SPREAD"), and is owed an ADR note. Under a Cut rule Cut spread stays inert either
+   side of 0 (B297, kSpread reads it only under "even"). The XY-range check holds exactly
+   this widening against parameters.json and flags any other drift (checkPresets). */
+const BIPOLAR = new Set(['bspread', 'kspread', 'wspread', 'dspread', 'mspread', 'ispread', 'rotSpread',
+  'bspread2', 'kspread2', 'wspread2', 'dspread2', 'mspread2', 'ispread2', 'rotSpread2']);
+const BIPOLAR_DIVERGES = new Set(['rotSpread', 'rotSpread2']);
 /* keys the engine knows: t (smoothed) ∪ d (discrete), read from a live instance. REF is the
    ORACLE (its keys and defaults are the composed engine's too: ComposedEngine extends it and
    only adds `d` keys); loadEngine() adds the engine's own horde keys to ORK and DEF */
@@ -1219,6 +1312,9 @@ function toPos(sp, v) {
   switch (sp.curve) {
     case 'log': return clamp(Math.log(Math.max(v, mn) / mn) / Math.log(mx / mn), 0, 1);
     case 'pow': return clamp(Math.sqrt(Math.max(0, (v - mn) / (mx - mn))), 0, 1);
+    /* B315: 'pow' mirrored about the centre, for a bipolar range −mx..mx: the half-travel
+       on either side is the old 0..mx 'pow' taper, so +x sits where it sat, halved */
+    case 'bpow': return clamp(0.5 + 0.5 * Math.sign(v) * Math.sqrt(Math.min(1, Math.abs(v) / mx)), 0, 1);
     /* width: log with a bypass zone — the bottom 5% of travel is OFF (w < 0.004 bypasses, SPEC §4.1) */
     case 'wlog': return v < 0.004 ? 0 : clamp(0.05 + 0.95 * Math.log(v / 0.005) / Math.log(200), 0.05, 1);
     case 'circ': return frac(v);
@@ -1232,6 +1328,7 @@ function fromPos(sp, p) {
   switch (sp.curve) {
     case 'log': return mn * Math.pow(mx / mn, p);
     case 'pow': return mn + (mx - mn) * p * p;
+    case 'bpow': { const q = 2 * p - 1; return Math.sign(q) * mx * q * q; }
     case 'wlog': return p < 0.05 ? 0 : 0.005 * Math.pow(200, (p - 0.05) / 0.95);
     case 'int': return Math.round(mn + (mx - mn) * p);
     default: return mn + (mx - mn) * p;
@@ -1250,6 +1347,8 @@ function fmtVal(sp, v) {
     case '%': return Math.round(v * 100) + '%';
     case 'bi': return (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(2);
     case 'Hz±': return (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(2) + ' Hz';
+    case '±%': return (v >= 0 ? '+' : '−') + Math.round(Math.abs(v) * 100) + '%';     // B315's bipolar spreads
+    case 'h±': return (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(1);
     case 'ms': return v < 1000 ? v.toFixed(v < 10 ? 1 : 0) + ' ms' : (v / 1000).toFixed(2) + ' s';
     case 'c': return Math.round(v) + ' c';
     case 'n': return v.toFixed(2);
@@ -1303,10 +1402,12 @@ const MACROS = [
   { name: 'Blade', v: 0, binds: [['w', 0.3], ['depth', -0.2]] },
   { name: 'Sweep', v: 0, binds: [['c', 0.5], ['c2', -0.5]] },
   { name: 'Bite', v: 0, binds: [['hard', -0.5], ['I', 0.4]] },
-  { name: 'Spread', v: 0, binds: [['bspread', 0.5], ['kspread', 0.25]] },
+  /* B315: bipolar Spread and Rotate spread halve their depth in taper units, because the
+     taper now spans −max..+max: the same macro turn reaches the same values as before */
+  { name: 'Spread', v: 0, binds: [['bspread', 0.25], ['kspread', 0.125]] },
   { name: 'Swarm', v: 0, binds: [['K', -0.4], ['detune', 0.3]] },
   { name: 'Blade 2', v: 0, binds: [['w2', 0.3], ['k2', 0.3]] },
-  { name: 'Motion', v: 0, binds: [['rotRate', 0.12], ['rotSpread', 0.3]] }
+  { name: 'Motion', v: 0, binds: [['rotRate', 0.12], ['rotSpread', 0.15]] }
 ];
 /* B297: bufR keeps the right channel beside `buf` (the left), so the beam can draw both
    as gui2 does; rSm is the order parameter smoothed per stroboscope frame at gui2's
@@ -1518,7 +1619,9 @@ function morphReseed() {
   MORPH.delta = [null];
   for (let j = 1; j < 4; j++) {
     const d = { step: {} };
-    for (const k of MORPH_CONT) d[k] = (r() * 2 - 1) * (SP[k].curve === 'circ' ? 0.5 : 0.3);
+    /* B315: a bipolar spread's taper is twice as long, so its corner offset is halved and
+       reaches the same values; the draws (and so every other key's corner) are unchanged */
+    for (const k of MORPH_CONT) d[k] = (r() * 2 - 1) * (SP[k].curve === 'circ' ? 0.5 : 0.3) * (BIPOLAR.has(k) ? 0.5 : 1);
     for (const k of MORPH_STEP) if (r() < 0.35) { const o = SP[k].opts; d.step[k] = o[Math.floor(r() * o.length)][0]; }
     MORPH.delta.push(d);
   }
@@ -2693,20 +2796,539 @@ function paintMorph(cv) {
   if (!MORPH.on) { g.fillStyle = TOKA('--scr-grid', 0.9); g.font = '9.5px ui-monospace,Menlo,monospace'; g.textAlign = 'center'; g.fillText('MORPH OFF — the patch is corner A', W / 2, H / 2 + 3); g.textAlign = 'left'; }
   puck(g, MORPH.x * W, MORPH.y * H, MORPH.on ? '--scr-physics' : '--scr-grid');
 }
+/* MAIN's XY pad. B315: with the Specimen live beneath it (specimenLive) the pad is not a tube
+   but a VEIL, the tube ink at XY_VEIL alpha, so the material reads through as an underlay while
+   the pad's own marks stay in front. Every text sits on an opaque tube PLATE and every marker
+   carries a tube ring, so their contrast is the plain pad's in both themes, whatever the
+   pearl is doing behind them. The plates and the puck are recorded in XY_PAINT for the check,
+   which reads the pixels the painter wrote (checkSpecimen). */
+const XY_VEIL = 0.35;
+let XY_PAINT = null;
 function paintXY(cv) {
   const [g, W, H] = fit(cv); if (!g) return;
-  tube(g, W, H); padGrid(g, W, H);
-  const kKey = EFF.lock === 2 ? 'kHz' : 'k';
+  const under = specimenLive(), wrap = cv.parentNode;
+  if (wrap && wrap.classList) wrap.classList.toggle('under', under);
+  if (under) { g.clearRect(0, 0, W, H); g.fillStyle = RGBA(TOK('--scr-tube'), XY_VEIL); g.fillRect(0, 0, W, H); }
+  else tube(g, W, H);
+  padGrid(g, W, H);
+  const kKey = EFF.lock === 2 ? 'kHz' : 'k', plates = [];
   const X = w => toPos(SP.w, w) * W, Y = k => (1 - toPos(SP[kKey], k)) * H;
-  g.font = '8.5px ui-monospace,Menlo,monospace'; g.fillStyle = TOKA('--scr-grid', 0.9);
-  g.fillText('cut rate ↑', 4, 11); g.textAlign = 'right'; g.fillText('width →', W - 4, H - 4); g.textAlign = 'left';
-  g.fillStyle = TOKA('--scr-grid', 0.25); g.fillRect(0, 0, 0.05 * W, H);
+  const txt = (t, x, y, align, ink) => {
+    g.textAlign = align;
+    if (under) {
+      const w = g.measureText(t).width, x0 = align === 'right' ? x - w : x, r = [Math.floor(x0 - 2), y - 9, Math.ceil(w + 4), 12];
+      g.fillStyle = TOK('--scr-tube'); g.fillRect(r[0], r[1], r[2], r[3]); plates.push(r);
+    }
+    g.fillStyle = ink; g.fillText(t, x, y); g.textAlign = 'left';
+  };
+  g.fillStyle = TOKA('--scr-grid', 0.25); g.fillRect(0, 0, 0.05 * W, H);   // Width's bypass zone, under the labels (B315: it tinted the plate)
+  g.font = '8.5px ui-monospace,Menlo,monospace';
+  txt('cut rate ↑', 4, 11, 'left', TOKA('--scr-grid', 0.9)); txt('width →', W - 4, H - 4, 'right', TOKA('--scr-grid', 0.9));
   if (Math.abs(toPos(SP.w, EFF.w) - toPos(SP.w, P.w)) > 1e-4 || Math.abs(EFF[kKey] - P[kKey]) > 1e-6) {
     g.beginPath(); g.arc(X(EFF.w), Y(EFF[kKey]), 4, 0, TAU); g.fillStyle = TOKA('--scr-physics', 1); g.fill();
+    if (under) { g.lineWidth = 1.5; g.strokeStyle = TOK('--scr-tube'); g.stroke(); }
   }
   puck(g, X(P.w), Y(P[kKey]), '--scr-value');
-  g.fillStyle = TOKA('--scr-meter', 1); g.textAlign = 'right';
-  g.fillText(fmtVal(SP.w, P.w) + ' · ' + fmtVal(SP[kKey], P[kKey]), W - 4, 11); g.textAlign = 'left';
+  txt(fmtVal(SP.w, P.w) + ' · ' + fmtVal(SP[kKey], P[kKey]), W - 4, 11, 'right', TOKA('--scr-meter', 1));
+  if (SPECIMEN.on && SPECIMEN.fail) txt('SPECIMEN UNAVAILABLE — ' + SPECIMEN.fail, 4, H - 4, 'left', TOKA('--scr-marker', 0.9));
+  XY_PAINT = { plates, puck: [X(P.w), Y(P[kKey])], W, H, under };
+}
+
+/* ======================================================================
+   E2. THE MORPHING LOGO (B315) — gui2's warping wordmark, ported
+   Human, 2026-09-27: "I would like to port over the dynamic morphing logo from the original
+   Horde". gui2.html's wordmark (its CSS and lessons at :170-262, the engine td::Warp at
+   :6221-6350, the driver at :6352-6645): the human's td::Warp run on a baked "horde", tinted by
+   the four corner colours. WHERE: the plugin frame's own header (frameHeader), the slot of the
+   plain "horde" mark it replaces, which is where gui2 has it (its .hdr: the brand, then the
+   tabs). The lab's page title "scalpel" is lab chrome, not the product's mark, and stays.
+   WHAT DRIVES IT: gui2's own lexicon, unchanged, because every one of its inputs exists here:
+     morph ON  → the colour is the morph cursor, the bilinear blend of the four corners at
+                 (MORPH.x, MORPH.y) (A top-left, B top-right, C bottom-left, D bottom-right,
+                 paintMorph's corners, gui2's drawField's);
+     morph OFF → the slow hue drift of ADR-150 (~50 s a turn), 18% desaturated;
+     R         → tremor (the ripple): MON.rSm, the smoothed order parameter, gui2's kSmR;
+     detune    → waveAmp (the wiggle): the swarm knob, EFF.detune/100 (row 4: d cents ≡ knob
+                 d/100), one-pole smoothed as gui2 does.
+   gui2's LESSONS, kept: a logo is DISPLAY type (the four corner colours at full value, the ink
+   outline --lg-edge carrying contrast on the light ground, none on the dark); it must not push
+   layout (a FIXED box, in flow, no taller than the tab rows beside it: the check measures it);
+   and its cost is capped by its backing store (the warp is O(W·H) with a sin per pixel, so the
+   store IS the cost: 2× bitmap of a 70×46 box, a quarter of gui2's 146×96, at most 30 paints a
+   second). ONE DEPARTURE: gui2 steps the warp on rAF's clock; here its clock is the monitor's
+   engine clock (MON.clock / SR), like everything else drawn (B271: no wall clock reaches the
+   drawing), so a frozen still (?still=) freezes the mark with it. Reduced motion: static.
+   ====================================================================== */
+const TD_TAU = 6.28318530718, TD_CYCLE = 8.0, TD_W1 = TD_TAU / TD_CYCLE;
+/* gui2.html:6230: must stay fract(sin(a*127.1+b*311.7)*43758.5453) or relocation diverges */
+const tdHash2 = (a, b) => { const x = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return x - Math.floor(x); };
+/* td::Warp, as gui2.html:6233-6350 ports it (constant names and order of operations kept) */
+function tdWarp(seed) {
+  let a = (seed * 9301 + 49297) % 233280;
+  const next = () => { a = (a * 9301 + 49297) % 233280; return a / 233280; };
+  const ph1 = next() * TD_TAU, ph2 = next() * TD_TAU, ph3 = next() * TD_TAU;
+  const P = { waveAmp: 26, waveFreq: 1.4, tremor: 3.5, smearAngle: 0, angleJitter: 12, waveJitter: 0.5, pxScale: 1 };
+  const strokes = [], fields = [];
+  return {
+    params: P,
+    addBlob: (amp, rad, r1, r2, cyc, bph) => strokes.push({ x0: 0, y0: 0, amp, rad, r1, r2, blob: true, cyc, bph }),
+    addSwirl: (rad, sc, rot, cyc, bph) => fields.push({ rad, sc, rot, cyc, bph }),
+    render(src, dst, W, H, t) {
+      const d1 = ph1 + t * TD_W1 + 1.7 * Math.sin(t * TD_W1 * 2 + 0.5);
+      const d2 = ph2 - t * TD_W1 + 1.3 * Math.sin(t * TD_W1 * 3 + 2.0);
+      const aMod = 1 + 0.35 * Math.sin(t * TD_W1 * 2 + 1.0) * Math.sin(t * TD_W1);
+      const wave = new Float32Array(W);
+      for (let x = 0; x < W; x++) {
+        const fx = x / W;
+        wave[x] = P.waveAmp * aMod * Math.sin(fx * P.waveFreq * TD_TAU + d1) + P.waveAmp * 0.35 * Math.sin(fx * P.waveFreq * 5.1 + d2);
+      }
+      const sts = [];
+      for (const st of strokes) {
+        let amp = st.amp, x0 = st.x0, y0 = st.y0;
+        if (st.blob) {
+          const ph = t * TD_W1 * 4 * st.cyc + st.bph, env = 0.5 * (1 - Math.cos(ph));
+          amp = st.amp * Math.pow(env, 1.6);
+          const k = Math.floor(ph / TD_TAU);
+          x0 = W * (0.15 + tdHash2(st.bph, k) * 0.7);
+          y0 = H * (0.25 + tdHash2(st.bph + 9.7, k) * 0.5);
+        }
+        if (Math.abs(amp) <= 2 * P.pxScale) continue;
+        const th = (P.smearAngle + (st.r1 * 2 - 1) * P.angleJitter) * TD_TAU / 360;
+        sts.push({ amp, x0, y0, tanT: Math.tan(th), cosT: Math.cos(th), sinT: Math.sin(th), rad: st.rad + Math.abs(amp) * 0.25,
+          wf: (0.11 / P.pxScale) * Math.pow(2.5, (st.r2 * 2 - 1) * P.waveJitter) });
+      }
+      const flds = [];
+      for (const f of fields) {
+        const ph = t * TD_W1 * 4 * f.cyc + f.bph, e = Math.pow(0.5 * (1 - Math.cos(ph)), 1.6);
+        if (Math.abs(f.sc * e) <= 0.005 && Math.abs(f.rot * e) <= 0.005) continue;
+        const k = Math.floor(ph / TD_TAU);
+        flds.push({ x0: W * (0.15 + tdHash2(f.bph + 3.1, k) * 0.7), y0: H * (0.25 + tdHash2(f.bph + 13.9, k) * 0.5), rad: f.rad, sc: f.sc * e, rot: f.rot * e });
+      }
+      for (let y = 0; y < H; y++) {
+        for (let x = 0; x < W; x++) {
+          let sy = y + wave[x] + P.tremor * Math.sin(y * 0.055 + x * 0.01 + ph3 + t * TD_W1 * 2 + Math.sin(t * TD_W1) * 2);
+          let sx = x;
+          for (const f of flds) {
+            const dx = x - f.x0, dy = y - f.y0;
+            if (dx > f.rad * 3 || dx < -f.rad * 3 || dy > f.rad * 3 || dy < -f.rad * 3) continue;
+            const env = Math.exp(-(dx * dx + dy * dy) / (2 * f.rad * f.rad)) - 0.0111;   // 0 at the 3σ box (load-bearing)
+            if (env <= 0) continue;
+            sx -= env * (f.sc * dx - f.rot * dy);
+            sy -= env * (f.sc * dy + f.rot * dx);
+          }
+          for (const q of sts) {
+            const dxr = x - (q.x0 + (y - q.y0) * q.tanT);
+            if (dxr > q.rad * 3.5 || dxr < -q.rad * 3.5) continue;
+            const env = Math.exp(-(dxr * dxr) / (2 * q.rad * q.rad)) - 0.0022;
+            if (env <= 0) continue;
+            const ad = Math.abs(q.amp), sg = q.amp > 0 ? 1 : -1, dl = (y - q.y0) * sg;
+            if (dl > -40 * P.pxScale) {
+              const rise = 1 - Math.exp(-Math.max(0, dl) / (ad * 0.5 + 10 * P.pxScale));
+              const over = Math.max(0, dl - ad * 1.6);
+              const fall = Math.exp(-(over * over) / (2 * (ad + 60 * P.pxScale) * (ad + 60 * P.pxScale)));
+              const shift = q.amp * env * rise * fall + sg * env * Math.min(ad * 0.45, 70 * P.pxScale) * Math.sin(dl * q.wf) * rise * fall;
+              sy -= shift * q.cosT; sx -= shift * q.sinT;
+            }
+          }
+          if (sy < 0) sy = 0; if (sy > H - 1.01) sy = H - 1.01;
+          if (sx < 0) sx = 0; if (sx > W - 1.01) sx = W - 1.01;
+          const x0i = sx | 0, y0i = sy | 0, fx = sx - x0i, fy = sy - y0i;
+          const i00 = (y0i * W + x0i) * 4, i10 = i00 + 4, i01 = i00 + W * 4, i11 = i01 + 4, di = (y * W + x) * 4;
+          /* gui2's deliberate divergence from the header: alpha is sampled like the colours,
+             so the mark keeps its transparency over the chassis */
+          for (let ch = 0; ch < 4; ch++) {
+            const top = src[i00 + ch] + (src[i10 + ch] - src[i00 + ch]) * fx, bot = src[i01 + ch] + (src[i11 + ch] - src[i01 + ch]) * fx;
+            dst[di + ch] = (top + (bot - top) * fy + 0.5) | 0;
+          }
+        }
+      }
+    }
+  };
+}
+/* the mark's CSS box and its 2× bitmap (gui2: "2x BITMAP, SAME CSS BOX"); everything else is
+   gui2's 146×96 box scaled by LOGO_H/96, so the authored look holds at this size */
+const LOGO_W = 70, LOGO_H = 46;
+const LOGO = { cv: null, ctx: null, W: 2 * LOGO_W, H: 2 * LOGO_H, SRC: null, DST: null, ink: '', warp: null,
+  baseWave: 0, baseTrem: 0, t: 0, clk: -1, n: 0, smD: 0.28, smX: 0.5, smY: 0.5, hue: 0, tint: '', ms: 0, reduce: false,
+  aux: null };
+const LOGO_LG = ['--lgA', '--lgB', '--lgC', '--lgD'];
+function logoMix(a, b, f) {
+  const pa = /^#?(..)(..)(..)$/.exec(a), pb = /^#?(..)(..)(..)$/.exec(b);
+  if (!pa || !pb) return a;
+  const c = i => Math.round(parseInt(pa[i], 16) + (parseInt(pb[i], 16) - parseInt(pa[i], 16)) * f).toString(16).padStart(2, '0');
+  return '#' + c(1) + c(2) + c(3);
+}
+function logoHueRot(hex, deg) {                    // gui2.html:6390-6406
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex); if (!m) return hex;
+  const v = parseInt(m[1], 16);
+  let r = (v >> 16 & 255) / 255, g = (v >> 8 & 255) / 255, b = (v & 255) / 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2;
+  let h = 0, sN = 0;
+  if (mx !== mn) {
+    const d = mx - mn;
+    sN = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn);
+    h = mx === r ? ((g - b) / d + (g < b ? 6 : 0)) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+    h /= 6;
+  }
+  h = (h + deg / 360) % 1;
+  const q = l < 0.5 ? l * (1 + sN) : l + sN - l * sN, pp = 2 * l - q;
+  const f = t => { t = (t + 1) % 1; return t < 1 / 6 ? pp + (q - pp) * 6 * t : t < 1 / 2 ? q : t < 2 / 3 ? pp + (q - pp) * (2 / 3 - t) * 6 : pp; };
+  const to2 = x => Math.round(x * 255).toString(16).padStart(2, '0');
+  return '#' + to2(f(h + 1 / 3)) + to2(f(h)) + to2(f(h - 1 / 3));
+}
+/* one canvas for the lab's life: rebuild() re-parents it, so the warp, its bake and its clock
+   survive every rebuild (a new canvas per rebuild would re-bake and restart the mark) */
+function logoCanvas() {
+  if (LOGO.cv) return LOGO.cv;
+  const cv = el('canvas', 'logo');
+  cv.width = LOGO.W; cv.height = LOGO.H;
+  cv.setAttribute && cv.setAttribute('role', 'img'); cv.setAttribute && cv.setAttribute('aria-label', 'horde');
+  cv.title = 'horde — gui2\'s warping wordmark (B315): colour = the morph cursor (morph on) or a slow drift (off) · ripple = R · wiggle = Detune';
+  LOGO.cv = cv;
+  LOGO.ctx = cv.getContext ? cv.getContext('2d', { willReadFrequently: true }) : null;
+  LOGO.reduce = !!(typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches);
+  const K = (90 * LOGO.H / 192) / 200;             // gui2: OUR_FONT / TD_AUTHORED_FONT, at this bitmap
+  const w = tdWarp(7);
+  w.params.pxScale = K; w.params.waveAmp *= K; w.params.tremor *= K;
+  LOGO.baseWave = w.params.waveAmp; LOGO.baseTrem = w.params.tremor;
+  /* the human's tool session, verbatim (gui2.html:6486-6493): amp/rad scale by K */
+  w.addBlob(117.67534376865139 * K, 47.87252228922112 * K, 0.7035143339442531, 0.3147373015901911, 2, 3.4454990687082927);
+  w.addBlob(71.4473354749417 * K, 79.18600416618574 * K, 0.7303262990254228, 0.20458152460366485, 2, 1.1934938693140864);
+  w.addSwirl(134.69669851752556 * K, -0.5233313135724312, -0.48917431962495467, 1, 4.827469642758654);
+  w.addSwirl(108.93653939929409 * K, 0.532155537777295, -0.6532128975413898, 2, 0.717080792499773);
+  LOGO.warp = w;
+  logoBake();
+  return cv;
+}
+/* bake the undistorted mark once per ink (gui2's bake(): the warp then reads a static source) */
+function logoBake() {
+  const W = LOGO.W, H = LOGO.H;
+  if (!LOGO.ctx || typeof document === 'undefined' || !document.createElement) return;
+  const mk = () => { const c = document.createElement('canvas'); c.width = W; c.height = H; return c; };
+  if (!LOGO.aux) { const s = mk(), e = mk(), f = mk(); LOGO.aux = { s, e, f, sx: s.getContext('2d', { willReadFrequently: true }), ex: e.getContext('2d'), fx: f.getContext('2d') }; }
+  const A = LOGO.aux, ink = TOK('--text', '#191521');
+  if (!A.sx || !A.sx.getImageData) return;
+  A.sx.clearRect(0, 0, W, H);
+  A.sx.fillStyle = ink;
+  A.sx.font = '700 ' + (90 * H / 192).toFixed(2) + 'px Helvetica,"Helvetica Neue",Arial,sans-serif';
+  A.sx.textBaseline = 'middle';
+  A.sx.fillText('horde', 16 * H / 192, H * 0.38);   // high in the box: the blobs pull downward hardest
+  LOGO.SRC = A.sx.getImageData(0, 0, W, H);
+  LOGO.DST = LOGO.ctx.createImageData(W, H);
+  LOGO.ink = ink;
+  LOGO.ctx.putImageData(LOGO.SRC, 0, 0);
+  logoTint(0); logoOutline();
+}
+/* colour (gui2.html:6505-6585's tint), from the morph when it is on */
+function logoTint(dt) {
+  const g = LOGO.ctx, W = LOGO.W, H = LOGO.H;
+  let fill;
+  if (!MORPH.on) {
+    LOGO.hue = (LOGO.hue + dt * 0.02) % 1;
+    const m = /^#([0-9a-f]{6})$/i.exec(logoHueRot(TOK(LOGO_LG[0], '#FF2E88'), LOGO.hue * 360));
+    fill = TOK(LOGO_LG[0], '#FF2E88');
+    if (m) {                                        // 18% toward its own luma (gui2, 2026-09-01)
+      const v = parseInt(m[1], 16); let r = v >> 16 & 255, gg = v >> 8 & 255, b = v & 255;
+      const l = 0.299 * r + 0.587 * gg + 0.114 * b;
+      r = Math.round(r + (l - r) * 0.18); gg = Math.round(gg + (l - gg) * 0.18); b = Math.round(b + (l - b) * 0.18);
+      fill = '#' + ((1 << 24) + (r << 16) + (gg << 8) + b).toString(16).slice(1);
+    }
+  } else {
+    LOGO.smX += (MORPH.x - LOGO.smX) * 0.1; LOGO.smY += (MORPH.y - LOGO.smY) * 0.1;
+    const top = logoMix(TOK(LOGO_LG[0], '#FF2E88'), TOK(LOGO_LG[1], '#00D5C8'), LOGO.smX);
+    const bot = logoMix(TOK(LOGO_LG[2], '#FF2E88'), TOK(LOGO_LG[3], '#00D5C8'), LOGO.smX);
+    fill = logoMix(top, bot, LOGO.smY);
+  }
+  LOGO.tint = fill;
+  g.globalCompositeOperation = 'source-in'; g.fillStyle = fill; g.fillRect(0, 0, W, H); g.globalCompositeOperation = 'source-over';
+}
+/* the ink edge on the light ground (gui2.html:6408-6420: eight stamps of the mark in --lg-edge,
+   the fill back on top); dark mode has none */
+function logoOutline() {
+  const edge = TOK('--lg-edge', 'none'), A = LOGO.aux, g = LOGO.ctx, W = LOGO.W, H = LOGO.H;
+  if (!edge || edge === 'none' || !A) return;
+  A.fx.clearRect(0, 0, W, H); A.fx.drawImage(LOGO.cv, 0, 0);
+  A.ex.clearRect(0, 0, W, H); A.ex.drawImage(LOGO.cv, 0, 0);
+  A.ex.globalCompositeOperation = 'source-in'; A.ex.fillStyle = edge; A.ex.fillRect(0, 0, W, H); A.ex.globalCompositeOperation = 'source-over';
+  g.clearRect(0, 0, W, H);
+  const R = 2.6;                                    // gui2's EDGE_R on a 2× bitmap (~1.3 px on screen)
+  for (const [x, y] of [[1, 0], [-1, 0], [0, 1], [0, -1], [0.7, 0.7], [-0.7, 0.7], [0.7, -0.7], [-0.7, -0.7]]) g.drawImage(A.e, x * R, y * R);
+  g.drawImage(A.f, 0, 0);
+}
+/* one paint's worth: advance on the ENGINE clock, at most every other frame (gui2's 30 fps cap on
+   a 60 Hz display), and nothing at all while the clock stands (a frozen still keeps its mark) */
+function logoFrame(force) {
+  if (!LOGO.ctx || !LOGO.SRC || !LOGO.cv.isConnected) return;
+  if (TOK('--text', '#191521') !== LOGO.ink) { logoBake(); force = true; }
+  if (LOGO.reduce) return;
+  if (LOGO.clk < 0) LOGO.clk = MON.clock;           // the first paint only starts the clock
+  const clk = MON.clock, dt = Math.min(0.25, Math.max(0, clk - LOGO.clk) / SR);
+  if (!force && (dt <= 0 || (++LOGO.n & 1))) return;
+  LOGO.clk = clk;
+  const t0 = typeof performance === 'object' ? performance.now() : 0;
+  LOGO.smD += (clamp((EFF.detune || 0) / 100, 0, 1) - LOGO.smD) * 0.06;
+  const w = LOGO.warp;
+  w.params.waveAmp = LOGO.baseWave * (0.82 + 0.64 * LOGO.smD);
+  w.params.tremor = LOGO.baseTrem * (0.6 + 1.0 * Math.max(0, MON.rSm));
+  LOGO.t += dt * 0.35;                              // gui2's SPEED
+  w.render(LOGO.SRC.data, LOGO.DST.data, LOGO.W, LOGO.H, LOGO.t);
+  LOGO.ctx.putImageData(LOGO.DST, 0, 0);
+  logoTint(dt); logoOutline();
+  if (typeof performance === 'object') LOGO.ms = performance.now() - t0;   // cost only: never reaches the drawing
+}
+
+/* ======================================================================
+   E3. THE SPECIMEN AS THE UNDERLAY OF MAIN'S XY (B315)
+   Human, 2026-09-27: "...as well as Specimen; this, I think, can become an underlay of the
+   surface for the main XY." gui2's CHROME-002 (the markup at gui2.html:1005-1016, the shader and
+   frame at :5002-5463, the toggle param 178 at :1387): a raymarched pearl (three smin-blended
+   metaballs, matcap light, thin-film iridescence) that notes STRIKE (capillary fronts, tighter for
+   higher notes), held level makes QUIVER, the envelope BLOOMS (film 480 → 730 nm) and coherence
+   pulls TAUT (R lowers uK). Shader, spring, fronts and mappings are gui2's, verbatim.
+   WHICH XY: MAIN's pad, the cell titled "XY" (FREE TO REASSIGN). It is the surface the human's
+   MAIN wireframe calls the XY; its own marks are sparse (a puck, a readout, the carried value),
+   so a moving material behind them costs no reading; and it is the one surface on MAIN without a
+   data job of its own yet (question 38). The ring is a data well (members, ψ, R's rim), a pearl
+   under it would compete with what it measures; and on MAIN it is only the small twin.
+   HOW IT SITS: a WebGL canvas BEHIND the pad's 2D canvas in one box (.xywrap), pointer-events
+   none, so every pointer is the XY's; the pad paints a veil, plates and ringed marks over it
+   (paintXY). Its ground is the SCREEN colour (--scr-tube, gui2's #5), so it lives in both themes.
+   gui2's LESSONS, kept: never grab '2d' on it (getContext('2d') locks a canvas to 2d forever;
+   gui2 lost WebGL to a blanket grab, :2135-2141): it is not in CANV and nothing here calls fit()
+   on it. CREATE-ON-SHOW: no GL context exists until the pad is shown with the toggle on; and ONE
+   canvas for the lab's life (rebuild() re-parents it), because a context per rebuild would run
+   into the browser's context cap within a few pill clicks. WHY-IT-FAILED IS PART OF THE FEATURE:
+   a refused context or a failed shader is named on the pad and the pill, and the pad falls back
+   to its plain opaque surface.
+   DEPARTURES, for the lab's rules (B271: no wall clock reaches the drawing): its clock is the
+   monitor's engine clock, so a still freezes it; it draws only when that clock moved (gui2's
+   idle "plate", by engine time rather than a 1.5 s wall timeout); gui2's adaptive resolution
+   read wall-clock frame times, so here the resolution is FIXED at gui2's ceiling, min(dpr, 2)
+   (the frame cost is measured instead, trace b315); gui2's drag-to-orbit and click-to-strike are
+   the XY's gestures here, so the pearl turns only on gui2's slow turntable and notes strike it.
+   ====================================================================== */
+const SPECIMEN = { on: qp('specimen', '1') !== '0', cv: null, gl: null, u: {}, fail: '', ms: 0, draws: 0,
+  yaw: 0.55, pit: 0.18, yawT: 0.55, pitT: 0.18, dent: { x: 0, v: 0 }, poke: [0, 0, 1], time: 3.7, clk: -1, n: 0,
+  gates: {}, shySm: 0, kSm: undefined, bgTok: '', bg: [0.95, 0.93, 0.89], w: 0, h: 0, frontIx: 0, rng: mulberry32(0xC0FFEE),
+  fronts: [0, 1, 2, 3].map(() => ({ age: 100, az: 0, el: 0, wave: 9, hold: -1, heldAmt: 0 })) };
+function specimenCanvas() {
+  if (!SPECIMEN.cv) SPECIMEN.cv = el('canvas', 'specimen');
+  return SPECIMEN.cv;
+}
+/* the pad shows it only when the context is live and drawing, never on a promise */
+function specimenLive() { return !!(SPECIMEN.on && SPECIMEN.gl && !SPECIMEN.fail && LAB.page === 'main'); }
+const SPECIMEN_FS = `precision highp float;
+uniform vec2 uRes;uniform float uTime;uniform float uK;uniform int uVariant;
+uniform vec3 uPoke;uniform float uDent;uniform vec2 uOrbit;uniform float uThick;
+uniform vec3 uPokeN[4];uniform float uStrikeN[4];uniform float uRWaveN[4];uniform float uHeldN[4];
+uniform float uRAmp;uniform float uShy;
+uniform vec3 uBg;
+float smin(float a,float b,float k){float h=clamp(.5+.5*(b-a)/k,0.,1.);return mix(b,a,h)-k*h*(1.-h);}
+float map(vec3 p){
+ float t=uTime*.35;
+ float qv=uShy*.016*sin(t*20.+p.y*9.+p.x*7.);
+ p+=qv;
+ vec3 c1=vec3(sin(t*.7)*.33,sin(t*.9+1.7)*.2,cos(t*.6)*.28);
+ vec3 c2=vec3(cos(t*.5+3.)*.38,cos(t*.8)*.22,sin(t*.7+1.)*.3);
+ vec3 c3=vec3(sin(t*.6+5.)*.28,cos(t*.5+2.)*.27,cos(t*.9+4.)*.22);
+ float d=length(p-c1)-.6;
+ d=smin(d,length(p-c2)-.48,uK);
+ d=smin(d,length(p-c3)-.4,uK);
+ vec3 q=p-uPoke;
+ d+=uDent*exp(-dot(q,q)*16.);
+ for(int i=0;i<4;i++){
+  float rd2=distance(normalize(p),normalize(uPokeN[i]));
+  if(uStrikeN[i]<3.5&&uRAmp>0.){
+   float front=rd2*3.2-uStrikeN[i]*2.6;
+   float env2=exp(-uStrikeN[i]*1.9)*exp(-front*front*2.2)*smoothstep(0.,.12,uStrikeN[i]);
+   d+=.085*uRAmp*env2*sin(front*uRWaveN[i]);
+  }
+  if(uHeldN[i]>.001){
+   d+=.05*uRAmp*uHeldN[i]*exp(-rd2*2.2)*sin(rd2*3.2*uRWaveN[i]-uTime*min(2.6*uRWaveN[i],26.));
+  }
+ }
+ return d;
+}
+vec3 calcN(vec3 p){
+ vec2 e=vec2(.0015,-.0015);
+ return normalize(e.xyy*map(p+e.xyy)+e.yyx*map(p+e.yyx)+e.yxy*map(p+e.yxy)+e.xxx*map(p+e.xxx));
+}
+vec3 lobe(vec3 r,vec3 d,float p,vec3 c){return c*pow(max(dot(r,normalize(d)),0.),p);}
+vec3 env(vec3 r){
+ float up=smoothstep(-1.,1.,r.y);
+ vec3 c=mix(vec3(.52,.52,.60),vec3(1.04,1.02,1.06),up);
+ c=mix(c,vec3(.30,.29,.37),smoothstep(-.15,-1.,r.y));
+ c+=lobe(r,vec3(.5,.9,.3),34.,vec3(1.5,1.48,1.52));
+ c+=lobe(r,vec3(-.8,.5,.5),70.,vec3(.85,.86,.95));
+ c+=lobe(r,vec3(.2,.1,-1.),50.,vec3(.5,.48,.55));
+ if(uVariant==2){
+  c+=lobe(r,vec3(.95,.05,-.35),18.,vec3(.9,.05,.45));
+  c+=lobe(r,vec3(-.95,-.05,-.3),18.,vec3(.12,.6,.76));
+ }
+ return c;
+}
+vec3 film(float c){
+ vec3 lam=vec3(650.,540.,450.);
+ vec3 ph=12.566*1.35*uThick/lam*max(c,.05);
+ return .55+.45*cos(ph);
+}
+void main(){
+ vec2 uv=(gl_FragCoord.xy*2.-uRes)/uRes.y;
+ float yaw=uOrbit.x,pit=clamp(uOrbit.y,-1.15,1.15);
+ vec3 ro=vec3(cos(pit)*sin(yaw),sin(pit),cos(pit)*cos(yaw))*2.75;
+ vec3 ww=normalize(-ro);
+ vec3 uu=normalize(cross(vec3(0.,1.,0.),ww));
+ vec3 vv=cross(ww,uu);
+ vec3 rd=normalize(uv.x*uu+uv.y*vv+2.1*ww);
+ vec3 paperHi=uBg*1.035;vec3 paperLo=uBg*.93;
+ vec3 bg=mix(paperLo,paperHi,smoothstep(-1.,.9,uv.y));
+ vec3 col=bg;
+ float t=0.;bool hit=false;
+ for(int i=0;i<64;i++){
+  vec3 p=ro+rd*t;
+  float d=map(p);
+  if(d<.0012*t+.0008){hit=true;break;}
+  t+=d*.9;
+  if(t>7.)break;
+ }
+ if(hit){
+  vec3 p=ro+rd*t;
+  vec3 n=calcN(p);
+  vec3 r=reflect(rd,n);
+  float fr=pow(1.-max(dot(n,-rd),0.),5.);
+  vec3 c=env(r);
+  c*=mix(vec3(.86,.87,.93),vec3(1.),fr);
+  if(uVariant==1){c*=mix(vec3(1.),film(dot(n,-rd)),.75);}
+  c=c/(1.+c*.15);
+  col=pow(max(c,vec3(0.)),vec3(.4545));
+ } else if(rd.y<-.02){
+  float tp=(-1.25-ro.y)/rd.y;
+  if(tp>0.&&tp<12.){
+   vec3 p=ro+rd*tp;
+   float o1=clamp(map(p+vec3(0.,.28,0.))/.28,0.,1.);
+   float o2=clamp(map(p+vec3(0.,.75,0.))/.75,0.,1.);
+   float sh=clamp(o1*.6+o2*.4,0.,1.);
+   float fade=smoothstep(4.2,1.1,length(p.xz));
+   vec3 g=mix(paperLo*.80,paperHi*.985,sh);
+   col=mix(bg,g,fade);
+  }
+ }
+ gl_FragColor=vec4(col,1.);
+}`;
+/* gui2's chromeInit, minus its pointer handlers (the XY owns the pointer here) */
+function specimenInit() {
+  const S = SPECIMEN, cv = S.cv;
+  let gl = null, err = '';
+  try { gl = cv.getContext('webgl', { antialias: false }) || cv.getContext('experimental-webgl', { antialias: false }); }
+  catch (e) { err = String(e && e.message || e); }
+  if (!gl) { S.fail = 'WebGL context refused' + (err ? ' (' + err + ')' : ''); return; }
+  const mk = (type, src) => { const sh = gl.createShader(type); gl.shaderSource(sh, src); gl.compileShader(sh); return gl.getShaderParameter(sh, gl.COMPILE_STATUS) ? sh : null; };
+  const v = mk(gl.VERTEX_SHADER, 'attribute vec2 a;void main(){gl_Position=vec4(a,0.,1.);}'), f = mk(gl.FRAGMENT_SHADER, SPECIMEN_FS);
+  if (!v || !f) { S.fail = 'shader compile failed'; return; }
+  const prog = gl.createProgram();
+  gl.attachShader(prog, v); gl.attachShader(prog, f); gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) { S.fail = 'shader link failed'; return; }
+  gl.useProgram(prog);
+  const buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+  const loc = gl.getAttribLocation(prog, 'a');
+  gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+  for (const n of ['uRes', 'uTime', 'uK', 'uVariant', 'uPoke', 'uDent', 'uOrbit', 'uThick', 'uPokeN', 'uStrikeN', 'uRWaveN', 'uHeldN', 'uRAmp', 'uShy', 'uBg'])
+    S.u[n] = gl.getUniformLocation(prog, n);
+  S.gl = gl;
+}
+/* gui2's chromeNotePoke: a fresh note strikes within view, its wavelength by pitch (midi 36..96
+   → 6..24), its spot drawn from the seeded stream and then world-locked */
+function specimenNotePoke(midi) {
+  const S = SPECIMEN;
+  const az = S.yaw + ((midi % 12) / 12 - 0.5) * 2.4, el = Math.max(-0.9, Math.min(0.9, (Math.floor(midi / 12) - 5) * 0.25));
+  S.poke = [Math.cos(el) * Math.sin(az), Math.sin(el), Math.cos(el) * Math.cos(az)];
+  S.dent.v = 6.0;
+  const wave = 6 + 18 * Math.max(0, Math.min(1, (midi - 36) / 60));
+  let ix = S.fronts.findIndex(f => f.hold === midi);
+  if (ix < 0) {
+    let best = -1;
+    for (let i = 0; i < 4; i++) if (S.fronts[i].hold < 0 && S.fronts[i].age > best) { best = S.fronts[i].age; ix = i; }
+    if (ix < 0) { ix = S.frontIx; S.frontIx = (S.frontIx + 1) % 4; }
+  }
+  const f = S.fronts[ix], rebind = f.hold === midi;
+  f.age = 0; f.wave = wave; f.hold = midi;
+  if (!rebind) {
+    f.az = S.yaw + (S.rng() * 2 - 1) * 0.9;
+    f.el = Math.max(-0.85, Math.min(0.85, S.pit * 0.6 + (S.rng() * 2 - 1) * 0.5));
+  }
+}
+/* gui2's chromeFrame, driven by the monitor instead of the bridge's viz snapshot: the voices'
+   envelopes and gates (MON.core), the level of the last rendered strobe (MON.L), R (MON.rSm) and
+   Detune. Draws only when the engine clock moved, the canvas resized, the theme changed, or
+   `force` (a check); returns true when it drew. */
+function specimenFrame(force) {
+  const S = SPECIMEN;
+  if (!S.on || S.fail || LAB.page !== 'main') return false;
+  const cv = specimenCanvas();
+  if (!cv.isConnected || !cv.offsetParent) return false;              // create-on-show
+  if (!S.gl) { specimenInit(); if (!S.gl) return false; }
+  const clk = MON.clock, dt = S.clk < 0 ? 0.033 : Math.min(0.05, Math.max(0, clk - S.clk) / SR);
+  const scale = Math.min((typeof devicePixelRatio === 'number' && devicePixelRatio) || 1, 2);
+  const pw = Math.max(2, Math.round(cv.clientWidth * scale)), ph = Math.max(2, Math.round(cv.clientHeight * scale));
+  const tok = TOK('--scr-tube', '#f2ede2'), resized = pw !== S.w || ph !== S.h, themed = tok !== S.bgTok;
+  if (!force && !resized && !themed && dt <= 0) return false;
+  if (!force && !resized && !themed && (++S.n % 3)) return false;        // gui2's ~20 Hz cadence
+  const t0 = typeof performance === 'object' ? performance.now() : 0;
+  S.clk = clk;
+  const gl = S.gl;
+  if (resized) { S.w = pw; S.h = ph; cv.width = pw; cv.height = ph; gl.viewport(0, 0, pw, ph); }
+  let envMax = 0, peak = 0;
+  const c = MON.core, gatedNow = {};
+  if (c) for (const v of c.voices) if (v.active) { if (v.env > envMax) envMax = v.env; if (v.gate) gatedNow[v.note] = true; }
+  if (MON.L) for (let i = 0; i < MON.L.length; i++) { const a = Math.abs(MON.L[i]); if (a > peak) peak = a; }
+  for (const m in gatedNow) if (!S.gates[m]) specimenNotePoke(+m);   // a fresh attack strikes
+  for (const m in S.gates) if (!gatedNow[m]) for (const f of S.fronts) if (f.hold === +m) f.hold = -1;
+  S.gates = gatedNow;
+  const R = Math.max(0, MON.rSm);
+  const w = 9, z = 0.82, d = S.dent;                                  // the damped spring (w 9, ζ 0.82)
+  d.v += (-w * w * d.x - 2 * z * w * d.v) * dt; d.x += d.v * dt;
+  if (Math.abs(d.x) < 0.0005 && Math.abs(d.v) < 0.002) { d.x = 0; d.v = 0; }
+  S.yawT += dt * 0.03;                                                // slow studio turntable
+  const ease = Math.min(1, dt * 7);
+  S.yaw += (S.yawT - S.yaw) * ease; S.pit += (S.pitT - S.pit) * ease;
+  S.time += dt;
+  gl.uniform2f(S.u.uRes, pw, ph);
+  gl.uniform1f(S.u.uTime, S.time);
+  const kT = Math.max(0.12, 0.45 - 0.3 * R);                          // coherence pulls taut, eased
+  if (S.kSm === undefined) S.kSm = kT;
+  S.kSm += (kT - S.kSm) * (kT < S.kSm ? 1 - Math.exp(-dt / 0.28) : 1 - Math.exp(-dt / 0.5));
+  gl.uniform1f(S.u.uK, S.kSm);
+  gl.uniform1i(S.u.uVariant, 1);                                      // pearl
+  gl.uniform3f(S.u.uPoke, S.poke[0], S.poke[1], S.poke[2]);
+  gl.uniform1f(S.u.uDent, Math.max(-0.35, Math.min(0.35, d.x * 0.28)));
+  gl.uniform2f(S.u.uOrbit, S.yaw, S.pit);
+  gl.uniform1f(S.u.uThick, 480 + 250 * Math.min(1, envMax));         // the pearl blooms on attack
+  const pokes = new Float32Array(12), ages = new Float32Array(4), waves = new Float32Array(4), helds = new Float32Array(4);
+  for (let i = 0; i < 4; i++) {
+    const f = S.fronts[i];
+    f.age = Math.min(10, f.age + dt);
+    const hT = f.hold >= 0 ? 1 : 0;
+    f.heldAmt += (hT - f.heldAmt) * (hT > f.heldAmt ? 1 - Math.exp(-dt / 0.25) : 1 - Math.exp(-dt / 0.45));
+    pokes[i * 3] = Math.cos(f.el) * Math.sin(f.az); pokes[i * 3 + 1] = Math.sin(f.el); pokes[i * 3 + 2] = Math.cos(f.el) * Math.cos(f.az);
+    ages[i] = f.age; waves[i] = f.wave; helds[i] = f.heldAmt;
+  }
+  gl.uniform3fv(S.u.uPokeN, pokes); gl.uniform1fv(S.u.uStrikeN, ages); gl.uniform1fv(S.u.uRWaveN, waves); gl.uniform1fv(S.u.uHeldN, helds);
+  gl.uniform1f(S.u.uRAmp, Math.min(1, 0.25 + envMax * 0.5 + clamp((EFF.detune || 0) / 100, 0, 1) * 0.35));   // a wide swarm strikes harder water
+  const shyT = Math.min(1, peak * 1.5) * 0.6;                         // quiver, slewed
+  S.shySm += (shyT - S.shySm) * (shyT > S.shySm ? 1 - Math.exp(-dt / 0.25) : 1 - Math.exp(-dt / 0.6));
+  gl.uniform1f(S.u.uShy, S.shySm);
+  if (themed) {                                                        // the ground is the SCREEN colour
+    S.bgTok = tok;
+    const hx = /^#([0-9a-f]{6})$/i.exec(tok.trim());
+    if (hx) { const v = parseInt(hx[1], 16); S.bg = [(v >> 16 & 255) / 255, (v >> 8 & 255) / 255, (v & 255) / 255]; }
+  }
+  gl.uniform3f(S.u.uBg, S.bg[0], S.bg[1], S.bg[2]);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+  S.draws++;
+  if (typeof performance === 'object') S.ms = performance.now() - t0;   // cost only (GPU work is asynchronous)
+  return true;
 }
 function paintCanvases() { for (const [cv, f] of CANV) f(cv); }
 
@@ -2826,6 +3448,14 @@ function sliderRow(host, key, o) {
     const key0 = K(), sp = SP[key0]; if (!sp) return;
     const v = shown(key0, false), p = toPos(sp, v);
     inp.value = p; inp.style.setProperty('--pct', p);
+    /* B315: a range through 0 fills from 0, the knob's rule (knob(): sp.min < 0 < sp.max) */
+    const z = sp.min < 0 && sp.max > 0 && sp.curve !== 'circ' ? toPos(sp, 0) : 0;
+    inp.classList.toggle('bip', z > 0);
+    if (z > 0) {
+      const at = q => 'calc(6.5px + ' + q.toFixed(4) + ' * (100% - 13px))', lo = at(Math.min(p, z)), hi = at(Math.max(p, z)), c = at(z);
+      inp.style.setProperty('--trk', 'linear-gradient(to right, transparent calc(' + c + ' - 1px), var(--line) calc(' + c + ' - 1px) calc(' + c + ' + 1px), transparent calc(' + c + ' + 1px)), ' +
+        'linear-gradient(to right, var(--panel2) ' + lo + ', var(--value) ' + lo + ' ' + hi + ', var(--panel2) ' + hi + ')');
+    }
     const fol = !!linked(key0) && !FOLLOW_OF[key0].g.sentinel;
     row.classList.toggle('follow', fol);
     row.classList.toggle('ghost', !!(o.ghost && o.ghost()));
@@ -2968,7 +3598,7 @@ function rebuild() {
 }
 function frameHeader(host) {
   const h = el('div', 'phdr'); host.appendChild(h);
-  h.appendChild(el('div', 'brand', 'horde'));
+  h.appendChild(logoCanvas());                      // B315: gui2's warping wordmark, where gui2 has it
   const rows = el('div', 'tabrows'); h.appendChild(rows);
   const r1 = el('div', 'tabs'), r2 = el('div', 'tabs');
   rows.appendChild(r1); rows.appendChild(r2);
@@ -3351,7 +3981,20 @@ function buildMain(host) {
   const cx = cell(L, 'XY', 'FREE TO REASSIGN');
   cx.classList.add('free');
   cx.title = 'free to reassign (B299): today X = Width, Y = Cut rate (blade 1), absolute. The cycle view below drives Position, Width and Cut rate now; what this pad should hold is an open question for the human.';
-  const xy = canvas(cx, 108, paintXY, 'edit');
+  /* B315: the Specimen is this pad's underlay (E3), with its toggle (gui2's param 178, a lab
+     affordance here; default on, ?specimen=0 starts it off) */
+  const sph = cx.querySelector && cx.querySelector('h3');
+  if (sph) {
+    const sp = el('span', 'sp'); sph.appendChild(sp);
+    const sb = el('button', 'pill mini' + (SPECIMEN.on && !SPECIMEN.fail ? ' on' : ''), SPECIMEN.fail ? 'SPECIMEN n/a' : 'SPECIMEN');
+    sb.title = SPECIMEN.fail ? 'SPECIMEN UNAVAILABLE — ' + SPECIMEN.fail + ' (the pad is its plain surface)' :
+      'CHROME-002, gui2\'s material study, as this pad\'s underlay (B315): notes strike it, level quivers it, the envelope blooms it, R pulls it taut';
+    sb.addEventListener('click', () => { SPECIMEN.on = !SPECIMEN.on; rebuild(); });
+    sp.appendChild(sb);
+  }
+  const xyw = el('div', 'xywrap'); cx.appendChild(xyw);
+  xyw.appendChild(specimenCanvas());
+  const xy = canvas(xyw, 108, paintXY, 'edit');
   tagCtl(xy, ['w', 'k'], 'T1');
   padDrag(xy, (u, v) => { P.w = fromPos(SP.w, u); const kk = P.lock === 2 ? 'kHz' : 'k'; P[kk] = fromPos(SP[kk], 1 - v); afterWrite('w'); });
   /* B294: the ring that sat beside the cycle here is now the Coupling × Detune XY in
@@ -4020,6 +4663,8 @@ function runChecks() {
   for (const c of checkInterplay()) out.push(c);
   for (const c of checkXYPlay()) out.push(c);
   for (const c of checkSticky()) out.push(c);
+  for (const c of checkBipolar()) out.push(c);
+  for (const c of checkLogoSpecimen()) out.push(c);
   for (const c of checkPresets()) out.push(c);
   AUDIT.checks = out;
   seedOracle(0xB271 + MON.note);
@@ -4569,6 +5214,219 @@ function checkMainXY() {
   if (MON.core) MON.core.set(oracleParams(EFF));
   return out;
 }
+/* B315 — THE LOGO AND THE SPECIMEN, on the built MAIN page (the tighter header: two tab rows).
+   LOGO: the warped mark is the frame header's canvas, in its fixed 70×46 box; a paint lays ink
+   (alpha > 0) in it; the warp MOVES (two times, two images); with the morph on at corner B its
+   colour is --lgB (the morph cursor drives it). It does not push layout: the header is exactly
+   as tall with the mark as without it. CONTROL (must fail): the same mark in gui2's own 96 px box
+   makes the header taller.
+   SPECIMEN, in both themes: a forced frame draws the pearl into the underlay (a readback finds
+   it, the ground elsewhere); the pad over it is see-through where it has nothing to say, and
+   opaque under every text (its plates) and the puck, with the plates in the tube colour; the
+   underlay takes no pointer (pointer-events none, the pad is what the pointer finds), and a
+   click on the pad round-trips Width and Cut rate into P and the engine. CONTROLS (must fail):
+   the underlay raised and given the pointer takes the click, and nothing moves; the toggle off
+   leaves the pad opaque, so nothing shows through. FALLBACK: with the context refused (a
+   simulated refusal), the underlay hides, the pad is its plain opaque surface, the pill says so.
+   Needs a real layout and WebGL; the load checkers have neither, and the rows say so. */
+function checkLogoSpecimen() {
+  const out = [], page = LAB.page, theme = LAB.theme, snap = Object.assign({}, P), mOn = MORPH.on, mx = MORPH.x, my = MORPH.y, spOn = SPECIMEN.on;
+  const mv = MACROS.map(m => m.v), logoSm = [LOGO.smX, LOGO.smY], monSnap = Object.assign({}, MON), bufs = [MON.buf.slice(), MON.bufR.slice()], fz = LAB.frozen;
+  const alphaAt = (cv, x, y) => {                  // CSS px → the bitmap's pixel
+    const g = cv.getContext('2d'), k = cv.width / Math.max(1, cv.clientWidth);
+    return g.getImageData(Math.floor(x * k), Math.floor(y * k), 1, 1).data;
+  };
+  const rectMinA = (cv, r) => {
+    const g = cv.getContext('2d'), k = cv.width / Math.max(1, cv.clientWidth);
+    const d = g.getImageData(Math.ceil(r[0] * k), Math.ceil(r[1] * k), Math.max(1, Math.floor(r[2] * k) - 1), Math.max(1, Math.floor(r[3] * k) - 1)).data;
+    let mn = 255; for (let i = 3; i < d.length; i += 4) mn = Math.min(mn, d[i]); return [mn, d[0], d[1], d[2]];
+  };
+  try {
+    LAB.page = 'main'; SPECIMEN.on = true; rebuild();
+    const hdr = FR.querySelector('.phdr'), lc = hdr && hdr.querySelector('canvas.logo');
+    if (!hdr || !lc || !hdr.getBoundingClientRect || !(hdr.offsetHeight > 0)) out.push({ name: 'logo', ok: false, detail: 'no layout here (a load checker): not measured' });
+    else {
+      /* the mark */
+      logoFrame(true);
+      const d = LOGO.ctx.getImageData(0, 0, LOGO.W, LOGO.H).data;
+      let ink = 0; for (let i = 3; i < d.length; i += 4) if (d[i] > 0) ink++;
+      const a1 = new ImageData(LOGO.W, LOGO.H), a2 = new ImageData(LOGO.W, LOGO.H);
+      LOGO.warp.render(LOGO.SRC.data, a1.data, LOGO.W, LOGO.H, 1.0); LOGO.warp.render(LOGO.SRC.data, a2.data, LOGO.W, LOGO.H, 2.5);
+      let moved = 0; for (let i = 3; i < a1.data.length; i += 4) if (a1.data[i] !== a2.data[i]) moved++;
+      MORPH.on = true; MORPH.x = 1; MORPH.y = 0; LOGO.smX = 1; LOGO.smY = 0; logoTint(0);
+      const tintB = LOGO.tint.toLowerCase() === TOK('--lgB').toLowerCase();
+      const r = lc.getBoundingClientRect(), box = Math.round(r.width) === LOGO_W && Math.round(r.height) === LOGO_H;
+      /* layout: the header with the mark, without it, and with gui2's 96 px box (the control) */
+      const hWith = hdr.getBoundingClientRect().height;
+      lc.style.display = 'none'; const hWithout = hdr.getBoundingClientRect().height; lc.style.display = '';
+      lc.style.height = '96px'; const hTall = hdr.getBoundingClientRect().height; lc.style.height = '';
+      out.push({ name: 'logo: gui2\'s warping mark in the frame header, fixed box, morph-driven colour, no layout push',
+        ok: lc === LOGO.cv && box && ink > 500 && moved > 100 && tintB && Math.abs(hWith - hWithout) < 0.5,
+        detail: 'box ' + r.width.toFixed(0) + '×' + r.height.toFixed(0) + ' (bitmap ' + LOGO.W + '×' + LOGO.H + ') · ink ' + ink + ' px · the warp moves ' + moved + ' px between t 1.0 and 2.5 · morph at B → ' + LOGO.tint + (tintB ? ' = --lgB' : ' ≠ --lgB') +
+          ' · header ' + hWith.toFixed(1) + ' px with the mark, ' + hWithout.toFixed(1) + ' without' });
+      out.push({ name: 'CONTROL: the mark in gui2\'s 96 px box pushes the header', ok: hTall > hWith + 0.5, control: true,
+        detail: 'header ' + hTall.toFixed(1) + ' px against ' + hWith.toFixed(1) + ' (must be taller)' });
+      MORPH.on = mOn; MORPH.x = mx; MORPH.y = my; [LOGO.smX, LOGO.smY] = logoSm; LOGO.clk = -1; logoFrame(true);
+    }
+    /* the Specimen */
+    const probe = th => {
+      MORPH.on = false; for (const m of MACROS) m.v = 0;   // the pad writes P; the engine hears P only with no morph or macro on top
+      LAB.theme = th; applyBodyClasses(); rebuild();
+      const wrap = FR.querySelector('.xywrap'), xy = wrap && wrap.querySelector('canvas.viz'), un = SPECIMEN.cv;
+      if (!wrap || !xy || !(xy.clientWidth > 0)) return { nolayout: true };
+      const drew = specimenFrame(true);
+      let pearl = 0, n = 0;
+      if (drew && SPECIMEN.gl) {
+        const gl = SPECIMEN.gl, w = SPECIMEN.w, h = SPECIMEN.h, px = new Uint8Array(w * h * 4);
+        gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, px);
+        const bg = SPECIMEN.bg.map(v => v * 255);
+        for (let i = 0; i < px.length; i += 16) { n++; if (Math.abs(px[i] - bg[0]) + Math.abs(px[i + 1] - bg[1]) + Math.abs(px[i + 2] - bg[2]) > 60) pearl++; }
+      }
+      paintCanvases();
+      const X = XY_PAINT, W = X.W, H = X.H;
+      let pt = null;
+      for (const [fx, fy] of [[0.375, 0.625], [0.625, 0.375], [0.375, 0.375], [0.625, 0.625]]) {
+        const x = fx * W, y = fy * H;
+        if (Math.hypot(x - X.puck[0], y - X.puck[1]) > 12 && !X.plates.some(r => x > r[0] - 3 && x < r[0] + r[2] + 3 && y > r[1] - 3 && y < r[1] + r[3] + 3)) { pt = [x, y]; break; }
+      }
+      const see = pt ? alphaAt(xy, pt[0], pt[1])[3] : 255;
+      const plates = X.plates.map(r => rectMinA(xy, r)), tube = TOK('--scr-tube');
+      const tubeRGB = [1, 3, 5].map(i => parseInt(tube.slice(i, i + 2), 16));
+      const platesOk = plates.length >= 3 && plates.every(q => q[0] === 255 && Math.abs(q[1] - tubeRGB[0]) + Math.abs(q[2] - tubeRGB[1]) + Math.abs(q[3] - tubeRGB[2]) <= 3);
+      const puckA = alphaAt(xy, X.puck[0], X.puck[1])[3];
+      /* the pointer: the pad is what it finds, and a click round-trips */
+      const cs = getComputedStyle(un), rr = xy.getBoundingClientRect();
+      /* whole pixels, and the expected values from the fractions the pad will compute from them */
+      const cx = Math.round(rr.left + 0.3 * rr.width), cy = Math.round(rr.top + 0.4 * rr.height);
+      const wExp = fromPos(SP.w, (cx - rr.left) / rr.width), kExp = fromPos(SP.k, 1 - (cy - rr.top) / rr.height);
+      const click = () => {
+        const hit = document.elementFromPoint(cx, cy), o = { clientX: cx, clientY: cy, pointerId: 7, bubbles: true, button: 0 };
+        if (hit) { hit.dispatchEvent(new PointerEvent('pointerdown', o)); hit.dispatchEvent(new PointerEvent('pointerup', o)); }
+        return hit;
+      };
+      P = Object.assign({}, snap, { lock: 0, w: 0.2, k: 6 }); EFF = effective(); pushOracle();
+      const hit = click();
+      const trip = hit === xy && Math.abs(P.w - wExp) < 1e-9 && Math.abs(P.k - kExp) < 1e-9 && Math.abs(MON.core.t.w - P.w) < 1e-9 && Math.abs(MON.core.t.k - P.k) < 1e-9;
+      /* CONTROL 1: the underlay raised and given the pointer */
+      P = Object.assign({}, snap, { lock: 0, w: 0.2, k: 6 }); EFF = effective(); pushOracle();
+      un.style.pointerEvents = 'auto'; un.style.zIndex = '2';
+      const hit2 = click(), trip2 = hit2 === xy && Math.abs(P.w - wExp) < 1e-9;
+      un.style.pointerEvents = ''; un.style.zIndex = '';
+      /* CONTROL 2: the toggle off leaves the pad opaque */
+      SPECIMEN.on = false; paintCanvases(); const seeOff = pt ? alphaAt(xy, pt[0], pt[1])[3] : 255; SPECIMEN.on = true; paintCanvases();
+      return { th, drew, pearl, n, under: wrap.classList.contains('under'), see, platesOk, nPl: plates.length, puckA, pe: cs.pointerEvents, trip, hit: hit && (hit === xy ? 'the pad' : hit === un ? 'the UNDERLAY' : hit.tagName),
+        trip2, hit2: hit2 && (hit2 === xy ? 'the pad' : hit2 === un ? 'the underlay' : hit2.tagName), seeOff, wx: wExp, kx: kExp };
+    };
+    const res = ['light', 'dark'].map(probe);
+    if (res.some(q => q.nolayout)) out.push({ name: 'Specimen underlay', ok: false, detail: 'no layout here (a load checker): not measured' });
+    else if (SPECIMEN.fail) out.push({ name: 'Specimen underlay', ok: false, detail: 'WebGL unavailable here: ' + SPECIMEN.fail + ' (the fallback row below still runs)' });
+    else {
+      const okOf = q => q.drew && q.pearl > q.n * 0.03 && q.under && q.see < 255 && q.platesOk && q.puckA === 255 && q.pe === 'none' && q.trip;
+      out.push({ name: 'Specimen: the underlay of MAIN\'s XY, the pad legible and round-tripping on top (light + dark)', ok: res.every(okOf),
+        detail: res.map(q => q.th + ': pearl in ' + (100 * q.pearl / Math.max(1, q.n)).toFixed(0) + '% of the underlay · the pad see-through (alpha ' + q.see + ') · ' + q.nPl + ' text plates opaque in the tube colour ' + q.platesOk +
+          ', puck alpha ' + q.puckA + ' · pointer-events ' + q.pe + ', the click finds ' + q.hit + ' · round trip ' + (q.trip ? 'w ' + q.wx.toFixed(4) + ', k ' + q.kx.toFixed(3) + ', engine agrees' : 'FAILED')).join(' · ') +
+          ' · drawn at ' + SPECIMEN.w + '×' + SPECIMEN.h + ' px (min(dpr, 2), fixed)' });
+      out.push({ name: 'CONTROL: the underlay given the pointer takes the click', ok: res.every(q => !q.trip2), control: true,
+        detail: res.map(q => q.th + ': the click finds ' + q.hit2 + ', Width ' + (q.trip2 ? 'MOVED' : 'unmoved')).join(' · ') + ' (must not round-trip)' });
+      out.push({ name: 'CONTROL: Specimen off, nothing shows through', ok: res.every(q => q.seeOff === 255), control: true,
+        detail: res.map(q => q.th + ': pad alpha ' + q.seeOff).join(' · ') + ' (must be 255, opaque)' });
+    }
+    /* the fallback: a refused context */
+    LAB.theme = theme; applyBodyClasses();
+    const fail0 = SPECIMEN.fail; SPECIMEN.fail = 'simulated refusal (self-check)'; rebuild(); paintCanvases();
+    const wrap = FR.querySelector('.xywrap'), xy = wrap && wrap.querySelector('canvas.viz');
+    if (wrap && xy && xy.clientWidth > 0) {
+      const vis = getComputedStyle(SPECIMEN.cv).visibility, a = alphaAt(xy, XY_PAINT.W * 0.375, XY_PAINT.H * 0.625)[3];
+      const pill = [...FR.querySelectorAll('.cell.free h3 button')].map(b => b.textContent).join();
+      out.push({ name: 'Specimen fallback: a refused context leaves the plain pad and says why', ok: vis === 'hidden' && a === 255 && !wrap.classList.contains('under') && /n\/a/.test(pill),
+        detail: 'underlay ' + vis + ' · pad alpha ' + a + ' · pill "' + pill + '" · the reason is painted on the pad' });
+    }
+    SPECIMEN.fail = fail0;
+  } catch (e) {
+    out.push({ name: 'logo + Specimen', ok: false, detail: 'threw: ' + String(e && e.stack || e) });
+  }
+  LAB.page = page; LAB.theme = theme; SPECIMEN.on = spOn; MORPH.on = mOn; MORPH.x = mx; MORPH.y = my; LAB.frozen = fz;
+  MACROS.forEach((m, i) => { m.v = mv[i]; });
+  P = snap; EFF = effective(); pushOracle(); applyBodyClasses();
+  Object.assign(MON, monSnap); MON.buf.set(bufs[0]); MON.bufR.set(bufs[1]); MON.cycN = -1;
+  if (MON.core) MON.core.set(oracleParams(EFF));
+  rebuild();
+  return out;
+}
+/* B315 — BIPOLAR SPREADS MIRROR. For each of the fourteen (BIPOLAR), on a seeded scratch of the
+   engine the lab plays (N 5, the gradient law, Coupling 0 and Detune 0 so every member starts at
+   one frequency, blade 2 on and owning its spreads for the twins), the member offsets the
+   oracle's spreadMember writes are read at +x, −x and 0:
+   - MIRROR: −x negates every member's offset (cOff, kAdd, log2 wMul, dAdd, mor − morph,
+     log2 iMul, rotOff and the twins). Blade 2's Shape spread writes no offset field, only its
+     shaped radius mr2, so it is held to the mirror across members instead (member i at −x =
+     member N−1−i at +x, which the gradient law makes exact);
+   - HEARD: for Rotate spread the offset is a rate, so the rendered rotation is read too:
+     after 0.2 s every member's rotation (mm.rot, mm.rot2) at −x is the negative of +x's;
+   - ZERO: 0 is the default, the knob's centre, and writes no offset.
+   Under a Cut rule, Cut spread is inert either side of 0 (B297): ±x render bit-identically.
+   CONTROL (must fail): the oracle ALONE on the same heard-rotation test, which is why Rotate
+   spread is a divergence (its gate homes a negative spread); and a clamped law (max(0, x)),
+   which writes no offset at −x and so is no mirror. */
+const BIP_FEAT = {
+  bspread: m => m.cOff, kspread: m => m.kAdd, wspread: m => Math.log2(m.wMul), dspread: m => m.dAdd,
+  mspread: m => m.mor - 0.5, ispread: m => Math.log2(m.iMul), rotSpread: m => m.rotOff,
+  bspread2: m => m.cOff2, kspread2: m => m.kAdd2, wspread2: m => Math.log2(m.wMul2), dspread2: m => m.dAdd2,
+  mspread2: m => m.mr2, ispread2: m => Math.log2(m.iMul2), rotSpread2: m => m.rotOff2
+};
+const BIP_ACROSS = new Set(['mspread2']);        // no offset field: mirrored across members
+function checkBipolar() {
+  const out = [], N = 5;
+  const base = { N, law: 0, K: 0, detune: 0, phaseMode: 1, b1on: 1, b2on: 1, morph: 0.5, morph2: 0.5, kRule: 0, kRule2: 0, kq: 0,
+    rotRate: 0, rotRate2: 0, rot2Follow: 0, rotSync: 1, mode: 0, mode2: 4, w: 0.3, w2: 0.2 };
+  for (const k of BIPOLAR) base[k] = 0;
+  const prm = (k, x, extra) => Object.assign({}, base, { b2sp: k.endsWith('2') ? 1 : 0, [k]: x }, extra || {});
+  const feats = (k, x, cls) => { const S = scratch(prm(k, x), 57, mtof(57), 0xB315, cls); const v = liveVoice(S.c); return v.m.slice(0, N).map(BIP_FEAT[k]); };
+  const wrapD = a => Math.abs(a - Math.round(a));
+  const rots = (k, x, cls) => {
+    const S = scratch(prm(k, x), 57, mtof(57), 0xB315, cls), L = new Float32Array(882), Rr = new Float32Array(882);
+    for (let i = 0; i < 10; i++) S.c.render(L, Rr);
+    const v = liveVoice(S.c); return v.m.slice(0, N).map(m => (k === 'rotSpread2' ? m.rot2 : m.rot));
+  };
+  const heardMirror = (a, b) => ({ err: Math.max(...a.map((r, i) => wrapD(r + b[i]))), mag: Math.max(...b.map(wrapD)) });
+  const rows = [], bad = [];
+  let nDiv = 0;
+  try {
+    for (const k of BIPOLAR) {
+      const x = 0.3 * SP[k].max, fp = feats(k, x), fm = feats(k, -x), f0 = feats(k, 0);
+      let err; const diff = Math.max(...fp.map((q, i) => Math.abs(q - fm[i])));   // not a no-op: −x differs from +x
+      if (BIP_ACROSS.has(k)) err = Math.max(...fm.map((q, i) => Math.abs(q - fp[N - 1 - i])));
+      else err = Math.max(...fm.map((q, i) => Math.abs(q + fp[i])));
+      const zero = BIP_ACROSS.has(k) ? Math.max(...f0.map(q => Math.abs(q - f0[0]))) : Math.max(...f0.map(Math.abs));
+      const centre = DEF[k] === 0 && Math.abs(toPos(SP[k], 0) - 0.5) < 1e-12 && fromPos(SP[k], 0.5) === 0;
+      let heard = null;
+      if (k === 'rotSpread' || k === 'rotSpread2') { heard = heardMirror(rots(k, -x), rots(k, x)); nDiv++; }
+      const ok = err <= 1e-12 && diff > 1e-4 && zero <= 1e-12 && centre && (!heard || (heard.err <= 1e-9 && heard.mag > 1e-3));
+      if (!ok) bad.push(k);
+      rows.push(k + (BIPOLAR_DIVERGES.has(k) ? '*' : '') + ' ' + (BIP_ACROSS.has(k) ? 'across ' : '') + err.toExponential(0) + (heard ? ' heard ' + heard.err.toExponential(0) : ''));
+    }
+    out.push({ name: 'bipolar spreads: −x mirrors +x (members\' offsets negated), 0 is the centre and the default', ok: !bad.length,
+      detail: BIPOLAR.size + ' keys, max |f(−x) + f(+x)| per key: ' + rows.join(' · ') + ' · * = the engine\'s divergence (Rotate spread, ' + nDiv + ' keys), read as rendered rotation too' +
+        (bad.length ? ' · FAILS ' + bad.join(', ') : '') });
+    /* B297 interplay: under the harmonic rule Cut spread is not read, either side of 0 */
+    const ruled = (k, x) => { const S = scratch(prm(k, x, { kRule: 1, kRule2: 1 }), 57, mtof(57), 0xB315); const L = new Float32Array(2048), Rr = new Float32Array(2048); S.c.render(L, Rr); return L; };
+    let same = true;
+    for (const k of ['kspread', 'kspread2']) { const a = ruled(k, 7.2), b = ruled(k, -7.2); for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) { same = false; break; } }
+    out.push({ name: 'bipolar Cut spread under a Cut rule: still inert, either side of 0', ok: same,
+      detail: 'harmonic rule, Cut spread ±7.2 on both blades: renders ' + (same ? 'bit-identical' : 'DIFFER') });
+    /* CONTROLS */
+    const oa = heardMirror(rots('rotSpread', -1.2 * 0.5, RAZOR), rots('rotSpread', 1.2 * 0.5, RAZOR));
+    out.push({ name: 'CONTROL: the oracle alone does not mirror Rotate spread', ok: !(oa.err <= 1e-9 && oa.mag > 1e-3), control: true,
+      detail: 'oracle alone, −0.6 Hz against +0.6 Hz: rotation error ' + oa.err.toFixed(3) + ' cycle (must be large: its gate reads t.rotSpread > 0.004 and homes the members)' });
+    const cp = feats('bspread', 0.3), cm = feats('bspread', Math.max(0, -0.3));
+    const cErr = Math.max(...cm.map((q, i) => Math.abs(q + cp[i])));
+    out.push({ name: 'CONTROL: a clamped law (max(0, x)) is not a mirror', ok: cErr > 1e-3, control: true,
+      detail: 'Pos spread −0.3 clamped to 0: max |f(−x) + f(+x)| ' + cErr.toFixed(3) + ' (must be large)' });
+  } catch (e) {
+    out.push({ name: 'bipolar spreads', ok: false, detail: 'threw: ' + String(e && e.stack || e) });
+  }
+  return out;
+}
 /* B309 — THE ENGINE THE LAB PLAYS.
    (1) CORE is B298's ComposedEngine: a subclass of the oracle (RAZOR) whose instances carry
        horde's swarm (src 'horde', one SwarmSynth), and the monitor is one. The AUDIO is one
@@ -4814,6 +5672,13 @@ function presetKeyFaults(params) {
   }
   return bad;
 }
+/* B315: a lab range matches the packet's, or is the packet's 0..max widened to −max..max for a
+   key declared in BIPOLAR. Anything else is drift. */
+function rangeDrifts(k, p, s) {
+  if (p.kind !== 'continuous') return true;
+  if (BIPOLAR.has(k)) return !(p.min === 0 && s.min === -p.max && s.max === p.max);
+  return p.min !== s.min || p.max !== s.max;
+}
 function checkPresets() {
   const out = [];
   if (!LAB.presets) return out;
@@ -4846,14 +5711,21 @@ function checkPresets() {
       for (const b of [1, 2]) for (const k of r === 'cut' ? ['k', 'kHz'] : r === 'mrate' ? ['m', 'mHz'] : [r]) keys.add(bladeKey(b, k));
     }
     const drift = [], notPad = [];
+    let nBip = 0;
     for (const k of keys) {
       const p = pj[k], s = SP[k];
       if (!p || !s) { drift.push(k + ' missing'); continue; }
-      if (p.kind !== 'continuous' || p.min !== s.min || p.max !== s.max) drift.push(k + ' ' + p.min + '..' + p.max + ' vs ' + s.min + '..' + s.max);
+      if (rangeDrifts(k, p, s)) drift.push(k + ' ' + p.min + '..' + p.max + ' vs ' + s.min + '..' + s.max);
+      else if (BIPOLAR.has(k)) nBip++;
       if (!p.padAssignable) notPad.push(k);
     }
     out.push({ name: 'XY ranges = parameters.json', ok: !drift.length,
-      detail: keys.size + ' reachable keys' + (drift.length ? ' · DRIFT ' + drift.join('; ') : ' match') + (notPad.length ? ' · not pad-assignable in the bench: ' + notPad.join(', ') : '') });
+      detail: keys.size + ' reachable keys' + (drift.length ? ' · DRIFT ' + drift.join('; ') : ' match') + ' (' + nBip + ' of them B315\'s declared bipolar widening, 0..max → −max..max)' +
+        (notPad.length ? ' · not pad-assignable in the bench: ' + notPad.join(', ') : '') });
+    /* CONTROL (must fail): the same widening on a key NOT declared bipolar is drift */
+    const ph = pj.hard, planted = ph ? rangeDrifts('hard', ph, { min: -ph.max, max: ph.max }) : false;
+    out.push({ name: 'CONTROL: an undeclared bipolar widening is drift', ok: planted, control: true,
+      detail: ph ? 'Edges widened to −' + ph.max + '..' + ph.max + ' without a B315 declaration: ' + (planted ? 'caught' : 'NOT CAUGHT') : 'parameters.json has no hard' });
   }
   return out;
 }
@@ -5234,7 +6106,9 @@ function wireChrome() {
 }
 function frame() {
   monAdvance();
+  specimenFrame(false);                              // B315: before the pad paints over it
   paintCanvases();
+  logoFrame(false);
   requestAnimationFrame(frame);
 }
 /* B309: build CORE, the composed engine, from the oracle class and swarmsaw.html's DSP
