@@ -170,10 +170,29 @@
      behind a "screen" chip beside the theme chip, and ?scheme=; the theme picks its pair, as in
      gui2. Checks in K (checkB317).
 
+     ROUND 10 — B323, 2026-09-28, dispatched by the horde lead on ROADMAP B323 (carried in the
+     records PR on branch lead-records-126). The human: "I'm noticing the issue [overload] on many
+     other patches now", "the logo does need to be bigger", on the Specimen "it freezes when audio
+     turns on until I turn it off and on again", "the film over it should be more transparent",
+     "sometimes it floats down low enough that it gets cut off by the bounding box", "can we make the
+     green that's used in the waveform ... in the light screen modes a little more vibrant and
+     lime-tinted?", and "the coherence line on the phase circle should probably be the same color as
+     the coherence number ... Maybe there could even be another vertical bar". Built as: (1) THE
+     LOAD LOOP (section J2): the worklet times its own render per 85 ms window, lowers or raises the
+     composed engine's voice cap (the engine culls the quietest releasing tails, never a held note:
+     scalpel-horde-engine.js cull()), and posts the load to a meter in the frame header; under load
+     the main thread sheds (Specimen and logo frames skipped, half the monitor's viz posts, a time
+     budget on the monitor). (2) THE LOGO is 91×60, taking the header's padding and the gap below it
+     without moving the layout. (3) THE SPECIMEN: its clock re-anchors when the monitor's clock is
+     reset (the freeze), the veil is 12%, and it is re-centred on its projected bounds every frame.
+     (4) LIME: --scr-meter on the three pale screens. (5) THE RING: the needle takes the Coherence
+     readout's ink, and an R bar beside the ring tracks the same number. Also ADR-184 A2 (2) in the
+     engine (the exact Cut-spread mirror). Checks in K (checkB323).
+
      L0026: every const is declared above the code that runs at setup; the boot
      call is the last statement of the script. -->
 <html><head><meta charset="utf-8">
-<meta name="lab-review" content="B271 + B293–B317 · 2026-09-28">
+<meta name="lab-review" content="B271 + B293–B323 · 2026-09-28">
 <title>SCALPEL interface lab — horde with blades at its centre</title>
 <style>
   :root {
@@ -257,13 +276,18 @@
     --scr-physics:#3DE8FF; --scr-marker:#FFE94A; --scr-grid:#8A6FD4;
     --scr-scan:0.16; --scr-alpha:1; }
   /* gui2:142 — ORCHID is the screen scheme the LIGHT chassis pairs with */
-  body.scr-orchid { --scr-tube:#F3EBFF; --scr-value:#D6006B; --scr-meter:#007A73;
+  /* B323 (human 2026-09-28: "can we make the green that's used in the waveform (and a few other places)
+     in the light screen modes a little more vibrant and lime-tinted?"): the pale screens' --scr-meter,
+     gui2's teal #007A73 (hue 177°), becomes #4A9400 (hue 90°, full saturation), the most vibrant lime tried
+     that still clears 3:1 on all three pale grounds (3.28 ORCHID, 3.48 FROST, 3.41 EMBER; teal was
+     4.50-4.77). A departure from gui2's values, asked for. The dark screens already use lime. */
+  body.scr-orchid { --scr-tube:#F3EBFF; --scr-value:#D6006B; --scr-meter:#4A9400;
     --scr-physics:#6E14E8; --scr-marker:#C43A00; --scr-grid:#5A3FA8;
     --scr-scan:0.05; --scr-alpha:1.6; }
-  body.scr-frost  { --scr-tube:#E6F8FF; --scr-value:#D6006B; --scr-meter:#007A73;
+  body.scr-frost  { --scr-tube:#E6F8FF; --scr-value:#D6006B; --scr-meter:#4A9400;
     --scr-physics:#6E14E8; --scr-marker:#C43A00; --scr-grid:#00618C;
     --scr-scan:0.05; --scr-alpha:1.6; }
-  body.scr-ember  { --scr-tube:#FFF0E4; --scr-value:#D6006B; --scr-meter:#007A73;
+  body.scr-ember  { --scr-tube:#FFF0E4; --scr-value:#D6006B; --scr-meter:#4A9400;
     --scr-physics:#6E14E8; --scr-marker:#B03000; --scr-grid:#8A5A2E;
     --scr-scan:0.05; --scr-alpha:1.6; }
   /* B293's weights belong to the PALE tube, not to the light chassis: they were tuned on ORCHID,
@@ -479,7 +503,14 @@
      beside it, so its motion can never move the layout (gui2.html:245-262: in flow beside the
      tabs, not laid over them). It is chrome, not a data well: the global canvas tube rule
      (border, ground, radius) is taken off it, as gui2's .brand does. */
-  canvas.logo { width:70px; height:46px; flex:0 0 auto; border:0; background:transparent; border-radius:0; }
+  /* B323 (human 2026-09-28: "the logo does need to be bigger"): 91×60, gui2's 146:96 aspect. The
+     header row is 47 px on MAIN (two tab rows) and MAIN's body has no slack (B317 measured it), so
+     the header may not grow. The mark takes the frame's top padding (7 of its 8 px) and the gap
+     below the header (all 6 px) with negative margins: its margin box stays 47 px, so the row, the
+     body and the 720 px frame are exactly where they were (checkB323 measures all three). Larger
+     would have to push the header or leave the frame. It takes no pointer: it is chrome. */
+  canvas.logo { width:91px; height:60px; margin:-7px 0 -6px; flex:0 0 auto; border:0; background:transparent;
+    border-radius:0; pointer-events:none; }
   .tabrows { display:flex; flex-direction:column; gap:3px; flex:1 1 auto; }
   .tabs { display:flex; gap:4px; flex-wrap:wrap; align-items:center; }
   /* gui2:274 — the page tab */
@@ -491,7 +522,21 @@
     border:1px solid currentColor; vertical-align:0; }
   .tab .dot.on { background:var(--value); border-color:var(--value); }
   .phdr-r { text-align:right; font-size:10px; color:var(--t2); line-height:1.35; max-width:260px; }
+  /* B323: the meter's line never wraps (a wrapped line would grow the header under load, the very
+     moment the page is trying to shed): short fields, one line, the long form in its title */
+  .phdr-r { max-width:310px; }
+  .phdr-r .loadm { max-width:310px; overflow:hidden; }
+  .loadm .lbar { flex:0 0 auto; }
   .phdr-r b { color:var(--text); }
+  /* B323 — THE LOAD METER (section J2): one line under the page name, so the header keeps its height.
+     DSP = the audio worklet's render time over real time; UI = the main thread's frame work. */
+  .loadm { display:inline-flex; align-items:center; gap:5px; font-size:9.5px; color:var(--t2); white-space:nowrap; }
+  .loadm .lbar { width:54px; height:7px; border:1px solid var(--line); border-radius:2px; background:var(--panel2);
+    position:relative; overflow:hidden; }
+  .loadm .lbar i { position:absolute; left:0; top:0; bottom:0; width:0; background:var(--celebrate); }
+  .loadm.warm .lbar i { background:var(--caution); }
+  .loadm.over .lbar i { background:var(--alarm); }
+  .loadm.shed b { color:var(--caution-tx); }
   .pbody { flex:1 1 auto; min-height:0; display:grid; gap:7px; }
   .pbody.osc { grid-template-columns:282px minmax(0,1fr); }
   .pbody.main { grid-template-columns:272px minmax(0,1fr); }
@@ -713,7 +758,7 @@
   <div>
     <h1>scalpel</h1>
     <div class="badges">
-      <span class="badge">B271 + B293–B317 · DESIGN LAB</span>
+      <span class="badge">B271 + B293–B323 · DESIGN LAB</span>
       <span class="sub">BLADES AT THE CENTRE · OSC + MAIN AT 980×720 · VISUALS DRIVEN BY THE ENGINE · THE WAVEFORM IS AN XY · THE RING IS COUPLING × DETUNE (CLICK TO SET) · CARPET + VOICE MAP · MEMBERS AT PHASE · THE R-HUED BEAM · 83 BENCH PRESETS · HORDE'S SWARM VOICED · INTERPLAY DRAWN AS HEARD · THE WAVEFORM STAYS IN VIEW · BIPOLAR SPREADS · THE MORPHING LOGO · THE SPECIMEN UNDER MAIN'S XY · THE LOGO'S COLOUR-SHIFTING EDGE · THE XY ORBITS THE SPECIMEN · GUI2'S SCREEN SCHEMES</span>
     </div>
   </div>
@@ -1101,6 +1146,34 @@ Coupling × Detune XY</b> for the swarm.</div>
         Specimen's ground. The logo and the chassis do not change. The theme picks its pair (light ORCHID, dark TUBE), as in gui2, and the
         chip then moves the scheme alone, so crossed pairs can be seen. gui2's comment says "four", but its list has five, so all five are
         here. Round 2's light-tube weights now go with the three pale grounds rather than with the light chassis.</li>
+    </ol>
+    <h2 style="margin-top:10px">Round 10 (B323) — overload handled; a bigger logo; the Specimen fixed; lime; coherence made legible</h2>
+    <ol start="64">
+      <li><b>Overload</b> (the human: "I'm noticing the issue on many other patches now"). Measured on this page as it stood, with the audio
+        worklet timing itself and Chrome's own underrun count (<code>playbackStats</code>): a line of short notes on <b>Crushed bells</b> ran the
+        audio at 145-175% of real time and the device missed 5.5 s of 6.4 s (951 underruns); <b>Glass horde pad</b> 193-239%. Those
+        underruns <b>are</b> the clicks: a tap inside the audio graph caught every rendered sample, and B316's click metric reads 0 on it (and 0
+        on an offline render of the same notes), while the device reported the gaps. Now the worklet measures its load every 85 ms, the engine
+        caps its voices and <b>fades out the quietest releasing tails</b> over 8 ms (never a held note, never a cut: the engine check proves
+        no new click, with an instant cut as the must-fail control), and the page sheds frames while loaded. Same line, same session:
+        Crushed bells 68-72%, 20 underruns (0.12 s); Glass horde pad 66-82%, 47-99. The <b>load meter</b> is the third line of the frame header.
+        <span class="rec">Open:</span> a held chord that alone exceeds the machine still underruns, because a held note is never culled; at
+        the cap a NEW note replaces a sounding tail, or the oldest held note if there is none (ADR-083's tier 3). Should the cap refuse
+        new notes instead?</li>
+      <li><b>The logo</b> (the human: "the logo does need to be bigger") is <b>91×60</b>, from 70×46 (1.7× the area), gui2's aspect. MAIN's header
+        is two tab rows (47 px) and MAIN's body has no free height, so the mark takes the frame's top padding and the gap under the header
+        instead: the header, the body and the 720 px frame do not move (checked). Any bigger pushes the header.</li>
+      <li><b>The Specimen froze when audio came on.</b> Cause: starting the audio restarts the monitor's clock at 0, and the pearl (and the
+        logo) drew only when that clock moved past the last one they had drawn at, so they waited as long as the page had run before. They
+        now re-anchor to a clock that goes backwards. <b>The veil</b> is 12% (was 35%); the text keeps its plates. <b>Centred</b>: each frame
+        the pearl's projected bounds are computed from its three spheres and the view shifts (and, if it must, zooms out a little) so the
+        pearl sits in the middle; a sweep of the XY's whole reach reads it back 13 px or more from every edge, centred within 2.3%.</li>
+      <li><b>Lime</b> (the human: "a little more vibrant and lime-tinted"). The pale screens' trace ink is <b>#4A9400</b> (was gui2's teal
+        #007A73): 3.28:1 on ORCHID, 3.48 on FROST, 3.41 on EMBER. The dark screens were lime already and are unchanged.</li>
+      <li><b>Coherence</b> (the human: "the coherence line on the phase circle should probably be the same color as the coherence number").
+        The needle now takes the readout's ink in every scheme and theme, and an <b>R bar</b> at the ring's right edge fills to the same R.
+        <span class="rec">Open:</span> the readout is the per-frame R, not the smoothed R the logo and the Specimen use; the bar follows the
+        number. Smooth all three?</li>
     </ol>
   </div>
   <div class="box" id="misread" style="grid-column:1 / -1">
@@ -1523,6 +1596,14 @@ const MON_CATCHUP = 32;           // strobes one paint may render to catch the a
    0.75^age is gui2's per-frame wash; CARPET_T frames. */
 const CARPET_T = 16;
 const AUD = { ctx: null, node: null, out: null, on: false, spn: null, err: '', drone: false, held: new Set(), oct: 0 };
+/* B323 — THE LOAD LOOP's state and its constants (section J2 says why each is what it is).
+   dsp: the worklet's last window {load, cap, live, act, culled, n}; log: the recent windows;
+   ui: the main thread's frame work in ms (one-pole); shed: the main thread is shedding. */
+const LOAD = { dsp: null, log: [], ui: 0, shed: false, calm: 0, frames: 0, skipped: 0, vizSkip: 0, el: null };
+const LOAD_WIN = 32, LOAD_HI = 0.9, LOAD_TARGET = 0.75;         // the worklet's window (blocks) and the cap law's bounds
+const SHED_DSP_ON = 0.85, SHED_DSP_OFF = 0.6, SHED_UI_ON = 8, SHED_UI_OFF = 5, SHED_CALM = 30;
+const SHED_SPECIMEN = 12, SHED_LOGO = 8;                        // frames per draw while shedding (3 and 2 otherwise)
+const MON_BUDGET_MS = 8, MON_SHED_MS = 3, MON_SKIP = SR / 4;     // the monitor's time budget per frame; its skip-ahead
 const AUDIT = { oracle: false, checks: [], tiers: null, probe: '' };
 let CTLS = [];    // paint functions of the controls on screen
 let CANV = [];    // [canvas, painter] pairs on screen
@@ -1747,7 +1828,8 @@ function monStrike(kind, what) {
   seedOracle(0xB271 + MON.note);
   const c = new CORE(SR);
   c.set(oracleParams(EFF)); Object.assign(c.s, c.t);
-  c.post = m => { if (m && m.t === 'viz' && m.mem) { MON.viz = m; MON.vizN++; } };
+  /* B323: shedding, every other viz post is let go (each accepted one re-derives the cycle, cycleData) */
+  c.post = m => { if (m && m.t === 'viz' && m.mem) { if (LOAD.shed && (++LOAD.vizSkip & 1)) return; MON.viz = m; MON.vizN++; } };
   MON.f = mtof(MON.note);
   MON.hist = [];                                   // a new strike is a new voice: its carpet starts empty
   c.noteOn(MON.note, MON.f, 0.9);
@@ -1805,11 +1887,24 @@ function monAdvance() {
   const a = audioClock();
   if (a === null) monStep(); else monFollow(a);
 }
-/* render whole strobes until the monitor is within half a strobe of `target` samples */
+/* render whole strobes until the monitor is within half a strobe of `target` samples.
+   B323 — THE MONITOR MUST NEVER STARVE THE AUDIO. It is a second engine on the main thread, and a
+   stalled page (a hidden tab, a slow frame) used to hand it up to MON_CATCHUP strobes in ONE frame.
+   Now it stops when this frame's monitor work passes its budget (MON_BUDGET_MS, MON_SHED_MS while
+   shedding), and a lag beyond MON_SKIP (¼ s) is skipped, not chased: the anchor moves by the lag,
+   LOAD.skipped counts it, and the meter says so. The clock read here decides HOW MUCH is rendered
+   this frame, never what: every strobe drawn is still the engine's, at its own time. */
 function monFollow(target) {
-  for (let k = 0; k < MON_CATCHUP && MON.clock + strobeLen(monFreq()) / 2 <= target; k++) monStep();
+  const t0 = nowMs(), budget = LOAD.shed ? MON_SHED_MS : MON_BUDGET_MS;
+  for (let k = 0; k < MON_CATCHUP && MON.clock + strobeLen(monFreq()) / 2 <= target; k++) {
+    monStep();
+    if (nowMs() - t0 > budget) break;
+  }
   MON.lag = target - MON.clock;
+  if (MON.lag > MON_SKIP && MON.a0 !== null) { MON.a0 += MON.lag; LOAD.skipped += MON.lag; MON.lag = 0; }
 }
+/* cost only (the shed state, the monitor's budget, the meter): never what a frame draws */
+function nowMs() { return typeof performance === 'object' && performance && performance.now ? performance.now() : 0; }
 function monStep() {
   const c = MON.core; if (!c) return;
   const n = strobeLen(monFreq());
@@ -2363,12 +2458,19 @@ function paintRing(cv, mini) {
     arc(m.st1, m.w1, rad, 1, mini ? 3 : 1.8); arc(m.st2, m.w2, rad + (mini ? 3.5 : 0.001), 2, mini ? 3 : 1.8);
     if (mini) break;
   }
-  /* the mean field R·e^iψ (--physics: the engine's own state) */
+  /* the mean field R·e^iψ. B323 (human 2026-09-28: "in all color versions, the coherence line on the
+     phase circle should probably be the same color as the coherence number to make it clearer what
+     it's measuring. Maybe there could even be another vertical bar or something tracking it."): the
+     needle, the Coherence readout and the R bar (ringRBar) draw in ONE ink, ringCohInk(), in every
+     scheme and theme; it was --scr-physics (the engine's state) beside a --scr-meter number. The
+     readout's ink wins because the number is what names it. All three read this one r. */
   let sx = 0, sy = 0; const ph = [];
   for (let i = 0; i < N; i++) { const p = v.m[i].phi; ph.push(p); sx += Math.cos(TAU * p); sy += Math.sin(TAU * p); }
   sx /= N; sy /= N; const r = Math.hypot(sx, sy);
-  g.strokeStyle = TOKA('--scr-physics', 1); g.lineWidth = 2;
+  const coh = ringCohInk();
+  g.strokeStyle = coh; g.lineWidth = 2;
   g.beginPath(); g.moveTo(cx, cyy); g.lineTo(cx + sx * Rr, cyy - sy * Rr); g.stroke();
+  const needleInk = g.strokeStyle;
   const pos = ph.map(P2);
   /* cross-member modulation: member i+1 pushes member i (ring topology, SPEC §6).
      B294: each arrow's weight is what that push ADDS to member i's output (cy.mem[i].xrms,
@@ -2409,10 +2511,33 @@ function paintRing(cv, mini) {
   }
   /* the phase readout: top-right, since the pad's lock / splay / detune → own the other corners */
   g.font = (mini ? '8.5px' : '9.5px') + ' ui-monospace,Menlo,monospace'; g.textAlign = 'right';
-  g.fillStyle = TOKA('--scr-meter', 1); g.fillText((mini ? 'Coh ' : 'Coherence ') + r.toFixed(2), W - 4, 11);
+  g.fillStyle = coh; g.fillText((mini ? 'Coh ' : 'Coherence ') + r.toFixed(2), W - 4, 11);
+  const readInk = g.fillStyle;
   if (!mini) { g.fillStyle = TOKA('--scr-grid', 0.9); g.fillText(N + ' members', W - 4, 23); }
   g.textAlign = 'left';
+  const bar = ringRBar(g, W, H, r, coh, mini);
+  RING_PAINT.set(cv, { needle: needleInk, readout: readInk, barInk: bar.ink, bar, r, needleAt: [cx + sx * Rr / 2, cyy - sy * Rr / 2] });
   if (cv === RXY.cv) ringNotes(cy);
+}
+
+/* B323: the Coherence ink (the readout's, --scr-meter at full weight) and the R bar. The bar stands
+   at the ring canvas's right edge, under the readout it repeats (clear of the circle, the rim arcs
+   and the right axis tick; above the corner label): a track in the grid ink, filled from the bottom
+   to r in the Coherence ink, with a hairline at ½. RING_PAINT records what was drawn, per canvas,
+   for checkB323, which reads the pixels back. */
+function ringCohInk() { return TOKA('--scr-meter', 1); }
+const RING_PAINT = new WeakMap();                  // keyed by canvas: a rebuilt page's old canvases fall away
+function ringRBar(g, W, H, r, ink, mini) {
+  const bw = mini ? 4 : 5, x = W - 9 - bw, top = mini ? 16 : 30, bot = H - (mini ? 18 : 20), h = bot - top;
+  g.fillStyle = TOKA('--scr-grid', 0.14); g.fillRect(x, top, bw, h);
+  g.strokeStyle = TOKA('--scr-grid', 0.5); g.lineWidth = 1; g.strokeRect(x - 0.5, top - 0.5, bw + 1, h + 1);
+  const fh = Math.round(clamp(r, 0, 1) * h);
+  g.fillStyle = ink; g.fillRect(x, bot - fh, bw, fh);
+  const barInk = g.fillStyle;
+  /* the ½ tick sits OUTSIDE the track, each side, so the fill is never painted over */
+  g.strokeStyle = TOKA('--scr-grid', 0.6); g.beginPath();
+  g.moveTo(x - 4, top + h / 2 + 0.5); g.lineTo(x - 1, top + h / 2 + 0.5); g.moveTo(x + bw + 1, top + h / 2 + 0.5); g.lineTo(x + bw + 4, top + h / 2 + 0.5); g.stroke();
+  return { x, top, bot, bw, fh, ink: barInk };
 }
 
 /* ---- B294: the ring's XY layer — the pad's information, drawn under the ring ---- */
@@ -2880,7 +3005,10 @@ function paintMorph(cv) {
    carries a tube ring, so their contrast is the plain pad's in both themes, whatever the
    pearl is doing behind them. The plates and the puck are recorded in XY_PAINT for the check,
    which reads the pixels the painter wrote (checkSpecimen). */
-const XY_VEIL = 0.35;
+/* B323 (human 2026-09-28: "the film over it should be more transparent so it can be more vibrant"):
+   0.35 → 0.12. The pad's legibility never rested on the veil: its texts sit on opaque plates and its
+   marks carry tube rings (above), so only the grid and the bypass band lose a little contrast. */
+const XY_VEIL = 0.12;
 /* B317 (human 2026-09-28: "The specimen also needs to be bigger"): the pad is taller by the row
    the Morph cell's pills gave up (buildMain), so the Specimen under it is too; see SPECIMEN_ZOOM */
 const XY_PAD_H = 127;
@@ -2944,7 +3072,7 @@ function paintXY(cv) {
    layout (a FIXED box, in flow, no taller than the tab rows beside it: the check measures it);
    and its cost is capped by its backing store (the warp is O(W·H) with a sin per pixel, so the
    store IS the cost: 2× bitmap of a 70×46 box, a quarter of gui2's 146×96, at most 30 paints a
-   second). ONE DEPARTURE: gui2 steps the warp on rAF's clock; here its clock is the monitor's
+   second; B323: 91×60, 39% of gui2's, and under load it skips paints, section J2). ONE DEPARTURE: gui2 steps the warp on rAF's clock; here its clock is the monitor's
    engine clock (MON.clock / SR), like everything else drawn (B271: no wall clock reaches the
    drawing), so a frozen still (?still=) freezes the mark with it. Reduced motion: static.
    ====================================================================== */
@@ -3036,9 +3164,9 @@ function tdWarp(seed) {
 }
 /* the mark's CSS box and its 2× bitmap (gui2: "2x BITMAP, SAME CSS BOX"); everything else is
    gui2's 146×96 box scaled by LOGO_H/96, so the authored look holds at this size */
-const LOGO_W = 70, LOGO_H = 46;
+const LOGO_W = 91, LOGO_H = 60;                  // B323: was 70×46 (B315); the CSS box says why this size
 const LOGO = { cv: null, ctx: null, W: 2 * LOGO_W, H: 2 * LOGO_H, SRC: null, DST: null, ink: '', warp: null,
-  baseWave: 0, baseTrem: 0, t: 0, clk: -1, n: 0, smD: 0.28, smX: 0.5, smY: 0.5, hue: 0, tint: '', edge: '', ms: 0, reduce: false,
+  baseWave: 0, baseTrem: 0, t: 0, clk: -1, n: 0, paints: 0, smD: 0.28, smX: 0.5, smY: 0.5, hue: 0, tint: '', edge: '', ms: 0, reduce: false,
   aux: null };
 const LOGO_LG = ['--lgA', '--lgB', '--lgC', '--lgD'];
 function logoMix(a, b, f) {
@@ -3161,9 +3289,9 @@ function logoFrame(force) {
   if (!LOGO.ctx || !LOGO.SRC || !LOGO.cv.isConnected) return;
   if (TOK('--text', '#191521') !== LOGO.ink) { logoBake(); force = true; }
   if (LOGO.reduce) return;
-  if (LOGO.clk < 0) LOGO.clk = MON.clock;           // the first paint only starts the clock
+  if (LOGO.clk < 0 || LOGO.clk > MON.clock) LOGO.clk = MON.clock;   // the first paint, or a reset clock (B323, the freeze: E3)
   const clk = MON.clock, dt = Math.min(0.25, Math.max(0, clk - LOGO.clk) / SR);
-  if (!force && (dt <= 0 || (++LOGO.n & 1))) return;
+  if (!force && (dt <= 0 || (++LOGO.n % (LOAD.shed ? SHED_LOGO : 2)))) return;
   LOGO.clk = clk;
   const t0 = typeof performance === 'object' ? performance.now() : 0;
   LOGO.smD += (clamp((EFF.detune || 0) / 100, 0, 1) - LOGO.smD) * 0.06;
@@ -3174,6 +3302,7 @@ function logoFrame(force) {
   w.render(LOGO.SRC.data, LOGO.DST.data, LOGO.W, LOGO.H, LOGO.t);
   LOGO.ctx.putImageData(LOGO.DST, 0, 0);
   logoTint(dt); logoOutline();
+  LOGO.paints++;
   if (typeof performance === 'object') LOGO.ms = performance.now() - t0;   // cost only: never reaches the drawing
 }
 
@@ -3221,7 +3350,7 @@ function logoFrame(force) {
    ====================================================================== */
 const SPECIMEN_ZOOM = 1.25;
 const SPECIMEN = { on: qp('specimen', '1') !== '0', cv: null, gl: null, u: {}, fail: '', ms: 0, draws: 0,
-  xyLast: null, xyYaw: 0, xyPit: 0,
+  xyLast: null, xyYaw: 0, xyPit: 0, center: true, mask: 0, fit: null,
   yaw: 0.55, pit: 0.18, yawT: 0.55, pitT: 0.18, dent: { x: 0, v: 0 }, poke: [0, 0, 1], time: 3.7, clk: -1, n: 0,
   gates: {}, shySm: 0, kSm: undefined, bgTok: '', bg: [0.95, 0.93, 0.89], w: 0, h: 0, frontIx: 0, rng: mulberry32(0xC0FFEE),
   fronts: [0, 1, 2, 3].map(() => ({ age: 100, az: 0, el: 0, wave: 9, hold: -1, heldAmt: 0 })) };
@@ -3236,7 +3365,7 @@ uniform vec2 uRes;uniform float uTime;uniform float uK;uniform int uVariant;
 uniform vec3 uPoke;uniform float uDent;uniform vec2 uOrbit;uniform float uThick;
 uniform vec3 uPokeN[4];uniform float uStrikeN[4];uniform float uRWaveN[4];uniform float uHeldN[4];
 uniform float uRAmp;uniform float uShy;
-uniform vec3 uBg;uniform float uZoom;
+uniform vec3 uBg;uniform float uZoom;uniform vec2 uShift;uniform int uMask;
 float smin(float a,float b,float k){float h=clamp(.5+.5*(b-a)/k,0.,1.);return mix(b,a,h)-k*h*(1.-h);}
 float map(vec3 p){
  float t=uTime*.35;
@@ -3287,7 +3416,8 @@ vec3 film(float c){
  return .55+.45*cos(ph);
 }
 void main(){
- vec2 uv=(gl_FragCoord.xy*2.-uRes)/uRes.y;
+ vec2 sv=(gl_FragCoord.xy*2.-uRes)/uRes.y;
+ vec2 uv=sv+uShift;
  float yaw=uOrbit.x,pit=clamp(uOrbit.y,-1.15,1.15);
  vec3 ro=vec3(cos(pit)*sin(yaw),sin(pit),cos(pit)*cos(yaw))*2.75;
  vec3 ww=normalize(-ro);
@@ -3295,7 +3425,7 @@ void main(){
  vec3 vv=cross(ww,uu);
  vec3 rd=normalize(uv.x*uu+uv.y*vv+2.1*uZoom*ww);
  vec3 paperHi=uBg*1.035;vec3 paperLo=uBg*.93;
- vec3 bg=mix(paperLo,paperHi,smoothstep(-1.,.9,uv.y));
+ vec3 bg=mix(paperLo,paperHi,smoothstep(-1.,.9,sv.y));
  vec3 col=bg;
  float t=0.;bool hit=false;
  for(int i=0;i<64;i++){
@@ -3305,6 +3435,7 @@ void main(){
   t+=d*.9;
   if(t>7.)break;
  }
+ if(uMask==1){gl_FragColor=vec4(hit?1.:0.,0.,0.,1.);return;}
  if(hit){
   vec3 p=ro+rd*t;
   vec3 n=calcN(p);
@@ -3348,7 +3479,7 @@ function specimenInit() {
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
   const loc = gl.getAttribLocation(prog, 'a');
   gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
-  for (const n of ['uRes', 'uTime', 'uK', 'uVariant', 'uPoke', 'uDent', 'uOrbit', 'uThick', 'uPokeN', 'uStrikeN', 'uRWaveN', 'uHeldN', 'uRAmp', 'uShy', 'uBg', 'uZoom'])
+  for (const n of ['uRes', 'uTime', 'uK', 'uVariant', 'uPoke', 'uDent', 'uOrbit', 'uThick', 'uPokeN', 'uStrikeN', 'uRWaveN', 'uHeldN', 'uRAmp', 'uShy', 'uBg', 'uZoom', 'uShift', 'uMask'])
     S.u[n] = gl.getUniformLocation(prog, n);
   S.gl = gl;
 }
@@ -3391,6 +3522,43 @@ function specimenFollowXY(S, cv) {
   }
   S.xyLast = [u, v];
 }
+/* B323 — KEEP IT CENTRED. Human, 2026-09-28: "sometimes it floats down low enough that it gets
+   cut off by the bounding box; is there a way we can keep it centered to the space?" The pearl is
+   three metaballs orbiting the origin (map(): centres c1..c3 swing up to 0.38, radii 0.6/0.48/0.4),
+   so its silhouette wanders across the view, and at the XY's pitch limits (±1.1) it reached the pad's
+   edge (trace b317). Every frame its projected bounds are computed on the CPU from the same three
+   spheres, each grown by the surface's own excursions (quiver, fronts, held ripple and the smin bulge:
+   SPEC_GROW, plus an outward dent while one rings), with gui2's camera exactly as the shader builds
+   it. The view is then shifted so that box's centre sits at the pad's centre (uShift, an off-axis
+   lens shift: the perspective is unchanged), and the focal length is reduced only if the box would
+   not fit inside the pad with SPEC_MARGIN to spare (uZoom). Per-frame and exact, so it cannot lag
+   and has nothing to ease. The sphere-to-screen extent is exact per axis: a sphere's x/z range is
+   its xz-disc's tangent pair (x·z ± r·√(x²+z²−r²)) / (z²−r²). checkB323 sweeps the XY's reach and
+   reads the drawn pearl back (uMask) against the pad's edges and centre. */
+const SPEC_GROW = 0.12, SPEC_MARGIN = 0.1;
+function specimenFit(yaw, pit, time, dent, aspect) {
+  const t = time * 0.35, sn = Math.sin, cs = Math.cos;
+  const balls = [[sn(t * 0.7) * 0.33, sn(t * 0.9 + 1.7) * 0.2, cs(t * 0.6) * 0.28, 0.6],
+    [cs(t * 0.5 + 3) * 0.38, cs(t * 0.8) * 0.22, sn(t * 0.7 + 1) * 0.3, 0.48],
+    [sn(t * 0.6 + 5) * 0.28, cs(t * 0.5 + 2) * 0.27, cs(t * 0.9 + 4) * 0.22, 0.4]];
+  const p = Math.max(-1.15, Math.min(1.15, pit));                    // the shader's own clamp
+  const ro = [cs(p) * sn(yaw) * 2.75, sn(p) * 2.75, cs(p) * cs(yaw) * 2.75];
+  const ww = [-ro[0] / 2.75, -ro[1] / 2.75, -ro[2] / 2.75];
+  const ul = Math.hypot(ww[2], ww[0]) || 1, uu = [ww[2] / ul, 0, -ww[0] / ul];   // normalize(cross(up, ww))
+  const vv = [ww[1] * uu[2] - ww[2] * uu[1], ww[2] * uu[0] - ww[0] * uu[2], ww[0] * uu[1] - ww[1] * uu[0]];
+  const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  const f = 2.1 * SPECIMEN_ZOOM, grow = SPEC_GROW + Math.max(0, -dent);
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  const span = (a, z, r) => { const q = Math.sqrt(Math.max(0, a * a + z * z - r * r)), den = Math.max(1e-6, z * z - r * r); return [f * (a * z - r * q) / den, f * (a * z + r * q) / den]; };
+  for (const b of balls) {
+    const d = [b[0] - ro[0], b[1] - ro[1], b[2] - ro[2]], r = b[3] + grow, z = dot(d, ww);
+    const [a, c] = span(dot(d, uu), z, r), [e, g] = span(dot(d, vv), z, r);
+    x0 = Math.min(x0, a); x1 = Math.max(x1, c); y0 = Math.min(y0, e); y1 = Math.max(y1, g);
+  }
+  const hx = (x1 - x0) / 2, hy = (y1 - y0) / 2;
+  const k = Math.min(1, (1 - SPEC_MARGIN) / hy, (aspect - SPEC_MARGIN) / hx);
+  return { shift: [k * (x0 + x1) / 2, k * (y0 + y1) / 2], zoom: SPECIMEN_ZOOM * k, k };
+}
 function specimenFrame(force) {
   const S = SPECIMEN;
   if (!S.on || S.fail || LAB.page !== 'main') { S.xyLast = null; return false; }
@@ -3398,12 +3566,19 @@ function specimenFrame(force) {
   if (!cv.isConnected || !cv.offsetParent) { S.xyLast = null; return false; }   // create-on-show
   if (!S.gl) { specimenInit(); if (!S.gl) return false; }
   specimenFollowXY(S, cv);                                            // every frame, drawn or not
+  /* B323 — THE FREEZE. Human, 2026-09-28: "it freezes when audio turns on until I turn it off and on
+     again". Measured (trace b323): audio on re-strikes the monitor with its clock at 0 (monStrike
+     'audio', B299), while S.clk still held the old clock, so clk − S.clk was negative, dt read 0 and
+     the pearl drew nothing until the new clock passed the old one: as long as the page had run
+     before, 0.55× that at 60 Hz. The logo froze the same way. A clock that went BACKWARDS is a new
+     clock: re-anchor to it, so the next frame's dt is a real one. */
+  if (S.clk > MON.clock) S.clk = MON.clock;
   const clk = MON.clock, dt = S.clk < 0 ? 0.033 : Math.min(0.05, Math.max(0, clk - S.clk) / SR);
   const scale = Math.min((typeof devicePixelRatio === 'number' && devicePixelRatio) || 1, 2);
   const pw = Math.max(2, Math.round(cv.clientWidth * scale)), ph = Math.max(2, Math.round(cv.clientHeight * scale));
   const tok = TOK('--scr-tube', '#f2ede2'), resized = pw !== S.w || ph !== S.h, themed = tok !== S.bgTok;
   if (!force && !resized && !themed && dt <= 0) return false;
-  if (!force && !resized && !themed && (++S.n % 3)) return false;        // gui2's ~20 Hz cadence
+  if (!force && !resized && !themed && (++S.n % (LOAD.shed ? SHED_SPECIMEN : 3))) return false;   // gui2's ~20 Hz; ~5 Hz shedding (J2)
   const t0 = typeof performance === 'object' ? performance.now() : 0;
   S.clk = clk;
   const gl = S.gl;
@@ -3454,7 +3629,12 @@ function specimenFrame(force) {
     if (hx) { const v = parseInt(hx[1], 16); S.bg = [(v >> 16 & 255) / 255, (v >> 8 & 255) / 255, (v & 255) / 255]; }
   }
   gl.uniform3f(S.u.uBg, S.bg[0], S.bg[1], S.bg[2]);
-  gl.uniform1f(S.u.uZoom, SPECIMEN_ZOOM);
+  /* B323: centred on its projected bounds (specimenFit); S.center false is B317's fixed camera (the check's control) */
+  const fit = S.center ? specimenFit(S.yaw, S.pit, S.time, Math.max(-0.35, Math.min(0.35, d.x * 0.28)), pw / ph) : { shift: [0, 0], zoom: SPECIMEN_ZOOM, k: 1 };
+  S.fit = fit;
+  gl.uniform1f(S.u.uZoom, fit.zoom);
+  gl.uniform2f(S.u.uShift, fit.shift[0], fit.shift[1]);
+  gl.uniform1i(S.u.uMask, S.mask ? 1 : 0);
   gl.drawArrays(gl.TRIANGLES, 0, 3);
   S.draws++;
   if (typeof performance === 'object') S.ms = performance.now() - t0;   // cost only (GPU work is asynchronous)
@@ -3751,7 +3931,9 @@ function frameHeader(host) {
   const r = el('div', 'phdr-r'); h.appendChild(r);
   r.innerHTML = '<b>' + escapeHtml(LAB.presetName || "oracle defaults · blade 2 on") + '</b>' +
     (benchLoaded() ? ' <span class="bv" title="voiced on the bench for SCALPEL\'s coupling law; the lab plays horde\'s, which pulls ≈1–9× softer, so it locks less here (B298; not re-voiced: ACCOUNTING §1.6, Q B3)">BENCH VOICING</span>' : '') + '<br>' +
-    (LAB.page === 'osc' ? 'OSC · SWARM 1 · SCALPEL' : 'MAIN') + ' · 980×720';
+    (LAB.page === 'osc' ? 'OSC · SWARM 1 · SCALPEL' : 'MAIN') + ' · 980×720<br>' +
+    '<span class="loadm" title="B323 — load: DSP is the audio worklet\'s render time over real time (its own 85 ms windows); UI is the page\'s work per frame. Over 90% the engine culls the quietest releasing tails (never a held note) and caps new voices; the page sheds Specimen and logo frames while loaded."><span class="lbar"><i></i></span><b></b></span>';
+  LOAD.el = r.querySelector('.loadm'); paintLoad();
 }
 function benchLoaded() { return !!(LAB.presets && LAB.presetName && LAB.presets.some(p => p.name === LAB.presetName)); }
 function escapeHtml(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]); }
@@ -4632,12 +4814,19 @@ function ringWire(cv, mini) {
 function workletSource() {
   return CORE.toString() + '\nRazorCore.PANS = ' + JSON.stringify(CORE.PANS) + ';\n' + mulberry32.toString() +
     '\nMath.random = mulberry32(' + 0xB271 + ');\n' +
+    'const LOAD_WIN = ' + LOAD_WIN + ', LOAD_HI = ' + LOAD_HI + ', LOAD_TARGET = ' + LOAD_TARGET + ';\n' +
+    capFor.toString() + '\n' + loadWindow.toString() + '\n' +
     'class B271Razor extends AudioWorkletProcessor {\n' +
     '  constructor(o) { super(); const q = (o && o.processorOptions) || {}; this.c = new RazorCore(sampleRate);\n' +
     '    if (q.params) { this.c.set(q.params); Object.assign(this.c.s, this.c.t); }\n' +
     '    if (q.note) this.c.noteOn(q.note.note, q.note.freq, q.note.vel);\n' +
+    '    this.busy = 0; this.nb = 0; this.cap = 0; this.per = 0; this.sr = sampleRate;\n' +
     '    this.port.onmessage = e => this.c.msg(e.data); }\n' +
-    '  process(_, outs) { const o = outs[0]; this.c.render(o[0], o[1] || o[0]); return true; }\n' +
+    /* B323: the shell times the engine's render with Date.now() (the only clock this global scope
+       has: `performance` is undefined in Chrome's AudioWorkletGlobalScope, measured); the engine
+       itself never sees a clock, only the cap loadWindow() sends it */
+    '  process(_, outs) { const o = outs[0], t0 = Date.now(); this.c.render(o[0], o[1] || o[0]); this.busy += Date.now() - t0;\n' +
+    '    if (++this.nb >= LOAD_WIN) loadWindow(this, o[0].length); return true; }\n' +
     '}\nregisterProcessor("b271-razor", B271Razor);\n';
 }
 async function makeNode(ctx, init) {
@@ -4647,12 +4836,13 @@ async function makeNode(ctx, init) {
 }
 async function audioStart() {
   if (!CORE) { AUD.err = 'engine not loaded'; paintAudioStat(); return; }
-  if (AUD.on) { try { await AUD.ctx.close(); } catch (_) {} AUD.on = false; AUD.node = null; AUD.spn = null; AUD.ctx = null; MON.a0 = null; paintAudioStat(); return; }
+  if (AUD.on) { try { await AUD.ctx.close(); } catch (_) {} AUD.on = false; AUD.node = null; AUD.spn = null; AUD.ctx = null; MON.a0 = null; LOAD.dsp = null; paintAudioStat(); paintLoad(); return; }
   const AC = window.AudioContext || window.webkitAudioContext;
   const ctx = new AC({ sampleRate: SR });
   AUD.ctx = ctx; AUD.out = ctx.createGain(); AUD.out.gain.value = EFF.master; AUD.out.connect(ctx.destination);
   try {
     AUD.node = await makeNode(ctx, { params: oracleParams(EFF) });
+    AUD.node.port.onmessage = e => loadIn(e.data);        // B323: the worklet's load windows (J2)
     AUD.node.connect(AUD.out);
     AUD.err = '';
   } catch (e) {
@@ -4697,6 +4887,85 @@ async function probeAudio() {
   for (let i = 0; i < L.length; i++) { if (!isFinite(L[i])) bad++; e += L[i] * L[i]; pk = Math.max(pk, Math.abs(L[i])); }
   const rms = Math.sqrt(e / L.length);
   return 'offline worklet render, 0.5 s of A3: RMS ' + (20 * Math.log10(rms + 1e-12)).toFixed(1) + ' dBFS, peak ' + pk.toFixed(3) + ', non-finite ' + bad + (rms > 1e-3 && !bad ? ' — AUDIBLE PATH OK' : ' — SILENT OR BROKEN');
+}
+
+/* ======================================================================
+   J2. THE LOAD LOOP (B323) — the audio measures itself, the engine degrades, the page sheds
+   Human, 2026-09-28: "I'm noticing the issue [overload] on many other patches now. Maybe the
+   browser is just overloaded or something, or the device is getting more complex." B313 had
+   diagnosed the cause as COST (no exception, no NaN) and proposed this fix without building it.
+   MEASURED on this page as it stood (trace b323; headless Chrome, M3, the worklet timed from inside):
+   six voices of Crushed bells ran at 148% of real time, Glass horde pad 197%, Harmonic stack 90%,
+   Two blades 67%, Quarter sync 18%; the main thread spent 2-7 ms a frame, most of it the monitor.
+   THE LOOP. The worklet shell (workletSource) times each render with Date.now() and, every LOAD_WIN
+   blocks (4096 samples, 85 ms at 48 kHz: the window is counted in SAMPLES, so its length is the
+   audio's own), divides the time spent by the audio time rendered: `load`, 1.0 = real time. The
+   cap law (capFor) turns that into the composed engine's voice cap; the engine culls the quietest
+   releasing tails over it, by ADR-083's tiers, never a held note, each faded in 5 ms
+   (scalpel-horde-engine.js cull()). The window is posted here (loadIn) and drawn in the frame
+   header (paintLoad). THE CAP LAW: over LOAD_HI (0.9) the cap drops at once to what the window says
+   fits, live × LOAD_TARGET (0.75) / load; below, it rises one voice per window while the measured
+   cost per voice says one more still fits under LOAD_HI, and switches off at the pool size. The
+   band between is where it rests. DETERMINISM: the engine is still a pure function of its inputs;
+   the cap is one of them, and the only clock is the shell's, outside the engine.
+   THE PAGE SHEDS (shedUpdate) while the audio is over SHED_DSP_ON or the frame's work over
+   SHED_UI_ON ms, and stops SHED_CALM calm frames after both are under the OFF levels: the Specimen
+   draws every 12th frame instead of every 3rd, the logo every 8th instead of every 2nd, half the
+   monitor's viz posts are let go, and the monitor's time budget drops to MON_SHED_MS. What is
+   drawn is unchanged; only how often. NOT HERE: the ScriptProcessor fallback (the engine on the main
+   thread) is not metered or capped; the meter says so.
+   ====================================================================== */
+/* the cap the worklet shell sends the engine for one window. Pure (checkB323 calls it); it also
+   runs inside the worklet, serialized by workletSource. `per` is the last measured load per
+   sounding voice; `cap` 0 means off (the pool, `poly`, is the limit). */
+function capFor(load, live, cap, poly, per) {
+  const cur = cap > 0 ? cap : poly;
+  if (load > LOAD_HI && live > 0) return Math.max(1, Math.min(cur, Math.floor(live * LOAD_TARGET / load)));
+  if (cap > 0 && (cap + 1) * per < LOAD_HI) return cap + 1 >= poly ? 0 : cap + 1;
+  return cap;
+}
+/* one window, inside the worklet (w is the processor): load, the cap, the post */
+function loadWindow(w, n) {
+  const c = w.c, load = w.busy / (LOAD_WIN * n / w.sr * 1000);
+  let act = 0; for (const v of c.voices) if (v.active) act++;
+  const capped = typeof c.liveCount === 'function', live = capped ? c.liveCount() : act;
+  if (act > 0) w.per = load / act;
+  const cap = capped ? capFor(load, live, w.cap, c.d.poly, w.per) : 0;
+  if (cap !== w.cap) { w.cap = cap; c.msg({ t: 'cap', n: cap }); }
+  w.port.postMessage({ t: 'load', load, cap, live, act, culled: c.culled || 0, n: LOAD_WIN * n });
+  w.busy = 0; w.nb = 0;
+}
+function loadIn(m) {
+  if (!m || m.t !== 'load') return;
+  LOAD.dsp = m; LOAD.log.push(m); if (LOAD.log.length > 256) LOAD.log.shift();
+  shedUpdate(); paintLoad();
+}
+function shedUpdate() {
+  const dsp = AUD.on && LOAD.dsp ? LOAD.dsp.load : 0;
+  if (!LOAD.shed) { if (dsp > SHED_DSP_ON || LOAD.ui > SHED_UI_ON) { LOAD.shed = true; LOAD.calm = 0; } }
+  else if (dsp < SHED_DSP_OFF && LOAD.ui < SHED_UI_OFF) { if (++LOAD.calm >= SHED_CALM) LOAD.shed = false; }
+  else LOAD.calm = 0;
+}
+/* THE METER: one line in the frame header (frameHeader builds it; this only writes into it) */
+function loadText(long) {
+  const d = AUD.on && LOAD.dsp ? LOAD.dsp : null;
+  const dsp = !AUD.on ? 'DSP off' : AUD.spn ? 'DSP fallback, not metered' : d ? 'DSP ' + Math.round(100 * d.load) + '%' : 'DSP …';
+  /* Chrome's AudioContext.playbackStats (feature-detected): the device's own count of underruns, the
+     gaps a listener hears as clicks when the render cannot keep up (trace b323) */
+  const ps = AUD.on && AUD.ctx && AUD.ctx.playbackStats, xr = ps && ps.underrunEvents > 0 ? ' · underruns ' + ps.underrunEvents + ' (' + (+ps.underrunDuration || 0).toFixed(2) + ' s)' : '';
+  if (long) return dsp + ' · UI ' + LOAD.ui.toFixed(1) + ' ms a frame' + (d && d.cap ? ' · voice cap ' + d.cap : '') + (d && d.culled ? ' · tails culled ' + d.culled : '') + xr +
+    (LOAD.skipped ? ' · monitor skipped ' + (LOAD.skipped / SR).toFixed(1) + ' s' : '') + (LOAD.shed ? ' · the page is shedding frames' : '');
+  return dsp + (d && d.cap ? ' cap ' + d.cap : '') + (d && d.culled ? ' cull ' + d.culled : '') +
+    (ps && ps.underrunEvents > 0 ? ' xrun ' + ps.underrunEvents : '') + ' · UI ' + LOAD.ui.toFixed(1) + (LOAD.shed ? ' · shed' : '');
+}
+function paintLoad() {
+  const m = LOAD.el; if (!m || !m.isConnected) return;
+  const d = AUD.on && LOAD.dsp ? LOAD.dsp.load : 0;
+  m.classList.toggle('warm', d >= 0.7 && d < 1); m.classList.toggle('over', d >= 1); m.classList.toggle('shed', LOAD.shed);
+  const i = m.querySelector('i'), b = m.querySelector('b');
+  if (i) i.style.width = Math.min(100, Math.round(100 * d)) + '%';
+  if (b) b.textContent = loadText();
+  m.title = 'B323 — ' + loadText(true) + '. DSP is the audio worklet\'s render time over real time (its own 85 ms windows); UI the page\'s work per frame; xrun the device\'s underruns (Chrome playbackStats), the gaps heard as clicks. Over 90% the engine culls the quietest releasing tails (never a held note) and caps new voices; while loaded the page sheds Specimen and logo frames.';
 }
 
 /* ======================================================================
@@ -4800,6 +5069,7 @@ function runChecks() {
   for (const c of checkBipolar()) out.push(c);
   for (const c of checkLogoSpecimen()) out.push(c);
   for (const c of checkB317()) out.push(c);
+  for (const c of checkB323()) out.push(c);
   for (const c of checkPresets()) out.push(c);
   AUDIT.checks = out;
   seedOracle(0xB271 + MON.note);
@@ -5350,7 +5620,7 @@ function checkMainXY() {
   return out;
 }
 /* B315 — THE LOGO AND THE SPECIMEN, on the built MAIN page (the tighter header: two tab rows).
-   LOGO: the warped mark is the frame header's canvas, in its fixed 70×46 box; a paint lays ink
+   LOGO: the warped mark is the frame header's canvas, in its fixed box (70×46, B323: 91×60); a paint lays ink
    (alpha > 0) in it; the warp MOVES (two times, two images); with the morph on at corner B its
    colour is --lgB (the morph cursor drives it). It does not push layout: the header is exactly
    as tall with the mark as without it. CONTROL (must fail): the same mark in gui2's own 96 px box
@@ -5728,7 +5998,7 @@ function checkBipolar() {
        no such law; that is what the lab played before this round, and why it greyed them. */
 function workletRender(params, note, n) {
   const keep = Math.random; let Proc = null;
-  class AWP { constructor() { this.port = {}; } }
+  class AWP { constructor() { this.port = { posts: [], postMessage(m) { this.posts.push(m); } }; } }   // B323: the shell posts its load windows
   try {
     new Function('AudioWorkletProcessor', 'registerProcessor', 'sampleRate', workletSource())(AWP, (_, c) => { Proc = c; }, SR);
     const p = new Proc({ processorOptions: { params, note: { note, freq: mtof(note), vel: 0.85 } } });
@@ -5965,6 +6235,265 @@ function rangeDrifts(k, p, s) {
   if (p.kind !== 'continuous') return true;
   if (BIPOLAR.has(k)) return !(p.min === 0 && s.min === -p.max && s.max === p.max);
   return p.min !== s.min || p.max !== s.max;
+}
+/* B323 — ROUND 10's rows. Read off what was drawn or rendered wherever a drawing exists.
+   LOAD METER: the frame header carries it on both pages without growing the header; a worklet
+   shell run through the same source the audio uses (workletRender's stub) posts load windows;
+   a window fed in reads back as its percentage, its cap and culls, and flags over/shed.
+   CONTROL: a calm window (30%) raises no flag and starts no shedding.
+   CULL: the engine the page plays (CORE), three held notes and three tails: a cap of 5 fades the
+   quietest tail only, a cap of 2 every tail and no held note; the cap law (capFor) on four
+   windows. CONTROL: a tier-blind culler through the same detector takes a held note.
+   SHED: 60 frames of monitor time, shedding and not: the Specimen and the logo draw less and the
+   monitor accepts half the viz posts. CONTROL: the calm run draws at the full cadence.
+   FREEZE: the audio toggle's monitor path (monStrike 'audio' resets the clock to 0, B299): the
+   Specimen and the logo keep drawing after it, and after a second toggle. CONTROL (must read
+   zero): with the clock standing after the reset, nothing draws, so the detector can see a freeze.
+   CENTRED: the XY's whole reach (pitch ±1.1, four yaws, four moments of the metaball motion),
+   drawn as a mask (uMask) and read back: the pearl's bounds never touch the pad's edge and stay
+   centred. CONTROL: B317's fixed camera (SPECIMEN.center off) through the same sweep.
+   LOGO: 91×60, bigger than 70×46, and the header, the body and the frame are where they were.
+   LIME: the pale screens' --scr-meter is a lime (hue 70-110°) at ≥ 3:1 on its ground; the dark
+   screens' is unchanged. CONTROL: gui2's teal fails the hue test.
+   RING: in all five schemes × both themes, on OSC's ring and MAIN's, the needle, the readout and
+   the R bar are one ink (the painter's resolved styles, and the needle's and bar's pixels).
+   CONTROL: B317's needle ink (--scr-physics) equals the readout's in none of the ten.
+   R BAR: a locked swarm and a splayed one: the bar's filled pixels are R of its height, read back.
+   CONTROL: the same reading against the OTHER state's R fails.
+   MIRROR (ADR-184 A2 (2)): the engine's snapped Cut spread at ±2.5 is an exact mirror. CONTROL:
+   the oracle alone (RAZOR) at ±2.5 is not. */
+function checkB323() {
+  const out = [], page = LAB.page, theme = LAB.theme, scheme = LAB.scheme, snap = Object.assign({}, P), mOn = MORPH.on, spOn = SPECIMEN.on;
+  const mv = MACROS.map(m => m.v), monSnap = Object.assign({}, MON), bufs = [MON.buf.slice(), MON.bufR.slice()], fz = LAB.frozen;
+  const S = SPECIMEN, specSnap = {}, loadSnap = Object.assign({}, LOAD, { log: LOAD.log.slice() }), audOn = AUD.on;
+  for (const k of ['yaw', 'pit', 'yawT', 'pitT', 'clk', 'n', 'time', 'xyLast', 'xyYaw', 'xyPit', 'center', 'mask']) specSnap[k] = S[k];
+  const logoSnap = { clk: LOGO.clk, n: LOGO.n, t: LOGO.t, hue: LOGO.hue };
+  const rgbOf = h => { const s = String(h).trim(); let m = /^#?([0-9a-f]{6})$/i.exec(s); if (m) { const v = parseInt(m[1], 16); return [v >> 16 & 255, v >> 8 & 255, v & 255]; }
+    m = /^rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)/i.exec(s); return m ? [+m[1], +m[2], +m[3]] : null; };
+  const dist = (a, b) => (a && b ? Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) + Math.abs(a[2] - b[2]) : 999);
+  const hsl = c => { const [r, g, b] = c.map(v => v / 255), mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2; let h = 0, s = 0;
+    if (mx !== mn) { const d = mx - mn; s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn); h = 60 * (mx === r ? ((g - b) / d + (g < b ? 6 : 0)) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4); } return [h, s, l]; };
+  const lum = c => { const f = v => { v /= 255; return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }; return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]); };
+  const contrast = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+  const hz = n => mtof(n);
+  LAB.frozen = false; MORPH.on = false; for (const m of MACROS) m.v = 0;
+  try {
+    /* ---- the load meter ---- */
+    {
+      const res = [];
+      for (const pg of ['main', 'osc']) {
+        LAB.page = pg; rebuild();
+        const hdr = FR.querySelector('.phdr'), m = hdr && hdr.querySelector('.loadm');
+        if (!hdr || !m || !(hdr.offsetHeight > 0)) { res.push({ pg, nolayout: !hdr || !(hdr.offsetHeight > 0), m: !!m }); continue; }
+        const hWith = hdr.getBoundingClientRect().height; m.style.display = 'none'; const hWithout = hdr.getBoundingClientRect().height; m.style.display = '';
+        res.push({ pg, m: true, hWith, hWithout });
+      }
+      /* the shell, as the audio runs it: the worklet source through workletRender's stub */
+      let posts = [];
+      { const keep = Math.random; let Proc = null;
+        class AWP { constructor() { this.port = { posts: [], postMessage(x) { this.posts.push(x); } }; } }
+        try {
+          new Function('AudioWorkletProcessor', 'registerProcessor', 'sampleRate', workletSource())(AWP, (_, c) => { Proc = c; }, SR);
+          const p = new Proc({ processorOptions: { params: oracleParams(EFF), note: { note: 57, freq: mtof(57), vel: 0.85 } } });
+          const qL = new Float32Array(128), qR = new Float32Array(128);
+          for (let i = 0; i < 2 * LOAD_WIN; i++) p.process([], [[qL, qR]]);
+          posts = p.port.posts;
+        } finally { Math.random = keep; } }
+      LAB.page = 'main'; rebuild();
+      const feed = w => { LOAD.shed = false; LOAD.calm = 0; LOAD.ui = 0; AUD.on = true; loadIn(Object.assign({ t: 'load', live: 3, act: 5, n: 4096 }, w)); paintLoad();
+        const m = FR.querySelector('.loadm'); const r = { text: m ? m.textContent : '', over: m && m.classList.contains('over'), warm: m && m.classList.contains('warm'),
+          bar: m ? m.querySelector('i').style.width : '', shed: LOAD.shed, fits: !!m && m.scrollWidth <= m.clientWidth + 1 }; AUD.on = audOn; return r; };
+      const hdr0 = FR.querySelector('.phdr').getBoundingClientRect().height;
+      const hot = feed({ load: 1.32, cap: 3, culled: 4 });
+      LOAD.ui = 12.3; LOAD.skipped = 9 * SR; paintLoad();                 // the longest line the meter can write
+      hot.hLong = FR.querySelector('.phdr').getBoundingClientRect().height; hot.hdr0 = hdr0; LOAD.skipped = loadSnap.skipped;
+      const calm = feed({ load: 0.3, cap: 0, culled: 0 });
+      const shellOk = posts.length === 2 && posts.every(q => q.t === 'load' && isFinite(q.load) && q.load >= 0 && q.n === LOAD_WIN * 128 && 'cap' in q && 'live' in q);
+      const layoutOk = res.every(q => q.m && !q.nolayout && Math.abs(q.hWith - q.hWithout) < 0.5);
+      out.push({ name: 'load meter: in the frame header on both pages, fed by the worklet\'s own windows; a hot window reads as such', ok: layoutOk && shellOk && /DSP 132%/.test(hot.text) && /cap 3/.test(hot.text) && /cull 4/.test(hot.text) && /shed$/.test(hot.text) && hot.over && hot.bar === '100%' && hot.shed && hot.fits && Math.abs(hot.hLong - hot.hdr0) < 0.5,
+        detail: res.map(q => q.pg + ': ' + (q.nolayout ? 'no layout' : 'header ' + q.hWith.toFixed(1) + ' px with the meter, ' + q.hWithout.toFixed(1) + ' without')).join(' · ') +
+          ' · the worklet shell posted ' + posts.length + ' windows of ' + (posts[0] ? posts[0].n : '—') + ' samples (load ' + posts.map(q => (100 * q.load).toFixed(0) + '%').join(', ') + ')' +
+          ' · a 132% window reads "' + hot.text + '", bar ' + hot.bar + (hot.over ? ', flagged over' : '') + (hot.shed ? ', shedding' : '') + ' · the line ' + (hot.fits ? 'fits, untruncated' : 'is TRUNCATED') + ' · header with the longest line ' + hot.hLong.toFixed(1) + ' px (was ' + hot.hdr0.toFixed(1) + ')' });
+      out.push({ name: 'CONTROL: a calm window (30%) raises no flag and sheds nothing', ok: !(calm.over || calm.warm || calm.shed), control: true,
+        detail: '"' + calm.text + '", bar ' + calm.bar + ', over ' + calm.over + ', warm ' + calm.warm + ', shedding ' + calm.shed + ' (must all be false)' });
+      LOAD.shed = false; LOAD.dsp = null;
+    }
+    /* ---- the cull, on the engine the page plays ---- */
+    {
+      const EV = [[0, 'on', 60], [128, 'on', 61], [256, 'on', 62], [384, 'on', 63], [512, 'on', 64], [640, 'on', 65],
+        [9600, 'off', 65], [11520, 'off', 64], [13440, 'off', 63]];
+      const run = (cap, cls) => {
+        seedOracle(0xB323);
+        const c = new (cls || CORE)(SR); c.set(Object.assign({}, DEF, { N: 5, detune: 14, K: 0.35, phaseMode: 1 })); Object.assign(c.s, c.t);
+        const L = new Float32Array(128), R = new Float32Array(128);
+        for (let i = 0, e = 0; i < 16896; i += 128) { while (e < EV.length && EV[e][0] <= i) { const [, k, n] = EV[e++]; if (k === 'on') c.noteOn(n, hz(n), 0.9); else c.noteOff(n); } c.render(L, R); }
+        const pre = c.voices.slice(0, c.d.poly).map(v => ({ note: v.note, gate: v.gate, active: v.active, env: v.env }));
+        c.msg({ t: 'cap', n: cap });
+        for (let i = 0; i < 4; i++) c.render(L, R);                      // 512 samples: the 8 ms fade is over
+        const post = c.voices.slice(0, c.d.poly).map(v => ({ note: v.note, gate: v.gate, active: v.active }));
+        const gone = n => { const k = pre.findIndex(v => v.note === n); return pre[k].active && !post[k].active; };
+        const held = [60, 61, 62].every(n => { const k = pre.findIndex(v => v.note === n); return post[k].active && post[k].gate; });
+        return { gone, held, culled: c.culled, pre };
+      };
+      const a = run(5), b = run(2);
+      class Blind extends CORE { tierPick(pool, skip) { let v = null; for (const x of pool) if (!(skip && skip(x)) && (!v || x.age < v.age)) v = x; return v; } }
+      const z = run(5, Blind);
+      const law = [[1.48, 6, 0, 6, 0.247, 3], [0.5, 3, 3, 6, 0.1, 4], [0.5, 3, 3, 6, 0.25, 3], [0.2, 5, 5, 6, 0.04, 0]].map(([l, lv, cp, po, pe, want]) => ({ got: capFor(l, lv, cp, po, pe), want }));
+      const tails = a.pre.filter(v => !v.gate && v.active).map(v => v.note + ' ' + v.env.toFixed(3)).join(' · ');
+      out.push({ name: 'cull: over the cap the quietest releasing tail fades first, a held note never (ADR-083\'s tiers); the cap law', ok: a.culled === 1 && a.gone(65) && !a.gone(63) && !a.gone(64) && a.held && b.culled === 3 && [63, 64, 65].every(b.gone) && b.held && law.every(q => q.got === q.want),
+        detail: 'tails ' + tails + ': cap 5 culls ' + a.culled + ' (65, the quietest ' + a.gone(65) + '), held 60-62 kept ' + a.held + ' · cap 2 culls ' + b.culled + ', held kept ' + b.held +
+          ' · capFor: 148% over 6 voices → ' + law[0].got + '; calm, 0.1/voice, cap 3 → ' + law[1].got + '; 0.25/voice → ' + law[2].got + ' (rests); room at the pool → ' + law[3].got + ' (off)' });
+      out.push({ name: 'CONTROL: a tier-blind culler (the oldest sounding voice) takes a held note', ok: !(z.gone(65) && z.held), control: true,
+        detail: '65 culled ' + z.gone(65) + ', held 60-62 kept ' + z.held + ' (must not both hold)' });
+    }
+    /* ---- shedding, the Specimen advancing after an audio toggle ---- */
+    LAB.page = 'main'; SPECIMEN.on = true; LAB.theme = theme; LAB.scheme = scheme; applyBodyClasses(); rebuild(); paintCanvases();
+    const live = SPECIMEN.cv && SPECIMEN.cv.isConnected && SPECIMEN.cv.offsetParent && specimenFrame(true) && S.gl;
+    if (!live) out.push({ name: 'shedding, the audio toggle, the centring', ok: false, detail: 'no layout or no WebGL here (' + (S.fail || 'a load checker') + '): not measured' });
+    else {
+      const frames = (k, step) => { const d0 = S.draws, l0 = LOGO.paints, v0 = MON.vizN; for (let i = 0; i < k; i++) { if (step) monStep(); specimenFrame(false); logoFrame(false); } return { spec: S.draws - d0, logo: LOGO.paints - l0, viz: MON.vizN - v0 }; };
+      monStrike('patch', 'B323 check'); frames(12, true);
+      LOAD.shed = false; const calm = frames(60, true);
+      LOAD.shed = true; const shed = frames(60, true); LOAD.shed = false;
+      out.push({ name: 'shedding: the Specimen and the logo draw less, the monitor takes half the viz posts', ok: shed.spec > 0 && shed.spec * 3 <= calm.spec && shed.logo > 0 && shed.logo * 3 <= calm.logo && shed.viz > 0 && shed.viz * 1.6 <= calm.viz,
+        detail: 'over 60 frames: Specimen ' + calm.spec + ' → ' + shed.spec + ' draws, logo ' + calm.logo + ' → ' + shed.logo + ' paints, viz posts taken ' + calm.viz + ' → ' + shed.viz });
+      out.push({ name: 'CONTROL: not shedding, the full cadence (every 3rd and 2nd frame)', ok: calm.spec >= 19 && calm.logo >= 29, control: true,
+        detail: 'Specimen ' + calm.spec + ' of 60 frames (20 expected), logo ' + calm.logo + ' (30 expected)' });
+      /* the toggle: audioStart's monitor path, twice, with the monitor running in between */
+      frames(60, true);                                                  // the page has run a while: S.clk is far ahead of 0
+      const on1 = () => { MON.a0 = 0; monStrike('audio'); };
+      const ahead = S.clk;
+      on1(); const t1 = frames(30, true);
+      MON.a0 = null; frames(10, true);
+      on1(); const t2 = frames(30, true);
+      on1(); const still = frames(30, false);                            // CONTROL: the clock standing
+      MON.a0 = null;
+      out.push({ name: 'the Specimen (and the logo) keep drawing after an audio toggle', ok: t1.spec >= 8 && t1.logo >= 12 && t2.spec >= 8 && t2.logo >= 12,
+        detail: 'the pearl\'s clock was ' + ahead + ' samples ahead when audio came on (monStrike \'audio\' resets the monitor to 0) · 30 frames after: ' + t1.spec + ' draws, ' + t1.logo + ' logo paints · after a second toggle: ' + t2.spec + ', ' + t2.logo });
+      out.push({ name: 'CONTROL: the clock standing after the toggle, nothing draws (the detector can see a freeze)', ok: still.spec === 0 && still.logo === 0, control: true,
+        detail: still.spec + ' draws, ' + still.logo + ' logo paints in 30 frames (must be 0)' });
+      /* ---- centred across the XY's reach ---- */
+      const gl = S.gl, sweep = center => {
+        S.center = center; S.mask = 1; S.dent.x = 0; S.dent.v = 0;
+        let clip = 0, worstOff = 0, minEdge = 1e9, n = 0, worstAt = '', kMin = 1;
+        for (const pit of [-1.1, -0.55, 0, 0.55, 1.1]) for (const yaw of [0, 1.571, 3.142, 4.712]) for (const t of [3.7, 12.4, 21.1, 29.8]) {
+          Object.assign(S, { yaw, yawT: yaw, pit, pitT: pit, time: t, clk: MON.clock });
+          specimenFrame(true); kMin = Math.min(kMin, S.fit ? S.fit.k : 1);
+          const w = S.w, h = S.h, px = new Uint8Array(w * h * 4);
+          gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, px);
+          let x0 = w, x1 = -1, y0 = h, y1 = -1;
+          for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (px[(y * w + x) * 4] > 127) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+          if (x1 < 0) continue;
+          n++;
+          const edge = Math.min(x0, y0, w - 1 - x1, h - 1 - y1); minEdge = Math.min(minEdge, edge); if (edge <= 0) clip++;
+          const off = Math.hypot((x0 + x1) / 2 - (w - 1) / 2, (y0 + y1) / 2 - (h - 1) / 2) / h;
+          if (off > worstOff) { worstOff = off; worstAt = 'pitch ' + pit + ', yaw ' + yaw + ', t ' + t; }
+        }
+        S.mask = 0;
+        return { clip, worstOff, minEdge, n, worstAt, kMin };
+      };
+      const on = sweep(true), off = sweep(false);
+      S.center = true;
+      out.push({ name: 'Specimen centred: across the XY\'s whole reach the pearl never touches the pad\'s edge and stays centred', ok: on.n === 80 && on.clip === 0 && on.minEdge >= 2 && on.worstOff <= 0.06,
+        detail: on.n + ' views (pitch ±1.1 in 5, 4 yaws, 4 moments), read back as a mask at ' + S.w + '×' + S.h + ': touching the edge ' + on.clip + ', closest ' + on.minEdge + ' px, bounds centre off by ≤ ' + (100 * on.worstOff).toFixed(1) + '% of the pad\'s height (' + on.worstAt + ') · the fit shrank the focal length to ' + on.kMin.toFixed(3) + '× at most' });
+      out.push({ name: 'CONTROL: B317\'s fixed camera through the same sweep', ok: off.clip > 0 || off.worstOff > 0.06, control: true,
+        detail: 'touching the edge ' + off.clip + ' of ' + off.n + ', closest ' + off.minEdge + ' px, off-centre up to ' + (100 * off.worstOff).toFixed(1) + '% (' + off.worstAt + ') — must clip or drift' });
+    }
+    /* ---- the logo ---- */
+    {
+      LAB.page = 'main'; rebuild();
+      const hdr = FR.querySelector('.phdr'), lc = hdr && hdr.querySelector('canvas.logo'), body = FR.querySelector('.pbody');
+      if (!hdr || !lc || !body || !(hdr.offsetHeight > 0)) out.push({ name: 'logo size', ok: false, detail: 'no layout here: not measured' });
+      else {
+        const r = lc.getBoundingClientRect(), fr = FR.getBoundingClientRect(), b1 = body.getBoundingClientRect(), h1 = hdr.getBoundingClientRect().height;
+        lc.style.width = '70px'; lc.style.height = '46px'; lc.style.margin = '0';
+        const b0 = body.getBoundingClientRect(), h0 = hdr.getBoundingClientRect().height;
+        lc.style.width = ''; lc.style.height = ''; lc.style.margin = '';
+        const inside = r.top >= fr.top && r.left >= fr.left && r.bottom <= b1.top + 0.5;
+        out.push({ name: 'logo: bigger (91×60, was 70×46), and the header, the body and the 720 px frame do not move', ok: Math.round(r.width) === 91 && Math.round(r.height) === 60 && Math.abs(h1 - h0) < 0.5 && Math.abs(b1.top - b0.top) < 0.5 && Math.abs(b1.height - b0.height) < 0.5 && Math.round(fr.height) === 720 && inside,
+          detail: 'box ' + r.width.toFixed(0) + '×' + r.height.toFixed(0) + ' (' + (r.width * r.height / (70 * 46)).toFixed(2) + '× the area) · header ' + h1.toFixed(1) + ' px (at 70×46: ' + h0.toFixed(1) + ') · body top ' + (b1.top - fr.top).toFixed(1) + ', ' + b1.height.toFixed(1) + ' px (at 70×46: ' + (b0.top - fr.top).toFixed(1) + ', ' + b0.height.toFixed(1) + ') · frame ' + fr.height.toFixed(0) + ' px · the mark inside the frame and above the body ' + inside });
+      }
+    }
+    /* ---- lime on the pale screens ---- */
+    {
+      const rows = [];
+      for (const sc of SCHEMES) {
+        LAB.scheme = sc.name; applyBodyClasses();
+        const m = rgbOf(TOK('--scr-meter')), g = rgbOf(TOK('--scr-tube')), [h, s] = hsl(m);
+        rows.push({ n: sc.name, hex: TOK('--scr-meter').trim(), h, s, cr: contrast(m, g), pale: lum(g) > 0.5 });
+      }
+      LAB.scheme = scheme; applyBodyClasses();
+      const pale = rows.filter(q => q.pale), dark = rows.filter(q => !q.pale);
+      const lime = q => q.h >= 70 && q.h <= 110 && q.s >= 0.8;
+      out.push({ name: 'lime: the pale screens\' trace ink is a vibrant lime at ≥ 3:1; the dark screens\' is unchanged', ok: pale.length === 3 && pale.every(q => lime(q) && q.cr >= 3) && dark.every(q => ({ TUBE: '#b8f227', DUSK: '#c8ff3d' })[q.n] === q.hex.toLowerCase()),
+        detail: rows.map(q => q.n + ' ' + q.hex + ' hue ' + q.h.toFixed(0) + '° sat ' + (100 * q.s).toFixed(0) + '% · ' + q.cr.toFixed(2) + ':1 on its ground').join(' · ') });
+      const teal = rgbOf('#007A73'), [th] = hsl(teal);
+      out.push({ name: 'CONTROL: gui2\'s pale-screen teal #007A73 is not a lime', ok: !lime({ h: th, s: hsl(teal)[1] }), control: true, detail: 'hue ' + th.toFixed(0) + '° (the lime band is 70-110°)' });
+    }
+    /* ---- the ring: one ink, and the R bar ---- */
+    {
+      const ringsOn = pg => { LAB.page = pg; rebuild(); paintCanvases(); return [...FR.querySelectorAll('canvas')].filter(cv => RING_PAINT.has(cv)); };
+      const px = (cv, x, y) => { const k = cv.width / Math.max(1, cv.clientWidth); return cv.getContext('2d').getImageData(Math.floor(x * k), Math.floor(y * k), 1, 1).data; };
+      /* a locked swarm, so the needle is long */
+      P = Object.assign({}, snap, { N: 7, K: 1, detune: 40, phaseMode: 2 }); EFF = effective(); pushOracle(); monStrike('patch', 'B323 check');
+      for (let i = 0; i < 60; i++) monStep();
+      const combos = [];
+      for (const th of ['light', 'dark']) for (const sc of SCHEMES) {
+        LAB.theme = th; LAB.scheme = sc.name; applyBodyClasses();
+        for (const pg of ['osc', 'main']) for (const cv of ringsOn(pg)) {
+          const q = RING_PAINT.get(cv), ink = rgbOf(q.readout);
+          /* the needle is 2 px wide: the best of the 3×3 device pixels round its midpoint is fully covered */
+          const k = cv.width / Math.max(1, cv.clientWidth), g2 = cv.getContext('2d');
+          const nb = g2.getImageData(Math.floor(q.needleAt[0] * k) - 1, Math.floor(q.needleAt[1] * k) - 1, 3, 3).data;
+          let dN = 999; for (let i = 0; i < nb.length; i += 4) dN = Math.min(dN, dist([nb[i], nb[i + 1], nb[i + 2]], ink));
+          const bb = q.bar, bp = bb.fh > 4 ? px(cv, bb.x + bb.bw / 2, bb.bot - bb.fh / 2) : null;
+          combos.push({ th, sc: sc.name, pg, same: q.needle === q.readout && q.barInk === q.readout, dN, dB: bp ? dist([bp[0], bp[1], bp[2]], ink) : 999,
+            phys: TOKA('--scr-physics', 1), read: TOKA('--scr-meter', 1) });
+        }
+      }
+      const bad = combos.filter(q => !(q.same && q.dN <= 12 && q.dB <= 3));
+      out.push({ name: 'ring: the R needle, the Coherence readout and the R bar are one ink, in every scheme and theme', ok: combos.length >= 20 && bad.length === 0,
+        detail: combos.length + ' rings (5 schemes × 2 themes × OSC and MAIN): styles equal in ' + combos.filter(q => q.same).length + ', the needle\'s pixel within ' + Math.max(...combos.map(q => q.dN)) + ' and the bar\'s within ' + Math.max(...combos.map(q => q.dB)) + ' of the readout ink' + (bad.length ? ' · FAILING ' + bad.map(q => q.th + '/' + q.sc + '/' + q.pg).join(', ') : '') });
+      const same317 = combos.filter(q => rgbOf(q.phys) && dist(rgbOf(q.phys), rgbOf(q.read)) === 0).length;
+      out.push({ name: 'CONTROL: B317\'s needle ink (--scr-physics) against the readout\'s', ok: same317 === 0, control: true, detail: 'equal in ' + same317 + ' of ' + combos.length + ' (must be 0: the colours told two stories)' });
+      /* the R bar, locked and splayed, read back from its pixels */
+      LAB.theme = theme; LAB.scheme = scheme; applyBodyClasses();
+      const barRead = () => {
+        const cv = ringsOn('osc')[0]; if (!cv) return null;
+        const q = RING_PAINT.get(cv), b = q.bar, ink = rgbOf(q.barInk), k = cv.width / Math.max(1, cv.clientWidth);
+        const x = Math.round((b.x + b.bw / 2) * k), d = cv.getContext('2d').getImageData(x, Math.round(b.top * k), 1, Math.round((b.bot - b.top) * k)).data;
+        let n = 0; for (let i = 0; i < d.length; i += 4) if (dist([d[i], d[i + 1], d[i + 2]], ink) <= 3) n++;
+        return { r: q.r, frac: n / (d.length / 4), h: b.bot - b.top };
+      };
+      const lock = barRead();
+      P = Object.assign({}, snap, { N: 4, K: -1, detune: 3, phaseMode: 2 }); EFF = effective(); pushOracle(); monStrike('patch', 'B323 check');
+      for (let i = 0; i < 120; i++) monStep();
+      const splay = barRead();
+      const tol = q => 1.5 / q.h;
+      out.push({ name: 'R bar: filled to R of its height, locked and splayed', ok: !!(lock && splay) && Math.abs(lock.frac - lock.r) <= tol(lock) && Math.abs(splay.frac - splay.r) <= tol(splay) && lock.r > 0.8 && splay.r < 0.2,
+        detail: lock && splay ? 'locked: R ' + lock.r.toFixed(3) + ', bar ' + lock.frac.toFixed(3) + ' of ' + lock.h + ' px · splayed: R ' + splay.r.toFixed(3) + ', bar ' + splay.frac.toFixed(3) + ' (within 1.5 px)' : 'no ring drawn' });
+      out.push({ name: 'CONTROL: each bar read against the OTHER state\'s R', ok: !!(lock && splay) && Math.abs(lock.frac - splay.r) > tol(lock) && Math.abs(splay.frac - lock.r) > tol(splay), control: true,
+        detail: lock && splay ? 'locked bar ' + lock.frac.toFixed(3) + ' vs splayed R ' + splay.r.toFixed(3) + ' · splayed bar ' + splay.frac.toFixed(3) + ' vs locked R ' + lock.r.toFixed(3) + ' (must differ)' : '—' });
+    }
+    /* ---- ADR-184 A2 (2), on the engine the page plays ---- */
+    {
+      const offs = (cls, x) => { seedOracle(0xA2); const c = new cls(SR); c.set(Object.assign({}, DEF, { N: 5, law: 0, kq: 1, kRule: 0, kspread: x })); Object.assign(c.s, c.t); c.noteOn(57, mtof(57), 1); return c.voices[0].m.slice(0, 5).map(m => m.kAdd); };
+      const mir = cls => { let e = 0; for (const x of [0.5, 1.5, 2.5, 7.5]) { const a = offs(cls, x), b = offs(cls, -x); for (let i = 0; i < 5; i++) e = Math.max(e, Math.abs(a[i] + b[i])); } return e; };
+      const eC = mir(CORE), eO = RAZOR ? mir(RAZOR) : null;
+      out.push({ name: 'ADR-184 A2 (2): snapped Cut spread mirrors exactly at the halves', ok: eC === 0, detail: 'max|kAdd(−x) + kAdd(+x)| at ±0.5, 1.5, 2.5, 7.5 under Quantize: ' + eC });
+      out.push({ name: 'CONTROL: the oracle alone (Math.round) at the same halves', ok: eO !== null && eO >= 0.5, control: true, detail: 'max ' + eO + ' (must be ≥ 0.5, a step off)' });
+    }
+  } catch (e) {
+    out.push({ name: 'B323', ok: false, detail: 'threw: ' + String(e && e.stack || e) });
+  }
+  LAB.page = page; LAB.theme = theme; LAB.scheme = scheme; SPECIMEN.on = spOn; MORPH.on = mOn; LAB.frozen = fz; AUD.on = audOn;
+  Object.assign(S, specSnap); Object.assign(LOAD, loadSnap); Object.assign(LOGO, logoSnap);
+  MACROS.forEach((m, i) => { m.v = mv[i]; });
+  P = snap; EFF = effective(); pushOracle(); applyBodyClasses();
+  Object.assign(MON, monSnap); MON.buf.set(bufs[0]); MON.bufR.set(bufs[1]); MON.cycN = -1;
+  if (MON.core) MON.core.set(oracleParams(EFF));
+  rebuild();
+  return out;
 }
 function checkPresets() {
   const out = [];
@@ -6399,10 +6928,14 @@ function wireChrome() {
   }
 }
 function frame() {
+  const t0 = nowMs();
   monAdvance();
   specimenFrame(false);                              // B315: before the pad paints over it
   paintCanvases();
   logoFrame(false);
+  LOAD.ui += (nowMs() - t0 - LOAD.ui) * 0.1;          // B323: the frame's work, one-pole over ~10 frames (cost only)
+  shedUpdate();
+  if (!(++LOAD.frames % 15)) paintLoad();
   requestAnimationFrame(frame);
 }
 /* B309: build CORE, the composed engine, from the oracle class and swarmsaw.html's DSP
