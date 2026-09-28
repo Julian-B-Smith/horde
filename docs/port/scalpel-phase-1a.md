@@ -274,7 +274,7 @@ One non-hash constant is perturbed: the swarm's pitch in `couple()` is scaled by
 | 1e-9 | 4.8e-6 | 6.5e-5 | agree | RED |
 | 1e-8 … 1e-3 | ≥ 4.8e-5 | ≥ 6.5e-4 | disagree | RED |
 
-**The floor is 1e-10 relative** on the swarm's pitch (about 2e-7 cents), and it is
+**The floor is 1e-10 relative** on the swarm's pitch (about 1.7e-7 cents), and it is
 the max-abs bound that sees it first: a sync blade turns a pitch error into a
 phase error at each blade entry, which is amplified by the cut rate. A 1e-12
 relative slip in that constant is invisible to this gate. The event criterion
