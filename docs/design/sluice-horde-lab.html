@@ -40,11 +40,12 @@
      time only: a virtual-time headless capture never renders audio, so K9 then stays
      pending). The first messages ride in with the node (processorOptions), not by port.
 
-     SELF-CHECKS K1–K9 run at load, each with a must-fail control (side panel): finite for
+     SELF-CHECKS K1–K10 run at load, each with a must-fail control (side panel): finite for
      every preset, corner and random patch; bypass bit-identical; a synced time equals the
      division × the host bpm (resolved AND rendered); the randomiser seeded, lock-respecting
      and nested; drawn = heard (K5, K9); tapped = untapped; macros reproduce their presets;
-     the corners exact and a split chain flagged.
+     the corners exact and a split chain flagged; every canvas's backing store matches its
+     CSS box × dpr (K10, B320 — the aspect-ratio bug).
 
      THE INPUT is a horde voice: the COMPOSED engine (docs/design/scalpel-horde-engine.js,
      loaded, never edited; the SCALPEL lab's B309 route), playing a four-note riff on the
@@ -1333,13 +1334,34 @@ function readColours() {
     '--cA', '--cB', '--cC', '--cD', '--line', '--text'])
     CSSV[k] = String(cs.getPropertyValue(k) || '').trim() || '#888';
 }
+/* the ONE formula for a canvas's backing store size — shared by ctx2 (which applies it)
+   and K10 (which checks it), so the check can never drift from what the helper actually
+   does. B320: ctx2 used to set cv.width from clientWidth·dpr but never touched cv.height,
+   which stayed at its HTML/JS attribute (e.g. 26, 118, or the 150 default) — a backing
+   store scaled on one axis and not the other, so every view rendered stretched tall and
+   narrow and drawing past the unscaled height was clipped.
+   THE HEIGHT IS CAPTURED ONCE, not re-measured from clientHeight on every call. These
+   canvases have no CSS height rule (only `.viz{width:100%}`, an AUTO height) — a
+   replaced element with no CSS height falls back to its INTRINSIC ratio (backing-store
+   width:height) when the box is reflowed before our inline style.height lands. Re-reading
+   clientHeight each call closes a loop through that intrinsic ratio: measure → write
+   cv.height → next reflow's auto-height leans on the ratio we just changed → drifts a
+   few px → repeat. Caught empirically (a CDP trace of #net's clientHeight shrinking ~3px
+   every animation frame, live, never settling) — not visible in a single screenshot. */
+function wantBacking(cv) {
+  const dpr = window.devicePixelRatio || 1;
+  if (cv.dataset.b320H === undefined) cv.dataset.b320H = String(Math.max(10, Math.round(cv.clientHeight || cv.height || 100)));
+  const w = Math.max(40, Math.round(cv.clientWidth || 300)), h = Math.max(10, +cv.dataset.b320H);
+  return { w, h, bw: Math.round(w * dpr), bh: Math.round(h * dpr) };
+}
 function ctx2(cv) {
   if (!cv || !cv.getContext) return null;
-  const w = Math.max(40, Math.round(cv.clientWidth || 300)), h = +cv.height || 100;
-  const dpr = window.devicePixelRatio || 1;
-  if (cv.width !== Math.round(w * dpr)) { cv.width = Math.round(w * dpr); cv.style.height = h + 'px'; }
+  const { w, h, bw, bh } = wantBacking(cv);
+  // resize on EITHER dimension changing (not just width) or a dpr change (both roll into bw/bh);
+  // cv.style.height pins the CSS box so the height axis is never left to the intrinsic ratio.
+  if (cv.width !== bw || cv.height !== bh) { cv.width = bw; cv.height = bh; cv.style.height = h + 'px'; }
   const g = cv.getContext('2d'); if (!g || !g.setTransform) return null;
-  g.setTransform(cv.width / w, 0, 0, cv.width / w, 0, 0);
+  g.setTransform(cv.width / w, 0, 0, cv.height / h, 0, 0);
   g.fillStyle = CSSV['--scr-tube']; g.fillRect(0, 0, w, h);
   return { g, w, h };
 }
@@ -1767,6 +1789,28 @@ function K8() {
     'at A B C D the morph IS the corner: ' + at + ' · at the centre every param lies within its four corners: ' + inside
     + ' · control: a corner with another chain (comb hall) is flagged: ' + flagged + ', and the engine then hears the nearest corner whole: ' + nearest);
 }
+/* K10 — every canvas's backing store matches its CSS box × dpr (B320: cv.height was never
+   resized, so views rendered stretched). Runs after paintLive() has sized every real canvas
+   (boot()'s setTimeout ordering), so the assertion is over what is ON SCREEN, not a fresh page. */
+function K10() {
+  const cvs = [...document.querySelectorAll('canvas')];
+  const bad = [];
+  for (const cv of cvs) {
+    const { bw, bh } = wantBacking(cv);
+    if (cv.width !== bw || cv.height !== bh) bad.push((cv.id || cv.className || 'canvas') + ' ' + cv.width + 'x' + cv.height + '≠' + bw + 'x' + bh);
+  }
+  /* control: a canvas built with the exact shape of the B320 bug — a backing store left at an
+     unrelated size, never run through ctx2/wantBacking — must be caught */
+  const ctlCv = document.createElement('canvas');
+  ctlCv.width = 300; ctlCv.height = 150; ctlCv.style.width = '80px'; ctlCv.style.height = '40px';
+  ctlCv.style.position = 'absolute'; ctlCv.style.visibility = 'hidden';
+  document.body.appendChild(ctlCv);
+  const want = wantBacking(ctlCv), ctl = ctlCv.width !== want.bw || ctlCv.height !== want.bh;
+  ctlCv.remove();
+  pushCheck('K10', 'every canvas backing store matches its CSS box × dpr', !bad.length, ctl,
+    cvs.length + ' canvases on screen: ' + (bad.length ? 'FAIL — ' + bad.join(', ') : 'all match their CSS box × devicePixelRatio')
+    + ' · control: a canvas left at a 300×150 backing store under an 80×40 CSS box, never sized by ctx2 → ' + (ctl ? 'caught' : 'NOT caught'));
+}
 /* not a check: the shifter's direction, measured, for the drift list (Sluice F-008) */
 function measureShifter() {
   const p = { chain: [{ type: 'shifter', enabled: true, params: { shift: 80 } }], fb: { gain: 0, damp: 0, clip: 0 }, mix: 1,
@@ -1805,7 +1849,7 @@ async function K9() {
 async function runChecks() {
   if (!LAB.ready || LAB.checksRun) return;
   LAB.checksRun = true;
-  for (const f of [K1, K2, K3, K4, K5, K6, K7, K8]) {
+  for (const f of [K1, K2, K3, K4, K5, K6, K7, K8, K10]) {
     try { f(); } catch (e) { pushCheck(f.name, f.name + ' threw', false, false, String(e && e.message || e)); }
   }
   try { LAB.drift = measureShifter(); } catch (e) { LAB.drift = null; }
