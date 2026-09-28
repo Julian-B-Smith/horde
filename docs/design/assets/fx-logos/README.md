@@ -1,7 +1,7 @@
-# fx-logos — drop-in pixel logos for MAW and Sluice
+# fx-logos — drop-in pixel logos for MAW, Sluice and the rest of the FX rack
 
-Read by `docs/design/fx-screens-workshop.html` (B322), the workshop that shows MAW and
-Sluice as software running on screens inside horde. Until a file exists, the page draws a
+Read by `docs/design/fx-screens-workshop.html` (B322, B326, B336), the workshop that shows MAW,
+Sluice and (since B336) every other FX module as software running on screens inside horde. Until a file exists, the page draws a
 labelled placeholder in code. No image is committed here unless the human has made it.
 
 ## The canvases (logical pixels)
@@ -29,6 +29,26 @@ screen pixel (the screen is 160 × 144).
 The workshop checks a dropped file against all three rules and prints the result in its
 "Logo canvases" box.
 
+## The lettering rule (B343)
+
+A GBC title spells a word, so its letters share one set of metrics. The workshop measures
+them from the pixels of each lead proposal (self-check 15; the Sluice lab's C27 does the same
+for its copy), with these tolerances:
+
+- **Cap top and baseline:** the same row for every letter (0 px).
+- **Stem width** (the usual horizontal run) and **bar thickness** (a flat horizontal stroke):
+  within ±1 px of the word's. A diagonal can read a pixel off a vertical stem.
+- **Spacing is optical, not measured.** Per row of the cap band, the blank between two
+  letters' boxes plus how far each letter's edge recedes from its box, each recess counted up
+  to 3 px, averaged. Across the word these effective gaps span at most 1 px. So an I gets the
+  widest box gap and an L's open side the narrowest.
+- **No stripes:** down any stroke the fill never goes back to a lighter band, and no single
+  row of outline crosses a stroke. Every letter is one piece. Every pixel is on the palette:
+  no anti-aliasing.
+
+The check does not bind a dropped file (the human's art is the human's). It is a guide for
+drawing one.
+
 ## The drop-in rule
 
 1. Save the PNG here under its exact name (above).
@@ -55,5 +75,27 @@ workshop page, not as files here.
   LEAD LOGO PROPOSALS box, to use as a starting point. To use one, rename it to the exact file
   name above and save it here. The GBC exports pass the palette rule; the glass media's exports
   carry their ground.
+
+## The rest of the rack (B336)
+
+The workshop's THE RACK view gives every other FX module its own glass, and each has the same
+two slots. The files are named by the module's id, not by a proposed name, so they stay put
+whichever name the human picks:
+
+| module | glass (proposed) | title | icon |
+|---|---|---|---|
+| Drive | Game Boy Color LCD | `drive.png` | `drive-icon.png` |
+| Filter | vector monitor | `filter.png` | `filter-icon.png` |
+| EQ | teletext page | `eq.png` | `eq-icon.png` |
+| Comp | nixie + neon | `comp.png` | `comp-icon.png` |
+| Echo | sonar scope | `echo.png` | `echo-icon.png` |
+| Delay | dot-matrix LCD | `delay.png` | `delay-icon.png` |
+| Room | CAD blueprint | `room.png` | `room-icon.png` |
+| Reverb | segment glass | `reverb.png` | `reverb-icon.png` |
+
+The sizes are the same (TITLE 96 × 24, ICON 16 × 16), and so is the drop-in rule: a file here
+always beats the lead's proposal. The palette rule above is the GBC's, so it binds `drive.png`.
+On the dot-matrix LCD one logo pixel is one LCD dot, at a pitch of 6 × 9 (5 × 8 dots and a
+gutter), so art drawn to that grid lines up with the panel's cells.
 
 The sizes are a proposal from the workshop, not a ruling (B322 is a comparison lab).
