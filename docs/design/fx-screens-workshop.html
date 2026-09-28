@@ -93,7 +93,20 @@
      hold the renders, the one-to-one assignment, the names, the logos (GBC lint where the glass
      is the GBC) and the four-knob face against the lab's, each with must-fail controls. Comb is
      not here (it becomes a filter type, B288); modules with no lab (OTT, Disperser, Shifter, the
-     standard phaser, chorus) are listed, not drawn. -->
+     standard phaser, chorus) are listed, not drawn.
+
+     B343 (2026-09-28, ROADMAP B343, carried in records PR #833, branch lead-records-135). The
+     human: "the GBA sluice logo needs a consistency audit; not all characters are properly
+     spaced or sized, and there's a strange stripe across the 'I'". The stripe was in the glyph
+     DATA: B326 drew the I as a lifted gate, a 1-row outline, a light-cyan row and another
+     outline across its stem at logo rows 14-17 (not a tile boundary, ghosting or scaling: the
+     slot is an integer-scaled overlay outside the ghosted frame buffer, and every pixel is on
+     the palette). The Sluice title is redrawn on one metric set and SINGE re-spaced (section K2
+     and the rack's data say how); MAW measured clean and is unchanged. Section M2's glyphAudit
+     measures cap top, baseline, stem, bar, pieces, optical gaps, stripes and off-palette pixels
+     from the pixels of every GBC title; self-check 15 holds all three to it, with the pre-fix
+     Sluice title as the detector's must-fail control. The Sluice lab's GBC skin carries the same
+     title and the same audit (docs/design/sluice-horde-lab.html, C27). -->
 <html><head><meta charset="utf-8">
 <meta name="lab-review" content="B322 + B326 + B336 · 2026-09-28">
 <title>fx screens workshop — MAW, Sluice and the whole FX rack as software on horde's screens</title>
@@ -1665,7 +1678,14 @@ const PROPOSALS = {
   /* GBC — pixel grids, one char per pixel, '.' transparent; the palette is on the RGB555 grid.
      Three tile rows, one 4-colour palette each (transparent, the outline ink, two fills), so
      the gradient is BANDED by tile row and the per-tile rule holds by construction. The
-     scratch generator that drew these masks is not committed; the grids are the design. */
+     scratch generator that drew these masks is not committed; the grids are the design.
+     B343 redrew the Sluice title on ONE metric set, because B326's I carried a "lifted gate"
+     (a 1-row outline, a light-cyan row and another outline across its stem, logo rows 14-17)
+     that read as a stripe, L and U stood a row short, and the gaps ran 4.1-6.8 px optically:
+     cap 18 px (rows 3-20), 4 px stems and bars, 3 px counters, the outer corner of every stroke
+     TURN rounded 2 px and every terminal flat, a 1 px outline plus a 1 px drop shadow, and box
+     gaps chosen so the optical gaps span ≤ 1 px. B343's self-check (section M2) measures all of
+     it from the pixels, on every GBC title. */
   gbc: {
     maw: {
       concept: 'The jaw. M and W mirror each other as upper and lower jaws (the M\'s V bites down, the W\'s peak bites up), in a fire gradient banded one palette per tile row; across the middle, orange fangs bite down and white-hot fangs bite up. Icon: a front-on jaw, red over orange, three fangs a side.',
@@ -1714,32 +1734,32 @@ const PROPOSALS = {
           '..kkkkkkkkkkkk..',
           '................'] } },
     sluice: {
-      concept: 'The waterline. Rounded letters in a surface-to-depth gradient (foam, cyan, blue, navy) with a sine waterline through the middle tile row; the I is a sluice gate, lifted, with water running under it. Icon: a whirlpool, the feedback loop.',
+      concept: 'The waterline. Rounded letters in a surface-to-depth gradient (foam, cyan, blue, navy) with a sine waterline through the middle tile row, every letter on one set of metrics (B343). Icon: a whirlpool, the feedback loop.',
       title: { pal: {'k': '#000821', 'a': '#E7FFFF', 'b': '#39DEFF', 'c': '#186BEF', 'd': '#10298C'},
         rows: [
           '................................................................................................',
           '................................................................................................',
-          '......kkkkkkkkkkk.................................kkkkkkkkk...kkkkkkkkkkk....kkkkkkkkkkk........',
-          '.....kkaaaaaaaaakk...kkkk..........kkkk.....kkkk..kaaaaaaakk.kkaaaaaaaaakk..kkaaaaaaaaakk.......',
-          '....kkaaaaaaaaaaakk.kkaakk........kkaakk...kkaakk.kaaaaaaakkkkaaaaaaaaaaakk.kaaaaaaaaaaakk......',
-          '....kaaaaaaaaaaaakk.kaaaakk.......kaaaakk..kaaaakkkaaaaaaakkkaaaaaaaaaaaakk.kaaaaaaaaaaakk......',
-          '....kbbbbbbbbbbbkkk.kbbbbkk.......kbbbbkk..kbbbbkkkkbbbbbkkkkbbbbbbbbbbbkkk.kbbbbbbbbbbkkk......',
-          '....kbbbbkkkkkkkkk..kbbbbkk.......kbbbbkk..kbbbbkk.kbbbbbkk.kbbbbkkkkkkkkk..kbbbbkkkkkkkk.......',
-          '....kbbbbkkkkkkkk...kbbbbkk.......kbbbbkk..kbbbbkk.kbbbbbkk.kbbbbkkkkkkkk...kbbbbkkkkkkk........',
-          '....kbbbbkkkkkkkk...kbbbbkk.......kbbbbkk..kbbbbkk.kbbbbbkk.kbbbbkk.........kbbbbkkkkk..........',
-          '....kbbbcccbbbbbkk..kccbbkk.......kbbbbkk..kcccbkk.kbbbbckk.kbbbbkk.........kbbbcccbbkk.........',
-          '....kbcccccccbbbbkk.kcccckk.......kccbbkk..kcccckk.kbbbcckk.kbbbbkk.........kbbccccccbkk........',
-          '....kkccccccccbbbckkkcccckk.......kcccbkk..kcccckk.kbcccckk.kcbbbkk.........kccccccccckk........',
-          '.....kkccccccccccckkkcccckk.......kcccckk..kcccckkkkccccckk.kcccckk.........kcccccccckkk........',
-          '......kkkkkkkkcccckkkcccckk.......kcccckk..kcccckkkkkkkkkkkkkcccckk.........kcccckkkkkk.........',
-          '.......kkkkkkkcccckkkcccckk.......kcccckk..kcccckkkbbbbbbbkkkcccckk.........kcccckkkkk..........',
-          '......kkkkkkkkcccckkkcccckkkkkk...kcccckkkkkcccckkkccccccckkkcccckkkkkkkk...kcccckkkkkkk........',
-          '.....kkccccccccccckkkccccccccckk..kccccccccccccckkkkkkkkkkkkkccccccccccckk..kcccccccccckk.......',
-          '.....kddddddddddddkkkddddddddddkk.kdddddddddddddkkkdddddddkkkddddddddddddkk.kdddddddddddkk......',
-          '.....kdddddddddddkkkkkdddddddddkk.kkdddddddddddkkkkdddddddkkkkdddddddddddkk.kdddddddddddkk......',
-          '.....kkdddddddddkkk..kkdddddddkkk..kkdddddddddkkk.kdddddddkk.kkdddddddddkkk.kkdddddddddkkk......',
-          '......kkkkkkkkkkkk....kkkkkkkkkk....kkkkkkkkkkkk..kkkkkkkkkk..kkkkkkkkkkkk...kkkkkkkkkkkk.......',
-          '.......kkkkkkkkkk......kkkkkkkk......kkkkkkkkkk....kkkkkkkk....kkkkkkkkkk.....kkkkkkkkkk........',
+          '........kkkkkkkkkkkk..kkkkkk.......kkkkkk..kkkkkk...kkkkkk.....kkkkkkkkkkkk...kkkkkkkkkkk.......',
+          '.......kkaaaaaaaaaakk.kaaaakk......kaaaakk.kaaaakk..kaaaakk...kkaaaaaaaaaakk.kkaaaaaaaaakk......',
+          '......kkaaaaaaaaaaakk.kaaaakk......kaaaakk.kaaaakk..kaaaakk..kkaaaaaaaaaaakkkkaaaaaaaaaakk......',
+          '......kaaaaaaaaaaaakk.kaaaakk......kaaaakk.kaaaakk..kaaaakk..kaaaaaaaaaaaakkkaaaaaaaaaaakk......',
+          '......kbbbbbbbbbbbbkk.kbbbbkk......kbbbbkk.kbbbbkk..kbbbbkk..kbbbbbbbbbbbbkkkbbbbbbbbbbbkk......',
+          '......kbbbbkkkkkkkkkk.kbbbbkk......kbbbbkk.kbbbbkk..kbbbbkk..kbbbbkkkkkkkkkkkbbbbkkkkkkkkk......',
+          '......kbbbbkkkkkkkkkk.kbbbbkk......kbbbbkk.kbbbbkk..kbbbbkk..kbbbbkkkkkkkkkkkbbbbkkkkkkkkk......',
+          '......kbbbbkkkkkkk....kbbbbkk......kbbbbkk.kbbbbkk..kbbbbkk..kbbbbkk........kbbbbkkkkkk.........',
+          '......kbcccccbbbbkk...kbccckk......kbbbbkk.kcbbbkk..kbbbckk..kbbbbkk........kbbbbbbbbbkk........',
+          '......kcccccccccbbkk..kcccckk......kbccckk.kcccckk..kcccckk..kccbbkk........kcccbbbbbckk........',
+          '......kkccccccccccckk.kcccckk......kcccckk.kcccckk..kcccckk..kcccckk........kccccccccckk........',
+          '.......kkcccccccccckk.kcccckk......kcccckk.kcccckk..kcccckk..kcccckk........kccccccccckk........',
+          '........kkkkkkkcccckk.kcccckk......kcccckk.kcccckk..kcccckk..kcccckk........kcccckkkkkkk........',
+          '.........kkkkkkcccckk.kcccckk......kcccckk.kcccckk..kcccckk..kcccckk........kcccckkkkkkk........',
+          '......kkkkkkkkkcccckk.kcccckkkkkkk.kcccckkkkcccckk..kcccckk..kcccckkkkkkkkk.kcccckkkkkkkk.......',
+          '......kcccccccccccckk.kcccccccccckkkcccccccccccckk..kcccckk..kcccccccccccckkkccccccccccckk......',
+          '......kddddddddddddkk.kddddddddddkkkddddddddddddkk..kddddkk..kddddddddddddkkkdddddddddddkk......',
+          '......kdddddddddddkkk.kkdddddddddkkkkddddddddddkkk..kddddkk..kkdddddddddddkkkkddddddddddkk......',
+          '......kddddddddddkkkk..kkddddddddkk.kkddddddddkkkk..kddddkk...kkddddddddddkk.kkdddddddddkk......',
+          '......kkkkkkkkkkkkkk....kkkkkkkkkkk..kkkkkkkkkkkk...kkkkkkk....kkkkkkkkkkkkk..kkkkkkkkkkkk......',
+          '.......kkkkkkkkkkkk......kkkkkkkkkk...kkkkkkkkkk.....kkkkkk.....kkkkkkkkkkkk...kkkkkkkkkkk......',
           '................................................................................................'] },
       icon: { pal: {'k': '#000821', 'a': '#E7FFFF', 'b': '#39DEFF', 'c': '#186BEF', 'd': '#10298C'},
         rows: [
@@ -2260,6 +2280,190 @@ function updateFoots() {
 }
 
 /* ======================================================================
+   M2. THE GBC LETTERING AUDIT (B343) — the human: "the GBA sluice logo needs a consistency
+   audit; not all characters are properly spaced or sized, and there's a strange stripe across
+   the 'I'". glyphAudit() and GA_TOL are copied VERBATIM into docs/design/sluice-horde-lab.html
+   (its section N3), so the lab's copy of the Sluice title is held to the same numbers; edit
+   both or neither. Self-check 15 runs it on every GBC title (MAW, Sluice, the rack's Drive).
+   ====================================================================== */
+/* B343 — the GBC lettering audit, MEASURED FROM THE PIXELS of a rendered title (RGBA, w×h).
+   One metric set for every letter of a word, so a mis-sized letter, an uneven gap or a stripe
+   is a number, not an impression. The logo's DATA supplies only the key to its colours: `ink`
+   (the outline) and `bands`, its fill colours top to bottom (a band may hold several colours of
+   one rank, as SINGE's char and embers do). Everything else is read off the raster.
+   - a GLYPH is the fill pixels of the 8-connected components of ≥ GA_TOL.minPx px (smaller ones
+     are sparks, decoration), grouped by overlapping x-extent; one glyph per letter of `word`.
+   - CAP TOP and BASELINE: the glyph's first and last fill row. Tolerance 0: pixel type is exact.
+   - STEM (vertical stroke width): the modal horizontal fill run in the glyph, among runs
+     narrower than the glyph (the rest are bars); a glyph that is all stem (an I) uses all runs;
+     ties go to the thinner. Tolerance ±1 px of the word's mode: a diagonal's horizontal section
+     reads up to a pixel wider or thinner than a vertical stem of the same weight.
+   - BAR (horizontal stroke thickness): the modal vertical fill run whose top and bottom match
+     the runs in both neighbouring columns (a flat bar, not a diagonal), shorter than 0.6 of the
+     cap height (not a stem). n/a for a letter with no flat bar (N, M, W). Tolerance ±1 px.
+   - GAP, optically: for each row of the word's cap band, the blank between the two glyphs'
+     boxes plus how far each glyph's profile recedes from its box in that row, each recess
+     clamped at GA_TOL.depth px (3 px, 1/6 of an 18 px cap: roughly the 15 %-of-height depth
+     of the usual area-based letterspacer), averaged over the band = the effective gap in px.
+     An L's open side or an I's straight stem is counted as the eye counts it, which is why an
+     I needs the widest box gap to LOOK evenly spaced. Tolerance: the word's effective gaps span
+     ≤ GA_TOL.gapRange = 1.0 px (a pixel is the grain; a range under one pixel is as even as a
+     pixel grid can be).
+   - STRIPE: down each column of a glyph, a fill colour that goes BACK up the bands (a lighter
+     band under a darker one, within one stroke), or a single outline row with fill directly
+     above and below (a line cut across a stroke; the thinnest counter any GBC title draws is
+     2 rows). Tolerance 0.
+   - PIECES: a letter drawn in more than one component (a stroke cut through). Tolerance 0.
+   - PALETTE: every opaque pixel is fully opaque and is the ink or a band colour: no
+     anti-aliasing or blending leaked into the pixel canvas. Tolerance 0. */
+const GA_TOL = { cap: 0, base: 0, stem: 1, bar: 1, gapRange: 1.0, depth: 3, minPx: 4 };
+function glyphAudit(d, w, h, spec) {
+  const hx = c => String(c).replace('#', '').toUpperCase();
+  const key = (r, g, b) => ((r << 16) | (g << 8) | b).toString(16).toUpperCase().padStart(6, '0');
+  const rank = {}; spec.bands.forEach((band, i) => band.forEach(c => { rank[hx(c)] = i; }));
+  const INK = hx(spec.ink), R = new Int8Array(w * h).fill(-2), faults = [];   // -2 clear, -1 ink, ≥0 band rank
+  let offPal = 0, part = 0;
+  for (let i = 0; i < w * h; i++) {
+    const a = d[i * 4 + 3]; if (a === 0) continue;
+    if (a !== 255) part++;
+    const k = key(d[i * 4], d[i * 4 + 1], d[i * 4 + 2]);
+    if (k === INK) R[i] = -1; else if (k in rank) R[i] = rank[k]; else { offPal++; R[i] = -1; }
+  }
+  if (offPal || part) faults.push((offPal ? offPal + ' px off the palette' : '') + (offPal && part ? ', ' : '') + (part ? part + ' px part-transparent' : '') + ' (anti-aliasing or blending in a pixel canvas)');
+  // components of fill, 8-connected
+  const comp = new Int32Array(w * h).fill(-1), comps = [];
+  for (let s = 0; s < w * h; s++) {
+    if (R[s] < 0 || comp[s] >= 0) continue;
+    const st = [s], px = []; comp[s] = comps.length;
+    while (st.length) {
+      const p = st.pop(), x = p % w, y = (p / w) | 0; px.push(p);
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const X = x + dx, Y = y + dy, q = Y * w + X;
+        if (X >= 0 && X < w && Y >= 0 && Y < h && R[q] >= 0 && comp[q] < 0) { comp[q] = comps.length; st.push(q); }
+      }
+    }
+    comps.push(px);
+  }
+  const big = comps.filter(px => px.length >= GA_TOL.minPx).map(px => ({ px, x0: Math.min(...px.map(p => p % w)), x1: Math.max(...px.map(p => p % w)) })).sort((a, b) => a.x0 - b.x0);
+  const G = [];
+  for (const c of big) { const g = G[G.length - 1]; if (g && c.x0 <= g.x1) { g.x1 = Math.max(g.x1, c.x1); g.px = g.px.concat(c.px); g.pieces++; } else G.push({ x0: c.x0, x1: c.x1, px: c.px.slice(), pieces: 1 }); }
+  const mode = arr => { const n = {}; arr.forEach(v => { n[v] = (n[v] || 0) + 1; }); let best = null; for (const v in n) if (best === null || n[v] > n[best] || (n[v] === n[best] && +v < +best)) best = v; return best === null ? null : +best; };
+  for (const g of G) {
+    const on = new Set(g.px); g.on = on;
+    const ys = g.px.map(p => (p / w) | 0); g.y0 = Math.min(...ys); g.y1 = Math.max(...ys); g.w = g.x1 - g.x0 + 1; g.h = g.y1 - g.y0 + 1;
+    const hr = [], hrAll = [], colRuns = [];
+    g.left = []; g.right = [];
+    for (let y = g.y0; y <= g.y1; y++) {
+      let run = 0, L = null, Rt = null;
+      for (let x = g.x0; x <= g.x1 + 1; x++) {
+        const f = x <= g.x1 && on.has(y * w + x);
+        if (f) { run++; if (L === null) L = x; Rt = x; } else if (run) { hrAll.push(run); if (run < g.w) hr.push(run); run = 0; }
+      }
+      g.left.push(L); g.right.push(Rt);
+    }
+    for (let x = g.x0; x <= g.x1; x++) {
+      const runs = []; let t = null;
+      for (let y = g.y0; y <= g.y1 + 1; y++) { const f = y <= g.y1 && on.has(y * w + x); if (f && t === null) t = y; if (!f && t !== null) { runs.push([t, y - 1]); t = null; } }
+      colRuns.push(runs);
+    }
+    const bars = [];
+    colRuns.forEach((runs, i) => runs.forEach(([t, b]) => {
+      const len = b - t + 1; if (len >= 0.6 * g.h || i === 0 || i === colRuns.length - 1) return;
+      const same = rr => rr.some(([t2, b2]) => t2 === t && b2 === b);
+      if (same(colRuns[i - 1]) && same(colRuns[i + 1])) bars.push(len);
+    }));
+    g.stem = mode(hr.length ? hr : hrAll); g.bar = mode(bars);
+  }
+  // the word's metrics: the mode of each, and each letter against it
+  const word = spec.word || '', letters = G.map((g, i) => word[i] || '?');
+  if (word && G.length !== word.length) faults.push(G.length + ' glyphs for the ' + word.length + ' letters of ' + word);
+  const mCap = mode(G.map(g => g.y0)), mBase = mode(G.map(g => g.y1)), mStem = mode(G.map(g => g.stem)), mBar = mode(G.filter(g => g.bar !== null).map(g => g.bar));
+  G.forEach((g, i) => {
+    const L = letters[i];
+    if (Math.abs(g.y0 - mCap) > GA_TOL.cap) faults.push(L + ': cap top at row ' + g.y0 + ', the word\'s is ' + mCap);
+    if (Math.abs(g.y1 - mBase) > GA_TOL.base) faults.push(L + ': baseline at row ' + g.y1 + ', the word\'s is ' + mBase);
+    if (Math.abs(g.stem - mStem) > GA_TOL.stem) faults.push(L + ': stem ' + g.stem + ' px, the word\'s is ' + mStem);
+    if (g.bar !== null && mBar !== null && Math.abs(g.bar - mBar) > GA_TOL.bar) faults.push(L + ': bar ' + g.bar + ' px, the word\'s is ' + mBar);
+    if (g.pieces > 1) faults.push(L + ': drawn in ' + g.pieces + ' pieces (a stroke is cut through)');
+  });
+  // gaps: the box gap, and the effective (optical) gap over the word's cap band
+  const Y0 = Math.min(...G.map(g => g.y0)), Y1 = Math.max(...G.map(g => g.y1)), band = Y1 - Y0 + 1, D = GA_TOL.depth;
+  const gaps = [], eff = [];
+  for (let i = 0; i + 1 < G.length; i++) {
+    const a = G[i], b = G[i + 1], box = b.x0 - a.x1 - 1; let area = 0;
+    for (let y = Y0; y <= Y1; y++) {
+      const ra = y >= a.y0 && y <= a.y1 ? a.right[y - a.y0] : null, lb = y >= b.y0 && y <= b.y1 ? b.left[y - b.y0] : null;
+      area += box + (ra === null ? D : Math.min(D, a.x1 - ra)) + (lb === null ? D : Math.min(D, lb - b.x0));
+    }
+    gaps.push(box); eff.push(area / band);
+  }
+  const span = eff.length ? Math.max(...eff) - Math.min(...eff) : 0;
+  if (span > GA_TOL.gapRange + 1e-9) {
+    const lo = eff.indexOf(Math.min(...eff)), hi = eff.indexOf(Math.max(...eff));
+    faults.push('gaps uneven: ' + letters[lo] + letters[lo + 1] + ' ' + eff[lo].toFixed(2) + ' px to ' + letters[hi] + letters[hi + 1] + ' ' + eff[hi].toFixed(2) + ' px (span ' + span.toFixed(2) + ' > ' + GA_TOL.gapRange + ')');
+  }
+  // stripes, down each column of each glyph
+  const stripes = [];
+  G.forEach((g, i) => {
+    for (let x = g.x0; x <= g.x1; x++) {
+      let prev = null;
+      const col = [];
+      for (let y = 0; y < h; y++) { const p = y * w + x; col.push(g.on.has(p) ? R[p] : R[p] === -1 ? -1 : -2); }
+      for (let y = 0; y < h; y++) {
+        const v = col[y];
+        if (v >= 0) { if (prev !== null && v < prev) stripes.push({ L: letters[i], x, y, why: 'a lighter band under a darker one' }); prev = v; }
+        else if (v === -2) prev = null;
+        if (v === -1 && y > 0 && y + 1 < h && col[y - 1] >= 0 && col[y + 1] >= 0) stripes.push({ L: letters[i], x, y, why: 'a 1-row outline across the stroke' });
+      }
+    }
+  });
+  if (stripes.length) {
+    const by = {}; stripes.forEach(s => { const k = s.L + ' row ' + s.y + ' (' + s.why + ')'; by[k] = (by[k] || 0) + 1; });
+    faults.push('stripe: ' + Object.keys(by).map(k => k + ' ×' + by[k]).join('; '));
+  }
+  return {
+    glyphs: G.map((g, i) => ({ L: letters[i], x0: g.x0, x1: g.x1, cap: g.y0, base: g.y1, h: g.h, w: g.w, stem: g.stem, bar: g.bar, pieces: g.pieces })),
+    gaps, eff, span, stripes, faults, ok: !faults.length, capMode: mCap, baseMode: mBase, stemMode: mStem, barMode: mBar
+  };
+}
+/* the key to each GBC title's colours: the word it spells, and its palette letters in band
+   order top to bottom (one string per band; SINGE's char and embers share a band). The Drive
+   word is the rack's first proposed name: re-spelling the art means re-spelling this. */
+const GBC_LETTERING = {
+  maw: { word: 'MAW', bands: ['a', 'b', 'c', 'd', 'e'] },
+  sluice: { word: 'SLUICE', bands: ['a', 'b', 'c', 'd'] },
+  drive: { word: 'SINGE', bands: ['c', 'o', 'he'] },
+};
+function letterSpec(mod, art) { const L = GBC_LETTERING[mod]; return { word: L.word, ink: art.pal.k, bands: L.bands.map(b => [...b].map(ch => art.pal[ch])) }; }
+/* B326's Sluice title as it was BEFORE B343, kept only as the detector's control: self-check 15
+   must read it as failing for the stripe the human saw across the I. Not drawn anywhere. */
+const B343_SLUICE_BEFORE = [
+    '................................................................................................',
+    '................................................................................................',
+    '......kkkkkkkkkkk.................................kkkkkkkkk...kkkkkkkkkkk....kkkkkkkkkkk........',
+    '.....kkaaaaaaaaakk...kkkk..........kkkk.....kkkk..kaaaaaaakk.kkaaaaaaaaakk..kkaaaaaaaaakk.......',
+    '....kkaaaaaaaaaaakk.kkaakk........kkaakk...kkaakk.kaaaaaaakkkkaaaaaaaaaaakk.kaaaaaaaaaaakk......',
+    '....kaaaaaaaaaaaakk.kaaaakk.......kaaaakk..kaaaakkkaaaaaaakkkaaaaaaaaaaaakk.kaaaaaaaaaaakk......',
+    '....kbbbbbbbbbbbkkk.kbbbbkk.......kbbbbkk..kbbbbkkkkbbbbbkkkkbbbbbbbbbbbkkk.kbbbbbbbbbbkkk......',
+    '....kbbbbkkkkkkkkk..kbbbbkk.......kbbbbkk..kbbbbkk.kbbbbbkk.kbbbbkkkkkkkkk..kbbbbkkkkkkkk.......',
+    '....kbbbbkkkkkkkk...kbbbbkk.......kbbbbkk..kbbbbkk.kbbbbbkk.kbbbbkkkkkkkk...kbbbbkkkkkkk........',
+    '....kbbbbkkkkkkkk...kbbbbkk.......kbbbbkk..kbbbbkk.kbbbbbkk.kbbbbkk.........kbbbbkkkkk..........',
+    '....kbbbcccbbbbbkk..kccbbkk.......kbbbbkk..kcccbkk.kbbbbckk.kbbbbkk.........kbbbcccbbkk.........',
+    '....kbcccccccbbbbkk.kcccckk.......kccbbkk..kcccckk.kbbbcckk.kbbbbkk.........kbbccccccbkk........',
+    '....kkccccccccbbbckkkcccckk.......kcccbkk..kcccckk.kbcccckk.kcbbbkk.........kccccccccckk........',
+    '.....kkccccccccccckkkcccckk.......kcccckk..kcccckkkkccccckk.kcccckk.........kcccccccckkk........',
+    '......kkkkkkkkcccckkkcccckk.......kcccckk..kcccckkkkkkkkkkkkkcccckk.........kcccckkkkkk.........',
+    '.......kkkkkkkcccckkkcccckk.......kcccckk..kcccckkkbbbbbbbkkkcccckk.........kcccckkkkk..........',
+    '......kkkkkkkkcccckkkcccckkkkkk...kcccckkkkkcccckkkccccccckkkcccckkkkkkkk...kcccckkkkkkk........',
+    '.....kkccccccccccckkkccccccccckk..kccccccccccccckkkkkkkkkkkkkccccccccccckk..kcccccccccckk.......',
+    '.....kddddddddddddkkkddddddddddkk.kdddddddddddddkkkdddddddkkkddddddddddddkk.kdddddddddddkk......',
+    '.....kdddddddddddkkkkkdddddddddkk.kkdddddddddddkkkkdddddddkkkkdddddddddddkk.kdddddddddddkk......',
+    '.....kkdddddddddkkk..kkdddddddkkk..kkdddddddddkkk.kdddddddkk.kkdddddddddkkk.kkdddddddddkkk......',
+    '......kkkkkkkkkkkk....kkkkkkkkkk....kkkkkkkkkkkk..kkkkkkkkkk..kkkkkkkkkkkk...kkkkkkkkkkkk.......',
+    '.......kkkkkkkkkk......kkkkkkkk......kkkkkkkkkk....kkkkkkkk....kkkkkkkkkk.....kkkkkkkkkk........',
+    '................................................................................................'];
+
+/* ======================================================================
    M. SELF-CHECKS — each with a must-fail control that the same code must report RED
    ====================================================================== */
 const CHECK_FRAME = 97;   // a fixed mock time, so the check renders are reproducible
@@ -2422,6 +2626,7 @@ function runChecks(done) {
         'a grey pixel in the 1-bit MAW title: ' + (cWs ? 'caught' : 'MISSED') + '; a third colour in a teletext cell: ' + (cTt ? 'caught' : 'MISSED') + '; a glyph the terminal lacks: ' + (cCr ? 'caught' : 'MISSED') + '; a stroke leaving the canvas: ' + (cVe ? 'caught' : 'MISSED'));
     }
     rackChecks(row);   // 10-14 (B336)
+    letterChecks(row);   // 15 (B343)
     if (run !== CHECKS.run) return;
     CHECKS.rows = rows; CHECKS.done = true; if (done) done();
   };
@@ -3524,32 +3729,34 @@ for (const id of RACKMODS) REQUIRED[id] = ['logo', 'soft', 'viz', 'readout'].con
 
 /* B336 — the rack's logo proposals, one per module in its own glass, as DATA like B326's. The
    words are each list's FIRST name (the lead's pick); the human's pick re-spells them. A dropped
-   file (docs/design/assets/fx-logos/<module>.png, <module>-icon.png) still wins over these. */
+   file (docs/design/assets/fx-logos/<module>.png, <module>-icon.png) still wins over these.
+   B343 re-spaced SINGE (the letters are untouched): every box gap was 2 px, which left S-I at
+   5.4 px optically and N-G at 2.5; the box gaps are now 1/2/4/3, optical 4.4/4.3/4.5/3.9. */
 PROPOSALS.gbc.drive = {
   concept: 'Singed paper. Cream letters with a glowing orange line above a charred edge, the palette banded one per tile row (cream and sparks; cream and the glow; char and embers), sparks in the top band. Icon: a lit match.',
   title: { pal: { k: '#291008', c: '#FFF7D6', o: '#FF9C21', h: '#5A2910', e: '#D63110' },
     rows: [
-          '...............................o.........................................o......................',
-          '..............o...........................................o.....................................',
-          '........................o......................o..................o...................o.........',
-          '...........kkkkkkkkkkkk..kkkkkkkkkkkkkkkkkkkk....kkkkkk..kkkkkkkkkkkk..kkkkkkkkkkkkkkkk.........',
-          '...........kcccccccccck..kcccccccccccckkcccck....kcccck..kcccccccccck..kcccccccccccccck.........',
-          '.........kkkcccccccccckkkkcccccccccccckkcccckkk..kcccckkkkcccccccccckkkkcccccccccccccck.........',
-          '.........kcccckkkkkkcccckkkkkkcccckkkkkkcccccck..kcccckkcccckkkkkkcccckkcccckkkkkkkkkkk.........',
-          '.........kcccck....kcccck....kcccck....kcccccckkkkcccckkcccck....kcccckkcccck...................',
-          '.........kcccck....kkkkkk....kcccck....kcccccccckkcccckkcccck....kkkkkkkcccck...................',
-          '.........kcccckkkkkkkkk......kcccck....kcccccccckkcccckkcccckkkkkkkkkkkkcccckkkkkkkkk...........',
-          '.........kkkcccccccccck......kcccck....kcccckkcccccccckkcccckkcccccccckkcccccccccccck...........',
-          '...........kcccccccccckkk....kcccck....kcccckkcccccccckkcccckkcccccccckkcccccccccccck...........',
-          '...........kkkkkkkkkcccck....kcccck....kcccckkkkcccccckkcccckkkkkkcccckkcccckkkkkkkkk...........',
-          '...................kcccck....kcccck....kcccck..kcccccckkcccck....kcccckkcccck...................',
-          '...................kooook....kooook....kooook..kkkooookkooook....kooookkooook...................',
-          '.........kkkkkk....kooook....kooook....kooook....kooookkooook....kooookkooook...................',
-          '.........khhehk....khhhek....khhhhk....khhhhk....khhhhkkehhhk....khehhkkhhhhk...................',
-          '.........kehhhkkkkkkhehhkkkkkkhhehkkkkkkhhhek....khhhhkkhhhhkkkkkkhhhhkkhhhhkkkkkkkkkkk.........',
-          '.........kkkhhhhhhhehhkkkkhhhhehhhhhhhkkhehhk....khhehkkkkhhhhhehhhhkkkkhhehhhhhhhhhhek.........',
-          '...........khhhhhehhhhk..khhehhhhhhhhhkkhhhhk....kehhhk..khhhehhhhhhk..kehhhhhhhhhhehhk.........',
-          '...........kkkkkkkkkkkk..kkkkkkkkkkkkkkkkkkkk....kkkkkk..kkkkkkkkkkkk..kkkkkkkkkkkkkkkk.........',
+          '.............................o............................................o.....................',
+          '.............o............................................o.....................................',
+          '.......................o.....................o....................o....................o........',
+          '..........kkkkkkkkkkkk.kkkkkkkkkkkkkkkkkkkk....kkkkkk....kkkkkkkkkkkk...kkkkkkkkkkkkkkkk........',
+          '..........kcccccccccck.kcccccccccccckkcccck....kcccck....kcccccccccck...kcccccccccccccck........',
+          '........kkkcccccccccckkkcccccccccccckkcccckkk..kcccck..kkkcccccccccckkk.kcccccccccccccck........',
+          '........kcccckkkkkkcccckkkkkcccckkkkkkcccccck..kcccck..kcccckkkkkkcccck.kcccckkkkkkkkkkk........',
+          '........kcccck....kcccck...kcccck....kcccccckkkkcccck..kcccck....kcccck.kcccck..................',
+          '........kcccck....kkkkkk...kcccck....kcccccccckkcccck..kcccck....kkkkkk.kcccck..................',
+          '........kcccckkkkkkkkk.....kcccck....kcccccccckkcccck..kcccckkkkkkkkkkk.kcccckkkkkkkkk..........',
+          '........kkkcccccccccck.....kcccck....kcccckkcccccccck..kcccckkcccccccck.kcccccccccccck..........',
+          '..........kcccccccccckkk...kcccck....kcccckkcccccccck..kcccckkcccccccck.kcccccccccccck..........',
+          '..........kkkkkkkkkcccck...kcccck....kcccckkkkcccccck..kcccckkkkkkcccck.kcccckkkkkkkkk..........',
+          '..................kcccck...kcccck....kcccck..kcccccck..kcccck....kcccck.kcccck..................',
+          '..................kooook...kooook....kooook..kkkooook..kooook....kooook.kooook..................',
+          '........kkkkkk....kooook...kooook....kooook....kooook..kooook....kooook.kooook..................',
+          '........khhehk....khhhek...khhhhk....khhhhk....khhhhk..kehhhk....khehhk.khhhhk..................',
+          '........kehhhkkkkkkhehhkkkkkhhehkkkkkkhhhek....khhhhk..khhhhkkkkkkhhhhk.khhhhkkkkkkkkkkk........',
+          '........kkkhhhhhhhehhkkkhhhhehhhhhhhkkhehhk....khhehk..kkkhhhhhehhhhkkk.khhehhhhhhhhhhek........',
+          '..........khhhhhehhhhk.khhehhhhhhhhhkkhhhhk....kehhhk....khhhehhhhhhk...kehhhhhhhhhhehhk........',
+          '..........kkkkkkkkkkkk.kkkkkkkkkkkkkkkkkkkk....kkkkkk....kkkkkkkkkkkk...kkkkkkkkkkkkkkkk........',
           '................................................................................................',
           '................................................................................................',
           '................................................................................................'] },
@@ -3941,6 +4148,40 @@ function rackChecks(row) {
       RACKMODS.length + ' faces checked against the copied lab table (' + RACKMODS.filter(id => !LAB_FACE[id].proposed).length + ' from fx-design-lab.html, 2 proposed here: Delay, Room); ' + unbound + ' slots drawn UNBOUND where the lab draws them unbound; ' + chs.length + ' chassis on the page, ' + (chBad.length ? chBad.length + ' without 4 knobs and 4 keys' : 'all with 4 knobs and 4 keys') + (bad.length ? '; FAILED: ' + bad.map(r => r.id + ' ' + r.bad.join(', ')).join('; ') : ''),
       'a COMP with three knobs: ' + (three ? 'caught' : 'MISSED') + '; the reverb\'s Decay knob relabelled SIZE: ' + (renamed ? 'caught' : 'MISSED') + '; the Drive\'s unbound Regen drawn live: ' + (live ? 'caught' : 'MISSED'));
   }
+}
+
+/* 15 (B343): every GBC title, measured from its 1× raster (the pixels its slot and its export
+   show) by glyphAudit (section M2) against one metric set, and placed on the screen's 8×8 tile
+   grid. Controls, each drawn by the same painter and read back from the pixels: B326's
+   pre-fix Sluice title (must fail for the stripe across the I: the detector sees what the
+   human saw), and three plants on today's Sluice title: the E a row short, the E moved 2 px
+   right, and a light-cyan row across the U's stem; plus one blended pixel. */
+function letterChecks(row) {
+  const draw = (mod, rows) => { const a = PROPOSALS.gbc[mod].title, cv = el('canvas'); cv.width = 96; cv.height = 24;
+    const g = cv.getContext('2d'); if (g) propDrawGBC(g, { pal: a.pal, rows: rows || a.rows }); return cv; };
+  const audit = (mod, cv) => { const d = rasterData(cv); return d ? glyphAudit(d, 96, 24, letterSpec(mod, PROPOSALS.gbc[mod].title)) : null; };
+  const res = Object.keys(GBC_LETTERING).map(mod => {
+    const A = audit(mod, propCanvas('gbc', mod, 'title', 1)), S = checkRender('gbc', mod).S, at = S.placed.title || [NaN, NaN];
+    const tiled = at[0] % 8 === 0 && at[1] % 8 === 0;
+    return { mod, A, at, tiled, ok: !!A && A.ok && tiled };
+  });
+  CHECKS.letters = res;
+  const sl = res.find(r => r.mod === 'sluice').A, rows = PROPOSALS.gbc.sluice.title.rows, G = sl ? sl.glyphs : [];
+  const E = G[5], Ug = G[2];
+  const before = audit('sluice', draw('sluice', B343_SLUICE_BEFORE));
+  const cBefore = !!before && before.stripes.some(s => s.L === 'I');
+  const short = E && audit('sluice', draw('sluice', rows.map((r, y) => (y === E.cap ? r.slice(0, E.x0) + r.slice(E.x0, E.x1 + 1).replace(/[^k.]/g, '.') + r.slice(E.x1 + 1) : r))));
+  const cShort = !!short && short.faults.some(f => f.indexOf('E: cap top') === 0);
+  const moved = E && audit('sluice', draw('sluice', rows.map(r => r.slice(0, E.x0 - 1) + '..' + r.slice(E.x0 - 1, r.length - 2))));
+  const cMoved = !!moved && moved.faults.some(f => f.indexOf('gaps uneven') === 0);
+  const striped = Ug && audit('sluice', draw('sluice', rows.map((r, y) => (y === 15 ? r.slice(0, Ug.x0) + r.slice(Ug.x0, Ug.x1 + 1).replace(/c/g, 'b') + r.slice(Ug.x1 + 1) : r))));
+  const cStripe = !!striped && striped.stripes.some(s => s.L === 'U');
+  const blend = (() => { const cv = draw('sluice'), g = cv.getContext('2d'); if (g && E) { g.fillStyle = 'rgba(255,255,255,0.5)'; g.fillRect(E.x0 + 1, 12, 1, 1); } return audit('sluice', cv); })();
+  const cBlend = !!blend && blend.faults.some(f => f.indexOf('off the palette') >= 0);
+  const bad = res.filter(r => !r.ok), fx = v => v.toFixed(1);
+  row('every GBC title keeps one set of letter metrics, measured from its pixels (B343)', res.length === 3 && !bad.length && cBefore && cShort && cMoved && cStripe && cBlend,
+    res.map(r => !r.A ? r.mod + ': pixels unreadable' : GBC_LETTERING[r.mod].word + ': cap row ' + r.A.capMode + ', baseline ' + r.A.baseMode + ', stem ' + r.A.stemMode + ' px, bar ' + (r.A.barMode === null ? 'n/a' : r.A.barMode + ' px') + ', optical gaps ' + r.A.eff.map(fx).join('/') + ' px (span ' + r.A.span.toFixed(2) + '), ' + r.A.stripes.length + ' stripe px, at (' + r.at.join(',') + ')' + (r.tiled ? '' : ' OFF the tile grid') + (r.A.faults.length ? ' ✗ ' + r.A.faults.join('; ') : ' ✓')).join(' · ') + '. Tolerances: cap and baseline 0, stem and bar ±1 px, optical gap span ≤ ' + GA_TOL.gapRange + ' px (recess depth ' + GA_TOL.depth + ' px), stripes, pieces and off-palette pixels 0.',
+    'B326\'s pre-fix Sluice title: ' + (cBefore ? 'caught (' + before.faults.length + ' faults, the stripe across the I among them)' : 'MISSED') + '; the E a row short: ' + (cShort ? 'caught' : 'MISSED') + '; the E moved 2 px right: ' + (cMoved ? 'caught' : 'MISSED') + '; a light-cyan row across the U: ' + (cStripe ? 'caught' : 'MISSED') + '; one blended pixel: ' + (cBlend ? 'caught' : 'MISSED'));
 }
 
 function boot() {
