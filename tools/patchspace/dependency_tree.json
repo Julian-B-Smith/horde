@@ -97,7 +97,7 @@
   ],
   "structuralDisagreements": 0,
   "regimeInert": 11,
-  "sideChannelHits": 46,
+  "sideChannelHits": 50,
   "labGreysButLive": 9
  },
  "disagreements": [],
@@ -178,7 +178,7 @@
     "m",
     "mHz"
    ],
-   "probeHits": 11,
+   "probeHits": 12,
    "status": "confirmed by the probe"
   },
   "SC_DCRES2": {
@@ -187,14 +187,14 @@
     "m2",
     "mHz2"
    ],
-   "probeHits": 7,
+   "probeHits": 8,
    "status": "confirmed by the probe"
   },
   "SC_DCRES_B2FM": {
    "params": [
     "b2fm"
    ],
-   "probeHits": 4,
+   "probeHits": 6,
    "status": "confirmed by the probe"
   },
   "SC_DCPAIR": {
@@ -230,27 +230,27 @@
   "pins": {
    "fmGhost": {
     "file": "docs/design/scalpel-interface-lab.html",
-    "line": 3813,
+    "line": 3943,
     "text": "const g3 = grp('FM', () => !isFM(b), 'fm');"
    },
    "shapeGhost": {
     "file": "docs/design/scalpel-interface-lab.html",
-    "line": 3886,
+    "line": 4016,
     "text": "cmpRow(c1, 'Shape', 'morph', 'morph2', T, { ghost: bl => P[bladeKey(bl, 'hot')] !== 6 });"
    },
    "bladeOff": {
     "file": "docs/design/scalpel-interface-lab.html",
-    "line": 3757,
+    "line": 3887,
     "text": "const row = el('div', 'blade' + (b === 2 ? ' b2' : '') + (on ? '' : ' off'));"
    },
    "inertWhy": {
     "file": "docs/design/scalpel-interface-lab.html",
-    "line": 1575,
+    "line": 1653,
     "text": "function inertWhy(key) {"
    },
    "follow": {
     "file": "docs/design/scalpel-interface-lab.html",
-    "line": 1520,
+    "line": 1598,
     "text": "function linked(key2) {"
    }
   },
@@ -3223,14 +3223,14 @@
    ],
    "probe": {
     "contexts": 30,
-    "live": 13,
-    "inert": 17,
+    "live": 14,
+    "inert": 16,
     "declaredLive": 7,
     "declaredInert": 23,
     "liveInDeclared": 7,
     "regime": 0,
-    "sideChannelHits": 6,
-    "minLiveDeltaDecade": -5,
+    "sideChannelHits": 7,
+    "minLiveDeltaDecade": -6,
     "inertExactlyZero": false
    }
   },
@@ -6254,7 +6254,7 @@
     "liveInDeclared": 23,
     "regime": 0,
     "sideChannelHits": 5,
-    "minLiveDeltaDecade": -4,
+    "minLiveDeltaDecade": -5,
     "inertExactlyZero": false
    }
   },
@@ -8276,15 +8276,15 @@
    ],
    "probe": {
     "contexts": 30,
-    "live": 8,
-    "inert": 22,
+    "live": 10,
+    "inert": 20,
     "declaredLive": 4,
     "declaredInert": 26,
     "liveInDeclared": 4,
     "regime": 0,
-    "sideChannelHits": 4,
-    "minLiveDeltaDecade": -4,
-    "inertExactlyZero": false
+    "sideChannelHits": 6,
+    "minLiveDeltaDecade": -6,
+    "inertExactlyZero": true
    }
   },
   "fmType2": {
@@ -8485,13 +8485,13 @@
    ],
    "probe": {
     "contexts": 30,
-    "live": 6,
-    "inert": 24,
+    "live": 7,
+    "inert": 23,
     "declaredLive": 4,
     "declaredInert": 26,
     "liveInDeclared": 4,
     "regime": 0,
-    "sideChannelHits": 2,
+    "sideChannelHits": 3,
     "minLiveDeltaDecade": -4,
     "inertExactlyZero": false
    }
@@ -8616,7 +8616,7 @@
     "liveInDeclared": 2,
     "regime": 0,
     "sideChannelHits": 4,
-    "minLiveDeltaDecade": -4,
+    "minLiveDeltaDecade": -3,
     "inertExactlyZero": true
    }
   },
@@ -10293,12 +10293,12 @@
     },
     {
      "file": "docs/design/scalpel-horde-engine.js",
-     "line": 295,
+     "line": 334,
      "text": "settle(v) { if (this.src === 'razor') super.settle(v); }"
     },
     {
      "file": "docs/design/scalpel-horde-engine.js",
-     "line": 310,
+     "line": 352,
      "text": "for (let i = 0; i < N; i++) v.m[i].inc = Math.max(0, glideOn ? S.fRun[i] : S.eff[i]);"
     }
    ],
