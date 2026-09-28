@@ -25,6 +25,11 @@
  *       and tier 3 (oldest held) each have a row, and a stolen slot starts
  *       fresh. The must-fail control is the oracle's own law (RazorCore's
  *       same-note reuse and steal-oldest) through the same detector.
+ *   B325 first-sample frequencies. RazorCore reads the swarm's member
+ *       frequencies (m.inc) from note-on, not the undetuned pitch, and the
+ *       neutral case is exact on the Hz-unit presets that exposed the gap and on
+ *       a chord struck on a mono voice; the must-fail controls rebuild the old
+ *       placeholder and the fix's own first attempt.
  *   DET determinism: same seed and note order give identical output; a
  *       different horde seed does not; the module reads no clock and draws no
  *       unseeded random of its own; the toString() bundle (the AudioWorklet
@@ -390,8 +395,14 @@ section('VOICE — horde\'s voice law (ADR-083) in the poly note-on, oracle as t
 
   /* A stolen slot is a NEW voice: startVoice runs fresh, so the swarm restarts at
      horde's aligned retrig start (SwarmSynth noteOn: phase 0, swarmsaw.html:365;
-     blade frame ½, §1.6.6) and its glide snaps (vfInit 0). The reading before the
-     steal is the must-read-non-zero twin: the slot was running, off that start. */
+     blade frame ½, §1.6.6) and its glide snaps. The reading before the
+     steal is the must-read-non-zero twin: the slot was running, off that start.
+     EVIDENCE OF THE RE-STRIKE (B325). This row read `vfInit === 0` (the snap still
+     pending) until B325 moved the note's first swarm tick into startVoice, which takes
+     the snap at the strike itself and leaves vfInit 1. The re-strike is now read
+     directly: the swarm holds the NEW note (midi 70) as SwarmSynth's newest strike
+     (age = noteCounter − 1), and its first tick was taken at the strike (tick0), or
+     is still pending (vfInit 0). This is stricter than the old reading, not looser. */
   const off = (c, slot) => { let m = 0; for (let i = 0; i < c.d.N; i++) m = Math.max(m, Math.abs(c.voices[slot].m[i].phi - 0.5)); return m; };
   const steal = (oracle, ev, upTo) => {
     const c = vlMake(oracle);
@@ -399,7 +410,8 @@ section('VOICE — horde\'s voice law (ADR-083) in the poly note-on, oracle as t
     const pre = snap(c), was = pre.map((_, i) => off(c, i));
     c.noteOn(70, hz(70), 0.9);                          // the steal, probed before any render
     const post = snap(c), slot = post.findIndex(v => v.note === 70);
-    const fresh = !oracle && off(c, slot) === 0 && c.sw.swarms[c.voices[slot].si].vfInit === 0;
+    const S = oracle ? null : c.sw.swarms[c.voices[slot].si];
+    const fresh = !oracle && off(c, slot) === 0 && S.midi === 70 && S.age === c.sw.noteCounter - 1 && (S.vfInit === 0 || c.voices[slot].tick0 === true);
     return { pre, post, slot, fresh, was: was[slot] };
   };
 
@@ -449,6 +461,72 @@ section('VOICE — horde\'s voice law (ADR-083) in the poly note-on, oracle as t
       `(was ${pre[slot].note}, age ${pre[slot].age}, the oldest held); 66 kept in slot 0`);
     row(fresh && was > 1e-3, 'VL3', `the stolen held slot starts FRESH: max|φ_S − ½| ${was.toFixed(4)} before → 0 after`);
   }
+}
+
+/* ---------------------------------------------------------------- first-sample frequencies (B325) */
+/* The B325 fidelity audit found the one composed-engine-introduced defect: until the swarm's
+   first tick reached couple() (its 32-sample pass), RazorCore read the UNDETUNED pitch as every
+   member's frequency (m.inc), and m.inc feeds the Hz-unit cut rate (lock 2), the Hz-unit
+   modulator (mUnit) and the per-cycle DC estimate taken on the note's first sample. In the
+   neutral case (K 0, the aligned start, where the composed engine must equal the oracle) it
+   read a slow offset of up to 2.5e-2 per note on Formant pluck (lock 2) and a modulator phase
+   offset that never recovered on Crunch horde (mUnit 1). The fix takes the first tick in
+   startVoice. The rows: m.inc is the swarm's own frequency before any render, and those two
+   presets are exact in the neutral case. The MUST-FAIL control rebuilds the old placeholder
+   (no early tick) and must read the defect through the same detectors. */
+section('B325 — the blade reads the swarm\'s member frequencies from the first sample; the old placeholder as the must-fail control');
+{
+  /* the pre-B325 behaviour, rebuilt: no tick in startVoice, so couple() hands RazorCore the pitch */
+  class Placeholder extends Composed {
+    startVoice(v, n, f, vel, fresh, re) { this.noEarly = true; super.startVoice(v, n, f, vel, fresh, re); this.noEarly = false; v.tick0 = false; }
+    tickSwarm(v, S) { if (!this.noEarly) super.tickSwarm(v, S); }
+  }
+  class Shifted extends RazorCore { startVoice(v, n, f, vel, fresh, re) { super.startVoice(v, n, f, vel, fresh, re); if (fresh) for (const m of v.m) m.phi = 0.5; } }
+  const incGap = Cls => {
+    Math.random = mulberry32(0xB325);
+    const c = new Cls(SR); c.set(Object.assign({}, byName('Formant pluck'), { K: 0.5 })); Object.assign(c.s, c.t);
+    c.noteOn(NOTE, F57, 0.9);
+    const v = c.voices[0], S = c.sw.swarms[v.si]; let g = 0;
+    for (let i = 0; i < c.d.N; i++) g = Math.max(g, Math.abs(v.m[i].inc - S.eff[i]));
+    return { g, vfInit: S.vfInit };
+  };
+  /* the neutral case: four notes on a fresh pool (every law allocates slots 0..3 alike), 0.5 s */
+  const neutral = (Cls, name, ev, over) => {
+    ev = ev || [[0, 57], [3072, 64], [6144, 60], [9216, 67]];
+    const go = (make) => {
+      Math.random = mulberry32(0xB325);
+      const c = make(); c.set(Object.assign({}, byName(name), { K: 0, phaseMode: 1 }, over || {})); Object.assign(c.s, c.t);
+      const L = new Float32Array(24064), R = new Float32Array(24064);
+      let e = 0;
+      for (let i = 0; i < L.length; i += 128) {
+        while (e < ev.length && ev[e][0] <= i) { const n = ev[e++][1]; c.noteOn(n, 440 * Math.pow(2, (n - 69) / 12), 0.9); }
+        c.render(L.subarray(i, i + 128), R.subarray(i, i + 128));
+      }
+      return { L, R };
+    };
+    return maxDiff(go(() => new Shifted(SR)), go(() => new Cls(SR)));
+  };
+  const a = incGap(Composed), b = incGap(Placeholder);
+  row(a.g === 0 && a.vfInit === 1, 'B325', `after noteOn, before any render (Formant pluck, K 0.5): max|m.inc − S.eff| ${a.g.toExponential(1)} Hz, swarm ticked ${a.vfInit === 1}`);
+  const fp = neutral(Composed, 'Formant pluck'), ch = neutral(Composed, 'Crunch horde');
+  row(fp === 0 && ch === 0, 'B325', `neutral case (K 0, aligned) ≡ oracle: Formant pluck (lock 2, Hz cut rate) max|Δ| ${fp.toExponential(1)} · Crunch horde (mUnit 1, Hz modulator) max|Δ| ${ch.toExponential(1)}`);
+  const fpc = neutral(Placeholder, 'Formant pluck'), chc = neutral(Placeholder, 'Crunch horde');
+  row(b.g > 0.1 && fpc > 1e-3 && chc > 1e-3, 'B325c', `CONTROL the old placeholder (no early tick): max|m.inc − S.eff| ${b.g.toFixed(3)} Hz; neutral max|Δ| Formant pluck ${fpc.toExponential(1)}, Crunch horde ${chc.toExponential(1)} — must be large`);
+  /* the case that caught the fix's first attempt, which KEPT the look-ahead tick and skipped the
+     scheduled one: a chord struck on a mono voice (four note-ons in one block) froze the swarm
+     at the FIRST note's pitch for 16 samples, a phase offset that never recovered. The look-
+     ahead is now undone before the real first tick, and re-taken when the pitch moves. Glide off
+     (1 ms): a glide is stepped at the swarm's tick by design (G3), so it could not be exact. */
+  class FirstTry extends Composed {
+    lookAhead(v, S, first) { if (first) { this.tickSwarm(v, S); v.tick0 = true; } }
+    unLookAhead(v) { v.tick0 = false; v.skip0 = true; }
+    tickSwarm(v, S) { if (v.skip0) { v.skip0 = false; return; } super.tickSwarm(v, S); }
+  }
+  const monoChord = [[0, 48], [0, 55], [0, 60], [0, 64]];
+  const mz = neutral(Composed, 'Zap bass', monoChord, { glide: 1 }), ms = neutral(Composed, 'Screamer', monoChord, { glide: 1 });
+  row(mz === 0 && ms === 0, 'B325', `mono chord, four note-ons in one block (legato presets, glide off), neutral case ≡ oracle: Zap bass max|Δ| ${mz.toExponential(1)} · Screamer ${ms.toExponential(1)}`);
+  const fz = neutral(FirstTry, 'Zap bass', monoChord, { glide: 1 });
+  row(fz > 1e-3, 'B325c', `CONTROL the fix's first attempt (look-ahead kept, scheduled tick skipped): Zap bass mono chord max|Δ| ${fz.toExponential(1)} — must be large`);
 }
 
 /* ---------------------------------------------------------------- determinism */
