@@ -1,0 +1,1986 @@
+<!doctype html>
+<!-- sluice-horde-lab — B319: Sluice as it will live inside horde. HYPERSAW, 2026-09-28,
+     dispatched by the horde lead on ROADMAP B319 (carried in records PR #811, branch
+     lead-records-123). The human: "Could you also please start agents building the design
+     labs for Maw and Sluice as they'll live in Horde?" Spec-in-code per ADR-003.
+
+     WHAT THIS IS. A design lab, not a port. One plugin window (980×720, B227's size) on
+     horde's FX page with the Sluice node selected in the rack. The node is shown as horde
+     would present it: the network view (nodes and edges, lit by what was rendered), the
+     four macros by ORDER with Sluice's labels (ADR-169 A1, the lead's recommendation,
+     ruling owed), tempo sync by horde's division NAMES (notice seq 7), the FREAK ZONE-style
+     randomiser (notice seq 10: RANDOMNESS, nested per-parameter thresholds, tri-state
+     locks, a loudness measurement), the four corners as the slots (ADR-166 A1) and every
+     internal parameter one level down (ADR-169 A2: the face summarises, never hides).
+
+     THE ENGINE IS OUR REFERENCE, LOADED AND CALLED, NEVER EDITED. reference/network-lab-v0.html
+     is PROTECTED and is the oracle horde holds. The page fetches it as text and slices out
+     ENGINE_FACTORY (from its declaration to `var ENG = ENGINE_FACTORY();`), PRESETLIB,
+     toSlider/fromSlider and sigOf, and evaluates them unmodified.
+     Two runtime seams, both stated and both checked at load:
+       1. SEEDED. The reference's S&H LFO calls Math.random (network-lab-v0.html:458; the
+          four sanctioned seed edits of B127 landed in Sluice's copy, not ours). The slice is
+          evaluated with a local `Math` whose random() is a mulberry32 stream, so the S&H is
+          seeded without touching the file.
+       2. TAPPED. The copy the page and the audio render from carries two read-only taps
+          (after each module's tick, and on the loop's damped bus) so the network view can
+          be lit by the rendered signal (L0064). Check K6 proves, preset by preset, that the
+          tapped copy renders BIT-IDENTICAL to the untapped slice, and that a planted tap
+          which perturbs the signal is caught.
+     Sluice's own lab has moved well past this reference (stereo, twelve module types, a
+     post chain, a gate, tempo sync, macros, fz.h). Where they differ the page plays what
+     OUR reference defines and lists the drift in the side panel for the lead.
+
+     ONE RENDERER (L0064). makeRenderer() is the only thing that makes sound or pictures.
+     With audio on it runs in an AudioWorklet built from its own toString() and posts its
+     meters back; with audio off the same function runs on the page, one fixed hop per
+     frame (no wall clock). Check K5 evaluates the worklet's source on the page and
+     requires it to render bit-identically to the page's instance, meters included; K9
+     renders the REAL worklet in an OfflineAudioContext and requires the same samples (real
+     time only: a virtual-time headless capture never renders audio, so K9 then stays
+     pending). The first messages ride in with the node (processorOptions), not by port.
+
+     SELF-CHECKS K1–K9 run at load, each with a must-fail control (side panel): finite for
+     every preset, corner and random patch; bypass bit-identical; a synced time equals the
+     division × the host bpm (resolved AND rendered); the randomiser seeded, lock-respecting
+     and nested; drawn = heard (K5, K9); tapped = untapped; macros reproduce their presets;
+     the corners exact and a split chain flagged.
+
+     THE INPUT is a horde voice: the COMPOSED engine (docs/design/scalpel-horde-engine.js,
+     loaded, never edited; the SCALPEL lab's B309 route), playing a four-note riff on the
+     host tempo so a synced echo can be heard against the beat. Two more sources, an
+     impulse per bar (the network's structure, legible) and a seeded noise burst (the
+     loudness reference), are one switch away. Justification in the side panel.
+
+     WHAT IS MODELLED AND WHAT IS MOCKED is a table in the side panel; nothing mocked is
+     heard. In short: the network, bypass, tempo resolution, the fz randomiser (ported
+     from Sluice's netcore/include/sluice/fz.h and random.h over OUR reference's eight
+     module types), the macros (Sluice's macro.h law) and the corner morph are modelled;
+     Sluice's post limiter, release gate and wet gain are MOCKED (our reference has none of
+     them), and the loudness figure is measured but not applied.
+
+     TOKENS ARE COPIED, NOT LINKED — verbatim from docs/design/scalpel-interface-lab.html
+     :164-271 and :282-427 (which copy src/gui/gui2.html via station-page-lab.html). The
+     look is the new labs' look that B302 will assemble into GUI 3. Copy, therefore drift.
+
+     NO WHEEL. No control here listens to the wheel, so lab_wheel_scroll_check's inventory
+     does not need this lab (a plain scroll never turns anything).
+
+     L0026: every const is declared above the code that runs at setup; boot() is the last
+     statement of the script. -->
+<html><head><meta charset="utf-8">
+<meta name="lab-review" content="B319 · 2026-09-28">
+<title>Sluice in horde — the network as a hosted FX module</title>
+<style>
+  :root {
+    /* ground */
+    --bg:#F2EDE2;        /* page ground (cream)                    */
+    --panel:#FCFAF4;     /* module cards                           */
+    --well:#FFFFFF;      /* DATA surfaces: viz, pads, keyboards     */
+    --panel2:#E9E3D4;    /* well-alt: control tracks, empty meters  */
+    --line:#191521;      /* ink — ALL outlines                     */
+    --hair:#E5DFD0;      /* in-well gridlines ONLY, never borders   */
+    --div:#D8D1C0;       /* dashed intra-card separators           */
+    /* text */
+    --text:#191521;      /* primary (ink)                          */
+    --t2:#494356;        /* secondary                              */
+    --dim:#9A93A3;       /* hint                                   */
+    --dis:#B6AFA0;       /* disabled                               */
+    /* signal — one job each, never borrowed */
+    --value:#F5169C;     /* the user's authored value              */
+    --pull:#F5169C;      /* legacy name for the accent = value      */
+    --physics:#6431F0;   /* order parameter, K vector, rotor lead   */
+    --meter:#00D5C8;     /* analyzers, R rim arc                   */
+    --marker:#FFD702;    /* attention: root, overshoot, lock front  */
+    --celebrate:#A6F219; /* OK / meters in the green               */
+    --caution:#F5A300;   --caution-bg:#FBE9BD; --caution-tx:#6D570B;
+    --amber:#F5A300;     /* legacy name for caution                 */
+    --alarm:#C2261A;     /* PANIC, clip, mute — NOTHING else        */
+    --ghost:#C9C2FF;     /* dry/reference traces behind wet         */
+    /* corners — preset identity (fill / dark text pair) */
+    --cA:#FFD702; --cAtx:#D4A900;
+    --cB:#FF2E88; --cBtx:#FF2E88;
+    --cC:#00D5C8; --cCtx:#00B3A8;
+    --cD:#A6F219; --cDtx:#6FB200;
+    /* B315 — THE LOGO's four corner colours (gui2.html:170-186): the TRUE corner colours at
+       full value; on the light ground legibility is the ink outline's job (--lg-edge) */
+    --lgA:#FFD702; --lgB:#FF2E88; --lgC:#00D5C8; --lgD:#A6F219; --lg-edge:#191521;
+    /* canvas-only names from ADR-118 A2, re-pointed at spec roles */
+    --text-hi:#191521;
+    --dim2:#494356;      /* canvas axis labels — secondary          */
+    --grid:#E5DFD0;      /* gridlines = hairline                    */
+    --grid2:#E5DFD0;
+    --hot:#F5169C;       /* live-value marks = value                */
+    --bad:#C2261A;
+    --badge-bg:rgba(245,163,0,.9);
+    /* SCREEN TOKENS — vaporwave phosphor (ADR-119). The chrome stays cream;
+       only the DATA WELLS become phosphor tubes, so canvases read these while
+       every CSS control keeps the chrome set. */
+    --scr-tube:#1B0733;      /* the tube ground — deep violet            */
+    --scr-value:#FF5ECF;     /* your value, as hot-pink phosphor        */
+    --scr-meter:#B8F227;     /* meter/measure, as LIME                  */
+    --scr-physics:#B48CFF;   /* the system's own state                  */
+    --scr-marker:#FFB86B;    /* attention/root, as amber                */
+    --scr-grid:#4FD8BE;      /* in-tube structure — painted at low alpha */
+    --scr-scan:0.22;         /* scanline strength                        */
+    --scr-alpha:1;           /* multiplier on every TOKA() alpha         */
+    /* B293 — the cycle view's weights, as NUMBERS beside --scr-alpha, not new
+       colours: every ink below is still a gui2 token. These are the DARK values
+       (the human likes dark as it is); the light tube overrides them further down. */
+    --scr-blade-a:1;         /* multiplier on blade-window fills          */
+    --scr-sig-w:1.8;         /* the heard trace's stroke, px              */
+    --scr-halo-w:0;          /* tube-coloured underlay each side of it, px */
+    --scr-member-a:1;        /* multiplier on the faint member traces     */
+    /* geometry */
+    --r-card:10px; --r-well:var(--r-card); --r:var(--r-card); --stroke:1.5px;
+    --shadow:1.5px 1.5px 0 var(--line);
+    --shadow-hover:2.5px 2.5px 0 var(--line);
+    --focus:0 0 0 2.5px rgba(245,22,156,.45); }
+  * { box-sizing:border-box; margin:0; }
+  /* gui2:103 — every canvas is a phosphor tube, and a tube gets the same ink
+     border language as the cards. No shadow: shadows are for interactive
+     elements, never wells. */
+  canvas { border:var(--stroke) solid var(--line); border-radius:var(--r-well);
+           background:var(--scr-tube); display:block; }
+  /* gui2:142 — ORCHID is the screen scheme the LIGHT chassis pairs with
+     (gui2:1654-1657: LIGHT/ORCHID, DARK/TUBE). A lab with two themes carries
+     both pairings or it is showing a chassis nobody ships. */
+  body:not(.dark) { --scr-tube:#F3EBFF; --scr-value:#D6006B; --scr-meter:#007A73;
+    --scr-physics:#6E14E8; --scr-marker:#C43A00; --scr-grid:#5A3FA8;
+    --scr-scan:0.05; --scr-alpha:1.6;
+    /* B293 (human 2026-09-27: "the color scheme can get a little overwhelming in
+       light mode … make the blades in light mode a little less opaque, and maybe
+       do something to make the signal pop more"). --scr-alpha 1.6 lifts faint
+       strokes on the orchid tube, and it lifted the blade FILLS with them, so
+       several overlapping member windows went solid magenta and swallowed the
+       teal trace. The fills drop to ~0.4 of that; the trace goes heavier and gets
+       a thin tube-coloured halo so it cuts through whatever is under it. Its ink
+       stays --scr-meter (a measure — what is heard), which is already not the
+       blade hue, so no colour changes job. */
+    --scr-blade-a:.4; --scr-sig-w:2.6; --scr-halo-w:2; --scr-member-a:.6;
+    /* gui2:167 — yellow and lime cannot survive a light ground (measured
+       1.20:1 and 1.17:1 against --bg, where the graphical floor is 3:1). */
+    --marker:#8A6A00; --celebrate:#4E7A00; }
+  body.dark {
+    --bg:#151220; --panel:#1F1B2E; --well:#0E0C16; --panel2:#2C2740;
+    --line:#EFE9FA; --hair:#312B47; --div:#3B3455;
+    --text:#EFE9FA; --t2:#BDB4D4; --dim:#8A82A3; --dis:#514A6B;
+    --value:#FF3DAD; --pull:#FF3DAD; --physics:#A07CFF; --meter:#2DF2E2;
+    --marker:#FFE04D; --celebrate:#C2F53E;
+    --caution:#FFB627; --caution-bg:#4A3A12; --caution-tx:#FFD98A;
+    --amber:#FFB627; --alarm:#FF5A4D;
+    --ghost:#5B4E8F;
+    --cA:#FFD702; --cAtx:#FFE566;
+    --cB:#FF2E88; --cBtx:#FF6FAE;
+    --cC:#00D5C8; --cCtx:#4DEDE3;
+    --cD:#A6F219; --cDtx:#C6F86A;
+    /* gui2.html:204-207: on the dark ground the corner colours ARE legible, and need no
+       outline, which would read as a halo rather than an edge */
+    --lgA:#FFD702; --lgB:#FF2E88; --lgC:#00D5C8; --lgD:#A6F219; --lg-edge:none;
+    --text-hi:#FFFFFF; --dim2:#9A93A8; --grid:#312B47; --grid2:#312B47;
+    --hot:#FF3DAD; --bad:#FF5A4D; --badge-bg:rgba(255,182,39,.9);
+    --focus:0 0 0 2.5px rgba(255,61,173,.45); }
+
+  /* ============ LAB CHROME — station-page-lab's idiom (gui2:245-560) ============ */
+  body { background:var(--bg); color:var(--text);
+    font:12px/1.45 ui-monospace,Menlo,monospace; padding:10px 12px; }
+  .hdr { display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; margin-bottom:8px; }
+  h1 { font-size:34px; line-height:1; letter-spacing:-1px; font-weight:800; }
+  .badges { display:flex; align-items:center; gap:8px; margin-top:4px; }
+  .badge { font-size:9.5px; letter-spacing:.1em; padding:2px 7px;
+           border:var(--stroke) solid var(--line); border-radius:3px;
+           background:var(--cA); color:var(--line); }
+  body.dark .badge { color:var(--bg); }
+  .sub { color:var(--t2); font-size:10.5px; letter-spacing:.12em; }
+  .hdrctl { display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-left:auto; }
+  .grp { display:flex; align-items:center; gap:7px; }
+  .lbl { font-size:10px; font-weight:700; letter-spacing:.1em; color:var(--t2); }
+  .pill { padding:3px 10px; border:var(--stroke) solid var(--line);
+    border-radius:999px; min-height:26px; cursor:pointer; color:var(--dim);
+    background:var(--panel); font:inherit; font-size:10px; letter-spacing:.06em; }
+  .pill:hover { box-shadow:var(--shadow); }
+  .pill.on { color:var(--bg); background:var(--line); font-weight:600; }
+  .pill.panic { border-color:var(--alarm); color:var(--alarm); font-weight:700; }
+  .pill.panic:hover { background:var(--alarm); color:var(--bg); }
+  .pills { display:flex; gap:4px; flex-wrap:wrap; align-items:center; }
+  .chip { padding:4px 8px; border:0; background:none; border-radius:var(--r);
+    cursor:pointer; font:inherit; font-size:10px; letter-spacing:.06em;
+    color:var(--dim); min-height:26px; }
+  .chip:hover { background:var(--panel2); }
+  .chip b { color:var(--t2); font-weight:600; letter-spacing:.1em; }
+  .tagline { color:var(--t2); font-size:11px; max-width:130ch; margin-bottom:6px; }
+  .tagline b { color:var(--text); }
+  .audit { font-size:10px; color:var(--t2); margin-bottom:8px;
+           border-left:3px solid var(--meter); padding-left:8px; max-width:150ch; }
+  .audit.bad { border-left-color:var(--alarm); color:var(--alarm); }
+  .audit b { color:var(--value); }
+  .audit .ok { color:var(--celebrate); font-weight:700; }
+  .audit .no { color:var(--alarm); font-weight:700; }
+  /* a departure from the standard is marked in caution, the one status whose job
+     is "look at this before you accept it" (gui2's --caution-bg/--caution-tx pair) */
+  .dep { display:inline-block; font-size:8.5px; letter-spacing:.1em; font-weight:700;
+    padding:0 5px; border-radius:3px; background:var(--caution-bg); color:var(--caution-tx);
+    border:1px solid var(--caution); margin-left:4px; vertical-align:1px; }
+  .std { display:inline-block; font-size:8.5px; letter-spacing:.1em; font-weight:700;
+    padding:0 5px; border-radius:3px; color:var(--t2); border:1px solid var(--div);
+    margin-left:4px; vertical-align:1px; }
+  .altbar { display:flex; flex-wrap:wrap; gap:8px 18px; align-items:center; margin:4px 0 10px;
+    padding:6px 10px; border:var(--stroke) solid var(--line); border-radius:var(--r);
+    background:var(--panel); }
+  .altbar select { max-width:230px; }
+
+  /* ============ CONTROLS — gui2:490 slider, :513 toggle, :538 enum ============ */
+  input[type=range] { -webkit-appearance:none; appearance:none; width:100%; min-width:0;
+    height:20px; background:transparent; cursor:pointer; margin:0; }
+  input[type=range]::-webkit-slider-runnable-track { height:6px; border-radius:3px;
+    border:var(--stroke) solid var(--line);
+    background:linear-gradient(to right, var(--value) 0 calc(var(--pct, 0) * 100%),
+      var(--panel2) calc(var(--pct, 0) * 100%) 100%); }
+  /* B315: a bipolar slider fills from its centre (0) to the value, as the knob's arc does, and
+     marks the centre. The track is built in JS (sliderRow, --trk), in THUMB-CENTRE coordinates
+     (6.5 px + p·(100% − 13 px)), so the fill ends under the thumb's middle, not a thumb-width off */
+  input[type=range].bip::-webkit-slider-runnable-track { background:var(--trk); }
+  /* ...and the zero tick also runs the input's full height, so it shows above and below a thumb
+     that sits on or near it (the thumb is 13 px; a small spread hides the fill under it) */
+  input[type=range].bip { background:linear-gradient(to right, transparent calc(50% - 0.75px), var(--dim) calc(50% - 0.75px) calc(50% + 0.75px), transparent calc(50% + 0.75px)); }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; appearance:none;
+    width:13px; height:13px; border-radius:4px; margin-top:-3.5px;
+    background:var(--panel); border:var(--stroke) solid var(--line); box-shadow:var(--shadow); }
+  input[type=range]:active::-webkit-slider-thumb { background:var(--value); box-shadow:none; }
+  input[type=checkbox] { -webkit-appearance:none; appearance:none; margin:0; flex:0 0 auto;
+    width:30px; height:16px; border-radius:999px; cursor:pointer;
+    background:var(--panel2); border:var(--stroke) solid var(--line); position:relative; }
+  input[type=checkbox]::after { content:''; position:absolute; top:1px; left:1px;
+    width:10px; height:10px; border-radius:999px; background:var(--panel);
+    border:var(--stroke) solid var(--line); transition:transform .12s ease; }
+  input[type=checkbox]:checked { background:var(--value); }
+  input[type=checkbox]:checked::after { transform:translateX(14px); }
+  select { -webkit-appearance:none; appearance:none; font:inherit; font-size:10px;
+    padding:2px 18px 2px 9px; min-width:0; border-radius:999px;
+    border:var(--stroke) solid var(--line); background:var(--panel); color:var(--t2);
+    cursor:pointer; min-height:22px;
+    background-image:linear-gradient(45deg,transparent 50%,var(--t2) 50%),
+                     linear-gradient(135deg,var(--t2) 50%,transparent 50%);
+    background-position:calc(100% - 11px) 50%, calc(100% - 7px) 50%;
+    background-size:4px 4px, 4px 4px; background-repeat:no-repeat; }
+  input[type=text] { font:inherit; font-size:10px; padding:2px 8px; border-radius:999px;
+    min-height:22px; border:var(--stroke) solid var(--line); background:var(--panel);
+    color:var(--text); min-width:0; width:100%; }
+
+  /* ============ KNOB — gui2:617-730 (ADR-120 skin, ADR-137 halo), via compact-lab:195-235 ============ */
+  .knob { position:relative; width:36px; height:36px; flex:0 0 auto; cursor:ns-resize; touch-action:none; }
+  .karc { position:absolute; inset:1.7px; border-radius:50%;
+    background:conic-gradient(from 220deg,
+      var(--panel2) 0deg var(--a0,0deg), var(--value) var(--a0,0deg) var(--a1,0deg),
+      var(--panel2) var(--a1,0deg) 280deg, transparent 280deg 360deg); }
+  /* Position is CIRCULAR (ACCOUNTING §1 finding 5): no end stops, so the track is
+     a full turn and the arc is a small window at the value, not a fill from zero */
+  .knob.circ .karc { background:conic-gradient(from 0deg,
+      var(--panel2) 0deg var(--a0,0deg), var(--value) var(--a0,0deg) var(--a1,0deg),
+      var(--panel2) var(--a1,0deg) 360deg); }
+  .kmod { position:absolute; inset:0; border-radius:50%;
+    background:conic-gradient(from 220deg,
+      transparent 0deg var(--m0,0deg), var(--physics) var(--m0,0deg) var(--m1,0deg),
+      transparent var(--m1,0deg) 360deg); opacity:.85; }
+  .knob.circ .kmod { background:conic-gradient(from 0deg,
+      transparent 0deg var(--m0,0deg), var(--physics) var(--m0,0deg) var(--m1,0deg),
+      transparent var(--m1,0deg) 360deg); }
+  .kmnow { position:absolute; left:50%; top:0; width:2.5px; height:5px;
+    margin-left:-1.25px; border-radius:1.25px; background:var(--physics);
+    transform-origin:50% 18px; transform:rotate(var(--mang,0deg)); opacity:0; z-index:2; }
+  .knob.mod .kmnow { opacity:1; }
+  .kcap { position:absolute; inset:4.5px; border-radius:50%;
+    background:var(--panel); border:var(--stroke) solid var(--line); box-shadow:var(--shadow); }
+  .kptr { position:absolute; left:50%; top:7px; width:2.5px; height:9px;
+    margin-left:-1.25px; border-radius:1.5px; background:var(--line);
+    transform-origin:50% 11px; transform:rotate(var(--ang,0deg)); }
+  .knob:hover .kcap { box-shadow:var(--shadow-hover); }
+  .knob.drag .kcap { background:var(--value); box-shadow:none; }
+  .knob.drag .kptr { background:var(--bg); }
+  .knob.big { width:44px; height:44px; }
+  .knob.big .kcap { inset:5px; }
+  .knob.big .kptr { top:8px; height:10px; transform-origin:50% 14px; }
+  .knob.big .kmnow { transform-origin:50% 22px; }
+  .kcell { position:relative; display:flex; flex-direction:column; align-items:center;
+    gap:1px; padding:2px 0 0; text-align:center; width:52px; min-width:0; }
+  .kcell.big { width:70px; }
+  .kcell > label { font-size:9.5px; line-height:1.15; max-width:100%; color:var(--t2);
+    letter-spacing:-.01em; display:-webkit-box; -webkit-box-orient:vertical;
+    -webkit-line-clamp:2; overflow:hidden; overflow-wrap:break-word; min-height:2.3em; }
+  .kcell > output { position:absolute; left:0; right:0; top:2px; min-height:2.3em;
+    display:flex; align-items:center; justify-content:center; font-size:10px;
+    line-height:1.15; color:var(--text); font-weight:600;
+    font-variant-numeric:tabular-nums; opacity:0; pointer-events:none; transition:opacity .08s; }
+  .kcell:hover > output, .kcell:has(.knob.drag) > output { opacity:1; }
+  .kcell:hover > label, .kcell:has(.knob.drag) > label { opacity:0; }
+  /* the lab's opt-in: value under every knob, for screenshots read without hovering */
+  body.showvals .kcell > output { position:static; opacity:1; min-height:0; font-size:9px; font-weight:500; color:var(--t2); }
+  body.showvals .kcell > label { opacity:1 !important; }
+  .kcell.ghost > .knob, .kcell.inert > .knob { opacity:.45; }
+  .kcell.ghost > label, .kcell.inert > label { color:var(--dim); }
+  /* B297: inert because the oracle's law does not read it NOW (a Cut rule is on): the
+     label is struck through, which the FM group's ghost (dimmed only) never is */
+  .kcell.ruled > label, .srow.ruled > label, .scrub.ruled i, .cc.ruled output { text-decoration:line-through; }
+  .kcell.ruled > .knob .kcap { border-style:dotted; box-shadow:none; }
+  .scrub.inert { opacity:.45; }
+  /* FOLLOWING blade 1: the knob shows blade 1's value, dashed, and "=1" in its label */
+  .kcell.follow > .knob .kcap { border-style:dashed; box-shadow:none; }
+  .kcell.follow > .knob .karc { opacity:.4; }
+  .kcell.follow > label::after { content:' =1'; color:var(--physics); font-weight:700; }
+
+  /* ============ THE PLUGIN WINDOW — the SCALPEL lab's frame (scalpel-interface-lab.html:429-470), trimmed ============ */
+  .stage { display:flex; gap:14px; align-items:flex-start; flex-wrap:wrap; }
+  .plug { width:980px; height:720px; flex:0 0 auto; background:var(--bg);
+    border:var(--stroke) solid var(--line); border-radius:12px; box-shadow:var(--shadow);
+    padding:8px 10px; display:flex; flex-direction:column; gap:6px; overflow:hidden; }
+  .side { flex:1 1 300px; max-width:430px; font-size:10.5px; color:var(--t2); line-height:1.5; }
+  .side h2 { font-size:11px; color:var(--pull); letter-spacing:1px; margin:0 0 5px; }
+  .side .box { background:var(--panel); border:var(--stroke) solid var(--line); border-radius:var(--r);
+    padding:8px 10px; margin-bottom:10px; }
+  .side b { color:var(--text); }
+  .side ul, .side ol { padding-left:16px; margin:3px 0 0; }
+  .side li { margin:3px 0; }
+  .side table { border-collapse:collapse; width:100%; font-size:9.5px; }
+  .side td, .side th { border-bottom:1px dashed var(--div); padding:2px 3px; text-align:left; vertical-align:top; }
+  .side th { color:var(--dim); font-weight:600; letter-spacing:.08em; }
+  .phdr { display:flex; align-items:center; gap:10px; flex:0 0 auto; }
+  .brand { font-size:20px; font-weight:800; letter-spacing:-.5px; }
+  .tabs { display:flex; gap:4px; flex-wrap:wrap; align-items:center; }
+  .tab { padding:2px 12px; border:var(--stroke) solid var(--line); border-radius:999px; min-height:22px;
+    cursor:default; color:var(--t2); background:var(--panel); font:inherit; font-size:10px; }
+  .tab.on { color:var(--bg); background:var(--line); font-weight:600; }
+  .tab.stub { opacity:.35; }
+  .phdr-r { margin-left:auto; text-align:right; font-size:10px; color:var(--t2); line-height:1.35; }
+  .phdr-r b { color:var(--text); }
+  .col { display:flex; flex-direction:column; gap:6px; min-height:0; min-width:0; }
+  .cell { background:var(--panel); border:var(--stroke) solid var(--line); border-radius:var(--r);
+    padding:5px 7px; min-width:0; }
+  .cell > h3 { font-size:10px; color:var(--pull); letter-spacing:1px; margin:0 0 3px;
+    display:flex; align-items:center; gap:6px; font-weight:700; }
+  .cell > h3 .own { font-size:8.5px; color:var(--dim); letter-spacing:.1em; font-weight:500; }
+  .cell > h3 .sp { margin-left:auto; display:flex; gap:4px; align-items:center; }
+  .scroll { overflow:auto; min-height:0; flex:1 1 auto; padding-right:2px; }
+  canvas.viz { width:100%; display:block; }
+  .cap { font-size:9px; letter-spacing:.1em; color:var(--dim); margin:3px 0 2px; }
+  .vnote { font-size:9.5px; color:var(--t2); margin-top:2px; line-height:1.35; min-height:1.35em; }
+  .pill.mini { min-height:19px; padding:0 7px; font-size:9.5px; letter-spacing:.02em; }
+  .pill:disabled { opacity:.4; cursor:not-allowed; box-shadow:none; }
+
+  /* ============ THIS LAB ============ */
+  /* the rack strip: horde's FX modules, one instance per type (ADR-172); Sluice selected */
+  .rackrow { display:flex; gap:4px; align-items:center; flex-wrap:wrap; flex:0 0 auto;
+    padding:4px 7px; border:var(--stroke) solid var(--line); border-radius:var(--r); background:var(--panel); }
+  .rackrow .lbl { margin-right:4px; }
+  .rchip { font-size:9.5px; letter-spacing:.06em; padding:1px 8px; border:1px solid var(--div); border-radius:4px;
+    color:var(--dim); background:var(--panel2); }
+  .rchip.me { border:var(--stroke) solid var(--line); color:var(--text); background:var(--panel); font-weight:700;
+    display:inline-flex; align-items:center; gap:6px; }
+  .rchip.me.byp { color:var(--dim); text-decoration:line-through; }
+  .rnote { font-size:9px; color:var(--dim); margin-left:auto; }
+  .fxbody { flex:1 1 auto; min-height:0; display:grid; grid-template-columns:292px minmax(0,1fr); gap:7px; }
+  .fxbody > .col > .cell { flex:0 0 auto; }
+  /* the face on top, every parameter one level down: the column scrolls, the face stays first (ADR-169 A2) */
+  #leftCol { overflow-y:auto; overflow-x:hidden; min-height:0; padding-right:3px; }
+  .rtop { display:flex; gap:6px; align-items:center; }
+  .rtop .kcell { width:66px; }
+  .rbtns { display:flex; flex-wrap:wrap; gap:3px; }
+  .kr { display:flex; flex-wrap:wrap; gap:0 2px; align-items:flex-start; }
+  .mgrid { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:0 4px; justify-items:center; }
+  .mgrid .kcell { width:64px; }
+  .kcell.unbound > .knob { opacity:.3; }
+  .kcell.unbound > label { color:var(--dim); font-style:italic; }
+  .mslot { font-size:8px; letter-spacing:.1em; color:var(--dim); }
+  .brow { display:flex; gap:4px; flex-wrap:wrap; align-items:center; margin:3px 0; }
+  .kv { font-size:9.5px; color:var(--t2); font-variant-numeric:tabular-nums; }
+  .kv b { color:var(--text); }
+  .mock { opacity:.55; }
+  .caution { font-size:9.5px; line-height:1.4; color:var(--caution-tx); background:var(--caution-bg);
+    border:1px solid var(--caution); border-radius:4px; padding:3px 6px; margin:3px 0; }
+  .caution b { color:var(--caution-tx); }
+  /* the deep panel: every internal parameter (ADR-169 A2) */
+  .mod { border:1px solid var(--div); border-radius:6px; padding:3px 5px 4px; margin:4px 0; background:var(--panel); }
+  .mod.sel { border:var(--stroke) solid var(--value); }
+  .mod.off .prow { opacity:.45; }
+  .mhd { display:flex; align-items:center; gap:5px; font-size:9.5px; }
+  .mhd .mi { font-weight:800; color:var(--dim); width:16px; }
+  .mhd .mn { font-weight:700; letter-spacing:.06em; cursor:pointer; }
+  .mhd .sp { margin-left:auto; display:flex; gap:3px; align-items:center; }
+  .lock { font:inherit; font-size:8.5px; padding:0 5px; min-height:16px; border:1px solid var(--div); border-radius:3px;
+    background:var(--panel2); color:var(--t2); cursor:pointer; }
+  .lock.on { background:var(--line); color:var(--bg); border-color:var(--line); }
+  .lock.off { border-color:var(--value); color:var(--value); }
+  .prow { display:grid; grid-template-columns:8px 70px minmax(0,1fr) 58px; gap:4px; align-items:center; font-size:9.5px; }
+  .prow > i { width:6px; height:6px; border-radius:50%; border:1px solid var(--div); }
+  .prow > i.hot { background:var(--value); border-color:var(--value); }
+  .prow > label { color:var(--t2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .prow > output { text-align:right; font-variant-numeric:tabular-nums; color:var(--text); }
+  .prow.synced input { opacity:.35; }
+  .prow select { max-width:100%; font-size:9px; min-height:18px; padding:0 14px 0 6px; }
+  .srow { display:grid; grid-template-columns:78px 70px minmax(0,1fr); gap:5px; align-items:center; font-size:9.5px; margin:2px 0; }
+  .srow > span { color:var(--t2); }
+  .srow > output { color:var(--text); font-variant-numeric:tabular-nums; }
+  input[type=number] { font:inherit; font-size:10px; padding:1px 6px; border-radius:999px; min-height:20px; width:62px;
+    border:var(--stroke) solid var(--line); background:var(--panel); color:var(--text); }
+  /* corners: the slots (ADR-166 A1) */
+  .corners { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)) 128px; gap:5px; align-items:stretch; }
+  .corner { border:var(--stroke) solid var(--line); border-radius:6px; padding:3px 5px; background:var(--panel);
+    font-size:9px; min-width:0; cursor:pointer; position:relative; }
+  .corner.sel { box-shadow:0 0 0 2px var(--value); }
+  .corner .ch { display:flex; align-items:center; gap:4px; }
+  .corner .cl { width:15px; height:15px; border-radius:50%; border:var(--stroke) solid var(--line); display:grid;
+    place-items:center; font-weight:800; font-size:9px; color:#191521; }
+  .corner .cn { font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .corner .co { color:var(--dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .corner .sig { color:var(--t2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .corner.bad .sig { color:var(--caution-tx); font-weight:700; }
+  .corner canvas { width:100%; height:26px; margin-top:2px; }
+  .corner select { max-width:100%; font-size:8.5px; min-height:16px; padding:0 12px 0 5px; margin-top:2px; }
+  canvas.xy { cursor:crosshair; touch-action:none; }
+  .loopbadge { display:inline-block; font-size:8.5px; letter-spacing:.1em; font-weight:700; padding:0 6px;
+    border-radius:3px; border:1px solid var(--line); }
+  /* the lab chrome's check list */
+  .ck { display:grid; grid-template-columns:30px minmax(0,1fr); gap:4px; margin:3px 0; }
+  .ck .ok { color:var(--celebrate); font-weight:800; } .ck .no { color:var(--alarm); font-weight:800; }
+  .ck .na { color:var(--dim); font-weight:800; }
+  .ck small { color:var(--dim); }
+  .labstrip { display:flex; gap:14px; align-items:center; flex-wrap:wrap; margin:8px 0; padding:6px 10px;
+    border:var(--stroke) solid var(--line); border-radius:var(--r); background:var(--panel); max-width:980px; }
+</style>
+</head>
+<body>
+<div class="hdr">
+  <div>
+    <h1>sluice · in horde</h1>
+    <div class="badges"><span class="badge">B319</span><span class="sub">HOSTED FX MODULE · ADR-166 · DESIGN LAB</span></div>
+  </div>
+  <div class="hdrctl">
+    <div class="grp"><span class="lbl">AUDIO</span><button class="pill" id="pwr">off</button></div>
+    <div class="grp"><span class="lbl">INPUT</span><span class="pills" id="srcPills"></span></div>
+    <div class="grp"><span class="lbl">VOICE</span><select id="voiceSel" title="the composed engine's presets (reference/scalpel/data/presets.json, fetched, never copied)"></select></div>
+    <div class="grp"><button class="pill" id="themeBtn">theme</button></div>
+  </div>
+</div>
+<div class="tagline"><b>Sluice as it will live inside horde:</b> one node in the FX rack, its network lit by what
+it renders, four macros by order, tempo sync by horde's division names, the FREAK ZONE-style randomiser, and the four
+corners as its slots. The engine is <b>our NETWORK reference</b>, loaded and called; the input is a <b>horde voice</b>
+(the composed engine). Everything mocked is marked and never heard.</div>
+<div class="audit" id="status">loading…</div>
+<div class="stage">
+  <div class="plug" id="plug">
+    <div class="phdr">
+      <span class="brand">horde</span>
+      <div class="tabs"><span class="tab stub">MAIN</span><span class="tab stub">OSC</span><span class="tab stub">MOD</span>
+        <span class="tab stub">MIX</span><span class="tab on">FX</span><span class="tab stub">SETTINGS</span></div>
+      <div class="phdr-r" id="hdrR"></div>
+    </div>
+    <div class="rackrow" id="rack"></div>
+    <div class="fxbody">
+      <div class="col" id="leftCol">
+        <div class="cell"><h3>SLUICE <span class="own" id="presetOwn"></span>
+          <span class="sp"><select id="presetSel" title="load a Sluice preset into the SELECTED corner"></select></span></h3>
+          <div class="mgrid" id="macros"></div>
+          <div class="vnote" id="macroNote"></div>
+        </div>
+        <div class="cell"><h3>RANDOMISE <span class="own">fz.h</span> <span class="sp" id="cornerTag"></span></h3>
+          <div class="rtop"><div id="randKnobs"></div>
+            <div class="rbtns"><button class="pill mini" id="bRand" title="fzRandomize: same chain, every param draws, RANDOMNESS decides which apply — corner-safe">randomize params</button>
+              <button class="pill mini" id="bNew" title="fzRandomPatch: a whole new chain — CORNER-UNSAFE (ADR-166 A1)">new patch</button>
+              <button class="pill mini" id="bSpread" title="copy this corner to the other three, then randomize each (corner-safe variants)">spread to corners</button>
+              <button class="pill mini" id="bUndo">undo</button><button class="pill mini" id="bRedo">redo</button></div></div>
+          <div class="brow"><span class="lbl">SEED</span><input type="number" id="seedIn" min="0" max="999999" step="1">
+            <span class="kv" id="clickKv"></span></div>
+          <div class="brow mock" title="MOCKED: Sluice's fzRandomPatch appends a locked post limiter and a release gate; our reference has neither, so nothing here is heard">
+            <span class="lbl">TAIL</span><span class="pills"><button class="pill mini" disabled>4 s</button><button class="pill mini" disabled>20 s</button><button class="pill mini" disabled>inf</button></span>
+            <span class="lbl">+ LIMITER</span><span class="dep">MOCKED</span></div>
+          <div class="kv" id="loudKv"></div>
+          <div class="caution" id="cornerWarn" style="display:none"></div>
+        </div>
+        <div class="cell" id="tempoCell"><h3>TEMPO <span class="own">by name · horde's divisions</span></h3>
+          <div class="brow"><span class="lbl">HOST BPM</span><input type="number" id="bpmIn" min="0" max="300" step="0.5">
+            <span class="pills" id="bpmPills"></span></div>
+          <div id="syncRows"></div>
+          <div class="vnote" id="tempoNote"></div>
+        </div>
+        <div class="cell" id="deepCell">
+          <h3>EVERY PARAMETER <span class="own" id="deepOwn"></span></h3>
+          <div id="deep"></div>
+        </div>
+      </div>
+      <div class="col" style="min-height:0">
+        <div class="cell"><h3>NETWORK <span class="own">nodes lit by the rendered signal · click a node</span>
+          <span class="sp"><span class="loopbadge" id="loopBadge">—</span></span></h3>
+          <canvas class="viz" id="net" height="236"></canvas>
+        </div>
+        <div class="cell" style="display:grid; grid-template-columns:1fr 1fr; gap:6px">
+          <div><div class="cap">LOOP · IMPULSE RESPONSE (rendered, 22.05 kHz, 3 s)</div><canvas class="viz" id="ir" height="118"></canvas></div>
+          <div><div class="cap" id="outCap">OUTPUT · WET OVER DRY (rendered)</div><canvas class="viz" id="out" height="118"></canvas></div>
+        </div>
+        <div class="cell"><h3>CORNERS <span class="own">the slots are horde's corners (ADR-166 A1) · click to edit</span>
+          <span class="sp" id="morphTag"></span></h3>
+          <div class="corners" id="corners"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="side" id="side"></div>
+</div>
+<script src="../../reference/scalpel/prototype/razor-core.js"></script>
+<script src="scalpel-horde-engine.js"></script>
+<script>
+"use strict";
+/* ================================================================ A. CONSTANTS, PURE HELPERS */
+/* classic-script class/function declarations from the two <script src> above are global
+   bindings; under the load checker (inline blocks only) they are absent, and the page says so */
+const RAZOR = (typeof RazorCore === 'function') ? RazorCore : null;
+const MAKE_COMPOSED = (typeof makeComposedEngine === 'function') ? makeComposedEngine : null;
+const SLICE_SWARM = (typeof swarmSourceFromHtml === 'function') ? swarmSourceFromHtml : null;
+const SR = 48000;          // the page renderer and the AudioContext run at this rate
+const SR_OFF = 22050;      // offline renders (IR, checks): Sluice's LoudRef rate, same engine
+const HOP = 1024;          // samples the page renderer advances per animation frame (no clock)
+const $ = id => document.getElementById(id);
+function el(tag, cls, txt) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (txt !== undefined && txt !== null) e.textContent = txt;
+  return e;
+}
+/* the house seeded stream (reference/station.html's form; Sluice's lab uses the same) */
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const dbOf = (sq, n) => n > 0 && sq > 0 ? 10 * Math.log10(sq / n) : -150;
+const clone = o => JSON.parse(JSON.stringify(o));
+
+/* ---- TEMPO SYNC (Sluice notice seq 7): horde's division table, stored BY NAME ----
+   DIVS is copied verbatim from docs/design/shape-lab-mod.html:782-791 (name, dotted alias,
+   quarter-note beats; the two trailing columns there are family/rank and are dropped).
+   Copy, therefore drift: check K3 fetches that file when served and compares. Wrapped in a
+   factory so the AudioWorklet can carry it by toString(). */
+function SYNC_FACTORY() {
+  const DIVS = [
+    ['2/1', '', 8], ['3/2', '1/1D', 6], ['2/1T', '', 16 / 3],
+    ['1/1', '', 4], ['3/4', '1/2D', 3], ['1/1T', '', 8 / 3],
+    ['1/2', '', 2], ['3/8', '1/4D', 1.5], ['1/2T', '', 4 / 3],
+    ['1/4', '', 1], ['3/16', '1/8D', 0.75], ['1/4T', '', 2 / 3],
+    ['1/8', '', 0.5], ['3/32', '1/16D', 0.375], ['1/8T', '', 1 / 3],
+    ['1/16', '', 0.25], ['3/64', '1/32D', 0.1875], ['1/16T', '', 1 / 6],
+    ['1/32', '', 0.125], ['3/128', '1/64D', 0.09375], ['1/32T', '', 1 / 12],
+    ['1/64', '', 0.0625],
+  ];
+  const DEFAULT_TEMPO = 120;                      // horde's fallback, and Sluice's (seq 7)
+  function syncBeats(name) {                      // 0 = unknown: the param stays FREE
+    for (const d of DIVS) if (name === d[0] || (d[1] && name === d[1])) return d[2];
+    return 0;
+  }
+  /* 1 = a TIME in ms (beats·60000/bpm), 2 = a RATE in Hz (bpm/60/beats), 0 = not syncable.
+     Our reference has one syncable module param (delay time) and the LFO rate; Sluice's
+     chorus and phaser rates are not in our roster. */
+  function syncKind(type, key) { return type === 'delay' && key === 'time' ? 1 : 0; }
+  function effTempo(bpm) { return bpm > 1 ? bpm : DEFAULT_TEMPO; }
+  /* the named patch → the numbers the engine hears. A synced time outside the module's range
+     is clamped to it (the reference's delay tops out at 1000 ms; Sluice's at 4000 — drift). */
+  function resolveSync(p, bpm, defs) {
+    const q = JSON.parse(JSON.stringify(p)), b = effTempo(bpm);
+    for (const m of q.chain) {
+      if (!m.sync) continue;
+      for (const k in m.sync) {
+        const beats = syncBeats(m.sync[k]);
+        if (!(beats > 0) || syncKind(m.type, k) !== 1) continue;
+        let v = beats * 60000 / b;
+        const sp = defs && defs[m.type] ? defs[m.type].params.find(s => s.k === k) : null;
+        if (sp) v = Math.max(sp.min, Math.min(sp.max, v));
+        m.params[k] = v;
+      }
+    }
+    if (q.lfo && q.lfo.sync) { const beats = syncBeats(q.lfo.sync); if (beats > 0) q.lfo.rate = b / (60 * beats); }
+    return q;
+  }
+  return { DIVS, DEFAULT_TEMPO, syncBeats, syncKind, effTempo, resolveSync };
+}
+const SYNC = SYNC_FACTORY();
+
+/* ---- the reference's names, and ours. The reference titles three presets after the
+   effects that inspired them; a public repo does not carry another product's name as a
+   preset title, so the page shows fx-design-lab.html's names (renamed 2026-09-23 at the
+   human's request, fx-design-lab.html:807). Data unchanged. */
+const PRESET_NAME = { 'bode': 'shifted glass', 'freeverb': 'comb hall', 'scrumulator-ish': 'smear loop',
+  'shimmer fog': 'shimmer fog', 'metal veil': 'metal veil' };
+/* Sluice's preset macros (notice seq 5, D-046; "values are set so that applying each macro at
+   its stored value reproduces the params", their G-70). Copied from Sluice's lab PRESETLIB
+   (lab/sluice-lab.html:1331-1336, :1358-1362, read 2026-09-28), identical to the copy in
+   docs/design/fx-design-lab.html:821-843. Every target exists in our reference. The other
+   three presets carry no macros there, and none here. */
+const SLUICE_MACROS = {
+  'bode': [
+    { label: 'shift', value: 0.5, bindings: [{ target: '0:shift', lo: 0, hi: 160 }] },
+    { label: 'time', value: 0.5, bindings: [{ target: '2:time', lo: 40, hi: 240 }] },
+    { label: 'regen', value: 0.5, bindings: [{ target: 'fb:gain', lo: 0.3, hi: 0.9 }] },
+    { label: 'amount', value: 0.6875, bindings: [{ target: 'mix', lo: 0.2, hi: 1 }] }],
+  'scrumulator-ish': [
+    { label: 'allpass unison', value: 0.5, bindings: [{ target: '0:time', lo: 24, hi: 50 }, { target: '2:time', lo: 7, hi: 15 }] },
+    { label: 'delay time', value: 0.5, bindings: [{ target: '1:time', lo: 120, hi: 300 }] },
+    { label: 'regen', value: 0.5, bindings: [{ target: 'fb:gain', lo: 0.3, hi: 0.94 }] },
+    { label: 'amount', value: 0.5, bindings: [{ target: 'mix', lo: 0.3, hi: 1 }] }],
+};
+/* horde's FX rack, for context only: the roster fx-design-lab.html draws (:616-1473), one
+   instance per type (ADR-172). Only Sluice is modelled here. */
+const RACK = ['REVERB', 'MAW', 'SLUICE', 'COMB', 'ECHO', 'DRIVE', 'FILTER', 'EQ', 'COMP'];
+const VOICE_NAMES = ['Blade pluck', 'Two blades', 'Zap bass', 'Harmonic stack'];
+const CORNER = ['A', 'B', 'C', 'D'];
+const SEED0 = 0xB319;
+
+/* ---- the reference, sliced (filled by loadRef) ---- */
+const REF = { raw: '', src: '', tapped: '', defs: null, presets: null, toSlider: null, fromSlider: null,
+  sigOf: null, err: '' };
+/* the two read-only taps (header, seam 2). Each anchor must occur exactly once. */
+const TAP_A = 'if(chain[i].en) w = chain[i].proc.tick(w);';
+const TAP_B = 'fbLp += (1 - fbCfg.damp*0.9)*(fbSig - fbLp);';
+function instrument(src, plant) {
+  if (src.split(TAP_A).length !== 2) throw new Error('tap anchor A not found exactly once in ENGINE_FACTORY');
+  if (src.split(TAP_B).length !== 2) throw new Error('tap anchor B not found exactly once in ENGINE_FACTORY');
+  return src.replace(TAP_A, TAP_A + (plant ? ' w += 1e-7;' : '') + ' __T.node(i, w);')
+    .replace(TAP_B, TAP_B + ' __T.loop(fbLp);');
+}
+/* evaluate the sliced ENGINE_FACTORY with a seeded Math (seam 1). The reference is written to
+   run from its own toString() inside a worklet, so it runs strict and self-contained. */
+function buildFactory(src, rng, taps) {
+  const shim = Object.create(Math); shim.random = rng;
+  const T = taps || { node() {}, loop() {} };
+  return new Function('Math', '__T', '"use strict";\n' + src + '\nreturn ENGINE_FACTORY;')(shim, T)();
+}
+
+/* ================================================================ B. THE ONE RENDERER
+   Everything heard and everything drawn live comes out of this function (L0064). It runs on
+   the page (audio off) and, built from its own toString(), in the AudioWorklet (audio on).
+   env: { src: the TAPPED ENGINE_FACTORY text, Voice: the composed engine class or null,
+          defs: the reference's MODULE_DEFS (for the sync clamp) }.
+   Messages (all data, all on the message side — Sluice's contract: the engine only ever
+   receives a finished patch; the host pushes the tempo once per block):
+     {t:'patch', p}   the NAMED patch (sync by division name), resolved here at the host tempo
+     {t:'bpm', bpm}   setTempo: ≤ 1 → 120, an unchanged tempo is a no-op (Sluice G-76)
+     {t:'bypass', on} horde's slot bypass: the input passes untouched and the node is not ticked
+     {t:'src', kind}  'voice' | 'impulse' | 'noise'
+     {t:'voice', params}  the composed engine's preset params (a new instance, seeded) */
+function makeRenderer(env, sr) {
+  const T = { nodeSq: new Float64Array(64), loopSq: 0, outSq: 0, drySq: 0, n: 0 };
+  const taps = { node(i, w) { T.nodeSq[i] += w * w; }, loop(v) { T.loopSq += v * v; } };
+  const ENG = buildFactory(env.src, mulberry32(0x5E11), taps);   // the S&H stream, one per instance
+  const eng = ENG.makeEngine(sr);
+  const S = SYNC_FACTORY();
+  let named = null, resolved = null, bpm = S.DEFAULT_TEMPO, bypass = false, kind = 'voice', applies = 0;
+  let n = 0, bt = 0, beat = 0, noiseLeft = 0, noteOnNow = -1;
+  const vrng = mulberry32(0xB319), nrng = mulberry32(0x10D);
+  let voice = null, vparams = null;
+  let srcL = new Float32Array(128), srcR = new Float32Array(128);
+  const RING = 2048, ringOut = new Float32Array(RING), ringDry = new Float32Array(RING);
+  let ri = 0;
+  function withRng(f) { const keep = Math.random; Math.random = vrng; try { return f(); } finally { Math.random = keep; } }
+  function newVoice() {
+    voice = null;
+    if (!env.Voice || !vparams) return;
+    withRng(() => { voice = new env.Voice(sr); voice.set(vparams); Object.assign(voice.s, voice.t); });
+    noteOnNow = -1;
+  }
+  function applyNamed() {
+    if (!named) return;
+    resolved = S.resolveSync(named, bpm, env.defs);
+    eng.applyPatch(resolved); applies++;
+  }
+  function setTempo(b) { b = S.effTempo(b); if (b === bpm) return; bpm = b; applyNamed(); }
+  function restart() { n = 0; bt = 0; beat = 0; noiseLeft = 0; if (voice) newVoice(); }
+  function msg(m) {
+    if (!m) return;
+    if (m.t === 'patch') { named = m.p; applyNamed(); }
+    else if (m.t === 'bpm') setTempo(m.bpm);
+    else if (m.t === 'bypass') bypass = !!m.on;
+    else if (m.t === 'src') { kind = m.kind; restart(); }
+    else if (m.t === 'voice') { vparams = m.params; newVoice(); }
+  }
+  const spb = () => Math.max(64, Math.round(60 * sr / bpm));
+  /* the input, sample-accurate: events split the voice's render at their own sample */
+  function source(len) {
+    if (srcL.length !== len) { srcL = new Float32Array(len); srcR = new Float32Array(len); }
+    let i = 0;
+    while (i < len) {
+      const P = spb(), half = P >> 1;
+      if (bt >= P) { bt = 0; beat++; }
+      if (bt === 0) {
+        if (kind === 'voice' && voice && noteOnNow >= 0) { const nn = noteOnNow; withRng(() => voice.noteOff(nn)); noteOnNow = -1; }   // a tempo change can skip the ½-beat release
+        if (kind === 'voice' && voice) { const note = RIFF_OF(beat); withRng(() => voice.noteOn(note, 440 * Math.pow(2, (note - 69) / 12), 0.85)); noteOnNow = note; }
+        if (kind === 'noise' && beat % 4 === 0) noiseLeft = Math.round(0.04 * sr);
+      }
+      if (bt === half && kind === 'voice' && voice && noteOnNow >= 0) { const nn = noteOnNow; withRng(() => voice.noteOff(nn)); noteOnNow = -1; }
+      const next = bt < half ? half - bt : P - bt;
+      const c = Math.max(1, Math.min(len - i, next));
+      if (kind === 'voice' && voice) withRng(() => voice.render(srcL.subarray(i, i + c), srcR.subarray(i, i + c)));
+      else for (let j = i; j < i + c; j++) {
+        let x = 0;
+        if (kind === 'impulse' && bt + (j - i) === 0 && beat % 4 === 0) x = 0.5;
+        else if (kind === 'noise' && noiseLeft > 0) { x = 0.25 * (nrng() * 2 - 1); noiseLeft--; }
+        srcL[j] = x; srcR[j] = x;
+      }
+      i += c; bt += c;
+    }
+  }
+  function RIFF_OF(b) { return [45, 52, 48, 55][b & 3]; }   // A2 E3 C3 G3, one per beat, gate ½ beat; inlined: the worklet carries no page globals
+  function process(outL, outR) {
+    const len = outL.length;
+    source(len);
+    for (let i = 0; i < len; i++) {
+      const l = srcL[i], r = srcR[i], dry = 0.5 * (l + r);
+      let y;
+      if (bypass) { outL[i] = l; outR[i] = r; y = dry; }
+      else { y = eng.tick(dry); outL[i] = y; outR[i] = y; }       // our reference is MONO (drift: Sluice is dual-mono stereo)
+      T.outSq += y * y; T.drySq += dry * dry;
+      ringOut[ri] = y; ringDry[ri] = dry; ri = (ri + 1) % RING;
+    }
+    T.n += len; n += len;
+  }
+  /* the meters since the last read: per-node and loop levels are the TAPS, i.e. the
+     rendered signal after each module and on the damped feedback bus */
+  function meters(reset) {
+    const cnt = resolved ? resolved.chain.length : 0, node = [];
+    for (let i = 0; i < cnt; i++) node.push(bypass ? -150 : dbOf(T.nodeSq[i], T.n));
+    const o = { t: 'meters', n, node, loop: bypass ? -150 : dbOf(T.loopSq, T.n), out: dbOf(T.outSq, T.n), dry: dbOf(T.drySq, T.n),
+      outRing: new Float32Array(RING), dryRing: new Float32Array(RING), bpm, bypass, applies };
+    for (let k = 0; k < RING; k++) { o.outRing[k] = ringOut[(ri + k) % RING]; o.dryRing[k] = ringDry[(ri + k) % RING]; }
+    if (reset !== false) { T.nodeSq.fill(0); T.loopSq = 0; T.outSq = 0; T.drySq = 0; T.n = 0; }
+    return o;
+  }
+  return { msg, process, meters, lastSrc: () => [srcL, srcR], lastResolved: () => resolved, applies: () => applies,
+    tempo: () => bpm };
+}
+
+/* the worklet's source: the renderer and everything it calls, by toString(); check K5 runs
+   exactly this string on the page */
+function workletSource(env) {
+  return [
+    mulberry32.toString(), 'const dbOf = ' + dbOf.toString() + ';',
+    buildFactory.toString(), SYNC_FACTORY.toString(), makeRenderer.toString(),
+    env.voiceBundle || '',
+    'const __SRC = ' + JSON.stringify(env.src) + ';',
+    'const __DEFS = ' + JSON.stringify(env.defs) + ';',
+    'class SluiceHordeProc extends AudioWorkletProcessor {',
+    '  constructor(options) { super(); this.k = 0;',
+    '    this.r = makeRenderer({ src: __SRC, defs: __DEFS, Voice: (typeof RazorCore === "function" && ' + (env.voiceBundle ? 'true' : 'false') + ') ? RazorCore : null }, sampleRate);',
+    /* the first messages arrive WITH the node (processorOptions), not by port: a port message is
+       delivered later, so an offline render (K9) or the first live block would start unpatched */
+    '    const init = options && options.processorOptions && options.processorOptions.init;',
+    '    if (init) for (const m of init) this.r.msg(m);',
+    '    this.port.onmessage = e => this.r.msg(e.data); }',
+    '  process(ins, outs) { const o = outs[0]; this.r.process(o[0], o[1] || o[0]);',
+    '    if (++this.k % 8 === 0) this.port.postMessage(this.r.meters(true)); return true; }',
+    '}',
+    'registerProcessor("sluice-horde", SluiceHordeProc);',
+  ].join('\n');
+}
+
+/* ================================================================ C. THE REFERENCE, LOADED */
+function sliceBetween(t, a, b, what) {
+  const i = t.indexOf(a), j = i < 0 ? -1 : t.indexOf(b, i + a.length);
+  if (i < 0 || j < 0) throw new Error('reference/network-lab-v0.html: ' + what + ' anchors not found');
+  return t.slice(i, j);
+}
+function loadRef(text) {
+  REF.raw = text;
+  REF.src = sliceBetween(text, 'function ENGINE_FACTORY(){', 'var ENG = ENGINE_FACTORY();', 'ENGINE_FACTORY');
+  REF.tapped = instrument(REF.src, false);
+  REF.defs = buildFactory(REF.src, mulberry32(1)).MODULE_DEFS;
+  const lib = sliceBetween(text, 'var PRESETLIB = [', '\n];', 'PRESETLIB') + '\n];';
+  REF.presets = new Function(lib + '\nreturn PRESETLIB;')();
+  const sl = new Function(sliceBetween(text, 'function toSlider(', 'function fmtVal(', 'toSlider/fromSlider') +
+    '\nreturn { toSlider: toSlider, fromSlider: fromSlider };')();
+  REF.toSlider = sl.toSlider; REF.fromSlider = sl.fromSlider;
+  REF.sigOf = new Function(sliceBetween(text, 'function sigOf(', 'function slotsCompatible(', 'sigOf') + '\nreturn sigOf;')();
+}
+const specs = type => (REF.defs && REF.defs[type] ? REF.defs[type].params : []);
+const specOf = (type, k) => specs(type).find(s => s.k === k) || null;
+/* a reference preset as a horde corner patch: stable ids ('m1'…, the reference's own nextId
+   form), macros attached where Sluice ships them, the provenance kept */
+function presetPatch(refName) {
+  const src = REF.presets.find(p => p.name === refName);
+  const p = clone(src.patch);
+  p.chain.forEach((m, i) => { m.id = 'm' + (i + 1); if (m.enabled === undefined) m.enabled = true; });
+  p.macros = clone(SLUICE_MACROS[refName] || []);
+  p.name = PRESET_NAME[refName] || refName; p.origin = 'preset';
+  return p;
+}
+
+/* ================================================================ D. FZ (Sluice notice seq 10)
+   Ported line for line from Sluice netcore/include/sluice/fz.h and random.h (read 2026-09-28)
+   over OUR reference's module set. Pure, message side, one seeded stream per instance. What
+   cannot be ported because our reference lacks the stage is marked MOCKED where it is drawn:
+   the post limiter and release gate fzRandomPatch appends, and the wet gain loudness
+   normalisation writes. Parity with Sluice's streams is NOT claimed (their roster is twelve
+   types, ours eight, so a stream decodes differently); the CONTRACT's shape is what is shown. */
+const fzLockedType = type => type === 'leveler' || type === 'limiter';    // none in our roster
+/* tri-state: unset = the default (fz.h fzIsLocked); an explicit lock wins either way */
+const fzIsLocked = m => (m.locked === true || m.locked === false) ? m.locked : fzLockedType(m.type);
+function fzEnsureThresholds(p, rnd) {
+  for (const m of p.chain) {
+    if (fzLockedType(m.type)) { m.thr = {}; continue; }
+    if (m.thr && Object.keys(m.thr).length) continue;
+    m.thr = {};
+    for (const s of specs(m.type)) m.thr[s.k] = rnd();
+  }
+}
+/* EVERY param draws, applied or not: the RANDOMNESS decides WHICH params change, the click
+   decides WHAT they become, so the unlocked sets are nested in r */
+function fzRandomize(p, rnd, r) {
+  for (const m of p.chain) for (const s of specs(m.type)) {
+    const v = REF.fromSlider(s, rnd());
+    const t = m.thr ? m.thr[s.k] : undefined;
+    if (fzIsLocked(m) || !m.thr || !Object.keys(m.thr).length || !(t < r)) continue;
+    m.params[s.k] = v;
+  }
+}
+/* the must-fail twin for check K4: draws only for the params it applies (the seq-9 shape).
+   Nested SETS survive; the values do not, which is what the check tells apart. */
+function drawOnlyApplied(p, rnd, r) {
+  for (const m of p.chain) for (const s of specs(m.type)) {
+    const t = m.thr ? m.thr[s.k] : undefined;
+    if (fzIsLocked(m) || !(t < r)) continue;
+    m.params[s.k] = REF.fromSlider(s, rnd());
+  }
+}
+/* random.h's RANDPATCH restricted to our eight types, in its own order; ranges verbatim */
+const RANDPATCH = { len: [2, 6], fbGain: [0.3, 0.9], fbDamp: [0, 0.6], clip: 0.5, mix: [0.4, 1],
+  lfoProb: 0.35, lfoRate: [0.05, 4], lfoDepth: [0.05, 0.6], shapes: ['sine', 'tri', 'sh'],
+  modules: [
+    ['shifter', 0.8, 1, { shift: [-400, 400] }],
+    ['doppler', 0.5, 1, { semi: [-12, 12], win: [40, 100], mix: [0.2, 0.8] }],
+    ['delay', 1.0, 2, { time: [20, 600], fb: [0, 0.6], damp: [0, 0.6], mix: [0.4, 1] }],
+    ['allpass', 0.9, 3, { time: [1, 60], g: [-0.8, 0.8] }],
+    ['diffuser', 1.0, 1, { blur: [0.2, 0.9], size: [0.5, 2.5] }],
+    ['combs', 0.8, 1, { size: [0.3, 1.6], decay: [0.4, 0.95], damp: [0.1, 0.7] }],
+    ['filter', 0.8, 2, { freq: [120, 6000], res: [0.5, 3], mode: [0, 2] }],
+    ['disperser', 0.5, 1, { freq: [200, 4000], q: [0.4, 2], stages: [4, 32] }]] };
+function randomPatch(rnd) {
+  const R = RANDPATCH, lin = (a, b) => a + rnd() * (b - a);
+  const pick = (s, lo, hi) => {
+    let v = s.scale === 'log' && lo > 0 ? Math.exp(Math.log(lo) + rnd() * (Math.log(hi) - Math.log(lo))) : lin(lo, hi);
+    if (s.step) v = Math.round(v / s.step) * s.step;
+    return clamp(v, s.min, s.max);
+  };
+  const params = (row) => {
+    const o = {};
+    for (const s of specs(row[0])) o[s.k] = row[3][s.k] ? pick(s, row[3][s.k][0], row[3][s.k][1]) : s.d;
+    return { type: row[0], enabled: true, params: o };
+  };
+  const p = { chain: [] }, counts = R.modules.map(() => 0);
+  const len = Math.round(lin(R.len[0], R.len[1]));
+  let guard = 0;
+  while (p.chain.length < len && guard++ < 200) {
+    const pool = []; R.modules.forEach((m, i) => { if (counts[i] < m[2]) pool.push(i); });
+    if (!pool.length) break;
+    let tot = 0; for (const i of pool) tot += R.modules[i][1];
+    let x = rnd() * tot, t = pool[pool.length - 1];
+    for (const i of pool) { x -= R.modules[i][1]; if (x <= 0) { t = i; break; } }
+    counts[t]++; p.chain.push(params(R.modules[t]));
+  }
+  /* random.h draws here for its `last` modules (the leveler) and its post chain; neither
+     exists in our reference, so neither draw is made */
+  p.lfo = { rate: 0.3, depth: 0, shape: 'sine', target: 'off' };
+  if (p.chain.length && rnd() < R.lfoProb) {
+    const mi = Math.floor(rnd() * p.chain.length), sp = specs(p.chain[mi].type);
+    const s = sp[Math.floor(rnd() * sp.length)];
+    p.lfo.rate = Math.exp(Math.log(R.lfoRate[0]) + rnd() * (Math.log(R.lfoRate[1]) - Math.log(R.lfoRate[0])));
+    p.lfo.depth = lin(R.lfoDepth[0], R.lfoDepth[1]);
+    p.lfo.shape = R.shapes[Math.floor(rnd() * R.shapes.length)];
+    p.lfo.target = mi + ':' + s.k;
+  }
+  p.fb = { gain: lin(R.fbGain[0], R.fbGain[1]), damp: lin(R.fbDamp[0], R.fbDamp[1]), clip: rnd() < R.clip ? 1 : 0 };
+  p.mix = lin(R.mix[0], R.mix[1]);
+  return p;
+}
+/* fzRandomPatch: the generator, then (MOCKED: limiter + 4 s gate, recorded, not heard), then
+   the thresholds, drawn last as in fz.h */
+function fzRandomPatch(rnd) {
+  const p = randomPatch(rnd);
+  p.chain.forEach((m, i) => { m.id = 'm' + (i + 1); });
+  p.mock = { limiter: { ceiling: -1, release: 60, lookahead: 1.5, knee: 3 }, gate: { thresh: -60, hold: 250, release: 4000 } };
+  fzEnsureThresholds(p, rnd);
+  p.macros = []; p.origin = 'random';
+  return p;
+}
+
+/* ================================================================ E. MACROS (Sluice macro.h)
+   Data above the engine: setting macro i to v writes each bound param lo + curve(v)·(hi − lo).
+   Targets: "i:key" (a chain position, or an id), "fb:gain" | "fb:damp", "mix". */
+function macroValue(b, v) {
+  v = clamp(v, 0, 1);
+  if (v <= 0) return b.lo;
+  if (v >= 1) return b.hi;
+  if (b.curve === 'log' && b.lo > 0 && b.hi > 0) return Math.exp(Math.log(b.lo) + v * (Math.log(b.hi) - Math.log(b.lo)));
+  let c = v;
+  if (b.curve === 'exp') c = v * v;
+  else if (Array.isArray(b.curve) && b.curve.length) {
+    const P = b.curve; c = P[P.length - 1][1];
+    if (v <= P[0][0]) c = P[0][1];
+    else for (let i = 1; i < P.length; i++) if (v <= P[i][0]) { const x0 = P[i - 1][0], x1 = P[i][0], t = x1 > x0 ? (v - x0) / (x1 - x0) : 1; c = P[i - 1][1] + t * (P[i][1] - P[i - 1][1]); break; }
+  }
+  return b.lo + c * (b.hi - b.lo);
+}
+function macroTarget(p, target) {
+  if (target === 'mix') return { o: p, k: 'mix' };
+  const c = target.indexOf(':'); if (c < 0) return null;
+  const a = target.slice(0, c), k = target.slice(c + 1);
+  if (a === 'fb') return (k === 'gain' || k === 'damp') ? { o: p.fb, k } : null;
+  let m = p.chain.find(q => q.id === a);
+  if (!m && /^[0-9]+$/.test(a)) m = p.chain[+a];
+  return m && k in m.params ? { o: m.params, k } : null;
+}
+function applyMacro(p, i, v) {
+  const M = p.macros && p.macros[i]; if (!M) return;
+  M.value = clamp(v, 0, 1);
+  for (const b of M.bindings) { const t = macroTarget(p, b.target); if (t) t.o[t.k] = macroValue(b, M.value); }
+}
+
+/* ================================================================ F. THE CORNERS (ADR-166 A1)
+   The node holds four corner patches; the engine hears their bilinear blend at the morph
+   cursor. Only corners with ONE chain signature morph (the reference's own sigOf); otherwise
+   the engine hears the nearest corner, whole. Numbers blend in each param's own domain (log
+   for log-scaled, step-rounded where stepped — the lead's B127 morph model item 1, and
+   fzMorph4's blend); what is discrete (enable, clip, LFO shape and target, sync NAMES) comes
+   from the nearest corner, a quantum flip. horde's three ruled morph laws are NOT modelled. */
+function cornerWeights(x, y) { return [(1 - x) * (1 - y), x * (1 - y), (1 - x) * y, x * y]; }
+function sameSig(C) { const s = REF.sigOf(C[0]); return C.every(c => REF.sigOf(c) === s); }
+function morph4(C, x, y) {
+  x = clamp(x, 0, 1); y = clamp(y, 0, 1);
+  const w = cornerWeights(x, y);
+  let near = 0; for (let i = 1; i < 4; i++) if (w[i] > w[near]) near = i;
+  const out = clone(C[near]);
+  if (w[near] === 1 || !sameSig(C)) return out;
+  const blend = (vals, log, step) => {
+    let v = 0;
+    if (log && vals.every(a => a > 0)) { for (let k = 0; k < 4; k++) v += w[k] * Math.log(vals[k]); v = Math.exp(v); }
+    else for (let k = 0; k < 4; k++) v += w[k] * vals[k];
+    return step ? Math.round(v / step) * step : v;
+  };
+  out.chain.forEach((m, mi) => {
+    for (const s of specs(m.type)) {
+      const vals = C.map(c => { const q = c.chain[mi].params[s.k]; return q === undefined ? s.d : q; });
+      m.params[s.k] = blend(vals, s.scale === 'log', s.step);
+    }
+  });
+  out.fb.gain = blend(C.map(c => c.fb.gain), false, 0);
+  out.fb.damp = blend(C.map(c => c.fb.damp), false, 0);
+  out.mix = blend(C.map(c => c.mix), false, 0);
+  if (out.lfo && out.lfo.target !== 'off') {
+    out.lfo.rate = blend(C.map(c => c.lfo ? c.lfo.rate : 0.3), true, 0);
+    out.lfo.depth = blend(C.map(c => c.lfo && c.lfo.target !== 'off' ? c.lfo.depth : 0), false, 0);
+  }
+  return out;
+}
+
+/* ================================================================ G. OFFLINE RENDERS
+   Same sliced engine, a fresh instance per render, seeded. `loop` records the damped bus. */
+function offline(o) {
+  let lv = 0;
+  const taps = { node() {}, loop(v) { lv = v; } };
+  const F = buildFactory(o.src || REF.tapped, mulberry32(o.seed || 0x5E11), taps);
+  const e = F.makeEngine(o.sr);
+  e.applyPatch(o.patch);
+  const out = new Float64Array(o.n), loop = o.loop ? new Float32Array(o.n) : null;
+  for (let i = 0; i < o.n; i++) { out[i] = e.tick(o.input(i)); if (loop) loop[i] = lv; }
+  return { out, loop };
+}
+/* the loop's state from its RENDERED impulse response: the level of the damped bus in 50 ms
+   windows, a least-squares slope over what is above the floor. FREEZE = the loop sustains
+   itself (its last half second within 12 dB of its peak and not falling 3 dB/s); CRITICAL =
+   a T60 past 2.5 s; DECAY otherwise; OPEN = no feedback gain (nothing recirculates) */
+function loopState(patch, ir) {
+  if (!(patch.fb && patch.fb.gain > 0)) return { state: 'OPEN', t60: 0 };
+  const W = Math.round(0.05 * SR_OFF), L = ir.loop, nW = Math.floor(L.length / W), db = [];
+  for (let k = 0; k < nW; k++) { let s = 0; for (let i = k * W; i < (k + 1) * W; i++) s += L[i] * L[i]; db.push(dbOf(s, W)); }
+  const peak = Math.max.apply(null, db);
+  const xs = [], ys = [];
+  db.forEach((d, k) => { if (k * 0.05 >= 0.2 && d > peak - 90 && d > -140) { xs.push(k * 0.05); ys.push(d); } });
+  let slope = 0;
+  if (xs.length > 2) {
+    const mx = xs.reduce((a, b) => a + b, 0) / xs.length, my = ys.reduce((a, b) => a + b, 0) / ys.length;
+    let sxy = 0, sxx = 0; for (let i = 0; i < xs.length; i++) { sxy += (xs[i] - mx) * (ys[i] - my); sxx += (xs[i] - mx) * (xs[i] - mx); }
+    slope = sxx > 0 ? sxy / sxx : 0;
+  }
+  const tail = db.slice(-10), tailMean = tail.reduce((a, b) => a + b, 0) / tail.length;
+  const t60 = slope < 0 ? -60 / slope : Infinity;
+  if (tailMean > peak - 12 && slope > -3) return { state: 'FREEZE', t60, db, peak };
+  if (t60 > 2.5) return { state: 'CRITICAL', t60, db, peak };
+  return { state: 'DECAY', t60, db, peak };
+}
+function renderIR(patch) {
+  const n = Math.round(3 * SR_OFF);
+  const r = offline({ patch, sr: SR_OFF, n, loop: true, input: i => i === 0 ? 0.5 : 0 });
+  const W = Math.round(0.02 * SR_OFF), env = [];
+  for (let k = 0; k * W < n; k++) { let s = 0; for (let i = k * W; i < Math.min(n, (k + 1) * W); i++) s += r.out[i] * r.out[i]; env.push(dbOf(s, W)); }
+  return { out: r.out, loop: r.loop, env, st: loopState(patch, r) };
+}
+/* Sluice's loudness measurement (fz.h LoudRef: 0.6 s at 22.05 kHz, seeded white noise amp 0.25,
+   read after 0.1 s, the wet alone), on our mono reference. MEASURED, NOT APPLIED: our reference
+   has no wet gain stage (Sluice's patch.gain), so the trim is reported, never heard. */
+function loudnessDb(patch) {
+  const q = clone(patch); q.mix = 1;
+  const rnd = mulberry32(0x10D), n = Math.round(0.6 * SR_OFF), n0 = Math.round(0.1 * SR_OFF);
+  const xin = new Float64Array(n); for (let i = 0; i < n; i++) xin[i] = 0.25 * (rnd() * 2 - 1);
+  const r = offline({ patch: q, sr: SR_OFF, n, input: i => xin[i] });
+  let eo = 0, ei = 0; for (let i = n0; i < n; i++) { eo += r.out[i] * r.out[i]; ei += xin[i] * xin[i]; }
+  return 10 * Math.log10(Math.max(eo, 1e-30) / ei);
+}
+
+/* ================================================================ H. LAB STATE */
+const LAB = {
+  theme: 'light', err: '', ready: false, voiceReady: false,
+  Composed: null, swarmSrc: '', voicePresets: [], voice: 0,
+  corners: null, sel: 0, xy: { x: 0, y: 0 },
+  bypass: false, src: 'voice', bpm: 120, randomness: 0.35,
+  seed: SEED0, rnd: null, clicks: 0,
+  hist: [], hi: -1,
+  node: 0,                 // the module the deep panel scrolls to, and the network view rings
+  meters: null, ir: null, cornerIR: [null, null, null, null], loud: null,
+  checks: [], checksRun: false, drift: null, divsNote: '', k9Note: '', voiceErr: '', still: false,
+};
+const PAGE = { r: null };               // the page's renderer instance (audio off)
+const AUD = { ctx: null, node: null, on: false, err: '' };
+const CSSV = {};                         // canvas colours, read from the tokens per theme
+const CTLS = [];                         // repaint callbacks for knobs
+const IRQ = { t: 0, corners: 0 };        // debounce handles
+
+/* ================================================================ I. STATE WRITES — one writer */
+const cur = () => LAB.corners[LAB.sel];
+function heardNamed() { return morph4(LAB.corners, LAB.xy.x, LAB.xy.y); }
+function send(m) {
+  if (PAGE.r) PAGE.r.msg(m);
+  if (AUD.node) AUD.node.port.postMessage(m);
+}
+function pushPatch() { send({ t: 'patch', p: heardNamed() }); scheduleIR(); }
+/* one undo step = the whole node's state as JSON (Sluice notice seq 6: a patch JSON per step,
+   seed and click kept as provenance, never as the source of truth) */
+function commit(label) {
+  LAB.hist = LAB.hist.slice(0, LAB.hi + 1);
+  LAB.hist.push({ label, seed: LAB.seed, clicks: LAB.clicks, state: JSON.stringify(LAB.corners) });
+  if (LAB.hist.length > 64) LAB.hist.shift();
+  LAB.hi = LAB.hist.length - 1;
+}
+function restore(i) {
+  if (i < 0 || i >= LAB.hist.length) return;
+  LAB.hi = i; LAB.corners = JSON.parse(LAB.hist[i].state);
+  pushPatch(); rebuild(); scheduleCornerIR();
+}
+function touch() { pushPatch(); paintLive(); }
+function edited(label) { commit(label); touch(); scheduleCornerIR(); }
+
+/* ================================================================ J. THE CONTROLS */
+function knob(host, label, o) {
+  const cell = el('div', 'kcell' + (o.big ? ' big' : ''));
+  const lab = el('label', null, label);
+  const k = el('span', 'knob' + (o.big ? ' big' : ''));
+  for (const c of ['kmod', 'karc', 'kcap', 'kptr', 'kmnow']) k.appendChild(el('span', c));
+  const out = el('output');
+  cell.appendChild(lab); cell.appendChild(k); cell.appendChild(out);
+  host.appendChild(cell);
+  let drag = false, y0 = 0, p0 = 0;
+  k.addEventListener('pointerdown', e => {
+    if (o.enabled && !o.enabled()) return;
+    drag = true; y0 = e.clientY; p0 = o.get();
+    k.classList.add('drag'); try { k.setPointerCapture(e.pointerId); } catch (_) {}
+  });
+  k.addEventListener('pointermove', e => {
+    if (!drag) return;
+    o.set(clamp(p0 + (y0 - e.clientY) / (e.shiftKey ? 600 : 160), 0, 1)); touch(); paintCtls();
+  });
+  const up = () => { if (!drag) return; drag = false; k.classList.remove('drag'); if (o.done) o.done(); };
+  k.addEventListener('pointerup', up); k.addEventListener('pointercancel', up);
+  CTLS.push(() => {
+    const on = !o.enabled || o.enabled();
+    cell.classList.toggle('unbound', !on);
+    const p = on ? o.get() : 0;
+    k.style.setProperty('--a0', '0deg'); k.style.setProperty('--a1', p * 280 + 'deg');
+    k.style.setProperty('--ang', (p * 280 - 140) + 'deg');
+    out.textContent = on ? o.fmt(p) : 'unbound';
+    if (o.label) lab.textContent = o.label();
+  });
+  return cell;
+}
+function paintCtls() { for (const f of CTLS) f(); }
+
+function buildRack() {
+  const host = $('rack'); host.innerHTML = '';
+  host.appendChild(el('span', 'lbl', 'FX RACK'));
+  for (const name of RACK) {
+    if (name !== 'SLUICE') { host.appendChild(el('span', 'rchip', name)); continue; }
+    const c = el('span', 'rchip me' + (LAB.bypass ? ' byp' : ''));
+    const cb = el('input'); cb.type = 'checkbox'; cb.checked = !LAB.bypass; cb.title = 'horde\'s slot bypass (check K2: bit-identical)';
+    cb.addEventListener('change', () => { LAB.bypass = !cb.checked; send({ t: 'bypass', on: LAB.bypass }); buildRack(); paintLive(); });
+    c.appendChild(cb); c.appendChild(el('span', null, 'SLUICE'));
+    host.appendChild(c);
+  }
+  host.appendChild(el('span', 'rnote', 'one instance per type (ADR-172) · order is routing (B50), not modelled · only SLUICE plays'));
+}
+
+function buildMacros() {
+  const host = $('macros'); host.innerHTML = '';
+  CTLS.length = 0;
+  for (let i = 0; i < 4; i++) {
+    const cell = knob(host, '', {
+      big: true,
+      enabled: () => !!(cur().macros && cur().macros[i]),
+      get: () => macroShown(cur(), i),
+      set: v => applyMacro(cur(), i, v),
+      done: () => { edited('macro ' + (i + 1)); rebuild(); },
+      fmt: v => Math.round(v * 100) + '%',
+      label: () => (cur().macros && cur().macros[i]) ? cur().macros[i].label : 'macro ' + (i + 1),
+    });
+    cell.insertBefore(el('span', 'mslot', 'SLOT ' + (i + 1)), cell.firstChild);
+    const M = cur().macros && cur().macros[i];
+    cell.title = M ? M.bindings.map(b => b.target + ' ' + b.lo + '…' + b.hi + (b.curve ? ' (' + b.curve + ')' : '')).join('\n')
+      : 'this preset authors no macro ' + (i + 1) + ': the slot is drawn, inert and labelled, never hidden (ADR-169)';
+  }
+  const n = (cur().macros || []).length;
+  $('macroNote').textContent = n
+    ? 'By order, Sluice\'s labels (ADR-169 A1, owed) · hover for bindings · writes the selected corner'
+    : 'No macros in this preset: four unbound slots, drawn and labelled (ADR-169). Macros ship on shifted glass and smear loop.';
+  const rk = $('randKnobs'); rk.innerHTML = '';
+  knob(rk, 'RANDOMNESS', { get: () => LAB.randomness, set: v => { LAB.randomness = v; }, done: () => rebuildDeep(), fmt: v => v.toFixed(2) });
+}
+
+function fmtV(s, v) {
+  if (v === undefined || v === null) return '—';
+  const u = /hz/.test(s.n) ? ' Hz' : /ms/.test(s.n) ? ' ms' : / st/.test(s.n) ? ' st' : '';
+  return (+v).toFixed(s.fmt) + u;
+}
+function syncSelect(cur0, onPick, lo, hi, kind) {
+  const sel = el('select');
+  const o0 = el('option', null, 'free'); o0.value = ''; sel.appendChild(o0);
+  for (const d of SYNC.DIVS) {
+    const o = el('option', null, d[0] + (d[1] ? ' · ' + d[1] : '')); o.value = d[0];
+    if (kind === 1) { const ms = d[2] * 60000 / SYNC.effTempo(LAB.bpm); if (ms < lo || ms > hi) { o.disabled = true; o.textContent += ' (out of range)'; } }
+    sel.appendChild(o);
+  }
+  sel.value = cur0 || '';
+  sel.addEventListener('change', () => onPick(sel.value));
+  return sel;
+}
+function buildTempo() {
+  $('bpmIn').value = LAB.bpm;
+  const host = $('syncRows'); host.innerHTML = '';
+  const p = cur(), eb = SYNC.effTempo(LAB.bpm);
+  p.chain.forEach((m, i) => {
+    if (m.type !== 'delay') return;
+    const s = specOf('delay', 'time'), r = el('div', 'srow');
+    r.appendChild(el('span', null, (i + 1) + ' DELAY time'));
+    r.appendChild(syncSelect(m.sync && m.sync.time, v => { if (v) { m.sync = m.sync || {}; m.sync.time = v; } else if (m.sync) delete m.sync.time; edited('sync ' + (i + 1) + ' ' + (v || 'free')); rebuild(); }, s.min, s.max, 1));
+    const nm = m.sync && m.sync.time, b = nm ? SYNC.syncBeats(nm) : 0;
+    r.appendChild(el('output', null, nm ? '= ' + (b * 60000 / eb).toFixed(1) + ' ms' : fmtV(s, m.params.time)));
+    host.appendChild(r);
+  });
+  if (p.lfo) {
+    const r = el('div', 'srow');
+    r.appendChild(el('span', null, 'LFO rate'));
+    r.appendChild(syncSelect(p.lfo.sync, v => { if (v) p.lfo.sync = v; else delete p.lfo.sync; edited('lfo sync ' + (v || 'free')); rebuild(); }, 0, Infinity, 2));
+    const b = p.lfo.sync ? SYNC.syncBeats(p.lfo.sync) : 0;
+    r.appendChild(el('output', null, b ? '= ' + (eb / (60 * b)).toFixed(3) + ' Hz' : p.lfo.rate.toFixed(3) + ' Hz' + (p.lfo.target === 'off' ? ' (off)' : '')));
+    host.appendChild(r);
+  }
+  if (!host.children.length) host.appendChild(el('div', 'vnote', 'Nothing in this corner can sync.'));
+  $('tempoNote').textContent = 'By name, ' + SYNC.DIVS.length + ' divisions · resolved at ' + SYNC.effTempo(LAB.bpm) + ' bpm' + (LAB.bpm > 1 ? '' : ' (no host tempo)')
+    + ' · out of range above 1000 ms';
+  $('tempoCell').title = 'Stored by NAME (shape-lab-mod.html DIVS), resolved at the host tempo, pushed once per block; an unchanged tempo is a no-op (Sluice seq 7). '
+    + 'Divisions whose time falls outside our reference\'s delay range (5–1000 ms; Sluice\'s is 4000) are disabled.';
+}
+
+function lockPill(m, onChange) {
+  const b = el('button', 'lock');
+  const paint = () => {
+    const st = m.locked === true ? 'on' : m.locked === false ? 'off' : '';
+    b.className = 'lock' + (st ? ' ' + st : '');
+    b.textContent = m.locked === true ? 'LOCKED' : m.locked === false ? 'UNLOCKED' : 'default · ' + (fzIsLocked(m) ? 'locked' : 'free');
+    b.title = 'tri-state lock (fz.h): unset = the default (leveler and limiter locked in Sluice; none of our eight types is), an explicit lock wins either way. Click cycles default → locked → unlocked.';
+  };
+  b.addEventListener('click', () => { m.locked = m.locked === undefined ? true : m.locked === true ? false : undefined; if (m.locked === undefined) delete m.locked; paint(); onChange(); });
+  paint();
+  return b;
+}
+function paramRow(host, s, obj, key, o) {
+  const r = el('div', 'prow' + (o && o.synced ? ' synced' : ''));
+  const dot = el('i'); r.appendChild(dot);
+  if (o && o.thr !== undefined) { dot.classList.toggle('hot', o.thr < LAB.randomness); dot.title = 'threshold ' + o.thr.toFixed(3) + (o.thr < LAB.randomness ? ' < RANDOMNESS: the next click changes it' : ' ≥ RANDOMNESS: held'); }
+  else dot.title = 'no threshold drawn yet (the first randomise draws them)';
+  r.appendChild(el('label', null, s.n || s.k));
+  const inp = el('input'); inp.type = 'range'; inp.min = 0; inp.max = 1; inp.step = 0.001;
+  const pos = () => clamp(REF.toSlider(s, obj[key]), 0, 1);
+  inp.value = pos(); inp.style.setProperty('--pct', pos());
+  const out = el('output', null, o && o.synced ? o.synced : fmtV(s, obj[key]));
+  inp.addEventListener('input', () => { obj[key] = REF.fromSlider(s, +inp.value); inp.style.setProperty('--pct', inp.value); out.textContent = fmtV(s, obj[key]); touch(); });
+  inp.addEventListener('change', () => { edited(key); });
+  if (o && o.synced) inp.disabled = true;
+  r.appendChild(inp); r.appendChild(out);
+  host.appendChild(r);
+}
+function rebuildDeep() {
+  const host = $('deep'), col = $('leftCol'); if (!host) return;
+  const keep = col ? col.scrollTop : 0;         // the column scrolls; a rebuild must not throw it to the top (B301)
+  host.innerHTML = '';
+  const p = cur();
+  p.chain.forEach((m, i) => {
+    const box = el('div', 'mod' + (i === LAB.node ? ' sel' : '') + (m.enabled === false ? ' off' : ''));
+    const hd = el('div', 'mhd');
+    hd.appendChild(el('span', 'mi', String(i + 1)));
+    const nm = el('span', 'mn', REF.defs[m.type].name); nm.addEventListener('click', () => { LAB.node = i; rebuildDeep(); paintNet(); });
+    hd.appendChild(nm);
+    const sp = el('span', 'sp');
+    const en = el('input'); en.type = 'checkbox'; en.checked = m.enabled !== false; en.title = 'module on (the reference\'s own enable)';
+    en.addEventListener('change', () => { m.enabled = en.checked; edited((en.checked ? 'enable ' : 'disable ') + (i + 1)); rebuildDeep(); });
+    sp.appendChild(lockPill(m, () => edited('lock ' + (i + 1)))); sp.appendChild(en);
+    hd.appendChild(sp); box.appendChild(hd);
+    for (const s of specs(m.type)) {
+      const nmS = m.sync && m.sync[s.k];
+      paramRow(box, s, m.params, s.k, { thr: m.thr ? m.thr[s.k] : undefined,
+        synced: nmS ? nmS + ' = ' + (SYNC.syncBeats(nmS) * 60000 / SYNC.effTempo(LAB.bpm)).toFixed(0) + ' ms' : '' });
+    }
+    host.appendChild(box);
+  });
+  const bus = el('div', 'mod'); const bh = el('div', 'mhd');
+  bh.appendChild(el('span', 'mi', 'FB')); bh.appendChild(el('span', 'mn', 'LOOP BUS'));
+  const bsp = el('span', 'sp'); const clip = el('input'); clip.type = 'checkbox'; clip.checked = !!p.fb.clip;
+  clip.title = 'the loop saturator (tanh): a declared element of the loop (B127)';
+  clip.addEventListener('change', () => { p.fb.clip = clip.checked ? 1 : 0; edited('clip'); });
+  bsp.appendChild(el('span', 'kv', 'tanh')); bsp.appendChild(clip); bh.appendChild(bsp); bus.appendChild(bh);
+  paramRow(bus, { k: 'gain', n: 'feedback gain', min: 0, max: 1, fmt: 2, scale: 'lin' }, p.fb, 'gain');
+  paramRow(bus, { k: 'damp', n: 'loop damp', min: 0, max: 1, fmt: 2, scale: 'lin' }, p.fb, 'damp');
+  paramRow(bus, { k: 'mix', n: 'dry/wet', min: 0, max: 1, fmt: 2, scale: 'lin' }, p, 'mix');
+  host.appendChild(bus);
+  if (p.lfo) {
+    const lb = el('div', 'mod'); const lh = el('div', 'mhd');
+    lh.appendChild(el('span', 'mi', '~')); lh.appendChild(el('span', 'mn', 'LFO'));
+    const lsp = el('span', 'sp');
+    const sh = el('select'); for (const x of ['sine', 'tri', 'saw', 'square', 'sh']) { const o = el('option', null, x); o.value = x; sh.appendChild(o); }
+    sh.value = p.lfo.shape; sh.addEventListener('change', () => { p.lfo.shape = sh.value; edited('lfo shape'); });
+    const tg = el('select'); const off = el('option', null, 'target off'); off.value = 'off'; tg.appendChild(off);
+    p.chain.forEach((m, i) => { for (const s of specs(m.type)) { const o = el('option', null, (i + 1) + ' ' + m.type + ':' + s.k); o.value = i + ':' + s.k; tg.appendChild(o); } });
+    tg.value = p.lfo.target; tg.addEventListener('change', () => { p.lfo.target = tg.value; edited('lfo target'); rebuild(); });
+    lsp.appendChild(sh); lsp.appendChild(tg); lh.appendChild(lsp); lb.appendChild(lh);
+    paramRow(lb, { k: 'rate', n: 'rate hz', min: 0.02, max: 8, fmt: 2, scale: 'log' }, p.lfo, 'rate',
+      { synced: p.lfo.sync ? p.lfo.sync + ' = ' + (SYNC.effTempo(LAB.bpm) / (60 * SYNC.syncBeats(p.lfo.sync))).toFixed(2) + ' Hz' : '' });
+    paramRow(lb, { k: 'depth', n: 'depth', min: 0, max: 1, fmt: 2, scale: 'lin' }, p.lfo, 'depth');
+    host.appendChild(lb);
+  }
+  if (col) col.scrollTop = keep;
+  const hot = p.chain.reduce((a, m) => a + (fzIsLocked(m) || !m.thr ? 0 : specs(m.type).filter(s => m.thr[s.k] < LAB.randomness).length), 0);
+  const all = p.chain.reduce((a, m) => a + specs(m.type).length, 0);
+  $('deepOwn').textContent = 'corner ' + CORNER[LAB.sel] + ' · ● = changes on the next click (' + hot + ' of ' + all + ')';
+}
+
+function sigShort(p) { return p.chain.map(m => m.type.slice(0, 4)).join('›'); }
+function buildCorners() {
+  const host = $('corners'); host.innerHTML = '';
+  const ok = sameSig(LAB.corners);
+  LAB.corners.forEach((p, i) => {
+    const c = el('div', 'corner' + (i === LAB.sel ? ' sel' : '') + (!ok && REF.sigOf(p) !== REF.sigOf(LAB.corners[LAB.sel]) ? ' bad' : ''));
+    const h = el('div', 'ch'); const L = el('span', 'cl', CORNER[i]); L.style.background = 'var(--c' + CORNER[i] + ')';
+    h.appendChild(L); h.appendChild(el('span', 'cn', p.name || '—')); c.appendChild(h);
+    c.appendChild(el('div', 'co', p.origin === 'preset' ? 'preset' : p.origin || ''));
+    c.appendChild(el('div', 'sig', sigShort(p)));
+    const cv = el('canvas'); cv.height = 26; cv.id = 'cir' + i; c.appendChild(cv);
+    const sel = el('select'); const o0 = el('option', null, 'load preset…'); o0.value = ''; sel.appendChild(o0);
+    for (const pr of REF.presets) { const o = el('option', null, PRESET_NAME[pr.name] || pr.name); o.value = pr.name; sel.appendChild(o); }
+    sel.addEventListener('click', e => e.stopPropagation());
+    sel.addEventListener('change', () => { if (!sel.value) return; LAB.corners[i] = presetPatch(sel.value); LAB.sel = i; edited('load ' + sel.value + ' → ' + CORNER[i]); rebuild(); });
+    c.appendChild(sel);
+    c.addEventListener('click', () => { LAB.sel = i; rebuild(); });
+    host.appendChild(c);
+  });
+  const xy = el('canvas', 'viz xy'); xy.id = 'xy'; xy.height = 118; host.appendChild(xy);
+  let drag = false;
+  const at = e => { const r = xy.getBoundingClientRect(); LAB.xy.x = clamp((e.clientX - r.left) / (r.width || 1), 0, 1); LAB.xy.y = clamp((e.clientY - r.top) / (r.height || 1), 0, 1); touch(); paintXY(); };
+  xy.addEventListener('pointerdown', e => { drag = true; try { xy.setPointerCapture(e.pointerId); } catch (_) {} at(e); });
+  xy.addEventListener('pointermove', e => { if (drag) at(e); });
+  xy.addEventListener('pointerup', () => { drag = false; scheduleCornerIR(); });
+  $('morphTag').innerHTML = ok ? '<span class="std">ONE SIGNATURE · MORPHS</span>'
+    : '<span class="dep">SIGNATURES DIFFER · HEARS NEAREST</span>';
+  $('cornerTag').innerHTML = '<span class="std">EDITING ' + CORNER[LAB.sel] + '</span>';
+  const w = $('cornerWarn');
+  w.style.display = ok ? 'none' : '';
+  w.innerHTML = ok ? '' : '<b>Corner-unsafe.</b> The corners no longer share one chain (ADR-166 A1), so the morph cannot blend them: '
+    + 'the engine hears the NEAREST corner whole. <b>spread to corners</b> makes three corner-safe variants of this one. How horde presents this is open (side panel).';
+}
+
+function rebuild() {
+  if (!LAB.ready) return;
+  const col = $('leftCol'), keep = col ? col.scrollTop : 0;
+  const p = cur();
+  $('presetOwn').textContent = (p.name || '') + ' · corner ' + CORNER[LAB.sel];
+  buildMacros(); buildTempo(); rebuildDeep(); buildCorners(); buildRack();
+  $('seedIn').value = LAB.seed;
+  $('clickKv').innerHTML = 'click <b>' + LAB.clicks + '</b> · undo <b>' + (LAB.hi + 1) + '/' + LAB.hist.length + '</b>';
+  $('clickKv').title = LAB.hist[LAB.hi] ? 'this step: ' + LAB.hist[LAB.hi].label + ' (seed ' + LAB.hist[LAB.hi].seed + ', click ' + LAB.hist[LAB.hi].clicks + ' — provenance, not the source of truth)' : '';
+  $('bUndo').disabled = LAB.hi <= 0; $('bRedo').disabled = LAB.hi >= LAB.hist.length - 1;
+  const lo = LAB.loud;
+  rebuildLoud();
+  paintCtls(); paintLive();
+  if (col) col.scrollTop = keep;
+}
+
+/* ================================================================ K. THE VIEWS — all from rendered samples */
+function readColours() {
+  const cs = getComputedStyle(document.body);
+  for (const k of ['--scr-tube', '--scr-value', '--scr-meter', '--scr-physics', '--scr-marker', '--scr-grid', '--scr-alpha',
+    '--cA', '--cB', '--cC', '--cD', '--line', '--text'])
+    CSSV[k] = String(cs.getPropertyValue(k) || '').trim() || '#888';
+}
+function ctx2(cv) {
+  if (!cv || !cv.getContext) return null;
+  const w = Math.max(40, Math.round(cv.clientWidth || 300)), h = +cv.height || 100;
+  const dpr = window.devicePixelRatio || 1;
+  if (cv.width !== Math.round(w * dpr)) { cv.width = Math.round(w * dpr); cv.style.height = h + 'px'; }
+  const g = cv.getContext('2d'); if (!g || !g.setTransform) return null;
+  g.setTransform(cv.width / w, 0, 0, cv.width / w, 0, 0);
+  g.fillStyle = CSSV['--scr-tube']; g.fillRect(0, 0, w, h);
+  return { g, w, h };
+}
+/* a token hex with an alpha; the tokens are all #RRGGBB (anything else is returned as is) */
+function alpha(col, a) {
+  const c = String(col || '').trim();
+  if (c[0] === '#' && c.length === 7) return 'rgba(' + parseInt(c.slice(1, 3), 16) + ',' + parseInt(c.slice(3, 5), 16) + ',' + parseInt(c.slice(5, 7), 16) + ',' + a + ')';
+  return c;
+}
+const lvl = db => clamp((db + 60) / 60, 0, 1);
+function nodeLayout(w, h, n) {
+  const x0 = 46, x1 = w - 70, gap = n > 0 ? (x1 - x0) / n : 0;
+  const ys = h * 0.42;
+  return { inX: 20, outX: w - 26, y: ys, nodes: Array.from({ length: n }, (_, i) => ({ x: x0 + gap * (i + 0.5), y: ys, w: Math.min(92, gap - 12), h: 46 })) };
+}
+function paintNet() {
+  const c = ctx2($('net')); if (!c || !LAB.ready) return;
+  const { g, w, h } = c, P = resolvedHeard(), M = LAB.meters;
+  const n = P.chain.length, L = nodeLayout(w, h, n);
+  const meterCol = CSSV['--scr-meter'], valCol = CSSV['--scr-value'], gridCol = CSSV['--scr-grid'], phys = CSSV['--scr-physics'];
+  g.font = '10px ui-monospace, Menlo, monospace'; g.textBaseline = 'middle';
+  /* the forward path */
+  g.strokeStyle = alpha(gridCol, 0.8); g.lineWidth = 1.5;
+  g.beginPath(); g.moveTo(L.inX + 8, L.y); g.lineTo(L.outX - 8, L.y); g.stroke();
+  /* the feedback bus: from after the chain back to the input sum, below */
+  const st = LAB.ir ? LAB.ir.st.state : '—';
+  const busCol = st === 'FREEZE' ? phys : st === 'CRITICAL' ? CSSV['--scr-marker'] : st === 'OPEN' ? alpha(gridCol, 0.35) : meterCol;
+  const fbOn = P.fb && P.fb.gain > 0, by = h - 30;
+  g.strokeStyle = busCol; g.lineWidth = fbOn ? 1 + 3 * lvl(M ? M.loop : -150) : 1; g.setLineDash(fbOn ? [] : [3, 4]);
+  const xa = L.outX - 36, xb = L.inX + 16;
+  g.beginPath(); g.moveTo(xa, L.y); g.lineTo(xa, by); g.lineTo(xb, by); g.lineTo(xb, L.y); g.stroke(); g.setLineDash([]);
+  g.fillStyle = busCol;
+  g.fillText('LOOP  gain ' + (P.fb.gain || 0).toFixed(2) + ' · damp ' + (P.fb.damp || 0).toFixed(2) + (P.fb.clip ? ' · tanh' : ' · no clip') + ' · DC block · ±4 clamp · ' + st
+    + (LAB.ir && LAB.ir.st.state !== 'OPEN' && LAB.ir.st.state !== 'FREEZE' && isFinite(LAB.ir.st.t60) ? ' (T60 ' + LAB.ir.st.t60.toFixed(2) + ' s)' : ''), xb + 8, by - 8);
+  /* the sum at the input, the mix at the output */
+  const dot = (x, y, lab) => { g.fillStyle = CSSV['--scr-tube']; g.strokeStyle = gridCol; g.lineWidth = 1.5; g.beginPath(); g.arc(x, y, 8, 0, 6.2832); g.fill(); g.stroke();
+    g.fillStyle = gridCol; g.textAlign = 'center'; g.fillText(lab, x, y); g.textAlign = 'left'; };
+  dot(L.inX + 16, L.y, '+');
+  g.fillStyle = gridCol; g.fillText('IN', 2, L.y - 14);
+  dot(xa + 18, L.y, 'm'); g.fillStyle = gridCol; g.fillText('OUT', L.outX - 10, L.y - 14);
+  g.fillText('mix ' + (P.mix || 0).toFixed(2), xa + 4, L.y + 18);
+  /* the nodes, lit by the rendered level after each module (the taps) */
+  L.nodes.forEach((b, i) => {
+    const m = P.chain[i], lv = M && M.node[i] !== undefined ? lvl(M.node[i]) : 0;
+    const x = b.x - b.w / 2, y = b.y - b.h / 2;
+    g.fillStyle = CSSV['--scr-tube']; g.fillRect(x, y, b.w, b.h);
+    g.fillStyle = alpha(meterCol, 0.06 + 0.4 * lv); g.fillRect(x, y, b.w, b.h);
+    g.strokeStyle = i === LAB.node ? valCol : gridCol; g.lineWidth = i === LAB.node ? 2 : 1.2;
+    if (m.enabled === false) g.setLineDash([3, 3]);
+    g.strokeRect(x, y, b.w, b.h); g.setLineDash([]);
+    g.fillStyle = gridCol;
+    g.fillText((i + 1) + ' ' + REF.defs[m.type].name.slice(0, 10), x + 4, y + 10);
+    const sm = summary(m); g.fillStyle = valCol; g.fillText(sm.slice(0, Math.floor(b.w / 6)), x + 4, y + 24);
+    g.fillStyle = meterCol; g.fillText(M && M.node[i] > -140 ? M.node[i].toFixed(0) + ' dB' : '—', x + 4, y + 37);
+    b.hit = [x, y, b.w, b.h];
+  });
+  /* the LFO: a dashed edge to its target */
+  if (P.lfo && P.lfo.target && P.lfo.target !== 'off' && P.lfo.depth > 0) {
+    const ti = +P.lfo.target.split(':')[0], b = L.nodes[ti];
+    if (b) {
+      const lx = b.x, ly = 16;
+      g.strokeStyle = phys; g.setLineDash([4, 3]); g.lineWidth = 1.2;
+      g.beginPath(); g.moveTo(lx, ly + 6); g.lineTo(lx, b.y - b.h / 2); g.stroke(); g.setLineDash([]);
+      g.fillStyle = phys; g.textAlign = 'center';
+      g.fillText('LFO ' + P.lfo.shape + ' ' + (P.lfo.sync || P.lfo.rate.toFixed(2) + ' Hz') + ' → ' + P.lfo.target.split(':')[1] + ' ±' + (P.lfo.depth * 50).toFixed(0) + '%', lx, ly);
+      g.textAlign = 'left';
+    }
+  }
+  if (LAB.bypass) { g.fillStyle = alpha(CSSV['--scr-tube'], 0.7); g.fillRect(0, 0, w, h); g.fillStyle = valCol; g.textAlign = 'center';
+    g.fillText('BYPASSED — the input passes untouched, the node is not ticked (K2)', w / 2, h / 2); g.textAlign = 'left'; }
+  $('net')._layout = L;
+}
+function summary(m) {
+  const p = m.params, s = m.sync || {};
+  switch (m.type) {
+    case 'delay': return (s.time ? s.time + ' ' : '') + p.time.toFixed(0) + 'ms fb' + p.fb.toFixed(2);
+    case 'allpass': return p.time.toFixed(1) + 'ms g' + p.g.toFixed(2);
+    case 'shifter': return (p.shift >= 0 ? '+' : '') + p.shift.toFixed(0) + ' Hz';
+    case 'doppler': return (p.semi >= 0 ? '+' : '') + p.semi.toFixed(1) + ' st';
+    case 'diffuser': return 'blur ' + p.blur.toFixed(2) + ' ×' + p.size.toFixed(2);
+    case 'combs': return 'decay ' + p.decay.toFixed(2) + ' ×' + p.size.toFixed(2);
+    case 'filter': return p.freq.toFixed(0) + ' Hz ' + (p.mode < 0.5 ? 'lp' : p.mode < 1.5 ? 'bp' : 'hp');
+    case 'disperser': return p.stages.toFixed(0) + '× ' + p.freq.toFixed(0) + ' Hz';
+  }
+  return '';
+}
+function resolvedHeard() { return SYNC.resolveSync(heardNamed(), LAB.bpm, REF.defs); }
+function paintIR() {
+  const c = ctx2($('ir')); if (!c) return;
+  const { g, w, h } = c, I = LAB.ir; if (!I) return;
+  const gridCol = CSSV['--scr-grid'], x = t => 4 + (w - 8) * t / 3, y = db => 6 + (h - 16) * clamp(-db / 90, 0, 1);
+  g.strokeStyle = alpha(gridCol, 0.25); g.lineWidth = 1;
+  for (const d of [0, -30, -60, -90]) { g.beginPath(); g.moveTo(4, y(d)); g.lineTo(w - 4, y(d)); g.stroke(); }
+  g.fillStyle = alpha(gridCol, 0.9); g.font = '9px ui-monospace, Menlo, monospace';
+  g.fillText('0 dB', 6, y(0) + 8); g.fillText('−60', 6, y(-60) - 3); g.fillText('3 s', w - 22, h - 4);
+  const pk = Math.max.apply(null, I.env);
+  g.strokeStyle = CSSV['--scr-meter']; g.lineWidth = 1.6; g.beginPath();
+  I.env.forEach((d, k) => { const X = x(k * 0.02), Y = y(d - pk); k ? g.lineTo(X, Y) : g.moveTo(X, Y); }); g.stroke();
+  if (I.st.db) {
+    g.strokeStyle = CSSV['--scr-physics']; g.lineWidth = 1.2; g.setLineDash([3, 2]); g.beginPath();
+    I.st.db.forEach((d, k) => { const X = x(k * 0.05), Y = y(d - I.st.peak); k ? g.lineTo(X, Y) : g.moveTo(X, Y); }); g.stroke(); g.setLineDash([]);
+  }
+  g.fillStyle = CSSV['--scr-meter']; g.fillText('output', w - 110, 12);
+  g.fillStyle = CSSV['--scr-physics']; g.fillText('loop bus', w - 60, 12);
+}
+/* the output: the last 2048 rendered samples, wet over the dry ghost, and a 48-band spectrum
+   of the same samples (a direct DFT at log-spaced bins; cheap, and it reads what was rendered) */
+function paintOut() {
+  const c = ctx2($('out')); if (!c) return;
+  const { g, w, h } = c, M = LAB.meters; if (!M) return;
+  const half = Math.floor(w * 0.5) - 3, gridCol = CSSV['--scr-grid'];
+  const N = M.outRing.length, pk = Math.max(1e-6, ...Array.from(M.dryRing, Math.abs), ...Array.from(M.outRing, Math.abs));
+  const sc = (h / 2 - 6) / pk;
+  const trace = (arr, col, lw) => { g.strokeStyle = col; g.lineWidth = lw; g.beginPath();
+    for (let i = 0; i < half; i++) { const v = arr[Math.floor(i * N / half)]; const Y = h / 2 - v * sc; i ? g.lineTo(i + 2, Y) : g.moveTo(2, Y); } g.stroke(); };
+  trace(M.dryRing, alpha(gridCol, 0.35), 1);
+  trace(M.outRing, CSSV['--scr-meter'], 1.4);
+  const B = 48, f0 = 40, f1 = 16000, x0 = half + 6, bw = (w - x0 - 4) / B;
+  const band = (arr, f) => { let re = 0, im = 0; const k = 6.283185307179586 * f / SR; for (let i = 0; i < N; i++) { const win = 0.5 - 0.5 * Math.cos(6.283185307179586 * i / N); re += arr[i] * win * Math.cos(k * i); im -= arr[i] * win * Math.sin(k * i); } return 20 * Math.log10(Math.max(1e-9, Math.hypot(re, im) * 2 / N)); };
+  const Y = db => 4 + (h - 14) * clamp(-(db + 6) / 84, 0, 1);
+  for (let b = 0; b < B; b++) {
+    const f = f0 * Math.pow(f1 / f0, (b + 0.5) / B);
+    const dd = band(M.dryRing, f), dw = band(M.outRing, f);
+    g.fillStyle = alpha(gridCol, 0.25); g.fillRect(x0 + b * bw, Y(dd), bw - 1, h - 10 - Y(dd));
+    g.fillStyle = alpha(CSSV['--scr-meter'], 0.85); g.fillRect(x0 + b * bw + bw * 0.25, Y(dw), bw * 0.5, h - 10 - Y(dw));
+  }
+  g.fillStyle = alpha(gridCol, 0.9); g.font = '9px ui-monospace, Menlo, monospace';
+  g.fillText('out ' + M.out.toFixed(1) + ' dB · dry ' + M.dry.toFixed(1) + ' dB', 4, h - 3);
+  g.fillText('40 Hz', x0, h - 1); g.fillText('16 k', w - 26, h - 1);
+}
+function paintXY() {
+  const c = ctx2($('xy')); if (!c) return;
+  const { g, w, h } = c;
+  const pts = [[0, 0], [1, 0], [0, 1], [1, 1]];
+  pts.forEach((p, i) => { g.fillStyle = CSSV['--c' + CORNER[i]]; g.beginPath(); g.arc(4 + p[0] * (w - 8), 4 + p[1] * (h - 8), 5, 0, 6.2832); g.fill(); });
+  g.strokeStyle = alpha(CSSV['--scr-grid'], 0.3); g.strokeRect(4, 4, w - 8, h - 8);
+  const X = 4 + LAB.xy.x * (w - 8), Yy = 4 + LAB.xy.y * (h - 8);
+  g.strokeStyle = CSSV['--scr-value']; g.lineWidth = 2; g.beginPath(); g.arc(X, Yy, 6, 0, 6.2832); g.stroke();
+  const wts = cornerWeights(LAB.xy.x, LAB.xy.y);
+  g.fillStyle = CSSV['--scr-grid']; g.font = '9px ui-monospace, Menlo, monospace';
+  g.fillText(wts.map((v, i) => CORNER[i] + Math.round(v * 100)).join(' '), 8, h - 8);
+}
+function paintCornerIRs() {
+  for (let i = 0; i < 4; i++) {
+    const c = ctx2($('cir' + i)), E = LAB.cornerIR[i]; if (!c || !E) continue;
+    const { g, w, h } = c, pk = Math.max.apply(null, E);
+    g.strokeStyle = CSSV['--c' + CORNER[i]]; g.lineWidth = 1.3; g.beginPath();
+    E.forEach((d, k) => { const X = 2 + (w - 4) * k / (E.length - 1), Y = 2 + (h - 4) * clamp((pk - d) / 72, 0, 1); k ? g.lineTo(X, Y) : g.moveTo(X, Y); });
+    g.stroke();
+  }
+}
+function paintLive() {
+  if (!LAB.ready) return;
+  const M = LAB.meters;
+  $('hdrR').innerHTML = 'host <b>' + SYNC.effTempo(LAB.bpm) + ' bpm</b>' + (LAB.bpm > 1 ? '' : ' (fallback)')
+    + ' · input <b>' + LAB.src + '</b><br>' + (AUD.on ? 'AUDIO · worklet meters' : 'SILENT · page renderer, ' + HOP + ' samples / frame')
+    + (M ? ' · t ' + (M.n / SR).toFixed(1) + ' s' : '');
+  const b = $('loopBadge'), st = LAB.ir ? LAB.ir.st.state : '—';
+  b.textContent = 'LOOP · ' + st;
+  b.style.background = st === 'FREEZE' ? 'var(--physics)' : st === 'CRITICAL' ? 'var(--caution)' : st === 'DECAY' ? 'var(--meter)' : 'var(--panel2)';
+  b.style.color = st === 'OPEN' || st === '—' ? 'var(--t2)' : 'var(--bg)';
+  paintNet(); paintIR(); paintOut(); paintXY(); paintCornerIRs();
+}
+function scheduleIR() {
+  if (IRQ.t) clearTimeout(IRQ.t);
+  IRQ.t = setTimeout(() => { IRQ.t = 0; if (!LAB.ready) return; const P = resolvedHeard(); LAB.ir = renderIR(P); LAB.loud = loudnessDb(P); rebuildLoud(); paintLive(); }, 140);
+}
+function rebuildLoud() {
+  const lo = LAB.loud; if (lo === null || lo === undefined) return;
+  $('loudKv').innerHTML = 'LOUDNESS wet <b>' + lo.toFixed(1) + ' dB</b> → gain <b>' + (clamp(-lo, -12, 24) >= 0 ? '+' : '')
+    + clamp(-lo, -12, 24).toFixed(1) + ' dB</b> <span class="dep">MEASURED · NOT APPLIED</span>';
+  $('loudKv').title = 'fz.h fzNormalizeLoudness on our engine: seeded noise, 0.6 s at 22.05 kHz, the wet alone, re the input. Sluice would store this as patch.gain on the WET; our reference has no wet gain stage, so nothing heard changes.';
+}
+function scheduleCornerIR() {
+  if (IRQ.corners) clearTimeout(IRQ.corners);
+  IRQ.corners = setTimeout(() => {
+    IRQ.corners = 0; if (!LAB.ready) return;
+    LAB.cornerIR = LAB.corners.map(p => {
+      const n = Math.round(1.2 * SR_OFF), r = offline({ patch: SYNC.resolveSync(p, LAB.bpm, REF.defs), sr: SR_OFF, n, input: i => i === 0 ? 0.5 : 0 });
+      const W = Math.round(0.03 * SR_OFF), E = [];
+      for (let k = 0; k * W < n; k++) { let s = 0; for (let i = k * W; i < Math.min(n, (k + 1) * W); i++) s += r.out[i] * r.out[i]; E.push(dbOf(s, W)); }
+      return E;
+    });
+    paintCornerIRs();
+  }, 260);
+}
+
+/* the macro knob's position, DERIVED from the params its first binding reaches (the
+   fx-design-lab idiom, :2575): after a randomise or an edit the stored value no longer
+   describes the patch (Sluice's G-70 holds for their presets only), and a knob that showed
+   the stored value would jump the params on first touch */
+function macroShown(p, i) {
+  const M = p.macros[i], b = M.bindings[0], t = b && macroTarget(p, b.target);
+  if (!t) return M.value;
+  const v = t.o[t.k];
+  if (b.curve === 'log' && b.lo > 0 && b.hi > 0 && v > 0) return clamp(Math.log(v / b.lo) / Math.log(b.hi / b.lo), 0, 1);
+  if (Array.isArray(b.curve) || b.hi === b.lo) return M.value;
+  const c = (v - b.lo) / (b.hi - b.lo);
+  return clamp(b.curve === 'exp' ? Math.sqrt(Math.max(0, c)) : c, 0, 1);
+}
+
+/* ================================================================ L. AUDIO — the same renderer, in a worklet */
+function pageEnv(over) {
+  return Object.assign({ src: REF.tapped, defs: REF.defs, Voice: LAB.Composed || null,
+    voiceBundle: LAB.Composed ? LAB.Composed.toString() : '' }, over || {});
+}
+function initMsgs() {
+  const m = [];
+  if (LAB.voiceReady) m.push({ t: 'voice', params: LAB.voicePresets[LAB.voice].params });
+  m.push({ t: 'src', kind: LAB.src }, { t: 'bpm', bpm: LAB.bpm }, { t: 'patch', p: heardNamed() }, { t: 'bypass', on: LAB.bypass });
+  return m;
+}
+async function audioToggle() {
+  if (!LAB.ready) return;
+  try {
+    if (AUD.on) { AUD.on = false; if (AUD.ctx) await AUD.ctx.suspend(); paintChrome(); return; }
+    if (!AUD.ctx) {
+      AUD.ctx = new AudioContext({ sampleRate: SR });
+      const url = URL.createObjectURL(new Blob([workletSource(pageEnv())], { type: 'application/javascript' }));
+      await AUD.ctx.audioWorklet.addModule(url);
+      AUD.node = new AudioWorkletNode(AUD.ctx, 'sluice-horde', { numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2],
+        processorOptions: { init: initMsgs() } });
+      AUD.node.port.onmessage = e => { if (AUD.on) LAB.meters = e.data; };
+      AUD.node.connect(AUD.ctx.destination);
+    }
+    await AUD.ctx.resume(); AUD.on = true;
+  } catch (e) { AUD.err = 'audio failed: ' + String(e && e.message || e); }
+  paintChrome();
+}
+
+/* ================================================================ M. SELF-CHECKS AT LOAD, each with a must-fail control
+   Every check reports its assertion AND its control; a check passes only when the assertion
+   holds and the control fires (L0032: a detector that cannot fail proves nothing). */
+function pushCheck(id, name, ok, ctl, detail) { LAB.checks.push({ id, name, ok: !!ok, ctl: !!ctl, detail }); }
+const sameArr = (a, b) => { if (a.length !== b.length) return false; for (let i = 0; i < a.length; i++) if (!Object.is(a[i], b[i])) return false; return true; };
+function testInput(n, nanAt) {
+  const x = new Float64Array(n), r = mulberry32(0x10D), b0 = Math.round(0.5 * SR_OFF), b1 = b0 + Math.round(0.04 * SR_OFF);
+  x[0] = 0.5; for (let i = b0; i < b1 && i < n; i++) x[i] = 0.25 * (r() * 2 - 1);
+  if (nanAt >= 0) x[nanAt] = NaN;
+  return x;
+}
+function health(out) { let fin = true, mx = 0, e = 0; for (const v of out) { if (!isFinite(v)) fin = false; else { mx = Math.max(mx, Math.abs(v)); e += v * v; } } return { fin, mx, e }; }
+function K1() {
+  const n = Math.round(1.5 * SR_OFF), x = testInput(n, -1);
+  const pats = REF.presets.map(p => [PRESET_NAME[p.name], presetPatch(p.name)])
+    .concat(LAB.corners.map((p, i) => ['corner ' + CORNER[i], p]))
+    .concat([1, 2, 3, 4, 5, 6, 7, 8].map(s => ['random seed ' + s, fzRandomPatch(mulberry32(s))]));
+  const bad = [];
+  for (const [nm, p] of pats) {
+    const h = health(offline({ patch: SYNC.resolveSync(p, 120, REF.defs), sr: SR_OFF, n, input: i => x[i] }).out);
+    if (!h.fin || h.mx > 0.85 + 1e-12 || !(h.e > 1e-10)) bad.push(nm + (h.fin ? '' : ' NaN') + (h.mx > 0.85 ? ' >0.85' : '') + (h.e > 1e-10 ? '' : ' silent'));
+  }
+  const p0 = presetPatch(REF.presets[0].name);
+  const cNaN = health(offline({ patch: p0, sr: SR_OFF, n: 4000, input: (xn => i => xn[i])(testInput(4000, 100)) }).out);
+  const cZero = health(offline({ patch: p0, sr: SR_OFF, n: 4000, input: () => 0 }).out);
+  const ctl = !cNaN.fin && !(cZero.e > 1e-10);
+  pushCheck('K1', 'every patch renders finite, ≤ 0.85 and not silent', !bad.length, ctl,
+    pats.length + ' patches (5 presets, 4 corners, 8 fz random patches), 1.5 s at 22.05 kHz, impulse + seeded noise' + (bad.length ? ' — FAIL: ' + bad.join(', ') : '')
+    + ' · controls: a planted NaN input ' + (cNaN.fin ? 'NOT caught' : 'caught') + ', a zero input ' + (cZero.e > 1e-10 ? 'NOT caught' : 'caught as silent'));
+}
+function K2() {
+  const kind = LAB.voiceReady ? 'voice' : 'noise';
+  const mk = () => { const r = makeRenderer(pageEnv(), SR); for (const m of initMsgs()) r.msg(m); r.msg({ t: 'src', kind }); return r; };
+  const L = new Float32Array(128), R = new Float32Array(128);
+  const a = mk(); a.msg({ t: 'bypass', on: true });
+  let mism = 0, ein = 0;
+  for (let b = 0; b < 400; b++) { a.process(L, R); const [sl, sr] = a.lastSrc(); for (let i = 0; i < 128; i++) { if (!Object.is(L[i], sl[i]) || !Object.is(R[i], sr[i])) mism++; ein += sl[i] * sl[i]; } }
+  /* control: the node NOT bypassed with its dry/wet at 0 — our reference still runs its output
+     stage (tanh·0.85, network-lab-v0.html:485) and sums to mono, so "mix 0" is not a bypass */
+  const c = mk(); const p = heardNamed(); p.mix = 0; c.msg({ t: 'patch', p }); c.msg({ t: 'bypass', on: false });
+  for (let b = 0; b < 400; b++) c.process(L, R);                       // the mix smoother settles
+  let cm = 0; for (let b = 0; b < 100; b++) { c.process(L, R); const [sl, sr] = c.lastSrc(); for (let i = 0; i < 128; i++) if (!Object.is(L[i], sl[i]) || !Object.is(R[i], sr[i])) cm++; }
+  pushCheck('K2', 'bypass is bit-identical to the input', mism === 0 && ein > 0, cm > 0,
+    '51 200 samples of the ' + kind + ' source through the bypassed slot: ' + mism + ' samples differ (input energy ' + ein.toFixed(1) + ')'
+    + ' · control: NOT bypassed at dry/wet 0 → ' + cm + ' of 12 800 differ (the reference\'s output stage runs at mix 0)');
+}
+function beatsFromName(nm) {                // independent of DIVS: the name's own arithmetic
+  const m = /^(\d+)\/(\d+)(T|D)?$/.exec(nm); if (!m) return 0;
+  const b = +m[1] / +m[2] * 4;
+  return m[3] === 'T' ? b * 2 / 3 : m[3] === 'D' ? b * 1.5 : b;
+}
+function K3() {
+  const rel = (a, b) => Math.abs(a - b) <= 1e-12 * Math.max(1, Math.abs(b));
+  let tabBad = [];
+  for (const d of SYNC.DIVS) { if (!rel(beatsFromName(d[0]), d[2])) tabBad.push(d[0]); if (d[1] && !rel(beatsFromName(d[1]), d[2])) tabBad.push(d[1]); }
+  const r = makeRenderer(pageEnv({ Voice: null }), SR);
+  const sp = specOf('delay', 'time'); let n = 0, bad = [];
+  for (const bpm of [60, 97.5, 120, 174, 0, 1]) {
+    r.msg({ t: 'bpm', bpm });
+    const eb = bpm > 1 ? bpm : 120;
+    for (const d of SYNC.DIVS) {
+      const p = { chain: [{ id: 'm1', type: 'delay', enabled: true, params: { time: 220, fb: 0, damp: 0, mix: 1 }, sync: { time: d[0] } }],
+        fb: { gain: 0, damp: 0, clip: 0 }, mix: 1, lfo: { rate: 0.3, depth: 0.2, shape: 'sine', target: '0:fb', sync: d[1] || d[0] } };
+      r.msg({ t: 'patch', p });
+      const q = r.lastResolved(), bt = beatsFromName(d[0]);
+      const want = clamp(bt * 60000 / eb, sp.min, sp.max), wantHz = eb / (60 * bt);
+      n++;
+      if (!rel(q.chain[0].params.time, want) || !rel(q.lfo.rate, wantHz)) bad.push(d[0] + '@' + bpm);
+    }
+  }
+  r.msg({ t: 'bpm', bpm: 0 }); const fb = r.tempo();
+  const a0 = r.applies(); r.msg({ t: 'bpm', bpm: 120 }); const a1 = r.applies(); r.msg({ t: 'bpm', bpm: 140 }); const a2 = r.applies();
+  /* the rendered echo: '1/4' at 120 bpm is 500 ms = 11 025 samples at 22.05 kHz */
+  const echo = bpm => {
+    const p = { chain: [{ type: 'delay', enabled: true, params: { time: 220, fb: 0, damp: 0, mix: 1 }, sync: { time: '1/4' } }],
+      fb: { gain: 0, damp: 0, clip: 0 }, mix: 1, lfo: { rate: 0.3, depth: 0, shape: 'sine', target: 'off' } };
+    const n0 = Math.round(1.5 * SR_OFF), N = n0 + Math.round(1.2 * SR_OFF);
+    const o = offline({ patch: SYNC.resolveSync(p, bpm, REF.defs), sr: SR_OFF, n: N, input: i => i === n0 ? 0.5 : 0 }).out;
+    let bi = n0 + 10; for (let i = n0 + 10; i < N; i++) if (Math.abs(o[i]) > Math.abs(o[bi])) bi = i;
+    return bi - n0;
+  };
+  const lag = echo(120), lagC = echo(90);
+  const ok = !tabBad.length && !bad.length && fb === 120 && a1 === a0 && a2 === a1 + 1 && Math.abs(lag - 11025) <= 1;
+  pushCheck('K3', 'a synced time equals the division × the host bpm', ok, Math.abs(lagC - 11025) > 1,
+    'table vs the names\' own arithmetic: ' + (tabBad.length ? 'FAIL ' + tabBad.join(' ') : '22 names + 7 dotted aliases agree')
+    + ' · ' + n + ' division×bpm pairs through the renderer\'s own resolution (delay ms, LFO Hz): ' + (bad.length ? 'FAIL ' + bad.slice(0, 6).join(' ') : 'exact')
+    + ' · no host tempo → ' + fb + ' · an unchanged tempo re-applied ' + (a1 - a0) + '×, a new one ' + (a2 - a1) + '×'
+    + ' · RENDERED echo of 1/4 @ 120: ' + lag + ' samples (want 11 025 ±1) · control: the same render at 90 bpm → ' + lagC + ', which the check rejects');
+}
+function K3divs(text) {                          // served only: our DIVS copy against its source
+  try {
+    const src = sliceBetween(text, 'const DIVS = Object.freeze([', ']);', 'DIVS');
+    const D = new Function(src.replace('const DIVS = Object.freeze(', 'return (') + ']);')();
+    const same = D.length === SYNC.DIVS.length && D.every((d, i) => d[0] === SYNC.DIVS[i][0] && d[1] === SYNC.DIVS[i][1] && d[2] === SYNC.DIVS[i][2]);
+    return same ? 'the copy matches shape-lab-mod.html DIVS (22 rows)' : 'DRIFT: the copy no longer matches shape-lab-mod.html DIVS';
+  } catch (e) { return 'shape-lab-mod.html DIVS not readable: ' + String(e.message || e); }
+}
+function K4() {
+  const seq = seed => { const r = mulberry32(seed), p = fzRandomPatch(r); for (let k = 0; k < 3; k++) fzRandomize(p, r, 0.5); return JSON.stringify(p); };
+  const same = seq(SEED0) === seq(SEED0), diff = seq(SEED0) !== seq(SEED0 + 1);
+  const lockRun = lk => { const r = mulberry32(7), p = fzRandomPatch(r); if (lk !== undefined) p.chain[0].locked = lk; const b = JSON.stringify(p.chain[0].params);
+    for (let k = 0; k < 10; k++) fzRandomize(p, r, 1); return JSON.stringify(p.chain[0].params) === b; };
+  const heldLocked = lockRun(true), heldUnlocked = lockRun(false), heldDefault = lockRun(undefined);
+  const base = fzRandomPatch(mulberry32(11));
+  const changed = (a, b) => { const s = []; a.chain.forEach((m, i) => { for (const k in m.params) if (!Object.is(m.params[k], b.chain[i].params[k])) s.push(i + ':' + k); }); return s; };
+  const run = (f, r) => { const q = clone(base); f(q, mulberry32(99), r); return q; };
+  const A = run(fzRandomize, 0.3), B = run(fzRandomize, 0.7), Z = run(fzRandomize, 0), O = run(fzRandomize, 1);
+  const cA = changed(base, A), cB = changed(base, B), all = base.chain.reduce((a, m) => a + specs(m.type).length, 0);
+  const valEq = (X, Y, keys) => keys.every(k => { const [i, p] = k.split(':'); return Object.is(X.chain[+i].params[p], Y.chain[+i].params[p]); });
+  const nested = cA.every(k => cB.includes(k)) && valEq(A, B, cA) && changed(base, Z).length === 0 && changed(base, O).length === all;
+  const A2 = run(drawOnlyApplied, 0.3), B2 = run(drawOnlyApplied, 0.7), c2 = changed(base, A2);
+  const ctlNested = !valEq(A2, B2, c2.filter(k => changed(base, B2).includes(k)));
+  pushCheck('K4', 'the randomiser is seeded, respects locks and nests', same && diff && heldLocked && nested, ctlNested && !heldUnlocked && !heldDefault,
+    'same seed + clicks → the same patch: ' + same + ' (control: seed+1 differs: ' + diff + ') · an explicit lock holds module 1 through 10 clicks at RANDOMNESS 1: ' + heldLocked
+    + ' (controls: explicitly unlocked → changed: ' + !heldUnlocked + ', unset on our roster → changed: ' + !heldDefault + ')'
+    + ' · nested: at 0.3 ' + cA.length + ' params change, at 0.7 ' + cB.length + ', the first set inside the second with equal values; 0 changes none, 1 changes all ' + all
+    + ' · control: a draw-only-when-applied twin (the seq-9 shape) keeps the sets but not the values: ' + (ctlNested ? 'caught' : 'NOT caught'));
+}
+/* the worklet's port is a stub that KEEPS what the processor posts: those meter messages are
+   exactly what the views draw while audio is on */
+function evalWorklet(code, posted) {
+  let Cls = null;
+  class AWP { constructor() { this.port = { postMessage(m) { posted.push(m); }, onmessage: null }; } }
+  new Function('AudioWorkletProcessor', 'registerProcessor', 'sampleRate', code)(AWP, (n, c) => { Cls = c; }, SR);
+  return Cls;
+}
+function sameMeters(a, b) {
+  return a.n === b.n && a.loop === b.loop && a.out === b.out && a.dry === b.dry && a.node.length === b.node.length
+    && a.node.every((v, i) => v === b.node[i]) && sameArr(a.outRing, b.outRing) && sameArr(a.dryRing, b.dryRing);
+}
+function K5() {
+  const posted = [], env = pageEnv(), Cls = evalWorklet(workletSource(env), posted);
+  const msgs = initMsgs(); msgs.push({ t: 'src', kind: LAB.voiceReady ? 'voice' : 'impulse' });
+  const w = new Cls({ processorOptions: { init: msgs } });
+  const mk = () => { const r = makeRenderer(env, SR); for (const m of msgs) r.msg(m); return r; };
+  const r = mk(), late = mk();
+  const L1 = new Float32Array(128), R1 = new Float32Array(128), L2 = new Float32Array(128), R2 = new Float32Array(128);
+  late.process(L2, R2);                                    // control: a renderer one block ahead on its own clock
+  let mism = 0, ctl = 0;
+  const drawn = [];
+  for (let b = 0; b < 64; b++) {
+    w.process([], [[L1, R1]]); r.process(L2, R2);
+    if ((b + 1) % 8 === 0) drawn.push(r.meters(true));      // the page's own cadence: one read per 1024 samples
+    if (!sameArr(L1, L2) || !sameArr(R1, R2)) mism++;
+    const L3 = new Float32Array(128), R3 = new Float32Array(128); late.process(L3, R3);
+    if (!sameArr(L1, L3)) ctl++;
+  }
+  const metOk = posted.length === drawn.length && posted.length === 8 && posted.every((m, i) => sameMeters(m, drawn[i]));
+  pushCheck('K5', 'what is drawn is what is heard (the worklet\'s source, run here)', mism === 0 && metOk, ctl > 0,
+    '64 blocks of the ' + (LAB.voiceReady ? 'horde voice' : 'impulse') + ' through the worklet\'s own source and through the page\'s renderer: ' + mism + ' blocks differ'
+    + '; the ' + posted.length + ' meter messages the worklet posts (levels, taps, both scope rings) equal the page\'s: ' + metOk
+    + ' · control: the page renderer one block ahead on its own clock (the B299 failure) → ' + ctl + ' of 64 blocks differ');
+}
+function K6() {
+  const n = Math.round(0.6 * SR_OFF), x = testInput(n, -1), bad = [];
+  let plant = 0;
+  const planted = instrument(REF.src, true);
+  for (const pr of REF.presets) {
+    const p = presetPatch(pr.name), a = offline({ src: REF.src, patch: p, sr: SR_OFF, n, input: i => x[i] }).out,
+      b = offline({ src: REF.tapped, patch: p, sr: SR_OFF, n, input: i => x[i] }).out;
+    if (!sameArr(a, b)) bad.push(PRESET_NAME[pr.name]);
+    if (!sameArr(a, offline({ src: planted, patch: p, sr: SR_OFF, n, input: i => x[i] }).out)) plant++;
+  }
+  pushCheck('K6', 'the tapped engine renders bit-identically to the reference', !bad.length, plant === REF.presets.length,
+    REF.presets.length + ' presets, 0.6 s: ' + (bad.length ? 'FAIL ' + bad.join(', ') : 'every sample identical') + ' · both tap anchors found exactly once'
+    + ' · control: a planted tap that adds 1e-7 → caught on ' + plant + ' of ' + REF.presets.length);
+}
+function K7() {
+  let n = 0, bad = [], ctl = 0;
+  for (const nm of Object.keys(SLUICE_MACROS)) {
+    const p = presetPatch(nm), before = JSON.stringify(p);
+    p.macros.forEach((M, i) => {
+      const q = JSON.parse(before); applyMacro(q, i, M.value); n++;
+      for (const b of M.bindings) { const t0 = macroTarget(JSON.parse(before), b.target), t1 = macroTarget(q, b.target);
+        if (Math.abs(t0.o[t0.k] - t1.o[t1.k]) > 1e-12 * Math.max(1, Math.abs(t0.o[t0.k]))) bad.push(nm + ' ' + M.label); }
+      const c = JSON.parse(before); applyMacro(c, i, clamp(M.value + 0.1, 0, 1));
+      const tc = macroTarget(c, M.bindings[0].target), tb = macroTarget(JSON.parse(before), M.bindings[0].target);
+      if (tc.o[tc.k] !== tb.o[tb.k]) ctl++;
+    });
+  }
+  pushCheck('K7', 'each macro at its stored value reproduces the preset (Sluice G-70)', !bad.length, ctl === n,
+    n + ' macros on ' + Object.keys(SLUICE_MACROS).length + ' presets: ' + (bad.length ? 'FAIL ' + bad.join(', ') : 'every bound param reproduced (≤ 1e-12)')
+    + ' · control: each macro moved +0.1 → ' + ctl + ' of ' + n + ' change their params');
+}
+function K8() {
+  /* its own corners, from a fresh stream, so a URL-loaded preset cannot change what is tested */
+  const r = mulberry32(SEED0), A = presetPatch('scrumulator-ish'); fzEnsureThresholds(A, r);
+  const C = [A]; for (let k = 1; k < 4; k++) { const v = clone(A); fzRandomize(v, r, 0.3); C.push(v); }
+  const at = [[0, 0], [1, 0], [0, 1], [1, 1]].every((q, i) => JSON.stringify(morph4(C, q[0], q[1])) === JSON.stringify(C[i]));
+  const mid = morph4(C, 0.5, 0.5);
+  const inside = mid.chain.every((m, mi) => specs(m.type).every(s => { const v = C.map(c => c.chain[mi].params[s.k]); return m.params[s.k] >= Math.min(...v) - 1e-9 && m.params[s.k] <= Math.max(...v) + 1e-9; }));
+  const C2 = clone(C); C2[3] = presetPatch('freeverb');
+  const flagged = !sameSig(C2) && sameSig(C), nearest = JSON.stringify(morph4(C2, 0.4, 0.4)) === JSON.stringify(C2[0]);
+  pushCheck('K8', 'the corners: exact at each corner, between them inside, a split chain flagged', at && inside && nearest, flagged,
+    'at A B C D the morph IS the corner: ' + at + ' · at the centre every param lies within its four corners: ' + inside
+    + ' · control: a corner with another chain (comb hall) is flagged: ' + flagged + ', and the engine then hears the nearest corner whole: ' + nearest);
+}
+/* not a check: the shifter's direction, measured, for the drift list (Sluice F-008) */
+function measureShifter() {
+  const p = { chain: [{ type: 'shifter', enabled: true, params: { shift: 80 } }], fb: { gain: 0, damp: 0, clip: 0 }, mix: 1,
+    lfo: { rate: 0.3, depth: 0, shape: 'sine', target: 'off' } };
+  const n = SR_OFF, o = offline({ patch: p, sr: SR_OFF, n, input: i => 0.3 * Math.sin(2 * Math.PI * 1000 * i / SR_OFF) }).out;
+  const at = f => { let re = 0, im = 0; const N = n >> 1, k = 2 * Math.PI * f / SR_OFF;
+    for (let i = 0; i < N; i++) { const v = o[n - N + i] * (0.5 - 0.5 * Math.cos(2 * Math.PI * i / N)); re += v * Math.cos(k * i); im -= v * Math.sin(k * i); }
+    return 20 * Math.log10(Math.max(1e-12, Math.hypot(re, im))); };
+  return { up: at(1080), down: at(920) };
+}
+/* K9 — the strongest form of K5, where the browser allows it: the REAL AudioWorklet, rendered by
+   an OfflineAudioContext, against the page's renderer, sample for sample. Asynchronous, and only
+   where OfflineAudioContext + audioWorklet exist (not under the load checker). */
+async function K9() {
+  if (typeof OfflineAudioContext !== 'function' || typeof AudioWorkletNode !== 'function') { LAB.k9Note = 'K9 not run: no OfflineAudioContext/AudioWorklet here'; return; }
+  const B = 96, N = 128 * B, env = pageEnv();
+  const msgs = initMsgs(); msgs.push({ t: 'src', kind: LAB.voiceReady ? 'voice' : 'impulse' });
+  const oc = new OfflineAudioContext(2, N, SR);
+  const url = URL.createObjectURL(new Blob([workletSource(env)], { type: 'application/javascript' }));
+  await oc.audioWorklet.addModule(url);
+  const node = new AudioWorkletNode(oc, 'sluice-horde', { numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2], processorOptions: { init: msgs } });
+  node.connect(oc.destination);
+  const buf = await oc.startRendering();
+  const hL = buf.getChannelData(0), hR = buf.getChannelData(1);
+  const run = ahead => { const r = makeRenderer(env, SR); for (const m of msgs) r.msg(m);
+    const L = new Float32Array(N), R = new Float32Array(N), l = new Float32Array(128), rr = new Float32Array(128);
+    if (ahead) r.process(l, rr);
+    for (let b = 0; b < B; b++) { r.process(l, rr); L.set(l, b * 128); R.set(rr, b * 128); } return [L, R]; };
+  const [pL, pR] = run(false), [cL] = run(true);
+  let mism = 0, e = 0; for (let i = 0; i < N; i++) { if (!Object.is(hL[i], pL[i]) || !Object.is(hR[i], pR[i])) mism++; e += hL[i] * hL[i]; }
+  let cm = 0; for (let i = 0; i < N; i++) if (!Object.is(hL[i], cL[i])) cm++;
+  pushCheck('K9', 'the real AudioWorklet (offline) renders what the page draws', mism === 0 && e > 0, cm > 0,
+    N + ' samples of the ' + (LAB.voiceReady ? 'horde voice' : 'impulse') + ' through the worklet in an OfflineAudioContext vs the page\'s renderer: ' + mism + ' differ (energy ' + e.toFixed(2) + ')'
+    + ' · control: the page renderer one block ahead → ' + cm + ' differ');
+}
+async function runChecks() {
+  if (!LAB.ready || LAB.checksRun) return;
+  LAB.checksRun = true;
+  for (const f of [K1, K2, K3, K4, K5, K6, K7, K8]) {
+    try { f(); } catch (e) { pushCheck(f.name, f.name + ' threw', false, false, String(e && e.message || e)); }
+  }
+  try { LAB.drift = measureShifter(); } catch (e) { LAB.drift = null; }
+  LAB.k9Note = 'K9 pending: the real AudioWorklet renders in an OfflineAudioContext (real time only; a virtual-time capture never completes it)';
+  paintChrome(); buildSide();
+  LAB.k9Note = '';
+  try { await K9(); } catch (e) { pushCheck('K9', 'the real AudioWorklet (offline) threw', false, false, String(e && e.message || e)); }
+  paintChrome(); buildSide();
+  if (typeof fetch === 'function') fetch('shape-lab-mod.html').then(r => r.text()).then(t => { LAB.divsNote = K3divs(t); buildSide(); }).catch(() => {});
+}
+
+/* ================================================================ N. THE SIDE PANEL, THE CHROME, BOOT */
+function buildSide() {
+  const s = $('side'); if (!s) return;
+  const ck = LAB.checks, pass = ck.filter(c => c.ok && c.ctl).length;
+  const rows = ck.map(c => '<div class="ck"><span class="' + (c.ok && c.ctl ? 'ok">PASS' : 'no">FAIL') + '</span><div><b>' + c.id + ' ' + c.name + '</b><br><small>'
+    + c.detail + (c.ok ? '' : ' · ASSERTION FAILED') + (c.ctl ? '' : ' · CONTROL DID NOT FIRE') + '</small></div></div>').join('');
+  const D = LAB.drift;
+  s.innerHTML =
+    '<div class="box"><h2>SELF-CHECKS AT LOAD</h2>' + (LAB.checksRun ? '<b>' + pass + ' / ' + ck.length + ' pass</b>, each with its must-fail control.' : (LAB.ready ? 'running…' : 'not run: serve the repo (python3 tools/serve_labs.py) — the load checker runs without the reference, which is expected there.'))
+    + rows + (LAB.divsNote ? '<div class="ck"><span class="na">INFO</span><div><small>K3 · ' + LAB.divsNote + '</small></div></div>' : '')
+    + (LAB.k9Note ? '<div class="ck"><span class="na">INFO</span><div><small>' + LAB.k9Note + '</small></div></div>' : '') + '</div>'
+    + '<div class="box"><h2>MODELLED · MOCKED</h2><table><tr><th>what</th><th>status</th><th>where it comes from</th></tr>'
+    + '<tr><td>the network (8 module types, loop bus, LFO)</td><td><b>modelled — the reference itself</b></td><td>network-lab-v0.html ENGINE_FACTORY, sliced and called; S&amp;H seeded by a local Math</td></tr>'
+    + '<tr><td>input</td><td><b>modelled</b></td><td>the composed engine (horde voice); impulse and seeded noise as switches</td></tr>'
+    + '<tr><td>slot bypass</td><td><b>modelled</b></td><td>horde-side: input passes, node not ticked (K2)</td></tr>'
+    + '<tr><td>tempo sync by name</td><td><b>modelled</b></td><td>Sluice seq 7 over our reference: names resolved at the host bpm before applyPatch; delay time and LFO rate only</td></tr>'
+    + '<tr><td>randomiser (fzRandomize, fzRandomPatch, thresholds, tri-state locks)</td><td><b>modelled</b></td><td>fz.h / random.h ported over our eight types; parity with Sluice\'s streams NOT claimed</td></tr>'
+    + '<tr><td>post limiter, release gate, TAIL</td><td><b>MOCKED</b></td><td>our reference has neither; recorded on the patch, drawn disabled, never heard</td></tr>'
+    + '<tr><td>loudness-normalised wet</td><td><b>measured, not applied</b></td><td>fz.h LoudRef on our engine; no wet gain stage exists in the reference</td></tr>'
+    + '<tr><td>macros</td><td><b>modelled</b></td><td>Sluice macro.h law and their presets\' macros; by order, labelled</td></tr>'
+    + '<tr><td>corners / morph</td><td><b>modelled (lab law)</b></td><td>bilinear per param domain, discrete from the nearest corner; horde\'s three ruled laws NOT modelled</td></tr>'
+    + '<tr><td>undo</td><td><b>modelled</b></td><td>a JSON of the node per step, seed + click as provenance (seq 6)</td></tr>'
+    + '<tr><td>the rest of the rack</td><td><b>MOCKED</b></td><td>chips only; nothing else plays</td></tr></table></div>'
+    + '<div class="box"><h2>DRIFT — OUR REFERENCE vs SLUICE TODAY</h2>Read 2026-09-28 from Sluice\'s lab/sluice-lab.html and netcore/include/sluice/*.h (read only). The page plays OURS.<ul>'
+    + '<li><b>Channels.</b> Ours is mono (<code>tick(x)</code>); Sluice is dual-mono stereo (<code>tickStereo</code>) with a shifter L/R spread, a loop width and a wet width.</li>'
+    + '<li><b>The shifter\'s direction</b> (their F-008: v0.1 delayed the wrong Hilbert branch).' + (D ? ' <b>Measured here:</b> a 1 kHz sine through +80 Hz reads ' + D.up.toFixed(1) + ' dB at 1080 Hz and ' + D.down.toFixed(1) + ' dB at 920 Hz — ours shifts <b>' + (D.down > D.up ? 'DOWN' : 'UP') + '</b>.' : '') + '</li>'
+    + '<li><b>Roster.</b> Ours 8 types; theirs 12 (chorus, leveler, phaser, limiter), plus a post chain, per-module injection gains, an envelope follower, a release gate with auto-clear, in/wet band filters, an output-stage switch, a wet gain, oversampling and a per-patch seed.</li>'
+    + '<li><b>Ranges.</b> Delay time 5–1000 ms here, 5–4000 there; shifter +spread; combs +wobble, +wrate.</li>'
+    + '<li><b>Smoothing.</b> Ours uses per-sample constants (0.003, 0.002, 0.0008, 0.0006), so its glide times move with the sample rate (the ADR-009 trap in horde\'s terms); theirs is in ms (SMOOTH_MS, smoothCoef) and their DC blocker is 23 Hz at every rate (F-002).</li>'
+    + '<li><b>Seeds.</b> The four sanctioned seed edits (B127) landed in Sluice\'s copy, not in ours: network-lab-v0.html:458, :743, :987, :994 still call Math.random.</li>'
+    + '<li><b>Presets.</b> Theirs: 26 built-ins. Their shimmer fog was rebuilt (leveler + chorus, no clip, fb 0.75; the supercritical v0.1 is parked, F-011); ours is the v0.1 freeze.</li>'
+    + '<li><b>Randomise, sync, macros, XY:</b> none in our reference; all in Sluice (fz.h, defs.h, macro.h).</li></ul></div>'
+    + '<div class="box"><h2>WHY A HORDE VOICE, AND TWO SWITCHES</h2>The node is designed for what horde feeds it, so the default input is horde\'s own voice — the composed engine the SCALPEL lab plays (B309), on a riff at the host tempo, so a synced echo is heard against the beat. '
+    + 'An <b>impulse</b> per bar is the input that makes the network\'s structure legible (its IR); the <b>seeded noise</b> burst is the input Sluice\'s loudness reference uses. All three are deterministic sample counters.</div>'
+    + '<div class="box"><h2>REUSED FROM</h2><ul>'
+    + '<li>reference/network-lab-v0.html — ENGINE_FACTORY, PRESETLIB, toSlider/fromSlider, sigOf (fetched, sliced, called).</li>'
+    + '<li>docs/design/scalpel-horde-engine.js + reference/scalpel/prototype/razor-core.js + reference/swarmsaw.html — the horde voice (loaded, never edited).</li>'
+    + '<li>docs/design/scalpel-interface-lab.html — tokens, chrome, knob skin (copied), and its one-renderer / seeded-Math routes.</li>'
+    + '<li>docs/design/fx-design-lab.html — our preset names (:807), the macro data (:821-843), the rack roster, the derived macro position (:2575).</li>'
+    + '<li>docs/design/shape-lab-mod.html — the 22 divisions (:782-791, copied; K3 compares when served).</li>'
+    + '<li>fx-page-lab.html (superseded) and fx-chain-morph-lab.html — read; nothing taken: the first is history, the second\'s chain morph is horde\'s own rack, not a hosted module.</li></ul></div>'
+    + '<div class="box"><h2>OPEN QUESTIONS</h2><ol>'
+    + '<li><b>New patch vs the corners (for the human).</b> fzRandomPatch changes the chain, so after it the four corners no longer share one (ADR-166 A1). The lab hears the nearest corner whole and offers "spread to corners". Alternatives: apply a new patch to all four at once, or disable it while the corners differ.</li>'
+    + '<li><b>Macros: corner-tier or global (for the human).</b> Here a macro writes the selected corner. ADR-169 allows either tier. Its keying (order + label) is ADR-169 A1, still owed.</li>'
+    + '<li><b>A macro after a randomise (for the human).</b> The stored value no longer describes the params (G-70 holds for presets only). The lab derives the knob from its first binding, so the knob does not jump; a macro with N bindings can still jump its other N−1.</li>'
+    + '<li><b>Bypass and the tail (for the human).</b> Here bypass stops ticking the node, so its tail is cut and resumes on un-bypass. A ringing bypass (feed silence, let the loop decay) is the other choice.</li>'
+    + '<li><b>What horde maps to fzEnginePatch\'s global knobs</b> (dry/wet, width, time, tune, sync mode; B273 says still open). Not shown here.</li>'
+    + '<li><b>Divisions.</b> Sync names follow B213 D3 (stepped list or beats) whenever it is ruled; a notice to Sluice is owed then (B273).</li>'
+    + '<li><b>A brief to Sluice may be worth filing (for the lead).</b> Our reference is v0.1: mono, the pre-F-008 shifter, unseeded, and eight types. Before horde builds on netcore, ask Sluice to confirm that its lab (or netcore\'s parity fixtures) is the oracle horde should hold, and whether to re-ingest.</li>'
+    + '<li><b>Owed to Sluice:</b> the seq-10 notice that horde targets fz.h (so they can retire randomizeUnlocked) — only once horde actually adopts it.</li></ol></div>';
+}
+function paintChrome() {
+  $('pwr').textContent = AUD.on ? 'on' : 'off'; $('pwr').classList.toggle('on', AUD.on);
+  $('themeBtn').textContent = 'theme ' + (LAB.theme === 'dark' ? 'DARK' : 'LIGHT');
+  document.body.classList.toggle('dark', LAB.theme === 'dark');
+  const sp = $('srcPills'); sp.innerHTML = '';
+  for (const [k, lab] of [['voice', 'HORDE VOICE'], ['impulse', 'IMPULSE'], ['noise', 'NOISE']]) {
+    const b = el('button', 'pill mini' + (LAB.src === k ? ' on' : ''), lab);
+    if (k === 'voice' && !LAB.voiceReady) { b.disabled = true; b.title = 'the composed engine did not load (serve the repo)'; }
+    b.addEventListener('click', () => { LAB.src = k; send({ t: 'src', kind: k }); paintChrome(); });
+    sp.appendChild(b);
+  }
+  const ck = LAB.checks, pass = ck.filter(c => c.ok && c.ctl).length;
+  const st = $('status');
+  st.className = 'audit' + ((LAB.err || (LAB.checksRun && pass < ck.length)) ? ' bad' : '');
+  st.innerHTML = LAB.err ? LAB.err
+    : !LAB.ready ? 'loading the reference… (serve the repo: python3 tools/serve_labs.py; under the load checker nothing is fetched, which is expected there)'
+    : 'reference <b>network-lab-v0.html</b> sliced (ENGINE_FACTORY ' + REF.src.length + ' chars, ' + REF.presets.length + ' presets) · voice: '
+      + (LAB.voiceReady ? '<b>composed engine</b>' : 'not loaded' + (LAB.voiceErr ? ' (' + LAB.voiceErr + ')' : '')) + ' · self-checks: '
+      + (LAB.checksRun ? '<span class="' + (pass === ck.length ? 'ok' : 'no') + '">' + pass + ' / ' + ck.length + ' pass</span> (each with a must-fail control)' : 'running…')
+      + (AUD.err ? ' · <span class="no">' + AUD.err + '</span>' : '');
+}
+function wire() {
+  $('pwr').addEventListener('click', audioToggle);
+  $('themeBtn').addEventListener('click', () => { LAB.theme = LAB.theme === 'dark' ? 'light' : 'dark'; paintChrome(); readColours(); paintLive(); });
+  $('voiceSel').addEventListener('change', () => { LAB.voice = +$('voiceSel').value; if (LAB.voiceReady) send({ t: 'voice', params: LAB.voicePresets[LAB.voice].params }); });
+  $('presetSel').addEventListener('change', () => { const v = $('presetSel').value; if (!v || !LAB.ready) return;
+    LAB.corners[LAB.sel] = presetPatch(v); edited('load ' + (PRESET_NAME[v] || v) + ' → ' + CORNER[LAB.sel]); $('presetSel').value = ''; rebuild(); });
+  $('bRand').addEventListener('click', () => { if (!LAB.ready) return; const p = cur();
+    fzEnsureThresholds(p, LAB.rnd); fzRandomize(p, LAB.rnd, LAB.randomness); LAB.clicks++;
+    p.origin = 'randomize ' + LAB.randomness.toFixed(2) + ' · click ' + LAB.clicks;
+    edited('randomize ' + CORNER[LAB.sel] + ' @' + LAB.randomness.toFixed(2)); rebuild(); });
+  $('bNew').addEventListener('click', () => { if (!LAB.ready) return; LAB.clicks++;
+    const p = fzRandomPatch(LAB.rnd); p.name = 'random #' + LAB.clicks; p.origin = 'new patch · click ' + LAB.clicks;
+    LAB.corners[LAB.sel] = p; LAB.node = 0; edited('new patch → ' + CORNER[LAB.sel]); rebuild(); });
+  $('bSpread').addEventListener('click', () => { if (!LAB.ready) return; const A = cur(); LAB.clicks++;
+    fzEnsureThresholds(A, LAB.rnd);
+    for (let k = 0; k < 4; k++) { if (k === LAB.sel) continue; const v = clone(A); fzRandomize(v, LAB.rnd, LAB.randomness);
+      v.name = (A.name || '') + ' ~' + CORNER[k]; v.origin = 'variant of ' + CORNER[LAB.sel] + ' · click ' + LAB.clicks; LAB.corners[k] = v; }
+    edited('spread ' + CORNER[LAB.sel] + ' → corners'); rebuild(); });
+  $('seedIn').addEventListener('change', () => { LAB.seed = Math.max(0, Math.round(+$('seedIn').value || 0)); LAB.rnd = mulberry32(LAB.seed); LAB.clicks = 0; rebuild(); });
+  $('bUndo').addEventListener('click', () => restore(LAB.hi - 1));
+  $('bRedo').addEventListener('click', () => restore(LAB.hi + 1));
+  $('bpmIn').addEventListener('change', () => setBpm(+$('bpmIn').value));
+  const bp = $('bpmPills');
+  for (const b of [0, 90, 120, 140, 174]) { const x = el('button', 'pill mini', b ? String(b) : 'none'); x.title = b ? b + ' bpm' : 'no host tempo: falls back to 120';
+    x.addEventListener('click', () => setBpm(b)); bp.appendChild(x); }
+  $('net').addEventListener('click', e => { const L = $('net')._layout; if (!L) return; const r = $('net').getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+    L.nodes.forEach((b, i) => { if (b.hit && x >= b.hit[0] && x <= b.hit[0] + b.hit[2] && y >= b.hit[1] && y <= b.hit[1] + b.hit[3]) { LAB.node = i; rebuildDeep(); paintNet(); } }); });
+}
+function setBpm(b) { LAB.bpm = isFinite(b) ? b : 0; send({ t: 'bpm', bpm: LAB.bpm }); rebuild(); scheduleIR(); scheduleCornerIR(); }
+function initState() {
+  LAB.rnd = mulberry32(LAB.seed); LAB.clicks = 0;
+  const A = presetPatch('scrumulator-ish');
+  fzEnsureThresholds(A, LAB.rnd);
+  const C = [A];
+  for (let k = 1; k < 4; k++) { const v = clone(A); fzRandomize(v, LAB.rnd, 0.3); LAB.clicks++;
+    v.name = A.name + ' ~' + CORNER[k]; v.origin = 'variant of A · r .30 · click ' + LAB.clicks; C.push(v); }
+  LAB.corners = C; LAB.sel = 0;
+  LAB.hist = []; LAB.hi = -1; commit('load smear loop, three corner-safe variants');
+}
+function frame() {
+  if (LAB.ready && !AUD.on && PAGE.r) { PAGE.r.process(PAGE.L, PAGE.R); LAB.meters = PAGE.r.meters(true); }
+  paintLive();
+  if (!LAB.still) requestAnimationFrame(frame);
+}
+async function boot() {
+  const q = typeof URLSearchParams === 'function' ? new URLSearchParams(location.search || '') : { get: () => null };
+  LAB.theme = q.get('theme') === 'dark' ? 'dark' : 'light';
+  wire(); paintChrome(); buildSide(); buildRack();
+  if (typeof fetch !== 'function') return;
+  try { loadRef(await fetch('../../reference/network-lab-v0.html').then(r => r.text())); }
+  catch (e) { LAB.err = 'the reference did not load: ' + String(e && e.message || e); paintChrome(); return; }
+  if (RAZOR && MAKE_COMPOSED && SLICE_SWARM) {
+    try {
+      const [html, pj] = await Promise.all([fetch('../../reference/swarmsaw.html').then(r => r.text()),
+        fetch('../../reference/scalpel/data/presets.json').then(r => r.json())]);
+      LAB.swarmSrc = SLICE_SWARM(html); LAB.Composed = MAKE_COMPOSED(RAZOR, LAB.swarmSrc);
+      LAB.voicePresets = VOICE_NAMES.map(n => pj.presets.find(p => p.name === n)).filter(Boolean);
+      LAB.voiceReady = LAB.voicePresets.length > 0;
+      const vs = $('voiceSel'); LAB.voicePresets.forEach((p, i) => { const o = el('option', null, p.name); o.value = i; vs.appendChild(o); });
+    } catch (e) { LAB.voiceErr = String(e && e.message || e); }
+  } else LAB.voiceErr = 'razor-core.js / scalpel-horde-engine.js absent';
+  if (!LAB.voiceReady) LAB.src = 'impulse';
+  const ps = $('presetSel'); const o0 = el('option', null, 'load a Sluice preset…'); o0.value = ''; ps.appendChild(o0);
+  for (const pr of REF.presets) { const o = el('option', null, PRESET_NAME[pr.name] || pr.name); o.value = pr.name; ps.appendChild(o); }
+  initState();
+  /* ?src=impulse&bpm=90&x=.5&y=.5&corner=1&node=1&preset=shimmer%20fog&sync=1/8&warm=40&still=1 — a still
+     capture of a stated setting: `warm` renders that many hops before the first paint, `still`
+     paints once and stops the frame loop (a headless capture otherwise never idles) */
+  LAB.still = !!q.get('still');
+  const scrollTo = +(q.get('scroll') || 0);
+  if (q.get('sync')) for (const c of LAB.corners) { const d = c.chain.find(m => m.type === 'delay'); if (d) d.sync = { time: q.get('sync') }; }
+  if (q.get('sync')) commit('sync delay ' + q.get('sync'));
+  if (q.get('preset')) { const pn = Object.keys(PRESET_NAME).find(k => PRESET_NAME[k] === q.get('preset') || k === q.get('preset')); if (pn) { LAB.corners[0] = presetPatch(pn); commit('load ' + PRESET_NAME[pn]); } }
+  if (q.get('src') && (q.get('src') !== 'voice' || LAB.voiceReady)) LAB.src = q.get('src');
+  if (q.get('bpm') !== null) LAB.bpm = +q.get('bpm');
+  if (q.get('x') !== null) LAB.xy.x = clamp(+q.get('x'), 0, 1);
+  if (q.get('y') !== null) LAB.xy.y = clamp(+q.get('y'), 0, 1);
+  if (q.get('corner') !== null) LAB.sel = clamp(Math.round(+q.get('corner')), 0, 3);
+  if (q.get('node') !== null) LAB.node = Math.max(0, Math.round(+q.get('node')));
+  PAGE.r = makeRenderer(pageEnv(), SR); PAGE.L = new Float32Array(HOP); PAGE.R = new Float32Array(HOP);
+  for (const m of initMsgs()) PAGE.r.msg(m);
+  LAB.ready = true;
+  readColours(); rebuild(); paintChrome();
+  if (scrollTo) $('leftCol').scrollTop = scrollTo;
+  const warm = +(q.get('warm') || 0);
+  for (let i = 0; i < warm; i++) { PAGE.r.process(PAGE.L, PAGE.R); if (i === warm - 1) LAB.meters = PAGE.r.meters(true); }
+  const P = resolvedHeard(); LAB.ir = renderIR(P); LAB.loud = loudnessDb(P); rebuildLoud();
+  scheduleCornerIR();
+  paintLive();
+  if (!LAB.still) requestAnimationFrame(frame);
+  setTimeout(() => { runChecks().then(paintLive); paintLive(); }, 30);
+}
+boot();
+</script>
+</body></html>
