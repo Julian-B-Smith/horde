@@ -1,0 +1,26 @@
+# b335-onset-ref-noarg — onset_ref_check runs with no arguments; branch brought up to main
+
+- **Queue item:** B335, a follow-up to `traces/2026-09-28-b335-composed-gravity-onset.md` (PR #835). The horde lead reported that CI was RED on both sanitize jobs, ASan/UBSan (run 36454939011) and TSan: `onset_ref_check FAILED (exit 2) … usage: onset_ref_check --emit | onset_ref_check <fixture.json>`.
+- **Why:** `tools/sanitize_oracles.sh` runs every oracle wired into `./verify` from the repo root with NO arguments, and the new check required one. The script is not touched. The fix is in the check.
+- **What changed:**
+  - **`tools/onset_ref_check.cpp`**, run with no argument, checks `tools/labharness/onset_ref_cpp.json` (repo-relative). `--emit` and an explicit path are kept. A missing fixture FAILS: exit 1, "cannot read …".
+  - **The staleness comparison is no longer byte-exact.**
+    - Every non-numeric byte must be identical.
+    - Integers (entries, half-times) must be equal.
+    - Every other number must agree within 1e-9 relative, plus 1e-12 absolute.
+  - **Why the change:** the same source now also builds under the CI's Linux libm with RelWithDebInfo and sanitizer flags, whose last ulp may differ from this Mac's. The tolerance is four orders looser than such an ulp and four orders tighter than `composed_engine_check`'s own tolerances.
+  - **Calibration:** a planted 1e-6 relative change in one offset must be caught. It replaces the old one-byte change.
+- **Evidence (this Mac):**
+  - No argument, from the repo root: OK, 6384 numbers, worst relative difference 0.0e+00.
+  - Explicit path: OK.
+  - `--emit` is byte-identical to the committed fixture.
+  - Run from another directory: FAIL (exit 1).
+  - A nonexistent path: FAIL (exit 1).
+  - A fixture with an inserted value: STALE (exit 1).
+  - A fixture with one entry +1 sample: STALE (exit 1).
+  - A UBSan build (`-fsanitize=undefined -fno-sanitize-recover=all`) run with no argument: OK, exit 0.
+  - The PR adds no other new binary.
+- **Merge:** `origin/main` (#833, #834) merged cleanly. `merge-tree` showed no conflicts. #834 changed `docs/design/scalpel-interface-lab.html`, so `tools/patchspace/dependency_tree.json` was regenerated. Only the five lab pin line numbers moved (e.g. fmGhost 4125 → 4323); there are 0 structural disagreements.
+  - **Hypothesis for the lead:** main at e5362f9 carries the OLD lab lines in its tree, so main's own `dependency_tree_check` should be stale there.
+- **Verify:** `./verify fast` and `./verify full` on the committed hash are reported in the PR.
+- **Open questions:** whether the CI's Linux build reproduces the fixture within 1e-9. It is not measurable on this Mac; the sanitize jobs on the PR answer it.

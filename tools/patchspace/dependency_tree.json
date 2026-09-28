@@ -230,27 +230,27 @@
   "pins": {
    "fmGhost": {
     "file": "docs/design/scalpel-interface-lab.html",
-    "line": 4125,
+    "line": 4323,
     "text": "const g3 = grp('FM', () => !isFM(b), 'fm');"
    },
    "shapeGhost": {
     "file": "docs/design/scalpel-interface-lab.html",
-    "line": 4198,
+    "line": 4396,
     "text": "cmpRow(c1, 'Shape', 'morph', 'morph2', T, { ghost: bl => P[bladeKey(bl, 'hot')] !== 6 });"
    },
    "bladeOff": {
     "file": "docs/design/scalpel-interface-lab.html",
-    "line": 4069,
+    "line": 4267,
     "text": "const row = el('div', 'blade' + (b === 2 ? ' b2' : '') + (on ? '' : ' off'));"
    },
    "inertWhy": {
     "file": "docs/design/scalpel-interface-lab.html",
-    "line": 1734,
+    "line": 1788,
     "text": "function inertWhy(key) {"
    },
    "follow": {
     "file": "docs/design/scalpel-interface-lab.html",
-    "line": 1679,
+    "line": 1733,
     "text": "function linked(key2) {"
    }
   },
@@ -3935,7 +3935,7 @@
    "source": [
     {
      "file": "docs/design/scalpel-horde-engine.js",
-     "line": 256,
+     "line": 333,
      "text": "p.retrig = d.phaseMode === 0 ? 0 : 1;"
     },
     {
@@ -9389,7 +9389,7 @@
    "source": [
     {
      "file": "docs/design/scalpel-horde-engine.js",
-     "line": 243,
+     "line": 320,
      "text": "const want = { n: d.N, dist: d.dist, seed: d.seed, law: d['h.law'] };"
     }
    ],
@@ -9524,7 +9524,7 @@
    "source": [
     {
      "file": "docs/design/scalpel-horde-engine.js",
-     "line": 247,
+     "line": 324,
      "text": "p.detune = t.detune / 100;"
     },
     {
@@ -9855,7 +9855,7 @@
    "source": [
     {
      "file": "docs/design/scalpel-horde-engine.js",
-     "line": 289,
+     "line": 366,
      "text": "if (d.polyMode) return super.noteOn(note, freq, vel);"
     }
    ],
@@ -10293,12 +10293,12 @@
     },
     {
      "file": "docs/design/scalpel-horde-engine.js",
-     "line": 403,
+     "line": 613,
      "text": "settle(v) { if (this.src === 'razor') super.settle(v); }"
     },
     {
      "file": "docs/design/scalpel-horde-engine.js",
-     "line": 421,
+     "line": 631,
      "text": "for (let i = 0; i < N; i++) v.m[i].inc = Math.max(0, glideOn ? S.fRun[i] : S.eff[i]);"
     }
    ],
@@ -10823,7 +10823,7 @@
     },
     {
      "file": "docs/design/scalpel-horde-engine.js",
-     "line": 253,
+     "line": 330,
      "text": "p.inertia = c === 0.5 ? Math.sqrt(k) : Math.pow(k, c);"
     }
    ],
@@ -10917,7 +10917,7 @@
    "source": [
     {
      "file": "docs/design/scalpel-horde-engine.js",
-     "line": 253,
+     "line": 330,
      "text": "p.inertia = c === 0.5 ? Math.sqrt(k) : Math.pow(k, c);"
     }
    ],
@@ -10982,6 +10982,14 @@
  ],
  "unsampled": [
   {
+   "key": "attackScatter",
+   "fixed": 0
+  },
+  {
+   "key": "basin",
+   "fixed": 35
+  },
+  {
    "key": "bend",
    "fixed": 0
   },
@@ -10998,11 +11006,23 @@
    "fixed": 0
   },
   {
+   "key": "grav",
+   "fixed": 0
+  },
+  {
    "key": "keepPhase",
    "fixed": 0
   },
   {
    "key": "motionCenter",
+   "fixed": 0
+  },
+  {
+   "key": "onsetAlpha",
+   "fixed": 0.25
+  },
+  {
+   "key": "onsetScatter",
    "fixed": 0
   },
   {
@@ -11014,8 +11034,16 @@
    "fixed": 6
   },
   {
+   "key": "relScatter",
+   "fixed": 0
+  },
+  {
    "key": "seed",
    "fixed": 1234
+  },
+  {
+   "key": "voiceEnv",
+   "fixed": 0
   }
  ]
 }

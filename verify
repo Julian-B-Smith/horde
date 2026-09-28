@@ -317,7 +317,8 @@ full() {
   # swarm under SCALPEL's blades, docs/design/scalpel-horde-engine.js. O1 swarm
   # parity with SwarmSynth, O2 blade parity with RazorCore, O3 the neutral case,
   # each with a must-fail control. Added under ADR-180 §1; HERE, not in fast(), for
-  # station_check's reason: ~10 s of DSP. Same capture idiom as above.
+  # station_check's reason: ~10 s of DSP (~30 s since B335 added gravity vs DynSynth and
+  # the ensemble timing vs the C++ reference). Same capture idiom as above.
   if command -v node >/dev/null; then
     node tools/labharness/composed_engine_check.mjs > /tmp/labcomposed.$$ 2>&1 || {
       echo "verify[full]: composed engine check FAILED" >&2; cat /tmp/labcomposed.$$ >&2
@@ -507,6 +508,11 @@ full() {
   # SwarmCore at the audit's level, like alias_check above; both are sub-second.
   "$build_dir/ncap_check"                               || return 1   # B148 n can never index past kMaxV
   "$build_dir/tseed_check"                              || return 1   # B149 ensemble-timing stream seeded + in the chunk
+  # B335: the same ensemble timing rendered by swarm_core.h itself is the reference the
+  # composed engine's JS transcription is compared with (composed_engine_check ONS/VENV,
+  # above, reads the committed file); this re-derives it from the C++ of the day and fails
+  # when the committed copy is stale. Added under ADR-180 §1; sub-second.
+  "$build_dir/onset_ref_check" tools/labharness/onset_ref_cpp.json || return 1
   # Note-lifecycle guard (ADR-038): seeded note on/off streams must decay to
   # silence — the oracle for the 2026-07-18 "doesn't stop when you let go" hang.
   # Statically linked like state_check; no goldens. (Was built but ungated.)

@@ -354,6 +354,17 @@ if(NOT MSVC)
   target_compile_options(ncap_check PRIVATE -O2)
 endif()
 
+# B335 swarm_core.h's ensemble timing (onset scatter, timing correction, per-voice
+# envelopes), rendered as the reference for its JS transcription in the composed
+# engine (onset_ref_check). Core-direct, links nothing (the ncap_check pattern). It
+# re-derives tools/labharness/onset_ref_cpp.json and fails when the committed copy is
+# stale, so the fixture must be regenerated with THIS target's binary (its flags
+# decide the last bits). Wired into ./verify full in the PR that adds it (ADR-180 §1).
+add_executable(onset_ref_check tools/onset_ref_check.cpp)
+if(NOT MSVC)
+  target_compile_options(onset_ref_check PRIVATE -O2)
+endif()
+
 # B149 the ensemble-timing stream is seeded and survives the chunk
 # (tseed_check). Links the impl because sections D-E assert on the SHIPPED
 # state extension — the chunk is the shell's, so a core-only stand-in would

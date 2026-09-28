@@ -94,6 +94,54 @@
  *                    fade out (a linear 8 ms ramp, never a cut), by ADR-083's
  *                    tiers, never a held note. An input, not a clock read. See
  *                    cull() and render() below.
+ *   B335     GRAVITY AND THE ENSEMBLE TIMING CORRECTION (human 2026-09-28: "Have we
+ *                    ported gravity over from the original engine? Or the ensemble
+ *                    voice lag correction behavior?"). Both SURVIVE in the accounting
+ *                    (row 27/28 grav, basin; rows 70-74 onset & scatter) and neither
+ *                    is in SwarmSynth, so both are composed here:
+ *            GRAVITY (ADR-008, ADR-086 and its Amendment 1). REFERENCE: DynSynth,
+ *                    reference/swarmdynamics.html. Its gravityStep (:291-321) and ratio
+ *                    set (:214-215) are COPIED below, cited, because calling DynSynth
+ *                    would change this factory's signature (every caller passes two
+ *                    arguments); composed_engine_check's GRAV rows prove the copy against
+ *                    DynSynth itself, exactly. Each held voice's swarm pitch f0cur is
+ *                    pulled toward the nearest folded just ratio of every other held
+ *                    voice inside the basin, on a FIXED TIME grid (256/44100 s, 279
+ *                    samples at 48 kHz), the steps falling BETWEEN segments of audio
+ *                    (render(), below). f0cur rides the played pitch multiplicatively, as
+ *                    swarm_core.h keeps it (`s.f0cur *= ratio` on every glide step), and
+ *                    a note-on resets it to ET (ADR-008: "the settle is per-chord").
+ *                    At grav < 0.005 (DynSynth's own threshold) no step runs, no render is
+ *                    segmented and the swarm reads the played pitch unchanged: bit-identical.
+ *            ONSET SCATTER, TIMING CORRECTION, ATTACK SCATTER, PER-PARTIAL ENV, RELEASE
+ *                    SCATTER (ADR-077, ADR-078, B149). THERE IS NO JS REFERENCE: these
+ *                    exist only in the legacy C++, src/swarm_core.h, and THE C++ IS THE
+ *                    REFERENCE HERE. The draws (initVoice :649-684, gaussT :2125, ensembleSeed
+ *                    :1388, the persistent tOff and its reseed on a seed change, rebuild
+ *                    :1483-1489) and the per-sample entry (renderSeg :1052, :1118-1143,
+ *                    :1198-1204) are
+ *                    TRANSCRIBED expression for expression. Checked C++ <-> JS, not against
+ *                    a lab: tools/onset_ref_check.cpp renders swarm_core.h itself into
+ *                    tools/labharness/onset_ref_cpp.json and composed_engine_check's ONS
+ *                    rows compare this transcription with it (same seeds).
+ *                    Two deliberate differences, both structural, both measured there:
+ *                    (1) TIME IS COUNTED PER OUTPUT SAMPLE. swarm_core.h counts a member's
+ *                    wait and steps its entry ramp once per SUB-sample (inside the ADR-075
+ *                    oversampling loop), so at its 2x setting a 10 ms scatter waits 5 ms and
+ *                    the ramp runs twice as fast; here the law is in seconds at every os
+ *                    (ADR-009). At the C++'s 1x the two are the same samples.
+ *                    (2) PER-PARTIAL ENV uses THIS engine's envelope law. ADR-078 defines
+ *                    the per-voice ADSR as "the same arithmetic as the shared envelope, run
+ *                    once per voice", and the shared envelope here is RazorCore's (linear
+ *                    attack, exp(-4/T) decay and release: rows 12-20 and D11 are not
+ *                    composed). So each member runs RazorCore's ADSR with its OWN attack
+ *                    and release times, drawn by the C++ law (T·max(0.15, 1 + 0.6·scatter·g),
+ *                    floored at 2 ms), and with nothing scattered every member IS the voice
+ *                    envelope, bit for bit (ADR-078's "uniform when nothing is scattered").
+ *                    The DRAWS and the TIMING are the C++'s exactly; the envelope SHAPE is
+ *                    this engine's, and the check compares the laws (each member's time
+ *                    scales by the same drawn factor in both engines), not the samples.
+ *                    See armMembers() and memberStep() below.
  * NOT COMPOSED THIS ROUND (stated, not hidden): the output stage and voice
  * (rows 12, 13, 15, 17-20, 66 and D11: vol/normExp, width, the tanh, ADSR, the
  * pan image) stay RazorCore's. SwarmSynth's per-member amplitude terms (hiTame,
@@ -124,11 +172,13 @@
  * New keys live in `d` (horde rows are unsmoothed), so the lab's key filter
  * (keys of t ∪ d) passes them: dist, seed, h.law, harmReach, stretchB, spread,
  * anchor, onset, dissolve, driftDepth, h.driftRate, driftMode, motionCenter,
- * inertia, inertiaCurve, freqGlide, keepPhase, pivotMode.
+ * inertia, inertiaCurve, freqGlide, keepPhase, pivotMode, and (B335) grav, basin,
+ * onsetScatter, onsetAlpha, attackScatter, voiceEnv, relScatter.
  *
  * DETERMINISM. The swarm draws only SwarmSynth's seeded mulberry32 streams
- * (rngG/rngS); RazorCore's Math.random must be seeded by the host (the lab
- * installs mulberry32 before every instance). No clock is read here.
+ * (rngG/rngS) and (B335) the ensemble stream, mulberry32 from
+ * swarm_core.h's ensembleSeed(seed); RazorCore's Math.random must be seeded by
+ * the host (the lab installs mulberry32 before every instance). No clock is read here.
  */
 
 /* The factory takes RazorCore (the class) and the TEXT of swarmsaw.html's DSP
@@ -148,6 +198,8 @@ function makeComposedEngine(RazorCore, swarmSrc) {
     driftDepth: 0, 'h.driftRate': 0.4, driftMode: 0, motionCenter: 0,   // rows 9, 10, 56, 60
     inertia: 0, inertiaCurve: 2.5,                     // G6 (the knob), G7
     freqGlide: 0, keepPhase: 0, pivotMode: 0,          // G9, row 57, row 65
+    grav: 0, basin: 35,                                // B335 rows 27, 28 (basin in cents)
+    onsetScatter: 0, onsetAlpha: 0.25, attackScatter: 0, voiceEnv: 0, relScatter: 0,   // B335 rows 70-74 (onsetScatter in ms)
   };
   // p keys whose change makes SwarmSynth.setParam() rebuild x[] (swarmsaw.html:247)
   const REBUILD = ['n', 'dist', 'seed', 'law'];
@@ -162,6 +214,12 @@ function makeComposedEngine(RazorCore, swarmSrc) {
   /* ADR-184 A2 (2): round half AWAY from zero, so −x rounds to exactly −(round x). Equal to
      Math.round everywhere except the negative halves (Math.round(−2.5) is −2). */
   const roundAway = x => (x < 0 ? -Math.round(-x) : Math.round(x));
+  /* B335 gravity's ratio set, reference/swarmdynamics.html:214 (the C++ kRatios is the same 13). */
+  const RATIOS = [1, 16 / 15, 9 / 8, 6 / 5, 5 / 4, 4 / 3, 7 / 5, 3 / 2, 8 / 5, 5 / 3, 16 / 9, 15 / 8, 2];
+  /* B335 the ensemble stream's starting state, swarm_core.h ensembleSeed() (:1388):
+     (int64)toInt32(seed)·2654435761 + 0x9E3779B8, truncated to uint32. Math.imul is the low 32
+     bits of the product, and the sum stays far inside 2^53, so `>>> 0` is the C++ truncation. */
+  const ensembleSeed = seed => (Math.imul(seed | 0, 2654435761 | 0) + 0x9E3779B8) >>> 0;
 
   class ComposedEngine extends RazorCore {
     static get mr() { return RazorCore.mr; }
@@ -183,9 +241,28 @@ function makeComposedEngine(RazorCore, swarmSrc) {
       this.gCoefS = 0;
       this.voiceCap = 0;                 // B323: the host's cap on sounding voices; 0 = off (cull())
       this.culled = 0;                   // tails culled so far (the lab's load meter shows it)
+      /* B335 gravity: the fixed-TIME grid (ADR-086 A1: exactly 256 at 44.1 kHz, 279 at 48 kHz),
+         the samples owed to it (counted from the first render, as DynSynth's gravAccum is), and
+         the readout (DynSynth's gravInfo, in fixed arrays: index into RATIOS, octave, cents) */
+      this.gravGrid = Math.max(1, Math.round(sr * 256 / 44100));
+      this.gravAccum = 0;
+      this.gravN = 0; this.gravRatio = new Int32Array(32); this.gravOct = new Int32Array(32); this.gravErr = new Float64Array(32);
+      this.gAct = [];
+      /* B335 the ensemble timing state (swarm_core.h tOff/tRng/ensSeed): tOff PERSISTS ACROSS NOTES,
+         which is the whole of ADR-077; it re-derives on a seed change only (B149) */
+      this.tOff = new Float64Array(9); this.tRng = 0; this.ensSeed = 0; this.ensSeeded = false;
+      /* B335 per-member gains ride RazorCore's pan gains (stepM): the render-call counter, the
+         call whose pan gains are snapshotted, the snapshot, and this call's envelope times */
+      this.rCall = 0; this.glCall = -1; this.glB = new Float64Array(9); this.grB = new Float64Array(9);
+      this.pvLive = false; this.eA = 0; this.eR = 0; this.eDC = 0;
       this.voices.forEach((v, si) => {
         v.si = si; v.sn = 0; v.cull = false;
-        v.m.forEach((m, i) => { m.v = v; m.i = i; m.j = 0; m.dph = 0; });
+        v.gOn = false; v.gf0 = 0; v.gfb = 0; v.pv = false;
+        v.m.forEach((m, i) => {
+          m.v = v; m.i = i; m.j = 0; m.dph = 0;
+          m.onsD = 0; m.onsD0 = 0; m.onsC = 0; m.relC = 0; m.aMul = 1; m.rMul = 1;
+          m.onsE = 0; m.eS = 0; m.eE = 0; m.hold = false; m.pg = 1; m.eCall = -1; m.eAi = 0; m.eRc = 0;
+        });
       });
       /* the lab assigns c.post = fn; the viz message gains the swarm's state */
       let user = null;
@@ -344,8 +421,13 @@ function makeComposedEngine(RazorCore, swarmSrc) {
       v.cull = false;                                  // a re-allocated slot is a new voice, never still fading
       super.startVoice(v, note, freq, vel, fresh, retrig);
       /* A non-fresh retrigger keeps the swarm running, as RazorCore keeps its phases
-         (SwarmSynth would start a new swarm: an open question for the lead). */
-      if (!fresh) return;
+         (SwarmSynth would start a new swarm: an open question for the lead). B335: it keeps
+         the ensemble's draws too (swarm_core.h retargetNote re-strikes through initVoice and
+         draws again: the same open question), and each member's own envelope re-enters its
+         attack from where it stands, as RazorCore's voice envelope does (stage 1). */
+      if (!fresh) { if (retrig && v.pv) for (const m of v.m) m.eS = 1; return; }
+      v.gOn = false;                                   // B335, ADR-008: a note-on resets to ET
+      v.pv = false;
       if (this.src === 'horde') {
         this.syncSwarm();
         const S = this.sw.swarms[v.si];
@@ -354,6 +436,7 @@ function makeComposedEngine(RazorCore, swarmSrc) {
         delete this.sw.alloc;
         v.sn = this.nBase;
         for (const m of v.m) { m.j = 0; m.phi = frac(S.phase[m.i] + this.origin); }
+        this.armMembers(v);                            // B335 onset scatter / per-partial env
         /* B325: a PROVISIONAL first tick, so the member frequencies exist before RazorCore reads
            them. noteOn's couple() and spread(), and the first sample's Hz-unit cut rates (lock 2),
            Hz-unit modulators (mUnit) and per-cycle DC estimate, all read m.inc. Before this,
@@ -378,6 +461,133 @@ function makeComposedEngine(RazorCore, swarmSrc) {
         /* the oracle's start, handed over in the horde frame and mapped back:
            exact for its aligned 0 and seeded-draw starts (multiples of 2^-32) */
         for (const m of v.m) { m.j = 0; m.phi = frac(frac(m.phi - 0.5) + this.origin); }
+      }
+    }
+
+    /* B335 THE ENSEMBLE STREAM, transcribed from src/swarm_core.h (the C++ is the reference; there is
+       no JS one). rngT is mulberry32 (forcecore::rngNext, the form of SwarmSynth.rngS), gaussT the
+       C++'s Box-Muller (:2125-2130, its truncated 2π literal included), ensSync its rebuild()
+       rule (:1483-1489): the stream and the offsets re-derive when the SEED changes and never
+       otherwise, because tOff is memory the ensemble accumulates across notes. Checked lazily at
+       note-on rather than on the seed write: nothing draws from the stream in between. */
+    rngT() {
+      this.tRng |= 0; this.tRng = (this.tRng + 0x6D2B79F5) | 0;
+      let t = Math.imul(this.tRng ^ (this.tRng >>> 15), 1 | this.tRng);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    }
+    gaussT() {
+      let u = this.rngT(); if (u < 1e-9) u = 1e-9;
+      const w = this.rngT();
+      return Math.sqrt(-2 * Math.log(u)) * Math.cos(6.283185307 * w);
+    }
+    ensSync() {
+      const sd = this.d.seed;
+      if (!this.ensSeeded || this.ensSeed !== sd) {
+        this.ensSeeded = true; this.ensSeed = sd;
+        this.tRng = ensembleSeed(sd);
+        this.tOff.fill(0);
+      }
+    }
+
+    /* B335 ARM A FRESH NOTE'S MEMBERS: swarm_core.h initVoice :643-685, transcribed. Per member,
+       in the C++'s draw order: an attack jitter and a release jitter (both drawn whenever either
+       feature is on, even at scatter 0, so the stream's sequence is the C++'s), then, with onset
+       scatter on, the Vorberg/Wing correction of the PERSISTENT offsets
+           tOff_i <- tOff_i − alpha·(tOff_i − mean) + N(0, scatter ms)
+       re-centred, converted to samples, and shifted so the earliest member starts at once (the
+       note must not feel late, only internally spread). onsC/relC are the C++'s own one-pole
+       coefficients from this engine's attack and release times (s.A, s.R: ms -> seconds): onsC IS
+       the entry ramp below; relC is kept only so the check can compare the draw. aMul/rMul are the
+       drawn TIME FACTORS, max(0.15, jitter), that the per-partial envelopes scale A and R by. */
+    armMembers(v) {
+      const d = this.d, N = d.N, sr = this.sr;
+      v.pv = d.onsetScatter > 0 || d.voiceEnv > 0.5;
+      if (!v.pv) return;
+      this.ensSync();
+      const As = this.s.A * 0.001, Rs = this.s.R * 0.001;
+      for (let i = 0; i < N; i++) {
+        const m = v.m[i];
+        m.onsD = 0; m.onsE = 0; m.hold = false; m.pg = 1;
+        const jit = 1 + this.gaussT() * d.attackScatter * 0.6;
+        m.aMul = Math.max(0.15, jit);
+        m.onsC = 1 - Math.exp(-1 / (Math.max(0.002, As * m.aMul) * sr));
+        const rjit = 1 + this.gaussT() * d.relScatter * 0.6;
+        m.rMul = Math.max(0.15, rjit);
+        m.relC = 1 - Math.exp(-1 / (Math.max(0.002, Rs * m.rMul) * sr));
+      }
+      if (d.onsetScatter > 0) {
+        const T = this.tOff;
+        let mean = 0;
+        for (let i = 0; i < N; i++) mean += T[i];
+        mean /= (N > 0 ? N : 1);
+        const sig = d.onsetScatter * 0.001;
+        for (let i = 0; i < N; i++) T[i] += -d.onsetAlpha * (T[i] - mean) + this.gaussT() * sig;
+        let m2 = 0;
+        for (let i = 0; i < N; i++) m2 += T[i];
+        m2 /= (N > 0 ? N : 1);
+        for (let i = 0; i < N; i++) v.m[i].onsD = (T[i] - m2) * sr;
+        let lo = v.m[0].onsD;
+        for (let i = 1; i < N; i++) lo = Math.min(lo, v.m[i].onsD);
+        for (let i = 0; i < N; i++) v.m[i].onsD -= lo;
+      }
+      /* the per-partial envelope (ADR-078 in this engine's law, header (2)): a member that waits
+         enters from silence, as the C++'s does (onsE = 0); one that enters at once starts where
+         the voice's envelope stands, RazorCore's fresh start (0 on a free slot, the level of a
+         stolen one: razor-core.js startVoice `if (!v.active) v.env = 0`) */
+      for (let i = 0; i < N; i++) { const m = v.m[i]; m.onsD0 = m.onsD; m.eS = 1; m.eE = m.onsD > 0 ? 0 : v.env; }
+    }
+
+    /* B335 ONE SAMPLE OF THE MEMBERS' ENTRY, for voice v: called once per output sample from
+       member 0's first step, after the swarm's tick and before any member advances.
+       swarm_core.h renderSeg, transcribed per member:
+         - WAIT (:1052): while onsD > 0 the member counts down, contributes nothing and does NOT
+           advance its phase: it has not started playing (its frozen phase still sits in the
+           swarm's mean field, as it does in the C++, which ticks every member).
+         - ENTRY RAMP, onset scatter alone (:1137-1142): onsE += (1 − onsE)·onsC on top of the voice
+           envelope, so a late entry cannot click in at the level the voice has reached.
+         - PER-PARTIAL ENV (:1118-1135, :1198-1204): every member runs RazorCore's ADSR (this
+           call's A, D, S, R: razor-core.js render :740-742, :777-779) with its own drawn attack
+           and release times; the voice envelope becomes BOOKKEEPING, the loudest member, so
+           liveness, the voice law and the cull key off it unchanged (ADR-078's design), and each
+           member's gain is its level over that loudest level.
+       Both switches are read LIVE, as the C++ reads them per render. A gain of exactly 1 leaves
+       the member's output untouched (x·1 is x), which is what makes the unscattered cases exact. */
+    memberStep(v) {
+      const d = this.d, N = d.N, ens = d.onsetScatter > 0, venv = d.voiceEnv > 0.5;
+      if (!ens && !venv) { for (let i = 0; i < N; i++) { v.m[i].hold = false; v.m[i].pg = 1; } return; }
+      let vMax = 0;
+      const Sus = this.s.S, dC = this.eDC, sr = this.sr, call = this.rCall;
+      for (let i = 0; i < N; i++) {
+        const m = v.m[i];
+        if (m.onsD > 0) { m.onsD -= 1; m.hold = true; m.pg = 0; continue; }
+        m.hold = false;
+        if (venv) {
+          /* this member's attack increment and release coefficient, RazorCore's expressions over its
+             own times (the C++'s max(0.002 s, T·factor)), once per render call as RazorCore's are */
+          if (m.eCall !== call) {
+            m.eCall = call;
+            m.eAi = 1 / Math.max(1, Math.max(2, this.eA * m.aMul) * 0.001 * sr);
+            m.eRc = 1 - Math.exp(-4 / Math.max(1, Math.max(2, this.eR * m.rMul) * 0.001 * sr));
+          }
+          if (!v.gate && m.eS !== 0) m.eS = 4;
+          if (m.eS === 1) {
+            m.eE += m.eAi;
+            if (m.eE >= 1) { m.eE = 1; m.eS = 2; }
+          } else if (m.eS === 2) m.eE += (Sus - m.eE) * dC;
+          else if (m.eS === 4) {
+            m.eE -= m.eE * m.eRc;
+            if (m.eE < 1e-4) { m.eE = 0; m.eS = 0; }
+          }
+          if (m.eE > vMax) vMax = m.eE;
+        } else {
+          m.onsE += (1 - m.onsE) * m.onsC;
+          m.pg = m.onsE;
+        }
+      }
+      if (venv) {
+        v.env = vMax;
+        for (let i = 0; i < N; i++) { const m = v.m[i]; if (!m.hold) m.pg = vMax > 0 ? m.eE / vMax : 0; }
       }
     }
 
@@ -410,7 +620,7 @@ function makeComposedEngine(RazorCore, swarmSrc) {
       const S = this.sw.swarms[v.si], N = d.N;
       /* B325: the pitch moved since the look-ahead (a later note-on on a mono voice, a retune)
          and no sample has rendered yet: look again, so m.inc is the swarm's for the pitch now */
-      if (v.tick0 && (S.fBase !== v.freq || S.f0 !== v.freq * Math.pow(2, s.bend / 12))) this.lookAhead(v, S, false);
+      if (v.tick0 && (S.fBase !== v.freq || S.f0 !== this.f0Of(v))) this.lookAhead(v, S, false);
       if (!S.vfInit) {                                 // no swarm tick yet this note: the pitch
         const f = v.freq * Math.pow(2, s.bend / 12);
         for (let i = 0; i < N; i++) v.m[i].inc = f;
@@ -424,8 +634,63 @@ function makeComposedEngine(RazorCore, swarmSrc) {
     tickSwarm(v, S) {
       this.syncSwarm();
       S.fBase = v.freq;
-      S.f0 = v.freq * Math.pow(2, this.s.bend / 12);
+      S.f0 = this.f0Of(v);                             // B335: the played pitch, or gravity's f0cur
       this.sw.controlTick(S);
+    }
+
+    /* B335 THE SWARM'S PITCH, f0cur (swarm_core.h Voice::f0cur; DynSynth's s.f0cur). Until gravity
+       has moved this voice it IS the played pitch, the very expression the swarm read before B335,
+       so every patch gravity never touches is bit-identical. Once moved, f0cur carries its offset
+       and rides the played pitch MULTIPLICATIVELY, as the C++ does on every glide step
+       (`s.f0cur *= ratio`, swarm_core.h:1731): a bend or glide keeps the settled interval. */
+    f0Of(v) {
+      const fb = v.freq * Math.pow(2, this.s.bend / 12);
+      if (!v.gOn) return fb;
+      if (fb !== v.gfb) { v.gf0 *= fb / v.gfb; v.gfb = fb; }
+      return v.gf0;
+    }
+
+    /* B335 CONSONANCE GRAVITY (ADR-008): reference/swarmdynamics.html gravityStep, :291-321, copied
+       expression for expression (the GRAV rows check it against DynSynth itself, exactly). Every
+       pair of HELD voices, sorted by pitch, is pulled toward the nearest octave-folded just ratio
+       when it lies inside the basin: each note moves err·3·grav·dt/2 cents, in opposite
+       directions. Only gated voices pull (a release tail keeps its pitch), and only the horde
+       swarm has an f0cur (the razor source is RazorCore's own swarm half). The readout is
+       DynSynth's gravInfo in fixed arrays (gravN pairs: RATIOS index, octave, cents error). */
+    gravityStep(dtB) {
+      this.gravN = 0;
+      const g = this.d.grav;
+      if (g < 0.005 || this.src !== 'horde') return;
+      const act = this.gAct;
+      act.length = 0;
+      for (const v of this.voices) if (v.gate) {
+        if (!v.gOn) { v.gf0 = v.gfb = v.freq * Math.pow(2, this.s.bend / 12); }
+        else this.f0Of(v);
+        act.push(v);
+      }
+      if (act.length < 2) return;
+      act.sort((a, b) => a.gf0 - b.gf0);
+      const rate = g * 3; // full gravity: ~1/3 s settle
+      for (let a = 0; a < act.length - 1; a++) {
+        for (let b = a + 1; b < act.length; b++) {
+          const lo = act[a], hi = act[b];
+          let r = hi.gf0 / lo.gf0;
+          const oct = Math.floor(Math.log2(r));
+          const rf = r / Math.pow(2, oct);
+          let bi = 0, be = 1e9;
+          for (let i = 0; i < RATIOS.length; i++) {
+            const e = Math.abs(1200 * Math.log2(rf / RATIOS[i]));
+            if (e < be) { be = e; bi = i; }
+          }
+          const err = 1200 * Math.log2(rf / RATIOS[bi]); // + = interval sharp
+          if (Math.abs(err) > this.d.basin) continue;
+          const move = err * rate * dtB * 0.5; // cents to move each note
+          hi.gf0 *= Math.pow(2, -move / 1200);
+          lo.gf0 *= Math.pow(2, move / 1200);
+          hi.gOn = true; lo.gOn = true;
+          if (this.gravN < 32) { const k = this.gravN++; this.gravRatio[k] = bi; this.gravOct[k] = oct; this.gravErr[k] = err; }
+        }
+      }
     }
 
     /* RazorCore calls stepM once per member per oversampled step, members in
@@ -433,21 +698,41 @@ function makeComposedEngine(RazorCore, swarmSrc) {
        16-sample tick belongs (before any member advances). */
     stepM(m, dphi, c, k, s) {
       if (this.src !== 'horde') return super.stepM(m, dphi, c, k, s);
+      const v = m.v;
       if (m.j === 0) {
-        const v = m.v, S = this.sw.swarms[v.si], i = m.i;
+        const S = this.sw.swarms[v.si], i = m.i;
         /* B325: undo startVoice's look-ahead before the real first tick (see there) */
-        if (i === 0) { if ((v.sn & 15) === 0) { if (v.tick0) this.unLookAhead(v, S); this.tickSwarm(v, S); } v.sn++; }
+        if (i === 0) {
+          if ((v.sn & 15) === 0) { if (v.tick0) this.unLookAhead(v, S); this.tickSwarm(v, S); }
+          v.sn++;
+          if (v.pv) this.memberStep(v);                // B335: waits, entry ramps, per-partial envs
+        }
         // swarmsaw.html:665-672 (renderSeg), per member
         const glideOn = this.sw.p.freqGlide > 0;
         if (glideOn) S.fRun[i] += this.gCoefS * (S.eff[i] - S.fRun[i]);
-        const f = glideOn ? S.fRun[i] : S.eff[i];
-        const dph = Math.max(0, f) / this.sr;
-        let ph = S.phase[i] + dph;
-        ph -= Math.floor(ph);
-        S.phase[i] = ph;
-        m.dph = Math.max(0, f) / (this.sr * this.os);
+        if (!(v.pv && m.hold)) {                       // B335: a waiting member's phase stands still
+          const f = glideOn ? S.fRun[i] : S.eff[i];
+          const dph = Math.max(0, f) / this.sr;
+          let ph = S.phase[i] + dph;
+          ph -= Math.floor(ph);
+          S.phase[i] = ph;
+          m.dph = Math.max(0, f) / (this.sr * this.os);
+        }
       }
       if (++m.j >= this.os) m.j = 0;
+      /* B335 THE MEMBER'S GAIN rides RazorCore's pan gains. Its render sums each member as
+         `vl += y·gl[q]` right after this call returns (razor-core.js :839-860), with the DC estimate
+         already taken off y, so scaling gl[q] here scales the member's DC-corrected output and
+         nothing else. gl/gr are rebuilt at the top of every render call (:733-738): the first
+         step of a call snapshots them, and every step of that call writes base·gain, 1 for a voice
+         with no per-member state. Untouched unless some sounding voice has it (pvLive). */
+      if (this.pvLive) {
+        const q = m.i;
+        if (this.glCall !== this.rCall) { this.glCall = this.rCall; this.glB.set(this.gl); this.grB.set(this.gr); }
+        const g = v.pv ? m.pg : 1;
+        this.gl[q] = this.glB[q] * g; this.gr[q] = this.grB[q] * g;
+      }
+      if (v.pv && m.hold) return 0;                    // not started: no output, no blade step
       return super.stepM(m, m.dph, c, k, s);
     }
 
@@ -461,23 +746,28 @@ function makeComposedEngine(RazorCore, swarmSrc) {
        envelope rates from A/D/R, razor-core.js:731-745), which differs from the whole block's only
        while those controls glide. The check measures the steady case bit-identical. Cost: the
        per-call setup is ~3% at one sample per call (measured, trace b323), for 8 ms. */
+    /* B335 GRAVITY'S GRID (ADR-086 and Amendment 1, the DynSynth render loop, swarmdynamics.html
+       :411-427): with gravity on, the block is rendered in SEGMENTS that end on the fixed-time
+       grid, and gravity steps BETWEEN them, so its explicit-Euler trajectory depends on the
+       cumulative sample count and never on the host's block size, and on time, not the rate.
+       The count runs from the first render whether gravity is on or not (DynSynth's gravAccum
+       does), so turning it on mid-note lands on the same grid. With gravity off the block is ONE
+       renderBlock, exactly the pre-B335 render: RazorCore re-reads a few smoothed controls once
+       per call (the pan law, the envelope rates), so segmenting a gravity-off block could move a
+       sample while those glide; it is never done. */
     render(L, R) {
       if (this.voiceCap > 0) this.cull();
-      let fading = false;
-      for (const v of this.voices) if (v.cull && v.active) fading = true;
-      if (!fading) { super.render(L, R); this.nBase += L.length; }
-      else {
-        const one = this.one || (this.one = [new Float32Array(1), new Float32Array(1)]);
-        const step = 1 / (CULL_FADE * this.sr);
-        for (let i = 0; i < L.length; i++) {
-          super.render(one[0], one[1]);
-          L[i] = one[0][0]; R[i] = one[1][0];            // R may BE L (a mono host): R last, as RazorCore writes
-          this.nBase++;
-          for (const v of this.voices) if (v.cull && v.active) {
-            const g = v.cullG - step;
-            if (g <= 0) { v.env = 0; v.active = false; v.cull = false; }   // freed at the ramp's end
-            else { v.env *= g / v.cullG; v.cullG = g; }
-          }
+      const grid = this.gravGrid;
+      if (!(this.d.grav >= 0.005) || this.src !== 'horde') {
+        this.gravN = 0;
+        this.renderBlock(L, R);
+        this.gravAccum = (this.gravAccum + L.length) % grid;
+      } else {
+        for (let done = 0; done < L.length;) {
+          const seg = Math.min(L.length - done, grid - this.gravAccum);
+          this.renderBlock(L.subarray(done, done + seg), R.subarray(done, done + seg));
+          this.gravAccum += seg; done += seg;
+          if (this.gravAccum >= grid) { this.gravityStep(grid / this.sr); this.gravAccum = 0; }
         }
       }
       if (this.src !== 'horde') return;
@@ -487,13 +777,60 @@ function makeComposedEngine(RazorCore, swarmSrc) {
       if (lv) this.sw.lastPhase.set(this.sw.swarms[lv.si].phase);
     }
 
+    /* B335: the state RazorCore's render reads ONCE PER CALL, taken just before the call so that it
+       is the very value that call reads (razor-core.js :740-742): the per-partial envelopes use it,
+       and the render-call counter tells stepM that RazorCore has rebuilt its pan gains. */
+    preCall() {
+      this.rCall++;
+      if (!this.pvLive) return;
+      const s = this.s;
+      this.eA = s.A; this.eR = s.R;
+      this.eDC = 1 - Math.exp(-4 / Math.max(1, s.D * 0.001 * this.sr));
+    }
+
+    renderBlock(L, R) {
+      let fading = false;
+      this.pvLive = false;
+      for (const v of this.voices) if (v.active) { if (v.cull) fading = true; if (v.pv) this.pvLive = true; }
+      if (!fading) { this.preCall(); super.render(L, R); this.nBase += L.length; }
+      else {
+        const one = this.one || (this.one = [new Float32Array(1), new Float32Array(1)]);
+        const step = 1 / (CULL_FADE * this.sr);
+        for (let i = 0; i < L.length; i++) {
+          this.preCall();
+          super.render(one[0], one[1]);
+          L[i] = one[0][0]; R[i] = one[1][0];            // R may BE L (a mono host): R last, as RazorCore writes
+          this.nBase++;
+          for (const v of this.voices) if (v.cull && v.active) {
+            const g = v.cullG - step;
+            if (g <= 0) { v.env = 0; v.active = false; v.cull = false; }   // freed at the ramp's end
+            else {
+              /* B335: a per-partial voice's envelope is its loudest member (memberStep), so the
+                 ramp scales the members and the bookkeeping level follows them */
+              const f = g / v.cullG;
+              v.env *= f; v.cullG = g;
+              if (v.pv) for (const m of v.m) m.eE *= f;
+            }
+          }
+        }
+      }
+    }
+
     hordeViz() {
       let lv = null;
       for (const v of this.voices) if (v.active && (!lv || v.age > lv.age)) lv = v;
       if (!lv) return null;
       const S = this.sw.swarms[lv.si], N = this.d.N;
-      return { R: S.R, psi: frac(S.psi / TAU), Kenv: S.Kenv, KsmS: S.KsmS, KsmP: S.KsmP, sigma: S.sigma,
+      const o = { R: S.R, psi: frac(S.psi / TAU), Kenv: S.Kenv, KsmS: S.KsmS, KsmP: S.KsmP, sigma: S.sigma,
         eff: Array.from(S.eff.subarray(0, N)), phase: Array.from(S.phase.subarray(0, N)) };
+      /* B335, for the lab's next round: the swarm's pitch (gravity's f0cur once it has moved), the
+         pairs gravity holds (DynSynth's gravInfo: ratio, octave, cents), and each member's onset
+         (ms after the note-on, swarm_core.h's onsD0) and current gain */
+      o.f0 = S.f0;
+      o.grav = [];
+      for (let k = 0; k < this.gravN; k++) o.grav.push({ ratio: RATIOS[this.gravRatio[k]], oct: this.gravOct[k], err: this.gravErr[k] });
+      if (lv.pv) { o.onsetMs = lv.m.slice(0, N).map(m => m.onsD0 / this.sr * 1000); o.gain = lv.m.slice(0, N).map(m => m.pg); }
+      return o;
     }
   }
   return ComposedEngine;
