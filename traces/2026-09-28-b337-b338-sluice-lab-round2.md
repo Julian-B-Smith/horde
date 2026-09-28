@@ -102,7 +102,7 @@
 - Tail now rewrites the gate in every snapshot of a generated patch, so it never makes a draft.
 
 **For the Sluice dialogue** (also on the page, to add to seq 10):
-1. Do the fixed macros store per-patch positions, or stay global? The manifest says they persist across presets.
+1. Do the fixed macros store per-patch positions, or stay global? The manifest keeps them unchanged when presets change.
 2. Should 4 fixed + 4 variable = 8 be written into the manifest? Does §7's rule that the first macro binds a time or frequency still hold?
 3. Do macro definitions live per patch or per snapshot?
 4. A stored patch needs its corner bindings.

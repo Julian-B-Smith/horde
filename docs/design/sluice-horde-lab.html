@@ -3330,7 +3330,7 @@ function buildSide() {
     + '<li><b>Macros:</b> ' + fixedMacros().length + ' FIXED (' + esc(fixedMacros().map(g => g.label).join(', ')) + ' — the manifest\'s knob globals, still Sluice-global) + ' + varSlots() + ' VARIABLE (the patch\'s own, §7\'s law, assigned in the interface and written into every snapshot).</li>'
     + '<li><b>GBC skin:</b> the Play face drawn by B322\'s renderer from the live state; the title is B326\'s proposal unless the human\'s file is dropped in.</li></ul>'
     + '<b>For the Sluice dialogue (add to seq 10):</b><ol>'
-    + '<li>Fixed macros are "present in every patch" (the human) but the manifest says the four globals persist across presets. Does a patch store its own positions for them, or do they stay global (the lab)?</li>'
+    + '<li>Fixed macros are "present in every patch" (the human) but the manifest keeps the four globals unchanged when presets change. Does a patch store its own positions for them, or do they stay global (the lab)?</li>'
     + '<li>Four variable + four fixed = the manifest\'s ' + S_().slots + ' slots. Should the manifest say so (a fixed list, a variable count)? Does §7\'s authoring rule (the first macro binds a time or frequency) still hold now that Time and Tune are always there?</li>'
     + '<li>Where do macro DEFINITIONS live: per patch (the lab writes them into every snapshot) or per snapshot? Values stay a view onto params.</li>'
     + '<li>A stored patch needs its corner BINDINGS (a snapshot id per corner), since loading no longer means "the first four".</li>'
