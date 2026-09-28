@@ -3026,23 +3026,27 @@ struct Plugin
         engine-block row (any block, any class that belongs in the field —
         morphlayout_check T10 requires every non-Device per-osc and engine row
         to be a member) or a routing cell appends as itself.
-        BRAND-NEW IDS ONLY. An EXISTING parameter that is not yet a member
-        (bassMonoHz, say) must NOT be listed here without a load migration
-        (B255, not built): no stored chunk carries its slot, so resetCorner
-        puts its DEFAULT in all four corners, and with morph on morphStep then
-        drives the live value to that default — measured by the B240 critic:
-        bassMonoHz saved at 300 loads as 120 once id 41 is in the tail (it
-        stays 300 with morph off). A brand-new id is safe only because its
-        default IS what every old patch already sounds like.
+        AN EXISTING PARAMETER that is not yet a member (bassMonoHz, say) is
+        safe to list since B255: no stored chunk carries its slot, and the
+        loaders fill a slot the chunk predates with the value the patch itself
+        names (morphFillUncarried) — before B255 it got the DEFAULT in all four
+        corners and morph drove the live value there (the B240 critic measured
+        bassMonoHz saved at 300 loading as 120). PARAMETER-LINE IDS ONLY: the
+        fill knows what the load wrote as a parameter (a chunk's key=value
+        lines, a preset's params). Routing cells (`routing=` /
+        applyRoutingChunk, whose writes are not recorded) and corner-preset
+        FILES (B124: they carry no parameter values) still take defaults, so
+        an existing routing cell is NOT safe to list without a migration.
 
      WHAT AN APPEND DOES TO THE MARKER AND TO OLD CHUNKS. One appending change
      bumps `morphLayout` by ONE at all four writers (cornerJson, liveCornerJson,
      morphJson, gen_factory_bank; playbook_check keeps them equal), 9 -> 10 at
      the first real append, however many lines that change adds. Nothing
      migrates: morphSlotMap reads every layout >= 2 array 1:1 as a PREFIX, so a
-     layout-9 chunk loads every stored slot where it was, and resetCorner (B124)
-     gives the new tail slots their defaults — an old patch loads with the new
-     member unmorphed at its (inert) default, which is what it said when saved.
+     layout-9 chunk loads every stored slot where it was, and the new tail
+     slots take the patch's own value where it names one (B255) and the
+     default where it does not (B124) — an old patch loads with the new member
+     unmorphed at what it played when saved.
      THE DRAWS ARE FROZEN TOO (B240, the lead's ruling on the critic's S4).
      MorphCore::reshuffle used to draw one Gumbel row per slot and THEN the
      shared vector, so the field's LENGTH moved gShared, and under QUANTUM
@@ -6197,13 +6201,16 @@ struct Plugin
        of B195's passes (morphInit's third pass), so the corner array grew by
        one per block and the order changed. Same reasoning as 8 below in every
        respect: a layout-8 array is shorter, maps 1:1, and the new slot holds
-       its default — the bump NAMES the order, it does not migrate anything.
+       the patch's own sub.on (B255; the DEFAULT until then, which silenced a
+       layout-8 patch that had the Sub on under morph) — the bump NAMES the
+       order, it does not migrate anything.
        8 = B195: the engine blocks' STRUCTURAL rows join the field, appended
        after their block's morphable ones (morphInit), so the corner array grew
        by eight and the order changed. A layout-7 array is shorter and maps 1:1
-       (morphSlotMap), so the eight new slots simply hold their defaults —
-       which is why the bump is a marker and not a migration, and why NOTHING
-       stored moves. The bump is not needed to READ a layout-7 array correctly
+       (morphSlotMap), so the eight new slots simply hold the patch's own
+       values (B255 — until then their defaults, which reset a layout-7
+       patch's Sub wave under morph) — which is why the bump is a marker and
+       not a migration, and why NOTHING stored moves. The bump is not needed to READ a layout-7 array correctly
        (morphSlotMap treats every layout >= 2 as a 1:1 prefix); it is taken
        because the marker's job is to NAME AN ORDER, and B175's cross-layout
        remap will have to ask which order an array was written in. The factory
@@ -6421,8 +6428,47 @@ struct Plugin
     return n;
   }
 
-  void applyMorphChunk(const std::string &json)
+  /* B255 — A SLOT THE CHUNK PREDATES TAKES THE PATCH'S OWN VALUE, NOT THE
+     DEFAULT. B124's reset (resetCorner) is right for a corner-preset FILE and
+     for a brand-new id, whose default IS what every older patch sounds like.
+     It is wrong for a parameter that EXISTED when the patch was saved and
+     joined the field later: B195 (the sub's stepped rows, layout 7 -> 8) and
+     B203 (the sub's gate, 8 -> 9). The chunk carries no corner value for that
+     slot, the default lands in all four corners, and with morph on morphStep
+     drives the live value to it — measured by the B240 critic: a layout-8
+     chunk with the Sub on and morph on loaded SILENT (sub.on -> 0), a layout-7
+     chunk lost its Sub wave (5 -> 3); with morph off both survived. When that
+     patch was saved the field did not touch the parameter, so what it played
+     was its own saved value — which is what the corners now get.
+     Two steps, because the loaders QUEUE parameter writes (the JSON path
+     always, the chunk path while processing), so readParam cannot answer
+     "what did the patch say" at this point: applyMorphChunk reports which
+     live slots each corner array carried, and the loader, once it has written
+     every parameter and run its migrations, hands morphFillUncarried the
+     values it wrote. A CARRIED slot is never touched, so a current-layout
+     patch (every slot carried) loads exactly as before; an uncarried slot the
+     patch names no value for keeps its default, exactly as before. No
+     revision gate (B100/ADR-183): nothing a revision could select differs —
+     every blob this changes was written before layout 9 and before revision 2
+     existed, so a gate would pin the defect to precisely the patches it
+     harms. The layout the blob carries IS the discriminator. */
+  struct MorphCarried { std::vector<char> slot[4]; };   // empty = corner not in the chunk
+  struct LoadedValue { clap_id id; double v; };          // one parameter write of a load, in order
+  void morphFillUncarried(const MorphCarried &carried, const std::vector<LoadedValue> &loaded)
   {
+    for (const LoadedValue &lv : loaded)   // in write order: the last write wins, as it does live
+      for (size_t i = 0; i < morphIds.size(); i++)
+        if (morphIds[i] == lv.id)
+        {
+          for (int k = 0; k < 4; k++)
+            if (carried.slot[k].size() == morphIds.size() && !carried.slot[k][i]) morphCorner[k][i] = lv.v;
+          break;
+        }
+  }
+
+  MorphCarried applyMorphChunk(const std::string &json)
+  {
+    MorphCarried carried;
     const int layout = parseMorphLayout(json);
     /* B122: corner names. Key present -> all four are set from it; absent (a
        patch from before names) -> all four cleared, so a stale name can never
@@ -6486,10 +6532,11 @@ struct Plugin
           if (k == 0) { c = std::strchr(c + 1, '['); if (!c) break; }   // outer, then inner
           const std::vector<size_t> map = morphSlotMap(layout, countArray(c));   // ADR-159
           resetCorner(k);   // B124: what the file does not carry is the default, never the previous load
+          carried.slot[k].assign(morphIds.size(), 0);   // B255: ...unless the patch names its value
           c++;
           for (size_t j = 0; j < map.size(); j++)
           {
-            if (map[j] != SIZE_MAX) morphCorner[k][map[j]] = std::atof(c);
+            if (map[j] != SIZE_MAX) { morphCorner[k][map[j]] = std::atof(c); carried.slot[k][map[j]] = 1; }
             morphCornersAuthored = true;
             const char *nx = std::strchr(c, ',');
             const char *cl = std::strchr(c, ']');
@@ -6499,6 +6546,7 @@ struct Plugin
         }
       }
     }
+    return carried;
   }
 
   // `lossless`: see historyJson (B222) — the persisted chunk stays %.6g.
@@ -6947,13 +6995,20 @@ struct Plugin
     auto valueOrDefault = [&](const std::string &needle, double def, double &out) {
       return jsonNumber(json, needle, def, out);
     };
+    // B255: every parameter write of this load, in order — the values a slot
+    // the patch's corner arrays predate is filled with (morphFillUncarried).
+    std::vector<LoadedValue> loaded;
+    auto load = [&](clap_id id, double v, uint8_t kind) {
+      enqueueParam(id, v, kind);
+      loaded.push_back({id, v});
+    };
     bool any = false;
     for (const auto &d : kParams)
     {
       if (d.id == 178) continue;   // ADR-147: specimen is not patch state (see state_load)
       double v = 0;
       any = valueOrDefault("\"" + std::string(d.coreKey) + "\"", defaultFor(d, 0), v) || any;
-      enqueueParam(d.id, v, 3);   // B125: load kind
+      load(d.id, v, 3);   // B125: load kind
     }
     // B172 engine blocks, prefixed — same rule, and this is the loop whose
     // absent-key skip the human actually heard.
@@ -6964,7 +7019,7 @@ struct Plugin
         any = valueOrDefault("\"" + std::string(b.keyPrefix) + b.defs[i].coreKey + "\"",
                              defaultFor(b.defs[i], 0), v) ||
               any;
-        enqueueParam(b.defs[i].id, v, 3);
+        load(b.defs[i].id, v, 3);
       }
     // the twins, by the state_save convention
     for (uint32_t k = 1; k < kNumOsc; k++)
@@ -6975,7 +7030,7 @@ struct Plugin
         std::snprintf(nb, sizeof(nb), "\"o%u.%s\"", k, d.coreKey);
         double v = 0;
         any = valueOrDefault(nb, defaultFor(d, k), v) || any;
-        enqueueParam(d.id + k * 1000, v, 3);
+        load(d.id + k * 1000, v, 3);
       }
     /* PRE-NOTE-LANE PATCH MIGRATION. `noteLawLink` ships FOLLOW as of 2026-08-20,
        but a patch saved before the note lane existed carries no such key — it
@@ -6988,10 +7043,10 @@ struct Plugin
     if (json.find("\"noteLawLink\"") == std::string::npos &&
         json.find("\"glide\"") != std::string::npos)
     {
-      enqueueParam(137, 0, 3);                                  // own settings
-      enqueueParam(138, hypersaw::GlideCore::kLag, 3);          // lag, as it always was
+      load(137, 0, 3);                                  // own settings
+      load(138, hypersaw::GlideCore::kLag, 3);          // lag, as it always was
     }
-    applyMorphChunk(json);
+    const MorphCarried carried = applyMorphChunk(json);   // B255: filled below, after the migrations
     /* ADR-103: schema<2 patches saved glideMode=1 when that option behaved as
        ALWAYS (silence included) — the new mode 1 (ringing-gated) did not exist.
        Migrate the stored 1 to 2: same sound, new number. */
@@ -7008,7 +7063,7 @@ struct Plugin
       {
         gm = json.find(':', gm);
         if (gm != std::string::npos && std::atof(json.c_str() + gm + 1) >= 0.5)
-          enqueueParam(90, 2, 0);
+          load(90, 2, 0);
       }
       // B100: the patch's engine revision, pinned from the header; a preset
       // without one (any schema-3-or-earlier file) is revision 1. Set
@@ -7028,9 +7083,10 @@ struct Plugin
        defaults ship as. */
     if (json.find("\"enable\"") == std::string::npos)
     {
-      enqueueParam(150, 1, 3);
-      enqueueParam(1150, 1, 3);
+      load(150, 1, 3);
+      load(1150, 1, 3);
     }
+    morphFillUncarried(carried, loaded);   // B255: every write is known now, migrations included
     /* B174 — THE NAME IS SET HERE, NOT BY A SECOND CALL AFTERWARDS.
        B122's setCornerName amends a mark that is still PENDING, and PR #703
        found the hole that leaves: let a GUI frame land between the load and
@@ -9346,6 +9402,14 @@ bool state_load(const clap_plugin_t *p, const clap_istream_t *stream)
      a long session. `true` = this transport carries the routing matrix, so
      resetting it here is restorable; see initState. */
   pl->initState(/*chunkOnlyState=*/true);
+  /* B255: the parameter lines this chunk names, in file order, and which morph
+     slots its corner arrays carried — filled after the loop, so a slot the
+     chunk predates takes the patch's value whether the parameters were
+     applied (idle) or queued (processing), and whatever order the lines are
+     in. Keys the chunk does not name stay at initState's default, which is
+     also what the slot already holds. */
+  std::vector<Plugin::LoadedValue> loaded;
+  Plugin::MorphCarried carried;
   while (pos < blob.size())
   {
     const size_t eol = blob.find('\n', pos);
@@ -9363,7 +9427,7 @@ bool state_load(const clap_plugin_t *p, const clap_istream_t *stream)
     if (key == "build") continue;   // B100: provenance only, never read back
     if (key == "morph")   // ADR-112 A3: the field's chunk, shared parser
     {
-      pl->applyMorphChunk(line.substr(eq + 1));
+      carried = pl->applyMorphChunk(line.substr(eq + 1));
       continue;
     }
     if (key == "modroutes")   // ADR-138: generic routes, canonical (src,dest,depth)
@@ -9432,6 +9496,7 @@ bool state_load(const clap_plugin_t *p, const clap_istream_t *stream)
       {
         if (pl->processing.load(std::memory_order_acquire)) pl->enqueueParam(ed->id, val, 3);
         else pl->applyParam(ed->id, val);
+        loaded.push_back({ed->id, val});   // B255
         continue;
       }
     const clap_id idOff = (clap_id)(keyOsc * kOscStride);
@@ -9448,6 +9513,7 @@ bool state_load(const clap_plugin_t *p, const clap_istream_t *stream)
         {
           if (keyOsc && isGlobalId(d.id)) break;   // globals have no per-osc mirror
           pl->enqueueParam((clap_id)(d.id + idOff), val, 3);   // B125
+          loaded.push_back({(clap_id)(d.id + idOff), val});    // B255
           break;
         }
     }
@@ -9463,12 +9529,14 @@ bool state_load(const clap_plugin_t *p, const clap_istream_t *stream)
           pl->loadingState = true;                  // B125: a load is not an edit
           pl->applyParam((clap_id)(d.id + idOff), val);
           pl->loadingState = false;
+          loaded.push_back({(clap_id)(d.id + idOff), val});   // B255
           known = true;
           break;
         }
       if (!known) continue;  // unknown/future keys ignored (state_check pins this)
     }
   }
+  pl->morphFillUncarried(carried, loaded);   // B255
   pl->undoMark("host load");   // B84: main thread, per the CLAP state contract
   return true;
 }

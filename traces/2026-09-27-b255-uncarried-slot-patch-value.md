@@ -1,0 +1,56 @@
+# b255-uncarried-slot-patch-value — a morph slot an old blob predates takes the patch's own value (the last legacy change)
+
+- **Queue item:** B255 (records PR #807, branch `lead-records-121`). The human ruled it: "Go ahead and fix as the last legacy change." (ADR-186 ratification). It lands before the freeze tag.
+- **Why:** B195 (layout 7 → 8) and B203 (8 → 9) put EXISTING parameters into the morph field. A blob saved before those changes carries no corner value for them, so `resetCorner` filled all four corners with the default and `morphStep` drove the live value there. The B240 critic measured it: a layout-8 blob with the Sub on and morph on loaded silent, and a layout-7 blob lost its Sub wave (5 → 3). When those patches were saved, the field did not touch these parameters, so what the patch played was its own saved value. The corners now get that value.
+- **What changed:**
+  - `src/hypersaw_clap.cpp`:
+    - `applyMorphChunk` now returns a `MorphCarried` mask: which live slots each corner array carried.
+    - The new `morphFillUncarried` writes each uncarried slot from the load's recorded parameter writes.
+    - `applyStateJson` records every write in load order, including the pre-note-lane, ADR-103 and pre-ADR-100 migrations, through one `load` lambda. It fills after the last migration.
+    - `state_load` records every parameter line on both the idle and the queued branch, and fills after the loop.
+    - The loaders queue their writes (the JSON path always, the chunk path while processing), so `readParam` could not answer "what did the patch say". That is why the fill uses recorded values rather than reading them back live.
+    - What is unchanged: a carried slot is never touched; a slot the patch names no value for keeps its default; `cornerApply` (corner-preset files) keeps B124's default rule.
+    - Four comments that described the old default fill were corrected: the B240 tail-list note, which said "B255, not built"; the append/marker note; and the layout-8 and layout-9 marker history.
+  - `tools/morphlayout_check.cpp`, T16a–h (it is already wired in `./verify full`).
+    - The blobs are synthetic: this build's layout-9 save of one patch (Sub on, Sub wave 5, morph on, all four corners captured), with every 273-entry array cut to 272 or 264 and the marker set to 8 or 7. T13 already pins that the first 272 and 264 slots are those layouts' orders.
+    - The oracle is the saved state: an old blob must render bit-identical to the same patch at layout 9.
+    - The rows: T16b is the layout-8 chunk, T16c the layout-7 chunk, T16d the preset path and T16e the chunk loaded while processing.
+    - The controls:
+      - T16a checks that the Sub is audible (the Sub-off render differs).
+      - T16f checks that with morph off the Sub survives, before and after the fix.
+      - T16g checks that a carried slot wins: a layout-9 blob with `sub.on=1` in its params and 0 in all four corners still loads silent, bit-identical to the Sub-off blob.
+      - T16h checks that a 272-entry corner FILE still defaults slot 4015.
+- **Revision gate: none, by reasoning from B100/ADR-183.**
+  - A revision gate selects a sound LAW by the revision a patch carries, so that a saved patch keeps sounding as SAVED (B100 item 2; ADR-183 items 2 and 5). This change is not a law. It corrects a load that gave a parameter a value the patch never had. The discriminator is already carried by the blob: its corner-array length and layout marker.
+  - Every affected blob was written before layout 9 (B203, 2026-09-22), and so before revision 2 existed (ADR-183, 2026-09-24). All of them are revision 1.
+  - Gating the fix to revision 2 would therefore never fire. Keeping revision 1 on the old path would pin the defect to exactly the patches it harms. ADR-185 reaches the same verdict for the analogous quantum-draw case ("the revision gate CANNOT fix this").
+  - The sound question (as saved, or as today) was the human's to rule. B255 recommended "as saved", and the ruling was "fix it".
+- **Must-fail proof:** a scratch copy of this tree with `src/hypersaw_clap.cpp` reset to `origin/main` (the T16 rows kept) runs `morphlayout_check` to exit 1.
+  - Exactly T16b–e go RED, reproducing the critic's numbers: layout 8 loads with `sub.on 0` and "SAME as the Sub-off render"; layout 7 loads with wave 3 and Sub on 0; the preset path gives on 0 and wave 3; while processing, on 0 and wave 3.
+  - T16a, f, g and h stay green there, as controls should.
+- **Current patches unchanged:** a scratch tool (not committed) hashed the 1 s A3 render of every factory preset (45) and state fixture (3). Each file was hashed twice: as loaded, and after a chunk save and reload into a fresh instance. The main build and the fixed build gave identical hashes for all 48 × 2 renders.
+  - The same render function, run on T16b's blob, separates the two builds, so the comparison can fail.
+  - Every committed golden is exercised by `./verify full` below: `statefix_check`, `bank_check`, `morphlayout_check` T13–T15, `undo_check`, `offcorner_check` and `modreadback_check`.
+- **Evidence consulted:** ROADMAP B100/B195/B203/B240/B255 (`origin/lead-records-121`); DECISIONS ADR-183, ADR-185 and ADR-186 (ratified text on the records branch); `src/hypersaw_clap.cpp` (applyMorphChunk, resetCorner/cornerSlotDefault, morphSlotMap, cornerApply, applyStateJson and its migrations, state_load, state_save order, initState, morphRouteEdit, enqueueParam/drainQueue, applyRoutingChunk); `tools/morphlayout_check.cpp` (T8, T9, T11, T12, T13); `tools/statefix_common.h`; `tests/state_fixtures/README.md`; trace `2026-09-27-b312-legacy-preset-porter.md` (the real store holds presets at layouts 2/5/6/8 and corners at 7/8, counts only).
+- **Alternatives rejected:**
+  - Reading `readParam` inside `applyMorphChunk`: the values are still queued there on the JSON path and on the chunk path while processing, so it would read the init defaults.
+  - Deferring the whole `morph=` line to the end of `state_load`: this would reorder the corner load relative to the `routing=` line. `applyRoutingChunk` writes through `applyParam` without `loadingState`, and whether that reaches the ADR-109 corner hook for routing ids was not measured. The two-step fill avoids the question, because it touches only uncarried slots, and only for ids the load wrote as parameters.
+  - A revision gate: see above.
+  - Committed state-fixture files plus goldens: the corpus generator refuses to run (RED) on the held JSON shapes. A golden rendered by the fixed build would pin a render, not prove intent. The saved-state oracle in T16 proves intent; the runtime synthesis is deterministic, and the legacy shell is frozen.
+- **Scope note:** the rule is general, as B255 proposed ("a slot the chunk does not carry"). It is not Sub-specific. Any pre-layout-9 blob whose corners predate an existing parameter's join, for example a 222-entry layout-1 patch naming `oscPitch`, now loads that slot at the patch's value instead of the default, under morph. A blob that does not name the parameter is unchanged.
+- **Verify:** both targets ran on `1e14dc1`, the code commit, and both exited 0.
+  - `./verify fast`: `{"target":"fast","exit":0,"git":"1e14dc1"}`.
+  - `./verify full`: `.harness/last-verify.json` = `{"target":"full","exit":0,"git":"1e14dc1","ts":"2026-09-27T23:49:33Z"}`.
+  - Summary lines from the full run:
+    - `state_check: GREEN (0 failures)`
+    - `undo_check: GREEN (0 failures)`
+    - `statefix_check: GREEN (3 fixtures, 0 failures)`
+    - `bank_check: 0 failure(s)`
+    - `morphlayout_check: PASS` (T13–T16 ok)
+    - `offcorner_check: GREEN (0 failures)`
+    - modreadback `PASS  (0 failures)`
+    - `test_table_check: GREEN (204 tests …)`
+  - The private-name gate is SKIPPED in a worktree (there is no `.leakcheck-names` here). The diff was scanned against the main checkout's list: 0 hits, and 0 absolute paths.
+- **Open questions:**
+  - ADR-185's note stands: patches whose QUANTUM sound was changed by earlier layout bumps (3 → 9) are not restored by this change. The draw order is not a slot value.
+  - The fill writes the patch's value as the loader parsed it (the chunk's `%.17g`, or the preset's number), without clamping. It is identical to what the parameter itself receives.
