@@ -577,17 +577,22 @@ function refTone(kind, seg, rate, upto, shift) {
   return x;
 }
 /* DETECTOR CONTROLS: the SAME measureWindows() on signals whose answer is known. ok: true/false
-   for an asserted row, null for a MEASURED LIMIT reported as information. T = the thresholds. */
+   for an asserted row, null for a MEASURED LIMIT reported as information. T = the thresholds.
+   B350: the noise gate is noiseDb, not flatness (gauntlet.mjs THRESH). T may still be a FROZEN
+   sample.thresholds snapshot (this page's own self-check, pre-B350) with no noiseDb key, so the
+   noise row falls back to flatness against T.flatness when T.noiseDb is absent — the same
+   defensive pattern calibrate.mjs uses for a metric with no provisional threshold. */
 const CLEAN_DB = -90;                               // "reads clean": folded power under a billionth
 function detectorControls(M, T) {
   const rows = [], steady = SEGS.filter(s => !s.sweep), E5 = SEGS[SEG_E5], SW = SEGS[SEG_SWEEP];
   const vs4x = (kind, seg, shift) => { const t = refTone(kind, seg, SR, seg.held, shift), r = refTone(kind, seg, 4 * SR, seg.held, shift);
     return measureWindows(M, seg, { L: t, R: t, sr: SR }, { L: r, R: r, sr: 4 * SR }); };
   const tonalOnly = (x, seg) => measureWindows(M, seg, { L: x, R: x, sr: SR }, { L: x, R: x, sr: SR });   // aliasing unused here
+  const noisyM = m => T.noiseDb !== undefined ? m.noiseDb > T.noiseDb : m.flatness > T.flatness;
   for (const seg of steady) {
     const m = vs4x('sine', seg);
     rows.push({ id: 'sine ' + seg.id, want: 'clean, root clear, not noisy', m,
-      ok: m.aliasDb <= CLEAN_DB && m.rootPresence >= 0.99 && m.rootPresence >= T.rootPresence && m.flatness < 0.01 && m.flatness < T.flatness && m.roughness < 1e-3 });
+      ok: m.aliasDb <= CLEAN_DB && m.rootPresence >= 0.99 && m.rootPresence >= T.rootPresence && m.flatness < 0.01 && !noisyM(m) && m.roughness < 1e-3 });
   }
   { const m = vs4x('sine', SW); rows.push({ id: 'sine sweep', want: 'clean', m, ok: m.aliasDb <= CLEAN_DB }); }
   { const m = vs4x('naive', E5); rows.push({ id: 'naive saw E5', want: 'aliased', m, ok: m.aliasDb > T.aliasDb }); }
@@ -604,7 +609,7 @@ function detectorControls(M, T) {
     rows.push({ id: 'tritone-off sine ' + seg.id, want: 'root unclear', m, ok: m.rootPresence < T.rootPresence });
   }
   { const rng = mulberry32(0xB340), seg = SEGS[SEG_A3], x = new Float32Array(seg.held); for (let i = 0; i < x.length; i++) x[i] = 0.5 * (rng() * 2 - 1);
-    const m = tonalOnly(x, seg); rows.push({ id: 'seeded white noise', want: 'noisy', m, ok: m.flatness > T.flatness }); }
+    const m = tonalOnly(x, seg); rows.push({ id: 'seeded white noise', want: 'noisy', m, ok: noisyM(m) }); }
   for (const seg of steady) {
     const m = tonalOnly(refTone('sine', seg, SR, seg.held, 1), seg);
     rows.push({ id: 'semitone-sharp sine ' + seg.id, want: 'information: can the root metric tell a semitone here?', m, ok: null });

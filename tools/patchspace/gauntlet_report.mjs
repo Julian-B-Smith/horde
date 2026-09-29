@@ -83,7 +83,7 @@ export async function report() {
   P(`| clicks | > ${THRESH.clicks} click frames in the TONAL window (20 dB over the median HF frame) |`);
   P(`| dc | dcRatio > ${THRESH.dcRatio} |`);
   P(`| rootAbsent (coherence) | rootPresence < ${THRESH.rootPresence} |`);
-  P(`| noisy (coherence) | flatness > ${THRESH.flatness} |`);
+  P(`| noisy (coherence) | noiseDb > ${THRESH.noiseDb} dB (B350: moved off flatness, still a measured column above) |`);
   P(`| rough (coherence) | roughness > ${THRESH.roughness} (two pure tones a minor second apart read 0.090) |`);
   P('');
   P('## Yield');

@@ -64,15 +64,22 @@ import { ROOT, SR, mulberry32, loadSpace, valueAt, render, evalCond, mtof } from
 import { analyse, spectrum, aliasing, mono, cpuFraction, nonFinite, clicks, silence, peak } from './metrics.mjs';
 import { asEvalTree, hash32 } from './gen_dependency_tree.mjs';
 
+/* THRESH v2 (B350, 2026-09-29, ROADMAP-ruled): the human's blind listening pass (B344/B345,
+   n=34 ratings from one listener) fitted these four cuts against the worst-heard segment; the
+   human: "I think I'm comfortable with it". Still PROVISIONAL — one listener, one sample — and
+   aliasDb is named for re-fitting once B346's os-convergence estimator lands (its aliasing
+   metric work is separate from this ruling). flatness is kept as a MEASURED COLUMN, not a gate:
+   B345 found it does not track what the human calls noisy (agreement 0.50 at 0.3, no logistic
+   trend), so the noise gate below is noiseDb (metrics.mjs, added by B345) instead. */
 export const THRESH = {
   overloadPoly6: 1.0,   // projected load of the lab's 6-voice pool: 6 × cpuVoice > 100% of real time
   overloadVoice: 1.0,   // one voice over real time (the brief's literal "> 100% RT per voice")
-  aliasDb: -30,         // folded power above -30 dB of the test's in-band power
+  aliasDb: -26.8,       // B350: v2 fit, worst-heard segment, n=34 (was -30; re-fitted after B346)
   clicks: 0,            // any click frame in the TONAL window
   dcRatio: 0.1,         // |mean| above 10% of RMS
-  rootPresence: 0.5,    // the played note under half the best candidate's salience
-  flatness: 0.3,        // noise-like
-  roughness: 0.1,       // above a minor second of pure tones (0.090 in metrics_check)
+  rootPresence: 0.616,  // B350: v2 fit, worst-heard segment, n=34 (was 0.5)
+  noiseDb: -21.5,       // B350: the noise gate, moved from flatness 0.3 (v2 fit, n=34)
+  roughness: 0.12,      // B350: v2 fit, worst-heard segment, n=34 (was 0.1; two pure tones a minor second apart read 0.090 in metrics_check)
 };
 const TREE_FILE = 'tools/patchspace/dependency_tree.json';
 let TREE = null;
@@ -147,7 +154,9 @@ export function failures(r) {
 export function incoherence(r) {
   const f = [];
   if (r.rootPresence !== null && r.rootPresence < THRESH.rootPresence) f.push('rootAbsent');
-  if (r.flatness !== null && r.flatness > THRESH.flatness) f.push('noisy');
+  /* B350: the noise gate moved from flatness to noiseDb (metrics.mjs, B345) — flatness is still
+     measured and reported (gauntlet_report.mjs), just no longer a gate */
+  if (r.noiseDb !== null && r.noiseDb !== undefined && r.noiseDb > THRESH.noiseDb) f.push('noisy');
   if (r.roughness !== null && r.roughness > THRESH.roughness) f.push('rough');
   return f;
 }
