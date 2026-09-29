@@ -74,9 +74,36 @@
        shows the snapshot it is bound to. Moving the XY into a quadrant selects that corner.
      - THE GBC SKIN (section N2): the Play face as Game Boy Color screen software, drawn from the
        lab's live state through B322's GBC renderer (copied, cited) with B326's GBC Sluice logo
-       proposal in the title slot, unless the human's own file is dropped in (it wins). -->
+       proposal in the title slot, unless the human's own file is dropped in (it wins).
+
+     ROUND 3 — B348 (HYPERSAW, 2026-09-28, dispatched by the horde lead on records PR #842, branch
+     lead-records-138, from the human's rulings in B347). A HORDE PROPOSAL, pending Sluice seq 11: it
+     overturns spec v1's one-patch rule, so it is prototyped here, not final. The human: "corners get
+     their own patches, but the Sluice patch requires a quantum flip unless patch parity is detected;
+     either way, the dry/wet, width, time, and tune knobs could be gradual between patches" (the human
+     wrote "tone" first, then ruled: "I did indeed mean 'tune.'"); "all of
+     Sluice exposed in Horde", defaulting to the spec's own Play face (its name is READ from spec §11
+     at load, never written here); macro scope, selected corner or global, "a good question to
+     workshop in the lab"; bypass provisionally spill-over (the loops ring out), then ruled a USER
+     PREFERENCE: "we'll bury the tail issue in the settings so users can decide about the CPU tradeoff,
+     while trying our best to limit CPU burn in any case. But yes, still worth workshopping".
+     - PER-CORNER PATCHES (section K): LAB.cp names the library entry each corner plays; corner k
+       plays that entry's working copy k, so B337's randomize / save / discard / bind act on the
+       selected corner's own patch unchanged. PATCH PARITY (section F2, patchParity): the same module
+       types in the same order in the loop and in the post chain (roster + wiring), numbers and module
+       ids ignored. The XY's corners fall into parity classes; a boundary rule picks the LIVE class and
+       the XY blends continuously inside it; crossing into another class is a QUANTUM FLIP. Three rules
+       to compare: nearest corner, class weight > 0.5, and a hysteresis band on the class weight.
+     - The FIXED FOUR stay Sluice-global, so a flip never moves them (C31).
+     - DEFAULT FACE / FULL DEVICE: the Play face under the spec's own name is the default; the Rack face
+       is the FULL DEVICE, with a runtime count of every number it reaches (C32, C33).
+     - MACRO SCOPE: a variable macro move writes the selected corner, or every corner's slot of the
+       same ORDER (the by-order binding makes slot k exist in each patch); a grid shows both (C34).
+     - TAILS: in spill-over a flip moves the outgoing engine to a tail list fed silence (it rings on)
+       and a bypass keeps the engine fed silence; hard cuts with the 20 ms crossfade. The tail meter is
+       measured on horde's v0.1 stand-in and labelled a SCHEMATIC of Sluice's behaviour (C35). -->
 <html><head><meta charset="utf-8">
-<meta name="lab-review" content="B319 + B329 + B337 + B338 · 2026-09-28">
+<meta name="lab-review" content="B319 + B329 + B337 + B338 + B343 + B348 · 2026-09-28">
 <title>Sluice in horde — built to Sluice's architecture spec</title>
 <style>
   :root {
@@ -312,9 +339,15 @@
   .faces { flex:1 1 auto; min-height:0; display:flex; flex-direction:column; }
   .face { flex:1 1 auto; min-height:0; display:none; }
   .face.on { display:grid; }
-  #playFace { grid-template-columns:232px minmax(0,1fr) 292px; grid-template-rows:minmax(0,1fr) auto; gap:6px; }
+  #playFace { grid-template-columns:232px minmax(0,1fr) 292px; grid-template-rows:auto minmax(0,1fr) auto; gap:6px; }
   #playFace > .col { min-height:0; }
-  #rackFace { grid-template-rows:auto minmax(0,1fr); gap:6px; }
+  /* B348: the FULL DEVICE's head and strip grew (flip rule, per-corner patch pickers, the tail), so the
+     face scrolls as a whole and the rack body keeps its natural height: a fixed 1fr row left the
+     loop chain a sliver under the strip */
+  #rackFace { grid-template-rows:auto auto auto; gap:6px; align-content:start; }
+  #rackFace.on { overflow-y:auto; }
+  #rackFace .rackbody > .col { overflow:visible; }
+  .strip .lib { max-height:250px; overflow-y:auto; }
   .rackbody { display:grid; grid-template-columns:minmax(0,1.2fr) minmax(0,1fr); gap:6px; min-height:0; }
   .rackbody > .col { overflow-y:auto; overflow-x:hidden; min-height:0; padding-right:3px; }
   #scopeFace { grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:6px; align-content:start; }
@@ -386,6 +419,30 @@
   .kcell.fixed > .mslot { color:var(--physics); font-weight:700; }
   .kcell.var > .mslot { color:var(--value); font-weight:700; }
   .medit { border:1px dashed var(--div); border-radius:6px; padding:3px 5px; margin-top:3px; }
+  /* B348: the default face's band, parity badges, the flip rule row, the corner rows' stacked pickers,
+     the macro-scope grid and the tail cell */
+  .fzband { grid-column:1 / -1; display:flex; gap:10px; align-items:center; padding:4px 8px; flex-wrap:wrap;
+    border:var(--stroke) solid var(--line); border-radius:var(--r); background:var(--panel); }
+  .fzband .fzn { font-weight:800; letter-spacing:.12em; font-size:12px; color:var(--pull); }
+  .fzband .fzd { font-size:9.5px; color:var(--t2); flex:1 1 300px; min-width:0; }
+  .fzband .go { font-weight:700; }
+  .pbadges { display:flex; gap:3px; flex-wrap:wrap; margin:3px 0 1px; align-items:center; }
+  .pbadge { font-size:8.5px; font-weight:800; letter-spacing:.04em; padding:0 5px; border-radius:3px; border:1px solid var(--div); color:var(--t2); }
+  .pbadge.eq { border-color:var(--celebrate); color:var(--celebrate); }
+  .pbadge.ne { border-color:var(--caution); color:var(--caution-tx); background:var(--caution-bg); }
+  .fliprow { display:flex; gap:5px; align-items:center; flex-wrap:wrap; margin:3px 0; font-size:9.5px; }
+  .fliprow input[type=range] { width:70px; }
+  .live { font-size:9px; font-weight:800; letter-spacing:.06em; padding:0 5px; border-radius:3px; background:var(--line); color:var(--bg); white-space:nowrap; }
+  .crow { grid-template-columns:22px minmax(0,1fr) 58px; }
+  .crow .picks { display:flex; flex-direction:column; gap:2px; min-width:0; }
+  .crow .st { display:flex; flex-direction:column; gap:1px; align-items:flex-end; font-size:8.5px; }
+  .crow.inlive { box-shadow:inset 3px 0 0 var(--line); }
+  .msc { display:grid; grid-template-columns:22px repeat(4, 34px); gap:2px 3px; align-items:center; font-size:8.5px; }
+  .msc .h { font-weight:800; text-align:center; border-bottom:2.5px solid var(--cc); }
+  .msc .b { height:9px; border:1px solid var(--div); border-radius:2px; position:relative; overflow:hidden; background:var(--panel2); }
+  .msc .b > i { position:absolute; left:0; top:0; bottom:0; background:var(--value); opacity:.75; }
+  .msc .b.hot { border:1.5px solid var(--line); }
+  .msc .b.none { opacity:.25; background:repeating-linear-gradient(45deg, var(--panel2) 0 3px, var(--div) 3px 5px); }
   /* B338 — the GBC skin. The screen is 160×144 logical pixels at ×3 (480×432 CSS px), content-box
      so a logical pixel lands on whole CSS pixels (fx-screens-workshop.html:339's reason). The dot
      grid and the inset shade are the LCD's optics, copied from the workshop's .fxo.gbc (:349). */
@@ -441,7 +498,7 @@
   .sbtn.on { background:var(--physics); color:#fff; border-color:var(--physics); }
   .addrow { display:flex; gap:4px; align-items:center; margin:3px 0 6px; }
   .grphd { font-size:9px; letter-spacing:.1em; color:var(--dim); margin:5px 0 1px; display:flex; gap:5px; align-items:center; }
-  .strip { display:grid; grid-template-columns:150px minmax(0,1fr) 250px; gap:6px; align-items:start; }
+  .strip { display:grid; grid-template-columns:200px minmax(0,1fr) 250px; gap:6px; align-items:start; }
   .strip .kgrid .kcell { width:54px; }
   .strip .kgrid.m8 .kcell { width:58px; }
   .loopbadge { display:inline-block; font-size:8.5px; letter-spacing:.1em; font-weight:700; padding:0 6px;
@@ -460,7 +517,7 @@
 <div class="hdr">
   <div>
     <h1>sluice · in horde</h1>
-    <div class="badges"><span class="badge">B319 + B329 + B337 + B338</span><span class="sub">HOSTED FX MODULE · BUILT TO SLUICE'S SPEC · DESIGN LAB</span></div>
+    <div class="badges"><span class="badge">B319 + B329 + B337 + B338 + B343 + B348</span><span class="sub">HOSTED FX MODULE · BUILT TO SLUICE'S SPEC · DESIGN LAB</span></div>
   </div>
   <div class="hdrctl">
     <div class="grp"><span class="lbl">AUDIO</span><button class="pill" id="pwr">off</button></div>
@@ -475,7 +532,10 @@ the Rack face (the machinery) and the Scope, each built at load from Sluice's sp
 local link. Nothing of Sluice's is committed here. The sound is <b>horde's v0.1 NETWORK reference, not Sluice's netcore</b> (see B328);
 where the spec has no v0.1 counterpart the control is drawn and marked "not voiced in v0.1".
 <b>Round 2 (B337 + B338) is a horde proposal, pending Sluice (brief seq 10):</b> a snapshot library per patch with a binding per corner and
-unsaved drafts; four fixed macros plus four variable ones; corner chips filled only when selected; and a Game Boy Color skin of the Play face.</div>
+unsaved drafts; four fixed macros plus four variable ones; corner chips filled only when selected; and a Game Boy Color skin of the Play face.
+<b>Round 3 (B348) is a horde proposal, pending Sluice (brief seq 11):</b> each corner may hold its own patch; corners with patch parity
+morph continuously, otherwise the XY makes a quantum flip at a boundary you choose; the spec's Play face (by its own name) is the default, with a way
+into the full device; a macro-scope workshop; and spill-over against hard bypass, made visible.</div>
 <div class="audit" id="status">loading…</div>
 <div class="stage">
   <div class="plug" id="plug">
@@ -597,6 +657,13 @@ const PROPOSAL = 'horde proposal — pending Sluice, brief seq 10';
 const SNAP_MIN = 4;        // one snapshot per corner, always
 const SNAP_DEL_MIN = 5;    // the human: deletable "as long as there are 5 or more", so SNAP_MIN always remain
 const VAR_WANT = 4;        // the human's four VARIABLE macros; the manifest's slot count caps it (varSlots)
+/* ---- B348: per-corner patches and the quantum flip, a horde PROPOSAL pending Sluice seq 11 ---- */
+const PROPOSAL3 = 'horde proposal — pending Sluice, brief seq 11';
+/* the three boundary rules the human asked to compare (section F2, pickLive). The band is in units of
+   class WEIGHT (the bilinear corner weights summed over a parity class), not of XY distance */
+const FLIP_RULES = [['nearest', 'NEAREST CORNER'], ['weight', 'WEIGHT > 0.5'], ['hyst', 'HYSTERESIS']];
+const FLIP_DEFAULT = { rule: 'hyst', band: 0.1 };
+const TAIL_HIST = 160;     // tail-meter history, one entry per meter update (1024 samples ≈ 21 ms): ~3.4 s
 
 /* ---- the v0.1 reference, sliced (filled by loadRef) ---- */
 const REF = { raw: '', src: '', tapped: '', defs: null, presets: null, err: '' };
@@ -639,18 +706,26 @@ function loadRef(text) {
                           same sig applies in place: the v0.1 engine glides its own params.
      {t:'clear'}          flush to silence, the patch kept: a fresh engine (spec §10: a cleared engine
                           is identical to a fresh one)
-     {t:'bypass', on, mode}  'hard' = crossfade to dry, the engine frozen, a Clear on re-enable;
-                          'spill' = keep feeding silence so the tail rings out (spec §13 #3, open)
+     {t:'patch', p, sig, spill:true}  B348: a QUANTUM FLIP in spill-over mode. The outgoing engine is
+                          not crossfaded away: it moves to a tail list, is fed SILENCE and rings on
+                          beside the new one until it falls quiet (0.25 s under 1e-6) or ages out (8 s,
+                          then a 20 ms fade). At most 3 tails; a fourth fades the oldest out.
+     {t:'bypass', on, mode}  'hard' = crossfade to dry, the engine frozen, a Clear on re-enable (and the
+                          tails cut); 'spill' = the outgoing engine runs on with no input until its echoes decay (spec §13 #3;
+                          the human's provisional answer is spill-over, B347)
      {t:'bpm', bpm}       the riff's tempo (the patch arrives already resolved at it)
      {t:'src', kind}      'voice' | 'impulse' | 'noise'   {t:'voice', params} */
 function makeRenderer(env, sr) {
-  const T = { nodeSq: new Float64Array(64), loopSq: 0, outSq: 0, drySq: 0, n: 0 };
+  const T = { nodeSq: new Float64Array(64), loopSq: 0, outSq: 0, drySq: 0, tailSq: 0, n: 0 };
   let liveTap = true;       // during a crossfade only the NEW engine lights the meters
   const taps = { node(i, w) { if (liveTap) T.nodeSq[i] += w * w; }, loop(v) { if (liveTap) T.loopSq += v * v; } };
   const ENG = buildFactory(env.src, mulberry32(0x5E11), taps);   // the S&H stream, one per renderer
   const XF = Math.max(1, Math.round(env.xfS * sr));
   let eng = ENG.makeEngine(sr), old = null, xf = 0, sig = null, cur = null, applies = 0, builds = 1, clears = 0;
   let byOn = false, byMode = 'hard', bw = 0;
+  /* B348 spill-over tails: outgoing engines fed silence. Times in SECONDS, converted here (ADR-009) */
+  const tails = [], TAIL_MAX = Math.round(8 * sr), TAIL_QUIET = Math.round(0.25 * sr), TAIL_CAP = 3;
+  let flips = 0;
   let bpm = 120, kind = 'voice', n = 0, bt = 0, beat = 0, noiseLeft = 0, noteOnNow = -1;
   const vrng = mulberry32(0xB319), nrng = mulberry32(0x10D);
   let voice = null, vparams = null;
@@ -664,15 +739,35 @@ function makeRenderer(env, sr) {
     withRng(() => { voice = new env.Voice(sr); voice.set(vparams); Object.assign(voice.s, voice.t); });
     noteOnNow = -1;
   }
-  function install(p, s) {
-    if (sig !== null && s !== sig) { old = eng; xf = XF; eng = ENG.makeEngine(sr); builds++; }
+  function install(p, s, spill) {
+    if (sig !== null && s !== sig) {
+      if (spill) {
+        /* a spill-over flip: the outgoing engine (and one mid-crossfade, if any) rings on as a tail */
+        if (old) { tails.push({ e: old, age: 0, quiet: 0, g: 1, dying: false }); old = null; xf = 0; }
+        tails.push({ e: eng, age: 0, quiet: 0, g: 1, dying: false });
+        for (let j = 0; j < tails.length - TAIL_CAP; j++) tails[j].dying = true;
+        flips++; eng = ENG.makeEngine(sr); builds++;
+      } else { old = eng; xf = XF; eng = ENG.makeEngine(sr); builds++; }
+    }
     sig = s; cur = p; eng.applyPatch(p); applies++;
   }
-  function clear() { eng = ENG.makeEngine(sr); builds++; clears++; old = null; xf = 0; if (cur) eng.applyPatch(cur); }
+  function clear() { eng = ENG.makeEngine(sr); builds++; clears++; old = null; xf = 0; tails.length = 0; if (cur) eng.applyPatch(cur); }
+  /* one sample of every tail, summed; a tail leaves by swap-remove (no allocation in the loop) */
+  function tickTails() {
+    let tl = 0;
+    for (let j = tails.length - 1; j >= 0; j--) {
+      const t = tails[j];
+      if (t.dying || t.age > TAIL_MAX) t.g -= 1 / XF;
+      const y = t.e.tick(0) * (t.g > 0 ? t.g : 0);
+      t.age++; t.quiet = Math.abs(y) < 1e-6 ? t.quiet + 1 : 0; tl += y;
+      if (t.g <= 0 || t.quiet > TAIL_QUIET) { tails[j] = tails[tails.length - 1]; tails.length--; }
+    }
+    return tl;
+  }
   function restart() { n = 0; bt = 0; beat = 0; noiseLeft = 0; if (voice) newVoice(); }
   function msg(m) {
     if (!m) return;
-    if (m.t === 'patch') install(m.p, m.sig);
+    if (m.t === 'patch') install(m.p, m.sig, !!m.spill);
     else if (m.t === 'clear') clear();
     else if (m.t === 'bpm') bpm = m.bpm > 1 ? m.bpm : 120;
     else if (m.t === 'bypass') {
@@ -718,11 +813,15 @@ function makeRenderer(env, sr) {
     for (let i = 0; i < len; i++) {
       const l = srcL[i], r = srcR[i], dry = 0.5 * (l + r);
       let yl, yr;
-      if (byOn && bw >= 1 && byMode === 'hard') { yl = l; yr = r; }          // frozen: the engine is not ticked
+      if (byOn && bw >= 1 && byMode === 'hard') { yl = l; yr = r; tails.length = 0; }   // frozen: nothing is ticked, tails cut
       else {
         const xin = byMode === 'spill' ? dry * (1 - bw) : dry;
         liveTap = true; let w = eng.tick(xin);
         if (old) { liveTap = false; const o = old.tick(xin), t = 1 - xf / XF; w = o * (1 - t) + w * t; if (--xf <= 0) old = null; }
+        /* no tail = w untouched (w + 0 would turn a −0 into +0, and C9 compares with Object.is) */
+        let tl = 0;
+        if (tails.length) { liveTap = false; tl = tickTails(); w = w + tl; }
+        T.tailSq += byOn && byMode === 'spill' ? w * w : tl * tl;              // a spilled bypass: the whole engine IS the tail
         if (bw > 0) {
           if (byMode === 'hard') { yl = (1 - bw) * w + bw * l; yr = (1 - bw) * w + bw * r; }
           else { yl = w + bw * l; yr = w + bw * r; }
@@ -739,12 +838,16 @@ function makeRenderer(env, sr) {
     const cnt = cur ? cur.chain.length : 0, node = [], frozen = byOn && bw >= 1 && byMode === 'hard';
     for (let i = 0; i < cnt; i++) node.push(frozen ? -150 : dbOf(T.nodeSq[i], T.n));
     const o = { t: 'meters', n, node, loop: frozen ? -150 : dbOf(T.loopSq, T.n), out: dbOf(T.outSq, T.n), dry: dbOf(T.drySq, T.n),
-      outRing: new Float32Array(RING), dryRing: new Float32Array(RING), bpm, bypass: byOn, builds, clears, fading: !!old };
+      outRing: new Float32Array(RING), dryRing: new Float32Array(RING), bpm, bypass: byOn, builds, clears, fading: !!old,
+      tail: dbOf(T.tailSq, T.n), tails: tails.length, flips, byMode,
+      /* engines ticking at the end of this window: the CPU tradeoff, schematically (a hard bypass
+         freezes the engine; spill-over keeps it, and each ringing tail, running) */
+      engines: frozen ? 0 : 1 + (old ? 1 : 0) + tails.length };
     for (let k = 0; k < RING; k++) { o.outRing[k] = ringOut[(ri + k) % RING]; o.dryRing[k] = ringDry[(ri + k) % RING]; }
-    if (reset !== false) { T.nodeSq.fill(0); T.loopSq = 0; T.outSq = 0; T.drySq = 0; T.n = 0; }
+    if (reset !== false) { T.nodeSq.fill(0); T.loopSq = 0; T.outSq = 0; T.drySq = 0; T.tailSq = 0; T.n = 0; }
     return o;
   }
-  return { msg, process, meters, lastSrc: () => [srcL, srcR], builds: () => builds, clears: () => clears, xfLen: () => XF };
+  return { msg, process, meters, lastSrc: () => [srcL, srcR], builds: () => builds, clears: () => clears, xfLen: () => XF, tailCount: () => tails.length };
 }
 /* the worklet's source: the renderer and everything it calls, by toString(); C13 runs exactly this
    string on the page */
@@ -803,7 +906,18 @@ function parseDoc(doc) {
     for (let j = i + 1; j < lines.length; j++) { if (stop.test(lines[j])) break; out.push(lines[j]); } return out; };
   const s61 = block('### 6.1', /^#{2,3} /).map(l => /^\|\s*\*\*(.+?)\*\*\s*\|\s*([^|]*?)\s*\|/.exec(l)).filter(Boolean).map(m => ({ name: m[1], range: m[2] }));
   const s13 = block('## 13', /^## /).map(l => /^\|\s*(\d+)\s*\|\s*(.+?)\s*\|\s*([^|]+?)\s*\|\s*$/.exec(l)).filter(Boolean).map(m => ({ n: +m[1], item: m[2], whose: m[3] }));
-  return { ver, title, sections, s61, s13 };
+  /* B348: the Play face's NAME and gloss ("**Play** face (<NAME>: <gloss>)", §11), the Rack face's
+     gloss, §11.1's parenthesis (the default claim) and every sentence of the spec that uses the name.
+     Read over the whitespace-flattened text because the spec wraps the name across a line break.
+     Nothing of it is written in this file (C32 scans for the name). */
+  const flat = lines.join(' ').replace(/\s+/g, ' ');
+  const pm = /\*\*Play\*\* face \(([^:()]+):\s*([^()]*)\)/.exec(flat), rm = /\*\*Rack\*\* face \(([^()]*)\)/.exec(flat);
+  const dm = /#{3}\s*11\.1\s*·\s*Play face \(([^()]*)\)/.exec(flat);
+  const name = pm ? pm[1].trim() : '';
+  const says = !name ? [] : flat.split(/(?<=[.!?])["*]*\s+|\s-\s|\s#{2,4}\s/).filter(t => t.includes(name))
+    .map(t => t.replace(/\*+/g, '').replace(/^[-\s]+/, '').trim()).filter(Boolean).slice(0, 4);
+  const faces = { play: { name, gloss: pm ? pm[2].trim() : '', def: dm ? dm[1].trim() : '' }, rack: { gloss: rm ? rm[1].trim() : '' }, says };
+  return { ver, title, sections, s61, s13, faces };
 }
 /* a numeric entry, normalised: every field is the manifest's own, or a stated fallback */
 function normNum(name, v, extra) {
@@ -1025,36 +1139,108 @@ function resolve(p, G, bpm, opts) {
    heard whole (reported, never silent). */
 const cornerWeights = (x, y) => [(1 - x) * (1 - y), x * (1 - y), (1 - x) * y, x * y];
 function blendLaw(e) { return e.morph || (e.taper === 'log' ? 'blend-geometric' : e.taper === 'step' ? 'blend-then-round' : 'blend-linear'); }
+/* over as many corners as are given (B348 blends inside a parity class, which may be 1–4 corners) */
 function blend(vals, w, e) {
   const law = blendLaw(e);
-  if (law === 'blend-geometric' && vals.every(a => a > 0)) { let s = 0; for (let k = 0; k < 4; k++) s += w[k] * Math.log(vals[k]); return Math.exp(s); }
-  let s = 0; for (let k = 0; k < 4; k++) s += w[k] * vals[k];
+  if (law === 'blend-geometric' && vals.every(a => a > 0)) { let s = 0; for (let k = 0; k < vals.length; k++) s += w[k] * Math.log(vals[k]); return Math.exp(s); }
+  let s = 0; for (let k = 0; k < vals.length; k++) s += w[k] * vals[k];
   if (law === 'blend-then-round') return e.step ? Math.round(s / e.step) * e.step : Math.round(s);
   return s;
 }
-function morph4(C, x, y) {
+/* the blend of the corners in `members` (all of one structure) under weights w (indexed by corner,
+   summing to 1 over the members): numbers by the manifest's laws, everything discrete from the
+   member with the largest weight. At a member's own point the result IS that member. */
+function blendW(C, w, members) {
   const S = S_();
+  let near = members[0]; for (const k of members) if (w[k] > w[near]) near = k;
+  const out = clone(C[near]);
+  if (w[near] === 1 || members.length === 1) return { p: out, near };
+  const M = members.map(k => C[k]), wm = members.map(k => w[k]);
+  const num = e => e.kind === 'num' && blendLaw(e) !== 'nearest-corner';
+  for (const part of ['chain', 'post']) out[part].forEach((m, mi) => {
+    for (const e of S.mod[m.type]) if (num(e)) m.params[e.key] = blend(M.map(c => c[part][mi].params[e.key]), wm, e);
+    if (part === 'chain') for (const b of busModule()) if (num(b)) m.x[b.key] = blend(M.map(c => c.chain[mi].x[b.key]), wm, b);
+  });
+  for (const b of busPatch()) if (num(b)) out.bus[b.key] = blend(M.map(c => c.bus[b.key]), wm, b);
+  for (const g of S.groups) for (const f of g.fields) if (num(f)) out.grp[g.name][f.name] = blend(M.map(c => c.grp[g.name][f.name]), wm, f);
+  return { p: out, near };
+}
+/* spec v1's morph over four corners of ONE structure (the one-patch rule's guard kept: a mixed set is
+   not blended, the nearest corner is heard whole). B348's morphRig below is what the page hears; on
+   a rig of one parity class it is this function exactly (C29 checks it). */
+function morph4(C, x, y) {
   x = clamp(x, 0, 1); y = clamp(y, 0, 1);
   const w = cornerWeights(x, y);
   let near = 0; for (let i = 1; i < 4; i++) if (w[i] > w[near]) near = i;
-  const out = clone(C[near]);
-  if (w[near] === 1) return { p: out, ok: true, near };
+  if (w[near] === 1) return { p: clone(C[near]), ok: true, near };
   const s0 = structSig(C[0]);
-  if (!C.every(c => structSig(c) === s0)) return { p: out, ok: false, near };
-  const num = e => e.kind === 'num' && blendLaw(e) !== 'nearest-corner';
-  for (const part of ['chain', 'post']) out[part].forEach((m, mi) => {
-    for (const e of S.mod[m.type]) if (num(e)) m.params[e.key] = blend(C.map(c => c[part][mi].params[e.key]), w, e);
-    if (part === 'chain') for (const b of busModule()) if (num(b)) m.x[b.key] = blend(C.map(c => c.chain[mi].x[b.key]), w, b);
-  });
-  for (const b of busPatch()) if (num(b)) out.bus[b.key] = blend(C.map(c => c.bus[b.key]), w, b);
-  for (const g of S.groups) for (const f of g.fields) if (num(f)) out.grp[g.name][f.name] = blend(C.map(c => c.grp[g.name][f.name]), w, f);
-  return { p: out, ok: true, near };
+  if (!C.every(c => structSig(c) === s0)) return { p: clone(C[near]), ok: false, near };
+  return { p: blendW(C, w, [0, 1, 2, 3]).p, ok: true, near };
 }
-/* the one-patch rule at the door: a corner may only take a patch of the SAME structure. The default
-   is to forbid (Sluice's recommendation, spec §13 #5, pending the human). Pure: returns the verdict. */
+
+/* ================================================================ F2. PATCH PARITY AND THE QUANTUM FLIP (B348, a horde proposal)
+   The human: corners get their own patches; "the Sluice patch requires a quantum flip unless patch
+   parity is detected". PARITY, defined here: two patches match when they have the same ROSTER and
+   WIRING — the same module types, in the same order, in the loop chain and in the post chain.
+   Sluice's network has one serial chain inside one global bus (spec §1–§3), so the order and the
+   loop/post placement are all the wiring there is; injection is a coefficient (a number). Numbers,
+   module ids, names, macros and the discrete values spec §9 takes from the nearest corner (enabled,
+   switches, targets, shapes, presence) are ignored: they blend, or come from the nearest corner, as
+   they do inside one patch. Parity is exactly the one-patch rule's notion of structure (structSig),
+   so two snapshots of one patch always match, and two different patches match when §9 says their
+   numbers can blend.
+   The corners fall into PARITY CLASSES. A boundary rule picks the LIVE class from the four bilinear
+   weights; the heard patch is the live class's blend with its weights renormalised (continuous
+   inside the class); crossing into another class switches the live class discretely: the flip. */
+const parityKey = p => structSig(p);
+const patchParity = (a, b) => parityKey(a) === parityKey(b);
+/* classes in order of their first corner; a class is named after that corner (class "A" = A's) */
+function parityClasses(C) {
+  const out = [];
+  C.forEach((c, k) => { const key = parityKey(c); let g = out.find(q => q.key === key); if (!g) out.push(g = { key, members: [], name: CORNER[k] }); g.members.push(k); });
+  return out;
+}
+/* THE BOUNDARY RULES (pure). cls: the classes; w: the four corner weights; prev: the live class's key
+   before this move (or null). W_K = the sum of class K's corner weights.
+     nearest  the class of the corner with the largest weight (ties to the lower corner): the quadrant
+              lines, where they separate corners of different classes.
+     weight   the class whose W > 0.5; where no class has it (on the line, or three or more classes)
+              the live class holds.
+     hyst     from the live class, switch only to a class whose W > 0.5 + band; the way back needs the
+              same margin, so a cursor hovering on the line cannot chatter. With no live class yet,
+              the weight rule.
+   A held class that has no weight here at all (W = 0) does not hold: the nearest corner's does. */
+function classWeights(cls, w) { return cls.map(g => g.members.reduce((a, k) => a + w[k], 0)); }
+function pickLive(rule, band, cls, w, prev) {
+  const W = classWeights(cls, w);
+  let near = 0; for (let i = 1; i < 4; i++) if (w[i] > w[near]) near = i;
+  const nearKey = cls.find(g => g.members.includes(near)).key;
+  if (rule === 'nearest' || cls.length === 1) return nearKey;
+  const pi = prev === null || prev === undefined ? -1 : cls.findIndex(g => g.key === prev), held = pi >= 0 && W[pi] > 0;
+  let top = 0; for (let i = 1; i < cls.length; i++) if (W[i] > W[top]) top = i;
+  if (rule === 'hyst' && held) return (top !== pi && W[top] > 0.5 + band) ? cls[top].key : prev;
+  if (W[top] > 0.5) return cls[top].key;
+  return held ? prev : nearKey;
+}
+/* what the page HEARS: the live class's blend. `flip` = { rule, band }; `prev` = the live key before. */
+function morphRig(C, x, y, flip, prev) {
+  x = clamp(x, 0, 1); y = clamp(y, 0, 1);
+  const w = cornerWeights(x, y), cls = parityClasses(C);
+  const key = pickLive(flip.rule, flip.band, cls, w, prev), g = cls.find(q => q.key === key), W = classWeights([g], w)[0];
+  /* all four in one class: the weights as they are (dividing by a sum that is 1 only to rounding
+     would move the last bit, and one class must hear spec v1's morph exactly — C29) */
+  const wn = g.members.length === 4 ? w.slice() : [0, 0, 0, 0];
+  if (g.members.length < 4) { if (W > 0) for (const k of g.members) wn[k] = w[k] / W; else wn[g.members[0]] = 1; }
+  const b = blendW(C, wn, g.members);
+  return { p: b.p, near: b.near, key, name: g.name, members: g.members, classes: cls, w, W, one: cls.length === 1 };
+}
+/* the one-patch rule at the door of ONE patch: its snapshots share one structure, so a working copy
+   may only take a snapshot of the same structure. B348 moves the human's answer to §13 #5 one level
+   up: a corner with another roster holds its OWN patch (section K), it never mixes structures inside
+   one. Pure: returns the verdict. */
 function trySetCorner(C, i, p) {
   const other = C.find((c, k) => k !== i);
-  if (other && structSig(p) !== structSig(other)) return { ok: false, why: 'refused: that snapshot has another structure (' + shortSig(p) + ' vs ' + shortSig(other) + ') — the one-patch rule, §9' };
+  if (other && structSig(p) !== structSig(other)) return { ok: false, why: 'refused: that snapshot has another structure (' + shortSig(p) + ' vs ' + shortSig(other) + ') — a patch\'s snapshots share one structure (§9); another structure goes on a corner as that corner\'s OWN patch (B348)' };
   C[i] = p; return { ok: true };
 }
 const shortSig = p => p.chain.map(m => m.type.slice(0, 4)).join('›') + (p.post.length ? ' ‖ ' + p.post.map(m => m.type.slice(0, 4)).join('›') : '');
@@ -1184,8 +1370,9 @@ function drawOnlyApplied(p, rnd, r) {
 }
 function genName(rnd) { return NAME_A[Math.floor(rnd() * NAME_A.length)] + ' ' + NAME_B[Math.floor(rnd() * NAME_B.length)]; }
 /* a new structure: 2..maxGen loop modules (the manifest's limit for generated patches) drawn from the
-   types not locked by default; the post chain takes the LAST default-locked type (the spec says FREAK
-   ZONE's patches end in a post limiter, §10; the manifest carries no post role, so this is the lab's
+   types not locked by default; the post chain takes the LAST default-locked type (the spec says the
+   Play face's generated patches end in a post limiter, §10 — B348 keeps the face's name out of this
+   file, C32; the manifest carries no post role, so this is the lab's
    reading — a v2 ask); a gate with the Tail; macros by the authoring rule; thresholds drawn last. */
 function randomPatch(rnd, tailS) {
   const S = S_(), p = newPatch();
@@ -1356,7 +1543,7 @@ function variants(A, rnd, r) {
      snaps  the named snapshots (patch objects carrying .sid, a stable id, and .name). Names are
             unique within the patch; there are never fewer than SNAP_MIN.
      bind   the sid each corner A–D is BOUND to (a picker per corner; two corners may share one).
-     work   the four corners' working copies. LAB.corners IS the selected entry's `work`.
+     work   the four corners' working copies. Corner k plays work[k] of the entry it names (LAB.cp[k]).
    A corner is a DRAFT when its working copy differs from its bound snapshot. That is DERIVED from
    content (contentKey), never a flag, so the marker cannot disagree with what plays; a draft is
    in no library list until saveDraft puts it there. Everything here is pure on the entry, so the
@@ -1396,6 +1583,23 @@ function libEntry(name, origin, snaps, bind) {
 function generatedEntry(rnd, tailS, r, origin) {
   const p = randomPatch(rnd, tailS);
   return libEntry(p.name, origin, nameSnaps(variants(p, rnd, r), p.name));
+}
+/* B348: a SIBLING of p — another patch with p's roster and wiring (so it has parity with p), fresh
+   module ids (every reference remapped) and every free number re-drawn. It is how the lab shows two
+   DIFFERENT patches morphing continuously; generated rosters rarely coincide by chance. */
+function siblingOf(p, rnd) {
+  const q = clone(p), map = {};
+  for (const part of ['chain', 'post']) for (const m of q[part]) { const nid = 'm' + (NEXT_ID++); map[m.id] = nid; m.id = nid; }
+  const re = t => { const s = String(t), c = s.indexOf(':'); return c > 0 && map[s.slice(0, c)] ? map[s.slice(0, c)] + s.slice(c) : t; };
+  for (const M of q.macros) for (const b of M.bindings) b.target = re(b.target);
+  for (const g of S_().groups) for (const f of g.fields) if (f.kind === 'ref') q.grp[g.name][f.name] = re(q.grp[g.name][f.name]);
+  const thr = {}; for (const k in q.thr) thr[re(k)] = q.thr[k]; q.thr = thr;
+  randomizeParams(q, rnd, 1);
+  return q;
+}
+function siblingEntry(p, rnd, r, origin) {
+  const q = siblingOf(p, rnd); q.name = genName(rnd); q.origin = 'generated';
+  return libEntry(q.name, origin, nameSnaps(variants(q, rnd, r), q.name));
 }
 /* "randomize params" on corner k: numbers only (the one-patch rule fixes the structure), into the
    corner's working copy — a draft, until saved */
@@ -1453,16 +1657,28 @@ function importEntries(text) {
   return out;
 }
 
-/* ================================================================ K. LAB STATE — one writer */
+/* ================================================================ K. LAB STATE — one writer
+   B348: each corner plays its OWN patch. LAB.cp[k] is the library entry corner k plays, and corner k
+   plays that entry's working copy k (E.work[k]) bound to E.bind[k]; so B337's randomize / save /
+   discard / bind, which act on (E, k), act on the selected corner's own patch unchanged. When all four
+   corners name one entry this is B337's state exactly. LAB.corners and LAB.libSel are DERIVED
+   (getters), never assigned, so no copy of them can go stale when a working copy is replaced; a
+   check that builds over a patch of its own sets LAB.cov (an override) and clears it. */
 const LAB = {
   theme: 'light', face: 'play', ready: false, err: '', voiceReady: false, voiceErr: '',
   Composed: null, voicePresets: [], voice: 0, src: 'voice', bpm: 120,
-  G: {}, corners: null, sel: 0, xy: { x: 0.3, y: 0.3 }, lib: [], libSel: 0,
+  G: {}, cov: null, cp: [0, 0, 0, 0], sel: 0, xy: { x: 0.3, y: 0.3 }, lib: [],
+  get corners() { return this.cov || [0, 1, 2, 3].map(k => this.lib[this.cp[k]].work[k]); },
+  get libSel() { return this.cp[this.sel]; },
   randomness: 0.35, seed: SEED0, rnd: null, clicks: 0, hist: [], hi: -1,
-  bypass: false, byMode: 'hard', node: -1, msg: '', exportText: '',
+  /* spec §13 #3: the human's answer (B347) is a USER PREFERENCE in horde's SETTINGS (the CPU tradeoff);
+     the lab starts on spill-over, the one they leaned to, and shows hard beside it */
+  bypass: false, byMode: 'spill', node: -1, msg: '', exportText: '',
   meters: null, ir: null, R: null, morphOk: true, voiced: null,
   checks: [], checksRun: false, k9Note: '', divsNote: '', still: false,
   skin: 'standard', pendDel: '', mEdit: -1, selDirty: false,
+  flip: Object.assign({}, FLIP_DEFAULT), live: null, M: null, flips: 0, flipN: -1,
+  mscope: 'selected', th: [], evs: [], bootFace: '', bootQueried: false,
 };
 const PAGE = { r: null, L: null, R: null };
 const AUD = { ctx: null, node: null, on: false, err: '' };
@@ -1470,39 +1686,66 @@ const CSSV = {};
 let CTLS = [];                           // knob repaint callbacks (swapped out while C1 builds its catalogue)
 const IRQ = { t: 0 };
 const cur = () => LAB.corners[LAB.sel];
-function heard() { const m = morph4(LAB.corners, LAB.xy.x, LAB.xy.y); LAB.morphOk = m.ok; return m.p; }
+/* the heard patch: the live parity class's blend (section F2). Idempotent at a fixed point, so a
+   readout may call it: the hysteresis state it writes is the one it would read back. */
+function heard() { const m = morphRig(LAB.corners, LAB.xy.x, LAB.xy.y, LAB.flip, LAB.live); LAB.live = m.key; LAB.M = m; LAB.morphOk = m.one; return m.p; }
 function send(m) { if (PAGE.r) PAGE.r.msg(m); if (AUD.node) AUD.node.port.postMessage(m); }
-function pushPatch() {
-  const h = heard(); LAB.R = resolve(h, LAB.G, LAB.bpm);
-  send({ t: 'patch', p: toV01(LAB.R.q), sig: engineSig(h) });
+const nowN = () => LAB.meters ? LAB.meters.n : 0;
+/* a history of what the tail meter draws, and the events it marks (a flip, a bypass) */
+function noteMeters(M) { LAB.meters = M; LAB.th.push({ out: M.out, tail: M.tail, n: M.n, tails: M.tails, engines: M.engines }); if (LAB.th.length > TAIL_HIST) LAB.th.shift(); }
+function noteEvent(kind, txt) { LAB.evs.push({ n: nowN(), kind, txt, mode: LAB.byMode }); if (LAB.evs.length > 16) LAB.evs.shift(); }
+/* o.xy: the move came from the XY (its canvas or the GBC glass). Only an XY move FLIPS: a patch the
+   player loads or edits is spec §6.3's structural change (a 20 ms crossfade, no tail), as before */
+function pushPatch(o) {
+  const prev = LAB.live, h = heard(); LAB.R = resolve(h, LAB.G, LAB.bpm);
+  const flipped = !!(o && o.xy) && prev !== null && LAB.live !== prev;
+  if (flipped) { LAB.flips++; LAB.flipN = nowN(); noteEvent('flip', 'flip → ' + LAB.M.name); }
+  send({ t: 'patch', p: toV01(LAB.R.q), sig: engineSig(h), spill: flipped && LAB.byMode === 'spill' });
   scheduleIR();
 }
 /* B337: a history step holds the whole library (snapshots, bindings, working copies), since a save,
-   a delete or a binding is as undoable as a knob */
+   a delete or a binding is as undoable as a knob; B348 adds which patch each corner plays */
 function commit(label) {
   LAB.hist = LAB.hist.slice(0, LAB.hi + 1);
-  LAB.hist.push({ label, state: JSON.stringify({ lib: LAB.lib, libSel: LAB.libSel, sel: LAB.sel }) });
+  LAB.hist.push({ label, state: JSON.stringify({ lib: LAB.lib, cp: LAB.cp, sel: LAB.sel }) });
   if (LAB.hist.length > 64) LAB.hist.shift();
   LAB.hi = LAB.hist.length - 1;
 }
 function restore(i) {
   if (i < 0 || i >= LAB.hist.length) return;
   LAB.hi = i; const s = JSON.parse(LAB.hist[i].state);
-  LAB.lib = s.lib; LAB.libSel = s.libSel; LAB.sel = s.sel; LAB.corners = LAB.lib[LAB.libSel].work; LAB.pendDel = '';
+  LAB.lib = s.lib; LAB.cp = s.cp.slice(); LAB.sel = s.sel; LAB.pendDel = '';
   pushPatch(); rebuild();
 }
-function touch() { pushPatch(); paintCtls(); paintLive(); }
+function touch(o) { pushPatch(o); paintCtls(); paintLive(); }
 function edited(label) { LAB.pendDel = ''; commit(label); touch(); }
 const curE = () => LAB.lib[LAB.libSel];
-/* select a library entry: its corners are its own working copies, so drafts and bindings survive a
-   visit to another patch (a new structure: the renderer crossfades to a new engine) */
+/* load a library entry into ALL FOUR corners (spec §9: loading a patch fills the four corners); its
+   corners are its own working copies, so drafts and bindings survive a visit to another patch */
 function loadEntry(i, label) {
-  LAB.libSel = i; LAB.corners = LAB.lib[i].work; LAB.node = -1; edited(label); rebuild();
+  LAB.cp = [i, i, i, i]; LAB.node = -1; edited(label); rebuild();
+}
+/* B348: load a library entry into ONE corner, which then plays that patch's working copy for it.
+   This is how corners come to differ; nothing about the other three moves. */
+function loadIntoCorner(k, i, label) { LAB.cp[k] = i; LAB.node = -1; edited(label || ('patch ' + LAB.lib[i].name + ' → ' + CORNER[k])); rebuild(); }
+/* delete an entry: corners that played it take the entry now at its place, the rest are re-indexed */
+function deletePatch(i) {
+  if (LAB.lib.length < 2) return;
+  LAB.lib.splice(i, 1);
+  LAB.cp = LAB.cp.map(j => j === i ? Math.min(i, LAB.lib.length - 1) : j > i ? j - 1 : j);
+  LAB.node = -1; edited('delete patch'); rebuild();
 }
 /* the corner chip's action; nothing about the bindings or the working copies changes (C22) */
 function selectCorner(k) { LAB.sel = k; LAB.pendDel = ''; rebuild(); }
-/* a STRUCTURAL edit from the rack: applied to all four corners, which stay one patch */
-function structural(fn, label) { for (const c of LAB.corners) fn(c); edited(label); rebuild(); }
+/* the selected corner's patch's four working copies: a STRUCTURAL edit, a lock or a sync name is the
+   patch's, so it reaches every corner that plays this patch, and no other patch */
+const patchWork = () => curE().work;
+function structural(fn, label) { for (const c of patchWork()) fn(c); edited(label); rebuild(); }
+/* B348 macro scope: a VARIABLE macro move writes the selected corner only, or slot k of EVERY corner
+   (binding is by ORDER, so slot k exists in each patch that has k+1 macros; a corner without it is
+   left alone). Pure on C; returns the corners written. */
+function macroScopeTargets(C, sel, k, scope) { return (scope === 'global' ? [0, 1, 2, 3] : [sel]).filter(j => !!macroSlot(C[j], k)); }
+function macroWrite(C, sel, k, v, scope) { const ks = macroScopeTargets(C, sel, k, scope); for (const j of ks) applyMacro(C[j], k, v); return ks; }
 
 /* ================================================================ L. CONTROLS
    Every value-bearing control carries data-pid (C1 compares that set with the manifest's); every Play
@@ -1572,11 +1815,33 @@ function randomizeNewPatch() {
   LAB.lib.push(E); LAB.msg = 'new patch "' + E.name + '": four snapshots, four names, bound A–D';
   loadEntry(LAB.lib.length - 1, 'randomize patch → ' + E.name);
 }
+/* B348: a new random STRUCTURE for the selected corner only — its own patch (four named snapshots of
+   it, the corner bound to its snapshot k), the other corners untouched. This is what makes corners
+   differ; whether the new corner has parity with the others is reported, never assumed. */
+function randomizeCornerPatch() {
+  LAB.clicks++; const k = LAB.sel;
+  const E = generatedEntry(LAB.rnd, tailSeconds(LAB.G.tail), LAB.randomness, 'generated for corner ' + CORNER[k] + ' · seed ' + LAB.seed + ' · click ' + LAB.clicks);
+  LAB.lib.push(E);
+  const C = LAB.corners, par = [0, 1, 2, 3].filter(j => j !== k && patchParity(C[j], E.work[k])).map(j => CORNER[j]);
+  LAB.msg = 'corner ' + CORNER[k] + ' now plays its own new patch "' + E.name + '" (' + shortSig(E.work[k]) + '): ' + (par.length ? 'parity with ' + par.join(' ') + ', so it morphs with them' : 'parity with no other corner, so crossing into it is a quantum flip');
+  loadIntoCorner(k, LAB.lib.length - 1, 'new patch → ' + CORNER[k] + ': ' + E.name);
+}
+function siblingCornerPatch() {
+  LAB.clicks++; const k = LAB.sel, src = cur();
+  const E = siblingEntry(src, LAB.rnd, LAB.randomness, 'sibling of "' + curE().name + '" for corner ' + CORNER[k] + ' · seed ' + LAB.seed + ' · click ' + LAB.clicks);
+  LAB.lib.push(E);
+  LAB.msg = 'corner ' + CORNER[k] + ' now plays "' + E.name + '", ANOTHER patch with the same roster and wiring (' + shortSig(src) + '): parity, so the XY still morphs through it';
+  loadIntoCorner(k, LAB.lib.length - 1, 'sibling → ' + CORNER[k] + ': ' + E.name);
+}
 function buildRandom(host, small) {
   const E = curE(), k = LAB.sel, dr = !!E && isDraft(E, k);
   const row = el('div', 'brow');
   btn(row, 'pill mini', 'randomize patch', 'rand-patch', randomizeNewPatch,
     'a NEW structure: a new engine, crossfaded (20 ms); four snapshots of it with four distinct names, bound to A–D');
+  btn(row, 'pill mini', 'new patch → ' + CORNER[k], 'new-patch-corner', randomizeCornerPatch,
+    'B348 (' + PROPOSAL3 + '): a NEW random structure for corner ' + CORNER[k] + ' ONLY, as its own patch; the other corners keep theirs');
+  btn(row, 'pill mini', 'sibling → ' + CORNER[k], 'sibling-patch-corner', siblingCornerPatch,
+    'B348 (' + PROPOSAL3 + '): a NEW patch for corner ' + CORNER[k] + ' with the SAME roster and wiring as its current one (parity), every number re-drawn');
   btn(row, 'pill mini', 'randomize params → ' + CORNER[k], 'rand-params', randomizeSelected,
     'the SAME structure (the one-patch rule): numbers only, into corner ' + CORNER[k] + ' as an unsaved DRAFT');
   host.appendChild(row);
@@ -1626,26 +1891,85 @@ function paintCornerSel() {
 }
 /* the corner rows: a select chip, the bound snapshot's PICKER (its value is the binding, so the
    binding is legible), and DRAFT when the working copy differs from it */
+/* B348: each row is the corner's own PATCH picker (a library entry; the corner plays that patch's
+   working copy for it) over its SNAPSHOT picker (the binding, B337), then DRAFT / saved, its parity
+   class and weight; a row in the live class is marked. The parity badges follow the rows. */
 function buildCorners(host) {
-  const E = curE();
+  const M = LAB.M;
   for (let k = 0; k < 4; k++) {
-    const bound = snapOf(E, E.bind[k]), dr = isDraft(E, k);
-    const r = el('div', 'crow' + (k === LAB.sel ? ' sel' : ''));
+    const E = LAB.lib[LAB.cp[k]], bound = snapOf(E, E.bind[k]), dr = isDraft(E, k), inLive = !!M && M.members.includes(k);
+    const cls = M ? M.classes.find(g => g.members.includes(k)) : null;
+    const r = el('div', 'crow' + (k === LAB.sel ? ' sel' : '') + (inLive ? ' inlive' : ''));
     r.appendChild(cornerChip(k, { ctl: 'corner-select', onClick: () => selectCorner(k),
-      title: 'corner ' + CORNER[k] + ', bound to "' + (bound ? bound.name : '—') + '"' + (dr ? ' (holding a draft)' : '') + ' · click: select it (randomize, save, discard and the variable macros act on the selected corner)' }));
+      title: 'corner ' + CORNER[k] + ': patch "' + E.name + '", bound to "' + (bound ? bound.name : '—') + '"' + (dr ? ' (holding a draft)' : '') + ' · click: select it (randomize, save, discard and the variable macros act on the selected corner)' }));
+    const pk = el('div', 'picks');
+    const ps = el('select'); ps.dataset.ctl = 'corner-patch'; ps.dataset.patchof = String(k);
+    LAB.lib.forEach((e, i) => { const o = el('option', null, e.name); o.value = String(i); ps.appendChild(o); });
+    ps.value = String(LAB.cp[k]);
+    ps.title = 'B348 (' + PROPOSAL3 + '): the PATCH corner ' + CORNER[k] + ' plays. Another structure is allowed: parity morphs, otherwise the XY flips';
+    ps.addEventListener('change', () => loadIntoCorner(k, +ps.value));
+    pk.appendChild(ps);
     const s = el('select'); s.dataset.ctl = 'corner-bind'; s.dataset.bindof = String(k);
     E.snaps.forEach(q => { const o = el('option', null, q.name); o.value = q.sid; s.appendChild(o); });
     s.value = E.bind[k]; s.disabled = dr;
-    s.title = dr ? 'corner ' + CORNER[k] + ' holds a draft: save or discard it before rebinding' : 'the snapshot corner ' + CORNER[k] + ' is bound to (a snapshot of another structure is refused, §9)';
+    s.title = dr ? 'corner ' + CORNER[k] + ' holds a draft: save or discard it before rebinding' : 'the snapshot of "' + E.name + '" corner ' + CORNER[k] + ' is bound to';
     s.addEventListener('change', () => {
-      const E2 = curE(), v = bindCorner(E2, k, s.value);
+      const E2 = LAB.lib[LAB.cp[k]], v = bindCorner(E2, k, s.value);
       LAB.msg = v.ok ? 'corner ' + CORNER[k] + ' bound to "' + snapOf(E2, s.value).name + '"' : v.why;
       if (v.ok) edited('bind ' + CORNER[k]); rebuild();
     });
-    r.appendChild(s);
-    r.appendChild(dr ? el('span', 'draft', 'DRAFT') : el('span', 'kv', 'saved'));
+    pk.appendChild(s);
+    r.appendChild(pk);
+    const st = el('div', 'st');
+    st.appendChild(dr ? el('span', 'draft', 'DRAFT') : el('span', 'kv', 'saved'));
+    if (cls) { const t = el('span', inLive ? 'live' : 'kv', (inLive ? 'LIVE ' : '') + '≡' + cls.name + ' ' + Math.round(M.w[k] * 100) + '%');
+      t.title = 'parity class ≡' + cls.name + ' (corners ' + cls.members.map(j => CORNER[j]).join(' ') + ': ' + shortSig(LAB.corners[k]) + ') · bilinear weight here ' + (M.w[k] * 100).toFixed(1) + '%' + (inLive ? ' · in the LIVE class: heard, with weight ' + (M.w[k] / (M.W || 1) * 100).toFixed(1) + '% of the class' : ' · not heard until the XY flips into its class');
+      st.appendChild(t); }
+    r.appendChild(st);
     host.appendChild(r);
   }
+  buildParityBadges(host);
+}
+/* B348: one badge per corner pair — ≡ parity (the XY morphs between them), ≠ none (a flip) */
+const PAIRS = [[0, 1], [2, 3], [0, 2], [1, 3], [0, 3], [1, 2]];
+function buildParityBadges(host) {
+  const C = LAB.corners, row = el('div', 'pbadges'); row.appendChild(el('span', 'lbl', 'PARITY'));
+  for (const [a, b] of PAIRS) {
+    const eq = patchParity(C[a], C[b]), t = el('span', 'pbadge ' + (eq ? 'eq' : 'ne'), CORNER[a] + (eq ? '≡' : '≠') + CORNER[b]);
+    t.dataset.pair = CORNER[a] + CORNER[b]; t.dataset.par = eq ? '1' : '0';
+    t.title = eq ? 'parity: the same roster and wiring (' + shortSig(C[a]) + '), numbers ignored: the XY morphs continuously between ' + CORNER[a] + ' and ' + CORNER[b]
+      : 'no parity: ' + shortSig(C[a]) + ' against ' + shortSig(C[b]) + ': crossing from one to the other is a quantum flip';
+    row.appendChild(t);
+  }
+  row.appendChild(propTag3());
+  host.appendChild(row);
+}
+/* B348: the boundary rule, its band, and the live class */
+function buildFlipRow(host) {
+  const r = el('div', 'fliprow'); r.appendChild(el('span', 'lbl', 'FLIP RULE'));
+  const ps = el('span', 'pills'); ps.dataset.ctl = 'flip-rule';
+  for (const [k, t] of FLIP_RULES) {
+    const b = el('button', 'pill mini' + (LAB.flip.rule === k ? ' on' : ''), t);
+    b.title = k === 'nearest' ? 'the live class is the nearest corner\'s: the boundary is the quadrant lines between corners of different classes'
+      : k === 'weight' ? 'the live class is the one whose corners\' summed weight passes 0.5; where none does, the live class holds'
+      : 'leave the live class only when another class\'s summed weight passes 0.5 + the band; hovering on the line cannot chatter';
+    b.addEventListener('click', () => { LAB.flip.rule = k; touch(); rebuild(); });
+    ps.appendChild(b);
+  }
+  r.appendChild(ps);
+  if (LAB.flip.rule === 'hyst') {
+    const sl = el('input'); sl.type = 'range'; sl.min = 0; sl.max = 0.3; sl.step = 0.01; sl.value = LAB.flip.band; sl.dataset.ctl = 'flip-band';
+    sl.style.setProperty('--pct', LAB.flip.band / 0.3); sl.title = 'the band, in class weight: leave the live class at W > 0.5 + band';
+    const o = el('span', 'kv', '±' + LAB.flip.band.toFixed(2));
+    sl.addEventListener('input', () => { LAB.flip.band = +sl.value; o.textContent = '±' + LAB.flip.band.toFixed(2); sl.style.setProperty('--pct', LAB.flip.band / 0.3); paintLive(); });
+    sl.addEventListener('change', () => { touch(); rebuild(); });
+    r.appendChild(sl); r.appendChild(o);
+  }
+  const M = LAB.M;
+  if (M) { const names = [...new Set(M.members.map(k => LAB.lib[LAB.cp[k]].name))];
+    const lv = el('span', 'live', 'LIVE ≡' + M.name + ' · ' + names.join(' + ')); lv.title = 'the live parity class: corners ' + M.members.map(k => CORNER[k]).join(' ') + (M.one ? ' — every corner has parity, so the XY morphs continuously everywhere' : ' — ' + M.classes.length + ' classes, so the XY flips at the boundary drawn on it');
+    r.appendChild(lv); }
+  host.appendChild(r);
 }
 /* a patch's snapshot list: its name, a tag per corner (bound or not; a click binds that corner to
    it), and delete — enabled iff SNAP_DEL_MIN or more exist, confirmed in a second step */
@@ -1654,9 +1978,13 @@ function buildSnapList(host, E) {
   E.snaps.forEach(s => {
     const pend = LAB.pendDel === s.sid, r = el('div', 'snap' + (pend ? ' pend' : ''));
     const nm = el('span', 'sn', s.name); nm.title = s.name + ' · bound to ' + (CORNER.filter((c, k) => E.bind[k] === s.sid).join(' ') || 'no corner'); r.appendChild(nm);
-    CORNER.forEach((c, k) => r.appendChild(cornerChip(k, { tag: true, bound: E.bind[k] === s.sid, ctl: 'snap-bind',
-      title: E.bind[k] === s.sid ? 'corner ' + c + ' is bound to this snapshot' : 'bind corner ' + c + ' to this snapshot (refused if ' + c + ' holds a draft, or the structure differs, §9)',
-      onClick: () => { const v = bindCorner(E, k, s.sid); LAB.msg = v.ok ? 'corner ' + c + ' bound to "' + s.name + '"' : v.why; if (v.ok) edited('bind ' + c); rebuild(); } })));
+    /* B348: a tag is BOUND only when corner k plays THIS patch and is bound to this snapshot; a click
+       puts this patch on corner k (if it played another) and binds it — undone if the bind is refused */
+    const ix = LAB.lib.indexOf(E), on = k => ix >= 0 && LAB.cp[k] === ix && E.bind[k] === s.sid;
+    CORNER.forEach((c, k) => r.appendChild(cornerChip(k, { tag: true, bound: on(k), ctl: 'snap-bind',
+      title: on(k) ? 'corner ' + c + ' plays this snapshot' : 'put this snapshot on corner ' + c + (ix >= 0 && LAB.cp[k] !== ix ? ' (corner ' + c + ' then plays this patch)' : '') + ' — refused if ' + c + ' holds a draft of this patch',
+      onClick: () => { const was = LAB.cp[k]; if (ix >= 0) LAB.cp[k] = ix; const v = bindCorner(E, k, s.sid); if (!v.ok) LAB.cp[k] = was;
+        LAB.msg = v.ok ? 'corner ' + c + ' plays "' + s.name + '"' : v.why; if (v.ok) edited('bind ' + c); rebuild(); } })));
     if (pend) {
       const bnd = CORNER.filter((c, k) => E.bind[k] === s.sid);
       btn(r, 'ib', 'delete', null, () => { const v = deleteSnap(E, s.sid); LAB.msg = v.ok ? 'deleted "' + s.name + '"' + (v.moved.length ? '; ' + v.moved.join(', ') : '') : v.why; LAB.pendDel = ''; if (v.ok) edited('delete snapshot ' + s.name); rebuild(); },
@@ -1671,14 +1999,17 @@ function buildSnapList(host, E) {
   });
   host.appendChild(L);
 }
-function buildLibrary(host, compact) {
+/* compact: a select and the snapshot list; minimal (B348's default face): no tools, name or JSON box —
+   those live on the FULL DEVICE, which carries every one of them (C2) */
+function buildLibrary(host, compact, minimal) {
   const E = curE();
+  if (!minimal) {
   const tools = el('div', 'brow');
   btn(tools, 'pill mini', 'revert', 'lib-revert', () => {
     if (!E) return; const s = JSON.parse(E.saved), R = libEntry(E.name, E.origin, s.snaps, s.bind);
-    LAB.lib[LAB.libSel] = Object.assign(E, { snaps: R.snaps, bind: R.bind, work: R.work }); loadEntry(LAB.libSel, 'revert ' + E.name);
-  }, 'this patch as it was loaded: its snapshots, bindings and corners (drafts dropped)');
-  btn(tools, 'pill mini', 'delete patch', 'lib-delete', () => { if (LAB.lib.length < 2) return; LAB.lib.splice(LAB.libSel, 1); loadEntry(Math.min(LAB.libSel, LAB.lib.length - 1), 'delete patch'); });
+    Object.assign(E, { snaps: R.snaps, bind: R.bind, work: R.work }); LAB.node = -1; edited('revert ' + E.name); rebuild();
+  }, 'this patch as it was loaded: its snapshots, bindings and corners (drafts dropped); the corners keep the patches they play');
+  btn(tools, 'pill mini', 'delete patch', 'lib-delete', () => deletePatch(LAB.libSel), 'remove this patch from the library; corners that played it take its neighbour');
   btn(tools, 'pill mini', 'export', 'lib-export', () => { LAB.exportText = JSON.stringify({ lab: 'sluice-horde-lab', lib: LAB.lib.map(e => ({ name: e.name, origin: e.origin, snaps: e.snaps, bind: e.bind })) }); rebuild(); }, 'the library as JSON (snapshots, bindings, macro definitions), into the box below');
   btn(tools, 'pill mini', 'import', 'lib-import', () => {
     try { const add = importEntries(LAB.exportText); for (const e of add) LAB.lib.push(e); LAB.msg = 'imported ' + add.length + ' patch(es)'; }
@@ -1690,21 +2021,27 @@ function buildLibrary(host, compact) {
   const ti = el('input'); ti.type = 'text'; ti.value = E ? E.name : ''; ti.dataset.ctl = 'lib-rename'; ti.style.width = compact ? '120px' : '150px';
   ti.addEventListener('change', () => { if (E) { E.name = ti.value || E.name; rebuild(); } });
   rn.appendChild(ti); host.appendChild(rn);
+  }
   const ta = el('textarea'); ta.value = LAB.exportText; ta.dataset.ctl = 'lib-json'; ta.placeholder = 'library JSON (export writes here; import reads here)';
   ta.addEventListener('change', () => { LAB.exportText = ta.value; });
   if (compact) {
     const sel = el('select'); sel.dataset.ctl = 'lib'; LAB.lib.forEach((e, i) => { const o = el('option', null, e.name + ' (' + e.snaps.length + ')'); o.value = i; sel.appendChild(o); });
-    sel.value = LAB.libSel; sel.addEventListener('change', () => loadEntry(+sel.value, 'load ' + LAB.lib[+sel.value].name));
+    sel.value = LAB.libSel; sel.title = 'corner ' + CORNER[LAB.sel] + '\'s patch; choosing one loads it into ALL FOUR corners (a single corner: its row\'s patch picker)';
+    sel.addEventListener('change', () => loadEntry(+sel.value, 'load ' + LAB.lib[+sel.value].name));
     const r = el('div', 'brow'); r.appendChild(sel); host.appendChild(r);
     if (E) buildSnapList(host, E);
-    host.appendChild(ta); ta.style.minHeight = '26px';
+    if (!minimal) { host.appendChild(ta); ta.style.minHeight = '26px'; }
     return;
   }
   const L = el('div', 'lib');
   LAB.lib.forEach((e, i) => {
     const it = el('div', 'libit' + (i === LAB.libSel ? ' on' : '')); it.dataset.ctl = 'lib';
-    it.appendChild(el('div', 'ln', e.name)); it.appendChild(el('div', 'lo', e.snaps.length + ' snapshots · ' + e.origin + ' · ' + shortSig(e.snaps[0])));
-    it.addEventListener('click', () => { if (i !== LAB.libSel) loadEntry(i, 'load ' + e.name); });
+    it.title = 'click: load into ALL FOUR corners · → ' + CORNER[LAB.sel] + ': into corner ' + CORNER[LAB.sel] + ' only';
+    const hd = el('div', 'brow'); hd.style.margin = '0'; const ln = el('div', 'ln', e.name); ln.style.flex = '1 1 auto'; hd.appendChild(ln);
+    const plays = CORNER.filter((c, k) => LAB.cp[k] === i); if (plays.length) hd.appendChild(el('span', 'kv', 'on ' + plays.join('')));
+    btn(hd, 'ib', '→ ' + CORNER[LAB.sel], 'lib-to-corner', ev => { ev.stopPropagation(); loadIntoCorner(LAB.sel, i); }, 'B348: this patch into corner ' + CORNER[LAB.sel] + ' only');
+    it.appendChild(hd); it.appendChild(el('div', 'lo', e.snaps.length + ' snapshots · ' + e.origin + ' · ' + shortSig(e.snaps[0])));
+    it.addEventListener('click', () => { if (LAB.cp.some(j => j !== i)) loadEntry(i, 'load ' + e.name); });
     if (i === LAB.libSel) { const cap = el('div', 'cap', 'SNAPSHOTS · A B C D = bound corners · ✕ from ' + SNAP_DEL_MIN); it.appendChild(cap); buildSnapList(it, e); }
     L.appendChild(it);
   });
@@ -1717,7 +2054,7 @@ function buildXY(host, id, h) {
   let drag = false;
   const at = e => {
     const r = cv.getBoundingClientRect(); LAB.xy.x = clamp((e.clientX - r.left - 6) / ((r.width - 12) || 1), 0, 1); LAB.xy.y = clamp((e.clientY - r.top - 6) / ((r.height - 12) || 1), 0, 1);
-    xyFollow(); touch();
+    xyFollow(); touch({ xy: true });
   };
   cv.addEventListener('pointerdown', e => { drag = true; try { cv.setPointerCapture(e.pointerId); } catch (_) {} at(e); });
   cv.addEventListener('pointermove', e => { if (drag) at(e); });
@@ -1771,7 +2108,7 @@ function buildGlobals(host) {
           LAB.G[g.role] = v;
           /* Tail is a patch-wide setting of generated patches, not an edit of one corner: it goes to
              every working copy AND every snapshot of the patch, so it never makes a draft */
-          if (g.role === 'tail') forPatch(curE(), c => { if (c.origin === 'generated') applyTail(c, tailSeconds(v)); });
+          if (g.role === 'tail') for (const E of new Set(LAB.cp.map(i => LAB.lib[i]))) forPatch(E, c => { if (c.origin === 'generated') applyTail(c, tailSeconds(v)); });
           touch(); rebuild();
         });
         ps.appendChild(b);
@@ -1802,7 +2139,7 @@ function macroKnob(kg, k, small, withAssign) {
   const c = knob(kg, 'macro ' + (k + 1), {
     pid: 'K/' + k, ctl: 'K/' + k, big: !small,
     enabled: () => !!macroSlot(cur(), k),
-    get: () => macroShown(cur(), k), set: v => applyMacro(cur(), k, v),
+    get: () => macroShown(cur(), k), set: v => macroWrite(LAB.corners, LAB.sel, k, v, LAB.mscope),
     done: () => { edited('macro ' + (k + 1)); rebuild(); },
     fmt: v => Math.round(v * 100) + '%',
     label: () => { const M = macroSlot(cur(), k); return M ? M.label : 'empty'; },
@@ -1810,7 +2147,7 @@ function macroKnob(kg, k, small, withAssign) {
   c.classList.add('var');
   c.insertBefore(el('span', 'mslot', 'M' + (k + 1)), c.firstChild);
   const M = macroSlot(p, k);
-  c.title = 'VARIABLE macro ' + (k + 1) + ' (this patch\'s own, by order; moving it writes corner ' + CORNER[LAB.sel] + ', a draft until saved)\n'
+  c.title = 'VARIABLE macro ' + (k + 1) + ' (this patch\'s own, by order; moving it writes ' + (LAB.mscope === 'global' ? 'slot ' + (k + 1) + ' of EVERY corner (macro scope: every corner)' : 'corner ' + CORNER[LAB.sel]) + ', a draft until saved)\n'
     + (M ? M.bindings.map(b => targetLabel(p, b.target) + '  ' + fmtNum(b.lo) + ' … ' + fmtNum(b.hi) + ' (' + (b.curve || 'lin') + ')').join('\n') : 'unassigned: drawn, inert, never hidden');
   if (withAssign && (M || k === p.macros.length)) {
     btn(c, 'sbtn' + (LAB.mEdit === k ? ' on' : ''), M ? 'edit' : '+ assign', 'macro-assign', () => {
@@ -1826,6 +2163,7 @@ function paramRow(host, e, obj, key, o) {
   o = o || {};
   const r = el('div', 'prow' + (o.synced ? ' synced' : ''));
   if (o.pid) r.dataset.pid = o.pid;
+  if (o.inst) r.dataset.inst = o.inst;      // B348: the pool number this row IS (C33 counts them)
   const dot = el('i'); r.appendChild(dot);
   if (o.thr !== undefined) { dot.classList.toggle('hot', o.thr < LAB.randomness && !o.locked); dot.title = 'threshold ' + (+o.thr).toFixed(3) + (o.thr < LAB.randomness && !o.locked ? ' < Randomness: the next click changes it' : ': held'); }
   const lab = el('label', null, e.label); lab.title = [e.key, e.unit, e.taper, e.morph, e.smoothing && 'smoothing ' + e.smoothing, e.mod === 'yes' ? 'modulatable' : e.mod === 'no' ? 'not modulatable' : ''].filter(Boolean).join(' · ');
@@ -1890,7 +2228,7 @@ function moduleCard(host, p, part, i, forCatalogue) {
   const lk = el('button', 'lock'); const paintLk = () => { lk.className = 'lock' + (m.locked === true ? ' on' : m.locked === false ? ' off' : '');
     lk.textContent = m.locked === true ? 'LOCK' : m.locked === false ? 'FREE' : (isLocked(m) ? 'dflt·lock' : 'dflt·free'); };
   lk.title = 'tri-state randomiser lock: unset = the manifest\'s default for this type; click cycles'; paintLk();
-  lk.addEventListener('click', () => { const v = m.locked === undefined ? true : m.locked === true ? false : undefined; for (const c of LAB.corners) { const q = c[part].find(x => x.id === m.id); if (q) { if (v === undefined) delete q.locked; else q.locked = v; } } edited('lock ' + (i + 1)); rebuild(); });
+  lk.addEventListener('click', () => { const v = m.locked === undefined ? true : m.locked === true ? false : undefined; for (const c of patchWork()) { const q = c[part].find(x => x.id === m.id); if (q) { if (v === undefined) delete q.locked; else q.locked = v; } } edited('lock ' + (i + 1)); rebuild(); });
   sp.appendChild(lk);
   const n = p[part].length;
   const b = (t, ttl, fn, dis) => { const x = el('button', 'ib', t); x.title = ttl; x.disabled = !!dis; x.addEventListener('click', fn); sp.appendChild(x); };
@@ -1907,7 +2245,7 @@ function moduleCard(host, p, part, i, forCatalogue) {
     for (const g of S.groups) for (const f of g.fields) if (f.kind === 'ref' && String(c.grp[g.name][f.name]).startsWith(id + ':')) c.grp[g.name][f.name] = 'off';
   }, 'remove ' + (i + 1)), n <= 1 && part === 'chain');
   hd.appendChild(sp); box.appendChild(hd);
-  if (part === 'chain') for (const bm of busModule()) paramRow(box, bm, m.x, bm.key, { pid: 'B/' + bm.key, thr: p.thr[m.id + ':@' + bm.key], locked: isLocked(m) });
+  if (part === 'chain') for (const bm of busModule()) paramRow(box, bm, m.x, bm.key, { pid: 'B/' + bm.key, inst: m.id + ':@' + bm.key, thr: p.thr[m.id + ':@' + bm.key], locked: isLocked(m) });
   const syn = LAB.R && !forCatalogue ? LAB.R.synced : {};
   for (const e of S.mod[m.type]) {
     let extra = null;
@@ -1915,12 +2253,12 @@ function moduleCard(host, p, part, i, forCatalogue) {
       const on = !!(m.sync && m.sync[e.key]);
       extra = el('span', 'ex');
       const sb = el('button', 'sbtn' + (on ? ' on' : ''), 'SYNC'); sb.title = 'store this ' + (e.sync === 'hz' ? 'rate' : 'time') + ' as a division name (spec §8); the name is structure';
-      sb.addEventListener('click', () => { const v = on ? '' : '1/4'; for (const c of LAB.corners) { const q = c.chain.find(x => x.id === m.id); if (q) { q.sync = q.sync || {}; if (v) q.sync[e.key] = v; else delete q.sync[e.key]; } } edited('sync ' + (i + 1) + ':' + e.key); rebuild(); });
+      sb.addEventListener('click', () => { const v = on ? '' : '1/4'; for (const c of patchWork()) { const q = c.chain.find(x => x.id === m.id); if (q) { q.sync = q.sync || {}; if (v) q.sync[e.key] = v; else delete q.sync[e.key]; } } edited('sync ' + (i + 1) + ':' + e.key); rebuild(); });
       extra.appendChild(sb);
-      if (on) extra.appendChild(divSelect(m.sync[e.key], v => { for (const c of LAB.corners) { const q = c.chain.find(x => x.id === m.id); if (q) { if (v) q.sync[e.key] = v; else delete q.sync[e.key]; } } edited('sync ' + (v || 'free')); rebuild(); }));
+      if (on) extra.appendChild(divSelect(m.sync[e.key], v => { for (const c of patchWork()) { const q = c.chain.find(x => x.id === m.id); if (q) { if (v) q.sync[e.key] = v; else delete q.sync[e.key]; } } edited('sync ' + (v || 'free')); rebuild(); }));
     }
     const sv = syn[m.id + ':' + e.key], rr = v01Range(m.type, e.key);
-    paramRow(box, e, m.params, e.key, { pid: 'M/' + m.type + '/' + e.key, thr: p.thr[m.id + ':' + e.key], locked: isLocked(m), extra,
+    paramRow(box, e, m.params, e.key, { pid: 'M/' + m.type + '/' + e.key, inst: m.id + ':' + e.key, thr: p.thr[m.id + ':' + e.key], locked: isLocked(m), extra,
       synced: sv && LAB.R ? sv + ' = ' + fmtNum(LAB.R.q.chain.find(x => x.id === m.id).params[e.key], e) : '',
       clampNote: part === 'chain' && rr && rr[1] < e.max ? fmtNum(rr[1], e) : '' });
   }
@@ -1955,6 +2293,44 @@ function groupBlock(host, p, g) {
 
 /* ================================================================ M. THE FACES (spec §11) */
 const propTag = () => { const t = el('span', 'prop', 'PROPOSAL'); t.title = PROPOSAL; return t; };
+const propTag3 = () => { const t = el('span', 'prop', 'PROPOSAL · SEQ 11'); t.title = PROPOSAL3 + ' (B348)'; return t; };
+/* the default face's NAME, read from spec §11 at load (parseDoc); 'PLAY' only if the spec stops saying */
+const faceName = () => (SPEC.S && SPEC.S.doc.faces.play.name) || 'PLAY';
+
+/* B348 macro scope: the toggle, and a grid of every corner's value in every VARIABLE slot, with the
+   cells a move would write outlined — selected-only lights one column, every-corner lights each
+   corner whose patch has that slot. It repaints live as a knob moves (a CTLS callback). */
+function buildScopeCtl(host) {
+  const r = el('div', 'fliprow'); r.appendChild(el('span', 'lbl', 'MACRO SCOPE'));
+  const ps = el('span', 'pills'); ps.dataset.ctl = 'macro-scope';
+  for (const [k, t] of [['selected', 'SELECTED CORNER'], ['global', 'EVERY CORNER']]) {
+    const b = el('button', 'pill mini' + (LAB.mscope === k ? ' on' : ''), t);
+    b.title = k === 'selected' ? 'a variable macro move writes corner ' + CORNER[LAB.sel] + ' only (a draft there)' : 'a variable macro move writes the same SLOT of every corner (by order; each patch\'s own binding), making each a draft';
+    b.addEventListener('click', () => { LAB.mscope = k; rebuild(); });
+    ps.appendChild(b);
+  }
+  r.appendChild(ps); r.appendChild(propTag3());
+  host.appendChild(r);
+}
+function buildScopeGrid(host) {
+  const g = el('div', 'msc'); g.dataset.mscope = LAB.mscope; g.appendChild(el('span'));
+  CORNER.forEach(c => { const h = el('span', 'h', c); h.style.setProperty('--cc', 'var(--c' + c + ')'); g.appendChild(h); });
+  const cells = [];
+  for (let k = 0; k < varSlots(); k++) {
+    g.appendChild(el('span', 'mslot', 'M' + (k + 1)));
+    for (let j = 0; j < 4; j++) { const b = el('span', 'b'), i = el('i'); b.dataset.corner = String(j); b.dataset.slot = String(k); b.appendChild(i); g.appendChild(b); cells.push([b, i, j, k]); }
+  }
+  CTLS.push(() => {
+    const C = LAB.corners;
+    for (const [b, i, j, k] of cells) {
+      const M = macroSlot(C[j], k), hot = macroScopeTargets(C, LAB.sel, k, LAB.mscope).includes(j);
+      b.classList.toggle('none', !M); b.classList.toggle('hot', hot);
+      i.style.width = M ? Math.round(macroShown(C[j], k) * 100) + '%' : '0';
+      b.title = 'corner ' + CORNER[j] + ', slot M' + (k + 1) + ': ' + (M ? '"' + M.label + '" at ' + Math.round(macroShown(C[j], k) * 100) + '%' : 'no macro in this slot') + (hot ? ' · a move of M' + (k + 1) + ' writes here' : '');
+    }
+  });
+  host.appendChild(g);
+}
 /* the MACROS cell: FIXED (the four globals) and VARIABLE (the patch's own), side by side and drawn
    as different kinds; the inline editor opens under them for the slot being assigned */
 function buildMacroCell(host, withEditor) {
@@ -1963,38 +2339,90 @@ function buildMacroCell(host, withEditor) {
   const fx = el('div', 'mgrp fx'), fc = el('div', 'cap'); fc.appendChild(el('span', null, 'FIXED · always present · Sluice-global (§6.1)')); fx.appendChild(fc);
   buildFixedMacros(fx, false); row.appendChild(fx);
   const vr = el('div', 'mgrp'), vc = el('div', 'cap');
-  vc.appendChild(el('span', null, 'VARIABLE · this patch\'s own (§7, by order) · assigned here, saved into every snapshot · a move writes corner ' + CORNER[LAB.sel]));
+  vc.appendChild(el('span', null, 'VARIABLE · this patch\'s own (§7, by order) · assigned here, saved into every snapshot · a move writes ' + (LAB.mscope === 'global' ? 'EVERY corner\'s slot' : 'corner ' + CORNER[LAB.sel])));
   vr.appendChild(vc); buildMacroKnobs(vr, false, true); row.appendChild(vr);
+  const sc = el('div', 'mgrp'); sc.style.flex = '0 0 auto'; buildScopeCtl(sc); buildScopeGrid(sc); row.appendChild(sc);
   host.appendChild(row);
+
   if (withEditor && LAB.mEdit >= 0 && macroSlot(cur(), LAB.mEdit)) { const ed = el('div', 'medit'); buildMacroEditor(ed, cur(), LAB.mEdit); host.appendChild(ed); }
+}
+/* B348: the default face's band — its name and gloss from the spec (runtime), the human's own words,
+   and the way into the FULL DEVICE */
+function buildFaceBand(F) {
+  const D = S_().doc.faces, band = el('div', 'fzband');
+  band.appendChild(el('span', 'fzn', faceName()));
+  const d = el('span', 'fzd');
+  d.textContent = 'the spec\'s Play face' + (D.play.gloss ? ' — "' + D.play.gloss + '"' : '') + (D.play.def ? ', "' + D.play.def + '" (§11.1)' : '')
+    + ' · the human: "the rapid random patch generator with minimal exposed plumbing" (B347) · every number is on the FULL DEVICE';
+  d.title = 'read from the spec at load:\n' + D.says.map(t => '• ' + t).join('\n');
+  band.appendChild(d); band.appendChild(propTag3());
+  btn(band, 'pill mini go', 'FULL DEVICE →', null, () => { LAB.face = 'rack'; showFace(); }, 'every number the manifest exposes, grouped: the spec\'s Rack face' + (D.rack.gloss ? ' ("' + D.rack.gloss + '")' : ''));
+  F.appendChild(band);
+}
+/* B348: bypass and the tail. The TAILS mode (spill-over or hard, one mode for a bypass and a flip) is
+   a USER PREFERENCE in horde's SETTINGS (the human, B347: the CPU tradeoff is the user's), shown on
+   the face for the workshop; the tail meter is a SCHEMATIC measured on horde's v0.1 stand-in, with
+   the engines ticking drawn under it as the CPU cost */
+function setBypass(on) { LAB.bypass = !!on; noteEvent('bypass', LAB.bypass ? 'bypass on' : 'bypass off'); send({ t: 'bypass', on: LAB.bypass, mode: LAB.byMode }); rebuild(); }
+function setByMode(v) { LAB.byMode = v; send({ t: 'bypass', on: LAB.bypass, mode: LAB.byMode }); rebuild(); }
+function buildTail(host, meterId) {
+  const r = el('div', 'fliprow'); r.appendChild(el('span', 'lbl', 'BYPASS'));
+  const cb = el('input'); cb.type = 'checkbox'; cb.checked = LAB.bypass; cb.dataset.ctl = 'bypass'; cb.title = 'horde\'s slot bypass (the same switch as the FX rack row)';
+  cb.addEventListener('change', () => setBypass(cb.checked)); r.appendChild(cb);
+  r.appendChild(el('span', 'lbl', 'TAILS'));
+  const ps = el('span', 'pills'); ps.dataset.ctl = 'bypass-mode';
+  for (const [v, t] of [['spill', 'SPILL-OVER'], ['hard', 'HARD']]) {
+    const b = el('button', 'pill mini' + (LAB.byMode === v ? ' on' : ''), t);
+    b.title = 'a USER PREFERENCE in horde\'s SETTINGS (B347), shown here for the workshop · ' + (v === 'spill' ? 'at a bypass or a flip the outgoing loop is fed silence and rings on: its engine keeps running (CPU) until the tail dies' : 'at a bypass the slot crossfades to dry and the engine freezes (no CPU; cleared on re-enable); at a flip the old engine is crossfaded out in 20 ms: the tail is cut');
+    b.addEventListener('click', () => setByMode(v)); ps.appendChild(b);
+  }
+  r.appendChild(ps); r.appendChild(el('span', 'std', 'SETTINGS · USER PREFERENCE')); host.appendChild(r);
+  host.appendChild(el('div', 'vnote', LAB.byMode === 'spill' ? 'SPILL-OVER: a bypass or a quantum flip lets the outgoing loop ring on, fed silence; its engine keeps running (CPU) until the tail dies.'
+    : 'HARD: a bypass cuts to dry and freezes the engine (no CPU); a flip crossfades the old engine out in 20 ms. The tail is cut.'));
+  if (meterId) { const cv = el('canvas', 'viz'); cv.id = meterId; cv.height = 70; cv.style.height = '70px'; host.appendChild(cv); }
 }
 function buildPlay() {
   const F = $('playFace'); F.innerHTML = '';
+  buildFaceBand(F);
   const left = el('div', 'col'); left.style.overflowY = 'auto';
   const cr = cell(left, 'RANDOMIZE · SNAPSHOT', 'seeded · the lab\'s own generator'); buildRandom(cr, false);
-  const cl = cell(left, 'LIBRARY', 'patches · snapshots · in memory (§13 #7)'); buildLibrary(cl, false);
+  const cl = cell(left, 'LIBRARY', 'corner ' + CORNER[LAB.sel] + '\'s patch · its snapshots'); buildLibrary(cl, true, true);
   const mid = el('div', 'col'); mid.style.overflowY = 'auto';
-  const cx = cell(mid, 'XY · FOUR SNAPSHOTS OF ONE PATCH', 'horde\'s corner field');
-  buildXY(cx, 'xyP', 176);
-  const cc = cell(mid, 'CORNERS', 'each bound to a snapshot · the picker shows which'); cc.querySelector('h3').appendChild(propTag());
+  const cx = cell(mid, 'XY · THE CORNER FIELD', LAB.morphOk ? 'one parity class: a continuous morph' : 'parity classes: a quantum flip at the line');
+  cx.querySelector('h3').appendChild(propTag3());
+  buildXY(cx, 'xyP', 168); buildFlipRow(cx);
+  const cc = cell(mid, 'CORNERS', 'each its own patch, bound to a snapshot'); cc.querySelector('h3').appendChild(propTag());
   buildCorners(cc);
-  cc.appendChild(el('div', 'vnote', LAB.morphOk ? 'The corners share one structure (' + shortSig(LAB.corners[0]) + '): numbers blend by the manifest\'s laws, discrete values come from the nearest corner.'
-    : 'The corners do NOT share one structure: the nearest corner is heard whole.'));
+  cc.appendChild(el('div', 'vnote', LAB.morphOk ? 'Every corner has parity (' + shortSig(LAB.corners[0]) + '): numbers blend by the manifest\'s laws, discrete values come from the nearest corner.'
+    : 'The corners fall into ' + LAB.M.classes.length + ' parity classes. The XY blends inside the LIVE class (≡' + LAB.M.name + ') and flips to another class at the boundary drawn on it.'));
   if (LAB.msg) cc.appendChild(el('div', /refused/.test(LAB.msg) ? 'caution' : 'vnote', LAB.msg));
   const right = el('div', 'col'); right.style.overflowY = 'auto';
   const cg = cell(right, 'GLOBAL', 'Sluice-global · persists across patches'); buildGlobals(cg);
-  const co = cell(right, 'OUTPUT', 'rendered · wet over dry'); const ov = el('canvas', 'viz'); ov.id = 'outP'; ov.height = 96; ov.style.height = '96px'; co.appendChild(ov);
+  const ct = cell(right, 'BYPASS · TAILS', 'a SETTINGS preference · spill-over against hard'); ct.querySelector('h3').appendChild(propTag3()); buildTail(ct, 'tailP');
+  const co = cell(right, 'OUTPUT', 'rendered · wet over dry'); const ov = el('canvas', 'viz'); ov.id = 'outP'; ov.height = 80; ov.style.height = '80px'; co.appendChild(ov);
   const bottom = el('div', 'cell'); bottom.style.gridColumn = '1 / -1';
   buildMacroCell(bottom, true);
   F.appendChild(left); F.appendChild(mid); F.appendChild(right); F.appendChild(bottom);
 }
 function buildRackStrip(host) {
   const st = el('div', 'cell strip');
-  const a = el('div'); a.appendChild(el('div', 'cap', 'XY · CORNERS')); buildXY(a, 'xyR', 104); buildCorners(a); st.appendChild(a);
-  const b = el('div'); b.appendChild(el('div', 'cap', 'GLOBAL · FIXED + VARIABLE MACROS (the Play controls, all of them)'));
-  buildFixedMacros(b, true); buildGlobals(b); buildMacroKnobs(b, true, true); st.appendChild(b);
-  const c = el('div'); c.appendChild(el('div', 'cap', 'RANDOMIZE · SNAPSHOT · LIBRARY')); buildRandom(c, true); buildLibrary(c, true); st.appendChild(c);
+  const a = el('div'); a.appendChild(el('div', 'cap', 'XY · FLIP · CORNERS')); buildXY(a, 'xyR', 96); buildFlipRow(a); buildCorners(a); st.appendChild(a);
+  const b = el('div'); b.appendChild(el('div', 'cap', 'GLOBAL · FIXED + VARIABLE MACROS · SCOPE (every control of the default face)'));
+  buildFixedMacros(b, true); buildGlobals(b); buildScopeCtl(b); buildMacroKnobs(b, true, true); st.appendChild(b);
+  const c = el('div'); c.appendChild(el('div', 'cap', 'RANDOMIZE · BYPASS · LIBRARY')); buildRandom(c, true); buildTail(c, 'tailR'); buildLibrary(c, false); st.appendChild(c);
   host.appendChild(st);
+}
+/* B348: the FULL DEVICE's head — the counts of what it reaches, derived at load, and the way back */
+function buildFullHead(host) {
+  const S = S_(), p = cur(), E = curE(), D = S.doc.faces;
+  const nG = S.groups.reduce((a, g) => a + g.fields.length, 0);
+  const b = el('div', 'fzband'); b.dataset.full = '1';
+  b.appendChild(el('span', 'fzn', 'FULL DEVICE'));
+  b.appendChild(el('span', 'fzd', 'the spec\'s Rack face' + (D.rack.gloss ? ' ("' + D.rack.gloss + '")' : '') + ' · corner ' + CORNER[LAB.sel] + '\'s patch "' + E.name + '": ' + poolItems(p).length + ' numbers in its pool ('
+    + p.chain.length + ' loop + ' + p.post.length + ' post modules, injection and the bus), ' + nG + ' modulation / patch-level fields, ' + S.globals.length + ' Sluice-global controls ('
+    + fixedMacros().length + ' of them the fixed macros), ' + varSlots() + ' variable macro slots — every one below, derived from the manifest at load'));
+  btn(b, 'pill mini go', '← ' + faceName(), null, () => { LAB.face = 'play'; showFace(); }, 'back to the default face');
+  host.appendChild(b);
 }
 function buildRackBody(host, p, forCatalogue) {
   const S = S_(), body = el('div', 'rackbody');
@@ -2013,14 +2441,14 @@ function buildRackBody(host, p, forCatalogue) {
   addRow(pc, 'post', '+ add post');
   const R = el('div', 'col'); R.id = 'rackR';
   const cb = cell(R, 'FEEDBACK BUS', 'the one global loop');
-  for (const b of busPatch().filter(x => x.key !== PATCH_MIX)) paramRow(cb, b, p.bus, b.key, { pid: 'B/' + b.key, thr: p.thr['@' + b.key] });
+  for (const b of busPatch().filter(x => x.key !== PATCH_MIX)) paramRow(cb, b, p.bus, b.key, { pid: 'B/' + b.key, inst: '@' + b.key, thr: p.thr['@' + b.key] });
   const top = S.groups.find(g => g.name === '');
   if (top) for (const f of top.fields.filter(x => x.kind === 'bool' || x.kind === 'enum')) paramRow(cb, f, p.grp[''], f.name, { pid: 'G//' + f.name });
   const cm = cell(R, 'MODULATION', 'one target each, by module id');
   for (const g of S.groups.filter(g => g.name !== '' && (g.src === 'modSources' || g.optional))) groupBlock(cm, p, g);
   for (const g of S.groups.filter(g => g.name !== '' && g.src === 'patchLevel' && !g.optional)) { const cf = cell(R, g.name.toUpperCase(), 'patch level'); groupBlock(cf, p, g); }
   const cx = cell(R, 'PATCH MIX · OUTPUT');
-  for (const b of busPatch().filter(x => x.key === PATCH_MIX)) paramRow(cx, b, p.bus, b.key, { pid: 'B/' + b.key, thr: p.thr['@' + b.key] });
+  for (const b of busPatch().filter(x => x.key === PATCH_MIX)) paramRow(cx, b, p.bus, b.key, { pid: 'B/' + b.key, inst: '@' + b.key, thr: p.thr['@' + b.key] });
   if (top) for (const f of top.fields.filter(x => x.kind === 'readout' || x.kind === 'num')) {
     const nb = el('button', 'sbtn', 'NORMALIZE'); nb.title = 'the lab\'s own loudness probe (seeded noise, the wet alone) → this gain';
     nb.addEventListener('click', () => { const d = loudnessDb(p); p.grp[''][f.name] = clamp(-d, -24, 24); LAB.msg = 'normalize: wet measured ' + d.toFixed(1) + ' dB → ' + (-d).toFixed(1); edited('normalize'); rebuild(); });
@@ -2081,7 +2509,7 @@ function buildMacroEditor(host, p, only) {
 function rebuildRack() {
   const F = $('rackFace'); if (!F) return;
   const keep = [$('rackL'), $('rackR')].map(c => c ? c.scrollTop : 0);   // a rebuild keeps both columns where they were (B301)
-  F.innerHTML = ''; buildRackStrip(F); buildRackBody(F, cur(), false);
+  F.innerHTML = ''; buildFullHead(F); buildRackStrip(F); buildRackBody(F, cur(), false);
   if ($('rackL')) $('rackL').scrollTop = keep[0]; if ($('rackR')) $('rackR').scrollTop = keep[1];
   paintCtls(); paintLive();
 }
@@ -2108,8 +2536,10 @@ function buildNoSpec() {
 }
 function buildFaceTabs() {
   const T = $('faceTabs'); T.innerHTML = '';
-  for (const [k, lab] of [['play', 'PLAY'], ['rack', 'RACK'], ['scope', 'SCOPE']]) {
+  /* B348: the default face carries the spec's own name for it; the Rack face is the FULL DEVICE */
+  for (const [k, lab] of [['play', SPEC.ok ? faceName() : 'PLAY'], ['rack', 'FULL DEVICE'], ['scope', 'SCOPE']]) {
     const t = el('span', 'tab' + (LAB.face === k ? ' on' : '') + (SPEC.ok ? '' : ' stub'), lab);
+    t.dataset.face = k;
     t.addEventListener('click', () => { if (!SPEC.ok) return; LAB.face = k; showFace(); });
     T.appendChild(t);
   }
@@ -2135,14 +2565,14 @@ function buildRackStripChips() {
     if (name !== 'SLUICE') { host.appendChild(el('span', 'rchip', name)); continue; }
     const c = el('span', 'rchip me' + (LAB.bypass ? ' byp' : ''));
     const cb = el('input'); cb.type = 'checkbox'; cb.checked = !LAB.bypass; cb.title = 'horde\'s slot bypass';
-    cb.addEventListener('change', () => { LAB.bypass = !cb.checked; send({ t: 'bypass', on: LAB.bypass, mode: LAB.byMode }); buildRackStripChips(); paintLive(); });
+    cb.addEventListener('change', () => setBypass(!cb.checked));
     c.appendChild(cb); c.appendChild(el('span', null, 'SLUICE')); host.appendChild(c);
   }
-  const rn = el('span', 'rnote'); rn.appendChild(el('span', null, 'BYPASS'));
-  const s = el('select'); for (const [v, t] of [['hard', 'hard (default)'], ['spill', 'spill-over']]) { const o = el('option', null, t); o.value = v; s.appendChild(o); }
-  s.value = LAB.byMode; s.title = 'spec §13 #3, OPEN for the human: hard = crossfade to dry, engine frozen, cleared on re-enable; spill-over = keep feeding silence so the tail rings out';
-  s.addEventListener('change', () => { LAB.byMode = s.value; send({ t: 'bypass', on: LAB.bypass, mode: LAB.byMode }); });
-  rn.appendChild(s); rn.appendChild(el('span', 'dep', '§13 #3 OPEN'));
+  const rn = el('span', 'rnote'); rn.appendChild(el('span', null, 'TAILS (SETTINGS)'));
+  const s = el('select'); for (const [v, t] of [['spill', 'spill-over'], ['hard', 'hard']]) { const o = el('option', null, t); o.value = v; s.appendChild(o); }
+  s.value = LAB.byMode; s.title = 'spec §13 #3: a USER PREFERENCE in horde\'s SETTINGS (B347), the CPU tradeoff the user\'s: spill-over keeps feeding silence so the tail rings out (the engine keeps running); hard = crossfade to dry, engine frozen, cleared on re-enable';
+  s.addEventListener('change', () => setByMode(s.value));
+  rn.appendChild(s); rn.appendChild(el('span', 'std', 'USER PREFERENCE'));
   host.appendChild(rn);
 }
 function rebuild() {
@@ -2153,13 +2583,13 @@ function rebuild() {
     buildPlay(); buildGbc(); rebuildRackNoPaint(); buildScope();
     const lc2 = document.querySelector('#playFace .col'); if (lc2) lc2.scrollTop = keep;
     const E = LAB.lib[LAB.libSel];
-    $('patchName').textContent = (E ? E.name : '') + ' · corner ' + CORNER[LAB.sel] + ' selected';
+    $('patchName').textContent = (E ? E.name : '') + ' · corner ' + CORNER[LAB.sel] + ' selected' + (LAB.M ? ' · live ≡' + LAB.M.name : '');
   } else buildNoSpec();
   buildRackStripChips(); showFace(); paintCtls(); paintChrome();
 }
 function rebuildRackNoPaint() {
   const F = $('rackFace'); const keep = [$('rackL'), $('rackR')].map(c => c ? c.scrollTop : 0);
-  F.innerHTML = ''; buildRackStrip(F); buildRackBody(F, cur(), false);
+  F.innerHTML = ''; buildFullHead(F); buildRackStrip(F); buildRackBody(F, cur(), false);
   if ($('rackL')) $('rackL').scrollTop = keep[0]; if ($('rackR')) $('rackR').scrollTop = keep[1];
 }
 
@@ -2197,28 +2627,100 @@ function alpha(col, a) {
   return c;
 }
 const lvl = db => clamp((db + 60) / 60, 0, 1);
+/* B348: the live class under every cell of the XY for the current rule, and the cells whose answer
+   depends on the class held before (the hysteresis band; the weight rule's hold region). One pure
+   pass of pickLive per cell, cached per rig, rule, band and live class; the canvas and the GBC glass
+   both draw from it, so the line drawn is the line the morph uses. */
+const XYMAP = { key: '' };
+function xyClassMap(C, flip, live, nx, ny) {
+  const cls = parityClasses(C), key = JSON.stringify([cls.map(g => [g.key, g.members]), flip.rule, flip.band, live, nx, ny]);
+  if (XYMAP.key === key) return XYMAP;
+  const m = new Int8Array(nx * ny), bd = new Uint8Array(nx * ny);
+  for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+    const w = cornerWeights((i + 0.5) / nx, (j + 0.5) / ny), k = pickLive(flip.rule, flip.band, cls, w, live);
+    m[j * nx + i] = cls.findIndex(g => g.key === k);
+    if (cls.length > 1 && flip.rule !== 'nearest') { const a = cls.map(g => pickLive(flip.rule, flip.band, cls, w, g.key)); if (a.some(v => v !== a[0])) bd[j * nx + i] = 1; }
+  }
+  return Object.assign(XYMAP, { key, nx, ny, cls: m, band: bd, classes: cls });
+}
+/* a flip is "recent" for 0.6 s of RENDERED samples (the renderer's own counter, never a clock) */
+const flipRecent = () => LAB.flipN >= 0 && nowN() - LAB.flipN < 0.6 * SR;
 function paintXY(id) {
   const c = ctx2($(id)); if (!c) return;
   const { g, w, h } = c, X = x => 6 + x * (w - 12), Y = y => 6 + y * (h - 12);
   g.strokeStyle = alpha(CSSV['--scr-grid'], 0.25); g.lineWidth = 1;
   for (let k = 1; k < 4; k++) { g.beginPath(); g.moveTo(X(k / 4), Y(0)); g.lineTo(X(k / 4), Y(1)); g.stroke(); g.beginPath(); g.moveTo(X(0), Y(k / 4)); g.lineTo(X(1), Y(k / 4)); g.stroke(); }
+  /* B348: each class's region tinted in its first corner's colour, the band hatched, the flip line
+     drawn where neighbouring cells answer different classes */
+  const Mx = xyClassMap(LAB.corners, LAB.flip, LAB.live, 96, 48);
+  if (Mx.classes.length > 1) {
+    const cw = (w - 12) / Mx.nx, ch = (h - 12) / Mx.ny;
+    for (let j = 0; j < Mx.ny; j++) for (let i = 0; i < Mx.nx; i++) {
+      const q = j * Mx.nx + i, cl = Mx.classes[Mx.cls[q]];
+      g.fillStyle = alpha(CSSV['--c' + cl.name], cl.key === LAB.live ? 0.16 : 0.06); g.fillRect(6 + i * cw, 6 + j * ch, cw + 0.5, ch + 0.5);
+      if (Mx.band[q] && ((i + j) & 1)) { g.fillStyle = alpha(CSSV['--caution'], 0.35); g.fillRect(6 + i * cw, 6 + j * ch, cw + 0.5, ch + 0.5); }
+    }
+    g.strokeStyle = CSSV['--scr-value']; g.lineWidth = 2.5; g.beginPath();
+    for (let j = 0; j < Mx.ny; j++) for (let i = 0; i < Mx.nx; i++) {
+      const q = j * Mx.nx + i;
+      if (i + 1 < Mx.nx && Mx.cls[q] !== Mx.cls[q + 1]) { g.moveTo(6 + (i + 1) * cw, 6 + j * ch); g.lineTo(6 + (i + 1) * cw, 6 + (j + 1) * ch); }
+      if (j + 1 < Mx.ny && Mx.cls[q] !== Mx.cls[q + Mx.nx]) { g.moveTo(6 + i * cw, 6 + (j + 1) * ch); g.lineTo(6 + (i + 1) * cw, 6 + (j + 1) * ch); }
+    }
+    g.stroke();
+  }
   const wts = cornerWeights(LAB.xy.x, LAB.xy.y), E = curE();
   /* B337: the selected corner's quadrant is shaded (the XY selects by quadrant); a corner is drawn as
      its chips are, OUTLINED in its colour and FILLED only when selected; a draft's ring is dashed */
   const qx = LAB.sel & 1 ? 0.5 : 0, qy = LAB.sel & 2 ? 0.5 : 0;
   g.fillStyle = alpha(CSSV['--c' + CORNER[LAB.sel]], 0.10); g.fillRect(X(qx), Y(qy), X(qx + 0.5) - X(qx), Y(qy + 0.5) - Y(qy));
   g.font = 'bold 9px ui-monospace, Menlo, monospace'; g.textBaseline = 'middle';
+  const MM = LAB.M;
   [[0, 0], [1, 0], [0, 1], [1, 1]].forEach((p, i) => {
-    const sel = i === LAB.sel, dr = E && isDraft(E, i), cx = X(p[0]), cy = Y(p[1]), r = 5 + 7 * wts[i];
+    const sel = i === LAB.sel, dr = LAB.lib[LAB.cp[i]] && isDraft(LAB.lib[LAB.cp[i]], i), cx = X(p[0]), cy = Y(p[1]), r = 5 + 7 * wts[i];
     g.beginPath(); g.arc(cx, cy, r, 0, 6.2832);
     if (sel) { g.fillStyle = CSSV['--c' + CORNER[i]]; g.fill(); }
     g.strokeStyle = CSSV['--c' + CORNER[i]]; g.lineWidth = 2.5; g.setLineDash(dr ? [3, 2] : []); g.stroke(); g.setLineDash([]);
-    g.fillStyle = CSSV['--text']; g.fillText(CORNER[i] + (dr ? '*' : ''), cx + (p[0] ? -r - 12 : r + 3), cy + (p[1] ? -r + 2 : r - 2));
+    if (MM && !MM.one && MM.members.includes(i)) { g.beginPath(); g.arc(cx, cy, r + 3.5, 0, 6.2832); g.strokeStyle = CSSV['--line']; g.lineWidth = 1.2; g.stroke(); }
+    const cl = MM ? MM.classes.find(q => q.members.includes(i)) : null;
+    g.fillStyle = CSSV['--text']; g.fillText(CORNER[i] + (dr ? '*' : '') + (cl && MM.classes.length > 1 ? ' ≡' + cl.name : ''), cx + (p[0] ? -r - (cl && MM.classes.length > 1 ? 28 : 12) : r + 3), cy + (p[1] ? -r + 2 : r - 2));
   });
   g.textBaseline = 'alphabetic';
   g.strokeStyle = CSSV['--scr-value']; g.lineWidth = 2; g.beginPath(); g.arc(X(LAB.xy.x), Y(LAB.xy.y), 7, 0, 6.2832); g.stroke();
   g.fillStyle = CSSV['--scr-grid']; g.font = '9px ui-monospace, Menlo, monospace';
-  g.fillText(wts.map((v, i) => CORNER[i] + Math.round(v * 100)).join(' ') + (LAB.morphOk ? '' : '  · NEAREST ONLY'), w / 2 - 45, h - 10);
+  const rn = (FLIP_RULES.find(r => r[0] === LAB.flip.rule) || [0, ''])[1].toLowerCase();
+  if (w >= 260) g.fillText(wts.map((v, i) => CORNER[i] + Math.round(v * 100)).join(' ') + (!MM || MM.one ? '  · parity: continuous' : '  · live ≡' + MM.name + ' · ' + rn + (LAB.flip.rule === 'hyst' ? ' ±' + LAB.flip.band.toFixed(2) : '')), w / 2 - 80, h - 10);
+  if (flipRecent()) { g.fillStyle = CSSV['--scr-value']; g.font = 'bold 11px ui-monospace, Menlo, monospace'; g.textAlign = 'center'; g.fillText('QUANTUM FLIP → ≡' + (MM ? MM.name : '') + ' (' + LAB.byMode + ')', w / 2, 18); g.textAlign = 'left'; }
+}
+/* B348: the tail meter. SCHEMATIC of Sluice's behaviour: the level is MEASURED, but on horde's v0.1
+   stand-in engine, not Sluice's netcore. Output level (meter ink) and the outgoing tail (physics ink,
+   filled) over the last ~3 s of rendered meter windows; flips and bypass switches are marked. */
+function paintTail(id) {
+  const c = ctx2($(id)); if (!c) return;
+  const { g, w, h } = c, H = LAB.th, gridCol = CSSV['--scr-grid'], Yd = db => 12 + (h - 24) * clamp(-db / 90, 0, 1);
+  g.strokeStyle = alpha(gridCol, 0.25); g.lineWidth = 1;
+  for (const d of [0, -30, -60, -90]) { g.beginPath(); g.moveTo(2, Yd(d)); g.lineTo(w - 2, Yd(d)); g.stroke(); }
+  g.font = '8.5px ui-monospace, Menlo, monospace'; g.fillStyle = alpha(gridCol, 0.95);
+  g.fillText('TAIL · SCHEMATIC — measured on horde\'s v0.1 stand-in, not Sluice\'s netcore', 4, 9);
+  if (H.length > 1) {
+    const n0 = H[0].n, n1 = H[H.length - 1].n, Xn = n => 2 + (w - 4) * (n - n0) / Math.max(1, n1 - n0);
+    g.fillStyle = alpha(CSSV['--scr-physics'], 0.3); g.beginPath(); g.moveTo(Xn(H[0].n), Yd(-90));
+    for (const e of H) g.lineTo(Xn(e.n), Yd(Math.max(-90, e.tail))); g.lineTo(Xn(n1), Yd(-90)); g.closePath(); g.fill();
+    const line = (f, col, lw) => { g.strokeStyle = col; g.lineWidth = lw; g.beginPath(); H.forEach((e, i) => { const x = Xn(e.n), y = Yd(Math.max(-90, f(e))); i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke(); };
+    line(e => e.tail, CSSV['--scr-physics'], 1.4); line(e => e.out, CSSV['--scr-meter'], 1.2);
+    /* the CPU tradeoff, SCHEMATIC: engines ticking, a step line along the floor (1 row per engine) */
+    g.strokeStyle = CSSV['--caution']; g.lineWidth = 2; g.beginPath(); let py = 0;
+    H.forEach((e, i) => { const x = Xn(e.n), y = h - 13 - 5 * (e.engines || 0); if (i) { g.lineTo(x, py); g.lineTo(x, y); } else g.moveTo(x, y); py = y; });
+    g.stroke();
+    let row = 0;     // labels step down a row each, so two close events do not print over each other
+    for (const ev of LAB.evs) { if (ev.n < n0 || ev.n > n1) continue; const x = Xn(ev.n);
+      g.strokeStyle = CSSV['--scr-value']; g.setLineDash([3, 2]); g.beginPath(); g.moveTo(x, 11); g.lineTo(x, h - 12); g.stroke(); g.setLineDash([]);
+      g.fillStyle = CSSV['--scr-value']; g.fillText(ev.txt + ' (' + ev.mode + ')', Math.max(2, Math.min(x + 3, w - 110)), 20 + 10 * (row++ % 3)); }
+  }
+  const last = H.length ? H[H.length - 1] : null;
+  g.fillStyle = CSSV['--scr-meter']; g.fillText('out', 4, h - 3); g.fillStyle = CSSV['--scr-physics'];
+  g.fillText('tail' + (last ? ' ' + (last.tail > -140 ? last.tail.toFixed(0) + ' dB' : '—') : ''), 26, h - 3);
+  g.fillStyle = CSSV['--caution']; g.fillText('engines (CPU) ' + (last ? last.engines : '—'), 88, h - 3);
+  g.fillStyle = alpha(gridCol, 0.9); g.fillText(LAB.byMode === 'spill' ? 'spill-over' : 'hard', w - 60, h - 3);
 }
 function paintScopeTrace(id, withSpectrum) {
   const c = ctx2($(id)); if (!c) return;
@@ -2309,8 +2811,8 @@ function paintLive() {
   $('hdrR').innerHTML = 'host <b>' + effTempo(LAB.bpm) + ' bpm</b>' + (LAB.bpm > 1 ? '' : ' (fallback)') + ' · lab input <b>' + LAB.src + '</b><br>'
     + (AUD.on ? 'AUDIO · worklet meters' : 'SILENT · page renderer, ' + HOP + ' samples / frame') + (M ? ' · t ' + (M.n / SR).toFixed(1) + ' s · engines built ' + M.builds : '');
   if (!SPEC.ok) return;
-  if (LAB.face === 'play') { if (LAB.skin === 'gbc') paintGBC(); else { paintXY('xyP'); paintScopeTrace('outP', false); } }
-  else if (LAB.face === 'rack') { paintXY('xyR'); paintNet(); }
+  if (LAB.face === 'play') { if (LAB.skin === 'gbc') paintGBC(); else { paintXY('xyP'); paintScopeTrace('outP', false); paintTail('tailP'); } }
+  else if (LAB.face === 'rack') { paintXY('xyR'); paintNet(); paintTail('tailR'); }
   else { paintScopeTrace('spec', true); paintIR(); }
 }
 function scheduleIR() {
@@ -2681,11 +3183,17 @@ function gbcLogos() {
 const gbcUp = s => String(s).toUpperCase().replace(/[^A-Z0-9 .,:+%<>=()#?!_*|'^\[\]\/-]/g, ' ');
 const gbcFit = (s, n) => { s = gbcUp(s); return s.length > n ? s.slice(0, n - 1) + '.' : s; };
 /* everything the screen shows, read from the live state: nothing here is a mock */
+/* B348 adds the live class and its patch, each corner's parity class, the rule, and the class map the
+   XY field draws its flip line from (the same pickLive the morph uses) */
 function gbcVM() {
-  const E = curE(), p = cur(), M = LAB.meters;
+  const E = curE(), p = cur(), M = LAB.meters, MM = LAB.M, C = LAB.corners;
+  const liveE = MM ? LAB.lib[LAB.cp[MM.near]] : E, map = xyClassMap(C, LAB.flip, LAB.live, 72, 64);
   return {
-    patch: E.name, sel: LAB.sel, x: LAB.xy.x, y: LAB.xy.y, ok: LAB.morphOk, snaps: E.snaps.length, w: cornerWeights(LAB.xy.x, LAB.xy.y),
-    corners: [0, 1, 2, 3].map(k => { const s = snapOf(E, E.bind[k]); return { name: s ? s.name : '-', draft: isDraft(E, k) }; }),
+    patch: liveE.name, live: MM ? MM.name : CORNER[0], ncls: MM ? MM.classes.length : 1, rule: LAB.flip.rule, flipping: flipRecent(),
+    map: { cls: Array.from(map.cls), band: Array.from(map.band) },
+    sel: LAB.sel, x: LAB.xy.x, y: LAB.xy.y, ok: LAB.morphOk, snaps: E.snaps.length, w: cornerWeights(LAB.xy.x, LAB.xy.y),
+    corners: [0, 1, 2, 3].map(k => { const Ek = LAB.lib[LAB.cp[k]], s = snapOf(Ek, Ek.bind[k]), cl = MM ? MM.classes.find(q => q.members.includes(k)) : null;
+      return { name: s ? s.name : '-', draft: isDraft(Ek, k), cls: cl ? cl.name : CORNER[0], live: !!MM && MM.members.includes(k) }; }),
     fixed: fixedMacros().map(g => ({ label: g.label, v: LAB.G[g.role], c: g.centre })),
     vars: [...Array(varSlots()).keys()].map(k => { const Mc = macroSlot(p, k); return Mc ? { label: Mc.label, v: macroShown(p, k) } : null; }),
     draft: isDraft(E, LAB.sel), out: M ? M.out : -150, bypass: LAB.bypass,
@@ -2698,9 +3206,9 @@ function gbcVM() {
 function gbcDraw(b, vm) {
   b.clear();
   b.pal(13, 0, 5, 3, 3);
-  b.text('HORDE', 106, 2, 3); b.text('PROPOSAL', 106, 9, 2); b.text('SEQ 10', 106, 16, 3);
+  b.text('HORDE', 106, 2, 3); b.text('PROPOSAL', 106, 9, 2); b.text('SEQ 11', 106, 16, 3);
   b.pal(0, 3, 20, 1, 1); b.rect(0, 24, 160, 8, 1);
-  b.text(gbcFit(vm.patch, 27), 3, 26, 3);
+  b.text(gbcFit('LIVE =' + vm.live + ' ' + vm.patch, 28), 3, 26, 3);
   if (vm.bypass) b.text('BYPASS', 132, 26, 2);
   else { b.box(118, 25, 39, 6, 3); b.rect(119, 26, Math.round(37 * clamp((vm.out + 60) / 60, 0, 1)), 4, 2); }
   /* the XY field: the selected corner's quadrant dithered, the quarter grid, the cursor; a corner's
@@ -2710,7 +3218,15 @@ function gbcDraw(b, vm) {
   const qx = vm.sel & 1 ? 0.5 : 0, qy = vm.sel & 2 ? 0.5 : 0;
   for (let j = Y(qy); j <= Y(qy + 0.5); j++) for (let i = X(qx); i <= X(qx + 0.5); i++) if ((i + j) & 1) b.px(i, j, 1);
   for (let q = 1; q < 4; q++) { b.line(X(q / 4), Y(0), X(q / 4), Y(1), 1, true); b.line(X(0), Y(q / 4), X(1), Y(q / 4), 1, true); }
+  /* B348: the flip line, one pixel per field pixel where the class map changes (role colour), and the
+     band's cells sparsely dotted (faint); the map is 72×64, the field's own pixel grid */
+  if (vm.ncls > 1) for (let j = 0; j < 64; j++) for (let i = 0; i < 72; i++) {
+    const q = j * 72 + i, c0 = vm.map.cls[q];
+    if ((i + 1 < 72 && vm.map.cls[q + 1] !== c0) || (j + 1 < 64 && vm.map.cls[q + 72] !== c0)) b.px(4 + i, 36 + j, 2);
+    else if (vm.map.band[q] && (i + 2 * j) % 4 === 0) b.px(4 + i, 36 + j, 1);
+  }
   b.box(X(0), Y(0), 72, 64, 3);
+  if (vm.flipping) { b.rect(6, 38, 19, 7, 0); b.text('FLIP', 7, 39, 3); }
   const cx = X(vm.x), cy = Y(vm.y);
   b.rect(cx - 3, cy, 7, 1, 3); b.rect(cx, cy - 3, 1, 7, 3); b.rect(cx - 1, cy - 1, 3, 3, 2); b.px(cx, cy, 3);
   [[0, 4], [9, 4], [0, 12], [9, 12]].forEach(([tx, ty], k) => {
@@ -2729,10 +3245,10 @@ function gbcDraw(b, vm) {
     b.rect(81, y + 3, 9, 9, 0); b.box(81, y + 3, 9, 9, 3); if (sel) b.rect(82, y + 4, 7, 7, 2);
     b.text(CORNER[k], 84, y + 5, sel ? 0 : 3);
     b.text(gbcFit(c.name, 16), 94, y + 2, 3);
-    b.text(c.draft ? 'DRAFT UNSAVED' : 'W ' + Math.round(vm.w[k] * 100) + '%', 94, y + 9, 2);
+    b.text(c.draft ? 'DRAFT UNSAVED' : 'W' + Math.round(vm.w[k] * 100) + '% =' + c.cls + (c.live && vm.ncls > 1 ? ' LIVE' : ''), 94, y + 9, 2);
   });
   b.pal(10, 12, 10, 1, 0);
-  b.text(vm.snaps + ' SNAPS' + (vm.ok ? '' : ' NEAREST'), 82, 97, 3);
+  b.text(vm.ok ? 'PARITY: MORPH' : ({ nearest: 'NEAR', weight: 'W>.5', hyst: 'HYST' }[vm.rule] || '') + ' ' + vm.ncls + ' CLASSES', 82, 97, 3);
   /* the FIXED macros: structure palette, a bar from the centre (centre = as saved) */
   b.pal(0, 13, 20, 2, 0); b.rect(0, 104, 160, 1, 1);
   vm.fixed.forEach((f, j) => {
@@ -2782,7 +3298,7 @@ function paintGBC() {
 function gbcPointer(cv) {
   let mode = '';
   const at = e => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) * GBC_W / (r.width || 1), (e.clientY - r.top) * GBC_H / (r.height || 1)]; };
-  const xy = (lx, ly) => { LAB.xy.x = clamp((lx - 4) / 71, 0, 1); LAB.xy.y = clamp((ly - 36) / 63, 0, 1); xyFollow(); touch(); };
+  const xy = (lx, ly) => { LAB.xy.x = clamp((lx - 4) / 71, 0, 1); LAB.xy.y = clamp((ly - 36) / 63, 0, 1); xyFollow(); touch({ xy: true }); };
   cv.addEventListener('pointerdown', e => {
     const [lx, ly] = at(e);
     if (lx < 80 && ly >= 32 && ly < 104) { mode = 'xy'; try { cv.setPointerCapture(e.pointerId); } catch (_) {} xy(lx, ly); }
@@ -2817,11 +3333,12 @@ function buildGbc() {
   right.appendChild(el('div', 'vnote', 'GBC skin (B338) · ' + PROPOSAL + ' · B322\'s renderer, the ' + GBC_SCHEME[LAB.theme].name + ' scheme in 4-colour tile palettes (RGB555) · title: '
     + (GBC.src.title === 'file' ? 'the human\'s file' : 'B326\'s proposal (drop ' + GBC_LOGO_DIR + GBC_SLOT.title.file + ' to replace it)') + GBC.note));
   const c1 = cell(right, 'FIXED MACROS', 'always present · Sluice-global'); buildFixedMacros(c1, true);
-  const c2 = cell(right, 'CORNERS', 'bound snapshots'); c2.querySelector('h3').appendChild(propTag()); buildCorners(c2);
+  const c2 = cell(right, 'CORNERS', 'each its own patch · bound snapshots'); c2.querySelector('h3').appendChild(propTag()); buildFlipRow(c2); buildCorners(c2);
   if (LAB.msg) c2.appendChild(el('div', /refused/.test(LAB.msg) ? 'caution' : 'vnote', LAB.msg));
   const c3 = cell(right, 'RANDOMIZE · SNAPSHOT'); buildRandom(c3, true);
   const c4 = cell(right, 'LIBRARY'); buildLibrary(c4, true);
   const c5 = cell(right, 'GLOBAL'); buildGlobals(c5);
+  const c6 = cell(right, 'BYPASS · TAILS', 'a SETTINGS preference'); buildTail(c6, '');
   F.appendChild(left); F.appendChild(right);
 }
 
@@ -2847,7 +3364,7 @@ async function audioToggle() {
       const url = URL.createObjectURL(new Blob([workletSource(pageEnv())], { type: 'application/javascript' }));
       await AUD.ctx.audioWorklet.addModule(url);
       AUD.node = new AudioWorkletNode(AUD.ctx, 'sluice-horde', { numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2], processorOptions: { init: initMsgs() } });
-      AUD.node.port.onmessage = e => { if (AUD.on) LAB.meters = e.data; };
+      AUD.node.port.onmessage = e => { if (AUD.on) noteMeters(e.data); };
       AUD.node.connect(AUD.ctx.destination);
     }
     await AUD.ctx.resume(); AUD.on = true;
@@ -2890,8 +3407,8 @@ function catalogueDom() {
   try {
     const p = newPatch(); S_().types.forEach((t, i) => p.chain.push(newModule(t, i, null, false)));
     const d = el('div');
-    const save = LAB.corners; LAB.corners = [p, p, p, p];
-    try { buildFixedMacros(d, true); buildGlobals(d); buildMacroKnobs(d, true, false); buildRackBody(d, p, true); } finally { LAB.corners = save; }
+    LAB.cov = [p, p, p, p];
+    try { buildFixedMacros(d, true); buildGlobals(d); buildMacroKnobs(d, true, false); buildRackBody(d, p, true); } finally { LAB.cov = null; }
     return d;
   } finally { CTLS = keep; }
 }
@@ -2926,9 +3443,9 @@ function C3() {
   const same = clone(C[1]); randomizeParams(same, mulberry32(35), 1); const v2 = trySetCorner(clone(C), 2, same);
   const forced = clone(C); forced[3] = B; const m = morph4(forced, 0.4, 0.45);
   const guard = !m.ok && JSON.stringify(m.p) === JSON.stringify(forced[0]);
-  pushCheck('C3', 'the one-patch rule: a corner with another roster is REFUSED', !v.ok && unchanged && v2.ok, guard,
-    'a snapshot of another structure into corner C: ' + (v.ok ? 'ACCEPTED' : 'refused') + ', corners unchanged: ' + unchanged + '; one of the same structure: ' + (v2.ok ? 'accepted' : 'REFUSED')
-    + ' · default FORBID, as Sluice recommends, pending the human (§13 #5) · control: a mixed set forced past the door → the morph refuses to blend and plays the nearest corner whole: ' + guard);
+  pushCheck('C3', 'one patch\'s snapshots share one structure: another roster is REFUSED inside a patch', !v.ok && unchanged && v2.ok, guard,
+    'a snapshot of another structure into a working copy of this patch: ' + (v.ok ? 'ACCEPTED' : 'refused') + ', corners unchanged: ' + unchanged + '; one of the same structure: ' + (v2.ok ? 'accepted' : 'REFUSED')
+    + ' · B348 (proposal) answers §13 #5 one level up: another roster goes on a corner as that corner\'s OWN patch, and the XY flips to it (C28–C31) · control: a mixed set forced past spec v1\'s morph → it refuses to blend and plays the nearest corner whole: ' + guard);
 }
 /* every leaf number and every discrete value of a patch, by path (for C4) */
 function leaves(p) {
@@ -3162,7 +3679,7 @@ function evalWorklet(code, posted) {
 }
 function sameMeters(a, b) {
   return a.n === b.n && a.loop === b.loop && a.out === b.out && a.dry === b.dry && a.node.length === b.node.length
-    && a.node.every((v, i) => v === b.node[i]) && sameArr(a.outRing, b.outRing) && sameArr(a.dryRing, b.dryRing);
+    && a.node.every((v, i) => v === b.node[i]) && sameArr(a.outRing, b.outRing) && sameArr(a.dryRing, b.dryRing) && a.tail === b.tail && a.tails === b.tails && a.engines === b.engines;
 }
 function C13() {
   const posted = [], env = pageEnv(), Cls = evalWorklet(workletSource(env), posted);
@@ -3328,16 +3845,19 @@ function C21() {
     + ' · controls: a randomiser that files each draw at once → ' + (eagerCaught ? 'caught' : 'NOT caught') + '; a discard that does nothing → ' + (noopCaught ? 'caught' : 'NOT caught'));
 }
 /* reads and drives the LIVE page (the chips' own action), then puts everything back */
+/* B348: a corner plays its OWN patch, so "the bindings" are each corner's binding in the patch it
+   plays; a visit loads another patch into all four corners and then puts each corner's patch back */
 function C22() {
-  const E = curE(), sel0 = LAB.sel, lib0 = LAB.libSel, hist = LAB.hist.slice(), hi = LAB.hi, pend0 = LAB.pendDel;
-  const snap = () => JSON.stringify({ bind: E.bind, work: E.work.map(contentKey) }), before = snap();
-  const pick = () => [...$('playFace').querySelectorAll('select[data-ctl="corner-bind"]')].map(s => s.value);
+  const sel0 = LAB.sel, cp0 = LAB.cp.slice(), hist = LAB.hist.slice(), hi = LAB.hi, pend0 = LAB.pendDel;
+  const snap = () => JSON.stringify([0, 1, 2, 3].map(k => { const E = LAB.lib[cp0[k]]; return [E.bind[k], contentKey(E.work[k])]; })), before = snap();
+  const want = () => JSON.stringify(LAB.cp.map((i, k) => LAB.lib[i].bind[k]));
+  const pick = () => JSON.stringify([...$('playFace').querySelectorAll('select[data-ctl="corner-bind"]')].map(s => s.value));
   let same = true, domOk = true, visited = false;
   try {
-    for (const k of [1, 2, 3, 0]) { selectCorner(k); if (snap() !== before) same = false; if (JSON.stringify(pick()) !== JSON.stringify(E.bind)) domOk = false; }
-    const other = LAB.lib.findIndex((e, i) => i !== lib0);
-    if (other >= 0) { loadEntry(other, 'C22 visit'); loadEntry(lib0, 'C22 back'); visited = true; if (snap() !== before) same = false; }
-  } finally { LAB.sel = sel0; LAB.hist = hist; LAB.hi = hi; LAB.pendDel = pend0; rebuild(); }
+    for (const k of [1, 2, 3, 0]) { selectCorner(k); if (snap() !== before) same = false; if (pick() !== want()) domOk = false; }
+    const other = LAB.lib.findIndex((e, i) => !cp0.includes(i));
+    if (other >= 0) { loadEntry(other, 'C22 visit'); LAB.cp = cp0.slice(); visited = true; if (snap() !== before) same = false; }
+  } finally { LAB.sel = sel0; LAB.cp = cp0.slice(); LAB.hist = hist; LAB.hi = hi; LAB.pendDel = pend0; pushPatch(); rebuild(); }
   /* control: a select that also re-binds the corner to the patch's first snapshot (a plausible slip) */
   const T = generatedEntry(mulberry32(0x2201), 4, 0.35, 'test'), tb = JSON.stringify(T.bind);
   for (const k of [1, 2, 3, 0]) { T.bind[k] = T.snaps[0].sid; T.work[k] = clone(T.snaps[0]); }
@@ -3350,13 +3870,13 @@ function C23() {
   const want = fixedMacros().map(g => g.role), roles4 = want.length === 4 && ['drywet', 'width', 'time', 'tune'].every(r => want.includes(r));
   const kinds = root => [...root.querySelectorAll('[data-fixed]')].map(e => e.dataset.fixed);
   const faces = ['playFace', 'gbcFace', 'rackFace'].map(id => kinds($(id))), facesOk = faces.every(f => f.length === 4 && want.every(r => f.includes(r)));
-  const keepC = CTLS, keep = LAB.corners; let every = 0, everyOk = true, ctlN = -1;
+  const keepC = CTLS; let every = 0, everyOk = true, ctlN = -1;
   CTLS = [];
   try {
-    for (const E of LAB.lib.concat([generatedEntry(mulberry32(0x2301), 4, 0.5, 'test')])) { LAB.corners = E.work; const d = el('div'); buildFixedMacros(d, true); every++; if (kinds(d).length !== 4) everyOk = false; }
+    for (const E of LAB.lib.concat([generatedEntry(mulberry32(0x2301), 4, 0.5, 'test')])) { LAB.cov = E.work; const d = el('div'); buildFixedMacros(d, true); every++; if (kinds(d).length !== 4) everyOk = false; }
     const S = S_(), g0 = S.globals; S.globals = g0.filter(g => g.role !== 'time');
     try { const d = el('div'); buildFixedMacros(d, true); ctlN = kinds(d).length; } finally { S.globals = g0; }
-  } finally { LAB.corners = keep; CTLS = keepC; }
+  } finally { LAB.cov = null; CTLS = keepC; }
   const vk = [...$('playFace').querySelectorAll('.kcell.var')], varOk = vk.length === varSlots() && vk.every(c => !c.dataset.fixed) && varSlots() === Math.min(VAR_WANT, S_().slots);
   pushCheck('C23', 'the four FIXED macros are always present, apart from the variable ones', roles4 && facesOk && everyOk && varOk, ctlN === 3,
     'the manifest\'s knob globals are exactly the four roles (' + fixedMacros().map(g => g.label).join(', ') + '): ' + roles4 + ' · four fixed macros on the standard Play face, the GBC skin and the Rack face: ' + faces.map(f => f.length).join(' / ')
@@ -3390,8 +3910,10 @@ function C25() {
   const filled = b => { const c = getComputedStyle(b).backgroundColor; return !!c && c !== 'transparent' && !/rgba\(0, 0, 0, 0\)/.test(c); };
   const judge = (list, sel) => list.filter(b => filled(b) !== (+b.dataset.corner === sel && (b.dataset.crole !== 'tag' || b.classList.contains('bound'))));
   const bad = judge(chips, LAB.sel), nSel = chips.filter(b => b.dataset.crole === 'sel').length, nFill = chips.filter(filled).length;
-  const E = curE(), pick = [...$('playFace').querySelectorAll('select[data-ctl="corner-bind"]')].map(s => s.value), legible = JSON.stringify(pick) === JSON.stringify(E.bind);
-  const tagsOk = E.snaps.every(s => { const t = [...$('playFace').querySelectorAll('.cchip.bind.bound')].filter(b => b.parentNode && b.parentNode.querySelector('.sn') && b.parentNode.querySelector('.sn').textContent === s.name).map(b => +b.dataset.corner).sort().join(); return t === [0, 1, 2, 3].filter(k => E.bind[k] === s.sid).join(); });
+  /* B348: each picker holds ITS corner's binding (in the patch that corner plays); a library tag is
+     bound iff that corner plays this patch AND is bound to this snapshot */
+  const E = curE(), pick = [...$('playFace').querySelectorAll('select[data-ctl="corner-bind"]')].map(s => s.value), legible = JSON.stringify(pick) === JSON.stringify(LAB.cp.map((i, k) => LAB.lib[i].bind[k]));
+  const tagsOk = E.snaps.every(s => { const t = [...$('playFace').querySelectorAll('.cchip.bind.bound')].filter(b => b.parentNode && b.parentNode.querySelector('.sn') && b.parentNode.querySelector('.sn').textContent === s.name).map(b => +b.dataset.corner).sort().join(); return t === [0, 1, 2, 3].filter(k => LAB.cp[k] === LAB.libSel && E.bind[k] === s.sid).join(); });
   const stale = judge(chips, (LAB.sel + 1) % 4).length > 0;
   const pl = cornerChip((LAB.sel + 1) % 4, {}); pl.classList.add('on'); $('playFace').appendChild(pl); const plCaught = judge([pl], LAB.sel).length === 1; pl.remove();
   pushCheck('C25', 'A B C D: outlined, FILLED only for the selected corner; each shows its binding', chips.length > 0 && !bad.length && legible && tagsOk, stale && plCaught,
@@ -3441,12 +3963,259 @@ function C27() {
     + ' · tolerances: cap and baseline 0, stem and bar ±1 px, optical gap span ≤ ' + GA_TOL.gapRange + ' px, stripes, pieces and off-palette pixels 0'
     + ' · controls: B326\'s pre-fix title → ' + (cBefore ? 'caught (' + before.faults.length + ' faults, the stripe across the I among them)' : 'NOT caught') + '; the E a row short → ' + (cShort ? 'caught' : 'NOT caught') + '; the E moved 2 px right → ' + (cMoved ? 'caught' : 'NOT caught') + '; a light-cyan row across the U → ' + (cStripe ? 'caught' : 'NOT caught') + '; a half-transparent pixel → ' + (cBlend ? 'caught' : 'NOT caught'));
 }
+/* ---- B348 self-checks (C28–C35). Pure checks build their own rigs from fresh seeded streams; the
+   ones that say so read or drive the live page and put it back. Each has a must-fail control. ---- */
+const otherPatchSameRoster = (p, seed) => siblingOf(p, mulberry32(seed));
+/* a generated patch with two or more module types in its loop (and, if asked, a delay-bearing type v0.1
+   voices, so it has a tail), and a generated patch whose structure differs from it */
+function rosterPair(seed, wantTail) {
+  const ok = P => new Set(P.chain.map(m => m.type)).size >= 2 && (!wantTail || P.chain.some(m => REF.defs[m.type] && S_().mod[m.type].some(e => e.timeKnob === 'scales')));
+  let s = seed, P = testPatch(s++); while (!ok(P) && s < seed + 200) P = testPatch(s++);
+  let R = testPatch(s++); while (structSig(R) === structSig(P) && s < seed + 400) R = testPatch(s++);
+  return [P, R];
+}
+const sameList = (a, b) => a.length === b.length && a.every((v, i) => v === b[i]);
+function C28() {
+  const [P, R] = rosterPair(2801, false);
+  const Pn = clone(P); randomizeParams(Pn, mulberry32(2802), 1);                  // the same patch, numbers moved
+  const Pi = otherPatchSameRoster(P, 2803);                                       // another patch, same roster + wiring
+  const i2 = P.chain.findIndex(m => m.type !== P.chain[0].type);
+  const sw = clone(P); [sw.chain[0], sw.chain[i2]] = [sw.chain[i2], sw.chain[0]];  // wiring: the order changed
+  const mv = clone(P); mv.post.unshift(mv.chain.pop());                          // wiring: a loop module moved to the post chain
+  const ro = clone(P); { const t = S_().types.find(x => x !== ro.chain[0].type), nm = newModule(t, 0, null, false); nm.id = ro.chain[0].id; ro.chain[0] = nm; }   // roster: one type swapped
+  const yes = [[P, P], [P, Pn], [P, Pi], [Pi, P]].every(([a, b]) => patchParity(a, b));
+  const no = [[P, R], [P, sw], [P, mv], [P, ro], [sw, P]].every(([a, b]) => !patchParity(a, b));
+  /* the live page: one badge per pair, and each says what patchParity says of its two corners */
+  const C = LAB.corners, bs = [...$('playFace').querySelectorAll('.pbadge[data-pair]')];
+  const judge = list => list.length === 6 && list.every(b => { const a = CORNER.indexOf(b.dataset.pair[0]), c = CORNER.indexOf(b.dataset.pair[1]); return (b.dataset.par === '1') === patchParity(C[a], C[c]); });
+  const badgeOk = judge(bs);
+  /* controls: a roster-only rival (types as a multiset) calls the re-ordered chain a match; a
+     whole-content rival calls two snapshots of one patch different; a planted wrong badge */
+  const bag = p => JSON.stringify([p.chain.map(m => m.type).sort(), p.post.map(m => m.type).sort()]);
+  const cWiring = bag(P) === bag(sw), cNumbers = contentKey(P) !== contentKey(Pn);
+  const fake = bs.map(b => { const f = el('span'); f.dataset.pair = b.dataset.pair; f.dataset.par = b.dataset.par; return f; }); if (fake[0]) fake[0].dataset.par = fake[0].dataset.par === '1' ? '0' : '1';
+  const cBadge = !judge(fake);
+  pushCheck('C28', 'patch parity: the same roster and wiring match (numbers and ids ignored); a changed roster or wiring does not', yes && no && badgeOk, cWiring && cNumbers && cBadge,
+    'match: a patch with itself, with its own numbers re-drawn, and with ANOTHER patch of the same roster and wiring (fresh module ids, every number re-drawn; both orders): ' + yes
+    + ' · no match: another generated roster (' + shortSig(P) + ' vs ' + shortSig(R) + '), the loop order swapped (' + shortSig(sw) + '), a loop module moved to the post chain (' + shortSig(mv) + '), one type swapped (' + shortSig(ro) + '): ' + no
+    + ' · the live page\'s 6 pair badges agree with the test: ' + badgeOk
+    + ' · controls: a roster-only rival (types as a set) calls the swapped order a match → ' + (cWiring ? 'caught' : 'NOT caught') + '; a whole-content rival calls one patch\'s re-drawn numbers a mismatch → ' + (cNumbers ? 'caught' : 'NOT caught') + '; a planted wrong badge → ' + (cBadge ? 'caught' : 'NOT caught'));
+}
+/* the most any number moves between neighbouring points of a walk, in its blend law's own space and
+   in units of its corners' spread there (so a continuous bilinear morph moves at most one path step) */
+function maxStep(ms, corners) {
+  const L = corners.map(c => leaves(c).num);
+  let mx = 0;
+  for (let i = 1; i < ms.length; i++) {
+    const a = leaves(ms[i - 1].p).num, b = leaves(ms[i].p).num;
+    if (a.length !== b.length || a.some((q, j) => q[0] !== b[j][0])) return Infinity;       // the structure changed under the walk
+    a.forEach(([k, v, e], j) => {
+      if (e.step || blendLaw(e) === 'blend-then-round' || blendLaw(e) === 'nearest-corner') return;
+      /* the law's own space: log for a geometric blend (when every corner is positive, as blend() requires) */
+      const raw = L.map(l => l[j][1]), geo = blendLaw(e) === 'blend-geometric' && raw.every(q => q > 0), f = q => geo ? Math.log(q) : q;
+      const cv = raw.map(f), lo = Math.min(...cv), hi = Math.max(...cv);
+      if (!(hi - lo > 1e-12)) return;
+      mx = Math.max(mx, Math.abs(f(b[j][1]) - f(v)) / (hi - lo));
+    });
+  }
+  return mx;
+}
+function C29() {
+  const flip = { rule: 'hyst', band: 0.1 }, [P, R] = rosterPair(2901, false);
+  const Q = otherPatchSameRoster(P, 2902), P2 = clone(P), Q2 = clone(Q), R2 = clone(R);
+  randomizeParams(P2, mulberry32(2903), 1); randomizeParams(Q2, mulberry32(2904), 1); randomizeParams(R2, mulberry32(2905), 1);
+  const par = [P, Q, Q2, P2], mix = [P, P2, R, R2];
+  const N = 200, dy = 0.96 / N, path = []; for (let i = 0; i <= N; i++) path.push([0.35, 0.02 + dy * i]);
+  const walk = (C, fn) => { let prev = null; return path.map(([x, y]) => { const m = fn(C, x, y, prev); prev = m.key; return m; }); };
+  const rig = (C, x, y, prev) => morphRig(C, x, y, flip, prev);
+  /* (a) parity everywhere (two different patches of one roster): one class, spec v1's morph exactly, continuous */
+  const A = walk(par, rig), one = A.every(m => m.one), same4 = path.every(([x, y], i) => JSON.stringify(A[i].p) === JSON.stringify(morph4(par, x, y).p));
+  const sA = maxStep(A, par), contOk = sA <= dy * (1 + 1e-6);
+  /* (b) no parity (AB against CD): exactly one flip; inside the live class every number within its
+     members' range; the other class's numbers have NO effect (perturbed, the heard patch is identical) */
+  const B = walk(mix, rig), flips = B.filter((m, i) => i && m.key !== B[i - 1].key).length;
+  const hull = B.every(m => { const L = leaves(m.p).num, Ls = m.members.map(k => leaves(mix[k]).num); return L.every(([k, v], j) => { const vs = Ls.map(l => l[j][1]); return v >= Math.min(...vs) - 1e-9 && v <= Math.max(...vs) + 1e-9; }); });
+  const pert = mix.map(clone); randomizeParams(pert[2], mulberry32(2906), 1); randomizeParams(pert[3], mulberry32(2907), 1); randomizeParams(pert[0], mulberry32(2908), 1); randomizeParams(pert[1], mulberry32(2909), 1);
+  const indep = fn => { const X = walk(mix, fn), Y1 = walk([mix[0], mix[1], pert[2], pert[3]], fn), Y2 = walk([pert[0], pert[1], mix[2], mix[3]], fn);
+    return X.every((m, i) => (m.members.includes(0) ? JSON.stringify(Y1[i].p) === JSON.stringify(m.p) : JSON.stringify(Y2[i].p) === JSON.stringify(m.p))); };
+  const indepOk = indep(rig);
+  /* controls: a LEAKY rig that also blends the patch-level bus numbers over all four corners (every
+     patch has them, so a slip could); and a rig that plays the nearest corner whole (a flip everywhere) */
+  const leaky = (C, x, y, prev) => { const m = morphRig(C, x, y, flip, prev), w = cornerWeights(x, y); for (const b of busPatch()) if (b.kind === 'num') m.p.bus[b.key] = blend(C.map(c => c.bus[b.key]), w, b); return m; };
+  const nearest = (C, x, y) => { const w = cornerWeights(x, y); let k = 0; for (let i = 1; i < 4; i++) if (w[i] > w[k]) k = i; return { p: clone(C[k]), key: 'n' }; };
+  const cLeak = !indep(leaky), sN = maxStep(walk(par, nearest), par), cNear = !(sN <= dy * (1 + 1e-6));
+  pushCheck('C29', 'the XY interpolates continuously only under parity; across classes it never blends', one && same4 && contOk && flips === 1 && hull && indepOk, cLeak && cNear,
+    'four corners of TWO patches with parity, walked through ' + (N + 1) + ' points: one class throughout: ' + one + ', equal to spec v1\'s morph at every point: ' + same4 + ', the largest step of any number ' + sA.toFixed(4) + ' of its corners\' spread against a path step of ' + dy.toFixed(4) + ': ' + contOk
+    + ' · AB against CD (no parity): ' + flips + ' flip(s); every heard number inside its live class\'s range: ' + hull + '; the other class\'s numbers perturbed → the heard patch unchanged at every point: ' + indepOk
+    + ' · controls: a rig that also blends the bus numbers over all four corners → ' + (cLeak ? 'caught' : 'NOT caught') + '; the nearest corner played whole on the parity rig (step ' + (isFinite(sN) ? sN.toFixed(3) : '∞') + ') → ' + (cNear ? 'caught' : 'NOT caught'));
+}
+function C30() {
+  const [P, R] = rosterPair(3001, false), AB = [P, clone(P), R, clone(R)], lone = [P, R, clone(R), clone(R)];
+  const names = (C, flip, pts) => { let prev = null; return pts.map(([x, y]) => { const m = morphRig(C, x, y, flip, prev); prev = m.key; return m.name; }); };
+  const flipsAt = s => s.map((v, i) => i && v !== s[i - 1] ? i : -1).filter(i => i >= 0);
+  /* x = 0.5: the CD class's weight is then 0.5·y + 0.5·y = y exactly, so the thresholds meet the grid exactly */
+  const N = 400, up = [], down = []; for (let i = 0; i <= N; i++) up.push([0.5, i / N]); for (let i = N; i >= 0; i--) down.push([0.5, i / N]);
+  const upDown = up.concat(down), yAt = i => upDown[i][1];
+  const firstUp = th => up.findIndex(p => p[1] > th), firstDown = th => N + 1 + down.findIndex(p => p[1] < th);
+  /* nearest, against a brute-force reading of its definition over a 41×41 grid, both rigs */
+  const exNear = (C, x, y) => { const w = cornerWeights(x, y); let k = 0; for (let i = 1; i < 4; i++) if (w[i] > w[k]) k = i; return parityClasses(C).find(g => g.members.includes(k)).name; };
+  let nearOk = true; for (const C of [AB, lone]) for (let i = 0; i <= 40; i++) for (let j = 0; j <= 40; j++) if (morphRig(C, i / 40, j / 40, { rule: 'nearest', band: 0 }, null).name !== exNear(C, i / 40, j / 40)) nearOk = false;
+  /* weight and hysteresis on AB|CD, where the CD class's weight IS y: up then down */
+  const fW = flipsAt(names(AB, { rule: 'weight', band: 0 }, upDown)), fH = flipsAt(names(AB, { rule: 'hyst', band: 0.1 }, upDown));
+  const wOk = sameList(fW, [firstUp(0.5), firstDown(0.5)]), hOk = sameList(fH, [firstUp(0.6), firstDown(0.4)]);
+  /* the lone corner A against BCD, along the diagonal: nearest flips at t > 0.5, weight where
+     (1−t)² drops under 0.5 (t ≈ 0.293) */
+  const diag = []; for (let i = 0; i <= N; i++) diag.push([i / N, i / N]);
+  const lN = flipsAt(names(lone, { rule: 'nearest', band: 0 }, diag)), lW = flipsAt(names(lone, { rule: 'weight', band: 0 }, diag));
+  const lOk = sameList(lN, [diag.findIndex(p => p[0] > 0.5)]) && sameList(lW, [diag.findIndex(p => (1 - p[0]) * (1 - p[0]) < 0.5)]);
+  /* chatter: 200 steps hovering at 0.5 ± 0.04; then 0.65, 0.45, 0.35 */
+  const hover = []; for (let i = 0; i < 200; i++) hover.push([0.5, 0.5 + (i & 1 ? 0.04 : -0.04)]);
+  const trip = hover.concat([[0.5, 0.65], [0.5, 0.45], [0.5, 0.35]]);
+  const cH = flipsAt(names(AB, { rule: 'hyst', band: 0.1 }, trip)), cW = flipsAt(names(AB, { rule: 'weight', band: 0 }, hover)), c0 = flipsAt(names(AB, { rule: 'hyst', band: 0 }, hover));
+  const chatOk = sameList(cH, [200, 202]);
+  pushCheck('C30', 'the flip happens exactly at the chosen boundary rule, and the hysteresis band stops chatter', nearOk && wOk && hOk && lOk && chatOk, c0.length > 100 && cW.length > 100 && lN[0] !== lW[0],
+    'NEAREST CORNER equals the nearest corner\'s class at all 1681 points of a 41×41 grid on two rigs: ' + nearOk
+    + ' · AB|CD at x = 0.5 (the CD class weighs y) swept up and down: WEIGHT > 0.5 flips at y ' + fW.map(i => yAt(i).toFixed(4)).join(' and ') + ' (want the first past 0.5 each way): ' + wOk
+    + '; HYSTERESIS ±0.1 at y ' + fH.map(i => yAt(i).toFixed(4)).join(' and ') + ' (want past 0.6 going up, under 0.4 coming down): ' + hOk
+    + ' · A alone against BCD on the diagonal: nearest at t ' + lN.map(i => diag[i][0].toFixed(4)).join() + ', weight at t ' + lW.map(i => diag[i][0].toFixed(4)).join() + ' (want past 0.5, and where (1−t)² < 0.5): ' + lOk
+    + ' · 200 steps hovering at 0.5 ± 0.04 then 0.65, 0.45, 0.35: hysteresis flips at steps ' + cH.join(', ') + ' (want 200 and 202 only): ' + chatOk
+    + ' · controls: the same hover under WEIGHT → ' + cW.length + ' flips, and under a band of 0 → ' + c0.length + ' (chatter, caught); nearest and weight put A\'s line at different places (' + (lN[0] !== lW[0] ? 'distinguished' : 'NOT distinguished') + ')');
+}
+function C31() {
+  const [P, R] = rosterPair(3101, false), mix = [P, clone(P), R, clone(R)];
+  randomizeParams(mix[1], mulberry32(3102), 1); randomizeParams(mix[3], mulberry32(3103), 1);
+  const flip = { rule: 'hyst', band: 0.1 }, G = defaultGlobals(), set = { drywet: 0.7, width: 0.3, time: 0.62, tune: 0.58 };
+  for (const g of fixedMacros()) if (g.role in set) G[g.role] = set[g.role];
+  let prev = null, before = null, after = null;
+  for (let i = 0; i <= 400 && !after; i++) { const m = morphRig(mix, 0.4, i / 400, flip, prev); if (prev !== null && m.key !== prev) after = m; else before = m; prev = m.key; }
+  const flipped = !!after && !patchParity(before.p, after.p);
+  /* what a fixed macro DOES to a patch, read off resolve(): Time's factor on every free length (the
+     manifest's Time role), Tune's on every free frequency, and the Dry/Wet and Width positions */
+  const tf = timeF(G), tr = Math.pow(2, tuneSt(G) / 12);
+  const effect = (p, Gx) => { const q = resolve(p, Gx, 120).q, out = [];
+    p.chain.forEach((m, mi) => { for (const e of S_().mod[m.type]) { const a = m.params[e.key], b = q.chain[mi].params[e.key]; if (!(a > 0) || !(e.timeKnob || e.tuneKnob) || b <= e.min || b >= e.max) continue;
+      out.push([b / a, (e.timeKnob === 'scales' ? tf : 1) * (e.tuneKnob === 'divides' ? 1 / tr : e.tuneKnob === 'multiplies' ? tr : 1)]); } });
+    return out; };
+  const same = xs => xs.every(([v, want]) => Math.abs(v - want) <= 1e-9 * want);
+  const eB = effect(before.p, G), eA = effect(after.p, G);
+  const lawsOk = same(eB) && same(eA) && eB.length + eA.length > 0;
+  const posOk = fixedMacros().every(g => G[g.role] === (g.role in set ? set[g.role] : g.centre));   // one Sluice-global object read on both sides
+  /* control: the per-patch alternative (Sluice dialogue: "does a patch store its own positions for
+     them?") — each class carries its own Time, the other class at its saved centre, applied at the flip */
+  const own = { [before.key]: Object.assign({}, G), [after.key]: Object.assign({}, G, { time: 0.5 }) };
+  const pB = timeF(own[before.key]), pA = timeF(own[after.key]), cJump = Math.abs(pA - pB) > 1e-6;
+  pushCheck('C31', 'the fixed four stay continuous across a quantum flip', flipped && lawsOk && posOk, cJump,
+    'AB|CD walked up at x = 0.4 until the flip (≡' + (before ? before.name : '?') + ' → ≡' + (after ? after.name : '?') + ', no parity: ' + flipped + ') with ' + fixedMacros().map(g => g.label + ' ' + G[g.role]).join(', ')
+    + ': the four positions are one Sluice-global set, read the same on both sides: ' + posOk + '; Time ×' + tf.toFixed(4) + ' and Tune ×' + tr.toFixed(4) + ' act by the same law on ' + eB.length + ' param(s) before the flip and ' + eA.length + ' after (each its manifest role): ' + lawsOk
+    + ' · Dry/Wet\'s centre is each patch\'s OWN mix (§6.1), so the heard wet level can still step at a flip — a question on the page · control: fixed positions stored per patch (the other class at its saved centre) → Time ×' + pB.toFixed(3) + ' → ×' + pA.toFixed(3) + ' at the flip: ' + (cJump ? 'a jump, caught' : 'NOT caught'));
+}
+/* the face a boot query asks for; no query = the default, the spec's Play face */
+function faceFromQuery(q) { const f = q && q.get ? q.get('face') : null; return ['play', 'rack', 'scope'].includes(f) ? f : 'play'; }
+async function C32() {
+  const nm = faceName(), parsed = !!S_().doc.faces.play.name;
+  const first = $('faceTabs').querySelector('.tab');
+  const isDefault = faceFromQuery(new URLSearchParams('')) === 'play' && (LAB.bootQueried || LAB.bootFace === 'play');
+  const firstOk = !!first && first.dataset.face === 'play' && first.textContent === nm;
+  let own = ''; try { own = await fetch(location.pathname, { cache: 'no-store' }).then(r => r.text()); } catch (e) { own = ''; }
+  /* whitespace-flattened, case-folded: a name wrapped across a comment's line break still counts */
+  const flat = t => t.toUpperCase().replace(/\s+/g, ' '), notCommitted = own.length > 1000 && !flat(own).includes(flat(nm));
+  const shown = $('playFace').textContent.includes(nm);
+  const cQuery = faceFromQuery(new URLSearchParams('face=rack')) === 'rack', cPlant = (own + '\n' + nm).toUpperCase().includes(nm.toUpperCase());
+  pushCheck('C32', 'the default face is the spec\'s Play face, under the name the spec gives it', parsed && isDefault && firstOk && notCommitted && shown, cQuery && cPlant,
+    'the name read from the spec\'s §11 at load: "' + nm + '" (' + (parsed ? 'parsed' : 'NOT FOUND') + ') · with no query the page opens on it' + (LAB.bootQueried ? ' (this load was queried: face ' + LAB.bootFace + ')' : '') + ': ' + isDefault
+    + ' · it is the first tab and carries that name: ' + firstOk + ' · shown on the face: ' + shown + ' · the served file (' + own.length + ' characters) never spells it: ' + notCommitted
+    + ' · controls: a query naming the full device is honoured (so "default" is not a constant) → ' + (cQuery ? 'yes' : 'NO') + '; the name planted in the file → ' + (cPlant ? 'caught' : 'NOT caught'));
+}
+/* reads the live FULL DEVICE face */
+function C33() {
+  const S = S_(), p = cur(), R = $('rackFace'), insts = root => new Set([...root.querySelectorAll('[data-inst]')].map(e => e.dataset.inst));
+  const pool = poolItems(p).map(it => it.id), got = insts(R), miss = pool.filter(id => !got.has(id));
+  const pids = uiPids(R), wantP = [].concat(S.groups.flatMap(g => g.fields.map(f => 'G/' + g.name + '/' + f.name)), S.globals.map(g => 'X/' + g.key), [...Array(varSlots()).keys()].map(k => 'K/' + k));
+  const missP = wantP.filter(x => !pids.has(x));
+  const cat = uiPids(catalogueDom()), want = manifestPids(SPEC.raw), missCat = minus(want, cat);
+  const minimal = insts($('playFace')).size === 0 && pool.length > 0;
+  const cl = R.cloneNode(true), victim = cl.querySelector('[data-inst]'); if (victim) victim.remove();
+  const cCaught = pool.filter(id => !insts(cl).has(id)).length === 1;
+  pushCheck('C33', 'the FULL DEVICE reaches every number the manifest exposes', !miss.length && !missP.length && !missCat.length, cCaught && minimal,
+    'corner ' + CORNER[LAB.sel] + '\'s patch: its ' + pool.length + ' pool numbers each have a row on the full device: ' + (miss.length ? 'MISSING ' + miss.slice(0, 4).join(' ') : 'all') + ' · its ' + wantP.length + ' group fields, Sluice-global controls and variable slots: ' + (missP.length ? 'MISSING ' + missP.join(' ') : 'all')
+    + ' · built over every manifest type (C1\'s catalogue), ' + want.size + ' manifest ids: ' + (missCat.length ? 'MISSING ' + missCat.length : 'all')
+    + ' · the default face carries none of the pool (minimal plumbing): ' + minimal + ' · control: one row removed from a copy of the full device → ' + (cCaught ? 'caught' : 'NOT caught'));
+}
+function C34() {
+  const [P, R] = rosterPair(3401, false), P2 = clone(P); randomizeParams(P2, mulberry32(3402), 1);
+  const Rn = clone(R); Rn.macros = [];
+  const base = [P, P2, R, Rn], k = 0, sel = 1;
+  const run = (scope, as) => { const C = base.map(clone), s = macroShown(C[sel], k), v = clamp(s > 0.5 ? s - 0.3 : s + 0.3, 0, 1), ks = macroWrite(C, sel, k, v, as || scope);
+    const changed = [0, 1, 2, 3].filter(j => JSON.stringify(C[j]) !== JSON.stringify(base[j]));
+    return { C, v, ks, changed }; };
+  const near = (a, b) => Math.abs(a - b) <= 1e-6;
+  const judgeSel = r => sameList(r.ks, [sel]) && sameList(r.changed, [sel]) && near(macroShown(r.C[sel], k), r.v);
+  const has = [0, 1, 2, 3].filter(j => !!macroSlot(base[j], k));
+  const judgeGlo = r => sameList(r.ks, has) && sameList(r.changed, has) && has.every(j => near(macroShown(r.C[j], k), r.v));
+  const S1 = run('selected'), S2 = run('global'), okSel = judgeSel(S1), okGlo = has.length >= 3 && judgeGlo(S2);
+  /* the live page: the scope grid outlines exactly the cells a move would write, in both scopes */
+  const keep = LAB.mscope; let gridOk = true;
+  try { for (const sc of ['selected', 'global']) { LAB.mscope = sc; rebuild();
+    for (let kk = 0; kk < varSlots(); kk++) { const hot = [...$('playFace').querySelectorAll('.msc .b.hot')].filter(b => +b.dataset.slot === kk).map(b => +b.dataset.corner).sort();
+      if (!sameList(hot, macroScopeTargets(LAB.corners, LAB.sel, kk, sc))) gridOk = false; } } }
+  finally { LAB.mscope = keep; rebuild(); }
+  /* controls: a "global" move that ignores the scope (the selected corner only), and a "selected"
+     move that leaks to every corner */
+  const cG = !judgeGlo(run('global', 'selected')), cS = !judgeSel(run('selected', 'global'));
+  pushCheck('C34', 'macro scope: SELECTED CORNER writes one corner, EVERY CORNER writes each corner\'s slot', okSel && okGlo && gridOk, cG && cS,
+    'variable macro M1 moved on a rig of two patches with the slot and one without, corner B selected · selected: wrote ' + S1.ks.map(j => CORNER[j]).join('') + ', changed ' + S1.changed.map(j => CORNER[j]).join('') + ', B now reads the new value: ' + okSel
+    + ' · every corner: wrote ' + S2.ks.map(j => CORNER[j]).join('') + ' (each by its own patch\'s binding), changed ' + S2.changed.map(j => CORNER[j]).join('') + ', each reads the new value, D (no slot) untouched: ' + okGlo
+    + ' · the live scope grid outlines exactly the cells each scope writes: ' + gridOk
+    + ' · controls: an every-corner move that writes only B → ' + (cG ? 'caught' : 'NOT caught') + '; a selected move that writes every corner → ' + (cS ? 'caught' : 'NOT caught'));
+}
+function C35() {
+  const [P, R] = rosterPair(3501, true), G0 = defaultGlobals();
+  const vA = heardV01(P, G0, 120), vB = heardV01(R, G0, 120), sA = engineSig(P), sB = engineSig(R);
+  for (const v of [vA, vB]) for (const k in v) if (v[k] && v[k].shape !== undefined) v[k].shape = 'sine';   // no S&H: the stream would be shared
+  const N1 = 4096, N2 = 4096, bl = 128, rnd = mulberry32(0x35), xin = new Float32Array(N1 + N2); for (let i = 0; i < xin.length; i++) xin[i] = 0.3 * (rnd() * 2 - 1);
+  const run = spill => { const r = makeRenderer(pageEnv({ Voice: null }), SR_OFF); r.msg({ t: 'patch', p: vA, sig: sA });
+    const out = new Float32Array(N1 + N2), L = new Float32Array(bl), Rr = new Float32Array(bl); let met = null;
+    for (let o = 0; o < N1 + N2; o += bl) { if (o === N1) { r.meters(true); r.msg({ t: 'patch', p: vB, sig: sB, spill }); } r.process(L, Rr, xin.subarray(o, o + bl), xin.subarray(o, o + bl)); out.set(L, o); }
+    met = r.meters(true); return { out, met, tails: r.tailCount(), XF: r.xfLen() }; };
+  const Sp = run(true), Hd = run(false), XF = Sp.XF;
+  /* the spill expectation, from two fresh engines: the new one on the input, plus the old one fed SILENCE */
+  const expect = oldIn => { const fa = buildFactory(REF.src, mulberry32(0x5E11)).makeEngine(SR_OFF), fb = buildFactory(REF.src, mulberry32(0x5E11)).makeEngine(SR_OFF);
+    fa.applyPatch(vA); fb.applyPatch(vB); const w = new Float32Array(N1 + N2);
+    for (let i = 0; i < N1; i++) w[i] = fa.tick(xin[i]);
+    for (let i = N1; i < N1 + N2; i++) { const nw = fb.tick(xin[i]); let tl = 0; tl += fa.tick(oldIn(i)) * 1; w[i] = nw + tl; }
+    return w; };
+  const want = expect(() => 0);
+  let mism = 0; for (let i = 0; i < want.length; i++) if (!Object.is(Sp.out[i], want[i])) mism++;
+  const fresh = buildFactory(REF.src, mulberry32(0x5E11)).makeEngine(SR_OFF); fresh.applyPatch(vB);
+  const fr = new Float32Array(N1 + N2); for (let i = N1; i < N1 + N2; i++) fr[i] = fresh.tick(xin[i]);
+  let eS = 0, eH = 0, hm = 0; for (let i = N1 + XF; i < N1 + N2; i++) { eS += (Sp.out[i] - fr[i]) ** 2; eH += (Hd.out[i] - fr[i]) ** 2; if (!Object.is(Hd.out[i], fr[i])) hm++; }
+  const flipOk = mism === 0 && eS > 0 && hm === 0 && eH === 0 && Sp.met.tail > -140 && Hd.met.tail === -150 && Sp.tails === 1 && Hd.tails === 0;
+  /* bypass: spill-over keeps the engine ringing (fed silence) and the meter sees it; hard cuts */
+  const byp = mode => { const r = makeRenderer(pageEnv({ Voice: null }), SR_OFF); r.msg({ t: 'patch', p: vA, sig: sA });
+    const L = new Float32Array(bl), Rr = new Float32Array(bl); let diff = 0;
+    for (let b = 0; b < 32; b++) r.process(L, Rr, xin.subarray(b * bl, b * bl + bl), xin.subarray(b * bl, b * bl + bl));
+    r.msg({ t: 'bypass', on: true, mode }); r.meters(true);
+    for (let b = 0; b < 16; b++) { const x = xin.subarray((32 + b) * bl, (33 + b) * bl); r.process(L, Rr, x, x); for (let i = 0; i < bl; i++) if (!Object.is(L[i], x[i])) diff++; }
+    const m = r.meters(true); return { diff, tail: m.tail, engines: m.engines }; };
+  const bS = byp('spill'), bH = byp('hard'), bypOk = bS.diff > 0 && bS.tail > -140 && bH.tail === -150;
+  /* the CPU tradeoff (B347: a user preference for exactly this reason): engines ticking at the end */
+  const cpuOk = Sp.met.engines === 2 && Hd.met.engines === 1 && bS.engines === 1 && bH.engines === 0;
+  /* controls: a "spill" whose old engine keeps hearing the INPUT; and a flip that says spill but cuts */
+  const leak = expect(i => xin[i]); let lm = 0; for (let i = N1; i < want.length; i++) if (!Object.is(Sp.out[i], leak[i])) lm++;
+  const cLeak = lm > 0, cCut = !(eH > 0 && Hd.met.tail > -140);
+  pushCheck('C35', 'spill-over lets the outgoing tail ring on; hard cuts it (a flip and a bypass); the CPU it costs', flipOk && bypOk && cpuOk, cLeak && cCut,
+    'a flip at sample ' + N1 + ' between two structures (22.05 kHz): SPILL-OVER = the new engine on the input + the old engine fed silence, sample for sample: ' + mism + ' of ' + want.length + ' differ; after the ' + XF + '-sample fade the tail adds ' + (10 * Math.log10(eS / (N2 - XF) + 1e-30)).toFixed(1) + ' dB, meter ' + Sp.met.tail.toFixed(1) + ' dB, ' + Sp.tails + ' ringing'
+    + ' · HARD = the fresh engine alone after the fade: ' + hm + ' differ, meter ' + Hd.met.tail.toFixed(0) + ' dB · bypass: spill-over rings (' + bS.diff + ' samples differ from the input, meter ' + bS.tail.toFixed(1) + ' dB), hard is cut (meter ' + bH.tail.toFixed(0) + ' dB): ' + bypOk
+    + ' · engines ticking (the CPU tradeoff, schematic): after the flip spill-over ' + Sp.met.engines + ', hard ' + Hd.met.engines + '; bypassed spill-over ' + bS.engines + ', hard ' + bH.engines + ': ' + cpuOk
+    + ' · the tail meter is a SCHEMATIC: measured on horde\'s v0.1 stand-in, not Sluice\'s netcore · controls: an old engine that keeps hearing the input → ' + lm + ' samples differ, ' + (cLeak ? 'caught' : 'NOT caught') + '; a flip that claims spill but cuts → ' + (cCut ? 'caught' : 'NOT caught'));
+}
 async function runChecks() {
   if (!LAB.ready || LAB.checksRun) return;
   LAB.checksRun = true;
-  const list = SPEC.ok ? [C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14, C15, C16, C19, C20, C21, C22, C23, C24, C25, C26, C27] : [C14];
+  const list = SPEC.ok ? [C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14, C15, C16, C19, C20, C21, C22, C23, C24, C25, C26, C27, C28, C29, C30, C31, C33, C34, C35] : [C14];
   for (const f of list) { try { f(); } catch (e) { pushCheck(f.name, f.name + ' threw', false, false, String(e && e.message || e)); } }
   if (SPEC.ok) { try { await C17(); } catch (e) { pushCheck('C17', 'the scan threw', false, false, String(e && e.message || e)); } }
+  if (SPEC.ok) { try { await C32(); } catch (e) { pushCheck('C32', 'C32 threw', false, false, String(e && e.message || e)); } }
   LAB.k9Note = SPEC.ok ? 'C18 pending: the real AudioWorklet renders in an OfflineAudioContext (real time only)' : '';
   paintChrome(); buildSide();
   if (SPEC.ok) { try { LAB.k9Note = ''; await C18(); } catch (e) { pushCheck('C18', 'the real AudioWorklet threw', false, false, String(e && e.message || e)); } }
@@ -3473,9 +4242,9 @@ const SECTION_STATUS = {
   6: 'REALISED — global / per-patch / internal, as the three layers of the faces; internal changes rebuild the engine with a 20 ms crossfade (C9)',
   7: 'REALISED, AND CHANGED BY A PROPOSAL — the law, by ORDER with the patch\'s label (C5); B337 splits the manifest\'s slots into four FIXED macros (the knob globals) and four VARIABLE ones, whose definitions are written into every snapshot of the patch (C23, C24)',
   8: 'REALISED — resolved on the message side at the host tempo: Sync, feel, Time (octaves under Sync), Tune leaving synced times alone (C6–C8)',
-  9: 'REALISED — the one-patch rule, FORBID by default (C3); the manifest\'s own blend laws, discrete from the nearest (C4); B337: a snapshot library per patch, a binding per corner, drafts (C19–C22)',
-  10: 'PARTIAL — v0.1\'s loop bounds are real (C12); the gate and post limiter are not voiced; bypass is OPEN (§13 #3) and both candidates are switchable (C10)',
-  11: 'REALISED — the Play face (default; a GBC skin, B338, C26), the Rack face (every Play control too, C2), the Scope (the follower/gate trace not voiced)',
+  9: 'REALISED, AND CHANGED BY A PROPOSAL — the manifest\'s own blend laws, discrete from the nearest (C4); a patch\'s snapshots share one structure (C3); B337: a snapshot library per patch, a binding per corner, drafts (C19–C22); B348: each corner its own patch, parity morphs, otherwise a quantum flip at a chosen boundary (C28–C31)',
+  10: 'PARTIAL — v0.1\'s loop bounds are real (C12); the gate and post limiter are not voiced; bypass (§13 #3): spill-over or hard is a USER PREFERENCE in horde\'s SETTINGS (B347, the CPU tradeoff), both shown with their engine cost; a flip follows the same preference (C10, C35)',
+  11: 'REALISED — the Play face under its own name, the default (a GBC skin, B338, C26; C32), the Rack face as the FULL DEVICE (every Play control too, C2; every number, C33), the Scope (the follower/gate trace not voiced)',
 };
 function buildSide() {
   const s = $('side'); if (!s) return;
@@ -3484,7 +4253,7 @@ function buildSide() {
     + esc(c.detail) + (c.ok ? '' : ' · ASSERTION FAILED') + (c.ctl ? '' : ' · CONTROL DID NOT FIRE') + '</small></div></div>').join('');
   const info = t => t ? '<div class="ck"><span class="na">INFO</span><div><small>' + esc(t) + '</small></div></div>' : '';
   let h = '<div class="box"><h2>SELF-CHECKS AT LOAD</h2>' + (LAB.checksRun ? '<b>' + pass + ' / ' + ck.length + ' pass</b>, each with its must-fail control.' : (LAB.ready ? 'running…' : 'not run yet (serve the repo)'))
-    + (SPEC.ok ? '' : ' <b>The spec is absent, so only the v0.1 engine\'s own check runs; C1–C13 and C15–C26 need the spec.</b>')
+    + (SPEC.ok ? '' : ' <b>The spec is absent, so only the v0.1 engine\'s own check runs; C1–C13 and C15–C35 need the spec.</b>')
     + rows + info(LAB.divsNote) + info(LAB.k9Note) + info(LAB.k17) + '</div>';
   if (SPEC.ok) {
     const S = S_(), D = S.doc, V = LAB.voiced || {};
@@ -3494,8 +4263,8 @@ function buildSide() {
     const nvOther = nv.filter(k => k[0] !== 'M').map(k => k.replace(/^B\//, 'bus ').replace(/^G\/\//, '').replace(/^G\//, '').replace('/', ' '));
     const clamped = S.types.filter(t => REF.defs[t]).flatMap(t => S.mod[t].map(e => [t, e, v01Range(t, e.key)]).filter(([t, e, r]) => r && (r[1] < e.max || r[0] > e.min)).map(([t, e, r]) => t + ' ' + e.key + ' (v0.1 ' + fmtNum(r[0], e) + '–' + fmtNum(r[1], e) + ')'));
     const open = D.s13.filter(r => [3, 5, 6, 7].includes(r.n));
-    const lead = { 3: 'The lab defaults to HARD and offers spill-over on the rack strip; C10 proves the hard path bit-identical.', 5: 'The lab FORBIDS (Sluice\'s recommendation): a snapshot of another structure is refused at the corner (C3).',
-      6: 'The Rack face draws the whole pool because §11.2 does; what the HOST sees (macros only, or the pool as generic knobs) is not decided here.', 7: 'The lab keeps its library in the page (export / import as JSON); nothing is stored.' };
+    const lead = { 3: 'The human (B347): a USER PREFERENCE in horde\'s SETTINGS, so users decide the CPU tradeoff; limit CPU burn either way. The lab starts on spill-over and shows hard beside it, with the engines each keeps running; C10 proves the hard path bit-identical, C35 both tails and their cost.', 5: 'The human (B347): corners get their own patches; parity morphs, otherwise a quantum flip. Prototyped here (B348, a proposal pending seq 11); inside one patch another structure is still refused (C3).',
+      6: 'The human (B347): all of Sluice exposed, defaulting to the ' + esc(faceName()) + ' face. The FULL DEVICE draws every number (C33); what the HOST automates is still open.', 7: 'The human (B347): each device its own folder in horde\'s preset hierarchy, one format with the standalone. The lab keeps its library in the page (export / import as JSON).' };
     h += '<div class="box"><h2>THE SPEC, AS READ</h2>' + esc(D.title.replace(/^#\s*/, '')) + ' — <b>' + D.ver + '</b> · manifest <b>' + esc(S.raw.format) + ' v' + S.raw.v + '</b>, read in place through <code>local/sluice</code> (gitignored).'
       + '<br>Derived at load: <b>' + S.types.length + '</b> module types, <b>' + S.types.reduce((a, t) => a + S.mod[t].length, 0) + '</b> module params, <b>' + S.bus.length + '</b> bus entries, <b>' + S.groups.length + '</b> groups, <b>'
       + S.globals.length + '</b> global controls (' + S.globals.filter(g => g.origin !== 'manifest').length + ' from §6.1 only), <b>' + S.slots + '</b> macro slots, <b>' + S.divs.length + '</b> divisions.</div>';
@@ -3535,6 +4304,27 @@ function buildSide() {
     + '<li>Deleting a bound snapshot: the lab rebinds the corner to a snapshot no corner uses, of the same structure. Acceptable, or refuse?</li>'
     + '<li>Is a variable macro move a draft of the selected corner (the lab), or a patch-wide performance value that is never saved?</li>'
     + '<li>Tail rewrites the gate of every snapshot of a generated patch (so it never makes a draft). Is Tail per patch or per snapshot?</li></ol></div>';
+  if (SPEC.ok) {
+    h += '<div class="box"><h2>ROUND 3 — ' + esc(PROPOSAL3.toUpperCase()) + '</h2>The human\'s rulings of B347, prototyped (B348). Spec v1\'s one-patch rule is overturned here, as a proposal.'
+      + '<ul><li><b>Per-corner patches:</b> each corner names its own library entry and plays that patch\'s working copy for it; randomize, save and discard act on the selected corner\'s own patch. "new patch → corner" makes a new random structure for one corner.</li>'
+      + '<li><b>Patch parity</b> (patchParity): the same module types in the same order in the loop chain and in the post chain, which is all the wiring a serial network in one bus has. Numbers, module ids, names, macros and the values §9 takes from the nearest corner are ignored. Two snapshots of one patch always match; two different patches match when their numbers can blend.</li>'
+      + '<li><b>The flip:</b> the corners fall into parity classes; a boundary rule picks the LIVE class and the XY blends inside it with its weights renormalised; crossing into another class switches the heard patch at once. Three rules: NEAREST CORNER (the quadrant lines), WEIGHT > 0.5 (a class\'s summed weight; the line bends round a lone corner), HYSTERESIS (leave only past 0.5 + band). The line is drawn on the XY from the same function the morph uses.</li>'
+      + '<li><b>Recommendation: HYSTERESIS</b>, band about 0.1. horde modulates its corner field, and each flip is a new engine (and, in spill-over, a new tail), so a hairline boundary under an LFO would chatter and stack tails. Hysteresis on the class weight costs a little reach near the line and removes the chatter (C30: 0 flips hovering ±0.04, against ' + 'a flip per step without it).</li>'
+      + '<li><b>The fixed four</b> (' + esc(fixedMacros().map(g => g.label).join(', ')) + ') stay Sluice-global, so a flip never moves them (C31).</li>'
+      + '<li><b>' + esc(faceName()) + '</b> is the default face; <b>FULL DEVICE</b> reaches every number (C32, C33). <b>Macro scope</b> is a toggle with a grid of every corner\'s slots (C34). <b>Tails:</b> spill-over and hard, one mode for a bypass and a flip, a USER PREFERENCE in horde\'s SETTINGS (the human, B347: "so users can decide about the CPU tradeoff"); the tail meter draws the engines each keeps running, as a schematic (C35).</li></ul>'
+      + '<b>Open for the human:</b><ol>'
+
+      + '<li>Which boundary rule, and how wide a band?</li>'
+      + '<li>Dry/Wet\'s centre is each patch\'s own mix (§6.1), so at a flip the heard wet level can step although the knob does not move. Should the patch mix glide across a flip too?</li>'
+      + '<li>Macro scope: selected corner or every corner? Every corner writes each corner\'s slot by its own patch\'s binding and makes every corner a draft.</li>'
+      + '<li>Should a patch the player LOADS also spill over (the lab keeps §6.3\'s cut for loads and rack edits, and spills only on an XY flip and a bypass)?</li></ol>'
+      + '<b>For the Sluice dialogue (add to seq 11):</b><ol>'
+      + '<li>Is parity = same roster and order (loop and post) the right test, or does Sluice count modulation targets as wiring?</li>'
+      + '<li>A stored preset now needs a patch per corner as well as its binding. One file holding four patches, or four references into the library?</li>'
+      + '<li>Should netcore run the outgoing engine as a tail itself (a spill-over flip), or should horde hold two engines?</li>'
+      + '<li>A cap on concurrent tails (the lab: 3, the oldest faded out) and when a tail is dropped (the lab: 0.25 s under 1e-6, or 8 s).</li>'
+      + '<li>Does Tail (4 s · 20 s · ∞) bound a spill-over tail, or only the release gate?</li></ol></div>';
+  }
   h += '<div class="box"><h2>THE HOLD</h2>No Sluice code, data, parameter tables, presets or spec text is committed with this file. Everything Sluice-shaped above and in the plugin window was read at load from <code>local/sluice</code>, a gitignored link; C17 scans this file as served for the manifest\'s ids and strings. '
     + 'What IS committed: the chassis, horde\'s own division list, horde\'s v0.1 reference (sliced from its own tracked file), the lab\'s own generator, names and laws, and the rules of the spec restated as behaviour.</div>';
   h += '<div class="box"><h2>REUSED FROM</h2><ul><li>reference/network-lab-v0.html — ENGINE_FACTORY and PRESETLIB (fetched, sliced, called; the v0.1 patches appear as test patches, not as Sluice presets).</li>'
@@ -3584,12 +4374,12 @@ function initState() {
     LAB.lib.push(libEntry(A.name, 'v0.1 test patch · horde\'s copy', nameSnaps(variants(A, lr, 0.3), A.name)));
   }
   LAB.lib.push(generatedEntry(lr, tailSeconds(LAB.G.tail), 0.35, 'generated by the lab · seed ' + (SEED0 ^ 0x5A5A)));
-  LAB.libSel = Math.max(0, LAB.lib.findIndex(e => e.name === PRESET_NAME['scrumulator-ish']));
-  LAB.corners = LAB.lib[LAB.libSel].work; LAB.sel = 0;
-  LAB.hist = []; LAB.hi = -1; commit('load ' + LAB.lib[LAB.libSel].name);
+  const i0 = Math.max(0, LAB.lib.findIndex(e => e.name === PRESET_NAME['scrumulator-ish']));
+  LAB.cp = [i0, i0, i0, i0]; LAB.sel = 0;
+  LAB.hist = []; LAB.hi = -1; commit('load ' + LAB.lib[i0].name);
 }
 function frame() {
-  if (LAB.ready && !AUD.on && PAGE.r) { PAGE.r.process(PAGE.L, PAGE.R); LAB.meters = PAGE.r.meters(true); }
+  if (LAB.ready && !AUD.on && PAGE.r) { PAGE.r.process(PAGE.L, PAGE.R); noteMeters(PAGE.r.meters(true)); }
   paintLive();
   if (!LAB.still) requestAnimationFrame(frame);
 }
@@ -3604,6 +4394,20 @@ function runAct(a) {
   else if (a === 'x') { const E = curE(), s = E.snaps.find(q => !E.bind.includes(q.sid)); if (s) { LAB.pendDel = s.sid; rebuild(); } }
   else if (/^c[0-3]$/.test(a)) selectCorner(+a[1]);
   else if (/^m\d$/.test(a) && macroSlot(cur(), +a[1])) { LAB.mEdit = +a[1]; rebuild(); }
+  /* B348: N new patch for the selected corner · S a sibling patch (same roster) for it · T<i> library entry i into the selected corner ·
+     p<x>:<y> move the XY (as a drag does: it may flip) · w<n> render n hops, metering each ·
+     fn / fw / fh the flip rule · sg / ss the macro scope · k<k> move variable macro k by 0.3 ·
+     b toggle the bypass · mh / ms the bypass mode */
+  else if (a === 'N') randomizeCornerPatch();
+  else if (a === 'S') siblingCornerPatch();
+  else if (/^T\d+$/.test(a) && LAB.lib[+a.slice(1)]) loadIntoCorner(LAB.sel, +a.slice(1));
+  else if (/^p[\d.]+:[\d.]+$/.test(a)) { const [x, y] = a.slice(1).split(':').map(Number); LAB.xy.x = clamp(x, 0, 1); LAB.xy.y = clamp(y, 0, 1); xyFollow(); touch({ xy: true }); xyDone(); }
+  else if (/^w\d+$/.test(a)) { for (let i = 0; i < +a.slice(1); i++) { PAGE.r.process(PAGE.L, PAGE.R); noteMeters(PAGE.r.meters(true)); } }
+  else if (/^f[nwh]$/.test(a)) { LAB.flip.rule = { n: 'nearest', w: 'weight', h: 'hyst' }[a[1]]; touch(); rebuild(); }
+  else if (a === 'sg' || a === 'ss') { LAB.mscope = a === 'sg' ? 'global' : 'selected'; rebuild(); }
+  else if (/^k\d$/.test(a) && macroSlot(cur(), +a[1])) { const k = +a[1], s = macroShown(cur(), k); macroWrite(LAB.corners, LAB.sel, k, clamp(s > 0.5 ? s - 0.3 : s + 0.3, 0, 1), LAB.mscope); edited('macro ' + (k + 1)); rebuild(); }
+  else if (a === 'b') setBypass(!LAB.bypass);
+  else if (a === 'mh' || a === 'ms') setByMode(a === 'mh' ? 'hard' : 'spill');
 }
 /* ?face=rack&theme=dark&x=.5&y=.5&corner=1&src=impulse&bpm=90&warm=40&still=1&lib=2&skin=gbc&act=r,s,r — a still
    capture of a stated setting: `warm` renders that many hops before the first paint; `still` paints once and stops */
@@ -3632,8 +4436,9 @@ async function boot() {
   PAGE.r = makeRenderer(pageEnv(), SR);
   if (SPEC.ok) {
     initState();
-    if (q.get('lib') !== null) { const i = clamp(Math.round(+q.get('lib')), 0, LAB.lib.length - 1); LAB.libSel = i; LAB.corners = LAB.lib[i].work; commit('load ' + LAB.lib[i].name); }
-    if (q.get('face')) LAB.face = ['play', 'rack', 'scope'].includes(q.get('face')) ? q.get('face') : 'play';
+    if (q.get('lib') !== null) { const i = clamp(Math.round(+q.get('lib')), 0, LAB.lib.length - 1); LAB.cp = [i, i, i, i]; commit('load ' + LAB.lib[i].name); }
+    /* B348: no query = the default face (C32 reads what boot chose, and whether a query chose it) */
+    LAB.face = faceFromQuery(q); LAB.bootFace = LAB.face; LAB.bootQueried = q.get('face') !== null;
     if (q.get('x') !== null) LAB.xy.x = clamp(+q.get('x'), 0, 1);
     if (q.get('y') !== null) LAB.xy.y = clamp(+q.get('y'), 0, 1);
     if (q.get('corner') !== null) LAB.sel = clamp(Math.round(+q.get('corner')), 0, 3);

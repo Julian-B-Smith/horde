@@ -103,7 +103,7 @@
 
 **For the Sluice dialogue** (also on the page, to add to seq 10):
 1. Do the fixed macros store per-patch positions, or stay global? The manifest keeps them unchanged when presets change.
-2. Should 4 fixed + 4 variable = 8 be written into the manifest? Does §7's rule that the first macro binds a time or frequency still hold?
+2. Should 4 fixed + 4 variable = 8 be written into the manifest? Does §7's rule still hold, that macro 1 is bound to a time or a frequency parameter?
 3. Do macro definitions live per patch or per snapshot?
 4. A stored patch needs its corner bindings.
 5. Snapshot naming: does Sluice's generator name snapshots? Should names be unique across the library?
