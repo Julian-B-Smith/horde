@@ -3964,7 +3964,7 @@ function C7() {
   const lag = echo(120), lagC = echo(90);
   pushCheck('C7', 'tempo and Sync: a synced value is the division at the host tempo', !bad.length && snapOk && octOk && Math.abs(lag - 11025) <= 1, Math.abs(lagC - 11025) > 1,
     n + ' division × tempo pairs (times and rates, the tempo fallback included), against each name\'s own arithmetic: ' + (bad.length ? 'FAIL ' + bad.slice(0, 5).join(' ') : 'exact')
-    + ' · Sync on: ' + snaps + ' free values snap to the nearest in-range division of the feel\'s family: ' + snapOk + ' · Time with Sync on steps a time an octave and leaves a rate: ' + octOk
+    + ' · Sync on: ' + snaps + ' free values land on the closest allowed step of the feel\'s family: ' + snapOk + ' · Time with Sync on steps a time an octave and leaves a rate: ' + octOk
     + ' · RENDERED echo of 1/4 @ 120: ' + lag + ' samples (want 11 025 ±1) · control: the same at 90 bpm → ' + lagC + ', rejected');
 }
 function C8() {

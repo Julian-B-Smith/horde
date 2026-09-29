@@ -86,8 +86,6 @@ EXCLUDED_PREFIXES = ("integrations/sluice/", "libs/")
 
 # File -> (date entered, what clears it). FILE NAMES ONLY, never phrase text.
 PENDING = {
-    "docs/design/sluice-horde-lab.html":
-        ("2026-09-29", "B358: PR #850 (B353) replaces this file with 0 hits; merge order #848 -> #850"),
 }
 
 # ---- masking: paths and ids (exclusion 3) ---------------------------------
