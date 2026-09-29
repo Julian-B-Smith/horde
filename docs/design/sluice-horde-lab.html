@@ -138,9 +138,33 @@
        and a separate opt-in for a patch LOAD. horde runs a second Sluice instance only while a flip's
        or a load's outgoing engine rings (or crossfades).
      - C17 also scans the SPEC's PROSE at runtime (every 28-character run), after two copied spec
-       phrases slipped past the manifest-only scan (#838, #848). -->
+       phrases slipped past the manifest-only scan (#838, #848).
+
+     ROUND 5 — B361 (HYPERSAW, 2026-09-29, dispatched by the horde lead on records PR #855, branch
+     lead-records-142). The human, three things:
+     1. "Why are the sluice lab macro knobs rounded squares, and the corners outlines ovals in some places
+        and circles in others?" B337 drew the FIXED macros' cap as a rounded square on purpose (to tell
+        them from the variable ones), and the CORNERS list's chips were stretched by their grid cell
+        (min-width, 22×18). Now ONE shape system: every knob cap is round, and every corner chip, Sluice's
+        A–D and horde's 1–4 alike, is one component (chipEl: a circle, width fixed equal to height),
+        on the DOM faces, the rack row, horde's morph cards and canvas, and the GBC glass. C43 measures
+        every rendered cap and chip (getBoundingClientRect, 1.00 ± 0.02, and round).
+     2. "Let's focus on the GBC view and integrate the full functionality into the GBC screen (all the
+        buttons and sliders in the GBC screen should be interactive as well)". The GBC skin is now the
+        WHOLE instrument as screen software (section N4): pages reached through a MENU on soft key 1,
+        every control on the tile grid, operable by pointer (click, drag) and keyboard (a GBC focus
+        ring). Every action goes through the writers of section K3, which the DOM calls too: one model,
+        two views. ACTS is the registry of the lab's actions; C44 proves each has a GBC path, C45 the
+        hit-testing at ×1 and ×3, C46 the keyboard traversal and page graph, C47 that a GBC action moves
+        the DOM, C48 the tile rule with focus and hover drawn.
+     3. "when the global morph xy crosses into a corner, the FX page should switch to editing that corner
+        (it's confusing to edit otherwise)". Section K4: the editor follows B353's HYSTERESIS-LIVE patch,
+        not the raw quadrant, so a puck on a line does not chatter; the FX page, horde's MAIN page and the
+        glass say which corner is edited. A draft is never lost: it stays in its corner's patch. C49.
+     NO WHEEL still holds (above): the alt + wheel idiom would put this lab on lab_wheel_scroll_check's
+     inventory, a file outside this round's scope, so the trace asks for it. -->
 <html><head><meta charset="utf-8">
-<meta name="lab-review" content="B319 + B329 + B337 + B338 + B343 + B348 + B353 · 2026-09-29">
+<meta name="lab-review" content="B319 + B329 + B337 + B338 + B343 + B348 + B353 + B361 · 2026-09-29">
 <title>Sluice in horde — built to Sluice's architecture spec</title>
 <style>
   :root {
@@ -431,9 +455,14 @@
      corner"). --cc is set per chip. A library tag (.bind) is faint and dashed unless its snapshot is
      BOUND to that corner; it fills only when bound AND selected, so a fill always means "this is
      the corner you are on, playing this snapshot". C25 reads the computed fill back. */
-  .cchip { font:inherit; font-size:8.5px; font-weight:800; min-width:18px; height:18px; border-radius:50%;
+  /* B361: ONE chip component for every corner (Sluice's A–D and horde's 1–4): a CIRCLE, width fixed equal
+     to height (never min-width, which a grid cell or flex row then stretched into the oval the human
+     saw in the CORNERS list: 22×18), never stretched by its parent (justify/align-self), C43 measures it */
+  .cchip { font:inherit; font-size:8.5px; font-weight:800; width:18px; height:18px; min-width:0; max-width:18px; aspect-ratio:1 / 1;
+    border-radius:50%; justify-self:center; align-self:center; box-sizing:border-box;
     border:2.5px solid var(--cc); background:transparent; color:var(--text); cursor:pointer; padding:0; flex:0 0 auto; }
-  .cchip.bind { min-width:16px; height:16px; font-size:8px; border-width:1px; border-style:dashed; opacity:.5; }
+  .cchip.bind { width:16px; height:16px; max-width:16px; font-size:8px; border-width:1px; border-style:dashed; opacity:.5; }
+  .cchip.hz { width:20px; height:20px; max-width:20px; font-size:9px; }
   .cchip.bind.bound { border-width:2.5px; border-style:solid; opacity:1; }
   .cchip.on { background:var(--cc); color:#191521; }
   .cchip:disabled { cursor:not-allowed; }
@@ -445,14 +474,16 @@
   .crow .w { font-size:9px; color:var(--dim); text-align:right; font-variant-numeric:tabular-nums; }
   .prop { display:inline-block; font-size:8px; letter-spacing:.06em; font-weight:700; padding:0 5px; border-radius:3px;
     background:var(--caution-bg); color:var(--caution-tx); border:1px solid var(--caution); white-space:nowrap; }
-  /* B337 macros: FIXED (the four Sluice-global knobs: a square cap and the system's physics ink) vs
-     VARIABLE (the patch's own: the round cap and your value ink), so the two kinds never read alike */
+  /* B337 macros: FIXED (the four Sluice-global knobs: the system's physics ink on a recessed cap) vs
+     VARIABLE (the patch's own: your value ink). B361: both caps are ROUND — B337 drew the fixed cap as a
+     rounded square, which the human asked about ("why are the sluice lab macro knobs rounded squares");
+     the kinds now differ by ink and cap fill only, never by shape (C43 measures every cap) */
   .mgrp { display:flex; flex-direction:column; gap:2px; min-width:0; flex:1 1 0; }
   .mgrp > .cap { display:flex; gap:6px; align-items:center; margin:0 0 1px; line-height:1.3; }
   .mrow { display:flex; gap:10px; align-items:flex-start; flex-wrap:nowrap; }
   .mrow .kgrid { flex-wrap:nowrap; }
   .mrow > .mgrp.fx { padding-right:10px; border-right:1.5px dashed var(--div); }
-  .kcell.fixed .kcap { border-radius:6px; background:var(--panel2); }
+  .kcell.fixed .kcap { background:var(--panel2); }
   .kcell.fixed .karc { background:conic-gradient(from 220deg,
       var(--panel2) 0deg var(--a0,0deg), var(--physics) var(--a0,0deg) var(--a1,0deg),
       var(--panel2) var(--a1,0deg) 280deg, transparent 280deg 360deg); }
@@ -477,13 +508,10 @@
   .crow .picks { display:flex; flex-direction:column; gap:2px; min-width:0; }
   .crow .st { display:flex; flex-direction:column; gap:1px; align-items:flex-end; font-size:8.5px; }
   .crow.inlive { box-shadow:inset 3px 0 0 var(--line); }
-  /* B353: the horde corners get their own inks and a SQUARE chip, so they never read as Sluice's
-     snapshot corners (round, A–D) */
+  /* B353: the horde corners get their own inks. B361: their chip is the ONE round chip (.cchip.hz), told
+     from Sluice's snapshot corners by its numerals 1–4 and its ink, not by its shape */
   :root { --h1:#D96C00; --h2:#2F63E8; --h3:#0B8F63; --h4:#A534C9; }
   body.dark { --h1:#FF9A3D; --h2:#6E9BFF; --h3:#3FE0A6; --h4:#D77BFF; }
-  .hchip { font:inherit; font-size:9px; font-weight:800; min-width:20px; height:20px; border-radius:4px;
-    border:2.5px solid var(--hc); background:transparent; color:var(--text); cursor:pointer; padding:0 3px; flex:0 0 auto; }
-  .hchip.on { background:var(--hc); color:#191521; }
   .hctx { display:flex; gap:5px; align-items:center; font-size:9.5px; color:var(--t2); flex-wrap:nowrap; white-space:nowrap; }
   .hctx b { color:var(--text); }
   .tab.go { cursor:pointer; opacity:1; }
@@ -522,7 +550,19 @@
   .gscreen { position:relative; width:480px; height:432px; box-sizing:content-box; overflow:hidden;
     border:var(--stroke) solid var(--line); border-radius:var(--r-well); background:#000; }
   .gscreen > canvas { position:absolute; left:0; top:0; width:480px; height:432px; border:0; border-radius:0;
-    background:transparent; image-rendering:pixelated; cursor:crosshair; }
+    background:transparent; image-rendering:pixelated; cursor:pointer; }
+  /* B361: the screen draws its own focus ring (GBC style, inside the tile rule); the DOM outline would
+     draw a second, non-pixel one over the glass. The bezel shows the canvas holds the keyboard */
+  .gscreen > canvas:focus { outline:none; }
+  .gbezel:focus-within { box-shadow:var(--focus); }
+  .gmap { font-size:9.5px; color:var(--t2); line-height:1.4; }
+  .gmap table { border-collapse:collapse; width:100%; font-size:9px; }
+  .gmap td, .gmap th { border-bottom:1px dashed var(--div); padding:1px 3px; text-align:left; vertical-align:top; }
+  .gmap th { color:var(--dim); font-weight:600; }
+  .gmap kbd { font:inherit; font-size:8.5px; border:1px solid var(--div); border-radius:3px; padding:0 3px; background:var(--panel2); color:var(--text); }
+  .editing { font-size:9px; font-weight:800; letter-spacing:.06em; padding:1px 6px; border-radius:3px; white-space:nowrap;
+    border:var(--stroke) solid var(--hc, var(--line)); background:var(--panel); color:var(--text); }
+  .editing.fol { background:var(--hc, var(--line)); color:#191521; }
   .gdots { position:absolute; inset:0; pointer-events:none; z-index:2;
     background-image:linear-gradient(to right, rgba(0,0,0,.11) 1px, transparent 1px),
       linear-gradient(to bottom, rgba(0,0,0,.11) 1px, transparent 1px);
@@ -588,7 +628,7 @@
 <div class="hdr">
   <div>
     <h1>sluice · in horde</h1>
-    <div class="badges"><span class="badge">B319 + B329 + B337 + B338 + B343 + B348 + B353</span><span class="sub">HOSTED FX MODULE · BUILT TO SLUICE'S SPEC · DESIGN LAB</span></div>
+    <div class="badges"><span class="badge">B319 + B329 + B337 + B338 + B343 + B348 + B353 + B361</span><span class="sub">HOSTED FX MODULE · BUILT TO SLUICE'S SPEC · DESIGN LAB</span></div>
   </div>
   <div class="hdrctl">
     <div class="grp"><span class="lbl">AUDIO</span><button class="pill" id="pwr">off</button></div>
@@ -609,7 +649,9 @@ its per-corner patches on Sluice's own XY are withdrawn by ADR-188.
 <b>Round 4 (B353, ADR-188 + A1):</b> Sluice's XY holds ONE patch again. Different Sluice patches live at the corners of <b>horde's morph XY</b>
 (the MAIN tab, a MODEL of horde's quantum-morph field), each with its own Sluice-XY position, a parameter horde can map to its macros; parity
 blends, otherwise the live patch flips with a 0.1 buffer and its dry/wet glides. Macros are the patch's; each snapshot sets its own range. Tails
-are in SETTINGS.</div>
+are in SETTINGS.
+<b>Round 5 (B361):</b> one shape system (every knob cap and corner chip round); the <b>GBC skin is the whole instrument</b>, every function on
+its screen, by pointer and keyboard; and the FX page <b>follows horde's morph</b> into the live corner.</div>
 <div class="audit" id="status">loading…</div>
 <div class="stage">
   <div class="plug" id="plug">
@@ -1853,6 +1895,8 @@ const LAB = {
   skin: 'standard', pendDel: '', mEdit: -1, selDirty: false,
   flip: Object.assign({}, FLIP_DEFAULT), live: null, M: null, P: null, flips: 0, flipN: -1,
   th: [], evs: [], bootFace: '', bootQueried: false, quiet: false,
+  /* B361: the FX page follows horde's morph (section K4): switches made, and a rebuild owed at a gesture's end */
+  follows: 0, hselDirty: false,
 };
 const PAGE = { r: null, L: null, R: null };
 const AUD = { ctx: null, node: null, on: false, err: '' };
@@ -1910,6 +1954,7 @@ function patchMsg(p, sig, ev, set) {
 function pushPatch(o) {
   const prev = LAB.live, h = heard(); LAB.R = resolve(h, LAB.G, LAB.bpm);
   const flipped = !!(o && o.xy) && prev !== null && LAB.live !== prev, load = !!(o && o.load);
+  if (o && o.xy) followMorph();                 // B361: a move of horde's XY moves the editor with the live patch
   if (flipped) { LAB.flips++; LAB.flipN = nowN(); noteEvent('flip', 'flip → ≡' + LAB.M.name); }
   if (load) noteEvent('load', 'load', LAB.loadTail ? 'rings' : 'cut');
   send(patchMsg(toV01(LAB.R.q), engineSig(h), { flip: flipped, load }, LAB));
@@ -1958,6 +2003,257 @@ function structural(fn, label) { for (const c of patchWork()) fn(c); edited(labe
    X of corners 1 and 2, in opposite directions) */
 const HDEMO = [{ m: 0, h: 0, ax: 'x', lo: 0.1, hi: 0.9 }, { m: 0, h: 1, ax: 'x', lo: 0.9, hi: 0.1 }];
 function mapDemo() { LAB.hm.maps = HDEMO.map(o => Object.assign({}, o)); LAB.msg = 'horde macro 1 now drives the Sluice X of corners 1 and 2 (in opposite directions)'; edited('map demo'); rebuild(); }
+
+/* ================================================================ K3. THE ACTIONS — one writer each, for BOTH views (B361)
+   The human, 2026-09-29: "integrate the full functionality into the GBC screen (all the buttons and
+   sliders in the GBC screen should be interactive as well)". So the GBC screen (section N4) and the
+   DOM faces are two VIEWS of one model: every state change either makes goes through one of the
+   writers below (or the older ones they name: saveCorner, randomizeSelected, loadHorde, …), and the
+   DOM handlers call the same writers. ACTS is the REGISTRY of the lab's actions: the node's own
+   functions, each with the DOM data-ctl values that reach it. C44 enumerates it: every action must be
+   reachable on the GBC screen, and every data-ctl the DOM draws must belong to one action.
+   LAB CHROME is not in it, by principle (spec §11.4's rule, as for the lab input already): the audio
+   switch, theme, lab input, voice, host tempo, the skin / face / page tabs and the JSON text box are
+   the LAB's, above or beside the plugin window, not the node's. */
+const ACTS = [
+  /* Sluice's XY and its snapshot corners (B337, ADR-188 §1) */
+  ['xy-move', 'Sluice\'s XY position (the focused horde corner\'s Sluice-XY parameter)', ['xy']],
+  ['corner-select', 'select a snapshot corner A–D', ['corner-select']],
+  ['corner-bind', 'bind a corner to a snapshot (refused over a draft)', ['corner-bind', 'snap-bind']],
+  ['rand-params', 'randomize params into the selected corner (a draft)', ['rand-params']],
+  ['rand-patch', 'randomize patch: a new structure, loaded into a horde corner', ['rand-patch', 'horde-rand']],
+  ['save-snap', 'save the selected corner\'s draft as a new snapshot, bound', ['save-snap']],
+  ['discard-draft', 'discard the selected corner\'s draft', ['discard-draft']],
+  ['capture-xy', 'capture Sluice\'s XY blend into the selected corner (a draft)', ['capture-xy']],
+  ['randomness', 'the Randomness knob', ['randomness']],
+  ['seed', 'the generator\'s seed', ['seed']],
+  ['undo', 'undo', ['undo']], ['redo', 'redo', ['redo']],
+  /* the library (B337): patches, their snapshots, delete from 5, naming */
+  ['lib-load', 'load a patch into the focused horde corner', ['lib']],
+  ['snap-delete', 'delete a snapshot (offered from ' + SNAP_DEL_MIN + ', confirmed)', ['snap-delete']],
+  ['lib-revert', 'revert the patch to how it was loaded', ['lib-revert']],
+  ['lib-delete', 'delete the patch from the library', ['lib-delete']],
+  ['lib-rename', 'name the patch', ['lib-rename']],
+  ['lib-export', 'export the library as JSON (to the lab\'s text box)', ['lib-export', 'lib-json']],
+  ['lib-import', 'import patches from the JSON in the lab\'s text box', ['lib-import']],
+  /* macros: the fixed four, the variable four, their mapping and per-corner ranges (B337, A1) */
+  ['fixed-macro', 'a FIXED macro (a knob-shaped Sluice-global control)', []],
+  ['global-set', 'a Sluice-global switch (a value list)', []],
+  ['global-action', 'a Sluice-global action (Clear)', []],
+  ['macro-value', 'a VARIABLE macro\'s value (the patch\'s; never a draft)', []],
+  ['macro-assign', 'assign the next variable macro slot', ['macro-assign']],
+  ['macro-label', 'name a variable macro', ['macro-label']],
+  ['macro-target', 'a binding\'s target (the patch\'s mapping)', ['macro-map']],
+  ['macro-curve', 'a binding\'s curve (the patch\'s mapping)', ['macro-curve']],
+  ['macro-bind-add', 'add a binding to a macro', ['macro-bind-add']],
+  ['macro-bind-remove', 'remove a binding from a macro', ['macro-bind-remove']],
+  ['macro-remove', 'remove a macro', ['macro-remove']],
+  ['macro-range', 'a snapshot corner\'s own [min, max] for a binding (a draft of that corner)', ['macro-range']],
+  /* the FULL DEVICE: every number, and the machinery (spec §11's Rack face) */
+  ['full-device', 'open the FULL DEVICE (a face tab on the DOM: navigation, no data-ctl, since the Rack face cannot carry a way to itself, C2)', []],
+  ['param-set', 'set any number, switch, list value or target the manifest exposes', []],
+  ['module-enable', 'enable or disable a module', ['module-enable']],
+  ['module-lock', 'cycle a module\'s randomiser lock', ['module-lock']],
+  ['module-move', 'move a module up or down (structure)', ['module-move']],
+  ['module-dup', 'duplicate a module (structure)', ['module-dup']],
+  ['module-remove', 'remove a module (structure)', ['module-remove']],
+  ['module-add', 'add a module to the loop or post chain (structure)', ['module-add']],
+  ['param-sync', 'store a time or rate as a division name, or free it', ['param-sync']],
+  ['group-present', 'switch an optional group (the gate) on or off', ['group-present']],
+  ['normalize', 'normalize the patch gain by the lab\'s loudness probe', ['normalize']],
+  /* horde's morph XY, a MODEL (B353, ADR-188) */
+  ['horde-xy', 'horde\'s morph XY (the FX page follows it, B361)', ['horde-xy']],
+  ['flip-band', 'the flip\'s hysteresis band', ['flip-band']],
+  ['horde-focus', 'edit a horde corner\'s patch', ['horde-focus']],
+  ['horde-patch', 'load a patch into a horde corner', ['horde-patch']],
+  ['horde-sluice-xy', 'a horde corner\'s Sluice-XY position (a parameter)', ['horde-sluice-xy', 'horde-pos']],
+  ['horde-macro', 'a horde global macro', ['horde-macro']],
+  ['horde-map-add', 'map a horde macro onto a corner\'s Sluice X or Y', ['horde-map']],
+  ['horde-map-demo', 'the mapping demo (H1 → Sluice X of corners 1 and 2)', ['horde-map-demo']],
+  ['horde-map-edit', 'edit a mapping (source, target, lo, hi)', ['horde-map-edit']],
+  ['horde-map-remove', 'remove a mapping', ['horde-map-remove']],
+  ['nav-morph', 'open horde\'s morph page', ['nav-morph']],
+  /* SETTINGS: the tails and bypass (B347, ADR-188 §6) */
+  ['bypass', 'the slot bypass', ['bypass']],
+  ['bypass-mode', 'tails at a flip and a bypass: spill-over or hard', ['bypass-mode']],
+  ['load-tail', 'let the old tail ring on a patch load', ['load-tail']],
+  ['glide', 'the dry/wet glide across a flip', ['glide']],
+  ['open-settings', 'open SETTINGS', ['open-settings']],
+];
+const ACT_IDS = ACTS.map(a => a[0]);
+/* the action a DOM data-ctl belongs to: the listed values, then the two id-shaped families (X/<global>
+   by the global's kind, K/<slot> a variable macro); '' = none (C44 fails on it) */
+function ctlAct(ctl) {
+  for (const a of ACTS) if (a[2].includes(ctl)) return a[0];
+  if (/^K\/\d+$/.test(ctl)) return 'macro-value';
+  if (ctl.slice(0, 2) === 'X/' && SPEC.S) { const g = SPEC.S.globals.find(q => 'X/' + q.key === ctl); if (g) return g.kind === 'knob' ? 'fixed-macro' : g.kind === 'action' ? 'global-action' : 'global-set'; }
+  return '';
+}
+/* ---- the writers the DOM faces and the GBC screen share ---- */
+function setSluiceXY(x, y) { LAB.xy.x = clamp(x, 0, 1); LAB.xy.y = clamp(y, 0, 1); xyFollow(); touch(); }
+function bindTo(k, sid) {
+  const E = curE(), v = bindCorner(E, k, sid), s = snapOf(E, sid);
+  LAB.msg = v.ok ? 'corner ' + CORNER[k] + ' plays "' + (s ? s.name : sid) + '"' : v.why;
+  if (v.ok) edited('bind ' + CORNER[k]); rebuild(); return v;
+}
+function captureXY() {
+  /* Sluice's own XY blend at this horde corner's position (macros kept as the patch's), not horde's */
+  const E2 = curE(), P = effPos(LAB.hc, LAB.hm, LAB.hsel), v = trySetCorner(E2.work, LAB.sel, clone(morph4(E2.work, P.x, P.y).p));
+  LAB.msg = v.ok ? (isDraft(E2, LAB.sel) ? 'Sluice\'s XY blend is now corner ' + CORNER[LAB.sel] + '\'s DRAFT' : 'the XY sits on corner ' + CORNER[LAB.sel] + ': nothing to capture') : v.why;
+  if (v.ok) edited('capture XY → ' + CORNER[LAB.sel]); rebuild();
+}
+function setSeed(n) { LAB.seed = Math.max(0, Math.min(999999, Math.round(+n || 0))); LAB.rnd = mulberry32(LAB.seed); LAB.clicks = 0; rebuild(); }
+const undo = () => restore(LAB.hi - 1), redo = () => restore(LAB.hi + 1);
+function askDeleteSnap(sid) { const E = curE(), s = snapOf(E, sid); if (!s || !canDeleteSnap(E)) return; LAB.pendDel = sid; LAB.msg = 'delete "' + s.name + '"? confirm on its row'; rebuild(); }
+function confirmDeleteSnap(sid) {
+  const E = curE(), s = snapOf(E, sid), v = deleteSnap(E, sid);
+  LAB.msg = v.ok ? 'deleted "' + (s ? s.name : sid) + '"' + (v.moved.length ? '; ' + v.moved.join(', ') : '') : v.why; LAB.pendDel = '';
+  if (v.ok) edited('delete snapshot ' + (s ? s.name : sid)); rebuild(); return v;
+}
+function keepSnap() { LAB.pendDel = ''; rebuild(); }
+function libRevert() {
+  const E = curE(); if (!E) return; const s = JSON.parse(E.saved), R = libEntry(E.name, E.origin, s.snaps, s.bind, s.mv);
+  Object.assign(E, { snaps: R.snaps, bind: R.bind, work: R.work, mv: R.mv }); LAB.node = -1; edited('revert ' + E.name); rebuild();
+}
+function libExport() { LAB.exportText = JSON.stringify({ lab: 'sluice-horde-lab', lib: LAB.lib.map(e => ({ name: e.name, origin: e.origin, snaps: e.snaps, bind: e.bind, mv: e.mv })) }); LAB.msg = 'exported ' + LAB.lib.length + ' patches to the JSON box'; rebuild(); }
+function libImport() {
+  try { const add = importEntries(LAB.exportText); for (const e of add) LAB.lib.push(e); LAB.msg = 'imported ' + add.length + ' patch(es)'; }
+  catch (e) { LAB.msg = 'import: not a library JSON (' + String(e.message || e) + ')'; }
+  rebuild();
+}
+function renamePatch(name) { const E = curE(); if (E && String(name || '').trim()) { E.name = String(name).trim(); LAB.msg = 'patch named "' + E.name + '"'; } rebuild(); }
+/* the Sluice-global controls: a knob (a FIXED macro), a value list, an action */
+function setFixed(role, v) { LAB.G[role] = clamp(v, 0, 1); touch(); }
+function setGlobal(g, v) {
+  LAB.G[g.role] = v;
+  /* Tail is a patch-wide setting of generated patches, not an edit of one corner: it goes to every
+     working copy AND every snapshot of the patch, so it never makes a draft */
+  if (g.role === 'tail') for (const E of new Set(LAB.hc.map(c => LAB.lib[c.e]))) forPatch(E, c => { if (c.origin === 'generated') applyTail(c, tailSeconds(v)); });
+  touch(); rebuild();
+}
+function globalAction(g) { send({ t: 'clear' }); LAB.msg = g.label + ': the network flushed to silence, the patch kept'; paintChrome(); }
+/* the variable macros' MAPPING (the patch's: forPatch writes every corner and snapshot, never a draft) */
+function macroAssign(k) { if (!macroSlot(cur(), k)) addMacro(); LAB.mEdit = LAB.mEdit === k || !macroSlot(cur(), k) ? -1 : k; rebuild(); }
+function setMacroLabel(k, s) { forPatch(curE(), c => { if (c.macros[k]) c.macros[k].label = String(s); }); edited('macro ' + (k + 1) + ' label'); rebuild(); }
+function setMacroBinding(k, bi, f) { forPatch(curE(), c => { const q = c.macros[k] && c.macros[k].bindings[bi]; if (q) f(q, c); }); edited('macro ' + (k + 1) + ' mapping'); rebuild(); }
+/* a new target: each snapshot's range starts centred on ITS own value there (rangeAround) */
+const setMacroTarget = (k, bi, t) => setMacroBinding(k, bi, (q, c) => { q.target = t; rangeAround(c, q); });
+const setMacroCurve = (k, bi, cv) => setMacroBinding(k, bi, q => { q.curve = cv; });
+function addBinding(k) { const t = macroTargets(cur())[0]; forPatch(curE(), c => { if (c.macros[k]) { const q = { target: t, lo: 0, hi: 0, curve: 'lin' }; rangeAround(c, q); c.macros[k].bindings.push(q); } }); edited('macro ' + (k + 1) + ' + binding'); rebuild(); }
+function removeBinding(k, bi) {
+  const M = macroSlot(cur(), k); if (!M) return;
+  if (M.bindings.length <= 1) { removeMacroFrom(curE(), k); LAB.mEdit = -1; }
+  else forPatch(curE(), c => { if (c.macros[k]) c.macros[k].bindings.splice(bi, 1); });
+  edited('macro ' + (k + 1) + ' − binding'); rebuild();
+}
+function removeMacro(k) { removeMacroFrom(curE(), k); LAB.mEdit = -1; edited('remove macro ' + (k + 1)); rebuild(); }
+/* corner j's own range for binding bi of macro k: a draft of that corner. `live` = mid-drag (no history) */
+function setRange(j, k, bi, lo, hi, live) {
+  if (!setCornerRange(curE(), j, k, bi, lo, hi)) return false;
+  LAB.msg = 'corner ' + CORNER[j] + '\'s range for macro ' + (k + 1) + ' edited: a DRAFT of ' + CORNER[j] + ' until saved';
+  if (live) touch(); else { edited('range M' + (k + 1) + ' ' + CORNER[j]); rebuild(); }
+  return true;
+}
+/* the FULL DEVICE's machinery. `part` 'chain' | 'post', `i` the module's index in the selected corner */
+function moduleEnable(part, i, on) { const m = cur()[part][i]; if (!m) return; m.enabled = !!on; edited((on ? 'enable ' : 'disable ') + (i + 1) + ' in ' + CORNER[LAB.sel]); rebuild(); }
+function moduleLock(part, i) {
+  const m = cur()[part][i]; if (!m) return; const v = m.locked === undefined ? true : m.locked === true ? false : undefined;
+  for (const c of patchWork()) { const q = c[part].find(x => x.id === m.id); if (q) { if (v === undefined) delete q.locked; else q.locked = v; } }
+  edited('lock ' + (i + 1)); rebuild();
+}
+function moduleMove(part, i, d) { const n = cur()[part].length, j = i + d; if (j < 0 || j >= n) return; structural(c => { const a = c[part]; [a[j], a[i]] = [a[i], a[j]]; }, 'move ' + (i + 1) + (d < 0 ? ' up' : ' down')); }
+function moduleDup(part, i) {
+  const nid = 'm' + (NEXT_ID++);
+  structural(c => {
+    const src = c[part][i], cp = clone(src); cp.id = nid; c[part].splice(i + 1, 0, cp);
+    for (const M of c.macros) { const add = M.bindings.filter(bd => bd.target.startsWith(src.id + ':')).map(bd => Object.assign({}, bd, { target: nid + bd.target.slice(src.id.length) })); M.bindings.push(...add); }
+    c.thr = {}; ensureThresholds(c, LAB.rnd);
+  }, 'duplicate ' + (i + 1));
+}
+function moduleRemove(part, i) {
+  const S = S_(), m = cur()[part][i]; if (!m || (part === 'chain' && cur().chain.length <= 1)) return;
+  /* B353: a macro left with no binding goes, and the patch's value for it with it (by order) */
+  const id = m.id, E = curE(), gone = (E.work[0].macros || []).map((M, k) => M.bindings.every(bd => bd.target.startsWith(id + ':')) ? k : -1).filter(k => k >= 0);
+  for (let j = gone.length - 1; j >= 0; j--) E.mv.splice(gone[j], 1);
+  structural(c => {
+    c[part].splice(i, 1);
+    for (const M of c.macros) M.bindings = M.bindings.filter(bd => !bd.target.startsWith(id + ':'));
+    c.macros = c.macros.filter(M => M.bindings.length);
+    for (const g of S.groups) for (const f of g.fields) if (f.kind === 'ref' && String(c.grp[g.name][f.name]).startsWith(id + ':')) c.grp[g.name][f.name] = 'off';
+  }, 'remove ' + (i + 1));
+}
+function moduleAdd(part, t) { if (!S_().mod[t]) return; const id = 'm' + (NEXT_ID++); structural(c => { const m = newModule(t, c[part].length, null, part === 'post'); m.id = id; c[part].push(m); ensureThresholds(c, LAB.rnd); }, 'add ' + t + ' to ' + part); }
+/* a param's division NAME is structure (spec §6.3): it reaches every corner; '' frees it */
+function setSync(part, id, key, v) { for (const c of patchWork()) { const q = c[part].find(x => x.id === id); if (q) { q.sync = q.sync || {}; if (v) q.sync[key] = v; else delete q.sync[key]; } } edited('sync ' + (v || 'free')); rebuild(); }
+function groupPresent(p, g, on) { p.has[g.name] = !!on; edited(g.name + (on ? ' on' : ' off')); rebuild(); }
+function normalizeOut(p, f) { const d = loudnessDb(p); p.grp[''][f.name] = clamp(-d, -24, 24); LAB.msg = 'normalize: wet measured ' + d.toFixed(1) + ' dB → ' + (-d).toFixed(1); edited('normalize'); rebuild(); }
+/* any exposed value of the selected corner's patch (a param row): a number mid-drag plays at once and is
+   committed at the end; a switch, a list value, a target or a division is committed at once */
+function setValue(obj, key, v, live) { obj[key] = v; if (live) touch(); else { edited(key); rebuild(); } }
+/* horde's morph (a model) */
+function hordeMove(x, y) { LAB.hxy.x = clamp(x, 0, 1); LAB.hxy.y = clamp(y, 0, 1); touch({ xy: true }); }
+/* the end of a horde-XY gesture: the rebuild a follow asked for waits for it (a rebuild mid-drag would
+   replace the canvas under the pointer) */
+function hordeMoveDone() { if (LAB.hselDirty) { LAB.hselDirty = false; rebuild(); } }
+function setFlipBand(v) { LAB.flip.band = clamp(v, 0, 0.3); touch(); }
+function editHorde(h) { LAB.hsel = h; LAB.pendDel = ''; LAB.node = -1; LAB.mEdit = -1; LAB.page = 'fx'; LAB.face = 'play'; rebuild(); }
+function setHordePos(h, ax, v) { LAB.hc[h][ax] = clamp(v, 0, 1); touch(); }
+function setHordeMacro(j, v) { LAB.hm.v[j] = clamp(v, 0, 1); touch(); }
+function mapAdd() { LAB.hm.maps.push({ m: 0, h: LAB.hsel, ax: 'x', lo: 0, hi: 1 }); edited('+ map'); rebuild(); }
+function mapEdit(i, f, v, live) { const mp = LAB.hm.maps[i]; if (!mp) return; if (f === 'lo' || f === 'hi') mp[f] = clamp(v, 0, 1); else if (f === 't') { mp.h = +String(v)[0]; mp.ax = String(v)[1]; } else mp[f] = v; if (live) touch(); else { edited('map ' + f); rebuild(); } }
+function mapRemove(i) { LAB.hm.maps.splice(i, 1); edited('unmap'); rebuild(); }
+function setLoadTail(on) { LAB.loadTail = !!on; rebuild(); }
+function setGlide(s) { LAB.glideS = clamp(s, 0, GLIDE_MAX_S); }
+
+/* ================================================================ K4. THE FX PAGE FOLLOWS THE MORPH (B361)
+   The human: "when the global morph xy crosses into a corner, the FX page should switch to editing that
+   corner (it's confusing to edit otherwise)". CROSSING INTO A CORNER is not the raw quadrant (a puck
+   resting on a line would chatter between two editors). It is B353's HYSTERESIS-LIVE patch: the live
+   parity class that morphRig picks with the ruled 0.1 buffer. The editor follows it:
+     - a live class of ONE corner: that corner, so the editor switches exactly when the live patch flips;
+     - a live class of several corners (they have parity, so horde BLENDS them and no one patch is
+       live): the same hysteresis rule one level down, over the class's corners with its weights
+       renormalised (pickLive, rule 'hyst', the same band); nowhere dominant (the middle), it holds.
+   Only a move of horde's XY follows; picking a corner by hand ("edit →", a chip) still works and holds
+   until the next crossing. A DRAFT is never lost by a switch: drafts live in the corner's patch (its
+   working copies), so leaving a corner and coming back finds them where they were; the message names
+   the drafts the corner left behind holds. Pure: followPick (C49 sweeps it). */
+function followPick(M, flip, prev) {
+  const mem = M.members; if (mem.length === 1) return mem[0];
+  const W = mem.reduce((a, k) => a + M.w[k], 0), wn = [0, 0, 0, 0];
+  for (const k of mem) wn[k] = W > 0 ? M.w[k] / W : 1 / mem.length;
+  const cls = mem.map(k => ({ key: String(k), members: [k], name: HORDE[k] }));
+  return +pickLive('hyst', flip.band, cls, wn, mem.includes(prev) ? String(prev) : null);
+}
+function followMorph() {
+  if (!LAB.M) return false;
+  const h = followPick(LAB.M, LAB.flip, LAB.hsel), from = LAB.hsel;
+  if (h === from) return false;
+  const E0 = LAB.lib[LAB.hc[from].e], dr = [0, 1, 2, 3].filter(k => isDraft(E0, k)).map(k => CORNER[k]);
+  LAB.hsel = h; LAB.pendDel = ''; LAB.node = -1; LAB.mEdit = -1; LAB.follows++; LAB.hselDirty = true;
+  LAB.msg = 'the morph crossed into horde corner ' + HORDE[h] + ': the FX page now edits its patch "' + LAB.lib[LAB.hc[h].e].name + '"'
+    + (dr.length ? ' · corner ' + HORDE[from] + '\'s draft in ' + dr.join(' ') + ' is kept with its patch' : '');
+  noteEvent('follow', 'edit → ' + HORDE[h]);
+  paintEditing();
+  return true;
+}
+/* the indicator, on the FX page (the rack row), on horde's MAIN page and on the GBC header: which
+   horde corner the editor edits, and whether that is the live patch */
+function editingText() {
+  const h = LAB.hsel, M = LAB.M, live = !!M && M.members.includes(h);
+  return 'EDITING: HORDE CORNER ' + HORDE[h] + (live ? ' · follows the morph' : ' · picked by hand, not the live patch (live ≡' + (M ? M.name : '?') + ')');
+}
+function editingTag() {
+  const t = el('span', 'editing'); t.dataset.editing = '1';
+  t.title = 'B361: moving horde\'s morph XY into a corner switches the editor to it. "Into" is the HYSTERESIS-LIVE patch (B353\'s 0.1 buffer), not the raw quadrant, so a puck on a line does not chatter. Where corners share parity (a blend), the same buffer picks among them. A draft is never lost: it stays in its corner\'s patch.';
+  paintEditingOne(t); return t;
+}
+function paintEditingOne(t) { const h = LAB.hsel, M = LAB.M; t.textContent = editingText(); t.style.setProperty('--hc', 'var(--h' + HORDE[h] + ')'); t.classList.toggle('fol', !!M && M.members.includes(h)); }
+function paintEditing() {
+  for (const t of document.querySelectorAll('[data-editing]')) paintEditingOne(t);
+  for (const b of document.querySelectorAll('.cchip[data-horde]')) b.classList.toggle('on', +b.dataset.horde === LAB.hsel);
+  for (const c of document.querySelectorAll('.hcard[data-horde]')) c.classList.toggle('foc', +c.dataset.horde === LAB.hsel);
+}
 
 /* ================================================================ L. CONTROLS
    Every value-bearing control carries data-pid (C1 compares that set with the manifest's); every Play
@@ -2043,12 +2339,7 @@ function buildRandom(host, small) {
   btn(sv, 'pill mini', 'save snapshot', 'save-snap', () => saveCorner(LAB.sel),
     'corner ' + CORNER[k] + '\'s draft → a new snapshot of this patch, with a fresh name, bound to ' + CORNER[k]).disabled = !dr;
   btn(sv, 'pill mini', 'discard', 'discard-draft', () => discardCorner(LAB.sel), 'drop the draft; corner ' + CORNER[k] + ' plays its bound snapshot again').disabled = !dr;
-  btn(sv, 'pill mini', 'capture XY', 'capture-xy', () => {
-    /* Sluice's own XY blend at this horde corner's position (macros kept as the patch's), not horde's */
-    const E2 = curE(), P = effPos(LAB.hc, LAB.hm, LAB.hsel), v = trySetCorner(E2.work, LAB.sel, clone(morph4(E2.work, P.x, P.y).p));
-    LAB.msg = v.ok ? (isDraft(E2, LAB.sel) ? 'Sluice\'s XY blend is now corner ' + CORNER[LAB.sel] + '\'s DRAFT' : 'the XY sits on corner ' + CORNER[LAB.sel] + ': nothing to capture') : v.why;
-    if (v.ok) edited('capture XY → ' + CORNER[LAB.sel]); rebuild();
-  }, 'Sluice\'s XY blend at this position into corner ' + CORNER[k] + ' as a draft; save snapshot keeps it');
+  btn(sv, 'pill mini', 'capture XY', 'capture-xy', captureXY, 'Sluice\'s XY blend at this position into corner ' + CORNER[k] + ' as a draft; save snapshot keeps it');
   if (dr) sv.appendChild(el('span', 'draft', 'DRAFT IN ' + CORNER[k]));
   host.appendChild(sv);
   const r2 = el('div', 'brow');
@@ -2058,11 +2349,11 @@ function buildRandom(host, small) {
   const col = el('div');
   const sd = el('div', 'brow'); sd.appendChild(el('span', 'lbl', 'SEED'));
   const si = el('input'); si.type = 'number'; si.min = 0; si.max = 999999; si.value = LAB.seed; si.dataset.ctl = 'seed';
-  si.addEventListener('change', () => { LAB.seed = Math.max(0, Math.round(+si.value || 0)); LAB.rnd = mulberry32(LAB.seed); LAB.clicks = 0; rebuild(); });
+  si.addEventListener('change', () => setSeed(si.value));
   sd.appendChild(si); col.appendChild(sd);
   const ud = el('div', 'brow');
-  btn(ud, 'pill mini', 'undo', 'undo', () => restore(LAB.hi - 1)).disabled = LAB.hi <= 0;
-  btn(ud, 'pill mini', 'redo', 'redo', () => restore(LAB.hi + 1)).disabled = LAB.hi >= LAB.hist.length - 1;
+  btn(ud, 'pill mini', 'undo', 'undo', undo).disabled = LAB.hi <= 0;
+  btn(ud, 'pill mini', 'redo', 'redo', redo).disabled = LAB.hi >= LAB.hist.length - 1;
   col.appendChild(ud);
   col.appendChild(el('div', 'kv', 'click ' + LAB.clicks + ' · step ' + (LAB.hi + 1) + '/' + LAB.hist.length));
   r2.appendChild(col); host.appendChild(r2);
@@ -2071,12 +2362,19 @@ function buildRandom(host, small) {
    corner-select chip fills iff its corner is selected; a library tag fills iff its snapshot is bound
    to that corner AND the corner is selected. Outlined otherwise. */
 const chipFilled = (k, tag, bound) => k === LAB.sel && (!tag || !!bound);
-function cornerChip(k, o) {
-  const b = el('button', 'cchip' + (o.tag ? ' bind' : '') + (o.bound ? ' bound' : '') + (chipFilled(k, o.tag, o.bound) ? ' on' : ''), CORNER[k]);
-  b.style.setProperty('--cc', 'var(--c' + CORNER[k] + ')'); b.dataset.corner = String(k); b.dataset.crole = o.tag ? 'tag' : 'sel';
+/* B361: THE chip — every corner chip on every face, Sluice's A–D and horde's 1–4, is this one element
+   (.cchip: a circle, width fixed equal to height); only its ink, its label and its fill differ */
+function chipEl(label, ink, o) {
+  const b = el('button', 'cchip' + (o.hz ? ' hz' : '') + (o.tag ? ' bind' : '') + (o.bound ? ' bound' : '') + (o.on ? ' on' : ''), label);
+  b.style.setProperty('--cc', ink);
   if (o.ctl) b.dataset.ctl = o.ctl;
   if (o.title) b.title = o.title;
   if (o.onClick) b.addEventListener('click', ev => { ev.stopPropagation(); o.onClick(); });
+  return b;
+}
+function cornerChip(k, o) {
+  const b = chipEl(CORNER[k], 'var(--c' + CORNER[k] + ')', Object.assign({}, o, { on: chipFilled(k, o.tag, o.bound) }));
+  b.dataset.corner = String(k); b.dataset.crole = o.tag ? 'tag' : 'sel';
   return b;
 }
 /* the XY's quadrant follow repaints the fills in place: a rebuild mid-drag would replace the canvas
@@ -2099,11 +2397,7 @@ function buildCorners(host) {
     E.snaps.forEach(q => { const o = el('option', null, q.name); o.value = q.sid; s.appendChild(o); });
     s.value = E.bind[k]; s.disabled = dr;
     s.title = dr ? 'corner ' + CORNER[k] + ' holds a draft: save or discard it before rebinding' : 'the snapshot of "' + E.name + '" corner ' + CORNER[k] + ' is bound to';
-    s.addEventListener('change', () => {
-      const E2 = curE(), v = bindCorner(E2, k, s.value);
-      LAB.msg = v.ok ? 'corner ' + CORNER[k] + ' bound to "' + snapOf(E2, s.value).name + '"' : v.why;
-      if (v.ok) edited('bind ' + CORNER[k]); rebuild();
-    });
+    s.addEventListener('change', () => bindTo(k, s.value));
     pk.appendChild(s);
     r.appendChild(pk);
     const st = el('div', 'st');
@@ -2158,15 +2452,14 @@ function buildSnapList(host, E) {
     const on = k => E.bind[k] === s.sid;
     CORNER.forEach((c, k) => r.appendChild(cornerChip(k, { tag: true, bound: on(k), ctl: 'snap-bind',
       title: on(k) ? 'corner ' + c + ' plays this snapshot' : 'put this snapshot on corner ' + c + ' — refused if ' + c + ' holds a draft',
-      onClick: () => { const v = bindCorner(E, k, s.sid);
-        LAB.msg = v.ok ? 'corner ' + c + ' plays "' + s.name + '"' : v.why; if (v.ok) edited('bind ' + c); rebuild(); } })));
+      onClick: () => bindTo(k, s.sid) })));
     if (pend) {
       const bnd = CORNER.filter((c, k) => E.bind[k] === s.sid);
-      btn(r, 'ib', 'delete', null, () => { const v = deleteSnap(E, s.sid); LAB.msg = v.ok ? 'deleted "' + s.name + '"' + (v.moved.length ? '; ' + v.moved.join(', ') : '') : v.why; LAB.pendDel = ''; if (v.ok) edited('delete snapshot ' + s.name); rebuild(); },
+      btn(r, 'ib', 'delete', 'snap-delete', () => confirmDeleteSnap(s.sid),
         'delete "' + s.name + '" for good' + (bnd.length ? ' — corner ' + bnd.join(' ') + ' will be rebound to a snapshot no corner uses' : ''));
-      btn(r, 'ib', 'keep', null, () => { LAB.pendDel = ''; rebuild(); }, 'cancel');
+      btn(r, 'ib', 'keep', null, keepSnap, 'cancel');
     } else {
-      const d = btn(r, 'ib', '✕', 'snap-delete', () => { LAB.pendDel = s.sid; LAB.msg = 'delete "' + s.name + '"? confirm on its row'; rebuild(); },
+      const d = btn(r, 'ib', '✕', 'snap-delete', () => askDeleteSnap(s.sid),
         canDeleteSnap(E) ? 'delete this snapshot (asks to confirm)' : 'a patch keeps at least ' + SNAP_MIN + ' snapshots: delete is offered from ' + SNAP_DEL_MIN);
       d.disabled = !canDeleteSnap(E);
     }
@@ -2180,21 +2473,14 @@ function buildLibrary(host, compact, minimal) {
   const E = curE();
   if (!minimal) {
   const tools = el('div', 'brow');
-  btn(tools, 'pill mini', 'revert', 'lib-revert', () => {
-    if (!E) return; const s = JSON.parse(E.saved), R = libEntry(E.name, E.origin, s.snaps, s.bind, s.mv);
-    Object.assign(E, { snaps: R.snaps, bind: R.bind, work: R.work, mv: R.mv }); LAB.node = -1; edited('revert ' + E.name); rebuild();
-  }, 'this patch as it was loaded: its snapshots, bindings, corners and macro values (drafts dropped)');
+  btn(tools, 'pill mini', 'revert', 'lib-revert', libRevert, 'this patch as it was loaded: its snapshots, bindings, corners and macro values (drafts dropped)');
   btn(tools, 'pill mini', 'delete patch', 'lib-delete', () => deletePatch(LAB.libSel), 'remove this patch from the library; horde corners that played it take its neighbour');
-  btn(tools, 'pill mini', 'export', 'lib-export', () => { LAB.exportText = JSON.stringify({ lab: 'sluice-horde-lab', lib: LAB.lib.map(e => ({ name: e.name, origin: e.origin, snaps: e.snaps, bind: e.bind, mv: e.mv })) }); rebuild(); }, 'the library as JSON (snapshots with their macro ranges, bindings, the patch\'s macro mapping and values), into the box below');
-  btn(tools, 'pill mini', 'import', 'lib-import', () => {
-    try { const add = importEntries(LAB.exportText); for (const e of add) LAB.lib.push(e); LAB.msg = 'imported ' + add.length + ' patch(es)'; }
-    catch (e) { LAB.msg = 'import: not a library JSON (' + String(e.message || e) + ')'; }
-    rebuild();
-  }, 'patches from the JSON in the box below; fewer than ' + SNAP_MIN + ' snapshots, or a module type the manifest does not list, is refused');
+  btn(tools, 'pill mini', 'export', 'lib-export', libExport, 'the library as JSON (snapshots with their macro ranges, bindings, the patch\'s macro mapping and values), into the box below');
+  btn(tools, 'pill mini', 'import', 'lib-import', libImport, 'patches from the JSON in the box below; fewer than ' + SNAP_MIN + ' snapshots, or a module type the manifest does not list, is refused');
   host.appendChild(tools);
   const rn = el('div', 'brow'); rn.appendChild(el('span', 'lbl', 'NAME'));
   const ti = el('input'); ti.type = 'text'; ti.value = E ? E.name : ''; ti.dataset.ctl = 'lib-rename'; ti.style.width = compact ? '120px' : '150px';
-  ti.addEventListener('change', () => { if (E) { E.name = ti.value || E.name; rebuild(); } });
+  ti.addEventListener('change', () => renamePatch(ti.value));
   rn.appendChild(ti); host.appendChild(rn);
   }
   const ta = el('textarea'); ta.value = LAB.exportText; ta.dataset.ctl = 'lib-json'; ta.placeholder = 'library JSON (export writes here; import reads here)';
@@ -2227,8 +2513,8 @@ function buildXY(host, id, h) {
   host.appendChild(cv);
   let drag = false;
   const at = e => {
-    const r = cv.getBoundingClientRect(); LAB.xy.x = clamp((e.clientX - r.left - 6) / ((r.width - 12) || 1), 0, 1); LAB.xy.y = clamp((e.clientY - r.top - 6) / ((r.height - 12) || 1), 0, 1);
-    xyFollow(); touch();                                // one patch: a Sluice-XY move never flips
+    const r = cv.getBoundingClientRect();
+    setSluiceXY((e.clientX - r.left - 6) / ((r.width - 12) || 1), (e.clientY - r.top - 6) / ((r.height - 12) || 1));   // one patch: never flips
   };
   cv.addEventListener('pointerdown', e => { drag = true; try { cv.setPointerCapture(e.pointerId); } catch (_) {} at(e); });
   cv.addEventListener('pointermove', e => { if (drag) at(e); });
@@ -2273,18 +2559,12 @@ function buildGlobals(host) {
   for (const g of S.globals.filter(x => x.kind !== 'knob')) {
     const r = el('div', 'brow'); r.dataset.pid = 'X/' + g.key;
     r.appendChild(el('span', 'lbl', g.label.toUpperCase()));
-    if (g.kind === 'action') btn(r, 'pill mini', g.label, 'X/' + g.key, () => { send({ t: 'clear' }); LAB.msg = g.label + ': the network flushed to silence, the patch kept'; paintChrome(); }, g.range || '');
+    if (g.kind === 'action') btn(r, 'pill mini', g.label, 'X/' + g.key, () => globalAction(g), g.range || '');
     else {
       const ps = el('span', 'pills'); ps.dataset.ctl = 'X/' + g.key;
       for (const v of g.values) {
         const b = el('button', 'pill mini' + (LAB.G[g.role] === v ? ' on' : ''), v);
-        b.addEventListener('click', () => {
-          LAB.G[g.role] = v;
-          /* Tail is a patch-wide setting of generated patches, not an edit of one corner: it goes to
-             every working copy AND every snapshot of the patch, so it never makes a draft */
-          if (g.role === 'tail') for (const E of new Set(LAB.hc.map(c => LAB.lib[c.e]))) forPatch(E, c => { if (c.origin === 'generated') applyTail(c, tailSeconds(v)); });
-          touch(); rebuild();
-        });
+        b.addEventListener('click', () => setGlobal(g, v));
         ps.appendChild(b);
       }
       r.appendChild(ps);
@@ -2349,10 +2629,7 @@ function macroKnob(kg, k, small, withAssign) {
     + (M ? M.bindings.map(b => targetLabel(p, b.target) + ' (' + (b.curve || 'lin') + ')').join('\n') : 'unassigned: drawn, inert, never hidden');
   if (!small) rangeBar(c, k);
   if (withAssign && (M || k === p.macros.length)) {
-    btn(c, 'sbtn' + (LAB.mEdit === k ? ' on' : ''), M ? 'edit' : '+ assign', 'macro-assign', () => {
-      if (!macroSlot(cur(), k)) addMacro();
-      LAB.mEdit = LAB.mEdit === k || !macroSlot(cur(), k) ? -1 : k; rebuild();
-    }, M ? 'the patch\'s MAPPING (label, targets, curve) and each corner\'s own range' : 'assign slot ' + (k + 1) + ': binds the first target; then edit it');
+    btn(c, 'sbtn' + (LAB.mEdit === k ? ' on' : ''), M ? 'edit' : '+ assign', 'macro-assign', () => macroAssign(k), M ? 'the patch\'s MAPPING (label, targets, curve) and each corner\'s own range' : 'assign slot ' + (k + 1) + ': binds the first target; then edit it');
   }
   return c;
 }
@@ -2424,31 +2701,20 @@ function moduleCard(host, p, part, i, forCatalogue) {
   if (!voicedType) { const b = nvBadge(); b.title = part === 'post' ? 'the v0.1 reference has no post chain' : 'the v0.1 reference has no module of this type: the engine skips it'; hd.appendChild(b); }
   const sp = el('span', 'sp');
   const en = el('input'); en.type = 'checkbox'; en.checked = m.enabled !== false; en.title = 'enabled (discrete: taken whole from the nearest corner; a change is a new engine, §6.3)';
-  en.addEventListener('change', () => { m.enabled = en.checked; edited((en.checked ? 'enable ' : 'disable ') + (i + 1) + ' in ' + CORNER[LAB.sel]); rebuild(); });
+  en.dataset.ctl = 'module-enable';
+  en.addEventListener('change', () => moduleEnable(part, i, en.checked));
   sp.appendChild(en);
   const lk = el('button', 'lock'); const paintLk = () => { lk.className = 'lock' + (m.locked === true ? ' on' : m.locked === false ? ' off' : '');
     lk.textContent = m.locked === true ? 'LOCK' : m.locked === false ? 'FREE' : (isLocked(m) ? 'dflt·lock' : 'dflt·free'); };
   lk.title = 'tri-state randomiser lock: unset = the manifest\'s default for this type; click cycles'; paintLk();
-  lk.addEventListener('click', () => { const v = m.locked === undefined ? true : m.locked === true ? false : undefined; for (const c of patchWork()) { const q = c[part].find(x => x.id === m.id); if (q) { if (v === undefined) delete q.locked; else q.locked = v; } } edited('lock ' + (i + 1)); rebuild(); });
+  lk.dataset.ctl = 'module-lock'; lk.addEventListener('click', () => moduleLock(part, i));
   sp.appendChild(lk);
   const n = p[part].length;
-  const b = (t, ttl, fn, dis) => { const x = el('button', 'ib', t); x.title = ttl; x.disabled = !!dis; x.addEventListener('click', fn); sp.appendChild(x); };
-  b('↑', 'move up (structure: all four corners)', () => structural(c => { const a = c[part]; [a[i - 1], a[i]] = [a[i], a[i - 1]]; }, 'move ' + (i + 1) + ' up'), i === 0);
-  b('↓', 'move down (structure: all four corners)', () => structural(c => { const a = c[part]; [a[i + 1], a[i]] = [a[i], a[i + 1]]; }, 'move ' + (i + 1) + ' down'), i === n - 1);
-  b('⧉', 'duplicate (the copy gets its own copy of each macro binding, §11.2)', () => { const nid = 'm' + (NEXT_ID++); structural(c => {
-    const src = c[part][i], cp = clone(src); cp.id = nid; c[part].splice(i + 1, 0, cp);
-    for (const M of c.macros) { const add = M.bindings.filter(bd => bd.target.startsWith(src.id + ':')).map(bd => Object.assign({}, bd, { target: nid + bd.target.slice(src.id.length) })); M.bindings.push(...add); }
-    c.thr = {}; ensureThresholds(c, LAB.rnd); }, 'duplicate ' + (i + 1)); });
-  b('✕', 'remove (structure: all four corners)', () => {
-    /* B353: a macro left with no binding goes, and the patch's value for it with it (by order) */
-    const id = m.id, E = curE(), gone = (E.work[0].macros || []).map((M, k) => M.bindings.every(bd => bd.target.startsWith(id + ':')) ? k : -1).filter(k => k >= 0);
-    for (let j = gone.length - 1; j >= 0; j--) E.mv.splice(gone[j], 1);
-    structural(c => {
-      c[part].splice(i, 1);
-      for (const M of c.macros) M.bindings = M.bindings.filter(bd => !bd.target.startsWith(id + ':'));
-      c.macros = c.macros.filter(M => M.bindings.length);
-      for (const g of S.groups) for (const f of g.fields) if (f.kind === 'ref' && String(c.grp[g.name][f.name]).startsWith(id + ':')) c.grp[g.name][f.name] = 'off';
-    }, 'remove ' + (i + 1)); }, n <= 1 && part === 'chain');
+  const b = (t, ttl, ctl, fn, dis) => { const x = el('button', 'ib', t); x.title = ttl; x.disabled = !!dis; x.dataset.ctl = ctl; x.addEventListener('click', fn); sp.appendChild(x); };
+  b('↑', 'move up (structure: all four corners)', 'module-move', () => moduleMove(part, i, -1), i === 0);
+  b('↓', 'move down (structure: all four corners)', 'module-move', () => moduleMove(part, i, 1), i === n - 1);
+  b('⧉', 'duplicate (the copy gets its own copy of each macro binding, §11.2)', 'module-dup', () => moduleDup(part, i));
+  b('✕', 'remove (structure: all four corners)', 'module-remove', () => moduleRemove(part, i), n <= 1 && part === 'chain');
   hd.appendChild(sp); box.appendChild(hd);
   if (part === 'chain') for (const bm of busModule()) paramRow(box, bm, m.x, bm.key, { pid: 'B/' + bm.key, inst: m.id + ':@' + bm.key, thr: p.thr[m.id + ':@' + bm.key], locked: isLocked(m) });
   const syn = LAB.R && !forCatalogue ? LAB.R.synced : {};
@@ -2458,9 +2724,9 @@ function moduleCard(host, p, part, i, forCatalogue) {
       const on = !!(m.sync && m.sync[e.key]);
       extra = el('span', 'ex');
       const sb = el('button', 'sbtn' + (on ? ' on' : ''), 'SYNC'); sb.title = 'store this ' + (e.sync === 'hz' ? 'rate' : 'time') + ' as a division name (spec §8); the name is structure';
-      sb.addEventListener('click', () => { const v = on ? '' : '1/4'; for (const c of patchWork()) { const q = c.chain.find(x => x.id === m.id); if (q) { q.sync = q.sync || {}; if (v) q.sync[e.key] = v; else delete q.sync[e.key]; } } edited('sync ' + (i + 1) + ':' + e.key); rebuild(); });
+      sb.dataset.ctl = 'param-sync'; sb.addEventListener('click', () => setSync('chain', m.id, e.key, on ? '' : '1/4'));
       extra.appendChild(sb);
-      if (on) extra.appendChild(divSelect(m.sync[e.key], v => { for (const c of patchWork()) { const q = c.chain.find(x => x.id === m.id); if (q) { if (v) q.sync[e.key] = v; else delete q.sync[e.key]; } } edited('sync ' + (v || 'free')); rebuild(); }));
+      if (on) { const ds = divSelect(m.sync[e.key], v => setSync('chain', m.id, e.key, v)); ds.dataset.ctl = 'param-sync'; extra.appendChild(ds); }
     }
     const sv = syn[m.id + ':' + e.key], rr = v01Range(m.type, e.key);
     paramRow(box, e, m.params, e.key, { pid: 'M/' + m.type + '/' + e.key, inst: m.id + ':' + e.key, thr: p.thr[m.id + ':' + e.key], locked: isLocked(m), extra, held: heldBy(p, m.id + ':' + e.key),
@@ -2472,8 +2738,7 @@ function moduleCard(host, p, part, i, forCatalogue) {
 function addRow(host, part, label) {
   const r = el('div', 'addrow'); const s = el('select'); const o0 = el('option', null, label); o0.value = ''; s.appendChild(o0);
   for (const t of S_().types) { const o = el('option', null, t + (REF.defs[t] ? '' : '  (not voiced in v0.1)')); o.value = t; s.appendChild(o); }
-  s.addEventListener('change', () => { if (!s.value) return; const t = s.value, id = 'm' + (NEXT_ID++);
-    structural(c => { const m = newModule(t, c[part].length, null, part === 'post'); m.id = id; c[part].push(m); ensureThresholds(c, LAB.rnd); }, 'add ' + t + ' to ' + part); });
+  s.dataset.ctl = 'module-add'; s.addEventListener('change', () => { if (s.value) moduleAdd(part, s.value); });
   r.appendChild(s); host.appendChild(r);
 }
 function cell(host, title, own) {
@@ -2485,7 +2750,7 @@ function groupBlock(host, p, g) {
   if (g.desc.length) hd.title = g.desc.map(d => d[0] + ': ' + d[1]).join('\n');
   if (g.optional) {
     const cb = el('input'); cb.type = 'checkbox'; cb.checked = !!p.has[g.name]; cb.title = 'present or absent (structure: a new engine, §6.3)';
-    cb.addEventListener('change', () => { p.has[g.name] = cb.checked; edited(g.name + (cb.checked ? ' on' : ' off')); rebuild(); });
+    cb.dataset.ctl = 'group-present'; cb.addEventListener('change', () => groupPresent(p, g, cb.checked));
     hd.appendChild(cb);
   }
   host.appendChild(hd);
@@ -2551,19 +2816,19 @@ function buildTail(host, meterId, noLink) {
 }
 /* B353: which horde corner the Sluice faces edit (the node header): its chip, its position, and the
    live class; a click focuses another corner. Outside the faces, like the face tabs */
+/* B361: the one chip (chipEl), in horde's inks and numerals */
 function hordeChip(h, o) {
-  const b = el('button', 'hchip' + (o && o.on ? ' on' : ''), HORDE[h]); b.style.setProperty('--hc', 'var(--h' + HORDE[h] + ')'); b.dataset.horde = String(h);
-  if (o && o.title) b.title = o.title;
-  if (o && o.onClick) b.addEventListener('click', ev => { ev.stopPropagation(); o.onClick(); });
+  const b = chipEl(HORDE[h], 'var(--h' + HORDE[h] + ')', { hz: true, on: !!(o && o.on), title: o && o.title, onClick: o && o.onClick, ctl: 'horde-focus' });
+  b.dataset.horde = String(h);
   return b;
 }
 function buildHordeCtx() {
   const host = $('hordeCtx'); if (!host) return; host.innerHTML = ''; if (!SPEC.ok || !LAB.hc.length) return;
-  host.appendChild(el('span', 'lbl', 'EDITING HORDE CORNER'));
-  for (let h = 0; h < 4; h++) host.appendChild(hordeChip(h, { on: h === LAB.hsel, title: 'edit horde corner ' + HORDE[h] + '\'s Sluice patch ("' + LAB.lib[LAB.hc[h].e].name + '")', onClick: () => focusHorde(h) }));
+  host.appendChild(editingTag());
+  for (let h = 0; h < 4; h++) host.appendChild(hordeChip(h, { on: h === LAB.hsel, title: 'edit horde corner ' + HORDE[h] + '\'s Sluice patch ("' + LAB.lib[LAB.hc[h].e].name + '") by hand; the next crossing of horde\'s morph moves the editor again', onClick: () => focusHorde(h) }));
   const P = effPos(LAB.hc, LAB.hm, LAB.hsel), s = el('span', null); s.innerHTML = 'at <b>' + P.x.toFixed(2) + ', ' + P.y.toFixed(2) + '</b>' + (LAB.M ? ' · live <b>≡' + LAB.M.name + '</b>' : '');
   host.appendChild(s);
-  btn(host, 'pill mini', 'MORPH →', null, () => { LAB.page = 'main'; showPage(); }, 'horde\'s morph XY (a MODEL): the four corners, their patches and positions');
+  btn(host, 'pill mini', 'MORPH →', 'nav-morph', () => { LAB.page = 'main'; showPage(); }, 'horde\'s morph XY (a MODEL): the four corners, their patches and positions');
 }
 function buildPlay() {
   const F = $('playFace'); F.innerHTML = '';
@@ -2640,7 +2905,7 @@ function buildRackBody(host, p, forCatalogue) {
   for (const b of busPatch().filter(x => x.key === PATCH_MIX)) paramRow(cx, b, p.bus, b.key, { pid: 'B/' + b.key, inst: '@' + b.key, thr: p.thr['@' + b.key], held: heldBy(p, '@' + b.key) });
   if (top) for (const f of top.fields.filter(x => x.kind === 'readout' || x.kind === 'num')) {
     const nb = el('button', 'sbtn', 'NORMALIZE'); nb.title = 'the lab\'s own loudness probe (seeded noise, the wet alone) → this gain';
-    nb.addEventListener('click', () => { const d = loudnessDb(p); p.grp[''][f.name] = clamp(-d, -24, 24); LAB.msg = 'normalize: wet measured ' + d.toFixed(1) + ' dB → ' + (-d).toFixed(1); edited('normalize'); rebuild(); });
+    nb.dataset.ctl = 'normalize'; nb.addEventListener('click', () => normalizeOut(p, f));
     paramRow(cx, f, p.grp[''], f.name, { pid: 'G//' + f.name, extra: nb });
   }
   buildMacroEditor(cell(R, 'MACRO EDITOR', 'VARIABLE macros · the patch\'s mapping (label, targets, curve) · each snapshot corner\'s own ranges'), p, -1);
@@ -2656,38 +2921,31 @@ function buildRackBody(host, p, forCatalogue) {
    range table carries no target or curve control, so a corner cannot remap (C37 reads it back). */
 function buildMacroEditor(host, p, only) {
   const S = S_(), tg = macroTargets(p), E = curE();
-  const macrosAll = fn => forPatch(E, fn);
   p.macros.forEach((M, k) => {
     if (only >= 0 && k !== only) return;
     const box = el('div', 'mod'); box.dataset.medit = String(k);
     const hd = el('div', 'mhd'); hd.appendChild(el('span', 'mi', 'M' + (k + 1)));
     const ti = el('input'); ti.type = 'text'; ti.value = M.label; ti.style.width = '130px';
-    ti.addEventListener('change', () => { macrosAll(c => { if (c.macros[k]) c.macros[k].label = ti.value; }); edited('macro ' + (k + 1) + ' label'); rebuild(); });
+    ti.dataset.ctl = 'macro-label'; ti.addEventListener('change', () => setMacroLabel(k, ti.value));
     hd.appendChild(ti);
     const sp = el('span', 'sp');
     const x = el('button', 'ib', '✕'); x.title = 'remove this macro (the ones after it move up: binding is by ORDER)';
-    x.addEventListener('click', () => { removeMacroFrom(E, k); LAB.mEdit = -1; edited('remove macro ' + (k + 1)); rebuild(); }); sp.appendChild(x);
+    x.dataset.ctl = 'macro-remove'; x.addEventListener('click', () => removeMacro(k)); sp.appendChild(x);
     hd.appendChild(sp); box.appendChild(hd);
     box.appendChild(el('div', 'grphd', 'MAPPING · the patch\'s · written into every snapshot · never a draft'));
     M.bindings.forEach((bd, bi) => {
       const r = el('div', 'brow');
       const s = el('select'); s.dataset.ctl = 'macro-map'; for (const t of tg) { const o = el('option', null, targetLabel(p, t)); o.value = t; s.appendChild(o); } s.value = bd.target;
-      const setB = f => { macrosAll(c => { const q = c.macros[k] && c.macros[k].bindings[bi]; if (q) f(q, c); }); edited('macro ' + (k + 1) + ' mapping'); rebuild(); };
-      /* a new target: each snapshot's range starts centred on ITS own value there (rangeAround) */
-      s.addEventListener('change', () => setB((q, c) => { q.target = s.value; rangeAround(c, q); }));
+      s.addEventListener('change', () => setMacroTarget(k, bi, s.value));
       r.appendChild(s);
-      const cs = el('select'); cs.dataset.ctl = 'macro-map'; for (const c of S.curves) { const o = el('option', null, c); o.value = c; cs.appendChild(o); } cs.value = bd.curve || 'lin';
-      cs.addEventListener('change', () => setB(q => { q.curve = cs.value; })); r.appendChild(cs);
+      const cs = el('select'); cs.dataset.ctl = 'macro-curve'; for (const c of S.curves) { const o = el('option', null, c); o.value = c; cs.appendChild(o); } cs.value = bd.curve || 'lin';
+      cs.addEventListener('change', () => setMacroCurve(k, bi, cs.value)); r.appendChild(cs);
       const rm = el('button', 'ib', '−'); rm.title = 'remove this binding (a macro left with none is removed; the ones after it move up)';
-      rm.addEventListener('click', () => {
-        if (M.bindings.length <= 1) { removeMacroFrom(E, k); LAB.mEdit = -1; }
-        else macrosAll(c => { if (c.macros[k]) c.macros[k].bindings.splice(bi, 1); });
-        edited('macro ' + (k + 1) + ' − binding'); rebuild();
-      });
+      rm.dataset.ctl = 'macro-bind-remove'; rm.addEventListener('click', () => removeBinding(k, bi));
       r.appendChild(rm);
       box.appendChild(r);
     });
-    const ab = el('button', 'ib', '+ binding'); ab.addEventListener('click', () => { const t = tg[0]; macrosAll(c => { if (c.macros[k]) { const q = { target: t, lo: 0, hi: 0, curve: 'lin' }; rangeAround(c, q); c.macros[k].bindings.push(q); } }); edited('macro ' + (k + 1) + ' + binding'); rebuild(); });
+    const ab = el('button', 'ib', '+ binding'); ab.dataset.ctl = 'macro-bind-add'; ab.addEventListener('click', () => addBinding(k));
     box.appendChild(ab);
     /* the ranges: one row per binding, one cell per snapshot corner (min over max) */
     box.appendChild(el('div', 'grphd', 'RANGES · each snapshot corner\'s own [min, max] (A1) · an edit is a draft of that corner'));
@@ -2702,7 +2960,7 @@ function buildMacroEditor(host, p, only) {
         for (const side of ['lo', 'hi']) {
           const n = el('input'); n.type = 'number'; n.step = 'any'; n.dataset.corner = String(j); n.dataset.side = side;
           n.value = q ? +(+q[side]).toPrecision(4) : ''; n.title = 'corner ' + CORNER[j] + '\'s ' + (side === 'lo' ? 'MIN' : 'MAX') + ' for this binding' + (e ? ' (' + fmtNum(e.min, e) + ' … ' + fmtNum(e.max, e) + ')' : '');
-          n.addEventListener('change', () => { if (setCornerRange(E, j, k, bi, side === 'lo' ? +n.value : NaN, side === 'hi' ? +n.value : NaN)) { LAB.msg = 'corner ' + CORNER[j] + '\'s range for macro ' + (k + 1) + ' edited: a DRAFT of ' + CORNER[j] + ' until saved'; edited('range M' + (k + 1) + ' ' + CORNER[j]); rebuild(); } });
+          n.addEventListener('change', () => setRange(j, k, bi, side === 'lo' ? +n.value : NaN, side === 'hi' ? +n.value : NaN));
           cellD.appendChild(n);
         }
         tab.appendChild(cellD);
@@ -2715,7 +2973,7 @@ function buildMacroEditor(host, p, only) {
   });
   if (only >= 0) { host.appendChild(el('div', 'vnote', 'macro ' + (only + 1) + ' · the mapping is the patch\'s; each corner\'s range is its own (per BINDING, as the human confirmed: "I did mean per parameter") · the manifest\'s curves: ' + S.curves.join(', '))); return; }
   if (p.macros.length < varSlots() && tg.length) {
-    const b = el('button', 'pill mini', '+ macro'); b.addEventListener('click', () => { addMacro(); rebuild(); });
+    const b = el('button', 'pill mini', '+ macro'); b.dataset.ctl = 'macro-assign'; b.addEventListener('click', () => { addMacro(); rebuild(); });
     host.appendChild(b);
   }
   host.appendChild(el('div', 'vnote', p.macros.length + ' of ' + varSlots() + ' VARIABLE slots (' + PROPOSAL + ': four fixed + four variable; the manifest allows ' + S.slots + ') · ranges per binding per corner (A1: "I did mean per parameter") · the fixed four take none · the manifest\'s curves: ' + S.curves.join(', ')));
@@ -2762,7 +3020,7 @@ function hordeCard(host, h) {
   ps.title = 'the Sluice patch at horde corner ' + HORDE[h] + ': picking one is a patch LOAD (its tails follow the SETTINGS load option)';
   ps.addEventListener('change', () => loadHorde(h, +ps.value)); hd.appendChild(ps);
   btn(hd, 'ib', 'rand', 'horde-rand', () => randomizeNewPatch(h), 'a NEW random patch at horde corner ' + HORDE[h] + ' (a load)');
-  btn(hd, 'ib', 'edit →', null, () => { LAB.hsel = h; LAB.page = 'fx'; LAB.face = 'play'; rebuild(); }, 'edit this patch in Sluice (the FX page)');
+  btn(hd, 'ib', 'edit →', 'horde-focus', () => editHorde(h), 'edit this patch in Sluice (the FX page)');
   card.appendChild(hd);
   const st = el('div', 'kv'); st.dataset.hclass = cls ? cls.name : '';
   st.innerHTML = (cls ? (inLive ? '<span class="live">LIVE ≡' + cls.name + '</span> ' : '≡' + cls.name + ' ') : '') + 'W ' + (M ? Math.round(M.w[h] * 100) : 0) + '% · ' + esc(shortSig(E.work[0]));
@@ -2798,17 +3056,17 @@ function buildHordeMacros(host) {
   LAB.hm.maps.forEach((mp, i) => {
     const r = el('div', 'mapr'); r.dataset.map = String(i);
     const s = el('select'); for (let j = 0; j < HMACROS; j++) { const o = el('option', null, 'H-MACRO ' + (j + 1)); o.value = String(j); s.appendChild(o); } s.value = String(mp.m);
-    s.addEventListener('change', () => { mp.m = +s.value; edited('map source'); rebuild(); }); r.appendChild(s);
+    s.dataset.ctl = 'horde-map-edit'; s.addEventListener('change', () => mapEdit(i, 'm', +s.value)); r.appendChild(s);
     r.appendChild(el('span', 'kv', '→'));
     const d = el('select'); for (let h = 0; h < 4; h++) for (const ax of ['x', 'y']) { const o = el('option', null, 'corner ' + HORDE[h] + ' · ' + HAX[ax]); o.value = h + ax; d.appendChild(o); } d.value = mp.h + mp.ax;
-    d.addEventListener('change', () => { mp.h = +d.value[0]; mp.ax = d.value[1]; edited('map target'); rebuild(); }); r.appendChild(d);
-    for (const side of ['lo', 'hi']) { const n = el('input'); n.type = 'number'; n.step = '0.05'; n.min = 0; n.max = 1; n.value = mp[side]; n.title = side === 'lo' ? 'where the axis sits at 0%' : 'where it sits at 100%'; n.addEventListener('change', () => { mp[side] = clamp(+n.value, 0, 1); edited('map range'); rebuild(); }); r.appendChild(n); }
-    btn(r, 'ib', '✕', null, () => { LAB.hm.maps.splice(i, 1); edited('unmap'); rebuild(); }, 'remove this mapping');
+    d.dataset.ctl = 'horde-map-edit'; d.addEventListener('change', () => mapEdit(i, 't', d.value)); r.appendChild(d);
+    for (const side of ['lo', 'hi']) { const n = el('input'); n.type = 'number'; n.step = '0.05'; n.min = 0; n.max = 1; n.value = mp[side]; n.title = side === 'lo' ? 'where the axis sits at 0%' : 'where it sits at 100%'; n.dataset.ctl = 'horde-map-edit'; n.addEventListener('change', () => mapEdit(i, side, +n.value)); r.appendChild(n); }
+    btn(r, 'ib', '✕', 'horde-map-remove', () => mapRemove(i), 'remove this mapping');
     L.appendChild(r);
   });
   host.appendChild(L);
   const b = el('div', 'brow');
-  btn(b, 'pill mini', '+ map', 'horde-map', () => { LAB.hm.maps.push({ m: 0, h: LAB.hsel, ax: 'x', lo: 0, hi: 1 }); edited('+ map'); rebuild(); }, 'map a horde macro onto a corner\'s Sluice X or Y');
+  btn(b, 'pill mini', '+ map', 'horde-map', mapAdd, 'map a horde macro onto a corner\'s Sluice X or Y');
   btn(b, 'pill mini', 'demo: H1 → Sluice X of corners 1 and 2', 'horde-map-demo', mapDemo, 'one knob drives the Sluice XY of two corners (in opposite directions)');
   host.appendChild(b);
 }
@@ -2824,11 +3082,14 @@ function buildHordeView() {
   const cx = cell(left, 'HORDE MORPH XY', 'four corners · a Sluice patch each, at its own Sluice-XY position');
   const cv = el('canvas', 'viz'); cv.id = 'hxy'; cv.height = 250; cv.style.height = '250px'; cv.dataset.ctl = 'horde-xy'; cx.appendChild(cv);
   cv.title = 'horde\'s morph XY (a model): the tints are parity classes, the line is where the live patch flips, the hatching the hysteresis buffer';
-  let drag = false; const at = e => { const r = cv.getBoundingClientRect(); LAB.hxy.x = clamp((e.clientX - r.left - 6) / ((r.width - 12) || 1), 0, 1); LAB.hxy.y = clamp((e.clientY - r.top - 6) / ((r.height - 12) || 1), 0, 1); touch({ xy: true }); };
+  let drag = false; const at = e => { const r = cv.getBoundingClientRect(); hordeMove((e.clientX - r.left - 6) / ((r.width - 12) || 1), (e.clientY - r.top - 6) / ((r.height - 12) || 1)); };
   cv.addEventListener('pointerdown', e => { drag = true; try { cv.setPointerCapture(e.pointerId); } catch (_) {} at(e); });
   cv.addEventListener('pointermove', e => { if (drag) at(e); });
-  const up = () => { if (drag) { drag = false; rebuild(); } }; cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+  const up = () => { if (drag) { drag = false; LAB.hselDirty = false; rebuild(); } }; cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
   buildFlipRow(cx); buildParityBadges(cx);
+  const fr = el('div', 'fliprow'); fr.appendChild(editingTag());
+  fr.appendChild(el('span', 'kv', 'the FX page follows the morph: crossing INTO a corner = the hysteresis-live patch (the ±' + LAB.flip.band.toFixed(2) + ' buffer above), not the quadrant, so it does not chatter; drafts stay with their corner\'s patch'));
+  cx.appendChild(fr);
   cx.appendChild(el('div', 'vnote', LAB.morphOk ? 'Every horde corner has parity: horde blends the four corners\' evaluated numbers everywhere (no flip).'
     : 'The corners fall into ' + LAB.M.classes.length + ' parity classes: inside the live class (≡' + LAB.M.name + ') horde blends the evaluated numbers; crossing the line flips the live patch — Dry/Wet, Width, Time and Tune stay put (Sluice-global), the patch\'s own dry/wet glides, and under spill-over the outgoing patch rings on as a second Sluice instance until its tail dies.'));
   if (LAB.msg) cx.appendChild(el('div', /refused/.test(LAB.msg) ? 'caution' : 'vnote', LAB.msg));
@@ -2858,14 +3119,14 @@ function buildSettingsView() {
     : 'HARD: a flip crossfades the old engine out in 20 ms; a bypass crossfades to dry and freezes the engine (no CPU, cleared on re-enable). The tail is cut.'));
   const r2 = el('div', 'setrow'); r2.appendChild(el('span', 'lbl', 'PATCH LOAD'));
   const lt = el('input'); lt.type = 'checkbox'; lt.checked = LAB.loadTail; lt.dataset.ctl = 'load-tail'; lt.title = 'let the old patch\'s tail ring when a patch is loaded (the human: "at least the option"); off = spec §6.3\'s 20 ms crossfade';
-  lt.addEventListener('change', () => { LAB.loadTail = lt.checked; rebuild(); }); r2.appendChild(lt);
+  lt.addEventListener('change', () => setLoadTail(lt.checked)); r2.appendChild(lt);
   r2.appendChild(el('span', 'kv', LAB.loadTail ? 'the old tail RINGS when a patch is loaded' : 'a load CUTS (spec §6.3: a 20 ms crossfade, no tail)'));
   a.appendChild(r2);
   a.appendChild(el('div', 'vnote', 'A separate toggle (ADR-188 §6), independent of the flip and bypass choice; whether it should follow that choice is asked on the side panel.'));
   const r3 = el('div', 'setrow'); r3.appendChild(el('span', 'lbl', 'DRY/WET GLIDE'));
   const gs = el('input'); gs.type = 'range'; gs.min = 0; gs.max = GLIDE_MAX_S; gs.step = 0.01; gs.value = LAB.glideS; gs.dataset.ctl = 'glide'; gs.style.setProperty('--pct', LAB.glideS / GLIDE_MAX_S);
   const go = el('span', 'kv', Math.round(LAB.glideS * 1000) + ' ms');
-  gs.addEventListener('input', () => { LAB.glideS = +gs.value; go.textContent = Math.round(LAB.glideS * 1000) + ' ms'; gs.style.setProperty('--pct', LAB.glideS / GLIDE_MAX_S); });
+  gs.addEventListener('input', () => { setGlide(+gs.value); go.textContent = Math.round(LAB.glideS * 1000) + ' ms'; gs.style.setProperty('--pct', LAB.glideS / GLIDE_MAX_S); });
   gs.addEventListener('change', () => rebuild());
   r3.appendChild(gs); r3.appendChild(go); a.appendChild(r3);
   a.appendChild(el('div', 'vnote', 'Across a flip the patch\'s own dry/wet glides linearly from where it was to the new patch\'s, over this time (default ' + Math.round(GLIDE_DEFAULT_S * 1000) + ' ms; 0 = a step), counted in samples in the renderer and re-told to the engine every millisecond. The fixed four (Dry/Wet, Width, Time, Tune) never move at a flip: they are Sluice-global.'));
@@ -2904,7 +3165,7 @@ function buildFaceTabs() {
   if (!SPEC.ok) return;
   for (const [k, lab] of [['standard', 'STANDARD'], ['gbc', 'GBC SKIN']]) {
     const t = el('span', 'tab' + (LAB.skin === k ? ' on' : ''), lab);
-    t.title = k === 'gbc' ? 'the Play face as Game Boy Color screen software (B338, ' + PROPOSAL + ')' : 'the Play face with the chassis controls';
+    t.title = k === 'gbc' ? 'the whole instrument as Game Boy Color screen software (B338; B361: every function on the screen)' : 'the Play face with the chassis controls';
     t.addEventListener('click', () => { LAB.skin = k; LAB.face = 'play'; showFace(); });
     K.appendChild(t);
   }
@@ -3034,7 +3295,7 @@ function paintXY(id) {
 }
 /* B353: horde's morph XY (a MODEL): each class's region tinted in its first corner's ink, the
    hysteresis buffer hatched, the flip line where neighbouring cells answer different classes (the
-   same pickLive the morph uses), horde's corners as squares, the cursor */
+   same pickLive the morph uses), horde's corners as circles (B361: the chip's shape), the cursor */
 function paintHordeXY(id) {
   const c = ctx2($(id)); if (!c || !LAB.P) return;
   const { g, w, h } = c, X = x => 6 + x * (w - 12), Y = y => 6 + y * (h - 12);
@@ -3060,9 +3321,10 @@ function paintHordeXY(id) {
   g.font = 'bold 10px ui-monospace, Menlo, monospace'; g.textBaseline = 'middle';
   [[0, 0], [1, 0], [0, 1], [1, 1]].forEach((p, i) => {
     const cx = X(p[0]), cy = Y(p[1]), r = 6 + 8 * wts[i], cl = MM ? MM.classes.find(q => q.members.includes(i)) : null, live = !!MM && MM.members.includes(i);
-    g.fillStyle = i === LAB.hsel ? CSSV['--h' + HORDE[i]] : CSSV['--scr-tube']; g.fillRect(cx - r, cy - r, 2 * r, 2 * r);
-    g.strokeStyle = CSSV['--h' + HORDE[i]]; g.lineWidth = 2.5; g.strokeRect(cx - r, cy - r, 2 * r, 2 * r);
-    if (live && MM && !MM.one) { g.strokeStyle = CSSV['--line']; g.lineWidth = 1.2; g.strokeRect(cx - r - 3.5, cy - r - 3.5, 2 * r + 7, 2 * r + 7); }
+    /* B361: a corner is drawn as its chip is, a circle (the one chip shape), filled for the edited corner */
+    g.beginPath(); g.arc(cx, cy, r, 0, 6.2832); g.fillStyle = i === LAB.hsel ? CSSV['--h' + HORDE[i]] : CSSV['--scr-tube']; g.fill();
+    g.strokeStyle = CSSV['--h' + HORDE[i]]; g.lineWidth = 2.5; g.stroke();
+    if (live && MM && !MM.one) { g.strokeStyle = CSSV['--line']; g.lineWidth = 1.2; g.beginPath(); g.arc(cx, cy, r + 4, 0, 6.2832); g.stroke(); }
     const E = LAB.lib[LAB.hc[i].e], t = HORDE[i] + ' ≡' + (cl ? cl.name : '?') + ' ' + E.name;
     g.fillStyle = CSSV['--text']; g.textAlign = p[0] ? 'right' : 'left'; g.fillText(t, cx + (p[0] ? -r - 5 : r + 5), cy + (p[1] ? -r + 3 : r - 3)); g.textAlign = 'left';
   });
@@ -3223,7 +3485,7 @@ function scheduleIR() {
 
 /* ================================================================ N2. THE GBC SKIN (B338, a horde proposal)
    The Play face as Game Boy Color screen software, drawn from the lab's LIVE state and worked by its
-   real controls. The renderer is B322's, COPIED from docs/design/fx-screens-workshop.html (labs are
+   real controls (B361: the WHOLE instrument, its pages and controls in section N4). The renderer is B322's, COPIED from docs/design/fx-screens-workshop.html (labs are
    single-file): the 2-bit index buffer with a per-tile palette map (section D, :779-806), so the
    hardware rule — one 4-colour palette per 8×8 tile — holds by construction; the four palettes built
    from the screen scheme's roles and rounded to RGB555 (gbcPalettes, :811-815); the 3×5 pixel font
@@ -3239,8 +3501,6 @@ const GBC_SCHEME = {
   light: { tube: '#F3EBFF', value: '#D6006B', meter: '#007A73', physics: '#6E14E8', marker: '#C43A00', grid: '#5A3FA8', name: 'ORCHID' },
   dark: { tube: '#1B0733', value: '#FF5ECF', meter: '#B8F227', physics: '#B48CFF', marker: '#FFB86B', grid: '#4FD8BE', name: 'TUBE' },
 };
-/* the four soft keys under the screen, labelled by the screen (the workshop's chassis contract) */
-const GBC_KEYS = ['NEW', 'RAND', 'SAVE', 'DISCARD'];
 /* the logo slots, tile-aligned so a logo tile is a screen tile: TITLE 96×24 at (8,0), ICON 16×16 at
    (144,0). The human's own file wins (the workshop's rule): docs/design/assets/fx-logos/. */
 const GBC_SLOT = { title: { x: 8, y: 0, w: 96, h: 24, file: 'sluice.png' }, icon: { x: 144, y: 0, w: 16, h: 16, file: 'sluice-icon.png' } };
@@ -3474,7 +3734,7 @@ const B343_SLUICE_BEFORE = [
   '................................................................................................'];
 /* the frame canvas is `fcv`, not the workshop's `fb`: that name followed by .width spells one of the
    manifest's bus keys, and C17 counted it (a real hit during the build, as B329's was) */
-const GBC = { buf: null, fcv: null, fcg: null, logo: { title: null, icon: null }, src: { title: 'proposal', icon: 'proposal' }, note: '' };
+const GBC = { face: false, vm: null, buf: null, fcv: null, fcg: null, logo: { title: null, icon: null }, src: { title: 'proposal', icon: 'proposal' }, note: '' };
 /* ---- copied: RGB555 (:591-595) and colour helpers (:585-590) ---- */
 function rgbOf(hex) {
   const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(hex).trim());
@@ -3583,94 +3843,575 @@ function gbcLogos() {
 /* ---- the screen, from the state ---- */
 const gbcUp = s => String(s).toUpperCase().replace(/[^A-Z0-9 .,:+%<>=()#?!_*|'^\[\]\/-]/g, ' ');
 const gbcFit = (s, n) => { s = gbcUp(s); return s.length > n ? s.slice(0, n - 1) + '.' : s; };
-/* everything the screen shows, read from the live state: nothing here is a mock */
-/* B353: Sluice's XY holds one patch, so the field shows that patch's snapshots and the focused horde
-   corner's position (heard, with the base when a horde macro drives it); horde's morph state goes on
-   the title row (the horde corner and the live class) and the status row (blend or classes, FLIP) */
-function gbcVM() {
-  const E = curE(), p = cur(), M = LAB.meters, MM = LAB.M, P = effPos(LAB.hc, LAB.hm, LAB.hsel);
-  return {
-    patch: E.name, horde: HORDE[LAB.hsel], live: MM ? MM.name : HORDE[0], ncls: MM ? MM.classes.length : 1, inLive: !!MM && MM.members.includes(LAB.hsel),
-    flipping: flipRecent(), band: LAB.flip.band,
-    sel: LAB.sel, x: P.x, y: P.y, bx: LAB.xy.x, by: LAB.xy.y, ok: LAB.morphOk, snaps: E.snaps.length, w: cornerWeights(P.x, P.y),
-    corners: [0, 1, 2, 3].map(k => { const s = snapOf(E, E.bind[k]); return { name: s ? s.name : '-', draft: isDraft(E, k) }; }),
-    fixed: fixedMacros().map(g => ({ label: g.label, v: LAB.G[g.role], c: g.centre })),
-    vars: [...Array(varSlots()).keys()].map(k => { const Mc = macroSlot(p, k); return Mc ? { label: Mc.label, v: isNum(E.mv[k]) ? E.mv[k] : 0 } : null; }),
-    draft: isDraft(E, LAB.sel), out: M ? M.out : -150, bypass: LAB.bypass,
-  };
+/* ================================================================ N4. THE GBC SCREEN IS THE WHOLE INSTRUMENT (B361)
+   The human: "Let's focus on the GBC view and integrate the full functionality into the GBC screen (all
+   the buttons and sliders in the GBC screen should be interactive as well)". So the screen is real
+   screen software: PAGES, reached through a MENU that soft key 1 opens (the chassis contract: four soft
+   keys under the screen, labelled by the software, fx-screens-workshop.html:18-24), each page a set
+   of CONTROLS on the 20×18 tile grid. Nothing of the lab lives only in the DOM panels: the GBC face
+   carries the screen, the chassis (four soft keys, four knobs = variable macros 1–4) and, as lab
+   chrome, the JSON box the export and import use.
+   ONE MODEL, TWO VIEWS: every control calls the writers of section K3 (or the older ones they name),
+   the same ones the DOM calls; C47 drives the screen and reads the DOM back.
+   A CONTROL is data (for the drawing) plus `fn` (its handlers, never read by the drawing):
+     { id, act (ACTS id, or 'nav' / 'ui'), kind, tx, ty, tw, th (TILES), pal (0–3), abs, … , fn }
+   kinds: pad (an XY field), knob (a ROUND cap: a ring with the value arc and a pointer), slider, cycle
+   (◄ value ►), toggle, btn, key (a soft key), chip (a CIRCLE, A–D or 1–4), crow (a corner row), row
+   (a list row), char (name entry); text / rbar / meter / scope draw only (nf: not focusable).
+   HIT-TESTING: the pointer's CSS position ÷ the integer scale (the glass is 160×144 at ×k) = a screen
+   pixel; ÷ 8 = a tile; the control whose tile rect holds it is hit (gbcLocal, gbcHit; C45 at ×1 and ×3).
+   KEYBOARD (the canvas takes focus): Tab / Shift+Tab walk every control (C46) and Tab past the last lets
+   the browser go on (no trap); ↑ ↓ move by row; ← → turn a knob or slider (Shift: fine), step a cycle,
+   or move along the row; Enter or Space presses (A): on a pad it GRABS it, then the arrows move the
+   puck; Escape is B (release, cancel, back); 1–4 are the soft keys. The WHEEL is not wired here: the
+   repo's wheel idiom (onAltWheel, alt + wheel) is inventoried by lab_wheel_scroll_check, whose list
+   this lab is not on; the trace asks for it.
+   FOCUS AND HOVER stay inside the tile rule by construction: focus switches the control's own tiles to
+   palette 3 (attention) and rings them in its colour 2; hover rings them dotted in their own colour 2.
+   No pixel is ever written outside the index buffer (C48 audits every page with focus and hover). */
+const GUI = { page: 'xy', back: [], fid: '', hover: '', grab: false, scroll: {}, mk: 0, bi: 0, hh: 0, name: null, addT: { chain: 0, post: 0 }, drag: null };
+const GSTEP = 0.02, GSTEP_FINE = 0.005;
+/* the name entry's character grid: only glyphs the 3×5 font has (F35) */
+const GNAME_ROWS = ['ABCDEFGHIJKLMNOPQRST', 'UVWXYZ0123456789-+./', "()#!?*'=<>%[]^|,:_"];
+/* the menu: page, label (the default face's name is READ from the spec, C32), the action it is */
+const gMenu = () => [['xy', faceName() + ' - XY', 'nav'], ['snaps', 'SNAPSHOTS', 'nav'], ['patches', 'PATCHES', 'nav'], ['macros', 'MACROS', 'nav'],
+  ['random', 'RANDOMIZE', 'nav'], ['global', 'GLOBAL', 'nav'], ['device', 'FULL DEVICE', 'full-device'], ['horde', 'HORDE MORPH', 'nav-morph'],
+  ['hcorner', 'HORDE CORNER', 'nav'], ['hmacros', 'HORDE MACROS', 'nav'], ['settings', 'SETTINGS', 'open-settings'], ['scope', 'SCOPE', 'nav']];
+/* ---- building a page ---- */
+function gP(page, title, list) { return { page, title, list: list !== false, home: false, ctrls: [], keys: [], d: {}, y0: 1, rows: 15 }; }
+function gC(P, o) { const c = Object.assign({ tw: 1, th: 1, pal: 0, abs: !P.list, fn: {} }, o); P.ctrls.push(c); return c; }
+const gT = (P, tx, ty, tw, txt, o) => gC(P, Object.assign({ id: 't' + P.ctrls.length, act: 'ui', kind: 'text', nf: true, tx, ty, tw, txt: String(txt) }, o || {}));
+const gBtn = (P, id, act, tx, ty, tw, lab, press, o) => gC(P, Object.assign({ id, act, kind: 'btn', tx, ty, tw, lab, fn: { press } }, o || {}));
+const gTog = (P, id, act, tx, ty, tw, lab, on, set, o) => gC(P, Object.assign({ id, act, kind: 'toggle', tx, ty, tw, lab, on: !!on, fn: { press: () => set(!on) } }, o || {}));
+function gCyc(P, id, act, tx, ty, tw, lab, lw, txt, prev, next, o) { return gC(P, Object.assign({ id, act, kind: 'cycle', tx, ty, tw, lab, lw, txt: String(txt), fn: { prev, next } }, o || {})); }
+/* a slider over a 0..1 position; lw / vw: label and value widths in characters */
+function gSld(P, id, act, tx, ty, tw, lab, lw, v, txt, vw, set, done, o) {
+  const W = tw * 8, bx0 = lw ? 4 + lw * 4 : 2, bx1 = W - (vw ? vw * 4 + 4 : 2);
+  return gC(P, Object.assign({ id, act, kind: 'slider', tx, ty, tw, lab, lw, v: clamp(isNum(v) ? v : 0, 0, 1), txt: String(txt), vw, bx0, bx1, fn: { get: () => v, set, done } }, o || {}));
 }
-/* the layout, in logical pixels on 20×18 tiles. Tile rows: 0–2 the logos and the proposal label;
-   3 the patch and the rendered output level; 4–12 the XY field (left) and the four corner bindings
-   (right); 13–14 the FIXED macros (structure palette, bars from the centre = as saved); 15–17 the
-   VARIABLE macros and the soft keys (your-value palette; an empty slot in attention). */
+const gKnob = (P, id, act, tx, ty, lab, v, txt, fn, o) => gC(P, Object.assign({ id, act, kind: 'knob', tx, ty, tw: 5, th: 2, lab, v: clamp(isNum(v) ? v : 0, 0, 1), txt, fn }, o || {}));
+const gChip = (P, id, act, tx, ty, sz, ch, press, o) => gC(P, Object.assign({ id, act, kind: 'chip', tx, ty, tw: sz, th: sz, sz, ch, fn: { press } }, o || {}));
+function gKey(P, j, label, act, fn, dis) { P.keys[j] = { label, act, fn, dis: !!dis || !fn }; }
+const gMenuKey = P => gKey(P, 0, 'MENU', 'nav', () => gbcGo('menu'));
+const gBackKey = (P, to) => gKey(P, 3, 'BACK', 'nav', () => to ? gbcGo(to) : gbcBack());
+/* ---- navigation ---- */
+function gbcGo(pg, o) { if (pg !== GUI.page) { GUI.back.push(GUI.page); if (GUI.back.length > 16) GUI.back.shift(); } GUI.page = pg; GUI.fid = ''; GUI.grab = false; Object.assign(GUI, o || {}); gbcRepaint(); }
+function gbcBack() { GUI.page = GUI.back.pop() || 'xy'; GUI.fid = ''; GUI.grab = false; gbcRepaint(); }
+function gbcName(what, k) { GUI.name = { what, k: k || 0, text: what === 'patch' ? curE().name : ((macroSlot(cur(), k) || {}).label || '') }; gbcGo('name'); }
+/* a fixed macro's readout, short (the screen is 40 characters wide) */
+function gFixTxt(g) {
+  const G = LAB.G, v = G[g.role];
+  if (g.role === 'time') return 'X' + (syncIsOn(G) ? String(timeF(G)) : timeF(G).toFixed(2));
+  if (g.role === 'tune') { const st = tuneSt(G); return (st >= 0 ? '+' : '') + st.toFixed(1); }
+  return Math.round(v * 100) + '%';
+}
+/* ---- THE PAGES ---- */
+const GPAGES = {
+  /* the default face (the spec's Play face, its name read at load): Sluice's XY, its four corners, the
+     fixed and variable macros; soft keys MENU · RAND · SAVE · DISC */
+  xy(P) {
+    P.list = false; P.home = true;
+    const E = curE(), p = cur(), MM = LAB.M, Pos = effPos(LAB.hc, LAB.hm, LAB.hsel), w = cornerWeights(Pos.x, Pos.y), dr = isDraft(E, LAB.sel);
+    Object.assign(P.d, { patch: E.name, horde: HORDE[LAB.hsel], live: MM ? MM.name : '?', inLive: !!MM && MM.members.includes(LAB.hsel), ncls: MM ? MM.classes.length : 1,
+      ok: LAB.morphOk, band: LAB.flip.band, flipping: flipRecent(), out: LAB.meters ? LAB.meters.out : -150, bypass: LAB.bypass });
+    gC(P, { id: 'xy.pad', act: 'xy-move', kind: 'pad', pad: 'sluice', tx: 0, ty: 4, tw: 10, th: 8, pal: 2, px0: 4, py0: 4, pw: 71, ph: 55,
+      sel: LAB.sel, x: Pos.x, y: Pos.y, bx: LAB.xy.x, by: LAB.xy.y, drafts: [0, 1, 2, 3].map(k => isDraft(E, k)), flipping: P.d.flipping,
+      fn: { getXY: () => [LAB.xy.x, LAB.xy.y], setXY: setSluiceXY, done: xyDone } });
+    for (let k = 0; k < 4; k++) {
+      const s = snapOf(E, E.bind[k]);
+      gC(P, { id: 'xy.c' + k, act: 'corner-select', kind: 'crow', tx: 10, ty: 4 + 2 * k, tw: 10, th: 2, pal: k === LAB.sel ? 1 : 0, ch: CORNER[k], on: k === LAB.sel,
+        txt: s ? s.name : '-', sub: isDraft(E, k) ? 'DRAFT UNSAVED' : 'W' + Math.round(w[k] * 100) + '%', fn: { press: () => selectCorner(k) } });
+    }
+    gT(P, 0, 12, 20, LAB.msg || ('ONE PATCH - ' + E.snaps.length + ' SNAPSHOTS - A B C D BOUND'), { ci: /refused/.test(LAB.msg) ? 2 : 3, pal: /refused/.test(LAB.msg) ? 3 : 0 });
+    fixedMacros().slice(0, 4).forEach((g, j) => gKnob(P, 'xy.f.' + g.role, 'fixed-macro', j * 5, 13, g.label, LAB.G[g.role], gFixTxt(g),
+      { get: () => LAB.G[g.role], set: v => setFixed(g.role, v), reset: () => setFixed(g.role, g.centre), press: () => setFixed(g.role, g.centre) }, { role: g.role, pal: 0 }));
+    for (let j = 0; j < 4; j++) {
+      const M = j < varSlots() ? macroSlot(p, j) : null, v = isNum(E.mv[j]) ? E.mv[j] : 0;
+      gKnob(P, 'xy.v' + j, 'macro-value', j * 5, 15, M ? M.label : 'M' + (j + 1) + ' EMPTY', v, M ? Math.round(v * 100) + '%' : '-',
+        { get: () => curE().mv[j] || 0, set: x => { setMacroValue(curE(), j, x); touch(); }, done: () => { commit('macro ' + (j + 1)); rebuild(); }, press: () => gbcGo('medit', { mk: j, bi: 0 }) },
+        { pal: M ? 1 : 3, dis: !M, slot: j });
+    }
+    gMenuKey(P); gKey(P, 1, 'RAND', 'rand-params', randomizeSelected); gKey(P, 2, 'SAVE', 'save-snap', () => saveCorner(LAB.sel), !dr); gKey(P, 3, 'DISC', 'discard-draft', () => discardCorner(LAB.sel), !dr);
+  },
+  menu(P) {
+    P.title = 'MENU - ' + curE().name;
+    gMenu().forEach(([pg, lab, act], i) => gC(P, { id: 'menu.' + pg, act, kind: 'row', tx: 0, ty: i, tw: 20, txt: lab, on: GUI.back[GUI.back.length - 1] === pg,
+      rt: pg === 'hcorner' ? 'H' + HORDE[LAB.hsel] : pg === 'patches' ? String(LAB.lib.length) : '', fn: { press: () => gbcGo(pg, pg === 'hcorner' ? { hh: LAB.hsel } : null) } }));
+    gKey(P, 0, 'BACK', 'nav', gbcBack);
+  },
+  /* Sluice's four corners (select, bind, draft) and the patch's snapshot list (bind tags, delete from 5) */
+  snaps(P) {
+    const E = curE(), P0 = effPos(LAB.hc, LAB.hm, LAB.hsel), w = cornerWeights(P0.x, P0.y), dr = isDraft(E, LAB.sel);
+    P.title = 'SNAPSHOTS - ' + E.name;
+    for (let k = 0; k < 4; k++) {
+      const i = E.snaps.findIndex(s => s.sid === E.bind[k]), dk = isDraft(E, k), n = E.snaps.length;
+      gChip(P, 'sn.c' + k, 'corner-select', 0, k, 1, CORNER[k], () => selectCorner(k), { on: k === LAB.sel, bold: true });
+      gCyc(P, 'sn.b' + k, 'corner-bind', 1, k, 15, CORNER[k], 1, i >= 0 ? E.snaps[i].name : '-', () => bindTo(k, E.snaps[(i - 1 + n) % n].sid), () => bindTo(k, E.snaps[(i + 1) % n].sid), { dis: dk });
+      gT(P, 16, k, 4, dk ? 'DRFT' : Math.round(w[k] * 100) + '%', { ci: dk ? 2 : 3, pal: dk ? 3 : 0 });
+    }
+    gT(P, 0, 4, 12, 'SNAPSHOTS - TAG = BIND', { ci: 2 }); CORNER.forEach((ch, k) => gT(P, 12 + k, 4, 1, ch, { ci: 2 })); gT(P, 17, 4, 3, 'DEL', { ci: 2 });
+    E.snaps.forEach((s, r) => {
+      const y = 5 + r, pend = LAB.pendDel === s.sid;
+      gT(P, 0, y, 12, s.name);
+      if (pend) {
+        gBtn(P, 'sn.k.' + s.sid, 'ui', 12, y, 4, 'KEEP', keepSnap);
+        gBtn(P, 'sn.d.' + s.sid, 'snap-delete', 16, y, 4, 'SURE', () => confirmDeleteSnap(s.sid), { pal: 3 });
+      } else {
+        for (let k = 0; k < 4; k++) { const bd = E.bind[k] === s.sid; gChip(P, 'sn.t' + k + '.' + s.sid, 'corner-bind', 12 + k, y, 1, CORNER[k], () => bindTo(k, s.sid), { on: bd && k === LAB.sel, bold: bd, dash: !bd }); }
+        gBtn(P, 'sn.x.' + s.sid, 'snap-delete', 17, y, 3, 'DEL', () => askDeleteSnap(s.sid), { dis: !canDeleteSnap(E) });
+      }
+    });
+    gMenuKey(P); gKey(P, 1, 'SAVE', 'save-snap', () => saveCorner(LAB.sel), !dr); gKey(P, 2, 'DISC', 'discard-draft', () => discardCorner(LAB.sel), !dr); gKey(P, 3, 'CAPT', 'capture-xy', captureXY);
+  },
+  /* the library: tools (revert, delete, name, export, import) and every patch (a LOAD into the focused horde corner) */
+  patches(P) {
+    P.title = 'PATCHES - LOAD INTO H' + HORDE[LAB.hsel];
+    gBtn(P, 'lb.rv', 'lib-revert', 0, 0, 4, 'REVERT', libRevert);
+    gBtn(P, 'lb.dl', 'lib-delete', 4, 0, 4, 'DELETE', () => deletePatch(LAB.libSel), { dis: LAB.lib.length < 2 });
+    gBtn(P, 'lb.nm', 'lib-rename', 8, 0, 4, 'NAME', () => gbcName('patch'));
+    gBtn(P, 'lb.ex', 'lib-export', 12, 0, 4, 'EXPORT', libExport);
+    gBtn(P, 'lb.im', 'lib-import', 16, 0, 4, 'IMPORT', libImport, { dis: !LAB.exportText });
+    LAB.lib.forEach((e, i) => {
+      const plays = HORDE.filter((c, h) => LAB.hc[h].e === i).join('');
+      gC(P, { id: 'lb.' + i, act: 'lib-load', kind: 'row', tx: 0, ty: 1 + i, tw: 20, txt: e.name, rt: e.snaps.length + (plays ? ' H' + plays : ''), on: i === LAB.libSel,
+        fn: { press: () => { if (LAB.libSel !== i) loadEntry(i, 'load ' + e.name + ' → horde ' + HORDE[LAB.hsel]); } } });
+    });
+    gMenuKey(P); gKey(P, 1, 'NEW', 'rand-patch', () => randomizeNewPatch()); gKey(P, 2, 'SNAPS', 'nav', () => gbcGo('snaps')); gKey(P, 3, 'HORDE', 'nav', () => gbcGo('horde'));
+  },
+  /* name entry: the text, a character grid, SPACE · DEL · CANCEL · OK */
+  name(P) {
+    const N = GUI.name || { what: 'patch', text: '' }, act = N.what === 'patch' ? 'lib-rename' : 'macro-label';
+    P.title = N.what === 'patch' ? 'NAME THE PATCH' : 'NAME MACRO ' + (N.k + 1);
+    gT(P, 0, 0, 20, N.text + '_', { pal: 1 });
+    const put = ch => { if (N.text.length < 24) N.text += ch; gbcRepaint(); };
+    GNAME_ROWS.forEach((row, r) => [...row].forEach((ch, i) => gC(P, { id: 'nm.' + r + '.' + i, act: 'ui', kind: 'char', tx: i, ty: 2 + 2 * r, ch, fn: { press: () => put(ch) } })));
+    const del = () => { N.text = N.text.slice(0, -1); gbcRepaint(); }, ok = () => { const t = N.text; gbcBack(); if (N.what === 'patch') renamePatch(t); else setMacroLabel(N.k, t); };
+    gBtn(P, 'nm.sp', 'ui', 0, 8, 5, 'SPACE', () => put(' ')); gBtn(P, 'nm.dl', 'ui', 5, 8, 5, 'DEL', del);
+    gBtn(P, 'nm.cn', 'ui', 10, 8, 5, 'CANCEL', gbcBack); gBtn(P, 'nm.ok', act, 15, 8, 5, 'OK', ok, { pal: 1 });
+    gT(P, 0, 10, 20, 'KEYBOARD TYPES TOO - ESC CANCELS', { ci: 2 });
+    gKey(P, 0, 'CANCEL', 'nav', gbcBack); gKey(P, 1, 'DEL', 'ui', del); gKey(P, 2, 'SPACE', 'ui', () => put(' ')); gKey(P, 3, 'OK', act, ok);
+  },
+  /* the fixed four and the variable four (value = the patch's), each variable one's range bar, EDIT / ASSIGN */
+  macros(P) {
+    const E = curE(), p = cur(), vs = varSlots(); P.title = 'MACROS - ' + E.name;
+    gT(P, 0, 0, 20, 'FIXED - SLUICE-GLOBAL - NO CORNER RANGE', { ci: 2 });
+    fixedMacros().slice(0, 4).forEach((g, j) => gKnob(P, 'mc.f.' + g.role, 'fixed-macro', j * 5, 1, g.label, LAB.G[g.role], gFixTxt(g),
+      { get: () => LAB.G[g.role], set: v => setFixed(g.role, v), reset: () => setFixed(g.role, g.centre), press: () => setFixed(g.role, g.centre) }, { role: g.role, pal: 0 }));
+    gT(P, 0, 3, 20, 'VARIABLE - THE PATCH\'S - RANGE PER CORNER', { ci: 2 });
+    for (let j = 0; j < 4; j++) {
+      const M = j < vs ? macroSlot(p, j) : null, v = isNum(E.mv[j]) ? E.mv[j] : 0;
+      gKnob(P, 'mc.v' + j, 'macro-value', j * 5, 4, M ? M.label : 'M' + (j + 1) + ' EMPTY', v, M ? Math.round(v * 100) + '%' : '-',
+        { get: () => curE().mv[j] || 0, set: x => { setMacroValue(curE(), j, x); touch(); }, done: () => { commit('macro ' + (j + 1)); rebuild(); }, press: () => gbcGo('medit', { mk: j, bi: 0 }) },
+        { pal: M ? 1 : 3, dis: !M, slot: j });
+      const R = M && LAB.hc.length ? rangeView(LAB.hsel, j, 0) : null;
+      if (R && R.e) gC(P, { id: 'mc.r' + j, act: 'ui', kind: 'rbar', nf: true, tx: j * 5, ty: 6, tw: 5, pal: 1, cs: R.corners.map(([a, b]) => [toPos(R.e, a), toPos(R.e, b)]), lo: toPos(R.e, R.lo), hi: toPos(R.e, R.hi), val: toPos(R.e, R.val) });
+      if (M) gBtn(P, 'mc.e' + j, 'nav', j * 5 + 1, 7, 3, 'EDIT', () => gbcGo('medit', { mk: j, bi: 0 }));
+      else if (j === p.macros.length && j < vs) gBtn(P, 'mc.a' + j, 'macro-assign', j * 5, 7, 5, 'ASSIGN', () => { addMacro(); gbcGo('medit', { mk: j, bi: 0 }); }, { dis: !macroTargets(p).length });
+    }
+    gT(P, 0, 8, 20, 'A MOVE IS NEVER A DRAFT', { ci: 2 });
+    gMenuKey(P); gKey(P, 1, 'EDIT', 'nav', () => { const f = GUI.fid.match(/^mc\.[ve](\d)$/); gbcGo('medit', { mk: f ? +f[1] : 0, bi: 0 }); });
+    gKey(P, 2, 'ASSN', 'macro-assign', () => { const k = p.macros.length; addMacro(); gbcGo('medit', { mk: k, bi: 0 }); }, p.macros.length >= vs || !macroTargets(p).length);
+    gBackKey(P, 'xy');
+  },
+  /* one variable macro: its label, its MAPPING (the patch's: targets, curves, bindings) and each snapshot
+     corner's own [min, max] for the chosen binding (a draft of that corner) */
+  medit(P) {
+    const E = curE(), p = cur(), k = clamp(GUI.mk, 0, varSlots() - 1), M = macroSlot(p, k), tg = macroTargets(p), S = S_();
+    P.title = 'MACRO ' + (k + 1) + ' EDIT';
+    gMenuKey(P); gKey(P, 1, 'PREV', 'nav', () => gbcGo('medit', { mk: (k + varSlots() - 1) % varSlots(), bi: 0 })); gKey(P, 2, 'NEXT', 'nav', () => gbcGo('medit', { mk: (k + 1) % varSlots(), bi: 0 })); gBackKey(P, 'macros');
+    if (!M) { gT(P, 0, 0, 20, 'SLOT ' + (k + 1) + ' IS EMPTY'); if (k === p.macros.length && tg.length) gBtn(P, 'me.as', 'macro-assign', 0, 1, 6, 'ASSIGN', () => { addMacro(); gbcRepaint(); }); return; }
+    gT(P, 0, 0, 3, 'M' + (k + 1));
+    gBtn(P, 'me.lb', 'macro-label', 3, 0, 12, M.label, () => gbcName('macro', k));
+    gBtn(P, 'me.rm', 'macro-remove', 15, 0, 5, 'REMOVE', () => { removeMacro(k); gbcGo('macros'); });
+    gT(P, 0, 1, 20, 'MAPPING - THE PATCH\'S - NEVER A DRAFT', { ci: 2 });
+    const bi0 = clamp(GUI.bi, 0, M.bindings.length - 1);
+    M.bindings.forEach((bd, bi) => {
+      const y = 2 + bi, ti = tg.indexOf(bd.target), cv = S.curves, ci = Math.max(0, cv.indexOf(bd.curve || 'lin'));
+      gCyc(P, 'me.t' + bi, 'macro-target', 0, y, 10, '', 0, targetLabel(p, bd.target), () => setMacroTarget(k, bi, tg[(ti - 1 + tg.length) % tg.length]), () => setMacroTarget(k, bi, tg[(ti + 1) % tg.length]));
+      gCyc(P, 'me.c' + bi, 'macro-curve', 10, y, 5, '', 0, cv[ci], () => setMacroCurve(k, bi, cv[(ci - 1 + cv.length) % cv.length]), () => setMacroCurve(k, bi, cv[(ci + 1) % cv.length]));
+      gBtn(P, 'me.x' + bi, 'macro-bind-remove', 15, y, 2, '-', () => removeBinding(k, bi));
+      gBtn(P, 'me.s' + bi, 'ui', 17, y, 3, 'RNG', () => { GUI.bi = bi; gbcRepaint(); }, { on: bi === bi0 });
+    });
+    let y = 2 + M.bindings.length;
+    gBtn(P, 'me.ab', 'macro-bind-add', 0, y, 8, '+ BINDING', () => addBinding(k), { dis: !tg.length }); y++;
+    const b0 = M.bindings[bi0], e = targetEntry(p, b0.target);
+    gT(P, 0, y++, 20, 'RANGES ' + (bi0 + 1) + ': ' + targetLabel(p, b0.target), { ci: 2 });
+    for (let j = 0; j < 4; j++) {
+      const q = E.work[j].macros[k] && E.work[j].macros[k].bindings[bi0], dj = isDraft(E, j); if (!q || !e) continue;
+      gChip(P, 'me.k' + j, 'ui', 0, y, 1, CORNER[j], null, { nf: true, on: j === LAB.sel, bold: true, dash: false });
+      for (const [side, x, lab] of [['lo', 1, CORNER[j] + ' MIN'], ['hi', 10, 'MAX']]) {
+        const val = q[side];
+        gSld(P, 'me.' + side + j, 'macro-range', x, y, side === 'lo' ? 9 : 10, lab, lab.length, toPos(e, val), fmtNum(val, { div: e.div }), 5,
+          t => setRange(j, k, bi0, side === 'lo' ? fromPos(e, t) : NaN, side === 'hi' ? fromPos(e, t) : NaN, true),
+          () => { edited('range M' + (k + 1) + ' ' + CORNER[j]); rebuild(); }, { pal: dj ? 3 : 0 });
+      }
+      y++;
+    }
+    const R = rangeView(LAB.hsel, k, bi0);
+    if (R && R.e) gT(P, 0, y++, 20, 'AT XY ' + fmtNum(R.lo, { div: R.e.div }) + '..' + fmtNum(R.hi, { div: R.e.div }) + ' > ' + fmtNum(R.val, { div: R.e.div }), { ci: 2 });
+  },
+  random(P) {
+    const p = cur(), it = poolItems(p), hot = it.filter(x => !(x.m && isLocked(x.m)) && p.thr[x.id] < LAB.randomness).length;
+    P.title = 'RANDOMIZE - SEEDED';
+    gSld(P, 'rd.r', 'randomness', 0, 0, 20, 'RANDOM', 6, LAB.randomness, LAB.randomness.toFixed(2) + ' ' + hot + '/' + it.length, 9, v => { LAB.randomness = clamp(v, 0, 1); paintCtls(); }, () => { if (LAB.face === 'rack') rebuildRack(); });
+    gCyc(P, 'rd.s', 'seed', 0, 1, 20, 'SEED', 6, String(LAB.seed), () => setSeed(LAB.seed - 1), () => setSeed(LAB.seed + 1));
+    gBtn(P, 'rd.p', 'rand-params', 0, 2, 10, 'PARAMS > ' + CORNER[LAB.sel], randomizeSelected);
+    gBtn(P, 'rd.n', 'rand-patch', 10, 2, 10, 'NEW PATCH', () => randomizeNewPatch());
+    gBtn(P, 'rd.u', 'undo', 0, 3, 10, 'UNDO', undo, { dis: LAB.hi <= 0 });
+    gBtn(P, 'rd.o', 'redo', 10, 3, 10, 'REDO', redo, { dis: LAB.hi >= LAB.hist.length - 1 });
+    gT(P, 0, 4, 20, 'CLICK ' + LAB.clicks + ' - STEP ' + (LAB.hi + 1) + '/' + LAB.hist.length, { ci: 2 });
+    gT(P, 0, 5, 20, 'PARAMS: SAME STRUCTURE, A DRAFT', { ci: 2 }); gT(P, 0, 6, 20, 'NEW: A NEW PATCH ON H' + HORDE[LAB.hsel] + ' (A LOAD)', { ci: 2 });
+    gMenuKey(P); gKey(P, 1, 'RAND', 'rand-params', randomizeSelected); gKey(P, 2, 'NEW', 'rand-patch', () => randomizeNewPatch()); gKey(P, 3, 'UNDO', 'undo', undo, LAB.hi <= 0);
+  },
+  global(P) {
+    P.title = 'GLOBAL - SLUICE-GLOBAL'; let y = 0;
+    for (const g of S_().globals.filter(x => x.kind !== 'knob')) {
+      const nv = globalVoiced(g) ? '' : ' NV';
+      if (g.kind === 'action') gBtn(P, 'gl.' + g.role, 'global-action', 0, y, 10, g.label + nv, () => globalAction(g));
+      else { const i = Math.max(0, g.values.indexOf(LAB.G[g.role])), n = g.values.length; gCyc(P, 'gl.' + g.role, 'global-set', 0, y, 20, g.label + nv, 7, LAB.G[g.role], () => setGlobal(g, g.values[(i - 1 + n) % n]), () => setGlobal(g, g.values[(i + 1) % n])); }
+      y++;
+    }
+    gTog(P, 'gl.byp', 'bypass', 0, y++, 20, 'BYPASS', LAB.bypass, setBypass);
+    gT(P, 0, y++, 20, 'NV = NOT VOICED IN THE V0.1 STAND-IN', { ci: 2 });
+    gMenuKey(P); gKey(P, 1, 'BYP', 'bypass', () => setBypass(!LAB.bypass)); gKey(P, 2, 'SET', 'open-settings', () => gbcGo('settings')); gBackKey(P);
+  },
+  /* the FULL DEVICE: every number of the selected corner's patch, and the machinery (spec §11's Rack face) */
+  device(P) {
+    const S = S_(), p = cur(), E = curE(); P.title = 'FULL DEVICE - ' + E.name + ' ' + CORNER[LAB.sel];
+    let y = 0;
+    gT(P, 0, y++, 20, poolItems(p).length + ' NUMBERS - CORNER ' + CORNER[LAB.sel] + ' - STRUCTURE: ALL 4', { ci: 2 });
+    const targets = p.chain.flatMap(m => S.mod[m.type].filter(e => e.kind === 'num').map(e => m.id + ':' + e.key));
+    for (const part of ['chain', 'post']) {
+      gT(P, 0, y++, 20, part === 'chain' ? 'LOOP CHAIN' : 'POST CHAIN - NOT VOICED IN V0.1', { pal: 1 });
+      const n = p[part].length;
+      p[part].forEach((m, i) => {
+        const pre = 'dv.' + m.id;
+        gT(P, 0, y, 5, (part === 'post' ? 'P' : '') + (i + 1) + ' ' + m.type);
+        gBtn(P, pre + '.en', 'module-enable', 5, y, 2, m.enabled !== false ? 'ON' : 'OFF', () => moduleEnable(part, i, m.enabled === false), { on: m.enabled !== false });
+        gBtn(P, pre + '.lk', 'module-lock', 7, y, 4, m.locked === true ? 'LOCK' : m.locked === false ? 'FREE' : isLocked(m) ? 'DLCK' : 'DFRE', () => moduleLock(part, i));
+        gBtn(P, pre + '.up', 'module-move', 11, y, 2, '^', () => moduleMove(part, i, -1), { dis: i === 0 });
+        gBtn(P, pre + '.dn', 'module-move', 13, y, 2, 'V', () => moduleMove(part, i, 1), { dis: i === n - 1 });
+        gBtn(P, pre + '.dp', 'module-dup', 15, y, 2, '+', () => moduleDup(part, i));
+        gBtn(P, pre + '.rm', 'module-remove', 17, y, 3, 'X', () => moduleRemove(part, i), { dis: n <= 1 && part === 'chain' });
+        y++;
+        if (part === 'chain') for (const bm of busModule()) y = gParamRow(P, y, bm, m.x, bm.key, { id: pre + '.x.' + bm.key, inst: m.id + ':@' + bm.key, pid: 'B/' + bm.key });
+        for (const e of S.mod[m.type]) {
+          const sv = LAB.R && LAB.R.synced[m.id + ':' + e.key];
+          y = gParamRow(P, y, e, m.params, e.key, { id: pre + '.' + e.key, inst: m.id + ':' + e.key, pid: 'M/' + m.type + '/' + e.key, synced: !!sv, held: heldBy(p, m.id + ':' + e.key) });
+          if (e.sync && part === 'chain') {
+            const vals = [''].concat(DIVS.map(d => d[0])), cv = (m.sync && m.sync[e.key]) || '', ci = Math.max(0, vals.indexOf(cv));
+            gCyc(P, pre + '.s.' + e.key, 'param-sync', 2, y++, 18, 'SYNC', 5, cv || 'FREE', () => setSync('chain', m.id, e.key, vals[(ci - 1 + vals.length) % vals.length]), () => setSync('chain', m.id, e.key, vals[(ci + 1) % vals.length]));
+          }
+        }
+      });
+      const T = S.types, ai = GUI.addT[part] % T.length;
+      gCyc(P, 'dv.add.' + part, 'module-add', 0, y++, 20, '+ ADD', 5, T[ai], () => { GUI.addT[part] = (ai - 1 + T.length) % T.length; gbcRepaint(); }, () => { GUI.addT[part] = (ai + 1) % T.length; gbcRepaint(); },
+        { fn2: { press: () => moduleAdd(part, T[ai]) } });
+    }
+    gT(P, 0, y++, 20, 'FEEDBACK BUS', { pal: 1 });
+    for (const b of busPatch().filter(x => x.key !== PATCH_MIX)) y = gParamRow(P, y, b, p.bus, b.key, { id: 'dv.b.' + b.key, inst: '@' + b.key, pid: 'B/' + b.key, held: heldBy(p, '@' + b.key) });
+    const top = S.groups.find(g => g.name === '');
+    if (top) for (const f of top.fields.filter(x => x.kind === 'bool' || x.kind === 'enum')) y = gParamRow(P, y, f, p.grp[''], f.name, { id: 'dv.g..' + f.name, pid: 'G//' + f.name });
+    gT(P, 0, y++, 20, 'MODULATION', { pal: 1 });
+    const grp = g => {
+      gT(P, 0, y, g.optional ? 12 : 20, (g.name || 'patch') + (g.src === 'modSources' ? ' - MOD' : ''), { ci: 2 });
+      if (g.optional) gTog(P, 'dv.gp.' + g.name, 'group-present', 12, y, 8, 'ON', p.has[g.name], v => groupPresent(p, g, v));
+      y++;
+      for (const f of g.fields) y = gParamRow(P, y, f, p.grp[g.name], f.name, { id: 'dv.g.' + g.name + '.' + f.name, pid: 'G/' + g.name + '/' + f.name, targets });
+    };
+    for (const g of S.groups.filter(g => g.name !== '' && (g.src === 'modSources' || g.optional))) grp(g);
+    for (const g of S.groups.filter(g => g.name !== '' && g.src === 'patchLevel' && !g.optional)) grp(g);
+    gT(P, 0, y++, 20, 'PATCH MIX - OUTPUT', { pal: 1 });
+    for (const b of busPatch().filter(x => x.key === PATCH_MIX)) y = gParamRow(P, y, b, p.bus, b.key, { id: 'dv.b.' + b.key, inst: '@' + b.key, pid: 'B/' + b.key, held: heldBy(p, '@' + b.key) });
+    if (top) for (const f of top.fields.filter(x => x.kind === 'readout' || x.kind === 'num')) {
+      y = gParamRow(P, y, f, p.grp[''], f.name, { id: 'dv.g..' + f.name, pid: 'G//' + f.name });
+      gBtn(P, 'dv.nz.' + f.name, 'normalize', 0, y++, 10, 'NORMALIZE', () => normalizeOut(p, f));
+    }
+    gMenuKey(P); gKey(P, 1, 'PG UP', 'ui', () => gbcPage(-12)); gKey(P, 2, 'PG DN', 'ui', () => gbcPage(12)); gBackKey(P);
+  },
+  /* horde's morph XY (a MODEL): the XY (tinted by the live class, the flip line), the four corners (a chip
+     to edit, a patch to load), the band. The FX page follows the live patch (section K4) */
+  horde(P) {
+    P.list = false; P.title = 'HORDE MORPH - MODEL';
+    const MM = LAB.M, Mx = LAB.P ? xyClassMap(LAB.P, LAB.flip, LAB.live, 36, 36, HORDE) : null, n = LAB.lib.length;
+    gC(P, { id: 'hd.pad', act: 'horde-xy', kind: 'pad', pad: 'horde', tx: 0, ty: 1, tw: 10, th: 10, pal: 2, px0: 4, py0: 4, pw: 71, ph: 71,
+      x: LAB.hxy.x, y: LAB.hxy.y, hsel: LAB.hsel, cls: Mx ? Array.from(Mx.cls) : [], band: Mx ? Array.from(Mx.band) : [], liveIdx: Mx ? Mx.classes.findIndex(g => g.key === LAB.live) : 0, flipping: flipRecent(),
+      fn: { getXY: () => [LAB.hxy.x, LAB.hxy.y], setXY: hordeMove, done: hordeMoveDone } });
+    for (let h = 0; h < 4; h++) {
+      const c = LAB.hc[h], cl = MM ? MM.classes.find(g => g.members.includes(h)) : null, live = !!MM && MM.members.includes(h);
+      gChip(P, 'hd.c' + h, 'horde-focus', 10, 1 + 2 * h, 2, HORDE[h], () => focusHorde(h), { on: h === LAB.hsel, bold: true });
+      gCyc(P, 'hd.p' + h, 'horde-patch', 12, 1 + 2 * h, 8, '', 0, LAB.lib[c.e].name, () => loadHorde(h, (c.e - 1 + n) % n), () => loadHorde(h, (c.e + 1) % n));
+      gT(P, 12, 2 + 2 * h, 8, (cl ? '=' + cl.name : '') + (live ? ' LIVE' : '') + ' W' + (MM ? Math.round(MM.w[h] * 100) : 0), { ci: 2 });
+    }
+    gT(P, 0, 11, 20, (LAB.morphOk ? 'BLEND EVERYWHERE' : (MM ? MM.classes.length : 1) + ' CLASSES - LIVE =' + (MM ? MM.name : '?')) + ' - EDIT H' + HORDE[LAB.hsel], { ci: 3 });
+    gSld(P, 'hd.band', 'flip-band', 0, 12, 20, 'BAND', 4, LAB.flip.band / 0.3, '+-' + LAB.flip.band.toFixed(2), 6, v => setFlipBand(v * 0.3), () => rebuild());
+    gT(P, 0, 13, 20, 'INTO A CORNER = THE HYSTERESIS-LIVE', { ci: 2 }); gT(P, 0, 14, 20, 'PATCH: THE FX PAGE FOLLOWS IT', { ci: 2 });
+    gT(P, 0, 15, 20, 'DRAFTS STAY WITH THEIR CORNER', { ci: 2 });
+    gMenuKey(P); gKey(P, 1, 'CORNR', 'nav', () => gbcGo('hcorner', { hh: LAB.hsel })); gKey(P, 2, 'HMAC', 'nav', () => gbcGo('hmacros')); gKey(P, 3, 'SET', 'open-settings', () => gbcGo('settings'));
+  },
+  /* one horde corner: its patch, rand, edit; its Sluice XY (a parameter) and the two position knobs */
+  hcorner(P) {
+    const h = clamp(GUI.hh, 0, 3), c = LAB.hc[h], E = LAB.lib[c.e], n = LAB.lib.length, Pp = effPos(LAB.hc, LAB.hm, h), MM = LAB.M;
+    P.list = false; P.title = 'HORDE CORNER ' + HORDE[h];
+    gChip(P, 'hc.c', 'horde-focus', 0, 1, 2, HORDE[h], () => focusHorde(h), { on: h === LAB.hsel, bold: true });
+    gCyc(P, 'hc.p', 'horde-patch', 2, 1, 12, '', 0, E.name, () => loadHorde(h, (c.e - 1 + n) % n), () => loadHorde(h, (c.e + 1) % n));
+    gBtn(P, 'hc.r', 'rand-patch', 14, 1, 3, 'RND', () => randomizeNewPatch(h));
+    gBtn(P, 'hc.e', 'horde-focus', 17, 1, 3, 'EDIT', () => { focusHorde(h); gbcGo('xy'); });
+    gT(P, 2, 2, 18, (MM && MM.members.includes(h) ? 'LIVE ' : '') + 'W' + (MM ? Math.round(MM.w[h] * 100) : 0) + '% ' + shortSig(E.work[0]), { ci: 2 });
+    gC(P, { id: 'hc.pad', act: 'horde-sluice-xy', kind: 'pad', pad: 'mini', tx: 0, ty: 3, tw: 10, th: 8, pal: 2, px0: 4, py0: 4, pw: 71, ph: 55,
+      x: Pp.x, y: Pp.y, bx: c.x, by: c.y, drafts: [0, 1, 2, 3].map(k => isDraft(E, k)),
+      fn: { getXY: () => [LAB.hc[h].x, LAB.hc[h].y], setXY: (x, y) => { LAB.hc[h].x = clamp(x, 0, 1); LAB.hc[h].y = clamp(y, 0, 1); touch(); }, done: () => { commit('horde ' + HORDE[h] + ' Sluice XY'); rebuild(); } } });
+    ['x', 'y'].forEach((ax, i) => {
+      const mp = LAB.hm.maps.filter(q => q.h === h && q.ax === ax).slice(-1)[0];
+      gKnob(P, 'hc.' + ax, 'horde-sluice-xy', 11, 3 + 3 * i, 'SL ' + ax.toUpperCase(), c[ax], c[ax].toFixed(2),
+        { get: () => LAB.hc[h][ax], set: v => setHordePos(h, ax, v), done: () => { commit('horde ' + HORDE[h] + ' ' + HAX[ax]); rebuild(); } }, { pal: mp ? 2 : 0 });
+      gT(P, 11, 5 + 3 * i, 9, mp ? '<H' + (mp.m + 1) + ' ' + Pp[ax].toFixed(2) : 'BASE', { ci: 2 });
+    });
+    gT(P, 0, 11, 20, 'RING = BASE - DOT = HEARD (A HORDE MACRO)', { ci: 2 });
+    gMenuKey(P); gKey(P, 1, 'PREV', 'nav', () => gbcGo('hcorner', { hh: (h + 3) % 4 })); gKey(P, 2, 'NEXT', 'nav', () => gbcGo('hcorner', { hh: (h + 1) % 4 })); gBackKey(P, 'horde');
+  },
+  hmacros(P) {
+    P.title = 'HORDE MACROS - MODEL';
+    for (let j = 0; j < HMACROS; j++) { const nm = LAB.hm.maps.filter(q => q.m === j).length;
+      gKnob(P, 'hm.' + j, 'horde-macro', j * 5, 0, 'H' + (j + 1) + ' ' + nm + 'M', LAB.hm.v[j], Math.round(LAB.hm.v[j] * 100) + '%',
+        { get: () => LAB.hm.v[j], set: v => setHordeMacro(j, v), done: () => { commit('horde macro ' + (j + 1)); rebuild(); } }, { pal: 1 }); }
+    gT(P, 0, 2, 20, 'MAPS: MACRO > CORNER AXIS - LO..HI', { ci: 2 });
+    const tgt = []; for (let h = 0; h < 4; h++) for (const ax of ['x', 'y']) tgt.push(h + ax);
+    LAB.hm.maps.forEach((mp, i) => {
+      const y = 3 + i, ti = Math.max(0, tgt.indexOf(mp.h + mp.ax));
+      gCyc(P, 'hm.s' + i, 'horde-map-edit', 0, y, 3, '', 0, 'H' + (mp.m + 1), () => mapEdit(i, 'm', (mp.m + HMACROS - 1) % HMACROS), () => mapEdit(i, 'm', (mp.m + 1) % HMACROS));
+      gCyc(P, 'hm.t' + i, 'horde-map-edit', 3, y, 5, '', 0, HORDE[mp.h] + mp.ax.toUpperCase(), () => mapEdit(i, 't', tgt[(ti - 1 + tgt.length) % tgt.length]), () => mapEdit(i, 't', tgt[(ti + 1) % tgt.length]));
+      gSld(P, 'hm.l' + i, 'horde-map-edit', 8, y, 5, '', 0, mp.lo, mp.lo.toFixed(1), 3, v => mapEdit(i, 'lo', v, true), () => { edited('map lo'); rebuild(); });
+      gSld(P, 'hm.h' + i, 'horde-map-edit', 13, y, 5, '', 0, mp.hi, mp.hi.toFixed(1), 3, v => mapEdit(i, 'hi', v, true), () => { edited('map hi'); rebuild(); });
+      gBtn(P, 'hm.x' + i, 'horde-map-remove', 18, y, 2, 'X', () => mapRemove(i));
+    });
+    const y = 3 + LAB.hm.maps.length;
+    gBtn(P, 'hm.add', 'horde-map-add', 0, y, 6, '+ MAP', mapAdd); gBtn(P, 'hm.demo', 'horde-map-demo', 6, y, 8, 'DEMO H1', mapDemo);
+    gMenuKey(P); gKey(P, 1, '+MAP', 'horde-map-add', mapAdd); gKey(P, 2, 'DEMO', 'horde-map-demo', mapDemo); gBackKey(P, 'horde');
+  },
+  settings(P) {
+    P.title = 'SETTINGS - TAILS';
+    gCyc(P, 'st.m', 'bypass-mode', 0, 0, 20, 'FLIP+BYP', 8, LAB.byMode === 'spill' ? 'SPILL-OVER' : 'HARD', () => setByMode(LAB.byMode === 'spill' ? 'hard' : 'spill'), () => setByMode(LAB.byMode === 'spill' ? 'hard' : 'spill'));
+    gTog(P, 'st.l', 'load-tail', 0, 1, 20, 'LOAD: OLD TAIL RINGS', LAB.loadTail, setLoadTail);
+    gSld(P, 'st.g', 'glide', 0, 2, 20, 'GLIDE', 5, LAB.glideS / GLIDE_MAX_S, Math.round(LAB.glideS * 1000) + 'MS', 6, v => setGlide(v * GLIDE_MAX_S), () => rebuild());
+    gTog(P, 'st.b', 'bypass', 0, 3, 20, 'BYPASS', LAB.bypass, setBypass);
+    gT(P, 0, 4, 20, 'TAIL - SCHEMATIC (V0.1 STAND-IN)', { ci: 2 });
+    const H = LAB.th.slice(-150);
+    gC(P, { id: 'st.meter', act: 'ui', kind: 'meter', nf: true, tx: 0, ty: 5, tw: 20, th: 8, pal: 2, out: H.map(e => e.out), tail: H.map(e => e.tail), eng: H.map(e => e.engines || 0) });
+    gT(P, 0, 13, 20, 'OUT = LINE - TAIL = INK - ENGINES = FLOOR', { ci: 2 });
+    gMenuKey(P); gKey(P, 1, 'BYP', 'bypass', () => setBypass(!LAB.bypass)); gBackKey(P);
+  },
+  scope(P) {
+    P.title = 'SCOPE - RENDERED';
+    const M = LAB.meters, N = M ? M.outRing.length : 0, pts = [];
+    for (let i = 0; i < 152 && N; i++) pts.push(M.outRing[Math.floor(i * N / 152)]);
+    gT(P, 0, 0, 20, 'OUTPUT - LAST 2048 SAMPLES', { ci: 2 });
+    gC(P, { id: 'sc.o', act: 'ui', kind: 'scope', nf: true, tx: 0, ty: 1, tw: 20, th: 6, pal: 2, pts });
+    gT(P, 0, 7, 20, 'IMPULSE RESPONSE - 3 S - ' + (LAB.ir ? LAB.ir.st.state : '-'), { ci: 2 });
+    const env = LAB.ir ? LAB.ir.env : [], pk = env.length ? Math.max.apply(null, env) : 0;
+    gC(P, { id: 'sc.i', act: 'ui', kind: 'scope', nf: true, tx: 0, ty: 8, tw: 20, th: 6, pal: 2, env: env.map(d => clamp((d - pk + 90) / 90, 0, 1)) });
+    gMenuKey(P); gBackKey(P);
+  },
+};
+/* a param row of the FULL DEVICE, by the entry's kind (the DOM's paramRow, drawn on the grid) */
+function gParamRow(P, y, e, obj, key, o) {
+  const X = { inst: o.inst || '', pid: o.pid || '' }, lab = e.label || key;
+  if (e.kind === 'bool') gTog(P, o.id, 'param-set', 0, y, 20, lab, obj[key], v => setValue(obj, key, !!v), X);
+  else if (e.kind === 'enum') { const n = e.options.length, i = Math.max(0, e.options.findIndex(v => String(v) === String(obj[key])));
+    gCyc(P, o.id, 'param-set', 0, y, 20, lab, 8, obj[key], () => setValue(obj, key, e.options[(i - 1 + n) % n]), () => setValue(obj, key, e.options[(i + 1) % n]), X); }
+  else if (e.kind === 'ref') { const vals = ['off'].concat(o.targets || []), n = vals.length, i = Math.max(0, vals.indexOf(obj[key] || 'off'));
+    gCyc(P, o.id, 'param-set', 0, y, 20, lab, 8, vals[i] === 'off' ? 'OFF' : targetLabel(cur(), vals[i]), () => setValue(obj, key, vals[(i - 1 + n) % n]), () => setValue(obj, key, vals[(i + 1) % n]), X); }
+  else if (e.kind === 'div') { const vals = [''].concat(DIVS.map(d => d[0])), n = vals.length, i = Math.max(0, vals.indexOf(obj[key] || ''));
+    gCyc(P, o.id, 'param-set', 0, y, 20, lab, 8, vals[i] || 'FREE', () => setValue(obj, key, vals[(i - 1 + n) % n]), () => setValue(obj, key, vals[(i + 1) % n]), X); }
+  else if (e.kind === 'readout') gT(P, 0, y, 20, lab + ' ' + (+obj[key] || 0).toFixed(1) + ' ' + (e.unit || ''), X);
+  else gSld(P, o.id, 'param-set', 0, y, 20, lab + (o.held ? '*' : ''), 8, toPos(e, obj[key]), fmtNum(obj[key], { div: e.div }), 6,
+    v => setValue(obj, key, fromPos(e, v), true), () => { edited(key); rebuild(); }, Object.assign({ dis: !!o.synced }, X));
+  return y + 1;
+}
+/* ---- the view model: the page built from the live state, its soft keys, what is visible, the focus.
+   o.page / o.fid / o.hover build another page or focus (the checks); the live page keeps its scroll */
+function gbcVM(o) {
+  o = o || {};
+  const page = o.page || GUI.page, P = gP(page, '', true);
+  (GPAGES[page] || GPAGES.xy)(P);
+  if (P.home) P.y0 = 0;
+  for (let j = 0; j < 4; j++) { const k = P.keys[j] || { label: '', act: 'ui', fn: null, dis: true };
+    gC(P, { id: 'key' + j, act: k.act, kind: 'key', tx: j * 5, ty: 17, tw: 5, th: 1, abs: true, lab: k.label, dis: k.dis, pal: 0, fn: { press: k.dis ? null : k.fn } }); }
+  const foc = P.ctrls.filter(c => !c.nf), live = !o.page || o.page === GUI.page;
+  let fid = o.fid !== undefined ? o.fid : live ? GUI.fid : '';
+  let f = foc.find(c => c.id === fid) || foc[0] || null;
+  let scroll = live ? (GUI.scroll[page] || 0) : 0;
+  const body = P.ctrls.filter(c => !c.abs), maxY = body.reduce((a, c) => Math.max(a, c.ty + c.th), 0);
+  if (f && !f.abs) { if (f.ty < scroll) scroll = f.ty; if (f.ty + f.th > scroll + P.rows) scroll = f.ty + f.th - P.rows; }
+  scroll = clamp(scroll, 0, Math.max(0, maxY - P.rows));
+  if (live && o.fid === undefined) { GUI.scroll[page] = scroll; if (f) GUI.fid = f.id; }
+  for (const c of P.ctrls) { c.sy = c.abs ? c.ty : P.y0 + c.ty - scroll; c.vis = c.abs || (c.sy >= P.y0 && c.sy + c.th <= P.y0 + P.rows); }
+  if (!P.home) {
+    gC(P, { id: 'msg', act: 'ui', kind: 'text', nf: true, tx: 0, ty: 16, sy: 16, vis: true, abs: true, tw: 20, txt: LAB.msg || '', ci: /refused/.test(LAB.msg) ? 2 : 3, pal: /refused/.test(LAB.msg) ? 3 : 0 });
+    if (maxY > P.rows) P.d.more = [scroll > 0, scroll + P.rows < maxY];
+  }
+  const vm = { page, title: P.title, home: P.home, d: P.d, ctrls: P.ctrls, y0: P.y0, rows: P.rows, scroll, focus: f ? f.id : '', hover: o.hover !== undefined ? o.hover : live ? GUI.hover : '',
+    grab: live && GUI.grab && !!f && f.kind === 'pad', edit: HORDE[LAB.hsel], editLive: !!LAB.M && LAB.M.members.includes(LAB.hsel), liveName: LAB.M ? LAB.M.name : '?' };
+  vm.byId = {}; for (const c of P.ctrls) vm.byId[c.id] = c;
+  vm.order = P.ctrls.filter(c => !c.nf);
+  vm.vis = P.ctrls.filter(c => c.vis && !c.nf);
+  return vm;
+}
+/* ---- drawing (reads the vm's data only, never the state: C26's frozen-vm control) ---- */
+function gRing(b, cx, cy, r, colour) {
+  let x = r, y = 0, e = 1 - r;
+  while (x >= y) {
+    for (const [dx, dy] of [[x, y], [y, x], [-y, x], [-x, y], [-x, -y], [-y, -x], [y, -x], [x, -y]]) { const c = colour(dx, dy); if (c >= 0) b.px(cx + dx, cy + dy, c); }
+    y++; if (e < 0) e += 2 * y + 1; else { x--; e += 2 * (y - x) + 1; }
+  }
+}
+function gDisc(b, cx, cy, r, c) { for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (dx * dx + dy * dy <= r * r + r) b.px(cx + dx, cy + dy, c); }
+/* a chip: a CIRCLE, 7 px across in one tile or 13 px in 2×2 (with its letter); filled = on; a dashed ring = an unbound tag */
+function gChipDraw(b, X, Y, sz, ch, on, dash, bold, dis) {
+  const r = sz === 2 ? 6 : 3, cx = X + r + (sz === 2 ? 1 : 0), cy = Y + r + (sz === 2 ? 1 : 0);
+  if (on) gDisc(b, cx, cy, r, 2);
+  else gRing(b, cx, cy, r, (dx, dy) => dash && ((dx + dy) & 1) ? -1 : dis ? 1 : bold ? 3 : 2);
+  /* a one-tile chip is too small for a letter inside its ring (the 3×5 glyph touches it): its letter is
+     the column's or the row's label beside it */
+  if (sz === 2) b.text(ch, cx - 1, cy - 2, on ? 0 : dis ? 1 : 3);
+}
+/* a knob: a ROUND cap, 13 px across; the ring carries the value arc (colour 2, from the 7 o'clock stop to
+   the value), the rest of the travel in ink, the gap faint; a pointer from the centre */
+function gKnobDraw(b, X, Y, v, dis) {
+  const cx = X + 7, cy = Y + 7, r = 6, a1 = -140 + 280 * clamp(v, 0, 1);
+  gRing(b, cx, cy, r, (dx, dy) => { const a = Math.atan2(dx, -dy) * 180 / Math.PI; return dis || Math.abs(a) > 140 ? 1 : a <= a1 ? 2 : 3; });
+  if (dis) return;
+  const t = a1 * Math.PI / 180; for (let s = 0; s <= 4; s++) b.px(Math.round(cx + Math.sin(t) * s), Math.round(cy - Math.cos(t) * s), 3);
+}
+function gPadDraw(b, c, X, Y) {
+  const x0 = X + c.px0, y0 = Y + c.py0, w = c.pw, h = c.ph, PX = v => x0 + Math.round(clamp(v, 0, 1) * w), PY = v => y0 + Math.round(clamp(v, 0, 1) * h);
+  if (c.pad === 'horde') {
+    const n = 36, cell = (i, j) => c.cls[Math.min(n - 1, Math.floor((j - y0) * n / (h + 1))) * n + Math.min(n - 1, Math.floor((i - x0) * n / (w + 1)))];
+    for (let j = y0; j <= y0 + h; j++) for (let i = x0; i <= x0 + w; i++) {
+      const q = cell(i, j), bi = Math.min(n - 1, Math.floor((j - y0) * n / (h + 1))) * n + Math.min(n - 1, Math.floor((i - x0) * n / (w + 1)));
+      if (q === c.liveIdx && ((i + j) & 1)) b.px(i, j, 1);
+      if (c.band[bi] && i % 3 === 0 && j % 3 === 0) b.px(i, j, 2);
+      if ((i > x0 && cell(i - 1, j) !== q) || (j > y0 && cell(i, j - 1) !== q)) b.px(i, j, 2);
+    }
+  } else {
+    if (c.pad === 'sluice') { const qx = c.sel & 1 ? 0.5 : 0, qy = c.sel & 2 ? 0.5 : 0; for (let j = PY(qy); j <= PY(qy + 0.5); j++) for (let i = PX(qx); i <= PX(qx + 0.5); i++) if ((i + j) & 1) b.px(i, j, 1); }
+    for (let q = 1; q < 4; q++) { b.line(PX(q / 4), PY(0), PX(q / 4), PY(1), 1, true); b.line(PX(0), PY(q / 4), PX(1), PY(q / 4), 1, true); }
+  }
+  b.box(x0, y0, w + 1, h + 1, 3);
+  /* the corners, as their chips are: CIRCLES, filled for the selected (Sluice) or edited (horde) corner */
+  [[0, 0], [1, 0], [0, 1], [1, 1]].forEach(([u, v], k) => {
+    const cx = PX(u) + (u ? -4 : 4), cy = PY(v) + (v ? -4 : 4), on = c.pad === 'horde' ? k === c.hsel : c.pad === 'sluice' && k === c.sel, dr = c.drafts && c.drafts[k];
+    if (c.pad === 'mini') { gRing(b, cx, cy, 2, (dx, dy) => dr && ((dx + dy) & 1) ? -1 : 3); return; }
+    b.rect(cx - 3, cy - 3, 7, 7, 0);
+    if (on) gDisc(b, cx, cy, 3, 2); else gRing(b, cx, cy, 3, (dx, dy) => dr && ((dx + dy) & 1) ? -1 : 3);
+    b.text(c.pad === 'horde' ? HORDE[k] : CORNER[k], cx - 1, cy - 2, on ? 0 : 3);
+  });
+  if (c.pad !== 'horde' && Math.abs(c.bx - c.x) + Math.abs(c.by - c.y) > 1e-9) { b.line(PX(c.bx), PY(c.by), PX(c.x), PY(c.y), 2, true); gRing(b, PX(c.bx), PY(c.by), 2, () => 2); }
+  const cx = PX(c.x), cy = PY(c.y);
+  b.rect(cx - 3, cy, 7, 1, 3); b.rect(cx, cy - 3, 1, 7, 3); b.rect(cx - 1, cy - 1, 3, 3, 2); b.px(cx, cy, 3);
+  if (c.flipping) { b.rect(x0 + 2, y0 + 2, 19, 7, 0); b.text('FLIP', x0 + 3, y0 + 3, 3); }
+}
+function gCtlDraw(b, c) {
+  const X = c.tx * 8, Y = c.sy * 8, W = c.tw * 8, H = c.th * 8, n = w => Math.max(1, Math.floor(w / 4));
+  const fit = (s, px) => gbcFit(s, n(px));
+  switch (c.kind) {
+    case 'text': if (c.txt) b.text(fit(c.txt, W - 2), X + 2, Y + 2, c.ci === undefined ? 3 : c.ci); break;
+    case 'row': {
+      if (c.on) b.rect(X, Y, W, H, 1);
+      const rt = c.rt ? gbcUp(c.rt) : ''; b.text(fit(c.txt, W - 4 - rt.length * 4 - 4), X + 2, Y + 2, 3);
+      if (rt) b.text(rt, X + W - 1 - rt.length * 4, Y + 2, 2); break;
+    }
+    case 'btn': case 'key': {
+      const lab = fit(c.lab, W - 6);
+      if (c.kind === 'key') { b.rect(X + 4, Y + 1, W - 8, 7, c.dis ? 1 : 2); b.ctext(lab, X + W / 2, Y + 2, 0); break; }
+      if (c.on) { b.rect(X + 1, Y, W - 2, H, 2); b.ctext(lab, X + W / 2, Y + 2, 0); }
+      else { b.box(X + 1, Y, W - 2, H, c.dis ? 1 : 2); b.ctext(lab, X + W / 2, Y + 2, c.dis ? 1 : 3); }
+      break;
+    }
+    case 'toggle': {
+      b.text(fit(c.lab, W - 30), X + 2, Y + 2, c.dis ? 1 : 3);
+      if (c.on) { b.rect(X + W - 24, Y, 22, H, 2); b.ctext('ON', X + W - 13, Y + 2, 0); } else { b.box(X + W - 24, Y, 22, H, 1); b.ctext('OFF', X + W - 13, Y + 2, 3); }
+      break;
+    }
+    case 'cycle': {
+      const lx = c.lw ? 4 + c.lw * 4 : 2, ci = c.dis ? 1 : 3;
+      if (c.lab) b.text(fit(c.lab, lx - 4), X + 2, Y + 2, ci);
+      b.text('<', X + lx, Y + 2, c.dis ? 1 : 2); b.text('>', X + W - 5, Y + 2, c.dis ? 1 : 2);
+      b.ctext(fit(c.txt, W - lx - 12), X + (lx + W - 2) / 2, Y + 2, ci); break;
+    }
+    case 'slider': {
+      if (c.lab) b.text(fit(c.lab, c.bx0 - 4), X + 2, Y + 2, c.dis ? 1 : 3);
+      const x0 = X + c.bx0, x1 = X + c.bx1; b.box(x0, Y + 2, x1 - x0, 4, 1);
+      if (!c.dis) b.rect(x0 + 1, Y + 3, Math.round((x1 - x0 - 2) * c.v), 2, 2);
+      b.px(x0 + 1 + Math.round((x1 - x0 - 3) * c.v), Y + 1, 3); b.px(x0 + 1 + Math.round((x1 - x0 - 3) * c.v), Y + 6, 3);
+      if (c.vw) { const t = fit(c.txt, c.vw * 4); b.text(t, X + W - 1 - t.length * 4, Y + 2, c.dis ? 1 : 3); }
+      break;
+    }
+    case 'knob': gKnobDraw(b, X, Y, c.v, c.dis); b.text(gbcUp(c.lab).slice(0, n(W - 17)), X + 16, Y + 2, c.dis ? 1 : 3); b.text(fit(c.txt, W - 17), X + 16, Y + 9, c.dis ? 1 : 2); break;
+    case 'chip': gChipDraw(b, X, Y, c.sz, c.ch, c.on, c.dash, c.bold, c.dis); break;
+    case 'crow': {
+      if (c.on) b.rect(X, Y, W, H, 1);
+      b.rect(X + 1, Y + 1, 14, 14, 0); gChipDraw(b, X + 1, Y + 1, 2, c.ch, c.on, false, true, false);
+      b.text(fit(c.txt, W - 20), X + 18, Y + 2, 3); b.text(fit(c.sub, W - 20), X + 18, Y + 9, 2); break;
+    }
+    case 'char': b.ctext(c.ch, X + 4, Y + 2, 3); break;
+    case 'pad': gPadDraw(b, c, X, Y); break;
+    case 'rbar': {
+      const x0 = X + 2, w = W - 5, P = t => x0 + Math.round(clamp(t, 0, 1) * w);
+      c.cs.forEach(([a, bb], j) => { const l = Math.min(P(a), P(bb)), r = Math.max(P(a), P(bb)); b.rect(l, Y + j, r - l + 1, 1, 1); });
+      b.rect(Math.min(P(c.lo), P(c.hi)), Y + 4, Math.abs(P(c.hi) - P(c.lo)) + 1, 2, 2); b.rect(P(c.val), Y, 1, 8, 3); break;
+    }
+    case 'meter': {
+      const n = c.out.length, Yd = db => Y + 2 + Math.round((H - 6) * clamp(-db / 90, 0, 1)), Xn = i => X + 2 + Math.round((W - 5) * i / Math.max(1, n - 1));
+      b.box(X, Y, W, H, 1);
+      for (let i = 1; i < n; i++) { b.line(Xn(i - 1), Yd(c.out[i - 1]), Xn(i), Yd(c.out[i]), 2); b.line(Xn(i - 1), Yd(c.tail[i - 1]), Xn(i), Yd(c.tail[i]), 3); b.px(Xn(i), Y + H - 2 - Math.min(3, c.eng[i]), 1); }
+      break;
+    }
+    case 'scope': {
+      b.box(X, Y, W, H, 1); const mid = Y + H / 2;
+      if (c.pts) { let pk = 1e-6; for (const v of c.pts) pk = Math.max(pk, Math.abs(v)); for (let i = 1; i < c.pts.length; i++) b.line(X + 3 + i - 1, Math.round(mid - c.pts[i - 1] / pk * (H / 2 - 3)), X + 3 + i, Math.round(mid - c.pts[i] / pk * (H / 2 - 3)), 2); }
+      if (c.env) for (let i = 1; i < c.env.length; i++) b.line(X + 2 + Math.round((i - 1) * (W - 5) / c.env.length), Y + H - 3 - Math.round(c.env[i - 1] * (H - 6)), X + 2 + Math.round(i * (W - 5) / c.env.length), Y + H - 3 - Math.round(c.env[i] * (H - 6)), 2);
+      break;
+    }
+  }
+}
+/* the ring around a control, on its tile rect's outer pixels (colour 2 of the tiles' palette) */
+function gRingRect(b, c, dotted) {
+  const X = c.tx * 8, Y = c.sy * 8, W = c.tw * 8, H = c.th * 8;
+  for (let i = 0; i < W; i++) if (!dotted || !(i & 1)) { b.px(X + i, Y, 2); b.px(X + i, Y + H - 1, 2); }
+  for (let j = 0; j < H; j++) if (!dotted || !(j & 1)) { b.px(X, Y + j, 2); b.px(X + W - 1, Y + j, 2); }
+}
 function gbcDraw(b, vm) {
   b.clear();
-  b.pal(13, 0, 5, 3, 3);
-  b.text('HORDE', 106, 2, 3); b.text('PROPOSAL', 106, 9, 2); b.text('ADR-188', 106, 16, 3);
-  b.pal(0, 3, 20, 1, 1); b.rect(0, 24, 160, 8, 1);
-  b.text(gbcFit('H' + vm.horde + (vm.inLive ? ' LIVE ' : ' =' + vm.live + ' ') + vm.patch, 28), 3, 26, 3);
-  if (vm.bypass) b.text('BYPASS', 132, 26, 2);
-  else { b.box(118, 25, 39, 6, 3); b.rect(119, 26, Math.round(37 * clamp((vm.out + 60) / 60, 0, 1)), 4, 2); }
-  /* the XY field: the selected corner's quadrant dithered, the quarter grid, the cursor; a corner's
-     marker is FILLED only when it is the selected corner (the chips' rule), * marks a draft */
-  b.pal(0, 4, 10, 9, 2);
-  const X = x => 4 + Math.round(x * 71), Y = y => 36 + Math.round(y * 63);
-  const qx = vm.sel & 1 ? 0.5 : 0, qy = vm.sel & 2 ? 0.5 : 0;
-  for (let j = Y(qy); j <= Y(qy + 0.5); j++) for (let i = X(qx); i <= X(qx + 0.5); i++) if ((i + j) & 1) b.px(i, j, 1);
-  for (let q = 1; q < 4; q++) { b.line(X(q / 4), Y(0), X(q / 4), Y(1), 1, true); b.line(X(0), Y(q / 4), X(1), Y(q / 4), 1, true); }
-  b.box(X(0), Y(0), 72, 64, 3);
-  if (vm.flipping) { b.rect(6, 38, 19, 7, 0); b.text('FLIP', 7, 39, 3); }
-  /* a horde macro drives the position: the base is a hollow box, the line runs to the heard point */
-  if (Math.abs(vm.bx - vm.x) + Math.abs(vm.by - vm.y) > 1e-9) { b.line(X(vm.bx), Y(vm.by), X(vm.x), Y(vm.y), 2, true); b.box(X(vm.bx) - 2, Y(vm.by) - 2, 5, 5, 2); }
-  const cx = X(vm.x), cy = Y(vm.y);
-  b.rect(cx - 3, cy, 7, 1, 3); b.rect(cx, cy - 3, 1, 7, 3); b.rect(cx - 1, cy - 1, 3, 3, 2); b.px(cx, cy, 3);
-  [[0, 4], [9, 4], [0, 12], [9, 12]].forEach(([tx, ty], k) => {
-    const sel = k === vm.sel, x = tx * 8, y = ty * 8;
-    b.pal(tx, ty, 1, 1, sel ? 1 : 0);
-    b.rect(x, y, 8, 8, 0); b.box(x, y, 8, 8, 3);
-    if (sel) b.rect(x + 1, y + 1, 6, 6, 2);
-    b.text(CORNER[k], x + 2, y + 2 - (ty === 12 ? 1 : 0), sel ? 0 : 3);
-    if (vm.corners[k].draft) b.text('*', tx ? x - 4 : x + 9, ty === 4 ? y + 9 : y - 6, 3);
-  });
-  /* the bindings: a chip (filled iff selected), the bound snapshot's name, DRAFT or the weight */
-  vm.corners.forEach((c, k) => {
-    const y = 32 + k * 16, sel = k === vm.sel;
-    b.pal(10, 4 + k * 2, 10, 2, sel ? 1 : 0);
-    if (sel) b.rect(80, y, 80, 16, 1);
-    b.rect(81, y + 3, 9, 9, 0); b.box(81, y + 3, 9, 9, 3); if (sel) b.rect(82, y + 4, 7, 7, 2);
-    b.text(CORNER[k], 84, y + 5, sel ? 0 : 3);
-    b.text(gbcFit(c.name, 16), 94, y + 2, 3);
-    b.text(c.draft ? 'DRAFT UNSAVED' : 'W' + Math.round(vm.w[k] * 100) + '%', 94, y + 9, 2);
-  });
-  b.pal(10, 12, 10, 1, 0);
-  b.text(vm.ok ? 'HORDE: BLEND' : 'HORDE ' + vm.ncls + 'CL +-' + vm.band.toFixed(1).replace(/^0/, ''), 82, 97, 3);
-  /* the FIXED macros: structure palette, a bar from the centre (centre = as saved) */
-  b.pal(0, 13, 20, 2, 0); b.rect(0, 104, 160, 1, 1);
-  vm.fixed.forEach((f, j) => {
-    const x = j * 40, c0 = x + 4 + Math.round(32 * f.c), v = x + 4 + Math.round(32 * clamp(f.v, 0, 1));
-    b.text(gbcFit(f.label, 9), x + 3, 107, 3);
-    b.box(x + 3, 113, 34, 5, 1); b.rect(Math.min(c0, v), 114, Math.abs(v - c0) + 1, 3, 2); b.rect(c0, 112, 1, 7, 3);
-  });
-  /* the VARIABLE macros and the soft keys (the workshop's gbcSoft, :820-829, with this lab's data);
-     SAVE and DISCARD are lit only while the selected corner holds a draft */
-  vm.vars.forEach((m, j) => {
-    const x = j * 40, idle = !m;
-    b.pal(j * 5, 15, 5, 2, idle ? 3 : 1); b.pal(j * 5, 17, 5, 1, 0);
-    b.text(idle ? 'M' + (j + 1) + ' EMPTY' : gbcFit(m.label, 9), x + 3, 121, 3);
-    b.text(idle ? '-' : Math.round(m.v * 100) + '%', x + 3, 127, idle ? 2 : 3);
-    b.box(x + 3, 133, 34, 3, 1); if (!idle) b.rect(x + 4, 134, Math.round(32 * m.v), 1, 2);
-    const lit = j < 2 || vm.draft;
-    b.rect(x + 4, 137, 32, 7, lit ? 2 : 1); b.ctext(GBC_KEYS[j], x + 20, 138, 0);
-  });
+  const d = vm.d;
+  if (vm.home) {
+    b.pal(13, 0, 5, 3, 3);
+    b.text('EDIT H' + vm.edit, 106, 2, 3); b.text(vm.editLive ? 'LIVE =' + vm.liveName : 'LIVE =' + vm.liveName + '!', 106, 9, vm.editLive ? 2 : 3);
+    b.text(d.ok ? 'BLEND' : d.ncls + 'CL +-' + d.band.toFixed(2).replace(/^0/, ''), 106, 17, 3);
+    b.pal(0, 3, 20, 1, 1); b.rect(0, 24, 160, 8, 1);
+    b.text(gbcFit('H' + d.horde + (d.inLive ? ' LIVE ' : ' =' + d.live + ' ') + d.patch, 28), 3, 26, 3);
+    if (d.bypass) b.text('BYPASS', 132, 26, 2); else { b.box(118, 25, 39, 6, 3); b.rect(119, 26, Math.round(37 * clamp((d.out + 60) / 60, 0, 1)), 4, 2); }
+  } else {
+    b.pal(0, 0, 20, 1, 1); b.rect(0, 0, 160, 8, 1);
+    const rt = 'H' + vm.edit + (vm.editLive ? '' : '!'); b.text(gbcFit(vm.title, 36 - rt.length - (d.more ? 3 : 0)), 2, 2, 3); b.text(rt, 158 - rt.length * 4, 2, 3);
+    /* a long page says it scrolls, in the header: ^ more above, v more below */
+    if (d.more) { const mx = 150 - rt.length * 4; b.text(d.more[0] ? '^' : ' ', mx - 8, 2, 2); b.text(d.more[1] ? 'V' : ' ', mx - 4, 2, 2); }
+  }
+  const shown = vm.ctrls.filter(c => c.vis);
+  for (const c of shown) b.pal(c.tx, c.sy, c.tw, c.th, c.pal);
+  for (const c of shown) gCtlDraw(b, c);
+  const f = vm.byId[vm.focus], h = vm.byId[vm.hover];
+  if (h && h.vis && h !== f) gRingRect(b, h, true);
+  if (f && f.vis) { b.pal(f.tx, f.sy, f.tw, f.th, 3); gRingRect(b, f, false); if (vm.grab) { const X = f.tx * 8 + 2, Y = f.sy * 8 + 2; b.box(X, Y, f.tw * 8 - 4, f.th * 8 - 4, 2); } }
 }
-/* the frame: the index buffer composed through the scheme's palettes, then the logos' opaque pixels
-   over their tile-aligned slots (under them the buffer holds only the ground) */
+/* the frame: the index buffer composed through the scheme's palettes, then the logos' opaque pixels over
+   their tile-aligned slots, on the default face's page only (under them the buffer holds only the ground) */
 function gbcFrame(vm, theme, draw) {
   const b = GBC.buf || (GBC.buf = new GBuf());
   (draw || gbcDraw)(b, vm);
   const img = { data: new Uint8ClampedArray(GBC_W * GBC_H * 4) };
   b.compose(img, gbcPalettes(theme));
-  for (const kind of ['title', 'icon']) {
+  if (vm.home) for (const kind of ['title', 'icon']) {
     const L = GBC.logo[kind], S = GBC_SLOT[kind]; if (!L) continue;
     for (let y = 0; y < L.h; y++) for (let x = 0; x < L.w; x++) {
       const i = (y * L.w + x) * 4; if (L.px[i + 3] < 128) continue;
@@ -3683,58 +4424,165 @@ function paintGBC() {
   const cv = $('gbcScr'); if (!cv || !cv.getContext || !cv.offsetParent) return;
   const g = cv.getContext('2d'); if (!g || !g.drawImage) return;
   if (!GBC.fcv) { GBC.fcv = document.createElement('canvas'); GBC.fcv.width = GBC_W; GBC.fcv.height = GBC_H; GBC.fcg = GBC.fcv.getContext('2d'); }
-  const img = GBC.fcg.createImageData(GBC_W, GBC_H); img.data.set(gbcFrame(gbcVM(), LAB.theme)); GBC.fcg.putImageData(img, 0, 0);
+  const vm = gbcVM(); GBC.vm = vm;
+  const img = GBC.fcg.createImageData(GBC_W, GBC_H); img.data.set(gbcFrame(vm, LAB.theme)); GBC.fcg.putImageData(img, 0, 0);
   g.imageSmoothingEnabled = false;
   g.globalAlpha = LAB.still || cv._fresh ? 1 : 0.5;      // the LCD's slow pixels: half of the new frame over the old
   g.drawImage(GBC.fcv, 0, 0); g.globalAlpha = 1; cv._fresh = false;
+  paintChassis(vm);
 }
-/* the glass takes the pointer where the screen draws a control: drag in the XY field (the quadrant
-   selects its corner, as on the standard face), click a binding row to select that corner */
-function gbcPointer(cv) {
-  let mode = '';
-  const at = e => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) * GBC_W / (r.width || 1), (e.clientY - r.top) * GBC_H / (r.height || 1)]; };
-  const xy = (lx, ly) => { LAB.xy.x = clamp((lx - 4) / 71, 0, 1); LAB.xy.y = clamp((ly - 36) / 63, 0, 1); xyFollow(); touch(); };   // Sluice's XY: one patch, no flip
+function gbcRepaint() { const cv = $('gbcScr'); if (cv) cv._fresh = true; paintLive(); }
+/* ---- input: the pointer through the integer scale to a screen pixel to a tile rect ---- */
+function gbcLocal(rect, clientX, clientY) { const k = Math.max(1, Math.round(rect.width / GBC_W)); return [Math.floor((clientX - rect.left) / k), Math.floor((clientY - rect.top) / k)]; }
+function gbcHit(vm, lx, ly) {
+  if (lx < 0 || ly < 0 || lx >= GBC_W || ly >= GBC_H) return null;
+  const tx = lx >> 3, ty = ly >> 3;
+  for (const c of vm.vis) if (tx >= c.tx && tx < c.tx + c.tw && ty >= c.sy && ty < c.sy + c.th) return c;
+  return null;
+}
+const gAdjustable = c => !!c && !c.dis && (c.kind === 'knob' || c.kind === 'slider' || c.kind === 'cycle');
+/* the layout order used by the arrows: a soft key sits below every body row, whatever the scroll */
+const gLY = (vm, c) => c.abs ? (c.ty >= 17 ? 1e4 : c.ty) : vm.y0 + c.ty;
+/* ↑ ↓: the nearest control in the next row that way, the closest in x; ← →: the nearest along the row */
+function gbcMove(vm, id, dir) {
+  const c = vm.byId[id]; if (!c) return vm.order.length ? vm.order[0].id : '';
+  const cy = gLY(vm, c), cx = c.tx + c.tw / 2; let best = null, bs = Infinity;
+  for (const q of vm.order) {
+    if (q === c) continue;
+    const qy = gLY(vm, q), qx = q.tx + q.tw / 2; let s = Infinity;
+    if (dir === 'down' && qy > cy) s = (qy - cy) * 1000 + Math.abs(qx - cx);
+    else if (dir === 'up' && qy < cy) s = (cy - qy) * 1000 + Math.abs(qx - cx);
+    else if ((dir === 'left' || dir === 'right') && qy < cy + c.th && qy + q.th > cy && (dir === 'right' ? q.tx > c.tx : q.tx < c.tx)) s = Math.abs(q.tx - c.tx);
+    if (s < bs) { bs = s; best = q; }
+  }
+  return best ? best.id : '';
+}
+/* Tab: the next control in order; past the last (or before the first), null: the browser moves on */
+function gbcTab(vm, id, d) { const i = vm.order.findIndex(c => c.id === id), j = i + d; return j >= 0 && j < vm.order.length ? vm.order[j].id : null; }
+/* PG UP / PG DN on a long page: the focus jumps d rows */
+function gbcPage(d) {
+  const vm = gbcVM(), body = vm.order.filter(c => !c.abs), f = vm.byId[vm.focus], cy = f && !f.abs ? f.ty : 0;
+  const t = body.find(c => c.ty >= Math.max(0, cy + d)) || body[d > 0 ? body.length - 1 : 0];
+  if (t) GUI.fid = t.id; gbcRepaint();
+}
+function gbcPress(c) {
+  if (!c || c.dis) return;
+  if (c.kind === 'pad') { GUI.grab = !GUI.grab; if (!GUI.grab && c.fn.done) c.fn.done(); return; }
+  if (c.kind === 'cycle') { if (c.fn2 && c.fn2.press) c.fn2.press(); else c.fn.next(); return; }
+  if (c.fn.press) c.fn.press();
+}
+function gbcAdjust(c, d) {
+  if (c.kind === 'cycle') { (d < 0 ? c.fn.prev : c.fn.next)(); return; }
+  c.fn.set(clamp((c.kind === 'knob' ? c.fn.get() : c.v) + d, 0, 1)); if (c.fn.done) c.fn.done();
+}
+function gbcSoft(j) { const vm = gbcVM(), k = vm.byId['key' + j]; if (k && !k.dis && k.fn.press) { k.fn.press(); gbcRepaint(); } }
+/* the keyboard, on the focused glass (Tab / arrows / Enter / Escape / 1–4; typing on the name page) */
+function gbcKey(ev) {
+  const vm = gbcVM(), c = vm.byId[vm.focus], k = ev.key, sh = ev.shiftKey, st = sh ? GSTEP_FINE : GSTEP;
+  let used = true;
+  /* the name page takes typing: every printable key (space too) is a character, Backspace deletes */
+  if (GUI.page === 'name' && GUI.name && k.length === 1 && !ev.ctrlKey && !ev.metaKey && !ev.altKey) { if (GUI.name.text.length < 24) GUI.name.text += k; }
+  else if (GUI.page === 'name' && GUI.name && k === 'Backspace') GUI.name.text = GUI.name.text.slice(0, -1);
+  else if (k === 'Tab') { const n = gbcTab(vm, vm.focus, sh ? -1 : 1); if (n === null) used = false; else GUI.fid = n; }
+  else if (/^Arrow/.test(k)) {
+    const dir = k.slice(5).toLowerCase();
+    if (vm.grab && c && c.kind === 'pad') { const [x, y] = c.fn.getXY(), s = sh ? GSTEP_FINE : GSTEP; c.fn.setXY(x + (dir === 'left' ? -s : dir === 'right' ? s : 0), y + (dir === 'up' ? -s : dir === 'down' ? s : 0)); if (c.fn.done) c.fn.done(); }
+    else if ((dir === 'left' || dir === 'right') && gAdjustable(c)) gbcAdjust(c, dir === 'left' ? -st : st);
+    else { const n = gbcMove(vm, vm.focus, dir); if (n) GUI.fid = n; }
+  }
+  else if (k === 'Enter' || k === ' ') gbcPress(c);
+  else if (k === 'Escape') { if (GUI.grab) { GUI.grab = false; if (c && c.fn.done) c.fn.done(); } else if (GUI.page !== 'xy') gbcBack(); }
+  else if (/^[1-4]$/.test(k)) gbcSoft(+k - 1);
+  else used = false;
+  if (used) { ev.preventDefault(); ev.stopPropagation(); gbcRepaint(); }
+}
+/* the pointer: press on release over the same control; knobs drag vertically (the DOM knob's 160 px per
+   turn, Shift fine), sliders and pads take the position; a cycle's left half steps back, right half on
+   (a cycle that also acts, + ADD, acts in its middle) */
+function gbcWire(cv) {
+  const hitAt = e => { const vm = gbcVM(), [lx, ly] = gbcLocal(cv.getBoundingClientRect(), e.clientX, e.clientY); return { vm, lx, ly, c: gbcHit(vm, lx, ly) }; };
+  const drive = (c, lx, ly, e) => {
+    const X = c.tx * 8, Y = c.sy * 8;
+    if (c.kind === 'slider') c.fn.set(clamp((lx - X - c.bx0) / Math.max(1, c.bx1 - c.bx0), 0, 1));
+    else if (c.kind === 'pad') c.fn.setXY((lx - X - c.px0) / c.pw, (ly - Y - c.py0) / c.ph);
+    else if (c.kind === 'knob') c.fn.set(clamp(GUI.drag.p0 + (GUI.drag.y0 - e.clientY) / (e.shiftKey ? 600 : 160), 0, 1));
+  };
   cv.addEventListener('pointerdown', e => {
-    const [lx, ly] = at(e);
-    if (lx < 80 && ly >= 32 && ly < 104) { mode = 'xy'; try { cv.setPointerCapture(e.pointerId); } catch (_) {} xy(lx, ly); }
-    else if (lx >= 80 && ly >= 32 && ly < 96) selectCorner(Math.floor((ly - 32) / 16));
+    const { lx, ly, c } = hitAt(e); if (!c) return;
+    GUI.fid = c.id; GUI.grab = false; try { cv.focus({ preventScroll: true }); } catch (_) {}
+    GUI.drag = { id: c.id, kind: c.kind, p0: c.kind === 'knob' ? c.fn.get() : 0, y0: e.clientY };
+    if (!c.dis && (c.kind === 'slider' || c.kind === 'pad' || c.kind === 'knob')) { try { cv.setPointerCapture(e.pointerId); } catch (_) {} drive(c, lx, ly, e); }
+    gbcRepaint();
   });
-  cv.addEventListener('pointermove', e => { if (mode === 'xy') { const [lx, ly] = at(e); xy(lx, ly); } });
-  const up = () => { if (mode === 'xy') { mode = ''; xyDone(); } };
-  cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+  cv.addEventListener('pointermove', e => {
+    const { vm, lx, ly, c } = hitAt(e);
+    if (GUI.drag && (GUI.drag.kind === 'slider' || GUI.drag.kind === 'pad' || GUI.drag.kind === 'knob')) { const d = vm.byId[GUI.drag.id]; if (d && !d.dis) { drive(d, lx, ly, e); gbcRepaint(); } return; }
+    const h = c ? c.id : ''; if (h !== GUI.hover) { GUI.hover = h; gbcRepaint(); }
+  });
+  const up = e => {
+    const D = GUI.drag; GUI.drag = null; if (!D) return;
+    const { lx, c } = hitAt(e), vm = gbcVM(), d = vm.byId[D.id];
+    if (d && !d.dis && (D.kind === 'slider' || D.kind === 'pad' || D.kind === 'knob')) { if (d.fn.done) d.fn.done(); }
+    else if (c && c.id === D.id && !c.dis) {
+      if (c.kind === 'cycle') { const rx = lx - c.tx * 8, W = c.tw * 8; if (c.fn2 && rx > 10 && rx < W - 10) c.fn2.press(); else (rx < W / 2 ? c.fn.prev : c.fn.next)(); }
+      else if (c.fn.press) c.fn.press();
+    }
+    gbcRepaint();
+  };
+  cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', () => { GUI.drag = null; });
+  cv.addEventListener('pointerleave', () => { if (GUI.hover) { GUI.hover = ''; gbcRepaint(); } });
+  cv.addEventListener('dblclick', e => { const { c } = hitAt(e); if (c && c.kind === 'knob' && c.fn.reset) { c.fn.reset(); gbcRepaint(); } });
+  cv.addEventListener('keydown', gbcKey);
 }
-/* the GBC face: the bezel and screen, the four knobs and four soft keys under it (the variable
-   macros; NEW / RAND / SAVE / DISCARD), and beside it the rest of the Play controls, the same
-   builders as the standard face */
+/* the chassis under the glass: four soft keys (numbered only: the screen names them) and four knobs
+   (the variable macros, bound by order: the workshop's chassis contract) */
+function paintChassis(vm) {
+  for (let j = 0; j < 4; j++) { const b = $('gkey' + j), k = vm.byId['key' + j]; if (!b || !k) continue; b.disabled = !!k.dis; b.title = 'soft key ' + (j + 1) + ': ' + (k.lab || '—') + ' on this page (keyboard ' + (j + 1) + ')'; }
+}
+/* the GBC face: the bezel and glass are built ONCE and kept (a rebuild would replace the canvas and
+   drop its keyboard focus and pointer capture mid-gesture); the chassis knobs and the side are rebuilt */
 function buildGbc() {
-  const F = $('gbcFace'); F.innerHTML = '';
-  const left = el('div', 'col');
-  const bz = el('div', 'gbezel'), sc = el('div', 'gscreen'), cv = el('canvas');
-  cv.id = 'gbcScr'; cv.width = GBC_W; cv.height = GBC_H; cv.dataset.pixel = String(GBC_K); cv.dataset.ctl = 'xy'; cv._fresh = true;
-  cv.title = 'the Play face as GBC screen software, drawn from the live state · drag in the XY field · click a binding row to select its corner';
-  sc.appendChild(cv); sc.appendChild(el('div', 'gdots')); bz.appendChild(sc); gbcPointer(cv);
-  const soft = el('div', 'gsoft'), dr = isDraft(curE(), LAB.sel);
-  const keys = [[() => randomizeNewPatch(), 'rand-patch', 'randomize patch: a new structure on this horde corner (a load), four named snapshots'],
-    [randomizeSelected, 'rand-params', 'randomize params into the selected corner, as a draft'],
-    [() => saveCorner(LAB.sel), 'save-snap', 'save the selected corner\'s draft as a new snapshot, and bind it'],
-    [() => discardCorner(LAB.sel), 'discard-draft', 'discard the selected corner\'s draft']];
+  const F = $('gbcFace');
+  if (!GBC.face) {
+    F.innerHTML = '';
+    const left = el('div', 'col'), bz = el('div', 'gbezel'), sc = el('div', 'gscreen'), cv = el('canvas');
+    cv.id = 'gbcScr'; cv.width = GBC_W; cv.height = GBC_H; cv.dataset.pixel = String(GBC_K); cv.dataset.ctl = 'xy'; cv._fresh = true; cv.tabIndex = 0;
+    cv.title = 'the whole instrument as GBC screen software · click, drag · Tab / arrows / Enter / Esc / 1–4 when focused';
+    sc.appendChild(cv); sc.appendChild(el('div', 'gdots')); bz.appendChild(sc); gbcWire(cv);
+    const soft = el('div', 'gsoft'); soft.id = 'gsoft'; bz.appendChild(soft); left.appendChild(bz);
+    const right = el('div', 'col gcol'); right.id = 'gside';
+    F.appendChild(left); F.appendChild(right);
+    GBC.face = true;
+  }
+  const soft = $('gsoft'); soft.innerHTML = '';
   for (let j = 0; j < 4; j++) {
     const z = el('div'); macroKnob(z, j, true, false);
-    btn(z, 'gkey', String(j + 1), keys[j][1], keys[j][0], 'soft key ' + (j + 1) + ' (' + GBC_KEYS[j] + ' on the screen): ' + keys[j][2]).disabled = j >= 2 && !dr;
+    const b = btn(z, 'gkey', String(j + 1), null, () => { gbcSoft(j); const cv = $('gbcScr'); if (cv) try { cv.focus({ preventScroll: true }); } catch (_) {} }); b.id = 'gkey' + j;
     soft.appendChild(z);
   }
-  bz.appendChild(soft); left.appendChild(bz);
-  const right = el('div', 'col gcol');
-  right.appendChild(el('div', 'vnote', 'GBC skin (B338) · ' + PROPOSAL + ' · B322\'s renderer, the ' + GBC_SCHEME[LAB.theme].name + ' scheme in 4-colour tile palettes (RGB555) · title: '
-    + (GBC.src.title === 'file' ? 'the human\'s file' : 'B326\'s proposal (drop ' + GBC_LOGO_DIR + GBC_SLOT.title.file + ' to replace it)') + GBC.note));
-  const c1 = cell(right, 'FIXED MACROS', 'always present · Sluice-global'); buildFixedMacros(c1, true);
-  const c2 = cell(right, 'CORNERS', 'one patch · bound snapshots · horde corner ' + HORDE[LAB.hsel]); c2.querySelector('h3').appendChild(propTag()); buildCorners(c2);
-  if (LAB.msg) c2.appendChild(el('div', /refused/.test(LAB.msg) ? 'caution' : 'vnote', LAB.msg));
-  const c3 = cell(right, 'RANDOMIZE · SNAPSHOT'); buildRandom(c3, true);
-  const c4 = cell(right, 'LIBRARY'); buildLibrary(c4, true);
-  const c5 = cell(right, 'GLOBAL'); buildGlobals(c5);
-  const c6 = cell(right, 'BYPASS · TAILS', 'a SETTINGS preference'); buildTail(c6, '');
-  F.appendChild(left); F.appendChild(right);
+  buildGbcSide($('gside'));
+}
+/* beside the glass: the screen's map (pages, soft keys, keys) and, as lab chrome, the JSON box */
+function buildGbcSide(host) {
+  host.innerHTML = '';
+  const c0 = cell(host, 'THE SCREEN IS THE INSTRUMENT', 'B361 · ' + PROPOSAL4); const m = el('div', 'gmap');
+  m.innerHTML = 'GBC screen software (B338\'s renderer, ' + esc(GBC_SCHEME[LAB.theme].name) + ' in 4-colour tile palettes, RGB555). Every function of the lab is on the glass; the DOM panels are not needed. '
+    + '<b>' + esc(editingText()) + '</b>.<br><kbd>Tab</kbd> walks every control · <kbd>↑</kbd><kbd>↓</kbd> rows · <kbd>←</kbd><kbd>→</kbd> turn, step or move along · <kbd>Enter</kbd> press (on a pad: grab, then arrows) · <kbd>Esc</kbd> back · <kbd>1</kbd>–<kbd>4</kbd> soft keys · double-click a knob: centre.'
+    + ' Alt + wheel is not wired yet (see the trace).'
+    + '<table><tr><th>page</th><th>soft keys 1 · 2 · 3 · 4</th></tr>' + gbcMap().map(r => '<tr><td>' + esc(r[0]) + '</td><td>' + esc(r[1]) + '</td></tr>').join('') + '</table>';
+  c0.appendChild(m);
+  const c1 = cell(host, 'JSON BOX', 'lab chrome: the export and import on the PATCHES page use it');
+  const ta = el('textarea'); ta.value = LAB.exportText; ta.dataset.ctl = 'lib-json'; ta.placeholder = 'EXPORT on the screen writes here; IMPORT reads here';
+  ta.addEventListener('change', () => { LAB.exportText = ta.value; }); c1.appendChild(ta);
+  host.appendChild(el('div', 'vnote', 'title: ' + (GBC.src.title === 'file' ? 'the human\'s file' : 'B326\'s proposal (drop ' + GBC_LOGO_DIR + GBC_SLOT.title.file + ' to replace it)') + GBC.note));
+}
+/* the navigation map, read off the pages themselves (their soft keys), so it cannot drift from them */
+function gbcMap() {
+  const out = [];
+  for (const [pg, lab] of [['xy', faceName() + ' (XY, home)'], ['menu', 'MENU']].concat(gMenu().slice(1).map(r => [r[0], r[1]])).concat([['medit', 'MACRO EDIT'], ['name', 'NAME ENTRY']])) {
+    const vm = gbcVM({ page: pg, fid: '' }); out.push([lab, [0, 1, 2, 3].map(j => vm.byId['key' + j].lab || '—').join(' · ')]);
+  }
+  return out;
 }
 
 /* ================================================================ O. AUDIO — the same renderer, in a worklet */
@@ -4307,7 +5155,9 @@ function C22() {
 function C23() {
   const want = fixedMacros().map(g => g.role), roles4 = want.length === 4 && ['drywet', 'width', 'time', 'tune'].every(r => want.includes(r));
   const kinds = root => [...root.querySelectorAll('[data-fixed]')].map(e => e.dataset.fixed);
-  const faces = ['playFace', 'gbcFace', 'rackFace'].map(id => kinds($(id))), facesOk = faces.every(f => f.length === 4 && want.every(r => f.includes(r)));
+  /* B361: the GBC skin's fixed macros are drawn ON its screen (the DOM panel beside it is gone), so its
+     four are read from the screen's controls (the default page's FIXED knobs, by role) */
+  const faces = [kinds($('playFace')), gbcVM({ page: 'xy', fid: '' }).ctrls.filter(c => c.act === 'fixed-macro').map(c => c.role), kinds($('rackFace'))], facesOk = faces.every(f => f.length === 4 && want.every(r => f.includes(r)));
   const keepC = CTLS; let every = 0, everyOk = true, ctlN = -1;
   CTLS = [];
   try {
@@ -4317,7 +5167,7 @@ function C23() {
   } finally { LAB.cov = null; CTLS = keepC; }
   const vk = [...$('playFace').querySelectorAll('.kcell.var')], varOk = vk.length === varSlots() && vk.every(c => !c.dataset.fixed) && varSlots() === Math.min(VAR_WANT, S_().slots);
   pushCheck('C23', 'the four FIXED macros are always present, apart from the variable ones', roles4 && facesOk && everyOk && varOk, ctlN === 3,
-    'the manifest\'s knob globals are exactly the four roles (' + fixedMacros().map(g => g.label).join(', ') + '): ' + roles4 + ' · four fixed macros on the standard Play face, the GBC skin and the Rack face: ' + faces.map(f => f.length).join(' / ')
+    'the manifest\'s knob globals are exactly the four roles (' + fixedMacros().map(g => g.label).join(', ') + '): ' + roles4 + ' · four fixed macros on the standard Play face, the GBC screen and the Rack face: ' + faces.map(f => f.length).join(' / ')
     + ' · built over ' + every + ' patches (the library and a new random one): four each: ' + everyOk + ' · the variable row holds ' + vk.length + ' slots, none of them fixed: ' + varOk
     + ' · control: a schema missing one knob global → ' + ctlN + ' fixed macros, ' + (ctlN === 3 ? 'caught' : 'NOT caught'));
 }
@@ -4363,21 +5213,23 @@ function C25() {
 }
 /* the GBC skin: what gbcFrame returns is what paintGBC puts on the glass (before the LCD's ghosting) */
 function C26() {
-  const auds = ['light', 'dark'].map(th => tileAudit(gbcFrame(gbcVM(), th), GBC_W, GBC_H));
+  /* B361: the screen has pages; the one C26 holds is the default page (the logos, the fixed and variable macros) */
+  const XYV = { page: 'xy', fid: '', hover: '' };
+  const auds = ['light', 'dark'].map(th => tileAudit(gbcFrame(gbcVM(XYV), th), GBC_W, GBC_H));
   const rule = auds.every(a => a.tiles === 360 && a.maxPer <= 4 && a.off555 === 0);
-  const f0 = gbcFrame(gbcVM(), LAB.theme), L = GBC.logo.title, S = GBC_SLOT.title;
+  const f0 = gbcFrame(gbcVM(XYV), LAB.theme), L = GBC.logo.title, S = GBC_SLOT.title;
   let lp = 0, lbad = 0;
   if (L) for (let y = 0; y < L.h; y++) for (let x = 0; x < L.w; x++) { const i = (y * L.w + x) * 4; if (L.px[i + 3] < 128) continue; lp++; const o = ((S.y + y) * GBC_W + S.x + x) * 4; if (f0[o] !== L.px[i] || f0[o + 1] !== L.px[i + 1] || f0[o + 2] !== L.px[i + 2]) lbad++; }
   const logoOk = lp > 100 && lbad === 0;
   const diff = (a, b) => { let n = 0; for (let i = 0; i < a.length; i += 4) if (a[i] !== b[i] || a[i + 1] !== b[i + 1] || a[i + 2] !== b[i + 2]) n++; return n; };
   const g0 = fixedMacros()[2], v0 = LAB.G[g0.role], moved = v0 < 0.5 ? v0 + 0.3 : v0 - 0.3;
-  const frozen = gbcVM();
-  LAB.G[g0.role] = moved; const fF = gbcFrame(gbcVM(), LAB.theme), fZ = gbcFrame(frozen, LAB.theme); LAB.G[g0.role] = v0;
+  const frozen = gbcVM(XYV);
+  LAB.G[g0.role] = moved; const fF = gbcFrame(gbcVM(XYV), LAB.theme), fZ = gbcFrame(frozen, LAB.theme); LAB.G[g0.role] = v0;
   /* B353: a variable macro's value is the patch's (E.mv) */
   const E = curE(), keepV = E.mv.slice(); let fV = f0, hasVar = false;
-  try { if (macroSlot(cur(), 0)) { const s = E.mv[0]; setMacroValue(E, 0, s < 0.5 ? s + 0.35 : s - 0.35); fV = gbcFrame(gbcVM(), LAB.theme); hasVar = true; } }
+  try { if (macroSlot(cur(), 0)) { const s = E.mv[0]; setMacroValue(E, 0, s < 0.5 ? s + 0.35 : s - 0.35); fV = gbcFrame(gbcVM(XYV), LAB.theme); hasVar = true; } }
   finally { E.mv = keepV; }
-  const nF = diff(f0, fF), nV = diff(f0, fV), back = diff(f0, gbcFrame(gbcVM(), LAB.theme)) === 0;
+  const nF = diff(f0, fF), nV = diff(f0, fV), back = diff(f0, gbcFrame(gbcVM(XYV), LAB.theme)) === 0;
   const plant = cols => { const d = new Uint8ClampedArray(256); for (let i = 0; i < 64; i++) { const c = cols[i % cols.length]; d[i * 4] = c[0]; d[i * 4 + 1] = c[1]; d[i * 4 + 2] = c[2]; d[i * 4 + 3] = 255; } return tileAudit(d, 8, 8); };
   const c5 = plant([[0, 0, 0], [255, 255, 255], [8, 8, 8], [16, 16, 16], [24, 24, 24]]).over === 1, cOff = plant([[3, 0, 0]]).off555 > 0, frozenCaught = diff(f0, fZ) === 0;
   pushCheck('C26', 'the GBC skin keeps 4 colours per 8×8 tile (RGB555) and draws the live state', rule && logoOk && nF > 0 && hasVar && nV > 0 && back, c5 && cOff && frozenCaught,
@@ -4856,11 +5708,261 @@ function C42() {
     + ' · rendered, a load of another structure (' + shortSig(P) + ' → ' + shortSig(R) + '): option ON → ' + on.tails + ' tail ringing, meter ' + on.tail.toFixed(1) + ' dB, ' + on.engines + ' engines; OFF → ' + off.tails + ' tails, meter ' + off.tail.toFixed(0) + ' dB, ' + off.engines + ' engine: ' + rOk
     + ' · the SETTINGS checkbox flips the option and the next load\'s message follows it: ' + domOk + ' · controls: a maker that ignores the option → ' + (cIgn ? 'caught' : 'NOT caught') + '; one that spills loads under the flip preference → ' + (cPref ? 'caught' : 'NOT caught'));
 }
+/* ---- B361 self-checks (C43–C49): one shape system, the GBC screen as the whole instrument, the FX
+   page following the morph. The ones that drive the live page put everything back. ---- */
+/* show one view of the plugin window for a measurement (the faces and pages are display:none when not
+   shown, and a hidden element has no box); `fn` runs with it shown; the lab's own choice comes back */
+function withView(page, face, skin, fn) {
+  const keep = { page: LAB.page, face: LAB.face, skin: LAB.skin };
+  LAB.page = page; if (face) { LAB.face = face; LAB.skin = skin || LAB.skin; }
+  try { showFace(); showPage(); return fn(); }
+  finally { Object.assign(LAB, keep); showFace(); showPage(); }
+}
+/* a knob cap or a chip, as RENDERED: its box 1.00 ± 0.02 wide per tall, and ROUND (a border radius of
+   at least half its side); '' = good, 'zero' = no box, else what is wrong */
+function shapeFault(e) {
+  const r = e.getBoundingClientRect(); if (!(r.width > 0 && r.height > 0)) return 'zero';
+  const ar = r.width / r.height, rad = getComputedStyle(e).borderTopLeftRadius || '0';
+  const round = /%$/.test(rad) ? parseFloat(rad) >= 50 : parseFloat(rad) >= Math.min(r.width, r.height) / 2 - 0.5;
+  return Math.abs(ar - 1) <= 0.02 && round ? '' : r.width.toFixed(1) + '×' + r.height.toFixed(1) + (round ? '' : ' radius ' + rad);
+}
+/* a GBC chip or knob, drawn alone into a scratch buffer: its drawn circle's box must be square */
+function gbcShapeFault(c) {
+  if (c.kind === 'chip' && c.tw !== c.th) return c.id + ' tile rect ' + c.tw + '×' + c.th;   // a knob or corner row holds its round cap in its first 2×2 tiles
+  const b = new GBuf(); b.clear();
+  if (c.kind === 'knob') gKnobDraw(b, 8, 8, c.v, false); else gChipDraw(b, 8, 8, c.kind === 'crow' ? 2 : c.sz, ' ', c.on, false, true, false);
+  let x0 = 1e9, x1 = -1, y0 = 1e9, y1 = -1;
+  for (let y = 0; y < 40; y++) for (let x = 0; x < 40; x++) if (b.idx[y * 160 + x]) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+  return x1 - x0 === y1 - y0 ? '' : c.id + ' drawn ' + (x1 - x0 + 1) + '×' + (y1 - y0 + 1);
+}
+function C43() {
+  const views = [['fx', 'play', 'standard', 'playFace'], ['fx', 'play', 'gbc', 'gbcFace'], ['fx', 'rack', 'standard', 'rackFace'], ['main', '', '', 'hordeView'], ['settings', '', '', 'settingsView']];
+  const bad = [], per = []; let n = 0, zero = 0;
+  for (const [page, face, skin, id] of views) withView(page, face, skin, () => {
+    const els = [...$(id).querySelectorAll('.kcap, .cchip')].concat(page === 'fx' ? [...$('rack').querySelectorAll('.kcap, .cchip')] : []);
+    let m = 0; for (const e of els) { const f = shapeFault(e); if (f === 'zero') { zero++; continue; } n++; m++; if (f) bad.push(id + ' ' + e.className + ' ' + f); }
+    per.push(id + ' ' + m);
+  });
+  /* the glass: every chip, corner row and knob on every page, drawn and measured */
+  const G = gbcAllCtrls().filter(c => c.kind === 'chip' || c.kind === 'knob' || c.kind === 'crow'), gbad = G.map(gbcShapeFault).filter(Boolean);
+  /* controls: B353's corner chip in a stretching cell (a planted 30 px wide chip), B337's fixed cap (a
+     planted 6 px radius), and a GBC chip given a 2×1 tile rect */
+  const pl = cornerChip(1, {}); pl.style.width = '30px'; pl.style.maxWidth = '30px';
+  const kc = el('span', 'knob'); const cap = el('span', 'kcap'); kc.appendChild(cap); cap.style.borderRadius = '6px';
+  const plant = withView('fx', 'play', 'standard', () => { $('playFace').appendChild(pl); $('playFace').appendChild(kc); try { return [shapeFault(pl), shapeFault(cap)]; } finally { pl.remove(); kc.remove(); } });
+  const cStretch = !!plant[0] && plant[0] !== 'zero', cSquare = !!plant[1] && plant[1] !== 'zero', cGbc = !!gbcShapeFault({ id: 'plant', kind: 'chip', sz: 1, tw: 2, th: 1, on: false });
+  pushCheck('C43', 'one shape system: every knob cap and corner chip renders ROUND, as wide as tall (1.00 ± 0.02)', n > 40 && !bad.length && G.length > 20 && !gbad.length, cStretch && cSquare && cGbc,
+    n + ' knob caps and chips measured with getBoundingClientRect on the faces and pages that draw them (' + per.join(', ') + (zero ? '; ' + zero + ' with no box, not measured' : '') + '): ' + (bad.length ? 'FAIL ' + bad.slice(0, 4).join(' | ') : 'every one 1.00 ± 0.02 and round')
+    + ' · the GBC glass: ' + G.length + ' chips, corner rows and knobs over every page, each drawn alone and measured from its pixels: ' + (gbad.length ? 'FAIL ' + gbad.slice(0, 3).join(' | ') : 'every drawn circle square')
+    + ' · controls: a chip stretched to 30 px → ' + (cStretch ? 'caught (' + plant[0] + ')' : 'NOT caught') + '; a knob cap with a 6 px radius (B337\'s fixed cap) → ' + (cSquare ? 'caught (' + plant[1] + ')' : 'NOT caught') + '; a GBC chip on a 2×1 tile rect → ' + (cGbc ? 'caught' : 'NOT caught'));
+}
+/* every control of every GBC page, the parameterised ones for each value, in a state that shows the
+   conditional ones (a horde mapping present), and the FULL DEVICE also over C1's catalogue patch (every
+   manifest type, so every kind of row is built). Everything is put back. */
+function gbcAllCtrls(o) {
+  o = o || {};
+  const keep = { mk: GUI.mk, hh: GUI.hh, name: GUI.name, bi: GUI.bi }, maps0 = LAB.hm.maps, out = [], add = (pg, tag) => { for (const c of gbcVM({ page: pg, fid: '' }).ctrls) { c.pg = tag || pg; out.push(c); } };
+  if (!LAB.hm.maps.length) LAB.hm.maps = HDEMO.map(q => Object.assign({}, q));
+  try {
+    for (const pg of Object.keys(GPAGES)) if (!['medit', 'hcorner', 'name'].includes(pg)) add(pg);
+    for (let k = 0; k < varSlots(); k++) { GUI.mk = k; GUI.bi = 0; add('medit', 'medit' + k); }
+    for (let h = 0; h < 4; h++) { GUI.hh = h; add('hcorner', 'hcorner' + h); }
+    GUI.name = { what: 'patch', k: 0, text: '' }; add('name', 'name-patch'); GUI.name = { what: 'macro', k: 0, text: '' }; add('name', 'name-macro');
+    if (o.catalogue !== false) { const p = newPatch(); S_().types.forEach((t, i) => p.chain.push(newModule(t, i, null, false))); ensureThresholds(p, mulberry32(1)); LAB.cov = [p, p, p, p]; try { add('device', 'device-catalogue'); } finally { LAB.cov = null; } }
+  } finally { Object.assign(GUI, keep); LAB.hm.maps = maps0; }
+  return out;
+}
+/* every data-ctl the DOM draws, in the plugin window and beside the glass */
+const domCtls = () => [...new Set([...$('plug').querySelectorAll('[data-ctl]')].map(e => e.dataset.ctl))];
+function C44() {
+  const all = gbcAllCtrls(), acts = new Set(all.map(c => c.act)), missing = ACT_IDS.filter(a => !acts.has(a));
+  const ctls = domCtls(), orphan = ctls.filter(c => !ctlAct(c));
+  /* every number and value the FULL DEVICE's DOM reaches is also a GBC control, one for one */
+  const live = gbcVM({ page: 'device', fid: '' }).ctrls, gInst = new Set(live.map(c => c.inst).filter(Boolean)), gPid = new Set(live.map(c => c.pid).filter(Boolean));
+  const R = $('rackFace'), dInst = [...new Set([...R.querySelectorAll('[data-inst]')].map(e => e.dataset.inst))], dPid = [...new Set([...R.querySelectorAll('[data-pid]')].map(e => e.dataset.pid))].filter(p => /^[MBG]\//.test(p));
+  const mInst = dInst.filter(i => !gInst.has(i)), mPid = dPid.filter(p => !gPid.has(p));
+  const cat = new Set(all.filter(c => c.pg === 'device-catalogue').map(c => c.pid).filter(Boolean)), want = [...manifestPids(SPEC.raw)].filter(p => /^[MBG]\//.test(p)), mCat = want.filter(p => !cat.has(p));
+  /* controls: a planted action with no GBC control; a planted DOM control with no action; one number
+     row dropped from the screen's full device */
+  const cAct = !acts.has('planted-act'), cCtl = !ctlAct('planted-ctl');
+  const drop = new Set(live.filter(c => c.inst && c.inst !== dInst[0]).map(c => c.inst)), cRow = dInst.length > 0 && dInst.filter(i => !drop.has(i)).length === 1;
+  pushCheck('C44', 'every lab action has a GBC path: the action registry enumerated against the screen\'s controls', !missing.length && !orphan.length && !mInst.length && !mPid.length && !mCat.length && ctls.length > 30, cAct && cCtl && cRow,
+    ACT_IDS.length + ' registered actions; ' + all.length + ' controls on ' + new Set(all.map(c => c.pg)).size + ' GBC pages (every page, macro edit ×' + varSlots() + ', horde corner ×4, name entry ×2, the full device live and over every manifest type) carry ' + acts.size + ' distinct actions: '
+    + (missing.length ? 'NO GBC PATH for ' + missing.join(' ') : 'every action reachable on the glass') + ' · ' + ctls.length + ' data-ctl values on the DOM, each an action of the registry: ' + (orphan.length ? 'ORPHAN ' + orphan.join(' ') : 'yes')
+    + ' · the full device\'s ' + dInst.length + ' pool numbers and ' + dPid.length + ' param ids each a GBC row: ' + (mInst.length || mPid.length ? 'MISSING ' + mInst.concat(mPid).slice(0, 4).join(' ') : 'yes') + ' · over every manifest type: ' + want.length + ' ids, ' + (mCat.length ? 'MISSING ' + mCat.length : 'all on the glass')
+    + ' · lab chrome, not in the registry by principle: audio, theme, lab input, voice, host tempo, the skin / face / page tabs · controls: a planted action → ' + (cAct ? 'caught' : 'NOT caught') + '; a planted DOM control → ' + (cCtl ? 'caught' : 'NOT caught') + '; a number row dropped from the screen → ' + (cRow ? 'caught' : 'NOT caught'));
+}
+/* the live glass, shown for a moment (a hidden canvas has no box to hit) */
+function withGlass(fn) { return withView('fx', 'play', 'gbc', () => { const cv = $('gbcScr'); return fn(cv); }); }
+function C45() {
+  const pages = Object.keys(GPAGES).filter(p => p !== 'name').concat(['name']);
+  let pts = 0, wrong = [], ctlWrong = 0;
+  /* the must-fail mapper: the scale taken as the lab's ×3 whatever the glass is */
+  const fixed3 = (rect, x, y) => [Math.floor((x - rect.left) / GBC_K), Math.floor((y - rect.top) / GBC_K)];
+  for (const k of [1, 3]) {
+    const rect = { left: 13, top: 29, width: GBC_W * k, height: GBC_H * k };
+    for (const pg of pages) {
+      const vm = gbcVM({ page: pg, fid: '' });
+      for (const c of vm.vis) {
+        const X = c.tx * 8, Y = c.sy * 8, W = c.tw * 8, H = c.th * 8;
+        for (const [px, py] of [[X + W / 2, Y + H / 2], [X, Y], [X + W - 1, Y], [X, Y + H - 1], [X + W - 1, Y + H - 1]]) {
+          const cx = rect.left + (px + 0.5) * k, cy = rect.top + (py + 0.5) * k, [lx, ly] = gbcLocal(rect, cx, cy), h = gbcHit(vm, lx, ly); pts++;
+          if (h !== c) wrong.push(k + '× ' + pg + ' ' + c.id + ' → ' + (h ? h.id : 'nothing'));
+          if (k === 1) { const [ax, ay] = fixed3(rect, cx, cy); if (gbcHit(vm, ax, ay) !== c) ctlWrong++; }
+        }
+      }
+    }
+  }
+  /* the real canvas: a pointer event at a control's centre, at the lab's ×3 and with the glass at ×1 */
+  let liveOk = false, live1 = false;
+  const keepH = GUI.hover, keepP = GUI.page;
+  try {
+    withGlass(cv => {
+      GUI.page = 'xy';
+      const at = (id, scale) => { const vm = gbcVM(), c = vm.byId[id], r = cv.getBoundingClientRect(); GUI.hover = '';
+        cv.dispatchEvent(new PointerEvent('pointermove', { clientX: r.left + (c.tx * 8 + c.tw * 4) * scale, clientY: r.top + (c.sy * 8 + c.th * 4) * scale, bubbles: true }));
+        return GUI.hover === id; };
+      liveOk = at('xy.c2', Math.round(cv.getBoundingClientRect().width / GBC_W));
+      const sw = cv.style.width, sh = cv.style.height; cv.style.width = GBC_W + 'px'; cv.style.height = GBC_H + 'px';
+      try { live1 = at('xy.f.' + fixedMacros()[1].role, 1); } finally { cv.style.width = sw; cv.style.height = sh; }
+    });
+  } finally { GUI.hover = keepH; GUI.page = keepP; }
+  pushCheck('C45', 'pointer hit-testing lands on the right control at ×1 and ×3 (CSS px ÷ the integer scale = a screen pixel, ÷ 8 = a tile)', pts > 500 && !wrong.length && liveOk && live1, ctlWrong > 0,
+    pts + ' points (each visible control\'s centre and four corner pixels, every page, at ×1 and ×3 on a glass at an odd offset): ' + (wrong.length ? 'FAIL ' + wrong.length + ': ' + wrong.slice(0, 3).join(' | ') : 'every one lands on its control')
+    + ' · the live canvas, a real pointer event: at the lab\'s ×' + GBC_K + ' → ' + liveOk + '; with the glass resized to ×1 → ' + live1
+    + ' · control: a mapper that divides by ×' + GBC_K + ' whatever the scale → ' + ctlWrong + ' points off at ×1, ' + (ctlWrong ? 'caught' : 'NOT caught'));
+}
+/* the page graph: an edge for every soft key, menu row or button that opens a page (pressed for real,
+   on a copy of the navigation state, and put back) */
+function gbcPageEdges() {
+  const keep = JSON.stringify({ page: GUI.page, back: GUI.back, fid: GUI.fid, mk: GUI.mk, hh: GUI.hh, name: GUI.name, bi: GUI.bi }), edges = [];
+  const navs = new Set(['nav', 'full-device', 'nav-morph', 'open-settings']);
+  try {
+    for (const pg of Object.keys(GPAGES)) {
+      GUI.page = pg; if (pg === 'name') GUI.name = { what: 'patch', k: 0, text: '' };
+      for (const c of gbcVM({ page: pg, fid: '' }).ctrls) {
+        const opens = navs.has(c.act) || ((c.act === 'lib-rename' || c.act === 'macro-label') && pg !== 'name');
+        if (!opens || c.dis || !c.fn || !c.fn.press) continue;
+        GUI.page = pg; c.fn.press(); if (GUI.page !== pg) edges.push([pg, GUI.page]);
+      }
+    }
+  } finally { Object.assign(GUI, JSON.parse(keep)); gbcRepaint(); }
+  return edges;
+}
+const reach = (edges, from) => { const seen = new Set([from]), q = [from]; while (q.length) { const a = q.shift(); for (const [x, y] of edges) if (x === a && !seen.has(y)) { seen.add(y); q.push(y); } } return seen; };
+function C46() {
+  let tabBad = [], arrowBad = [], nC = 0, skipCtl = 0;
+  const vms = Object.keys(GPAGES).map(pg => gbcVM({ page: pg, fid: '' }));
+  for (let v = 0; v < vms.length; v++) {
+    const vm = vms[v], all = vm.order.map(c => c.id); nC += all.length; if (!all.length) continue;
+    /* Tab from the first control, one control at a time (each step a fresh vm with that focus, as the
+       page scrolls to it), to the end */
+    const seen = new Set([all[0]]); let id = all[0];
+    for (let i = 0; i < all.length + 2; i++) { const nx = gbcTab(gbcVM({ page: vm.page, fid: id }), id, 1); if (nx === null) break; seen.add(nx); id = nx; }
+    if (seen.size !== all.length) tabBad.push(vm.page + ' ' + seen.size + '/' + all.length);
+    /* the arrows alone, breadth first from the first control */
+    const got = new Set([all[0]]), q = [all[0]];
+    while (q.length) { const a = q.shift(), vma = gbcVM({ page: vm.page, fid: a }); for (const d of ['up', 'down', 'left', 'right']) { const b = gbcMove(vma, a, d); if (b && !got.has(b)) { got.add(b); q.push(b); } } }
+    if (got.size !== all.length) arrowBad.push(vm.page + ' ' + got.size + '/' + all.length);
+    /* control: a Tab that walks the page body only (skips the soft keys) */
+    if (vm.order.filter(c => !c.abs || c.ty < 17).length < all.length) skipCtl++;
+  }
+  const edges = gbcPageEdges(), R = reach(edges, 'xy'), unreached = Object.keys(GPAGES).filter(p => !R.has(p));
+  const cMenu = reach(edges.filter(([a, b]) => !(a === 'menu' && b === 'scope')), 'xy').has('scope') === false;
+  /* the live canvas: a real Tab keydown moves the focus to the next control */
+  let liveOk = false; const keep = { page: GUI.page, fid: GUI.fid };
+  try { withGlass(cv => { GUI.page = 'xy'; const vm = gbcVM({ page: 'xy', fid: '' }); GUI.fid = vm.order[0].id; cv.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true })); liveOk = GUI.fid === vm.order[1].id; }); }
+  finally { Object.assign(GUI, keep); }
+  pushCheck('C46', 'keyboard traversal reaches every control, and the soft keys and menu reach every page', !tabBad.length && !arrowBad.length && !unreached.length && liveOk, skipCtl > 0 && cMenu,
+    nC + ' controls on ' + vms.length + ' pages: Tab from the first reaches every one: ' + (tabBad.length ? 'FAIL ' + tabBad.join(' ') : 'yes') + ' · the arrows alone reach every one: ' + (arrowBad.length ? 'FAIL ' + arrowBad.join(' ') : 'yes')
+    + ' · from the default page, pressing soft keys, menu rows and buttons for real reaches ' + R.size + ' of ' + Object.keys(GPAGES).length + ' pages' + (unreached.length ? ': MISSING ' + unreached.join(' ') : '') + ' · a real Tab keydown on the live canvas moves the focus on: ' + liveOk
+    + ' · controls: a Tab over the body only (no soft keys) → misses on ' + skipCtl + ' pages, ' + (skipCtl ? 'caught' : 'NOT caught') + '; a menu without SCOPE → ' + (cMenu ? 'SCOPE unreachable, caught' : 'NOT caught'));
+}
+/* the DOM's reading of a fixed macro (the Play face knob's own output) and of the selected corner */
+const domFixed = role => { const g = fixedMacros().find(q => q.role === role), c = $('playFace').querySelector('[data-ctl="X/' + g.key + '"] output'); return c ? c.textContent : ''; };
+const domSel = () => { const b = $('playFace').querySelector('.cchip.on[data-crole="sel"]'); return b ? +b.dataset.corner : -1; };
+function C47() {
+  const role = fixedMacros()[2].role, G0 = clone(LAB.G), sel0 = LAB.sel, keep = { page: GUI.page, fid: GUI.fid, back: GUI.back.slice() };
+  let fixOk = false, selOk = false, before = '', after = '', ctlCaught = false;
+  try {
+    withGlass(cv => {
+      const key = (k, o) => cv.dispatchEvent(new KeyboardEvent('keydown', Object.assign({ key: k, bubbles: true, cancelable: true }, o || {})));
+      /* a knob turned on the glass: the shared state moves, and the DOM Play face shows the new value */
+      LAB.G[role] = 0.5; paintCtls(); before = domFixed(role);
+      GUI.page = 'macros'; GUI.fid = 'mc.f.' + role; key('ArrowRight');
+      after = domFixed(role); fixOk = Math.abs(LAB.G[role] - (0.5 + GSTEP)) < 1e-12 && after === LAB.G[role].toFixed(2) && after !== before;
+      /* a corner chosen on the glass: the DOM's chips follow */
+      const k = (LAB.sel + 2) % 4; GUI.page = 'xy'; GUI.fid = 'xy.c' + k; key('Enter');
+      selOk = LAB.sel === k && domSel() === k;
+      /* control: the same knob bound to a COPY of the state (a view that keeps its own model) */
+      LAB.G[role] = 0.5; paintCtls(); const b0 = domFixed(role), c = gbcVM({ page: 'macros', fid: 'mc.f.' + role }).byId['mc.f.' + role];
+      c.fn.set = v => { const G2 = clone(LAB.G); G2[role] = v; touch(); }; gbcAdjust(c, GSTEP); ctlCaught = domFixed(role) === b0 && LAB.G[role] === 0.5;
+    });
+  } finally { LAB.G = G0; LAB.sel = sel0; Object.assign(GUI, keep); pushPatch(); rebuild(); }
+  pushCheck('C47', 'one model, two views: a GBC action changes the shared state and the DOM shows it', fixOk && selOk, ctlCaught,
+    'a real ArrowRight on the glass, the fixed macro ' + role + ' focused on the MACROS page: the state ' + (0.5).toFixed(2) + ' → ' + (0.5 + GSTEP).toFixed(2) + ', the DOM Play face\'s knob reads "' + before + '" → "' + after + '": ' + fixOk
+    + ' · a real Enter on corner row ' + CORNER[(sel0 + 2) % 4] + ': LAB.sel and the DOM\'s filled chip both move to it: ' + selOk + ' (everything put back)'
+    + ' · control: the knob wired to a copy of the state → the DOM does not move, ' + (ctlCaught ? 'caught' : 'NOT caught'));
+}
+function C48() {
+  let frames = 0, worst = 0, off = 0, over = 0; const bad = [];
+  const pages = Object.keys(GPAGES);
+  for (const pg of pages) {
+    const ids = gbcVM({ page: pg, fid: '' }).order.map(c => c.id);
+    ids.forEach((id, i) => {
+      const vm = gbcVM({ page: pg, fid: id, hover: ids[(i + 1) % ids.length] }); if (vm.byId[id].kind === 'pad') vm.grab = true;
+      for (const th of (i % 3 === 0 ? ['light', 'dark'] : ['light'])) {
+        const a = tileAudit(gbcFrame(vm, th), GBC_W, GBC_H); frames++;
+        worst = Math.max(worst, a.maxPer); off += a.off555; over += a.over; if (a.maxPer > 4 || a.off555) bad.push(pg + ' ' + id + ' ' + th);
+      }
+    });
+  }
+  /* controls: a focus ring written straight into the frame (not through the palettes): one colour off
+     the RGB555 grid, and a fifth colour in the focused tile */
+  const vm = gbcVM({ page: 'xy', fid: 'xy.c1' }), f = vm.byId['xy.c1'], ring = cols => { const fr = gbcFrame(vm, 'light');
+    for (let i = 0; i < 8; i++) { const o = ((f.sy * 8) * GBC_W + f.tx * 8 + i) * 4, c = cols[i % cols.length]; fr[o] = c[0]; fr[o + 1] = c[1]; fr[o + 2] = c[2]; } return tileAudit(fr, GBC_W, GBC_H); };
+  const cRgb = ring([[3, 1, 2]]).off555 > 0, cFifth = ring([[8, 0, 0], [16, 0, 0], [24, 0, 0], [33, 0, 0], [41, 0, 0]]).over > 0;
+  pushCheck('C48', 'the tile rule holds with focus, hover and grab drawn: ≤ 4 colours per 8×8 tile, all on RGB555', frames > 300 && !bad.length, cRgb && cFifth,
+    frames + ' frames: every control of every page focused in turn (the next one hovered, a pad grabbed), light, and dark every third: max ' + worst + ' colours in a tile, ' + over + ' tiles over 4, ' + off + ' px off RGB555' + (bad.length ? ' FAIL ' + bad.slice(0, 3).join(' | ') : '')
+    + ' · focus = the control\'s own tiles to palette 3 and a ring in its colour 2; hover = a dotted ring in the tiles\' own colour 2; nothing is written outside the index buffer'
+    + ' · controls: a ring written straight into the frame → off RGB555 ' + (cRgb ? 'caught' : 'NOT caught') + ', a fifth colour in the tile ' + (cFifth ? 'caught' : 'NOT caught'));
+}
+function C49() {
+  /* pure: two structures, left (corners 1, 3) and right (2, 4); the puck swept left to right along y =
+     0.2, wobbling ±0.06 as a hand does; the editor must switch exactly once, to corner 2 */
+  const [A, B] = entryPair(0x4901), lib = [A, B], hc = [{ e: 0, x: 0.5, y: 0.5 }, { e: 1, x: 0.5, y: 0.5 }, { e: 0, x: 0.3, y: 0.3 }, { e: 1, x: 0.6, y: 0.6 }];
+  const P = hordeEvals(hc, NO_HM(), lib), T = 400;
+  const sweep = band => { const fl = { rule: 'hyst', band }; let live = null, h = 0, sw = 0; for (let t = 0; t <= T; t++) { const x = clamp(0.1 + 0.8 * t / T + 0.06 * Math.sin(t * 1.7), 0, 1), m = morphRig(P, x, 0.2, fl, live, HORDE); live = m.key; const n = followPick(m, fl, h); if (n !== h) sw++; h = n; } return { sw, h }; };
+  const H = sweep(0.1), Z = sweep(0);
+  /* inside a parity class the same buffer holds: all four corners one patch, the puck on the middle
+     line, wobbling: no switch */
+  const P1 = hordeEvals([{ e: 0, x: 0.2, y: 0.2 }, { e: 0, x: 0.8, y: 0.2 }, { e: 0, x: 0.2, y: 0.8 }, { e: 0, x: 0.8, y: 0.8 }], NO_HM(), [A]);
+  let h1 = 0, sw1 = 0; for (let t = 0; t <= T; t++) { const m = morphRig(P1, 0.5 + 0.08 * Math.sin(t * 1.3), 0.2, LAB.flip, null, HORDE), n = followPick(m, LAB.flip, h1); if (n !== h1) sw1++; h1 = n; }
+  /* the live page: horde's own XY swept top to bottom at x = 0.2 through hordeMove (the canvas's and the
+     glass's writer): the editor switches once, to the corner below, and the FX page says so */
+  const keep = { hxy: clone(LAB.hxy), hsel: LAB.hsel, live: LAB.live, flips: LAB.flips, flipN: LAB.flipN, follows: LAB.follows, msg: LAB.msg };
+  let liveSw = -1, liveTo = -1, tag = '', stated = false;
+  LAB.quiet = true;
+  try {
+    LAB.hxy = { x: 0.2, y: 0.1 }; LAB.hsel = 0; LAB.live = null; heard(); LAB.hsel = followPick(LAB.M, LAB.flip, 0);
+    const h0 = LAB.hsel, f0 = LAB.follows;
+    for (let t = 0; t <= 120; t++) hordeMove(0.2, clamp(0.1 + 0.8 * t / 120 + 0.06 * Math.sin(t * 1.7), 0, 1));
+    hordeMoveDone(); rebuild();
+    liveSw = LAB.follows - f0; liveTo = LAB.hsel;
+    const t0 = document.querySelector('#rack [data-editing]'); tag = t0 ? t0.textContent : '';
+    stated = liveTo !== h0 && tag.indexOf('HORDE CORNER ' + HORDE[liveTo]) >= 0 && /hysteresis-live/.test($('hordeView').textContent);
+  } finally { Object.assign(LAB, keep); LAB.quiet = false; pushPatch(); rebuild(); }
+  const liveNeeds = !LAB.morphOk;     // the page's rig has two structures (initState), so the sweep crosses a flip
+  pushCheck('C49', 'the FX page follows the morph: crossing into a corner (the hysteresis-live patch) switches the editor exactly once', H.sw === 1 && H.h === 1 && sw1 === 0 && (!liveNeeds || (liveSw === 1 && stated)), Z.sw > 1,
+    'two structures left and right, the puck swept along y = 0.2 with a ±0.06 wobble, ' + (T + 1) + ' steps, band 0.1: ' + H.sw + ' switch, to horde corner ' + HORDE[H.h] + ' · one patch on all four, the puck wobbling on the middle line: ' + sw1 + ' switches (the buffer holds inside a class)'
+    + ' · the live page, horde\'s XY swept through hordeMove: ' + liveSw + ' switch, now editing horde corner ' + (liveTo >= 0 ? HORDE[liveTo] : '?') + '; the FX page reads "' + tag + '", and the MAIN page states the rule: ' + stated
+    + ' · control: the same sweep with no buffer (band 0) → ' + Z.sw + ' switches, ' + (Z.sw > 1 ? 'chatter, caught' : 'NOT caught'));
+}
 async function runChecks() {
   if (!LAB.ready || LAB.checksRun) return;
   LAB.checksRun = true;
-  /* C34 retired by ruling (B352): see its note. C36–C42 are B353's */
-  const list = SPEC.ok ? [C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14, C15, C16, C19, C20, C21, C22, C23, C24, C25, C26, C27, C28, C29, C30, C31, C33, C35, C36, C37, C38, C39, C40, C41, C42] : [C14];
+  /* C34 retired by ruling (B352): see its note. C36–C42 are B353's, C43–C49 B361's */
+  const list = SPEC.ok ? [C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14, C15, C16, C19, C20, C21, C22, C23, C24, C25, C26, C27, C28, C29, C30, C31, C33, C35, C36, C37, C38, C39, C40, C41, C42, C43, C44, C45, C46, C47, C48, C49] : [C14];
   for (const f of list) { try { f(); } catch (e) { pushCheck(f.name, f.name + ' threw', false, false, String(e && e.message || e)); } }
   if (SPEC.ok) { try { await C17(); } catch (e) { pushCheck('C17', 'the scan threw', false, false, String(e && e.message || e)); } }
   if (SPEC.ok) { try { await C32(); } catch (e) { pushCheck('C32', 'C32 threw', false, false, String(e && e.message || e)); } }
@@ -4892,7 +5994,7 @@ const SECTION_STATUS = {
   8: 'REALISED — resolved on the message side at the host tempo: Sync, feel, Time (octaves under Sync), Tune leaving synced times alone (C6–C8)',
   9: 'REALISED, AND CHANGED BY A PROPOSAL — the manifest\'s own blend laws, discrete from the nearest (C4); a patch\'s snapshots share one structure (C3); B337: a snapshot library per patch, a binding per corner, drafts (C19–C22); B348 put a patch on each corner of this XY, which ADR-188 withdrew: Sluice\'s XY holds one patch again (C36), and different patches go on horde\'s morph corners, where parity blends and otherwise the live patch flips at a 0.1 buffer (C28–C31, C39–C41)',
   10: 'PARTIAL — v0.1\'s loop bounds are real (C12); the gate and post limiter are not voiced; bypass (§13 #3): spill-over or hard is a USER PREFERENCE in horde\'s SETTINGS (B347, the CPU tradeoff), both shown with their engine cost; a horde-morph flip follows the same preference and a patch LOAD has its own opt-in (B353: C10, C35, C42)',
-  11: 'REALISED — the Play face under its own name, the default (a GBC skin, B338, C26; C32), the Rack face as the FULL DEVICE (every Play control too, C2; every number, C33), the Scope (the follower/gate trace not voiced)',
+  11: 'REALISED — the Play face under its own name, the default (a GBC skin, B338, C26; C32; B361: the skin carries every function, C44–C48), the Rack face as the FULL DEVICE (every Play control too, C2; every number, C33), the Scope (the follower/gate trace not voiced)',
 };
 function buildSide() {
   const s = $('side'); if (!s) return;
@@ -4980,6 +6082,14 @@ function buildSide() {
       + '<li>Horde blends EVALUATED numbers between parity corners into one instance. Can netcore evaluate a patch at an XY with its macro values and hand back the numbers, or apply a flat patch in place?</li>'
       + '<li>The glide re-tells the mix every millisecond here. Should netcore take a mix target with a slew time instead?</li></ol></div>';
   }
+  if (SPEC.ok) h += '<div class="box"><h2>ROUND 5 — B361</h2><ul>'
+    + '<li><b>One shape system</b> (C43): every knob cap is round (the fixed macros keep their physics ink and a recessed cap, not a square one) and every corner chip, A–D and 1–4, is one circle component with its width fixed to its height. Horde\'s corners are circles on the morph canvas too; they read apart from Sluice\'s by numerals and ink.</li>'
+    + '<li><b>The GBC screen is the instrument</b> (C44–C48): ' + Object.keys(GPAGES).length + ' pages behind a MENU on soft key 1; ' + ACT_IDS.length + ' registered actions, each with a GBC path; pointer and keyboard on every control; focus and hover inside the tile rule. The DOM panels beside the glass are gone; the JSON box stays as lab chrome for export and import.</li>'
+    + '<li><b>The FX page follows the morph</b> (C49): the editor moves with horde\'s hysteresis-live patch (the ' + LAB.flip.band.toFixed(2) + ' buffer), so it switches once per crossing; inside a blended class the same buffer picks among its corners. A draft stays with its corner\'s patch.</li></ul>'
+    + '<b>Open for the human:</b><ol><li>Inside a parity class (the corners blend) the editor moves only where one corner holds more than 0.6 of the class; along the middle it stays. Is that the "crossing" you meant, or should a blended class follow the quadrant?</li>'
+    + '<li>Should a corner picked by hand stay pinned until you release it, instead of being moved by the next crossing?</li>'
+    + '<li>Horde\'s corners are now round like Sluice\'s (B353 made them square to tell them apart). Enough, with the numerals and inks?</li>'
+    + '<li>Alt + wheel on the glass needs this lab on the wheel check\'s inventory (a separate change).</li></ol></div>';
   h += '<div class="box"><h2>THE HOLD</h2>No Sluice code, data, parameter tables, presets or spec text is committed with this file. Everything Sluice-shaped above and in the plugin window was read at load from <code>local/sluice</code>, a gitignored link; C17 scans this file as served for the manifest\'s ids and strings and, since B353, for every 28-character run of the spec\'s prose. '
     + 'What IS committed: the chassis, horde\'s own division list, horde\'s v0.1 reference (sliced from its own tracked file), the lab\'s own generator, names and laws, and the rules of the spec restated as behaviour.</div>';
   h += '<div class="box"><h2>REUSED FROM</h2><ul><li>reference/network-lab-v0.html — ENGINE_FACTORY and PRESETLIB (fetched, sliced, called; the v0.1 patches appear as test patches, not as Sluice presets).</li>'
