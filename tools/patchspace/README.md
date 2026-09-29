@@ -2,11 +2,11 @@
 
 What the SCALPEL × horde composed engine (`docs/design/scalpel-horde-engine.js`) can do,
 mapped: which parameters matter when, how a rendered patch measures, and where random
-patches break. ROADMAP B316; phases P1–P3 are here, plus B324's blind listening pass that calibrates P3's
-thresholds. P4 (fit bounded distributions) and P5 (the lab's RANDOM button and FUZZ mode) are
-not built yet.
+patches break. ROADMAP B316; phases P1–P3 are here, plus the blind listening pass that
+calibrates P3's thresholds (B324 v1, B340 v2) and B345's metric fixes and re-fit. P4 (fit
+bounded distributions) and P5 (the lab's RANDOM button and FUZZ mode) are not built yet.
 
-Last verified: 2026-09-28 (branch `listening-pass`, B324).
+Last verified: 2026-09-28 (branch `patchspace-metrics-fix`, B345).
 
 | file | what it is | run |
 |---|---|---|
@@ -14,22 +14,33 @@ Last verified: 2026-09-28 (branch `listening-pass`, B324).
 | `gen_dependency_tree.mjs` | **P1.** Derives which parameters are live under which switches and writes `dependency_tree.json`. Conditions are pinned to the engine's own guard lines, the lab's greying rules are executed, and a seeded perturbation probe confirms both. | `node tools/patchspace/gen_dependency_tree.mjs` (~35 s idle, more under load) |
 | `dependency_tree.json` | **DATA. Regenerate it; never hand-edit it.** Each parameter has `active_when` (its role), `side_channels` (other engine paths it is also heard through), `depends_on`, `gates`, evidence (`source` file:line, `probe` counts), plus the predicates, a sampling `order`, and every disagreement found. | — |
 | `dependency_tree_check.mjs` | Checks the tree: it must be fresh (byte-compared), have zero structural disagreements, and catch three planted wrong conditions and one vanished anchor. **Wired: `./verify full`.** | `node tools/patchspace/dependency_tree_check.mjs` |
-| `metrics.mjs` | **P2.** Pure metrics of a rendered buffer: aliasing, spectral flatness, root presence, Sethares roughness, DC, level/crest/LUFS-like, silence, clicks, non-finite, and CPU from timings. They are **measurements, not gates.** | — |
-| `metrics_check.mjs` | Validates every metric on constructed signals, each with a must-read-zero and a must-read-high control, and adds three engine controls. **Wired: `./verify fast`.** | `node tools/patchspace/metrics_check.mjs` (~4 s) |
-| `gauntlet.mjs` | **P3.** Draws seeded patches from the tree in taper space (`broad` = uniform; `edge` = the fuzzer, which favours extremes), renders them, and measures each one. The run is resumable and chunked, and it writes to `local/patchspace/<run>/`, which git ignores. | `node tools/patchspace/gauntlet.mjs estimate`, then `… run --run NAME --n 2000 --edge 1000` |
+| `metrics.mjs` | **P2.** Pure metrics of a rendered buffer: aliasing, spectral flatness, **noiseDb** (B345), root presence, Sethares roughness, DC, level/crest/LUFS-like, silence, clicks, non-finite, and CPU from timings. They are **measurements, not gates.** Its header states every method and B345's fixes. | — |
+| `metrics_check.mjs` | Validates every metric on constructed signals, each with a must-read-zero and a must-read-high control, plus B345's rows (aliasing reads the same at any window length; two renders of the same noise are not folding; silence is not measured; noiseDb reads a known noise share) and three engine controls. **Wired: `./verify fast`.** | `node tools/patchspace/metrics_check.mjs` (~5 s) |
+| `gauntlet.mjs` | **P3.** Draws seeded patches from the tree in taper space (`broad` = uniform; `edge` = the fuzzer, which favours extremes), renders them, and measures each one. The run is resumable and chunked, and it writes to `local/patchspace/<run>/`, which git ignores. `THRESH` holds the provisional thresholds: they change only by a human ruling. | `node tools/patchspace/gauntlet.mjs estimate`, then `… run --run NAME --n 2000 --edge 1000` |
 | `gauntlet_report.mjs` | Writes the committed markdown summary of a run: yields, distributions, hotspots, key pairs, and the Crushed-bells class. | `node tools/patchspace/gauntlet_report.mjs --run NAME --out docs/patchspace/FILE.md` |
-| `listening_sample.mjs` | **B324.** Chooses the blind listening pass's patches from a gauntlet run: stratified around each provisional threshold (fine / border / flag, the roughness-origin split, clean and broken references, two repeats), seeded. Writes `docs/design/listening-pass.json`: seeds, measured metrics, a patch hash and a render fingerprint only. | `node tools/patchspace/listening_sample.mjs --run lp324 --exclude …` |
-| `calibrate.mjs` | **B324.** Fits each metric's threshold to the human's ratings (ROC best cut, AUC, logistic 50% point) and prints a PROPOSAL; never applies it. Browser-importable: the listening page imports its validator and fit. | `node tools/patchspace/calibrate.mjs` (reads `local/patchspace/ratings/*.json`) |
-| `listening_pass_check.mjs` | Proves the page's sampler and render route are the gauntlet's, every seed re-measures to the committed numbers, the views before the reveal are blind, and the export passes the validator (8 must-fail controls). **Wired: `./verify full`.** | `node tools/patchspace/listening_pass_check.mjs` (~25-60 s) |
+| `listening_sample.mjs` | **B324.** Chooses the blind listening pass's patches from a gauntlet run (stratified around each provisional threshold, with clean and broken controls and two repeats, seeded) and writes `docs/design/listening-pass.json`: seeds, measured metrics, a patch hash and a render fingerprint only. `--remeasure` (B345) rewrites the SAME items' numbers in place after a metrics change and records the replaced id in `remeasured`. Also the one loader of the page's PURE block (`loadPage`). | `node tools/patchspace/listening_sample.mjs --run lp324 --exclude …`; `… --remeasure --note "why"` |
+| `calibrate.mjs` | **B324 / B340 / B345.** Fits each metric's threshold to the human's ratings (ROC best cut, AUC, logistic 50% point) and prints a PROPOSAL; never applies it. v1 exports fit the committed numbers; v2 exports fit the worst heard segment. `--remeasure` re-renders every v2-rated program in Node from its seed and fits the fixed metrics (noiseDb beside flatness, leave-one-out accuracy per metric, Chrome-vs-Node drift named). Browser-importable: the listening page imports its validator and fit. | `node tools/patchspace/calibrate.mjs [--remeasure]` (reads `local/patchspace/ratings/*.json`; `--remeasure` takes ~4 min) |
+| `listening_pass_check.mjs` | Proves the page's sampler and render route are the gauntlet's, every seed re-measures to the committed numbers, the views before the reveal are blind, the human's v1 pass still exports byte for byte, the exports pass the validator, and calibrate's re-measure replaces segments and names drift (19 must-fail controls). **Wired: `./verify full`.** | `node tools/patchspace/listening_pass_check.mjs` (~50 s) |
+| `fidelity.mjs`, `fidelity_audit.mjs`, `fidelity_scan_check.mjs` | **B325.** The composed engine against the oracle: the audit report (`docs/patchspace/2026-09-28-fidelity-audit.md`) and the wired scan. The audit's aliasing was taken over a long window, before B345's fix; its committed report predates it. | see each header |
 
-The first report is `docs/patchspace/2026-09-27-gauntlet-p3.md`.
+The first gauntlet report is `docs/patchspace/2026-09-27-gauntlet-p3.md` (its aliasing numbers
+predate B345).
 
-**The listening pass (B324).** Serve the repo (`python3 tools/serve_labs.py`), open
-`docs/design/listening-pass.html`, rate the 36 patches (~12 min), export, save the file into
-`local/patchspace/ratings/`, then run `calibrate.mjs`. The metrics are Node's; the browser's
-sin/exp/tanh differ from Node's in the last bits, so the page measures what it plays and marks
-any patch outside tolerance (`heard: drift`), which the fit leaves out. `?xverify=1` runs that
-measurement over the whole sample.
+**The listening pass (v2, B340).** Serve the repo (`python3 tools/serve_labs.py`), open
+`docs/design/listening-pass.html`, rate the 36 patches (about 19 minutes: six notes from A1 to A5
+plus a sweep through the engine's bend, with sine and clean-saw references), export, save the
+file into `local/patchspace/ratings/`, then run `calibrate.mjs`. The page measures every segment
+it plays with `metrics.mjs` and the v2 export carries those numbers; the fit uses the worst
+segment heard. The browser's sin/exp/tanh differ from Node's in the last bits, so a chaotic
+patch can measure differently in the browser (`heard: drift`, informational in v2). `?xverify=1`
+runs the cross-runtime comparison over the whole sample. The human's v1 pass stays exportable
+from the landing view.
+
+**After a metrics change (B345).** `listening_sample.mjs --remeasure --note "…"` re-measures the
+committed sample in place (same patches, seeds and order; a new id, the old one listed in
+`remeasured`, so the page and calibrate know an export on it rated the same sounds). Then
+`calibrate.mjs --remeasure` re-fits the human's answers on the fixed metrics without anyone
+listening again. Nothing is applied: `THRESH` changes only by a human ruling.
 
 ## How the tree feeds later work
 

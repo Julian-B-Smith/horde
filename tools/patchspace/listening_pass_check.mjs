@@ -30,6 +30,11 @@
  *      sample and for the earlier B324 sample the pass may have been rated on; v2 exports
  *      validate; CONTROLS: a v2 export missing segments, with a foreign segment field, a bad
  *      program id, or a timestamp is rejected.
+ *   (B345: the sample was re-measured in place with the fixed metrics — same patches, seeds and
+ *      order, a new id; T7 reaches the human's v1 pass through the file's `remeasured` ids and
+ *      pins it as before; T8's v1-fit pins were recomputed with the same pre-B340 calibrate on
+ *      the new numbers, and T8 proves calibrate's re-measure: new segments replace the heard
+ *      ones, drift is named by segment and field, noiseDb is fitted beside flatness.)
  *   T8 CALIBRATE: v1 fits are byte-identical to the pre-B340 calibrate.mjs (pinned hashes);
  *      a planted rater is recovered, a coin flip is not; a drift-marked v1 rating is left out;
  *      a v2 export is fitted on the WORST heard segment (not the committed number); CONTROL:
@@ -64,7 +69,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ROOT, SR, loadEngine, loadSpace, mulberry32 } from './space.mjs';
 import { samplePatch, measure, THRESH } from './gauntlet.mjs';
-import { KEEP, fingerprintOf, roughnessSolo, roughOrigin, sampleId, patchHash, RENDER_SALT, SAMPLE_FILE } from './listening_sample.mjs';
+import { KEEP, fingerprintOf, roughnessSolo, roughOrigin, sampleId, patchHash, RENDER_SALT, SAMPLE_FILE, loadPage } from './listening_sample.mjs';
 import { hash32 } from './gen_dependency_tree.mjs';
 import * as CAL from './calibrate.mjs';
 import * as MET from './metrics.mjs';
@@ -77,16 +82,7 @@ const caught = (cond, what, detail) => { controls++; return ok(cond, 'CONTROL ' 
 const fnv = s => { let h = 0x811C9DC5; for (let k = 0; k < s.length; k++) { h ^= s.charCodeAt(k); h = Math.imul(h, 0x01000193) >>> 0; } return h.toString(16).padStart(8, '0'); };
 
 const HTML = read(PAGE);
-function pagePure() {
-  const a = HTML.indexOf('// PURE-BEGIN'), b = HTML.indexOf('// PURE-END');
-  if (a < 0 || b < a) throw new Error(`${PAGE}: PURE-BEGIN / PURE-END markers not found`);
-  return new Function('"use strict";\n' + HTML.slice(a, b) + '\nreturn { labFrom, spaceFrom, asEvalTree, samplePatch, renderScript, renderSteps, runSync, pseedOf, ' +
-    'presentationOrder, QUI, viewIntro, viewCalib, viewRate, viewDone, viewReveal, fmtM, blindTokens, blindScan, buildExport, buildExportV2, exportV1FromStore, ' +
-    'patchHash, measureHeard, heardDiff, SEGS, SEG_A3, SEG_E5, SEG_SWEEP, MEAS, PHRASE_ID, renderSegmentSteps, programFp, measureWindows, measureSegmentSteps, ' +
-    'detectorControls, detectorLine, refTone, programGain, assembleProgram, segScript, PROGRAM_SECONDS, v1SampleOf };')();
-}
-
-const P = pagePure();
+const P = loadPage(HTML);                                     // the page's PURE block (listening_sample.mjs, shared with calibrate --remeasure)
 const sample = JSON.parse(read(SAMPLE_FILE));
 sample.itemsByKey = Object.fromEntries(sample.items.map(it => [it.key, it]));
 const run = sample.run.seed, { Composed } = loadEngine();
@@ -205,7 +201,12 @@ caught(!CAL.validateExport(gap).ok, 'T7 a "complete" export with an unanswered q
      Pins computed 2026-09-28 with the historical pages' own buildExport over a synthetic store
      (33 of 36 answered, notes, match/drift marks, seeded 0xB340, over that sample's order):
      today's sample cec81302 with origin/main 9860227's page -> 667f6b8e; the earlier B324
-     sample 03c97d3e with 1726739's page and 1726739's sample file -> 5f02623f. */
+     sample 03c97d3e with 1726739's page and 1726739's sample file -> 5f02623f.
+     B345 re-measured cec81302 IN PLACE (listening_sample.mjs --remeasure: the same patches, seeds
+     and order, new committed numbers, so a new id). A pass saved on cec81302 was rated on these
+     very sounds; the page reaches it through the file's `remeasured` list (sameSoundsAs), and its
+     export must still be the v1 page's own, byte for byte: the pin is unchanged, only the id it
+     is reached by is now the historical one. */
   const storeFor = (id, ord) => { const r = mulberry32(0xB340), answers = {}, heard = {};
     ord.slice(0, ord.length - 3).forEach((k, i) => { answers[k] = { aliased: r() < .4 ? 1 : 0, rough: r() < .4 ? 1 : 0, rootUnclear: r() < .4 ? 1 : 0, noisy: r() < .4 ? 1 : 0, unusable: r() < .4 ? 1 : 0 };
       if (i % 5 === 0) answers[k].note = 'note ' + i; if (i % 7 === 0) heard[k] = i % 2 ? 'drift' : 'match'; });
@@ -215,8 +216,11 @@ caught(!CAL.validateExport(gap).ok, 'T7 a "complete" export with an unanswered q
     const h = fnv(JSON.stringify(x, null, 1) + '\n');
     ok(h === want && CAL.validateExport(x).ok && x.sample.id === id, `T7 a v1 pass on sample ${id} exports byte-identical to the v1 page's own export (pinned) and validates as v1`, `${h} (want ${want})`);
   };
-  pin(sample.id, '667f6b8e');
+  pin('cec81302', '667f6b8e');
   pin('03c97d3e', '5f02623f');
+  ok(P.sameSoundsAs(sample.id, sample) && (sample.remeasured || []).every(r => P.sameSoundsAs(r.from, sample)) && (sample.remeasured || []).some(r => r.from === 'cec81302'),
+    'T7 the sample\'s earlier ids (re-measured in place) count as the same sounds', (sample.remeasured || []).map(r => `${r.from} -> ${r.to}`).join(', '));
+  caught(!P.sameSoundsAs('03c97d3e', sample) && !P.sameSoundsAs('deadbeef', sample), 'T7 a different sample (03c97d3e: other patches) is not the same sounds');
   caught(P.exportV1FromStore({ sampleId: 'deadbeef', answers: { 'broad#1': {} } }, sample, CAL.SCHEMA) === null, 'T7 a v1 store on a sample this page does not know is not exported');
 }
 const v2ok = CAL.validateExport(x2full);
@@ -237,10 +241,15 @@ ok(v2ok.ok && x2full.complete && x2full.phrase.id === P.PHRASE_ID && x2full.rati
 {
   /* v1 FITS UNCHANGED: analyse() of the complete v1 export (and of it with one drift and one
      match mark) hashed; the pins were computed with the pre-B340 calibrate.mjs (last changed in
-     1726739, as of origin/main 9860227) on the same deterministic exports */
+     1726739, as of origin/main 9860227) on the same deterministic exports.
+     B345: a v1 fit reads the COMMITTED numbers, which the re-measure changed (aliasDb, and the
+     new noiseDb), so the pins were RECOMPUTED, again with 1726739's calibrate.mjs, on the
+     re-measured file: 60ae017d 791cc92a 921c14fd -> 1726cdb7 8b35c25a 369a01c9. The same
+     calibrate on the previous file (cec81302) still gives the old pins, so what the pin guards —
+     the v1 code path is pre-B340's, byte for byte — is unchanged; the data under it moved. */
   const drift = P.buildExport(Object.assign({}, st, { heard: { [order[0]]: 'drift', [order[1]]: 'match' } }), sample, CAL.SCHEMA);
   const hA = fnv(JSON.stringify(CAL.analyse(sample, [full]))), hB = fnv(JSON.stringify(CAL.analyse(sample, [drift]))), hT = fnv(CAL.textReport(CAL.analyse(sample, [full])));
-  ok(hA === '60ae017d' && hB === '791cc92a' && hT === '921c14fd', 'T8 v1 exports fit exactly as before B340 (analyse and report hashes pinned)', `${hA} ${hB} ${hT} (want 60ae017d 791cc92a 921c14fd)`);
+  ok(hA === '1726cdb7' && hB === '8b35c25a' && hT === '369a01c9', 'T8 v1 exports fit exactly as before B340 (analyse and report hashes pinned)', `${hA} ${hB} ${hT} (want 1726cdb7 8b35c25a 369a01c9)`);
 }
 const prim = sample.items.filter(it => it.role !== 'repeat');
 const planted = CAL.fitCut(prim.map(it => it.metrics.aliasDb), prim.map(it => (it.metrics.aliasDb > -20 ? 1 : 0)), 'above');
@@ -265,6 +274,21 @@ caught(noise.insufficient || noise.auc < 0.9, 'T8 a coin-flip rater is not "reco
     'T8 a v2 export is fitted on the worst heard segment (planted -10 dB on the heard numbers recovered)', `AUC ${m.auc}, bracket ${m.bracket.map(v => v.toFixed(1)).join(' .. ')}; committed-basis cut ${mc.cut.toFixed(1)}; worst from ${JSON.stringify(A.worstFrom.aliasDb)}`);
   let threw = false; try { CAL.analyse(sample, [full, x2full]); } catch (_) { threw = true; }
   caught(threw, 'T8 a v1 + v2 mix is refused (two bases are never pooled)');
+}
+{
+  /* B345 RE-MEASURE (calibrate.mjs remeasureExport): segments re-measured now replace the
+     heard ones; a field whose METHOD did not change (DRIFT_FIELDS) that moves beyond the page's
+     tolerance marks the rating drift and names it; aliasDb, whose method B345 changed, never does */
+  const same = CAL.remeasureExport(x2full, r => r.segs.map(g => Object.assign({}, g, { aliasDb: g.aliasDb === null ? null : g.aliasDb - 12 })), P.heardDiff);
+  ok(Object.keys(same.drift).length === 0 && same.export.ratings.every((r, k) => r.heard === 'match' && r.segs[0].aliasDb === (x2full.ratings[k].segs[0].aliasDb === null ? null : x2full.ratings[k].segs[0].aliasDb - 12)),
+    'T8 a re-measure replaces the segments, and a changed-method field (aliasDb) is not drift', `${same.export.ratings.length} ratings`);
+  const k0 = x2full.ratings[3].key;
+  const moved = CAL.remeasureExport(x2full, r => r.segs.map(g => (r.key === k0 && g.seg === 'A3' ? Object.assign({}, g, { roughness: g.roughness + 0.5 }) : g)), P.heardDiff);
+  caught(Object.keys(moved.drift).length === 1 && moved.drift[k0] && moved.drift[k0][0] === 'A3.roughness' && moved.export.ratings[3].heard === 'drift',
+    'T8 a re-measured unchanged-method field outside tolerance marks that rating drift, by segment and field', JSON.stringify(moved.drift));
+  const A = CAL.analyse(sample, [same.export], { pairs: CAL.PAIRS_B345, loo: true }), nz = A.metrics.find(m => m.metric === 'noiseDb');
+  ok(nz && nz.provisional === null && nz.agreementProvisional === null && A.metrics.every(m => m.insufficient || (m.loo >= 0 && m.loo <= 1)),
+    'T8 the B345 re-fit adds noiseDb beside flatness (no provisional threshold) and a leave-one-out accuracy per metric', nz ? `noiseDb n ${nz.n}` : 'no noiseDb row');
 }
 
 /* T9 */

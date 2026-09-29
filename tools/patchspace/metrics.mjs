@@ -27,9 +27,27 @@
  *                every frame and do not count; a one-off discontinuity does. Reported as
  *                the count and the worst frame's excess (dB).
  *   spectrum     Welch power spectrum of the mono sum: Blackman-Harris 4-term window
- *                (side lobes -92 dB, so a sine is ONE peak), N 8192, hop N/4.
+ *                (side lobes -92 dB, so a sine is ONE peak), N 8192, hop N/4. The
+ *                per-frame powers are kept too (`F`): aliasing and the noise floor are
+ *                taken frame by frame (B345, below), never from the whole-window average.
  *   flatness     spectral flatness (geometric/arithmetic mean of power) over 50 Hz..16 kHz:
- *                ~1 for white noise, ~0 for a tone.
+ *                ~1 for white noise, ~0 for a tone. KEPT, but B345 found it does not track
+ *                what the human calls noisy (it is a ratio of means over the whole band, so a
+ *                tone with noise 20 dB under it reads ~0.01); noiseDb is its proposed
+ *                replacement.
+ *   noiseDb      APERIODIC POWER (B345): the share of the power in 50 Hz..16 kHz that is a
+ *                continuous floor rather than spectral lines, in dB (0 = all noise). Per
+ *                frame, the floor under every bin is noiseFloor(): the 10th percentile of the
+ *                frame's power over ±32 bins (±188 Hz), divided by -ln(0.9) so that for a
+ *                noise region (bins exponentially distributed) it is the region's MEAN, and
+ *                below any line (a tone's lobes cover < 90% of the window's bins down to A1).
+ *                noiseDb = 10·log10(Σ floor / Σ power) over the window's frames. Validated on
+ *                constructed signals: a tone plus white noise at a known in-band share reads
+ *                that share within ~2 dB (A3/E5; ~+4 dB at A1); a pure tone, a beating chord
+ *                and an inharmonic cloud of sines read below -60 dB (lines, not noise). Its
+ *                stated limit: partials closer than the analysis resolution (a 7-voice ±25-
+ *                cent supersaw's upper harmonics at A3) fill the valleys and read as floor
+ *                (about -27 dB), so a dense swarm reads part-noisy.
  *   root         harmonic-sum salience S(f) = Σ_{h≤10} 0.84^(h-1)·A(h·f), A the peak
  *                amplitude within ±30 cents; candidates every semitone from the played
  *                note (±4 octaves, kept within 40 Hz..2 kHz), the note first so a tie keeps
@@ -42,11 +60,46 @@
  *                (dense upper partials); compare against a plain saw's value, not zero.
  *   aliasing     against a REFERENCE render of the same patch at 4x the oversampling
  *                (the engine's own decimator, so best available, not alias-free): power
- *                in bins 20 Hz..20 kHz where the test exceeds the reference's local max
- *                (±3 bins) by more than 10 dB, as a fraction of the test's power (dB).
- *                The reference's own fold-back sits ≥ ~30 dB under the test's for a 4th-
- *                order decimator at 0.45·sr; the 10 dB margin and ±3 bins absorb Welch
- *                variance and the decimators' small in-band magnitude difference.
+ *                in bins 20 Hz..20 kHz where the test exceeds the reference's local level by
+ *                more than 10 dB, as a fraction of the test's power (dB). The reference's own
+ *                fold-back sits ≥ ~30 dB under the test's for a 4th-order decimator at
+ *                0.45·sr; the 10 dB margin absorbs the decimators' small in-band magnitude
+ *                difference. B345 (2026-09-28) fixed two defects, and the method is now:
+ *                (1) THRESHOLD, THEN AGGREGATE. The comparison is made on UNITS of two
+ *                consecutive frames (the Welch average the gauntlet's own 0.25 s window
+ *                holds: 12000 samples are exactly 2 frames), sliding one frame at a time; the
+ *                window's value is Σ counted power / Σ power over all units. Before B345 the
+ *                whole window was averaged FIRST and compared once, so over a long window a
+ *                moving partial smeared into an envelope that hid the aliases between the
+ *                partials: a naive saw gliding 2 semitones/s read -30.7 dB over 0.25 s and
+ *                -40.7 over 1.45 s, and the engine's broad#511 read -120 over its 1.45 s hold
+ *                while every 0.25 s part read -30 to -35 (B342(1); the B340 vibrato test
+ *                missed it because a vibrato inside one window smears both spans alike). Now
+ *                a steady or steadily moving signal reads the same at any window length
+ *                (metrics_check M11), and a 2-frame window reads exactly as before.
+ *                (2) THE REFERENCE'S LOCAL LEVEL IS max(its ±3-bin max, its noise floor):
+ *                noiseFloor(), the same estimator as noiseDb. Before B345 it was the ±3-bin
+ *                max alone, and on noise-like content a chance dip in the reference's
+ *                spectrum let the test's own chance peak count as "folded": two independent
+ *                renders of the SAME band-limited noise (no folding by construction) read
+ *                -23 to -31 dB in a third to a half of their 0.25 s windows (B342(2)'s
+ *                hypothesis: the 1x and 4x renders of a noise-like patch are different
+ *                realisations). broad#828, which raised it, is NOT this case: a same-os,
+ *                other-seed reference reads -120 on it, and its 1x render carries a band near
+ *                0.2 x the internal rate (9.6 kHz at os 1, 19.3 kHz at os 2), strongest in the
+ *                attack: real content the 4x render lacks, so it still reads about -5 dB. The
+ *                floor fills the dips; below sparse lines it sits in the valleys, so tonal
+ *                aliasing is read as before. Two stated limits: noise whose LEVEL differs still
+ *                reads (white noise drawn per sample at each rate, the 1x floor 6 dB higher in
+ *                band, reads about -19 dB: folded noise, which is folding but not tonal); and
+ *                where the reference's partials are dense and drifting (broad#511's upper
+ *                octave, a 1.6 s attack under 88 cents of drift) the floor rises toward the
+ *                partials and weak aliases between them stop counting: its E5 windows read
+ *                -40 to -46 dB or -120, where they read -30 to -35 before (its worst over the
+ *                v2 program still reads -23 dB, on the sweep).
+ *                (3) A unit whose test power in band is under -90 dBFS is silent and is not
+ *                measured (edge#145's sweep read 0 dB when its tail decayed to subnormal
+ *                samples against a reference that had reached exact zero).
  *   cpuFraction  median over chunks of (render ns)/(chunk duration): real-time fraction.
  */
 
@@ -117,25 +170,53 @@ function fft(re, im) {
 }
 const WIN = {};
 function bh(n) { if (WIN[n]) return WIN[n]; const w = new Float64Array(n); for (let i = 0; i < n; i++) { const t = 2 * Math.PI * i / (n - 1); w[i] = 0.35875 - 0.48829 * Math.cos(t) + 0.14128 * Math.cos(2 * t) - 0.01168 * Math.cos(3 * t); } return (WIN[n] = w); }
-/* Welch power spectrum (window-power normalised, so a sine of amplitude a reads a²/2 summed over its lobe) */
+/* Welch power spectrum (window-power normalised, so a sine of amplitude a reads a²/2 summed over
+   its lobe). `F` keeps each frame's power (P is their mean, accumulated in the same order as
+   before B345, so P is bit-identical to the pre-B345 spectrum). */
 export function spectrum(x, sr, N) {
   N = N || 8192;
   x = finiteView(x);
-  const w = bh(N), hop = N >> 2, P = new Float64Array(N / 2 + 1);
+  const w = bh(N), hop = N >> 2, P = new Float64Array(N / 2 + 1), F = [];
   let U = 0; for (let i = 0; i < N; i++) U += w[i] * w[i];
   let frames = 0;
   const starts = [];
   for (let s = 0; s + N <= x.length; s += hop) starts.push(s);
   if (!starts.length) starts.push(0);
   for (const s of starts) {
-    const re = new Float64Array(N), im = new Float64Array(N);
+    const re = new Float64Array(N), im = new Float64Array(N), Pf = new Float64Array(N / 2 + 1);
     for (let i = 0; i < N; i++) re[i] = (x[s + i] || 0) * w[i];
     fft(re, im);
-    for (let k = 0; k <= N / 2; k++) P[k] += (re[k] * re[k] + im[k] * im[k]) * (k === 0 || k === N / 2 ? 1 : 2) / (U * N);
+    for (let k = 0; k <= N / 2; k++) { Pf[k] = (re[k] * re[k] + im[k] * im[k]) * (k === 0 || k === N / 2 ? 1 : 2) / (U * N); P[k] += Pf[k]; }
+    F.push(Pf);
     frames++;
   }
   for (let k = 0; k < P.length; k++) P[k] /= frames;
-  return { P, binHz: sr / N, N, frames };
+  return { P, F, binHz: sr / N, N, frames };
+}
+/* THE NOISE FLOOR under bins a..b of one power spectrum P (B345): the 10th percentile of P over
+   ±32 bins around each block of 8 bins, divided by -ln(0.9). A noise bin's power is
+   exponentially distributed, so over a noise region this is the region's MEAN power; under
+   spectral lines it is the valley level between them (a tone's lobes cover < 90% of ±32 bins
+   even at A1, where the harmonics are 9.4 bins apart and each lobe is 8 wide). Returned per
+   bin, index k - a. Shared by noiseDb and aliasing's reference level — one estimator. */
+const FLOOR_Q = 0.1, FLOOR_W = 32, FLOOR_B = 8, FLOOR_CORR = -Math.log(1 - FLOOR_Q);
+export function noiseFloor(P, a, b) {
+  const out = new Float64Array(b - a + 1);
+  for (let c = a; c <= b; c += FLOOR_B) {
+    const lo = Math.max(1, c - FLOOR_W), hi = Math.min(P.length - 1, c + FLOOR_B - 1 + FLOOR_W);
+    const v = Array.from(P.subarray(lo, hi + 1)).sort((x, y) => x - y), f = v[Math.floor(FLOOR_Q * (v.length - 1))] / FLOOR_CORR;
+    for (let k = c; k <= Math.min(b, c + FLOOR_B - 1); k++) out[k - a] = f;
+  }
+  return out;
+}
+/* noiseDb: the aperiodic share of the power in lo..hi, frame by frame (see the header) */
+export function aperiodic(S, lo, hi) {
+  lo = lo || 50; hi = hi || 16000;
+  const a = Math.max(1, Math.ceil(lo / S.binHz)), b = Math.min(S.P.length - 1, Math.floor(hi / S.binHz));
+  let fl = 0, tot = 0;
+  for (const P of S.F) { const f = noiseFloor(P, a, b); for (let k = a; k <= b; k++) { fl += f[k - a]; tot += P[k]; } }
+  const frac = tot > 0 ? Math.min(1, fl / tot) : 0;
+  return { noiseFraction: frac, noiseDb: frac > 0 ? Math.max(-120, 10 * Math.log10(frac)) : -120 };
 }
 export function flatness(S, lo, hi) {
   lo = lo || 50; hi = hi || 16000;
@@ -186,14 +267,29 @@ export function roughness(S) {
   }
   return { roughness: E > 0 ? D / E : 0, peaks: pk.length };
 }
+/* aliasing (see the header, B345 (1)-(3)): 2-frame UNITS sliding one frame, each compared on its
+   own, the counted power summed over units. The two spectra must be frame-aligned: the same bin
+   width and the same frame starts in time (a 4x-rate reference takes a 4x FFT, so its hop is
+   the test's in seconds). */
+const UNIT = 2, SILENT_POW = 1e-9;                  // -90 dBFS RMS in band: metrics' silence rule
 export function aliasing(Stest, Sref) {
   if (Stest.binHz !== Sref.binHz) throw new Error('aliasing: spectra need the same bin width');
+  if (Stest.F.length !== Sref.F.length) throw new Error('aliasing: spectra need the same frames (the reference must span the test\'s window)');
   const a = Math.ceil(20 / Stest.binHz), b = Math.min(Stest.P.length - 1, Math.floor(20000 / Stest.binHz));
+  const U = Math.min(UNIT, Stest.F.length);
+  /* the unit's mean power, summed in the order spectrum() sums P: a 2-frame window's unit IS P */
+  const unit = (F, u, n) => { const P = new Float64Array(n); for (let g = u; g < u + U; g++) for (let k = 0; k < n; k++) P[k] += F[g][k]; for (let k = 0; k < n; k++) P[k] /= U; return P; };
   let tot = 0, ex = 0;
-  for (let k = a; k <= b; k++) {
-    let m = 0; for (let j = Math.max(0, k - 3); j <= Math.min(Sref.P.length - 1, k + 3); j++) if (Sref.P[j] > m) m = Sref.P[j];
-    tot += Stest.P[k];
-    if (Stest.P[k] > 10 * m) ex += Stest.P[k];
+  for (let u = 0; u + U <= Stest.F.length; u++) {
+    const Pt = unit(Stest.F, u, Stest.P.length), Pr = unit(Sref.F, u, Sref.P.length), fl = noiseFloor(Pr, a, b);
+    let ut = 0, ue = 0;
+    for (let k = a; k <= b; k++) {
+      let m = fl[k - a]; for (let j = Math.max(0, k - 3); j <= Math.min(Pr.length - 1, k + 3); j++) if (Pr[j] > m) m = Pr[j];
+      ut += Pt[k];
+      if (Pt[k] > 10 * m) ue += Pt[k];
+    }
+    if (ut < SILENT_POW) continue;                  // a silent unit is not measured (B345 (3))
+    tot += ut; ex += ue;
   }
   const frac = tot > 0 ? ex / tot : 0;
   return { aliasFraction: frac, aliasDb: frac > 0 ? Math.max(-120, 10 * Math.log10(frac)) : -120 };
@@ -214,6 +310,6 @@ export function analyse(L, R, sr, noteHz) {
   const S = spectrum(fin, sr);
   const lv = level(finiteView(L), finiteView(R), sr), si = silence(finiteView(L), finiteView(R));
   return Object.assign({ nonFinite: nonFinite(L, R) }, dc(finiteView(L), finiteView(R)), lv, si, clicks(fin),
-    { flatness: si.silent ? null : flatness(S) }, si.silent ? { rootPresence: null, rootInterval: null } : root(S, noteHz),
+    { flatness: si.silent ? null : flatness(S), noiseDb: si.silent ? null : aperiodic(S).noiseDb }, si.silent ? { rootPresence: null, rootInterval: null } : root(S, noteHz),
     si.silent ? { roughness: null } : { roughness: roughness(S).roughness }, { _S: S });
 }

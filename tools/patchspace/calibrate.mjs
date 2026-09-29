@@ -56,12 +56,25 @@
  *     beside it (metricsCommitted) so the two bases can be compared, never merged.
  *   Mixing v1 and v2 exports in one analyse() call is refused with a warning per group:
  *   the CLI analyses each version separately (one person's two passes are not two raters).
+ *
+ * RE-MEASURE, THEN RE-FIT (B345, 2026-09-28; the human: "Let's fix the metrics first, then
+ * re-fit"). metrics.mjs's aliasing was fixed and noiseDb added.
+ *   node tools/patchspace/calibrate.mjs --remeasure [ratings.json …]      (~4 min for 34 patches)
+ * v2 exports are re-rendered in Node through the listening page's own PURE block (loaded by
+ * listening_sample.mjs loadPage, the loader listening_pass_check uses) and measured by its
+ * measureWindows with the fixed metrics (remeasureExport); the answers are then fitted on the
+ * worst re-measured segment, printed BEFORE (the export as heard) -> AFTER, with noiseDb fitted
+ * beside flatness (PAIRS_B345) and each row's leave-one-out accuracy (looAccuracy). Chrome-vs-
+ * Node drift is found on the fields whose method did not change and named; drifted ratings are
+ * kept (the v2 rule) and a sensitivity fit without them follows. v1 exports fit the committed
+ * numbers, which listening_sample.mjs --remeasure re-measured in place. The default mode and
+ * analyse()'s default output are unchanged (listening_pass_check T8 pins v1's).
  */
 
 export const SCHEMA = 'hypersaw.listening-pass.ratings/1';
 export const SCHEMA_V2 = 'hypersaw.listening-pass.ratings/2';
 /* the per-segment fields a v2 rating may carry (all numbers or null; `seg` names the segment) */
-export const SEG_FIELDS = ['aliasDb', 'roughness', 'rootPresence', 'rootInterval', 'flatness', 'rmsDb', 'aliasAtNote'];
+export const SEG_FIELDS = ['aliasDb', 'roughness', 'rootPresence', 'rootInterval', 'flatness', 'noiseDb', 'rmsDb', 'aliasAtNote'];   // noiseDb: B345
 /* the five questions, flag-side keys: 1 = the "bad" answer, 0 = the "fine" answer */
 export const QUESTIONS = [
   { key: 'aliased', fine: 'clean', flag: 'aliased' },
@@ -76,6 +89,10 @@ export const PAIRS = [
   { metric: 'rootPresence', question: 'rootUnclear', when: 'below' },
   { metric: 'flatness', question: 'noisy', when: 'above' },
 ];
+/* B345's re-fit asks one more pairing: noiseDb (metrics.mjs, the proposed replacement for
+   flatness) against the same "noisy" answers. PAIRS itself is unchanged, so the default fits,
+   v1's pinned output included, are exactly what they were. */
+export const PAIRS_B345 = PAIRS.concat([{ metric: 'noiseDb', question: 'noisy', when: 'above' }]);
 const TOP_KEYS = ['schema', 'sample', 'orderSeed', 'complete', 'ratings'];
 const RATING_KEYS = ['order', 'key', 'run', 'i', 'mode', 'answers', 'note', 'heard'];
 const TOP_KEYS_V2 = TOP_KEYS.concat(['phrase']);
@@ -164,6 +181,19 @@ export function fitCut(xs, ys, when) {
     logistic50: (l => (l ? { at: s * l.score, slope: l.slope } : null))(logistic50(pts)),   // back in metric units
   });
 }
+/* LEAVE-ONE-OUT accuracy of the ROC-cut rule (B345): each rating is predicted by the cut fitted
+   on the others. With ~34 ratings the in-sample agreement at the best cut is optimistic by
+   construction; this is the honest one. null when too few ratings remain on one side. */
+export function looAccuracy(xs, ys, when) {
+  const idx = xs.map((_, k) => k).filter(k => Number.isFinite(xs[k]) && (ys[k] === 0 || ys[k] === 1));
+  let hit = 0, n = 0;
+  for (const k of idx) {
+    const rest = idx.filter(j => j !== k), f = fitCut(rest.map(j => xs[j]), rest.map(j => ys[j]), when);
+    if (f.insufficient) continue;
+    n++; if (((when === 'below' ? xs[k] < f.cut : xs[k] > f.cut) ? 1 : 0) === ys[k]) hit++;
+  }
+  return n ? hit / n : null;
+}
 function accuracy(pts, cut) { let a = 0; for (const p of pts) if ((p.x > cut ? 1 : 0) === p.y) a++; return a / pts.length; }
 /* agreement of the provisional threshold, in the metric's own units and direction */
 export function agreementAt(xs, ys, when, thr) {
@@ -200,9 +230,9 @@ function logistic50(pts) {
 /* The worst a v2 rating HEARD, per metric: over its measured segments, the value on the side
    that raises the flag (PAIRS.when: above -> the largest, below -> the smallest); a null
    (root on the sweep, where no single pitch is held) is skipped. `from` names the segment. */
-export function worstOf(segs) {
+export function worstOf(segs, pairs) {
   const values = {}, from = {};
-  for (const pr of PAIRS) {
+  for (const pr of pairs || PAIRS) {
     let best = null, at = null;
     for (const s of segs || []) {
       const v = s[pr.metric];
@@ -218,14 +248,18 @@ export function worstOf(segs) {
    Primary observations are each item's own key; a repeat (`~r`) is used for test-retest only.
    All exports must be ONE version (see the header): v1 fits the committed numbers and returns
    exactly the pre-B340 object; v2 fits the worst heard segment and adds its own fields. */
-export function analyse(sample, exports) {
+export function analyse(sample, exports, opt) {
+  opt = opt || {};
+  const pairs = opt.pairs || PAIRS;
   const nV2 = exports.filter(x => x.schema === SCHEMA_V2).length;
   if (nV2 && nV2 < exports.length) throw new Error('analyse: v1 and v2 exports cannot be fitted together (different bases); analyse each version separately');
   const v2 = nV2 > 0;
   const byKey = Object.fromEntries(sample.items.map(it => [it.key, it]));
   const warnings = [], obs = [], repeats = [], drifted = [], unmeasured = [], phrases = new Set();
   for (const x of exports) {
-    if (x.sample.id !== sample.id) warnings.push(`an export was made against sample ${x.sample.id}, this sample is ${sample.id}: its ratings are matched by key, but the sounds may differ`);
+    if (x.sample.id !== sample.id) warnings.push((sample.remeasured || []).some(r => r.from === x.sample.id)
+      ? `an export was made against sample ${x.sample.id}, since re-measured in place as ${sample.id} (the same patches and sounds; only the committed numbers changed): its ratings are matched by key`
+      : `an export was made against sample ${x.sample.id}, this sample is ${sample.id}: its ratings are matched by key, but the sounds may differ`);
     if (v2) phrases.add(x.phrase.id);
     for (const r of x.ratings) {
       const it = byKey[r.key];
@@ -237,18 +271,22 @@ export function analyse(sample, exports) {
       }
       if (r.heard === 'drift') drifted.push(r.key);       // KEPT in v2: the numbers fitted are the ones heard
       if (!Array.isArray(r.segs) || !r.segs.length) { unmeasured.push(r.key); continue; }
-      const w = worstOf(r.segs);
+      const w = worstOf(r.segs, pairs);
       (it.role === 'repeat' ? repeats : obs).push({ it, r, m: w.values, from: w.from });
     }
   }
   const T = sample.thresholds;
-  const fitOn = pick => PAIRS.map(pr => {
+  const fitOn = pick => pairs.map(pr => {
     const xs = obs.map(o => pick(o)[pr.metric]), ys = obs.map(o => o.r.answers[pr.question]);
     const f = fitCut(xs, ys, pr.when);
-    return Object.assign({ metric: pr.metric, question: pr.question, provisional: T[pr.metric], agreementProvisional: agreementAt(xs, ys, pr.when, T[pr.metric]) }, f);
+    /* a metric with no provisional threshold (B345's noiseDb) reports none, not an agreement with `undefined` */
+    const thr = T[pr.metric] === undefined ? null : T[pr.metric];
+    const row = Object.assign({ metric: pr.metric, question: pr.question, provisional: thr, agreementProvisional: thr === null ? null : agreementAt(xs, ys, pr.when, thr) }, f);
+    if (opt.loo) row.loo = looAccuracy(xs, ys, pr.when);
+    return row;
   });
   const metrics = fitOn(o => o.m);
-  const usable = PAIRS.map(pr => {
+  const usable = pairs.map(pr => {
     const f = fitCut(obs.map(o => o.m[pr.metric]), obs.map(o => o.r.answers.unusable), pr.when);
     return { metric: pr.metric, auc: f.insufficient ? null : f.auc, n: f.n };
   });
@@ -277,9 +315,34 @@ export function analyse(sample, exports) {
   if (drifted.length) warnings.push(`${drifted.length} rating(s) measured differently in the rater's browser than in the gauntlet (heard: drift); KEPT, fitted on the numbers heard: ${drifted.join(', ')}`);
   if (unmeasured.length) warnings.push(`${unmeasured.length} rating(s) left out: no heard segments (not measured when exported): ${unmeasured.join(', ')}`);
   const worstFrom = {};
-  for (const pr of PAIRS) { const c = worstFrom[pr.metric] = {}; for (const o of obs) { const s = o.from[pr.metric]; if (s) c[s] = (c[s] || 0) + 1; } }
+  for (const pr of pairs) { const c = worstFrom[pr.metric] = {}; for (const o of obs) { const s = o.from[pr.metric]; if (s) c[s] = (c[s] || 0) + 1; } }
   return { sampleId: sample.id, observations: obs.length, drifted, warnings, metrics, usable, controls, retest, roughOrigin: origin,
     version: 2, basis: 'the worst heard segment per metric', phrase: [...phrases], unmeasured, worstFrom, metricsCommitted: fitOn(o => o.it.metrics) };
+}
+
+/* RE-MEASURE WITHOUT RE-LISTENING (B345; the human: "Let's fix the metrics first, then re-fit").
+   A v2 rating is keyed by its patch, and the patch's program renders deterministically from its
+   seed, so after a metrics.mjs fix the answers can be fitted on the FIXED metrics' numbers of the
+   same sounds. `segsOf(rating)` returns the segments measured now (the CLI renders the page's own
+   program in Node through its PURE block and measures it with measureWindows; see below); `diff`
+   is the page's tolerance test (heardDiff). The rater's browser measured the sound with the
+   metrics of the day, so the comparison that can reveal Chrome-vs-Node DRIFT uses only the fields
+   whose method B345 did not change (DRIFT_FIELDS): a rating whose sound measures differently in
+   Node on any of them is marked `heard: drift` (informational in v2, as before) and named. */
+export const DRIFT_FIELDS = ['roughness', 'rootPresence', 'flatness', 'rmsDb'];
+export function remeasureExport(x, segsOf, diff) {
+  const drift = {};
+  const pick = o => Object.fromEntries(DRIFT_FIELDS.map(k => [k, o[k]]));
+  const ratings = x.ratings.map(r => {
+    const now = segsOf(r), over = [];
+    for (const old of r.segs || []) {
+      const nw = now.find(s => s.seg === old.seg);
+      if (nw) for (const o of diff(pick(nw), pick(old)).over) over.push(`${old.seg}.${o.k}`);
+    }
+    if (over.length) drift[r.key] = over;
+    return Object.assign({}, r, { segs: now, heard: over.length ? 'drift' : 'match' });
+  });
+  return { export: Object.assign({}, x, { ratings }), drift };
 }
 
 /* ---------------------------------------------------------------- the CLI (Node only) */
@@ -294,7 +357,7 @@ export function textReport(A) {
   const table = ms => {
     L.push('metric        question      flag when  n   yes  AUC    provisional (agree)   suggested cut (agree)   bracket                logistic 50%');
     for (const m of ms) {
-      const d = m.metric === 'aliasDb' ? 1 : 3;
+      const d = m.metric === 'aliasDb' || m.metric === 'noiseDb' ? 1 : 3;
       const row = [m.metric.padEnd(13), m.question.padEnd(13), m.when.padEnd(10), String(m.n).padEnd(3), String(m.flagged).padEnd(4)];
       if (m.insufficient) row.push(`—      ${fmt(m.provisional, d)} (${fmt(m.agreementProvisional, 2)})`.padEnd(29), 'no suggestion: fewer than 3 answers on one side');
       else row.push(fmt(m.auc, 2).padEnd(6), `${fmt(m.provisional, d)} (${fmt(m.agreementProvisional, 2)})`.padEnd(21),
@@ -342,7 +405,62 @@ if (isCli) {
   /* one analysis per export version: a v1 and a v2 pass by the same person are two hearings
      on two bases, never pooled (analyse() refuses a mix) */
   const groups = [exps.filter(x => x.schema !== SCHEMA_V2), exps.filter(x => x.schema === SCHEMA_V2)].filter(g => g.length);
-  const out = groups.map(g => analyse(sample, g));
-  if (flag('json') >= 0) console.log(JSON.stringify(out.length === 1 ? out[0] : out, null, 1));
-  else console.log(out.map(textReport).join('\n\n' + '-'.repeat(100) + '\n\n'));
+  if (flag('remeasure') < 0) {
+    const out = groups.map(g => analyse(sample, g));
+    if (flag('json') >= 0) console.log(JSON.stringify(out.length === 1 ? out[0] : out, null, 1));
+    else console.log(out.map(textReport).join('\n\n' + '-'.repeat(100) + '\n\n'));
+  } else {
+    /* --remeasure (B345): v1 exports are fitted on the committed numbers, which listening_sample.mjs
+       --remeasure has re-measured in place with the fixed metrics (so they need no render); v2
+       exports are re-rendered and re-measured here, patch by patch (~5 s each), and fitted on the
+       worst re-measured segment. BEFORE = the export as it was (the metrics of the day, measured in
+       the rater's browser); AFTER = the fixed metrics, in Node. noiseDb is fitted beside flatness,
+       and every row carries its leave-one-out accuracy. Writes nothing. */
+    const { loadPage, RENDER_SALT } = await import('./listening_sample.mjs');
+    const { loadEngine } = await import('./space.mjs');
+    const { samplePatch } = await import('./gauntlet.mjs');
+    const { hash32 } = await import('./gen_dependency_tree.mjs');
+    const MET = await import('./metrics.mjs');
+    const P = loadPage(), { Composed } = loadEngine(), cache = new Map(), t0 = Date.now();
+    const segsOf = r => {
+      const base = r.key.replace(/~r$/, '');
+      if (cache.has(base)) return cache.get(base);
+      const patch = samplePatch(r.run, r.i, r.mode).patch, pseed = hash32(r.run, r.i, RENDER_SALT);
+      const segs = P.SEGS.map(seg => P.runSync(P.measureSegmentSteps(MET, Composed, patch, pseed, seg, P.runSync(P.renderSegmentSteps(Composed, patch, pseed, seg)))));
+      cache.set(base, segs);
+      console.error(`  re-measured ${base} (${cache.size}, ${((Date.now() - t0) / 1000).toFixed(0)} s)`);
+      return segs;
+    };
+    const opt = { pairs: PAIRS_B345, loo: true }, L = [];
+    const cmp = (B, A) => {
+      L.push('metric        question      AUC before -> after   cut before -> after       agree@cut before -> after   LOO before -> after   provisional agree before -> after');
+      for (const a of A.metrics) {
+        const b = B.metrics.find(m => m.metric === a.metric), d = a.metric === 'aliasDb' || a.metric === 'noiseDb' ? 1 : 3;
+        const two = (f, dd) => `${b ? fmt(f(b), dd) : '—'} -> ${fmt(f(a), dd)}`;
+        L.push([a.metric.padEnd(13), a.question.padEnd(13), two(m => (m.insufficient ? null : m.auc), 2).padEnd(21), two(m => (m.insufficient ? null : m.cut), d).padEnd(25),
+          two(m => (m.insufficient ? null : m.accuracyAtCut), 2).padEnd(27), two(m => m.loo, 2).padEnd(21), two(m => m.agreementProvisional, 2)].join(' '));
+      }
+      L.push('AUC against "not usable", before -> after: ' + A.usable.map(u => { const b = B.usable.find(x => x.metric === u.metric); return `${u.metric} ${b ? fmt(b.auc, 2) : '—'} -> ${fmt(u.auc, 2)}`; }).join(' · '));
+    };
+    for (const g of groups) {
+      if (g[0].schema !== SCHEMA_V2) {
+        L.push('v1 export(s): fitted on the committed numbers, re-measured in place with the fixed metrics (listening_sample.mjs --remeasure). For BEFORE, run the default mode with --sample on the earlier file (its id is in the sample file under remeasured).');
+        L.push(textReport(analyse(sample, g, opt)), '', '-'.repeat(100), '');
+        continue;
+      }
+      const before = analyse(sample, g, { loo: true }), redone = g.map(x => remeasureExport(x, segsOf, P.heardDiff));
+      const after = analyse(sample, redone.map(r => r.export), opt), drift = Object.assign({}, ...redone.map(r => r.drift));
+      L.push(`v2 export(s) RE-MEASURED in Node with the fixed metrics (${cache.size} patches, ${((Date.now() - t0) / 1000).toFixed(0)} s). BEFORE = the export's own numbers (the rater's browser, the metrics of the day); AFTER = the fixed metrics.`);
+      cmp(before, after);
+      L.push('', `CHROME-vs-NODE DRIFT (${Object.keys(drift).length} rating(s): a field whose method did not change measures outside the page's tolerance in Node; KEPT, as v2 keeps drift): ` +
+        (Object.entries(drift).map(([k, f]) => `${k} [${f.join(', ')}]`).join(' · ') || 'none'));
+      if (Object.keys(drift).length) {
+        const kept = redone.map(r => Object.assign({}, r.export, { ratings: r.export.ratings.filter(x => !drift[x.key]) }));
+        L.push('', 'SENSITIVITY — the same fit with the drifted ratings LEFT OUT (the v1 rule):');
+        cmp(before, analyse(sample, kept, opt));
+      }
+      L.push('', 'AFTER, in full:', textReport(after), '', '-'.repeat(100), '');
+    }
+    console.log(L.join('\n'));
+  }
 }
