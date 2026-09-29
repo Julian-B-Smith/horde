@@ -34,7 +34,17 @@
  *   N1-N4 noiseDb: lines read below -60 dB (sine, saws, beating pairs, an inharmonic cloud); white
  *        noise reads 0 dB; saw + noise reads the known share within 2 dB; the same at any window
  *        length. INFO N3i: its measured limits (A1, a dense supersaw).
- * ~5 s. By hand: node tools/patchspace/metrics_check.mjs (exit 1 on any red row).
+ * B346 ROWS (2026-09-29; the human: "I think we should try to build the cleanest system we can muster"), the
+ * os-convergence estimator (metrics.mjs aliasConvergence) on constructed renders at 1x..16x:
+ *   X1   must-read-zero: a band-limited saw. X2 must-read-high, converging and explained: naive saws at A3, E5, A6.
+ *   X3   must-read-zero: independent noise renders at every rate. X4 must-read-high: a tone 15 dB under noise at 1x only.
+ *   X5   a rate-dependent feedback loop (sine feedback FM, the engine's loop form) reads as dynamics, not folding.
+ *   X6   dense partials over a noise floor read where B345's floor hid them.
+ *   X7   the lead's controls (2026-09-29, from B350's red T10): naive saws at E5 and A3 under a 30-cent 5 Hz vibrato
+ *        and a 2 st/s glide read aliased within 3 dB of steady; band-limited on the same paths read clean.
+ *        X7c CONTROL: B345's aliasing() under-reads the A3 vibrato by >= 10 dB (the smear is real).
+ *   X8   a rate-dependent level (1.5 dB louder at 1x) is not folding. INFO X2i: a naive saw at A1.
+ * ~8 s. By hand: node tools/patchspace/metrics_check.mjs (exit 1 on any red row).
  */
 import * as M from './metrics.mjs';
 import { measure } from './gauntlet.mjs';
@@ -301,5 +311,5 @@ const D = loadSpace().defaults;
   const heavy = t(Object.assign({}, D, { N: 9, b2on: 1, os: 2, b1on: 1 })), light = t(Object.assign({}, D, { N: 1, b1on: 0, b2on: 0, os: 1 }));
   row(heavy / light >= 2, 'E3', `engine CPU: N 9 + two blades at 2x ${(100 * heavy).toFixed(1)}% vs N 1, no blades, 1x ${(100 * light).toFixed(1)}% of real time per voice — ratio ${f4(heavy / light)} (must be >= 2; min of 3 timings, noisy by nature)`);
 }
-console.log(`metrics_check: ${red ? red + ' RED' : 'GREEN'} — 10 metric rows + 9 B345 rows (aliasing window-length invariance, decorrelation, silence; noiseDb) on constructed signals, 3 INFO rows, + 3 engine controls (metrics are measurements, not gates)`);
+console.log(`metrics_check: ${red ? red + ' RED' : 'GREEN'} — 10 metric rows + 9 B345 rows (aliasing window-length invariance, decorrelation, silence; noiseDb) + 9 B346 rows (the os-convergence estimator: clean, folding, independent noise, a planted tone, feedback dynamics, dense partials, vibrato and glide, a level) on constructed signals, 4 INFO rows, + 3 engine controls (metrics are measurements, not gates)`);
 process.exit(red ? 1 : 0);

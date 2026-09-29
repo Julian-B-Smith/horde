@@ -533,7 +533,9 @@ if (isMainThread && process.argv[1] && process.argv[1].endsWith('alias_sources.m
   if (['matrix', 'fixes', 'fixes2', 'fixes3'].includes(cmd)) await runPass(cmd);
   else if (cmd === 'cpu') cpu();
   else if (cmd === 'b828') b828();
-  else if (cmd === 'ulp') await ulp();
+  /* not awaited: ulp() imports listening_sample.mjs, which imports gauntlet.mjs, which imports this module;
+     awaiting here would hold this module's evaluation open and the import would wait on it for ever */
+  else if (cmd === 'ulp') ulp().catch(e => { console.error(e); process.exit(1); });
   else if (cmd === 'summary') summary();
   else { console.error('usage: alias_sources.mjs matrix|fixes|cpu|b828|ulp|summary [--workers W]'); process.exit(2); }
 }
