@@ -1,0 +1,2433 @@
+<!doctype html>
+<!-- envelope-hierarchy-lab — B370: the full envelope hierarchy, workshopped. HYPERSAW, 2026-09-29,
+     dispatched by the horde lead on ROADMAP B370 (records PR #862, branch lead-records-146).
+     Spec-in-code per ADR-003. A complement to the mod lab (docs/design/mod-matrix-lab.html, which
+     asks how a ROUTE is wired and shown); this lab asks what the ENVELOPES are, who they gate, and
+     how long a voice lives.
+
+     THE HUMAN, 2026-09-29: "It might be worth workshopping the full envelope hierarchy in a lab (this
+     would be a complement to the mod lab). I think want to follow the Serum approach of having ENV 1
+     be a global envelope that applies to all pre-FX sound-generating devices (including filters).
+     Then we need to determine the envelopes work for things like onset scatter (an important knob I
+     would like to preserve; but I'm frustrated by the trade-off of eating up an envelope slot with it
+     versus giving it a secret proprietary envelope which may clash with certain settings). ... Maybe
+     there's a creative solution I'm not considering."
+
+     THE INPUT is B366's conflict inventory, docs/design/scalpel-envelope-conflicts.md (branch
+     scalpel-master-env, PR #863): 17 decisions, decision 1 (WHOSE LAW) gating most of the rest. Its
+     facts are cited here as F1..F16 and its decisions as D1..D17. What Serum 2 does is the lead's
+     summary on ROADMAP B370, restated in our own words; no manual text is copied.
+
+     WHAT IS THE ENGINE AND WHAT IS A PROTOTYPE. Every sound is B298's COMPOSED ENGINE
+     (scalpel-horde-engine.js over the SCALPEL oracle and horde's SwarmSynth), loaded as the SCALPEL
+     lab loads it and never edited. Everything this lab proposes (the laws side by side, HOLD, ENV
+     2..4, the per-source ENV 1 buttons, the four onset-scatter options, the pool rules) is the LAB'S
+     OWN HARNESS (section A4), labelled PROTOTYPE on the page: it multiplies envelope gains into stems
+     the engine renders with its own envelope neutralised (A2 says exactly how, and self-check STEM
+     measures what that costs). Option 3 ("today") is the one exception: it is played by the engine
+     itself, its own envelope and its own hidden per-member mechanism.
+
+     SECTIONS. §1 the hierarchy and voice lifetime · §2 decision 1 by ear · §3 onset scatter, four
+     ways, and their clashes · §4 HOLD and legato · §5 decisions 2..17 · §6 the self-check.
+     Deep links: ?theme=dark · ?only=s1..s6 (one section, for screenshots) · ?law=horde ·
+     ?off=sub,b1 (those ENV 1 buttons start off) · ?hold=0.3 (ENV 1's hold) · ?clash=release|legato|steal.
+
+     L0026: all state above all wiring; nothing at setup reaches forward to a const below it. No
+     Math.random of our own: the oracle's Math.random is a seeded mulberry32 shim installed by
+     stemGen around every engine call (the SCALPEL lab's seedOracle idiom); the lab's own draws are
+     the engine's ensemble stream (A3). No wall clock in the core. STUB-SAFETY (lab_load_check runs
+     this under a DOM whose numbers are 0): painters loop over integer indices only. -->
+<html><head><meta charset="utf-8">
+<meta name="lab-review" content="B370 · 2026-09-29">
+<title>envelope hierarchy lab — ENV 1 global, onset scatter without a slot or a hidden envelope</title>
+<style>
+  /* ============================================================
+     TOKENS — copied VERBATIM from docs/design/mod-matrix-lab.html, which copied them from
+     docs/design/station-page-lab.html, which copied them from src/gui/gui2.html:26-96 (:root),
+     :103-105, :142-144, :167-185, :186-212 (body.dark). The derivations live there; the VALUES are
+     what must not drift. Copy, therefore drift: re-copy if gui2's tokens move.
+     ============================================================ */
+  :root {
+    --bg:#F2EDE2; --panel:#FCFAF4; --well:#FFFFFF; --panel2:#E9E3D4;
+    --line:#191521; --hair:#E5DFD0; --div:#D8D1C0;
+    --text:#191521; --t2:#494356; --dim:#9A93A3; --dis:#B6AFA0;
+    --value:#F5169C;
+    --pull:#F5169C;
+    --physics:#6431F0;
+    --meter:#00D5C8;
+    --marker:#FFD702;
+    --celebrate:#A6F219;
+    --caution:#F5A300;   --caution-bg:#FBE9BD; --caution-tx:#6D570B;
+    --amber:#F5A300;
+    --alarm:#C2261A;
+    --ghost:#C9C2FF;
+    --cA:#FFD702; --cAtx:#D4A900; --cB:#FF2E88; --cBtx:#FF2E88;
+    --cC:#00D5C8; --cCtx:#00B3A8; --cD:#A6F219; --cDtx:#6FB200;
+    --text-hi:#191521; --dim2:#494356; --grid:#E5DFD0; --grid2:#E5DFD0;
+    --hot:#F5169C; --bad:#C2261A; --badge-bg:rgba(245,163,0,.9);
+    --scr-tube:#1B0733; --scr-value:#FF5ECF; --scr-meter:#B8F227;
+    --scr-physics:#B48CFF; --scr-marker:#FFB86B; --scr-grid:#4FD8BE;
+    --scr-scan:0.22; --scr-alpha:1;
+    --r-card:10px; --r-well:var(--r-card); --r:var(--r-card); --stroke:1.5px;
+    --shadow:1.5px 1.5px 0 var(--line);
+    --shadow-hover:2.5px 2.5px 0 var(--line);
+    --focus:0 0 0 2.5px rgba(245,22,156,.45); }
+  * { box-sizing:border-box; margin:0; }
+  canvas { border:var(--stroke) solid var(--line); border-radius:var(--r-well);
+           background:var(--scr-tube); display:block; width:100%; }
+  body:not(.dark) { --scr-tube:#F3EBFF; --scr-value:#D6006B; --scr-meter:#007A73;
+    --scr-physics:#6E14E8; --scr-marker:#C43A00; --scr-grid:#5A3FA8;
+    --scr-scan:0.05; --scr-alpha:1.6;
+    --marker:#8A6A00; --celebrate:#4E7A00; }
+  body.dark {
+    --bg:#151220; --panel:#1F1B2E; --well:#0E0C16; --panel2:#2C2740;
+    --line:#EFE9FA; --hair:#312B47; --div:#3B3455;
+    --text:#EFE9FA; --t2:#BDB4D4; --dim:#8A82A3; --dis:#514A6B;
+    --value:#FF3DAD; --pull:#FF3DAD; --physics:#A07CFF; --meter:#2DF2E2;
+    --marker:#FFE04D; --celebrate:#C2F53E;
+    --caution:#FFB627; --caution-bg:#4A3A12; --caution-tx:#FFD98A;
+    --amber:#FFB627; --alarm:#FF5A4D;
+    --ghost:#5B4E8F;
+    --cA:#FFD702; --cAtx:#FFE566; --cB:#FF2E88; --cBtx:#FF6FAE;
+    --cC:#00D5C8; --cCtx:#4DEDE3; --cD:#A6F219; --cDtx:#C6F86A;
+    --text-hi:#FFFFFF; --dim2:#9A93A8; --grid:#312B47; --grid2:#312B47;
+    --hot:#FF3DAD; --bad:#FF5A4D; --badge-bg:rgba(255,182,39,.9);
+    --focus:0 0 0 2.5px rgba(255,61,173,.45); }
+
+  /* ============ CHROME — gui2's idiom, as mod-matrix-lab carries it ============ */
+  body { background:var(--bg); color:var(--text);
+    font:12px/1.45 ui-monospace,Menlo,monospace; padding:10px 12px; }
+  .hdr { display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; margin-bottom:8px; }
+  h1 { font-size:34px; line-height:1; letter-spacing:-1px; font-weight:800; }
+  .badges { display:flex; align-items:center; gap:8px; margin-top:4px; }
+  .badge { font-size:9.5px; letter-spacing:.1em; padding:2px 7px;
+           border:var(--stroke) solid var(--line); border-radius:3px;
+           background:var(--cA); color:var(--line); }
+  body.dark .badge { color:var(--bg); }
+  .sub { color:var(--t2); font-size:10.5px; letter-spacing:.12em; }
+  .hdrctl { display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-left:auto; }
+  .grp { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+  .lbl { font-size:10px; font-weight:700; letter-spacing:.1em; color:var(--t2); }
+  .pill { padding:3px 10px; border:var(--stroke) solid var(--line);
+    border-radius:999px; min-height:24px; cursor:pointer; color:var(--dim);
+    background:var(--panel); font:inherit; font-size:10px; letter-spacing:.06em; }
+  .pill:hover { box-shadow:var(--shadow); }
+  .pill.on { color:var(--bg); background:var(--line); font-weight:600; }
+  .pill.play { color:var(--text); border-color:var(--value); }
+  .pill.play:hover { background:var(--value); color:var(--bg); }
+  .pill.busy { color:var(--dim); border-style:dashed; }
+  .pill.rec::after { content:' ★'; color:var(--celebrate); }
+  .chip { padding:4px 8px; border:0; background:none; border-radius:var(--r);
+    cursor:pointer; font:inherit; font-size:10px; letter-spacing:.06em;
+    color:var(--dim); min-height:26px; }
+  .chip:hover { background:var(--panel2); }
+  .chip b { color:var(--t2); font-weight:600; letter-spacing:.1em; }
+  .tagline { color:var(--t2); font-size:11px; max-width:150ch; margin-bottom:6px; }
+  .tagline b { color:var(--text); }
+  .audit { font-size:10px; color:var(--t2); margin-bottom:10px;
+           border-left:3px solid var(--meter); padding-left:8px; }
+  .audit.bad { border-left-color:var(--alarm); color:var(--alarm); }
+  .audit b { color:var(--text); }
+  .cluster { background:var(--panel); border:var(--stroke) solid var(--line);
+    border-radius:var(--r); padding:10px 12px; min-width:0; margin-bottom:12px; }
+  h2 { font-size:12px; color:var(--pull); letter-spacing:1px; margin-bottom:6px; }
+  h2 .proto { font-size:9px; letter-spacing:.12em; color:var(--caution-tx); background:var(--caution-bg);
+    border:1px solid var(--caution); border-radius:3px; padding:0 5px; margin-left:8px; vertical-align:middle; }
+  h3 { font-size:10px; letter-spacing:.12em; color:var(--t2); margin:8px 0 4px; }
+  .note { color:var(--t2); font-size:10.5px; line-height:1.55; margin-top:6px; max-width:150ch; }
+  .note b { color:var(--text); }
+  .note code, td code { font-size:10px; color:var(--text); }
+  .sep { border-top:1px dashed var(--div); margin:8px 0 6px; }
+  .cap { font-size:9px; letter-spacing:.12em; color:var(--dim); margin:6px 0 3px; }
+  .row { display:grid; grid-template-columns:56px minmax(0,1fr) 54px;
+    align-items:center; gap:6px; margin:2px 0; }
+  .row label { color:var(--t2); font-size:10px; }
+  .row output { font-size:10px; text-align:right; color:var(--text); font-variant-numeric:tabular-nums; }
+  input[type=range] {
+    -webkit-appearance:none; appearance:none; width:100%; min-width:0;
+    height:20px; background:transparent; cursor:pointer; }
+  input[type=range]::-webkit-slider-runnable-track {
+    height:6px; border-radius:3px; border:var(--stroke) solid var(--line);
+    background:linear-gradient(to right,
+      var(--value) 0 calc(var(--pct, 0) * 100%),
+      var(--panel2) calc(var(--pct, 0) * 100%) 100%); }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance:none; appearance:none;
+    width:13px; height:13px; border-radius:4px; margin-top:-3.5px;
+    background:var(--panel); border:var(--stroke) solid var(--line);
+    box-shadow:var(--shadow); }
+  select {
+    -webkit-appearance:none; appearance:none;
+    font:inherit; font-size:10px; padding:3px 18px 3px 9px; min-width:0;
+    border-radius:999px; border:var(--stroke) solid var(--line);
+    background:var(--panel); color:var(--t2); cursor:pointer; min-height:22px;
+    background-image:linear-gradient(45deg,transparent 50%,var(--t2) 50%),
+                     linear-gradient(135deg,var(--t2) 50%,transparent 50%);
+    background-position:calc(100% - 11px) 50%, calc(100% - 7px) 50%;
+    background-size:4px 4px, 4px 4px; background-repeat:no-repeat; }
+
+  /* ============ THIS LAB ============ */
+  .g2 { display:grid; grid-template-columns:minmax(0,1.25fr) minmax(0,1fr); gap:12px; }
+  .g4 { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; }
+  .card { border:1px solid var(--div); border-radius:8px; padding:8px; background:var(--well); min-width:0; }
+  .card h4 { font-size:10.5px; letter-spacing:.06em; margin-bottom:4px; }
+  .card h4 small { color:var(--dim); font-weight:400; }
+  .envs { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+  .envbox { border:1px solid var(--div); border-radius:8px; padding:6px 8px; background:var(--well); }
+  .envbox .hd { display:flex; align-items:center; gap:6px; margin-bottom:2px; flex-wrap:wrap; }
+  .envbox .hd b { font-size:11px; }
+  .srcrow { display:flex; gap:6px; flex-wrap:wrap; margin:6px 0; }
+  .srcbtn { display:flex; flex-direction:column; align-items:center; gap:3px; border:1px solid var(--div);
+    border-radius:8px; padding:5px 8px; background:var(--well); min-width:92px; }
+  .srcbtn span { font-size:10px; color:var(--t2); }
+  table.pt { border-collapse:collapse; width:100%; font-size:10px; }
+  table.pt td, table.pt th { border-bottom:1px dashed var(--div); padding:4px 5px; text-align:left; vertical-align:middle; }
+  table.pt th { color:var(--dim); font-weight:600; letter-spacing:.08em; font-size:9px; }
+  table.pt td.num { font-variant-numeric:tabular-nums; white-space:nowrap; }
+  table.pt canvas { height:46px; min-width:260px; }
+  table.dt td { vertical-align:top; }
+  .recd { color:var(--celebrate); font-weight:700; }
+  .ev td.best { color:var(--celebrate); font-weight:700; }
+  .ev td.worst { color:var(--alarm); }
+  .ok { color:var(--celebrate); } .bad { color:var(--alarm); }
+  .chk { font-size:10px; }
+  .chk td { border-bottom:1px dashed var(--div); padding:3px 5px; vertical-align:top; }
+  .chk .ctl { color:var(--dim); }
+  .legend { display:flex; gap:12px; flex-wrap:wrap; font-size:9.5px; color:var(--t2); margin:4px 0; }
+  .legend i { display:inline-block; width:14px; height:3px; vertical-align:middle; margin-right:4px; }
+  .verdict { border-left:3px solid var(--celebrate); padding:6px 10px; background:var(--well); font-size:10.5px; line-height:1.55; margin-top:8px; }
+  .verdict b { color:var(--text); }
+  .hidden { display:none !important; }
+</style>
+<!-- THE ENGINE, loaded never copied, exactly as docs/design/scalpel-interface-lab.html loads it:
+     the SCALPEL oracle (reference/scalpel/ is PROTECTED, read-only) and B298's composed engine,
+     which is built at boot from both and from reference/swarmsaw.html's DSP section (a fetch). -->
+<script src="../../reference/scalpel/prototype/razor-core.js"></script>
+<script src="scalpel-horde-engine.js"></script>
+</head>
+<body>
+<div class="hdr">
+  <div>
+    <h1>envelope hierarchy</h1>
+    <div class="badges"><span class="badge">B370 · DESIGN LAB</span>
+      <span class="sub">ENV 1 GLOBAL · ENV 2–4 ASSIGNABLE · PER-SOURCE ENV 1 BUTTONS · WHOSE LAW, BY EAR · ONSET SCATTER FOUR WAYS · HOLD · LEGATO INVERTED</span></div>
+  </div>
+  <div class="hdrctl">
+    <div class="grp"><span class="lbl">LAW (D1)</span><span class="pills" id="lawPills"></span></div>
+    <div class="grp"><span class="lbl">VELOCITY</span><span class="pills" id="velPills"></span></div>
+    <button class="chip" id="themeBtn">theme <b>LIGHT</b></button>
+    <button class="pill" id="stopBtn">■ stop</button>
+  </div>
+</div>
+<div class="tagline">The full envelope hierarchy, workshopped as the human asked (complement to the mod lab): <b>ENV 1 is global</b>, one AHDSR on every
+pre-FX source (the swarm, both blades, the sub) with a <b>per-source ENV 1 button</b> as in Serum's mixer, <b>ENV 2–4 assignable</b>; decision 1
+(SCALPEL's linear/4τ law against horde's one-pole τ) <b>by ear</b> on B366's twelve envelope presets; <b>onset scatter four ways</b> (the
+spread of ENV 1 across members, a dedicated slot, today's hidden mechanism, and this lab's own find: the healing spread) with every clash
+drawn and audible; HOLD, legato inverted, and decisions 2–17 as toggles with the inventory's recommendation as the default. Sound is the
+composed engine; every envelope rule here is a labelled prototype in the lab's harness.</div>
+<div class="audit" id="audit">loading the composed engine…</div>
+
+<!-- ============================ §1 ============================ -->
+<div class="cluster" id="s1">
+  <h2>§1 · THE HIERARCHY — ENV 1 GLOBAL, ENV 2–4 ASSIGNABLE <span class="proto">PROTOTYPE · LAB HARNESS</span></h2>
+  <div class="g2">
+    <div>
+      <canvas id="flowCv" style="height:250px"></canvas>
+      <div class="cap">EVERY SOURCE'S ENV 1 BUTTON (SERUM'S MIXER RULE: ON = FOLLOWS ENV 1 · OFF = UNGATED, LIVES UNTIL THE VOICE IS FREED)</div>
+      <div class="srcrow" id="srcRow"></div>
+      <div class="grp" style="margin:4px 0"><span class="lbl">SUB (STAND-IN)</span><span id="subCtl" style="min-width:220px"></span>
+        <span class="lbl">FILTER (STAND-IN)</span><span class="pills" id="filtPills"></span></div>
+      <div class="grp" style="margin:4px 0"><span class="lbl">VOICE LIVES UNTIL</span><span class="pills" id="freePills"></span>
+        <button class="pill play" id="play1">▶ play the hierarchy</button></div>
+      <canvas id="lifeCv" style="height:190px"></canvas>
+      <div class="legend" id="lifeLegend"></div>
+      <div class="note" id="lifeNote"></div>
+    </div>
+    <div>
+      <div class="cap">THE FOUR ENVELOPES · AHDSR · TIMES IN SECONDS (ADR-009) · THE LAW IS THE HEADER'S</div>
+      <div class="envs" id="envBoxes"></div>
+      <div class="note" id="hierNote"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================ §2 ============================ -->
+<div class="cluster" id="s2">
+  <h2>§2 · DECISION 1, BY EAR — SCALPEL'S LINEAR/4τ LAW AGAINST HORDE'S ONE-POLE τ LAW, ON THE SAME NUMBERS <span class="proto">PROTOTYPE · LAB HARNESS</span></h2>
+  <div class="grp" style="margin-bottom:6px"><span class="lbl">TIME AXIS</span><span class="pills" id="axisPills"></span>
+    <span class="lbl">RELEASE READS (D2)</span><span class="pills" id="relPills"></span>
+    <span class="lbl">BLIND</span><button class="pill" id="blindReveal">reveal the last blind play</button><span class="note" id="blindNote" style="margin:0"></span></div>
+  <div class="legend"><span><i style="background:var(--scr-value)"></i>A · SCALPEL (linear attack, D and R are 4τ, freed at −80 dB)</span>
+    <span><i style="background:var(--scr-meter)"></i>B · horde (one-pole, every knob is τ, ADR-021; ACCOUNTING rows 17–20 rule it wins)</span>
+    <span><i style="background:var(--scr-marker)"></i>the key-off · ▲ where each law frees the voice</span></div>
+  <table class="pt" id="presetTable"></table>
+  <div class="note" id="lawNote"></div>
+</div>
+
+<!-- ============================ §3 ============================ -->
+<div class="cluster" id="s3">
+  <h2>§3 · ONSET SCATTER, FOUR WAYS — WHERE EACH ONE CLASHES <span class="proto">PROTOTYPE · LAB HARNESS (OPTION 3 IS THE ENGINE ITSELF)</span></h2>
+  <div class="grp" style="margin-bottom:4px"><span class="lbl">NOTE</span><span class="pills" id="scNotePills"></span>
+    <span class="lbl">DRAW</span><span class="pills" id="scDrawPills"></span></div>
+  <div class="g4" id="scCtl"></div>
+  <div class="g4" id="scCards" style="margin-top:8px"></div>
+  <h3>THE CLASHES</h3>
+  <div class="grp" style="margin-bottom:6px"><span class="lbl">CLASH</span><span class="pills" id="clashPills"></span><span id="clashCtl" class="grp"></span></div>
+  <div class="g4" id="clashCards"></div>
+  <div class="note" id="clashNote"></div>
+  <h3>THE EVIDENCE, MEASURED ON THE DRAW ABOVE (RE-MEASURED ON EVERY CHANGE)</h3>
+  <table class="pt ev" id="evTable"></table>
+  <div class="verdict" id="verdict"></div>
+</div>
+
+<!-- ============================ §4 ============================ -->
+<div class="cluster" id="s4">
+  <h2>§4 · HOLD AND LEGATO — AHDSR, HOLD 0 IS THE ADSR; LEGATO INVERTED PER ENVELOPE <span class="proto">PROTOTYPE · LAB HARNESS</span></h2>
+  <div class="g2">
+    <div>
+      <div id="holdCtl" style="max-width:420px"></div>
+      <canvas id="holdCv" style="height:170px"></canvas>
+      <div class="legend"><span><i style="background:var(--scr-value)"></i>ENV 1 at its hold</span><span><i style="background:var(--scr-grid)"></i>the same ENV 1 at hold 0 (the ADSR)</span></div>
+      <div class="note" id="holdNote"></div>
+    </div>
+    <div>
+      <div class="grp"><span class="lbl">MODE</span><span class="pills" id="modePills"></span>
+        <span class="lbl">A RETRIGGER STARTS FROM (D5/D17)</span><span class="pills" id="retrigPills"></span></div>
+      <div class="grp" style="margin:4px 0"><span class="lbl">LEGATO INVERTED</span><span class="pills" id="invPills"></span>
+        <button class="pill play" id="play4">▶ play the phrase</button></div>
+      <canvas id="legCv" style="height:190px"></canvas>
+      <div class="note" id="legNote"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================ §5 ============================ -->
+<div class="cluster" id="s5">
+  <h2>§5 · DECISIONS 2–17 — SHOWN OR HEARD WHERE THEY CAN BE; THE INVENTORY'S RECOMMENDATION IS THE DEFAULT (★) <span class="proto">PROTOTYPE · LAB HARNESS</span></h2>
+  <table class="pt dt" id="decTable"></table>
+  <div class="g4" style="margin-top:8px">
+    <div class="card"><h4>D4 · a blade envelope longer than the amp <small>(F9)</small></h4><canvas id="d4Cv" style="height:110px"></canvas><div class="note" id="d4Note"></div></div>
+    <div class="card"><h4>D10 · the onset lock under a swell <small>(F14)</small></h4><canvas id="d10Cv" style="height:110px"></canvas><div class="note" id="d10Note"></div></div>
+    <div class="card"><h4>D12 · a note struck mid preset change</h4><canvas id="d12Cv" style="height:110px"></canvas><div class="note" id="d12Note"></div></div>
+    <div class="card"><h4>D13 · sustain against the output tanh <small>(F16)</small></h4><canvas id="d13Cv" style="height:110px"></canvas><div class="note" id="d13Note"></div></div>
+  </div>
+</div>
+
+<!-- ============================ §6 ============================ -->
+<div class="cluster" id="s6">
+  <h2>§6 · SELF-CHECK — EVERY CLAIM WITH A MUST-FAIL CONTROL</h2>
+  <div class="note" id="chkSum">waits for the engine…</div>
+  <table class="chk" id="chkTable"></table>
+</div>
+
+<script>
+"use strict";
+/* ======================================================================
+   A. THE CORE — DOM-free and deterministic, so a harness can slice this block
+   ====================================================================== */
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const SR = 48000;
+const TAU = 2 * Math.PI;
+const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+const mtof = n => 440 * Math.pow(2, (n - 69) / 12);
+/* the voice's free threshold, both laws: the oracle frees under 1e-4 (razor-core.js render, the
+   release branch) and horde culls at −80 dB (src/swarm_core.h HZ_CULL_ENV, the voiceCull default) */
+const FREE = 1e-4;
+/* B323's cull fade (scalpel-horde-engine.js CULL_FADE), in seconds: the one fade this lab uses for
+   every ramp-out (a cull, a steal under decision 6, an opted-out source at the free) */
+const FADE = 0.008;
+
+/* ----------------------------------------------------------------------
+   A1. THE ENVELOPE LAWS — PROTOTYPES, the lab's own, run by the harness
+   ----------------------------------------------------------------------
+   Two laws on the SAME numbers (decision 1 of docs/design/scalpel-envelope-conflicts.md):
+     'scalpel'  the oracle's own ADSR, as the composed engine plays it today
+                (reference/scalpel/prototype/razor-core.js render: a LINEAR attack over A,
+                exp(−4t/D) toward S, exp(−4t/R) after the key-off, freed under 1e-4). The
+                expressions below are the oracle's, over its own ms keys: a lab time in
+                seconds is ×1000 into ms and then the oracle's ×0.001, so the same ms value
+                gives the engine's samples bit for bit (self-check HOLD0 proves it against the
+                engine's own v.env, not against this code).
+     'horde'    legacy horde's ADSR (ADR-021, src/swarm_core.h:1213-1229 with the coefficients
+                of :946-948, forcecore::onePoleCoef): ONE-POLE stages, each knob is τ; the
+                attack ends at 0.995; at S ≥ 1 with no hold the reference AR path runs (the
+                decay never engages); released toward 0; culled at −80 dB. ACCOUNTING rows
+                17-20 rule that this law wins for horde 2.
+   HOLD (AHDSR) is new in both: the level stays where the attack ended for H seconds. At H = 0
+   no hold stage is ever entered, so AHDSR IS the ADSR (self-check HOLD0).
+   RETRIGGER: on(fromZero) starts the attack from the current level (the oracle's and horde's
+   rule: neither resets a sounding voice's level) or from 0 (decision 5's alternative).
+   ADR-009: every coefficient comes from seconds × the rate (setup), never a per-tick constant. */
+class Env {
+  constructor(sr) { this.sr = sr; this.st = 0; this.e = 0; this.hc = 0; this.law = 'scalpel'; this.p = null; this.hN = 0; }
+  setup(p, law) {
+    const sr = this.sr;
+    this.p = p; this.law = law;
+    if (law === 'scalpel') {
+      const Am = p.A * 1000, Dm = p.D * 1000, Rm = p.R * 1000;
+      this.inc = 1 / Math.max(1, Am * 0.001 * sr);
+      this.dC = 1 - Math.exp(-4 / Math.max(1, Dm * 0.001 * sr));
+      this.rC = 1 - Math.exp(-4 / Math.max(1, Rm * 0.001 * sr));
+    } else {
+      // onePoleCoef(tau, sr) = 1 − exp(−1/(tau·sr)); a 10 µs floor keeps a zero knob finite
+      const op = tau => 1 - Math.exp(-1 / (Math.max(tau, 1e-5) * sr));
+      this.atk = op(p.A); this.dec = op(p.D); this.rel = op(p.R);
+    }
+    this.hN = (p.H || 0) * sr;
+    return this;
+  }
+  on(fromZero) { if (fromZero) this.e = 0; this.st = 1; this.hc = 0; }
+  off() { if (this.st !== 0) this.st = 4; }
+  kill() { this.st = 0; this.e = 0; }
+  /* one sample. The branch bodies are the laws' own expressions; nothing is shared between them. */
+  tick() {
+    const st = this.st;
+    if (st === 0) return 0;
+    if (this.law === 'scalpel') {
+      if (st === 1) { this.e += this.inc; if (this.e >= 1) { this.e = 1; if (this.hN > 0) { this.st = 5; this.hc = this.hN; } else this.st = 2; } }
+      else if (st === 5) { if ((this.hc -= 1) <= 0) this.st = 2; }
+      else if (st === 2) this.e += (this.p.S - this.e) * this.dC;
+      else if (st === 4) { this.e -= this.e * this.rC; if (this.e < FREE) { this.e = 0; this.st = 0; } }
+    } else {
+      if (st === 4) { this.e += (0 - this.e) * this.rel; if (this.e < FREE) { this.e = 0; this.st = 0; } }
+      else if (this.p.S >= 1 && !(this.hN > 0)) this.e += (1 - this.e) * this.atk;   // ADR-021's reference AR path
+      else if (st === 1) { this.e += (1 - this.e) * this.atk; if (this.e >= 0.995) { if (this.hN > 0) { this.st = 5; this.hc = this.hN; } else this.st = 2; } }
+      else if (st === 5) { if ((this.hc -= 1) <= 0) this.st = 2; }
+      else this.e += (this.p.S - this.e) * this.dec;
+    }
+    return this.e;
+  }
+  /* one sample of a clock that runs r× real time (option 4's healing spread): a linear step is
+     ×r, a one-pole coefficient c becomes 1 − (1 − c)^r, a hold count drops by r. Kept apart from
+     tick() so that tick() stays the law's own expressions, untouched. */
+  tickR(r) {
+    if (r === 1) return this.tick();
+    const st = this.st;
+    if (st === 0) return 0;
+    const pc = c => 1 - Math.pow(1 - c, r);
+    if (this.law === 'scalpel') {
+      if (st === 1) { this.e += this.inc * r; if (this.e >= 1) { this.e = 1; if (this.hN > 0) { this.st = 5; this.hc = this.hN; } else this.st = 2; } }
+      else if (st === 5) { if ((this.hc -= r) <= 0) this.st = 2; }
+      else if (st === 2) this.e += (this.p.S - this.e) * pc(this.dC);
+      else if (st === 4) { this.e -= this.e * pc(this.rC); if (this.e < FREE) { this.e = 0; this.st = 0; } }
+    } else {
+      if (st === 4) { this.e += (0 - this.e) * pc(this.rel); if (this.e < FREE) { this.e = 0; this.st = 0; } }
+      else if (this.p.S >= 1 && !(this.hN > 0)) this.e += (1 - this.e) * pc(this.atk);
+      else if (st === 1) { this.e += (1 - this.e) * pc(this.atk); if (this.e >= 0.995) { if (this.hN > 0) { this.st = 5; this.hc = this.hN; } else this.st = 2; } }
+      else if (st === 5) { if ((this.hc -= r) <= 0) this.st = 2; }
+      else this.e += (this.p.S - this.e) * pc(this.dec);
+    }
+    return this.e;
+  }
+}
+
+/* A law's stage timings, in SECONDS, measured by running it (a gate of `gate` s): attack end,
+   hold end, the level at D after the attack, release to −60 dB and the free. The SR self-check
+   runs this at 44.1 and 48 kHz and requires the same seconds within a sample; `env` plants a law
+   built elsewhere (its must-fail control: coefficients frozen at 48 kHz, run at 44.1). */
+function lawTimes(law, p, sr, gate, env) {
+  const e = env || new Env(sr).setup(p, law);
+  e.on(true);
+  const nG = Math.round(gate * sr), out = { atk: NaN, hold: NaN, atD: NaN, r60: NaN, free: NaN };
+  let atkAt = -1;
+  for (let i = 0; i < nG; i++) {
+    const st0 = e.st;
+    e.tick();
+    if (st0 === 1 && e.st !== 1 && atkAt < 0) { atkAt = i + 1; out.atk = atkAt / sr; }
+    if (st0 === 5 && e.st === 2) out.hold = (i + 1) / sr;
+    if (atkAt >= 0 && isNaN(out.atD) && i + 1 - atkAt - Math.round((p.H || 0) * sr) >= Math.round(p.D * sr)) out.atD = e.e;
+  }
+  const e0 = e.e;
+  e.off();
+  for (let i = 0; i < 60 * sr; i++) {
+    e.tick();
+    if (isNaN(out.r60) && e.e < e0 * 1e-3) out.r60 = (i + 1) / sr;
+    if (e.st === 0) { out.free = (i + 1) / sr; break; }
+  }
+  return out;
+}
+
+/* ----------------------------------------------------------------------
+   A2. THE ENGINE, AND HOW THE LAB LISTENS TO IT
+   ----------------------------------------------------------------------
+   The lab renders through B298's composed engine (docs/design/scalpel-horde-engine.js over
+   reference/scalpel/prototype/razor-core.js and reference/swarmsaw.html's SwarmSynth), loaded
+   exactly as the SCALPEL lab loads it (two <script src>, one fetch). It is never edited and
+   nothing of it is copied. Every envelope in this lab is applied by the LAB'S HARNESS to STEMS the
+   engine renders with its own amplitude envelope NEUTRALISED:
+     - A 0, S 1, the key never released (a mono sequence's LAST key-off is withheld; the others
+       pass, so the engine's note stack and glide still follow the keys): the oracle's attack
+       increment is then 1/max(1, 0) = 1, so v.env is exactly 1 from the first sample and stays 1,
+       and the engine's gain is exactly env·vel·norm = 1/√N (vel 1);
+     - the output stage made LINEAR AND INVERTIBLE: gain G_LIN puts tanh(y·gain·1.6) at |x| ≈ 1e-4,
+       and the lab takes y = atanh(out)/(gain·1.6) back (exact up to float32 storage, ~1e-7);
+     - smoothed controls snapped (s = t) before the note, so nothing glides in from the defaults.
+   A STEM is therefore the engine's own voice at unit gain. The harness multiplies it by the
+   envelopes, sums, and applies the engine's output stage itself (razor-core.js render:
+   L = tanh(y·gain·1.6), the patch's own gain). The envelope then acts AFTER the engine's 2×
+   decimator (and its DC blocker, when cross-mod, feedback or collision switch it on) instead of
+   before; both are linear, so the difference is the envelope's own spectrum filtered by a 20 kHz
+   low-pass: self-check STEM measures it against the engine's own envelope.
+   MEMBER STEMS: a harness subclass (makeStemEngine) rewrites the pan gains after each member's
+   step, so the left channel carries one member and the right another (the render sums
+   `vl += y·gl[q]` right after stepM returns, razor-core.js render). ceil(N/2) passes give every
+   member; the lab pans them with the engine's own pan gains (panOf). The swarm's trajectory is
+   the same in every pass: the pan gains are read by nothing but that sum.
+   SOURCE STEMS: base only (blade 1 depth 0, blade 2 off), then + blade 1, then + blade 2; a blade's
+   stem is WHAT SWITCHING IT ON ADDS. In SCALPEL a blade is a window cut into the swarm's own
+   cycle, not an oscillator of its own, so this difference is the only honest "blade source". */
+const G_LIN = 1e-4 / 1.6;
+function makeStemEngine(C) {
+  return class StemEngine extends C {
+    stepM(m, dphi, c, k, s) {
+      const y = super.stepM(m, dphi, c, k, s);
+      const so = this.solo;
+      if (so) { const q = m.i; this.gl[q] = q === so[0] ? 1 : 0; this.gr[q] = q === so[1] ? 1 : 0; }
+      return y;
+    }
+  };
+}
+/* the engine's pan gains for a patch, read off the engine itself after one sample (its render
+   rebuilds gl/gr from width and the pan slots at the top of every call) */
+function panOf(C, patch) {
+  const e = new C(SR);
+  e.set(patch); snapEngine(e);
+  e.render(new Float32Array(1), new Float32Array(1));
+  const N = e.d.N;
+  return { gl: Array.from(e.gl.subarray(0, N)), gr: Array.from(e.gr.subarray(0, N)), N };
+}
+function snapEngine(e) { for (const k of Object.keys(e.t)) e.s[k] = e.t[k]; }
+/* A generator, so the same code runs to completion in a self-check (runSync) and in slices on the
+   page (runAsync) without blocking a frame for seconds. spec:
+     patch   engine keys (SCALPEL's and the composed engine's horde rows)
+     ev      [{at: sample, on: note, vel} | {at, off: note}], sorted
+     n       samples; solo null (the whole voice, stereo) or [qL, qR] (members, −1 = silent)
+     native  true: the engine's OWN envelope and scatter play (option 3 and the STEM check)
+     seed    the seeded Math.random shim for the oracle (the SCALPEL lab's seedOracle idiom): every
+             pass of one note uses the same seed, so the passes are the same performance
+     kMod    optional Float32Array per 128-sample block: blade 1's cut rate multiplier (ENV → cut)
+   Returns {L, R} in unit gain (native: the engine's own output, tanh and all). */
+function* stemGen(C, spec) {
+  Math.random = mulberry32(spec.seed >>> 0);
+  const e = new (spec.solo ? makeStemEngine(C) : C)(SR);
+  e.set(spec.patch);
+  if (!spec.native) e.set({ A: 0, S: 1, R: 1e6, gain: G_LIN });
+  snapEngine(e);
+  e.solo = spec.solo || null;
+  const n = spec.n, L = new Float32Array(n), R = new Float32Array(n), ev = spec.ev;
+  const k0 = e.t.k, kHz0 = e.t.kHz;
+  let q = 0, pos = 0, blk = 0;
+  while (pos < n) {
+    while (q < ev.length && ev[q].at <= pos) {
+      const x = ev[q++];
+      if (x.on !== undefined) e.noteOn(x.on, mtof(x.on), x.vel);
+      else e.noteOff(x.off);
+    }
+    const end = Math.min(n, pos + 128, q < ev.length ? Math.max(pos + 1, ev[q].at) : n);
+    if (spec.kMod) { const mm = spec.kMod[Math.min(spec.kMod.length - 1, (pos / 128) | 0)]; e.t.k = k0 * mm; e.t.kHz = kHz0 * mm; }
+    e.render(L.subarray(pos, end), R.subarray(pos, end));
+    pos = end;
+    if (++blk % 48 === 0) yield pos / n;
+  }
+  if (!spec.native) {
+    const g = 1 / (G_LIN * 1.6);
+    for (let i = 0; i < n; i++) { L[i] = Math.atanh(L[i]) * g; R[i] = Math.atanh(R[i]) * g; }
+  }
+  return { L, R };
+}
+function runSync(g) { let r = g.next(); while (!r.done) r = g.next(); return r.value; }
+
+/* ----------------------------------------------------------------------
+   A3. THE ENSEMBLE DRAWS — the ENGINE'S OWN, never re-derived
+   ----------------------------------------------------------------------
+   Every δᵢ (onset offset), aᵢ (attack factor) and rᵢ (release factor) in this lab comes from a
+   composed-engine instance kept only for its ensemble stream: its armMembers (B335's transcription
+   of src/swarm_core.h initVoice) runs on one voice per fresh note, so the persistent offsets tOff
+   carry ADR-077's memory from note to note exactly as the engine's do, from the same seed. One
+   stream per scenario, re-made at the scenario's start, so an audition is the same every time. */
+class Draws {
+  constructor(C, o) {
+    Math.random = mulberry32(0xD4A5);
+    this.e = new C(SR);
+    this.e.set({ N: o.N, seed: o.seed, onsetScatter: o.ms, onsetAlpha: o.alpha, attackScatter: o.atk || 0,
+      relScatter: o.rel || 0, voiceEnv: (o.ms > 0) ? 0 : 1 });
+    this.N = o.N;
+  }
+  next() {
+    const v = this.e.voices[0], N = this.N;
+    this.e.armMembers(v);
+    const d = [], a = [], r = [];
+    for (let i = 0; i < N; i++) { d.push(v.m[i].onsD0 / SR); a.push(v.m[i].aMul); r.push(v.m[i].rMul); }
+    return { d, a, r };
+  }
+}
+function lag1(x) {
+  const n = x.length; let m = 0;
+  for (const v of x) m += v; m /= n;
+  let num = 0, den = 0;
+  for (let i = 0; i < n; i++) { den += (x[i] - m) * (x[i] - m); if (i) num += (x[i] - m) * (x[i - 1] - m); }
+  return den > 0 ? num / den : 0;
+}
+
+/* ----------------------------------------------------------------------
+   A4. THE HIERARCHY HARNESS — the lab's PROTOTYPE of horde 2's envelopes (not the engine)
+   ----------------------------------------------------------------------
+   One control-rate pass (simulate) decides everything that is not audio: the voice pool
+   (ADR-083's tiers, B323's cap, decision 6's steal rule, decision 7), every envelope of every
+   voice (ENV 1 read per member under the chosen onset-scatter option, ENV 2..4), each voice's
+   free and each source's gain. It writes per-sample gain arrays into one RECORD per note (per
+   sequence, in mono). A second pass (mixGen) renders each record's stems through the engine and
+   multiplies them by those arrays. The order matters: a voice's length is only known once its
+   envelopes have run, and the engine stems need that length.
+
+   THE HIERARCHY PROTOTYPED (the human's plan, Serum's shape):
+     sources (swarm/base, blade 1, blade 2, sub) ──► [ENV 1 button per source] ──► mix ──►
+     per-voice filter ──► × voice gain (steals, culls) ──► output stage (the engine's tanh) ──► FX
+   ENV 1 is applied PER SOURCE at the mix, because a source may opt out (Serum's mixer button).
+   With every button on this is the same as one ENV 1 after the filter: the filter here is
+   linear, so a gain before it or after it is the same signal. ENV 2..4 are assignable. */
+const DESTS = [['none', 'none'], ['cut', 'filter cutoff'], ['k1', 'blade 1 cut rate'], ['sub', 'sub level']];
+const OPTS = ['off', 'spread', 'slot', 'hidden', 'heal'];
+const SRC_KEYS = ['base', 'b1', 'b2', 'sub'];
+function envDefaults() {
+  return [
+    { A: 0.004, H: 0, D: 0.4, S: 0.85, R: 0.28, inv: false, dest: 'amp', amt: 1 },
+    { A: 0.002, H: 0, D: 0.35, S: 0.2, R: 0.4, inv: false, dest: 'cut', amt: 3 },
+    { A: 0.001, H: 0, D: 0.6, S: 0, R: 0.2, inv: false, dest: 'none', amt: 0.6 },
+    { A: 0.3, H: 0, D: 0.5, S: 1, R: 1.5, inv: false, dest: 'none', amt: 0.5 },
+  ];
+}
+function scnDefaults() {
+  return {
+    patch: { N: 7, detune: 18, K: 0.35, w: 0.3, k: 3, c: 0.8, gain: 0.35 },
+    dur: 2, mode: 'poly', notes: [{ t: 0, len: 0.8, note: 57, vel: 0.85 }],
+    law: 'scalpel', env: envDefaults(),
+    scatter: { opt: 0, ms: 20, alpha: 0.25, atk: 0, rel: 0, seed: 1234, heal: 0, axis: 'AR', pure: false, venv: true, slotA: 0.004 },
+    src: { base: 1, b1: 1, b2: 1, sub: 1 }, sub: { lvl: 0 },
+    filter: { on: false, cut: 600, res: 0.2, env: 1, amt: 3, follow: 'mean' },
+    pool: { poly: 6, steal: 'fade', cap: 0, s0: true },
+    retrig: 'level', freeRule: 'shaping', velAmt: 1, cullInto: 'gain',
+  };
+}
+/* which sources exist in a patch (a blade at depth 0 or a blade 2 that is off is not a source) */
+function srcExists(scn) {
+  const P = scn.patch;
+  return { base: true, b1: (P.depth === undefined ? 1 : P.depth) > 0, b2: !!P.b2on, sub: scn.sub.lvl > 0 };
+}
+/* ENV 2..4 that keep a voice alive once a source has opted out of ENV 1 (decision 15). 'shaping'
+   (the inventory's recommendation): an envelope counts only if it shapes a source that exists.
+   'any' (Serum's rule, as the lead relayed it): every envelope counts. */
+function freeSet(scn) {
+  const ex = srcExists(scn), out = [];
+  for (let j = 1; j < 4; j++) {
+    const d = scn.env[j].dest;
+    const shapes = (d === 'cut' && scn.filter.on) || (d === 'k1' && ex.b1) || (d === 'sub' && ex.sub);
+    if (scn.freeRule === 'any' || shapes) out.push(j);
+  }
+  return out;
+}
+function allOnOf(scn) { const ex = srcExists(scn); return SRC_KEYS.every(k => !ex[k] || scn.src[k]); }
+/* the time the unscattered ENV 1 takes to settle within 2% of S (option 4's automatic heal time) */
+function settleTime(p, law) {
+  const e = new Env(SR).setup(p, law); e.on(true);
+  for (let i = 1; i < 30 * SR; i++) { e.tick(); if (e.st !== 1 && e.st !== 5 && Math.abs(e.e - p.S) <= 0.02 * Math.max(p.S, 1 - p.S, 0.02)) return i / SR; }
+  return 30;
+}
+
+function simulate(scn, C) {
+  const n = Math.round(scn.dur * SR), P = scn.patch, N = P.N || 5, law = scn.law, E = scn.env;
+  const sc = scn.scatter, opt = OPTS.indexOf(sc.opt) < 0 ? 0 : OPTS.indexOf(sc.opt);
+  const perMember = opt !== 0, mono = scn.mode !== 'poly';
+  const allOn = allOnOf(scn), fset = freeSet(scn), fadeN = FADE * SR;
+  const draws = perMember && C ? new Draws(C, { N, seed: sc.seed, ms: sc.ms, alpha: sc.alpha, atk: sc.atk, rel: sc.rel }) : null;
+  const p1 = { A: E[0].A, H: E[0].H, D: E[0].D, S: E[0].S, R: E[0].R };
+  const Th0 = sc.heal > 0 ? sc.heal : settleTime(p1, law);
+  const ev = [];
+  scn.notes.forEach((x, i) => {
+    ev.push({ at: Math.round(x.t * SR), on: x.note, vel: x.vel, i });
+    ev.push({ at: Math.min(n, Math.round((x.t + x.len) * SR)), off: x.note, i });
+  });
+  ev.sort((a, b) => a.at - b.at || (a.off !== undefined ? -1 : 1));   // a key-off before a key-on on the same sample
+  const recs = [], slots = [], ghosts = [];
+  const poly = mono ? 1 : Math.max(1, scn.pool.poly | 0);
+  let age = 0;
+  for (let i = 0; i < poly; i++) slots.push({ rec: null, age: 0, st: null });
+
+  function newRec(start, note, vel) {
+    const len = n - start;
+    const rec = { id: recs.length, note, vel, start, len, notes: [], g: [], e1u: new Float32Array(len), ek: [null, new Float32Array(len), new Float32Array(len), new Float32Array(len)],
+      ung: new Float32Array(len), vg: new Float32Array(len), marks: { on: [], off: [], retrig: [], free: [], stolen: -1, cull: -1 }, draws: [], fresh: [] };
+    const M = perMember ? N : 1;
+    for (let i = 0; i < M; i++) rec.g.push(new Float32Array(len));
+    recs.push(rec);
+    return rec;
+  }
+  /* the per-voice state: ENV 1 unspread (always: the sub reads it, the 'earliest' filter policy reads
+     it, and option 0 IS it), members (options 1-4), ENV 2..4, and the voice-level gains */
+  function newState() {
+    const st = { gate: false, note: -1, e1u: new Env(SR).setup(p1, law), ek: [null], m: [], gv: 1, cull: 0, endFade: -1, alive: false,
+      stack: [], el: 0 };
+    for (let j = 1; j < 4; j++) st.ek.push(new Env(SR).setup(E[j], law));
+    for (let i = 0; i < (perMember ? N : 0); i++) st.m.push({ env: null, slot: null, wait: -1, r: 1, clk: 0, ons: 0, onsC: 0 });
+    return st;
+  }
+  /* arm a FRESH note's members from the engine's own draws (A3). fromLvl: the level a member that
+     enters at once starts from (0, or a stolen voice's level under today's steal rule) */
+  function arm(st, rec, fromLvl) {
+    if (!perMember) return;
+    const x = draws.next();
+    rec.draws.push({ at: 0, d: x.d.slice(), a: x.a.slice(), r: x.r.slice() });
+    for (let i = 0; i < N; i++) {
+      const m = st.m[i], a = sc.atk > 0 ? x.a[i] : 1, rr = sc.rel > 0 ? x.r[i] : 1;
+      m.wait = Math.round(x.d[i] * SR); m.clk = 0; m.r = 1; m.ons = 0;
+      if (opt === 1 || (opt === 3 && sc.venv)) {
+        // option 3's per-partial envelope floors each time at 2 ms, as the engine does (memberStep)
+        const fl = opt === 3 ? (t => Math.max(0.002, t)) : (t => t);
+        const all = opt === 1 && sc.axis === 'all';
+        m.env = new Env(SR).setup({ A: fl(p1.A * a), H: all ? p1.H * a : p1.H, D: all ? p1.D * a : p1.D, S: p1.S, R: fl(p1.R * rr) }, law);
+      } else if (opt === 4) {
+        m.env = new Env(SR).setup(p1, law);
+        const d = x.d[i] * SR, Th = Math.max(Th0 * SR, 2 * d + 1);
+        m.r = d > 0 ? Th / (Th - d) : 1;
+      } else if (opt === 2) {
+        m.env = null;
+        m.slot = new Env(SR).setup({ A: sc.slotA * a, H: 0, D: 0.001, S: 1, R: E[0].R }, law);
+      } else if (opt === 3) {
+        // today's entry ramp (voiceEnv off): a one-pole at the attack time, floored at 2 ms, over the shared ENV 1
+        m.env = null; m.onsC = 1 - Math.exp(-1 / (Math.max(0.002, p1.A * a) * SR));
+      }
+      if (m.env) { m.env.kill(); if (m.wait === 0) { m.env.e = fromLvl; m.env.on(false); } }
+      if (m.slot) { m.slot.kill(); if (m.wait === 0) m.slot.on(true); }
+      if (opt === 3 && !sc.venv && m.wait === 0) m.ons = 0;
+    }
+  }
+  function memberRetrig(st, fromZero) {
+    for (const m of st.m) {
+      if (sc.pure) {
+        // THE MUST-FAIL READING: ENV 1 as a pure function of time since the note-on. Every member goes
+        // back to t − δᵢ < 0, i.e. silence, and waits δᵢ again: the dropout the inventory predicts.
+        if (m.env) m.env.kill(); if (m.slot) m.slot.kill(); m.ons = 0;
+        m.wait = Math.round((st.lastD ? st.lastD[st.m.indexOf(m)] : 0) * SR);
+        if (m.wait === 0) { if (m.env) m.env.on(true); if (m.slot) m.slot.on(true); }
+        continue;
+      }
+      if (m.env && m.wait < 0) m.env.on(fromZero);   // a member still waiting keeps waiting (it has not begun)
+    }
+  }
+  /* from: the level a fresh ENV 1 starts at (0, or a stolen voice's under today's steal rule) */
+  function keyOn(st, rec, note, vel, fresh, retrig, k, from) {
+    const fromZero = scn.retrig === 'zero';
+    st.gate = true; st.note = note; st.alive = true; st.endFade = -1;
+    if (fresh) {
+      if (from > 0) { st.e1u.e = from; st.e1u.on(false); } else st.e1u.on(true);
+      for (let j = 1; j < 4; j++) st.ek[j].on(true);
+      if (perMember) { arm(st, rec, from || 0); st.lastD = rec.draws[rec.draws.length - 1].d; rec.draws[rec.draws.length - 1].at = k - rec.start; }
+      rec.fresh.push(k - rec.start);
+    } else {
+      if (retrig || E[0].inv) { st.e1u.on(fromZero); if (perMember) memberRetrig(st, fromZero); rec.marks.retrig.push({ at: k - rec.start, env: 0 }); }
+      for (let j = 1; j < 4; j++) if (retrig || E[j].inv) { st.ek[j].on(fromZero); rec.marks.retrig.push({ at: k - rec.start, env: j }); }
+    }
+    rec.marks.on.push(k - rec.start);
+    rec.notes.push({ at: k - rec.start, on: note, vel });   // the engine events of a mono record (recEvents)
+  }
+  function keyOff(st, rec, k) {
+    st.gate = false;
+    st.e1u.off();
+    for (let j = 1; j < 4; j++) st.ek[j].off();
+    for (const m of st.m) {
+      if (m.wait > 0) m.wait = -2;               // not entered by the key-off: it never enters (the engine's rule)
+      if (m.env) m.env.off(); if (m.slot) m.slot.off();
+    }
+    rec.marks.off.push(k - rec.start);
+  }
+  /* the voice's AUDIBLE level (decision 15): the loudest member's ENV 1 read, or 1 for a source that
+     opted out, until the free. B310's tiers and B323's cull read this, never ENV 1 alone. */
+  function audible(st) {
+    let a = perMember ? 0 : st.e1u.e;
+    if (perMember) for (let i = 0; i < N; i++) a = Math.max(a, memberGain(st, i));
+    if (!allOn && st.alive) a = Math.max(a, st.endFade < 0 ? 1 : st.endFade / fadeN);
+    return a * st.gv;
+  }
+  function memberGain(st, i) {
+    const m = st.m[i];
+    if (opt === 1 || opt === 4 || (opt === 3 && sc.venv)) return m.env.e;
+    if (opt === 2) return st.e1u.e * m.slot.e;
+    return st.e1u.e * m.ons;                                   // option 3, entry-ramp mode
+  }
+  function e1done(st) {
+    if (!perMember) return st.e1u.st === 0;
+    if (opt === 2) return st.e1u.st === 0 || st.m.every(m => m.wait < 0 && m.slot.st === 0);
+    if (opt === 3 && !sc.venv) return st.e1u.st === 0;
+    return st.m.every(m => m.wait < 0 && m.env.st === 0);
+  }
+  /* one sample of a voice's state: members, envelopes, the free rule */
+  function step(st) {
+    st.e1u.tick();
+    for (let j = 1; j < 4; j++) st.ek[j].tick();
+    for (let i = 0; i < st.m.length; i++) {
+      const m = st.m[i];
+      if (m.wait > 0) { if (--m.wait === 0) { m.wait = -1; if (m.env) m.env.on(true); if (m.slot) m.slot.on(true); m.ons = 0; } continue; }
+      if (m.wait === 0) m.wait = -1;
+      if (m.wait === -2) continue;
+      if (m.env) {
+        if (opt === 4 && m.r !== 1) {
+          if (st.gate && m.clk < st.el) { m.env.tickR(m.r); m.clk += m.r; } else { m.r = 1; m.env.tick(); }
+        } else m.env.tick();
+      }
+      if (m.slot) m.slot.tick();
+      if (opt === 3 && !sc.venv) m.ons += (1 - m.ons) * m.onsC;
+    }
+    st.el++;
+    if (!st.alive) return false;
+    if (allOn) { if (e1done(st)) return true; }
+    else if (st.endFade < 0) {
+      if (e1done(st) && fset.every(j => st.ek[j].st === 0)) st.endFade = fadeN;
+    } else if ((st.endFade -= 1) <= 0) return true;
+    return false;
+  }
+  function write(st, rec, k) {
+    const x = k - rec.start;
+    if (x < 0 || x >= rec.len) return;
+    rec.e1u[x] = st.e1u.e;
+    for (let j = 1; j < 4; j++) rec.ek[j][x] = st.ek[j].e;
+    if (perMember) for (let i = 0; i < N; i++) rec.g[i][x] = memberGain(st, i);
+    else rec.g[0][x] = st.e1u.e;
+    rec.ung[x] = !st.alive ? 0 : st.endFade < 0 ? 1 : st.endFade / fadeN;
+    rec.vg[x] = st.gv;
+  }
+  function endRec(rec, k) { rec.len = Math.max(0, Math.min(rec.len, k - rec.start)); }
+  /* ADR-083's tiers over this pool, with decision 7 and B323's at-cap rule (busy: only a sounding
+     voice may be replaced). Faded = released and audible < 1e-3 (horde's test, B310). */
+  function pick(busy) {
+    let v = null;
+    const S0 = p1.S <= 0;
+    const faded = s => !s.rec || (!s.st.gate && audible(s.st) < 1e-3) || (scn.pool.s0 && S0 && s.st.gate && audible(s.st) < FREE);
+    for (const s of slots) if ((!busy || s.rec) && faded(s) && (!v || s.age < v.age)) v = s;
+    if (v) return v;
+    for (const s of slots) if (s.rec && !s.st.gate && !s.st.cull && (!v || audible(s.st) < audible(v.st) || (audible(s.st) === audible(v.st) && s.age < v.age))) v = s;
+    if (v) return v;
+    for (const s of slots) if (!v || s.age < v.age) v = s;
+    return v;
+  }
+  function live() { let c = 0; for (const s of slots) if (s.rec && !s.st.cull) c++; return c; }
+  /* the cap B323's host sets: constant, or dropping at one moment (capDrop), which is what a load
+     spike does and the only way a cull (not a note-on's replacement) ever fires */
+  const capDropAt = scn.pool.capDrop ? Math.round(scn.pool.capDrop.t * SR) : -1;
+  const capNow = k => (capDropAt >= 0 && k >= capDropAt ? scn.pool.capDrop.cap : scn.pool.cap);
+
+  let q = 0;
+  for (let k = 0; k < n; k++) {
+    while (q < ev.length && ev[q].at <= k) {
+      const x = ev[q++];
+      if (mono) {
+        const s = slots[0];
+        if (x.on !== undefined) {
+          if (!s.rec) { s.rec = newRec(0, x.on, x.vel); s.st = newState(); s.st.el = 0; }
+          const st = s.st, held = st.alive && st.gate, fresh = !st.alive;
+          st.stack = st.stack.filter(z => z !== x.on); st.stack.push(x.on);
+          if (fresh) st.el = 0;
+          keyOn(st, s.rec, x.on, x.vel, fresh, scn.mode === 'mono' || !held, k, 0);
+        } else if (s.rec) {
+          const st = s.st;
+          st.stack = st.stack.filter(z => z !== x.off);
+          if (!st.stack.length && st.gate) keyOff(st, s.rec, k);
+          s.rec.notes.push({ at: k - s.rec.start, off: x.off });
+        }
+        continue;
+      }
+      if (x.on !== undefined) {
+        const busy = capNow(k) > 0 && live() >= capNow(k);
+        const s = pick(busy);
+        let from = 0;
+        if (s.rec) {
+          const old = s.rec, ost = s.st;
+          old.marks.stolen = k - old.start;
+          if (scn.pool.steal === 'fade' && ost.alive) ghosts.push({ rec: old, st: ost, g: 1 });   // decision 6: fade it out beside the new note
+          else { from = perMember ? audible(ost) : ost.e1u.e; endRec(old, k); }                   // today: the slot keeps its level
+        }
+        // TODAY'S STEAL (F8): the new note starts from the old voice's level (razor-core.js startVoice
+        // keeps v.env on a stolen slot); a member that must wait starts from 0 (armMembers: eE = 0)
+        const rec = newRec(k, x.on, x.vel), st = newState();
+        st.el = 0;
+        s.rec = rec; s.st = st; s.age = ++age;
+        keyOn(st, rec, x.on, x.vel, true, true, k, from);
+      } else {
+        for (const s of slots) if (s.rec && s.st.gate && s.st.note === x.off) keyOff(s.st, s.rec, k);
+      }
+    }
+    // B323's cull: over the cap, the quietest releasing tails ramp out over FADE
+    if (!mono && capNow(k) > 0) {
+      let c = live();
+      while (c > capNow(k)) {
+        let v = null;
+        for (const s of slots) if (s.rec && !s.st.gate && !s.st.cull && (!v || audible(s.st) < audible(v.st))) v = s;
+        if (!v) break;
+        v.st.cull = 1; v.rec.marks.cull = k - v.rec.start; c--;
+      }
+    }
+    for (const s of slots) {
+      if (!s.rec) continue;
+      const st = s.st;
+      const done = step(st);
+      if (st.cull) {
+        const g = st.cull - 1 / fadeN;
+        if (scn.cullInto === 'env1') {
+          // THE MUST-FAIL VARIANT: the cull written INTO ENV 1 (as the engine does today, v.env *= f).
+          // A source that opted out of ENV 1 never hears it.
+          const f = g > 0 ? g / st.cull : 0;
+          st.e1u.e *= f; for (const m of st.m) { if (m.env) m.env.e *= f; if (m.slot) m.slot.e *= f; }
+          if (g <= 0) { st.e1u.kill(); for (const m of st.m) { if (m.env) m.env.kill(); if (m.slot) m.slot.kill(); } }
+          st.cull = g > 0 ? g : 1e-9;
+        } else {
+          st.cull = g; st.gv = Math.max(0, g);
+          if (g <= 0) { write(st, s.rec, k); endRec(s.rec, k + 1); s.rec.marks.free.push(k - s.rec.start); s.rec = null; continue; }
+        }
+      }
+      write(st, s.rec, k);
+      if (done) {
+        st.alive = false;
+        s.rec.marks.free.push(k - s.rec.start);
+        if (!mono) { endRec(s.rec, k + 1); s.rec = null; }
+      }
+    }
+    for (let gi = ghosts.length - 1; gi >= 0; gi--) {
+      const G = ghosts[gi];
+      step(G.st);
+      G.g -= 1 / fadeN;
+      G.st.gv = Math.max(0, G.g);
+      write(G.st, G.rec, k);
+      if (G.g <= 0) { endRec(G.rec, k + 1); G.rec.marks.free.push(k - G.rec.start); ghosts.splice(gi, 1); }
+    }
+  }
+  return { recs, n, N, opt, perMember, allOn, fset, Th0 };
+}
+
+/* ----------------------------------------------------------------------
+   A5. THE MIX — stems × the harness's gains, then the engine's output stage
+   ---------------------------------------------------------------------- */
+/* A 2-pole state-variable low-pass (the trapezoidal SVF form), the lab's STAND-IN for horde 2's
+   per-voice filter: the composed engine has no filter yet. It only has to be a filter a cutoff
+   envelope can open and close; its law is not a proposal. */
+function svf() { return { a: 0, b: 0 }; }
+function svfRun(f, x, g, k) {
+  const a1 = 1 / (1 + g * (g + k)), a2 = g * a1, a3 = g * a2;
+  const v3 = x - f.b, v1 = a1 * f.a + a2 * v3, v2 = f.b + a2 * f.a + a3 * v3;
+  f.a = 2 * v1 - f.a; f.b = 2 * v2 - f.b;
+  return v2;
+}
+/* the filter's control for one sample of one record under a follow policy (the inventory's first
+   clash): 'mean' is the ensemble mean ÷ its own gated peak (the recommendation; the peak is taken
+   from the whole record here, which a real voice would compute at note-on from the draws: they are
+   known then and the gated envelope is deterministic); 'early' is the unspread ENV 1, which is
+   also the earliest member's; 'member' filters each member on its own read (see mixRec). */
+function followPeak(rec) {
+  const M = rec.g.length; let pk = 0;
+  const end = rec.marks.off.length ? Math.min(rec.len, rec.marks.off[0]) : rec.len;
+  for (let x = 0; x < end; x++) { let s = 0; for (let i = 0; i < M; i++) s += rec.g[i][x]; if (s / M > pk) pk = s / M; }
+  return pk > 1e-9 ? pk : 1;
+}
+/* which stems a record needs (the fewest passes that can carry its gains) */
+function stemKind(scn, sim) {
+  if (sim.opt === 3) return 'native';
+  if (!sim.allOn) return 'sources';
+  if (sim.perMember) return 'members';
+  return 'full';
+}
+function recEvents(scn, rec, mono) {
+  if (!mono) return [{ at: 0, on: rec.note, vel: rec.vel }];
+  // a mono sequence: every key-on, and every key-off that leaves a key held (the stack's return);
+  // the key-off that would empty the stack is withheld, so the engine's own envelope never releases
+  const out = [], held = new Set();
+  for (const x of rec.notes) {
+    if (x.on !== undefined) { held.add(x.on); out.push({ at: x.at, on: x.on, vel: x.vel }); }
+    else { held.delete(x.off); if (held.size) out.push({ at: x.at, off: x.off }); }
+  }
+  return out;
+}
+/* blade 1's cut-rate multiplier per 128-sample block, from the ENV routed to it */
+function kModOf(scn, rec) {
+  const j = scn.env.findIndex((e, i) => i > 0 && e.dest === 'k1' && e.amt !== 0);
+  if (j < 0) return null;
+  const nb = Math.ceil(rec.len / 128), out = new Float32Array(nb), a = scn.env[j].amt;
+  for (let b = 0; b < nb; b++) out[b] = Math.pow(2, a * rec.ek[j][Math.min(rec.len - 1, b * 128)]);
+  return out;
+}
+const STEMS = new Map();   // the stem cache: key → {L, R}; a stem is the engine's, so any audition reuses it
+function stemKey(o) { return JSON.stringify(o); }
+function* stemCached(C, spec) {
+  const k = stemKey([spec.patch, spec.ev, spec.n, spec.solo, spec.seed, spec.native || 0, spec.kMod ? Array.from(spec.kMod) : 0]);
+  if (STEMS.has(k)) return STEMS.get(k);
+  const s = yield* stemGen(C, spec);
+  if (STEMS.size > 48) STEMS.delete(STEMS.keys().next().value);
+  STEMS.set(k, s);
+  return s;
+}
+/* THE MIX. Yields progress (0..1) while the engine renders; returns {L, R, sim}. */
+function* mixGen(C, scn) {
+  const sim = simulate(scn, C), n = sim.n, N = sim.N, P = scn.patch, mono = scn.mode !== 'poly';
+  const L = new Float64Array(n), R = new Float64Array(n);
+  const kind = stemKind(scn, sim), seed0 = (scn.scatter.seed * 2654435761) >>> 0;
+  if (kind === 'native') {
+    // OPTION 3, TODAY: the engine plays its OWN envelope and its own hidden per-member mechanism
+    // (B335's onset scatter, and voiceEnv when on), its own voice law (B310). Only SCALPEL's law exists
+    // there; the harness adds nothing.
+    const E1 = scn.env[0], sc = scn.scatter, ev = [];
+    for (const x of scn.notes) { ev.push({ at: Math.round(x.t * SR), on: x.note, vel: x.vel }); ev.push({ at: Math.min(n, Math.round((x.t + x.len) * SR)), off: x.note }); }
+    ev.sort((a, b) => a.at - b.at || (a.off !== undefined ? -1 : 1));
+    const patch = Object.assign({}, P, { A: E1.A * 1000, D: E1.D * 1000, S: E1.S, R: E1.R * 1000, poly: scn.pool.poly,
+      polyMode: scn.mode === 'mono' ? 1 : scn.mode === 'legato' ? 2 : 0,
+      onsetScatter: sc.ms, onsetAlpha: sc.alpha, attackScatter: sc.atk, relScatter: sc.rel, voiceEnv: sc.venv ? 1 : 0, seed: sc.seed });
+    const s = yield* stemCached(C, { patch, ev, n, solo: null, seed: seed0, native: true });
+    return { L: Float32Array.from(s.L), R: Float32Array.from(s.R), sim, kind, native: true };
+  }
+  const pans = kind === 'members' ? panOf(C, P) : null;
+  const fl = scn.filter, fk = 1 / (0.5 + fl.res * 9.5);
+  const velAmt = scn.velAmt;
+  const nr = sim.recs.length;
+  for (let ri = 0; ri < nr; ri++) {
+    const rec = sim.recs[ri];
+    if (rec.len <= 0) continue;
+    const ev = recEvents(scn, rec, mono), seed = (seed0 + rec.id * 0x9E37) >>> 0, kMod = kModOf(scn, rec);
+    const base = { patch: P, ev, n: rec.len, seed, kMod };
+    // the stems (each pass yields progress through the engine render)
+    let full = null, mem = null, srcs = null;
+    if (kind === 'full') full = yield* stemCached(C, Object.assign({}, base, { solo: null }));
+    else if (kind === 'members') {
+      mem = [];
+      for (let q = 0; q < N; q += 2) {
+        const s = yield* stemCached(C, Object.assign({}, base, { solo: [q, q + 1 < N ? q + 1 : -1] }));
+        mem.push(s.L); if (q + 1 < N) mem.push(s.R);
+      }
+    } else {
+      const ex = srcExists(scn);
+      const b0 = yield* stemCached(C, Object.assign({}, base, { patch: Object.assign({}, P, { depth: 0, b2on: 0 }), solo: null }));
+      const b1 = ex.b1 ? yield* stemCached(C, Object.assign({}, base, { patch: Object.assign({}, P, { b2on: 0 }), solo: null })) : b0;
+      const b2 = ex.b2 ? yield* stemCached(C, Object.assign({}, base, { solo: null })) : b1;
+      srcs = { b0, b1, b2 };
+    }
+    // the sub: a stand-in sine an octave under the note (SUB OSC is a candidate, not in the engine)
+    const subLvl = scn.sub.lvl, subJ = scn.env.findIndex((e, i) => i > 0 && e.dest === 'sub');
+    let subPh = 0, subNote = rec.note, nq = 0;
+    const cutJ = fl.env === 1 ? 0 : fl.env - 1, cutArr = cutJ === 0 ? null : rec.ek[cutJ];
+    const pk = sim.perMember && cutJ === 0 && fl.follow === 'mean' ? followPeak(rec) : 1;
+    const fL = svf(), fR = svf(), fM = [];
+    const perMemF = fl.on && cutJ === 0 && fl.follow === 'member' && kind === 'members';
+    if (perMemF) for (let i = 0; i < N; i++) fM.push([svf(), svf()]);
+    const btn = scn.src, M = rec.g.length;
+    const velF = rec.vel > 0 ? (1 - velAmt + velAmt * rec.vel) / rec.vel : 0;
+    for (let x = 0; x < rec.len; x++) {
+      while (nq < rec.notes.length && rec.notes[nq].at <= x) { const z = rec.notes[nq++]; if (z.on !== undefined) subNote = z.on; }
+      const e1 = rec.e1u[x], ung = rec.ung[x];
+      let l = 0, r = 0;
+      if (kind === 'full') { l = full.L[x] * e1; r = full.R[x] * e1; }
+      else if (kind === 'members') {
+        for (let i = 0; i < N; i++) {
+          const g = M === 1 ? rec.g[0][x] : rec.g[i][x], y = mem[i][x] * g;
+          let yl = y * pans.gl[i], yr = y * pans.gr[i];
+          if (perMemF) {
+            const gg = Math.tan(Math.PI * Math.min(0.45 * SR, fl.cut * Math.pow(2, fl.amt * g)) / SR);
+            yl = svfRun(fM[i][0], yl, gg, fk); yr = svfRun(fM[i][1], yr, gg, fk);
+          }
+          l += yl; r += yr;
+        }
+      } else {
+        const gb = btn.base ? e1 : ung, g1 = btn.b1 ? e1 : ung, g2 = btn.b2 ? e1 : ung;
+        l = srcs.b0.L[x] * gb + (srcs.b1.L[x] - srcs.b0.L[x]) * g1 + (srcs.b2.L[x] - srcs.b1.L[x]) * g2;
+        r = srcs.b0.R[x] * gb + (srcs.b1.R[x] - srcs.b0.R[x]) * g1 + (srcs.b2.R[x] - srcs.b1.R[x]) * g2;
+      }
+      if (subLvl > 0) {
+        subPh += mtof(subNote) * 0.5 / SR; subPh -= Math.floor(subPh);
+        const sl = subLvl * (subJ > 0 ? rec.ek[subJ][x] * scn.env[subJ].amt + (1 - scn.env[subJ].amt) : 1);
+        const y = Math.sin(TAU * subPh) * 0.5 * sl * (btn.sub ? e1 : ung);
+        l += y; r += y;
+      }
+      if (fl.on && !perMemF) {
+        let c;
+        if (cutArr) c = cutArr[x];
+        else if (!sim.perMember || fl.follow === 'early') c = e1;
+        else { let s = 0; for (let i = 0; i < M; i++) s += rec.g[i][x]; c = s / M / pk; }
+        const gg = Math.tan(Math.PI * Math.min(0.45 * SR, fl.cut * Math.pow(2, fl.amt * c)) / SR);
+        l = svfRun(fL, l, gg, fk); r = svfRun(fR, r, gg, fk);
+      }
+      const vg = rec.vg[x] * velF;
+      L[rec.start + x] += l * vg; R[rec.start + x] += r * vg;
+    }
+    yield (ri + 1) / nr;
+  }
+  // the engine's output stage (razor-core.js render: L = tanh(yl·gain·1.6)), at the patch's gain
+  const g = (P.gain === undefined ? 0.35 : P.gain) * 1.6, oL = new Float32Array(n), oR = new Float32Array(n);
+  for (let i = 0; i < n; i++) { oL[i] = Math.tanh(L[i] * g); oR[i] = Math.tanh(R[i] * g); }
+  return { L: oL, R: oR, sim, kind };
+}
+</script>
+<script>
+"use strict";
+/* ======================================================================
+   B. THE PAGE — state first (L0026), then the builders, then the painters, then the wiring
+   ====================================================================== */
+const $ = id => document.getElementById(id);
+const QS = String((typeof location !== 'undefined' && location.search) || '');
+function qp(k, d) { const m = QS.match(new RegExp('[?&]' + k + '=([^&#]*)')); return m ? decodeURIComponent(m[1]) : d; }
+/* `class RazorCore` in a classic script is a global LEXICAL binding: visible here by name, never as
+   window.RazorCore, hence the typeof test (the SCALPEL lab's idiom); the engine's two functions too */
+const RAZOR = (typeof RazorCore === 'function') ? RazorCore : null;
+const MAKE = (typeof makeComposedEngine === 'function') ? makeComposedEngine : null;
+const SLICE = (typeof swarmSourceFromHtml === 'function') ? swarmSourceFromHtml : null;
+let CORE = null;
+const ENGINE = { err: '', ms: 0 };
+const AUD = { ctx: null, src: null, busy: 0 };
+
+/* the one state object (lab_wheel_scroll_check reads it as the lab's parameter state) */
+const S = {
+  law: qp('law', 'scalpel') === 'horde' ? 'horde' : 'scalpel',
+  vel: 0.85, dark: qp('theme', '') === 'dark',
+  env: envDefaults(),
+  src: { base: 1, b1: 1, b2: 1, sub: 1 }, subLvl: 0.5,   // ?off=sub,b1 opens with those buttons off
+  filter: { on: true, cut: 450, res: 0.3, env: 2, amt: 3.5, follow: 'mean' },
+  freeRule: 'shaping', axis: 'fit', relDisp: 'law',
+  sc: { ms: 20, alpha: 0.25, atk: 0, rel: 0, seed: 1234, N: 7, heal: 0, axis: 'AR', venv: true, slotA: 0.004 },
+  scNote: 'pluck', band: true, leadIn: true,
+  clash: ['filter', 'release', 'legato', 'steal'].indexOf(qp('clash', '')) >= 0 ? qp('clash', '') : 'filter', follow: 'mean', pure: false, clashInv: false,
+  mode: 'legato', retrig: 'level', steal: 'fade', s0: true, pool: 'fixed', cap: 2, velAmt: 1,
+  smooth: 'times', onsetClock: 'note-on', blind: null, blindN: 0,
+};
+for (const k of String(qp('off', '')).split(',')) if (k in S.src) S.src[k] = 0;
+S.env[0].H = clamp(+qp('hold', '0') || 0, 0, 5);   // ?hold=0.3 opens ENV 1 with a hold (§4's picture)
+/* THE HIERARCHY'S PATCH: SCALPEL's defaults with blade 2 on (as the SCALPEL lab opens), five members */
+const HPATCH = { N: 5, detune: 20, K: 0.3, w: 0.3, k: 4, c: 0.8, b2on: 1, mode2: 4, w2: 0.25, k2: 3, c2: 0.35, gain: 0.35 };
+/* §3's notes: the envelope each is voiced with (the swarm patch is one, so only the envelope changes) */
+const SC_PATCH = { hot: 2, w: 0.3, c: 0.8, k: 2, hard: 0.05, N: 7, detune: 12, K: 0.5, gain: 0.35 };
+const SC_NOTES = {
+  pluck: { label: 'pluck (A 1 ms · D 0.26 s · S 0 · R 0.14 s)', env: { A: 0.001, H: 0, D: 0.26, S: 0, R: 0.14 }, len: 0.45 },
+  pad: { label: 'pad (A 0.9 s · D 1.5 s · S 0.8 · R 2.5 s)', env: { A: 0.9, H: 0, D: 1.5, S: 0.8, R: 2.5 }, len: 2.2 },
+  stab: { label: 'stab (A 1 ms · D 0.15 s · S 0.25 · R 0.09 s)', env: { A: 0.001, H: 0, D: 0.15, S: 0.25, R: 0.09 }, len: 0.4 },
+};
+/* B366's TWELVE ENVELOPE PRESETS, the lab's equivalents: the same patches and envelopes as
+   ENV_PRESETS in docs/design/scalpel-interface-lab.html on branch scalpel-master-env (PR #863), times
+   in ms there (the oracle's keys) and converted to seconds here. `phrase` is this lab's: what each
+   is played with, so the audition is a musical gesture rather than one note. */
+const ENV_PRESETS = [
+  { name: 'Pluck · sync blade', expect: 'pluck', params: { hot: 2, w: 0.3, c: 0.8, k: 2, hard: 0.05, N: 5, detune: 12, K: 0.5,
+    benvA: 1, benvD: 220, benvK: 0.55, benvW: 0.2, benvVel: 0.6, A: 1, D: 260, S: 0, R: 140 } },
+  { name: 'Pluck · FM glass', expect: 'pluck', params: { mode: 1, w: 1, k: 1, c: 0.5, I: 1.6, m: 2, N: 1, detune: 12, K: 0.5,
+    benvA: 2, benvD: 600, benvK: 0.12, A: 1, D: 700, S: 0, R: 400 } },
+  { name: 'Pad · slow bloom', expect: 'pad', params: { mode: 1, base: 1, w: 0.5, k: 6, c: 0.5, hard: 0.7, I: 0.9, m: 2, N: 7, detune: 22,
+    K: 0.35, width: 1, A: 900, D: 1500, S: 0.8, R: 2500 } },
+  { name: 'Swell · two seconds', expect: 'swell', params: { w: 0.35, k: 4, c: 0.6, N: 7, detune: 30, K: 0.2, rotRate: 0.25,
+    A: 2000, D: 400, S: 1, R: 1200 } },
+  { name: 'Swell · cut at the key-off', expect: 'swellcut', params: { mode: 4, w: 0.4, k: 3, c: 0.5, N: 5, detune: 18, K: 0.3,
+    A: 1500, D: 10, S: 1, R: 10 } },
+  { name: 'Gated stab · organ', expect: 'gate', params: { mode: 4, w: 0.3, k: 3, c: 0.7, N: 3, detune: 8, K: 0.5,
+    A: 1, D: 4000, S: 1, R: 10 } },
+  { name: 'Stab · short decay', expect: 'stab', params: { mode: 5, w: 0.35, k: 5, c: 0.4, hard: 0.2, N: 4, detune: 10, K: 0.4,
+    A: 1, D: 150, S: 0.25, R: 90 } },
+  { name: 'Long tail · five seconds', expect: 'tail', params: { w: 0.25, k: 6, c: 0.875, N: 5, detune: 18, K: 0.35,
+    A: 4, D: 600, S: 0.6, R: 5000 } },
+  { name: 'Tail pile-up · steal and cull', expect: 'steal', params: { w: 0.3, k: 4, c: 0.8, N: 6, detune: 20, K: 0.3,
+    b2on: 1, mode2: 4, w2: 0.25, k2: 3, c2: 0.35, A: 1, D: 300, S: 0.7, R: 4000 } },
+  { name: 'Blade sweep outlives the amp', expect: 'pluck', params: { w: 0.3, k: 3, c: 0.8, hard: 0.1, N: 3, detune: 10, K: 0.5,
+    benvA: 1, benvD: 5000, benvK: 0.8, benvVel: 0.5, A: 1, D: 250, S: 0, R: 120 } },
+  { name: 'Mono retrigger pluck', expect: 'pluck', params: { polyMode: 1, glide: 40, w: 0.3, k: 2.5, c: 0.8, N: 5, detune: 14, K: 0.4,
+    benvA: 1, benvD: 300, benvK: 0.5, A: 1, D: 300, S: 0, R: 200 } },
+  { name: 'Legato swell lead', expect: 'swell', params: { polyMode: 2, glide: 150, mode: 1, w: 0.6, k: 1, c: 0.5, I: 1.2, m: 1,
+    N: 3, detune: 16, K: 0.5, A: 600, D: 400, S: 1, R: 800 } }
+];
+const MAX_DUR = 9;   // an audition stops here (a horde-law pad tail runs ~20 s); the last 60 ms fade out, and the row says so
+function phraseOf(pr) {
+  const P = pr.params, mono = !!P.polyMode, v = S.vel, e = pr.expect;
+  const N = (t, len, note) => ({ t, len, note, vel: v });
+  if (e === 'steal') return [N(0.05, 3.2, 48)].concat([50, 52, 53, 55, 57, 59, 60].map((n, i) => N(0.35 + i * 0.3, 0.15, n)));
+  if (mono && e === 'pluck') return [N(0.05, 0.3, 57), N(0.25, 0.3, 60), N(0.45, 0.3, 64), N(0.65, 0.25, 69), N(1.2, 0.3, 57)];
+  if (mono) return [N(0.05, 1.3, 57), N(1.0, 1.2, 60), N(2.0, 1.2, 62)];
+  if (e === 'pluck') return [57, 60, 64, 69].map((n, i) => N(0.05 + i * 0.28, 0.2, n));
+  if (e === 'pad') return [48, 55, 60, 64].map(n => N(0.05, 2.4, n));
+  if (e === 'swell') return [N(0.05, 3, 57)];
+  if (e === 'swellcut') return [N(0.05, 1.0, 57), N(1.6, 2.0, 60)];
+  if (e === 'gate') return [N(0.05, 0.3, 57), N(0.55, 0.3, 57), N(1.05, 0.3, 60)];
+  if (e === 'stab') return [57, 60, 64].map((n, i) => N(0.05 + i * 0.35, 0.15, n));
+  return [N(0.05, 0.3, 57), N(1.0, 0.3, 64)];
+}
+function envOfPreset(pr) { const P = pr.params; return { A: P.A / 1000, H: 0, D: P.D / 1000, S: P.S, R: P.R / 1000 }; }
+/* the release length after a key-off from the level a gate of `gate` s reaches, for a law */
+function tailOf(p, law, gate) { const t = lawTimes(law, p, SR, Math.max(1 / SR, gate)); return isNaN(t.free) ? 30 : t.free; }
+function presetScn(pr, law) {
+  const s = scnDefaults(), P = Object.assign({ gain: 0.35 }, pr.params);
+  const env = envOfPreset(pr);
+  for (const k of ['A', 'D', 'S', 'R']) delete P[k];
+  s.patch = P; s.law = law;
+  s.env[0] = Object.assign(s.env[0], env);
+  for (let j = 1; j < 4; j++) s.env[j].dest = 'none';
+  s.filter.on = false;
+  s.mode = P.polyMode === 1 ? 'mono' : P.polyMode === 2 ? 'legato' : 'poly';
+  s.pool.poly = 6; s.pool.steal = S.steal; s.pool.s0 = S.s0; s.velAmt = S.velAmt; s.retrig = S.retrig;
+  s.notes = phraseOf(pr);
+  let end = 0, gate = 0;
+  for (const x of s.notes) { end = Math.max(end, x.t + x.len); gate = Math.max(gate, x.len); }
+  // one length for BOTH laws, so A and B share their stems (the engine renders once per preset)
+  const tl = Math.max(tailOf(env, 'scalpel', gate), tailOf(env, 'horde', gate));
+  s.dur = Math.min(MAX_DUR, end + tl + 0.15);
+  s.cut = end + tl + 0.15 > MAX_DUR;
+  return s;
+}
+
+/* ---------------------------------------------------------------- tiny DOM helpers */
+function el(tag, cls, txt) { const e = document.createElement(tag); if (cls) e.className = cls; if (txt !== undefined) e.textContent = txt; return e; }
+function fmtS(t) { return t >= 1 ? t.toFixed(2) + ' s' : t >= 0.01 ? (t * 1000).toFixed(0) + ' ms' : (t * 1000).toFixed(1) + ' ms'; }
+/* B301's wheel idiom, copied byte for byte from docs/design/scalpel-interface-lab.html
+   (lab_wheel_scroll_check requires every copy identical): a plain wheel is never touched, so a
+   trackpad scroll over a slider scrolls the page; alt + wheel adjusts. */
+function onAltWheel(node, f) {
+  node.addEventListener('wheel', e => {
+    if (!e.altKey) return;
+    if (f(e) !== false) e.preventDefault();
+  }, { passive: false });
+}
+/* a slider over [0, 1000]; `log` maps it exponentially (times), else linearly. get/set speak the
+   parameter's own units. The ONE place this lab listens to the wheel. */
+function slider(parent, o) {
+  const row = el('div', 'row'), lab = el('label', '', o.label), inp = el('input'), out = el('output');
+  inp.type = 'range'; inp.min = '0'; inp.max = '1000'; inp.step = '1';
+  const toPos = v => o.log ? 1000 * Math.log(Math.max(o.min, v) / o.min) / Math.log(o.max / o.min) : 1000 * (v - o.min) / (o.max - o.min);
+  const fromPos = x => o.log ? o.min * Math.pow(o.max / o.min, x / 1000) : o.min + (o.max - o.min) * x / 1000;
+  const snap = v => (o.zero && v <= o.min * 1.0001 ? 0 : o.step ? Math.round(v / o.step) * o.step : v);
+  const show = () => { const v = o.get(); inp.value = String(Math.round(toPos(o.zero && v === 0 ? o.min : v))); out.textContent = o.fmt ? o.fmt(v) : String(v); inp.style.setProperty('--pct', String(+inp.value / 1000)); };
+  inp.addEventListener('input', () => { o.set(snap(fromPos(+inp.value))); show(); changed(o.what || 'all'); });
+  onAltWheel(inp, e => { const x = clamp(+inp.value + (e.deltaY < 0 ? 10 : -10), 0, 1000); inp.value = String(x); o.set(snap(fromPos(x))); show(); changed(o.what || 'all'); });
+  row.appendChild(lab); row.appendChild(inp); row.appendChild(out); parent.appendChild(row);
+  show();
+  SHOWS.push(show);
+  return row;
+}
+const SHOWS = [];
+/* a pill group over choices [[value, label, recommended?]] */
+function pills(parent, choices, get, set, what) {
+  const btns = [];
+  for (const c of choices) {
+    const b = el('button', 'pill' + (c[2] ? ' rec' : ''), c[1]);
+    b.addEventListener('click', () => { set(c[0]); sync(); changed(what || 'all'); });
+    parent.appendChild(b); btns.push([c[0], b]);
+  }
+  const sync = () => { for (const [v, b] of btns) b.classList.toggle('on', v === get()); };
+  sync(); PILLSYNC.push(sync);
+  return btns;
+}
+const PILLSYNC = [];
+
+/* ---------------------------------------------------------------- repaint scheduling */
+/* A change marks what is stale and asks for ONE paint on the next frame (a slider drag fires many
+   inputs per frame). Under the load checkers requestAnimationFrame never fires: nothing heavy runs
+   there, and the controls are all built synchronously below, so every wheel site exists. */
+const DIRTY = new Set();
+let rafOn = false;
+function changed(what) {
+  DIRTY.add(what);
+  if (rafOn) return;
+  rafOn = true;
+  requestAnimationFrame(() => { rafOn = false; paint(); });
+}
+
+/* ---------------------------------------------------------------- the plotter */
+function tok(name) {
+  const v = getComputedStyle(document.body).getPropertyValue(name);
+  return String(v || '').trim() || '#888';
+}
+function ctx2d(c) {
+  const dpr = Math.max(1, Math.min(2, +window.devicePixelRatio || 1));
+  const w = Math.max(0, c.clientWidth | 0), h = Math.max(0, c.clientHeight | 0);
+  if (c.width !== w * dpr) c.width = w * dpr;
+  if (c.height !== h * dpr) c.height = h * dpr;
+  const x = c.getContext('2d');
+  x.setTransform(dpr, 0, 0, dpr, 0, 0);
+  x.clearRect(0, 0, w, h);
+  return { x, w, h };
+}
+/* One time-axis plot. o = { t1: seconds shown, pad, lines: [{a, off, col, lw, dash, alpha}],
+   bands: [{arrs, off, col, alpha}], marks: [{t, col, label, tri}], yMax, grid, db }. Sample arrays
+   are at SR from sample `off`; each pixel column reads the sample under it (envelopes are smooth);
+   a band takes the min and max across its arrays at that sample. Integer loops only (STUB-SAFETY). */
+function plot(c, o) {
+  const { x, w, h } = ctx2d(c);
+  const L = 26, R = 8, T = 8, B = 16, pw = Math.max(1, w - L - R), ph = Math.max(1, h - T - B), t1 = o.t1 > 0 ? o.t1 : 1;
+  const yMax = o.yMax || 1;
+  const X = t => L + pw * t / t1, Y = v => T + ph * (1 - Math.max(0, Math.min(1.05, v / yMax)));
+  x.font = '9px ui-monospace,Menlo,monospace';
+  x.strokeStyle = tok('--scr-grid'); x.globalAlpha = 0.28; x.lineWidth = 1;
+  const nT = 8;
+  for (let i = 0; i <= nT; i++) { const xx = L + pw * i / nT; x.beginPath(); x.moveTo(xx, T); x.lineTo(xx, T + ph); x.stroke(); }
+  for (let i = 0; i <= 4; i++) { const yy = T + ph * i / 4; x.beginPath(); x.moveTo(L, yy); x.lineTo(L + pw, yy); x.stroke(); }
+  x.globalAlpha = 0.8; x.fillStyle = tok('--scr-grid');
+  if (h >= 60) {   // a thumbnail carries no axis text: it would only collide
+    for (let i = 0; i <= nT; i += 2) x.fillText(fmtS(t1 * i / nT).replace(' ', ''), L + pw * i / nT - 8, h - 4);
+    x.fillText(String(yMax), 2, T + 8); x.fillText('0', 12, T + ph);
+  }
+  x.globalAlpha = 1;
+  const cols = Math.max(1, Math.floor(pw));
+  for (const b of (o.bands || [])) {
+    if (!b.arrs || !b.arrs.length) continue;
+    const lo = [], hi = [];
+    for (let i = 0; i <= cols; i++) {
+      const k = Math.floor(t1 * i / cols * SR) - (b.off || 0);
+      let mn = Infinity, mx = -Infinity;
+      for (const a of b.arrs) { const v = k >= 0 && k < a.length ? a[k] : 0; if (v < mn) mn = v; if (v > mx) mx = v; }
+      lo.push(mn); hi.push(mx);
+    }
+    x.fillStyle = b.col; x.globalAlpha = b.alpha === undefined ? 0.25 : b.alpha;
+    x.beginPath();
+    for (let i = 0; i <= cols; i++) { const xx = L + i * pw / cols; if (i) x.lineTo(xx, Y(hi[i])); else x.moveTo(xx, Y(hi[i])); }
+    for (let i = cols; i >= 0; i--) x.lineTo(L + i * pw / cols, Y(lo[i]));
+    x.closePath(); x.fill(); x.globalAlpha = 1;
+  }
+  for (const ln of (o.lines || [])) {
+    if (!ln.a) continue;
+    x.strokeStyle = ln.col; x.lineWidth = ln.lw || 1.5; x.globalAlpha = ln.alpha === undefined ? 1 : ln.alpha;
+    if (!(x.globalAlpha > 0)) continue;
+    x.setLineDash(ln.dash || []);
+    x.beginPath();
+    let pen = false;
+    for (let i = 0; i <= cols; i++) {
+      const k = Math.floor(t1 * i / cols * SR) - (ln.off || 0);
+      if (k < 0 || k >= ln.a.length) { pen = false; continue; }
+      const xx = L + i * pw / cols, yy = Y(ln.a[k]);
+      if (pen) x.lineTo(xx, yy); else { x.moveTo(xx, yy); pen = true; }
+    }
+    x.stroke(); x.setLineDash([]); x.globalAlpha = 1;
+  }
+  for (const m of (o.marks || [])) {
+    if (!(m.t >= 0) || m.t > t1) continue;
+    const xx = X(m.t);
+    x.strokeStyle = m.col; x.fillStyle = m.col; x.lineWidth = 1;
+    if (m.tri) { x.beginPath(); x.moveTo(xx, T + ph); x.lineTo(xx - 4, T + ph + 7); x.lineTo(xx + 4, T + ph + 7); x.closePath(); x.fill(); }
+    else { x.setLineDash([3, 3]); x.beginPath(); x.moveTo(xx, T); x.lineTo(xx, T + ph); x.stroke(); x.setLineDash([]); }
+    if (m.label) x.fillText(m.label, Math.min(xx + 3, L + pw - 60), T + 9 + (m.row || 0) * 10);
+  }
+  if (o.title) { x.fillStyle = tok('--scr-marker'); x.fillText(o.title, L + 4, T + 9); }
+}
+/* the unspread ENV 1 of one note, for curves drawn before any audio (no engine needed) */
+function envCurve(p, law, gate, dur) {
+  const n = Math.round(dur * SR), a = new Float32Array(n), e = new Env(SR).setup(p, law), g = Math.round(gate * SR);
+  e.on(true);
+  for (let i = 0; i < n; i++) { if (i === g) e.off(); a[i] = e.tick(); }
+  return a;
+}
+
+/* ---------------------------------------------------------------- audio */
+function ensureCtx() {
+  if (!AUD.ctx) { const AC = window.AudioContext || window.webkitAudioContext; AUD.ctx = new AC(); }
+  if (AUD.ctx.state === 'suspended') AUD.ctx.resume();
+  return AUD.ctx;
+}
+function stopAudio() { if (AUD.src) { try { AUD.src.stop(); } catch (e) { /* already stopped */ } AUD.src = null; } }
+function playBuf(L, R) {
+  const ctx = ensureCtx();
+  stopAudio();
+  const n = L.length, fade = Math.min(n, Math.round(0.06 * SR));
+  const b = ctx.createBuffer(2, n, SR), bl = b.getChannelData(0), br = b.getChannelData(1);
+  for (let i = 0; i < n; i++) { const f = i >= n - fade ? (n - i) / fade : 1; bl[i] = L[i] * f; br[i] = R[i] * f; }
+  const s = ctx.createBufferSource(); s.buffer = b; s.connect(ctx.destination); s.start();
+  AUD.src = s;
+}
+/* ONE render at a time, in slices (the engine's Math.random shim is per stem, and a render must
+   not interleave with another), and the button shows its progress. */
+let RQ = Promise.resolve();
+function renderAsync(scn, onProg) {
+  const job = () => new Promise((res, rej) => {
+    if (!CORE) { rej(new Error(ENGINE.err || 'the engine is not loaded')); return; }
+    const g = mixGen(CORE, scn);
+    const stepJ = () => {
+      try {
+        const r = g.next();
+        if (r.done) { res(r.value); return; }
+        if (onProg) onProg(r.value);
+        setTimeout(stepJ, 0);
+      } catch (e) { rej(e); }
+    };
+    stepJ();
+  });
+  const p = RQ.then(job, job);
+  RQ = p.catch(() => {});
+  return p;
+}
+function playScn(scnF, btn, label) {
+  if (!CORE) { setAudit(ENGINE.err || 'the engine is still loading', true); return; }
+  ensureCtx();
+  const txt = btn ? btn.textContent : '';
+  if (btn) { btn.classList.add('busy'); btn.textContent = 'rendering…'; }
+  AUD.busy++;
+  return renderAsync(scnF(), f => { if (btn) btn.textContent = 'rendering ' + Math.round(f * 100) + '%'; })
+    .then(r => { playBuf(r.L, r.R); if (label) setAudit('playing: ' + label + ' · ' + r.kind + ' stems'); return r; })
+    .catch(e => setAudit('render failed: ' + String(e && e.message || e), true))
+    .finally(() => { AUD.busy--; if (btn) { btn.classList.remove('busy'); btn.textContent = txt; } });
+}
+/* the audit line: the engine's state, the self-check's count, and the last thing played */
+const AUDIT = { engine: 'loading the composed engine…', check: '', last: '', bad: false };
+function renderAudit() {
+  const a = $('audit'); if (!a) return;
+  a.innerHTML = '<b>engine</b> ' + AUDIT.engine + (AUDIT.check ? ' · <b>self-check</b> ' + AUDIT.check : '') + (AUDIT.last ? ' · ' + AUDIT.last : '');
+  a.className = 'audit' + (AUDIT.bad ? ' bad' : '');
+}
+function setAudit(t, bad) { AUDIT.last = t; AUDIT.bad = !!bad; renderAudit(); }
+
+/* ======================================================================
+   §1 THE HIERARCHY
+   ====================================================================== */
+const SRC_LABEL = { base: 'swarm / base', b1: 'blade 1', b2: 'blade 2', sub: 'sub (stand-in)' };
+const ENV_COL = ['--scr-value', '--scr-meter', '--scr-physics', '--scr-marker'];
+function hierScn(play) {
+  const s = scnDefaults();
+  s.patch = Object.assign({}, HPATCH); s.law = S.law; s.env = S.env.map(e => Object.assign({}, e));
+  s.src = Object.assign({}, S.src); s.sub.lvl = S.subLvl; s.filter = Object.assign({}, S.filter); s.freeRule = S.freeRule;
+  s.velAmt = S.velAmt; s.retrig = S.retrig; s.pool.steal = S.steal; s.pool.s0 = S.s0;
+  const v = S.vel;
+  s.notes = play ? [{ t: 0.05, len: 0.6, note: 57, vel: v }, { t: 1.0, len: 0.6, note: 64, vel: v }] : [{ t: 0.05, len: 0.6, note: 57, vel: v }];
+  let tl = 0;
+  for (const e of s.env) tl = Math.max(tl, tailOf(e, s.law, 0.6));
+  s.dur = Math.min(play ? MAX_DUR : 14, s.notes[s.notes.length - 1].t + 0.6 + tl + (FADE + 0.25));
+  return s;
+}
+/* the signal flow, drawn from the state (the buttons below it are the controls) */
+function paintFlow() {
+  const c = $('flowCv'); if (!c) return;
+  const { x, w, h } = ctx2d(c);
+  x.font = '10px ui-monospace,Menlo,monospace'; x.lineWidth = 1.5;
+  const fg = tok('--scr-grid'), val = tok('--scr-value'), dim = tok('--scr-physics');
+  const box = (bx, by, bw, bh, label, col, dash, sub) => {
+    x.strokeStyle = col; x.setLineDash(dash ? [4, 3] : []); x.strokeRect(bx, by, bw, bh); x.setLineDash([]);
+    x.fillStyle = col; x.fillText(label, bx + 5, by + 13); if (sub) { x.globalAlpha = 0.75; x.fillText(sub, bx + 5, by + 25); x.globalAlpha = 1; }
+  };
+  const arrow = (x0, y0, x1, y1, col, dash) => {
+    x.strokeStyle = col; x.fillStyle = col; x.setLineDash(dash ? [3, 3] : []);
+    x.beginPath(); x.moveTo(x0, y0); x.lineTo(x1, y1); x.stroke(); x.setLineDash([]);
+    const a = Math.atan2(y1 - y0, x1 - x0);
+    x.beginPath(); x.moveTo(x1, y1); x.lineTo(x1 - 6 * Math.cos(a - 0.4), y1 - 6 * Math.sin(a - 0.4)); x.lineTo(x1 - 6 * Math.cos(a + 0.4), y1 - 6 * Math.sin(a + 0.4)); x.closePath(); x.fill();
+  };
+  const ex = srcExists(hierScn(false));
+  const sx = 8, sw = w * 0.19, sh = 30, gapY = (h - 70) / 4, mixX = w * 0.36, fX = w * 0.45, fW = w * 0.15, vX = w * 0.64, vW = w * 0.13, oX = w * 0.8, oW = w * 0.09, fxX = w * 0.91;
+  const e1x = w * 0.26, e1y = 6;
+  box(e1x - 30, e1y, 90, 26, 'ENV 1 · amp', val, false);
+  for (let i = 0; i < 4; i++) {
+    const k = SRC_KEYS[i], y = 44 + i * gapY, on = S.src[k], exists = ex[k];
+    const col = !exists ? dim : on ? fg : tok('--scr-marker');
+    box(sx, y, sw, sh, SRC_LABEL[k], col, !exists, !exists ? 'not in this patch' : on ? 'follows ENV 1' : 'UNGATED (button off)');
+    const mx = e1x, my = y + sh / 2;
+    x.strokeStyle = on && exists ? val : dim; x.beginPath(); x.arc(mx, my, 7, 0, TAU); x.stroke();
+    x.fillStyle = on && exists ? val : dim; x.fillText('×', mx - 3, my + 3);
+    if (on && exists) { x.globalAlpha = 0.6; arrow(mx, e1y + 26, mx, my - 7, val, true); x.globalAlpha = 1; }
+    arrow(sx + sw, my, mx - 7, my, col, !exists);
+    arrow(mx + 7, my, mixX, h * 0.42, col, !exists);
+  }
+  x.strokeStyle = fg; x.beginPath(); x.arc(mixX, h * 0.42, 8, 0, TAU); x.stroke(); x.fillStyle = fg; x.fillText('Σ', mixX - 3, h * 0.42 + 3);
+  arrow(mixX + 8, h * 0.42, fX, h * 0.42, fg);
+  box(fX, h * 0.42 - 18, fW, 36, 'filter', S.filter.on ? fg : dim, !S.filter.on, S.filter.on ? 'per voice (stand-in)' : 'off');
+  arrow(fX + fW, h * 0.42, vX, h * 0.42, fg);
+  box(vX, h * 0.42 - 18, vW, 36, 'voice gain', fg, false, 'steal · cull (D15)');
+  arrow(vX + vW, h * 0.42, oX, h * 0.42, fg);
+  box(oX, h * 0.42 - 18, oW, 36, 'tanh', fg, false, 'engine');
+  arrow(oX + oW, h * 0.42, fxX, h * 0.42, dim, true);
+  box(fxX, h * 0.42 - 18, w - fxX - 4, 36, 'FX', dim, true, 'not here');
+  // ENV 2..4 and their wires
+  for (let j = 1; j < 4; j++) {
+    const e = S.env[j], bx = w * 0.4 + (j - 1) * w * 0.2, by = h - 30, col = tok(ENV_COL[j]);
+    box(bx, by, w * 0.17, 24, 'ENV ' + (j + 1) + ' → ' + (DESTS.find(d => d[0] === e.dest) || ['', e.dest])[1], e.dest === 'none' ? dim : col, e.dest === 'none');
+    if (e.dest === 'cut' && S.filter.on) arrow(bx + w * 0.08, by, fX + fW / 2, h * 0.42 + 18, col);
+    if (e.dest === 'k1') arrow(bx + 10, by, sx + sw, 44 + gapY + sh, col);
+    if (e.dest === 'sub') arrow(bx + 10, by + 12, sx + sw, 44 + 3 * gapY + sh / 2, col);
+  }
+}
+function buildEnvBoxes() {
+  const host = $('envBoxes'); if (!host) return;
+  host.textContent = '';
+  for (let j = 0; j < 4; j++) {
+    const e = S.env[j], bx = el('div', 'envbox'), hd = el('div', 'hd');
+    const b = el('b', '', 'ENV ' + (j + 1)); b.style.color = 'var(' + ENV_COL[j].replace('--scr-', '--') + ')';
+    hd.appendChild(b);
+    if (j === 0) hd.appendChild(el('span', 'lbl', 'AMP · GLOBAL · ALWAYS ON'));
+    else {
+      const sel = el('select');
+      for (const d of DESTS) { const o = el('option', '', d[1]); o.value = d[0]; sel.appendChild(o); }
+      sel.value = e.dest;
+      sel.addEventListener('change', () => { e.dest = sel.value; changed('all'); });
+      hd.appendChild(sel);
+    }
+    const inv = el('button', 'pill', 'legato inv');
+    inv.title = 'Legato Inverted: this envelope retriggers at every note-on, even in legato';
+    inv.addEventListener('click', () => { e.inv = !e.inv; inv.classList.toggle('on', e.inv); changed('all'); });
+    inv.classList.toggle('on', !!e.inv);
+    PILLSYNC.push(() => inv.classList.toggle('on', !!e.inv));
+    hd.appendChild(inv);
+    bx.appendChild(hd);
+    const T = (k, lo, hi) => slider(bx, { label: k, min: lo, max: hi, log: true, zero: k === 'H', get: () => e[k], set: v => { e[k] = v; }, fmt: v => (v === 0 ? '0' : fmtS(v)) });
+    T('A', 0.001, 10); T('H', 0.001, 5); T('D', 0.005, 20);
+    slider(bx, { label: 'S', min: 0, max: 1, get: () => e.S, set: v => { e.S = v; }, fmt: v => v.toFixed(2), step: 0.01 });
+    T('R', 0.005, 20);
+    if (j > 0) slider(bx, { label: 'amount', min: -1, max: 6, get: () => e.amt, set: v => { e.amt = v; }, fmt: v => v.toFixed(2), step: 0.05 });
+    const cv = el('canvas'); cv.style.height = '38px'; cv.id = 'envMini' + j; bx.appendChild(cv);
+    host.appendChild(bx);
+  }
+}
+function buildSrc() {
+  const host = $('srcRow'); if (!host) return;
+  for (const k of SRC_KEYS) {
+    const d = el('div', 'srcbtn');
+    d.appendChild(el('span', '', SRC_LABEL[k]));
+    const b = el('button', 'pill', 'ENV 1');
+    b.addEventListener('click', () => { S.src[k] = S.src[k] ? 0 : 1; sync(); changed('all'); });
+    const sync = () => { b.classList.toggle('on', !!S.src[k]); b.textContent = S.src[k] ? 'ENV 1 ● on' : 'ENV 1 ○ off'; };
+    sync(); PILLSYNC.push(sync);
+    d.appendChild(b); host.appendChild(d);
+  }
+  slider($('subCtl'), { label: 'level', min: 0, max: 1, get: () => S.subLvl, set: v => { S.subLvl = v; }, fmt: v => v.toFixed(2), step: 0.01 });
+  pills($('filtPills'), [[true, 'on'], [false, 'off']], () => S.filter.on, v => { S.filter.on = v; });
+  pills($('freePills'), [['shaping', 'the longest release of an envelope that shapes a source (D15)', true], ['any', 'the longest release of ANY envelope (Serum, as relayed)']], () => S.freeRule, v => { S.freeRule = v; });
+}
+function paintLife() {
+  const scn = hierScn(false), sim = simulate(scn, null), rec = sim.recs[0];
+  if (!rec) return;
+  const off = rec.marks.off[0] / SR, fr = rec.marks.free.length ? rec.marks.free[0] / SR : NaN;
+  const lines = [];
+  for (let j = 1; j < 4; j++) lines.push({ a: rec.ek[j], col: tok(ENV_COL[j]), lw: 1.2, alpha: scn.env[j].dest === 'none' ? 0.35 : 0.9 });
+  lines.push({ a: rec.e1u, col: tok(ENV_COL[0]), lw: 2.2 });
+  lines.push({ a: rec.ung, col: tok('--scr-marker'), lw: 1.5, dash: [5, 3], alpha: sim.allOn ? 0 : 1 });
+  const e1free = lawTimes(scn.law, scn.env[0], SR, 0.6).free + off;
+  const t1 = Math.max(1, (isNaN(fr) ? e1free : fr) * 1.12);
+  const marks = [{ t: off, col: tok('--scr-marker'), label: 'key-off' }, { t: e1free, col: tok(ENV_COL[0]), label: 'ENV 1 ends', tri: true, row: 1 }];
+  if (!isNaN(fr)) marks.push({ t: fr, col: tok('--scr-grid'), label: 'voice freed', row: 2 });
+  plot($('lifeCv'), { t1, lines, marks });
+  const lg = $('lifeLegend');
+  if (lg) {
+    lg.textContent = '';
+    for (let j = 0; j < 4; j++) { const s = el('span'); const i = el('i'); i.style.background = tok(ENV_COL[j]); s.appendChild(i); s.appendChild(document.createTextNode('ENV ' + (j + 1) + (j ? ' → ' + scn.env[j].dest : ' (amp)'))); lg.appendChild(s); }
+    const s = el('span'); const i = el('i'); i.style.background = tok('--scr-marker'); s.appendChild(i); s.appendChild(document.createTextNode('an opted-out source\'s gain (1 until the free, then an 8 ms fade)')); lg.appendChild(s);
+  }
+  const n = $('lifeNote');
+  if (n) {
+    const fs = sim.fset.map(j => 'ENV ' + (j + 1));
+    const off1 = SRC_KEYS.filter(k => srcExists(scn)[k] && !scn.src[k]).map(k => SRC_LABEL[k]);
+    n.innerHTML = sim.allOn
+      ? '<b>Every source follows ENV 1, so the voice lives exactly as long as ENV 1</b>: freed ' + fmtS(e1free - off) + ' after the key-off, under 1e-4 (−80 dB), as the oracle and horde both free it today. ENV 2–4 never keep a voice alive here: nothing they shape could be heard once ENV 1 has closed.'
+      : '<b>' + off1.join(', ') + ' opted out of ENV 1</b>, so ' + (off1.length > 1 ? 'they sound' : 'it sounds') + ' at full level, ungated, until the voice is freed. Under the rule "' +
+        (scn.freeRule === 'any' ? 'the longest release of ANY envelope' : 'the longest release of an envelope that shapes a source') + '" that is ENV 1' + (fs.length ? ' and ' + fs.join(', ') : ' alone') +
+        ': the voice is freed at <b>' + (isNaN(fr) ? '(beyond the plot)' : fmtS(fr - off) + ' after the key-off') + '</b>, then faded over 8 ms (B323\'s ramp). What this does to voice freeing: ' +
+        '<b>the free is no longer ENV 1\'s</b>, so B310\'s tiers must read the voice\'s AUDIBLE level (the loudest of its sources, an ungated one counting as 1) or tier 1 would steal a loud voice with no fade; ' +
+        'B323\'s cull must be a voice gain after the sources, never a write into ENV 1, or it cannot silence the ungated source (self-check CULL); and an ENV 2–4 with a long release now holds a voice (and a pool slot) for its whole release.';
+  }
+  for (let j = 0; j < 4; j++) {
+    const c = $('envMini' + j); if (!c) continue;
+    const p = S.env[j];
+    const tl = tailOf(p, S.law, 0.5);
+    plot(c, { t1: Math.max(0.2, 0.5 + tl), lines: [{ a: envCurve(p, S.law, 0.5, Math.max(0.2, 0.5 + tl)), col: tok(ENV_COL[j]), lw: 1.6 }], marks: [{ t: 0.5, col: tok('--scr-marker') }] });
+  }
+}
+function hierNote() {
+  const n = $('hierNote'); if (!n) return;
+  n.innerHTML = '<b>ENV 1</b> is the voice\'s amplitude envelope and it is always on: every source that has its button on is multiplied by it at the mix, which, ' +
+    'with every button on, is the same as one ENV 1 after the filter (a linear filter does not care which side of it a gain sits). <b>ENV 2–4</b> are ' +
+    'assignable; here to the filter\'s cutoff, blade 1\'s cut rate (sent to the engine as a parameter, per 128-sample block) or the sub\'s level. ' +
+    '<b>A blade\'s "source"</b> is what switching it on ADDS to the swarm\'s cycle (a blade is a window cut into that cycle, not an oscillator of its own), ' +
+    'so a blade that opts out of ENV 1 rings on as the difference it makes, over the swarm\'s gated body. <b>The sub</b> is a stand-in sine an octave ' +
+    'down: SUB OSC (ADR-178) is a candidate source, not in the composed engine. The legacy shell already has a gain envelope and ENV 2/3/4 as mod ' +
+    'sources (the mod matrix lab cites them): the hierarchy here keeps that count, four.';
+}
+
+/* ======================================================================
+   §2 DECISION 1, BY EAR
+   ====================================================================== */
+const ROWS2 = [];
+/* the time a held note takes to reach 0.995 (horde's end of attack; SCALPEL's linear attack reaches 1) */
+const r0 = p => Object.assign({}, p, { S: 1, H: 0 });
+function atkTime(law, p) {
+  const e = new Env(SR).setup(p, law); e.on(true);
+  for (let i = 1; i < 60 * SR; i++) { e.tick(); if (e.e >= 0.995) return i / SR; }
+  return NaN;
+}
+function relWord(p, law) {
+  const t = lawTimes(law, p, SR, 0.2);
+  if (S.relDisp === 'law') return law === 'scalpel' ? 'R ' + fmtS(p.R) + ' = to −35 dB' : 'R ' + fmtS(p.R) + ' = τ';
+  if (S.relDisp === 'tau') return 'τ ' + fmtS(law === 'scalpel' ? p.R / 4 : p.R);
+  return 'to silence ' + fmtS(t.free);
+}
+function buildPresetTable() {
+  const tb = $('presetTable'); if (!tb) return;
+  tb.textContent = '';
+  const hr = el('tr');
+  for (const t of ['PRESET (B366)', 'A · D · S · R (s)', 'THE TWO LAWS, TO SCALE', 'A FREES · B FREES', 'LISTEN']) hr.appendChild(el('th', '', t));
+  tb.appendChild(hr);
+  ROWS2.length = 0;
+  ENV_PRESETS.forEach((pr, i) => {
+    const tr = el('tr'), p = envOfPreset(pr);
+    const nm = el('td'); nm.appendChild(el('b', '', pr.name)); nm.appendChild(el('div', 'note', pr.params.polyMode === 1 ? 'mono (retrigger)' : pr.params.polyMode === 2 ? 'legato' : 'poly'));
+    tr.appendChild(nm);
+    tr.appendChild(el('td', 'num', p.A + ' · ' + p.D + ' · ' + p.S + ' · ' + p.R));
+    const tdc = el('td'), cv = el('canvas'); cv.id = 'lawCv' + i; tdc.appendChild(cv); tr.appendChild(tdc);
+    const rd = el('td', 'num'); rd.id = 'lawRd' + i; tr.appendChild(rd);
+    const bt = el('td');
+    const mk = (lab, fn) => { const b = el('button', 'pill play', lab); b.addEventListener('click', () => fn(b)); bt.appendChild(b); return b; };
+    mk('▶ A', b => playScn(() => presetScn(pr, 'scalpel'), b, pr.name + ' · A (SCALPEL)'));
+    mk('▶ B', b => playScn(() => presetScn(pr, 'horde'), b, pr.name + ' · B (horde)'));
+    mk('▶ A then B', b => playPair(pr, b));
+    mk('▶ blind', b => playBlind(pr, b));
+    tr.appendChild(bt);
+    tb.appendChild(tr);
+    ROWS2.push({ pr, p });
+  });
+}
+/* A then B, back to back (one buffer: A, a 0.4 s gap, B) */
+function playPair(pr, b) {
+  if (!CORE) return;
+  const t = b.textContent; b.textContent = 'rendering…';
+  Promise.all([renderAsync(presetScn(pr, 'scalpel')), renderAsync(presetScn(pr, 'horde'))]).then(([a, bb]) => {
+    const gap = Math.round(0.4 * SR), n = a.L.length + gap + bb.L.length, L = new Float32Array(n), R = new Float32Array(n);
+    L.set(a.L); R.set(a.R); L.set(bb.L, a.L.length + gap); R.set(bb.R, a.L.length + gap);
+    ensureCtx(); playBuf(L, R); setAudit('playing: ' + pr.name + ' · A (SCALPEL) then B (horde)');
+  }).catch(e => setAudit('render failed: ' + e.message, true)).finally(() => { b.textContent = t; });
+}
+/* BLIND: one of the two laws, chosen by a seeded draw (mulberry32 over the play count, so the order is
+   reproducible and never the clock's); "reveal" names it afterwards */
+function playBlind(pr, b) {
+  const r = mulberry32(0xB370 + (S.blindN++))();
+  const law = r < 0.5 ? 'scalpel' : 'horde';
+  S.blind = { name: pr.name, law };
+  const bn = $('blindNote'); if (bn) bn.textContent = 'blind #' + S.blindN + ': ' + pr.name + ' — which law? (reveal when you have decided)';
+  playScn(() => presetScn(pr, law), b, pr.name + ' · blind #' + S.blindN);
+}
+function paintLaws() {
+  let common = 0;
+  const rows = ROWS2.map(({ pr, p }, i) => {
+    const s = presetScn(pr, 'scalpel');
+    const gate = s.notes[0].len;
+    const ta = lawTimes('scalpel', p, SR, gate), tb2 = lawTimes('horde', p, SR, gate);
+    const span = gate + Math.max(ta.free, tb2.free);
+    common = Math.max(common, span);
+    return { i, p, gate, ta, tb: tb2, span, cut: s.cut, aa: atkTime('scalpel', r0(p)), ab: atkTime('horde', r0(p)) };
+  });
+  for (const r of rows) {
+    const t1 = S.axis === 'common' ? Math.min(common, 30) : r.span * 1.05;
+    const a = envCurve(r.p, 'scalpel', r.gate, t1), b = envCurve(r.p, 'horde', r.gate, t1);
+    plot($('lawCv' + r.i), { t1, title: '0 – ' + fmtS(t1), lines: [{ a: b, col: tok('--scr-meter'), lw: 1.8 }, { a, col: tok('--scr-value'), lw: 1.8 }],
+      marks: [{ t: r.gate, col: tok('--scr-marker') }, { t: r.gate + r.ta.free, col: tok('--scr-value'), tri: true }, { t: r.gate + r.tb.free, col: tok('--scr-meter'), tri: true }] });
+    const rd = $('lawRd' + r.i);
+    if (rd) rd.innerHTML = 'A ' + fmtS(r.ta.free) + ' · B ' + fmtS(r.tb.free) + ' (×' + (r.tb.free / r.ta.free).toFixed(1) + ')<br>' +
+      'to 0.995: A ' + fmtS(r.aa) + ' · B ' + fmtS(r.ab) + '<br><span class="note">' + relWord(r.p, 'scalpel') + ' · ' + relWord(r.p, 'horde') + '</span>' +
+      (r.cut ? '<br><span class="note">audition stops at ' + MAX_DUR + ' s</span>' : '');
+  }
+  const n = $('lawNote');
+  if (n) n.innerHTML = '<b>How to audition decision 1.</b> Each row plays one of B366\'s twelve envelope presets as a short phrase, on the <b>same numbers</b> under each law: ' +
+    '<b>▶ A</b> is SCALPEL\'s law (what the composed engine plays today), <b>▶ B</b> is horde\'s (what ACCOUNTING rows 17–20 rule for horde 2), <b>▶ A then B</b> plays both in one ' +
+    'buffer with a 0.4 s gap, and <b>▶ blind</b> plays one of the two, chosen by a seeded draw, for you to name before pressing "reveal". The engine renders each phrase ' +
+    'once (both laws share its stems), so the second listen is instant. The curves are both laws on one note of the phrase, drawn to scale (the time axis switch puts ' +
+    'every row on one axis). Read with F3: the same R is about <b>4× longer</b> under B (its knob is τ, A\'s is 4τ), and a short attack is about 5× longer to full. ' +
+    'If A\'s linear attack wins by ear but B\'s tails do, the inventory\'s fallback is an attack-shape switch on horde\'s law, not two laws.';
+}
+
+/* ======================================================================
+   §3 ONSET SCATTER, FOUR WAYS
+   ====================================================================== */
+const OPT_INFO = [
+  null,
+  { key: 'spread', title: '1 · THE SPREAD', sub: 'each member reads ENV 1 at δᵢ (and sᵢ)', slots: 0, hidden: 'no: ENV 1 itself, read N ways' },
+  { key: 'slot', title: '2 · A SCATTER SLOT', sub: 'ENV 4 spent: δᵢ-delayed gates × ENV 1', slots: 1, hidden: 'no: a visible envelope (ENV 4)' },
+  { key: 'hidden', title: '3 · TODAY (HIDDEN)', sub: 'B335 in the engine, played by the engine', slots: 0, hidden: 'yes: per-member, not on the panel' },
+  { key: 'heal', title: '4 · THE HEALING SPREAD', sub: 'the lab\'s find: δᵢ close up by the sustain', slots: 0, hidden: 'no: ENV 1 itself, read N ways' },
+];
+const CLASHES = [['filter', 'a filter following ENV 1'], ['release', 'release and voice freeing'], ['legato', 'mono / legato, Legato Inverted'], ['steal', 'voice stealing and B323\'s cull']];
+function scBase(opt) {
+  const s = scnDefaults(), nt = SC_NOTES[S.scNote];
+  s.patch = Object.assign({}, SC_PATCH, { N: S.sc.N }); s.law = S.law;
+  s.env[0] = Object.assign(s.env[0], nt.env, { inv: false });
+  for (let j = 1; j < 4; j++) s.env[j].dest = 'none';
+  s.filter.on = false; s.sub.lvl = 0;
+  s.scatter = Object.assign({}, S.sc, { opt: OPTS[opt] });
+  s.notes = [{ t: 0.02, len: nt.len, note: 57, vel: S.vel }];
+  s.pool = { poly: 6, steal: S.steal, cap: 0, s0: S.s0 };
+  s.velAmt = S.velAmt; s.retrig = S.retrig;
+  s.dur = Math.min(8, 0.02 + nt.len + tailOf(nt.env, S.law, nt.len) * (1 + 0.6 * 3 * S.sc.rel) + 0.2);
+  return s;
+}
+function scClash(opt, clash) {
+  const s = scBase(opt), nt = SC_NOTES[S.scNote];
+  if (clash === 'filter') s.filter = { on: true, cut: 220, res: 0.35, env: 1, amt: 4, follow: S.follow };
+  if (clash === 'legato' || clash === 'dropout') {
+    s.mode = clash === 'dropout' ? 'mono' : 'legato';
+    s.patch.polyMode = s.mode === 'mono' ? 1 : 2;   // the engine plays the stems as one mono voice too
+    // a retrigger only shows against a level that is still there: the note's timing, sustained at 0.6 or more
+    s.env[0].S = Math.max(s.env[0].S, 0.6);
+    s.env[0].inv = clash === 'dropout' ? true : S.clashInv; s.scatter.pure = clash === 'dropout' ? s.scatter.pure : S.pure;
+    const L = Math.max(0.5, nt.len);
+    s.notes = [{ t: 0.02, len: L, note: 57, vel: S.vel }, { t: 0.02 + L * 0.6, len: L, note: 60, vel: S.vel }, { t: 0.02 + L * 1.3, len: L, note: 64, vel: S.vel }];
+    s.dur = Math.min(8, 0.02 + L * 2.3 + tailOf(nt.env, S.law, L) + 0.2);
+  }
+  if (clash === 'steal') {
+    s.env[0].R = Math.max(nt.env.R, 1.2);
+    s.pool.poly = 3; s.pool.cap = S.pool === 'cap' ? S.cap : 0;
+    s.notes = [{ t: 0.02, len: 2.2, note: 48, vel: S.vel }].concat([52, 55, 59, 62].map((n, i) => ({ t: 0.3 + i * 0.3, len: 0.12, note: n, vel: S.vel })));
+    s.dur = Math.min(8, 2.3 + tailOf(s.env[0], S.law, 2.2) + 0.2);
+  }
+  return s;
+}
+const SIMC = new Map();   // simulations are deterministic in the scenario: cache them per paint
+function simOf(s) {
+  const k = JSON.stringify(s);
+  if (SIMC.has(k)) return SIMC.get(k);
+  const r = simulate(s, CORE);
+  if (SIMC.size > 64) SIMC.delete(SIMC.keys().next().value);
+  SIMC.set(k, r);
+  return r;
+}
+function sumOf(rec) {
+  const M = rec.g.length, out = new Float32Array(rec.len);
+  for (let x = 0; x < rec.len; x++) { let s = 0; for (let i = 0; i < M; i++) s += rec.g[i][x]; out[x] = s / M * rec.vg[x]; }
+  return out;
+}
+/* the measures the evidence table and the cards read, from one record */
+function measures(rec, sim) {
+  const M = rec.g.length, sum = sumOf(rec);
+  let pk = 0, pkAt = 0;
+  for (let x = 0; x < rec.len; x++) if (sum[x] > pk) { pk = sum[x]; pkAt = x; }
+  let t90 = NaN;
+  for (let x = 0; x < rec.len; x++) if (sum[x] >= 0.9 * pk) { t90 = x / SR; break; }
+  let late = 0, lateD = 0;
+  const d = rec.draws.length ? rec.draws[0].d : null;
+  if (d && M > 1) { let li = 0; for (let i = 1; i < M; i++) if (d[i] > d[li]) li = i; lateD = d[li]; let mx = 0; for (let x = 0; x < rec.len; x++) mx = Math.max(mx, rec.g[li][x]); late = mx; }
+  else { let mx = 0; for (let x = 0; x < rec.len; x++) mx = Math.max(mx, rec.g[0][x]); late = mx; }
+  const off = rec.marks.off.length ? rec.marks.off[0] : rec.len;
+  const free = rec.marks.free.length ? rec.marks.free[0] : rec.len;
+  // how far apart the members still are when the key goes up, relative to the loudest (0 = one envelope)
+  const at = Math.min(rec.len - 1, off - 1);
+  let lo = Infinity, hi = -Infinity;
+  for (let i = 0; i < M; i++) { const v = rec.g[i][at]; if (v < lo) lo = v; if (v > hi) hi = v; }
+  return { pk, pkAt, t90, late, lateD, tail: (free - off) / SR, spreadKey: M > 1 && hi > 0 ? (hi - lo) / hi : 0, sum };
+}
+function buildSc() {
+  const host = $('scCtl'); if (!host) return;
+  const card = (title) => { const c = el('div', 'card'); c.appendChild(el('h4', '', title)); host.appendChild(c); return c; };
+  const c1 = card('THE DRAW — the engine\'s own ensemble stream (A3)');
+  slider(c1, { label: 'scatter', min: 0, max: 60, get: () => S.sc.ms, set: v => { S.sc.ms = v; }, fmt: v => v.toFixed(1) + ' ms', step: 0.5, what: 'sc' });
+  slider(c1, { label: 'α (ADR-077)', min: 0, max: 1.5, get: () => S.sc.alpha, set: v => { S.sc.alpha = v; }, fmt: v => v.toFixed(2), step: 0.01, what: 'sc' });
+  slider(c1, { label: 'seed', min: 1, max: 9999, get: () => S.sc.seed, set: v => { S.sc.seed = v; }, fmt: v => String(v), step: 1, what: 'sc' });
+  slider(c1, { label: 'members', min: 2, max: 9, get: () => S.sc.N, set: v => { S.sc.N = v; }, fmt: v => String(v), step: 1, what: 'sc' });
+  const c2 = card('sᵢ — attack and release scatter (option 1; today\'s per-partial envelope)');
+  slider(c2, { label: 'attack', min: 0, max: 1, get: () => S.sc.atk, set: v => { S.sc.atk = v; }, fmt: v => v.toFixed(2), step: 0.01, what: 'sc' });
+  slider(c2, { label: 'release', min: 0, max: 1, get: () => S.sc.rel, set: v => { S.sc.rel = v; }, fmt: v => v.toFixed(2), step: 0.01, what: 'sc' });
+  const g2 = el('div', 'grp'); g2.appendChild(el('span', 'lbl', 'sᵢ SCALES')); c2.appendChild(g2);
+  pills(g2, [['AR', 'A and R (as today)'], ['all', 'A, H and D']], () => S.sc.axis, v => { S.sc.axis = v; }, 'sc');
+  c2.appendChild(el('div', 'note', 'Open question (inventory, B366 trace): should sᵢ scale the decay too? "A and R" is today\'s voiceEnv.'));
+  const c3 = card('3 · today\'s two modes (B335, in the engine)');
+  const g3 = el('div', 'grp'); c3.appendChild(g3);
+  pills(g3, [[true, 'per-partial envelope (voiceEnv)'], [false, 'entry ramp (onset scatter alone)']], () => S.sc.venv, v => { S.sc.venv = v; }, 'sc');
+  c3.appendChild(el('div', 'note', 'The two disagree about what a late member is: the ramp fades it into ENV 1 wherever ENV 1 has got to; voiceEnv gives it its own attack.'));
+  const c4 = card('2 · the slot\'s attack · 4 · the heal time');
+  slider(c4, { label: 'slot A', min: 0.001, max: 0.5, log: true, get: () => S.sc.slotA, set: v => { S.sc.slotA = v; }, fmt: fmtS, what: 'sc' });
+  slider(c4, { label: 'heal', min: 0.01, max: 5, log: true, zero: true, get: () => S.sc.heal, set: v => { S.sc.heal = v; }, fmt: v => (v === 0 ? 'auto (the sustain)' : fmtS(v)), what: 'sc' });
+  c4.appendChild(el('div', 'note', 'heal 0 = auto: the offsets close up by the time ENV 1 reaches its sustain.'));
+  pills($('scNotePills'), Object.keys(SC_NOTES).map(k => [k, SC_NOTES[k].label]), () => S.scNote, v => { S.scNote = v; }, 'sc');
+  pills($('scDrawPills'), [[true, 'band (D8)', true], [false, 'no band']], () => S.band, v => { S.band = v; }, 'sc');
+  const cards = $('scCards');
+  for (let o = 1; o <= 4; o++) {
+    const c = el('div', 'card'), inf = OPT_INFO[o];
+    const h = el('h4', '', inf.title + ' '); h.appendChild(el('small', '', inf.sub)); c.appendChild(h);
+    const cv = el('canvas'); cv.id = 'scCv' + o; cv.style.height = '150px'; c.appendChild(cv);
+    const nn = el('div', 'note'); nn.id = 'scNote' + o; c.appendChild(nn);
+    const g = el('div', 'grp');
+    const b = el('button', 'pill play', '▶ option ' + o); b.addEventListener('click', () => playScn(() => scBase(o), b, OPT_INFO[o].title + ' · ' + S.scNote)); g.appendChild(b);
+    const u = el('button', 'pill', '▶ unscattered'); u.addEventListener('click', () => playScn(() => scBase(0), u, 'unscattered · ' + S.scNote)); g.appendChild(u);
+    c.appendChild(g); cards.appendChild(c);
+  }
+  pills($('clashPills'), CLASHES, () => S.clash, v => { S.clash = v; buildClashCtl(); }, 'sc');
+  const cc = $('clashCards');
+  for (let o = 1; o <= 4; o++) {
+    const c = el('div', 'card');
+    c.appendChild(el('h4', '', OPT_INFO[o].title));
+    const cv = el('canvas'); cv.id = 'clCv' + o; cv.style.height = '140px'; c.appendChild(cv);
+    const nn = el('div', 'note'); nn.id = 'clNote' + o; c.appendChild(nn);
+    const b = el('button', 'pill play', '▶ hear this clash'); b.addEventListener('click', () => playScn(() => scClash(o, S.clash), b, OPT_INFO[o].title + ' · ' + S.clash)); c.appendChild(b);
+    cc.appendChild(c);
+  }
+  buildClashCtl();
+}
+function buildClashCtl() {
+  const h = $('clashCtl'); if (!h) return;
+  h.textContent = '';
+  if (S.clash === 'filter') { h.appendChild(el('span', 'lbl', 'THE FILTER FOLLOWS')); pills(h, [['mean', 'the ensemble mean, normalised', true], ['early', 'the earliest member (= ENV 1 unspread)'], ['member', 'each member its own']], () => S.follow, v => { S.follow = v; }, 'sc'); }
+  if (S.clash === 'legato') {
+    h.appendChild(el('span', 'lbl', 'ENV 1'));
+    pills(h, [[false, 'follows legato'], [true, 'Legato Inverted']], () => S.clashInv, v => { S.clashInv = v; }, 'sc');
+    h.appendChild(el('span', 'lbl', 'RETRIGGER READS'));
+    pills(h, [[false, 'a state machine: δ on fresh notes only', true], [true, 'a pure function of time (MUST-FAIL)']], () => S.pure, v => { S.pure = v; }, 'sc');
+  }
+  if (S.clash === 'steal') {
+    h.appendChild(el('span', 'lbl', 'STEAL (D6)'));
+    pills(h, [['fade', 'old voice fades 8 ms, new from 0', true], ['keep', 'the slot keeps its level (today)']], () => S.steal, v => { S.steal = v; }, 'sc');
+    h.appendChild(el('span', 'lbl', 'POOL (D11)'));
+    pills(h, [['fixed', '3 voices, fixed', true], ['cap', 'B323 cap at 2']], () => S.pool, v => { S.pool = v; }, 'sc');
+  }
+  if (S.clash === 'release') h.appendChild(el('span', 'note', 'turn release scatter up (sᵢ card) to see the tail stretch; the key-off is never spread (the inventory\'s rule)'));
+}
+function memberLines(rec, alpha) {
+  const col = tok('--scr-physics'), out = [];
+  if (rec.g.length > 1) for (const a of rec.g) out.push({ a, col, lw: 0.9, alpha: alpha || 0.7 });
+  return out;
+}
+function paintSc() {
+  if (!CORE) { for (let o = 1; o <= 4; o++) { const n = $('scNote' + o); if (n) n.textContent = ENGINE.err || 'waiting for the engine (the draws are its own)…'; } return; }
+  const ref = simOf(scBase(0)).recs[0], mr = measures(ref);
+  const t1 = scBase(1).dur;
+  const M = [null];
+  for (let o = 1; o <= 4; o++) {
+    const sim = simOf(scBase(o)), rec = sim.recs[0], m = measures(rec, sim);
+    M.push(m);
+    const lines = memberLines(rec).concat([{ a: ref.e1u, col: tok('--scr-value'), lw: 2 }, { a: m.sum, col: tok('--scr-meter'), lw: 1.8, dash: [5, 3] }]);
+    const marks = [{ t: rec.marks.off[0] / SR, col: tok('--scr-marker'), label: 'key-off' }];
+    if (S.leadIn && !isNaN(m.t90)) marks.push({ t: m.t90, col: tok('--scr-meter'), label: '90%', tri: true, row: 1 });
+    if (rec.marks.free.length) marks.push({ t: rec.marks.free[0] / SR, col: tok('--scr-grid'), label: 'freed', tri: true, row: 2 });
+    plot($('scCv' + o), { t1, lines, bands: S.band && rec.g.length > 1 ? [{ arrs: rec.g, col: tok('--scr-physics'), alpha: 0.22 }] : [], marks });
+    const n = $('scNote' + o);
+    if (n) n.innerHTML = '90% of the ensemble at <b>' + fmtS(m.t90) + '</b> (unscattered ' + fmtS(mr.t90) + ') · the latest member (δ ' + fmtS(m.lateD) + ') peaks at <b>' + m.late.toFixed(2) + '</b> · tail ' + fmtS(m.tail) +
+      (o === 3 ? '<br>drawn from the harness\'s transcription of B335; <b>heard from the engine itself</b>' + (S.law === 'horde' ? ' (which has SCALPEL\'s law only)' : '') : '') +
+      (o === 2 ? '<br>ENV 4 is spent on the scatter; the slot\'s release is linked to ENV 1\'s by hand' : '') +
+      (o === 4 ? '<br>heal ' + (S.sc.heal > 0 ? fmtS(S.sc.heal) : 'auto, ' + fmtS(sim.Th0)) + ': the members are ENV 1 itself from then on' : '');
+  }
+  const leg = $('scCards');
+  if (leg) leg.title = 'members: thin violet · band: min–max across members · ENV 1 unspread: bold · the ensemble mean: dashed';
+  paintClash();
+  paintEvidence(M, mr);
+}
+function paintClash() {
+  const cl = S.clash;
+  for (let o = 1; o <= 4; o++) {
+    const s = scClash(o, cl), sim = simOf(s), c = $('clCv' + o), n = $('clNote' + o);
+    if (!sim.recs.length) continue;
+    const rec = sim.recs[0], m = measures(rec, sim), t1 = s.dur;
+    if (cl === 'filter') {
+      const pk = followPeak(rec), mean = new Float32Array(rec.len), meanN = new Float32Array(rec.len);
+      for (let x = 0; x < rec.len; x++) { mean[x] = m.sum[x]; meanN[x] = m.sum[x] / pk; }
+      const d = rec.draws.length ? rec.draws[0].d : [0];
+      let li = 0; for (let i = 1; i < d.length; i++) if (d[i] > d[li]) li = i;
+      const at = Math.min(rec.len - 1, Math.round((0.02 + d[li]) * SR) - rec.start);
+      plot(c, { t1: Math.min(t1, 1.2), lines: memberLines(rec, 0.35).concat([{ a: rec.e1u, col: tok('--scr-value'), lw: 2, alpha: S.follow === 'early' ? 1 : 0.5 },
+        { a: mean, col: tok('--scr-meter'), lw: 1.2, dash: [2, 3] }, { a: meanN, col: tok('--scr-meter'), lw: 2, alpha: S.follow === 'mean' ? 1 : 0.5 }]),
+        marks: [{ t: 0.02 + d[li], col: tok('--scr-marker'), label: 'latest enters' }] });
+      if (n) n.innerHTML = 'when the latest member enters, the cutoff control reads: earliest <b>' + rec.e1u[at].toFixed(2) + '</b> · mean <b>' + mean[at].toFixed(2) + '</b> · mean normalised <b>' + meanN[at].toFixed(2) +
+        '</b> · its own read 0 → its peak ' + m.late.toFixed(2) + '. The raw mean peaks at ' + pk.toFixed(2) + ' (a full-depth route loses ' + (20 * Math.log10(1 / Math.max(pk, 1e-6))).toFixed(1) + ' dB of depth without the normaliser).';
+    } else if (cl === 'release') {
+      const refS = scClash(0, cl), rf = simOf(refS).recs[0], rfFree = rf.marks.free.length ? rf.marks.free[0] / SR : NaN;
+      plot(c, { t1, lines: memberLines(rec).concat([{ a: rf.e1u, col: tok('--scr-value'), lw: 2 }, { a: m.sum, col: tok('--scr-meter'), lw: 1.6, dash: [5, 3] }]),
+        bands: S.band && rec.g.length > 1 ? [{ arrs: rec.g, col: tok('--scr-physics'), alpha: 0.22 }] : [],
+        marks: [{ t: rec.marks.off[0] / SR, col: tok('--scr-marker'), label: 'key-off' }, { t: rfFree, col: tok('--scr-value'), label: 'unscattered freed', tri: true, row: 1 },
+          { t: rec.marks.free.length ? rec.marks.free[0] / SR : NaN, col: tok('--scr-grid'), label: 'freed', tri: true, row: 2 }] });
+      const tr = (rf.marks.free[0] - rf.marks.off[0]) / SR;
+      if (n) n.innerHTML = 'the voice lives <b>' + fmtS(m.tail) + '</b> after the key-off, <b>×' + (m.tail / tr).toFixed(2) + '</b> the unscattered tail (' + fmtS(tr) + '). The key-off is not spread: every member releases at it, from its own level.' +
+        (o === 2 ? ' The slot releases with ENV 1\'s R only because this lab linked them.' : '');
+    } else if (cl === 'legato') {
+      const marks = rec.marks.on.map((t, k) => ({ t: t / SR, col: tok('--scr-marker'), label: k ? 'note ' + (k + 1) : 'note 1' }))
+        .concat(rec.marks.retrig.filter(r => r.env === 0).map(r => ({ t: r.at / SR, col: tok('--scr-value'), label: 'ENV 1 retrig', tri: true, row: 1 })));
+      plot(c, { t1, lines: memberLines(rec).concat([{ a: rec.e1u, col: tok('--scr-value'), lw: 2, alpha: 0.6 }, { a: m.sum, col: tok('--scr-meter'), lw: 1.8, dash: [5, 3] }]), marks });
+      const on2 = rec.marks.on[1];
+      let pre = m.sum[Math.max(0, on2 - 1)], mn = Infinity;
+      for (let x = on2; x < Math.min(rec.len, on2 + Math.round(0.03 * SR)); x++) mn = Math.min(mn, m.sum[x]);
+      if (n) n.innerHTML = (rec.marks.retrig.some(r => r.env === 0) ? 'ENV 1 retriggers at note 2 (Legato Inverted)' : 'legato: ENV 1 runs on through note 2 (no retrigger)') +
+        ' · the ensemble dips to <b>' + (pre > 1e-6 ? (mn / pre * 100).toFixed(0) : '—') + '%</b> of its level in the 30 ms after note 2' + (S.pure ? ' — the pure-time read drops every late member to silence' : '') +
+        (o === 3 ? '<br>the engine: a retrigger keeps the draws, members re-enter from their own level (B335)' : '');
+    } else {
+      const lines = [], cols = ['--scr-value', '--scr-meter', '--scr-physics', '--scr-marker', '--scr-grid'];
+      let jump = 0;
+      const tot = new Float32Array(Math.round(s.dur * SR));
+      sim.recs.forEach((r, k) => {
+        const a = sumOf(r), full = new Float32Array(tot.length);
+        for (let x = 0; x < r.len && r.start + x < tot.length; x++) { full[r.start + x] = a[x]; tot[r.start + x] += a[x]; }
+        lines.push({ a: full, col: tok(cols[k % cols.length]), lw: 1.4, alpha: 0.9 });
+      });
+      for (let x = 1; x < tot.length; x++) jump = Math.max(jump, Math.abs(tot[x] - tot[x - 1]));
+      const marks = [];
+      for (const r of sim.recs) if (r.marks.stolen >= 0) marks.push({ t: (r.start + r.marks.stolen) / SR, col: tok('--scr-marker'), label: 'steal', tri: true });
+      for (const r of sim.recs) if (r.marks.cull >= 0) marks.push({ t: (r.start + r.marks.cull) / SR, col: tok('--scr-grid'), label: 'cull', tri: true, row: 1 });
+      plot(c, { t1, lines, marks });
+      if (n) n.innerHTML = 'C3 held, four short notes on ' + s.pool.poly + ' voices' + (s.pool.cap ? ', B323 cap ' + s.pool.cap : '') + ' · the largest one-sample step in the summed level: <b>' + jump.toFixed(3) + '</b>' +
+        (S.steal === 'keep' ? ' (today: a stolen slot keeps its level, and its waiting members drop to 0)' : ' (decision 6: the old voice fades over 8 ms beside the new one)') +
+        (o === 3 ? '<br>audio: the engine\'s own B310/B323; the drawing is the harness\'s' : '');
+    }
+  }
+  const cn = $('clashNote');
+  if (cn) cn.innerHTML = { filter: 'A per-voice filter has ONE cutoff, but under the spread ENV 1 is read N ways. <b>Following the earliest member</b> (the unspread read) closes the filter before the late members pluck: their attacks are heard through a closing filter. <b>The raw ensemble mean</b> follows what the filter actually receives but never reaches full depth. <b>Normalised</b>, it keeps the depth and the timing ("one shape everywhere"). <b>Per member</b> is exact and costs N filters per voice.',
+    release: 'With release scatter the voice lives until its LAST member ends, so the pool holds tails longer and B310\'s tier 2 steals sooner. The healing spread (4) has no release scatter by construction: its tail is the unscattered one.',
+    legato: 'Three overlapping notes on one mono voice (the note\'s envelope, held at a sustain of at least 0.6 so a retrigger has a level to act on). Read as a pure function of time since the note-on, a retrigger would put every late member back at t − δᵢ < 0: silence, then a second entry. The state-machine reading (δᵢ on FRESH notes only; a retrigger restarts each member\'s attack from its own level) keeps them sounding. The reading only matters where ENV 1 retriggers: in legato that is Legato Inverted (turn it on, then flip the reading); in mono, every note (the evidence table\'s row).',
+    steal: 'Today a stolen slot keeps its level and the new note\'s waiting members start from 0, so the late members of the old sound drop out at once (B335\'s open item). Decision 6 fades the old voice over 8 ms beside the new one, which enters from 0. B323\'s cull is a voice gain after the members, so it never clashes with the spread.' }[S.clash] || '';
+}
+function paintEvidence(M, mr) {
+  const tb = $('evTable'); if (!tb) return;
+  // the retrigger dropout under a pure-time read (the must-fail reading) and under the state machine, mono retrigger
+  const drop = o => {
+    if (o === 3) return { sm: NaN, pure: NaN };
+    const out = {};
+    for (const pure of [false, true]) {
+      const s = scClash(o, 'dropout'); s.scatter.pure = pure;
+      const rec = simOf(s).recs[0], sum = sumOf(rec), on2 = rec.marks.on[1];
+      let mn = Infinity; for (let x = on2; x < Math.min(rec.len, on2 + Math.round(0.03 * SR)); x++) mn = Math.min(mn, sum[x]);
+      out[pure ? 'pure' : 'sm'] = sum[Math.max(0, on2 - 1)] > 1e-6 ? mn / sum[Math.max(0, on2 - 1)] : NaN;
+    }
+    return out;
+  };
+  const steal = o => {
+    const r = {};
+    const was = S.steal;
+    for (const rule of ['keep', 'fade']) {
+      S.steal = rule;
+      const s = scClash(o, 'steal'), sim = simOf(s), tot = new Float32Array(Math.round(s.dur * SR));
+      for (const rc of sim.recs) { const a = sumOf(rc); for (let x = 0; x < rc.len && rc.start + x < tot.length; x++) tot[rc.start + x] += a[x]; }
+      let j = 0; for (let x = 1; x < tot.length; x++) j = Math.max(j, Math.abs(tot[x] - tot[x - 1]));
+      r[rule] = j;
+    }
+    S.steal = was;
+    return r;
+  };
+  const D = [null], ST = [null];
+  for (let o = 1; o <= 4; o++) { D.push(drop(o)); ST.push(steal(o)); }
+  const rel = [null];
+  for (let o = 1; o <= 4; o++) { const rf = simOf(scClash(0, 'release')).recs[0]; rel.push(M[o].tail / ((rf.marks.free[0] - rf.marks.off[0]) / SR)); }
+  const rows = [
+    ['envelope slots it spends', o => OPT_INFO[o].slots, 'min'],
+    ['a per-member envelope the panel does not show', o => OPT_INFO[o].hidden, null],
+    ['onset: 90% of the ensemble\'s peak (unscattered ' + fmtS(mr.t90) + ')', o => M[o].t90 * 1000, null, v => v.toFixed(1) + ' ms'],
+    ['the latest member\'s own peak (1 = it gets its own attack)', o => M[o].late, 'max', v => v.toFixed(2)],
+    ['ENV 1 → filter: the raw mean\'s peak (depth kept without the normaliser)', o => M[o].pk, 'max', v => v.toFixed(2)],
+    ['voice lifetime after the key-off ÷ unscattered', o => rel[o], 'min', v => '×' + v.toFixed(2)],
+    ['members apart at the key-off, (max − min) ÷ max (0 = one envelope)', o => M[o].spreadKey, 'min', v => (v * 100).toFixed(1) + '%'],
+    ['mono retrigger: the lowest level in 30 ms ÷ the level before (state machine · pure time)', o => D[o], null, v => (isNaN(v.sm) ? 'the engine\'s own' : dipTxt(v.sm) + ' · ' + dipTxt(v.pure))],
+    ['a steal: the largest step in the summed level (today · D6)', o => ST[o], null, v => v.keep.toFixed(3) + ' · ' + v.fade.toFixed(3)],
+  ];
+  tb.textContent = '';
+  const hr = el('tr'); hr.appendChild(el('th', '', 'MEASURED'));
+  for (let o = 1; o <= 4; o++) hr.appendChild(el('th', '', OPT_INFO[o].title));
+  tb.appendChild(hr);
+  for (const [name, f, best, fmt] of rows) {
+    const tr = el('tr'); tr.appendChild(el('td', '', name));
+    const vals = [1, 2, 3, 4].map(f);
+    const nums = vals.filter(v => typeof v === 'number' && !isNaN(v));
+    const bestV = best === 'min' ? Math.min(...nums) : best === 'max' ? Math.max(...nums) : null;
+    const worstV = best === 'min' ? Math.max(...nums) : best === 'max' ? Math.min(...nums) : null;
+    vals.forEach(v => {
+      const td = el('td', 'num', fmt ? fmt(v) : String(v));
+      if (best && typeof v === 'number' && bestV !== worstV) { if (Math.abs(v - bestV) < 1e-9) td.classList.add('best'); else if (Math.abs(v - worstV) < 1e-9) td.classList.add('worst'); }
+      tr.appendChild(td);
+    });
+    tb.appendChild(tr);
+  }
+  EVID.M = M; EVID.D = D; EVID.ST = ST; EVID.rel = rel; EVID.mr = mr;
+  paintVerdict();
+}
+const EVID = {};
+const dipTxt = v => (v >= 0.995 ? 'no dip' : (v * 100).toFixed(0) + '%');
+function paintVerdict() {
+  const v = $('verdict'); if (!v || !EVID.M) return;
+  const M = EVID.M, rel = EVID.rel, D = EVID.D;
+  v.innerHTML = '<b>Recommendation (the implementer\'s, for the human to rule): option 1\'s mechanism, with option 4\'s heal as its one extra control.</b> ' +
+    'They are one mechanism at two settings: each member reads ENV 1 itself at δᵢ, drawn by the engine\'s own ADR-077 stream, and the heal time says whether the offsets close up. ' +
+    'Evidence on this draw: both spend <b>no slot</b> and hide <b>no envelope</b> (2 spends ENV 4; 3 is the hidden one); a late member gets its <b>own attack</b> (peak ' + M[1].late.toFixed(2) + ' and ' + M[4].late.toFixed(2) +
+    ', against ' + M[2].late.toFixed(2) + ' through a slot and ' + M[3].late.toFixed(2) + ' today' + (S.sc.venv ? ' with voiceEnv' : ' with the entry ramp') + '); ' +
+    'healed, the body is ENV 1 itself (members apart at the key-off by ' + (M[4].spreadKey * 100).toFixed(1) + '% of the loudest, against ' + (M[1].spreadKey * 100).toFixed(1) + '% unhealed) and the tail is the unscattered one (×' + rel[4].toFixed(2) + ', against ×' + rel[1].toFixed(2) + '), so a filter following ENV 1, ' +
+    'the voice\'s free, B310\'s tiers and B323\'s cull see exactly the unscattered voice once the onset is over. The price of healing is that attack and release scatter mean nothing after the heal, ' +
+    'so the recommended default is <b>heal = auto</b> and "heal off" is the setting for the player-like release. The rules that must come with it, each shown above: the filter follows the ' +
+    '<b>normalised ensemble mean</b>; δᵢ applies to <b>fresh notes only</b> and a retrigger restarts each member from its own level (on a mono retrigger a pure-time read drops the ensemble to ' + dipTxt(D[1].pure) + ' of its level; the state machine: ' + dipTxt(D[1].sm) + '); the key-off is <b>not spread</b>; a steal <b>fades</b> (decision 6); ' +
+    'and today\'s entry-ramp mode is retired (it is option 2\'s behaviour, a late member entering into ENV 1 wherever ENV 1 has got to, with the slot hidden). The same spread-and-heal pair could sit on ENV 2–4 as well, per envelope.';
+}
+
+/* ======================================================================
+   §4 HOLD AND LEGATO
+   ====================================================================== */
+function legScn(play) {
+  const s = hierScn(false);
+  s.mode = S.mode;
+  s.patch = Object.assign({}, HPATCH, { polyMode: S.mode === 'mono' ? 1 : S.mode === 'legato' ? 2 : 0, glide: 60 });
+  const v = S.vel;
+  s.notes = [{ t: 0.05, len: 0.85, note: 57, vel: v }, { t: 0.5, len: 0.8, note: 60, vel: v }, { t: 1.1, len: 0.8, note: 64, vel: v }, { t: 2.6, len: 0.4, note: 67, vel: v }];
+  let tl = 0; for (const e of s.env) tl = Math.max(tl, tailOf(e, s.law, 0.4));
+  s.dur = Math.min(MAX_DUR, 3.0 + tl + 0.2);
+  void play;
+  return s;
+}
+function buildLeg() {
+  // ENV 1's hold, the same parameter as §1's ENV 1 box: one control set shown in two places
+  const hh = $('holdCtl');
+  if (hh) slider(hh, { label: 'ENV 1 H', min: 0.001, max: 5, log: true, zero: true, get: () => S.env[0].H, set: v => { S.env[0].H = v; }, fmt: v => (v === 0 ? '0 (ADSR)' : fmtS(v)) });
+  pills($('modePills'), [['poly', 'poly'], ['mono', 'mono (retrigger)'], ['legato', 'legato']], () => S.mode, v => { S.mode = v; }, 'leg');
+  pills($('retrigPills'), [['level', 'the current level', true], ['zero', 'zero']], () => S.retrig, v => { S.retrig = v; });
+  const h = $('invPills');
+  for (let j = 0; j < 4; j++) {
+    const b = el('button', 'pill', 'ENV ' + (j + 1));
+    b.addEventListener('click', () => { S.env[j].inv = !S.env[j].inv; for (const f of PILLSYNC) f(); changed('all'); });
+    const sync = () => b.classList.toggle('on', !!S.env[j].inv);
+    sync(); PILLSYNC.push(sync); h.appendChild(b);
+  }
+}
+function paintHold() {
+  const p = Object.assign({}, S.env[0]), p0 = Object.assign({}, p, { H: 0 });
+  const gate = 1.0, t1 = gate + tailOf(p, S.law, gate) + 0.1;
+  plot($('holdCv'), { t1, lines: [{ a: envCurve(p0, S.law, gate, t1), col: tok('--scr-grid'), lw: 3, alpha: 0.6 }, { a: envCurve(p, S.law, gate, t1), col: tok('--scr-value'), lw: 1.6 }],
+    marks: [{ t: gate, col: tok('--scr-marker'), label: 'key-off' }] });
+  const n = $('holdNote');
+  const c = CHECKS.find(r => /^HOLD0/.test(r.name));
+  if (n) n.innerHTML = 'ENV 1 at hold ' + fmtS(p.H || 0) + ' (drawn) over the same envelope at hold 0. <b>HOLD</b> keeps the level where the attack ended for H seconds, then the decay starts; ' +
+    'a stab that decays after a flat top no longer needs S 1 with a long D ("Gated stab · organ", which cannot also decay). <b>At hold 0 no hold stage is ever entered, so AHDSR is the ADSR</b>: ' +
+    (c ? (c.ok ? 'the self-check measures it bit-identical to the engine\'s own envelope (' + c.detail + ')' : 'SELF-CHECK FAILED: ' + c.detail) : 'the self-check measures it against the engine\'s own envelope once the engine is loaded') +
+    '. In the engine this is an ADR-187 divergence behind a flag (D16, with decision 1\'s law), default hold 0.';
+}
+function paintLeg() {
+  const s = legScn(false), sim = simulate(s, null), t1 = s.dur;
+  const lines = [], marks = [];
+  for (const rec of sim.recs) {
+    for (let j = 3; j >= 1; j--) lines.push({ a: rec.ek[j], off: rec.start, col: tok(ENV_COL[j]), lw: 1.3, alpha: s.env[j].dest === 'none' && !s.env[j].inv ? 0.3 : 0.9 });
+    lines.push({ a: rec.e1u, off: rec.start, col: tok(ENV_COL[0]), lw: 2.2 });
+    for (const t of rec.marks.on) marks.push({ t: (rec.start + t) / SR, col: tok('--scr-marker') });
+    for (const r of rec.marks.retrig) marks.push({ t: (rec.start + r.at) / SR, col: tok(ENV_COL[r.env]), tri: true });
+  }
+  plot($('legCv'), { t1, lines, marks });
+  const n = $('legNote');
+  const rt = sim.recs.length ? sim.recs[0].marks.retrig : [];
+  if (n) n.innerHTML = 'Four notes: three overlapping, then one after a gap (a fresh note). ' +
+    (S.mode === 'poly' ? '<b>Poly</b>: every note is its own voice, so legato does nothing (as in Serum outside mono).' :
+      S.mode === 'mono' ? '<b>Mono</b>: every note-on retriggers every envelope.' :
+        '<b>Legato</b>: an overlapping note retriggers ONLY the envelopes marked Legato Inverted' + (rt.length ? ' (▲ ' + [...new Set(rt.map(r => 'ENV ' + (r.env + 1)))].join(', ') + ')' : ' (none marked, so nothing retriggers)') + '; the fresh note retriggers all.') +
+    ' A retrigger starts from <b>' + (S.retrig === 'level' ? 'the envelope\'s current level' : 'zero') + '</b>' + (S.retrig === 'level' ? ' (the recommendation, D17: one rule for every envelope, which also settles D5\'s blade-envelope jump, F10)' : ' (a click risk on a sounding voice)') +
+    '. Legato Inverted per envelope is Serum\'s rule as relayed; the lab gives it to every envelope, ENV 1 included.';
+}
+
+/* ======================================================================
+   §5 DECISIONS 2..17
+   ====================================================================== */
+const DECS = [
+  [2, 'What the Release number means on the panel', 'Keep the law\'s own parameter on the knob; always show the tail beside it', c => pills(c, [['law', 'the law\'s own', true], ['tau', 'τ'], ['silence', 'time to silence']], () => S.relDisp, v => { S.relDisp = v; }), 'shown: §2\'s readouts'],
+  [3, 'Velocity: an amount, and a curve', 'An amount (0..1, default 1 = today); the curve later; velocity 0 → note-off in the shell', c => slider(c, { label: 'amount', min: 0, max: 1, get: () => S.velAmt, set: v => { S.velAmt = v; }, fmt: v => v.toFixed(2) + (v === 1 ? ' ★' : ''), step: 0.05 }), 'heard: every ▶, with the header\'s velocity'],
+  [4, 'Blade envelopes against ENV 1', 'Keep them independent for 1.0 and document the truncation', null, 'drawn: the D4 card below'],
+  [5, 'Mono retrigger: the blade envelope restarts from 0 (F10)', 'Settled by D17: one rule, from the current level', null, 'see §4 (retrigger start)'],
+  [6, 'Steals and level continuity (F8, F6)', 'Every steal fades the old voice over 8 ms; the new note starts from 0', c => pills(c, [['fade', 'fade, new from 0', true], ['keep', 'keep the level (today)']], () => S.steal, v => { S.steal = v; }), 'heard: §3 steal clash, §2 pile-up'],
+  [7, 'A held note at sustain 0 keeps its voice (F4)', 'Under −80 dB a gated voice at S 0 counts as faded (tier 1); an ADR-083 amendment', c => pills(c, [[true, 'counts as faded', true], [false, 'held until the key-off (today)']], () => S.s0, v => { S.s0 = v; }), 'the harness pool'],
+  [8, 'The per-partial spread on the curve', 'Draw it as a band on ENV 1', c => pills(c, [[true, 'band', true], [false, 'no band']], () => S.band, v => { S.band = v; }, 'sc'), 'drawn: §3'],
+  [9, 'Onset scatter delays the attack (F12)', 'Keep it independent; draw the lead-in', c => pills(c, [[true, 'lead-in drawn', true], [false, 'not drawn']], () => S.leadIn, v => { S.leadIn = v; }, 'sc'), 'drawn: §3 (the ▲ 90% mark)'],
+  [10, 'The onset lock under a slow attack (F14)', 'Ask the ear; if it matters, clock the dissolve from the end of the attack (a divergence)', c => pills(c, [['note-on', 'from the note-on (today)', true], ['attack', 'from the attack\'s end']], () => S.onsetClock, v => { S.onsetClock = v; }), 'drawn only: the D10 card (an engine change to hear)'],
+  [11, 'The voice limit for horde 2', 'A deterministic polyphony count; steals by D6; any CPU-adaptive mode explicit', c => pills(c, [['fixed', 'fixed count', true], ['cap', 'B323 cap']], () => S.pool, v => { S.pool = v; }, 'sc'), 'heard: §3 steal clash'],
+  [12, 'Envelope parameter smoothing', 'A, D, R unsmoothed; S smoothed', c => pills(c, [['times', 'times unsmoothed, S smoothed', true], ['all', 'all four smoothed (the oracle)']], () => S.smooth, v => { S.smooth = v; }), 'drawn: the D12 card'],
+  [13, 'Sustain against the output tanh (F16)', 'No change for 1.0; note it in the manual', null, 'measured: the D13 card'],
+  [14, 'ENV 1 and onset scatter', 'The spread, with its four rules', null, 'the whole of §3; the verdict there'],
+  [15, 'A per-source ENV 1 opt-out', 'Lifetime = longest release of a shaping envelope; tiers read the audible level; culls are a voice gain; opting the swarm out removes its scatter', null, 'the whole of §1; self-checks OPTOUT and CULL'],
+  [16, 'HOLD in ENV 1', 'Yes, with D1\'s law; hold 0 bit-identical', null, '§4; self-check HOLD0'],
+  [17, 'A retrigger policy per envelope', 'Follow the mode or always retrigger; every retrigger from the current level', null, '§4; self-check LEGINV'],
+];
+function buildDec() {
+  const tb = $('decTable'); if (!tb) return;
+  const hr = el('tr');
+  for (const t of ['D', 'THE QUESTION', 'THE INVENTORY\'S RECOMMENDATION (THE DEFAULT, ★)', 'HERE', 'SHOWN / HEARD']) hr.appendChild(el('th', '', t));
+  tb.appendChild(hr);
+  for (const [d, q, rec, ctl, where] of DECS) {
+    const tr = el('tr');
+    tr.appendChild(el('td', 'num', 'D' + d));
+    tr.appendChild(el('td', '', q));
+    tr.appendChild(el('td', 'recd', rec));
+    const tc = el('td'); tc.style.minWidth = '260px';
+    if (ctl) { const g = el('div', 'grp'); tc.appendChild(g); ctl(g); } else tc.appendChild(el('span', 'note', '—'));
+    tr.appendChild(tc);
+    tr.appendChild(el('td', 'note', where));
+    tb.appendChild(tr);
+  }
+}
+/* D4: the oracle's blade envelope (razor-core.js render: a linear attack over benvA, exp(−4t/benvD)
+   decay, no release) against ENV 1 on "Blade sweep outlives the amp"; it is cut where the voice ends */
+function paintD4() {
+  const pr = ENV_PRESETS.find(p => /outlives/.test(p.name)), p = envOfPreset(pr), gate = 0.2;
+  const tl = tailOf(p, S.law, gate), t1 = Math.max(1.2, (gate + tl) * 2.2), n = Math.round(t1 * SR);
+  const amp = envCurve(p, S.law, gate, t1), bl = new Float32Array(n);
+  const beA = 1 / Math.max(1, pr.params.benvA * 0.001 * SR), beD = 1 - Math.exp(-4 / Math.max(1, pr.params.benvD * 0.001 * SR));
+  const free = Math.round((gate + tl) * SR);
+  let be = 0, st = 1, cut = NaN;
+  for (let i = 0; i < n; i++) {
+    if (st === 1) { be += beA; if (be >= 1) { be = 1; st = 2; } } else if (st === 2) { be -= be * beD; }
+    if (i >= free) { if (isNaN(cut)) cut = be; bl[i] = 0; } else bl[i] = be;
+  }
+  plot($('d4Cv'), { t1, lines: [{ a: bl, col: tok('--scr-meter'), lw: 1.6 }, { a: amp, col: tok('--scr-value'), lw: 2 }], marks: [{ t: gate + tl, col: tok('--scr-marker'), label: 'voice freed' }] });
+  const nn = $('d4Note'); if (nn) nn.innerHTML = 'the blade envelope (teal) is at <b>' + cut.toFixed(3) + '</b> when the voice is freed (F9, on its own numbers, read 0.656 under A): the sweep is cut off, not finished. Under B the voice lives ' + fmtS(tl) + ', so less is cut.';
+}
+function paintD10() {
+  const p = { A: 2, H: 0, D: 0.4, S: 1, R: 1.2 }, t1 = 3.2, n = Math.round(t1 * SR), amp = envCurve(p, S.law, 3, t1), bu = new Float32Array(n);
+  const tA = lawTimes(S.law, p, SR, 3).atk, start = S.onsetClock === 'attack' ? tA : 0;
+  let at3 = NaN;
+  for (let i = 0; i < n; i++) { const t = i / SR; bu[i] = t < start ? 1 : Math.exp(-(t - start) / 0.63); if (isNaN(at3) && amp[i] >= Math.pow(10, -3 / 20)) at3 = i; }
+  plot($('d10Cv'), { t1, lines: [{ a: bu, col: tok('--scr-physics'), lw: 1.6 }, { a: amp, col: tok('--scr-value'), lw: 2 }], marks: [{ t: at3 / SR, col: tok('--scr-marker'), label: 'swell −3 dB' }] });
+  const nn = $('d10Note'); if (nn) nn.innerHTML = 'the lock burst (violet, dissolve 0.63 s) clocked from <b>' + (S.onsetClock === 'attack' ? 'the attack\'s end' : 'the note-on') + '</b>: <b>' + (bu[at3] * 100).toFixed(1) + '%</b> of it is left when the swell is within 3 dB (F14: 10.5% under A, from the note-on). Drawn only: moving the clock is an engine change.';
+}
+function paintD12() {
+  // a preset change from a pad (A 0.9 s) to a pluck (A 1 ms) 20 ms before the note. The oracle glides A
+  // over its parameter smoother (a one-pole every 16 samples, 12 ms: razor-core.js render) and reads it
+  // once per 128-sample render call; the recommendation reads the time unsmoothed.
+  const t1 = 0.4, n = Math.round(t1 * SR), a1 = new Float32Array(n), a2 = new Float32Array(n);
+  const sm = 1 - Math.exp(-16 / (0.012 * SR));
+  const e = new Env(SR).setup({ A: 0.001, H: 0, D: 0.26, S: 0, R: 0.14 }, 'scalpel');
+  e.on(true);
+  for (let i = 0; i < n; i++) a2[i] = e.tick();
+  const pre = Math.round(0.02 * SR);
+  let A = 0.9, inc = 0, lvl = 0;
+  for (let i = 0; i < pre; i++) if (i % 16 === 0) A += (0.001 - A) * sm;
+  for (let i = 0; i < n; i++) {
+    if ((i + pre) % 16 === 0) A += (0.001 - A) * sm;
+    if (i % 128 === 0) inc = 1 / Math.max(1, A * SR);   // the oracle's attack increment, once per render call
+    lvl = Math.min(1, lvl + inc);
+    a1[i] = lvl;
+  }
+  const smoothed = S.smooth === 'all';
+  plot($('d12Cv'), { t1: 0.08, lines: [{ a: a1, col: tok('--scr-physics'), lw: smoothed ? 2 : 1.2, alpha: smoothed ? 1 : 0.5 }, { a: a2, col: tok('--scr-value'), lw: smoothed ? 1.2 : 2, alpha: smoothed ? 0.5 : 1 }] });
+  let full = 0; for (let i = 0; i < n; i++) if (a1[i] >= 1) { full = i / SR; break; }
+  const nn = $('d12Note'); if (nn) nn.innerHTML = 'a pad (A 0.9 s) switched to a pluck (A 1 ms) 20 ms before the note: smoothed (violet) the attack takes <b>' + fmtS(full) + '</b>; unsmoothed (pink) 1 ms. SCALPEL\'s attack shown; the same holds for any law.';
+}
+let D13 = null;
+function paintD13() {
+  const nn = $('d13Note');
+  if (!D13) { if (nn) nn.textContent = CORE ? 'measuring…' : 'waits for the engine (it measures a real stem)'; return; }
+  const t1 = 1, lines = [];
+  for (const [g, col] of [[0.35, '--scr-value'], [1, '--scr-meter']]) {
+    const a = new Float32Array(Math.round(t1 * SR));
+    for (let i = 0; i < a.length; i++) { const Sx = Math.max(0.02, i / a.length); a[i] = D13.out(Sx, g) / D13.out(1, g); }
+    lines.push({ a, col: tok(col), lw: 1.8 });
+  }
+  const id = new Float32Array(Math.round(t1 * SR)); for (let i = 0; i < id.length; i++) id[i] = Math.max(0.02, i / id.length);
+  lines.push({ a: id, col: tok('--scr-grid'), lw: 1, dash: [3, 3] });
+  plot($('d13Cv'), { t1, lines });
+  const db = (s, g) => 20 * Math.log10(D13.out(s, g) / D13.out(1, g));
+  if (nn) nn.innerHTML = 'output RMS against S (x axis, 0..1; dashed = the envelope itself), on a real stem: S 0.5 reads <b>' + db(0.5, 0.35).toFixed(2) + ' dB</b> at gain 0.35 and <b>' + db(0.5, 1).toFixed(2) + ' dB</b> at gain 1 (the envelope says −6.02; F16, on the default patch: −5.76 and −4.54).';
+}
+
+/* ======================================================================
+   §6 THE SELF-CHECK — every claim beside a planted wrong version that MUST fail the same predicate
+   (L0016/L0032: a probe that can only say yes has not been shown to see anything)
+   ====================================================================== */
+const CHECKS = [];
+function chk(name, ok, detail, control) { CHECKS.push({ name, ok: !!ok, detail, control: !!control }); }
+function runChecks() {
+  CHECKS.length = 0;
+  const C = CORE;
+  const guard = (name, f) => { try { f(); } catch (e) { chk(name, false, 'threw: ' + String(e && e.stack || e).slice(0, 300)); } };
+  const P = { A: 0.1, H: 0.05, D: 0.4, S: 0.5, R: 0.28 };
+
+  /* SR — the laws' stage timings are in seconds, identical at 44.1 and 48 kHz */
+  guard('SR', () => {
+    const keys = ['atk', 'hold', 'r60', 'free'], tol = 1 / 44100 + 1 / 48000;
+    for (const law of ['scalpel', 'horde']) {
+      const a = lawTimes(law, P, 44100, 1.5), b = lawTimes(law, P, 48000, 1.5);
+      const worst = Math.max(...keys.map(k => Math.abs(a[k] - b[k])));
+      chk('SR (' + law + '): every stage in seconds is the same at 44.1 and 48 kHz', worst <= tol && Math.abs(a.atD - b.atD) < 1e-3,
+        keys.map(k => k + ' ' + (a[k] * 1000).toFixed(2) + '/' + (b[k] * 1000).toFixed(2) + ' ms').join(' · ') + ' · worst Δ ' + (worst * 1e6).toFixed(1) + ' µs (≤ one sample, ' + (tol * 1e6).toFixed(1) + ' µs)');
+      // CONTROL: the same law with its coefficients frozen at 48 kHz (a per-tick constant) run at 44.1 kHz
+      const fz = lawTimes(law, P, 44100, 1.5, new Env(48000).setup(P, law));
+      const wf = Math.max(...keys.map(k => Math.abs(fz[k] - b[k])));
+      chk('CONTROL (' + law + '): per-tick constants frozen at 48 kHz, run at 44.1 kHz', !(wf <= tol), 'worst Δ ' + (wf * 1000).toFixed(2) + ' ms: the detector sees a law that is not in seconds', true);
+    }
+  });
+
+  /* HOLD0 — hold 0 is the ADSR. SCALPEL's law against the ENGINE'S OWN v.env, sample by sample;
+     horde's against ADR-021's expressions (src/swarm_core.h:1213-1229), transcribed here */
+  guard('HOLD0', () => {
+    const p = { A: 0.1, H: 0, D: 0.4, S: 0.5, R: 0.28 };
+    const vsEngine = env => {
+      Math.random = mulberry32(5);
+      const e = new C(SR); e.set({ A: p.A * 1000, D: p.D * 1000, S: p.S, R: p.R * 1000, N: 3 }); snapEngine(e);
+      e.noteOn(57, 220, 1); env.on(true);
+      const one = [new Float32Array(1), new Float32Array(1)];
+      let diff = 0, n = 0;
+      for (let i = 0; i < SR * 2; i++) {
+        if (i === Math.round(SR * 0.6)) { e.noteOff(57); env.off(); }
+        e.render(one[0], one[1]); env.tick(); n++;
+        if (e.voices[0].env !== env.e) diff++;
+        if (!e.voices[0].active && env.st === 0) break;
+      }
+      return { diff, n };
+    };
+    const a = vsEngine(new Env(SR).setup(p, 'scalpel'));
+    chk('HOLD0 (scalpel): AHDSR at hold 0 is the engine\'s own ADSR, bit for bit', a.diff === 0 && a.n > SR * 0.6, a.diff + ' of ' + a.n + ' samples differ from the engine\'s v.env');
+    const slip = new Env(SR).setup(p, 'scalpel'); slip.hN = 1;
+    const ac = vsEngine(slip);
+    chk('CONTROL: a hold stage that costs one sample at hold 0', ac.diff > 0, ac.diff + ' samples differ', true);
+    const ref = (pp, law, planted) => {
+      const e = new Env(SR).setup(pp, law); if (planted) e.hN = 1;
+      const op = t => 1 - Math.exp(-1 / (t * SR)), atk = op(pp.A), dec = op(pp.D), rel = op(pp.R);
+      let env = 0, inA = 1, gate = true, diff = 0, n = 0;
+      e.on(true);
+      for (let i = 0; i < SR * 4; i++) {
+        if (i === Math.round(SR * 0.6)) { gate = false; e.off(); }
+        if (!gate) env += (0 - env) * rel;
+        else if (pp.S >= 1) env += (1 - env) * atk;
+        else if (inA) { env += (1 - env) * atk; if (env >= 0.995) inA = 0; }
+        else env += (pp.S - env) * dec;
+        e.tick(); n++;
+        if (!gate && env < FREE) break;
+        if (e.e !== env) diff++;
+      }
+      return { diff, n };
+    };
+    const b1 = ref(p, 'horde'), b2 = ref(Object.assign({}, p, { S: 1 }), 'horde');
+    chk('HOLD0 (horde): AHDSR at hold 0 is ADR-021\'s ADSR, bit for bit (S 0.5 and the S 1 reference path)', b1.diff === 0 && b2.diff === 0, b1.diff + ' of ' + b1.n + ' and ' + b2.diff + ' of ' + b2.n + ' samples differ from swarm_core.h\'s expressions');
+    const bc = ref(p, 'horde', true);
+    chk('CONTROL: the same one-sample hold slip under horde\'s law', bc.diff > 0, bc.diff + ' samples differ', true);
+  });
+
+  /* OPTOUT — a source with its ENV 1 button off is ungated, and the voice frees at the longest release */
+  guard('OPTOUT', () => {
+    const mk = (btn, dest) => {
+      const s = scnDefaults();
+      s.patch = Object.assign({}, HPATCH); s.law = 'scalpel';
+      s.env[0] = Object.assign(s.env[0], { A: 0.004, H: 0, D: 0.3, S: 0.7, R: 0.25 });
+      s.env[3] = Object.assign(s.env[3], { A: 0.01, H: 0, D: 0.2, S: 1, R: 1.2, dest, amt: 0.5 });
+      s.env[1].dest = 'none'; s.env[2].dest = 'none';
+      s.sub.lvl = 0.5; s.src.sub = btn; s.filter.on = false; s.dur = 4;
+      s.notes = [{ t: 0.05, len: 0.6, note: 57, vel: 1 }];
+      return simulate(s, null);
+    };
+    const probe = sim => {
+      const r = sim.recs[0], off = r.marks.off[0], free = r.marks.free.length ? r.marks.free[0] : NaN;
+      let e1end = off; while (e1end < r.len && r.e1u[e1end] > 0) e1end++;
+      let ungated = e1end > off + 10, minU = 1;
+      for (let x = off; x < e1end; x++) { const g = sim.allOn ? r.e1u[x] : r.ung[x]; if (g < minU) minU = g; if (g !== 1) ungated = false; }
+      return { off, free, e1end, ungated, minU };
+    };
+    // record-relative samples (a record's marks count from its own note-on)
+    const want = Math.round(0.6 * SR) + Math.round(lawTimes('scalpel', { A: 0.01, H: 0, D: 0.2, S: 1, R: 1.2 }, SR, 0.6).free * SR) + FADE * SR;
+    const a = probe(mk(0, 'sub'));
+    chk('OPTOUT: the sub with its ENV 1 button off is ungated through ENV 1\'s whole release', a.ungated, 'its gain stays exactly 1 for the ' + fmtS((a.e1end - a.off) / SR) + ' ENV 1 takes to close (lowest ' + a.minU + ')');
+    chk('OPTOUT: the voice frees at the longest release (ENV 4 on the sub level), then an 8 ms fade', Math.abs(a.free - want) <= 2,
+      'freed ' + fmtS((a.free - a.off) / SR) + ' after the key-off; ENV 4\'s release ends at ' + fmtS((want - FADE * SR - a.off) / SR) + ' + 8 ms (Δ ' + (a.free - want) + ' samples); ENV 1 ended at ' + fmtS((a.e1end - a.off) / SR));
+    const c1 = probe(mk(1, 'sub'));
+    chk('CONTROL: the same sub with its button ON follows ENV 1', !c1.ungated, 'its gain falls to ' + c1.minU.toFixed(4) + ' during ENV 1\'s release', true);
+    const c2 = probe(mk(0, 'none'));
+    chk('CONTROL: freeing on ENV 1 alone (ENV 4 routed nowhere, so it counts for nothing)', !(Math.abs(c2.free - want) <= 2), 'freed ' + fmtS((c2.free - c2.off) / SR) + ' after the key-off, ' + ((want - c2.free) / SR * 1000).toFixed(0) + ' ms before the longest release', true);
+  });
+
+  /* CULL — decision 15: the cull is a voice gain after the sources, never a write into ENV 1 */
+  guard('CULL', () => {
+    const mk = into => {
+      const s = scnDefaults();
+      s.patch = Object.assign({}, HPATCH); s.law = 'scalpel';
+      s.env[0] = Object.assign(s.env[0], { A: 0.004, H: 0, D: 0.3, S: 0.7, R: 3 });
+      s.env[3] = Object.assign(s.env[3], { A: 0.01, H: 0, D: 0.2, S: 1, R: 3, dest: 'sub', amt: 0.5 });
+      s.sub.lvl = 0.5; s.src.sub = 0; s.filter.on = false; s.dur = 2; s.cullInto = into;
+      s.pool.cap = 0; s.pool.capDrop = { t: 1.0, cap: 1 };   // two tails ringing, then a load spike drops the cap to 1
+      s.notes = [{ t: 0.05, len: 0.2, note: 57, vel: 1 }, { t: 0.4, len: 0.2, note: 60, vel: 1 }];
+      const sim = simulate(s, null);
+      const r = sim.recs.find(x => x.marks.cull >= 0);
+      if (!r) return { none: true };
+      const at = r.marks.cull + Math.round(0.02 * SR), g = at < r.len ? r.ung[at] * r.vg[at] : 0;
+      return { g, len: r.len - r.marks.cull };
+    };
+    const a = mk('gain');
+    chk('CULL: an opted-out source is silenced by the cull (a voice gain after the sources)', !a.none && a.g === 0 && a.len <= FADE * SR + 2, a.none ? 'nothing was culled' : 'its gain 20 ms after the cull: ' + a.g + '; the voice ended ' + a.len + ' samples after it (8 ms = ' + FADE * SR + ')');
+    const c = mk('env1');
+    chk('CONTROL: the cull written INTO ENV 1, as the engine does today', c.none || c.g > 0.5, c.none ? 'nothing was culled' : 'the opted-out sub still sounds at ' + c.g.toFixed(3) + ' 20 ms after the cull', true);
+  });
+
+  /* DRAWS — the band's δᵢ are the engine's own seeded stream, with ADR-077's memory */
+  guard('DRAWS', () => {
+    const o = { N: 7, seed: 1234, ms: 20, alpha: 0.25 };
+    Math.random = mulberry32(9);
+    const e = new C(SR); e.set({ N: 7, seed: 1234, onsetScatter: 20, onsetAlpha: 0.25, poly: 6 }); snapEngine(e);
+    const dr = new Draws(C, o), eng = [], lab = [], fresh = [];
+    for (let k = 0; k < 4; k++) {
+      e.noteOn(50 + k, mtof(50 + k), 1);
+      let v = null; for (const x of e.voices) if (x.active && (!v || x.age > v.age)) v = x;
+      eng.push(v.m.slice(0, 7).map(m => m.onsD0 / SR));
+      lab.push(dr.next().d);
+      fresh.push(new Draws(C, o).next().d);   // CONTROL: no memory, a new stream for every note
+    }
+    const same = (A, B) => A.every((r, k) => r.every((x, i) => x === B[k][i]));
+    chk('DRAWS: the lab\'s δᵢ are the engine\'s own, note after note (its noteOn → armMembers)', same(eng, lab), '4 notes × 7 members bit-equal; note 2: ' + lab[1].map(x => (x * 1000).toFixed(1)).join(', ') + ' ms');
+    chk('CONTROL: a stream with no memory (re-made per note) departs from the engine after note 1', !same(eng, fresh), 'note 2 memoryless: ' + fresh[1].map(x => (x * 1000).toFixed(1)).join(', ') + ' ms', true);
+    const series = (alpha, memoryless) => {
+      const d = new Draws(C, { N: 7, seed: 1234, ms: 20, alpha }), S7 = [[], [], [], [], [], [], []];
+      for (let k = 0; k < 300; k++) { const x = memoryless ? new Draws(C, { N: 7, seed: 1000 + k, ms: 20, alpha }).next() : d.next(); for (let i = 0; i < 7; i++) S7[i].push(x.d[i]); }
+      return S7.map(lag1).reduce((a, b) => a + b) / 7;
+    };
+    const l0 = series(0), l25 = series(0.25), l1 = series(1), lm = series(0.25, true);
+    chk('DRAWS: ADR-077\'s lag-1 structure (bounded, WITH memory at α 0.25; falling with α)', l25 > 0.4 && l25 < 0.9 && l0 > l25 && l25 > l1,
+      'lag-1 of δᵢ over 300 notes: α 0 ' + l0.toFixed(3) + ' · α 0.25 ' + l25.toFixed(3) + ' · α 1 ' + l1.toFixed(3) + ' (ADR-077 measured +0.985, +0.679, −0.072)');
+    chk('CONTROL: i.i.d. draws (humanize) at α 0.25 have no memory', !(lm > 0.4), 'lag-1 ' + lm.toFixed(3), true);
+  });
+
+  /* LEGINV — legato inverted retriggers */
+  guard('LEGINV', () => {
+    const mk = inv => {
+      const s = scnDefaults();
+      s.patch = Object.assign({}, HPATCH, { polyMode: 2 }); s.law = 'scalpel'; s.mode = 'legato';
+      s.env[1] = Object.assign(s.env[1], { A: 0.02, H: 0, D: 0.2, S: 0.1, R: 0.3, inv, dest: 'cut' });
+      s.env[2] = Object.assign(s.env[2], { A: 0.02, H: 0, D: 0.2, S: 0.1, R: 0.3, inv: false, dest: 'cut' });
+      s.dur = 2; s.notes = [{ t: 0.05, len: 0.8, note: 57, vel: 1 }, { t: 0.5, len: 0.8, note: 60, vel: 1 }];
+      const r = simulate(s, null).recs[0], on2 = r.marks.on[1];
+      const rise = j => r.ek[j][on2 + Math.round(0.015 * SR)] - r.ek[j][on2 - 1];
+      return { r2: rise(1), r3: rise(2), marks: r.marks.retrig.map(m => 'ENV ' + (m.env + 1)).join(',') };
+    };
+    const a = mk(true);
+    chk('LEGINV: in legato, ENV 2 marked Legato Inverted retriggers at the overlapping note; ENV 3 does not', a.r2 > 0.3 && a.r3 <= 0, 'ENV 2 rises ' + a.r2.toFixed(3) + ' in 15 ms, ENV 3 moves ' + a.r3.toFixed(4) + ' (retriggered: ' + (a.marks || 'none') + ')');
+    const c = mk(false);
+    chk('CONTROL: the same ENV 2 not inverted', !(c.r2 > 0.3), 'ENV 2 moves ' + c.r2.toFixed(4) + ' (retriggered: ' + (c.marks || 'none') + ')', true);
+  });
+
+  /* STEM — the harness plays the engine: SCALPEL's law on a stem against the engine's own envelope */
+  guard('STEM', () => {
+    const patch = { hot: 2, w: 0.3, c: 0.8, k: 2, hard: 0.05, N: 5, detune: 12, K: 0.5, benvA: 1, benvD: 220, benvK: 0.55, benvW: 0.2, benvVel: 0.6 };
+    const p = { A: 0.001, H: 0, D: 0.26, S: 0, R: 0.14 }, n = Math.round(SR * 1.0), off = Math.round(SR * 0.4);
+    const st = runSync(stemGen(C, { patch, ev: [{ at: 0, on: 57, vel: 0.85 }], n, solo: null, seed: 77 }));
+    const nat = runSync(stemGen(C, { patch: Object.assign({}, patch, { A: 1, D: 260, S: 0, R: 140 }), ev: [{ at: 0, on: 57, vel: 0.85 }, { at: off, off: 57 }], n, solo: null, seed: 77, native: true }));
+    const err = law => {
+      const env = new Env(SR).setup(p, law); env.on(true);
+      let e2 = 0, s2 = 0;
+      for (let i = 0; i < n; i++) { if (i === off) env.off(); const y = Math.tanh(st.L[i] * env.tick() * 0.35 * 1.6); e2 += (y - nat.L[i]) ** 2; s2 += nat.L[i] ** 2; }
+      return Math.sqrt(e2 / s2);
+    };
+    const a = err('scalpel'), b = err('horde');
+    chk('STEM: ENV 1 applied to a neutralised stem reproduces the engine\'s own envelope (SCALPEL\'s law)', a < 0.01, 'relative RMS error ' + (a * 100).toFixed(3) + '% (the envelope after the 2× decimator instead of before)');
+    chk('CONTROL: horde\'s law on the same stem is heard as different', b > 0.1, 'relative RMS error ' + (b * 100).toFixed(1) + '%', true);
+  });
+
+  /* SPREAD0 / HEAL — the spread collapses to ENV 1 at zero scatter; the healing spread converges */
+  guard('SPREAD', () => {
+    const mk = (opt, ms) => { const s = scBaseFor('pluck', opt, ms); return simulate(s, C).recs[0]; };
+    const a = mk('spread', 0);
+    let diff = 0; for (const g of a.g) for (let x = 0; x < a.len; x++) if (g[x] !== a.e1u[x]) diff++;
+    chk('SPREAD: at scatter 0 every member\'s read IS ENV 1 (the spread adds nothing when nothing is spread)', diff === 0, diff + ' member-samples differ from the unspread ENV 1');
+    const c = mk('spread', 5);
+    let dc = 0; for (const g of c.g) for (let x = 0; x < c.len; x++) if (g[x] !== c.e1u[x]) dc++;
+    chk('CONTROL: scatter 5 ms', dc > 0, dc + ' member-samples differ', true);
+    const h = mk('heal', 20), u = mk('spread', 20), at = Math.round(0.35 * SR);
+    let wh = 0, wu = 0; for (let i = 0; i < h.g.length; i++) { wh = Math.max(wh, Math.abs(h.g[i][at] - h.e1u[at])); wu = Math.max(wu, Math.abs(u.g[i][at] - u.e1u[at])); }
+    chk('HEAL: the healing spread\'s members are ENV 1 again after the heal (pluck, scatter 20 ms, 0.35 s in)', wh < 2e-3, 'the widest member is ' + wh.toExponential(2) + ' from ENV 1');
+    chk('CONTROL: the unhealed spread at the same moment', !(wu < 2e-3), 'the widest member is ' + wu.toFixed(3) + ' from ENV 1', true);
+  });
+
+  const n = CHECKS.length, ok = CHECKS.filter(r => r.ok).length, ctl = CHECKS.filter(r => r.control).length;
+  AUDIT.check = ok + '/' + n + (ok === n ? ' pass' : ' — FAILING') + ' (' + ctl + ' must-fail controls)';
+  AUDIT.bad = ok !== n;
+  renderAudit();
+  document.body.setAttribute('data-selfcheck', ok + '/' + n + ' ' + ctl + 'c');
+  const sm = $('chkSum'); if (sm) sm.innerHTML = '<b class="' + (ok === n ? 'ok' : 'bad') + '">' + ok + '/' + n + '</b> rows pass, ' + ctl + ' of them must-fail controls (each control is a planted wrong version the row above it must refuse).';
+  const tb = $('chkTable');
+  if (tb) {
+    tb.textContent = '';
+    for (const r of CHECKS) {
+      const tr = el('tr');
+      tr.appendChild(el('td', r.ok ? 'ok' : 'bad', r.ok ? 'PASS' : 'FAIL'));
+      tr.appendChild(el('td', r.control ? 'ctl' : '', r.name));
+      tr.appendChild(el('td', 'note', r.detail));
+      tb.appendChild(tr);
+    }
+  }
+  changed('hold');
+}
+/* §3's base scenario for a named note and scatter (the self-check's, independent of the page state) */
+function scBaseFor(note, optName, ms) {
+  const s = scnDefaults(), nt = SC_NOTES[note];
+  s.patch = Object.assign({}, SC_PATCH); s.law = 'scalpel';
+  s.env[0] = Object.assign(s.env[0], nt.env);
+  for (let j = 1; j < 4; j++) s.env[j].dest = 'none';
+  s.scatter = Object.assign({}, s.scatter, { opt: optName, ms, alpha: 0.25, seed: 1234 });
+  s.notes = [{ t: 0.02, len: nt.len, note: 57, vel: 1 }];
+  s.dur = 1.2;
+  return s;
+}
+
+/* ======================================================================
+   THE PAINT, THE HEADER, THE BOOT
+   ====================================================================== */
+function paint() {
+  const all = DIRTY.has('all');
+  SIMC.clear();
+  for (const f of PILLSYNC) f();
+  for (const f of SHOWS) f();
+  try {
+    if (all) { paintFlow(); paintLife(); paintLaws(); paintD4(); paintD10(); paintD12(); paintD13(); }
+    if (all || DIRTY.has('sc')) paintSc();
+    if (all || DIRTY.has('leg')) paintLeg();
+    paintHold();
+  } catch (e) { setAudit('paint failed: ' + String(e && e.stack || e).slice(0, 400), true); }
+  DIRTY.clear();
+}
+function applyTheme() {
+  document.body.classList.toggle('dark', S.dark);
+  const b = $('themeBtn'); if (b) b.innerHTML = 'theme <b>' + (S.dark ? 'DARK · TUBE' : 'LIGHT · ORCHID') + '</b>';
+}
+function applyOnly() {
+  const only = qp('only', '');
+  if (!only) return;
+  for (const id of ['s1', 's2', 's3', 's4', 's5', 's6']) { const c = $(id); if (c && id !== only) c.classList.add('hidden'); }
+}
+function build() {
+  pills($('lawPills'), [['scalpel', 'A · SCALPEL (today)'], ['horde', 'B · horde (ACCOUNTING 17–20)']], () => S.law, v => { S.law = v; });
+  pills($('velPills'), [[0.5, '0.5'], [0.85, '0.85'], [1, '1']], () => S.vel, v => { S.vel = v; });
+  pills($('axisPills'), [['fit', 'each row fits'], ['common', 'one axis for all']], () => S.axis, v => { S.axis = v; });
+  pills($('relPills'), [['law', 'the law\'s own', true], ['tau', 'τ'], ['silence', 'time to silence']], () => S.relDisp, v => { S.relDisp = v; });
+  const tb = $('themeBtn'); if (tb) tb.addEventListener('click', () => { S.dark = !S.dark; applyTheme(); changed('all'); });
+  const sb = $('stopBtn'); if (sb) sb.addEventListener('click', stopAudio);
+  const br = $('blindReveal'); if (br) br.addEventListener('click', () => { const n = $('blindNote'); if (n) n.textContent = S.blind ? 'blind #' + S.blindN + ' (' + S.blind.name + ') was ' + (S.blind.law === 'scalpel' ? 'A · SCALPEL' : 'B · horde') : 'nothing played blind yet'; });
+  const p1 = $('play1'); if (p1) p1.addEventListener('click', () => playScn(() => hierScn(true), p1, 'the hierarchy (two notes)'));
+  const p4 = $('play4'); if (p4) p4.addEventListener('click', () => playScn(() => legScn(true), p4, 'the ' + S.mode + ' phrase'));
+  buildSrc(); buildEnvBoxes(); hierNote();
+  buildPresetTable(); buildSc(); buildLeg(); buildDec();
+  applyTheme(); applyOnly();
+}
+async function loadEngine() {
+  if (!RAZOR) { ENGINE.err = 'reference/scalpel/prototype/razor-core.js did not load'; return; }
+  if (!MAKE || !SLICE) { ENGINE.err = 'docs/design/scalpel-horde-engine.js did not load'; return; }
+  if (typeof fetch !== 'function') { ENGINE.err = 'no fetch here, so reference/swarmsaw.html cannot be read'; return; }
+  try {
+    const r = await fetch('../../reference/swarmsaw.html');
+    if (!r.ok) throw new Error('reference/swarmsaw.html: HTTP ' + r.status);
+    CORE = MAKE(RAZOR, SLICE(await r.text()));
+  } catch (e) {
+    ENGINE.err = 'the composed engine did not build: ' + String(e && e.message || e) + ' (serve the repo: python3 tools/serve_labs.py)';
+  }
+}
+function measureD13() {
+  const st = runSync(stemGen(CORE, { patch: SC_PATCH, ev: [{ at: 0, on: 57, vel: 1 }], n: Math.round(0.6 * SR), solo: null, seed: 13 }));
+  const a = Math.round(0.1 * SR);
+  D13 = { out: (Sx, g) => { let s = 0; for (let i = a; i < st.L.length; i++) { const y = Math.tanh(st.L[i] * Sx * g * 1.6); s += y * y; } return Math.sqrt(s / (st.L.length - a)); } };
+}
+/* ?smoke=1 — render (never play) every ▶ on the page once and write what came out into the page
+   (data-smoke on <body>): a headless run cannot hear, so this is how a play button is shown to make
+   finite, non-silent audio. Off by default: it takes a minute of engine time. */
+async function smoke() {
+  const jobs = [];
+  for (const pr of ENV_PRESETS) { jobs.push(['§2 ' + pr.name + ' · A', () => presetScn(pr, 'scalpel')]); jobs.push(['§2 ' + pr.name + ' · B', () => presetScn(pr, 'horde')]); }
+  jobs.push(['§1 hierarchy', () => hierScn(true)], ['§4 phrase', () => legScn(true)]);
+  for (let o = 0; o <= 4; o++) jobs.push(['§3 option ' + o, () => scBase(o)]);
+  for (const [c] of CLASHES) for (let o = 1; o <= 4; o++) jobs.push(['§3 ' + c + ' · option ' + o, () => scClash(o, c)]);
+  const out = [];
+  let bad = 0;
+  for (const [name, f] of jobs) {
+    try {
+      const r = await renderAsync(f());
+      let pk = 0, e = 0, fin = true;
+      for (let i = 0; i < r.L.length; i++) { const v = r.L[i]; if (!isFinite(v)) fin = false; else { pk = Math.max(pk, Math.abs(v)); e += v * v; } }
+      const ok = fin && pk > 1e-3 && pk <= 1;
+      if (!ok) bad++;
+      out.push((ok ? 'OK  ' : 'BAD ') + name + ' · ' + r.kind + ' · ' + (r.L.length / SR).toFixed(2) + ' s · peak ' + pk.toFixed(3) + ' · rms ' + Math.sqrt(e / r.L.length).toFixed(4));
+    } catch (err) { bad++; out.push('BAD ' + name + ' threw ' + String(err && err.message || err)); }
+  }
+  document.body.setAttribute('data-smoke', (jobs.length - bad) + '/' + jobs.length);
+  const pre = el('pre', 'note', out.join('\n')); pre.id = 'smoke';
+  document.body.appendChild(pre);
+}
+async function boot() {
+  build();
+  renderAudit();
+  changed('all');
+  await loadEngine();
+  AUDIT.engine = CORE ? 'the composed engine (scalpel-horde-engine.js over razor-core.js and swarmsaw.html\'s SwarmSynth), ' + SR / 1000 + ' kHz' : ENGINE.err;
+  AUDIT.bad = !CORE;
+  renderAudit();
+  if (!CORE) return;
+  setTimeout(() => {
+    try { measureD13(); } catch (e) { setAudit('D13 failed: ' + e.message, true); }
+    changed('all');
+    setTimeout(() => { runChecks(); if (qp('smoke', '') === '1') smoke(); }, 30);
+  }, 30);
+}
+boot();
+</script>
+</body></html>
