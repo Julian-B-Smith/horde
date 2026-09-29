@@ -6690,3 +6690,18 @@ access to their constituent XY pads, which can be modulated or mapped to global 
 - Sluice's netcore holds one patch per instance. Horde holds a second instance only during a
   flip or a spill-over tail.
 - The seq 11 and 12 questions to Sluice are corrected by a notice (seq 13).
+
+**ADR-188 A1 — RULED by the human (2026-09-29): macro RANGES are per snapshot corner; macro MAPPINGS are per patch.**
+The human: "I think each sluice snapshot corner should be able to control the max and min
+values of its contribution to each macro, but not determine new mappings, and then the
+relative position is interpolated across the slider range."
+- **Per patch.** A macro's MAPPING (which parameters it binds, and the binding order and curve)
+  belongs to the patch.
+- **Per snapshot.** Each snapshot corner stores its own [min, max] for each of the macro's
+  bindings. The lead's reading is per binding; a single-target macro reduces to per macro.
+  This is flagged for the human to confirm.
+- **At play time.** The effective min and max are the XY-weighted interpolation of the
+  corners' values, and the macro's slider position (0..1) maps through the patch's curve
+  inside that interpolated range: `lo(xy) + curve(v)·(hi(xy) − lo(xy))`.
+- **Drafts.** Moving a macro still makes no draft (item 5). Editing a corner's min/max is an
+  edit to that snapshot.
