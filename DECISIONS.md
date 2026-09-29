@@ -6654,3 +6654,39 @@ B252 H3 already made the C++ the golden for SCALPEL. This ADR says how, without 
 - **JS-limit.** Where the browser cannot follow (SIMD, oversampling or filter structure beyond JS cost, precision, or real-time budget), the divergence's ledger entry carries a **`js_limit`** marker saying what the lab cannot reproduce and how it approximates. A `js_limit` entry NEVER blocks or slows a C++ optimisation; it removes its declared scope from lab parity, and the lab shows the approximation as such (L0064).
 - **Amendments that land with this ratification:** the charter's §Domain invariant (CLAUDE.md), ADR-003 (above), and `specs/ACCEPTANCE.md` L0-1 (a protected path, covered by this ruling). All are scoped to horde 2; legacy is unchanged.
 
+
+## ADR-188 — RULED by the human: a module's own XY holds ONE patch; different patches of a module live at HORDE's morph corners (2026-09-29)
+
+**Context.** B347 recorded the human's "corners get their own patches, but the Sluice patch
+requires a quantum flip unless patch parity is detected" as applying to Sluice's OWN XY, and
+B348's lab built it that way. The human, 2026-09-29, correcting the communication: "I don't
+think the Sluice XY should allow for different patches on the same XY. I do, however, believe
+the global Horde morph XY should allow for different sluice patches at each corner (with full
+access to their constituent XY pads, which can be modulated or mapped to global Horde macros)."
+
+**Decision.**
+1. **The module's XY.** A hosted module's own XY (Sluice's 4 corners) morphs the snapshots
+   of ONE patch. Sluice's one-patch rule stands inside the module.
+2. **Horde's morph corners.** Horde's global morph XY (the quantum-morph field) may hold a
+   DIFFERENT module patch at each of its corners. The module patch's structure is a
+   STRUCTURAL morph class: where the corners' patches share parity (same module types in the
+   same order), their evaluated parameters blend. Where they do not, the live patch
+   quantum-flips with a hysteresis boundary, band ≈0.1 (human: "Buffer zone approved").
+3. **Across a flip.** The fixed four (Dry/Wet, Width, Time, Tune) stay continuous, and the
+   patch's own dry/wet balance GLIDES rather than stepping (human: "Dry/wet glide is a good
+   idea").
+4. **The module's XY as parameters.** Each corner's module XY position is exposed to horde:
+   modulatable, and mappable to horde's global macros.
+5. **Macros.** They act on the ENTIRE patch, not on a corner or snapshot (human: "macros
+   should be for entire patches, not corners"), so moving a macro does not make a snapshot
+   a draft.
+6. **Tails.** A USER SETTING (B347). Spill-over applies to a horde-morph flip, to a bypass, and
+   (as an option) to LOADING a patch (human: "loading a patch should at least [have] the
+   option of letting the old tail ring. It's a nice touch").
+
+**Consequences.**
+- B348's per-corner-patches-on-Sluice's-XY model is superseded; the lab moves it one level up
+  (B353).
+- Sluice's netcore holds one patch per instance. Horde holds a second instance only during a
+  flip or a spill-over tail.
+- The seq 11 and 12 questions to Sluice are corrected by a notice (seq 13).
