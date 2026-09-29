@@ -241,6 +241,19 @@
      HUE ↘ and DROP + INSET + HUE ↘ (E2's style block: 150° of OKLCH hue on a 35° diagonal at one
      lightness). Checks in K (checkB334, extended).
 
+     B365 CORRECTION, 2026-09-29 (same day, lead-records-147). The human, after seeing B365 built:
+     "I still want the specimen to shift around when notes aren't playing, I just don't want the
+     note-dependent ripples to trigger unless there's a note pressed." B365 as merged had `act` gate
+     EVERY time-driven term (metaball drift, the turntable AND the ripple/quiver), which was wrong:
+     it froze the whole pearl at rest instead of just the note-driven parts. Fixed by splitting what
+     `act` scales: the strike/held ripple (`rAmp`) and the quiver (`shy`) stay act-gated exactly as
+     B365 built them; the metaball drift (`S.time`), the turntable (`S.yawT`) and the coherence
+     smoothing (`S.kSm`) go back to running on real `dt`, unconditionally — gui2's original, pre-B365
+     idle law. `specimenEnergy` (the check's motion-energy metric) no longer sums `U.act` (that term
+     measured the idle orbit, which must NOT go to 0 any more); a new `S.freezeIdle` control flag lets
+     checkB365 exercise the exact merged-B365 bug (idle frozen at rest) without duplicating
+     specimenStep. Checks in K (checkB365, extended: an idle-motion row plus its must-fail control).
+
      L0026: every const is declared above the code that runs at setup; the boot
      call is the last statement of the script. -->
 <html><head><meta charset="utf-8">
@@ -3763,11 +3776,13 @@ function logoFrame(force) {
    ====================================================================== */
 const SPECIMEN_ZOOM = 1.25;
 /* the pearl's PHYSICS state, one fresh copy per call: the live Specimen's, and checkB365's scratch ones.
-   B365: `act` is how much the pearl is still moving (1 while sound plays, settling to exactly 0 in the
-   silence after it); `legacy` true is the pre-B365 law (no settle), kept only as the check's control. */
+   B365: `act` is how much the RIPPLE/QUIVER are still driven by a note (1 while sound plays, settling
+   to exactly 0 in the silence after it); `legacy` true is the pre-B365 law (nothing ever settles),
+   kept only as the check's control. B365 correction: `freezeIdle` true reproduces the MERGED-B365 bug
+   (idle motion frozen at rest too), kept only as the check's must-fail control — never true live. */
 function specimenState() {
   return { yaw: 0.55, pit: 0.18, yawT: 0.55, pitT: 0.18, dent: { x: 0, v: 0 }, poke: [0, 0, 1], time: 3.7,
-    gates: {}, shySm: 0, kSm: undefined, frontIx: 0, rng: mulberry32(0xC0FFEE), act: 1, legacy: false,
+    gates: {}, shySm: 0, kSm: undefined, frontIx: 0, rng: mulberry32(0xC0FFEE), act: 1, legacy: false, freezeIdle: false,
     fronts: [0, 1, 2, 3].map(() => ({ age: 100, az: 0, el: 0, wave: 9, hold: -1, heldAmt: 0 })) };
 }
 const SPECIMEN = Object.assign({ on: qp('specimen', '1') !== '0', cv: null, gl: null, u: {}, fail: '', ms: 0, draws: 0,
@@ -3978,11 +3993,11 @@ function specimenFit(yaw, pit, time, dent, aspect) {
   const k = Math.min(1, (1 - SPEC_MARGIN) / hy, (aspect - SPEC_MARGIN) / hx);
   return { shift: [k * (x0 + x1) / 2, k * (y0 + y1) / 2], zoom: SPECIMEN_ZOOM * k, k };
 }
-/* B365 — THE PEARL SETTLES WHEN THE SOUND ENDS. Human, 2026-09-29: "the specimen always keeps a
-   ripple going after all notes have ended." MEASURED FIRST (trace b365; headless Chrome, audio on, A3
-   held 1 s and released): 4 s after the key-off the monitor still held note 57 gated, the front bound
-   to it read held 1.00 (the shader's travelling "held" ripple at full amplitude) and the quiver read
-   0.35-0.45. TWO CAUSES, both fixed here:
+/* B365 — THE PEARL SETTLES WHEN THE SOUND ENDS, BUT ONLY THE NOTE-DRIVEN PART OF IT. Human,
+   2026-09-29: "the specimen always keeps a ripple going after all notes have ended." MEASURED FIRST
+   (trace b365; headless Chrome, audio on, A3 held 1 s and released): 4 s after the key-off the
+   monitor still held note 57 gated, the front bound to it read held 1.00 (the shader's travelling
+   "held" ripple at full amplitude) and the quiver read 0.35-0.45. TWO CAUSES, both fixed here:
    (1) A STALE FEED (L0064: a view is driven by what was rendered). The pearl read the MONITOR
        (MON.core, MON.L), the lab's second engine instance, which HOLDS its note by design (the cycle
        view and the ring draw it) and never hears a key-off. Its gate stayed up, so the held ripple
@@ -3991,13 +4006,21 @@ function specimenFit(yaw, pit, time, dent, aspect) {
        rendered and its engine's voices (feedOf), and specimenSource() hands that feed over. With the
        audio off nothing is heard, and the pearl follows the monitor's held note as every view does:
        unchanged.
-   (2) A TIME-DRIVEN ANIMATION. gui2's metaballs orbit on uTime and the studio turntable turns on dt,
-       whatever sounds, so even the right feed never came to rest. Now `act` scales both: it is 1
-       while sound plays (a voice alive, or a window's peak at or over SPEC_QUIET, −90 dBFS); in the
-       silence after it, act decays with τ SPEC_SETTLE and snaps to exactly 0 under 1e-3 (1.04 s).
-       The strike and held ripples and the quiver fade with it (their amplitudes are scaled by act;
-       the fronts still age on real time), and at rest the frame is not redrawn at all (gui2's idle
-       "plate") unless the view is still easing to the XY's orbit.
+   (2) A TIME-DRIVEN ANIMATION, gui2's metaballs orbiting on uTime and the studio turntable turning on
+       dt — B365 AS FIRST MERGED gated this on `act` too, which the human then corrected (same day):
+       "I still want the specimen to shift around when notes aren't playing, I just don't want the
+       note-dependent ripples to trigger unless there's a note pressed." So `act` gates ONLY the
+       note-driven terms — the strike/held ripple (rAmp) and the quiver (shy) below — never the drift
+       or the turntable, which run on real `dt` unconditionally, exactly as they did before B365 (the
+       IDLE motion). `act` is 1 while sound plays (a voice alive, or a window's peak at or over
+       SPEC_QUIET, −90 dBFS); in the silence after it, act decays with τ SPEC_SETTLE and snaps to
+       exactly 0 under 1e-3 (1.04 s), and the ripple/quiver amplitudes (scaled by act) follow it to
+       exactly 0 — the fronts still age on real time. Because the idle motion never stops, the frame
+       IS redrawn at rest now (gui2's old idle law, restored: see specimenFrame, which dropped the
+       "nothing changed" skip B365 added).
+   S.freezeIdle (default false, never set on the live SPECIMEN) reproduces the MERGED-B365 bug for
+   the check only: with it, the drift/turntable use act-scaled time too, so they freeze exactly as
+   B365-as-merged did, without a second copy of this function.
    WHILE SOUND PLAYS NOTHING CHANGES: act is exactly 1, every scaled term is x·1 = x, and the step is
    the pre-B365 arithmetic bit for bit (checkB365 compares the two laws on one feed). */
 const SPEC_QUIET = Math.pow(10, -90 / 20), SPEC_SETTLE = 0.15, SPEC_WIN = 16;
@@ -4037,20 +4060,23 @@ function specimenStep(S, dt, src, R) {
   for (const m in gatedNow) if (!S.gates[m]) specimenNotePoke(+m, S);   // a fresh attack strikes
   for (const m in S.gates) if (!gatedNow[m]) for (const f of S.fronts) if (f.hold === +m) f.hold = -1;
   S.gates = gatedNow;
-  /* B365: the settle (the block above). legacy is the pre-B365 law: always moving */
+  /* B365: the settle (the block above). legacy is the pre-B365 law: nothing ever settles */
   if (S.legacy || specSounding(src)) S.act = 1;
   else { S.act *= Math.exp(-dt / SPEC_SETTLE); if (S.act < 1e-3) S.act = 0; }
-  const act = S.act, dtA = dt * act;                                   // dtA: the time the SOUND drives
+  /* B365 correction: dtI drives the IDLE motion (drift, turntable, tautness) — real dt, unconditionally,
+     restoring gui2's pre-B365 law. freezeIdle (the check's control only) reproduces the merged-B365 bug
+     by gating dtI on act too, the same way act now gates ONLY rAmp/shy below. */
+  const act = S.act, dtI = S.freezeIdle ? dt * act : dt;
   const w = 9, z = 0.82, d = S.dent;                                  // the damped spring (w 9, ζ 0.82)
   d.v += (-w * w * d.x - 2 * z * w * d.v) * dt; d.x += d.v * dt;
   if (Math.abs(d.x) < 0.0005 && Math.abs(d.v) < 0.002) { d.x = 0; d.v = 0; }
-  S.yawT += dtA * 0.03;                                               // slow studio turntable
+  S.yawT += dtI * 0.03;                                               // slow studio turntable
   const ease = Math.min(1, dt * 7);
   S.yaw += (S.yawT - S.yaw) * ease; S.pit += (S.pitT - S.pit) * ease;
-  S.time += dtA;
+  S.time += dtI;
   const kT = Math.max(0.12, 0.45 - 0.3 * R);                          // coherence pulls taut, eased
   if (S.kSm === undefined) S.kSm = kT;
-  S.kSm += (kT - S.kSm) * (kT < S.kSm ? 1 - Math.exp(-dtA / 0.28) : 1 - Math.exp(-dtA / 0.5));
+  S.kSm += (kT - S.kSm) * (kT < S.kSm ? 1 - Math.exp(-dtI / 0.28) : 1 - Math.exp(-dtI / 0.5));
   const pokes = new Float32Array(12), ages = new Float32Array(4), waves = new Float32Array(4), helds = new Float32Array(4);
   for (let i = 0; i < 4; i++) {
     const f = S.fronts[i];
@@ -4068,12 +4094,16 @@ function specimenStep(S, dt, src, R) {
     rAmp: Math.min(1, 0.25 + envMax * 0.5 + clamp((EFF.detune || 0) / 100, 0, 1) * 0.35) * act,   // a wide swarm strikes harder water
     shy: S.shySm * act };
 }
-/* B365: the pearl's MOTION ENERGY, from the uniforms one step hands the shader: the rate its time runs
-   (act: the metaballs' orbit and the turntable), the strike and held ripples at their amplitude (each
-   front's strike envelope as the shader forms it, exp(−1.9·age)·smoothstep(0, .12, age) while age < 3.5,
-   and its held amount over the shader's .001 gate), the quiver, and the ringing dent. Exactly 0 at rest. */
+/* B365, corrected: the pearl's NOTE-DRIVEN energy only — the strike and held ripples at their
+   amplitude (each front's strike envelope as the shader forms it, exp(−1.9·age)·smoothstep(0, .12,
+   age) while age < 3.5, and its held amount over the shader's .001 gate), the quiver, and the ringing
+   dent (a note's poke; damped on real dt already, so it settles on its own). Exactly 0 once every
+   note-driven term has settled — NOT a measure of the idle motion (drift/turntable), which never
+   settles and must not read into this: U.act itself is deliberately excluded (it used to be summed
+   here, which is why the merged-B365 bug read as "still moving" — it was reading the settle timer,
+   not the picture). */
 function specimenEnergy(U) {
-  let e = U.act + U.shy + Math.abs(U.dent);
+  let e = U.shy + Math.abs(U.dent);
   for (let i = 0; i < 4; i++) {
     const a = U.ages[i], s = Math.min(1, a / 0.12), strike = a < 3.5 ? Math.exp(-a * 1.9) * s * s * (3 - 2 * s) : 0;
     e += U.rAmp * (strike + (U.helds[i] > 0.001 ? U.helds[i] : 0));
@@ -4099,12 +4129,12 @@ function specimenFrame(force) {
   const pw = Math.max(2, Math.round(cv.clientWidth * scale)), ph = Math.max(2, Math.round(cv.clientHeight * scale));
   const tok = TOK('--scr-tube', '#f2ede2'), resized = pw !== S.w || ph !== S.h, themed = tok !== S.bgTok;
   if (!force && !resized && !themed && dt <= 0) return false;
-  /* B365: at rest, with nothing sounding, no dent ringing and the view not still easing to the XY's
-     orbit, the image would not change: nothing is drawn (gui2's idle plate). The clock is taken, so
-     the first frame after it sees a real dt */
+  /* B365 correction: "at rest, nothing is drawn" no longer holds — the drift and the turntable keep
+     moving whether or not a note sounds (the idle motion), so the image never stops changing on its
+     own. B365-as-merged's skip here (S.act === 0 && ...) is gone: it was skipping frames the corrected
+     idle law now needs to draw. gui2's own throttle (the shed below) is what bounds the idle cost, same
+     as it always did pre-B365. */
   const src = specimenSource();
-  if (!force && !resized && !themed && S.act === 0 && !specSounding(src) && S.dent.x === 0 &&
-    Math.abs(S.yawT - S.yaw) < 1e-6 && Math.abs(S.pitT - S.pit) < 1e-6) { S.clk = clk; return false; }
   if (!force && !resized && !themed && (++S.n % (LOAD.shed ? SHED_SPECIMEN : 3))) return false;   // gui2's ~20 Hz; ~5 Hz shedding (J2)
   const t0 = typeof performance === 'object' ? performance.now() : 0;
   S.clk = clk;
@@ -7124,28 +7154,33 @@ function checkB323() {
   rebuild();
   return out;
 }
-/* B365 — THE PEARL SETTLES WHEN THE SOUND ENDS (E3's B365 block). A scratch composed engine plays A3
-   for HOLD s and releases it; each SPEC_WIN window of its render becomes a feed exactly as the worklet
-   shell posts it (feedOf over blockPeak), and steps a scratch Specimen state through specimenStep, the
-   live frame's own step, without GL (so it runs where WebGL does not). The motion energy
-   (specimenEnergy) is read after every step. PASS: while the voice sounds the pearl moves (energy over
-   0.25); once every voice is freed and the output has stayed under −90 dBFS, the energy after 1 s is
-   under 1% of its sounding peak, and it is exactly 0 from 1.1 s to the end. SAME WHILE SOUNDING: the
-   pre-B365 law (legacy) on the same feed hands the shader the same uniforms, bit for bit, in every
-   step in which sound plays. CONTROLS (each must keep moving to the end): the pre-B365 code as it ran,
-   fed by a MONITOR (a second instance that holds the note and never hears the key-off: the stale
-   feed), and the pre-B365 law on the right feed (the time-driven orbit alone). */
+/* B365 — THE PEARL SETTLES WHEN THE SOUND ENDS, BUT ONLY THE NOTE-DRIVEN PART OF IT (E3's B365
+   block, corrected same day per the human — see the changelog and specimenStep). A scratch composed
+   engine plays A3 for HOLD s and releases it; each SPEC_WIN window of its render becomes a feed
+   exactly as the worklet shell posts it (feedOf over blockPeak), and steps a scratch Specimen state
+   through specimenStep, the live frame's own step, without GL (so it runs where WebGL does not).
+   TWO INDEPENDENT things are read after every step: the RIPPLE/QUIVER energy (specimenEnergy, which
+   no longer counts the idle terms) and the IDLE motion (S.time, the metaball drift; S.yaw, the eased
+   turntable — must never stop). PASS: while the voice sounds the pearl moves (ripple/quiver energy
+   over 0.25); once every voice is freed and the output has stayed under −90 dBFS, that energy after
+   1 s is under 1% of its sounding peak and exactly 0 from 1.1 s to the end — but the idle motion
+   (time + turntable) keeps changing frame to frame through the full 2 s of silence measured. SAME
+   WHILE SOUNDING: the pre-B365 law (legacy) on the same feed hands the shader the same uniforms, bit
+   for bit, in every step in which sound plays. CONTROLS: the pre-B365 code fed by a MONITOR (a second
+   instance that holds the note and never hears the key-off: the stale feed) keeps rippling forever;
+   the MERGED-B365 law (freezeIdle: act gates the idle terms too, the bug the human's correction fixed)
+   freezes the idle motion in the same silence window the fix keeps moving through. */
 function checkB365() {
   const out = [];
   try {
     const WIN = SPEC_WIN * 128, dt = WIN / SR, HOLD = 0.3, END = 3.5;
     const mk = () => { const c = new CORE(SR); c.set(Object.assign({}, DEF)); Object.assign(c.s, c.t); return c; };
     const uni = U => [U.act, U.time, U.k, U.dent, U.orbit[0], U.orbit[1], U.thick, U.rAmp, U.shy].concat(Array.from(U.pokes), Array.from(U.ages), Array.from(U.waves), Array.from(U.helds)).join(',');
-    const run = (legacy, fromMonitor) => {
+    const run = (legacy, fromMonitor, freezeIdle) => {
       seedOracle(0xB365); const c = mk();
       seedOracle(0xB365); const mon = fromMonitor ? mk() : null;
       c.noteOn(57, mtof(57), 0.85); if (mon) mon.noteOn(57, mtof(57), 0.85);
-      const S = specimenState(); S.legacy = legacy;
+      const S = specimenState(); S.legacy = legacy; S.freezeIdle = !!freezeIdle;
       const L = new Float32Array(WIN), Rr = new Float32Array(WIN), rows = [];
       let off = false;
       for (let k = 0; k * dt < END; k++) {
@@ -7155,30 +7190,38 @@ function checkB365() {
         let src = feed;
         if (mon) { mon.render(L, Rr); src = feedOf(mon, blockPeak([L, Rr], 0)); }
         const U = specimenStep(S, dt, src, 0.5);
-        rows.push({ t: (k + 1) * dt, E: specimenEnergy(U), snd: specSounding(feed), peak: feed.peak, act: feed.act, u: uni(U) });
+        rows.push({ t: (k + 1) * dt, E: specimenEnergy(U), snd: specSounding(feed), peak: feed.peak, act: feed.act, u: uni(U), time: U.time, yaw: U.orbit[0] });
       }
       return rows;
     };
-    const fix = run(false, false), was = run(true, false), mon = run(true, true);
+    const fix = run(false, false, false), was = run(true, false, false), mon = run(true, true, false), frozen = run(false, false, true);
     let q = fix.length;                                              // the first window of the silence that lasts to the end
     while (q > 0 && !fix[q - 1].snd) q--;
-    const tQ = q > 0 ? fix[q - 1].t : 0, last = fix[fix.length - 1];
+    const tQ = q > 0 ? fix[q - 1].t : 0;
     const ePlay = Math.max(...fix.filter(r => r.snd).map(r => r.E));
     const at1 = fix.find(r => r.t >= tQ + 1.0), rest = fix.filter(r => r.t >= tQ + 1.1);
     const restAt = (fix.find((r, i) => i >= q && fix.slice(i).every(x => x.E === 0)) || { t: NaN }).t;
     const sndRows = fix.filter(r => r.snd), same = sndRows.filter((r, i) => r.u === was[fix.indexOf(r)].u).length;
     const freeAt = (fix.find(r => r.act === 0) || { t: NaN }).t;
     const ok = q < fix.length - 30 && ePlay > 0.25 && at1 && at1.E <= 0.01 * ePlay && rest.length > 5 && rest.every(r => r.E === 0);
-    out.push({ name: 'B365: the Specimen settles to rest once the sound has ended (the audio\'s rendered feed, settled in ~1 s)', ok,
-      detail: 'A3 held ' + HOLD + ' s: every voice freed at ' + freeAt.toFixed(2) + ' s, the output under −90 dBFS from ' + tQ.toFixed(2) + ' s to the end (' + END + ' s) · motion energy while sounding up to ' + ePlay.toFixed(3) +
+    out.push({ name: 'B365: the ripple and quiver settle to rest once the sound has ended (the audio\'s rendered feed, settled in ~1 s)', ok,
+      detail: 'A3 held ' + HOLD + ' s: every voice freed at ' + freeAt.toFixed(2) + ' s, the output under −90 dBFS from ' + tQ.toFixed(2) + ' s to the end (' + END + ' s) · ripple/quiver energy while sounding up to ' + ePlay.toFixed(3) +
         ', 1 s into the silence ' + (at1 ? at1.E.toExponential(2) : 'n/a') + ' (≤ 1% of it), exactly 0 from ' + restAt.toFixed(2) + ' s (' + (restAt - tQ).toFixed(2) + ' s into the silence) · ' + rest.length + ' windows after +1.1 s all at 0' });
     out.push({ name: 'B365: while sound plays the pearl is the pre-B365 pearl, bit for bit', ok: sndRows.length > 5 && same === sndRows.length,
       detail: same + ' of ' + sndRows.length + ' sounding windows hand the shader identical uniforms under the settle law and the pre-B365 law, on one feed' });
-    const mE = mon[mon.length - 1].E, wE = was[was.length - 1].E;
+    const mE = mon[mon.length - 1].E;
     out.push({ name: 'CONTROL: the pre-B365 Specimen, fed by the monitor (holds the note), is still rippling at the end', ok: mE > 0.1, control: true,
-      detail: 'motion energy ' + mE.toFixed(3) + ' at ' + END + ' s, ' + (END - tQ).toFixed(2) + ' s after the audio fell silent (must stay over 0.1) · held ripple ' + mon[mon.length - 1].u.split(',').slice(-4).map(Number).map(x => x.toFixed(2)).join('/') });
-    out.push({ name: 'CONTROL: the pre-B365 law on the audio\'s feed still moves (the time-driven orbit)', ok: wE >= 1, control: true,
-      detail: 'motion energy ' + wE.toFixed(3) + ' at ' + END + ' s (must stay at or over 1: its time runs whatever sounds)' });
+      detail: 'ripple/quiver energy ' + mE.toFixed(3) + ' at ' + END + ' s, ' + (END - tQ).toFixed(2) + ' s after the audio fell silent (must stay over 0.1) · held ripple ' + mon[mon.length - 1].u.split(',').slice(-4).map(Number).map(x => x.toFixed(2)).join('/') });
+    /* B365 correction — the IDLE motion (drift, turntable), summed frame-to-frame |Δtime| + |Δyaw|
+       over 2 s of silence [tQ, tQ + 2.0]: the fixed law must keep accumulating it (real dt, always);
+       the merged-B365 law (freezeIdle) must NOT — act reaches exactly 0 by ~1.04 s into the silence
+       and from then on dtI = dt·act = 0, so time and yaw stop advancing at all. */
+    const idleDelta = rows => { const win = rows.filter(r => r.t >= tQ && r.t <= tQ + 2.0); let d = 0; for (let i = 1; i < win.length; i++) d += Math.abs(win[i].time - win[i - 1].time) + Math.abs(win[i].yaw - win[i - 1].yaw); return d; };
+    const idFix = idleDelta(fix), idFrozen = idleDelta(frozen);
+    out.push({ name: 'B365 correction: the idle motion (metaball drift, turntable) keeps moving through 2 s of silence', ok: idFix > 1.0,
+      detail: 'summed |Δtime| + |Δyaw| over [' + tQ.toFixed(2) + ', ' + (tQ + 2.0).toFixed(2) + '] s of silence: ' + idFix.toFixed(3) + ' (must exceed 1.0 — dt keeps accumulating whether or not a note sounds)' });
+    out.push({ name: 'CONTROL: the merged-B365 law (act gates the idle terms too) freezes the idle motion in the same silence', ok: idFrozen < 0.3, control: true,
+      detail: 'the same measure under S.freezeIdle: ' + idFrozen.toFixed(3) + ' (must stay well under the fixed law\'s ' + idFix.toFixed(3) + ' — the merged law stops advancing time/yaw once act settles to 0)' });
   } catch (e) {
     out.push({ name: 'B365: the Specimen settles', ok: false, detail: 'threw: ' + String(e && e.stack || e) });
   }
@@ -8152,6 +8195,37 @@ async function boot() {
     const a = $('audit'); if (a) { a.className = 'audit bad'; a.textContent = 'boot failed after load: ' + String(e && e.stack || e); }
   }
 }
+/* B365 correction — EVIDENCE ONLY, never runs unless ?b365shots=1 (a session capture aid, the same
+   idea as misreadAll/probeAudio above: a query-param-gated function that only a deliberate load
+   triggers). Drives the LIVE Specimen through the same three moments checkB365 measures — idle
+   before any note, a note held (rippling), ~1.5 s after release (ripple gone, idle still moving) —
+   by setting AUD.on/AUD.feed directly (the same shape feedOf hands the shader; no real audio
+   needed) and hand-advancing MON.clock (specimenFrame's own clock) between forced draws. Each frame
+   is read back with the canvas' own toDataURL, the same idea the underlay check already uses
+   (gl.readPixels) one step further, and written into a hidden #b365shots div as <img> tags so a
+   headless `--dump-dom` can pull the PNGs out as base64 text. Nothing here touches the engine or a
+   real AudioContext, and it changes nothing when the query param is absent. */
+function b365Shots() {
+  LAB.page = 'main'; SPECIMEN.on = true; rebuild(); paintCanvases();
+  const cv = SPECIMEN.cv;
+  if (!cv || !cv.isConnected) return;
+  const tick = (n, feed) => { for (let i = 0; i < n; i++) { MON.clock += Math.round(SR * 0.033); AUD.on = !!feed; if (feed) AUD.feed = feed; specimenFrame(false); } };
+  const shot = (id, label) => { specimenFrame(true); return '<figure id="' + id + '"><figcaption>' + label + '</figcaption><img src="' + cv.toDataURL('image/png') + '"></figure>'; };
+  const held = { t: 'vz', peak: 0.4, act: 1, env: 0.7, gates: [57], lst: 1, lenv: 0.7 };
+  const off = { t: 'vz', peak: 0, act: 0, env: 0, gates: [], lst: 0, lenv: 0 };
+  tick(20, null);
+  const s1 = shot('b365-idle', 'idle, no note (before any strike)');
+  tick(20, held);
+  const s2 = shot('b365-held', 'a note held (rippling)');
+  tick(45, off);                                                     // ~1.5 s of released silence
+  const s3 = shot('b365-released', '~1.5 s after release (ripple gone, idle still moving)');
+  tick(30, off);                                                     // a further ~1 s, still idle
+  const s4 = shot('b365-released2', '~2.5 s after release (idle has moved on further)');
+  AUD.on = false; AUD.feed = null;
+  const host = el('div', ''); host.id = 'b365shots'; host.style.cssText = 'display:none';
+  host.innerHTML = s1 + s2 + s3 + s4;
+  document.body.appendChild(host);
+}
 async function bootLate() {
   await loadPresets();
   fillPresetSelect();
@@ -8163,6 +8237,7 @@ async function bootLate() {
   paintMisread();
   if (qp('misread', '0') === '1') misreadAll();
   if (qp('probe', '0') === '1') { try { AUDIT.probe = await probeAudio(); } catch (e) { AUDIT.probe = 'probe failed: ' + String(e && e.message || e); } paintAudit(); }
+  if (qp('b365shots', '0') === '1') { try { b365Shots(); } catch (e) { const a = $('audit'); if (a) a.textContent += ' · b365Shots failed: ' + String(e && e.stack || e); } }
   requestAnimationFrame(frame);
 }
 boot();
