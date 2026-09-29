@@ -7,8 +7,10 @@
  *
  * WHAT IS PROVEN (the page's PURE block — docs/design/listening-pass.html between the
  * PURE-BEGIN / PURE-END markers — is sliced and run here, not re-implemented):
- *   T1 the committed sample is whole: its id is its content hash, its thresholds are
- *      gauntlet.mjs THRESH, every item carries every kept metric.
+ *   T1 the committed sample is whole: its id is its content hash, its thresholds are the
+ *      B316 values THRESH held when the sample was generated (B350 ruled THRESH forward
+ *      without regenerating this sample — see FROZEN_THRESH below), every item carries every
+ *      kept metric.
  *   T2 SAMPLER: for every seed, the page's samplePatch (over the lab table it slices and the
  *      dependency tree) equals gauntlet.mjs samplePatch, key for key, and hashes to the
  *      committed `ph` (the one identity the page can check exactly in any browser).
@@ -92,10 +94,17 @@ const pseed = it => hash32(run, it.i, RENDER_SALT);
 const seg = (patch, it, k) => P.runSync(P.renderSegmentSteps(Composed, patch, pseed(it), P.SEGS[k], 4096));   // chunked, as the page renders
 const t0 = Date.now();
 
+/* B350 (2026-09-29): THRESH was ruled to new values (aliasDb/roughness/rootPresence, and the
+   noise gate moved from flatness to noiseDb) WITHOUT regenerating this sample, so it no longer
+   equals gauntlet.mjs THRESH by design. This pins the sample's `thresholds` field to the B316
+   values it was generated with (never touched by B345 or B350), so the check still catches a
+   corrupted/hand-edited field — it just no longer requires that field to track THRESH forever. */
+const FROZEN_THRESH = { aliasDb: -30, roughness: 0.1, rootPresence: 0.5, flatness: 0.3 };
+
 /* T1 */
 const { itemsByKey, ...plain } = sample;
 ok(sampleId(plain.items) === sample.id, 'T1 sample id is the items\' content hash', sample.id);
-ok(['aliasDb', 'roughness', 'rootPresence', 'flatness'].every(k => sample.thresholds[k] === THRESH[k]), 'T1 sample thresholds are gauntlet.mjs THRESH');
+ok(Object.keys(FROZEN_THRESH).every(k => sample.thresholds[k] === FROZEN_THRESH[k]), 'T1 sample thresholds are the B316 values in force when the sample was generated (B350: THRESH has since moved)');
 ok(sample.items.length >= 30 && sample.items.length <= 40, 'T1 30-40 patches', String(sample.items.length));
 ok(sample.items.every(it => KEEP.every(k => k in it.metrics) && 'roughnessSolo' in it.metrics && /^[0-9a-f]{8}$/.test(it.fp) && /^[0-9a-f]{8}$/.test(it.ph)), 'T1 every item carries every kept metric, a patch hash and a fingerprint');
 ok((sample.excluded || []).every(x => !sample.itemsByKey[x.key] && x.why), 'T1 no cross-runtime exclusion is in the sample, and each says why', (sample.excluded || []).map(x => x.key).join(', ') || 'none');
@@ -141,7 +150,10 @@ for (const it of sample.items) {
   for (const k of KEEP) if (!Object.is(m[k], it.metrics[k])) diffs.push(`${it.key}.${k} ${m[k]} vs ${it.metrics[k]}`);
   const solo = roughnessSolo(patch, pseed(it));
   if (!Object.is(solo, it.metrics.roughnessSolo)) diffs.push(`${it.key}.roughnessSolo ${solo} vs ${it.metrics.roughnessSolo}`);
-  if (roughOrigin(it.metrics.roughness, solo, THRESH.roughness) !== it.roughOrigin) diffs.push(`${it.key}.roughOrigin`);
+  /* roughOrigin was labelled at generation time against the threshold then in force (B316's
+     0.1, FROZEN_THRESH above) — re-derive it against that same constant, not the live (B350)
+     THRESH.roughness, or a roughness value between 0.1 and 0.12 would flip the label */
+  if (roughOrigin(it.metrics.roughness, solo, FROZEN_THRESH.roughness) !== it.roughOrigin) diffs.push(`${it.key}.roughOrigin`);
 }
 ok(diffs.length === 0, 'T4 every seed re-measures to the committed metrics exactly', diffs.length ? diffs.slice(0, 4).join('; ') : `${KEEP.length + 1} fields × ${sample.items.filter(i => i.role !== 'repeat').length} patches`);
 
