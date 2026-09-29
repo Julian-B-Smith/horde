@@ -6705,3 +6705,48 @@ relative position is interpolated across the slider range."
   inside that interpolated range: `lo(xy) + curve(v)·(hi(xy) − lo(xy))`.
 - **Drafts.** Moving a macro still makes no draft (item 5). Editing a corner's min/max is an
   edit to that snapshot.
+
+**ADR-188 A1 confirmed (2026-09-29):**
+- **Per parameter.** The human: "I did mean per parameter". Each snapshot stores [min, max]
+  per binding.
+- **The fixed four.** The human: "the math on these from sluice works a little differently
+  since each corner sets its target as the center and then the sliders interpolate a curve
+  across the extremes that put that value at the center for each corner". So Dry/Wet, Width,
+  Time and Tune take no per-corner ranges. Each corner's value is the knob's CENTRE, and the
+  slider bends a curve through it to the extremes (Sluice's own law, read from Sluice, not
+  redefined here).
+
+## ADR-189 — RATIFIED by the human: SCALPEL anti-aliasing divergences from razor-core.js (2026-09-29)
+
+**Context.** B346 measured where SCALPEL's aliasing comes from (PR #847,
+`tools/patchspace/alias_sources.mjs`) and proposed cures R1–R6. The human: "I ratify your
+recommended aliasing fixes, and we should skip the ones you recommended against."
+
+**Decision.** These are ADR-187 divergences from `reference/scalpel/prototype/razor-core.js`,
+built in the composed engine (`docs/design/scalpel-horde-engine.js`, the lab JS, so they are
+mirrored by construction). Each sits behind its own flag, and every flag off must be
+bit-identical to the engine before the change.
+- **D1 (R1).** First-order ADAA on the blade CARRIERS, replacing their wrap BLEPs (17 of 72
+  helped, 0 worse, CPU ≈1.0×).
+- **D2 (xin).** The scanner tracks the xin phase input, closing a BLEP coverage gap (5
+  helped, 0 worse).
+- **D3 (R4).** The feedback loop's one-sample BLEP-latency tap is fixed (broad#828's limit
+  cycle at 0.2 × the internal rate), plus the smallest measured addition that removes the
+  cycle: os, a loop-gain bound, or a loop filter.
+- **D4 (R5).** The random-patch sampler weights Band-limit toward ON. This is a patch-space
+  change, not an engine one, and it is versioned so the committed listening sample still
+  reproduces.
+- **R2 and R3** (blade caps decoupled from os; a steep polyphase decimator) were recommended
+  WITH a critic first. They go to the critic before they are built.
+- **Rejected, per the human:**
+  - ADAA on the base wave: it double-corrects with the active base BLEP, 11 patches worse.
+  - ADAA on the output tanh: it helps only through HF droop.
+  - tanh inside the os loop: no gain.
+  - Nothing is changed for crush or the noise hash.
+
+**Consequences.**
+- The flags default OFF in the engine, so the listening pass, the gauntlet and every
+  fingerprint keep rendering the heard engine.
+- The SCALPEL lab turns them ON, labelled.
+- The instrument's default is ruled when horde 2's shell is built.
+- The ADR-187 divergence ledger starts here: `docs/port/divergences.json` plus a check.
