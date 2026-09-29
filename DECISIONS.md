@@ -6750,3 +6750,32 @@ bit-identical to the engine before the change.
 - The SCALPEL lab turns them ON, labelled.
 - The instrument's default is ruled when horde 2's shell is built.
 - The ADR-187 divergence ledger starts here: `docs/port/divergences.json` plus a check.
+
+**ADR-189 A1 — RULED by the human after the critic (2026-09-29): D1 narrowed; D3 reshaped.**
+- **D1 (carrier ADAA) is NARROWED** (human: "narrow D1 as recommended"). It applies only where
+  the carrier shape is not sine AND (the FM mode is phase or pitch, 1/2, OR Band-limit is off),
+  and never to a carrier whose modulator is S&H (mshape 7).
+  - The criteria are discrete per-blade parameters, so there are no continuous thresholds that
+    automation could chatter across.
+  - Evidence: the critic's bench measurement of D1 as built was 30 helped, 66 worse over 182
+    aliasing patch-notes on the 83 presets. The narrowed scratch hybrid was 27 helped, 3 worse,
+    and those 3 were all S&H, which is now excluded.
+  - It is re-measured on the bench, the rated 72, and Band-limit-off cases before merge.
+- **D3 (feedback loop) is the ORACLE'S TAP plus a one-pole loop filter** at the highest cutoff
+  that clears broad#828's cycle at os 1/2/4/8 (about 4 kHz). The tap "fix" is dropped.
+  - Human: "D3 tap + filter ratified", read by the lead as the recommendation put to them
+    ("the original tap plus a 4 kHz loop filter").
+  - Evidence: the tap change moved the cycle rather than curing it, and caused broad#857 A5's
+    +6.2 dB.
+
+**ADR-187 A1 — decided by the lead, delegated by the human (2026-09-29): PR granularity for
+divergences.** The human: "I don't have strong opinions on the PR question so do what you think
+is best."
+- Flag-gated divergences that default OFF (so all-off stays bit-identical and the ledger's L4/L5
+  attribute each one) may SHARE a PR.
+- Turning a divergence ON by default (in the instrument, or as a lab default that changes what
+  the human hears) is ONE divergence per PR.
+- Labs expose ONE toggle per divergence, never a bundle.
+- Why: ADR-187 §5's purpose is attribution and reversibility, and the flags plus the ledger check
+  already give both while a divergence is off. The risk is in what the listener hears by default,
+  so the one-per-PR rule binds there.
