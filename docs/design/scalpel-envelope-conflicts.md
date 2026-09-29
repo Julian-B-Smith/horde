@@ -352,6 +352,81 @@ What must be ruled with it:
 5. Onset scatter WITHOUT per-member envelopes (today's entry-ramp mode) is retired in favour of the
    read, because the two disagree about what a late member is.
 
+## What a Serum-style ENV 1 adds (the lead's reading, B370)
+
+The lead read the Serum 2 User Guide and recorded it on B370. This section works only from that
+summary, in our own words; no manual text is copied here. In brief:
+
+- **Four envelopes**, each with a hold stage (AHDSR), timed in ms or tempo, with drawable curves.
+- **ENV 1** always sets each voice's output level and can also be routed elsewhere.
+- **Per-source opt-out.** Each source routed to the main path can opt out of ENV 1 with a per-source
+  switch. A source that opts out is not shaped by ENV 1, and it lasts until the longest release of any
+  envelope.
+- **Legato** matters only in mono (outside mono it behaves paraphonically). Each envelope can invert
+  it, so that envelope retriggers on every note-on.
+
+### A per-source ENV 1 opt-out
+
+- **Voice lifetime.** Today the voice lives exactly as long as ENV 1: the oracle frees it under 1e-4
+  of `v.env` (`razor-core.js:779`). With an opted-out source, "the voice lasts until the longest
+  release of any envelope". So the free point becomes the maximum over every envelope still in its
+  release. An opted-out source that no envelope shapes sounds at full level until then, and is then
+  cut, so it needs a short fade at the free (B323's 8 ms ramp is the model).
+- **B310's voice law.** Tier 1 ("faded": `env < 1e-3`) and tier 2 ("the quietest tail") both read ENV 1
+  today (`scalpel-horde-engine.js:522-530`).
+  - With an opt-out, a voice whose ENV 1 has faded can still be loud through its opted-out source.
+    Tier 1 would then take a sounding voice with no fade, and tier 2 would rank a loud voice as quiet.
+  - *Rule needed:* the voice law keys off the voice's AUDIBLE envelope. That is the maximum of the
+    envelopes that shape any enabled source, plus a constant 1 for any source no envelope shapes, until
+    the free. voiceEnv's bookkeeping (the loudest member) is the same idea one level down.
+- **B323's cull.**
+  - Today the fade is written INTO ENV 1: `v.env *= f` (`scalpel-horde-engine.js:1051`), and into each
+    member's envelope under voiceEnv (`:1052`).
+  - An opted-out source ignores ENV 1, so it would ignore the cull as well, and the cull would fail to
+    silence it.
+  - *Rule needed:* the cull (and any steal fade, decision 6) is a separate per-voice gain after every
+    source, never a write into ENV 1. That is also cleaner for the ledger: the cull then leaves the
+    envelope's own trajectory untouched.
+- **The swarm.**
+  - Under the spread-read model (the section above), onset scatter is how the members read ENV 1. A
+    swarm source that opts out of ENV 1 would lose its onset scatter with it.
+  - *Choice:* either onset scatter belongs to ENV 1 (so opting out removes it, which is simple and
+    visible), or the member offsets δᵢ apply to whichever envelope shapes the source.
+  - *Recommendation:* the first, and say so on the opt-out switch.
+- **Blade envelopes** are already, in effect, "opted out" of the amp: they shape timbre, not level,
+  and they die with the voice (F9). Under a longest-release lifetime they would run on, uncut, while
+  any other envelope is releasing.
+
+### HOLD
+
+The oracle and legacy horde both have ADSR with no hold. Adding a hold is new engine behaviour: an
+ADR-187 divergence behind a flag, with hold 0 as the default, which is bit-identical.
+
+- **What it buys.** A flat top before the decay: a gated stab that then decays, or a pluck with a
+  sustained transient. Today that needs S 1 with a long D ("Gated stab · organ"), which cannot also
+  decay.
+- **Interactions.**
+  - Under the spread read: is the hold scaled by sᵢ? It must be, if sᵢ scales the whole time axis.
+  - B310, B323 and the voice lifetime: none. Hold is a gated stage.
+  - The curve: one more segment.
+- *Recommendation:* include HOLD in ENV 1 for horde 2, built together with decision 1's law (the same
+  PR as D5). A zero hold is the oracle exactly.
+
+### Legato inverted, per envelope
+
+- **Our open mono and legato questions** (decision 5, F10, F11) come from each envelope having a
+  different implicit retrigger rule:
+  - the amp attacks on from its level;
+  - the blade envelope restarts from 0;
+  - legato retriggers neither.
+- **What Serum's per-envelope inversion does:** an envelope marked "retrigger always" restarts at every
+  note-on even in legato. The others follow the voice's mode.
+- *Recommendation:* give every envelope, ENV 1 through the blade envelopes, an explicit retrigger
+  policy: follow the mode (legato holds) or always retrigger. With that, fix one rule for WHERE a
+  retrigger starts: from the envelope's current level (decision 5's recommendation). This makes F10's
+  cut-rate jump a choice the patch makes rather than a law. Outside mono, legato does nothing, as in
+  Serum.
+
 ## Decisions needed before prime time
 
 Each question has a recommendation. **The first one gates most of the rest.**
@@ -441,3 +516,21 @@ Each question has a recommendation. **The first one gates most of the rest.**
 
     *Recommendation:* yes. Workshop it in B370's envelope-hierarchy lab, with voiceEnv's code as the
     starting point.
+
+15. **A per-source ENV 1 opt-out** (the Serum section).
+    - The voice lives until the longest release of any envelope that shapes an enabled source, and a
+      source that no envelope shapes gets an 8 ms fade at the free.
+    - B310's tiers key off the voice's audible envelope (the maximum over the envelopes shaping its
+      sources), not ENV 1 alone.
+    - B323's cull, and every steal fade, becomes a per-voice gain after the sources, never a write
+      into ENV 1.
+    - Opting a swarm out of ENV 1 also removes its onset scatter.
+
+    *Recommendation:* adopt all four with the opt-out, in B370's lab first.
+
+16. **HOLD in ENV 1** (AHDSR).
+    *Recommendation:* yes, as part of D5, with a hold of 0 bit-identical to the oracle.
+
+17. **A retrigger policy per envelope** (Serum's legato inversion).
+    *Recommendation:* each envelope either follows the voice's mode or always retriggers, and every
+    retrigger starts from the envelope's current level. This settles decision 5.

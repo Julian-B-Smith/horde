@@ -1308,11 +1308,12 @@ Coupling × Detune XY</b> for the swarm.</div>
         tails (and, under load, is what the cull thins), a blade sweep longer than the amp, a mono retriggering pluck and a legato swell.
         Each is checked at load to play the envelope it is named for.</li>
       <li><b>The conflicts</b> (the human: "This may surface some conflicts with the way envelopes currently work"): every envelope-like
-        thing that acts on a voice, what it does, where it lives, how it meets the master envelope, and fourteen decisions, each with a
+        thing that acts on a voice, what it does, where it lives, how it meets the master envelope, and seventeen decisions, each with a
         recommendation, in <code>docs/design/scalpel-envelope-conflicts.md</code>. The first gates most of the rest: whose envelope law. The
         last is yours from today: onset scatter as a spread in how each swarm member reads ENV 1 (its own delay, and optionally its own
         time scale), with no extra slot and no hidden envelope. The list says where that could still clash: what a filter follows, how long
-        a voice lives, mono retriggers, and steals.</li>
+        a voice lives, mono retriggers, and steals. It also weighs three things a Serum-style ENV 1 brings (a per-source opt-out, a HOLD
+        stage, a retrigger choice per envelope).</li>
       <li><b>The logo's gradient</b> (the human: "Is the logo gradient a hue gradient or a value gradient? It's hard to tell"). GRADIENT is a
         <b>value</b> gradient: the letters' colour lifted 24% toward white at the top and 14% toward black at the foot, its hue unchanged.
         Two new styles end the click cycle: <b>HUE ↘</b>, the colour turning through 150° of hue from the top-left corner to the
