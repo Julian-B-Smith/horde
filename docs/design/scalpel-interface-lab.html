@@ -219,10 +219,20 @@
      shadow-only band (where INSET+GRADIENT-only has no fill at all) matches DROP-only's own shadow
      there exactly, with a planted composite missing its `drop` flag as the must-fail control.
 
+     ROUND 13 — B365 and B366, 2026-09-29, dispatched by the horde lead on ROADMAP B365/B366 (carried
+     in the records PR on branch lead-records-144). B365, the human: "the specimen always keeps a
+     ripple going after all notes have ended." Two causes, measured (E3's B365 block): the pearl read
+     the MONITOR, which holds its note by design and never hears a key-off (a stale feed, L0064), and
+     its metaballs and turntable ran on time whatever sounded. While the audio runs it now reads what
+     the audio RENDERED (the worklet shell's feed: peak and voices, every 2048 samples), and in the
+     silence after the sound (no voice alive, the peak under −90 dBFS) its motion settles to exactly
+     0 in ~1 s and it stops redrawing. While sound plays it is the pre-B365 pearl bit for bit. Checks
+     in K (checkB365).
+
      L0026: every const is declared above the code that runs at setup; the boot
      call is the last statement of the script. -->
 <html><head><meta charset="utf-8">
-<meta name="lab-review" content="B271 + B293–B364 · 2026-09-29">
+<meta name="lab-review" content="B271 + B293–B366 · 2026-09-29">
 <title>SCALPEL interface lab — horde with blades at its centre</title>
 <style>
   :root {
@@ -1249,6 +1259,16 @@ Coupling × Detune XY</b> for the swarm.</div>
         with the "=1" on its own row above. It checks clean under all ten rules, with blade 2 following and on its own. MAIN shows no
         spreads.</li>
     </ol>
+    <h2 style="margin-top:10px">Round 13 (B365, B366) — the Specimen comes to rest</h2>
+    <ol start="73">
+      <li><b>The Specimen settles</b> (the human: "the specimen always keeps a ripple going after all notes have ended"). It was reading the
+        monitor, the lab's second engine, which holds its note for the drawings and never hears a key-off, so its held ripple never ended;
+        and its metaballs turned on time whatever sounded. With the audio on it now reads what the audio rendered (its peak and its voices,
+        every 43 ms). About a second after the last tail has ended (the output under −90 dBFS) it is still, and it stops redrawing. While
+        anything sounds it moves exactly as before. With the audio off it follows the monitor's held note, like every other view.
+        <span class="rec">Open:</span> the ring, the cycle view and the carpet still draw the monitor's held note after a release; should
+        they go quiet too?</li>
+    </ol>
   </div>
   <div class="box" id="misread" style="grid-column:1 / -1">
     <h2>What you see vs what you hear (B297)</h2>
@@ -1674,7 +1694,8 @@ const MON_CATCHUP = 32;           // strobes one paint may render to catch the a
    draws aliasing, not the swarm. Running, one frame is one paint, so the trail's
    0.75^age is gui2's per-frame wash; CARPET_T frames. */
 const CARPET_T = 16;
-const AUD = { ctx: null, node: null, out: null, on: false, spn: null, err: '', drone: false, held: new Set(), oct: 0 };
+/* B365: `feed` is the audio's last rendered window for the Specimen (feedOf, E3), null while none has arrived */
+const AUD = { ctx: null, node: null, out: null, on: false, spn: null, err: '', drone: false, held: new Set(), oct: 0, feed: null };
 /* B323 — THE LOAD LOOP's state and its constants (section J2 says why each is what it is).
    dsp: the worklet's last window {load, cap, live, act, culled, n}; log: the recent windows;
    ui: the main thread's frame work in ms (one-pole); shed: the main thread is shedding. */
@@ -3593,11 +3614,17 @@ function logoFrame(force) {
    leaving it (trace b317 measures its reach).
    ====================================================================== */
 const SPECIMEN_ZOOM = 1.25;
-const SPECIMEN = { on: qp('specimen', '1') !== '0', cv: null, gl: null, u: {}, fail: '', ms: 0, draws: 0,
-  xyLast: null, xyYaw: 0, xyPit: 0, center: true, mask: 0, fit: null,
-  yaw: 0.55, pit: 0.18, yawT: 0.55, pitT: 0.18, dent: { x: 0, v: 0 }, poke: [0, 0, 1], time: 3.7, clk: -1, n: 0,
-  gates: {}, shySm: 0, kSm: undefined, bgTok: '', bg: [0.95, 0.93, 0.89], w: 0, h: 0, frontIx: 0, rng: mulberry32(0xC0FFEE),
-  fronts: [0, 1, 2, 3].map(() => ({ age: 100, az: 0, el: 0, wave: 9, hold: -1, heldAmt: 0 })) };
+/* the pearl's PHYSICS state, one fresh copy per call: the live Specimen's, and checkB365's scratch ones.
+   B365: `act` is how much the pearl is still moving (1 while sound plays, settling to exactly 0 in the
+   silence after it); `legacy` true is the pre-B365 law (no settle), kept only as the check's control. */
+function specimenState() {
+  return { yaw: 0.55, pit: 0.18, yawT: 0.55, pitT: 0.18, dent: { x: 0, v: 0 }, poke: [0, 0, 1], time: 3.7,
+    gates: {}, shySm: 0, kSm: undefined, frontIx: 0, rng: mulberry32(0xC0FFEE), act: 1, legacy: false,
+    fronts: [0, 1, 2, 3].map(() => ({ age: 100, az: 0, el: 0, wave: 9, hold: -1, heldAmt: 0 })) };
+}
+const SPECIMEN = Object.assign({ on: qp('specimen', '1') !== '0', cv: null, gl: null, u: {}, fail: '', ms: 0, draws: 0,
+  xyLast: null, xyYaw: 0, xyPit: 0, center: true, mask: 0, fit: null, clk: -1, n: 0,
+  bgTok: '', bg: [0.95, 0.93, 0.89], w: 0, h: 0, U: null }, specimenState());
 function specimenCanvas() {
   if (!SPECIMEN.cv) SPECIMEN.cv = el('canvas', 'specimen');
   return SPECIMEN.cv;
@@ -3729,8 +3756,8 @@ function specimenInit() {
 }
 /* gui2's chromeNotePoke: a fresh note strikes within view, its wavelength by pitch (midi 36..96
    → 6..24), its spot drawn from the seeded stream and then world-locked */
-function specimenNotePoke(midi) {
-  const S = SPECIMEN;
+function specimenNotePoke(midi, S) {
+  S = S || SPECIMEN;                                                  // B365: checkB365 strikes a scratch state
   const az = S.yaw + ((midi % 12) / 12 - 0.5) * 2.4, el = Math.max(-0.9, Math.min(0.9, (Math.floor(midi / 12) - 5) * 0.25));
   S.poke = [Math.cos(el) * Math.sin(az), Math.sin(el), Math.cos(el) * Math.cos(az)];
   S.dent.v = 6.0;
@@ -3803,6 +3830,107 @@ function specimenFit(yaw, pit, time, dent, aspect) {
   const k = Math.min(1, (1 - SPEC_MARGIN) / hy, (aspect - SPEC_MARGIN) / hx);
   return { shift: [k * (x0 + x1) / 2, k * (y0 + y1) / 2], zoom: SPECIMEN_ZOOM * k, k };
 }
+/* B365 — THE PEARL SETTLES WHEN THE SOUND ENDS. Human, 2026-09-29: "the specimen always keeps a
+   ripple going after all notes have ended." MEASURED FIRST (trace b365; headless Chrome, audio on, A3
+   held 1 s and released): 4 s after the key-off the monitor still held note 57 gated, the front bound
+   to it read held 1.00 (the shader's travelling "held" ripple at full amplitude) and the quiver read
+   0.35-0.45. TWO CAUSES, both fixed here:
+   (1) A STALE FEED (L0064: a view is driven by what was rendered). The pearl read the MONITOR
+       (MON.core, MON.L), the lab's second engine instance, which HOLDS its note by design (the cycle
+       view and the ring draw it) and never hears a key-off. Its gate stayed up, so the held ripple
+       ran for ever and its level kept the quiver alive. While the audio runs the pearl now reads what
+       the AUDIO rendered: every SPEC_WIN blocks the worklet shell posts the peak of the samples it
+       rendered and its engine's voices (feedOf), and specimenSource() hands that feed over. With the
+       audio off nothing is heard, and the pearl follows the monitor's held note as every view does:
+       unchanged.
+   (2) A TIME-DRIVEN ANIMATION. gui2's metaballs orbit on uTime and the studio turntable turns on dt,
+       whatever sounds, so even the right feed never came to rest. Now `act` scales both: it is 1
+       while sound plays (a voice alive, or a window's peak at or over SPEC_QUIET, −90 dBFS); in the
+       silence after it, act decays with τ SPEC_SETTLE and snaps to exactly 0 under 1e-3 (1.04 s).
+       The strike and held ripples and the quiver fade with it (their amplitudes are scaled by act;
+       the fronts still age on real time), and at rest the frame is not redrawn at all (gui2's idle
+       "plate") unless the view is still easing to the XY's orbit.
+   WHILE SOUND PLAYS NOTHING CHANGES: act is exactly 1, every scaled term is x·1 = x, and the step is
+   the pre-B365 arithmetic bit for bit (checkB365 compares the two laws on one feed). */
+const SPEC_QUIET = Math.pow(10, -90 / 20), SPEC_SETTLE = 0.15, SPEC_WIN = 16;
+const SPEC_SILENT = { t: 'vz', peak: 0, act: 0, env: 0, gates: [] };
+/* the largest |sample| over a block's channels, folded into `pk`. Pure; the worklet shell runs it too */
+function blockPeak(chans, pk) {
+  for (const ch of chans) for (let i = 0; i < ch.length; i++) { const a = ch[i] < 0 ? -ch[i] : ch[i]; if (a > pk) pk = a; }
+  return pk;
+}
+/* one window of what an engine rendered, for the Specimen: the peak of its samples, the voices alive,
+   the loudest voice envelope and the gated notes. Pure; serialized into the worklet shell
+   (workletSource), and called on the ScriptProcessor fallback and on the monitor (monFeed). */
+function feedOf(c, peak) {
+  let act = 0, env = 0;
+  const gates = [];
+  for (const v of c.voices) if (v.active) { act++; if (v.env > env) env = v.env; if (v.gate) gates.push(v.note); }
+  return { t: 'vz', peak, act, env, gates };
+}
+function feedIn(m) { if (m && m.t === 'vz') AUD.feed = m; }
+/* the monitor's feed: its voices, and the left channel of its last strobe (the pre-B365 reading) */
+function monFeed() {
+  let peak = 0;
+  if (MON.L) for (let i = 0; i < MON.L.length; i++) { const a = Math.abs(MON.L[i]); if (a > peak) peak = a; }
+  return MON.core ? feedOf(MON.core, peak) : Object.assign({}, SPEC_SILENT, { peak });
+}
+/* what drives the pearl: the audio's rendered windows while it runs (silent until its first one
+   arrives), else the monitor */
+function specimenSource() { return AUD.on ? (AUD.feed || SPEC_SILENT) : monFeed(); }
+function specSounding(src) { return src.act > 0 || src.peak >= SPEC_QUIET; }
+/* one step of the pearl's physics: gui2's chromeFrame (strikes, the dent's spring, the turntable,
+   the eased orbit, fronts, held ripples, quiver, bloom, tautness), on `S` (the live state or a
+   check's), over dt seconds, from a feed. Returns the uniforms the shader is handed; no GL here. */
+function specimenStep(S, dt, src, R) {
+  const envMax = src.env, peak = src.peak, gatedNow = {};
+  for (const n of src.gates) gatedNow[n] = true;
+  for (const m in gatedNow) if (!S.gates[m]) specimenNotePoke(+m, S);   // a fresh attack strikes
+  for (const m in S.gates) if (!gatedNow[m]) for (const f of S.fronts) if (f.hold === +m) f.hold = -1;
+  S.gates = gatedNow;
+  /* B365: the settle (the block above). legacy is the pre-B365 law: always moving */
+  if (S.legacy || specSounding(src)) S.act = 1;
+  else { S.act *= Math.exp(-dt / SPEC_SETTLE); if (S.act < 1e-3) S.act = 0; }
+  const act = S.act, dtA = dt * act;                                   // dtA: the time the SOUND drives
+  const w = 9, z = 0.82, d = S.dent;                                  // the damped spring (w 9, ζ 0.82)
+  d.v += (-w * w * d.x - 2 * z * w * d.v) * dt; d.x += d.v * dt;
+  if (Math.abs(d.x) < 0.0005 && Math.abs(d.v) < 0.002) { d.x = 0; d.v = 0; }
+  S.yawT += dtA * 0.03;                                               // slow studio turntable
+  const ease = Math.min(1, dt * 7);
+  S.yaw += (S.yawT - S.yaw) * ease; S.pit += (S.pitT - S.pit) * ease;
+  S.time += dtA;
+  const kT = Math.max(0.12, 0.45 - 0.3 * R);                          // coherence pulls taut, eased
+  if (S.kSm === undefined) S.kSm = kT;
+  S.kSm += (kT - S.kSm) * (kT < S.kSm ? 1 - Math.exp(-dtA / 0.28) : 1 - Math.exp(-dtA / 0.5));
+  const pokes = new Float32Array(12), ages = new Float32Array(4), waves = new Float32Array(4), helds = new Float32Array(4);
+  for (let i = 0; i < 4; i++) {
+    const f = S.fronts[i];
+    f.age = Math.min(10, f.age + dt);
+    const hT = f.hold >= 0 ? 1 : 0;
+    f.heldAmt += (hT - f.heldAmt) * (hT > f.heldAmt ? 1 - Math.exp(-dt / 0.25) : 1 - Math.exp(-dt / 0.45));
+    pokes[i * 3] = Math.cos(f.el) * Math.sin(f.az); pokes[i * 3 + 1] = Math.sin(f.el); pokes[i * 3 + 2] = Math.cos(f.el) * Math.cos(f.az);
+    ages[i] = f.age; waves[i] = f.wave; helds[i] = f.heldAmt;
+  }
+  const shyT = Math.min(1, peak * 1.5) * 0.6;                         // quiver, slewed
+  S.shySm += (shyT - S.shySm) * (shyT > S.shySm ? 1 - Math.exp(-dt / 0.25) : 1 - Math.exp(-dt / 0.6));
+  return { act, time: S.time, k: S.kSm, poke: S.poke, dent: Math.max(-0.35, Math.min(0.35, d.x * 0.28)), orbit: [S.yaw, S.pit],
+    thick: 480 + 250 * Math.min(1, envMax),                            // the pearl blooms on attack
+    pokes, ages, waves, helds,
+    rAmp: Math.min(1, 0.25 + envMax * 0.5 + clamp((EFF.detune || 0) / 100, 0, 1) * 0.35) * act,   // a wide swarm strikes harder water
+    shy: S.shySm * act };
+}
+/* B365: the pearl's MOTION ENERGY, from the uniforms one step hands the shader: the rate its time runs
+   (act: the metaballs' orbit and the turntable), the strike and held ripples at their amplitude (each
+   front's strike envelope as the shader forms it, exp(−1.9·age)·smoothstep(0, .12, age) while age < 3.5,
+   and its held amount over the shader's .001 gate), the quiver, and the ringing dent. Exactly 0 at rest. */
+function specimenEnergy(U) {
+  let e = U.act + U.shy + Math.abs(U.dent);
+  for (let i = 0; i < 4; i++) {
+    const a = U.ages[i], s = Math.min(1, a / 0.12), strike = a < 3.5 ? Math.exp(-a * 1.9) * s * s * (3 - 2 * s) : 0;
+    e += U.rAmp * (strike + (U.helds[i] > 0.001 ? U.helds[i] : 0));
+  }
+  return e;
+}
 function specimenFrame(force) {
   const S = SPECIMEN;
   if (!S.on || S.fail || LAB.page !== 'main') { S.xyLast = null; return false; }
@@ -3822,51 +3950,30 @@ function specimenFrame(force) {
   const pw = Math.max(2, Math.round(cv.clientWidth * scale)), ph = Math.max(2, Math.round(cv.clientHeight * scale));
   const tok = TOK('--scr-tube', '#f2ede2'), resized = pw !== S.w || ph !== S.h, themed = tok !== S.bgTok;
   if (!force && !resized && !themed && dt <= 0) return false;
+  /* B365: at rest, with nothing sounding, no dent ringing and the view not still easing to the XY's
+     orbit, the image would not change: nothing is drawn (gui2's idle plate). The clock is taken, so
+     the first frame after it sees a real dt */
+  const src = specimenSource();
+  if (!force && !resized && !themed && S.act === 0 && !specSounding(src) && S.dent.x === 0 &&
+    Math.abs(S.yawT - S.yaw) < 1e-6 && Math.abs(S.pitT - S.pit) < 1e-6) { S.clk = clk; return false; }
   if (!force && !resized && !themed && (++S.n % (LOAD.shed ? SHED_SPECIMEN : 3))) return false;   // gui2's ~20 Hz; ~5 Hz shedding (J2)
   const t0 = typeof performance === 'object' ? performance.now() : 0;
   S.clk = clk;
   const gl = S.gl;
   if (resized) { S.w = pw; S.h = ph; cv.width = pw; cv.height = ph; gl.viewport(0, 0, pw, ph); }
-  let envMax = 0, peak = 0;
-  const c = MON.core, gatedNow = {};
-  if (c) for (const v of c.voices) if (v.active) { if (v.env > envMax) envMax = v.env; if (v.gate) gatedNow[v.note] = true; }
-  if (MON.L) for (let i = 0; i < MON.L.length; i++) { const a = Math.abs(MON.L[i]); if (a > peak) peak = a; }
-  for (const m in gatedNow) if (!S.gates[m]) specimenNotePoke(+m);   // a fresh attack strikes
-  for (const m in S.gates) if (!gatedNow[m]) for (const f of S.fronts) if (f.hold === +m) f.hold = -1;
-  S.gates = gatedNow;
-  const R = Math.max(0, MON.rSm);
-  const w = 9, z = 0.82, d = S.dent;                                  // the damped spring (w 9, ζ 0.82)
-  d.v += (-w * w * d.x - 2 * z * w * d.v) * dt; d.x += d.v * dt;
-  if (Math.abs(d.x) < 0.0005 && Math.abs(d.v) < 0.002) { d.x = 0; d.v = 0; }
-  S.yawT += dt * 0.03;                                                // slow studio turntable
-  const ease = Math.min(1, dt * 7);
-  S.yaw += (S.yawT - S.yaw) * ease; S.pit += (S.pitT - S.pit) * ease;
-  S.time += dt;
+  const U = specimenStep(S, dt, src, Math.max(0, MON.rSm));
+  S.U = U;
   gl.uniform2f(S.u.uRes, pw, ph);
-  gl.uniform1f(S.u.uTime, S.time);
-  const kT = Math.max(0.12, 0.45 - 0.3 * R);                          // coherence pulls taut, eased
-  if (S.kSm === undefined) S.kSm = kT;
-  S.kSm += (kT - S.kSm) * (kT < S.kSm ? 1 - Math.exp(-dt / 0.28) : 1 - Math.exp(-dt / 0.5));
-  gl.uniform1f(S.u.uK, S.kSm);
+  gl.uniform1f(S.u.uTime, U.time);
+  gl.uniform1f(S.u.uK, U.k);
   gl.uniform1i(S.u.uVariant, 1);                                      // pearl
-  gl.uniform3f(S.u.uPoke, S.poke[0], S.poke[1], S.poke[2]);
-  gl.uniform1f(S.u.uDent, Math.max(-0.35, Math.min(0.35, d.x * 0.28)));
-  gl.uniform2f(S.u.uOrbit, S.yaw, S.pit);
-  gl.uniform1f(S.u.uThick, 480 + 250 * Math.min(1, envMax));         // the pearl blooms on attack
-  const pokes = new Float32Array(12), ages = new Float32Array(4), waves = new Float32Array(4), helds = new Float32Array(4);
-  for (let i = 0; i < 4; i++) {
-    const f = S.fronts[i];
-    f.age = Math.min(10, f.age + dt);
-    const hT = f.hold >= 0 ? 1 : 0;
-    f.heldAmt += (hT - f.heldAmt) * (hT > f.heldAmt ? 1 - Math.exp(-dt / 0.25) : 1 - Math.exp(-dt / 0.45));
-    pokes[i * 3] = Math.cos(f.el) * Math.sin(f.az); pokes[i * 3 + 1] = Math.sin(f.el); pokes[i * 3 + 2] = Math.cos(f.el) * Math.cos(f.az);
-    ages[i] = f.age; waves[i] = f.wave; helds[i] = f.heldAmt;
-  }
-  gl.uniform3fv(S.u.uPokeN, pokes); gl.uniform1fv(S.u.uStrikeN, ages); gl.uniform1fv(S.u.uRWaveN, waves); gl.uniform1fv(S.u.uHeldN, helds);
-  gl.uniform1f(S.u.uRAmp, Math.min(1, 0.25 + envMax * 0.5 + clamp((EFF.detune || 0) / 100, 0, 1) * 0.35));   // a wide swarm strikes harder water
-  const shyT = Math.min(1, peak * 1.5) * 0.6;                         // quiver, slewed
-  S.shySm += (shyT - S.shySm) * (shyT > S.shySm ? 1 - Math.exp(-dt / 0.25) : 1 - Math.exp(-dt / 0.6));
-  gl.uniform1f(S.u.uShy, S.shySm);
+  gl.uniform3f(S.u.uPoke, U.poke[0], U.poke[1], U.poke[2]);
+  gl.uniform1f(S.u.uDent, U.dent);
+  gl.uniform2f(S.u.uOrbit, U.orbit[0], U.orbit[1]);
+  gl.uniform1f(S.u.uThick, U.thick);
+  gl.uniform3fv(S.u.uPokeN, U.pokes); gl.uniform1fv(S.u.uStrikeN, U.ages); gl.uniform1fv(S.u.uRWaveN, U.waves); gl.uniform1fv(S.u.uHeldN, U.helds);
+  gl.uniform1f(S.u.uRAmp, U.rAmp);
+  gl.uniform1f(S.u.uShy, U.shy);
   if (themed) {                                                        // the ground is the SCREEN colour
     S.bgTok = tok;
     const hx = /^#([0-9a-f]{6})$/i.exec(tok.trim());
@@ -3874,7 +3981,7 @@ function specimenFrame(force) {
   }
   gl.uniform3f(S.u.uBg, S.bg[0], S.bg[1], S.bg[2]);
   /* B323: centred on its projected bounds (specimenFit); S.center false is B317's fixed camera (the check's control) */
-  const fit = S.center ? specimenFit(S.yaw, S.pit, S.time, Math.max(-0.35, Math.min(0.35, d.x * 0.28)), pw / ph) : { shift: [0, 0], zoom: SPECIMEN_ZOOM, k: 1 };
+  const fit = S.center ? specimenFit(S.yaw, S.pit, S.time, U.dent, pw / ph) : { shift: [0, 0], zoom: SPECIMEN_ZOOM, k: 1 };
   S.fit = fit;
   gl.uniform1f(S.u.uZoom, fit.zoom);
   gl.uniform2f(S.u.uShift, fit.shift[0], fit.shift[1]);
@@ -5059,18 +5166,21 @@ function ringWire(cv, mini) {
 function workletSource() {
   return CORE.toString() + '\nRazorCore.PANS = ' + JSON.stringify(CORE.PANS) + ';\n' + mulberry32.toString() +
     '\nMath.random = mulberry32(' + 0xB271 + ');\n' +
-    'const LOAD_WIN = ' + LOAD_WIN + ', LOAD_HI = ' + LOAD_HI + ', LOAD_TARGET = ' + LOAD_TARGET + ';\n' +
-    capFor.toString() + '\n' + loadWindow.toString() + '\n' +
+    'const LOAD_WIN = ' + LOAD_WIN + ', LOAD_HI = ' + LOAD_HI + ', LOAD_TARGET = ' + LOAD_TARGET + ', SPEC_WIN = ' + SPEC_WIN + ';\n' +
+    capFor.toString() + '\n' + loadWindow.toString() + '\n' + blockPeak.toString() + '\n' + feedOf.toString() + '\n' +
     'class B271Razor extends AudioWorkletProcessor {\n' +
     '  constructor(o) { super(); const q = (o && o.processorOptions) || {}; this.c = new RazorCore(sampleRate);\n' +
     '    if (q.params) { this.c.set(q.params); Object.assign(this.c.s, this.c.t); }\n' +
     '    if (q.note) this.c.noteOn(q.note.note, q.note.freq, q.note.vel);\n' +
-    '    this.busy = 0; this.nb = 0; this.cap = 0; this.per = 0; this.sr = sampleRate;\n' +
+    '    this.busy = 0; this.nb = 0; this.cap = 0; this.per = 0; this.sr = sampleRate; this.pk = 0; this.nv = 0;\n' +
     '    this.port.onmessage = e => this.c.msg(e.data); }\n' +
     /* B323: the shell times the engine's render with Date.now() (the only clock this global scope
        has: `performance` is undefined in Chrome's AudioWorkletGlobalScope, measured); the engine
        itself never sees a clock, only the cap loadWindow() sends it */
     '  process(_, outs) { const o = outs[0], t0 = Date.now(); this.c.render(o[0], o[1] || o[0]); this.busy += Date.now() - t0;\n' +
+    /* B365: what was rendered, for the Specimen: every SPEC_WIN blocks (2048 samples, 43 ms) the peak of
+       the samples and the engine's voices (feedOf), posted outside the timed render */
+    '    this.pk = blockPeak(o, this.pk); if (++this.nv >= SPEC_WIN) { this.port.postMessage(feedOf(this.c, this.pk)); this.pk = 0; this.nv = 0; }\n' +
     '    if (++this.nb >= LOAD_WIN) loadWindow(this, o[0].length); return true; }\n' +
     '}\nregisterProcessor("b271-razor", B271Razor);\n';
 }
@@ -5081,13 +5191,14 @@ async function makeNode(ctx, init) {
 }
 async function audioStart() {
   if (!CORE) { AUD.err = 'engine not loaded'; paintAudioStat(); return; }
-  if (AUD.on) { try { await AUD.ctx.close(); } catch (_) {} AUD.on = false; AUD.node = null; AUD.spn = null; AUD.ctx = null; MON.a0 = null; LOAD.dsp = null; paintAudioStat(); paintLoad(); return; }
+  if (AUD.on) { try { await AUD.ctx.close(); } catch (_) {} AUD.on = false; AUD.node = null; AUD.spn = null; AUD.ctx = null; MON.a0 = null; LOAD.dsp = null; AUD.feed = null; paintAudioStat(); paintLoad(); return; }
   const AC = window.AudioContext || window.webkitAudioContext;
   const ctx = new AC({ sampleRate: SR });
   AUD.ctx = ctx; AUD.out = ctx.createGain(); AUD.out.gain.value = EFF.master; AUD.out.connect(ctx.destination);
   try {
     AUD.node = await makeNode(ctx, { params: oracleParams(EFF) });
-    AUD.node.port.onmessage = e => loadIn(e.data);        // B323: the worklet's load windows (J2)
+    AUD.feed = null;
+    AUD.node.port.onmessage = e => { loadIn(e.data); feedIn(e.data); };   // B323: the load windows (J2); B365: the Specimen's feed (E3)
     AUD.node.connect(AUD.out);
     AUD.err = '';
   } catch (e) {
@@ -5096,7 +5207,7 @@ async function audioStart() {
     AUD.err = 'worklet unavailable (' + String(e && e.message || e) + ') — ScriptProcessor fallback';
     AUD.core = new CORE(ctx.sampleRate); AUD.core.set(oracleParams(EFF)); Object.assign(AUD.core.s, AUD.core.t);
     AUD.spn = ctx.createScriptProcessor(1024, 0, 2);
-    AUD.spn.onaudioprocess = ev => { const L = ev.outputBuffer.getChannelData(0), Rr = ev.outputBuffer.getChannelData(1); AUD.core.render(L, Rr); };
+    AUD.spn.onaudioprocess = ev => { const L = ev.outputBuffer.getChannelData(0), Rr = ev.outputBuffer.getChannelData(1); AUD.core.render(L, Rr); feedIn(feedOf(AUD.core, blockPeak([L, Rr], 0))); };
     AUD.spn.connect(AUD.out);
   }
   AUD.on = true;
@@ -5316,6 +5427,7 @@ function runChecks() {
   for (const c of checkB317()) out.push(c);
   for (const c of checkB323()) out.push(c);
   for (const c of checkB334()) out.push(c);
+  for (const c of checkB365()) out.push(c);
   for (const c of checkPresets()) out.push(c);
   AUDIT.checks = out;
   seedOracle(0xB271 + MON.note);
@@ -6554,11 +6666,17 @@ function checkB323() {
       LOAD.ui = 12.3; LOAD.skipped = 9 * SR; paintLoad();                 // the longest line the meter can write
       hot.hLong = FR.querySelector('.phdr').getBoundingClientRect().height; hot.hdr0 = hdr0; LOAD.skipped = loadSnap.skipped;
       const calm = feed({ load: 0.3, cap: 0, culled: 0 });
-      const shellOk = posts.length === 2 && posts.every(q => q.t === 'load' && isFinite(q.load) && q.load >= 0 && q.n === LOAD_WIN * 128 && 'cap' in q && 'live' in q);
+      /* B365: the shell posts two kinds now, its load windows and the Specimen's rendered feed (every
+         SPEC_WIN blocks: the peak and the voices, feedOf); nothing else */
+      const loads = posts.filter(q => q.t === 'load'), feeds = posts.filter(q => q.t === 'vz');
+      const feedOk = feeds.length === 2 * LOAD_WIN / SPEC_WIN && feeds.every(q => q.act === 1 && q.peak > 0.01 && q.env > 0 && q.gates.length === 1 && q.gates[0] === 57);
+      const shellOk = loads.length === 2 && loads.length + feeds.length === posts.length && feedOk &&
+        loads.every(q => isFinite(q.load) && q.load >= 0 && q.n === LOAD_WIN * 128 && 'cap' in q && 'live' in q);
       const layoutOk = res.every(q => q.m && !q.nolayout && Math.abs(q.hWith - q.hWithout) < 0.5);
       out.push({ name: 'load meter: in the frame header on both pages, fed by the worklet\'s own windows; a hot window reads as such', ok: layoutOk && shellOk && /DSP 132%/.test(hot.text) && /cap 3/.test(hot.text) && /cull 4/.test(hot.text) && /shed$/.test(hot.text) && hot.over && hot.bar === '100%' && hot.shed && hot.fits && Math.abs(hot.hLong - hot.hdr0) < 0.5,
         detail: res.map(q => q.pg + ': ' + (q.nolayout ? 'no layout' : 'header ' + q.hWith.toFixed(1) + ' px with the meter, ' + q.hWithout.toFixed(1) + ' without')).join(' · ') +
-          ' · the worklet shell posted ' + posts.length + ' windows of ' + (posts[0] ? posts[0].n : '—') + ' samples (load ' + posts.map(q => (100 * q.load).toFixed(0) + '%').join(', ') + ')' +
+          ' · the worklet shell posted ' + loads.length + ' windows of ' + (loads[0] ? loads[0].n : '—') + ' samples (load ' + loads.map(q => (100 * q.load).toFixed(0) + '%').join(', ') + ')' +
+          ' and ' + feeds.length + ' Specimen feeds (B365; ' + (feedOk ? 'each one voice, gated 57, peak ' + feeds.map(q => q.peak.toFixed(2)).join('/') : 'MALFORMED') + ')' +
           ' · a 132% window reads "' + hot.text + '", bar ' + hot.bar + (hot.over ? ', flagged over' : '') + (hot.shed ? ', shedding' : '') + ' · the line ' + (hot.fits ? 'fits, untruncated' : 'is TRUNCATED') + ' · header with the longest line ' + hot.hLong.toFixed(1) + ' px (was ' + hot.hdr0.toFixed(1) + ')' });
       out.push({ name: 'CONTROL: a calm window (30%) raises no flag and sheds nothing', ok: !(calm.over || calm.warm || calm.shed), control: true,
         detail: '"' + calm.text + '", bar ' + calm.bar + ', over ' + calm.over + ', warm ' + calm.warm + ', shedding ' + calm.shed + ' (must all be false)' });
@@ -6739,6 +6857,66 @@ function checkB323() {
   Object.assign(MON, monSnap); MON.buf.set(bufs[0]); MON.bufR.set(bufs[1]); MON.cycN = -1;
   if (MON.core) MON.core.set(oracleParams(EFF));
   rebuild();
+  return out;
+}
+/* B365 — THE PEARL SETTLES WHEN THE SOUND ENDS (E3's B365 block). A scratch composed engine plays A3
+   for HOLD s and releases it; each SPEC_WIN window of its render becomes a feed exactly as the worklet
+   shell posts it (feedOf over blockPeak), and steps a scratch Specimen state through specimenStep, the
+   live frame's own step, without GL (so it runs where WebGL does not). The motion energy
+   (specimenEnergy) is read after every step. PASS: while the voice sounds the pearl moves (energy over
+   0.25); once every voice is freed and the output has stayed under −90 dBFS, the energy after 1 s is
+   under 1% of its sounding peak, and it is exactly 0 from 1.1 s to the end. SAME WHILE SOUNDING: the
+   pre-B365 law (legacy) on the same feed hands the shader the same uniforms, bit for bit, in every
+   step in which sound plays. CONTROLS (each must keep moving to the end): the pre-B365 code as it ran,
+   fed by a MONITOR (a second instance that holds the note and never hears the key-off: the stale
+   feed), and the pre-B365 law on the right feed (the time-driven orbit alone). */
+function checkB365() {
+  const out = [];
+  try {
+    const WIN = SPEC_WIN * 128, dt = WIN / SR, HOLD = 0.3, END = 3.5;
+    const mk = () => { const c = new CORE(SR); c.set(Object.assign({}, DEF)); Object.assign(c.s, c.t); return c; };
+    const uni = U => [U.act, U.time, U.k, U.dent, U.orbit[0], U.orbit[1], U.thick, U.rAmp, U.shy].concat(Array.from(U.pokes), Array.from(U.ages), Array.from(U.waves), Array.from(U.helds)).join(',');
+    const run = (legacy, fromMonitor) => {
+      seedOracle(0xB365); const c = mk();
+      seedOracle(0xB365); const mon = fromMonitor ? mk() : null;
+      c.noteOn(57, mtof(57), 0.85); if (mon) mon.noteOn(57, mtof(57), 0.85);
+      const S = specimenState(); S.legacy = legacy;
+      const L = new Float32Array(WIN), Rr = new Float32Array(WIN), rows = [];
+      let off = false;
+      for (let k = 0; k * dt < END; k++) {
+        if (!off && k * dt >= HOLD) { c.noteOff(57); off = true; }   // the monitor never hears it: the stale feed
+        c.render(L, Rr);
+        const feed = feedOf(c, blockPeak([L, Rr], 0));
+        let src = feed;
+        if (mon) { mon.render(L, Rr); src = feedOf(mon, blockPeak([L, Rr], 0)); }
+        const U = specimenStep(S, dt, src, 0.5);
+        rows.push({ t: (k + 1) * dt, E: specimenEnergy(U), snd: specSounding(feed), peak: feed.peak, act: feed.act, u: uni(U) });
+      }
+      return rows;
+    };
+    const fix = run(false, false), was = run(true, false), mon = run(true, true);
+    let q = fix.length;                                              // the first window of the silence that lasts to the end
+    while (q > 0 && !fix[q - 1].snd) q--;
+    const tQ = q > 0 ? fix[q - 1].t : 0, last = fix[fix.length - 1];
+    const ePlay = Math.max(...fix.filter(r => r.snd).map(r => r.E));
+    const at1 = fix.find(r => r.t >= tQ + 1.0), rest = fix.filter(r => r.t >= tQ + 1.1);
+    const restAt = (fix.find((r, i) => i >= q && fix.slice(i).every(x => x.E === 0)) || { t: NaN }).t;
+    const sndRows = fix.filter(r => r.snd), same = sndRows.filter((r, i) => r.u === was[fix.indexOf(r)].u).length;
+    const freeAt = (fix.find(r => r.act === 0) || { t: NaN }).t;
+    const ok = q < fix.length - 30 && ePlay > 0.25 && at1 && at1.E <= 0.01 * ePlay && rest.length > 5 && rest.every(r => r.E === 0);
+    out.push({ name: 'B365: the Specimen settles to rest once the sound has ended (the audio\'s rendered feed, settled in ~1 s)', ok,
+      detail: 'A3 held ' + HOLD + ' s: every voice freed at ' + freeAt.toFixed(2) + ' s, the output under −90 dBFS from ' + tQ.toFixed(2) + ' s to the end (' + END + ' s) · motion energy while sounding up to ' + ePlay.toFixed(3) +
+        ', 1 s into the silence ' + (at1 ? at1.E.toExponential(2) : 'n/a') + ' (≤ 1% of it), exactly 0 from ' + restAt.toFixed(2) + ' s (' + (restAt - tQ).toFixed(2) + ' s into the silence) · ' + rest.length + ' windows after +1.1 s all at 0' });
+    out.push({ name: 'B365: while sound plays the pearl is the pre-B365 pearl, bit for bit', ok: sndRows.length > 5 && same === sndRows.length,
+      detail: same + ' of ' + sndRows.length + ' sounding windows hand the shader identical uniforms under the settle law and the pre-B365 law, on one feed' });
+    const mE = mon[mon.length - 1].E, wE = was[was.length - 1].E;
+    out.push({ name: 'CONTROL: the pre-B365 Specimen, fed by the monitor (holds the note), is still rippling at the end', ok: mE > 0.1, control: true,
+      detail: 'motion energy ' + mE.toFixed(3) + ' at ' + END + ' s, ' + (END - tQ).toFixed(2) + ' s after the audio fell silent (must stay over 0.1) · held ripple ' + mon[mon.length - 1].u.split(',').slice(-4).map(Number).map(x => x.toFixed(2)).join('/') });
+    out.push({ name: 'CONTROL: the pre-B365 law on the audio\'s feed still moves (the time-driven orbit)', ok: wE >= 1, control: true,
+      detail: 'motion energy ' + wE.toFixed(3) + ' at ' + END + ' s (must stay at or over 1: its time runs whatever sounds)' });
+  } catch (e) {
+    out.push({ name: 'B365: the Specimen settles', ok: false, detail: 'threw: ' + String(e && e.stack || e) });
+  }
   return out;
 }
 /* B334 — ROUND 11's rows. Read off what was drawn or laid out.
