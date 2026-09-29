@@ -139,3 +139,7 @@ no longer also requires `!noisy && !rough`. The broad figures match B351's trace
 
 ## Verify
 
+- **VERIFIED** `./verify fast` exit 0 at `090ad1d` (`{"target":"fast","exit":0,"git":"090ad1d","ts":"2026-09-29T15:09:12Z"}`). `metrics_check.mjs: GREEN — 10 metric rows + 9 B345 rows + 9 B346 rows + 4 INFO rows + 3 engine controls + 3 B360 gauntlet-classification rows (noisy-but-clean is healthy and labelled, aliased still fails, a planted pre-B360 control)`.
+- **VERIFIED** `./verify full` exit 0 at `090ad1d` (`{"target":"full","exit":0,"git":"090ad1d","ts":"2026-09-29T15:16:07Z"}`). No B362 (load-sensitive timeout) hit this run. Relevant lines: `dependency_tree_check.mjs: GREEN — 113 params, 3170 probe comparisons, 0 structural disagreements required; 36.8 s`; `fidelity_scan_check.mjs: GREEN — 21 rows, 0 failed`; `listening_pass_check.mjs: GREEN — listening pass: 60/60 checks, 20 must-fail controls, 36 patches, 64 s` (unaffected by B360 — it imports `THRESH`, not `failures`/`incoherence`).
+- This trace's own commit is included in the verified tree (committed before either run).
+
