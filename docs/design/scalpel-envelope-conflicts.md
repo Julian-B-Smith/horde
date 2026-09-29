@@ -7,6 +7,17 @@ The human, 2026-09-29: "could you please add a master envelope and put it on bot
 page for Scalpel? ... This may surface some conflicts with the way envelopes currently work and the
 way they need to before it's ready for prime time."
 
+**Direction since (the lead, 2026-09-29).** The human: "I think want to follow the Serum approach of
+having ENV 1 be a global envelope that applies to all pre-FX sound-generating devices (including
+filters). Then we need to determine the envelopes work for things like onset scatter (an important knob
+I would like to preserve; but I'm frustrated by the trade-off of eating up an envelope slot with it
+versus giving it a secret proprietary envelope which may clash with certain settings)."
+
+So the master envelope below is the **prototype of ENV 1**. It is the voice's amplitude envelope,
+applied after the per-voice sources and, in horde 2, the filters, and before FX. The full envelope
+hierarchy gets its own lab (B370). The section "Onset scatter under ENV 1" analyses the lead's
+candidate for onset scatter. It is analysis only; nothing of it is built here.
+
 This document lists every mechanism that already shapes a SCALPEL voice's amplitude or its note
 timing. For each one it says what the mechanism does, where it lives, and how it meets the master
 envelope. It ends with the decisions that are needed before prime time, as questions, each with a
@@ -228,6 +239,119 @@ Nothing else frees a voice. A held voice is never freed, even at S 0 (F4).
     AUv2 path that struck a silent voice instead, and in this engine such a voice would hold a slot
     for ever.
 
+## Onset scatter under ENV 1
+
+### The candidate
+
+This is the lead's proposal. Onset scatter is **not a separate envelope**. It is a **spread
+dimension** of how ENV 1 is read per swarm member:
+
+- Member *i* reads ENV 1 at its own time offset δᵢ (onset scatter).
+- Optionally, it also reads at its own time scale sᵢ (attack and release scatter).
+- The timing correction (`onsetAlpha`, ADR-077's persistent memory) governs how the δᵢ are drawn.
+
+The result: no extra slot, no hidden envelope, and one shape everywhere. In a formula, member *i*'s
+gain is `ENV1((t − δᵢ) / sᵢ)`. The voice's gain is then the sum of its members' reads, as today.
+
+### What already approximates it
+
+B335's `voiceEnv`, with onset scatter on, is close to the candidate
+(`scalpel-horde-engine.js:643-733`). Each member:
+
+- waits δᵢ, drawn by ADR-077's law with `onsetAlpha`, shifted so the earliest member is at 0;
+- then runs **the voice's own ADSR** from its own entry, with its attack and release times scaled by
+  drawn factors (`aMul`, `rMul`, floored at 2 ms).
+
+The voice's `env` is bookkeeping: the loudest member. The differences from the candidate:
+
+1. **The decay is not scaled.** It uses D for every member; only A and R are scaled. The candidate's
+   sᵢ could scale the whole time axis, or keep attack and release scatter separate as today. That is
+   a choice to make.
+2. **Onset scatter without voiceEnv is a different model.** A late member there is not a late read of
+   the envelope. It fades in (a one-pole at the attack time) on top of the SHARED envelope, at
+   wherever that has reached.
+   - Reasoned out on F12's draw: members enter at 0, 25, 41.5, 42, 43.5, 46.7 and 83.1 ms. On the
+     "Pluck · sync blade" envelope (A 1 ms, D 0.26 s, S 0), the 83.1 ms member enters when the shared
+     envelope stands at 0.283 (−11.0 dB). It never has its own pluck.
+   - Under the candidate it reads its own full attack, peaking at 1.0.
+   - So the two modes of today's engine disagree about what a late member is. The candidate picks
+     voiceEnv's answer.
+3. **The key-off is not spread.** Every member starts its release at the key-off. Only the release
+   time is scaled.
+
+### Where it could still clash
+
+Each item below is reasoned out, or measured where marked.
+
+- **A per-voice filter (or anything per-voice that ENV 1 modulates).** A filter after the member sum
+  gets one control signal, but under the candidate ENV 1 is read seven ways. The choices, on F12's
+  draw with the pluck above:
+  - **The unscattered read, ENV1(t).** This is also the earliest member, since the draw puts the
+    earliest at δ = 0 and sᵢ = 1. It peaks at 1.0 at 1 ms and is at 0.283 by the time the last member
+    enters. The filter has closed by −11 dB of its envelope depth before that member's pluck, which
+    would then be heard through a closing filter. The late members' attacks are dulled: the clash the
+    human fears.
+  - **The ensemble mean, (1/N)·Σ ENV1(t − δᵢ).** It peaks at 0.716 at 47.7 ms. At 25 ms it is 0.099
+    against the unscattered 0.691; at 100 ms it is 0.432 against 0.218. It matches the SUMMED level
+    the filter actually receives, so the filter opens with the ensemble. But its peak is 0.716, not
+    1: a full-depth ENV 1 route never reaches full depth while scatter is on.
+  - **The mean normalised to peak 1.** This keeps the depth and follows the ensemble, at the cost of
+    one division per voice.
+  - *Recommendation:* ENV 1 as a per-voice modulation source is the ensemble-mean read, normalised.
+    The per-member reads are computed anyway, so it costs one sum. It is then "one shape" in timing
+    as well as in shape. A per-MEMBER destination (a blade parameter) reads its own member's ENV 1.
+- **Release: the voice lives until the last member ends.**
+  - With release scatter, the voice's tail is the longest member's. On F13's draw (releases 75 to
+    665 ms around 500) the voice lives 1.33× the nominal tail. The pool then holds tails longer, and
+    B310's tier 2 steals sooner.
+  - If the key-off were spread too (δᵢ on the release), each member would release up to max δᵢ late.
+    That is +83 ms on F12's draw, and the voice lives that much longer again.
+  - *Recommendation:* spread the onset only, not the key-off (as today). Keep "faded" and freeing on
+    the loudest member (as voiceEnv's bookkeeping already does), and draw the tail on the curve as the
+    longest member's.
+- **Mono and legato retrigger.** Read as a pure function of time since the note-on, a retrigger would
+  set every member back to `t − δᵢ < 0`, that is to silence. The late members would drop out and
+  re-enter: a dropout, and a click risk, on every mono retrigger.
+  - Today, a non-fresh retrigger keeps the draws, and each member re-enters its attack from its own
+    level (`scalpel-horde-engine.js:568`, `m.eS = 1`). There is no wait again, so no dropout.
+  - Legato does not retrigger at all.
+  - *Recommendation:* ENV 1 is a per-member STATE MACHINE (a stage and a level, as the oracle's is),
+    not a pure function of time. δᵢ applies only to a FRESH note. A retrigger restarts each member's
+    attack from its own level, with no wait. Whether a retrigger re-draws δᵢ, which ADR-077's memory
+    would favour, stays B335's open question.
+- **Voice stealing and B323's cull.**
+  - A stolen slot keeps the old note's level (F8), and under scatter each waiting member of the new
+    note is silent until its δᵢ. So a steal drops every late member of the old sound to silence at
+    once, while the early ones continue at the old level (B335's open item: "a stolen voice's waiting
+    member drops to silence"). That is a discontinuity at the steal.
+  - Decision 6's rule removes it: the old voice fades over 8 ms in a spare slot, and the new note
+    enters fresh from 0.
+  - B323's cull multiplies the voice's gain after the member reads, so it does not clash. Its "quietest
+    tail" key is the loudest member's level, as voiceEnv keeps it.
+- **One shape everywhere.** This holds for the shape. It holds for the timing only if the per-voice
+  source is the ensemble read (the first bullet). Otherwise ENV 1 on a filter and ENV 1 on the
+  amplitude disagree by exactly the scatter.
+- **Cost.** A per-member envelope costs N envelope steps per voice (N ≤ 9). voiceEnv already pays it
+  (memberStep), and the engine skips the member step entirely when neither onset scatter nor voiceEnv
+  is on.
+
+### Verdict
+
+The candidate resolves the human's trade-off:
+
+- Onset scatter becomes a section of ENV 1 (onset scatter in ms, timing correction α, attack scatter,
+  release scatter), not a slot and not a hidden envelope.
+- voiceEnv is most of the mechanism already.
+
+What must be ruled with it:
+
+1. ENV 1 as a per-voice source is the normalised ensemble read (the filter clash).
+2. δᵢ applies to fresh notes only, and ENV 1 is a per-member state machine (the retrigger clash).
+3. Steals fade the old voice (the steal clash, decision 6).
+4. The key-off is not spread.
+5. Onset scatter WITHOUT per-member envelopes (today's entry-ramp mode) is retired in favour of the
+   read, because the two disagree about what a late member is.
+
 ## Decisions needed before prime time
 
 Each question has a recommendation. **The first one gates most of the rest.**
@@ -307,3 +431,13 @@ Each question has a recommendation. **The first one gates most of the rest.**
     (−6.02 dB of envelope reads −4.54 dB at gain 1, F16).
     *Recommendation:* no change for 1.0. Note it in the manual. It becomes moot if the output stage is
     reworked.
+
+14. **ENV 1 and onset scatter** (the section above). Adopt the spread-read model, and with it these
+    four rules:
+    - ENV 1 as a per-voice source is the normalised ensemble read;
+    - δᵢ applies to fresh notes only;
+    - the key-off is not spread;
+    - today's entry-ramp mode is retired.
+
+    *Recommendation:* yes. Workshop it in B370's envelope-hierarchy lab, with voiceEnv's code as the
+    starting point.

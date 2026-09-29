@@ -1300,15 +1300,19 @@ Coupling × Detune XY</b> for the swarm.</div>
         exponentially, and the voice ends about 2.3 × Release after the key-off (the curve shows this as "tail"). So it needed nothing new in
         the engine. The same four knobs sit on MAIN (under the macros) and on OSC (the strip's second line); turning either turns both.
         Times read in seconds. The lit stage and the dot follow the newest voice you are hearing (the monitor's held note while the audio
-        is off). <span class="rec">Open:</span> horde's own envelope times mean something else for the same numbers (a release ~4× longer);
+        is off). It is the prototype of <b>ENV 1</b>, the global envelope the human asked for on the Serum model: the voice's amplitude
+        envelope, after the sources (and in horde 2 the filters) and before FX; how onset scatter should read it is in the conflict list. <span class="rec">Open:</span> horde's own envelope times mean something else for the same numbers (a release ~4× longer);
         which one is the instrument's is decision 1 of the conflict list.</li>
       <li><b>Twelve envelope presets</b>, in the browser's last group, "Envelopes (lab, B366)": two plucks, a slow pad, two swells (one cut at
         the key-off), a gated organ stab, a short-decay stab, a five-second tail, a tail pile-up that makes new notes steal the quietest
         tails (and, under load, is what the cull thins), a blade sweep longer than the amp, a mono retriggering pluck and a legato swell.
         Each is checked at load to play the envelope it is named for.</li>
       <li><b>The conflicts</b> (the human: "This may surface some conflicts with the way envelopes currently work"): every envelope-like
-        thing that acts on a voice, what it does, where it lives, how it meets the master envelope, and thirteen decisions, each with a
-        recommendation, in <code>docs/design/scalpel-envelope-conflicts.md</code>. The first gates most of the rest: whose envelope law.</li>
+        thing that acts on a voice, what it does, where it lives, how it meets the master envelope, and fourteen decisions, each with a
+        recommendation, in <code>docs/design/scalpel-envelope-conflicts.md</code>. The first gates most of the rest: whose envelope law. The
+        last is yours from today: onset scatter as a spread in how each swarm member reads ENV 1 (its own delay, and optionally its own
+        time scale), with no extra slot and no hidden envelope. The list says where that could still clash: what a filter follows, how long
+        a voice lives, mono retriggers, and steals.</li>
       <li><b>The logo's gradient</b> (the human: "Is the logo gradient a hue gradient or a value gradient? It's hard to tell"). GRADIENT is a
         <b>value</b> gradient: the letters' colour lifted 24% toward white at the top and 14% toward black at the foot, its hue unchanged.
         Two new styles end the click cycle: <b>HUE ↘</b>, the colour turning through 150° of hue from the top-left corner to the
@@ -4150,6 +4154,11 @@ function specimenFrame(force) {
    voice's gain is env·vel, linear, full depth) and there is no curve control; both are listed with the
    other decisions in docs/design/scalpel-envelope-conflicts.md, with ACCOUNTING rows 17-20's ruling
    that horde's one-pole law wins the merge.
+   ENV 1 (the lead, 2026-09-29, after the human: "I think want to follow the Serum approach of having
+   ENV 1 be a global envelope that applies to all pre-FX sound-generating devices (including filters)"):
+   this is ENV 1's prototype, the voice's amplitude envelope, applied after the per-voice sources (and,
+   in horde 2, the filters) and before FX. The envelope hierarchy itself is B370's lab; how onset
+   scatter reads ENV 1 is analysed in the conflict inventory, not built here.
    ONE STATE, TWO VIEWS: envPanel draws the same four P keys (A, D, S, R) on MAIN (its own cell) and on
    OSC (the strip's second line), through the one knob() every control uses, so a turn in either place
    is the same write (P, then the engine); they left One level down, where the same keys sat before.
@@ -4944,7 +4953,7 @@ function buildMain(host) {
   const mg = el('div', 'mgrid row'); mc.appendChild(mg);                // B366: one row of eight
   MACROS.forEach((m, i) => macroKnob(mg, i));
   /* B366: the master envelope, in the room the macros gave back (the same control set as OSC's, E4) */
-  const ce = cell(Rt, 'Envelope', 'MASTER · amp ADSR · the same four on OSC');
+  const ce = cell(Rt, 'Envelope', 'ENV 1 (prototype) · amp ADSR · the same four on OSC');
   envPanel(ce, 44);
   const two = el('div', 'wtwo'); Rt.appendChild(two);
   const cmx = cell(two, 'Mix', 'OURS'); const kmx = el('div', 'kr'); cmx.appendChild(kmx);
