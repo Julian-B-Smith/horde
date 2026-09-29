@@ -6654,3 +6654,99 @@ B252 H3 already made the C++ the golden for SCALPEL. This ADR says how, without 
 - **JS-limit.** Where the browser cannot follow (SIMD, oversampling or filter structure beyond JS cost, precision, or real-time budget), the divergence's ledger entry carries a **`js_limit`** marker saying what the lab cannot reproduce and how it approximates. A `js_limit` entry NEVER blocks or slows a C++ optimisation; it removes its declared scope from lab parity, and the lab shows the approximation as such (L0064).
 - **Amendments that land with this ratification:** the charter's §Domain invariant (CLAUDE.md), ADR-003 (above), and `specs/ACCEPTANCE.md` L0-1 (a protected path, covered by this ruling). All are scoped to horde 2; legacy is unchanged.
 
+
+## ADR-188 — RULED by the human: a module's own XY holds ONE patch; different patches of a module live at HORDE's morph corners (2026-09-29)
+
+**Context.** B347 recorded the human's "corners get their own patches, but the Sluice patch
+requires a quantum flip unless patch parity is detected" as applying to Sluice's OWN XY, and
+B348's lab built it that way. The human, 2026-09-29, correcting the communication: "I don't
+think the Sluice XY should allow for different patches on the same XY. I do, however, believe
+the global Horde morph XY should allow for different sluice patches at each corner (with full
+access to their constituent XY pads, which can be modulated or mapped to global Horde macros)."
+
+**Decision.**
+1. **The module's XY.** A hosted module's own XY (Sluice's 4 corners) morphs the snapshots
+   of ONE patch. Sluice's one-patch rule stands inside the module.
+2. **Horde's morph corners.** Horde's global morph XY (the quantum-morph field) may hold a
+   DIFFERENT module patch at each of its corners. The module patch's structure is a
+   STRUCTURAL morph class: where the corners' patches share parity (identical module kinds in
+   identical sequence), their evaluated parameters blend. Where they do not, the live patch
+   quantum-flips with a hysteresis boundary, band ≈0.1 (human: "Buffer zone approved").
+3. **Across a flip.** The fixed four (Dry/Wet, Width, Time, Tune) stay continuous, and the
+   patch's own dry/wet balance GLIDES rather than stepping (human: "Dry/wet glide is a good
+   idea").
+4. **The module's XY as parameters.** Each corner's module XY position is exposed to horde:
+   modulatable, and mappable to horde's global macros.
+5. **Macros.** They act on the ENTIRE patch, not on a corner or snapshot (human: "macros
+   should be for entire patches, not corners"), so moving a macro does not make a snapshot
+   a draft.
+6. **Tails.** A USER SETTING (B347). Spill-over applies to a horde-morph flip, to a bypass, and
+   (as an option) to LOADING a patch (human: "loading a patch should at least [have] the
+   option of letting the old tail ring. It's a nice touch").
+
+**Consequences.**
+- B348's per-corner-patches-on-Sluice's-XY model is superseded; the lab moves it one level up
+  (B353).
+- Sluice's netcore holds one patch per instance. Horde holds a second instance only during a
+  flip or a spill-over tail.
+- The seq 11 and 12 questions to Sluice are corrected by a notice (seq 13).
+
+**ADR-188 A1 — RULED by the human (2026-09-29): macro RANGES are per snapshot corner; macro MAPPINGS are per patch.**
+The human: "I think each sluice snapshot corner should be able to control the max and min
+values of its contribution to each macro, but not determine new mappings, and then the
+relative position is interpolated across the slider range."
+- **Per patch.** A macro's MAPPING (which parameters it binds, and the binding order and curve)
+  belongs to the patch.
+- **Per snapshot.** Each snapshot corner stores its own [min, max] for each of the macro's
+  bindings. The lead's reading is per binding; a single-target macro reduces to per macro.
+  This is flagged for the human to confirm.
+- **At play time.** The effective min and max are the XY-weighted interpolation of the
+  corners' values, and the macro's slider position (0..1) maps through the patch's curve
+  inside that interpolated range: `lo(xy) + curve(v)·(hi(xy) − lo(xy))`.
+- **Drafts.** Moving a macro still makes no draft (item 5). Editing a corner's min/max is an
+  edit to that snapshot.
+
+**ADR-188 A1 confirmed (2026-09-29):**
+- **Per parameter.** The human: "I did mean per parameter". Each snapshot stores [min, max]
+  per binding.
+- **The fixed four.** The human: "the math on these from sluice works a little differently
+  since each corner sets its target as the center and then the sliders interpolate a curve
+  across the extremes that put that value at the center for each corner". So Dry/Wet, Width,
+  Time and Tune take no per-corner ranges. Each corner's value is the knob's CENTRE, and the
+  slider bends a curve through it to the extremes (Sluice's own law, read from Sluice, not
+  redefined here).
+
+## ADR-189 — RATIFIED by the human: SCALPEL anti-aliasing divergences from razor-core.js (2026-09-29)
+
+**Context.** B346 measured where SCALPEL's aliasing comes from (PR #847,
+`tools/patchspace/alias_sources.mjs`) and proposed cures R1–R6. The human: "I ratify your
+recommended aliasing fixes, and we should skip the ones you recommended against."
+
+**Decision.** These are ADR-187 divergences from `reference/scalpel/prototype/razor-core.js`,
+built in the composed engine (`docs/design/scalpel-horde-engine.js`, the lab JS, so they are
+mirrored by construction). Each sits behind its own flag, and every flag off must be
+bit-identical to the engine before the change.
+- **D1 (R1).** First-order ADAA on the blade CARRIERS, replacing their wrap BLEPs (17 of 72
+  helped, 0 worse, CPU ≈1.0×).
+- **D2 (xin).** The scanner tracks the xin phase input, closing a BLEP coverage gap (5
+  helped, 0 worse).
+- **D3 (R4).** The feedback loop's one-sample BLEP-latency tap is fixed (broad#828's limit
+  cycle at 0.2 × the internal rate), plus the smallest measured addition that removes the
+  cycle: os, a loop-gain bound, or a loop filter.
+- **D4 (R5).** The random-patch sampler weights Band-limit toward ON. This is a patch-space
+  change, not an engine one, and it is versioned so the committed listening sample still
+  reproduces.
+- **R2 and R3** (blade caps decoupled from os; a steep polyphase decimator) were recommended
+  WITH a critic first. They go to the critic before they are built.
+- **Rejected, per the human:**
+  - ADAA on the base wave: it double-corrects with the active base BLEP, 11 patches worse.
+  - ADAA on the output tanh: it helps only through HF droop.
+  - tanh inside the os loop: no gain.
+  - Nothing is changed for crush or the noise hash.
+
+**Consequences.**
+- The flags default OFF in the engine, so the listening pass, the gauntlet and every
+  fingerprint keep rendering the heard engine.
+- The SCALPEL lab turns them ON, labelled.
+- The instrument's default is ruled when horde 2's shell is built.
+- The ADR-187 divergence ledger starts here: `docs/port/divergences.json` plus a check.

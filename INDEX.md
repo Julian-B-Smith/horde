@@ -79,3 +79,4 @@ swarm-dynamics · parity-oracle · plugin-platform · realtime-perf
 - [L0067] Reading a private sibling ≠ permission to transcribe it: forbid copying in the brief and gate with an identifier scan (privacy · briefs)
 - [L0068] A build-variant control must run the full scenario stream; subsets miss amplifier paths and under-report (oracles · ports)
 - [L0069] A ruled-out hypothesis is scoped to the regime its control tested; slow effects hide behind fast controls (oracles · metrics)
+- [L0070] Judge a cure on the curated bench too, not only on the sample that exposed the problem (oracles · evaluation)
