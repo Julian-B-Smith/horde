@@ -18,6 +18,8 @@
  *   node tools/patchspace/fidelity_audit.mjs hotspots  [--workers W]   the click/noise hotspots found × 4 phrases × 2 engines
  *   node tools/patchspace/fidelity_audit.mjs attribute [--workers W]   every click event × every applicable ablation
  *   node tools/patchspace/fidelity_audit.mjs wavs                      the worst examples, as WAVs, for listening
+ *   node tools/patchspace/fidelity_audit.mjs alias     [--workers W]   B346: the chord's aliasing, both engines, fixed metric + the
+ *                                                                     os-convergence estimator + the output stage (regenerates §5)
  *   node tools/patchspace/fidelity_audit.mjs summary                   the report's tables, as markdown, on stdout
  * Output: local/patchspace/fidelity/ (git-ignored). Every pass is RESUMABLE (one JSON line per
  * job; a re-run skips jobs already on disk) and prints progress every 25 jobs.
@@ -44,6 +46,7 @@ import { spectrum, aliasing, mono, flatness, analyse, clicks as wholeClicks, rms
 import { samplePatch, A_SCRIPT, C_SCRIPT } from './gauntlet.mjs';
 import { hash32 } from './gen_dependency_tree.mjs';
 import { ABLATIONS, engineClass, ablationApplies, PHRASES, PRESETS, renderPhrase, clickEvents, nearestCause, sameEvent, clickEnergyDb, CLICK, wav, mtof, NEUTRAL, neutralPair, diffStats, dBFS } from './fidelity.mjs';
+import { estimate, withCapture, renderWith } from './alias_sources.mjs';
 
 export const OUT = join(ROOT, 'local', 'patchspace', 'fidelity');
 const ENGINES = ['oracle', 'composed'];
@@ -113,6 +116,7 @@ function jobsFor(pass) {
     for (let i = 0; i < P3.edge; i++) J.push({ id: 'edge#' + i, subj: { mode: 'edge', i } });
   }
   if (pass === 'neutral') for (const p of PRESETS) for (const ph of Object.keys(PHRASES)) J.push({ id: `${p.name}|${ph}`, subj: { preset: p.name }, phrase: ph });
+  if (pass === 'alias') for (const p of PRESETS) for (const k of ENGINES) J.push({ id: `${p.name}|${k}`, subj: { preset: p.name }, kind: k });
   if (pass === 'mech') {
     const subs = PRESETS.map(p => ({ preset: p.name })).concat(CONSTRUCTED.map(c => ({ preset: c.preset, over: c.over })));
     for (const sb of subs) for (const ph of MECH_PHRASES) for (const k of ENGINES) J.push({ id: `${subjName(sb)}|${ph}|${k}`, subj: sb, phrase: ph, kind: k });
@@ -147,6 +151,18 @@ function runJob(pass, j) {
     const ck = wholeClicks(mono(c.L, c.R));
     return { clicks: m.clicks, flatness: m.flatness, silent: m.silent, clicksC: ck.clicks, clicksCWorstDb: +ck.worstDb.toFixed(2) };
   }
+  if (pass === 'alias') {
+    /* B346: the audit's own chord hold (the four note-ons, 0.6 s, window 0.1 s to the end), at the preset's
+       os and 2x..16x it, through alias_sources.mjs estimate: the B345-fixed aliasing (b345Db, the same test
+       and 4x reference as the pre-B345 number this replaces), the os-convergence estimator, the output
+       stage and the total against the oversampled truth. Seeded as renderPhrase is (0xB325). */
+    const params = subjectParams(j.subj), N = params.os || 2, C = capClass(j.kind);
+    const hold = { n: Math.round(0.6 * SR / 128) * 128, ev: PHRASES.chord.ev.filter(e => e[1] === 'on') };
+    const E = estimate((m, cap) => renderWith(C, Object.assign({}, params, { os: N * m }), hold, { seed: 0xB325, cap, raw: true }), N, [Math.round(0.1 * SR), hold.n], { truth: true });
+    const r2 = x => Math.round(x * 100) / 100;
+    return { os: N, aliasDb: r2(E.conv.b345Db), convDb: r2(E.conv.excessDb), cls: E.conv.cls, foldDb: r2(E.conv.foldDb), dynDb: r2(E.conv.dynDb), converge: r2(E.conv.convDb),
+      decimLeakDb: r2(E.out.decimLeakDb), tanhFoldDb: r2(E.out.tanhFoldDb), totalDb: r2(E.totalDb) };
+  }
   if (pass === 'neutral') {
     /* the sensitive layer (fidelity.mjs NEUTRAL): composed must equal the oracle, sample for sample */
     const P = neutralPair(), params = subjectParams(j.subj);
@@ -167,6 +183,9 @@ function runJob(pass, j) {
   }
   return measureRender(j.kind, subjectParams(j.subj), j.phrase, j.ablation && j.ablation !== 'none' ? j.ablation : null);
 }
+
+const CAPC = new Map();
+const capClass = kind => { if (!CAPC.has(kind)) CAPC.set(kind, withCapture(engineClass(kind))); return CAPC.get(kind); };
 
 /* ---------------------------------------------------------------- storage */
 function dir() { mkdirSync(OUT, { recursive: true }); return OUT; }
@@ -349,6 +368,22 @@ function summary() {
     }
     lines.push('');
   }
+  /* B346: the chord's aliasing, regenerated with the fixed metric and the os-convergence estimator */
+  const AL = [...readPass('alias').values()];
+  if (AL.length) {
+    const byP = new Map(); for (const r of AL) { const k = subjName(r.subj); if (!byP.has(k)) byP.set(k, {}); byP.get(k)[r.kind] = r; }
+    const q3 = xs => { const s = xs.slice().sort((a, b) => a - b); return [0.05, 0.5, 0.95].map(p => s[Math.min(s.length - 1, Math.floor(p * s.length))]); };
+    lines.push(`### aliasing on the held chord (B346: ${byP.size} presets × both engines; window 0.1..0.6 s)`, '',
+      '| engine | fixed aliasDb p5 / p50 / p95 | os-convergence excess p5 / p50 / p95 | total vs truth p5 / p50 / p95 | clean / folding / dynamics | decimator leak p95 | tanh fold p95 |', '|---|---|---|---|---|---|---|');
+    for (const k of ENGINES) {
+      const R = AL.filter(r => r.kind === k), cnt = c => R.filter(r => r.cls === c).length;
+      lines.push(`| ${k} | ${q3(R.map(r => r.aliasDb)).map(x => x.toFixed(1)).join(' / ')} | ${q3(R.map(r => r.convDb)).map(x => x.toFixed(1)).join(' / ')} | ${q3(R.map(r => r.totalDb)).map(x => x.toFixed(1)).join(' / ')} | ${cnt('clean')} / ${cnt('folding')} / ${cnt('dynamics')} | ${q3(R.map(r => r.decimLeakDb))[2].toFixed(1)} | ${q3(R.map(r => r.tanhFoldDb))[2].toFixed(1)} |`);
+    }
+    const d = [...byP.entries()].filter(([, v]) => v.oracle && v.composed), dq = f => q3(d.map(([, v]) => f(v.composed) - f(v.oracle))).map(x => x.toFixed(1)).join(' / ');
+    lines.push('', `Composed − oracle, p5 / p50 / p95: fixed aliasDb ${dq(r => r.aliasDb)} dB; os-convergence excess ${dq(r => r.convDb)} dB; total ${dq(r => r.totalDb)} dB.`);
+    lines.push('Largest composed − oracle total: ' + d.map(([n, v]) => [n, v.composed.totalDb - v.oracle.totalDb, v.oracle.totalDb, v.composed.totalDb]).sort((a, b) => b[1] - a[1]).slice(0, 5).map(x => `${x[0]} ${x[2].toFixed(1)}→${x[3].toFixed(1)}`).join(' · '));
+    lines.push('Worst composed total: ' + d.map(([n, v]) => [n, v.composed]).sort((a, b) => b[1].totalDb - a[1].totalDb).slice(0, 8).map(([n, r]) => `${n} ${r.totalDb.toFixed(1)} (${r.cls}, fixed ${r.aliasDb.toFixed(1)})`).join(' · '), '');
+  }
   /* attribution table */
   const src = new Map();
   for (const e of att) {
@@ -366,7 +401,7 @@ function summary() {
 
 if (isMainThread && process.argv[1] && process.argv[1].endsWith('fidelity_audit.mjs')) {
   const cmd = process.argv[2];
-  if (['presets', 'find', 'hotspots', 'attribute', 'neutral', 'mech'].includes(cmd)) await runPass(cmd);
+  if (['presets', 'find', 'hotspots', 'attribute', 'neutral', 'mech', 'alias'].includes(cmd)) await runPass(cmd);
   else if (cmd === 'wavs') wavs();
   else if (cmd === 'summary') summary();
   else { console.error('usage: fidelity_audit.mjs presets|neutral|mech|find|hotspots|attribute|wavs|summary [--workers W]'); process.exit(2); }
