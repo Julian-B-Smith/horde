@@ -15,7 +15,7 @@ import { writeFileSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { loadavg, cpus } from 'node:os';
 import { ROOT, loadSpace, posOf, evalCond, readRepo } from './space.mjs';
-import { samplePatch, measure, failures, incoherence, THRESH, readRun } from './gauntlet.mjs';
+import { samplePatch, measure, failures, incoherence, labels, THRESH, readRun } from './gauntlet.mjs';
 import { asEvalTree, hash32 } from './gen_dependency_tree.mjs';
 
 const arg = (n, d) => { const i = process.argv.indexOf('--' + n); return i > 0 ? process.argv[i + 1] : d; };
@@ -23,7 +23,9 @@ const pct = (a, q) => { if (!a.length) return null; const s = a.slice().sort((x,
 const f = (x, d) => (x === null || x === undefined || Number.isNaN(x) ? '—' : typeof x === 'number' ? x.toFixed(d === undefined ? 3 : d) : String(x));
 const rate = (n, d) => (d ? (100 * n / d).toFixed(1) + '%' : '—');
 const CLASSES = ['nonfinite', 'silent', 'overload6', 'overloadVoice', 'alias', 'clicks', 'dc'];
-const INCO = ['rootAbsent', 'noisy', 'rough'];
+const INCO = ['rootAbsent'];
+/* B360: noisy/rough are LABELS — measured and reported, but no longer reduce healthy or coherent yield */
+const LABELS = ['noisy', 'rough'];
 
 export async function report() {
   const run = arg('run', 'default');
@@ -35,7 +37,7 @@ export async function report() {
   for (const r of all) {
     const s = samplePatch(meta.seed, r.i, r.mode);
     r.P = s.patch;
-    r.fail = failures(r); r.inco = incoherence(r);
+    r.fail = failures(r); r.inco = incoherence(r); r.labels = labels(r);   // B360: recomputed live, same as fail/inco (not trusted from disk)
     r.b1 = evalCond({ pred: 'B1' }, r.P, T.predicates); r.b2 = evalCond({ pred: 'B2' }, r.P, T.predicates);
     r.blades = (r.b1 ? 1 : 0) + (r.b2 ? 1 : 0);
   }
@@ -84,17 +86,23 @@ export async function report() {
   P(`| clicks | > ${THRESH.clicks} click frames in the TONAL window (20 dB over the median HF frame) |`);
   P(`| dc | dcRatio > ${THRESH.dcRatio} |`);
   P(`| rootAbsent (coherence) | rootPresence < ${THRESH.rootPresence} |`);
-  P(`| noisy (coherence) | noiseDb > ${THRESH.noiseDb} dB (B350: moved off flatness, still a measured column above) |`);
-  P(`| rough (coherence) | roughness > ${THRESH.roughness} (two pure tones a minor second apart read 0.090) |`);
+  P(`| noisy (LABEL, B360 — does not reduce healthy or coherent yield) | noiseDb > ${THRESH.noiseDb} dB (B350: moved off flatness, still a measured column above) |`);
+  P(`| rough (LABEL, B360 — does not reduce healthy or coherent yield) | roughness > ${THRESH.roughness} (two pure tones a minor second apart read 0.090) |`);
   P('');
   P('## Yield');
   P('');
-  P('| mode | n | healthy (no failure class) | coherent (healthy + no coherence flag) | ' + CLASSES.join(' | ') + ' | ' + INCO.join(' | ') + ' |');
-  P('|---|---|---|---|' + CLASSES.map(() => '---').join('|') + '|' + INCO.map(() => '---').join('|') + '|');
+  P('B360 (human, 2026-09-29: "I think noisy and rough should just label; some patches want noisy or rough"): ' +
+    '`noisy` and `rough` below are LABELS, not failure or coherence classes — they tag a patch that P4 can target ' +
+    'or avoid, and no longer reduce `healthy` or `coherent`. `healthy` is unchanged by B360 (noisy/rough never gated ' +
+    'it); `coherent` rises because it no longer also requires `!noisy && !rough`.');
+  P('');
+  P('| mode | n | healthy (no failure class) | coherent (healthy + no coherence flag) | ' + CLASSES.join(' | ') + ' | ' + INCO.join(' | ') + ' | ' + LABELS.join(' | ') + ' |');
+  P('|---|---|---|---|' + CLASSES.map(() => '---').join('|') + '|' + INCO.map(() => '---').join('|') + '|' + LABELS.map(() => '---').join('|') + '|');
   for (const m of modes) {
     const R = byMode(m), n = R.length;
     P(`| ${m} | ${n} | ${rate(R.filter(r => !r.fail.length).length, n)} | ${rate(R.filter(r => !r.fail.length && !r.inco.length).length, n)} | ` +
-      CLASSES.map(c => rate(R.filter(r => r.fail.includes(c)).length, n)).join(' | ') + ' | ' + INCO.map(c => rate(R.filter(r => r.inco.includes(c)).length, n)).join(' | ') + ' |');
+      CLASSES.map(c => rate(R.filter(r => r.fail.includes(c)).length, n)).join(' | ') + ' | ' + INCO.map(c => rate(R.filter(r => r.inco.includes(c)).length, n)).join(' | ') +
+      ' | ' + LABELS.map(c => rate(R.filter(r => r.labels.includes(c)).length, n)).join(' | ') + ' |');
   }
   P('');
   P('## Metric distributions (p5 / p25 / p50 / p75 / p95)');
@@ -179,10 +187,10 @@ export async function report() {
   const binOf = (p, v) => (p.kind === 'c' ? 'q' + Math.min(4, Math.floor(posOf(p, v) * 5)) : String(v));
   const binsFor = p => { const m = new Map(); for (const r of all) { if (!evalCond(T.params[p.key].active_when, r.P, T.predicates)) continue; const b = binOf(p, r.P[p.key]); (m.get(b) || m.set(b, []).get(b)).push(r); } return m; };
   const BINS = new Map(params.filter(p => p.kind !== 's').map(p => [p.key, binsFor(p)]));
-  P('## Failure hotspots (lift = rate in the bin ÷ rate overall; bins with n ≥ 25; continuous rows by taper quintile q0..q4)');
+  P('## Failure and label hotspots (lift = rate in the bin ÷ rate overall; bins with n ≥ 25; continuous rows by taper quintile q0..q4; `noisy`/`rough` are B360 LABELS, not failures)');
   P('');
-  for (const c of CLASSES.concat(INCO)) {
-    const has = r => r.fail.includes(c) || r.inco.includes(c), base = all.filter(has).length / all.length;
+  for (const c of CLASSES.concat(INCO).concat(LABELS)) {
+    const has = r => r.fail.includes(c) || r.inco.includes(c) || r.labels.includes(c), base = all.filter(has).length / all.length;
     if (!base) { P(`- **${c}**: none in ${all.length} patches.`); continue; }
     const lifts = [];
     for (const [k, m] of BINS) for (const [b, R] of m) if (R.length >= 25) { const rr = R.filter(has).length / R.length; lifts.push([k + '=' + b, rr, R.length]); }
@@ -233,7 +241,7 @@ export async function report() {
   P('');
   P('## Open questions for P4 / P5');
   P('');
-  P('- The thresholds above are provisional; the blind listening pass should set at least `alias`, `rough`, `rootAbsent` and `noisy` before P4 fits distributions to them.');
+  P('- The thresholds above are provisional; the blind listening pass fitted `alias` and `rootAbsent` (gates) and `rough`/`noisy` (B360: LABELS, not gates) — P4 still fits distributions to all four.');
   P('- `overload6` is a JS-reference cost (B313: "a limit of the JS reference, not a verdict on the C++ port"). Should P4 bound N × blades by the JS cost, or wait for a C++ cost table?');
   P('- The aliasing reference is the engine\'s own 4× oversampling, whose blade caps move with it (gauntlet.mjs header): a cap-free reference needs the caps separated from `os` in the engine, which is out of this tool\'s reach.');
   P('- B351: the `alias` class reads `aliasConvDb` (the os-convergence estimator) at a cut re-fitted on the v2 ratings; `aliasDb` is a measured column. A run without the estimator\'s fields (before B346) is refused by gauntlet.mjs failures().');

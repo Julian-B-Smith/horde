@@ -89,16 +89,21 @@ import { estimate as aliasEstimate, baseEngine, renderWith } from './alias_sourc
    window) where aliasConvDb's moves 1.5 (-34.9), and it fails the vibrato control; aliasConvDb at
    -33.4 passes every detector control (listening_pass_check T10: the naive saw with vibrato and glide
    at E5 and A3 reads -19.1 to -26.1, the band-limited ones -120). aliasDb stays a MEASURED COLUMN.
-   A run measured without opt.conv carries no aliasConvDb: failures() refuses it rather than pass it. */
+   A run measured without opt.conv carries no aliasConvDb: failures() refuses it rather than pass it.
+   LABELS, NOT GATES (B360, 2026-09-29, human: "I think noisy and rough should just label; some
+   patches want noisy or rough"): noiseDb and roughness below tag a patch (labels(), on every
+   record) that P4 can target or avoid; they no longer push into failures() or incoherence() and no
+   longer reduce healthy or coherent yield. aliasConvDb and rootPresence are unmoved — aliasing
+   (failures()) and an absent root (incoherence()) still gate. */
 export const THRESH = {
   overloadPoly6: 1.0,   // projected load of the lab's 6-voice pool: 6 × cpuVoice > 100% of real time
   overloadVoice: 1.0,   // one voice over real time (the brief's literal "> 100% RT per voice")
-  aliasConvDb: -33.4,   // B351: the os-convergence estimator, v2 fit, worst-heard segment, n=33 (was aliasDb -26.8, B350; -30, B316)
+  aliasConvDb: -33.4,   // B351: the os-convergence estimator, v2 fit, worst-heard segment, n=33 (was aliasDb -26.8, B350; -30, B316) — a FAILURE (failures())
   clicks: 0,            // any click frame in the TONAL window
   dcRatio: 0.1,         // |mean| above 10% of RMS
-  rootPresence: 0.616,  // B350: v2 fit, worst-heard segment, n=34 (was 0.5)
-  noiseDb: -21.5,       // B350: the noise gate, moved from flatness 0.3 (v2 fit, n=34)
-  roughness: 0.12,      // B350: v2 fit, worst-heard segment, n=34 (was 0.1; two pure tones a minor second apart read 0.090 in metrics_check)
+  rootPresence: 0.616,  // B350: v2 fit, worst-heard segment, n=34 (was 0.5) — a FAILURE (incoherence())
+  noiseDb: -21.5,       // B350: the noise gate, moved from flatness 0.3 (v2 fit, n=34) — B360: a LABEL (labels()), not a gate
+  roughness: 0.12,      // B350: v2 fit, worst-heard segment, n=34 (was 0.1; two pure tones a minor second apart read 0.090 in metrics_check) — B360: a LABEL (labels()), not a gate
 };
 const TREE_FILE = 'tools/patchspace/dependency_tree.json';
 let TREE = null;
@@ -190,11 +195,17 @@ export function failures(r) {
 export function incoherence(r) {
   const f = [];
   if (r.rootPresence !== null && r.rootPresence < THRESH.rootPresence) f.push('rootAbsent');
-  /* B350: the noise gate moved from flatness to noiseDb (metrics.mjs, B345) — flatness is still
-     measured and reported (gauntlet_report.mjs), just no longer a gate */
-  if (r.noiseDb !== null && r.noiseDb !== undefined && r.noiseDb > THRESH.noiseDb) f.push('noisy');
-  if (r.roughness !== null && r.roughness > THRESH.roughness) f.push('rough');
   return f;
+}
+/* B360 (2026-09-29, human: "I think noisy and rough should just label; some patches want noisy or
+   rough"): noiseDb and roughness no longer reduce healthy or coherent yield — they LABEL a patch
+   that P4 can target or avoid. aliasConvDb (failures()) and rootPresence (incoherence()) are
+   unmoved: aliasing and an absent root are still gates. */
+export function labels(r) {
+  const L = [];
+  if (r.noiseDb !== null && r.noiseDb !== undefined && r.noiseDb > THRESH.noiseDb) L.push('noisy');
+  if (r.roughness !== null && r.roughness > THRESH.roughness) L.push('rough');
+  return L;
 }
 
 /* ---------------------------------------------------------------- run */
@@ -209,6 +220,7 @@ if (!isMainThread && workerData && workerData.kind === 'gauntlet') {
     const pseed = hash32(seed, j.i, 77);
     const r = Object.assign({ i: j.i, mode: j.mode, live: s.live, settled: s.settled }, measure(s.patch, pseed, { conv: true }));
     r.cpuRef = ref; r.cpuVoiceNorm = r.cpuVoice / ref * quietRef;
+    r.labels = labels(r);   // B360: noisy/rough are labels on the record, not gates
     parentPort.postMessage({ line: JSON.stringify(r) });
   });
   parentPort.postMessage({ done: true });
