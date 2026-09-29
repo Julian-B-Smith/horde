@@ -235,12 +235,16 @@
      behaviour, no ADR-187 divergence), one control set drawn on MAIN and on OSC with its curve and a
      stage indicator driven by the rendered voice; twelve lab envelope presets (ENV_PRESETS); and the
      conflict inventory the human asked for, docs/design/scalpel-envelope-conflicts.md. Checks in K
-     (checkB366).
+     (checkB366). B368, the human: "Is the logo gradient a hue gradient or a value gradient? It's hard
+     to tell. I would be curious to also audition a hue gradient that's a bit more dramatic, and also at
+     more of a diagonal." GRADIENT is a VALUE gradient; two styles join the end of the logo's cycle,
+     HUE ↘ and DROP + INSET + HUE ↘ (E2's style block: 150° of OKLCH hue on a 35° diagonal at one
+     lightness). Checks in K (checkB334, extended).
 
      L0026: every const is declared above the code that runs at setup; the boot
      call is the last statement of the script. -->
 <html><head><meta charset="utf-8">
-<meta name="lab-review" content="B271 + B293–B366 · 2026-09-29">
+<meta name="lab-review" content="B271 + B293–B368 · 2026-09-29">
 <title>SCALPEL interface lab — horde with blades at its centre</title>
 <style>
   :root {
@@ -1280,7 +1284,7 @@ Coupling × Detune XY</b> for the swarm.</div>
         with the "=1" on its own row above. It checks clean under all ten rules, with blade 2 following and on its own. MAIN shows no
         spreads.</li>
     </ol>
-    <h2 style="margin-top:10px">Round 13 (B365, B366) — the Specimen comes to rest; a master envelope; compact macros</h2>
+    <h2 style="margin-top:10px">Round 13 (B365, B366, B368) — the Specimen comes to rest; a master envelope; compact macros; a hue gradient</h2>
     <ol start="73">
       <li><b>The Specimen settles</b> (the human: "the specimen always keeps a ripple going after all notes have ended"). It was reading the
         monitor, the lab's second engine, which holds its note for the drawings and never hears a key-off, so its held ripple never ended;
@@ -1305,6 +1309,13 @@ Coupling × Detune XY</b> for the swarm.</div>
       <li><b>The conflicts</b> (the human: "This may surface some conflicts with the way envelopes currently work"): every envelope-like
         thing that acts on a voice, what it does, where it lives, how it meets the master envelope, and thirteen decisions, each with a
         recommendation, in <code>docs/design/scalpel-envelope-conflicts.md</code>. The first gates most of the rest: whose envelope law.</li>
+      <li><b>The logo's gradient</b> (the human: "Is the logo gradient a hue gradient or a value gradient? It's hard to tell"). GRADIENT is a
+        <b>value</b> gradient: the letters' colour lifted 24% toward white at the top and 14% toward black at the foot, its hue unchanged.
+        Two new styles end the click cycle: <b>HUE ↘</b>, the colour turning through 150° of hue from the top-left corner to the
+        bottom-right, on a 35° diagonal, at one lightness (so it reads as hue, not light and dark); and <b>DROP + INSET + HUE ↘</b>, the
+        composite you liked with that in place of the value gradient. Both still follow the morph and the drift. Pale fills are drawn a
+        little darker (lightness capped), because at their own lightness the far hues had almost no colour left.
+        <span class="rec">Open:</span> 150° or wider; the diagonal's angle.</li>
     </ol>
   </div>
   <div class="box" id="misread" style="grid-column:1 / -1">
@@ -3425,7 +3436,25 @@ const LOGO = { cv: null, ctx: null, W: 2 * LOGO_W, H: 2 * LOGO_H, SRC: null, DST
                  lift/lower both already derive from the fill of the moment (checkB334).
      SOFT DROP — the soft alternative to DROP (B334's brief: "crisp or soft"): a blurred shadow straight
                  down, the chassis ink at 38% on the light chassis; on the dark one, where a dark shadow
-                 cannot show, the fill's own colour at 55%, which reads as a glow. */
+                 cannot show, the fill's own colour at 55%, which reads as a glow.
+     B368 (human, 2026-09-29: "Is the logo gradient a hue gradient or a value gradient? It's hard to
+     tell. I would be curious to also audition a hue gradient that's a bit more dramatic, and also at
+     more of a diagonal."). GRADIENT above is a VALUE gradient (the fill lifted toward white, lowered
+     toward black; its hue does not move). Two styles join the END of the cycle, the seven above
+     unchanged:
+     HUE ↘     — a HUE gradient over the whole mark's box on a diagonal, top-left to bottom-right, its
+                 axis 35° below horizontal (LOGO_HUE_ANGLE), stretched so the box's top-left and
+                 bottom-right corners are its two ends. The hue turns through 150° (LOGO_HUE_SPAN: from
+                 75° before the fill's hue to 75° after it) in OKLCH, a perceptual space, holding ONE
+                 lightness and the fill's chroma, so it reads as hue and not as value. The lightness is
+                 the fill's OKLCH L, capped at 0.80 (LOGO_HUE_LMAX): MEASURED, a pale fill (the drift's
+                 yellow, #e7f929, L 0.93) held at its own L left the cyan end only 0.033 of chroma
+                 inside sRGB, a grey, and its hue turn read 146° of 150; at 0.80 every hue of the span
+                 keeps real chroma. Where a hue still cannot hold the fill's chroma inside sRGB, the
+                 chroma alone is lowered (logoOklchHex), never the lightness or the hue. Thirteen stops,
+                 so the canvas's sRGB blend between them stays on the OKLCH path. It follows the fill of
+                 the moment, so the morph and the drift turn the whole gradient.
+     DROP + INSET + HUE ↘ — B364's composite with the hue gradient in place of the value gradient. */
 const LOGO_STYLES = [
   { id: 'flat', name: 'FLAT' },
   { id: 'drop', name: 'DROP', drop: 'crisp' },
@@ -3433,7 +3462,9 @@ const LOGO_STYLES = [
   { id: 'gradient', name: 'GRADIENT', grad: true },
   { id: 'inset-gradient', name: 'INSET + GRADIENT', inset: true, grad: true },
   { id: 'drop-inset-gradient', name: 'DROP + INSET + GRADIENT', drop: 'crisp', inset: true, grad: true },
-  { id: 'soft', name: 'SOFT DROP', drop: 'soft' }
+  { id: 'soft', name: 'SOFT DROP', drop: 'soft' },
+  { id: 'hue-diag', name: 'HUE ↘', hue: true },                                       // B368
+  { id: 'drop-inset-hue', name: 'DROP + INSET + HUE ↘', drop: 'crisp', inset: true, hue: true }   // B368
 ];
 /* per viewer: this browser's storage, read once when the mark is made; ?logo=<id> overrides it for a
    link or a screenshot. Storage can throw (a file: page, a locked-down profile): the lab then just
@@ -3553,7 +3584,8 @@ function logoTint(dt) {
     fill = logoMix(top, bot, LOGO.smY);
   }
   LOGO.tint = fill;
-  g.globalCompositeOperation = 'source-in'; g.fillStyle = LOGO_STYLES[LOGO.style].grad ? logoGradient(g, fill) : fill; g.fillRect(0, 0, W, H); g.globalCompositeOperation = 'source-over';
+  const st = LOGO_STYLES[LOGO.style];                 // B368: a style's fill is flat, the value gradient or the hue gradient
+  g.globalCompositeOperation = 'source-in'; g.fillStyle = st.hue ? logoHueGradient(g, fill) : st.grad ? logoGradient(g, fill) : fill; g.fillRect(0, 0, W, H); g.globalCompositeOperation = 'source-over';
 }
 /* B334's GRADIENT: the fill of the moment, lifted at the top of the letters and lowered at their
    foot. The stops span the baked x-height band (textY ∓ 0.2 of the box), where the letters are; the
@@ -3564,6 +3596,40 @@ function logoGradient(g, fill) {
   gr.addColorStop(0, logoMix(fill, '#ffffff', LOGO_GRAD_UP));
   gr.addColorStop(0.5, fill);
   gr.addColorStop(1, logoMix(fill, '#000000', LOGO_GRAD_DOWN));
+  return gr;
+}
+/* B368's HUE ↘ (the style block above says what and why). OKLab/OKLCH are Björn Ottosson's (2020)
+   matrices, with the sRGB transfer curve. logoOklch reads a #rrggbb as [L, C, h°]; logoOklchHex writes
+   one back, lowering C by bisection until the colour is inside sRGB (L and h held exactly). */
+const LOGO_HUE_SPAN = 150, LOGO_HUE_ANGLE = 35, LOGO_HUE_STOPS = 13, LOGO_HUE_LMAX = 0.8;
+const logoLin = c => (c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
+const logoGam = c => (c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - 0.055);
+function logoOklch(hex) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex).trim()); if (!m) return [0, 0, 0];
+  const v = parseInt(m[1], 16), r = logoLin((v >> 16 & 255) / 255), g = logoLin((v >> 8 & 255) / 255), b = logoLin((v & 255) / 255);
+  const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b), mm = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b),
+    s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+  const L = 0.2104542553 * l + 0.7936177850 * mm - 0.0040720468 * s, A = 1.9779984951 * l - 2.4285922050 * mm + 0.4505937099 * s,
+    B = 0.0259040371 * l + 0.7827717662 * mm - 0.8086757660 * s;
+  return [L, Math.hypot(A, B), ((Math.atan2(B, A) * 180 / Math.PI) + 360) % 360];
+}
+function logoOklchRgb(L, C, h) {
+  const a = C * Math.cos(h * Math.PI / 180), b = C * Math.sin(h * Math.PI / 180);
+  const l = Math.pow(L + 0.3963377774 * a + 0.2158037573 * b, 3), m = Math.pow(L - 0.1055613458 * a - 0.0638541728 * b, 3), s = Math.pow(L - 0.0894841775 * a - 1.2914855480 * b, 3);
+  return [4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s, -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s, -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s];
+}
+function logoOklchHex(L, C, h) {
+  const inG = c => c.every(x => x >= -1e-6 && x <= 1 + 1e-6);
+  let lo = 0, hi = C, rgb = logoOklchRgb(L, C, h);
+  if (!inG(rgb)) { for (let i = 0; i < 24; i++) { const mid = (lo + hi) / 2; if (inG(logoOklchRgb(L, mid, h))) lo = mid; else hi = mid; } rgb = logoOklchRgb(L, lo, h); }
+  return '#' + rgb.map(x => Math.round(clamp(logoGam(clamp(x, 0, 1)), 0, 1) * 255).toString(16).padStart(2, '0')).join('');
+}
+function logoHueGradient(g, fill) {
+  const W = LOGO.W, H = LOGO.H, th = LOGO_HUE_ANGLE * Math.PI / 180, ux = Math.cos(th), uy = Math.sin(th);
+  const half = (W / 2) * ux + (H / 2) * uy;          // the box's top-left and bottom-right corners project to ∓half
+  const gr = g.createLinearGradient(W / 2 - ux * half, H / 2 - uy * half, W / 2 + ux * half, H / 2 + uy * half);
+  const [L0, C, h] = logoOklch(fill), L = Math.min(L0, LOGO_HUE_LMAX);
+  for (let i = 0; i < LOGO_HUE_STOPS; i++) { const f = i / (LOGO_HUE_STOPS - 1); gr.addColorStop(f, logoOklchHex(L, C, h + (f - 0.5) * LOGO_HUE_SPAN)); }
   return gr;
 }
 /* B334's shadows. Both use the canvas shadow (universal, unlike ctx.filter): the source is drawn a
@@ -7403,6 +7469,62 @@ function checkB334() {
         const plantDiff = differ(pPlant, pIG);
         out.push({ name: 'CONTROL: a composite planted without its DROP pass collapses onto INSET + GRADIENT (must fail "differs from each parent")', ok: plantDiff === 0, control: true,
           detail: plantDiff + ' px differ from INSET + GRADIENT with the drop pass removed (must be 0, so diffFromIG ≥ 200 above catches it)' });
+      }
+      /* ---- B368: HUE ↘ and DROP + INSET + HUE ↘ (the style block in E2 says what they are) ----
+         HUE: the style's fill laid over the whole of the mark's box on a scratch canvas (what logoTint
+         lays under the letters, source-in), read at the box's top-left and bottom-right corners in
+         OKLCH: the hue must turn by at least LOGO_HUE_SPAN − 2° (a corner pixel's centre sits half a pixel
+         inside the corner, ~0.8° of the span at each end, plus 8-bit rounding). LIGHTNESS: OKLCH L at
+         nine points down the box's diagonal must stay within LOGO_HUE_LBAND. Both themes. CONTROL: the
+         value gradient (GRADIENT) through the same probe turns its hue by almost nothing and spreads its
+         lightness far wider, so each test can fail. SIBLINGS: each new style against its value-gradient
+         sibling (HUE ↘ against GRADIENT, DROP + INSET + HUE ↘ against DROP + INSET + GRADIENT) differs by
+         ≥ 200 px, painted; CONTROL: a HUE ↘ planted with the value gradient in its place is GRADIENT. */
+      {
+        const LOGO_HUE_LBAND = 0.03;
+        const idx = id => LOGO_STYLES.findIndex(s => s.id === id);
+        const hueIdx = idx('hue-diag'), dihIdx = idx('drop-inset-hue'), gradIdx = idx('gradient'), digIdx2 = idx('drop-inset-gradient');
+        const fillOf = st => { const c = document.createElement('canvas'); c.width = LOGO.W; c.height = LOGO.H; const g = c.getContext('2d');
+          g.fillStyle = st.hue ? logoHueGradient(g, LOGO.tint) : st.grad ? logoGradient(g, LOGO.tint) : LOGO.tint; g.fillRect(0, 0, LOGO.W, LOGO.H); return g; };
+        const lchAt = (g, x, y) => { const d = g.getImageData(x, y, 1, 1).data; return logoOklch('#' + [d[0], d[1], d[2]].map(v => v.toString(16).padStart(2, '0')).join('')); };
+        const hueDiff = (a, b) => { const d = Math.abs(a - b) % 360; return d > 180 ? 360 - d : d; };
+        const probe = st => {
+          const g = fillOf(st), W = LOGO.W, H = LOGO.H, a = lchAt(g, 0, 0), b = lchAt(g, W - 1, H - 1), Ls = [], Cs = [];
+          for (let i = 0; i <= 8; i++) { const f = i / 8, q = lchAt(g, Math.round(f * (W - 1)), Math.round(f * (H - 1))); Ls.push(q[0]); Cs.push(q[1]); }
+          return { dh: hueDiff(a[2], b[2]), lb: Math.max(...Ls) - Math.min(...Ls), c0: Math.min(...Cs), c1: Math.max(...Cs), h0: a[2], h1: b[2], fill: LOGO.tint, fc: logoOklch(LOGO.tint)[1] };
+        };
+        /* both themes, and six fills round the drift's wheel in each (the drift turns the fill's hue) */
+        const res = [], hue0 = LOGO.hue, mo0 = MORPH.on;
+        MORPH.on = false;
+        for (const th of ['light', 'dark']) {
+          LAB.theme = th; LAB.scheme = MODES_PAIR[th]; applyBodyClasses(); rebuild();
+          for (let k = 0; k < 6; k++) { LOGO.hue = k / 6; LOGO.style = hueIdx; paint(); res.push({ th, hue: probe(LOGO_STYLES[hueIdx]), val: probe(LOGO_STYLES[gradIdx]) }); }
+        }
+        LOGO.hue = hue0; MORPH.on = mo0;
+        LAB.theme = theme; LAB.scheme = scheme; applyBodyClasses(); rebuild();
+        /* chroma: the fill's, lowered only where sRGB cannot hold it at that lightness and hue (physics, not a
+           choice: a saturated blue fill, C 0.257, keeps only 0.074 at the cyan end of its span). So the gate
+           is that it never greys: OKLCH C ≥ LOGO_HUE_CMIN everywhere on the diagonal (0.033, a grey, is what
+           the uncapped lightness gave the pale yellow fill) */
+        const LOGO_HUE_CMIN = 0.06;
+        const okHue = res.every(q => q.hue.dh >= LOGO_HUE_SPAN - 2 && q.hue.lb <= LOGO_HUE_LBAND && q.hue.c0 >= LOGO_HUE_CMIN);
+        const worst = (f, lo) => res.reduce((w, q) => (w === null || (lo ? f(q) < f(w) : f(q) > f(w)) ? q : w), null);
+        const wT = worst(q => q.hue.dh, true), wL = worst(q => q.hue.lb, false), wC = worst(q => q.hue.c0 / q.hue.fc, true);
+        out.push({ name: 'HUE ↘: a hue gradient on the diagonal, turning ≥ ' + (LOGO_HUE_SPAN - 2) + '° corner to corner (span ' + LOGO_HUE_SPAN + '°, axis ' + LOGO_HUE_ANGLE + '°), one OKLCH lightness (within ' + LOGO_HUE_LBAND + '), never grey (C ≥ ' + LOGO_HUE_CMIN + '), 2 themes × 6 fills', ok: okHue,
+          detail: 'the least turn ' + wT.hue.dh.toFixed(1) + '° (' + wT.th + ', fill ' + wT.hue.fill + ': ' + wT.hue.h0.toFixed(0) + '° → ' + wT.hue.h1.toFixed(0) + '°) · the widest lightness spread ' + wL.hue.lb.toFixed(3) + ' (' + wL.th + ', ' + wL.hue.fill + ')' +
+            ' · the least chroma ' + wC.hue.c0.toFixed(3) + ' of the fill\'s ' + wC.hue.fc.toFixed(3) + ' (' + wC.th + ', ' + wC.hue.fill + ') · fills: ' + res.filter(q => q.th === 'light').map(q => q.hue.fill + ' ' + q.hue.dh.toFixed(0) + '°').join(', ') });
+        out.push({ name: 'CONTROL: the value gradient (GRADIENT) through the same probe fails both the hue turn and the lightness band', ok: res.every(q => q.val.dh < LOGO_HUE_SPAN - 2 && q.val.lb > LOGO_HUE_LBAND), control: true,
+          detail: 'the value gradient\'s largest hue turn ' + Math.max(...res.map(q => q.val.dh)).toFixed(1) + '°, its smallest lightness spread ' + Math.min(...res.map(q => q.val.lb)).toFixed(3) + ' over the same 12 fills (must fail both)' });
+        LOGO.style = hueIdx; const pHue = paint(); LOGO.style = gradIdx; const pGrad = paint();
+        LOGO.style = dihIdx; const pDIH = paint(); LOGO.style = digIdx2; const pDIG2 = paint();
+        const d1 = differ(pHue, pGrad), d2 = differ(pDIH, pDIG2);
+        out.push({ name: 'HUE ↘ and DROP + INSET + HUE ↘ each differ from their value-gradient sibling', ok: d1 >= 200 && d2 >= 200,
+          detail: 'HUE ↘ against GRADIENT: ' + d1 + ' px differ · DROP + INSET + HUE ↘ against DROP + INSET + GRADIENT: ' + d2 + ' px (each ≥ 200)' });
+        const realH = LOGO_STYLES[hueIdx]; LOGO_STYLES[hueIdx] = { id: realH.id, name: realH.name, grad: true };
+        LOGO.style = hueIdx; const pPlantH = paint(); LOGO_STYLES[hueIdx] = realH;
+        const dPlant = differ(pPlantH, pGrad);
+        out.push({ name: 'CONTROL: a HUE ↘ planted with the value gradient in its place is GRADIENT (must fail "differs from its sibling")', ok: dPlant === 0, control: true,
+          detail: dPlant + ' px differ from GRADIENT (must be 0)' });
       }
       /* ---- centred ---- */
       const mass = () => {
