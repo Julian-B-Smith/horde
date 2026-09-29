@@ -15,7 +15,7 @@ import { writeFileSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { loadavg, cpus } from 'node:os';
 import { ROOT, loadSpace, posOf, evalCond, readRepo } from './space.mjs';
-import { samplePatch, measure, failures, incoherence, THRESH, readRun } from './gauntlet.mjs';
+import { samplePatch, measure, failures, incoherence, labels, THRESH, readRun } from './gauntlet.mjs';
 import { asEvalTree, hash32 } from './gen_dependency_tree.mjs';
 
 const arg = (n, d) => { const i = process.argv.indexOf('--' + n); return i > 0 ? process.argv[i + 1] : d; };
@@ -23,7 +23,9 @@ const pct = (a, q) => { if (!a.length) return null; const s = a.slice().sort((x,
 const f = (x, d) => (x === null || x === undefined || Number.isNaN(x) ? '—' : typeof x === 'number' ? x.toFixed(d === undefined ? 3 : d) : String(x));
 const rate = (n, d) => (d ? (100 * n / d).toFixed(1) + '%' : '—');
 const CLASSES = ['nonfinite', 'silent', 'overload6', 'overloadVoice', 'alias', 'clicks', 'dc'];
-const INCO = ['rootAbsent', 'noisy', 'rough'];
+const INCO = ['rootAbsent'];
+/* B360: noisy/rough are LABELS — measured and reported, but no longer reduce healthy or coherent yield */
+const LABELS = ['noisy', 'rough'];
 
 export async function report() {
   const run = arg('run', 'default');
@@ -35,7 +37,7 @@ export async function report() {
   for (const r of all) {
     const s = samplePatch(meta.seed, r.i, r.mode);
     r.P = s.patch;
-    r.fail = failures(r); r.inco = incoherence(r);
+    r.fail = failures(r); r.inco = incoherence(r); r.labels = labels(r);   // B360: recomputed live, same as fail/inco (not trusted from disk)
     r.b1 = evalCond({ pred: 'B1' }, r.P, T.predicates); r.b2 = evalCond({ pred: 'B2' }, r.P, T.predicates);
     r.blades = (r.b1 ? 1 : 0) + (r.b2 ? 1 : 0);
   }
@@ -80,21 +82,27 @@ export async function report() {
   P('| silent | TONAL window RMS < -90 dBFS |');
   P(`| overload6 | 6 × cpuVoiceNorm > ${THRESH.overloadPoly6} (the lab's 6-voice pool over real time) |`);
   P(`| overloadVoice | cpuVoiceNorm > ${THRESH.overloadVoice} (one voice over real time) |`);
-  P(`| alias | aliasDb > ${THRESH.aliasDb} dB (vs the 4×-oversampled reference; see the caveat in gauntlet.mjs) |`);
+  P(`| alias | aliasConvDb > ${THRESH.aliasConvDb} dB (B351: the os-convergence estimator, the patch at 1×..16× its oversampling; aliasDb, vs the 4×-oversampled reference, is a measured column above; see the caveat in gauntlet.mjs) |`);
   P(`| clicks | > ${THRESH.clicks} click frames in the TONAL window (20 dB over the median HF frame) |`);
   P(`| dc | dcRatio > ${THRESH.dcRatio} |`);
   P(`| rootAbsent (coherence) | rootPresence < ${THRESH.rootPresence} |`);
-  P(`| noisy (coherence) | flatness > ${THRESH.flatness} |`);
-  P(`| rough (coherence) | roughness > ${THRESH.roughness} (two pure tones a minor second apart read 0.090) |`);
+  P(`| noisy (LABEL, B360 — does not reduce healthy or coherent yield) | noiseDb > ${THRESH.noiseDb} dB (B350: moved off flatness, still a measured column above) |`);
+  P(`| rough (LABEL, B360 — does not reduce healthy or coherent yield) | roughness > ${THRESH.roughness} (two pure tones a minor second apart read 0.090) |`);
   P('');
   P('## Yield');
   P('');
-  P('| mode | n | healthy (no failure class) | coherent (healthy + no coherence flag) | ' + CLASSES.join(' | ') + ' | ' + INCO.join(' | ') + ' |');
-  P('|---|---|---|---|' + CLASSES.map(() => '---').join('|') + '|' + INCO.map(() => '---').join('|') + '|');
+  P('B360 (human, 2026-09-29: "I think noisy and rough should just label; some patches want noisy or rough"): ' +
+    '`noisy` and `rough` below are LABELS, not failure or coherence classes — they tag a patch that P4 can target ' +
+    'or avoid, and no longer reduce `healthy` or `coherent`. `healthy` is unchanged by B360 (noisy/rough never gated ' +
+    'it); `coherent` rises because it no longer also requires `!noisy && !rough`.');
+  P('');
+  P('| mode | n | healthy (no failure class) | coherent (healthy + no coherence flag) | ' + CLASSES.join(' | ') + ' | ' + INCO.join(' | ') + ' | ' + LABELS.join(' | ') + ' |');
+  P('|---|---|---|---|' + CLASSES.map(() => '---').join('|') + '|' + INCO.map(() => '---').join('|') + '|' + LABELS.map(() => '---').join('|') + '|');
   for (const m of modes) {
     const R = byMode(m), n = R.length;
     P(`| ${m} | ${n} | ${rate(R.filter(r => !r.fail.length).length, n)} | ${rate(R.filter(r => !r.fail.length && !r.inco.length).length, n)} | ` +
-      CLASSES.map(c => rate(R.filter(r => r.fail.includes(c)).length, n)).join(' | ') + ' | ' + INCO.map(c => rate(R.filter(r => r.inco.includes(c)).length, n)).join(' | ') + ' |');
+      CLASSES.map(c => rate(R.filter(r => r.fail.includes(c)).length, n)).join(' | ') + ' | ' + INCO.map(c => rate(R.filter(r => r.inco.includes(c)).length, n)).join(' | ') +
+      ' | ' + LABELS.map(c => rate(R.filter(r => r.labels.includes(c)).length, n)).join(' | ') + ' |');
   }
   P('');
   P('## Metric distributions (p5 / p25 / p50 / p75 / p95)');
@@ -109,24 +117,24 @@ export async function report() {
   P('CPU is NOISY (workers share the machine): `cpuVoice` is the raw per-voice real-time fraction; `cpuVoiceNorm` rescales it by a reference patch re-timed in the same worker every 8 patches; `cpuPoly` is the POLY segment\'s whole load (up to four voices plus tails). Rankings hold; absolute numbers carry this Mac.');
   P('');
 
-  /* ---- B346: the aliasing re-read by the os-convergence estimator (beside aliasDb; no THRESH reads it) */
+  /* ---- B346: the aliasing re-read by the os-convergence estimator (beside aliasDb; since B351 the `alias` class reads aliasConvDb) */
   if (all.some(r => r.aliasConvClass)) {
     P('## Aliasing re-read: the os-convergence estimator (B346)');
     P('');
-    P('`aliasDb` (B345\'s fixed metric, what the `alias` class above reads) against `aliasConvDb`, the os-convergence estimator on the same E5 note and window ' +
+    P('`aliasDb` (B345\'s fixed metric, a measured column) against `aliasConvDb` (what the `alias` class above reads since B351), the os-convergence estimator on the same E5 note and window ' +
       '(`tools/patchspace/metrics.mjs` aliasConvergence: the patch at 1×, 2×, 4×, 8× and 16× its oversampling; per region, the power the test has beyond both finer ' +
       'renders where they are one realisation, or per bin beyond both where they are not; classed by whether it converges AND whether the finer renders\' content ' +
       'above the test\'s Nyquist predicts it). `decimLeakDb` and `tanhFoldDb` are the output stage every os shares (the engine\'s decimator and its output-rate tanh), ' +
       `which neither metric can see, taken at the patch's own os (2× for os 1); \`aliasTotalDb\` is everything the patch at its os has that its oversampled truth ` +
-      `(8× and 16×, the tanh at the internal rate, an ideal decimator) lacks. The same provisional cut, ${THRESH.aliasDb} dB, is applied to all of them for comparison only.`);
+      `(8× and 16×, the tanh at the internal rate, an ideal decimator) lacks. The alias gate's cut, ${THRESH.aliasConvDb} dB, is applied to all of them for comparison only.`);
     P('');
     P('| mode | n | clean | folding | dynamics | aliasDb over the cut | aliasConvDb over the cut | both | aliasConvDb only | aliasDb only | decimLeakDb over the cut | tanhFoldDb over the cut | aliasTotalDb over the cut |');
     P('|---|---|---|---|---|---|---|---|---|---|---|---|---|');
     for (const m of modes) {
-      const R = byMode(m), n = R.length, o = r => r.aliasDb > THRESH.aliasDb, c = r => r.aliasConvDb > THRESH.aliasDb;
+      const R = byMode(m), n = R.length, o = r => r.aliasDb > THRESH.aliasConvDb, c = r => r.aliasConvDb > THRESH.aliasConvDb;
       P(`| ${m} | ${n} | ${rate(R.filter(r => r.aliasConvClass === 'clean').length, n)} | ${rate(R.filter(r => r.aliasConvClass === 'folding').length, n)} | ${rate(R.filter(r => r.aliasConvClass === 'dynamics').length, n)} | ` +
         `${rate(R.filter(o).length, n)} | ${rate(R.filter(c).length, n)} | ${rate(R.filter(r => o(r) && c(r)).length, n)} | ${rate(R.filter(r => c(r) && !o(r)).length, n)} | ${rate(R.filter(r => o(r) && !c(r)).length, n)} | ` +
-        `${rate(R.filter(r => r.decimLeakDb > THRESH.aliasDb).length, n)} | ${rate(R.filter(r => r.tanhFoldDb > THRESH.aliasDb).length, n)} | ${rate(R.filter(r => r.aliasTotalDb > THRESH.aliasDb).length, n)} |`);
+        `${rate(R.filter(r => r.decimLeakDb > THRESH.aliasConvDb).length, n)} | ${rate(R.filter(r => r.tanhFoldDb > THRESH.aliasConvDb).length, n)} | ${rate(R.filter(r => r.aliasTotalDb > THRESH.aliasConvDb).length, n)} |`);
     }
     P('');
     const med = (R, k) => f(pct(R.map(r => r[k]), 0.5), 1);
@@ -179,10 +187,10 @@ export async function report() {
   const binOf = (p, v) => (p.kind === 'c' ? 'q' + Math.min(4, Math.floor(posOf(p, v) * 5)) : String(v));
   const binsFor = p => { const m = new Map(); for (const r of all) { if (!evalCond(T.params[p.key].active_when, r.P, T.predicates)) continue; const b = binOf(p, r.P[p.key]); (m.get(b) || m.set(b, []).get(b)).push(r); } return m; };
   const BINS = new Map(params.filter(p => p.kind !== 's').map(p => [p.key, binsFor(p)]));
-  P('## Failure hotspots (lift = rate in the bin ÷ rate overall; bins with n ≥ 25; continuous rows by taper quintile q0..q4)');
+  P('## Failure and label hotspots (lift = rate in the bin ÷ rate overall; bins with n ≥ 25; continuous rows by taper quintile q0..q4; `noisy`/`rough` are B360 LABELS, not failures)');
   P('');
-  for (const c of CLASSES.concat(INCO)) {
-    const has = r => r.fail.includes(c) || r.inco.includes(c), base = all.filter(has).length / all.length;
+  for (const c of CLASSES.concat(INCO).concat(LABELS)) {
+    const has = r => r.fail.includes(c) || r.inco.includes(c) || r.labels.includes(c), base = all.filter(has).length / all.length;
     if (!base) { P(`- **${c}**: none in ${all.length} patches.`); continue; }
     const lifts = [];
     for (const [k, m] of BINS) for (const [b, R] of m) if (R.length >= 25) { const rr = R.filter(has).length / R.length; lifts.push([k + '=' + b, rr, R.length]); }
@@ -233,10 +241,10 @@ export async function report() {
   P('');
   P('## Open questions for P4 / P5');
   P('');
-  P('- The thresholds above are provisional; the blind listening pass should set at least `alias`, `rough`, `rootAbsent` and `noisy` before P4 fits distributions to them.');
+  P('- The thresholds above are provisional; the blind listening pass fitted `alias` and `rootAbsent` (gates) and `rough`/`noisy` (B360: LABELS, not gates) — P4 still fits distributions to all four.');
   P('- `overload6` is a JS-reference cost (B313: "a limit of the JS reference, not a verdict on the C++ port"). Should P4 bound N × blades by the JS cost, or wait for a C++ cost table?');
   P('- The aliasing reference is the engine\'s own 4× oversampling, whose blade caps move with it (gauntlet.mjs header): a cap-free reference needs the caps separated from `os` in the engine, which is out of this tool\'s reach.');
-  if (all.some(r => r.aliasConvClass)) P('- B346: the aliasing cut is to be re-fitted on `aliasConvDb` (the lead, 2026-09-29); THRESH still reads `aliasDb` here.');
+  P('- B351: the `alias` class reads `aliasConvDb` (the os-convergence estimator) at a cut re-fitted on the v2 ratings; `aliasDb` is a measured column. A run without the estimator\'s fields (before B346) is refused by gauntlet.mjs failures().');
   P('- `rough` counts a detuned swarm\'s own beating (Sethares roughness is fast beating, which is what a supersaw is). Should "discordance" for the random button exclude beating between members of one partial (e.g. measure roughness on a de-detuned render) or keep it?');
   P('- The harmonic detune law (`h.law` 4, `harmReach`) is the top `alias` and `noisy` hotspot: at E5 its upper members can sit near or above Nyquist. Is that a range to bound in P4, or a law to clamp in the engine?');
   P('- Edge-mode `silent` is mostly `gain` 0 and similar trivial extremes. Should P5\'s FUZZ mode exclude known-silent corners, or keep them as sanity cases?');
