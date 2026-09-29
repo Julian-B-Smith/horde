@@ -27,7 +27,7 @@
    - **WEIGHT > 0.5:** a class's summed bilinear weight must pass 0.5; below that the class holds. The line bends round a lone corner (t ≈ 0.293 on the diagonal).
    - **HYSTERESIS:** a class is left only when another class passes 0.5 + band. This is the lab's default, with a band of 0.1.
 
-4. **The fixed four stay continuous across a flip.** They remain Sluice-global, so a flip never moves them (C31). The fourth keeps the manifest's label "Tune". A note on the page asks the human whether it should read "tone"; this is not decided.
+4. **The fixed four stay continuous across a flip.** They remain Sluice-global, so a flip never moves them (C31). The fourth is TUNE, as the manifest labels it and the human confirmed ("I did indeed mean 'tune.'", folded in below); the page carries no tone/tune note.
 
 5. **The default face and the full device.**
    - **Default face:** the Play face's name is parsed from spec §11 at load, along with its gloss, §11.1's parenthesis and every spec sentence that uses the name (as the band's tooltip). The file never spells the name (C32 checks this, whitespace-flattened). The face is the first tab and the default. Its library is minimal: no tools and no JSON box.
@@ -39,7 +39,8 @@
    - A 4×4 grid shows every corner's value in every variable slot, with the cells the current scope would write outlined. It repaints live.
 
 7. **Tails.**
-   - One mode now covers both a bypass and a flip. The default is spill-over (B347, provisional); hard stays switchable.
+   - One mode now covers both a bypass and a flip. It is presented as a USER PREFERENCE in horde's SETTINGS (the human's ruling, folded in below), labelled so wherever it appears; the lab starts on spill-over and shows hard beside it.
+   - The CPU tradeoff, schematically: the renderer's meters report the engines ticking (0 under a hard bypass, 1 live, +1 per ringing tail or crossfade), drawn as a step line under the tail meter and checked in C35 (flip: spill-over 2, hard 1; bypass: spill-over 1, hard 0).
    - **The renderer:** a spill-over flip moves the outgoing engine to a tail list and feeds it silence.
      - A tail is dropped after 0.25 s under 1e-6, or after 8 s with a 20 ms fade.
      - At most 3 tails ring at once.
@@ -103,7 +104,7 @@
 ## Open questions
 
 **For the human:**
-1. "tone" or "Tune"?
+1. (Answered: "tune". Tails: a SETTINGS preference. Both folded in, see below.)
 2. Which boundary rule and band? I recommend HYSTERESIS at about 0.1: horde modulates its corner field, and each flip is a new engine and, in spill-over, a new tail.
 3. Dry/Wet's centre is each patch's own mix, so the heard wet level can step at a flip. Should the patch mix glide across the flip?
 4. Macro scope: selected corner or every corner?
@@ -117,3 +118,8 @@
 5. Does Tail bound a spill-over tail?
 
 **For the lead:** "sibling → X" is a small addition beyond the brief's list. It is the only way to show parity between two different patches.
+
+## Rulings folded in (the horde lead, 2026-09-29, the amended B347 row on records PR #845)
+
+1. "I did indeed mean 'tune.'" The fixed four are Dry/Wet, Width, Time and Tune, as B337 built them. The tone/tune note and its open question were removed from the page.
+2. Bypass: "we'll bury the tail issue in the settings so users can decide about the CPU tradeoff, while trying our best to limit CPU burn in any case. But yes, still worth workshopping". The tails mode is now presented as a SETTINGS user preference (the face control, the FX-rack-row select, the side panel). The side-by-side demonstration is kept, and the CPU tradeoff is shown schematically: the engines each mode keeps running, drawn under the tail meter and asserted in C35. The lab's first commit (2a10eda) predates these rulings; the second commit carries them.

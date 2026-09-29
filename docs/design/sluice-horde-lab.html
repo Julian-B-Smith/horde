@@ -80,10 +80,13 @@
      lead-records-138, from the human's rulings in B347). A HORDE PROPOSAL, pending Sluice seq 11: it
      overturns spec v1's one-patch rule, so it is prototyped here, not final. The human: "corners get
      their own patches, but the Sluice patch requires a quantum flip unless patch parity is detected;
-     either way, the dry/wet, width, time, and tone knobs could be gradual between patches"; "all of
+     either way, the dry/wet, width, time, and tune knobs could be gradual between patches" (the human
+     wrote "tone" first, then ruled: "I did indeed mean 'tune.'"); "all of
      Sluice exposed in Horde", defaulting to the spec's own Play face (its name is READ from spec §11
      at load, never written here); macro scope, selected corner or global, "a good question to
-     workshop in the lab"; bypass provisionally spill-over (the loops ring out).
+     workshop in the lab"; bypass provisionally spill-over (the loops ring out), then ruled a USER
+     PREFERENCE: "we'll bury the tail issue in the settings so users can decide about the CPU tradeoff,
+     while trying our best to limit CPU burn in any case. But yes, still worth workshopping".
      - PER-CORNER PATCHES (section K): LAB.cp names the library entry each corner plays; corner k
        plays that entry's working copy k, so B337's randomize / save / discard / bind act on the
        selected corner's own patch unchanged. PATCH PARITY (section F2, patchParity): the same module
@@ -836,7 +839,10 @@ function makeRenderer(env, sr) {
     for (let i = 0; i < cnt; i++) node.push(frozen ? -150 : dbOf(T.nodeSq[i], T.n));
     const o = { t: 'meters', n, node, loop: frozen ? -150 : dbOf(T.loopSq, T.n), out: dbOf(T.outSq, T.n), dry: dbOf(T.drySq, T.n),
       outRing: new Float32Array(RING), dryRing: new Float32Array(RING), bpm, bypass: byOn, builds, clears, fading: !!old,
-      tail: dbOf(T.tailSq, T.n), tails: tails.length, flips, byMode };
+      tail: dbOf(T.tailSq, T.n), tails: tails.length, flips, byMode,
+      /* engines ticking at the end of this window: the CPU tradeoff, schematically (a hard bypass
+         freezes the engine; spill-over keeps it, and each ringing tail, running) */
+      engines: frozen ? 0 : 1 + (old ? 1 : 0) + tails.length };
     for (let k = 0; k < RING; k++) { o.outRing[k] = ringOut[(ri + k) % RING]; o.dryRing[k] = ringDry[(ri + k) % RING]; }
     if (reset !== false) { T.nodeSq.fill(0); T.loopSq = 0; T.outSq = 0; T.drySq = 0; T.tailSq = 0; T.n = 0; }
     return o;
@@ -1665,7 +1671,8 @@ const LAB = {
   get corners() { return this.cov || [0, 1, 2, 3].map(k => this.lib[this.cp[k]].work[k]); },
   get libSel() { return this.cp[this.sel]; },
   randomness: 0.35, seed: SEED0, rnd: null, clicks: 0, hist: [], hi: -1,
-  /* the human's provisional answer to spec §13 #3 (B347): spill-over, the loops ring out */
+  /* spec §13 #3: the human's answer (B347) is a USER PREFERENCE in horde's SETTINGS (the CPU tradeoff);
+     the lab starts on spill-over, the one they leaned to, and shows hard beside it */
   bypass: false, byMode: 'spill', node: -1, msg: '', exportText: '',
   meters: null, ir: null, R: null, morphOk: true, voiced: null,
   checks: [], checksRun: false, k9Note: '', divsNote: '', still: false,
@@ -1685,7 +1692,7 @@ function heard() { const m = morphRig(LAB.corners, LAB.xy.x, LAB.xy.y, LAB.flip,
 function send(m) { if (PAGE.r) PAGE.r.msg(m); if (AUD.node) AUD.node.port.postMessage(m); }
 const nowN = () => LAB.meters ? LAB.meters.n : 0;
 /* a history of what the tail meter draws, and the events it marks (a flip, a bypass) */
-function noteMeters(M) { LAB.meters = M; LAB.th.push({ out: M.out, tail: M.tail, n: M.n, tails: M.tails }); if (LAB.th.length > TAIL_HIST) LAB.th.shift(); }
+function noteMeters(M) { LAB.meters = M; LAB.th.push({ out: M.out, tail: M.tail, n: M.n, tails: M.tails, engines: M.engines }); if (LAB.th.length > TAIL_HIST) LAB.th.shift(); }
 function noteEvent(kind, txt) { LAB.evs.push({ n: nowN(), kind, txt, mode: LAB.byMode }); if (LAB.evs.length > 16) LAB.evs.shift(); }
 /* o.xy: the move came from the XY (its canvas or the GBC glass). Only an XY move FLIPS: a patch the
    player loads or edits is spec §6.3's structural change (a 20 ms crossfade, no tail), as before */
@@ -2289,14 +2296,7 @@ const propTag = () => { const t = el('span', 'prop', 'PROPOSAL'); t.title = PROP
 const propTag3 = () => { const t = el('span', 'prop', 'PROPOSAL · SEQ 11'); t.title = PROPOSAL3 + ' (B348)'; return t; };
 /* the default face's NAME, read from spec §11 at load (parseDoc); 'PLAY' only if the spec stops saying */
 const faceName = () => (SPEC.S && SPEC.S.doc.faces.play.name) || 'PLAY';
-/* the human wrote "tone" (B347) where the fourth fixed macro carries the manifest's label: asked, not
-   decided, so the label stays the manifest's and the question is shown beside it */
-function toneNote(host) {
-  const g = fixedMacros().find(x => x.role === 'tune'); if (!g) return;
-  const d = el('div', 'vnote'); d.dataset.tone = '1';
-  d.textContent = 'OPEN: the human wrote "tone" (B347) where this fixed macro reads "' + g.label + '", the label from the spec and manifest, kept. Asked, not decided.';
-  host.appendChild(d);
-}
+
 /* B348 macro scope: the toggle, and a grid of every corner's value in every VARIABLE slot, with the
    cells a move would write outlined — selected-only lights one column, every-corner lights each
    corner whose patch has that slot. It repaints live as a knob moves (a CTLS callback). */
@@ -2343,7 +2343,7 @@ function buildMacroCell(host, withEditor) {
   vr.appendChild(vc); buildMacroKnobs(vr, false, true); row.appendChild(vr);
   const sc = el('div', 'mgrp'); sc.style.flex = '0 0 auto'; buildScopeCtl(sc); buildScopeGrid(sc); row.appendChild(sc);
   host.appendChild(row);
-  toneNote(host);
+
   if (withEditor && LAB.mEdit >= 0 && macroSlot(cur(), LAB.mEdit)) { const ed = el('div', 'medit'); buildMacroEditor(ed, cur(), LAB.mEdit); host.appendChild(ed); }
 }
 /* B348: the default face's band — its name and gloss from the spec (runtime), the human's own words,
@@ -2359,23 +2359,26 @@ function buildFaceBand(F) {
   btn(band, 'pill mini go', 'FULL DEVICE →', null, () => { LAB.face = 'rack'; showFace(); }, 'every number the manifest exposes, grouped: the spec\'s Rack face' + (D.rack.gloss ? ' ("' + D.rack.gloss + '")' : ''));
   F.appendChild(band);
 }
-/* B348: bypass and the tail — one mode for both a bypass and a flip (the human's provisional
-   spill-over, B347, or hard), and the tail meter (a SCHEMATIC: measured on horde's v0.1 stand-in) */
+/* B348: bypass and the tail. The TAILS mode (spill-over or hard, one mode for a bypass and a flip) is
+   a USER PREFERENCE in horde's SETTINGS (the human, B347: the CPU tradeoff is the user's), shown on
+   the face for the workshop; the tail meter is a SCHEMATIC measured on horde's v0.1 stand-in, with
+   the engines ticking drawn under it as the CPU cost */
 function setBypass(on) { LAB.bypass = !!on; noteEvent('bypass', LAB.bypass ? 'bypass on' : 'bypass off'); send({ t: 'bypass', on: LAB.bypass, mode: LAB.byMode }); rebuild(); }
 function setByMode(v) { LAB.byMode = v; send({ t: 'bypass', on: LAB.bypass, mode: LAB.byMode }); rebuild(); }
 function buildTail(host, meterId) {
   const r = el('div', 'fliprow'); r.appendChild(el('span', 'lbl', 'BYPASS'));
   const cb = el('input'); cb.type = 'checkbox'; cb.checked = LAB.bypass; cb.dataset.ctl = 'bypass'; cb.title = 'horde\'s slot bypass (the same switch as the FX rack row)';
   cb.addEventListener('change', () => setBypass(cb.checked)); r.appendChild(cb);
+  r.appendChild(el('span', 'lbl', 'TAILS'));
   const ps = el('span', 'pills'); ps.dataset.ctl = 'bypass-mode';
   for (const [v, t] of [['spill', 'SPILL-OVER'], ['hard', 'HARD']]) {
     const b = el('button', 'pill mini' + (LAB.byMode === v ? ' on' : ''), t);
-    b.title = v === 'spill' ? 'the human\'s provisional answer (B347): at a bypass or a flip the outgoing loop is fed silence and rings on' : 'at a bypass the slot crossfades to dry and freezes (cleared on re-enable); at a flip the old engine is crossfaded out in 20 ms: the tail is cut';
+    b.title = 'a USER PREFERENCE in horde\'s SETTINGS (B347), shown here for the workshop · ' + (v === 'spill' ? 'at a bypass or a flip the outgoing loop is fed silence and rings on: its engine keeps running (CPU) until the tail dies' : 'at a bypass the slot crossfades to dry and the engine freezes (no CPU; cleared on re-enable); at a flip the old engine is crossfaded out in 20 ms: the tail is cut');
     b.addEventListener('click', () => setByMode(v)); ps.appendChild(b);
   }
-  r.appendChild(ps); host.appendChild(r);
-  host.appendChild(el('div', 'vnote', LAB.byMode === 'spill' ? 'SPILL-OVER (provisional, B347): a bypass or a quantum flip lets the outgoing loop ring on, fed silence.'
-    : 'HARD: a bypass cuts to dry and freezes the engine; a flip crossfades the old engine out in 20 ms. The tail is cut.'));
+  r.appendChild(ps); r.appendChild(el('span', 'std', 'SETTINGS · USER PREFERENCE')); host.appendChild(r);
+  host.appendChild(el('div', 'vnote', LAB.byMode === 'spill' ? 'SPILL-OVER: a bypass or a quantum flip lets the outgoing loop ring on, fed silence; its engine keeps running (CPU) until the tail dies.'
+    : 'HARD: a bypass cuts to dry and freezes the engine (no CPU); a flip crossfades the old engine out in 20 ms. The tail is cut.'));
   if (meterId) { const cv = el('canvas', 'viz'); cv.id = meterId; cv.height = 70; cv.style.height = '70px'; host.appendChild(cv); }
 }
 function buildPlay() {
@@ -2395,7 +2398,7 @@ function buildPlay() {
   if (LAB.msg) cc.appendChild(el('div', /refused/.test(LAB.msg) ? 'caution' : 'vnote', LAB.msg));
   const right = el('div', 'col'); right.style.overflowY = 'auto';
   const cg = cell(right, 'GLOBAL', 'Sluice-global · persists across patches'); buildGlobals(cg);
-  const ct = cell(right, 'BYPASS · TAIL', 'spill-over against hard'); ct.querySelector('h3').appendChild(propTag3()); buildTail(ct, 'tailP');
+  const ct = cell(right, 'BYPASS · TAILS', 'a SETTINGS preference · spill-over against hard'); ct.querySelector('h3').appendChild(propTag3()); buildTail(ct, 'tailP');
   const co = cell(right, 'OUTPUT', 'rendered · wet over dry'); const ov = el('canvas', 'viz'); ov.id = 'outP'; ov.height = 80; ov.style.height = '80px'; co.appendChild(ov);
   const bottom = el('div', 'cell'); bottom.style.gridColumn = '1 / -1';
   buildMacroCell(bottom, true);
@@ -2565,11 +2568,11 @@ function buildRackStripChips() {
     cb.addEventListener('change', () => setBypass(!cb.checked));
     c.appendChild(cb); c.appendChild(el('span', null, 'SLUICE')); host.appendChild(c);
   }
-  const rn = el('span', 'rnote'); rn.appendChild(el('span', null, 'BYPASS'));
-  const s = el('select'); for (const [v, t] of [['spill', 'spill-over (provisional)'], ['hard', 'hard']]) { const o = el('option', null, t); o.value = v; s.appendChild(o); }
-  s.value = LAB.byMode; s.title = 'spec §13 #3; the human\'s provisional answer is spill-over (B347): keep feeding silence so the tail rings out; hard = crossfade to dry, engine frozen, cleared on re-enable';
+  const rn = el('span', 'rnote'); rn.appendChild(el('span', null, 'TAILS (SETTINGS)'));
+  const s = el('select'); for (const [v, t] of [['spill', 'spill-over'], ['hard', 'hard']]) { const o = el('option', null, t); o.value = v; s.appendChild(o); }
+  s.value = LAB.byMode; s.title = 'spec §13 #3: a USER PREFERENCE in horde\'s SETTINGS (B347), the CPU tradeoff the user\'s: spill-over keeps feeding silence so the tail rings out (the engine keeps running); hard = crossfade to dry, engine frozen, cleared on re-enable';
   s.addEventListener('change', () => setByMode(s.value));
-  rn.appendChild(s); rn.appendChild(el('span', 'dep', '§13 #3 PROVISIONAL'));
+  rn.appendChild(s); rn.appendChild(el('span', 'std', 'USER PREFERENCE'));
   host.appendChild(rn);
 }
 function rebuild() {
@@ -2704,6 +2707,10 @@ function paintTail(id) {
     for (const e of H) g.lineTo(Xn(e.n), Yd(Math.max(-90, e.tail))); g.lineTo(Xn(n1), Yd(-90)); g.closePath(); g.fill();
     const line = (f, col, lw) => { g.strokeStyle = col; g.lineWidth = lw; g.beginPath(); H.forEach((e, i) => { const x = Xn(e.n), y = Yd(Math.max(-90, f(e))); i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke(); };
     line(e => e.tail, CSSV['--scr-physics'], 1.4); line(e => e.out, CSSV['--scr-meter'], 1.2);
+    /* the CPU tradeoff, SCHEMATIC: engines ticking, a step line along the floor (1 row per engine) */
+    g.strokeStyle = CSSV['--caution']; g.lineWidth = 2; g.beginPath(); let py = 0;
+    H.forEach((e, i) => { const x = Xn(e.n), y = h - 13 - 5 * (e.engines || 0); if (i) { g.lineTo(x, py); g.lineTo(x, y); } else g.moveTo(x, y); py = y; });
+    g.stroke();
     let row = 0;     // labels step down a row each, so two close events do not print over each other
     for (const ev of LAB.evs) { if (ev.n < n0 || ev.n > n1) continue; const x = Xn(ev.n);
       g.strokeStyle = CSSV['--scr-value']; g.setLineDash([3, 2]); g.beginPath(); g.moveTo(x, 11); g.lineTo(x, h - 12); g.stroke(); g.setLineDash([]);
@@ -2711,7 +2718,8 @@ function paintTail(id) {
   }
   const last = H.length ? H[H.length - 1] : null;
   g.fillStyle = CSSV['--scr-meter']; g.fillText('out', 4, h - 3); g.fillStyle = CSSV['--scr-physics'];
-  g.fillText('outgoing tail' + (last ? ' ' + (last.tail > -140 ? last.tail.toFixed(0) + ' dB' : '—') + ' · ' + last.tails + ' ringing' : ''), 26, h - 3);
+  g.fillText('tail' + (last ? ' ' + (last.tail > -140 ? last.tail.toFixed(0) + ' dB' : '—') : ''), 26, h - 3);
+  g.fillStyle = CSSV['--caution']; g.fillText('engines (CPU) ' + (last ? last.engines : '—'), 88, h - 3);
   g.fillStyle = alpha(gridCol, 0.9); g.fillText(LAB.byMode === 'spill' ? 'spill-over' : 'hard', w - 60, h - 3);
 }
 function paintScopeTrace(id, withSpectrum) {
@@ -3330,7 +3338,7 @@ function buildGbc() {
   const c3 = cell(right, 'RANDOMIZE · SNAPSHOT'); buildRandom(c3, true);
   const c4 = cell(right, 'LIBRARY'); buildLibrary(c4, true);
   const c5 = cell(right, 'GLOBAL'); buildGlobals(c5);
-  const c6 = cell(right, 'BYPASS · TAIL'); buildTail(c6, '');
+  const c6 = cell(right, 'BYPASS · TAILS', 'a SETTINGS preference'); buildTail(c6, '');
   F.appendChild(left); F.appendChild(right);
 }
 
@@ -3671,7 +3679,7 @@ function evalWorklet(code, posted) {
 }
 function sameMeters(a, b) {
   return a.n === b.n && a.loop === b.loop && a.out === b.out && a.dry === b.dry && a.node.length === b.node.length
-    && a.node.every((v, i) => v === b.node[i]) && sameArr(a.outRing, b.outRing) && sameArr(a.dryRing, b.dryRing) && a.tail === b.tail && a.tails === b.tails;
+    && a.node.every((v, i) => v === b.node[i]) && sameArr(a.outRing, b.outRing) && sameArr(a.dryRing, b.dryRing) && a.tail === b.tail && a.tails === b.tails && a.engines === b.engines;
 }
 function C13() {
   const posted = [], env = pageEnv(), Cls = evalWorklet(workletSource(env), posted);
@@ -4188,14 +4196,17 @@ function C35() {
     for (let b = 0; b < 32; b++) r.process(L, Rr, xin.subarray(b * bl, b * bl + bl), xin.subarray(b * bl, b * bl + bl));
     r.msg({ t: 'bypass', on: true, mode }); r.meters(true);
     for (let b = 0; b < 16; b++) { const x = xin.subarray((32 + b) * bl, (33 + b) * bl); r.process(L, Rr, x, x); for (let i = 0; i < bl; i++) if (!Object.is(L[i], x[i])) diff++; }
-    return { diff, tail: r.meters(true).tail }; };
+    const m = r.meters(true); return { diff, tail: m.tail, engines: m.engines }; };
   const bS = byp('spill'), bH = byp('hard'), bypOk = bS.diff > 0 && bS.tail > -140 && bH.tail === -150;
+  /* the CPU tradeoff (B347: a user preference for exactly this reason): engines ticking at the end */
+  const cpuOk = Sp.met.engines === 2 && Hd.met.engines === 1 && bS.engines === 1 && bH.engines === 0;
   /* controls: a "spill" whose old engine keeps hearing the INPUT; and a flip that says spill but cuts */
   const leak = expect(i => xin[i]); let lm = 0; for (let i = N1; i < want.length; i++) if (!Object.is(Sp.out[i], leak[i])) lm++;
   const cLeak = lm > 0, cCut = !(eH > 0 && Hd.met.tail > -140);
-  pushCheck('C35', 'spill-over lets the outgoing tail ring on; hard cuts it (a flip and a bypass)', flipOk && bypOk, cLeak && cCut,
+  pushCheck('C35', 'spill-over lets the outgoing tail ring on; hard cuts it (a flip and a bypass); the CPU it costs', flipOk && bypOk && cpuOk, cLeak && cCut,
     'a flip at sample ' + N1 + ' between two structures (22.05 kHz): SPILL-OVER = the new engine on the input + the old engine fed silence, sample for sample: ' + mism + ' of ' + want.length + ' differ; after the ' + XF + '-sample fade the tail adds ' + (10 * Math.log10(eS / (N2 - XF) + 1e-30)).toFixed(1) + ' dB, meter ' + Sp.met.tail.toFixed(1) + ' dB, ' + Sp.tails + ' ringing'
     + ' · HARD = the fresh engine alone after the fade: ' + hm + ' differ, meter ' + Hd.met.tail.toFixed(0) + ' dB · bypass: spill-over rings (' + bS.diff + ' samples differ from the input, meter ' + bS.tail.toFixed(1) + ' dB), hard is cut (meter ' + bH.tail.toFixed(0) + ' dB): ' + bypOk
+    + ' · engines ticking (the CPU tradeoff, schematic): after the flip spill-over ' + Sp.met.engines + ', hard ' + Hd.met.engines + '; bypassed spill-over ' + bS.engines + ', hard ' + bH.engines + ': ' + cpuOk
     + ' · the tail meter is a SCHEMATIC: measured on horde\'s v0.1 stand-in, not Sluice\'s netcore · controls: an old engine that keeps hearing the input → ' + lm + ' samples differ, ' + (cLeak ? 'caught' : 'NOT caught') + '; a flip that claims spill but cuts → ' + (cCut ? 'caught' : 'NOT caught'));
 }
 async function runChecks() {
@@ -4232,7 +4243,7 @@ const SECTION_STATUS = {
   7: 'REALISED, AND CHANGED BY A PROPOSAL — the law, by ORDER with the patch\'s label (C5); B337 splits the manifest\'s slots into four FIXED macros (the knob globals) and four VARIABLE ones, whose definitions are written into every snapshot of the patch (C23, C24)',
   8: 'REALISED — resolved on the message side at the host tempo: Sync, feel, Time (octaves under Sync), Tune leaving synced times alone (C6–C8)',
   9: 'REALISED, AND CHANGED BY A PROPOSAL — the manifest\'s own blend laws, discrete from the nearest (C4); a patch\'s snapshots share one structure (C3); B337: a snapshot library per patch, a binding per corner, drafts (C19–C22); B348: each corner its own patch, parity morphs, otherwise a quantum flip at a chosen boundary (C28–C31)',
-  10: 'PARTIAL — v0.1\'s loop bounds are real (C12); the gate and post limiter are not voiced; bypass (§13 #3) defaults to spill-over, the human\'s provisional answer, with hard switchable; a flip follows the same mode (C10, C35)',
+  10: 'PARTIAL — v0.1\'s loop bounds are real (C12); the gate and post limiter are not voiced; bypass (§13 #3): spill-over or hard is a USER PREFERENCE in horde\'s SETTINGS (B347, the CPU tradeoff), both shown with their engine cost; a flip follows the same preference (C10, C35)',
   11: 'REALISED — the Play face under its own name, the default (a GBC skin, B338, C26; C32), the Rack face as the FULL DEVICE (every Play control too, C2; every number, C33), the Scope (the follower/gate trace not voiced)',
 };
 function buildSide() {
@@ -4252,7 +4263,7 @@ function buildSide() {
     const nvOther = nv.filter(k => k[0] !== 'M').map(k => k.replace(/^B\//, 'bus ').replace(/^G\/\//, '').replace(/^G\//, '').replace('/', ' '));
     const clamped = S.types.filter(t => REF.defs[t]).flatMap(t => S.mod[t].map(e => [t, e, v01Range(t, e.key)]).filter(([t, e, r]) => r && (r[1] < e.max || r[0] > e.min)).map(([t, e, r]) => t + ' ' + e.key + ' (v0.1 ' + fmtNum(r[0], e) + '–' + fmtNum(r[1], e) + ')'));
     const open = D.s13.filter(r => [3, 5, 6, 7].includes(r.n));
-    const lead = { 3: 'The human, provisionally (B347): spill-over. The lab defaults to it; hard stays switchable; C10 proves the hard path bit-identical, C35 both tails.', 5: 'The human (B347): corners get their own patches; parity morphs, otherwise a quantum flip. Prototyped here (B348, a proposal pending seq 11); inside one patch another structure is still refused (C3).',
+    const lead = { 3: 'The human (B347): a USER PREFERENCE in horde\'s SETTINGS, so users decide the CPU tradeoff; limit CPU burn either way. The lab starts on spill-over and shows hard beside it, with the engines each keeps running; C10 proves the hard path bit-identical, C35 both tails and their cost.', 5: 'The human (B347): corners get their own patches; parity morphs, otherwise a quantum flip. Prototyped here (B348, a proposal pending seq 11); inside one patch another structure is still refused (C3).',
       6: 'The human (B347): all of Sluice exposed, defaulting to the ' + esc(faceName()) + ' face. The FULL DEVICE draws every number (C33); what the HOST automates is still open.', 7: 'The human (B347): each device its own folder in horde\'s preset hierarchy, one format with the standalone. The lab keeps its library in the page (export / import as JSON).' };
     h += '<div class="box"><h2>THE SPEC, AS READ</h2>' + esc(D.title.replace(/^#\s*/, '')) + ' — <b>' + D.ver + '</b> · manifest <b>' + esc(S.raw.format) + ' v' + S.raw.v + '</b>, read in place through <code>local/sluice</code> (gitignored).'
       + '<br>Derived at load: <b>' + S.types.length + '</b> module types, <b>' + S.types.reduce((a, t) => a + S.mod[t].length, 0) + '</b> module params, <b>' + S.bus.length + '</b> bus entries, <b>' + S.groups.length + '</b> groups, <b>'
@@ -4294,16 +4305,15 @@ function buildSide() {
     + '<li>Is a variable macro move a draft of the selected corner (the lab), or a patch-wide performance value that is never saved?</li>'
     + '<li>Tail rewrites the gate of every snapshot of a generated patch (so it never makes a draft). Is Tail per patch or per snapshot?</li></ol></div>';
   if (SPEC.ok) {
-    const tune = fixedMacros().find(g => g.role === 'tune');
     h += '<div class="box"><h2>ROUND 3 — ' + esc(PROPOSAL3.toUpperCase()) + '</h2>The human\'s rulings of B347, prototyped (B348). Spec v1\'s one-patch rule is overturned here, as a proposal.'
       + '<ul><li><b>Per-corner patches:</b> each corner names its own library entry and plays that patch\'s working copy for it; randomize, save and discard act on the selected corner\'s own patch. "new patch → corner" makes a new random structure for one corner.</li>'
       + '<li><b>Patch parity</b> (patchParity): the same module types in the same order in the loop chain and in the post chain, which is all the wiring a serial network in one bus has. Numbers, module ids, names, macros and the values §9 takes from the nearest corner are ignored. Two snapshots of one patch always match; two different patches match when their numbers can blend.</li>'
       + '<li><b>The flip:</b> the corners fall into parity classes; a boundary rule picks the LIVE class and the XY blends inside it with its weights renormalised; crossing into another class switches the heard patch at once. Three rules: NEAREST CORNER (the quadrant lines), WEIGHT > 0.5 (a class\'s summed weight; the line bends round a lone corner), HYSTERESIS (leave only past 0.5 + band). The line is drawn on the XY from the same function the morph uses.</li>'
       + '<li><b>Recommendation: HYSTERESIS</b>, band about 0.1. horde modulates its corner field, and each flip is a new engine (and, in spill-over, a new tail), so a hairline boundary under an LFO would chatter and stack tails. Hysteresis on the class weight costs a little reach near the line and removes the chatter (C30: 0 flips hovering ±0.04, against ' + 'a flip per step without it).</li>'
       + '<li><b>The fixed four</b> (' + esc(fixedMacros().map(g => g.label).join(', ')) + ') stay Sluice-global, so a flip never moves them (C31).</li>'
-      + '<li><b>' + esc(faceName()) + '</b> is the default face; <b>FULL DEVICE</b> reaches every number (C32, C33). <b>Macro scope</b> is a toggle with a grid of every corner\'s slots (C34). <b>Tails:</b> spill-over and hard, one mode for a bypass and a flip (C35).</li></ul>'
+      + '<li><b>' + esc(faceName()) + '</b> is the default face; <b>FULL DEVICE</b> reaches every number (C32, C33). <b>Macro scope</b> is a toggle with a grid of every corner\'s slots (C34). <b>Tails:</b> spill-over and hard, one mode for a bypass and a flip, a USER PREFERENCE in horde\'s SETTINGS (the human, B347: "so users can decide about the CPU tradeoff"); the tail meter draws the engines each keeps running, as a schematic (C35).</li></ul>'
       + '<b>Open for the human:</b><ol>'
-      + (tune ? '<li>"tone" or "' + esc(tune.label) + '"? You wrote "tone" (B347); the fixed macro carries the spec\'s and manifest\'s label, kept until you say.</li>' : '')
+
       + '<li>Which boundary rule, and how wide a band?</li>'
       + '<li>Dry/Wet\'s centre is each patch\'s own mix (§6.1), so at a flip the heard wet level can step although the knob does not move. Should the patch mix glide across a flip too?</li>'
       + '<li>Macro scope: selected corner or every corner? Every corner writes each corner\'s slot by its own patch\'s binding and makes every corner a draft.</li>'
