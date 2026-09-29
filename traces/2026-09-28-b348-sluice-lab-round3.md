@@ -17,7 +17,7 @@
    - Structural edits, locks and sync names reach every corner that plays the edited patch, and no other patch.
 
 2. **Patch parity (section F2, `patchParity`).**
-   - **Definition:** two patches match when they have the same module types in the same order, in the loop chain and in the post chain. In a serial network inside one bus, that roster and wiring is all the wiring there is.
+   - **Definition:** two patches match when their loop chain and post chain list identical module kinds in identical sequence. In a serial network inside one bus, that roster and wiring is all the wiring there is.
    - **Ignored:** numbers, module ids, names, macros, and the discrete values §9 takes from the nearest corner. It is exactly the one-patch rule's `structSig`.
    - **Classes and the flip:** corners fall into parity classes. The boundary rule `pickLive` chooses the LIVE class. `morphRig` blends inside that class with its weights renormalised. When all four corners share one class this is spec v1's morph exactly (C29). Crossing into another class is a discrete switch: the quantum flip.
    - **Badges:** there is one badge per corner pair, ≡ or ≠.
