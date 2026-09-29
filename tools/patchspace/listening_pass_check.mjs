@@ -10,7 +10,8 @@
  *   T1 the committed sample is whole: its id is its content hash, its thresholds are the
  *      B316 values THRESH held when the sample was generated (B350 ruled THRESH forward
  *      without regenerating this sample — see FROZEN_THRESH below), every item carries every
- *      kept metric.
+ *      kept metric; B351: every committed stratum label is drawn by listening_sample.mjs
+ *      strataFor(the sample's thresholds) (CONTROL: not by the live THRESH's bands).
  *   T2 SAMPLER: for every seed, the page's samplePatch (over the lab table it slices and the
  *      dependency tree) equals gauntlet.mjs samplePatch, key for key, and hashes to the
  *      committed `ph` (the one identity the page can check exactly in any browser).
@@ -47,7 +48,11 @@
  *      through the page's measureWindows() and metrics.mjs: the sine reads clean, root clear
  *      and not noisy on every note and clean on the sweep; a NAIVE saw reads aliased at E5
  *      (held, and with a 30-cent vibrato) and on the sweep; the additive saw reads clean in all
- *      three; a tritone-off sine reads root
+ *      three. B351: against the live THRESH the aliased/clean verdicts are the GATE'S estimator
+ *      (aliasConvDb, metrics.mjs aliasConvergence on the tone at 1x..16x the rate), and the
+ *      vibrato at A3 and a 2 st/s glide at E5 and A3 are asserted too, naive aliased and
+ *      band-limited clean (B345's aliasing must-read-zero is still asserted on every clean row);
+ *      a tritone-off sine reads root
  *      unclear; seeded noise reads noisy. A failing row means the METRIC is broken: it is
  *      reported, never tuned around. INFO rows (a semitone-sharp sine) are printed, not
  *      asserted: they measure the root metric's resolution limit.
@@ -71,7 +76,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ROOT, SR, loadEngine, loadSpace, mulberry32 } from './space.mjs';
 import { samplePatch, measure, THRESH } from './gauntlet.mjs';
-import { KEEP, fingerprintOf, roughnessSolo, roughOrigin, sampleId, patchHash, RENDER_SALT, SAMPLE_FILE, loadPage } from './listening_sample.mjs';
+import { KEEP, fingerprintOf, roughnessSolo, roughOrigin, sampleId, patchHash, RENDER_SALT, SAMPLE_FILE, loadPage, strataFor, strataLabels, STRATA } from './listening_sample.mjs';
 import { hash32 } from './gen_dependency_tree.mjs';
 import * as CAL from './calibrate.mjs';
 import * as MET from './metrics.mjs';
@@ -105,6 +110,16 @@ const FROZEN_THRESH = { aliasDb: -30, roughness: 0.1, rootPresence: 0.5, flatnes
 const { itemsByKey, ...plain } = sample;
 ok(sampleId(plain.items) === sample.id, 'T1 sample id is the items\' content hash', sample.id);
 ok(Object.keys(FROZEN_THRESH).every(k => sample.thresholds[k] === FROZEN_THRESH[k]), 'T1 sample thresholds are the B316 values in force when the sample was generated (B350: THRESH has since moved)');
+{
+  /* B351: the sampler's bands are a function of the thresholds (listening_sample.mjs strataFor), so a
+     future draw follows the ruled gates; at the sample's OWN thresholds they must give back every
+     committed stratum label (the committed sample is what this code draws, not a relic of an older
+     one). CONTROL: the bands of the LIVE THRESH (B350/B351 moved every gate) do not. */
+  const drawn = sample.items.filter(it => it.role === 'stratum'), own = new Set(strataLabels(strataFor(sample.thresholds))), live = new Set(strataLabels(STRATA));
+  const missing = drawn.filter(it => !own.has(it.stratum)).map(it => it.stratum);
+  ok(drawn.length > 0 && missing.length === 0, 'T1 every committed stratum label is one of strataFor(the sample\'s thresholds)', missing.length ? 'NOT PRODUCED: ' + [...new Set(missing)].join('; ') : `${drawn.length} items, ${own.size} bands`);
+  caught(drawn.some(it => !live.has(it.stratum)), 'T1 the live THRESH\'s bands do not reproduce the committed labels (the check can fail)', `${drawn.filter(it => !live.has(it.stratum)).length} of ${drawn.length} not produced`);
+}
 ok(sample.items.length >= 30 && sample.items.length <= 40, 'T1 30-40 patches', String(sample.items.length));
 ok(sample.items.every(it => KEEP.every(k => k in it.metrics) && 'roughnessSolo' in it.metrics && /^[0-9a-f]{8}$/.test(it.fp) && /^[0-9a-f]{8}$/.test(it.ph)), 'T1 every item carries every kept metric, a patch hash and a fingerprint');
 ok((sample.excluded || []).every(x => !sample.itemsByKey[x.key] && x.why), 'T1 no cross-runtime exclusion is in the sample, and each says why', (sample.excluded || []).map(x => x.key).join(', ') || 'none');
@@ -316,10 +331,12 @@ ok(P.presentationOrder(sample.items, sample.orderSeed).join() === order.join() &
   const det = P.detectorControls(MET, THRESH);
   for (const r of det) console.log('     ' + P.detectorLine(r));
   const asserted = det.filter(r => r.ok !== null), badRows = asserted.filter(r => !r.ok);
-  const must = ['naive saw E5', 'naive saw E5 vibrato', 'naive saw sweep', 'tritone-off sine A1', 'seeded white noise'];
+  /* B351: THRESH gates aliasing on the estimator, so the moving-pitch saws at A3 and the glides are asserted too, both ways */
+  const must = ['naive saw E5', 'naive saw E5 vibrato', 'naive saw sweep', 'tritone-off sine A1', 'seeded white noise',
+    'naive saw A3 vibrato', 'naive saw E5 glide', 'naive saw A3 glide', 'band-limited saw A3 vibrato', 'band-limited saw E5 glide', 'band-limited saw A3 glide'];
   ok(badRows.length === 0, 'T10 every detector control reads as constructed (sine clean / root clear / not noisy on every note; clean saw clean; naive saw aliased; tritone root unclear; noise noisy)',
     badRows.length ? 'THE METRIC IS BROKEN AT: ' + badRows.map(r => r.id).join(', ') : `${asserted.length} rows`);
-  caught(must.every(id => det.some(r => r.id === id && r.ok)), 'T10 the must-read-HIGH rows are present and read high (naive saw E5 and sweep, tritone, noise)');
+  caught(must.every(id => det.some(r => r.id === id && r.ok)), 'T10 the must-read-HIGH rows are present and read high (naive saw E5 and sweep, tritone, noise; B351: the naive saw with vibrato and glide at E5 and A3 on the gate\'s estimator, the band-limited ones clean)');
   ok(det.filter(r => r.ok === null).length === P.SEGS.length - 1, 'T10 the root metric\'s semitone resolution is measured on every note (INFO rows above)');
 }
 

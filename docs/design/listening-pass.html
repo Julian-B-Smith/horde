@@ -74,7 +74,11 @@
      30-cent vibrato: the engine's partials move) and on the sweep, the additive saw clean in
      all three; a sine a tritone off the note reads root-unclear; seeded noise reads noisy. For generated signals the aliasing reference is the same generator at 4x the
      SAMPLE RATE, its spectrum taken with 4x the points so the bins are the same width. It runs
-     here (self-check 5) and in listening_pass_check (T10). A MEASURED LIMIT, reported not
+     here (self-check 5) and in listening_pass_check (T10). B351: against the live gauntlet.mjs
+     THRESH (T10), whose aliasing gate is now B346's os-convergence estimator (aliasConvDb), the
+     saws' aliased/clean verdicts are read by that estimator (convTone: the tone at 1x..16x the
+     rate) and the vibrato at A3 and a glide at E5 and A3 are added; the page's own self-check
+     passes the sample's frozen thresholds and reads B345's aliasing as before. A MEASURED LIMIT, reported not
      hidden: at A1/A2 the root metric cannot tell a semitone (a sine a semitone sharp still
      reads root-clear there: 8192-point bins are 5.9 Hz, a semitone at A1 is 3.3 Hz).
      The CALIBRATE YOUR EARS step plays the naive-vs-band-limited saw pair (held E5 and the
@@ -583,10 +587,48 @@ function refTone(kind, seg, rate, upto, shift) {
    noise row falls back to flatness against T.flatness when T.noiseDb is absent — the same
    defensive pattern calibrate.mjs uses for a metric with no provisional threshold. */
 const CLEAN_DB = -90;                               // "reads clean": folded power under a billionth
+/* B351 (2026-09-29): THE GATE'S OWN ESTIMATOR ON THE KNOWN TONES. gauntlet.mjs THRESH gates aliasing
+   on B346's os-convergence estimator (metrics.mjs aliasConvergence: the excess of the os-N render
+   over its 4N and 8N renders), not on B345's aliasing (under-reads moving partials: the naive saw
+   with vibrato read -27.2 dB at E5 and -120 at A3). A tone "at os m" is refTone generated at m x SR
+   and decimated to SR through ONE windowed-sinc low-pass (Blackman-Harris, 21 kHz, 96m+1 taps; at
+   m = 1 the same low-pass runs at SR on what already folded), metrics_check.mjs X rows' construction,
+   so every rate has the same in-band response and no gain correction is needed. Worst window over
+   the hold, the page's aliasing window rule (winStarts). No source test (Sint null): the gate reads
+   the EXCESS, which the source test does not change, only classifies. */
+const CONV_RATES = [1, 2, 4, 8, 16];
+function decimTo(x, os, n) {
+  const L = 96 * os + 1, c = (L - 1) / 2, fc = 21000 / (SR * os), h = new Float64Array(L);
+  let s = 0;
+  for (let i = 0; i < L; i++) { const t = i - c, a = 2 * Math.PI * i / (L - 1), w = 0.35875 - 0.48829 * Math.cos(a) + 0.14128 * Math.cos(2 * a) - 0.01168 * Math.cos(3 * a);
+    h[i] = (t === 0 ? 2 * fc : Math.sin(2 * Math.PI * fc * t) / (Math.PI * t)) * w; s += h[i]; }
+  const y = new Float64Array(n);
+  for (let i = 0; i < n; i++) { const m = i * os; let a = 0; for (let j = 0; j < L; j++) { const k = m + c - j; if (k >= 0 && k < x.length) a += h[j] * x[k]; } y[i] = a / s; }
+  return y;
+}
+function convTone(M, kind, seg, shift) {
+  const r = CONV_RATES.map(m => decimTo(refTone(kind, seg, m * SR, seg.held, shift), m, seg.held));
+  const names = ['N', 'N2', 'N4', 'N8', 'N16'];
+  let conv = null, at = null;
+  for (const a of winStarts(MEAS.alias.from, WIN_ALIAS, seg.held)) {
+    const S = {}; r.forEach((x, q) => { S[names[q]] = M.spectrum(x.subarray(a, a + WIN_ALIAS), SR, 8192); });
+    const v = M.aliasConvergence(S, null, 1, SR).excessDb;
+    if (conv === null || v > conv) { conv = v; at = a + WIN_ALIAS / 2; }
+  }
+  return { aliasConvDb: conv, aliasAtNote: seg.sweep ? Math.round(pitchAt(seg, at) * 10) / 10 : null };
+}
 function detectorControls(M, T) {
-  const rows = [], steady = SEGS.filter(s => !s.sweep), E5 = SEGS[SEG_E5], SW = SEGS[SEG_SWEEP];
+  const rows = [], steady = SEGS.filter(s => !s.sweep), E5 = SEGS[SEG_E5], SW = SEGS[SEG_SWEEP], A3 = SEGS[SEG_A3];
+  /* T.aliasConvDb present (the live THRESH since B351): the aliased/clean verdicts on the saws are
+     the gate's estimator; absent (a FROZEN sample.thresholds, this page's own self-check), B345's
+     aliasing against T.aliasDb as before. B345's must-read-zero (<= CLEAN_DB) is asserted either way. */
+  const gateConv = T.aliasConvDb !== undefined;
   const vs4x = (kind, seg, shift) => { const t = refTone(kind, seg, SR, seg.held, shift), r = refTone(kind, seg, 4 * SR, seg.held, shift);
-    return measureWindows(M, seg, { L: t, R: t, sr: SR }, { L: r, R: r, sr: 4 * SR }); };
+    const m = measureWindows(M, seg, { L: t, R: t, sr: SR }, { L: r, R: r, sr: 4 * SR });
+    if (gateConv && kind !== 'sine') m.aliasConvDb = convTone(M, kind, seg, shift).aliasConvDb;
+    return m; };
+  const aliased = m => (gateConv ? m.aliasConvDb > T.aliasConvDb : m.aliasDb > T.aliasDb);
+  const clean = m => m.aliasDb <= CLEAN_DB && (!gateConv || m.aliasConvDb <= CLEAN_DB);
   const tonalOnly = (x, seg) => measureWindows(M, seg, { L: x, R: x, sr: SR }, { L: x, R: x, sr: SR });   // aliasing unused here
   const noisyM = m => T.noiseDb !== undefined ? m.noiseDb > T.noiseDb : m.flatness > T.flatness;
   for (const seg of steady) {
@@ -595,15 +637,24 @@ function detectorControls(M, T) {
       ok: m.aliasDb <= CLEAN_DB && m.rootPresence >= 0.99 && m.rootPresence >= T.rootPresence && m.flatness < 0.01 && !noisyM(m) && m.roughness < 1e-3 });
   }
   { const m = vs4x('sine', SW); rows.push({ id: 'sine sweep', want: 'clean', m, ok: m.aliasDb <= CLEAN_DB }); }
-  { const m = vs4x('naive', E5); rows.push({ id: 'naive saw E5', want: 'aliased', m, ok: m.aliasDb > T.aliasDb }); }
-  { const m = vs4x('saw', E5); rows.push({ id: 'band-limited saw E5', want: 'clean', m, ok: m.aliasDb <= CLEAN_DB }); }
+  { const m = vs4x('naive', E5); rows.push({ id: 'naive saw E5', want: 'aliased', m, ok: aliased(m) }); }
+  { const m = vs4x('saw', E5); rows.push({ id: 'band-limited saw E5', want: 'clean', m, ok: clean(m) }); }
   /* a MOVING pitch (30-cent vibrato at 5 Hz): the engine's partials move, so the detector must
      read through motion too, both ways */
   const vib = t => 0.3 * Math.sin(2 * Math.PI * 5 * t);
-  { const m = vs4x('naive', E5, vib); rows.push({ id: 'naive saw E5 vibrato', want: 'aliased', m, ok: m.aliasDb > T.aliasDb }); }
-  { const m = vs4x('saw', E5, vib); rows.push({ id: 'band-limited saw E5 vibrato', want: 'clean', m, ok: m.aliasDb <= CLEAN_DB }); }
-  { const m = vs4x('naive', SW); rows.push({ id: 'naive saw sweep', want: 'aliased', m, ok: m.aliasDb > T.aliasDb }); }
-  { const m = vs4x('saw', SW); rows.push({ id: 'band-limited saw sweep', want: 'clean', m, ok: m.aliasDb <= CLEAN_DB }); }
+  { const m = vs4x('naive', E5, vib); rows.push({ id: 'naive saw E5 vibrato', want: 'aliased', m, ok: aliased(m) }); }
+  { const m = vs4x('saw', E5, vib); rows.push({ id: 'band-limited saw E5 vibrato', want: 'clean', m, ok: clean(m) }); }
+  /* B351: under the estimator gate, the moving pitch at A3 too (where B345 read the vibrato saw
+     -120) and a 2 semitone/s glide at both notes, metrics_check X7's paths, through the page's windows */
+  if (gateConv) {
+    const glide = t => 2 * t;
+    for (const [seg, path, pn] of [[A3, vib, 'vibrato'], [E5, glide, 'glide'], [A3, glide, 'glide']]) {
+      { const m = vs4x('naive', seg, path); rows.push({ id: `naive saw ${seg.id} ${pn}`, want: 'aliased', m, ok: aliased(m) }); }
+      { const m = vs4x('saw', seg, path); rows.push({ id: `band-limited saw ${seg.id} ${pn}`, want: 'clean', m, ok: clean(m) }); }
+    }
+  }
+  { const m = vs4x('naive', SW); rows.push({ id: 'naive saw sweep', want: 'aliased', m, ok: aliased(m) }); }
+  { const m = vs4x('saw', SW); rows.push({ id: 'band-limited saw sweep', want: 'clean', m, ok: clean(m) }); }
   for (const seg of steady) {
     const m = tonalOnly(refTone('sine', seg, SR, seg.held, 6), seg);
     rows.push({ id: 'tritone-off sine ' + seg.id, want: 'root unclear', m, ok: m.rootPresence < T.rootPresence });
@@ -622,6 +673,7 @@ const fmtDev = (v, d) => (v === null || v === undefined || !Number.isFinite(v) ?
 function detectorLine(r) {
   const m = r.m, parts = [];
   if (m.aliasDb !== null) parts.push('alias ' + fmtDev(m.aliasDb) + ' dB' + (m.aliasAtNote !== null && m.aliasAtNote !== undefined ? ' at note ' + fmtDev(m.aliasAtNote) : ''));
+  if (m.aliasConvDb !== undefined) parts.push('conv ' + fmtDev(m.aliasConvDb) + ' dB');   // B351: the gate's estimator
   if (m.rootPresence !== null) parts.push('root ' + fmtDev(m.rootPresence, 3) + ' (Δ' + fmtDev(m.rootInterval, 0) + ' st)');
   if (m.flatness !== null) parts.push('flat ' + fmtDev(m.flatness, 4));
   return `${r.ok === null ? 'INFO' : r.ok ? 'OK  ' : 'FAIL'} ${r.id.padEnd(28)} want ${r.want.padEnd(28)} ${parts.join('  ')}`;

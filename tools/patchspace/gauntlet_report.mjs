@@ -80,7 +80,7 @@ export async function report() {
   P('| silent | TONAL window RMS < -90 dBFS |');
   P(`| overload6 | 6 × cpuVoiceNorm > ${THRESH.overloadPoly6} (the lab's 6-voice pool over real time) |`);
   P(`| overloadVoice | cpuVoiceNorm > ${THRESH.overloadVoice} (one voice over real time) |`);
-  P(`| alias | aliasDb > ${THRESH.aliasDb} dB (vs the 4×-oversampled reference; see the caveat in gauntlet.mjs) |`);
+  P(`| alias | aliasConvDb > ${THRESH.aliasConvDb} dB (B351: the os-convergence estimator, the patch at 1×..16× its oversampling; aliasDb, vs the 4×-oversampled reference, is a measured column above; see the caveat in gauntlet.mjs) |`);
   P(`| clicks | > ${THRESH.clicks} click frames in the TONAL window (20 dB over the median HF frame) |`);
   P(`| dc | dcRatio > ${THRESH.dcRatio} |`);
   P(`| rootAbsent (coherence) | rootPresence < ${THRESH.rootPresence} |`);
@@ -109,24 +109,24 @@ export async function report() {
   P('CPU is NOISY (workers share the machine): `cpuVoice` is the raw per-voice real-time fraction; `cpuVoiceNorm` rescales it by a reference patch re-timed in the same worker every 8 patches; `cpuPoly` is the POLY segment\'s whole load (up to four voices plus tails). Rankings hold; absolute numbers carry this Mac.');
   P('');
 
-  /* ---- B346: the aliasing re-read by the os-convergence estimator (beside aliasDb; no THRESH reads it) */
+  /* ---- B346: the aliasing re-read by the os-convergence estimator (beside aliasDb; since B351 the `alias` class reads aliasConvDb) */
   if (all.some(r => r.aliasConvClass)) {
     P('## Aliasing re-read: the os-convergence estimator (B346)');
     P('');
-    P('`aliasDb` (B345\'s fixed metric, what the `alias` class above reads) against `aliasConvDb`, the os-convergence estimator on the same E5 note and window ' +
+    P('`aliasDb` (B345\'s fixed metric, a measured column) against `aliasConvDb` (what the `alias` class above reads since B351), the os-convergence estimator on the same E5 note and window ' +
       '(`tools/patchspace/metrics.mjs` aliasConvergence: the patch at 1×, 2×, 4×, 8× and 16× its oversampling; per region, the power the test has beyond both finer ' +
       'renders where they are one realisation, or per bin beyond both where they are not; classed by whether it converges AND whether the finer renders\' content ' +
       'above the test\'s Nyquist predicts it). `decimLeakDb` and `tanhFoldDb` are the output stage every os shares (the engine\'s decimator and its output-rate tanh), ' +
       `which neither metric can see, taken at the patch's own os (2× for os 1); \`aliasTotalDb\` is everything the patch at its os has that its oversampled truth ` +
-      `(8× and 16×, the tanh at the internal rate, an ideal decimator) lacks. The same provisional cut, ${THRESH.aliasDb} dB, is applied to all of them for comparison only.`);
+      `(8× and 16×, the tanh at the internal rate, an ideal decimator) lacks. The alias gate's cut, ${THRESH.aliasConvDb} dB, is applied to all of them for comparison only.`);
     P('');
     P('| mode | n | clean | folding | dynamics | aliasDb over the cut | aliasConvDb over the cut | both | aliasConvDb only | aliasDb only | decimLeakDb over the cut | tanhFoldDb over the cut | aliasTotalDb over the cut |');
     P('|---|---|---|---|---|---|---|---|---|---|---|---|---|');
     for (const m of modes) {
-      const R = byMode(m), n = R.length, o = r => r.aliasDb > THRESH.aliasDb, c = r => r.aliasConvDb > THRESH.aliasDb;
+      const R = byMode(m), n = R.length, o = r => r.aliasDb > THRESH.aliasConvDb, c = r => r.aliasConvDb > THRESH.aliasConvDb;
       P(`| ${m} | ${n} | ${rate(R.filter(r => r.aliasConvClass === 'clean').length, n)} | ${rate(R.filter(r => r.aliasConvClass === 'folding').length, n)} | ${rate(R.filter(r => r.aliasConvClass === 'dynamics').length, n)} | ` +
         `${rate(R.filter(o).length, n)} | ${rate(R.filter(c).length, n)} | ${rate(R.filter(r => o(r) && c(r)).length, n)} | ${rate(R.filter(r => c(r) && !o(r)).length, n)} | ${rate(R.filter(r => o(r) && !c(r)).length, n)} | ` +
-        `${rate(R.filter(r => r.decimLeakDb > THRESH.aliasDb).length, n)} | ${rate(R.filter(r => r.tanhFoldDb > THRESH.aliasDb).length, n)} | ${rate(R.filter(r => r.aliasTotalDb > THRESH.aliasDb).length, n)} |`);
+        `${rate(R.filter(r => r.decimLeakDb > THRESH.aliasConvDb).length, n)} | ${rate(R.filter(r => r.tanhFoldDb > THRESH.aliasConvDb).length, n)} | ${rate(R.filter(r => r.aliasTotalDb > THRESH.aliasConvDb).length, n)} |`);
     }
     P('');
     const med = (R, k) => f(pct(R.map(r => r[k]), 0.5), 1);
@@ -236,7 +236,7 @@ export async function report() {
   P('- The thresholds above are provisional; the blind listening pass should set at least `alias`, `rough`, `rootAbsent` and `noisy` before P4 fits distributions to them.');
   P('- `overload6` is a JS-reference cost (B313: "a limit of the JS reference, not a verdict on the C++ port"). Should P4 bound N × blades by the JS cost, or wait for a C++ cost table?');
   P('- The aliasing reference is the engine\'s own 4× oversampling, whose blade caps move with it (gauntlet.mjs header): a cap-free reference needs the caps separated from `os` in the engine, which is out of this tool\'s reach.');
-  if (all.some(r => r.aliasConvClass)) P('- B346: the aliasing cut is to be re-fitted on `aliasConvDb` (the lead, 2026-09-29); THRESH still reads `aliasDb` here.');
+  P('- B351: the `alias` class reads `aliasConvDb` (the os-convergence estimator) at a cut re-fitted on the v2 ratings; `aliasDb` is a measured column. A run without the estimator\'s fields (before B346) is refused by gauntlet.mjs failures().');
   P('- `rough` counts a detuned swarm\'s own beating (Sethares roughness is fast beating, which is what a supersaw is). Should "discordance" for the random button exclude beating between members of one partial (e.g. measure roughness on a de-detuned render) or keep it?');
   P('- The harmonic detune law (`h.law` 4, `harmReach`) is the top `alias` and `noisy` hotspot: at E5 its upper members can sit near or above Nyquist. Is that a range to bound in P4, or a law to clamp in the engine?');
   P('- Edge-mode `silent` is mostly `gain` 0 and similar trivial extremes. Should P5\'s FUZZ mode exclude known-silent corners, or keep them as sanity cases?');

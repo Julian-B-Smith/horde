@@ -67,7 +67,7 @@ export function loadPage(html) {
   if (a < 0 || b < a) throw new Error(`${PAGE_FILE}: PURE-BEGIN / PURE-END markers not found`);
   return new Function('"use strict";\n' + html.slice(a, b) + '\nreturn { labFrom, spaceFrom, asEvalTree, samplePatch, renderScript, renderSteps, runSync, pseedOf, ' +
     'presentationOrder, QUI, viewIntro, viewCalib, viewRate, viewDone, viewReveal, fmtM, blindTokens, blindScan, buildExport, buildExportV2, exportV1FromStore, ' +
-    'patchHash, measureHeard, heardDiff, TOL, SEGS, SEG_A3, SEG_E5, SEG_SWEEP, MEAS, PHRASE_ID, renderSegmentSteps, programFp, measureWindows, measureSegmentSteps, ' +
+    'patchHash, measureHeard, heardDiff, TOL, SEGS, SEG_A3, SEG_E5, SEG_SWEEP, MEAS, PHRASE_ID, renderSegmentSteps, programFp, measureWindows, measureSegmentSteps, winStarts, ' +
     'detectorControls, detectorLine, refTone, programGain, assembleProgram, segScript, PROGRAM_SECONDS, v1SampleOf, sameSoundsAs };')();
 }
 export const SELECT_SEED = 0xB324;
@@ -119,20 +119,55 @@ export function sampleId(items) {
   return h.toString(16).padStart(8, '0');
 }
 
-/* bands: [lo, hi) in metric units; `when` says which side of the threshold is the flag */
+/* bands: [lo, hi) in metric units; `when` says which side of the threshold is the flag.
+   B351 (2026-09-29): the bands are a function of the thresholds `T` they are drawn around, so a
+   future draw follows the RULED gates (B350/B351: aliasing on aliasConvDb, noise on noiseDb)
+   instead of reading gates that no longer exist (THRESH.flatness was undefined under B350, and so
+   is THRESH.aliasDb under B351). A threshold object without the new keys (the committed sample's
+   own `thresholds`, the B316 values) gives exactly the B316 bands: listening_pass_check T1 proves
+   every committed stratum label is one of strataFor(its thresholds)'s, so the committed sample is
+   reproducible from this code and is not redrawn. The rule that places the B316 bands, kept:
+   a dB gate's BORDER is thr-6..-2, thr-2..+2, thr+2..+6, FINE under thr-15 and FLAG from thr+15
+   (the B316 aliasing row at -30; the noiseDb row at its gate uses the same dB rule); roughness and
+   root keep their B316 bands shifted with their thresholds (border offsets -0.03/-0.01/+0.01/+0.04
+   and -0.12/-0.04/+0.04/+0.12), their fine and flag ends absolute (a clearly smooth or clearly
+   rootless sound does not move with a cut). */
+const dbBands = thr => ({ fine: [[-Infinity, thr - 15, 2]], border: [[thr - 6, thr - 2, 1], [thr - 2, thr + 2, 1], [thr + 2, thr + 6, 1]], flag: [[thr + 15, Infinity, 2]] });
+const shifted = (thr, o) => [[thr + o[0], thr + o[1], 1], [thr + o[1], thr + o[2], 1], [thr + o[2], thr + o[3], 1]].map(b => [+b[0].toFixed(6), +b[1].toFixed(6), 1]);
+export const aliasGateOf = T => (T.aliasConvDb !== undefined ? 'aliasConvDb' : 'aliasDb');      // the field the aliasing gate reads
+export function strataFor(T) {
+  const al = aliasGateOf(T);
+  return [
+    Object.assign({ metric: al, when: 'above', thr: T[al] }, dbBands(T[al])),
+    { metric: 'roughness', when: 'above', thr: T.roughness, fine: [[-Infinity, 0.04, 2]], border: shifted(T.roughness, [-0.03, -0.01, 0.01, 0.04]),
+      flag: [[0.2, Infinity, 2, 'beating'], [0.2, Infinity, 2, 'partials']] },
+    { metric: 'rootPresence', when: 'below', thr: T.rootPresence, fine: [[0.98, Infinity, 2]], border: shifted(T.rootPresence, [-0.12, -0.04, 0.04, 0.12]), flag: [[-Infinity, 0.25, 2]] },
+    T.noiseDb !== undefined ? Object.assign({ metric: 'noiseDb', when: 'above', thr: T.noiseDb }, dbBands(T.noiseDb))
+      : { metric: 'flatness', when: 'above', thr: T.flatness, fine: [[-Infinity, 0.02, 2]], border: [[0.2, 0.27, 1], [0.27, 0.33, 1], [0.33, 0.42, 1]], flag: [[0.5, Infinity, 2]] },
+  ];
+}
+/* the gates a draw records in the sample's `thresholds` (the ones its bands were placed around) */
+export const gatesOf = T => { const al = aliasGateOf(T); return Object.assign({ [al]: T[al], roughness: T.roughness, rootPresence: T.rootPresence }, T.noiseDb !== undefined ? { noiseDb: T.noiseDb } : { flatness: T.flatness }); };
+/* CONTROLS: clean reads clean on every measured column (flatness is still measured); broken is
+   aliased AND rough AND noisy-or-rootless on the gates in `T` (at the B316 thresholds: exactly the
+   B316 rule, aliasDb >= -15 and flatness >= 0.3) */
+export function controlsFor(T) {
+  const al = aliasGateOf(T), noisy = T.noiseDb !== undefined ? r => r.noiseDb > T.noiseDb : r => r.flatness >= T.flatness;
+  return {
+    clean: r => r[al] <= -90 && r.roughness <= 0.03 && r.rootPresence >= 0.99 && r.rootInterval === 0 && r.flatness <= 0.01 &&
+      r.clicks === 0 && r.clicksC === 0 && r.dcRatio < 0.05 && r.rmsDb > -30,
+    broken: r => r[al] >= -15 && r.roughness >= 0.15 && (noisy(r) || r.rootPresence <= 0.3),
+  };
+}
+/* a stratum's label in the sample (`stratum`): the record of how an item was drawn */
+export function stratumLabel(metric, band, lo, hi, want) {
+  const range = lo === -Infinity ? `< ${hi}` : hi === Infinity ? `≥ ${lo}` : `[${lo}, ${hi})`;
+  return `${metric} ${band} ${range}` + (want ? ' ' + want : '');
+}
+export const strataLabels = strata => strata.flatMap(s => ['fine', 'border', 'flag'].flatMap(band => s[band].map(([lo, hi, , want]) => stratumLabel(s.metric, band, lo, hi, want))));
 const T = THRESH;
-export const STRATA = [
-  { metric: 'aliasDb', when: 'above', thr: T.aliasDb, fine: [[-Infinity, -45, 2]], border: [[-36, -32, 1], [-32, -28, 1], [-28, -24, 1]], flag: [[-15, Infinity, 2]] },
-  { metric: 'roughness', when: 'above', thr: T.roughness, fine: [[-Infinity, 0.04, 2]], border: [[0.07, 0.09, 1], [0.09, 0.11, 1], [0.11, 0.14, 1]],
-    flag: [[0.2, Infinity, 2, 'beating'], [0.2, Infinity, 2, 'partials']] },
-  { metric: 'rootPresence', when: 'below', thr: T.rootPresence, fine: [[0.98, Infinity, 2]], border: [[0.38, 0.46, 1], [0.46, 0.54, 1], [0.54, 0.62, 1]], flag: [[-Infinity, 0.25, 2]] },
-  { metric: 'flatness', when: 'above', thr: T.flatness, fine: [[-Infinity, 0.02, 2]], border: [[0.2, 0.27, 1], [0.27, 0.33, 1], [0.33, 0.42, 1]], flag: [[0.5, Infinity, 2]] },
-];
-export const CONTROLS = {
-  clean: r => r.aliasDb <= -90 && r.roughness <= 0.03 && r.rootPresence >= 0.99 && r.rootInterval === 0 && r.flatness <= 0.01 &&
-    r.clicks === 0 && r.clicksC === 0 && r.dcRatio < 0.05 && r.rmsDb > -30,
-  broken: r => r.aliasDb >= -15 && r.roughness >= 0.15 && (r.flatness >= 0.3 || r.rootPresence <= 0.3),
-};
+export const STRATA = strataFor(T);
+export const CONTROLS = controlsFor(T);
 
 /* RE-MEASURE IN PLACE (B345, 2026-09-28; the human: "Let's fix the metrics first, then re-fit").
    When metrics.mjs changes, the committed numbers must be the current metrics' numbers of the
@@ -150,7 +185,9 @@ export function remeasure(json, note) {
     if (patchHash(patch) !== it.ph || fingerprintOf(patch, pseed) !== it.fp) throw new Error(`${it.key}: the sound changed (ph/fp) — a re-measure keeps the sounds; re-select instead`);
     const r = measure(patch, pseed), metrics = Object.fromEntries(KEEP.map(k => [k, r[k]]));
     metrics.roughnessSolo = roughnessSolo(patch, pseed);
-    return Object.assign({}, it, { roughOrigin: roughOrigin(metrics.roughness, metrics.roughnessSolo, T.roughness), metrics });
+    /* the sample's OWN roughness threshold (the one its labels were made with), not the live THRESH:
+       B350 moved THRESH.roughness 0.10 -> 0.12, and a re-measure keeps the labels of the draw (T4) */
+    return Object.assign({}, it, { roughOrigin: roughOrigin(metrics.roughness, metrics.roughnessSolo, json.thresholds.roughness), metrics });
   });
   const id = sampleId(items);
   const remeasured = (json.remeasured || []).concat(id === json.id ? [] : [{ from: json.id, to: id, note }]);
@@ -194,9 +231,7 @@ function main() {
   };
   for (const s of STRATA) for (const band of ['fine', 'border', 'flag']) for (const [lo, hi, n, want] of s[band]) {
     const cands = pool.filter(r => r[s.metric] >= lo && r[s.metric] < hi);
-    const range = lo === -Infinity ? `< ${hi}` : hi === Infinity ? `≥ ${lo}` : `[${lo}, ${hi})`;
-    const label = `${s.metric} ${band} ${range}` + (want ? ' ' + want : '');
-    take(cands, n, 'stratum', label, want);
+    take(cands, n, 'stratum', stratumLabel(s.metric, band, lo, hi, want), want);
   }
   take(pool.filter(CONTROLS.clean), 2, 'control-clean', 'control clean', null);
   take(pool.filter(CONTROLS.broken), 2, 'control-broken', 'control broken', null);
@@ -220,7 +255,7 @@ function main() {
     run: { seed: meta.seed, broad: meta.broad, edge: meta.edge, name: run },
     selectSeed: SELECT_SEED, orderSeed: ORDER_SEED,
     excluded: [...exclude].sort().map(k => ({ key: k, why: 'measured outside tolerance when rendered in the browser (Chrome 153, listening-pass.html?xverify=1): a chaotic patch whose render amplifies the runtimes\' last-bit libm differences' })),
-    thresholds: { aliasDb: T.aliasDb, roughness: T.roughness, rootPresence: T.rootPresence, flatness: T.flatness },
+    thresholds: gatesOf(T),
     roughOrigin: { beatingMax: ORIGIN.beatingMax, partialsMin: T.roughness, how: 'roughnessSolo = the same patch rendered with N 1 (one member), TONAL window' },
     phrase: 'the TONAL render (A3, vel 0.8, 0.5 s) then the ALIAS render (E5, 0.3 s), each followed by its release; the first samples are exactly the renders measured',
     id: sampleId(out),

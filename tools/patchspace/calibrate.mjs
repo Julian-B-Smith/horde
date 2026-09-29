@@ -69,6 +69,17 @@
  * kept (the v2 rule) and a sensitivity fit without them follows. v1 exports fit the committed
  * numbers, which listening_sample.mjs --remeasure re-measured in place. The default mode and
  * analyse()'s default output are unchanged (listening_pass_check T8 pins v1's).
+ *
+ * THE ESTIMATOR RE-FIT (B351, 2026-09-29; the lead, on the human's delegation: "You can decide
+ * whether we re-fit the aliasing cut").
+ *   node tools/patchspace/calibrate.mjs --remeasure --conv [ratings.json …]   (~45 min for 34 patches)
+ * adds B346's os-convergence estimator to every re-measured segment (aliasConvDb, aliasTotalDb:
+ * five renders per segment through the page's own render route, the page's worst-window rule; see
+ * convSeg below) and to the committed basis (gauntlet.mjs convLeg, the gauntlet's own E5 leg), and
+ * fits the aliasing answers on all three measures (PAIRS_B351). In --remeasure the CHAOTIC patches
+ * (broad#383, ratified 2026-09-29, evidence in CHAOTIC) are left out and named, and a sensitivity
+ * fit with them kept follows. The engine rendered is the one the human HEARD: ADR-189's anti-
+ * aliasing flags default off in docs/design/scalpel-horde-engine.js.
  */
 
 export const SCHEMA = 'hypersaw.listening-pass.ratings/1';
@@ -93,6 +104,20 @@ export const PAIRS = [
    flatness) against the same "noisy" answers. PAIRS itself is unchanged, so the default fits,
    v1's pinned output included, are exactly what they were. */
 export const PAIRS_B345 = PAIRS.concat([{ metric: 'noiseDb', question: 'noisy', when: 'above' }]);
+/* B351's re-fit asks the aliasing question of B346's os-convergence estimator too: aliasConvDb (the
+   excess over the 4N/8N references) and aliasTotalDb (the excess over the oversampled truth, the
+   output stage included). Beside aliasDb, never instead of it, so the three are compared on the
+   same answers. */
+export const PAIRS_B351 = PAIRS_B345.concat([{ metric: 'aliasConvDb', question: 'aliased', when: 'above' }, { metric: 'aliasTotalDb', question: 'aliased', when: 'above' }]);
+/* CHAOTIC patches, left out of the re-fit by key (a repeat `~r` with its original), each with its
+   evidence. Unlike `heard: drift` (the rater's browser measured the sound differently), these are
+   patches whose sound is not a function of the patch at the precision two runtimes share: a 1-ULP
+   change moves the measurement as far as the browser did, so no Node number is the sound heard.
+   The human ratified the exclusion 2026-09-29 (ROADMAP B346). Used only by --remeasure; the default
+   analyse() output (v1's pinned) is unchanged. */
+export const CHAOTIC = {
+  'broad#383': 'B346 (alias_sources.mjs ulp): 1-ULP nudges of the played frequency, fb, detune or w swing its E5 aliasDb over 4.15 dB through the page\'s own render, the size of its Chrome/Node drift (4.1 dB against TOL 3); the must-read-zero twin broad#511 moves 0.00',
+};
 const TOP_KEYS = ['schema', 'sample', 'orderSeed', 'complete', 'ratings'];
 const RATING_KEYS = ['order', 'key', 'run', 'i', 'mode', 'answers', 'note', 'heard'];
 const TOP_KEYS_V2 = TOP_KEYS.concat(['phrase']);
@@ -255,7 +280,7 @@ export function analyse(sample, exports, opt) {
   if (nV2 && nV2 < exports.length) throw new Error('analyse: v1 and v2 exports cannot be fitted together (different bases); analyse each version separately');
   const v2 = nV2 > 0;
   const byKey = Object.fromEntries(sample.items.map(it => [it.key, it]));
-  const warnings = [], obs = [], repeats = [], drifted = [], unmeasured = [], phrases = new Set();
+  const warnings = [], obs = [], repeats = [], drifted = [], unmeasured = [], phrases = new Set(), chaotic = [];
   for (const x of exports) {
     if (x.sample.id !== sample.id) warnings.push((sample.remeasured || []).some(r => r.from === x.sample.id)
       ? `an export was made against sample ${x.sample.id}, since re-measured in place as ${sample.id} (the same patches and sounds; only the committed numbers changed): its ratings are matched by key`
@@ -264,6 +289,8 @@ export function analyse(sample, exports, opt) {
     for (const r of x.ratings) {
       const it = byKey[r.key];
       if (!it) { warnings.push(`rating for unknown key ${r.key} skipped`); continue; }
+      /* opt.exclude (B351): { key: why } — CHAOTIC above; a repeat goes with its original */
+      if (opt.exclude && opt.exclude[r.key.replace(/~r$/, '')]) { chaotic.push(r.key); continue; }
       if (!v2) {
         if (r.heard === 'drift') { drifted.push(r.key); continue; }
         (it.role === 'repeat' ? repeats : obs).push({ it, r, m: it.metrics });
@@ -275,6 +302,7 @@ export function analyse(sample, exports, opt) {
       (it.role === 'repeat' ? repeats : obs).push({ it, r, m: w.values, from: w.from });
     }
   }
+  if (chaotic.length) warnings.push(`${chaotic.length} rating(s) left out as CHAOTIC: ` + [...new Set(chaotic.map(k => k.replace(/~r$/, '')))].map(k => `${k} (${opt.exclude[k]})`).join('; '));
   const T = sample.thresholds;
   const fitOn = pick => pairs.map(pr => {
     const xs = obs.map(o => pick(o)[pr.metric]), ys = obs.map(o => o.r.answers[pr.question]);
@@ -357,7 +385,7 @@ export function textReport(A) {
   const table = ms => {
     L.push('metric        question      flag when  n   yes  AUC    provisional (agree)   suggested cut (agree)   bracket                logistic 50%');
     for (const m of ms) {
-      const d = m.metric === 'aliasDb' || m.metric === 'noiseDb' ? 1 : 3;
+      const d = /Db$/.test(m.metric) ? 1 : 3;                   // dB metrics (aliasDb, noiseDb, B351's aliasConvDb/aliasTotalDb) to 0.1
       const row = [m.metric.padEnd(13), m.question.padEnd(13), m.when.padEnd(10), String(m.n).padEnd(3), String(m.flagged).padEnd(4)];
       if (m.insufficient) row.push(`—      ${fmt(m.provisional, d)} (${fmt(m.agreementProvisional, 2)})`.padEnd(29), 'no suggestion: fewer than 3 answers on one side');
       else row.push(fmt(m.auc, 2).padEnd(6), `${fmt(m.provisional, d)} (${fmt(m.agreementProvisional, 2)})`.padEnd(21),
@@ -422,20 +450,75 @@ if (isCli) {
     const { hash32 } = await import('./gen_dependency_tree.mjs');
     const MET = await import('./metrics.mjs');
     const P = loadPage(), { Composed } = loadEngine(), cache = new Map(), t0 = Date.now();
+    const conv = flag('conv') >= 0, AS = conv ? await import('./alias_sources.mjs') : null, G = conv ? await import('./gauntlet.mjs') : null;
+    const r6 = x => (typeof x === 'number' && Number.isFinite(x) ? +x.toPrecision(6) : null);
+    /* --conv (B351): B346's estimator on every segment, the page's window rule (every aliasing window,
+       the WORST one): the segment's held part rendered once at os N, 2N, 4N, 8N and 16N through the
+       page's own render (P.renderScript, so the sweep's bend is the page's), by the estimator's engine
+       (alias_sources.mjs baseEngine: the composed engine with a read-only capture of the internal
+       stream), then alias_sources.mjs estimate() per window: aliasConvDb (metrics.mjs aliasConvergence's
+       excess) and aliasTotalDb (the excess over the 8N/16N truth). The truth is decimated once, for the
+       LAST window (the largest end), and handed to every earlier one (estimate's truthOf). */
+    const convSeg = (patch, pseed, seg) => {
+      const N = patch.os || 2, memo = {}, Cc = AS.baseEngine(), n = seg.held;
+      const renderAt = (m, cap) => {
+        if (memo[m]) return memo[m];
+        let core = null;
+        const K = class extends Cc {
+          constructor(sr) { super(sr); core = this; }
+          bqf(f, x) {                                  // allocate the capture once os is known (set() runs after construction)
+            if (cap && !this._cap) { const L = n * this.os; this._cap = { n: L, i: 0, preL: new Float64Array(L), preR: new Float64Array(L), postL: new Float64Array(L), postR: new Float64Array(L) }; }
+            return super.bqf(f, x);
+          }
+        };
+        const r = P.renderScript(K, Object.assign({}, patch, { os: N * m }), P.segScript(seg, false), { seed: pseed, block: seg.block });
+        return (memo[m] = { L: r.L, R: r.R, cap: core._cap || null, core });
+      };
+      const W = P.MEAS.alias.n - P.MEAS.alias.from, starts = P.winStarts(P.MEAS.alias.from, W, n).reverse();
+      let TT = null, c = null, t = null, b = null;
+      for (const a of starts) {
+        const E = AS.estimate(renderAt, N, [a, a + W], { truth: true, output: false, truthOf: TT || undefined });
+        if (!TT) TT = E._T;
+        if (c === null || E.conv.excessDb > c) c = E.conv.excessDb;
+        if (t === null || E.totalDb > t) t = E.totalDb;
+        if (b === null || E.conv.b345Db > b) b = E.conv.b345Db;
+      }
+      return { aliasConvDb: r6(c), aliasTotalDb: r6(t), b345: r6(b) };
+    };
     const segsOf = r => {
       const base = r.key.replace(/~r$/, '');
       if (cache.has(base)) return cache.get(base);
       const patch = samplePatch(r.run, r.i, r.mode).patch, pseed = hash32(r.run, r.i, RENDER_SALT);
       const segs = P.SEGS.map(seg => P.runSync(P.measureSegmentSteps(MET, Composed, patch, pseed, seg, P.runSync(P.renderSegmentSteps(Composed, patch, pseed, seg)))));
+      if (conv) segs.forEach((g, k) => {
+        const e = convSeg(patch, pseed, P.SEGS[k]);
+        /* the estimator's renders at N and 4N ARE the page's test and reference: its B345 reading must be the page's, or the two renders differ */
+        if (e.b345 !== g.aliasDb) throw new Error(`${base} ${g.seg}: the estimator's renders read aliasDb ${e.b345}, the page's ${g.aliasDb}: not the same sound`);
+        g.aliasConvDb = e.aliasConvDb; g.aliasTotalDb = e.aliasTotalDb;
+      });
       cache.set(base, segs);
       console.error(`  re-measured ${base} (${cache.size}, ${((Date.now() - t0) / 1000).toFixed(0)} s)`);
       return segs;
     };
-    const opt = { pairs: PAIRS_B345, loo: true }, L = [];
+    /* the re-fit leaves CHAOTIC patches out (B351; ratified in B346); a sensitivity fit with them kept follows */
+    const opt = { pairs: conv ? PAIRS_B351 : PAIRS_B345, loo: true, exclude: CHAOTIC }, optKept = Object.assign({}, opt, { exclude: null }), L = [];
+    /* the committed basis (v1's fit, and v2's comparison fit) carries no estimator numbers: with --conv each item
+       gets gauntlet.mjs convLeg (measure()'s own B346 leg, E5 0.3 s) in memory; the sample file is not written */
+    let fitSample = sample;
+    if (conv) {
+      const legs = new Map();
+      fitSample = Object.assign({}, sample, { items: sample.items.map(it => {
+        const base = it.key.replace(/~r$/, '');
+        if (!legs.has(base)) legs.set(base, G.convLeg(samplePatch(sample.run.seed, it.i, it.mode).patch, hash32(sample.run.seed, it.i, RENDER_SALT)));
+        const g = legs.get(base);
+        return Object.assign({}, it, { metrics: Object.assign({}, it.metrics, { aliasConvDb: g.aliasConvDb, aliasTotalDb: g.aliasTotalDb }) });
+      }) });
+      console.error(`  committed-basis estimator on ${legs.size} patches (${((Date.now() - t0) / 1000).toFixed(0)} s)`);
+    }
     const cmp = (B, A) => {
       L.push('metric        question      AUC before -> after   cut before -> after       agree@cut before -> after   LOO before -> after   provisional agree before -> after');
       for (const a of A.metrics) {
-        const b = B.metrics.find(m => m.metric === a.metric), d = a.metric === 'aliasDb' || a.metric === 'noiseDb' ? 1 : 3;
+        const b = B.metrics.find(m => m.metric === a.metric), d = /Db$/.test(a.metric) ? 1 : 3;
         const two = (f, dd) => `${b ? fmt(f(b), dd) : '—'} -> ${fmt(f(a), dd)}`;
         L.push([a.metric.padEnd(13), a.question.padEnd(13), two(m => (m.insufficient ? null : m.auc), 2).padEnd(21), two(m => (m.insufficient ? null : m.cut), d).padEnd(25),
           two(m => (m.insufficient ? null : m.accuracyAtCut), 2).padEnd(27), two(m => m.loo, 2).padEnd(21), two(m => m.agreementProvisional, 2)].join(' '));
@@ -445,11 +528,11 @@ if (isCli) {
     for (const g of groups) {
       if (g[0].schema !== SCHEMA_V2) {
         L.push('v1 export(s): fitted on the committed numbers, re-measured in place with the fixed metrics (listening_sample.mjs --remeasure). For BEFORE, run the default mode with --sample on the earlier file (its id is in the sample file under remeasured).');
-        L.push(textReport(analyse(sample, g, opt)), '', '-'.repeat(100), '');
+        L.push(textReport(analyse(fitSample, g, opt)), '', 'SENSITIVITY — the same v1 fit with the CHAOTIC patches KEPT:', textReport(analyse(fitSample, g, optKept)), '', '-'.repeat(100), '');
         continue;
       }
       const before = analyse(sample, g, { loo: true }), redone = g.map(x => remeasureExport(x, segsOf, P.heardDiff));
-      const after = analyse(sample, redone.map(r => r.export), opt), drift = Object.assign({}, ...redone.map(r => r.drift));
+      const after = analyse(fitSample, redone.map(r => r.export), opt), drift = Object.assign({}, ...redone.map(r => r.drift));
       L.push(`v2 export(s) RE-MEASURED in Node with the fixed metrics (${cache.size} patches, ${((Date.now() - t0) / 1000).toFixed(0)} s). BEFORE = the export's own numbers (the rater's browser, the metrics of the day); AFTER = the fixed metrics.`);
       cmp(before, after);
       L.push('', `CHROME-vs-NODE DRIFT (${Object.keys(drift).length} rating(s): a field whose method did not change measures outside the page's tolerance in Node; KEPT, as v2 keeps drift): ` +
@@ -457,8 +540,10 @@ if (isCli) {
       if (Object.keys(drift).length) {
         const kept = redone.map(r => Object.assign({}, r.export, { ratings: r.export.ratings.filter(x => !drift[x.key]) }));
         L.push('', 'SENSITIVITY — the same fit with the drifted ratings LEFT OUT (the v1 rule):');
-        cmp(before, analyse(sample, kept, opt));
+        cmp(before, analyse(fitSample, kept, opt));
       }
+      L.push('', 'SENSITIVITY — the same fit with the CHAOTIC patches KEPT:');
+      cmp(before, analyse(fitSample, redone.map(r => r.export), optKept));
       L.push('', 'AFTER, in full:', textReport(after), '', '-'.repeat(100), '');
     }
     console.log(L.join('\n'));
