@@ -6669,8 +6669,8 @@ access to their constituent XY pads, which can be modulated or mapped to global 
    of ONE patch. Sluice's one-patch rule stands inside the module.
 2. **Horde's morph corners.** Horde's global morph XY (the quantum-morph field) may hold a
    DIFFERENT module patch at each of its corners. The module patch's structure is a
-   STRUCTURAL morph class: where the corners' patches share parity (same module types in the
-   same order), their evaluated parameters blend. Where they do not, the live patch
+   STRUCTURAL morph class: where the corners' patches share parity (identical module kinds in
+   identical sequence), their evaluated parameters blend. Where they do not, the live patch
    quantum-flips with a hysteresis boundary, band ≈0.1 (human: "Buffer zone approved").
 3. **Across a flip.** The fixed four (Dry/Wet, Width, Time, Tune) stay continuous, and the
    patch's own dry/wet balance GLIDES rather than stepping (human: "Dry/wet glide is a good
