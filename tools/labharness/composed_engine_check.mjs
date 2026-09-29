@@ -73,12 +73,14 @@
  *       must change one. AA1 (D1, carrier ADAA): the inharmonic residual of a
  *       strictly periodic case falls on a phase-modulated carrier and on a
  *       Band-limit-off carrier; control: the BLEPs removed without the ADAA.
- *       A FINDING line prints the plain sync carrier, where the PolyBLEP D1
- *       replaces band-limits better. AA2 (D2, the scanner tracks xin): a
+ *       AA1s: ADR-189 A1's narrowed scope leaves a plain sync saw, an S&H-
+ *       modulated FM saw and a sine carrier bit-identical; control: the same
+ *       comparison on an in-scope FM saw must differ. AA2 (D2, the scanner tracks xin): a
  *       constant xin fixture moves the carrier's wraps; with D2 the residual
  *       is the xin-0 case's; control: the scanner reading −xin. AA3 (D3, the
- *       loop): broad#828's rate-locked line is gone; controls: the oracle's
- *       loop (R/5) and D3's tap without its filter (R/3).
+ *       loop filter over the oracle's tap): broad#828's rate-locked line is
+ *       gone; controls: the oracle's loop, and D3's filter as a pass-through,
+ *       both bring the R/5 cycle back.
  *   DET determinism: same seed and note order give identical output; a
  *       different horde seed does not; the module reads no clock and draws no
  *       unseeded random of its own; the toString() bundle (the AudioWorklet
@@ -1096,7 +1098,8 @@ section('AA — ADR-189 anti-aliasing divergences (B355): all off is main; D1, D
   };
   /* AA0: pinned on main at d443eb6 (docs/design/scalpel-horde-engine.js blob 5f96285) with this very
      renderWith, seed 0xB355: presets that exercise every flag (carriers, feedback, cross-mod, FM) */
-  const AA0 = [['Feedback snarl', '86e1c74e8cb7e644'], ['Cross-mod roar', '03ee212c48e57c19'], ['Crunch horde', 'af83ca85d8e03488'], ['Ring saw', '629a11c078f055c5']];
+  const AA0 = [['Feedback snarl', '86e1c74e8cb7e644'], ['Cross-mod roar', '03ee212c48e57c19'], ['Crunch horde', 'af83ca85d8e03488'], ['Ring saw', '629a11c078f055c5'],
+    ['Zap bass', 'ccf47610c2316f3d']];                                    // Zap bass: an FM saw carrier, inside D1's narrowed scope (ADR-189 A1)
   const OFF = { aaCarrier: 0, aaXin: 0, aaLoop: 0 };
   for (const [name, want] of AA0) {
     const got = fpAA(byName(name)), zero = fpAA(Object.assign({}, byName(name), OFF));
@@ -1136,11 +1139,20 @@ section('AA — ADR-189 anti-aliasing divergences (B355): all off is main; D1, D
     const bare = inharm(NoAdaa, Object.assign({}, P1, over, { aaCarrier: 1 }));
     row(bare >= on + 3, 'AA1c', `CONTROL ${tag.padEnd(24)} carrier BLEPs off and no ADAA: ${bare.toFixed(1)} dB — must read 3 dB or more above D1's ${on.toFixed(1)}`);
   }
-  /* the FINDING that D1's ratified scope carries (B355 trace, open question): on a PLAIN sync carrier
-     with Band-limit on, first-order ADAA band-limits LESS well than the 2-point PolyBLEP it replaces
-     (a box kernel against the BLEP's triangle). Printed, not asserted: a regression is not a property. */
-  { const off = inharm(Composed, P1), on = inharm(Composed, Object.assign({}, P1, { aaCarrier: 1 }));
-    note(`FINDING D1 on a plain sync saw carrier, Band-limit on: inharmonic ${off.toFixed(1)} → ${on.toFixed(1)} dB (the PolyBLEP it replaces is the better band-limiter here)`); }
+  /* ADR-189 A1's NARROWED SCOPE: on a PLAIN sync carrier with Band-limit on, first-order ADAA band-limits
+     LESS well than the 2-point PolyBLEP (a box kernel against the BLEP's triangle: -30.3 against -22.8 dB,
+     B355), and an S&H modulator's phase jumps are smeared by the mean. D1 must leave both to the oracle,
+     bit for bit. CONTROL: the same comparison on a carrier inside the scope (FM free saw, sine modulator)
+     must differ, so a scope row cannot pass because the detector is blind. */
+  const same = (a, b) => maxDiff(a, b) === 0;
+  const r1 = (cls, p) => renderWith(() => new cls(SR), p, 0xB355, 12032);
+  for (const [tag, p] of [['plain sync saw, Band-limit on', P1], ['FM free saw, S&H modulator', Object.assign({}, P1, { mode: 2, I: 3, m: 2, mshape: 7 })],
+    ['FM free, SINE carrier', Object.assign({}, P1, { mode: 2, I: 3, m: 2, hot: 0 })]]) {
+    const off = r1(Composed, p), on = r1(Composed, Object.assign({}, p, { aaCarrier: 1 }));
+    row(same(off, on), 'AA1s', `D1 leaves a ${tag.padEnd(30)} to the oracle: max|Δ| ${maxDiff(off, on).toExponential(1)} (must be 0)`);
+  }
+  { const pin = Object.assign({}, P1, { mode: 2, I: 3, m: 2, mshape: 0 }), off = r1(Composed, pin), on = r1(Composed, Object.assign({}, pin, { aaCarrier: 1 }));
+    row(!same(off, on), 'AA1c', `CONTROL the same comparison inside D1's scope (FM free saw, sine modulator): max|Δ| ${maxDiff(off, on).toFixed(4)} — must be non-zero`); }
 
   /* AA2 (D2): AN XIN-DRIVEN EDGE. A fixture drives a CONSTANT phase input xin = 0.37 into the four blade
      states (what feedback or cross-mod would write, with the loop taken out so nothing else moves):
@@ -1159,10 +1171,10 @@ section('AA — ADR-189 anti-aliasing divergences (B355): all off is main; D1, D
 
   /* AA3 (D3): BROAD#828's LIMIT CYCLE (B346): the listening pass's patch (its non-default engine values,
      from gauntlet.mjs samplePatch(45846, 828, 'broad')), E5 held, os 1, its seed; the line at R/5 and R/3
-     over its local floor, over 0.05..0.3 s. D3 (the tap fix and the 3 kHz loop filter) must leave no
-     line more than 6 dB over its floor. CONTROLS: the oracle's loop (aaLoop 0) must show its R/5 line;
-     D3's tap WITHOUT the filter must show the R/3 line the tap alone creates (B355: so the filter is
-     load-bearing). INFO: the filter over the OLD tap. */
+     over its local floor, over 0.05..0.3 s. D3 (the oracle's tap through the loop filter, ADR-189 A1)
+     must leave no line more than 6 dB over its floor. CONTROLS: the oracle's loop (aaLoop 0) must show its
+     R/5 line; D3 with its filter a PASS-THROUGH (the oracle's taps, unfiltered) must show it too, so the
+     filter is what cures it. */
   const B828 = { mode: 1, hot: 4, w: 0.02497344250487307, k: 1.166184157966395, c: 0.821492628660053, hard: 0.22659096238203347, depth: 0.16760664246976376, rotRate: 3.6889861542731524, rotSync: 0, fb: 0.3823352499896128, mshape: 7, I: 0.0754069117297927, m: 6.862318260510085, benvK: -0.04634629702195525, benvW: 0.09298173757269979, benvA: 3.576603711459627, benvD: 2341.79573983158, benvVel: 0.5122116324491799, base: 4, dcMode: 1, xm: 0.15870987800850156, frame: 1, phaseMode: 0, law: 3, bspread: -0.6364673553034663, kRule: 8, kRuleAmt: 0.6274632841814309, wspread: -0.2908894410356879, dspread: -0.2656447202898562, ispread: 0.9232641374692321, rotSpread: -0.28748671136165305, b2on: 1, mode2: 2, w2: 0.05261411756061071, k2: 31.958604020527126, lock2: 0, c2: 0.34182922495529056, hard2: 0.39319653320126235, depth2: 0.9189625040162355, mirror2: 0, rot2Follow: 0, rotRate2: 1.0956337340176105, frame2: 1, b2order: 1, b2mix: 0.6863440533634275, colK: 0.3284184467047453, colB: 0.03496146504767239, N: 3, detune: 71.6670430265367, K: -0.8084876798093319, width: 0.44364295271225274, A: 2.49053468199747, D: 417.97740792484007, S: 0.5356353237293661, R: 2399.0311701255923, gain: 0.5667388490401208, polyMode: 1, glide: 3.392950330909303, os: 1, onset: 0.508713430725038, dissolve: 0.37915171489879057, driftDepth: 74.03178447857499, 'h.driftRate': 0.5697026196867228, 'h.law': 5, stretchB: 4.374309228267521, spread: 11.062973401974887, anchor: 0.675719597376883, inertia: 0.10279140272177756, inertiaCurve: 4.4292594762519 };
   const lines = (cls, params) => {
     Math.random = mulberry32(2860116571);
@@ -1175,27 +1187,12 @@ section('AA — ADR-189 anti-aliasing divergences (B355): all off is main; D1, D
     const over = f => 10 * Math.log10(bp(f) / ((bp(f - 0.02 * SR) + bp(f + 0.02 * SR) + bp(f - 0.04 * SR) + bp(f + 0.04 * SR)) / 4));
     return { r5: over(SR / 5), r3: over(SR / 3) };
   };
-  class TapOnly extends Composed { setOS(n) { super.setOS(n); this.loopA = 1; } }     // D3's tap, the filter a pass-through
-  class OldTapFiltered extends Composed {                                            // the filter over the oracle's PolyBLEP-output tap
-    bladeStep(m, dphi, c, k, s) {
-      const y = super.bladeStep(m, dphi, c, k, s);
-      if (s.xm > 0.0005 || s.fb > 0.0005) { m.fu = m.f2 = m.f1 = 0; m.gu = (m.gu || 0) + this.loopA * (y - (m.gu || 0)); m.g2 = m.g1 || 0; m.g1 = m.gu; }
-      return y;
-    }
-    loopIn(m, s) {
-      const v = m.v, N = this.d.N, q = m.i, nb = q + 1 === N ? 0 : q + 1;
-      if (q === 0) v.gx0 = m.gu || 0;
-      const xin = 0.5 * (s.xm * (nb === 0 ? v.gx0 : (v.m[nb].gu || 0)) + s.fb * 0.5 * ((m.g1 || 0) + (m.g2 || 0)));
-      m.ns.xin = xin; m.ns2.xin = xin; m.bx.ns3.xin = xin; m.bx.ns4.xin = xin;
-    }
-  }
+  class Unfiltered extends Composed { setOS(n) { super.setOS(n); this.loopA = 1; } }  // the filter a pass-through: the oracle's taps
   const fmt = l => `R/5 ${l.r5.toFixed(1)}, R/3 ${l.r3.toFixed(1)} dB over floor`;
-  const d3 = lines(Composed, Object.assign({}, B828, { aaLoop: 1 })), old = lines(Composed, B828), tap = lines(TapOnly, Object.assign({}, B828, { aaLoop: 1 }));
+  const d3 = lines(Composed, Object.assign({}, B828, { aaLoop: 1 })), old = lines(Composed, B828), unf = lines(Unfiltered, Object.assign({}, B828, { aaLoop: 1 }));
   row(d3.r5 <= 6 && d3.r3 <= 6, 'AA3', `D3 broad#828 E5 os 1: ${fmt(d3)} — no line more than 6 dB over its floor`);
   row(old.r5 > 10, 'AA3c', `CONTROL the oracle's loop (aaLoop 0): ${fmt(old)} — its R/5 cycle must read more than 10 dB`);
-  row(tap.r3 > 10, 'AA3c', `CONTROL D3's tap without the filter: ${fmt(tap)} — the R/3 cycle must read more than 10 dB`);
-  const of = lines(OldTapFiltered, Object.assign({}, B828, { aaLoop: 1 }));
-  note(`INFO the 3 kHz filter over the OLD tap (the PolyBLEP output, one sample late): ${fmt(of)} (B355: the filter carries the cure on broad#828)`);
+  row(unf.r5 > 10, 'AA3c', `CONTROL D3 with its filter a pass-through (the oracle's taps): ${fmt(unf)} — the R/5 cycle must read more than 10 dB`);
 }
 
 /* ---------------------------------------------------------------- determinism */

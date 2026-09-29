@@ -797,7 +797,10 @@
   <div class="hdrctl">
     <div class="grp"><span class="lbl">PAGE</span><div class="pills" id="pagePills"></div></div>
     <button class="chip" id="valsBtn" data-lab="show every knob's value, not only on hover">values <b>HOVER</b></button>
-    <button class="chip" id="aaBtn" data-lab="B355, ADR-189: the three anti-aliasing divergences from the SCALPEL oracle, ON in this lab by default: D1 first-order ADAA on the blade carriers (replacing their wrap BLEPs), D2 the PolyBLEP scanner tracks the feedback / cross-mod phase input, D3 the feedback loop taps the current sample through a 3 kHz loop filter (removes the rate-locked limit cycle). OFF plays the oracle's sound, to compare. A lab setting, not a patch value; the instrument's default is ruled later.">anti-aliasing (ADR-189) <b>ON</b></button>
+    <span class="lbl" data-lab="B355, ADR-189 + A1: the anti-aliasing divergences from the SCALPEL oracle, ONE toggle each (ADR-187 A1), all ON in this lab by default; OFF plays the oracle's sound, to compare. Lab settings, not patch values; the instrument's defaults are ruled later.">anti-aliasing (ADR-189)</span>
+    <button class="chip" id="aaD1" data-lab="ADR-189 D1 (aaCarrier): first-order ADAA on a blade carrier, replacing its wrap BLEPs, only where it beats them: carrier shape not sine, AND (an FM mode OR Band-limit off), AND not an S&amp;H modulator. ?d1=0 starts it off.">D1 carrier <b>ON</b></button>
+    <button class="chip" id="aaD2" data-lab="ADR-189 D2 (aaXin): the PolyBLEP scanner tracks the feedback / cross-mod phase input, so it BLEPs the carrier's real edges. ?d2=0 starts it off.">D2 xin <b>ON</b></button>
+    <button class="chip" id="aaD3" data-lab="ADR-189 D3 (aaLoop): the feedback / cross-mod loop through a 5 kHz one-pole filter, which removes the rate-locked limit cycle (broad#828). ?d3=0 starts it off.">D3 loop <b>ON</b></button>
     <button class="chip" id="themeBtn" data-lab="theme audition">theme <b>LIGHT</b></button>
     <button class="chip" id="scrBtn" data-lab="audition the screen scheme (the data wells only) — gui2's SCR chip, ADR-121" title="audition the screen scheme (the data wells only): TUBE · ORCHID · FROST · EMBER · DUSK">screen <b>ORCHID</b></button>
     <button class="pill" id="pwr" data-lab="audio context — a lab affordance, not a parameter">POWER</button>
@@ -1583,7 +1586,9 @@ const LAB = {
   advOpen: qp('adv', '0') === '1', mainBlade: 1, still: parseInt(qp('still', '0'), 10) || 0,
   frozen: false, showVals: qp('vals', '0') === '1', presetName: '', presets: null,
   params: null, presetStat: {}, openCats: null, restrike: qp('restrike', '0') === '1', scheme: '',
-  aa189: qp('aa189', '1') !== '0'
+  /* B355, ADR-187 A1: one toggle per divergence. ?aa189=0 starts all three off; ?d1=0, ?d2=0, ?d3=0 one each */
+  aa: { aaCarrier: qp('aa189', '1') !== '0' && qp('d1', '1') !== '0', aaXin: qp('aa189', '1') !== '0' && qp('d2', '1') !== '0',
+    aaLoop: qp('aa189', '1') !== '0' && qp('d3', '1') !== '0' }
 };
 /* B317 — gui2's auditionable SCREEN SCHEMES (gui2.html:1846-1856, ADR-121), in its cycle order;
    `cls` is the body class the stylesheet carries, TUBE is its absence. The theme picks the
@@ -1849,10 +1854,10 @@ function cornerVal(j, k) {
 }
 /* what the oracle receives: only its own keys, plus four stated lab mappings —
    blade 1 off ⇒ width 0 (the oracle's bypass), tab power off ⇒ gain 0, pitch ⇒ bend, and
-   (B355) the anti-aliasing setting ⇒ ADR-189's three engine flags. The flags default OFF in
-   the engine (scalpel-horde-engine.js, its ADR-189 block), so the listening pass, the gauntlet
-   and every fingerprint keep the oracle's sound; this lab plays them ON, labelled, and the
-   header chip turns all three off to compare. A lab SETTING, not a patch value: no preset,
+   (B355) the anti-aliasing settings ⇒ ADR-189's three engine flags, one toggle each (ADR-187 A1).
+   The flags default OFF in the engine (scalpel-horde-engine.js, its ADR-189 block), so the
+   listening pass, the gauntlet and every fingerprint keep the oracle's sound; this lab plays them
+   ON, labelled, and each header chip turns its own off to compare. A lab SETTING, not a patch value: no preset,
    morph or macro writes it, and the patch space (tools/patchspace/space.mjs, which reads the
    SP table) never samples it. Self-check scratch instances built from DEF alone hear them off,
    as the drawing's per-point function does (checkDrawnHeard: drawn = heard sample for sample). */
@@ -1862,7 +1867,7 @@ function oracleParams(E) {
   for (const k in E) if (ORK.has(k)) o[k] = E[k];
   if (!E.b1on) o.w = 0;
   if (!E.enable) o.gain = 0;
-  for (const k of AA189) if (ORK.has(k)) o[k] = LAB.aa189 ? 1 : 0;
+  for (const k of AA189) if (ORK.has(k)) o[k] = LAB.aa[k] ? 1 : 0;
   return o;
 }
 function pushOracle() {
@@ -7242,7 +7247,8 @@ function chrome() {
   const tb = $('themeBtn'); if (tb) tb.innerHTML = 'theme <b>' + (LAB.theme === 'dark' ? 'DARK' : 'LIGHT') + '</b>';
   const sb = $('scrBtn'); if (sb) sb.innerHTML = 'screen <b>' + LAB.scheme + '</b>';
   const vb = $('valsBtn'); if (vb) vb.innerHTML = 'values <b>' + (LAB.showVals ? 'SHOWN' : 'HOVER') + '</b>';
-  const ab = $('aaBtn'); if (ab) ab.innerHTML = 'anti-aliasing (ADR-189) <b>' + (LAB.aa189 ? 'ON' : 'OFF') + '</b>';
+  [['aaD1', 'aaCarrier', 'D1 carrier'], ['aaD2', 'aaXin', 'D2 xin'], ['aaD3', 'aaLoop', 'D3 loop']].forEach(([id, k, t]) => {
+    const b = $(id); if (b) b.innerHTML = t + ' <b>' + (LAB.aa[k] ? 'ON' : 'OFF') + '</b>'; });
   const rb = $('restrikeBtn'); if (rb && rb.classList) rb.classList.toggle('on', LAB.restrike);
 }
 function applyBodyClasses() {
@@ -7314,7 +7320,8 @@ function wireChrome() {
   on('themeBtn', 'click', () => { LAB.theme = LAB.theme === 'dark' ? 'light' : 'dark'; LAB.scheme = MODES_PAIR[LAB.theme]; applyBodyClasses(); chrome(); rebuild(); });
   on('scrBtn', 'click', () => { const i = SCHEMES.findIndex(s => s.name === LAB.scheme); LAB.scheme = SCHEMES[(i + 1) % SCHEMES.length].name; applyBodyClasses(); chrome(); rebuild(); });
   on('valsBtn', 'click', () => { LAB.showVals = !LAB.showVals; applyBodyClasses(); chrome(); });
-  on('aaBtn', 'click', () => { LAB.aa189 = !LAB.aa189; pushOracle(); chrome(); });   // B355: the engine reads the three flags live
+  /* B355: one toggle per ADR-189 divergence; the engine reads each flag live */
+  [['aaD1', 'aaCarrier'], ['aaD2', 'aaXin'], ['aaD3', 'aaLoop']].forEach(([id, k]) => on(id, 'click', () => { LAB.aa[k] = !LAB.aa[k]; pushOracle(); chrome(); }));
   on('pwr', 'click', () => { audioStart(); });
   on('panic', 'click', () => { audioMsg({ t: 'panic' }); AUD.drone = false; const d = $('droneBtn'); if (d) d.classList.remove('on'); });
   on('droneBtn', 'click', () => { AUD.drone = !AUD.drone; $('droneBtn').classList.toggle('on', AUD.drone); if (AUD.drone) noteOn(MON.note, false, 'HOLD'); else audioMsg({ t: 'off', note: MON.note }); });

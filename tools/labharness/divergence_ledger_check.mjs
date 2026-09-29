@@ -26,12 +26,22 @@
  *       defaults) and with every built flag written 0.
  *   L5  EVERY BUILT FLAG IS WIRED: switched on alone, it changes at least one scenario's fingerprint.
  *       A flag that changes nothing would pass L4 for the wrong reason.
+ *   L6  EVERY BUILT FLAG STAYS IN ITS DECLARED SCOPE: switched on alone, it leaves each preset in its
+ *       entry's `outOfScope` list bit-identical to all flags off (the same fingerprint() script). D1 names
+ *       a sine-carrier FM preset and a Band-limit-on sync saw (ADR-189 A1's narrowed scope); D2 and D3
+ *       name presets with no feedback and no cross-mod. The entry's `inScope` preset must change (the
+ *       row's own must-fail control, C5: the same comparison on a preset the flag does reach).
+ * TWO PIN SETS, ON PURPOSE: L4's fingerprints here (this script: notes 57 + 64 at 0, 12032 samples,
+ * seed 45909) and composed_engine_check's AA0 (its own renderWith: two notes and a release, 24064
+ * samples, seed 0xB355) were both taken on main d443eb6. They pin the same fact through two different
+ * scripts, so a change that happened to leave one script's samples alone is still caught by the other.
  * MUST-FAIL CONTROLS (LIBRARY L0032: a detector that shares the assumption it measures confirms
  * whatever you expect), each run through the same functions as the rows above:
  *   C1  an entry whose flag the engine does not have (L3 must reject it);
  *   C2  a pinned fingerprint off by one hex digit (L4 must reject it);
  *   C3  an engine whose constructor defaults one flag ON (L4 must reject it: all-off no longer is);
- *   C4  an oracle blob pin off by one digit (L2 must reject it).
+ *   C4  an oracle blob pin off by one digit (L2 must reject it);
+ *   C5  per built flag, its `inScope` preset planted into its `outOfScope` list (L6 must reject it).
  * Deterministic, no model calls, no clock. Both references are required, never edited.
  */
 import { readFileSync, existsSync } from 'node:fs';
@@ -81,12 +91,13 @@ export function fingerprint(Composed, preset, over, seed) {
 
 /* ---------------------------------------------------------------- the rules, as functions the controls reuse */
 const FIELDS = ['id', 'adr', 'status', 'description', 'oracle', 'target', 'scope', 'evidence', 'js_limit'];
+const BUILT_FIELDS = ['flag', 'outOfScope', 'inScope'];
 function shapeErrors(led) {
   const e = [], ids = new Set();
   for (const d of led.divergences) {
     for (const f of FIELDS) if (!(f in d)) e.push(`${d.id || '?'}: no ${f}`);
     if (ids.has(d.id)) e.push(`${d.id}: duplicate id`); ids.add(d.id);
-    if (d.status === 'built') { if (!d.flag) e.push(`${d.id}: built but no flag`); }
+    if (d.status === 'built') { for (const f of BUILT_FIELDS) if (!d[f] || (f === 'outOfScope' && !d[f].length)) e.push(`${d.id}: built but no ${f}`); }
     else if (d.status === 'planned') { if (!d.owner) e.push(`${d.id}: planned but no owner`); }
     else e.push(`${d.id}: status ${d.status} is neither built nor planned`);
     if (d.js_limit !== null && typeof d.js_limit !== 'string') e.push(`${d.id}: js_limit is neither null nor a statement`);
@@ -117,6 +128,16 @@ function allOffErrors(led, Composed) {
   return e;
 }
 
+/* L6: each built flag, on alone, leaves its out-of-scope presets bit-identical to all off */
+function scopeErrors(led, Composed) {
+  const e = [];
+  for (const d of built(led)) for (const name of d.outOfScope) {
+    const off = fingerprint(Composed, name, null, led.allOff.seed), on = fingerprint(Composed, name, { [d.flag]: 1 }, led.allOff.seed);
+    if (on !== off) e.push(`${d.id}: ${d.flag} on changes ${name} (${off} -> ${on}), outside its declared scope`);
+  }
+  return e;
+}
+
 /* ---------------------------------------------------------------- main */
 const main = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
 if (main) {
@@ -139,6 +160,9 @@ if (main) {
     row(moved.length > 0, 'L5', `${d.id} ${d.flag} on changes ${moved.length} of ${Object.keys(led.allOff.fingerprints).length} scenarios (${moved.join(', ') || 'none'})`);
   }
 
+  e = scopeErrors(led, Composed);
+  row(!e.length, 'L6', `each flag leaves its out-of-scope presets bit-identical: ${B.map(d => `${d.id} {${d.outOfScope.join(', ')}}`).join('; ')}${e.length ? ': ' + e.join('; ') : ''}`);
+
   /* must-fail controls: the same functions on planted faults */
   const plant = f => { const x = JSON.parse(JSON.stringify(led)); f(x); return x; };
   e = flagErrors(plant(x => { built(x)[0].flag = 'aaNoSuchFlag'; }), Composed);
@@ -151,6 +175,10 @@ if (main) {
   row(e.length > 0, 'C3', `CONTROL an engine defaulting ${B[B.length - 1].flag} ON is caught: ${e[0] || 'NOT CAUGHT'}`);
   e = oracleErrors(plant(x => { const b = x.divergences[0].oracle.blob; x.divergences[0].oracle.blob = (b[0] === '0' ? '1' : '0') + b.slice(1); }));
   row(e.length > 0, 'C4', `CONTROL an oracle pin off by one digit is caught: ${e[0] || 'NOT CAUGHT'}`);
+  for (const d of B) {
+    e = scopeErrors(plant(x => { const y = x.divergences.find(z => z.id === d.id); y.outOfScope = [y.inScope]; }), Composed);
+    row(e.length > 0, 'C5', `CONTROL ${d.id}'s in-scope preset (${d.inScope}) planted out of scope is caught: ${e[0] || 'NOT CAUGHT'}`);
+  }
 
   console.log(`\n${red ? 'RED' : 'GREEN'} — divergence_ledger_check: ${B.length} built divergence(s), ${red} row(s) failed`);
   process.exit(red ? 1 : 0);

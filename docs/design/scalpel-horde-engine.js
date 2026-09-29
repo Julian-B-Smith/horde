@@ -150,27 +150,27 @@
  *                    changes a sample: the engine is bit-identical to the one before B355
  *                    (composed_engine_check AA0 fingerprints it; docs/port/divergences.json is the
  *                    ADR-187 ledger and tools/labharness/divergence_ledger_check.mjs proves it).
- *            D1 `aaCarrier`  first-order ADAA on every blade CARRIER (Sync, FM reset, FM free,
- *                    Ring; carrier shapes sine, tri, saw, rev saw, square), REPLACING the
- *                    scanner's carrier-wrap PolyBLEPs (never stacked on them). Whatever
- *                    Band-limit (`aa`) says, as B346 measured it (8 of its 17 helped patch-notes
- *                    have Band-limit off): with `aa` 1 it replaces the carrier BLEPs, with `aa` 0
- *                    (no BLEPs to replace) it is the carriers' only band-limiting; the base wave
- *                    stays Band-limit's. Whether it should follow Band-limit instead is an open
- *                    question in the B355 trace. See voiceAA() and scan().
+ *            D1 `aaCarrier`  first-order ADAA on a blade CARRIER, REPLACING the scanner's
+ *                    carrier-wrap PolyBLEPs (never stacked on them), NARROWED by ADR-189 A1 to
+ *                    where it beats them: carrier shape not sine, AND (an FM mode, 1 or 2, OR
+ *                    Band-limit off), AND not an S&H modulator (d1Takes()). Everywhere else the
+ *                    carrier keeps its BLEPs. See voiceAA(), d1Takes() and scan().
  *            D2 `aaXin`      the PolyBLEP scanner tracks the xin phase input (feedback and
  *                    cross-member modulation push the carrier phase; the oracle's scan() does not
  *                    add it, so it BLEPs the wrong edges, razor-core.js :633). See scan().
- *            D3 `aaLoop`     the feedback / cross-mod loop taps the member's CURRENT sample, not
- *                    the PolyBLEP output one internal sample late, plus the smallest measured
- *                    addition that removes broad#828's limit cycle. See loopIn() and bladeStep().
- *                    The oracle's own render loop is not touched: the xin it computed is
- *                    OVERWRITTEN in stepM before the blade step reads it.
+ *            D3 `aaLoop`     the feedback / cross-mod loop keeps the ORACLE'S TAP (the PolyBLEP
+ *                    output) and runs it through a one-pole loop filter at LOOP_FC (5 kHz), which
+ *                    removes broad#828's rate-locked limit cycle (ADR-189 A1). See loopIn() and
+ *                    bladeStep(). The oracle's own render loop is not touched: the xin it
+ *                    computed is OVERWRITTEN in stepM before the blade step reads it.
  *            The oracle is called, never edited (reference/** is protected). D1 is the one place
  *            a subclass cannot reach: the carrier is computed inside the STATIC voice(), which
  *            out()/outSerial() call by name. So while a D1 render runs, RazorCore.voice is
  *            swapped for voiceAA and restored in a finally, the oracle's own idiom (it swaps
  *            RazorCore.mr/mn around every blade-2 evaluation, razor-core.js :267-276).
+ *            JS-ONLY MECHANISM: the static voice() swap exists because a subclass cannot reach
+ *            a static called by name. The C++ implements the carrier AA choice inline in
+ *            voice() as per-instance state; the swap is not part of the divergence.
  * NOT COMPOSED THIS ROUND (stated, not hidden): the output stage and voice
  * (rows 12, 13, 15, 17-20, 66 and D11: vol/normExp, width, the tanh, ADSR, the
  * pan image) stay RazorCore's. SwarmSynth's per-member amplitude terms (hiTame,
@@ -242,23 +242,24 @@ function makeComposedEngine(RazorCore, swarmSrc) {
      enough to shed the load within three or four 128-sample blocks. The fading voice still costs
      its render until it is freed, and the load it measures counts that. */
   const CULL_FADE = 0.008;
-  /* ADR-189 D3's loop filter, in Hz (ADR-009: a time constant, converted per internal sample in setOS).
-     MEASURED, not tuned by ear (B355 trace, the line-over-floor probe): the tap fix alone moves
-     broad#828's cycle from a fifth to a THIRD of the internal rate (a line 18-22 dB over its local
-     floor at os 1, 2, 4 and 8) and creates the same R/3 line on broad#540, #857 and #383; halving or
-     quartering the loop gain leaves it (+8 to +25 dB); os only moves it (it sits at R/3 at every os).
-     A one-pole low-pass on the fed-back sample removes it: at 8 kHz the line reads +10 dB, at 4 kHz +5,
-     at 3 kHz +3 or less at every os, the scatter of a clean reference. 3 kHz is the highest measured
-     cutoff that removes it, so the least change to what the feedback sounds like. WHY A FILTER WORKS
-     where a gain bound does not: the cycle is not a small-signal instability (broad#828's loop gain is
-     ~0.18 a tap) but CHATTER at a carrier wrap. The saw drops, the fed-back drop pulls the carrier's
-     phase back across the wrap, it rises again, and a one-sample loop resolves that at the sample rate
-     however small the gain. Through a low-pass the pull-back is slewed in SECONDS, so the carrier
-     passes the wrap before the pull arrives whenever xin's jump x 2 pi fc stays under the carrier's own
-     rate (0.35 cycles x 2 pi x 3 kHz = 6.6k < 10.5k cycles/s on broad#828). A slower carrier under
-     stronger feedback can still chatter, attenuated by the filter; the rated set shows no line over
-     6 dB at its own os with it (the trace). */
-  const LOOP_FC = 3000;
+  /* ADR-189 D3's loop filter, in Hz (ADR-009: a time constant, converted per internal sample in setOS),
+     on the ORACLE'S OWN TAP (ADR-189 A1). MEASURED, not tuned by ear (B355 trace; the line-over-floor
+     probe: a line at R/5, 2R/5 or R/3 of the internal rate against the same-width bands 0.02 R and
+     0.04 R either side). broad#828's loop, as the oracle runs it, holds a line 13-19 dB over its floor
+     at os 1, 2, 4 and 8 (a rate-locked limit cycle, B346); broad#540 another, 10-20 dB. A one-pole on the
+     fed-back sample removes it: the worst line over os 1/2/4/8 and A1/E5 reads, on broad#828, 3 kHz
+     +2.3, 4 kHz +1.3, 5 kHz +2.2, 6 kHz +3.4, 8 kHz +7.1; on broad#540, 4 kHz +1.6, 5 kHz +3.0. 5 kHz is
+     the highest measured cutoff with every line within the +-3 dB scatter of a clean reference, so it
+     changes least what the feedback sounds like. Rejected, measured: tapping this sample instead of
+     the PolyBLEP output (it moves the cycle to R/3); halving or quartering the loop gain (the line
+     stays); os (the line sits at the same fraction of the rate at every os). WHY A FILTER WORKS where
+     a gain bound does not: the cycle is not a small-signal instability (broad#828's loop gain is ~0.18
+     a tap) but CHATTER at a carrier wrap. The saw drops, the fed-back drop pulls the carrier's phase
+     back across the wrap, it rises again, and a loop of a sample or two resolves that at the sample
+     rate however small the gain. Through a low-pass the pull-back is slewed in SECONDS, so the carrier
+     passes the wrap before the pull arrives when xin's jump x 2 pi fc stays under the carrier's own
+     rate. A slower carrier under stronger feedback can still chatter, attenuated. */
+  const LOOP_FC = 5000;
   /* ADR-184 A2 (2): round half AWAY from zero, so −x rounds to exactly −(round x). Equal to
      Math.round everywhere except the negative halves (Math.round(−2.5) is −2). */
   const roundAway = x => (x < 0 ? -Math.round(-x) : Math.round(x));
@@ -297,10 +298,30 @@ function makeComposedEngine(RazorCore, swarmSrc) {
        because B346 measured this very form (17 of 72 aliasing patch-notes helped, 0 worse). Its
        audible size is measured in the B355 report (the in-band change it makes on the 72). */
   const VOICE0 = RazorCore.voice;
+  /* ADR-189 A1, THE NARROWED SCOPE (the human, after the critic: "narrow D1 as recommended"). D1 takes
+     a blade's carrier only where ADAA beats the PolyBLEP it replaces:
+       the carrier shape is NOT sine (0), and not sine->saw (6, which has no F), AND
+       (the blade is an FM mode, 1 or 2, whose modulated phase the scanner's linear interpolation
+        cannot follow, OR Band-limit is off, so there is no BLEP at all), AND
+       the modulator is not S&H noise (mshape 7): its steps are phase JUMPS, which a mean over the
+        step smears (the critic's 3 bench regressions were all S&H).
+     A sync or ring carrier with Band-limit on keeps its wrap BLEPs: there the 2-point PolyBLEP (a
+     triangle kernel) band-limits better than first-order ADAA (a box), measured -30.3 against -22.8 dB
+     on a periodic sync saw (B355 trace). The mshape rule applies to FM blades only: a sync or ring
+     blade has no modulator. Discrete per-blade parameters only, so no automation can chatter across
+     a threshold. `p` is the blade's parameter view (s for blade 1, bx.g for blade 2: its mode, hot and
+     mshape are blade 2's own, fillG2); `aa` is Band-limit, which the view does not carry. */
+  const d1Takes = (p, aa) => {
+    const md = p.mode, fm = md === 1 || md === 2;
+    if (!(fm || md === 0 || md === 5) || p.hot === 0 || p.hot > 4) return false;
+    if (fm && p.mshape === 7) return false;
+    return fm || !aa;
+  };
+  let aaBand = 1;                                    // Band-limit (d.aa) for the render in progress (renderBlock)
   function voiceAA(p, phi, c, k, modX, ns, inp) {
     if (!ns.aaReal) return VOICE0(p, phi, c, k, modX, ns, inp);
     const was = ns.inside, y = VOICE0(p, phi, c, k, modX, ns, inp), md = p.mode;
-    if (!ns.inside || !(md === 0 || md === 1 || md === 2 || md === 5) || p.hot > 4) { ns.aOk = false; return y; }
+    if (!ns.inside || !d1Takes(p, aaBand)) { ns.aOk = false; return y; }
     const w = p.w;
     let st = c - w * 0.5; st -= Math.floor(st);
     let e = phi - st; if (e < 0) e += 1;
@@ -862,20 +883,18 @@ function makeComposedEngine(RazorCore, swarmSrc) {
       const xOn = s.xm > 0.0005 || s.fb > 0.0005;     // the oracle's own switch (render, :809)
       if (xOn && this.d.aaLoop) this.loopIn(m, s);
       const y = super.stepM(m, dphi, c, k, s);
-      /* D3's taps: the member's CURRENT sample, through the loop filter (LOOP_FC). m.prev is what
-         stepM has just produced, x + _cc (:721): this sample with the BLEP pre-corrections of the
-         edges before it. The oracle feeds back y = m.prev of the step BEFORE plus _cp (:720), the
-         PolyBLEP output, which lags one internal sample, so its taps sit at 2 and 3 samples (B346,
-         broad#828). m.prev lacks only the post-correction of edges in the NEXT interval, which no
-         causal loop can have. Run only while the loop is on, as the oracle shifts y1/y2 (:840), and
-         whatever aaLoop says, so switching D3 on mid-note starts from a warm filter. */
-      if (xOn) { m.fu += this.loopA * (m.prev - m.fu); m.f2 = m.f1; m.f1 = m.fu; }
+      /* D3's taps: THE ORACLE'S OWN TAP, y (the PolyBLEP output the render shifts into y1/y2, :840),
+         through the loop filter (LOOP_FC). ADR-189 A1 dropped the tap "fix" (tapping this sample,
+         m.prev, one internal sample earlier): it moved broad#828's cycle from R/5 to R/3 instead of
+         curing it, and made broad#857 A5 6.2 dB worse. Run only while the loop is on, as the oracle
+         shifts y1/y2, and whatever aaLoop says, so switching D3 on mid-note starts from a warm filter. */
+      if (xOn) { m.fu += this.loopA * (y - m.fu); m.f2 = m.f1; m.f1 = m.fu; }
       return y;
     }
 
     /* ADR-189 D3: THE LOOP'S INPUT, the oracle's own formula (render :814,
          xin = 0.5*(xm*y1[next member] + fb*0.5*(y1 + y2))
-       over D3's filtered taps instead of the PolyBLEP output: at 1 and 2 samples, not 2 and 3. The oracle's
+       over D3's FILTERED taps (the same samples the oracle taps, low-passed). The oracle's
        cross-mod reads every member's y1 as it stood when the internal sample began (xb, :810); here
        the next member has not stepped yet, except round the ring (member 0, stepped first), whose
        sample is kept in v.fx0 before it steps. The render already wrote the oracle's xin into the
@@ -908,7 +927,7 @@ function makeComposedEngine(RazorCore, swarmSrc) {
       const d = this.d;
       if (!d.aaCarrier && !d.aaXin) return super.scan(m, st, p0, dphi, c, k, s, dAcc, modX0, g, kB, nsB, modX1);
       const carrier = g.mode === 0 || g.mode === 5 || RazorCore.isFM(g);
-      if (carrier && d.aaCarrier) return;              // D1
+      if (d.aaCarrier && d1Takes(g, 1)) return;        // D1, where it takes this carrier (scan runs only with Band-limit on)
       if (!carrier || !d.aaXin) return super.scan(m, st, p0, dphi, c, k, s, dAcc, modX0, g, kB, nsB, modX1);
       const w = g.w, ns = nsB;
       let off = -1, step = 1;
@@ -1004,6 +1023,7 @@ function makeComposedEngine(RazorCore, swarmSrc) {
       if (aa1 && !this.aaWas) for (const v of this.voices) for (const m of v.m) { m.ns.aOk = false; m.ns2.aOk = false; m.bx.ns3.aOk = false; m.bx.ns4.aOk = false; }
       this.aaWas = aa1;
       if (!aa1) return this.renderPlain(L, R);
+      aaBand = this.d.aa ? 1 : 0;                      // render() copies d.aa into s.aa at its top (:728): the same value
       RazorCore.voice = voiceAA;
       try { this.renderPlain(L, R); } finally { RazorCore.voice = VOICE0; }
     }
