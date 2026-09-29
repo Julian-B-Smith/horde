@@ -711,7 +711,7 @@ function loadRef(text) {
                           beside the new one until it falls quiet (0.25 s under 1e-6) or ages out (8 s,
                           then a 20 ms fade). At most 3 tails; a fourth fades the oldest out.
      {t:'bypass', on, mode}  'hard' = crossfade to dry, the engine frozen, a Clear on re-enable (and the
-                          tails cut); 'spill' = keep feeding silence so the tail rings out (spec §13 #3;
+                          tails cut); 'spill' = the outgoing engine runs on with no input until its echoes decay (spec §13 #3;
                           the human's provisional answer is spill-over, B347)
      {t:'bpm', bpm}       the riff's tempo (the patch arrives already resolved at it)
      {t:'src', kind}      'voice' | 'impulse' | 'noise'   {t:'voice', params} */
