@@ -203,10 +203,26 @@
      with its "=1" on a row of its own, which gives SPREAD the room Rule depth needs under a rule.
      Checks in K (checkB334).
 
+     ROUND 12 — B364, 2026-09-29, dispatched by the horde lead on ROADMAP B364 (carried in the
+     records PR on branch lead-records-143). The human: "I really like the logo with the hard
+     colored drop shadow; I also like the inset+gradient mode. Could we compose these two?" Built
+     as: a SEVENTH style, DROP + INSET + GRADIENT (LOGO_STYLES, right after INSET + GRADIENT in the
+     click cycle and in `?logo=`) — DROP's own crisp shadow and INSET + GRADIENT's own passes, run
+     unchanged; no new paint code, since logoOutline already composites inset (source-over, clipped
+     to the fill) before drop (destination-over, so the shadow lands behind whatever is already
+     drawn) and logoTint already reads a style's `grad` flag before either runs, so a style entry
+     carrying all three flags composes them in exactly this brief's order for free. Checks extended
+     in K (checkB334): the composite differs from DROP-only and from INSET+GRADIENT-only by a
+     measured pixel count, and two more direct checks that the shadow is BEHIND the letters — every
+     opaque interior pixel of INSET+GRADIENT-only is bit-identical in the composite (the drop pass
+     cannot touch an opaque destination pixel under destination-over), and the composite's
+     shadow-only band (where INSET+GRADIENT-only has no fill at all) matches DROP-only's own shadow
+     there exactly, with a planted composite missing its `drop` flag as the must-fail control.
+
      L0026: every const is declared above the code that runs at setup; the boot
      call is the last statement of the script. -->
 <html><head><meta charset="utf-8">
-<meta name="lab-review" content="B271 + B293–B334 · 2026-09-28">
+<meta name="lab-review" content="B271 + B293–B364 · 2026-09-29">
 <title>SCALPEL interface lab — horde with blades at its centre</title>
 <style>
   :root {
@@ -3298,6 +3314,17 @@ const LOGO = { cv: null, ctx: null, W: 2 * LOGO_W, H: 2 * LOGO_H, SRC: null, DST
      GRADIENT  — a mild vertical gradient on the fill: its colour lifted 24% toward white at the top of
                  the letters, lowered 20% toward black at their foot, the colour itself at the middle.
      INSET + GRADIENT — both.
+     DROP + INSET + GRADIENT — B364 (human, 2026-09-29: "I really like the logo with the hard
+                 colored drop shadow; I also like the inset+gradient mode. Could we compose these
+                 two?"): all three passes, unchanged from their own styles above. Paint order (set
+                 by logoOutline/logoTint, not by this entry) is: the fill uses GRADIENT's stops;
+                 INSET composites inside the fill's own silhouette; DROP composites last, behind
+                 everything already drawn (destination-over), so the crisp shadow sits BENEATH the
+                 inset-and-gradient letters — never muddying the inset edge, since the two never
+                 occupy the same pixel (the inset stays inside the glyph, the drop shows only
+                 outside it). No colour adjustment was needed for either theme: DROP's shadow
+                 colour (the fill turned 240°, pulled toward the chassis ink) and the gradient's
+                 lift/lower both already derive from the fill of the moment (checkB334).
      SOFT DROP — the soft alternative to DROP (B334's brief: "crisp or soft"): a blurred shadow straight
                  down, the chassis ink at 38% on the light chassis; on the dark one, where a dark shadow
                  cannot show, the fill's own colour at 55%, which reads as a glow. */
@@ -3307,6 +3334,7 @@ const LOGO_STYLES = [
   { id: 'inset', name: 'INSET', inset: true },
   { id: 'gradient', name: 'GRADIENT', grad: true },
   { id: 'inset-gradient', name: 'INSET + GRADIENT', inset: true, grad: true },
+  { id: 'drop-inset-gradient', name: 'DROP + INSET + GRADIENT', drop: 'crisp', inset: true, grad: true },
   { id: 'soft', name: 'SOFT DROP', drop: 'soft' }
 ];
 /* per viewer: this browser's storage, read once when the mark is made; ?logo=<id> overrides it for a
@@ -6774,9 +6802,53 @@ function checkB334() {
           ' · shedding with ' + LOGO_STYLES[heavy].name + ': ' + calm + ' → ' + shed + ' paints in 60 frames' });
       try { localStorage.removeItem(LOGO_STYLE_KEY); } catch (_) { /* storage refused: the re-read is FLAT either way */ }
       const cleared = logoStyleLoad();
-      LOGO.style = 0; const f1 = paint(); LOGO.style = 5; paint(); LOGO.style = 0; const f2 = differ(paint(), f1);
+      const softIdx = LOGO_STYLES.findIndex(s => s.id === 'soft');   // B364: no longer index 5 (the composite took that slot)
+      LOGO.style = 0; const f1 = paint(); LOGO.style = softIdx; paint(); LOGO.style = 0; const f2 = differ(paint(), f1);
       out.push({ name: 'CONTROL: storage cleared, the re-read is FLAT; FLAT against itself', ok: cleared === 0 && f2 === 0, control: true,
         detail: 're-read ' + LOGO_STYLES[cleared].name + ' (must be FLAT, not the stored GRADIENT) · ' + f2 + ' px differ between two FLAT paints with a SOFT DROP paint between them (must be 0)' });
+      /* ---- B364: DROP + INSET + GRADIENT, composed from DROP and INSET + GRADIENT unchanged ---- */
+      {
+        const digIdx = LOGO_STYLES.findIndex(s => s.id === 'drop-inset-gradient');
+        const dropIdx = LOGO_STYLES.findIndex(s => s.id === 'drop');
+        const igIdx = LOGO_STYLES.findIndex(s => s.id === 'inset-gradient');
+        LOGO.style = dropIdx; const pDrop = paint();
+        LOGO.style = igIdx; const pIG = paint();
+        LOGO.style = digIdx; const pDIG = paint();
+        const diffFromDrop = differ(pDIG, pDrop), diffFromIG = differ(pDIG, pIG);
+        /* the file's own noise floor (the >8 per-channel-sum in differ(), above): the canvas shadow
+           compositor carries a few units of float rounding even where the source alpha silhouette is
+           the same, so "held" below means "within differ()'s own tolerance", not bit-identical —
+           measured: the worst pixel in either band below is 1 unit off on one channel. */
+        const close = (a, b, i) => Math.abs(a[i] - b[i]) + Math.abs(a[i + 1] - b[i + 1]) + Math.abs(a[i + 2] - b[i + 2]) + Math.abs(a[i + 3] - b[i + 3]) <= 8;
+        /* BENEATH, part 1: every pixel INSET + GRADIENT paints fully opaque (deep inside a letter,
+           away from any anti-aliased edge) must be unchanged in the composite — destination-over
+           (logoDrop) can only add pixels where the destination is transparent, so if the drop pass
+           ever touched an opaque one the letters would be muddied, exactly what the brief warns
+           against. Sampled on a grid so the count and the pixels checked are the same on every run. */
+        const opaque = [];
+        for (let y = 4; y < LOGO.H - 4 && opaque.length < 60; y += 3)
+          for (let x = 4; x < LOGO.W - 4 && opaque.length < 60; x += 3) { const i = (y * LOGO.W + x) * 4; if (pIG[i + 3] === 255) opaque.push(i); }
+        const beneathHeld = opaque.length >= 20 && opaque.every(i => close(pDIG, pIG, i));
+        /* BENEATH, part 2: the shadow-only band — where INSET + GRADIENT has no fill at all (alpha 0)
+           but the composite does — is the drop shadow showing through, and nowhere else; the alpha
+           silhouette logoDrop copies (A.d) is unchanged by the inset pass (which stays clipped inside
+           the fill) so this band's pixels must match DROP-only's OWN paint at the same offset. */
+        const shadowBand = [];
+        for (let i = 0; i < pIG.length && shadowBand.length < 200; i += 4) if (pIG[i + 3] === 0 && pDIG[i + 3] > 0) shadowBand.push(i);
+        const shadowHeld = shadowBand.length >= 20 && shadowBand.every(i => close(pDIG, pDrop, i));
+        out.push({ name: 'DROP + INSET + GRADIENT: differs from each parent style, and the shadow sits BENEATH the inset + gradient letters',
+          ok: diffFromDrop >= 200 && diffFromIG >= 200 && beneathHeld && shadowHeld,
+          detail: diffFromDrop + ' px differ from DROP alone (≥200), ' + diffFromIG + ' px differ from INSET + GRADIENT alone (≥200) · ' +
+            opaque.length + ' opaque INSET + GRADIENT interior px sampled, all unchanged by the drop pass: ' + beneathHeld + ' · ' +
+            shadowBand.length + ' shadow-only px sampled (INSET + GRADIENT transparent, composite not), all match DROP-only\'s own shadow there: ' + shadowHeld });
+        /* CONTROL: a planted composite missing its `drop` key is exactly INSET + GRADIENT (0 px
+           differ) — the "differs from each parent" half of the check above must FAIL on it. */
+        const real = LOGO_STYLES[digIdx], planted = Object.assign({}, real); delete planted.drop;
+        LOGO_STYLES[digIdx] = planted; LOGO.style = digIdx; const pPlant = paint(); LOGO_STYLES[digIdx] = real;
+        const plantDiff = differ(pPlant, pIG);
+        out.push({ name: 'CONTROL: a composite planted without its DROP pass collapses onto INSET + GRADIENT (must fail "differs from each parent")', ok: plantDiff === 0, control: true,
+          detail: plantDiff + ' px differ from INSET + GRADIENT with the drop pass removed (must be 0, so diffFromIG ≥ 200 above catches it)' });
+      }
       /* ---- centred ---- */
       const mass = () => {
         const W = LOGO.W, H = LOGO.H; let cy = 0, n = 0, graze = 0;
