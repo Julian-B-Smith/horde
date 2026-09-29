@@ -1,3 +1,5 @@
+> **STALE (2026-09-29, B346).** This audit's aliasing figures (§1a "aliasing against the same engine at 4×", §5 "Aliasing: none added" and its per-preset numbers) were measured with the aliasing metric BEFORE B345 (PR #843) fixed it, over a 0.5 s window (0.1 to 0.6 s of the chord), longer than the 0.25 s unit where the pre-B345 metric began to go blind (B342(1): it averaged the whole window before comparing, so moving partials hid the aliases between them). Do not cite this report's aliasing figures. It is regenerated ONCE by B346 with the fixed metric and the new os-convergence estimator; the click, underrun, steal and neutral-case findings do not depend on the aliasing metric and stand.
+
 # B325 — DSP fidelity audit: are the noise and clicks real?
 
 HYPERSAW, 2026-09-28, ROADMAP B325 (records PR #821, branch `lead-records-128`). The human: "I'm also starting to notice more noise and clicks that I'm not certain are supposed to be part of the waveforms. Let's make sure the DSP fidelity is holding up. Maybe that's a better challenge for the C++ port, but it would be worth running some tests to make sure I'm not crazy."
