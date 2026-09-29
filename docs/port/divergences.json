@@ -1,0 +1,73 @@
+{
+ "schema": "hypersaw.divergences/1",
+ "core": "SCALPEL",
+ "about": "The ADR-187 divergence ledger for SCALPEL (ADR-187 §5, started by ADR-189 / B355). Every intentional difference between the parity target (the composed engine) and the SCALPEL oracle it calls, one entry each. A built entry sits behind its own engine flag, default 0, so all flags off is the engine before the first divergence, bit for bit. Checked by tools/labharness/divergence_ledger_check.mjs (./verify fast): L1 shape, L2 the oracle blob, L3 each built flag exists and defaults to 0, L4 all off = the pinned fingerprints below, L5 each built flag changes a scenario. Mirror policy (ADR-187, ratified): the composed engine IS the lab JS, so these are mirrored by construction; js_limit states what the browser cannot follow, or null.",
+ "target": "docs/design/scalpel-horde-engine.js",
+ "allOff": {
+  "about": "Fingerprints of the composed engine BEFORE B355 (main at d443eb6, the engine at blob 5f96285): each preset from reference/scalpel/data/presets.json, notes 57 and 64 struck at 0, 12032 samples at 48 kHz in 128-sample blocks, Math.random seeded mulberry32(seed); SHA-256 of the float32 L then R, first 16 hex digits (divergence_ledger_check.mjs fingerprint()).",
+  "engine": { "file": "docs/design/scalpel-horde-engine.js", "commit": "d443eb6", "blob": "5f9628515905bbccd4984da136c757fe535cdaad" },
+  "seed": 45909,
+  "fingerprints": {
+   "Feedback snarl": "b9fbb8293687dfb4",
+   "Cross-mod roar": "b270528c3f5b7be9",
+   "Crunch horde": "a93a81fd399defbd",
+   "Quarter sync": "9c2323148802a9df"
+  }
+ },
+ "metricSuite": "B346's estimator (PR #847 at aa45642): tools/patchspace/alias_sources.mjs estimate() over metrics.mjs aliasConvergence, totalDb against the ENGINE-AS-IS truth (8N and 16N, the output stage done right); B346's 34 rated patches x A1/E5/A5 = 102 patch-notes, the 72 with total > -60 dB; helped = the total falls 3 dB or more, worse = it rises 3 dB or more.",
+ "divergences": [
+  {
+   "id": "D1",
+   "adr": "ADR-189",
+   "status": "built",
+   "flag": "aaCarrier",
+   "description": "First-order ADAA on every blade carrier (Sync, FM reset, FM free, Ring; carrier shapes sine, tri, saw, rev saw, square), REPLACING the scanner's carrier-wrap PolyBLEPs. The carrier sample becomes its mean over the phase swept since the previous internal sample, (F(cp) - F(cp0))/(cp - cp0) with the oracle's own antiderivative RazorCore.F; the midpoint below |cp - cp0| < 1e-7; the plain sample at blade entry and for sine->saw. Half an internal sample of carrier-content lag, uncompensated (the engine header states why). Applies whatever Band-limit says, as B346 measured it.",
+   "oracle": { "file": "reference/scalpel/prototype/razor-core.js", "blob": "0ce6a713410d89c65bf55f761f1dc791fae61b16", "sites": "voice() :187, :192, :200 (the carrier sample); scan() :613-617 (the carrier-wrap BLEPs)" },
+   "target": "docs/design/scalpel-horde-engine.js voiceAA(), scan(), renderBlock()",
+   "scope": "every patch with a carrier blade (mode 0, 1, 2 or 5 on blade 1 or 2); no other path changes",
+   "metric": { "helped72": 17, "worse72": 0, "worse102": 2, "worse102List": ["broad#70 A1 -82.9 -> -75.6 dB", "broad#828 A5 -120 -> -84.3 dB"], "b346": "17 helped, 0 worse (adaaSwap)", "cpu": "1.1x median (1.01-1.24x) over 22 subjects, Layer-E, Apple M3 at load average 8-11" },
+   "finding": "On a PLAIN sync or ring carrier with Band-limit on, first-order ADAA band-limits LESS well than the 2-point PolyBLEP it replaces (a box kernel against the BLEP's triangle): the inharmonic residual of a periodic sync saw at E5, os 1, rises -30.3 -> -22.8 dB (composed_engine_check AA1 FINDING). It helps where the BLEP cannot follow: phase-modulated carriers (-12.2 -> -17.9), Band-limit off (-11.5 -> -17.1), an xin-moved carrier (-12.1 -> -24.1). An open question for the human: restrict D1 to those.",
+   "evidence": ["traces/2026-09-29-b355-antialias-189.md", "tools/labharness/composed_engine_check.mjs"],
+   "js_limit": null
+  },
+  {
+   "id": "D2",
+   "adr": "ADR-189",
+   "status": "built",
+   "flag": "aaXin",
+   "description": "The PolyBLEP scanner tracks the xin phase input (feedback and cross-member modulation): the step's xin is added to the carrier phase the scanner interpolates, at both ends (B346's blepXin; the BLEP height probe reads the current xin, so the previous-xin form places edges the probe cannot see). Carriers only (a crush step does not move with xin).",
+   "oracle": { "file": "reference/scalpel/prototype/razor-core.js", "blob": "0ce6a713410d89c65bf55f761f1dc791fae61b16", "sites": "scan() :633-634 (o0/o1 omit ns.xin)" },
+   "target": "docs/design/scalpel-horde-engine.js scan()",
+   "scope": "patches with feedback or cross-mod on (fb or xm > 0.0005), Band-limit on, a saw, rev saw or square carrier; with D1 on, carriers are not scanned at all and D2 has nothing to do",
+   "metric": { "helped72": 5, "worse72": 0, "worse102": 0, "b346": "5 helped, 0 worse (blepXin)", "cpu": "1.0x median (0.95-1.06x), within noise" },
+   "evidence": ["traces/2026-09-29-b355-antialias-189.md", "tools/labharness/composed_engine_check.mjs"],
+   "js_limit": null
+  },
+  {
+   "id": "D3",
+   "adr": "ADR-189",
+   "status": "built",
+   "flag": "aaLoop",
+   "description": "The feedback / cross-mod loop taps the member's CURRENT sample (x + _cc) instead of the PolyBLEP output one internal sample late (taps at 1 and 2 samples, not 2 and 3), through a one-pole low-pass at 3 kHz (in seconds, per internal sample). The tap alone moves broad#828's rate-locked cycle from R/5 to R/3 and creates the R/3 line on three more patches; halving or quartering the loop gain leaves it; os only moves it; the filter removes it (3 kHz is the highest measured cutoff that does). The oracle's xin is overwritten in stepM before the blade step reads it.",
+   "oracle": { "file": "reference/scalpel/prototype/razor-core.js", "blob": "0ce6a713410d89c65bf55f761f1dc791fae61b16", "sites": "render() :809-815 (xin from y1/y2), :840 (y1 = the stepM output); stepM() :720-722 (the one-sample BLEP latency)" },
+   "target": "docs/design/scalpel-horde-engine.js bladeStep(), loopIn(), LOOP_FC",
+   "scope": "patches with feedback or cross-mod on (fb or xm > 0.0005): 14 of the 83 bench presets (the B355 trace lists how much each changes)",
+   "metric": { "helped72": 2, "worse72": 5, "ownTruthHelped72": 7, "ownTruthWorse72": 4, "note": "D3 changes the sound by ruling, so against the as-is truth the estimator also counts the change of sound; against its OWN oversampled truth it helped 7 and made 4 worse (broad#383 E5 +8.0, chaotic and excluded from fits by ruling; broad#595 A5/E5 +3.5/+3.3, Band-limit off; broad#857 A5 +6.2). broad#828's R/5 line reads 0.3 dB over its floor with D3 (13.0 without; composed_engine_check AA3).", "cpu": "1.06x median (0.97-1.11x)" },
+   "evidence": ["traces/2026-09-29-b355-antialias-189.md", "tools/labharness/composed_engine_check.mjs"],
+   "js_limit": null
+  },
+  {
+   "id": "D4",
+   "adr": "ADR-189",
+   "status": "planned",
+   "owner": "B356",
+   "flag": null,
+   "description": "The random-patch sampler weights Band-limit toward ON, versioned so the committed listening sample still reproduces. A patch-space change, not an engine one: listed here so every ADR-189 divergence is in one place.",
+   "oracle": { "file": "reference/scalpel/prototype/razor-core.js", "blob": "0ce6a713410d89c65bf55f761f1dc791fae61b16", "sites": "none (the sampler is tools/patchspace/gauntlet.mjs samplePatch)" },
+   "target": "tools/patchspace/gauntlet.mjs (B356)",
+   "scope": "the random-patch sampler only",
+   "evidence": [],
+   "js_limit": null
+  }
+ ]
+}

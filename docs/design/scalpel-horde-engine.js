@@ -142,6 +142,35 @@
  *                    this engine's, and the check compares the laws (each member's time
  *                    scales by the same drawn factor in both engines), not the samples.
  *                    See armMembers() and memberStep() below.
+ *   ADR-189  ANTI-ALIASING DIVERGENCES FROM THE ORACLE (B355; ratified 2026-09-29: "I ratify your
+ *                    recommended aliasing fixes, and we should skip the ones you recommended
+ *                    against"). B346 (tools/patchspace/alias_sources.mjs) found where the
+ *                    engine's aliasing comes from; three of its cures are built here, each behind
+ *                    its OWN flag in `d`, EVERY FLAG DEFAULT 0. With all three at 0 no line below
+ *                    changes a sample: the engine is bit-identical to the one before B355
+ *                    (composed_engine_check AA0 fingerprints it; docs/port/divergences.json is the
+ *                    ADR-187 ledger and tools/labharness/divergence_ledger_check.mjs proves it).
+ *            D1 `aaCarrier`  first-order ADAA on every blade CARRIER (Sync, FM reset, FM free,
+ *                    Ring; carrier shapes sine, tri, saw, rev saw, square), REPLACING the
+ *                    scanner's carrier-wrap PolyBLEPs (never stacked on them). Whatever
+ *                    Band-limit (`aa`) says, as B346 measured it (8 of its 17 helped patch-notes
+ *                    have Band-limit off): with `aa` 1 it replaces the carrier BLEPs, with `aa` 0
+ *                    (no BLEPs to replace) it is the carriers' only band-limiting; the base wave
+ *                    stays Band-limit's. Whether it should follow Band-limit instead is an open
+ *                    question in the B355 trace. See voiceAA() and scan().
+ *            D2 `aaXin`      the PolyBLEP scanner tracks the xin phase input (feedback and
+ *                    cross-member modulation push the carrier phase; the oracle's scan() does not
+ *                    add it, so it BLEPs the wrong edges, razor-core.js :633). See scan().
+ *            D3 `aaLoop`     the feedback / cross-mod loop taps the member's CURRENT sample, not
+ *                    the PolyBLEP output one internal sample late, plus the smallest measured
+ *                    addition that removes broad#828's limit cycle. See loopIn() and bladeStep().
+ *                    The oracle's own render loop is not touched: the xin it computed is
+ *                    OVERWRITTEN in stepM before the blade step reads it.
+ *            The oracle is called, never edited (reference/** is protected). D1 is the one place
+ *            a subclass cannot reach: the carrier is computed inside the STATIC voice(), which
+ *            out()/outSerial() call by name. So while a D1 render runs, RazorCore.voice is
+ *            swapped for voiceAA and restored in a finally, the oracle's own idiom (it swaps
+ *            RazorCore.mr/mn around every blade-2 evaluation, razor-core.js :267-276).
  * NOT COMPOSED THIS ROUND (stated, not hidden): the output stage and voice
  * (rows 12, 13, 15, 17-20, 66 and D11: vol/normExp, width, the tanh, ADSR, the
  * pan image) stay RazorCore's. SwarmSynth's per-member amplitude terms (hiTame,
@@ -173,7 +202,8 @@
  * (keys of t ∪ d) passes them: dist, seed, h.law, harmReach, stretchB, spread,
  * anchor, onset, dissolve, driftDepth, h.driftRate, driftMode, motionCenter,
  * inertia, inertiaCurve, freqGlide, keepPhase, pivotMode, and (B335) grav, basin,
- * onsetScatter, onsetAlpha, attackScatter, voiceEnv, relScatter.
+ * onsetScatter, onsetAlpha, attackScatter, voiceEnv, relScatter, and (B355, ADR-189)
+ * aaCarrier, aaXin, aaLoop.
  *
  * DETERMINISM. The swarm draws only SwarmSynth's seeded mulberry32 streams
  * (rngG/rngS) and (B335) the ensemble stream, mulberry32 from
@@ -200,6 +230,7 @@ function makeComposedEngine(RazorCore, swarmSrc) {
     freqGlide: 0, keepPhase: 0, pivotMode: 0,          // G9, row 57, row 65
     grav: 0, basin: 35,                                // B335 rows 27, 28 (basin in cents)
     onsetScatter: 0, onsetAlpha: 0.25, attackScatter: 0, voiceEnv: 0, relScatter: 0,   // B335 rows 70-74 (onsetScatter in ms)
+    aaCarrier: 0, aaXin: 0, aaLoop: 0,                 // ADR-189 D1, D2, D3 (B355): OFF is the oracle's sound
   };
   // p keys whose change makes SwarmSynth.setParam() rebuild x[] (swarmsaw.html:247)
   const REBUILD = ['n', 'dist', 'seed', 'law'];
@@ -211,6 +242,23 @@ function makeComposedEngine(RazorCore, swarmSrc) {
      enough to shed the load within three or four 128-sample blocks. The fading voice still costs
      its render until it is freed, and the load it measures counts that. */
   const CULL_FADE = 0.008;
+  /* ADR-189 D3's loop filter, in Hz (ADR-009: a time constant, converted per internal sample in setOS).
+     MEASURED, not tuned by ear (B355 trace, the line-over-floor probe): the tap fix alone moves
+     broad#828's cycle from a fifth to a THIRD of the internal rate (a line 18-22 dB over its local
+     floor at os 1, 2, 4 and 8) and creates the same R/3 line on broad#540, #857 and #383; halving or
+     quartering the loop gain leaves it (+8 to +25 dB); os only moves it (it sits at R/3 at every os).
+     A one-pole low-pass on the fed-back sample removes it: at 8 kHz the line reads +10 dB, at 4 kHz +5,
+     at 3 kHz +3 or less at every os, the scatter of a clean reference. 3 kHz is the highest measured
+     cutoff that removes it, so the least change to what the feedback sounds like. WHY A FILTER WORKS
+     where a gain bound does not: the cycle is not a small-signal instability (broad#828's loop gain is
+     ~0.18 a tap) but CHATTER at a carrier wrap. The saw drops, the fed-back drop pulls the carrier's
+     phase back across the wrap, it rises again, and a one-sample loop resolves that at the sample rate
+     however small the gain. Through a low-pass the pull-back is slewed in SECONDS, so the carrier
+     passes the wrap before the pull arrives whenever xin's jump x 2 pi fc stays under the carrier's own
+     rate (0.35 cycles x 2 pi x 3 kHz = 6.6k < 10.5k cycles/s on broad#828). A slower carrier under
+     stronger feedback can still chatter, attenuated by the filter; the rated set shows no line over
+     6 dB at its own os with it (the trace). */
+  const LOOP_FC = 3000;
   /* ADR-184 A2 (2): round half AWAY from zero, so −x rounds to exactly −(round x). Equal to
      Math.round everywhere except the negative halves (Math.round(−2.5) is −2). */
   const roundAway = x => (x < 0 ? -Math.round(-x) : Math.round(x));
@@ -220,6 +268,63 @@ function makeComposedEngine(RazorCore, swarmSrc) {
      (int64)toInt32(seed)·2654435761 + 0x9E3779B8, truncated to uint32. Math.imul is the low 32
      bits of the product, and the sum stays far inside 2^53, so `>>> 0` is the C++ truncation. */
   const ensembleSeed = seed => (Math.imul(seed | 0, 2654435761 | 0) + 0x9E3779B8) >>> 0;
+
+  /* ADR-189 D1 (B355): FIRST-ORDER ADAA OF A BLADE CARRIER. The oracle's voice (razor-core.js :173-238)
+     samples the carrier, hot = wave(p.hot, frac(cp)), and the scanner BLEPs its wraps. ADAA-1
+     replaces that sample with the carrier's MEAN over the phase it swept since the previous internal
+     sample, (F(cp) - F(cp0)) / (cp - cp0), F the oracle's own periodic antiderivative (RazorCore.F,
+     :41-49: every carrier shape but sine->saw has one, which is why shape 6 keeps the plain sample).
+     The mean is a box filter over the step, so every discontinuity and corner of the carrier comes
+     out band-limited to first order whatever pushed the phase (the cut rate, FM, xin, collision).
+     Everything else is the oracle's: this runs voice() first, and only for a carrier on a REAL member
+     state (ns.aaReal; the BLEP height probe hAt and the DC estimators run voice() on scratch states,
+     which stay plain, as in B346's harness) does it recompute cp with voice()'s own expressions
+     (:177-191, the same operations in the same order, so the plain hot here equals voice()'s bit for
+     bit) and return voice()'s own blend, xin0 + g*depth*(hot - xin0) (:237), with hot replaced.
+     - NEAR-ZERO STEP: |cp - cp0| < 1e-7 cycles (a reflect turnaround, a near-frozen carrier) takes
+       the carrier at the midpoint of the step, the limit of the quotient; no division by ~0. The
+       quotient's own rounding: F is O(1) with unit slope and cp is at most ~1.5e3 cycles, so F's
+       error is ~1e-13 and the quotient's ~1e-6 at the threshold, far under any signal.
+     - NO PREVIOUS PHASE: at blade entry (ns.inside was false), right after the flag turns on
+       (aOk false) and for shapes without F (sine->saw) the plain sample is returned, as B346 did.
+     - HALF A SAMPLE OF DELAY, NOT COMPENSATED. The mean over [cp0, cp] is centred half a step back,
+       so the carrier CONTENT inside the blade lags by half an internal sample (5.2 us at os 2,
+       10.4 us at os 1). Nothing else is delayed: the base wave, the blade gate and window, and the
+       note itself are exactly where they were, so this is a fixed offset of the carrier's phase
+       inside each blade of kk*dphi/2 cycles (half the carrier's per-sample advance), not a latency.
+       It is left uncompensated because a centred mean needs the NEXT phase (a one-sample look-ahead,
+       i.e. a real latency on the whole output) or an extrapolation that FM and xin break; and
+       because B346 measured this very form (17 of 72 aliasing patch-notes helped, 0 worse). Its
+       audible size is measured in the B355 report (the in-band change it makes on the 72). */
+  const VOICE0 = RazorCore.voice;
+  function voiceAA(p, phi, c, k, modX, ns, inp) {
+    if (!ns.aaReal) return VOICE0(p, phi, c, k, modX, ns, inp);
+    const was = ns.inside, y = VOICE0(p, phi, c, k, modX, ns, inp), md = p.mode;
+    if (!ns.inside || !(md === 0 || md === 1 || md === 2 || md === 5) || p.hot > 4) { ns.aOk = false; return y; }
+    const w = p.w;
+    let st = c - w * 0.5; st -= Math.floor(st);
+    let e = phi - st; if (e < 0) e += 1;
+    const kk = p.lock === 1 ? k / w : k;
+    const er = p.mirror === 1 && e > w * 0.5 ? w - e : e;
+    const hp = kk * er;
+    let cp;
+    if (md === 0 || md === 5) cp = hp + ns.xin + ns.cacc;
+    else {
+      const Ib = ns.ov > 0 ? p.I * (1 + 4 * p.colB * ns.ov) : p.I;
+      cp = ns.xin + ns.cacc + (p.fmType === 1 ? hp + ns.acc
+        : hp + Ib * 0.15915494309189535 * RazorCore.mod(p.mshape, md === 1 ? p.mEff * er : modX, ns.seed));
+    }
+    const cp0 = ns.acp, ok = was && ns.aOk;
+    ns.acp = cp; ns.aOk = true;
+    if (!ok) return y;
+    const dcp = cp - cp0;
+    let hot;
+    if (Math.abs(dcp) < 1e-7) { const x = cp - 0.5 * dcp; hot = RazorCore.wave(p.hot, x - Math.floor(x)); }
+    else hot = (RazorCore.F(p.hot, cp) - RazorCore.F(p.hot, cp0)) / dcp;
+    const base = RazorCore.wave(p.base, phi), xin0 = inp === undefined ? base : inp;
+    if (md === 5) hot = xin0 * hot;                    // ring: the carrier times the input (:200)
+    return xin0 + ns.g * p.depth * (hot - xin0);
+  }
 
   class ComposedEngine extends RazorCore {
     static get mr() { return RazorCore.mr; }
@@ -262,8 +367,18 @@ function makeComposedEngine(RazorCore, swarmSrc) {
           m.v = v; m.i = i; m.j = 0; m.dph = 0;
           m.onsD = 0; m.onsD0 = 0; m.onsC = 0; m.relC = 0; m.aMul = 1; m.rMul = 1;
           m.onsE = 0; m.eS = 0; m.eE = 0; m.hold = false; m.pg = 1; m.eCall = -1; m.eAi = 0; m.eRc = 0;
+          m.fu = 0; m.f1 = 0; m.f2 = 0;                // ADR-189 D3: the loop filter's state and its taps (bladeStep)
         });
+        v.fx0 = 0;                                     // ADR-189 D3: member 0's sample before it steps (loopIn)
       });
+      /* ADR-189: every blade state gets the same fields up front, so V8 keeps one shape per state
+         (B346 measured a shape change as a cost of its own). aaReal marks the MEMBER states, the
+         only ones D1 filters (scratch states serve the BLEP height probe and the DC estimators);
+         acp/aOk are D1's previous carrier phase and its validity. */
+      const aaState = (ns, real) => { ns.aaReal = real; ns.acp = 0; ns.aOk = false; };
+      for (const ns of [this.sc, this.sc2, this.bxs.ns3, this.bxs.ns4]) aaState(ns, false);
+      for (const v of this.voices) for (const m of v.m) for (const ns of [m.ns, m.ns2, m.bx.ns3, m.bx.ns4]) aaState(ns, true);
+      this.aaWas = false;                              // D1 on during the previous render (renderBlock)
       /* the lab assigns c.post = fn; the viz message gains the swarm's state */
       let user = null;
       const wrap = msg => {
@@ -311,6 +426,7 @@ function makeComposedEngine(RazorCore, swarmSrc) {
 
     setOS(n) {
       super.setOS(n);
+      this.loopA = 1 - Math.exp(-TAU * LOOP_FC / (this.sr * n));   // ADR-189 D3's one-pole, per internal sample
       if (this.voices) for (const v of this.voices) for (const m of v.m) m.j = 0;
     }
 
@@ -420,6 +536,9 @@ function makeComposedEngine(RazorCore, swarmSrc) {
     startVoice(v, note, freq, vel, fresh, retrig) {
       v.cull = false;                                  // a re-allocated slot is a new voice, never still fading
       super.startVoice(v, note, freq, vel, fresh, retrig);
+      /* ADR-189: a fresh voice's loop starts from silence, as the oracle's does (y1 = y2 = 0,
+         razor-core.js :401), so D3's filter and taps start at 0 too */
+      if (fresh) for (const m of v.m) { m.fu = 0; m.f1 = 0; m.f2 = 0; }
       /* A non-fresh retrigger keeps the swarm running, as RazorCore keeps its phases
          (SwarmSynth would start a new swarm: an open question for the lead). B335: it keeps
          the ensemble's draws too (swarm_core.h retargetNote re-strikes through initVoice and
@@ -697,7 +816,7 @@ function makeComposedEngine(RazorCore, swarmSrc) {
        order, so member 0's first step of each sample is where the swarm's
        16-sample tick belongs (before any member advances). */
     stepM(m, dphi, c, k, s) {
-      if (this.src !== 'horde') return super.stepM(m, dphi, c, k, s);
+      if (this.src !== 'horde') return this.bladeStep(m, dphi, c, k, s);
       const v = m.v;
       if (m.j === 0) {
         const S = this.sw.swarms[v.si], i = m.i;
@@ -733,7 +852,96 @@ function makeComposedEngine(RazorCore, swarmSrc) {
         this.gl[q] = this.glB[q] * g; this.gr[q] = this.grB[q] * g;
       }
       if (v.pv && m.hold) return 0;                    // not started: no output, no blade step
-      return super.stepM(m, m.dph, c, k, s);
+      return this.bladeStep(m, m.dph, c, k, s);
+    }
+
+    /* ADR-189: RazorCore's blade step (stepM, razor-core.js :655-723) with D3's loop input before
+       it and the loop bookkeeping after it. With every flag 0 the only writes are to fields the
+       oracle never reads (fu, f1, f2), so the samples are the oracle's own. */
+    bladeStep(m, dphi, c, k, s) {
+      const xOn = s.xm > 0.0005 || s.fb > 0.0005;     // the oracle's own switch (render, :809)
+      if (xOn && this.d.aaLoop) this.loopIn(m, s);
+      const y = super.stepM(m, dphi, c, k, s);
+      /* D3's taps: the member's CURRENT sample, through the loop filter (LOOP_FC). m.prev is what
+         stepM has just produced, x + _cc (:721): this sample with the BLEP pre-corrections of the
+         edges before it. The oracle feeds back y = m.prev of the step BEFORE plus _cp (:720), the
+         PolyBLEP output, which lags one internal sample, so its taps sit at 2 and 3 samples (B346,
+         broad#828). m.prev lacks only the post-correction of edges in the NEXT interval, which no
+         causal loop can have. Run only while the loop is on, as the oracle shifts y1/y2 (:840), and
+         whatever aaLoop says, so switching D3 on mid-note starts from a warm filter. */
+      if (xOn) { m.fu += this.loopA * (m.prev - m.fu); m.f2 = m.f1; m.f1 = m.fu; }
+      return y;
+    }
+
+    /* ADR-189 D3: THE LOOP'S INPUT, the oracle's own formula (render :814,
+         xin = 0.5*(xm*y1[next member] + fb*0.5*(y1 + y2))
+       over D3's filtered taps instead of the PolyBLEP output: at 1 and 2 samples, not 2 and 3. The oracle's
+       cross-mod reads every member's y1 as it stood when the internal sample began (xb, :810); here
+       the next member has not stepped yet, except round the ring (member 0, stepped first), whose
+       sample is kept in v.fx0 before it steps. The render already wrote the oracle's xin into the
+       four blade states; this overwrites it before the blade step reads it (stepM, dcEst and hAt all
+       read ns.xin after this point). */
+    loopIn(m, s) {
+      const v = m.v, N = this.d.N, q = m.i, nb = q + 1 === N ? 0 : q + 1;
+      if (q === 0) v.fx0 = m.fu;
+      const xin = 0.5 * (s.xm * (nb === 0 ? v.fx0 : v.m[nb].fu) + s.fb * 0.5 * (m.f1 + m.f2));
+      m.ns.xin = xin; m.ns2.xin = xin; m.bx.ns3.xin = xin; m.bx.ns4.xin = xin;
+    }
+
+    /* ADR-189 D1 and D2: RazorCore's PolyBLEP scanner (scan, razor-core.js :610-644) for one blade's
+       carrier wraps (and crush steps). With both flags 0 it IS the oracle's.
+       D1: a carrier's wraps get NO BLEP: voiceAA band-limits the carrier itself (replacing, never
+       stacked; B346 measured stacking within 1 dB of replacing on 72 of 72, and the BLEP's height
+       probe would measure the plain carrier, not what ADAA plays).
+       D2: the carrier phase the scanner interpolates is voice()'s, cp = kk*e + [FM] + xin + cacc; the
+       oracle's scan omits xin, so under feedback or cross-mod it BLEPs edges where the carrier has
+       none and misses the real ones. Here the step's xin is added at BOTH ends, B346's blepXin
+       exactly (5 of 72 helped, 0 worse). NOT the previous step's xin at o0, although the carrier did
+       move by xin's change too (the oracle's collision idiom, cacc - cd and cacc, :633, would suggest
+       it): the BLEP's height comes from hAt (:520-540), which probes the output across the edge
+       with the CURRENT xin, so an edge placed on the interpolated xin is probed off the edge and gets
+       a height near 0. Measured (B355 trace): that form moved a feedback sync blade's output by
+       6e-7 at most, i.e. it corrected nothing. Carriers only: a crush step sits at an integer hold
+       phase, which xin does not move (B346's harness shifted the crush scan too; this does not).
+       The body below is the oracle's, copied; the marked line is the change. */
+    scan(m, st, p0, dphi, c, k, s, dAcc, modX0, g, kB, nsB, modX1) {
+      const d = this.d;
+      if (!d.aaCarrier && !d.aaXin) return super.scan(m, st, p0, dphi, c, k, s, dAcc, modX0, g, kB, nsB, modX1);
+      const carrier = g.mode === 0 || g.mode === 5 || RazorCore.isFM(g);
+      if (carrier && d.aaCarrier) return;              // D1
+      if (!carrier || !d.aaXin) return super.scan(m, st, p0, dphi, c, k, s, dAcc, modX0, g, kB, nsB, modX1);
+      const w = g.w, ns = nsB;
+      let off = -1, step = 1;
+      if (g.hot === 2 || g.hot === 4) { off = 0.5; step = 1; }
+      else if (g.hot === 3) { off = 0; step = 0.5; }
+      if (off < 0) return;
+      let e0 = p0 - st; e0 -= Math.floor(e0);
+      if (e0 >= w) return;
+      const kk = g.lock === 1 ? kB / w : kB;
+      const eEnd = Math.min(e0 + dphi, w), tmax = (eEnd - e0) / dphi;
+      const hw = w * 0.5, refl = g.mirror === 1;
+      const r0 = refl && e0 > hw ? w - e0 : e0, r1 = refl && eEnd > hw ? w - eEnd : eEnd;
+      let o0 = 0, o1 = 0;
+      if (RazorCore.isFM(g)) {
+        if (g.fmType === 1) { o1 = ns.acc; o0 = o1 - dAcc; }
+        else {
+          const sc = 0.15915494309189535 * g.I;
+          o0 = sc * RazorCore.mod(g.mshape, g.mode === 1 ? g.mEff * r0 : modX0, ns.seed);
+          o1 = sc * RazorCore.mod(g.mshape, g.mode === 1 ? g.mEff * r1 : modX1, ns.seed);
+        }
+      }
+      if (ns.cd) { o0 += ns.cacc - ns.cd; o1 += ns.cacc; }
+      o0 += ns.xin; o1 += ns.xin;                      // D2: THE CHANGE (the xin input the carrier reads, :187)
+      const cp0 = kk * r0 + o0, cp1 = kk * r1 + o0 + (o1 - o0) * tmax;
+      const lo = Math.min(cp0, cp1), hi = Math.max(cp0, cp1);
+      if (!(hi - lo > 1e-12 && hi - lo < 8)) return;
+      let j = Math.floor((lo - off) / step) + 1;
+      for (let q = 0; q < 6; q++, j++) {
+        const pos = off + j * step; if (pos > hi) break;
+        if (pos <= lo || pos === 0) continue;
+        const tau = (pos - cp0) / (cp1 - cp0) * tmax;
+        if (tau > 0 && tau <= 1) this.addE(m, p0 + tau * dphi, tau, c, k, s);
+      }
     }
 
     /* B323: with no cull running this is ONE call of RazorCore's render, as before. While a
@@ -788,7 +996,19 @@ function makeComposedEngine(RazorCore, swarmSrc) {
       this.eDC = 1 - Math.exp(-4 / Math.max(1, s.D * 0.001 * this.sr));
     }
 
+    /* ADR-189 D1: the render with voiceAA in RazorCore.voice's place (header, ADR-189), restored
+       whatever happens. A render that has just switched D1 on has no previous carrier phase on any
+       state, so every state starts plain (aOk). */
     renderBlock(L, R) {
+      const aa1 = !!this.d.aaCarrier;
+      if (aa1 && !this.aaWas) for (const v of this.voices) for (const m of v.m) { m.ns.aOk = false; m.ns2.aOk = false; m.bx.ns3.aOk = false; m.bx.ns4.aOk = false; }
+      this.aaWas = aa1;
+      if (!aa1) return this.renderPlain(L, R);
+      RazorCore.voice = voiceAA;
+      try { this.renderPlain(L, R); } finally { RazorCore.voice = VOICE0; }
+    }
+
+    renderPlain(L, R) {
       let fading = false;
       this.pvLive = false;
       for (const v of this.voices) if (v.active) { if (v.cull) fading = true; if (v.pv) this.pvLive = true; }
