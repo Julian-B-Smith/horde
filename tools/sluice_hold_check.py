@@ -88,8 +88,6 @@ EXCLUDED_PREFIXES = ("integrations/sluice/", "libs/")
 PENDING = {
     "docs/design/sluice-horde-lab.html":
         ("2026-09-29", "B358: PR #850 (B353) replaces this file with 0 hits; merge order #848 -> #850"),
-    "ROADMAP.md":
-        ("2026-09-29", "B358, PR #850 era: lead-only file; the lead paraphrases the rows `--detail` lists"),
 }
 
 # ---- masking: paths and ids (exclusion 3) ---------------------------------
