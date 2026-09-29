@@ -44,10 +44,17 @@
  *        and a 2 st/s glide read aliased within 3 dB of steady; band-limited on the same paths read clean.
  *        X7c CONTROL: B345's aliasing() under-reads the A3 vibrato by >= 10 dB (the smear is real).
  *   X8   a rate-dependent level (1.5 dB louder at 1x) is not folding. INFO X2i: a naive saw at A1.
+ * B360 ROWS (2026-09-29; the human: "I think noisy and rough should just label; some patches want
+ * noisy or rough"), gauntlet.mjs's own classification (failures()/incoherence()/labels()) on
+ * constructed records, not rendered patches:
+ *   G1   a noisy-but-otherwise-clean record is healthy (failures and incoherence both empty) and
+ *        carries the noisy label. G2 an aliased record still fails (aliasing was not moved).
+ *        G1c CONTROL: a planted pre-B360 failures() that still gates noise DOES flag G1's record —
+ *        the "healthy" assertion is not vacuous.
  * ~8 s. By hand: node tools/patchspace/metrics_check.mjs (exit 1 on any red row).
  */
 import * as M from './metrics.mjs';
-import { measure } from './gauntlet.mjs';
+import { measure, failures, incoherence, labels, THRESH } from './gauntlet.mjs';
 import { loadSpace, render, SR as ESR } from './space.mjs';
 
 let red = 0;
@@ -311,5 +318,30 @@ const D = loadSpace().defaults;
   const heavy = t(Object.assign({}, D, { N: 9, b2on: 1, os: 2, b1on: 1 })), light = t(Object.assign({}, D, { N: 1, b1on: 0, b2on: 0, os: 1 }));
   row(heavy / light >= 2, 'E3', `engine CPU: N 9 + two blades at 2x ${(100 * heavy).toFixed(1)}% vs N 1, no blades, 1x ${(100 * light).toFixed(1)}% of real time per voice — ratio ${f4(heavy / light)} (must be >= 2; min of 3 timings, noisy by nature)`);
 }
-console.log(`metrics_check: ${red ? red + ' RED' : 'GREEN'} — 10 metric rows + 9 B345 rows (aliasing window-length invariance, decorrelation, silence; noiseDb) + 9 B346 rows (the os-convergence estimator: clean, folding, independent noise, a planted tone, feedback dynamics, dense partials, vibrato and glide, a level) on constructed signals, 4 INFO rows, + 3 engine controls (metrics are measurements, not gates)`);
+
+/* ---- B360 (2026-09-29, human: "I think noisy and rough should just label; some patches want
+   noisy or rough"): noiseDb and roughness LABEL a gauntlet.mjs record (labels()) and no longer
+   push into failures() or incoherence(). aliasConvDb (failures()) and rootPresence (incoherence())
+   are unmoved. Constructed records, not rendered patches: failures()/incoherence()/labels() are
+   pure functions of the measured fields, so this tests gauntlet.mjs's own classification, not the
+   DSP (that is E1-E3 above and the X rows). */
+{
+  const clean = { nonFiniteA: 0, nonFiniteB: 0, nonFiniteC: 0, silent: false, cpuVoiceNorm: 0.01, aliasConvDb: -120,
+    clicks: 0, dcRatio: 0, rootPresence: 0.9, noiseDb: -10, roughness: 0.01 };
+  const g1fail = failures(clean), g1inco = incoherence(clean), g1lab = labels(clean);
+  row(g1fail.length === 0 && g1inco.length === 0 && g1lab.length === 1 && g1lab[0] === 'noisy', 'G1',
+    `gauntlet classification: a noisy-but-otherwise-clean record (noiseDb ${clean.noiseDb} > THRESH ${THRESH.noiseDb}) is healthy (failures ${JSON.stringify(g1fail)}, incoherence ${JSON.stringify(g1inco)}) and carries the noisy label (${JSON.stringify(g1lab)})`);
+  const aliased = Object.assign({}, clean, { aliasConvDb: -10, noiseDb: -90 });
+  const g2fail = failures(aliased);
+  row(g2fail.length === 1 && g2fail[0] === 'alias', 'G2',
+    `gauntlet classification: an aliased record (aliasConvDb ${aliased.aliasConvDb} > THRESH ${THRESH.aliasConvDb}) still fails (${JSON.stringify(g2fail)})`);
+  /* CONTROL: a planted pre-B360 failures() (noise still gates) must flag this same noisy-but-clean
+     record — proving G1's "healthy" assertion is not vacuous, and that a regression back to gating
+     noise (redenning P4's yield again) would be caught here first. */
+  const preB360Failures = r => failures(r).concat(r.noiseDb !== null && r.noiseDb !== undefined && r.noiseDb > THRESH.noiseDb ? ['noisy'] : []);
+  const planted = preB360Failures(clean);
+  row(planted.includes('noisy'), 'G1c',
+    `CONTROL: a planted pre-B360 failures() that still pushes 'noisy' DOES flag the same noisy-but-clean record (${JSON.stringify(planted)}) — the G1 assertion discriminates, it does not pass vacuously`);
+}
+console.log(`metrics_check: ${red ? red + ' RED' : 'GREEN'} — 10 metric rows + 9 B345 rows (aliasing window-length invariance, decorrelation, silence; noiseDb) + 9 B346 rows (the os-convergence estimator: clean, folding, independent noise, a planted tone, feedback dynamics, dense partials, vibrato and glide, a level) on constructed signals, 4 INFO rows, + 3 engine controls + 3 B360 gauntlet-classification rows (noisy-but-clean is healthy and labelled, aliased still fails, a planted pre-B360 control) (metrics are measurements, not gates)`);
 process.exit(red ? 1 : 0);

@@ -28,7 +28,7 @@ It also reads, from the spec's markdown:
 **The faces (spec §11):**
 - **Play** is the default face. It has:
   - randomize patch and randomize params, the Randomness knob, the seed, undo and redo;
-  - the library: patches with their snapshots, save snapshot, rename, revert, delete, export and import, and a per-snapshot button for each corner;
+  - the library: each patch and the snapshots it holds, save snapshot, rename, revert, delete, export and import, and a per-snapshot button for each corner;
   - the XY over four snapshots of one patch;
   - the Sluice-global controls with their §11.1 readouts;
   - macros 1–8, bound by order and carrying the patch's label.
@@ -46,7 +46,7 @@ It also reads, from the spec's markdown:
 - **One-patch rule (§9).** A corner may only take a snapshot of the same structure; anything else is refused. The default is forbid, as Sluice recommends, pending the human (§13 #5). Structural edits reach all four corners.
 - **Morph.** The morph blends each number by the manifest's own law. Discrete values come from the nearest corner.
 - **Structural changes (§6.3)** go through the renderer: a new engine and a linear 20 ms crossfade, with no tail carried over. A numeric change stays in place.
-- **Resolution (§8)** happens on the message side, in this order: sync / Time, then Tune, then Dry/Wet. With Sync on, Tune leaves synced times alone.
+- **Resolution (§8)** happens on the message side: tempo sync and Time resolve first, Tune next, the dry/wet mix last. With Sync on, Tune leaves synced times alone.
 - **Bypass** is §13 #3 and still open. Hard bypass is the default and spill-over can be switched on.
 
 **Kept from B319 / B320:**
@@ -129,8 +129,8 @@ The page runs 18 self-checks, each with a must-fail control. All 18 pass in real
 
 **For the human (§13):**
 1. **#3 Bypass.** Hard or spill-over?
-2. **#5 Corners with different rosters.** Forbid, or a structural crossfade?
-3. **#6 What the host exposes.** Macros only, or the whole pool?
+2. **#5 Corners whose module lists differ.** Forbid, or a structural crossfade?
+3. **#6 What the host exposes.** Only the macros, or every pooled parameter?
 4. **#7 Library storage.**
 
 **For Sluice, v2 ambiguities.** The same list is on the page.

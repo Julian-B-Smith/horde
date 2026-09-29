@@ -42,7 +42,7 @@
  *              one unit, so only the floor moved its numbers (noise-like patches read lower). The
  *              A leg also records noiseDb (analyse()). Runs and reports made before B345 (the P3
  *              report, docs/patchspace/2026-09-27-gauntlet-p3.md) carry the earlier aliasing.
- *              B346 (2026-09-29) adds, BESIDE aliasDb and read by no THRESH: aliasConvDb / aliasConvClass
+ *              B346 (2026-09-29) adds, BESIDE aliasDb: aliasConvDb (THRESH's aliasing gate since B351) / aliasConvClass
  *              (clean | folding | dynamics) / aliasFoldDb / aliasDynDb / aliasConvergeDb, the os-convergence
  *              estimator on the same note and window (metrics.mjs aliasConvergence, rendered by
  *              alias_sources.mjs estimate at os x1..x16), decimLeakDb / tanhFoldDb, the aliasing of the
@@ -73,15 +73,37 @@ import { analyse, spectrum, aliasing, mono, cpuFraction, nonFinite, clicks, sile
 import { asEvalTree, hash32 } from './gen_dependency_tree.mjs';
 import { estimate as aliasEstimate, baseEngine, renderWith } from './alias_sources.mjs';
 
+/* THRESH v2 (B350, 2026-09-29, ROADMAP-ruled): the human's blind listening pass (B344/B345,
+   n=34 ratings from one listener) fitted these four cuts against the worst-heard segment; the
+   human: "I think I'm comfortable with it". Still PROVISIONAL — one listener, one sample.
+   flatness is kept as a MEASURED COLUMN, not a gate: B345 found it does not track what the
+   human calls noisy (agreement 0.50 at 0.3, no logistic trend), so the noise gate below is
+   noiseDb (metrics.mjs, added by B345) instead.
+   THE ALIASING GATE (B351, 2026-09-29, the lead's decision on the human's delegation, ROADMAP B351):
+   B350's aliasDb -26.8 failed a must-read-high control (a naive saw at E5 with vibrato reads -27.2 on
+   B345's metric, which under-reads moving partials), so the gate moved to B346's os-convergence
+   estimator, aliasConvDb (measure()'s conv leg), re-fitted on the same v2 ratings re-measured in Node
+   (calibrate.mjs --remeasure --conv, broad#383 left out as chaotic, n=33): AUC 0.88, cut -33.4 dB,
+   agreement 0.79, leave-one-out 0.70, logistic 50% at -17.8. aliasDb fitted 0.92 / -26.8 / 0.88 /
+   0.79 on the same answers, but its cut moves 13 dB with the basis (-39.8 on the gauntlet's own E5
+   window) where aliasConvDb's moves 1.5 (-34.9), and it fails the vibrato control; aliasConvDb at
+   -33.4 passes every detector control (listening_pass_check T10: the naive saw with vibrato and glide
+   at E5 and A3 reads -19.1 to -26.1, the band-limited ones -120). aliasDb stays a MEASURED COLUMN.
+   A run measured without opt.conv carries no aliasConvDb: failures() refuses it rather than pass it.
+   LABELS, NOT GATES (B360, 2026-09-29, human: "I think noisy and rough should just label; some
+   patches want noisy or rough"): noiseDb and roughness below tag a patch (labels(), on every
+   record) that P4 can target or avoid; they no longer push into failures() or incoherence() and no
+   longer reduce healthy or coherent yield. aliasConvDb and rootPresence are unmoved — aliasing
+   (failures()) and an absent root (incoherence()) still gate. */
 export const THRESH = {
   overloadPoly6: 1.0,   // projected load of the lab's 6-voice pool: 6 × cpuVoice > 100% of real time
   overloadVoice: 1.0,   // one voice over real time (the brief's literal "> 100% RT per voice")
-  aliasDb: -30,         // folded power above -30 dB of the test's in-band power
+  aliasConvDb: -33.4,   // B351: the os-convergence estimator, v2 fit, worst-heard segment, n=33 (was aliasDb -26.8, B350; -30, B316) — a FAILURE (failures())
   clicks: 0,            // any click frame in the TONAL window
   dcRatio: 0.1,         // |mean| above 10% of RMS
-  rootPresence: 0.5,    // the played note under half the best candidate's salience
-  flatness: 0.3,        // noise-like
-  roughness: 0.1,       // above a minor second of pure tones (0.090 in metrics_check)
+  rootPresence: 0.616,  // B350: v2 fit, worst-heard segment, n=34 (was 0.5) — a FAILURE (incoherence())
+  noiseDb: -21.5,       // B350: the noise gate, moved from flatness 0.3 (v2 fit, n=34) — B360: a LABEL (labels()), not a gate
+  roughness: 0.12,      // B350: v2 fit, worst-heard segment, n=34 (was 0.1; two pure tones a minor second apart read 0.090 in metrics_check) — B360: a LABEL (labels()), not a gate
 };
 const TREE_FILE = 'tools/patchspace/dependency_tree.json';
 let TREE = null;
@@ -134,15 +156,10 @@ export function measure(patch, seed, opt) {
   out.nonFiniteB = nonFinite(b.L, b.R);
   /* B346: the os-convergence estimator on the same note and window (renders at os x1..x16, the x8 one
      captured; alias_sources.mjs estimate), and the output stage every os shares. BESIDE aliasDb, which
-     is unchanged (its two renders above are untouched); no THRESH reads these yet. Only when asked
+     is unchanged (its two renders above are untouched); THRESH's alias gate reads aliasConvDb (B351). Only when asked
      (opt.conv: the run and its report ask): it costs about 26 renders' worth, and the checks that
      re-measure through measure() (metrics_check E1/E2, listening_pass_check T4) read none of it. */
-  if (opt && opt.conv) {
-    const E = aliasEstimate((m, cap) => renderWith(baseEngine(), Object.assign({}, patch, { os: os * m }), B_SCRIPT, { seed, cap }), os, [2400, 14400], { truth: true });
-    out.aliasConvDb = r6(E.conv.excessDb); out.aliasConvClass = E.conv.cls; out.aliasFoldDb = r6(E.conv.foldDb); out.aliasDynDb = r6(E.conv.dynDb);
-    out.aliasConvergeDb = r6(E.conv.convDb); out.decimLeakDb = r6(E.out.decimLeakDb); out.tanhFoldDb = r6(E.out.tanhFoldDb);
-    out.aliasTotalDb = r6(E.totalDb);
-  }
+  if (opt && opt.conv) Object.assign(out, convLeg(patch, seed));
   const t0 = process.hrtime.bigint();
   const c = render(patch, C_SCRIPT, { seed });
   out.cpuPoly = Number(process.hrtime.bigint() - t0) / 1e9 / (C_SCRIPT.n / SR);
@@ -153,13 +170,24 @@ export function measure(patch, seed, opt) {
   out.silentC = silence(c.L, c.R).silent;
   return out;
 }
+/* measure()'s B346 leg on its own (B351: calibrate.mjs --remeasure reads the committed-basis estimator
+   for the v1 ratings through it, so the two are one measurement, not two) */
+export function convLeg(patch, seed) {
+  const os = patch.os || 2, out = {};
+  const E = aliasEstimate((m, cap) => renderWith(baseEngine(), Object.assign({}, patch, { os: os * m }), B_SCRIPT, { seed, cap }), os, [2400, 14400], { truth: true });
+  out.aliasConvDb = r6(E.conv.excessDb); out.aliasConvClass = E.conv.cls; out.aliasFoldDb = r6(E.conv.foldDb); out.aliasDynDb = r6(E.conv.dynDb);
+  out.aliasConvergeDb = r6(E.conv.convDb); out.decimLeakDb = r6(E.out.decimLeakDb); out.tanhFoldDb = r6(E.out.tanhFoldDb);
+  out.aliasTotalDb = r6(E.totalDb);
+  return out;
+}
 export function failures(r) {
   const f = [];
   if (r.nonFiniteA || r.nonFiniteB || r.nonFiniteC) f.push('nonfinite');
   if (r.silent) f.push('silent');
   if (r.cpuVoiceNorm * 6 > THRESH.overloadPoly6) f.push('overload6');
   if (r.cpuVoiceNorm > THRESH.overloadVoice) f.push('overloadVoice');
-  if (r.aliasDb > THRESH.aliasDb) f.push('alias');
+  if (r.aliasConvDb === undefined) throw new Error(`${r.mode}#${r.i}: no aliasConvDb (measured without opt.conv, or a run before B346): the aliasing gate reads the estimator (B351)`);
+  if (r.aliasConvDb > THRESH.aliasConvDb) f.push('alias');
   if (r.clicks > THRESH.clicks) f.push('clicks');
   if (r.dcRatio > THRESH.dcRatio) f.push('dc');
   return f;
@@ -167,9 +195,17 @@ export function failures(r) {
 export function incoherence(r) {
   const f = [];
   if (r.rootPresence !== null && r.rootPresence < THRESH.rootPresence) f.push('rootAbsent');
-  if (r.flatness !== null && r.flatness > THRESH.flatness) f.push('noisy');
-  if (r.roughness !== null && r.roughness > THRESH.roughness) f.push('rough');
   return f;
+}
+/* B360 (2026-09-29, human: "I think noisy and rough should just label; some patches want noisy or
+   rough"): noiseDb and roughness no longer reduce healthy or coherent yield — they LABEL a patch
+   that P4 can target or avoid. aliasConvDb (failures()) and rootPresence (incoherence()) are
+   unmoved: aliasing and an absent root are still gates. */
+export function labels(r) {
+  const L = [];
+  if (r.noiseDb !== null && r.noiseDb !== undefined && r.noiseDb > THRESH.noiseDb) L.push('noisy');
+  if (r.roughness !== null && r.roughness > THRESH.roughness) L.push('rough');
+  return L;
 }
 
 /* ---------------------------------------------------------------- run */
@@ -184,6 +220,7 @@ if (!isMainThread && workerData && workerData.kind === 'gauntlet') {
     const pseed = hash32(seed, j.i, 77);
     const r = Object.assign({ i: j.i, mode: j.mode, live: s.live, settled: s.settled }, measure(s.patch, pseed, { conv: true }));
     r.cpuRef = ref; r.cpuVoiceNorm = r.cpuVoice / ref * quietRef;
+    r.labels = labels(r);   // B360: noisy/rough are labels on the record, not gates
     parentPort.postMessage({ line: JSON.stringify(r) });
   });
   parentPort.postMessage({ done: true });

@@ -77,6 +77,12 @@ fast() {
   kit_integrity || ok=1   # kit-owned files match .kit/MANIFEST
   leak_gate || ok=1          # privacy gate: kit-core, keep it first
   private_name_gate || ok=1  # privacy gate: OURS (ADR-014 alias rule)
+  # SLUICE HOLD (B359, after the B358 incident): no private-sibling spec or
+  # manifest text in any tracked file. The needles are read at runtime through
+  # the gitignored local/sluice link and never written down; where the link is
+  # absent (CI, other machines) it prints SKIPPED, like the gate above. Added
+  # under ADR-180 §1; runs its own must-fail controls every time.
+  python3 tools/sluice_hold_check.py || ok=1
 
   # OUTBOUND FILINGS ACTUALLY REACHED THE READER. Three forms of one failure in a
   # single day (uncommitted / side-branch / committed-but-never-pushed) stranded
