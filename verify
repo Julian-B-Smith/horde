@@ -262,6 +262,17 @@ PY
       echo "verify: patch-space metrics check FAILED" >&2; cat /tmp/patchmetrics.$$ >&2; ok=1; }
     tail -1 /tmp/patchmetrics.$$   # the harness prints its own name; do not prefix it twice
     rm -f /tmp/patchmetrics.$$
+
+    # THE SCALPEL DIVERGENCE LEDGER SAYS WHAT THE ENGINE DOES (B355, ADR-187 §5, ADR-189).
+    # docs/port/divergences.json lists every divergence of the composed engine from the
+    # SCALPEL oracle; each built entry's flag must exist in the engine and default to 0,
+    # its oracle must be the pinned blob, all flags off must render the pinned pre-B355
+    # fingerprints bit for bit, and each flag on must change one. Four planted faults
+    # must come back red (~3 s). Added under ADR-180 §1.
+    node tools/labharness/divergence_ledger_check.mjs > /tmp/divledger.$$ 2>&1 || {
+      echo "verify: divergence ledger check FAILED" >&2; cat /tmp/divledger.$$ >&2; ok=1; }
+    tail -1 /tmp/divledger.$$   # the harness prints its own name; do not prefix it twice
+    rm -f /tmp/divledger.$$
   else
     echo "verify: node missing — lab load check SKIPPED" >&2
   fi
