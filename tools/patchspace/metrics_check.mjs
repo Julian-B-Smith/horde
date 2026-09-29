@@ -34,7 +34,17 @@
  *   N1-N4 noiseDb: lines read below -60 dB (sine, saws, beating pairs, an inharmonic cloud); white
  *        noise reads 0 dB; saw + noise reads the known share within 2 dB; the same at any window
  *        length. INFO N3i: its measured limits (A1, a dense supersaw).
- * ~5 s. By hand: node tools/patchspace/metrics_check.mjs (exit 1 on any red row).
+ * B346 ROWS (2026-09-29; the human: "I think we should try to build the cleanest system we can muster"), the
+ * os-convergence estimator (metrics.mjs aliasConvergence) on constructed renders at 1x..16x:
+ *   X1   must-read-zero: a band-limited saw. X2 must-read-high, converging and explained: naive saws at A3, E5, A6.
+ *   X3   must-read-zero: independent noise renders at every rate. X4 must-read-high: a tone 15 dB under noise at 1x only.
+ *   X5   a rate-dependent feedback loop (sine feedback FM, the engine's loop form) reads as dynamics, not folding.
+ *   X6   dense partials over a noise floor read where B345's floor hid them.
+ *   X7   the lead's controls (2026-09-29, from B350's red T10): naive saws at E5 and A3 under a 30-cent 5 Hz vibrato
+ *        and a 2 st/s glide read aliased within 3 dB of steady; band-limited on the same paths read clean.
+ *        X7c CONTROL: B345's aliasing() under-reads the A3 vibrato by >= 10 dB (the smear is real).
+ *   X8   a rate-dependent level (1.5 dB louder at 1x) is not folding. INFO X2i: a naive saw at A1.
+ * ~8 s. By hand: node tools/patchspace/metrics_check.mjs (exit 1 on any red row).
  */
 import * as M from './metrics.mjs';
 import { measure } from './gauntlet.mjs';
@@ -54,6 +64,7 @@ const rnd = () => { st |= 0; st = (st + 0x6D2B79F5) | 0; let t = Math.imul(st ^ 
 const noise = gen(() => rnd() * 2 - 1);
 const add = (x, y) => x.map((v, i) => v + y[i]);
 const S = x => M.spectrum(x, SR);
+const CONV_CLEAN = M.CONV_CLEAN_DB;
 const f4 = x => (Number.isFinite(x) ? +x.toPrecision(4) : x);
 
 /* M1 non-finite */
@@ -203,6 +214,85 @@ const worstWin = (t, r) => { let w = -Infinity; for (let a = A0; a + 12000 <= A0
   row(spread(nl) <= 1, 'N4', `noiseDb vs window length ${LENS.join(' / ')} s, saw A3 + noise at -20 dB: ${nl.map(f1).join(' / ')} (spread ${f1(spread(nl))}, must be <= 1 dB)`);
 }
 
+/* ---- B346 (2026-09-29): the os-convergence estimator (metrics.mjs aliasConvergence), each class with its control.
+   A constructed "render at os N" is the signal generated at N x 48 kHz and passed through ONE steep windowed-sinc
+   low-pass (Blackman-Harris, 21 kHz, 96*N+1 taps) as it is decimated to 48 kHz; at N = 1 the same low-pass runs at
+   48 kHz on what was sampled there (so it has folded, as the engine's os 1 has). Every render therefore has the same
+   in-band response and no gain correction is needed. The source test's fine stream is the raw 8x generation (N = 1,
+   so no decimation filter weights the images). Five renders at 1, 2, 4, 8, 16. A generator is built fresh per
+   render, so a moving pitch runs the same path in seconds at every rate; noise is scaled by sqrt(N) so every rate
+   draws the same power density (the same process, not louder folded noise: M12i's case). */
+{
+  const XD = 0.35, XA = 2400, XB = 14400;
+  const firX = {};
+  const firOf = os => { if (firX[os]) return firX[os]; const L = 96 * os + 1, c = (L - 1) / 2, fc = 21000 / (SR * os), h = new Float64Array(L); let s = 0;
+    for (let i = 0; i < L; i++) { const t = i - c, x = TAU * i / (L - 1), w = 0.35875 - 0.48829 * Math.cos(x) + 0.14128 * Math.cos(2 * x) - 0.01168 * Math.cos(3 * x); h[i] = (t === 0 ? 2 * fc : Math.sin(TAU * fc * t) / (Math.PI * t)) * w; s += h[i]; }
+    for (let i = 0; i < L; i++) h[i] /= s; return (firX[os] = h); };
+  const decX = (x, os) => { const h = firOf(os), n = Math.floor(x.length / os), y = new Float64Array(n), c = (h.length - 1) / 2;
+    for (let i = 0; i < n; i++) { const m = i * os; let a = 0; for (let j = 0; j < h.length; j++) { const k = m + c - j; if (k >= 0 && k < x.length) a += h[j] * x[k]; } y[i] = a; } return y; };
+  /* mk(os, q) -> a fresh (t, i, rate) -> sample; returns the estimator's reading, and the B345 metric on the os-1 and
+     os-4 renders beside it */
+  const five = mk => { const S = {}, names = ['N', 'N2', 'N4', 'N8', 'N16']; let Sint = null;
+    [1, 2, 4, 8, 16].forEach((os, q) => { const r = SR * os, N = Math.round(XD * r), raw = new Float64Array(N), fn = mk(os, q);
+      for (let i = 0; i < N; i++) raw[i] = fn(i / r, i, r);
+      S[names[q]] = M.spectrum(decX(raw, os).subarray(XA, XB), SR, 8192);
+      if (os === 8) Sint = M.spectrum(raw.subarray(XA * 8, XB * 8), SR * 8, 8192 * 8); });
+    return Object.assign(M.aliasConvergence(S, Sint, 1, SR), { b345: M.aliasing(S.N, S.N4).aliasDb }); };
+  const fx = c => `${f1(c.excessDb)} dB (${c.cls}, conv ${f1(c.convDb)}, explained ${c.explainedShare === null ? '—' : c.explainedShare.toFixed(2)}; B345 ${f1(c.b345)})`;
+  /* a saw on a pitch path (semitones as a function of seconds): 'naive' = 2*phase - 1; 'bl' = every harmonic under
+     20 kHz at the instantaneous pitch, by the angle-addition recurrence */
+  const sawX = (kind, f0, path) => () => { let ph = 0; return (t, i, r) => { const f = f0 * Math.pow(2, path(t) / 12); let y;
+    if (kind === 'naive') y = 2 * ph - 1;
+    else { const s1 = Math.sin(TAU * ph), c1 = Math.cos(TAU * ph); let s = s1, c = c1, acc = 0; for (let h = 1; h * f < 20000; h++) { acc += ((h & 1) ? 1 : -1) * s / h; const u = s * c1 + c * s1; c = c * c1 - s * s1; s = u; } y = (2 / Math.PI) * acc; }
+    ph += f / r; ph -= Math.floor(ph); return y; }; };
+  const STEADY = () => 0, VIB = t => 0.3 * Math.sin(TAU * 5 * t), GLIDE = t => 2 * t;
+  const noiseX = seed => (os, q) => { st = seed * 100 + q; const g = Math.sqrt(os); return () => g * (rnd() * 2 - 1); };
+  /* X1 must-read-zero: the band-limited saw is the same at every rate */
+  const x1 = five(sawX('bl', 659.26, STEADY));
+  row(x1.excessDb === -120 && x1.cls === 'clean', 'X1', `os-convergence: band-limited saw E5 reads ${fx(x1)} (must be -120, clean)`);
+  /* X2 must-read-high AND converging AND explained: the naive saw folds, less at every doubling, from content the finer renders hold */
+  const x2 = [220, 659.26, 1760].map(f => [f, five(sawX('naive', f, STEADY))]);
+  row(x2.every(([, c]) => c.excessDb > -30 && c.cls === 'folding' && c.convDb >= 3 && c.explainedShare >= 0.9), 'X2',
+    'os-convergence: naive saw ' + x2.map(([f, c]) => `${f} Hz ${fx(c)}`).join('; ') + ' (each must read > -30 dB, folding, converging >= 3 dB, explained >= 0.9)');
+  info('X2i', `naive saw A1 (55 Hz) reads ${fx(five(sawX('naive', 55, STEADY)))} (harmonics 9.4 bins apart: the limit of this 8192-point grid; not asserted)`);
+  /* X3 must-read-zero: independent noise renders, a new realisation at every rate, the same power density */
+  const x3 = [11, 12, 13, 14, 15].map(seed => five(noiseX(seed)));
+  row(x3.every(c => c.excessDb === -120 && c.cls === 'clean'), 'X3', `os-convergence: independent noise renders at every rate, five seeds: ${x3.map(c => f1(c.excessDb)).join(' / ')} dB (each must be -120, clean: the references disagree bin by bin, so the two-reference rule runs, and a chance dip must occur in BOTH)`);
+  /* X4 must-read-high: a tone 15 dB under the noise, in the os-1 render only */
+  const x4 = five((os, q) => { const w = noiseX(0x44)(os, q), amp = Math.sqrt(2 / 3 * Math.pow(10, -1.5)); return t => w() + (os === 1 ? amp * Math.sin(TAU * 3517 * t) : 0); });
+  row(x4.excessDb > -20 && x4.cls !== 'clean', 'X4', `os-convergence: noise with a tone 15 dB under it in the os-1 render only reads ${fx(x4)} (must be > -20 dB and not clean)`);
+  /* X5 a RATE-DEPENDENT FEEDBACK system: sine feedback FM with the engine's own loop (the phase pushed by beta times the
+     mean of the last two outputs, one internal sample per step). At beta 0.6 the os-1 loop runs a limit cycle near a
+     third of the rate that os 2 does not; at beta 2.2 it is chaotic at every rate. Neither is folding. */
+  const fbX = beta => () => { let y1 = 0, y2 = 0, ph = 0; return (t, i, r) => { const y = Math.sin(TAU * (ph + beta * 0.5 * (y1 + y2))); y2 = y1; y1 = y; ph += 659.26 / r; ph -= Math.floor(ph); return y; }; };
+  const x5a = five(fbX(0.6)), x5b = five(fbX(2.2));
+  row(x5a.excessDb > -20 && x5a.cls === 'dynamics' && x5b.cls !== 'folding', 'X5', `os-convergence: sine feedback FM E5, beta 0.6 reads ${fx(x5a)} (must be > -20 dB, dynamics); beta 2.2 reads ${fx(x5b)} (must not be folding)`);
+  /* X6 what B345's noise floor hid: seven naive saws ±25 cents at E5 (dense partials) over a noise floor (an independent
+     realisation per rate, as a noise blade's would be) */
+  const ensX = (os, q) => { const w = noiseX(0x66)(os, q), ph = new Float64Array(7), cs = [-25, -17, -8, 0, 8, 17, 25];
+    return (t, i, r) => { let s = 0; for (let v = 0; v < 7; v++) { s += (2 * ph[v] - 1) / 7; ph[v] += 659.26 * Math.pow(2, cs[v] / 1200) / r; ph[v] -= Math.floor(ph[v]); } return s + 0.03 * w(); }; };
+  const x6 = five(ensX);
+  row(x6.cls === 'folding' && x6.excessDb >= x6.b345 + 3, 'X6', `dense partials over a noise floor (seven naive saws ±25 cents, E5): ${fx(x6)} (must be folding and read >= 3 dB above B345: the aliases between the partials count again)`);
+  /* X7 THE MOVING PITCH (the lead, 2026-09-29, from B350's red T10: the listening page's "naive saw E5 vibrato" control read
+     -27.2 dB on the B345 metric, under the ruled cut, where the steady saw reads -18.9). Naive saws at E5 and A3 with a
+     30-cent vibrato at 5 Hz and with a 2 semitone/s glide must read aliased, within 3 dB of the same saw held steady;
+     the band-limited saws on the same paths must read clean. */
+  const moving = [];
+  for (const [fn, f] of [['E5', 659.26], ['A3', 220]]) {
+    const steady = five(sawX('naive', f, STEADY));
+    for (const [pn, path] of [['vibrato', VIB], ['glide', GLIDE]]) moving.push({ id: `naive ${fn} ${pn}`, c: five(sawX('naive', f, path)), steady, bl: five(sawX('bl', f, path)) });
+  }
+  row(moving.every(m => m.c.cls === 'folding' && m.c.excessDb > -30 && Math.abs(m.c.excessDb - m.steady.excessDb) <= 3 && m.bl.excessDb <= CONV_CLEAN), 'X7',
+    'os-convergence under a moving pitch: ' + moving.map(m => `${m.id} ${fx(m.c)} vs steady ${f1(m.steady.excessDb)}; band-limited ${f1(m.bl.excessDb)} (B345 ${f1(m.bl.b345)})`).join('; ') +
+    ' (each naive must be folding, > -30 dB and within 3 dB of steady; each band-limited <= -60)');
+  /* X8 a rate-dependent LEVEL is not folding: the band-limited saw 1.5 dB louder in the os-1 render than in every finer
+     one (a gain that moves with os, as a loop or a smoother tuned per internal sample can make) */
+  const x8 = five((os, q) => { const f = sawX('bl', 659.26, STEADY)(), g = os === 1 ? Math.pow(10, 1.5 / 20) : 1; return (t, i, r) => g * f(t, i, r); });
+  row(x8.excessDb <= CONV_CLEAN && x8.cls === 'clean', 'X8', `os-convergence: a band-limited saw 1.5 dB louder at os 1 than at every finer rate reads ${fx(x8)} (must be <= -60, clean: a level is not folding)`);
+  const a3v = moving.find(m => m.id === 'naive A3 vibrato');
+  row(a3v.steady.b345 - a3v.c.b345 >= 10, 'X7c', `CONTROL: the B345 metric on the same A3 saw reads ${f1(a3v.steady.b345)} dB steady and ${f1(a3v.c.b345)} dB under the vibrato (must under-read by >= 10 dB: the smear the power difference answers is real)`);
+}
+
 /* ---- engine controls */
 const D = loadSpace().defaults;
 {
@@ -221,5 +311,5 @@ const D = loadSpace().defaults;
   const heavy = t(Object.assign({}, D, { N: 9, b2on: 1, os: 2, b1on: 1 })), light = t(Object.assign({}, D, { N: 1, b1on: 0, b2on: 0, os: 1 }));
   row(heavy / light >= 2, 'E3', `engine CPU: N 9 + two blades at 2x ${(100 * heavy).toFixed(1)}% vs N 1, no blades, 1x ${(100 * light).toFixed(1)}% of real time per voice — ratio ${f4(heavy / light)} (must be >= 2; min of 3 timings, noisy by nature)`);
 }
-console.log(`metrics_check: ${red ? red + ' RED' : 'GREEN'} — 10 metric rows + 9 B345 rows (aliasing window-length invariance, decorrelation, silence; noiseDb) on constructed signals, 3 INFO rows, + 3 engine controls (metrics are measurements, not gates)`);
+console.log(`metrics_check: ${red ? red + ' RED' : 'GREEN'} — 10 metric rows + 9 B345 rows (aliasing window-length invariance, decorrelation, silence; noiseDb) + 9 B346 rows (the os-convergence estimator: clean, folding, independent noise, a planted tone, feedback dynamics, dense partials, vibrato and glide, a level) on constructed signals, 4 INFO rows, + 3 engine controls (metrics are measurements, not gates)`);
 process.exit(red ? 1 : 0);

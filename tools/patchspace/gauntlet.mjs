@@ -42,6 +42,14 @@
  *              one unit, so only the floor moved its numbers (noise-like patches read lower). The
  *              A leg also records noiseDb (analyse()). Runs and reports made before B345 (the P3
  *              report, docs/patchspace/2026-09-27-gauntlet-p3.md) carry the earlier aliasing.
+ *              B346 (2026-09-29) adds, BESIDE aliasDb and read by no THRESH: aliasConvDb / aliasConvClass
+ *              (clean | folding | dynamics) / aliasFoldDb / aliasDynDb / aliasConvergeDb, the os-convergence
+ *              estimator on the same note and window (metrics.mjs aliasConvergence, rendered by
+ *              alias_sources.mjs estimate at os x1..x16), decimLeakDb / tanhFoldDb, the aliasing of the
+ *              output stage every os shares (the engine's decimator and its output-rate tanh), which neither
+ *              aliasing metric can see, and aliasTotalDb, all of it against an oversampled truth. Only when
+ *              measure() is asked (opt.conv; the run and its report ask): the leg then costs about 31
+ *              renders' worth instead of 5.
  *   C  POLY    four overlapping notes (A2, A3, E4, A5 entering every 0.15 s), all off at 0.9 s,
  *              rendered to 1.4 s: nonFinite, peak, clicks and silence over the whole render,
  *              and its wall-clock load (cpuPoly, all voices together).
@@ -63,6 +71,7 @@ import { cpus } from 'node:os';
 import { ROOT, SR, mulberry32, loadSpace, valueAt, render, evalCond, mtof } from './space.mjs';
 import { analyse, spectrum, aliasing, mono, cpuFraction, nonFinite, clicks, silence, peak } from './metrics.mjs';
 import { asEvalTree, hash32 } from './gen_dependency_tree.mjs';
+import { estimate as aliasEstimate, baseEngine, renderWith } from './alias_sources.mjs';
 
 export const THRESH = {
   overloadPoly6: 1.0,   // projected load of the lab's 6-voice pool: 6 × cpuVoice > 100% of real time
@@ -109,7 +118,7 @@ export const C_SCRIPT = { n: 67200, ev: [[0, 'on', 45, 0.8], [7200, 'on', 57, 0.
   [43200, 'off', 45], [43200, 'off', 57], [43200, 'off', 64], [43200, 'off', 81]] };
 const sl = (x, a, b) => x.subarray(a, b);
 const r6 = x => (typeof x === 'number' && Number.isFinite(x) ? +x.toPrecision(6) : x);
-export function measure(patch, seed) {
+export function measure(patch, seed, opt) {
   const out = {};
   const a = render(patch, A_SCRIPT, { seed, timing: true, block: 512 });
   const m = analyse(sl(a.L, 4800, 24000), sl(a.R, 4800, 24000), SR, mtof(57));
@@ -123,6 +132,17 @@ export function measure(patch, seed) {
   const al = aliasing(spectrum(mono(sl(b.L, 2400, 14400), sl(b.R, 2400, 14400)), SR), spectrum(mono(sl(bRef.L, 2400, 14400), sl(bRef.R, 2400, 14400)), SR));
   out.aliasDb = r6(al.aliasDb);
   out.nonFiniteB = nonFinite(b.L, b.R);
+  /* B346: the os-convergence estimator on the same note and window (renders at os x1..x16, the x8 one
+     captured; alias_sources.mjs estimate), and the output stage every os shares. BESIDE aliasDb, which
+     is unchanged (its two renders above are untouched); no THRESH reads these yet. Only when asked
+     (opt.conv: the run and its report ask): it costs about 26 renders' worth, and the checks that
+     re-measure through measure() (metrics_check E1/E2, listening_pass_check T4) read none of it. */
+  if (opt && opt.conv) {
+    const E = aliasEstimate((m, cap) => renderWith(baseEngine(), Object.assign({}, patch, { os: os * m }), B_SCRIPT, { seed, cap }), os, [2400, 14400], { truth: true });
+    out.aliasConvDb = r6(E.conv.excessDb); out.aliasConvClass = E.conv.cls; out.aliasFoldDb = r6(E.conv.foldDb); out.aliasDynDb = r6(E.conv.dynDb);
+    out.aliasConvergeDb = r6(E.conv.convDb); out.decimLeakDb = r6(E.out.decimLeakDb); out.tanhFoldDb = r6(E.out.tanhFoldDb);
+    out.aliasTotalDb = r6(E.totalDb);
+  }
   const t0 = process.hrtime.bigint();
   const c = render(patch, C_SCRIPT, { seed });
   out.cpuPoly = Number(process.hrtime.bigint() - t0) / 1e9 / (C_SCRIPT.n / SR);
@@ -162,7 +182,7 @@ if (!isMainThread && workerData && workerData.kind === 'gauntlet') {
     if (n && n % REF_EVERY === 0) ref = refTiming();
     const s = samplePatch(seed, j.i, j.mode);
     const pseed = hash32(seed, j.i, 77);
-    const r = Object.assign({ i: j.i, mode: j.mode, live: s.live, settled: s.settled }, measure(s.patch, pseed));
+    const r = Object.assign({ i: j.i, mode: j.mode, live: s.live, settled: s.settled }, measure(s.patch, pseed, { conv: true }));
     r.cpuRef = ref; r.cpuVoiceNorm = r.cpuVoice / ref * quietRef;
     parentPort.postMessage({ line: JSON.stringify(r) });
   });
@@ -220,7 +240,7 @@ async function run() {
 async function estimate() {
   const n = +arg('n', 16), seed = 0xE57;
   const t0 = process.hrtime.bigint();
-  for (let i = 0; i < n; i++) { const s = samplePatch(seed, i, i % 3 ? 'broad' : 'edge'); measure(s.patch, i); }
+  for (let i = 0; i < n; i++) { const s = samplePatch(seed, i, i % 3 ? 'broad' : 'edge'); measure(s.patch, i, { conv: true }); }
   const per = Number(process.hrtime.bigint() - t0) / 1e9 / n;
   console.log(`estimate: ${per.toFixed(2)} s per patch single-threaded (${n} pilot patches, 1/3 edge)`);
   for (const w of [3, 4, 6]) for (const N of [1000, 2000, 3000, 4000]) console.log(`  N ${N} on ${w} workers ≈ ${(N * per / w / 60).toFixed(1)} min (if workers scale linearly)`);

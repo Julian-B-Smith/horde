@@ -294,6 +294,147 @@ export function aliasing(Stest, Sref) {
   const frac = tot > 0 ? ex / tot : 0;
   return { aliasFraction: frac, aliasDb: frac > 0 ? Math.max(-120, 10 * Math.log10(frac)) : -120 };
 }
+/* ---------------------------------------------------------------- B346: the os-convergence estimator */
+/* aliasConvergence (B346, 2026-09-29; the human: "I think we should try to build the cleanest system we
+   can muster"). KEPT BESIDE aliasing() above, not replacing it, until it is proven (ROADMAP B346 (a)).
+   WHAT IT ASKS. Folding is what a render at os N has that the same patch at finer rates does not, AND
+   what the finer renders' own content above N's Nyquist predicts. Discretisation (rate-dependent
+   dynamics: a loop whose delay is one internal sample, a limit cycle locked to the internal rate) also
+   makes N differ from finer rates, but no finer render's content predicts it. So, on five renders of one
+   patch at os N, 2N, 4N, 8N, 16N (every one at the output rate, frame-aligned) plus the PRE-DECIMATION
+   stream of the 8N render (the caller captures it; see alias_sources.mjs):
+     (1) EXCESS at N against TWO references, 4N and 8N (not 2N: 2N's own aliases would mask N's;
+         broad#511 E5 read about 7 dB low against {2N, 4N}). Units as in aliasing() (2 frames, sliding
+         one), the band 20 Hz..20 kHz, and REGIONS of 33 bins (193 Hz). Every spectrum is first divided
+         by its own render's decimation filter (gains[], from the caller: the engine's biquads differ with
+         os, and os 1 has none, so an os-1 test is up to 1.9 dB brighter at 20 kHz by construction). Per
+         region, the two references decide how to compare:
+           SAME REALISATION (at least 80% of the references' power in bins where they agree within 10%):
+             bin for bin (the renders are aligned, so no +/-3-bin max), the power the test has beyond the
+             larger reference wherever that bin's power at least DOUBLED; or the per-bin rule below if that
+             counts more. Folded power ADDS power even where it cannot be resolved from a partial: under a
+             30-cent vibrato at 5 Hz a partial at 13 kHz sweeps +/-230 Hz inside one 0.17 s frame, so at A3
+             no 10x test can separate an alias from the smeared partials (a naive saw at A3 read -120 with
+             B345's aliasing() under that vibrato, -44 with the 10x rule alone, -27 here; steady it reads
+             -24: metrics_check X7). The doubling (3 dB) is what keeps a rate-dependent LEVEL out: a first
+             try summed the region's whole power difference over a 10% margin, and a sound 1.5 dB louder at
+             os N than at its finer rates read as -5.3 dB of folding (metrics_check X8).
+           NOT THE SAME REALISATION (noise, chaos): per bin, the test over 10x the +/-3-bin max of BOTH
+             references. NO NOISE FLOOR: the floor was B345's cure for a chance dip in ONE reference letting
+             a chance peak count, and its cost was hiding weak aliases between dense partials (broad#511's
+             E5 read -120 or -40 to -46 where its aliases sit near -32). Two independent references cure
+             the same thing at no such cost: a chance dip must occur in both at once (metrics_check X3:
+             independent noise renders read -120).
+     (2) CONVERGENCE: the same excess one octave up (2N against {8N, 16N}); convDb = excess(N) -
+         excess(2N). Folding shrinks as N grows (a naive saw: about 5-11 dB per doubling on this count).
+     (3) THE SOURCE TEST: fold the 8N render's pre-decimation spectrum onto the output band as the
+         render at N would, bin for bin (an image at m*sr +/- f lands on output bin f; bin widths match
+         because every FFT spans the same 0.17 s), weighted by N's decimation filter where the image
+         reaches it (1 at os 1, which has no filter). Counted power is EXPLAINED up to 4x (6 dB) its
+         prediction, per bin or per region as it was counted. foldDb is the explained share, dynDb the rest.
+   CLASS: 'clean' if excess(N) <= -60 dB; else 'folding' if the excess CONVERGES (convDb >= 3 dB) AND
+   at least half of it is explained by the source test; else 'dynamics'. BOTH are required, because
+   each alone is fooled by one case, measured: convergence alone calls a loop instability that
+   vanishes at 2N folding (sine feedback FM at beta 0.6 with the engine's loop: a limit cycle near a
+   third of the internal rate at os 1, gone at os 2; metrics_check X5); the source test alone calls
+   broad#828's rate-locked limit cycle folding (82% "explained": the 8N render's own broadband
+   content above N's Nyquist sits at the images by coincidence), which convergence rejects (its
+   excess falls 1.6 dB per doubling).
+   WHAT IT CANNOT SEE, STATED: anything every os shares. The engine's final tanh runs at the OUTPUT rate
+   and its decimator is a 4th-order Butterworth at 0.45 sr followed by picking one sample in os; both
+   make the same aliases at every N, so neither this estimator nor aliasing() above can see them (the
+   harness measures them against an ideal decimator and an oversampled tanh: alias_sources.mjs
+   outputStage). And the source test is only as sharp as the fine stream is sparse: where that stream is
+   broadband (a noise source runs on above N's Nyquist), it "explains" any excess at N, and the class
+   then rests on convergence (metrics_check X4 reads its planted tone as folding for that reason). At
+   A1 (harmonics 9.4 bins apart, lobes 8 wide) the per-bin rule is blind, and the region power
+   difference is what reads a naive saw's -32 dB (B345's aliasing() reads -120; metrics_check X2i). */
+export const CONV_CLEAN_DB = -60, CONV_EXPLAIN = 4, CONV_REGION = 33, CONV_AGREE = 0.1, CONV_SAME = 0.8, CONV_BIN = 2;
+const bandOf = S => [Math.ceil(20 / S.binHz), Math.min(S.P.length - 1, Math.floor(20000 / S.binHz))];
+function unitMean(F, u, n, U) { const P = new Float64Array(n); for (let g = u; g < u + U; g++) for (let k = 0; k < n; k++) P[k] += F[g][k]; for (let k = 0; k < n; k++) P[k] /= U; return P; }
+const toDb = f => (f > 0 ? Math.max(-120, 10 * Math.log10(f)) : -120);
+/* the excess of Stest over TWO references (see (1)). `gains` (optional) = [test, ref1, ref2] power-gain
+   functions of Hz (each render's decimation filter; absent = 1); `pred` (optional, per unit: (u) ->
+   Float64Array of predicted folded power per output bin) splits the counted power into explained and
+   not. A single reference may be given twice: the region is then always "the same realisation" (right
+   for deterministic transforms of one stream, as alias_sources.mjs outputStage compares). */
+export function excessJoint(Stest, refs, pred, gains) {
+  if (refs.length !== 2) throw new Error('excessJoint: two references (give one twice for a deterministic transform)');
+  for (const R of refs) {
+    if (R.binHz !== Stest.binHz) throw new Error('excessJoint: spectra need the same bin width');
+    if (R.F.length !== Stest.F.length) throw new Error('excessJoint: spectra need the same frames');
+  }
+  const [a, b] = bandOf(Stest), n = Stest.P.length, U = Math.min(UNIT, Stest.F.length);
+  const inv = g => { const c = new Float64Array(n); for (let k = 0; k < n; k++) c[k] = g ? 1 / Math.max(g(k * Stest.binHz), 1e-6) : 1; return c; };
+  const [cT, c1, c2] = (gains || [null, null, null]).map(inv);
+  let tot = 0, ex = 0, exp = 0, same = 0, regions = 0;
+  for (let u = 0; u + U <= Stest.F.length; u++) {
+    const Pt = unitMean(Stest.F, u, n, U), P1 = unitMean(refs[0].F, u, n, U), P2 = refs[1] === refs[0] ? P1 : unitMean(refs[1].F, u, n, U), Pp = pred ? pred(u) : null;
+    let ut = 0; for (let k = a; k <= b; k++) ut += Pt[k];
+    if (ut < SILENT_POW) continue;                  // a silent unit is not measured (aliasing()'s rule)
+    let ue = 0, uex = 0;
+    for (let c = a; c <= b; c += CONV_REGION) {
+      const hi = Math.min(b, c + CONV_REGION - 1);
+      let sT = 0, sR = 0, s1 = 0, s2 = 0, agree = 0, bins = 0, binsEx = 0, pr = 0, dPow = 0;
+      for (let k = c; k <= hi; k++) {
+        const x1 = P1[k] * c1[k], x2 = P2[k] * c2[k], xt = Pt[k] * cT[k], xm = Math.max(x1, x2);
+        if (Math.abs(x1 - x2) <= CONV_AGREE * (x1 + x2)) agree += x1 + x2;
+        if (xt > CONV_BIN * xm) dPow += (xt - xm) / cT[k];      // this bin at least doubled: power the references lack
+        sT += xt; sR += Pt[k]; s1 += x1; s2 += x2; if (Pp) pr += Pp[k];
+        let m = 0; for (const P of [P1, P2]) for (let j = Math.max(0, k - 3); j <= Math.min(n - 1, k + 3); j++) if (P[j] > m) m = P[j];
+        if (Pt[k] > 10 * m) { bins += Pt[k]; if (Pp) binsEx += Math.min(Pt[k], CONV_EXPLAIN * Pp[k]); }
+      }
+      regions++;
+      let cnt = bins, cex = binsEx;
+      if (agree >= CONV_SAME * (s1 + s2)) {
+        same++;
+        if (dPow > cnt) { cnt = dPow; cex = Math.min(dPow, CONV_EXPLAIN * pr); }
+      }
+      ue += cnt; uex += cex;
+    }
+    tot += ut; ex += ue; exp += uex;
+  }
+  const f = tot > 0 ? ex / tot : 0, fe = tot > 0 ? exp / tot : 0;
+  return { fraction: f, explained: fe, db: toDb(f), explainedDb: toDb(fe), unexplainedDb: toDb(Math.max(0, f - fe)), sameShare: regions ? same / regions : null };
+}
+/* the predicted folded power at os N, per output bin, from a FINE pre-decimation spectrum `Sint`
+   (rate sr*kFine, an FFT of 8192*kFine points so its bins are the output spectra's width, frame-aligned):
+   every image m*sr +/- f of output bin f below the fine Nyquist lands on f, weighted by N's decimation
+   filter at the frequency the image reaches inside the N render (fold into [0, sr*N/2]). The result is
+   per unit, as excessJoint expects. */
+export function foldPrediction(Sint, sr, osN, nOut, decimGain2) {
+  const per = Math.round(sr / Sint.binHz), RN = sr * osN, n = Sint.P.length, g2 = decimGain2 || (() => 1), U = Math.min(UNIT, Sint.F.length);
+  if (Math.abs(per * Sint.binHz - sr) > 1e-6 * sr) throw new Error('foldPrediction: the fine spectrum\'s bin width must divide the output rate');
+  const W = new Float64Array(n);                    // N's decimation filter at the frequency each fine bin reaches inside the N render
+  for (let kk = 0; kk < n; kk++) { const fs = kk * Sint.binHz, fi = Math.abs(fs - RN * Math.round(fs / RN)); W[kk] = osN > 1 ? g2(fi) : 1; }
+  return u => {
+    const P = unitMean(Sint.F, u, n, U), out = new Float64Array(nOut);
+    for (let k = 1; k < nOut; k++) {
+      let s = 0;
+      for (let m = 1; m * per - k < n; m++) { const lo = m * per - k, hi = m * per + k; s += P[lo] * W[lo]; if (hi < n) s += P[hi] * W[hi]; }
+      out[k] = s;
+    }
+    return out;
+  };
+}
+/* the estimator. S = { N, N2, N4, N8, N16 } output-rate spectra of one patch at os N..16N (same window);
+   Sint = the 8N render's pre-decimation spectrum (optional: without it every excess is unexplained and
+   the class is decided by convergence alone, stated in `basis`); osN the test's oversampling; sr the
+   output rate; gainOf(os) (optional) -> the power gain of the decimation filter of a render at that os,
+   a function of Hz (the engine's; absent = 1 everywhere, as for renders that share one decimator). */
+export function aliasConvergence(S, Sint, osN, sr, gainOf) {
+  const g = os => (gainOf ? gainOf(os) : null);
+  const pred = Sint ? foldPrediction(Sint, sr, osN, S.N.P.length, g(osN)) : null;
+  const e1 = excessJoint(S.N, [S.N4, S.N8], pred, [g(osN), g(4 * osN), g(8 * osN)]), e2 = excessJoint(S.N2, [S.N8, S.N16], null, [g(2 * osN), g(8 * osN), g(16 * osN)]);
+  const convDb = e1.db - e2.db;
+  let cls, basis;
+  if (e1.db <= CONV_CLEAN_DB) { cls = 'clean'; basis = 'excess at or under ' + CONV_CLEAN_DB + ' dB'; }
+  else if (pred) { cls = convDb >= 3 && e1.explained >= 0.5 * e1.fraction ? 'folding' : 'dynamics'; basis = 'convergence and the source test'; }
+  else { cls = convDb >= 3 ? 'folding' : 'dynamics'; basis = 'convergence only (no pre-decimation spectrum)'; }
+  return { excessDb: e1.db, foldDb: e1.explainedDb, dynDb: e1.unexplainedDb, excess2Db: e2.db, convDb, cls, basis,
+    explainedShare: e1.fraction > 0 ? e1.explained / e1.fraction : null, sameShare: e1.sameShare };
+}
+
 /* timing: [[samples, ns], …] from the caller; median real-time fraction over chunks */
 export function cpuFraction(timing, sr) {
   const f = timing.map(([n, ns]) => (ns / 1e9) / (n / sr)).sort((a, b) => a - b);
