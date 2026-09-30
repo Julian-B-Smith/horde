@@ -61,9 +61,26 @@
 
      L0026: every const is declared above the code that runs at setup; boot() is
      the last statement. No wheel-driven controls (drag, double-click to reset),
-     so lab_wheel_scroll_check's inventory is untouched. -->
+     so lab_wheel_scroll_check's inventory is untouched.
+
+     B373 (2026-09-29, dispatched by the horde lead on ROADMAP B373, records branch
+     lead-records-148). The human: "Could I see a version of the functional MAW page
+     rendered in the 80s workstation style from the design lab?" A SKIN of this lab:
+     ?skin=ws (or the SKIN tabs; BOTH shows the two windows side by side). MAW runs
+     as 80s workstation software on docs/design/fx-screens-workshop.html's `ws` glass
+     (320×288, one bit in the scheme's paper and ink, the 3×5 font, ×2), with B326's
+     MAW logo in the title slot, driven by this page's LIVE state: every function of
+     the window is on the glass (menus, pages, soft keys, a data-entry slider and
+     cursor keys; pointer and keyboard), calling the same writers as the DOM (section
+     M). The renderer is copied with line citations (section N). Self-checks 6-11
+     (section O) hold the action registry, hit-testing, keyboard traversal, the one
+     model, the glass's rules and the visualiser against the render. The alt + wheel
+     is NOT wired: lab_wheel_scroll_check's LABS inventory would have to list this
+     lab, and that file is outside the round (the trace asks for it). Also relabelled
+     in this touch, per the lead's B318 note: the GLOBAL roles' host ids are
+     UNALLOCATED (ADR-186: ids come from horde 2's manifest), not 300-303. -->
 <html lang="en"><head><meta charset="utf-8">
-<meta name="lab-review" content="B318 · 2026-09-28">
+<meta name="lab-review" content="B318 + B373 · 2026-09-29">
 <title>MAW design lab — the FX-C saturator as it lives in horde</title>
 <style>
   /* gui2's tokens, via docs/design/scalpel-interface-lab.html :164-230 (a copy, therefore
@@ -242,6 +259,24 @@
   .notes ol, .notes ul { padding-left:18px; margin:4px 0 0; }
   .notes li { margin:4px 0; }
   .notes .rec { color:var(--physics); font-weight:700; }
+
+  /* ============ THE WORKSTATION SKIN (B373) ============ */
+  .wsbody { flex:1 1 auto; min-height:0; display:flex; gap:10px; align-items:flex-start; }
+  .wsbezel { flex:0 0 auto; padding:7px; border:var(--stroke) solid var(--line); border-radius:14px; background:var(--panel2);
+    display:flex; flex-direction:column; gap:5px; box-shadow:var(--shadow); }
+  .wsbezel:focus-within { border-color:var(--value); box-shadow:0 0 0 2px var(--value); }
+  /* the glass: 320×288 logical px at a whole-number scale, never smoothed (fx-screens-workshop's rule) */
+  #wsScr { width:640px; height:576px; border:0; border-radius:0; background:none; image-rendering:pixelated; outline:none; cursor:default; }
+  .wskeys { display:grid; grid-template-columns:repeat(4, 160px); }
+  .wskey { justify-self:center; min-width:112px; min-height:22px; color:var(--t2); }
+  .wskey:disabled { opacity:.4; cursor:not-allowed; }
+  .wschassis { flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:6px; }
+  .wsknobs { grid-template-columns:repeat(2, minmax(0,1fr)); row-gap:8px; }
+  .wsmap { font-size:9.5px; line-height:1.45; }
+  .wsmap table { border-collapse:collapse; margin:6px 0; width:100%; }
+  .wsmap th, .wsmap td { text-align:left; padding:1px 4px; border-bottom:1px dashed var(--div); vertical-align:top; }
+  .wsmap th { color:var(--t2); font-size:9px; letter-spacing:.08em; }
+  kbd { font:inherit; font-size:9px; padding:0 3px; border:1px solid var(--div); border-radius:3px; background:var(--well); }
 </style>
 <!-- MAW'S OWN CORE AND PRESETS, read-only (reference/maw/ is PROTECTED). Classic
      scripts, so they load from the filesystem and from tools/serve_labs.py alike. -->
@@ -262,9 +297,10 @@
     </div>
   </div>
   <div class="hdrctl">
-    <button class="pill" id="playBtn" data-lab="play the rendered loop (a lab affordance, not a parameter)">PLAY</button>
-    <button class="pill byp" id="bypBtn" data-lab="rack-slot bypass: the speaker gets the rack input, untouched">MAW IN</button>
-    <button class="chip" id="themeBtn" data-lab="theme audition">theme <b>LIGHT</b></button>
+    <span class="lbl">SKIN</span><span id="skinPills" title="lab chrome (B373): the DOM window, MAW as 80s workstation software on the workshop's ws glass, or both side by side"></span>
+    <button class="pill" id="playBtn" data-ctl="play" data-lab="play the rendered loop (a lab affordance, not a parameter)">PLAY</button>
+    <button class="pill byp" id="bypBtn" data-ctl="bypass" data-lab="rack-slot bypass: the speaker gets the rack input, untouched">MAW IN</button>
+    <button class="chip" id="themeBtn" data-ctl="theme" data-lab="theme audition">theme <b>LIGHT</b></button>
   </div>
 </div>
 
@@ -278,6 +314,20 @@ prove each picture against the rendered signal.</div>
 <div class="audit" id="audit">self-check: pending</div>
 
 <div class="stage">
+  <!-- B373: the WORKSTATION skin's window. The glass is drawn by section N; the keys under it
+       are its soft keys (numbered: the page names them); the knobs beside it are the roles. -->
+  <div class="plug" id="wsPlug" style="display:none">
+    <div class="phdr">
+      <div class="brand">horde</div>
+      <div class="tabs"><span class="tab stub">MAIN</span><span class="tab stub">OSC</span><span class="tab stub">MOD</span><span class="tab on">FX</span></div>
+      <div class="phdr-r">FX PAGE · <b>slot 1 · MAW</b> · FX-C · the <b>80s WORKSTATION</b> glass (B322 workshop, not a ruling)</div>
+    </div>
+    <div class="rackbar" id="wsRackbar"></div>
+    <div class="wsbody">
+      <div class="wsbezel"><canvas id="wsScr" tabindex="0" title="MAW as 80s workstation software · click or drag · Tab, arrows, Enter, Esc and 1–4 when focused"></canvas><div class="wskeys" id="wsKeys"></div></div>
+      <div class="wschassis" id="wsChassis"></div>
+    </div>
+  </div>
   <div class="plug" id="plug">
     <div class="phdr">
       <div class="brand" title="horde (the colour-shifting logo is not ported here: a later round unifies chrome)">horde</div>
@@ -291,6 +341,7 @@ prove each picture against the rendered signal.</div>
     </div>
   </div>
   <div class="side" id="side"></div>
+  <div class="side" id="wsSide" style="display:none"></div>
 </div>
 
 <div class="notes">
@@ -301,7 +352,8 @@ prove each picture against the rendered signal.</div>
         <code>src/fx_rack.h</code> FxType). Only MAW renders here. The slot's bypass is the MAW IN / BYPASS button.</li>
       <li><b>Face (left, top).</b> The four roles in fixed order (SPEC-MODULE-MACROS §9). Each knob's <b>home</b> reproduces
         the preset exactly: 0.5 for Amount, Tone and Regen, 0 for Motion. Each has a tier toggle. <b>GLOBAL</b> = on horde's
-        face and in the DAW's list as <code>FX1 &lt;Role&gt;</code> (ids 300 + 8·host + role, ADR-169 A1).
+        face and in the DAW's list as <code>FX1 &lt;Role&gt;</code> (ADR-169 A1; its host id is <b>unallocated</b>: ids come
+        from horde 2's manifest, ADR-186, never from a lab).
         <b>CORNER</b> = a per-corner base the morph owns, not DAW-exposed. The readout under each knob shows what it moves.</li>
       <li><b>Transfer (right, top).</b> Each stage's static curve, stage input to stage output, with auto-gain,
         drive-ref, floor and mix. It is read from the <b>rendering instance</b> at the playhead, so modulation, inertia,
@@ -346,6 +398,10 @@ prove each picture against the rendered signal.</div>
         destinations</b>, or only its four slots? Host exposure is ADR-172's test and stays off here.</li>
       <li><b>Chrome.</b> The colour-shifting logo is not ported. It is not cheap (td::Warp is ~200 lines), and a later
         round unifies chrome. Knobs are drag-only, so there is no alt-wheel yet.</li>
+      <li><b>The workstation skin (B373).</b> <code>?skin=ws</code>: the whole lab as 80s workstation software on the
+        workshop's one-bit glass. Is the menu bar plus data-entry strip the right idiom for horde's FX screens, or
+        should every screen keep to four soft keys and four knobs? The alt + wheel waits on
+        <code>lab_wheel_scroll_check</code>'s inventory.</li>
     </ol>
   </div>
 </div>
@@ -867,8 +923,7 @@ function dash(g, on) { if (g.setLineDash) g.setLineDash(on ? [3, 3] : []); }
 /* the snapshot on screen: at the playhead while playing, else at the analysis point */
 function snapAt() {
   if (!OUT || !OUT.snaps || !OUT.snaps.length) return null;
-  const s = AUD.playing ? playSample() : SRC.a + FFT_N / 2;
-  return OUT.snaps[clamp(Math.floor(s / SNAP_N) - 1, 0, OUT.snaps.length - 1)];
+  return OUT.snaps[snapIndex(OUT, AUD.playing ? playSample() : SRC.a + FFT_N / 2)];   // the screen reads the same index (B373)
 }
 function paintTransfer(cv, k) {
   const [g, W, H] = fit(cv); if (!g) return;
@@ -1008,7 +1063,8 @@ function paintTopo(cv) {
    J. STATE, CONTROLS AND THE WINDOW
    ====================================================================== */
 const LAB = { theme: qp('theme', 'light'), src: qp('src', 'saw'), note: parseInt(qp('note', '45'), 10) || 45,
-  chord: qp('chord', '0') === '1', sp: qp('sp', 'Quarter sync'), preset: qp('preset', 'init'), bypass: false, srcNote: '' };
+  chord: qp('chord', '0') === '1', sp: qp('sp', 'Quarter sync'), preset: qp('preset', 'init'), bypass: false, srcNote: '',
+  skin: ['dom', 'ws', 'both'].indexOf(qp('skin', 'dom')) >= 0 ? qp('skin', 'dom') : 'dom' };   // B373: the DOM window, the workstation glass, or both
 let BASE = null, SLOTS = freshSlots(), RES = null, SRC = null, OUT = null, PEND = 0, SRCPEND = 0;
 const CTLS = [], CANV = [];
 const $ = id => document.getElementById(id);
@@ -1027,6 +1083,7 @@ function knob(host, o) {
   const lab = el('label', null, o.label), k = el('span', 'knob' + (o.big ? ' big' : ''));
   for (const c of ['kmod', 'karc', 'kcap', 'kptr']) k.appendChild(el('span', c));
   const out = el('output');
+  if (o.ctl) cell.dataset.ctl = o.ctl;                  // B373: the action registry's DOM id (section M)
   cell.appendChild(lab); cell.appendChild(k); cell.appendChild(out); host.appendChild(cell);
   let drag = false, y0 = 0, p0 = 0;
   k.addEventListener('pointerdown', e => { drag = true; y0 = e.clientY; p0 = toPos(o.sp, o.get()); k.classList.add('drag'); try { k.setPointerCapture(e.pointerId); } catch (_) {} });
@@ -1053,13 +1110,14 @@ function knob(host, o) {
 function pills(host, labels, get, set, o) {
   o = o || {};
   const w = el('div', 'pills'), bs = [];
+  if (o.ctl) w.dataset.ctl = o.ctl;
   labels.forEach((t, i) => { const b = el('button', 'pill mini', t); b.addEventListener('click', () => set(o.map ? o.map[i] : i)); w.appendChild(b); bs.push(b); });
   host.appendChild(w);
   CTLS.push(() => { const v = get(); bs.forEach((b, i) => b.classList.toggle('on', (o.map ? o.map[i] : i) === v)); w.classList.toggle('ghost', !!(o.ghost && o.ghost())); });
   return w;
 }
 function curveSel(host, key, ghost) {
-  const s = el('select');
+  const s = el('select'); s.dataset.ctl = 'P/' + key;
   CURVES.forEach((n, i) => { const op = el('option', null, n); op.value = String(i); s.appendChild(op); });
   s.addEventListener('change', () => write(key, parseInt(s.value, 10)));
   host.appendChild(s);
@@ -1070,7 +1128,7 @@ function curveSel(host, key, ghost) {
    copy), effective = RES (after the four slots) */
 function pknob(host, key, ghost) {
   const sp = specOf(key);
-  return knob(host, { label: sp.label, sp, title: key,
+  return knob(host, { label: sp.label, sp, title: key, ctl: 'P/' + key,
     get: () => BASE ? getp(BASE, key) : undefined, eff: () => RES ? getp(RES, key) : undefined,
     set: v => write(key, v), reset: () => { const P = presetParams(LAB.preset); return P ? getp(P, key) : 0; }, ghost });
 }
@@ -1104,8 +1162,7 @@ function sourceSoon() {                                   // a source re-render 
 }
 
 /* ---- the frame ---- */
-function buildRack() {
-  const r = $('rackbar');
+function buildRack(r) {                                  // B373: built into both windows
   r.appendChild(el('span', 'io', 'VOICE Σ'));
   r.appendChild(el('span', 'arr', '→'));
   const m = el('span', 'slot maw', '1 · MAW · FX-C'); m.title = 'MAW in rack slot 1: FX-C, the stage every source hands off to (ADR-092 amendment, ADR-170)';
@@ -1129,37 +1186,38 @@ function buildFace(host) {
   const c = el('div', 'cell'); host.appendChild(c);
   const h = el('h3', null, 'MAW · FACE'); h.appendChild(el('span', 'own', 'the preset\'s distillation · ADR-169 A2')); c.appendChild(h);
   const row = el('div', 'grow2'); row.appendChild(el('span', 'lbl', 'PRESET'));
-  const sel = el('select'); PRESET_NAMES.forEach(n => { const o = el('option', null, n); o.value = n; sel.appendChild(o); });
+  const sel = el('select'); sel.dataset.ctl = 'preset'; PRESET_NAMES.forEach(n => { const o = el('option', null, n); o.value = n; sel.appendChild(o); });
   sel.addEventListener('change', () => loadPreset(sel.value)); row.appendChild(sel); c.appendChild(row);
   CTLS.push(() => { sel.value = LAB.preset; });
   const f = el('div', 'face'); c.appendChild(f);
   ROLES.forEach((r, ri) => {
     const d = SLOT_DEF[r], col = el('div', 'slotc'); f.appendChild(col);
     col.appendChild(el('span', 'role', r.toUpperCase()));
-    knob(col, { big: true, label: d.label, sp: SP(d.label, 0, 1, f2), origin: d.home,
+    knob(col, { big: true, label: d.label, sp: SP(d.label, 0, 1, f2), origin: d.home, ctl: 'S/' + r,
       title: r + ' — home ' + d.home + ' reproduces the preset; bindings: ' + d.bind.map(b => b.key + ' (' + b.kind + ')').join(', '),
-      get: () => SLOTS[r].v, set: v => { SLOTS[r].v = v; changed(); }, reset: () => d.home,
+      get: () => SLOTS[r].v, set: v => setSlot(r, v), reset: () => d.home,
       ghost: () => !!(d.idle && RES && d.idle(RES)),
       fmt: v => (v === d.home ? 'home' : f2(v)) });
-    const tb = el('button', 'tier'); tb.addEventListener('click', () => { SLOTS[r].tier = SLOTS[r].tier === 'global' ? 'corner' : 'global'; refresh(); });
+    const tb = el('button', 'tier'); tb.dataset.ctl = 'T/' + r; tb.addEventListener('click', () => setTier(r, SLOTS[r].tier === 'global' ? 'corner' : 'global'));
     col.appendChild(tb);
     const rd = el('div', 'rd'); col.appendChild(rd);
     CTLS.push(() => {
       const g = SLOTS[r].tier === 'global';
       tb.classList.toggle('g', g); tb.textContent = g ? '▲ GLOBAL' : '◇ CORNER';
-      tb.title = g ? `on horde's face and the DAW's list: "FX${HOST + 1} ${r}", id ${300 + 8 * HOST + ri} (ADR-169 A1)` : 'a per-corner base the morph interpolates; not a DAW parameter (SPEC-MODULE-MACROS §2)';
+      // the host id is not the lab's to allocate: ADR-186, ids come from horde 2's manifest (B318's note)
+      tb.title = g ? `on horde's face and the DAW's list: "FX${HOST + 1} ${r}", host id unallocated (ADR-169 A1, ADR-186)` : 'a per-corner base the morph interpolates; not a DAW parameter (SPEC-MODULE-MACROS §2)';
       const t = slotReadout(r); rd.textContent = t; rd.classList.toggle('idle', t.indexOf('IDLE') === 0);
     });
   });
   const lg = el('div', 'legend');
-  lg.innerHTML = '<b>▲ GLOBAL</b> = on horde\'s face and the DAW\'s list (<code>FX1 Amount</code> …, ids 300–303). ' +
+  lg.innerHTML = '<b>▲ GLOBAL</b> = on horde\'s face and the DAW\'s list (<code>FX1 Amount</code> …; host ids unallocated, ADR-186). ' +
     '<b>◇ CORNER</b> = a per-corner base the morph owns, not DAW-exposed. The DAW sees the role, never the label.';
   c.appendChild(lg);
 }
 function buildTopo(host) {
   const c = el('div', 'cell'); host.appendChild(c);
   const h = el('h3', null, 'TOPOLOGY'); h.appendChild(el('span', 'own', 'SPEC-MAW §2.1')); c.appendChild(h);
-  pills(c, ROUTES.map(s => s.toUpperCase()), () => BASE ? BASE.route : -1, v => write('route', v));
+  pills(c, ROUTES.map(s => s.toUpperCase()), () => BASE ? BASE.route : -1, v => write('route', v), { ctl: 'P/route' });
   const cv = el('canvas', 'viz'); cv.style.height = '76px'; cv.style.marginTop = '4px'; c.appendChild(cv); CANV.push([cv, paintTopo]);
   CTLS.push(() => paintTopo(cv));
 }
@@ -1172,9 +1230,9 @@ function buildGlobal(host) {
   for (const key of ['eco', 'flux']) pknob(k2, key);
   const tg = el('div'); tg.style.marginLeft = '6px'; k2.appendChild(tg);
   const r1 = el('div', 'grow2'); r1.appendChild(el('span', 'lbl', 'DRIVE-REF')); tg.appendChild(r1);
-  pills(r1, ['OFF', 'PEAK'], () => BASE ? BASE.driveRef : -1, v => write('driveRef', v), { map: [0, 1] });
+  pills(r1, ['OFF', 'PEAK'], () => BASE ? BASE.driveRef : -1, v => write('driveRef', v), { map: [0, 1], ctl: 'P/driveRef' });
   const r2 = el('div', 'grow2'); r2.appendChild(el('span', 'lbl', 'ADAA')); tg.appendChild(r2);
-  pills(r2, ['OFF', 'ON'], () => BASE ? !!BASE.adaa : null, v => write('adaa', v), { map: [false, true] });
+  pills(r2, ['OFF', 'ON'], () => BASE ? !!BASE.adaa : null, v => write('adaa', v), { map: [false, true], ctl: 'P/adaa' });
   const nt = el('div', 'inside');
   nt.innerHTML = 'Not on horde: tracked auto-gain (D3), per-stage oversampling (global 2×, SPEC-MAW §10). Ecology waits for its A/B before a face slot (ADR-170 A1).';
   c.appendChild(nt);
@@ -1219,14 +1277,14 @@ function buildInside(host) {
     const s = 'stages.' + i + '.', off = () => BASE && !BASE.stages[i].on, noFilt = () => BASE && (!BASE.stages[i].on || !BASE.stages[i].ft);
     const b = el('div', 'stg'); host.appendChild(b);
     const h4 = el('h4', null, 'STAGE ' + (i + 1)); b.appendChild(h4);
-    pills(h4, ['ON', 'OFF'], () => BASE ? BASE.stages[i].on : null, v => write(s + 'on', v), { map: [true, false] });
+    pills(h4, ['ON', 'OFF'], () => BASE ? BASE.stages[i].on : null, v => write(s + 'on', v), { map: [true, false], ctl: 'P/' + s + 'on' });
     const sel = el('div', 'grow2 sel'); b.appendChild(sel);
     sel.appendChild(el('span', 'lbl', 'CURVE A')); curveSel(sel, s + 'a', off);
     sel.appendChild(el('span', 'lbl', 'B')); curveSel(sel, s + 'b', off);
     const fr = el('div', 'grow2 sel'); b.appendChild(fr);
     fr.appendChild(el('span', 'lbl', 'TONE'));
-    pills(fr, ['OFF', 'LP', 'BP', 'HP'], () => BASE ? BASE.stages[i].ft : -1, v => write(s + 'ft', v), { ghost: off });
-    pills(fr, ['PRE', 'POST'], () => BASE ? BASE.stages[i].fpos : -1, v => write(s + 'fpos', v), { ghost: noFilt });
+    pills(fr, ['OFF', 'LP', 'BP', 'HP'], () => BASE ? BASE.stages[i].ft : -1, v => write(s + 'ft', v), { ghost: off, ctl: 'P/' + s + 'ft' });
+    pills(fr, ['PRE', 'POST'], () => BASE ? BASE.stages[i].fpos : -1, v => write(s + 'fpos', v), { ghost: noFilt, ctl: 'P/' + s + 'fpos' });
     const kr = el('div', 'kr'); b.appendChild(kr);
     for (const k of ['morph', 'shape', 'drive', 'bias', 'floor']) pknob(kr, s + k, off);
     for (const k of ['cut', 'res']) pknob(kr, s + k, noFilt);
@@ -1245,8 +1303,8 @@ function buildInside(host) {
   sec('CROSSOVER', 'multiband route', ['xo1', 'xo2'], () => BASE && BASE.route !== 2);
   sec('FEEDBACK', 'feedback route · §6', ['fbAmt', 'fbSemi', 'fbMs', 'fbDamp', 'fbHp'], notFb, d => {
     const r = el('div', 'grow2'); d.appendChild(r);
-    r.appendChild(el('span', 'lbl', 'TIME FROM')); pills(r, ['PITCH', 'MS'], () => BASE ? BASE.fbMode : -1, v => write('fbMode', v), { ghost: notFb });
-    r.appendChild(el('span', 'lbl', 'TAP AFTER')); pills(r, ['S1', 'S2', 'S3'], () => BASE ? BASE.fbTap : -1, v => write('fbTap', v), { ghost: notFb });
+    r.appendChild(el('span', 'lbl', 'TIME FROM')); pills(r, ['PITCH', 'MS'], () => BASE ? BASE.fbMode : -1, v => write('fbMode', v), { ghost: notFb, ctl: 'P/fbMode' });
+    r.appendChild(el('span', 'lbl', 'TAP AFTER')); pills(r, ['S1', 'S2', 'S3'], () => BASE ? BASE.fbTap : -1, v => write('fbTap', v), { ghost: notFb, ctl: 'P/fbTap' });
   });
   sec('MODULATION', 'prototype-local: horde\'s mod matrix replaces the sources, §7', ['envA', 'envR', 'lfoRate', 'mod.ed', 'mod.ec', 'mod.em', 'mod.ld', 'mod.lc', 'mod.lb']);
 }
@@ -1256,13 +1314,14 @@ function buildSide() {
   b1.appendChild(el('h2', null, 'THE RACK INPUT'));
   const r1 = el('div', 'row'); b1.appendChild(r1); r1.appendChild(el('span', 'lbl', 'SOURCE'));
   const sw = el('div', 'pills'); r1.appendChild(sw);
-  const sbs = SOURCES.map(([k, t]) => { const b = el('button', 'pill mini', t); b.addEventListener('click', () => { LAB.src = k; sourceSoon(); }); sw.appendChild(b); return [k, b]; });
+  sw.dataset.ctl = 'source';
+  const sbs = SOURCES.map(([k, t]) => { const b = el('button', 'pill mini', t); b.addEventListener('click', () => setSrc(k)); sw.appendChild(b); return [k, b]; });
   const r2 = el('div', 'row'); b1.appendChild(r2); r2.appendChild(el('span', 'lbl', 'PATCH'));
-  const ps = el('select'); ps.title = 'the 83 SCALPEL bench presets (reference/scalpel/data/presets.json, fetched, never copied)';
-  ps.addEventListener('change', () => { LAB.sp = ps.value; if (LAB.src === 'scalpel') sourceSoon(); }); r2.appendChild(ps);
+  const ps = el('select'); ps.title = 'the 83 SCALPEL bench presets (reference/scalpel/data/presets.json, fetched, never copied)'; ps.dataset.ctl = 'scalpel-patch';
+  ps.addEventListener('change', () => setPatch(ps.value)); r2.appendChild(ps);
   const r3 = el('div', 'row'); b1.appendChild(r3); r3.appendChild(el('span', 'lbl', 'NOTE'));
-  pills(r3, ['A1', 'E2', 'A2', 'E3', 'A3'], () => LAB.note, v => { LAB.note = v; sourceSoon(); }, { map: [33, 40, 45, 52, 57] });
-  pills(r3, ['CHORD'], () => LAB.chord ? 0 : -1, () => { LAB.chord = !LAB.chord; sourceSoon(); });
+  pills(r3, ['A1', 'E2', 'A2', 'E3', 'A3'], () => LAB.note, v => setNote(v), { map: [33, 40, 45, 52, 57], ctl: 'note' });
+  pills(r3, ['CHORD'], () => LAB.chord ? 0 : -1, () => setChord(!LAB.chord), { ctl: 'chord' });
   const info = el('div'); info.style.marginTop = '4px'; b1.appendChild(info);
   CTLS.push(() => {
     sbs.forEach(([k, b]) => { b.classList.toggle('on', LAB.src === k); b.classList.toggle('dis', (k === 'saw' || k === 'scalpel') && !ENGINE.C); b.title = (k === 'saw' || k === 'scalpel') && !ENGINE.C ? ENGINE.err : ''; });
@@ -1281,7 +1340,7 @@ function buildSide() {
   const dl = el('div', 'dawlist'); b2.appendChild(dl);
   CTLS.push(() => {
     dl.innerHTML = '';
-    ROLES.forEach((r, ri) => { if (SLOTS[r].tier !== 'global') return; const d = el('div'); d.innerHTML = `<code>FX${HOST + 1} ${r}</code> <span>id ${300 + 8 * HOST + ri} · label "${SLOT_DEF[r].label}" is UI-only</span>`; dl.appendChild(d); });
+    ROLES.forEach(r => { if (SLOTS[r].tier !== 'global') return; const d = el('div'); d.innerHTML = `<code>FX${HOST + 1} ${r}</code> <span>host id unallocated (ADR-186) · label "${SLOT_DEF[r].label}" is UI-only</span>`; dl.appendChild(d); });
     const n = ROLES.filter(r => SLOTS[r].tier === 'global').length;
     const t = el('div'); t.style.marginTop = '4px';
     // MAW's own set minus the prototype-only rows (SPEC-MAW §10: the intake oscillator's
@@ -1354,20 +1413,24 @@ function paintAudit() {
       r.ctl.map(c => ` · CONTROL ${esc(c.name)}: <span class="${c.caught ? 'ok' : 'no'}">${c.caught ? 'CAUGHT' : 'MISSED'}</span> (${esc(c.detail)})`).join('') + '</li>').join('') + '</ol>';
 }
 function buildUI() {
-  buildRack();
+  buildRack($('rackbar'));
   const L = $('colL'), R = $('colR');
   buildFace(L); buildTopo(L); buildGlobal(L);
   buildViz(R);
   buildSide();
+  buildWS();
+  pills($('skinPills'), ['DOM', 'WORKSTATION', 'BOTH'], () => LAB.skin, setSkin, { map: ['dom', 'ws', 'both'] });
+  applySkin();
   const on = (id, f) => { const e = $(id); if (e) e.addEventListener('click', f); };
-  on('playBtn', togglePlay);
-  on('bypBtn', () => { LAB.bypass = !LAB.bypass; refresh(); paintStatus(); audioSwap(); });
-  on('themeBtn', () => { LAB.theme = LAB.theme === 'dark' ? 'light' : 'dark'; applyTheme(); paintAll(); });
+  on('playBtn', () => setPlay(!AUD.playing));
+  on('bypBtn', () => setBypass(!LAB.bypass));
+  on('themeBtn', () => setTheme(LAB.theme === 'dark' ? 'light' : 'dark'));
   if (typeof window === 'object' && window && window.addEventListener) window.addEventListener('resize', () => paintAll());
 }
 async function boot() {
   try {
     applyTheme();
+    wsReadSchemes();                                   // B373: both schemes' paper and ink, from the tokens
     buildUI();
     loadPreset(LAB.preset);
     // stills for review: ?amount=0.7&tone=…&motion=…&regen=… and ?corner=Tone,Motion
@@ -1379,12 +1442,1372 @@ async function boot() {
     await loadFidelity();
     setSource(LAB.src);
     runChecks();
+    runWsChecks();                                     // B373: self-checks 6-11, the screen
     paintAudit();
+    buildWsSide();
     refresh(); paintAll();
   } catch (e) {
     const a = $('audit'); if (a) { a.className = 'audit bad'; a.textContent = 'boot failed: ' + String((e && e.stack) || e); }
   }
 }
+/* ======================================================================
+   M. THE WRITERS AND THE ACTION REGISTRY — one model, two views (B373)
+   The workstation skin (section N) and the DOM window are two VIEWS of one model: every state
+   change either makes goes through one of the writers below (or the older ones they name:
+   write, loadPreset, togglePlay), and the DOM handlers call the same writers. ACTS is the
+   REGISTRY of the lab's actions, each with the DOM data-ctl values that reach it; self-check 6
+   enumerates it against the screen (every action has a screen path, every data-ctl an action).
+   The DOM's id-shaped families are P/<key> (one of MAW's parameters), S/<role> (a role
+   macro's value) and T/<role> (its tier). LAB CHROME is not in it, by principle (the Sluice
+   lab's rule, B361): the SKIN tabs, and the self-check panel. The theme IS here, because the
+   screen's scheme is the theme's (the glass takes the scheme's colours).
+   ====================================================================== */
+function resetParam(key) { const P = presetParams(LAB.preset); if (P) write(key, getp(P, key)); }
+function setSlot(r, v) { SLOTS[r].v = clamp(v, 0, 1); changed(); }
+function resetSlot(r) { setSlot(r, SLOT_DEF[r].home); }
+function setTier(r, t) { SLOTS[r].tier = t === 'corner' ? 'corner' : 'global'; refresh(); }
+function setBypass(b) { LAB.bypass = !!b; refresh(); paintStatus(); audioSwap(); }
+function setPlay(on) { if (!!on !== AUD.playing) togglePlay(); else refresh(); }
+function setSrc(k) { LAB.src = k; sourceSoon(); refresh(); }
+function setNote(n) { LAB.note = n; sourceSoon(); refresh(); }
+function setChord(on) { LAB.chord = !!on; sourceSoon(); refresh(); }
+function setPatch(name) { LAB.sp = name; if (LAB.src === 'scalpel') sourceSoon(); refresh(); }
+function setTheme(t) { LAB.theme = t === 'dark' ? 'dark' : 'light'; applyTheme(); refresh(); paintAll(); buildWsSide(); }
+function stepPreset(d) { const n = PRESET_NAMES.length; if (!n) return; const i = Math.max(0, PRESET_NAMES.indexOf(LAB.preset)); loadPreset(PRESET_NAMES[(i + d + n) % n]); }
+function stepPatch(d) { const L = ENGINE.presets || [], n = L.length; if (!n) return; const i = Math.max(0, L.findIndex(p => p.name === LAB.sp)); setPatch(L[(i + d + n) % n].name); }
+const ACTS = [
+  ['preset-load', 'load one of MAW\'s presets (the module preset\'s embedded copy; the four roles go home)', ['preset']],
+  ['slot-value', 'a role macro\'s value: Amount, Tone, Motion or Regen (ADR-169)', []],
+  ['slot-reset', 'a role macro back to its home, which reproduces the preset', []],
+  ['slot-tier', 'a role\'s tier: GLOBAL (on horde\'s face and the DAW\'s list) or CORNER', []],
+  ['param-set', 'any of MAW\'s internal parameters: a number, a switch, a curve, the route', []],
+  ['param-reset', 'an internal parameter back to the preset\'s value', []],
+  ['bypass', 'the rack slot\'s bypass', ['bypass']],
+  ['play', 'play or stop the rendered loop', ['play']],
+  ['source', 'the rack input: SAW SWARM, SCALPEL PATCH, NOISE or DRUM', ['source']],
+  ['note', 'the note the rack input plays', ['note']],
+  ['chord', 'the chord switch (a fifth and an octave over the note)', ['chord']],
+  ['scalpel-patch', 'which of the 83 SCALPEL patches the SCALPEL PATCH source plays', ['scalpel-patch']],
+  ['theme', 'the theme, and with it the screen\'s scheme', ['theme']]
+];
+const ACT_IDS = ACTS.map(a => a[0]);
+/* the action a DOM data-ctl belongs to: the listed values, then the three id-shaped families;
+   '' = none (self-check 6 fails on it) */
+function ctlAct(ctl) {
+  for (const a of ACTS) if (a[2].includes(ctl)) return a[0];
+  const k = String(ctl).slice(2);
+  if (/^P\//.test(ctl)) return BASE && getp(BASE, k) !== undefined ? 'param-set' : '';
+  if (/^S\//.test(ctl)) return ROLES.includes(k) ? 'slot-value' : '';
+  if (/^T\//.test(ctl)) return ROLES.includes(k) ? 'slot-tier' : '';
+  return '';
+}
+
+/* ======================================================================
+   N. THE 80s WORKSTATION SKIN (B373) — MAW as screen software on the workshop's `ws` glass
+   The human, 2026-09-29: "Could I see a version of the functional MAW page rendered in the 80s
+   workstation style from the design lab?" So this is a SKIN of this lab (?skin=ws, or the SKIN
+   tabs), driven by the lab's live state, not a mock.
+   THE GLASS is docs/design/fx-screens-workshop.html's 80s WORKSTATION (TREATMENTS `ws`,
+   :532-535): 320×288 logical pixels, drawn in greys and ordered-dithered to ONE BIT, paper = the
+   scheme's tube and ink = its physics ink (wsPaperInk, :1313-1316), the 3×5 pixel font
+   (:655-672), shown at a whole-number scale (×2: 640×576 in the 980×720 window, the size B322's
+   open question names) with image-rendering: pixelated. Its renderer is COPIED below with line
+   citations (labs are single-file; a copy drifts, and B302 is where one screen kit is shared).
+   The title and the proxy icon are B326's MAW proposal for this glass (the MacPaint plate,
+   :1845-1890); a dropped docs/design/assets/fx-logos/maw.png (96×24) or maw-icon.png (16×16) of
+   exactly that size wins, as in the workshop, and is shown as drawn (the workshop's rule: colour
+   art is shown in colour; its README: the lint does not bind the human's file).
+   THE SCREEN IS THE WHOLE INSTRUMENT, the architecture of the Sluice lab's GBC screen (B361,
+   sluice-horde-lab.html section N4): shared writers (section M), one VM per frame built from the
+   live state, controls as data plus handlers (the drawing reads only the data), pointer
+   hit-testing through the integer scale, and keyboard traversal. What is MAW's and period here:
+     - a MENU BAR with pull-down menus (* FILE PAGE INPUT AUDIO VIEW): pages, presets, the rack
+       input, play and bypass, the scheme;
+     - one DOCUMENT WINDOW per page (fourteen pages: the face, transfer, spectrum, levels, route,
+       in/out, stages 1-3, modulation, input, presets, SCALPEL patches, info);
+     - a DATA-ENTRY strip: a data slider, − / + and HOME acting on the CURSOR (the last focused
+       field, cycle or role), and four cursor keys that move it: the sampler workstation's
+       "cursor to a field, then the data slider" idiom;
+     - four SOFT KEYS under the glass, labelled by the page, and over them the four ROLE sliders
+       (the workshop's chassis contract, :18-24; MAW's keys on the face are S1 S2 S3 ROUTE, B322).
+   POINTER: click, drag (a field drags like the DOM knob, 160 px a turn, Shift fine; sliders take
+   the position), double-click resets. The WHEEL is not wired: the repo's wheel idiom
+   (onAltWheel, alt + wheel) is inventoried by tools/labharness/lab_wheel_scroll_check.mjs, whose
+   LABS list this lab is not on and which this round may not edit (the trace asks for it), so a
+   plain wheel still never turns anything here. KEYBOARD (the glass takes focus): Tab / Shift+Tab
+   walk every control and Tab past the last lets the browser move on; ↑ ↓ move by row; ← → turn
+   a field, role or cycle (Shift: fine) or move along the row; Enter / Space press; Esc closes a
+   menu or goes back; 1-4 are the soft keys.
+   FOCUS AND HOVER stay inside the glass's rules by construction: every pixel goes through the
+   one-bit dither (focus = a solid ring and an inverted value, the cursor's inverted value;
+   hover = a dotted ring). Self-checks 6-11 hold all of it, each with a must-fail control.
+   ====================================================================== */
+const WS_W = 320, WS_H = 288, WS_K = 2;
+const WS_STEP = 0.01, WS_FINE = 0.002;
+/* fx-screens-workshop.html :655-672 — the 3×5 pixel font. Five rows per glyph, each a 3-bit
+   digit, MSB left. */
+const F35 = {
+  A: '25755', B: '65656', C: '34443', D: '65556', E: '74647', F: '74644', G: '34553', H: '55755', I: '72227',
+  J: '11152', K: '55655', L: '44447', M: '57755', N: '65555', O: '25552', P: '65644', Q: '25563', R: '65655',
+  S: '34216', T: '72222', U: '55557', V: '55552', W: '55775', X: '55255', Y: '55222', Z: '71247',
+  0: '75557', 1: '26227', 2: '61247', 3: '61216', 4: '55711', 5: '74616', 6: '34652', 7: '71222', 8: '25252',
+  9: '25316', ' ': '00000', '.': '00002', ',': '00024', ':': '02020', '-': '00700', '+': '02720', '/': '11244',
+  '%': '51245', '>': '42124', '<': '12421', '=': '07070', '(': '24442', ')': '21112', '#': '57575', '?': '61202',
+  '!': '22202', '_': '00007', '*': '05250', '|': '22222', '[': '64446', ']': '31113', "'": '22000', '^': '25000'
+};
+const glyph35 = ch => F35[ch] || F35[String(ch).toUpperCase()] || F35['?'];
+function text35(s, plot) {   // plot(dx, dy) per lit pixel; returns the advance in pixels
+  s = String(s); let x = 0;
+  for (const ch of s) {
+    const g = glyph35(ch);
+    for (let r = 0; r < 5; r++) { const bits = +g[r]; for (let c = 0; c < 3; c++) if ((bits >> (2 - c)) & 1) plot(x + c, r); }
+    x += 4;
+  }
+  return x;
+}
+/* what the 3×5 font can say: upper case, and this page's typography mapped onto its glyphs */
+const WS_MAP = { '·': '-', '→': '>', '←': '<', '×': 'X', '−': '-', '–': '-', '—': '-', '±': '+-', '§': 'S', '≈': '=', '…': '...', '&': '+', '"': "'", ';': ',', '~': '-', '▲': '^', '◇': '*' };
+function wsSan(s) { let o = ''; for (const ch of String(s)) o += WS_MAP[ch] !== undefined ? WS_MAP[ch] : ch.toUpperCase(); return o; }
+const wsLen = s => Math.max(0, String(s).length * 4 - 1);
+function wsFit(s, px) { s = wsSan(s); const n = Math.max(1, Math.floor((px + 1) / 4)); return s.length <= n ? s : s.slice(0, n - 1) + '.'; }
+function wsWrap(s, px, n) {
+  const w = Math.max(1, Math.floor((px + 1) / 4)), out = []; let line = '';
+  for (const word of wsSan(s).split(' ')) {
+    if (!line) line = word; else if ((line + ' ' + word).length <= w) line += ' ' + word; else { out.push(line); line = word; }
+  }
+  if (line) out.push(line);
+  return out.slice(0, n).map((l, i) => (i === n - 1 && out.length > n ? wsFit(l + ' ...', px) : l.slice(0, w)));
+}
+/* fx-screens-workshop.html :1184-1185 */
+const BAYER4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+const K = '#000000', W = '#FFFFFF';
+/* fx-screens-workshop.html :633-636 */
+function rgbOf(hex) {
+  const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(hex).trim());
+  return m ? [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)] : [136, 136, 136];
+}
+/* fx-screens-workshop.html :1186-1187 */
+function wsText(g, s, x, y, col, sc) { sc = sc || 1; g.fillStyle = col || K; return text35(s, (dx, dy) => g.fillRect(x + dx * sc, y + dy * sc, sc, sc)) * sc; }
+function wsCText(g, s, cx, y, col, sc) { sc = sc || 1; return wsText(g, s, Math.round(cx - (String(s).length * 4 - 1) * sc / 2), y, col, sc); }
+/* fx-screens-workshop.html :1188-1198 — a window: drop shadow, frame, striped title bar, close box, title */
+function wsWin(g, x, y, w, h, title) {
+  g.fillStyle = K; g.fillRect(x + 2, y + 2, w, h);
+  g.fillStyle = W; g.fillRect(x, y, w, h); g.fillStyle = K;
+  g.fillRect(x, y, w, 1); g.fillRect(x, y + h - 1, w, 1); g.fillRect(x, y, 1, h); g.fillRect(x + w - 1, y, 1, h);
+  for (let yy = y + 2; yy < y + 10; yy += 2) g.fillRect(x + 2, yy, w - 4, 1);    // the title bar's stripes
+  g.fillRect(x, y + 11, w, 1);
+  g.fillStyle = W; g.fillRect(x + 6, y + 2, 9, 8); g.fillStyle = K; g.fillRect(x + 7, y + 3, 7, 1); g.fillRect(x + 7, y + 8, 7, 1); g.fillRect(x + 7, y + 3, 1, 6); g.fillRect(x + 13, y + 3, 1, 6);
+  const tw = String(title).length * 4 + 6; g.fillStyle = W; g.fillRect(Math.round(x + w / 2 - tw / 2), y + 1, tw, 10);
+  wsCText(g, title, x + w / 2, y + 4, K);
+  return { x: x + 1, y: y + 12, w: w - 2, h: h - 13 };
+}
+/* fx-screens-workshop.html :1199-1202 */
+function wsBtn(g, x, y, w, label, inv) {
+  g.fillStyle = K; g.fillRect(x + 1, y, w - 2, 1); g.fillRect(x + 1, y + 8, w - 2, 1); g.fillRect(x, y + 1, 1, 7); g.fillRect(x + w - 1, y + 1, 1, 7);
+  g.fillStyle = inv ? K : W; g.fillRect(x + 1, y + 1, w - 2, 7); wsCText(g, label, x + w / 2, y + 2, inv ? W : K);
+}
+/* fx-screens-workshop.html :1203-1207 */
+function wsSlider(g, x, y, w, v, idle) {
+  g.fillStyle = K; g.fillRect(x, y, w, 1); g.fillRect(x, y + 4, w, 1); g.fillRect(x, y, 1, 5); g.fillRect(x + w - 1, y, 1, 5);
+  g.fillStyle = idle ? '#D0D0D0' : '#808080'; g.fillRect(x + 1, y + 1, Math.round((w - 2) * (idle ? 1 : v)), 3);
+  if (!idle) { const tx = x + Math.round((w - 4) * v); g.fillStyle = K; g.fillRect(tx, y - 2, 4, 9); g.fillStyle = W; g.fillRect(tx + 1, y - 1, 2, 7); }
+}
+/* pixel primitives (the workshop draws these inline; here they are named) */
+function wsBox(g, x, y, w, h, col) { g.fillStyle = col || K; g.fillRect(x, y, w, 1); g.fillRect(x, y + h - 1, w, 1); g.fillRect(x, y, 1, h); g.fillRect(x + w - 1, y, 1, h); }
+function wsDots(g, x, y, w, h, col) {
+  g.fillStyle = col || K;
+  for (let i = 0; i < w; i += 2) { g.fillRect(x + i, y, 1, 1); g.fillRect(x + i, y + h - 1, 1, 1); }
+  for (let j = 0; j < h; j += 2) { g.fillRect(x, y + j, 1, 1); g.fillRect(x + w - 1, y + j, 1, 1); }
+}
+/* a line of whole pixels (the workshop's network edges, :1285-1288); dotted = every other step */
+function wsLine(g, x0, y0, x1, y1, dotted, col) {
+  x0 = Math.round(x0); y0 = Math.round(y0); x1 = Math.round(x1); y1 = Math.round(y1);
+  const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0), 1); g.fillStyle = col || K;
+  for (let s = 0; s <= n; s++) if (!dotted || (s & 1) === 0) g.fillRect(Math.round(x0 + (x1 - x0) * s / n), Math.round(y0 + (y1 - y0) * s / n), 1, 1);
+}
+/* a 5×3 (or 3×5) arrowhead for the cursor keys, the scroll bar and the cycles */
+function wsArrow(g, cx, cy, dir, col) {
+  g.fillStyle = col || K;
+  for (let i = 0; i < 3; i++) {
+    if (dir === 'up') g.fillRect(cx - i, cy - 1 + i, 2 * i + 1, 1);
+    else if (dir === 'down') g.fillRect(cx - i, cy + 1 - i, 2 * i + 1, 1);
+    else if (dir === 'left') g.fillRect(cx - 1 + i, cy - i, 1, 2 * i + 1);
+    else g.fillRect(cx + 1 - i, cy - i, 1, 2 * i + 1);
+  }
+}
+/* a check mark, 5×5 */
+function wsTick(g, x, y, col) { g.fillStyle = col || K; for (const [dx, dy] of [[0, 2], [1, 3], [2, 4], [3, 3], [4, 2], [4, 1], [4, 0]]) g.fillRect(x + dx, y + dy, 1, 1); }
+
+/* B326's workstation proposal for MAW, fx-screens-workshop.html :1849-1872 (title) and :1874-1889
+   (icon), copied as data: '#' ink, '.' paper, ' ' clear. */
+const WS_LOGO = {
+  title: [
+          '                                                                                                ',
+          '   ##########################################################################################   ',
+          '  #...#...#...#...#...#...#...#...#...#...#...#...#...#...#...#...#...#...#...#...#...#...#..#  ',
+          ' #.#.#.............#.#.....#.......#.#...............#.......#.....#.#.....#.......#.#.....#.## ',
+          ' #..#......####.....#........####...#..############......###........#.......#.###...#.......#.# ',
+          ' #.........#####............#####.....##############.....###..................###.............# ',
+          ' #.........#####............#####.#...##############.....###..................###.#...........# ',
+          ' #.........###.##..........##.###....###..........###....###.#................###.............# ',
+          ' #......#..###..##........##..###.#..###..#.#.#.#.###....###....#.......#.....###.#.....#.....# ',
+          ' #.....#.#.###...##....#.##...###....###.#.....#..###..#.###.#.#.#..##...#....###......#.#....# ',
+          ' ##...#....###...##...#..##.#.###.#..###..#...#...###.#..###..#.....###...#...###.#...#...#...# ',
+          ' #.#.#.....###.#..##....##....###..#.###.#.#.#....###....###.#.....##.##...#..###..#.#.....#.## ',
+          ' #..#......###.....##..##...#.###.#..###..........###.#..###......##...##...#.###.#.#.......#.# ',
+          ' #.........###.#....####...#..###....################....###.#...##..#..##....###.............# ',
+          ' #.........###......####..#...###.#..################.#..###....##..#....##...###.#...........# ',
+          ' #.........###.#.....##..#....###....################....###...##..#......##..###.............# ',
+          ' #......#..###..#.......#.....###.#..###..........###.#..###..##..#.....#..##.###.#.....#.....# ',
+          ' #.....#.#.###.#.#.....#.#....###....###.#.#.#.#..###..#.###.##..#.....#.#..#####......#.#....# ',
+          ' ##...#....###....#...#...#...###.#..###..#...#...###.#..#####..#.#...#...#..####.#...#...#...# ',
+          ' #.#.#.....###.#...#.#.....#..###..#.###.#.#.#....###....####..#...#.#.....#..###..#.#.....#.## ',
+          ' #..#...............#.......#.....#.........#.........#.......#.....#.......#.....#.#.......#.# ',
+          '  #..........#.#.................#.....#.#...........#.....#.#...................#...........#  ',
+          '   ##########################################################################################   ',
+          '                                                                                                ',
+  ],
+  icon: [
+          '                ',
+          '  ############  ',
+          ' ##.#.#.#.#.#.# ',
+          '##.#.#.#.#.#.#.#',
+          '################',
+          '#....#....#....#',
+          '##..###..###..##',
+          '################',
+          '################',
+          '##..###..###..##',
+          '#....#....#....#',
+          '################',
+          '#.#.#.#.#.#.#.##',
+          ' #.#.#.#.#.#.## ',
+          '  ############  ',
+          '                ',
+  ]
+};
+const WS_SLOT = { title: { x: 10, y: 29, w: 96, h: 24, file: 'maw.png' }, icon: { x: 293, y: 29, w: 16, h: 16, file: 'maw-icon.png' } };
+const WS_LOGO_DIR = 'assets/fx-logos/';
+
+/* THE SCREEN'S STATE (navigation only: every value it shows is the lab's) */
+const WSG = { page: 'face', stage: 0, menu: -1, fid: '', cur: '', hover: '', back: [], scroll: {}, drag: null,
+  schemes: null, file: { title: null, icon: null }, fileNote: { title: 'B326\'s proposal', icon: 'B326\'s proposal' }, fcv: null, fcg: null, vm: null };
+/* the pages, in the PAGE menu's order; the stage pages are one page with a stage */
+const WS_PAGES = [['face', 'FACE'], ['transfer', 'TRANSFER'], ['spectrum', 'SPECTRUM + SCOPE'], ['levels', 'LEVELS (DRIVE METER)'],
+  ['route', 'ROUTE + FEEDBACK'], ['global', 'IN - OUT - BEHAVIOUR'], ['stage', 'STAGE 1', 0], ['stage', 'STAGE 2', 1], ['stage', 'STAGE 3', 2],
+  ['mod', 'MODULATION'], ['input', 'RACK INPUT'], ['presets', 'MAW PRESETS'], ['patches', 'SCALPEL PATCHES'], ['info', 'INFO + THE DAW']];
+const wsPageKey = (pg, st) => pg === 'stage' ? 'stage' + st : pg;
+const presetShort = n => String(n || '').split(' · ')[0];
+
+/* the scheme's paper and ink, read from the page's own tokens for BOTH themes once at boot (the
+   glass takes the scheme: wsPaperInk, fx-screens-workshop.html :1313-1316) */
+function wsReadSchemes() {
+  const keep = LAB.theme, out = {};
+  for (const th of ['light', 'dark']) {
+    try { document.body.classList.toggle('dark', th === 'dark'); } catch (_) {}
+    _tok = {};
+    out[th] = { name: th === 'dark' ? 'TUBE' : 'ORCHID', paper: rgbOf(TOK('--scr-tube')), ink: rgbOf(TOK('--scr-physics')), value: rgbOf(TOK('--scr-value')) };
+  }
+  try { document.body.classList.toggle('dark', keep === 'dark'); } catch (_) {}
+  _tok = {};
+  WSG.schemes = out;
+}
+const wsScheme = th => (WSG.schemes && WSG.schemes[th]) || { name: '?', paper: [255, 255, 255], ink: [0, 0, 0], value: [255, 0, 0] };
+
+/* ---- building a page: controls are DATA (for the drawing) plus fn (handlers, never read by it) ----
+   { id, act (an ACTS id, or 'nav' / 'ui'), kind, x, y, w, h (logical px), vy (the row used by the
+   arrows: a list row's unscrolled place, the strips' below every body row), nf (not focusable),
+   hid (scrolled out of view), dis, key (the MAW parameter), role, … , fn } */
+function wC(P, o) { const c = Object.assign({ act: 'ui', fn: {} }, o); if (c.vy === undefined) c.vy = c.y; P.ctrls.push(c); return c; }
+const wText = (P, x, y, s, o) => { const t = wsSan(s); return wC(P, Object.assign({ id: 't' + P.ctrls.length, kind: 'text', nf: true, x, y, w: wsLen(t), h: 5, s: t }, o || {})); };
+function wLines(P, x, y, s, px, n, o) { for (const l of wsWrap(s, px, n || 3)) { wText(P, x, y, l, o); y += 8; } return y; }
+function wHead(P, x, y, s, idle) { wText(P, x, y, s + (idle ? '  - IDLE' : ''), { head: true }); }
+const wsStageKey = key => { const m = /^stages\.(\d)\./.exec(key); return m ? 'S' + (+m[1] + 1) + ' ' : ''; };
+/* a parameter FIELD: its label, its value (→ the value after the macros, as the DOM's knob says it),
+   and a bar at the authored position with a caret at the effective one when the macros move it */
+function wField(P, key, x, y, w, o) {
+  o = o || {};
+  const sp = specOf(key), v = BASE ? getp(BASE, key) : undefined, ve = RES ? getp(RES, key) : v, ok = typeof v === 'number';
+  const p = ok ? toPos(sp, v) : 0, pe = ok && typeof ve === 'number' ? toPos(sp, ve) : p, moved = Math.abs(pe - p) > 1e-4;
+  return wC(P, { id: 'f.' + key, act: 'param-set', kind: 'field', key, x, y, w, h: 12, lab: wsSan(o.lab || sp.label),
+    txt: ok ? wsSan(moved ? '>' + sp.fmt(ve) : sp.fmt(v)) : '-', p, pe, moved, ghost: !!o.ghost, name: wsSan(wsStageKey(key) + sp.label),
+    fn: { get: () => toPos(sp, getp(BASE, key)), set: q => write(key, fromPos(sp, q)),
+      step: (d, fine) => { const cur = getp(BASE, key); write(key, sp.step ? clamp(cur + d * sp.step, sp.min, sp.max) : fromPos(sp, toPos(sp, cur) + d * (fine ? WS_FINE : WS_STEP))); },
+      reset: () => resetParam(key) } });
+}
+function wRadio(P, id, act, x, y, lab, on, press, o) {
+  const t = wsSan(lab);
+  return wC(P, Object.assign({ id, act, kind: 'radio', x, y, w: 8 + wsLen(t), h: 7, lab: t, on: !!on, fn: { press } }, o || {}));
+}
+/* a row of radio buttons over one value; returns the x after the last */
+function wRadios(P, idp, act, x, y, labels, isOn, set, o) {
+  labels.forEach((l, i) => { const r = wRadio(P, idp + '.' + i, act, x, y, l, isOn(i), () => set(i), o); x += r.w + 8; });
+  return x;
+}
+/* a MAW switch as radios: the key's values are `map` (the DOM pills' map) */
+function wSwitch(P, key, x, y, labels, map, o) {
+  return wRadios(P, 'r.' + key, 'param-set', x, y, labels, i => !!BASE && getp(BASE, key) === (map ? map[i] : i), i => write(key, map ? map[i] : i), Object.assign({ key }, o || {}));
+}
+function wCheck(P, id, act, x, y, lab, on, press, o) {
+  const t = wsSan(lab);
+  return wC(P, Object.assign({ id, act, kind: 'check', x, y, w: 10 + wsLen(t), h: 7, lab: t, on: !!on, fn: { press } }, o || {}));
+}
+function wBtn(P, id, act, x, y, w, lab, press, o) { return wC(P, Object.assign({ id, act, kind: 'btn', x, y, w, h: 9, lab: wsFit(lab, w - 4), fn: { press } }, o || {})); }
+/* a CYCLE (◄ value ►) over a list: n options, the current index, and select(i) */
+function wCyc(P, id, act, x, y, w, n, idx, txt, select, o) {
+  const at = i => select(((i % n) + n) % n);
+  return wC(P, Object.assign({ id, act, kind: 'cycle', x, y, w, h: 9, txt: wsFit(txt, w - 16), n, idx,
+    fn: { get: () => n > 1 ? idx / (n - 1) : 0, set: q => at(Math.round(clamp(q, 0, 1) * (n - 1))), step: d => at(idx + d),
+      prev: () => at(idx - 1), next: () => at(idx + 1) } }, o || {}));
+}
+function wKey(P, j, lab, act, press, o) { P.keys[j] = Object.assign({ lab, act, press }, o || {}); }
+const wFaceKey = (P, j) => wKey(P, j, 'FACE', 'nav', () => wsGo('face'));
+const wPlayKey = (P, j) => wKey(P, j, AUD.playing ? 'STOP' : 'PLAY', 'play', () => setPlay(!AUD.playing), { on: AUD.playing });
+/* the visualisers: draw-only, and each reads what MAW RENDERED (L0064), at the playhead */
+function snapIndex(out, ph) { return clamp(Math.floor(ph / SNAP_N) - 1, 0, out.snaps.length - 1); }
+function wCurve(P, V, k, x, y, w, h) {
+  const out = V.out, ok = !!(out && out.snaps && out.snaps.length), si = ok ? snapIndex(out, V.ph) : -1, sn = ok ? out.snaps[si][k] : null;
+  return wC(P, { id: 'viz.tr' + k + '.' + P.ctrls.length, kind: 'curve', nf: true, x, y, w, h, k, si, ys: sn ? sn.ys : null, on: sn ? sn.on : false, band: sn ? sn.band : 0 });
+}
+function wViz(P, V, kind, x, y, w, h) {
+  const out = V.out;
+  return wC(P, { id: 'viz.' + kind, kind, nf: true, x, y, w, h, out, src: SRC, ph: V.ph, P: RES,
+    cur: out && out.trace ? clamp(Math.floor(V.ph / BLOCK), 0, out.trace.g[0].length - 1) : 0 });
+}
+/* a scrolling LIST of rows (the visible window follows the focus); a scroll bar when it overflows */
+function wList(P, V, id, items, x, y, w, n) {
+  const fi = items.findIndex(it => it.id === V.fid), top = Math.max(0, items.length - n);
+  let s = clamp(V.scroll[id] || 0, 0, top);
+  if (fi >= 0 && fi < s) s = fi; if (fi >= s + n) s = fi - n + 1;
+  if (V.live) WSG.scroll[id] = s;
+  items.forEach((it, i) => wC(P, { id: it.id, act: it.act, kind: 'row', x, y: y + (i - s) * 9, w, h: 9, vy: y + i * 9, hid: i < s || i >= s + n,
+    txt: wsFit(it.txt, w - 12), on: !!it.on, name: it.name, fn: { press: it.press } }));
+  if (items.length > n) {
+    const sx = x + w + 3;
+    wC(P, { id: id + '.up', kind: 'ck', dir: 'up', x: sx, y, w: 9, h: 9, fn: { press: () => { WSG.scroll[id] = Math.max(0, s - n); } } });
+    wC(P, { id: id + '.dn', kind: 'ck', dir: 'down', x: sx, y: y + (n - 1) * 9, w: 9, h: 9, vy: y + items.length * 9, fn: { press: () => { WSG.scroll[id] = Math.min(top, s + n); } } });
+    wC(P, { id: id + '.bar', kind: 'sbar', nf: true, x: sx, y: y + 10, w: 9, h: (n - 2) * 9 - 2, t: top ? s / top : 0, f: n / items.length });
+  }
+  return s;
+}
+/* a role's readout, the DOM's (slotReadout), wrapped to the column */
+function wsRoleLines(r) { return wsWrap(slotReadout(r) || '', 68, 4); }
+
+/* ---- THE PAGES (content x 4..314, y 26..228; three field columns at x 7, 110, 213) ---- */
+const WCOL = [7, 110, 213], WFW = 98;
+function wFields(P, keys, y, o) { keys.forEach((k, i) => { if (k) wField(P, k, WCOL[i % 3], y + Math.floor(i / 3) * 13, WFW, o); }); return y + Math.ceil(keys.length / 3) * 13; }
+function wStageRadios(P, x, y, act) { return wRadios(P, 'sel.s', 'ui', x, y, ['S1', 'S2', 'S3'], i => i === WSG.stage, i => { WSG.stage = i; }, act || {}); }
+const WSPAGES = {
+  /* the FACE (home): the logo, the preset, the route, the three stages with their live curves, the
+     four roles' tiers and readouts (their values are the role sliders over the soft keys);
+     soft keys S1 S2 S3 ROUTE, the workshop's MAW contract (B322) */
+  face(P, V) {
+    P.title = 'MAW - ' + presetShort(LAB.preset); P.logo = true;
+    wText(P, 112, 30, 'MULTI-STAGE SATURATOR - FX-C');
+    wText(P, 112, 41, 'PRESET');
+    const pi = Math.max(0, PRESET_NAMES.indexOf(LAB.preset));
+    wCyc(P, 'preset', 'preset-load', 140, 39, 146, PRESET_NAMES.length, pi, presetShort(LAB.preset), i => loadPreset(PRESET_NAMES[i]), { name: 'PRESET' });
+    wText(P, 112, 51, wsFit((SRC ? SRC.kind.toUpperCase() : '-') + ' ' + noteName(LAB.note) + (LAB.chord ? ' CHORD' : '') + (AUD.playing ? ' - PLAYING' : ' - STOPPED') + (LAB.bypass ? ' - BYPASSED' : ''), 180));
+    wText(P, 8, 61, 'ROUTE');
+    wSwitch(P, 'route', 34, 60, ROUTES.map(r => r.toUpperCase()));
+    for (let i = 0; i < 3; i++) {
+      const bx = 7 + i * 102, by = 72, s = BASE.stages[i], k = 'stages.' + i + '.';
+      wC(P, { id: 'frame' + i, kind: 'frame', nf: true, x: bx, y: by, w: 96, h: 82 });
+      wCheck(P, 'st.on.' + i, 'param-set', bx + 4, by + 4, 'S' + (i + 1) + ' ON', s.on, () => write(k + 'on', !BASE.stages[i].on), { key: k + 'on' });
+      wText(P, bx + 38, by + 5, wsFit(cname(s.a) + (s.morph > 0 ? '>' + cname(s.b) : ''), 56));
+      wCurve(P, V, i, bx + 4, by + 14, 88, 36);
+      wField(P, k + 'drive', bx + 4, by + 54, 88, { ghost: !s.on });
+      wBtn(P, 'edit' + i, 'nav', bx + 4, by + 69, 88, 'EDIT S' + (i + 1) + ' >', () => wsGo('stage', { stage: i }));
+    }
+    ROLES.forEach((r, j) => {
+      const x = j * 80 + 5, g = SLOTS[r].tier === 'global';
+      wText(P, x, 158, r.toUpperCase() + ' - ' + SLOT_DEF[r].label.toUpperCase());
+      wBtn(P, 'tier.' + r, 'slot-tier', x, 165, 68, g ? 'GLOBAL' : 'CORNER', () => setTier(r, SLOTS[r].tier === 'global' ? 'corner' : 'global'), { role: r, on: g });
+      wsRoleLines(r).forEach((l, n) => wText(P, x, 177 + n * 7, l));
+    });
+    wText(P, 8, 210, OUT ? wsFit('OUT PEAK ' + dB(OUT.pk).toFixed(1) + ' DBFS - RMS ' + dB(OUT.rms).toFixed(1) + ' - CLAMP HITS ' + OUT.hits + (OUT.bad ? ' - ' + OUT.bad + ' NON-FINITE' : ''), 300) : 'RENDERING');
+    const ok = AUDIT.rows.filter(r => r.ok).length;
+    wText(P, 8, 218, wsFit('SELF-CHECK ' + ok + '/' + AUDIT.rows.length + ' - FIDELITY ' + (FID.text ? FID.pass + ' PASS ' + FID.fail + ' FAIL' : '-') + ' - IDS UNALLOCATED (ADR-186)', 300));
+    for (let i = 0; i < 3; i++) wKey(P, i, 'S' + (i + 1), 'nav', () => wsGo('stage', { stage: i }));
+    wKey(P, 3, 'ROUTE', 'nav', () => wsGo('route'));
+  },
+  /* one stage's transfer, large, read from the rendering instance at the playhead */
+  transfer(P, V) {
+    const k = WSG.stage, s = RES.stages[k], kk = 'stages.' + k + '.';
+    P.title = 'TRANSFER - S' + (k + 1) + ' ' + cname(s.a);
+    wText(P, 8, 30, 'STAGE'); wStageRadios(P, 34, 29);
+    wCurve(P, V, k, 8, 40, 200, 160);
+    let y = 42;
+    const lines = [s.on ? 'CURVE ' + cname(s.a) : 'STAGE OFF', s.morph > 0 ? '> ' + cname(s.b) + ' ' + fPct(s.morph) : 'NO MORPH', 'DRIVE ' + fDb(s.drive),
+      s.ft ? ['', 'LP', 'BP', 'HP'][s.ft] + ' ' + fHz(s.cut) + (s.fpos ? ' POST' : ' PRE') : 'TONE FILTER OFF'];
+    const al = FID.alias[CURVES[s.a]]; if (al) lines.push('ALIAS 2X ' + al.x2 + ' DB', al.ad2 !== '—' ? 'ADAA 2X ' + al.ad2 + ' DB' : 'NO ADAA FORM');
+    for (const l of lines) { wText(P, 214, y, wsFit(l, 96)); y += 8; }
+    [kk + 'shape', kk + 'morph', kk + 'bias', kk + 'mix'].forEach((key, i) => wField(P, key, 214, 113 + i * 13, 96, { ghost: !s.on }));
+    wField(P, kk + 'drive', 214, 100, 96, { ghost: !s.on });
+    wText(P, 8, 205, 'READ FROM THE RENDERING INSTANCE AT THE PLAYHEAD');
+    wText(P, 8, 213, 'BAND = WHERE THE SIGNAL SITS (+-ITS INPUT FOLLOWER)');
+    wText(P, 8, 221, 'PLAYHEAD ' + (V.ph / SR).toFixed(2) + ' S - ' + (V.ph < OFF_N ? 'NOTE HELD' : 'RELEASE') + (AUD.playing ? ' - PLAYING' : ' - ANALYSIS POINT'));
+    for (let i = 0; i < 3; i++) wKey(P, i, 'S' + (i + 1), 'ui', () => { WSG.stage = i; }, { on: i === k });
+    wFaceKey(P, 3);
+  },
+  spectrum(P, V) {
+    P.title = 'SPECTRUM + SCOPE';
+    wViz(P, V, 'spec', 8, 30, 302, 110);
+    wViz(P, V, 'scope', 8, 146, 302, 60);
+    wText(P, 8, 211, OUT ? wsFit('OUT PEAK ' + dB(OUT.pk).toFixed(1) + ' DBFS - RMS ' + dB(OUT.rms).toFixed(1) + ' - CLAMP HITS ' + OUT.hits, 300) : 'RENDERING');
+    wText(P, 8, 219, 'HANN 8192 AT THE ANALYSIS POINT - DOTS = RACK INPUT, LINE = MAW OUT');
+    wKey(P, 0, 'TRANSFER', 'nav', () => wsGo('transfer')); wKey(P, 1, 'LEVELS', 'nav', () => wsGo('levels')); wPlayKey(P, 2); wFaceKey(P, 3);
+  },
+  levels(P, V) {
+    P.title = 'LEVELS - DRIVE PER STAGE';
+    wViz(P, V, 'meter', 8, 30, 302, 150);
+    const T = OUT && OUT.trace, b = T ? clamp(Math.floor(V.ph / BLOCK), 0, T.g[0].length - 1) : 0;
+    for (let k = 0; k < 3; k++) wText(P, 8, 186 + k * 8, wsFit('S' + (k + 1) + ': ' + (!T || !OUT.P.stages[k].on ? 'OFF' : 'GAIN INTO THE CURVE ' + fDb(T.g[k][b]) + ' - MAKEUP ' + fDb(T.comp[k][b])), 300));
+    wText(P, 8, 212, 'LINE = GAIN INTO THE CURVE - DOTS = AUTO-GAIN MAKEUP');
+    wText(P, 8, 220, 'GREY = STAGE LEVEL - | = PLAYHEAD - : = NOTE OFF');
+    wKey(P, 0, 'TRANSFER', 'nav', () => wsGo('transfer')); wKey(P, 1, 'SPECTRUM', 'nav', () => wsGo('spectrum')); wPlayKey(P, 2); wFaceKey(P, 3);
+  },
+  route(P, V) {
+    const r = BASE.route, mb = r !== 2, fb = r !== 4;
+    P.title = 'ROUTE - ' + ROUTES[r].toUpperCase();
+    wText(P, 8, 30, 'ROUTE'); wSwitch(P, 'route', 34, 29, ROUTES.map(q => q.toUpperCase()));
+    wViz(P, V, 'topo', 8, 40, 302, 62);
+    wHead(P, 8, 107, 'CROSSOVER (MULTIBAND ROUTE)', mb);
+    wFields(P, ['xo1', 'xo2'], 115, { ghost: mb });
+    wHead(P, 8, 132, 'FEEDBACK (FEEDBACK ROUTE) - SPEC-MAW 6', fb);
+    wText(P, 8, 141, 'TIME FROM'); wSwitch(P, 'fbMode', 48, 140, ['PITCH', 'MS'], null, { ghost: fb });
+    wText(P, 150, 141, 'TAP AFTER'); wSwitch(P, 'fbTap', 190, 140, ['S1', 'S2', 'S3'], null, { ghost: fb });
+    wFields(P, ['fbAmt', 'fbSemi', 'fbMs', 'fbDamp', 'fbHp'], 151, { ghost: fb });
+    wLines(P, 8, 184, 'REGEN, THE FOURTH ROLE, MOVES THE FEEDBACK AMOUNT; ON THE OTHER FOUR ROUTES IT IS IDLE (FX-DESIGN-LAB RULE, OPEN QUESTION 4).', 300, 3);
+    wKey(P, 0, '< ROUTE', 'param-set', () => write('route', (BASE.route + 4) % 5), { key: 'route' });
+    wKey(P, 1, 'ROUTE >', 'param-set', () => write('route', (BASE.route + 1) % 5), { key: 'route' });
+    wKey(P, 2, 'TRANSFER', 'nav', () => wsGo('transfer')); wFaceKey(P, 3);
+  },
+  global(P) {
+    P.title = 'IN - OUT - BEHAVIOUR';
+    wHead(P, 8, 30, 'SPEC-MAW 2.4 2.5 7');
+    wFields(P, ['inGain', 'wet', 'out', 'auto', 'inertia', 'eco', 'flux'], 39);
+    wText(P, 8, 83, 'DRIVE-REF'); wSwitch(P, 'driveRef', 50, 82, ['OFF', 'PEAK'], [0, 1]);
+    wText(P, 8, 95, 'ADAA'); wSwitch(P, 'adaa', 50, 94, ['OFF', 'ON'], [false, true]);
+    wLines(P, 8, 112, 'NOT ON HORDE: TRACKED AUTO-GAIN (D3), PER-STAGE OVERSAMPLING (HORDE RUNS A GLOBAL 2X, SPEC-MAW 10).', 300, 2);
+    wLines(P, 8, 130, 'ECOLOGY WAITS FOR ITS A/B BEFORE A FACE SLOT (ADR-170 A1).', 300, 2);
+    wKey(P, 0, 'TRANSFER', 'nav', () => wsGo('transfer')); wKey(P, 1, 'LEVELS', 'nav', () => wsGo('levels'));
+    wKey(P, 2, 'BYPASS', 'bypass', () => setBypass(!LAB.bypass), { on: LAB.bypass }); wFaceKey(P, 3);
+  },
+  stage(P, V) {
+    const k = WSG.stage, s = BASE.stages[k], kk = 'stages.' + k + '.', off = !s.on, noF = off || !s.ft;
+    P.title = 'STAGE ' + (k + 1) + ' - ' + cname(s.a) + (s.morph > 0 ? ' > ' + cname(s.b) : '');
+    wText(P, 8, 30, 'STAGE'); wStageRadios(P, 34, 29);
+    wSwitch(P, kk + 'on', 150, 29, ['ON', 'OFF'], [true, false]);
+    wText(P, 8, 42, 'CURVE A');
+    wCyc(P, 'cyc.' + kk + 'a', 'param-set', 40, 40, 110, CURVES.length, s.a, cname(s.a), i => write(kk + 'a', i), { key: kk + 'a', ghost: off, name: 'S' + (k + 1) + ' CURVE A' });
+    wText(P, 158, 42, 'B');
+    wCyc(P, 'cyc.' + kk + 'b', 'param-set', 166, 40, 144, CURVES.length, s.b, cname(s.b), i => write(kk + 'b', i), { key: kk + 'b', ghost: off, name: 'S' + (k + 1) + ' CURVE B' });
+    wText(P, 8, 54, 'TONE'); wSwitch(P, kk + 'ft', 34, 53, ['OFF', 'LP', 'BP', 'HP'], null, { ghost: off });
+    wSwitch(P, kk + 'fpos', 170, 53, ['PRE', 'POST'], [0, 1], { ghost: noF });
+    ['morph', 'shape', 'drive', 'bias', 'floor', 'cut', 'res', 'level', 'mix'].forEach((n, i) =>
+      wField(P, kk + n, WCOL[i % 3], 66 + Math.floor(i / 3) * 13, WFW, { ghost: (n === 'cut' || n === 'res') ? noF : off }));
+    wCurve(P, V, k, 8, 110, 150, 96);
+    let y = 112;
+    const al = FID.alias[CURVES[s.a]];
+    for (const l of [s.on ? 'LIVE TRANSFER, READ FROM THE RENDER' : 'STAGE OFF: PASSES THROUGH', 'ROUTE ' + ROUTES[BASE.route].toUpperCase(), al ? 'ALIAS 2X ' + al.x2 + ' DB (FIDELITY 4)' : '', 'DOUBLE-CLICK A FIELD: THE PRESET', 'CURSOR + DATA SLIDER: ANY FIELD']) { if (l) { wText(P, 166, y, wsFit(l, 146)); y += 8; } }
+    for (let i = 0; i < 3; i++) wKey(P, i, 'S' + (i + 1), 'nav', () => wsGo('stage', { stage: i }), { on: i === k });
+    wFaceKey(P, 3);
+  },
+  mod(P) {
+    P.title = 'MODULATION - PROTOTYPE-LOCAL';
+    wHead(P, 8, 30, 'SOURCES');
+    wFields(P, ['envA', 'envR', 'lfoRate'], 39);
+    wHead(P, 8, 57, 'ENVELOPE TO');
+    wFields(P, ['mod.ed', 'mod.ec', 'mod.em'], 65);
+    wHead(P, 8, 83, 'LFO TO');
+    wFields(P, ['mod.ld', 'mod.lc', 'mod.lb'], 91);
+    wLines(P, 8, 112, 'HORDE\'S MOD MATRIX REPLACES THESE SOURCES (SPEC-MAW 7); THEY ARE THE PROTOTYPE\'S, KEPT SO THE PRESETS SOUND AS AUTHORED.', 300, 3);
+    wKey(P, 0, 'TRANSFER', 'nav', () => wsGo('transfer')); wKey(P, 1, 'LEVELS', 'nav', () => wsGo('levels')); wPlayKey(P, 2); wFaceKey(P, 3);
+  },
+  input(P) {
+    P.title = 'RACK INPUT';
+    wText(P, 8, 30, 'SOURCE');
+    wRadios(P, 'src', 'source', 40, 29, SOURCES.map(s => s[1]), i => LAB.src === SOURCES[i][0], i => setSrc(SOURCES[i][0]));
+    SOURCES.forEach(([k], i) => { const c = P.ctrls.find(q => q.id === 'src.' + i); if (c) c.dis = (k === 'saw' || k === 'scalpel') && !ENGINE.C; });
+    wText(P, 8, 43, 'NOTE');
+    const NOTES = [33, 40, 45, 52, 57];
+    const x = wRadios(P, 'note', 'note', 40, 42, ['A1', 'E2', 'A2', 'E3', 'A3'], i => LAB.note === NOTES[i], i => setNote(NOTES[i]));
+    wCheck(P, 'chord', 'chord', x + 6, 42, 'CHORD', LAB.chord, () => setChord(!LAB.chord));
+    wText(P, 8, 56, 'PATCH');
+    const L = ENGINE.presets || [], pi = Math.max(0, L.findIndex(p => p.name === LAB.sp));
+    wCyc(P, 'patch', 'scalpel-patch', 40, 54, 220, Math.max(1, L.length), pi, L.length ? LAB.sp : 'NO SCALPEL PRESETS', i => { if (L[i]) setPatch(L[i].name); }, { dis: !L.length, name: 'SCALPEL PATCH' });
+    wBtn(P, 'patch.list', 'nav', 266, 54, 44, 'LIST...', () => wsGo('patches'));
+    wBtn(P, 'play', 'play', 8, 70, 50, AUD.playing ? 'STOP' : 'PLAY', () => setPlay(!AUD.playing), { on: AUD.playing });
+    wCheck(P, 'bypass', 'bypass', 70, 71, 'BYPASS THE SLOT (THE RACK INPUT, UNTOUCHED)', LAB.bypass, () => setBypass(!LAB.bypass));
+    let y = 90;
+    if (SRC) { y = wLines(P, 8, y, SRC.label, 300, 2); y = wLines(P, 8, y, 'NOTES ' + SRC.notes.join(' ') + ' - NORMALISED TO 0.5 PEAK, THE AUTO-GAIN REFERENCE (SPEC-MAW 2.4)', 300, 2); }
+    if (LAB.srcNote) y = wLines(P, 8, y + 2, 'FALLBACK: ' + LAB.srcNote, 300, 3);
+    if (ENGINE.err) wLines(P, 8, y + 2, 'ENGINE: ' + ENGINE.err, 300, 3);
+    wPlayKey(P, 0); wKey(P, 1, 'BYPASS', 'bypass', () => setBypass(!LAB.bypass), { on: LAB.bypass });
+    wKey(P, 2, 'PATCHES', 'nav', () => wsGo('patches')); wFaceKey(P, 3);
+  },
+  presets(P, V) {
+    P.title = 'MAW PRESETS - ' + PRESET_NAMES.length;
+    wList(P, V, 'pre', PRESET_NAMES.map((n, i) => ({ id: 'pre.' + i, act: 'preset-load', txt: (n === LAB.preset ? '> ' : '  ') + n, on: n === LAB.preset, name: n, press: () => loadPreset(n) })), 8, 30, 290, 18);
+    wLines(P, 8, 200, 'ENTER OR CLICK LOADS A PRESET; THE FOUR ROLES GO HOME, WHICH REPRODUCES IT EXACTLY (SELF-CHECK 5).', 300, 3);
+    wKey(P, 0, 'PREV', 'preset-load', () => stepPreset(-1)); wKey(P, 1, 'NEXT', 'preset-load', () => stepPreset(1));
+    wKey(P, 2, 'REVERT', 'preset-load', () => loadPreset(LAB.preset)); wFaceKey(P, 3);
+  },
+  patches(P, V) {
+    const L = ENGINE.presets || [];
+    P.title = 'SCALPEL PATCHES - ' + L.length;
+    if (!L.length) wLines(P, 8, 30, 'NO SCALPEL PRESETS: ' + (ENGINE.perr || 'SERVE THE REPO (PYTHON3 TOOLS/SERVE_LABS.PY)'), 300, 3);
+    const s = wList(P, V, 'sp', L.map((p, i) => ({ id: 'sp.' + i, act: 'scalpel-patch', txt: (p.name === LAB.sp ? '> ' : '  ') + p.category + ': ' + p.name, on: p.name === LAB.sp, name: p.name, press: () => setPatch(p.name) })), 8, 30, 290, 20);
+    wText(P, 8, 214, L.length ? wsFit((s + 1) + '-' + Math.min(L.length, s + 20) + ' OF ' + L.length + (LAB.src === 'scalpel' ? ' - PLAYING AS THE RACK INPUT' : ' - HEARD WHEN THE SOURCE IS SCALPEL PATCH'), 300) : '');
+    wKey(P, 0, 'PREV', 'scalpel-patch', () => stepPatch(-1), { dis: !L.length }); wKey(P, 1, 'NEXT', 'scalpel-patch', () => stepPatch(1), { dis: !L.length });
+    wKey(P, 2, 'INPUT', 'nav', () => wsGo('input')); wFaceKey(P, 3);
+  },
+  info(P) {
+    P.title = 'INFO - THE DAW - THE CHECKS';
+    wHead(P, 8, 30, 'THE DAW SEES (FROM MAW)');
+    let y = 39;
+    ROLES.forEach(r => { if (SLOTS[r].tier !== 'global') return; wText(P, 8, y, wsFit('FX' + (HOST + 1) + ' ' + r + ' - ID UNALLOCATED - LABEL ' + SLOT_DEF[r].label + ' IS UI-ONLY', 300)); y += 8; });
+    const n = ROLES.filter(r => SLOTS[r].tier === 'global').length;
+    y = wLines(P, 8, y, n + ' OF 4 SLOTS EXPOSED; CORNER-TIER SLOTS ARE HIDDEN (SPEC-MODULE-MACROS 6). IDS COME FROM HORDE 2\'S MANIFEST (ADR-186), NOT FROM A LAB.', 300, 3);
+    wHead(P, 8, y + 4, 'MAW\'S FIDELITY REPORT'); y += 13;
+    y = wLines(P, 8, y, FID.text ? FID.pass + ' PASS - ' + FID.fail + ' FAIL: THE FAIL IS SECTION 7\'S DELIBERATE CONTROL (BLOCK-HELD COEFFICIENTS STAIRCASE; THE CORE INTERPOLATES).' : (FID.err || 'LOADING'), 300, 3);
+    wHead(P, 8, y + 4, 'SELF-CHECKS'); y += 13;
+    const ok = AUDIT.rows.filter(r => r.ok).length, ctl = AUDIT.rows.reduce((a, r) => a + r.ctl.length, 0), cau = AUDIT.rows.reduce((a, r) => a + r.ctl.filter(c => c.caught).length, 0);
+    y = wLines(P, 8, y, ok + '/' + AUDIT.rows.length + ' PASS, ' + cau + '/' + ctl + ' MUST-FAIL CONTROLS CAUGHT (THE LIST IS ABOVE THE WINDOW).', 300, 2);
+    wHead(P, 8, y + 4, 'THIS SCREEN'); y += 13;
+    wLines(P, 8, y, 'THE 80S WORKSTATION GLASS OF FX-SCREENS-WORKSHOP (B322) WITH B326\'S LOGO; A WORKSHOP, NOT A RULING.', 300, 3);
+    wKey(P, 0, 'SPECTRUM', 'nav', () => wsGo('spectrum')); wKey(P, 1, 'LEVELS', 'nav', () => wsGo('levels'));
+    wKey(P, 2, 'PRESETS', 'nav', () => wsGo('presets')); wFaceKey(P, 3);
+  }
+};
+const noteName = n => ({ 33: 'A1', 40: 'E2', 45: 'A2', 52: 'E3', 57: 'A3' })[n] || String(n);
+
+/* ---- the MENU BAR (fx-screens-workshop.html :1221-1225's bar, its titles made controls) ---- */
+function wsMenus() {
+  return [
+    { t: '*', items: [['ABOUT MAW...', 'nav', () => wsGo('info')], ['SELF-CHECKS...', 'nav', () => wsGo('info')]] },
+    { t: 'FILE', items: [['OPEN PRESET...', 'nav', () => wsGo('presets')], ['NEXT PRESET', 'preset-load', () => stepPreset(1)],
+      ['PREVIOUS PRESET', 'preset-load', () => stepPreset(-1)], ['REVERT TO PRESET', 'preset-load', () => loadPreset(LAB.preset)]] },
+    { t: 'PAGE', items: WS_PAGES.map(([pg, lab, st]) => [lab, 'nav', () => wsGo(pg, st === undefined ? null : { stage: st }), wsPageKey(WSG.page, WSG.stage) === wsPageKey(pg, st === undefined ? 0 : st)]) },
+    { t: 'INPUT', items: SOURCES.map(([k, t]) => [t, 'source', () => setSrc(k), LAB.src === k, (k === 'saw' || k === 'scalpel') && !ENGINE.C])
+      .concat([['CHORD', 'chord', () => setChord(!LAB.chord), LAB.chord], ['SCALPEL PATCH...', 'nav', () => wsGo('patches')], ['RACK INPUT...', 'nav', () => wsGo('input')]]) },
+    { t: 'AUDIO', items: [[AUD.playing ? 'STOP' : 'PLAY', 'play', () => setPlay(!AUD.playing)], ['BYPASS THE SLOT', 'bypass', () => setBypass(!LAB.bypass), LAB.bypass]] },
+    { t: 'VIEW', items: [['LIGHT (ORCHID)', 'theme', () => setTheme('light'), LAB.theme !== 'dark'], ['DARK (TUBE)', 'theme', () => setTheme('dark'), LAB.theme === 'dark']] }
+  ];
+}
+function wsMenuCtrls(V, menus) {
+  const out = []; let x = 6;
+  menus.forEach((m, i) => {
+    const t = wsSan(m.t), w = wsLen(t);
+    out.push({ id: 'mt.' + i, act: 'nav', kind: 'menu', mi: i, x: x - 3, y: 1, w: w + 6, h: 10, vy: -1e4, lab: t, open: V.menu === i, fn: {} });
+    x += w + (i ? 9 : 12);
+  });
+  if (V.menu >= 0 && menus[V.menu]) {
+    const m = menus[V.menu], t = out[V.menu], mw = Math.max(...m.items.map(it => wsLen(wsSan(it[0])))) + 20, mx = Math.min(t.x, WS_W - 2 - mw - 2);
+    out.push({ id: 'mdrop', kind: 'drop', nf: true, x: mx, y: 12, w: mw, h: m.items.length * 9 + 3 });
+    m.items.forEach((it, j) => out.push({ id: 'mi.' + V.menu + '.' + j, act: it[1], kind: 'mitem', mi: V.menu, x: mx + 1, y: 13 + j * 9, w: mw - 2, h: 9, vy: -1e4 + 13 + j * 9,
+      lab: wsSan(it[0]), check: !!it[3], dis: !!it[4], fn: { press: it[2] } }));
+  }
+  return out;
+}
+/* ---- the DATA-ENTRY strip: the data slider, − + HOME on the cursor, and the four cursor keys ---- */
+function wsDataCtrls(cur) {
+  const idle = !cur, act = cur ? cur.act : 'ui', Y1 = 234, Y2 = 244, dv = 1e4;
+  const rst = !cur ? 'ui' : cur.role ? 'slot-reset' : cur.act === 'param-set' ? 'param-reset' : cur.act;
+  const D = (o) => Object.assign({ data: true, fn: {} }, o, { vy: o.y + dv });
+  return [
+    D({ id: 'data.sl', act, kind: 'dslider', x: 6, y: Y2, w: 184, h: 9, tx: 8, tw: 180, ty: Y2 + 2, v: cur ? cur.fn.get() : 0, dis: idle,
+      fn: { get: () => cur.fn.get(), set: q => cur.fn.set(q), step: (d, fine) => cur.fn.step(d, fine) } }),
+    D({ id: 'data.dec', act, kind: 'btn', x: 196, y: Y1, w: 13, h: 9, lab: '-', dis: idle, fn: { press: () => cur.fn.step(-1, false) } }),
+    D({ id: 'data.inc', act, kind: 'btn', x: 211, y: Y1, w: 13, h: 9, lab: '+', dis: idle, fn: { press: () => cur.fn.step(1, false) } }),
+    D({ id: 'data.home', act: rst, kind: 'btn', x: 226, y: Y1, w: 26, h: 9, lab: 'HOME', dis: idle || !cur.fn.reset, fn: { press: () => cur.fn.reset() } }),
+    D({ id: 'ck.u', kind: 'ck', dir: 'up', x: 279, y: Y1, w: 11, h: 9, fn: { press: () => wsCursor('up') } }),
+    D({ id: 'ck.l', kind: 'ck', dir: 'left', x: 266, y: Y2, w: 11, h: 9, fn: { press: () => wsCursor('left') } }),
+    D({ id: 'ck.d', kind: 'ck', dir: 'down', x: 279, y: Y2, w: 11, h: 9, fn: { press: () => wsCursor('down') } }),
+    D({ id: 'ck.r', kind: 'ck', dir: 'right', x: 292, y: Y2, w: 11, h: 9, fn: { press: () => wsCursor('right') } })
+  ];
+}
+/* ---- the SOFT STRIP (fx-screens-workshop.html :1226-1235): the four roles over the four soft keys ---- */
+function wsSoftCtrls(P) {
+  const out = [];
+  ROLES.forEach((r, j) => {
+    const d = SLOT_DEF[r], v = SLOTS[r].v, idle = !!(d.idle && RES && d.idle(RES)), x = j * 80;
+    out.push({ id: 'role.' + j, act: 'slot-value', kind: 'slider', role: r, soft: true, x: x + 2, y: 257, w: 76, h: 17, vy: 257 + 1e4, tx: x + 5, tw: 70, ty: 267,
+      lab: r.toUpperCase(), txt: idle ? 'IDLE' : v === d.home ? 'HOME' : f2(v), v, idle, name: wsSan(r + ' - ' + d.label),
+      fn: { get: () => SLOTS[r].v, set: q => setSlot(r, q), step: (dd, fine) => setSlot(r, SLOTS[r].v + dd * (fine ? WS_FINE : WS_STEP)), reset: () => resetSlot(r) } });
+  });
+  for (let j = 0; j < 4; j++) {
+    const k = P.keys[j] || { lab: '', act: 'ui' };
+    out.push({ id: 'key' + j, act: k.act, kind: 'key', key: k.key, x: j * 80 + 18, y: 277, w: 44, h: 9, vy: 277 + 1e4, lab: wsFit(k.lab, 40), on: !!k.on, dis: !!k.dis || !k.press, fn: { press: k.press } });
+  }
+  return out;
+}
+const wsAdjustable = c => !!c && !c.dis && (c.kind === 'field' || c.kind === 'slider' || c.kind === 'cycle' || c.kind === 'dslider');
+
+/* ---- THE VM: one per frame, from the live state (o overrides the navigation for the checks) ---- */
+function wsPlayhead() { return AUD.playing ? playSample() : (SRC ? SRC.a + FFT_N / 2 : 0); }
+function wsVM(o) {
+  o = o || {};
+  const V = { page: o.page || WSG.page, stage: o.stage !== undefined ? o.stage : WSG.stage, menu: o.menu !== undefined ? o.menu : WSG.menu,
+    fid: o.fid !== undefined ? o.fid : WSG.fid, hover: o.hover !== undefined ? o.hover : WSG.hover, cur: o.cur !== undefined ? o.cur : WSG.cur,
+    out: o.out || OUT, ph: o.ph !== undefined ? o.ph : wsPlayhead(), live: !!o.live, scroll: o.scroll || WSG.scroll };
+  const keepSt = WSG.stage; WSG.stage = V.stage;          // the pages read WSG.stage: a check's VM borrows it
+  const P = { page: V.page, title: '', ctrls: [], keys: [], logo: false };
+  try {
+    if (BASE && RES) (WSPAGES[V.page] || WSPAGES.face)(P, V);
+    else { P.title = 'MAW'; wLines(P, 10, 40, LIB ? 'LOADING MAW' : 'MAW CORE ABSENT: ' + (LIB_ERR || 'REFERENCE/MAW/CORE.JS DID NOT LOAD'), 290, 4); }
+  } finally { WSG.stage = keepSt; }
+  const menus = wsMenus(), mc = wsMenuCtrls(V, menus), titles = mc.filter(c => c.kind === 'menu'), items = mc.filter(c => c.kind === 'mitem');
+  const soft = wsSoftCtrls(P), body = P.ctrls;
+  const cur = V.cur ? body.concat(soft).find(c => c.id === V.cur && wsAdjustable(c)) || null : null;
+  const data = wsDataCtrls(cur);
+  const ctrls = mc.concat(body, data, soft), byId = {};
+  for (const c of ctrls) byId[c.id] = c;
+  const open = V.menu >= 0 && items.length > 0;
+  const vis = open ? items.concat(titles) : ctrls.filter(c => !c.nf && !c.hid && c.kind !== 'mitem');
+  const order = open ? titles.concat(items) : titles.concat(body.filter(c => !c.nf), data, soft);
+  const vm = { page: V.page, stage: V.stage, title: P.title, logo: P.logo, keys: P.keys, menu: open ? V.menu : -1, menus, ctrls, vis, order, byId, cur,
+    focus: byId[V.fid] && !byId[V.fid].nf ? V.fid : '', hover: byId[V.hover] ? V.hover : '', ph: V.ph,
+    status: (AUD.playing ? 'PLAY ' : '') + (LAB.bypass ? 'BYPASS ' : '') + 'MAW' };
+  for (const c of ctrls) { c.focus = c.id === vm.focus; c.hov = c.id === vm.hover && !c.focus; c.cursor = !!cur && c === cur; }
+  return vm;
+}
+
+/* ---- DRAWING (greys, then the one-bit dither of fx-screens-workshop.html :1317-1328) ---- */
+function wsRow(v, y, h) { return Math.round(y + 1 + (h - 3) / 2 - clamp(v, -1.25, 1.25) / 1.25 * ((h - 3) / 2)); }
+function wsInterp(ys, i, w) { const t = i / (w - 1) * (ys.length - 1), a = Math.floor(t), b = Math.min(ys.length - 1, a + 1); return ys[a] + (ys[b] - ys[a]) * (t - a); }
+/* the rendered transfer as whole pixels: after wsCurve, :1208-1220 (a column per pixel, joined
+   vertically, two rows thick), read from `ys`, the stage's own curve at the playhead */
+function wsPlotCurve(g, ys, x, y, w, h, dotted) {
+  let py = null; g.fillStyle = K;
+  for (let i = 0; i < w; i++) {
+    const yy = wsRow(wsInterp(ys, i, w), y, h);
+    if (dotted) { if ((i & 1) === 0) g.fillRect(x + i, yy, 1, 1); py = yy; continue; }
+    if (py !== null) g.fillRect(x + i, Math.min(py, yy), 1, Math.abs(py - yy) + 1); else g.fillRect(x + i, yy, 1, 1);
+    if (yy + 1 < y + h - 1) g.fillRect(x + i, yy + 1, 1, 1);
+    py = yy;
+  }
+}
+function wsDrawCurve(g, c) {
+  const { x, y, w, h } = c;
+  g.fillStyle = W; g.fillRect(x, y, w, h);
+  if (!c.ys) { wsCText(g, LIB ? 'RENDERING' : 'NO CORE', x + (w >> 1), y + (h >> 1) - 2); wsBox(g, x, y, w, h); return; }
+  if (c.on) {                              // where the signal sits: ±the stage's own input follower
+    const b = clamp(c.band, 0, 1); g.fillStyle = '#D0D0D0';
+    for (let i = 1; i < w - 1; i++) if (Math.abs(-1 + 2 * i / (w - 1)) <= b) g.fillRect(x + i, y + 1, 1, h - 2);
+  }
+  const r0 = wsRow(0, y, h), cx = x + ((w - 1) >> 1);
+  wsLine(g, x + 1, r0, x + w - 2, r0, true); wsLine(g, cx, y + 1, cx, y + h - 2, true);
+  wsLine(g, x + 1, wsRow(-1, y, h), x + w - 2, wsRow(1, y, h), true);
+  for (const v of [1, -1]) { const r = wsRow(v, y, h); g.fillStyle = K; g.fillRect(x + 1, r, 3, 1); g.fillRect(x + w - 4, r, 3, 1); }
+  wsPlotCurve(g, c.ys, x, y, w, h, !c.on);
+  wsBox(g, x, y, w, h);
+  const t = 'S' + (c.k + 1) + (c.on ? '' : ' OFF'); g.fillStyle = W; g.fillRect(x + 2, y + 2, wsLen(t) + 2, 7); wsText(g, t, x + 3, y + 3, K);
+}
+function wsDrawSpec(g, c) {
+  const { x, y, w, h } = c; g.fillStyle = W; g.fillRect(x, y, w, h); wsBox(g, x, y, w, h);
+  const A = c.src && c.src.spec, B = c.out && c.out.spec;
+  if (!A || !B) { wsCText(g, 'RENDERING', x + (w >> 1), y + (h >> 1) - 2); return; }
+  const f0 = 20, f1 = 20000, d0 = -100, d1 = 0, pl = 18, pb = 9, pw = w - pl - 3, binHz = SR / FFT_N;
+  const X = f => Math.round(x + pl + Math.log(f / f0) / Math.log(f1 / f0) * pw), Y = d => Math.round(y + 2 + (d1 - clamp(d, d0, d1)) / (d1 - d0) * (h - 4 - pb));
+  for (const [f, t] of [[100, '100'], [1000, '1K'], [10000, '10K']]) { wsLine(g, X(f), y + 2, X(f), y + h - pb, true); wsText(g, t, X(f) - (wsLen(t) >> 1), y + h - 7, K); }
+  for (let d = -20; d > d0; d -= 20) { wsLine(g, x + pl, Y(d), x + w - 3, Y(d), true); if (d % 40 === 0 || d === -20) wsText(g, String(d), x + 2, Y(d) - 2, K); }
+  const col = (m, px) => {
+    const fa = f0 * Math.pow(f1 / f0, (px - x - pl) / pw), fb = f0 * Math.pow(f1 / f0, (px + 1 - x - pl) / pw);
+    const ia = Math.max(1, Math.floor(fa / binHz)), ib = Math.max(ia, Math.min(m.length - 1, Math.floor(fb / binHz)));
+    let v = -200; for (let i = ia; i <= ib; i++) v = Math.max(v, m[i]); return Y(v);
+  };
+  g.fillStyle = K;
+  for (let px = x + pl; px < x + w - 3; px += 2) g.fillRect(px, col(A, px), 1, 1);            // the rack input: dots
+  let py = null;
+  for (let px = x + pl; px < x + w - 3; px++) { const yy = col(B, px); g.fillRect(px, py === null ? yy : Math.min(py, yy), 1, py === null ? 1 : Math.abs(py - yy) + 1); py = yy; }
+  const lg = 'OUT'; g.fillStyle = W; g.fillRect(x + w - 60, y + 2, 57, 7); wsText(g, 'IN .. ' + lg + ' __', x + w - 58, y + 3, K);
+}
+function wsDrawScope(g, c) {
+  const { x, y, w, h } = c; g.fillStyle = W; g.fillRect(x, y, w, h); wsBox(g, x, y, w, h);
+  const S = c.src, O = c.out; if (!S || !O) { wsCText(g, 'RENDERING', x + (w >> 1), y + (h >> 1) - 2); return; }
+  const tonal = S.kind === 'saw' || S.kind === 'scalpel', per = SR / mtof(Math.min(...S.notes)), span = Math.round(tonal ? 2 * per : 0.012 * SR);
+  let a = S.a;
+  if (tonal) { const m = i => S.L[i] + S.R[i]; for (let i = S.a + 1; i < S.a + per * 2; i++) if (m(i - 1) < 0 && m(i) >= 0) { a = i; break; } }   // paintScope's trigger
+  const mid = y + (h >> 1), Yv = v => Math.round(mid - clamp(v, -1.1, 1.1) / 1.1 * (h / 2 - 3));
+  wsLine(g, x + 1, mid, x + w - 2, mid, true);
+  const at = (L, R, px) => { const i = a + Math.floor((px - x - 2) / (w - 4) * span); return 0.5 * (L[i] + R[i]); };
+  g.fillStyle = K;
+  for (let px = x + 2; px < x + w - 2; px += 2) g.fillRect(px, Yv(at(S.L, S.R, px)), 1, 1);
+  let py = null;
+  for (let px = x + 2; px < x + w - 2; px++) { const yy = Yv(at(O.L, O.R, px)); g.fillRect(px, py === null ? yy : Math.min(py, yy), 1, py === null ? 1 : Math.abs(py - yy) + 1); py = yy; }
+  wsText(g, tonal ? '2 PERIODS' : '12 MS', x + 3, y + 3, K);
+}
+/* the drive meter (paintMeter's lanes): per stage over the loop, the gain into the curve (a line),
+   the auto-gain makeup (dots), the stage's level (grey), the playhead (a solid bar) */
+function wsMeterX(c, b, nb) { return c.x + 16 + Math.round(b / Math.max(1, nb - 1) * (c.w - 19)); }
+function wsDrawMeter(g, c) {
+  const { x, y, w, h } = c; g.fillStyle = W; g.fillRect(x, y, w, h); wsBox(g, x, y, w, h);
+  const T = c.out && c.out.trace; if (!T) { wsCText(g, 'RENDERING', x + (w >> 1), y + (h >> 1) - 2); return; }
+  const nb = T.g[0].length, lh = Math.floor((h - 2) / 3), X = b => wsMeterX(c, b, nb);
+  for (let k = 0; k < 3; k++) {
+    const y0 = y + 1 + k * lh, on = c.out.P.stages[k].on, Yd = d => Math.round(y0 + 2 + (60 - clamp(d, -24, 60)) / 84 * (lh - 5));
+    if (k) wsLine(g, x + 1, y0, x + w - 2, y0, true);
+    g.fillStyle = '#B8B8B8';
+    for (let px = X(0); px <= X(nb - 1); px++) { const b = Math.round((px - X(0)) / Math.max(1, X(nb - 1) - X(0)) * (nb - 1)), lv = clamp((dB(T.env[k][b]) + 48) / 48, 0, 1), hh = Math.round(lv * (lh - 4)); g.fillRect(px, y0 + lh - 1 - hh, 1, hh); }
+    wsLine(g, X(0), Yd(0), X(nb - 1), Yd(0), true);
+    if (on) {
+      g.fillStyle = K;
+      for (let px = X(0); px <= X(nb - 1); px += 2) { const b = Math.round((px - X(0)) / Math.max(1, X(nb - 1) - X(0)) * (nb - 1)); g.fillRect(px, Yd(T.comp[k][b]), 1, 1); }
+      let py = null;
+      for (let px = X(0); px <= X(nb - 1); px++) { const b = Math.round((px - X(0)) / Math.max(1, X(nb - 1) - X(0)) * (nb - 1)), yy = Yd(T.g[k][b]); g.fillRect(px, py === null ? yy : Math.min(py, yy), 1, py === null ? 1 : Math.abs(py - yy) + 1); py = yy; }
+    }
+    wsText(g, 'S' + (k + 1), x + 3, y0 + (lh >> 1) - 2, K);
+    if (!on) wsText(g, 'OFF', x + 3, y0 + (lh >> 1) + 5, K);
+  }
+  wsLine(g, X(OFF_N / BLOCK), y + 1, X(OFF_N / BLOCK), y + h - 2, true);
+  g.fillStyle = K; g.fillRect(X(c.cur), y + 1, 1, h - 2);
+}
+/* fx-design-lab.html :1752-1790's topology layout (via paintTopo), in whole pixels */
+function wsDrawTopo(g, c) {
+  const { x, y, w, h } = c; g.fillStyle = W; g.fillRect(x, y, w, h); wsBox(g, x, y, w, h);
+  const P = c.P; if (!P) return;
+  const r = P.route, on = i => P.stages[i].on, bw = 34, bh = 13, cy = y + (h >> 1) + 4;
+  const box = (bx, by, t, i) => { bx = Math.round(bx - bw / 2); by = Math.round(by - bh / 2); g.fillStyle = W; g.fillRect(bx, by, bw, bh); (on(i) ? wsBox : wsDots)(g, bx, by, bw, bh); if (on(i)) wsBox(g, bx + 1, by + 1, bw - 2, bh - 2); wsCText(g, t, bx + (bw >> 1), by + 4, K); };
+  const wire = pts => { for (let i = 1; i < pts.length; i++) wsLine(g, pts[i - 1][0], pts[i - 1][1], pts[i][0], pts[i][1]); };
+  const xin = x + 16, xout = x + w - 18;
+  wsText(g, 'IN', x + 3, cy - 2, K); wsText(g, 'OUT', xout + 3, cy - 2, K);
+  wsText(g, ROUTES[r].toUpperCase(), x + 4, y + 3, K);
+  const xs = [x + w * 0.3, x + w * 0.5, x + w * 0.7];
+  if (r === 0 || r === 4) {
+    wire([[xin, cy], [xout, cy]]);
+    for (let i = 0; i < 3; i++) box(xs[i], cy, 'S' + (i + 1), i);
+    if (r === 4) {
+      const tx = Math.round(xs[P.fbTap] + bw / 2 + 5), yb = cy + (bh >> 1) + 7, x0 = Math.round(xs[0] - bw / 2 - 7);
+      wire([[tx, cy], [tx, yb], [x0, yb], [x0, cy]]);
+      wsText(g, wsFit('FB ' + fPct(P.fbAmt) + ' - ' + (P.fbMode === 0 ? 'PITCH ' + fSt(P.fbSemi) : fMs(P.fbMs)) + ' - TAP S' + (P.fbTap + 1), 150), x + (w >> 1) + 10, y + 3, K);
+    }
+  } else if (r === 1 || r === 2) {
+    const ys = [cy - 17, cy, cy + 17].map(v => Math.round(v));
+    for (let i = 0; i < 3; i++) wire([[xin, cy], [x + w * 0.38, ys[i]], [x + w * 0.62, ys[i]], [xout, cy]]);
+    for (let i = 0; i < 3; i++) box(x + w * 0.5, ys[i], 'S' + (i + 1), i);
+    if (r === 2) { const x2 = Math.max(P.xo2, P.xo1 * 1.5); wsText(g, wsSan('<' + fHz(P.xo1)), Math.round(x + w * 0.5 + bw / 2 + 4), ys[0] - 2, K); wsText(g, wsSan('>' + fHz(x2)), Math.round(x + w * 0.5 + bw / 2 + 4), ys[2] - 2, K); }
+  } else {
+    const ym = cy - 12, ys2 = cy + 12;
+    wire([[xin, cy], [x + w * 0.3, ym], [x + w * 0.58, cy]]); wire([[xin, cy], [x + w * 0.3, ys2], [x + w * 0.58, cy]]); wire([[x + w * 0.58, cy], [xout, cy]]);
+    box(x + w * 0.36, ym, 'S1 M', 0); box(x + w * 0.36, ys2, 'S2 S', 1); box(x + w * 0.7, cy, 'S3', 2);
+  }
+}
+/* DIMMED (a disabled or idle label): every other pixel knocked back to the ground, the 1-bit grey the
+   period's menus used for a disabled item */
+function wsDim(g, x, y, w, h, bg) { g.fillStyle = bg; for (let j = 0; j < h; j++) for (let i = (j & 1); i < w; i += 2) g.fillRect(x + i, y + j, 1, 1); }
+/* inverse video behind a label: the cursor's and the focus's mark on a value */
+function wsInv(g, x, y, s) { g.fillStyle = K; g.fillRect(x - 1, y - 1, wsLen(s) + 2, 7); wsText(g, s, x, y, W); }
+function wsDrawCtl(g, c) {
+  const inv = c.focus || c.cursor;
+  switch (c.kind) {
+    case 'text': if (c.head) { wsText(g, c.s, c.x, c.y, K); wsLine(g, c.x, c.y + 6, c.x + c.w - 1, c.y + 6, true); } else wsText(g, c.s, c.x, c.y, K); break;
+    case 'frame': wsBox(g, c.x, c.y, c.w, c.h); break;
+    case 'curve': wsDrawCurve(g, c); break;
+    case 'spec': wsDrawSpec(g, c); break;
+    case 'scope': wsDrawScope(g, c); break;
+    case 'meter': wsDrawMeter(g, c); break;
+    case 'topo': wsDrawTopo(g, c); break;
+    case 'menu': if (c.open || c.focus) { g.fillStyle = K; g.fillRect(c.x, c.y, c.w, c.h); wsText(g, c.lab, c.x + 3, 3, W); } else wsText(g, c.lab, c.x + 3, 3, K); break;
+    case 'field': {
+      wsText(g, c.lab, c.x, c.y + 1, K);
+      const vx = c.x + c.w - wsLen(c.txt); if (inv) wsInv(g, vx, c.y + 1, c.txt); else wsText(g, c.txt, vx, c.y + 1, K);
+      wsBox(g, c.x, c.y + 8, c.w, 4);
+      const fw = Math.round((c.w - 2) * c.p);
+      if (c.ghost) { g.fillStyle = K; for (let i = 0; i < fw; i++) g.fillRect(c.x + 1 + i, c.y + 9 + (i & 1), 1, 1); }
+      else { g.fillStyle = K; g.fillRect(c.x + 1, c.y + 9, fw, 2); }
+      if (c.moved) { const ex = c.x + 1 + Math.round((c.w - 3) * c.pe); g.fillStyle = K; g.fillRect(ex, c.y + 7, 1, 1); g.fillRect(ex - 1, c.y + 6, 3, 1); }
+      break;
+    }
+    case 'radio': {
+      g.fillStyle = K; g.fillRect(c.x + 1, c.y + 1, 3, 1); g.fillRect(c.x + 1, c.y + 5, 3, 1); g.fillRect(c.x, c.y + 2, 1, 3); g.fillRect(c.x + 4, c.y + 2, 1, 3);
+      if (c.on) g.fillRect(c.x + 1, c.y + 2, 3, 3);
+      if (inv) wsInv(g, c.x + 8, c.y + 1, c.lab); else wsText(g, c.lab, c.x + 8, c.y + 1, K);
+      if (c.dis) wsDim(g, c.x + 7, c.y, c.w - 7, 7, inv ? K : W);   // a ghosted (idle) radio stays legible: its section's heading says IDLE
+      break;
+    }
+    case 'check': {
+      g.fillStyle = K; g.fillRect(c.x, c.y, 7, 7); g.fillStyle = W; g.fillRect(c.x + 1, c.y + 1, 5, 5);
+      if (c.on) { g.fillStyle = K; for (let q = 0; q < 5; q++) { g.fillRect(c.x + 1 + q, c.y + 1 + q, 1, 1); g.fillRect(c.x + 5 - q, c.y + 1 + q, 1, 1); } }   // the workshop's box (:1300)
+      if (inv) wsInv(g, c.x + 10, c.y + 1, c.lab); else wsText(g, c.lab, c.x + 10, c.y + 1, K);
+      break;
+    }
+    case 'cycle': {
+      g.fillStyle = inv ? K : W; g.fillRect(c.x, c.y, c.w, c.h); wsBox(g, c.x, c.y, c.w, c.h);
+      const ink = inv ? W : K; wsArrow(g, c.x + 3, c.y + 4, 'left', ink); wsArrow(g, c.x + c.w - 4, c.y + 4, 'right', ink);
+      wsCText(g, c.txt, c.x + (c.w >> 1), c.y + 2, ink);
+      if (c.dis) wsDim(g, c.x + 7, c.y + 1, c.w - 14, 7, inv ? K : W);
+      break;
+    }
+    case 'btn': case 'key': {
+      wsBtn(g, c.x, c.y, c.w, c.lab, !!c.on);
+      if (c.dis) {            // disabled: the border goes dotted and the label stays legible (a dimmed 3×5 label is noise)
+        g.fillStyle = c.on ? K : W;
+        for (let i = 1; i < c.w - 1; i += 2) { g.fillRect(c.x + i, c.y, 1, 1); g.fillRect(c.x + i, c.y + 8, 1, 1); }
+        for (let j = 1; j < 8; j += 2) { g.fillRect(c.x, c.y + j, 1, 1); g.fillRect(c.x + c.w - 1, c.y + j, 1, 1); }
+      }
+      break;
+    }
+    case 'ck': {
+      g.fillStyle = W; g.fillRect(c.x, c.y, c.w, c.h); wsBox(g, c.x, c.y, c.w, c.h);
+      wsArrow(g, c.x + (c.w >> 1), c.y + (c.h >> 1), c.dir, K); break;
+    }
+    case 'sbar': {
+      g.fillStyle = '#B0B0B0'; g.fillRect(c.x, c.y, c.w, c.h); wsBox(g, c.x, c.y, c.w, c.h);
+      const th = Math.max(6, Math.round(c.h * c.f)), ty = c.y + Math.round((c.h - th) * c.t); g.fillStyle = W; g.fillRect(c.x + 1, ty, c.w - 2, th); wsBox(g, c.x, ty, c.w, th); break;
+    }
+    case 'row': {
+      if (c.focus) { g.fillStyle = K; g.fillRect(c.x, c.y, c.w, c.h); }
+      wsText(g, c.txt, c.x + 2, c.y + 2, c.focus ? W : K); break;
+    }
+    case 'slider': {         // a role over its soft key (:1226-1235's column)
+      if (inv) wsInv(g, c.x + 3, 259, c.lab); else wsText(g, c.lab, c.x + 3, 259, K);
+      wsText(g, c.txt, c.x + 74 - wsLen(c.txt), 259, K);
+      wsSlider(g, c.tx, c.ty, c.tw, c.v, false);
+      if (c.idle) { g.fillStyle = W; for (let i = 1; i < c.tw - 1; i += 2) g.fillRect(c.tx + i, c.ty + 2, 1, 1); }
+      break;
+    }
+    case 'dslider': wsSlider(g, c.tx, c.ty, c.tw, c.v, !!c.dis); break;
+  }
+}
+function wsDraw(g, vm) {
+  if (g.setTransform) g.setTransform(1, 0, 0, 1, 0, 0);
+  g.fillStyle = '#A8A8A8'; g.fillRect(0, 0, WS_W, WS_H);                // the desktop (:1319)
+  g.fillStyle = W; g.fillRect(0, 0, WS_W, 11); g.fillStyle = K; g.fillRect(0, 11, WS_W, 1);    // the menu bar (:1222)
+  wsText(g, vm.status, 314 - wsLen(vm.status), 3, K);
+  wsWin(g, 3, 14, 313, 216, wsFit(vm.title, 240));                      // the document window
+  g.fillStyle = W; g.fillRect(3, 232, 313, 23); wsBox(g, 3, 232, 313, 23);   // the data-entry strip
+  const cur = vm.cur;
+  wsInv(g, 8, 236, 'DATA');
+  if (cur) { const v = cur.kind === 'field' || cur.kind === 'slider' || cur.kind === 'cycle' ? cur.txt || '' : '', nm = cur.name || cur.lab || cur.id;
+    wsText(g, v, 192 - wsLen(v), 236, K); wsText(g, wsFit(nm, 190 - 30 - wsLen(v) - 6), 30, 236, K); }
+  else wsText(g, 'NO CURSOR: FOCUS A FIELD', 30, 236, K);
+  g.fillStyle = W; g.fillRect(0, 256, WS_W, 32); g.fillStyle = K; g.fillRect(0, 256, WS_W, 1);    // the soft strip (:1227)
+  for (let j = 1; j < 4; j++) { g.fillStyle = '#909090'; g.fillRect(j * 80, 258, 1, 28); }
+  for (const c of vm.ctrls) if (!c.hid && c.kind !== 'mitem' && c.kind !== 'drop') wsDrawCtl(g, c);
+  if (vm.menu >= 0) {
+    const d = vm.byId.mdrop;
+    g.fillStyle = K; g.fillRect(d.x + 2, d.y + 2, d.w, d.h); g.fillStyle = W; g.fillRect(d.x, d.y, d.w, d.h); wsBox(g, d.x, d.y, d.w, d.h);
+    for (const c of vm.ctrls) if (c.kind === 'mitem') {
+      if (c.focus) { g.fillStyle = K; g.fillRect(c.x, c.y, c.w, c.h); }
+      const ink = c.focus ? W : K; if (c.check) wsTick(g, c.x + 2, c.y + 2, ink);
+      wsText(g, c.lab, c.x + 9, c.y + 2, ink);
+      if (c.dis) wsDim(g, c.x + 9, c.y + 1, c.w - 10, 7, c.focus ? K : W);
+    }
+  }
+  const f = vm.byId[vm.focus], h = vm.byId[vm.hover];
+  if (h && h !== f && !h.hid) { if (h.kind === 'row' || h.kind === 'mitem') wsDots(g, h.x, h.y, h.w, h.h); else wsDots(g, h.x - 1, h.y - 1, h.w + 2, h.h + 2); }
+  if (f && !f.hid && f.kind !== 'row' && f.kind !== 'mitem') { wsBox(g, f.x - 1, f.y - 1, f.w + 2, f.h + 2); if (f.kind === 'btn' || f.kind === 'key' || f.kind === 'ck' || f.kind === 'menu') wsBox(g, f.x - 2, f.y - 2, f.w + 4, f.h + 4); }
+}
+/* the logo, composited into the one-bit frame: '#' ink, '.' paper, ' ' left as it is. It lies UNDER an
+   open pull-down (`over`, the menu's rect with its shadow): the menu is drawn before the dither, the
+   logo after it, so the logo must step round it */
+function wsLogoInto(d, rows, S, sc, over) {
+  rows.forEach((row, y) => { for (let x = 0; x < row.length; x++) {
+    const ch = row[x]; if (ch !== '#' && ch !== '.') continue;
+    const X = S.x + x, Y = S.y + y; if (over && X >= over.x && X < over.x + over.w + 2 && Y >= over.y && Y < over.y + over.h + 2) continue;
+    const c = ch === '#' ? sc.ink : sc.paper, o = (Y * WS_W + X) * 4; d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; d[o + 3] = 255; } });
+}
+/* the frame: greys drawn, then fx-screens-workshop.html :1321-1325's ordered dither to paper and ink,
+   then B326's proposal where no file of the human's has been dropped */
+function wsFrame(vm, theme, draw) {
+  if (!WSG.fcv) { WSG.fcv = document.createElement('canvas'); WSG.fcv.width = WS_W; WSG.fcv.height = WS_H; WSG.fcg = WSG.fcv.getContext ? WSG.fcv.getContext('2d', { willReadFrequently: true }) : null; }
+  const g = WSG.fcg; if (!g) return null;
+  (draw || wsDraw)(g, vm);
+  const img = g.getImageData(0, 0, WS_W, WS_H), d = img && img.data, S = wsScheme(theme);
+  if (d && d.length === WS_W * WS_H * 4) {
+    for (let y = 0; y < WS_H; y++) for (let x = 0; x < WS_W; x++) {
+      const o = (y * WS_W + x) * 4, thr = (BAYER4[(y & 3) * 4 + (x & 3)] + 0.5) / 16 * 255, c = d[o] > thr ? S.paper : S.ink;
+      d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; d[o + 3] = 255;
+    }
+    const over = vm.menu >= 0 ? vm.byId.mdrop : null;
+    if (vm.logo) { if (!WSG.file.title) wsLogoInto(d, WS_LOGO.title, WS_SLOT.title, S, over); if (!WSG.file.icon) wsLogoInto(d, WS_LOGO.icon, WS_SLOT.icon, S, over); }
+  }
+  return img;
+}
+function paintWS() {
+  const cv = $('wsScr'); if (!cv || !cv.getContext || !cv.offsetParent) return;
+  const g = cv.getContext('2d'); if (!g || !g.putImageData) return;
+  const vm = wsVM({ live: true }); WSG.vm = vm;
+  const img = wsFrame(vm, LAB.theme); if (!img) return;
+  g.putImageData(img, 0, 0);
+  if (vm.logo) for (const kind of ['title', 'icon']) { const f = WSG.file[kind]; if (f) { g.imageSmoothingEnabled = false; g.drawImage(f, WS_SLOT[kind].x, WS_SLOT[kind].y); } }   // the human's file, as drawn
+  const dr = vm.menu >= 0 ? vm.byId.mdrop : null; if (dr && (WSG.file.title || WSG.file.icon)) g.putImageData(img, 0, 0, dr.x, dr.y, dr.w + 2, dr.h + 2);   // ...and under an open menu
+  for (let j = 0; j < 4; j++) { const b = $('wsKey' + j), k = vm.byId['key' + j]; if (b && k) { b.disabled = !!k.dis; b.title = 'soft key ' + (j + 1) + ': ' + (k.lab || '-') + ' on this page (keyboard ' + (j + 1) + ')'; b.textContent = (j + 1) + ' · ' + (k.lab || '—'); } }
+}
+function wsRepaint() { paintWS(); }
+
+/* ---- navigation ---- */
+function wsGo(pg, o) {
+  const st = o && o.stage !== undefined ? o.stage : WSG.stage;
+  if (wsPageKey(pg, st) !== wsPageKey(WSG.page, WSG.stage)) { WSG.back.push({ page: WSG.page, stage: WSG.stage }); if (WSG.back.length > 16) WSG.back.shift(); }
+  WSG.page = pg; WSG.fid = ''; WSG.cur = ''; WSG.menu = -1; if (o) Object.assign(WSG, o);
+}
+function wsBack() { const b = WSG.back.pop(); if (!b) return false; WSG.page = b.page; WSG.stage = b.stage; WSG.fid = ''; WSG.cur = ''; WSG.menu = -1; return true; }
+/* focus moves the CURSOR too when it lands on something the data strip can turn */
+function wsFocus(id, vm) { WSG.fid = id; const c = (vm || wsVM()).byId[id]; if (wsAdjustable(c) && !c.data) WSG.cur = id; }
+/* Tab: the next control in order; past the last (or before the first), null: the browser moves on */
+function wsTab(vm, id, d) {
+  const i = vm.order.findIndex(c => c.id === id);
+  if (i < 0) return vm.order.length ? vm.order[d > 0 ? 0 : vm.order.length - 1].id : null;
+  const j = i + d; return j >= 0 && j < vm.order.length ? vm.order[j].id : null;
+}
+/* ↑ ↓: the nearest control in the next row that way, the closest in x; ← →: the nearest along the row
+   (the Sluice lab's gbcMove, on pixels; `vy` puts a list row at its unscrolled place) */
+function wsMove(vm, id, dir, pool) {
+  pool = pool || vm.order;
+  const c = vm.byId[id]; if (!c) return pool.length ? pool[0].id : '';
+  const cy = c.vy, cx = c.x + c.w / 2; let best = null, bs = Infinity;
+  for (const q of pool) {
+    if (q === c) continue;
+    const qy = q.vy, qx = q.x + q.w / 2; let s = Infinity;
+    if (dir === 'down' && qy > cy) s = (qy - cy) * 1000 + Math.abs(qx - cx);
+    else if (dir === 'up' && qy < cy) s = (cy - qy) * 1000 + Math.abs(qx - cx);
+    else if ((dir === 'left' || dir === 'right') && qy < cy + c.h && qy + q.h > cy && (dir === 'right' ? q.x > c.x : q.x < c.x)) s = Math.abs(q.x - c.x);
+    if (s < bs) { bs = s; best = q; }
+  }
+  return best ? best.id : '';
+}
+/* the on-screen cursor keys move the CURSOR among the page's fields, cycles and roles */
+function wsCursor(dir) {
+  const vm = wsVM(), pool = vm.order.filter(c => wsAdjustable(c) && !c.data);
+  if (!pool.length) return;
+  if (!WSG.cur || !vm.byId[WSG.cur]) { WSG.cur = pool[0].id; return; }
+  const n = wsMove(vm, WSG.cur, dir, pool); if (n) WSG.cur = n;
+}
+function wsPress(c, vm, kbd) {
+  if (!c || c.dis) return;
+  if (c.kind === 'menu') { const open = WSG.menu !== c.mi; WSG.menu = open ? c.mi : -1; if (open && kbd) WSG.fid = 'mi.' + c.mi + '.0'; return; }
+  if (c.kind === 'mitem') { const pg = WSG.page, st = WSG.stage; WSG.menu = -1; c.fn.press(); if (WSG.page === pg && WSG.stage === st) WSG.fid = 'mt.' + c.mi; return; }
+  if (c.kind === 'cycle') { c.fn.next(); return; }
+  if (c.fn.press) c.fn.press();
+}
+function wsSoft(j) { const vm = wsVM(), k = vm.byId['key' + j]; if (k && !k.dis && k.fn.press) { WSG.menu = -1; k.fn.press(); wsRepaint(); } }
+/* the keyboard, on the focused glass */
+function wsKey(ev) {
+  const vm = wsVM(), c = vm.byId[vm.focus], k = ev.key, sh = ev.shiftKey;
+  let used = true;
+  if (k === 'Tab') { const n = wsTab(vm, vm.focus, sh ? -1 : 1); if (n === null) { used = false; WSG.menu = -1; } else wsFocus(n, vm); }
+  else if (/^Arrow/.test(k)) {
+    const dir = k.slice(5).toLowerCase(), side = dir === 'left' || dir === 'right';
+    if (vm.menu >= 0 && side && c && c.kind === 'mitem') { const n = vm.menus.length, m = (vm.menu + (dir === 'right' ? 1 : -1) + n) % n; WSG.menu = m; WSG.fid = 'mi.' + m + '.0'; }
+    else if (side && wsAdjustable(c)) c.fn.step(dir === 'left' ? -1 : 1, sh);
+    else { const n = wsMove(vm, vm.focus, dir); if (n) { wsFocus(n, vm); const q = vm.byId[n]; if (vm.menu >= 0 && q && q.kind === 'menu') WSG.menu = q.mi; } }
+  }
+  else if (k === 'Enter' || k === ' ') wsPress(c, vm, true);
+  else if (k === 'Escape') { if (vm.menu >= 0) { WSG.fid = 'mt.' + vm.menu; WSG.menu = -1; } else if (!wsBack()) used = false; }
+  else if (/^[1-4]$/.test(k)) wsSoft(+k - 1);
+  else used = false;
+  if (used) { ev.preventDefault(); ev.stopPropagation(); wsRepaint(); }
+}
+/* the pointer: CSS px ÷ the integer scale = a screen pixel, the control whose rect holds it is hit */
+function wsLocal(rect, clientX, clientY) { const k = Math.max(1, Math.round(rect.width / WS_W)); return [Math.floor((clientX - rect.left) / k), Math.floor((clientY - rect.top) / k)]; }
+function wsHit(vm, lx, ly) {
+  if (lx < 0 || ly < 0 || lx >= WS_W || ly >= WS_H) return null;
+  for (const c of vm.vis) if (lx >= c.x && lx < c.x + c.w && ly >= c.y && ly < c.y + c.h) return c;
+  return null;
+}
+/* press on release over the same control; a field drags like the DOM knob (160 px a turn, Shift
+   fine), a slider takes the position, a cycle's left half steps back and its right half on;
+   double-click resets a field or a role */
+function wsWire(cv) {
+  const hitAt = e => { const vm = wsVM(), [lx, ly] = wsLocal(cv.getBoundingClientRect(), e.clientX, e.clientY); return { vm, lx, ly, c: wsHit(vm, lx, ly) }; };
+  const dragKinds = { slider: 1, dslider: 1, field: 1 };
+  const drive = (c, lx, e) => {
+    if (c.kind === 'field') { const D = WSG.drag; c.fn.set(clamp(D.p0 + ((e.clientX - D.x0) - (e.clientY - D.y0)) / (e.shiftKey ? 600 : 160), 0, 1)); }
+    else c.fn.set(clamp((lx - c.tx - 2) / Math.max(1, c.tw - 4), 0, 1));
+  };
+  cv.addEventListener('pointerdown', e => {
+    const { vm, lx, c } = hitAt(e);
+    try { cv.focus({ preventScroll: true }); } catch (_) {}
+    if (vm.menu >= 0 && (!c || (c.kind !== 'mitem' && c.kind !== 'menu'))) { WSG.menu = -1; WSG.drag = null; wsRepaint(); return; }
+    if (!c) return;
+    wsFocus(c.id, vm);
+    WSG.drag = { id: c.id, kind: c.kind, p0: c.kind === 'field' && !c.dis ? c.fn.get() : 0, x0: e.clientX, y0: e.clientY };
+    if (!c.dis && dragKinds[c.kind]) { try { cv.setPointerCapture(e.pointerId); } catch (_) {} if (c.kind !== 'field') drive(c, lx, e); }
+    wsRepaint();
+  });
+  cv.addEventListener('pointermove', e => {
+    const { vm, lx, c } = hitAt(e), D = WSG.drag;
+    if (D && dragKinds[D.kind]) { const d = vm.byId[D.id]; if (d && !d.dis) { drive(d, lx, e); wsRepaint(); } return; }
+    const h = c ? c.id : ''; if (h !== WSG.hover) { WSG.hover = h; wsRepaint(); }
+  });
+  cv.addEventListener('pointerup', e => {
+    const D = WSG.drag; WSG.drag = null; if (!D) return;
+    if (dragKinds[D.kind]) { wsRepaint(); return; }
+    const { vm, lx, c } = hitAt(e);
+    if (c && c.id === D.id && !c.dis) { if (c.kind === 'cycle') (lx - c.x < c.w / 2 ? c.fn.prev : c.fn.next)(); else wsPress(c, vm, false); }
+    wsRepaint();
+  });
+  cv.addEventListener('pointercancel', () => { WSG.drag = null; });
+  cv.addEventListener('pointerleave', () => { if (WSG.hover) { WSG.hover = ''; wsRepaint(); } });
+  cv.addEventListener('dblclick', e => { const { c } = hitAt(e); if (c && !c.dis && c.fn.reset && (c.kind === 'field' || c.kind === 'slider')) { c.fn.reset(); wsRepaint(); } });
+  cv.addEventListener('keydown', wsKey);
+}
+
+/* ---- the skin's window: the glass in its bezel, four soft keys under it, the chassis knobs beside ---- */
+function applySkin() {
+  const s = LAB.skin, show = (id, on) => { const e = $(id); if (e && e.style) e.style.display = on ? '' : 'none'; };
+  show('plug', s !== 'ws'); show('side', s !== 'ws'); show('wsPlug', s !== 'dom'); show('wsSide', s === 'ws');
+}
+function setSkin(s) { LAB.skin = s; applySkin(); refresh(); paintAll(); }
+function withSkin(s, fn) { const keep = LAB.skin; LAB.skin = s; applySkin(); try { return fn(); } finally { LAB.skin = keep; applySkin(); } }
+function wsProbeLogos() {
+  if (typeof Image !== 'function') return;
+  for (const kind of ['title', 'icon']) {
+    const S = WS_SLOT[kind], img = new Image();
+    img.onload = () => {
+      if (img.naturalWidth === S.w && img.naturalHeight === S.h) { WSG.file[kind] = img; WSG.fileNote[kind] = 'the human\'s ' + S.file; }
+      else WSG.fileNote[kind] = S.file + ' is ' + img.naturalWidth + '×' + img.naturalHeight + ', not ' + S.w + '×' + S.h + ', so B326\'s proposal is shown';
+      paintWS(); buildWsSide();
+    };
+    img.onerror = () => {};
+    img.src = WS_LOGO_DIR + S.file;
+  }
+}
+function buildWS() {
+  const cv = $('wsScr');
+  if (cv) { cv.width = WS_W; cv.height = WS_H; wsWire(cv); CANV.push([cv, () => paintWS()]); }
+  buildRack($('wsRackbar'));
+  const keys = $('wsKeys');
+  for (let j = 0; j < 4; j++) {
+    const b = el('button', 'pill wskey', String(j + 1)); b.id = 'wsKey' + j;
+    b.addEventListener('click', () => { wsSoft(j); try { cv.focus({ preventScroll: true }); } catch (_) {} });
+    keys.appendChild(b);
+  }
+  const ch = $('wsChassis'), c = el('div', 'cell'); ch.appendChild(c);
+  const h = el('h3', null, 'CHASSIS'); h.appendChild(el('span', 'own', 'the four roles · B322\'s contract')); c.appendChild(h);
+  const f = el('div', 'face wsknobs'); c.appendChild(f);
+  ROLES.forEach(r => {
+    const d = SLOT_DEF[r], col = el('div', 'slotc'); f.appendChild(col);
+    col.appendChild(el('span', 'role', r.toUpperCase()));
+    knob(col, { big: true, label: d.label, sp: SP(d.label, 0, 1, f2), origin: d.home, ctl: 'S/' + r, title: r + ' — the same writer as the screen\'s role slider and the DOM face',
+      get: () => SLOTS[r].v, set: v => setSlot(r, v), reset: () => d.home, ghost: () => !!(d.idle && RES && d.idle(RES)), fmt: v => (v === d.home ? 'home' : f2(v)) });
+  });
+  const lg = el('div', 'legend');
+  lg.innerHTML = 'The chassis knobs are the four <b>roles</b> (ADR-169), bound by order as in the workshop; the screen labels them over its soft keys. ' +
+    'The keys under the glass are its <b>soft keys</b>, numbered only: the page names them. Click the glass to focus it: <kbd>Tab</kbd> walks every control, ' +
+    '<kbd>↑</kbd><kbd>↓</kbd> rows, <kbd>←</kbd><kbd>→</kbd> turn or move along, <kbd>Enter</kbd> press, <kbd>Esc</kbd> back, <kbd>1</kbd>–<kbd>4</kbd> soft keys.';
+  c.appendChild(lg);
+  CTLS.push(() => paintWS());
+  wsProbeLogos();
+}
+/* beside the glass (skin WORKSTATION): the screen's map, read off the pages themselves */
+function wsMap() {
+  return WS_PAGES.map(([pg, lab, st]) => { const vm = wsVM(wsBase(pg, st)); return [lab, [0, 1, 2, 3].map(j => vm.byId['key' + j].lab || '—').join(' · ')]; });
+}
+function buildWsSide() {
+  const side = $('wsSide'); if (!side || !BASE) return;
+  side.innerHTML = '';
+  const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const b = el('div', 'box'); side.appendChild(b);
+  b.appendChild(el('h2', null, 'THE SCREEN IS THE INSTRUMENT (B373)'));
+  const p = el('div', 'wsmap');
+  p.innerHTML = 'MAW as 80s workstation software on the workshop\'s <b>ws</b> glass: 320×288, one bit, ×' + WS_K + ', in the scheme\'s paper and ink (' +
+    esc(wsScheme(LAB.theme).name) + '). Every function of the DOM window is on the glass, calling the same writers. ' +
+    'Menus (<b>* FILE PAGE INPUT AUDIO VIEW</b>) open pages and commands; a <b>cursor</b> (the last field, cycle or role focused) takes the data slider, − + and HOME; the cursor keys move it. ' +
+    'Alt + wheel is not wired yet (the trace says why); a plain wheel never turns anything.' +
+    '<table><tr><th>page</th><th>soft keys 1 · 2 · 3 · 4</th></tr>' + wsMap().map(r => '<tr><td>' + esc(r[0]) + '</td><td>' + esc(r[1]) + '</td></tr>').join('') + '</table>' +
+    '<table><tr><th>menu</th><th>items</th></tr>' + wsMenus().map(m => '<tr><td>' + esc(m.t) + '</td><td>' + esc(m.items.map(it => it[0]).join(' · ')) + '</td></tr>').join('') + '</table>' +
+    '<div>title: ' + esc(WSG.fileNote.title) + ' · icon: ' + esc(WSG.fileNote.icon) + ' (drop <code>docs/design/' + WS_LOGO_DIR + 'maw.png</code>, 96×24, or <code>maw-icon.png</code>, 16×16, to replace it)</div>';
+  b.appendChild(p);
+}
+
+/* ======================================================================
+   O. THE SCREEN'S SELF-CHECKS (B373) — 6 to 11, each with a must-fail control (L0032/L0033)
+   ====================================================================== */
+const wsNav = () => JSON.stringify({ page: WSG.page, stage: WSG.stage, menu: WSG.menu, fid: WSG.fid, cur: WSG.cur, hover: WSG.hover, back: WSG.back, scroll: WSG.scroll });
+const wsRestore = s => { Object.assign(WSG, JSON.parse(s)); WSG.drag = null; };
+const wsBase = (pg, st) => ({ page: pg, stage: st === undefined ? 0 : st, menu: -1, fid: '', hover: '', cur: '', scroll: {} });
+const wsBases = () => WS_PAGES.map(([pg, , st]) => wsBase(pg, st)).concat(wsMenus().map((m, i) => Object.assign(wsBase('face'), { menu: i })));
+/* the drawing functions of the glass: none may reach for a vector or text operation, which would
+   anti-alias (the pixel font and whole pixels are the glass's rule); self-check 10 scans them */
+const WS_DRAWERS = [wsText, wsCText, wsWin, wsBtn, wsSlider, wsBox, wsDots, wsLine, wsArrow, wsTick, wsDim, wsPlotCurve, wsDrawCurve,
+  wsDrawSpec, wsDrawScope, wsDrawMeter, wsDrawTopo, wsInv, wsDrawCtl, wsDraw];
+const WS_VECTOR = /\.(fillText|strokeText|arc|arcTo|ellipse|stroke|lineTo|bezierCurveTo|quadraticCurveTo|drawImage)\s*\(/;
+function wsScaleOk(w, h) { const kx = w / WS_W, ky = h / WS_H; return kx >= 1 && Math.abs(kx - Math.round(kx)) < 1e-6 && Math.abs(kx - ky) < 1e-6; }
+function wsAudit(d, S) {
+  let off = 0; const seen = new Set();
+  for (let i = 0; i < d.length; i += 4) {
+    const r = d[i], g = d[i + 1], b = d[i + 2]; seen.add(r + ',' + g + ',' + b);
+    const paper = r === S.paper[0] && g === S.paper[1] && b === S.paper[2], ink = r === S.ink[0] && g === S.ink[1] && b === S.ink[2];
+    if ((!paper && !ink) || d[i + 3] !== 255) off++;
+  }
+  return { off, cols: seen.size };
+}
+function wsLogoDiff(d, rows, S, sc, over) {
+  let n = 0;
+  rows.forEach((row, y) => { for (let x = 0; x < row.length; x++) {
+    const ch = row[x]; if (ch !== '#' && ch !== '.') continue;
+    const X = S.x + x, Y = S.y + y; if (over && X >= over.x && X < over.x + over.w + 2 && Y >= over.y && Y < over.y + over.h + 2) continue;
+    const c = ch === '#' ? sc.ink : sc.paper, o = (Y * WS_W + X) * 4; if (d[o] !== c[0] || d[o + 1] !== c[1] || d[o + 2] !== c[2]) n++; } });
+  return n;
+}
+/* the pixels of a rect in two frames that differ */
+function wsRectDiff(a, b, r) { let n = 0; for (let y = r.y; y < Math.min(WS_H, r.y + r.h + 2); y++) for (let x = r.x; x < Math.min(WS_W, r.x + r.w + 2); x++) { const o = (y * WS_W + x) * 4; if (a[o] !== b[o] || a[o + 1] !== b[o + 1] || a[o + 2] !== b[o + 2]) n++; } return n; }
+function runWsChecks() {
+  if (!LIB || !MPRE || !BASE) return;
+  const add = (name, ok, detail, ctl) => AUDIT.rows.push({ name, ok, detail, ctl: ctl || [] });
+  const keep = wsNav();
+  for (const f of [ckWsActions, ckWsHit, ckWsKeys, ckWsViews, ckWsGlass, ckWsViz]) {
+    try { f(add); } catch (e) { add('screen check ' + f.name, false, 'threw: ' + String((e && e.stack) || e)); }
+    finally { wsRestore(keep); }
+  }
+  const cv = $('wsScr'); if (cv && cv.blur) cv.blur();   // the checks' real pointer events focused the glass; a load leaves it unfocused
+  paintWS(); buildWsSide();
+}
+/* 6. EVERY LAB ACTION HAS A SCREEN PATH — the registry enumerated against every page (the stage
+   pages ×3, each with no cursor, the cursor on its first field and on a role) and every menu. And
+   every DOM data-ctl belongs to an action, every MAW parameter the DOM reaches is a screen control,
+   every MAW preset and every SCALPEL patch a screen row. CONTROLS: a planted action; a planted
+   DOM control; one parameter dropped from the screen. */
+function ckWsActions(add) {
+  const vms = [];
+  for (const b of wsBases()) {
+    const v0 = wsVM(b); vms.push(v0);
+    if (b.menu < 0) { const fa = v0.order.find(c => wsAdjustable(c) && !c.soft && !c.data); if (fa) vms.push(wsVM(Object.assign({}, b, { cur: fa.id }))); vms.push(wsVM(Object.assign({}, b, { cur: 'role.0' }))); }
+  }
+  const all = [].concat(...vms.map(v => v.ctrls.filter(c => !c.nf))), acts = new Set(all.map(c => c.act)), missing = ACT_IDS.filter(a => !acts.has(a));
+  const dom = [...new Set([...document.querySelectorAll('[data-ctl]')].map(e => e.dataset.ctl))], orphan = dom.filter(c => !ctlAct(c));
+  const keys = new Set(all.filter(c => c.key && c.act === 'param-set').map(c => c.key)), pk = dom.filter(c => c.slice(0, 2) === 'P/').map(c => c.slice(2)), mKey = pk.filter(k => !keys.has(k));
+  const roles = new Set(all.filter(c => c.act === 'slot-value').map(c => c.role)), tiers = new Set(all.filter(c => c.act === 'slot-tier').map(c => c.role)), mRole = ROLES.filter(r => !roles.has(r) || !tiers.has(r));
+  const pr = new Set(all.filter(c => c.kind === 'row' && c.act === 'preset-load').map(c => c.name)), mPre = PRESET_NAMES.filter(n => !pr.has(n));
+  const spAll = (ENGINE.presets || []).map(p => p.name), sp = new Set(all.filter(c => c.kind === 'row' && c.act === 'scalpel-patch').map(c => c.name)), mSp = spAll.filter(n => !sp.has(n));
+  const cAct = !acts.has('planted-act'), cCtl = !ctlAct('planted-ctl');
+  const drop = new Set([...keys].filter(k => k !== 'stages.2.res')), cKey = pk.filter(k => !drop.has(k)).length === 1;
+  const pages = new Set(vms.map(v => wsPageKey(v.page, v.stage)));
+  add('every lab action has a screen path', !missing.length && !orphan.length && !mKey.length && !mRole.length && !mPre.length && !mSp.length && pk.length >= 70,
+    `${ACT_IDS.length} registered actions; ${all.length} screen controls over ${pages.size} pages and ${wsMenus().length} menus carry ${acts.size} distinct actions: ` + (missing.length ? 'NO SCREEN PATH for ' + missing.join(' ') : 'every action reachable on the glass') +
+    ` · ${dom.length} DOM data-ctl values, each an action of the registry: ` + (orphan.length ? 'ORPHAN ' + orphan.join(' ') : 'yes') +
+    ` · MAW's ${pk.length} parameters on the DOM, each a screen control: ` + (mKey.length ? 'MISSING ' + mKey.slice(0, 6).join(' ') : 'yes') +
+    ` · the four roles' values and tiers: ` + (mRole.length ? 'MISSING ' + mRole.join(' ') : 'yes') + ` · ${PRESET_NAMES.length} MAW presets as rows: ` + (mPre.length ? 'MISSING ' + mPre.length : 'yes') +
+    ` · ${spAll.length} SCALPEL patches as rows: ` + (mSp.length ? 'MISSING ' + mSp.length : spAll.length ? 'yes' : 'none loaded') + ' · lab chrome, not in the registry by principle: the SKIN tabs',
+    [{ name: 'a planted action with no screen control', caught: cAct, detail: cAct ? 'reported missing' : 'not seen' },
+     { name: 'a planted DOM control with no action', caught: cCtl, detail: cCtl ? 'reported orphan' : 'not seen' },
+     { name: 'stages.2.res dropped from the screen', caught: cKey, detail: cKey ? 'reported missing' : 'not seen' }]);
+}
+/* 7. HIT-TESTING — every visible control's centre and four corner pixels, on every page and every
+   open menu, at ×1, at the display scale ×2 and at ×3, on a glass at an odd offset, land on that
+   control (and none is off the glass); a real pointer event on the live canvas at ×2 and resized
+   to ×1. CONTROL: a mapper that divides by ×2 whatever the scale. */
+function ckWsHit(add) {
+  const bases = wsBases(), L = ENGINE.presets || [];
+  if (L.length > 20) bases.push(Object.assign(wsBase('patches'), { fid: 'sp.' + (L.length - 1) }));   // a scrolled list
+  const vms = bases.map(b => wsVM(b));
+  let pts = 0, ctlWrong = 0; const wrong = [];
+  const fixed = (rect, x, y) => [Math.floor((x - rect.left) / WS_K), Math.floor((y - rect.top) / WS_K)];
+  for (const k of [1, WS_K, 3]) {
+    const rect = { left: 13, top: 29, width: WS_W * k, height: WS_H * k };
+    for (const vm of vms) for (const c of vm.vis) {
+      if (c.x < 0 || c.y < 0 || c.x + c.w > WS_W || c.y + c.h > WS_H) { if (k === 1) wrong.push('off the glass: ' + vm.page + ' ' + c.id); continue; }
+      for (const [px, py] of [[c.x + (c.w >> 1), c.y + (c.h >> 1)], [c.x, c.y], [c.x + c.w - 1, c.y], [c.x, c.y + c.h - 1], [c.x + c.w - 1, c.y + c.h - 1]]) {
+        const cx = rect.left + (px + 0.5) * k, cy = rect.top + (py + 0.5) * k, [lx, ly] = wsLocal(rect, cx, cy), h = wsHit(vm, lx, ly); pts++;
+        if (h !== c) wrong.push(k + 'x ' + wsPageKey(vm.page, vm.stage) + (vm.menu >= 0 ? ' menu ' + vm.menu : '') + ' ' + c.id + ' -> ' + (h ? h.id : 'nothing'));
+        if (k === 1) { const [ax, ay] = fixed(rect, cx, cy); if (wsHit(vm, ax, ay) !== c) ctlWrong++; }
+      }
+    }
+  }
+  let live2 = false, live1 = false, scale = 0;
+  withSkin('ws', () => {
+    const cv = $('wsScr'); Object.assign(WSG, { page: 'face', stage: 0, menu: -1, hover: '' });
+    const at = (id, s) => { const vm = wsVM(), c = vm.byId[id], r = cv.getBoundingClientRect(); WSG.hover = '';
+      cv.dispatchEvent(new PointerEvent('pointermove', { clientX: r.left + (c.x + c.w / 2) * s, clientY: r.top + (c.y + c.h / 2) * s, bubbles: true }));
+      return WSG.hover === id; };
+    scale = Math.round(cv.getBoundingClientRect().width / WS_W);
+    live2 = at('key2', scale);
+    const sw = cv.style.width, sh = cv.style.height; cv.style.width = WS_W + 'px'; cv.style.height = WS_H + 'px';
+    try { live1 = at('f.stages.1.drive', 1); } finally { cv.style.width = sw; cv.style.height = sh; }
+  });
+  add('pointer hit-testing lands on the right control at ×1 and at the display scale', pts > 1500 && !wrong.length && live2 && live1 && scale === WS_K,
+    `${pts} points (each visible control's centre and four corner pixels, ${vms.length} page and menu states including a scrolled list, at ×1, ×${WS_K} and ×3 on a glass at an odd offset): ` +
+    (wrong.length ? 'FAIL ' + wrong.length + ': ' + wrong.slice(0, 4).join(' | ') : 'every one lands on its control') +
+    ` · the live canvas at ×${scale}, a real pointer event at soft key 3 → ${live2}; resized to ×1, at S2's drive field → ${live1}`,
+    [{ name: 'a mapper that divides by ×' + WS_K + ' whatever the scale', caught: ctlWrong > 0, detail: ctlWrong + ' points off at ×1' }]);
+}
+/* 8. KEYBOARD TRAVERSAL — on every page and every open menu, Tab from the first control reaches every
+   control, and so do the arrows alone; from the FACE, pressing soft keys, buttons and menu items for
+   real reaches every page (each stage page too); a real Tab keydown on the live canvas moves the
+   focus. CONTROLS: a Tab that skips the soft strip; the PAGE menu without MODULATION. */
+function wsPageEdges(drop) {
+  const keep = wsNav(), edges = [];
+  try {
+    for (const [pg, , st0] of WS_PAGES) {
+      const st = st0 === undefined ? 0 : st0, from = wsPageKey(pg, st);
+      const vms = [wsVM(wsBase(pg, st))].concat(wsMenus().map((m, i) => wsVM(Object.assign(wsBase(pg, st), { menu: i }))));
+      for (const vm of vms) for (const c of vm.ctrls) {
+        if (c.nf || c.dis || !c.fn || !c.fn.press) continue;
+        if (!(c.act === 'nav' || (c.act === 'ui' && /^sel\.s|^key/.test(c.id)))) continue;
+        if (drop && c.kind === 'mitem' && c.lab === drop) continue;
+        Object.assign(WSG, { page: pg, stage: st, menu: -1, fid: '', back: [] });
+        c.fn.press();
+        const to = wsPageKey(WSG.page, WSG.stage); if (to !== from) edges.push([from, to]);
+      }
+    }
+  } finally { wsRestore(keep); }
+  return edges;
+}
+const wsReach = (edges, from) => { const seen = new Set([from]), q = [from]; while (q.length) { const a = q.shift(); for (const [x, y] of edges) if (x === a && !seen.has(y)) { seen.add(y); q.push(y); } } return seen; };
+function ckWsKeys(add) {
+  const tabBad = [], arrowBad = []; let nC = 0, skipCtl = 0;
+  const bases = wsBases();
+  for (const b of bases) {
+    const vm = wsVM(b), all = vm.order.map(c => c.id); nC += all.length; if (!all.length) continue;
+    const seen = new Set([all[0]]); let id = all[0];
+    for (let i = 0; i < all.length + 2; i++) { const nx = wsTab(wsVM(Object.assign({}, b, { fid: id })), id, 1); if (nx === null) break; seen.add(nx); id = nx; }
+    const nm = wsPageKey(b.page, b.stage) + (b.menu >= 0 ? '/menu' + b.menu : '');
+    if (seen.size !== all.length) tabBad.push(nm + ' ' + seen.size + '/' + all.length);
+    const got = new Set([all[0]]), q = [all[0]];
+    while (q.length) { const a = q.shift(), va = wsVM(Object.assign({}, b, { fid: a })); for (const d of ['up', 'down', 'left', 'right']) { const n = wsMove(va, a, d); if (n && !got.has(n)) { got.add(n); q.push(n); } } }
+    if (got.size !== all.length) arrowBad.push(nm + ' ' + got.size + '/' + all.length + ' (missed ' + all.filter(x => !got.has(x)).slice(0, 3).join(' ') + ')');
+    if (b.menu < 0 && vm.order.filter(c => !c.soft).length < all.length) skipCtl++;
+  }
+  const want = WS_PAGES.map(([pg, , st]) => wsPageKey(pg, st === undefined ? 0 : st)), R = wsReach(wsPageEdges(), 'face'), unreached = want.filter(p => !R.has(p));
+  const cMenu = !wsReach(wsPageEdges('MODULATION'), 'face').has('mod');
+  let liveOk = false;
+  withSkin('ws', () => {
+    const cv = $('wsScr'); Object.assign(WSG, { page: 'face', stage: 0, menu: -1 });
+    const vm = wsVM(); WSG.fid = vm.order[0].id;
+    cv.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }));
+    liveOk = WSG.fid === vm.order[1].id;
+  });
+  add('keyboard traversal reaches every control, and the keys and menus reach every page', !tabBad.length && !arrowBad.length && !unreached.length && liveOk,
+    `${nC} controls over ${bases.length} page and menu states: Tab from the first reaches every one: ` + (tabBad.length ? 'FAIL ' + tabBad.join(' ') : 'yes') +
+    ' · the arrows alone reach every one: ' + (arrowBad.length ? 'FAIL ' + arrowBad.slice(0, 3).join(' | ') : 'yes') +
+    ` · from the FACE, soft keys, buttons and menu items pressed for real reach ${R.size} of ${want.length} pages` + (unreached.length ? ': MISSING ' + unreached.join(' ') : '') +
+    ' · a real Tab keydown on the live canvas moves the focus on: ' + liveOk,
+    [{ name: 'a Tab that skips the soft strip', caught: skipCtl > 0, detail: 'misses on ' + skipCtl + ' pages' },
+     { name: 'the PAGE menu without MODULATION', caught: cMenu, detail: cMenu ? 'the MODULATION page is unreachable' : 'still reached' }]);
+}
+/* 9. ONE MODEL, TWO VIEWS — real events on the live glass (a keydown on a field, an Enter on a route
+   radio, a pointer press on a role's slider) move the shared state, and the DOM window shows it;
+   and back, a DOM click on a tier toggles the screen's tier. CONTROL: the field wired to a COPY of
+   the state (a view that keeps its own model) leaves the DOM where it was. */
+function ckWsViews(add) {
+  const B0 = clone(BASE), S0 = clone(SLOTS), fk = 'stages.0.drive', sp = specOf(fk);
+  let fieldOk = false, routeOk = false, roleOk = false, backOk = false, ctlCaught = false, before = '', after = '', rOut = '', rv = 0, r = 0;
+  const domOut = key => { const e = document.querySelector('#plug [data-ctl="' + key + '"] output'); return e ? e.textContent : ''; };
+  const domPill = key => { const w = document.querySelector('#plug [data-ctl="' + key + '"]'); return w ? [...w.querySelectorAll('button')].findIndex(b => b.classList.contains('on')) : -1; };
+  try {
+    withSkin('both', () => {
+      const cv = $('wsScr'), key = k => cv.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true }));
+      setp(BASE, fk, 0); changed(); before = domOut('P/' + fk);
+      Object.assign(WSG, { page: 'stage', stage: 0, menu: -1, fid: 'f.' + fk }); key('ArrowRight');
+      const v = getp(BASE, fk), ve = getp(RES, fk), want = fromPos(sp, toPos(sp, 0) + WS_STEP);
+      after = domOut('P/' + fk);
+      fieldOk = Math.abs(v - want) < 1e-9 && after !== before && after === (Math.abs(toPos(sp, ve) - toPos(sp, v)) > 1e-4 ? '→' + sp.fmt(ve) : sp.fmt(v));
+      r = (BASE.route + 2) % 5; Object.assign(WSG, { page: 'face', fid: 'r.route.' + r }); key('Enter');
+      routeOk = BASE.route === r && domPill('P/route') === r;
+      const c = wsVM().byId['role.0'], rc = cv.getBoundingClientRect(), s = rc.width / WS_W;
+      const px = rc.left + (c.tx + 2 + 0.8 * (c.tw - 4) + 0.5) * s, py = rc.top + (c.ty + 2.5) * s;
+      cv.dispatchEvent(new PointerEvent('pointerdown', { clientX: px, clientY: py, bubbles: true, pointerId: 1 }));
+      cv.dispatchEvent(new PointerEvent('pointerup', { clientX: px, clientY: py, bubbles: true, pointerId: 1 }));
+      rv = SLOTS.Amount.v; rOut = domOut('S/Amount'); roleOk = Math.abs(rv - 0.8) < 0.02 && rOut === f2(rv);
+      const tb = document.querySelector('#plug [data-ctl="T/Tone"]'), t0 = wsVM({ page: 'face' }).byId['tier.Tone'].lab;
+      if (tb) tb.click(); backOk = !!tb && wsVM({ page: 'face' }).byId['tier.Tone'].lab !== t0;
+      setp(BASE, fk, 0); changed(); const b0 = domOut('P/' + fk), cc = wsVM({ page: 'stage', stage: 0, fid: 'f.' + fk }).byId['f.' + fk];
+      cc.fn.set = q => { const B2 = clone(BASE); setp(B2, fk, fromPos(sp, q)); refresh(); };
+      cc.fn.set(toPos(sp, 0) + WS_STEP); ctlCaught = domOut('P/' + fk) === b0 && getp(BASE, fk) === 0;
+    });
+  } finally { BASE = B0; SLOTS = S0; changed(); }
+  add('one model, two views: a screen action changes the shared state and the DOM shows it', fieldOk && routeOk && roleOk && backOk,
+    `a real ArrowRight on the glass, S1's drive focused: the state 0 dB → ${sp.fmt(fromPos(sp, toPos(sp, 0) + WS_STEP))}, the DOM knob reads "${before}" → "${after}": ${fieldOk}` +
+    ` · a real Enter on the ${ROUTES[r].toUpperCase()} radio: BASE.route and the DOM's route pill both move: ${routeOk}` +
+    ` · a real pointer press at 80% of the Amount role's slider: SLOTS ${f2(rv)}, the DOM face knob reads "${rOut}": ${roleOk}` +
+    ` · back: a DOM click on Tone's tier toggles the screen's tier button: ${backOk} (everything put back)`,
+    [{ name: 'the field wired to a copy of the state', caught: ctlCaught, detail: ctlCaught ? 'the DOM does not move' : 'the DOM moved' }]);
+}
+/* 10. THE GLASS'S RULES HOLD, with focus, hover and the cursor drawn — every frame (each control of
+   every page and open menu focused in turn, the next hovered, light and every third frame dark) is
+   ONE BIT in the scheme's paper and ink, with B326's logo bit for bit; the live canvas is a whole-
+   number scale, pixelated, 320×288, and its own pixels are the scheme's two; no drawing function
+   uses a vector or text operation (so the 3×5 font and whole pixels are the only marks).
+   An open pull-down is whole over the logo (which is composited after the dither). CONTROLS: a focus
+   ring in the scheme's value ink written straight into a frame; a ×1.5 scale; a planted drawer that
+   calls fillText; the logo composited over an open menu. */
+function ckWsGlass(add) {
+  let frames = 0, off = 0, logoBad = 0, logoFrames = 0, dark = 0, menuFrames = 0, menuBad = 0; const bad = [];
+  let fi = 0;
+  for (const b of wsBases()) {
+    const ids = wsVM(b).order.map(c => c.id);
+    ids.forEach((id, i) => {
+      const v0 = wsVM(Object.assign({}, b, { fid: id })), c0 = v0.byId[id];
+      const vm = wsVM(Object.assign({}, b, { fid: id, hover: ids[(i + 1) % ids.length], cur: wsAdjustable(c0) && !c0.data ? id : '' }));
+      const th = fi++ % 3 === 0 ? 'dark' : 'light', S = wsScheme(th), img = wsFrame(vm, th), a = wsAudit(img.data, S); frames++; if (th === 'dark') dark++;
+      off += a.off; if (a.off || a.cols !== 2) bad.push(wsPageKey(b.page, b.stage) + ' ' + id + ' ' + th + ' (' + a.cols + ' colours)');
+      if (vm.logo && !WSG.file.title && !WSG.file.icon) {
+        const over = vm.menu >= 0 ? vm.byId.mdrop : null;
+        logoFrames++; logoBad += wsLogoDiff(img.data, WS_LOGO.title, WS_SLOT.title, S, over) + wsLogoDiff(img.data, WS_LOGO.icon, WS_SLOT.icon, S, over);
+        // an open pull-down lies over the logo: its rect is the same with the logo on or off
+        if (over) { menuFrames++; menuBad += wsRectDiff(img.data, wsFrame(Object.assign({}, vm, { logo: false }), th).data, over); }
+      }
+    });
+  }
+  let scaleOk = false, liveOk = false, liveCols = 0, rw = 0, rh = 0, ir = '';
+  withSkin('ws', () => {
+    const cv = $('wsScr'); paintWS();
+    const r = cv.getBoundingClientRect(); rw = r.width; rh = r.height; ir = getComputedStyle(cv).imageRendering;
+    scaleOk = wsScaleOk(rw, rh) && ir === 'pixelated' && cv.width === WS_W && cv.height === WS_H;
+    const vm = WSG.vm, a = wsAudit(cv.getContext('2d').getImageData(0, 0, WS_W, WS_H).data, wsScheme(LAB.theme)); liveCols = a.cols;
+    liveOk = (vm && vm.logo && (WSG.file.title || WSG.file.icon)) ? true : a.off === 0 && a.cols === 2;
+  });
+  const vector = WS_DRAWERS.filter(f => WS_VECTOR.test(String(f))).map(f => f.name);
+  const fv = wsVM({ page: 'stage', stage: 0, menu: -1, fid: 'f.stages.0.drive', hover: '', cur: 'f.stages.0.drive', scroll: {} }), fc = fv.byId['f.stages.0.drive'], S = wsScheme('light'), fr = wsFrame(fv, 'light');
+  for (let i = 0; i < 8; i++) { const o = ((fc.y - 1) * WS_W + fc.x + i) * 4; fr.data[o] = S.value[0]; fr.data[o + 1] = S.value[1]; fr.data[o + 2] = S.value[2]; }
+  const cRing = wsAudit(fr.data, S).off > 0, cScale = !wsScaleOk(WS_W * 1.5, WS_H * 1.5);
+  const planted = function (g) { g.fillText('MAW', 0, 0); }, cText = WS_VECTOR.test(String(planted));
+  /* the logo composited over an open menu (the first build of this skin did that): the menu's rect changes */
+  const mv = wsVM(Object.assign(wsBase('face'), { menu: 2, fid: 'mi.2.0' })), mo = wsFrame(Object.assign({}, mv, { logo: false }), 'light').data, md = mo.slice();
+  wsLogoInto(md, WS_LOGO.title, WS_SLOT.title, S, null); const cMenu = wsRectDiff(md, mo, mv.byId.mdrop) > 0;
+  add('the glass\'s rules hold with focus, hover and the cursor drawn: one bit, the scheme\'s colours, the pixel font, a whole-number scale', frames > 300 && !off && !bad.length && !logoBad && logoFrames > 0 && menuFrames > 0 && !menuBad && scaleOk && liveOk && !vector.length,
+    `${frames} frames (every control of every page and open menu focused in turn, the next hovered, the cursor on it when it takes one; ${dark} of them dark): ${off} px off the scheme's paper and ink` + (bad.length ? ' FAIL ' + bad.slice(0, 3).join(' | ') : ', each frame exactly 2 colours') +
+    ` · B326's logo bit for bit on ${logoFrames} face frames: ${logoBad} px off; under ${menuFrames} open menus the menu is whole: ${menuBad} px of logo show through` + (WSG.file.title || WSG.file.icon ? ' (a dropped file of the human\'s is shown as drawn and not held to the rule)' : '') +
+    ` · the live canvas: ${rw}×${rh} CSS px for 320×288 = ×${(rw / WS_W).toFixed(2)}, image-rendering ${ir}: ${scaleOk}; its own pixels ${liveCols} colours: ${liveOk}` +
+    ` · ${WS_DRAWERS.length} drawing functions, none using a vector or text operation: ` + (vector.length ? 'FAIL ' + vector.join(' ') : 'yes (the 3×5 font and whole pixels only)'),
+    [{ name: 'a focus ring in the scheme\'s value ink written straight into the frame', caught: cRing, detail: cRing ? 'off the paper and ink' : 'not seen' },
+     { name: 'a ×1.5 scale (480×432)', caught: cScale, detail: cScale ? 'not a whole number' : 'passed' },
+     { name: 'a planted drawer that calls fillText', caught: cText, detail: cText ? 'flagged' : 'not flagged' },
+     { name: 'the logo composited over an open menu', caught: cMenu, detail: cMenu ? 'the menu\'s rect changes' : 'not seen' }]);
+}
+/* 11. THE VISUALISER FOLLOWS THE RENDERED AUDIO (L0064) — a scratch render of the preset whose curve
+   moves most over the loop ("inertia sweep", its stage 1 swings by up to 1.44 of full scale on the
+   saw swarm, measured over every snapshot of every preset for B373; "polynomial screech ·
+   env→morph", the obvious pick by name, moves by 0.02, under a pixel, and left the frozen control
+   blind), on the lab's rack input: at three playheads (early hold, late hold, release) the
+   TRANSFER page's curve is the rendering instance's own snapshot at that playhead (the same
+   array), the pixels it draws are that curve's (every column), the three pictures differ as the
+   render does, and the LEVELS cursor stands on the playhead's block. CONTROLS: the UI-param
+   preview (uiTwin, SPEC-MAW §10) in place of the render; a playhead frozen at the analysis point. */
+function ckWsViz(add) {
+  const name = PRESET_NAMES.find(n => /^inertia sweep/.test(n)) || PRESET_NAMES[0];
+  const O = mawRender(resolve(presetParams(name), freshSlots()), SRC, { snaps: true, trace: true });
+  const phs = [8, 40, 72].map(b => b * SNAP_N + SNAP_N / 2), sidx = ph => snapIndex(O, ph);
+  const vary = k => { let m = 0; for (const a of phs) for (const b of phs) { const A = O.snaps[sidx(a)][k].ys, B = O.snaps[sidx(b)][k].ys; for (let j = 0; j < A.length; j++) m = Math.max(m, Math.abs(A[j] - B[j])); } return m; };
+  const k = [0, 1, 2].filter(i => O.P.stages[i].on).sort((a, b) => vary(b) - vary(a))[0];
+  const g = WSG.fcg || (wsFrame(wsVM(), LAB.theme), WSG.fcg);
+  const plot = (c, ys) => { g.fillStyle = W; g.fillRect(0, 0, WS_W, WS_H); wsPlotCurve(g, ys, c.x, c.y, c.w, c.h, false); return g.getImageData(0, 0, WS_W, WS_H).data; };
+  const misses = (d, c, ys) => { let n = 0; for (let i = 0; i < c.w; i++) { const r = wsRow(wsInterp(ys, i, c.w), c.y, c.h); if (d[(r * WS_W + c.x + i) * 4] >= 128) n++; } return n; };
+  let same = 0, drawn = 0, cols = 0, twinMiss = 0, frozenMiss = 0, cursorOk = 0; const pics = [];
+  const aPh = SRC.a + FFT_N / 2, frozen = wsVM({ page: 'transfer', stage: k, menu: -1, fid: '', hover: '', cur: '', ph: aPh, out: O }).ctrls.find(c => c.kind === 'curve');
+  for (const ph of phs) {
+    const vm = wsVM({ page: 'transfer', stage: k, menu: -1, fid: '', hover: '', cur: '', ph, out: O }), c = vm.ctrls.find(q => q.kind === 'curve'), want = O.snaps[sidx(ph)][k].ys;
+    if (c.ys === want) same++;
+    const d = plot(c, c.ys); cols += c.w; drawn += c.w - misses(d, c, want); pics.push(Array.from({ length: c.w }, (_, i) => wsRow(wsInterp(want, i, c.w), c.y, c.h)).join(','));
+    const twin = XS.map(x => uiTwin(O.P.stages[k], x)); twinMiss = Math.max(twinMiss, misses(plot(c, twin), c, want) / c.w);
+    frozenMiss = Math.max(frozenMiss, misses(plot(c, frozen.ys), c, want) / c.w);
+    const lv = wsVM({ page: 'levels', stage: 0, menu: -1, fid: '', hover: '', cur: '', ph, out: O }), m = lv.ctrls.find(q => q.kind === 'meter');
+    const fr = wsFrame(lv, 'light').data, S = wsScheme('light'), X = wsMeterX(m, Math.floor(ph / BLOCK), O.trace.g[0].length);
+    let solid = true; for (let y = m.y + 1; y < m.y + m.h - 1; y++) { const o = (y * WS_W + X) * 4; if (fr[o] !== S.ink[0] || fr[o + 1] !== S.ink[1] || fr[o + 2] !== S.ink[2]) { solid = false; break; } }
+    if (solid) cursorOk++;
+  }
+  const moves = new Set(pics).size;
+  add('the visualiser follows the rendered audio', same === phs.length && drawn === cols && moves >= 2 && cursorOk === phs.length,
+    `"${name}", stage ${k + 1}, on ${SRC.label}, at playheads ${phs.map(p => (p / SR).toFixed(2) + ' s').join(', ')}: the screen's curve is the render's own snapshot ${same}/${phs.length}; ` +
+    `its pixels are that curve's in ${drawn}/${cols} columns; ${moves} distinct pictures over the three playheads; the LEVELS cursor stands on the playhead's block ${cursorOk}/${phs.length}`,
+    [{ name: 'the UI-param preview (uiTwin) in place of the render', caught: twinMiss > 0.1, detail: 'misses ' + Math.round(twinMiss * 100) + '% of the columns at worst' },
+     { name: 'a playhead frozen at the analysis point', caught: frozenMiss > 0.1, detail: 'misses ' + Math.round(frozenMiss * 100) + '% of the columns at worst' }]);
+}
+
 boot();
 </script>
 </body></html>
