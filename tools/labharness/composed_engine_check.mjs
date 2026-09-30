@@ -33,6 +33,14 @@
  *       nothing, and at the cap a note-on replaces a sounding tail. Controls: a
  *       tier-blind culler; the same cull as an instant cut, which the metric
  *       must catch.
+ *   CAPPO the policy at a FULL cap (B375). Every sounding voice held, the cap
+ *       full: REFUSE (the default) drops the note and leaves the pool and the
+ *       samples exactly a twin's that never got it; STEAL (the lab's test toggle)
+ *       frees the oldest held voice over the 8 ms ramp and plays the note in a
+ *       free slot, the other held voices untouched; with no free slot it is the
+ *       full-pool law; below the cap both are bit-identical to no cap. Controls:
+ *       REPLACE (B323's law) through the refuse detector; the steal as an
+ *       instant cut; the cap binding through the below-cap comparison.
  *   KQ  ADR-184 A2 (2). Snapped Cut spread mirrors exactly (half away from
  *       zero) and is the oracle's bit for bit except at negative halves.
  *       Control: the oracle's own Math.round at ±2.5.
@@ -681,6 +689,124 @@ section('CULL — the voice cap (B323): quietest tails first by ADR-083\'s tiers
     const r = run(5, 512, Naive);
     row(!(gone(r, 65) && heldOk(r)), 'CULLc',
       `CONTROL a tier-blind culler (oldest sounding): 65 gone ${gone(r, 65)}, held 60-62 kept ${heldOk(r)} — must fail the CULL detector (it takes held 60)`);
+  }
+}
+
+/* ---------------------------------------------------------------- B375 cap policy */
+/* THE POLICY AT A FULL CAP (B375, engine noteOn, capPolicy). The human, 2026-09-29: "Blocking new
+   voices seems like a reasonable policy, though maybe we could include a toggle to test". The case:
+   the cap is full and every sounding voice is HELD (no tail for tiers 1-2 to take). REFUSE (0, the
+   default) drops the note and touches nothing; STEAL (1, the lab's test toggle) releases the oldest
+   held voice into the cull's 8 ms fade and plays the note in a free slot; REPLACE (2) is B323's law as
+   built. Each row has a must-fail control run through the same detector. */
+section('CAPPO — the full-cap policy (B375): refuse by default, steal (faded) as a test toggle');
+{
+  const hz = n => 440 * Math.pow(2, (n - 69) / 12);
+  const make = (cls, policy) => {
+    Math.random = mulberry32(0xB375);
+    const c = new (cls || Composed)(SR);
+    c.set({ N: 5, detune: 14, K: 0.35, phaseMode: 1 }); Object.assign(c.s, c.t);   // poly 6 (default)
+    if (policy !== undefined) c.msg({ t: 'capPolicy', n: policy });
+    return c;
+  };
+  /* 60, 61, 62 struck and HELD (60 the oldest), 4096 samples in: past the attack, nothing released */
+  const HELD = [[0, 60], [128, 61], [256, 62]];
+  const T0 = 4096;
+  const prime = c => {
+    const L = new Float32Array(128), R = new Float32Array(128);
+    for (let i = 0, e = 0; i < T0; i += 128) { while (e < HELD.length && HELD[e][0] <= i) { const n = HELD[e++][1]; c.noteOn(n, hz(n), 0.9); } c.render(L, R); }
+  };
+  const pool = c => c.voices.slice(0, c.d.poly);
+  const snap = c => pool(c).map(v => ({ note: v.note, gate: v.gate, active: v.active, env: v.env, cull: !!v.cull, age: v.age }));
+  const renderN = (c, n) => { const L = new Float32Array(n), R = new Float32Array(n); c.render(L, R); return { L, R }; };
+  const slotOf = (s, note) => s.findIndex(v => v.active && v.note === note);
+  /* REFUSE: the note-on at a full cap vs a twin that never received it; the held voices, the pool and
+     the samples must be exactly the twin's, and the note must be nowhere */
+  const refuseRun = (cls, policy) => {
+    const c = make(cls, policy), twin = make(cls, policy);
+    prime(c); prime(twin);
+    c.msg({ t: 'cap', n: 3 }); twin.msg({ t: 'cap', n: 3 });
+    const pre = snap(c);
+    c.noteOn(70, hz(70), 0.9);
+    const post = snap(c), a = renderN(c, 4096), b = renderN(twin, 4096);
+    const same = JSON.stringify(post) === JSON.stringify(pre) && JSON.stringify(snap(c)) === JSON.stringify(snap(twin));
+    return { c, pre, post, same, d: maxDiff(a, b), rms: rms(a), has70: slotOf(snap(c), 70) >= 0 };
+  };
+  {
+    const dflt = make().capPolicy;
+    const r = refuseRun();
+    row(dflt === 0 && r.c.refused === 1 && r.c.stolen === 0 && r.same && r.d === 0 && r.rms > 1e-4 && !r.has70, 'CAPPO',
+      `REFUSE is the default (capPolicy ${dflt}): cap 3 full of held 60-62, note-on 70 refused (${r.c.refused}); held voices and pool state identical ${r.same}, ` +
+      `4096 samples vs a twin that never got the note max|Δ| ${r.d.toExponential(1)} (must be 0), 70 sounding ${r.has70}`);
+    /* CONTROL: B323's law (policy 2, REPLACE) through the same detector: it re-strikes held 60's slot */
+    const z = refuseRun(undefined, 2);
+    const k60 = z.pre.findIndex(v => v.note === 60);
+    row(!(z.same && z.d === 0 && !z.has70) && z.post[k60].note === 70, 'CAPPc',
+      `CONTROL REPLACE (policy 2, B323's law as built): 70 takes held 60's slot ${k60} at once (now ${z.post[k60].note}); samples differ ${z.d.toExponential(1)} — must fail the REFUSE detector`);
+  }
+  /* STEAL: the oldest held (60) released into the 8 ms fade; the twin gets 60's note-off at the same
+     sample instead, so the stolen voice's gain against the twin's is the ramp alone. 1-sample calls */
+  const stealRun = cls => {
+    const c = make(cls, 1), twin = make(cls, 1);
+    prime(c); prime(twin);
+    c.msg({ t: 'cap', n: 3 }); twin.msg({ t: 'cap', n: 3 });
+    const pre = snap(c), k = pre.findIndex(v => v.note === 60);
+    c.noteOn(70, hz(70), 0.9); twin.noteOff(60);
+    const k70 = slotOf(snap(c), 70);
+    const L = new Float32Array(1), R = new Float32Array(1), L2 = new Float32Array(1), R2 = new Float32Array(1);
+    let end = -1, worst = 0, maxStep = 0, prevG = 1, dSurv = 0;
+    for (let i = 1; i <= 1024; i++) {
+      c.render(L, R); twin.render(L2, R2);
+      if (end < 0) {
+        const g = c.voices[k].active ? c.voices[k].env / twin.voices[k].env : 0;
+        if (!c.voices[k].active) end = i;
+        else worst = Math.max(worst, Math.abs(g - (1 - i / (0.008 * SR))));
+        maxStep = Math.max(maxStep, prevG - g); prevG = g;
+      }
+      for (const n of [61, 62]) {
+        const q = pre.findIndex(v => v.note === n), v = c.voices[q], w = twin.voices[q];
+        dSurv = Math.max(dSurv, Math.abs(v.env - w.env), v.gate === w.gate && v.active === w.active ? 0 : 1);
+        for (let m = 0; m < c.d.N; m++) dSurv = Math.max(dSurv, Math.abs(v.m[m].phi - w.m[m].phi));
+      }
+    }
+    const post = snap(c);
+    return { c, k, k70, end, worst, maxStep, dSurv, newOk: k70 >= 0 && k70 !== k && !pre[k70].active && post[k70].gate && post[k70].active };
+  };
+  {
+    const r = stealRun();
+    row(r.c.stolen === 1 && r.c.refused === 0 && r.k >= 0 && r.newOk && r.end > 0.005 * SR && r.end <= 0.010 * SR + 1 && r.worst < 1e-9 && r.maxStep < 1.01 / (0.008 * SR) && r.dSurv === 0, 'CAPPO',
+      `STEAL (policy 1): note-on 70 at a full cap 3 steals held 60 (the oldest, slot ${r.k}) and sounds in free slot ${r.k70} (${r.newOk}); 60's gain vs a twin released at the same sample follows 1 − t/8 ms within ${r.worst.toExponential(1)}, ` +
+      `largest step ${r.maxStep.toExponential(2)} a sample, freed after ${r.end} samples (${(r.end / SR * 1000).toFixed(2)} ms); held 61/62 vs the twin max|Δ env, φ| ${r.dSurv.toExponential(1)} (must be 0)`);
+    /* CONTROL: the same steal as an INSTANT cut (the stolen voice zeroed at once) through the same detector */
+    class CutSteal extends Composed { noteOn(n, f, v) { super.noteOn(n, f, v); for (const x of this.voices) if (x.cull) { x.env = 0; x.active = false; x.cull = false; } } }
+    const z = stealRun(CutSteal);
+    row(!(z.end > 0.005 * SR && z.worst < 1e-9), 'CAPPc',
+      `CONTROL the steal as an instant cut: freed after ${z.end} sample(s), ramp error ${z.worst.toExponential(1)} — must fail the STEAL detector's fade`);
+  }
+  {
+    /* STEAL with the pool FULL of held voices (6 held, cap 6): no free slot, so it is horde's own
+       full-pool law (ADR-083 tier 3, at once), as documented in noteOn; nothing is faded */
+    const c = make(undefined, 1);
+    const L = new Float32Array(128), R = new Float32Array(128);
+    for (let n = 60; n < 66; n++) { c.noteOn(n, hz(n), 0.9); c.render(L, R); }
+    c.msg({ t: 'cap', n: 6 });
+    const pre = snap(c), k60 = pre.findIndex(v => v.note === 60);
+    c.noteOn(70, hz(70), 0.9);
+    const post = snap(c);
+    row(post[k60].note === 70 && post[k60].gate && c.stolen === 0 && c.refused === 0 && post.every(v => !v.cull), 'CAPPO',
+      `STEAL with no free slot (6 held, pool 6, cap 6): 70 re-strikes the oldest held slot ${k60} (now ${post[k60].note}), stolen ${c.stolen}, nothing fading — horde's full-pool law, as uncapped`);
+  }
+  {
+    /* BELOW THE CAP NOTHING CHANGES: 3 held, cap 5 (does not bind), note-on 70, under refuse and under
+       steal, against no cap at all: the same samples, bit for bit */
+    const out = (cap, policy) => { const c = make(undefined, policy); prime(c); if (cap) c.msg({ t: 'cap', n: cap }); c.noteOn(70, hz(70), 0.9); const o = renderN(c, 4096); o.c = c; return o; };
+    const off = out(0), ref = out(5, 0), stl = out(5, 1);
+    row(maxDiff(off, ref) === 0 && maxDiff(off, stl) === 0 && rms(off) > 1e-4 && ref.c.refused === 0 && stl.c.stolen === 0, 'CAPPO',
+      `below the cap (4 sounding after the note, cap 5): refuse and steal vs no cap max|Δ| ${maxDiff(off, ref).toExponential(1)} / ${maxDiff(off, stl).toExponential(1)} — bit-identical`);
+    /* CONTROL: the same comparison with the cap binding (cap 3) must differ, under either policy */
+    const bRef = out(3, 0), bStl = out(3, 1);
+    row(maxDiff(off, bRef) > 1e-4 && maxDiff(off, bStl) > 1e-4, 'CAPPc',
+      `CONTROL the cap binding (cap 3): refuse differs from no cap by ${maxDiff(off, bRef).toFixed(4)}, steal by ${maxDiff(off, bStl).toFixed(4)} — the comparison sees a policy that acts`);
   }
 }
 
