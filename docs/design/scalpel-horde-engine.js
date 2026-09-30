@@ -38,7 +38,8 @@
  *                    unsmoothed (row 4 smoothing U).
  *   row 5  law       SURVIVES as `h.law` (the key collides with SCALPEL's spread
  *                    law, §1.8.4): 0 cents, 1 Hz, 2 ERB, 4 harmonic (harmReach),
- *                    5 stretch (stretchB); spread and anchor thread every law.
+ *                    5 stretch (stretchB); spread and anchor thread every law;
+ *                    3 tempo grid (bpm, beatMult), B382 M3, as the C++ has it.
  *   row 6  K         MERGES, HORDE LAW WINS: 4K|K|·σ Hz pull with seats at K<0
  *                    (§1.6.1). RazorCore's keff/couple law is not in the sound;
  *                    its couple() still runs, for the frame-invariant r and
@@ -256,6 +257,7 @@ function makeComposedEngine(RazorCore, swarmSrc) {
     dist: 0,             // row 2; 0 (even) is row 4's translation of a SCALPEL preset. horde's own default is 1 (JP)
     seed: 1234,          // row 3
     'h.law': 0,          // row 5 (key collides with SCALPEL's spread `law`)
+    tempoGrid: 1, bpm: 120, beatMult: 1,               // B382 M3: ON, law 3 is the C++'s tempo grid (ADR-022)
     harmReach: 1, stretchB: 0, spread: 1, anchor: 0,   // rows 61-64, the laws' sub-parameters
     onset: 0, dissolve: 0.63,                          // rows 7, 8 (dissolve in seconds)
     driftDepth: 0, 'h.driftRate': 0.4, driftMode: 0, motionCenter: 0,   // rows 9, 10, 56, 60
@@ -296,6 +298,23 @@ function makeComposedEngine(RazorCore, swarmSrc) {
   /* ADR-184 A2 (2): round half AWAY from zero, so −x rounds to exactly −(round x). Equal to
      Math.round everywhere except the negative halves (Math.round(−2.5) is −2). */
   const roundAway = x => (x < 0 ? -Math.round(-x) : Math.round(x));
+  /* B382 M3 `tempoGrid` (ruled 2026-09-30, B379; ADR-022, ADR-005). In the C++ law 3 is the TEMPO GRID
+     (swarm_core.h :1803-1812): cents placement, then each member's Hz offset snapped to the nearest
+     multiple of u = (bpm/60)·beatMult, so every pairwise beat rate is an exact multiple of the grid.
+     SwarmSynth has no law 3: its chain falls through to ERB (swarmsaw.html controlTick, the final
+     `else`). The lab's law menu does not offer 3, but saved state, automation and set() can carry one.
+     The snap rounds half AWAY from zero, as std::round does (roundAway's rule, written inline because
+     the patched text is evaluated outside this closure). bpm and beatMult are the C++'s Params (defaults
+     120 and 1; the plugin's bpm is the host transport's, the lab has none). Default ON (the human: the
+     lab matches the C++); 0 is SwarmSynth's ERB fall-through, and no other law is touched. */
+  SWARM_PATCHES.push({ id: 'M3', flag: 'tempoGrid', keys: ['tempoGrid', 'bpm', 'beatMult'], edits: [
+    ['      else { f = s.f0 + x * dep * 0.35 * this.erb(s.f0); }\n',
+     '      else if (p.tempoGrid && p.law === 3) {   // B382 M3\n' +
+     '        const u = (p.bpm / 60) * p.beatMult, q = s.f0 * (Math.pow(2, (x * dep * 100) / 1200) - 1) / u;\n' +
+     '        f = s.f0 + (q < 0 ? -Math.round(-q) : Math.round(q)) * u;\n' +
+     '      }\n' +
+     '      else { f = s.f0 + x * dep * 0.35 * this.erb(s.f0); }\n'],
+  ] });
   /* B335 gravity's ratio set, reference/swarmdynamics.html:214 (the C++ kRatios is the same 13). */
   const RATIOS = [1, 16 / 15, 9 / 8, 6 / 5, 5 / 4, 4 / 3, 7 / 5, 3 / 2, 8 / 5, 5 / 3, 16 / 9, 15 / 8, 2];
   /* B335 the ensemble stream's starting state, swarm_core.h ensembleSeed() (:1388):

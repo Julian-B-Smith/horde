@@ -11002,8 +11002,16 @@
    "fixed": 35
   },
   {
+   "key": "beatMult",
+   "fixed": 1
+  },
+  {
    "key": "bend",
    "fixed": 0
+  },
+  {
+   "key": "bpm",
+   "fixed": 120
   },
   {
    "key": "dist",
@@ -11052,6 +11060,10 @@
   {
    "key": "seed",
    "fixed": 1234
+  },
+  {
+   "key": "tempoGrid",
+   "fixed": 1
   },
   {
    "key": "voiceEnv",
