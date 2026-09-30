@@ -245,6 +245,10 @@ onset ≠ 0 misses the 1e-6 RMS bound by about 144× through the lifted core. Op
 
 ### M2: bipolar onset (ADR-056)
 
+**RULED 2026-09-30 (the human: "Also sounds good"), built in B382 (branch `composed-m2-onset`):**
+the composed JS mirrors ADR-056's law, default ON, ledgered as `docs/port/divergences.json` M2 (flag
+`onsetBipolar`; 0 is SwarmSynth's 8·onset²).
+
 The lift's onset lock is bipolar. `Kenv = 8·onset·|onset|` (:635), and a negative
 Kenv adds to the splay target (:1894-1895): a splay burst. SwarmSynth squares the
 sign away (`8·onset·onset`), so onset −0.5 is a SYNC burst there. This mismatch holds

@@ -97,7 +97,7 @@
   ],
   "structuralDisagreements": 0,
   "regimeInert": 11,
-  "sideChannelHits": 50,
+  "sideChannelHits": 51,
   "labGreysButLive": 9
  },
  "disagreements": [],
@@ -222,7 +222,7 @@
    "params": [
     "colK"
    ],
-   "probeHits": 2,
+   "probeHits": 3,
    "status": "confirmed by the probe"
   }
  },
@@ -3912,7 +3912,7 @@
     "liveInDeclared": 21,
     "regime": 0,
     "sideChannelHits": 0,
-    "minLiveDeltaDecade": -3,
+    "minLiveDeltaDecade": -2,
     "inertExactlyZero": true
    }
   },
@@ -5114,7 +5114,7 @@
     "liveInDeclared": 23,
     "regime": 0,
     "sideChannelHits": 0,
-    "minLiveDeltaDecade": -3,
+    "minLiveDeltaDecade": -2,
     "inertExactlyZero": true
    }
   },
@@ -5276,7 +5276,7 @@
     "liveInDeclared": 23,
     "regime": 0,
     "sideChannelHits": 0,
-    "minLiveDeltaDecade": -5,
+    "minLiveDeltaDecade": -3,
     "inertExactlyZero": true
    }
   },
@@ -5524,7 +5524,7 @@
     "liveInDeclared": 15,
     "regime": 0,
     "sideChannelHits": 0,
-    "minLiveDeltaDecade": -6,
+    "minLiveDeltaDecade": -5,
     "inertExactlyZero": true
    }
   },
@@ -5805,7 +5805,7 @@
     "liveInDeclared": 5,
     "regime": 0,
     "sideChannelHits": 0,
-    "minLiveDeltaDecade": -5,
+    "minLiveDeltaDecade": -3,
     "inertExactlyZero": true
    }
   },
@@ -5885,7 +5885,7 @@
     "liveInDeclared": 8,
     "regime": 0,
     "sideChannelHits": 0,
-    "minLiveDeltaDecade": -4,
+    "minLiveDeltaDecade": -3,
     "inertExactlyZero": true
    }
   },
@@ -6990,7 +6990,7 @@
     "liveInDeclared": 4,
     "regime": 0,
     "sideChannelHits": 0,
-    "minLiveDeltaDecade": -4,
+    "minLiveDeltaDecade": -3,
     "inertExactlyZero": true
    }
   },
@@ -8333,7 +8333,7 @@
     "liveInDeclared": 4,
     "regime": 0,
     "sideChannelHits": 0,
-    "minLiveDeltaDecade": -3,
+    "minLiveDeltaDecade": -2,
     "inertExactlyZero": true
    }
   },
@@ -8887,7 +8887,7 @@
     "liveInDeclared": 12,
     "regime": 0,
     "sideChannelHits": 0,
-    "minLiveDeltaDecade": -4,
+    "minLiveDeltaDecade": -3,
     "inertExactlyZero": true
    }
   },
@@ -9292,13 +9292,13 @@
    ],
    "probe": {
     "contexts": 32,
-    "live": 7,
-    "inert": 25,
+    "live": 8,
+    "inert": 24,
     "declaredLive": 5,
     "declaredInert": 27,
     "liveInDeclared": 3,
     "regime": 2,
-    "sideChannelHits": 4,
+    "sideChannelHits": 5,
     "minLiveDeltaDecade": -4,
     "inertExactlyZero": false
    }
@@ -9368,7 +9368,7 @@
     "liveInDeclared": 4,
     "regime": 3,
     "sideChannelHits": 3,
-    "minLiveDeltaDecade": -2,
+    "minLiveDeltaDecade": -3,
     "inertExactlyZero": true
    }
   },
@@ -9638,7 +9638,7 @@
     "liveInDeclared": 24,
     "regime": 0,
     "sideChannelHits": 0,
-    "minLiveDeltaDecade": -3,
+    "minLiveDeltaDecade": -2,
     "inertExactlyZero": true
    }
   },
@@ -10700,7 +10700,7 @@
     "liveInDeclared": 24,
     "regime": 0,
     "sideChannelHits": 0,
-    "minLiveDeltaDecade": -2,
+    "minLiveDeltaDecade": -1,
     "inertExactlyZero": true
    }
   },
@@ -11032,6 +11032,10 @@
   {
    "key": "onsetAlpha",
    "fixed": 0.25
+  },
+  {
+   "key": "onsetBipolar",
+   "fixed": 1
   },
   {
    "key": "onsetScatter",

@@ -258,6 +258,7 @@ function makeComposedEngine(RazorCore, swarmSrc) {
     'h.law': 0,          // row 5 (key collides with SCALPEL's spread `law`)
     harmReach: 1, stretchB: 0, spread: 1, anchor: 0,   // rows 61-64, the laws' sub-parameters
     onset: 0, dissolve: 0.63,                          // rows 7, 8 (dissolve in seconds)
+    onsetBipolar: 1,                                   // B382 M2: ON, the C++'s bipolar onset (ADR-056)
     driftDepth: 0, 'h.driftRate': 0.4, driftMode: 0, motionCenter: 0,   // rows 9, 10, 56, 60
     inertia: 0, inertiaCurve: 2.5,                     // G6 (the knob), G7
     freqGlide: 0, keepPhase: 0, pivotMode: 0,          // G9, row 57, row 65
@@ -302,6 +303,21 @@ function makeComposedEngine(RazorCore, swarmSrc) {
      (int64)toInt32(seed)·2654435761 + 0x9E3779B8, truncated to uint32. Math.imul is the low 32
      bits of the product, and the sum stays far inside 2^53, so `>>> 0` is the C++ truncation. */
   const ensembleSeed = seed => (Math.imul(seed | 0, 2654435761 | 0) + 0x9E3779B8) >>> 0;
+  /* B382 M2 `onsetBipolar` (ruled 2026-09-30, B379; ADR-056). The onset lock is a note-start coupling
+     burst, Kenv, that decays over `dissolve`. SwarmSynth squares its sign away (swarmsaw.html noteOn,
+     `Kenv = 8 * onset * onset`), so onset -x plays the SAME sync burst as +x, although the composed
+     engine exposes onset -1..1. The C++ is bipolar (swarm_core.h :635, :1894-1895): Kenv = 8·onset·|onset|,
+     and its sign is routed, max(0, Kenv) to the sync target and max(0, -Kenv)·3 to the splay target (the
+     ×3 of the steady splay gain), so a negative onset is a SPLAY burst. For onset >= 0 both are the
+     reference's expressions exactly (|onset| is onset, max(0, Kenv) is Kenv, the splay term is +0), as
+     ADR-056 proved of the C++. Default ON (the human: the lab matches the C++); 0 is SwarmSynth's. */
+  SWARM_PATCHES.push({ id: 'M2', flag: 'onsetBipolar', keys: ['onsetBipolar'], edits: [
+    ['    s.Kenv = 8 * this.p.onset * this.p.onset;\n',
+     '    s.Kenv = this.p.onsetBipolar ? 8 * this.p.onset * Math.abs(this.p.onset) : 8 * this.p.onset * this.p.onset;   // B382 M2\n'],
+    ['    const syncT = (Math.max(0, km) + s.Kenv) * s.sigma;\n    const splayT = Math.max(0, -km) * 3 * s.sigma;\n',
+     '    const syncT = p.onsetBipolar ? (Math.max(0, km) + Math.max(0, s.Kenv)) * s.sigma : (Math.max(0, km) + s.Kenv) * s.sigma;   // B382 M2\n' +
+     '    const splayT = p.onsetBipolar ? (Math.max(0, -km) * 3 + Math.max(0, -s.Kenv) * 3) * s.sigma : Math.max(0, -km) * 3 * s.sigma;\n'],
+  ] });
 
   /* ADR-189 D1 (B355): FIRST-ORDER ADAA OF A BLADE CARRIER. The oracle's voice (razor-core.js :173-238)
      samples the carrier, hot = wave(p.hot, frac(cp)), and the scanner BLEPs its wraps. ADAA-1
