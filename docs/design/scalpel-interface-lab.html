@@ -2911,7 +2911,10 @@ function paintSpectrum(cv) {
   }
   g.stroke();
   g.fillStyle = TOKA('--scr-marker', 1); g.fillRect(fx(f0) - 1, bot - 5, 2, 5);
-  const n = cv._note; if (n) n.textContent = notes.length ? notes.join(' · ') : 'no blade on';
+  /* B372: written only when it changes (as ringNotes does). An unconditional write every frame
+     dirtied layout, so the next painter's fit() (clientWidth) forced a synchronous reflow per frame */
+  const n = cv._note, nt = notes.length ? notes.join(' · ') : 'no blade on';
+  if (n && n.textContent !== nt) n.textContent = nt;
 }
 
 /* ---- B297: THE SCOPE BEAM, back from gui2 ----
@@ -4278,7 +4281,23 @@ function envPanel(host, h) {
   for (const k of ENV_KEYS) knob(kr, k, { tier: 'T1', label: SP[k].label });
   return p;
 }
-function paintCanvases() { for (const [cv, f] of CANV) f(cv); }
+/* B372: `shownOnly` (the frame loop's call) skips the painters while the whole plugin frame is outside the
+   window. The frame sits ~3000 px down the page, under the self-check, so on load, and while the notes
+   below are read, nothing painted was visible. These painters redraw from the current state, so a
+   skipped one is exactly current on the first frame the frame is back (rAF runs after the scroll,
+   before the paint). The unit is the FRAME, not each canvas, because two painters also write DOM text
+   beside their canvas (paintSpectrum's note, the ring's notes), which a per-canvas skip could leave
+   stale on screen. Two painters keep state across paints and always run, so nothing they show can
+   differ: paintEnv (envLive samples the release's first level, ENVV) and paintVmap (its zoom's shrink
+   counts 30 paints). Every other caller (rebuild, the checks) paints them all, as before. */
+function frameShown() {
+  const r = FR.getBoundingClientRect();
+  return r.bottom > 0 && r.right > 0 && r.top < innerHeight && r.left < innerWidth;
+}
+function paintCanvases(shownOnly) {
+  const all = !shownOnly || frameShown();
+  for (const [cv, f] of CANV) if (all || f === paintEnv || f === paintVmap) f(cv);
+}
 
 /* ======================================================================
    G. CONTROL BUILDERS — every control carries its address (data-key, title)
@@ -5480,12 +5499,22 @@ function workletSource() {
 }
 async function makeNode(ctx, init) {
   const url = URL.createObjectURL(new Blob([workletSource()], { type: 'application/javascript' }));
-  await ctx.audioWorklet.addModule(url);
+  try { await ctx.audioWorklet.addModule(url); } finally { URL.revokeObjectURL(url); }   // B372: the module is loaded; the blob need not outlive it
   return new AudioWorkletNode(ctx, 'b271-razor', { numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2], processorOptions: init || {} });
 }
 async function audioStart() {
   if (!CORE) { AUD.err = 'engine not loaded'; paintAudioStat(); return; }
-  if (AUD.on) { try { await AUD.ctx.close(); } catch (_) {} AUD.on = false; AUD.node = null; AUD.spn = null; AUD.ctx = null; MON.a0 = null; LOAD.dsp = null; AUD.feed = null; paintAudioStat(); paintLoad(); return; }
+  if (AUD.on) {
+    /* B372: POWER off detaches the old graph before the close. Closing the context alone kept each old
+       node's port listener alive (measured: 20 on/off pairs, 381 → 401 listeners; 381 → 381 with this).
+       The closed AudioContexts themselves stay reachable either way: Chrome keeps a closed, unreferenced
+       context reachable on a page with no lab code at all (trace b372's control), so that is not ours */
+    if (AUD.node) { AUD.node.port.onmessage = null; AUD.node.port.close(); AUD.node.disconnect(); }
+    if (AUD.spn) { AUD.spn.onaudioprocess = null; AUD.spn.disconnect(); }
+    if (AUD.out) AUD.out.disconnect();
+    try { await AUD.ctx.close(); } catch (_) {}
+    AUD.on = false; AUD.node = null; AUD.spn = null; AUD.ctx = null; AUD.out = null; MON.a0 = null; LOAD.dsp = null; AUD.feed = null; paintAudioStat(); paintLoad(); return;
+  }
   const AC = window.AudioContext || window.webkitAudioContext;
   const ctx = new AC({ sampleRate: SR });
   AUD.ctx = ctx; AUD.out = ctx.createGain(); AUD.out.gain.value = EFF.master; AUD.out.connect(ctx.destination);
@@ -5612,10 +5641,13 @@ function paintLoad() {
   const m = LOAD.el; if (!m || !m.isConnected) return;
   const d = AUD.on && LOAD.dsp ? LOAD.dsp.load : 0;
   m.classList.toggle('warm', d >= 0.7 && d < 1); m.classList.toggle('over', d >= 1); m.classList.toggle('shed', LOAD.shed);
-  const i = m.querySelector('i'), b = m.querySelector('b');
-  if (i) i.style.width = Math.min(100, Math.round(100 * d)) + '%';
-  if (b) b.textContent = loadText();
-  m.title = 'B323 — ' + loadText(true) + '. DSP is the audio worklet\'s render time over real time (its own 85 ms windows); UI the page\'s work per frame; xrun the device\'s underruns (Chrome playbackStats), the gaps heard as clicks. Over 90% the engine culls the quietest releasing tails (never a held note) and caps new voices; while loaded the page sheds Specimen and logo frames.';
+  /* B372: each write only when its value changed. This runs every 15th frame and on every load post
+     (~12/s with audio on); an unconditional textContent write dirties layout even when the text is the same */
+  const i = m.querySelector('i'), b = m.querySelector('b'), wd = Math.min(100, Math.round(100 * d)) + '%', bt = loadText();
+  if (i && i.style.width !== wd) i.style.width = wd;
+  if (b && b.textContent !== bt) b.textContent = bt;
+  const tt = 'B323 — ' + loadText(true) + '. DSP is the audio worklet\'s render time over real time (its own 85 ms windows); UI the page\'s work per frame; xrun the device\'s underruns (Chrome playbackStats), the gaps heard as clicks. Over 90% the engine culls the quietest releasing tails (never a held note) and caps new voices; while loaded the page sheds Specimen and logo frames.';
+  if (m.title !== tt) m.title = tt;
 }
 
 /* ======================================================================
@@ -8154,7 +8186,7 @@ function frame() {
   const t0 = nowMs();
   monAdvance();
   specimenFrame(false);                              // B315: before the pad paints over it
-  paintCanvases();
+  paintCanvases(true);                               // B372: none while the plugin frame is scrolled away
   logoFrame(false);
   LOAD.ui += (nowMs() - t0 - LOAD.ui) * 0.1;          // B323: the frame's work, one-pole over ~10 frames (cost only)
   shedUpdate();
