@@ -99,8 +99,13 @@ inline double ksmC(double sampleRate)
 
 inline int run(int argc, char **argv)
 {
-  if (argc != 2) { std::fprintf(stderr, "usage: %s <build-golden/sr48000>\n", SWARM_TOOL); return 64; }
-  const std::string dir = argv[1];
+  /* No argument: the repo-relative default. tools/sanitize_oracles.sh runs every wired oracle from the
+     repo root and hands a golden directory only when ./verify's line matches build-golden[a-z/]*, which
+     sr48000's digits do not; it has already run every gen_*.mjs in ./verify, gen_goldens_sr.mjs
+     included, so the goldens are there. Absent goldens are the missing-manifest FAILURE below, as
+     parity_check's are, never a pass. */
+  if (argc > 2) { std::fprintf(stderr, "usage: %s [build-golden/sr48000]\n", SWARM_TOOL); return 64; }
+  const std::string dir = argc == 2 ? argv[1] : "build-golden/sr48000";
   std::ifstream tsv(dir + "/manifest.tsv");
   if (!tsv) { std::fprintf(stderr, "%s: cannot open %s/manifest.tsv (run tools/golden/gen_goldens_sr.mjs first)\n", SWARM_TOOL, dir.c_str()); return 1; }
   int red = 0, count = 0, match = 0, mirrored = 0, known = 0;
