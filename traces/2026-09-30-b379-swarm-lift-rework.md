@@ -1,0 +1,31 @@
+# b379-swarm-lift-rework — the critic's REWORK (narrow) on PR #876: the h2 parity chain, ledger v2
+
+- **Queue item:** ROADMAP B379 step 1, rework. This follows `traces/2026-09-30-b379-swarm-lift.md`, which stays as written. Its sha256 codegen claim is withdrawn here, per critic L3.
+- **Why:** The Opus critic confirmed the lift, the namespaces, the E1 check and the M1–M3 facts. It found one required gap and several smaller ones.
+  - **The required gap (H1):** the lift's parity claim was not gated under h2 flags. Legacy `parity_check` builds at clang's default contraction, while the h2 copy only ever builds contraction-off.
+  - **The smaller ones:** the byte gate had no source pin (M1), no path for future divergences (M2), read text rather than bytes (L1), and did not require every header to be listed (L2). There were also documentation gaps (L3–L6).
+- **What changed:**
+  - **H1:** `tools/h2_swarm_parity_check.cpp` is a byte-gated copy of `tools/parity_check.cpp`; only the include and one namespace-qualified line change (T1, T2). It is an h2 target at `-O2 -ffp-contract=off`, wired in `verify full` beside `parity_check` on the same goldens.
+  - **M1:** a `src_blob` pin per file. A moved source is its own verdict.
+  - **M2:** the one-path rule. Every edit, including `kind: "divergence"` hunks carrying their `divergences.json` id, is a ledger hunk. There is a new multi-line `patch` op.
+  - **L1, L2:** bytes, not text, and every `*.h` must be listed. There are now 13 self-cases.
+  - **L3:** the codegen proof is "by construction".
+  - **L4, L6:** documentation in `docs/port/phase-1b.md`.
+  - **L5:** `h2_rules_check` rule 4 (no TU with both copies, `tools/` included), plus README notes.
+- **Evidence consulted:**
+  - the critic's findings as relayed by the lead;
+  - `tools/parity_check.cpp`, `verify` :445-460 and `CMakeLists.txt` :190-198;
+  - `tools/sanitize_oracles.sh`, whose oracle list is parsed from `verify`, so the new check is picked up;
+  - `docs/design/composed-engine-check.html:199` and `docs/design/scalpel-interface-lab.html:1590`, `:1595` and `:1716`, for law 3.
+- **Measured:**
+  - The h2 copy at `-O2 -ffp-contract=off` gives `parity_check: 156/156 scenarios within eps=1e-06 (worst 2.485e-09 @ saw-glass.seed1234)`.
+  - Legacy `parity_check` in the same run gives `worst 4.262e-09 @ dyn-ring.seed42`. So contraction moves which scenario is worst, and both are far inside 1e-6.
+  - By hand, each of these turned `h2_lift_check` red: a stray `\r`, an unlisted `extra.h`, and a wrong pinned blob (reported as "legacy moved", not blamed on the copy). A tool including both copies turned `h2_rules_check` red. Each was restored afterwards.
+- **Alternatives rejected:**
+  - **Editing the legacy `parity_check.cpp` to take a namespace switch:** it is legacy tooling (ADR-186 §1).
+  - **Changing the copy's `parity_check:` output prefix:** the lead asked for include and namespace only. The `verify` line echoes a label before the copy runs instead.
+  - **Keying ledger files by core-relative names:** a tool now lives in the ledger too, so the keys are repo-relative.
+- **Verify:**
+  - `./verify fast` exit 0 on `1e0d1b3`: `{"target":"fast","exit":0,"git":"1e0d1b3","ts":"2026-09-30T05:21:46Z"}`.
+  - `./verify full` exit 0 on `1e0d1b3`: `{"target":"full","exit":0,"git":"1e0d1b3","ts":"2026-09-30T05:27:08Z"}`.
+- **Open questions:** unchanged from the first trace: the four decisions in `docs/port/phase-1b.md`. New: whether a 48 kHz golden set should be generated to test the M1/M2-only hypothesis (L6).

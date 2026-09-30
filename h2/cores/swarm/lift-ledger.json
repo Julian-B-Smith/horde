@@ -1,0 +1,76 @@
+{
+ "schema": "hypersaw.lift-ledger/2",
+ "core": "swarm",
+ "about": "EVERY difference between horde 2's lifted swarm core and the legacy source it was copied from (ADR-186 item 4, ROADMAP B379). tools/h2_lift_check.py (./verify fast) rebuilds each lifted file from its CURRENT src original by applying these entries in order, as bytes, and demands byte equality. Red: an unledgered difference, an entry that no longer applies, an anchor or block that is not unique, a *.h in this directory that 'files' does not list, a divergence entry whose id is not in this directory's divergences.json, and a source that has moved since the lift (its git blob no longer equals src_blob: re-lift deliberately). THE ONE PATH FOR EDITS (the lead, 2026-09-30): every change to a lifted copy lives here as a hunk, lift edits (E1, ...) and later divergences alike. A divergence hunk has kind 'divergence' and carries its ADR-187 ledger id ('divergence': 'Dn', defined in divergences.json beside this file), so the byte gate stays meaningful after the first B378 fix instead of being loosened by it. The non-divergence entries (NS1, NS2, NS3, E1, T1, T2) are FROZEN in tools/h2_lift_check.py: any other hunk must be a divergence, and a new lift edit is a deliberate re-lift (frozen set + src_blob/lifted_at re-pin, recorded by the lead in ROADMAP). Ops: 'replace' (one source line that occurs exactly once -> one line), 'insert_after' (a unique anchor line; one line inserted after it), 'patch' (an exact block of consecutive lines that occurs exactly once -> a new block; either may span many lines).",
+ "lifted_at": "origin/main 1c421b5 (2026-09-30)",
+ "files": {
+  "h2/cores/swarm/swarm_core.h": { "src": "src/swarm_core.h", "src_blob": "399be5d40ecd808cdbf65941aa83a66bd77dd618" },
+  "h2/cores/swarm/force_core.h": { "src": "src/force_core.h", "src_blob": "a8be38879ff611922bb7569262f99feb07f539a3" },
+  "h2/cores/swarm/glide_core.h": { "src": "src/glide_core.h", "src_blob": "714bd31fca2525d766c95f4ef8650341d4f5cb2a" },
+  "tools/h2_swarm_parity_check.cpp": {
+   "src": "tools/parity_check.cpp",
+   "src_blob": "6dc4b8fff7ea3fd23b7b2d92462413cfbf6f3ad5",
+   "why": "A TOOL, not a core file: the legacy L0-1 parity chain duplicated onto the lifted core (ADR-186 item 4, 're-pointed or duplicated at the lift'; B379 critic H1). Legacy parity_check is built at clang's default contraction; this copy is an h2 target at -O2 -ffp-contract=off, the flags horde 2 ships (the human's ruling, 2026-09-30), and runs in ./verify full beside it on the same goldens. Measured at the lift: 156/156 within 1e-6, worst 2.485e-9 @ saw-glass.seed1234."
+  }
+ },
+ "entries": [
+  {
+   "id": "NS1",
+   "kind": "namespace",
+   "file": "h2/cores/swarm/swarm_core.h",
+   "op": "replace",
+   "src": "namespace hypersaw",
+   "h2": "namespace horde2::swarm::hypersaw",
+   "why": "ADR-186 item 4: a namespace of its own, so a link that saw both copies is not an ODR violation. The legacy name is kept as the INNERMOST component on purpose: the file's own qualified references (hypersaw::GlideCore, 8 lines; forcecore::, 4 lines) then resolve to the lifted copies by ordinary lookup, so no other line changes. The closing '}  // namespace hypersaw' is unchanged and still true; one brace closes a C++17 nested namespace definition. Callers outside spell the name fully, horde2::swarm::hypersaw:: (h2/README.md)."
+  },
+  {
+   "id": "NS2",
+   "kind": "namespace",
+   "file": "h2/cores/swarm/glide_core.h",
+   "op": "replace",
+   "src": "namespace hypersaw",
+   "h2": "namespace horde2::swarm::hypersaw",
+   "why": "As NS1: GlideCore lives beside SwarmCore, as it does in legacy."
+  },
+  {
+   "id": "NS3",
+   "kind": "namespace",
+   "file": "h2/cores/swarm/force_core.h",
+   "op": "replace",
+   "src": "namespace forcecore",
+   "h2": "namespace horde2::swarm::forcecore",
+   "why": "As NS1. swarm_core.h uses two functions of it (forcecore::rngNext, forcecore::onePoleCoef); the audit's proposal to extract them into a small rng header (B378 C2) is a later cleanup, not a lift edit."
+  },
+  {
+   "id": "E1",
+   "kind": "edit",
+   "file": "h2/cores/swarm/swarm_core.h",
+   "op": "insert_after",
+   "after": "  const Voice &voiceAt(int i) const { return voices[i]; }",
+   "h2": "  void tickVoice(Voice &s, bool lastOfSeg) { controlTick(s, lastOfSeg); }   // h2 LIFT EDIT E1 (B379; h2/cores/swarm/lift-ledger.json): one voice's control tick for a caller that owns its Voice; access only",
+   "why": "B379's allocator question: SwarmCore's per-voice dynamics, controlTick(Voice&, bool) (src/swarm_core.h:1698), are private (the private: at :1342) and their only caller is renderSeg (:1036), which walks the core's own voices[] (:2159) filled by its own allocator alloc() (:1664) and renders its own saw. initVoice (:622) is already public and Voice (:341) is a public type, so a caller can own and initialise voices; this one public forwarder lets it tick them too.",
+   "proof": {
+    "codegen": "By construction: an unused non-virtual inline member is never emitted, so no caller that does not call tickVoice() gets different code. (Also observed once by hand at the lift: an object calling setParam, noteOn and render compiled to the same bytes with and without the line; not a reproducible gate.)",
+    "behaviour": "tools/h2_swarm_lift_check.cpp (./verify full): a voice owned by the caller, started with initVoice and ticked through tickVoice on renderSeg's schedule, reproduces the core's own voice bit for bit (eff, vf, phase, driftS, KsmS, KsmP, KsmD, Kenv, R, RN, psi, sigma, rngState), with coupling, drift, inertia and onset lock on, at 44.1 and 48 kHz. It covers the DEFAULT render path only; see docs/port/phase-1b.md."
+   }
+  },
+  {
+   "id": "T1",
+   "kind": "namespace",
+   "file": "tools/h2_swarm_parity_check.cpp",
+   "op": "replace",
+   "src": "#include \"../src/swarm_core.h\"",
+   "h2": "#include \"../h2/cores/swarm/swarm_core.h\"",
+   "why": "The copy measures the lifted core, not the legacy one."
+  },
+  {
+   "id": "T2",
+   "kind": "namespace",
+   "file": "tools/h2_swarm_parity_check.cpp",
+   "op": "replace",
+   "src": "    hypersaw::SwarmCore core(kSR);",
+   "h2": "    horde2::swarm::hypersaw::SwarmCore core(kSR);",
+   "why": "The lifted core's namespace, spelled fully."
+  }
+ ]
+}
