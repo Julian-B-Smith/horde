@@ -94,6 +94,19 @@
  *                    fade out (a linear 8 ms ramp, never a cut), by ADR-083's
  *                    tiers, never a held note. An input, not a clock read. See
  *                    cull() and render() below.
+ *   B375     THE POLICY AT A FULL CAP (the human, 2026-09-29: "Blocking new voices
+ *                    seems like a reasonable policy, though maybe we could include
+ *                    a toggle to test"). When a note-on finds the cap full and no
+ *                    releasing tail to take, `capPolicy` (an input, like the cap)
+ *                    decides: 0 REFUSE, the DEFAULT: the note is dropped and every
+ *                    held voice is left exactly as it was; 1 STEAL (the lab's test
+ *                    toggle): the oldest held voice is released and faded out over
+ *                    B323's 8 ms ramp, and the note takes a free slot; 2 REPLACE:
+ *                    B323's own law as built (the oldest held voice is re-struck at
+ *                    once), kept reachable, used by nothing. With no cap (0, every
+ *                    offline render and every parity gate) none of this runs. Not a
+ *                    divergence from the oracle: RazorCore has no cap, and the
+ *                    composed engine's voice law is horde's (B310). See noteOn().
  *   B335     GRAVITY AND THE ENSEMBLE TIMING CORRECTION (human 2026-09-28: "Have we
  *                    ported gravity over from the original engine? Or the ensemble
  *                    voice lag correction behavior?"). Both SURVIVE in the accounting
@@ -367,6 +380,8 @@ function makeComposedEngine(RazorCore, swarmSrc) {
       this.gCoefS = 0;
       this.voiceCap = 0;                 // B323: the host's cap on sounding voices; 0 = off (cull())
       this.culled = 0;                   // tails culled so far (the lab's load meter shows it)
+      this.capPolicy = 0;                // B375: at a full cap, 0 refuse (default), 1 steal with the fade, 2 replace (B323)
+      this.refused = 0; this.stolen = 0; // B375: notes refused, held voices stolen, so far (the load meter)
       /* B335 gravity: the fixed-TIME grid (ADR-086 A1: exactly 256 at 44.1 kHz, 279 at 48 kHz),
          the samples owed to it (counted from the first render, as DynSynth's gravAccum is), and
          the readout (DynSynth's gravInfo, in fixed arrays: index into RATIOS, octave, cents) */
@@ -507,6 +522,23 @@ function makeComposedEngine(RazorCore, swarmSrc) {
          with no cap, `busy` is false and this is B310's law exactly. */
       const busy = this.voiceCap > 0 && this.liveCount() >= this.voiceCap;
       let v = this.tierPick(pool, busy ? x => !x.active : null);
+      /* B375: a full cap and no tail to take, so only held voices sound. B323 re-struck the oldest
+         held one at once (REPLACE, policy 2, below). REFUSE (0, the default) drops the note: no
+         voice is touched. STEAL (1) releases the oldest held voice and hands it to the cull's 8 ms
+         fade (it no longer counts as live, so the count stays at the cap), and the note takes a
+         FREE slot (inactive: tier 1 over the free ones); with the pool full of sounding voices there
+         is none, and then it is REPLACE, horde's own full-pool law (ADR-083 tier 3, at once). */
+      if (!v && busy && this.capPolicy !== 2) {
+        if (this.capPolicy !== 1) { this.refused++; return; }
+        let h = null;
+        for (const x of pool) if (x.active && x.gate && !x.cull && (!h || x.age < h.age)) h = x;
+        const f = this.tierPick(pool, x => x.active);
+        if (h && f) {
+          h.gate = false; h.stage = 4;                  // released, so its own envelope falls under the ramp too
+          h.cull = true; h.cullG = 1; this.stolen++;
+          v = f;
+        }
+      }
       if (!v) for (const x of pool) if ((!busy || x.active) && (!v || x.age < v.age)) v = x;
       // the rest is RazorCore's noteOn tail (razor-core.js:376-379), unchanged
       this.startVoice(v, note, freq, vel, true, true);
@@ -551,6 +583,7 @@ function makeComposedEngine(RazorCore, swarmSrc) {
 
     msg(o) {
       if (o && o.t === 'cap') { this.voiceCap = Math.max(0, Math.floor(+o.n || 0)); return; }
+      if (o && o.t === 'capPolicy') { const n = Math.floor(+o.n || 0); this.capPolicy = n === 1 || n === 2 ? n : 0; return; }   // B375
       super.msg(o);
     }
 

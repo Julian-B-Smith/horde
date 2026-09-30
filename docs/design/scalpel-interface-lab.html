@@ -254,10 +254,27 @@
      checkB365 exercise the exact merged-B365 bug (idle frozen at rest) without duplicating
      specimenStep. Checks in K (checkB365, extended: an idle-motion row plus its must-fail control).
 
+     ROUND 14 — B375, 2026-09-29, dispatched by the horde lead on ROADMAP B375 (carried in the records
+     PR on branch lead-records-149): the human's rulings on B368 and B372. (1) "I love the drop/inset/hue
+     gradient logo; let's lock it in": DROP + INSET + HUE ↘ is the DEFAULT style (E2, LOGO_DEFAULT, by
+     id); the cycle, the stored choice and ?logo= are unchanged. (2) On the 20 s boot freeze, running
+     the self-check only on request: "I agree with this." runChecks runs at boot only with ?check=1;
+     otherwise the audit line says "self-check: off" and carries a run button (selfCheck), and
+     window.__b271 is published only once the checks have run. The one side effect the page relied on,
+     B293's "a preset that fails its load check is not loaded", now runs per preset in applyPreset
+     (presetCheck). (3) On dense-chord overload: "Blocking new voices seems like a reasonable policy,
+     though maybe we could include a toggle to test." At a full voice cap with only held voices
+     sounding, the engine REFUSES the note by default; the header's "full cap (test)" chip switches the
+     audio to STEAL (the oldest held voice fades out over B323's 8 ms, the note plays). The policy is
+     an engine input (scalpel-horde-engine.js, capPolicy); composed_engine_check's CAPPO rows prove it.
+     (4) Fewer swarm members on the presets that overran the audio budget at five voices
+     (PRESET_THIN). Checks in K (checkB375; checkB334's default control; checkB317's edge row pinned
+     to FLAT, the style it measures).
+
      L0026: every const is declared above the code that runs at setup; the boot
      call is the last statement of the script. -->
 <html><head><meta charset="utf-8">
-<meta name="lab-review" content="B271 + B293–B368 · 2026-09-29">
+<meta name="lab-review" content="B271 + B293–B375 · 2026-09-29">
 <title>SCALPEL interface lab — horde with blades at its centre</title>
 <style>
   :root {
@@ -865,6 +882,7 @@
     <button class="chip" id="aaD1" data-lab="ADR-189 D1 (aaCarrier): first-order ADAA on a blade carrier, replacing its wrap BLEPs, only where it beats them: carrier shape not sine, AND (an FM mode OR Band-limit off), AND not an S&amp;H modulator. ?d1=1 starts it on.">D1 carrier <b>OFF</b></button>
     <button class="chip" id="aaD2" data-lab="ADR-189 D2 (aaXin): the PolyBLEP scanner tracks the feedback / cross-mod phase input, so it BLEPs the carrier's real edges. ?d2=1 starts it on.">D2 xin <b>OFF</b></button>
     <button class="chip" id="aaD3" data-lab="ADR-189 D3 (aaLoop): the feedback / cross-mod loop through a 5 kHz one-pole filter, which removes the rate-locked limit cycle (broad#828). ?d3=1 starts it on.">D3 loop <b>OFF</b></button>
+    <button class="chip" id="capBtn" data-lab="B375, a lab setting FOR TESTING: what the audio does when the load loop's voice cap (B323) is full and every sounding voice is held. REFUSE (the default, the human's ruling): the new note is not played and the held notes are untouched. STEAL: the oldest held note is released and faded out over 8 ms, and the new note plays. ?steal=1 starts it on STEAL.">full cap (test) <b>REFUSE</b></button>
     <button class="chip" id="themeBtn" data-lab="theme audition">theme <b>LIGHT</b></button>
     <button class="chip" id="scrBtn" data-lab="audition the screen scheme (the data wells only) — gui2's SCR chip, ADR-121" title="audition the screen scheme (the data wells only): TUBE · ORCHID · FROST · EMBER · DUSK">screen <b>ORCHID</b></button>
     <button class="pill" id="pwr" data-lab="audio context — a lab affordance, not a parameter">POWER</button>
@@ -1335,6 +1353,26 @@ Coupling × Detune XY</b> for the swarm.</div>
         little darker (lightness capped), because at their own lightness the far hues had almost no colour left.
         <span class="rec">Open:</span> 150° or wider; the diagonal's angle.</li>
     </ol>
+    <h2 style="margin-top:10px">Round 14 (B375) — your rulings: the logo locked, the page loads at once, a policy at the voice cap, lighter heavy presets</h2>
+    <ol start="79">
+      <li><b>The logo</b> ("I love the drop/inset/hue gradient logo; let's lock it in"). <b>DROP + INSET + HUE ↘</b> is what a first
+        visit shows. A click still steps through every style, and a choice you made before is still kept.</li>
+      <li><b>The page loads at once</b> ("I agree with this"). The self-check no longer runs on every load (it froze the page for about
+        20 s). The line under the tagline says it is off; its <b>run self-check</b> button runs it now, and <code>?check=1</code> runs it
+        at load. A preset is still checked before it loads, one at a time.</li>
+      <li><b>At a full voice cap</b> ("Blocking new voices seems like a reasonable policy, though maybe we could include a toggle to
+        test"). When the load loop has capped the voices and every sounding note is held, a new note is <b>not played</b>, and the held
+        notes are untouched. A releasing tail is still taken first, as before. The header chip <b>full cap (test)</b> switches to
+        <b>STEAL</b>: the oldest held note fades out over 8 ms and the new note plays. The load meter counts refused and stolen notes.
+        <span class="rec">Open:</span> which one the instrument keeps; horde 2's cap is a separate ruling (a fixed count or a
+        documented CPU-adaptive mode).</li>
+      <li><b>Lighter heavy presets</b> ("fewer swarm members on heavy presets"). Three bench presets overran the audio's time budget
+        at five voices, and the lab plays them with fewer members: <b>Glass horde pad</b> N 9 → 6 (about 125% of the budget → about 82%),
+        <b>Undertone cathedral</b> N 7 → 6 (about 95% → 81%) and <b>Mirror-image spreads</b> N 7 → 6 (about 93% → 77%). They sound
+        <b>thinner</b>: a narrower, less dense chorus, and the members' spreads fall on fewer points. The preset row says so, and the
+        Members knob puts the bench's N back. <span class="rec">Open:</span> Smear and strike and Crushed bells sit at the line (85–96%)
+        and are left as they are.</li>
+    </ol>
   </div>
   <div class="box" id="misread" style="grid-column:1 / -1">
     <h2>What you see vs what you hear (B297)</h2>
@@ -1690,13 +1728,17 @@ const LAB = {
   b2look: qp('b2', 'hatch'), direct: qp('direct', '0') === '1', theme: qp('theme', 'light'),
   view: qp('view', 'sum'), contrib: qp('contrib', '1') === '1', t2open: qp('t2', '0') === '1',
   advOpen: qp('adv', '0') === '1', mainBlade: 1, still: parseInt(qp('still', '0'), 10) || 0,
-  frozen: false, showVals: qp('vals', '0') === '1', presetName: '', presets: null,
+  frozen: false, showVals: qp('vals', '0') === '1', presetName: '', presetThin: '', presets: null,
   params: null, presetStat: {}, openCats: null, restrike: qp('restrike', '0') === '1', scheme: '',
   /* B355, ADR-187 A1: one toggle per divergence, each OFF by default (turning a divergence ON by default
      is one divergence per PR: three follow-up PRs, one each). ?aa189=1 starts all three on to audition;
      ?d1=1, ?d2=1, ?d3=1 one each */
   aa: { aaCarrier: qp('aa189', '0') === '1' || qp('d1', '0') === '1', aaXin: qp('aa189', '0') === '1' || qp('d2', '0') === '1',
-    aaLoop: qp('aa189', '0') === '1' || qp('d3', '0') === '1' }
+    aaLoop: qp('aa189', '0') === '1' || qp('d3', '0') === '1' },
+  /* B375: at a full voice cap, refuse the new note (false, the default) or steal the oldest held one
+     (true, the test toggle). A lab setting for the AUDIO instance only: the engine takes it as an input
+     (msg capPolicy), like the cap itself; no patch, preset or check scratch instance carries it */
+  capSteal: qp('steal', '0') === '1'
 };
 /* B317 — gui2's auditionable SCREEN SCHEMES (gui2.html:1846-1856, ADR-121), in its cycle order;
    `cls` is the body class the stylesheet carries, TUBE is its absence. The theme picks the
@@ -1810,7 +1852,8 @@ const LOAD_WIN = 32, LOAD_HI = 0.9, LOAD_TARGET = 0.75;         // the worklet's
 const SHED_DSP_ON = 0.85, SHED_DSP_OFF = 0.6, SHED_UI_ON = 8, SHED_UI_OFF = 5, SHED_CALM = 30;
 const SHED_SPECIMEN = 12, SHED_LOGO = 8;                        // frames per draw while shedding (3 and 2 otherwise)
 const MON_BUDGET_MS = 8, MON_SHED_MS = 3, MON_SKIP = SR / 4;     // the monitor's time budget per frame; its skip-ahead
-const AUDIT = { oracle: false, checks: [], tiers: null, probe: '' };
+/* B375: `ran` is false until runChecks has run (only with ?check=1, or the run button: selfCheck) */
+const AUDIT = { oracle: false, checks: [], tiers: null, probe: '', ran: false };
 let CTLS = [];    // paint functions of the controls on screen
 let CANV = [];    // [canvas, painter] pairs on screen
 const RESTRIKE = new Set(['N', 'phaseMode', 'law', 'polyMode', 'kRule', 'kRule2', 'b2sp', 'frame', 'frame2', 'octave', 'semi', 'fine']);
@@ -3489,12 +3532,17 @@ const LOGO_STYLES = [
 ];
 /* per viewer: this browser's storage, read once when the mark is made; ?logo=<id> overrides it for a
    link or a screenshot. Storage can throw (a file: page, a locked-down profile): the lab then just
-   forgets, and the style is FLAT on the next load. */
+   forgets, and the style is the default on the next load. B375 (the human, 2026-09-29: "I love the
+   drop/inset/hue gradient logo; let's lock it in"): the DEFAULT, what a viewer with nothing stored (or
+   an unknown id) sees, is DROP + INSET + HUE ↘, found by id so the cycle's order stays free; before
+   B375 it was index 0, FLAT. The cycle order is unchanged, so a click from the default goes to FLAT. */
 const LOGO_STYLE_KEY = 'scalpel-lab.logo-style';
+const LOGO_DEFAULT = LOGO_STYLES.findIndex(s => s.id === 'drop-inset-hue');
 function logoStyleLoad() {
   let id = qp('logo', '');
   if (!id) { try { id = localStorage.getItem(LOGO_STYLE_KEY) || ''; } catch (_) { id = ''; } }
-  return Math.max(0, LOGO_STYLES.findIndex(s => s.id === id));
+  const i = LOGO_STYLES.findIndex(s => s.id === id);
+  return i >= 0 ? i : LOGO_DEFAULT;
 }
 function logoStyleSave(i) { try { localStorage.setItem(LOGO_STYLE_KEY, LOGO_STYLES[i].id); return true; } catch (_) { return false; } }
 /* the click: the next style, saved, painted now (even with the clock standing: a still keeps its
@@ -4587,7 +4635,7 @@ function frameHeader(host) {
     }
   }
   const r = el('div', 'phdr-r'); h.appendChild(r);
-  r.innerHTML = '<b>' + escapeHtml(LAB.presetName || "oracle defaults · blade 2 on") + '</b>' +
+  r.innerHTML = '<b' + (LAB.presetThin ? ' title="' + escapeHtml(presetThinNote()) + '"' : '') + '>' + escapeHtml(LAB.presetName || "oracle defaults · blade 2 on") + '</b>' +
     (benchLoaded() ? ' <span class="bv" title="voiced on the bench for SCALPEL\'s coupling law; the lab plays horde\'s, which pulls ≈1–9× softer, so it locks less here (B298; not re-voiced: ACCOUNTING §1.6, Q B3)">BENCH VOICING</span>' : '') + '<br>' +
     (LAB.page === 'osc' ? 'OSC · SWARM 1 · SCALPEL' : 'MAIN') + ' · 980×720<br>' +
     '<span class="loadm" title="B323 — load: DSP is the audio worklet\'s render time over real time (its own 85 ms windows); UI is the page\'s work per frame. Over 90% the engine culls the quietest releasing tails (never a held note) and caps new voices; the page sheds Specimen and logo frames while loaded."><span class="lbar"><i></i></span><b></b></span>';
@@ -4997,7 +5045,7 @@ function buildMain(host) {
   pr.appendChild(el('span', 'pname', LAB.presetName || 'oracle defaults · blade 2 on'));
   const nx = el('button', 'pill mini', '▶'); nx.addEventListener('click', () => step(1)); pr.appendChild(nx);
   const cur = LAB.presets && LAB.presetName ? (LAB.presets.find(p => p.name === LAB.presetName) || {}) : {}, cat = cur.category || '';
-  pr.appendChild(el('span', 'pcat', cat ? '· ' + cat + (cur.lab ? ' · the lab\'s own, voiced on this engine' : ' · bench voicing, not re-voiced for horde: locks less here') : (LAB.presets ? '' : '· presets load when served (tools/serve_labs.py)')));
+  pr.appendChild(el('span', 'pcat', cat ? '· ' + cat + (cur.lab ? ' · the lab\'s own, voiced on this engine' : ' · bench voicing, not re-voiced for horde: locks less here') + (LAB.presetThin ? ' · ' + presetThinNote() : '') : (LAB.presets ? '' : '· presets load when served (tools/serve_labs.py)')));
 
   const mc = cell(Rt, 'Macros', "PRESET · the lab's proposed eight for a SCALPEL patch");
   const mg = el('div', 'mgrid row'); mc.appendChild(mg);                // B366: one row of eight
@@ -5523,6 +5571,7 @@ async function audioStart() {
     AUD.feed = null;
     AUD.node.port.onmessage = e => { loadIn(e.data); feedIn(e.data); };   // B323: the load windows (J2); B365: the Specimen's feed (E3)
     AUD.node.connect(AUD.out);
+    capPolicyPush();                                                       // B375: the full-cap policy, before any note
     AUD.err = '';
   } catch (e) {
     /* fallback: the oracle on the main thread (shares the page's Math.random — the
@@ -5542,6 +5591,8 @@ async function audioStart() {
   paintAudioStat();
 }
 function audioMsg(m) { if (AUD.node && AUD.node.port) AUD.node.port.postMessage(m); else if (AUD.core) AUD.core.msg(m); }
+/* B375: the full-cap policy to the audible instance (scalpel-horde-engine.js noteOn: 0 refuse, 1 steal) */
+function capPolicyPush() { audioMsg({ t: 'capPolicy', n: LAB.capSteal ? 1 : 0 }); }
 function noteOn(n, keepMon, what) {
   audioMsg({ t: 'on', note: n, freq: mtof(n), vel: 0.85 });
   if (!keepMon) { MON.note = n; monStrike('note', what || 'key'); }
@@ -5611,7 +5662,7 @@ function loadWindow(w, n) {
   if (act > 0) w.per = load / act;
   const cap = capped ? capFor(load, live, w.cap, c.d.poly, w.per) : 0;
   if (cap !== w.cap) { w.cap = cap; c.msg({ t: 'cap', n: cap }); }
-  w.port.postMessage({ t: 'load', load, cap, live, act, culled: c.culled || 0, n: LOAD_WIN * n });
+  w.port.postMessage({ t: 'load', load, cap, live, act, culled: c.culled || 0, refused: c.refused || 0, stolen: c.stolen || 0, n: LOAD_WIN * n });
   w.busy = 0; w.nb = 0;
 }
 function loadIn(m) {
@@ -5632,9 +5683,10 @@ function loadText(long) {
   /* Chrome's AudioContext.playbackStats (feature-detected): the device's own count of underruns, the
      gaps a listener hears as clicks when the render cannot keep up (trace b323) */
   const ps = AUD.on && AUD.ctx && AUD.ctx.playbackStats, xr = ps && ps.underrunEvents > 0 ? ' · underruns ' + ps.underrunEvents + ' (' + (+ps.underrunDuration || 0).toFixed(2) + ' s)' : '';
-  if (long) return dsp + ' · UI ' + LOAD.ui.toFixed(1) + ' ms a frame' + (d && d.cap ? ' · voice cap ' + d.cap : '') + (d && d.culled ? ' · tails culled ' + d.culled : '') + xr +
+  if (long) return dsp + ' · UI ' + LOAD.ui.toFixed(1) + ' ms a frame' + (d && d.cap ? ' · voice cap ' + d.cap : '') + (d && d.culled ? ' · tails culled ' + d.culled : '') +
+    (d && d.refused ? ' · notes refused at the cap ' + d.refused : '') + (d && d.stolen ? ' · held notes stolen at the cap ' + d.stolen : '') + xr +
     (LOAD.skipped ? ' · monitor skipped ' + (LOAD.skipped / SR).toFixed(1) + ' s' : '') + (LOAD.shed ? ' · the page is shedding frames' : '');
-  return dsp + (d && d.cap ? ' cap ' + d.cap : '') + (d && d.culled ? ' cull ' + d.culled : '') +
+  return dsp + (d && d.cap ? ' cap ' + d.cap : '') + (d && d.culled ? ' cull ' + d.culled : '') + (d && d.refused ? ' ref ' + d.refused : '') + (d && d.stolen ? ' stole ' + d.stolen : '') +
     (ps && ps.underrunEvents > 0 ? ' xrun ' + ps.underrunEvents : '') + ' · UI ' + LOAD.ui.toFixed(1) + (LOAD.shed ? ' · shed' : '');
 }
 function paintLoad() {
@@ -5646,7 +5698,7 @@ function paintLoad() {
   const i = m.querySelector('i'), b = m.querySelector('b'), wd = Math.min(100, Math.round(100 * d)) + '%', bt = loadText();
   if (i && i.style.width !== wd) i.style.width = wd;
   if (b && b.textContent !== bt) b.textContent = bt;
-  const tt = 'B323 — ' + loadText(true) + '. DSP is the audio worklet\'s render time over real time (its own 85 ms windows); UI the page\'s work per frame; xrun the device\'s underruns (Chrome playbackStats), the gaps heard as clicks. Over 90% the engine culls the quietest releasing tails (never a held note) and caps new voices; while loaded the page sheds Specimen and logo frames.';
+  const tt = 'B323 — ' + loadText(true) + '. DSP is the audio worklet\'s render time over real time (its own 85 ms windows); UI the page\'s work per frame; xrun the device\'s underruns (Chrome playbackStats), the gaps heard as clicks. Over 90% the engine culls the quietest releasing tails (never a held note) and caps new voices: at a full cap a new note takes a releasing tail, else it is refused (B375; the header\'s full-cap chip steals the oldest held note instead, for testing); while loaded the page sheds Specimen and logo frames.';
   if (m.title !== tt) m.title = tt;
 }
 
@@ -5755,9 +5807,22 @@ function runChecks() {
   for (const c of checkB334()) out.push(c);
   for (const c of checkB365()) out.push(c);
   for (const c of checkB366()) out.push(c);
+  for (const c of checkB375()) out.push(c);
   for (const c of checkPresets()) out.push(c);
-  AUDIT.checks = out;
+  AUDIT.checks = out; AUDIT.ran = true;
   seedOracle(0xB271 + MON.note);
+}
+/* B375 — THE SELF-CHECK RUNS ON REQUEST. B372 measured runChecks at 20.4 s, synchronous, on every load,
+   before the first frame. The human, 2026-09-29, on running it only on request: "I agree with this."
+   It runs at boot only with ?check=1 (bootLate), or when the "run self-check" button in the audit line
+   is pressed (wireChrome); window.__b271, what agents read after a headless load, is published only
+   once it has run (paintAudit). Without the flag the audit line says the self-check is off and how to
+   run it, so the page never hides that the checks exist. The same sequence as the boot's. */
+function selfCheck() {
+  runChecks();
+  rebuild();
+  paintMisread();
+  paintAudit();
 }
 /* B293 — THE XY ROUND-TRIP. Drives the gesture through the same xyBegin/xyMove/xyEnd
    a pointer drives, on a known patch, then reads each parameter back twice: from P
@@ -6464,7 +6529,7 @@ const SCHEME_TUBE = { TUBE: '#1b0733', ORCHID: '#f3ebff', FROST: '#e6f8ff', EMBE
 function checkB317() {
   const out = [], page = LAB.page, theme = LAB.theme, scheme = LAB.scheme, snap = Object.assign({}, P), mOn = MORPH.on, spOn = SPECIMEN.on;
   const mv = MACROS.map(m => m.v), monSnap = Object.assign({}, MON), bufs = [MON.buf.slice(), MON.bufR.slice()], fz = LAB.frozen;
-  const logoSnap = { hue: LOGO.hue, clk: LOGO.clk, t: LOGO.t, n: LOGO.n, smX: LOGO.smX, smY: LOGO.smY };
+  const logoSnap = { hue: LOGO.hue, clk: LOGO.clk, t: LOGO.t, n: LOGO.n, smX: LOGO.smX, smY: LOGO.smY, style: LOGO.style };
   const S = SPECIMEN, specSnap = {};
   for (const k of ['yaw', 'pit', 'yawT', 'pitT', 'clk', 'n', 'time', 'xyLast', 'xyYaw', 'xyPit']) specSnap[k] = S[k];
   const hex3 = c => (c ? '#' + c.map(v => Math.round(v).toString(16).padStart(2, '0')).join('') : 'none');
@@ -6473,7 +6538,12 @@ function checkB317() {
   LAB.frozen = false; MORPH.on = false; for (const m of MACROS) m.v = 0;
   try {
     LAB.page = 'main'; SPECIMEN.on = true;
-    /* ---- the edge ---- */
+    /* ---- the edge ----
+       B375: measured on FLAT, pinned. This row was built when FLAT was the only style and, until B375,
+       the default; its detector compares the edge's mean colour with logoEdgeColour() over a FLAT fill.
+       The new default (DROP + INSET + HUE ↘) lays an inset shadow over the stroke and a hue gradient
+       under it, which is not the colour this row reads; those styles are checkB334's rows. */
+    LOGO.style = 0;
     const edgeOf = () => {
       const A = LOGO.aux, c = LOGO.ctx.getImageData(0, 0, LOGO.W, LOGO.H).data, f = A.fx.getImageData(0, 0, LOGO.W, LOGO.H).data;
       let n = 0, r = 0, g = 0, b = 0;
@@ -7452,8 +7522,9 @@ function checkB366() {
    elementFromPoint at its centre) step through every style and back to the first; each click shows
    the style's name and stores its id; every style paints differently from FLAT; a store then a
    re-read (logoStyleLoad, what a reload runs) returns the stored style; cost per paint by style, and
-   the heaviest style still sheds (J2). CONTROL: storage cleared, the re-read is FLAT (so the
-   persistence reading is not a default coinciding), and FLAT against itself differs in 0 px.
+   the heaviest style still sheds (J2). CONTROL: storage cleared, the re-read is the DEFAULT (B375:
+   DROP + INSET + HUE ↘, LOGO_DEFAULT; FLAT before), not the stored GRADIENT (so the persistence
+   reading is not a default coinciding), and FLAT against itself differs in 0 px.
    CENTRED: over 64 moments of the warp the mark's centre of mass (alpha-weighted) averages within
    1 CSS px of its box's middle, the box is the frame's strip (frame top padding to the body's top),
    and the ink grazes the box's edge in at most 2 moments. CONTROL: B323's bake (0.38) reads high.
@@ -7506,12 +7577,14 @@ function checkB334() {
         detail: 'the pointer reaches the mark ' + hit + ' · clicks: ' + seen.map(q => q.name + ' (' + q.id + (q.i ? ', ' + q.diff + ' px differ from FLAT' : '') + ')').join(' → ') +
           ' · stored "gradient", re-read → ' + LOGO_STYLES[reread].name + ' · cost per paint (warp included): ' + LOGO_STYLES.map((s, k) => s.name + ' ' + cost[k].toFixed(2) + ' ms').join(', ') +
           ' · shedding with ' + LOGO_STYLES[heavy].name + ': ' + calm + ' → ' + shed + ' paints in 60 frames' });
-      try { localStorage.removeItem(LOGO_STYLE_KEY); } catch (_) { /* storage refused: the re-read is FLAT either way */ }
+      try { localStorage.removeItem(LOGO_STYLE_KEY); } catch (_) { /* storage refused: the re-read is the default either way */ }
       const cleared = logoStyleLoad();
       const softIdx = LOGO_STYLES.findIndex(s => s.id === 'soft');   // B364: no longer index 5 (the composite took that slot)
       LOGO.style = 0; const f1 = paint(); LOGO.style = softIdx; paint(); LOGO.style = 0; const f2 = differ(paint(), f1);
-      out.push({ name: 'CONTROL: storage cleared, the re-read is FLAT; FLAT against itself', ok: cleared === 0 && f2 === 0, control: true,
-        detail: 're-read ' + LOGO_STYLES[cleared].name + ' (must be FLAT, not the stored GRADIENT) · ' + f2 + ' px differ between two FLAT paints with a SOFT DROP paint between them (must be 0)' });
+      /* B375: the default is DROP + INSET + HUE ↘ (LOGO_DEFAULT), found by id; it must not be GRADIENT, or
+         the stored-vs-default reading above would coincide */
+      out.push({ name: 'CONTROL: storage cleared, the re-read is the default (' + LOGO_STYLES[LOGO_DEFAULT].name + ', B375); FLAT against itself', ok: LOGO_STYLES[LOGO_DEFAULT].id === 'drop-inset-hue' && cleared === LOGO_DEFAULT && cleared !== 3 && f2 === 0, control: true,
+        detail: 're-read ' + LOGO_STYLES[cleared].name + ' (must be ' + LOGO_STYLES[LOGO_DEFAULT].name + ', the default, not the stored GRADIENT) · ' + f2 + ' px differ between two FLAT paints with a SOFT DROP paint between them (must be 0)' });
       /* ---- B364: DROP + INSET + GRADIENT, composed from DROP and INSET + GRADIENT unchanged ---- */
       {
         const digIdx = LOGO_STYLES.findIndex(s => s.id === 'drop-inset-gradient');
@@ -7745,19 +7818,96 @@ function checkB334() {
   rebuild();
   return out;
 }
+/* B375 — ROUND 14's rows (the rulings on B368 and B372). The engine's side of the full-cap policy is
+   composed_engine_check's CAPPO rows (./verify full); these read the page's side.
+   CAP CHIP: a real click on the header's full-cap chip sends {t:'capPolicy'} to the audible instance
+   (the audio port, stubbed here to record), the label follows, and the message given to a fresh engine
+   sets its policy; REFUSE is the page's default (unless ?steal=1). CONTROL: a planted chip handler that
+   does not push the policy, through the same detector.
+   THINNED PRESETS: loading each PRESET_THIN preset sets P.N to the table's N, leaves the bench's own
+   params (LAB.presets, fetched from the protected file) at their N, and says so on MAIN's preset row;
+   a bench preset not in the table keeps its N. CONTROL: the bench's own params through the same
+   detector (no thinning) must fail it. */
+function checkB375() {
+  const out = [], page = LAB.page, snap = Object.assign({}, P), name0 = LAB.presetName, thin0 = LAB.presetThin, steal0 = LAB.capSteal;
+  const aud = { node: AUD.node, core: AUD.core };
+  try {
+    /* ---- the full-cap chip ---- */
+    const sent = [];
+    AUD.node = { port: { postMessage(m) { sent.push(m); } } }; AUD.core = null;
+    const btn = $('capBtn'), label = () => (btn ? btn.textContent : '');
+    const click = () => btn && btn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    const probe = () => {
+      sent.length = 0; LAB.capSteal = false; chrome();
+      const l0 = label(); click(); const l1 = label(); const m1 = sent.filter(m => m.t === 'capPolicy').slice(-1)[0];
+      click(); const l2 = label(); const m2 = sent.filter(m => m.t === 'capPolicy').slice(-1)[0];
+      seedOracle(0xB375); const e = new CORE(SR); if (m1) e.msg(m1); const p1 = e.capPolicy; if (m2) e.msg(m2); const p2 = e.capPolicy;
+      return { l0, l1, l2, m1, m2, p1, p2, ok: /REFUSE/.test(l0) && /STEAL/.test(l1) && /REFUSE/.test(l2) && !!m1 && m1.n === 1 && !!m2 && m2.n === 0 && p1 === 1 && p2 === 0 };
+    };
+    seedOracle(0xB375); const dflt = new CORE(SR).capPolicy, pageDflt = steal0 === (qp('steal', '0') === '1');
+    const r = probe();
+    out.push({ name: 'full-cap chip (B375): a click sends the policy to the audio, the label follows; REFUSE is the default', ok: !!btn && r.ok && dflt === 0 && pageDflt,
+      detail: 'labels "' + r.l0 + '" → "' + r.l1 + '" → "' + r.l2 + '" · sent ' + JSON.stringify(r.m1 || null) + ', ' + JSON.stringify(r.m2 || null) +
+        ' · a fresh engine reads policy ' + r.p1 + ' then ' + r.p2 + ' · the engine\'s default ' + dflt + ' (0 = refuse), the page\'s ' + (steal0 ? 'STEAL (?steal=1)' : 'REFUSE') });
+    /* CONTROL: the chip's push planted away (capPolicyPush a no-op): the audio hears nothing */
+    const realPush = capPolicyPush;
+    capPolicyPush = function () {};
+    let z; try { z = probe(); } finally { capPolicyPush = realPush; }
+    out.push({ name: 'CONTROL: a chip that does not push the policy', ok: !z.ok, control: true,
+      detail: 'sent ' + JSON.stringify(z.m1 || null) + ' (must fail the detector: the label moves, the audio does not)' });
+    /* ---- the thinned presets ---- */
+    if (!LAB.presets) out.push({ name: 'thinned presets', ok: false, detail: 'presets not loaded (serve the repo): not measured' });
+    else {
+      LAB.page = 'main';
+      const want = Object.keys(PRESET_THIN), res = [];
+      for (const nm of want) {
+        const pr = LAB.presets.find(p => p.name === nm);
+        if (!pr) { res.push({ nm, missing: true }); continue; }
+        applyPreset(nm);
+        const pc = FR.querySelector('.pcat');
+        res.push({ nm, benchN: pr.params.N, N: P.N, row: pc ? pc.textContent : '', name: LAB.presetName });
+      }
+      const other = LAB.presets.find(p => !p.lab && !(p.name in PRESET_THIN) && p.params.N);
+      applyPreset(other.name); const otherN = P.N;
+      const good = q => !q.missing && q.N === PRESET_THIN[q.nm] && q.benchN > q.N && q.name === q.nm && q.row.indexOf('N ' + q.benchN + ' → ' + q.N) >= 0;
+      out.push({ name: 'thinned presets (B375): the lab plays fewer members on the heavy ones; the bench\'s own params unchanged; the preset row says so',
+        ok: res.length === want.length && res.every(good) && otherN === other.params.N && LAB.presetThin === '',
+        detail: res.map(q => q.missing ? q.nm + ' NOT FOUND' : q.nm + ': bench N ' + q.benchN + ', played N ' + q.N + (q.row.indexOf('→') >= 0 ? ', row says "' + q.row.slice(q.row.indexOf('N ' + q.benchN)) + '"' : ', row SILENT')).join(' · ') +
+          ' · ' + other.name + ' (not in the table): N ' + otherN + ' as the bench' });
+      const raw = want.map(nm => { const pr = LAB.presets.find(p => p.name === nm); return { nm, N: pr ? pr.params.N : -1 }; });
+      out.push({ name: 'CONTROL: the bench\'s own params, unthinned, through the same detector', ok: !raw.every(q => q.N === PRESET_THIN[q.nm]), control: true,
+        detail: raw.map(q => q.nm + ' N ' + q.N + ' (the table: ' + PRESET_THIN[q.nm] + ')').join(' · ') + ' — must not match' });
+    }
+  } catch (e) {
+    out.push({ name: 'B375', ok: false, detail: 'threw: ' + String(e && e.stack || e) });
+  }
+  AUD.node = aud.node; AUD.core = aud.core; LAB.capSteal = steal0; chrome();
+  LAB.page = page; LAB.presetName = name0; LAB.presetThin = thin0;
+  P = snap; EFF = effective(); pushOracle(); fillPresetSelect();
+  rebuild();
+  return out;
+}
+/* B293's load-time check of ONE preset (its keys, and 2048 samples at A3 through the engine), which
+   sets LAB.presetStat[name]; a preset that fails it is not loaded. B375: checkPresets runs it over all of
+   them only inside the self-check (0.4-0.7 s), so applyPreset runs it for the one preset it is about to
+   load when that preset has no verdict yet (a few ms), and the guard holds without the self-check. */
+function presetCheck(pr, i) {
+  const L = new Float32Array(2048), Rr = new Float32Array(2048);
+  const bad = presetKeyFaults(pr.params);
+  const S = scratch(pr.params, 57, mtof(57), 0xB293 + i);
+  S.c.render(L, Rr);
+  let pk = 0, nf = 0;
+  for (let n = 0; n < L.length; n++) { if (!isFinite(L[n]) || !isFinite(Rr[n])) nf++; else pk = Math.max(pk, Math.abs(L[n]), Math.abs(Rr[n])); }
+  const why = bad.length ? 'keys: ' + bad.join('; ') : nf ? nf + ' non-finite samples' : pk < 1e-6 ? 'silent in its first 2048 samples' : '';
+  LAB.presetStat[pr.name] = { ok: !why, why, peak: pk };
+  return { bad, nf, pk, why };
+}
 function checkPresets() {
   const out = [];
   if (!LAB.presets) return out;
   let keyBad = 0, playBad = 0, worst = '';
-  const L = new Float32Array(2048), Rr = new Float32Array(2048);
   LAB.presets.forEach((pr, i) => {
-    const bad = presetKeyFaults(pr.params);
-    const S = scratch(pr.params, 57, mtof(57), 0xB293 + i);
-    S.c.render(L, Rr);
-    let pk = 0, nf = 0;
-    for (let n = 0; n < L.length; n++) { if (!isFinite(L[n]) || !isFinite(Rr[n])) nf++; else pk = Math.max(pk, Math.abs(L[n]), Math.abs(Rr[n])); }
-    const why = bad.length ? 'keys: ' + bad.join('; ') : nf ? nf + ' non-finite samples' : pk < 1e-6 ? 'silent in its first 2048 samples' : '';
-    LAB.presetStat[pr.name] = { ok: !why, why, peak: pk };
+    const { bad, nf, pk, why } = presetCheck(pr, i);
     if (bad.length) keyBad++;
     if (nf || pk < 1e-6) playBad++;
     if (why && !worst) worst = pr.name + ': ' + why;
@@ -7986,14 +8136,17 @@ function paintAudit() {
   const ch = AUDIT.checks, pass = ch.filter(c => c.ok).length, ctl = ch.filter(c => c.control).length;
   const t = AUDIT.tiers;
   a.className = 'audit' + (ch.length && pass < ch.length ? ' bad' : '');
+  /* B375: before the self-check has run, one short note and the button, where its results go */
+  const off = 'self-check: <b>off</b> (add <code>?check=1</code>, or <button class="pill mini" id="runCheckBtn" data-lab="B375: run the in-page self-check now (about 20 s, the page is frozen while it runs); ' +
+    '?check=1 runs it at load">run self-check</button>)';
   a.innerHTML = 'engine <b>composed</b> (B298: horde\'s swarm, <b>swarmsaw.html</b> SwarmSynth, drives the members; <b>razor-core.js</b>\'s blades ride them) · ' +
-    'monitor, audio and every check build it · Math.random seeded (mulberry32) before every instance · self-check ' +
-    (ch.length ? '<span class="' + (pass === ch.length ? 'ok' : 'no') + '">' + pass + '/' + ch.length + '</span> (' + ctl + ' controls fail as they must): ' +
-      ch.map(c => '<span class="' + (c.ok ? 'ok' : 'no') + '">' + (c.ok ? '✓' : '✗') + '</span> ' + escapeHtml(c.name) + ' — ' + escapeHtml(c.detail)).join(' · ') : 'running…') +
+    'monitor, audio and every check build it · Math.random seeded (mulberry32) before every instance · ' +
+    (!AUDIT.ran ? off : 'self-check ' + (ch.length ? '<span class="' + (pass === ch.length ? 'ok' : 'no') + '">' + pass + '/' + ch.length + '</span> (' + ctl + ' controls fail as they must): ' +
+      ch.map(c => '<span class="' + (c.ok ? 'ok' : 'no') + '">' + (c.ok ? '✓' : '✗') + '</span> ' + escapeHtml(c.name) + ' — ' + escapeHtml(c.detail)).join(' · ') : 'no rows')) +
     (t ? ' · tiers: ' + t.same.length + ' rows at their accounting tier, ' + t.promoted.length + ' promoted, ' + t.demoted.length + ' demoted, ' + t.missing.length + ' not placed' : '') +
     (AUDIT.probe ? ' · ' + escapeHtml(AUDIT.probe) : '');
   const exp = typeof window !== 'undefined' ? window : null;
-  if (exp) exp.__b271 = { checks: AUDIT.checks, tiers: AUDIT.tiers, probe: AUDIT.probe, misread: MIS.rows };
+  if (exp && AUDIT.ran) exp.__b271 = { checks: AUDIT.checks, tiers: AUDIT.tiers, probe: AUDIT.probe, misread: MIS.rows };   // B375: only once the checks ran
 }
 
 /* ======================================================================
@@ -8059,7 +8212,8 @@ function presetBrowser() {
     const b = el('button', 'pill mini' + (LAB.presetName === p.name ? ' on' : '') + (st && !st.ok ? ' bad' : ''), p.name);
     b.dataset.preset = p.name;
     b.title = p.category + ' · ' + p.name + (st ? (st.ok ? ' · plays (peak ' + st.peak.toFixed(3) + ' in its first 2048 samples)' : ' · FAILED: ' + st.why) : '') +
-      (p.lab ? '\nthe lab\'s own (B366): voiced on the composed engine, to exercise the master envelope' : '\nthe bench\'s voicing — not re-voiced for horde');
+      (p.lab ? '\nthe lab\'s own (B366): voiced on the composed engine, to exercise the master envelope' : '\nthe bench\'s voicing — not re-voiced for horde') +
+      (!p.lab && PRESET_THIN[p.name] ? '\nthinned here to N ' + PRESET_THIN[p.name] + ' (the bench: N ' + p.params.N + '): at N ' + p.params.N + ' five voices overran the audio budget (B375)' : '');
     if (st && !st.ok) b.disabled = true;
     else b.addEventListener('click', () => applyPreset(p.name));
     row.appendChild(b);
@@ -8087,6 +8241,7 @@ function chrome() {
   [['aaD1', 'aaCarrier', 'D1 carrier'], ['aaD2', 'aaXin', 'D2 xin'], ['aaD3', 'aaLoop', 'D3 loop']].forEach(([id, k, t]) => {
     const b = $(id); if (b) b.innerHTML = t + ' <b>' + (LAB.aa[k] ? 'ON' : 'OFF') + '</b>'; });
   const rb = $('restrikeBtn'); if (rb && rb.classList) rb.classList.toggle('on', LAB.restrike);
+  const cb = $('capBtn'); if (cb) cb.innerHTML = 'full cap (test) <b>' + (LAB.capSteal ? 'STEAL' : 'REFUSE') + '</b>';
 }
 function applyBodyClasses() {
   if (!document.body || !document.body.classList) return;
@@ -8097,12 +8252,31 @@ function applyBodyClasses() {
   for (const s of SCHEMES) if (s.cls) document.body.classList.toggle(s.cls, s.name === LAB.scheme);
   _tok = {};
 }
+/* B375 — THE HEAVY PRESETS, THINNED FOR THE LAB'S AUDIO BUDGET. B372 measured the worklet over its block
+   budget on dense chords (Glass horde pad, N 9: 150% at five voices). The human endorsed fewer swarm
+   members on the heavy presets. Measured (trace b375: the composed engine per 128-sample block in Node,
+   with the exact params this page posts, a held five-note chord, the worklet's seed; before and after
+   interleaved, and the numbers drift ±15% between sessions on one machine: B372 read Glass horde pad at
+   150%), the presets whose five voices ran over 90% of the budget (LOAD_HI, where the load loop starts
+   capping) in most runs get the largest N that measured under it:
+       Glass horde pad       N 9 → 6   122–130% → 80–85%
+       Undertone cathedral   N 7 → 6    92–97%  → 78–85%
+       Mirror-image spreads  N 7 → 6    90–97%  → 76–79%
+   NOT thinned, at the line: Smear and strike (N 7, 87–96%, median 89%) and Crushed bells (N 6, 84–87%
+   here, 99% in B372's session). Fewer members is a thinner sound: a narrower, less dense chorus, the members' spreads over fewer
+   points. The bench's own file is PROTECTED and unchanged; this applies only when the lab loads one of
+   them (applyPreset), the patch name says so, and the N control on the face restores the bench's N. */
+const PRESET_THIN = { 'Glass horde pad': 6, 'Undertone cathedral': 6, 'Mirror-image spreads': 6 };
+function presetThinNote() { return 'N ' + LAB.presetThin + ' here: the bench\'s N overran the audio budget at five voices (B375)'; }
 function applyPreset(name) {
   const pr = LAB.presets && LAB.presets.find(p => p.name === name);
   if (!pr) return;
-  const st = LAB.presetStat[name]; if (st && !st.ok) return;      // B293: a preset the load-time check failed is not loaded
-  P = Object.assign({}, DEF, pr.params, { b1on: 1 });
+  if (!LAB.presetStat[name] && CORE) presetCheck(pr, LAB.presets.indexOf(pr));   // B375: its verdict, if the self-check has not run
+  const st = LAB.presetStat[name]; if (st && !st.ok) { rebuild(); return; }   // B293: a preset the load-time check failed is not loaded
+  const thin = !pr.lab && PRESET_THIN[pr.name];
+  P = Object.assign({}, DEF, pr.params, { b1on: 1 }, thin ? { N: thin } : {});
   LAB.presetName = pr.name;
+  LAB.presetThin = thin ? pr.params.N + ' → ' + thin : '';          // B375: shown beside the name (presetThinNote)
   for (const m of MACROS) m.v = 0;
   EFF = effective(); pushOracle(); monStrike('patch', 'preset');
   const s = $('presetSel'); if (s) s.value = name;
@@ -8160,6 +8334,7 @@ function wireChrome() {
   on('valsBtn', 'click', () => { LAB.showVals = !LAB.showVals; applyBodyClasses(); chrome(); });
   /* B355: one toggle per ADR-189 divergence; the engine reads each flag live */
   [['aaD1', 'aaCarrier'], ['aaD2', 'aaXin'], ['aaD3', 'aaLoop']].forEach(([id, k]) => on(id, 'click', () => { LAB.aa[k] = !LAB.aa[k]; pushOracle(); chrome(); }));
+  on('capBtn', 'click', () => { LAB.capSteal = !LAB.capSteal; capPolicyPush(); chrome(); });   // B375
   on('pwr', 'click', () => { audioStart(); });
   on('panic', 'click', () => { audioMsg({ t: 'panic' }); AUD.drone = false; const d = $('droneBtn'); if (d) d.classList.remove('on'); });
   on('droneBtn', 'click', () => { AUD.drone = !AUD.drone; $('droneBtn').classList.toggle('on', AUD.drone); if (AUD.drone) noteOn(MON.note, false, 'HOLD'); else audioMsg({ t: 'off', note: MON.note }); });
@@ -8167,7 +8342,10 @@ function wireChrome() {
   on('probeBtn', 'click', async () => { AUDIT.probe = 'rendering…'; paintAudit(); try { AUDIT.probe = await probeAudio(); } catch (e) { AUDIT.probe = 'probe failed: ' + String(e && e.message || e); } paintAudit(); });
   on('presetSel', 'change', () => { const v = $('presetSel').value; if (v) applyPreset(v); });
   on('misreadBtn', 'click', () => misreadAll());
-  on('initBtn', 'click', () => { P = Object.assign({}, DEF, { b1on: 0, base: 2, b2on: 0 }); LAB.presetName = 'horde INIT (blade 1 off, saw base — ACCOUNTING §1.7)'; EFF = effective(); pushOracle(); monStrike('patch', 'INIT'); fillPresetSelect(); rebuild(); });
+  /* B375: the audit line is rewritten by every paintAudit, so its run button is reached by delegation
+     (one listener for the page's life, none added per paint) */
+  on('audit', 'click', e => { if (e.target && e.target.id === 'runCheckBtn') { e.target.textContent = 'running…'; e.target.disabled = true; setTimeout(selfCheck, 30); } });
+  on('initBtn', 'click', () => { P = Object.assign({}, DEF, { b1on: 0, base: 2, b2on: 0 }); LAB.presetName = 'horde INIT (blade 1 off, saw base — ACCOUNTING §1.7)'; LAB.presetThin = ''; EFF = effective(); pushOracle(); monStrike('patch', 'INIT'); fillPresetSelect(); rebuild(); });
   if (typeof window !== 'undefined' && window.addEventListener) {
     window.addEventListener('keydown', e => {
       if (e.repeat || (e.target && /INPUT|SELECT|TEXTAREA/.test(e.target.tagName || ''))) return;
@@ -8264,7 +8442,7 @@ async function bootLate() {
   const want = qp('preset', '');
   if (want && LAB.presets) applyPreset(want);
   if (LAB.still > 0) { for (let i = 0; i < LAB.still; i++) monStep(); LAB.frozen = true; }
-  runChecks();
+  if (qp('check', '0') === '1') runChecks();          // B375: on request only (else the audit line's button, selfCheck)
   rebuild();
   paintMisread();
   if (qp('misread', '0') === '1') misreadAll();
