@@ -839,6 +839,18 @@ add_executable(h2_swarm_parity_check tools/h2_swarm_parity_check.cpp)
 if(NOT MSVC)
   target_compile_options(h2_swarm_parity_check PRIVATE -O2 -ffp-contract=off)
 endif()
+# swarm48_check / h2_swarm48_check (B382): the swarm core against the JS reference
+# at 48 kHz (tools/golden/gen_goldens_sr.mjs), every scenario beyond 1e-6
+# reported; one body (tools/swarm_sr_parity.h), one core per TU (h2 rule 4). The
+# legacy one is built like parity_check, the h2 one as every h2 target is.
+add_executable(swarm48_check tools/swarm48_check.cpp)
+if(NOT MSVC)
+  target_compile_options(swarm48_check PRIVATE -O2)
+endif()
+add_executable(h2_swarm48_check tools/h2_swarm48_check.cpp)
+if(NOT MSVC)
+  target_compile_options(h2_swarm48_check PRIVATE -O2 -ffp-contract=off)
+endif()
 
 # MSVC gives a process a 1 MB main-thread stack; macOS and Linux give 8 MB. A
 # SwarmCore is 651 KB (sizeof, MSVC 14.51, 2026-09-09) and the host-side

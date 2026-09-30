@@ -264,6 +264,7 @@ function makeComposedEngine(RazorCore, swarmSrc) {
     grav: 0, basin: 35,                                // B335 rows 27, 28 (basin in cents)
     onsetScatter: 0, onsetAlpha: 0.25, attackScatter: 0, voiceEnv: 0, relScatter: 0,   // B335 rows 70-74 (onsetScatter in ms)
     aaCarrier: 0, aaXin: 0, aaLoop: 0,                 // ADR-189 D1, D2, D3 (B355): OFF is the oracle's sound
+    ksmPerRate: 1,                                     // B382 M1: ON, the C++'s per-rate coupling smoother
   };
   // p keys whose change makes SwarmSynth.setParam() rebuild x[] (swarmsaw.html:247)
   const REBUILD = ['n', 'dist', 'seed', 'law'];
@@ -293,6 +294,22 @@ function makeComposedEngine(RazorCore, swarmSrc) {
      passes the wrap before the pull arrives when xin's jump x 2 pi fc stays under the carrier's own
      rate. A slower carrier under stronger feedback can still chatter, attenuated. */
   const LOOP_FC = 5000;
+  /* B382 M1 `ksmPerRate` (ruled 2026-09-30, B379; ADR-009, B150). SwarmSynth smooths the coupling
+     targets with a literal 0.08 PER 16-SAMPLE TICK (swarmsaw.html controlTick, `s.KsmS += (syncT -
+     s.KsmS) * 0.08` and the same for KsmP), so its time constant is 4.35 ms at 44.1 kHz and 3.98 ms
+     at 48 kHz: the ADR-009 class B150 removed from the C++. This is B150's law, src/swarm_core.h
+     :389-391: the coefficient from the time constant in SECONDS, kKsmTauSeconds (:152, the value
+     that gives the reference's 0.08 at 44.1 kHz), with 44.1 kHz special-cased to the literal 0.08,
+     because the round trip is three ULP short of it (swarm_core.h :146-150) and the 44.1 kHz swarm
+     must not move by a bit. Resolved once, at construction, as the C++ does. 48 kHz: 0.0737460642...
+     Default ON (the human: the lab matches the C++); 0 is SwarmSynth's 0.08 at every rate. */
+  SWARM_PATCHES.push({ id: 'M1', flag: 'ksmPerRate', keys: ['ksmPerRate'], edits: [
+    ['    this.sr = sr;\n',
+     '    this.sr = sr;\n    this.ksmC = sr === 44100 ? 0.08 : 1 - Math.exp(-(TICK / sr) / 0.004351220802760264);   // B382 M1\n'],
+    ['    s.KsmS += (syncT - s.KsmS) * 0.08;\n    s.KsmP += (splayT - s.KsmP) * 0.08;\n',
+     '    s.KsmS += (syncT - s.KsmS) * (p.ksmPerRate ? this.ksmC : 0.08);   // B382 M1\n' +
+     '    s.KsmP += (splayT - s.KsmP) * (p.ksmPerRate ? this.ksmC : 0.08);\n'],
+  ] });
   /* ADR-184 A2 (2): round half AWAY from zero, so −x rounds to exactly −(round x). Equal to
      Math.round everywhere except the negative halves (Math.round(−2.5) is −2). */
   const roundAway = x => (x < 0 ? -Math.round(-x) : Math.round(x));

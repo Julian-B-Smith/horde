@@ -3693,7 +3693,7 @@
     "liveInDeclared": 21,
     "regime": 0,
     "sideChannelHits": 0,
-    "minLiveDeltaDecade": -4,
+    "minLiveDeltaDecade": -3,
     "inertExactlyZero": true
    }
   },
@@ -5184,7 +5184,7 @@
     "liveInDeclared": 5,
     "regime": 0,
     "sideChannelHits": 0,
-    "minLiveDeltaDecade": -1,
+    "minLiveDeltaDecade": -2,
     "inertExactlyZero": true
    }
   },
@@ -6336,7 +6336,7 @@
     "liveInDeclared": 17,
     "regime": 0,
     "sideChannelHits": 0,
-    "minLiveDeltaDecade": -4,
+    "minLiveDeltaDecade": -3,
     "inertExactlyZero": true
    }
   },
@@ -6573,7 +6573,7 @@
     "liveInDeclared": 10,
     "regime": 0,
     "sideChannelHits": 0,
-    "minLiveDeltaDecade": -4,
+    "minLiveDeltaDecade": -3,
     "inertExactlyZero": true
    }
   },
@@ -7548,7 +7548,7 @@
     "liveInDeclared": 15,
     "regime": 0,
     "sideChannelHits": 0,
-    "minLiveDeltaDecade": -4,
+    "minLiveDeltaDecade": -3,
     "inertExactlyZero": true
    }
   },
@@ -8146,7 +8146,7 @@
     "liveInDeclared": 2,
     "regime": 0,
     "sideChannelHits": 0,
-    "minLiveDeltaDecade": -1,
+    "minLiveDeltaDecade": -2,
     "inertExactlyZero": true
    }
   },
@@ -11024,6 +11024,10 @@
   {
    "key": "keepPhase",
    "fixed": 0
+  },
+  {
+   "key": "ksmPerRate",
+   "fixed": 1
   },
   {
    "key": "motionCenter",

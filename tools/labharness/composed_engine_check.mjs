@@ -1030,6 +1030,115 @@ section('ZERO — gravity 0 and every scatter 0 are bit-identical to the pre-B33
   }
 }
 
+/* ---------------------------------------------------------------- B382 M1 */
+/* M1 `ksmPerRate` (docs/port/divergences.json M1, default ON): the coupling smoother's per-tick
+   coefficient from a time constant in SECONDS, B150's law (swarm_core.h SwarmCore(), :389-391), in
+   place of SwarmSynth's literal 0.08 per tick. THE C++ IS THE LAW HERE:
+     M1   the coefficient the engine's swarm uses, at five rates, is the C++ constructor's expression over
+          the constants READ FROM the lifted core's header (h2/cores/swarm/swarm_core.h kTick,
+          kKsmTauSeconds), and 0.08 exactly at 44.1 kHz; flag off it is 0.08 at every rate. (swarm48_check
+          compares the same numbers bit for bit with the C++'s own libm.)
+     M1t  ADR-009's invariant, measured on the swarm's own state: a one-member swarm under a K step
+          (sigma is its 0.08 floor, so the target is exact) reaches 1 - 1/e of its target after the same
+          TIME at 44.1, 48 and 96 kHz, within one tick; the CONTROL (flag off) does not.
+     M1s  the swarm half with M1 on is SwarmSynth with M1 on (the engine's own patched class), exactly,
+          over O1's scenarios; SwarmSynth itself (the flag's 0) is O1. What M1 moves is printed.
+     M1z  44.1 kHz: nothing moves, bit for bit, on every ledger preset and O1 scenario (B150's
+          special case); the CONTROL is the same comparison at 48 kHz.
+     M1p  THE MOVED PINS (at the defaults, 48 kHz): AA0's and ZERO's renders, which SWARM_OFF keeps on
+          their pre-B382 pins, are pinned here at the defaults, each with its old pin beside it. */
+section('M1 — B382: the per-rate coupling smoother (B150) mirrored into the composed engine');
+{
+  const hdr = readFileSync(join(root, 'h2/cores/swarm/swarm_core.h'), 'utf8');
+  const tau = +(/constexpr double kKsmTauSeconds = ([0-9.eE+-]+);/.exec(hdr) || [])[1], tick = +(/constexpr int kTick = (\d+);/.exec(hdr) || [])[1];
+  const cpp = sr => (sr === 44100 ? 0.08 : 1 - Math.exp(-(tick / sr) / tau));
+  const rates = [22050, 44100, 48000, 88200, 96000];
+  const coef = rates.map(sr => { const c = new Composed(sr); return { sr, on: c.sw.ksmC, want: cpp(sr) }; });
+  row(Number.isFinite(tau) && tick === 16 && coef.every(x => x.on === x.want) && coef[1].on === 0.08, 'M1',
+    `coefficient = the C++'s (kTick ${tick}, kKsmTauSeconds ${tau} from h2/cores/swarm/swarm_core.h): ${coef.map(x => `${x.sr} ${x.on.toPrecision(6)}`).join(', ')}; 44.1 kHz is 0.08 exactly`);
+
+  /* one member, K 0.5: km = 4·0.5·0.5 = 1, sigma = 0.08 (one voice has no spread), so the target is
+     0.08 exactly and KsmS after n ticks is 0.08·(1 - (1-c)^n). The time to 1 - 1/e, in seconds. */
+  const settle = (sr, on) => {
+    Math.random = mulberry32(0xB382);
+    const c = new Composed(sr); c.set({ N: 1, K: 0.5, detune: 0, phaseMode: 1, w: 0, ksmPerRate: on }); Object.assign(c.s, c.t);
+    c.noteOn(NOTE, F57, 1);
+    const S = c.sw.swarms[c.voices[0].si], L = new Float32Array(16), R = new Float32Array(16);
+    for (let n = 1; n < 4000; n++) { c.render(L, R); if (S.KsmS >= 0.08 * (1 - Math.exp(-1))) return { t: n * 16 / sr, tick: 16 / sr }; }
+    return { t: NaN, tick: 16 / sr };
+  };
+  const on = [44100, 48000, 96000].map(sr => settle(sr, 1)), off = [44100, 48000, 96000].map(sr => settle(sr, 0));
+  const spread = xs => Math.max(...xs.map(x => x.t)) - Math.min(...xs.map(x => x.t));
+  const ms = xs => xs.map(x => (x.t * 1000).toFixed(3)).join(' / ');
+  row(spread(on) <= on[0].tick, 'M1t', `K step to 1-1/e at 44.1 / 48 / 96 kHz: ${ms(on)} ms — the same time within one 44.1 kHz tick (${(on[0].tick * 1000).toFixed(3)} ms)`);
+  row(spread(off) > 1e-3, 'M1tc', `CONTROL flag off (SwarmSynth's 0.08 per tick): ${ms(off)} ms — must differ by more than 1 ms across the rates`);
+
+  /* the swarm half with M1 on is SwarmSynth with M1 on, exactly; what M1 moves, printed */
+  const Mir = swarmWith({ ksmPerRate: 1 });
+  let worst = 0, moved = [];
+  for (const [name, over] of O1) {
+    const h = Object.assign({}, H0, over);
+    const r = o1(h, { blade: { ksmPerRate: 1 }, refCls: Mir }), d = o1(h, { blade: { ksmPerRate: 1 } });
+    worst = Math.max(worst, r.ph, r.eff);
+    if (d.ph > 0) moved.push(`${name.trim()} ${d.ph.toExponential(1)}`);
+    if (r.ph !== 0 || r.eff !== 0) row(false, 'M1s', `${name}: max|Δφ| ${r.ph.toExponential(1)} max|Δf| ${r.eff.toExponential(1)} against SwarmSynth with M1 on`);
+  }
+  row(worst === 0, 'M1s', `${O1.length} O1 scenarios at 48 kHz with M1 on: member phases and frequencies = SwarmSynth with M1 on, exactly (max ${worst})`);
+  note(`what M1 moves at 48 kHz (max|Δφ_horde| against SwarmSynth, 0.5 s): ${moved.join(' · ') || 'nothing'}`);
+  row(moved.length > 0, 'M1sc', `CONTROL the same scenarios against SwarmSynth itself: ${moved.length} of ${O1.length} move — must be at least one`);
+
+  /* 44.1 kHz: B150's special case, so nothing moves at all */
+  const fp44 = (name, on, sr) => {
+    Math.random = mulberry32(0xB382);
+    const c = new Composed(sr); c.set(Object.assign({}, byName(name), { ksmPerRate: on })); Object.assign(c.s, c.t);
+    const n = 12032, L = new Float32Array(n), R = new Float32Array(n);
+    c.noteOn(57, F57, 0.9); c.noteOn(64, 440 * Math.pow(2, -5 / 12), 0.9);
+    for (let i = 0; i < n; i += 128) c.render(L.subarray(i, i + 128), R.subarray(i, i + 128));
+    return createHash('sha256').update(Buffer.from(L.buffer)).update(Buffer.from(R.buffer)).digest('hex').slice(0, 16);
+  };
+  const SET = ['Feedback snarl', 'Cross-mod roar', 'Crunch horde', 'Quarter sync', 'Zap bass', 'Glass horde pad', 'Two blades', 'Ring saw'];
+  const same44 = SET.filter(n => fp44(n, 1, 44100) === fp44(n, 0, 44100)), diff48 = SET.filter(n => fp44(n, 1, 48000) !== fp44(n, 0, 48000));
+  let o144 = 0;
+  for (const [, over] of O1) {
+    const h = Object.assign({}, H0, over), mk = on => { Math.random = mulberry32(1); const c = new Composed(44100); c.set({ N: h.n, detune: h.cents, K: h.K, phaseMode: h.retrig ? 1 : 0, onset: h.onset, dissolve: h.dissolve, inertia: h.inertia, 'h.law': h.law, driftDepth: h.driftDepth, ksmPerRate: on }); Object.assign(c.s, c.t); c.noteOn(NOTE, F57, 1); return c; };
+    const a = mk(1), b = mk(0), L = new Float32Array(441), R = new Float32Array(441), L2 = new Float32Array(441), R2 = new Float32Array(441);
+    for (let k = 0; k < 50; k++) { a.render(L, R); b.render(L2, R2); for (let i = 0; i < 441; i++) o144 = Math.max(o144, Math.abs(L[i] - L2[i]), Math.abs(R[i] - R2[i])); }
+  }
+  row(same44.length === SET.length && o144 === 0, 'M1z', `44.1 kHz, M1 on vs off: ${same44.length} of ${SET.length} presets bit-identical, ${O1.length} O1 scenarios max|Δ| ${o144} (must be 0: B150 keeps 44.1 kHz bit-frozen)`);
+  row(diff48.length > 0, 'M1zc', `CONTROL the same presets at 48 kHz: ${diff48.length} of ${SET.length} move (${diff48.join(', ')}) — must be at least one`);
+
+  /* the moved pins: AA0's renders (seed 0xB355, two notes and a release) and ZERO's (seed 0xB335, the
+     four-note script) at the DEFAULTS, each beside its pre-B382 pin (which AA0/ZERO keep with M1 off) */
+  const fpDefaults = (params, seed, ev) => {
+    Math.random = mulberry32(seed);
+    const c = new Composed(SR); c.set(params); Object.assign(c.s, c.t);
+    const total = 24064, L = new Float32Array(total), R = new Float32Array(total);
+    for (let i = 0, e = 0; i < total; i += 128) {
+      while (e < ev.length && ev[e][0] <= i) { const [, k, n] = ev[e++]; if (k === 'on') c.noteOn(n, 440 * Math.pow(2, (n - 69) / 12), 0.9); else c.noteOff(n); }
+      c.render(L.subarray(i, i + 128), R.subarray(i, i + 128));
+    }
+    return createHash('sha256').update(Buffer.from(L.buffer)).update(Buffer.from(R.buffer)).digest('hex').slice(0, 16);
+  };
+  const EV_AA = [[0, 'on', 57], [9600, 'on', 64], [14336, 'off', 57]];
+  const EV_ZERO = [[0, 'on', 57], [0, 'on', 64], [0, 'on', 69], [9600, 'on', 60], [14336, 'off', 57], [14336, 'off', 64]];
+  const HORDE_ROWS = { N: 7, detune: 28, K: 0.4, phaseMode: 0, driftDepth: 20, onset: 0.8, inertia: 0.6 };
+  /* [what, params, seed, script, the pre-B382 pin (AA0 / ZERO), the pin at the defaults since M1] */
+  const M1P = [
+    ['AA0 Feedback snarl', byName('Feedback snarl'), 0xB355, EV_AA, '86e1c74e8cb7e644', '86e1c74e8cb7e644'],
+    ['AA0 Cross-mod roar', byName('Cross-mod roar'), 0xB355, EV_AA, '03ee212c48e57c19', 'ac31dd847fceb3c3'],
+    ['AA0 Crunch horde', byName('Crunch horde'), 0xB355, EV_AA, 'af83ca85d8e03488', 'ad05f1d99219a523'],
+    ['AA0 Ring saw', byName('Ring saw'), 0xB355, EV_AA, '629a11c078f055c5', '17e79b2be92ab266'],
+    ['AA0 Zap bass', byName('Zap bass'), 0xB355, EV_AA, 'ccf47610c2316f3d', '98395e932d413e1c'],
+    ['ZERO Glass horde pad', byName('Glass horde pad'), 0xB335, EV_ZERO, 'acfdf284a132da01', '36691fb1b61c889c'],
+    ['ZERO Two blades', byName('Two blades'), 0xB335, EV_ZERO, '7dbb7b19c2412b11', 'cd56de86c91f7241'],
+    ['ZERO horde rows', HORDE_ROWS, 0xB335, EV_ZERO, '8aecd8e01b3da445', '7b6aabddf0468f37'],
+  ];
+  for (const [what, params, seed, ev, was, now] of M1P) {
+    const got = fpDefaults(params, seed, ev), off = fpDefaults(Object.assign({}, params, { ksmPerRate: 0 }), seed, ev);
+    row(got === now && off === was, 'M1p', `${what.padEnd(21)} at the defaults ${got} (pinned ${now}${now === was ? ', unmoved' : `; pre-B382 ${was}`}); M1 written 0 ${off}`);
+  }
+}
+
 /* ---------------------------------------------------------------- B335 onset / timing (C++ reference) */
 /* ONSET SCATTER, TIMING CORRECTION, ATTACK SCATTER, PER-PARTIAL ENV, RELEASE SCATTER (ADR-077/078,
    B149). There is no JS reference: the C++ (src/swarm_core.h) is the reference, rendered by
