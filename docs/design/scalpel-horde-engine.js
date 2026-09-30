@@ -296,7 +296,7 @@ function makeComposedEngine(RazorCore, swarmSrc) {
   const LOOP_FC = 5000;
   /* B382 M1 `ksmPerRate` (ruled 2026-09-30, B379; ADR-009, B150). SwarmSynth smooths the coupling
      targets with a literal 0.08 PER 16-SAMPLE TICK (swarmsaw.html controlTick, `s.KsmS += (syncT -
-     s.KsmS) * 0.08` and the same for KsmP), so its time constant is 4.35 ms at 44.1 kHz and 3.98 ms
+     s.KsmS) * 0.08` and the same for KsmP), so its time constant is 4.35 ms at 44.1 kHz and 4.00 ms
      at 48 kHz: the ADR-009 class B150 removed from the C++. This is B150's law, src/swarm_core.h
      :389-391: the coefficient from the time constant in SECONDS, kKsmTauSeconds (:152, the value
      that gives the reference's 0.08 at 44.1 kHz), with 44.1 kHz special-cased to the literal 0.08,
