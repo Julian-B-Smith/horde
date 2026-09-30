@@ -1,0 +1,53 @@
+{
+ "schema": "hypersaw.lift-ledger/1",
+ "core": "swarm",
+ "about": "Every line in which h2/cores/swarm/ differs from the legacy source it was lifted from (ADR-186 item 4, ROADMAP B379 step 1). tools/h2_lift_check.py (./verify fast) rebuilds each lifted file from its src/ original by applying exactly these entries and demands byte equality: an unledgered difference is red, and so is an entry that no longer applies. A 'replace' names one line of the source that must occur exactly once; an 'insert_after' names a unique source anchor line and the line inserted after it. The B378 fixes (F1..F16) are NOT lift edits: they arrive later as ADR-187 divergences, one ledgered entry each, in a divergences.json beside this file.",
+ "lifted_at": "origin/main 1c421b5 (2026-09-30)",
+ "files": {
+  "swarm_core.h": "src/swarm_core.h",
+  "force_core.h": "src/force_core.h",
+  "glide_core.h": "src/glide_core.h"
+ },
+ "entries": [
+  {
+   "id": "NS1",
+   "kind": "namespace",
+   "file": "swarm_core.h",
+   "op": "replace",
+   "src": "namespace hypersaw",
+   "h2": "namespace horde2::swarm::hypersaw",
+   "why": "ADR-186 item 4: a namespace of its own, so a link that saw both copies is not an ODR violation. The legacy name is kept as the INNERMOST component on purpose: the file's own qualified references (hypersaw::GlideCore, 8 lines; forcecore::, 4 lines) then resolve to the lifted copies by ordinary lookup, so no other line changes. The closing '}  // namespace hypersaw' is unchanged and still true; one brace closes a C++17 nested namespace definition."
+  },
+  {
+   "id": "NS2",
+   "kind": "namespace",
+   "file": "glide_core.h",
+   "op": "replace",
+   "src": "namespace hypersaw",
+   "h2": "namespace horde2::swarm::hypersaw",
+   "why": "As NS1: GlideCore lives beside SwarmCore, as it does in legacy."
+  },
+  {
+   "id": "NS3",
+   "kind": "namespace",
+   "file": "force_core.h",
+   "op": "replace",
+   "src": "namespace forcecore",
+   "h2": "namespace horde2::swarm::forcecore",
+   "why": "As NS1. swarm_core.h uses two functions of it (forcecore::rngNext, forcecore::onePoleCoef); the audit's proposal to extract them into a small rng header (B378 C2) is a later cleanup, not a lift edit."
+  },
+  {
+   "id": "E1",
+   "kind": "edit",
+   "file": "swarm_core.h",
+   "op": "insert_after",
+   "after": "  const Voice &voiceAt(int i) const { return voices[i]; }",
+   "h2": "  void tickVoice(Voice &s, bool lastOfSeg) { controlTick(s, lastOfSeg); }   // h2 LIFT EDIT E1 (B379; h2/cores/swarm/lift-ledger.json): one voice's control tick for a caller that owns its Voice; access only",
+   "why": "B379's allocator question: SwarmCore's per-voice dynamics, controlTick(Voice&, bool) (src/swarm_core.h:1698), are private (the private: at :1342) and their only caller is renderSeg (:1036), which walks the core's own voices[] (:2159) filled by its own allocator alloc() (:1664) and renders its own saw. initVoice (:622) is already public and Voice (:341) is a public type, so a caller can own and initialise voices; this one public forwarder lets it tick them too. ACCESS ONLY: the forwarder is inline and unused by the core, so no code changes.",
+   "proof": {
+    "codegen": "An -O3 -ffp-contract=off object of a TU that constructs the lifted core and calls setParam, noteOn and render compiled to the SAME bytes with and without this line (sha256 b83d86599f53fe6d6f2ce4d9095e9262a294fb09b38e80f0cf30b9094450ac99 both; Apple clang, 2026-09-30, B379 trace).",
+    "behaviour": "tools/h2_swarm_lift_check.cpp (./verify full): a voice owned by the caller, started with initVoice and ticked through tickVoice on renderSeg's schedule, reproduces the core's own voice bit for bit (eff, vf, KsmS, Kenv, R, psi, sigma, phase), with coupling, drift and inertia on, at 44.1 and 48 kHz."
+   }
+  }
+ ]
+}

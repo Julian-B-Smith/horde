@@ -102,9 +102,15 @@ fast() {
   python3 tools/depends_check.py || ok=1
   # horde 2's structural rules (ADR-186 item 4, ADR-187 item 3; B332 critic
   # review): h2 and src never include each other, no h2 target links the legacy
-  # shell, every h2 build is contraction-off (pending the human's ruling on
-  # shipped flags), and the SCALPEL oracle's blob pin is current. Self-calibrating.
+  # shell, every h2 build is contraction-off (ruled 2026-09-30: the shipped
+  # build is the tested build), and the SCALPEL oracle's blob pin is current.
+  # Self-calibrating.
   python3 tools/h2_rules_check.py || ok=1
+  # A LIFTED h2 core is its legacy source plus its lift ledger, byte for byte
+  # (B379; ADR-187 L3: a byte-identical lift carries the legacy parity proof).
+  # Any unledgered difference, or a ledger entry the tree no longer carries, is
+  # red. Self-calibrating. Added under ADR-180 §1.
+  python3 tools/h2_lift_check.py || ok=1
 
   # GENERATED CONTROLS ARE CURRENT. gui2's controls are generated FROM the
   # presentation table, so an edited table with stale markup shows yesterday's
@@ -512,6 +518,12 @@ full() {
     grep -v '^PASS  rms' /tmp/h2fma.$$ >&2; rm -f /tmp/h2fma.$$; return 1
   fi
   tail -1 /tmp/h2fma.$$; rm -f /tmp/h2fma.$$
+  # horde 2's lifted swarm core (B379 step 1, h2/cores/swarm/): lift edit E1
+  # re-proven. A Voice the caller owns, started with initVoice() and ticked
+  # through the one public forwarder E1 adds, must match the core's own voice
+  # bit for bit (coupling, drift, inertia and onset lock on; 44.1 and 48 kHz),
+  # and a one-sample schedule slip must be caught. Added under ADR-180 §1.
+  "$build_dir/h2_swarm_lift_check" || { echo "verify[full]: h2_swarm_lift_check FAILED" >&2; return 1; }
 
   # THE B159 BACKLOG, ruled one at a time on evidence (2026-09-21). Nine checks
   # sat unwired: five stated no reason at all, four cited a "standing human

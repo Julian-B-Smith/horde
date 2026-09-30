@@ -808,14 +808,24 @@ if(NOT MSVC)
 endif()
 # measure_h2_scalpel: CPU per voice vs the JS oracle (ADR-187 item 8, Layer-E).
 # The RELEASE build: -O3, a separate target from the parity build — but with
-# contraction OFF, like every target that compiles an h2 core (PENDING HUMAN
-# RULING on whether the shipped build must be the build that passed parity: at
+# contraction OFF, like every target that compiles an h2 core (RULED by the human
+# 2026-09-30, B332: the shipped build is arithmetically the tested one. At
 # clang's default contraction the same core misses parity on 19 of 386
 # scenarios; tools/h2_rules_check.py enforces the flag, docs/port/scalpel-phase-1a.md
 # has the numbers). Prints, never judges; unwired.
 add_executable(measure_h2_scalpel tools/measure_h2_scalpel.cpp)
 if(NOT MSVC)
   target_compile_options(measure_h2_scalpel PRIVATE -O3 -ffp-contract=off)
+endif()
+# h2_swarm_lift_check (B379 step 1): the lifted swarm core (h2/cores/swarm/,
+# ADR-186 copy-forward) compiled as an h2 target, contraction off like every
+# other, and lift edit E1 re-proven: a caller-owned Voice ticked through the
+# public tickVoice() forwarder matches the core's own voice bit for bit, with a
+# must-fail schedule-slip control. Wired in ./verify full; the byte-identity half
+# (tools/h2_lift_check.py) is in ./verify fast.
+add_executable(h2_swarm_lift_check tools/h2_swarm_lift_check.cpp)
+if(NOT MSVC)
+  target_compile_options(h2_swarm_lift_check PRIVATE -O2 -ffp-contract=off)
 endif()
 
 # MSVC gives a process a 1 MB main-thread stack; macOS and Linux give 8 MB. A

@@ -15,14 +15,13 @@ WHAT IT CHECKS.
      compiles an h2 core links the legacy shell (${PROJECT_NAME}-impl /
      HYPERSAW-impl). One link that saw a legacy core and its horde-2 copy is the
      ODR hazard the namespace exists to prevent.
-  2. CONTRACTION (PENDING HUMAN RULING). Every CMake target that compiles an h2
-     core carries -ffp-contract=off, because clang and GCC otherwise fuse a*b+c
-     and a fused build of the SCALPEL core misses parity on 19 of 386 scenarios
-     (measured 2026-09-28, docs/port/scalpel-phase-1a.md). The one declared
-     exception is FMA_CONTROL, the must-fail control whose whole job is to be
-     the contracted build (it must carry -ffp-contract=fast). The human has been
-     asked whether the build that ships must be the build that passed parity;
-     until that ruling this rule keeps every h2 build on the parity side.
+  2. CONTRACTION (RULED by the human 2026-09-30, ROADMAP B332: the shipped
+     build is arithmetically the tested one). Every CMake target that compiles
+     an h2 core carries -ffp-contract=off, because clang and GCC otherwise fuse
+     a*b+c and a fused build of the SCALPEL core misses parity on 19 of 386
+     scenarios (measured 2026-09-28, docs/port/scalpel-phase-1a.md). The one
+     declared exception is FMA_CONTROL, the must-fail control whose whole job is
+     to be the contracted build (it must carry -ffp-contract=fast).
   3. PINNED TARGET (ADR-187 item 3). h2/README.md's status row pins the SCALPEL
      oracle by git blob hash, and that hash equals the file's current content.
      A changed oracle is a changed parity target and must be re-pinned on
@@ -75,7 +74,7 @@ def check_cmake(cmake_text, source_includes_h2):
             if "-ffp-contract=fast" not in flags:
                 fails.append(f"{t}: the FMA must-fail control must carry -ffp-contract=fast")
         elif "-ffp-contract=off" not in flags or "-ffp-contract=fast" in flags or "-ffp-contract=on" in flags:
-            fails.append(f"{t}: compiles an h2 core without -ffp-contract=off (rule 2, pending human ruling)")
+            fails.append(f"{t}: compiles an h2 core without -ffp-contract=off (rule 2, the shipped build is the tested build)")
     return fails, h2
 
 
@@ -152,7 +151,7 @@ def main():
         for f in fails:
             print("    " + f, file=sys.stderr)
         return 1
-    print(f"h2_rules_check: GREEN ({len(h2)} h2 targets: {', '.join(sorted(h2))}; boundary, contraction (pending ruling) and the oracle pin hold)")
+    print(f"h2_rules_check: GREEN ({len(h2)} h2 targets: {', '.join(sorted(h2))}; boundary, contraction and the oracle pin hold)")
     return 0
 
 
