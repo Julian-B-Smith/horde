@@ -184,6 +184,12 @@
  *            JS-ONLY MECHANISM: the static voice() swap exists because a subclass cannot reach
  *            a static called by name. The C++ implements the carrier AA choice inline in
  *            voice() as per-instance state; the swap is not part of the divergence.
+ *   B382     DIVERGENCES FROM SwarmSynth (the human, 2026-09-30, B379: the lab matches the C++ swarm
+ *                    core, src/swarm_core.h, where SwarmSynth disagrees with it). Each is a TEXT PATCH of
+ *                    SwarmSynth's controlTick()/noteOn(), registered in SWARM_PATCHES at the top of the
+ *                    factory next to its own reasons, behind its own flag in `d` whose 0 is SwarmSynth's
+ *                    expression, DEFAULT ON (ADR-187 A1: a default that changes what the listener hears
+ *                    is one divergence per PR), ledgered in docs/port/divergences.json.
  * NOT COMPOSED THIS ROUND (stated, not hidden): the output stage and voice
  * (rows 12, 13, 15, 17-20, 66 and D11: vol/normExp, width, the tanh, ADSR, the
  * pan image) stay RazorCore's. SwarmSynth's per-member amplitude terms (hiTame,
@@ -229,7 +235,21 @@
    inside an AudioWorklet (toString() re-emits both). */
 function makeComposedEngine(RazorCore, swarmSrc) {
   'use strict';
-  const SwarmSynth = new Function('"use strict";\n' + swarmSrc + '\nreturn SwarmSynth;')();
+  /* B382, DIVERGENCES FROM SwarmSynth (ADR-187 §5, docs/port/divergences.json). SwarmSynth is called,
+     never edited (reference/** is protected), and its controlTick()/noteOn() cannot be reached from
+     outside: a change INSIDE them is made to the TEXT this factory evaluates. Each divergence
+     registers itself below (SWARM_PATCHES.push, next to the code it concerns) as exact old -> new
+     blocks of that text, the lift ledger's `patch` op (h2/cores/swarm/lift-ledger.json):
+       id     its divergences.json id;
+       flag   its engine key in `d`, copied into SwarmSynth.p by syncSwarm() with the rest of `keys`.
+              The patched text reads it on every call, so 0 runs SwarmSynth's own expression, the
+              very characters of the reference, and the lab can compare the two live;
+       keys   every `d` key the patched text reads from p (the flag first);
+       edits  [old, new] pairs. `old` must occur EXACTLY ONCE in the text, or the factory throws:
+              a changed reference must be re-read, never patched by a near miss.
+     SwarmSynth itself is built from the patched text just above the class (patchSwarm), after every
+     registration has run. With no registration the text is swarmsaw.html's, character for character. */
+  const SWARM_PATCHES = [];
   const TAU = 6.283185307179586;
   const frac = x => x - Math.floor(x);
   const HORDE_D = {
@@ -360,7 +380,22 @@ function makeComposedEngine(RazorCore, swarmSrc) {
     return xin0 + ns.g * p.depth * (hot - xin0);
   }
 
+  /* B382: SwarmSynth from its patched text (SWARM_PATCHES, top of this factory) */
+  function patchSwarm(src) {
+    for (const x of SWARM_PATCHES) for (const [a, b] of x.edits) {
+      const i = src.indexOf(a);
+      if (i < 0 || src.indexOf(a, i + 1) >= 0) throw new Error(`scalpel-horde-engine: ${x.id}'s anchor is not exactly once in swarmsaw.html's DSP section: ${a.trim()}`);
+      src = src.slice(0, i) + b + src.slice(i + a.length);
+    }
+    return src;
+  }
+  const SwarmSynth = new Function('"use strict";\n' + patchSwarm(swarmSrc) + '\nreturn SwarmSynth;')();
+
   class ComposedEngine extends RazorCore {
+    /* B382: the patched SwarmSynth and its registered divergences, for the checks (a SwarmSynth with no
+       flag in its p is the reference's, bit for bit) */
+    static get SwarmSynth() { return SwarmSynth; }
+    static get swarmPatches() { return SWARM_PATCHES.map(x => ({ id: x.id, flag: x.flag, keys: x.keys.slice() })); }
     static get mr() { return RazorCore.mr; }
     static set mr(x) { RazorCore.mr = x; }
     static get mn() { return RazorCore.mn; }
@@ -483,6 +518,7 @@ function makeComposedEngine(RazorCore, swarmSrc) {
       p.freqGlide = d.freqGlide; p.keepPhase = d.keepPhase; p.pivotMode = d.pivotMode;
       p.harmReach = d.harmReach; p.stretchB = d.stretchB; p.spread = d.spread; p.anchor = d.anchor;
       p.retrig = d.phaseMode === 0 ? 0 : 1;            // row 16; settled (2) is not voiced
+      for (const x of SWARM_PATCHES) for (const k of x.keys) p[k] = d[k];   // B382: the divergences' keys
       this.gCoefS = p.freqGlide > 0 ? 1 - Math.exp(-1 / (p.freqGlide * 0.25 * this.sr)) : 0;   // swarmsaw.html:655
     }
 

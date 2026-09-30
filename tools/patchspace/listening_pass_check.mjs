@@ -76,7 +76,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ROOT, SR, loadEngine, loadSpace, mulberry32 } from './space.mjs';
 import { samplePatch, measure, THRESH } from './gauntlet.mjs';
-import { KEEP, fingerprintOf, roughnessSolo, roughOrigin, sampleId, patchHash, RENDER_SALT, SAMPLE_FILE, loadPage, strataFor, strataLabels, STRATA } from './listening_sample.mjs';
+import { KEEP, fingerprintOf, roughnessSolo, roughOrigin, sampleId, patchHash, RENDER_SALT, SAMPLE_FILE, loadPage, strataFor, strataLabels, STRATA, heard } from './listening_sample.mjs';
 import { hash32 } from './gen_dependency_tree.mjs';
 import * as CAL from './calibrate.mjs';
 import * as MET from './metrics.mjs';
@@ -92,9 +92,13 @@ const HTML = read(PAGE);
 const P = loadPage(HTML);                                     // the page's PURE block (listening_sample.mjs, shared with calibrate --remeasure)
 const sample = JSON.parse(read(SAMPLE_FILE));
 sample.itemsByKey = Object.fromEntries(sample.items.map(it => [it.key, it]));
-const run = sample.run.seed, { Composed } = loadEngine();
+const run = sample.run.seed, { Composed: Engine } = loadEngine();
+/* B382: every render of the committed sample is the HEARD engine's (the engine before B382; the page's
+   heardEngine, listening_sample.mjs heard): the page's route runs the page's own heardEngine class, the
+   gauntlet's route the heard patch. The parameter space and the patch hashes (T2) are the engine's own. */
+const Composed = P.heardEngine(Engine), hp = (r, i, m) => heard(samplePatch(r, i, m).patch);
 const pageCtx = { lab: P.labFrom(read('docs/design/scalpel-interface-lab.html')), tree: P.asEvalTree(JSON.parse(read('tools/patchspace/dependency_tree.json'))) };
-pageCtx.space = P.spaceFrom(pageCtx.lab, new Composed(SR));
+pageCtx.space = P.spaceFrom(pageCtx.lab, new Engine(SR));
 const pseed = it => hash32(run, it.i, RENDER_SALT);
 const seg = (patch, it, k) => P.runSync(P.renderSegmentSteps(Composed, patch, pseed(it), P.SEGS[k], 4096));   // chunked, as the page renders
 const t0 = Date.now();
@@ -140,7 +144,7 @@ for (const it of sample.items) {
   const patch = samplePatch(run, it.i, it.mode).patch, rs = [];
   rs[P.SEG_A3] = seg(patch, it, P.SEG_A3); rs[P.SEG_E5] = seg(patch, it, P.SEG_E5);
   if (P.programFp(rs) === it.fp) fpPage++;
-  if (fingerprintOf(patch, pseed(it)) === it.fp) fpSpace++;
+  if (fingerprintOf(heard(patch), pseed(it)) === it.fp) fpSpace++;
   if (segCache.size < 6 && it.role !== 'repeat') segCache.set(it.key, { patch, a: rs[P.SEG_A3], b: rs[P.SEG_E5] });
 }
 ok(fpPage === sample.items.length, 'T3 the v2 program\'s A3 and E5 segments start with the measured renders, bit for bit', `${fpPage}/${sample.items.length}`);
@@ -161,7 +165,7 @@ ok(fpSpace === sample.items.length, 'T3 space.mjs render (the gauntlet\'s route)
 const diffs = [];
 for (const it of sample.items) {
   if (it.role === 'repeat') continue;                              // its original is measured
-  const patch = samplePatch(run, it.i, it.mode).patch, m = measure(patch, pseed(it));
+  const patch = hp(run, it.i, it.mode), m = measure(patch, pseed(it));
   for (const k of KEEP) if (!Object.is(m[k], it.metrics[k])) diffs.push(`${it.key}.${k} ${m[k]} vs ${it.metrics[k]}`);
   const solo = roughnessSolo(patch, pseed(it));
   if (!Object.is(solo, it.metrics.roughnessSolo)) diffs.push(`${it.key}.roughnessSolo ${solo} vs ${it.metrics.roughnessSolo}`);
@@ -174,10 +178,10 @@ ok(diffs.length === 0, 'T4 every seed re-measures to the committed metrics exact
 
 /* T5 */
 {
-  const it = sample.items[0], near = samplePatch(run, it.i + 1, it.mode).patch, mNear = measure(near, hash32(run, it.i + 1, RENDER_SALT));
+  const it = sample.items[0], near = hp(run, it.i + 1, it.mode), mNear = measure(near, hash32(run, it.i + 1, RENDER_SALT));
   caught(KEEP.some(k => !Object.is(mNear[k], it.metrics[k])) && fingerprintOf(near, hash32(run, it.i + 1, RENDER_SALT)) !== it.fp,
     'T5 a perturbed seed (index + 1) reads different metrics and a different fingerprint', `${it.key} → ${it.mode}#${it.i + 1}`);
-  const it2 = sample.items[1], other = samplePatch(run ^ 1, it2.i, it2.mode).patch;
+  const it2 = sample.items[1], other = hp(run ^ 1, it2.i, it2.mode);
   caught(fingerprintOf(other, hash32(run ^ 1, it2.i, RENDER_SALT)) !== it2.fp, 'T5 a perturbed run seed (seed ^ 1) is a different sound', it2.key);
 }
 

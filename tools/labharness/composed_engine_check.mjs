@@ -89,6 +89,11 @@
  *       loop filter over the oracle's tap): broad#828's rate-locked line is
  *       gone; controls: the oracle's loop, and D3's filter as a pass-through,
  *       both bring the R/5 cycle back.
+ *   B382 SwarmSynth's divergences (M1-M3, default ON, docs/port/divergences.json) are WRITTEN OFF
+ *       (SWARM_OFF) in every row that compares the swarm with SwarmSynth or DynSynth (O1, O3, GRAV) or
+ *       pins a render taken before them (ZERO, AA0, AA3's broad#828 evidence): those rows keep proving
+ *       what they were written for, against the engine they were measured on. Each divergence's own
+ *       rows (M1, M2, M3) run it ON and check it against the C++ law, flag off against SwarmSynth.
  *   DET determinism: same seed and note order give identical output; a
  *       different horde seed does not; the module reads no clock and draws no
  *       unseeded random of its own; the toString() bundle (the AudioWorklet
@@ -128,6 +133,8 @@ const SWARM_HTML = join(root, 'reference/swarmsaw.html');
 const SwarmSynth = extractCore(SWARM_HTML, 'SwarmSynth');
 const SWARM_SRC = swarmSourceFromHtml(readFileSync(SWARM_HTML, 'utf8'));
 const Composed = makeComposedEngine(RazorCore, SWARM_SRC);
+/* B382: every SwarmSynth divergence the engine registers (its SWARM_PATCHES), written OFF (header) */
+const SWARM_OFF = Object.fromEntries(Composed.swarmPatches.map(x => [x.flag, 0]));
 
 const SR = 48000;                       // the SCALPEL lab's rate (scalpel-interface-lab.html SR)
 const NOTE = 57, F57 = 440 * Math.pow(2, (NOTE - 69) / 12);
@@ -177,7 +184,7 @@ function composedOf(h, blade, src, seed) {
     'h.law': h.law, onset: h.onset, dissolve: h.dissolve, driftDepth: h.driftDepth, 'h.driftRate': h.driftRate,
     driftMode: h.driftMode, motionCenter: h.motionCenter, inertia: h.inertia, inertiaCurve: h.inertiaCurve,
     harmReach: h.harmReach, stretchB: h.stretchB, spread: h.spread, anchor: h.anchor, freqGlide: h.freqGlide,
-    pivotMode: h.pivotMode }, blade || {}));
+    pivotMode: h.pivotMode }, SWARM_OFF, blade || {}));
   Object.assign(c.s, c.t);
   return c;
 }
@@ -924,7 +931,7 @@ function gravRun(h, opt) {
   for (const k in rp) ref.setParam(k, rp[k]);
   Math.random = mulberry32(0xB335);
   const c = new (opt.cls || Composed)(SR);
-  c.set({ N: h.n, detune: h.cents, K: h.K, phaseMode: h.retrig ? 1 : 0, seed: h.seed, grav: h.grav, basin: h.basin, w: 0 });
+  c.set(Object.assign({ N: h.n, detune: h.cents, K: h.K, phaseMode: h.retrig ? 1 : 0, seed: h.seed, grav: h.grav, basin: h.basin, w: 0 }, SWARM_OFF));
   Object.assign(c.s, c.t);
   const total = Math.round((h.seconds || 1) * SR), bufL = new Float32Array(32), bufR = new Float32Array(32), cL = new Float32Array(32), cR = new Float32Array(32);
   const vs = [], rs = [];
@@ -999,7 +1006,7 @@ section('ZERO — gravity 0 and every scatter 0 are bit-identical to the pre-B33
   const pOf = name => (name === 'horde rows' ? { N: 7, detune: 28, K: 0.4, phaseMode: 0, driftDepth: 20, onset: 0.8, inertia: 0.6 } : byName(name));
   const fp = (params, cls) => {
     Math.random = mulberry32(0xB335);
-    const c = new (cls || Composed)(SR); c.set(params); Object.assign(c.s, c.t);
+    const c = new (cls || Composed)(SR); c.set(Object.assign({}, params, SWARM_OFF)); Object.assign(c.s, c.t);
     const total = 24064, L = new Float32Array(total), R = new Float32Array(total), B = 128;
     const ev = [[0, 'on', 57], [0, 'on', 64], [0, 'on', 69], [9600, 'on', 60], [14336, 'off', 57], [14336, 'off', 64]];
     for (let i = 0, e = 0; i < total; i += B) {
@@ -1219,7 +1226,7 @@ function onsRender(q, cls) {
 section('AA — ADR-189 anti-aliasing divergences (B355): all off is main; D1, D2, D3 each do what they claim');
 {
   const fpAA = (params, cls) => {
-    const A = renderWith(() => new (cls || Composed)(SR), params, 0xB355, 24064);
+    const A = renderWith(() => new (cls || Composed)(SR), Object.assign({}, params, SWARM_OFF), 0xB355, 24064);
     return createHash('sha256').update(Buffer.from(A.L.buffer)).update(Buffer.from(A.R.buffer)).digest('hex').slice(0, 16);
   };
   /* AA0: pinned on main at d443eb6 (docs/design/scalpel-horde-engine.js blob 5f96285) with this very
@@ -1304,7 +1311,7 @@ section('AA — ADR-189 anti-aliasing divergences (B355): all off is main; D1, D
   const B828 = { mode: 1, hot: 4, w: 0.02497344250487307, k: 1.166184157966395, c: 0.821492628660053, hard: 0.22659096238203347, depth: 0.16760664246976376, rotRate: 3.6889861542731524, rotSync: 0, fb: 0.3823352499896128, mshape: 7, I: 0.0754069117297927, m: 6.862318260510085, benvK: -0.04634629702195525, benvW: 0.09298173757269979, benvA: 3.576603711459627, benvD: 2341.79573983158, benvVel: 0.5122116324491799, base: 4, dcMode: 1, xm: 0.15870987800850156, frame: 1, phaseMode: 0, law: 3, bspread: -0.6364673553034663, kRule: 8, kRuleAmt: 0.6274632841814309, wspread: -0.2908894410356879, dspread: -0.2656447202898562, ispread: 0.9232641374692321, rotSpread: -0.28748671136165305, b2on: 1, mode2: 2, w2: 0.05261411756061071, k2: 31.958604020527126, lock2: 0, c2: 0.34182922495529056, hard2: 0.39319653320126235, depth2: 0.9189625040162355, mirror2: 0, rot2Follow: 0, rotRate2: 1.0956337340176105, frame2: 1, b2order: 1, b2mix: 0.6863440533634275, colK: 0.3284184467047453, colB: 0.03496146504767239, N: 3, detune: 71.6670430265367, K: -0.8084876798093319, width: 0.44364295271225274, A: 2.49053468199747, D: 417.97740792484007, S: 0.5356353237293661, R: 2399.0311701255923, gain: 0.5667388490401208, polyMode: 1, glide: 3.392950330909303, os: 1, onset: 0.508713430725038, dissolve: 0.37915171489879057, driftDepth: 74.03178447857499, 'h.driftRate': 0.5697026196867228, 'h.law': 5, stretchB: 4.374309228267521, spread: 11.062973401974887, anchor: 0.675719597376883, inertia: 0.10279140272177756, inertiaCurve: 4.4292594762519 };
   const lines = (cls, params) => {
     Math.random = mulberry32(2860116571);
-    const c = new cls(SR); c.set(params); Object.assign(c.s, c.t);
+    const c = new cls(SR); c.set(Object.assign({}, params, SWARM_OFF)); Object.assign(c.s, c.t);
     const n = 14400, L = new Float32Array(n), R = new Float32Array(n);
     c.noteOn(E5, F76, 0.8);
     for (let i = 0; i < n; i += 128) c.render(L.subarray(i, i + 128), R.subarray(i, i + 128));
