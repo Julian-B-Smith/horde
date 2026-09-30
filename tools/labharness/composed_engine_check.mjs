@@ -135,6 +135,9 @@ const SWARM_SRC = swarmSourceFromHtml(readFileSync(SWARM_HTML, 'utf8'));
 const Composed = makeComposedEngine(RazorCore, SWARM_SRC);
 /* B382: every SwarmSynth divergence the engine registers (its SWARM_PATCHES), written OFF (header) */
 const SWARM_OFF = Object.fromEntries(Composed.swarmPatches.map(x => [x.flag, 0]));
+/* B382: SwarmSynth with some of the engine's divergences ON (their flags, and any key their text reads,
+   written into p): the engine's own patched class, Composed.SwarmSynth, never a copy */
+const swarmWith = over => class extends Composed.SwarmSynth { constructor(sr) { super(sr); Object.assign(this.p, over); } };
 
 const SR = 48000;                       // the SCALPEL lab's rate (scalpel-interface-lab.html SR)
 const NOTE = 57, F57 = 440 * Math.pow(2, (NOTE - 69) / 12);
@@ -166,8 +169,8 @@ const H0 = { n: 7, dist: 0, seed: 1234, cents: 28, law: 0, K: 0, onset: 0, disso
   driftRate: 0.4, driftMode: 0, motionCenter: 0, inertia: 0, inertiaCurve: 2.5, retrig: 1, harmReach: 1,
   stretchB: 0, spread: 1, anchor: 0, freqGlide: 0, pivotMode: 0 };
 const taper = (k, c) => c === 0.5 ? Math.sqrt(k) : Math.pow(k, c);          // hypersaw_clap.cpp:7312
-function refOf(h, over) {
-  const r = new SwarmSynth(SR), p = Object.assign({}, h, over || {});
+function refOf(h, over, cls) {
+  const r = new (cls || SwarmSynth)(SR), p = Object.assign({}, h, over || {});
   const set = { n: p.n, dist: p.dist, seed: p.seed, detune: p.cents / 100, law: p.law, K: p.K, onset: p.onset,
     dissolve: p.dissolve, driftDepth: p.driftDepth, driftRate: p.driftRate, driftMode: p.driftMode,
     motionCenter: p.motionCenter, inertia: 'inertiaRaw' in p ? p.inertiaRaw : taper(p.inertia, p.inertiaCurve),
@@ -192,7 +195,7 @@ function composedOf(h, blade, src, seed) {
 /* ---------------------------------------------------------------- O1 */
 function o1(h, opt) {
   opt = opt || {};
-  const ref = refOf(h, opt.refOver);
+  const ref = refOf(h, opt.refOver, opt.refCls);
   ref.noteOn(NOTE, F57);
   const c = composedOf(h, opt.blade, opt.src, 0xB298);
   c.noteOn(NOTE, F57, 1);
