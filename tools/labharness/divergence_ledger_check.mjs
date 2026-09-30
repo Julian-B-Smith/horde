@@ -58,7 +58,17 @@
  *   C5  per built flag, its `inScope` scenario planted into its `outOfScope` list (L6 must reject it);
  *   C6  per default-ON entry that claims `moves`, an engine defaulting its flag OFF (L4 must reject it:
  *       the claimed scenarios no longer move);
- *   C7  a planted SwarmSynth entry the engine does not register (L7 must reject it).
+ *   C7  a planted SwarmSynth entry the engine does not register (L7 must reject it);
+ *   C8  per PER-PLATFORM claim: its pin for this platform off by one digit (L4 must reject it), and the
+ *       same claim read on a platform it has no pin for (L4 must SKIP it, never pass it).
+ * PER-PLATFORM PINS (B382, ADR-187 item 7: digests are pinned per canonical platform). A `moves` value is
+ *   a fingerprint, or {platform: fingerprint} keyed by Node's process.platform (darwin, linux, win32) for
+ *   a render whose float32 bits differ between platforms. L4 compares it with the pin for the platform
+ *   it runs on; with no pin for that platform it prints a SKIP row naming the scenario and why, and that
+ *   scenario is not counted as proven. Found on M1 (2026-09-30): Crunch horde at the defaults hashes
+ *   57a4d13ff66d7a9f on macOS and f07ffc9432bcb49d on CI's Linux; on this Mac the same two hashes are
+ *   the two outcomes of a 1e-12 relative perturbation of the swarm (M1's coefficient moved 1e5 ULP), so
+ *   the scenario sits next to a discrete event and any last-bit difference upstream picks one side.
  * DEFAULT-ON ENTRIES (B382; ADR-187 A1: turning a divergence on by default is one divergence per PR).
  *   An entry with `default: 1` carries `ruled` (the human ruling that turned it on) and, when it moves an
  *   allOff scenario at the defaults, `moves`. With every built flag written 0 the engine is still the
@@ -128,7 +138,7 @@ function shapeErrors(led) {
     if (d.js_limit !== null && typeof d.js_limit !== 'string') e.push(`${d.id}: js_limit is neither null nor a statement`);
     if (defaultOf(d) !== 0 && defaultOf(d) !== 1) e.push(`${d.id}: default ${d.default} is neither 0 nor 1`);
     if (defaultOf(d) === 1 && (d.status !== 'built' || typeof d.ruled !== 'string')) e.push(`${d.id}: default 1 needs status built and a 'ruled' statement (ADR-187 A1)`);
-    if (d.moves !== undefined && (defaultOf(d) !== 1 || !Object.values(d.moves).every(f => /^[0-9a-f]{16}$/.test(f)))) e.push(`${d.id}: moves needs default 1 and 16-hex fingerprints`);
+    if (d.moves !== undefined && (defaultOf(d) !== 1 || !Object.values(d.moves).every(pinShape))) e.push(`${d.id}: moves needs default 1 and 16-hex fingerprints, bare or per platform (${PLATFORMS.join(', ')})`);
     for (const m of Object.keys(d.moves || {})) if (!(m in led.allOff.fingerprints)) e.push(`${d.id}: moves ${m}, which is not an allOff scenario`);
   }
   return e;
@@ -149,23 +159,34 @@ function flagErrors(led, Composed) {
   }
   return e;
 }
+/* a `moves` pin: a fingerprint, or {platform: fingerprint} (header, PER-PLATFORM PINS) */
+const PLATFORMS = ['darwin', 'linux', 'win32'];
+const HEX16 = f => typeof f === 'string' && /^[0-9a-f]{16}$/.test(f);
+const pinShape = v => HEX16(v) || (v !== null && typeof v === 'object' && Object.keys(v).length > 0 &&
+  Object.entries(v).every(([k, f]) => PLATFORMS.includes(k) && HEX16(f)));
+const pinFor = (v, platform) => (HEX16(v) ? { f: v } : v[platform] ? { f: v[platform], per: platform }
+  : { skip: `no pin for platform ${platform} (pinned for ${Object.keys(v).join(', ')})` });
 /* the fingerprint each allOff scenario must have at the DEFAULTS: its pin, or the one default-on claim on it */
-function defaultsWant(led) {
+function defaultsWant(led, platform) {
   const want = {}, e = [];
   for (const [name, f] of Object.entries(led.allOff.fingerprints)) {
     const by = built(led).filter(d => defaultOf(d) === 1 && d.moves && name in d.moves);
     if (by.length > 1) e.push(`${name}: moved by ${by.map(d => d.id).join(' and ')} at once (a joint move needs its own pin)`);
-    want[name] = by.length ? { f: by[0].moves[name], by: by[0].id } : { f, by: null };
+    want[name] = by.length ? Object.assign(pinFor(by[0].moves[name], platform), { by: by[0].id }) : { f, by: null };
   }
   return { want, e };
 }
-function allOffErrors(led, Composed) {
-  const zero = allZero(led), { want, e } = defaultsWant(led);
+/* -> errors; errors.skips lists the claims with no pin for `platform` (reported, never passed) */
+function allOffErrors(led, Composed, platform) {
+  platform = platform || process.platform;
+  const zero = allZero(led), { want, e } = defaultsWant(led, platform), skips = [];
   for (const [name, pin] of Object.entries(led.allOff.fingerprints)) {
     const a = fingerprint(Composed, name, null, led.allOff.seed), b = fingerprint(Composed, name, zero, led.allOff.seed), w = want[name];
     if (b !== pin) e.push(`${name}: ${b} with every flag written 0, pinned ${pin}`);
-    if (a !== w.f) e.push(`${name}: ${a} at the defaults, ${w.by ? `claimed by ${w.by}'s moves` : 'pinned'} ${w.f}`);
+    if (w.skip) skips.push(`${name}: ${a} at the defaults, claimed by ${w.by}'s moves, ${w.skip}`);
+    else if (a !== w.f) e.push(`${name}: ${a} at the defaults, ${w.by ? `claimed by ${w.by}'s moves${w.per ? ` (${w.per} pin)` : ''}` : 'pinned'} ${w.f}`);
   }
+  e.skips = skips;
   return e;
 }
 
@@ -213,7 +234,8 @@ if (main) {
   row(!e.length, 'L3', `built flags are engine keys at their ledgered defaults (${B.map(d => `${d.flag} ${defaultOf(d)}`).join(', ')}); evidence present${e.length ? ': ' + e.join('; ') : ''}`);
   e = allOffErrors(led, Composed);
   const claimed = B.filter(d => d.moves).map(d => `${d.id} moves ${Object.keys(d.moves).length}`);
-  row(!e.length, 'L4', `all off = the engine at ${led.allOff.engine.commit}: ${Object.keys(led.allOff.fingerprints).length} scenarios with every flag written 0; the defaults are the pins${claimed.length ? ' except as claimed (' + claimed.join(', ') + ')' : ''}${e.length ? ': ' + e.join('; ') : ''}`);
+  row(!e.length, 'L4', `all off = the engine at ${led.allOff.engine.commit}: ${Object.keys(led.allOff.fingerprints).length} scenarios with every flag written 0; the defaults are the pins${claimed.length ? ' except as claimed (' + claimed.join(', ') + ')' : ''}, on ${process.platform}${e.length ? ': ' + e.join('; ') : ''}`);
+  for (const s of e.skips) console.log(`SKIP  L4   ${s} — this scenario's default is NOT proven here`);
   for (const d of B) {
     const { moved, own } = wiredBy(led, Composed, d);
     row(moved.length > 0 || own, 'L5', `${d.id} ${d.flag} on changes ${moved.length} of ${Object.keys(led.allOff.fingerprints).length} scenarios (${moved.join(', ') || 'none'}); its inScope ${scenName(d.inScope)} ${own ? 'changes' : 'DOES NOT change'}`);
@@ -250,6 +272,17 @@ if (main) {
 
   e = patchErrors(plant(x => { x.divergences.push({ id: 'MX', status: 'built', flag: 'noSuchPatch', oracle: { file: SWARM_ORACLE } }); }), Composed);
   row(e.length > 0, 'C7', `CONTROL a ledgered SwarmSynth divergence the engine does not make is caught: ${e[0] || 'NOT CAUGHT'}`);
+  for (const d of B.filter(x => x.moves)) for (const [name, v] of Object.entries(d.moves)) {
+    if (HEX16(v)) continue;
+    const here = pinFor(v, process.platform);
+    if (here.f) {
+      e = allOffErrors(plant(x => { const m = x.divergences.find(z => z.id === d.id).moves[name]; m[process.platform] = (here.f[0] === '0' ? '1' : '0') + here.f.slice(1); }), Composed);
+      row(e.length > 0, 'C8', `CONTROL ${d.id}'s ${process.platform} pin for ${name} off by one digit is caught: ${e[0] || 'NOT CAUGHT'}`);
+    }
+    e = allOffErrors(led, Composed, 'aix');
+    row(e.skips.some(s => s.startsWith(name + ':')) && !e.some(s => s.startsWith(name + ':')), 'C8',
+      `CONTROL ${d.id}'s claim on ${name} read on a platform it has no pin for (aix) is SKIPPED, not passed: ${e.skips.find(s => s.startsWith(name + ':')) || 'NOT SKIPPED'}`);
+  }
 
   console.log(`\n${red ? 'RED' : 'GREEN'} — divergence_ledger_check: ${B.length} built divergence(s), ${red} row(s) failed`);
   process.exit(red ? 1 : 0);

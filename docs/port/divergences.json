@@ -241,7 +241,10 @@
    "inScope": "Crunch horde",
    "moves": {
     "Cross-mod roar": "dd3f44df6992722d",
-    "Crunch horde": "57a4d13ff66d7a9f",
+    "Crunch horde": {
+    "darwin": "57a4d13ff66d7a9f",
+    "linux": "f07ffc9432bcb49d"
+   },
     "Zap bass": "1a336ebb265304c2"
    },
    "metric": {
@@ -252,7 +255,7 @@
     "onset": "M1 smooths the onset burst too: onset +0.5, K .35 moves from rms 1.785e-3 against the C++ (plain) to 5.0e-14 (mirrored); negative onset is M2's",
     "law3": "none of its own; law 3 is M3's"
    },
-   "finding": "(1) The 48 kHz golden set (B382) tested B379's hypothesis 'M1 and M2 are the only 48 kHz differences' on the whole L0-1 matrix: with M1 mirrored, every SwarmSynth scenario is within 1e-6 of the C++; the only other differences are negative onset (M2) and law 3 (M3), and DynSynth (reference/swarmdynamics.html) carries the SAME per-tick 0.08 in its own smoother (controlTick, s.Ksm): with it replaced by M1's coefficient every dyn scenario is within 1e-6 of the C++, without it 21 of 24 miss by 4e-5 to 9e-2 (dyn-grid, K 0, does not). That is a fact about the reference the C++ parity chain was built on, not an engine divergence (the composed engine runs none of DynSynth's coupling). (2) broad#828, AA3's evidence for D3: at the defaults (M1 on) its R/5 limit cycle at E5, os 1, reads +2.3 dB over its floor, not +13.0 (D3 on: -0.6, not -5.9): the cycle depends on the swarm's realisation. AA3 keeps M1 off, the swarm the cycle was measured on.",
+   "finding": "(1) The 48 kHz golden set (B382) tested B379's hypothesis 'M1 and M2 are the only 48 kHz differences' on the whole L0-1 matrix: with M1 mirrored, every SwarmSynth scenario is within 1e-6 of the C++; the only other differences are negative onset (M2) and law 3 (M3), and DynSynth (reference/swarmdynamics.html) carries the SAME per-tick 0.08 in its own smoother (controlTick, s.Ksm): with it replaced by M1's coefficient every dyn scenario is within 1e-6 of the C++, without it 21 of 24 miss by 4e-5 to 9e-2 (dyn-grid, K 0, does not). That is a fact about the reference the C++ parity chain was built on, not an engine divergence (the composed engine runs none of DynSynth's coupling). (2) broad#828, AA3's evidence for D3: at the defaults (M1 on) its R/5 limit cycle at E5, os 1, reads +2.3 dB over its floor, not +13.0 (D3 on: -0.6, not -5.9): the cycle depends on the swarm's realisation. AA3 keeps M1 off, the swarm the cycle was measured on. (3) Crunch horde at the defaults is PLATFORM-FRAGILE: 57a4d13ff66d7a9f on macOS, f07ffc9432bcb49d on CI Linux (PR #880, run 36782771270). On macOS those are the two outcomes of perturbing the swarm by ~1e-12 relative (M1's coefficient moved +1e5 ULP gives exactly the Linux hash; +-1 to +-1e4 ULP change nothing), so a last-bit difference somewhere upstream, NOT M1's coefficient, picks the side; its pin is per platform (divergence_ledger_check PER-PLATFORM PINS). Cross-mod roar and Zap bass matched on Linux.",
    "evidence": [
     "traces/2026-09-30-b382-m1-ksm.md",
     "tools/labharness/composed_engine_check.mjs",
