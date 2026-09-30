@@ -1,0 +1,1430 @@
+<!doctype html>
+<!-- edge-correction-lab — B383: hear and measure the ways to band-limit an edge. HYPERSAW, 2026-09-30,
+     dispatched by the horde lead on ROADMAP B383 (records PR, branch lead-records-152), which follows
+     B378's swarm-core audit (docs/audits/2026-09-30-swarm-core-audit.md, finding F3) and the B380
+     discussion.
+
+     THE HUMAN, 2026-09-30: "Is there a way to do a note-dependent edge-correction?" and then "I should
+     probably sound-test the note dependent edges against the other options in a lab, yes."
+
+     WHAT THIS IS. A DECISION LAB, not a port. Six ways to correct an edge — (a) the core's 2-point
+     polyBLEP, (b) the same at 2× through the core's halfband, (c) a linear-phase BLEP table, (d) a
+     minimum-phase BLEP table, (e) polyBLEP below a crossover and (d) above, blended over a pitch band,
+     (f) min-phase tables whose length and cutoff scale with pitch — played on three sources (a unison
+     "swarm-style" saw, a single saw, a SCALPEL-style sync blade) and measured live: B346's
+     aliasConvergence (tools/patchspace/metrics.mjs, IMPORTED by the workers, never copied), CPU timed
+     in a worker, latency, and what each keeps in 16–20 kHz.
+
+     THE SOURCES ARE A TEST HARNESS, NOT THE ENGINE. They are clean standalone oscillators whose only
+     job is to carry edges into the correction under test (§A of the core block says how). Nothing here
+     is src/swarm_core.h, the h2 cores, or the SCALPEL oracle, and nothing here changes them.
+
+     STRUCTURE. The FIRST inline script is the CORE: pure functions (no DOM, no clock, no Math.random;
+     seeded mulberry32 only), and the render workers run its exact text (the envelope lab's B377
+     idiom). The second script is the page. Audio is pre-rendered in a worker and cached, so ▶ and A/B
+     answer at once; the heavy measurements run on a small worker pool with a progress bar.
+
+     SECTIONS. §1 the options (the picker) · §2 listen (A/B, blind) · §3 aliasing C1–C8, CPU, latency ·
+     §4 16–20 kHz · §5 the self-check · §6 method.
+     Deep links: ?theme=dark · ?check=1 (runs the self-check at load) · ?only=s1..s6 · ?A=a..f&B=a..f ·
+     ?src=swarm|single|blade · ?mat=note|sweepSlow|sweepFast|glide|cross|chord|vibrato · ?note=24..108 ·
+     ?hf=60..108 · ?blind=1 (starts a blind round, for screenshots).
+
+     L0026: all state above all wiring; nothing at setup reaches forward to a const below it.
+     STUB-SAFETY (lab_load_check and lab_wheel_scroll_check run this under DOMs whose numbers are 0):
+     painters loop over data, never over a canvas's size. Wheel: alt/⌥ + wheel only, through the
+     shared onAltWheel (B301); this lab is in lab_wheel_scroll_check's LABS. -->
+<html><head><meta charset="utf-8">
+<meta name="lab-review" content="B383 · 2026-09-30">
+<title>edge-correction lab — polyBLEP, 2× oversampling, BLEP tables and note-dependent edges, by ear and by measure</title>
+<style>
+  /* ============================================================
+     TOKENS — copied VERBATIM from docs/design/mod-matrix-lab.html, which copied them from
+     docs/design/station-page-lab.html, which copied them from src/gui/gui2.html:26-96 (:root),
+     :103-105, :142-144, :167-185, :186-212 (body.dark). The derivations live there; the VALUES are
+     what must not drift. Copy, therefore drift: re-copy if gui2's tokens move.
+     ============================================================ */
+  :root {
+    --bg:#F2EDE2; --panel:#FCFAF4; --well:#FFFFFF; --panel2:#E9E3D4;
+    --line:#191521; --hair:#E5DFD0; --div:#D8D1C0;
+    --text:#191521; --t2:#494356; --dim:#9A93A3; --dis:#B6AFA0;
+    --value:#F5169C;
+    --pull:#F5169C;
+    --physics:#6431F0;
+    --meter:#00D5C8;
+    --marker:#FFD702;
+    --celebrate:#A6F219;
+    --caution:#F5A300;   --caution-bg:#FBE9BD; --caution-tx:#6D570B;
+    --amber:#F5A300;
+    --alarm:#C2261A;
+    --ghost:#C9C2FF;
+    --cA:#FFD702; --cAtx:#D4A900; --cB:#FF2E88; --cBtx:#FF2E88;
+    --cC:#00D5C8; --cCtx:#00B3A8; --cD:#A6F219; --cDtx:#6FB200;
+    --text-hi:#191521; --dim2:#494356; --grid:#E5DFD0; --grid2:#E5DFD0;
+    --hot:#F5169C; --bad:#C2261A; --badge-bg:rgba(245,163,0,.9);
+    --scr-tube:#1B0733; --scr-value:#FF5ECF; --scr-meter:#B8F227;
+    --scr-physics:#B48CFF; --scr-marker:#FFB86B; --scr-grid:#4FD8BE;
+    --scr-scan:0.22; --scr-alpha:1;
+    --r-card:10px; --r-well:var(--r-card); --r:var(--r-card); --stroke:1.5px;
+    --shadow:1.5px 1.5px 0 var(--line);
+    --shadow-hover:2.5px 2.5px 0 var(--line);
+    --focus:0 0 0 2.5px rgba(245,22,156,.45); }
+  * { box-sizing:border-box; margin:0; }
+  canvas { border:var(--stroke) solid var(--line); border-radius:var(--r-well);
+           background:var(--scr-tube); display:block; width:100%; }
+  body:not(.dark) { --scr-tube:#F3EBFF; --scr-value:#D6006B; --scr-meter:#007A73;
+    --scr-physics:#6E14E8; --scr-marker:#C43A00; --scr-grid:#5A3FA8;
+    --scr-scan:0.05; --scr-alpha:1.6;
+    --marker:#8A6A00; --celebrate:#4E7A00; }
+  body.dark {
+    --bg:#151220; --panel:#1F1B2E; --well:#0E0C16; --panel2:#2C2740;
+    --line:#EFE9FA; --hair:#312B47; --div:#3B3455;
+    --text:#EFE9FA; --t2:#BDB4D4; --dim:#8A82A3; --dis:#514A6B;
+    --value:#FF3DAD; --pull:#FF3DAD; --physics:#A07CFF; --meter:#2DF2E2;
+    --marker:#FFE04D; --celebrate:#C2F53E;
+    --caution:#FFB627; --caution-bg:#4A3A12; --caution-tx:#FFD98A;
+    --amber:#FFB627; --alarm:#FF5A4D;
+    --ghost:#5B4E8F;
+    --cA:#FFD702; --cAtx:#FFE566; --cB:#FF2E88; --cBtx:#FF6FAE;
+    --cC:#00D5C8; --cCtx:#4DEDE3; --cD:#A6F219; --cDtx:#C6F86A;
+    --text-hi:#FFFFFF; --dim2:#9A93A8; --grid:#312B47; --grid2:#312B47;
+    --hot:#FF3DAD; --bad:#FF5A4D; --badge-bg:rgba(255,182,39,.9);
+    --focus:0 0 0 2.5px rgba(255,61,173,.45); }
+
+
+  /* ============ CHROME — gui2's idiom, as the envelope lab carries it ============ */
+  body { background:var(--bg); color:var(--text);
+    font:12px/1.45 ui-monospace,Menlo,monospace; padding:10px 12px; }
+  .hdr { display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; margin-bottom:8px; }
+  h1 { font-size:34px; line-height:1; letter-spacing:-1px; font-weight:800; }
+  .badges { display:flex; align-items:center; gap:8px; margin-top:4px; flex-wrap:wrap; }
+  .badge { font-size:9.5px; letter-spacing:.1em; padding:2px 7px;
+           border:var(--stroke) solid var(--line); border-radius:3px;
+           background:var(--cA); color:var(--line); }
+  body.dark .badge { color:var(--bg); }
+  .sub { color:var(--t2); font-size:10.5px; letter-spacing:.12em; }
+  .hdrctl { display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-left:auto; }
+  .lbl { font-size:10px; font-weight:700; letter-spacing:.1em; color:var(--t2); }
+  .pills { display:flex; gap:5px; flex-wrap:wrap; align-items:center; }
+  .pill { padding:3px 10px; border:var(--stroke) solid var(--line);
+    border-radius:999px; min-height:24px; cursor:pointer; color:var(--dim);
+    background:var(--panel); font:inherit; font-size:10px; letter-spacing:.06em; }
+  .pill:hover { box-shadow:var(--shadow); }
+  .pill.on { color:var(--bg); background:var(--line); font-weight:600; }
+  .pill.play { color:var(--text); border-color:var(--value); }
+  .pill.play:hover { background:var(--value); color:var(--bg); }
+  .pill.busy { color:var(--dim); border-style:dashed; }
+  .pill:disabled { opacity:.45; cursor:default; box-shadow:none; }
+  .chip { padding:4px 8px; border:0; background:none; border-radius:var(--r);
+    cursor:pointer; font:inherit; font-size:10px; letter-spacing:.06em;
+    color:var(--dim); min-height:26px; }
+  .chip:hover { background:var(--panel2); }
+  .chip b { color:var(--t2); font-weight:600; letter-spacing:.1em; }
+  .tagline { color:var(--t2); font-size:11px; max-width:160ch; margin-bottom:6px; }
+  .tagline b { color:var(--text); }
+  .harness { font-size:10px; color:var(--caution-tx); background:var(--caution-bg); border:1px solid var(--caution);
+    border-radius:4px; padding:4px 8px; margin-bottom:10px; max-width:160ch; }
+  .cluster { background:var(--panel); border:var(--stroke) solid var(--line);
+    border-radius:var(--r); padding:10px 12px; min-width:0; margin-bottom:12px; }
+  h2 { font-size:12px; color:var(--pull); letter-spacing:1px; margin-bottom:6px; }
+  h3 { font-size:10px; letter-spacing:.12em; color:var(--t2); margin:8px 0 4px; }
+  .note { color:var(--t2); font-size:10.5px; line-height:1.55; margin-top:6px; max-width:160ch; }
+  .note b { color:var(--text); }
+  .note code, td code { font-size:10px; color:var(--text); }
+  .row { display:grid; grid-template-columns:78px minmax(0,1fr) 64px; align-items:center; gap:6px; margin:2px 0; }
+  .row label { color:var(--t2); font-size:10px; }
+  .row output { font-size:10px; text-align:right; color:var(--text); font-variant-numeric:tabular-nums; }
+  input[type=range] { -webkit-appearance:none; appearance:none; width:100%; min-width:0; height:20px; background:transparent; cursor:pointer; }
+  input[type=range]::-webkit-slider-runnable-track { height:6px; border-radius:3px; border:var(--stroke) solid var(--line);
+    background:linear-gradient(to right, var(--value) 0 calc(var(--pct, 0) * 100%), var(--panel2) calc(var(--pct, 0) * 100%) 100%); }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; appearance:none; width:13px; height:13px; border-radius:4px; margin-top:-3.5px;
+    background:var(--panel); border:var(--stroke) solid var(--line); box-shadow:var(--shadow); }
+  canvas { border:var(--stroke) solid var(--line); border-radius:var(--r-well); background:var(--scr-tube); display:block; width:100%; }
+  .hidden { display:none !important; }
+  .rstat { display:flex; align-items:center; gap:6px; font-size:10px; color:var(--t2); min-width:300px; }
+  .rstat .bar { width:90px; height:6px; border:1px solid var(--line); border-radius:3px; background:var(--panel2); overflow:hidden; }
+  .rstat .bar i { display:block; height:100%; width:calc(var(--f, 0) * 100%); background:var(--value); }
+  .rstat.idle .bar i { background:var(--meter); }
+
+  /* ============ THIS LAB ============ */
+  .g2 { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.1fr); gap:14px; }
+  .optgrid { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:10px; }
+  .opt { border:1px solid var(--div); border-radius:8px; padding:8px; background:var(--well); min-width:0; position:relative; }
+  .opt.inA { box-shadow:inset 4px 0 0 var(--cA); }
+  .opt.inB { box-shadow:inset -4px 0 0 var(--cB); }
+  .opt.inA.inB { box-shadow:inset 4px 0 0 var(--cA), inset -4px 0 0 var(--cB); }
+  .opt h4 { font-size:11px; letter-spacing:.04em; margin-bottom:3px; display:flex; align-items:center; gap:6px; }
+  .opt h4 .sw { width:10px; height:10px; border-radius:2px; display:inline-block; border:1px solid var(--line); }
+  .opt .fx { font-size:10px; color:var(--t2); line-height:1.5; margin:3px 0 5px; min-height:45px; }
+  .opt .facts { font-size:10px; color:var(--text); display:flex; gap:10px; flex-wrap:wrap; margin:4px 0; }
+  .opt .facts span b { color:var(--t2); font-weight:400; }
+  .opt canvas { height:74px; }
+  .opt .slot { display:flex; gap:5px; margin-top:6px; }
+  .slotA.on { background:var(--cA); color:var(--line); border-color:var(--line); }
+  .slotB.on { background:var(--cB); color:var(--bg); }
+  .tp { display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin:6px 0; }
+  .big { font-size:12px; min-height:30px; padding:4px 14px; }
+  .abstate { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:8px; margin:6px 0; }
+  .abbox { border:1px solid var(--div); border-radius:8px; padding:6px 8px; background:var(--well); font-size:10px; }
+  .abbox.live { border-color:var(--value); box-shadow:inset 0 0 0 1px var(--value); }
+  .abbox b { font-size:11px; }
+  table.pt { border-collapse:collapse; width:100%; font-size:10px; }
+  table.pt td, table.pt th { border-bottom:1px dashed var(--div); padding:3px 5px; text-align:right; vertical-align:middle; white-space:nowrap; font-variant-numeric:tabular-nums; }
+  table.pt th { color:var(--dim); font-weight:600; letter-spacing:.08em; font-size:9px; }
+  table.pt td:first-child, table.pt th:first-child { text-align:left; }
+  table.pt td.good { color:var(--celebrate); } table.pt td.warn { color:var(--caution); } table.pt td.bad { color:var(--alarm); }
+  .ok { color:var(--celebrate); font-weight:700; } .bad { color:var(--alarm); font-weight:700; }
+  .chk td { border-bottom:1px dashed var(--div); padding:3px 5px; vertical-align:top; font-size:10px; }
+  .chk .ctl { color:var(--dim); }
+  .legend { display:flex; gap:12px; flex-wrap:wrap; font-size:9.5px; color:var(--t2); margin:4px 0; }
+  .legend i { display:inline-block; width:14px; height:4px; vertical-align:middle; margin-right:4px; border-radius:1px; }
+  .verdict { border-left:3px solid var(--celebrate); padding:6px 10px; background:var(--well); font-size:10.5px; line-height:1.55; margin-top:8px; }
+  .verdict.red { border-left-color:var(--alarm); }
+  .blindbox { border:1px dashed var(--div); border-radius:8px; padding:6px 8px; background:var(--well); margin-top:6px; font-size:10px; }
+  .scroll { max-height:150px; overflow:auto; }
+  #heatCv { height:250px; } #hfCv { height:300px; } #trackCv { height:150px; } #contCv { height:150px; }
+</style>
+</head>
+<body>
+<div class="hdr">
+  <div>
+    <h1>edge correction</h1>
+    <div class="badges"><span class="badge">B383 · DECISION LAB</span>
+      <span class="sub">2-POINT POLYBLEP · 2× · LINEAR-PHASE TABLE · MIN-PHASE TABLE · NOTE-DEPENDENT ×2 · BLIND A/B · B346 ESTIMATOR LIVE</span></div>
+  </div>
+  <div class="hdrctl">
+    <div class="rstat idle" id="rstat" title="the worker pool: what is running, what is cached"><span class="bar"><i></i></span><span id="rstatTxt">workers: starting…</span></div>
+    <button class="chip" id="themeBtn">theme <b>LIGHT</b></button>
+    <button class="pill" id="stopBtn">■ stop</button>
+  </div>
+</div>
+<div class="tagline"><b>Which edge correction should the swarm and the SCALPEL blade use?</b> The audit (B378 F3) measured the core's 2-point polyBLEP folding from C3 up (−41.6 dB at C4, −26.8 at C8) and a 16-tap-a-side BLEP table at ≤ −120 dB. This lab plays six corrections — polyBLEP, polyBLEP at 2×, a linear-phase table, a minimum-phase table, and two note-dependent schemes — on a unison saw, a single saw and a sync blade, level-matched and blind, and measures each live with B346's estimator, a worker-timed CPU readout, its latency and what it keeps in 16–20 kHz.</div>
+<div class="harness">TEST HARNESS, NOT THE ENGINE: the oscillators here are clean standalone saws and a sync saw written only to carry edges into the correction under test. Nothing on this page is swarm_core.h, an h2 core or the SCALPEL oracle, and nothing here changes them. The numbers compare corrections; they are not the engine's numbers.</div>
+
+<section class="cluster" id="s1">
+  <h2>§1 THE OPTIONS — put any two into slots A and B</h2>
+  <div class="optgrid" id="optGrid"></div>
+  <div class="note">Each card prints its formula as the renderer computes it; the curve is the residual <b>R(x)</b> added at an edge (a unit step; the edge at x = 0, one grid line per sample). Latency is what a real-time implementation would report to the host. Sliders take ⌥/alt + wheel; a plain wheel scrolls the page.</div>
+</section>
+
+<section class="cluster" id="s2">
+  <h2>§2 LISTEN — A/B and blind, level-matched</h2>
+  <div class="g2">
+    <div>
+      <h3>SOURCE</h3><div class="pills" id="srcPills"></div>
+      <div id="srcRows"></div>
+      <h3>MATERIAL</h3><div class="pills" id="matPills"></div>
+      <div class="note" id="matNote"></div>
+      <h3>NOTE — single notes, chords (root), vibrato (centre)</h3><div class="pills" id="notePills"></div>
+      <div id="matRows"></div>
+    </div>
+    <div>
+      <h3>A / B</h3>
+      <div class="tp">
+        <button class="pill play big" id="playBtn">▶ play</button>
+        <button class="pill big" id="abBtn" title="switch what you hear, in place, without restarting">hear <b>A</b> · switch to B</button>
+        <button class="pill" id="matchBtn">level-matched</button>
+      </div>
+      <div id="gainRows"></div>
+      <div class="abstate"><div class="abbox" id="boxA"></div><div class="abbox" id="boxB"></div></div>
+      <h3>BLIND — which is which?</h3>
+      <div class="blindbox" id="blindBox"></div>
+      <h3>ALIASING ALONG THIS MATERIAL (B346, per 0.28 s window)</h3>
+      <div class="tp"><button class="pill" id="trackBtn">measure A and B on this material</button><span class="note" id="trackNote" style="margin:0"></span></div>
+      <canvas id="trackCv"></canvas>
+    </div>
+  </div>
+</section>
+
+<section class="cluster" id="s3">
+  <h2>§3 ALIASING ACROSS C1–C8 · CPU · LATENCY · ROLL-OFF</h2>
+  <div class="tp"><span class="lbl">SOURCE</span><span class="note" id="heatSrc" style="margin:0"></span>
+    <button class="pill" id="heatBtn">re-measure</button><button class="pill" id="cpuBtn">re-time CPU</button></div>
+  <canvas id="heatCv"></canvas>
+  <div class="legend" id="heatLegend"></div>
+  <h3>THE TABLE — excess dB at 1× (B346 aliasConvergence; f folding · c clean · d dynamics)</h3>
+  <div id="heatTbl"></div>
+  <h3>CPU — timed in a worker, relative to (a) at the same note (this harness's saw; see §6)</h3>
+  <div id="cpuTbl"></div>
+  <h3>SUMMARY</h3>
+  <div id="sumTbl"></div>
+</section>
+
+<section class="cluster" id="s4">
+  <h2>§4 16–20 kHz — what each option keeps, and what lands there</h2>
+  <div class="tp"><span class="lbl">ONE SAW AT</span><span class="pills" id="hfPills"></span></div>
+  <canvas id="hfCv"></canvas>
+  <div class="legend" id="hfLegend"></div>
+  <div id="hfTbl"></div>
+  <div class="note">One saw, steady state, 1 s, spectrum by metrics.mjs (Blackman-Harris, 8192). <b>kept</b>: the power in the harmonic lobes between 16 and 20 kHz against an additive band-limited saw's (every harmonic below Nyquist, no roll-off). <b>landed</b>: the power in the same band OUTSIDE the harmonic lobes (aliases), against the same ideal. The ideal is drawn as the pale trace.</div>
+</section>
+
+<section class="cluster" id="s5">
+  <h2>§5 SELF-CHECK — each check with a must-fail control</h2>
+  <div class="tp"><button class="pill" id="chkBtn">run the self-check</button><span class="note" id="chkNote" style="margin:0">runs on request, or at load with <code>?check=1</code>: about 60 estimator runs on the worker pool</span></div>
+  <table class="chk" id="chkTbl"></table>
+  <canvas id="contCv" class="hidden"></canvas>
+  <div class="verdict" id="chkVerdict">not run</div>
+</section>
+
+<section class="cluster" id="s6">
+  <h2>§6 METHOD — what is measured, what is judged</h2>
+  <div class="note" id="method"></div>
+</section>
+<script>
+/* ============================================================================
+   CORE — the first inline script. The render WORKERS run this exact text (the envelope lab's B377
+   idiom: the worker source is this block's textContent), so it is pure: no DOM, no clock, no
+   Math.random. Every draw is a seeded mulberry32 stream.
+
+   THIS IS A TEST HARNESS, NOT THE ENGINE. The saw, the unison and the sync blade below are clean
+   standalone implementations whose only job is to carry edges into the corrections under test.
+   The edge corrections are the subject; nothing here is src/swarm_core.h or the SCALPEL oracle.
+
+   THE EDGE MODEL. Every oscillator is rendered as its NAIVE waveform plus a list of EDGES (the
+   fractional time te in samples at which the value jumps, and the jump J). A correction is a
+   RESIDUAL kernel R(x), x = m - te the distance of sample m from the edge, added as J·R(x). For a
+   unit step: R(x) = S(x) - u(x), S the correction's step response and u(x) = 1 for x >= 0 (the
+   sample AT an edge is post-edge, the core's convention: its naive value is already -1).
+   One model serves the saw wrap (J = -2·amp) and the sync blade's reset (J = the value it drops).
+   ============================================================================ */
+const SR = 44100;
+const NOTES_C = [24, 36, 48, 60, 72, 84, 96, 108];          // C1..C8, the measurement grid
+const NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+const noteName = m => { const r = Math.round(m); return NAMES[((r % 12) + 12) % 12] + (Math.floor(r / 12) - 1); };
+const midiHz = m => 440 * Math.pow(2, (m - 69) / 12);
+function mulberry32(a) {
+  return function () { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+}
+
+/* ---------------------------------------------------------------- A. the options, stated once */
+/* The page's option cards print `formula` verbatim; the renderer reads `kind`. */
+const OPTS = [
+  { id: 'a', name: '2-point polyBLEP', kind: 'poly',
+    formula: 'R(x) = ½(1+x)² for −1 < x < 0, −½(1−x)² for 0 ≤ x < 1 (unit step). The core\'s formula (swarm_core.h:1060-1066), written as a residual.' },
+  { id: 'b', name: 'polyBLEP at 2× + halfband', kind: 'os2',
+    formula: '(a) at 2·sr, then the core\'s ADR-075 decimator: 63-tap Blackman-windowed sinc, cut 0.235 of 2·sr, unity DC, every second sample.' },
+  { id: 'c', name: 'linear-phase BLEP table', kind: 'lin',
+    formula: 'h(x) = sin(π·c·x)/(π·x) · BH4((x+W)/2W), |x| < W, c = cutoff as a fraction of Nyquist; S = ∫h (normalised to 1); R = S − u over −W < x < W. Needs W samples of look-ahead: W samples of latency.' },
+  { id: 'd', name: 'minimum-phase BLEP table', kind: 'min',
+    formula: 'the same |H| as (c), made minimum-phase by the real cepstrum (fold the cepstrum onto n ≥ 0, exponentiate); causal, 0 ≤ x < 2W; R = S − 1. No look-ahead, the same tap count as (c).' },
+  { id: 'e', name: 'note-dependent: polyBLEP ↔ min-phase', kind: 'noteE',
+    formula: 'per edge, keyed on the member\'s pitch p: w = ½ − ½cos(π·clamp((p − X + B/2)/B, 0, 1)); R = (1−w)·R(a) + w·R(d). Below X − B/2 pure (a), above X + B/2 pure (d).' },
+  { id: 'f', name: 'note-dependent: scaled min-phase', kind: 'noteF',
+    formula: 'eight min-phase tables at C1..C8; octave k has W_k = round(W₁·(W₈/W₁)^(k/7)), c_k = c₁ + (c₈ − c₁)·k/7. Between anchors a raised-cosine crossfade over ±F/2 semitones around the midpoint; otherwise the nearer table alone. Long, high-cut tables where edges are rare; short, low-cut where they are dense.' },
+];
+/* W 16 and cut 0.80: the audit's measured table (F3). xc C3 and a 12-semitone band: B380's "keep the
+   2-point polyBLEP below about C3". (f): 32 → 10 taps a side and 0.92 → 0.72 of Nyquist is the
+   shortest C8 table this lab measured at ≤ −110 dB (W 8 / 0.72 read about −90, W 6 about −59). */
+const DEFAULT_P = { W: 16, cut: 0.80, xc: 48, band: 12, w1: 32, w8: 10, c1: 0.92, c8: 0.72, fband: 4 };
+
+/* ---------------------------------------------------------------- B. FFT (for the min-phase build only) */
+function fftIn(re, im, inv) {
+  const n = re.length;
+  for (let i = 1, j = 0; i < n; i++) { let b = n >> 1; for (; j & b; b >>= 1) j ^= b; j ^= b; if (i < j) { let t = re[i]; re[i] = re[j]; re[j] = t; t = im[i]; im[i] = im[j]; im[j] = t; } }
+  for (let len = 2; len <= n; len <<= 1) {
+    const ang = (inv ? 2 : -2) * Math.PI / len, wr = Math.cos(ang), wi = Math.sin(ang), h = len >> 1;
+    for (let i = 0; i < n; i += len) {
+      let cr = 1, ci = 0;
+      for (let k = 0; k < h; k++) {
+        const a = i + k, b = a + h, xr = re[b] * cr - im[b] * ci, xi = re[b] * ci + im[b] * cr;
+        re[b] = re[a] - xr; im[b] = im[a] - xi; re[a] += xr; im[a] += xi;
+        const t = cr * wr - ci * wi; ci = cr * wi + ci * wr; cr = t;
+      }
+    }
+  }
+  if (inv) for (let i = 0; i < n; i++) { re[i] /= n; im[i] /= n; }
+}
+
+/* ---------------------------------------------------------------- C. the BLEP tables */
+/* A table is the step response S on a grid of KOS points per sample, stored interleaved with
+   D = S'·Δ (Δ = 1/KOS), and read by CUBIC HERMITE interpolation. WHY HERMITE: the audit's first
+   table run floored at −86 dB per bin from LINEAR interpolation noise at 512 points per sample and
+   needed 16384 to read clean (swarm-core audit §2.1). Hermite with the exact derivative has error
+   O(Δ⁴·S⁗), about −190 dB at KOS 128, so a small table is exact enough. Within one edge every tap
+   is exactly KOS grid points from the last, so the four Hermite weights are computed once per edge
+   and each tap is 4 reads and 4 multiply-adds (a polyphase table would be 2). */
+const KOS = 128;
+const bh4 = u => 0.35875 - 0.48829 * Math.cos(2 * Math.PI * u) + 0.14128 * Math.cos(4 * Math.PI * u) - 0.01168 * Math.cos(6 * Math.PI * u);
+function linImpulse(W, cut) {        // samples of h on x_i = -W + i/KOS, i = 0..2·W·KOS
+  const L = 2 * W * KOS + 1, h = new Float64Array(L), c = cut;   // cut: fraction of Nyquist, so sin(π c x)/(π x)
+  for (let i = 0; i < L; i++) { const x = -W + i / KOS; h[i] = (x === 0 ? c : Math.sin(Math.PI * c * x) / (Math.PI * x)) * bh4(i / (L - 1)); }
+  return h;
+}
+/* the minimum-phase companion of h (same |H|): real cepstrum, folded onto n >= 0, exponentiated.
+   Zero-padded 8x so the cepstrum does not alias; |H| floored 200 dB under its peak before the log. */
+function minPhase(h) {
+  const L = h.length; let n = 1; while (n < L) n <<= 1; n *= 8;
+  const re = new Float64Array(n), im = new Float64Array(n);
+  re.set(h); fftIn(re, im, false);
+  let mx = 0; for (let k = 0; k < n; k++) mx = Math.max(mx, Math.hypot(re[k], im[k]));
+  const fl = mx * 1e-10;
+  for (let k = 0; k < n; k++) { re[k] = Math.log(Math.max(fl, Math.hypot(re[k], im[k]))); im[k] = 0; }
+  fftIn(re, im, true);                                  // real cepstrum in re
+  for (let k = 1; k < n / 2; k++) { re[k] *= 2; re[n - k] = 0; }
+  for (let k = 0; k < n; k++) im[k] = 0;
+  fftIn(re, im, false);
+  for (let k = 0; k < n; k++) { const e = Math.exp(re[k]), a = im[k]; re[k] = e * Math.cos(a); im[k] = e * Math.sin(a); }
+  fftIn(re, im, true);
+  return re.slice(0, L);
+}
+/* integrate h to S with the Euler-Maclaurin-corrected trapezoid (h' by central differences), so
+   S' and D stay consistent to O(Δ⁴) — an inconsistency is a per-cell wiggle, i.e. interpolation
+   noise, i.e. exactly the aliasing floor the table exists to remove. S is normalised to end at 1. */
+function stepTable(h, lo) {
+  const L = h.length, d = 1 / KOS, dh = new Float64Array(L);
+  for (let i = 0; i < L; i++) dh[i] = (h[Math.min(L - 1, i + 1)] - h[Math.max(0, i - 1)]) / ((Math.min(L - 1, i + 1) - Math.max(0, i - 1)) * d);
+  const S = new Float64Array(L);
+  for (let i = 1; i < L; i++) S[i] = S[i - 1] + d * (h[i - 1] + h[i]) / 2 + d * d * (dh[i - 1] - dh[i]) / 12;
+  const g = S[L - 1];
+  const T = new Float64Array(2 * L + 4);
+  for (let i = 0; i < L; i++) { T[2 * i] = S[i] / g; T[2 * i + 1] = h[i] * d / g; }
+  T[2 * L] = 1; T[2 * L + 1] = 0; T[2 * L + 2] = 1; T[2 * L + 3] = 0;   // one node past the end: S = 1
+  return { T, lo, L, h: Float64Array.from(h, v => v / g) };
+}
+const TABLES = new Map();
+function table(kind, W, cut) {       // kind 'lin' | 'min'; cached per (kind, W, cut)
+  const key = kind + W + '/' + cut.toFixed(4);
+  let t = TABLES.get(key);
+  if (!t) {
+    const h = linImpulse(W, cut);
+    t = kind === 'lin' ? stepTable(h, -W) : stepTable(minPhase(h), 0);
+    t.W = W; t.cut = cut; t.kind = kind;
+    TABLES.set(key, t);
+  }
+  return t;
+}
+/* |H(f)| of a table's impulse at f cycles/sample (a direct DFT over the grid), for the magnitude
+   self-check and the option cards' response plots */
+function tableMag(t, f) {
+  let re = 0, im = 0; const d = 1 / KOS;
+  for (let i = 0; i < t.L; i++) { const x = t.lo + i * d, a = -2 * Math.PI * f * x; re += t.h[i] * Math.cos(a); im += t.h[i] * Math.sin(a); }
+  return Math.hypot(re, im) * d;
+}
+
+/* ---------------------------------------------------------------- D. applying one edge */
+function addPoly(y, te, J) {
+  const m0 = Math.ceil(te), x0 = m0 - te;               // 0 <= x0 < 1: the first post-edge sample
+  if (m0 - 1 >= 0 && m0 - 1 < y.length) y[m0 - 1] += J * 0.5 * x0 * x0;          // x = x0 - 1: ½(1+x)²
+  if (m0 < y.length) y[m0] -= J * 0.5 * (1 - x0) * (1 - x0);                     // x = x0: −½(1−x)²
+}
+function addTable(y, te, J, t) {
+  const W = t.W, lin = t.lo < 0;
+  const mA = lin ? Math.floor(te) - W + 1 : Math.ceil(te), taps = 2 * W, mU = Math.ceil(te);
+  const p = (mA - te - t.lo) * KOS; let i = Math.floor(p); const u = p - i;
+  const u2 = u * u, u3 = u2 * u, h00 = 2 * u3 - 3 * u2 + 1, h10 = u3 - 2 * u2 + u, h01 = -2 * u3 + 3 * u2, h11 = u3 - u2, T = t.T, n = y.length;
+  for (let k = 0, m = mA; k < taps; k++, m++, i += KOS) {
+    if (m < 0 || m >= n) continue;
+    const j = 2 * i, s = h00 * T[j] + h10 * T[j + 1] + h01 * T[j + 2] + h11 * T[j + 3];
+    y[m] += J * (m >= mU ? s - 1 : s);
+  }
+}
+
+/* ---------------------------------------------------------------- E. the note-dependent weights */
+const smooth01 = z => (z <= 0 ? 0 : z >= 1 ? 1 : 0.5 - 0.5 * Math.cos(Math.PI * z));
+function weightE(p, P) { return P.band <= 0 ? (p >= P.xc ? 1 : 0) : smooth01((p - P.xc + P.band / 2) / P.band); }
+function bankF(P) {                                     // the eight anchors of (f)
+  const out = [];
+  for (let k = 0; k < 8; k++) out.push({ m: 24 + 12 * k, W: Math.max(1, Math.round(P.w1 * Math.pow(P.w8 / P.w1, k / 7))), cut: P.c1 + (P.c8 - P.c1) * k / 7 });
+  return out;
+}
+/* (f)'s anchors and weights for pitch p, written into FK/FW (no allocation: this runs per edge, and
+   an array per edge was the largest item in (f)'s measured CPU). Returns the count, 1 or 2. */
+const FK = [0, 0], FW = [0, 0];
+function weightsF(p, bank, fband) {
+  if (p <= bank[0].m) { FK[0] = 0; FW[0] = 1; return 1; }
+  if (p >= bank[7].m) { FK[0] = 7; FW[0] = 1; return 1; }
+  const k = Math.min(6, Math.floor((p - 24) / 12)), mid = bank[k].m + 6;
+  const w = fband <= 0 ? (p < mid ? 0 : 1) : smooth01((p - mid + fband / 2) / fband);
+  if (w <= 0) { FK[0] = k; FW[0] = 1; return 1; }
+  if (w >= 1) { FK[0] = k + 1; FW[0] = 1; return 1; }
+  FK[0] = k; FW[0] = 1 - w; FK[1] = k + 1; FW[1] = w; return 2;
+}
+
+/* ---------------------------------------------------------------- F. material and sources */
+/* A MATERIAL is a set of voices, each a pitch trajectory midi(t) (seconds), plus a duration. */
+function material(mat, note, P, vibCents) {
+  const V = (f, a) => ({ f, amp: a === undefined ? 1 : a });
+  switch (mat) {
+    case 'sweepSlow': return { dur: 12, voices: [V(t => 24 + 84 * Math.min(1, t / 12))] };
+    case 'sweepFast': return { dur: 5, voices: [V(t => (t < 2.5 ? 24 + 84 * t / 2.5 : 108 - 84 * Math.min(1, (t - 2.5) / 2.5)))] };
+    case 'glide': {                                     // crosses (e)'s crossover: X−12 ↔ X+12, 0.6 s glides, 0.4 s holds
+      const lo = P.xc - 12, hi = P.xc + 12;
+      return { dur: 4, voices: [V(t => { const ph = t % 2; return ph < 0.4 ? lo : ph < 1.0 ? lo + (hi - lo) * smooth01((ph - 0.4) / 0.6) : ph < 1.4 ? hi : hi - (hi - lo) * smooth01((ph - 1.4) / 0.6); })] };
+    }
+    case 'cross': return { dur: 4, voices: [V(t => P.xc - 9 + 18 * Math.min(1, t / 4))] };   // one slow pass over (e)'s band: 4.5 semitones/s
+    case 'chord': return { dur: 2.5, voices: [0, 4, 7, 11, 14].map(i => V(() => note + i, 1 / Math.sqrt(5))) };
+    case 'vibrato': return { dur: 3, voices: [V(t => note + (vibCents / 100) * Math.sin(2 * Math.PI * 5.5 * t))] };
+    default: return { dur: 2, voices: [V(() => note)], static: true };
+  }
+}
+/* the members of one voice: [detune ratio, start phase]. The swarm spreads N members linearly over
+   ±detune cents; phases from the seed. single: one member, phase 0 (the audit's synthetic saw). */
+function members(src, N, detune, seed, vi) {
+  if (src !== 'swarm') return [[1, 0]];
+  const r = mulberry32((seed | 0) * 7919 + vi * 104729 + 1), out = [];
+  for (let i = 0; i < N; i++) { const c = N > 1 ? detune * (2 * i / (N - 1) - 1) : 0; out.push([Math.pow(2, c / 1200), r()]); }
+  return out;
+}
+/* render the NAIVE oscillator at rate fs into y (offset `off` samples: the lin table's look-ahead)
+   and call edge(te, J, keyInc) for every discontinuity. Amplitude 0.36 per unit (the audit's). */
+function oscillate(spec, fs, n, y, off, edge, pre) {
+  pre = pre || 0;                                        // seconds of pre-roll: the trajectory holds its t = 0 value
+  const M = material(spec.mat, spec.note, spec.P, spec.vib);
+  const amp0 = 0.36 / (spec.src === 'swarm' ? Math.sqrt(spec.N) : 1);
+  let vi = 0;
+  for (const v of M.voices) {
+    const hz = new Float64Array(n);                      // the voice's pitch per sample (Hz)
+    if (M.static || spec.mat === 'chord') hz.fill(midiHz(v.f(0))); else for (let i = 0; i < n; i++) hz[i] = midiHz(v.f(Math.max(0, i / fs - pre)));
+    const amp = amp0 * v.amp;
+    for (const [ratio, ph0] of members(spec.src, spec.N, spec.detune, spec.seed, vi)) {
+      if (spec.src === 'blade') {                        // hard sync: slave at ratio × master, reset on the master's wrap
+        let pm = 0, ps = ph0; const R = spec.ratio;
+        for (let i = 0; i < n; i++) {
+          const incM = hz[i] * ratio / fs, incS = incM * R;
+          const pmNew = pm + incM;
+          let aW = pmNew >= 1 ? (1 - pm) / incM : 2, t = 0;   // the master wraps at fraction aW of this interval
+          for (;;) {                                       // the slave runs to the reset (or the sample's end)
+            const end = aW < 1 ? aW : 1, tw = t + (1 - ps) / incS;
+            if (tw < end) { ps = 0; t = tw; edge(i - 1 + t + off, -2 * amp, incM); continue; }   // its own wrap
+            ps += incS * (end - t); t = end;
+            if (end === aW) { const J = -2 * ps * amp; ps = 0; if (J !== 0) edge(i - 1 + aW + off, J, incM); aW = 2; continue; }   // the reset: 2ps−1 → −1
+            break;
+          }
+          pm = pmNew >= 1 ? pmNew - 1 : pmNew;
+          y[i + off] += amp * (2 * ps - 1);
+        }
+      } else {
+        let p = ph0;
+        for (let i = 0; i < n; i++) {
+          const inc = hz[i] * ratio / fs;
+          p += inc;
+          if (p >= 1) { p -= 1; edge(i - p / inc + off, -2 * amp, inc); }
+          y[i + off] += amp * (2 * p - 1);
+        }
+      }
+    }
+    vi++;
+  }
+  return M;
+}
+/* the core's ADR-075 halfband, recomputed exactly as its constructor does (kPiRef 3.14159265) */
+const HB = (() => { const T = 63, m = 31, cut = 0.235, P = 3.14159265, h = []; let g = 0;
+  for (let i = 0; i < T; i++) { const k = i - m, s = k === 0 ? 2 * cut : Math.sin(2 * P * cut * k) / (P * k), w = 0.42 - 0.5 * Math.cos(2 * P * i / (T - 1)) + 0.08 * Math.cos(4 * P * i / (T - 1)); h.push(s * w); g += s * w; }
+  return Float64Array.from(h, x => x / g); })();
+const hbGain2 = (f, fs2) => { const w = 2 * Math.PI * f / fs2; let re = 0, im = 0; for (let i = 0; i < 63; i++) { re += HB[i] * Math.cos(w * i); im -= HB[i] * Math.sin(w * i); } return re * re + im * im; };
+
+/* the option's LATENCY in output samples: what a real-time implementation must report */
+function latencyOf(id, P) { return id === 'c' ? P.W : id === 'b' ? 15.5 : 0; }
+
+/* RENDER one option. spec: { src, N, detune, ratio, seed, mat, note, vib, P, opt, dur? }.
+   o.rate: the render rate multiple (the estimator's os). o.align: drop the latency so frames line up
+   across renders (measurement only; a listening render keeps it — the latency is real). o.pre:
+   seconds run BEFORE the returned window (steady-state measurement: no onset inside the window).
+   o.env: the 3 ms smoothstep onset (the audit's) and a 20 ms release, for listening.
+   Returns { y (Float64Array at SR·rate), edges, taps } — taps = kernel evaluations. */
+function render(spec, o) {
+  o = o || {};
+  const rate = o.rate || 1, id = spec.opt, P = spec.P, fs = SR * rate, pre = o.pre || 0;
+  const dur = spec.dur || material(spec.mat, spec.note, P, spec.vib).dur, n = Math.round(dur * fs), preN = Math.round(pre * fs);
+  if (id === 'b') {                                      // 2x inside: (a) at twice the rate, then the halfband
+    const inner = render(Object.assign({}, spec, { opt: 'a' }), { rate: 2 * rate, pre, raw: true });
+    const x = inner.y, y = new Float64Array(n), sh = 2 * preN + 1 + (o.align ? 31 : 0);   // align: advance by the FIR's group delay (31 at 2x)
+    for (let k = 0; k < n; k++) { let a = 0; const c = 2 * k + sh; for (let t = 0; t < 63; t++) { const j = c - t; if (j >= 0) a += HB[t] * x[j]; } y[k] = a; }
+    if (o.env) envelope(y, fs, o.env === 'onset');
+    return { y, edges: inner.edges, taps: inner.taps + n * 63 };
+  }
+  const lat = id === 'c' ? P.W : 0, off = o.align ? 0 : lat, tot = preN + n + (o.raw ? 64 : 0);   // raw (b's inner stream) keeps a tail for the FIR's reach
+  const y = new Float64Array(tot + off);
+  let edges = 0, taps = 0;
+  let edge;
+  if (id === 'naive') edge = () => { edges++; };
+  else if (id === 'a') edge = (te, J) => { edges++; taps += 2; addPoly(y, te, J); };
+  else if (id === 'c' || id === 'd') { const t = table(id === 'c' ? 'lin' : 'min', P.W, P.cut); edge = (te, J) => { edges++; taps += 2 * P.W; addTable(y, te, J, t); }; }
+  else if (id === 'e') {
+    const t = table('min', P.W, P.cut), ln = Math.log2(fs / 440);
+    edge = (te, J, inc) => { edges++; const w = weightE(69 + 12 * (Math.log2(inc) + ln), P);
+      if (w < 1) { addPoly(y, te, J * (1 - w)); taps += 2; } if (w > 0) { addTable(y, te, J * w, t); taps += 2 * P.W; } };
+  } else if (id === 'f') {
+    const bank = bankF(P), tabs = bank.map(b => table('min', b.W, b.cut)), ln = Math.log2(fs / 440);
+    edge = (te, J, inc) => { edges++; const c = weightsF(69 + 12 * (Math.log2(inc) + ln), bank, P.fband);
+      for (let q = 0; q < c; q++) { const k = FK[q]; addTable(y, te, J * FW[q], tabs[k]); taps += 2 * bank[k].W; } };
+  } else throw new Error('unknown option ' + id);
+  oscillate(spec, fs, tot, y, off, edge, pre);
+  if (o.raw) return { y, edges, taps };
+  const out = y.subarray(preN, preN + n);               // with a latency: the DELAYED stream's window
+  if (o.env) envelope(out, fs, o.env === 'onset');
+  return { y: out, edges, taps };
+}
+function envelope(y, fs, onsetOnly) {                   // 3 ms smoothstep in (the audit's); 20 ms out unless onsetOnly
+  const a = 0.003 * fs, r = onsetOnly ? 0 : 0.02 * fs, n = y.length;
+  for (let i = 0; i < n; i++) { let g = 1; if (i < a) { const u = i / a; g = u * u * (3 - 2 * u); } const k = n - 1 - i; if (k < r) { const u = k / r; g *= u * u * (3 - 2 * u); } y[i] *= g; }
+}
+/* the ideal: an additive band-limited saw (every harmonic below Nyquist, no roll-off), one member, in
+   steady state (a periodic sum has no onset to measure) */
+function renderIdeal(note, dur, fs) {
+  const n = Math.round(dur * fs), y = new Float64Array(n), f0 = midiHz(note);
+  for (let k = 1; k * f0 < fs / 2; k++) { const a = -0.36 * 2 / (Math.PI * k), w = 2 * Math.PI * k * f0 / fs; for (let i = 0; i < n; i++) y[i] += a * Math.sin(w * i); }
+  return y;
+}
+
+/* ---------------------------------------------------------------- G. measurement (metrics.mjs passed in as MET) */
+/* the estimator's decimator: Kaiser FIR, pass 20 kHz, stop sr − 20 kHz, 120 dB (the audit's h/blepsyn
+   method), centred (zero phase), evaluated only at the output instants */
+const KAISER = new Map();
+function kaiser(fs) {
+  if (KAISER.has(fs)) return KAISER.get(fs);
+  const I0 = x => { let s = 1, t = 1; for (let k = 1; k < 60; k++) { t *= (x / (2 * k)) * (x / (2 * k)); s += t; } return s; };
+  const A = 120, tw = 2 * Math.PI * (SR - 40000) / fs; let L = Math.ceil((A - 8) / (2.285 * tw)); L |= 1;
+  const beta = 0.1102 * (A - 8.7), fc = (SR / 2) / fs, h = new Float64Array(L), m = (L - 1) / 2; let g = 0;
+  for (let i = 0; i < L; i++) { const k = i - m, s = k === 0 ? 2 * fc : Math.sin(2 * Math.PI * fc * k) / (Math.PI * k), w = I0(beta * Math.sqrt(1 - Math.pow(2 * i / (L - 1) - 1, 2))) / I0(beta); h[i] = s * w; g += h[i]; }
+  for (let i = 0; i < L; i++) h[i] /= g;
+  KAISER.set(fs, h); return h;
+}
+function decimate(x, M, nOut) {
+  if (M === 1) return x.slice(0, nOut);
+  const h = kaiser(SR * M), L = h.length, D = (L - 1) >> 1, y = new Float64Array(nOut);
+  for (let k = 0; k < nOut; k++) { const c = k * M + D; let a = 0; const t0 = Math.max(0, c - x.length + 1), t1 = Math.min(L - 1, c); for (let t = t0; t <= t1; t++) a += h[t] * x[c - t]; y[k] = a; }
+  return y;
+}
+/* STEADY STATE (MEAS_PRE). The audit's harness faded in over 3 ms at t = 0 inside the window. A
+   minimum-phase table delays the edge energy by its group delay (a few samples at 1×, 1/M of that at
+   M×), so the 1× render and its references disagree around the onset, and the estimator counted
+   that as excess: (d) read −109 dB at C8 at 0.5 s and −113 at 1 s, a floor that moved with the
+   window length and with nothing else (not W, cut, the FFT padding, the log floor or KOS). The
+   heat map therefore measures a window that starts after 50 ms of running. aliasOf(.., 0) keeps
+   the audit's onset, for self-check AUDIT. */
+const MEAS_PRE = 0.05;
+/* B346's aliasConvergence for one option on one spec: renders at 1, 2, 4, 8, 16× the rate, each
+   decimated to SR, plus the 8× pre-decimation stream for the source test. */
+function aliasOf(MET, spec, pre) {
+  const dur = spec.dur, nOut = Math.round(dur * SR), S = {};
+  let Sint = null;
+  for (const [k, M] of [['N', 1], ['N2', 2], ['N4', 4], ['N8', 8], ['N16', 16]]) {
+    const r = render(spec, { rate: M, align: true, pre: pre === undefined ? MEAS_PRE : pre, env: pre === 0 ? 'onset' : false });
+    S[k] = MET.spectrum(decimate(r.y, M, nOut), SR, 8192);
+    if (M === 8) Sint = MET.spectrum(r.y.subarray(0, nOut * 8), SR * 8, 65536);
+  }
+  const gainOf = spec.opt === 'b' ? (os => (os === 1 ? f => hbGain2(f, 2 * SR) : null)) : null;
+  const r = MET.aliasConvergence(S, Sint, 1, SR, gainOf);
+  return { excessDb: r.excessDb, cls: r.cls, convDb: r.convDb, foldDb: r.foldDb };
+}
+
+/* THE ALIAS MEASURE ALONG A GLIDE: aliasOf's five renders made once over the whole material, then
+   the estimator per window (AT_WIN samples, 3 of metrics' frames; hop AT_HOP). WHY A GLIDE AND NOT
+   STEPPED NOTES: at a held note whose period is a whole number of samples (G2, 44100/98 = 450) the
+   aliases land ON the harmonics and the per-bin estimator reads the 2-point polyBLEP −120 "clean";
+   stepped half-semitones across C3's band read −45, −120, −45, −72 for the same correction. A
+   moving pitch averages those coincidences out of every window. Returns the window-centre pitches
+   and excessDb per window. */
+const AT_WIN = 12288, AT_HOP = 4410;
+function aliasTrack(MET, spec) {
+  const Mt = material(spec.mat, spec.note, spec.P, spec.vib), dur = spec.dur || Mt.dur, nOut = Math.round(dur * SR), X = {};
+  let x8 = null;
+  for (const [k, M] of [['N', 1], ['N2', 2], ['N4', 4], ['N8', 8], ['N16', 16]]) {
+    const r = render(spec, { rate: M, align: true, pre: MEAS_PRE });
+    X[k] = decimate(r.y, M, nOut); if (M === 8) x8 = r.y;
+  }
+  const gainOf = spec.opt === 'b' ? (os => (os === 1 ? f => hbGain2(f, 2 * SR) : null)) : null, pitch = [], db = [];
+  for (let s = 0; s + AT_WIN <= nOut; s += AT_HOP) {
+    const S = {}; for (const k in X) S[k] = MET.spectrum(X[k].subarray(s, s + AT_WIN), SR, 8192);
+    const r = MET.aliasConvergence(S, MET.spectrum(x8.subarray(8 * s, 8 * (s + AT_WIN)), SR * 8, 65536), 1, SR, gainOf);
+    pitch.push(Mt.voices[0].f((s + AT_WIN / 2) / SR)); db.push(r.excessDb);
+  }
+  return { pitch, db };
+}
+
+/* ---------------------------------------------------------------- H. the 16–20 kHz view */
+/* One saw (single member) at `note`, steady state, 1 s at 1×. For each option: the power in each
+   harmonic's lobe (±3 bins, metrics.spectrum's Blackman-Harris lobe) for harmonics in 16–20 kHz,
+   against the additive ideal's; and the power in that band OUTSIDE the harmonic lobes (aliases that
+   landed there), against the same ideal. Plus the spectrum slice 15.5–20.5 kHz for the plot. */
+const HF_LO = 16000, HF_HI = 20000;
+function hfOf(MET, spec, ids) {
+  const f0 = midiHz(spec.note), ideal = MET.spectrum(renderIdeal(spec.note, 1, SR), SR, 8192), bw = ideal.binHz;
+  const a = Math.floor(15500 / bw), b = Math.ceil(20500 / bw), harm = [];
+  for (let k = Math.ceil(HF_LO / f0); k * f0 <= HF_HI; k++) harm.push(k);
+  const lobe = (P, f) => { const c = Math.round(f / bw); let s = 0; for (let j = c - 3; j <= c + 3; j++) s += P[j]; return s; };
+  const inLobe = new Uint8Array(ideal.P.length);
+  for (const k of harm) { const c = Math.round(k * f0 / bw); for (let j = c - 4; j <= c + 4; j++) if (j >= 0 && j < inLobe.length) inLobe[j] = 1; }
+  let idealSum = 0; for (const k of harm) idealSum += lobe(ideal.P, k * f0);
+  const slice = P => { const o = new Float32Array(b - a + 1); for (let j = a; j <= b; j++) o[j - a] = 10 * Math.log10(P[j] + 1e-30); return o; };
+  const out = { note: spec.note, f0, harm, binHz: bw, lo: a * bw, ideal: slice(ideal.P), rows: {} };
+  for (const id of ids) {
+    const y = render(Object.assign({}, spec, { opt: id, src: 'single', mat: 'note', dur: 1 }), { align: true, pre: MEAS_PRE }).y;
+    const S = MET.spectrum(y, SR, 8192);
+    let hs = 0, al = 0; for (const k of harm) hs += lobe(S.P, k * f0);
+    for (let j = Math.ceil(HF_LO / bw); j <= Math.floor(HF_HI / bw); j++) if (!inLobe[j]) al += S.P[j];
+    out.rows[id] = { keptDb: harm.length ? 10 * Math.log10(hs / idealSum) : null,
+      perHarmDb: harm.map(k => 10 * Math.log10(lobe(S.P, k * f0) / lobe(ideal.P, k * f0))),
+      aliasBandDb: harm.length && al > 0 ? Math.max(-150, 10 * Math.log10(al / idealSum)) : -150, spec: slice(S.P) };
+  }
+  return out;
+}
+
+/* ---------------------------------------------------------------- I. self-check helpers */
+/* MAGNITUDE: |H| of the linear-phase table (W, cut) against the min-phase table (W, cutMin). The
+   check calls it with cutMin = cut; its must-fail control with a different cutMin. */
+function magCompare(W, cut, cutMin) {
+  const L = table('lin', W, cut), M = table('min', W, cutMin), db = x => 20 * Math.log10(Math.max(x, 1e-15));
+  const fr = [], lin = [], mn = [];
+  for (let i = 0; i <= 256; i++) fr.push(0.5 * i / 256);
+  for (let i = 1; i <= 56; i++) fr.push(0.5 + 3.5 * i / 56);          // the stopband, out to 4 × the rate
+  let pass = 0, stopL = -300, stopM = -300;
+  for (const f of fr) { const a = db(tableMag(L, f)), b = db(tableMag(M, f)); lin.push(a); mn.push(b);
+    if (f <= 0.5 && a >= -60) pass = Math.max(pass, Math.abs(a - b));
+    if (f >= 0.5) { stopL = Math.max(stopL, a); stopM = Math.max(stopM, b); } }
+  return { W, cut, cutMin, fr, lin, mn, passDevDb: pass, stopLinDb: stopL, stopMinDb: stopM };
+}
+/* LEVEL ON A GLIDE: power in 10–20 kHz per frame (Hann, GL_N long, hop GL_HOP) along the `cross`
+   material (one slow pass over (e)'s band), for (e) as set, pure (a), pure (d), and (e) with its
+   band at 0 (a hard switch at the crossover: the must-fail control). The EXPECTED hop-to-hop change
+   is the smooth blend's, (1−w)·ΔA + w·ΔD with w from (e)'s own band: pitch moving changes all of
+   them alike, the frames catching edges differently changes (a) and (d) differently, and a step is
+   what neither explains. Returns the largest |Δ − expected| (dB per hop) for (e) and the control.
+   WHY 8192: at 1024 a frame held under two periods of the low end, and whether it caught an edge
+   (1.4 dB of noise per frame) hid a 1.6 dB hard switch. */
+const GL_N = 8192, GL_HOP = 1024;
+function glideLevels(spec) {
+  const N = GL_N, lvl = y => { const out = []; const re = new Float64Array(N), im = new Float64Array(N), a = Math.ceil(10000 * N / SR), b = Math.floor(20000 * N / SR);
+    for (let s = 0; s + N <= y.length; s += GL_HOP) { for (let i = 0; i < N; i++) { re[i] = y[s + i] * (0.5 - 0.5 * Math.cos(2 * Math.PI * i / N)); im[i] = 0; } fftIn(re, im, false);
+      let p = 0; for (let k = a; k <= b; k++) p += re[k] * re[k] + im[k] * im[k]; out.push(10 * Math.log10(p + 1e-30)); } return out; };
+  const g = Object.assign({}, spec, { src: 'single', mat: 'cross', dur: 0 });   // dur 0: the material's own 4 s
+  const L = id => lvl(render(Object.assign({}, g, { opt: id }), { align: true, pre: MEAS_PRE }).y);
+  const E = L('e'), A = L('a'), Dd = L('d');
+  const H = lvl(render(Object.assign({}, g, { opt: 'e', P: Object.assign({}, g.P, { band: 0 }) }), { align: true, pre: MEAS_PRE }).y);
+  const M = material('cross', 0, g.P, 0), pitchAt = i => M.voices[0].f((i * GL_HOP + GL_N / 2) / SR);
+  let dev = 0, devH = 0, at = 0, atH = 0;
+  for (let i = 1; i < E.length; i++) {
+    const w = weightE(pitchAt(i), g.P), ex = (1 - w) * (A[i] - A[i - 1]) + w * (Dd[i] - Dd[i - 1]);   // the smooth blend's expected change
+    const e = Math.abs(E[i] - E[i - 1] - ex), h = Math.abs(H[i] - H[i - 1] - ex);
+    if (e > dev) { dev = e; at = pitchAt(i); } if (h > devH) { devH = h; atH = pitchAt(i); }
+  }
+  return { frames: E.length, devDb: dev, devAt: at, ctlDevDb: devH, ctlAt: atH, E: Float32Array.from(E), A: Float32Array.from(A), D: Float32Array.from(Dd), H: Float32Array.from(H) };
+}
+
+/* ---------------------------------------------------------------- J. CPU, measured */
+/* One timed BLOCK is a full 1× render of `dur` seconds of the option: the naive oscillator, every
+   edge's correction and, for (b), the 2× run and its decimator. A block is repeated until
+   CPU_MIN_MS have elapsed on `clock`, and the per-block time is total/reps: a browser worker's clock
+   is coarse (0.1 ms, jittered, without cross-origin isolation) and a bare saw renders a second of
+   audio in about that. The median over `rounds` interleaved rounds is reported. THE CLOCK IS A
+   PARAMETER so self-check CPU can hand the same code a constant clock and watch its checks fail. */
+const CPU_MIN_MS = 25;
+function timeBlock(spec, clock) {
+  const t0 = clock(); let reps = 0, t;
+  do { render(spec, {}); reps++; t = clock() - t0; } while (t < CPU_MIN_MS && reps < 4000);
+  return t / reps;
+}
+const median = a => { const s = Array.from(a).sort((x, y) => x - y), m = s.length >> 1; return s.length % 2 ? s[m] : 0.5 * (s[m - 1] + s[m]); };
+function cpuTable(spec, ids, notes, rounds, clock) {
+  const T = {}, taps = {};
+  for (const id of ids) { T[id] = notes.map(() => []); taps[id] = notes.map(() => 0); }
+  for (let r = 0; r < rounds; r++) for (let ni = 0; ni < notes.length; ni++) for (const id of ids) {
+    const s = Object.assign({}, spec, { opt: id, note: notes[ni], mat: 'note', dur: 1 });
+    T[id][ni].push(timeBlock(s, clock));
+    if (r === 0) taps[id][ni] = render(s, {}).taps;
+  }
+  const ms = {}; for (const id of ids) ms[id] = T[id].map(median);
+  return { notes, ms, taps, rounds };
+}
+/* self-check CPU: do the readouts track work? (1) a 2 s block of (a) against a 0.5 s block: about 4×;
+   (2) (d) at C8 against C1 on the 7-member swarm: 128× the edges, so clearly more time. */
+function cpuScale(spec, clock) {
+  const base = Object.assign({}, spec, { src: 'swarm', N: 7, mat: 'note', note: 60, opt: 'a' });
+  const s05 = [], s2 = [], lo = [], hi = [];
+  for (let r = 0; r < 5; r++) {
+    s05.push(timeBlock(Object.assign({}, base, { dur: 0.5 }), clock)); s2.push(timeBlock(Object.assign({}, base, { dur: 2 }), clock));
+    lo.push(timeBlock(Object.assign({}, base, { opt: 'd', note: 24, dur: 1 }), clock)); hi.push(timeBlock(Object.assign({}, base, { opt: 'd', note: 108, dur: 1 }), clock));
+  }
+  return { durRatio: median(s2) / median(s05), noteRatio: median(hi) / median(lo), ms: [median(s05), median(s2), median(lo), median(hi)] };
+}
+
+/* ---------------------------------------------------------------- K. the kernels, for the option cards */
+/* R(x) for a unit step, 16 points per sample over the option's support */
+function kernelShape(id, P) {
+  const xs = [], ys = [], put = (x, v) => { xs.push(x); ys.push(v); };
+  const evalT = (t, x) => { if (x <= t.lo || x >= t.lo + 2 * t.W) return 0; const p = (x - t.lo) * KOS, i = Math.floor(p), u = p - i, T = t.T, j = 2 * i;
+    const u2 = u * u, u3 = u2 * u, s = (2 * u3 - 3 * u2 + 1) * T[j] + (u3 - 2 * u2 + u) * T[j + 1] + (-2 * u3 + 3 * u2) * T[j + 2] + (u3 - u2) * T[j + 3]; return s - (x >= 0 ? 1 : 0); };
+  const poly = x => (x > -1 && x < 0 ? 0.5 * (1 + x) * (1 + x) : x >= 0 && x < 1 ? -0.5 * (1 - x) * (1 - x) : 0);
+  if (id === 'a' || id === 'b') { for (let x = -3; x <= 3; x += 1 / 16) put(x, poly(x)); return { xs, ys, W: 1 }; }
+  if (id === 'f') {                                      // the C1 and C8 anchors
+    const bank = bankF(P), t1 = table('min', bank[0].W, bank[0].cut), t8 = table('min', bank[7].W, bank[7].cut), y2 = [];
+    for (let x = -2; x <= 2 * bank[0].W + 1; x += 1 / 16) { put(x, evalT(t1, x)); y2.push(evalT(t8, x)); }
+    return { xs, ys, y2, W: bank[0].W };
+  }
+  const t = table(id === 'c' ? 'lin' : 'min', P.W, P.cut);
+  for (let x = id === 'c' ? -P.W - 1 : -2; x <= (id === 'c' ? P.W + 1 : 2 * P.W + 1); x += 1 / 16) put(x, evalT(t, x));
+  if (id === 'e') return { xs, ys, y2: xs.map(poly), W: P.W };
+  return { xs, ys, W: P.W };
+}
+
+/* ---------------------------------------------------------------- L. one entry point for every job */
+/* The audit's measured rows (docs/audits/2026-09-30-swarm-core-audit.md §2.1) at C2 C4 C6 C8: the
+   synthetic copy of the core's polyBLEP (its h/alias2.mjs) and the core itself (n1 polyBLEP, vol .05). */
+const AUDIT_NOTES = [36, 60, 84, 108], AUDIT_SYN = [-47.4, -40.4, -34.7, -25.8], AUDIT_CORE = [-48.6, -41.6, -35.8, -26.8];
+function doJob(MET, j, clock) {
+  switch (j.kind) {
+    case 'alias': return aliasOf(MET, j.spec, j.pre);
+    case 'track': return aliasTrack(MET, j.spec);
+    case 'audio': {
+      const r = render(j.spec, { env: true }), y = new Float32Array(r.y.length); let s = 0, pk = 0;
+      for (let i = 0; i < y.length; i++) { const v = r.y[i]; y[i] = v; s += v * v; if (Math.abs(v) > pk) pk = Math.abs(v); }
+      return { y, rms: Math.sqrt(s / Math.max(1, y.length)), peak: pk, edges: r.edges, taps: r.taps };
+    }
+    case 'cpu': return cpuTable(j.spec, j.ids, j.notes, j.rounds, clock);
+    case 'cpuScale': { let c = 0; return cpuScale(j.spec, j.fakeClock ? () => (c += 1) : clock); }
+    case 'hf': return hfOf(MET, j.spec, j.ids);
+    case 'mag': return magCompare(j.W, j.cut, j.cutMin);
+    case 'glide': return glideLevels(j.spec);
+    case 'kernel': return kernelShape(j.id, j.P);
+    default: throw new Error('unknown job ' + j.kind);
+  }
+}
+</script>
+<script>
+/* ============================================================================
+   THE PAGE. Everything the core block computes runs in the WORKERS; this script only asks, caches,
+   paints and plays. L0026: every piece of state is declared here, above every function that wires
+   the DOM, and boot() runs last.
+   ============================================================================ */
+const qp = (k, d) => { try { const v = new URLSearchParams(location.search).get(k); return v === null ? d : v; } catch (e) { return d; } };
+const IDS = ['a', 'b', 'c', 'd', 'e', 'f'];
+/* one colour per option, fixed across themes (each reads on both the light and the dark tube) */
+const OCOL = { a: '#FF2E88', b: '#F5A300', c: '#00B3A8', d: '#8B5CF6', e: '#6FB200', f: '#2F7DF6' };
+const SRCS = [['swarm', 'swarm-style unison saw'], ['single', 'single saw'], ['blade', 'SCALPEL-style blade (sync saw)']];
+const MATS = [['note', 'single note'], ['sweepSlow', 'slow sweep C1→C8'], ['sweepFast', 'fast sweep C1→C8→C1'], ['glide', 'glides across (e)\'s crossover'],
+  ['cross', 'one slow pass over (e)\'s band'], ['chord', 'chord (maj9)'], ['vibrato', 'vibrato']];
+const MAT_NOTE = {
+  note: '2 s at the chosen note.', sweepSlow: 'C1 to C8 in 12 s, linear in pitch.', sweepFast: 'C1 to C8 in 2.5 s and back.',
+  glide: 'X−12 ↔ X+12 (X = (e)\'s crossover), 0.6 s glides with 0.4 s holds, twice: a hard switch at X would be heard here.',
+  cross: 'X−9 → X+9 in 4 s: one slow pass over (e)\'s blend band (the self-check\'s continuity material).',
+  chord: 'root, +4, +7, +11, +14 from the chosen note, 2.5 s.', vibrato: '5.5 Hz vibrato around the chosen note, 3 s.' };
+const TARGET_RMS = 0.1;                                   // level match: every render is trimmed to −20 dBFS RMS
+const S = {
+  dark: qp('theme', '') === 'dark',
+  src: ['swarm', 'single', 'blade'].indexOf(qp('src', '')) >= 0 ? qp('src', '') : 'swarm', N: 7, detune: 30, ratio: 2.5, seed: 1,
+  mat: MATS.some(m => m[0] === qp('mat', '')) ? qp('mat', '') : 'note', note: Math.max(24, Math.min(108, +qp('note', 72) || 72)), vib: 60,
+  A: IDS.indexOf(qp('A', '')) >= 0 ? qp('A', '') : 'a', B: IDS.indexOf(qp('B', '')) >= 0 ? qp('B', '') : 'd',
+  P: Object.assign({}, DEFAULT_P), gain: -6, match: true, hear: 'A', hfNote: Math.max(60, Math.min(108, +qp('hf', 84) || 84)),
+};
+/* THE SLIDERS: one table, read by the slider builder, the alt-wheel and the display. `k` is a path into S. */
+const SL = {
+  N: { k: 'N', label: 'members', min: 1, max: 16, step: 1, fmt: v => String(v) },
+  detune: { k: 'detune', label: 'detune ±', min: 0, max: 100, step: 1, fmt: v => v + ' ct' },
+  ratio: { k: 'ratio', label: 'sync ratio', min: 1, max: 6, step: 0.01, fmt: v => v.toFixed(2) },
+  vib: { k: 'vib', label: 'vibrato ±', min: 0, max: 200, step: 5, fmt: v => v + ' ct' },
+  gain: { k: 'gain', label: 'gain', min: -30, max: 0, step: 0.5, fmt: v => v.toFixed(1) + ' dB' },
+  W: { k: 'P.W', label: 'W (taps/side)', min: 2, max: 32, step: 1, fmt: v => String(v) },
+  cut: { k: 'P.cut', label: 'cutoff', min: 0.5, max: 0.98, step: 0.01, fmt: v => (v * 100).toFixed(0) + '% · ' + (v * SR / 2000).toFixed(1) + 'k' },
+  xc: { k: 'P.xc', label: 'crossover X', min: 24, max: 96, step: 1, fmt: v => noteName(v) },
+  band: { k: 'P.band', label: 'band B', min: 0, max: 36, step: 1, fmt: v => v + ' st' },
+  w1: { k: 'P.w1', label: 'W₁ at C1', min: 2, max: 64, step: 1, fmt: v => String(v) },
+  w8: { k: 'P.w8', label: 'W₈ at C8', min: 2, max: 64, step: 1, fmt: v => String(v) },
+  c1: { k: 'P.c1', label: 'c₁ at C1', min: 0.5, max: 0.98, step: 0.01, fmt: v => (v * 100).toFixed(0) + '%' },
+  c8: { k: 'P.c8', label: 'c₈ at C8', min: 0.5, max: 0.98, step: 0.01, fmt: v => (v * 100).toFixed(0) + '%' },
+  fband: { k: 'P.fband', label: 'crossfade F', min: 0, max: 12, step: 1, fmt: v => v + ' st' },
+};
+const OPT_SLIDERS = { a: [], b: [], c: ['W', 'cut'], d: ['W', 'cut'], e: ['xc', 'band'], f: ['w1', 'w8', 'c1', 'c8', 'fband'] };
+/* which option parameters a render of option `id` depends on (so a cache key changes only when it must);
+   xc always, because the glide materials are placed around it */
+const OPT_P = { a: ['xc'], b: ['xc'], c: ['W', 'cut', 'xc'], d: ['W', 'cut', 'xc'], e: ['W', 'cut', 'xc', 'band'], f: ['w1', 'w8', 'c1', 'c8', 'fband', 'xc'] };
+const POOL = { ws: [], mode: 'starting', err: '', queue: [], seq: 0, byKey: new Map(), url: '', metrics: '', MET: null, mainBusy: false };
+const CACHE = new Map();                                  // key -> result (every job kind); audio entries are LRU-capped
+const AUDIO_KEYS = [];
+const PLAY = { ctx: null, nodes: null, playing: false, seq: 0 };
+const BLIND = { seed: 1, round: 0, cur: null, hist: [] };
+const HEAT = { gen: 0, res: {}, cpu: null, hf: null, track: null, trackGen: 0, cpuTag: 0, hfGen: 0, raf: 0 };
+const CHK = { running: false, rows: [], verdict: '', cont: null };
+const DIRTY = { t: 0, r: 0 };
+const STAT = { peak: 0 };                                // the status bar's high-water mark of outstanding jobs
+
+/* ---------------------------------------------------------------- the canonical wheel idiom (B301) */
+function onAltWheel(node, f) {
+  node.addEventListener('wheel', e => {
+    if (!e.altKey) return;
+    if (f(e) !== false) e.preventDefault();
+  }, { passive: false });
+}
+
+/* ---------------------------------------------------------------- small helpers */
+const $ = id => document.getElementById(id);
+const getK = k => k.split('.').reduce((o, p) => o[p], S);
+function setK(k, v) { const ps = k.split('.'), last = ps.pop(); ps.reduce((o, p) => o[p], S)[last] = v; }
+const fmtDb = d => (d === null || d === undefined || !isFinite(d) ? '—' : d.toFixed(1));
+const clsL = c => (c ? c[0] : '');
+function relP(id) { const o = {}; for (const k of OPT_P[id]) o[k] = S.P[k]; return o; }
+function specFor(id, over) {
+  return Object.assign({ src: S.src, N: S.N, detune: S.detune, ratio: S.ratio, seed: S.seed, mat: S.mat, note: S.note, vib: S.vib, P: Object.assign({}, DEFAULT_P, relP(id)), opt: id }, over || {});
+}
+function keyOf(j) {                                       // the cache key: the job with its spec's irrelevant parts dropped
+  const s = j.spec ? Object.assign({}, j.spec, { P: undefined }) : undefined;
+  if (s && s.src !== 'swarm') { delete s.N; delete s.detune; delete s.seed; }
+  if (s && s.src !== 'blade') delete s.ratio;
+  if (s && s.mat !== 'vibrato') delete s.vib;
+  // cpu and hf render every option from one spec, so they depend on ALL the option parameters
+  const rp = j.spec ? (j.kind === 'cpu' || j.kind === 'hf' ? j.spec.P : relPOf(j.spec)) : null;
+  return JSON.stringify([j.kind, s, rp, j.ids, j.notes, j.pre, j.W, j.cut, j.cutMin, j.id, j.P, j.fakeClock, j.rounds, j.tag]);
+}
+function relPOf(spec) { const o = {}; for (const k of OPT_P[spec.opt] || []) o[k] = spec.P[k]; return o; }
+
+/* ---------------------------------------------------------------- the worker pool */
+/* Worker 0 is the FAST lane (audio renders, kernel curves, CPU timing): it never waits behind an
+   estimator run, so ▶ answers at once. Workers 1.. are the SLOW lane (the estimator, the 16–20 kHz
+   view, the self-check's heavy legs). The CPU readout is timed in worker 0 while the slow lane may be
+   busy on other cores; its rounds are interleaved across options, so a busy machine slows all six
+   alike (stated in §6). */
+const FAST = { audio: 1, kernel: 1, cpu: 1, cpuScale: 1 };
+function workerMain() {
+  let MET = null;
+  self.onmessage = async ev => {
+    const m = ev.data;
+    if (m.t === 'init') {
+      try { MET = await import(m.metrics); self.postMessage({ t: 'ready' }); }
+      catch (e) { self.postMessage({ t: 'ready', warn: 'metrics.mjs did not load (' + String(e && e.message || e) + '): the estimator is unavailable' }); }
+      return;
+    }
+    if (m.t !== 'job') return;
+    try {
+      const res = doJob(MET, m.job, () => performance.now()), tr = [];
+      const walk = (o, d) => { if (!o || typeof o !== 'object' || d > 2) return; if (ArrayBuffer.isView(o)) { if (tr.indexOf(o.buffer) < 0) tr.push(o.buffer); return; } for (const k in o) walk(o[k], d + 1); };
+      walk(res, 0);
+      self.postMessage({ t: 'done', id: m.id, res }, tr);
+    } catch (e) { self.postMessage({ t: 'fail', id: m.id, msg: String(e && e.message || e) }); }
+  };
+}
+function startPool() {
+  try {
+    if (typeof Worker !== 'function' || typeof Blob !== 'function') throw new Error('no Worker in this browser');
+    const core = Array.from(document.scripts).filter(x => !x.src)[0];
+    // the core block must stay the FIRST inline script: it is what the workers run
+    if (!core || String(core.textContent).indexOf('function doJob(') < 0) throw new Error('the core block is not the first inline script');
+    POOL.url = URL.createObjectURL(new Blob([core.textContent + '\n;(' + workerMain.toString() + ')();\n'], { type: 'text/javascript' }));
+    POOL.metrics = new URL('../../tools/patchspace/metrics.mjs', location.href).href;
+    const hc = (navigator.hardwareConcurrency | 0) || 4, n = Math.max(3, Math.min(7, hc - 1));
+    for (let i = 0; i < n; i++) {
+      const w = new Worker(POOL.url), rec = { w, i, lane: i === 0 ? 'fast' : 'slow', job: null, ready: false };
+      w.onmessage = ev => onWorker(rec, ev.data);
+      w.onerror = ev => { POOL.err = 'a worker failed: ' + (ev && ev.message || 'error'); if (rec.job) finish(rec, null, POOL.err); status(); };
+      w.postMessage({ t: 'init', metrics: POOL.metrics });
+      POOL.ws.push(rec);
+    }
+    POOL.mode = 'workers';
+  } catch (e) { POOL.mode = 'main'; POOL.err = String(e && e.message || e); }
+  status();
+}
+function onWorker(rec, m) {
+  if (m.t === 'ready') { rec.ready = true; if (m.warn) POOL.err = m.warn; pump(); status(); return; }
+  if (m.t === 'done') finish(rec, m.res, null);
+  else if (m.t === 'fail') finish(rec, null, m.msg);
+}
+function finish(rec, res, err) {
+  const j = rec.job; rec.job = null;
+  if (j) { POOL.byKey.delete(j.key); if (err) j.rej(new Error(err)); else { cachePut(j.key, j.job.kind, res); j.res(res); } }
+  pump(); status();
+}
+function cachePut(key, kind, res) {
+  CACHE.set(key, res);
+  if (kind === 'audio') { AUDIO_KEYS.push(key); while (AUDIO_KEYS.length > 48) CACHE.delete(AUDIO_KEYS.shift()); }
+}
+/* THE ONE WAY TO RUN A JOB. pri: 3 a click, 2 the self-check, 1 the visible measurement, 0 a prefetch. */
+function submit(job, pri) {
+  const key = keyOf(job);
+  if (CACHE.has(key)) return Promise.resolve(CACHE.get(key));
+  const had = POOL.byKey.get(key);
+  if (had) { had.pri = Math.max(had.pri, pri || 0); return had.p; }
+  const j = { key, job, pri: pri || 0, seq: ++POOL.seq, lane: FAST[job.kind] ? 'fast' : 'slow' };
+  j.p = new Promise((res, rej) => { j.res = res; j.rej = rej; });
+  POOL.byKey.set(key, j); POOL.queue.push(j);
+  pump(); status();
+  return j.p;
+}
+function pump() {
+  if (POOL.mode === 'main') { pumpMain(); return; }
+  for (const rec of POOL.ws) {
+    if (!rec.ready || rec.job) continue;
+    let best = -1;
+    for (let i = 0; i < POOL.queue.length; i++) { const q = POOL.queue[i]; if (q.lane !== rec.lane) continue; if (best < 0 || q.pri > POOL.queue[best].pri || (q.pri === POOL.queue[best].pri && q.seq < POOL.queue[best].seq)) best = i; }
+    if (best < 0) continue;
+    const j = POOL.queue.splice(best, 1)[0];
+    rec.job = j; rec.w.postMessage({ t: 'job', id: j.seq, job: j.job });
+  }
+}
+/* no Worker: the same doJob on the main thread, one job per macrotask (the page stays usable between) */
+function pumpMain() {
+  if (POOL.mainBusy || !POOL.queue.length) return;
+  POOL.mainBusy = true;
+  setTimeout(async () => {
+    POOL.queue.sort((a, b) => b.pri - a.pri || a.seq - b.seq);
+    const j = POOL.queue.shift();
+    try {
+      if (!POOL.MET && j.job.kind !== 'audio' && j.job.kind !== 'kernel') POOL.MET = await import(new URL('../../tools/patchspace/metrics.mjs', location.href).href);
+      const res = doJob(POOL.MET, j.job, () => performance.now());
+      POOL.byKey.delete(j.key); cachePut(j.key, j.job.kind, res); j.res(res);
+    } catch (e) { POOL.byKey.delete(j.key); j.rej(e); }
+    POOL.mainBusy = false; pumpMain(); status();
+  }, 0);
+}
+function status() {
+  const el = $('rstatTxt'), box = $('rstat');
+  if (!el || !box) return;
+  const busy = POOL.ws.filter(r => r.job).length + (POOL.mainBusy ? 1 : 0), q = POOL.queue.length, tot = busy + q;
+  const lab = POOL.mode === 'workers' ? POOL.ws.length + ' workers' : POOL.mode === 'main' ? 'main thread (' + POOL.err + ')' : 'starting';
+  const cur = POOL.ws.filter(r => r.job).map(r => r.job.job.kind);
+  el.textContent = lab + ' · ' + (tot ? busy + ' running, ' + q + ' queued' + (cur.length ? ' (' + Array.from(new Set(cur)).join(', ') + ')' : '') : 'idle') + ' · ' + CACHE.size + ' cached' + (POOL.err && POOL.mode === 'workers' ? ' · ' + POOL.err : '');
+  STAT.peak = tot ? Math.max(STAT.peak, tot) : 0;
+  box.classList.toggle('idle', !tot);
+  box.style.setProperty('--f', tot ? String(1 - tot / Math.max(1, STAT.peak)) : '1');
+}
+
+/* ---------------------------------------------------------------- §1 the option cards */
+function buildOptions() {
+  const g = $('optGrid');
+  g.innerHTML = OPTS.map(o => `<div class="opt" id="opt_${o.id}"><h4><span class="sw" style="background:${OCOL[o.id]}"></span>(${o.id}) ${o.name}</h4>
+    <div class="fx">${o.formula}</div><div class="facts" id="facts_${o.id}"></div>
+    <canvas id="kcv_${o.id}"></canvas><div id="osl_${o.id}"></div>
+    <div class="slot"><button class="pill slotA" data-slot="A" data-id="${o.id}">→ A</button><button class="pill slotB" data-slot="B" data-id="${o.id}">→ B</button></div></div>`).join('');
+  for (const o of OPTS) $('osl_' + o.id).innerHTML = OPT_SLIDERS[o.id].map(sliderRow).join('');
+  for (const b of g.querySelectorAll('button[data-slot]')) b.addEventListener('click', () => { setSlot(b.dataset.slot, b.dataset.id); });
+}
+function setSlot(slot, id) {
+  if (S[slot] === id) return;
+  S[slot] = id; paintSlots(); paintAB();
+  if (PLAY.playing) play();
+  prefetch();
+}
+function paintSlots() {
+  for (const o of OPTS) {
+    const c = $('opt_' + o.id); if (!c) continue;
+    c.classList.toggle('inA', S.A === o.id); c.classList.toggle('inB', S.B === o.id);
+  }
+  for (const b of document.querySelectorAll('button[data-slot]')) b.classList.toggle('on', S[b.dataset.slot] === b.dataset.id);
+  paintFacts();
+}
+function paintFacts() {
+  for (const o of OPTS) {
+    const el = $('facts_' + o.id); if (!el) continue;
+    const lat = latencyOf(o.id, S.P), tpe = o.id === 'a' || o.id === 'b' ? 2 : o.id === 'f' ? '2·W_k' : o.id === 'e' ? '2 → 2W' : 2 * S.P.W;
+    el.innerHTML = `<span><b>latency</b> ${lat} smp · ${(lat / SR * 1000).toFixed(2)} ms</span><span><b>taps/edge</b> ${tpe}</span>` +
+      (o.id === 'f' ? `<span><b>W</b> ${bankF(S.P).map(b => b.W).join(' ')}</span>` : o.id === 'e' ? `<span><b>blend</b> ${noteName(S.P.xc - S.P.band / 2)}–${noteName(S.P.xc + S.P.band / 2)}</span>` : '');
+  }
+}
+function requestKernels() {
+  for (const o of OPTS) submit({ kind: 'kernel', id: o.id, P: Object.assign({}, S.P) }, 1).then(r => paintKernel(o.id, r), () => {});
+}
+
+/* ---------------------------------------------------------------- sliders */
+function sliderRow(name) {
+  const d = SL[name];
+  return `<div class="row"><label>${d.label}</label><input type="range" data-sl="${name}" min="${d.min}" max="${d.max}" step="${d.step}"><output data-show="${name}"></output></div>`;
+}
+function wireSliders(root) {
+  for (const el of root.querySelectorAll('input[data-sl]')) {
+    const name = el.dataset.sl, d = SL[name];
+    el.value = String(getK(d.k));
+    el.addEventListener('input', () => { setK(d.k, +el.value); changed(name); });
+    onAltWheel(el, e => {
+      const v = Math.max(d.min, Math.min(d.max, Math.round((getK(d.k) + (e.deltaY < 0 ? d.step : -d.step)) / d.step) * d.step));
+      setK(d.k, +v.toFixed(4)); el.value = String(getK(d.k)); changed(name);
+    });
+  }
+  paintSliders();
+}
+function paintSliders() {
+  for (const el of document.querySelectorAll('input[data-sl]')) { const d = SL[el.dataset.sl], v = getK(d.k); el.value = String(v); el.style.setProperty('--pct', String((v - d.min) / (d.max - d.min))); }
+  for (const el of document.querySelectorAll('output[data-show]')) { const d = SL[el.dataset.show]; el.textContent = d.fmt(getK(d.k)); }
+}
+/* a parameter moved: repaint now, re-measure once the hand stops (DIRTY) */
+function changed(name) {
+  paintSliders(); paintFacts();
+  if (name === 'gain') { applyGains(); return; }
+  if (name === 'vib' && S.mat !== 'vibrato') return;
+  if (PLAY.playing) play();
+  clearTimeout(DIRTY.t);
+  DIRTY.t = setTimeout(() => { prefetch(); if (SL[name].k.startsWith('P.')) requestKernels(); if (name !== 'vib') runHeat(); runHf(); }, 350);
+}
+
+/* ---------------------------------------------------------------- §2 listen */
+function buildListen() {
+  $('srcPills').innerHTML = SRCS.map(([k, t]) => `<button class="pill" data-src="${k}">${t}</button>`).join('');
+  $('srcRows').innerHTML = ['N', 'detune', 'ratio'].map(sliderRow).join('');
+  $('matPills').innerHTML = MATS.map(([k, t]) => `<button class="pill" data-mat="${k}">${t}</button>`).join('');
+  $('notePills').innerHTML = NOTES_C.map(m => `<button class="pill" data-note="${m}">${noteName(m)}</button>`).join('');
+  $('matRows').innerHTML = sliderRow('vib');
+  $('gainRows').innerHTML = sliderRow('gain');
+  for (const b of document.querySelectorAll('button[data-src]')) b.addEventListener('click', () => { S.src = b.dataset.src; paintListen(); if (PLAY.playing) play(); prefetch(); runHeat(); });
+  for (const b of document.querySelectorAll('button[data-mat]')) b.addEventListener('click', () => { S.mat = b.dataset.mat; paintListen(); if (PLAY.playing) play(); prefetch(); });
+  for (const b of document.querySelectorAll('button[data-note]')) b.addEventListener('click', () => { S.note = +b.dataset.note; paintListen(); if (PLAY.playing) play(); prefetch(); });
+  $('playBtn').addEventListener('click', () => { if (PLAY.playing) stop(); else play(); });
+  $('abBtn').addEventListener('click', () => { S.hear = S.hear === 'A' ? 'B' : 'A'; applyGains(); paintAB(); });
+  $('matchBtn').addEventListener('click', () => { S.match = !S.match; applyGains(); paintAB(); });
+  $('stopBtn').addEventListener('click', stop);
+  $('trackBtn').addEventListener('click', runTrack);
+}
+function paintListen() {
+  for (const b of document.querySelectorAll('button[data-src]')) b.classList.toggle('on', S.src === b.dataset.src);
+  for (const b of document.querySelectorAll('button[data-mat]')) b.classList.toggle('on', S.mat === b.dataset.mat);
+  for (const b of document.querySelectorAll('button[data-note]')) b.classList.toggle('on', S.note === +b.dataset.note);
+  const rows = $('srcRows').querySelectorAll('.row');
+  for (let i = 0; i < rows.length; i++) rows[i].classList.toggle('hidden', i < 2 ? S.src !== 'swarm' : S.src !== 'blade');
+  const vr = $('matRows').querySelector('.row'); if (vr) vr.classList.toggle('hidden', S.mat !== 'vibrato');
+  $('matNote').textContent = MAT_NOTE[S.mat] + (S.mat === 'glide' || S.mat === 'cross' ? ' X is ' + noteName(S.P.xc) + ' now.' : '');
+  $('heatSrc').textContent = srcLabel();
+  paintAB(); paintBlind();
+}
+const srcLabel = () => S.src === 'swarm' ? `swarm-style unison, ${S.N} members ±${S.detune} ct, seed ${S.seed}` : S.src === 'blade' ? `sync blade, ratio ${S.ratio.toFixed(2)}` : 'one saw';
+function audioJob(id) { return { kind: 'audio', spec: specFor(id) }; }
+function trimOf(r) { return Math.pow(10, S.gain / 20) * (S.match && r && r.rms > 0 ? TARGET_RMS / r.rms : 0.25); }
+function paintAB() {
+  const hearing = BLIND.cur && BLIND.cur.listening ? null : S.hear;
+  for (const slot of ['A', 'B']) {
+    const id = S[slot], box = $('box' + slot), r = CACHE.get(keyOf(audioJob(id)));
+    if (!box) continue;
+    box.classList.toggle('live', PLAY.playing && hearing === slot);
+    box.innerHTML = `<b style="color:${OCOL[id]}">${slot} = (${id})</b> ${OPTS.find(o => o.id === id).name}<br>` +
+      (r ? `level trim ${S.match ? (20 * Math.log10(TARGET_RMS / r.rms)).toFixed(2) + ' dB (to −20 dBFS RMS)' : 'off (raw, −12 dB)'} · peak ${(20 * Math.log10(r.peak * trimOf(r) + 1e-12)).toFixed(1)} dBFS<br>${r.edges} edges · ${r.taps} kernel taps · latency ${latencyOf(id, S.P)} smp`
+         : 'rendering…');
+  }
+  const ab = $('abBtn');
+  if (ab) ab.innerHTML = `hear <b>${S.hear}</b> · switch to ${S.hear === 'A' ? 'B' : 'A'}`;
+  const mb = $('matchBtn'); if (mb) { mb.classList.toggle('on', S.match); mb.textContent = S.match ? 'level-matched ✓' : 'level-matched ✗ (raw)'; }
+  const pb = $('playBtn'); if (pb) pb.textContent = PLAY.playing ? '■ stop' : '▶ play';
+}
+/* keep the current material's six renders warm, the two slots first */
+function prefetch() {
+  const order = [S.A, S.B].concat(IDS.filter(i => i !== S.A && i !== S.B));
+  order.forEach((id, i) => submit(audioJob(id), i < 2 ? 3 : 0).then(() => { paintAB(); }, () => {}));
+}
+function ensureCtx() {
+  if (PLAY.ctx) return PLAY.ctx;
+  const AC = window.AudioContext || window.webkitAudioContext;
+  try { PLAY.ctx = new AC({ sampleRate: SR }); } catch (e) { PLAY.ctx = new AC(); }
+  return PLAY.ctx;
+}
+/* PLAY: both slots start together, looped, each through its own gain; A/B (and blind X/Y) only move
+   the gains, so switching is instant and in place. */
+async function play() {
+  const ctx = ensureCtx(); if (ctx.state === 'suspended') ctx.resume();
+  const ids = BLIND.cur && BLIND.cur.listening ? [BLIND.cur.X, BLIND.cur.Y] : [S.A, S.B], token = ++PLAY.seq;
+  $('playBtn').classList.add('busy');
+  let rs;
+  try { rs = await Promise.all(ids.map(id => submit(audioJob(id), 3))); } catch (e) { $('playBtn').classList.remove('busy'); return; }
+  if (token !== PLAY.seq) return;
+  stopNodes();
+  const t0 = ctx.currentTime + 0.03;
+  PLAY.nodes = rs.map(r => {
+    const buf = ctx.createBuffer(1, r.y.length, SR); buf.copyToChannel(r.y, 0);
+    const src = ctx.createBufferSource(), g = ctx.createGain(); src.buffer = buf; src.loop = true; g.gain.value = 0;
+    src.connect(g).connect(ctx.destination); src.start(t0); return { src, g, r };
+  });
+  PLAY.playing = true; $('playBtn').classList.remove('busy');
+  applyGains(); paintAB(); paintBlind();
+}
+function applyGains() {
+  if (!PLAY.nodes || !PLAY.ctx) { paintAB(); return; }
+  const blind = BLIND.cur && BLIND.cur.listening, on = blind ? (BLIND.cur.hear === 'X' ? 0 : 1) : (S.hear === 'A' ? 0 : 1), t = PLAY.ctx.currentTime;
+  PLAY.nodes.forEach((n, i) => { n.g.gain.setTargetAtTime(i === on ? trimOf(n.r) : 0, t, 0.004); });
+  paintAB();
+}
+function stopNodes() { if (PLAY.nodes) for (const n of PLAY.nodes) { try { n.src.stop(); } catch (e) { /* already stopped */ } } PLAY.nodes = null; }
+function stop() { PLAY.seq++; stopNodes(); PLAY.playing = false; paintAB(); paintBlind(); }
+
+/* ---------------------------------------------------------------- blind */
+/* A round draws X/Y from the seeded mulberry32 stream (seed × round), never Math.random: the same
+   seed replays the same assignment, so a session can be audited afterwards. */
+function newBlind() {
+  BLIND.round++;
+  const xIsA = mulberry32(BLIND.seed * 7919 + BLIND.round)() < 0.5;
+  BLIND.cur = { round: BLIND.round, X: xIsA ? S.A : S.B, Y: xIsA ? S.B : S.A, pick: null, revealed: false, listening: true, hear: 'X', mat: S.mat, note: S.note, src: S.src };
+  play();
+}
+function paintBlind() {
+  const box = $('blindBox'); if (!box) return;
+  const c = BLIND.cur;
+  let h = `<div class="tp"><button class="pill" data-bl="new">new blind round (A=(${S.A}) vs B=(${S.B}), this material)</button>`;
+  if (c && !c.revealed) {
+    h += `<button class="pill ${c.hear === 'X' ? 'on' : ''}" data-bl="X">hear X</button><button class="pill ${c.hear === 'Y' ? 'on' : ''}" data-bl="Y">hear Y</button>` +
+      `<span class="lbl">PREFER</span><button class="pill ${c.pick === 'X' ? 'on' : ''}" data-bl="pX">X</button><button class="pill ${c.pick === 'Y' ? 'on' : ''}" data-bl="pY">Y</button><button class="pill ${c.pick === '=' ? 'on' : ''}" data-bl="p=">can't tell</button>` +
+      `<button class="pill" data-bl="reveal" ${c.pick ? '' : 'disabled'}>reveal</button>`;
+  }
+  h += `</div>`;
+  if (c) h += `<div>round ${c.round} · ${c.revealed ? `X was <b style="color:${OCOL[c.X]}">(${c.X})</b>, Y was <b style="color:${OCOL[c.Y]}">(${c.Y})</b> · you ${c.pick === '=' ? 'could not tell' : 'preferred ' + c.pick + ' = (' + c[c.pick] + ')'}` : 'hidden: listen to X and Y, pick, then reveal'}</div>`;
+  if (BLIND.hist.length) {
+    const tally = {}; for (const r of BLIND.hist) { const k = [r.X, r.Y].sort().join(' vs '); tally[k] = tally[k] || { n: 0, w: {} }; tally[k].n++; const win = r.pick === '=' ? '=' : r[r.pick]; tally[k].w[win] = (tally[k].w[win] || 0) + 1; }
+    h += `<div class="scroll"><table class="pt"><tr><th>pair</th><th>rounds</th><th>preferred</th></tr>` + Object.keys(tally).map(k => `<tr><td>${k}</td><td>${tally[k].n}</td><td>${Object.keys(tally[k].w).map(w => (w === '=' ? "can't tell" : '(' + w + ')') + ' ×' + tally[k].w[w]).join(' · ')}</td></tr>`).join('') + `</table></div>`;
+  }
+  box.innerHTML = h;
+  for (const b of box.querySelectorAll('button[data-bl]')) b.addEventListener('click', () => blindAct(b.dataset.bl));
+}
+function blindAct(a) {
+  const c = BLIND.cur;
+  if (a === 'new') { newBlind(); paintBlind(); return; }
+  if (!c) return;
+  if (a === 'X' || a === 'Y') { c.hear = a; if (!PLAY.playing) play(); else applyGains(); }
+  else if (a[0] === 'p') c.pick = a.slice(1);
+  else if (a === 'reveal' && c.pick) { c.revealed = true; c.listening = false; BLIND.hist.push({ X: c.X, Y: c.Y, pick: c.pick }); if (PLAY.playing) play(); }
+  paintBlind();
+}
+
+/* ---------------------------------------------------------------- aliasing along the material */
+function runTrack() {
+  const note = $('trackNote'), gen = ++HEAT.trackGen;
+  note.textContent = 'measuring (five renders per option, 1× to 16×)…';
+  const ids = [S.A, S.B];
+  Promise.all(ids.map(id => submit({ kind: 'track', spec: specFor(id) }, 3))).then(rs => {
+    if (gen !== HEAT.trackGen) return;
+    HEAT.track = { ids, rs, mat: S.mat, src: S.src };
+    const st = r => { const v = r.db; let mx = -200, s = 0; for (const d of v) { mx = Math.max(mx, d); s += Math.pow(10, d / 10); } return 'worst ' + mx.toFixed(1) + ' dB, power-mean ' + (10 * Math.log10(s / Math.max(1, v.length))).toFixed(1) + ' dB'; };
+    note.textContent = ids.map((id, i) => '(' + id + ') ' + st(rs[i])).join(' · ');
+    paintTrack();
+  }, e => { note.textContent = 'failed: ' + e.message; });
+}
+
+/* ---------------------------------------------------------------- §3 the heat map, CPU, summary */
+function runHeat() {
+  const gen = ++HEAT.gen, ps = []; HEAT.res = {};
+  paintHeat();
+  for (const id of IDS) for (const note of NOTES_C) {
+    ps.push(submit({ kind: 'alias', spec: specFor(id, { mat: 'note', note, dur: 1 }) }, 1).then(r => { if (gen !== HEAT.gen) return; HEAT.res[id + note] = r; paintHeatSoon(); }, () => {}));
+  }
+  // CPU is timed only once the estimator runs are done: timed beside six busy workers, the first
+  // version read (c) at C1 as ×0.76 and at C2 as ×2.13 of (a) — the machine's load, not the option's
+  Promise.all(ps).then(() => { if (gen === HEAT.gen) runCpu(false); });
+}
+function runCpu(force) {
+  const job = { kind: 'cpu', spec: specFor('a', { mat: 'note', P: Object.assign({}, S.P) }), ids: IDS, notes: NOTES_C, rounds: 7, tag: force ? ++HEAT.cpuTag : HEAT.cpuTag };
+  const gen = HEAT.gen;
+  submit(job, 1).then(r => { if (gen !== HEAT.gen && !force) return; HEAT.cpu = r; paintHeatSoon(); }, () => {});
+}
+function runHf() {
+  const gen = ++HEAT.hfGen;
+  submit({ kind: 'hf', spec: specFor('a', { src: 'single', mat: 'note', note: S.hfNote, P: Object.assign({}, S.P) }), ids: IDS }, 1).then(r => { if (gen !== HEAT.hfGen) return; HEAT.hf = r; paintHf(); paintSummary(); }, () => {});
+}
+function paintHeatSoon() { if (HEAT.raf) return; HEAT.raf = requestAnimationFrame(() => { HEAT.raf = 0; paintHeat(); }); }
+
+/* ---------------------------------------------------------------- painting */
+function cv(id) {                                         // a canvas sized to its box (stub-safe: no loops over its size)
+  const c = $(id); if (!c) return null;
+  const r = c.getBoundingClientRect(), dpr = window.devicePixelRatio || 1, w = Math.max(10, Math.round((r.width || 300) * dpr)), h = Math.max(10, Math.round((r.height || 150) * dpr));
+  if (c.width !== w) c.width = w; if (c.height !== h) c.height = h;
+  const g = c.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { c, g, w: w / dpr, h: h / dpr };
+}
+function css(name, fb) { try { const v = getComputedStyle(document.body).getPropertyValue(name); return (typeof v === 'string' && v.trim()) || fb; } catch (e) { return fb; } }
+function paintKernel(id, r) {
+  const k = cv('kcv_' + id); if (!k || !r) return;
+  const { g, w, h } = k, xs = r.xs, n = xs.length; if (!n) return;
+  g.clearRect(0, 0, w, h);
+  const x0 = xs[0], x1 = xs[n - 1], X = x => 4 + (w - 8) * (x - x0) / (x1 - x0 || 1), Y = v => h / 2 - v * (h / 2 - 6) / 0.55;
+  g.strokeStyle = css('--scr-grid', '#5A3FA8'); g.globalAlpha = 0.35; g.lineWidth = 1;
+  for (let x = Math.ceil(x0); x <= x1; x++) { g.beginPath(); g.moveTo(X(x), 4); g.lineTo(X(x), h - 4); g.stroke(); }
+  g.beginPath(); g.moveTo(4, Y(0)); g.lineTo(w - 4, Y(0)); g.stroke(); g.globalAlpha = 1;
+  g.strokeStyle = css('--scr-marker', '#C43A00'); g.beginPath(); g.moveTo(X(0), 4); g.lineTo(X(0), h - 4); g.stroke();
+  const line = (ys, col, lw) => { g.strokeStyle = col; g.lineWidth = lw; g.beginPath(); for (let i = 0; i < n; i++) { const px = X(xs[i]), py = Y(ys[i]); if (i) g.lineTo(px, py); else g.moveTo(px, py); } g.stroke(); };
+  if (r.y2) line(r.y2, css('--dim', '#9A93A3'), 1.2);
+  line(r.ys, OCOL[id], 1.8);
+  g.fillStyle = css('--scr-value', '#D6006B'); g.font = '9px ui-monospace, Menlo, monospace';
+  g.fillText(id === 'f' ? 'C1 table (colour) · C8 table (grey)' : id === 'e' ? 'table (colour) · polyBLEP (grey) — blended by pitch' : id === 'b' ? 'polyBLEP at 2× (x in 2× samples)' : 'R(x), x in samples', 8, 12);
+}
+const dbCol = d => {                                       // a fixed ramp: clean teal → purple → pink → yellow (worst)
+  const t = Math.max(0, Math.min(1, (d + 120) / 100)), st = [[0, 0, 179, 168], [0.3, 110, 70, 230], [0.6, 245, 22, 156], [1, 255, 215, 2]];
+  let i = 0; while (i < st.length - 2 && t > st[i + 1][0]) i++;
+  const a = st[i], b = st[i + 1], u = (t - a[0]) / (b[0] - a[0]);
+  return `rgb(${Math.round(a[1] + (b[1] - a[1]) * u)},${Math.round(a[2] + (b[2] - a[2]) * u)},${Math.round(a[3] + (b[3] - a[3]) * u)})`;
+};
+function paintHeat() {
+  const k = cv('heatCv');
+  if (k) {
+    const { g, w, h } = k, L = 190, T = 22, cw = (w - L - 8) / NOTES_C.length, ch = (h - T - 8) / IDS.length;
+    g.clearRect(0, 0, w, h); g.font = '10px ui-monospace, Menlo, monospace'; g.textBaseline = 'middle';
+    g.fillStyle = css('--scr-value', '#D6006B');
+    NOTES_C.forEach((m, j) => { g.textAlign = 'center'; g.fillText(noteName(m) + ' · ' + midiHz(m).toFixed(0) + ' Hz', L + cw * (j + 0.5), 11); });
+    IDS.forEach((id, i) => {
+      g.textAlign = 'left'; g.fillStyle = OCOL[id]; g.fillText('(' + id + ') ' + OPTS[i].name.slice(0, 26), 6, T + ch * (i + 0.5));
+      NOTES_C.forEach((m, j) => {
+        const r = HEAT.res[id + m], x = L + cw * j, y = T + ch * i;
+        g.fillStyle = r ? dbCol(r.excessDb) : 'rgba(128,128,128,.15)'; g.fillRect(x + 1, y + 1, cw - 2, ch - 2);
+        g.textAlign = 'center'; g.fillStyle = r && r.excessDb > -75 ? '#191521' : '#FFFFFF';
+        g.fillText(r ? fmtDb(r.excessDb) + ' ' + clsL(r.cls) : '…', x + cw / 2, y + ch / 2);
+      });
+    });
+  }
+  const lg = $('heatLegend');
+  if (lg) lg.innerHTML = [-120, -100, -80, -60, -40, -20].map(d => `<span><i style="background:${dbCol(d)}"></i>${d} dB</span>`).join('') + '<span>excess power at 1×, B346 aliasConvergence (1 s, steady state); ≤ −100 dB is the self-check\'s band-limit bar</span>';
+  const t = $('heatTbl');
+  if (t) t.innerHTML = `<table class="pt"><tr><th>option</th>${NOTES_C.map(m => `<th>${noteName(m)}</th>`).join('')}<th>worst</th></tr>` + IDS.map(id => {
+    let worst = -200; const cells = NOTES_C.map(m => { const r = HEAT.res[id + m]; if (r) worst = Math.max(worst, r.excessDb); return `<td class="${r ? (r.excessDb <= -100 ? 'good' : r.excessDb <= -60 ? 'warn' : 'bad') : ''}">${r ? fmtDb(r.excessDb) + ' ' + clsL(r.cls) : '…'}</td>`; }).join('');
+    return `<tr><td style="color:${OCOL[id]}">(${id}) ${OPTS.find(o => o.id === id).name}</td>${cells}<td>${worst > -200 ? worst.toFixed(1) : '…'}</td></tr>`;
+  }).join('') + `</table>`;
+  paintCpu(); paintSummary();
+}
+function paintCpu() {
+  const t = $('cpuTbl'), r = HEAT.cpu; if (!t) return;
+  if (!r) { t.innerHTML = '<div class="note">timing…</div>'; return; }
+  t.innerHTML = `<table class="pt"><tr><th>option</th>${r.notes.map(m => `<th>${noteName(m)}</th>`).join('')}</tr>` + IDS.map(id => `<tr><td style="color:${OCOL[id]}">(${id})</td>${r.notes.map((m, ni) => {
+    const rel = r.ms[id][ni] / r.ms.a[ni];
+    return `<td class="${rel <= 1.25 ? 'good' : rel <= 3 ? 'warn' : 'bad'}" title="${r.ms[id][ni].toFixed(3)} ms per 1 s block · ${r.taps[id][ni]} kernel taps">×${rel.toFixed(2)}<br><small>${(r.ms[id][ni] * 1e6 / SR).toFixed(1)} ns/smp</small></td>`; }).join('')}</tr>`).join('') +
+    `</table><div class="note">Median of ${r.rounds} interleaved rounds; each cell is one 1-second 1× block of ${srcLabel()} repeated for ≥ ${CPU_MIN_MS} ms on the worker's clock. ns/smp is per OUTPUT sample for the whole source (all members). Hover a cell for the raw ms and the kernel-tap count.</div>`;
+}
+function paintSummary() {
+  const t = $('sumTbl'); if (!t) return;
+  const hf = HEAT.hf, cpu = HEAT.cpu;
+  t.innerHTML = `<table class="pt"><tr><th>option</th><th>latency</th><th>worst alias C1–C8</th><th>alias at C4</th><th>16–20k kept @${hf ? noteName(hf.note) : '…'}</th><th>16–20k landed</th><th>CPU vs (a) @C4</th><th>@C8</th></tr>` + IDS.map(id => {
+    let worst = -200; for (const m of NOTES_C) { const r = HEAT.res[id + m]; if (r) worst = Math.max(worst, r.excessDb); }
+    const c4 = HEAT.res[id + 60], lat = latencyOf(id, S.P), h = hf && hf.rows[id];
+    const rel = ni => (cpu ? '×' + (cpu.ms[id][ni] / cpu.ms.a[ni]).toFixed(2) : '…');
+    return `<tr><td style="color:${OCOL[id]}">(${id}) ${OPTS.find(o => o.id === id).name}</td><td>${lat} smp · ${(lat / SR * 1000).toFixed(2)} ms</td><td>${worst > -200 ? worst.toFixed(1) + ' dB' : '…'}</td><td>${c4 ? fmtDb(c4.excessDb) + ' dB' : '…'}</td>` +
+      `<td>${h && h.keptDb !== null ? h.keptDb.toFixed(2) + ' dB' : '…'}</td><td>${h ? fmtDb(h.aliasBandDb) + ' dB' : '…'}</td><td>${rel(3)}</td><td>${rel(7)}</td></tr>`;
+  }).join('') + `</table>`;
+}
+function paintHf() {
+  const r = HEAT.hf, k = cv('hfCv');
+  for (const b of document.querySelectorAll('button[data-hf]')) b.classList.toggle('on', S.hfNote === +b.dataset.hf);
+  if (!r || !k) return;
+  const { g, w, h } = k, n = r.ideal.length, fLo = r.lo, fHi = r.lo + (n - 1) * r.binHz;
+  let top = -300; for (let i = 0; i < n; i++) top = Math.max(top, r.ideal[i]);
+  const lo = top - 110, X = f => 40 + (w - 50) * (f - fLo) / (fHi - fLo), Y = d => 10 + (h - 30) * (top + 5 - d) / (top + 5 - lo);
+  g.clearRect(0, 0, w, h); g.font = '9px ui-monospace, Menlo, monospace'; g.fillStyle = css('--scr-value', '#D6006B');
+  g.strokeStyle = css('--scr-grid', '#5A3FA8'); g.globalAlpha = 0.35;
+  for (let f = 16000; f <= 20000; f += 1000) { g.beginPath(); g.moveTo(X(f), 8); g.lineTo(X(f), h - 20); g.stroke(); }
+  for (let d = Math.ceil(lo / 20) * 20; d <= top; d += 20) { g.beginPath(); g.moveTo(40, Y(d)); g.lineTo(w - 10, Y(d)); g.stroke(); }
+  g.globalAlpha = 1;
+  for (let f = 16000; f <= 20000; f += 1000) g.fillText((f / 1000) + ' kHz', X(f) - 14, h - 8);
+  for (let d = Math.ceil(lo / 20) * 20; d <= top; d += 20) g.fillText((d - top).toFixed(0), 4, Y(d) + 3);
+  const line = (arr, col, lw, a) => { g.globalAlpha = a; g.strokeStyle = col; g.lineWidth = lw; g.beginPath(); for (let i = 0; i < n; i++) { const px = X(fLo + i * r.binHz), py = Y(Math.max(lo, arr[i])); if (i) g.lineTo(px, py); else g.moveTo(px, py); } g.stroke(); g.globalAlpha = 1; };
+  line(r.ideal, css('--text', '#191521'), 3, 0.18);
+  for (const id of IDS) if (r.rows[id]) line(r.rows[id].spec, OCOL[id], id === S.A || id === S.B ? 1.6 : 0.9, id === S.A || id === S.B ? 1 : 0.55);
+  g.fillText('dB re the ideal\'s strongest bin in view · ' + noteName(r.note) + ' (' + r.f0.toFixed(1) + ' Hz): harmonics ' + (r.harm.length ? r.harm[0] + '–' + r.harm[r.harm.length - 1] : 'none') + ' in 16–20 kHz', 44, 18);
+  $('hfLegend').innerHTML = IDS.map(id => `<span><i style="background:${OCOL[id]}"></i>(${id})</span>`).join('') + '<span><i style="background:var(--dim)"></i>ideal (additive)</span>';
+  $('hfTbl').innerHTML = `<table class="pt"><tr><th>option</th><th>kept, 16–20 kHz harmonics</th>${r.harm.map(k => `<th>h${k} ${(k * r.f0 / 1000).toFixed(2)}k</th>`).join('')}<th>landed (aliases in band)</th></tr>` + IDS.map(id => { const x = r.rows[id]; return x ? `<tr><td style="color:${OCOL[id]}">(${id})</td><td>${x.keptDb === null ? '—' : x.keptDb.toFixed(2) + ' dB'}</td>${x.perHarmDb.map(d => `<td>${d.toFixed(1)}</td>`).join('')}<td class="${x.aliasBandDb <= -80 ? 'good' : x.aliasBandDb <= -40 ? 'warn' : 'bad'}">${fmtDb(x.aliasBandDb)} dB</td></tr>` : ''; }).join('') + `</table>`;
+}
+function paintTrack() {
+  const k = cv('trackCv'), T = HEAT.track; if (!k) return;
+  const { g, w, h } = k; g.clearRect(0, 0, w, h);
+  if (!T) { g.fillStyle = css('--scr-value', '#D6006B'); g.font = '10px ui-monospace, Menlo, monospace'; g.fillText('press "measure A and B on this material"', 12, 20); return; }
+  const n = Math.max(T.rs[0].db.length, T.rs[1].db.length), X = i => 34 + (w - 44) * i / Math.max(1, n - 1), Y = d => 8 + (h - 24) * (-10 - d) / 112;
+  g.strokeStyle = css('--scr-grid', '#5A3FA8'); g.globalAlpha = 0.35; g.font = '9px ui-monospace, Menlo, monospace';
+  for (let d = -120; d <= -20; d += 20) { g.beginPath(); g.moveTo(34, Y(d)); g.lineTo(w - 8, Y(d)); g.stroke(); }
+  g.globalAlpha = 1; g.fillStyle = css('--scr-value', '#D6006B');
+  for (let d = -120; d <= -20; d += 20) g.fillText(String(d), 2, Y(d) + 3);
+  T.rs.forEach((r, q) => { g.strokeStyle = OCOL[T.ids[q]]; g.lineWidth = 1.8; g.beginPath(); for (let i = 0; i < r.db.length; i++) { const px = X(i), py = Y(r.db[i]); if (i) g.lineTo(px, py); else g.moveTo(px, py); } g.stroke(); });
+  const p = T.rs[0].pitch, lab = i => noteName(p[i]);
+  for (let i = 0; i < p.length; i += Math.max(1, Math.round(p.length / 8))) g.fillText(lab(i), X(i) - 8, h - 4);
+  g.fillText('(' + T.ids[0] + ') vs (' + T.ids[1] + ') · ' + T.mat + ' · excess dB per window, note under the window', 40, 14);
+}
+
+/* ---------------------------------------------------------------- §5 the self-check */
+/* Each check states its bar, runs its measurement, and runs a CONTROL built to fail the same bar; a
+   control that passes fails the check (a detector that cannot fire proves nothing). Deterministic
+   inputs at the lab's DEFAULT parameters, on one saw, whatever the sliders say. */
+async function runChecks() {
+  if (CHK.running) return;
+  CHK.running = true; CHK.rows = []; CHK.verdict = 'running…'; paintChecks();
+  const P0 = Object.assign({}, DEFAULT_P), one = (o, over) => Object.assign({ src: 'single', N: 1, detune: 0, ratio: 2.5, seed: 1, mat: 'note', note: 60, vib: 0, P: P0, opt: o, dur: 1 }, over || {});
+  const add = row => { CHK.rows.push(row); paintChecks(); };
+  const J = (job) => submit(Object.assign({ tag: 'chk' }, job), 2);
+  try {
+    // 1 BANDLIMIT
+    const [c4, d4, ctl] = await Promise.all([J({ kind: 'alias', spec: one('c') }), J({ kind: 'alias', spec: one('d') }), J({ kind: 'alias', spec: one('d', { P: Object.assign({}, P0, { W: 2 }) }) })]);
+    add({ name: 'BANDLIMIT', bar: '(c) and (d) at W ' + P0.W + ', cut ' + P0.cut + ': excess ≤ −100 dB at C4 at 1×', got: `(c) ${fmtDb(c4.excessDb)} ${c4.cls} · (d) ${fmtDb(d4.excessDb)} ${d4.cls}`,
+      ctl: `control (d) with W = 2 must read > −100: ${fmtDb(ctl.excessDb)} ${ctl.cls}`, pass: c4.excessDb <= -100 && d4.excessDb <= -100, ctlFired: ctl.excessDb > -100 });
+    // 2 MAGNITUDE
+    const [m0, m1] = await Promise.all([J({ kind: 'mag', W: P0.W, cut: P0.cut, cutMin: P0.cut }), J({ kind: 'mag', W: P0.W, cut: P0.cut, cutMin: 0.9 })]);
+    const magOk = r => r.passDevDb <= 0.1 && Math.abs(r.stopMinDb - r.stopLinDb) <= 3;
+    add({ name: 'MAGNITUDE', bar: '|H_min| = |H_lin| within 0.1 dB wherever |H_lin| ≥ −60 dB (0 to Nyquist, 257 points), and the stopbands\' peaks (Nyquist to 4× the rate) within 3 dB',
+      got: `max |Δ| ${m0.passDevDb.toFixed(4)} dB · stopband peak lin ${m0.stopLinDb.toFixed(1)} / min ${m0.stopMinDb.toFixed(1)} dB`,
+      ctl: `control: min-phase built at cut 0.90 against lin at ${P0.cut}: max |Δ| ${m1.passDevDb.toFixed(2)} dB`, pass: magOk(m0), ctlFired: !magOk(m1) });
+    // 3 CONTINUITY: level on the glide, and the alias measure along it
+    const cross = (o, over) => one(o, Object.assign({ mat: 'cross', dur: 0 }, over || {}));
+    const [gl, ta, te, th] = await Promise.all([J({ kind: 'glide', spec: one('e') }), J({ kind: 'track', spec: cross('a') }), J({ kind: 'track', spec: cross('e') }),
+      J({ kind: 'track', spec: cross('e', { P: Object.assign({}, P0, { band: 0 }) }) })]);
+    let spE = -200, spH = -200, atE = 0, atH = 0;
+    for (let i = 0; i < ta.db.length; i++) { const e = te.db[i] - ta.db[i], hh = th.db[i] - ta.db[i]; if (e > spE) { spE = e; atE = ta.pitch[i]; } if (hh > spH) { spH = hh; atH = ta.pitch[i]; } }
+    CHK.cont = { ta, te, th, gl };
+    add({ name: 'CONTINUITY', bar: '(e) crossing its band (' + noteName(P0.xc - 9) + '→' + noteName(P0.xc + 9) + ' in 4 s): 10–20 kHz level departs from the smooth blend by ≤ 0.25 dB per 23 ms hop, AND no window of the alias measure reads > 3 dB worse than pure (a) at the same pitch',
+      got: `level ${gl.devDb.toFixed(3)} dB/hop (near ${noteName(gl.devAt)}) · alias spike ${spE.toFixed(1)} dB over (a) (near ${noteName(atE)})`,
+      ctl: `control: band 0 (a hard switch at ${noteName(P0.xc)}): level ${gl.ctlDevDb.toFixed(3)} dB/hop (near ${noteName(gl.ctlAt)}) · alias spike ${spH.toFixed(1)} dB (near ${noteName(atH)})`,
+      pass: gl.devDb <= 0.25 && spE <= 3, ctlFired: gl.ctlDevDb > 0.25 && spH > 3 });
+    // 4 AUDIT
+    const au = await Promise.all(AUDIT_NOTES.map(n => J({ kind: 'alias', spec: one('a', { note: n }), pre: 0 })));
+    const nv = await Promise.all(AUDIT_NOTES.map(n => J({ kind: 'alias', spec: one('naive', { note: n }), pre: 0 })));
+    const within = (rs, ref) => rs.every((r, i) => Math.abs(r.excessDb - ref[i]) <= 2);
+    add({ name: 'AUDIT', bar: '(a) on the audit\'s own conditions (one saw, 0.36, 1 s from a 3 ms fade-in) within 2 dB of BOTH audit rows at C2 C4 C6 C8: the synthetic formula ' + AUDIT_SYN.join(' / ') + ' and the core ' + AUDIT_CORE.join(' / '),
+      got: '(a) ' + au.map(r => fmtDb(r.excessDb)).join(' / '), ctl: 'control: the NAIVE saw must miss: ' + nv.map(r => fmtDb(r.excessDb)).join(' / '),
+      pass: within(au, AUDIT_SYN) && within(au, AUDIT_CORE), ctlFired: !within(nv, AUDIT_SYN) });
+    // 5 CPU
+    const [cs, cf] = await Promise.all([J({ kind: 'cpuScale', spec: one('a') }), J({ kind: 'cpuScale', spec: one('a'), fakeClock: true })]);
+    const cpuOk = r => r.durRatio >= 2 && r.durRatio <= 8 && r.noteRatio >= 1.5;
+    add({ name: 'CPU', bar: 'the readout tracks work: a 2 s block of (a) times 2–8× a 0.5 s block, and (d) at C8 times ≥ 1.5× (d) at C1 (7-member swarm: 128× the edges)',
+      got: `2 s / 0.5 s = ×${cs.durRatio.toFixed(2)} · C8 / C1 = ×${cs.noteRatio.toFixed(2)} (${cs.ms.map(x => x.toFixed(3)).join(' / ')} ms)`,
+      ctl: `control: the same code on a constant clock: ×${cf.durRatio.toFixed(2)} · ×${cf.noteRatio.toFixed(2)}`, pass: cpuOk(cs), ctlFired: !cpuOk(cf) });
+  } catch (e) { add({ name: 'ERROR', bar: '', got: String(e && e.message || e), ctl: '', pass: false, ctlFired: false }); }
+  const n = CHK.rows.filter(r => r.pass && r.ctlFired).length;
+  CHK.verdict = (n === CHK.rows.length && n === 5 ? 'SELF-CHECK GREEN' : 'SELF-CHECK RED') + ` — ${n}/${CHK.rows.length} checks pass with their controls firing`;
+  CHK.running = false; paintChecks(); paintCont();
+  try { window.__B383 = { verdict: CHK.verdict, rows: CHK.rows }; } catch (e) { /* no window */ }
+}
+function paintChecks() {
+  const t = $('chkTbl'); if (!t) return;
+  t.innerHTML = '<tr><td><b>check</b></td><td><b>bar</b></td><td><b>measured</b></td><td><b>must-fail control</b></td><td><b>result</b></td></tr>' + CHK.rows.map(r => `<tr><td><b>${r.name}</b></td><td>${r.bar}</td><td>${r.got}</td><td class="ctl">${r.ctl}</td>` +
+    `<td class="${r.pass && r.ctlFired ? 'ok' : 'bad'}">${r.pass ? 'PASS' : 'FAIL'} · control ${r.ctlFired ? 'fired' : 'DID NOT FIRE'}</td></tr>`).join('');
+  const v = $('chkVerdict'); if (v) { v.textContent = CHK.verdict || 'not run'; v.classList.toggle('red', /RED/.test(CHK.verdict)); }
+}
+function paintCont() {
+  const c = CHK.cont, el = $('contCv'); if (!c || !el) return;
+  el.classList.remove('hidden');
+  const k = cv('contCv'); if (!k) return;
+  const { g, w, h } = k, n = c.ta.db.length, X = i => 34 + (w - 44) * i / Math.max(1, n - 1), Y = d => 8 + (h - 24) * (-10 - d) / 112;
+  g.clearRect(0, 0, w, h); g.font = '9px ui-monospace, Menlo, monospace'; g.fillStyle = css('--scr-value', '#D6006B');
+  for (let d = -120; d <= -20; d += 20) g.fillText(String(d), 2, Y(d) + 3);
+  const line = (arr, col, dash) => { g.setLineDash(dash || []); g.strokeStyle = col; g.lineWidth = 1.6; g.beginPath(); for (let i = 0; i < arr.length; i++) { if (i) g.lineTo(X(i), Y(arr[i])); else g.moveTo(X(i), Y(arr[i])); } g.stroke(); g.setLineDash([]); };
+  line(c.ta.db, OCOL.a); line(c.th.db, css('--alarm', '#C2261A'), [4, 3]); line(c.te.db, OCOL.e);
+  for (let i = 0; i < n; i += Math.max(1, Math.round(n / 9))) g.fillText(noteName(c.ta.pitch[i]), X(i) - 8, h - 4);
+  g.fillText('alias measure along the crossing: (a) pink · (e) green · hard switch (control) dashed red', 40, 14);
+}
+
+/* ---------------------------------------------------------------- §6 method */
+function paintMethod() {
+  $('method').innerHTML = [
+    '<b>The estimator (MEASURED).</b> B346\'s <code>aliasConvergence</code>, imported from <code>tools/patchspace/metrics.mjs</code> by each worker. Every option is rendered at 1, 2, 4, 8 and 16× the rate, each decimated to 44.1 kHz by a centred Kaiser FIR (pass 20 kHz, stop 24.1 kHz, 120 dB: the audit\'s method), plus the 8× stream before decimation for the source test. The number is the power in the 1× render that the finer renders do not have, as a fraction of the total, in dB; −120 is its floor. It is THRESHOLDED (a bin counts only 10 dB over the references), so a blend reads as a fast fall to clean rather than a ramp, and a held note whose period is a whole number of samples reads falsely clean (its aliases land on its harmonics: G2, 44100/98 = 450, reads the polyBLEP at −120). The heat map measures steady state: 50 ms run before a 1 s window.',
+    '<b>Why steady state.</b> With the audit\'s 3 ms fade-in inside the window, (d) read −109 dB at C8 at 0.5 s and −113 at 1 s, a floor that moved with the window length and with nothing else (not W, cutoff, FFT padding, the log floor or table density). A minimum-phase table delays edge energy by its group delay, which is shorter at 16× than at 1×, so the onset frames disagree between the render and its references. Self-check AUDIT keeps the audit\'s onset so its numbers are comparable; (a) reads the same either way (−47.5 vs −47.4 at C2).',
+    '<b>The tables.</b> The linear-phase impulse is a Blackman-Harris-windowed sinc over ±W samples; the minimum-phase one is its real-cepstrum companion (8× zero-padded, |H| floored 200 dB down). Both are integrated to a step on a 128-point-per-sample grid and read by cubic Hermite interpolation with the exact derivative (the audit\'s linear interpolation needed 16384 points per sample to stop reading its own noise). Self-check MAGNITUDE proves the two have the same |H|.',
+    '<b>CPU (MEASURED, a proxy).</b> Timed in worker 0 with <code>performance.now()</code> around whole 1× renders; see §3\'s note. These are JavaScript timings of THIS HARNESS\'S saw, which does far less per sample than the engine\'s member kernel (no envelope, pan, coupling, smoothing), so the relative cost of a correction is overstated here against the engine. The kernel-tap counts (hover a CPU cell) are exact and engine-independent: (c)/(d) cost 2W taps per edge, edges per second = f per member, so the cost scales with pitch. The audit estimated the C++ cost at about +8% at C4 and +130% at C8 scalar for W 16, cheaper than 2× everywhere (F3).',
+    '<b>Latency.</b> (c) needs W samples of look-ahead: a real-time version reports W samples to the host; its listening renders here are really delayed by W. (b) inherits the core halfband\'s group delay, 31 samples at 2× = 15.5 at 1× (the core does not compensate it). (a), (d), (e), (f): 0.',
+    '<b>Listening.</b> Renders are pre-computed in worker 0 and cached (48 renders); both slots play looped and in sync, and A/B or X/Y moves only their gains (4 ms), so a switch is instant and in place. Level match trims every render to −20 dBFS RMS over the whole render; the trim is shown per slot. Blind rounds assign X/Y from a seeded mulberry32 stream (seed 1 × round), never Math.random.',
+    '<b>JUDGEMENT, not measurement.</b> Which option sounds better is the human\'s call, by ear; the recommendation in the PR is the lab author\'s reading of the numbers. The sources are test harnesses (the banner above); a source-specific effect in the engine (coupling, envelopes, the output tanh, F16) is outside what this page can show.',
+  ].map(p => '<p style="margin:0 0 6px">' + p + '</p>').join('');
+}
+
+/* ---------------------------------------------------------------- theme, sections, boot */
+function paintTheme() {
+  document.body.classList.toggle('dark', S.dark);
+  const b = $('themeBtn'); if (b) b.innerHTML = 'theme <b>' + (S.dark ? 'DARK · TUBE' : 'LIGHT · ORCHID') + '</b>';
+}
+function repaintAll() { paintHeat(); paintHf(); paintTrack(); paintCont(); for (const o of OPTS) { const r = CACHE.get(keyOf({ kind: 'kernel', id: o.id, P: Object.assign({}, S.P) })); if (r) paintKernel(o.id, r); } }
+function boot() {
+  paintTheme();
+  const only = qp('only', '');
+  if (/^s[1-6]$/.test(only)) for (const s of ['s1', 's2', 's3', 's4', 's5', 's6']) { const el = $(s); if (el && s !== only) el.classList.add('hidden'); }
+  buildOptions(); buildListen();
+  $('hfPills').innerHTML = [60, 72, 84, 96, 108].map(m => `<button class="pill" data-hf="${m}">${noteName(m)}</button>`).join('');
+  for (const b of document.querySelectorAll('button[data-hf]')) b.addEventListener('click', () => { S.hfNote = +b.dataset.hf; paintHf(); runHf(); });
+  wireSliders(document);
+  $('themeBtn').addEventListener('click', () => { S.dark = !S.dark; paintTheme(); repaintAll(); });
+  $('heatBtn').addEventListener('click', runHeat);
+  $('cpuBtn').addEventListener('click', () => runCpu(true));
+  $('chkBtn').addEventListener('click', runChecks);
+  paintSlots(); paintListen(); paintMethod(); paintChecks(); paintHeat(); paintTrack();
+  startPool();
+  // the measurements start after first paint; the self-check only on request (B375's rule) or ?check=1
+  setTimeout(() => {
+    requestKernels(); prefetch(); runHeat(); runHf();
+    if (qp('check', '') === '1') runChecks();
+    if (qp('blind', '') === '1') { newBlind(); stop(); paintBlind(); }
+  }, 60);
+  try { window.addEventListener('resize', () => { clearTimeout(DIRTY.r); DIRTY.r = setTimeout(repaintAll, 120); }); } catch (e) { /* no window */ }
+}
+boot();
+</script>
+</body></html>

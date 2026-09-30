@@ -72,6 +72,7 @@ const labDir = join(root, 'docs/design');
 const LABS = {
   'scalpel-interface-lab.html': { state: 'P', scroll: '.scroll', variants: ['', '?skin=c'], oracle: true, skip: ['runChecks'] },
   'compact-lab.html': { state: 'STORE.v', scroll: '.ctlscroll' },
+  'edge-correction-lab.html': { state: 'S' },
   'envelope-hierarchy-lab.html': { state: 'S' },
   'filter-lab.html': { state: 'S' },
   'fx-design-lab.html': { state: 'MODULES.map(m => m.P)' },
