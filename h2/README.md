@@ -17,7 +17,16 @@ The rest are enforced by each core's parity check.
    `horde2::<core>`. Nothing here includes a file from `src/`, and nothing in
    `src/` includes a file from here. The namespace is required: legacy's cores
    are header-only with the same class names, so a link that saw both copies
-   would be a silent ODR violation.
+   would be a silent ODR violation. No translation unit includes both a legacy
+   core and an h2 core (`h2_rules_check` rule 4, which scans `tools/` too).
+   - The lifted swarm core keeps its legacy name NESTED,
+     `horde2::swarm::hypersaw` (so its own `hypersaw::` and `forcecore::`
+     references resolve unedited; ledger entry NS1). Code outside it, the
+     composed layer first, always spells the name in full,
+     `horde2::swarm::hypersaw::`, never a bare `hypersaw::`, which names legacy.
+   - One name escapes every namespace: the macro `HZ_CULL_ENV` (`swarm_core.h`,
+     the B38 sizing instrument). Both copies define it under the same
+     `#ifndef`, so a `-DHZ_CULL_ENV=...` build moves legacy and h2 together.
 2. **No target links legacy.** A CMake target that builds an `h2/` core never
    links `${PROJECT_NAME}-impl` (see the `horde 2 cores` block in
    `CMakeLists.txt`).
@@ -51,14 +60,25 @@ The rest are enforced by each core's parity check.
    core lifted from `src/` (ADR-186 item 4) keeps every line of its original
    except the ones its `lift-ledger.json` lists: the namespace lines, and any
    edit the lift could not avoid, each with its reason and its proof. A
-   byte-identical lift carries the legacy core's parity proof (ADR-187, L3);
-   anything else it changes arrives later as a ledgered divergence.
+   byte-identical lift carries the legacy core's parity proof (ADR-187, L3).
+   - **The one path for every later edit** (the lead, 2026-09-30): each change
+     to a lifted copy is a hunk in its `lift-ledger.json`. Lift edits are
+     `E<n>`. Divergences, such as the B378 fixes, are `kind: "divergence"`
+     hunks that each carry their ADR-187 id from the `divergences.json` beside
+     the ledger.
+   - The gate rebuilds the copy from the current source plus every hunk, as
+     bytes, and demands equality. So it stays exact after the first divergence
+     instead of being loosened by it.
+   - Multi-line changes use the `patch` op (an exact old block becomes a new
+     block).
+   - A moved source (its git blob is no longer the ledger's `src_blob`) is its
+     own verdict: re-lift deliberately.
 
 ## Status
 
 | Core | Directory | Status | Parity target | Oracle |
 |---|---|---|---|---|
-| Swarm (Swarm Core 1) | `cores/swarm/swarm_core.h` + `force_core.h` + `glide_core.h` (`horde2::swarm::hypersaw::SwarmCore`) | LIFTED 2026-09-30 (B379 step 1) from `src/` at `1c421b5`: byte-identical apart from 3 namespace lines and one access-only edit (E1, a public `tickVoice()` forwarder to the private `controlTick`), listed in `cores/swarm/lift-ledger.json`. It carries the legacy chain's proof against SwarmSynth (156/156 within 1e-6, B378 audit §2.9). NOT yet the composed engine's swarm: at 48 kHz it differs from SwarmSynth (M1, M2 in `docs/port/phase-1b.md`), pending the human. | Legacy: `reference/swarmsaw.html` SwarmSynth (44.1 kHz). Phase 1b: the composed engine, not yet re-pinned. | `tools/h2_lift_check.py` (fast); `tools/h2_swarm_lift_check.cpp` (full). |
+| Swarm (Swarm Core 1) | `cores/swarm/swarm_core.h` + `force_core.h` + `glide_core.h` (`horde2::swarm::hypersaw::SwarmCore`) | LIFTED 2026-09-30 (B379 step 1) from `src/` at `1c421b5`: byte-identical apart from 3 namespace lines and one access-only edit (E1, a public `tickVoice()` forwarder to the private `controlTick`), listed in `cores/swarm/lift-ledger.json`. It carries the legacy chain's proof against SwarmSynth (156/156 within 1e-6, B378 audit §2.9). The legacy L0-1 chain is DUPLICATED onto the copy under h2 flags (`-O2 -ffp-contract=off`): 156/156 within 1e-6 against SwarmSynth's goldens, worst 2.485e-9 @ saw-glass.seed1234 (2026-09-30). NOT yet the composed engine's swarm: at 48 kHz it differs from SwarmSynth (M1, M2 in `docs/port/phase-1b.md`), pending the human. | Legacy: `reference/swarmsaw.html` SwarmSynth (44.1 kHz goldens, `tools/golden/gen_goldens.mjs`). Phase 1b: the composed engine, not yet re-pinned. | `tools/h2_swarm_parity_check.cpp` (full; a ledgered copy of `tools/parity_check.cpp`); `tools/h2_lift_check.py` (fast); `tools/h2_swarm_lift_check.cpp` (full). |
 | SCALPEL blade engine | `cores/scalpel/razor_core.h` (`horde2::scalpel::RazorCore`) | JS-normative. Parity-proven against the blade oracle (phase 1a): 383 of 386 scenarios at parity, 3 excluded as chaotic (a pinned count) with evidence re-measured every run. | Phase 1a: `reference/scalpel/prototype/razor-core.js@0ce6a713410d89c65bf55f761f1dc791fae61b16` (git blob; v1.1 as ingested). Phase 1b: the composed engine, `docs/design/scalpel-horde-engine.js` at `c79be56` (B332, ADR-187 item 3). | `tools/h2_scalpel_parity_check.cpp` + `tools/h2_scalpel_render.mjs`, in `./verify full`. |
 
 The full account of what is ported, what is not, and which oracle quirks are

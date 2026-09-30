@@ -453,6 +453,13 @@ full() {
   node tools/golden/gen_goldens.mjs --selfcheck || return 1
   node tools/golden/gen_goldens.mjs > /dev/null || return 1
   "$build_dir/parity_check" "$(dirname "$build_dir")/build-golden" || return 1
+  # The SAME chain on horde 2's lifted copy (B379, critic H1; ADR-186 item 4):
+  # tools/h2_swarm_parity_check.cpp is parity_check.cpp with only its include and
+  # namespace changed (ledgered and gated by h2_lift_check), built contraction-off
+  # as every h2 target is. Same goldens. Its own lines print "parity_check:" (the
+  # copy is verbatim), so this label says which core they measure. ADR-180 §1.
+  echo "h2_swarm_parity_check — the lifted core h2/cores/swarm, -O2 -ffp-contract=off:"
+  "$build_dir/h2_swarm_parity_check" "$(dirname "$build_dir")/build-golden" || { echo "verify[full]: h2_swarm_parity_check FAILED" >&2; return 1; }
   "$build_dir/trajectory_check" || return 1
   "$build_dir/state_check" || return 1
   # B84 undo history (ADR-160): tree semantics, restore bit-identical through

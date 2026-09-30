@@ -27,11 +27,42 @@ human's.
     unchanged: one brace closes a C++17 nested namespace definition.
   - **E1, the one edit:** a public forwarder, `tickVoice(Voice&, bool)`, to the
     private `controlTick`. It is access only (see "The allocator question").
+- **The legacy parity chain, duplicated under h2 flags** (critic H1; ADR-186 item 4:
+  "re-pointed or duplicated at the lift"). Legacy `parity_check` is built at clang's
+  default contraction, so it never measured the flags horde 2 ships.
+  `tools/h2_swarm_parity_check.cpp` is a COPY of `tools/parity_check.cpp`. Only its
+  include and its one namespace-qualified line change (ledger entries T1 and T2).
+  The copy is itself held by the byte gate, against its source blob. It is built
+  as an h2 target at `-O2 -ffp-contract=off` and run in `./verify full` beside
+  `parity_check`, on the same goldens: **156/156 within 1e-6, worst 2.485e-9 @
+  saw-glass.seed1234**.
 - **`tools/h2_lift_check.py`, in `./verify fast`.** It rebuilds each lifted file
-  from its `src/` original by applying the ledger, and demands byte equality. An
-  unledgered difference is red, and so is a stale entry (a ledgered edit the tree
-  no longer carries) or an ambiguous anchor. It runs five must-fail self-cases on
-  every run. A planted trailing space in `force_core.h` was caught at its line.
+  from its CURRENT `src/` original by applying the ledger's hunks in order, AS
+  BYTES, and demands byte equality. Red cases:
+  - an unledgered difference, including a CRLF or a stray `\r`;
+  - a stale entry (a ledgered edit the tree no longer carries);
+  - an anchor or block that is not unique;
+  - a `*.h` in the core directory that the ledger does not list;
+  - a divergence hunk without its `divergences.json` id.
+
+  A source whose git blob no longer equals the ledger's `src_blob` gets its own
+  verdict, "legacy moved since the lift; re-lift deliberately", and the copy is
+  not blamed. Thirteen self-cases run on every run. By hand, a planted trailing
+  space, a stray `\r`, an unlisted header and a wrong pinned blob were each
+  caught.
+- **One path for every later edit** (the lead's decision, 2026-09-30; `h2/README.md`
+  rule 8). Every change to a lifted copy is a hunk in `lift-ledger.json`:
+  - lift edits are `E<n>`;
+  - divergences (the B378 fixes when they come) are `kind: "divergence"` hunks,
+    each carrying its ADR-187 id from a `divergences.json` beside the ledger;
+  - multi-line changes use the `patch` op (an exact old block becomes a new block).
+
+  So the gate stays exact after the first divergence instead of being loosened by
+  it.
+- **`h2_rules_check` rule 4** (critic L5): no TU in `tools/`, `h2/` or `src/`
+  includes both a legacy core and an h2 core, with a self-case. `h2/README.md` now
+  records two things: that callers spell `horde2::swarm::hypersaw::` in full, and
+  that the macro `HZ_CULL_ENV` is un-namespaced and shared by both copies.
 - **`tools/h2_swarm_lift_check.cpp`, in `./verify full`** (target
   `h2_swarm_lift_check`, `-O2 -ffp-contract=off`, so `h2_rules_check` covers it).
   It re-proves E1 (see "The allocator question").
@@ -68,11 +99,10 @@ void tickVoice(Voice &s, bool lastOfSeg) { controlTick(s, lastOfSeg); }
 
 The proof has two halves:
 
-- **Codegen.** An `-O3 -ffp-contract=off` object of a TU that constructs the lifted
-  core and calls `setParam`, `noteOn` and `render` compiled to the SAME bytes with
-  and without the line: sha256
-  `b83d86599f53fe6d6f2ce4d9095e9262a294fb09b38e80f0cf30b9094450ac99` for both
-  (Apple clang, this Mac).
+- **Codegen: by construction.** An unused non-virtual inline member is never
+  emitted, so code that does not call `tickVoice()` compiles exactly as before.
+  (A with/without object comparison agreed once, by hand, at the lift. It is not a
+  reproducible gate, so it is not cited as one.)
 - **Behaviour** (`h2_swarm_lift_check`). Core A plays a note the ordinary way. Core
   B never allocates: it copies a fresh slot as its own `Voice`, starts it with
   `initVoice`, and replays `renderSeg`'s schedule by hand. That schedule is:
@@ -87,7 +117,33 @@ The proof has two halves:
   must-fail control is the same replay with every tick one sample late; it is
   caught at block 0.
 
+  **Scope of that proof (critic L4):** it covers the DEFAULT render path only, the
+  osSub == 1, no-glide, no-onset phase advance. It does NOT exercise:
+  - the `fRun` frequency glide (`freqGlide` > 0);
+  - the `onsD` wait-and-skip (onset scatter or per-voice envelopes);
+  - 2× oversampling;
+  - note travel (`glideActive`);
+  - release and the envelope cull.
+
+  Those paths belong to the core's render, which the composed layer replaces with
+  its own, and are proven there when it exists.
+
 **What the composed layer must own (not the core), even with E1:**
+
+- **One core instance per swarm source, used for both halves.** The same `SwarmCore`
+  object must `initVoice` and `tickVoice` its voices:
+  - `initVoice` reads that instance's `noteCounter`, `p`, `lastPhase` and the
+    ensemble stream;
+  - `controlTick` reads its `x[]`, `xmin` and `centerIdx`, which that instance's
+    `rebuild()` wrote.
+
+  A voice started by one core and ticked by another would mix two swarms'
+  geometry.
+- **`tickVoice` is not per-voice-pure, and not thread-safe.** Besides the `Voice`, it
+  writes core-shared state: `tiltHP` (the tone-tilt sign, :1857) and the law-0
+  detune-ratio cache (`lawRatio`, `lawN`, `lawGen`, `lawDep`, `lawAnchor`,
+  :1786-1794). The cache is keyed by value, so interleaving voices is exact on one
+  thread, but two threads ticking voices of one core concurrently race on it.
 
 - **Keep-phase.** `lastPhase` is private and is written only by `renderSeg`, from the
   core's own focus voice (:1334-1335). With keepPhase on, `initVoice` copies that
@@ -192,11 +248,27 @@ at every rate (the table's last column: rms 1.16e-1). It is reachable:
 `docs/design/composed-engine-check.html:192` exposes onset −1..1. Decision: is
 negative onset in scope for the composed engine's parity, and on whose law?
 
-### M3: law 3 (a code fact; reachability not checked)
+### M3: law 3 (a code fact)
 
 In the lift, law 3 is the tempo grid (:1803, ADR-022). SwarmSynth has no law 3: its
 chain falls through to ERB. The composed engine documents `h.law` as 0, 1, 2, 4
-and 5. Whether any lab control or preset can send 3 was not checked.
+and 5.
+
+**The lab UI does not offer it** (critic L6):
+- `docs/design/composed-engine-check.html:199`'s select lists 0, 1, 2, 4 and 5;
+- `docs/design/scalpel-interface-lab.html:1595` lists 3, marked not offered, with
+  the reason at :1590 and :1716.
+
+Saved state, host automation and `setParam` can still carry a 3, so the law for
+it is still open.
+
+### How far M1 and M2 reach (a hypothesis)
+
+"M1 and M2 are the only 48 kHz differences between the lift and SwarmSynth" is a
+HYPOTHESIS. It rests on the four scenarios in the table above, which cover one
+note with K and onset only. It does not rest on the legacy chain's 156, which run
+at 44.1 kHz. Drift, inertia, the laws, pivot and keep-phase at 48 kHz are
+unmeasured. A 48 kHz golden set would settle it.
 
 ### The method (for re-measurement)
 
@@ -216,7 +288,8 @@ and 5. Whether any lab control or preset can send 3 was not checked.
 2. M1: parity at 44.1 kHz with M1 ledgered, the JS mirroring B150, or the lift
    regressed to 0.08 per tick.
 3. M2: negative onset in or out of parity scope, and whose law.
-4. M3: confirm that law 3 is unreachable in the composed engine (or rule its law).
+4. M3: the lab UI never sends law 3, but state, automation and `setParam` can. Rule
+   what a 3 means in the composed engine.
 
 Until these are ruled, the swarm core in `h2/` is the legacy core, proven as such,
 and not yet the composed engine's swarm.

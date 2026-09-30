@@ -9,9 +9,9 @@
  * WHY. The composed engine's voices follow SCALPEL's voice law (B310), not
  * SwarmCore's allocator, so horde 2 needs the swarm's dynamics WITHOUT the
  * core's own voices[]. controlTick is private and only renderSeg calls it; E1
- * adds one public forwarder, tickVoice(). The ledger records that the forwarder
- * changes no code (the object bytes are identical with and without it). This
- * check proves the other half: that the forwarder, driven from outside on the
+ * adds one public forwarder, tickVoice(). It changes no code by construction (an
+ * unused non-virtual inline member is never emitted). This check proves the
+ * other half: that the forwarder, driven from outside on the
  * core's own schedule, IS the core's dynamics, so a composed layer built on it
  * starts from the proven law and not from a look-alike.
  *
@@ -26,6 +26,9 @@
  * compared with memcmp: eff, vf, phase, driftS, KsmS, KsmP, KsmD, Kenv, R, RN,
  * psi, sigma, rngState. Coupling (K 0.45), drift (walk, 14 ct), inertia (0.3,
  * the second-order path) and onset lock (0.4) are all on, n 7, at 44.1 and 48 kHz.
+ *
+ * SCOPE: the DEFAULT render path only (osSub 1, no fRun glide, no onsD skip, no
+ * note travel, no release or cull); docs/port/phase-1b.md says what is not covered.
  *
  * MUST-FAIL CONTROL (L0032): the same replay with the tick one sample late
  * (counter == 1) must NOT match — the comparison can see a schedule slip.

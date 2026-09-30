@@ -26,6 +26,12 @@ WHAT IT CHECKS.
      oracle by git blob hash, and that hash equals the file's current content.
      A changed oracle is a changed parity target and must be re-pinned on
      purpose, not discovered.
+  4. NO TU SEES BOTH COPIES (B379 critic L5). No file in tools/, h2/ or src/
+     #includes both a legacy core (src/*_core.h) and an h2 core header. The
+     lifted swarm core keeps the legacy names nested (horde2::swarm::hypersaw),
+     so such a TU compiles and binds correctly today; the rule keeps it from
+     becoming the habit that one day meets an un-namespaced name (the shared
+     HZ_CULL_ENV macro already is one, h2/README.md).
   "Compiles an h2 core" means: a target whose source file #includes a path
   containing `h2/cores/`.
 
@@ -91,6 +97,21 @@ def check_includes(files):
     return fails
 
 
+def check_dual_includes(files):
+    """files: {relpath: text}. -> failures for rule 4: a TU that includes a legacy
+    core AND an h2 core header. Inside src/ a bare "x_core.h" is a legacy core."""
+    inc = re.compile(r'^\s*#\s*include\s*["<]([^">]+)[">]', re.M)
+    fails = []
+    for rel, text in files.items():
+        paths = inc.findall(text)
+        legacy = [p for p in paths if re.search(r"(^|/)src/[^/]*_core\.h$", p)
+                  or (rel.startswith("src/") and re.fullmatch(r"[^/]*_core\.h", p))]
+        h2 = [p for p in paths if re.search(r"(^|/)h2/cores/", p)]
+        if legacy and h2:
+            fails.append(f"{rel}: includes a legacy core ({legacy[0]}) AND an h2 core ({h2[0]}) in one TU (rule 4)")
+    return fails
+
+
 def check_pin(readme_text, oracle_bytes):
     want = blob_hash(oracle_bytes)
     m = re.search(r"razor-core\.js@([0-9a-f]{40})", readme_text)
@@ -125,6 +146,10 @@ def selftest():
         return "selftest: a src -> h2 include was not caught"
     if check_includes({"h2/cores/a.h": "#include <cmath>"}):
         return "selftest: a std include was flagged"
+    if len(check_dual_includes({"tools/t.cpp": '#include "../src/swarm_core.h"\n#include "../h2/cores/swarm/swarm_core.h"\n'})) != 1:
+        return "selftest: a tool including both copies was not caught"
+    if check_dual_includes({"tools/t.cpp": '#include "../h2/cores/swarm/swarm_core.h"\n// src/swarm_core.h:1053 cited in a comment\n'}):
+        return "selftest: a comment citing a legacy core was flagged as an include"
     if not check_pin("razor-core.js@" + "0" * 40, b"x") or check_pin("razor-core.js@" + blob_hash(b"x"), b"x"):
         return "selftest: the blob pin rule misjudged a synthetic README"
     return None
@@ -145,13 +170,16 @@ def main():
              for g in ("h2/**/*.h", "h2/**/*.hpp", "h2/**/*.cpp", "src/**/*.h", "src/**/*.cpp", "src/**/*.mm")
              for p in sorted(ROOT.glob(g))}
     fails += check_includes(files)
+    tus = dict(files)
+    tus.update({str(p.relative_to(ROOT)): p.read_text(errors="ignore") for p in sorted(ROOT.glob("tools/**/*.cpp"))})
+    fails += check_dual_includes(tus)
     fails += check_pin((ROOT / "h2/README.md").read_text(), (ROOT / ORACLE).read_bytes())
     if fails:
         print(f"h2_rules_check: FAILED — {len(fails)} rule violation(s):", file=sys.stderr)
         for f in fails:
             print("    " + f, file=sys.stderr)
         return 1
-    print(f"h2_rules_check: GREEN ({len(h2)} h2 targets: {', '.join(sorted(h2))}; boundary, contraction and the oracle pin hold)")
+    print(f"h2_rules_check: GREEN ({len(h2)} h2 targets: {', '.join(sorted(h2))}; boundary, contraction, no TU with both copies, and the oracle pin hold)")
     return 0
 
 

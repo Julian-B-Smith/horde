@@ -827,6 +827,18 @@ add_executable(h2_swarm_lift_check tools/h2_swarm_lift_check.cpp)
 if(NOT MSVC)
   target_compile_options(h2_swarm_lift_check PRIVATE -O2 -ffp-contract=off)
 endif()
+# h2_swarm_parity_check (B379 rework, critic H1): the legacy L0-1 parity chain
+# DUPLICATED onto the lifted core (ADR-186 item 4: "re-pointed or duplicated at
+# the lift"). The source is a COPY of tools/parity_check.cpp with only its include
+# and namespace changed (h2/cores/swarm/lift-ledger.json holds it, with its source
+# blob, and tools/h2_lift_check.py gates it). Built as an h2 target, contraction
+# OFF, because the legacy parity_check is built at clang's default contraction and
+# so never measured the flags horde 2 ships. Wired in ./verify full beside it,
+# reading the same goldens.
+add_executable(h2_swarm_parity_check tools/h2_swarm_parity_check.cpp)
+if(NOT MSVC)
+  target_compile_options(h2_swarm_parity_check PRIVATE -O2 -ffp-contract=off)
+endif()
 
 # MSVC gives a process a 1 MB main-thread stack; macOS and Linux give 8 MB. A
 # SwarmCore is 651 KB (sizeof, MSVC 14.51, 2026-09-09) and the host-side
