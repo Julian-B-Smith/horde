@@ -73,6 +73,16 @@ The rest are enforced by each core's parity check.
      block).
    - A moved source (its git blob is no longer the ledger's `src_blob`) is its
      own verdict: re-lift deliberately.
+   - **The non-divergence entries are FROZEN per file** (the lead, 2026-09-30,
+     after the critic's N1). `tools/h2_lift_check.py` holds the list: swarm
+     `NS1`, `NS2`, `NS3` and `E1`; the parity tool `T1` and `T2`. Every other
+     hunk must be `kind: "divergence"` with a `divergences.json` id, whatever it
+     calls itself; an `edit` outside the list is red.
+   - Adding a new non-divergence edit is a deliberate RE-LIFT. The frozen list
+     changes together with a re-pin of `src_blob` and `lifted_at`, recorded by
+     the lead in ROADMAP. This closes the path around the divergence ledger that
+     the critic demonstrated: a `dissolve` clamp change labelled
+     `{"id": "E2", "kind": "edit"}` passed the gate.
 
 ## Status
 

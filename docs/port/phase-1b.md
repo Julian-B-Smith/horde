@@ -59,6 +59,10 @@ human's.
 
   So the gate stays exact after the first divergence instead of being loosened by
   it.
+
+  The non-divergence entries are FROZEN per file in `tools/h2_lift_check.py`
+  (critic N1): anything outside NS1–NS3, E1, T1 and T2 must be a divergence, and
+  a new lift edit is a deliberate re-lift.
 - **`h2_rules_check` rule 4** (critic L5): no TU in `tools/`, `h2/` or `src/`
   includes both a legacy core and an h2 core, with a self-case. `h2/README.md` now
   records two things: that callers spell `horde2::swarm::hypersaw::` in full, and

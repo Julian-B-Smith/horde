@@ -26,8 +26,9 @@ WHAT IT CHECKS.
      oracle by git blob hash, and that hash equals the file's current content.
      A changed oracle is a changed parity target and must be re-pinned on
      purpose, not discovered.
-  4. NO TU SEES BOTH COPIES (B379 critic L5). No file in tools/, h2/ or src/
-     #includes both a legacy core (src/*_core.h) and an h2 core header. The
+  4. NO TU SEES BOTH COPIES (B379 critic L5, N2). No file in tools/ (.cpp and
+     .h), h2/ or src/ #includes both a legacy core (src/*_core.h) and an h2 core
+     header, directly or through another scanned file. The
      lifted swarm core keeps the legacy names nested (horde2::swarm::hypersaw),
      so such a TU compiles and binds correctly today; the rule keeps it from
      becoming the habit that one day meets an un-namespaced name (the shared
@@ -40,6 +41,7 @@ breaking each rule must be rejected, and a conforming one accepted.
 """
 import hashlib
 import pathlib
+import posixpath
 import re
 import sys
 
@@ -98,18 +100,34 @@ def check_includes(files):
 
 
 def check_dual_includes(files):
-    """files: {relpath: text}. -> failures for rule 4: a TU that includes a legacy
-    core AND an h2 core header. Inside src/ a bare "x_core.h" is a legacy core."""
+    """files: {relpath: text}. -> failures for rule 4: a file that includes, directly
+    or THROUGH another scanned file (critic N2: a tools/ header that includes a
+    legacy core, included by a .cpp that also includes an h2 core), both a legacy
+    core and an h2 core header. Inside src/ a bare "x_core.h" is a legacy core.
+    Quoted includes resolve against the including file's directory; only files in
+    the scanned set are followed."""
     inc = re.compile(r'^\s*#\s*include\s*["<]([^">]+)[">]', re.M)
-    fails = []
+    direct, edges = {}, {}
     for rel, text in files.items():
         paths = inc.findall(text)
         legacy = [p for p in paths if re.search(r"(^|/)src/[^/]*_core\.h$", p)
                   or (rel.startswith("src/") and re.fullmatch(r"[^/]*_core\.h", p))]
         h2 = [p for p in paths if re.search(r"(^|/)h2/cores/", p)]
-        if legacy and h2:
-            fails.append(f"{rel}: includes a legacy core ({legacy[0]}) AND an h2 core ({h2[0]}) in one TU (rule 4)")
-    return fails
+        direct[rel] = (legacy[0] if legacy else None, h2[0] if h2 else None)
+        base = posixpath.dirname(rel)
+        edges[rel] = [q for q in (posixpath.normpath(posixpath.join(base, p)) for p in paths) if q in files and q != rel]
+    reach = {rel: dict(zip(("legacy", "h2"), direct[rel])) for rel in files}
+    changed = True
+    while changed:   # propagate what each file reaches through the files it includes
+        changed = False
+        for rel in files:
+            for q in edges[rel]:
+                for k in ("legacy", "h2"):
+                    if reach[rel][k] is None and reach[q][k] is not None:
+                        reach[rel][k] = f"{reach[q][k]} via {q}"
+                        changed = True
+    return [f"{rel}: includes a legacy core ({r['legacy']}) AND an h2 core ({r['h2']}) in one TU (rule 4)"
+            for rel, r in reach.items() if r["legacy"] and r["h2"]]
 
 
 def check_pin(readme_text, oracle_bytes):
@@ -150,6 +168,13 @@ def selftest():
         return "selftest: a tool including both copies was not caught"
     if check_dual_includes({"tools/t.cpp": '#include "../h2/cores/swarm/swarm_core.h"\n// src/swarm_core.h:1053 cited in a comment\n'}):
         return "selftest: a comment citing a legacy core was flagged as an include"
+    via = {"tools/leg.h": '#include "../src/swarm_core.h"\n',
+           "tools/t.cpp": '#include "leg.h"\n#include "../h2/cores/swarm/swarm_core.h"\n'}
+    got = check_dual_includes(via)
+    if len(got) != 1 or not got[0].startswith("tools/t.cpp"):
+        return f"selftest: a legacy core reached through a tools/ header was not caught on the .cpp: {got}"
+    if check_dual_includes({"tools/leg.h": via["tools/leg.h"], "tools/u.cpp": '#include "leg.h"\n'}):
+        return "selftest: a TU reaching only a legacy core was flagged"
     if not check_pin("razor-core.js@" + "0" * 40, b"x") or check_pin("razor-core.js@" + blob_hash(b"x"), b"x"):
         return "selftest: the blob pin rule misjudged a synthetic README"
     return None
@@ -171,7 +196,8 @@ def main():
              for p in sorted(ROOT.glob(g))}
     fails += check_includes(files)
     tus = dict(files)
-    tus.update({str(p.relative_to(ROOT)): p.read_text(errors="ignore") for p in sorted(ROOT.glob("tools/**/*.cpp"))})
+    tus.update({str(p.relative_to(ROOT)): p.read_text(errors="ignore")
+                for g in ("tools/**/*.cpp", "tools/**/*.h") for p in sorted(ROOT.glob(g))})
     fails += check_dual_includes(tus)
     fails += check_pin((ROOT / "h2/README.md").read_text(), (ROOT / ORACLE).read_bytes())
     if fails:

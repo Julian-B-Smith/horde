@@ -26,13 +26,17 @@ WHAT IT CHECKS, for every h2/cores/<core>/lift-ledger.json:
   - a divergence entry (kind 'divergence') names its ADR-187 ledger id, and that
     id is defined in the directory's divergences.json. This is the one path for
     later edits: divergences live here as hunks too (h2/README.md rule 8).
+  - every NON-divergence entry is one of the file's FROZEN lift entries (below).
+    Anything else that changes the copy must be a divergence, whatever the
+    ledger calls it.
   So the ONLY differences a lift can carry are the ledgered ones, and nothing
   else is normalised (no whitespace, comment or namespace folding).
 
 THE RULES CALIBRATE THEMSELVES ON EVERY RUN (selftest()): an unledgered edit, a
 stale entry, an ambiguous anchor, a stray carriage return, a moved source, an
-unlisted header, a multi-line patch applied and misapplied, and a divergence
-hunk without its ledger id must each be judged as intended.
+unlisted header, a multi-line patch applied and misapplied, a divergence hunk
+without its ledger id, and a non-divergence id outside the FROZEN set must each
+be judged as intended.
 """
 import json
 import pathlib
@@ -43,6 +47,22 @@ sys.path.insert(0, str(ROOT / "tools"))
 from h2_rules_check import blob_hash  # noqa: E402  (one implementation of git's blob id)
 
 KINDS = ("namespace", "edit", "divergence")
+
+# THE FROZEN SET (the lead, 2026-09-30, after the critic's N1 on PR #876). The
+# non-divergence entries a lifted file may carry, per file, fixed at its lift.
+# WHY IT LIVES HERE AND NOT IN THE LEDGER: a ledger may call any hunk an 'edit',
+# and the critic ledgered a behaviour change (a dissolve clamp) as
+# {"id": "E2", "kind": "edit"} with this gate GREEN, i.e. around
+# divergences.json. So every entry NOT listed here must be kind 'divergence'
+# with an id defined in divergences.json. Adding a non-divergence edit is a
+# deliberate RE-LIFT: this set changes in the same PR as a re-pin of the file's
+# src_blob and the ledger's lifted_at, recorded by the lead in ROADMAP.
+FROZEN = {
+    "h2/cores/swarm/swarm_core.h": frozenset({"NS1", "E1"}),
+    "h2/cores/swarm/force_core.h": frozenset({"NS3"}),
+    "h2/cores/swarm/glide_core.h": frozenset({"NS2"}),
+    "tools/h2_swarm_parity_check.cpp": frozenset({"T1", "T2"}),
+}
 
 
 def _b(s):
@@ -104,7 +124,15 @@ def first_diff(a, b):
     return None
 
 
-def check_file(name, src_bytes, h2_bytes, entries, src_blob, div_ids=()):
+def check_file(name, src_bytes, h2_bytes, entries, src_blob, div_ids=(), frozen=None):
+    """frozen: the non-divergence ids this file may carry (FROZEN), or None in the
+    unit self-cases that exercise the other rules."""
+    if frozen is not None:
+        loose = [e.get("id", "?") for e in entries if e.get("kind") != "divergence" and e.get("id") not in frozen]
+        if loose:
+            return [f"{name}: {', '.join(loose)} changes the copy but is neither a frozen lift entry "
+                    f"({', '.join(sorted(frozen)) or 'none'}) nor kind 'divergence' with a divergences.json id; "
+                    "a behaviour change is a ledgered divergence, and a new lift edit is a deliberate re-lift (FROZEN)"]
     now = blob_hash(src_bytes)
     if src_blob != now:
         return [f"{name}: legacy moved since the lift at {src_blob}; re-lift deliberately (the source is now {now}; the h2 copy is not blamed)"]
@@ -128,6 +156,7 @@ def selftest():
     good = b"a\nnamespace new::old\nb\nx\nc\n"
     blob = blob_hash(src)
     ok = lambda s, h, es, bl=blob, d=(): not check_file("t", s, h, es, bl, d)
+    ok2 = lambda s, h, es, fr, d=(): not check_file("t", s, h, es, blob, d, frozenset(fr))
     cases = [
         (ok(src, good, [ns, ed]), "a conforming lift was rejected"),
         (not ok(src, good.replace(b"c\n", b"c2\n"), [ns, ed]), "an unledgered edit was accepted"),
@@ -149,6 +178,14 @@ def selftest():
          "a divergence hunk without a ledgered id was accepted"),
         (ok(src, b"a\nnamespace old\nb\nZ\n", [{"id": "D", "kind": "divergence", "divergence": "D1", "op": "patch", "old": ["c"], "new": ["Z"]}], blob, ("D1",)),
          "a divergence hunk with its ledgered id was rejected"),
+        # N1: the frozen set. An unknown 'edit' (or 'namespace') id is red whatever it does,
+        # a frozen one is green, and a divergence hunk passes on its ledgered id.
+        (not ok2(src, b"a\nnamespace old\nb\nZ\n", [{"id": "E2", "kind": "edit", "op": "patch", "old": ["c"], "new": ["Z"]}], {"E1"}),
+         "an unknown non-divergence edit id was accepted"),
+        (not ok2(src, good, [ns, ed], {"E"}), "an unfrozen namespace id was accepted"),
+        (ok2(src, good, [ns, ed], {"NS", "E"}), "a frozen lift was rejected"),
+        (ok2(src, b"a\nnamespace old\nb\nZ\n", [{"id": "D", "kind": "divergence", "divergence": "D1", "op": "patch", "old": ["c"], "new": ["Z"]}], set(), ("D1",)),
+         "a divergence hunk was rejected under an empty frozen set"),
         # L2: a header beside the lift that the ledger does not list.
         (len(check_listed("h2/cores/x", ["a.h", "b.h"], {"h2/cores/x/a.h": {}})) == 1, "an unlisted header was not flagged"),
     ]
@@ -182,7 +219,8 @@ def main():
                 fails.append(f"{rel}: missing ({rel} or {spec['src']})")
                 continue
             mine = [e for e in led["entries"] if e["file"] == rel]
-            fails += check_file(rel, srcp.read_bytes(), h2p.read_bytes(), mine, spec["src_blob"], div_ids)
+            fails += check_file(rel, srcp.read_bytes(), h2p.read_bytes(), mine, spec["src_blob"], div_ids,
+                                FROZEN.get(rel, frozenset()))
             report.append(f"{rel} = {spec['src']}@{spec['src_blob'][:7]} + [{', '.join(e['id'] for e in mine)}]")
         unknown = [e["id"] for e in led["entries"] if e["file"] not in files]
         if unknown:
