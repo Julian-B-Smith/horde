@@ -36,9 +36,26 @@
      Math.random of our own: the oracle's Math.random is a seeded mulberry32 shim installed by
      stemGen around every engine call (the SCALPEL lab's seedOracle idiom); the lab's own draws are
      the engine's ensemble stream (A3). No wall clock in the core. STUB-SAFETY (lab_load_check runs
-     this under a DOM whose numbers are 0): painters loop over integer indices only. -->
+     this under a DOM whose numbers are 0): painters loop over integer indices only.
+
+     ROUND 2, B377 (HYPERSAW, 2026-09-30, dispatched by the horde lead on ROADMAP B377, records branch
+     lead-records-150). THE HUMAN: "The envelope hierarchy lab isn't working; it's very laggy and it
+     takes forever for a button to click or a sound to play. But I want the new envelope system to
+     have shapeable curves (with a direct click-and-drag UI in addition to knobs where possible) at
+     every stage in the envelope."
+     LATENCY, measured in headless Chrome before any fix (trace 2026-09-30-b377-envelope-lab-r2): the
+     D13 card re-measured its tanh curve on every full repaint (2 × 48,000 points × 2 × 24,000 tanh =
+     20.2 s of main thread per pill click, and at boot); the boot also ran the self-check (0.4 s) and
+     §3's evidence (0.5 s); §2 recomputed 60-second law runs on every repaint (0.25 s); and every ▶
+     rendered its phrase on the main thread (0.3–5 s to first sound, uncached). Now: D13 is measured
+     once; law timings are memoised; heavy painters run after the input settles; every render runs
+     in a WORKER that loads the same core block (B, RENDERING), finished mixes are cached per
+     scenario and the visible section is prefetched; the self-check runs on ?check=1 or its button.
+     CURVES: §0 and A1 — one family of shapeable stages; SCALPEL's and horde's laws are two of its
+     presets, sample for sample (self-check PRESETS). Deep links added: ?check=1 · ?only=s0 ·
+     ?edit=1..4. -->
 <html><head><meta charset="utf-8">
-<meta name="lab-review" content="B370 · 2026-09-29">
+<meta name="lab-review" content="B377 · 2026-09-30">
 <title>envelope hierarchy lab — ENV 1 global, onset scatter without a slot or a hidden envelope</title>
 <style>
   /* ============================================================
@@ -198,6 +215,28 @@
   .verdict { border-left:3px solid var(--celebrate); padding:6px 10px; background:var(--well); font-size:10.5px; line-height:1.55; margin-top:8px; }
   .verdict b { color:var(--text); }
   .hidden { display:none !important; }
+  /* B377: the render status, the knobs, the curve editor and its stage indicator */
+  .rstat { display:flex; align-items:center; gap:6px; font-size:10px; color:var(--t2); min-width:260px; }
+  .rstat .bar { width:90px; height:6px; border:1px solid var(--line); border-radius:3px; background:var(--panel2); overflow:hidden; }
+  .rstat .bar i { display:block; height:100%; width:calc(var(--f, 0) * 100%); background:var(--value); }
+  .rstat.idle .bar i { background:var(--meter); }
+  .knobs { display:grid; grid-template-columns:repeat(5, minmax(0, 1fr)); gap:8px 6px; margin:4px 0; }
+  .knob { display:flex; flex-direction:column; align-items:center; gap:2px; cursor:ns-resize; user-select:none;
+    border-radius:8px; padding:3px 0; outline:none; touch-action:none; }
+  .knob:focus-visible { box-shadow:var(--focus); }
+  .knob .dial { width:40px; height:40px; border-radius:50%; position:relative; border:var(--stroke) solid var(--line);
+    background:conic-gradient(from 225deg, var(--value) 0 calc(var(--pct, 0) * 270deg), var(--panel2) 0 270deg, transparent 0 360deg); }
+  .knob .dial::after { content:''; position:absolute; inset:7px; border-radius:50%; background:var(--panel); border:1px solid var(--div); }
+  .knob .dial i { position:absolute; left:50%; top:50%; width:2px; height:15px; margin-left:-1px; background:var(--line); z-index:1;
+    transform-origin:50% 0; transform:rotate(calc(180deg + 225deg + var(--pct, 0) * 270deg)); }
+  .knob.curve .dial { background:conic-gradient(from 225deg, var(--physics) 0 calc(var(--pct, 0) * 270deg), var(--panel2) 0 270deg, transparent 0 360deg); }
+  .knob label { font-size:9.5px; letter-spacing:.08em; color:var(--t2); }
+  .knob output { font-size:9.5px; color:var(--text); font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .stagebar { display:flex; gap:4px; align-items:center; flex-wrap:wrap; margin:5px 0 2px; font-size:9.5px; }
+  .stagebar span { padding:2px 7px; border:1px solid var(--div); border-radius:999px; color:var(--dim); letter-spacing:.08em; }
+  .stagebar span.on { color:var(--bg); background:var(--value); border-color:var(--value); font-weight:700; }
+  .stagebar b { color:var(--t2); font-weight:400; margin-left:6px; }
+  #edCv { cursor:crosshair; touch-action:none; }
 </style>
 <!-- THE ENGINE, loaded never copied, exactly as docs/design/scalpel-interface-lab.html loads it:
      the SCALPEL oracle (reference/scalpel/ is PROTECTED, read-only) and B298's composed engine,
@@ -209,11 +248,12 @@
 <div class="hdr">
   <div>
     <h1>envelope hierarchy</h1>
-    <div class="badges"><span class="badge">B370 · DESIGN LAB</span>
-      <span class="sub">ENV 1 GLOBAL · ENV 2–4 ASSIGNABLE · PER-SOURCE ENV 1 BUTTONS · WHOSE LAW, BY EAR · ONSET SCATTER FOUR WAYS · HOLD · LEGATO INVERTED</span></div>
+    <div class="badges"><span class="badge">B370 · B377 · DESIGN LAB</span>
+      <span class="sub">SHAPEABLE CURVES AT EVERY STAGE · ENV 1 GLOBAL · ENV 2–4 ASSIGNABLE · PER-SOURCE ENV 1 BUTTONS · WHOSE LAW, BY EAR · ONSET SCATTER FOUR WAYS · HOLD · LEGATO INVERTED</span></div>
   </div>
   <div class="hdrctl">
-    <div class="grp"><span class="lbl">LAW (D1)</span><span class="pills" id="lawPills"></span></div>
+    <div class="rstat idle" id="rstat" title="the render worker: what it is rendering, what is cached"><span class="bar"><i></i></span><span id="rstatTxt">render: starting…</span></div>
+    <div class="grp"><span class="lbl">DEFAULT CURVES (D1)</span><span class="pills" id="lawPills"></span></div>
     <div class="grp"><span class="lbl">VELOCITY</span><span class="pills" id="velPills"></span></div>
     <button class="chip" id="themeBtn">theme <b>LIGHT</b></button>
     <button class="pill" id="stopBtn">■ stop</button>
@@ -226,6 +266,27 @@ spread of ENV 1 across members, a dedicated slot, today's hidden mechanism, and 
 drawn and audible; HOLD, legato inverted, and decisions 2–17 as toggles with the inventory's recommendation as the default. Sound is the
 composed engine; every envelope rule here is a labelled prototype in the lab's harness.</div>
 <div class="audit" id="audit">loading the composed engine…</div>
+
+<!-- ============================ §0 (B377) ============================ -->
+<div class="cluster" id="s0">
+  <h2>§0 · SHAPEABLE CURVES AT EVERY STAGE — ONE MODEL, TWO VIEWS: DRAG THE CURVE, OR TURN THE KNOBS <span class="proto">PROTOTYPE · LAB HARNESS (B377)</span></h2>
+  <div class="grp" style="margin-bottom:6px"><span class="lbl">EDIT</span><span class="pills" id="edPills"></span>
+    <span class="lbl">TIME MEANS</span><span class="pills" id="tmPills"></span>
+    <span class="lbl">RESET TO</span><span class="pills" id="edPresetPills"></span>
+    <button class="pill play" id="play0">▶ hear it (the §1 phrase)</button></div>
+  <div class="g2">
+    <div>
+      <canvas id="edCv" style="height:270px"></canvas>
+      <div class="stagebar" id="stageBar"></div>
+      <div class="note" id="edNote"></div>
+    </div>
+    <div>
+      <div class="cap">THE KNOBS · DRAG VERTICALLY · ALT + WHEEL · DOUBLE-CLICK RESETS</div>
+      <div class="knobs" id="edKnobs"></div>
+      <div class="note" id="edFormula"></div>
+    </div>
+  </div>
+</div>
 
 <!-- ============================ §1 ============================ -->
 <div class="cluster" id="s1">
@@ -244,7 +305,7 @@ composed engine; every envelope rule here is a labelled prototype in the lab's h
       <div class="note" id="lifeNote"></div>
     </div>
     <div>
-      <div class="cap">THE FOUR ENVELOPES · AHDSR · TIMES IN SECONDS (ADR-009) · THE LAW IS THE HEADER'S</div>
+      <div class="cap">THE FOUR ENVELOPES · AHDSR · TIMES IN SECONDS (ADR-009) · EACH ENVELOPE'S CURVES ARE ITS OWN (§0)</div>
       <div class="envs" id="envBoxes"></div>
       <div class="note" id="hierNote"></div>
     </div>
@@ -253,12 +314,12 @@ composed engine; every envelope rule here is a labelled prototype in the lab's h
 
 <!-- ============================ §2 ============================ -->
 <div class="cluster" id="s2">
-  <h2>§2 · DECISION 1, BY EAR — SCALPEL'S LINEAR/4τ LAW AGAINST HORDE'S ONE-POLE τ LAW, ON THE SAME NUMBERS <span class="proto">PROTOTYPE · LAB HARNESS</span></h2>
+  <h2>§2 · DECISION 1, BY EAR, IN CURVE TERMS — SCALPEL'S DEFAULT CURVES AGAINST HORDE'S, ON THE SAME TIMES <span class="proto">PROTOTYPE · LAB HARNESS</span></h2>
   <div class="grp" style="margin-bottom:6px"><span class="lbl">TIME AXIS</span><span class="pills" id="axisPills"></span>
     <span class="lbl">RELEASE READS (D2)</span><span class="pills" id="relPills"></span>
     <span class="lbl">BLIND</span><button class="pill" id="blindReveal">reveal the last blind play</button><span class="note" id="blindNote" style="margin:0"></span></div>
-  <div class="legend"><span><i style="background:var(--scr-value)"></i>A · SCALPEL (linear attack, D and R are 4τ, freed at −80 dB)</span>
-    <span><i style="background:var(--scr-meter)"></i>B · horde (one-pole, every knob is τ, ADR-021; ACCOUNTING rows 17–20 rule it wins)</span>
+  <div class="legend"><span><i style="background:var(--scr-value)"></i>A · SCALPEL's curves (attack curve 0: a straight line that finishes at A; D and R curve +0.50 as time constants: the knob holds 4 τ; freed at −80 dB)</span>
+    <span><i style="background:var(--scr-meter)"></i>B · horde's curves (A, D and R curve +0.125 as time constants: every knob is τ, ADR-021; ACCOUNTING rows 17–20 rule it wins)</span>
     <span><i style="background:var(--scr-marker)"></i>the key-off · ▲ where each law frees the voice</span></div>
   <table class="pt" id="presetTable"></table>
   <div class="note" id="lawNote"></div>
@@ -316,7 +377,9 @@ composed engine; every envelope rule here is a labelled prototype in the lab's h
 <!-- ============================ §6 ============================ -->
 <div class="cluster" id="s6">
   <h2>§6 · SELF-CHECK — EVERY CLAIM WITH A MUST-FAIL CONTROL</h2>
-  <div class="note" id="chkSum">waits for the engine…</div>
+  <div class="grp"><button class="pill play" id="chkRun">▶ run the self-check</button>
+    <span class="note" style="margin:0">runs on request (or at load with <code>?check=1</code>, B375's rule): it renders through the engine and would hold the page for a second or more</span></div>
+  <div class="note" id="chkSum">not run yet.</div>
   <table class="chk" id="chkTable"></table>
 </div>
 
@@ -345,7 +408,153 @@ const FREE = 1e-4;
 const FADE = 0.008;
 
 /* ----------------------------------------------------------------------
-   A1. THE ENVELOPE LAWS — PROTOTYPES, the lab's own, run by the harness
+   A1. THE ENVELOPE — ONE FAMILY OF SHAPEABLE STAGES (B377), the lab's PROTOTYPE of horde 2's
+   ----------------------------------------------------------------------
+   THE HUMAN, 2026-09-30: curves are a REQUIREMENT for horde 2's envelope system, at every stage.
+   One recursion runs every moving stage, one sample at a time:
+
+       e ← e + (aim − e)·κ,        κ = 1 − exp(−k / N),   k = KMAX·c = 8c,   N = T·sr samples
+
+   c ∈ [−1, +1] is the stage's CURVE (its bend) and T its time in seconds. A stage runs from y0 to y1:
+   the attack from 0 to 1 (always that span, so a retrigger from a level continues along the same
+   curve), the decay from the level it starts at to S, the release from the key-off level to 0.
+   What T MEANS decides the aim (the per-stage `tm`, set for a whole envelope by §0's switch):
+     'finish'  TIME TO FINISH. The stage lands exactly on y1 at T (then the next stage starts):
+               aim = y1 + (y1 − y0)·e^(−k)/(1 − e^(−k)), and in continuous time
+                 y(t) = y0 + (y1 − y0)·(1 − e^(−k·t/T)) / (1 − e^(−k)),   0 ≤ t ≤ T.
+               c = 0 is the NEUTRAL: the straight line (the k → 0 limit, run as e ← e + (y1 − y0)/N).
+               c > 0 starts fast and eases in; c < 0 starts slow and speeds up (convex).
+     'tau'     TIME CONSTANT. The stage aims AT y1 (aim = y1) and never lands: T holds k time
+               constants (τ = T/k; c = +0.125 is k = 1, the knob IS τ). There is no straight member,
+               so c is floored at +1/64 here. An attack hands over at 0.995 (horde's rule), a decay
+               simply becomes the sustain approach, a release frees under −80 dB (1e-4). One more
+               rule, ADR-021's: at S ≥ 1 with no hold, an attack that aims at its own sustain has
+               nothing to hand over to, so it runs on (the reference AR path).
+   Monotonic with no overshoot over the whole range, by construction: in 'tau' κ ∈ (0, 1) and the
+   level approaches y1 from one side; in 'finish' the step that reaches y1 is CLAMPED onto it (the
+   aim lies beyond y1, so the unclamped step would overshoot: self-check MONO's control).
+   HOLD is flat (its level does not move), so it has no curve: there is nothing to bend.
+   THE TWO LAWS ARE PRESETS OF THIS FAMILY (SHAPES), sample for sample (self-check PRESETS):
+     SCALPEL  attack c 0 'finish' (the oracle's linear attack), decay and release c +0.5 'tau'
+              (k = 4: the oracle's exp(−4t/D), exp(−4t/R)). SCALPEL's own law MIXES the meanings.
+     horde    attack, decay and release c +0.125 'tau' (k = 1: ADR-021's one-pole τ on every knob).
+   N IS T·1000·0.001·sr, the oracle's own ms round trip (razor-core.js reads ms keys), kept so the
+   SCALPEL preset is the ENGINE's samples bit for bit (self-check HOLD0). ADR-021's reference is
+   T·sr; the two agree on every whole-millisecond time from 1 ms to 20 s at 44.1 and 48 kHz (self-
+   check PRESETS measures all 40,000), and elsewhere can differ by one rounding of κ. */
+const KMAX = 8;
+const TAU_MIN_C = 1 / 64;
+const ATK_END = 0.995;
+const SHAPES = {
+  scalpel: { a: { c: 0, tm: 'finish' }, d: { c: 0.5, tm: 'tau' }, r: { c: 0.5, tm: 'tau' } },
+  horde: { a: { c: 0.125, tm: 'tau' }, d: { c: 0.125, tm: 'tau' }, r: { c: 0.125, tm: 'tau' } },
+};
+const STAGES = ['a', 'd', 'r'];
+/* a scenario's `law` is a preset name or a shape object; an envelope's own `shape` wins over it */
+function shapeOf(law) { return law && typeof law === 'object' ? law : (SHAPES[law] || SHAPES.scalpel); }
+function cloneShape(s) { const o = {}; for (const k of STAGES) o[k] = { c: s[k].c, tm: s[k].tm }; return o; }
+function stageN(T, sr) { return Math.max(1, T * 1000 * 0.001 * sr); }
+/* one stage's coefficients. lin: the straight step per unit span; tau: κ toward y1; else κ and the
+   aim's overshoot ratio (aim = y1 + (y1 − y0)·over) */
+function stageCo(T, st, sr) {
+  const N = stageN(T, sr), k = KMAX * st.c;
+  if (st.tm === 'tau') return { tau: true, kap: 1 - Math.exp(-Math.max(k, KMAX * TAU_MIN_C) / N) };
+  if (k === 0) return { lin: true, step: 1 / N };
+  const ek = Math.exp(-k);
+  return { kap: 1 - Math.exp(-k / N), over: ek / (1 - ek) };
+}
+/* stages: 0 off · 1 attack · 5 hold · 2 decay · 3 sustain (a 'finish' decay that landed) · 4 release */
+class Env {
+  constructor(sr) { this.sr = sr; this.st = 0; this.e = 0; this.hc = 0; this.p = null; this.hN = 0; this.y0 = 0; this.aim = 0; }
+  setup(p, law) {
+    const sr = this.sr, sh = p.shape || shapeOf(law);
+    this.p = p; this.sh = sh;
+    this.ca = stageCo(p.A, sh.a, sr); this.cd = stageCo(p.D, sh.d, sr); this.cr = stageCo(p.R, sh.r, sr);
+    this.hN = (p.H || 0) * sr;
+    this.ar = !!this.ca.tau && p.S >= 1 && !(this.hN > 0);
+    this.aimA = this.ca.over !== undefined ? 1 + this.ca.over : 1;
+    return this;
+  }
+  on(fromZero) { if (fromZero) this.e = 0; this.st = 1; this.hc = 0; }
+  off() {
+    if (this.st === 0) return;
+    this.st = 4; this.y0 = this.e;
+    this.aim = this.cr.over !== undefined ? -this.e * this.cr.over : 0;
+    if (!this.cr.tau && !(this.e > 0)) { this.e = 0; this.st = 0; }   // nothing left to release
+  }
+  kill() { this.st = 0; this.e = 0; }
+  toDecay() {
+    const S = this.p.S;
+    this.st = 2; this.y0 = this.e;
+    this.aim = this.cd.over !== undefined ? S + (S - this.e) * this.cd.over : S;
+    if (!this.cd.tau && this.e === S) this.st = 3;
+  }
+  /* one sample. With the presets' coefficients these are the old laws' expressions exactly:
+     `e += (0 − e)·κ` is `e −= e·κ` bit for bit (negation is exact), see LawEnv below. */
+  tick() {
+    const st = this.st;
+    if (st === 0) return 0;
+    if (st === 1) {
+      const c = this.ca;
+      if (c.lin) this.e += c.step;
+      else if (c.tau) this.e += (1 - this.e) * c.kap;
+      else this.e += (this.aimA - this.e) * c.kap;
+      if (c.tau ? (!this.ar && this.e >= ATK_END) : this.e >= 1) {
+        if (!c.tau) this.e = 1;
+        if (this.hN > 0) { this.st = 5; this.hc = this.hN; } else this.toDecay();
+      }
+    } else if (st === 5) { if ((this.hc -= 1) <= 0) this.toDecay(); }
+    else if (st === 2) {
+      const c = this.cd, S = this.p.S;
+      if (c.tau) this.e += (S - this.e) * c.kap;
+      else {
+        this.e += c.lin ? (S - this.y0) * c.step : (this.aim - this.e) * c.kap;
+        if (S < this.y0 ? this.e <= S : this.e >= S) { this.e = S; this.st = 3; }
+      }
+    } else if (st === 4) {
+      const c = this.cr;
+      if (c.tau) { this.e += (0 - this.e) * c.kap; if (this.e < FREE) { this.e = 0; this.st = 0; } }
+      else { this.e += c.lin ? (0 - this.y0) * c.step : (this.aim - this.e) * c.kap; if (this.e <= 0) { this.e = 0; this.st = 0; } }
+    }
+    return this.e;
+  }
+  /* one sample of a clock that runs r× real time (option 4's healing spread): a straight step is ×r,
+     a κ becomes 1 − (1 − κ)^r (r steps of the recursion in closed form), a hold count drops by r.
+     Kept apart from tick() so that tick() stays the laws' own expressions, untouched. */
+  tickR(r) {
+    if (r === 1) return this.tick();
+    const st = this.st;
+    if (st === 0) return 0;
+    const pc = c => 1 - Math.pow(1 - c, r);
+    if (st === 1) {
+      const c = this.ca;
+      if (c.lin) this.e += c.step * r;
+      else if (c.tau) this.e += (1 - this.e) * pc(c.kap);
+      else this.e += (this.aimA - this.e) * pc(c.kap);
+      if (c.tau ? (!this.ar && this.e >= ATK_END) : this.e >= 1) {
+        if (!c.tau) this.e = 1;
+        if (this.hN > 0) { this.st = 5; this.hc = this.hN; } else this.toDecay();
+      }
+    } else if (st === 5) { if ((this.hc -= r) <= 0) this.toDecay(); }
+    else if (st === 2) {
+      const c = this.cd, S = this.p.S;
+      if (c.tau) this.e += (S - this.e) * pc(c.kap);
+      else {
+        this.e += c.lin ? (S - this.y0) * c.step * r : (this.aim - this.e) * pc(c.kap);
+        if (S < this.y0 ? this.e <= S : this.e >= S) { this.e = S; this.st = 3; }
+      }
+    } else if (st === 4) {
+      const c = this.cr;
+      if (c.tau) { this.e += (0 - this.e) * pc(c.kap); if (this.e < FREE) { this.e = 0; this.st = 0; } }
+      else { this.e += c.lin ? (0 - this.y0) * c.step * r : (this.aim - this.e) * pc(c.kap); if (this.e <= 0) { this.e = 0; this.st = 0; } }
+    }
+    return this.e;
+  }
+}
+
+/* ----------------------------------------------------------------------
+   A1r. THE LAWS AS B370 LEFT THEM — kept VERBATIM as the reference the PRESETS self-check proves the
+   family against (nothing renders through it any more)
    ----------------------------------------------------------------------
    Two laws on the SAME numbers (decision 1 of docs/design/scalpel-envelope-conflicts.md):
      'scalpel'  the oracle's own ADSR, as the composed engine plays it today
@@ -365,7 +574,7 @@ const FADE = 0.008;
    RETRIGGER: on(fromZero) starts the attack from the current level (the oracle's and horde's
    rule: neither resets a sounding voice's level) or from 0 (decision 5's alternative).
    ADR-009: every coefficient comes from seconds × the rate (setup), never a per-tick constant. */
-class Env {
+class LawEnv {
   constructor(sr) { this.sr = sr; this.st = 0; this.e = 0; this.hc = 0; this.law = 'scalpel'; this.p = null; this.hN = 0; }
   setup(p, law) {
     const sr = this.sr;
@@ -432,7 +641,20 @@ class Env {
    hold end, the level at D after the attack, release to −60 dB and the free. The SR self-check
    runs this at 44.1 and 48 kHz and requires the same seconds within a sample; `env` plants a law
    built elsewhere (its must-fail control: coefficients frozen at 48 kHz, run at 44.1). */
+/* B377: memoised per (shape, times, rate, gate) — a law run to −80 dB is up to 60 s of samples, and
+   §2 asked for 48 of them on every repaint (0.25 s of main thread each time, measured). The result is
+   a pure function of its key, so the cache cannot go stale; `env` (a planted law) is never cached. */
+const LT = new Map();
 function lawTimes(law, p, sr, gate, env) {
+  if (!env) {
+    const key = JSON.stringify([p.shape || shapeOf(law), p.A, p.H || 0, p.D, p.S, p.R, sr, gate]);
+    let v = LT.get(key);
+    if (!v) { v = lawTimesRun(law, p, sr, gate, null); if (LT.size > 600) LT.delete(LT.keys().next().value); LT.set(key, v); }
+    return Object.assign({}, v);
+  }
+  return lawTimesRun(law, p, sr, gate, env);
+}
+function lawTimesRun(law, p, sr, gate, env) {
   const e = env || new Env(sr).setup(p, law);
   e.on(true);
   const nG = Math.round(gate * sr), out = { atk: NaN, hold: NaN, atD: NaN, r60: NaN, free: NaN };
@@ -441,7 +663,7 @@ function lawTimes(law, p, sr, gate, env) {
     const st0 = e.st;
     e.tick();
     if (st0 === 1 && e.st !== 1 && atkAt < 0) { atkAt = i + 1; out.atk = atkAt / sr; }
-    if (st0 === 5 && e.st === 2) out.hold = (i + 1) / sr;
+    if (st0 === 5 && e.st !== 5) out.hold = (i + 1) / sr;
     if (atkAt >= 0 && isNaN(out.atD) && i + 1 - atkAt - Math.round((p.H || 0) * sr) >= Math.round(p.D * sr)) out.atD = e.e;
   }
   const e0 = e.e;
@@ -647,7 +869,7 @@ function simulate(scn, C) {
   const perMember = opt !== 0, mono = scn.mode !== 'poly';
   const allOn = allOnOf(scn), fset = freeSet(scn), fadeN = FADE * SR;
   const draws = perMember && C ? new Draws(C, { N, seed: sc.seed, ms: sc.ms, alpha: sc.alpha, atk: sc.atk, rel: sc.rel }) : null;
-  const p1 = { A: E[0].A, H: E[0].H, D: E[0].D, S: E[0].S, R: E[0].R };
+  const p1 = { A: E[0].A, H: E[0].H, D: E[0].D, S: E[0].S, R: E[0].R, shape: E[0].shape };
   const Th0 = sc.heal > 0 ? sc.heal : settleTime(p1, law);
   const ev = [];
   scn.notes.forEach((x, i) => {
@@ -663,7 +885,8 @@ function simulate(scn, C) {
   function newRec(start, note, vel) {
     const len = n - start;
     const rec = { id: recs.length, note, vel, start, len, notes: [], g: [], e1u: new Float32Array(len), ek: [null, new Float32Array(len), new Float32Array(len), new Float32Array(len)],
-      ung: new Float32Array(len), vg: new Float32Array(len), marks: { on: [], off: [], retrig: [], free: [], stolen: -1, cull: -1 }, draws: [], fresh: [] };
+      ung: new Float32Array(len), vg: new Float32Array(len), marks: { on: [], off: [], retrig: [], free: [], stolen: -1, cull: -1 }, draws: [], fresh: [],
+      stg: [[], [], [], []], stgL: [-1, -1, -1, -1] };   // B377: each envelope's stage changes [x, stage], for the indicator
     const M = perMember ? N : 1;
     for (let i = 0; i < M; i++) rec.g.push(new Float32Array(len));
     recs.push(rec);
@@ -691,7 +914,7 @@ function simulate(scn, C) {
         // option 3's per-partial envelope floors each time at 2 ms, as the engine does (memberStep)
         const fl = opt === 3 ? (t => Math.max(0.002, t)) : (t => t);
         const all = opt === 1 && sc.axis === 'all';
-        m.env = new Env(SR).setup({ A: fl(p1.A * a), H: all ? p1.H * a : p1.H, D: all ? p1.D * a : p1.D, S: p1.S, R: fl(p1.R * rr) }, law);
+        m.env = new Env(SR).setup({ A: fl(p1.A * a), H: all ? p1.H * a : p1.H, D: all ? p1.D * a : p1.D, S: p1.S, R: fl(p1.R * rr), shape: p1.shape }, law);
       } else if (opt === 4) {
         m.env = new Env(SR).setup(p1, law);
         const d = x.d[i] * SR, Th = Math.max(Th0 * SR, 2 * d + 1);
@@ -797,6 +1020,7 @@ function simulate(scn, C) {
     if (x < 0 || x >= rec.len) return;
     rec.e1u[x] = st.e1u.e;
     for (let j = 1; j < 4; j++) rec.ek[j][x] = st.ek[j].e;
+    for (let j = 0; j < 4; j++) { const s = j ? st.ek[j].st : st.e1u.st; if (s !== rec.stgL[j]) { rec.stg[j].push([x, s]); rec.stgL[j] = s; } }
     if (perMember) for (let i = 0; i < N; i++) rec.g[i][x] = memberGain(st, i);
     else rec.g[0][x] = st.e1u.e;
     rec.ung[x] = !st.alive ? 0 : st.endFade < 0 ? 1 : st.endFade / fadeN;
@@ -969,6 +1193,9 @@ function* stemCached(C, spec) {
   STEMS.set(k, s);
   return s;
 }
+/* a stem's own progress (0..1) mapped into [a, b] of the whole mix (B377: the button and the header show
+   one rising number instead of each stem's own 0..100 in turn) */
+function* scaled(g, a, b) { let r = g.next(); while (!r.done) { yield a + (b - a) * r.value; r = g.next(); } return r.value; }
 /* THE MIX. Yields progress (0..1) while the engine renders; returns {L, R, sim}. */
 function* mixGen(C, scn) {
   const sim = simulate(scn, C), n = sim.n, N = sim.N, P = scn.patch, mono = scn.mode !== 'poly';
@@ -984,7 +1211,7 @@ function* mixGen(C, scn) {
     const patch = Object.assign({}, P, { A: E1.A * 1000, D: E1.D * 1000, S: E1.S, R: E1.R * 1000, poly: scn.pool.poly,
       polyMode: scn.mode === 'mono' ? 1 : scn.mode === 'legato' ? 2 : 0,
       onsetScatter: sc.ms, onsetAlpha: sc.alpha, attackScatter: sc.atk, relScatter: sc.rel, voiceEnv: sc.venv ? 1 : 0, seed: sc.seed });
-    const s = yield* stemCached(C, { patch, ev, n, solo: null, seed: seed0, native: true });
+    const s = yield* scaled(stemCached(C, { patch, ev, n, solo: null, seed: seed0, native: true }), 0, 1);
     return { L: Float32Array.from(s.L), R: Float32Array.from(s.R), sim, kind, native: true };
   }
   const pans = kind === 'members' ? panOf(C, P) : null;
@@ -996,20 +1223,23 @@ function* mixGen(C, scn) {
     if (rec.len <= 0) continue;
     const ev = recEvents(scn, rec, mono), seed = (seed0 + rec.id * 0x9E37) >>> 0, kMod = kModOf(scn, rec);
     const base = { patch: P, ev, n: rec.len, seed, kMod };
-    // the stems (each pass yields progress through the engine render)
+    // the stems (each pass yields progress through the engine render, as a share of the whole mix)
+    const ex = srcExists(scn);
+    const passes = kind === 'full' ? 1 : kind === 'members' ? Math.ceil(N / 2) : 1 + (ex.b1 ? 1 : 0) + (ex.b2 ? 1 : 0);
+    let pass = 0;
+    const part = g => { const a = (ri + pass / passes) / nr, b = (ri + (pass + 1) / passes) / nr; pass++; return scaled(g, a, b); };
     let full = null, mem = null, srcs = null;
-    if (kind === 'full') full = yield* stemCached(C, Object.assign({}, base, { solo: null }));
+    if (kind === 'full') full = yield* part(stemCached(C, Object.assign({}, base, { solo: null })));
     else if (kind === 'members') {
       mem = [];
       for (let q = 0; q < N; q += 2) {
-        const s = yield* stemCached(C, Object.assign({}, base, { solo: [q, q + 1 < N ? q + 1 : -1] }));
+        const s = yield* part(stemCached(C, Object.assign({}, base, { solo: [q, q + 1 < N ? q + 1 : -1] })));
         mem.push(s.L); if (q + 1 < N) mem.push(s.R);
       }
     } else {
-      const ex = srcExists(scn);
-      const b0 = yield* stemCached(C, Object.assign({}, base, { patch: Object.assign({}, P, { depth: 0, b2on: 0 }), solo: null }));
-      const b1 = ex.b1 ? yield* stemCached(C, Object.assign({}, base, { patch: Object.assign({}, P, { b2on: 0 }), solo: null })) : b0;
-      const b2 = ex.b2 ? yield* stemCached(C, Object.assign({}, base, { solo: null })) : b1;
+      const b0 = yield* part(stemCached(C, Object.assign({}, base, { patch: Object.assign({}, P, { depth: 0, b2on: 0 }), solo: null })));
+      const b1 = ex.b1 ? yield* part(stemCached(C, Object.assign({}, base, { patch: Object.assign({}, P, { b2on: 0 }), solo: null }))) : b0;
+      const b2 = ex.b2 ? yield* part(stemCached(C, Object.assign({}, base, { solo: null }))) : b1;
       srcs = { b0, b1, b2 };
     }
     // the sub: a stand-in sine an octave under the note (SUB OSC is a candidate, not in the engine)
@@ -1066,6 +1296,34 @@ function* mixGen(C, scn) {
   for (let i = 0; i < n; i++) { oL[i] = Math.tanh(L[i] * g); oR[i] = Math.tanh(R[i] * g); }
   return { L: oL, R: oR, sim, kind };
 }
+/* B377, L0064: what the stage indicator reads while a mix plays — each record's stage changes and its
+   RENDERED envelope levels (every IND_DEC-th sample, the values themselves), from the very simulation
+   the mix was multiplied by. Never re-derived from the knobs. */
+const IND_DEC = 32;
+function indOf(sim) {
+  const recs = [];
+  for (const r of sim.recs) {
+    if (!(r.len > 0)) continue;
+    const lv = [];
+    for (let j = 0; j < 4; j++) {
+      const a = j ? r.ek[j] : r.e1u, m = Math.ceil(r.len / IND_DEC), d = new Float32Array(m);
+      for (let i = 0; i < m; i++) d[i] = a[i * IND_DEC];
+      lv.push(d);
+    }
+    recs.push({ start: r.start, len: r.len, stg: r.stg, lv });
+  }
+  return { recs, dec: IND_DEC };
+}
+/* the indicator's read of envelope j at mix sample x: the latest-started record sounding there */
+function indAt(ind, x, j) {
+  let best = null;
+  for (const r of ind.recs) if (x >= r.start && x < r.start + r.len && (!best || r.start >= best.start)) best = r;
+  if (!best) return null;
+  const y = x - best.start, s = best.stg[j];
+  let st = 0;
+  for (let i = 0; i < s.length && s[i][0] <= y; i++) st = s[i][1];
+  return { st, lvl: best.lv[j][Math.min(best.lv[j].length - 1, (y / ind.dec) | 0)], rec: ind.recs.indexOf(best), start: best.start };
+}
 </script>
 <script>
 "use strict";
@@ -1082,7 +1340,7 @@ const MAKE = (typeof makeComposedEngine === 'function') ? makeComposedEngine : n
 const SLICE = (typeof swarmSourceFromHtml === 'function') ? swarmSourceFromHtml : null;
 let CORE = null;
 const ENGINE = { err: '', ms: 0 };
-const AUD = { ctx: null, src: null, busy: 0 };
+const AUD = { ctx: null, src: null, busy: 0, tok: 0, play: null, rafInd: 0 };
 
 /* the one state object (lab_wheel_scroll_check reads it as the lab's parameter state) */
 const S = {
@@ -1097,9 +1355,21 @@ const S = {
   clash: ['filter', 'release', 'legato', 'steal'].indexOf(qp('clash', '')) >= 0 ? qp('clash', '') : 'filter', follow: 'mean', pure: false, clashInv: false,
   mode: 'legato', retrig: 'level', steal: 'fade', s0: true, pool: 'fixed', cap: 2, velAmt: 1,
   smooth: 'times', onsetClock: 'note-on', blind: null, blindN: 0,
+  edit: clamp((+qp('edit', '1') | 0) - 1, 0, 3),   // B377: the envelope §0 edits (?edit=1..4)
 };
 for (const k of String(qp('off', '')).split(',')) if (k in S.src) S.src[k] = 0;
 S.env[0].H = clamp(+qp('hold', '0') || 0, 0, 5);   // ?hold=0.3 opens ENV 1 with a hold (§4's picture)
+/* B377: every envelope carries its own curves (A1). `base` is the preset a double-click resets a curve
+   to; S.law is now only the header's LABEL for which preset all four envelopes match ('custom' once
+   any curve is edited), computed by lawLabel(). */
+for (const e of S.env) { e.shape = cloneShape(SHAPES[S.law]); e.base = S.law; }
+function sameShape(a, b) { return STAGES.every(k => a[k].c === b[k].c && a[k].tm === b[k].tm); }
+function lawLabel() {
+  for (const nm of ['scalpel', 'horde']) if (S.env.every(e => sameShape(e.shape, SHAPES[nm]))) return nm;
+  return 'custom';
+}
+/* ENV 1's curves: what §3's scenarios and every stand-alone ENV 1 drawing play */
+const shape1 = () => S.env[0].shape;
 /* THE HIERARCHY'S PATCH: SCALPEL's defaults with blade 2 on (as the SCALPEL lab opens), five members */
 const HPATCH = { N: 5, detune: 20, K: 0.3, w: 0.3, k: 4, c: 0.8, b2on: 1, mode2: 4, w2: 0.25, k2: 3, c2: 0.35, gain: 0.35 };
 /* §3's notes: the envelope each is voiced with (the swarm patch is one, so only the envelope changes) */
@@ -1170,8 +1440,9 @@ function presetScn(pr, law) {
   s.notes = phraseOf(pr);
   let end = 0, gate = 0;
   for (const x of s.notes) { end = Math.max(end, x.t + x.len); gate = Math.max(gate, x.len); }
-  // one length for BOTH laws, so A and B share their stems (the engine renders once per preset)
-  const tl = Math.max(tailOf(env, 'scalpel', gate), tailOf(env, 'horde', gate));
+  // one length for BOTH laws, so A and B share their stems (the engine renders once per preset);
+  // "▶ yours" (a shape object for `law`) may ring longer, and gets its own length
+  const tl = Math.max(tailOf(env, 'scalpel', gate), tailOf(env, 'horde', gate), typeof law === 'object' ? tailOf(env, law, gate) : 0);
   s.dur = Math.min(MAX_DUR, end + tl + 0.15);
   s.cut = end + tl + 0.15 > MAX_DUR;
   return s;
@@ -1223,9 +1494,15 @@ const PILLSYNC = [];
 /* ---------------------------------------------------------------- repaint scheduling */
 /* A change marks what is stale and asks for ONE paint on the next frame (a slider drag fires many
    inputs per frame). Under the load checkers requestAnimationFrame never fires: nothing heavy runs
-   there, and the controls are all built synchronously below, so every wheel site exists. */
-const DIRTY = new Set();
-let rafOn = false;
+   there, and the controls are all built synchronously below, so every wheel site exists.
+   B377: the paint is split. LIGHT painters (§0's editor, §1's flow, §4's hold) run in that frame; HEAVY ones (§1's lifetime, §4's legato, §2's
+   law runs, §3's simulations and evidence, §5's cards) run HEAVY_WAIT after the input settles, each
+   in its own task, so a drag or a click is never held behind them (measured before: a pill click
+   repainted everything, 20.6 s of it the D13 card). What marks what:
+     'all' everything · 'env' an envelope's times or curves · 'sc' §3 · 'leg' §4 · 'laws' §2's axes */
+const DIRTY = new Set(), HEAVY = new Set();
+const HEAVY_WAIT = 160;
+let rafOn = false, heavyT = 0;
 function changed(what) {
   DIRTY.add(what);
   if (rafOn) return;
@@ -1323,28 +1600,189 @@ function ensureCtx() {
   if (AUD.ctx.state === 'suspended') AUD.ctx.resume();
   return AUD.ctx;
 }
-function stopAudio() { if (AUD.src) { try { AUD.src.stop(); } catch (e) { /* already stopped */ } AUD.src = null; } }
-function playBuf(L, R) {
+/* B377: the first press anywhere creates the AudioContext (≈90 ms, measured), while the button is
+   still down, so the click that follows does not wait for it */
+if (typeof addEventListener === 'function') addEventListener('pointerdown', () => { try { ensureCtx(); } catch (e) { /* no audio here */ } }, { capture: true, once: true });
+function stopAudio() { if (AUD.src) { try { AUD.src.stop(); } catch (e) { /* already stopped */ } AUD.src = null; } AUD.play = null; }
+/* play a finished mix. Its AudioBuffer is built once and kept with the cached mix (B377: a cached
+   phrase starts without copying 9 s of samples again). The stage indicator reads the AUDIO clock
+   (ctx.currentTime from the buffer's start), never the wall clock. */
+function playRes(r) {
   const ctx = ensureCtx();
   stopAudio();
-  const n = L.length, fade = Math.min(n, Math.round(0.06 * SR));
-  const b = ctx.createBuffer(2, n, SR), bl = b.getChannelData(0), br = b.getChannelData(1);
-  for (let i = 0; i < n; i++) { const f = i >= n - fade ? (n - i) / fade : 1; bl[i] = L[i] * f; br[i] = R[i] * f; }
-  const s = ctx.createBufferSource(); s.buffer = b; s.connect(ctx.destination); s.start();
+  if (!r.buf || r.buf.sampleRate !== SR) {
+    const n = r.L.length, fade = Math.min(n, Math.round(0.06 * SR));
+    const b = ctx.createBuffer(2, n, SR), bl = b.getChannelData(0), br = b.getChannelData(1);
+    for (let i = 0; i < n; i++) { const f = i >= n - fade ? (n - i) / fade : 1; bl[i] = r.L[i] * f; br[i] = r.R[i] * f; }
+    r.buf = b;
+  }
+  const s = ctx.createBufferSource(); s.buffer = r.buf; s.connect(ctx.destination);
+  const t0 = ctx.currentTime + 0.01;
+  s.start(t0);
   AUD.src = s;
+  AUD.play = r.ind ? { t0, ind: r.ind, n: r.L.length } : null;
+  startInd();
 }
-/* ONE render at a time, in slices (the engine's Math.random shim is per stem, and a render must
-   not interleave with another), and the button shows its progress. */
+
+/* ======================================================================
+   B. RENDERING (B377) — a WORKER renders; the page only asks, caches and plays
+   ======================================================================
+   MEASURED BEFORE (trace 2026-09-30-b377-envelope-lab-r2): every ▶ rendered its phrase on the main
+   thread, in slices between frames, 0.3 s (a pluck) to 5 s (a pad) before any sound, and any render
+   queued behind any other. Now:
+   - THE WORKER loads the SAME engine files (the page's own <script src> URLs, in order) and the SAME
+     core block (section A, the first inline <script> of this page, its text passed verbatim), and
+     runs the same mixGen. Nothing is re-implemented: the route is the same code on another thread,
+     and self-check WORKER measures the samples bit-identical to a main-thread render, with a control.
+   - ITS SCHEDULER runs one job at a time in ~25 ms slices, highest priority first (a click 2, the
+     self-check 1, a prefetch 0). A click PREEMPTS a prefetch between slices: the suspended job's
+     Math.random (the engine's seeded shim, A2) is saved with it and put back when it resumes, so a
+     preempted render draws exactly the numbers an uninterrupted one would.
+   - THE MIX CACHE keeps finished mixes per scenario (the key is the scenario's JSON, which fully
+     determines the mix), up to MIX_MAX bytes, least recently played evicted first.
+   - PREFETCH: in idle time the phrases of the sections on screen are queued at priority 0, and a
+     queued prefetch nobody can see any more is dropped.
+   - Without a Worker (file://, an old browser) B370's main-thread slicer runs instead (runMain). */
+const RENDER = { w: null, ready: false, mode: 'starting', err: '', seq: 0, jobs: new Map(), byKey: new Map(), early: [] };
+const MIX = new Map();
+let MIXB = 0;
+const MIX_MAX = 200e6;
+function mixKey(scn) { return JSON.stringify(scn); }
+function mixBytes(r) { let b = (r.L.length + r.R.length) * 4; if (r.ind) for (const x of r.ind.recs) for (const a of x.lv) b += a.length * 4; return b; }
+function mixPut(key, r) {
+  if (MIX.has(key)) return;
+  r.bytes = mixBytes(r); MIX.set(key, r); MIXB += r.bytes;
+  for (const [k, v] of MIX) { if (MIXB <= MIX_MAX) break; if (k === key) continue; MIX.delete(k); MIXB -= v.bytes; }
+}
+function mixGet(key) { const r = MIX.get(key); if (r) { MIX.delete(key); MIX.set(key, r); } return r; }
+/* the worker's whole program, stringified into its source after the core block: every name it uses
+   (mixGen, indOf, makeComposedEngine, RazorCore, swarmSourceFromHtml) is the worker's own copy */
+function workerMain() {
+  let C = null, cur = null, busy = false;
+  const Q = [];
+  const ch = new MessageChannel();   // a zero-delay tick (a nested setTimeout clamps to 4 ms)
+  ch.port1.onmessage = run;
+  const kick = () => { if (!busy && (cur || Q.length)) { busy = true; ch.port2.postMessage(0); } };
+  const best = () => { let b = -1; for (let i = 0; i < Q.length; i++) if (b < 0 || Q[i].pri > Q[b].pri || (Q[i].pri === Q[b].pri && Q[i].id < Q[b].id)) b = i; return b; };
+  self.onmessage = ev => {
+    const m = ev.data;
+    if (m.t === 'init') {
+      try { C = makeComposedEngine(RazorCore, swarmSourceFromHtml(m.swarm)); self.postMessage({ t: 'ready' }); }
+      catch (e) { self.postMessage({ t: 'err', msg: String(e && e.message || e) }); }
+      return;
+    }
+    if (m.t === 'job') Q.push({ id: m.id, scn: m.scn, pri: m.pri, g: null, rnd: null });
+    else if (m.t === 'pri') { for (const j of Q) if (j.id === m.id) j.pri = m.pri; if (cur && cur.id === m.id) cur.pri = m.pri; }
+    else if (m.t === 'drop') { const d = new Set(m.ids); for (let i = Q.length - 1; i >= 0; i--) if (d.has(Q[i].id)) Q.splice(i, 1); if (cur && d.has(cur.id)) cur = null; }
+    kick();
+  };
+  function run() {
+    busy = false;
+    const b = best();
+    if (b >= 0 && (!cur || Q[b].pri > cur.pri)) { const nj = Q.splice(b, 1)[0]; if (cur) Q.push(cur); cur = nj; }
+    const j = cur;
+    if (!j) return;
+    try {
+      if (j.rnd) Math.random = j.rnd;   // a resumed job gets its own seeded stream back
+      if (!j.g) j.g = mixGen(C, j.scn);
+      const t0 = performance.now();
+      let r;
+      do { r = j.g.next(); } while (!r.done && performance.now() - t0 < 25);
+      j.rnd = Math.random;
+      if (r.done) {
+        cur = null;
+        const v = r.value, ind = indOf(v.sim), tr = [v.L.buffer, v.R.buffer];
+        for (const x of ind.recs) for (const a of x.lv) tr.push(a.buffer);
+        self.postMessage({ t: 'done', id: j.id, L: v.L, R: v.R, kind: v.kind, ind }, tr);
+      } else self.postMessage({ t: 'prog', id: j.id, f: r.value });
+    } catch (e) { cur = null; self.postMessage({ t: 'fail', id: j.id, msg: String(e && e.message || e) }); }
+    kick();
+  }
+}
+function startWorker(swarmText) {
+  try {
+    if (typeof Worker !== 'function' || typeof Blob !== 'function' || typeof URL === 'undefined') throw new Error('no Worker in this browser');
+    const all = Array.from(document.scripts), srcs = all.filter(x => x.src).map(x => x.src), core = all.filter(x => !x.src)[0];
+    // the core block must stay the FIRST inline script: it is what the worker runs
+    if (!core || core.textContent.indexOf('function* mixGen(') < 0) throw new Error('the core block is not the first inline script');
+    const src = 'importScripts(' + srcs.map(u => JSON.stringify(u)).join(', ') + ');\n' + core.textContent + '\n;(' + workerMain.toString() + ')();\n';
+    const w = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
+    RENDER.w = w; RENDER.mode = 'worker starting';
+    w.onmessage = ev => onWorker(ev.data);
+    w.onerror = ev => failWorker('the render worker failed: ' + (ev && ev.message || 'error'));
+    w.postMessage({ t: 'init', swarm: swarmText });
+  } catch (e) { failWorker(String(e && e.message || e)); }
+  statusDirty();
+}
+function failWorker(msg) {
+  RENDER.err = msg; RENDER.ready = false; RENDER.mode = 'main thread (' + msg + ')';
+  if (RENDER.w) { try { RENDER.w.terminate(); } catch (e) { /* already gone */ } RENDER.w = null; }
+  // whatever waited on the worker renders on the main thread instead; prefetches are dropped
+  for (const j of Array.from(RENDER.jobs.values())) { if (j.main) continue; RENDER.jobs.delete(j.id); RENDER.byKey.delete(j.key); if (j.pri > 0) runMain(j); else j.rej(new Error('cancelled')); }
+  RENDER.early.length = 0;
+  statusDirty();
+}
+function onWorker(m) {
+  if (m.t === 'ready') {
+    RENDER.ready = true; RENDER.mode = 'worker';
+    for (const j of RENDER.early) RENDER.w.postMessage({ t: 'job', id: j.id, scn: j.scn, pri: j.pri });
+    RENDER.early.length = 0;
+    schedulePrefetch();
+  } else if (m.t === 'err') failWorker('the worker could not build the engine: ' + m.msg);
+  else {
+    const j = RENDER.jobs.get(m.id);
+    if (!j) return;
+    if (m.t === 'prog') { j.f = m.f; for (const f of j.prog) f(m.f); }
+    else {
+      RENDER.jobs.delete(j.id); RENDER.byKey.delete(j.key);
+      if (m.t === 'done') { const r = { L: m.L, R: m.R, kind: m.kind, ind: m.ind, buf: null }; mixPut(j.key, r); j.res(r); }
+      else j.rej(new Error(m.msg));
+    }
+  }
+  statusDirty();
+}
+/* THE ONE WAY TO GET A MIX. o.pri: 2 a click, 1 the smoke run or the self-check, 0 a prefetch. The job
+   renders a PARSED COPY of the scenario, so an edit made while it renders cannot reach it. */
+function render(scn, o) {
+  o = o || {};
+  const key = mixKey(scn), pri = o.pri || 0, hit = mixGet(key);
+  if (hit) return Promise.resolve(hit);
+  let j = RENDER.byKey.get(key);
+  if (j) {
+    if (o.onProg) j.prog.push(o.onProg);
+    if (pri > j.pri) { j.pri = pri; j.label = o.label || j.label; if (RENDER.w && RENDER.ready && !j.main) RENDER.w.postMessage({ t: 'pri', id: j.id, pri }); }
+    statusDirty();
+    return j.p;
+  }
+  j = { id: ++RENDER.seq, key, scn: JSON.parse(key), pri, label: o.label || '', prog: o.onProg ? [o.onProg] : [], f: 0 };
+  j.p = new Promise((res, rej) => { j.res = res; j.rej = rej; });
+  RENDER.jobs.set(j.id, j); RENDER.byKey.set(key, j);
+  if (RENDER.w && RENDER.ready) RENDER.w.postMessage({ t: 'job', id: j.id, scn: j.scn, pri });
+  else if (RENDER.w) RENDER.early.push(j);
+  else runMain(j);
+  statusDirty();
+  return j.p;
+}
+function cancelJobs(list) {
+  const ids = [];
+  for (const j of list) { if (j.main) continue; ids.push(j.id); RENDER.jobs.delete(j.id); RENDER.byKey.delete(j.key); j.rej(new Error('cancelled')); }
+  if (ids.length && RENDER.w && RENDER.ready) RENDER.w.postMessage({ t: 'drop', ids });
+  for (let i = RENDER.early.length - 1; i >= 0; i--) if (ids.indexOf(RENDER.early[i].id) >= 0) RENDER.early.splice(i, 1);
+}
+/* THE FALLBACK: B370's slicer on the main thread, one render at a time (the engine's Math.random shim is
+   global here, so two renders must never interleave) */
 let RQ = Promise.resolve();
-function renderAsync(scn, onProg) {
+function runMain(j) {
+  j.main = true;
+  RENDER.jobs.set(j.id, j); RENDER.byKey.set(j.key, j);
   const job = () => new Promise((res, rej) => {
     if (!CORE) { rej(new Error(ENGINE.err || 'the engine is not loaded')); return; }
-    const g = mixGen(CORE, scn);
+    const g = mixGen(CORE, j.scn);
     const stepJ = () => {
       try {
         const r = g.next();
         if (r.done) { res(r.value); return; }
-        if (onProg) onProg(r.value);
+        j.f = r.value; for (const f of j.prog) f(r.value); statusDirty();
         setTimeout(stepJ, 0);
       } catch (e) { rej(e); }
     };
@@ -1352,18 +1790,73 @@ function renderAsync(scn, onProg) {
   });
   const p = RQ.then(job, job);
   RQ = p.catch(() => {});
-  return p;
+  p.then(v => { const r = { L: v.L, R: v.R, kind: v.kind, ind: indOf(v.sim), buf: null }; mixPut(j.key, r); RENDER.jobs.delete(j.id); RENDER.byKey.delete(j.key); j.res(r); statusDirty(); },
+    e => { RENDER.jobs.delete(j.id); RENDER.byKey.delete(j.key); j.rej(e); statusDirty(); });
 }
+/* THE HEADER'S STATUS: what renders now, how far, what waits, what is cached (painted once per frame) */
+let statusOn = false;
+function statusDirty() {
+  if (statusOn || typeof requestAnimationFrame !== 'function') return;
+  statusOn = true;
+  requestAnimationFrame(() => { statusOn = false; paintStatus(); });
+}
+function paintStatus() {
+  const box = $('rstat'), tx = $('rstatTxt'); if (!box || !tx) return;
+  const js = Array.from(RENDER.jobs.values());
+  let top = null;
+  for (const j of js) if (!top || j.pri > top.pri || (j.pri === top.pri && j.f > top.f)) top = j;
+  const pf = js.filter(j => j.pri === 0).length;
+  box.classList.toggle('idle', !top);
+  box.style.setProperty('--f', String(top ? Math.max(0.02, top.f) : 1));
+  tx.textContent = top
+    ? (top.pri > 0 ? 'rendering ' : 'prefetching ') + (top.label || '') + ' ' + Math.round(top.f * 100) + '%' + (js.length > 1 ? ' · ' + (js.length - 1) + ' waiting' + (pf ? ' (' + pf + ' prefetch)' : '') : '')
+    : 'render: ' + RENDER.mode + ' · idle · ' + MIX.size + ' phrases cached (' + (MIXB / 1e6).toFixed(0) + ' MB)';
+}
+/* PREFETCH: what the sections on screen can play, queued at priority 0 once the page is idle */
+const VIS = new Set();
+let pfT = 0;
+function setupVis() {
+  if (typeof IntersectionObserver !== 'function') return;
+  const io = new IntersectionObserver(es => { for (const e of es) { if (e.isIntersecting) VIS.add(e.target.id); else VIS.delete(e.target.id); } schedulePrefetch(); }, { rootMargin: '150px' });
+  for (const id of ['s0', 's1', 's2', 's3', 's4']) { const c = $(id); if (c) io.observe(c); }
+}
+function schedulePrefetch() {
+  clearTimeout(pfT);
+  pfT = setTimeout(() => { if (typeof requestIdleCallback === 'function') requestIdleCallback(prefetch, { timeout: 1500 }); else prefetch(); }, 400);
+}
+function wantList() {
+  const out = [];
+  if (VIS.has('s0') || VIS.has('s1')) out.push([hierScn(true), '§1 phrase']);
+  if (VIS.has('s2')) for (const pr of ENV_PRESETS) { out.push([presetScn(pr, 'scalpel'), pr.name + ' · A']); out.push([presetScn(pr, 'horde'), pr.name + ' · B']); }
+  if (VIS.has('s3') && CORE) {
+    for (let o = 1; o <= 4; o++) out.push([scBase(o), '§3 option ' + o]);
+    out.push([scBase(0), '§3 unscattered']);
+    for (let o = 1; o <= 4; o++) out.push([scClash(o, S.clash), '§3 ' + S.clash + ' · ' + o]);
+  }
+  if (VIS.has('s4')) out.push([legScn(true), '§4 phrase']);
+  return out;
+}
+function prefetch() {
+  if (!RENDER.ready) return;
+  const want = wantList(), keys = new Set(want.map(w => mixKey(w[0])));
+  cancelJobs(Array.from(RENDER.jobs.values()).filter(j => j.pri === 0 && !keys.has(j.key)));
+  if (MIXB > 0.75 * MIX_MAX) return;
+  for (const [scn, label] of want) { const k = mixKey(scn); if (!MIX.has(k) && !RENDER.byKey.has(k)) render(scn, { pri: 0, label }).catch(() => { /* cancelled */ }); }
+}
+/* A CLICK: a cached mix plays at once; otherwise the button shows the render's progress from the first
+   frame, and only the LATEST click plays (an earlier one still finishes, into the cache) */
 function playScn(scnF, btn, label) {
-  if (!CORE) { setAudit(ENGINE.err || 'the engine is still loading', true); return; }
+  if (!CORE && !RENDER.ready) { setAudit(ENGINE.err || 'the engine is still loading', true); return; }
   ensureCtx();
-  const txt = btn ? btn.textContent : '';
-  if (btn) { btn.classList.add('busy'); btn.textContent = 'rendering…'; }
+  const scn = scnF(), tok0 = ++AUD.tok, hit = mixGet(mixKey(scn));
+  if (hit) { playRes(hit); if (label) setAudit('playing: ' + label + ' · ' + hit.kind + ' stems (cached)'); return Promise.resolve(hit); }
+  const txt = btn ? (btn.dataset.txt || btn.textContent) : '';
+  if (btn) { btn.dataset.txt = txt; btn.classList.add('busy'); btn.textContent = 'rendering 0%'; }
   AUD.busy++;
-  return renderAsync(scnF(), f => { if (btn) btn.textContent = 'rendering ' + Math.round(f * 100) + '%'; })
-    .then(r => { playBuf(r.L, r.R); if (label) setAudit('playing: ' + label + ' · ' + r.kind + ' stems'); return r; })
+  return render(scn, { pri: 2, label, onProg: f => { if (btn) btn.textContent = 'rendering ' + Math.round(f * 100) + '%'; } })
+    .then(r => { if (tok0 === AUD.tok) { playRes(r); if (label) setAudit('playing: ' + label + ' · ' + r.kind + ' stems'); } return r; })
     .catch(e => setAudit('render failed: ' + String(e && e.message || e), true))
-    .finally(() => { AUD.busy--; if (btn) { btn.classList.remove('busy'); btn.textContent = txt; } });
+    .finally(() => { AUD.busy--; if (btn) { btn.classList.remove('busy'); btn.textContent = txt; delete btn.dataset.txt; } });
 }
 /* the audit line: the engine's state, the self-check's count, and the last thing played */
 const AUDIT = { engine: 'loading the composed engine…', check: '', last: '', bad: false };
@@ -1375,13 +1868,288 @@ function renderAudit() {
 function setAudit(t, bad) { AUDIT.last = t; AUDIT.bad = !!bad; renderAudit(); }
 
 /* ======================================================================
+   §0 SHAPEABLE CURVES (B377) — one model (S.env[j] and its shape), two views (the drawn envelope's
+   handles and the knobs), both writing through the SAME setters below (self-check DRAG=KNOB)
+   ====================================================================== */
+const ED = { m: null, g: null, H: [], drag: null, ind: null };
+const TIME_RANGE = { A: [0.001, 10], H: [0, 5], D: [0.005, 20], R: [0.005, 20] };
+const STAGE_LABEL = [[1, 'ATTACK'], [5, 'HOLD'], [2, 'DECAY'], [3, 'SUSTAIN'], [4, 'RELEASE'], [0, 'FREE']];
+/* THE SETTERS — the only writers of an envelope's times, level and curves */
+function edSet(j, k, v) {
+  const e = S.env[j];
+  if (k === 'S') e.S = clamp(v, 0, 1);
+  else { const r = TIME_RANGE[k]; e[k] = k === 'H' && v < 0.001 ? 0 : clamp(v, Math.max(r[0], 1e-9), r[1]); }
+}
+/* c is kept on a 1/512 grid, so the presets' values (0, 1/64, 1/8, 1/2) are exactly reachable by hand */
+function edCurve(j, st, c) {
+  const s = S.env[j].shape[st];
+  s.c = clamp(Math.round(c * 512) / 512, s.tm === 'tau' ? TAU_MIN_C : -1, 1);
+}
+/* TIME MEANS for a whole envelope. A curve of 0 or below has no time constant, so switching such a
+   stage to 'tau' starts it at +0.125 (k 1: the knob is τ, horde's); switching back keeps every c. */
+function edTm(j, tm) { for (const k of STAGES) { const s = S.env[j].shape[k]; s.tm = tm; if (tm === 'tau' && s.c < TAU_MIN_C) s.c = 0.125; } }
+function edPreset(j, name) { S.env[j].shape = cloneShape(SHAPES[name]); S.env[j].base = name; }
+function edResetCurve(j, st) { const d = SHAPES[S.env[j].base][st]; S.env[j].shape[st] = { c: d.c, tm: d.tm }; }
+function tmOf(j) { const sh = S.env[j].shape; return STAGES.every(k => sh[k].tm === sh.a.tm) ? sh.a.tm : 'mixed'; }
+function presetOf(j) { for (const nm of ['scalpel', 'horde']) if (sameShape(S.env[j].shape, SHAPES[nm])) return nm; return ''; }
+const fmtK = k => (Math.abs(k - Math.round(k)) < 1e-9 ? String(Math.round(k)) : k.toFixed(2));
+function curveTxt(s) {
+  const k = KMAX * s.c;
+  if (s.tm === 'tau') return '+' + s.c.toFixed(3) + ' · T = ' + fmtK(k) + ' τ';
+  return s.c === 0 ? '0 · straight' : (s.c > 0 ? '+' : '') + s.c.toFixed(3) + ' · k ' + fmtK(k);
+}
+function shapeWords(sh) {
+  const w = (nm, s) => nm + ' ' + (s.tm === 'tau' ? 'curve +' + s.c.toFixed(3) + ' as a time constant (the knob holds ' + fmtK(KMAX * s.c) + ' τ)' : s.c === 0 ? 'curve 0 (straight, finishes at its time)' : 'curve ' + (s.c > 0 ? '+' : '') + s.c.toFixed(3) + ', finishes at its time');
+  return w('attack', sh.a) + ' · ' + w('decay', sh.d) + ' · ' + w('release', sh.r);
+}
+
+/* THE EDITOR'S PICTURE of envelope j: the harness's own Env (A1), the very object every render runs,
+   on a display gate. Nodes sit where the knob times put them ON the drawn curve; in 'tau' the attack
+   hands over later than A (at 0.995), so the hold tab and the decay start where the Env really does. */
+function edModel(j) {
+  const p = S.env[j], sh = p.shape, e = new Env(SR).setup(p, sh);
+  e.on(true);
+  let aEnd = NaN, hEnd = NaN;
+  const lim = Math.round(60 * SR);
+  for (let i = 1; i <= lim; i++) {
+    const s0 = e.st;
+    e.tick();
+    if (e.ar) { if (e.e >= ATK_END) { aEnd = hEnd = i / SR; break; } continue; }
+    if (s0 === 1 && e.st !== 1) { aEnd = i / SR; if (e.st !== 5) { hEnd = aEnd; break; } }
+    else if (s0 === 5 && e.st !== 5) { hEnd = i / SR; break; }
+  }
+  if (isNaN(aEnd)) aEnd = p.A;
+  if (isNaN(hEnd)) hEnd = aEnd + (p.H || 0);
+  const dStart = hEnd, dNode = dStart + p.D, gate = dNode + Math.max(0.15, 0.25 * dNode);
+  // the release is shown to its knob time or to 1% of its start level, whichever is later
+  const tail = sh.r.tm === 'tau' ? p.R / (KMAX * Math.max(sh.r.c, TAU_MIN_C)) * Math.log(100) : p.R;
+  const t1 = Math.min(30, gate + Math.max(p.R, tail) * 1.05);
+  return { j, p, sh, aEnd, hEnd, dStart, dNode, gate, rNode: gate + p.R, t1, a: envCurve(p, sh, gate, t1), ar: e.ar };
+}
+/* plot()'s own geometry (its margins L 26, R 8, T 8, B 16, yMax 1), so a handle is hit where it is drawn */
+function edGeo(cv, t1) {
+  const w = Math.max(0, cv.clientWidth | 0), h = Math.max(0, cv.clientHeight | 0), pw = Math.max(1, w - 34), ph = Math.max(1, h - 24);
+  return { w, h, pw, ph, t1, X: t => 26 + pw * t / t1, Y: v => 8 + ph * (1 - Math.max(0, Math.min(1.05, v))), T: x => (x - 26) / pw * t1, V: y => 1 - (y - 8) / ph };
+}
+/* the hold tab sits above its point on the curve, or below it when that would leave the plot */
+const tabY = (g, h) => { const y = g.Y(h.v); return !h.tab ? y : y - h.tab < 6 ? y + h.tab : y - h.tab; };
+const edLv = (m, t) => m.a[Math.max(0, Math.min(m.a.length - 1, Math.floor(t * SR)))];
+function edHandles(m) {
+  const lv = t => edLv(m, t);
+  return [
+    { kind: 'node', id: 'A', t: m.p.A, v: lv(m.p.A) },
+    { kind: 'node', id: 'H', t: m.hEnd, v: lv(m.hEnd), tab: 14 },   // drawn as a tab above the curve, so it never sits on A
+    { kind: 'node', id: 'DS', t: m.dNode, v: m.p.S },
+    { kind: 'node', id: 'R', t: m.rNode, v: lv(m.rNode) },
+    { kind: 'bend', st: 'a', t: m.p.A / 2, v: lv(m.p.A / 2) },
+    { kind: 'bend', st: 'd', t: m.dStart + m.p.D / 2, v: lv(m.dStart + m.p.D / 2) },
+    { kind: 'bend', st: 'r', t: m.gate + m.p.R / 2, v: lv(m.gate + m.p.R / 2) },
+  ];
+}
+function edHit(x, y) {
+  const m = ED.m, g = ED.g;
+  if (!m || !g) return null;
+  let best = null, bd = 11;
+  for (const h of ED.H) { const d = Math.hypot(x - g.X(h.t), y - tabY(g, h)); if (d < bd) { bd = d; best = h; } }
+  if (best) return best;
+  // anywhere near the curve inside a moving stage bends that stage
+  const t = g.T(x);
+  if (!(t >= 0 && t <= g.t1) || Math.abs(g.Y(edLv(m, t)) - y) > 14) return null;
+  const st = t <= m.aEnd ? 'a' : t >= m.gate ? 'r' : t >= m.dStart && (m.sh.d.tm === 'tau' || t <= m.dNode) ? 'd' : null;
+  return st ? { kind: 'bend', st } : null;
+}
+/* one pointer move of a drag: a node's time from x (and the sustain's level from y); a segment's curve
+   from the vertical distance, pulling its belly toward the fast-start side (up for the attack, down
+   for a falling decay or release) raising c. Geometry is frozen at the drag's start so the axis does
+   not refit under the pointer. */
+function edDrag(d, x, y) {
+  const g = d.g, m = d.m, j = d.j, t = g.T(x);
+  if (d.h.kind === 'node') {
+    if (d.h.id === 'A') edSet(j, 'A', t);
+    else if (d.h.id === 'H') edSet(j, 'H', t - m.aEnd);
+    else if (d.h.id === 'DS') { edSet(j, 'D', t - m.dStart); edSet(j, 'S', g.V(y)); }
+    else if (d.h.id === 'R') edSet(j, 'R', t - m.gate);
+  } else {
+    const dir = d.h.st === 'a' ? 1 : d.h.st === 'r' ? -1 : (m.p.S < edLv(m, m.dStart) ? -1 : 1);
+    edCurve(j, d.h.st, d.c0 + dir * (d.y0 - y) / (0.6 * g.ph));
+  }
+}
+function edStart(h, x, y) {
+  const j = S.edit;
+  ED.drag = { h, j, x0: x, y0: y, g: ED.g, m: ED.m, c0: h.kind === 'bend' ? S.env[j].shape[h.st].c : 0 };
+}
+/* the editor's time for a (stage, level) the rendered voice reports: where the drawn curve passes that
+   level inside the same stage (each stage is monotonic, so a bisection finds it) */
+function edTimeOf(m, st, lvl) {
+  const rg = st === 1 ? [0, m.aEnd] : st === 5 ? [m.aEnd, m.hEnd] : st === 2 ? [m.dStart, m.gate] : st === 3 ? [m.dNode, m.gate] : st === 4 ? [m.gate, m.t1] : null;
+  if (!rg) return NaN;
+  if (st === 5 || st === 3) return (rg[0] + rg[1]) / 2;
+  let lo = Math.floor(rg[0] * SR), hi = Math.min(m.a.length - 1, Math.floor(rg[1] * SR));
+  const up = m.a[hi] >= m.a[lo];
+  while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (up ? m.a[mid] >= lvl : m.a[mid] <= lvl) hi = mid; else lo = mid; }
+  return hi / SR;
+}
+function paintEditor(recompute) {
+  const cv = $('edCv');
+  if (!cv) return;
+  if (recompute || !ED.m) ED.m = edModel(S.edit);
+  const m = ED.m, t1 = ED.drag ? ED.drag.g.t1 : m.t1, col = tok(ENV_COL[S.edit]);
+  plot(cv, { t1, lines: [{ a: m.a, col, lw: 2.4 }], marks: [{ t: m.gate, col: tok('--scr-marker'), label: 'key-off (display)' }] });
+  const g = edGeo(cv, t1);
+  ED.g = g; ED.H = edHandles(m);
+  const x = cv.getContext('2d');
+  if (!x || !(g.w > 0)) return;
+  x.font = '9px ui-monospace,Menlo,monospace';
+  // the stages, as bands with their letters
+  const bands = [['A', 0, m.aEnd], ['H', m.aEnd, m.hEnd], ['D', m.dStart, m.sh.d.tm === 'tau' ? m.gate : Math.min(m.gate, m.dNode)], ['S', m.sh.d.tm === 'tau' ? m.gate : m.dNode, m.gate], ['R', m.gate, t1]];
+  for (let i = 0; i < bands.length; i++) {
+    const b = bands[i], x0 = g.X(b[1]), x1 = g.X(Math.min(t1, b[2]));
+    if (!(x1 - x0 > 1)) continue;
+    x.globalAlpha = 0.07 + 0.05 * (i % 2); x.fillStyle = tok('--scr-grid'); x.fillRect(x0, 8, x1 - x0, g.ph);
+    x.globalAlpha = 0.9; x.fillStyle = tok('--scr-grid'); x.fillText(b[0], x0 + 3, g.h - 18);
+  }
+  x.globalAlpha = 1;
+  // a 'tau' stage aims at its level and never lands: its aim is drawn dotted from its knob node
+  x.setLineDash([2, 3]); x.strokeStyle = col; x.lineWidth = 1;
+  const aim = (t0, v, tEnd) => { x.beginPath(); x.moveTo(g.X(t0), g.Y(v)); x.lineTo(g.X(Math.min(t1, tEnd)), g.Y(v)); x.stroke(); };
+  if (m.sh.a.tm === 'tau') aim(m.p.A, 1, m.aEnd);
+  if (m.sh.d.tm === 'tau') aim(m.dStart, m.p.S, m.gate);
+  if (m.sh.r.tm === 'tau') aim(m.rNode, 0, t1);
+  x.setLineDash([]);
+  // the handles: ● a time node, ■ the hold tab, ◆ a curve (drag up or down)
+  for (const h of ED.H) {
+    const hx = g.X(h.t), hy = tabY(g, h), hot = ED.drag && ED.drag.h === h;
+    x.fillStyle = h.kind === 'bend' ? tok('--scr-physics') : col; x.strokeStyle = tok('--scr-tube'); x.lineWidth = 1.5;
+    x.beginPath();
+    if (h.kind === 'bend') { const r = hot ? 7 : 5.5; x.moveTo(hx, hy - r); x.lineTo(hx + r, hy); x.lineTo(hx, hy + r); x.lineTo(hx - r, hy); x.closePath(); }
+    else if (h.tab) { x.rect(hx - 4.5, hy - 4.5, 9, 9); }
+    else x.arc(hx, hy, hot ? 6.5 : 5, 0, TAU);
+    x.fill(); x.stroke();
+    if (h.tab) { x.strokeStyle = col; x.globalAlpha = 0.6; x.beginPath(); x.moveTo(hx, hy); x.lineTo(hx, g.Y(h.v)); x.stroke(); x.globalAlpha = 1; }
+    if (h.kind === 'bend') { x.fillStyle = tok('--scr-physics'); x.fillText(curveTxt(m.sh[h.st]), Math.min(hx + 8, g.w - 110), hy - 7); }
+  }
+  // the rendered voice, while a ▶ plays (L0064): its stage and level, placed on this curve
+  const r = ED.ind;
+  if (r && r.st > 0) {
+    const tt = edTimeOf(m, r.st, r.lvl);
+    if (tt >= 0) { x.strokeStyle = tok('--scr-marker'); x.lineWidth = 2; x.beginPath(); x.arc(g.X(tt), g.Y(r.st === 3 || r.st === 5 ? edLv(m, tt) : r.lvl), 8, 0, TAU); x.stroke(); }
+  }
+  if (recompute) edText(m);
+}
+function edText(m) {
+  const n = $('edNote'), f = $('edFormula'), j = S.edit, tm = tmOf(j), ps = presetOf(j);
+  if (n) n.innerHTML = '<b>ENV ' + (j + 1) + '</b> · ' + (ps ? (ps === 'scalpel' ? 'SCALPEL\'s' : 'horde\'s') + ' default curves' : 'custom curves') + ' · time means <b>' +
+    (tm === 'finish' ? 'time to finish' : tm === 'tau' ? 'time constant' : 'mixed (per stage)') + '</b>' + (m.ar ? ' · <b>AR path</b>: S ≥ 1 with no hold, the attack runs on (ADR-021)' : '') +
+    '. <b>Drag</b> ● sideways for a time (A, R), ■ sideways for the hold, the sustain ● anywhere (decay time and sustain level), and ◆ or any point of a segment up or down to bend it. ' +
+    '<b>Double-click</b> a segment to reset its curve to ' + (S.env[j].base === 'scalpel' ? 'SCALPEL\'s' : 'horde\'s') + '. The knobs are the same numbers. The drawn curve is the harness\'s own envelope, ' +
+    'sample for sample (self-check DRAWN); the key-off is placed for the picture. While a ▶ plays, the ring and the chips follow the <b>rendered</b> voice\'s stage and level (L0064).';
+  if (f) {
+    const ex = k => (k < 0 ? '+' + fmtK(-k) : '−' + fmtK(k));   // the exponent −k, signed for reading
+    const st = (nm, k0, s, T, y) => {
+      const k = KMAX * s.c;
+      return '<b>' + nm + '</b> (' + fmtS(T) + ', curve ' + curveTxt(s) + '): ' + (s.tm === 'tau'
+        ? 'e ← e + (' + y + ' − e)·κ, κ = 1 − e<sup>−' + fmtK(k) + '/N</sup>, never lands' + (k0 === 'a' ? '; hands over at 0.995 (at ' + fmtS(m.aEnd) + ')' : k0 === 'r' ? '; freed under 1e-4' : '')
+        : s.c === 0 ? 'e ← e + Δ/N, a straight line that lands at ' + fmtS(T)
+          : 'y(t) = y0 + Δ·(1 − e<sup>' + ex(k) + 't/T</sup>)/(1 − e<sup>' + ex(k) + '</sup>), lands at ' + fmtS(T));
+    };
+    f.innerHTML = '<b>The family (A1):</b> every moving stage runs e ← e + (aim − e)·κ with κ = 1 − e<sup>−k/N</sup>, k = 8c, N = T·sr. ' +
+      '"Time to finish" aims past the target so the stage lands exactly at T (c 0 is the straight line); "time constant" aims at the target and never lands (T = k τ). ' +
+      'Hold is flat, so it has no curve. Now:<br>' + st('attack', 'a', m.sh.a, m.p.A, '1') + '<br>' + st('decay', 'd', m.sh.d, m.p.D, 'S') + '<br>' + st('release', 'r', m.sh.r, m.p.R, '0');
+  }
+}
+/* A KNOB: vertical drag (shift for fine), alt + wheel (onAltWheel, the labs' idiom), arrow keys,
+   double-click resets. It reads and writes only through o.get / o.set (the setters above). */
+function knob(parent, o) {
+  const w = el('div', 'knob' + (o.curve ? ' curve' : '')), dial = el('div', 'dial'), val = el('output'), lab = el('label', '', o.label);
+  dial.appendChild(el('i'));
+  w.appendChild(dial); w.appendChild(val); w.appendChild(lab); w.tabIndex = 0;
+  if (o.title) w.title = o.title;
+  const rng = () => (o.range ? o.range() : [o.min, o.max]);
+  const toPos = v => { const [a, b] = rng(); return o.log ? (o.zero && v === 0 ? 0 : Math.log(Math.max(a, v) / a) / Math.log(b / a)) : (v - a) / (b - a); };
+  const fromPos = p => { const [a, b] = rng(); return o.log ? (o.zero && p <= 0.0005 ? 0 : a * Math.pow(b / a, p)) : a + (b - a) * p; };
+  const show = () => { const v = o.get(); w.style.setProperty('--pct', String(clamp(toPos(v), 0, 1))); val.textContent = o.fmt(v); };
+  const put = p => { o.set(fromPos(clamp(p, 0, 1))); show(); changed('env'); };
+  let dr = null;
+  w.addEventListener('pointerdown', e => { dr = { y: e.clientY, p: toPos(o.get()) }; if (w.setPointerCapture) w.setPointerCapture(e.pointerId); e.preventDefault(); });
+  w.addEventListener('pointermove', e => { if (dr) put(dr.p + (dr.y - e.clientY) / 160 * (e.shiftKey ? 0.2 : 1)); });
+  w.addEventListener('pointerup', () => { dr = null; });
+  w.addEventListener('pointercancel', () => { dr = null; });
+  w.addEventListener('dblclick', () => { o.reset(); show(); changed('env'); });
+  w.addEventListener('keydown', e => { const d = e.key === 'ArrowUp' || e.key === 'ArrowRight' ? 0.01 : e.key === 'ArrowDown' || e.key === 'ArrowLeft' ? -0.01 : 0; if (d) { put(toPos(o.get()) + d); e.preventDefault(); } });
+  onAltWheel(w, e => { put(toPos(o.get()) + (e.deltaY < 0 ? 0.01 : -0.01)); });
+  parent.appendChild(w);
+  show(); SHOWS.push(show);
+  return { el: w, put, show };
+}
+const KNOB = {};
+function buildEditor() {
+  pills($('edPills'), [[0, 'ENV 1 · amp'], [1, 'ENV 2'], [2, 'ENV 3'], [3, 'ENV 4']], () => S.edit, v => { S.edit = v; }, 'env');
+  pills($('tmPills'), [['finish', 'time to finish'], ['tau', 'time constant']], () => tmOf(S.edit), v => edTm(S.edit, v), 'env');
+  pills($('edPresetPills'), [['scalpel', 'SCALPEL\'s curves'], ['horde', 'horde\'s curves']], () => presetOf(S.edit), v => edPreset(S.edit, v), 'env');
+  const host = $('edKnobs');
+  if (host) {
+    const T = k => { KNOB[k] = knob(host, { label: k === 'A' ? 'ATTACK' : k === 'H' ? 'HOLD' : k === 'D' ? 'DECAY' : 'RELEASE', log: true, zero: k === 'H', min: k === 'H' ? 0.001 : TIME_RANGE[k][0], max: TIME_RANGE[k][1],
+      get: () => S.env[S.edit][k], set: v => edSet(S.edit, k, v), reset: () => edSet(S.edit, k, envDefaults()[S.edit][k]), fmt: v => (v === 0 ? '0' : fmtS(v)) }); };
+    const C = st => { KNOB['c' + st] = knob(host, { label: (st === 'a' ? 'ATTACK' : st === 'd' ? 'DECAY' : 'RELEASE') + ' CURVE', curve: true,
+      range: () => [S.env[S.edit].shape[st].tm === 'tau' ? TAU_MIN_C : -1, 1],
+      get: () => S.env[S.edit].shape[st].c, set: v => edCurve(S.edit, st, v), reset: () => edResetCurve(S.edit, st), fmt: v => curveTxt({ c: v, tm: S.env[S.edit].shape[st].tm }) }); };
+    const blank = t => { const d = el('div', 'knob'); d.style.cursor = 'default'; d.appendChild(el('output', '', '—')); d.appendChild(el('label', '', t)); host.appendChild(d); };
+    T('A'); T('H'); T('D');
+    KNOB.S = knob(host, { label: 'SUSTAIN', min: 0, max: 1, get: () => S.env[S.edit].S, set: v => edSet(S.edit, 'S', v), reset: () => edSet(S.edit, 'S', envDefaults()[S.edit].S), fmt: v => v.toFixed(2) });
+    T('R');
+    C('a'); blank('HOLD IS FLAT: NO CURVE'); C('d'); blank('SUSTAIN IS A LEVEL'); C('r');
+  }
+  const cv = $('edCv');
+  if (cv) {
+    cv.addEventListener('pointerdown', e => { const h = edHit(e.offsetX, e.offsetY); if (!h) return; edStart(h, e.offsetX, e.offsetY); if (cv.setPointerCapture) cv.setPointerCapture(e.pointerId); e.preventDefault(); paintEditor(false); });
+    cv.addEventListener('pointermove', e => {
+      if (ED.drag) { edDrag(ED.drag, e.offsetX, e.offsetY); changed('env'); return; }
+      const h = edHit(e.offsetX, e.offsetY);
+      cv.style.cursor = !h ? 'crosshair' : h.kind === 'bend' ? 'ns-resize' : h.id === 'DS' ? 'move' : 'ew-resize';
+    });
+    const end = () => { if (ED.drag) { ED.drag = null; changed('env'); } };
+    cv.addEventListener('pointerup', end); cv.addEventListener('pointercancel', end);
+    cv.addEventListener('dblclick', e => { const h = edHit(e.offsetX, e.offsetY); if (h && h.kind === 'bend') { edResetCurve(S.edit, h.st); changed('env'); } });
+  }
+  const sb = $('stageBar');
+  if (sb) { for (const [st, lb] of STAGE_LABEL) { const s = el('span', '', lb); s.dataset.st = String(st); sb.appendChild(s); } const b = el('b'); b.id = 'stageTxt'; sb.appendChild(b); }
+  paintStageBar(null);
+  const p0 = $('play0'); if (p0) p0.addEventListener('click', () => playScn(() => hierScn(true), p0, 'the §1 phrase, with §0\'s curves'));
+}
+/* THE STAGE INDICATOR (L0064): the latest voice of what is PLAYING, read from the mix's own records at
+   the AUDIO clock (ctx.currentTime since the buffer started). Never the knobs, never the wall clock. */
+function indNow() {
+  const P = AUD.play;
+  if (!P || !AUD.ctx) return null;
+  const x = Math.floor((AUD.ctx.currentTime - P.t0) * SR);
+  if (x >= P.n) { AUD.play = null; return null; }
+  return x < 0 ? null : indAt(P.ind, x, S.edit);
+}
+function paintStageBar(r) {
+  const sb = $('stageBar'); if (!sb) return;
+  for (const s of Array.from(sb.children || [])) if (s.dataset && s.dataset.st !== undefined) s.classList.toggle('on', !!r && String(r.st) === s.dataset.st);
+  const t = $('stageTxt');
+  if (t) t.textContent = r ? 'ENV ' + (S.edit + 1) + ' of voice ' + (r.rec + 1) + ' · level ' + r.lvl.toFixed(3) + ' · read from the rendered mix' : 'lights while a ▶ plays: the stage of the latest voice, read from the rendered mix (L0064)';
+}
+function startInd() {
+  if (AUD.rafInd || typeof requestAnimationFrame !== 'function') return;
+  const f = () => {
+    AUD.rafInd = 0;
+    const r = indNow();
+    ED.ind = r; paintStageBar(r); paintEditor(false);
+    if (AUD.play) AUD.rafInd = requestAnimationFrame(f);
+  };
+  AUD.rafInd = requestAnimationFrame(f);
+}
+
+/* ======================================================================
    §1 THE HIERARCHY
    ====================================================================== */
 const SRC_LABEL = { base: 'swarm / base', b1: 'blade 1', b2: 'blade 2', sub: 'sub (stand-in)' };
 const ENV_COL = ['--scr-value', '--scr-meter', '--scr-physics', '--scr-marker'];
 function hierScn(play) {
   const s = scnDefaults();
-  s.patch = Object.assign({}, HPATCH); s.law = S.law; s.env = S.env.map(e => Object.assign({}, e));
+  s.patch = Object.assign({}, HPATCH); s.law = shape1(); s.env = S.env.map(e => Object.assign({}, e));
   s.src = Object.assign({}, S.src); s.sub.lvl = S.subLvl; s.filter = Object.assign({}, S.filter); s.freeRule = S.freeRule;
   s.velAmt = S.velAmt; s.retrig = S.retrig; s.pool.steal = S.steal; s.pool.s0 = S.s0;
   const v = S.vel;
@@ -1461,12 +2229,16 @@ function buildEnvBoxes() {
     inv.classList.toggle('on', !!e.inv);
     PILLSYNC.push(() => inv.classList.toggle('on', !!e.inv));
     hd.appendChild(inv);
+    // B377: the curves live in §0 (the same S.env[j]: these sliders and §0's knobs and handles are views of one model)
+    const ed = el('button', 'pill', '✎ curves in §0');
+    ed.addEventListener('click', () => { S.edit = j; changed('env'); const c = $('s0'); if (c && c.scrollIntoView) c.scrollIntoView({ block: 'start' }); });
+    hd.appendChild(ed);
     bx.appendChild(hd);
-    const T = (k, lo, hi) => slider(bx, { label: k, min: lo, max: hi, log: true, zero: k === 'H', get: () => e[k], set: v => { e[k] = v; }, fmt: v => (v === 0 ? '0' : fmtS(v)) });
+    const T = (k, lo, hi) => slider(bx, { label: k, min: lo, max: hi, log: true, zero: k === 'H', get: () => e[k], set: v => { e[k] = v; }, fmt: v => (v === 0 ? '0' : fmtS(v)), what: 'env' });
     T('A', 0.001, 10); T('H', 0.001, 5); T('D', 0.005, 20);
-    slider(bx, { label: 'S', min: 0, max: 1, get: () => e.S, set: v => { e.S = v; }, fmt: v => v.toFixed(2), step: 0.01 });
+    slider(bx, { label: 'S', min: 0, max: 1, get: () => e.S, set: v => { e.S = v; }, fmt: v => v.toFixed(2), step: 0.01, what: 'env' });
     T('R', 0.005, 20);
-    if (j > 0) slider(bx, { label: 'amount', min: -1, max: 6, get: () => e.amt, set: v => { e.amt = v; }, fmt: v => v.toFixed(2), step: 0.05 });
+    if (j > 0) slider(bx, { label: 'amount', min: -1, max: 6, get: () => e.amt, set: v => { e.amt = v; }, fmt: v => v.toFixed(2), step: 0.05, what: 'env' });
     const cv = el('canvas'); cv.style.height = '38px'; cv.id = 'envMini' + j; bx.appendChild(cv);
     host.appendChild(bx);
   }
@@ -1520,8 +2292,8 @@ function paintLife() {
   for (let j = 0; j < 4; j++) {
     const c = $('envMini' + j); if (!c) continue;
     const p = S.env[j];
-    const tl = tailOf(p, S.law, 0.5);
-    plot(c, { t1: Math.max(0.2, 0.5 + tl), lines: [{ a: envCurve(p, S.law, 0.5, Math.max(0.2, 0.5 + tl)), col: tok(ENV_COL[j]), lw: 1.6 }], marks: [{ t: 0.5, col: tok('--scr-marker') }] });
+    const tl = tailOf(p, shape1(), 0.5);
+    plot(c, { t1: Math.max(0.2, 0.5 + tl), lines: [{ a: envCurve(p, shape1(), 0.5, Math.max(0.2, 0.5 + tl)), col: tok(ENV_COL[j]), lw: 1.6 }], marks: [{ t: 0.5, col: tok('--scr-marker') }] });
   }
 }
 function hierNote() {
@@ -1572,6 +2344,7 @@ function buildPresetTable() {
     mk('▶ B', b => playScn(() => presetScn(pr, 'horde'), b, pr.name + ' · B (horde)'));
     mk('▶ A then B', b => playPair(pr, b));
     mk('▶ blind', b => playBlind(pr, b));
+    mk('▶ yours', b => playScn(() => presetScn(pr, cloneShape(shape1())), b, pr.name + ' · yours (ENV 1\'s curves from §0)'));
     tr.appendChild(bt);
     tb.appendChild(tr);
     ROWS2.push({ pr, p });
@@ -1579,13 +2352,24 @@ function buildPresetTable() {
 }
 /* A then B, back to back (one buffer: A, a 0.4 s gap, B) */
 function playPair(pr, b) {
-  if (!CORE) return;
-  const t = b.textContent; b.textContent = 'rendering…';
-  Promise.all([renderAsync(presetScn(pr, 'scalpel')), renderAsync(presetScn(pr, 'horde'))]).then(([a, bb]) => {
-    const gap = Math.round(0.4 * SR), n = a.L.length + gap + bb.L.length, L = new Float32Array(n), R = new Float32Array(n);
-    L.set(a.L); R.set(a.R); L.set(bb.L, a.L.length + gap); R.set(bb.R, a.L.length + gap);
-    ensureCtx(); playBuf(L, R); setAudit('playing: ' + pr.name + ' · A (SCALPEL) then B (horde)');
-  }).catch(e => setAudit('render failed: ' + e.message, true)).finally(() => { b.textContent = t; });
+  if (!CORE && !RENDER.ready) return;
+  ensureCtx();
+  const sa = presetScn(pr, 'scalpel'), sb = presetScn(pr, 'horde'), kp = JSON.stringify(['pair', mixKey(sa), mixKey(sb)]), tok0 = ++AUD.tok;
+  const label = pr.name + ' · A (SCALPEL\'s curves) then B (horde\'s)';
+  const hit = mixGet(kp);
+  if (hit) { playRes(hit); setAudit('playing: ' + label + ' (cached)'); return; }
+  const t = b.dataset.txt || b.textContent; b.dataset.txt = t; b.classList.add('busy'); b.textContent = 'rendering 0%';
+  let fa = MIX.has(mixKey(sa)) ? 1 : 0, fb = MIX.has(mixKey(sb)) ? 1 : 0;
+  const show = () => { b.textContent = 'rendering ' + Math.round((fa + fb) * 50) + '%'; };
+  Promise.all([render(sa, { pri: 2, label: pr.name + ' · A', onProg: f => { fa = f; show(); } }), render(sb, { pri: 2, label: pr.name + ' · B', onProg: f => { fb = f; show(); } })]).then(([a, bb]) => {
+    const gap = Math.round(0.4 * SR), off = a.L.length + gap, n = off + bb.L.length, L = new Float32Array(n), R = new Float32Array(n);
+    L.set(a.L); R.set(a.R); L.set(bb.L, off); R.set(bb.R, off);
+    // the indicator follows both halves: B's records shifted to where B starts in the buffer
+    const ind = a.ind && bb.ind ? { dec: a.ind.dec, recs: a.ind.recs.concat(bb.ind.recs.map(r => Object.assign({}, r, { start: r.start + off }))) } : null;
+    const r = { L, R, kind: a.kind, ind, buf: null };
+    mixPut(kp, r);
+    if (tok0 === AUD.tok) { playRes(r); setAudit('playing: ' + label); }
+  }).catch(e => setAudit('render failed: ' + e.message, true)).finally(() => { b.classList.remove('busy'); b.textContent = t; delete b.dataset.txt; });
 }
 /* BLIND: one of the two laws, chosen by a seeded draw (mulberry32 over the play count, so the order is
    reproducible and never the clock's); "reveal" names it afterwards */
@@ -1596,9 +2380,19 @@ function playBlind(pr, b) {
   const bn = $('blindNote'); if (bn) bn.textContent = 'blind #' + S.blindN + ': ' + pr.name + ' — which law? (reveal when you have decided)';
   playScn(() => presetScn(pr, law), b, pr.name + ' · blind #' + S.blindN);
 }
-function paintLaws() {
+/* B377: §2 paints in steps (the heavy scheduler runs each in its own task): the rows' law runs, then
+   one row's curves at a time, then the note */
+const LAWS = { rows: [], common: 0 };
+function paintLaws() { for (const f of lawsSteps()) f(); }
+function lawsSteps() {
+  const st = [lawsRows];
+  for (let i = 0; i < ROWS2.length; i++) st.push(() => paintLawRow(i));
+  st.push(paintLawNote);
+  return st;
+}
+function lawsRows() {
   let common = 0;
-  const rows = ROWS2.map(({ pr, p }, i) => {
+  LAWS.rows = ROWS2.map(({ pr, p }, i) => {
     const s = presetScn(pr, 'scalpel');
     const gate = s.notes[0].len;
     const ta = lawTimes('scalpel', p, SR, gate), tb2 = lawTimes('horde', p, SR, gate);
@@ -1606,8 +2400,13 @@ function paintLaws() {
     common = Math.max(common, span);
     return { i, p, gate, ta, tb: tb2, span, cut: s.cut, aa: atkTime('scalpel', r0(p)), ab: atkTime('horde', r0(p)) };
   });
-  for (const r of rows) {
-    const t1 = S.axis === 'common' ? Math.min(common, 30) : r.span * 1.05;
+  LAWS.common = common;
+}
+function paintLawRow(i) {
+  const r = LAWS.rows[i];
+  if (!r) return;
+  {
+    const t1 = S.axis === 'common' ? Math.min(LAWS.common, 30) : r.span * 1.05;
     const a = envCurve(r.p, 'scalpel', r.gate, t1), b = envCurve(r.p, 'horde', r.gate, t1);
     plot($('lawCv' + r.i), { t1, title: '0 – ' + fmtS(t1), lines: [{ a: b, col: tok('--scr-meter'), lw: 1.8 }, { a, col: tok('--scr-value'), lw: 1.8 }],
       marks: [{ t: r.gate, col: tok('--scr-marker') }, { t: r.gate + r.ta.free, col: tok('--scr-value'), tri: true }, { t: r.gate + r.tb.free, col: tok('--scr-meter'), tri: true }] });
@@ -1616,8 +2415,17 @@ function paintLaws() {
       'to 0.995: A ' + fmtS(r.aa) + ' · B ' + fmtS(r.ab) + '<br><span class="note">' + relWord(r.p, 'scalpel') + ' · ' + relWord(r.p, 'horde') + '</span>' +
       (r.cut ? '<br><span class="note">audition stops at ' + MAX_DUR + ' s</span>' : '');
   }
+}
+function paintLawNote() {
   const n = $('lawNote');
-  if (n) n.innerHTML = '<b>How to audition decision 1.</b> Each row plays one of B366\'s twelve envelope presets as a short phrase, on the <b>same numbers</b> under each law: ' +
+  if (n) n.innerHTML = '<b>Decision 1 in curve terms (B377).</b> Both laws are now PRESETS of one family of shapeable stages (§0, A1): ' +
+    '<b>A = SCALPEL\'s curves</b>: ' + shapeWords(SHAPES.scalpel) + '; <b>B = horde\'s curves</b>: ' + shapeWords(SHAPES.horde) + '. ' +
+    'So decision 1 is two questions, not one: <b>which default curves</b>, and <b>what a time knob means</b> — "time to finish" (the stage lands at its time; ' +
+    'every curve from convex through straight to steep is available) or "time constant" (the stage aims at its level and never lands; the knob holds k τ). ' +
+    'SCALPEL\'s own law mixes the two (its attack finishes, its D and R are 4 τ); horde\'s is time constants throughout. <b>▶ yours</b> plays the same phrase with ' +
+    'ENV 1\'s curves as §0 has them now, so a third answer (for example every stage as a time to finish with a bend) can be heard beside A and B. ' +
+    'The self-check proves A and B are the laws below sample for sample (PRESETS). ' +
+    '<br><b>How to audition decision 1.</b> Each row plays one of B366\'s twelve envelope presets as a short phrase, on the <b>same numbers</b> under each law: ' +
     '<b>▶ A</b> is SCALPEL\'s law (what the composed engine plays today), <b>▶ B</b> is horde\'s (what ACCOUNTING rows 17–20 rule for horde 2), <b>▶ A then B</b> plays both in one ' +
     'buffer with a 0.4 s gap, and <b>▶ blind</b> plays one of the two, chosen by a seeded draw, for you to name before pressing "reveal". The engine renders each phrase ' +
     'once (both laws share its stems), so the second listen is instant. The curves are both laws on one note of the phrase, drawn to scale (the time axis switch puts ' +
@@ -1638,7 +2446,7 @@ const OPT_INFO = [
 const CLASHES = [['filter', 'a filter following ENV 1'], ['release', 'release and voice freeing'], ['legato', 'mono / legato, Legato Inverted'], ['steal', 'voice stealing and B323\'s cull']];
 function scBase(opt) {
   const s = scnDefaults(), nt = SC_NOTES[S.scNote];
-  s.patch = Object.assign({}, SC_PATCH, { N: S.sc.N }); s.law = S.law;
+  s.patch = Object.assign({}, SC_PATCH, { N: S.sc.N }); s.law = shape1();
   s.env[0] = Object.assign(s.env[0], nt.env, { inv: false });
   for (let j = 1; j < 4; j++) s.env[j].dest = 'none';
   s.filter.on = false; s.sub.lvl = 0;
@@ -1646,7 +2454,7 @@ function scBase(opt) {
   s.notes = [{ t: 0.02, len: nt.len, note: 57, vel: S.vel }];
   s.pool = { poly: 6, steal: S.steal, cap: 0, s0: S.s0 };
   s.velAmt = S.velAmt; s.retrig = S.retrig;
-  s.dur = Math.min(8, 0.02 + nt.len + tailOf(nt.env, S.law, nt.len) * (1 + 0.6 * 3 * S.sc.rel) + 0.2);
+  s.dur = Math.min(8, 0.02 + nt.len + tailOf(nt.env, shape1(), nt.len) * (1 + 0.6 * 3 * S.sc.rel) + 0.2);
   return s;
 }
 function scClash(opt, clash) {
@@ -1660,25 +2468,30 @@ function scClash(opt, clash) {
     s.env[0].inv = clash === 'dropout' ? true : S.clashInv; s.scatter.pure = clash === 'dropout' ? s.scatter.pure : S.pure;
     const L = Math.max(0.5, nt.len);
     s.notes = [{ t: 0.02, len: L, note: 57, vel: S.vel }, { t: 0.02 + L * 0.6, len: L, note: 60, vel: S.vel }, { t: 0.02 + L * 1.3, len: L, note: 64, vel: S.vel }];
-    s.dur = Math.min(8, 0.02 + L * 2.3 + tailOf(nt.env, S.law, L) + 0.2);
+    s.dur = Math.min(8, 0.02 + L * 2.3 + tailOf(nt.env, shape1(), L) + 0.2);
   }
   if (clash === 'steal') {
     s.env[0].R = Math.max(nt.env.R, 1.2);
     s.pool.poly = 3; s.pool.cap = S.pool === 'cap' ? S.cap : 0;
     s.notes = [{ t: 0.02, len: 2.2, note: 48, vel: S.vel }].concat([52, 55, 59, 62].map((n, i) => ({ t: 0.3 + i * 0.3, len: 0.12, note: n, vel: S.vel })));
-    s.dur = Math.min(8, 2.3 + tailOf(s.env[0], S.law, 2.2) + 0.2);
+    s.dur = Math.min(8, 2.3 + tailOf(s.env[0], shape1(), 2.2) + 0.2);
   }
   return s;
 }
-const SIMC = new Map();   // simulations are deterministic in the scenario: cache them per paint
+/* simulations are deterministic in the scenario (its JSON is the key), so they are cached ACROSS paints
+   (B377: a repaint that changed nothing in §3 re-ran ~25 of them, 0.5 s). Each §3 paint is one
+   generation; an entry unused for a whole generation is dropped, so the cache holds the working set. */
+const SIMC = new Map();
+let SIMG = 0;
 function simOf(s) {
   const k = JSON.stringify(s);
-  if (SIMC.has(k)) return SIMC.get(k);
+  const v = SIMC.get(k);
+  if (v) { v.g = SIMG; return v.r; }
   const r = simulate(s, CORE);
-  if (SIMC.size > 64) SIMC.delete(SIMC.keys().next().value);
-  SIMC.set(k, r);
+  SIMC.set(k, { r, g: SIMG });
   return r;
 }
+function simSweep() { for (const [k, v] of SIMC) if (v.g < SIMG) SIMC.delete(k); SIMG++; }
 function sumOf(rec) {
   const M = rec.g.length, out = new Float32Array(rec.len);
   for (let x = 0; x < rec.len; x++) { let s = 0; for (let i = 0; i < M; i++) s += rec.g[i][x]; out[x] = s / M * rec.vg[x]; }
@@ -1773,8 +2586,25 @@ function memberLines(rec, alpha) {
   if (rec.g.length > 1) for (const a of rec.g) out.push({ a, col, lw: 0.9, alpha: alpha || 0.7 });
   return out;
 }
-function paintSc() {
+/* §3 in two tasks (B377): the cards and the clash first, the evidence table (16 more simulations) next */
+const SC_M = { M: null, mr: null };
+function paintSc() { paintScCards(); paintScEvidence(); }
+function paintScEvidence() { if (SC_M.M) paintEvidence(SC_M.M, SC_M.mr); }
+/* the evidence's 14 simulations warmed into the cache one or two per task (0.5 s in one piece,
+   measured), then the table itself from cache hits */
+function evidenceSteps() {
+  const st = [];
+  for (let o = 1; o <= 4; o++) {
+    if (o !== 3) for (const pure of [false, true]) st.push(() => { if (!CORE) return; const s = scClash(o, 'dropout'); s.scatter.pure = pure; simOf(s); });
+    for (const rule of ['keep', 'fade']) st.push(() => { if (!CORE) return; const was = S.steal; S.steal = rule; try { simOf(scClash(o, 'steal')); } finally { S.steal = was; } });
+  }
+  st.push(paintScEvidence);
+  return st;
+}
+function paintScCards() {
+  SC_M.M = null;
   if (!CORE) { for (let o = 1; o <= 4; o++) { const n = $('scNote' + o); if (n) n.textContent = ENGINE.err || 'waiting for the engine (the draws are its own)…'; } return; }
+  simSweep();
   const ref = simOf(scBase(0)).recs[0], mr = measures(ref);
   const t1 = scBase(1).dur;
   const M = [null];
@@ -1788,14 +2618,14 @@ function paintSc() {
     plot($('scCv' + o), { t1, lines, bands: S.band && rec.g.length > 1 ? [{ arrs: rec.g, col: tok('--scr-physics'), alpha: 0.22 }] : [], marks });
     const n = $('scNote' + o);
     if (n) n.innerHTML = '90% of the ensemble at <b>' + fmtS(m.t90) + '</b> (unscattered ' + fmtS(mr.t90) + ') · the latest member (δ ' + fmtS(m.lateD) + ') peaks at <b>' + m.late.toFixed(2) + '</b> · tail ' + fmtS(m.tail) +
-      (o === 3 ? '<br>drawn from the harness\'s transcription of B335; <b>heard from the engine itself</b>' + (S.law === 'horde' ? ' (which has SCALPEL\'s law only)' : '') : '') +
+      (o === 3 ? '<br>drawn from the harness\'s transcription of B335; <b>heard from the engine itself</b>' + (!sameShape(shape1(), SHAPES.scalpel) ? ' (which has SCALPEL\'s curves only)' : '') : '') +
       (o === 2 ? '<br>ENV 4 is spent on the scatter; the slot\'s release is linked to ENV 1\'s by hand' : '') +
       (o === 4 ? '<br>heal ' + (S.sc.heal > 0 ? fmtS(S.sc.heal) : 'auto, ' + fmtS(sim.Th0)) + ': the members are ENV 1 itself from then on' : '');
   }
   const leg = $('scCards');
   if (leg) leg.title = 'members: thin violet · band: min–max across members · ENV 1 unspread: bold · the ensemble mean: dashed';
   paintClash();
-  paintEvidence(M, mr);
+  SC_M.M = M; SC_M.mr = mr;
 }
 function paintClash() {
   const cl = S.clash;
@@ -1966,8 +2796,8 @@ function buildLeg() {
 }
 function paintHold() {
   const p = Object.assign({}, S.env[0]), p0 = Object.assign({}, p, { H: 0 });
-  const gate = 1.0, t1 = gate + tailOf(p, S.law, gate) + 0.1;
-  plot($('holdCv'), { t1, lines: [{ a: envCurve(p0, S.law, gate, t1), col: tok('--scr-grid'), lw: 3, alpha: 0.6 }, { a: envCurve(p, S.law, gate, t1), col: tok('--scr-value'), lw: 1.6 }],
+  const gate = 1.0, t1 = gate + tailOf(p, shape1(), gate) + 0.1;
+  plot($('holdCv'), { t1, lines: [{ a: envCurve(p0, shape1(), gate, t1), col: tok('--scr-grid'), lw: 3, alpha: 0.6 }, { a: envCurve(p, shape1(), gate, t1), col: tok('--scr-value'), lw: 1.6 }],
     marks: [{ t: gate, col: tok('--scr-marker'), label: 'key-off' }] });
   const n = $('holdNote');
   const c = CHECKS.find(r => /^HOLD0/.test(r.name));
@@ -2038,8 +2868,8 @@ function buildDec() {
    decay, no release) against ENV 1 on "Blade sweep outlives the amp"; it is cut where the voice ends */
 function paintD4() {
   const pr = ENV_PRESETS.find(p => /outlives/.test(p.name)), p = envOfPreset(pr), gate = 0.2;
-  const tl = tailOf(p, S.law, gate), t1 = Math.max(1.2, (gate + tl) * 2.2), n = Math.round(t1 * SR);
-  const amp = envCurve(p, S.law, gate, t1), bl = new Float32Array(n);
+  const tl = tailOf(p, shape1(), gate), t1 = Math.max(1.2, (gate + tl) * 2.2), n = Math.round(t1 * SR);
+  const amp = envCurve(p, shape1(), gate, t1), bl = new Float32Array(n);
   const beA = 1 / Math.max(1, pr.params.benvA * 0.001 * SR), beD = 1 - Math.exp(-4 / Math.max(1, pr.params.benvD * 0.001 * SR));
   const free = Math.round((gate + tl) * SR);
   let be = 0, st = 1, cut = NaN;
@@ -2051,8 +2881,8 @@ function paintD4() {
   const nn = $('d4Note'); if (nn) nn.innerHTML = 'the blade envelope (teal) is at <b>' + cut.toFixed(3) + '</b> when the voice is freed (F9, on its own numbers, read 0.656 under A): the sweep is cut off, not finished. Under B the voice lives ' + fmtS(tl) + ', so less is cut.';
 }
 function paintD10() {
-  const p = { A: 2, H: 0, D: 0.4, S: 1, R: 1.2 }, t1 = 3.2, n = Math.round(t1 * SR), amp = envCurve(p, S.law, 3, t1), bu = new Float32Array(n);
-  const tA = lawTimes(S.law, p, SR, 3).atk, start = S.onsetClock === 'attack' ? tA : 0;
+  const p = { A: 2, H: 0, D: 0.4, S: 1, R: 1.2 }, t1 = 3.2, n = Math.round(t1 * SR), amp = envCurve(p, shape1(), 3, t1), bu = new Float32Array(n);
+  const tA = lawTimes(shape1(), p, SR, 3).atk, start = S.onsetClock === 'attack' ? tA : 0;
   let at3 = NaN;
   for (let i = 0; i < n; i++) { const t = i / SR; bu[i] = t < start ? 1 : Math.exp(-(t - start) / 0.63); if (isNaN(at3) && amp[i] >= Math.pow(10, -3 / 20)) at3 = i; }
   plot($('d10Cv'), { t1, lines: [{ a: bu, col: tok('--scr-physics'), lw: 1.6 }, { a: amp, col: tok('--scr-value'), lw: 2 }], marks: [{ t: at3 / SR, col: tok('--scr-marker'), label: 'swell −3 dB' }] });
@@ -2086,16 +2916,10 @@ function paintD13() {
   const nn = $('d13Note');
   if (!D13) { if (nn) nn.textContent = CORE ? 'measuring…' : 'waits for the engine (it measures a real stem)'; return; }
   const t1 = 1, lines = [];
-  for (const [g, col] of [[0.35, '--scr-value'], [1, '--scr-meter']]) {
-    const a = new Float32Array(Math.round(t1 * SR));
-    for (let i = 0; i < a.length; i++) { const Sx = Math.max(0.02, i / a.length); a[i] = D13.out(Sx, g) / D13.out(1, g); }
-    lines.push({ a, col: tok(col), lw: 1.8 });
-  }
-  const id = new Float32Array(Math.round(t1 * SR)); for (let i = 0; i < id.length; i++) id[i] = Math.max(0.02, i / id.length);
-  lines.push({ a: id, col: tok('--scr-grid'), lw: 1, dash: [3, 3] });
+  for (const [g, col] of [[0.35, '--scr-value'], [1, '--scr-meter']]) lines.push({ a: D13.lines[g], col: tok(col), lw: 1.8 });
+  lines.push({ a: D13.id, col: tok('--scr-grid'), lw: 1, dash: [3, 3] });
   plot($('d13Cv'), { t1, lines });
-  const db = (s, g) => 20 * Math.log10(D13.out(s, g) / D13.out(1, g));
-  if (nn) nn.innerHTML = 'output RMS against S (x axis, 0..1; dashed = the envelope itself), on a real stem: S 0.5 reads <b>' + db(0.5, 0.35).toFixed(2) + ' dB</b> at gain 0.35 and <b>' + db(0.5, 1).toFixed(2) + ' dB</b> at gain 1 (the envelope says −6.02; F16, on the default patch: −5.76 and −4.54).';
+  if (nn) nn.innerHTML = 'output RMS against S (x axis, 0..1; dashed = the envelope itself; measured at ' + D13_PTS + ' levels), on a real stem: S 0.5 reads <b>' + D13.db[0.35].toFixed(2) + ' dB</b> at gain 0.35 and <b>' + D13.db[1].toFixed(2) + ' dB</b> at gain 1 (the envelope says −6.02; F16, on the default patch: −5.76 and −4.54).';
 }
 
 /* ======================================================================
@@ -2123,6 +2947,208 @@ function runChecks() {
       const wf = Math.max(...keys.map(k => Math.abs(fz[k] - b[k])));
       chk('CONTROL (' + law + '): per-tick constants frozen at 48 kHz, run at 44.1 kHz', !(wf <= tol), 'worst Δ ' + (wf * 1000).toFixed(2) + ' ms: the detector sees a law that is not in seconds', true);
     }
+    // B377: the whole family, across its curves, under both meanings of a time
+    const fam = [];
+    for (const c of [-1, -0.5, 0, 0.5, 1]) fam.push({ a: { c, tm: 'finish' }, d: { c, tm: 'finish' }, r: { c, tm: 'finish' } });
+    for (const c of [TAU_MIN_C, 0.25, 1]) fam.push({ a: { c, tm: 'tau' }, d: { c, tm: 'tau' }, r: { c, tm: 'tau' } });
+    let wFam = 0, wAtD = 0;
+    for (const sh of fam) {
+      const a = lawTimes(sh, P, 44100, 1.5), b = lawTimes(sh, P, 48000, 1.5);
+      for (const k of keys) { if (isNaN(a[k]) && isNaN(b[k])) continue; wFam = Math.max(wFam, isNaN(a[k] - b[k]) ? Infinity : Math.abs(a[k] - b[k])); }
+      if (!isNaN(a.atD) || !isNaN(b.atD)) wAtD = Math.max(wAtD, isNaN(a.atD - b.atD) ? Infinity : Math.abs(a.atD - b.atD));
+    }
+    chk('SR (the curve family): every stage in seconds is the same at 44.1 and 48 kHz, for curves −1 … +1 as a time to finish and +1/64 … +1 as a time constant', wFam <= tol && wAtD < 1e-3,
+      fam.length + ' shapes · worst stage-time Δ ' + (wFam * 1e6).toFixed(1) + ' µs (≤ one sample) · worst level at D Δ ' + wAtD.toExponential(1));
+    const sh1 = fam[4], fz1 = lawTimes(sh1, P, 44100, 1.5, new Env(48000).setup(P, sh1)), b1 = lawTimes(sh1, P, 48000, 1.5);
+    const wf1 = Math.max(...keys.map(k => Math.abs(fz1[k] - b1[k])));
+    chk('CONTROL: curve +1 (time to finish) with its coefficients frozen at 48 kHz, run at 44.1 kHz', !(wf1 <= tol), 'worst Δ ' + (wf1 * 1000).toFixed(2) + ' ms', true);
+  });
+
+  /* PRESETS (B377) — SCALPEL's and horde's curve presets ARE the laws B370 played (LawEnv, kept
+     verbatim), sample for sample: every envelope the lab plays through a law, both rates, with a hold,
+     a legato retrigger, and the healing spread's r× clock */
+  guard('PRESETS', () => {
+    const ps = ENV_PRESETS.map(envOfPreset).concat(Object.keys(SC_NOTES).map(k => SC_NOTES[k].env), envDefaults().map(e => ({ A: e.A, H: e.H, D: e.D, S: e.S, R: e.R })),
+      [{ A: 0.1, H: 0.05, D: 0.4, S: 0.5, R: 0.28 }, { A: 0.02, H: 0, D: 0.3, S: 1, R: 0.5 }, { A: 0.3, H: 0.2, D: 0.5, S: 1, R: 1.5 }, { A: 2, H: 0, D: 0.4, S: 1, R: 1.2 }]);
+    const run = (e, gate, sr, retrig, r) => {
+      const out = [], nG = Math.round(gate * sr), nR = retrig ? Math.round(gate * 0.5 * sr) : -1, lim = Math.round(90 * sr);
+      e.on(true);
+      for (let i = 0; i < lim; i++) {
+        if (i === nR) e.on(false);
+        if (i === nG) e.off();
+        out.push(r ? e.tickR(r) : e.tick());
+        if (i > nG && e.st === 0) break;
+      }
+      return out;
+    };
+    const cmp = (mkA, mkB, sample) => {
+      let runs = 0, n = 0, diff = 0;
+      for (const p of ps) for (const law of ['scalpel', 'horde']) for (const [sr, retrig, r] of sample) {
+        const gate = Math.max(0.05, p.A + (p.H || 0) + p.D * 0.5);
+        const a = run(mkA(p, law, sr), gate, sr, retrig, r), b = run(mkB(p, law, sr), gate, sr, retrig, r);
+        runs++; n += Math.max(a.length, b.length);
+        for (let i = 0; i < Math.max(a.length, b.length); i++) if (a[i] !== b[i]) diff++;
+      }
+      return { runs, n, diff };
+    };
+    const variants = [[48000, false, 0], [44100, false, 0], [48000, true, 0], [48000, false, 1.37]];
+    const a = cmp((p, law, sr) => new Env(sr).setup(p, law), (p, law, sr) => new LawEnv(sr).setup(p, law), variants);
+    chk('PRESETS: SCALPEL\'s and horde\'s curve presets reproduce the laws B370 played, sample for sample', a.diff === 0 && a.runs > 100,
+      a.runs + ' runs (' + ps.length + ' envelopes × 2 laws × 44.1/48 kHz, a legato retrigger, the r× clock) · ' + a.n + ' samples · ' + a.diff + ' differ');
+    const bump = sh => { const o = cloneShape(sh); o.d.c += 1 / 512; o.r.c += 1 / 512; return o; };
+    const c1 = cmp((p, law, sr) => new Env(sr).setup(Object.assign({}, p, { shape: bump(SHAPES[law]) }), law), (p, law, sr) => new LawEnv(sr).setup(p, law), [[48000, false, 0]]);
+    chk('CONTROL: the presets with the decay and release curves one grid step away (c + 1/512)', c1.diff > 0, c1.diff + ' of ' + c1.n + ' samples differ', true);
+    const fin = sh => { const o = cloneShape(sh); for (const k of STAGES) o[k].tm = 'finish'; return o; };
+    const c2 = cmp((p, law, sr) => new Env(sr).setup(Object.assign({}, p, { shape: fin(SHAPES[law]) }), law), (p, law, sr) => new LawEnv(sr).setup(p, law), [[48000, false, 0]]);
+    chk('CONTROL: the same curves read as a time to FINISH', c2.diff > 0, c2.diff + ' of ' + c2.n + ' samples differ', true);
+    // the time base: the family's N (the oracle's ms round trip) against ADR-021's T·sr
+    let mm = 0, n = 0;
+    for (let ms = 1; ms <= 20000; ms++) for (const sr of [44100, 48000]) { const T = ms / 1000; n++; if (Math.exp(-1 / (T * sr)) !== Math.exp(-1 / stageN(T, sr))) mm++; }
+    chk('PRESETS: horde\'s κ from N = T·1000·0.001·sr equals ADR-021\'s T·sr on every whole millisecond, 1 ms – 20 s', mm === 0, n + ' times at 44.1 and 48 kHz, ' + mm + ' differ');
+    const rnd = mulberry32(377); let mo = 0;
+    for (let i = 0; i < 100000; i++) { const T = 0.001 * Math.pow(20000, rnd()), sr = i % 2 ? 44100 : 48000; if (Math.exp(-1 / (T * sr)) !== Math.exp(-1 / stageN(T, sr))) mo++; }
+    chk('CONTROL: OFF the millisecond grid the two time bases can round apart (the claim above is scoped)', mo > 0, mo + ' of 100000 random times differ by one rounding', true);
+  });
+
+  /* NEUTRAL (B377) — curve 0 read as a time to finish is the straight line: bit for bit the accumulator
+     e ← e + Δ/N (the oracle's own linear attack; HOLD0 shows it is the engine's), within float summing
+     of y0 + Δ·n/N, landing on its level at T */
+  guard('NEUTRAL', () => {
+    const lin = { a: { c: 0, tm: 'finish' }, d: { c: 0, tm: 'finish' }, r: { c: 0, tm: 'finish' } };
+    const one = (sh, T) => {
+      const p = { A: T, H: 0, D: T, S: 0.3, R: T, shape: sh }, e = new Env(SR).setup(p), N = stageN(T, SR);
+      let bitD = 0, far = 0, land = 0, ref = 0, y0 = 0, st = 1, n = 0;
+      const stepOf = { 1: 1 / N, 2: (0.3 - 1) * (1 / N), 4: 0 };   // the Env's own products, (y1 − y0)·(1/N)
+      e.on(true);
+      for (let i = 0; i < 4 * N + 10; i++) {
+        if (e.st === 3 && st === 3) { e.off(); st = 4; y0 = e.e; ref = e.e; n = 0; stepOf[4] = (0 - y0) * (1 / N); }
+        const s0 = e.st; e.tick();
+        if (s0 === 1 || s0 === 2 || s0 === 4) {
+          ref += stepOf[s0]; n++;
+          const y1 = s0 === 1 ? 1 : s0 === 2 ? 0.3 : 0, lineV = (s0 === 1 ? 0 : s0 === 2 ? 1 : y0) + (y1 - (s0 === 1 ? 0 : s0 === 2 ? 1 : y0)) * n / N;
+          if (e.st === s0 && e.e !== ref) bitD++;
+          if (e.st === s0) far = Math.max(far, Math.abs(e.e - lineV));
+          if (e.st !== s0) { land = Math.max(land, Math.abs(n - N)); ref = e.e; n = 0; st = e.st; }
+        }
+        if (e.st === 0) break;
+      }
+      return { bitD, far, land };
+    };
+    let w = { bitD: 0, far: 0, land: 0 };
+    for (const T of [0.001, 0.25, 3]) { const r = one(lin, T); w = { bitD: w.bitD + r.bitD, far: Math.max(w.far, r.far), land: Math.max(w.land, r.land) }; }
+    chk('NEUTRAL: curve 0 (time to finish) is the straight line, attack, decay and release', w.bitD === 0 && w.far < 1e-9 && w.land <= 1,
+      'at 1 ms, 0.25 s and 3 s: ' + w.bitD + ' samples off the accumulator e ← e + Δ/N; at most ' + w.far.toExponential(1) + ' from y0 + Δ·n/N; lands within ' + w.land.toFixed(2) + ' sample of T');
+    const tiny = { a: { c: 1 / 512, tm: 'finish' }, d: { c: 1 / 512, tm: 'finish' }, r: { c: 1 / 512, tm: 'finish' } };
+    const t2 = one(tiny, 0.25);
+    chk('CONTROL: the smallest bend there is (c = 1/512)', t2.far > 1e-5, 'departs from the line by ' + t2.far.toExponential(2), true);
+  });
+
+  /* MONO (B377) — no stage ever turns back or passes its target, over the family's whole range */
+  guard('MONO', () => {
+    const probe = (e, gate) => {
+      let bad = 0, prev = 0, st = 1, y0 = 0, worst = 0;
+      const lim = Math.round(12 * SR), nG = Math.round(gate * SR);
+      e.on(true);
+      for (let i = 0; i < lim; i++) {
+        if (i === nG) { e.off(); st = 4; y0 = e.e; }
+        const s0 = e.st, v = e.tick();
+        if (s0 !== st && !(s0 === 4 && st === 4)) { st = s0; y0 = prev; }
+        const S = e.p.S;
+        let over = 0;
+        if (s0 === 1) over = Math.max(prev - v, v - 1, -v);                        // rising, never past 1
+        else if (s0 === 2) over = S < y0 ? Math.max(v - prev, S - v) : Math.max(prev - v, v - S);   // toward S, never past it
+        else if (s0 === 4) over = Math.max(v - prev, -v);                           // falling, never below 0
+        if (over > 0) { bad++; worst = Math.max(worst, over); }
+        prev = v;
+        if (e.st === 0) break;
+      }
+      return { bad, worst };
+    };
+    let runs = 0, bad = 0, worst = 0;
+    const T3 = [0.001, 0.05, 0.5];
+    for (let i = -64; i <= 64; i++) for (const T of T3) {
+      const c = i / 64, sh = { a: { c, tm: 'finish' }, d: { c, tm: 'finish' }, r: { c, tm: 'finish' } };
+      const r = probe(new Env(SR).setup({ A: T, H: 0, D: T, S: 0.3, R: T, shape: sh }), 3 * T + 0.01); runs++; bad += r.bad; worst = Math.max(worst, r.worst);
+    }
+    for (let i = 1; i <= 64; i++) for (const T of T3) {
+      const c = i / 64, sh = { a: { c, tm: 'tau' }, d: { c, tm: 'tau' }, r: { c, tm: 'tau' } };
+      const r = probe(new Env(SR).setup({ A: T, H: 0, D: T, S: 0.3, R: T, shape: sh }), 3 * T + 0.01); runs++; bad += r.bad; worst = Math.max(worst, r.worst);
+    }
+    chk('MONO: every stage is monotonic and never passes its target, curves −1 … +1 (finish) and +1/64 … +1 (time constant)', bad === 0 && runs === 3 * 129 + 3 * 64,
+      runs + ' envelopes (A = D = R = 1 ms, 50 ms, 0.5 s) · ' + bad + ' samples turn back or overshoot');
+    // CONTROL: the same family with the landing clamp taken off the attack (the aim lies past 1)
+    class NoClamp extends Env { tick() { if (this.st === 1 && !this.ca.tau) { const c = this.ca; this.e += c.lin ? c.step : (this.aimA - this.e) * c.kap; if (this.e >= 1) this.toDecay(); return this.e; } return super.tick(); } }
+    let cb = 0, cw = 0;
+    for (const c of [-1, -0.5, 0.5, 1]) { const r = probe(new NoClamp(SR).setup({ A: 0.05, H: 0, D: 0.05, S: 0.3, R: 0.05, shape: { a: { c, tm: 'finish' }, d: { c, tm: 'finish' }, r: { c, tm: 'finish' } } }), 0.2); cb += r.bad; cw = Math.max(cw, r.worst); }
+    chk('CONTROL: the attack without its landing clamp', cb > 0, cb + ' samples overshoot, by up to ' + cw.toExponential(2), true);
+  });
+
+  /* DRAG=KNOB (B377) — one model, two views: a drag on the curve and a turn of the knob write the same
+     state through the same setter, and each view shows what the other wrote */
+  guard('DRAG=KNOB', () => {
+    const keep = S.env.map(e => ({ A: e.A, H: e.H, D: e.D, S: e.S, R: e.R, shape: cloneShape(e.shape), base: e.base })), keepEd = S.edit;
+    const restore = () => { S.env.forEach((e, j) => Object.assign(e, keep[j], { shape: cloneShape(keep[j].shape) })); S.edit = keepEd; ED.m = null; ED.drag = null; };
+    try {
+      S.edit = 0; edPreset(0, 'scalpel');
+      // a fixed 600 × 270 geometry, so the check does not depend on the page's layout
+      ED.m = edModel(0); ED.g = edGeo({ clientWidth: 600, clientHeight: 270 }, ED.m.t1); ED.H = edHandles(ED.m);
+      const hb = ED.H.find(h => h.kind === 'bend' && h.st === 'a'), g = ED.g;
+      edStart(hb, g.X(hb.t), g.Y(hb.v)); edDrag(ED.drag, g.X(hb.t), g.Y(hb.v) - 0.2 * 0.6 * g.ph); ED.drag = null;
+      const cDrag = S.env[0].shape.a.c, stDrag = JSON.stringify(S.env[0]), aDrag = edModel(0).a;
+      KNOB.ca.show();
+      const shown = KNOB.ca.el.querySelector ? KNOB.ca.el.querySelector('output').textContent : '';
+      edPreset(0, 'scalpel');
+      const k = KNOB.ca, pos = (cDrag + 1) / 2;
+      k.put(pos);
+      const cKnob = S.env[0].shape.a.c, stKnob = JSON.stringify(S.env[0]), aKnob = edModel(0).a;
+      let dd = 0; for (let i = 0; i < Math.max(aDrag.length, aKnob.length); i++) if (aDrag[i] !== aKnob[i]) dd++;
+      chk('DRAG=KNOB: dragging the attack segment and turning the attack-curve knob write the same state, and the same curve', cDrag !== 0 && cDrag === cKnob && stDrag === stKnob && dd === 0,
+        'drag → c ' + cDrag + ' · knob → c ' + cKnob + ' · state ' + (stDrag === stKnob ? 'identical' : 'DIFFERENT') + ' · ' + dd + ' samples of the drawn curve differ');
+      chk('DRAG=KNOB: each view shows what the other wrote (the knob after the drag; the release node after a turn of the R knob)', shown === curveTxt({ c: cDrag, tm: 'finish' }) &&
+        (() => { KNOB.R.put(0.5); const m = edModel(0); return edHandles(m).find(h => h.id === 'R').t === m.gate + S.env[0].R; })(),
+        'the knob read "' + shown + '" after the drag; the R node sits at the key-off + ' + fmtS(S.env[0].R) + ' after the knob');
+      // CONTROL: a second model — a view that writes its own copy of the curves
+      edPreset(0, 'scalpel');
+      const copy = cloneShape(S.env[0].shape); copy.a.c = cDrag;
+      chk('CONTROL: a view writing a private copy of the curves', JSON.stringify(S.env[0]) !== stDrag, 'the model still reads c ' + S.env[0].shape.a.c + ' where the drag wrote ' + cDrag, true);
+    } finally { restore(); }
+  });
+
+  /* DRAWN (B377) — the editor draws the harness's own envelope: its curve against the record simulate()
+     writes for the same envelope and key-off, sample for sample */
+  guard('DRAWN', () => {
+    const drawnVsHeard = p => {
+      const sh = p.shape;
+      const gate = 0.6, t1 = 2.5, a = envCurve(p, sh, gate, t1);
+      const s = scnDefaults();
+      s.env[0] = Object.assign({}, s.env[0], p); s.law = sh; s.patch = Object.assign({}, HPATCH); s.filter.on = false;
+      for (let j = 1; j < 4; j++) s.env[j].dest = 'none';
+      s.notes = [{ t: 0, len: gate, note: 57, vel: 1 }]; s.dur = t1;
+      const rec = simulate(s, null).recs[0];
+      let d = 0; for (let x = 0; x < rec.len; x++) if (rec.e1u[x] !== a[x]) d++;
+      return { d, n: rec.len, a, rec };
+    };
+    const bent = { A: 0.12, H: 0.05, D: 0.3, S: 0.4, R: 0.5, shape: { a: { c: 0.4, tm: 'finish' }, d: { c: -0.3, tm: 'finish' }, r: { c: 0.6, tm: 'finish' } } };
+    const hordeP = { A: 0.12, H: 0, D: 0.3, S: 0.4, R: 0.5, shape: cloneShape(SHAPES.horde) };
+    const r1 = drawnVsHeard(bent), r2 = drawnVsHeard(hordeP), r3 = drawnVsHeard(Object.assign({}, S.env[0]));
+    chk('DRAWN: the drawn envelope is the harness\'s own, sample for sample (a bent one, horde\'s, and ENV 1 as it is now)', r1.d + r2.d + r3.d === 0 && r1.n > SR,
+      (r1.n + r2.n + r3.n) + ' samples, ' + (r1.d + r2.d + r3.d) + ' differ');
+    // CONTROL: a parallel model — every stage drawn as if its time were a time to finish, horde's included
+    const par = Object.assign({}, hordeP, { shape: cloneShape(SHAPES.horde) }); for (const k of STAGES) par.shape[k].tm = 'finish';
+    const a2 = envCurve(par, par.shape, 0.6, 2.5); let d2 = 0; for (let x = 0; x < r2.rec.len; x++) if (r2.rec.e1u[x] !== a2[x]) d2++;
+    chk('CONTROL: horde\'s envelope drawn from its knob times as times to finish (a parallel model)', d2 > 0, d2 + ' of ' + r2.rec.len + ' samples differ from what renders', true);
+  });
+
+  /* IND (B377, L0064) — the stage indicator reads the RENDERED voice. On horde's pad the attack knob
+     says 0.9 s, but the rendered voice is still rising there (a time constant hands over at 0.995). */
+  guard('IND', () => {
+    const pr = ENV_PRESETS.find(p => /slow bloom/.test(p.name)), s = presetScn(pr, 'horde'), sim = simulate(s, C), ind = indOf(sim);
+    const t0 = s.notes[0].t, A = envOfPreset(pr).A, x = Math.round((t0 + A) * SR), r = indAt(ind, x, 0), rec = sim.recs.filter(q => q.len > 0)[r ? r.rec : 0];
+    const y = x - rec.start, exact = rec.e1u[Math.floor(y / ind.dec) * ind.dec];
+    chk('IND: at the attack knob\'s time the indicator reads the rendered voice: still in ATTACK, at its rendered level', !!r && r.st === 1 && r.lvl === exact && r.lvl < ATK_END,
+      r ? 'stage ' + (STAGE_LABEL.find(q => q[0] === r.st) || [0, '?'])[1] + ' · level ' + r.lvl.toFixed(4) + ' (the mix\'s own record there: ' + exact.toFixed(4) + ')' : 'nothing sounding');
+    const knobModel = t => (t < A ? 1 : t < A + envOfPreset(pr).D ? 2 : 3);   // stages from the knob times, as if each finished
+    chk('CONTROL: a knob-time model at the same moment', knobModel(A + 1e-3) !== r.st, 'it reads ' + (STAGE_LABEL.find(q => q[0] === knobModel(A + 1e-3)) || [0, '?'])[1], true);
   });
 
   /* HOLD0 — hold 0 is the ADSR. SCALPEL's law against the ENGINE'S OWN v.env, sample by sample;
@@ -2301,12 +3327,39 @@ function runChecks() {
     chk('CONTROL: the unhealed spread at the same moment', !(wu < 2e-3), 'the widest member is ' + wu.toFixed(3) + ' from ENV 1', true);
   });
 
+  publishChecks(false);
+  // WORKER runs after: it needs the worker's render, which is asynchronous
+  checkWorker().then(() => publishChecks(true), e => { chk('WORKER', false, 'threw: ' + String(e && e.message || e)); publishChecks(true); });
+}
+/* WORKER (B377) — the worker's mix is bit-identical to the same scenario rendered on the main thread
+   (the route B370 played), for a full-stem phrase and a member-stem one (the healing spread) */
+async function checkWorker() {
+  if (!RENDER.ready) { chk('WORKER: the worker renders what the main thread renders, sample for sample', false, 'no worker to compare: ' + RENDER.mode); return; }
+  const cases = [['§2 Pluck · sync blade · B', presetScn(ENV_PRESETS[0], 'horde')], ['§3 option 4 (member stems)', scBaseFor('pluck', 'heal', 20)]];
+  let n = 0, d = 0, parts = [];
+  for (const [name, scn] of cases) {
+    const w = await render(scn, { pri: 1, label: 'self-check' });
+    const m = runSync(mixGen(CORE, JSON.parse(mixKey(scn))));
+    let dd = 0; for (let i = 0; i < m.L.length; i++) { if (m.L[i] !== w.L[i]) dd++; if (m.R[i] !== w.R[i]) dd++; }
+    if (m.L.length !== w.L.length) dd += Math.abs(m.L.length - w.L.length) + 1;
+    n += 2 * m.L.length; d += dd; parts.push(name + ' ' + dd);
+  }
+  chk('WORKER: the worker renders what the main thread renders, sample for sample', d === 0 && n > SR, n + ' samples (' + parts.join(' · ') + ' differ)');
+  // CONTROL: the same phrase with one note's velocity moved by one part in a million, on the main thread
+  const c = presetScn(ENV_PRESETS[0], 'horde'); c.notes[1].vel *= 1 + 1e-6;
+  const w0 = await render(presetScn(ENV_PRESETS[0], 'horde'), { pri: 1 }), mc = runSync(mixGen(CORE, c));
+  let dc = 0; for (let i = 0; i < mc.L.length; i++) if (mc.L[i] !== w0.L[i]) dc++;
+  chk('CONTROL: a render of a scenario one part in a million away', dc > 0, dc + ' of ' + mc.L.length + ' samples differ', true);
+}
+function publishChecks(done) {
   const n = CHECKS.length, ok = CHECKS.filter(r => r.ok).length, ctl = CHECKS.filter(r => r.control).length;
-  AUDIT.check = ok + '/' + n + (ok === n ? ' pass' : ' — FAILING') + ' (' + ctl + ' must-fail controls)';
+  AUDIT.check = ok + '/' + n + (ok === n ? ' pass' : ' — FAILING') + ' (' + ctl + ' must-fail controls)' + (done ? '' : ' · the worker row is running');
   AUDIT.bad = ok !== n;
   renderAudit();
-  document.body.setAttribute('data-selfcheck', ok + '/' + n + ' ' + ctl + 'c');
-  const sm = $('chkSum'); if (sm) sm.innerHTML = '<b class="' + (ok === n ? 'ok' : 'bad') + '">' + ok + '/' + n + '</b> rows pass, ' + ctl + ' of them must-fail controls (each control is a planted wrong version the row above it must refuse).';
+  // the results are published only when the self-check ran (B375's rule for window.__b271)
+  document.body.setAttribute('data-selfcheck', ok + '/' + n + ' ' + ctl + 'c' + (done ? '' : ' running'));
+  window.__b377 = { done, ok, n, controls: ctl, rows: CHECKS.map(r => ({ name: r.name, ok: r.ok, control: r.control, detail: r.detail })) };
+  const sm = $('chkSum'); if (sm) sm.innerHTML = '<b class="' + (ok === n ? 'ok' : 'bad') + '">' + ok + '/' + n + '</b> rows pass, ' + ctl + ' of them must-fail controls (each control is a planted wrong version the row above it must refuse)' + (done ? '.' : '; the WORKER row is still rendering…');
   const tb = $('chkTable');
   if (tb) {
     tb.textContent = '';
@@ -2336,17 +3389,39 @@ function scBaseFor(note, optName, ms) {
    THE PAINT, THE HEADER, THE BOOT
    ====================================================================== */
 function paint() {
-  const all = DIRTY.has('all');
-  SIMC.clear();
+  const all = DIRTY.has('all'), env = all || DIRTY.has('env');
   for (const f of PILLSYNC) f();
   for (const f of SHOWS) f();
   try {
-    if (all) { paintFlow(); paintLife(); paintLaws(); paintD4(); paintD10(); paintD12(); paintD13(); }
-    if (all || DIRTY.has('sc')) paintSc();
-    if (all || DIRTY.has('leg')) paintLeg();
+    if (env) { paintEditor(true); paintFlow(); }
     paintHold();
   } catch (e) { setAudit('paint failed: ' + String(e && e.stack || e).slice(0, 400), true); }
+  if (all) { HEAVY.add('laws'); HEAVY.add('dcards'); }
+  if (env) { HEAVY.add('sc'); HEAVY.add('dcards'); HEAVY.add('life'); HEAVY.add('leg'); }
+  if (DIRTY.has('leg')) HEAVY.add('leg');
+  if (DIRTY.has('sc')) HEAVY.add('sc');
+  if (DIRTY.has('laws')) HEAVY.add('laws');
   DIRTY.clear();
+  if (HEAVY.size) { clearTimeout(heavyT); heavyT = setTimeout(paintHeavy, HEAVY_WAIT); }
+}
+/* the heavy painters, one task each, never while a curve is being dragged */
+function paintHeavy() {
+  if (ED.drag) { heavyT = setTimeout(paintHeavy, HEAVY_WAIT); return; }
+  const H = new Set(HEAVY); HEAVY.clear();
+  const steps = [];
+  if (H.has('life')) steps.push(paintLife);
+  if (H.has('leg')) steps.push(paintLeg);
+  if (H.has('laws')) steps.push(...lawsSteps());
+  if (H.has('sc')) steps.push(paintScCards, ...evidenceSteps());
+  if (H.has('dcards')) steps.push(() => { paintD4(); paintD10(); paintD12(); paintD13(); });
+  steps.push(schedulePrefetch);
+  const next = () => {
+    const f = steps.shift();
+    if (!f) return;
+    try { f(); } catch (e) { setAudit('paint failed: ' + String(e && e.stack || e).slice(0, 400), true); }
+    if (steps.length) setTimeout(next, 0);
+  };
+  next();
 }
 function applyTheme() {
   document.body.classList.toggle('dark', S.dark);
@@ -2355,13 +3430,16 @@ function applyTheme() {
 function applyOnly() {
   const only = qp('only', '');
   if (!only) return;
-  for (const id of ['s1', 's2', 's3', 's4', 's5', 's6']) { const c = $(id); if (c && id !== only) c.classList.add('hidden'); }
+  for (const id of ['s0', 's1', 's2', 's3', 's4', 's5', 's6']) { const c = $(id); if (c && id !== only) c.classList.add('hidden'); }
 }
 function build() {
-  pills($('lawPills'), [['scalpel', 'A · SCALPEL (today)'], ['horde', 'B · horde (ACCOUNTING 17–20)']], () => S.law, v => { S.law = v; });
+  // B377: the header sets all four envelopes' curves to a preset; neither pill is lit once any curve is edited
+  pills($('lawPills'), [['scalpel', 'A · SCALPEL\'s curves (today)'], ['horde', 'B · horde\'s curves (ACCOUNTING 17–20)']], () => lawLabel(), v => { S.law = v; for (let j = 0; j < 4; j++) edPreset(j, v); });
   pills($('velPills'), [[0.5, '0.5'], [0.85, '0.85'], [1, '1']], () => S.vel, v => { S.vel = v; });
-  pills($('axisPills'), [['fit', 'each row fits'], ['common', 'one axis for all']], () => S.axis, v => { S.axis = v; });
-  pills($('relPills'), [['law', 'the law\'s own', true], ['tau', 'τ'], ['silence', 'time to silence']], () => S.relDisp, v => { S.relDisp = v; });
+  pills($('axisPills'), [['fit', 'each row fits'], ['common', 'one axis for all']], () => S.axis, v => { S.axis = v; }, 'laws');
+  pills($('relPills'), [['law', 'the law\'s own', true], ['tau', 'τ'], ['silence', 'time to silence']], () => S.relDisp, v => { S.relDisp = v; }, 'laws');
+  const cr = $('chkRun'); if (cr) cr.addEventListener('click', () => { if (CORE) runChecks(); else setAudit('the self-check waits for the engine', true); });
+  buildEditor();
   const tb = $('themeBtn'); if (tb) tb.addEventListener('click', () => { S.dark = !S.dark; applyTheme(); changed('all'); });
   const sb = $('stopBtn'); if (sb) sb.addEventListener('click', stopAudio);
   const br = $('blindReveal'); if (br) br.addEventListener('click', () => { const n = $('blindNote'); if (n) n.textContent = S.blind ? 'blind #' + S.blindN + ' (' + S.blind.name + ') was ' + (S.blind.law === 'scalpel' ? 'A · SCALPEL' : 'B · horde') : 'nothing played blind yet'; });
@@ -2369,7 +3447,7 @@ function build() {
   const p4 = $('play4'); if (p4) p4.addEventListener('click', () => playScn(() => legScn(true), p4, 'the ' + S.mode + ' phrase'));
   buildSrc(); buildEnvBoxes(); hierNote();
   buildPresetTable(); buildSc(); buildLeg(); buildDec();
-  applyTheme(); applyOnly();
+  applyTheme(); applyOnly(); setupVis();
 }
 async function loadEngine() {
   if (!RAZOR) { ENGINE.err = 'reference/scalpel/prototype/razor-core.js did not load'; return; }
@@ -2378,15 +3456,30 @@ async function loadEngine() {
   try {
     const r = await fetch('../../reference/swarmsaw.html');
     if (!r.ok) throw new Error('reference/swarmsaw.html: HTTP ' + r.status);
-    CORE = MAKE(RAZOR, SLICE(await r.text()));
+    ENGINE.swarm = await r.text();   // B377: the worker builds its engine from the same text
+    CORE = MAKE(RAZOR, SLICE(ENGINE.swarm));
   } catch (e) {
     ENGINE.err = 'the composed engine did not build: ' + String(e && e.message || e) + ' (serve the repo: python3 tools/serve_labs.py)';
   }
 }
+/* B377: D13's curve is MEASURED ONCE, at D13_PTS levels, and kept. B370 re-measured it at every
+   one of 48,000 plotted samples, each a pass of tanh over the whole stem, twice, on every repaint:
+   20.2 s of main thread per pill click (measured, trace 2026-09-30-b377-envelope-lab-r2). The plot
+   draws each column at the nearest measured level; the dB readouts are measured exactly at S 0.5. */
+const D13_PTS = 121;
 function measureD13() {
   const st = runSync(stemGen(CORE, { patch: SC_PATCH, ev: [{ at: 0, on: 57, vel: 1 }], n: Math.round(0.6 * SR), solo: null, seed: 13 }));
   const a = Math.round(0.1 * SR);
-  D13 = { out: (Sx, g) => { let s = 0; for (let i = a; i < st.L.length; i++) { const y = Math.tanh(st.L[i] * Sx * g * 1.6); s += y * y; } return Math.sqrt(s / (st.L.length - a)); } };
+  const out = (Sx, g) => { let s = 0; for (let i = a; i < st.L.length; i++) { const y = Math.tanh(st.L[i] * Sx * g * 1.6); s += y * y; } return Math.sqrt(s / (st.L.length - a)); };
+  const n = SR, lines = {}, db = {}, id = new Float32Array(n);
+  for (let i = 0; i < n; i++) id[i] = Math.max(0.02, i / n);
+  for (const g of [0.35, 1]) {
+    const full = out(1, g), tab = new Float32Array(D13_PTS), arr = new Float32Array(n);
+    for (let q = 0; q < D13_PTS; q++) tab[q] = out(Math.max(0.02, q / (D13_PTS - 1)), g) / full;
+    for (let i = 0; i < n; i++) arr[i] = tab[Math.round(i / n * (D13_PTS - 1))];
+    lines[g] = arr; db[g] = 20 * Math.log10(out(0.5, g) / full);
+  }
+  D13 = { lines, db, id };
 }
 /* ?smoke=1 — render (never play) every ▶ on the page once and write what came out into the page
    (data-smoke on <body>): a headless run cannot hear, so this is how a play button is shown to make
@@ -2401,7 +3494,7 @@ async function smoke() {
   let bad = 0;
   for (const [name, f] of jobs) {
     try {
-      const r = await renderAsync(f());
+      const r = await render(f(), { pri: 1, label: 'smoke ' + name });
       let pk = 0, e = 0, fin = true;
       for (let i = 0; i < r.L.length; i++) { const v = r.L[i]; if (!isFinite(v)) fin = false; else { pk = Math.max(pk, Math.abs(v)); e += v * v; } }
       const ok = fin && pk > 1e-3 && pk <= 1;
@@ -2422,10 +3515,12 @@ async function boot() {
   AUDIT.bad = !CORE;
   renderAudit();
   if (!CORE) return;
+  startWorker(ENGINE.swarm);
+  // B377: the self-check runs only on request (?check=1 or §6's button, B375's rule); the smoke run too
   setTimeout(() => {
     try { measureD13(); } catch (e) { setAudit('D13 failed: ' + e.message, true); }
     changed('all');
-    setTimeout(() => { runChecks(); if (qp('smoke', '') === '1') smoke(); }, 30);
+    setTimeout(() => { if (qp('check', '') === '1') runChecks(); if (qp('smoke', '') === '1') smoke(); }, 30);
   }, 30);
 }
 boot();
