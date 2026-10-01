@@ -1,0 +1,706 @@
+<!doctype html>
+<!-- h2-plan-map — the visual map of horde 2's plan of record (docs/H2-PLAN.md). HYPERSAW, 2026-10-01.
+     ROADMAP B387 (records PR #888, branch lead-records-158), dispatched by the horde lead. The human:
+     "go ahead and begin the plan of record for Horde 2".
+
+     WHAT THIS PAGE IS. One node per part of horde 2, an edge per dependency (prerequisite -> dependent),
+     colour by status, the critical path to 1.0 highlighted. Clicking a node shows what the part is, its
+     status, its dependencies and the human's open decisions, plus the governing ROADMAP rows READ LIVE
+     from ROADMAP.md (title and latest status phrase). The page never restates a row's task state as its
+     own: ROADMAP.md is the single source of truth and the row panel is a view of it.
+
+     THE DATA BLOCK (DATA below) is the plan's structure, written by hand from the ROADMAP rows and ADRs
+     it cites. docs/H2-PLAN.md carries the same parts table; self-check 4 compares the two so they cannot
+     drift apart silently. An edge's `basis` is the row or ADR that makes it a dependency; an edge whose
+     basis is not a row or ADR is the plan's INFERENCE and is drawn dashed.
+
+     SELF-CHECKS (?check=1, or the button), each with a must-fail control that must go red:
+       1. every node cites at least one ROADMAP row that exists in the served ROADMAP.md, and every
+          cited ADR exists in DECISIONS.md (control: a planted node citing only B99999);
+       2. the dependency graph has no cycle (control: a planted back-edge release -> engine);
+       3. every edge names real nodes and every status is in the vocabulary (control: an edge to 'nope');
+       4. the map agrees with docs/H2-PLAN.md's parts table: same ids, statuses, rows and prerequisites
+          (control: a copy of the doc table with one status changed);
+       5. the highlighted critical path is a chain of real edges ending at 'release' and no longer chain
+          exists among the 1.0 nodes (control: the path with a node removed).
+     Checks 1 and 4 read files over HTTP, so they need the page served (python3 tools/serve_labs.py);
+     opened as a file they report SKIP, never a pass.
+
+     URL: ?theme=dark · ?check=1 · ?node=<id>. Nothing is stored and nothing reads a clock.
+     L0026: every const is declared above the code that runs at setup; boot() is the last statement. -->
+<html><head><meta charset="utf-8">
+<meta name="lab-review" content="B387 · 2026-10-01">
+<title>horde 2 — plan of record map</title>
+<style>
+  /* TOKENS: the SCALPEL lab's (scalpel-interface-lab.html), as engine-audit.html carries them */
+  :root {
+    --bg:#F2EDE2; --panel:#FCFAF4; --well:#FFFFFF; --panel2:#E9E3D4;
+    --line:#191521; --hair:#E5DFD0; --div:#D8D1C0;
+    --text:#191521; --t2:#494356; --dim:#9A93A3; --dis:#B6AFA0;
+    --value:#F5169C; --physics:#6431F0; --meter:#00D5C8; --marker:#8A6A00; --celebrate:#4E7A00;
+    --caution:#F5A300; --caution-bg:#FBE9BD; --caution-tx:#6D570B; --alarm:#C2261A;
+    --cA:#FFD702;
+    --r-card:10px; --stroke:1.5px;
+    --shadow:1.5px 1.5px 0 var(--line);
+    --focus:0 0 0 2.5px rgba(245,22,156,.45);
+    /* status colours: one hue per status, the same in both themes' roles */
+    --s-built:#4E7A00; --s-prog:#00A89D; --s-ruled:#6431F0; --s-planned:#F5A300; --s-post:#9A93A3; --s-parked:#B6AFA0; }
+  body.dark {
+    --bg:#151220; --panel:#1F1B2E; --well:#0E0C16; --panel2:#2C2740;
+    --line:#EFE9FA; --hair:#312B47; --div:#3B3455;
+    --text:#EFE9FA; --t2:#BDB4D4; --dim:#8A82A3; --dis:#514A6B;
+    --value:#FF3DAD; --physics:#A07CFF; --meter:#2DF2E2; --marker:#FFE04D; --celebrate:#C2F53E;
+    --caution:#FFB627; --caution-bg:#4A3A12; --caution-tx:#FFD98A; --alarm:#FF5A4D;
+    --focus:0 0 0 2.5px rgba(255,61,173,.45);
+    --s-built:#C2F53E; --s-prog:#2DF2E2; --s-ruled:#A07CFF; --s-planned:#FFB627; --s-post:#8A82A3; --s-parked:#514A6B; }
+  * { box-sizing:border-box; margin:0; }
+  body { background:var(--bg); color:var(--text); font:12px/1.45 ui-monospace,Menlo,monospace; padding:10px 14px 24px; }
+  .hdr { display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; margin-bottom:10px; }
+  h1 { font-size:34px; line-height:1; letter-spacing:-1px; font-weight:800; }
+  .badges { display:flex; align-items:center; gap:8px; margin-top:4px; flex-wrap:wrap; }
+  .badge { font-size:9.5px; letter-spacing:.1em; padding:2px 7px; border:var(--stroke) solid var(--line);
+           border-radius:3px; background:var(--cA); color:#191521; }
+  .tagline { color:var(--t2); font-size:10.5px; letter-spacing:.12em; }
+  .hdrctl { margin-left:auto; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .chip { padding:4px 8px; border:0; background:none; border-radius:var(--r-card); cursor:pointer; font:inherit;
+          font-size:10px; letter-spacing:.06em; color:var(--dim); min-height:26px; }
+  .chip:hover { background:var(--panel2); }
+  .chip b { color:var(--t2); font-weight:600; letter-spacing:.1em; }
+  .pill { padding:4px 12px; border:var(--stroke) solid var(--line); border-radius:999px; min-height:28px; cursor:pointer;
+          color:var(--t2); background:var(--panel); font:inherit; font-size:11px; letter-spacing:.06em; }
+  .pill:hover { box-shadow:var(--shadow); }
+  .pill:focus-visible, .chip:focus-visible { outline:none; box-shadow:var(--focus); }
+  .card { background:var(--panel); border:var(--stroke) solid var(--line); border-radius:var(--r-card);
+          box-shadow:var(--shadow); padding:12px 14px; margin-bottom:12px; }
+  .card h2 { font-size:14px; letter-spacing:.04em; margin-bottom:8px; }
+  .card p { color:var(--t2); max-width:130ch; margin-bottom:6px; }
+  .card p b { color:var(--text); }
+  .legend { display:flex; gap:12px; flex-wrap:wrap; align-items:center; font-size:10.5px; color:var(--t2); }
+  .sw { display:inline-block; width:11px; height:11px; border-radius:3px; border:1px solid var(--line); margin-right:5px; vertical-align:-2px; background:var(--sc); }
+  .leg-line { display:inline-block; width:26px; height:0; border-top:2px solid var(--t2); vertical-align:3px; margin-right:5px; }
+  .leg-line.dash { border-top-style:dashed; }
+  .leg-line.crit { border-top:3.5px solid var(--value); }
+  .main { display:grid; grid-template-columns:minmax(0,1fr) 360px; gap:12px; align-items:start; }
+  .canvas { overflow:auto; border:var(--stroke) solid var(--line); border-radius:var(--r-card); background:var(--panel); box-shadow:var(--shadow); }
+  svg text { font-family:ui-monospace,Menlo,monospace; }
+  .n rect.box { fill:var(--well); stroke:var(--line); stroke-width:1.2; }
+  .n.crit rect.box { stroke:var(--value); stroke-width:2.6; }
+  .n.open1 rect.box { stroke-dasharray:4 3; }
+  .n.sel rect.box { fill:var(--panel2); stroke-width:3; }
+  .n { cursor:pointer; }
+  .n:hover rect.box { fill:var(--panel2); }
+  .n text.nm { fill:var(--text); font-size:10.5px; font-weight:700; }
+  .n text.st { fill:var(--t2); font-size:9px; letter-spacing:.06em; }
+  .n.dimmed { opacity:.28; }
+  path.e { fill:none; stroke:var(--dim); stroke-width:1.2; }
+  path.e.inf { stroke-dasharray:4 3; }
+  path.e.crit { stroke:var(--value); stroke-width:3; }
+  path.e.hl { stroke:var(--text); stroke-width:2; }
+  path.e.dimmed { opacity:.15; }
+  .lane { fill:none; stroke:var(--div); stroke-dasharray:6 4; }
+  .lanelbl { fill:var(--dim); font-size:9.5px; letter-spacing:.12em; }
+  .side { position:sticky; top:10px; max-height:calc(100vh - 20px); overflow:auto; }
+  .side h3 { font-size:15px; margin-bottom:4px; }
+  .side h4 { font-size:9.5px; letter-spacing:.12em; color:var(--dim); margin:10px 0 3px; }
+  .side p, .side li { color:var(--t2); font-size:11px; }
+  .side ul { padding-left:16px; }
+  .side code { color:var(--text); }
+  .stag { display:inline-block; font-weight:800; font-size:10px; letter-spacing:.06em; padding:1px 7px; border-radius:4px;
+          background:var(--sc); color:#191521; border:1px solid var(--line); }
+  .rowref { border-left:3px solid var(--div); padding:2px 0 2px 8px; margin:4px 0; }
+  .rowref b { color:var(--text); }
+  .rowref .rs { color:var(--value); font-size:10px; }
+  .rowref.missing { border-left-color:var(--alarm); }
+  .dep a, .side a.nd { color:var(--physics); cursor:pointer; text-decoration:underline; }
+  .order { display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:8px; }
+  .stage { background:var(--well); border:1px solid var(--div); border-radius:8px; padding:8px 10px; }
+  .stage h4 { font-size:11px; margin-bottom:4px; }
+  .stage .trk { font-size:9px; letter-spacing:.12em; color:var(--dim); }
+  .stage p { font-size:10.5px; color:var(--t2); margin-bottom:4px; }
+  .stage .nds { display:flex; flex-wrap:wrap; gap:4px; }
+  .nchip { font-size:9.5px; padding:0 6px; border-radius:3px; border:1px solid var(--line); background:var(--sc); color:#191521; cursor:pointer; }
+  .crit-list { display:flex; flex-wrap:wrap; gap:6px; align-items:center; font-size:11px; }
+  .crit-list .arr { color:var(--value); font-weight:800; }
+  .chk { font-size:11px; }
+  .chk .r { display:grid; grid-template-columns:90px 1fr; gap:8px; padding:3px 0; border-bottom:1px solid var(--hair); }
+  .ok { color:var(--celebrate); font-weight:800; } .bad { color:var(--alarm); font-weight:800; } .skip { color:var(--caution-tx); font-weight:800; }
+  body.dark .skip { color:var(--caution); }
+  .verdict { font-size:13px; font-weight:800; margin-bottom:6px; }
+  .note { color:var(--dim); font-size:10px; }
+  @media (max-width:1100px) { .main { grid-template-columns:1fr; } .side { position:static; max-height:none; } }
+</style></head>
+<body>
+<div class="hdr">
+  <div>
+    <h1>horde 2 — plan map</h1>
+    <div class="badges"><span class="badge">B387</span><span class="tagline">THE PLAN OF RECORD, DRAWN: EVERY PART, ITS STATUS, ITS DEPENDENCIES, THE CRITICAL PATH TO 1.0. ROWS ARE READ LIVE FROM ROADMAP.md.</span></div>
+  </div>
+  <div class="hdrctl">
+    <button class="chip" id="themeBtn">theme <b>LIGHT</b></button>
+    <button class="pill" id="checkBtn">run self-check</button>
+  </div>
+</div>
+
+<div class="card">
+  <div class="legend" id="legend"></div>
+  <p class="note" id="srcNote" style="margin-top:6px"></p>
+</div>
+
+<div class="main">
+  <div>
+    <div class="canvas" id="canvas"></div>
+    <div class="card" style="margin-top:12px">
+      <h2>Critical path to 1.0</h2>
+      <div class="crit-list" id="critList"></div>
+      <p class="note" style="margin-top:6px">The longest chain of prerequisites among the 1.0 parts, ending at <code>release</code> (the stability line, ADR-186 §5(f)). Computed from DATA every load, not typed. Parts whose 1.0 membership is open (dashed outline) are left out of the computation.</p>
+    </div>
+    <div class="card">
+      <h2>Order of work (PROPOSED — B331 still awaits the human's reorder or approval)</h2>
+      <p class="note" style="margin-bottom:8px">Two different orders, on purpose. The graph's edges are COMPLETION dependencies: a part cannot be done before its prerequisites. The stages below order the human's REVIEW sessions, and a lab can rule its laws before its prerequisites are built (B266 raced the FX-morph paradigms on abstract chains). So the FX algorithm morph is reviewed in S3 and finished after the rack and Sluice exist.</p>
+      <div class="order" id="order"></div>
+    </div>
+    <div class="card" id="checkCard" style="display:none">
+      <h2>Self-check</h2>
+      <div class="chk" id="checkOut"></div>
+    </div>
+  </div>
+  <div class="card side" id="side"></div>
+</div>
+
+<script>
+/* ---------- DATA: the plan's structure (mirrors docs/H2-PLAN.md's parts table; self-check 4) ---------- */
+const STATUSES = ['built', 'in progress', 'ruled', 'planned', 'post-1.0', 'parked'];
+const SCOLOR = { 'built':'--s-built', 'in progress':'--s-prog', 'ruled':'--s-ruled', 'planned':'--s-planned', 'post-1.0':'--s-post', 'parked':'--s-parked' };
+const GROUPS = ['engine', 'pitch', 'modulation', 'morph', 'sources', 'fx', 'state', 'shell', 'quality', 'presentation', 'content', 'milestone', 'post', 'parked'];
+
+const DATA = {
+  asOf: '2026-10-01',
+  records: 'ROADMAP at records PR #888 (lead-records-158, b556ded) over main c64cfdb',
+  nodes: [
+    { id:'engine', name:'Composed engine', group:'engine', status:'in progress', in1:'yes',
+      what:'Two SCALPEL oscillators, each the SCALPEL blades on horde\'s Kuramoto swarm (the "Scalpel + Horde Legacy engines combined" of the human\'s summary). The lab JS docs/design/scalpel-horde-engine.js is the golden the C++ is ported against.',
+      note:'Lineup ruled (B327); the composed engine is built in the lab and carries B310, B335, M1–M3 (B382) and ADR-189 D1–D3 (B355). Its parameter surface waits on the audit.',
+      rows:['B327','B298','B252','B335','B310','B382','B355'], adrs:['ADR-184','ADR-187','ADR-189'],
+      deps:[],
+      decisions:['Envelope decision 1: whose law, now which default curves and what a time knob means (B366, B377)','ADR-189 D1–D3 defaults in the instrument (ruled when the shell is built)','Whether the lab offers law 3 with a real bpm (B382)'] },
+    { id:'audit', name:'Engine audit + legacy roundup', group:'engine', status:'in progress', in1:'yes',
+      what:'Every control of the swarm core, the legacy shell, the composed engine and SCALPEL, decided keep / lock / cull / merge; plus every Legacy feature not yet in horde 2, approved or denied. The export becomes the provisional manifest.',
+      note:'B376 built (PR #872), awaiting the human\'s decisions; B386 dispatched.',
+      rows:['B376','B386','B312'], adrs:['ADR-186'],
+      deps:[['engine','B376']],
+      decisions:['Keep / lock / cull / merge for 185 control concepts (B376)','Approve / deny / later per Legacy feature (B386)','The member-count range n (1..32 vs 1..9) (B376)'] },
+    { id:'edges', name:'Edge correction', group:'engine', status:'in progress', in1:'yes',
+      what:'How the swarm\'s and the blades\' edges are band-limited: 2-point polyBLEP, oversampling, linear- or minimum-phase BLEP tables, or note-dependent schemes (B378 F3).',
+      note:'Listening lab built and merged (B383, PR #878); the choice is the human\'s, by ear.',
+      rows:['B383','B380','B378'], adrs:['ADR-187'],
+      deps:[],
+      decisions:['Which edge correction, options (a)–(f) (B383, B380)'] },
+    { id:'port', name:'Clean C++ port (phase 1b)', group:'engine', status:'in progress', in1:'yes',
+      what:'One C++ composed engine in h2/engine/, written fresh against the composed JS at current main, reusing razor_core.h\'s and the lifted swarm core\'s proven code by copy and cleanup; parity, then the quality suites, then the B378 fixes as ledgered divergences.',
+      note:'Re-scoped 2026-10-01 and dispatched (B385). razor_core.h and the lifted swarm core become test references.',
+      rows:['B385','B379','B332','B378'], adrs:['ADR-186','ADR-187'],
+      deps:[['engine','B385'],['edges','B379']],
+      decisions:['The bit-exact floor value, reported for ratification after the baseline (B332)','The demotion ruling for the composed engine\'s JS, per ADR-187 §4, once the Layer-0 suite lands'] },
+    { id:'seams', name:'Seam contracts + readiness gate', group:'shell', status:'ruled', in1:'yes',
+      what:'Every seam\'s expectation contract and an engine manifest per source (morph class, mod limits, relation to the globals, preset participation); a readiness gate refuses an engine whose manifest is incomplete. This is how "all relevant parameters available to modulation and morph" is enforced.',
+      note:'P0 audit done (B276); "every source follows every global" ruled (B275 b); FOUNDATIONS registered the schema (B339); P1 (B277) not dispatched.',
+      rows:['B275','B276','B277','B339'], adrs:['ADR-186'],
+      deps:[['audit','B376']],
+      decisions:['B275 (a) the seam list and what "ready" means at each','B275 (c) the FOUNDATIONS / horde split','B275 (d) proceed on the provisional schema before FOUNDATIONS answers'] },
+    { id:'bend', name:'Bend laws + glide', group:'pitch', status:'planned', in1:'yes',
+      what:'H1\'s pitch system: GlideCore\'s five laws on the bend and note lanes, including the inertial mass-spring (the human\'s own concept), per-note bend under the same law, Glide From.',
+      note:'Built in legacy; glide_core.h sits in h2/cores/swarm only as part of the lift, which B385 makes a test reference. No horde 2 row of its own yet.',
+      rows:['B278','B57','B32'], adrs:['ADR-096','ADR-097','ADR-102','ADR-103','ADR-180'],
+      deps:[['port','inferred: the pitch seam lives in the engine voice'],['seams','B275']],
+      decisions:[] },
+    { id:'quant', name:'Shared pitch quantizer', group:'pitch', status:'planned', in1:'yes',
+      what:'Legacy\'s scale quantize (root + 12-bit mask) becomes a service other FX and devices can call, with room left for Tonality.',
+      note:'Roadmapped (B391); seam room for Tonality is required now (B390).',
+      rows:['B391','B88','B260'], adrs:['ADR-106','ADR-158','ADR-093'],
+      deps:[['bend','ADR-106']],
+      decisions:['Whether a MIDI sidechain sets the scale in 1.0 (B260)'] },
+    { id:'mpe', name:'MPE', group:'pitch', status:'planned', in1:'open',
+      what:'Per-note pitch, pressure, timbre and slide reaching the swarm and blades, the mod matrix, morph and the voice law.',
+      note:'Roadmapped (B388). Legacy has per-note bend and note-travel lanes and per-voice ENV2.',
+      rows:['B388'], adrs:['ADR-161','ADR-162','ADR-097','ADR-149'],
+      deps:[['bend','ADR-097'],['modmatrix','ADR-149'],['port','B388']],
+      decisions:['Is MPE in 1.0? (B388 says "roadmap", not "1.0")','The MPE design itself (B388)'] },
+    { id:'modulators', name:'Modulators + envelopes', group:'modulation', status:'in progress', in1:'yes',
+      what:'The modulator lab (LFOs, Kuro-LFO, ORBITAL, MIDI trackers, note-on randoms, the dry follower, coherence R) and the envelope hierarchy (ENV 1 global, shapeable stage curves). Together they deliver the mod page.',
+      note:'Labs built (B208, B226, B366, B370, B377); envelope decision 1 open.',
+      rows:['B208','B226','B366','B370','B377','B253','B259','B264','B267','B126'], adrs:['ADR-165','ADR-161','ADR-162'],
+      deps:[['engine','B366']],
+      decisions:['Linked note-on randoms: correlation control or fan-out (B264)','ORBITAL velocity: signed components or speed (B267)','Onset scatter recommendation (B370)'] },
+    { id:'modmatrix', name:'Mod matrix', group:'modulation', status:'in progress', in1:'yes',
+      what:'Routes, depths, polarity per route, mod-on-mod, per-corner modulation ranges; the spring displacement (B57) joins as a source.',
+      note:'Lab built (B207); the human made it a near-term priority (B392).',
+      rows:['B392','B207','B57','B270','B282'], adrs:['ADR-168','ADR-141','ADR-136'],
+      deps:[['modulators','B392'],['seams','B282'],['audit','inferred: destinations are the audited parameter surface']],
+      decisions:['The modulator-morph laws per type (see Modulator morph, B396)'] },
+    { id:'modmorph', name:'Modulator morph', group:'modulation', status:'planned', in1:'yes',
+      what:'Modulator shapes and parameters morph continuously between corners (Hz continuous, sync stepped); mappings jump by quantum flip; a cycle detector rejects any intermediate state that forms a modulation cycle, by construction.',
+      note:'To workshop, part of the mod lab (B396, B392).',
+      rows:['B396'], adrs:['ADR-104'],
+      deps:[['modmatrix','B396'],['morph','B396']],
+      decisions:['A continuous morph law per modulator type, including ORBITAL\'s bodies (B396)'] },
+    { id:'morph', name:'Morph: editor, laws, quantum', group:'morph', status:'in progress', in1:'yes',
+      what:'The morph field: blend, quantum and stepped classes, waypoints and custom curves, the waypoint law as a setting, a position-free draw for horde 2.',
+      note:'Editor lab rounds built (B211, B235, B268, B269); TIN·Δ / TPS·Δ ruled as a setting (B272).',
+      rows:['B211','B235','B268','B269','B272','B240','B308'], adrs:['ADR-104','ADR-109','ADR-185','ADR-186'],
+      deps:[['seams','B275']],
+      decisions:['B269\'s open items: per-group cohesion, boundary editing in BLEND/STEPPED, exempt and locks','The counter-based draw ADR before the first horde 2 patch is saved (B308 H3)'] },
+    { id:'intent', name:'Macros + intent bus', group:'morph', status:'planned', in1:'yes',
+      what:'Macros, the intent bus resolver and its unbuilt routing half (per-corner mod ranges); macro ranges per snapshot corner, mappings per patch.',
+      note:'Built in legacy through phase 2; phase 3 and the routing half are owed (B170, B270).',
+      rows:['B170','B270','B354'], adrs:['ADR-152','ADR-176','ADR-169','ADR-188'],
+      deps:[['morph','B270'],['modmatrix','B270']],
+      decisions:[] },
+    { id:'sub', name:'The new Sub', group:'sources', status:'planned', in1:'yes',
+      what:'A new sub oscillator, workshopped; the legacy Sub is not lifted as it is.',
+      note:'Ruled into 1.0 (B327); the workshop starts by asking what the human dislikes in the legacy Sub.',
+      rows:['B327','B278','B282'], adrs:['ADR-178'],
+      deps:[['seams','B275'],['bend','B278']],
+      decisions:['What the human dislikes in the legacy Sub (B327)'] },
+    { id:'filters', name:'Filters', group:'sources', status:'in progress', in1:'yes',
+      what:'Many filter types with a fidelity programme, serial/parallel placement with the + inlet, Comb as a keytracked filter type, per-note filters for keytracking.',
+      note:'Lab round 2 merged (B274, #769); fidelity fixes built (B287); B289 and B303 not dispatched; self-oscillation tabled (B292).',
+      rows:['B274','B287','B288','B289','B290','B303'], adrs:['ADR-153'],
+      deps:[['seams','B275'],['bend','B278']],
+      decisions:['Re-ruling of the tolerances physics refuses (B287 → B290)','The per-note filter type list, after a Release cost measurement (B303)'] },
+    { id:'mix', name:'Mixer + routing', group:'sources', status:'in progress', in1:'yes',
+      what:'Sources → filters → FX routing (the dense crosspoint matrix) and the mixer page with meters and latching clip warnings at every stage.',
+      note:'Mixer lab built (B225); routing shipped in legacy (B23); corner FX buses still a discussion (B258).',
+      rows:['B225','B23','B258','B263'], adrs:['ADR-088','ADR-175'],
+      deps:[['sub','inferred: the mixer\'s strips are the sources'],['filters','inferred: the routing places the filters']],
+      decisions:['Which of the 18 taps become full meters (B225)','Corner FX buses feeding a global bus: discussion owed (B258)'] },
+    { id:'rack', name:'FX rack + slot contract', group:'fx', status:'planned', in1:'yes',
+      what:'The FX rack every module plugs into: one instance per module type, the slot contract for every type, cyclic topologies per sample, the cost bench.',
+      note:'Rebuild licence granted in legacy (B50); horde 2\'s rack is unbuilt; B393 rules the roster.',
+      rows:['B50','B281','B262','B393'], adrs:['ADR-172','ADR-175','ADR-128'],
+      deps:[['mix','inferred: the rack sits in the routing (B263\'s rack per side)'],['seams','B281']],
+      decisions:[] },
+    { id:'maw', name:'MAW', group:'fx', status:'in progress', in1:'yes',
+      what:'The three-stage saturator (FX-C), as it will live in horde.',
+      note:'Design lab built (B318) with the workstation skin (B373).',
+      rows:['B318','B373','B393'], adrs:['ADR-170','ADR-092'],
+      deps:[['rack','B318']],
+      decisions:['FX-C as a fixed post-stage or a matrix slot, and B318\'s other open items'] },
+    { id:'sluice', name:'Sluice', group:'fx', status:'in progress', in1:'yes',
+      what:'The morphable FX network (covers dispersers, shifters, phasers, chorus), consumed as a private, optional dependency; one patch per module XY, different patches at horde\'s morph corners.',
+      note:'Labs built (B319, B329, B337, B348, B361); consumption mechanism filed to Sluice (B328, ball Sluice).',
+      rows:['B328','B321','B329','B337','B347','B353','B361','B369','B273','B359','B393'], adrs:['ADR-188','ADR-166'],
+      deps:[['rack','B328']],
+      decisions:['The consumption mechanism, after both leads (B328)','Binary distribution of a Sluice-built horde (B328)','Lab tails: label, stand-in gate, or leave (B369)'] },
+    { id:'reverb', name:'Reverb', group:'fx', status:'in progress', in1:'yes',
+      what:'The reverb from the reverb lab, ported as a rack module.',
+      note:'Golden audit layers 1–2 done (B152); the port waits on the rack.',
+      rows:['B152','B210','B393'], adrs:['ADR-177'],
+      deps:[['rack','B152']],
+      decisions:[] },
+    { id:'fxsimple', name:'Simpler FX modules', group:'fx', status:'in progress', in1:'yes',
+      what:'The simpler modules already in the FX lab (echo, delay, drive, filter and the rest), each with a name and a screen style.',
+      note:'Designed in the FX design lab (B210) and the screens workshop (B336).',
+      rows:['B210','B336','B393'], adrs:['ADR-172','ADR-142'],
+      deps:[['rack','B393']],
+      decisions:['Module names; ten glasses or six (B336)'] },
+    { id:'ott', name:'OTT', group:'fx', status:'planned', in1:'open',
+      what:'A new OTT (multiband upward/downward compression) module; its lab is to be started.',
+      note:'Ruled to start (B393).',
+      rows:['B393'], adrs:[],
+      deps:[['rack','B393']],
+      decisions:['Is OTT in 1.0? (B393 rules the lab, not its release)'] },
+    { id:'kchorus', name:'Kuramoto chorus', group:'fx', status:'planned', in1:'open',
+      what:'A separate chorus module built on Kuramoto coupling.',
+      note:'Ruled to start (B393).',
+      rows:['B393'], adrs:[],
+      deps:[['rack','B393']],
+      decisions:['Is the Kuramoto chorus in 1.0? (B393)'] },
+    { id:'fxmorph', name:'FX algorithm morph', group:'morph', status:'in progress', in1:'yes',
+      what:'How an FX chain\'s order and topology morph between corners while satisfying every condition: the hardest open part of FX morph.',
+      note:'Labs built (B265, B266); the human made it a priority again soon (B394).',
+      rows:['B394','B265','B266','B352'], adrs:['ADR-125','ADR-188','ADR-175'],
+      deps:[['morph','ADR-125'],['rack','B265'],['sluice','ADR-188']],
+      decisions:['B265/B266 open items: the I3 reading, STRICT or TAIL, the approved order set, crossfade density'] },
+    { id:'patch', name:'Patch model → state schema', group:'state', status:'in progress', in1:'yes',
+      what:'One system for oscillator parts, FX racks, mod banks, corners and globals, landing as a schema version of horde 2\'s state.',
+      note:'Lab built (commit 8136434); ratification pending.',
+      rows:['B263','B308','B258'], adrs:['ADR-186'],
+      deps:[['shell','ADR-186'],['morph','B263'],['modmatrix','B263'],['mix','B263']],
+      decisions:['Ratify the patch model (B263)'] },
+    { id:'shell', name:'horde 2 plugin shell', group:'shell', status:'ruled', in1:'yes',
+      what:'The new product: new identity (CLAP id com.mind-lathe.horde, new AU subtype, own bundle, pkg and preset root), parameters generated from manifests into a committed lockfile, a schema-versioned state, the stability line.',
+      note:'ADR-186 ratified 2026-09-27; nothing built yet; B308\'s follow-ups not dispatched.',
+      rows:['B305','B308','B306'], adrs:['ADR-186'],
+      deps:[['seams','ADR-186'],['port','ADR-186']],
+      decisions:['Which protected spec horde 2 answers to (B308 M2)','The AU manufacturer code: LfTk unless autonomous rules a fleet code (ADR-186 §3)'] },
+    { id:'freeze', name:'Legacy freeze tag', group:'shell', status:'ruled', in1:'yes',
+      what:'The human cuts the legacy tag; CI archives the universal signed bundles; old projects depend on that archive, not a rebuild.',
+      note:'B255 landed as the last legacy change (#808); the tag is owed by the human.',
+      rows:['B255','B308','B305'], adrs:['ADR-186'],
+      deps:[],
+      decisions:['Cut the tag (ADR-186 §2)','Must B308 H5\'s real-blob corpus land before the tag?'] },
+    { id:'history', name:'History tree', group:'state', status:'planned', in1:'yes',
+      what:'H1\'s history tree (snapshot tree, gesture-level nodes, fork on restore), re-earned on horde 2; must survive preset changes, morphing, modulation, mapping changes, signal-flow changes and FX module edits.',
+      note:'Roadmapped, high priority (B389); B222\'s defects become regression rows.',
+      rows:['B389','B84','B119','B122','B186','B222','B193'], adrs:['ADR-160'],
+      deps:[['shell','B389'],['patch','B389'],['fxmorph','B389'],['intent','B389']],
+      decisions:['Confirm: modulated values in motion are not history; mapping changes are (B389)'] },
+    { id:'testing', name:'Testing apparatus', group:'quality', status:'in progress', in1:'yes',
+      what:'The patch-space gauntlet, the blind listening passes, the aliasing metric, the Serum 2 reference test (CPU, sound references, imitation gauntlet), and the C++ quality suites.',
+      note:'Gauntlet and listening passes built; Serum stage 1 in review (PR #886).',
+      rows:['B316','B324','B340','B344','B350','B381','B186'], adrs:['ADR-187'],
+      deps:[['port','B385']],
+      decisions:['Load Serum 2 after seeing stage 1 (B381)','The aliasDb re-ruling (B350)'] },
+    { id:'perf', name:'Performance', group:'quality', status:'in progress', in1:'yes',
+      what:'CPU of the C++ engine (Layer-E, never a gate), the voice limit, the WASM build for the labs, the R2/R3 anti-aliasing items, FX cost.',
+      note:'Lab overload handling built (B323, B375); the WASM build waits on phase 1b (B372).',
+      rows:['B323','B372','B375','B357','B262'], adrs:['ADR-187'],
+      deps:[['port','B372'],['edges','B380']],
+      decisions:['horde 2\'s voice limit: a deterministic count or a documented CPU-adaptive mode (B323)','Install the WASM toolchain when phase 1b lands (B372)','R2 and R3 after the critic (B357)'] },
+    { id:'gui3', name:'GUI 3 + the screens', group:'presentation', status:'planned', in1:'yes',
+      what:'The labs assembled into a new GUI bound only to generated manifest keys; the FX modules as software on screens; the settings page and file manager.',
+      note:'Phase-gated on the labs (B302); screens workshops built (B322, B336); the settings lab not started (B261).',
+      rows:['B302','B271','B322','B336','B261','B308'], adrs:['ADR-116','ADR-186'],
+      deps:[['shell','B308'],['fxmorph','B302'],['intent','B302'],['modmorph','B302'],['mix','B302'],['maw','B322'],['sluice','B322']],
+      decisions:['One screen style for all FX modules, or one per module (B322)'] },
+    { id:'presets', name:'Presets + factory library', group:'content', status:'planned', in1:'yes',
+      what:'Global presets covering everything the synth can do, with corner auto-ingest; every FX module\'s presets roped into the larger system; the factory library informed by the Serum gauntlet and original concepts.',
+      note:'Later, after the functionality (B395, B257); the human\'s user presets already port (B312).',
+      rows:['B395','B257','B261','B312','B349'], adrs:['ADR-186','ADR-167'],
+      deps:[['history','B389'],['testing','B395'],['intent','B257'],['maw','summary 2026-09-30'],['sluice','summary 2026-09-30'],['reverb','summary 2026-09-30'],['fxsimple','summary 2026-09-30'],['gui3','inferred: presets are authored and browsed in the shipping GUI']],
+      decisions:['What "everything that fits under corner rule" means for auto-ingest (B395)'] },
+    { id:'release', name:'1.0 — the stability line', group:'milestone', status:'planned', in1:'yes',
+      what:'horde 2\'s first human-cut release tag. Before it, laws, parameters and ranges change freely; after it, sound-law changes are version-selected and ids and ranges are locked.',
+      note:'Defined by ADR-186 §5(f).',
+      rows:['B305','B327'], adrs:['ADR-186'],
+      deps:[['presets','B395'],['gui3','B302'],['perf','inferred: a shippable CPU cost'],['freeze','inferred: the legacy archive exists before the human switches'],['quant','B391'],['sub','B327']],
+      decisions:[] },
+    { id:'tonality', name:'Tonality integration', group:'post', status:'post-1.0', in1:'no',
+      what:'Tonality informs modulation: performance hysteresis, scale and chord complexity. Seam room is required now.',
+      note:'After 1.0 by ruling (B390).',
+      rows:['B390'], adrs:[],
+      deps:[['release','B390'],['quant','B390']],
+      decisions:[] },
+    { id:'microtuning', name:'Microtuning', group:'post', status:'post-1.0', in1:'no',
+      what:'Microtuning, held until Tonality has accommodated it.',
+      note:'Waits on Tonality (B390).',
+      rows:['B390'], adrs:[],
+      deps:[['tonality','B390']],
+      decisions:[] },
+    { id:'granular', name:'Granular module', group:'post', status:'post-1.0', in1:'no',
+      what:'A granular FX module based on the granular sibling.',
+      note:'Post-1.0 by ruling (B393).',
+      rows:['B393'], adrs:[],
+      deps:[['release','B393'],['rack','B393']],
+      decisions:[] },
+    { id:'noise', name:'Noise osc / sampler', group:'post', status:'post-1.0', in1:'no',
+      what:'A noise oscillator that doubles as a sampler; any further engine would be sample-based or a fresh experiment.',
+      note:'Post-1.0 (B327, B330).',
+      rows:['B327','B330'], adrs:[],
+      deps:[['release','B327']],
+      decisions:[] },
+    { id:'arps', name:'Arps, sequencers, generative MIDI', group:'post', status:'planned', in1:'open',
+      what:'Arpeggiators, sequencers and generative MIDI devices consuming the shared quantizer.',
+      note:'Roadmapped (B391); "Sequencing TBD in the plan of record". Placed after 1.0 here as a PROPOSAL.',
+      rows:['B391'], adrs:[],
+      deps:[['quant','B391']],
+      decisions:['1.0 or post-1.0? (B391)'] },
+    { id:'archived', name:'Archived engines', group:'parked', status:'parked', in1:'no',
+      what:'SPECTRA, STATION, CANTO and the swarmalator: archived, built and gated in the frozen legacy tree, none lifted. Also tabled: reverse FM (B363), filter self-oscillation (B292).',
+      note:'B330; docs/PARKED.md 23.',
+      rows:['B330','B363','B292'], adrs:['ADR-182'],
+      deps:[],
+      decisions:[] },
+  ],
+  order: [
+    { k:'A1', track:'C++ spine', title:'Clean port to parity, then the quality suites and the B378 fixes', nodes:['port','edges','testing'],
+      why:'Dispatched (B385). The edge correction enters as a ledgered divergence once the human picks it by ear.' },
+    { k:'A2', track:'C++ spine', title:'Shell skeleton: identity, manifest → lockfile, schema version, draw ADR', nodes:['seams','shell'],
+      why:'ADR-186 §5 builds the skeleton first. Its input is the provisional manifest from B376\'s export (B277 re-scoped to horde 2).' },
+    { k:'A3', track:'C++ spine', title:'History on the skeleton, acceptance grown feature by feature', nodes:['history'],
+      why:'"A must" (B389). Ported as soon as horde 2 has state, so every later feature lands under its gates instead of being retrofitted.' },
+    { k:'A4', track:'C++ spine', title:'Pitch seam: bend laws, published per-voice pitch, quantizer service', nodes:['bend','quant'],
+      why:'The human\'s summary items 2 and 3; B278\'s lesson (one published pitch); Tonality room now (B390).' },
+    { k:'A5', track:'C++ spine', title:'Performance: Release CPU, voice limit, WASM', nodes:['perf'],
+      why:'ADR-187 §8: CPU is Layer-E. The WASM build waits on phase 1b and a human toolchain gate (B372).' },
+    { k:'S0', track:'Lab sync', title:'Triage', nodes:['archived'],
+      why:'Unchanged from B331 S0; the ARCHIVED navigator markers (B330).' },
+    { k:'S1', track:'Lab sync', title:'Engine decisions', nodes:['audit','engine','edges','modulators'],
+      why:'B376 and B386 decisions, then the SCALPEL interface (freezing its parameter set), the edge listening and envelope decision 1.' },
+    { k:'S2', track:'Lab sync', title:'Modulation (PROMOTED)', nodes:['modulators','modmatrix','modmorph'],
+      why:'The human: "prioritize working through the mod matrix lab soon" (B392); the modulator-morph workshop is part of it (B396).' },
+    { k:'S3', track:'Lab sync', title:'Morph, FX algorithm morph (PROMOTED), patch model, intent bus', nodes:['morph','fxmorph','patch','intent'],
+      why:'FX algorithm morph is "a priority again soon" (B394) and shares morph\'s laws; the patch model becomes the state schema (B331 S2).' },
+    { k:'S4', track:'Lab sync', title:'Sources, routing and MPE', nodes:['sub','filters','mix','mpe'],
+      why:'B331 S1\'s Sub and filters move here: the port\'s parameter input is now the audit, and before the stability line the manifest may grow (ADR-186 §5(e)).' },
+    { k:'S5', track:'Lab sync', title:'FX modules and screens', nodes:['rack','maw','sluice','reverb','fxsimple','ott','kchorus'],
+      why:'B331 S4 minus FX morph; Sluice after B328; then the screen aesthetic and logos.' },
+    { k:'S6', track:'Lab sync', title:'Presentation → GUI 3', nodes:['gui3'],
+      why:'B331 S5; the settings lab (B261) first.' },
+    { k:'S7', track:'Lab sync', title:'Calibration and content', nodes:['testing','presets'],
+      why:'B331 S6 plus the Serum gauntlet (B381); presets last, by the human\'s rule (B395).' },
+    { k:'1.0', track:'Release', title:'The stability line', nodes:['freeze','release'],
+      why:'The legacy tag is cut and archived before the human moves their work (ADR-186 §2, §6).' },
+  ],
+};
+
+/* ---------- state, helpers ---------- */
+const ST = { theme:'light', sel:null, rm:null, dm:null, docText:null, fetched:false, crit:[] };
+const NW = 172, NH = 38, COLW = 196, ROWH = 74, PADX = 18, PADY = 30;
+const ROWRE = /^\| (B\d+) \| (.*)$/;
+
+function $(id) { return document.getElementById(id); }
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function qp(name, dflt) {
+  // No URLSearchParams: the lab loader's sandbox does not provide it, and a ReferenceError at load is
+  // exactly what lab_load_check exists to catch. location.search coerces to a string either way.
+  const m = new RegExp('[?&]' + name + '=([^&#]*)').exec(String(location.search || ''));
+  return m ? decodeURIComponent(m[1]) : dflt;
+}
+function byId(nodes) { const m = {}; for (const n of nodes) m[n.id] = n; return m; }
+function isRef(b) { return /^(B\d+|ADR-\d+)/.test(b); }
+
+/* ---------- graph algorithms (pure; the self-checks call them on planted copies) ---------- */
+function topo(nodes) {
+  const ids = new Set(nodes.map(n => n.id)), indeg = {}, out = {};
+  for (const n of nodes) { indeg[n.id] = 0; out[n.id] = []; }
+  for (const n of nodes) for (const [d] of n.deps) if (ids.has(d)) { indeg[n.id]++; out[d].push(n.id); }
+  const q = nodes.filter(n => indeg[n.id] === 0).map(n => n.id), order = [];
+  while (q.length) { const v = q.shift(); order.push(v); for (const w of out[v]) if (--indeg[w] === 0) q.push(w); }
+  return { order, cyclic: order.length !== nodes.length, stuck: nodes.filter(n => !order.includes(n.id)).map(n => n.id) };
+}
+function longestTo(nodes, target) {
+  // Longest prerequisite chain ending at target, over 1.0 nodes only (in1 === 'yes').
+  const m = byId(nodes), t = topo(nodes); if (t.cyclic) return null;
+  const best = {}, prev = {};
+  for (const id of t.order) {
+    const n = m[id]; if (n.in1 !== 'yes') continue;
+    best[id] = 1; prev[id] = null;
+    for (const [d] of n.deps) if (best[d] !== undefined && best[d] + 1 > best[id]) { best[id] = best[d] + 1; prev[id] = d; }
+  }
+  if (best[target] === undefined) return null;
+  const path = []; for (let v = target; v; v = prev[v]) path.unshift(v);
+  return path;
+}
+function layers(nodes) {
+  const m = byId(nodes), t = topo(nodes), depth = {};
+  for (const id of t.order) { let d = 0; for (const [p] of m[id].deps) if (depth[p] !== undefined) d = Math.max(d, depth[p] + 1); depth[id] = d; }
+  return depth;
+}
+
+/* ---------- ROADMAP / DECISIONS / doc parsing ---------- */
+function parseRoadmap(text) {
+  const rows = {};
+  for (const line of String(text).split('\n')) {
+    const mm = ROWRE.exec(line); if (!mm) continue;
+    const body = mm[2], t = /\*\*(.*?)\*\*/.exec(body);
+    const st = body.match(/\*\*((?:OPEN|BUILT|RULED|MERGED|RATIFIED|DONE|BLOCKED|PARKED|POST-1\.0|RE-SCOPED|REVIVED|STEP 1 MERGED|GROUNDED REFUSAL)[^*]{0,90})\*\*/g);
+    rows[mm[1]] = { title: t ? t[1] : body.slice(0, 120), status: st ? st[st.length - 1].replace(/\*\*/g, '') : '' };
+  }
+  return rows;
+}
+function parseAdrs(text) { const s = new Set(); const re = /^## (ADR-\d+)\b/gm; let mm; while ((mm = re.exec(String(text)))) s.add(mm[1]); return s; }
+function parseDocTable(text) {
+  // The parts table sits between <!-- parts-table:start --> and <!-- parts-table:end --> in docs/H2-PLAN.md.
+  // Columns: | Part | `id` | status | rows | prerequisites |  (rows and prerequisites comma-separated)
+  const a = String(text).indexOf('<!-- parts-table:start -->'), b = String(text).indexOf('<!-- parts-table:end -->');
+  if (a < 0 || b < a) return null;
+  const out = {};
+  for (const line of String(text).slice(a, b).split('\n')) {
+    const cells = line.split('|').map(c => c.trim()); if (cells.length < 7) continue;
+    const idm = /^`([a-z0-9]+)`$/.exec(cells[2]); if (!idm) continue;
+    const list = s => s.replace(/`/g, '').split(',').map(x => x.trim()).filter(x => x && x !== '—');
+    out[idm[1]] = { status: cells[3], rows: list(cells[4]), deps: list(cells[5]) };
+  }
+  return out;
+}
+
+/* ---------- self-checks: each returns {ok, msg}; each control must make its check FAIL ---------- */
+function checkCitations(nodes, rm, adrs) {
+  if (!rm || !adrs) return { skip: true, msg: 'needs ROADMAP.md and DECISIONS.md over HTTP (serve the repo)' };
+  const bad = nodes.filter(n => !n.rows.some(r => rm[r])).map(n => n.id);
+  const badAdr = []; for (const n of nodes) for (const a of n.adrs) if (!adrs.has(a)) badAdr.push(n.id + ':' + a);
+  const absent = []; for (const n of nodes) for (const r of n.rows) if (!rm[r] && !absent.includes(r)) absent.push(r);
+  return { ok: !bad.length && !badAdr.length,
+    msg: (bad.length ? 'nodes with no existing row: ' + bad.join(', ') + '. ' : 'every node cites ≥1 existing row. ') +
+         (badAdr.length ? 'missing ADRs: ' + badAdr.join(', ') + '. ' : 'every cited ADR exists. ') +
+         (absent.length ? 'Cited rows absent from this ROADMAP.md: ' + absent.join(', ') + '.' : 'All cited rows present.') };
+}
+function checkAcyclic(nodes) { const t = topo(nodes); return { ok: !t.cyclic, msg: t.cyclic ? 'no topological order for ' + t.stuck.length + ' nodes (a cycle and everything downstream of it): ' + t.stuck.join(', ') : 'topological order covers all ' + nodes.length + ' nodes' }; }
+function checkRefs(nodes) {
+  const ids = new Set(nodes.map(n => n.id)), bad = [];
+  for (const n of nodes) { if (!STATUSES.includes(n.status)) bad.push(n.id + ' status "' + n.status + '"');
+    for (const [d] of n.deps) if (!ids.has(d)) bad.push(n.id + ' → ' + d); }
+  return { ok: !bad.length, msg: bad.length ? bad.join('; ') : 'every edge names a node; every status is in the vocabulary' };
+}
+function checkDoc(nodes, doc) {
+  if (!doc) return { skip: true, msg: 'needs docs/H2-PLAN.md over HTTP, with its parts-table markers' };
+  const bad = [], same = (a, b) => a.length === b.length && a.every(x => b.includes(x));
+  for (const n of nodes) { const d = doc[n.id]; if (!d) { bad.push(n.id + ' missing from the doc'); continue; }
+    if (d.status !== n.status) bad.push(n.id + ' status ' + d.status + ' ≠ ' + n.status);
+    if (!same(d.rows, n.rows)) bad.push(n.id + ' rows differ');
+    if (!same(d.deps, n.deps.map(x => x[0]))) bad.push(n.id + ' prerequisites differ'); }
+  for (const id in doc) if (!nodes.some(n => n.id === id)) bad.push(id + ' in the doc, not the map');
+  return { ok: !bad.length, msg: bad.length ? bad.join('; ') : 'the doc\'s parts table matches all ' + nodes.length + ' nodes' };
+}
+function checkCrit(nodes, path) {
+  const m = byId(nodes);
+  if (!path || !path.length || path[path.length - 1] !== 'release') return { ok: false, msg: 'the path does not end at release' };
+  for (let i = 1; i < path.length; i++) if (!m[path[i]] || !m[path[i]].deps.some(d => d[0] === path[i - 1])) return { ok: false, msg: path[i - 1] + ' → ' + path[i] + ' is not an edge' };
+  const best = longestTo(nodes, 'release');
+  return best && best.length === path.length ? { ok: true, msg: path.length + ' parts; no longer chain among the 1.0 parts' } : { ok: false, msg: 'a longer chain exists (' + (best ? best.length : '?') + ')' };
+}
+function runChecks() {
+  const N = DATA.nodes, rows = [];
+  const plantCite = N.concat([{ id:'zz', name:'planted', status:'planned', in1:'yes', rows:['B99999'], adrs:[], deps:[] }]);
+  const plantCycle = N.map(n => n.id === 'engine' ? Object.assign({}, n, { deps: n.deps.concat([['release','planted']]) }) : n);
+  const plantRef = N.map(n => n.id === 'sub' ? Object.assign({}, n, { deps: n.deps.concat([['nope','planted']]) }) : n);
+  let docMut = null; if (ST.dm) { docMut = JSON.parse(JSON.stringify(ST.dm)); if (docMut.engine) docMut.engine.status = 'built'; }
+  const crit = ST.crit, critMut = crit.length > 2 ? crit.slice(0, 1).concat(crit.slice(2)) : ['release', 'release'];
+  const add = (name, real, ctl) => rows.push({ name, real, ctl });
+  add('1 citations', checkCitations(N, ST.rm, ST.adrs), checkCitations(plantCite, ST.rm, ST.adrs));
+  add('2 acyclic', checkAcyclic(N), checkAcyclic(plantCycle));
+  add('3 references', checkRefs(N), checkRefs(plantRef));
+  add('4 doc ↔ map', checkDoc(N, ST.dm), checkDoc(N, docMut));
+  add('5 critical path', checkCrit(N, crit), checkCrit(N, critMut));
+  let pass = 0, fired = 0, skipped = 0;
+  for (const r of rows) { if (r.real.skip) skipped++; else if (r.real.ok) pass++; if (!r.ctl.skip && !r.ctl.ok) fired++; }
+  const green = pass === rows.length && fired === rows.length;
+  const v = green ? 'SELF-CHECK GREEN — ' + pass + '/' + rows.length + ' checks pass with their controls firing'
+                  : 'SELF-CHECK ' + (skipped ? 'INCOMPLETE' : 'RED') + ' — ' + pass + '/' + rows.length + ' pass, ' + fired + '/' + rows.length + ' controls fire' + (skipped ? ', ' + skipped + ' skipped' : '');
+  let h = '<div class="verdict ' + (green ? 'ok' : skipped ? 'skip' : 'bad') + '" id="verdict">' + esc(v) + '</div>';
+  for (const r of rows) {
+    const c = r.real.skip ? '<span class="skip">SKIP</span>' : r.real.ok ? '<span class="ok">PASS</span>' : '<span class="bad">FAIL</span>';
+    const k = r.ctl.skip ? '<span class="skip">control SKIP</span>' : !r.ctl.ok ? '<span class="ok">control fires</span>' : '<span class="bad">CONTROL DID NOT FIRE</span>';
+    h += '<div class="r"><b>' + esc(r.name) + '</b><div>' + c + ' ' + esc(r.real.msg) + '<br>' + k + ' — ' + esc(r.ctl.msg) + '</div></div>';
+  }
+  $('checkOut').innerHTML = h; $('checkCard').style.display = 'block';
+  document.title = (green ? '[GREEN] ' : '[NOT GREEN] ') + 'horde 2 — plan of record map';
+  return green;
+}
+
+/* ---------- rendering ---------- */
+function layout() {
+  // TOP TO BOTTOM: a row per dependency layer (longest-path depth), so the widest layer (6 parts) sets the
+  // width and the whole graph fits beside the side panel. Parked parts have no edges; they get their own
+  // last row instead of sitting at depth 0 beside the engine.
+  const N = DATA.nodes, depth = layers(N), pos = {}, rows = {};
+  const maxD = Math.max(...N.map(n => depth[n.id]));
+  // A post-1.0 part is drawn below the 1.0 cut even when its prerequisites would allow it higher
+  // (arps needs only the quantizer, but it is placed after 1.0 as a proposal).
+  const rowOf = n => n.group === 'parked' ? maxD + 1 : n.group === 'post' ? Math.max(depth[n.id], depth.release + 1) : depth[n.id];
+  for (const n of N) (rows[rowOf(n)] = rows[rowOf(n)] || []).push(n);
+  let widest = 0;
+  for (let r = 0; r <= maxD + 1; r++) {
+    const row = rows[r] || [];
+    // order within a row: the mean column of the prerequisites already placed (one barycentre pass), then group
+    const bc = n => { const xs = n.deps.map(x => pos[x[0]]).filter(Boolean).map(p => p.c); return xs.length ? xs.reduce((s, x) => s + x, 0) / xs.length : GROUPS.indexOf(n.group) / 4; };
+    row.sort((a, b) => bc(a) - bc(b) || GROUPS.indexOf(a.group) - GROUPS.indexOf(b.group));
+    row.forEach((n, i) => { pos[n.id] = { r, c: i - (row.length - 1) / 2 }; });
+    widest = Math.max(widest, row.length);
+  }
+  const w = PADX * 2 + widest * COLW, mid = w / 2;
+  for (const id in pos) { const p = pos[id]; p.x = mid + p.c * COLW - NW / 2; p.y = PADY + p.r * ROWH; }
+  const relRow = depth.release;
+  return { pos, w, h: PADY * 2 + (maxD + 2) * ROWH, cut: PADY + (relRow + 1) * ROWH - (ROWH - NH) / 2, park: PADY + (maxD + 1) * ROWH - (ROWH - NH) / 2 };
+}
+function render() {
+  const L = layout(), N = DATA.nodes, m = byId(N), crit = new Set(ST.crit), critE = new Set();
+  for (let i = 1; i < ST.crit.length; i++) critE.add(ST.crit[i - 1] + '>' + ST.crit[i]);
+  const sel = ST.sel, near = new Set();
+  if (sel) { near.add(sel); for (const [d] of m[sel].deps) near.add(d); for (const n of N) if (n.deps.some(x => x[0] === sel)) near.add(n.id); }
+  let s = '<svg xmlns="http://www.w3.org/2000/svg" width="' + L.w + '" height="' + L.h + '" viewBox="0 0 ' + L.w + ' ' + L.h + '">';
+  s += '<text class="lanelbl" x="' + PADX + '" y="16">PREREQUISITES FLOW DOWN · ONE ROW PER DEPENDENCY LAYER</text>';
+  s += '<line class="lane" x1="0" x2="' + L.w + '" y1="' + L.cut + '" y2="' + L.cut + '"/>';
+  s += '<text class="lanelbl" x="' + PADX + '" y="' + (L.cut + 13) + '">AFTER 1.0</text>';
+  s += '<line class="lane" x1="0" x2="' + L.w + '" y1="' + L.park + '" y2="' + L.park + '"/>';
+  s += '<text class="lanelbl" x="' + PADX + '" y="' + (L.park + 13) + '">PARKED</text>';
+  for (const n of N) for (const [d, basis] of n.deps) {
+    const a = L.pos[d], b = L.pos[n.id]; if (!a || !b) continue;
+    const x1 = a.x + NW / 2, y1 = a.y + NH, x2 = b.x + NW / 2, y2 = b.y, my = (y1 + y2) / 2;
+    const cls = ['e']; if (!isRef(basis)) cls.push('inf'); if (critE.has(d + '>' + n.id)) cls.push('crit');
+    if (sel) { if (n.id === sel || d === sel) cls.push('hl'); else cls.push('dimmed'); }
+    s += '<path class="' + cls.join(' ') + '" d="M' + x1 + ',' + y1 + ' C' + x1 + ',' + my + ' ' + x2 + ',' + my + ' ' + x2 + ',' + y2 + '"><title>' + esc(d + ' → ' + n.id + ' (' + basis + ')') + '</title></path>';
+  }
+  for (const n of N) {
+    const p = L.pos[n.id], cls = ['n']; if (crit.has(n.id)) cls.push('crit'); if (n.in1 === 'open') cls.push('open1');
+    if (sel === n.id) cls.push('sel'); else if (sel && !near.has(n.id)) cls.push('dimmed');
+    s += '<g class="' + cls.join(' ') + '" data-id="' + n.id + '" transform="translate(' + p.x + ',' + p.y + ')" tabindex="0">' +
+      '<rect class="box" width="' + NW + '" height="' + NH + '" rx="7"/>' +
+      '<rect x="0" y="0" width="7" height="' + NH + '" rx="3" style="fill:var(' + SCOLOR[n.status] + ')"/>' +
+      '<text class="nm" x="13" y="16">' + esc(n.name.length > 24 ? n.name.slice(0, 23) + '…' : n.name) + '</text>' +
+      '<text class="st" x="13" y="30">' + esc(n.status.toUpperCase() + (n.in1 === 'open' ? ' · 1.0?' : '')) + '</text>' +
+      '<title>' + esc(n.name) + '</title></g>';
+  }
+  s += '</svg>';
+  $('canvas').innerHTML = s;
+  const gs = $('canvas').querySelectorAll('g.n');
+  for (const g of gs) { g.onclick = () => select(g.getAttribute('data-id')); g.onkeydown = e => { if (e.key === 'Enter') select(g.getAttribute('data-id')); }; }
+}
+function rowHtml(r) {
+  const x = ST.rm && ST.rm[r];
+  if (!ST.rm) return '<div class="rowref"><b>' + r + '</b> <span class="note">(row text needs the page served)</span></div>';
+  if (!x) return '<div class="rowref missing"><b>' + r + '</b> <span class="bad">not in the served ROADMAP.md</span></div>';
+  return '<div class="rowref"><b>' + r + '</b> ' + esc(x.title) + (x.status ? '<br><span class="rs">' + esc(x.status) + '</span>' : '') + '</div>';
+}
+function side() {
+  const N = DATA.nodes, m = byId(N), id = ST.sel;
+  if (!id) { $('side').innerHTML = '<h3>Click a part</h3><p>Each box is one part of horde 2. The coloured bar is its status; a pink outline marks the critical path; a dashed outline marks a part whose 1.0 membership is open. Dashed edges are the plan\'s inferences; solid edges cite a row or ADR (hover an edge to see which).</p><p style="margin-top:6px">The plan in prose is <code>docs/H2-PLAN.md</code>. ROADMAP.md outranks both.</p>'; return; }
+  const n = m[id], dependents = N.filter(x => x.deps.some(d => d[0] === id));
+  let h = '<h3>' + esc(n.name) + '</h3><span class="stag" style="--sc:var(' + SCOLOR[n.status] + ')">' + esc(n.status.toUpperCase()) + '</span> <span class="note">id <code>' + n.id + '</code> · 1.0: ' + esc(n.in1) + '</span>';
+  h += '<h4>WHAT IT IS</h4><p>' + esc(n.what) + '</p><h4>STATUS</h4><p>' + esc(n.note) + '</p>';
+  h += '<h4>GOVERNING ROWS (live from ROADMAP.md)</h4>' + n.rows.map(rowHtml).join('');
+  h += '<h4>DECISIONS (ADRs)</h4><p>' + (n.adrs.length ? n.adrs.map(esc).join(' · ') : '—') + '</p>';
+  h += '<h4>NEEDS FIRST</h4><ul class="dep">' + (n.deps.length ? n.deps.map(([d, b]) => '<li><a class="nd" data-go="' + d + '">' + esc(m[d] ? m[d].name : d) + '</a> <span class="note">(' + esc(b) + ')</span></li>').join('') : '<li>nothing</li>') + '</ul>';
+  h += '<h4>UNBLOCKS</h4><ul class="dep">' + (dependents.length ? dependents.map(x => '<li><a class="nd" data-go="' + x.id + '">' + esc(x.name) + '</a></li>').join('') : '<li>nothing</li>') + '</ul>';
+  h += '<h4>OPEN HUMAN DECISIONS</h4><ul>' + (n.decisions.length ? n.decisions.map(d => '<li>' + esc(d) + '</li>').join('') : '<li>none recorded</li>') + '</ul>';
+  $('side').innerHTML = h;
+  for (const a of $('side').querySelectorAll('a.nd')) a.onclick = () => select(a.getAttribute('data-go'));
+}
+function select(id) { ST.sel = ST.sel === id ? null : id; render(); side(); }
+function legend() {
+  let h = STATUSES.map(s => '<span><i class="sw" style="--sc:var(' + SCOLOR[s] + ')"></i>' + s + '</span>').join('');
+  h += '<span><i class="leg-line"></i>dependency (cites a row/ADR)</span><span><i class="leg-line dash"></i>inferred by the plan</span><span><i class="leg-line crit"></i>critical path</span>';
+  $('legend').innerHTML = h;
+  const counts = {}; for (const n of DATA.nodes) counts[n.status] = (counts[n.status] || 0) + 1;
+  $('srcNote').innerHTML = esc(DATA.nodes.length + ' parts (' + STATUSES.map(s => (counts[s] || 0) + ' ' + s).join(', ') + '). Plan as of ' + DATA.asOf + ', against ' + DATA.records + '. ') +
+    (ST.fetched ? (ST.rm ? esc(Object.keys(ST.rm).length + ' ROADMAP rows read live.') : '<span class="bad">ROADMAP.md could not be read.</span>') : '<span class="note">Rows load when the page is served.</span>');
+}
+function critList() {
+  const m = byId(DATA.nodes);
+  $('critList').innerHTML = ST.crit.map((id, i) => (i ? '<span class="arr">→</span>' : '') + '<span class="nchip" style="--sc:var(' + SCOLOR[m[id].status] + ')" data-go="' + id + '">' + esc(m[id].name) + '</span>').join('');
+  for (const c of $('critList').querySelectorAll('[data-go]')) c.onclick = () => select(c.getAttribute('data-go'));
+}
+function orderView() {
+  const m = byId(DATA.nodes);
+  $('order').innerHTML = DATA.order.map(o => '<div class="stage"><div class="trk">' + esc(o.track.toUpperCase() + ' · ' + o.k) + '</div><h4>' + esc(o.title) + '</h4><p>' + esc(o.why) + '</p><div class="nds">' +
+    o.nodes.map(id => '<span class="nchip" style="--sc:var(' + SCOLOR[m[id].status] + ')" data-go="' + id + '">' + esc(id) + '</span>').join('') + '</div></div>').join('');
+  for (const c of $('order').querySelectorAll('[data-go]')) c.onclick = () => select(c.getAttribute('data-go'));
+}
+function applyTheme() {
+  document.body.classList.toggle('dark', ST.theme === 'dark');
+  $('themeBtn').innerHTML = 'theme <b>' + ST.theme.toUpperCase() + '</b>';
+}
+function fetchText(url) {
+  if (typeof fetch !== 'function') return Promise.resolve(null);
+  return fetch(url, { cache: 'no-store' }).then(r => r.ok ? r.text() : null).catch(() => null);
+}
+function loadSources() {
+  return Promise.all([fetchText('../../ROADMAP.md'), fetchText('../../DECISIONS.md'), fetchText('../H2-PLAN.md')]).then(([r, d, p]) => {
+    ST.fetched = true;
+    ST.rm = r ? parseRoadmap(r) : null; ST.adrs = d ? parseAdrs(d) : null; ST.dm = p ? parseDocTable(p) : null;
+    legend(); side();
+  });
+}
+function boot() {
+  ST.theme = qp('theme', 'light') === 'dark' ? 'dark' : 'light';
+  ST.crit = longestTo(DATA.nodes, 'release') || [];
+  const want = qp('node', ''); if (want && byId(DATA.nodes)[want]) ST.sel = want;
+  applyTheme(); legend(); render(); side(); critList(); orderView();
+  $('themeBtn').onclick = () => { ST.theme = ST.theme === 'dark' ? 'light' : 'dark'; applyTheme(); };
+  $('checkBtn').onclick = () => { loadSources().then(runChecks); };
+  const p = loadSources(); if (qp('check', '') === '1' && p && p.then) p.then(runChecks);
+}
+boot();
+</script>
+</body></html>
