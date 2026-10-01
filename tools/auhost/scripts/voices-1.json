@@ -1,0 +1,9 @@
+{
+  "name": "voices-1",
+  "seconds": 3,
+  "events": [
+    {"at": 0, "program": 81},
+    {"at": 0, "on": 60, "vel": 100},
+    {"sec": 2.9, "off": 60}
+  ]
+}
