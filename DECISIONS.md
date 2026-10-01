@@ -6779,3 +6779,35 @@ is best."
 - Why: ADR-187 §5's purpose is attribution and reversibility, and the flags plus the ledger check
   already give both while a divergence is off. The risk is in what the listener hears by default,
   so the one-per-PR rule binds there.
+
+**ADR-187 A2 — RULED by the human (2026-10-01): the composed engine's parity criterion.** The
+human: "I agree with your recommendations on all three rulings." The three, as put:
+1. **The Cross-mod ring (watch) rows leave whole-render parity (ADR-065's evidence rule).** The
+   three rows (`:: chord`, `:: repeat`, `:: arp`), pinned by name, keep a strict 1e-6 max-abs
+   onset window, identical events and identical readouts. Their tails are removed from parity.
+   - Evidence: over 25 one-ULP input nudges, clean C++ reaches rms 4e-4 to 1.9e-3 on two
+     nudges against a 1e-9 xm fault's 1.2e-2 to 2.4e-2, so no whole-render rule separates
+     a fault from chaos (rule 1a held on 9–14 of 25, rule (b) at K = 10 on 23 of 25).
+   - Conditions (the critic's, adopted with the ruling):
+     - a control **X1-late** (the same xm fault starting at frame 128) must turn at least one
+       NON-chaotic xm row red, proving the tail's path is covered elsewhere (the critic measured
+       that X1, active from frame 0, cannot show this);
+     - the onset window is widened to the longest window that stays under ~1e-8 on all 25
+       nudges, MEASURED, not chosen;
+     - optional bounded-and-finite checks over each excluded row's whole render.
+   - Rules 1a and (b) are retired for these rows.
+2. **The bit-exact floor is a MEAN across scenarios (L0072):** at least 30%, keyed to
+   platform + compiler + Node major (measured on darwin-arm64 / appleclang-16 / node 24).
+   - On an unkeyed platform the mean is printed and does not gate. A floor is a measurement,
+     and a measurement belongs to the platform it was taken on.
+   - The FMA control fires only on a parity miss AND, where keyed, a mean under the floor.
+3. **Landing policy once `h2_engine_parity_check` is wired:** any change to the composed
+   engine lands as the JS and the C++ TOGETHER, in one PR, parity green. A deliberate
+   departure goes through ADR-187 §5 (a ledgered divergence, mirrored, or `js_limit`).
+   The composed JS stays normative until a demotion ruling.
+
+Still open (not part of this ruling): the float32 cull-fade's block-size dependence (≤ 1.47e-8
+across host blocks 1/37/128/512, mirrored from the JS's per-sample `Float32Array(1)` fade).
+The lead recommends a correctness fix in both, as a recorded divergence, so output never
+depends on the host's block size. It awaits the human because the composed JS is in the
+protected reference tree.
