@@ -872,6 +872,13 @@ if(NOT MSVC)
     target_compile_options(h2_engine_fma_control PRIVATE -mfma)
   endif()
 endif()
+# measure_h2_engine (B385 checkpoint 4): the composed engine's CPU per voice
+# against the golden's (ADR-187 item 8, Layer-E). The release build, -O3 with
+# contraction off like every h2 target (h2 rule 7). Prints, never judges; unwired.
+add_executable(measure_h2_engine tools/measure_h2_engine.cpp)
+if(NOT MSVC)
+  target_compile_options(measure_h2_engine PRIVATE -O3 -ffp-contract=off)
+endif()
 
 # MSVC gives a process a 1 MB main-thread stack; macOS and Linux give 8 MB. A
 # SwarmCore is 651 KB (sizeof, MSVC 14.51, 2026-09-09) and the host-side

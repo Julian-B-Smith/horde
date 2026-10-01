@@ -372,13 +372,49 @@ says phase 1a's form of it: max-abs only.
 
 ## CPU (checkpoint 4, Layer-E, never a gate)
 
-`tools/auhost --horde` (B381 stage 1, PR #886, not yet merged) pointed at
-`horde2::engine::Engine`. It compares the engine against the JS (the renderer's
-`--bench`) and against `razor_core.h` alone, on the heavy class (Crushed bells,
-Glass horde pad) and a light one (Quarter sync). It reports the release build at
-`-O3 -ffp-contract=off` and the calibration loop. If #886 has not merged when
-checkpoint 4 starts, the bench rides on its branch and says so.
+Measured 2026-10-01 on this Mac (Apple M3; the machine was loaded, load average 4–7;
+the calibration loop of 1e8 dependent multiply-adds took 175–205 ms, against 111–119
+ms in phase 1a's runs, so read the RATIOS). Release build, `-O3 -ffp-contract=off`
+(h2 rule 7). One voice where not stated; 48 kHz; each preset at its own os.
 
+**Against the golden and against the blade port alone** (`build-release/measure_h2_engine`,
+new, unwired, best of 5, three interleaved runs that agreed to ±0.01 points;
+`build-release/measure_h2_scalpel`; the JS halves are `node tools/h2_engine_render.mjs
+--bench` and `node tools/h2_scalpel_render.mjs --bench`, best of 3 after a warm-up):
+
+| preset (one voice held 4 s) | golden JS | `h2/engine` C++ | C++ speed-up | blade JS | `razor_core.h` C++ | engine over the blade port |
+|---|---|---|---|---|---|---|
+| Crushed bells (N 6, two blades; heavy) | 18.01 % RT | 5.90 % | 3.1× | 11.13 % | 5.22 % | +13 % |
+| Glass horde pad (heavy) | 25.81 % | 8.69 % | 3.0× | — | — | — |
+| Quarter sync (N 1, one blade; light) | 3.39 % | 0.68 % | 5.0× | 2.12 % | 0.545 % | +25 % |
+
+The C++ renders these at rms ≤ 3.8e-16 from the golden in the release build.
+
+**Through `tools/auhost` (B381 stage 1, PR #886, not merged).** Its `--horde` mode times
+`razor_core.h`. To point it at the engine, a scratch copy of `auhost.cpp` (from
+`origin/auhost-stage1` at `23bc4fe`) adds an `--engine` mode: the same `cmdHorde` loop
+with `horde2::engine::Engine` in place of `RazorCore` and double block buffers (the
+engine renders doubles). Nothing else in the host changed, so the two modes share the
+script reader, the block loop, the clock and the statistics. That edit belongs in #886's
+file, so it is NOT in this PR; it is a ~10-line follow-up once #886 merges. Median % of
+real time per block at 128-sample blocks, per voice (median / voices), 5 repeats, all
+bit-identical across repeats:
+
+| patch | voices | `razor_core.h` (`--horde`) | `h2/engine` (`--engine`) | engine / blade port |
+|---|---|---|---|---|
+| the oracle's defaults (N 5, sync blade, os 2) | 1 / 8 / 16 | 1.81 / 1.63 / 1.67 | 2.09 / 1.95 / 1.99 | 1.16–1.20× |
+| Crushed bells | 1 / 8 / 16 | 5.05 / 4.93 / 4.99 | 5.72 / 5.68 / 5.74 | 1.13–1.15× |
+| Glass horde pad | 1 / 8 / 16 | 7.62 / 7.55 / 7.62 | 8.61 / 8.80 / 8.88 | 1.13–1.17× |
+| Quarter sync | 1 / 8 / 16 | 0.55 / 0.38 / 0.39 | 0.68 / 0.45 / 0.46 | 1.18–1.23× |
+
+At 16 voices of Crushed bells the engine is 92 % of real time per block (median) on one
+core of this loaded machine; Glass horde pad at 16 voices is 142 %.
+
+**What the engine adds over the blade port:** 13–25 %, the swarm's control tick (per voice
+every 16 samples: a `pow` per member under law 0, a `sin`/`cos` pair per member for the
+mean field, `atan2`, `exp`), and the per-sample swarm phase advance. This is the B378
+audit's territory (F1 specialised kernels, F9 the K = 0 guard): output-neutral work that
+must leave every parity digest unchanged, measured against this table.
 ## Out of scope for this PR series
 
 - The B378 fixes: after parity, one ledgered divergence each.
