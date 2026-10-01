@@ -8,9 +8,11 @@
  *
  * The stream is line-oriented text with binary payloads:
  *   H2ENGINE 1 <n>                                    header
+ *   NODE <version>                                    the golden's Node (its libm)
  *   LIBM <fn> <n> + n*3 float64 (x, y, JS f(x[, y]))  libm probes (optional)
  *   ORACLE <path> <git blob sha1>                     one per golden file
- *   SCN <i> <name> / SR / SEED / commands / EV ... / NI <0|1> / [EXCL / SELF]
+ *   SCN <i> <name> / SR / SEED / commands / EV ... / NI <0|1> / CNT <culled> <refused>
+ *       <stolen> / [EXCL / SELF]
  *       / DATA <frames> + frames*2 float64 (the PRISTINE golden's samples)
  *   END <n>
  * Commands: set <key> <number> | sets <key> <string> | snap | on <note> <freq> <vel>
@@ -38,6 +40,8 @@ struct Scenario {
   uint64_t ev[5] = {0, 0, 0, 0, 0};
   uint32_t h1 = 0, h2 = 0;
   int ni = -1;   // 1: the instrumented copy's samples equal the pristine golden's
+  bool hasCnt = false;
+  double cnt[3] = {0, 0, 0};   // the golden's load readouts after the script: culled, refused, stolen
   bool hasSelf = false;
   double selfRms = 0, selfMax = 0;
   std::vector<double> js;   // the golden's samples, interleaved L/R
@@ -85,6 +89,7 @@ inline bool readScenario(FILE* f, const std::string& first, Scenario& sc) {
       sc.h2 = static_cast<uint32_t>(std::strtoul(word(line, p).c_str(), nullptr, 10));
     }
     else if (op == "NI") sc.ni = std::atoi(word(line, p).c_str());
+    else if (op == "CNT") { sc.hasCnt = true; for (double& x : sc.cnt) x = std::strtod(word(line, p).c_str(), nullptr); }
     else if (op == "EXCL") sc.excl = rest(line, p);
     else if (op == "SELF") { sc.hasSelf = true; sc.selfRms = std::strtod(word(line, p).c_str(), nullptr); sc.selfMax = std::strtod(word(line, p).c_str(), nullptr); }
     else if (op == "DATA") {
@@ -96,11 +101,18 @@ inline bool readScenario(FILE* f, const std::string& first, Scenario& sc) {
   }
 }
 
+// What a replay saw besides its samples: keys the engine does not have, and its
+// load readouts at the end.
+struct ReplayInfo { int unknownKeys = 0; std::string firstUnknown; double cnt[3] = {0, 0, 0}; };
+
 // Replays `sc` through a fresh engine, seeded as the golden was. `out` receives
 // the interleaved samples. `fault` / `eps` plant a must-fail control where the
 // engine was compiled with H2_ENGINE_FAULTS; `log` receives the blade events.
+// `block` > 0 renders every `render` command in host blocks of that size instead
+// of the script's own (the determinism rows: the same samples whatever the host
+// sends, events staying on their samples).
 inline void replay(const Scenario& sc, std::vector<double>& out, int fault = 0, horde2::engine::EventLog* log = nullptr,
-                   double eps = 0) {
+                   double eps = 0, ReplayInfo* info = nullptr, int block = 0) {
   auto* c = new horde2::engine::Engine(sc.sr);   // 114 KB (arm64): the heap, not a small stack
 #ifdef H2_ENGINE_FAULTS
   c->fault = fault;
@@ -115,8 +127,10 @@ inline void replay(const Scenario& sc, std::vector<double>& out, int fault = 0, 
   out.reserve(sc.js.size());
   std::vector<double> L, R;
   for (const Cmd& m : sc.cmds) {
-    if (m.op == "set") { if (!c->set(m.key.c_str(), m.a)) std::fprintf(stderr, "  (unknown key %s ignored, as the golden does)\n", m.key.c_str()); }
-    else if (m.op == "sets") c->setString(m.key.c_str(), m.str.c_str());
+    if (m.op == "set" || m.op == "sets") {
+      const bool known = m.op == "set" ? c->set(m.key.c_str(), m.a) : c->setString(m.key.c_str(), m.str.c_str());
+      if (!known && info) { if (!info->unknownKeys++) info->firstUnknown = m.key; }
+    }
     else if (m.op == "snap") c->snap();
     else if (m.op == "on") c->noteOn(static_cast<int>(m.a), m.b, m.c);
     else if (m.op == "off") c->noteOff(static_cast<int>(m.a));
@@ -126,10 +140,22 @@ inline void replay(const Scenario& sc, std::vector<double>& out, int fault = 0, 
     else if (m.op == "capPolicy") c->setCapPolicy(m.a);
     else if (m.op == "render") {
       const int n = static_cast<int>(m.a), k = static_cast<int>(m.b);
+      if (block > 0) {   // the same frames, cut at `block`
+        long left = static_cast<long>(n) * k;
+        L.assign(block, 0); R.assign(block, 0);
+        while (left > 0) {
+          const int b = left < block ? static_cast<int>(left) : block;
+          c->render(L.data(), R.data(), b);
+          for (int i = 0; i < b; i++) { out.push_back(L[i]); out.push_back(R[i]); }
+          left -= b;
+        }
+        continue;
+      }
       L.assign(n, 0); R.assign(n, 0);
       for (int b = 0; b < k; b++) { c->render(L.data(), R.data(), n); for (int i = 0; i < n; i++) { out.push_back(L[i]); out.push_back(R[i]); } }
     }
   }
+  if (info) { info->cnt[0] = c->culled(); info->cnt[1] = c->refused(); info->cnt[2] = c->stolen(); }
   delete c;
 }
 

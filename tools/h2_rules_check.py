@@ -49,7 +49,18 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 FMA_CONTROLS = ("h2_scalpel_fma_control", "h2_engine_fma_control")
+# An include PATH that names h2 code (rule 4 matches captured include paths with it).
 H2_PATH = re.compile(r"(^|/)h2/(cores|engine)/")
+# A source TEXT that names h2 code anywhere (rule 2: "compiles an h2 core"): a plain
+# substring test, so every include form matches ("h2/cores/x.h", <h2/engine/engine.h>,
+# "../h2/...") and the test can never be narrower than the `"h2/cores/" in text` it
+# extends (B385 critic M1: a regex anchored on `/` had stopped seeing the first two).
+
+
+def text_compiles_h2(text):
+    return "h2/cores/" in text or "h2/engine/" in text
+
+
 ORACLE = "reference/scalpel/prototype/razor-core.js"
 LEGACY_LINK = re.compile(r"\$\{PROJECT_NAME\}-impl|HYPERSAW-impl")
 
@@ -173,6 +184,14 @@ def selftest():
         return "selftest: a tool including both copies was not caught"
     if len(check_dual_includes({"tools/t.cpp": '#include "../src/swarm_core.h"\n#include "../h2/engine/engine.h"\n'})) != 1:
         return "selftest: a tool including a legacy core and the h2 engine was not caught"
+    for text in ('#include "h2/cores/x.h"', "#include <h2/engine/engine.h>", '#include "../h2/engine/engine.h"',
+                 '#include "../../h2/cores/scalpel/razor_core.h"', '#include\t"h2/engine/js.h"'):
+        if not text_compiles_h2(text):
+            return f"selftest: rule 2 does not see h2 code in {text!r}"
+    if text_compiles_h2('#include "src/swarm_core.h"'):
+        return "selftest: rule 2 sees h2 code where there is none"
+    if len(check_dual_includes({"tools/t.cpp": '#include "../src/swarm_core.h"\n#include <h2/engine/engine.h>\n'})) != 1:
+        return "selftest: a tool including a legacy core and <h2/engine/engine.h> was not caught"
     if len(check_includes({"h2/engine/e.h": '#include "../../src/swarm_core.h"'})) != 1:
         return "selftest: an h2/engine -> src include was not caught"
     if check_dual_includes({"tools/t.cpp": '#include "../h2/cores/swarm/swarm_core.h"\n// src/swarm_core.h:1053 cited in a comment\n'}):
@@ -197,7 +216,7 @@ def main():
 
     def source_includes_h2(src):
         p = ROOT / src
-        return p.suffix in (".cpp", ".h") and p.is_file() and H2_PATH.search(p.read_text(errors="ignore")) is not None
+        return p.suffix in (".cpp", ".h") and p.is_file() and text_compiles_h2(p.read_text(errors="ignore"))
 
     fails, h2 = check_cmake((ROOT / "CMakeLists.txt").read_text(), source_includes_h2)
     files = {str(p.relative_to(ROOT)): p.read_text(errors="ignore")

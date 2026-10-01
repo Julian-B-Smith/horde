@@ -45,7 +45,9 @@
  * host-seeded stream (seedRandom; the JS's Math.random), the placement stream,
  * one per swarm, and the ensemble stream.
  * REAL TIME: every buffer is in the object. render() allocates nothing, locks
- * nothing and reads no clock. set() is a message-thread call.
+ * nothing and reads no clock. set(), setString() and the note and cap calls run
+ * on the render thread BETWEEN render() calls (a CLAP host delivers parameter
+ * events inside process()), never concurrently with one; none allocates.
  * DOMAIN: N is held to 1..9, a poly pool of 0 ignores note-ons, and notes are
  * 0..127. Inside the domain these clamps never act.
  */
@@ -74,11 +76,13 @@ class Engine {
   int fault = 0;
   double faultEps = 0;
 #define H2E_FAULT(n) (fault == (n))
-#define H2E_EPS(x) ((x) * (1 + faultEps))
+#define H2E_EPS(x) (fault == 0 ? (x) * (1 + faultEps) : (x))
+#define H2E_EPS13(x) (fault == 13 ? (x) * (1 + 1e-9) : (x))
   void armFaults() { if (fault == 9) field.faultKsm(0.08); }
 #else
 #define H2E_FAULT(n) false
 #define H2E_EPS(x) (x)
+#define H2E_EPS13(x) (x)
 #endif
 
   explicit Engine(double sampleRate) : sr(sampleRate), field(sampleRate) {
@@ -145,17 +149,9 @@ class Engine {
     const int P = poolSize();
     if (P == 0) return;                   // domain
     Voice* v = nullptr;
-    if (H2E_FAULT(6)) {   // must-fail control: the blade oracle's own law (same-note reuse)
-      for (int i = 0; i < P; i++) if (voices[i].active && voices[i].note == note) { v = &voices[i]; break; }
-      const bool fresh = !v;
-      if (!v) for (int i = 0; i < P; i++) if (!voices[i].active) { v = &voices[i]; break; }
-      if (!v) { v = &voices[0]; for (int i = 0; i < P; i++) if (voices[i].age < v->age) v = &voices[i]; }
-      startVoice(*v, note, freq, vel, fresh, true);
-      v->freq = v->freqT = freq;
-      couple(*v);
-      spread(*v);
-      return;
-    }
+#ifdef H2_ENGINE_FAULTS
+    if (fault == 6) { faultOracleVoiceLaw(note, freq, vel, P); return; }
+#endif
     // At the cap a note replaces a sounding voice instead of adding one, by the
     // same tiers; below it (or with no cap) this is B310's law exactly.
     const bool busy = voiceCap > 0 && liveCount() >= voiceCap;
@@ -714,11 +710,31 @@ class Engine {
     }
     return v;
   }
+#ifdef H2_ENGINE_FAULTS
+  // Must-fail control V1 (the parity check only): the blade oracle's own voice law,
+  // same-note reuse then the first free slot then the oldest, which B310 replaced.
+  void faultOracleVoiceLaw(int note, double freq, double vel, int P) {
+    Voice* v = nullptr;
+    for (int i = 0; i < P; i++) if (voices[i].active && voices[i].note == note) { v = &voices[i]; break; }
+    const bool fresh = !v;
+    if (!v) for (int i = 0; i < P; i++) if (!voices[i].active) { v = &voices[i]; break; }
+    if (!v) { v = &voices[0]; for (int i = 0; i < P; i++) if (voices[i].age < v->age) v = &voices[i]; }
+    startVoice(*v, note, freq, vel, fresh, true);
+    v->freq = v->freqT = freq;
+    couple(*v);
+    spread(*v);
+  }
+#endif
   // B323: over the cap, mark the quietest releasing tails to fade out
   void cull() {
+    if (H2E_FAULT(11)) return;   // must-fail control: the cull a no-op
     int live = liveCount();
     while (live > voiceCap) {
       Voice* v = tierPick(kVoices, kSkipInactiveOrFading);
+      if (H2E_FAULT(12)) {         // must-fail control: the oldest sounding voice, held or not
+        v = nullptr;
+        for (Voice& x : voices) if (x.active && !x.cull && (!v || x.age < v->age)) v = &x;
+      }
       if (!v) break;   // only held voices remain: never culled
       v->cull = true; v->cullG = 1; live--; culled_++;
     }
@@ -1238,7 +1254,7 @@ class Engine {
   void loopIn(Voice& v, Member& m) {
     const int N = static_cast<int>(d.N), q = m.i, nb = q + 1 == N ? 0 : q + 1;
     if (q == 0) v.fx0 = m.fu;
-    const double xin = 0.5 * (s.xm * (nb == 0 ? v.fx0 : v.m[nb].fu) + s.fb * 0.5 * (m.f1 + m.f2));
+    const double xin = 0.5 * (H2E_EPS13(s.xm) * (nb == 0 ? v.fx0 : v.m[nb].fu) + s.fb * 0.5 * (m.f1 + m.f2));
     m.ns.xin = xin; m.ns2.xin = xin; m.bx.ns3.xin = xin; m.bx.ns4.xin = xin;
   }
   // the blade step: advance, collide, evaluate, then PolyBLEP every known
@@ -1514,7 +1530,7 @@ inline void Engine::renderCall(double* L, double* R, int n) {
       }
     }
     for (int j = 0; j < os; j++) {   // int against double, as JS's `j < os`
-      evTick = static_cast<uint32_t>(static_cast<double>(evSample) * os + j);
+      if (events) evTick = static_cast<uint32_t>(static_cast<double>(evSample) * os + j);
       double accL = 0, accR = 0;
       for (int vi = 0; vi < kVoices; vi++) {
         Voice& v = voices[vi];
@@ -1526,7 +1542,7 @@ inline void Engine::renderCall(double* L, double* R, int n) {
         for (int q = 0; q < N; q++) {
           Member& mm = v.m[q];
           // cross-member modulation: a phase push from the next member round the ring; feedback: from itself
-          const double xin = xOn ? 0.5 * (s.xm * xb[(q + 1) % N] + s.fb * 0.5 * (mm.y1 + mm.y2)) : 0;
+          const double xin = xOn ? 0.5 * (H2E_EPS13(s.xm) * xb[(q + 1) % N] + s.fb * 0.5 * (mm.y1 + mm.y2)) : 0;
           mm.ns.xin = xin; mm.ns2.xin = xin; mm.bx.ns3.xin = xin; mm.bx.ns4.xin = xin;
           // the member's overrides of the shared parameters, restored after the voices
           s.w = w0 < 0.004 ? w0 : js::min(1, w0 * mm.wMul * v.wE);
@@ -1550,7 +1566,7 @@ inline void Engine::renderCall(double* L, double* R, int n) {
             bx.mr = mm.mr2; bx.mn = mm.mn2;
           }
           s.mEff = js::truthy(d.mUnit) ? s.mHz / fi : s.m;
-          evId = static_cast<uint32_t>(vi * kMembers + q);
+          if (events) evId = static_cast<uint32_t>(vi * kMembers + q);
           double y = stepMember(v, mm, c, kq);
           if (xOn) { mm.y2 = mm.y1; mm.y1 = y; }
           if (dcOn) {
@@ -1597,5 +1613,6 @@ inline void Engine::renderCall(double* L, double* R, int n) {
 
 #undef H2E_FAULT
 #undef H2E_EPS
+#undef H2E_EPS13
 
 }  // namespace horde2::engine

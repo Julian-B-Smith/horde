@@ -75,9 +75,9 @@ Header-only, namespace `horde2::engine`, four files under `h2/engine/`:
 | file | contents |
 |---|---|
 | `js.h` | JS number semantics (`js::round` = `floor(x + 0.5)`, NaN-propagating `min`/`max`, `truthy`, `sel`, `pow`, `toInt32`) and `Mulberry32`, the repo's one RNG. |
-| `swarm.h` | `Swarm`, one per voice: SwarmSynth's per-swarm state and `controlTick`, with M1–M3. `SwarmShape`: the member placement `x[]`, `centerIdx`, `xmin` (SwarmSynth's `rebuild`, placement only). |
-| `blade.h` | the blade arithmetic: `wave`, `mod`, `F`, crush, `fmStep`, `voiceOut` (with D1 inline), `gate`, `collide`, `out`, `outSerial`, and the parameter structs `Blade` / `SP` / `DP`. |
-| `engine.h` | `Engine`: 8 voices of 9 members, a swarm per voice, the voice law, cap and cull, the first tick, the spreads with A2, gravity, the ensemble stream and member envelopes, the BLEP scanner with D2, the loop filter D3, the DC estimators and the render. |
+| `swarm.h` | `Swarm`, one per voice: SwarmSynth's per-swarm state. `SwarmField`, the one SwarmSynth the engine owns: the member placement `x[]`, `centerIdx`, `xmin` (its `rebuild`, placement only), the note counter, the keep-phase snapshot, `noteOn` and `controlTick`, with M1–M3. |
+| `blade.h` | the types: `Blade`, `SP`, `DP`, `NS`, `BX`, `Member`, `Voice`, `Biquad`; and the PURE blade functions: `hash`, `F`, `crushAvg`, `isFM`, `panSlot`, `gate`, `collide`, `d1Takes`. |
+| `engine.h` | `Engine`: the stateful blade evaluation (`wave` and `mod`, which read the per-member sine->saw band-limit; `crushLevel`, `fmStep`, `voiceOut` with D1 inline, `out`, `outSerial`, `fillG2`), the spreads with A2, the voice law, cap and cull, the first tick, gravity, the ensemble stream and member envelopes, the BLEP scanner with D2, the loop filter D3, the DC estimators and the render. |
 
 **Data, all preallocated in the object** (rule 5 of `h2/README.md`):
 
@@ -154,7 +154,8 @@ Each item is listed so a reviewer can check that nothing audible left with it.
 - **The viz and readouts:** `post`, `hordeViz`, `gravRatio`/`gravOct`/`gravErr`,
   `onsD0`, `v.r` (the `hypot` the oracle posts and never renders), the `vc` viz
   countdown, and `toString`. The counters `culled`, `refused` and `stolen` stay:
-  they are host-facing load readouts, and the checks use them.
+  they are host-facing load readouts, and the parity check compares them with the
+  golden's after every scenario (the `CNT` record).
 - **SwarmSynth's output path:** `renderSeg`, pan, tone tilt, hi-tame, roundness,
   the R→tone filter, and the pan layout in `rebuild`. The composed engine never
   calls `renderSeg`, and their state is never read: the output stage is
@@ -189,113 +190,145 @@ Each item is listed so a reviewer can check that nothing audible left with it.
   - one per swarm (start phases, drift);
   - the ensemble stream (B335).
 - **Real time:** `render` allocates nothing, locks nothing and reads no clock. The
-  cap is an input. `set` takes one key at a time from the message thread, as in
-  `razor_core.h`.
+  cap is an input. `set`, `setString`, the note calls and the cap calls run on the
+  render thread BETWEEN `render()` calls (a CLAP host delivers parameter events
+  inside `process()`), never concurrently with one, and none allocates.
 - **Domain clamps** (inert inside the domain, as in phase 1a): N within 1..9, a
   poly pool of 0 ignored, notes within 0..127.
 - **Comments say WHY.** No history, no "was", no measured-then narratives; those
   live in the ADRs and traces this document cites.
 
-## The parity harness (checkpoint 2, as built)
+## The parity harness (as built; reworked after the critic's review at e54b70b)
 
-**`tools/h2_engine_render.mjs`** (new). Phase 1a's renderer stays `razor_core.h`'s
-gate. The scenario language and the 125 blade rows moved to
-`tools/h2_scenarios.mjs`, shared by both renderers. Phase 1a's stream is
-byte-identical before and after the move: sha256 `d3d7897e…`, both runs.
+**`tools/h2_engine_render.mjs`.** Phase 1a's renderer stays `razor_core.h`'s gate.
+The scenario language and the 125 blade rows are in `tools/h2_scenarios.mjs`, which
+both renderers share. Phase 1a's stream is byte-identical before and after the move
+(sha256 `d3d7897e…`, both runs).
 
 - It loads the golden from the five pinned files and seeds `Math.random` with
   mulberry32 around every instance (the composed engine's seeded wrapper, ADR-187
-  item 3). It renders each scenario and streams the script, the PRISTINE engine's
-  float64 samples and the blade-event digest.
-- **Events** come from an INSTRUMENTED scratch copy, built in memory:
-  - phase 1a's seven insertions into razor-core.js's text;
-  - one insertion into the composed engine's own `scan` (D2's BLEP site, which
-    bypasses RazorCore's).
+  item 3). Per scenario it streams:
+  - the script;
+  - the PRISTINE engine's float64 samples;
+  - the blade-event digest;
+  - the golden's load readouts after the script (`CNT`: tails culled, notes
+    refused, voices stolen).
 
-  The copy's samples equal the pristine engine's bit for bit on 532 of 532
-  scenarios (NONINV).
-- **Stream format:** phase 1a's, with header `H2ENGINE 1`, an `ORACLE` record per
-  golden file, and two new commands, `cap <n>` and `capPolicy <n>` (the engine's
+  The stream header also carries the golden's Node version (`NODE`).
+- **Events** come from an INSTRUMENTED scratch copy built in memory, with phase 1a's
+  seven insertions into razor-core.js's text plus one in the composed engine's own
+  `scan` (D2's BLEP site). Its samples equal the pristine engine's bit for bit on
+  every scenario (NONINV).
+- **Commands:** phase 1a's, plus `cap <n>` and `capPolicy <n>` (the engine's
   `msg`).
-- `--nudge K` moves every note-on and retune frequency IN THE SCRIPT K doubles up,
-  so both sides render the nudged inputs. This is L0071's probe.
+- **`--nudge K`** moves every note-on and retune frequency IN THE SCRIPT K doubles
+  up, so both sides render the nudged inputs (L0071's probe).
 
-**`tools/h2_engine_parity_check.cpp`** (new). It replays each script through
-`horde2::engine::Engine` and requires, per scenario:
+**`tools/h2_engine_parity_check.cpp`** replays each script through
+`horde2::engine::Engine`. Per scenario it requires:
 
 - RMS < 1e-6 and max-abs < 1e-6 (ruled 2026-09-30, B332);
-- identical event counts and times.
+- identical event counts and times;
+- identical load readouts;
+- no key the engine lacks, unless the check's whitelist names it (it is empty).
 
 The five ORACLE blobs must each appear in `h2/README.md` as `<path>@<blob>`.
 
-**AMENDED: the bit-exact floor is on the MEAN share, not per scenario.** The
-L0071 probe was run before pinning, as planned, and it rules out a per-scenario
+**The bit-exact floor is on the MEAN share, keyed per platform, compiler and Node
+major** (a proposal; open question 3). The L0071 probe rules out a per-scenario
 floor:
 
 - One scenario's share of bit-identical samples moves by up to **57 points** when
-  every note-on frequency moves one ULP. For example, Zap bass :: chord reads
-  5.79%, 62.36% and 3.55% at nudges 0, 1 and 2.
-- The share is the time before the first libm disagreement (L0066) reaches the
-  output, so it is a property of the inputs, not of the engine.
-- **The mean over the 529 scenarios held to parity is stable:** 37.21%, 38.49%
-  and 37.85% at nudges 0, 1 and 2. The proposed floor is a mean share of at least
-  **30%** on darwin-arm64: 7.2 points under the lowest measured.
+  every note-on frequency moves one ULP. Zap bass :: chord reads 5.79%, 62.36% and
+  3.55% at nudges 0, 1 and 2. The share is the time before the first libm
+  disagreement (L0066) reaches the output, so it is a property of the inputs.
+- **The mean over the 540 scenarios held to parity is stable:** 37.00%, 38.34% and
+  37.61% at nudges 0, 1 and 2.
+
+  | nudge | P/ | E/ | T/ | C/ |
+  |---|---|---|---|---|
+  | 0 | 32.87% | 46.33% | 43.39% | 36.28% |
+  | 1 | 33.66% | 46.78% | 43.42% | 40.47% |
+  | 2 | 33.53% | 47.01% | 43.32% | 37.46% |
+
+- The proposed floor is a mean of at least **30%**, pinned for darwin-arm64, Apple
+  clang 16 and Node 24. That is 7.0 points under the lowest. Any other key reports
+  the mean and SKIPs the floor, never passes it.
+- **Inside the gate:** the FMA-fused build (`h2_engine_fma_control`) fires only if
+  parity misses AND, where the floor is pinned, its mean falls under the floor. It
+  reads **17.48%** (per family P/ 14.65, E/ 20.41, T/ 22.84, C/ 17.04) and fires,
+  with 24 of 543 scenarios missing parity.
 - Five scenarios are at 0.0% bit-exact while at parity (≤ 1e-10). These are the
-  hash-noise FM patches: `sin` at arguments near 1e7, times 43758.
-- The floor is pinned PER PLATFORM. Any other platform reports the mean and
-  SKIPs the floor, never passes it.
-- The floor earns its place: the FMA-contracted build drops the mean to **17.65%**,
-  and only 24 of the 529 non-ring scenarios miss 1e-6 under it.
+  hash-noise FM patches.
 
-The human ruled "per-scenario"; this form is a proposal for ratification (open
-question 3).
+**Chaotic exclusions.** The three Cross-mod ring (watch) rows are pinned BY NAME.
+Each must hold identical events and readouts, and a strict **1e-6 max-abs bound
+over its first 128 frames**, before the ring amplifies (measured: 5e-11 to 8e-11).
+Then one of two rules applies:
 
-**Chaotic exclusions:** phase 1a's rule, as briefed. Max-abs alone is exempt; RMS
-and events still hold; the golden against itself, inputs 1 ULP apart, must miss
-max-abs by at least as much as the C++; the count is pinned (3 listed); the
-evidence is re-measured every run. **One listed row fails that rule (open question
-4).**
+- **1a, the default:** phase 1a's rule as briefed. RMS < 1e-6, and the golden's
+  own one-ULP divergence must reach at least the C++'s max-abs.
+- **b, selectable with `--chaotic-rule b [--chaotic-k K]`:** RMS is exempt too.
+  The golden's own one-ULP divergence must be at least K × the C++'s, in RMS and
+  in max. This weakens 1a, so it is the human's to rule; it is built, NOT the
+  default, and the check stays unwired.
 
-**Must-fail controls, planted under `H2_ENGINE_FAULTS`. AMENDED:** F1 cannot be
-planted in this engine. ADR-184 A2's half-away-from-zero pre-rounding makes
-`Math.round`'s negative half unreachable (every other `Math.round` argument in
-the golden is non-negative), so `std::round` for `Math.round` changes no sample.
-A2's own two laws take its place.
+The run prints each listed row's ratios. **Control X1** scales the ring's xm by
+1 + 1e-9 inside the engine and must make every listed row "NOT justified" under
+the selected rule. It does: under 1a, the first-128 bound alone sees 2.6e-3 to
+4.7e-3, and the ratios fall to 0.18–0.42×.
 
-| control | what it plants | row it must turn red | result |
+**Must-fail controls, planted under `H2_ENGINE_FAULTS`** (each fires; values at
+the rework head):
+
+| control | what it plants | row it must turn red | when planted |
 |---|---|---|---|
-| A2a | the oracle's `Math.round` on a Quantized Cut spread | C/A2 Quantized Cut spread -2.5 | rms 7.8e-2, events disagree |
-| A2b | Rotate spread's sign dropped | C/A2 negative Rotate spread | rms 1.6e-1, events disagree |
-| F2 | the start-phase and modulator draws swapped | T/fm mode 2 type 0 :: chord (a free FM blade: the start phase itself is the swarm's) | rms 1.7e-1, events disagree |
-| F3 | the blade-entry BLEP skipped | T/mode 0 :: chord, samples AND events | rms 1.1e-3, events disagree |
-| F5 | every event one tick late | T/mode 0 :: chord, events ALONE | samples bit-identical, events disagree |
-| V1 | the oracle's same-note reuse in place of B310 | C/VL repeat, the first release rings | rms 2.9e-1 |
+| A2a | the oracle's `Math.round` on a Quantized Cut spread | C/A2 Quantized Cut spread -2.5 | rms 7.8e-2 |
+| A2b | Rotate spread's sign dropped | C/A2 negative Rotate spread | rms 1.6e-1 |
+| F2 | the start-phase and modulator draws swapped | T/fm mode 2 type 0 :: chord | rms 1.7e-1 |
+| F3 | the blade-entry BLEP skipped | T/mode 0 :: chord, samples AND events | rms 1.1e-3 |
+| F5 | every event one tick late | T/mode 0 :: chord, events ALONE | samples bit-identical |
+| V1 | the oracle's same-note reuse | C/VL repeat, the first release rings | rms 2.9e-1 |
 | T1 | the swarm tick one sample late | C/M1 K 1 at 48000 | rms 3.4e-5 |
-| L1 | B325's look-ahead dropped | C/FT chord on a mono voice in one block | rms 4.9e-5, events disagree |
+| L1 | B325's look-ahead dropped | C/FT chord on a mono voice in one block | rms 4.9e-5 |
 | K1 | M1 reverted (0.08 per tick at 48 kHz) | C/M1 K 1 at 48000 | rms 9.4e-4 |
+| C1 | the cull a no-op | C/CAP cull, the cap lowered mid-phrase | rms 2.7e-1, readouts disagree |
+| C1 | the cull a no-op | C/CAP cull per-partial voices, the cap lowered mid-phrase | rms 2.2e-1, readouts disagree |
+| C2 | the cull takes the oldest voice, held or not | C/CAP cull, the cap lowered mid-phrase (the held note is the oldest) | rms 2.8e-1 |
+| X1 | the ring's xm × (1 + 1e-9) | every listed chaotic row | 3 of 3 not justified |
+
+F1 (`std::round` for `Math.round`) cannot be planted in this engine. A2's
+half-away-from-zero pre-rounding makes `Math.round`'s negative half unreachable,
+so A2a takes its place.
 
 Also run every time:
 
-- **FMA control:** `h2_engine_fma_control` is the same source at
-  `-ffp-contract=fast` (plus `-mfma` on x86-64), over the full stream. It fires on
-  24 rows, worst rms 8.2e-5 on T/b2 own fm. Exit codes are as in 1a: 0 fired, 1
-  did not fire, 2 infrastructure.
-- **Detection floor:** a relative error eps on the swarm's pitch, each tick.
-  Measured at 1e-9: at 1e-10 the max-abs is 3.9e-7, still green. It is printed,
-  not judged.
-- **Determinism:** the same script twice is bit-identical.
+- **Detection floor:** a relative error eps on the swarm's pitch each tick, printed
+  and not judged. It is 1e-9.
+- **Determinism, AMENDED (critic H2).** Three fixed scripts, rendered twice in this
+  process and once in a CHILD process (the binary itself with `--det-digest`), at
+  host blocks of 1, 37, 128 and 512: (1) the swarm with the ensemble and gravity;
+  (2) the mid-phrase cull; (3) D1–D3 with feedback at os 4.
+  - Every block size is bit-identical across the three runs.
+  - Scripts 1 and 3 are bit-identical across block sizes.
+  - Script 2 differs across block sizes by float32 rounding alone (max |Δ|
+    1.47e-8 against a 2^-23 bound). This is the golden's own law: while a culled
+    voice fades, `renderPlain` renders one sample per call through a
+    `Float32Array(1)` to the end of the host's block, so how many samples pass
+    through float32 depends on where the host's blocks end. It is a divergence
+    CANDIDATE (the fade could render in doubles), not ledgered here.
 - **No arguments (B384):** with no arguments the check spawns the renderer itself
   from the repo root.
 
-**WIRING: NOT YET (a grounded stop; see open question 4).** The check carries
-`UNWIRED:` with the reason, which `test_table_check` accepts. Wiring it as briefed
-would turn `./verify full` red on the one row that a ratified rule cannot settle
-the way the brief states it. Once the lead rules, wiring is one line in `verify`
-for each binary. `h2_rules_check` now treats `h2/engine/` as h2 code: the
-contraction rule covers both new targets, `h2_engine_fma_control` is a declared
-exception, and there are two new self-cases.
+**WIRING: NOT YET.** The check carries `UNWIRED:` with the reason. Under rule 1a,
+the arp row is red at the scripts' own inputs. Rule b is a weakening of 1a, so
+the human rules on the ring criterion; wiring follows in one line per binary.
+`h2_rules_check` treats `h2/engine/` as h2 code. Its source detector is a plain
+substring test for `h2/cores/` or `h2/engine/`, never narrower than the original.
+Self-cases cover `"h2/cores/x.h"`, `<h2/engine/engine.h>`, `"../h2/engine/engine.h"`
+and a tab-separated include.
 
-## Scenario families (as built: 532 scenarios)
+## Scenario families (as built: 543 scenarios)
 
 All at 48 kHz in 128-sample blocks unless a row says otherwise. The seeds are per
 family.
@@ -305,70 +338,83 @@ family.
 2. **E/, the 12 B366 lab presets** × chord, repeat and arp (+ legato for the 2
    mono ones): 38. They are read from the lab's `ENV_PRESETS` text.
 3. **T/, phase 1a's 125 blade rows**, re-run through the composed engine.
-4. **C/, 108 composed rows:**
-   - VL 3 (repeat, tiers 2 and 3, tier 1);
-   - CAP 7 (cull, refuse, steal, replace, steal with no free slot, not binding,
-     the cull of a per-partial voice);
-   - FT 4 (lock 2 in 37-sample blocks, Hz modulator in 100-sample blocks, a chord
-     on a mono voice in one block, a retune before the first sample);
-   - GRAV 8 (sharp fifth, triad, twelfth, outside the basin, on mid-note,
-     100-sample blocks, a bend while settled, 44.1 kHz);
-   - ONS 10 (alpha 0, 0.25 and 1; attack and release scatter; per-partial
-     envelopes, chord and arp; both together; a seed change; mono retrigger;
-     44.1 kHz);
-   - D1–D3 28 (each alone and all on over Zap bass, Frozen noise FM, Trance
-     jitter, Feedback snarl and Cross-mod roar; Band-limit off with a sync and a
-     ring carrier; pitch FM; an S&H modulator; D1 on and off mid-note; a blade-2
-     carrier under feedback with D2; a cross-mod ring and a mid-note switch with
-     D3);
-   - M1 9 (K .35, 1 and -.6 at 44.1, 48 and 96 kHz), M2 4 (onset ±.5 at 44.1 and
-     48), M3 4 (law 3 at 120 bpm, and at 140 bpm ×2, at both rates);
-   - SW 24 (dist 0–4, laws 0/1/2/4/5, drift modes 0–2, the centre pin, inertia
-     curves 0.5 and 2.5, freqGlide under drift and retune, keep phase, random
-     starts, pivot at K ±.6, anchor and spread, a seed change, N changed
-     mid-note);
-   - A2 6 (negative Rotate spread, blade 2's own, a sign flip mid-note, Quantized
-     Cut spread ±2.5, blade 2's -1.5);
-   - OS 1 (2 → 4 → 1 mid-note).
+4. **C/, 119 composed rows:**
+   - **VL 3:** repeat, tiers 2 and 3, tier 1.
+   - **CAP 7:**
+     - the cull with the cap lowered mid-phrase while three tails release and the
+       OLDEST note is held;
+     - the same with per-partial voices (the per-member fade);
+     - refuse, steal, replace, steal with no free slot, and not binding.
+   - **FT 4:** lock 2 in 37-sample blocks; a Hz modulator in 100-sample blocks; a
+     chord on a mono voice in one block; a retune before the first sample.
+   - **GRAV 8:** a sharp fifth, a triad, a twelfth, a pair outside the basin,
+     switched on mid-note, 100-sample blocks, a bend while settled, and 44.1 kHz.
+   - **ONS 12:**
+     - alpha 0, 0.25 and 1;
+     - attack and release scatter;
+     - per-partial envelopes, chord and arp, and both together;
+     - a seed change; a mono retrigger; 44.1 kHz;
+     - onset scatter switched OFF mid-note, and per-partial envelopes switched OFF
+       mid-note.
+   - **D1–D3 37:**
+     - each alone, and all on, over Zap bass, Frozen noise FM, Trance jitter,
+       Feedback snarl and Cross-mod roar;
+     - D1 with Band-limit off (sync and ring carriers), pitch FM, an S&H
+       modulator, on and off mid-note, width-locked, mirrored, under collision, on
+       a serial input, and on serial twins;
+     - D2 on a blade-2 carrier under feedback, under phase FM, width-locked,
+       mirrored, and under collision;
+     - D3 on a cross-mod ring, and switched on mid-note.
+   - **M 17:**
+     - M1: K .35, 1 and -.6 at 44.1, 48 and 96 kHz;
+     - M2: onset ±.5 at 44.1 and 48;
+     - M3: law 3 at 120 bpm and at 140 ×2, at both rates.
+   - **SW 24:** the swarm's own parameters.
+   - **A2 6.**
+   - **OS 1.**
 
-## Results (checkpoint 2, darwin-arm64, Node 24.10, `-O2 -ffp-contract=off`)
+## Results (darwin-arm64, Apple clang 16, Node 24.10, `-O2 -ffp-contract=off`)
 
-| family | scenarios | at parity | worst rms | worst max-abs | lowest bit-exact share |
+| family | scenarios | at parity | worst rms | worst max-abs | mean bit-exact |
 |---|---|---|---|---|---|
-| P/ | 261 | 258 + 2 excluded with evidence; **1 red** (below) | 1.1e-12 | 9.9e-11 | 0.0% |
-| E/ | 38 | 38 | 1.9e-14 | 4.5e-13 | 4.6% |
-| T/ | 125 | 125 | 2.0e-12 | 1.4e-10 | 0.0% |
-| C/ | 108 | 108 | 2.1e-12 | 1.8e-10 | 2.0% |
+| P/ | 261 | 258, plus 2 excluded with evidence; **1 red** | 1.1e-12 | 9.9e-11 | 32.87% |
+| E/ | 38 | 38 | 1.9e-14 | 4.5e-13 | 46.33% |
+| T/ | 125 | 125 | 2.0e-12 | 1.4e-10 | 43.39% |
+| C/ | 119 | 119 | 2.1e-12 | 1.8e-10 | 36.28% |
 
-- Events are identical on all 532, the ring rows included: 1,085,054 edge/base
-  BLEPs; 635,801 carrier BLEPs; 364,026 blade-1 and 136,385 blade-2 entries.
-- The mean bit-exact share is 37.21%.
-- **Every non-ring scenario stays at parity at nudges 1 and 2 as well:** 529 of
-  529 at each.
+- Events and readouts are identical on all 543, the ring rows included.
+- No scenario sets a key the engine lacks.
 
-**Not at parity: P/Starting points / Cross-mod ring (watch) :: arp.** It is
-chaotic, and the golden says so itself:
+**Not at parity under rule 1a: P/Starting points / Cross-mod ring (watch) :: arp**
+(rms 1.69e-6, max 1.6e-4; the golden against itself, 1 ULP apart: rms 2.1e-3, max
+9.2e-2). This is ADR-065's case, and ADR-187 item 6 inherits ADR-065's evidence
+rule.
 
-| nudge | row | C++ vs JS rms / max | the golden vs itself (1 ULP) rms / max | 1a rule |
-|---|---|---|---|---|
-| 0 | chord | 1.13e-7 / 9.8e-6 | 4.0e-3 / 1.7e-1 | excluded |
-| 0 | repeat | 2.01e-7 / 1.1e-5 | 6.8e-3 / 1.9e-1 | excluded |
-| 0 | **arp** | **1.69e-6** / 1.6e-4 | 2.1e-3 / 9.2e-2 | **red: rms ≥ 1e-6** |
-| 1 | chord / repeat / arp | 1.75e-6 / 2.40e-6 / 2.58e-6 rms | 4.5e-3 / 7.6e-3 / 2.6e-3 rms | all three red |
-| 2 | chord / repeat / arp | 1.66e-6 / 5.74e-7 / 3.45e-6 rms | 4.9e-3 / 8.5e-3 / 2.8e-3 rms | two red |
+**The ring ratio over 25 input nudges (0 to 24 ULP; critic M2).** Each cell is the
+golden's own one-ULP divergence over the C++ error, min / median / max:
 
-- Whether these rows hold RMS < 1e-6 is a coin toss on a 1-ULP input change.
-- The golden's own self-divergence is 560–35,000× the C++'s, in RMS and in
-  max-abs.
-- The C++ error is 5e-11 in the first block, peaks near each note-on (1.6e-4 at
-  block 19 of the arp), and decays between them. That is transient amplification
-  in a high-gain ring (xm 0.7), seeded by libm's last bit.
-- Phase 1a measured the same preset at rms 1.8e-8 on the arp; horde's coupling
-  law makes the composed ring more sensitive.
+| row | RMS ratio | max ratio | C++ rms range | first-128 max | passes 1a (rms < 1e-6) | passes b at K = 10 |
+|---|---|---|---|---|---|---|
+| chord | 2 / 2430 / 35546 | 2 / 1423 / 17021 | 1.1e-7 … 1.1e-3 | 6.0e-11 | 14 of 25 | 23 of 25 |
+| repeat | 2 / 2392 / 33614 | 2 / 1778 / 16768 | 2.0e-7 … 1.9e-3 | 8.1e-11 | 9 of 25 | 23 of 25 |
+| arp | 3 / 999 / 17929 | 2 / 564 / 9498 | 1.2e-7 … 6.7e-4 | 4.9e-11 | 12 of 25 | 23 of 25 |
 
-This is ADR-065's case exactly: "bit-parity … is a valid oracle **only in
-non-chaotic regimes**". ADR-187 item 6 inherits ADR-065's evidence rule. The brief
-says phase 1a's form of it: max-abs only.
+- At nudges 16 and 19, all three rows diverge macroscopically: C++ rms 4e-4 to
+  1.9e-3, ratios 2–3, events still identical. The C++ and the golden take
+  different branches of the attractor, as the golden does against itself.
+- At nudge 15 the ratios are 19–126.
+- No K above about 2 holds on every input. The strict first-128 bound holds on all
+  75 (≤ 8.1e-11, against 1e-6), and it is what catches X1 by 4 orders of
+  magnitude.
+- So option (b) at the critic's K = 10 is still input-fragile on 2 of 25 inputs
+  (8%), where rule 1a is on 40–64% of them.
+
+## Deferred: the quality suites (a named checkpoint; the lead's decision, 2026-10-01)
+
+Aliasing (B346's estimator on the engine) and zipper (parameter-motion sidebands,
+the B378 F8 method) are NOT part of this PR series. They are a DEFERRED checkpoint
+of their own, recorded by the lead as its own ROADMAP row. B385's row names them;
+this series delivers parity, determinism and CPU only.
 
 ## CPU (checkpoint 4, Layer-E, never a gate)
 
@@ -390,7 +436,9 @@ new, unwired, best of 5, three interleaved runs that agreed to ±0.01 points;
 
 The C++ renders these at rms ≤ 3.8e-16 from the golden in the release build.
 
-**Through `tools/auhost` (B381 stage 1, PR #886, not merged).** Its `--horde` mode times
+**Through `tools/auhost` (B381 stage 1, PR #886, not merged). MEASURED WITH AN
+UNCOMMITTED auhost PATCH; reproducible after #886 merges and the `--engine` mode is
+committed (the lead's decision: after #886, not now).** Its `--horde` mode times
 `razor_core.h`. To point it at the engine, a scratch copy of `auhost.cpp` (from
 `origin/auhost-stage1` at `23bc4fe`) adds an `--engine` mode: the same `cmdHorde` loop
 with `horde2::engine::Engine` in place of `RazorCore` and double block buffers (the
@@ -422,30 +470,28 @@ must leave every parity digest unchanged, measured against this table.
 - The plugin shell.
 - The parameter manifest (B376).
 - `src/`, `reference/`, `specs/`, and `h2/cores/**`.
+- **The quality suites (aliasing, zipper):** a named DEFERRED checkpoint (above).
+- The auhost `--engine` mode: it is committed after #886 merges.
 
-## Open questions (for the lead)
+## Open questions
 
-1. **M1–M3's OFF positions.** Built as proposed: the C++ carries the ON law only.
-   `ksmPerRate`, `onsetBipolar` and `tempoGrid` are unknown keys to it (`set`
-   returns false). Keep it that way, or carry them?
+1. **M1–M3's OFF positions.** The C++ carries the ON law only. `ksmPerRate`,
+   `onsetBipolar` and `tempoGrid` are unknown keys to it (`set` returns false, and
+   the check turns any such key red). Keep it that way?
 2. **Where the target pins are enforced.** The razor-core.js pin is in `verify
-   fast` (`h2_rules_check` rule 3). The engine's five pins are checked in the
-   parity check (`verify full` once wired). Proposed: full only, for now.
-3. **The floor's form.** The per-scenario floor the human ruled is fragile by
-   measurement (57 points under a 1-ULP nudge). The proposal is a mean-share
-   floor of 30% on darwin-arm64 (baseline 37.00–38.27%). Ratify, or rule
-   otherwise.
-4. **The Cross-mod ring (watch) rows (blocks the wiring).** Under the brief's 1a
-   rule, the arp row is red at the scripts' own inputs, and all three rows are
-   red or excluded by chance under a 1-ULP nudge. Choose one:
-   - (a) **ADR-065's ruling:** remove the three from the parity set, with a
-     comment citing the ADR, and cover them behaviourally (bounded, finite,
-     events identical);
-   - (b) **an evidence tier:** keep the three listed, exempt RMS too, and require
-     identical events plus a golden self-divergence of at least 100× the C++'s in
-     both RMS and max-abs, re-measured every run, count pinned. This checks more
-     than (a);
-   - (c) **keep the 1a rule:** then the check stays red until the golden or the
-     preset changes.
+   fast`; the engine's five are in the parity check (`verify full`, once wired).
+   Proposed: leave them there.
+3. **The floor's form (the human's).** A per-scenario floor is fragile by
+   measurement. The proposal: a mean share of at least 30%, keyed on darwin-arm64,
+   Apple clang 16 and Node 24; the baseline is 37.00–38.34%, and FMA reads 17.48%.
+4. **The ring criterion (the human's; it blocks the wiring).** Choose one:
+   - (a) remove the three rows, as ADR-065 did;
+   - (b) rule b, built and selectable: RMS exempt, events, readouts and the
+     strict first-128 bound held, and the golden's self-divergence at least K ×
+     the C++'s. At K = 10 it holds on 23 of 25 nudged inputs; no K above about 2
+     holds on all 25;
+   - (c) rule 1a, the default: the arp row is red at the scripts' own inputs.
 
-   Recommended: (b). Wiring follows the ruling, in one line per binary.
+   A variant worth the human's eye: rule b with K = 1 (the C++ no further from the
+   golden than the golden is from itself). It is ADR-065's literal statement, and
+   with the first-128 bound it still catches X1.
