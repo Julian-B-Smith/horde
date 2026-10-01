@@ -863,7 +863,8 @@ endif()
 # h2_engine_parity_check (B385): horde 2's ONE engine, the composed engine
 # (h2/engine/, horde2::engine), against its golden, the composed JS
 # (tools/h2_engine_render.mjs renders it). The parity build: doubles, -O2,
-# -ffp-contract=off, like every h2 target (h2 rule 7). Wired in ./verify full.
+# -ffp-contract=off, like every h2 target (h2 rule 7). UNWIRED until the human
+# rules on the chaotic ring rows (B385; the reason is in the check's header).
 add_executable(h2_engine_parity_check tools/h2_engine_parity_check.cpp)
 if(NOT MSVC)
   target_compile_options(h2_engine_parity_check PRIVATE -O2 -ffp-contract=off)
@@ -871,8 +872,9 @@ endif()
 # h2_engine_fma_control: the same source with contraction FORCED ON, the engine's
 # must-fail control for "FMA contraction on" and a declared exception to the
 # contraction-off rule (tools/h2_rules_check.py), as h2_scalpel_fma_control is for
-# the blade port. Exit 0: the parity gate caught the fused build over the full
-# stream; 1: it did not; 2: the run broke. Wired in ./verify full.
+# the blade port. Exit 0: over the full stream the fused build missed parity AND
+# (where the floor is pinned) its mean bit-exact share fell under the floor; 1: not
+# both; 2: the run broke. Unwired with its check.
 add_executable(h2_engine_fma_control tools/h2_engine_parity_check.cpp)
 target_compile_definitions(h2_engine_fma_control PRIVATE H2_ENGINE_FMA_CONTROL)
 if(NOT MSVC)
@@ -880,6 +882,13 @@ if(NOT MSVC)
   if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|amd64)$")
     target_compile_options(h2_engine_fma_control PRIVATE -mfma)
   endif()
+endif()
+# measure_h2_engine (B385 checkpoint 4): the composed engine's CPU per voice
+# against the golden's (ADR-187 item 8, Layer-E). The release build, -O3 with
+# contraction off like every h2 target (h2 rule 7). Prints, never judges; unwired.
+add_executable(measure_h2_engine tools/measure_h2_engine.cpp)
+if(NOT MSVC)
+  target_compile_options(measure_h2_engine PRIVATE -O3 -ffp-contract=off)
 endif()
 
 # MSVC gives a process a 1 MB main-thread stack; macOS and Linux give 8 MB. A

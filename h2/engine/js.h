@@ -5,8 +5,13 @@
  * The engine's parity target is JavaScript (ADR-187 item 3), so wherever a std::
  * function "looks the same" as its JS counterpart but is not, the engine calls
  * these instead:
- *   - Math.round is floor(x + 0.5). std::round rounds negative halves away from
- *     zero (Math.round(-2.5) is -2, std::round(-2.5) is -3).
+ *   - Math.round is ported as floor(x + 0.5), not std::round, which rounds
+ *     negative halves away from zero (Math.round(-2.5) is -2, std::round(-2.5)
+ *     is -3). floor(x + 0.5) itself differs from Math.round where the addition
+ *     rounds: at 0.49999999999999994 (it gives 1, Math.round 0) and at odd
+ *     integers from 2^52 up (it gives x + 1). No argument the engine rounds can
+ *     be either: they are spreads, rotation offsets, rule indices, tempo-grid
+ *     steps and the gravity grid, all small and computed, never those values.
  *   - Math.min/Math.max return NaN if either operand is NaN, and order ±0.
  *     std::min/max return an operand that depends on argument order.
  *   - A `switch` on a JS number is strict equality: a non-integral selector

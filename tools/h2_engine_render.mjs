@@ -120,14 +120,20 @@ function composedRows(presets) {
   row('VL tier 1, a faded slot', { ...B1, poly: 2, R: 5 }, [on(45), blocks(5), off(45), blocks(20), on(52), on(57), blocks(10), off(52), off(57), blocks(20)]);
   // B323 + B375: the cap, the cull and the policy at a full cap
   const capRow = (name, over, cap, pol, body) => row(name, over, body, { pre: [['cap', cap], ['capPolicy', pol]] });
-  capRow('CAP cull the quietest tail', { ...B1, R: 1500 }, 2, 0, [on(45), on(52), on(57), blocks(10), off(45), off(52), blocks(40), on(60), blocks(20), off(57), off(60), blocks(30)]);
+  // The cull (B323): the cap is LOWERED MID-PHRASE while tails release (a cap set
+  // before the notes makes these refuse rows instead). R is long, so each culled
+  // tail is still sounding when its 8 ms ramp ends and the ramp frees it.
+  // The HELD note is the OLDEST, so a cull that ignored the gate would take it first.
+  row('CAP cull, the cap lowered mid-phrase', { ...B1, R: 1500 }, [on(45), on(52), on(57), on(60), blocks(10), off(52), off(57), off(60), blocks(3),
+    ['cap', 1], blocks(30), on(64), blocks(10), ['cap', 0], on(67), blocks(10), off(45), off(64), off(67), blocks(30)]);
   capRow('CAP refuse', { ...B1, R: 300 }, 2, 0, [on(45), on(52), blocks(10), on(57), blocks(20), off(45), off(52), off(57), blocks(20)]);
   capRow('CAP steal', { ...B1, R: 300 }, 2, 1, [on(45), on(52), blocks(10), on(57), blocks(20), off(45), off(52), off(57), blocks(20)]);
   capRow('CAP replace', { ...B1, R: 300 }, 2, 2, [on(45), on(52), blocks(10), on(57), blocks(20), off(45), off(52), off(57), blocks(20)]);
   capRow('CAP steal with no free slot', { ...B1, poly: 2, R: 300 }, 2, 1, [on(45), on(52), blocks(10), on(57), blocks(20), off(52), off(57), blocks(20)]);
   capRow('CAP not binding', { ...B1, R: 300 }, 8, 0, chord);
-  capRow('CAP cull a per-partial voice', { ...B1, R: 900, voiceEnv: 1, attackScatter: 0.5, relScatter: 0.5 }, 1, 0,
-    [on(45), blocks(10), on(52), blocks(10), off(45), blocks(30), off(52), blocks(30)]);
+  // the per-partial fade: a culled voice's members scale with it (each member's own envelope)
+  row('CAP cull per-partial voices, the cap lowered mid-phrase', { ...B1, R: 1500, voiceEnv: 1, attackScatter: 0.5, relScatter: 0.5 },
+    [on(45), on(52), on(57), blocks(15), off(45), off(52), blocks(3), ['cap', 1], blocks(30), off(57), blocks(30)]);
   // B325: the first tick, on and off the 16-sample grid
   row('FT lock 2, 37-sample blocks', { ...B1, lock: 2, kHz: 900 }, [on(45), rb(37, 3), on(52), rb(37, 5), on(57), rb(37, 40), off(45), off(52), off(57), rb(37, 30)]);
   row('FT Hz modulator, 100-sample blocks', { ...B1, mode: 2, mUnit: 1, mHz: 440 }, [on(45), rb(100, 3), on(52), rb(100, 40), off(45), off(52), rb(100, 20)]);
@@ -153,6 +159,9 @@ function composedRows(presets) {
   row('ONS a seed change re-derives the offsets', { ...O, dist: 2 }, spliceAt(arp, [[40, ['set', 'seed', 999]]]));
   row('ONS mono retrigger with per-partial envelopes', { ...B1, N: 5, polyMode: 1, voiceEnv: 1, attackScatter: 0.5, A: 30 }, PHRASES.legato([45]));
   row('ONS at 44.1 kHz', O, arp, { sr: 44100 });
+  row('ONS onset scatter switched off mid-note', O, spliceAt(chord, [[20, ['set', 'onsetScatter', 0]]]));
+  row('ONS per-partial envelopes switched off mid-note', { ...O, onsetScatter: 0, voiceEnv: 1, attackScatter: 0.6, relScatter: 0.6 },
+    spliceAt(chord, [[40, ['set', 'voiceEnv', 0]]]));
   // ADR-189 D1-D3, each alone and all on, over the bench presets in their scope
   const flagSets = [['D1', { aaCarrier: 1 }], ['D2', { aaXin: 1 }], ['D3', { aaLoop: 1 }], ['D1-D3', { aaCarrier: 1, aaXin: 1, aaLoop: 1 }]];
   for (const name of ['Zap bass', 'Frozen noise FM', 'Trance jitter', 'Feedback snarl', 'Cross-mod roar']) {
@@ -165,6 +174,16 @@ function composedRows(presets) {
   row('D1 an S&H modulator (out of scope)', { ...B1, mode: 2, mshape: 7, I: 2.5, aaCarrier: 1 }, chord);
   row('D1 switched on mid-note', { ...B1, mode: 2, I: 2 }, spliceAt(chord, [[30, ['set', 'aaCarrier', 1]], [60, ['set', 'aaCarrier', 0]]]));
   row('D2 blade 2 carrier under feedback', { ...B2, mode2: 0, hot2: 2, fb: 0.3, aaXin: 1 }, chord);
+  // D1 and D2 under the blade paths that move the carrier phase (critic L4)
+  row('D1 width-locked FM carrier', { ...B1, mode: 2, I: 2, lock: 1, aaCarrier: 1 }, chord);
+  row('D1 mirrored FM carrier', { ...B1, mode: 2, I: 2, mirror: 1, hard: 0.2, aaCarrier: 1 }, chord);
+  row('D1 under collision', { ...B2, mode: 2, mode2: 2, I: 2, colK: 0.9, colB: 0.5, w: 0.5, w2: 0.5, aaCarrier: 1 }, chord);
+  row('D1 on a serial input', { ...B2, aa: 0, mode2: 0, hot2: 2, b2mix: 0.7, aaCarrier: 1 }, chord);
+  row('D1 serial twins', { ...B2, mode: 2, I: 2, b2mix: 0.6, mirror: 3, mirror2: 2, aaCarrier: 1 }, chord);
+  row('D2 under phase FM', { ...B1, mode: 2, fmType: 0, I: 2, fb: 0.3, aaXin: 1 }, chord);
+  row('D2 width-locked', { ...B1, lock: 1, fb: 0.3, aaXin: 1 }, chord);
+  row('D2 mirrored', { ...B1, mirror: 1, hard: 0.2, fb: 0.3, aaXin: 1 }, chord);
+  row('D2 under collision', { ...B2, mode2: 0, hot2: 2, colK: 0.9, w: 0.5, w2: 0.5, fb: 0.3, aaXin: 1 }, chord);
   row('D3 a cross-mod ring', { ...B1, N: 5, xm: 0.5, aaLoop: 1 }, chord);
   row('D3 switched on mid-note', { ...B1, N: 1, fb: 0.5 }, spliceAt(chord, [[30, ['set', 'aaLoop', 1]]]));
   // B382 M1-M3 at both rates
@@ -257,7 +276,7 @@ function renderWith(E, sc, { instrument = null, perturb = false } = {}) {
         default: throw new Error('bad command ' + cm[0]);
       }
     }
-    return { buf, log: instrument ? instrument.__log : null };
+    return { buf, log: instrument ? instrument.__log : null, counts: [c.culled, c.refused, c.stolen] };
   } finally {
     Math.random = SAVED;
   }
@@ -273,12 +292,13 @@ function diff(a, b) {
   return { rms: Math.sqrt(e / a.length), max: mx };
 }
 function job(Ep, Ei, i, sc) {
-  const { buf } = renderWith(Ep, sc);
+  const { buf, counts } = renderWith(Ep, sc);
   const ins = renderWith(Ei.E, sc, { instrument: Ei.RC }), log = ins.log;
   let same = ins.buf.length === buf.length;
   for (let k = 0; same && k < buf.length; k++) if (!Object.is(buf[k], ins.buf[k])) same = false;
   let head = scriptText(i, sc);
   head += `EV ${log.count[1]} ${log.count[2]} ${log.count[3]} ${log.count[4]} ${log.h1} ${log.h2}\nNI ${same ? 1 : 0}\n`;
+  head += `CNT ${counts.join(' ')}\n`;   // the load readouts: tails culled, notes refused, voices stolen
   if (CHAOTIC[sc.name]) {
     const p = renderWith(Ep, sc, { perturb: true });
     const d = diff(buf, p.buf);
@@ -316,6 +336,7 @@ async function main() {
   const out = process.stdout;
   const write = data => new Promise(res => { if (out.write(data)) res(); else out.once('drain', res); });
   await write(`H2ENGINE 1 ${idx.length}\n`);
+  await write(`NODE ${process.versions.node}\n`);   // the libm on the golden's side (the floor's pin)
 
   // libm probes (Layer-E, printed by the check, never judged): V8's value of each
   // transcendental the engine calls, on inputs in the ranges it calls them with.
