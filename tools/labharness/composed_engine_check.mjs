@@ -285,6 +285,47 @@ note(`blade-frame rounding bound over all O1 runs: ${worstFrame.toExponential(2)
   note(`FINDING onset −1 vs +1 in SwarmSynth: R at 0.5 s ${m.R.toFixed(6)} vs ${p.R.toFixed(6)} — the JS reference plays the SAME sync burst; horde C++ (ADR-056) plays a splay burst at −1`);
 }
 
+/* ---------------------------------------------------------------- B382 M2 */
+/* M2 `onsetBipolar` (docs/port/divergences.json M2, default ON): ADR-056's bipolar onset, the C++'s
+   law (swarm_core.h :635 Kenv = 8·onset·|onset|; :1894-1895 the sign routed, max(0, Kenv) to sync,
+   max(0, -Kenv)·3 to splay), in place of SwarmSynth's 8·onset² (the FINDING above). THE C++ IS THE LAW:
+     M2   Kenv at note-on is the C++'s 8·o·|o| for o from -1 to 1, flag on; flag off it is SwarmSynth's 8·o².
+     M2s  the swarm half with M2 on is SwarmSynth with M2 on (the engine's own patched class), exactly;
+          at onset >= 0 it is SwarmSynth itself, exactly (ADR-056: a superset, bit-inert there); the
+          CONTROL is the same comparison at negative onset, which must differ.
+     M2b  ADR-056's behavioural anchor (ACCEPTANCE L0-24, trajectory_check's): a negative onset is a SPLAY
+          burst, so the early order parameter R under onset -1 sits well under onset +1's; the CONTROL,
+          flag off, is SwarmSynth's symmetric burst (R equal to the bit). */
+section('M2 — B382: bipolar onset (ADR-056) mirrored into the composed engine');
+{
+  const Bi = swarmWith({ onsetBipolar: 1 }), kenv = (cls, o) => { const r = new cls(SR); r.setParam('onset', o); r.noteOn(NOTE, F57); return r.swarms[0].Kenv; };
+  const OS = [-1, -0.6, -0.2, 0, 0.3, 1];
+  const on = OS.map(o => kenv(Bi, o)), off = OS.map(o => kenv(SwarmSynth, o));
+  row(OS.every((o, k) => on[k] === 8 * o * Math.abs(o) && off[k] === 8 * o * o), 'M2',
+    `Kenv at note-on, onset ${OS.join(' / ')}: ${on.map(x => x.toFixed(3)).join(' / ')} = the C++'s 8·o·|o|; flag off ${off.map(x => x.toFixed(3)).join(' / ')} = SwarmSynth's 8·o²`);
+
+  const cases = [['onset -1 K .2', { K: 0.2, onset: -1, dissolve: 0.3 }], ['onset -.5 K .35', { K: 0.35, onset: -0.5, dissolve: 0.5 }],
+    ['onset -1 K 0', { K: 0, onset: -1, dissolve: 0.6, cents: 40 }], ['onset -.6 K -.5', { K: -0.5, onset: -0.6, dissolve: 0.4, retrig: 0 }],
+    ['onset +.5 K .35', { K: 0.35, onset: 0.5, dissolve: 0.5 }], ['onset +1 K .2', { K: 0.2, onset: 1, dissolve: 0.3 }]];
+  let worst = 0;
+  const moved = [], inert = [];
+  for (const [name, over] of cases) {
+    const h = Object.assign({}, H0, over), r = o1(h, { blade: { onsetBipolar: 1 }, refCls: Bi }), d = o1(h, { blade: { onsetBipolar: 1 } });
+    worst = Math.max(worst, r.ph, r.eff);
+    (over.onset < 0 ? moved : inert).push(`${name} ${d.ph.toExponential(1)}`);
+    if (over.onset >= 0 && (d.ph !== 0 || d.eff !== 0)) row(false, 'M2s', `${name}: M2 on moved a non-negative onset (max|Δφ| ${d.ph}) — ADR-056 is bit-inert there`);
+    if (over.onset < 0 && d.ph < 1e-3) row(false, 'M2sc', `CONTROL ${name}: M2 on did not move a negative onset against SwarmSynth (max|Δφ| ${d.ph})`);
+  }
+  row(worst === 0, 'M2s', `${cases.length} scenarios at 48 kHz, M2 on: member phases and frequencies = SwarmSynth with M2 on, exactly (max ${worst}); against SwarmSynth itself: ${inert.join(' · ')} (onset >= 0, must be 0)`);
+  row(moved.length === cases.filter(c => c[1].onset < 0).length, 'M2sc', `CONTROL the negative onsets against SwarmSynth itself: ${moved.join(' · ')} — each must move`);
+
+  /* ADR-056's anchor: early R (at 60 ms), onset -1 against +1, K .9 as trajectory_check's L0-24 */
+  const early = (cls, o, flag) => o1(Object.assign({}, H0, { K: 0.9, onset: o, dissolve: 0.3 }), { blade: { onsetBipolar: flag }, refCls: cls, seconds: 0.06 }).R;
+  const splay = early(Bi, -1, 1), sync = early(Bi, 1, 1), s0 = early(SwarmSynth, -1, 0), p0 = early(SwarmSynth, 1, 0);
+  row(sync - splay > 0.3, 'M2b', `R at 60 ms, K .9: onset -1 ${splay.toFixed(3)} (a splay burst) vs +1 ${sync.toFixed(3)} (sync) — must differ by more than 0.3`);
+  row(s0 === p0, 'M2bc', `CONTROL flag off (SwarmSynth's 8·o²): onset -1 ${s0.toFixed(6)} vs +1 ${p0.toFixed(6)} — the same burst, to the bit`);
+}
+
 /* ---------------------------------------------------------------- O2 */
 const PRESETS = JSON.parse(readFileSync(join(root, 'reference/scalpel/data/presets.json'), 'utf8')).presets;
 const byName = n => { const p = PRESETS.find(x => x.name === n); if (!p) throw new Error('preset missing: ' + n); return p.params; };

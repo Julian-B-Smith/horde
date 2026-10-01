@@ -90,6 +90,57 @@
    "js_limit": null
   },
   {
+   "id": "M2",
+   "adr": "ADR-056 mirrored into the lab (B379, B382); ADR-187 A1 (default ON, one per PR)",
+   "status": "built",
+   "default": 1,
+   "ruled": "The human, 2026-09-30, on B379's M2/M3: \"Also sounds good\" (the composed JS mirrors ADR-056's bipolar onset); ON by default because the lab should match the C++ (ROADMAP B382).",
+   "flag": "onsetBipolar",
+   "description": "The onset lock (a note-start coupling burst, Kenv, decaying over dissolve) is BIPOLAR, the C++'s law (ADR-056): Kenv = 8*onset*|onset|, its positive part added to the sync target and 3x its negative part to the splay target (the x3 of the steady splay gain), so a negative onset is a SPLAY burst. SwarmSynth squares the sign away (Kenv = 8*onset^2), so onset -x played the same sync burst as +x, although the composed engine exposes onset -1..1. For onset >= 0 both laws are the same expressions (ADR-056's superset proof), so nothing there moves. Built as a text patch of SwarmSynth's noteOn and controlTick (the engine's SWARM_PATCHES); 0 is SwarmSynth's expression, character for character.",
+   "oracle": {
+    "file": "reference/swarmsaw.html",
+    "blob": "e47da6c9e0b4a058e18d79f62d71ab31c3d3b1b0",
+    "sites": "SwarmSynth noteOn :355 (s.Kenv = 8 * onset * onset); controlTick :487-488 (syncT, splayT)"
+   },
+   "cpp": "src/swarm_core.h :635 (initVoice: Kenv = 8 * onset * fabs(onset)), :1894-1895 (syncT, splayT routed by sign); the same lines in h2/cores/swarm/swarm_core.h",
+   "target": "docs/design/scalpel-horde-engine.js SWARM_PATCHES M2 (ensembleSeed's neighbour), HORDE_D onsetBipolar",
+   "scope": "negative onset only, at every rate; onset >= 0 is bit-identical",
+   "outOfScope": [
+    "Crunch horde",
+    {
+     "preset": "Crunch horde",
+     "over": {
+      "onset": 0.6
+     }
+    },
+    {
+     "preset": "Zap bass",
+     "over": {
+      "onset": 1
+     },
+     "sr": 44100
+    }
+   ],
+   "inScope": {
+    "preset": "Crunch horde",
+    "over": {
+     "onset": -0.6
+    }
+   },
+   "metric": {
+    "onsetNonNegative": "none, at every rate: onset +0.5 and +1 bit-identical to SwarmSynth (composed_engine_check M2s); the ledger's pinned presets (onset 0) do not move",
+    "onsetNegative": "the swarm half against SwarmSynth, 48 kHz, 0.5 s: max |dphase| 0.37 to 0.41 cycles (onset -0.5 to -1, K -0.5 to 0.35); R at 60 ms, K .9: onset -1 0.030 against +1 0.995 (SwarmSynth: 0.995 for both, to the bit)",
+    "rates": "rate-independent: B379 measured onset -0.5 against the C++ at rms 1.16e-1 at both 44.1 and 48 kHz (docs/port/phase-1b.md)",
+    "cpp": "the 48 kHz golden set's negative-onset scenarios (onset-splay, onset-splay-k0; the M1 PR's swarm48_check) are KNOWN differences until this entry is registered and must then be within 1e-6 of the C++, with no edit there",
+    "law3": "none"
+   },
+   "evidence": [
+    "traces/2026-09-30-b382-m2-onset.md",
+    "tools/labharness/composed_engine_check.mjs"
+   ],
+   "js_limit": null
+  },
+  {
    "id": "D2",
    "adr": "ADR-189",
    "status": "built",
