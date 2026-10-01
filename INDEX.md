@@ -81,3 +81,4 @@ swarm-dynamics · parity-oracle · plugin-platform · realtime-perf
 - [L0069] A ruled-out hypothesis is scoped to the regime its control tested; slow effects hide behind fast controls (oracles · metrics)
 - [L0070] Judge a cure on the curated bench too, not only on the sample that exposed the problem (oracles · evaluation)
 - [L0071] A fingerprint pin is only as portable as the render is stable; probe with ULP perturbations before pinning (oracles · ci)
+- [L0072] Per-scenario bit-exact share swings with 1-ULP nudges; gate on the mean share, per platform (oracles · parity)
