@@ -863,8 +863,8 @@ endif()
 # h2_engine_parity_check (B385): horde 2's ONE engine, the composed engine
 # (h2/engine/, horde2::engine), against its golden, the composed JS
 # (tools/h2_engine_render.mjs renders it). The parity build: doubles, -O2,
-# -ffp-contract=off, like every h2 target (h2 rule 7). UNWIRED until the human
-# rules on the chaotic ring rows (B385; the reason is in the check's header).
+# -ffp-contract=off, like every h2 target (h2 rule 7). In ./verify full (B405,
+# ADR-187 A2).
 add_executable(h2_engine_parity_check tools/h2_engine_parity_check.cpp)
 if(NOT MSVC)
   target_compile_options(h2_engine_parity_check PRIVATE -O2 -ffp-contract=off)
@@ -873,8 +873,8 @@ endif()
 # must-fail control for "FMA contraction on" and a declared exception to the
 # contraction-off rule (tools/h2_rules_check.py), as h2_scalpel_fma_control is for
 # the blade port. Exit 0: over the full stream the fused build missed parity AND
-# (where the floor is pinned) its mean bit-exact share fell under the floor; 1: not
-# both; 2: the run broke. Unwired with its check.
+# (where the floor is keyed) its mean bit-exact share fell under the floor; 1: not
+# both; 2: the run broke. In ./verify full, after its check.
 add_executable(h2_engine_fma_control tools/h2_engine_parity_check.cpp)
 target_compile_definitions(h2_engine_fma_control PRIVATE H2_ENGINE_FMA_CONTROL)
 if(NOT MSVC)

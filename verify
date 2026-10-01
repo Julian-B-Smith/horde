@@ -540,6 +540,34 @@ full() {
     grep -v '^PASS  rms' /tmp/h2fma.$$ >&2; rm -f /tmp/h2fma.$$; return 1
   fi
   tail -1 /tmp/h2fma.$$; rm -f /tmp/h2fma.$$
+  # horde 2's ONE engine, the composed engine h2/engine/ (B385; wired by B405 under
+  # ADR-187 A2 and ADR-180 §1). The check spawns `node tools/h2_engine_render.mjs`
+  # (543 scenarios through the composed JS golden) and demands rms < 1e-6, max-abs
+  # < 1e-6, identical blade events and identical load readouts for each. The three
+  # Cross-mod ring (watch) rows, pinned by name, are judged on a measured onset
+  # window, events, readouts and bounded-and-finite instead (A2 item 1). Planted
+  # engine faults must each turn their row red (X1-late must turn a NON-chaotic xm
+  # row red), the five golden blobs must match h2/README.md's pins, the bit-exact
+  # floor gates on its keyed platform only (A2 item 2), and determinism is checked
+  # across host block sizes and a child process. ~40 s here, mostly Node. Captured
+  # (a row per scenario); the exclusions, the controls and the verdict are echoed on
+  # green runs too. The FMA control: exit 0 = caught, 1 = not, 2 = the run broke.
+  "$build_dir/h2_engine_parity_check" > /tmp/h2engine.$$ 2>&1 || {
+    echo "verify[full]: h2_engine_parity_check FAILED" >&2; grep -v '^PASS  rms' /tmp/h2engine.$$ >&2
+    rm -f /tmp/h2engine.$$; return 1; }
+  grep -E '^(EXCL|SKIP|PASS  (PIN|FLOOR|FLOORKEY|BITEXACT|control X1|control BF))' /tmp/h2engine.$$
+  tail -1 /tmp/h2engine.$$; rm -f /tmp/h2engine.$$
+  local h2efma=0
+  "$build_dir/h2_engine_fma_control" > /tmp/h2efma.$$ 2>&1 || h2efma=$?
+  if [ "$h2efma" -ne 0 ]; then
+    if [ "$h2efma" -eq 1 ]; then
+      echo "verify[full]: h2_engine_fma_control did not fire (the FMA-contracted build passed the gate)" >&2
+    else
+      echo "verify[full]: h2_engine_fma_control run broke (exit $h2efma) — infrastructure, not a verdict" >&2
+    fi
+    grep -v '^PASS  rms' /tmp/h2efma.$$ >&2; rm -f /tmp/h2efma.$$; return 1
+  fi
+  tail -1 /tmp/h2efma.$$; rm -f /tmp/h2efma.$$
   # horde 2's lifted swarm core (B379 step 1, h2/cores/swarm/): lift edit E1
   # re-proven. A Voice the caller owns, started with initVoice() and ticked
   # through the one public forwarder E1 adds, must match the core's own voice

@@ -235,7 +235,7 @@ both renderers share. Phase 1a's stream is byte-identical before and after the m
 The five ORACLE blobs must each appear in `h2/README.md` as `<path>@<blob>`.
 
 **The bit-exact floor is on the MEAN share, keyed per platform, compiler and Node
-major** (a proposal; open question 3). The L0071 probe rules out a per-scenario
+major** (RULED, ADR-187 A2 item 2). The L0071 probe rules out a per-scenario
 floor:
 
 - One scenario's share of bit-identical samples moves by up to **57 points** when
@@ -251,32 +251,72 @@ floor:
   | 1 | 33.66% | 46.78% | 43.42% | 40.47% |
   | 2 | 33.53% | 47.01% | 43.32% | 37.46% |
 
-- The proposed floor is a mean of at least **30%**, pinned for darwin-arm64, Apple
-  clang 16 and Node 24. That is 7.0 points under the lowest. Any other key reports
-  the mean and SKIPs the floor, never passes it.
+- The floor is a mean of at least **30%**, keyed to darwin-arm64, Apple clang 16
+  and Node 24. That is 7.0 points under the lowest. Any other key prints the mean
+  and SKIPs the floor, never passes it. The **FLOORKEY self-test** runs the one
+  verdict function on fabricated keys every run (an unkeyed platform and another
+  Node major print only; keyed, 29.9% is red and 30% holds), so the unkeyed path
+  is exercised, not assumed.
 - **Inside the gate:** the FMA-fused build (`h2_engine_fma_control`) fires only if
-  parity misses AND, where the floor is pinned, its mean falls under the floor. It
+  parity misses AND, where the floor is keyed, its mean falls under the floor. It
   reads **17.48%** (per family P/ 14.65, E/ 20.41, T/ 22.84, C/ 17.04) and fires,
   with 24 of 543 scenarios missing parity.
 - Five scenarios are at 0.0% bit-exact while at parity (≤ 1e-10). These are the
   hash-noise FM patches.
 
-**Chaotic exclusions.** The three Cross-mod ring (watch) rows are pinned BY NAME.
-Each must hold identical events and readouts, and a strict **1e-6 max-abs bound
-over its first 128 frames**, before the ring amplifies (measured: 5e-11 to 8e-11).
-Then one of two rules applies:
+**Chaotic exclusions (RULED, ADR-187 A2 item 1; built by B405).** The three
+Cross-mod ring (watch) rows are pinned BY NAME, and the names are checked against
+the stream's list. They leave whole-render parity. Each is judged on all of:
 
-- **1a, the default:** phase 1a's rule as briefed. RMS < 1e-6, and the golden's
-  own one-ULP divergence must reach at least the C++'s max-abs.
-- **b, selectable with `--chaotic-rule b [--chaotic-k K]`:** RMS is exempt too.
-  The golden's own one-ULP divergence must be at least K × the C++'s, in RMS and
-  in max. This weakens 1a, so it is the human's to rule; it is built, NOT the
-  default, and the check stays unwired.
+- a strict **max-abs < 1e-6 over its onset window, the first 384 frames** (measured;
+  "The onset window" below);
+- identical events and identical readouts, over the whole render;
+- **bounded and finite** over the whole render: every C++ sample finite and
+  |x| ≤ 1, the range of the output stage's tanh (the golden's is the same tanh).
 
-The run prints each listed row's ratios. **Control X1** scales the ring's xm by
-1 + 1e-9 inside the engine and must make every listed row "NOT justified" under
-the selected rule. It does: under 1a, the first-128 bound alone sees 2.6e-3 to
-4.7e-3, and the ratios fall to 0.18–0.42×.
+Their tails are otherwise out of parity. Rules 1a and (b), and the
+`--chaotic-rule` / `--chaotic-k` flags, are retired; an unknown `--` option now
+exits 2 rather than being read as a stream path. The golden's own one-ULP
+divergence is still printed, as context, never judged. Each run prints every ring
+row's onset profile (max-abs over the first 128, 256, 384, 512, 1024 … 8192
+frames), so the window's margin is visible.
+
+**Control X1** scales the ring's xm by 1 + 1e-9 inside the engine from the first
+sample and must turn every listed row red. It does: the 384-frame onset window sees
+6.7e-2 (chord), 4.7e-3 (repeat) and 2.9e-3 (arp).
+
+**Control X1-late** (fault 14) is the same fault from frame 128 on. It must turn
+at least one NON-chaotic xm row (a row that sets `xm` and is held to full parity)
+red, which shows the tail's path is covered outside the ring rows; at frame 0, X1
+cannot show this. Its must-read-zero half: on every xm row, its first 128 frames
+are bit-identical to the clean render, so it is genuinely late. Measured: 4 of 35
+non-chaotic xm rows go red, each just over the bound, as the critic measured:
+
+| row | rms | max-abs |
+|---|---|---|
+| P/Two-blade / Cross-mod pair :: chord | 2.40e-8 | 1.224e-6 |
+| P/Two-blade / Cross-mod pair :: repeat | 4.02e-8 | 1.446e-6 |
+| P/Two-blade / Cross-mod pair :: arp | 2.38e-8 | 1.187e-6 |
+| C/D1-D3 :: Cross-mod roar | 7.26e-9 | 1.019e-6 |
+
+Its first 128 frames are bit-identical on all 38 xm rows (35 plus the 3 ring rows).
+**The blind spot, printed and not judged:** under X1-late the ring rows' exclusion
+still holds on repeat (onset 1.3e-9) and arp (7.4e-10). The 384-frame window does
+catch it on chord (6.7e-2, reached between frames 256 and 384). At the old 128-frame
+window it could catch none of the three, because the fault starts where that window
+ends.
+
+*An observation, not a gate.* On the ring rows, X1 and X1-late end on the SAME
+faulted trajectory. |X1-late − X1| falls from 2.6e-6 (frames 128–384) to 4e-8
+(frames 4096–14080), while both stay 0.15–0.46 from clean (a scratch probe, every
+row). The ring under a 1e-9 change to xm acts like a branch flip onto a nearby
+attractor. It does not act like continuous amplification. That is why X1-late's
+tail figures match X1's to four digits.
+
+**Control BF** plants a NaN, then 2.0, in each ring row's last sample (its tail,
+past the onset window). It must turn each row red through bounded-and-finite ALONE:
+the onset window, the events and the readouts still hold. Its must-read-zero half
+is that the clean replay holds. It fires on 3 of 3 rows, for both values.
 
 **Must-fail controls, planted under `H2_ENGINE_FAULTS`** (each fires; values at
 the rework head):
@@ -295,7 +335,9 @@ the rework head):
 | C1 | the cull a no-op | C/CAP cull, the cap lowered mid-phrase | rms 2.7e-1, readouts disagree |
 | C1 | the cull a no-op | C/CAP cull per-partial voices, the cap lowered mid-phrase | rms 2.2e-1, readouts disagree |
 | C2 | the cull takes the oldest voice, held or not | C/CAP cull, the cap lowered mid-phrase (the held note is the oldest) | rms 2.8e-1 |
-| X1 | the ring's xm × (1 + 1e-9) | every listed chaotic row | 3 of 3 not justified |
+| X1 | the ring's xm × (1 + 1e-9) | every listed chaotic row | 3 of 3 red (onset window) |
+| X1-late | X1 from frame 128 on | ≥ 1 NON-chaotic xm row; first 128 frames bit-identical on every xm row | 4 of 35 red; 38 of 38 prefixes identical |
+| BF | a NaN, then 2.0, in each ring row's tail | every listed chaotic row, by bounded-and-finite alone | 3 of 3, both values |
 
 F1 (`std::round` for `Math.round`) cannot be planted in this engine. A2's
 half-away-from-zero pre-rounding makes `Math.round`'s negative half unreachable,
@@ -320,10 +362,12 @@ Also run every time:
 - **No arguments (B384):** with no arguments the check spawns the renderer itself
   from the repo root.
 
-**WIRING: NOT YET.** The check carries `UNWIRED:` with the reason. Under rule 1a,
-the arp row is red at the scripts' own inputs. Rule b is a weakening of 1a, so
-the human rules on the ring criterion; wiring follows in one line per binary.
-`h2_rules_check` treats `h2/engine/` as h2 code. Its source detector is a plain
+**WIRING: in `./verify full` (B405, 2026-10-01; ADR-187 A2, ADR-180 §1).**
+`h2_engine_parity_check` then `h2_engine_fma_control`, after the SCALPEL blade
+port's pair. Measured on this Mac at load average 2–3: the check took 42.1 s wall
+(38.3 s of it the Node render) and the FMA control 39.3 s, standalone. **Landing
+policy (A2 item 3):** any change to the composed engine lands as the JS and the
+C++ TOGETHER, in one PR, with this check green. `h2_rules_check` treats `h2/engine/` as h2 code. Its source detector is a plain
 substring test for `h2/cores/` or `h2/engine/`, never narrower than the original.
 Self-cases cover `"h2/cores/x.h"`, `<h2/engine/engine.h>`, `"../h2/engine/engine.h"`
 and a tab-separated include.
@@ -377,7 +421,7 @@ family.
 
 | family | scenarios | at parity | worst rms | worst max-abs | mean bit-exact |
 |---|---|---|---|---|---|
-| P/ | 261 | 258, plus 2 excluded with evidence; **1 red** | 1.1e-12 | 9.9e-11 | 32.87% |
+| P/ | 261 | 258, plus the 3 ring rows excluded (A2 item 1; all three hold) | 1.1e-12 | 9.9e-11 | 32.87% |
 | E/ | 38 | 38 | 1.9e-14 | 4.5e-13 | 46.33% |
 | T/ | 125 | 125 | 2.0e-12 | 1.4e-10 | 43.39% |
 | C/ | 119 | 119 | 2.1e-12 | 1.8e-10 | 36.28% |
@@ -385,10 +429,11 @@ family.
 - Events and readouts are identical on all 543, the ring rows included.
 - No scenario sets a key the engine lacks.
 
-**Not at parity under rule 1a: P/Starting points / Cross-mod ring (watch) :: arp**
-(rms 1.69e-6, max 1.6e-4; the golden against itself, 1 ULP apart: rms 2.1e-3, max
-9.2e-2). This is ADR-065's case, and ADR-187 item 6 inherits ADR-065's evidence
-rule.
+**Before the ruling, not at parity under rule 1a: P/Starting points / Cross-mod
+ring (watch) :: arp** (rms 1.69e-6, max 1.6e-4; the golden against itself, 1 ULP
+apart: rms 2.1e-3, max 9.2e-2). This is ADR-065's case, and ADR-187 item 6 inherits
+ADR-065's evidence rule. The two tables below are the evidence the human ruled on
+(A2). Rules 1a and (b) are now retired for these rows.
 
 **The ring ratio over 25 input nudges (0 to 24 ULP; critic M2).** Each cell is the
 golden's own one-ULP divergence over the C++ error, min / median / max:
@@ -408,6 +453,70 @@ golden's own one-ULP divergence over the C++ error, min / median / max:
   magnitude.
 - So option (b) at the critic's K = 10 is still input-fragile on 2 of 25 inputs
   (8%), where rule 1a is on 40–64% of them.
+
+**The onset window (B405; ADR-187 A2 item 1: "the longest window that stays under
+~1e-8 on all 25 nudges, MEASURED, not chosen").** The method is the ratio table's:
+the same 25 nudges (`--nudge K`, K = 0 … 24, every note-on and retune frequency
+moved K doubles up on both sides). Each nudge's stream of the three ring rows is
+replayed through the check, which prints every row's onset profile:
+
+    node tools/h2_engine_render.mjs --nudge K --only 'Cross-mod ring \(watch\)' > sK.bin
+    build-release/h2_engine_parity_check sK.bin
+
+The candidates are the powers of two from 128 frames up and, between 256 and 512,
+the block-aligned 384 (the scripts render in 128-frame blocks). Each cell is the
+worst max-abs over the three rows at that nudge (darwin-arm64, Apple clang 16,
+Node 24.10, 2026-10-01):
+
+| nudge | 128 | 256 | 384 | 512 | 1024 | 2048 | 4096 | 8192 |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 8.06e-11 | 8.06e-11 | 8.06e-11 | 4.73e-10 | 7.37e-09 | 1.09e-05 | 1.63e-04 | 1.63e-04 |
+| 1 | 8.06e-11 | 8.06e-11 | 8.06e-11 | 3.49e-10 | 1.22e-04 | 1.22e-04 | 2.35e-04 | 2.35e-04 |
+| 2 | 8.06e-11 | 8.06e-11 | 8.06e-11 | 1.65e-07 | 1.08e-04 | 1.08e-04 | 2.71e-04 | 2.71e-04 |
+| 3 | 8.06e-11 | 8.06e-11 | 8.06e-11 | 1.09e-04 | 1.83e-04 | 1.83e-04 | 1.83e-04 | 1.83e-04 |
+| 4 | 8.06e-11 | 8.06e-11 | 3.29e-09 | 1.09e-04 | 1.83e-04 | 1.83e-04 | 1.83e-04 | 1.83e-04 |
+| 5 | 8.06e-11 | 8.06e-11 | 8.06e-11 | 1.09e-04 | 1.83e-04 | 1.83e-04 | 1.83e-04 | 1.83e-04 |
+| 6 | 8.06e-11 | 8.06e-11 | 8.06e-11 | 4.05e-07 | 4.05e-07 | 8.99e-07 | 4.61e-04 | 4.61e-04 |
+| 7 | 8.06e-11 | 8.06e-11 | 8.06e-11 | 4.92e-05 | 4.92e-05 | 4.92e-05 | 5.65e-05 | 5.65e-05 |
+| 8 | 8.06e-11 | 8.06e-11 | 8.06e-11 | 4.92e-05 | 4.92e-05 | 4.92e-05 | 4.92e-05 | 5.46e-05 |
+| 9 | 8.06e-11 | 8.06e-11 | 8.06e-11 | 4.92e-05 | 4.92e-05 | 1.30e-04 | 1.30e-04 | 1.30e-04 |
+| 10 | 8.06e-11 | 8.06e-11 | 9.77e-10 | 5.05e-08 | 5.19e-05 | 5.19e-05 | 5.19e-05 | 5.19e-05 |
+| 11 | 8.06e-11 | 8.06e-11 | 8.06e-11 | 3.08e-08 | 1.85e-07 | 7.25e-04 | 7.25e-04 | 7.25e-04 |
+| 12 | 8.06e-11 | 8.06e-11 | 8.06e-11 | 4.50e-07 | 1.26e-05 | 1.26e-05 | 3.72e-05 | 3.72e-05 |
+| 13 | 8.06e-11 | 8.06e-11 | 8.06e-11 | 1.67e-07 | 1.03e-06 | 1.03e-06 | 8.20e-05 | 8.20e-05 |
+| 14 | 8.06e-11 | 8.06e-11 | 8.06e-11 | 1.67e-07 | 1.03e-06 | 1.67e-05 | 1.50e-04 | 1.50e-04 |
+| 15 | 8.06e-11 | 8.06e-11 | 3.82e-10 | 4.02e-07 | 3.81e-05 | 3.81e-05 | 8.04e-03 | 8.04e-03 |
+| 16 | 8.06e-11 | 8.06e-11 | 1.85e-10 | 2.44e-08 | 3.00e-06 | 7.64e-02 | 7.64e-02 | 7.64e-02 |
+| 17 | 8.06e-11 | 8.06e-11 | 5.19e-10 | 5.19e-10 | 2.82e-05 | 2.82e-05 | 2.82e-05 | 2.82e-05 |
+| 18 | 8.06e-11 | 8.06e-11 | 8.06e-11 | 6.48e-09 | 8.92e-05 | 8.92e-05 | 8.30e-04 | 8.30e-04 |
+| 19 | 8.06e-11 | 8.06e-11 | 2.10e-10 | 6.48e-09 | 8.92e-05 | 4.71e-02 | 4.71e-02 | 4.71e-02 |
+| 20 | 8.06e-11 | 8.06e-11 | 8.06e-11 | 1.20e-07 | 5.10e-05 | 5.10e-05 | 5.10e-05 | 5.10e-05 |
+| 21 | 8.06e-11 | 8.06e-11 | 8.06e-11 | 1.20e-07 | 5.10e-05 | 5.10e-05 | 6.91e-05 | 6.91e-05 |
+| 22 | 8.06e-11 | 8.06e-11 | 8.06e-11 | 1.20e-07 | 7.00e-05 | 7.00e-05 | 7.00e-05 | 7.00e-05 |
+| 23 | 8.06e-11 | 8.06e-11 | 8.06e-11 | 7.17e-07 | 1.33e-06 | 1.28e-05 | 1.28e-05 | 1.28e-05 |
+| 24 | 8.06e-11 | 8.06e-11 | 8.06e-11 | 7.17e-07 | 4.41e-06 | 4.41e-06 | 1.24e-05 | 1.24e-05 |
+| **worst** | **8.06e-11** | **8.06e-11** | **3.29e-09** | **1.09e-04** | **1.83e-04** | **7.64e-02** | **7.64e-02** | **7.64e-02** |
+
+Per row, the worst over all 25 nudges:
+
+| row | 128 | 256 | 384 | 512 | 1024 |
+|---|---|---|---|---|---|
+| chord | 5.98e-11 | 5.98e-11 | 3.29e-09 | 1.04e-04 | 1.53e-04 |
+| repeat | 8.06e-11 | 8.06e-11 | 8.06e-11 | 1.09e-04 | 1.83e-04 |
+| arp | 4.92e-11 | 4.92e-11 | 4.92e-11 | 7.35e-05 | 1.34e-04 |
+
+- **The window is 384 frames (8 ms at 48 kHz).** It is the longest candidate under
+  1e-8 on all 75 row-nudges: worst 3.29e-9, chord at nudge 4. 512 fails at nudge 3,
+  with 1.09e-4, four orders of magnitude over.
+- **256, the longest power of two, has a wider margin** (8.06e-11 everywhere). It is
+  the fallback if the lead prefers margin to length. 1024 is under 1e-8 at the
+  scripts' own inputs (7.37e-9), but over it on the other 24 nudges.
+- **The 128- and 256-frame columns do not move with the nudge.** Each row's worst
+  sample there comes before any frequency-dependent divergence. The nudge does reach
+  the render: the 384 and 512 columns move with it.
+- **~1e-8 is the selection criterion only.** The gate inside the window stays 1e-6.
+  At the scripts' own inputs the three rows read 6.0e-11, 8.1e-11 and 4.9e-11 over
+  384 frames.
 
 ## Deferred: the quality suites (a named checkpoint; the lead's decision, 2026-10-01)
 
@@ -479,19 +588,17 @@ must leave every parity digest unchanged, measured against this table.
    `onsetBipolar` and `tempoGrid` are unknown keys to it (`set` returns false, and
    the check turns any such key red). Keep it that way?
 2. **Where the target pins are enforced.** The razor-core.js pin is in `verify
-   fast`; the engine's five are in the parity check (`verify full`, once wired).
-   Proposed: leave them there.
-3. **The floor's form (the human's).** A per-scenario floor is fragile by
-   measurement. The proposal: a mean share of at least 30%, keyed on darwin-arm64,
-   Apple clang 16 and Node 24; the baseline is 37.00–38.34%, and FMA reads 17.48%.
-4. **The ring criterion (the human's; it blocks the wiring).** Choose one:
-   - (a) remove the three rows, as ADR-065 did;
-   - (b) rule b, built and selectable: RMS exempt, events, readouts and the
-     strict first-128 bound held, and the golden's self-divergence at least K ×
-     the C++'s. At K = 10 it holds on 23 of 25 nudged inputs; no K above about 2
-     holds on all 25;
-   - (c) rule 1a, the default: the arp row is red at the scripts' own inputs.
-
-   A variant worth the human's eye: rule b with K = 1 (the C++ no further from the
-   golden than the golden is from itself). It is ADR-065's literal statement, and
-   with the first-128 bound it still catches X1.
+   fast`; the engine's five are in the parity check (`verify full`, wired by
+   B405). Proposed: leave them there.
+3. ~~The floor's form.~~ RULED, ADR-187 A2 item 2: a mean of at least 30%, keyed
+   on darwin-arm64, Apple clang 16 and Node 24, printed and not judged elsewhere.
+4. ~~The ring criterion.~~ RULED, ADR-187 A2 item 1: onset window, events and
+   readouts (plus bounded-and-finite), built by B405; rules 1a and (b) retired.
+5. **X1-late's margin (B405).** The four non-chaotic xm rows it turns red sit
+   2–45% over the 1e-6 bound (1.019e-6 to 1.446e-6). The control fires here, but a
+   platform whose libm moves these rows by a few 1e-7 could leave it one row from
+   silent. It is keyed to nothing today. Should it be?
+6. **The renderer still computes the ring rows' one-ULP self-divergence** (`SELF`,
+   one extra render per ring row) for a verdict no longer taken. The check prints
+   it as context. `tools/h2_engine_render.mjs` was out of B405's scope, so it is
+   unchanged, and its header still describes the retired rule.

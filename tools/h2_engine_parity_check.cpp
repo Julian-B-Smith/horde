@@ -5,8 +5,10 @@
  * and reference/swarmsaw.html's SwarmSynth). ROADMAP B385; design and plan:
  * docs/port/h2-engine.md; ADR-187 items 3 and 6.
  *
- * UNWIRED: the Cross-mod ring (watch) rows are chaotic (ADR-065) and miss RMS by chance under
- * phase 1a's exclusion rule; the human rules on the ring criterion, then this is wired (B385).
+ * WIRED: ./verify full (after h2_scalpel_parity_check), with its FMA control (ADR-187 A2, B405).
+ *
+ * LANDING POLICY (ADR-187 A2 item 3): any change to the composed engine lands as
+ * the JS and the C++ TOGETHER, in one PR, with this check green.
  *
  * WHAT IS CHECKED. tools/h2_engine_render.mjs renders every scenario through
  * the golden in Node, seeded with mulberry32, and streams the script, the
@@ -22,16 +24,16 @@
  *   - identical load readouts (tails culled, notes refused, voices stolen);
  *   - no key the engine does not have, unless kKeyWhitelist names it;
  * and, over the whole stream:
- *   - the BIT-EXACT FLOOR (ruled 2026-09-30, B332: its value set from the measured
- *     baseline with a stated margin): the MEAN share of samples bit-identical to
- *     the golden's, over the scenarios held to parity, is at least the pinned
- *     floor. PROPOSED form, for ratification: a per-scenario floor was measured and
- *     rejected, because one scenario's share moves by up to 57 points when an input
- *     moves one ULP (L0071's probe; the share is the time before the first libm
- *     disagreement reaches the output), while the mean moves by 1.3. The share
- *     depends on both sides' libm (L0066), so the pin is keyed on platform,
- *     compiler and the golden's Node major; anything unpinned reports and SKIPS,
- *     never passes.
+ *   - the BIT-EXACT FLOOR (ADR-187 A2 item 2, L0072): the MEAN share of samples
+ *     bit-identical to the golden's, over the scenarios held to parity, is at
+ *     least the pinned floor. Not per scenario: one scenario's share moves by up to
+ *     57 points when an input moves one ULP (L0071's probe; the share is the time
+ *     before the first libm disagreement reaches the output), while the mean moves
+ *     by 1.3. The share depends on both sides' libm (L0066), so the pin is keyed on
+ *     platform, compiler and the golden's Node major; on an unkeyed platform the
+ *     mean is printed and does not gate (a SKIP, never a pass). The FLOORKEY
+ *     self-test runs the verdict on a fabricated unkeyed key every run, so that
+ *     path is exercised here, not assumed.
  * Families: P/ the 83 bench presets x phrases; E/ the 12 B366 lab presets x
  * phrases; T/ phase 1a's blade rows; C/ the composed rows. The list is the render
  * script's.
@@ -39,18 +41,22 @@
  * THE TARGET IS PINNED BY CONTENT. Each golden file's git blob arrives in an
  * ORACLE record and must appear in h2/README.md as `<path>@<blob>`.
  *
- * EXCLUSIONS (ADR-065's evidence rule). The excluded rows are pinned BY NAME
- * (kChaotic). Each must hold identical events and readouts, and a strict 1e-6
- * max-abs bound over its first 128 frames (before the ring amplifies anything).
- * Then one of two rules:
- *   1a  (the default; phase 1a's, as briefed) max-abs alone is exempt: RMS < 1e-6,
- *       and the golden ALONE, inputs one ULP apart, misses max-abs by at least as
- *       much as the C++ does;
- *   b   (--chaotic-rule b; PROPOSED, a weakening of 1a that only the human can
- *       rule) RMS is exempt too: the golden's own one-ULP divergence must be at
- *       least K (--chaotic-k, default 10) times the C++ error, in RMS AND in max.
- * The run prints each row's ratios under both. Control X1 must turn every listed
- * row "NOT justified" under the selected rule.
+ * EXCLUSIONS (ADR-187 A2 item 1; ADR-065's evidence rule). The three Cross-mod
+ * ring (watch) rows are chaotic: the golden against itself, inputs one ULP apart,
+ * diverges macroscopically. They are pinned BY NAME (kChaotic, checked against the
+ * stream's list) and leave whole-render parity. Each is judged on ALL of:
+ *   - a strict max-abs < 1e-6 over its ONSET WINDOW, the first kOnsetFrames
+ *     frames. The window is MEASURED, not chosen: the longest window on the
+ *     128-frame block grid whose max-abs stays under ~1e-8 on all 25 input nudges
+ *     (0..24 ULP) of all three rows (docs/port/h2-engine.md, "The onset window").
+ *     Each run prints the row's onset profile, so the margin is visible;
+ *   - identical events and identical readouts, over the whole render;
+ *   - BOUNDED AND FINITE over the whole render: every C++ sample finite and
+ *     |x| <= kTailBound = 1, the range of the output stage's tanh (the golden's is
+ *     the same tanh), so a sample past it means the output stage itself broke.
+ * Their tails are otherwise out of parity. Phase 1a's rules 1a and (b), which
+ * compared the C++ error with the golden's own one-ULP divergence, are retired for
+ * these rows; that divergence is still printed, as context, never judged.
  *
  * MUST-FAIL CONTROLS (LIBRARY L0032). Compiled with H2_ENGINE_FAULTS, so real
  * faults can be planted in the engine itself; each must turn its row red:
@@ -66,6 +72,14 @@
  *   C1  the cull a no-op                                    both cull rows
  *   C2  the cull takes the oldest voice, held or not        the mid-phrase cull
  *   X1  the ring's xm scaled by 1 + 1e-9                    every listed chaotic row
+ *   X1-late  X1 from frame 128 on (fault 14)                >= 1 NON-chaotic xm row
+ *       The ring rows' onset window cannot see a fault that starts after it, so
+ *       the tail's path must be covered elsewhere: by the xm rows held to full
+ *       parity. Must-read-zero half: on every xm row, X1-late's first 128 frames
+ *       are bit-identical to the clean render (it IS late). The ring rows'
+ *       verdicts under it are printed, not judged: that is the blind spot.
+ *   BF  a NaN, then 2.0, planted in each ring row's tail     every listed chaotic row,
+ *       (after its onset window)                             by bounded-and-finite alone
  * DETECTION FLOOR (printed, not judged; 1e-3 must be red): the swarm's pitch
  * scaled by (1 + eps).
  * DETERMINISM: three fixed scripts (the swarm with the ensemble and gravity; the
@@ -76,10 +90,13 @@
  * the full stream; it fires only if parity misses AND (where the floor is pinned)
  * the mean bit-exact share falls under the floor. Exit 0 fired, 1 not, 2 broke.
  *
- * Usage: h2_engine_parity_check [--only REGEX] [--chaotic-rule 1a|b] [--chaotic-k K] [stream-file | -]
+ * Usage: h2_engine_parity_check [--only REGEX] [stream-file | -]
  *   With NO stream argument (./verify, tools/sanitize_oracles.sh) it spawns
  *   `node tools/h2_engine_render.mjs` itself, from the repo root. The controls,
- *   the floor, the pins and determinism run only on the full stream.
+ *   the floor, the pins and determinism run only on the full stream. The onset
+ *   window's measurement is a stream of the ring rows at each nudge:
+ *     node tools/h2_engine_render.mjs --nudge K --only 'Cross-mod ring \(watch\)' \
+ *       | build-release/h2_engine_parity_check -
  */
 #include <algorithm>
 #include <cmath>
@@ -110,8 +127,16 @@ namespace {
 
 constexpr double kRmsTol = 1e-6;
 constexpr double kMaxTol = 1e-6;
-constexpr double kFirstTol = 1e-6;   // the excluded rows' first 128 frames
-constexpr size_t kFirstFrames = 128;
+constexpr double kOnsetTol = 1e-6;   // the excluded rows' onset window: the gate stays 1e-6
+// The onset window, MEASURED (header; docs/port/h2-engine.md, "The onset window"):
+// the longest window on the 128-frame block grid whose max-abs stays under ~1e-8
+// on all 25 nudges of all three ring rows. 384 frames: worst 3.29e-9 (chord, nudge
+// 4); 512 reaches 1.09e-4 (nudge 3). ~1e-8 is the SELECTION criterion only; the
+// gate inside the window is kOnsetTol. Re-measure before changing it.
+constexpr size_t kOnsetFrames = 384;
+// The onset profile's windows, printed for each excluded row every run.
+constexpr size_t kProfileFrames[] = {128, 256, 384, 512, 1024, 2048, 4096, 8192};
+constexpr double kTailBound = 1;     // the output stage is tanh: |x| <= 1 (header)
 // The exclusions, by name: the list cannot change without an edit a reviewer sees.
 const char* const kChaotic[] = {
   "P/Starting points / Cross-mod ring (watch) :: chord",
@@ -154,26 +179,36 @@ struct FloorPin { const char* platform; const char* compiler; int nodeMajor; dou
 const FloorPin kFloorPins[] = {
   {"darwin-arm64", "appleclang-16", 24, 0.30},
 };
-double pinnedFloor(int nodeMajor) {
-  const std::string cc = compilerId();
+// The floor's verdict for a key and a mean. judged = false is an unkeyed key: the
+// mean is printed and does not gate. Main, the FMA control and the FLOORKEY
+// self-test (which feeds it fabricated keys) all decide through this function.
+struct FloorVerdict { bool judged = false, held = false; double floor = -1; };
+FloorVerdict floorVerdict(const char* platform, const std::string& compiler, int nodeMajor, double mean) {
+  FloorVerdict v;
   for (const FloorPin& p : kFloorPins)
-    if (std::strcmp(p.platform, kPlatform) == 0 && cc == p.compiler && nodeMajor == p.nodeMajor) return p.floor;
-  return -1;
+    if (std::strcmp(p.platform, platform) == 0 && compiler == p.compiler && nodeMajor == p.nodeMajor) {
+      v.judged = true; v.floor = p.floor; v.held = mean >= p.floor;
+    }
+  return v;
 }
 
-struct Result { double rms = 0, max = 0, exact = 0, firstMax = 0; bool evOk = true, cntOk = true; };
+// onsetMax: max-abs over the first kOnsetFrames frames. peak/finite: the C++ samples
+// themselves, for bounded-and-finite (a NaN sample makes d NaN, so they are kept apart).
+struct Result { double rms = 0, max = 0, exact = 0, onsetMax = 0, peak = 0; bool evOk = true, cntOk = true, finite = true; };
 
 Result compare(const Scenario& sc, const std::vector<double>& cpp, const EventLog& log, const ReplayInfo& info) {
   Result r;
-  if (cpp.size() != sc.js.size()) { r.rms = r.max = r.firstMax = INFINITY; r.evOk = false; return r; }
+  if (cpp.size() != sc.js.size()) { r.rms = r.max = r.onsetMax = INFINITY; r.evOk = false; return r; }
   double e = 0;
   size_t same = 0;
   for (size_t i = 0; i < cpp.size(); i++) {
+    if (!std::isfinite(cpp[i])) r.finite = false;
+    else if (std::fabs(cpp[i]) > r.peak) r.peak = std::fabs(cpp[i]);
     const double d = std::fabs(cpp[i] - sc.js[i]);
-    if (std::isnan(d)) { r.max = INFINITY; e = INFINITY; if (i < 2 * kFirstFrames) r.firstMax = INFINITY; continue; }
+    if (std::isnan(d)) { r.max = INFINITY; e = INFINITY; if (i < 2 * kOnsetFrames) r.onsetMax = INFINITY; continue; }
     e += d * d;
     if (d > r.max) r.max = d;
-    if (i < 2 * kFirstFrames && d > r.firstMax) r.firstMax = d;
+    if (i < 2 * kOnsetFrames && d > r.onsetMax) r.onsetMax = d;
     if (std::memcmp(&cpp[i], &sc.js[i], sizeof(double)) == 0) same++;
   }
   r.rms = std::sqrt(e / static_cast<double>(cpp.size()));
@@ -188,12 +223,24 @@ bool isChaotic(const std::string& name) {
   for (const char* c : kChaotic) if (name == c) return true;
   return false;
 }
-// the exclusion rules (header)
-struct Rule { bool b = false; double K = 10; };
-bool justified(const Rule& rule, const Scenario& sc, const Result& r) {
-  if (!r.evOk || !r.cntOk || !sc.hasSelf || !(r.firstMax < kFirstTol)) return false;
-  if (rule.b) return sc.selfRms >= rule.K * r.rms && sc.selfMax >= rule.K * r.max;
-  return r.rms < kRmsTol && sc.selfMax >= kMaxTol && sc.selfMax >= r.max;
+// the excluded rows' judgement (header, EXCLUSIONS): onset window, events,
+// readouts, bounded and finite
+bool boundedFinite(const Result& r) { return r.finite && r.peak <= kTailBound; }
+bool exclusionHolds(const Result& r) { return r.evOk && r.cntOk && r.onsetMax < kOnsetTol && boundedFinite(r); }
+std::string onsetProfile(const Scenario& sc, const std::vector<double>& cpp) {
+  std::string s;
+  for (size_t w : kProfileFrames) {
+    if (2 * w > cpp.size() || cpp.size() != sc.js.size()) break;
+    double m = 0;
+    for (size_t i = 0; i < 2 * w; i++) {
+      const double d = std::fabs(cpp[i] - sc.js[i]);
+      if (!(d <= m)) m = std::isnan(d) ? INFINITY : d;
+    }
+    char b[40];
+    std::snprintf(b, sizeof b, " %zu:%.2e", w, m);
+    s += b;
+  }
+  return s;
 }
 
 double ulps(double a, double b) {
@@ -230,6 +277,11 @@ std::string slurp(const char* path) {
   while ((n = std::fread(buf, 1, sizeof buf, f)) > 0) s.append(buf, n);
   std::fclose(f);
   return s;
+}
+// A script that switches the cross-member ring on: the only rows X1 and X1-late move.
+bool setsXm(const Scenario& sc) {
+  for (const Cmd& c : sc.cmds) if (c.op == "set" && c.key == "xm" && c.a != 0) return true;
+  return false;
 }
 bool whitelisted(const std::string& key) {
   for (const char* k : kKeyWhitelist) if (*k && key == k) return true;
@@ -318,15 +370,17 @@ std::map<std::string, uint64_t> detDigests(std::map<std::string, std::vector<dou
 
 int main(int argc, char** argv) {
   std::string only, path;
-  Rule rule;
   for (int i = 1; i < argc; i++) {
     if (std::strcmp(argv[i], "--det-digest") == 0) {   // the child half of the determinism rows
       for (const auto& kv : detDigests()) std::printf("%s %llu\n", kv.first.c_str(), static_cast<unsigned long long>(kv.second));
       return 0;
     }
     if (std::strcmp(argv[i], "--only") == 0 && i + 1 < argc) only = argv[++i];
-    else if (std::strcmp(argv[i], "--chaotic-rule") == 0 && i + 1 < argc) rule.b = std::strcmp(argv[++i], "b") == 0;
-    else if (std::strcmp(argv[i], "--chaotic-k") == 0 && i + 1 < argc) rule.K = std::strtod(argv[++i], nullptr);
+    else if (argv[i][0] == '-' && argv[i][1] == '-') {
+      // loudly, so a retired flag (--chaotic-rule, --chaotic-k) is never read as a stream path
+      std::fprintf(stderr, "h2_engine_parity_check: unknown option '%s'\n", argv[i]);
+      return 2;
+    }
     else path = argv[i];
   }
   const bool fullStream = only.empty() && path.empty();
@@ -359,8 +413,8 @@ int main(int argc, char** argv) {
     std::fprintf(stderr, "h2_engine_parity_check: bad stream header '%s'\n", line.c_str());
     return 2;
   }
-  std::printf("RULE  the chaotic exclusions are judged under rule %s%s\n", rule.b ? "b (PROPOSED: RMS exempt too)" : "1a (max-abs exempt only)",
-              rule.b ? (", K " + std::to_string(rule.K)).c_str() : "");
+  std::printf("RULE  the chaotic exclusions (ADR-187 A2): onset window %zu frames max-abs < %.0e, events and readouts identical, "
+              "bounded (|x| <= %.0f) and finite over the whole render\n", kOnsetFrames, kOnsetTol, kTailBound);
 
   int red = 0, pass = 0, miss = 0, excluded = 0, total = 0, niBad = 0, nodeMajor = -1;
   double worstRms = 0, worstMax = 0, sumExact = 0, minExact = 2;
@@ -417,14 +471,14 @@ int main(int argc, char** argv) {
     const bool ok = parityOk(r);
     if (!sc.excl.empty()) {
       listedNames.push_back(sc.name);
-      const bool just = justified(rule, sc, r);
+      const bool just = exclusionHolds(r);
       if (just) excluded++; else { red++; if (fam) fam->redN++; }
-      std::printf("%s  rms %.3e  max %.3e  first 128 frames max %.3e  ev %s  %s\n"
-                  "        chaotic? the golden alone, inputs 1 ULP apart: rms %.3e max %.3e (ratio to the C++: rms %.0fx, max %.0fx)"
-                  " -> exclusion %s under rule %s (%s)\n",
-                  just ? "EXCL" : "FAIL", r.rms, r.max, r.firstMax, r.evOk && r.cntOk ? "ok " : "BAD", sc.name.c_str(), sc.selfRms,
-                  sc.selfMax, sc.selfRms / r.rms, sc.selfMax / r.max, just ? "justified" : "NOT justified", rule.b ? "b" : "1a",
-                  sc.excl.c_str());
+      std::printf("%s  onset (%zu frames) max %.3e  events %s  readouts %s  peak %.3f %s  %s\n"
+                  "        onset profile (frames:max-abs)%s\n"
+                  "        tail, not judged: rms %.3e max %.3e; the golden alone, inputs 1 ULP apart: rms %.3e max %.3e (%s)\n",
+                  just ? "EXCL" : "FAIL", kOnsetFrames, r.onsetMax, r.evOk ? "ok" : "BAD", r.cntOk ? "ok" : "BAD", r.peak,
+                  r.finite ? "finite" : "NOT FINITE", sc.name.c_str(), onsetProfile(sc, cpp).c_str(), r.rms, r.max, sc.selfRms,
+                  sc.selfMax, sc.excl.c_str());
     } else {
       if (ok) pass++; else { red++; miss++; if (fam) fam->redN++; }
       if (r.rms > worstRms) { worstRms = r.rms; worstRmsName = sc.name; }
@@ -445,7 +499,8 @@ int main(int argc, char** argv) {
         std::printf("        readouts (culled/refused/stolen): golden %.0f/%.0f/%.0f, C++ %.0f/%.0f/%.0f\n", sc.cnt[0], sc.cnt[1], sc.cnt[2],
                     info.cnt[0], info.cnt[1], info.cnt[2]);
     }
-    bool want = !sc.excl.empty() || sc.name == "T/mode 0 :: chord";
+    // the xm rows held to parity are X1-late's population (kept only on the full stream)
+    bool want = !sc.excl.empty() || sc.name == "T/mode 0 :: chord" || (fullStream && setsXm(sc));
     for (const Control& c : kControls) if (sc.name == c.scenario) want = true;
     if (want) keep.push_back(std::move(sc));
     std::fflush(stdout);
@@ -466,7 +521,7 @@ int main(int argc, char** argv) {
   if (infra) red++;
 
   const double meanExact = heldN > 0 ? sumExact / heldN : 0.0;
-  const double floor = pinnedFloor(nodeMajor);
+  const FloorVerdict fv = floorVerdict(kPlatform, compilerId(), nodeMajor, meanExact);
   std::printf("BITEXACT  mean share per family:");
   for (const Fam& x : fams) if (x.n) std::printf("  %c/ %.2f%%", x.tag, 100 * x.sumEx / x.n);
   std::printf("  (all held: %.2f%%; key %s / %s / node %d)\n", 100 * meanExact, kPlatform, compilerId().c_str(), nodeMajor);
@@ -477,13 +532,13 @@ int main(int argc, char** argv) {
                 "this is NOT the control firing\n");
     return 2;
   }
-  // both detectors must see the fused build: parity, and (where pinned) the floor
-  const bool floorCaught = floor < 0 || meanExact < floor;
+  // both detectors must see the fused build: parity, and (where keyed) the floor
+  const bool floorCaught = !fv.judged || !fv.held;
   const bool caught = miss > 0 && floorCaught;
   std::printf("h2_engine_fma_control: %s — the -ffp-contract=fast build of the same engine: %d of %d scenarios miss parity "
               "(worst rms %.3e, worst max %.3e); mean bit-exact %.2f%% %s\n",
               caught ? "FIRED" : "DID NOT FIRE", miss, total, worstRms, worstMax, 100 * meanExact,
-              floor < 0 ? "(the floor is not pinned for this key)" : (floorCaught ? "is under the pinned floor" : "HOLDS the pinned floor: the floor did not see it"));
+              !fv.judged ? "(the floor is not keyed for this platform: printed, not judged)" : (floorCaught ? "is under the keyed floor" : "HOLDS the keyed floor: the floor did not see it"));
   return caught ? 0 : 1;
 #else
   if (fullStream && !infra) {
@@ -520,7 +575,7 @@ int main(int argc, char** argv) {
                   c.name, sc->name.c_str(), r.rms, r.max, r.evOk ? "agree" : "DISAGREE", r.cntOk ? "agree" : "DISAGREE", clean.rms,
                   clean.evOk ? "agree" : "DISAGREE");
     }
-    // X1: the exclusion path's own must-fail control
+    // X1: the exclusion path's own must-fail control, from the first sample
     {
       int caught = 0, n = 0;
       std::string detail;
@@ -532,17 +587,107 @@ int main(int argc, char** argv) {
         std::vector<double> b;
         h2engine_stream::replay(s, b, 13, &flog, 0, &fi);
         const Result r = compare(s, b, flog, fi);
-        const bool just = justified(rule, s, r);
-        if (!just) caught++;
-        char buf[200];
-        std::snprintf(buf, sizeof buf, "\n        %s: rms %.3e max %.3e first-128 %.3e, ratios %.2fx / %.2fx -> %s", s.name.c_str(), r.rms, r.max,
-                      r.firstMax, s.selfRms / r.rms, s.selfMax / r.max, just ? "STILL JUSTIFIED" : "not justified");
+        const bool holds = exclusionHolds(r);
+        if (!holds) caught++;
+        char buf[240];
+        std::snprintf(buf, sizeof buf, "\n        %s: onset max %.3e, events %s -> %s", s.name.c_str(), r.onsetMax, r.evOk ? "agree" : "DISAGREE",
+                      holds ? "STILL HOLDS" : "red");
         detail += buf;
       }
       const bool fired = n > 0 && caught == n;
       if (!fired) red++;
-      std::printf("%s  control X1 the ring's xm scaled by 1 + 1e-9 turns every listed chaotic row NOT justified (rule %s): %d of %d%s\n",
-                  fired ? "PASS" : "FAIL", rule.b ? "b" : "1a", caught, n, detail.c_str());
+      std::printf("%s  control X1 the ring's xm scaled by 1 + 1e-9 turns every listed chaotic row red: %d of %d%s\n",
+                  fired ? "PASS" : "FAIL", caught, n, detail.c_str());
+    }
+    // X1-late (ADR-187 A2): the same fault from frame 128 on. The ring rows' onset
+    // window cannot see a fault that starts after it, so the tail's path must be
+    // covered by the xm rows held to full parity: at least one must turn red.
+    // Must-read-zero half: on every xm row the faulted render's first 128 frames are
+    // bit-identical to the clean one, or this is X1 in disguise.
+    {
+      constexpr size_t kLate = horde2::engine::Engine::kX1LateFrame;
+      int n = 0, caught = 0, early = 0;
+      std::string detail, ring;
+      for (const Scenario& s : keep) {
+        if (!setsXm(s)) continue;
+        EventLog clog, flog;
+        ReplayInfo ci, fi;
+        std::vector<double> a, b;
+        h2engine_stream::replay(s, a, 0, &clog, 0, &ci);
+        h2engine_stream::replay(s, b, 14, &flog, 0, &fi);
+        const bool prefixSame = a.size() >= 2 * kLate && b.size() >= 2 * kLate && std::memcmp(a.data(), b.data(), 2 * kLate * sizeof(double)) == 0;
+        if (!prefixSame) early++;
+        const Result clean = compare(s, a, clog, ci), r = compare(s, b, flog, fi);
+        char buf[260];
+        if (!s.excl.empty()) {   // the blind spot, printed and not judged
+          std::snprintf(buf, sizeof buf, "\n        (ring, not judged) %s: onset max %.3e, events %s, tail rms %.3e max %.3e -> exclusion %s", s.name.c_str(),
+                        r.onsetMax, r.evOk ? "agree" : "DISAGREE", r.rms, r.max, exclusionHolds(r) ? "still holds" : "red");
+          ring += buf;
+          continue;
+        }
+        n++;
+        const bool hit = parityOk(clean) && !parityOk(r);
+        if (hit) {
+          caught++;
+          std::snprintf(buf, sizeof buf, "\n        red: %s: rms %.3e max %.3e, events %s", s.name.c_str(), r.rms, r.max, r.evOk ? "agree" : "DISAGREE");
+          detail += buf;
+        }
+      }
+      const bool fired = caught > 0 && early == 0;
+      if (!fired) red++;
+      std::printf("%s  control X1-late the ring's xm scaled by 1 + 1e-9 from frame %zu turns %d of %d NON-chaotic xm rows red (need >= 1); "
+                  "its first %zu frames bit-identical to clean on %d of %d xm rows%s%s\n",
+                  fired ? "PASS" : "FAIL", kLate, caught, n, kLate, n + 3 - early, n + 3, detail.c_str(), ring.c_str());
+    }
+    // BF: bounded-and-finite's must-fire control. A NaN, then 2.0, planted in each
+    // ring row's last sample (its tail, past the onset window) must turn the row red
+    // through bounded-and-finite ALONE: the onset window, events and readouts still
+    // hold. The clean replay must hold (the must-read-zero half).
+    {
+      int n = 0, ok = 0;
+      std::string detail;
+      for (const Scenario& s : keep) {
+        if (s.excl.empty()) continue;
+        n++;
+        EventLog clog;
+        ReplayInfo ci;
+        std::vector<double> a;
+        h2engine_stream::replay(s, a, 0, &clog, 0, &ci);
+        const bool inTail = a.size() > 2 * kOnsetFrames;
+        const Result clean = compare(s, a, clog, ci);
+        bool rowOk = inTail && exclusionHolds(clean);
+        for (double planted : {static_cast<double>(NAN), 2.0}) {
+          std::vector<double> b = a;
+          b.back() = planted;
+          const Result r = compare(s, b, clog, ci);
+          const bool onlyBF = r.evOk && r.cntOk && r.onsetMax < kOnsetTol && !boundedFinite(r);
+          if (!(onlyBF && !exclusionHolds(r))) rowOk = false;
+          char buf[200];
+          std::snprintf(buf, sizeof buf, "\n        %s, %s planted: %s", s.name.c_str(), std::isnan(planted) ? "NaN" : "2.0",
+                        onlyBF ? "red by bounded-and-finite alone" : "NOT caught by bounded-and-finite alone");
+          detail += buf;
+        }
+        if (rowOk) ok++;
+      }
+      const bool fired = n > 0 && ok == n;
+      if (!fired) red++;
+      std::printf("%s  control BF a NaN, then 2.0, in each ring row's tail turns it red by bounded-and-finite alone (clean holds): %d of %d%s\n",
+                  fired ? "PASS" : "FAIL", ok, n, detail.c_str());
+    }
+    // FLOORKEY: the floor's verdict on fabricated keys, so the unkeyed-platform path
+    // (print, never gate, never pass) is exercised on every run, not assumed.
+    {
+      const FloorPin& k = kFloorPins[0];
+      const FloorVerdict unkeyed = floorVerdict("selftest-unkeyed", k.compiler, k.nodeMajor, 0.0),
+                         otherNode = floorVerdict(k.platform, k.compiler, k.nodeMajor + 1, 0.0),
+                         under = floorVerdict(k.platform, k.compiler, k.nodeMajor, k.floor - 0.001),
+                         at = floorVerdict(k.platform, k.compiler, k.nodeMajor, k.floor);
+      const bool okk = !unkeyed.judged && !otherNode.judged && under.judged && !under.held && at.judged && at.held;
+      if (!okk) red++;
+      std::printf("%s  FLOORKEY self-test: an unkeyed platform %s, another Node major %s; keyed, a mean %.1f%% %s and %.0f%% %s\n",
+                  okk ? "PASS" : "FAIL", unkeyed.judged ? "GATES" : "prints only", otherNode.judged ? "GATES" : "prints only",
+                  100 * (k.floor - 0.001), under.judged && !under.held ? "is red" : "IS NOT RED", 100 * k.floor,
+                  at.judged && at.held ? "holds" : "DOES NOT HOLD");
     }
     const Scenario* mode0 = nullptr;
     for (const Scenario& s : keep) if (s.name == "T/mode 0 :: chord") mode0 = &s;
@@ -646,14 +791,13 @@ int main(int argc, char** argv) {
   for (size_t i = 0; i < shares.size() && i < 5; i++) std::printf("\n        %6.2f%%  %s", 100 * shares[i].first, shares[i].second.c_str());
   std::printf("\n");
   if (fullStream && !infra) {
-    if (floor < 0) {
-      std::printf("SKIP  BITEXACT  no floor is pinned for %s / %s / node %d: mean share %.2f%% reported, NOT judged (never a pass)\n", kPlatform,
+    if (!fv.judged) {
+      std::printf("SKIP  BITEXACT  no floor is keyed for %s / %s / node %d: mean share %.2f%% printed, NOT judged (never a pass)\n", kPlatform,
                   compilerId().c_str(), nodeMajor, 100 * meanExact);
     } else {
-      const bool held = meanExact >= floor;
-      if (!held) red++;
-      std::printf("%s  BITEXACT  %s / %s / node %d: the mean bit-exact share %.2f%% %s the pinned floor %.0f%%\n", held ? "PASS" : "FAIL", kPlatform,
-                  compilerId().c_str(), nodeMajor, 100 * meanExact, held ? "holds" : "is UNDER", 100 * floor);
+      if (!fv.held) red++;
+      std::printf("%s  BITEXACT  %s / %s / node %d: the mean bit-exact share %.2f%% %s the keyed floor %.0f%%\n", fv.held ? "PASS" : "FAIL", kPlatform,
+                  compilerId().c_str(), nodeMajor, 100 * meanExact, fv.held ? "holds" : "is UNDER", 100 * fv.floor);
     }
   }
   std::printf("events counted (C++ side): edge/base BLEPs %llu, carrier BLEPs %llu, blade-1 entries %llu, blade-2 entries %llu\n",
@@ -662,8 +806,8 @@ int main(int argc, char** argv) {
   std::printf("worst rms %.3e (%s); worst max-abs %.3e (%s); bit-exact samples: mean %.2f%%, lowest %.2f%% (%s)\n", worstRms, worstRmsName.c_str(),
               worstMax, worstMaxName.c_str(), 100 * meanExact, 100 * minExact, minExactName.c_str());
   std::printf("h2_engine_parity_check: %s — %d/%d scenarios at parity (rms < %.0e, max < %.0e, events and readouts identical), %d excluded as chaotic "
-              "with evidence under rule %s, %d miss parity, %d red\n", red ? "RED" : "GREEN", pass, total, kRmsTol, kMaxTol, excluded,
-              rule.b ? "b" : "1a", miss, red);
+              "(onset window %zu frames, events, readouts, bounded and finite), %d miss parity, %d red\n", red ? "RED" : "GREEN", pass, total, kRmsTol,
+              kMaxTol, excluded, kOnsetFrames, miss, red);
   return red ? 1 : 0;
 #endif
 }
