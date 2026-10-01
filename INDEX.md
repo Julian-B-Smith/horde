@@ -80,3 +80,4 @@ swarm-dynamics · parity-oracle · plugin-platform · realtime-perf
 - [L0068] A build-variant control must run the full scenario stream; subsets miss amplifier paths and under-report (oracles · ports)
 - [L0069] A ruled-out hypothesis is scoped to the regime its control tested; slow effects hide behind fast controls (oracles · metrics)
 - [L0070] Judge a cure on the curated bench too, not only on the sample that exposed the problem (oracles · evaluation)
+- [L0071] A fingerprint pin is only as portable as the render is stable; probe with ULP perturbations before pinning (oracles · ci)
