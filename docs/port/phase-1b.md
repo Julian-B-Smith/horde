@@ -262,6 +262,10 @@ negative onset in scope for the composed engine's parity, and on whose law?
 
 ### M3: law 3 (a code fact)
 
+**RULED 2026-09-30 (the human: "Also sounds good"), built in B382 (branch `composed-m3-law3`):**
+law 3 is the tempo grid in the composed JS, default ON, ledgered as `docs/port/divergences.json` M3
+(flag `tempoGrid`, with the C++'s `bpm` and `beatMult`; 0 is SwarmSynth's fall-through to ERB).
+
 In the lift, law 3 is the tempo grid (:1803, ADR-022). SwarmSynth has no law 3: its
 chain falls through to ERB. The composed engine documents `h.law` as 0, 1, 2, 4
 and 5.

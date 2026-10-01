@@ -1481,6 +1481,56 @@ section('AA — ADR-189 anti-aliasing divergences (B355): all off is main; D1, D
   row(unf.r5 > 10, 'AA3c', `CONTROL D3 with its filter a pass-through (the oracle's taps): ${fmt(unf)} — the R/5 cycle must read more than 10 dB`);
 }
 
+/* ---------------------------------------------------------------- B382 M3 */
+/* M3 `tempoGrid` (docs/port/divergences.json M3, default ON): law 3 is the C++'s TEMPO GRID
+   (swarm_core.h :1803-1812, ADR-022), not SwarmSynth's fall-through to ERB. THE C++ IS THE LAW:
+     M3g  ADR-022's property, on the engine's own swarm: with law 3, K 0 and no drift, every member's
+          offset from the played pitch is an exact multiple of the grid u = (bpm/60)·beatMult, at two
+          tempi; the CONTROL (flag off: ERB) is off the grid.
+     M3f  each member's frequency is the C++ expression, transcribed here from swarm_core.h :1809-1811
+          (f0 + round(f0·(2^(x·dep·100/1200) - 1)/u)·u, std::round's half away from zero), exactly.
+     M3s  the swarm half with M3 on is SwarmSynth with M3 on (the engine's own patched class), exactly;
+          flag off it is SwarmSynth itself (law 3 = ERB there), exactly; the CONTROL: M3 on against
+          SwarmSynth itself must differ.
+     M3o  no other law moves: laws 0, 1, 2, 4 and 5 render bit-identically with the flag on and off. */
+section('M3 — B382: law 3 is the tempo grid (ADR-022) in the composed engine');
+{
+  const grid = (on, bpm, beatMult) => {
+    Math.random = mulberry32(0xB383);
+    const c = new Composed(SR); c.set({ N: 7, detune: 40, K: 0, phaseMode: 1, 'h.law': 3, dist: 0, bpm, beatMult, tempoGrid: on, w: 0 }); Object.assign(c.s, c.t);
+    c.noteOn(NOTE, F57, 1);
+    const L = new Float32Array(64), R = new Float32Array(64); c.render(L, R);
+    const S = c.sw.swarms[c.voices[0].si], u = (bpm / 60) * beatMult;
+    const off = Array.from(S.vf.subarray(0, 7), f => (f - S.f0) / u);
+    const want = Array.from(c.sw.x.subarray(0, 7), x => { const q = S.f0 * (Math.pow(2, (x * 0.4 * 100) / 1200) - 1) / u; return S.f0 + (q < 0 ? -Math.round(-q) : Math.round(q)) * u; });
+    return { u, err: Math.max(...off.map(k => Math.abs(k - Math.round(k)))), exact: want.every((f, i) => f === S.vf[i]), vf: Array.from(S.vf.subarray(0, 7)) };
+  };
+  const g1 = grid(1, 120, 1), g2 = grid(1, 140, 2), e1 = grid(0, 120, 1);
+  row(g1.err < 1e-9 && g2.err < 1e-9, 'M3g', `law 3, 7 members, 40 c, K 0: offsets from the pitch are multiples of u = ${g1.u} Hz (worst ${g1.err.toExponential(1)} of a step) and u = ${g2.u.toFixed(4)} Hz (${g2.err.toExponential(1)})`);
+  row(e1.err > 0.01, 'M3gc', `CONTROL flag off (SwarmSynth: law 3 falls through to ERB): worst ${e1.err.toFixed(3)} of a ${e1.u} Hz step off the grid — must exceed 0.01`);
+  row(g1.exact && g2.exact, 'M3f', `every member = the C++'s f0 + round(f0·(2^(x·dep·100/1200) - 1)/u)·u, exactly, at both tempi (${g1.vf.map(f => f.toFixed(3)).join(', ')} Hz)`);
+
+  const GRID = { tempoGrid: 1, bpm: 120, beatMult: 1 }, G = swarmWith(GRID);
+  const cases = [['law 3 K .2', { law: 3, cents: 30, K: 0.2 }], ['law 3 K 0 drift', { law: 3, cents: 40, K: 0, retrig: 0, driftDepth: 20, driftRate: 0.5 }],
+    ['law 3 K -.5', { law: 3, cents: 25, K: -0.5, retrig: 0 }], ['law 3 anchor', { law: 3, cents: 50, K: 0.3, anchor: 1, spread: 2, dist: 1 }]];
+  let worstOn = 0, worstOff = 0;
+  const moved = [];
+  for (const [name, over] of cases) {
+    const h = Object.assign({}, H0, over);
+    const a = o1(h, { blade: GRID, refCls: G }), b = o1(h), d = o1(h, { blade: GRID });
+    worstOn = Math.max(worstOn, a.ph, a.eff); worstOff = Math.max(worstOff, b.ph, b.eff);
+    moved.push(`${name} ${d.ph.toExponential(1)}`);
+    if (d.ph < 1e-3) row(false, 'M3sc', `CONTROL ${name}: M3 on did not move law 3 against SwarmSynth (max|Δφ| ${d.ph})`);
+  }
+  row(worstOn === 0 && worstOff === 0, 'M3s', `${cases.length} law-3 scenarios at 48 kHz: M3 on = SwarmSynth with M3 on, exactly (max ${worstOn}); M3 off = SwarmSynth itself (its ERB), exactly (max ${worstOff})`);
+  row(moved.length === cases.length, 'M3sc', `CONTROL M3 on against SwarmSynth itself: ${moved.join(' · ')} — each must move`);
+
+  const lawRender = (law, on) => renderWith(() => new Composed(SR), { N: 5, detune: 30, K: 0.3, 'h.law': law, harmReach: 1.5, stretchB: 2, tempoGrid: on, phaseMode: 0 }, 0xB383, 12032);
+  const same = [0, 1, 2, 4, 5].filter(l => maxDiff(lawRender(l, 1), lawRender(l, 0)) === 0), l3 = maxDiff(lawRender(3, 1), lawRender(3, 0));
+  row(same.length === 5, 'M3o', `laws ${same.join(', ')} render bit-identically with M3 on and off (must be all five)`);
+  row(l3 > 1e-4, 'M3oc', `CONTROL law 3 itself, M3 on against off: max|Δ| ${l3.toFixed(4)} — must differ`);
+}
+
 /* ---------------------------------------------------------------- determinism */
 section('DET — determinism and the worklet route');
 {

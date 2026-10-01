@@ -192,6 +192,58 @@
    "js_limit": null
   },
   {
+   "id": "M3",
+   "adr": "ADR-022 (law 3, the tempo grid) mirrored into the lab (B379, B382); ADR-187 A1 (default ON, one per PR)",
+   "status": "built",
+   "default": 1,
+   "ruled": "The human, 2026-09-30, on B379's M2/M3: \"Also sounds good\" (the composed JS mirrors law 3); ON by default because the lab should match the C++ (ROADMAP B382).",
+   "flag": "tempoGrid",
+   "description": "Detune law 3 is the C++'s TEMPO GRID (ADR-022): cents placement, then each member's Hz offset from the pitch snapped to the nearest multiple of u = (bpm/60)*beatMult (rounding half away from zero, std::round's rule), so every pairwise beat rate is an exact multiple of the grid; drift, after, loosens it as in the C++. SwarmSynth has no law 3 and falls through to ERB. bpm and beatMult are new engine keys at the C++'s Params defaults (120, 1); the plugin takes bpm from the host transport, the lab has none. The lab's law menu does not offer 3 (critic L6 on B379), but saved state, automation and set() can carry one. Built as a text patch of SwarmSynth's controlTick law chain (the engine's SWARM_PATCHES); 0 is SwarmSynth's ERB fall-through, and no other law is touched.",
+   "oracle": {
+    "file": "reference/swarmsaw.html",
+    "blob": "e47da6c9e0b4a058e18d79f62d71ab31c3d3b1b0",
+    "sites": "SwarmSynth controlTick :436 (the law chain's final else: ERB)"
+   },
+   "cpp": "src/swarm_core.h :169 (Params bpm, beatMult), :1803-1812 (law 3); the same lines in h2/cores/swarm/swarm_core.h",
+   "target": "docs/design/scalpel-horde-engine.js SWARM_PATCHES M3 (roundAway's neighbour), HORDE_D tempoGrid, bpm, beatMult",
+   "scope": "h.law 3 only, at every rate; laws 0, 1, 2, 4 and 5 are bit-identical",
+   "outOfScope": [
+    "Crunch horde",
+    {
+     "preset": "Crunch horde",
+     "over": {
+      "h.law": 2
+     }
+    },
+    {
+     "preset": "Zap bass",
+     "over": {
+      "h.law": 5,
+      "stretchB": 2
+     },
+     "sr": 44100
+    }
+   ],
+   "inScope": {
+    "preset": "Crunch horde",
+    "over": {
+     "h.law": 3
+    }
+   },
+   "metric": {
+    "law3": "the swarm half against SwarmSynth (its ERB), 48 kHz, 0.5 s: max |dphase| 0.12 to 0.50 cycles over four law-3 scenarios; with K 0 and no drift every member sits on the grid exactly (u 2 Hz at 120 bpm x1, 4.6667 Hz at 140 bpm x2), where ERB is off it by up to 0.39 of a step",
+    "otherLaws": "none: laws 0, 1, 2, 4, 5 render bit-identically with the flag on and off (composed_engine_check M3o); the ledger's pinned presets (law 0) do not move",
+    "rates": "rate-independent (the grid is in Hz)",
+    "onset": "none",
+    "cpp": "the 48 kHz golden set's law-3 scenarios (law3-grid, law3-grid-sync; the M1 PR's swarm48_check) are KNOWN differences until this entry is registered and must then be within 1e-6 of the C++, with no edit there"
+   },
+   "evidence": [
+    "traces/2026-09-30-b382-m3-law3.md",
+    "tools/labharness/composed_engine_check.mjs"
+   ],
+   "js_limit": null
+  },
+  {
    "id": "D3",
    "adr": "ADR-189, ADR-189 A1",
    "status": "built",
