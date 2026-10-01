@@ -817,6 +817,15 @@ add_executable(measure_h2_scalpel tools/measure_h2_scalpel.cpp)
 if(NOT MSVC)
   target_compile_options(measure_h2_scalpel PRIVATE -O3 -ffp-contract=off)
 endif()
+# auhost (B381 stage 1): the offline AudioUnit host for the reference gauntlet,
+# plus a --horde mode that times the h2 SCALPEL core through the same loop. A
+# tool, not a gate (prints, never judges; unwired). macOS only: AudioToolbox.
+# It compiles an h2 core, so contraction is off (tools/h2_rules_check.py rule 2).
+if(APPLE)
+  add_executable(auhost tools/auhost/auhost.cpp)
+  target_compile_options(auhost PRIVATE -O3 -ffp-contract=off)
+  target_link_libraries(auhost PRIVATE "-framework AudioToolbox" "-framework CoreFoundation")
+endif()
 # h2_swarm_lift_check (B379 step 1): the lifted swarm core (h2/cores/swarm/,
 # ADR-186 copy-forward) compiled as an h2 target, contraction off like every
 # other, and lift edit E1 re-proven: a caller-owned Voice ticked through the

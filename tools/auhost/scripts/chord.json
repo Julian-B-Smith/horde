@@ -1,0 +1,13 @@
+{
+  "name": "c-major-chord",
+  "seconds": 3,
+  "events": [
+    {"at": 0, "program": 81},
+    {"sec": 0.05, "on": 60, "vel": 100},
+    {"sec": 0.05, "on": 64, "vel": 100},
+    {"sec": 0.05, "on": 67, "vel": 100},
+    {"sec": 2.5, "off": 60},
+    {"sec": 2.5, "off": 64},
+    {"sec": 2.5, "off": 67}
+  ]
+}
