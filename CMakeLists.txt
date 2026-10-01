@@ -851,6 +851,27 @@ add_executable(h2_swarm48_check tools/h2_swarm48_check.cpp)
 if(NOT MSVC)
   target_compile_options(h2_swarm48_check PRIVATE -O2 -ffp-contract=off)
 endif()
+# h2_engine_parity_check (B385): horde 2's ONE engine, the composed engine
+# (h2/engine/, horde2::engine), against its golden, the composed JS
+# (tools/h2_engine_render.mjs renders it). The parity build: doubles, -O2,
+# -ffp-contract=off, like every h2 target (h2 rule 7). Wired in ./verify full.
+add_executable(h2_engine_parity_check tools/h2_engine_parity_check.cpp)
+if(NOT MSVC)
+  target_compile_options(h2_engine_parity_check PRIVATE -O2 -ffp-contract=off)
+endif()
+# h2_engine_fma_control: the same source with contraction FORCED ON, the engine's
+# must-fail control for "FMA contraction on" and a declared exception to the
+# contraction-off rule (tools/h2_rules_check.py), as h2_scalpel_fma_control is for
+# the blade port. Exit 0: the parity gate caught the fused build over the full
+# stream; 1: it did not; 2: the run broke. Wired in ./verify full.
+add_executable(h2_engine_fma_control tools/h2_engine_parity_check.cpp)
+target_compile_definitions(h2_engine_fma_control PRIVATE H2_ENGINE_FMA_CONTROL)
+if(NOT MSVC)
+  target_compile_options(h2_engine_fma_control PRIVATE -O2 -ffp-contract=fast)
+  if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|amd64)$")
+    target_compile_options(h2_engine_fma_control PRIVATE -mfma)
+  endif()
+endif()
 
 # MSVC gives a process a 1 MB main-thread stack; macOS and Linux give 8 MB. A
 # SwarmCore is 651 KB (sizeof, MSVC 14.51, 2026-09-09) and the host-side
