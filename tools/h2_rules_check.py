@@ -19,9 +19,10 @@ WHAT IT CHECKS.
      build is arithmetically the tested one). Every CMake target that compiles
      an h2 core carries -ffp-contract=off, because clang and GCC otherwise fuse
      a*b+c and a fused build of the SCALPEL core misses parity on 19 of 386
-     scenarios (measured 2026-09-28, docs/port/scalpel-phase-1a.md). The one
-     declared exception is FMA_CONTROL, the must-fail control whose whole job is
-     to be the contracted build (it must carry -ffp-contract=fast).
+     scenarios (measured 2026-09-28, docs/port/scalpel-phase-1a.md). The declared
+     exceptions are FMA_CONTROLS, the must-fail controls whose whole job is to be
+     the contracted build (each must carry -ffp-contract=fast): the blade port's
+     and, since B385, the composed engine's.
   3. PINNED TARGET (ADR-187 item 3). h2/README.md's status row pins the SCALPEL
      oracle by git blob hash, and that hash equals the file's current content.
      A changed oracle is a changed parity target and must be re-pinned on
@@ -34,7 +35,8 @@ WHAT IT CHECKS.
      becoming the habit that one day meets an un-namespaced name (the shared
      HZ_CULL_ENV macro already is one, h2/README.md).
   "Compiles an h2 core" means: a target whose source file #includes a path
-  containing `h2/cores/`.
+  containing `h2/cores/` or `h2/engine/` (horde 2's one engine, B385, is h2 code
+  under every rule here).
 
 THE RULES CALIBRATE THEMSELVES ON EVERY RUN (selftest()): synthetic trees
 breaking each rule must be rejected, and a conforming one accepted.
@@ -46,7 +48,8 @@ import re
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-FMA_CONTROL = "h2_scalpel_fma_control"
+FMA_CONTROLS = ("h2_scalpel_fma_control", "h2_engine_fma_control")
+H2_PATH = re.compile(r"(^|/)h2/(cores|engine)/")
 ORACLE = "reference/scalpel/prototype/razor-core.js"
 LEGACY_LINK = re.compile(r"\$\{PROJECT_NAME\}-impl|HYPERSAW-impl")
 
@@ -78,7 +81,7 @@ def check_cmake(cmake_text, source_includes_h2):
         if any(LEGACY_LINK.search(l) for l in links.get(t, [])):
             fails.append(f"{t}: compiles an h2 core AND links the legacy shell (ADR-186 item 4)")
         flags = opts.get(t, [])
-        if t == FMA_CONTROL:
+        if t in FMA_CONTROLS:
             if "-ffp-contract=fast" not in flags:
                 fails.append(f"{t}: the FMA must-fail control must carry -ffp-contract=fast")
         elif "-ffp-contract=off" not in flags or "-ffp-contract=fast" in flags or "-ffp-contract=on" in flags:
@@ -112,7 +115,7 @@ def check_dual_includes(files):
         paths = inc.findall(text)
         legacy = [p for p in paths if re.search(r"(^|/)src/[^/]*_core\.h$", p)
                   or (rel.startswith("src/") and re.fullmatch(r"[^/]*_core\.h", p))]
-        h2 = [p for p in paths if re.search(r"(^|/)h2/cores/", p)]
+        h2 = [p for p in paths if H2_PATH.search(p)]
         direct[rel] = (legacy[0] if legacy else None, h2[0] if h2 else None)
         base = posixpath.dirname(rel)
         edges[rel] = [q for q in (posixpath.normpath(posixpath.join(base, p)) for p in paths) if q in files and q != rel]
@@ -142,8 +145,10 @@ def check_pin(readme_text, oracle_bytes):
 
 def selftest():
     inc = lambda s: s == "tools/x.cpp"
+    FMA_CONTROL = FMA_CONTROLS[0]
     good = ("add_executable(h2x tools/x.cpp)\ntarget_compile_options(h2x PRIVATE -O2 -ffp-contract=off)\n"
-            f"add_executable({FMA_CONTROL} tools/x.cpp)\ntarget_compile_options({FMA_CONTROL} PRIVATE -ffp-contract=fast)\n")
+            f"add_executable({FMA_CONTROL} tools/x.cpp)\ntarget_compile_options({FMA_CONTROL} PRIVATE -ffp-contract=fast)\n"
+            f"add_executable({FMA_CONTROLS[1]} tools/x.cpp)\ntarget_compile_options({FMA_CONTROLS[1]} PRIVATE -ffp-contract=fast)\n")
     cases = [
         (good, 0),
         ("add_executable(h2x tools/x.cpp)\ntarget_compile_options(h2x PRIVATE -O3)\n", 1),                           # no contract flag
@@ -166,6 +171,10 @@ def selftest():
         return "selftest: a std include was flagged"
     if len(check_dual_includes({"tools/t.cpp": '#include "../src/swarm_core.h"\n#include "../h2/cores/swarm/swarm_core.h"\n'})) != 1:
         return "selftest: a tool including both copies was not caught"
+    if len(check_dual_includes({"tools/t.cpp": '#include "../src/swarm_core.h"\n#include "../h2/engine/engine.h"\n'})) != 1:
+        return "selftest: a tool including a legacy core and the h2 engine was not caught"
+    if len(check_includes({"h2/engine/e.h": '#include "../../src/swarm_core.h"'})) != 1:
+        return "selftest: an h2/engine -> src include was not caught"
     if check_dual_includes({"tools/t.cpp": '#include "../h2/cores/swarm/swarm_core.h"\n// src/swarm_core.h:1053 cited in a comment\n'}):
         return "selftest: a comment citing a legacy core was flagged as an include"
     via = {"tools/leg.h": '#include "../src/swarm_core.h"\n',
@@ -188,7 +197,7 @@ def main():
 
     def source_includes_h2(src):
         p = ROOT / src
-        return p.suffix in (".cpp", ".h") and p.is_file() and "h2/cores/" in p.read_text(errors="ignore")
+        return p.suffix in (".cpp", ".h") and p.is_file() and H2_PATH.search(p.read_text(errors="ignore")) is not None
 
     fails, h2 = check_cmake((ROOT / "CMakeLists.txt").read_text(), source_includes_h2)
     files = {str(p.relative_to(ROOT)): p.read_text(errors="ignore")

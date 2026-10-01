@@ -17,7 +17,7 @@ copies their proven code instead of including them:
 So nothing drifts between two SCALPELs. The design, what is copied from where,
 and the parity plan are in `docs/port/h2-engine.md`.
 
-Last verified: 2026-10-01 (B385 checkpoint 1: the re-scoped plan; `h2/engine/` is designed, not yet built).
+Last verified: 2026-10-01 (B385 checkpoint 2: `h2/engine/` built; 529 of 532 parity scenarios green, the parity check not yet wired, pending one ruling).
 
 ## Rules
 
@@ -71,9 +71,8 @@ The rest are enforced by each core's parity check.
    Randomness comes only from seeded streams.
 6. **CPU is Layer-E (ADR-187 item 8).** CPU is measured by hand, in Release, by
    an unwired `tools/measure_*` bench. It is never a gate.
-7. **Every build of h2 code is compiled with `-ffp-contract=off`:** the cores, and
-   `h2/engine/` once it lands (its targets are added to the rules check with
-   it). Ruled by
+7. **Every build of h2 code is compiled with `-ffp-contract=off`:** the cores and
+   `h2/engine/` (the rules check treats both as h2 code). Ruled by
    the human on 2026-09-30 (ROADMAP B332): the build that ships is arithmetically
    the build that passed parity. Clang's default (`-ffp-contract=on`) fuses
    `a*b+c` into one rounding, which V8 never does. At that default, the SCALPEL
@@ -117,7 +116,7 @@ The rest are enforced by each core's parity check.
 |---|---|---|---|---|
 | Swarm (Swarm Core 1) | `cores/swarm/swarm_core.h` + `force_core.h` + `glide_core.h` (`horde2::swarm::hypersaw::SwarmCore`) | LIFTED 2026-09-30 (B379 step 1) from `src/` at `1c421b5`: byte-identical apart from 3 namespace lines and one access-only edit (E1, a public `tickVoice()` forwarder to the private `controlTick`), listed in `cores/swarm/lift-ledger.json`. It carries the legacy chain's proof against SwarmSynth (156/156 within 1e-6, B378 audit §2.9). The legacy L0-1 chain is DUPLICATED onto the copy under h2 flags (`-O2 -ffp-contract=off`): 156/156 within 1e-6 against SwarmSynth's goldens, worst 2.485e-9 @ saw-glass.seed1234 (2026-09-30). A TEST REFERENCE since B385 (not the composed engine's swarm: `h2/engine/` carries SwarmSynth's law with M1–M3 and copies this core's constants). At 48 kHz (B382's golden set) it is within 1e-6 of SwarmSynth with the divergences the composed engine registers mirrored (`docs/port/divergences.json`; negative onset and law 3 are reported as KNOWN differences until M2 and M3 are registered), and of DynSynth with M1's coefficient in its smoother. | Legacy: `reference/swarmsaw.html` SwarmSynth (44.1 kHz goldens, `tools/golden/gen_goldens.mjs`). | `tools/h2_swarm_parity_check.cpp` (full; a ledgered copy of `tools/parity_check.cpp`); `tools/h2_lift_check.py` (fast); `tools/h2_swarm_lift_check.cpp` (full); `tools/h2_swarm48_check.cpp` (full, 48 kHz, B382). |
 | SCALPEL blade engine | `cores/scalpel/razor_core.h` (`horde2::scalpel::RazorCore`) | A TEST REFERENCE since B385 (the engine copies its blade path). JS-normative. Parity-proven against the blade oracle (phase 1a): 383 of 386 scenarios at parity, 3 excluded as chaotic (a pinned count) with evidence re-measured every run. | Phase 1a: `reference/scalpel/prototype/razor-core.js@0ce6a713410d89c65bf55f761f1dc791fae61b16` (git blob; v1.1 as ingested). | `tools/h2_scalpel_parity_check.cpp` + `tools/h2_scalpel_render.mjs`, in `./verify full`. |
-| Composed engine (horde 2's one engine) | `engine/` (`horde2::engine::Engine`) | DESIGNED 2026-10-01 (B385 checkpoint 1, `docs/port/h2-engine.md`); not yet built. JS-normative once built: parity first (rule 3), against every scenario family of the design. | The composed JS at main `c64cfdb`: `docs/design/scalpel-horde-engine.js@581d7942684c91245e4a6637dd40d137335b5d69` over the blade oracle (the pin in the row above) and `reference/swarmsaw.html@e47da6c9e0b4a058e18d79f62d71ab31c3d3b1b0` (SwarmSynth), with `reference/scalpel/data/presets.json@44b48d72a9bed4717edd0ac5cf9ef4b8d7b0de93` and the B366 presets in `docs/design/scalpel-interface-lab.html@6abf848e91065bc33275724a6967a7399ba40a07`. The ledger's defaults: M1–M3 on, D1–D3 off. | Planned: `tools/h2_engine_parity_check.cpp` + `tools/h2_engine_render.mjs` (checkpoint 2). |
+| Composed engine (horde 2's one engine) | `engine/` (`horde2::engine::Engine`: `js.h`, `swarm.h`, `blade.h`, `engine.h`) | BUILT 2026-10-01 (B385 checkpoint 2; `docs/port/h2-engine.md`). JS-normative. 529 of 532 scenarios at parity (rms < 1e-6, max-abs < 1e-6, events identical; worst rms 2.1e-12, worst max-abs 1.8e-10), and the mean bit-exact share is 37.21% (proposed floor 30%, darwin-arm64). The 3 Cross-mod ring (watch) rows are chaotic (ADR-065): 2 are excluded with evidence under the 1a rule, and the arp misses RMS (1.7e-6). That one row, and so the wiring, awaits the lead's ruling. M1–M3 are built in; D1–D3 are flags, default off. | The composed JS at main `c64cfdb`: `docs/design/scalpel-horde-engine.js@581d7942684c91245e4a6637dd40d137335b5d69` over the blade oracle (the pin in the row above) and `reference/swarmsaw.html@e47da6c9e0b4a058e18d79f62d71ab31c3d3b1b0` (SwarmSynth), with `reference/scalpel/data/presets.json@44b48d72a9bed4717edd0ac5cf9ef4b8d7b0de93` and the B366 presets in `docs/design/scalpel-interface-lab.html@6abf848e91065bc33275724a6967a7399ba40a07`. The ledger's defaults: M1–M3 on, D1–D3 off. | `tools/h2_engine_parity_check.cpp` + `tools/h2_engine_render.mjs` (UNWIRED until the ruling; its FMA control is `h2_engine_fma_control`). |
 
 The full account of what is ported, what is not, and which oracle quirks are
 divergence candidates is in `docs/port/scalpel-phase-1a.md`. The swarm lift and
