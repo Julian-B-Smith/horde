@@ -51,7 +51,7 @@
 import { writeFileSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { readRun, samplePatch, measure, THRESH, A_SCRIPT, B_SCRIPT } from './gauntlet.mjs';
-import { ROOT, SR, mulberry32, render, mtof } from './space.mjs';
+import { ROOT, SR, mulberry32, render, mtof, loadEngine } from './space.mjs';
 import { analyse } from './metrics.mjs';
 import { hash32 } from './gen_dependency_tree.mjs';
 
@@ -68,8 +68,16 @@ export function loadPage(html) {
   return new Function('"use strict";\n' + html.slice(a, b) + '\nreturn { labFrom, spaceFrom, asEvalTree, samplePatch, renderScript, renderSteps, runSync, pseedOf, ' +
     'presentationOrder, QUI, viewIntro, viewCalib, viewRate, viewDone, viewReveal, fmtM, blindTokens, blindScan, buildExport, buildExportV2, exportV1FromStore, ' +
     'patchHash, measureHeard, heardDiff, TOL, SEGS, SEG_A3, SEG_E5, SEG_SWEEP, MEAS, PHRASE_ID, renderSegmentSteps, programFp, measureWindows, measureSegmentSteps, winStarts, ' +
-    'detectorControls, detectorLine, refTone, programGain, assembleProgram, segScript, PROGRAM_SECONDS, v1SampleOf, sameSoundsAs };')();
+    'detectorControls, detectorLine, refTone, programGain, assembleProgram, segScript, PROGRAM_SECONDS, v1SampleOf, sameSoundsAs, heardEngine };')();
 }
+/* B382, THE HEARD ENGINE (the page's heardEngine, on the gauntlet's route). The committed sample was
+   measured, and rated, on the composed engine before B382, with none of SwarmSynth's divergences (the
+   engine's SWARM_PATCHES, default ON since B382). heard(patch) writes each of them 0, and every render of
+   the COMMITTED sample (remeasure below, listening_pass_check.mjs) goes through it, so the sample still
+   reproduces bit for bit and the ratings stay paired with their sounds. A NEW selection (main, below)
+   reads a gauntlet run of the day and is rendered on the engine of the day: it does not use this. */
+export const HEARD = Object.fromEntries(loadEngine().Composed.swarmPatches.map(x => [x.flag, 0]));
+export const heard = patch => Object.assign({}, patch, HEARD);
 export const SELECT_SEED = 0xB324;
 export const ORDER_SEED = 0x324B;
 export const RENDER_SALT = 77;                                   // gauntlet.mjs: pseed = hash32(seed, i, 77)
@@ -181,10 +189,10 @@ export const CONTROLS = controlsFor(T);
    export on an earlier id rated the same sounds. */
 export function remeasure(json, note) {
   const run = json.run.seed, items = json.items.map(it => {
-    const patch = samplePatch(run, it.i, it.mode).patch, pseed = hash32(run, it.i, RENDER_SALT);
-    if (patchHash(patch) !== it.ph || fingerprintOf(patch, pseed) !== it.fp) throw new Error(`${it.key}: the sound changed (ph/fp) — a re-measure keeps the sounds; re-select instead`);
-    const r = measure(patch, pseed), metrics = Object.fromEntries(KEEP.map(k => [k, r[k]]));
-    metrics.roughnessSolo = roughnessSolo(patch, pseed);
+    const patch = samplePatch(run, it.i, it.mode).patch, pseed = hash32(run, it.i, RENDER_SALT), hp = heard(patch);   // B382: the heard engine
+    if (patchHash(patch) !== it.ph || fingerprintOf(hp, pseed) !== it.fp) throw new Error(`${it.key}: the sound changed (ph/fp) — a re-measure keeps the sounds; re-select instead`);
+    const r = measure(hp, pseed), metrics = Object.fromEntries(KEEP.map(k => [k, r[k]]));
+    metrics.roughnessSolo = roughnessSolo(hp, pseed);
     /* the sample's OWN roughness threshold (the one its labels were made with), not the live THRESH:
        B350 moved THRESH.roughness 0.10 -> 0.12, and a re-measure keeps the labels of the draw (T4) */
     return Object.assign({}, it, { roughOrigin: roughOrigin(metrics.roughness, metrics.roughnessSolo, json.thresholds.roughness), metrics });

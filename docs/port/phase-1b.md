@@ -218,6 +218,10 @@ Options, for the human:
 
 ### M1: the coupling smoother is rate-dependent in the lift, a literal in SwarmSynth (B150)
 
+**RULED 2026-09-30 (the human: "Sounds good"), built in B382 (branch `composed-m1-ksm`):** the
+composed JS mirrors B150, default ON, ledgered as `docs/port/divergences.json` M1 (flag
+`ksmPerRate`; 0 is SwarmSynth's 0.08).
+
 `swarm_core.h:389-391` sets the per-tick coupling-smoother coefficient `ksmC` from a
 time constant in seconds (B150, ADR-009). It returns the literal 0.08 at 44.1 kHz
 and 0.073746064208033535 at 48 kHz. SwarmSynth, which the composed engine calls for
@@ -267,6 +271,14 @@ Saved state, host automation and `setParam` can still carry a 3, so the law for
 it is still open.
 
 ### How far M1 and M2 reach (a hypothesis)
+
+**TESTED 2026-09-30 (B382, the 48 kHz golden set: `tools/golden/gen_goldens_sr.mjs`,
+`swarm48_check`, `h2_swarm48_check`).** On the whole L0-1 matrix at 48 kHz, with M1 mirrored,
+every SwarmSynth scenario is within 1e-6 of both copies of the core (worst 2.474e-9); the only
+other differences are negative onset (M2) and law 3 (M3). One more was found: DynSynth
+(`reference/swarmdynamics.html`) carries the same per-tick 0.08 in its own smoother, and with
+it replaced by M1's coefficient every dyn scenario is within 1e-6 too. The text below is the
+hypothesis as it stood.
 
 "M1 and M2 are the only 48 kHz differences between the lift and SwarmSynth" is a
 HYPOTHESIS. It rests on the four scenarios in the table above, which cover one

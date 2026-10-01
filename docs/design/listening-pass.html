@@ -386,6 +386,16 @@ function* renderSteps(C, patch, script, opt) {
   return { L, R };
 }
 function runSync(g) { let r; while (!(r = g.next()).done); return r.value; }
+/* B382, THE HEARD ENGINE. The sample was measured, and the human rated it, on the composed engine BEFORE
+   B382: none of SwarmSynth's divergences (the engine's registered SWARM_PATCHES, default ON since B382).
+   The page renders every sound with each of them written 0, so the sounds are still the ones the numbers
+   and the ratings belong to (listening_sample.mjs HEARD is the same rule on the gauntlet's route, and
+   listening_pass_check.mjs T3/T4 hold both to the committed fingerprints). A new sample, drawn on the
+   engine of the day, would drop this and be rated anew. */
+function heardEngine(C) {
+  const off = (C.swarmPatches || []).map(x => x.flag);
+  return class extends C { constructor(sr) { super(sr); for (const f of off) this.d[f] = 0; } };
+}
 function renderScript(C, patch, script, opt) { return runSync(renderSteps(C, patch, script, opt)); }
 /* listening_sample.mjs fingerprint: FNV-1a over the float32 bits */
 function fingerprint(...chs) {
@@ -957,7 +967,7 @@ async function loadAll() {
   const lab = labFrom(labHtml);
   const saved = Math.random; Math.random = mulberry32(1);
   let inst; try { inst = new C(SR); } finally { Math.random = saved; }
-  ENG.C = C;
+  ENG.C = heardEngine(C);                                        // B382: the engine the sample was rated on (heardEngine)
   ENG.ctx = { lab, space: spaceFrom(lab, inst), tree: asEvalTree(JSON.parse(tree)) };
   SAMPLE = JSON.parse(sample);
   SAMPLE.itemsByKey = Object.fromEntries(SAMPLE.items.map(it => [it.key, it]));

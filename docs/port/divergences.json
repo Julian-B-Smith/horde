@@ -1,7 +1,7 @@
 {
  "schema": "hypersaw.divergences/1",
  "core": "SCALPEL",
- "about": "The ADR-187 divergence ledger for SCALPEL (ADR-187 §5, started by ADR-189 / B355). Every intentional difference between the parity target (the composed engine) and the SCALPEL oracle it calls, one entry each. A built entry sits behind its own engine flag, default 0, so all flags off is the engine before the first divergence, bit for bit. Checked by tools/labharness/divergence_ledger_check.mjs (./verify fast): L1 shape, L2 the oracle blob, L3 each built flag exists and defaults to 0, L4 all off = the pinned fingerprints below, L5 each built flag changes a scenario. Mirror policy (ADR-187, ratified): the composed engine IS the lab JS, so these are mirrored by construction; js_limit states what the browser cannot follow, or null.",
+ "about": "The ADR-187 divergence ledger for SCALPEL (ADR-187 §5, started by ADR-189 / B355). Every intentional difference between the parity target (the composed engine) and an oracle it calls (the SCALPEL oracle; since B382 also SwarmSynth, reference/swarmsaw.html), one entry each; the order of the entries carries no meaning. A built entry sits behind its own engine flag, default 0 unless the entry says `default: 1` (B382, ADR-187 A1: a divergence the human ruled ON, one per PR; it carries `ruled`, and `moves` for each pinned scenario it changes at the defaults), so all flags off is the engine before the first divergence, bit for bit. Checked by tools/labharness/divergence_ledger_check.mjs (./verify fast): L1 shape, L2 the oracle blob, L3 each built flag exists at its ledgered default, L4 all off = the pinned fingerprints below and the defaults = the pins or the claimed moves, L5 each built flag changes a scenario, L6 each stays in its declared scope. Mirror policy (ADR-187, ratified): the composed engine IS the lab JS, so these are mirrored by construction; js_limit states what the browser cannot follow, or null.",
  "target": "docs/design/scalpel-horde-engine.js",
  "allOff": {
   "about": "Fingerprints of the composed engine BEFORE B355 (main at d443eb6, the engine at blob 5f96285): each preset from reference/scalpel/data/presets.json, notes 57 and 64 struck at 0, 12032 samples at 48 kHz in 128-sample blocks, Math.random seeded mulberry32(seed); SHA-256 of the float32 L then R, first 16 hex digits (divergence_ledger_check.mjs fingerprint()).",
@@ -204,6 +204,63 @@
     "tools/labharness/composed_engine_check.mjs",
     "tools/patchspace/antialias_scope.mjs",
     "docs/patchspace/2026-09-29-b355-d3-scope.md"
+   ],
+   "js_limit": null
+  },
+  {
+   "id": "M1",
+   "adr": "B150 (ADR-009) mirrored into the lab (B379, B382); ADR-187 A1 (default ON, one per PR)",
+   "status": "built",
+   "default": 1,
+   "ruled": "The human, 2026-09-30, on B379's M1: \"Sounds good\" (the composed JS mirrors B150's per-rate coupling smoother, plus a 48 kHz golden set); ON by default because the lab should match the C++ (ROADMAP B382).",
+   "flag": "ksmPerRate",
+   "description": "The coupling smoother's per-tick coefficient comes from a time constant in SECONDS, B150's law in the C++ (SwarmCore(): 0.08 at 44.1 kHz exactly, else 1 - exp(-(16/sr)/kKsmTauSeconds), kKsmTauSeconds = 4.3512 ms, the value that gives 0.08 at 44.1 kHz), in place of SwarmSynth's literal 0.08 per 16-sample tick at every rate (an ADR-009 per-tick constant: 4.35 ms at 44.1 kHz, 4.00 ms at 48 kHz, 2.00 ms at 96 kHz). Resolved once per SwarmSynth, at construction, as the C++ does. 44.1 kHz is special-cased to the literal, as in the C++, because the round trip is three ULP short of 0.08. 48 kHz: 0.073746064208033535. Built as a text patch of SwarmSynth's constructor and controlTick (the engine's SWARM_PATCHES); 0 is SwarmSynth's expression, character for character.",
+   "oracle": {
+    "file": "reference/swarmsaw.html",
+    "blob": "e47da6c9e0b4a058e18d79f62d71ab31c3d3b1b0",
+    "sites": "SwarmSynth constructor :208 (this.sr); controlTick :489-490 (s.KsmS/KsmP += (target - x) * 0.08)"
+   },
+   "cpp": "src/swarm_core.h :152 (kKsmTauSeconds), :389-391 (SwarmCore(): ksmC), :1896-1897; the same lines in h2/cores/swarm/swarm_core.h",
+   "target": "docs/design/scalpel-horde-engine.js SWARM_PATCHES M1 (LOOP_FC's neighbour), HORDE_D ksmPerRate",
+   "scope": "every patch with a coupling target to smooth (K != 0, or onset != 0 while it lasts), at every rate but 44.1 kHz; at 44.1 kHz nothing moves, bit for bit",
+   "outOfScope": [
+    {
+     "preset": "Cross-mod roar",
+     "sr": 44100
+    },
+    {
+     "preset": "Crunch horde",
+     "sr": 44100
+    },
+    {
+     "preset": "Zap bass",
+     "sr": 44100
+    },
+    "Quarter sync"
+   ],
+   "inScope": "Crunch horde",
+   "moves": {
+    "Cross-mod roar": "dd3f44df6992722d",
+    "Crunch horde": {
+    "darwin": "57a4d13ff66d7a9f",
+    "linux": "f07ffc9432bcb49d"
+   },
+    "Zap bass": "1a336ebb265304c2"
+   },
+   "metric": {
+    "at44100": "none: every ledger preset and 19 O1 scenarios bit-identical with M1 on and off (composed_engine_check M1z)",
+    "at48000": "the swarm half against SwarmSynth, 0.5 s, 19 O1 scenarios: max |dphase| 2.4e-5 (onset 0, K .2) to 1.2e-2 cycles (K -1); the audio against SwarmSynth over the L0-1 matrix at 48 kHz (plain rms): 5.1e-6 (rtone-full) to 1.7e-2 (pivot-anchor); 13 of 49 SwarmSynth scenario families (the 44 of L0-1 and 5 extra) move beyond 1e-6, the rest stay within it (K 0 and no onset: nothing to smooth)",
+    "settle": "a K step's time to 1 - 1/e of its target, 44.1 / 48 / 96 kHz: 4.354 / 4.667 / 4.500 ms with M1 (the same within one tick), 4.354 / 4.000 / 2.000 ms without (composed_engine_check M1t)",
+    "cpp": "at 48 kHz the C++ (src/ and the h2 copy) is within 1e-6 of SwarmSynth with M1 on for every scenario of the L0-1 matrix plus onset +0.5 (worst 2.474e-9 @ saw-glass), and the coefficient equals the C++ constructor's bit for bit at 22.05, 32, 44.1, 48, 88.2, 96 and 192 kHz (swarm48_check, h2_swarm48_check)",
+    "onset": "M1 smooths the onset burst too: onset +0.5, K .35 moves from rms 1.785e-3 against the C++ (plain) to 5.0e-14 (mirrored); negative onset is M2's",
+    "law3": "none of its own; law 3 is M3's"
+   },
+   "finding": "(1) The 48 kHz golden set (B382) tested B379's hypothesis 'M1 and M2 are the only 48 kHz differences' on the whole L0-1 matrix: with M1 mirrored, every SwarmSynth scenario is within 1e-6 of the C++; the only other differences are negative onset (M2) and law 3 (M3), and DynSynth (reference/swarmdynamics.html) carries the SAME per-tick 0.08 in its own smoother (controlTick, s.Ksm): with it replaced by M1's coefficient every dyn scenario is within 1e-6 of the C++, without it 21 of 24 miss by 4e-5 to 9e-2 (dyn-grid, K 0, does not). That is a fact about the reference the C++ parity chain was built on, not an engine divergence (the composed engine runs none of DynSynth's coupling). (2) broad#828, AA3's evidence for D3: at the defaults (M1 on) its R/5 limit cycle at E5, os 1, reads +2.3 dB over its floor, not +13.0 (D3 on: -0.6, not -5.9): the cycle depends on the swarm's realisation. AA3 keeps M1 off, the swarm the cycle was measured on. (3) Crunch horde at the defaults is PLATFORM-FRAGILE: 57a4d13ff66d7a9f on macOS, f07ffc9432bcb49d on CI Linux (PR #880, run 36782771270). On macOS those are the two outcomes of perturbing the swarm by ~1e-12 relative (M1's coefficient moved +1e5 ULP gives exactly the Linux hash; +-1 to +-1e4 ULP change nothing), so a last-bit difference somewhere upstream, NOT M1's coefficient, picks the side; its pin is per platform (divergence_ledger_check PER-PLATFORM PINS). Cross-mod roar and Zap bass matched on Linux.",
+   "evidence": [
+    "traces/2026-09-30-b382-m1-ksm.md",
+    "tools/labharness/composed_engine_check.mjs",
+    "tools/golden/gen_goldens_sr.mjs",
+    "tools/swarm_sr_parity.h"
    ],
    "js_limit": null
   },

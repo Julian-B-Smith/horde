@@ -460,6 +460,21 @@ full() {
   # copy is verbatim), so this label says which core they measure. ADR-180 §1.
   echo "h2_swarm_parity_check — the lifted core h2/cores/swarm, -O2 -ffp-contract=off:"
   "$build_dir/h2_swarm_parity_check" "$(dirname "$build_dir")/build-golden" || { echo "verify[full]: h2_swarm_parity_check FAILED" >&2; return 1; }
+  # THE 48 kHz SET (B382; ADR-180 §1, additive): the same matrix, plus negative
+  # onset and law 3, rendered at 48 kHz twice (SwarmSynth as it is, and with the
+  # composed engine's divergences mirrored: tools/golden/gen_goldens_sr.mjs), and
+  # both copies of the core replayed against it (tools/swarm_sr_parity.h). Every
+  # scenario beyond 1e-6 is printed (KNOWN: a named divergence not yet mirrored;
+  # FAIL: one nothing explains, or a KNOWN that vanished); a plain within-eps OK
+  # line is not. The coefficient rows compare M1's per-rate coupling smoother
+  # with the C++ constructor's, bit for bit.
+  node tools/golden/gen_goldens_sr.mjs --selfcheck > /tmp/gsr.$$ 2>&1 || { cat /tmp/gsr.$$ >&2; rm -f /tmp/gsr.$$; return 1; }
+  rm -f /tmp/gsr.$$
+  node tools/golden/gen_goldens_sr.mjs || return 1
+  "$build_dir/swarm48_check" "$(dirname "$build_dir")/build-golden/sr48000" > /tmp/s48.$$ 2>&1 || { echo "verify[full]: swarm48_check FAILED" >&2; grep -v '^OK  ' /tmp/s48.$$ >&2; rm -f /tmp/s48.$$; return 1; }
+  grep -v '^OK  ' /tmp/s48.$$; rm -f /tmp/s48.$$
+  "$build_dir/h2_swarm48_check" "$(dirname "$build_dir")/build-golden/sr48000" > /tmp/s48.$$ 2>&1 || { echo "verify[full]: h2_swarm48_check FAILED" >&2; grep -v '^OK  ' /tmp/s48.$$ >&2; rm -f /tmp/s48.$$; return 1; }
+  grep -v '^OK  ' /tmp/s48.$$; rm -f /tmp/s48.$$
   "$build_dir/trajectory_check" || return 1
   "$build_dir/state_check" || return 1
   # B84 undo history (ADR-160): tree semantics, restore bit-identical through
