@@ -18,144 +18,251 @@
   .none { color:var(--dim); }
   .gui { margin-bottom:22px; }
   .gui a { color:var(--pull); margin-right:16px; }
-  h3 { font-size:12px; letter-spacing:2px; color:var(--dim); margin:0 0 10px; }
+  h3 { font-size:12px; letter-spacing:2px; color:var(--dim); margin:22px 0 10px; }
+  h3.first { margin-top:0; }
   .review-grid { margin-bottom:26px; }
   .lab.review { border-color:#f5169c; box-shadow:0 0 0 1px #f5169c inset; }
   .pill { display:inline-block; font-size:9px; letter-spacing:1px; padding:1px 6px;
           border-radius:3px; background:#f5169c; color:#fff; margin-bottom:6px; }
   .lab.superseded { opacity:.45; }
+  details.archive { margin-top:30px; }
+  details.archive summary { font-size:12px; letter-spacing:2px; color:var(--dim);
+          cursor:pointer; margin-bottom:12px; }
+  .why { color:var(--dim); font-size:10px; margin-top:4px; }
   .succ { color:var(--dim); font-size:10px; margin-top:4px; }
 </style></head><body>
 <h1>horde — design labs</h1>
-<div class="sub">Every bench in <code>docs/design/</code>. Each card's text is the lab's
-own tagline, read from the file at generation time — not a description written here,
-which would be a second copy free to drift. Regenerate with
-<code>python3 tools/gen_lab_index.py</code>.</div>
+<div class="sub">The labs horde 2's plan uses, grouped by plan part; older labs are in
+the Archive at the bottom. Each card's text is the lab's own tagline, read from the
+file at generation time — not a description written here, which would be a second
+copy free to drift. Regenerate with <code>python3 tools/gen_lab_index.py</code>.</div>
 <div class="gui"><b>The instrument:</b>
   <a href="../../src/gui/gui2.html">gui2 (in development)</a>
   <a href="../../src/gui/gui.html">gui1 (shipped default)</a></div>
-<h3>AWAITING YOUR REVIEW (13)</h3>
+<h3 class="first">AWAITING YOUR REVIEW (6)</h3>
 <div class="grid review-grid">
-  <a class="lab review" href="compact-lab.html">
-    <span class="pill">NEW · AWAITING REVIEW · B212 + B227 · 2026-09-23</span>
-    <h2>compact lab — the simplified horde face, and the six decisions it needs</h2>
-    <div class="file">compact-lab.html</div>
-    <p>The compact horde face: three competing layouts drawn at plugin size, every control a real address from src/param_presentation.tsv with the shell&#x27;s ranges — A a fixed spine we choose, B the preset&#x27;s eight named macros, C both (recommended). All three and the f</p>
+  <a class="lab review" href="edge-correction-lab.html">
+    <span class="pill">NEW · AWAITING REVIEW · B383 · 2026-09-30</span>
+    <h2>edge-correction lab — polyBLEP, 2× oversampling, BLEP tables and note-dependent edges, by ear and by measure</h2>
+    <div class="file">edge-correction-lab.html</div>
+    <p>Which edge correction should the swarm and the SCALPEL blade use? The audit (B378 F3) measured the core&#x27;s 2-point polyBLEP folding from C3 up (−41.6 dB at C4, −26.8 at C8) and a 16-tap-a-side BLEP table at ≤ −120 dB. This lab plays six corrections — polyBLEP, </p>
   </a>
-  <a class="lab review" href="composed-engine-check.html">
-    <span class="pill">NEW · AWAITING REVIEW · B298 · 2026-09-27</span>
+  <a class="lab review" href="engine-audit.html">
+    <span class="pill">NEW · AWAITING REVIEW · B376 · 2026-09-29</span>
+    <h2>Engine audit — every swarm control, keep / lock / cull / merge</h2>
+    <div class="file">engine-audit.html</div>
+    <p>EVERY CONTROL OF THE SWARM CORE, THE LEGACY SHELL, THE COMPOSED ENGINE AND SCALPEL — KEEP / LOCK / CULL / MERGE, DECIDED BY YOU BEFORE ANY LIFT</p>
+  </a>
+  <a class="lab review" href="envelope-hierarchy-lab.html">
+    <span class="pill">NEW · AWAITING REVIEW · B377 · 2026-09-30</span>
+    <h2>envelope hierarchy lab — ENV 1 global, onset scatter without a slot or a hidden envelope</h2>
+    <div class="file">envelope-hierarchy-lab.html</div>
+    <p>The full envelope hierarchy, workshopped as the human asked (complement to the mod lab): ENV 1 is global, one AHDSR on every pre-FX source (the swarm, both blades, the sub) with a per-source ENV 1 button as in Serum&#x27;s mixer, ENV 2–4 assignable; decision 1 (SCA</p>
+  </a>
+  <a class="lab review" href="h2-plan-map.html">
+    <span class="pill">NEW · AWAITING REVIEW · B387 · 2026-10-01</span>
+    <h2>horde 2 — plan of record map</h2>
+    <div class="file">h2-plan-map.html</div>
+    <p>THE PLAN OF RECORD, DRAWN: EVERY PART, ITS STATUS, ITS DEPENDENCIES, THE CRITICAL PATH TO 1.0. ROWS ARE READ LIVE FROM ROADMAP.md.</p>
+  </a>
+  <a class="lab review" href="legacy-roundup.html">
+    <span class="pill">NEW · AWAITING REVIEW · B386 · 2026-10-01</span>
+    <h2>Legacy roundup — what horde Legacy has that horde 2 does not yet carry</h2>
+    <div class="file">legacy-roundup.html</div>
+    <p>EVERY PARAMETER, FEATURE AND BEHAVIOUR OF HORDE LEGACY THAT HORDE 2&#x27;S PLAN DOES NOT YET CARRY — APPROVE / DENY / LATER, DECIDED BY YOU</p>
+  </a>
+  <a class="lab review" href="sluice-horde-lab.html">
+    <span class="pill">NEW · AWAITING REVIEW · B319 + B329 + B337 + B338 + B343 + B348 + B353 + B361 · 2026-09-29</span>
+    <h2>Sluice in horde — built to Sluice&#x27;s architecture spec</h2>
+    <div class="file">sluice-horde-lab.html</div>
+    <p>Sluice as horde will host it, rebuilt to Sluice&#x27;s own architecture spec. The Play face (the default), the Rack face (the machinery) and the Scope, each built at load from Sluice&#x27;s spec and manifest, read in place through a gitignored local link. Nothing of Slu</p>
+  </a>
+</div>
+<h3>PLAN AND DECISIONS (3)</h3>
+<div class="grid">
+  <a class="lab" href="engine-audit.html">
+    <h2>Engine audit — every swarm control, keep / lock / cull / merge</h2>
+    <div class="file">engine-audit.html</div>
+    <p>EVERY CONTROL OF THE SWARM CORE, THE LEGACY SHELL, THE COMPOSED ENGINE AND SCALPEL — KEEP / LOCK / CULL / MERGE, DECIDED BY YOU BEFORE ANY LIFT</p>
+  </a>
+  <a class="lab" href="h2-plan-map.html">
+    <h2>horde 2 — plan of record map</h2>
+    <div class="file">h2-plan-map.html</div>
+    <p>THE PLAN OF RECORD, DRAWN: EVERY PART, ITS STATUS, ITS DEPENDENCIES, THE CRITICAL PATH TO 1.0. ROWS ARE READ LIVE FROM ROADMAP.md.</p>
+  </a>
+  <a class="lab" href="legacy-roundup.html">
+    <h2>Legacy roundup — what horde Legacy has that horde 2 does not yet carry</h2>
+    <div class="file">legacy-roundup.html</div>
+    <p>EVERY PARAMETER, FEATURE AND BEHAVIOUR OF HORDE LEGACY THAT HORDE 2&#x27;S PLAN DOES NOT YET CARRY — APPROVE / DENY / LATER, DECIDED BY YOU</p>
+  </a>
+</div>
+<h3>ENGINE (3)</h3>
+<div class="grid">
+  <a class="lab" href="composed-engine-check.html">
     <h2>Composed engine check — horde&#x27;s swarm under SCALPEL&#x27;s blades (B298)</h2>
     <div class="file">composed-engine-check.html</div>
     <p><span class=none>no tagline</span></p>
   </a>
-  <a class="lab review" href="filter-lab.html">
-    <span class="pill">NEW · AWAITING REVIEW · B274 + B287 + B290 · 2026-09-26</span>
-    <h2>filter lab — twelve types, a fidelity programme, one signal path</h2>
-    <div class="file">filter-lab.html</div>
-    <p>Every filter is drawn once, in the signal path below, as a box holding its own response curve — drag inside a box: across = cutoff, up = resonance (⌥/alt + wheel nudges resonance; a plain wheel only scrolls, B301); click a box to edit it on the right. Sources </p>
+  <a class="lab" href="edge-correction-lab.html">
+    <h2>edge-correction lab — polyBLEP, 2× oversampling, BLEP tables and note-dependent edges, by ear and by measure</h2>
+    <div class="file">edge-correction-lab.html</div>
+    <p>Which edge correction should the swarm and the SCALPEL blade use? The audit (B378 F3) measured the core&#x27;s 2-point polyBLEP folding from C3 up (−41.6 dB at C4, −26.8 at C8) and a 16-tap-a-side BLEP table at ≤ −120 dB. This lab plays six corrections — polyBLEP, </p>
   </a>
-  <a class="lab review" href="fx-chain-morph-lab.html">
-    <span class="pill">NEW · AWAITING REVIEW · B265 + B266 · 2026-09-25</span>
-    <h2>fx-chain morph lab — nine ways to morph an FX chain, fuzzed on seven invariants</h2>
-    <div class="file">fx-chain-morph-lab.html</div>
-    <p>Two FX chains, L and R, and a morph x between them, done nine ways on the same endpoint pairs. B265&#x27;s four: A rank keys, B edit path, C an approved-order graph, D naive slot splicing (the control), all but D on one shared router. B266&#x27;s five, which avoid order</p>
-  </a>
-  <a class="lab review" href="fx-design-lab.html">
-    <span class="pill">NEW · AWAITING REVIEW · B210 + B234 · 2026-09-23</span>
-    <h2>FX design lab — nine modules, a four-knob face over every control</h2>
-    <div class="file">fx-design-lab.html</div>
-    <p>Every FX module horde hosts, drawn in gui2&#x27;s token set and held to one rule — ADR-169&#x27;s module macro tiers as the human put it: &quot;distill its essential controls to four knobs, even while the rest of the parameters are accessible&quot;. Each card is a FACE: four role</p>
-  </a>
-  <a class="lab review" href="maw-horde-lab.html">
-    <span class="pill">NEW · AWAITING REVIEW · B318 · 2026-09-28</span>
-    <h2>MAW design lab — the FX-C saturator as it lives in horde</h2>
-    <div class="file">maw-horde-lab.html</div>
-    <p>MAW (ADR-170) is horde&#x27;s FX-C: the three-stage saturator every source hands off to (ADR-092 amendment, &quot;Maw eats it&quot;). Here it sits in rack slot 1 of horde&#x27;s FX page. Its face is four role macros (ADR-169; the A2 distillation) over its full panel: three stages</p>
-  </a>
-  <a class="lab review" href="mixer-lab.html">
-    <span class="pill">NEW · AWAITING REVIEW · B225 · 2026-09-23</span>
-    <h2>mixer lab — every stage metered, every over latched</h2>
-    <div class="file">mixer-lab.html</div>
-    <p>The MIX page as a signal-chain instrument. Every stage from each source&#x27;s gain to the master carries a meter with a peak hold and a CLIP lamp that latches until you click it: the three sources (after their gain, after B209&#x27;s pre-mix filter, and — for the swarm</p>
-  </a>
-  <a class="lab review" href="mod-matrix-lab.html">
-    <span class="pill">NEW · AWAITING REVIEW · B207 + B253 · 2026-09-24</span>
-    <h2>mod matrix lab — depth modulation, and four ways to see a route</h2>
-    <div class="file">mod-matrix-lab.html</div>
-    <p>The modulation matrix as it stands after B134/B171 — 22 source slots under B179&#x27;s new names, per-route polarity, pitch as an ordinary ±48 st destination per oscillator (B180, proposed) — plus the two things B207 exists to settle: depth modulation (a route&#x27;s am</p>
-  </a>
-  <a class="lab review" href="morph-editor-lab.html">
-    <span class="pill">NEW · AWAITING REVIEW · B211 + B235 + B268 + B269 · 2026-09-26</span>
-    <h2>Morph editor lab — four corners × the whole field, and waypoints between them</h2>
-    <div class="file">morph-editor-lab.html</div>
-    <p>Every member of the real morph field against the four corners of MO - Quantum Morph. A waypoint (◆) pins one parameter&#x27;s value at a spot on the pad, and BLEND passes through it. Start at the pad: drag a ◆, drag its value tag, double-click to add one — and watc</p>
-  </a>
-  <a class="lab review" href="patch-model-lab.html">
-    <span class="pill">NEW · AWAITING REVIEW · B263 · 2026-09-24</span>
-    <h2>patch model lab — values per corner, lists that grow, a rack per side, zoned mods, locks</h2>
-    <div class="file">patch-model-lab.html</div>
-    <p>The B263 patch model, pared down to one oscillator, two 2-slot racks, an 8-slot modulator bank and an 8-route list. Four corners hold every value; the patch holds two shared lists that only grow (routes, modulators); each side of the pad holds one rack lineup;</p>
-  </a>
-  <a class="lab review" href="scalpel-interface-lab.html">
-    <span class="pill">NEW · AWAITING REVIEW · B271 + B293–B317 · 2026-09-28</span>
+  <a class="lab" href="scalpel-interface-lab.html">
     <h2>SCALPEL interface lab — horde with blades at its centre</h2>
     <div class="file">scalpel-interface-lab.html</div>
     <p>What horde looks like with SCALPEL as its sound-design centre. The OSC page puts both blades on the face in the accounting&#x27;s priority order (mode, width, cut rate, position, depth, edges, mirror, FM, spreads), the surviving swarm controls one level down, and A</p>
   </a>
-  <a class="lab review" href="shape-lab-mod.html">
-    <span class="pill">NEW · AWAITING REVIEW · B208 + B226 + B237 · 2026-09-23</span>
-    <h2>horde modulator lab: LFO + envelope + sources + S&amp;H/random, one law each (B208, B226, B237)</h2>
-    <div class="file">shape-lab-mod.html</div>
-    <p>The modulator editor as one lab. An LFO and an envelope, both drawn and edited as breakpoints, and both evaluated by one shape law, shapeAt(points, t). The picture and the audio both call it. HEAR switches what you listen to between the PROPOSED laws (the thre</p>
-  </a>
-  <a class="lab review" href="sluice-horde-lab.html">
-    <span class="pill">NEW · AWAITING REVIEW · B319 · 2026-09-28</span>
-    <h2>Sluice in horde — the network as a hosted FX module</h2>
-    <div class="file">sluice-horde-lab.html</div>
-    <p>Sluice as it will live inside horde: one node in the FX rack, its network lit by what it renders, four macros by order, tempo sync by horde&#x27;s division names, the FREAK ZONE-style randomiser, and the four corners as its slots. The engine is our NETWORK referenc</p>
-  </a>
 </div>
-<h3>ALL LABS</h3>
+<h3>PITCH (1)</h3>
 <div class="grid">
-  <a class="lab" href="aesthetics-lab.html">
-    <h2>horde aesthetics lab — control style bench</h2>
-    <div class="file">aesthetics-lab.html</div>
-    <p>Bench for auditioning control aesthetics — human request 2026-08-17: &quot;could we start a lab for testing alternative aesthetics? I want to play around with a lighter color scheme, styles like skeuomorphism, rotary dials instead of sliders, etc.&quot; It settles nothi</p>
-  </a>
   <a class="lab" href="bend-lab.html">
     <h2>horde bend lab — pitch-bend inertia bench</h2>
     <div class="file">bend-lab.html</div>
     <p>Bench for pitch-bend inertia (human request 2026-08-03) — pitch does not arrive where you point it, it travels there. Five travel laws, because &quot;how long does a glide take&quot; has more than one honest answer and they do not sound alike: constant time takes the sa</p>
   </a>
-  <a class="lab" href="cooperator-lab.html">
+</div>
+<h3>MODULATION (3)</h3>
+<div class="grid">
+  <a class="lab" href="envelope-hierarchy-lab.html">
+    <h2>envelope hierarchy lab — ENV 1 global, onset scatter without a slot or a hidden envelope</h2>
+    <div class="file">envelope-hierarchy-lab.html</div>
+    <p>The full envelope hierarchy, workshopped as the human asked (complement to the mod lab): ENV 1 is global, one AHDSR on every pre-FX source (the swarm, both blades, the sub) with a per-source ENV 1 button as in Serum&#x27;s mixer, ENV 2–4 assignable; decision 1 (SCA</p>
+  </a>
+  <a class="lab" href="mod-matrix-lab.html">
+    <h2>mod matrix lab — depth modulation, and four ways to see a route</h2>
+    <div class="file">mod-matrix-lab.html</div>
+    <p>The modulation matrix as it stands after B134/B171 — 22 source slots under B179&#x27;s new names, per-route polarity, pitch as an ordinary ±48 st destination per oscillator (B180, proposed) — plus the two things B207 exists to settle: depth modulation (a route&#x27;s am</p>
+  </a>
+  <a class="lab" href="shape-lab-mod.html">
+    <h2>horde modulator lab: LFO + envelope + sources + S&amp;H/random, one law each (B208, B226, B237)</h2>
+    <div class="file">shape-lab-mod.html</div>
+    <p>The modulator editor as one lab. An LFO and an envelope, both drawn and edited as breakpoints, and both evaluated by one shape law, shapeAt(points, t). The picture and the audio both call it. HEAR switches what you listen to between the PROPOSED laws (the thre</p>
+  </a>
+</div>
+<h3>MORPH AND STATE (2)</h3>
+<div class="grid">
+  <a class="lab" href="morph-editor-lab.html">
+    <h2>Morph editor lab — four corners × the whole field, and waypoints between them</h2>
+    <div class="file">morph-editor-lab.html</div>
+    <p>Every member of the real morph field against the four corners of MO - Quantum Morph. A waypoint (◆) pins one parameter&#x27;s value at a spot on the pad, and BLEND passes through it. Start at the pad: drag a ◆, drag its value tag, double-click to add one — and watc</p>
+  </a>
+  <a class="lab" href="patch-model-lab.html">
+    <h2>patch model lab — values per corner, lists that grow, a rack per side, zoned mods, locks</h2>
+    <div class="file">patch-model-lab.html</div>
+    <p>The B263 patch model, pared down to one oscillator, two 2-slot racks, an 8-slot modulator bank and an 8-route list. Four corners hold every value; the patch holds two shared lists that only grow (routes, modulators); each side of the pad holds one rack lineup;</p>
+  </a>
+</div>
+<h3>SOURCES AND ROUTING (3)</h3>
+<div class="grid">
+  <a class="lab" href="filter-lab.html">
+    <h2>filter lab — twelve types, a fidelity programme, one signal path</h2>
+    <div class="file">filter-lab.html</div>
+    <p>Every filter is drawn once, in the signal path below, as a box holding its own response curve — drag inside a box: across = cutoff, up = resonance (⌥/alt + wheel nudges resonance; a plain wheel only scrolls, B301); click a box to edit it on the right. Sources </p>
+  </a>
+  <a class="lab" href="mixer-lab.html">
+    <h2>mixer lab — every stage metered, every over latched</h2>
+    <div class="file">mixer-lab.html</div>
+    <p>The MIX page as a signal-chain instrument. Every stage from each source&#x27;s gain to the master carries a meter with a peak hold and a CLIP lamp that latches until you click it: the three sources (after their gain, after B209&#x27;s pre-mix filter, and — for the swarm</p>
+  </a>
+  <a class="lab" href="width-lab.html">
+    <h2>horde width lab — super-width alternatives (ADR-025 revision bench)</h2>
+    <div class="file">width-lab.html</div>
+    <p>ADR-025 revision bench (human ruling 2026-08-02: super-width is NEEDED for Serum-class wideness — audition non-inverting alternatives; &quot;the pulse effect isn&#x27;t the worst sound&quot; so the current widener stays as the A/B baseline). Design fact the menu is built aro</p>
+  </a>
+</div>
+<h3>FX (5)</h3>
+<div class="grid">
+  <a class="lab" href="fx-chain-morph-lab.html">
+    <h2>fx-chain morph lab — nine ways to morph an FX chain, fuzzed on seven invariants</h2>
+    <div class="file">fx-chain-morph-lab.html</div>
+    <p>Two FX chains, L and R, and a morph x between them, done nine ways on the same endpoint pairs. B265&#x27;s four: A rank keys, B edit path, C an approved-order graph, D naive slot splicing (the control), all but D on one shared router. B266&#x27;s five, which avoid order</p>
+  </a>
+  <a class="lab" href="fx-design-lab.html">
+    <h2>FX design lab — nine modules, a four-knob face over every control</h2>
+    <div class="file">fx-design-lab.html</div>
+    <p>Every FX module horde hosts, drawn in gui2&#x27;s token set and held to one rule — ADR-169&#x27;s module macro tiers as the human put it: &quot;distill its essential controls to four knobs, even while the rest of the parameters are accessible&quot;. Each card is a FACE: four role</p>
+  </a>
+  <a class="lab" href="maw-horde-lab.html">
+    <h2>MAW design lab — the FX-C saturator as it lives in horde</h2>
+    <div class="file">maw-horde-lab.html</div>
+    <p>MAW (ADR-170) is horde&#x27;s FX-C: the three-stage saturator every source hands off to (ADR-092 amendment, &quot;Maw eats it&quot;). Here it sits in rack slot 1 of horde&#x27;s FX page. Its face is four role macros (ADR-169; the A2 distillation) over its full panel: three stages</p>
+  </a>
+  <a class="lab" href="reverb-lab.html">
+    <h2>horde reverb lab — pre-delay · ER · diffusion · FDN · swarm modulation</h2>
+    <div class="file">reverb-lab.html</div>
+    <p>Task #23 — the integrated reverb. Built as a full signal chain rather than a bare FDN, because the &quot;acoustic strings section&quot; quality the human heard from an external reverb most likely lives in the early reflections and diffusion, not in the tail length. Also</p>
+  </a>
+  <a class="lab" href="sluice-horde-lab.html">
+    <h2>Sluice in horde — built to Sluice&#x27;s architecture spec</h2>
+    <div class="file">sluice-horde-lab.html</div>
+    <p>Sluice as horde will host it, rebuilt to Sluice&#x27;s own architecture spec. The Play face (the default), the Rack face (the machinery) and the Scope, each built at load from Sluice&#x27;s spec and manifest, read in place through a gitignored local link. Nothing of Slu</p>
+  </a>
+</div>
+<h3>PRESENTATION (2)</h3>
+<div class="grid">
+  <a class="lab" href="compact-lab.html">
+    <h2>compact lab — the simplified horde face, and the six decisions it needs</h2>
+    <div class="file">compact-lab.html</div>
+    <p>The compact horde face: three competing layouts drawn at plugin size, every control a real address from src/param_presentation.tsv with the shell&#x27;s ranges — A a fixed spine we choose, B the preset&#x27;s eight named macros, C both (recommended). All three and the f</p>
+  </a>
+  <a class="lab" href="fx-screens-workshop.html">
+    <h2>fx screens workshop — MAW, Sluice and the whole FX rack as software on horde&#x27;s screens</h2>
+    <div class="file">fx-screens-workshop.html</div>
+    <p><span class=none>no tagline</span></p>
+  </a>
+</div>
+<h3>CALIBRATION (1)</h3>
+<div class="grid">
+  <a class="lab" href="listening-pass.html">
+    <h2>Listening pass v2 — blind calibration, with controls</h2>
+    <div class="file">listening-pass.html</div>
+    <p><span class=none>no tagline</span></p>
+  </a>
+</div>
+<details class="archive"><summary>Archive — 18 labs no longer in horde 2's plan</summary>
+<div class="grid">
+  <a class="lab superseded" href="aesthetics-lab.html">
+    <h2>horde aesthetics lab — control style bench</h2>
+    <div class="file">aesthetics-lab.html</div>
+    <p>Bench for auditioning control aesthetics — human request 2026-08-17: &quot;could we start a lab for testing alternative aesthetics? I want to play around with a lighter color scheme, styles like skeuomorphism, rotary dials instead of sliders, etc.&quot; It settles nothi</p>
+    <div class="why">legacy-era design bench; superseded by the screens and compact labs</div>
+  </a>
+  <a class="lab superseded" href="cooperator-lab.html">
     <h2>horde cooperator lab — Kuramoto FM</h2>
     <div class="file">cooperator-lab.html</div>
     <p>The premise: FM is already phase coupling — a modulator FM-ing a carrier injects one oscillator&#x27;s phase into another&#x27;s; Kuramoto pulls one oscillator&#x27;s frequency by the phase difference. FM is strong, unidirectional and dumb; Kuramoto is weak, mutual and self-</p>
+    <div class="why">legacy-era bench; its law is ruled or lives in the composed engine</div>
   </a>
-  <a class="lab" href="detune-lab.html">
+  <a class="lab superseded" href="detune-lab.html">
     <h2>SWARMSAW — coupled-oscillator supersaw lab</h2>
     <div class="file">detune-lab.html</div>
     <p>audition lab · new detune laws (stretch → metallic) + golden distribution · octave spread + root-anchor (NI-style) · harmonic law (unison → series) · sweep detune with law=stretch, B, and K</p>
+    <div class="why">legacy-era bench; its law is ruled or lives in the composed engine</div>
   </a>
-  <a class="lab" href="ensemble-lab.html">
+  <a class="lab superseded" href="ensemble-lab.html">
     <h2>horde ensemble lab — coupled onset scatter</h2>
     <div class="file">ensemble-lab.html</div>
     <p>Task #25 — per-voice onset scatter, generated by mutual error correction rather than by jitter. The 2026-07-28 research found listeners judge ensemble togetherness from the serial structure of onset asynchrony (its lag-1 autocorrelation, set by inter-player co</p>
+    <div class="why">legacy-era bench; its law is ruled or lives in the composed engine</div>
   </a>
-  <a class="lab" href="feedback-lab.html">
+  <a class="lab superseded" href="feedback-lab.html">
     <h2>horde feedback lab — the loop, made audible and survivable</h2>
     <div class="file">feedback-lab.html</div>
     <p>The four-agent survey (2026-08-15) produced hypotheses that only ears can settle, and feedback is the one area where being wrong is loud. This bench makes the loop audible with two things the survey said must exist and must be separate: a limiter as a safety b</p>
+    <div class="why">legacy-era bench; its law is ruled or lives in the composed engine</div>
   </a>
-  <a class="lab" href="formant-lab.html">
+  <a class="lab superseded" href="formant-lab.html">
     <h2>HORDE · formant swarm lab — formant detune width / de-click</h2>
     <div class="file">formant-lab.html</div>
     <p>Evolution surface for CANTO, the FOF/pulsar formant engine — the protected reference reference/formant-pulsar-fof.html stays untouched, because an edit there is a spec change. Two things live here. Formant detune width voices each formant with several slightly</p>
+    <div class="why">retired engine — H2-PLAN &#x27;Archived engines&#x27;</div>
   </a>
-  <a class="lab" href="fx-morph-law-lab.html">
+  <a class="lab superseded" href="fx-morph-law-lab.html">
     <h2>horde fx morph-law lab — what a topology flip should sound like</h2>
     <div class="file">fx-morph-law-lab.html</div>
     <p>Corner A routes source → DRIVE → COMB → out. Corner B routes the same two modules the other way: source → COMB → DRIVE → out. Both corners are the same modules with the same settings — only the order differs. The question this lab exists to settle is what shou</p>
+    <div class="why">legacy-era bench; its law is ruled or lives in the composed engine</div>
   </a>
   <a class="lab superseded" href="fx-page-lab.html">
     <h2>FX Page Lab — modules, mini-viz, expanded views</h2>
@@ -163,15 +270,17 @@ which would be a second copy free to drift. Regenerate with
     <p><span class=none>no tagline</span></p>
     <div class="succ">superseded by fx-design-lab.html</div>
   </a>
-  <a class="lab" href="glitch-lab.html">
+  <a class="lab superseded" href="glitch-lab.html">
     <h2>horde glitch lab — DECOHERE · STALE FIELD · NECROSIS</h2>
     <div class="file">glitch-lab.html</div>
     <p>The three state-tier glitch modules of specs/SPEC-GLITCH-MODULES.md — DECOHERE, STALE FIELD, NECROSIS — auditioned together on a swarm source. They are not an FX rack: they have no buffer to insert into, they rewrite the Kuramoto coupling law and the per-oscil</p>
+    <div class="why">legacy-era bench; its law is ruled or lives in the composed engine</div>
   </a>
-  <a class="lab" href="layout-lab.html">
+  <a class="lab superseded" href="layout-lab.html">
     <h2>horde layout lab — information architecture audition</h2>
     <div class="file">layout-lab.html</div>
     <p>Information-architecture audition (human brief 2026-07-30): click through the proposed pages before any fold work begins. Nothing here makes sound — the controls are the REAL inventory (every shipped param, every lab feature with a fold path), placed where the</p>
+    <div class="why">legacy-era design bench; superseded by the screens and compact labs</div>
   </a>
   <a class="lab superseded" href="mod-lab.html">
     <h2>horde mod lab — Kuro rotor · LFOs · env · matrix</h2>
@@ -185,45 +294,42 @@ which would be a second copy free to drift. Regenerate with
     <p>Bench for the modulator editor (ROADMAP B16) — the weakest surface in the instrument, because the LFOs have three parameters and the envelope is a plain ADSR while everything else here has had a lab. Three claims, each measurable on this page. Reverse-saw is n</p>
     <div class="succ">superseded by shape-lab-mod.html</div>
   </a>
-  <a class="lab" href="morph-law-bench.html">
+  <a class="lab superseded" href="morph-law-bench.html">
     <h2>Morph Law Bench — blend vs argmax on one dense table</h2>
     <div class="file">morph-law-bench.html</div>
     <p><span class=none>no tagline</span></p>
+    <div class="why">legacy-era bench; its law is ruled or lives in the composed engine</div>
   </a>
-  <a class="lab" href="reverb-lab.html">
-    <h2>horde reverb lab — pre-delay · ER · diffusion · FDN · swarm modulation</h2>
-    <div class="file">reverb-lab.html</div>
-    <p>Task #23 — the integrated reverb. Built as a full signal chain rather than a bare FDN, because the &quot;acoustic strings section&quot; quality the human heard from an external reverb most likely lives in the early reflections and diffusion, not in the tail length. Also</p>
-  </a>
-  <a class="lab" href="routing-lab-modular.html">
+  <a class="lab superseded" href="routing-lab-modular.html">
     <h2>Routing Lab · Modular — QM-3 send matrix + live graph</h2>
     <div class="file">routing-lab-modular.html</div>
     <p><span class=none>no tagline</span></p>
+    <div class="why">legacy-era bench; its law is ruled or lives in the composed engine</div>
   </a>
-  <a class="lab" href="routing-lab.html">
+  <a class="lab superseded" href="routing-lab.html">
     <h2>horde routing lab — topology bench (B23)</h2>
     <div class="file">routing-lab.html</div>
     <p>B23. The question is not which effects to have — it is which sources reach which slots, in what order, and who pays for it. Three candidate topologies, the same four-slot rack (ADR-054 is already a grid, not a fixed chain), the same two sources. Switch schemes</p>
+    <div class="why">legacy-era bench; its law is ruled or lives in the composed engine</div>
   </a>
-  <a class="lab" href="shape-lab.html">
+  <a class="lab superseded" href="shape-lab.html">
     <h2>horde shape lab — sync · phase-warp formants · ripple</h2>
     <div class="file">shape-lab.html</div>
     <p>Campaign-2 item 6 — the three phase-domain axes from the 2026-07-25 timbre research, prototyped together because they share one aliasing budget. Every axis keeps the waveform a rising ramp per cycle, so the saw mandate holds: sync resets the ramp early, warp c</p>
+    <div class="why">legacy-era bench; its law is ruled or lives in the composed engine</div>
   </a>
-  <a class="lab" href="spectra-lab.html">
+  <a class="lab superseded" href="spectra-lab.html">
     <h2>horde spectra lab — what makes SPECTRA its own engine</h2>
     <div class="file">spectra-lab.html</div>
     <p>Lab campaign 3 item 1 — *&quot;make the engine worthwhile: find the features that give SPECTRA its own identity rather than &#x27;the other engine&#x27;.&quot;* The shipped core was measured first, and the brief&#x27;s premise turned out to be only half right. SPECTRA does not sound l</p>
+    <div class="why">retired engine — H2-PLAN &#x27;Archived engines&#x27;</div>
   </a>
-  <a class="lab" href="station-page-lab.html">
+  <a class="lab superseded" href="station-page-lab.html">
     <h2>STATION page lab — the engine page in horde&#x27;s design system</h2>
     <div class="file">station-page-lab.html</div>
     <p>The STATION engine page (specs/SPEC-STATION.md) drawn entirely in gui2&#x27;s token set — cream ground, ink outlines, magenta for the value you authored, violet for the system&#x27;s own state, and every canvas a phosphor tube. Three operator cards carry tuning (§3.1), </p>
-  </a>
-  <a class="lab" href="width-lab.html">
-    <h2>horde width lab — super-width alternatives (ADR-025 revision bench)</h2>
-    <div class="file">width-lab.html</div>
-    <p>ADR-025 revision bench (human ruling 2026-08-02: super-width is NEEDED for Serum-class wideness — audition non-inverting alternatives; &quot;the pulse effect isn&#x27;t the worst sound&quot; so the current widener stays as the A/B baseline). Design fact the menu is built aro</p>
+    <div class="why">retired engine — H2-PLAN &#x27;Archived engines&#x27;</div>
   </a>
 </div>
+</details>
 </body></html>
