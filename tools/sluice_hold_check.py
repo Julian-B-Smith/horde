@@ -58,14 +58,19 @@ scanned, and a hit window W is then CREDITED (not counted) only if all hold —
 The decision is the pure function credit(); first_appearances() is the pure
 half of (b). One horde snapshot is read per distinct cut commit, reusing this
 run's scan of every blob unchanged since. T(W) is CACHED in
-`local/sluice-hold-cache.json` (gitignored; window hashes and times only, never
-text), keyed by Sluice's HEAD, every ref, and the needle set: a Sluice commit,
+`sluice-hold-cache.json` in the main checkout's `local/` (see below;
+gitignored; window hashes and times only, never text), keyed by Sluice's HEAD, every ref, and the needle set: a Sluice commit,
 ref move or working-tree edit of the linked files invalidates it. This gate's
 own docstring (the link sentence above) hits Sluice's later wording; it is
 credited by this rule (horde wrote it first), not excluded.
 
-THE NEVER-CREDIT LEDGER, `local/sluice-hold-ledger.json` (gitignored; sha256 of
+THE NEVER-CREDIT LEDGER, `sluice-hold-ledger.json` (gitignored; sha256 of
 normalised windows only, never text, each with a date, a file and a reason).
+ONE ledger for every checkout: it and the cache live in the MAIN checkout's
+`local/`, the parent of git's common dir, resolved at runtime (state_dir(),
+the way tools/labs_preview.sh finds the main checkout), so a failure seen in
+any worktree lands in it. Only if the main checkout has no `local/` does a run
+fall back to its own `local/`, and its summary line says so.
 Every window that is counted on a run (failing, or a PENDING file's) is
 appended with reason "failed <date>", and a ledgered window is never credited
 again, whatever (b) and (c) say. It was seeded from the B415 triage's
@@ -100,7 +105,7 @@ PENDING REMEDIATION (PENDING below) names FILES only, each with a date and the
 record that will clear it. A listed file's hits are counted, not failed; a
 listed file that reads 0 hits FAILS, so an entry can never outlive its reason.
 
-CONTROLS (12), every run, on in-memory copies of README.md (never on disk). A
+CONTROLS (13), every run, on in-memory copies of README.md (never on disk). A
 45-character spec piece, cut at runtime, planted (1) bare, (2) wrapped across
 comment lines, (3) split over a string join must each add hits; the same words
 (4) as a path and (5) as an id must add none. The credit controls plant one
@@ -113,7 +118,10 @@ none; (9) just after horde's root commit (Sluice first) adds hits; (10)
 ledgered adds hits though horde had it first; (11) in no Sluice commit adds
 hits; (12) earlier only under `integrations/hypersaw/` adds none, and must add
 hits when that same appearance is moved to another path (else (12) proves
-nothing).
+nothing). (13) Run from a worktree (an injected layout, no real directory),
+state_dir() must resolve to the main checkout's `local/` and fall back to the
+worktree's own only when that is absent, and the plant's counted windows must
+land in the ledger at the resolved path, once (a second append adds none).
 A control that behaves wrongly fails the gate: a blind scan reads like a clean
 tree.
 
@@ -131,8 +139,11 @@ import time
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LINK = os.path.join(REPO, "local", "sluice")
-LEDGER = os.path.join(REPO, "local", "sluice-hold-ledger.json")  # gitignored, never committed
-CACHE = os.path.join(REPO, "local", "sluice-hold-cache.json")    # gitignored, disposable
+# The ledger (never committed) and the cache (disposable) live in the MAIN
+# checkout's local/, resolved at runtime by state_dir(), so every worktree
+# shares one ledger. Only their names are written here, never a directory.
+LEDGER_NAME = "sluice-hold-ledger.json"
+CACHE_NAME = "sluice-hold-cache.json"
 CACHE_VERSION = 1  # bump when what the cache holds changes meaning
 MAILBOX = "integrations/hypersaw/"  # horde's filings in Sluice's tree: never Sluice-authored
 RUN = 28           # window length, the lab's C17 constant
@@ -422,15 +433,15 @@ def credit(hits, first_of, ledgered, held_before):
     return out
 
 
-def sluice_first(top, needles):
+def sluice_first(top, needles, cache):
     """-> ({window hash: T}, 'warm' | 'cold'). T(W) for every needle that some
-    Sluice commit holds, read-only from Sluice's git; cached under local/."""
+    Sluice commit holds, read-only from Sluice's git; cached at `cache`."""
     refs = git("for-each-ref", "--format=%(objectname) %(refname)", cwd=top)
     head = git("rev-parse", "HEAD", cwd=top)
     nd = hashlib.sha256("\n".join(sorted(needles)).encode()).digest()
     key = hashlib.sha256(b"%d\n" % CACHE_VERSION + head + refs + nd).hexdigest()
     try:
-        with open(CACHE) as f:
+        with open(cache) as f:
             c = json.load(f)
         if c.get("key") == key:
             return c["first"], "warm"
@@ -450,11 +461,11 @@ def sluice_first(top, needles):
                 for sha, t in cat_blobs(blobs, cwd=top).items() if t is not None}
 
     first = {wsha(w): t for w, t in first_appearances(occ, windows_of).items()}
-    tmp = CACHE + ".tmp"
+    tmp = cache + ".tmp"
     with open(tmp, "w") as f:
         json.dump({"about": "sluice_hold cache (B417): window sha256 -> first Sluice "
                    "commit time. Hashes only. Safe to delete.", "key": key, "first": first}, f)
-    os.replace(tmp, CACHE)
+    os.replace(tmp, cache)
     return first, "cold"
 
 
@@ -478,26 +489,50 @@ def make_held_before(needles, seen):
 
 
 # ---- the never-credit ledger -----------------------------------------------
-def load_ledger():
+def state_dir(common_dir, repo, isdir=os.path.isdir):
+    """-> (directory for the ledger and the cache, True if it is the MAIN
+    checkout's). The main checkout is the parent of git's common dir, found the
+    way tools/labs_preview.sh finds it, so a run from any worktree lands its
+    failures in the ONE ledger. Pure given `isdir` (the controls inject it).
+    With no main-checkout local/, this checkout's local/ is the fallback, and
+    the summary line says so."""
+    main_local = os.path.join(os.path.dirname(common_dir.rstrip(os.sep)), "local")
+    if isdir(main_local):
+        return main_local, True
+    return os.path.join(repo, "local"), False
+
+
+def load_ledger(path):
     """-> (data, created?). A missing ledger is reported and created, never
     silently skipped; a malformed one is an error, not an empty ledger."""
-    if not os.path.exists(LEDGER):
+    if not os.path.exists(path):
         return {"about": LEDGER_ABOUT, "entries": []}, True
-    with open(LEDGER) as f:
+    with open(path) as f:
         data = json.load(f)
     if not isinstance(data.get("entries"), list) or not all(
             isinstance(e, dict) and re.fullmatch(r"[0-9a-f]{64}", str(e.get("sha256")))
             for e in data["entries"]):
-        raise ValueError("local/sluice-hold-ledger.json is malformed; fix it by hand")
+        raise ValueError(LEDGER_NAME + " is malformed; fix it by hand")
     return data, False
 
 
-def write_ledger(data):
-    tmp = LEDGER + ".tmp"
+def write_ledger(data, path):
+    tmp = path + ".tmp"
     with open(tmp, "w") as f:
         json.dump(data, f, indent=1)
         f.write("\n")
-    os.replace(tmp, LEDGER)
+    os.replace(tmp, path)
+
+
+def ledger_append(data, counted, today):
+    """Append every counted window (window -> the file it hit) not yet in the
+    ledger, in place -> the new entries. Append-only: nothing here, or anywhere
+    in this gate, removes an entry."""
+    have = {e["sha256"] for e in data["entries"]}
+    new = [{"sha256": h, "date": today, "file": rel, "reason": "failed " + today}
+           for h, rel in sorted((wsha(w), rel) for w, rel in counted.items()) if h not in have]
+    data["entries"].extend(new)
+    return new
 
 
 LEDGER_ABOUT = ("sluice_hold never-credit ledger (B417): sha256 of normalised windows "
@@ -606,7 +641,28 @@ def controls(base, specs, needles, origin, ledgered, held_before, cut_t):
     else:
         fails.append("control unbuildable: no window horde held at the control cut "
                      "(and not at its root) — the credit rule is untested")
-    ok = []
+    # (13) A failure planted in a WORKTREE run lands in the MAIN checkout's
+    # ledger: resolve from an injected worktree layout ("M" is the main
+    # checkout; names only, no directory is touched), then append the plant's
+    # counted windows to an in-memory ledger at the resolved path, twice.
+    name13 = "a worktree failure lands in the main checkout's ledger"
+    common, wt = os.path.join("M", ".git"), os.path.join("M", ".claude", "worktrees", "w")
+    main_local = os.path.join("M", "local")
+    got, got_main = state_dir(common, wt, isdir=lambda d: d == main_local)
+    fb, fb_main = state_dir(common, wt, isdir=lambda d: False)
+    counted = {x: "README.md" for x in
+               set(hit_windows(norm_fast(base + "\n" + piece + "\n"), needles)) - origin}
+    books = {os.path.join(got, LEDGER_NAME): {"entries": []}}
+    book = books.get(os.path.join(main_local, LEDGER_NAME))
+    first_new = ledger_append(book, counted, "d") if book is not None else []
+    if (got_main and not fb_main and fb == os.path.join(wt, "local") and counted
+            and {e["sha256"] for e in first_new} == {wsha(x) for x in counted}
+            and not ledger_append(book, counted, "d")):
+        ok = [name13]
+    else:
+        ok = []
+        fails.append("control NOT as built: " + name13 + " (main-checkout resolution, "
+                     "its fallback, or append-once broke)")
     for name, plant, org_set, must_hit in cases:
         before = count_hits(base, needles, org_set)
         after = count_hits(base + "\n" + plant + "\n", needles, org_set)
@@ -632,8 +688,12 @@ def main():
         return 1
     top, target = sluice_top()
     cut_t = cutoff(top, target)
-    first, cache_state = sluice_first(top, needles)
-    ledger, ledger_created = load_ledger()
+    sdir, sdir_main = state_dir(git("rev-parse", "--path-format=absolute",
+                                    "--git-common-dir").decode().strip(), REPO)
+    os.makedirs(sdir, exist_ok=True)
+    ledger_path = os.path.join(sdir, LEDGER_NAME)
+    first, cache_state = sluice_first(top, needles, os.path.join(sdir, CACHE_NAME))
+    ledger, ledger_created = load_ledger(ledger_path)
     ledgered = {e["sha256"] for e in ledger["entries"]}
 
     # Pass 1: every tracked text file (working-tree copy), no credit yet.
@@ -680,12 +740,9 @@ def main():
     ctl_ok, ctl_fail = controls(base, specs, needles, origin, ledgered, held_before, cut_t)
 
     # Ledger every counted window (rule a): it is never credited afterwards.
-    today = time.strftime("%Y-%m-%d")
-    new = [{"sha256": h, "date": today, "file": rel, "reason": "failed " + today}
-           for h, rel in sorted((wsha(w), rel) for w, rel in counted.items()) if h not in ledgered]
+    new = ledger_append(ledger, counted, time.strftime("%Y-%m-%d"))
     if new or ledger_created:
-        ledger["entries"].extend(new)
-        write_ledger(ledger)
+        write_ledger(ledger, ledger_path)
     dt = time.monotonic() - t0
 
     ok = not failing and not stale and not ctl_fail and not drift
@@ -711,7 +768,9 @@ def main():
           "controls %d/%d; %.1f s"
           % ("ok" if ok else "FAIL", len(needles), len(files), len(hitset), len(origin), n_cuts,
              cache_state, len(ledger["entries"]),
-             (" (+%d)" % len(new) if new else "")
+             (" in the main checkout" if sdir_main else
+              " in THIS checkout (main checkout has no local/ — fallback)")
+             + (" (+%d)" % len(new) if new else "")
              + (" (was MISSING — created)" if ledger_created else ""),
              len(ctl_ok), len(ctl_ok) + len(ctl_fail), dt))
     return 0 if ok else 1
