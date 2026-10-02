@@ -33,7 +33,7 @@ The only new file is `docs/design/sluice-horde-lab.html`. It is a 980×720 plugi
   | K4 | Same seed gives the same patch; locks hold; unlocked sets are nested | Pass | seed+1 differs; unlocked modules change; a draw-only-when-applied twin is caught |
   | K5 | The worklet's source, evaluated on the page, matches the page renderer (samples and all 8 meter messages) | Identical | A renderer one block ahead: 64 of 64 blocks differ |
   | K6 | The tapped engine matches the untapped reference on 5 presets | Bit-identical | A planted perturbing tap is caught 5 of 5 |
-  | K7 | Sluice's G-70: each macro at its stored value reproduces its preset | 8 of 8 | +0.1 changes every macro |
+  | K7 | Sluice's G-70: every macro, set to its stored value, yields its preset again | 8 of 8 | +0.1 changes every macro |
   | K8 | The morph is exact at each corner and inside the corners at the centre | Pass | A split chain is flagged and the nearest corner is heard |
   | K9 | The real AudioWorklet, rendered in an OfflineAudioContext, matches the page renderer | 0 of 12 288 samples differ | One block ahead: all differ |
 
