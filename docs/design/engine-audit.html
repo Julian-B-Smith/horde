@@ -42,6 +42,17 @@
      locked constants, the merges and the culls). IMPORT reads that file back. Nothing is pre-filled:
      a recommendation is never shown in the decision column (self-check 4).
 
+     ROUND 2 (B416, 2026-10-02, the horde lead's records branch lead-records-163). The human, verbatim: "please
+     build the audit round 2 view with updated recommendations". A second VIEW of this same page (the ROUND 1 /
+     ROUND 2 toggle; ?view=2): the 43 rows left undecided in round 1, in eight discussion groups plus a ninth,
+     "Kept, with a question", each row showing the round-1 decision, your round-1 note verbatim, the audit's
+     where-the-sources-disagree text, the lead's UPDATED recommendation, and decision buttons. Round 1 is
+     untouched. Round 2's own export is schema hypersaw.engine-audit.decisions/2, kept in localStorage under
+     'hypersaw.b416.engine-audit-round2'. The round-1 export is EMBEDDED below as ROUND1 (so the page works from
+     file:// and the labs server); it came from docs/audits/2026-10-02-engine-audit-round1-decisions.json
+     (audit commit bae777f, rowsig 7c9a6664ce5b), decisions and counts only, the manifest is recomputed.
+     The lead's recommendation text is the lead's, not the audit's; the data block is unchanged.
+
      SELF-CHECKS (bottom of the page), each with a must-fail control that must go red:
        1. every swarm_core.h Params field has a row (the count embedded at build);
        2. every composed-engine key (t ∪ d ∪ HORDE_D ∪ os) has a row;
@@ -175,6 +186,28 @@
   .audit .ok { color:var(--celebrate); font-weight:700; }
   .audit .no { color:var(--alarm); font-weight:700; }
   .audit div { margin:2px 0; }
+  /* ROUND 2 (B416): the same tokens, cards and pills; only the row layout and the decision buttons are new */
+  .seg { display:inline-flex; gap:0; } .seg .pill { border-radius:0; } .seg .pill:first-child { border-radius:999px 0 0 999px; } .seg .pill:last-child { border-radius:0 999px 999px 0; margin-left:-1.5px; }
+  .seg .pill.on { background:var(--line); color:var(--bg); font-weight:700; }
+  .d-move { --rc:var(--marker); } .d-defer { --rc:var(--dim); }
+  .r2row { display:grid; grid-template-columns:200px minmax(0,1fr) minmax(0,1fr) 340px; gap:6px 16px; padding:8px 4px; border-top:1px solid var(--hair); }
+  .r2row h4 { font-size:9.5px; letter-spacing:.12em; color:var(--dim); margin:0 0 3px; font-weight:600; }
+  .r2row p { color:var(--t2); font-size:11px; max-width:none; margin:0 0 4px; }
+  .r2row p.q { color:var(--text); border-left:3px solid var(--value); padding-left:8px; white-space:pre-wrap; }
+  .r2row p.q.none { color:var(--dim); border-left-color:var(--div); }
+  .r2row .rec2 { display:flex; gap:8px; align-items:flex-start; }
+  .rec2 .rec { flex:none; }
+  .rec.k-merge { background:var(--caution); } .rec.k-cull { background:var(--alarm); color:#FFF; } .rec.k-lock { background:var(--physics); color:#FFF; }
+  .rec.k-keep { background:var(--meter); } .rec.k-open { background:var(--panel2); color:var(--text); border-style:dashed; }
+  .btns { display:flex; flex-wrap:wrap; gap:4px; margin-bottom:4px; }
+  .btns .pill { padding:2px 8px; min-height:24px; font-size:10px; }
+  .btns .pill.on { background:var(--rc); color:#191521; font-weight:700; }
+  .r2row .dec { min-width:0; } .r2row .dec input { width:100%; margin-top:3px; }
+  .r2row .hint { color:var(--dim); font-size:10px; margin-top:2px; }
+  .banner { border:var(--stroke) solid var(--alarm); background:var(--caution-bg); color:var(--alarm); font-weight:700; border-radius:6px; padding:6px 10px; margin-bottom:10px; }
+  details.settled { margin-bottom:12px; } details.settled summary { cursor:pointer; font-weight:700; padding:6px 0; }
+  table.set { border-collapse:collapse; width:100%; font-size:11px; } table.set td { border-bottom:1px solid var(--hair); padding:3px 6px; vertical-align:top; }
+  @media (max-width:1100px) { .r2row { grid-template-columns:1fr 1fr; } }
 </style></head>
 <body>
 <div class="hdr">
@@ -183,11 +216,13 @@
       <span class="badge" id="demoBadge" style="display:none">DEMO</span>
       <div class="tagline">EVERY CONTROL OF THE SWARM CORE, THE LEGACY SHELL, THE COMPOSED ENGINE AND SCALPEL — KEEP / LOCK / CULL / MERGE, DECIDED BY YOU BEFORE ANY LIFT</div></div></div>
   <div class="hdrctl">
-    <button class="pill primary" id="exportBtn">EXPORT JSON</button>
-    <button class="pill" id="importBtn">IMPORT</button>
-    <button class="pill" id="clearBtn">CLEAR DECISIONS</button>
+    <span class="seg" role="group" aria-label="view"><button class="pill" id="v1Btn">ROUND 1</button><button class="pill" id="v2Btn">ROUND 2</button></span>
+    <button class="pill primary r1only" id="exportBtn">EXPORT JSON</button>
+    <button class="pill r1only" id="importBtn">IMPORT</button>
+    <button class="pill r1only" id="clearBtn">CLEAR DECISIONS</button>
     <button class="chip" id="themeBtn">theme <b>LIGHT</b></button></div>
 </div>
+<div id="view1">
 <div id="demoNote"></div>
 <div id="summary"></div>
 <div class="card" id="ioCard" style="display:none"><h2>Import / export</h2>
@@ -209,6 +244,8 @@
 <div class="card man" id="manifest" style="margin-top:12px"></div>
 <div class="card" id="scope"></div>
 <div class="audit" id="audit"></div>
+</div>
+<div id="view2" style="display:none"></div>
 <script>
 "use strict";
 /* ======================================================================
@@ -702,6 +739,548 @@ function runChecks() {
 }
 
 /* ======================================================================
+   F2. ROUND 2 (B416): the discussion groups over round 1's undecided rows
+   Everything below is declared above boot() (L0026). The lead's recommendation text is the lead's
+   own (the brief of 2026-10-02), not the audit's; the audit's own round-1 recommendation stays in the
+   Round 1 view and is shown here only for a row the lead's groups do not name.
+   ====================================================================== */
+const EXPORT_SCHEMA2 = 'hypersaw.engine-audit.decisions/2';
+const STORE_KEY2 = 'hypersaw.b416.engine-audit-round2';
+const DECISIONS2 = ['keep', 'lock', 'merge', 'cull', 'move', 'defer', 'undecided'];
+/* The round-1 export, embedded: decisions verbatim, the audit stamp, and the manifest COUNTS (the
+   manifest itself is recomputed from the decisions, and self-check R2.2 compares it to these). */
+const ROUND1 = {"schema":"hypersaw.engine-audit.decisions/1","audit":{"queue":"B376","commit":"bae777f","rowsig":"7c9a6664ce5b"},"manifestCounts":{"parameters":106,"locked":10,"merged":2,"culled":23,"undecided":44},"decisions":[
+  {"row":"n","decision":"keep","note":"What is the meaning conflict?"},
+  {"row":"dist","decision":"keep","note":"What is the meaning conflict?"},
+  {"row":"seed","decision":"undecided","note":"We should discuss; I don't know if this is one that needs surfacing, but maybe all seeded random parameters should have hidden seed values that can be exposed via right click menu or a settings toggle or something."},
+  {"row":"detune","decision":"keep","note":"What is the meaning conflict?"},
+  {"row":"law","decision":"keep","note":"What is the meaning conflict?"},
+  {"row":"harmReach","decision":"keep","note":"I would actually like to discuss adding a \"quantize harmonics\" toggle which links into the scale quantizer."},
+  {"row":"stretchB","decision":"cull","note":"I think we can remove the stretch law; it doesn't offer anything harmonic doesn't in practice."},
+  {"row":"spread","decision":"merge","target":"detune","note":"Agreed; we can discuss whether we just expand detune or add the toggle as suggested."},
+  {"row":"anchor","decision":"undecided","note":"This should probably be buried in advanced, but I imagine there are times when it will be useful. Admittedly it's a little nitpicky, and worth a discussion over possibly culling"},
+  {"row":"beatMult","decision":"undecided","note":"Honestly, with K, this is a kind of strange detune law; but a part of me does want to make it work, so maybe we should workshop it."},
+  {"row":"bpm","decision":"cull"},
+  {"row":"K","decision":"keep","note":"I want it to be called Coupling"},
+  {"row":"absK","decision":"lock","value":"0","note":"Or simply cull, unless that breaks something"},
+  {"row":"onset","decision":"undecided","note":"The functionality needs to be present, and I hesitate to take up an envelope with something that I'll want in many presets, but removing it would save two parameters (dissolve is just its decay/release) and maybe there isn't something so special about the functionality that it deserves special treatment. Worth a discussion."},
+  {"row":"dissolve","decision":"undecided","note":"See Onset Lock (if there is an Onset Lock, there needs to be a Dissolve)"},
+  {"row":"driftDepth","decision":"keep"},
+  {"row":"driftRate","decision":"keep"},
+  {"row":"driftMode","decision":"undecided","note":"Worth a discussion; might want to expand the selection, might just want to pick the best one and lock it in. Either way I think the sine option would need a seeded randomness for its start offset or something."},
+  {"row":"motionCenter","decision":"lock","value":"0"},
+  {"row":"inertia","decision":"keep","note":"I had a dream of adding inertia to more things as well; worth discussing. The only trouble with this inertia is that it kind of ends up doing the same thing as Freq Glide, and it might be worth picking one or the other."},
+  {"row":"inertiaCurve","decision":"lock","value":"2.5"},
+  {"row":"freqGlide","decision":"undecided","note":"See note for Inertia; let's discuss."},
+  {"row":"phase","decision":"undecided","note":"I support your merge recommendation. We'll want to workshop the execution."},
+  {"row":"scatter","decision":"undecided","note":"I support your merge recommendation. We'll want to workshop the execution."},
+  {"row":"keepPhase","decision":"undecided","note":"I support your merge recommendation. We'll want to workshop the execution."},
+  {"row":"pivotMode","decision":"keep","note":"Let's discuss this one; similar to \"root anchor,\" might be worth keeping in advanced, might be too esoteric to matter much. "},
+  {"row":"tune","decision":"cull"},
+  {"row":"topo","decision":"undecided","note":"I don't think ring reach was ever very useful, and with only 9 voices even less so. Let's limit to mean-field and A/B; and let's test to make sure even that is ultimately worth it now with Scalpel."},
+  {"row":"reach","decision":"cull"},
+  {"row":"mu","decision":"keep","note":"Provisional; only keep if we decide A/B is worth it"},
+  {"row":"alpha","decision":"keep"},
+  {"row":"poles","decision":"undecided","note":"Let's discuss. I'm not sure I even remember this parameter from the legacy."},
+  {"row":"balance","decision":"keep","note":"Provisionally; only keep if A/B survives."},
+  {"row":"grav","decision":"keep"},
+  {"row":"basin","decision":"lock","value":"35 c","note":"Maybe we test to make sure this value is ideal."},
+  {"row":"onsetScatter","decision":"keep","note":"Let's just to a check to make sure this isn't basically just a more expensive phase scatter"},
+  {"row":"onsetAlpha","decision":"keep","note":"Provisional; keep if onset scatter survives"},
+  {"row":"attackScatter","decision":"undecided","note":"I don't think I could ever really hear the effect; probably not worth it unless the maximum value increases."},
+  {"row":"voiceEnv","decision":"undecided","note":"I'm not sure if the value of this was ever evident. Worth a gauntlet to test if it's worth it."},
+  {"row":"relScatter","decision":"undecided","note":"I don't think I could ever really hear the effect; probably not worth it unless the maximum value increases."},
+  {"row":"attack","decision":"undecided","note":"A little confused; every envelope will have an attack parameter; I just want to make sure this isn't referring to a special attack that supercedes that"},
+  {"row":"decay","decision":"undecided","note":"Same issue as Attack"},
+  {"row":"sustain","decision":"undecided","note":"Same issue as Attack"},
+  {"row":"release","decision":"undecided","note":"Same issue as Attack"},
+  {"row":"glide","decision":"merge","target":"noteLaw"},
+  {"row":"glideMode","decision":"keep"},
+  {"row":"noteLaw","decision":"keep"},
+  {"row":"polyGlide","decision":"cull"},
+  {"row":"voiceCull","decision":"lock","value":"-80 dB"},
+  {"row":"lpOut","decision":"lock","value":"1"},
+  {"row":"vol","decision":"keep","note":"Let's make sure to maintain hygiene in proper use of \"gain\" vs \"level\" vs \"volume\""},
+  {"row":"normExp","decision":"undecided","note":"Let's discuss; should this be handled this way? It felt like a stopgap in legacy."},
+  {"row":"rtone","decision":"undecided","note":"I believe we decided that this would become a control on the filters instead."},
+  {"row":"digital","decision":"undecided","note":"Agree with your merge rec. "},
+  {"row":"width","decision":"keep"},
+  {"row":"panScatter","decision":"cull","note":"This was a stopgap solution before we figured out the alternating fan"},
+  {"row":"panLayout","decision":"undecided","note":"Agree with your merge rec"},
+  {"row":"panCurve","decision":"undecided","note":"I think this does have a noticeable effect, but I suppose high compute could kill it; let's discuss."},
+  {"row":"panInvert","decision":"keep","note":"Advanced control"},
+  {"row":"panMotion","decision":"keep"},
+  {"row":"panMode","decision":"lock","value":"0","note":"(or just cull unless it breaks something)"},
+  {"row":"superMode","decision":"undecided","note":"This might be worth a new test"},
+  {"row":"tilt","decision":"lock","value":"0","note":"Might be able to cull"},
+  {"row":"hiTame","decision":"lock","value":"0","note":"Or just cull; should be a filter instead."},
+  {"row":"oversample","decision":"keep"},
+  {"row":"shape","decision":"cull"},
+  {"row":"sawBase","decision":"cull"},
+  {"row":"sawProfile","decision":"cull"},
+  {"row":"round","decision":"cull"},
+  {"row":"roundHi","decision":"cull"},
+  {"row":"polyMode","decision":"undecided","note":"Merge rec ratified"},
+  {"row":"pitchOffset","decision":"undecided","note":"Merge rec ratified, with a caveat: Serum has Oct, Semi, Fine AND Course, the latter so you can automate pitch continuously across several octaves. I want to make sure all these needs are also met, per oscillator."},
+  {"row":"pitchBend","decision":"keep"},
+  {"row":"gPitch","decision":"keep"},
+  {"row":"bendLaw","decision":"keep"},
+  {"row":"scale","decision":"keep"},
+  {"row":"qTime","decision":"keep"},
+  {"row":"bendMpeLaw","decision":"keep"},
+  {"row":"enable","decision":"keep"},
+  {"row":"muteSolo","decision":"keep"},
+  {"row":"masterVol","decision":"keep"},
+  {"row":"pitchEnv","decision":"undecided","note":"Pitch bend is a reason envelopes need to have an ability to either be global or per-note (and possibly even per-voice for some controls, though we can discuss that.) But the pitch envelope shouldn't be a special class of envelope, it can just use one of the available envelope mods.)"},
+  {"row":"engineSel","decision":"cull"},
+  {"row":"bassMono","decision":"keep","note":"Though we want to be considerate about how we implement"},
+  {"row":"aaCarrier","decision":"undecided","note":"Whatever the results of our research say"},
+  {"row":"aaXin","decision":"undecided","note":"I don't think I understand this one but I trust your judgment."},
+  {"row":"aaLoop","decision":"undecided","note":"I don't think I understand this one but I trust your judgment."},
+  {"row":"poly","decision":"undecided","note":"I don't think I understand this one but I trust your judgment."},
+  {"row":"s.w","decision":"keep"},
+  {"row":"s.k","decision":"keep"},
+  {"row":"s.kHz","decision":"keep"},
+  {"row":"s.c","decision":"keep"},
+  {"row":"s.rotRate","decision":"keep"},
+  {"row":"s.rotSync","decision":"keep"},
+  {"row":"s.hard","decision":"keep"},
+  {"row":"s.depth","decision":"keep"},
+  {"row":"s.mirror","decision":"keep"},
+  {"row":"s.mode","decision":"keep"},
+  {"row":"s.hot","decision":"keep"},
+  {"row":"s.morph","decision":"keep"},
+  {"row":"s.fmType","decision":"keep"},
+  {"row":"s.mshape","decision":"keep"},
+  {"row":"s.I","decision":"keep"},
+  {"row":"s.fb","decision":"keep"},
+  {"row":"s.m","decision":"keep"},
+  {"row":"s.mHz","decision":"keep"},
+  {"row":"s.mUnit","decision":"keep"},
+  {"row":"s.lock","decision":"keep"},
+  {"row":"s.xm","decision":"keep"},
+  {"row":"s.frame","decision":"keep"},
+  {"row":"s.frame2","decision":"keep"},
+  {"row":"s.law","decision":"keep"},
+  {"row":"s.driftRate","decision":"keep"},
+  {"row":"s.bspread","decision":"keep"},
+  {"row":"s.kspread","decision":"keep"},
+  {"row":"s.kRule","decision":"keep"},
+  {"row":"s.kRuleAmt","decision":"keep"},
+  {"row":"s.kCustom","decision":"keep"},
+  {"row":"s.kq","decision":"keep"},
+  {"row":"s.wspread","decision":"keep"},
+  {"row":"s.dspread","decision":"keep"},
+  {"row":"s.mspread","decision":"keep"},
+  {"row":"s.ispread","decision":"keep"},
+  {"row":"s.rotSpread","decision":"keep"},
+  {"row":"s.base","decision":"keep"},
+  {"row":"s.b2on","decision":"keep"},
+  {"row":"s.mode2","decision":"keep"},
+  {"row":"s.hot2","decision":"keep"},
+  {"row":"s.w2","decision":"keep"},
+  {"row":"s.k2","decision":"keep"},
+  {"row":"s.kHz2","decision":"keep"},
+  {"row":"s.lock2","decision":"keep"},
+  {"row":"s.mirror2","decision":"keep"},
+  {"row":"s.morph2","decision":"keep"},
+  {"row":"s.rot2Follow","decision":"keep"},
+  {"row":"s.rotRate2","decision":"keep"},
+  {"row":"s.c2","decision":"keep"},
+  {"row":"s.hard2","decision":"keep"},
+  {"row":"s.depth2","decision":"keep"},
+  {"row":"s.b2sp","decision":"keep"},
+  {"row":"s.bspread2","decision":"keep"},
+  {"row":"s.kRule2","decision":"keep"},
+  {"row":"s.kspread2","decision":"keep"},
+  {"row":"s.kRuleAmt2","decision":"keep"},
+  {"row":"s.wspread2","decision":"keep"},
+  {"row":"s.mspread2","decision":"keep"},
+  {"row":"s.ispread2","decision":"keep"},
+  {"row":"s.rotSpread2","decision":"keep"},
+  {"row":"s.dspread2","decision":"keep"},
+  {"row":"s.b2order","decision":"keep"},
+  {"row":"s.b2mix","decision":"keep"},
+  {"row":"s.colK","decision":"keep"},
+  {"row":"s.colB","decision":"keep"},
+  {"row":"s.b2fm","decision":"keep"},
+  {"row":"s.fmType2","decision":"keep"},
+  {"row":"s.mshape2","decision":"keep"},
+  {"row":"s.I2","decision":"keep"},
+  {"row":"s.mUnit2","decision":"keep"},
+  {"row":"s.m2","decision":"keep"},
+  {"row":"s.mHz2","decision":"keep"},
+  {"row":"s.b2env","decision":"undecided","note":"Let's discuss whether this gets a special envelope or just uses a normal one from the mod matrix"},
+  {"row":"s.benvK2","decision":"undecided","note":"Let's discuss whether this gets a special envelope or just uses a normal one from the mod matrix"},
+  {"row":"s.benvW2","decision":"undecided","note":"Let's discuss whether this gets a special envelope or just uses a normal one from the mod matrix"},
+  {"row":"s.benvA2","decision":"undecided","note":"Let's discuss whether this gets a special envelope or just uses a normal one from the mod matrix"},
+  {"row":"s.benvD2","decision":"undecided","note":"Let's discuss whether this gets a special envelope or just uses a normal one from the mod matrix"},
+  {"row":"s.benvVel2","decision":"undecided","note":"Let's discuss whether this gets a special envelope or just uses a normal one from the mod matrix"},
+  {"row":"s.benvK","decision":"undecided","note":"Let's discuss whether this gets a special envelope or just uses a normal one from the mod matrix"},
+  {"row":"s.benvW","decision":"undecided","note":"Let's discuss whether this gets a special envelope or just uses a normal one from the mod matrix"},
+  {"row":"s.benvA","decision":"undecided","note":"Let's discuss whether this gets a special envelope or just uses a normal one from the mod matrix"},
+  {"row":"s.benvD","decision":"undecided","note":"Let's discuss whether this gets a special envelope or just uses a normal one from the mod matrix"},
+  {"row":"s.benvVel","decision":"undecided","note":"Let's discuss whether this gets a special envelope or just uses a normal one from the mod matrix"},
+  {"row":"s.dcMode","decision":"lock","value":"2 (per cycle)"},
+  {"row":"s.b1on","decision":"keep"},
+  {"row":"s.f0Mode","decision":"cull"},
+  {"row":"s.f0","decision":"cull"},
+  {"row":"s.f0Note","decision":"cull"},
+  {"row":"s.nameAbleton","decision":"cull"},
+  {"row":"s.kRuleOut","decision":"cull"},
+  {"row":"s.kRuleOut2","decision":"cull"},
+  {"row":"s.wtMode","decision":"cull"},
+  {"row":"s.wtFrames","decision":"cull"},
+  {"row":"s.wtDur","decision":"cull"},
+  {"row":"s.wtNorm","decision":"cull"},
+  {"row":"s.subLvl","decision":"cull"}]};
+const R1_BY_ROW = {};
+for (const e of ROUND1.decisions) R1_BY_ROW[e.row] = e;
+
+const BENV_IDS = ['s.benvA', 's.benvD', 's.benvK', 's.benvW', 's.benvVel', 's.benvA2', 's.benvD2', 's.benvK2', 's.benvW2', 's.benvVel2', 's.b2env'];
+const GROUPS2 = [
+  { title: 'Envelopes',
+    framing: 'The swarm\'s own A/D/S/R rows are its amplitude envelope, and they conflict with SCALPEL\'s in law and unit (one-pole seconds vs linear milliseconds: the same "4" reaches full level in ~21 ms vs 4 ms). The envelope hierarchy lab (B377) decides one envelope system for every source.',
+    recs: [
+      { ids: ['attack', 'decay', 'sustain', 'release'], kind: 'MERGE', text: 'MERGE into ENV 1 of the envelope hierarchy. Their law and units follow B377 decision 1 (open); there is no separate swarm envelope.' },
+      { ids: BENV_IDS, kind: 'CULL', text: 'CULL as dedicated controls. Blades use the ordinary assignable envelopes (ENV 2–4) through the mod matrix, and preset translation writes each blade\'s old envelope as a default route, so SCALPEL presets keep their sound.' },
+      { ids: ['pitchEnv'], kind: 'CULL', text: 'CULL as a special class, as you said. Pitch is a route from any envelope, global or per-note.' },
+      { ids: ['onset', 'dissolve'], kind: 'TEST', text: 'TEST before deciding. Measure, in the lab, whether an envelope routed to Coupling reproduces onset lock and dissolve. If it does, cull both and ship the behaviour as a preset and macro. If not, keep the pair in Advanced.' },
+      { ids: ['voiceEnv', 'attackScatter', 'relScatter'], kind: 'TEST', text: 'Run a short listening gauntlet with the scatter maxima raised. If still inaudible, cull all three: release scatter needs per-member envelopes to mean anything.' }] },
+  { title: 'Start phase',
+    framing: 'You ratified merging four rows into one.',
+    recs: [
+      { ids: ['phase', 'scatter', 'keepPhase'], kind: 'MERGE', text: 'MERGE into one stepped "Start phase" row (aligned / random / keep / settled), with Scatter as its amount on random. The default is chosen by ear in the workshop. SCALPEL\'s default "settled" is currently played as aligned, which is a bug to fix in the merge.' }] },
+  { title: 'Pitch and glide',
+    framing: 'Two merges are ratified and one has your Serum-style caveat. What stays open is glide against inertia, the tempo-grid row, and your "quantize harmonics" idea.',
+    recs: [
+      { ids: ['pitchOffset'], kind: 'MERGE', text: 'MERGE, ratified. Per osc: Octave, Semitone, Fine, plus a continuous Coarse (±48 st, Serum-style, for automation across octaves). Octave and Semitone are stepped views of the same continuous pitch.' },
+      { ids: ['polyMode'], kind: 'MERGE', text: 'MERGE, ratified: poly / mono / legato as one row.' },
+      { ids: ['freqGlide'], kind: 'KEEP ONE', text: 'KEEP ONE of freqGlide and inertia. Lean toward inertia, horde\'s mass-spring bend law (B397), and cull freqGlide if inertia covers it. A/B them first.' },
+      { ids: ['beatMult'], kind: 'DEFER', text: 'DEFER to law 3. It lives or dies with the tempo-grid law and a real bpm (B382).' },
+      { ids: ['anchor'], kind: 'KEEP', text: 'KEEP in Advanced.' },
+      { ids: ['harmReach'], kind: 'KEEP', text: 'KEEP (kept in round 1). Your "quantize harmonics" idea becomes a new row linked to the scale quantizer (B391).' }] },
+  { title: 'Coupling topology',
+    framing: 'Reduce the topology set, then see which rows still earn their place. Mu and Balance depend on whether A/B survives next to SCALPEL.',
+    recs: [
+      { ids: ['topo'], kind: 'REDUCE', text: 'REDUCE to mean-field plus A/B. Cull ring (with 9 members it barely differs). Test whether A/B still earns its place next to SCALPEL.' },
+      { ids: ['poles'], kind: 'CULL', text: 'CULL. It is legacy-only (Daido q-fold coupling splits the swarm into q locked groups) and absent from the composed engine. It could return as a "clusters" option only if A/B survives.' },
+      { ids: ['driftMode'], kind: 'LOCK', text: 'LOCK the best mode by ear. If sine survives, its start offset gets a seeded draw.' },
+      { ids: ['mu', 'balance'], kind: 'PROVISIONAL', text: 'Provisional on A/B surviving, as you noted (kept in round 1).' }] },
+  { title: 'Output and stereo',
+    framing: 'Four of these resolve into built-in behaviour or merges; the two pan rows wait for the stereo lab (B408).',
+    recs: [
+      { ids: ['normExp'], kind: 'LOCK', text: 'LOCK at 0.75 (D11), applied as built-in loudness compensation over member count, not a control.' },
+      { ids: ['rtone'], kind: 'MOVE', text: 'MOVE to the filters, as coherence (R) routed to cutoff. R is already a mod source (B253).' },
+      { ids: ['digital'], kind: 'MERGE', text: 'MERGE, ratified, as one continuous band-limit amount that also scales the blades\' BLEP.' },
+      { ids: ['panLayout'], kind: 'MERGE', text: 'MERGE, ratified, as one image row: pitch fan / legacy / balanced.' },
+      { ids: ['panCurve', 'superMode'], kind: 'DEFER', text: 'DEFER to the stereo lab (B408). The stereo research recommends complementary-pair delays, so the mono sum is exact, with one-channel ITD kept as a character mode.' }] },
+  { title: 'Anti-aliasing defaults',
+    framing: 'No face controls: these become engine defaults.',
+    recs: [
+      { ids: ['aaCarrier'], kind: 'DEFAULT FROM LAB', text: 'Default from the edge-correction lab verdict (B383).' },
+      { ids: ['aaXin'], kind: 'LOCK', text: 'LOCK ON. It is a pure correctness fix: 5 scenarios improved, none worse.' },
+      { ids: ['aaLoop'], kind: 'LOCK', text: 'LOCK ON after one ear check. It cures a feedback limit cycle and slightly colours feedback.' }] },
+  { title: 'Polyphony',
+    framing: 'One row, one move.',
+    recs: [
+      { ids: ['poly'], kind: 'MOVE', text: 'MOVE to Settings as a polyphony count, with the CPU cap (B323) handling load.' }] },
+  { title: 'Seeds',
+    framing: 'Your idea: every seeded random parameter carries a hidden seed, exposed through a right-click "Seed…/Reseed" and a settings toggle.',
+    recs: [
+      { ids: ['seed'], kind: 'KEEP', text: 'KEEP as a device-class seed, never blended across morph corners. Your hidden-seed idea (right-click "Seed…/Reseed" plus a settings toggle) fits the determinism contract.' }] },
+  { title: 'Kept, with a question', last: true,
+    framing: 'Kept in round 1; each carries an open question from your notes. "undecided" on these rows means the round-1 decision stands.',
+    recs: [
+      { ids: ['n'], kind: 'KEEP', text: 'Range 1..9 for 1.0, matching SCALPEL\'s member tables. Revisit only if the CPU budget allows more.' },
+      { ids: ['dist'], kind: 'KEEP', text: 'Default even, so SCALPEL presets translate.' },
+      { ids: ['detune'], kind: 'KEEP', text: 'Cents (0..100) as the unit.' },
+      { ids: ['law'], kind: 'KEEP', text: 'Named "Detune law" in the UI, `h.law` internally.' },
+      { ids: ['K'], kind: 'KEEP', text: 'Renamed Coupling (ruled).' },
+      { ids: ['pivotMode'], kind: 'KEEP', text: 'Advanced.' },
+      { ids: ['onsetScatter'], kind: 'CHECK', text: 'Check it is not just a more expensive phase scatter.' },
+      { ids: ['inertia'], kind: 'SEE GLIDE', text: 'See glide (group 3).' },
+      { ids: ['vol'], kind: 'HYGIENE', text: 'Naming hygiene for gain, level and volume.' },
+      { ids: ['bassMono'], kind: 'STEREO LAB', text: 'Stereo lab.' },
+      { ids: ['basin'], kind: 'TEST', text: 'Test that the locked 35 c is ideal.' }] }];
+const REC2 = {};
+for (const g of GROUPS2) for (const rc of g.recs) for (const id of rc.ids) REC2[id] = rc;
+const ST2 = { dec2: {}, stored2: {}, storeOk: false, view: qp('view', '1') === '2' ? '2' : '1' };
+
+/* ---- pure: store shape, export, import, manifest (no DOM) ---- */
+function cleanDecision2(d) {
+  if (!d || DECISIONS2.indexOf(d.d) < 0 || d.d === 'undecided') {
+    return d && typeof d.note === 'string' && d.note.trim() ? { d: 'undecided', note: d.note } : null;
+  }
+  const o = { d: d.d };
+  if (d.d === 'lock') o.value = typeof d.value === 'string' ? d.value : String(d.value == null ? '' : d.value);
+  if (d.d === 'merge' || d.d === 'move') o.target = typeof d.target === 'string' ? d.target : String(d.target == null ? '' : d.target);
+  if (typeof d.note === 'string' && d.note.trim()) o.note = d.note;
+  return o;
+}
+function cleanMap2(m, rows) {
+  const out = {};
+  for (const r of rows) { const c = cleanDecision2(m[r.id]); if (c) out[r.id] = c; }
+  return out;
+}
+function round1Map(data) {
+  const m = {};
+  for (const e of ROUND1.decisions) { const c = cleanDecision({ d: e.decision, value: e.value, target: e.target, note: e.note }); if (c) m[e.row] = c; }
+  return cleanMap(m, data.rows);
+}
+/* Round 2 overrides round 1 only where it DECIDED: an 'undecided' (note-only) round-2 entry leaves round 1's decision standing. */
+function effectiveMap2(r1map, map2) {
+  const out = Object.assign({}, r1map);
+  for (const id of Object.keys(map2)) if (map2[id].d !== 'undecided') out[id] = map2[id];
+  return out;
+}
+/* The round-1 manifest builder has no move / defer buckets, so those rows go in as undecided and are
+   then lifted out into their own lists (same row order, same keys). */
+function buildManifest2(r1map, map2, data) {
+  const eff = effectiveMap2(r1map, cleanMap2(map2, data.rows)), base = {}, moved = [], deferred = [];
+  for (const r of data.rows) {
+    const c = eff[r.id];
+    if (c && (c.d === 'move' || c.d === 'defer')) continue;
+    if (c) base[r.id] = c;
+  }
+  const m = buildManifest(base, data), undecided = [];
+  for (const r of data.rows) {
+    const c = eff[r.id], key = manifestKey(r);
+    if (c && c.d === 'move') moved.push({ key, to: c.target, note: c.note });
+    else if (c && c.d === 'defer') deferred.push({ key, note: c.note });
+    else if (!c || c.d === 'undecided') undecided.push(key);
+  }
+  m.undecided = undecided; m.moved = JSON.parse(JSON.stringify(moved)); m.deferred = JSON.parse(JSON.stringify(deferred));
+  m.counts = { parameters: m.parameters.length, locked: m.locked.length, merged: m.merged.length, culled: m.culled.length,
+               moved: m.moved.length, deferred: m.deferred.length, undecided: undecided.length };
+  return m;
+}
+/* EXPORT: round 1's decisions verbatim in `decisions`, round 2's in `round2` (row order), the manifest
+   recomputed from round 2 laid over round 1. Round 1's export shape, plus `round`. No timestamps. */
+function exportDoc2(map2, data) {
+  const decisions = [];
+  for (const r of data.rows) {
+    const c = cleanDecision2(map2[r.id]); if (!c) continue;
+    const e = { row: r.id, decision: c.d };
+    if (c.value !== undefined) e.value = c.value;
+    if (c.target !== undefined) e.target = c.target;
+    if (c.note !== undefined) e.note = c.note;
+    decisions.push(e);
+  }
+  return { schema: EXPORT_SCHEMA2, round: 2, audit: { queue: data.queue, commit: data.source.commit, rowsig: data.source.rowsig },
+           decisions: JSON.parse(JSON.stringify(ROUND1.decisions)), round2: decisions, manifest: buildManifest2(round1Map(data), map2, data) };
+}
+function importDoc2(doc, data) {
+  const res = { map: {}, skipped: [], warn: [] };
+  if (!doc || doc.schema !== EXPORT_SCHEMA2 || doc.round !== 2 || !Array.isArray(doc.round2) || !Array.isArray(doc.decisions)) { res.error = 'not a round-2 engine-audit export (schema ' + (doc && doc.schema) + ')'; return res; }
+  if (doc.audit && doc.audit.rowsig !== data.source.rowsig) res.warn.push('exported from a different row set (rowsig ' + doc.audit.rowsig + ', this page ' + data.source.rowsig + ')');
+  if (JSON.stringify(sortKeys(doc.decisions)) !== JSON.stringify(sortKeys(ROUND1.decisions))) res.warn.push('its round-1 decisions differ from the copy embedded in this page (only round 2 is imported)');
+  const ids = {}; for (const r of data.rows) ids[r.id] = 1;
+  for (const e of doc.round2) {
+    if (!e || !ids[e.row]) { res.skipped.push(e && e.row); continue; }
+    const c = cleanDecision2({ d: e.decision, value: e.value, target: e.target, note: e.note });
+    if (c) res.map[e.row] = c;
+  }
+  return res;
+}
+/* PLACEMENT: every row undecided in round 1 WITH an entry (the 43) sits in exactly one group. A row can
+   also be missing from a group because the brief never named it; those are listed by unlistedRows(). */
+function round1Undecided() { return ROUND1.decisions.filter(e => e.decision === 'undecided').map(e => e.row); }
+function checkPlacement(data, groups) {
+  const count = {}, ids = {}; for (const r of data.rows) ids[r.id] = 1;
+  for (const g of groups) for (const rc of g.recs) for (const id of rc.ids) count[id] = (count[id] || 0) + 1;
+  const want = round1Undecided();
+  const missing = want.filter(id => !count[id]);
+  const dup = Object.keys(count).filter(id => count[id] > 1);
+  const unknown = Object.keys(count).filter(id => !ids[id]);
+  return { ok: missing.length === 0 && dup.length === 0 && unknown.length === 0, total: want.length, placed: want.length - missing.length, missing, dup, unknown };
+}
+function unlistedRows(data, r1map, groups) {
+  const seen = {}; for (const g of groups) for (const rc of g.recs) for (const id of rc.ids) seen[id] = 1;
+  return data.rows.filter(r => !seen[r.id] && (!r1map[r.id] || r1map[r.id].d === 'undecided'));
+}
+function settledRows(data, r1map, groups) {
+  const seen = {}; for (const g of groups) for (const rc of g.recs) for (const id of rc.ids) seen[id] = 1;
+  return data.rows.filter(r => !seen[r.id] && r1map[r.id] && r1map[r.id].d !== 'undecided');
+}
+function checkCarried(data, decisions) {
+  const m = {};
+  for (const e of decisions) { const c = cleanDecision({ d: e.decision, value: e.value, target: e.target, note: e.note }); if (c) m[e.row] = c; }
+  const got = buildManifest(cleanMap(m, data.rows), data).counts, want = ROUND1.manifestCounts;
+  return { ok: Object.keys(want).every(k => got[k] === want[k]) && got.parameters + got.locked + got.merged + got.culled + got.undecided === data.rows.length, got };
+}
+function checkRoundTrip2(map2, data, corrupt) {
+  const text = JSON.stringify(exportDoc2(map2, data));
+  const doc = JSON.parse(text);
+  if (corrupt && doc.round2.length) { const e = doc.round2[0]; e.decision = e.decision === 'keep' ? 'cull' : 'keep'; e.target = 'X' + (e.target || ''); }
+  const back = importDoc2(doc, data);
+  const again = JSON.stringify(exportDoc2(back.map, data));
+  return { ok: !back.error && sameMap(back.map, cleanMap2(map2, data.rows)) && again === text, n: Object.keys(cleanMap2(map2, data.rows)).length };
+}
+
+/* ---- the store (localStorage; every access in try/catch; its own key) ---- */
+function loadStore2() {
+  try {
+    const s = JSON.parse(localStorage.getItem(STORE_KEY2) || 'null');
+    ST2.storeOk = true;
+    if (s && s.decisions && typeof s.decisions === 'object') return cleanMap2(s.decisions, DATA.rows);
+  } catch (_) { ST2.storeOk = false; }
+  return {};
+}
+function saveStore2() {
+  ST2.stored2 = cleanMap2(ST2.dec2, DATA.rows);
+  try { localStorage.setItem(STORE_KEY2, JSON.stringify({ schema: EXPORT_SCHEMA2, rowsig: DATA.source.rowsig, decisions: ST2.stored2 })); } catch (_) {}
+}
+function clearStore2() { ST2.stored2 = {}; try { localStorage.removeItem(STORE_KEY2); } catch (_) {} }
+
+/* ---- rendering ---- */
+function dec2Of(id) { const c = ST2.dec2[id]; return c ? c.d : 'undecided'; }
+function r1Text(e) { return e ? e.decision + (e.value !== undefined ? ' → ' + e.value : '') + (e.target !== undefined ? ' → ' + e.target : '') : 'undecided'; }
+function kindClass(k) { const w = String(k).split(' ')[0]; return w === 'MERGE' ? 'k-merge' : w === 'CULL' ? 'k-cull' : (w === 'LOCK' || w === 'DEFAULT') ? 'k-lock' : w === 'KEEP' ? 'k-keep' : 'k-open'; }
+function round2Row(r, rc) {
+  const e1 = R1_BY_ROW[r.id], c = ST2.dec2[r.id] || null, d = c ? c.d : 'undecided', r1d = e1 ? e1.decision : 'undecided';
+  const btns = DECISIONS2.map(x => '<button class="pill d-' + x + (x === d ? ' on' : '') + '" data-r2="' + esc(r.id) + '" data-d="' + x + '">' + x + '</button>').join('');
+  let extra = '';
+  if (d === 'lock') extra += '<input type="text" data-r2="' + esc(r.id) + '" data-f="value" placeholder="lock to value" value="' + esc(c.value || '') + '"' + (c.value ? '' : ' class="missing"') + '>';
+  if (d === 'merge' || d === 'move') extra += '<input type="text" data-r2="' + esc(r.id) + '" data-f="target" list="rowIds" placeholder="' + (d === 'move' ? 'move to (where)' : 'merge into (row id)') + '" value="' + esc(c.target || '') + '"' + (c.target ? '' : ' class="missing"') + '>';
+  extra += '<input type="text" data-r2="' + esc(r.id) + '" data-f="note" placeholder="note" value="' + esc(c && c.note || '') + '">';
+  const note = e1 && e1.note ? '<p class="q">' + esc(e1.note) + '</p>' : '<p class="q none">no note</p>';
+  const recHtml = rc ? '<div class="rec2"><span class="rec ' + kindClass(rc.kind) + '">' + esc(rc.kind) + '</span><p>' + esc(rc.text) + '</p></div>'
+    : '<p>The lead\'s groups do not name this row. Round 1\'s audit recommendation was <b>' + esc(r.rec.kind) + '</b>' + (r.rec.val ? ' → ' + esc(r.rec.val) : '') + (r.rec.tgt ? ' → ' + esc(r.rec.tgt) : '') + ': ' + esc(r.rec.why) + '</p>';
+  return '<div class="r2row" data-id="' + esc(r.id) + '">' +
+    '<div><div class="lbl">' + esc(r.label) + '</div><div class="rid">' + esc(r.id) + '</div>' +
+      '<div class="d-' + r1d + '" style="margin-top:4px"><span class="sw"></span>round 1: <b>' + esc(r1Text(e1)) + '</b></div></div>' +
+    '<div><h4>YOU, ROUND 1</h4>' + note + (r.conflict ? '<h4>WHERE THE SOURCES DISAGREE</h4><p class="conf">' + esc(r.conflict) + '</p>' : '') + '</div>' +
+    '<div><h4>LEAD\'S UPDATED RECOMMENDATION</h4>' + recHtml + '</div>' +
+    '<div class="dec"><h4>YOUR ROUND 2 DECISION</h4><div class="btns">' + btns + '</div>' + extra +
+      (r1d !== 'undecided' ? '<div class="hint">round 1 (' + esc(r1d) + ') stands unless you set one here</div>' : '') + '</div></div>';
+}
+function round2Html() {
+  const D = DATA, r1map = round1Map(D), pl = checkPlacement(D, GROUPS2), unl = unlistedRows(D, r1map, GROUPS2), set = settledRows(D, r1map, GROUPS2);
+  const placedAll = {}; for (const g of GROUPS2) for (const rc of g.recs) for (const id of rc.ids) placedAll[id] = 1;
+  const keptPlaced = Object.keys(placedAll).filter(id => R1_BY_ROW[id] && R1_BY_ROW[id].decision !== 'undecided').length;
+  let h = '';
+  if (!pl.ok) h += '<div class="banner" id="r2banner">ROUND 2 PLACEMENT ERROR: ' + (pl.missing.length ? 'missing from every group: ' + esc(pl.missing.join(', ')) + '. ' : '') +
+    (pl.dup.length ? 'in more than one group: ' + esc(pl.dup.join(', ')) + '. ' : '') + (pl.unknown.length ? 'not a row of this audit: ' + esc(pl.unknown.join(', ')) + '. ' : '') + '</div>';
+  h += '<div class="card"><h2>ROUND 2 · the rows you left undecided, with updated recommendations</h2>' +
+    '<p><b id="r2placed">' + pl.placed + ' undecided placed, ' + pl.missing.length + ' missing</b> (of the ' + pl.total + ' rows round 1 left undecided with a note) · ' + keptPlaced + ' kept rows placed for a question · ' +
+    set.length + ' rows settled in round 1 (collapsed below) · ' + unl.length + ' undecided row' + (unl.length === 1 ? '' : 's') + ' with no round-1 entry, shown after the groups.</p>' +
+    '<p>Recommendations here are the lead\'s, updated after your round-1 notes. Nothing is pre-filled: a row reads "undecided" until you press a button. ' +
+    (ST2.storeOk ? 'Saved in this browser (localStorage) as you go.' : 'localStorage unavailable: decisions last until the page closes; EXPORT them.') + '</p>' +
+    '<div class="tools"><button class="pill primary" id="r2Export">EXPORT ROUND 2 JSON</button><button class="pill" id="r2Import">IMPORT</button><button class="pill" id="r2Clear">CLEAR ROUND 2 DECISIONS</button><span class="msg" id="r2Prog"></span></div></div>';
+  h += '<div class="card" id="r2io" style="display:none"><h2>Import / export (round 2)</h2><p>EXPORT downloads the file and shows it here. IMPORT: paste a round-2 export below and press APPLY. Round 1\'s decisions are carried in the file and never changed.</p>' +
+    '<textarea id="r2ioText" spellcheck="false"></textarea><div class="tools" style="margin-top:6px"><button class="pill primary" id="r2Apply">APPLY IMPORT</button><button class="pill" id="r2CloseIo">CLOSE</button><span class="msg" id="r2ioMsg"></span></div></div>';
+  GROUPS2.forEach((g, gi) => {
+    const rows = [];
+    for (const rc of g.recs) for (const id of rc.ids) if (ROW_BY_ID[id]) rows.push(round2Row(ROW_BY_ID[id], rc));
+    h += '<div class="card" data-group="' + gi + '"><h2>' + (g.last ? '' : (gi + 1) + '. ') + esc(g.title) + ' <span class="rid">' + rows.length + ' row' + (rows.length === 1 ? '' : 's') + '</span></h2><p>' + esc(g.framing) + '</p>' + rows.join('') + '</div>';
+  });
+  if (unl.length) h += '<div class="card"><h2>Undecided in round 1, not in the lead\'s groups <span class="rid">' + unl.length + ' row' + (unl.length === 1 ? '' : 's') + '</span></h2>' +
+    '<p>Round 1 left these undecided with no note, so the lead\'s brief did not name them. They are shown so none is dropped.</p>' + unl.map(r => round2Row(r, null)).join('') + '</div>';
+  h += '<details class="settled card" id="r2settled"><summary>Settled in round 1 — ' + set.length + ' rows, read-only</summary><table class="set"><tbody>' +
+    set.map(r => { const e = R1_BY_ROW[r.id]; return '<tr><td><span class="lbl">' + esc(r.label) + '</span> <span class="rid">' + esc(r.id) + '</span></td><td class="d-' + esc(e.decision) + '"><span class="sw"></span><b>' + esc(r1Text(e)) + '</b></td><td>' + esc(e.note || '') + '</td></tr>'; }).join('') +
+    '</tbody></table></details>';
+  h += '<div class="card man" id="r2manifest"></div><div class="audit" id="r2audit"></div>';
+  return h;
+}
+function renderManifest2() {
+  const m = buildManifest2(round1Map(DATA), ST2.dec2, DATA), c = m.counts;
+  const box = (t, n) => '<div class="stat"><h3>' + t + '</h3><div class="big">' + n + '</div></div>';
+  $('r2manifest').innerHTML = '<h2>Provisional manifest, recomputed</h2><p>Round 1\'s decisions with your round-2 decisions laid over them; the same builder as round 1, plus MOVED and DEFERRED lists. EXPORT carries this and the full lists. Still provisional and local.</p>' +
+    '<div class="cols">' + box('PARAMETERS', c.parameters) + box('LOCKED CONSTANTS', c.locked) + box('MERGED', c.merged) + box('CULLED', c.culled) + box('MOVED', c.moved) + box('DEFERRED', c.deferred) + box('UNDECIDED', c.undecided) + '</div>';
+  const inGroups = {}; for (const g of GROUPS2) for (const rc of g.recs) for (const id of rc.ids) inGroups[id] = 1;
+  const ids = Object.keys(inGroups), done = ids.filter(id => dec2Of(id) !== 'undecided').length;
+  const p = $('r2Prog'); if (p) p.textContent = done + ' of ' + ids.length + ' grouped rows decided in round 2';
+}
+function runChecks2() {
+  const D = DATA, out = [];
+  const pl = checkPlacement(D, GROUPS2);
+  const dropped = GROUPS2.map((g, i) => (i === 0 ? { title: g.title, recs: g.recs.slice(0, -1) } : g));
+  const plx = checkPlacement(D, dropped);
+  out.push({ n: 'R2.1 ' + pl.placed + ' of the ' + pl.total + ' round-1 undecided rows are in exactly one group, ' + pl.missing.length + ' missing', ok: pl.ok, info: pl.missing.concat(pl.dup, pl.unknown).join(', '),
+             ctl: !plx.ok, ctlTxt: 'a copy of the groups without the last Envelopes bullet reads ' + plx.missing.length + ' missing: ' + plx.missing.join(', ') });
+  const cr = checkCarried(D, ROUND1.decisions), bad = ROUND1.decisions.slice(); bad[0] = Object.assign({}, bad[0], { decision: 'cull' });
+  const crx = checkCarried(D, bad);
+  out.push({ n: 'R2.2 the embedded round-1 decisions rebuild round 1\'s manifest counts (' + JSON.stringify(ROUND1.manifestCounts) + ')', ok: cr.ok, info: JSON.stringify(cr.got),
+             ctl: !crx.ok, ctlTxt: 'a copy with one decision flipped to cull does not' });
+  const synth = {}; DECISIONS2.forEach((x, i) => { const r = DATA.rows[i * 7]; synth[r.id] = { d: x, value: 'v' + i, target: DATA.rows[i * 7 + 1].id, note: i % 2 ? '' : 'n' + i }; });
+  const rt = checkRoundTrip2(synth, D, false), rth = checkRoundTrip2(ST2.dec2, D, false), rtx = checkRoundTrip2(synth, D, true);
+  out.push({ n: 'R2.3 round-2 export → import round-trips (a synthetic set of ' + rt.n + ' decisions covering every button, and your ' + rth.n + ')', ok: rt.ok && rth.ok, info: '',
+             ctl: !rtx.ok, ctlTxt: 'an export with one decision corrupted does not round-trip' });
+  const doc = exportDoc2(ST2.dec2, D), notStamp = checkNoTimestamp(doc), stampX = checkNoTimestamp(Object.assign(exportDoc2({}, D), { exportedAt: '2026-10-02T12:00:00Z' }));
+  const noPre = sameMap(cleanMap2(ST2.dec2, D.rows), cleanMap2(ST2.stored2, D.rows)), noPreX = sameMap(Object.assign({}, ST2.stored2, { seed: { d: 'keep' } }), ST2.stored2);
+  const stamp = doc.audit.commit === D.source.commit && doc.audit.rowsig === D.source.rowsig && ROUND1.audit.commit === D.source.commit && ROUND1.audit.rowsig === D.source.rowsig;
+  out.push({ n: 'R2.4 no decision is shown that you did not make, the export has no timestamp, and it carries the same audit commit and rowsig as round 1', ok: noPre && notStamp && stamp, info: (noPre ? '' : 'state differs from the store. ') + (notStamp ? '' : 'a time field. ') + (stamp ? '' : 'audit stamp differs.'),
+             ctl: !noPreX && !stampX, ctlTxt: 'a decision planted in the state and an export with exportedAt are each read red' });
+  const allOk = out.every(o => o.ok && o.ctl), a = $('r2audit');
+  if (a) {
+    a.className = 'audit' + (allOk ? '' : ' bad');
+    a.innerHTML = '<div><b>ROUND 2 SELF-CHECK ' + (allOk ? '<span class="ok">GREEN</span>' : '<span class="no">RED</span>') + '</b> — ' + out.filter(o => o.ok).length + '/' + out.length + ' pass, ' + out.filter(o => o.ctl).length + '/' + out.length + ' must-fail controls fire</div>' +
+      out.map(o => '<div>' + (o.ok ? '<span class="ok">OK</span>' : '<span class="no">FAIL</span>') + ' ' + esc(o.n) + (o.info ? ' — ' + esc(o.info) : '') +
+        ' · control ' + (o.ctl ? '<span class="ok">fires</span>' : '<span class="no">DID NOT FIRE</span>') + ': ' + esc(o.ctlTxt) + '</div>').join('');
+  }
+  return { allOk, out };
+}
+function renderRound2() {
+  $('view2').innerHTML = round2Html(); renderManifest2(); runChecks2();
+}
+function setField2(id, f, v) {
+  const cur = Object.assign({ d: 'undecided' }, ST2.dec2[id] || {});
+  cur[f] = v;
+  const c = cleanDecision2(cur);
+  if (c) ST2.dec2[id] = c; else delete ST2.dec2[id];
+  saveStore2();
+}
+function showView(v) {
+  ST2.view = v;
+  $('view1').style.display = v === '1' ? '' : 'none';
+  $('view2').style.display = v === '2' ? '' : 'none';
+  for (const el of document.querySelectorAll('.r1only')) el.style.display = v === '1' ? '' : 'none';
+  $('v1Btn').classList.toggle('on', v === '1'); $('v2Btn').classList.toggle('on', v === '2');
+}
+function wire2() {
+  $('v1Btn').onclick = () => showView('1');
+  $('v2Btn').onclick = () => showView('2');
+  const root = $('view2');
+  root.addEventListener('click', e => {
+    const t = e.target, b = t && t.closest && t.closest('button[data-d]');
+    if (b) {
+      const id = b.dataset.r2, row = b.closest('.r2row'); if (!id || !row) return;
+      setField2(id, 'd', dec2Of(id) === b.dataset.d ? 'undecided' : b.dataset.d);
+      const tmp = document.createElement('div'); tmp.innerHTML = round2Row(ROW_BY_ID[id], REC2[id] || null);
+      row.replaceWith(tmp.firstChild); renderManifest2(); runChecks2(); return;
+    }
+    const id = t && t.id;
+    if (id === 'r2Export') {
+      const text = JSON.stringify(exportDoc2(ST2.dec2, DATA), null, 1);
+      $('r2io').style.display = ''; $('r2ioText').value = text; $('r2ioMsg').className = 'msg'; $('r2ioMsg').textContent = 'exported ' + Object.keys(cleanMap2(ST2.dec2, DATA.rows)).length + ' round-2 decisions';
+      download('engine-audit-decisions-round2.json', text);
+    } else if (id === 'r2Import') { $('r2io').style.display = ''; $('r2ioText').value = ''; $('r2ioMsg').className = 'msg'; $('r2ioMsg').textContent = 'paste a round-2 export, then APPLY'; }
+    else if (id === 'r2CloseIo') { $('r2io').style.display = 'none'; }
+    else if (id === 'r2Apply') {
+      let doc = null; try { doc = JSON.parse($('r2ioText').value); } catch (err) { $('r2ioMsg').textContent = 'not JSON: ' + err.message; $('r2ioMsg').className = 'msg bad'; return; }
+      const res = importDoc2(doc, DATA);
+      if (res.error) { $('r2ioMsg').textContent = res.error; $('r2ioMsg').className = 'msg bad'; return; }
+      ST2.dec2 = res.map; saveStore2(); renderRound2();
+      $('r2io').style.display = ''; $('r2ioMsg').className = 'msg'; $('r2ioMsg').textContent = 'imported ' + Object.keys(res.map).length + ' round-2 decisions' + (res.skipped.length ? '; skipped ' + res.skipped.length + ' unknown rows' : '') + (res.warn.length ? '; ' + res.warn.join('; ') : '');
+    } else if (id === 'r2Clear') {
+      let ok = false; try { ok = window.confirm('Clear every round-2 decision saved in this browser? EXPORT first if you want them.'); } catch (_) {}
+      if (!ok) return;
+      ST2.dec2 = {}; clearStore2(); renderRound2();
+    }
+  });
+  root.addEventListener('input', e => {                  // notes, values, targets: save as typed, no re-render (it would drop focus)
+    const t = e.target, id = t && t.dataset && t.dataset.r2; if (!id || !t.dataset.f) return;
+    setField2(id, t.dataset.f, t.value); renderManifest2();
+  });
+}
+function boot2() {
+  ST2.stored2 = loadStore2();
+  ST2.dec2 = Object.assign({}, ST2.stored2);
+  renderRound2(); wire2(); showView(ST2.view);
+}
+
+/* ======================================================================
    G. BOOT
    ====================================================================== */
 function boot() {
@@ -721,6 +1300,7 @@ function boot() {
   dl.innerHTML = DATA.rows.map(r => '<option value="' + esc(r.id) + '">' + esc(r.label) + '</option>').join('');
   document.body.appendChild(dl);
   renderAll(); renderScope(); wire(); ST.booted = true; runChecks();
+  boot2();                                           // ROUND 2 view (B416); round 1 above is complete before it runs
 }
 boot();
 </script>

@@ -1,0 +1,23 @@
+# b416-engine-audit-round2 — a Round 2 view on the B376 engine-audit lab
+
+- **Queue item:** ROADMAP B416 (records branch `lead-records-163`), dispatched by the horde lead 2026-10-02. The human: "please build the audit round 2 view with updated recommendations".
+- **Why:** The human's round-1 export left 44 rows undecided (43 with a note). The lead's updated recommendations needed a place to be read next to the human's own words and answered, without touching round 1.
+- **What changed:** `docs/design/engine-audit.html` only (plus this trace).
+  - A ROUND 1 / ROUND 2 toggle (`?view=2` opens round 2; round 1 stays the default and its DOM, handlers, store key and self-checks are untouched, only wrapped in `#view1`).
+  - Round 2: nine groups (the brief's eight plus "Kept, with a question"), 58 rendered rows. Each row shows the round-1 decision, the human's note verbatim, `conflict` text, the lead's updated recommendation, and keep / lock / merge / cull / move / defer / undecided buttons with a note (lock takes a value, merge and move a target).
+  - Round 1's export is embedded as `ROUND1` (decisions verbatim, audit stamp, manifest counts; the manifest is recomputed).
+  - Export schema `hypersaw.engine-audit.decisions/2`: `round: 2`, the same audit commit and rowsig, round 1's `decisions` verbatim, round 2's in `round2`, a recomputed manifest with added `moved` and `deferred` lists. localStorage key `hypersaw.b416.engine-audit-round2`, every access in try/catch.
+  - Placement is asserted at load: "43 undecided placed, 0 missing", with an error banner if a row is missing, doubled or unknown. Four round-2 self-checks, each with a must-fail control.
+- **Evidence consulted:** `docs/design/engine-audit.html` (read in full), `docs/audits/2026-10-02-engine-audit-round1-decisions.json`, `traces/2026-09-29-b376-engine-audit.md`, `tools/labharness/lab_load_check.mjs`.
+- **Checks run (scratch, not committed):**
+  - A node vm harness over the page script confirmed: the embedded decisions, audit stamp and counts equal the committed JSON; the 43 placed with no duplicates; an empty round-2 export reproduces round 1's counts (106 / 10 / 2 / 23 / 44); a realistic round-2 set round-trips export → import → export byte-identically; a round-1 file is rejected by the round-2 import.
+  - A headless-Chrome CDP session (port 8164) confirmed: round 1 default unchanged (self-check 5/5 green), the toggle, button and note interaction, persistence across reload, DOM export → clear → import round trip, and zero console errors or exceptions.
+- **Alternatives rejected:**
+  - Reusing the round-1 `<select>` for decisions: the brief asked for buttons, and a select would have collided with round 1's DOM self-check (`select[data-f="d"]`).
+  - Changing `buildManifest` to know move / defer: that would touch round 1. Round 2 wraps it (`buildManifest2`).
+  - Defaulting the page to Round 2: round 1 is "today's page, unchanged", so round 2 is `?view=2` or one click.
+- **Verify:** `./verify fast`, exit 0. `.harness/last-verify.json`: `{"target":"fast","exit":0,"git":"4295fac","ts":"2026-10-02T06:38:55Z"}` (git is the base commit: the run was on the uncommitted change set). `lab_load_check` loads the page green; no lab gate was load-flaky.
+- **Open questions:**
+  - `mono` ("Mono fold") is the 44th round-1 undecided row. It has no entry in the export (no note), so it is not among the brief's 43. It is shown in its own card after the groups with round 1's audit recommendation, and nothing is guessed for it.
+  - Several round-1 notes on decided rows read as open (`spread`, `absK`, `tilt`, `hiTame`, `panMode`, `panScatter`, `panInvert`, `onsetAlpha`). The brief did not name them, so they sit in the read-only "Settled in round 1" list with their notes shown.
+  - Round 2's "undecided" on a round-1-decided row means the round-1 decision stands (said on the page).
