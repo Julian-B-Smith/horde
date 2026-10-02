@@ -44,7 +44,7 @@
 
      ROUND 2 (B416, 2026-10-02, the horde lead's records branch lead-records-163). The human, verbatim: "please
      build the audit round 2 view with updated recommendations". A second VIEW of this same page (the ROUND 1 /
-     ROUND 2 toggle; ?view=2): the 43 rows left undecided in round 1, in eight discussion groups plus a ninth,
+     ROUND 2 toggle; round 2 is the default view, ?view=1 opens round 1): the 44 rows left undecided in round 1, in eight discussion groups plus a ninth,
      "Kept, with a question", each row showing the round-1 decision, your round-1 note verbatim, the audit's
      where-the-sources-disagree text, the lead's UPDATED recommendation, and decision buttons. Round 1 is
      untouched. Round 2's own export is schema hypersaw.engine-audit.decisions/2, kept in localStorage under
@@ -207,6 +207,11 @@
   .banner { border:var(--stroke) solid var(--alarm); background:var(--caution-bg); color:var(--alarm); font-weight:700; border-radius:6px; padding:6px 10px; margin-bottom:10px; }
   details.settled { margin-bottom:12px; } details.settled summary { cursor:pointer; font-weight:700; padding:6px 0; }
   table.set { border-collapse:collapse; width:100%; font-size:11px; } table.set td { border-bottom:1px solid var(--hair); padding:3px 6px; vertical-align:top; }
+  .cluster { border:1px solid var(--div); border-radius:8px; margin:6px 0; background:var(--well); }
+  .clhead { padding:6px 10px; border-bottom:1px solid var(--div); } .clhead h4 { font-size:9.5px; letter-spacing:.12em; color:var(--dim); margin:0 0 3px; font-weight:600; }
+  .clhead p { color:var(--t2); font-size:11px; margin:0; max-width:none; }
+  .r2row.compact { grid-template-columns:180px minmax(0,1fr) 540px; padding:4px 10px; } .r2row.compact:first-child { border-top:0; }
+  .r2row.compact .btns { margin-bottom:2px; }
   @media (max-width:1100px) { .r2row { grid-template-columns:1fr 1fr; } }
 </style></head>
 <body>
@@ -943,7 +948,7 @@ const GROUPS2 = [
     framing: 'The swarm\'s own A/D/S/R rows are its amplitude envelope, and they conflict with SCALPEL\'s in law and unit (one-pole seconds vs linear milliseconds: the same "4" reaches full level in ~21 ms vs 4 ms). The envelope hierarchy lab (B377) decides one envelope system for every source.',
     recs: [
       { ids: ['attack', 'decay', 'sustain', 'release'], kind: 'MERGE', text: 'MERGE into ENV 1 of the envelope hierarchy. Their law and units follow B377 decision 1 (open); there is no separate swarm envelope.' },
-      { ids: BENV_IDS, kind: 'CULL', text: 'CULL as dedicated controls. Blades use the ordinary assignable envelopes (ENV 2–4) through the mod matrix, and preset translation writes each blade\'s old envelope as a default route, so SCALPEL presets keep their sound.' },
+      { ids: BENV_IDS, kind: 'CULL', cluster: true, text: 'CULL as dedicated controls. Blades use the ordinary assignable envelopes (ENV 2–4) through the mod matrix, and preset translation writes each blade\'s old envelope as a default route, so SCALPEL presets keep their sound.' },
       { ids: ['pitchEnv'], kind: 'CULL', text: 'CULL as a special class, as you said. Pitch is a route from any envelope, global or per-note.' },
       { ids: ['onset', 'dissolve'], kind: 'TEST', text: 'TEST before deciding. Measure, in the lab, whether an envelope routed to Coupling reproduces onset lock and dissolve. If it does, cull both and ship the behaviour as a preset and macro. If not, keep the pair in Advanced.' },
       { ids: ['voiceEnv', 'attackScatter', 'relScatter'], kind: 'TEST', text: 'Run a short listening gauntlet with the scatter maxima raised. If still inaudible, cull all three: release scatter needs per-member envelopes to mean anything.' }] },
@@ -952,10 +957,11 @@ const GROUPS2 = [
     recs: [
       { ids: ['phase', 'scatter', 'keepPhase'], kind: 'MERGE', text: 'MERGE into one stepped "Start phase" row (aligned / random / keep / settled), with Scatter as its amount on random. The default is chosen by ear in the workshop. SCALPEL\'s default "settled" is currently played as aligned, which is a bug to fix in the merge.' }] },
   { title: 'Pitch and glide',
-    framing: 'Two merges are ratified and one has your Serum-style caveat. What stays open is glide against inertia, the tempo-grid row, and your "quantize harmonics" idea.',
+    framing: 'Three merges are ruled (pitch offset, voicing, spread into detune), one with your Serum-style caveat. What stays open is how spread folds into detune, glide against inertia, the tempo-grid row, and your "quantize harmonics" idea.',
     recs: [
       { ids: ['pitchOffset'], kind: 'MERGE', text: 'MERGE, ratified. Per osc: Octave, Semitone, Fine, plus a continuous Coarse (±48 st, Serum-style, for automation across octaves). Octave and Semitone are stepped views of the same continuous pitch.' },
       { ids: ['polyMode'], kind: 'MERGE', text: 'MERGE, ratified: poly / mono / legato as one row.' },
+      { ids: ['spread'], kind: 'MERGE', text: 'MERGE (ruled) into Detune. Recommend expanding Detune\'s range rather than adding a toggle: one knob, and presets translate by scaling. A toggle would only re-introduce the two-control split the merge removes.' },
       { ids: ['freqGlide'], kind: 'KEEP ONE', text: 'KEEP ONE of freqGlide and inertia. Lean toward inertia, horde\'s mass-spring bend law (B397), and cull freqGlide if inertia covers it. A/B them first.' },
       { ids: ['beatMult'], kind: 'DEFER', text: 'DEFER to law 3. It lives or dies with the tempo-grid law and a real bpm (B382).' },
       { ids: ['anchor'], kind: 'KEEP', text: 'KEEP in Advanced.' },
@@ -968,12 +974,13 @@ const GROUPS2 = [
       { ids: ['driftMode'], kind: 'LOCK', text: 'LOCK the best mode by ear. If sine survives, its start offset gets a seeded draw.' },
       { ids: ['mu', 'balance'], kind: 'PROVISIONAL', text: 'Provisional on A/B surviving, as you noted (kept in round 1).' }] },
   { title: 'Output and stereo',
-    framing: 'Four of these resolve into built-in behaviour or merges; the two pan rows wait for the stereo lab (B408).',
+    framing: 'Four of these resolve into built-in behaviour or merges; the pan rows and Mono fold wait on the stereo lab (B408).',
     recs: [
       { ids: ['normExp'], kind: 'LOCK', text: 'LOCK at 0.75 (D11), applied as built-in loudness compensation over member count, not a control.' },
       { ids: ['rtone'], kind: 'MOVE', text: 'MOVE to the filters, as coherence (R) routed to cutoff. R is already a mod source (B253).' },
       { ids: ['digital'], kind: 'MERGE', text: 'MERGE, ratified, as one continuous band-limit amount that also scales the blades\' BLEP.' },
       { ids: ['panLayout'], kind: 'MERGE', text: 'MERGE, ratified, as one image row: pitch fan / legacy / balanced.' },
+      { ids: ['mono'], kind: 'CULL', text: 'CULL, pending one measurement: the audit\'s hypothesis is that width 0 with the pitch fan already sums every member to centre at the same 0.7071 law, so Mono fold duplicates width 0. If the stereo lab (B408) confirms it, cull; if not, keep in Advanced. 0/39 legacy presets use it.' },
       { ids: ['panCurve', 'superMode'], kind: 'DEFER', text: 'DEFER to the stereo lab (B408). The stereo research recommends complementary-pair delays, so the mono sum is exact, with one-channel ITD kept as a character mode.' }] },
   { title: 'Anti-aliasing defaults',
     framing: 'No face controls: these become engine defaults.',
@@ -1005,7 +1012,7 @@ const GROUPS2 = [
       { ids: ['basin'], kind: 'TEST', text: 'Test that the locked 35 c is ideal.' }] }];
 const REC2 = {};
 for (const g of GROUPS2) for (const rc of g.recs) for (const id of rc.ids) REC2[id] = rc;
-const ST2 = { dec2: {}, stored2: {}, storeOk: false, view: qp('view', '1') === '2' ? '2' : '1' };
+const ST2 = { dec2: {}, stored2: {}, storeOk: false, view: qp('view', '2') === '1' ? '1' : '2' };
 
 /* ---- pure: store shape, export, import, manifest (no DOM) ---- */
 function cleanDecision2(d) {
@@ -1083,13 +1090,13 @@ function importDoc2(doc, data) {
   }
   return res;
 }
-/* PLACEMENT: every row undecided in round 1 WITH an entry (the 43) sits in exactly one group. A row can
-   also be missing from a group because the brief never named it; those are listed by unlistedRows(). */
-function round1Undecided() { return ROUND1.decisions.filter(e => e.decision === 'undecided').map(e => e.row); }
+/* PLACEMENT: every row undecided in round 1 (the 44: 43 with a note, plus `mono`, which has no export
+   entry) sits in exactly one group. unlistedRows() stays as the safety net that shows any row no group names. */
+function round1Undecided(data) { const m = round1Map(data); return data.rows.filter(r => !m[r.id] || m[r.id].d === 'undecided').map(r => r.id); }
 function checkPlacement(data, groups) {
   const count = {}, ids = {}; for (const r of data.rows) ids[r.id] = 1;
   for (const g of groups) for (const rc of g.recs) for (const id of rc.ids) count[id] = (count[id] || 0) + 1;
-  const want = round1Undecided();
+  const want = round1Undecided(data);
   const missing = want.filter(id => !count[id]);
   const dup = Object.keys(count).filter(id => count[id] > 1);
   const unknown = Object.keys(count).filter(id => !ids[id]);
@@ -1137,7 +1144,7 @@ function clearStore2() { ST2.stored2 = {}; try { localStorage.removeItem(STORE_K
 function dec2Of(id) { const c = ST2.dec2[id]; return c ? c.d : 'undecided'; }
 function r1Text(e) { return e ? e.decision + (e.value !== undefined ? ' → ' + e.value : '') + (e.target !== undefined ? ' → ' + e.target : '') : 'undecided'; }
 function kindClass(k) { const w = String(k).split(' ')[0]; return w === 'MERGE' ? 'k-merge' : w === 'CULL' ? 'k-cull' : (w === 'LOCK' || w === 'DEFAULT') ? 'k-lock' : w === 'KEEP' ? 'k-keep' : 'k-open'; }
-function round2Row(r, rc) {
+function round2Row(r, rc, compact) {
   const e1 = R1_BY_ROW[r.id], c = ST2.dec2[r.id] || null, d = c ? c.d : 'undecided', r1d = e1 ? e1.decision : 'undecided';
   const btns = DECISIONS2.map(x => '<button class="pill d-' + x + (x === d ? ' on' : '') + '" data-r2="' + esc(r.id) + '" data-d="' + x + '">' + x + '</button>').join('');
   let extra = '';
@@ -1145,13 +1152,13 @@ function round2Row(r, rc) {
   if (d === 'merge' || d === 'move') extra += '<input type="text" data-r2="' + esc(r.id) + '" data-f="target" list="rowIds" placeholder="' + (d === 'move' ? 'move to (where)' : 'merge into (row id)') + '" value="' + esc(c.target || '') + '"' + (c.target ? '' : ' class="missing"') + '>';
   extra += '<input type="text" data-r2="' + esc(r.id) + '" data-f="note" placeholder="note" value="' + esc(c && c.note || '') + '">';
   const note = e1 && e1.note ? '<p class="q">' + esc(e1.note) + '</p>' : '<p class="q none">no note</p>';
-  const recHtml = rc ? '<div class="rec2"><span class="rec ' + kindClass(rc.kind) + '">' + esc(rc.kind) + '</span><p>' + esc(rc.text) + '</p></div>'
+  const recHtml = compact ? '' : rc ? '<div class="rec2"><span class="rec ' + kindClass(rc.kind) + '">' + esc(rc.kind) + '</span><p>' + esc(rc.text) + '</p></div>'
     : '<p>The lead\'s groups do not name this row. Round 1\'s audit recommendation was <b>' + esc(r.rec.kind) + '</b>' + (r.rec.val ? ' → ' + esc(r.rec.val) : '') + (r.rec.tgt ? ' → ' + esc(r.rec.tgt) : '') + ': ' + esc(r.rec.why) + '</p>';
-  return '<div class="r2row" data-id="' + esc(r.id) + '">' +
+  return '<div class="r2row' + (compact ? ' compact' : '') + '" data-id="' + esc(r.id) + '">' +
     '<div><div class="lbl">' + esc(r.label) + '</div><div class="rid">' + esc(r.id) + '</div>' +
       '<div class="d-' + r1d + '" style="margin-top:4px"><span class="sw"></span>round 1: <b>' + esc(r1Text(e1)) + '</b></div></div>' +
     '<div><h4>YOU, ROUND 1</h4>' + note + (r.conflict ? '<h4>WHERE THE SOURCES DISAGREE</h4><p class="conf">' + esc(r.conflict) + '</p>' : '') + '</div>' +
-    '<div><h4>LEAD\'S UPDATED RECOMMENDATION</h4>' + recHtml + '</div>' +
+    (compact ? '' : '<div><h4>LEAD\'S UPDATED RECOMMENDATION</h4>' + recHtml + '</div>') +
     '<div class="dec"><h4>YOUR ROUND 2 DECISION</h4><div class="btns">' + btns + '</div>' + extra +
       (r1d !== 'undecided' ? '<div class="hint">round 1 (' + esc(r1d) + ') stands unless you set one here</div>' : '') + '</div></div>';
 }
@@ -1163,8 +1170,8 @@ function round2Html() {
   if (!pl.ok) h += '<div class="banner" id="r2banner">ROUND 2 PLACEMENT ERROR: ' + (pl.missing.length ? 'missing from every group: ' + esc(pl.missing.join(', ')) + '. ' : '') +
     (pl.dup.length ? 'in more than one group: ' + esc(pl.dup.join(', ')) + '. ' : '') + (pl.unknown.length ? 'not a row of this audit: ' + esc(pl.unknown.join(', ')) + '. ' : '') + '</div>';
   h += '<div class="card"><h2>ROUND 2 · the rows you left undecided, with updated recommendations</h2>' +
-    '<p><b id="r2placed">' + pl.placed + ' undecided placed, ' + pl.missing.length + ' missing</b> (of the ' + pl.total + ' rows round 1 left undecided with a note) · ' + keptPlaced + ' kept rows placed for a question · ' +
-    set.length + ' rows settled in round 1 (collapsed below) · ' + unl.length + ' undecided row' + (unl.length === 1 ? '' : 's') + ' with no round-1 entry, shown after the groups.</p>' +
+    '<p><b id="r2placed">' + pl.placed + ' undecided placed, ' + pl.missing.length + ' missing</b> (of the ' + pl.total + ' rows round 1 left undecided) · ' + keptPlaced + ' kept rows placed for a question · ' +
+    set.length + ' rows settled in round 1 (collapsed below)' + (unl.length ? ' · ' + unl.length + ' row' + (unl.length === 1 ? '' : 's') + ' no group names, shown after the groups' : '') + '.</p>' +
     '<p>Recommendations here are the lead\'s, updated after your round-1 notes. Nothing is pre-filled: a row reads "undecided" until you press a button. ' +
     (ST2.storeOk ? 'Saved in this browser (localStorage) as you go.' : 'localStorage unavailable: decisions last until the page closes; EXPORT them.') + '</p>' +
     '<div class="tools"><button class="pill primary" id="r2Export">EXPORT ROUND 2 JSON</button><button class="pill" id="r2Import">IMPORT</button><button class="pill" id="r2Clear">CLEAR ROUND 2 DECISIONS</button><span class="msg" id="r2Prog"></span></div></div>';
@@ -1172,11 +1179,16 @@ function round2Html() {
     '<textarea id="r2ioText" spellcheck="false"></textarea><div class="tools" style="margin-top:6px"><button class="pill primary" id="r2Apply">APPLY IMPORT</button><button class="pill" id="r2CloseIo">CLOSE</button><span class="msg" id="r2ioMsg"></span></div></div>';
   GROUPS2.forEach((g, gi) => {
     const rows = [];
-    for (const rc of g.recs) for (const id of rc.ids) if (ROW_BY_ID[id]) rows.push(round2Row(ROW_BY_ID[id], rc));
-    h += '<div class="card" data-group="' + gi + '"><h2>' + (g.last ? '' : (gi + 1) + '. ') + esc(g.title) + ' <span class="rid">' + rows.length + ' row' + (rows.length === 1 ? '' : 's') + '</span></h2><p>' + esc(g.framing) + '</p>' + rows.join('') + '</div>';
+    for (const rc of g.recs) {
+      const own = rc.ids.filter(id => ROW_BY_ID[id]);
+      if (rc.cluster) rows.push('<div class="cluster"><div class="clhead"><h4>' + own.length + ' ROWS, ONE LEAD\'S UPDATED RECOMMENDATION</h4><div class="rec2"><span class="rec ' + kindClass(rc.kind) + '">' + esc(rc.kind) + '</span><p>' + esc(rc.text) + '</p></div></div>' + own.map(id => round2Row(ROW_BY_ID[id], rc, true)).join('') + '</div>');
+      else for (const id of own) rows.push(round2Row(ROW_BY_ID[id], rc));
+    }
+    const nrows = g.recs.reduce((n, rc) => n + rc.ids.filter(id => ROW_BY_ID[id]).length, 0);
+    h += '<div class="card" data-group="' + gi + '"><h2>' + (g.last ? '' : (gi + 1) + '. ') + esc(g.title) + ' <span class="rid">' + nrows + ' row' + (nrows === 1 ? '' : 's') + '</span></h2><p>' + esc(g.framing) + '</p>' + rows.join('') + '</div>';
   });
-  if (unl.length) h += '<div class="card"><h2>Undecided in round 1, not in the lead\'s groups <span class="rid">' + unl.length + ' row' + (unl.length === 1 ? '' : 's') + '</span></h2>' +
-    '<p>Round 1 left these undecided with no note, so the lead\'s brief did not name them. They are shown so none is dropped.</p>' + unl.map(r => round2Row(r, null)).join('') + '</div>';
+  if (unl.length) h += '<div class="card"><h2>Undecided in round 1, in no group <span class="rid">' + unl.length + ' row' + (unl.length === 1 ? '' : 's') + '</span></h2>' +
+    '<p>The lead\'s groups do not name these rows. They are shown so none is dropped.</p>' + unl.map(r => round2Row(r, null)).join('') + '</div>';
   h += '<details class="settled card" id="r2settled"><summary>Settled in round 1 — ' + set.length + ' rows, read-only</summary><table class="set"><tbody>' +
     set.map(r => { const e = R1_BY_ROW[r.id]; return '<tr><td><span class="lbl">' + esc(r.label) + '</span> <span class="rid">' + esc(r.id) + '</span></td><td class="d-' + esc(e.decision) + '"><span class="sw"></span><b>' + esc(r1Text(e)) + '</b></td><td>' + esc(e.note || '') + '</td></tr>'; }).join('') +
     '</tbody></table></details>';
@@ -1247,7 +1259,7 @@ function wire2() {
     if (b) {
       const id = b.dataset.r2, row = b.closest('.r2row'); if (!id || !row) return;
       setField2(id, 'd', dec2Of(id) === b.dataset.d ? 'undecided' : b.dataset.d);
-      const tmp = document.createElement('div'); tmp.innerHTML = round2Row(ROW_BY_ID[id], REC2[id] || null);
+      const tmp = document.createElement('div'); tmp.innerHTML = round2Row(ROW_BY_ID[id], REC2[id] || null, row.classList.contains('compact'));
       row.replaceWith(tmp.firstChild); renderManifest2(); runChecks2(); return;
     }
     const id = t && t.id;
