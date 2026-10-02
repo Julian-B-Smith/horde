@@ -5,10 +5,11 @@ WIRED: ./verify fast
 
 WHY. h2_engine_parity_check judges the composed engine against golden files
 pinned BY CONTENT (ADR-187 item 3): h2/README.md carries `<path>@<git blob>`.
-That check lives in `./verify full`, which is human-paced and never runs in CI.
+That check lives in `./verify full`, and ci.yml's sanitize lanes run it.
 B407 (#897) edited one meta line in docs/design/scalpel-interface-lab.html, a
-pinned golden; the PIN row went red, but ci.yml ignores docs/** and docs.yml runs
-only `verify fast`, so the break merged unseen and was reverted in #905
+pinned golden; the PIN row went red, but ci.yml skips docs/** (paths-ignore), so a
+docs-only PR never runs the sanitize lanes that hold the PIN row, and docs.yml runs
+only `verify fast`. The break merged unseen and was reverted in #905
 (LIBRARY L0073). This check is the cheap half of that PIN row, moved into
 `fast`, so a pinned file cannot move without a gate in every lane seeing it.
 
