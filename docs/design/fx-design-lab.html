@@ -2573,7 +2573,7 @@ function buildRows(M) {
 /* ---- the face: generic (4 role slots) or Sluice's twin ---------------------- */
 function deriveSlotValues(M) {
   /* The stored value is DERIVED from the params the preset set (Sluice G-70's
-     rule: applying a macro at its stored value reproduces the params), via the
+     rule: a macro set to its stored value gives back the params the preset set), via the
      slot's first binding — so loading a preset moves no internal. */
   for (const s of M.slots) { s.v = s.b.length ? bindInv(s.b[0], getp(M.P, s.b[0].t)) : 0; s.v0 = s.v; }
 }

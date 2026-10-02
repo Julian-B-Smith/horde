@@ -33,7 +33,7 @@
      THE RULES BUILT IN. §6 the host surface (Sluice-global / per-patch / internal); §7 macros by
      ORDER with the patch's label (the human's ruling); §8 tempo, Sync, feel, Time and Tune, with
      Sync on leaving synced times to the tempo; §9 the ONE-PATCH rule (the corners share structure,
-     numbers blend by the manifest's own laws, discrete values come from the nearest corner; a
+     numbers blend by the manifest's own laws, discrete values snap to the closest corner; a
      corner with another roster is REFUSED, the default Sluice recommends, pending the human, §13
      #5); §6.3 a structural change is a NEW engine with a 20 ms crossfade and no tail carried over,
      while knob moves glide in place (C9); §10 loop safety, and bypass left open (§13 #3) with both
@@ -1350,8 +1350,8 @@ function morph4(C, x, y) {
    WIRING — the same module types, in the same order, in the loop chain and in the post chain.
    Sluice's network has one serial chain inside one global bus (spec §1–§3), so the order and the
    loop/post placement are all the wiring there is; injection is a coefficient (a number). Numbers,
-   module ids, names, macros and the discrete values spec §9 takes from the nearest corner (enabled,
-   switches, targets, shapes, presence) are ignored: they blend, or come from the nearest corner, as
+   module ids, names, macros and the discrete values spec §9 takes from the closest corner (enabled,
+   switches, targets, shapes, presence) are ignored: they blend, or snap to the closest corner, as
    they do inside one patch. Parity is exactly the one-patch rule's notion of structure (structSig),
    so two snapshots of one patch always match, and two different patches match when §9 says their
    numbers can blend.
@@ -4727,7 +4727,7 @@ function C4() {
   mid.num.forEach(([k, v, e], j) => { if (blendLaw(e) === 'blend-geometric') { const vs = Lc.map(L => L.num[j][1]); const lin = vs.reduce((a, b) => a + b, 0) / 4, g = Math.exp(vs.reduce((a, b) => a + Math.log(b), 0) / 4); if (Math.abs(lin - g) > 1e-9 * g) linCaught = true; } });
   pushCheck('C4', 'the morph: exact at the corners, numbers by the manifest\'s laws, discrete from the nearest', at && inside && lawOk && nearOk, !naive && linCaught,
     'at A B C D the morph IS the corner: ' + at + ' · at the centre every number lies within its four corners: ' + inside + ', and equals its law (' + nGeo + ' geometric, the rest linear or rounded): ' + lawOk
-    + ' · discrete values (enabled, switches, targets, shapes, presence) come from the nearest corner at four points: ' + nearOk
+    + ' · discrete values (enabled, switches, targets, shapes, presence) snap to the closest corner at four points: ' + nearOk
     + ' · controls: averaging an enabled flag instead → ' + (!naive ? 'caught' : 'NOT caught') + '; a linear blend of a geometric param → ' + (linCaught ? 'caught' : 'NOT caught'));
 }
 function C5() {

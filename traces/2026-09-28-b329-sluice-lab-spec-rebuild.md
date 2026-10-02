@@ -44,7 +44,7 @@ It also reads, from the spec's markdown:
 
 **The rules:**
 - **One-patch rule (§9).** A corner may only take a snapshot of the same structure; anything else is refused. The default is forbid, as Sluice recommends, pending the human (§13 #5). Structural edits reach all four corners.
-- **Morph.** The morph blends each number by the manifest's own law. Discrete values come from the nearest corner.
+- **Morph.** The morph blends each number by the manifest's own law. Each discrete value snaps to the closest corner.
 - **Structural changes (§6.3)** go through the renderer: a new engine and a linear 20 ms crossfade, with no tail carried over. A numeric change stays in place.
 - **Resolution (§8)** happens on the message side: tempo sync and Time resolve first, Tune next, the dry/wet mix last. With Sync on, Tune leaves synced times alone.
 - **Bypass** is §13 #3 and still open. Hard bypass is the default and spill-over can be switched on.
