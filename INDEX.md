@@ -82,3 +82,4 @@ swarm-dynamics · parity-oracle · plugin-platform · realtime-perf
 - [L0070] Judge a cure on the curated bench too, not only on the sample that exposed the problem (oracles · evaluation)
 - [L0071] A fingerprint pin is only as portable as the render is stable; probe with ULP perturbations before pinning (oracles · ci)
 - [L0072] Per-scenario bit-exact share swings with 1-ULP nudges; gate on the mean share, per platform (oracles · parity)
+- [L0073] A design lab can be a pinned golden; a metadata-only edit breaks whole-blob pins and verify fast cannot see it (oracles · labs · ci)
