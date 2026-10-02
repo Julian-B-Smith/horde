@@ -1,0 +1,4033 @@
+{
+ "schema": "hypersaw.engine-audit.decisions/2",
+ "round": 2,
+ "audit": {
+  "queue": "B376",
+  "commit": "bae777f",
+  "rowsig": "7c9a6664ce5b"
+ },
+ "decisions": [
+  {
+   "row": "n",
+   "decision": "keep",
+   "note": "What is the meaning conflict?"
+  },
+  {
+   "row": "dist",
+   "decision": "keep",
+   "note": "What is the meaning conflict?"
+  },
+  {
+   "row": "seed",
+   "decision": "undecided",
+   "note": "We should discuss; I don't know if this is one that needs surfacing, but maybe all seeded random parameters should have hidden seed values that can be exposed via right click menu or a settings toggle or something."
+  },
+  {
+   "row": "detune",
+   "decision": "keep",
+   "note": "What is the meaning conflict?"
+  },
+  {
+   "row": "law",
+   "decision": "keep",
+   "note": "What is the meaning conflict?"
+  },
+  {
+   "row": "harmReach",
+   "decision": "keep",
+   "note": "I would actually like to discuss adding a \"quantize harmonics\" toggle which links into the scale quantizer."
+  },
+  {
+   "row": "stretchB",
+   "decision": "cull",
+   "note": "I think we can remove the stretch law; it doesn't offer anything harmonic doesn't in practice."
+  },
+  {
+   "row": "spread",
+   "decision": "merge",
+   "target": "detune",
+   "note": "Agreed; we can discuss whether we just expand detune or add the toggle as suggested."
+  },
+  {
+   "row": "anchor",
+   "decision": "undecided",
+   "note": "This should probably be buried in advanced, but I imagine there are times when it will be useful. Admittedly it's a little nitpicky, and worth a discussion over possibly culling"
+  },
+  {
+   "row": "beatMult",
+   "decision": "undecided",
+   "note": "Honestly, with K, this is a kind of strange detune law; but a part of me does want to make it work, so maybe we should workshop it."
+  },
+  {
+   "row": "bpm",
+   "decision": "cull"
+  },
+  {
+   "row": "K",
+   "decision": "keep",
+   "note": "I want it to be called Coupling"
+  },
+  {
+   "row": "absK",
+   "decision": "lock",
+   "value": "0",
+   "note": "Or simply cull, unless that breaks something"
+  },
+  {
+   "row": "onset",
+   "decision": "undecided",
+   "note": "The functionality needs to be present, and I hesitate to take up an envelope with something that I'll want in many presets, but removing it would save two parameters (dissolve is just its decay/release) and maybe there isn't something so special about the functionality that it deserves special treatment. Worth a discussion."
+  },
+  {
+   "row": "dissolve",
+   "decision": "undecided",
+   "note": "See Onset Lock (if there is an Onset Lock, there needs to be a Dissolve)"
+  },
+  {
+   "row": "driftDepth",
+   "decision": "keep"
+  },
+  {
+   "row": "driftRate",
+   "decision": "keep"
+  },
+  {
+   "row": "driftMode",
+   "decision": "undecided",
+   "note": "Worth a discussion; might want to expand the selection, might just want to pick the best one and lock it in. Either way I think the sine option would need a seeded randomness for its start offset or something."
+  },
+  {
+   "row": "motionCenter",
+   "decision": "lock",
+   "value": "0"
+  },
+  {
+   "row": "inertia",
+   "decision": "keep",
+   "note": "I had a dream of adding inertia to more things as well; worth discussing. The only trouble with this inertia is that it kind of ends up doing the same thing as Freq Glide, and it might be worth picking one or the other."
+  },
+  {
+   "row": "inertiaCurve",
+   "decision": "lock",
+   "value": "2.5"
+  },
+  {
+   "row": "freqGlide",
+   "decision": "undecided",
+   "note": "See note for Inertia; let's discuss."
+  },
+  {
+   "row": "phase",
+   "decision": "undecided",
+   "note": "I support your merge recommendation. We'll want to workshop the execution."
+  },
+  {
+   "row": "scatter",
+   "decision": "undecided",
+   "note": "I support your merge recommendation. We'll want to workshop the execution."
+  },
+  {
+   "row": "keepPhase",
+   "decision": "undecided",
+   "note": "I support your merge recommendation. We'll want to workshop the execution."
+  },
+  {
+   "row": "pivotMode",
+   "decision": "keep",
+   "note": "Let's discuss this one; similar to \"root anchor,\" might be worth keeping in advanced, might be too esoteric to matter much. "
+  },
+  {
+   "row": "tune",
+   "decision": "cull"
+  },
+  {
+   "row": "topo",
+   "decision": "undecided",
+   "note": "I don't think ring reach was ever very useful, and with only 9 voices even less so. Let's limit to mean-field and A/B; and let's test to make sure even that is ultimately worth it now with Scalpel."
+  },
+  {
+   "row": "reach",
+   "decision": "cull"
+  },
+  {
+   "row": "mu",
+   "decision": "keep",
+   "note": "Provisional; only keep if we decide A/B is worth it"
+  },
+  {
+   "row": "alpha",
+   "decision": "keep"
+  },
+  {
+   "row": "poles",
+   "decision": "undecided",
+   "note": "Let's discuss. I'm not sure I even remember this parameter from the legacy."
+  },
+  {
+   "row": "balance",
+   "decision": "keep",
+   "note": "Provisionally; only keep if A/B survives."
+  },
+  {
+   "row": "grav",
+   "decision": "keep"
+  },
+  {
+   "row": "basin",
+   "decision": "lock",
+   "value": "35 c",
+   "note": "Maybe we test to make sure this value is ideal."
+  },
+  {
+   "row": "onsetScatter",
+   "decision": "keep",
+   "note": "Let's just to a check to make sure this isn't basically just a more expensive phase scatter"
+  },
+  {
+   "row": "onsetAlpha",
+   "decision": "keep",
+   "note": "Provisional; keep if onset scatter survives"
+  },
+  {
+   "row": "attackScatter",
+   "decision": "undecided",
+   "note": "I don't think I could ever really hear the effect; probably not worth it unless the maximum value increases."
+  },
+  {
+   "row": "voiceEnv",
+   "decision": "undecided",
+   "note": "I'm not sure if the value of this was ever evident. Worth a gauntlet to test if it's worth it."
+  },
+  {
+   "row": "relScatter",
+   "decision": "undecided",
+   "note": "I don't think I could ever really hear the effect; probably not worth it unless the maximum value increases."
+  },
+  {
+   "row": "attack",
+   "decision": "undecided",
+   "note": "A little confused; every envelope will have an attack parameter; I just want to make sure this isn't referring to a special attack that supercedes that"
+  },
+  {
+   "row": "decay",
+   "decision": "undecided",
+   "note": "Same issue as Attack"
+  },
+  {
+   "row": "sustain",
+   "decision": "undecided",
+   "note": "Same issue as Attack"
+  },
+  {
+   "row": "release",
+   "decision": "undecided",
+   "note": "Same issue as Attack"
+  },
+  {
+   "row": "glide",
+   "decision": "merge",
+   "target": "noteLaw"
+  },
+  {
+   "row": "glideMode",
+   "decision": "keep"
+  },
+  {
+   "row": "noteLaw",
+   "decision": "keep"
+  },
+  {
+   "row": "polyGlide",
+   "decision": "cull"
+  },
+  {
+   "row": "voiceCull",
+   "decision": "lock",
+   "value": "-80 dB"
+  },
+  {
+   "row": "lpOut",
+   "decision": "lock",
+   "value": "1"
+  },
+  {
+   "row": "vol",
+   "decision": "keep",
+   "note": "Let's make sure to maintain hygiene in proper use of \"gain\" vs \"level\" vs \"volume\""
+  },
+  {
+   "row": "normExp",
+   "decision": "undecided",
+   "note": "Let's discuss; should this be handled this way? It felt like a stopgap in legacy."
+  },
+  {
+   "row": "rtone",
+   "decision": "undecided",
+   "note": "I believe we decided that this would become a control on the filters instead."
+  },
+  {
+   "row": "digital",
+   "decision": "undecided",
+   "note": "Agree with your merge rec. "
+  },
+  {
+   "row": "width",
+   "decision": "keep"
+  },
+  {
+   "row": "panScatter",
+   "decision": "cull",
+   "note": "This was a stopgap solution before we figured out the alternating fan"
+  },
+  {
+   "row": "panLayout",
+   "decision": "undecided",
+   "note": "Agree with your merge rec"
+  },
+  {
+   "row": "panCurve",
+   "decision": "undecided",
+   "note": "I think this does have a noticeable effect, but I suppose high compute could kill it; let's discuss."
+  },
+  {
+   "row": "panInvert",
+   "decision": "keep",
+   "note": "Advanced control"
+  },
+  {
+   "row": "panMotion",
+   "decision": "keep"
+  },
+  {
+   "row": "panMode",
+   "decision": "lock",
+   "value": "0",
+   "note": "(or just cull unless it breaks something)"
+  },
+  {
+   "row": "superMode",
+   "decision": "undecided",
+   "note": "This might be worth a new test"
+  },
+  {
+   "row": "tilt",
+   "decision": "lock",
+   "value": "0",
+   "note": "Might be able to cull"
+  },
+  {
+   "row": "hiTame",
+   "decision": "lock",
+   "value": "0",
+   "note": "Or just cull; should be a filter instead."
+  },
+  {
+   "row": "oversample",
+   "decision": "keep"
+  },
+  {
+   "row": "shape",
+   "decision": "cull"
+  },
+  {
+   "row": "sawBase",
+   "decision": "cull"
+  },
+  {
+   "row": "sawProfile",
+   "decision": "cull"
+  },
+  {
+   "row": "round",
+   "decision": "cull"
+  },
+  {
+   "row": "roundHi",
+   "decision": "cull"
+  },
+  {
+   "row": "polyMode",
+   "decision": "undecided",
+   "note": "Merge rec ratified"
+  },
+  {
+   "row": "pitchOffset",
+   "decision": "undecided",
+   "note": "Merge rec ratified, with a caveat: Serum has Oct, Semi, Fine AND Course, the latter so you can automate pitch continuously across several octaves. I want to make sure all these needs are also met, per oscillator."
+  },
+  {
+   "row": "pitchBend",
+   "decision": "keep"
+  },
+  {
+   "row": "gPitch",
+   "decision": "keep"
+  },
+  {
+   "row": "bendLaw",
+   "decision": "keep"
+  },
+  {
+   "row": "scale",
+   "decision": "keep"
+  },
+  {
+   "row": "qTime",
+   "decision": "keep"
+  },
+  {
+   "row": "bendMpeLaw",
+   "decision": "keep"
+  },
+  {
+   "row": "enable",
+   "decision": "keep"
+  },
+  {
+   "row": "muteSolo",
+   "decision": "keep"
+  },
+  {
+   "row": "masterVol",
+   "decision": "keep"
+  },
+  {
+   "row": "pitchEnv",
+   "decision": "undecided",
+   "note": "Pitch bend is a reason envelopes need to have an ability to either be global or per-note (and possibly even per-voice for some controls, though we can discuss that.) But the pitch envelope shouldn't be a special class of envelope, it can just use one of the available envelope mods.)"
+  },
+  {
+   "row": "engineSel",
+   "decision": "cull"
+  },
+  {
+   "row": "bassMono",
+   "decision": "keep",
+   "note": "Though we want to be considerate about how we implement"
+  },
+  {
+   "row": "aaCarrier",
+   "decision": "undecided",
+   "note": "Whatever the results of our research say"
+  },
+  {
+   "row": "aaXin",
+   "decision": "undecided",
+   "note": "I don't think I understand this one but I trust your judgment."
+  },
+  {
+   "row": "aaLoop",
+   "decision": "undecided",
+   "note": "I don't think I understand this one but I trust your judgment."
+  },
+  {
+   "row": "poly",
+   "decision": "undecided",
+   "note": "I don't think I understand this one but I trust your judgment."
+  },
+  {
+   "row": "s.w",
+   "decision": "keep"
+  },
+  {
+   "row": "s.k",
+   "decision": "keep"
+  },
+  {
+   "row": "s.kHz",
+   "decision": "keep"
+  },
+  {
+   "row": "s.c",
+   "decision": "keep"
+  },
+  {
+   "row": "s.rotRate",
+   "decision": "keep"
+  },
+  {
+   "row": "s.rotSync",
+   "decision": "keep"
+  },
+  {
+   "row": "s.hard",
+   "decision": "keep"
+  },
+  {
+   "row": "s.depth",
+   "decision": "keep"
+  },
+  {
+   "row": "s.mirror",
+   "decision": "keep"
+  },
+  {
+   "row": "s.mode",
+   "decision": "keep"
+  },
+  {
+   "row": "s.hot",
+   "decision": "keep"
+  },
+  {
+   "row": "s.morph",
+   "decision": "keep"
+  },
+  {
+   "row": "s.fmType",
+   "decision": "keep"
+  },
+  {
+   "row": "s.mshape",
+   "decision": "keep"
+  },
+  {
+   "row": "s.I",
+   "decision": "keep"
+  },
+  {
+   "row": "s.fb",
+   "decision": "keep"
+  },
+  {
+   "row": "s.m",
+   "decision": "keep"
+  },
+  {
+   "row": "s.mHz",
+   "decision": "keep"
+  },
+  {
+   "row": "s.mUnit",
+   "decision": "keep"
+  },
+  {
+   "row": "s.lock",
+   "decision": "keep"
+  },
+  {
+   "row": "s.xm",
+   "decision": "keep"
+  },
+  {
+   "row": "s.frame",
+   "decision": "keep"
+  },
+  {
+   "row": "s.frame2",
+   "decision": "keep"
+  },
+  {
+   "row": "s.law",
+   "decision": "keep"
+  },
+  {
+   "row": "s.driftRate",
+   "decision": "keep"
+  },
+  {
+   "row": "s.bspread",
+   "decision": "keep"
+  },
+  {
+   "row": "s.kspread",
+   "decision": "keep"
+  },
+  {
+   "row": "s.kRule",
+   "decision": "keep"
+  },
+  {
+   "row": "s.kRuleAmt",
+   "decision": "keep"
+  },
+  {
+   "row": "s.kCustom",
+   "decision": "keep"
+  },
+  {
+   "row": "s.kq",
+   "decision": "keep"
+  },
+  {
+   "row": "s.wspread",
+   "decision": "keep"
+  },
+  {
+   "row": "s.dspread",
+   "decision": "keep"
+  },
+  {
+   "row": "s.mspread",
+   "decision": "keep"
+  },
+  {
+   "row": "s.ispread",
+   "decision": "keep"
+  },
+  {
+   "row": "s.rotSpread",
+   "decision": "keep"
+  },
+  {
+   "row": "s.base",
+   "decision": "keep"
+  },
+  {
+   "row": "s.b2on",
+   "decision": "keep"
+  },
+  {
+   "row": "s.mode2",
+   "decision": "keep"
+  },
+  {
+   "row": "s.hot2",
+   "decision": "keep"
+  },
+  {
+   "row": "s.w2",
+   "decision": "keep"
+  },
+  {
+   "row": "s.k2",
+   "decision": "keep"
+  },
+  {
+   "row": "s.kHz2",
+   "decision": "keep"
+  },
+  {
+   "row": "s.lock2",
+   "decision": "keep"
+  },
+  {
+   "row": "s.mirror2",
+   "decision": "keep"
+  },
+  {
+   "row": "s.morph2",
+   "decision": "keep"
+  },
+  {
+   "row": "s.rot2Follow",
+   "decision": "keep"
+  },
+  {
+   "row": "s.rotRate2",
+   "decision": "keep"
+  },
+  {
+   "row": "s.c2",
+   "decision": "keep"
+  },
+  {
+   "row": "s.hard2",
+   "decision": "keep"
+  },
+  {
+   "row": "s.depth2",
+   "decision": "keep"
+  },
+  {
+   "row": "s.b2sp",
+   "decision": "keep"
+  },
+  {
+   "row": "s.bspread2",
+   "decision": "keep"
+  },
+  {
+   "row": "s.kRule2",
+   "decision": "keep"
+  },
+  {
+   "row": "s.kspread2",
+   "decision": "keep"
+  },
+  {
+   "row": "s.kRuleAmt2",
+   "decision": "keep"
+  },
+  {
+   "row": "s.wspread2",
+   "decision": "keep"
+  },
+  {
+   "row": "s.mspread2",
+   "decision": "keep"
+  },
+  {
+   "row": "s.ispread2",
+   "decision": "keep"
+  },
+  {
+   "row": "s.rotSpread2",
+   "decision": "keep"
+  },
+  {
+   "row": "s.dspread2",
+   "decision": "keep"
+  },
+  {
+   "row": "s.b2order",
+   "decision": "keep"
+  },
+  {
+   "row": "s.b2mix",
+   "decision": "keep"
+  },
+  {
+   "row": "s.colK",
+   "decision": "keep"
+  },
+  {
+   "row": "s.colB",
+   "decision": "keep"
+  },
+  {
+   "row": "s.b2fm",
+   "decision": "keep"
+  },
+  {
+   "row": "s.fmType2",
+   "decision": "keep"
+  },
+  {
+   "row": "s.mshape2",
+   "decision": "keep"
+  },
+  {
+   "row": "s.I2",
+   "decision": "keep"
+  },
+  {
+   "row": "s.mUnit2",
+   "decision": "keep"
+  },
+  {
+   "row": "s.m2",
+   "decision": "keep"
+  },
+  {
+   "row": "s.mHz2",
+   "decision": "keep"
+  },
+  {
+   "row": "s.b2env",
+   "decision": "undecided",
+   "note": "Let's discuss whether this gets a special envelope or just uses a normal one from the mod matrix"
+  },
+  {
+   "row": "s.benvK2",
+   "decision": "undecided",
+   "note": "Let's discuss whether this gets a special envelope or just uses a normal one from the mod matrix"
+  },
+  {
+   "row": "s.benvW2",
+   "decision": "undecided",
+   "note": "Let's discuss whether this gets a special envelope or just uses a normal one from the mod matrix"
+  },
+  {
+   "row": "s.benvA2",
+   "decision": "undecided",
+   "note": "Let's discuss whether this gets a special envelope or just uses a normal one from the mod matrix"
+  },
+  {
+   "row": "s.benvD2",
+   "decision": "undecided",
+   "note": "Let's discuss whether this gets a special envelope or just uses a normal one from the mod matrix"
+  },
+  {
+   "row": "s.benvVel2",
+   "decision": "undecided",
+   "note": "Let's discuss whether this gets a special envelope or just uses a normal one from the mod matrix"
+  },
+  {
+   "row": "s.benvK",
+   "decision": "undecided",
+   "note": "Let's discuss whether this gets a special envelope or just uses a normal one from the mod matrix"
+  },
+  {
+   "row": "s.benvW",
+   "decision": "undecided",
+   "note": "Let's discuss whether this gets a special envelope or just uses a normal one from the mod matrix"
+  },
+  {
+   "row": "s.benvA",
+   "decision": "undecided",
+   "note": "Let's discuss whether this gets a special envelope or just uses a normal one from the mod matrix"
+  },
+  {
+   "row": "s.benvD",
+   "decision": "undecided",
+   "note": "Let's discuss whether this gets a special envelope or just uses a normal one from the mod matrix"
+  },
+  {
+   "row": "s.benvVel",
+   "decision": "undecided",
+   "note": "Let's discuss whether this gets a special envelope or just uses a normal one from the mod matrix"
+  },
+  {
+   "row": "s.dcMode",
+   "decision": "lock",
+   "value": "2 (per cycle)"
+  },
+  {
+   "row": "s.b1on",
+   "decision": "keep"
+  },
+  {
+   "row": "s.f0Mode",
+   "decision": "cull"
+  },
+  {
+   "row": "s.f0",
+   "decision": "cull"
+  },
+  {
+   "row": "s.f0Note",
+   "decision": "cull"
+  },
+  {
+   "row": "s.nameAbleton",
+   "decision": "cull"
+  },
+  {
+   "row": "s.kRuleOut",
+   "decision": "cull"
+  },
+  {
+   "row": "s.kRuleOut2",
+   "decision": "cull"
+  },
+  {
+   "row": "s.wtMode",
+   "decision": "cull"
+  },
+  {
+   "row": "s.wtFrames",
+   "decision": "cull"
+  },
+  {
+   "row": "s.wtDur",
+   "decision": "cull"
+  },
+  {
+   "row": "s.wtNorm",
+   "decision": "cull"
+  },
+  {
+   "row": "s.subLvl",
+   "decision": "cull"
+  }
+ ],
+ "round2": [
+  {
+   "row": "n",
+   "decision": "keep"
+  },
+  {
+   "row": "dist",
+   "decision": "keep"
+  },
+  {
+   "row": "seed",
+   "decision": "keep"
+  },
+  {
+   "row": "detune",
+   "decision": "keep"
+  },
+  {
+   "row": "law",
+   "decision": "keep"
+  },
+  {
+   "row": "harmReach",
+   "decision": "keep"
+  },
+  {
+   "row": "spread",
+   "decision": "merge",
+   "target": "",
+   "note": "As recommended"
+  },
+  {
+   "row": "anchor",
+   "decision": "keep"
+  },
+  {
+   "row": "beatMult",
+   "decision": "defer",
+   "note": "As recommended"
+  },
+  {
+   "row": "K",
+   "decision": "keep"
+  },
+  {
+   "row": "onset",
+   "decision": "defer",
+   "note": "Test as recommended"
+  },
+  {
+   "row": "dissolve",
+   "decision": "defer",
+   "note": "Test as recommended"
+  },
+  {
+   "row": "driftMode",
+   "decision": "defer",
+   "note": "Let's test"
+  },
+  {
+   "row": "inertia",
+   "decision": "defer"
+  },
+  {
+   "row": "freqGlide",
+   "decision": "defer",
+   "note": "Let's run tests on both to determine"
+  },
+  {
+   "row": "phase",
+   "decision": "merge",
+   "target": "",
+   "note": "As recommended"
+  },
+  {
+   "row": "scatter",
+   "decision": "merge",
+   "target": "",
+   "note": "As recommended"
+  },
+  {
+   "row": "keepPhase",
+   "decision": "merge",
+   "target": "",
+   "note": "As recommended"
+  },
+  {
+   "row": "pivotMode",
+   "decision": "keep"
+  },
+  {
+   "row": "topo",
+   "decision": "defer",
+   "note": "(I have no \"reduce\" option here, so I'm using defer instead)"
+  },
+  {
+   "row": "mu",
+   "decision": "defer"
+  },
+  {
+   "row": "poles",
+   "decision": "cull"
+  },
+  {
+   "row": "balance",
+   "decision": "defer"
+  },
+  {
+   "row": "basin",
+   "decision": "defer"
+  },
+  {
+   "row": "onsetScatter",
+   "decision": "defer",
+   "note": "Test, as recommended"
+  },
+  {
+   "row": "attackScatter",
+   "decision": "defer",
+   "note": "Test as recommended"
+  },
+  {
+   "row": "voiceEnv",
+   "decision": "defer",
+   "note": "Test as recommended"
+  },
+  {
+   "row": "relScatter",
+   "decision": "defer",
+   "note": "Test as recommended"
+  },
+  {
+   "row": "attack",
+   "decision": "merge",
+   "target": "",
+   "note": "As recommended"
+  },
+  {
+   "row": "decay",
+   "decision": "merge",
+   "target": "",
+   "note": "As recommended"
+  },
+  {
+   "row": "sustain",
+   "decision": "merge",
+   "target": "",
+   "note": "As recommended"
+  },
+  {
+   "row": "release",
+   "decision": "merge",
+   "target": "",
+   "note": "As recommended"
+  },
+  {
+   "row": "vol",
+   "decision": "defer",
+   "note": "Let's make a decision about this based on best practices"
+  },
+  {
+   "row": "normExp",
+   "decision": "lock",
+   "value": "0.75"
+  },
+  {
+   "row": "rtone",
+   "decision": "move",
+   "target": "per-note filter cutoff control"
+  },
+  {
+   "row": "digital",
+   "decision": "merge",
+   "target": "",
+   "note": "As recommended"
+  },
+  {
+   "row": "mono",
+   "decision": "defer",
+   "note": "Pending that measurement; likely cull after"
+  },
+  {
+   "row": "panLayout",
+   "decision": "merge",
+   "target": "",
+   "note": "As recommended"
+  },
+  {
+   "row": "panCurve",
+   "decision": "defer"
+  },
+  {
+   "row": "superMode",
+   "decision": "defer"
+  },
+  {
+   "row": "polyMode",
+   "decision": "merge",
+   "target": "",
+   "note": "As recommended"
+  },
+  {
+   "row": "pitchOffset",
+   "decision": "merge",
+   "target": "",
+   "note": "As recommended"
+  },
+  {
+   "row": "pitchEnv",
+   "decision": "cull"
+  },
+  {
+   "row": "bassMono",
+   "decision": "defer"
+  },
+  {
+   "row": "aaCarrier",
+   "decision": "lock",
+   "value": "lab default"
+  },
+  {
+   "row": "aaXin",
+   "decision": "lock",
+   "value": "on"
+  },
+  {
+   "row": "aaLoop",
+   "decision": "lock",
+   "value": "on (after ear check)"
+  },
+  {
+   "row": "poly",
+   "decision": "move",
+   "target": "Settings"
+  },
+  {
+   "row": "s.b2env",
+   "decision": "cull"
+  },
+  {
+   "row": "s.benvK2",
+   "decision": "cull"
+  },
+  {
+   "row": "s.benvW2",
+   "decision": "cull"
+  },
+  {
+   "row": "s.benvA2",
+   "decision": "cull"
+  },
+  {
+   "row": "s.benvD2",
+   "decision": "cull"
+  },
+  {
+   "row": "s.benvVel2",
+   "decision": "cull"
+  },
+  {
+   "row": "s.benvK",
+   "decision": "cull"
+  },
+  {
+   "row": "s.benvW",
+   "decision": "cull"
+  },
+  {
+   "row": "s.benvA",
+   "decision": "cull"
+  },
+  {
+   "row": "s.benvD",
+   "decision": "cull"
+  },
+  {
+   "row": "s.benvVel",
+   "decision": "cull"
+  }
+ ],
+ "manifest": {
+  "schema": "hypersaw.provisional-manifest/0 (PROVISIONAL, local; swap-in point for FOUNDATIONS' engine-manifest schema, B275 P3)",
+  "engine": "swarm (src/swarm_core.h + SCALPEL blades, as composed in docs/design/scalpel-horde-engine.js)",
+  "counts": {
+   "parameters": 102,
+   "locked": 13,
+   "merged": 13,
+   "culled": 36,
+   "moved": 2,
+   "deferred": 19,
+   "undecided": 0
+  },
+  "parameters": [
+   {
+    "key": "n",
+    "label": "Voices / Members",
+    "section": "Swarm core",
+    "kind": "stepped",
+    "range": "1..32",
+    "default": "7",
+    "morph": {
+     "kind": "stepped",
+     "qm2": "STRUCTURAL"
+    },
+    "rate": {
+     "failureModes": [
+      "non-interpolable",
+      "recompute cost"
+     ],
+     "bound": "rebuild: 503 ns/event at n = 32, +31 % of a 128-event block (measured, docs/audits/2026-09-18-saw-engine-audit.md §2.5; src/swarm_core.h:464)"
+    },
+    "cadence": "rebuild (on change)",
+    "globals": "voice model: members per played voice (ADR-083 allocates voices; n is the swarm inside one)",
+    "scope": "per-osc (+1000 twin)",
+    "from": {
+     "core": "n",
+     "legacy": [
+      1
+     ],
+     "composed": "N",
+     "scalpel": "N"
+    }
+   },
+   {
+    "key": "dist",
+    "label": "Distribution",
+    "section": "Swarm core",
+    "kind": "stepped",
+    "range": "0..4",
+    "default": "1",
+    "morph": {
+     "kind": "stepped",
+     "qm2": "STRUCTURAL"
+    },
+    "rate": {
+     "failureModes": [
+      "non-interpolable",
+      "recompute cost"
+     ],
+     "bound": "rebuild: 503 ns/event at n = 32, +31 % of a 128-event block (measured, docs/audits/2026-09-18-saw-engine-audit.md §2.5; src/swarm_core.h:464)"
+    },
+    "cadence": "rebuild (on change)",
+    "globals": "pitch: shapes the member offsets x[] that every detune law reads",
+    "scope": "per-osc (+1000 twin)",
+    "from": {
+     "core": "dist",
+     "legacy": [
+      2
+     ],
+     "composed": "dist"
+    }
+   },
+   {
+    "key": "seed",
+    "label": "Seed",
+    "section": "Swarm core",
+    "kind": "stepped",
+    "range": "0..999999",
+    "default": "1234",
+    "morph": {
+     "kind": "stepped",
+     "qm2": "STRUCTURAL"
+    },
+    "rate": {
+     "failureModes": [
+      "non-interpolable",
+      "recompute cost"
+     ],
+     "bound": "rebuild: 503 ns/event at n = 32, +31 % of a 128-event block (measured, docs/audits/2026-09-18-saw-engine-audit.md §2.5; src/swarm_core.h:464)"
+    },
+    "cadence": "rebuild (on change) + note-on (latched)",
+    "globals": "voice model: re-derives every per-note stream (initVoice, src/swarm_core.h:692) and the ensemble stream (ensembleSeed :1388)",
+    "scope": "per-osc (+1000 twin)",
+    "from": {
+     "core": "seed",
+     "legacy": [
+      3
+     ],
+     "composed": "seed"
+    }
+   },
+   {
+    "key": "detune",
+    "label": "Detune",
+    "section": "Swarm core",
+    "kind": "continuous",
+    "range": "0..1",
+    "default": "0.28",
+    "morph": {
+     "kind": "continuous",
+     "qm2": "SAFE"
+    },
+    "rate": {
+     "failureModes": [
+      "discontinuity",
+      "control-tick aliasing"
+     ]
+    },
+    "cadence": "control tick (16 smp)",
+    "globals": "pitch: relative to the voice pitch (f0c = f0cur·tune·noteTune, src/swarm_core.h:1769)",
+    "scope": "per-osc (+1000 twin)",
+    "from": {
+     "core": "detune",
+     "legacy": [
+      4
+     ],
+     "composed": "detune",
+     "scalpel": "detune"
+    }
+   },
+   {
+    "key": "law",
+    "label": "Detune law",
+    "section": "Swarm core",
+    "kind": "stepped",
+    "range": "0..5",
+    "default": "0",
+    "morph": {
+     "kind": "stepped",
+     "qm2": "STRUCTURAL"
+    },
+    "rate": {
+     "failureModes": [
+      "non-interpolable",
+      "recompute cost"
+     ],
+     "bound": "rebuild: 503 ns/event at n = 32, +31 % of a 128-event block (measured, docs/audits/2026-09-18-saw-engine-audit.md §2.5; src/swarm_core.h:464)"
+    },
+    "cadence": "rebuild (on change) + control tick (16 smp)",
+    "globals": "pitch; law 3 also reads host TEMPO (bpm·beatMult)",
+    "scope": "per-osc (+1000 twin)",
+    "from": {
+     "core": "law",
+     "legacy": [
+      5
+     ],
+     "composed": "h.law"
+    }
+   },
+   {
+    "key": "harmReach",
+    "label": "Harmonic reach",
+    "section": "Swarm core",
+    "kind": "continuous",
+    "range": "0.25..4",
+    "default": "1",
+    "morph": {
+     "kind": "continuous",
+     "qm2": "SAFE"
+    },
+    "rate": {
+     "failureModes": [
+      "discontinuity"
+     ]
+    },
+    "cadence": "control tick (16 smp)",
+    "globals": "pitch; only under law 4",
+    "scope": "per-osc (+1000 twin)",
+    "from": {
+     "core": "harmReach",
+     "legacy": [
+      79
+     ],
+     "composed": "harmReach"
+    }
+   },
+   {
+    "key": "anchor",
+    "label": "Root anchor",
+    "section": "Swarm core",
+    "kind": "continuous",
+    "range": "0..1",
+    "default": "0",
+    "morph": {
+     "kind": "continuous",
+     "qm2": "SAFE"
+    },
+    "rate": {
+     "failureModes": [
+      "discontinuity"
+     ]
+    },
+    "cadence": "control tick (16 smp)",
+    "globals": "pitch: moves the swarm relative to the played note (0 centred, 1 lowest member on the root)",
+    "scope": "per-osc (+1000 twin)",
+    "from": {
+     "core": "anchor",
+     "legacy": [
+      82
+     ],
+     "composed": "anchor"
+    }
+   },
+   {
+    "key": "K",
+    "label": "Coupling K",
+    "section": "Swarm core",
+    "kind": "continuous",
+    "range": "-1..1",
+    "default": "0",
+    "morph": {
+     "kind": "continuous",
+     "qm2": "SAFE"
+    },
+    "rate": {
+     "failureModes": [
+      "discontinuity"
+     ],
+     "bound": "coupling smoother τ = 4.3512 ms (src/swarm_core.h:152, kKsmTauSeconds)"
+    },
+    "cadence": "control tick (16 smp), smoothed τ 4.35 ms",
+    "globals": "pitch-proportional: pull ∝ σ (member spread in Hz) unless absK",
+    "scope": "per-osc (+1000 twin)",
+    "from": {
+     "core": "K",
+     "legacy": [
+      6
+     ],
+     "composed": "K",
+     "scalpel": "K"
+    }
+   },
+   {
+    "key": "driftDepth",
+    "label": "Drift depth",
+    "section": "Swarm core",
+    "kind": "continuous",
+    "range": "0..100",
+    "default": "0",
+    "unit": "c",
+    "morph": {
+     "kind": "continuous",
+     "qm2": "SAFE"
+    },
+    "rate": {
+     "failureModes": [
+      "discontinuity"
+     ]
+    },
+    "cadence": "control tick (16 smp)",
+    "globals": "pitch: cents of wander around each member",
+    "scope": "per-osc (+1000 twin)",
+    "from": {
+     "core": "driftDepth",
+     "legacy": [
+      9
+     ],
+     "composed": "driftDepth"
+    }
+   },
+   {
+    "key": "driftRate",
+    "label": "Drift rate",
+    "section": "Swarm core",
+    "kind": "continuous",
+    "range": "0..1",
+    "default": "0.4",
+    "morph": {
+     "kind": "continuous",
+     "qm2": "SAFE"
+    },
+    "rate": {
+     "failureModes": [
+      "discontinuity"
+     ]
+    },
+    "cadence": "control tick (16 smp)",
+    "globals": "none",
+    "scope": "per-osc (+1000 twin)",
+    "from": {
+     "core": "driftRate",
+     "legacy": [
+      10
+     ],
+     "composed": "h.driftRate"
+    }
+   },
+   {
+    "key": "pivotMode",
+    "label": "Pivot",
+    "section": "Swarm core",
+    "kind": "stepped",
+    "range": "0..1",
+    "default": "0 (mean field)",
+    "morph": {
+     "kind": "stepped",
+     "qm2": "STRUCTURAL"
+    },
+    "rate": {
+     "failureModes": [
+      "non-interpolable"
+     ]
+    },
+    "cadence": "control tick (16 smp)",
+    "globals": "pitch: root-pinned pacemaker folds the swarm onto the played pitch",
+    "scope": "per-osc (+1000 twin)",
+    "from": {
+     "core": "pivotMode",
+     "legacy": [
+      83
+     ],
+     "composed": "pivotMode"
+    }
+   },
+   {
+    "key": "alpha",
+    "label": "Phase lag",
+    "section": "Dynamics & gravity",
+    "kind": "continuous",
+    "range": "-90..90",
+    "default": "0",
+    "morph": {
+     "kind": "continuous",
+     "qm2": "SAFE"
+    },
+    "rate": {
+     "failureModes": [
+      "discontinuity"
+     ]
+    },
+    "cadence": "control tick (16 smp)",
+    "globals": "none",
+    "scope": "per-osc (+1000 twin)",
+    "from": {
+     "core": "alpha",
+     "legacy": [
+      27
+     ]
+    }
+   },
+   {
+    "key": "grav",
+    "label": "Gravity",
+    "section": "Dynamics & gravity",
+    "kind": "continuous",
+    "range": "0..1",
+    "default": "0",
+    "morph": {
+     "kind": "continuous",
+     "qm2": "SAFE"
+    },
+    "rate": {
+     "failureModes": [
+      "discontinuity",
+      "control-tick aliasing"
+     ],
+     "bound": "fixed 256/44100 s grid (src/swarm_core.h:136, kGravGridSeconds); O(held²) per step, 256 chosen for +2 % CPU vs +66 % at 16 (:980-986)"
+    },
+    "cadence": "gravity grid (5.8 ms)",
+    "globals": "PITCH: pulls each HELD voice's f0cur toward just ratios of the others (cross-voice)",
+    "scope": "per-osc (+1000 twin)",
+    "from": {
+     "core": "grav",
+     "legacy": [
+      29
+     ],
+     "composed": "grav"
+    }
+   },
+   {
+    "key": "onsetAlpha",
+    "label": "Timing correction",
+    "section": "Onset & timing",
+    "kind": "continuous",
+    "range": "0..1.5",
+    "default": "0.25",
+    "morph": {
+     "kind": "continuous",
+     "qm2": "VOICE_BOUND"
+    },
+    "rate": {
+     "failureModes": [
+      "discontinuity"
+     ]
+    },
+    "cadence": "note-on (latched)",
+    "globals": "voice model: persists ACROSS notes (tOff)",
+    "scope": "per-osc (+1000 twin)",
+    "from": {
+     "core": "onsetAlpha",
+     "legacy": [
+      92
+     ],
+     "composed": "onsetAlpha"
+    },
+    "note": "Provisional; keep if onset scatter survives"
+   },
+   {
+    "key": "glideMode",
+    "label": "Glide from",
+    "section": "Voice, envelope & glide",
+    "kind": "stepped",
+    "range": "0..2",
+    "default": "0",
+    "morph": {
+     "kind": "stepped",
+     "qm2": "STRUCTURAL"
+    },
+    "rate": {
+     "failureModes": [
+      "non-interpolable"
+     ]
+    },
+    "cadence": "note-on (latched)",
+    "globals": "voice model + pitch: which previous note a new one glides from",
+    "scope": "global",
+    "from": {
+     "core": "glideMode",
+     "legacy": [
+      90
+     ],
+     "composed": "glideAlways",
+     "scalpel": "glideAlways"
+    }
+   },
+   {
+    "key": "noteLaw",
+    "label": "Note travel law (struct)",
+    "section": "Voice, envelope & glide",
+    "kind": "stepped",
+    "range": "noteLawLink 0..1 · noteLaw 0..4 · noteTime 5..1500 · noteRate 0.5..200 …",
+    "default": "1 · 3 · 120 · 24 …",
+    "morph": {
+     "kind": "stepped",
+     "qm2": "STRUCTURAL"
+    },
+    "rate": {
+     "failureModes": [
+      "non-interpolable"
+     ]
+    },
+    "cadence": "control tick (16 smp)",
+    "globals": "PITCH: the note lane of GlideCore (global); scale mask quantises it",
+    "scope": "global",
+    "from": {
+     "core": "noteLaw",
+     "legacy": [
+      137,
+      138,
+      139,
+      140,
+      141,
+      142,
+      143,
+      144,
+      145
+     ]
+    }
+   },
+   {
+    "key": "width",
+    "label": "Width / Stereo",
+    "section": "Image & output",
+    "kind": "continuous",
+    "range": "0..1.5",
+    "default": "0.8",
+    "morph": {
+     "kind": "continuous",
+     "qm2": "SAFE"
+    },
+    "rate": {
+     "failureModes": [
+      "discontinuity",
+      "recompute cost"
+     ],
+     "bound": "rebuild: 503 ns/event at n = 32, +31 % of a 128-event block (measured, docs/audits/2026-09-18-saw-engine-audit.md §2.5; src/swarm_core.h:464)"
+    },
+    "cadence": "rebuild (on change)",
+    "globals": "none",
+    "scope": "per-osc (+1000 twin)",
+    "from": {
+     "core": "width",
+     "legacy": [
+      14
+     ],
+     "composed": "width",
+     "scalpel": "width"
+    }
+   },
+   {
+    "key": "panInvert",
+    "label": "Fan invert",
+    "section": "Image & output",
+    "kind": "gate",
+    "range": "0..1",
+    "default": "0 (off)",
+    "morph": {
+     "kind": "gate",
+     "qm2": "STRUCTURAL"
+    },
+    "rate": {
+     "failureModes": [
+      "non-interpolable",
+      "recompute cost"
+     ],
+     "bound": "rebuild: 503 ns/event at n = 32, +31 % of a 128-event block (measured, docs/audits/2026-09-18-saw-engine-audit.md §2.5; src/swarm_core.h:464)"
+    },
+    "cadence": "rebuild (on change)",
+    "globals": "none",
+    "scope": "per-osc (+1000 twin)",
+    "from": {
+     "core": "panInvert",
+     "legacy": [
+      86
+     ]
+    },
+    "note": "Advanced control"
+   },
+   {
+    "key": "panMotion",
+    "label": "Pan motion",
+    "section": "Image & output",
+    "kind": "continuous",
+    "range": "0..1",
+    "default": "0",
+    "morph": {
+     "kind": "continuous",
+     "qm2": "SAFE"
+    },
+    "rate": {
+     "failureModes": [
+      "discontinuity",
+      "control-tick aliasing"
+     ]
+    },
+    "cadence": "gravity grid (5.8 ms)",
+    "globals": "none",
+    "scope": "per-osc (+1000 twin)",
+    "from": {
+     "core": "panMotion",
+     "legacy": [
+      76
+     ]
+    }
+   },
+   {
+    "key": "oversample",
+    "label": "Oversample",
+    "section": "Image & output",
+    "kind": "stepped",
+    "range": "0..1",
+    "default": "0 (off)",
+    "morph": {
+     "kind": "stepped",
+     "qm2": "FORBIDDEN"
+    },
+    "rate": {
+     "failureModes": [
+      "non-interpolable",
+      "recompute cost"
+     ],
+     "bound": "2.5 % → 6.3 % of one core at 8 notes × 16 voices (measured, src/hypersaw_clap.cpp:313-315)"
+    },
+    "cadence": "rebuild (on change)",
+    "globals": "none (global in legacy)",
+    "scope": "global",
+    "from": {
+     "core": "oversample",
+     "legacy": [
+      88
+     ],
+     "composed": "os",
+     "scalpel": "os"
+    }
+   },
+   {
+    "key": "bend",
+    "label": "Pitch bend",
+    "section": "Shell pitch & voicing (globals)",
+    "kind": "continuous",
+    "range": "-12..12",
+    "default": "0",
+    "morph": {
+     "kind": "continuous",
+     "qm2": "SAFE"
+    },
+    "rate": {
+     "failureModes": [
+      "discontinuity"
+     ]
+    },
+    "cadence": "control tick (16 smp)",
+    "globals": "PITCH: the wheel (global); routed through the bend travel law",
+    "scope": "global",
+    "from": {
+     "legacy": [
+      38
+     ],
+     "composed": "bend",
+     "scalpel": "bend"
+    }
+   },
+   {
+    "key": "gSemi",
+    "label": "Global transpose (gSemi / gFine / gOct)",
+    "section": "Shell pitch & voicing (globals)",
+    "kind": "stepped",
+    "range": "gSemi -12..12 · gFine -100..100 · gOct -2..2",
+    "default": "0 · 0 · 0",
+    "morph": {
+     "kind": "stepped",
+     "qm2": "FORBIDDEN"
+    },
+    "rate": {
+     "failureModes": [
+      "discontinuity"
+     ]
+    },
+    "cadence": "control tick (16 smp)",
+    "globals": "PITCH (global)",
+    "scope": "global",
+    "from": {
+     "legacy": [
+      101,
+      102,
+      103
+     ]
+    }
+   },
+   {
+    "key": "bendLaw",
+    "label": "Bend travel law (106–115)",
+    "section": "Shell pitch & voicing (globals)",
+    "kind": "stepped",
+    "range": "bendLaw 0..4 · bendTime 5..1500 · bendRate 0.5..200 · bendTau 1..2000 …",
+    "default": "0 · 120 · 24 · 60 …",
+    "morph": {
+     "kind": "stepped",
+     "qm2": "STRUCTURAL"
+    },
+    "rate": {
+     "failureModes": [
+      "non-interpolable"
+     ]
+    },
+    "cadence": "bend grid (0.363 ms)",
+    "globals": "PITCH (global): the wheel's travel law",
+    "scope": "global",
+    "from": {
+     "legacy": [
+      106,
+      107,
+      108,
+      109,
+      110,
+      111,
+      112,
+      113,
+      114,
+      115
+     ]
+    }
+   },
+   {
+    "key": "scaleRoot",
+    "label": "Global scale (root + 12 degrees)",
+    "section": "Shell pitch & voicing (globals)",
+    "kind": "stepped",
+    "range": "scaleRoot 0..11 · scaleDeg0 0..1 · scaleDeg1 0..1 · scaleDeg2 0..1 …",
+    "default": "0 · 1 · 0 · 1 …",
+    "morph": {
+     "kind": "stepped",
+     "qm2": "STRUCTURAL"
+    },
+    "rate": {
+     "failureModes": [
+      "non-interpolable"
+     ]
+    },
+    "cadence": "on change",
+    "globals": "PITCH (global): {root, mask} quantises the bend and note lanes",
+    "scope": "global",
+    "from": {
+     "legacy": [
+      116,
+      117,
+      118,
+      119,
+      120,
+      121,
+      122,
+      123,
+      124,
+      125,
+      126,
+      127,
+      128
+     ]
+    }
+   },
+   {
+    "key": "bendQTimeMode",
+    "label": "Quantise step timing (146–148)",
+    "section": "Shell pitch & voicing (globals)",
+    "kind": "stepped",
+    "range": "bendQTimeMode 0..2 · bendQTimeHz 0.2..50 · bendQTimeSync 0.25..8",
+    "default": "0 · 8 · 4",
+    "morph": {
+     "kind": "stepped",
+     "qm2": "STRUCTURAL"
+    },
+    "rate": {
+     "failureModes": [
+      "non-interpolable"
+     ]
+    },
+    "cadence": "bend grid",
+    "globals": "PITCH + TEMPO (sync mode reads the host tempo)",
+    "scope": "global",
+    "from": {
+     "legacy": [
+      146,
+      147,
+      148
+     ]
+    }
+   },
+   {
+    "key": "bendMpeLaw",
+    "label": "MPE bend law",
+    "section": "Shell pitch & voicing (globals)",
+    "kind": "stepped",
+    "range": "0..1",
+    "default": "1 (follow bend law)",
+    "morph": {
+     "kind": "stepped",
+     "qm2": "STRUCTURAL"
+    },
+    "rate": {
+     "failureModes": [
+      "non-interpolable"
+     ]
+    },
+    "cadence": "per note event",
+    "globals": "PITCH: per-note (MPE) bend follows the bend law or is instant",
+    "scope": "global",
+    "from": {
+     "legacy": [
+      149
+     ]
+    }
+   },
+   {
+    "key": "enable",
+    "label": "Osc on",
+    "section": "Shell pitch & voicing (globals)",
+    "kind": "gate",
+    "range": "0..1",
+    "default": "1 (on)",
+    "morph": {
+     "kind": "gate",
+     "qm2": "STRUCTURAL"
+    },
+    "rate": {
+     "failureModes": [
+      "non-interpolable"
+     ]
+    },
+    "cadence": "on change (ramped)",
+    "globals": "voice model: off hard-kills the oscillator's voices",
+    "scope": "per-osc (+1000 twin)",
+    "from": {
+     "legacy": [
+      150
+     ],
+     "scalpel": "enable"
+    }
+   },
+   {
+    "key": "oscMute",
+    "label": "Mute / solo",
+    "section": "Shell pitch & voicing (globals)",
+    "kind": "gate",
+    "range": "oscMute 0..1 · oscSolo 0..1",
+    "default": "0 · 0",
+    "morph": {
+     "kind": "gate",
+     "qm2": "STRUCTURAL"
+    },
+    "rate": {
+     "failureModes": [
+      "non-interpolable"
+     ]
+    },
+    "cadence": "per render segment",
+    "globals": "none",
+    "scope": "per-osc (+1000 twin)",
+    "from": {
+     "legacy": [
+      104,
+      105
+     ]
+    }
+   },
+   {
+    "key": "master",
+    "label": "Master volume",
+    "section": "Shell pitch & voicing (globals)",
+    "kind": "continuous",
+    "range": "0..1.5",
+    "default": "1",
+    "morph": {
+     "kind": "continuous",
+     "qm2": "FORBIDDEN"
+    },
+    "rate": {
+     "failureModes": [
+      "discontinuity"
+     ]
+    },
+    "cadence": "per render segment",
+    "globals": "none",
+    "scope": "global",
+    "from": {
+     "legacy": [
+      100
+     ],
+     "scalpel": "master"
+    }
+   },
+   {
+    "key": "w",
+    "label": "Width",
+    "section": "SCALPEL blade 1",
+    "kind": "continuous",
+    "range": "0..1",
+    "default": "0.25",
+    "unit": "w",
+    "morph": {
+     "kind": "continuous",
+     "qm2": "SAFE"
+    },
+    "rate": {
+     "failureModes": [
+      "discontinuity"
+     ],
+     "bound": "one-pole 12 ms smoothing (parameters.json `engine`; SPEC-SCALPEL §7)"
+    },
+    "cadence": "per sample, 12 ms one-pole",
+    "globals": "none",
+    "from": {
+     "composed": "w",
+     "scalpel": "w"
+    }
+   },
+   {
+    "key": "k",
+    "label": "Cut rate",
+    "section": "SCALPEL blade 1",
+    "kind": "continuous",
+    "range": "1..64",
+    "default": "6",
+    "unit": "x",
+    "morph": {
+     "kind": "continuous",
+     "qm2": "SAFE"
+    },
+    "rate": {
+     "failureModes": [
+      "discontinuity"
+     ],
+     "bound": "one-pole 12 ms smoothing (parameters.json `engine`; SPEC-SCALPEL §7)"
+    },
+    "cadence": "per sample, 12 ms one-pole",
+    "globals": "PITCH: in × f₀ units the rate tracks the note",
+    "from": {
+     "composed": "k",
+     "scalpel": "k"
+    }
+   },
+   {
+    "key": "kHz",
+    "label": "Cut rate",
+    "section": "SCALPEL blade 1",
+    "kind": "continuous",
+    "range": "20..12000",
+    "default": "1320",
+    "unit": "Hz",
+    "morph": {
+     "kind": "continuous",
+     "qm2": "SAFE"
+    },
+    "rate": {
+     "failureModes": [
+      "discontinuity"
+     ],
+     "bound": "one-pole 12 ms smoothing (parameters.json `engine`; SPEC-SCALPEL §7)"
+    },
+    "cadence": "per sample, 12 ms one-pole",
+    "globals": "pitch: fixed Hz, does NOT track the note (a formant-like fixed band)",
+    "from": {
+     "composed": "kHz",
+     "scalpel": "kHz"
+    }
+   },
+   {
+    "key": "c",
+    "label": "Position",
+    "section": "SCALPEL blade 1",
+    "kind": "continuous",
+    "range": "0..1",
+    "default": "0.875",
+    "unit": "deg",
+    "morph": {
+     "kind": "continuous",
+     "qm2": "SAFE"
+    },
+    "rate": {
+     "failureModes": [
+      "discontinuity",
+      "control-tick aliasing"
+     ],
+     "bound": "one-pole 12 ms smoothing (parameters.json `engine`; SPEC-SCALPEL §7)"
+    },
+    "cadence": "per sample, 12 ms one-pole",
+    "globals": "none",
+    "from": {
+     "composed": "c",
+     "scalpel": "c"
+    }
+   },
+   {
+    "key": "rotRate",
+    "label": "Rotate",
+    "section": "SCALPEL blade 1",
+    "kind": "continuous",
+    "range": "-4..4",
+    "default": "0",
+    "unit": "Hz±",
+    "morph": {
+     "kind": "continuous",
+     "qm2": "SAFE"
+    },
+    "rate": {
+     "failureModes": [
+      "discontinuity"
+     ],
+     "bound": "one-pole 12 ms smoothing (parameters.json `engine`; SPEC-SCALPEL §7)"
+    },
+    "cadence": "control rate (16 smp), 12 ms one-pole",
+    "globals": "none",
+    "from": {
+     "composed": "rotRate",
+     "scalpel": "rotRate"
+    }
+   },
+   {
+    "key": "rotSync",
+    "label": "Rotation",
+    "section": "SCALPEL blade 1",
+    "kind": "stepped",
+    "range": "0..1",
+    "default": "1",
+    "morph": {
+     "kind": "stepped",
+     "qm2": "STRUCTURAL"
+    },
+    "rate": {
+     "failureModes": [
+      "non-interpolable"
+     ]
+    },
+    "cadence": "block rate (discrete)",
+    "globals": "voice model: restarts with the amp envelope's voicing",
+    "from": {
+     "composed": "rotSync",
+     "scalpel": "rotSync"
+    }
+   },
+   {
+    "key": "hard",
+    "label": "Edges",
+    "section": "SCALPEL blade 1",
+    "kind": "continuous",
+    "range": "0..1",
+    "default": "0",
+    "unit": "%",
+    "morph": {
+     "kind": "continuous",
+     "qm2": "SAFE"
+    },
+    "rate": {
+     "failureModes": [
+      "discontinuity"
+     ],
+     "bound": "one-pole 12 ms smoothing (parameters.json `engine`; SPEC-SCALPEL §7)"
+    },
+    "cadence": "per sample, 12 ms one-pole",
+    "globals": "none",
+    "from": {
+     "composed": "hard",
+     "scalpel": "hard"
+    }
+   },
+   {
+    "key": "depth",
+    "label": "Depth",
+    "section": "SCALPEL blade 1",
+    "kind": "continuous",
+    "range": "0..1",
+    "default": "1",
+    "unit": "%",
+    "morph": {
+     "kind": "continuous",
+     "qm2": "SAFE"
+    },
+    "rate": {
+     "failureModes": [
+      "discontinuity"
+     ],
+     "bound": "one-pole 12 ms smoothing (parameters.json `engine`; SPEC-SCALPEL §7)"
+    },
+    "cadence": "per sample, 12 ms one-pole",
+    "globals": "none",
+    "from": {
+     "composed": "depth",
+     "scalpel": "depth"
+    }
+   },
+   {
+    "key": "mirror",
+    "label": "Mirror",
+    "section": "SCALPEL blade 1",
+    "kind": "stepped",
+    "range": "0..3",
+    "default": "0",
+    "morph": {
+     "kind": "stepped",
+     "qm2": "STRUCTURAL"
+    },
+    "rate": {
+     "failureModes": [
+      "non-interpolable"
+     ]
+    },
+    "cadence": "block rate (discrete)",
+    "globals": "none",
+    "from": {
+     "composed": "mirror",
+     "scalpel": "mirror"
+    }
+   },
+   {
+    "key": "mode",
+    "label": "Mode",
+    "section": "SCALPEL blade 1",
+    "kind": "stepped",
+    "range": "0..6",
+    "default": "0",
+    "morph": {
+     "kind": "stepped",
+     "qm2": "STRUCTURAL"
+    },
+    "rate": {
+     "failureModes": [
+      "non-interpolable"
+     ]
+    },
+    "cadence": "block rate (discrete)",
+    "globals": "none",
+    "from": {
+     "composed": "mode",
+     "scalpel": "mode"
+    }
+   },
+   {
+    "key": "hot",
+    "label": "Blade wave",
+    "section": "SCALPEL blade 1",
+    "kind": "stepped",
+    "range": "0..6",
+    "default": "2",
+    "morph": {
+     "kind": "stepped",
+     "qm2": "STRUCTURAL"
+    },
+    "rate": {
+     "failureModes": [
+      "non-interpolable"
+     ]
+    },
+    "cadence": "block rate (discrete)",
+    "globals": "none",
+    "from": {
+     "composed": "hot",
+     "scalpel": "hot"
+    }
+   },
+   {
+    "key": "morph",
+    "label": "Shape",
+    "section": "SCALPEL blade 1",
+    "kind": "continuous",
+    "range": "0..1",
+    "default": "0.5",
+    "unit": "%",
+    "morph": {
+     "kind": "continuous",
+     "qm2": "SAFE"
+    },
+    "rate": {
+     "failureModes": [
+      "discontinuity"
+     ],
+     "bound": "one-pole 12 ms smoothing (parameters.json `engine`; SPEC-SCALPEL §7)"
+    },
+    "cadence": "control rate (16 smp), 12 ms one-pole",
+    "globals": "none",
+    "from": {
+     "composed": "morph",
+     "scalpel": "morph"
+    }
+   },
+   {
+    "key": "fmType",
+    "label": "FM type",
+    "section": "SCALPEL blade 1",
+    "kind": "stepped",
+    "range": "0..1",
+    "default": "0",
+    "morph": {
+     "kind": "stepped",
+     "qm2": "STRUCTURAL"
+    },
+    "rate": {
+     "failureModes": [
+      "non-interpolable"
+     ]
+    },
+    "cadence": "block rate (discrete)",
+    "globals": "none",
+    "from": {
+     "composed": "fmType",
+     "scalpel": "fmType"
+    }
+   },
+   {
+    "key": "mshape",
+    "label": "Mod shape",
+    "section": "SCALPEL blade 1",
+    "kind": "stepped",
+    "range": "0..7",
+    "default": "0",
+    "morph": {
+     "kind": "stepped",
+     "qm2": "STRUCTURAL"
+    },
+    "rate": {
+     "failureModes": [
+      "non-interpolable"
+     ]
+    },
+    "cadence": "block rate (discrete)",
+    "globals": "none",
+    "from": {
+     "composed": "mshape",
+     "scalpel": "mshape"
+    }
+   },
+   {
+    "key": "I",
+    "label": "FM depth",
+    "section": "SCALPEL blade 1",
+    "kind": "continuous",
+    "range": "0..10",
+    "default": "2",
+    "unit": "n",
+    "morph": {
+     "kind": "continuous",
+     "qm2": "SAFE"
+    },
+    "rate": {
+     "failureModes": [
+      "discontinuity"
+     ],
+     "bound": "one-pole 12 ms smoothing (parameters.json `engine`; SPEC-SCALPEL §7)"
+    },
+    "cadence": "per sample, 12 ms one-pole",
+    "globals": "none",
+    "from": {
+     "composed": "I",
+     "scalpel": "I"
+    }
+   },
+   {
+    "key": "fb",
+    "label": "Feedback",
+    "section": "SCALPEL interplay & swarm",
+    "kind": "continuous",
+    "range": "0..1",
+    "default": "0",
+    "unit": "%",
+    "morph": {
+     "kind": "continuous",
+     "qm2": "SAFE"
+    },
+    "rate": {
+     "failureModes": [
+      "discontinuity"
+     ],
+     "bound": "one-pole 12 ms smoothing (parameters.json `engine`; SPEC-SCALPEL §7)"
+    },
+    "cadence": "control rate (16 smp), 12 ms one-pole",
+    "globals": "none",
+    "from": {
+     "composed": "fb",
+     "scalpel": "fb"
+    }
+   },
+   {
+    "key": "m",
+    "label": "Mod rate",
+    "section": "SCALPEL blade 1",
+    "kind": "continuous",
+    "range": "0.25..24",
+    "default": "3.37",
+    "unit": "x",
+    "morph": {
+     "kind": "continuous",
+     "qm2": "SAFE"
+    },
+    "rate": {
+     "failureModes": [
+      "discontinuity"
+     ],
+     "bound": "one-pole 12 ms smoothing (parameters.json `engine`; SPEC-SCALPEL §7)"
+    },
+    "cadence": "control rate (16 smp), 12 ms one-pole",
+    "globals": "PITCH: in × f₀ units the rate tracks the note",
+    "from": {
+     "composed": "m",
+     "scalpel": "m"
+    }
+   },
+   {
+    "key": "mHz",
+    "label": "Mod rate",
+    "section": "SCALPEL blade 1",
+    "kind": "continuous",
+    "range": "1..20000",
+    "default": "660",
+    "unit": "Hz",
+    "morph": {
+     "kind": "continuous",
+     "qm2": "SAFE"
+    },
+    "rate": {
+     "failureModes": [
+      "discontinuity"
+     ],
+     "bound": "one-pole 12 ms smoothing (parameters.json `engine`; SPEC-SCALPEL §7)"
+    },
+    "cadence": "control rate (16 smp), 12 ms one-pole",
+    "globals": "pitch: fixed Hz, does NOT track the note (a formant-like fixed band)",
+    "from": {
+     "composed": "mHz",
+     "scalpel": "mHz"
+    }
+   },
+   {
+    "key": "mUnit",
+    "label": "Mod rate in",
+    "section": "SCALPEL blade 1",
+    "kind": "stepped",
+    "range": "0..1",
+    "default": "0",
+    "morph": {
+     "kind": "stepped",
+     "qm2": "STRUCTURAL"
+    },
+    "rate": {
+     "failureModes": [
+      "non-interpolable"
+     ]
+    },
+    "cadence": "block rate (discrete)",
+    "globals": "none",
+    "from": {
+     "composed": "mUnit",
+     "scalpel": "mUnit"
+    }
+   },
+   {
+    "key": "lock",
+    "label": "Cut rate in",
+    "section": "SCALPEL blade 1",
+    "kind": "stepped",
+    "range": "0..2",
+    "default": "0",
+    "morph": {
+     "kind": "stepped",
+     "qm2": "STRUCTURAL"
+    },
+    "rate": {
+     "failureModes": [
+      "non-interpolable"
+     ]
+    },
+    "cadence": "block rate (discrete)",
+    "globals": "none",
+    "from": {
+     "composed": "lock",
+     "scalpel": "lock"
+    }
+   },
+   {
+    "key": "xm",
+    "label": "Cross-mod",
+    "section": "SCALPEL interplay & swarm",
+    "kind": "continuous",
+    "range": "0..1",
+    "default": "0",
+    "unit": "%",
+    "morph": {
+     "kind": "continuous",
+     "qm2": "SAFE"
+    },
+    "rate": {
+     "failureModes": [
+      "discontinuity"
+     ],
+     "bound": "one-pole 12 ms smoothing (parameters.json `engine`; SPEC-SCALPEL §7)"
+    },
+    "cadence": "control rate (16 smp), 12 ms one-pole",
+    "globals": "none",
+    "from": {
+     "composed": "xm",
+     "scalpel": "xm"
+    }
+   },
+   {
+    "key": "frame",
+    "label": "Blade frame",
+    "section": "SCALPEL interplay & swarm",
+    "kind": "stepped",
+    "range": "0..1",
+    "default": "0",
+    "morph": {
+     "kind": "stepped",
+     "qm2": "STRUCTURAL"
+    },
+    "rate": {
+     "failureModes": [
+      "non-interpolable"
+     ]
+    },
+    "cadence": "block rate (discrete)",
+    "globals": "reads the swarm (leadᵢ)",
+    "from": {
+     "composed": "frame",
+     "scalpel": "frame"
+    }
+   },
+   {
+    "key": "frame2",
+    "label": "Blade frame",
+    "section": "SCALPEL interplay & swarm",
+    "kind": "stepped",
+    "range": "-1..1",
+    "default": "-1",
+    "morph": {
+     "kind": "stepped",
+     "qm2": "STRUCTURAL"
+    },
+    "rate": {
+     "failureModes": [
+      "non-interpolable"
+     ]
+    },
+    "cadence": "block rate (discrete)",
+    "globals": "reads the swarm (leadᵢ)",
+    "from": {
+     "composed": "frame2",
+     "scalpel": "frame2"
+    }
+   },
+   {
+    "key": "law",
+    "label": "Spread law",
+    "section": "SCALPEL spreads",
+    "kind": "stepped",
+    "range": "0..4",
+    "default": "0",
+    "morph": {
+     "kind": "stepped",
+     "qm2": "STRUCTURAL"
+    },
+    "rate": {
+     "failureModes": [
+      "non-interpolable"
+     ]
+    },
+    "cadence": "block rate (discrete)",
+    "globals": "swarm law reads leadᵢ; random redraws per note",
+    "from": {
+     "composed": "law",
+     "scalpel": "law"
+    }
+   },
+   {
+    "key": "driftRate",
+    "label": "Spread drift",
+    "section": "SCALPEL spreads",
+    "kind": "continuous",
+    "range": "0.02..12",
+    "default": "0.5",
+    "unit": "Hz",
+    "morph": {
+     "kind": "continuous",
+     "qm2": "SAFE"
+    },
+    "rate": {
+     "failureModes": [
+      "discontinuity"
+     ],
+     "bound": "one-pole 12 ms smoothing (parameters.json `engine`; SPEC-SCALPEL §7)"
+    },
+    "cadence": "control rate (16 smp), 12 ms one-pole",
+    "globals": "none",
+    "from": {
+     "composed": "driftRate",
+     "scalpel": "driftRate"
+    }
+   },
+   {
+    "key": "bspread",
+    "label": "Pos spread",
+    "section": "SCALPEL spreads",
+    "kind": "continuous",
+    "range": "-1..1",
+    "default": "0",
+    "unit": "±%",
+    "morph": {
+     "kind": "continuous",
+     "qm2": "SAFE"
+    },
+    "rate": {
+     "failureModes": [
+      "discontinuity"
+     ],
+     "bound": "one-pole 12 ms smoothing (parameters.json `engine`; SPEC-SCALPEL §7)"
+    },
+    "cadence": "control rate (16 smp), 12 ms one-pole",
+    "globals": "none",
+    "from": {
+     "composed": "bspread",
+     "scalpel": "bspread"
+    }
+   },
+   {
+    "key": "kspread",
+    "label": "Cut spread",
+    "section": "SCALPEL spreads",
+    "kind": "continuous",
+    "range": "-24..24",
+    "default": "0",
+    "unit": "h±",
+    "morph": {
+     "kind": "continuous",
+     "qm2": "SAFE"
+    },
+    "rate": {
+     "failureModes": [
+      "discontinuity"
+     ],
+     "bound": "one-pole 12 ms smoothing (parameters.json `engine`; SPEC-SCALPEL §7)"
+    },
+    "cadence": "control rate (16 smp), 12 ms one-pole",
+    "globals": "none",
+    "from": {
+     "composed": "kspread",
+     "scalpel": "kspread"
+    }
+   },
+   {
+    "key": "kRule",
+    "label": "Cut rule",
+    "section": "SCALPEL spreads",
+    "kind": "stepped",
+    "range": "0..9",
+    "default": "0",
+    "morph": {
+     "kind": "stepped",
+     "qm2": "STRUCTURAL"
+    },
+    "rate": {
+     "failureModes": [
+      "non-interpolable"
+     ]
+    },
+    "cadence": "block rate (discrete)",
+    "globals": "none",
+    "from": {
+     "composed": "kRule",
+     "scalpel": "kRule"
+    }
+   },
+   {
+    "key": "kRuleAmt",
+    "label": "Rule depth",
+    "section": "SCALPEL spreads",
+    "kind": "continuous",
+    "range": "0..1",
+    "default": "1",
+    "unit": "%",
+    "morph": {
+     "kind": "continuous",
+     "qm2": "SAFE"
+    },
+    "rate": {
+     "failureModes": [
+      "discontinuity"
+     ],
+     "bound": "one-pole 12 ms smoothing (parameters.json `engine`; SPEC-SCALPEL §7)"
+    },
+    "cadence": "control rate (16 smp), 12 ms one-pole",
+    "globals": "none",
+    "from": {
+     "composed": "kRuleAmt",
+     "scalpel": "kRuleAmt"
+    }
+   },
+   {
+    "key": "kCustom",
+    "label": "Ratios",
+    "section": "SCALPEL spreads",
+    "kind": "stepped",
+    "range": "—",
+    "default": "1, 5/4, 3/2",
+    "morph": {
+     "kind": "stepped",
+     "qm2": "STRUCTURAL"
+    },
+    "rate": {
+     "failureModes": [
+      "non-interpolable"
+     ]
+    },
+    "cadence": "block rate (discrete)",
+    "globals": "none",
+    "from": {
+     "composed": "kCustom",
+     "scalpel": "kCustom"
+    }
+   },
+   {
+    "key": "kq",
+    "label": "Quantize",
+    "section": "SCALPEL spreads",
+    "kind": "stepped",
+    "range": "0..1",
+    "default": "0",
+    "morph": {
+     "kind": "stepped",
+     "qm2": "STRUCTURAL"
+    },
+    "rate": {
+     "failureModes": [
+      "non-interpolable"
+     ]
+    },
+    "cadence": "block rate (discrete)",
+    "globals": "none",
+    "from": {
+     "composed": "kq",
+     "scalpel": "kq"
+    }
+   },
+   {
+    "key": "wspread",
+    "label": "Width spread",
+    "section": "SCALPEL spreads",
+    "kind": "continuous",
+    "range": "-1..1",
+    "default": "0",
+    "unit": "±%",
+    "morph": {
+     "kind": "continuous",
+     "qm2": "SAFE"
+    },
+    "rate": {
+     "failureModes": [
+      "discontinuity"
+     ],
+     "bound": "one-pole 12 ms smoothing (parameters.json `engine`; SPEC-SCALPEL §7)"
+    },
+    "cadence": "control rate (16 smp), 12 ms one-pole",
+    "globals": "none",
+    "from": {
+     "composed": "wspread",
+     "scalpel": "wspread"
+    }
+   },
+   {
+    "key": "dspread",
+    "label": "Depth spread",
+    "section": "SCALPEL spreads",
+    "kind": "continuous",
+    "range": "-1..1",
+    "default": "0",
+    "unit": "±%",
+    "morph": {
+     "kind": "continuous",
+     "qm2": "SAFE"
+    },
+    "rate": {
+     "failureModes": [
+      "discontinuity"
+     ],
+     "bound": "one-pole 12 ms smoothing (parameters.json `engine`; SPEC-SCALPEL §7)"
+    },
+    "cadence": "control rate (16 smp), 12 ms one-pole",
+    "globals": "none",
+    "from": {
+     "composed": "dspread",
+     "scalpel": "dspread"
+    }
+   },
+   {
+    "key": "mspread",
+    "label": "Shape spread",
+    "section": "SCALPEL spreads",
+    "kind": "continuous",
+    "range": "-1..1",
+    "default": "0",
+    "unit": "±%",
+    "morph": {
+     "kind": "continuous",
+     "qm2": "SAFE"
+    },
+    "rate": {
+     "failureModes": [
+      "discontinuity"
+     ],
+     "bound": "one-pole 12 ms smoothing (parameters.json `engine`; SPEC-SCALPEL §7)"
+    },
+    "cadence": "control rate (16 smp), 12 ms one-pole",
+    "globals": "none",
+    "from": {
+     "composed": "mspread",
+     "scalpel": "mspread"
+    }
+   },
+   {
+    "key": "ispread",
+    "label": "FM idx spread",
+    "section": "SCALPEL spreads",
+    "kind": "continuous",
+    "range": "-1..1",
+    "default": "0",
+    "unit": "±%",
+    "morph": {
+     "kind": "continuous",
+     "qm2": "SAFE"
+    },
+    "rate": {
+     "failureModes": [
+      "discontinuity"
+     ],
+     "bound": "one-pole 12 ms smoothing (parameters.json `engine`; SPEC-SCALPEL §7)"
+    },
+    "cadence": "control rate (16 smp), 12 ms one-pole",
+    "globals": "none",
+    "from": {
+     "composed": "ispread",
+     "scalpel": "ispread"
+    }
+   },
+   {
+    "key": "rotSpread",
+    "label": "Rotate spread",
+    "section": "SCALPEL spreads",
+    "kind": "continuous",
+    "range": "-2..2",
+    "default": "0",
+    "unit": "Hz±",
+    "morph": {
+     "kind": "continuous",
+     "qm2": "SAFE"
+    },
+    "rate": {
+     "failureModes": [
+      "discontinuity"
+     ],
+     "bound": "one-pole 12 ms smoothing (parameters.json `engine`; SPEC-SCALPEL §7)"
+    },
+    "cadence": "control rate (16 smp), 12 ms one-pole",
+    "globals": "none",
+    "from": {
+     "composed": "rotSpread",
+     "scalpel": "rotSpread"
+    }
+   },
+   {
+    "key": "base",
+    "label": "Base wave",
+    "section": "SCALPEL interplay & swarm",
+    "kind": "stepped",
+    "range": "0..4",
+    "default": "0",
+    "morph": {
+     "kind": "stepped",
+     "qm2": "STRUCTURAL"
+    },
+    "rate": {
+     "failureModes": [
+      "non-interpolable"
+     ]
+    },
+    "cadence": "block rate (discrete)",
+    "globals": "none",
+    "from": {
+     "composed": "base",
+     "scalpel": "base"
+    }
+   },
+   {
+    "key": "b2on",
+    "label": "Blade 2",
+    "section": "SCALPEL blade 2",
+    "kind": "gate",
+    "range": "0..1",
+    "default": "0",
+    "morph": {
+     "kind": "gate",
+     "qm2": "STRUCTURAL"
+    },
+    "rate": {
+     "failureModes": [
+      "non-interpolable"
+     ]
+    },
+    "cadence": "block rate (discrete)",
+    "globals": "none",
+    "from": {
+     "composed": "b2on",
+     "scalpel": "b2on"
+    }
+   },
+   {
+    "key": "mode2",
+    "label": "Mode",
+    "section": "SCALPEL blade 2",
+    "kind": "stepped",
+    "range": "0..6",
+    "default": "4",
+    "morph": {
+     "kind": "stepped",
+     "qm2": "STRUCTURAL"
+    },
+    "rate": {
+     "failureModes": [
+      "non-interpolable"
+     ]
+    },
+    "cadence": "block rate (discrete)",
+    "globals": "none",
+    "from": {
+     "composed": "mode2",
+     "scalpel": "mode2"
+    }
+   },
+   {
+    "key": "hot2",
+    "label": "Blade wave",
+    "section": "SCALPEL blade 2",
+    "kind": "stepped",
+    "range": "0..6",
+    "default": "2",
+    "morph": {
+     "kind": "stepped",
+     "qm2": "STRUCTURAL"
+    },
+    "rate": {
+     "failureModes": [
+      "non-interpolable"
+     ]
+    },
+    "cadence": "block rate (discrete)",
+    "globals": "none",
+    "from": {
+     "composed": "hot2",
+     "scalpel": "hot2"
+    }
+   },
+   {
+    "key": "w2",
+    "label": "Width",
+    "section": "SCALPEL blade 2",
+    "kind": "continuous",
+    "range": "0..1",
+    "default": "0.2",
+    "unit": "w",
+    "morph": {
+     "kind": "continuous",
+     "qm2": "SAFE"
+    },
+    "rate": {
+     "failureModes": [
+      "discontinuity"
+     ],
+     "bound": "one-pole 12 ms smoothing (parameters.json `engine`; SPEC-SCALPEL §7)"
+    },
+    "cadence": "per sample, 12 ms one-pole",
+    "globals": "none",
+    "from": {
+     "composed": "w2",
+     "scalpel": "w2"
+    }
+   },
+   {
+    "key": "k2",
+    "label": "Cut rate",
+    "section": "SCALPEL blade 2",
+    "kind": "continuous",
+    "range": "1..64",
+    "default": "3",
+    "unit": "x",
+    "morph": {
+     "kind": "continuous",
+     "qm2": "SAFE"
+    },
+    "rate": {
+     "failureModes": [
+      "discontinuity"
+     ],
+     "bound": "one-pole 12 ms smoothing (parameters.json `engine`; SPEC-SCALPEL §7)"
+    },
+    "cadence": "per sample, 12 ms one-pole",
+    "globals": "PITCH: in × f₀ units the rate tracks the note",
+    "from": {
+     "composed": "k2",
+     "scalpel": "k2"
+    }
+   },
+   {
+    "key": "kHz2",
+    "label": "Cut rate",
+    "section": "SCALPEL blade 2",
+    "kind": "continuous",
+    "range": "20..12000",
+    "default": "800",
+    "unit": "Hz",
+    "morph": {
+     "kind": "continuous",
+     "qm2": "SAFE"
+    },
+    "rate": {
+     "failureModes": [
+      "discontinuity"
+     ],
+     "bound": "one-pole 12 ms smoothing (parameters.json `engine`; SPEC-SCALPEL §7)"
+    },
+    "cadence": "per sample, 12 ms one-pole",
+    "globals": "pitch: fixed Hz, does NOT track the note (a formant-like fixed band)",
+    "from": {
+     "composed": "kHz2",
+     "scalpel": "kHz2"
+    }
+   },
+   {
+    "key": "lock2",
+    "label": "Cut rate in",
+    "section": "SCALPEL blade 2",
+    "kind": "stepped",
+    "range": "-1..2",
+    "default": "-1",
+    "morph": {
+     "kind": "stepped",
+     "qm2": "STRUCTURAL"
+    },
+    "rate": {
+     "failureModes": [
+      "non-interpolable"
+     ]
+    },
+    "cadence": "block rate (discrete)",
+    "globals": "none",
+    "from": {
+     "composed": "lock2",
+     "scalpel": "lock2"
+    }
+   },
+   {
+    "key": "mirror2",
+    "label": "Mirror",
+    "section": "SCALPEL blade 2",
+    "kind": "stepped",
+    "range": "-1..3",
+    "default": "-1",
+    "morph": {
+     "kind": "stepped",
+     "qm2": "STRUCTURAL"
+    },
+    "rate": {
+     "failureModes": [
+      "non-interpolable"
+     ]
+    },
+    "cadence": "block rate (discrete)",
+    "globals": "none",
+    "from": {
+     "composed": "mirror2",
+     "scalpel": "mirror2"
+    }
+   },
+   {
+    "key": "morph2",
+    "label": "Shape",
+    "section": "SCALPEL blade 2",
+    "kind": "continuous",
+    "range": "0..1",
+    "default": "0.5",
+    "unit": "%",
+    "morph": {
+     "kind": "continuous",
+     "qm2": "SAFE"
+    },
+    "rate": {
+     "failureModes": [
+      "discontinuity"
+     ],
+     "bound": "one-pole 12 ms smoothing (parameters.json `engine`; SPEC-SCALPEL §7)"
+    },
+    "cadence": "control rate (16 smp), 12 ms one-pole",
+    "globals": "none",
+    "from": {
+     "composed": "morph2",
+     "scalpel": "morph2"
+    }
+   },
+   {
+    "key": "rot2Follow",
+    "label": "Rotation",
+    "section": "SCALPEL blade 2",
+    "kind": "stepped",
+    "range": "0..1",
+    "default": "1",
+    "morph": {
+     "kind": "stepped",
+     "qm2": "STRUCTURAL"
+    },
+    "rate": {
+     "failureModes": [
+      "non-interpolable"
+     ]
+    },
+    "cadence": "block rate (discrete)",
+    "globals": "none",
+    "from": {
+     "composed": "rot2Follow",
+     "scalpel": "rot2Follow"
+    }
+   },
+   {
+    "key": "rotRate2",
+    "label": "Rotate",
+    "section": "SCALPEL blade 2",
+    "kind": "continuous",
+    "range": "-4..4",
+    "default": "0",
+    "unit": "Hz±",
+    "morph": {
+     "kind": "continuous",
+     "qm2": "SAFE"
+    },
+    "rate": {
+     "failureModes": [
+      "discontinuity"
+     ],
+     "bound": "one-pole 12 ms smoothing (parameters.json `engine`; SPEC-SCALPEL §7)"
+    },
+    "cadence": "control rate (16 smp), 12 ms one-pole",
+    "globals": "none",
+    "from": {
+     "composed": "rotRate2",
+     "scalpel": "rotRate2"
+    }
+   },
+   {
+    "key": "c2",
+    "label": "Position",
+    "section": "SCALPEL blade 2",
+    "kind": "continuous",
+    "range": "0..1",
+    "default": "0.35",
+    "unit": "deg",
+    "morph": {
+     "kind": "continuous",
+     "qm2": "SAFE"
+    },
+    "rate": {
+     "failureModes": [
+      "discontinuity",
+      "control-tick aliasing"
+     ],
+     "bound": "one-pole 12 ms smoothing (parameters.json `engine`; SPEC-SCALPEL §7)"
+    },
+    "cadence": "per sample, 12 ms one-pole",
+    "globals": "none",
+    "from": {
+     "composed": "c2",
+     "scalpel": "c2"
+    }
+   },
+   {
+    "key": "hard2",
+    "label": "Edges",
+    "section": "SCALPEL blade 2",
+    "kind": "continuous",
+    "range": "0..1",
+    "default": "0",
+    "unit": "%",
+    "morph": {
+     "kind": "continuous",
+     "qm2": "SAFE"
+    },
+    "rate": {
+     "failureModes": [
+      "discontinuity"
+     ],
+     "bound": "one-pole 12 ms smoothing (parameters.json `engine`; SPEC-SCALPEL §7)"
+    },
+    "cadence": "control rate (16 smp), 12 ms one-pole",
+    "globals": "none",
+    "from": {
+     "composed": "hard2",
+     "scalpel": "hard2"
+    }
+   },
+   {
+    "key": "depth2",
+    "label": "Depth",
+    "section": "SCALPEL blade 2",
+    "kind": "continuous",
+    "range": "0..1",
+    "default": "1",
+    "unit": "%",
+    "morph": {
+     "kind": "continuous",
+     "qm2": "SAFE"
+    },
+    "rate": {
+     "failureModes": [
+      "discontinuity"
+     ],
+     "bound": "one-pole 12 ms smoothing (parameters.json `engine`; SPEC-SCALPEL §7)"
+    },
+    "cadence": "control rate (16 smp), 12 ms one-pole",
+    "globals": "none",
+    "from": {
+     "composed": "depth2",
+     "scalpel": "depth2"
+    }
+   },
+   {
+    "key": "b2sp",
+    "label": "Spreads",
+    "section": "SCALPEL spreads",
+    "kind": "stepped",
+    "range": "0..1",
+    "default": "0",
+    "morph": {
+     "kind": "stepped",
+     "qm2": "STRUCTURAL"
+    },
+    "rate": {
+     "failureModes": [
+      "non-interpolable"
+     ]
+    },
+    "cadence": "block rate (discrete)",
+    "globals": "none",
+    "from": {
+     "composed": "b2sp",
+     "scalpel": "b2sp"
+    }
+   },
+   {
+    "key": "bspread2",
+    "label": "Pos spread",
+    "section": "SCALPEL spreads",
+    "kind": "continuous",
+    "range": "-1..1",
+    "default": "0",
+    "unit": "±%",
+    "morph": {
+     "kind": "continuous",
+     "qm2": "SAFE"
+    },
+    "rate": {
+     "failureModes": [
+      "discontinuity"
+     ],
+     "bound": "one-pole 12 ms smoothing (parameters.json `engine`; SPEC-SCALPEL §7)"
+    },
+    "cadence": "control rate (16 smp), 12 ms one-pole",
+    "globals": "none",
+    "from": {
+     "composed": "bspread2",
+     "scalpel": "bspread2"
+    }
+   },
+   {
+    "key": "kRule2",
+    "label": "Cut rule",
+    "section": "SCALPEL spreads",
+    "kind": "stepped",
+    "range": "0..9",
+    "default": "0",
+    "morph": {
+     "kind": "stepped",
+     "qm2": "STRUCTURAL"
+    },
+    "rate": {
+     "failureModes": [
+      "non-interpolable"
+     ]
+    },
+    "cadence": "block rate (discrete)",
+    "globals": "none",
+    "from": {
+     "composed": "kRule2",
+     "scalpel": "kRule2"
+    }
+   },
+   {
+    "key": "kspread2",
+    "label": "Cut spread",
+    "section": "SCALPEL spreads",
+    "kind": "continuous",
+    "range": "-24..24",
+    "default": "0",
+    "unit": "h±",
+    "morph": {
+     "kind": "continuous",
+     "qm2": "SAFE"
+    },
+    "rate": {
+     "failureModes": [
+      "discontinuity"
+     ],
+     "bound": "one-pole 12 ms smoothing (parameters.json `engine`; SPEC-SCALPEL §7)"
+    },
+    "cadence": "control rate (16 smp), 12 ms one-pole",
+    "globals": "none",
+    "from": {
+     "composed": "kspread2",
+     "scalpel": "kspread2"
+    }
+   },
+   {
+    "key": "kRuleAmt2",
+    "label": "Rule depth",
+    "section": "SCALPEL spreads",
+    "kind": "continuous",
+    "range": "0..1",
+    "default": "1",
+    "unit": "%",
+    "morph": {
+     "kind": "continuous",
+     "qm2": "SAFE"
+    },
+    "rate": {
+     "failureModes": [
+      "discontinuity"
+     ],
+     "bound": "one-pole 12 ms smoothing (parameters.json `engine`; SPEC-SCALPEL §7)"
+    },
+    "cadence": "control rate (16 smp), 12 ms one-pole",
+    "globals": "none",
+    "from": {
+     "composed": "kRuleAmt2",
+     "scalpel": "kRuleAmt2"
+    }
+   },
+   {
+    "key": "wspread2",
+    "label": "Width spread",
+    "section": "SCALPEL spreads",
+    "kind": "continuous",
+    "range": "-1..1",
+    "default": "0",
+    "unit": "±%",
+    "morph": {
+     "kind": "continuous",
+     "qm2": "SAFE"
+    },
+    "rate": {
+     "failureModes": [
+      "discontinuity"
+     ],
+     "bound": "one-pole 12 ms smoothing (parameters.json `engine`; SPEC-SCALPEL §7)"
+    },
+    "cadence": "control rate (16 smp), 12 ms one-pole",
+    "globals": "none",
+    "from": {
+     "composed": "wspread2",
+     "scalpel": "wspread2"
+    }
+   },
+   {
+    "key": "mspread2",
+    "label": "Shape spread",
+    "section": "SCALPEL spreads",
+    "kind": "continuous",
+    "range": "-1..1",
+    "default": "0",
+    "unit": "±%",
+    "morph": {
+     "kind": "continuous",
+     "qm2": "SAFE"
+    },
+    "rate": {
+     "failureModes": [
+      "discontinuity"
+     ],
+     "bound": "one-pole 12 ms smoothing (parameters.json `engine`; SPEC-SCALPEL §7)"
+    },
+    "cadence": "control rate (16 smp), 12 ms one-pole",
+    "globals": "none",
+    "from": {
+     "composed": "mspread2",
+     "scalpel": "mspread2"
+    }
+   },
+   {
+    "key": "ispread2",
+    "label": "FM idx spread",
+    "section": "SCALPEL spreads",
+    "kind": "continuous",
+    "range": "-1..1",
+    "default": "0",
+    "unit": "±%",
+    "morph": {
+     "kind": "continuous",
+     "qm2": "SAFE"
+    },
+    "rate": {
+     "failureModes": [
+      "discontinuity"
+     ],
+     "bound": "one-pole 12 ms smoothing (parameters.json `engine`; SPEC-SCALPEL §7)"
+    },
+    "cadence": "control rate (16 smp), 12 ms one-pole",
+    "globals": "none",
+    "from": {
+     "composed": "ispread2",
+     "scalpel": "ispread2"
+    }
+   },
+   {
+    "key": "rotSpread2",
+    "label": "Rotate spread",
+    "section": "SCALPEL spreads",
+    "kind": "continuous",
+    "range": "-2..2",
+    "default": "0",
+    "unit": "Hz±",
+    "morph": {
+     "kind": "continuous",
+     "qm2": "SAFE"
+    },
+    "rate": {
+     "failureModes": [
+      "discontinuity"
+     ],
+     "bound": "one-pole 12 ms smoothing (parameters.json `engine`; SPEC-SCALPEL §7)"
+    },
+    "cadence": "control rate (16 smp), 12 ms one-pole",
+    "globals": "none",
+    "from": {
+     "composed": "rotSpread2",
+     "scalpel": "rotSpread2"
+    }
+   },
+   {
+    "key": "dspread2",
+    "label": "Depth spread",
+    "section": "SCALPEL spreads",
+    "kind": "continuous",
+    "range": "-1..1",
+    "default": "0",
+    "unit": "±%",
+    "morph": {
+     "kind": "continuous",
+     "qm2": "SAFE"
+    },
+    "rate": {
+     "failureModes": [
+      "discontinuity"
+     ],
+     "bound": "one-pole 12 ms smoothing (parameters.json `engine`; SPEC-SCALPEL §7)"
+    },
+    "cadence": "control rate (16 smp), 12 ms one-pole",
+    "globals": "none",
+    "from": {
+     "composed": "dspread2",
+     "scalpel": "dspread2"
+    }
+   },
+   {
+    "key": "b2order",
+    "label": "Stacking",
+    "section": "SCALPEL interplay & swarm",
+    "kind": "stepped",
+    "range": "0..1",
+    "default": "0",
+    "morph": {
+     "kind": "stepped",
+     "qm2": "STRUCTURAL"
+    },
+    "rate": {
+     "failureModes": [
+      "non-interpolable"
+     ]
+    },
+    "cadence": "block rate (discrete)",
+    "globals": "none",
+    "from": {
+     "composed": "b2order",
+     "scalpel": "b2order"
+    }
+   },
+   {
+    "key": "b2mix",
+    "label": "Upper hears",
+    "section": "SCALPEL interplay & swarm",
+    "kind": "continuous",
+    "range": "0..1",
+    "default": "0",
+    "unit": "%",
+    "morph": {
+     "kind": "continuous",
+     "qm2": "SAFE"
+    },
+    "rate": {
+     "failureModes": [
+      "discontinuity"
+     ],
+     "bound": "one-pole 12 ms smoothing (parameters.json `engine`; SPEC-SCALPEL §7)"
+    },
+    "cadence": "per sample, 12 ms one-pole",
+    "globals": "none",
+    "from": {
+     "composed": "b2mix",
+     "scalpel": "b2mix"
+    }
+   },
+   {
+    "key": "colK",
+    "label": "Collision → pitch",
+    "section": "SCALPEL interplay & swarm",
+    "kind": "continuous",
+    "range": "-1..1",
+    "default": "0",
+    "unit": "bi",
+    "morph": {
+     "kind": "continuous",
+     "qm2": "SAFE"
+    },
+    "rate": {
+     "failureModes": [
+      "discontinuity"
+     ],
+     "bound": "one-pole 12 ms smoothing (parameters.json `engine`; SPEC-SCALPEL §7)"
+    },
+    "cadence": "control rate (16 smp), 12 ms one-pole",
+    "globals": "none",
+    "from": {
+     "composed": "colK",
+     "scalpel": "colK"
+    }
+   },
+   {
+    "key": "colB",
+    "label": "Collision → bite",
+    "section": "SCALPEL interplay & swarm",
+    "kind": "continuous",
+    "range": "0..1",
+    "default": "0",
+    "unit": "%",
+    "morph": {
+     "kind": "continuous",
+     "qm2": "SAFE"
+    },
+    "rate": {
+     "failureModes": [
+      "discontinuity"
+     ],
+     "bound": "one-pole 12 ms smoothing (parameters.json `engine`; SPEC-SCALPEL §7)"
+    },
+    "cadence": "control rate (16 smp), 12 ms one-pole",
+    "globals": "none",
+    "from": {
+     "composed": "colB",
+     "scalpel": "colB"
+    }
+   },
+   {
+    "key": "b2fm",
+    "label": "FM",
+    "section": "SCALPEL blade 2",
+    "kind": "stepped",
+    "range": "0..1",
+    "default": "0",
+    "morph": {
+     "kind": "stepped",
+     "qm2": "STRUCTURAL"
+    },
+    "rate": {
+     "failureModes": [
+      "non-interpolable"
+     ]
+    },
+    "cadence": "block rate (discrete)",
+    "globals": "none",
+    "from": {
+     "composed": "b2fm",
+     "scalpel": "b2fm"
+    }
+   },
+   {
+    "key": "fmType2",
+    "label": "FM type",
+    "section": "SCALPEL blade 2",
+    "kind": "stepped",
+    "range": "0..1",
+    "default": "0",
+    "morph": {
+     "kind": "stepped",
+     "qm2": "STRUCTURAL"
+    },
+    "rate": {
+     "failureModes": [
+      "non-interpolable"
+     ]
+    },
+    "cadence": "block rate (discrete)",
+    "globals": "none",
+    "from": {
+     "composed": "fmType2",
+     "scalpel": "fmType2"
+    }
+   },
+   {
+    "key": "mshape2",
+    "label": "Mod shape",
+    "section": "SCALPEL blade 2",
+    "kind": "stepped",
+    "range": "0..7",
+    "default": "0",
+    "morph": {
+     "kind": "stepped",
+     "qm2": "STRUCTURAL"
+    },
+    "rate": {
+     "failureModes": [
+      "non-interpolable"
+     ]
+    },
+    "cadence": "block rate (discrete)",
+    "globals": "none",
+    "from": {
+     "composed": "mshape2",
+     "scalpel": "mshape2"
+    }
+   },
+   {
+    "key": "I2",
+    "label": "FM depth",
+    "section": "SCALPEL blade 2",
+    "kind": "continuous",
+    "range": "0..10",
+    "default": "2",
+    "unit": "n",
+    "morph": {
+     "kind": "continuous",
+     "qm2": "SAFE"
+    },
+    "rate": {
+     "failureModes": [
+      "discontinuity"
+     ],
+     "bound": "one-pole 12 ms smoothing (parameters.json `engine`; SPEC-SCALPEL §7)"
+    },
+    "cadence": "control rate (16 smp), 12 ms one-pole",
+    "globals": "none",
+    "from": {
+     "composed": "I2",
+     "scalpel": "I2"
+    }
+   },
+   {
+    "key": "mUnit2",
+    "label": "Mod rate in",
+    "section": "SCALPEL blade 2",
+    "kind": "stepped",
+    "range": "0..1",
+    "default": "0",
+    "morph": {
+     "kind": "stepped",
+     "qm2": "STRUCTURAL"
+    },
+    "rate": {
+     "failureModes": [
+      "non-interpolable"
+     ]
+    },
+    "cadence": "block rate (discrete)",
+    "globals": "none",
+    "from": {
+     "composed": "mUnit2",
+     "scalpel": "mUnit2"
+    }
+   },
+   {
+    "key": "m2",
+    "label": "Mod rate",
+    "section": "SCALPEL blade 2",
+    "kind": "continuous",
+    "range": "0.25..24",
+    "default": "3.37",
+    "unit": "x",
+    "morph": {
+     "kind": "continuous",
+     "qm2": "SAFE"
+    },
+    "rate": {
+     "failureModes": [
+      "discontinuity"
+     ],
+     "bound": "one-pole 12 ms smoothing (parameters.json `engine`; SPEC-SCALPEL §7)"
+    },
+    "cadence": "control rate (16 smp), 12 ms one-pole",
+    "globals": "PITCH: in × f₀ units the rate tracks the note",
+    "from": {
+     "composed": "m2",
+     "scalpel": "m2"
+    }
+   },
+   {
+    "key": "mHz2",
+    "label": "Mod rate",
+    "section": "SCALPEL blade 2",
+    "kind": "continuous",
+    "range": "1..20000",
+    "default": "660",
+    "unit": "Hz",
+    "morph": {
+     "kind": "continuous",
+     "qm2": "SAFE"
+    },
+    "rate": {
+     "failureModes": [
+      "discontinuity"
+     ],
+     "bound": "one-pole 12 ms smoothing (parameters.json `engine`; SPEC-SCALPEL §7)"
+    },
+    "cadence": "control rate (16 smp), 12 ms one-pole",
+    "globals": "pitch: fixed Hz, does NOT track the note (a formant-like fixed band)",
+    "from": {
+     "composed": "mHz2",
+     "scalpel": "mHz2"
+    }
+   },
+   {
+    "key": "b1on",
+    "label": "Blade 1 on",
+    "section": "SCALPEL blade 1",
+    "kind": "gate",
+    "range": "0..1",
+    "default": "—",
+    "morph": {
+     "kind": "gate",
+     "qm2": "STRUCTURAL"
+    },
+    "rate": {
+     "failureModes": [
+      "non-interpolable"
+     ]
+    },
+    "cadence": "lab mapping",
+    "globals": "none",
+    "from": {
+     "scalpel": "b1on"
+    }
+   }
+  ],
+  "locked": [
+   {
+    "key": "absK",
+    "value": "0",
+    "note": "Or simply cull, unless that breaks something"
+   },
+   {
+    "key": "motionCenter",
+    "value": "0"
+   },
+   {
+    "key": "inertiaCurve",
+    "value": "2.5"
+   },
+   {
+    "key": "voiceCull",
+    "value": "-80 dB"
+   },
+   {
+    "key": "lpOut",
+    "value": "1"
+   },
+   {
+    "key": "normExp",
+    "value": "0.75"
+   },
+   {
+    "key": "panMode",
+    "value": "0",
+    "note": "(or just cull unless it breaks something)"
+   },
+   {
+    "key": "tilt",
+    "value": "0",
+    "note": "Might be able to cull"
+   },
+   {
+    "key": "hiTame",
+    "value": "0",
+    "note": "Or just cull; should be a filter instead."
+   },
+   {
+    "key": "aaCarrier",
+    "value": "lab default"
+   },
+   {
+    "key": "aaXin",
+    "value": "on"
+   },
+   {
+    "key": "aaLoop",
+    "value": "on (after ear check)"
+   },
+   {
+    "key": "dcMode",
+    "value": "2 (per cycle)"
+   }
+  ],
+  "merged": [
+   {
+    "key": "spread",
+    "into": "",
+    "note": "As recommended"
+   },
+   {
+    "key": "retrig",
+    "into": "",
+    "note": "As recommended"
+   },
+   {
+    "key": "scatter",
+    "into": "",
+    "note": "As recommended"
+   },
+   {
+    "key": "keepPhase",
+    "into": "",
+    "note": "As recommended"
+   },
+   {
+    "key": "attackS",
+    "into": "",
+    "note": "As recommended"
+   },
+   {
+    "key": "decayS",
+    "into": "",
+    "note": "As recommended"
+   },
+   {
+    "key": "sustainL",
+    "into": "",
+    "note": "As recommended"
+   },
+   {
+    "key": "releaseS",
+    "into": "",
+    "note": "As recommended"
+   },
+   {
+    "key": "glide",
+    "into": "noteLaw"
+   },
+   {
+    "key": "digital",
+    "into": "",
+    "note": "As recommended"
+   },
+   {
+    "key": "panLayout",
+    "into": "",
+    "note": "As recommended"
+   },
+   {
+    "key": "polyMode",
+    "into": "",
+    "note": "As recommended"
+   },
+   {
+    "key": "octave",
+    "into": "",
+    "note": "As recommended"
+   }
+  ],
+  "culled": [
+   {
+    "key": "stretchB",
+    "note": "I think we can remove the stretch law; it doesn't offer anything harmonic doesn't in practice."
+   },
+   {
+    "key": "bpm"
+   },
+   {
+    "key": "tune"
+   },
+   {
+    "key": "reach"
+   },
+   {
+    "key": "poles"
+   },
+   {
+    "key": "polyGlide"
+   },
+   {
+    "key": "panScatter",
+    "note": "This was a stopgap solution before we figured out the alternating fan"
+   },
+   {
+    "key": "shape"
+   },
+   {
+    "key": "sawBase"
+   },
+   {
+    "key": "sawProfile"
+   },
+   {
+    "key": "round"
+   },
+   {
+    "key": "roundHi"
+   },
+   {
+    "key": "modEnvPitch"
+   },
+   {
+    "key": "engine"
+   },
+   {
+    "key": "b2env"
+   },
+   {
+    "key": "benvK2"
+   },
+   {
+    "key": "benvW2"
+   },
+   {
+    "key": "benvA2"
+   },
+   {
+    "key": "benvD2"
+   },
+   {
+    "key": "benvVel2"
+   },
+   {
+    "key": "benvK"
+   },
+   {
+    "key": "benvW"
+   },
+   {
+    "key": "benvA"
+   },
+   {
+    "key": "benvD"
+   },
+   {
+    "key": "benvVel"
+   },
+   {
+    "key": "f0Mode"
+   },
+   {
+    "key": "f0"
+   },
+   {
+    "key": "f0Note"
+   },
+   {
+    "key": "nameAbleton"
+   },
+   {
+    "key": "kRuleOut"
+   },
+   {
+    "key": "kRuleOut2"
+   },
+   {
+    "key": "wtMode"
+   },
+   {
+    "key": "wtFrames"
+   },
+   {
+    "key": "wtDur"
+   },
+   {
+    "key": "wtNorm"
+   },
+   {
+    "key": "subLvl"
+   }
+  ],
+  "undecided": [],
+  "moved": [
+   {
+    "key": "rtone",
+    "to": "per-note filter cutoff control"
+   },
+   {
+    "key": "poly",
+    "to": "Settings"
+   }
+  ],
+  "deferred": [
+   {
+    "key": "beatMult",
+    "note": "As recommended"
+   },
+   {
+    "key": "onset",
+    "note": "Test as recommended"
+   },
+   {
+    "key": "dissolve",
+    "note": "Test as recommended"
+   },
+   {
+    "key": "driftMode",
+    "note": "Let's test"
+   },
+   {
+    "key": "inertia"
+   },
+   {
+    "key": "freqGlide",
+    "note": "Let's run tests on both to determine"
+   },
+   {
+    "key": "topo",
+    "note": "(I have no \"reduce\" option here, so I'm using defer instead)"
+   },
+   {
+    "key": "mu"
+   },
+   {
+    "key": "balance"
+   },
+   {
+    "key": "basin"
+   },
+   {
+    "key": "onsetScatter",
+    "note": "Test, as recommended"
+   },
+   {
+    "key": "attackScatter",
+    "note": "Test as recommended"
+   },
+   {
+    "key": "voiceEnv",
+    "note": "Test as recommended"
+   },
+   {
+    "key": "relScatter",
+    "note": "Test as recommended"
+   },
+   {
+    "key": "vol",
+    "note": "Let's make a decision about this based on best practices"
+   },
+   {
+    "key": "mono",
+    "note": "Pending that measurement; likely cull after"
+   },
+   {
+    "key": "panCurve"
+   },
+   {
+    "key": "superMode"
+   },
+   {
+    "key": "bassMono"
+   }
+  ]
+ }
+}
