@@ -541,33 +541,61 @@ full() {
   fi
   tail -1 /tmp/h2fma.$$; rm -f /tmp/h2fma.$$
   # horde 2's ONE engine, the composed engine h2/engine/ (B385; wired by B405 under
-  # ADR-187 A2 and ADR-180 §1). The check spawns `node tools/h2_engine_render.mjs`
-  # (543 scenarios through the composed JS golden) and demands rms < 1e-6, max-abs
-  # < 1e-6, identical blade events and identical load readouts for each. The three
-  # Cross-mod ring (watch) rows, pinned by name, are judged on a measured onset
-  # window, events, readouts and bounded-and-finite instead (A2 item 1). Planted
-  # engine faults must each turn their row red (X1-late must turn a NON-chaotic xm
-  # row red), the five golden blobs must match h2/README.md's pins, the bit-exact
-  # floor gates on its keyed platform only (A2 item 2), and determinism is checked
-  # across host block sizes and a child process. ~40 s here, mostly Node. Captured
-  # (a row per scenario); the exclusions, the controls and the verdict are echoed on
-  # green runs too. The FMA control: exit 0 = caught, 1 = not, 2 = the run broke.
-  "$build_dir/h2_engine_parity_check" > /tmp/h2engine.$$ 2>&1 || {
-    echo "verify[full]: h2_engine_parity_check FAILED" >&2; grep -v '^PASS  rms' /tmp/h2engine.$$ >&2
-    rm -f /tmp/h2engine.$$; return 1; }
-  grep -E '^(EXCL|SKIP|PASS  (PIN|FLOOR|FLOORKEY|BITEXACT|control X1|control BF))' /tmp/h2engine.$$
-  tail -1 /tmp/h2engine.$$; rm -f /tmp/h2engine.$$
-  local h2efma=0
-  "$build_dir/h2_engine_fma_control" > /tmp/h2efma.$$ 2>&1 || h2efma=$?
-  if [ "$h2efma" -ne 0 ]; then
-    if [ "$h2efma" -eq 1 ]; then
+  # ADR-187 A2 and ADR-180 §1). `node tools/h2_engine_render.mjs` renders the 543
+  # scenarios through the composed JS golden ONCE, to a temp file both binaries read
+  # with --full-from (B405 rework, critic M4: it used to render twice). The check
+  # demands rms < 1e-6, max-abs < 1e-6, identical blade events and identical load
+  # readouts for each. The three Cross-mod ring (watch) rows, pinned by name, are
+  # judged on a measured onset window, events, readouts and a finite render instead
+  # (A2 item 1). Planted engine faults must each turn their row red (X1-late must
+  # turn a NON-chaotic xm row red), the five golden blobs must match h2/README.md's
+  # pins, the bit-exact floor gates on its keyed platform only (A2 item 2), and
+  # determinism is checked across host block sizes and a child process. TRUNC, the
+  # file path's own must-fire: the stream cut at 8 MB (no END record) must turn the
+  # check red on its STREAM row and make the FMA control report BROKEN (exit 2),
+  # never fired. Captured (a row per scenario); echoed on green runs too: the
+  # exclusions with their onset profiles, every control with X1-late's red rows,
+  # its margin sweep and the ring's blind spot, the floor, and its upgrade WARNING
+  # (also sent to stderr; it does not change the exit, which is the human's call).
+  # The FMA control: exit 0 = caught, 1 = not, 2 = the run broke. Every temp file is
+  # removed on every path.
+  local h2s="/tmp/h2stream.$$" h2e="/tmp/h2engine.$$" h2f="/tmp/h2efma.$$" h2r="/tmp/h2render.$$" h2c="/tmp/h2cut.$$"
+  local h2tmp="$h2s $h2e $h2f $h2r $h2c" h2x=0
+  node tools/h2_engine_render.mjs > "$h2s" 2> "$h2r" || {
+    echo "verify[full]: tools/h2_engine_render.mjs FAILED (the composed golden's stream)" >&2; cat "$h2r" >&2
+    rm -f $h2tmp; return 1; }
+  tail -1 "$h2r"
+  head -c 8000000 "$h2s" > "$h2c"
+  "$build_dir/h2_engine_parity_check" --full-from "$h2c" > "$h2e" 2>&1 || h2x=$?
+  if [ "$h2x" -ne 1 ] || ! grep -q '^FAIL  STREAM' "$h2e"; then
+    echo "verify[full]: TRUNC did not fire: a stream file cut short (no END) was not red on STREAM (exit $h2x)" >&2
+    grep -v '^PASS  rms' "$h2e" >&2; rm -f $h2tmp; return 1
+  fi
+  h2x=0
+  "$build_dir/h2_engine_fma_control" --full-from "$h2c" > "$h2f" 2>&1 || h2x=$?
+  if [ "$h2x" -ne 2 ]; then
+    echo "verify[full]: TRUNC did not fire: the FMA control on a cut stream exited $h2x, want 2 (broken, never fired)" >&2
+    tail -3 "$h2f" >&2; rm -f $h2tmp; return 1
+  fi
+  echo "PASS  TRUNC  the stream cut at 8 MB (no END): h2_engine_parity_check red on STREAM (exit 1), h2_engine_fma_control broken (exit 2)"
+  rm -f "$h2c"
+  "$build_dir/h2_engine_parity_check" --full-from "$h2s" > "$h2e" 2>&1 || {
+    echo "verify[full]: h2_engine_parity_check FAILED" >&2; grep -v '^PASS  rms' "$h2e" >&2
+    rm -f $h2tmp; return 1; }
+  grep '^WARNING: bit-exact floor' "$h2e" >&2
+  grep -E '^(EXCL|SKIP|WARNING|PASS  (STREAM|PIN|FLOOR|BITEXACT|control X1|control BF))|^        (onset profile|red: |margin sweep|\(ring, not judged\))' "$h2e"
+  tail -1 "$h2e"
+  h2x=0
+  "$build_dir/h2_engine_fma_control" --full-from "$h2s" > "$h2f" 2>&1 || h2x=$?
+  if [ "$h2x" -ne 0 ]; then
+    if [ "$h2x" -eq 1 ]; then
       echo "verify[full]: h2_engine_fma_control did not fire (the FMA-contracted build passed the gate)" >&2
     else
-      echo "verify[full]: h2_engine_fma_control run broke (exit $h2efma) — infrastructure, not a verdict" >&2
+      echo "verify[full]: h2_engine_fma_control run broke (exit $h2x) — infrastructure, not a verdict" >&2
     fi
-    grep -v '^PASS  rms' /tmp/h2efma.$$ >&2; rm -f /tmp/h2efma.$$; return 1
+    grep -v '^PASS  rms' "$h2f" >&2; rm -f $h2tmp; return 1
   fi
-  tail -1 /tmp/h2efma.$$; rm -f /tmp/h2efma.$$
+  tail -1 "$h2f"; rm -f $h2tmp
   # horde 2's lifted swarm core (B379 step 1, h2/cores/swarm/): lift edit E1
   # re-proven. A Voice the caller owns, started with initVoice() and ticked
   # through the one public forwarder E1 adds, must match the core's own voice

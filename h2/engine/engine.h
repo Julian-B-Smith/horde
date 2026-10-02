@@ -77,11 +77,14 @@ class Engine {
   double faultEps = 0;
 #define H2E_FAULT(n) (fault == (n))
 #define H2E_EPS(x) (fault == 0 ? (x) * (1 + faultEps) : (x))
-  // X1 (fault 13) scales the ring's xm from the first sample; X1-late (14) from
-  // this frame on, so its first frames match the clean render bit for bit
-  // (ADR-187 A2). evSample is the engine's own count of samples rendered.
+  // X1 (fault 13) scales the ring's xm by 1 + 1e-9 from the first sample; X1-late
+  // (14) from this frame on, so its first frames match the clean render bit for
+  // bit (ADR-187 A2). evSample is the engine's own count of samples rendered.
+  // X1-late's scale is 1 + faultEps when faultEps is set (the printed margin
+  // sweep), else the judged 1 + 1e-9.
   static constexpr uint64_t kX1LateFrame = 128;
-#define H2E_EPS13(x) ((fault == 13 || (fault == 14 && evSample >= kX1LateFrame)) ? (x) * (1 + 1e-9) : (x))
+#define H2E_EPS13(x) (fault == 13 ? (x) * (1 + 1e-9) \
+                     : (fault == 14 && evSample >= kX1LateFrame) ? (x) * (1 + (faultEps != 0 ? faultEps : 1e-9)) : (x))
   void armFaults() { if (fault == 9) field.faultKsm(0.08); }
 #else
 #define H2E_FAULT(n) false

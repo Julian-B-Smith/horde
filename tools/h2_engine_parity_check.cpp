@@ -31,9 +31,12 @@
  *     before the first libm disagreement reaches the output), while the mean moves
  *     by 1.3. The share depends on both sides' libm (L0066), so the pin is keyed on
  *     platform, compiler and the golden's Node major; on an unkeyed platform the
- *     mean is printed and does not gate (a SKIP, never a pass). The FLOORKEY
- *     self-test runs the verdict on a fabricated unkeyed key every run, so that
- *     path is exercised here, not assumed.
+ *     mean is printed and does not gate (a SKIP, never a pass). On a platform that
+ *     HAS a pin but a different compiler or Node major (an upgrade), the SKIP comes
+ *     with a LOUD stderr WARNING to re-measure and re-pin (L0072); whether that
+ *     should fail is the human's call, so it only warns. The FLOORKEY self-test
+ *     runs the verdict on fabricated keys every run (unkeyed: silent skip; a
+ *     pinned platform's mismatch: warn), so those paths are exercised, not assumed.
  * Families: P/ the 83 bench presets x phrases; E/ the 12 B366 lab presets x
  * phrases; T/ phase 1a's blade rows; C/ the composed rows. The list is the render
  * script's.
@@ -51,9 +54,10 @@
  *     (0..24 ULP) of all three rows (docs/port/h2-engine.md, "The onset window").
  *     Each run prints the row's onset profile, so the margin is visible;
  *   - identical events and identical readouts, over the whole render;
- *   - BOUNDED AND FINITE over the whole render: every C++ sample finite and
- *     |x| <= kTailBound = 1, the range of the output stage's tanh (the golden's is
- *     the same tanh), so a sample past it means the output stage itself broke.
+ *   - FINITE over the whole render (a NaN/Inf guard). The bound |x| <= kTailBound
+ *     = 1 is checked with it but holds BY CONSTRUCTION after the output tanh
+ *     (engine.h, the end of renderCall): no engine state can break it, and no
+ *     whole-render threshold is added (A2 ruled against whole-render rules).
  * Their tails are otherwise out of parity. Phase 1a's rules 1a and (b), which
  * compared the C++ error with the golden's own one-ULP divergence, are retired for
  * these rows; that divergence is still printed, as context, never judged.
@@ -77,9 +81,13 @@
  *       the tail's path must be covered elsewhere: by the xm rows held to full
  *       parity. Must-read-zero half: on every xm row, X1-late's first 128 frames
  *       are bit-identical to the clean render (it IS late). The ring rows'
- *       verdicts under it are printed, not judged: that is the blind spot.
- *   BF  a NaN, then 2.0, planted in each ring row's tail     every listed chaotic row,
- *       (after its onset window)                             by bounded-and-finite alone
+ *       verdicts under it are printed, not judged: that is the blind spot. Its
+ *       MARGIN SWEEP (the fault at 1e-10, 1e-9, 1e-8) is printed, not judged.
+ *   BF  a NaN planted in each ring row's tail                every listed chaotic row,
+ *       (after its onset window)                             by the finite guard alone
+ *       and 2.0 planted there: a test of the detector code only, a state the
+ *       engine cannot reach (its output is a tanh)
+ *   TRUNC  (./verify) the stream file cut short, no END     red, never read as full
  * DETECTION FLOOR (printed, not judged; 1e-3 must be red): the swarm's pitch
  * scaled by (1 + eps).
  * DETERMINISM: three fixed scripts (the swarm with the ensemble and gravity; the
@@ -90,11 +98,19 @@
  * the full stream; it fires only if parity misses AND (where the floor is pinned)
  * the mean bit-exact share falls under the floor. Exit 0 fired, 1 not, 2 broke.
  *
- * Usage: h2_engine_parity_check [--only REGEX] [stream-file | -]
- *   With NO stream argument (./verify, tools/sanitize_oracles.sh) it spawns
- *   `node tools/h2_engine_render.mjs` itself, from the repo root. The controls,
- *   the floor, the pins and determinism run only on the full stream. The onset
- *   window's measurement is a stream of the ring rows at each nudge:
+ * Usage: h2_engine_parity_check [--only REGEX] [--full-from FILE | stream-file | -]
+ *   The controls, the floor, the pins and determinism run only on a FULL stream,
+ *   which is one of:
+ *   - NO stream argument (standalone, tools/sanitize_oracles.sh): it spawns
+ *     `node tools/h2_engine_render.mjs` itself, from the repo root;
+ *   - --full-from FILE (./verify): that renderer's full output, rendered once and
+ *     fed to this check AND the FMA control. A file cannot say it was rendered
+ *     without --only (the header counts only what was selected), so it is the
+ *     caller's flag that declares it full, never the file. The file must still
+ *     carry its END record with the header's count, the five pins, the three
+ *     ring rows and every control's row, or the run is red (a cut file: TRUNC).
+ *   A plain stream-file or `-` is a SUBSET (no controls). The onset window's
+ *   measurement is a stream of the ring rows at each nudge:
  *     node tools/h2_engine_render.mjs --nudge K --only 'Cross-mod ring \(watch\)' \
  *       | build-release/h2_engine_parity_check -
  */
@@ -180,15 +196,21 @@ const FloorPin kFloorPins[] = {
   {"darwin-arm64", "appleclang-16", 24, 0.30},
 };
 // The floor's verdict for a key and a mean. judged = false is an unkeyed key: the
-// mean is printed and does not gate. Main, the FMA control and the FLOORKEY
-// self-test (which feeds it fabricated keys) all decide through this function.
-struct FloorVerdict { bool judged = false, held = false; double floor = -1; };
+// mean is printed and does not gate. warn: unjudged on a platform that HAS a pin,
+// i.e. a compiler or Node upgrade quietly turned the floor into a SKIP; `pin`
+// names the pinned key. Main, the FMA control and the FLOORKEY self-test (which
+// feeds it fabricated keys) all decide through this function.
+struct FloorVerdict { bool judged = false, held = false, warn = false; double floor = -1; std::string pin; };
 FloorVerdict floorVerdict(const char* platform, const std::string& compiler, int nodeMajor, double mean) {
   FloorVerdict v;
-  for (const FloorPin& p : kFloorPins)
-    if (std::strcmp(p.platform, platform) == 0 && compiler == p.compiler && nodeMajor == p.nodeMajor) {
-      v.judged = true; v.floor = p.floor; v.held = mean >= p.floor;
-    }
+  bool platformPinned = false;
+  for (const FloorPin& p : kFloorPins) {
+    if (std::strcmp(p.platform, platform) != 0) continue;
+    platformPinned = true;
+    v.pin = std::string(p.platform) + " / " + p.compiler + " / node " + std::to_string(p.nodeMajor);
+    if (compiler == p.compiler && nodeMajor == p.nodeMajor) { v.judged = true; v.floor = p.floor; v.held = mean >= p.floor; }
+  }
+  v.warn = platformPinned && !v.judged;
   return v;
 }
 
@@ -370,12 +392,14 @@ std::map<std::string, uint64_t> detDigests(std::map<std::string, std::vector<dou
 
 int main(int argc, char** argv) {
   std::string only, path;
+  bool fullFrom = false;   // --full-from FILE: the caller declares FILE the full render (header)
   for (int i = 1; i < argc; i++) {
     if (std::strcmp(argv[i], "--det-digest") == 0) {   // the child half of the determinism rows
       for (const auto& kv : detDigests()) std::printf("%s %llu\n", kv.first.c_str(), static_cast<unsigned long long>(kv.second));
       return 0;
     }
     if (std::strcmp(argv[i], "--only") == 0 && i + 1 < argc) only = argv[++i];
+    else if (std::strcmp(argv[i], "--full-from") == 0 && i + 1 < argc) { path = argv[++i]; fullFrom = true; }
     else if (argv[i][0] == '-' && argv[i][1] == '-') {
       // loudly, so a retired flag (--chaotic-rule, --chaotic-k) is never read as a stream path
       std::fprintf(stderr, "h2_engine_parity_check: unknown option '%s'\n", argv[i]);
@@ -383,7 +407,11 @@ int main(int argc, char** argv) {
     }
     else path = argv[i];
   }
-  const bool fullStream = only.empty() && path.empty();
+  if (fullFrom && (!only.empty() || path == "-")) {
+    std::fprintf(stderr, "h2_engine_parity_check: --full-from takes a file, and no --only\n");
+    return 2;
+  }
+  const bool fullStream = only.empty() && (path.empty() || fullFrom);
   FILE* f = nullptr;
   bool piped = false;
   if (path == "-") {
@@ -413,8 +441,10 @@ int main(int argc, char** argv) {
     std::fprintf(stderr, "h2_engine_parity_check: bad stream header '%s'\n", line.c_str());
     return 2;
   }
+  const long headerN = std::strtol(line.c_str() + 10, nullptr, 10);   // "H2ENGINE 1 <n>"
+  long endN = -1;
   std::printf("RULE  the chaotic exclusions (ADR-187 A2): onset window %zu frames max-abs < %.0e, events and readouts identical, "
-              "bounded (|x| <= %.0f) and finite over the whole render\n", kOnsetFrames, kOnsetTol, kTailBound);
+              "finite over the whole render (|x| <= %.0f holds by construction after the output tanh)\n", kOnsetFrames, kOnsetTol, kTailBound);
 
   int red = 0, pass = 0, miss = 0, excluded = 0, total = 0, niBad = 0, nodeMajor = -1;
   double worstRms = 0, worstMax = 0, sumExact = 0, minExact = 2;
@@ -449,7 +479,7 @@ int main(int argc, char** argv) {
       continue;
     }
     if (op == "ORACLE") { oracles.push_back(h2engine_stream::rest(line, p)); std::printf("ORACLE %s\n", oracles.back().c_str()); continue; }
-    if (op == "END") { ended = true; break; }
+    if (op == "END") { ended = true; endN = std::strtol(h2engine_stream::word(line, p).c_str(), nullptr, 10); break; }
     if (op != "SCN") { std::fprintf(stderr, "h2_engine_parity_check: unexpected stream line '%s'\n", line.c_str()); infra = true; break; }
     Scenario sc;
     if (!h2engine_stream::readScenario(f, line, sc)) { std::fprintf(stderr, "h2_engine_parity_check: truncated stream in '%s'\n", sc.name.c_str()); infra = true; break; }
@@ -515,6 +545,28 @@ int main(int argc, char** argv) {
   if (total == 0) { std::printf("FAIL  no scenarios\n"); infra = true; }
   if (oracles.size() != 5) { std::printf("FAIL  %zu ORACLE records in the stream (want the golden's 5 files)\n", oracles.size()); infra = true; }
   if (nodeMajor < 0) { std::printf("FAIL  no NODE record in the stream\n"); infra = true; }
+  if (ended && (endN != headerN || total != headerN)) {
+    std::printf("FAIL  STREAM  the header announces %ld scenarios, END %ld, and %d were read\n", headerN, endN, total);
+    infra = true;
+  }
+  if (fullStream) {
+    // A full stream must hold every row a control or a pin needs: a cut or --only
+    // file passed as full is red here (the FMA control: exit 2), never a quiet subset.
+    int missing = 0;
+    std::string first;
+    auto need = [&](const std::string& name) {
+      for (const Scenario& s : keep) if (s.name == name) return;
+      if (!missing++) first = name;
+    };
+    for (const char* c : kChaotic) need(c);
+    for (const Control& c : kControls) need(c.scenario);
+    need("T/mode 0 :: chord");
+    const bool ok = ended && !missing && endN == headerN && total == headerN;
+    if (!ok) infra = true;
+    std::printf("%s  STREAM  full stream (%s): %d scenarios read, header %ld, END %s; %d control/ring row(s) missing%s%s\n", ok ? "PASS" : "FAIL",
+                fullFrom ? "--full-from FILE" : "rendered by this run", total, headerN, ended ? std::to_string(endN).c_str() : "ABSENT", missing,
+                missing ? ", first: " : "", first.c_str());
+  }
   std::printf("%s  NONINV  the instrumented scratch golden rendered the pristine golden's samples bit for bit on %d of %d scenarios\n",
               niBad == 0 && total > 0 ? "PASS" : "FAIL", total - niBad, total);
   if (niBad) infra = true;
@@ -525,6 +577,13 @@ int main(int argc, char** argv) {
   std::printf("BITEXACT  mean share per family:");
   for (const Fam& x : fams) if (x.n) std::printf("  %c/ %.2f%%", x.tag, 100 * x.sumEx / x.n);
   std::printf("  (all held: %.2f%%; key %s / %s / node %d)\n", 100 * meanExact, kPlatform, compilerId().c_str(), nodeMajor);
+  if (fv.warn && fullStream) {   // stdout for the log, stderr so it is LOUD (./verify echoes it too)
+    char w[240];
+    std::snprintf(w, sizeof w, "WARNING: bit-exact floor not judged — key %s / %s / node %d ≠ pin %s; re-measure and re-pin (L0072)\n", kPlatform,
+                  compilerId().c_str(), nodeMajor, fv.pin.c_str());
+    std::printf("%s", w);
+    std::fprintf(stderr, "%s", w);
+  }
 
 #ifdef H2_ENGINE_FMA_CONTROL
   if (infra) {
@@ -608,6 +667,11 @@ int main(int argc, char** argv) {
       constexpr size_t kLate = horde2::engine::Engine::kX1LateFrame;
       int n = 0, caught = 0, early = 0;
       std::string detail, ring;
+      // the margin sweep (printed, not judged): the same late fault at three scales;
+      // per scale, the red count and the largest max-abs over the NON-chaotic xm rows
+      constexpr double kSweep[] = {1e-10, 1e-9, 1e-8};
+      int sweepRed[3] = {0, 0, 0};
+      double sweepMax[3] = {0, 0, 0};
       for (const Scenario& s : keep) {
         if (!setsXm(s)) continue;
         EventLog clog, flog;
@@ -629,20 +693,41 @@ int main(int argc, char** argv) {
         const bool hit = parityOk(clean) && !parityOk(r);
         if (hit) {
           caught++;
-          std::snprintf(buf, sizeof buf, "\n        red: %s: rms %.3e max %.3e, events %s", s.name.c_str(), r.rms, r.max, r.evOk ? "agree" : "DISAGREE");
+          std::snprintf(buf, sizeof buf, "\n        red: %s: rms %.3e max %.3e (%.2fx the bound), events %s", s.name.c_str(), r.rms, r.max,
+                        r.max / kMaxTol, r.evOk ? "agree" : "DISAGREE");
           detail += buf;
+        }
+        for (int q = 0; q < 3; q++) {
+          Result rq = r;   // the judged scale is 1e-9: reuse it
+          if (kSweep[q] != 1e-9) {
+            EventLog qlog;
+            ReplayInfo qi;
+            std::vector<double> c;
+            h2engine_stream::replay(s, c, 14, &qlog, kSweep[q], &qi);
+            rq = compare(s, c, qlog, qi);
+          }
+          if (parityOk(clean) && !parityOk(rq)) sweepRed[q]++;
+          sweepMax[q] = std::max(sweepMax[q], rq.max);
         }
       }
       const bool fired = caught > 0 && early == 0;
       if (!fired) red++;
+      std::string sweep;
+      for (int q = 0; q < 3; q++) {
+        char buf[200];
+        std::snprintf(buf, sizeof buf, "\n        margin sweep (not judged) xm x (1 + %.0e) from frame %zu: %d of %d red, largest max-abs %.3e (%.2fx the bound)",
+                      kSweep[q], kLate, sweepRed[q], n, sweepMax[q], sweepMax[q] / kMaxTol);
+        sweep += buf;
+      }
       std::printf("%s  control X1-late the ring's xm scaled by 1 + 1e-9 from frame %zu turns %d of %d NON-chaotic xm rows red (need >= 1); "
-                  "its first %zu frames bit-identical to clean on %d of %d xm rows%s%s\n",
-                  fired ? "PASS" : "FAIL", kLate, caught, n, kLate, n + 3 - early, n + 3, detail.c_str(), ring.c_str());
+                  "its first %zu frames bit-identical to clean on %d of %d xm rows%s%s%s\n",
+                  fired ? "PASS" : "FAIL", kLate, caught, n, kLate, n + 3 - early, n + 3, detail.c_str(), sweep.c_str(), ring.c_str());
     }
-    // BF: bounded-and-finite's must-fire control. A NaN, then 2.0, planted in each
-    // ring row's last sample (its tail, past the onset window) must turn the row red
-    // through bounded-and-finite ALONE: the onset window, events and readouts still
-    // hold. The clean replay must hold (the must-read-zero half).
+    // BF: the finite guard's must-fire control. A NaN planted in each ring row's last
+    // sample (its tail, past the onset window) must turn the row red through
+    // bounded-and-finite ALONE: the onset window, events and readouts still hold.
+    // The 2.0 half tests the DETECTOR CODE only: the engine cannot reach it (its
+    // output is a tanh). The clean replay must hold (the must-read-zero half).
     {
       int n = 0, ok = 0;
       std::string detail;
@@ -663,7 +748,8 @@ int main(int argc, char** argv) {
           const bool onlyBF = r.evOk && r.cntOk && r.onsetMax < kOnsetTol && !boundedFinite(r);
           if (!(onlyBF && !exclusionHolds(r))) rowOk = false;
           char buf[200];
-          std::snprintf(buf, sizeof buf, "\n        %s, %s planted: %s", s.name.c_str(), std::isnan(planted) ? "NaN" : "2.0",
+          std::snprintf(buf, sizeof buf, "\n        %s, %s planted: %s", s.name.c_str(),
+                        std::isnan(planted) ? "NaN" : "2.0 (detector code only: unreachable after the output tanh)",
                         onlyBF ? "red by bounded-and-finite alone" : "NOT caught by bounded-and-finite alone");
           detail += buf;
         }
@@ -671,23 +757,29 @@ int main(int argc, char** argv) {
       }
       const bool fired = n > 0 && ok == n;
       if (!fired) red++;
-      std::printf("%s  control BF a NaN, then 2.0, in each ring row's tail turns it red by bounded-and-finite alone (clean holds): %d of %d%s\n",
+      std::printf("%s  control BF a NaN in each ring row's tail turns it red by the finite guard alone, and 2.0 there (detector code only) "
+                  "by the bound alone (clean holds): %d of %d%s\n",
                   fired ? "PASS" : "FAIL", ok, n, detail.c_str());
     }
     // FLOORKEY: the floor's verdict on fabricated keys, so the unkeyed-platform path
-    // (print, never gate, never pass) is exercised on every run, not assumed.
+    // (print, never gate, never pass) and the upgrade WARNING (a pinned platform
+    // whose compiler or Node moved) are exercised on every run, not assumed.
     {
       const FloorPin& k = kFloorPins[0];
       const FloorVerdict unkeyed = floorVerdict("selftest-unkeyed", k.compiler, k.nodeMajor, 0.0),
                          otherNode = floorVerdict(k.platform, k.compiler, k.nodeMajor + 1, 0.0),
+                         otherCc = floorVerdict(k.platform, "selftest-cc-99", k.nodeMajor, 0.0),
                          under = floorVerdict(k.platform, k.compiler, k.nodeMajor, k.floor - 0.001),
                          at = floorVerdict(k.platform, k.compiler, k.nodeMajor, k.floor);
-      const bool okk = !unkeyed.judged && !otherNode.judged && under.judged && !under.held && at.judged && at.held;
+      const bool okk = !unkeyed.judged && !unkeyed.warn && !otherNode.judged && otherNode.warn && !otherCc.judged && otherCc.warn &&
+                       under.judged && !under.held && !under.warn && at.judged && at.held && !at.warn;
       if (!okk) red++;
-      std::printf("%s  FLOORKEY self-test: an unkeyed platform %s, another Node major %s; keyed, a mean %.1f%% %s and %.0f%% %s\n",
-                  okk ? "PASS" : "FAIL", unkeyed.judged ? "GATES" : "prints only", otherNode.judged ? "GATES" : "prints only",
-                  100 * (k.floor - 0.001), under.judged && !under.held ? "is red" : "IS NOT RED", 100 * k.floor,
-                  at.judged && at.held ? "holds" : "DOES NOT HOLD");
+      std::printf("%s  FLOORKEY self-test: an unkeyed platform %s; on %s another Node major %s, another compiler %s; keyed, a mean %.1f%% %s "
+                  "and %.0f%% %s\n",
+                  okk ? "PASS" : "FAIL", unkeyed.judged ? "GATES" : (unkeyed.warn ? "prints and WARNS (wrong)" : "prints only, no warning"),
+                  k.platform, otherNode.judged ? "GATES" : (otherNode.warn ? "prints and warns" : "DOES NOT WARN"),
+                  otherCc.judged ? "GATES" : (otherCc.warn ? "prints and warns" : "DOES NOT WARN"), 100 * (k.floor - 0.001),
+                  under.judged && !under.held ? "is red" : "IS NOT RED", 100 * k.floor, at.judged && at.held ? "holds" : "DOES NOT HOLD");
     }
     const Scenario* mode0 = nullptr;
     for (const Scenario& s : keep) if (s.name == "T/mode 0 :: chord") mode0 = &s;
@@ -792,8 +884,8 @@ int main(int argc, char** argv) {
   std::printf("\n");
   if (fullStream && !infra) {
     if (!fv.judged) {
-      std::printf("SKIP  BITEXACT  no floor is keyed for %s / %s / node %d: mean share %.2f%% printed, NOT judged (never a pass)\n", kPlatform,
-                  compilerId().c_str(), nodeMajor, 100 * meanExact);
+      std::printf("SKIP  BITEXACT  no floor is keyed for %s / %s / node %d: mean share %.2f%% printed, NOT judged (never a pass)%s\n", kPlatform,
+                  compilerId().c_str(), nodeMajor, 100 * meanExact, fv.warn ? " — this platform HAS a pin: see the WARNING" : "");
     } else {
       if (!fv.held) red++;
       std::printf("%s  BITEXACT  %s / %s / node %d: the mean bit-exact share %.2f%% %s the keyed floor %.0f%%\n", fv.held ? "PASS" : "FAIL", kPlatform,

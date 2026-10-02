@@ -253,10 +253,17 @@ floor:
 
 - The floor is a mean of at least **30%**, keyed to darwin-arm64, Apple clang 16
   and Node 24. That is 7.0 points under the lowest. Any other key prints the mean
-  and SKIPs the floor, never passes it. The **FLOORKEY self-test** runs the one
-  verdict function on fabricated keys every run (an unkeyed platform and another
-  Node major print only; keyed, 29.9% is red and 30% holds), so the unkeyed path
-  is exercised, not assumed.
+  and SKIPs the floor, never passes it.
+- **A compiler or Node upgrade would quietly turn the gate into a SKIP** (critic M2).
+  So on a platform that HAS a pin, an unjudged floor prints a LOUD warning, on
+  stdout and stderr, and `./verify` echoes it to stderr:
+  `WARNING: bit-exact floor not judged — key <actual> ≠ pin <pinned>; re-measure and re-pin (L0072)`.
+  The exit is unchanged; whether it should fail is the human's call.
+- **The FLOORKEY self-test** runs the one verdict function on fabricated keys every
+  run, so these paths are exercised, not assumed:
+  - an unkeyed platform prints only, with no warning;
+  - on darwin-arm64, another Node major or another compiler prints AND warns;
+  - keyed, 29.9% is red and 30% holds.
 - **Inside the gate:** the FMA-fused build (`h2_engine_fma_control`) fires only if
   parity misses AND, where the floor is keyed, its mean falls under the floor. It
   reads **17.48%** (per family P/ 14.65, E/ 20.41, T/ 22.84, C/ 17.04) and fires,
@@ -271,8 +278,10 @@ the stream's list. They leave whole-render parity. Each is judged on all of:
 - a strict **max-abs < 1e-6 over its onset window, the first 384 frames** (measured;
   "The onset window" below);
 - identical events and identical readouts, over the whole render;
-- **bounded and finite** over the whole render: every C++ sample finite and
-  |x| ≤ 1, the range of the output stage's tanh (the golden's is the same tanh).
+- **finite** over the whole render: a NaN/Inf guard. The bound |x| ≤ 1 is checked
+  with it, but it holds BY CONSTRUCTION after the output tanh (`engine.h`, the end
+  of `renderCall`), so no engine state can break it (critic M1). No whole-render
+  threshold is added: A2 ruled against whole-render rules for these rows.
 
 Their tails are otherwise out of parity. Rules 1a and (b), and the
 `--chaotic-rule` / `--chaotic-k` flags, are retired; an unknown `--` option now
@@ -300,6 +309,18 @@ non-chaotic xm rows go red, each just over the bound, as the critic measured:
 | C/D1-D3 :: Cross-mod roar | 7.26e-9 | 1.019e-6 |
 
 Its first 128 frames are bit-identical on all 38 xm rows (35 plus the 3 ring rows).
+
+**X1-late's margin sweep** (critic L2) runs every time and is printed, not judged.
+It is the same late fault at three scales; the judged scale stays 1e-9:
+
+| xm × (1 + ε) from frame 128 | non-chaotic xm rows red | largest max-abs | over the bound |
+|---|---|---|---|
+| ε = 1e-10 | 0 of 35 | 1.446e-7 | 0.14× |
+| ε = 1e-9 (judged) | 4 of 35 | 1.446e-6 | 1.45× |
+| ε = 1e-8 | 5 of 35 | 1.446e-5 | 14.46× |
+
+The response is linear in ε, so the judged scale sits where the most sensitive xm
+row first crosses 1e-6. That is why its catches are only 2–45% over the bound.
 **The blind spot, printed and not judged:** under X1-late the ring rows' exclusion
 still holds on repeat (onset 1.3e-9) and arp (7.4e-10). The 384-frame window does
 catch it on chord (6.7e-2, reached between frames 256 and 384). At the old 128-frame
@@ -313,10 +334,21 @@ row). The ring under a 1e-9 change to xm acts like a branch flip onto a nearby
 attractor. It does not act like continuous amplification. That is why X1-late's
 tail figures match X1's to four digits.
 
-**Control BF** plants a NaN, then 2.0, in each ring row's last sample (its tail,
-past the onset window). It must turn each row red through bounded-and-finite ALONE:
-the onset window, the events and the readouts still hold. Its must-read-zero half
-is that the clean replay holds. It fires on 3 of 3 rows, for both values.
+**Control BF** plants a NaN in each ring row's last sample (its tail, past the
+onset window). It must turn each row red through the finite guard ALONE: the onset
+window, the events and the readouts still hold. Its must-read-zero half is that the
+clean replay holds. It also plants 2.0 there. That half tests the bound's
+**detector code only**, because the engine cannot reach the state: its output is a
+tanh. Both fire, on 3 of 3 rows.
+
+**Control TRUNC** (in `./verify`, critic M4). The stream file is cut at 8 MB: the
+header, the libm probes and the pins survive, then the cut falls mid-scenario, with
+no END record.
+- The check must be red on its STREAM row (exit 1). It is, though the 9 scenarios
+  it read are all at parity.
+- The FMA control must report BROKEN (exit 2), never fired. It does.
+- Measured once, not in the gate: a file complete except for its END line is red
+  the same way (check exit 1 with 543 of 543 read; FMA control exit 2).
 
 **Must-fail controls, planted under `H2_ENGINE_FAULTS`** (each fires; values at
 the rework head):
@@ -337,7 +369,8 @@ the rework head):
 | C2 | the cull takes the oldest voice, held or not | C/CAP cull, the cap lowered mid-phrase (the held note is the oldest) | rms 2.8e-1 |
 | X1 | the ring's xm × (1 + 1e-9) | every listed chaotic row | 3 of 3 red (onset window) |
 | X1-late | X1 from frame 128 on | ≥ 1 NON-chaotic xm row; first 128 frames bit-identical on every xm row | 4 of 35 red; 38 of 38 prefixes identical |
-| BF | a NaN, then 2.0, in each ring row's tail | every listed chaotic row, by bounded-and-finite alone | 3 of 3, both values |
+| BF | a NaN in each ring row's tail; and 2.0 there (detector code only: unreachable after the output tanh) | every listed chaotic row, by bounded-and-finite alone | 3 of 3, both values |
+| TRUNC (`./verify`) | the stream file cut at 8 MB, no END | the check's STREAM row; the FMA control reports broken | check exit 1, FMA control exit 2 |
 
 F1 (`std::round` for `Math.round`) cannot be planted in this engine. A2's
 half-away-from-zero pre-rounding makes `Math.round`'s negative half unreachable,
@@ -360,14 +393,30 @@ Also run every time:
     through float32 depends on where the host's blocks end. It is a divergence
     CANDIDATE (the fade could render in doubles), not ledgered here.
 - **No arguments (B384):** with no arguments the check spawns the renderer itself
-  from the repo root.
+  from the repo root (standalone use, `tools/sanitize_oracles.sh`).
+- **`--full-from FILE`:** that renderer's full output, rendered once. A file cannot
+  say it was rendered without `--only`, because the header counts only what was
+  selected, so it is the CALLER's flag that declares a file full. The file must
+  still pass the STREAM row: its END record, header count = END count = scenarios
+  read, and every ring and control row present. A plain stream file or `-` is a
+  subset, with no controls.
 
-**WIRING: in `./verify full` (B405, 2026-10-01; ADR-187 A2, ADR-180 §1).**
-`h2_engine_parity_check` then `h2_engine_fma_control`, after the SCALPEL blade
-port's pair. Measured on this Mac at load average 2–3: the check took 42.1 s wall
-(38.3 s of it the Node render) and the FMA control 39.3 s, standalone. **Landing
-policy (A2 item 3):** any change to the composed engine lands as the JS and the
-C++ TOGETHER, in one PR, with this check green. `h2_rules_check` treats `h2/engine/` as h2 code. Its source detector is a plain
+**WIRING: in `./verify full` (B405, 2026-10-01; ADR-187 A2, ADR-180 §1).** After
+the SCALPEL blade port's pair, `./verify` does the following:
+1. Renders the golden's stream ONCE to `/tmp/h2stream.$$`.
+2. Runs TRUNC on an 8 MB cut of it.
+3. Feeds the stream to `h2_engine_parity_check --full-from` and then to
+   `h2_engine_fma_control --full-from`.
+4. Removes every temp file on every path.
+
+On green runs it echoes the exclusions with their onset profiles, every control
+with X1-late's red rows, its margin sweep and the ring's blind spot, the floor and
+its warning. Measured standalone on this Mac with the binaries fed one rendered
+file, at the load of the rework (2026-10-01): the render took 38 s, the check
+19 s and the FMA control 12 s. Before the rework, each binary rendered the stream
+for itself: the check took 42.1 s and the FMA control 39.3 s, at load average 2–3.
+**Landing policy (A2 item 3):** any change to the composed engine lands as the JS
+and the C++ TOGETHER, in one PR, with this check green. `h2_rules_check` treats `h2/engine/` as h2 code. Its source detector is a plain
 substring test for `h2/cores/` or `h2/engine/`, never narrower than the original.
 Self-cases cover `"h2/cores/x.h"`, `<h2/engine/engine.h>`, `"../h2/engine/engine.h"`
 and a tab-separated include.
@@ -517,6 +566,17 @@ Per row, the worst over all 25 nudges:
 - **~1e-8 is the selection criterion only.** The gate inside the window stays 1e-6.
   At the scripts' own inputs the three rows read 6.0e-11, 8.1e-11 and 4.9e-11 over
   384 frames.
+- **Out of sample (the critic's L1, recorded and not acted on).**
+  - The critic ran nudges 33–200 (504 row-nudges): 17 exceed ~1e-8 at 384 frames,
+    the worst 4.92e-8 at nudge 75. All are at least 20× under the 1e-6 gate.
+  - Re-run for this note: nudges 33, 75, 120 and 200 give a worst-row 384-frame
+    max-abs of 8.06e-11, **4.92e-8** (chord, nudge 75, confirmed), 5.63e-11 and
+    7.12e-9.
+  - The divergence arrives as a JUMP, not a slope. At nudge 4 the chord row departs
+    between frames 256 and 384, so 384 sits at the earliest departure seen.
+  - The window stays 384, because the ruling says the longest window MEASURED (on
+    the 25 nudges). If the gate ever goes red here on an input change alone, these
+    numbers are the first place to look.
 
 ## Deferred: the quality suites (a named checkpoint; the lead's decision, 2026-10-01)
 
@@ -593,7 +653,7 @@ must leave every parity digest unchanged, measured against this table.
 3. ~~The floor's form.~~ RULED, ADR-187 A2 item 2: a mean of at least 30%, keyed
    on darwin-arm64, Apple clang 16 and Node 24, printed and not judged elsewhere.
 4. ~~The ring criterion.~~ RULED, ADR-187 A2 item 1: onset window, events and
-   readouts (plus bounded-and-finite), built by B405; rules 1a and (b) retired.
+   readouts (plus a finite guard), built by B405; rules 1a and (b) retired.
 5. **X1-late's margin (B405).** The four non-chaotic xm rows it turns red sit
    2–45% over the 1e-6 bound (1.019e-6 to 1.446e-6). The control fires here, but a
    platform whose libm moves these rows by a few 1e-7 could leave it one row from
