@@ -111,6 +111,13 @@ fast() {
   # Any unledgered difference, or a ledger entry the tree no longer carries, is
   # red. Self-calibrating. Added under ADR-180 §1.
   python3 tools/h2_lift_check.py || ok=1
+  # EVERY GOLDEN PINNED IN h2/README.md still IS its pinned blob (B419, L0073).
+  # ci.yml skips docs/** (paths-ignore), so a docs-only PR never runs the sanitize
+  # lanes that hold the parity check's PIN row; docs.yml runs only `verify fast`.
+  # B407 moved a pinned golden under docs/** and merged unseen. This is that row's
+  # cheap half, in `fast`. Self-calibrating (blob, missing, zero-pin controls). Added under
+  # ADR-180 §1.
+  python3 tools/golden_pin_check.py || ok=1
 
   # GENERATED CONTROLS ARE CURRENT. gui2's controls are generated FROM the
   # presentation table, so an edited table with stale markup shows yesterday's
