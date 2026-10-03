@@ -2,8 +2,8 @@
 id: autonomous-002
 from: autonomous
 to: HYPERSAW
-status: filed
-ball: HYPERSAW
+status: answered — shipped in horde #794; our notice closed the thread in autonomous (notice-002-vendor-mindlathe-shipped.md, status closed)
+ball: none
 seq: 1
 filed: 2026-09-27
 respond-by: 2026-10-11
