@@ -1,0 +1,552 @@
+# h2_engine_selfdigest_check reference (tools/h2_engine_selfdigest_check.cpp): parity build, key darwin-arm64.appleclang-16.node24
+# FNV-1a 64 of each scenario's C++ samples, events and readouts. A golden fixture (protected): re-pin only
+# for a reason stated in the PR and the trace (the tool header's cases a-c); an output-neutral PR never re-pins.
+# ORACLE docs/design/scalpel-horde-engine.js 581d7942684c91245e4a6637dd40d137335b5d69
+# ORACLE reference/scalpel/prototype/razor-core.js 0ce6a713410d89c65bf55f761f1dc791fae61b16
+# ORACLE reference/swarmsaw.html e47da6c9e0b4a058e18d79f62d71ab31c3d3b1b0
+# ORACLE reference/scalpel/data/presets.json 44b48d72a9bed4717edd0ac5cf9ef4b8d7b0de93
+# ORACLE docs/design/scalpel-interface-lab.html 6abf848e91065bc33275724a6967a7399ba40a07
+6f1035ccaec449df  P/Starting points / Quarter sync :: chord
+5bc5dc32109a280e  P/Starting points / Quarter sync :: repeat
+428b94da88f2c1f5  P/Starting points / Quarter sync :: arp
+b08567f9d132866b  P/Starting points / Trance jitter :: chord
+02bd4d5993287c81  P/Starting points / Trance jitter :: repeat
+9b69d3ab30aedd3c  P/Starting points / Trance jitter :: arp
+888213989cdbafa8  P/Starting points / Two blades :: chord
+0b256361e46fbbe0  P/Starting points / Two blades :: repeat
+efcd02f15c8dc136  P/Starting points / Two blades :: arp
+f19067846b0916a0  P/Starting points / Crush vs FM :: chord
+7e479d22d981c640  P/Starting points / Crush vs FM :: repeat
+0fdd6adc32336298  P/Starting points / Crush vs FM :: arp
+ed3fa145f34a289e  P/Starting points / Chord of formants :: chord
+d8e5f4f0123f91aa  P/Starting points / Chord of formants :: repeat
+c8b9fdd16c3e53cb  P/Starting points / Chord of formants :: arp
+7b49220fd8219e50  P/Starting points / Harmonic stack :: chord
+66ee422c7f98db4c  P/Starting points / Harmonic stack :: repeat
+529b7456394d1301  P/Starting points / Harmonic stack :: arp
+2f44733be5abce5b  P/Starting points / Golden bells :: chord
+8e3faf9e190c764b  P/Starting points / Golden bells :: repeat
+58fa09a1d1d3f33d  P/Starting points / Golden bells :: arp
+ec47893556802ad1  P/Starting points / Undertone drift :: chord
+a13b495b7dd383f1  P/Starting points / Undertone drift :: repeat
+1a200d8529349bf2  P/Starting points / Undertone drift :: arp
+539e5981d754e78b  P/Starting points / Cross-mod ring (watch) :: chord
+6091e0df89e54a8b  P/Starting points / Cross-mod ring (watch) :: repeat
+0ce4b2957d5584af  P/Starting points / Cross-mod ring (watch) :: arp
+402e1c0aab12d6a7  P/Starting points / Cross-mod horde :: chord
+b26efa8e789e4ace  P/Starting points / Cross-mod horde :: repeat
+9af676b5cc95d160  P/Starting points / Cross-mod horde :: arp
+e63080e4e2782457  P/Starting points / Feedback screech :: chord
+dd7e21a408672aeb  P/Starting points / Feedback screech :: repeat
+b1877a9a6cdbf7dc  P/Starting points / Feedback screech :: arp
+42ee1db307f62054  P/Starting points / Blade pluck :: chord
+839a2a595ffab01d  P/Starting points / Blade pluck :: repeat
+b25d96a060dcb090  P/Starting points / Blade pluck :: arp
+fec627aa6415df80  P/Starting points / Zap bass :: chord
+e197fa1c35e651b7  P/Starting points / Zap bass :: repeat
+c829f5a3ce8d802d  P/Starting points / Zap bass :: arp
+0036a6968fc9c865  P/Starting points / Zap bass :: legato
+8e9d383e861524f4  P/Starting points / Crunch (pitch S&H) :: chord
+0948e05f7ec278c4  P/Starting points / Crunch (pitch S&H) :: repeat
+ae3bbe706e28d145  P/Starting points / Crunch (pitch S&H) :: arp
+61e1dead078e660c  P/Starting points / Crunch (pitch S&H) :: legato
+274c8710fb1917a7  P/Starting points / Crunch (audio-rate PM) :: chord
+183921d1250d8d51  P/Starting points / Crunch (audio-rate PM) :: repeat
+216f766815144829  P/Starting points / Crunch (audio-rate PM) :: arp
+a299e01535b1a21f  P/Starting points / Crunch (audio-rate PM) :: legato
+b9fb80e9879a5db6  P/Starting points / Crunch horde :: chord
+d2f277414b140c10  P/Starting points / Crunch horde :: repeat
+69bff9ba965500b3  P/Starting points / Crunch horde :: arp
+45ededc3139d137b  P/Starting points / Jitter swarm :: chord
+0490c4583cc03738  P/Starting points / Jitter swarm :: repeat
+b965ace839df1536  P/Starting points / Jitter swarm :: arp
+cab014af610f15a3  P/Starting points / Hollow twin :: chord
+a20a96cd1eb633a1  P/Starting points / Hollow twin :: repeat
+4d89f8194741f5a6  P/Starting points / Hollow twin :: arp
+0d49b11a7d9e49bc  P/Starting points / Reflected sync :: chord
+d51321388c16d5a0  P/Starting points / Reflected sync :: repeat
+20060da4a1e6193c  P/Starting points / Reflected sync :: arp
+519fef7ea1425fa4  P/Starting points / Reverse cut :: chord
+55322489dc1c060d  P/Starting points / Reverse cut :: repeat
+807ecf54f50739fc  P/Starting points / Reverse cut :: arp
+314257edea64ad2c  P/Starting points / Sine-to-saw fan :: chord
+669d20b5ef519d5e  P/Starting points / Sine-to-saw fan :: repeat
+49c42cf73fce0e86  P/Starting points / Sine-to-saw fan :: arp
+e46c13a0b1f836da  P/Starting points / Swarm-linked spread :: chord
+cedc742e36eb00bd  P/Starting points / Swarm-linked spread :: repeat
+7e2e83bdc3bfd6c5  P/Starting points / Swarm-linked spread :: arp
+55a46ecce2e83af3  P/Starting points / Wandering blades :: chord
+948fd57e0753d621  P/Starting points / Wandering blades :: repeat
+4c66b306aaed6468  P/Starting points / Wandering blades :: arp
+f1b5f0e2787d1980  P/Starting points / Humanized :: chord
+21ef2e105223c947  P/Starting points / Humanized :: repeat
+17205dc1a9c1cbad  P/Starting points / Humanized :: arp
+fc1450c11c5b052c  P/Starting points / Anchored horde :: chord
+1faf85ca3dda10c0  P/Starting points / Anchored horde :: repeat
+fd81121a73828133  P/Starting points / Anchored horde :: arp
+397337df636d53be  P/Starting points / Locked horde :: chord
+89355eede6ce5b61  P/Starting points / Locked horde :: repeat
+a4ae1d585e2589ae  P/Starting points / Locked horde :: arp
+7e61667289057ce1  P/Starting points / Splayed blades :: chord
+bd85a18558e98cc9  P/Starting points / Splayed blades :: repeat
+cc5f3bd3fe1fe3fc  P/Starting points / Splayed blades :: arp
+011774d48e2561ec  P/Starting points / Drifting cuts :: chord
+a3ec2d4042bb7d14  P/Starting points / Drifting cuts :: repeat
+26c1934660e6c163  P/Starting points / Drifting cuts :: arp
+6a89aedd4d9b7071  P/Starting points / Vowel choir :: chord
+feb5e3c798a5953c  P/Starting points / Vowel choir :: repeat
+43f69fdf25318bf2  P/Starting points / Vowel choir :: arp
+1b1735c1bdd62df6  P/Starting points / Frozen noise FM :: chord
+61c15de0c625cca6  P/Starting points / Frozen noise FM :: repeat
+096655576cfa74b7  P/Starting points / Frozen noise FM :: arp
+a090d10435f770a2  P/Starting points / Ring saw :: chord
+212d5f74c03fe8a1  P/Starting points / Ring saw :: repeat
+8678a1bf6d01f9f2  P/Starting points / Ring saw :: arp
+d0ed7935807fbecf  P/Starting points / Folded slice :: chord
+21c21352fa88a778  P/Starting points / Folded slice :: repeat
+c30c7d3e405e369f  P/Starting points / Folded slice :: arp
+0acc42e45f6b8b52  P/Starting points / Fixed formant :: chord
+72b09824b6a08400  P/Starting points / Fixed formant :: repeat
+634bf0e259489cc8  P/Starting points / Fixed formant :: arp
+41d13ed1c4337f14  P/Starting points / Operator jitter :: chord
+1f211dbf7f712c3e  P/Starting points / Operator jitter :: repeat
+91949a26b1bf4c3b  P/Starting points / Operator jitter :: arp
+dc8f9e24326c0c9e  P/Starting points / Fixed crush :: chord
+f3c3cdcd2c864beb  P/Starting points / Fixed crush :: repeat
+8a9016560eadff8a  P/Starting points / Fixed crush :: arp
+d531d7f60c3a803e  P/Starting points / Slewed crush :: chord
+3b715e21775594dc  P/Starting points / Slewed crush :: repeat
+315b3e67a96648ab  P/Starting points / Slewed crush :: arp
+6268f9a9dcbda512  P/Two-blade / Two-formant vowel :: chord
+79ddf4b409d14b34  P/Two-blade / Two-formant vowel :: repeat
+e4a0aa3107a59335  P/Two-blade / Two-formant vowel :: arp
+ff46e57bde961475  P/Two-blade / Sync into crush :: chord
+8efd9be0ea07fbd8  P/Two-blade / Sync into crush :: repeat
+d033c563d24c2bff  P/Two-blade / Sync into crush :: arp
+8fb7a20b21ab1c53  P/Two-blade / Metal pair :: chord
+3367222910dcece6  P/Two-blade / Metal pair :: repeat
+817a831acd46c7a0  P/Two-blade / Metal pair :: arp
+678e5042fc02ec74  P/Two-blade / Hollow double :: chord
+b49281c8c2c9b511  P/Two-blade / Hollow double :: repeat
+e0f194f51e243ee5  P/Two-blade / Hollow double :: arp
+d476cb5ef1aa5ed1  P/Two-blade / Breath and bite :: chord
+e1220b2aee0456d4  P/Two-blade / Breath and bite :: repeat
+111fd3a8349da237  P/Two-blade / Breath and bite :: arp
+2ffdd66163901e11  P/Two-blade / Chasing blades :: chord
+a41538da7666a5b1  P/Two-blade / Chasing blades :: repeat
+e8f65ae5112c2031  P/Two-blade / Chasing blades :: arp
+f8502a9e375fbc97  P/Two-blade / Formant pluck :: chord
+b5d240587fa61289  P/Two-blade / Formant pluck :: repeat
+d1205e0ff77acc81  P/Two-blade / Formant pluck :: arp
+aa6ca60cfb5ac0e5  P/Two-blade / Stacked sync :: chord
+6326eb0e5d9b6ace  P/Two-blade / Stacked sync :: repeat
+2c7ba540de4eebed  P/Two-blade / Stacked sync :: arp
+507c8737023649bd  P/Two-blade / Crunch and fold :: chord
+2d36c16011c58202  P/Two-blade / Crunch and fold :: repeat
+d4ff92a4e4ab1ba1  P/Two-blade / Crunch and fold :: arp
+d567927ca46216c7  P/Two-blade / Crunch and fold :: legato
+66c439396ae4f57c  P/Two-blade / Formant over sync :: chord
+1bc3f8f2b2d340c5  P/Two-blade / Formant over sync :: repeat
+174fa51f62858287  P/Two-blade / Formant over sync :: arp
+c4f3386e05fada31  P/Two-blade / Two FM voices :: chord
+1bb0887e11f2372b  P/Two-blade / Two FM voices :: repeat
+3ad92a6b7f95a38a  P/Two-blade / Two FM voices :: arp
+bf3c019a41674099  P/Two-blade / Counter-rotation :: chord
+90f2733a734f8223  P/Two-blade / Counter-rotation :: repeat
+d5079a5894008270  P/Two-blade / Counter-rotation :: arp
+11700650a14a69d1  P/Two-blade / Smear and strike :: chord
+d0f0d4f0a3f56140  P/Two-blade / Smear and strike :: repeat
+918f82ab2121d7a9  P/Two-blade / Smear and strike :: arp
+9251cbe41cf719c9  P/Two-blade / Split envelopes :: chord
+9902df1ae5ed19a1  P/Two-blade / Split envelopes :: repeat
+4821fad25b0deb47  P/Two-blade / Split envelopes :: arp
+b74bd1e6199ed4d1  P/Two-blade / Chord against scatter :: chord
+e1a05c1134fce6f1  P/Two-blade / Chord against scatter :: repeat
+7f00ec7326c87534  P/Two-blade / Chord against scatter :: arp
+1536c3570e0d2e8f  P/Two-blade / Mirror-image spreads :: chord
+239f3d50f60a0ecc  P/Two-blade / Mirror-image spreads :: repeat
+763bf521cd18c17b  P/Two-blade / Mirror-image spreads :: arp
+eb389a01b0ff64f9  P/Two-blade / Cross-mod pair :: chord
+4ce2a637770b56f9  P/Two-blade / Cross-mod pair :: repeat
+2b2e07bf5d728365  P/Two-blade / Cross-mod pair :: arp
+03ed010a7e381c22  P/Showcase / Growls / Formant growl :: chord
+52a76a56bdd158f7  P/Showcase / Growls / Formant growl :: repeat
+baba0a674c4d04fb  P/Showcase / Growls / Formant growl :: arp
+c20891069e038aa8  P/Showcase / Growls / Formant growl :: legato
+c0cd8a8034ddeb59  P/Showcase / Growls / Feedback snarl :: chord
+5515bf8fa3bc7a57  P/Showcase / Growls / Feedback snarl :: repeat
+a37f22bcd3cbc917  P/Showcase / Growls / Feedback snarl :: arp
+35fd21d8eef42d8e  P/Showcase / Growls / Feedback snarl :: legato
+f4c68ba525458c03  P/Showcase / Growls / Cross-mod roar :: chord
+67a7bf590c0aff51  P/Showcase / Growls / Cross-mod roar :: repeat
+6335b08397f9a21d  P/Showcase / Growls / Cross-mod roar :: arp
+b8dcd094dccfc614  P/Showcase / Growls / Cross-mod roar :: legato
+b5c7dcf4e4a03acb  P/Showcase / Growls / Wobble jaw :: chord
+2e639dec63fa36a8  P/Showcase / Growls / Wobble jaw :: repeat
+417177453b951541  P/Showcase / Growls / Wobble jaw :: arp
+08aa040f37c18789  P/Showcase / Growls / Wobble jaw :: legato
+71fcbc57efa78e7b  P/Showcase / FM sines / Glass FM :: chord
+61b6f7e111307ee2  P/Showcase / FM sines / Glass FM :: repeat
+f8c8ff7010de3d84  P/Showcase / FM sines / Glass FM :: arp
+2a3d5dcaf283ffd1  P/Showcase / FM sines / FM bell :: chord
+84badded34d926c8  P/Showcase / FM sines / FM bell :: repeat
+27d030b10065341d  P/Showcase / FM sines / FM bell :: arp
+36f514e75b200c4c  P/Showcase / FM sines / FM pluck pair :: chord
+fdd9e459184a891b  P/Showcase / FM sines / FM pluck pair :: repeat
+98f1ed732341ce6b  P/Showcase / FM sines / FM pluck pair :: arp
+9c2fa361690e1817  P/Showcase / FM sines / Ring of sines :: chord
+51629aa32a0c5de2  P/Showcase / FM sines / Ring of sines :: repeat
+6168fc03804cf90f  P/Showcase / FM sines / Ring of sines :: arp
+4e39a326748d9201  P/Showcase / Movement / Two clocks :: chord
+af4de6729e853b4c  P/Showcase / Movement / Two clocks :: repeat
+38ddf84d1db14a4c  P/Showcase / Movement / Two clocks :: arp
+f82d01cf2b90d435  P/Showcase / Movement / Drift and lock :: chord
+09ba570abc9a59cd  P/Showcase / Movement / Drift and lock :: repeat
+1ae5f52aa1abbf87  P/Showcase / Movement / Drift and lock :: arp
+2db510cc5a05650a  P/Showcase / Movement / Orbiting cuts :: chord
+8b597387910cc2bc  P/Showcase / Movement / Orbiting cuts :: repeat
+8a1ad21b4741dbda  P/Showcase / Movement / Orbiting cuts :: arp
+63ab7214491f75ad  P/Showcase / Movement / Tidal envelopes :: chord
+67ae50eebbc5f1e4  P/Showcase / Movement / Tidal envelopes :: repeat
+be5ed1df0c0a3d21  P/Showcase / Movement / Tidal envelopes :: arp
+60cecdcf6b33016d  P/Showcase / Leads / Screamer :: chord
+215bd8ab49efafc3  P/Showcase / Leads / Screamer :: repeat
+ee7a5b9b0e83852f  P/Showcase / Leads / Screamer :: arp
+d5fcd8381e3e62c1  P/Showcase / Leads / Screamer :: legato
+a98a405dc6cb62a1  P/Showcase / Leads / Vocal lead :: chord
+c0d8caa237c03e53  P/Showcase / Leads / Vocal lead :: repeat
+81c07b287bef2403  P/Showcase / Leads / Vocal lead :: arp
+cec30c53e2e2cdf5  P/Showcase / Leads / Vocal lead :: legato
+86a6e3ddcfd1cab3  P/Showcase / Leads / Hollow square lead :: chord
+0bc9ea732ea68e7f  P/Showcase / Leads / Hollow square lead :: repeat
+02a85dd67d4d5d6a  P/Showcase / Leads / Hollow square lead :: arp
+3fbda7f8821da990  P/Showcase / Leads / Hollow square lead :: legato
+3e47564a878c6c24  P/Showcase / Leads / Crunch pluck lead :: chord
+32495ad70172bbf3  P/Showcase / Leads / Crunch pluck lead :: repeat
+2712faaef2e8940b  P/Showcase / Leads / Crunch pluck lead :: arp
+2129e024a024d012  P/Showcase / Leads / Crunch pluck lead :: legato
+2f9068ec08071e91  P/Showcase / Pads / Glass horde pad :: chord
+adfac062dd216a91  P/Showcase / Pads / Glass horde pad :: repeat
+28e1300ec83ca3cc  P/Showcase / Pads / Glass horde pad :: arp
+4f37e7e9cc5fd74b  P/Showcase / Pads / Undertone cathedral :: chord
+d1f019c8082439b9  P/Showcase / Pads / Undertone cathedral :: repeat
+decc20e78096d08b  P/Showcase / Pads / Undertone cathedral :: arp
+38b2bf15ca8f2391  P/Showcase / Pads / Cross-mod shimmer :: chord
+ebe2518edc2d5b3a  P/Showcase / Pads / Cross-mod shimmer :: repeat
+18b27acd89c72d7d  P/Showcase / Pads / Cross-mod shimmer :: arp
+6765c4b964d419cd  P/Showcase / Pads / Breathing pad :: chord
+aeeeacb9231d2b63  P/Showcase / Pads / Breathing pad :: repeat
+7b48a1ce845bd336  P/Showcase / Pads / Breathing pad :: arp
+caa269c407aa8127  P/Showcase / Interplay / Fold over sync :: chord
+f01d92b90755ac96  P/Showcase / Interplay / Fold over sync :: repeat
+08e0fcee9262aaf3  P/Showcase / Interplay / Fold over sync :: arp
+9e18bbdcebb11daf  P/Showcase / Interplay / Sync over fold :: chord
+f16dbc0ef3339180  P/Showcase / Interplay / Sync over fold :: repeat
+5eacff529b400add  P/Showcase / Interplay / Sync over fold :: arp
+5d89945360aaf292  P/Showcase / Interplay / Occlusion sweep :: chord
+5dba31d2a025dfc7  P/Showcase / Interplay / Occlusion sweep :: repeat
+1291678a1e6e5124  P/Showcase / Interplay / Occlusion sweep :: arp
+e72358b04644860f  P/Showcase / Interplay / Ring on ring :: chord
+f42acf529199f246  P/Showcase / Interplay / Ring on ring :: repeat
+87262d024aaa326c  P/Showcase / Interplay / Ring on ring :: arp
+46df5faf0b189aa8  P/Showcase / Interplay / Crushed burst :: chord
+bd5dab8c396b660f  P/Showcase / Interplay / Crushed burst :: repeat
+771066907aed98fe  P/Showcase / Interplay / Crushed burst :: arp
+2d70eac3ba724cc5  P/Showcase / Interplay / Collision chirps :: chord
+2ca281a75536f0ac  P/Showcase / Interplay / Collision chirps :: repeat
+db0fa5df5a05c1a8  P/Showcase / Interplay / Collision chirps :: arp
+bfb5334fcb0c4e1e  P/Showcase / Interplay / Collision bite :: chord
+5c456acc3b489b21  P/Showcase / Interplay / Collision bite :: repeat
+c358d63f2e50ab5d  P/Showcase / Interplay / Collision bite :: arp
+8ec66122cd0d2f19  P/Showcase / Oddities / Feedback choir :: chord
+7801725d8a09e9a5  P/Showcase / Oddities / Feedback choir :: repeat
+96b97b3d9a1735cb  P/Showcase / Oddities / Feedback choir :: arp
+0421a30b5c58c2f3  P/Showcase / Oddities / Crushed bells :: chord
+76642a94b543fa88  P/Showcase / Oddities / Crushed bells :: repeat
+9c2c267c2f1e636c  P/Showcase / Oddities / Crushed bells :: arp
+bdd9a8f6190bf4b9  P/Showcase / Oddities / Clockwork :: chord
+ef69d84828db2074  P/Showcase / Oddities / Clockwork :: repeat
+9f16031b5dec241f  P/Showcase / Oddities / Clockwork :: arp
+e2f20e5bf151b801  E/Pluck · sync blade :: chord
+6622a1103c65b3d5  E/Pluck · sync blade :: repeat
+8cb512265be69e4e  E/Pluck · sync blade :: arp
+37153b689ba8fa9e  E/Pluck · FM glass :: chord
+1db8aeacbcc887cc  E/Pluck · FM glass :: repeat
+4ebdc7d50dd945f7  E/Pluck · FM glass :: arp
+7b81edcd5a563b78  E/Pad · slow bloom :: chord
+c3c79684ae0cf888  E/Pad · slow bloom :: repeat
+f0ea0fbeb47e6063  E/Pad · slow bloom :: arp
+a2a82945133e9047  E/Swell · two seconds :: chord
+c6dce7975b0d4b15  E/Swell · two seconds :: repeat
+b4f329d0b87db649  E/Swell · two seconds :: arp
+d42d1dd12fb5fe87  E/Swell · cut at the key-off :: chord
+ead0c2f0d433e182  E/Swell · cut at the key-off :: repeat
+db9710bef6166a53  E/Swell · cut at the key-off :: arp
+c7f438b0fb280893  E/Gated stab · organ :: chord
+c5db030555c78adf  E/Gated stab · organ :: repeat
+11fe7faa79fdcacf  E/Gated stab · organ :: arp
+bb739d061ac2d922  E/Stab · short decay :: chord
+d5a51a700cebefcc  E/Stab · short decay :: repeat
+10e78df001a73f54  E/Stab · short decay :: arp
+cfdf55773257a2a7  E/Long tail · five seconds :: chord
+25ac3bcc27ff260d  E/Long tail · five seconds :: repeat
+27d937363316e471  E/Long tail · five seconds :: arp
+8a18d1ed64a4b1a8  E/Tail pile-up · steal and cull :: chord
+00304e83a3540c4d  E/Tail pile-up · steal and cull :: repeat
+57988d3937b8947e  E/Tail pile-up · steal and cull :: arp
+eab0be237d575ac7  E/Blade sweep outlives the amp :: chord
+b286fdff21be53c4  E/Blade sweep outlives the amp :: repeat
+bd959ccb79005baf  E/Blade sweep outlives the amp :: arp
+015b5a121b131338  E/Mono retrigger pluck :: chord
+a655c5de979aac0a  E/Mono retrigger pluck :: repeat
+ca67eb77cf8326e0  E/Mono retrigger pluck :: arp
+c905db65d2330ab2  E/Mono retrigger pluck :: legato
+48d3e912f2a93420  E/Legato swell lead :: chord
+8757fcf6611d6650  E/Legato swell lead :: repeat
+015d02794484b10e  E/Legato swell lead :: arp
+a0b96dbfc88a568e  E/Legato swell lead :: legato
+530923705fe880a7  T/mode 0 :: chord
+101050a86fca8bc6  T/mode 1 :: chord
+6150990dd0c097a2  T/mode 2 :: chord
+d9673c3afeaee47c  T/mode 3 :: chord
+a9d64bd7e3d2abc7  T/mode 4 :: chord
+5f1bea1e6dc61834  T/mode 5 :: chord
+fe476aaa3071ce32  T/mode 6 :: chord
+131a6818fb5abb3f  T/hot 0 :: chord
+f3f57d1ad8270d16  T/hot 1 :: chord
+530923705fe880a7  T/hot 2 :: chord
+5e0a5c04edce1d00  T/hot 3 :: chord
+fce739b84486604a  T/hot 4 :: chord
+daa49aad0bd77e9b  T/hot 6 :: chord
+530923705fe880a7  T/base 0 :: chord
+f389f8dcada324f4  T/base 1 :: chord
+21084e462b58f0a1  T/base 2 :: chord
+cf76a402408caec1  T/base 3 :: chord
+5f263fa6e1038070  T/base 4 :: chord
+4b95140f1db7a4d1  T/fm mode 1 type 0 :: chord
+92c167f62e521a39  T/fm mode 1 type 1 :: chord
+31dc192380b1d19f  T/fm mode 2 type 0 :: chord
+c6d4979d9acbb309  T/fm mode 2 type 1 :: chord
+60c9b2fd5bb225bc  T/fm mshape 0 :: chord
+111f00dc946a3b4d  T/fm mshape 1 :: chord
+5d25e88a7fa2f006  T/fm mshape 2 :: chord
+e3724e37d5c50094  T/fm mshape 3 :: chord
+ba09f26740eeed84  T/fm mshape 4 :: chord
+0ffb336604199686  T/fm mshape 5 :: chord
+a4ea40f285c05445  T/fm mshape 6 :: chord
+e9da7c0b445a43a6  T/fm mshape 7 :: chord
+598e44541634d145  T/fm Hz units :: chord
+6e13c3530d967d17  T/lock width :: chord
+5c143ac389455cf4  T/lock Hz :: chord
+6f55ea6274607af8  T/mirror 1 :: chord
+467b0a64f38e1a9a  T/mirror 2 :: chord
+886b2837829b890f  T/mirror 3 :: chord
+64e5bfbd696a7ace  T/frame swarm :: chord
+7ed0f2eaf7fec0f6  T/hard edges :: chord
+fe476aaa3071ce32  T/crush hard (BLEP steps) :: chord
+c76e06b8830cf8f1  T/crush slew :: chord
+fefc39441e42743a  T/noise S&H :: chord
+6fec432bbbf0883d  T/rotate + :: chord
+0b100d84f51a13c2  T/rotate - :: chord
+59c2c1b18c5cdf33  T/rotate spread :: chord
+48165897619fe813  T/rotate free clock :: chord
+2c9eeb36b572a3ca  T/rotate then home :: chord
+6b6aceac9c68b3a4  T/b2 mode 0 :: chord
+c65385bf2256db52  T/b2 mode 1 :: chord
+29f20bd586fb2a02  T/b2 mode 2 :: chord
+73d75bc5c88e49e9  T/b2 mode 3 :: chord
+b80dda49d982c13a  T/b2 mode 5 :: chord
+cbe4501e68167f05  T/b2 mode 6 :: chord
+fc8af921e206ecaf  T/b2 own fm :: chord
+5c979f171dc1bae1  T/b2 sine-to-saw own mod :: chord
+5de2fbe1f154f6fb  T/b2 twin mirror :: chord
+32795dc743882f30  T/b2 inverted twin :: chord
+35893f765238509b  T/b2 frame :: chord
+4c992b7c1bdec011  T/b2 own clock :: chord
+b86f55940aae530d  T/b2 own spreads :: chord
+bb22009835dc74d6  T/b2 envelope :: chord
+a45a06b1f486ef8d  T/b2 Hz lock :: chord
+10db374aa0dbf377  T/serial l0.5 o0 :: chord
+10db374aa0dbf377  T/serial l0.5 o1 :: chord
+10db374aa0dbf377  T/serial l1 o0 :: chord
+10db374aa0dbf377  T/serial l1 o1 :: chord
+43849a67a4ba8a84  T/serial twins :: chord
+a8cc7e1618379925  T/serial crush over sync :: chord
+8dacf2b3d9b8e230  T/collision pitch :: chord
+2b41d64bf440ad94  T/collision bite :: chord
+0ac259386dec70df  T/collision upper b1 :: chord
+7f41cfd81205c29e  T/interplay sweep :: chord
+0a64cef021dd329d  T/dc 0 :: chord
+6ee572bbed405035  T/dc 1 :: chord
+a03d69bd73dfd871  T/dc 2 :: chord
+9ce57ccb816f6ea0  T/os 1 :: chord
+ef502d7426674f1f  T/os 2 :: chord
+c5a345a2b39952b6  T/os 4 :: chord
+a84e787e0b8233b2  T/aa off :: chord
+754e01e8e04bfe26  T/law 0 :: chord
+a607cfe251b356c2  T/law 1 :: chord
+aed9f5e663c613b2  T/law 2 :: chord
+0fe6422984d97841  T/law 3 :: chord
+5ad71f4279fa97f8  T/law 4 :: chord
+3bb822fea3fb4f95  T/rule 1 :: chord
+6518247d9c5888f2  T/rule 2 :: chord
+0f856a67f2e3ecb1  T/rule 3 :: chord
+b3b8ca9fcc64667f  T/rule 4 :: chord
+7618addc097de3c2  T/rule 5 :: chord
+f62794fdbcc366f3  T/rule 6 :: chord
+7466e848d9c7acf3  T/rule 7 :: chord
+1225af225151d359  T/rule 8 :: chord
+ffc1010669af87a3  T/rule 9 custom :: chord
+65325938d28e28cf  T/rule snapped :: chord
+3ec52c52c4a7b808  T/spread snapped :: chord
+d563da0f2273e25d  T/spread snapped -half :: chord
+9d98d47a49cb0c04  T/blade envelope :: chord
+39fc2589eb8b0df9  T/cross-mod :: chord
+42279783e7b1e104  T/feedback :: chord
+d861ad8687b3266e  T/splay K<0 :: chord
+71fc2d41e49a2fba  T/strong lock :: chord
+7b64b5437a418d1c  T/cycles coupling :: chord
+bfac2bc23a19d7ea  T/phase random :: chord
+7b64b5437a418d1c  T/phase zero :: chord
+9ccbcfaba41bc39f  T/pan order :: chord
+cf8ad530765e79d2  T/bend :: chord
+910a05d7d9e76a93  T/sweep k w c :: chord
+656308cda4a194be  T/sweep swarm :: chord
+a173b112632bec37  T/sr 44100 :: arp
+a3726ea7ac9247dd  T/poly 2 steals :: arp
+48cd83931b6a83e6  T/mono retrig :: legato
+b4e7d1222c992cd5  T/legato glide always :: legato
+f5cd40047e7beead  T/restrike after full release :: restrike
+cab46ff79fa01afe  T/blade 1 off (w 0) :: chord
+530923705fe880a7  T/blade 2 off (w2 0) :: chord
+ff93cb62bfc9a6f5  T/collision swept off :: chord
+0a94bc48c36058b4  T/b2 own clock at rest :: chord
+64957656536341d3  T/b2 own clock homing :: chord
+8297895482c05712  T/mono glide 1 ms :: legato
+f7784d5897840e90  T/settle skipped (K 0) :: chord
+ba2686a05a8c36ae  T/gate mode 6 collision :: chord
+e4651f37d2b296d0  T/b2 lock 1 FM collision :: chord
+ab596d851b879dc3  T/retune message :: retune
+5457fa77b08da3d2  T/panic message :: panic
+334f25acea20c781  T/polyMode switch mid-note :: chord
+e52ad5d5879cecf9  T/modX wrap :: long
+59e5a17778b4d68d  C/VL repeat, the first release rings
+8a56c9f3e8b9fe4f  C/VL tiers 2 and 3
+18ace7b618eef8cc  C/VL tier 1, a faded slot
+2b5e6761e7b5afa9  C/CAP cull, the cap lowered mid-phrase
+3595d07ce004fff0  C/CAP refuse
+a492ae2f6858bfca  C/CAP steal
+0532d38b0b5c3b62  C/CAP replace
+0532d38b0b5c3b62  C/CAP steal with no free slot
+64b78a2f659c8bdc  C/CAP not binding
+02d2499e86830741  C/CAP cull per-partial voices, the cap lowered mid-phrase
+81d59baa2d9ee93c  C/FT lock 2, 37-sample blocks
+8c2fb60abf5d1a35  C/FT Hz modulator, 100-sample blocks
+89dba1a9c29244c4  C/FT chord on a mono voice in one block
+70d5f8a7739c4d45  C/FT retune before the first sample
+61182e9dcce711de  C/GRAV a sharp fifth
+acecdf43f9ba4aec  C/GRAV a triad, K .35
+253f82f90e630e59  C/GRAV an octave-folded twelfth
+ed542d467d3c8baf  C/GRAV a pair outside the basin
+9a5c030f95c11a3a  C/GRAV switched on mid-note
+a772fd259c93cae1  C/GRAV 100-sample blocks
+813cffaf82ff2409  C/GRAV a bend while settled
+c2eb3efc7babe8cf  C/GRAV at 44.1 kHz
+ba0bb775e15bb783  C/ONS onset scatter, alpha 0
+061bd7853ab238cb  C/ONS onset scatter, alpha 0.25
+78b6b8b68694a7d7  C/ONS onset scatter, alpha 1
+3937cf7ddfd68a65  C/ONS attack and release scatter
+60af08d5e0839273  C/ONS per-partial envelopes
+0cc88935675bb099  C/ONS per-partial envelopes, arp
+569fa4574eeda77d  C/ONS scatter and envelopes together
+623432d86062a2e0  C/ONS a seed change re-derives the offsets
+a87998b11dc582f2  C/ONS mono retrigger with per-partial envelopes
+75094434d1634ab9  C/ONS at 44.1 kHz
+f3be4cafb000ebaf  C/ONS onset scatter switched off mid-note
+32cdf360cc3cad83  C/ONS per-partial envelopes switched off mid-note
+9e934cdfbfd9d42e  C/D1 :: Zap bass
+fec627aa6415df80  C/D2 :: Zap bass
+fec627aa6415df80  C/D3 :: Zap bass
+9e934cdfbfd9d42e  C/D1-D3 :: Zap bass
+a128a6dcf07ef662  C/D1 :: Frozen noise FM
+1b1735c1bdd62df6  C/D2 :: Frozen noise FM
+1b1735c1bdd62df6  C/D3 :: Frozen noise FM
+a128a6dcf07ef662  C/D1-D3 :: Frozen noise FM
+d424e598901e5ff0  C/D1 :: Trance jitter
+a75cf0cfa88a955a  C/D2 :: Trance jitter
+a75cf0cfa88a955a  C/D3 :: Trance jitter
+d424e598901e5ff0  C/D1-D3 :: Trance jitter
+c0cd8a8034ddeb59  C/D1 :: Feedback snarl
+78520c192e72c6a6  C/D2 :: Feedback snarl
+14f31c4237ca3257  C/D3 :: Feedback snarl
+db9098afc1fa0157  C/D1-D3 :: Feedback snarl
+f4c68ba525458c03  C/D1 :: Cross-mod roar
+6b6c8d66a98de7df  C/D2 :: Cross-mod roar
+085fed67e6cb85b7  C/D3 :: Cross-mod roar
+d450b16ed0aec274  C/D1-D3 :: Cross-mod roar
+1c8c5d20510ded31  C/D1 a sync carrier with Band-limit off
+d9038ce4d947f1e8  C/D1 a ring carrier with Band-limit off
+125e614435c74827  C/D1 an FM carrier, pitch FM
+f4ad06934e513e44  C/D1 an S&H modulator (out of scope)
+6f33fd965aaa802c  C/D1 switched on mid-note
+4226c13120bbb80b  C/D2 blade 2 carrier under feedback
+15c7c939aad3a09e  C/D1 width-locked FM carrier
+ccddb9eb8a18efcc  C/D1 mirrored FM carrier
+24e866f96b53c9a4  C/D1 under collision
+57fee04ef386f72f  C/D1 on a serial input
+bc017d3a384be1b0  C/D1 serial twins
+39f1fa98908c6668  C/D2 under phase FM
+73394e47ce4b2e58  C/D2 width-locked
+1a0fff6ced01b9c9  C/D2 mirrored
+4f1280a18cc51cc8  C/D2 under collision
+f9aaa2f458991011  C/D3 a cross-mod ring
+a4f92d83c0f8004f  C/D3 switched on mid-note
+2baeccf025b79244  C/M1 K .35 at 44100
+cc65eae245ab545b  C/M1 K 1 at 44100
+4aae847edff2847e  C/M1 K -.6 at 44100
+9c42d80bc01e98e7  C/M1 K .35 at 48000
+71fc2d41e49a2fba  C/M1 K 1 at 48000
+2f82624af87c71db  C/M1 K -.6 at 48000
+56d7a50eff84d4bd  C/M1 K .35 at 96000
+19355c1d13190bb1  C/M1 K 1 at 96000
+ac9217781ceb7823  C/M1 K -.6 at 96000
+e0efe19aa40a3771  C/M2 onset +.5 at 44100
+5e780c95dab28750  C/M2 onset -.5 at 44100
+a4d79ac42708e3e7  C/M3 law 3 at 120 bpm, 44100
+5ba161ad3e04b62c  C/M3 law 3 at 140 bpm x2, 44100
+da7ad4864d6d2a66  C/M2 onset +.5 at 48000
+5720a6e1dc4504b6  C/M2 onset -.5 at 48000
+c51640a3dbfb67fe  C/M3 law 3 at 120 bpm, 48000
+db5bd848adfd85fa  C/M3 law 3 at 140 bpm x2, 48000
+46166f4adb717dad  C/SW dist 0
+a713e05142bb5391  C/SW dist 1
+dd88497ed0fd2b48  C/SW dist 2
+a942684d996abd4b  C/SW dist 3
+97136fb4e1ccb4fd  C/SW dist 4
+e3b2a2b222ff6935  C/SW law 0
+d534ee2b4a0dbc78  C/SW law 1
+6956e8b3dd2cf898  C/SW law 2
+e3e56450ead7d0c9  C/SW law 4
+6324c5a1214fb259  C/SW law 5
+039ebca53373b9d8  C/SW drift mode 0
+6178d3880bf11a27  C/SW drift mode 1
+5d34200a10eb3f23  C/SW drift mode 2
+ef060ec0e4687575  C/SW drift with the centre pin
+6aa396f890659e61  C/SW inertia, curve 0.5
+586073809e83fbb8  C/SW inertia, curve 2.5
+d42dc30fb6500e44  C/SW frequency glide under drift and retune
+971df514d113a60b  C/SW keep phase
+c9a0e1a60fce3f1b  C/SW random start phases (retrig off)
+45f50f27b75d9363  C/SW pivot, K 0.6
+b5640b386018d522  C/SW pivot, K -0.6
+c320b7a2eca53edb  C/SW anchor and spread
+71cdd3f6b906bb3c  C/SW a seed change mid-phrase
+9253af61e5d00a71  C/SW N changes mid-note
+396fc9d21890bf47  C/A2 negative Rotate spread
+9937bcb702a657cd  C/A2 blade 2 own negative Rotate spread
+242290c22b659e56  C/A2 Rotate spread flips sign mid-note
+67ae9ca587f65934  C/A2 Quantized Cut spread -2.5
+90d999772ead71a1  C/A2 Quantized Cut spread 2.5
+eec47885967308ec  C/A2 Quantized blade 2 Cut spread -1.5
+2e8d7ffec2af6795  C/OS 2 -> 4 -> 1 mid-note
+TOTAL 4d1ad7f1ed674d88 543
