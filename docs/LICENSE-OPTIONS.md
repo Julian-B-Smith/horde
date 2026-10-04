@@ -14,7 +14,7 @@ texts are given so the decision is a copy, not a search.*
 | `reference/*.html` — the seven prototypes + candidates | this project (spec-in-code, ADR-003) | They ARE the spec; parity oracles extract goldens from them. Any licence must cover them identically to `src/`, or the goldens' provenance becomes a licensing question. |
 | `specs/SPEC-*.md`, `specs/ACCEPTANCE.md`, `docs/PRIOR-ART.md` | this project | Documentation. Both candidates below cover documentation; if a CC licence is wanted for prose instead, say so in `LICENSE` explicitly. |
 | `specs/SPEC-STATION.md`, `specs/SPEC-FORMANT.md`, `specs/SPEC-INTENT-BUS.md`, `docs/received/**` | ingested from outside (ADR-091/122/152) | **Check authorship before licensing.** Ingested specs were written by the human or a sibling project; their terms are whatever the human sets, but a licence file claims the right to set them — confirm no third-party text is included verbatim. |
-| `libs/clap` (MIT) · `libs/clap-wrapper` (MIT) · `libs/choc` (ISC) · VST3 SDK (fetched at configure; GPLv3 **or** Steinberg proprietary) | third parties | Submodules keep their own licences. **The VST3 SDK is the constraint:** shipping a VST3 binary under anything other than GPLv3 requires the Steinberg VST3 licence agreement (free, but signed). A permissive OSS choice for our code does not remove that obligation for the VST3 artifact; the CLAP and AU artifacts carry no such term. |
+| `libs/clap` (MIT) · `libs/clap-wrapper` (MIT) · `libs/choc` (ISC) · VST3 SDK (fetched at configure, v3.8.0_build_66: **MIT** since 3.8.0, 2025) · AudioUnitSDK (Apache-2.0) | third parties | Submodules and fetched SDKs keep their own licences, and each needs its notice shipped in the installer and About box (B433). **Corrected 2026-10-04 (B434):** earlier text here said the VST3 SDK was GPLv3 or Steinberg-proprietary, which needed a signed Steinberg agreement for a non-GPL VST3. That held before 3.8.0. The pinned SDK's own LICENSE.txt now reads MIT (Copyright 2025, Steinberg Media Technologies GmbH), so a VST3 binary carries no copyleft term. What remains is the **"VST" trademark**: follow Steinberg's usage guidelines (`VST3_Usage_Guidelines.pdf` ships with the SDK). |
 | Private-sibling material | aliased (ADR-014) | Never in the tree; nothing to license. |
 
 ## The two candidates
@@ -49,8 +49,8 @@ Candidate B protects that while keeping the reference prototypes public —
 which is the honest posture for a repo whose spec is code. If the plan is the
 research and the instrument as a public artifact, with income (if any) from
 services, presets, or a hosted layer, Candidate A costs nothing and buys
-contributions and citations. Either way: the VST3 SDK row above applies to
-the shipped VST3 regardless of choice, and the ingested-spec row needs a
+contributions and citations. Either way: the third-party row above (notices, and
+the VST trademark wording) applies regardless of choice, and the ingested-spec row needs a
 five-minute authorship check before any `LICENSE` is committed. Undecided
 stays all-rights-reserved, and reviewers of a 1.0 will read that as a
 decision too.
