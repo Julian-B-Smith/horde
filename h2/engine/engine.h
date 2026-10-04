@@ -69,7 +69,7 @@ namespace horde2::engine {
 // run by each specialised kernel (Engine::pickKernel, in this order) since the caller
 // last zeroed them. Undefined elsewhere (the shipped, ledger and product builds), the
 // count compiles to nothing; it never touches the arithmetic.
-inline constexpr const char* kKernelNames[] = {"generic", "saw", "saw+b2", "ring", "ring+b2", "fm", "fm+b2", "crush", "crush+b2"};
+inline constexpr const char* kKernelNames[] = {"generic", "saw", "saw+b2", "ring", "ring+b2", "fm", "fm+b2", "crush", "crush+b2", "sync", "sync+b2"};
 inline uint64_t kernelSteps[sizeof kKernelNames / sizeof kKernelNames[0]] = {};
 #define H2E_KERNEL_HIT(id) (kernelSteps[id]++)
 #else
@@ -371,13 +371,16 @@ class Engine {
     static constexpr int aa = inl ? 1 : kAny, d1 = inl ? 0 : kAny;
   };
   // The kernels, chosen from what the scenario set and the ledger presets render
-  // (B441 C3 trace): blade 1 is a saw sync, a sine ring, a sine phase-FM or a crush
-  // blade, without blade 2 or with blade 2 left generic (its selectors at run time).
-  // Anything else, or D1 on, or BLEPs off, runs the generic path (id 0).
+  // (traces/2026-10-04-b441-c3.md): blade 1 is a saw sync, a sine ring, a sine
+  // phase-FM, a crush or another sync blade, without blade 2 or with blade 2 left
+  // generic (its selectors at run time). Anything else (mirror twins, noise, fold,
+  // mode-2 or pitch FM, ...), or D1 on, or BLEPs off, runs the generic path (id 0).
+  // The first kernel that fits wins, so `sync` takes only the non-saw carriers.
   using BSaw = BK<0, 2, 0, kAny, kAny>;   // sync, saw carrier, no mirror
   using BRing = BK<5, 0, 0, kAny, kAny>;  // ring, sine carrier, no mirror (scan is dead)
   using BFm = BK<1, 0, 0, 0, 0>;           // phase FM (fmType 0), sine carrier and modulator, no mirror
   using BCrush = BK<6, kAny, 0, kAny, kAny>;  // crush, no mirror (its scan reads `hard`, so it stays)
+  using BSync = BK<0, kAny, 0, kAny, kAny>;   // sync, any carrier (after BSaw), no mirror
   using KGeneric = KK<0, BAny, kAny, BAny>;
   using KSaw = KK<1, BSaw, 0, BAny>;
   using KSaw2 = KK<2, BSaw, 1, BAny>;
@@ -387,7 +390,9 @@ class Engine {
   using KFm2 = KK<6, BFm, 1, BAny>;
   using KCrush = KK<7, BCrush, 0, BAny>;
   using KCrush2 = KK<8, BCrush, 1, BAny>;
-  static constexpr int kKernels = 9;
+  using KSync = KK<9, BSync, 0, BAny>;
+  using KSync2 = KK<10, BSync, 1, BAny>;
+  static constexpr int kKernels = 11;
 #ifdef H2_ENGINE_KERNELS
   static_assert(kKernels == static_cast<int>(sizeof kKernelNames / sizeof kKernelNames[0]), "one name per kernel");
 #endif
@@ -415,6 +420,8 @@ class Engine {
     if (fits<KFm2>()) return KFm2::id;
     if (fits<KCrush>()) return KCrush::id;
     if (fits<KCrush2>()) return KCrush2::id;
+    if (fits<KSync>()) return KSync::id;
+    if (fits<KSync2>()) return KSync2::id;
     return KGeneric::id;
   }
 
@@ -1681,6 +1688,8 @@ inline void Engine::renderCall(double* L, double* R, int n) {
     case KFm2::id: renderCallK<KFm2>(L, R, n); return;
     case KCrush::id: renderCallK<KCrush>(L, R, n); return;
     case KCrush2::id: renderCallK<KCrush2>(L, R, n); return;
+    case KSync::id: renderCallK<KSync>(L, R, n); return;
+    case KSync2::id: renderCallK<KSync2>(L, R, n); return;
     default: renderCallK<KGeneric>(L, R, n); return;
   }
 }
