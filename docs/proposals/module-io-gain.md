@@ -80,3 +80,23 @@ visible reads it.
 6. A module that declares the keys gets no slot gain, and one that does not gets
    exactly one pair, checked by a planted double-gain control.
 7. Both clip latches set on an over and hold until cleared.
+
+## Amendment A1 — the limiter's output is cut-only (approved by the human, 2026-10-04)
+
+The amendment follows Bulwark's reply (horde `integrations/bulwark/reply-io-gain.md`, their
+option 1) and the human's master-limiter ruling (B438: "Approved, master only for 1.0").
+
+- **A limiter face's `io.outGain` is attenuation-only:** −24 … 0 dB, with the same law, ramp
+  and placement. At v ≥ ½ it is exactly 0 dB. A limiter guarantees a ceiling, and a boost
+  after it would break that guarantee, so this is a range restriction for one module class,
+  not a new placement.
+- **The master limiter (B438)** is the one limiter in horde 1.0: Bulwark's limiter face, fixed
+  as the last stage before the output, never a rack slot. On the mixer page's master strip,
+  its `io.outGain` IS the master **Volume** (−∞ … 0 dB; cut-only, so nothing after the
+  limiter passes the ceiling). It is one control, never two.
+- Every other module, including Bulwark's compressor and OTT faces, keeps the standard as
+  written above.
+
+**Added acceptance test.** With the limiter on, at any Ceiling, Volume and input level (+24 dB
+drive), no output sample exceeds the Ceiling. A planted +6 dB post-limiter boost must fail
+this test.
