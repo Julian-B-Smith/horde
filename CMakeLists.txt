@@ -890,6 +890,14 @@ add_executable(measure_h2_engine tools/measure_h2_engine.cpp)
 if(NOT MSVC)
   target_compile_options(measure_h2_engine PRIVATE -O3 -ffp-contract=off)
 endif()
+# measure_h2_engine_stages (B441): the same file with H2_ENGINE_STAGES, the
+# measurement-only stage toggles in h2/engine/engine.h (--stages; the cost
+# attribution in docs/port/cpu-ledger.md). Never the shipped or the parity build.
+add_executable(measure_h2_engine_stages tools/measure_h2_engine.cpp)
+target_compile_definitions(measure_h2_engine_stages PRIVATE H2_ENGINE_STAGES)
+if(NOT MSVC)
+  target_compile_options(measure_h2_engine_stages PRIVATE -O3 -ffp-contract=off)
+endif()
 
 # MSVC gives a process a 1 MB main-thread stack; macOS and Linux give 8 MB. A
 # SwarmCore is 651 KB (sizeof, MSVC 14.51, 2026-09-09) and the host-side
