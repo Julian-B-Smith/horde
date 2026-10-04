@@ -15,11 +15,14 @@
  *       scripts (one voice held 4 s at 48 kHz: Crushed bells, Glass horde pad,
  *       Quarter sync); each is replayed best of five and divided by the audio
  *       duration, with its distance from the golden.
- *   build-release/measure_h2_engine --ledger [--presets <file>] [--reps R] [--force]
+ *   build-release/measure_h2_engine --ledger [--sr 44100|48000] [--presets <file>] [--reps R] [--force]
  *       B441's frozen protocol (docs/port/cpu-ledger.md, "Protocol"): the ledger
  *       presets x 1/8/16 voices, interleaved best of R (default 5), the calibration
  *       loop each repeat, the load guard before each repeat. One `LEDGER {json}` row
  *       per cell on stdout.
+ *   --sr R (any mode but the checkpoint-4 replay, which runs at its stream's own
+ *       rate): the cell's sample rate. Protocol B441-2: 44.1 kHz is the reference
+ *       (the lead's E-6 ruling) and the default; 48 kHz, B441-1's rate, is secondary.
  *   build-release/measure_h2_engine --sweep [--presets <file>] [--force]
  *       Every bank preset at one voice, best of 2, 1 s timed: a coarse ranking used
  *       to choose the ledger's light-to-heavy picks. Not a ledger figure.
@@ -38,7 +41,7 @@
  * with no preset (the oracle's defaults: N 5, a sync blade, os 2).
  *
  * THE CELL (frozen; the doc's protocol section explains each choice):
- *   48 kHz, 128-sample blocks, the preset's own oversampling (no bank preset sets
+ *   44.1 kHz (--sr; 48 kHz secondary), 128-sample blocks, the preset's own oversampling (no bank preset sets
  *   os, so every one runs at the engine's 2), poly 8. V voices: V notes at keys
  *   48 + 3k (k = 0..V-1, B378's chord), velocity 0.85, all on before the first block.
  *   16 voices are two engines of 8 (kVoices is 8, engine.h), the second on keys
@@ -75,7 +78,9 @@ using Engine = horde2::engine::Engine;
 using Clock = std::chrono::steady_clock;
 
 // ---- the frozen protocol's constants (docs/port/cpu-ledger.md, "Protocol") ----
-constexpr double kSR = 48000;
+// The cell's rate, set once from --sr before any engine is built. B441-2: 44.1 kHz is
+// the reference (E-6), 48 kHz (B441-1's only rate) the secondary.
+double gSR = 44100;
 constexpr int kBlock = 128;
 constexpr double kWarmSeconds = 0.25, kTimedSeconds = 2.0;
 constexpr uint32_t kSeed = 0xB385;   // checkpoint 4's bench seed
@@ -176,7 +181,7 @@ double runCell(const Cell& c, double timedSeconds = kTimedSeconds, horde2::engin
   const int engines = (c.voices + 7) / 8;
   Engine* e[2] = {nullptr, nullptr};
   for (int k = 0; k < engines; k++) {
-    e[k] = new Engine(kSR);   // ~114 KB: the heap
+    e[k] = new Engine(gSR);   // ~114 KB: the heap
     e[k]->seedRandom(kSeed + k);
     for (const auto& m : c.patch->cmds) {
       if (m.op == "set") e[k]->set(m.key.c_str(), m.a);
@@ -195,8 +200,8 @@ double runCell(const Cell& c, double timedSeconds = kTimedSeconds, horde2::engin
     e[v / 8]->noteOn(note, 440 * std::pow(2, (note - 69) / 12.0), 0.85);
   }
   double L[kBlock], R[kBlock];
-  const int warm = static_cast<int>(std::lround(kWarmSeconds * kSR / kBlock));
-  const int timed = static_cast<int>(std::lround(timedSeconds * kSR / kBlock));
+  const int warm = static_cast<int>(std::lround(kWarmSeconds * gSR / kBlock));
+  const int timed = static_cast<int>(std::lround(timedSeconds * gSR / kBlock));
   for (int b = 0; b < warm; b++) for (int k = 0; k < engines; k++) e[k]->render(L, R, kBlock);
   const auto t0 = Clock::now();
   for (int b = 0; b < timed; b++) for (int k = 0; k < engines; k++) { e[k]->render(L, R, kBlock); sinkAcc += L[0]; }
@@ -205,7 +210,7 @@ double runCell(const Cell& c, double timedSeconds = kTimedSeconds, horde2::engin
   for (int k = 0; k < engines; k++) delete e[k];
   return s;
 }
-double audioSeconds(double timedSeconds = kTimedSeconds) { return std::lround(timedSeconds * kSR / kBlock) * kBlock / kSR; }
+double audioSeconds(double timedSeconds = kTimedSeconds) { return std::lround(timedSeconds * gSR / kBlock) * kBlock / gSR; }
 
 std::string gitHead() {
   // --dirty: a row measured on an uncommitted tree says so
@@ -259,7 +264,7 @@ int ledger(int argc, char** argv) {
   if (!measure(cells, argInt(argc, argv, "--reps", 5), hasArg(argc, argv, "--force"), cal, lo, hi)) return 3;
   const std::string head = gitHead();
   const double audio = audioSeconds();
-  std::printf("calibration: best %.1f ms; load average %.2f..%.2f; head %s\n", cal * 1000, lo, hi, head.c_str());
+  std::printf("calibration: best %.1f ms; load average %.2f..%.2f; head %s; %.0f Hz\n", cal * 1000, lo, hi, head.c_str(), gSR);
   std::printf("%-18s %3s  %9s  %9s  %8s  %13s  %s\n", "preset", "V", "% M3 core", "per voice", "ratio", "min-spec*", "vs 34 % slice (8 voices only)");
   for (const Cell& c : cells) {
     const double pct = 100 * c.best / audio, ratio = (c.best / audio) / cal, ms = pct * kMinSpecFactor;
@@ -268,10 +273,10 @@ int ledger(int argc, char** argv) {
   }
   for (const Cell& c : cells) {
     const double pct = 100 * c.best / audio, ratio = (c.best / audio) / cal, ms = pct * kMinSpecFactor;
-    std::printf("LEDGER {\"protocol\":\"B441-1\",\"head\":\"%s\",\"preset\":\"%s\",\"voices\":%d,\"os\":\"preset\",\"sr\":%.0f,"
+    std::printf("LEDGER {\"protocol\":\"B441-2\",\"head\":\"%s\",\"preset\":\"%s\",\"voices\":%d,\"os\":\"preset\",\"sr\":%.0f,"
                 "\"block\":%d,\"timed_s\":%.4f,\"best_s\":%.6f,\"pct_m3\":%.4f,\"pct_m3_per_voice\":%.4f,\"cal_ms\":%.2f,"
                 "\"ratio\":%.6f,\"minspec_pct_assumed_x1.5\":%.3f,\"slice_pct\":%.0f,\"over_slice\":%s,\"load_lo\":%.2f,\"load_hi\":%.2f}\n",
-                head.c_str(), c.patch->name.c_str(), c.voices, kSR, kBlock, audio, c.best, pct, pct / c.voices, cal * 1000, ratio, ms,
+                head.c_str(), c.patch->name.c_str(), c.voices, gSR, kBlock, audio, c.best, pct, pct / c.voices, cal * 1000, ratio, ms,
                 kSlice, c.voices == 8 ? (ms > kSlice ? "true" : "false") : "null", lo, hi);
   }
   return 0;
@@ -362,7 +367,7 @@ int stages(int argc, char** argv) {
     runCell({p, 1, 0, 0}, kTimedSeconds, &log);
     double N = 5, os = 2;
     for (const auto& c : p->cmds) if (c.op == "set" && c.key == "N") N = c.a; else if (c.op == "set" && c.key == "os") os = c.a;
-    const double steps = N * os * (kWarmSeconds + kTimedSeconds) * kSR;
+    const double steps = N * os * (kWarmSeconds + kTimedSeconds) * gSR;
     std::printf("  %-16s  tryE edges %llu, scan edges %llu, blade-1 entries %llu, blade-2 entries %llu over %.0f member-steps"
                 " (warm-up included): %.4f BLEP edges per member-step\n", n,
                 static_cast<unsigned long long>(log.count[1]), static_cast<unsigned long long>(log.count[2]),
@@ -419,6 +424,8 @@ int replayBench(int argc, char** argv) {
 
 int main(int argc, char** argv) {
   for (int i = 1; i + 1 < argc; i++) if (std::strcmp(argv[i], "--presets") == 0) gPresetFile = argv[i + 1];
+  for (int i = 1; i + 1 < argc; i++) if (std::strcmp(argv[i], "--sr") == 0) gSR = std::atof(argv[i + 1]);
+  if (!(gSR >= 8000 && gSR <= 384000)) { std::fprintf(stderr, "measure_h2_engine: --sr wants a rate in Hz (44100, 48000)\n"); return 1; }
   if (hasArg(argc, argv, "--ledger")) return ledger(argc, argv);
   if (hasArg(argc, argv, "--sweep")) return sweep(argc, argv);
   if (argc > 1 && std::strcmp(argv[1], "--hold") == 0) return hold(argc, argv);
