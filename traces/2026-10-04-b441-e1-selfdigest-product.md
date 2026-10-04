@@ -1,0 +1,33 @@
+# b441-e1-selfdigest-product — the self-digest at the product flags, and the re-pin rules
+
+- **Queue item:** ROADMAP B441 phase 2 (E1), the lead's follow-up on PR #932, 2026-10-04. Follows `traces/2026-10-04-b441-e1-selfdigest.md`; this entry answers its open questions 1–3.
+- **Why:** The lead ruled four things:
+  - the digest references are golden fixtures, so a re-pin is protected and needs a reason;
+  - there are three legitimate re-pin cases: (a) a ledgered divergence, (b) a scenario-set change in which the diff touches only those rows, (c) a joint JS+C++ change under A2 item 3;
+  - an output-neutral PR never re-pins;
+  - the product build must be digested too. ADR-187 A1 makes the shipped build the tested build, and C1–C3 target the -O3 flags.
+- **What changed:**
+  - **Second binary.** `tools/h2_engine_selfdigest_check.cpp` now builds twice. The second binary, `h2_engine_selfdigest_product`, is built with `H2_SELFDIGEST_PRODUCT` at -O3 -DNDEBUG -ffp-contract=off and has no fault hooks. It runs the ULP control only. It also prints, as context and never as a verdict, how many scenarios share their digest with the committed parity reference.
+  - **References.** They are now named `h2/engine/selfdigest.<build>.<key>.txt`.
+  - **Re-pin listing.** `--repin` now prints every row that differs from the old reference (changed, added or removed) and the counts, so a reviewer can confirm case (b).
+  - **Header.** The tool header states the protected status and cases a–c.
+  - **Wiring.** `verify full` runs both binaries as two literal invocations, because test_table_check detects wiring by the quoted `"$build_dir/<name>"` form.
+  - **README.** h2/README.md's paragraph is updated.
+- **Re-pins in this change, with reasons:**
+  - **Parity reference.** The file was renamed to `selfdigest.parity.darwin-arm64.appleclang-16.node24.txt` and re-pinned so that its comment header carries the new policy wording. The digests are unchanged: `REPIN ...: 0 changed, 0 added, 0 removed, 543 unchanged`, TOTAL still `4d1ad7f1ed674d88`.
+  - **Product reference.** `selfdigest.product.darwin-arm64.appleclang-16.node24.txt` is a first pin (`no previous reference`), TOTAL `4d1ad7f1ed674d88`.
+  - **Category.** Neither is one of cases a–c. Both are the fixture's initial establishment, which the lead ordered.
+- **Measured:**
+  - **Product vs parity:** `CONTEXT  product vs parity (not judged): 543 of 543 scenarios share their digest with h2/engine/selfdigest.parity.darwin-arm64.appleclang-16.node24.txt; 0 differ`. So -O3 and -O2 differ in libm call sites but not in output on this machine.
+  - **Product build is genuinely different:** its flags.make reads `-O3 ... -O3 -ffp-contract=off` with `-DH2_SELFDIGEST_PRODUCT`, and its binary differs from the parity one.
+  - **Runtime:** the product run takes 12.0 s wall here.
+  - **Must-fail checks:**
+    - Changing one reference line by hand turned the product build RED, naming that row (exit 1).
+    - `--repin` over that edited file listed `REPIN changed  P/Starting points / Quarter sync :: chord` and `1 changed, 0 added, 0 removed, 542 unchanged`.
+    - It then rewrote the file byte-identical to the backup.
+- **Evidence consulted:** the lead's follow-up message; `tools/test_table_check.py` `known_oracles()` (the wiring parse); `build-release/CMakeFiles/h2_engine_selfdigest_product.dir/flags.make`.
+- **Alternatives rejected:**
+  - Computing both builds' digests in one process: one TU cannot be two optimisation levels.
+  - Running the FAULT control on the product build: it needs the H2_ENGINE_FAULTS hooks, which the product build must not carry.
+- **Verify:** recorded in PR #932 for the head that adds this trace: `./verify fast` and `./verify full`, each with `.harness/last-verify.json`.
+- **Open questions:** none from this change. The events-as-hashes approach and the libm counter's flags stay as they are, by the lead's ruling.

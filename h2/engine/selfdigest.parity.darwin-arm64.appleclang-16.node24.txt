@@ -1,6 +1,6 @@
-# h2_engine_selfdigest_check reference (tools/h2_engine_selfdigest_check.cpp): key darwin-arm64.appleclang-16.node24
-# FNV-1a 64 of each scenario's C++ samples, events and readouts. Re-pin ONLY for an output-changing
-# divergence recorded in docs/port/divergences.json (ADR-187 items 5 and 7); an output-neutral PR never re-pins.
+# h2_engine_selfdigest_check reference (tools/h2_engine_selfdigest_check.cpp): parity build, key darwin-arm64.appleclang-16.node24
+# FNV-1a 64 of each scenario's C++ samples, events and readouts. A golden fixture (protected): re-pin only
+# for a reason stated in the PR and the trace (the tool header's cases a-c); an output-neutral PR never re-pins.
 # ORACLE docs/design/scalpel-horde-engine.js 581d7942684c91245e4a6637dd40d137335b5d69
 # ORACLE reference/scalpel/prototype/razor-core.js 0ce6a713410d89c65bf55f761f1dc791fae61b16
 # ORACLE reference/swarmsaw.html e47da6c9e0b4a058e18d79f62d71ab31c3d3b1b0

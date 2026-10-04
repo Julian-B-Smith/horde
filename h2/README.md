@@ -122,10 +122,15 @@ The rest are enforced by each core's parity check.
 1e-6 cannot prove a change output-neutral. `tools/h2_engine_selfdigest_check.cpp`
 (in `./verify full`, after the parity check, on the same stream) digests every
 scenario's C++ samples, events and readouts and demands all 543 equal the
-committed `engine/selfdigest.<platform>.<compiler>.node<major>.txt` (keyed like
-the floor; printed and not judged elsewhere). Re-pinning it is allowed only for an
-output-changing divergence in the ledger; an output-neutral PR never re-pins, and
-it re-runs `tools/h2_libm_count.py --write` so a moved libm call shows in its diff
+committed `engine/selfdigest.<build>.<platform>.<compiler>.node<major>.txt`
+(keyed like the floor; printed and not judged elsewhere). It is built twice:
+`parity` (-O2, the fault hooks, both must-fail controls) and `product` (-O3, the
+release flags, ADR-187 A1). Whether the two builds' digests agree is printed as
+context. The references are golden fixtures (protected): a re-pin states its
+reason in the PR and the trace, and the reason is a ledgered divergence, a
+scenario-set change (the re-pin lists the rows it touches) or a joint JS+C++
+change under A2 item 3. An output-neutral PR never re-pins; it re-runs
+`tools/h2_libm_count.py --write` so a moved libm call shows in its diff
 (`engine/libm-calls.<platform>.<compiler>.txt`, context, never a verdict).
 
 The full account of what is ported, what is not, and which oracle quirks are

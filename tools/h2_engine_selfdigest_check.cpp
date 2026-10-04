@@ -3,7 +3,7 @@
  * ITSELF: a C++-vs-C++ bit-identity digest of all the parity scenarios. ROADMAP
  * B441 phase 2 (the step before C1-C3); ADR-187 item 5.
  *
- * WIRED: ./verify full (after h2_engine_parity_check, on the stream it rendered).
+ * WIRED: ./verify full (both builds, after h2_engine_parity_check, on the stream it rendered).
  *
  * WHY. h2_engine_parity_check proves the C++ is within 1e-6 of the JS golden (rms
  * and max-abs) with a 30 % mean bit-exact floor. That is weaker than "the same bits
@@ -13,52 +13,77 @@
  * this is it: every scenario's samples, events and readouts are bit-identical to the
  * pinned C++ render.
  *
+ * TWO BUILDS OF THIS SOURCE, each against its own reference (the lead, 2026-10-04):
+ *   parity   h2_engine_selfdigest_check: the parity check's flags (-O2
+ *            -ffp-contract=off) with H2_ENGINE_FAULTS compiled in (fault 0), so the
+ *            FAULT control can plant a fault. The build parity judges.
+ *   product  h2_engine_selfdigest_product (H2_SELFDIGEST_PRODUCT): the release
+ *            flags (-O3 -DNDEBUG -ffp-contract=off), no fault hooks. ADR-187 A1: the
+ *            shipped build is the tested build, and C1-C3 target these flags. -O3
+ *            and -O2 emit different libm call sites (tools/h2_libm_count.py), so
+ *            they are digested apart. It runs the ULP control only (FAULT needs the
+ *            hooks), and prints, as CONTEXT and never a verdict, how many scenarios
+ *            its digests share with the committed parity reference.
+ *
  * WHAT IS DIGESTED, per scenario: FNV-1a 64 over the raw bytes of every output
  * double (interleaved L/R, as the replay emits them), then the blade-event log (its
  * four counts as uint64, then its two order-sensitive 32-bit hashes, which fold
  * every event's tick, member and kind in order: js.h EventLog), then the three load
  * readouts (culled, refused, stolen) as raw doubles. The scripts are the parity
  * stream's (tools/h2_engine_render.mjs), replayed through h2_engine_stream.h exactly
- * as the parity check replays them, at the script's own host blocks; the build is the
- * parity build (-O2 -ffp-contract=off, H2_ENGINE_FAULTS compiled in, fault 0). The JS
- * samples in the stream are not read. A digest is stable across process runs and
- * host blocks because the engine is (the parity check's DET rows); the one script
- * that is block-dependent by design (a culled voice's float32 tail) does not matter
- * here, since the blocks are the script's. The three chaotic ring rows are digested
- * like every other row: C++ against C++ is deterministic.
+ * as the parity check replays them, at the script's own host blocks. The JS samples
+ * in the stream are not read. A digest is stable across process runs and host blocks
+ * because the engine is (the parity check's DET rows); the one script that is
+ * block-dependent by design (a culled voice's float32 tail) does not matter here,
+ * since the blocks are the script's. The three chaotic ring rows are digested like
+ * every other row: C++ against C++ is deterministic.
  * One line per scenario, `<16 hex>  <name>`, then `TOTAL <16 hex> <n>` (FNV-1a 64
  * over the lines, in stream order).
  *
- * THE REFERENCE is h2/engine/selfdigest.<platform>.<compiler>.node<major>.txt, keyed
- * like the parity check's bit-exact floor: the platform and compiler (libm, codegen)
- * and the golden's Node major (V8's libm computes the scripts' note frequencies).
- * On an unkeyed platform the digests are printed and NOT judged (a SKIP, never a
- * pass). A reference for this platform under another compiler or Node major gets a
- * LOUD stderr WARNING to re-pin, and stays a SKIP (the floor's rule, L0072).
+ * THE REFERENCES are h2/engine/selfdigest.<build>.<platform>.<compiler>.node<major>.txt,
+ * keyed like the parity check's bit-exact floor: the platform and compiler (libm,
+ * codegen) and the golden's Node major (V8's libm computes the scripts' note
+ * frequencies). On an unkeyed platform the digests are printed and NOT judged (a
+ * SKIP, never a pass). A reference for this build and platform under another
+ * compiler or Node major gets a LOUD stderr WARNING to re-pin, and stays a SKIP (the
+ * floor's rule, L0072).
  *
- * RE-PIN (a human-visible act):
- *   node tools/h2_engine_render.mjs > /tmp/h2s && \
- *     build-release/h2_engine_selfdigest_check --full-from /tmp/h2s --repin
- * writes this platform's reference from a full, clean stream, and only when both
- * controls fired. Re-pinning is allowed ONLY for an output-changing divergence
- * recorded in the ledger (docs/port/divergences.json; ADR-187 items 5 and 7). An
- * "output-neutral" PR NEVER re-pins: a red here is the experiment failing.
- * An output-neutral PR also re-runs tools/h2_libm_count.py and commits its counts,
- * so a libm call that changed under the same bits is visible in its diff.
+ * THE REFERENCES ARE GOLDEN FIXTURES: A PROTECTED PATH (charter; ADR-187 item 7;
+ * ruled by the lead 2026-10-04). A re-pin needs a recorded reason, stated in the PR
+ * body and the trace, and the human reviews every re-pin through the PR. The reason
+ * must be ONE of:
+ *   (a) an output-changing divergence recorded in the ledger
+ *       (docs/port/divergences.json; ADR-187 item 5);
+ *   (b) a scenario-set change (rows added or changed in tools/h2_engine_render.mjs):
+ *       the digest diff must touch ONLY those rows, which --repin lists (below) so a
+ *       reviewer can confirm it;
+ *   (c) a joint JS+C++ engine change landed under ADR-187 A2 item 3.
+ * An "output-neutral" optimisation PR NEVER re-pins: a red here is the experiment
+ * failing. It re-runs tools/h2_libm_count.py --write instead and commits its counts,
+ * so a libm call that moved under the same bits is visible in its diff.
+ *
+ * RE-PIN (a human-visible act; both builds):
+ *   node tools/h2_engine_render.mjs > /tmp/h2s
+ *   build-release/h2_engine_selfdigest_check --full-from /tmp/h2s --repin
+ *   build-release/h2_engine_selfdigest_product --full-from /tmp/h2s --repin
+ * Each writes its build's reference from a full, clean stream, only when its
+ * controls fired, and first prints every row whose digest differs from the old
+ * reference (REPIN changed / added / removed), with the counts.
  *
  * MUST-FAIL CONTROLS (LIBRARY L0032), every run, judged by the same verdict code
  * as the reference comparison (against the reference where keyed, else against this
  * run's own clean digests):
- *   ULP    one sample of kUlpScenario nudged by one ULP: exactly that scenario red,
- *          by name;
- *   FAULT  fault 9 (K1, M1 reverted: the swarm's K smoother back to the constant
- *          0.08 per tick) planted in the engine, every scenario re-rendered: at
- *          least kFaultMinRed scenarios red.
+ *   ULP    (both builds) one sample of kUlpScenario nudged by one ULP: exactly that
+ *          scenario red, by name;
+ *   FAULT  (parity build) fault 9 (K1, M1 reverted: the swarm's K smoother back to
+ *          the constant 0.08 per tick) planted in the engine, every scenario
+ *          re-rendered: at least kFaultMinRed scenarios red.
  *
- * Usage: h2_engine_selfdigest_check --full-from FILE|- [--repin]
+ * Usage: h2_engine_selfdigest_check|h2_engine_selfdigest_product --full-from FILE|- [--repin]
  *   FILE is tools/h2_engine_render.mjs's FULL output (./verify renders it once for
- *   the parity check, its FMA control and this check). A cut file (no END record, or
- *   a count that disagrees with the header) is an infrastructure failure, exit 2.
+ *   the parity check, its FMA control and both builds of this check). A cut file (no
+ *   END record, or a count that disagrees with the header) is an infrastructure
+ *   failure, exit 2. Run from the repo root (the references are repo-relative).
  * Exit: 0 green (or an unkeyed SKIP), 1 red, 2 the run broke.
  */
 #include <cmath>
@@ -75,7 +100,9 @@
 #include <io.h>
 #endif
 
+#ifndef H2_SELFDIGEST_PRODUCT
 #define H2_ENGINE_FAULTS 1
+#endif
 #include "../h2/engine/engine.h"
 #include "h2_engine_stream.h"
 
@@ -84,6 +111,14 @@ using h2engine_stream::ReplayInfo;
 using h2engine_stream::Scenario;
 
 namespace {
+
+#ifdef H2_SELFDIGEST_PRODUCT
+constexpr const char* kBuild = "product";
+constexpr const char* kTool = "h2_engine_selfdigest_product";
+#else
+constexpr const char* kBuild = "parity";
+constexpr const char* kTool = "h2_engine_selfdigest_check";
+#endif
 
 // The ULP control's row: a plain blade chord every family-T reader knows.
 const char* const kUlpScenario = "T/mode 0 :: chord";
@@ -136,14 +171,6 @@ uint64_t digest(const std::vector<double>& out, const EventLog& log, const Repla
   f.bytes(info.cnt, sizeof info.cnt);
   return f.h;
 }
-uint64_t render(const Scenario& sc, int fault, std::vector<double>* keep = nullptr) {
-  std::vector<double> out;
-  EventLog log;
-  ReplayInfo info;
-  h2engine_stream::replay(sc, out, fault, &log, 0, &info);
-  if (keep) *keep = out;
-  return digest(out, log, info);
-}
 std::string hex(uint64_t v) {
   char b[24];
   std::snprintf(b, sizeof b, "%016llx", static_cast<unsigned long long>(v));
@@ -151,47 +178,56 @@ std::string hex(uint64_t v) {
 }
 
 using Digests = std::vector<std::pair<std::string, uint64_t>>;   // stream order
+using Ref = std::map<std::string, uint64_t>;
 uint64_t total(const Digests& d) {
   Fnv f;
   for (const auto& [name, v] : d) { const std::string l = hex(v) + "  " + name + "\n"; f.bytes(l.data(), l.size()); }
   return f.h;
 }
 
-// THE verdict: the scenarios of `run` whose digest differs from `ref`, is absent
-// from it, or (the reverse) is pinned and was not rendered. The controls go
-// through this function too, so they test the code that judges.
-std::vector<std::string> verdict(const Digests& run, const std::map<std::string, uint64_t>& ref) {
-  std::vector<std::string> red;
+// THE verdict: the scenarios of `run` whose digest differs from `ref` (changed), is
+// absent from it (added), or (the reverse) is pinned and was not rendered (removed).
+// The controls and the re-pin listing go through this function too, so they test
+// the code that judges.
+struct Diff { std::vector<std::string> changed, added, removed; size_t size() const { return changed.size() + added.size() + removed.size(); } };
+Diff verdict(const Digests& run, const Ref& ref) {
+  Diff d;
   std::map<std::string, int> seen;
   for (const auto& [name, v] : run) {
     seen[name]++;
     const auto it = ref.find(name);
-    if (it == ref.end()) red.push_back(name + "  (not in the reference)");
-    else if (it->second != v) red.push_back(name);
+    if (it == ref.end()) d.added.push_back(name);
+    else if (it->second != v) d.changed.push_back(name);
   }
-  for (const auto& [name, v] : ref) if (!seen.count(name)) red.push_back(name + "  (pinned, not rendered)");
-  return red;
+  for (const auto& [name, v] : ref) if (!seen.count(name)) d.removed.push_back(name);
+  return d;
+}
+void printDiff(const char* tag, const Diff& d) {
+  for (const std::string& x : d.changed) std::printf("%s changed  %s\n", tag, x.c_str());
+  for (const std::string& x : d.added) std::printf("%s added    %s  (not in the reference)\n", tag, x.c_str());
+  for (const std::string& x : d.removed) std::printf("%s removed  %s  (pinned, not rendered)\n", tag, x.c_str());
 }
 
 std::string refKey(int nodeMajor) {
   return std::string(kPlatform) + "." + compilerId() + ".node" + std::to_string(nodeMajor);
 }
-std::string refPath(int nodeMajor) { return "h2/engine/selfdigest." + refKey(nodeMajor) + ".txt"; }
+std::string refPath(const char* build, int nodeMajor) { return std::string("h2/engine/selfdigest.") + build + "." + refKey(nodeMajor) + ".txt"; }
 
 // Reads a reference file: `<16 hex>  <name>` lines; `#` lines and TOTAL are context.
-bool readRef(const std::string& path, std::map<std::string, uint64_t>& ref, std::vector<std::string>& oracles, uint64_t& tot) {
+// 0 absent, 1 read, -1 malformed.
+int readRef(const std::string& path, Ref& ref, std::vector<std::string>& oracles, uint64_t& tot) {
   FILE* f = std::fopen(path.c_str(), "rb");
-  if (!f) return false;
+  if (!f) return 0;
   std::string line;
   while (h2engine_stream::readLine(f, line)) {
     if (line.rfind("# ORACLE ", 0) == 0) { oracles.push_back(line.substr(9)); continue; }
     if (line.empty() || line[0] == '#') continue;
     if (line.rfind("TOTAL ", 0) == 0) { tot = std::strtoull(line.c_str() + 6, nullptr, 16); continue; }
-    if (line.size() < 19 || line.compare(16, 2, "  ") != 0) { std::fclose(f); return false; }
+    if (line.size() < 19 || line.compare(16, 2, "  ") != 0) { std::fclose(f); return -1; }
     ref[line.substr(18)] = std::strtoull(line.substr(0, 16).c_str(), nullptr, 16);
   }
   std::fclose(f);
-  return true;
+  return 1;
 }
 
 }  // namespace
@@ -202,9 +238,9 @@ int main(int argc, char** argv) {
   for (int i = 1; i < argc; i++) {
     if (std::strcmp(argv[i], "--full-from") == 0 && i + 1 < argc) path = argv[++i];
     else if (std::strcmp(argv[i], "--repin") == 0) repin = true;
-    else { std::fprintf(stderr, "h2_engine_selfdigest_check: unknown argument '%s' (usage: --full-from FILE|- [--repin])\n", argv[i]); return 2; }
+    else { std::fprintf(stderr, "%s: unknown argument '%s' (usage: --full-from FILE|- [--repin])\n", kTool, argv[i]); return 2; }
   }
-  if (path.empty()) { std::fprintf(stderr, "h2_engine_selfdigest_check: --full-from FILE|- is required\n"); return 2; }
+  if (path.empty()) { std::fprintf(stderr, "%s: --full-from FILE|- is required\n", kTool); return 2; }
   FILE* f = nullptr;
   if (path == "-") {
 #ifdef _WIN32
@@ -214,11 +250,11 @@ int main(int argc, char** argv) {
   } else {
     f = std::fopen(path.c_str(), "rb");
   }
-  if (!f) { std::fprintf(stderr, "h2_engine_selfdigest_check: cannot open '%s'\n", path.c_str()); return 2; }
+  if (!f) { std::fprintf(stderr, "%s: cannot open '%s'\n", kTool, path.c_str()); return 2; }
 
   std::string line;
   if (!h2engine_stream::readLine(f, line) || line.rfind("H2ENGINE 1", 0) != 0) {
-    std::fprintf(stderr, "h2_engine_selfdigest_check: bad stream header '%s'\n", line.c_str());
+    std::fprintf(stderr, "%s: bad stream header '%s'\n", kTool, line.c_str());
     return 2;
   }
   const long headerN = std::strtol(line.c_str() + 10, nullptr, 10);
@@ -244,9 +280,9 @@ int main(int argc, char** argv) {
     }
     if (op == "ORACLE") { oracles.push_back(h2engine_stream::rest(line, p)); continue; }
     if (op == "END") { ended = true; endN = std::strtol(h2engine_stream::word(line, p).c_str(), nullptr, 10); break; }
-    if (op != "SCN") { std::fprintf(stderr, "h2_engine_selfdigest_check: unexpected stream line '%s'\n", line.c_str()); infra = true; break; }
+    if (op != "SCN") { std::fprintf(stderr, "%s: unexpected stream line '%s'\n", kTool, line.c_str()); infra = true; break; }
     Scenario sc;
-    if (!h2engine_stream::readScenario(f, line, sc)) { std::fprintf(stderr, "h2_engine_selfdigest_check: truncated stream in '%s'\n", sc.name.c_str()); infra = true; break; }
+    if (!h2engine_stream::readScenario(f, line, sc)) { std::fprintf(stderr, "%s: truncated stream in '%s'\n", kTool, sc.name.c_str()); infra = true; break; }
     sc.js.clear();
     sc.js.shrink_to_fit();
     std::vector<double> out;
@@ -267,18 +303,19 @@ int main(int argc, char** argv) {
   if (nodeMajor < 0) { std::printf("FAIL  STREAM  no NODE record\n"); infra = true; }
   if (ulpOut.size() < 2) { std::printf("FAIL  STREAM  the ULP control's row '%s' is not in the stream\n", kUlpScenario); infra = true; }
   const uint64_t tot = total(run);
-  std::printf("TOTAL %s %d\n", hex(tot).c_str(), n);
-  if (infra) { std::printf("h2_engine_selfdigest_check: INFRASTRUCTURE FAILURE — the stream is not a full render; nothing judged\n"); return 2; }
+  std::printf("TOTAL %s %d (%s build)\n", hex(tot).c_str(), n, kBuild);
+  if (infra) { std::printf("%s: INFRASTRUCTURE FAILURE — the stream is not a full render; nothing judged\n", kTool); return 2; }
 
-  // The reference for this key, else this run's own digests (the controls still run).
-  const std::string key = refKey(nodeMajor), refFile = refPath(nodeMajor);
-  std::map<std::string, uint64_t> ref, self;
+  // The reference for this build and key, else this run's own digests (the controls still run).
+  const std::string key = refKey(nodeMajor), refFile = refPath(kBuild, nodeMajor);
+  Ref ref, self;
   for (const auto& [name, v] : run) self[name] = v;
   std::vector<std::string> refOracles;
   uint64_t refTot = 0;
-  const bool keyed = readRef(refFile, ref, refOracles, refTot);
-  if (!keyed && std::filesystem::exists(refFile)) { std::printf("FAIL  the reference %s is malformed\n", refFile.c_str()); return 2; }
-  const std::map<std::string, uint64_t>& judgeBy = keyed ? ref : self;
+  const int got = readRef(refFile, ref, refOracles, refTot);
+  if (got < 0) { std::printf("FAIL  the reference %s is malformed\n", refFile.c_str()); return 2; }
+  const bool keyed = got == 1;
+  const Ref& judgeBy = keyed ? ref : self;
   int red = 0;
 
   // ULP: one sample one ULP up, mid-render; exactly that row red, by name.
@@ -288,69 +325,103 @@ int main(int argc, char** argv) {
     const size_t at = o.size() / 2;
     o[at] = std::nextafter(o[at], INFINITY);
     for (auto& [name, v] : nudged) if (name == kUlpScenario) v = digest(o, ulpLog, ulpInfo);
-    const std::vector<std::string> r = verdict(nudged, judgeBy), base = verdict(run, judgeBy);
     // judged as the CHANGE from this run's own verdict, so a red reference cannot hide or fake it
+    const Diff r = verdict(nudged, judgeBy), base = verdict(run, judgeBy);
     std::vector<std::string> added;
-    for (const std::string& x : r) { bool was = false; for (const std::string& y : base) was = was || x == y; if (!was) added.push_back(x); }
-    const bool fired = added.size() == 1 && added[0] == kUlpScenario;
+    for (const std::string& x : r.changed) { bool was = false; for (const std::string& y : base.changed) was = was || x == y; if (!was) added.push_back(x); }
+    const bool fired = added.size() == 1 && added[0] == kUlpScenario && r.added.size() == base.added.size() && r.removed.size() == base.removed.size();
     if (!fired) red++;
     std::printf("%s  control ULP  sample %zu of '%s' nudged one ULP: %zu row(s) newly red%s%s\n", fired ? "PASS" : "FAIL", at, kUlpScenario,
                 added.size(), added.empty() ? "" : ", first: ", added.empty() ? "" : added[0].c_str());
   }
+#ifndef H2_SELFDIGEST_PRODUCT
   // FAULT: an engine constant changed (K1), every script re-rendered.
   {
     Digests faulted;
-    for (const Scenario& sc : scripts) faulted.emplace_back(sc.name, render(sc, kFaultId));
-    const std::vector<std::string> r = verdict(faulted, self);   // against this run: the fault's own effect
+    for (const Scenario& sc : scripts) {
+      std::vector<double> out;
+      EventLog log;
+      ReplayInfo info;
+      h2engine_stream::replay(sc, out, kFaultId, &log, 0, &info);
+      faulted.emplace_back(sc.name, digest(out, log, info));
+    }
+    const Diff r = verdict(faulted, self);   // against this run: the fault's own effect
     const bool fired = static_cast<int>(r.size()) >= kFaultMinRed;
     if (!fired) red++;
     std::printf("%s  control FAULT  K1 (fault %d, M1 reverted to 0.08 per tick) turns %zu of %d rows red (need >= %d)%s%s\n", fired ? "PASS" : "FAIL",
-                kFaultId, r.size(), n, kFaultMinRed, r.empty() ? "" : ", first: ", r.empty() ? "" : r[0].c_str());
+                kFaultId, r.size(), n, kFaultMinRed, r.changed.empty() ? "" : ", first: ", r.changed.empty() ? "" : r.changed[0].c_str());
   }
+#else
+  // CONTEXT, never a verdict: the product build against the committed PARITY
+  // reference. -O3 may legitimately differ from -O2; the count is what a reader needs.
+  {
+    Ref par;
+    std::vector<std::string> po;
+    uint64_t pt = 0;
+    if (readRef(refPath("parity", nodeMajor), par, po, pt) == 1) {
+      const Diff d = verdict(run, par);
+      std::printf("CONTEXT  product vs parity (not judged): %d of %d scenarios share their digest with %s; %zu differ%s%s\n",
+                  n - static_cast<int>(d.size()), n, refPath("parity", nodeMajor).c_str(), d.size(),
+                  d.changed.empty() ? "" : ", first: ", d.changed.empty() ? "" : d.changed[0].c_str());
+    } else {
+      std::printf("CONTEXT  product vs parity (not judged): no parity reference for %s\n", key.c_str());
+    }
+  }
+#endif
 
   if (repin) {
-    if (red) { std::printf("h2_engine_selfdigest_check: REFUSING to re-pin: a control did not fire\n"); return 1; }
+    if (red) { std::printf("%s: REFUSING to re-pin: a control did not fire\n", kTool); return 1; }
+    // What the re-pin changes, row by row: case (b) must touch only the rows it adds or changes.
+    if (keyed) {
+      const Diff d = verdict(run, ref);
+      printDiff("REPIN", d);
+      std::printf("REPIN  %s: %zu changed, %zu added, %zu removed, %d unchanged\n", refFile.c_str(), d.changed.size(), d.added.size(), d.removed.size(),
+                  n - static_cast<int>(d.changed.size() + d.added.size()));
+    } else {
+      std::printf("REPIN  %s: no previous reference (every row is new)\n", refFile.c_str());
+    }
     FILE* w = std::fopen(refFile.c_str(), "wb");
-    if (!w) { std::printf("h2_engine_selfdigest_check: cannot write %s\n", refFile.c_str()); return 2; }
-    std::fprintf(w, "# h2_engine_selfdigest_check reference (tools/h2_engine_selfdigest_check.cpp): key %s\n", key.c_str());
-    std::fprintf(w, "# FNV-1a 64 of each scenario's C++ samples, events and readouts. Re-pin ONLY for an output-changing\n"
-                    "# divergence recorded in docs/port/divergences.json (ADR-187 items 5 and 7); an output-neutral PR never re-pins.\n");
+    if (!w) { std::printf("%s: cannot write %s\n", kTool, refFile.c_str()); return 2; }
+    std::fprintf(w, "# %s reference (tools/h2_engine_selfdigest_check.cpp): %s build, key %s\n", kTool, kBuild, key.c_str());
+    std::fprintf(w, "# FNV-1a 64 of each scenario's C++ samples, events and readouts. A golden fixture (protected): re-pin only\n"
+                    "# for a reason stated in the PR and the trace (the tool header's cases a-c); an output-neutral PR never re-pins.\n");
     for (const std::string& o : oracles) std::fprintf(w, "# ORACLE %s\n", o.c_str());
     for (const auto& [name, v] : run) std::fprintf(w, "%s  %s\n", hex(v).c_str(), name.c_str());
     std::fprintf(w, "TOTAL %s %d\n", hex(tot).c_str(), n);
     std::fclose(w);
-    std::printf("RE-PINNED  %s  (%d scenarios, TOTAL %s). Allowed ONLY for an output-changing divergence in the ledger.\n", refFile.c_str(), n, hex(tot).c_str());
-    std::fprintf(stderr, "h2_engine_selfdigest_check: RE-PINNED %s — commit it only with its divergence record (ADR-187 item 5)\n", refFile.c_str());
+    std::printf("RE-PINNED  %s  (%d scenarios, TOTAL %s). A golden fixture: state the reason (a, b or c) in the PR and the trace.\n", refFile.c_str(), n,
+                hex(tot).c_str());
+    std::fprintf(stderr, "%s: RE-PINNED %s — commit it only with its stated reason (tool header, cases a-c)\n", kTool, refFile.c_str());
     return 0;
   }
 
   if (!keyed) {
-    // a reference for this platform under another compiler or Node major: warn loudly
+    // a reference for this build and platform under another compiler or Node major: warn loudly
     std::string other;
     std::error_code ec;
     for (const auto& e : std::filesystem::directory_iterator("h2/engine", ec)) {
       const std::string fn = e.path().filename().string();
-      if (fn.rfind(std::string("selfdigest.") + kPlatform + ".", 0) == 0) other = fn;
+      if (fn.rfind(std::string("selfdigest.") + kBuild + "." + kPlatform + ".", 0) == 0) other = fn;
     }
     if (!other.empty()) {
       char w[320];
-      std::snprintf(w, sizeof w, "WARNING: self-digest not judged — key %s has no reference, but this platform has h2/engine/%s; re-pin deliberately (L0072)\n",
-                    key.c_str(), other.c_str());
+      std::snprintf(w, sizeof w, "WARNING: self-digest (%s) not judged — key %s has no reference, but this platform has h2/engine/%s; re-pin deliberately (L0072)\n",
+                    kBuild, key.c_str(), other.c_str());
       std::printf("%s", w);
       std::fprintf(stderr, "%s", w);
     }
-    std::printf("SKIP  SELFDIGEST  no reference for %s: %d digests printed, NOT judged (never a pass)\n", key.c_str(), n);
-    std::printf("h2_engine_selfdigest_check: %s — unkeyed (%s), controls %s\n", red ? "RED" : "SKIP", key.c_str(), red ? "FAILED" : "fired");
+    std::printf("SKIP  SELFDIGEST  no %s reference for %s: %d digests printed, NOT judged (never a pass)\n", kBuild, key.c_str(), n);
+    std::printf("%s: %s — unkeyed (%s), controls %s\n", kTool, red ? "RED" : "SKIP", key.c_str(), red ? "FAILED" : "fired");
     return red ? 1 : 0;
   }
-  const std::vector<std::string> r = verdict(run, ref);
-  for (const std::string& x : r) std::printf("FAIL  SELFDIGEST  %s\n", x.c_str());
-  if (!r.empty()) {
+  const Diff r = verdict(run, ref);
+  printDiff("FAIL  SELFDIGEST", r);
+  if (r.size()) {
     red++;
     if (refOracles != oracles) std::printf("NOTE  the stream's ORACLE pins differ from the reference's: the golden (the scripts' source) moved\n");
   }
-  std::printf("%s  SELFDIGEST  %d of %d scenarios bit-identical to %s (TOTAL %s, reference %s)\n", r.empty() ? "PASS" : "FAIL", n - static_cast<int>(r.size()),
-              n, refFile.c_str(), hex(tot).c_str(), hex(refTot).c_str());
-  std::printf("h2_engine_selfdigest_check: %s — %d scenarios against %s; %zu differ; %d red\n", red ? "RED" : "GREEN", n, key.c_str(), r.size(), red);
+  std::printf("%s  SELFDIGEST  %d of %d scenarios bit-identical to %s (TOTAL %s, reference %s)\n", r.size() ? "FAIL" : "PASS",
+              n - static_cast<int>(r.changed.size() + r.added.size()), n, refFile.c_str(), hex(tot).c_str(), hex(refTot).c_str());
+  std::printf("%s: %s — %s build, %d scenarios against %s; %zu differ; %d red\n", kTool, red ? "RED" : "GREEN", kBuild, n, key.c_str(), r.size(), red);
   return red ? 1 : 0;
 }
