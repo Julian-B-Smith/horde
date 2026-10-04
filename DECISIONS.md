@@ -6811,3 +6811,10 @@ across host blocks 1/37/128/512, mirrored from the JS's per-sample `Float32Array
 The lead recommends a correctness fix in both, as a recorded divergence, so output never
 depends on the host's block size. It awaits the human because the composed JS is in the
 protected reference tree.
+
+**ADR-188 A2 — recorded by the lead from the human's Sluice-side rulings (2026-10-04).** The
+human's rulings relayed in Sluice's seq 16 (Sluice D-097, D-105) agree with ADR-188 and A1.
+They change one thing on horde's side: **tails live inside netcore's Node**, so horde holds no
+second Sluice instance for spill-over. The WHEN/WHAT split is accepted: horde owns the XY, the
+hysteresis and the moment of switching, and netcore owns what switching does. Patches are stored
+by value in horde presets. Answered to Sluice as horde seq 26.
