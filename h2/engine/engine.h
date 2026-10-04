@@ -69,7 +69,7 @@ namespace horde2::engine {
 // run by each specialised kernel (Engine::pickKernel, in this order) since the caller
 // last zeroed them. Undefined elsewhere (the shipped, ledger and product builds), the
 // count compiles to nothing; it never touches the arithmetic.
-inline constexpr const char* kKernelNames[] = {"generic", "saw", "saw+b2"};
+inline constexpr const char* kKernelNames[] = {"generic", "saw", "saw+b2", "ring", "ring+b2"};
 inline uint64_t kernelSteps[sizeof kKernelNames / sizeof kKernelNames[0]] = {};
 #define H2E_KERNEL_HIT(id) (kernelSteps[id]++)
 #else
@@ -375,10 +375,13 @@ class Engine {
   // blade, without blade 2 or with blade 2 left generic (its selectors at run time).
   // Anything else, or D1 on, or BLEPs off, runs the generic path (id 0).
   using BSaw = BK<0, 2, 0, kAny, kAny>;   // sync, saw carrier, no mirror
+  using BRing = BK<5, 0, 0, kAny, kAny>;  // ring, sine carrier, no mirror (scan is dead)
   using KGeneric = KK<0, BAny, kAny, BAny>;
   using KSaw = KK<1, BSaw, 0, BAny>;
   using KSaw2 = KK<2, BSaw, 1, BAny>;
-  static constexpr int kKernels = 3;
+  using KRing = KK<3, BRing, 0, BAny>;
+  using KRing2 = KK<4, BRing, 1, BAny>;
+  static constexpr int kKernels = 5;
 #ifdef H2_ENGINE_KERNELS
   static_assert(kKernels == static_cast<int>(sizeof kKernelNames / sizeof kKernelNames[0]), "one name per kernel");
 #endif
@@ -400,6 +403,8 @@ class Engine {
   int pickKernel() const {
     if (fits<KSaw>()) return KSaw::id;
     if (fits<KSaw2>()) return KSaw2::id;
+    if (fits<KRing>()) return KRing::id;
+    if (fits<KRing2>()) return KRing2::id;
     return KGeneric::id;
   }
 
@@ -1660,6 +1665,8 @@ inline void Engine::renderCall(double* L, double* R, int n) {
   switch (pickKernel()) {
     case KSaw::id: renderCallK<KSaw>(L, R, n); return;
     case KSaw2::id: renderCallK<KSaw2>(L, R, n); return;
+    case KRing::id: renderCallK<KRing>(L, R, n); return;
+    case KRing2::id: renderCallK<KRing2>(L, R, n); return;
     default: renderCallK<KGeneric>(L, R, n); return;
   }
 }
