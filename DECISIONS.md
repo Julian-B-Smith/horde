@@ -6818,3 +6818,56 @@ They change one thing on horde's side: **tails live inside netcore's Node**, so 
 second Sluice instance for spill-over. The WHEN/WHAT split is accepted: horde owns the XY, the
 hysteresis and the moment of switching, and netcore owns what switching does. Patches are stored
 by value in horde presets. Answered to Sluice as horde seq 26.
+
+## ADR-190 — RULED by the human: the horde 1.0 roster, frozen on 2026-10-07 (B440)
+
+**Context.** The B440 pre-freeze pass (`docs/plans/2026-10-04-feature-freeze-proposal.md`,
+`docs/design/freeze-proposal.html`) put twelve roster decisions to the human. The human answered
+all twelve on 2026-10-04. They are quoted where wording matters.
+
+**Rulings.**
+- **A1, the bar's timing (amends B439):** three dates, not one.
+  - The **roster** locks at the feature freeze, **2026-10-07**.
+  - Each module's **scope list** freezes at its lab sync (B331).
+  - The **MUST rows** are judged at a later **module cutoff**, before the release candidate.
+  - A module that misses the cutoff ships after 1.0.
+- **A2:** anything still undecided on 2026-10-07 goes after 1.0 by default.
+- **A3:** the Kuramoto chorus is **CONDITIONAL** (the OTT rule: in if it meets the bar by the
+  cutoff).
+- **A4:** **MPE is IN**, and channel aftertouch is a 1.0 mod source. MPE arrives through CLAP
+  per-note expressions rather than the wrapper's MIDI-dialect proxy parameters (B429(5)).
+- **A5:** the **shared quantizer is IN**; a **simple arpeggiator is IN**. The human: "more complex
+  patterns, step seq and generators after 1.0".
+- **A6:** a **plain noise oscillator is IN**, separate from the post-1.0 sampler.
+- **A7:** the simple FX modules are **EQ, the FX filter, and a simplified saturation/drive
+  module**. The human: "it's nice to have drive before and after a reverb, for instance, and
+  there's no way to do that without a separate module". Comb and notch live as filter types.
+- **A8:** **ECHO**, **Bulwark's compressor** and **the macros with the intent bus** are confirmed
+  IN.
+- **A9:** **true stereo is IN** (B408). The stereo lab settles the width equation and per-voice
+  vs post-sum.
+- **A10:** **AAX is OUT** of 1.0.
+- **A11:** a **standalone application is OUT** of 1.0. The human: "we should make one soon after
+  since it's a better portfolio piece if non-producers can download it and look at it". It is
+  queued as the first post-1.0 deliverable.
+- **A12:** **stepped morph glide (B424) is IN**.
+
+**The roster this freezes, with B440's inventory and these rulings.**
+- **Sources:** the composed engine (swarm plus SCALPEL blades, two oscillators); the new Sub;
+  the filters; the noise oscillator.
+- **FX:**
+  - Shriek (formerly MAW); Sluice; Scape (reverb); ECHO (delay);
+  - Bulwark's compressor, with its multiband mode and ATM preset CONDITIONAL;
+  - EQ; the FX filter; the simplified drive module.
+- **Master:** Bulwark's master limiter.
+- **Modulation and performance:** the modulators and envelopes, the mod matrix, the macros
+  with the intent bus, morph with stepped morph glide, MPE plus channel aftertouch, the
+  quantizer, a simple arpeggiator, and MTS-ESP.
+- **Platform:** true stereo, history/undo, macOS and Windows x64, and accessibility at the
+  approved level.
+- **CONDITIONAL:** the Kuramoto chorus, and Bulwark's multiband mode with the ATM preset.
+- **OUT of 1.0:** the sampler and granular module, AAX, the standalone app (first post-1.0),
+  complex arp patterns, step sequencers, generators, Windows on ARM, Linux, and AUv3.
+
+**Consequences.** New feature ideas after 2026-10-07 go to the post-1.0 list (A2). Scope lists
+freeze module by module at their lab syncs. The module cutoff date is set later.
