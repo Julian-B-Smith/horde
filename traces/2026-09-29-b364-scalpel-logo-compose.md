@@ -106,7 +106,7 @@ already coded, independent of colour. Screenshots (scratch, not committed;
 
 ## Screenshots (scratch, not committed — session temp dir)
 
-`/private/tmp/claude-501/-Users-machinepriest-Documents-Claude-synthetic-worlds-HYPERSAW/8f39079a-d2c3-45ac-95ed-20c1077b7b03/scratchpad/b364/shots/`:
+`<session scratchpad>/b364/shots/`:
 - `drop-light-zoom.png`, `ig-light-zoom.png`, `dig-light-zoom.png` — DROP, INSET+GRADIENT, the
   composite, light theme, close-up (6× crop of the mark).
 - `drop-dark-zoom.png`, `ig-dark-zoom.png`, `dig-dark-zoom.png` — the same three, dark theme.

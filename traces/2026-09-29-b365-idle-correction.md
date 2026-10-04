@@ -82,7 +82,7 @@
   throttle cadence.
 - **Screenshots** (scratch, not committed — session temp dir, captured via the new `b365Shots()`
   at `?page=main&specimen=1&b365shots=1`):
-  `/private/tmp/claude-501/-Users-machinepriest-Documents-Claude-synthetic-worlds-HYPERSAW/8f39079a-d2c3-45ac-95ed-20c1077b7b03/scratchpad/b365b/`
+  `<session scratchpad>/b365b/`
   - `b365-idle.png` — idle, no note yet.
   - `b365-held.png` — a note held: visible concentric ripple rings on the surface.
   - `b365-released.png` — ~1.5 s after release: ripple rings gone, silhouette has drifted (a
