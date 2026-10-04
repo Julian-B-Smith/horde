@@ -69,7 +69,7 @@ namespace horde2::engine {
 // run by each specialised kernel (Engine::pickKernel, in this order) since the caller
 // last zeroed them. Undefined elsewhere (the shipped, ledger and product builds), the
 // count compiles to nothing; it never touches the arithmetic.
-inline constexpr const char* kKernelNames[] = {"generic", "saw", "saw+b2", "ring", "ring+b2"};
+inline constexpr const char* kKernelNames[] = {"generic", "saw", "saw+b2", "ring", "ring+b2", "fm", "fm+b2"};
 inline uint64_t kernelSteps[sizeof kKernelNames / sizeof kKernelNames[0]] = {};
 #define H2E_KERNEL_HIT(id) (kernelSteps[id]++)
 #else
@@ -376,12 +376,15 @@ class Engine {
   // Anything else, or D1 on, or BLEPs off, runs the generic path (id 0).
   using BSaw = BK<0, 2, 0, kAny, kAny>;   // sync, saw carrier, no mirror
   using BRing = BK<5, 0, 0, kAny, kAny>;  // ring, sine carrier, no mirror (scan is dead)
+  using BFm = BK<1, 0, 0, 0, 0>;           // phase FM (fmType 0), sine carrier and modulator, no mirror
   using KGeneric = KK<0, BAny, kAny, BAny>;
   using KSaw = KK<1, BSaw, 0, BAny>;
   using KSaw2 = KK<2, BSaw, 1, BAny>;
   using KRing = KK<3, BRing, 0, BAny>;
   using KRing2 = KK<4, BRing, 1, BAny>;
-  static constexpr int kKernels = 5;
+  using KFm = KK<5, BFm, 0, BAny>;
+  using KFm2 = KK<6, BFm, 1, BAny>;
+  static constexpr int kKernels = 7;
 #ifdef H2_ENGINE_KERNELS
   static_assert(kKernels == static_cast<int>(sizeof kKernelNames / sizeof kKernelNames[0]), "one name per kernel");
 #endif
@@ -405,6 +408,8 @@ class Engine {
     if (fits<KSaw2>()) return KSaw2::id;
     if (fits<KRing>()) return KRing::id;
     if (fits<KRing2>()) return KRing2::id;
+    if (fits<KFm>()) return KFm::id;
+    if (fits<KFm2>()) return KFm2::id;
     return KGeneric::id;
   }
 
@@ -1667,6 +1672,8 @@ inline void Engine::renderCall(double* L, double* R, int n) {
     case KSaw2::id: renderCallK<KSaw2>(L, R, n); return;
     case KRing::id: renderCallK<KRing>(L, R, n); return;
     case KRing2::id: renderCallK<KRing2>(L, R, n); return;
+    case KFm::id: renderCallK<KFm>(L, R, n); return;
+    case KFm2::id: renderCallK<KFm2>(L, R, n); return;
     default: renderCallK<KGeneric>(L, R, n); return;
   }
 }
