@@ -606,7 +606,21 @@ full() {
     fi
     grep -v '^PASS  rms' "$h2f" >&2; rm -f $h2tmp; return 1
   fi
-  tail -1 "$h2f"; rm -f $h2tmp
+  tail -1 "$h2f"
+  # The composed engine against ITSELF (B441 phase 2; ADR-187 item 5's "output-
+  # neutral work must leave every digest unchanged"): on the same stream, every
+  # scenario's C++ samples, events and readouts digested (FNV-1a 64) and compared
+  # with the committed h2/engine/selfdigest.<key>.txt; on an unkeyed platform
+  # printed and SKIPPED, never passed. Its must-fail controls (a 1-ULP nudge to
+  # one row, red by name; fault K1 planted, >= 100 rows red) and the verdict are
+  # echoed; a digest row per scenario is captured. Added under ADR-180 §1.
+  # ~23 s here (the C++ replay twice; the stream is reused, not re-rendered).
+  "$build_dir/h2_engine_selfdigest_check" --full-from "$h2s" > "$h2e" 2>&1 || {
+    echo "verify[full]: h2_engine_selfdigest_check FAILED" >&2; grep -vE '^[0-9a-f]{16}  ' "$h2e" >&2
+    rm -f $h2tmp; return 1; }
+  grep '^WARNING: self-digest' "$h2e" >&2
+  grep -E '^(TOTAL|SKIP|PASS  (control|SELFDIGEST))' "$h2e"
+  tail -1 "$h2e"; rm -f $h2tmp
   # horde 2's lifted swarm core (B379 step 1, h2/cores/swarm/): lift edit E1
   # re-proven. A Voice the caller owns, started with initVoice() and ticked
   # through the one public forwarder E1 adds, must match the core's own voice

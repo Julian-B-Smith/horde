@@ -1,0 +1,21 @@
+# h2_libm_count (tools/h2_libm_count.py): libm call SITES in h2/engine's emitted assembly, key darwin-arm64.appleclang-16
+# Context, never a verdict: an output-neutral PR re-runs it with --write and the diff shows any change.
+# product: -O3 -DNDEBUG -ffp-contract=off
+# parity:  -O3 -DNDEBUG -O2 -ffp-contract=off -DH2_LIBM_PARITY (H2_ENGINE_FAULTS)
+fn               product  parity
+__sincos_stret         7       5
+asin                   2       2
+atan2                  3       3
+cos                   23      21
+exp                   23      22
+exp2                  27      26
+fmod                  15       7
+ldexp                  1       1
+log                   13      11
+log2                  15       3
+nan                  108     106
+pow                    9       9
+sin                   23      20
+tan                    1       1
+tanh                   2       2
+TOTAL                272     239

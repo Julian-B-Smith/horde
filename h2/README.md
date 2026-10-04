@@ -118,6 +118,16 @@ The rest are enforced by each core's parity check.
 | SCALPEL blade engine | `cores/scalpel/razor_core.h` (`horde2::scalpel::RazorCore`) | A TEST REFERENCE since B385 (the engine copies its blade path). JS-normative. Parity-proven against the blade oracle (phase 1a): 383 of 386 scenarios at parity, 3 excluded as chaotic (a pinned count) with evidence re-measured every run. | Phase 1a: `reference/scalpel/prototype/razor-core.js@0ce6a713410d89c65bf55f761f1dc791fae61b16` (git blob; v1.1 as ingested). | `tools/h2_scalpel_parity_check.cpp` + `tools/h2_scalpel_render.mjs`, in `./verify full`. |
 | Composed engine (horde 2's one engine) | `engine/` (`horde2::engine::Engine`: `js.h`, `swarm.h`, `blade.h`, `engine.h`) | BUILT 2026-10-01 (B385 checkpoint 2; `docs/port/h2-engine.md`). JS-normative. 540 of 543 scenarios at parity (rms < 1e-6, max-abs < 1e-6, events and load readouts identical; worst rms 2.1e-12, worst max-abs 1.8e-10), and the mean bit-exact share is 37.00% (floor 30%, ruled ADR-187 A2 item 2, keyed darwin-arm64 / Apple clang 16 / Node 24; printed and not judged elsewhere; on darwin-arm64 after a compiler or Node upgrade, printed with a LOUD warning to re-measure and re-pin). The 3 Cross-mod ring (watch) rows are chaotic (ADR-065) and leave whole-render parity (ADR-187 A2 item 1): pinned by name, each holds max-abs < 1e-6 over a measured 384-frame onset window, identical events and readouts, and a finite render (a NaN/Inf guard; |x| ≤ 1 holds by construction after the output tanh). Any change to the composed engine lands as the JS and the C++ together, in one PR, parity green (A2 item 3). M1–M3 are built in; D1–D3 are flags, default off. | The composed JS at main `c64cfdb`: `docs/design/scalpel-horde-engine.js@581d7942684c91245e4a6637dd40d137335b5d69` over the blade oracle (the pin in the row above) and `reference/swarmsaw.html@e47da6c9e0b4a058e18d79f62d71ab31c3d3b1b0` (SwarmSynth), with `reference/scalpel/data/presets.json@44b48d72a9bed4717edd0ac5cf9ef4b8d7b0de93` and the B366 presets in `docs/design/scalpel-interface-lab.html@6abf848e91065bc33275724a6967a7399ba40a07`. The ledger's defaults: M1–M3 on, D1–D3 off. | `tools/h2_engine_parity_check.cpp` + `tools/h2_engine_render.mjs`, with its FMA control `h2_engine_fma_control`, in `./verify full` (B405). |
 
+**The composed engine against itself (B441 phase 2, 2026-10-04).** Parity within
+1e-6 cannot prove a change output-neutral. `tools/h2_engine_selfdigest_check.cpp`
+(in `./verify full`, after the parity check, on the same stream) digests every
+scenario's C++ samples, events and readouts and demands all 543 equal the
+committed `engine/selfdigest.<platform>.<compiler>.node<major>.txt` (keyed like
+the floor; printed and not judged elsewhere). Re-pinning it is allowed only for an
+output-changing divergence in the ledger; an output-neutral PR never re-pins, and
+it re-runs `tools/h2_libm_count.py --write` so a moved libm call shows in its diff
+(`engine/libm-calls.<platform>.<compiler>.txt`, context, never a verdict).
+
 The full account of what is ported, what is not, and which oracle quirks are
 divergence candidates is in `docs/port/scalpel-phase-1a.md`. The swarm lift and
 the questions that stopped a composed layer over `razor_core.h` are in

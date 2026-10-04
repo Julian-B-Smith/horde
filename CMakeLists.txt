@@ -883,6 +883,14 @@ if(NOT MSVC)
     target_compile_options(h2_engine_fma_control PRIVATE -mfma)
   endif()
 endif()
+# h2_engine_selfdigest_check (B441 phase 2): the composed engine against ITSELF,
+# a bit-identity digest of every parity scenario against the committed
+# h2/engine/selfdigest.<key>.txt. The parity build's flags, so it digests the
+# build the parity check judges. In ./verify full, after the parity check.
+add_executable(h2_engine_selfdigest_check tools/h2_engine_selfdigest_check.cpp)
+if(NOT MSVC)
+  target_compile_options(h2_engine_selfdigest_check PRIVATE -O2 -ffp-contract=off)
+endif()
 # measure_h2_engine (B385 checkpoint 4): the composed engine's CPU per voice
 # against the golden's (ADR-187 item 8, Layer-E). The release build, -O3 with
 # contraction off like every h2 target (h2 rule 7). Prints, never judges; unwired.
