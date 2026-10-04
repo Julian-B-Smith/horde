@@ -52,6 +52,8 @@ ModulePreset:
     Tone:   {label: 'Damp',  bind: {damp: [1200, 9000]}}
     Regen:  {label: 'Regen', bind: {fb: [0, 0.88]}}
     # Motion absent: this preset does not implement the Motion role
+    # optional third element = curve (ADR-169 A3); default lin:
+    # Tone: {label: 'SC HPF', bind: {scHz: [20, 500, log]}}
 
 HostSlotState:           # per module host, per role; lives on the HORDE preset
   tier: 'global' | 'corner'
@@ -68,6 +70,14 @@ Rules on the model:
 - A corner binding whose target is a global-tier slot is **inert**, retained on disk, and surfaced greyed in the editor. Flipping the tier back re-activates it. No silent deletion.
 - A corner binding whose target role the corner's module preset does not implement is **inert for that corner**, retained, and labelled "unbound here". Interpolation toward a corner where the role *is* implemented still works — the slot value is computed regardless; only the internal mapping is absent on the unbound side.
 - `slot_base` is stored for every role, even roles the preset doesn't implement, so preset swaps don't lose values.
+- **Binding curve** (ADR-169 A3, 2026-10-04). A binding is `[lo, hi]` or `[lo, hi, curve]`; an absent curve is `lin`, so every preset written before A3 is unchanged. `curve` is one of:
+  - `lin`: `lo + (hi − lo)·v`;
+  - `exp`: `lo + (hi − lo)·v²`;
+  - `log`: `lo·(hi/lo)^v`, geometric. It is valid only when `lo` and `hi` are both nonzero and of the same sign.
+
+  Every curve returns `lo` exactly at v = 0 and `hi` exactly at v = 1 (special-cased, since neither `lo + (hi − lo)·1` nor `lo·(hi/lo)^1` is guaranteed to round to `hi`).
+
+  A module manifest that declares `log` on other endpoints is invalid and fails validation. A host that meets one anyway (a preset from outside the manifest check) resolves it as `lin` and flags the binding in the editor. It never produces a NaN. The names and laws are the ones Sluice already builds (`lo + curve(v)·(hi − lo)`), so one vocabulary serves every module. Sluice's breakpoint curves are not part of this contract: Sluice resolves its own macros (A1).
 
 ## 5. Resolution algorithm
 
@@ -88,12 +98,12 @@ for each host h, role r:
 for each host h, each live module instance k (see §7):
   ip = preset_k.internal_defaults
   for role r in preset_k.slots:
-      for (name, [lo, hi]) in preset_k.slots[r].bind:
-          ip[name] = lerp(lo, hi, slot[h][r])
+      for (name, [lo, hi, curve = lin]) in preset_k.slots[r].bind:
+          ip[name] = shape(curve, lo, hi, slot[h][r])         # §4 binding curve; lin == lerp
   apply ip to instance k with the module's own smoothing
 ```
 
-Binding depths are interpolated per corner exactly as they are for synth params today. Home-plus-offset semantics are identical to the pad.
+The curve applies only at this last slot → internal-parameter step. Slot values, their morph interpolation, offsets and clamp stay linear in [0, 1]. Binding depths are interpolated per corner exactly as they are for synth params today. Home-plus-offset semantics are identical to the pad.
 
 Determinism: no wall-clock; the quantum resolve mode (§7) draws from the existing seeded RNG stream.
 
@@ -146,6 +156,8 @@ Match:
 - Instance weight formulas for the three resolve modes.
 - DAW-facing list contents: `morph`, one per global intent, one per global-tier slot; nothing else.
 
+The prototype binds linearly only. A `lin` binding keeps exact parity with it. `exp` and `log` are a ratified divergence (ADR-169 A3), judged by their closed forms (§14), not by the prototype.
+
 Do **not** replicate (incidental to the browser prototype):
 - The specific Diffuse/Comb topologies, their internal parameter names, ranges, or sound. They exist only to have two presets with different surfaces.
 - The fake triangle "lane" automation, the 180 ms quantum tick, the equal-power cosine law (use whatever the existing quantum-morph and crossfade code paths already do).
@@ -177,6 +189,7 @@ Do **not** replicate (incidental to the browser prototype):
 - [ ] A HORDE preset saved with an embedded module preset reloads correctly when the origin module preset is deleted.
 - [ ] Cross-preset morph in crossfade mode produces no discontinuity in module output at t = 0.5 (null test over a sweep); flip mode produces exactly one.
 - [ ] Quantum resolve is bit-reproducible under a fixed seed.
+- [ ] Binding curves (A3): for each of `lin`, `exp`, `log` over v ∈ {0, ¼, ½, ¾, 1} and at least one decreasing range, the resolved value matches the §4 closed form to 1e-12, and the endpoints are exact. A `log` binding with endpoints of mixed sign or a zero endpoint fails manifest validation, and when forced past it resolves as `lin` with no NaN.
 - [ ] Shaper module presets round-trip through the four-role vocabulary without a private role.
 - [ ] Corner editor disables (does not hide) base sliders and binding columns for global-tier slots.
 - [ ] Trace artifact: per-block dump of `slot[h][r]` alongside `base`, `off`, and instance weights, viewable in the existing visual trace tooling.

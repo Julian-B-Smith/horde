@@ -6871,3 +6871,30 @@ all twelve on 2026-10-04. They are quoted where wording matters.
 
 **Consequences.** New feature ideas after 2026-10-07 go to the post-1.0 list (A2). Scope lists
 freeze module by module at their lab syncs. The module cutoff date is set later.
+
+### ADR-169 Amendment 3 — a binding curve for module macros: `lin`, `exp`, `log` (2026-10-04, RULED)
+
+**Ruling.** The human approved the binding curve on 2026-10-04 ("macro curve approved"), answering
+Bulwark's brief `integrations/bulwark/brief-macro-curve.md` (merged #938).
+
+**Decision.** A module-macro binding may carry an optional third element, `curve`, and an absent
+curve means `lin`, so every existing preset is unchanged. The laws are `lin` (lo + (hi − lo)·v),
+`exp` (lo + (hi − lo)·v²) and `log` (lo·(hi/lo)^v, both endpoints nonzero and of the same sign).
+Every curve returns `lo` and `hi` exactly at v = 0 and 1. A manifest declaring `log` on invalid
+endpoints fails validation; a host that meets one anyway resolves it as `lin` and flags it. The
+curve applies only at the final slot → internal-parameter step: slot values, morph interpolation,
+offsets and clamp stay linear. `specs/SPEC-MODULE-MACROS.md` §4, §5, §11 and §14 carry the rule.
+
+**Why these names.** Sluice already builds this exact vocabulary (`lo + curve(v)·(hi − lo)` with
+`lin`, `exp` = v², `log` = geometric), so adopting it gives every module one contract. The lead's
+first recommendation called `exp` an alias for `log`; that was wrong (Sluice's `exp` is v²) and was
+corrected before the spec was written. Sluice's breakpoint curves stay Sluice-internal, since Sluice
+resolves its own macros (A1). The one reconciled difference: Bulwark asked for validation to reject
+invalid `log` endpoints, while Sluice's runtime falls back to linear; this amendment does both, at
+their two different moments.
+
+**Divergence from the prototype.** `reference/horde-module-macros.html` binds linearly only; `lin`
+keeps exact parity, and `exp`/`log` are judged by closed form to 1e-12 (§14).
+
+**Not yet built.** No C++ module-macro resolver exists yet (B136). The §14 curve row is the test the
+resolver must carry when it lands.
