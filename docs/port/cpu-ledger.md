@@ -7,7 +7,7 @@ experiments to whittle down the CPU weight"). The budget is B439's, in
 a min-spec core for 8 voices**.
 
 This document holds four things:
-- §1, the **frozen measurement protocol** (B441-1), which every phase-2 experiment re-runs;
+- §1, the **frozen measurement protocol** (B441-1, now at B441-3), which every phase-2 experiment re-runs;
 - §2, the **baseline ledger**, which those experiments are measured against;
 - §3, the **cost attribution** of a heavy voice, by stage;
 - §4, the **interpretation**: the top cost centres, and the B378 findings that map onto them.
@@ -20,11 +20,20 @@ measures only. Nothing in the engine's output changed (§5).
 Node 24. **Measured** 2026-10-04 at `deb4d1a` (this PR's first commit). The load
 averages seen are in §2.
 
-## 1. The protocol (frozen: B441-1)
+## 1. The protocol (frozen: B441-1; current: B441-3)
 
 A phase-2 experiment is measured with exactly this. Changing any item below makes a
 new protocol version (B441-2, …). The baseline is then re-measured under it in the same
 PR. Figures are never compared across versions.
+
+**Versions.** B441-1 (`deb4d1a`, §2): 48 kHz. B441-2 (C1, §2b): the rate becomes 44.1 kHz,
+with 48 kHz secondary. **B441-3** (C2, §2b): the load guard gains a per-process half (the
+`load guard` row below) and every row records what else was running. Rows taken under
+B441-1 and B441-2 had only the load-average guard. On 2026-10-04 a Chrome tab, another
+session's Node runs and a sibling repo's mutation tests each burned a full core while the
+1-minute load could still read under 3.0, so **those rows' absolute figures may carry
+contamination**. Their before/after ratios, from interleaved passes run back to back, are
+still fair: whatever was running hit both sides of the interleave.
 
 | item | frozen value | why |
 |---|---|---|
@@ -40,7 +49,7 @@ PR. Figures are never compared across versions.
 | window | 0.25 s rendered untimed (the onset and the first DC estimates), then 2.0 s timed (750 blocks) | Steady state, not onset. |
 | repeats | best of **5**, **interleaved**: repeat r runs every cell once, in a fixed order, before repeat r + 1 begins | A transient disturbance then hits one repeat of every cell, not every repeat of one cell. The best is the least disturbed. |
 | calibration | 1e8 dependent multiply-adds (`x = x * 1.0000001 + 1e-9`, contraction off), timed at the start of every repeat, best kept. **ratio** = (best seconds per second of audio) ÷ (best calibration seconds) | The B236 / B262 pattern, with checkpoint 4's own loop so its figures compare. The loop is latency-bound (a multiply then an add, about 7 cycles), so ~175 ms is a performance core at 4.05 GHz. A figure near 250 ms suggests an efficiency core or a throttled one (hypothesis, from the cycle count). Later runs are compared on the **ratio**. |
-| load guard | before each repeat, the 1-minute load average (`getloadavg`) must be ≤ 3.0. Above it the tool waits 20 s and re-reads, for up to 10 min, then refuses to measure (exit 3). The lowest and highest loads seen go into every row. | The brief's guard. The bench itself adds ~1 while it runs, so `load_hi` (read at the end of a repeat) can exceed 3. |
+| load guard | before each repeat, outside the timed region, two conditions: the 1-minute load average (`getloadavg`) must be ≤ 3.0, and (**B441-3**) no other process may use ≥ 50 % of a core in a `ps -A -o pcpu=,pid=,comm=` snapshot (the bench's own pid excluded). If either fails, the tool waits 20 s and re-checks both, for up to 10 min in all, then refuses to measure (exit 3). The lowest and highest loads seen, the number of 20 s waits (`guard_waits`), and the top 3 other processes at the start of the cell's best repeat (`foreign_top3`: the executable's basename and its %CPU, never a path) go into every row. | The brief's guard. The bench itself adds ~1 while it runs, so `load_hi` (read at the end of a repeat) can exceed 3. The load average is a one-minute mean over every core, so one process pinning a core can hide under 3.0 on this 8-core machine. That is why B441-3 adds the per-process check. macOS's `pcpu` is itself a decaying average over roughly the last minute, so a process that has just stopped still reads warm for a while and the guard waits it out. |
 | sink | each timed block's first sample is summed into a `volatile` | The optimiser cannot drop the render. |
 | conversion | **min-spec % = M3 % × 1.5. AN ASSUMPTION** (module-1.0-bar.md appendix) until it is measured once on an M1 base or on the Intel min-spec. It is labelled in every row. | |
 | verdict | the 8-voice row's min-spec %, against the **34 %** slice | It prints and never judges (Layer-E). |
@@ -59,10 +68,11 @@ The preset stream is written beforehand because rendering the 83 goldens takes N
 (the protocol is 5). `--force` skips the load guard and must never be used for a ledger row.
 
 **The machine-readable row.** One line per cell, `LEDGER {json}`, with these fields:
-`protocol` (`B441-1`, now `B441-2`), `head` (`git describe --always --dirty`), `preset`, `voices`,
+`protocol` (`B441-1`, `B441-2`, now `B441-3`), `head` (`git describe --always --dirty`), `preset`, `voices`,
 `os`, `sr`, `block`, `timed_s`, `best_s`, `pct_m3` (% of one M3 core, all voices),
 `pct_m3_per_voice`, `cal_ms`, `ratio`, `minspec_pct_assumed_x1.5`, `slice_pct`,
-`over_slice` (8-voice rows only), `load_lo`, `load_hi`. A phase-2 PR pastes its rows
+`over_slice` (8-voice rows only), `load_lo`, `load_hi`, and from B441-3 `guard_waits` and
+`foreign_top3` (a list of `{"comm", "pcpu"}`). A phase-2 PR pastes its rows
 beside the baseline's.
 
 ## 2. The baseline ledger (B441-1 at `deb4d1a`)
@@ -246,6 +256,116 @@ LEDGER {"protocol":"B441-2","head":"96f211e","preset":"Breathing pad","voices":1
 LEDGER {"protocol":"B441-2","head":"96f211e","preset":"Glass horde pad","voices":1,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.152455,"pct_m3":7.6234,"pct_m3_per_voice":7.6234,"cal_ms":186.62,"ratio":0.408505,"minspec_pct_assumed_x1.5":11.435,"slice_pct":34,"over_slice":null,"load_lo":2.06,"load_hi":3.18}
 LEDGER {"protocol":"B441-2","head":"96f211e","preset":"Glass horde pad","voices":8,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":1.243996,"pct_m3":62.2054,"pct_m3_per_voice":7.7757,"cal_ms":186.62,"ratio":3.333304,"minspec_pct_assumed_x1.5":93.308,"slice_pct":34,"over_slice":true,"load_lo":2.06,"load_hi":3.18}
 LEDGER {"protocol":"B441-2","head":"96f211e","preset":"Glass horde pad","voices":16,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":2.545566,"pct_m3":127.2898,"pct_m3_per_voice":7.9556,"cal_ms":186.62,"ratio":6.820881,"minspec_pct_assumed_x1.5":190.935,"slice_pct":34,"over_slice":null,"load_lo":2.06,"load_hi":3.18}
+```
+
+### C2: the base wave once per blade evaluation (engine `1176e69`, before = `435cffc`), under B441-3
+
+Output-neutral: both self-digests are 543 of 543 bit-identical against the committed
+references (TOTAL `4d1ad7f1ed674d88`), with no re-pin, parity is GREEN, and the libm call
+sites are unchanged (`traces/2026-10-04-b441-c2.md`). **Before** is `435cffc`: the B441-3 tool
+with the `origin/main` engine (`9d04717`, C1 included), so both binaries carry the new guard.
+**After** is `1176e69`. Both binaries print the working tree's `head` (`1176e69`).
+
+**Only one round at one rate was measured.** The 44.1 kHz pair of round 1 completed.
+Every later pass (round 1 at 48 kHz, then round 2) was refused by the B441-3 guard for
+about 110 minutes in all: ten 10-minute tries, all exit 3. Through 14:48–16:40 another
+process held at least half a core at every check: Chrome and Claude renderers, then
+`mediaanalysisd` at up to 174 %, with load averages of 5.5–28. The guard did what it is
+for. The figures below are therefore **a single round**, not reproduced, and there is no 48 kHz figure.
+
+**What the work count says, without timing** (deterministic: `sin` and `cos` calls counted by
+interposition over a 1.25 s, 1-voice `--hold` render at 44.1 kHz). Crushed bells' `sin` calls
+fall from 2,515,998 to 1,097,336, which is 3.80 → 1.66 per member-step, a drop of 2.14, as
+the audit predicted ("about 2"). Fold over sync (serial) falls from 1,679,959 to 881,763. The other
+five presets' `sin` counts are unchanged: their base is not a sine, or they have one blade and
+a closed-form DC estimate. `cos` is unchanged everywhere.
+
+**44.1 kHz, round 1.** Before: calibration 188.2 ms, load 2.29–3.50, 25 guard waits (after a
+first try the guard refused outright). After: calibration 188.0 ms, load 2.29–3.20, 3 guard
+waits. The top foreign processes at each repeat's start were Chrome helpers, WindowServer
+and the Claude renderer, each at 49 % or less.
+
+| preset | V | before, % M3 | after, % M3 | before ratio | after ratio | speed-up (on the ratio) |
+|---|---|---|---|---|---|---|
+| Quarter sync | 1 | 0.68 | 0.68 | 0.0363 | 0.0362 | 1.005× |
+| Quarter sync | 8 | 3.39 | 3.50 | 0.1800 | 0.1863 | 0.966× |
+| defaults | 1 | 1.91 | 1.88 | 0.1014 | 0.0999 | 1.015× |
+| defaults | 8 | 14.28 | 14.29 | 0.7590 | 0.7600 | 0.999× |
+| Harmonic stack | 1 | 2.69 | 2.67 | 0.1431 | 0.1420 | 1.008× |
+| Harmonic stack | 8 | 21.77 | 21.65 | 1.1569 | 1.1511 | 1.005× |
+| Fold over sync | 1 | 2.95 | 2.24 | 0.1566 | 0.1191 | 1.315× |
+| Fold over sync | 8 | 22.99 | 17.28 | 1.2215 | 0.9187 | 1.330× |
+| Crushed bells | 1 | 5.24 | 4.24 | 0.2785 | 0.2256 | 1.234× |
+| Crushed bells | 8 | 42.69 | 34.93 | 2.2683 | 1.8575 | 1.221× |
+| Breathing pad | 1 | 6.01 | 5.63 | 0.3193 | 0.2995 | 1.066× |
+| Breathing pad | 8 | 47.65 | 44.12 | 2.5320 | 2.3460 | 1.079× |
+| Glass horde pad | 1 | 7.81 | 7.09 | 0.4150 | 0.3770 | 1.101× |
+| Glass horde pad | 8 | 63.60 | 59.00 | 3.3794 | 3.1374 | 1.077× |
+
+- **Sine-base two-blade presets** gain as the audit predicted or better: **Crushed bells
+  1.22–1.23×** (audit 12–20 %) and **Fold over sync 1.32–1.33×**. The serial path computed
+  the base in `outSerial` and again in each `ev`, and `dcPair` computed it once more per point.
+- **Glass horde pad 1.08–1.10× and Breathing pad 1.07–1.08×**, although their `sin` count did
+  not move. The saving is the non-inlined `wave` call and its switch (triangle and other bases),
+  about two calls per member-step fewer. This is a hypothesis from the call structure; it is not profiled.
+- **One-blade sync presets** (Quarter sync, the defaults, Harmonic stack): 0.97–1.02×, as
+  expected, since they recompute no base. Quarter sync at 8 voices reads 0.966×, a single-round
+  figure that is not reproduced. See the trace's open questions.
+- **Against the 34 % slice** (8 voices, min-spec ×1.5 ASSUMED): Fold over sync moves from 34.5 %
+  (over, in this session's before) to **25.9 % (under)**, and Crushed bells from 64.0 % to 52.4 %
+  (still over, now ×1.54). Breathing pad (66.2 %) and Glass horde pad (88.5 %) stay over.
+
+The 16-voice cells (in the rows) follow the 8-voice ones. The `LEDGER` rows at 44.1 kHz,
+verbatim. Before (`435cffc`'s binary, the `origin/main` engine):
+
+```
+LEDGER {"protocol":"B441-3","head":"1176e69","preset":"Quarter sync","voices":1,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.013679,"pct_m3":0.6840,"pct_m3_per_voice":0.6840,"cal_ms":188.19,"ratio":0.036348,"minspec_pct_assumed_x1.5":1.026,"slice_pct":34,"over_slice":null,"load_lo":2.29,"load_hi":3.50,"guard_waits":25,"foreign_top3":[{"comm":"Claude Helper (Renderer)","pcpu":48.5},{"comm":"WindowServer","pcpu":35.7},{"comm":"coreaudiod","pcpu":10.7}]}
+LEDGER {"protocol":"B441-3","head":"1176e69","preset":"Quarter sync","voices":8,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.067725,"pct_m3":3.3866,"pct_m3_per_voice":0.4233,"cal_ms":188.19,"ratio":0.179956,"minspec_pct_assumed_x1.5":5.080,"slice_pct":34,"over_slice":false,"load_lo":2.29,"load_hi":3.50,"guard_waits":25,"foreign_top3":[{"comm":"Google Chrome Helper","pcpu":33.7},{"comm":"Google Chrome Helper (Renderer)","pcpu":25.4},{"comm":"WindowServer","pcpu":17.4}]}
+LEDGER {"protocol":"B441-3","head":"1176e69","preset":"Quarter sync","voices":16,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.143129,"pct_m3":7.1571,"pct_m3_per_voice":0.4473,"cal_ms":188.19,"ratio":0.380314,"minspec_pct_assumed_x1.5":10.736,"slice_pct":34,"over_slice":null,"load_lo":2.29,"load_hi":3.50,"guard_waits":25,"foreign_top3":[{"comm":"Google Chrome Helper","pcpu":40.0},{"comm":"Google Chrome Helper (Renderer)","pcpu":27.3},{"comm":"WindowServer","pcpu":25.1}]}
+LEDGER {"protocol":"B441-3","head":"1176e69","preset":"defaults","voices":1,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.038164,"pct_m3":1.9084,"pct_m3_per_voice":1.9084,"cal_ms":188.19,"ratio":0.101408,"minspec_pct_assumed_x1.5":2.863,"slice_pct":34,"over_slice":null,"load_lo":2.29,"load_hi":3.50,"guard_waits":25,"foreign_top3":[{"comm":"Google Chrome Helper","pcpu":33.7},{"comm":"Google Chrome Helper (Renderer)","pcpu":25.4},{"comm":"WindowServer","pcpu":17.4}]}
+LEDGER {"protocol":"B441-3","head":"1176e69","preset":"defaults","voices":8,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.285631,"pct_m3":14.2829,"pct_m3_per_voice":1.7854,"cal_ms":188.19,"ratio":0.758962,"minspec_pct_assumed_x1.5":21.424,"slice_pct":34,"over_slice":false,"load_lo":2.29,"load_hi":3.50,"guard_waits":25,"foreign_top3":[{"comm":"Google Chrome Helper","pcpu":40.0},{"comm":"Google Chrome Helper (Renderer)","pcpu":27.3},{"comm":"WindowServer","pcpu":25.1}]}
+LEDGER {"protocol":"B441-3","head":"1176e69","preset":"defaults","voices":16,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.601168,"pct_m3":30.0611,"pct_m3_per_voice":1.8788,"cal_ms":188.19,"ratio":1.597389,"minspec_pct_assumed_x1.5":45.092,"slice_pct":34,"over_slice":null,"load_lo":2.29,"load_hi":3.50,"guard_waits":25,"foreign_top3":[{"comm":"Google Chrome Helper","pcpu":40.0},{"comm":"Google Chrome Helper (Renderer)","pcpu":27.3},{"comm":"WindowServer","pcpu":25.1}]}
+LEDGER {"protocol":"B441-3","head":"1176e69","preset":"Harmonic stack","voices":1,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.053848,"pct_m3":2.6927,"pct_m3_per_voice":2.6927,"cal_ms":188.19,"ratio":0.143083,"minspec_pct_assumed_x1.5":4.039,"slice_pct":34,"over_slice":null,"load_lo":2.29,"load_hi":3.50,"guard_waits":25,"foreign_top3":[{"comm":"Google Chrome Helper","pcpu":26.8},{"comm":"WindowServer","pcpu":23.9},{"comm":"Google Chrome Helper (Renderer)","pcpu":20.9}]}
+LEDGER {"protocol":"B441-3","head":"1176e69","preset":"Harmonic stack","voices":8,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.435408,"pct_m3":21.7724,"pct_m3_per_voice":2.7215,"cal_ms":188.19,"ratio":1.156940,"minspec_pct_assumed_x1.5":32.659,"slice_pct":34,"over_slice":false,"load_lo":2.29,"load_hi":3.50,"guard_waits":25,"foreign_top3":[{"comm":"Google Chrome Helper","pcpu":33.7},{"comm":"Google Chrome Helper (Renderer)","pcpu":25.4},{"comm":"WindowServer","pcpu":17.4}]}
+LEDGER {"protocol":"B441-3","head":"1176e69","preset":"Harmonic stack","voices":16,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.909699,"pct_m3":45.4891,"pct_m3_per_voice":2.8431,"cal_ms":188.19,"ratio":2.417199,"minspec_pct_assumed_x1.5":68.234,"slice_pct":34,"over_slice":null,"load_lo":2.29,"load_hi":3.50,"guard_waits":25,"foreign_top3":[{"comm":"Google Chrome Helper","pcpu":26.8},{"comm":"WindowServer","pcpu":23.9},{"comm":"Google Chrome Helper (Renderer)","pcpu":20.9}]}
+LEDGER {"protocol":"B441-3","head":"1176e69","preset":"Fold over sync","voices":1,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.058927,"pct_m3":2.9466,"pct_m3_per_voice":2.9466,"cal_ms":188.19,"ratio":0.156576,"minspec_pct_assumed_x1.5":4.420,"slice_pct":34,"over_slice":null,"load_lo":2.29,"load_hi":3.50,"guard_waits":25,"foreign_top3":[{"comm":"WindowServer","pcpu":34.4},{"comm":"Google Chrome Helper","pcpu":18.9},{"comm":"Google Chrome Helper (Renderer)","pcpu":17.4}]}
+LEDGER {"protocol":"B441-3","head":"1176e69","preset":"Fold over sync","voices":8,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.459697,"pct_m3":22.9869,"pct_m3_per_voice":2.8734,"cal_ms":188.19,"ratio":1.221480,"minspec_pct_assumed_x1.5":34.480,"slice_pct":34,"over_slice":true,"load_lo":2.29,"load_hi":3.50,"guard_waits":25,"foreign_top3":[{"comm":"Google Chrome Helper","pcpu":33.7},{"comm":"Google Chrome Helper (Renderer)","pcpu":25.4},{"comm":"WindowServer","pcpu":17.4}]}
+LEDGER {"protocol":"B441-3","head":"1176e69","preset":"Fold over sync","voices":16,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.959439,"pct_m3":47.9763,"pct_m3_per_voice":2.9985,"cal_ms":188.19,"ratio":2.549363,"minspec_pct_assumed_x1.5":71.964,"slice_pct":34,"over_slice":null,"load_lo":2.29,"load_hi":3.50,"guard_waits":25,"foreign_top3":[{"comm":"Google Chrome Helper","pcpu":26.8},{"comm":"WindowServer","pcpu":23.9},{"comm":"Google Chrome Helper (Renderer)","pcpu":20.9}]}
+LEDGER {"protocol":"B441-3","head":"1176e69","preset":"Crushed bells","voices":1,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.104806,"pct_m3":5.2408,"pct_m3_per_voice":5.2408,"cal_ms":188.19,"ratio":0.278484,"minspec_pct_assumed_x1.5":7.861,"slice_pct":34,"over_slice":null,"load_lo":2.29,"load_hi":3.50,"guard_waits":25,"foreign_top3":[{"comm":"Google Chrome Helper","pcpu":26.8},{"comm":"WindowServer","pcpu":23.9},{"comm":"Google Chrome Helper (Renderer)","pcpu":20.9}]}
+LEDGER {"protocol":"B441-3","head":"1176e69","preset":"Crushed bells","voices":8,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.853658,"pct_m3":42.6868,"pct_m3_per_voice":5.3358,"cal_ms":188.19,"ratio":2.268290,"minspec_pct_assumed_x1.5":64.030,"slice_pct":34,"over_slice":true,"load_lo":2.29,"load_hi":3.50,"guard_waits":25,"foreign_top3":[{"comm":"Google Chrome Helper","pcpu":26.8},{"comm":"WindowServer","pcpu":23.9},{"comm":"Google Chrome Helper (Renderer)","pcpu":20.9}]}
+LEDGER {"protocol":"B441-3","head":"1176e69","preset":"Crushed bells","voices":16,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":1.760232,"pct_m3":88.0196,"pct_m3_per_voice":5.5012,"cal_ms":188.19,"ratio":4.677185,"minspec_pct_assumed_x1.5":132.029,"slice_pct":34,"over_slice":null,"load_lo":2.29,"load_hi":3.50,"guard_waits":25,"foreign_top3":[{"comm":"Claude Helper (Renderer)","pcpu":48.5},{"comm":"WindowServer","pcpu":35.7},{"comm":"coreaudiod","pcpu":10.7}]}
+LEDGER {"protocol":"B441-3","head":"1176e69","preset":"Breathing pad","voices":1,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.120182,"pct_m3":6.0096,"pct_m3_per_voice":6.0096,"cal_ms":188.19,"ratio":0.319340,"minspec_pct_assumed_x1.5":9.014,"slice_pct":34,"over_slice":null,"load_lo":2.29,"load_hi":3.50,"guard_waits":25,"foreign_top3":[{"comm":"Google Chrome Helper","pcpu":40.0},{"comm":"Google Chrome Helper (Renderer)","pcpu":27.3},{"comm":"WindowServer","pcpu":25.1}]}
+LEDGER {"protocol":"B441-3","head":"1176e69","preset":"Breathing pad","voices":8,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.952903,"pct_m3":47.6495,"pct_m3_per_voice":5.9562,"cal_ms":188.19,"ratio":2.531997,"minspec_pct_assumed_x1.5":71.474,"slice_pct":34,"over_slice":true,"load_lo":2.29,"load_hi":3.50,"guard_waits":25,"foreign_top3":[{"comm":"WindowServer","pcpu":34.4},{"comm":"Google Chrome Helper","pcpu":18.9},{"comm":"Google Chrome Helper (Renderer)","pcpu":17.4}]}
+LEDGER {"protocol":"B441-3","head":"1176e69","preset":"Breathing pad","voices":16,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":1.926103,"pct_m3":96.3139,"pct_m3_per_voice":6.0196,"cal_ms":188.19,"ratio":5.117926,"minspec_pct_assumed_x1.5":144.471,"slice_pct":34,"over_slice":null,"load_lo":2.29,"load_hi":3.50,"guard_waits":25,"foreign_top3":[{"comm":"Google Chrome Helper","pcpu":33.7},{"comm":"Google Chrome Helper (Renderer)","pcpu":25.4},{"comm":"WindowServer","pcpu":17.4}]}
+LEDGER {"protocol":"B441-3","head":"1176e69","preset":"Glass horde pad","voices":1,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.156178,"pct_m3":7.8096,"pct_m3_per_voice":7.8096,"cal_ms":188.19,"ratio":0.414988,"minspec_pct_assumed_x1.5":11.714,"slice_pct":34,"over_slice":null,"load_lo":2.29,"load_hi":3.50,"guard_waits":25,"foreign_top3":[{"comm":"WindowServer","pcpu":34.4},{"comm":"Google Chrome Helper","pcpu":18.9},{"comm":"Google Chrome Helper (Renderer)","pcpu":17.4}]}
+LEDGER {"protocol":"B441-3","head":"1176e69","preset":"Glass horde pad","voices":8,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":1.271819,"pct_m3":63.5967,"pct_m3_per_voice":7.9496,"cal_ms":188.19,"ratio":3.379401,"minspec_pct_assumed_x1.5":95.395,"slice_pct":34,"over_slice":true,"load_lo":2.29,"load_hi":3.50,"guard_waits":25,"foreign_top3":[{"comm":"Google Chrome Helper","pcpu":40.0},{"comm":"Google Chrome Helper (Renderer)","pcpu":27.3},{"comm":"WindowServer","pcpu":25.1}]}
+LEDGER {"protocol":"B441-3","head":"1176e69","preset":"Glass horde pad","voices":16,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":2.603359,"pct_m3":130.1798,"pct_m3_per_voice":8.1362,"cal_ms":188.19,"ratio":6.917493,"minspec_pct_assumed_x1.5":195.270,"slice_pct":34,"over_slice":null,"load_lo":2.29,"load_hi":3.50,"guard_waits":25,"foreign_top3":[{"comm":"Google Chrome Helper","pcpu":26.8},{"comm":"WindowServer","pcpu":23.9},{"comm":"Google Chrome Helper (Renderer)","pcpu":20.9}]}
+```
+
+After (C2, `1176e69`):
+
+```
+LEDGER {"protocol":"B441-3","head":"1176e69","preset":"Quarter sync","voices":1,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.013604,"pct_m3":0.6803,"pct_m3_per_voice":0.6803,"cal_ms":188.04,"ratio":0.036175,"minspec_pct_assumed_x1.5":1.020,"slice_pct":34,"over_slice":null,"load_lo":2.29,"load_hi":3.20,"guard_waits":3,"foreign_top3":[{"comm":"Google Chrome Helper","pcpu":35.9},{"comm":"Google Chrome Helper (Renderer)","pcpu":25.6},{"comm":"WindowServer","pcpu":25.2}]}
+LEDGER {"protocol":"B441-3","head":"1176e69","preset":"Quarter sync","voices":8,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.070064,"pct_m3":3.5035,"pct_m3_per_voice":0.4379,"cal_ms":188.04,"ratio":0.186313,"minspec_pct_assumed_x1.5":5.255,"slice_pct":34,"over_slice":false,"load_lo":2.29,"load_hi":3.20,"guard_waits":3,"foreign_top3":[{"comm":"Google Chrome Helper","pcpu":35.9},{"comm":"Google Chrome Helper (Renderer)","pcpu":25.6},{"comm":"WindowServer","pcpu":25.2}]}
+LEDGER {"protocol":"B441-3","head":"1176e69","preset":"Quarter sync","voices":16,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.144871,"pct_m3":7.2442,"pct_m3_per_voice":0.4528,"cal_ms":188.04,"ratio":0.385241,"minspec_pct_assumed_x1.5":10.866,"slice_pct":34,"over_slice":null,"load_lo":2.29,"load_hi":3.20,"guard_waits":3,"foreign_top3":[{"comm":"Google Chrome Helper","pcpu":34.2},{"comm":"Google Chrome Helper (Renderer)","pcpu":27.5},{"comm":"WindowServer","pcpu":18.0}]}
+LEDGER {"protocol":"B441-3","head":"1176e69","preset":"defaults","voices":1,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.037557,"pct_m3":1.8780,"pct_m3_per_voice":1.8780,"cal_ms":188.04,"ratio":0.099872,"minspec_pct_assumed_x1.5":2.817,"slice_pct":34,"over_slice":null,"load_lo":2.29,"load_hi":3.20,"guard_waits":3,"foreign_top3":[{"comm":"Google Chrome Helper","pcpu":35.9},{"comm":"Google Chrome Helper (Renderer)","pcpu":25.6},{"comm":"WindowServer","pcpu":25.2}]}
+LEDGER {"protocol":"B441-3","head":"1176e69","preset":"defaults","voices":8,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.285811,"pct_m3":14.2918,"pct_m3_per_voice":1.7865,"cal_ms":188.04,"ratio":0.760026,"minspec_pct_assumed_x1.5":21.438,"slice_pct":34,"over_slice":false,"load_lo":2.29,"load_hi":3.20,"guard_waits":3,"foreign_top3":[{"comm":"Google Chrome Helper","pcpu":34.2},{"comm":"Google Chrome Helper (Renderer)","pcpu":27.5},{"comm":"WindowServer","pcpu":18.0}]}
+LEDGER {"protocol":"B441-3","head":"1176e69","preset":"defaults","voices":16,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.604845,"pct_m3":30.2450,"pct_m3_per_voice":1.8903,"cal_ms":188.04,"ratio":1.608399,"minspec_pct_assumed_x1.5":45.367,"slice_pct":34,"over_slice":null,"load_lo":2.29,"load_hi":3.20,"guard_waits":3,"foreign_top3":[{"comm":"WindowServer","pcpu":34.4},{"comm":"Google Chrome Helper","pcpu":26.2},{"comm":"Google Chrome Helper (Renderer)","pcpu":22.3}]}
+LEDGER {"protocol":"B441-3","head":"1176e69","preset":"Harmonic stack","voices":1,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.053402,"pct_m3":2.6703,"pct_m3_per_voice":2.6703,"cal_ms":188.04,"ratio":0.142006,"minspec_pct_assumed_x1.5":4.006,"slice_pct":34,"over_slice":null,"load_lo":2.29,"load_hi":3.20,"guard_waits":3,"foreign_top3":[{"comm":"Google Chrome Helper","pcpu":34.2},{"comm":"Google Chrome Helper (Renderer)","pcpu":27.5},{"comm":"WindowServer","pcpu":18.0}]}
+LEDGER {"protocol":"B441-3","head":"1176e69","preset":"Harmonic stack","voices":8,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.432866,"pct_m3":21.6453,"pct_m3_per_voice":2.7057,"cal_ms":188.04,"ratio":1.151076,"minspec_pct_assumed_x1.5":32.468,"slice_pct":34,"over_slice":false,"load_lo":2.29,"load_hi":3.20,"guard_waits":3,"foreign_top3":[{"comm":"Google Chrome Helper","pcpu":35.1},{"comm":"Google Chrome Helper (Renderer)","pcpu":26.6},{"comm":"WindowServer","pcpu":16.5}]}
+LEDGER {"protocol":"B441-3","head":"1176e69","preset":"Harmonic stack","voices":16,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.907491,"pct_m3":45.3787,"pct_m3_per_voice":2.8362,"cal_ms":188.04,"ratio":2.413194,"minspec_pct_assumed_x1.5":68.068,"slice_pct":34,"over_slice":null,"load_lo":2.29,"load_hi":3.20,"guard_waits":3,"foreign_top3":[{"comm":"WindowServer","pcpu":48.2},{"comm":"Google Chrome Helper","pcpu":21.3},{"comm":"Google Chrome Helper (Renderer)","pcpu":17.9}]}
+LEDGER {"protocol":"B441-3","head":"1176e69","preset":"Fold over sync","voices":1,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.044769,"pct_m3":2.2387,"pct_m3_per_voice":2.2387,"cal_ms":188.04,"ratio":0.119050,"minspec_pct_assumed_x1.5":3.358,"slice_pct":34,"over_slice":null,"load_lo":2.29,"load_hi":3.20,"guard_waits":3,"foreign_top3":[{"comm":"Google Chrome Helper","pcpu":35.9},{"comm":"Google Chrome Helper (Renderer)","pcpu":25.6},{"comm":"WindowServer","pcpu":25.2}]}
+LEDGER {"protocol":"B441-3","head":"1176e69","preset":"Fold over sync","voices":8,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.345495,"pct_m3":17.2763,"pct_m3_per_voice":2.1595,"cal_ms":188.04,"ratio":0.918737,"minspec_pct_assumed_x1.5":25.914,"slice_pct":34,"over_slice":false,"load_lo":2.29,"load_hi":3.20,"guard_waits":3,"foreign_top3":[{"comm":"Google Chrome Helper","pcpu":35.9},{"comm":"Google Chrome Helper (Renderer)","pcpu":25.6},{"comm":"WindowServer","pcpu":25.2}]}
+LEDGER {"protocol":"B441-3","head":"1176e69","preset":"Fold over sync","voices":16,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.723844,"pct_m3":36.1955,"pct_m3_per_voice":2.2622,"cal_ms":188.04,"ratio":1.924842,"minspec_pct_assumed_x1.5":54.293,"slice_pct":34,"over_slice":null,"load_lo":2.29,"load_hi":3.20,"guard_waits":3,"foreign_top3":[{"comm":"WindowServer","pcpu":48.2},{"comm":"Google Chrome Helper","pcpu":21.3},{"comm":"Google Chrome Helper (Renderer)","pcpu":17.9}]}
+LEDGER {"protocol":"B441-3","head":"1176e69","preset":"Crushed bells","voices":1,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.084837,"pct_m3":4.2422,"pct_m3_per_voice":4.2422,"cal_ms":188.04,"ratio":0.225597,"minspec_pct_assumed_x1.5":6.363,"slice_pct":34,"over_slice":null,"load_lo":2.29,"load_hi":3.20,"guard_waits":3,"foreign_top3":[{"comm":"WindowServer","pcpu":34.4},{"comm":"Google Chrome Helper","pcpu":26.2},{"comm":"Google Chrome Helper (Renderer)","pcpu":22.3}]}
+LEDGER {"protocol":"B441-3","head":"1176e69","preset":"Crushed bells","voices":8,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.698508,"pct_m3":34.9286,"pct_m3_per_voice":4.3661,"cal_ms":188.04,"ratio":1.857469,"minspec_pct_assumed_x1.5":52.393,"slice_pct":34,"over_slice":true,"load_lo":2.29,"load_hi":3.20,"guard_waits":3,"foreign_top3":[{"comm":"Google Chrome Helper","pcpu":35.1},{"comm":"Google Chrome Helper (Renderer)","pcpu":26.6},{"comm":"WindowServer","pcpu":16.5}]}
+LEDGER {"protocol":"B441-3","head":"1176e69","preset":"Crushed bells","voices":16,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":1.448435,"pct_m3":72.4283,"pct_m3_per_voice":4.5268,"cal_ms":188.04,"ratio":3.851669,"minspec_pct_assumed_x1.5":108.642,"slice_pct":34,"over_slice":null,"load_lo":2.29,"load_hi":3.20,"guard_waits":3,"foreign_top3":[{"comm":"Google Chrome Helper","pcpu":35.1},{"comm":"Google Chrome Helper (Renderer)","pcpu":26.6},{"comm":"WindowServer","pcpu":16.5}]}
+LEDGER {"protocol":"B441-3","head":"1176e69","preset":"Breathing pad","voices":1,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.112616,"pct_m3":5.6313,"pct_m3_per_voice":5.6313,"cal_ms":188.04,"ratio":0.299469,"minspec_pct_assumed_x1.5":8.447,"slice_pct":34,"over_slice":null,"load_lo":2.29,"load_hi":3.20,"guard_waits":3,"foreign_top3":[{"comm":"Google Chrome Helper","pcpu":35.1},{"comm":"Google Chrome Helper (Renderer)","pcpu":26.6},{"comm":"WindowServer","pcpu":16.5}]}
+LEDGER {"protocol":"B441-3","head":"1176e69","preset":"Breathing pad","voices":8,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.882238,"pct_m3":44.1159,"pct_m3_per_voice":5.5145,"cal_ms":188.04,"ratio":2.346041,"minspec_pct_assumed_x1.5":66.174,"slice_pct":34,"over_slice":true,"load_lo":2.29,"load_hi":3.20,"guard_waits":3,"foreign_top3":[{"comm":"Google Chrome Helper","pcpu":35.1},{"comm":"Google Chrome Helper (Renderer)","pcpu":26.6},{"comm":"WindowServer","pcpu":16.5}]}
+LEDGER {"protocol":"B441-3","head":"1176e69","preset":"Breathing pad","voices":16,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":1.779966,"pct_m3":89.0064,"pct_m3_per_voice":5.5629,"cal_ms":188.04,"ratio":4.733274,"minspec_pct_assumed_x1.5":133.510,"slice_pct":34,"over_slice":null,"load_lo":2.29,"load_hi":3.20,"guard_waits":3,"foreign_top3":[{"comm":"WindowServer","pcpu":34.4},{"comm":"Google Chrome Helper","pcpu":26.2},{"comm":"Google Chrome Helper (Renderer)","pcpu":22.3}]}
+LEDGER {"protocol":"B441-3","head":"1176e69","preset":"Glass horde pad","voices":1,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.141786,"pct_m3":7.0899,"pct_m3_per_voice":7.0899,"cal_ms":188.04,"ratio":0.377037,"minspec_pct_assumed_x1.5":10.635,"slice_pct":34,"over_slice":null,"load_lo":2.29,"load_hi":3.20,"guard_waits":3,"foreign_top3":[{"comm":"Google Chrome Helper","pcpu":35.1},{"comm":"Google Chrome Helper (Renderer)","pcpu":26.6},{"comm":"WindowServer","pcpu":16.5}]}
+LEDGER {"protocol":"B441-3","head":"1176e69","preset":"Glass horde pad","voices":8,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":1.179821,"pct_m3":58.9964,"pct_m3_per_voice":7.3746,"cal_ms":188.04,"ratio":3.137373,"minspec_pct_assumed_x1.5":88.495,"slice_pct":34,"over_slice":true,"load_lo":2.29,"load_hi":3.20,"guard_waits":3,"foreign_top3":[{"comm":"Google Chrome Helper","pcpu":35.9},{"comm":"Google Chrome Helper (Renderer)","pcpu":25.6},{"comm":"WindowServer","pcpu":25.2}]}
+LEDGER {"protocol":"B441-3","head":"1176e69","preset":"Glass horde pad","voices":16,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":2.376435,"pct_m3":118.8325,"pct_m3_per_voice":7.4270,"cal_ms":188.04,"ratio":6.319401,"minspec_pct_assumed_x1.5":178.249,"slice_pct":34,"over_slice":null,"load_lo":2.29,"load_hi":3.20,"guard_waits":3,"foreign_top3":[{"comm":"WindowServer","pcpu":34.4},{"comm":"Google Chrome Helper","pcpu":26.2},{"comm":"Google Chrome Helper (Renderer)","pcpu":22.3}]}
 ```
 
 ## 3. Cost attribution: where the time goes inside a heavy voice

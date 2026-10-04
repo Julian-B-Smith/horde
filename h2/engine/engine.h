@@ -317,6 +317,8 @@ class Engine {
   // ---- the blade (shapes, modulators, the blade evaluation) -------------------
   double rnd() { return rng.next() * 2 - 1; }
   double nsRnd(NS& ns) { return ns.draws ? rnd() : ns.val; }
+  // Pure: reads `sh` only through js::sel(sh), and the members gmr/gmn only in case 6.
+  // B441 C2 relies on exactly this to reuse one blade's base wave for the other.
   double wave(double sh, double x) const {
     switch (js::sel(sh)) {
       case 0: return std::sin(6.283185307179586 * x);
@@ -354,6 +356,10 @@ class Engine {
     }
     return a;
   }
+  // B441 C2: the base wave of shape `a` at phase x equals that of shape `b` at the same x
+  // whatever gmr/gmn hold, when both select the same case and that case is not 6 (the
+  // only case reading them). Then one evaluation serves both blades.
+  static bool sharesBase(double a, double b) { const int k = js::sel(a); return k == js::sel(b) && k != 6; }
   // the pitch-FM integrator: advances ns.acc, returns the unwrapped increment
   double fmStep(const Blade& p, NS& ns, double e, bool entered, double kk, double modX, double dphi) {
     if (p.fmType != 1 || !blade::isFM(p)) return 0;
@@ -366,12 +372,18 @@ class Engine {
   }
   // One blade at phase phi. `inp` is what it transforms: the base wave, or in
   // serial interplay base + λ·(the lower blade).
-  double voiceOut(const Blade& p, double phi, double c, double k, double modX, NS& ns, bool hasInp = false, double inp = 0) {
-    if (aaOn && ns.aaReal) return voiceAA(p, phi, c, k, modX, ns, hasInp, inp);
-    return voicePlain(p, phi, c, k, modX, ns, hasInp, inp);
+  // `base` is wave(p.base, phi) under the gmr/gmn in force for this blade. The caller
+  // computes it (B441 C2), so one evaluation serves the blade, the `- base` its caller
+  // takes beside it (twins, blade 2, the DC estimates) and, when sharesBase holds,
+  // blade 2: each phase's base is evaluated once per output, not up to three times.
+  // It is the same pure call on the same inputs, so not a bit moves.
+  double voiceOut(const Blade& p, double phi, double base, double c, double k, double modX, NS& ns, bool hasInp = false,
+                  double inp = 0) {
+    if (aaOn && ns.aaReal) return voiceAA(p, phi, base, c, k, modX, ns, hasInp, inp);
+    return voicePlain(p, phi, base, c, k, modX, ns, hasInp, inp);
   }
-  double voicePlain(const Blade& p, double phi, double c, double k, double modX, NS& ns, bool hasInp, double inp) {
-    const double base = wave(p.base, phi), xin0 = !hasInp ? base : inp;
+  double voicePlain(const Blade& p, double phi, double base, double c, double k, double modX, NS& ns, bool hasInp, double inp) {
+    const double xin0 = !hasInp ? base : inp;
     const double w = p.w;
     if (w < 0.004) { ns.g = 0; ns.inside = false; return xin0; }
     double st = c - w * 0.5; st -= std::floor(st);
@@ -437,9 +449,9 @@ class Engine {
   // recomputed with the same expressions, so where D1 does not apply the result is
   // the plain one bit for bit. Half an internal sample of carrier-content lag is
   // left uncompensated: a centred mean needs the next phase, i.e. real latency.
-  double voiceAA(const Blade& p, double phi, double c, double k, double modX, NS& ns, bool hasInp, double inp) {
+  double voiceAA(const Blade& p, double phi, double base, double c, double k, double modX, NS& ns, bool hasInp, double inp) {
     const bool was = ns.inside;
-    const double y = voicePlain(p, phi, c, k, modX, ns, hasInp, inp);
+    const double y = voicePlain(p, phi, base, c, k, modX, ns, hasInp, inp);
     const double md = p.mode;
     if (!ns.inside || !blade::d1Takes(p, aaBand)) { ns.aOk = false; return y; }
     const double w = p.w;
@@ -464,63 +476,72 @@ class Engine {
     // a near-frozen carrier: the quotient's limit, the carrier at the step's midpoint
     if (std::fabs(dcp) < 1e-7) { const double x = cp - 0.5 * dcp; hot = wave(p.hot, x - std::floor(x)); }
     else hot = (blade::F(p.hot, cp) - blade::F(p.hot, cp0)) / dcp;
-    const double base = wave(p.base, phi), xin0 = !hasInp ? base : inp;
+    const double xin0 = !hasInp ? base : inp;
     if (md == 5) hot = xin0 * hot;   // ring: the carrier times the input
     return xin0 + ns.g * p.depth * (hot - xin0);
   }
-  // the full output: the blade, plus its twin half a cycle later, plus blade 2
-  double out(const SP& p, double phi, double c, double k, double modX, NS& ns, NS& ns2, BX* bx) {
-    if (bx && p.b2mix > 1e-6) return outSerial(p, phi, c, k, modX, ns, ns2, *bx);
-    double y = voiceOut(p, phi, c, k, modX, ns);
-    double ph2 = -1;
-    if (p.mirror >= 2) {
+  // the full output: the blade, plus its twin half a cycle later, plus blade 2.
+  // `base` is wave(p.base, phi) under the gmr/gmn in force at the call (voiceOut).
+  double out(const SP& p, double phi, double base, double c, double k, double modX, NS& ns, NS& ns2, BX* bx) {
+    if (bx && p.b2mix > 1e-6) return outSerial(p, phi, base, c, k, modX, ns, ns2, *bx);
+    double y = voiceOut(p, phi, base, c, k, modX, ns);
+    double ph2 = -1, base2 = 0;   // base2: wave(p.base, ph2) under this gmr, set iff twin1
+    const bool twin1 = p.mirror >= 2;
+    if (twin1) {
       ph2 = phi - 0.5; if (ph2 < 0) ph2 += 1;
       ns2.acc = ns.acc; ns2.xin = ns.xin;
-      const double d2 = voiceOut(p, ph2, c, k, modX, ns2) - wave(p.base, ph2);
+      base2 = wave(p.base, ph2);
+      const double d2 = voiceOut(p, ph2, base2, c, k, modX, ns2) - base2;
       y += p.mirror == 2 ? -d2 : d2;
     }
     if (bx) {   // blade 2: its own view, centre, rate and state, on the same base
       const Blade& g = *bx->g;
       const double mr0 = gmr, mn0 = gmn;
       gmr = bx->mr; gmn = bx->mn;
-      y += voiceOut(g, phi, bx->c, bx->k, bx->modX, bx->ns3) - wave(g.base, phi);
+      // blade 1's base is blade 2's whenever no gmr/gmn read can tell them apart
+      const bool same = sharesBase(g.base, p.base);
+      const double gb = same ? base : wave(g.base, phi);
+      y += voiceOut(g, phi, gb, bx->c, bx->k, bx->modX, bx->ns3) - gb;
       if (g.mirror >= 2) {
         if (ph2 < 0) { ph2 = phi - 0.5; if (ph2 < 0) ph2 += 1; }
         bx->ns4.acc = bx->ns3.acc; bx->ns4.xin = bx->ns3.xin;
-        const double d4 = voiceOut(g, ph2, bx->c, bx->k, bx->modX, bx->ns4) - wave(g.base, ph2);
+        const double gb2 = same && twin1 ? base2 : wave(g.base, ph2);
+        const double d4 = voiceOut(g, ph2, gb2, bx->c, bx->k, bx->modX, bx->ns4) - gb2;
         y += g.mirror == 2 ? -d4 : d4;
       }
       gmr = mr0; gmn = mn0;
     }
     return y;
   }
-  struct Desc { const Blade* p; double c, k, modX; NS* st; NS* st2; double mr, mn; };
-  double ev(const Desc& D, double ph, NS& st, bool hasInp = false, double inp = 0) {
+  // shared: the caller's base (blade 1's, under blade 1's gmr) is this blade's too
+  struct Desc { const Blade* p; double c, k, modX; NS* st; NS* st2; double mr, mn; bool shared; };
+  double ev(const Desc& D, double ph, double base, NS& st, bool hasInp = false, double inp = 0) {
     gmr = D.mr; gmn = D.mn;
-    return voiceOut(*D.p, ph, D.c, D.k, D.modX, st, hasInp, inp);
+    const double b = D.shared ? base : wave(D.p->base, ph);
+    return voiceOut(*D.p, ph, b, D.c, D.k, D.modX, st, hasInp, inp);
   }
   // serial interplay: the upper blade transforms base + λ·(the lower blade's full
-  // contribution, twins included)
-  double outSerial(const SP& p, double phi, double c, double k, double modX, NS& ns, NS& ns2, BX& bx) {
+  // contribution, twins included). `base` as in out().
+  double outSerial(const SP& p, double phi, double base, double c, double k, double modX, NS& ns, NS& ns2, BX& bx) {
     const Blade& g = *bx.g;
     const double lam = p.b2mix;
     const bool up2 = !js::truthy(p.b2order);   // default: blade 2 over blade 1
-    const double base = wave(p.base, phi);
     double ph2 = phi - 0.5; if (ph2 < 0) ph2 += 1;
     const double base2 = wave(p.base, ph2);
     const double mr0 = gmr, mn0 = gmn;
-    const Desc d1{&p, c, k, modX, &ns, &ns2, mr0, mn0}, d2{&g, bx.c, bx.k, bx.modX, &bx.ns3, &bx.ns4, bx.mr, bx.mn};
+    const Desc d1{&p, c, k, modX, &ns, &ns2, mr0, mn0, true},
+               d2{&g, bx.c, bx.k, bx.modX, &bx.ns3, &bx.ns4, bx.mr, bx.mn, sharesBase(g.base, p.base)};
     const Desc& A = up2 ? d1 : d2;
     const Desc& B = up2 ? d2 : d1;
     const double sa = A.p->mirror == 2 ? -1 : A.p->mirror == 3 ? 1 : 0;
     const double sb = B.p->mirror == 2 ? -1 : B.p->mirror == 3 ? 1 : 0;
-    const double dA = ev(A, phi, *A.st) - base;
+    const double dA = ev(A, phi, base, *A.st) - base;
     double dA2 = 0;
-    if (js::truthy(sa) || js::truthy(sb)) { A.st2->acc = A.st->acc; A.st2->xin = A.st->xin; dA2 = ev(A, ph2, *A.st2) - base2; }
+    if (js::truthy(sa) || js::truthy(sb)) { A.st2->acc = A.st->acc; A.st2->xin = A.st->xin; dA2 = ev(A, ph2, base2, *A.st2) - base2; }
     const double Lw = dA + sa * dA2, L2 = dA2 + sa * dA;
-    const double x1 = base + lam * Lw, dB = ev(B, phi, *B.st, true, x1) - x1;
+    const double x1 = base + lam * Lw, dB = ev(B, phi, base, *B.st, true, x1) - x1;
     double dB2 = 0;
-    if (js::truthy(sb)) { B.st2->acc = B.st->acc; B.st2->xin = B.st->xin; const double x2 = base2 + lam * L2; dB2 = ev(B, ph2, *B.st2, true, x2) - x2; }
+    if (js::truthy(sb)) { B.st2->acc = B.st->acc; B.st2->xin = B.st->xin; const double x2 = base2 + lam * L2; dB2 = ev(B, ph2, base2, *B.st2, true, x2) - x2; }
     gmr = mr0; gmn = mn0;
     return base + Lw + dB + sb * dB2;
   }
@@ -1103,10 +1124,12 @@ class Engine {
       b.ns4.seed = src.ns4.seed; b.ns4.idx = src.ns4.idx; b.ns4.val = src.ns4.val; b.ns4.inside = true;
       b.ns3.cacc = src.ns3.cacc; b.ns3.ov = src.ns3.ov; b.ns3.pv = src.ns3.pv; b.ns4.cacc = 0; b.ns4.ov = 0; b.ns4.pv = src.ns4.pv;
     }
-    const double a = out(p, js::frac(E + 1e-7), c, k, m.modX, sc, sc2, bx);
+    const double pa = js::frac(E + 1e-7);
+    const double a = out(p, pa, wave(p.base, pa), c, k, m.modX, sc, sc2, bx);
     sc.idx = m.ns.idx; sc.inside = true; sc2.idx = m.ns2.idx; sc2.inside = true;
     if (bx) { bx->ns3.idx = m.bx.ns3.idx; bx->ns3.inside = true; bx->ns4.idx = m.bx.ns4.idx; bx->ns4.inside = true; }
-    const double b = out(p, js::frac(E - 1e-7), c, k, m.modX, sc, sc2, bx);
+    const double pb = js::frac(E - 1e-7);
+    const double b = out(p, pb, wave(p.base, pb), c, k, m.modX, sc, sc2, bx);
     return a - b;
   }
   // the blade's mean over one cycle, for the per-cycle DC correction
@@ -1154,7 +1177,8 @@ class Engine {
     for (double j = 0; j < J; j++) {
       double phi = st + (j + 0.5) / J * w; phi -= std::floor(phi);
       sc.inside = j > 0;
-      sum += voiceOut(p, phi, c, k, modX, sc) - wave(p.base, phi);
+      const double bw = wave(p.base, phi);
+      sum += voiceOut(p, phi, bw, c, k, modX, sc) - bw;
     }
     return fac * w * sum / J;
   }
@@ -1173,7 +1197,8 @@ class Engine {
     double sum = 0;
     for (double j = 0; j < J; j++) {
       const double phi = (j + 0.5) / J;
-      sum += out(p, phi, c, k, m.modX, sc, sc2, &b) - wave(p.base, phi);
+      const double bw = wave(p.base, phi);
+      sum += out(p, phi, bw, c, k, m.modX, sc, sc2, &b) - bw;
     }
     return sum / J;
   }
@@ -1332,7 +1357,7 @@ class Engine {
     } else if (js::truthy(ns.ov) || js::truthy(ns.cacc) || (bx && (js::truthy(bx->ns3.ov) || js::truthy(bx->ns3.cacc)))) {
       ns.ov = 0; ns.cacc = 0; ns.cd = 0; if (bx) { bx->ns3.ov = 0; bx->ns3.cacc = 0; bx->ns3.cd = 0; }
     }
-    const double x = H2E_SKIP(kStageBlade) ? 0 : out(p, p1, c, k, m.modX, ns, m.ns2, bx);
+    const double x = H2E_SKIP(kStageBlade) ? 0 : out(p, p1, wave(p.base, p1), c, k, m.modX, ns, m.ns2, bx);
     blepHeld = 0; blepOut = 0;
     if (!H2E_SKIP(kStageBlep) && js::truthy(p.aa) && dphi > 0 && dphi < 0.5) {
       const double b = p.base;
