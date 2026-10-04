@@ -91,6 +91,28 @@ class Engine {
 #define H2E_EPS(x) (x)
 #define H2E_EPS13(x) (x)
 #endif
+#ifdef H2_ENGINE_STAGES
+  // B441 cost attribution, for tools/measure_h2_engine.cpp --stages ONLY (its own
+  // CMake target, measure_h2_engine_stages). Each set bit SKIPS one stage, so the
+  // stage's cost reads as the full render's time minus the time without it. The
+  // output is wrong by design while a bit is set. Undefined elsewhere (the shipped,
+  // parity and ledger builds), every site folds to `false` and compiles to the code
+  // that was there before: parity is untouched by construction, and checked.
+  enum Stage : unsigned {
+    kStageTick = 1,      // the swarm's control tick, per voice every 16 samples (tickSwarm)
+    kStagePhase = 2,     // the swarm's per-sample phase advance (phi_H); the blade step still reads dph
+    kStageBlade = 4,     // the blade evaluation at the step's end phase (out(): both blades, twins)
+    kStageBlep = 8,      // every PolyBLEP: tryE/scan and the two probe evaluations per edge (hAt)
+    kStageDc = 16,       // the per-cycle DC estimate's refresh (dcEst / dcPair)
+    kStageDecim = 32,    // the output biquads that run at the oversampled rate
+    kStageOut = 64,      // the DC blocker and the output tanh
+    kStageCouple = 128,  // couple() + spread(), per active voice every 32 samples
+  };
+  unsigned stageOff = 0;
+#define H2E_SKIP(bit) ((stageOff & Engine::bit) != 0u)
+#else
+#define H2E_SKIP(bit) false
+#endif
 
   explicit Engine(double sampleRate) : sr(sampleRate), field(sampleRate) {
     for (int vi = 0; vi < kVoices; vi++) {
@@ -1222,7 +1244,7 @@ class Engine {
       const int i = m.i;
       if (i == 0) {
         const bool due = H2E_FAULT(7) ? (v.sn & 15) == 1 : (v.sn & 15) == 0;
-        if (due) { if (v.tick0) unLookAhead(v); tickSwarm(v); }
+        if (due && !H2E_SKIP(kStageTick)) { if (v.tick0) unLookAhead(v); tickSwarm(v); }
         v.sn++;
         if (v.pv) memberStep(v);
       }
@@ -1230,10 +1252,12 @@ class Engine {
       if (glideOn) S.fRun[i] += gCoefS * (S.eff[i] - S.fRun[i]);
       if (!(v.pv && m.hold)) {   // a waiting member's phase stands still
         const double f = glideOn ? S.fRun[i] : S.eff[i];
-        const double dph = js::max(0, f) / sr;
-        double ph = S.phase[i] + dph;
-        ph -= std::floor(ph);
-        S.phase[i] = ph;
+        if (!H2E_SKIP(kStagePhase)) {
+          const double dph = js::max(0, f) / sr;
+          double ph = S.phase[i] + dph;
+          ph -= std::floor(ph);
+          S.phase[i] = ph;
+        }
         m.dph = js::max(0, f) / (sr * os);
       }
     }
@@ -1308,9 +1332,9 @@ class Engine {
     } else if (js::truthy(ns.ov) || js::truthy(ns.cacc) || (bx && (js::truthy(bx->ns3.ov) || js::truthy(bx->ns3.cacc)))) {
       ns.ov = 0; ns.cacc = 0; ns.cd = 0; if (bx) { bx->ns3.ov = 0; bx->ns3.cacc = 0; bx->ns3.cd = 0; }
     }
-    const double x = out(p, p1, c, k, m.modX, ns, m.ns2, bx);
+    const double x = H2E_SKIP(kStageBlade) ? 0 : out(p, p1, c, k, m.modX, ns, m.ns2, bx);
     blepHeld = 0; blepOut = 0;
-    if (js::truthy(p.aa) && dphi > 0 && dphi < 0.5) {
+    if (!H2E_SKIP(kStageBlep) && js::truthy(p.aa) && dphi > 0 && dphi < 0.5) {
       const double b = p.base;
       if (b == 2 || b == 4) tryE(m, 0.5, p0, dphi, c, k, p);
       else if (b == 3) { tryE(m, 0, p0, dphi, c, k, p); tryE(m, 0.5, p0, dphi, c, k, p); }
@@ -1482,7 +1506,7 @@ inline void Engine::renderCall(double* L, double* R, int n) {
     s.depth += (t.depth - s.depth) * a1; s.I += (t.I - s.I) * a1; s.hard += (t.hard - s.hard) * a1;
     s.w2 += (t.w2 - s.w2) * a1; s.k2 += (t.k2 - s.k2) * a1; s.kHz2 += (t.kHz2 - s.kHz2) * a1; s.c2 += (t.c2 - s.c2) * a1;
     s.b2mix += (t.b2mix - s.b2mix) * a1;
-    if (--coupleTick <= 0) { coupleTick = 32; for (Voice& v : voices) if (v.active) { couple(v); spread(v); } }
+    if (--coupleTick <= 0) { coupleTick = 32; if (!H2E_SKIP(kStageCouple)) for (Voice& v : voices) if (v.active) { couple(v); spread(v); } }
     const double gk = 1 - std::exp(-3 / js::max(1, s.glide * 0.001 * sr));
     const double beA = 1 / js::max(1, s.benvA * 0.001 * sr), beD = 1 - std::exp(-4 / js::max(1, s.benvD * 0.001 * sr));
     const double beA2 = 1 / js::max(1, s.benvA2 * 0.001 * sr), beD2 = 1 - std::exp(-4 / js::max(1, s.benvD2 * 0.001 * sr));
@@ -1578,7 +1602,7 @@ inline void Engine::renderCall(double* L, double* R, int n) {
           if (xOn) { mm.y2 = mm.y1; mm.y1 = y; }
           if (dcOn) {
             // big numeric estimates refresh less often, so the cost stays about constant
-            if (dcTick && j == 0 && (--mm.dcWait <= 0 || mm.dcInit)) {
+            if (dcTick && j == 0 && !H2E_SKIP(kStageDc) && (--mm.dcWait <= 0 || mm.dcInit)) {
               if (js::truthy(s.b2on) && s.b2mix > 1e-6) mm.dc = dcPair(mm, c, kq, s);
               else {
                 mm.dc = dcEst(mm.ns, mm.modX, c, kq, s);
@@ -1601,7 +1625,7 @@ inline void Engine::renderCall(double* L, double* R, int n) {
         accL += vl * amp; accR += vr * amp;
       }
       s.w = w0; s.depth = d0; s.I = I0;
-      if (os > 1) {
+      if (os > 1 && !H2E_SKIP(kStageDecim)) {
         accL = bqf(bqL[1], bqf(bqL[0], accL));
         accR = bqf(bqR[1], bqf(bqR[0], accR));
       }
@@ -1609,6 +1633,7 @@ inline void Engine::renderCall(double* L, double* R, int n) {
     }
     // cross-mod and feedback make a cycle depend on the previous sample, which the
     // per-cycle estimate cannot see: the blocker drains any residual offset
+    if (H2E_SKIP(kStageOut)) { L[i] = yl; R[i] = yr; continue; }
     if (d.dcMode == 1 || (d.dcMode == 2 && (s.xm > 0.0005 || s.fb > 0.0005 || (js::truthy(s.b2on) && (js::truthy(s.colK) || js::truthy(s.colB)))))) {
       const double ol = yl - hx[0] + hpR * hy[0]; hx[0] = yl; hy[0] = ol; yl = ol;
       const double orr = yr - hx[1] + hpR * hy[1]; hx[1] = yr; hy[1] = orr; yr = orr;
@@ -1621,5 +1646,6 @@ inline void Engine::renderCall(double* L, double* R, int n) {
 #undef H2E_FAULT
 #undef H2E_EPS
 #undef H2E_EPS13
+#undef H2E_SKIP
 
 }  // namespace horde2::engine
