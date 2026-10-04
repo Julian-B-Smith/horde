@@ -20,6 +20,13 @@
  *       presets x 1/8/16 voices, interleaved best of R (default 5), the calibration
  *       loop each repeat, the load guard before each repeat. One `LEDGER {json}` row
  *       per cell on stdout.
+ *   THE LOAD GUARD (B441-3): before every repeat, outside the timed region, the
+ *       1-minute load average must be <= 3.0 AND no other process may use >= 50 % of
+ *       a core (a `ps` snapshot). Either failing waits 20 s and re-checks, for up to
+ *       10 min, then exit 3. B441-3 added the per-process half: a Chrome tab, another
+ *       session's Node run and a sibling repo's mutation test each burned a full core
+ *       on 2026-10-04 while the load average could still read under 3. Every LEDGER
+ *       row records the top 3 foreign processes (basename, %CPU) as its best repeat began.
  *   --sr R (any mode but the checkpoint-4 replay, which runs at its stream's own
  *       rate): the cell's sample rate. Protocol B441-2: 44.1 kHz is the reference
  *       (the lead's E-6 ruling) and the default; 48 kHz, B441-1's rate, is secondary.
@@ -67,6 +74,7 @@
 #define pclose _pclose
 #else
 #include <stdlib.h>   // getloadavg
+#include <unistd.h>   // getpid
 #endif
 
 #include "../h2/engine/engine.h"
@@ -86,6 +94,7 @@ constexpr double kWarmSeconds = 0.25, kTimedSeconds = 2.0;
 constexpr uint32_t kSeed = 0xB385;   // checkpoint 4's bench seed
 constexpr double kLoadMax = 3.0;     // 1-minute load average above which no repeat starts
 constexpr int kLoadWaits = 30;       // x 20 s: wait up to 10 min for the machine to settle
+constexpr double kForeignMax = 50;   // B441-3: % of one core any OTHER process may use as a repeat starts
 constexpr double kMinSpecFactor = 1.5;   // M3 -> min-spec, an ASSUMPTION (module-1.0-bar.md appendix)
 constexpr double kSlice = 34;            // the sources' slice of min-spec, % (same appendix)
 // The ledger's presets, light to heavy (the doc says why each; --sweep ranked the bank).
@@ -115,16 +124,90 @@ double load1() {
 #endif
 }
 
-// The load guard: wait (never measure) while the 1-minute load is over kLoadMax.
-// Returns the load it proceeded at, or a negative value if it gave up.
-double loadGuard(bool force) {
-  double l = load1();
-  for (int w = 0; !force && l > kLoadMax && w < kLoadWaits; w++) {
-    std::fprintf(stderr, "measure_h2_engine: load %.2f > %.1f, waiting 20 s (%d/%d)\n", l, kLoadMax, w + 1, kLoadWaits);
-    std::this_thread::sleep_for(std::chrono::seconds(20));
-    l = load1();
+// One other process in the guard's snapshot. `name` is the executable's basename, so a
+// row never carries a machine path (ps prints the full path on macOS).
+struct Proc { double pcpu; std::string name; };
+
+// Every process but this one, highest %CPU first: `ps -A -o pcpu=,pid=,comm=`. macOS's
+// pcpu is a decaying average over roughly the last minute, so a process that just
+// stopped still reads warm for a while; the guard then waits it out, which is the
+// intent. Called only between repeats, never inside the timed region.
+std::vector<Proc> foreignProcs() {
+  std::vector<Proc> out;
+#ifndef _WIN32
+  FILE* f = popen("ps -A -o pcpu=,pid=,comm= 2>/dev/null", "r");
+  if (!f) return out;
+  const long self = static_cast<long>(getpid());
+  char buf[4096];
+  while (std::fgets(buf, sizeof buf, f)) {
+    double pc = 0; long pid = 0; int n = 0;
+    if (std::sscanf(buf, " %lf %ld %n", &pc, &pid, &n) < 2 || pid == self) continue;
+    std::string name(buf + n);
+    while (!name.empty() && (name.back() == '\n' || name.back() == '\r' || name.back() == ' ')) name.pop_back();
+    const size_t slash = name.rfind('/');
+    if (slash != std::string::npos) name.erase(0, slash + 1);
+    out.push_back({pc, name});
   }
-  return (!force && l > kLoadMax) ? -l : l;
+  pclose(f);
+  std::stable_sort(out.begin(), out.end(), [](const Proc& x, const Proc& y) { return x.pcpu > y.pcpu; });
+#endif
+  return out;
+}
+
+// What the guard saw when it let a repeat start.
+struct GuardSnap { double load = 0; std::vector<Proc> top; };   // top: at most 3
+
+// The load guard (B441-3): wait (never measure) while the 1-minute load is over kLoadMax
+// or any other process uses >= kForeignMax % of a core. Returns false if it gave up;
+// `waits` counts the 20 s waits. --force skips the waiting, never the snapshot.
+bool loadGuard(bool force, GuardSnap& g, int& waits) {
+  for (int w = 0;; w++) {
+    g.load = load1();
+    std::vector<Proc> ps = foreignProcs();
+    if (ps.size() > 3) ps.resize(3);
+    g.top = ps;
+    const bool busyLoad = g.load > kLoadMax, busyProc = !ps.empty() && ps[0].pcpu >= kForeignMax;
+    if (force || (!busyLoad && !busyProc)) return true;
+    if (w >= kLoadWaits) {
+      std::fprintf(stderr, "measure_h2_engine: still busy after %d waits (load %.2f; top process '%s' %.1f %%), not measuring\n",
+                   kLoadWaits, g.load, ps.empty() ? "-" : ps[0].name.c_str(), ps.empty() ? 0.0 : ps[0].pcpu);
+      return false;
+    }
+    if (busyProc)
+      std::fprintf(stderr, "measure_h2_engine: '%s' uses %.1f %% >= %.0f %% of a core, waiting 20 s (%d/%d)\n",
+                   ps[0].name.c_str(), ps[0].pcpu, kForeignMax, w + 1, kLoadWaits);
+    else
+      std::fprintf(stderr, "measure_h2_engine: load %.2f > %.1f, waiting 20 s (%d/%d)\n", g.load, kLoadMax, w + 1, kLoadWaits);
+    waits++;
+    std::this_thread::sleep_for(std::chrono::seconds(20));
+  }
+}
+
+// The snapshot as a JSON array, names escaped (a process name is free text).
+std::string topJson(const std::vector<Proc>& top) {
+  std::string s = "[";
+  for (size_t i = 0; i < top.size(); i++) {
+    if (i) s += ",";
+    s += "{\"comm\":\"";
+    for (unsigned char ch : top[i].name) {
+      if (ch == '"' || ch == '\\') { s += '\\'; s += static_cast<char>(ch); }
+      else if (ch < 0x20) s += ' ';
+      else s += static_cast<char>(ch);
+    }
+    char b[32];
+    std::snprintf(b, sizeof b, "\",\"pcpu\":%.1f}", top[i].pcpu);
+    s += b;
+  }
+  return s + "]";
+}
+std::string topText(const std::vector<Proc>& top) {
+  std::string s;
+  for (const Proc& p : top) {
+    char b[32];
+    std::snprintf(b, sizeof b, " %.1f%%", p.pcpu);
+    s += (s.empty() ? "" : ", ") + p.name + b;
+  }
+  return s.empty() ? "-" : s;
 }
 
 struct Patch { std::string name; std::vector<h2engine_stream::Cmd> cmds; };
@@ -174,6 +257,7 @@ struct Cell {
   double os;          // > 0 overrides the preset's oversampling (the stage table's os-1 row)
   unsigned stageOff;  // engine stages skipped (the stages build only)
   double best = 1e30;
+  GuardSnap atBest;   // B441-3: the guard's snapshot at the start of the best repeat
 };
 
 // One run of the protocol's cell; returns the timed seconds.
@@ -227,17 +311,22 @@ std::string gitHead() {
 // Interleaved best-of-`reps` over `cells`, with the calibration and the load guard
 // before each repeat. Returns false if the guard gave up.
 bool measure(std::vector<Cell>& cells, int reps, bool force, double& calBest, double& loadLo, double& loadHi,
-             double timedSeconds = kTimedSeconds) {
-  calBest = 1e30; loadLo = 1e30; loadHi = 0;
+             int& waits, double timedSeconds = kTimedSeconds) {
+  calBest = 1e30; loadLo = 1e30; loadHi = 0; waits = 0;
   for (int r = 0; r < reps; r++) {
-    const double l = loadGuard(force);
-    if (l < 0) { std::fprintf(stderr, "measure_h2_engine: load stayed %.2f > %.1f, not measuring\n", -l, kLoadMax); return false; }
+    GuardSnap g;
+    if (!loadGuard(force, g, waits)) return false;
+    const double l = g.load;
     loadLo = std::min(loadLo, l); loadHi = std::max(loadHi, l);
     calBest = std::min(calBest, calibrate());
-    for (Cell& c : cells) c.best = std::min(c.best, runCell(c, timedSeconds));
+    for (Cell& c : cells) {
+      const double t = runCell(c, timedSeconds);
+      if (t < c.best) { c.best = t; c.atBest = g; }
+    }
     const double le = load1();
     loadLo = std::min(loadLo, le); loadHi = std::max(loadHi, le);
-    std::fprintf(stderr, "measure_h2_engine: repeat %d/%d done (load %.2f -> %.2f)\n", r + 1, reps, l, le);
+    std::fprintf(stderr, "measure_h2_engine: repeat %d/%d done (load %.2f -> %.2f; top foreign at its start: %s)\n", r + 1, reps,
+                 l, le, topText(g.top).c_str());
   }
   return true;
 }
@@ -261,10 +350,12 @@ int ledger(int argc, char** argv) {
     for (int v : kVoiceCounts) cells.push_back({p, v, 0, 0});
   }
   double cal, lo, hi;
-  if (!measure(cells, argInt(argc, argv, "--reps", 5), hasArg(argc, argv, "--force"), cal, lo, hi)) return 3;
+  int waits = 0;
+  if (!measure(cells, argInt(argc, argv, "--reps", 5), hasArg(argc, argv, "--force"), cal, lo, hi, waits)) return 3;
   const std::string head = gitHead();
   const double audio = audioSeconds();
-  std::printf("calibration: best %.1f ms; load average %.2f..%.2f; head %s; %.0f Hz\n", cal * 1000, lo, hi, head.c_str(), gSR);
+  std::printf("calibration: best %.1f ms; load average %.2f..%.2f; guard waits %d; head %s; %.0f Hz\n", cal * 1000, lo, hi,
+              waits, head.c_str(), gSR);
   std::printf("%-18s %3s  %9s  %9s  %8s  %13s  %s\n", "preset", "V", "% M3 core", "per voice", "ratio", "min-spec*", "vs 34 % slice (8 voices only)");
   for (const Cell& c : cells) {
     const double pct = 100 * c.best / audio, ratio = (c.best / audio) / cal, ms = pct * kMinSpecFactor;
@@ -273,11 +364,12 @@ int ledger(int argc, char** argv) {
   }
   for (const Cell& c : cells) {
     const double pct = 100 * c.best / audio, ratio = (c.best / audio) / cal, ms = pct * kMinSpecFactor;
-    std::printf("LEDGER {\"protocol\":\"B441-2\",\"head\":\"%s\",\"preset\":\"%s\",\"voices\":%d,\"os\":\"preset\",\"sr\":%.0f,"
+    std::printf("LEDGER {\"protocol\":\"B441-3\",\"head\":\"%s\",\"preset\":\"%s\",\"voices\":%d,\"os\":\"preset\",\"sr\":%.0f,"
                 "\"block\":%d,\"timed_s\":%.4f,\"best_s\":%.6f,\"pct_m3\":%.4f,\"pct_m3_per_voice\":%.4f,\"cal_ms\":%.2f,"
-                "\"ratio\":%.6f,\"minspec_pct_assumed_x1.5\":%.3f,\"slice_pct\":%.0f,\"over_slice\":%s,\"load_lo\":%.2f,\"load_hi\":%.2f}\n",
+                "\"ratio\":%.6f,\"minspec_pct_assumed_x1.5\":%.3f,\"slice_pct\":%.0f,\"over_slice\":%s,\"load_lo\":%.2f,\"load_hi\":%.2f,"
+                "\"guard_waits\":%d,\"foreign_top3\":%s}\n",
                 head.c_str(), c.patch->name.c_str(), c.voices, gSR, kBlock, audio, c.best, pct, pct / c.voices, cal * 1000, ratio, ms,
-                kSlice, c.voices == 8 ? (ms > kSlice ? "true" : "false") : "null", lo, hi);
+                kSlice, c.voices == 8 ? (ms > kSlice ? "true" : "false") : "null", lo, hi, waits, topJson(c.atBest.top).c_str());
   }
   return 0;
 }
@@ -288,7 +380,8 @@ int sweep(int argc, char** argv) {
   std::vector<Cell> cells;
   for (const Patch& p : ps) cells.push_back({&p, 1, 0, 0});
   double cal, lo, hi;
-  if (!measure(cells, 2, hasArg(argc, argv, "--force"), cal, lo, hi, 1.0)) return 3;
+  int waits = 0;
+  if (!measure(cells, 2, hasArg(argc, argv, "--force"), cal, lo, hi, waits, 1.0)) return 3;
   std::sort(cells.begin(), cells.end(), [](const Cell& a, const Cell& b) { return a.best > b.best; });
   std::printf("sweep (coarse, NOT a ledger figure): one voice, best of 2, 1 s timed; calibration %.1f ms; load %.2f..%.2f\n", cal * 1000, lo, hi);
   for (const Cell& c : cells)
@@ -333,7 +426,8 @@ int stages(int argc, char** argv) {
     }
   }
   double cal, lo, hi;
-  if (!measure(cells, argInt(argc, argv, "--reps", 5), hasArg(argc, argv, "--force"), cal, lo, hi)) return 3;
+  int waits = 0;
+  if (!measure(cells, argInt(argc, argv, "--reps", 5), hasArg(argc, argv, "--force"), cal, lo, hi, waits)) return 3;
   std::printf("stages: calibration %.1f ms; load %.2f..%.2f; head %s; best of %d, interleaved\n", cal * 1000, lo, hi,
               gitHead().c_str(), argInt(argc, argv, "--reps", 5));
   const double audio = audioSeconds();

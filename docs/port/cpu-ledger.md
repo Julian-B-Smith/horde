@@ -7,7 +7,7 @@ experiments to whittle down the CPU weight"). The budget is B439's, in
 a min-spec core for 8 voices**.
 
 This document holds four things:
-- §1, the **frozen measurement protocol** (B441-1), which every phase-2 experiment re-runs;
+- §1, the **frozen measurement protocol** (B441-1, now at B441-3), which every phase-2 experiment re-runs;
 - §2, the **baseline ledger**, which those experiments are measured against;
 - §3, the **cost attribution** of a heavy voice, by stage;
 - §4, the **interpretation**: the top cost centres, and the B378 findings that map onto them.
@@ -20,11 +20,20 @@ measures only. Nothing in the engine's output changed (§5).
 Node 24. **Measured** 2026-10-04 at `deb4d1a` (this PR's first commit). The load
 averages seen are in §2.
 
-## 1. The protocol (frozen: B441-1)
+## 1. The protocol (frozen: B441-1; current: B441-3)
 
 A phase-2 experiment is measured with exactly this. Changing any item below makes a
 new protocol version (B441-2, …). The baseline is then re-measured under it in the same
 PR. Figures are never compared across versions.
+
+**Versions.** B441-1 (`deb4d1a`, §2): 48 kHz. B441-2 (C1, §2b): the rate becomes 44.1 kHz,
+with 48 kHz secondary. **B441-3** (C2, §2b): the load guard gains a per-process half (the
+`load guard` row below) and every row records what else was running. Rows taken under
+B441-1 and B441-2 had only the load-average guard. On 2026-10-04 a Chrome tab, another
+session's Node runs and a sibling repo's mutation tests each burned a full core while the
+1-minute load could still read under 3.0, so **those rows' absolute figures may carry
+contamination**. Their before/after ratios, from interleaved passes run back to back, are
+still fair: whatever was running hit both sides of the interleave.
 
 | item | frozen value | why |
 |---|---|---|
@@ -40,7 +49,7 @@ PR. Figures are never compared across versions.
 | window | 0.25 s rendered untimed (the onset and the first DC estimates), then 2.0 s timed (750 blocks) | Steady state, not onset. |
 | repeats | best of **5**, **interleaved**: repeat r runs every cell once, in a fixed order, before repeat r + 1 begins | A transient disturbance then hits one repeat of every cell, not every repeat of one cell. The best is the least disturbed. |
 | calibration | 1e8 dependent multiply-adds (`x = x * 1.0000001 + 1e-9`, contraction off), timed at the start of every repeat, best kept. **ratio** = (best seconds per second of audio) ÷ (best calibration seconds) | The B236 / B262 pattern, with checkpoint 4's own loop so its figures compare. The loop is latency-bound (a multiply then an add, about 7 cycles), so ~175 ms is a performance core at 4.05 GHz. A figure near 250 ms suggests an efficiency core or a throttled one (hypothesis, from the cycle count). Later runs are compared on the **ratio**. |
-| load guard | before each repeat, the 1-minute load average (`getloadavg`) must be ≤ 3.0. Above it the tool waits 20 s and re-reads, for up to 10 min, then refuses to measure (exit 3). The lowest and highest loads seen go into every row. | The brief's guard. The bench itself adds ~1 while it runs, so `load_hi` (read at the end of a repeat) can exceed 3. |
+| load guard | before each repeat, outside the timed region, two conditions: the 1-minute load average (`getloadavg`) must be ≤ 3.0, and (**B441-3**) no other process may use ≥ 50 % of a core in a `ps -A -o pcpu=,pid=,comm=` snapshot (the bench's own pid excluded). If either fails, the tool waits 20 s and re-checks both, for up to 10 min in all, then refuses to measure (exit 3). The lowest and highest loads seen, the number of 20 s waits (`guard_waits`), and the top 3 other processes at the start of the cell's best repeat (`foreign_top3`: the executable's basename and its %CPU, never a path) go into every row. | The brief's guard. The bench itself adds ~1 while it runs, so `load_hi` (read at the end of a repeat) can exceed 3. The load average is a one-minute mean over every core, so one process pinning a core can hide under 3.0 on this 8-core machine. That is why B441-3 adds the per-process check. macOS's `pcpu` is itself a decaying average over roughly the last minute, so a process that has just stopped still reads warm for a while and the guard waits it out. |
 | sink | each timed block's first sample is summed into a `volatile` | The optimiser cannot drop the render. |
 | conversion | **min-spec % = M3 % × 1.5. AN ASSUMPTION** (module-1.0-bar.md appendix) until it is measured once on an M1 base or on the Intel min-spec. It is labelled in every row. | |
 | verdict | the 8-voice row's min-spec %, against the **34 %** slice | It prints and never judges (Layer-E). |
@@ -59,10 +68,11 @@ The preset stream is written beforehand because rendering the 83 goldens takes N
 (the protocol is 5). `--force` skips the load guard and must never be used for a ledger row.
 
 **The machine-readable row.** One line per cell, `LEDGER {json}`, with these fields:
-`protocol` (`B441-1`, now `B441-2`), `head` (`git describe --always --dirty`), `preset`, `voices`,
+`protocol` (`B441-1`, `B441-2`, now `B441-3`), `head` (`git describe --always --dirty`), `preset`, `voices`,
 `os`, `sr`, `block`, `timed_s`, `best_s`, `pct_m3` (% of one M3 core, all voices),
 `pct_m3_per_voice`, `cal_ms`, `ratio`, `minspec_pct_assumed_x1.5`, `slice_pct`,
-`over_slice` (8-voice rows only), `load_lo`, `load_hi`. A phase-2 PR pastes its rows
+`over_slice` (8-voice rows only), `load_lo`, `load_hi`, and from B441-3 `guard_waits` and
+`foreign_top3` (a list of `{"comm", "pcpu"}`). A phase-2 PR pastes its rows
 beside the baseline's.
 
 ## 2. The baseline ledger (B441-1 at `deb4d1a`)
