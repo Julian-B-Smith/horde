@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """sluice_hold_check — no Sluice spec or manifest text in horde's tracked files (B359).
 
-WIRED: ./verify fast (local-only: SKIPPED wherever the gitignored `local/sluice` link is absent, CI included)
+WIRED: ./verify fast (ADVISORY since 2026-10-04, B418: a failure prints a WARNING and never fails
+verify; local-only: SKIPPED wherever the gitignored `local/sluice` link is absent, CI included)
 
 WHY. This repo is public; Sluice is private. The human's hold is "copy NO Sluice
 code, data or spec text into horde's tree". It was breached twice by agents who

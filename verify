@@ -82,7 +82,11 @@ fast() {
   # the gitignored local/sluice link and never written down; where the link is
   # absent (CI, other machines) it prints SKIPPED, like the gate above. Added
   # under ADR-180 §1; runs its own must-fail controls every time.
-  python3 tools/sluice_hold_check.py || ok=1
+  # ADVISORY since 2026-10-04 (B418, the human: "demote sluice_hold to a warning").
+  # It still runs and still ledgers what it fails, but a hit never fails verify: the
+  # human owns both repos, and false positives (horde wording Sluice adopted, generic
+  # phrases in other siblings' filings) cost more than the hold protects.
+  python3 tools/sluice_hold_check.py || echo "verify[fast]: WARNING — sluice_hold flagged text (advisory, B418); see its lines above" >&2
 
   # OUTBOUND FILINGS ACTUALLY REACHED THE READER. Three forms of one failure in a
   # single day (uncommitted / side-branch / committed-but-never-pushed) stranded
