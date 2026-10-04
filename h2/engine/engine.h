@@ -1470,6 +1470,10 @@ class Engine {
   // event context (read only when `events` is set)
   uint32_t evTick = 0, evId = 0;
   uint64_t evSample = 0;
+  // B441 C1: each member's overrides of the shared parameters (and its cut phase and
+  // cut rate), computed at a sample's first oversampled step and replayed at the rest
+  struct MemberOv { double w = 0, depth = 0, I = 0, c = 0, kq = 0, mEff = 0; };
+  MemberOv memberOv[kVoices][kMembers] = {};
 };
 
 // The blade engine's render, with the swarm driving the members. Per sample: the
@@ -1575,28 +1579,48 @@ inline void Engine::renderCall(double* L, double* R, int n) {
           // cross-member modulation: a phase push from the next member round the ring; feedback: from itself
           const double xin = xOn ? 0.5 * (H2E_EPS13(s.xm) * xb[(q + 1) % N] + s.fb * 0.5 * (mm.y1 + mm.y2)) : 0;
           mm.ns.xin = xin; mm.ns2.xin = xin; mm.bx.ns3.xin = xin; mm.bx.ns4.xin = xin;
-          // the member's overrides of the shared parameters, restored after the voices
-          s.w = w0 < 0.004 ? w0 : js::min(1, w0 * mm.wMul * v.wE);
-          s.depth = js::min(1, js::max(0, d0 + mm.dAdd));
-          s.I = I0 * mm.iMul;
-          gmr = mm.mr; gmn = mm.mn;
-          const double rotAll = (rotPerNote ? v.rot : gRot) + mm.rot, fr2 = d.frame2 < 0 ? d.frame : d.frame2;
-          double c = s.c + rotAll + mm.cOff + (js::truthy(d.frame) ? mm.lead : 0); c -= std::floor(c);
-          const double fi = js::max(1, mm.inc * v.gr);
-          const double kCap = 0.45 * sr * os / fi;   // every carrier under the oversampled Nyquist
-          const double kq = js::min((d.lock == 2 ? js::max(0.05, s.kHz / fi + mm.kAdd) : js::max(0.25, s.k + mm.kAdd)) * mm.kMul * v.kE, kCap);
-          if (js::truthy(s.b2on)) {
-            BX& bx = mm.bx;
-            const double rot2All = own2 ? (rotPerNote ? v.rot2 : gRot2) + mm.rot2 : rotAll;
-            bx.c = s.c2 + rot2All + mm.cOff2 + (js::truthy(fr2) ? mm.lead : 0); bx.c -= std::floor(bx.c);
-            const double lock2 = d.lock2 < 0 ? d.lock : d.lock2;
-            bx.k = js::min((lock2 == 2 ? js::max(0.05, s.kHz2 / fi + mm.kAdd2) : js::max(0.25, s.k2 + mm.kAdd2)) * mm.kMul2 * v.kE2, kCap);
-            const double mEff2 = js::truthy(d.b2fm) ? (js::truthy(d.mUnit2) ? s.mHz2 / fi : s.m2) : (js::truthy(d.mUnit) ? s.mHz / fi : s.m);
-            fillG2(*bx.g, s.w2 < 0.004 ? s.w2 : js::min(1, s.w2 * mm.wMul2 * v.wE2), js::min(1, js::max(0, s.depth2 + mm.dAdd2)),
-                   (js::truthy(d.b2fm) ? s.I2 : I0) * mm.iMul2, mEff2);
-            bx.mr = mm.mr2; bx.mn = mm.mn2;
+          // the member's overrides of the shared parameters, restored after the voices.
+          // B441 C1: computed at the sample's first step and replayed at the rest, the
+          // same expressions in the same order evaluated once, so bit for bit what a
+          // per-step evaluation gives. That holds because every input is written only
+          // per sample or slower, never inside this j loop: w0/d0/I0 and the s.*/d.*
+          // fields read here (the smoothers, render-call setup), v.rot/rot2, gRot/gRot2,
+          // mm.rot/rot2, v.gr, v.kE/kE2, v.wE/wE2 (the per-sample voice pass above),
+          // and mm.inc, lead, cOff*, kAdd*, kMul*, wMul*, dAdd*, iMul*, mr*, mn* (couple
+          // and spread, every 32 samples, above). Inside the loop, stepMember's swarm
+          // work (tickSwarm, unLookAhead, memberStep) writes v.sw, v.tick0, v.gf0/gfb,
+          // v.env and the members' entry and envelope state; the DC estimates write the
+          // scratch states sc/sc2/bxs and only borrow gmr/gmn; fillG2 never reads the
+          // four fields this block overrides. Blade 2's view (mm.bx.c/k/mr/mn and m.g2
+          // through bx.g) is written by nothing else, so it persists and is skipped
+          // outright. A voice's `active` changes only per sample or between calls.
+          MemberOv& o = memberOv[vi][q];
+          if (j == 0) {
+            o.w = w0 < 0.004 ? w0 : js::min(1, w0 * mm.wMul * v.wE);
+            o.depth = js::min(1, js::max(0, d0 + mm.dAdd));
+            o.I = I0 * mm.iMul;
+            const double rotAll = (rotPerNote ? v.rot : gRot) + mm.rot, fr2 = d.frame2 < 0 ? d.frame : d.frame2;
+            o.c = s.c + rotAll + mm.cOff + (js::truthy(d.frame) ? mm.lead : 0); o.c -= std::floor(o.c);
+            const double fi = js::max(1, mm.inc * v.gr);
+            const double kCap = 0.45 * sr * os / fi;   // every carrier under the oversampled Nyquist
+            o.kq = js::min((d.lock == 2 ? js::max(0.05, s.kHz / fi + mm.kAdd) : js::max(0.25, s.k + mm.kAdd)) * mm.kMul * v.kE, kCap);
+            if (js::truthy(s.b2on)) {
+              BX& bx = mm.bx;
+              const double rot2All = own2 ? (rotPerNote ? v.rot2 : gRot2) + mm.rot2 : rotAll;
+              bx.c = s.c2 + rot2All + mm.cOff2 + (js::truthy(fr2) ? mm.lead : 0); bx.c -= std::floor(bx.c);
+              const double lock2 = d.lock2 < 0 ? d.lock : d.lock2;
+              bx.k = js::min((lock2 == 2 ? js::max(0.05, s.kHz2 / fi + mm.kAdd2) : js::max(0.25, s.k2 + mm.kAdd2)) * mm.kMul2 * v.kE2, kCap);
+              const double mEff2 = js::truthy(d.b2fm) ? (js::truthy(d.mUnit2) ? s.mHz2 / fi : s.m2) : (js::truthy(d.mUnit) ? s.mHz / fi : s.m);
+              fillG2(*bx.g, s.w2 < 0.004 ? s.w2 : js::min(1, s.w2 * mm.wMul2 * v.wE2), js::min(1, js::max(0, s.depth2 + mm.dAdd2)),
+                     (js::truthy(d.b2fm) ? s.I2 : I0) * mm.iMul2, mEff2);
+              bx.mr = mm.mr2; bx.mn = mm.mn2;
+            }
+            o.mEff = js::truthy(d.mUnit) ? s.mHz / fi : s.m;
           }
-          s.mEff = js::truthy(d.mUnit) ? s.mHz / fi : s.m;
+          s.w = o.w; s.depth = o.depth; s.I = o.I;
+          gmr = mm.mr; gmn = mm.mn;
+          const double c = o.c, kq = o.kq;
+          s.mEff = o.mEff;
           if (events) evId = static_cast<uint32_t>(vi * kMembers + q);
           double y = stepMember(v, mm, c, kq);
           if (xOn) { mm.y2 = mm.y1; mm.y1 = y; }

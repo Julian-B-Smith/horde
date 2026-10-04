@@ -30,7 +30,7 @@ PR. Figures are never compared across versions.
 |---|---|---|
 | build | `build-release` (`-DCMAKE_BUILD_TYPE=Release`, Unix Makefiles), target `measure_h2_engine`: `-O3 -ffp-contract=off` on top of Release's `-O3 -DNDEBUG` | The h2 flags (h2 rule 7): the shipped build is arithmetically the tested one, so it is also the timed one. Never Debug: `-O0` figures are meaningless. |
 | engine | `horde2::engine::Engine` exactly as shipped: no `H2_ENGINE_FAULTS`, no `H2_ENGINE_STAGES` | The stages build (§3) is for attribution only. Its figures are never ledger figures. |
-| rate, block | 48 kHz, 128-sample blocks | The brief's choice. B439's E-6 anchor says 44.1 kHz. 48 kHz is ~8.8 % more work per second of audio, so the ledger is conservative against the anchor (open question 1). |
+| rate, block | **B441-2:** 44.1 kHz (the reference; the tool's default), 48 kHz secondary (`--sr 48000`); 128-sample blocks. B441-1 ran 48 kHz only. | The lead's ruling on open question 1: B439's E-6 anchor is 44.1 kHz, so the ledger's reference rate is 44.1 kHz. 48 kHz is ~8.8 % more work per second of audio and stays as the secondary rate. |
 | oversampling | the preset's own. No bank preset sets `os`, so every row runs at the engine's 2 | "As the preset sets it." |
 | presets | the bank (`reference/scalpel/data/presets.json`), read from the parity stream, so each is played exactly as the parity check plays it: `presetCmds(params)` (with render-goldens' `gain 0.35`), then `snap`. "The oracle defaults" is no preset. | One source for the bank, and no copy to drift. |
 | voice pool | `poly 8` after the preset | The engine's pool is `kVoices = 8` (`h2/engine/engine.h:69`). The `poly` default is 6 (`h2/engine/blade.h:45`), so without this an 8-voice row would play 6. |
@@ -49,7 +49,8 @@ PR. Figures are never compared across versions.
 
 ```
 node tools/h2_engine_render.mjs --only '^P/.* :: chord$' > <scratch>/presets.bin
-build-release/measure_h2_engine --ledger --presets <scratch>/presets.bin
+build-release/measure_h2_engine --ledger --presets <scratch>/presets.bin              # B441-2, 44.1 kHz
+build-release/measure_h2_engine --ledger --sr 48000 --presets <scratch>/presets.bin  # the secondary rate
 ```
 
 The preset stream is written beforehand because rendering the 83 goldens takes Node
@@ -58,7 +59,7 @@ The preset stream is written beforehand because rendering the 83 goldens takes N
 (the protocol is 5). `--force` skips the load guard and must never be used for a ledger row.
 
 **The machine-readable row.** One line per cell, `LEDGER {json}`, with these fields:
-`protocol` (`B441-1`), `head` (`git describe --always --dirty`), `preset`, `voices`,
+`protocol` (`B441-1`, now `B441-2`), `head` (`git describe --always --dirty`), `preset`, `voices`,
 `os`, `sr`, `block`, `timed_s`, `best_s`, `pct_m3` (% of one M3 core, all voices),
 `pct_m3_per_voice`, `cal_ms`, `ratio`, `minspec_pct_assumed_x1.5`, `slice_pct`,
 `over_slice` (8-voice rows only), `load_lo`, `load_hi`. A phase-2 PR pastes its rows
@@ -127,6 +128,124 @@ LEDGER {"protocol":"B441-1","head":"deb4d1a","preset":"Breathing pad","voices":1
 LEDGER {"protocol":"B441-1","head":"deb4d1a","preset":"Glass horde pad","voices":1,"os":"preset","sr":48000,"block":128,"timed_s":2.0000,"best_s":0.174331,"pct_m3":8.7166,"pct_m3_per_voice":8.7166,"cal_ms":190.18,"ratio":0.458340,"minspec_pct_assumed_x1.5":13.075,"slice_pct":34,"over_slice":null,"load_lo":2.69,"load_hi":3.38}
 LEDGER {"protocol":"B441-1","head":"deb4d1a","preset":"Glass horde pad","voices":8,"os":"preset","sr":48000,"block":128,"timed_s":2.0000,"best_s":1.446493,"pct_m3":72.3246,"pct_m3_per_voice":9.0406,"cal_ms":190.18,"ratio":3.803021,"minspec_pct_assumed_x1.5":108.487,"slice_pct":34,"over_slice":true,"load_lo":2.69,"load_hi":3.38}
 LEDGER {"protocol":"B441-1","head":"deb4d1a","preset":"Glass horde pad","voices":16,"os":"preset","sr":48000,"block":128,"timed_s":2.0000,"best_s":2.946359,"pct_m3":147.3180,"pct_m3_per_voice":9.2074,"cal_ms":190.18,"ratio":7.746368,"minspec_pct_assumed_x1.5":220.977,"slice_pct":34,"over_slice":null,"load_lo":2.69,"load_hi":3.38}
+```
+
+## 2b. Phase 2 experiments, under B441-2
+
+B441-2 is B441-1 with one item changed: the rate (§1). 44.1 kHz is the reference and 48 kHz
+the secondary. Its figures are not compared with §2's B441-1 figures; each experiment
+re-measures its own baseline in the same session.
+
+**How an experiment is timed.** Two binaries of the same `measure_h2_engine.cpp`, built in
+the same `build-release`: **before** is the engine at `origin/main`, **after** is the PR's
+engine. They run as whole-ledger passes interleaved in the order before, after at 44.1 kHz,
+then before, after at 48 kHz, and the whole sequence is repeated (rounds r1 and r2). Each pass is
+the protocol's interleaved best of 5 with the load guard. Both binaries print the working
+tree's `head`, so a row's `head` names the tree, not the engine; the row's binary is named
+beside it below. The speed-up is the before ratio divided by the after ratio, per round.
+
+### C1: member overrides once per sample (PR head `96f211e`, before = `origin/main` `666789d`)
+
+Output-neutral: both self-digests are 543 of 543 bit-identical against the committed
+references, with no re-pin, and the libm call sites are unchanged (`traces/2026-10-04-b441-c1.md`).
+The audit estimated 8–15 % at os 2. **Measured at 8 voices: 2.4–5.6 % faster on six presets,
+0–1 % on Quarter sync (N 1)**, heaviest on Glass horde pad (5.2–5.6 %). At 1 voice the six move
+−1.2 % to +4.2 %, and Quarter sync is **~9–12 % slower**, reproduced in both rounds and at both
+rates (0.07 points of a core: a fixed per-sample cost the one-member voice cannot amortise, a
+hypothesis not yet profiled).
+Against the 34 % slice at 44.1 kHz (8 voices, min-spec ×1.5 ASSUMED), Fold over sync moves from
+34.6–34.7 % (over) to 33.7–33.8 % (under), and Harmonic stack stays under (32.7–33.0 → 31.7–31.8 %).
+Crushed bells, Breathing pad and Glass horde pad stay over (62.7–63.1 %, 69.6–69.7 % and 93.0–93.3 % after).
+
+**44.1 kHz (reference).** before r1: calibration 185.7 ms, load 2.39–3.25; after r1: calibration 185.9 ms, load 2.08–2.43; before r2: calibration 186.5 ms, load 1.78–2.49; after r2: calibration 186.6 ms, load 2.06–3.18.
+
+| preset | V | before, % M3 (r1 / r2) | after, % M3 (r1 / r2) | before ratio (r2) | after ratio (r2) | speed-up r1 / r2 (on the ratio) |
+|---|---|---|---|---|---|---|
+| Quarter sync | 1 | 0.59 / 0.60 | 0.66 / 0.67 | 0.0319 | 0.0357 | 0.883× / 0.894× |
+| Quarter sync | 8 | 3.36 / 3.38 | 3.37 / 3.38 | 0.1814 | 0.1814 | 1.000× / 1.000× |
+| the oracle defaults | 1 | 1.85 / 1.85 | 1.86 / 1.86 | 0.0993 | 0.0996 | 0.997× / 0.997× |
+| the oracle defaults | 8 | 14.48 / 14.53 | 14.01 / 14.04 | 0.7790 | 0.7523 | 1.035× / 1.035× |
+| Harmonic stack | 1 | 2.67 / 2.68 | 2.65 / 2.66 | 0.1438 | 0.1424 | 1.009× / 1.010× |
+| Harmonic stack | 8 | 21.80 / 21.99 | 21.16 / 21.19 | 1.1790 | 1.1355 | 1.032× / 1.038× |
+| Fold over sync | 1 | 2.91 / 2.92 | 2.95 / 2.95 | 0.1564 | 0.1580 | 0.988× / 0.990× |
+| Fold over sync | 8 | 23.06 / 23.14 | 22.46 / 22.51 | 1.2404 | 1.2060 | 1.028× / 1.029× |
+| Crushed bells | 1 | 5.29 / 5.31 | 5.21 / 5.22 | 0.2846 | 0.2796 | 1.017× / 1.018× |
+| Crushed bells | 8 | 43.02 / 43.13 | 42.06 / 41.78 | 2.3125 | 2.2386 | 1.024× / 1.033× |
+| Breathing pad | 1 | 6.08 / 6.08 | 5.94 / 5.94 | 0.3262 | 0.3182 | 1.023× / 1.025× |
+| Breathing pad | 8 | 48.26 / 48.55 | 46.39 / 46.48 | 2.6026 | 2.4906 | 1.041× / 1.045× |
+| Glass horde pad | 1 | 7.92 / 7.93 | 7.61 / 7.62 | 0.4249 | 0.4085 | 1.042× / 1.040× |
+| Glass horde pad | 8 | 65.26 / 65.61 | 62.01 / 62.21 | 3.5175 | 3.3333 | 1.054× / 1.055× |
+
+**48 kHz (secondary).** before r1: calibration 186.1 ms, load 2.08–2.40; after r1: calibration 185.8 ms, load 1.88–2.21; before r2: calibration 186.6 ms, load 2.06–3.41; after r2: calibration 187.0 ms, load 2.65–3.13.
+
+| preset | V | before, % M3 (r1 / r2) | after, % M3 (r1 / r2) | before ratio (r2) | after ratio (r2) | speed-up r1 / r2 (on the ratio) |
+|---|---|---|---|---|---|---|
+| Quarter sync | 1 | 0.65 / 0.65 | 0.72 / 0.71 | 0.0349 | 0.0382 | 0.895× / 0.915× |
+| Quarter sync | 8 | 3.66 / 3.68 | 3.64 / 3.65 | 0.1974 | 0.1953 | 1.004× / 1.011× |
+| the oracle defaults | 1 | 2.00 / 2.02 | 2.01 / 2.03 | 0.1081 | 0.1087 | 0.994× / 0.994× |
+| the oracle defaults | 8 | 15.78 / 15.81 | 15.19 / 15.29 | 0.8474 | 0.8179 | 1.037× / 1.036× |
+| Harmonic stack | 1 | 2.91 / 2.91 | 2.88 / 2.89 | 0.1562 | 0.1546 | 1.007× / 1.010× |
+| Harmonic stack | 8 | 23.79 / 23.93 | 22.95 / 23.04 | 1.2828 | 1.2323 | 1.035× / 1.041× |
+| Fold over sync | 1 | 3.17 / 3.19 | 3.19 / 3.21 | 0.1710 | 0.1717 | 0.993× / 0.996× |
+| Fold over sync | 8 | 25.12 / 25.28 | 24.42 / 24.57 | 1.3549 | 1.3140 | 1.027× / 1.031× |
+| Crushed bells | 1 | 5.76 / 5.77 | 5.65 / 5.69 | 0.3093 | 0.3043 | 1.017× / 1.017× |
+| Crushed bells | 8 | 46.85 / 47.09 | 45.29 / 45.55 | 2.5239 | 2.4365 | 1.033× / 1.036× |
+| Breathing pad | 1 | 6.66 / 6.71 | 6.44 / 6.49 | 0.3598 | 0.3470 | 1.031× / 1.037× |
+| Breathing pad | 8 | 52.74 / 53.08 | 50.46 / 50.78 | 2.8447 | 2.7159 | 1.044× / 1.047× |
+| Glass horde pad | 1 | 8.62 / 8.62 | 8.27 / 8.31 | 0.4618 | 0.4446 | 1.041× / 1.039× |
+| Glass horde pad | 8 | 70.87 / 71.40 | 67.26 / 67.73 | 3.8270 | 3.6225 | 1.052× / 1.056× |
+
+The 16-voice cells (in the rows) follow the 8-voice ones: 0.8–6.2 % faster. The round-2
+`LEDGER` rows at 44.1 kHz, verbatim. Before (the `origin/main` engine):
+
+```
+LEDGER {"protocol":"B441-2","head":"96f211e","preset":"Quarter sync","voices":1,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.011911,"pct_m3":0.5956,"pct_m3_per_voice":0.5956,"cal_ms":186.53,"ratio":0.031931,"minspec_pct_assumed_x1.5":0.893,"slice_pct":34,"over_slice":null,"load_lo":1.78,"load_hi":2.49}
+LEDGER {"protocol":"B441-2","head":"96f211e","preset":"Quarter sync","voices":8,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.067656,"pct_m3":3.3831,"pct_m3_per_voice":0.4229,"cal_ms":186.53,"ratio":0.181371,"minspec_pct_assumed_x1.5":5.075,"slice_pct":34,"over_slice":false,"load_lo":1.78,"load_hi":2.49}
+LEDGER {"protocol":"B441-2","head":"96f211e","preset":"Quarter sync","voices":16,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.142773,"pct_m3":7.1393,"pct_m3_per_voice":0.4462,"cal_ms":186.53,"ratio":0.382746,"minspec_pct_assumed_x1.5":10.709,"slice_pct":34,"over_slice":null,"load_lo":1.78,"load_hi":2.49}
+LEDGER {"protocol":"B441-2","head":"96f211e","preset":"defaults","voices":1,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.037050,"pct_m3":1.8527,"pct_m3_per_voice":1.8527,"cal_ms":186.53,"ratio":0.099324,"minspec_pct_assumed_x1.5":2.779,"slice_pct":34,"over_slice":null,"load_lo":1.78,"load_hi":2.49}
+LEDGER {"protocol":"B441-2","head":"96f211e","preset":"defaults","voices":8,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.290576,"pct_m3":14.5301,"pct_m3_per_voice":1.8163,"cal_ms":186.53,"ratio":0.778974,"minspec_pct_assumed_x1.5":21.795,"slice_pct":34,"over_slice":false,"load_lo":1.78,"load_hi":2.49}
+LEDGER {"protocol":"B441-2","head":"96f211e","preset":"defaults","voices":16,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.609868,"pct_m3":30.4962,"pct_m3_per_voice":1.9060,"cal_ms":186.53,"ratio":1.634931,"minspec_pct_assumed_x1.5":45.744,"slice_pct":34,"over_slice":null,"load_lo":1.78,"load_hi":2.49}
+LEDGER {"protocol":"B441-2","head":"96f211e","preset":"Harmonic stack","voices":1,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.053645,"pct_m3":2.6825,"pct_m3_per_voice":2.6825,"cal_ms":186.53,"ratio":0.143812,"minspec_pct_assumed_x1.5":4.024,"slice_pct":34,"over_slice":null,"load_lo":1.78,"load_hi":2.49}
+LEDGER {"protocol":"B441-2","head":"96f211e","preset":"Harmonic stack","voices":8,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.439808,"pct_m3":21.9924,"pct_m3_per_voice":2.7490,"cal_ms":186.53,"ratio":1.179035,"minspec_pct_assumed_x1.5":32.989,"slice_pct":34,"over_slice":false,"load_lo":1.78,"load_hi":2.49}
+LEDGER {"protocol":"B441-2","head":"96f211e","preset":"Harmonic stack","voices":16,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.920079,"pct_m3":46.0081,"pct_m3_per_voice":2.8755,"cal_ms":186.53,"ratio":2.466544,"minspec_pct_assumed_x1.5":69.012,"slice_pct":34,"over_slice":null,"load_lo":1.78,"load_hi":2.49}
+LEDGER {"protocol":"B441-2","head":"96f211e","preset":"Fold over sync","voices":1,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.058336,"pct_m3":2.9171,"pct_m3_per_voice":2.9171,"cal_ms":186.53,"ratio":0.156387,"minspec_pct_assumed_x1.5":4.376,"slice_pct":34,"over_slice":null,"load_lo":1.78,"load_hi":2.49}
+LEDGER {"protocol":"B441-2","head":"96f211e","preset":"Fold over sync","voices":8,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.462691,"pct_m3":23.1366,"pct_m3_per_voice":2.8921,"cal_ms":186.53,"ratio":1.240379,"minspec_pct_assumed_x1.5":34.705,"slice_pct":34,"over_slice":true,"load_lo":1.78,"load_hi":2.49}
+LEDGER {"protocol":"B441-2","head":"96f211e","preset":"Fold over sync","voices":16,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.964289,"pct_m3":48.2188,"pct_m3_per_voice":3.0137,"cal_ms":186.53,"ratio":2.585062,"minspec_pct_assumed_x1.5":72.328,"slice_pct":34,"over_slice":null,"load_lo":1.78,"load_hi":2.49}
+LEDGER {"protocol":"B441-2","head":"96f211e","preset":"Crushed bells","voices":1,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.106174,"pct_m3":5.3092,"pct_m3_per_voice":5.3092,"cal_ms":186.53,"ratio":0.284631,"minspec_pct_assumed_x1.5":7.964,"slice_pct":34,"over_slice":null,"load_lo":1.78,"load_hi":2.49}
+LEDGER {"protocol":"B441-2","head":"96f211e","preset":"Crushed bells","voices":8,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.862599,"pct_m3":43.1338,"pct_m3_per_voice":5.3917,"cal_ms":186.53,"ratio":2.312451,"minspec_pct_assumed_x1.5":64.701,"slice_pct":34,"over_slice":true,"load_lo":1.78,"load_hi":2.49}
+LEDGER {"protocol":"B441-2","head":"96f211e","preset":"Crushed bells","voices":16,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":1.776492,"pct_m3":88.8327,"pct_m3_per_voice":5.5520,"cal_ms":186.53,"ratio":4.762414,"minspec_pct_assumed_x1.5":133.249,"slice_pct":34,"over_slice":null,"load_lo":1.78,"load_hi":2.49}
+LEDGER {"protocol":"B441-2","head":"96f211e","preset":"Breathing pad","voices":1,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.121676,"pct_m3":6.0843,"pct_m3_per_voice":6.0843,"cal_ms":186.53,"ratio":0.326188,"minspec_pct_assumed_x1.5":9.127,"slice_pct":34,"over_slice":null,"load_lo":1.78,"load_hi":2.49}
+LEDGER {"protocol":"B441-2","head":"96f211e","preset":"Breathing pad","voices":8,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.970831,"pct_m3":48.5460,"pct_m3_per_voice":6.0682,"cal_ms":186.53,"ratio":2.602601,"minspec_pct_assumed_x1.5":72.819,"slice_pct":34,"over_slice":true,"load_lo":1.78,"load_hi":2.49}
+LEDGER {"protocol":"B441-2","head":"96f211e","preset":"Breathing pad","voices":16,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":1.947623,"pct_m3":97.3900,"pct_m3_per_voice":6.0869,"cal_ms":186.53,"ratio":5.221181,"minspec_pct_assumed_x1.5":146.085,"slice_pct":34,"over_slice":null,"load_lo":1.78,"load_hi":2.49}
+LEDGER {"protocol":"B441-2","head":"96f211e","preset":"Glass horde pad","voices":1,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.158514,"pct_m3":7.9264,"pct_m3_per_voice":7.9264,"cal_ms":186.53,"ratio":0.424943,"minspec_pct_assumed_x1.5":11.890,"slice_pct":34,"over_slice":null,"load_lo":1.78,"load_hi":2.49}
+LEDGER {"protocol":"B441-2","head":"96f211e","preset":"Glass horde pad","voices":8,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":1.312128,"pct_m3":65.6123,"pct_m3_per_voice":8.2015,"cal_ms":186.53,"ratio":3.517548,"minspec_pct_assumed_x1.5":98.419,"slice_pct":34,"over_slice":true,"load_lo":1.78,"load_hi":2.49}
+LEDGER {"protocol":"B441-2","head":"96f211e","preset":"Glass horde pad","voices":16,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":2.677068,"pct_m3":133.8655,"pct_m3_per_voice":8.3666,"cal_ms":186.53,"ratio":7.176674,"minspec_pct_assumed_x1.5":200.798,"slice_pct":34,"over_slice":null,"load_lo":1.78,"load_hi":2.49}
+```
+
+After (C1, `96f211e`):
+
+```
+LEDGER {"protocol":"B441-2","head":"96f211e","preset":"Quarter sync","voices":1,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.013322,"pct_m3":0.6662,"pct_m3_per_voice":0.6662,"cal_ms":186.62,"ratio":0.035698,"minspec_pct_assumed_x1.5":0.999,"slice_pct":34,"over_slice":null,"load_lo":2.06,"load_hi":3.18}
+LEDGER {"protocol":"B441-2","head":"96f211e","preset":"Quarter sync","voices":8,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.067691,"pct_m3":3.3849,"pct_m3_per_voice":0.4231,"cal_ms":186.62,"ratio":0.181379,"minspec_pct_assumed_x1.5":5.077,"slice_pct":34,"over_slice":false,"load_lo":2.06,"load_hi":3.18}
+LEDGER {"protocol":"B441-2","head":"96f211e","preset":"Quarter sync","voices":16,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.141236,"pct_m3":7.0625,"pct_m3_per_voice":0.4414,"cal_ms":186.62,"ratio":0.378445,"minspec_pct_assumed_x1.5":10.594,"slice_pct":34,"over_slice":null,"load_lo":2.06,"load_hi":3.18}
+LEDGER {"protocol":"B441-2","head":"96f211e","preset":"defaults","voices":1,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.037163,"pct_m3":1.8583,"pct_m3_per_voice":1.8583,"cal_ms":186.62,"ratio":0.099579,"minspec_pct_assumed_x1.5":2.787,"slice_pct":34,"over_slice":null,"load_lo":2.06,"load_hi":3.18}
+LEDGER {"protocol":"B441-2","head":"96f211e","preset":"defaults","voices":8,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.280749,"pct_m3":14.0387,"pct_m3_per_voice":1.7548,"cal_ms":186.62,"ratio":0.752271,"minspec_pct_assumed_x1.5":21.058,"slice_pct":34,"over_slice":false,"load_lo":2.06,"load_hi":3.18}
+LEDGER {"protocol":"B441-2","head":"96f211e","preset":"defaults","voices":16,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.590192,"pct_m3":29.5123,"pct_m3_per_voice":1.8445,"cal_ms":186.62,"ratio":1.581427,"minspec_pct_assumed_x1.5":44.268,"slice_pct":34,"over_slice":null,"load_lo":2.06,"load_hi":3.18}
+LEDGER {"protocol":"B441-2","head":"96f211e","preset":"Harmonic stack","voices":1,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.053141,"pct_m3":2.6573,"pct_m3_per_voice":2.6573,"cal_ms":186.62,"ratio":0.142391,"minspec_pct_assumed_x1.5":3.986,"slice_pct":34,"over_slice":null,"load_lo":2.06,"load_hi":3.18}
+LEDGER {"protocol":"B441-2","head":"96f211e","preset":"Harmonic stack","voices":8,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.423770,"pct_m3":21.1904,"pct_m3_per_voice":2.6488,"cal_ms":186.62,"ratio":1.135499,"minspec_pct_assumed_x1.5":31.786,"slice_pct":34,"over_slice":false,"load_lo":2.06,"load_hi":3.18}
+LEDGER {"protocol":"B441-2","head":"96f211e","preset":"Harmonic stack","voices":16,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.887005,"pct_m3":44.3543,"pct_m3_per_voice":2.7721,"cal_ms":186.62,"ratio":2.376742,"minspec_pct_assumed_x1.5":66.531,"slice_pct":34,"over_slice":null,"load_lo":2.06,"load_hi":3.18}
+LEDGER {"protocol":"B441-2","head":"96f211e","preset":"Fold over sync","voices":1,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.058963,"pct_m3":2.9484,"pct_m3_per_voice":2.9484,"cal_ms":186.62,"ratio":0.157992,"minspec_pct_assumed_x1.5":4.423,"slice_pct":34,"over_slice":null,"load_lo":2.06,"load_hi":3.18}
+LEDGER {"protocol":"B441-2","head":"96f211e","preset":"Fold over sync","voices":8,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.450082,"pct_m3":22.5062,"pct_m3_per_voice":2.8133,"cal_ms":186.62,"ratio":1.206002,"minspec_pct_assumed_x1.5":33.759,"slice_pct":34,"over_slice":false,"load_lo":2.06,"load_hi":3.18}
+LEDGER {"protocol":"B441-2","head":"96f211e","preset":"Fold over sync","voices":16,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.941354,"pct_m3":47.0720,"pct_m3_per_voice":2.9420,"cal_ms":186.62,"ratio":2.522371,"minspec_pct_assumed_x1.5":70.608,"slice_pct":34,"over_slice":null,"load_lo":2.06,"load_hi":3.18}
+LEDGER {"protocol":"B441-2","head":"96f211e","preset":"Crushed bells","voices":1,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.104350,"pct_m3":5.2180,"pct_m3_per_voice":5.2180,"cal_ms":186.62,"ratio":0.279608,"minspec_pct_assumed_x1.5":7.827,"slice_pct":34,"over_slice":null,"load_lo":2.06,"load_hi":3.18}
+LEDGER {"protocol":"B441-2","head":"96f211e","preset":"Crushed bells","voices":8,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.835433,"pct_m3":41.7754,"pct_m3_per_voice":5.2219,"cal_ms":186.62,"ratio":2.238555,"minspec_pct_assumed_x1.5":62.663,"slice_pct":34,"over_slice":true,"load_lo":2.06,"load_hi":3.18}
+LEDGER {"protocol":"B441-2","head":"96f211e","preset":"Crushed bells","voices":16,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":1.717432,"pct_m3":85.8794,"pct_m3_per_voice":5.3675,"cal_ms":186.62,"ratio":4.601884,"minspec_pct_assumed_x1.5":128.819,"slice_pct":34,"over_slice":null,"load_lo":2.06,"load_hi":3.18}
+LEDGER {"protocol":"B441-2","head":"96f211e","preset":"Breathing pad","voices":1,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.118762,"pct_m3":5.9386,"pct_m3_per_voice":5.9386,"cal_ms":186.62,"ratio":0.318223,"minspec_pct_assumed_x1.5":8.908,"slice_pct":34,"over_slice":null,"load_lo":2.06,"load_hi":3.18}
+LEDGER {"protocol":"B441-2","head":"96f211e","preset":"Breathing pad","voices":8,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.929484,"pct_m3":46.4784,"pct_m3_per_voice":5.8098,"cal_ms":186.62,"ratio":2.490566,"minspec_pct_assumed_x1.5":69.718,"slice_pct":34,"over_slice":true,"load_lo":2.06,"load_hi":3.18}
+LEDGER {"protocol":"B441-2","head":"96f211e","preset":"Breathing pad","voices":16,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":1.868959,"pct_m3":93.4564,"pct_m3_per_voice":5.8410,"cal_ms":186.62,"ratio":5.007903,"minspec_pct_assumed_x1.5":140.185,"slice_pct":34,"over_slice":null,"load_lo":2.06,"load_hi":3.18}
+LEDGER {"protocol":"B441-2","head":"96f211e","preset":"Glass horde pad","voices":1,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":0.152455,"pct_m3":7.6234,"pct_m3_per_voice":7.6234,"cal_ms":186.62,"ratio":0.408505,"minspec_pct_assumed_x1.5":11.435,"slice_pct":34,"over_slice":null,"load_lo":2.06,"load_hi":3.18}
+LEDGER {"protocol":"B441-2","head":"96f211e","preset":"Glass horde pad","voices":8,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":1.243996,"pct_m3":62.2054,"pct_m3_per_voice":7.7757,"cal_ms":186.62,"ratio":3.333304,"minspec_pct_assumed_x1.5":93.308,"slice_pct":34,"over_slice":true,"load_lo":2.06,"load_hi":3.18}
+LEDGER {"protocol":"B441-2","head":"96f211e","preset":"Glass horde pad","voices":16,"os":"preset","sr":44100,"block":128,"timed_s":1.9998,"best_s":2.545566,"pct_m3":127.2898,"pct_m3_per_voice":7.9556,"cal_ms":186.62,"ratio":6.820881,"minspec_pct_assumed_x1.5":190.935,"slice_pct":34,"over_slice":null,"load_lo":2.06,"load_hi":3.18}
 ```
 
 ## 3. Cost attribution: where the time goes inside a heavy voice
@@ -291,6 +410,8 @@ already records, so no sample moved (`traces/2026-10-04-b441-cpu-ledger.md`).
    128-sample buffer, which costs ~8.8 % less per second of audio. Should B441-2 move to
    44.1 kHz to match the anchor exactly? The verdicts above do not change (the closest
    over-slice row, Harmonic stack at 36.3 %, would read ~33.4 %, under the slice).
+   **Answered** by the lead (E-6): 44.1 kHz is the reference rate and 48 kHz the secondary.
+   That is protocol B441-2 (`--sr`), first used for C1 (§2b).
 2. **What "16 voices" means.** The engine's pool is 8. The 16-voice rows are two engines.
    If 1.0 offers 16 voices, its shape (a bigger pool, or two instances) is a design decision.
 3. **An automation cell** (F12, and the smoothers under motion) needs a protocol row of its
