@@ -103,8 +103,9 @@ SOURCE this time, 2026-09-19: **SUB OSC** (`reference/subosc.html`, `specs/SPEC-
 ADR-178) — the honest sub (seven shapes incl. BUMP, pitch, tone, sync; no swarm), a routing
 source row when ported; its one sanctioned edit (peak-normalise BUMP) landed 2026-09-19. An eighth CANDIDATE, 2026-09-24: **SCALPEL** (`reference/scalpel/`, `specs/SPEC-SCALPEL.md`, ADR-184) — Waverazor-style blade synthesis on the Kuramoto swarm, replacing hard sync and likely the saw-shape panel; its integration shape (a swarm extension or an engine block) is the open question. CLAP-native instrument
 plugin, VST3 via clap-wrapper (ADR-002). The DEVICE is **horde** (ADR-114,
-settled 2026-08-23); HYPERSAW is the founding ENGINE, the repo name, and the
-frozen plugin id. Design docs: specs/SPEC.md (the instrument), specs/ACCEPTANCE.md (the
+settled 2026-08-23); HYPERSAW is the founding ENGINE, the frozen legacy plugin id, and
+our correspondent name in sibling mailboxes. The GitHub repo and the local folder are both
+`horde` (folder renamed 2026-10-04, B437). Design docs: specs/SPEC.md (the instrument), specs/ACCEPTANCE.md (the
 oracle contract), docs/PRIOR-ART.md, docs/PARKED.md.
 
 **Stack & entrypoints.** C++20 CLAP-first plugin: impl in `src/hypersaw_clap.cpp`
