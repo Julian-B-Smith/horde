@@ -64,6 +64,18 @@
 
 namespace horde2::engine {
 
+#ifdef H2_ENGINE_KERNELS
+// B441 C3 coverage, for h2_engine_selfdigest_check's parity build ONLY: member steps
+// run by each specialised kernel (Engine::pickKernel, in this order) since the caller
+// last zeroed them. Undefined elsewhere (the shipped, ledger and product builds), the
+// count compiles to nothing; it never touches the arithmetic.
+inline constexpr const char* kKernelNames[] = {"generic"};
+inline uint64_t kernelSteps[sizeof kKernelNames / sizeof kKernelNames[0]] = {};
+#define H2E_KERNEL_HIT(id) (kernelSteps[id]++)
+#else
+#define H2E_KERNEL_HIT(id) ((void)0)
+#endif
+
 class Engine {
  public:
   static constexpr int kVoices = 8;
@@ -314,13 +326,96 @@ class Engine {
     return nullptr;
   }
 
+  // ---- B441 C3: specialised member kernels -------------------------------------
+  // renderCall copies the discrete selectors from `d` into `s` at its start, and
+  // nothing writes them again until the next call (set() runs between calls; spread()
+  // rewrites s.lock/s.lock2/s.mirror2 with the same `d` values). So one call can run
+  // a kernel compiled for its combination. A kernel FIXES some selectors (the rest
+  // are kAny, read at run time as before), and every templated read of a fixed one
+  // goes through kv/kt, which return the constant: its switch or test folds.
+  // pickKernel() picks a kernel only when every fixed selector EQUALS its constant
+  // (`==`: a -0 picks a 0 kernel, which is exact because every read of these fields is
+  // a comparison, js::sel or js::truthy, none of which tells -0 from +0). A kernel
+  // therefore evaluates every expression the generic path evaluates, in the same order;
+  // the folding removes only branches whose outcome the constant decides. It is picked
+  // once per call, never per member (renderCall's dispatch).
+  static constexpr int kAny = -999;   // not fixed by the kernel (no selector reaches -999 in a kernel)
+  template <int V> static double kv(double x) { if constexpr (V == kAny) return x; else return V; }
+  template <int V> static bool kt(double x) { if constexpr (V == kAny) return js::truthy(x); else return V != 0; }
+  // One blade's fixed selectors: mode, carrier (`hot`), mirror, fmType, modulator shape.
+  template <int Mode, int Hot, int Mirror, int FmType, int Mshape>
+  struct BK {
+    static constexpr int mode = Mode, hot = Hot, mirror = Mirror, fmType = FmType, mshape = Mshape;
+    static constexpr bool fixed = Mode != kAny || Hot != kAny || Mirror != kAny || FmType != kAny || Mshape != kAny;
+    // scan() returns before it reads or writes anything unless the carrier is a saw,
+    // square or ramp (hot 2, 3, 4) on a carrier mode (0, 5, 1, 2), or the blade is a
+    // crush (mode 6, whose hard edge is read at run time). So where Mode and Hot rule
+    // both out, the call is dead for the whole render call and is not made.
+    static constexpr bool scanDead = Mode != kAny && Hot != kAny && Mode != 6 &&
+                                     !((Mode == 0 || Mode == 5 || Mode == 1 || Mode == 2) && (Hot == 2 || Hot == 3 || Hot == 4));
+    static bool fits(double md, double ht, double mi, double ft, double ms) {
+      return (Mode == kAny || md == Mode) && (Hot == kAny || ht == Hot) && (Mirror == kAny || mi == Mirror) &&
+             (FmType == kAny || ft == FmType) && (Mshape == kAny || ms == Mshape);
+    }
+  };
+  using BAny = BK<kAny, kAny, kAny, kAny, kAny>;
+  // A kernel: blade 1's fixed selectors, b2on (0, 1 or kAny), blade 2's. Every
+  // specialised kernel also fixes BLEPs on (aa 1) and D1 off (aaCarrier 0), the bank's
+  // setting everywhere. inl: inline wave/voicePlain (the generic path keeps its calls).
+  template <int Id, class B1_, int B2on, class B2_>
+  struct KK {
+    using B1 = B1_;
+    using B2 = B2_;
+    static constexpr int id = Id, b2on = B2on;
+    static constexpr bool inl = Id != 0;
+    static constexpr int aa = inl ? 1 : kAny, d1 = inl ? 0 : kAny;
+  };
+  // The kernels, chosen from what the scenario set and the ledger presets render
+  // (B441 C3 trace): blade 1 is a saw sync, a sine ring, a sine phase-FM or a crush
+  // blade, without blade 2 or with blade 2 left generic (its selectors at run time).
+  // Anything else, or D1 on, or BLEPs off, runs the generic path (id 0).
+  using BSaw = BK<0, 2, 0, kAny, kAny>;   // sync, saw carrier, no mirror
+  using KGeneric = KK<0, BAny, kAny, BAny>;
+  static constexpr int kKernels = 1;
+#ifdef H2_ENGINE_KERNELS
+  static_assert(kKernels == static_cast<int>(sizeof kKernelNames / sizeof kKernelNames[0]), "one name per kernel");
+#endif
+  // Does kernel K fit this render call? Blade 1's selectors are `d`'s own (renderCall
+  // copies them into `s`); blade 2's are fillG2's derivations of them.
+  template <class K>
+  bool fits() const {
+    using B1 = typename K::B1;
+    using B2 = typename K::B2;
+    if (js::truthy(d.aaCarrier) || !js::truthy(d.aa)) return false;   // K::d1 == 0, K::aa == 1
+    if (K::b2on != kAny && js::truthy(d.b2on) != (K::b2on != 0)) return false;
+    if (!B1::fits(d.mode, d.hot, d.mirror, d.fmType, d.mshape)) return false;
+    if (K::b2on == 1) {
+      const bool own = js::truthy(d.b2fm);
+      return B2::fits(d.mode2, d.hot2, d.mirror2 < 0 ? d.mirror : d.mirror2, own ? d.fmType2 : d.fmType, own ? d.mshape2 : d.mshape);
+    }
+    return true;
+  }
+  int pickKernel() const {
+    return KGeneric::id;
+  }
+
   // ---- the blade (shapes, modulators, the blade evaluation) -------------------
   double rnd() { return rng.next() * 2 - 1; }
   double nsRnd(NS& ns) { return ns.draws ? rnd() : ns.val; }
   // Pure: reads `sh` only through js::sel(sh), and the members gmr/gmn only in case 6.
   // B441 C2 relies on exactly this to reuse one blade's base wave for the other.
-  double wave(double sh, double x) const {
-    switch (js::sel(sh)) {
+  double wave(double sh, double x) const { return waveK<kAny>(sh, x); }
+  // B441 C3: the body, inlined into the member kernels; S is the shape when the
+  // kernel fixes it (the switch then folds to one case), else kAny. waveAt<Inl, S>
+  // inlines it where Inl (a specialised kernel) and calls wave() where not, so the
+  // generic path keeps the calls it always made.
+  template <bool Inl, int S>
+  [[gnu::always_inline]] double waveAt(double sh, double x) const {
+    if constexpr (Inl) return waveK<S>(sh, x); else return wave(sh, x);
+  }
+  template <int S>
+  [[gnu::always_inline]] double waveK(double sh, double x) const {
+    switch (js::sel(kv<S>(sh))) {
       case 0: return std::sin(6.283185307179586 * x);
       case 1: return x < 0.25 ? 4 * x : (x < 0.75 ? 2 - 4 * x : 4 * x - 4);
       case 2: { const double y = x + 0.5; return 2 * (y - std::floor(y)) - 1; }
@@ -337,14 +432,20 @@ class Engine {
     }
   }
   // modulator shapes; x is an unbounded phase, so noise keeps moving in free mode
-  double mod(double shape, double x, double seed) const {
-    if (shape == 7) return blade::hash(std::floor(x) + seed);   // S&H noise, new each cycle
-    if (shape == 5) {
+  double mod(double shape, double x, double seed) const { return modK<kAny>(shape, x, seed); }
+  template <int S>
+  [[gnu::always_inline]] double modK(double shape, double x, double seed) const {
+    if (kv<S>(shape) == 7) return blade::hash(std::floor(x) + seed);   // S&H noise, new each cycle
+    if (kv<S>(shape) == 5) {
       const double i = std::floor(x), f = x - i, sm = f * f * (3 - 2 * f);
       const double a = blade::hash(i + seed), b = blade::hash(i + 1 + seed);
       return a + (b - a) * sm;
     }
-    return wave(shape, x - std::floor(x));
+    return waveAt<S != kAny, S>(shape, x - std::floor(x));
+  }
+  template <bool Inl, int S>
+  [[gnu::always_inline]] double modAt(double shape, double x, double seed) const {
+    if constexpr (Inl) return modK<S>(shape, x, seed); else return mod(shape, x, seed);
   }
   // the held level at hold-phase hp; with slew, each step glides in from the previous
   double crushLevel(double sh, double st, double kk, double hp, double sl) const {
@@ -361,10 +462,14 @@ class Engine {
   // only case reading them). Then one evaluation serves both blades.
   static bool sharesBase(double a, double b) { const int k = js::sel(a); return k == js::sel(b) && k != 6; }
   // the pitch-FM integrator: advances ns.acc, returns the unwrapped increment
+  // B441 C3: in a kernel whose blade B fixes fmType 0 or a non-FM mode, the first line
+  // folds to `return 0` and the call vanishes (it returns before any side effect).
+  template <class B>
   double fmStep(const Blade& p, NS& ns, double e, bool entered, double kk, double modX, double dphi) {
-    if (p.fmType != 1 || !blade::isFM(p)) return 0;
-    if (entered && p.mode == 1) ns.acc = 0;
-    const double mv = mod(p.mshape, p.mode == 1 ? p.mEff * e : modX, ns.seed);
+    const double md = kv<B::mode>(p.mode);
+    if (kv<B::fmType>(p.fmType) != 1 || !(md == 1 || md == 2)) return 0;   // !blade::isFM(p)
+    if (entered && md == 1) ns.acc = 0;
+    const double mv = modAt<B::fixed, B::mshape>(p.mshape, md == 1 ? p.mEff * e : modX, ns.seed);
     // exponential deviation: ±(1 + I/10) as a ratio at full swing (symmetric in cents)
     const double dd = (js::pow(1 + 0.1 * p.I, mv) - 1) * kk * dphi;
     ns.acc += dd; ns.acc -= std::floor(ns.acc);
@@ -379,10 +484,24 @@ class Engine {
   // It is the same pure call on the same inputs, so not a bit moves.
   double voiceOut(const Blade& p, double phi, double base, double c, double k, double modX, NS& ns, bool hasInp = false,
                   double inp = 0) {
-    if (aaOn && ns.aaReal) return voiceAA(p, phi, base, c, k, modX, ns, hasInp, inp);
-    return voicePlain(p, phi, base, c, k, modX, ns, hasInp, inp);
+    return voiceOutK<KGeneric, BAny>(p, phi, base, c, k, modX, ns, hasInp, inp);
+  }
+  // B441 C3: K's d1 == 0 is a kernel picked only while D1 is off (aaOn false).
+  template <class K, class B>
+  [[gnu::always_inline]] double voiceOutK(const Blade& p, double phi, double base, double c, double k, double modX, NS& ns,
+                                          bool hasInp = false, double inp = 0) {
+    if (kt<K::d1>(aaOn) && ns.aaReal) return voiceAA(p, phi, base, c, k, modX, ns, hasInp, inp);
+    if constexpr (B::fixed) return voicePlainK<B>(p, phi, base, c, k, modX, ns, hasInp, inp);
+    else return voicePlain(p, phi, base, c, k, modX, ns, hasInp, inp);
   }
   double voicePlain(const Blade& p, double phi, double base, double c, double k, double modX, NS& ns, bool hasInp, double inp) {
+    return voicePlainK<BAny>(p, phi, base, c, k, modX, ns, hasInp, inp);
+  }
+  // B441 C3: B fixes some of the blade's selectors for the render call (kAny: read
+  // here). Each read of one goes through kv, so a fixed one folds its switch or test.
+  template <class B>
+  [[gnu::always_inline]] double voicePlainK(const Blade& p, double phi, double base, double c, double k, double modX, NS& ns,
+                                            bool hasInp, double inp) {
     const double xin0 = !hasInp ? base : inp;
     const double w = p.w;
     if (w < 0.004) { ns.g = 0; ns.inside = false; return xin0; }
@@ -390,17 +509,17 @@ class Engine {
     double e = phi - st; if (e < 0) e += 1;
     if (e >= w) { ns.g = 0; ns.inside = false; return xin0; }
     const double kk = p.lock == 1 ? k / w : k;
-    const double er = p.mirror == 1 && e > w * 0.5 ? w - e : e;   // reflect: a palindrome blade
+    const double er = kv<B::mirror>(p.mirror) == 1 && e > w * 0.5 ? w - e : e;   // reflect: a palindrome blade
     const double hp = kk * er;
     double hot = 0;
-    switch (js::sel(p.mode)) {
+    switch (js::sel(kv<B::mode>(p.mode))) {
       // ns.cacc: collision pitch's extra carrier phase; ns.ov: overlap with the other blade (bite)
-      case 0: { const double cp = hp + ns.xin + ns.cacc; hot = wave(p.hot, cp - std::floor(cp)); break; }
+      case 0: { const double cp = hp + ns.xin + ns.cacc; hot = waveAt<B::fixed, B::hot>(p.hot, cp - std::floor(cp)); break; }
       case 1: case 2: {
         const double Ib = ns.ov > 0 ? p.I * (1 + 4 * p.colB * ns.ov) : p.I;
-        const double cp = ns.xin + ns.cacc + (p.fmType == 1 ? hp + ns.acc
-          : hp + Ib * 0.15915494309189535 * mod(p.mshape, p.mode == 1 ? p.mEff * er : modX, ns.seed));
-        hot = wave(p.hot, cp - std::floor(cp)); break;
+        const double cp = ns.xin + ns.cacc + (kv<B::fmType>(p.fmType) == 1 ? hp + ns.acc
+          : hp + Ib * 0.15915494309189535 * modAt<B::fixed, B::mshape>(p.mshape, kv<B::mode>(p.mode) == 1 ? p.mEff * er : modX, ns.seed));
+        hot = waveAt<B::fixed, B::hot>(p.hot, cp - std::floor(cp)); break;
       }
       case 3: {
         const double idx = std::floor(hp);
@@ -408,9 +527,9 @@ class Engine {
         hot = ns.val; break;
       }
       case 4: hot = std::sin(1.5707963267948966 * (1 + (k - 1) * 0.25) * (ns.ov > 0 ? 1 + 2 * p.colB * ns.ov : 1) * xin0); break;   // fold
-      case 5: { const double cp = hp + ns.xin + ns.cacc; hot = xin0 * wave(p.hot, cp - std::floor(cp)); break; }                  // ring
+      case 5: { const double cp = hp + ns.xin + ns.cacc; hot = xin0 * waveAt<B::fixed, B::hot>(p.hot, cp - std::floor(cp)); break; }                  // ring
       case 6: {   // crush: each hold level is the base's average over its interval
-        const double wEff = p.mirror == 1 ? w * 0.5 : w, hpEnd = kk * wEff, sl = p.hard;
+        const double wEff = kv<B::mirror>(p.mirror) == 1 ? w * 0.5 : w, hpEnd = kk * wEff, sl = p.hard;
         hot = crushLevel(p.base, st, kk, hp, sl);
         if (sl > 0.001) {   // land on the base at the exit over the last `slew` intervals
           const double rlE = js::min(sl, hpEnd), h0 = hpEnd - rlE;
@@ -483,16 +602,25 @@ class Engine {
   // the full output: the blade, plus its twin half a cycle later, plus blade 2.
   // `base` is wave(p.base, phi) under the gmr/gmn in force at the call (voiceOut).
   double out(const SP& p, double phi, double base, double c, double k, double modX, NS& ns, NS& ns2, BX* bx) {
+    return outK<KGeneric>(p, phi, base, c, k, modX, ns, ns2, bx);
+  }
+  // B441 C3: K's B1 is blade 1's fixed selectors, B2 blade 2's. A kernel without
+  // blade 2 is handed bx == nullptr as a constant, so the blade-2 block folds away.
+  template <class K>
+  [[gnu::always_inline]] double outK(const SP& p, double phi, double base, double c, double k, double modX, NS& ns, NS& ns2, BX* bx) {
+    using B1 = typename K::B1;
+    using B2 = typename K::B2;
     if (bx && p.b2mix > 1e-6) return outSerial(p, phi, base, c, k, modX, ns, ns2, *bx);
-    double y = voiceOut(p, phi, base, c, k, modX, ns);
+    double y = voiceOutK<K, B1>(p, phi, base, c, k, modX, ns);
     double ph2 = -1, base2 = 0;   // base2: wave(p.base, ph2) under this gmr, set iff twin1
-    const bool twin1 = p.mirror >= 2;
+    const double mir1 = kv<B1::mirror>(p.mirror);
+    const bool twin1 = mir1 >= 2;
     if (twin1) {
       ph2 = phi - 0.5; if (ph2 < 0) ph2 += 1;
       ns2.acc = ns.acc; ns2.xin = ns.xin;
-      base2 = wave(p.base, ph2);
-      const double d2 = voiceOut(p, ph2, base2, c, k, modX, ns2) - base2;
-      y += p.mirror == 2 ? -d2 : d2;
+      base2 = waveAt<K::inl, kAny>(p.base, ph2);
+      const double d2 = voiceOutK<K, B1>(p, ph2, base2, c, k, modX, ns2) - base2;
+      y += mir1 == 2 ? -d2 : d2;
     }
     if (bx) {   // blade 2: its own view, centre, rate and state, on the same base
       const Blade& g = *bx->g;
@@ -500,14 +628,15 @@ class Engine {
       gmr = bx->mr; gmn = bx->mn;
       // blade 1's base is blade 2's whenever no gmr/gmn read can tell them apart
       const bool same = sharesBase(g.base, p.base);
-      const double gb = same ? base : wave(g.base, phi);
-      y += voiceOut(g, phi, gb, bx->c, bx->k, bx->modX, bx->ns3) - gb;
-      if (g.mirror >= 2) {
+      const double gb = same ? base : waveAt<K::inl, kAny>(g.base, phi);
+      y += voiceOutK<K, B2>(g, phi, gb, bx->c, bx->k, bx->modX, bx->ns3) - gb;
+      const double mir2 = kv<B2::mirror>(g.mirror);
+      if (mir2 >= 2) {
         if (ph2 < 0) { ph2 = phi - 0.5; if (ph2 < 0) ph2 += 1; }
         bx->ns4.acc = bx->ns3.acc; bx->ns4.xin = bx->ns3.xin;
-        const double gb2 = same && twin1 ? base2 : wave(g.base, ph2);
-        const double d4 = voiceOut(g, ph2, gb2, bx->c, bx->k, bx->modX, bx->ns4) - gb2;
-        y += g.mirror == 2 ? -d4 : d4;
+        const double gb2 = same && twin1 ? base2 : waveAt<K::inl, kAny>(g.base, ph2);
+        const double d4 = voiceOutK<K, B2>(g, ph2, gb2, bx->c, bx->k, bx->modX, bx->ns4) - gb2;
+        y += mir2 == 2 ? -d4 : d4;
       }
       gmr = mr0; gmn = mn0;
     }
@@ -1263,6 +1392,8 @@ class Engine {
   // The swarm's part at the member's first step of each sample (member 0 ticks the
   // swarm on the global 16-sample grid and runs the entries), then its gain, then
   // the blade with D3's loop around it.
+  // B441 C3: K is the render call's kernel, passed through to the blade step.
+  template <class K>
   double stepMember(Voice& v, Member& m, double c, double k) {
     if (m.j == 0) {
       Swarm& S = v.sw;
@@ -1298,7 +1429,7 @@ class Engine {
     if (v.pv && m.hold) return 0;   // not started: no output, no blade step
     const bool xOn = s.xm > 0.0005 || s.fb > 0.0005;
     if (xOn && js::truthy(d.aaLoop)) loopIn(v, m);
-    const double y = stepBlade(m, m.dph, c, k);
+    const double y = stepBlade<K>(m, m.dph, c, k);
     // D3's taps: the blade's own output through the loop filter, kept running while
     // the loop is on whatever D3 says, so switching D3 on starts from a warm filter
     if (xOn) { m.fu += loopA * (y - m.fu); m.f2 = m.f1; m.f1 = m.fu; }
@@ -1315,7 +1446,14 @@ class Engine {
   }
   // the blade step: advance, collide, evaluate, then PolyBLEP every known
   // discontinuity crossed in this step (with one sample of latency)
+  // B441 C3: K fixes blade 1's selectors (B1), b2on, blade 2's (B2), aa and D1 for the
+  // render call; fmStep folds away where B rules pitch FM out, and scan is not called
+  // where B::scanDead proves it would return at once.
+  template <class K>
   double stepBlade(Member& m, double dphi, double c, double k) {
+    using B1 = typename K::B1;
+    using B2 = typename K::B2;
+    H2E_KERNEL_HIT(K::id);
     SP& p = s;
     const double w = p.w, p0 = m.phi;
     NS& ns = m.ns;
@@ -1328,8 +1466,8 @@ class Engine {
     const bool on = w >= 0.004;
     const double kk = on ? (p.lock == 1 ? k / w : k) : k;
     if (on && e1 < e0) emit(3);
-    const double dAcc = on ? fmStep(p, ns, e1, e1 < e0, kk, m.modX, dphi) : 0;
-    BX* bx = js::truthy(p.b2on) ? &m.bx : nullptr;
+    const double dAcc = on ? fmStep<B1>(p, ns, e1, e1 < e0, kk, m.modX, dphi) : 0;
+    BX* bx = kt<K::b2on>(p.b2on) ? &m.bx : nullptr;
     double dAcc2 = 0, st3 = 0, modX20 = 0;
     bool on2 = false;
     if (bx) {   // blade 2 shares blade 1's modulator unless it has FM of its own
@@ -1343,7 +1481,7 @@ class Engine {
         double a0 = p0 - st3; a0 -= std::floor(a0); double a1 = p1 - st3; a1 -= std::floor(a1);
         const double mr0 = gmr; gmr = bx->mr;
         if (a1 < a0) emit(4);
-        dAcc2 = fmStep(g, bx->ns3, a1, a1 < a0, g.lock == 1 ? bx->k / w2 : bx->k, bx->modX, dphi);
+        dAcc2 = fmStep<B2>(g, bx->ns3, a1, a1 < a0, g.lock == 1 ? bx->k / w2 : bx->k, bx->modX, dphi);
         gmr = mr0;
       }
     }
@@ -1357,21 +1495,26 @@ class Engine {
     } else if (js::truthy(ns.ov) || js::truthy(ns.cacc) || (bx && (js::truthy(bx->ns3.ov) || js::truthy(bx->ns3.cacc)))) {
       ns.ov = 0; ns.cacc = 0; ns.cd = 0; if (bx) { bx->ns3.ov = 0; bx->ns3.cacc = 0; bx->ns3.cd = 0; }
     }
-    const double x = H2E_SKIP(kStageBlade) ? 0 : out(p, p1, wave(p.base, p1), c, k, m.modX, ns, m.ns2, bx);
+    double x = 0;
+    if (!H2E_SKIP(kStageBlade)) {
+      const double b1 = waveAt<K::inl, kAny>(p.base, p1);
+      if constexpr (K::inl) x = outK<K>(p, p1, b1, c, k, m.modX, ns, m.ns2, bx);
+      else x = out(p, p1, b1, c, k, m.modX, ns, m.ns2, bx);
+    }
     blepHeld = 0; blepOut = 0;
-    if (!H2E_SKIP(kStageBlep) && js::truthy(p.aa) && dphi > 0 && dphi < 0.5) {
+    if (!H2E_SKIP(kStageBlep) && kt<K::aa>(p.aa) && dphi > 0 && dphi < 0.5) {
       const double b = p.base;
       if (b == 2 || b == 4) tryE(m, 0.5, p0, dphi, c, k, p);
       else if (b == 3) { tryE(m, 0, p0, dphi, c, k, p); tryE(m, 0.5, p0, dphi, c, k, p); }
       if (on) {
         if (!H2E_FAULT(3)) tryE(m, st, p0, dphi, c, k, p);
         if (w < 0.9999) tryE(m, st + w, p0, dphi, c, k, p);
-        scan(m, st, p0, dphi, c, k, p, dAcc, modX0, p, k, ns, m.modX);
-        if (p.mirror >= 2) {
+        if constexpr (!B1::scanDead) scan(m, st, p0, dphi, c, k, p, dAcc, modX0, p, k, ns, m.modX);
+        if (kv<B1::mirror>(p.mirror) >= 2) {
           const double st2 = st + 0.5;
           tryE(m, st2, p0, dphi, c, k, p);
           if (w < 0.9999) tryE(m, st2 + w, p0, dphi, c, k, p);
-          scan(m, st2 - std::floor(st2), p0, dphi, c, k, p, dAcc, modX0, p, k, ns, m.modX);
+          if constexpr (!B1::scanDead) scan(m, st2 - std::floor(st2), p0, dphi, c, k, p, dAcc, modX0, p, k, ns, m.modX);
         }
       }
       if (on2) {
@@ -1379,12 +1522,12 @@ class Engine {
         const double w2 = g.w;
         tryE(m, st3, p0, dphi, c, k, p);
         if (w2 < 0.9999) tryE(m, st3 + w2, p0, dphi, c, k, p);
-        scan(m, st3, p0, dphi, c, k, p, dAcc2, modX20, g, bx->k, bx->ns3, bx->modX);
-        if (g.mirror >= 2) {
+        if constexpr (!B2::scanDead) scan(m, st3, p0, dphi, c, k, p, dAcc2, modX20, g, bx->k, bx->ns3, bx->modX);
+        if (kv<B2::mirror>(g.mirror) >= 2) {
           const double st4 = st3 + 0.5;
           tryE(m, st4, p0, dphi, c, k, p);
           if (w2 < 0.9999) tryE(m, st4 + w2, p0, dphi, c, k, p);
-          scan(m, st4 - std::floor(st4), p0, dphi, c, k, p, dAcc2, modX20, g, bx->k, bx->ns3, bx->modX);
+          if constexpr (!B2::scanDead) scan(m, st4 - std::floor(st4), p0, dphi, c, k, p, dAcc2, modX20, g, bx->k, bx->ns3, bx->modX);
         }
       }
     }
@@ -1436,6 +1579,8 @@ class Engine {
     }
   }
   void renderCall(double* L, double* R, int n);
+  template <class K>
+  void renderCallK(double* L, double* R, int n);
 
   // ---- state ----------------------------------------------------------------------
   static constexpr double kCullFade = 0.008;   // B323's fade, seconds: 5-10 ms asked, clickless on a sine
@@ -1506,6 +1651,14 @@ class Engine {
 // rotation; per oversampled step: every member of every voice; then the output
 // filters, the DC blocker and the tanh.
 inline void Engine::renderCall(double* L, double* R, int n) {
+  // B441 C3: the kernel is picked once per call, from `d` (exactly what the call
+  // copies into `s` below and what fillG2 derives blade 2's view from).
+  switch (pickKernel()) {
+    default: renderCallK<KGeneric>(L, R, n); return;
+  }
+}
+template <class K>
+inline void Engine::renderCallK(double* L, double* R, int n) {
   const double a = 1 - std::exp(-16 / (0.012 * sr));
   const double a1 = 1 - std::exp(-1 / (0.012 * sr));
   s.mode = d.mode; s.hot = d.hot; s.base = d.base; s.lock = d.lock; s.mshape = d.mshape; s.fmType = d.fmType; s.mirror = d.mirror; s.aa = d.aa; s.mEff = s.m;
@@ -1647,7 +1800,7 @@ inline void Engine::renderCall(double* L, double* R, int n) {
           const double c = o.c, kq = o.kq;
           s.mEff = o.mEff;
           if (events) evId = static_cast<uint32_t>(vi * kMembers + q);
-          double y = stepMember(v, mm, c, kq);
+          double y = stepMember<K>(v, mm, c, kq);
           if (xOn) { mm.y2 = mm.y1; mm.y1 = y; }
           if (dcOn) {
             // big numeric estimates refresh less often, so the cost stays about constant
@@ -1696,5 +1849,6 @@ inline void Engine::renderCall(double* L, double* R, int n) {
 #undef H2E_EPS
 #undef H2E_EPS13
 #undef H2E_SKIP
+#undef H2E_KERNEL_HIT
 
 }  // namespace horde2::engine

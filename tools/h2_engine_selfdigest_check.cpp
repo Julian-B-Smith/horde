@@ -79,6 +79,14 @@
  *          the constant 0.08 per tick) planted in the engine, every scenario
  *          re-rendered: at least kFaultMinRed scenarios red.
  *
+ * COVERAGE (parity build, every run; B441 C3): the engine is built with
+ * H2_ENGINE_KERNELS, which counts the member steps each specialised member kernel
+ * (engine.h pickKernel) runs. One KERNEL line per kernel gives the scenarios that
+ * reached it and the first of them; a specialised kernel that no scenario reaches is
+ * RED, since its bit-identity would then rest on nothing. --kernel-rows also prints
+ * `KROWS <kernel ids>  <name>` per scenario: the rows a kernel-local must-fail
+ * control may move. The product build has no counter (it is the shipped engine).
+ *
  * KEYSELF (every run): the key's verdict on fabricated keys, the parity check's
  * FLOORKEY idiom. A made-up platform must read unkeyed with no warning, its ULP
  * control (judged against this run) must fire, and with every digest differing it
@@ -86,7 +94,7 @@
  * warn wherever this platform has a reference. Nothing outside the binary (no
  * environment variable, no flag) can make the real key unkeyed.
  *
- * Usage: h2_engine_selfdigest_check|h2_engine_selfdigest_product [--full-from FILE|-] [--repin]
+ * Usage: h2_engine_selfdigest_check|h2_engine_selfdigest_product [--full-from FILE|-] [--repin] [--kernel-rows]
  *   With NO stream argument (tools/sanitize_oracles.sh runs every wired binary bare,
  *   the B384 trap) it spawns `node tools/h2_engine_render.mjs` itself, as
  *   h2_engine_parity_check does. --full-from FILE is that renderer's FULL output
@@ -114,6 +122,7 @@
 
 #ifndef H2_SELFDIGEST_PRODUCT
 #define H2_ENGINE_FAULTS 1
+#define H2_ENGINE_KERNELS 1   // the COVERAGE counter (measurement only; never in the product build)
 #endif
 #include "../h2/engine/engine.h"
 #include "h2_engine_stream.h"
@@ -274,12 +283,22 @@ int readRef(const std::string& path, Ref& ref, std::vector<std::string>& oracles
 
 int main(int argc, char** argv) {
   std::string path;
-  bool repin = false;
+  bool repin = false, kernelRows = false;
   for (int i = 1; i < argc; i++) {
     if (std::strcmp(argv[i], "--full-from") == 0 && i + 1 < argc) path = argv[++i];
     else if (std::strcmp(argv[i], "--repin") == 0) repin = true;
-    else { std::fprintf(stderr, "%s: unknown argument '%s' (usage: --full-from FILE|- [--repin])\n", kTool, argv[i]); return 2; }
+    else if (std::strcmp(argv[i], "--kernel-rows") == 0) kernelRows = true;
+    else { std::fprintf(stderr, "%s: unknown argument '%s' (usage: --full-from FILE|- [--repin] [--kernel-rows])\n", kTool, argv[i]); return 2; }
   }
+#ifdef H2_ENGINE_KERNELS
+  // COVERAGE: per kernel, the scenarios whose clean replay ran it, and the first
+  constexpr int kK = static_cast<int>(sizeof horde2::engine::kKernelNames / sizeof horde2::engine::kKernelNames[0]);
+  int covRows[kK] = {};
+  uint64_t covSteps[kK] = {};
+  std::string covFirst[kK];
+#else
+  (void)kernelRows;
+#endif
   FILE* f = nullptr;
   bool piped = false;
   if (path == "-") {
@@ -341,8 +360,22 @@ int main(int argc, char** argv) {
     std::vector<double> out;
     EventLog log;
     ReplayInfo info;
+#ifdef H2_ENGINE_KERNELS
+    for (uint64_t& c : horde2::engine::kernelSteps) c = 0;
+#endif
     h2engine_stream::replay(sc, out, 0, &log, 0, &info);
     run.emplace_back(sc.name, digest(out, log, info));
+#ifdef H2_ENGINE_KERNELS
+    std::string ids;
+    for (int k = 0; k < kK; k++) {
+      const uint64_t c = horde2::engine::kernelSteps[k];
+      if (!c) continue;
+      if (!covRows[k]++) covFirst[k] = sc.name;
+      covSteps[k] += c;
+      ids += (ids.empty() ? "" : ",") + std::to_string(k);
+    }
+    if (kernelRows) std::printf("KROWS %s  %s\n", ids.empty() ? "-" : ids.c_str(), sc.name.c_str());
+#endif
     if (sc.name == kUlpScenario) { ulpOut = out; ulpLog = log; ulpInfo = info; }
     std::printf("%s  %s\n", hex(run.back().second).c_str(), sc.name.c_str());
     scripts.push_back(std::move(sc));
@@ -375,6 +408,21 @@ int main(int argc, char** argv) {
   uint64_t refTot = 0;
   if (keyed && readRef(refFile, ref, refOracles, refTot) != 1) { std::printf("FAIL  the reference %s is malformed\n", refFile.c_str()); return 2; }
   int red = 0;
+
+#ifdef H2_ENGINE_KERNELS
+  // COVERAGE: every specialised kernel (id >= 1; 0 is the generic fallback) reached
+  // by at least one scenario, or its bit-identity rests on nothing.
+  {
+    int unhit = 0;
+    for (int k = 0; k < kK; k++) {
+      if (k > 0 && !covRows[k]) unhit++;
+      std::printf("KERNEL %d %-12s %3d scenarios, %llu member-steps%s%s\n", k, horde2::engine::kKernelNames[k], covRows[k],
+                  static_cast<unsigned long long>(covSteps[k]), covRows[k] ? ", first: " : "", covFirst[k].c_str());
+    }
+    if (unhit) red++;
+    std::printf("%s  COVERAGE  %d of %d specialised kernels reached by at least one scenario\n", unhit ? "FAIL" : "PASS", kK - 1 - unhit, kK - 1);
+  }
+#endif
 
   // ULP: one sample one ULP up, mid-render; exactly that row red, by name. Judged
   // as the CHANGE from this run's own verdict against `judgeBy`, so a red reference
