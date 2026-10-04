@@ -1,0 +1,25 @@
+# b441-e1-selfdigest-noarg — both self-digest binaries render their own stream when run bare; KEYSELF
+
+- **Queue item:** ROADMAP B441 phase 2 (E1). This is the lead's CI fix on PR #932, 2026-10-04. It follows `traces/2026-10-04-b441-e1-selfdigest-product.md`.
+- **Why:** both sanitize jobs on #932 were red. In both, the self-digest binaries exited 2 with `--full-from FILE|- is required`.
+  - `tools/sanitize_oracles.sh` runs every wired binary from the repo root with no arguments; this is the B384 trap.
+  - `h2_engine_parity_check` already handles that case by spawning the renderer itself.
+  - On Linux the key is unkeyed, so the gate must SKIP there, not fail.
+- **What changed:**
+  - **Bare run renders.** With no stream argument, both binaries now `popen("node tools/h2_engine_render.mjs")`, the parity check's idiom. They `pclose` the pipe and treat a non-zero renderer exit as a STREAM infrastructure failure (exit 2). `./verify` still passes `--full-from` (unchanged).
+  - **One key decision.** The reference-key decision is now a single function, `keyVerdict(build, platform, compiler, nodeMajor)`. The exit is a single function too, `exitFor(keyed, differ, red)`, under which an unkeyed run is never red for digests.
+  - **KEYSELF self-test, every run.** It feeds fabricated keys through `keyVerdict`, the FLOORKEY idiom from the parity check. It checks that:
+    - a made-up platform reads unkeyed and gives no warning;
+    - the ULP control, judged against this run as the unkeyed path judges it, still fires;
+    - with every digest differing, the unkeyed exit is 0;
+    - on this platform another Node major reads unkeyed, and warns where a reference exists;
+    - keyed, one differing row exits 1.
+  - **No outside switch.** Nothing outside the binary can make the real key unkeyed: no environment variable, no flag.
+  - **verify output.** `verify` now echoes the KEYSELF line as well.
+- **Evidence:** the local runs, from the repo root, with output as quoted in PR #932:
+  - **Parity, bare** (`./build-release/h2_engine_selfdigest_check`): exit 0. The renderer took 42.8 s and the run 56.0 s wall. ULP, KEYSELF, FAULT (474 of 543) and SELFDIGEST (543 of 543) all PASS, and the run is GREEN.
+  - **Product, bare** (`./build-release/h2_engine_selfdigest_product`): exit 0, GREEN, with CONTEXT 543 of 543.
+  - **Unkeyed end to end:** I moved both references out of the tree, ran the product binary, and moved them back (`git status` clean afterwards). Output: `SKIP  SELFDIGEST  no product reference for darwin-arm64.appleclang-16.node24: 543 digests printed, NOT judged (never a pass)`, then `h2_engine_selfdigest_product: SKIP — unkeyed (darwin-arm64.appleclang-16.node24), controls fired`, exit 0.
+- **Alternatives rejected:** an environment override to force the unkeyed path. The lead forbade it, because it could switch the gate off.
+- **Verify / CI:** recorded in PR #932 for the head that adds this trace: `./verify fast`, and `gh pr checks 932` for the sanitize jobs.
+- **Open questions:** none.

@@ -624,13 +624,13 @@ full() {
     echo "verify[full]: h2_engine_selfdigest_check FAILED" >&2; grep -vE '^[0-9a-f]{16}  ' "$h2e" >&2
     rm -f $h2tmp; return 1; }
   grep '^WARNING: self-digest' "$h2e" >&2
-  grep -E '^(TOTAL|SKIP|PASS  (control|SELFDIGEST))' "$h2e"
+  grep -E '^(TOTAL|SKIP|PASS  (control|KEYSELF|SELFDIGEST))' "$h2e"
   tail -1 "$h2e"
   "$build_dir/h2_engine_selfdigest_product" --full-from "$h2s" > "$h2e" 2>&1 || {
     echo "verify[full]: h2_engine_selfdigest_product FAILED" >&2; grep -vE '^[0-9a-f]{16}  ' "$h2e" >&2
     rm -f $h2tmp; return 1; }
   grep '^WARNING: self-digest' "$h2e" >&2
-  grep -E '^(TOTAL|SKIP|CONTEXT|PASS  (control|SELFDIGEST))' "$h2e"
+  grep -E '^(TOTAL|SKIP|CONTEXT|PASS  (control|KEYSELF|SELFDIGEST))' "$h2e"
   tail -1 "$h2e"; rm -f $h2tmp
   # horde 2's lifted swarm core (B379 step 1, h2/cores/swarm/): lift edit E1
   # re-proven. A Voice the caller owns, started with initVoice() and ticked

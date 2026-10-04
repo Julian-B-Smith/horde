@@ -79,11 +79,21 @@
  *          the constant 0.08 per tick) planted in the engine, every scenario
  *          re-rendered: at least kFaultMinRed scenarios red.
  *
- * Usage: h2_engine_selfdigest_check|h2_engine_selfdigest_product --full-from FILE|- [--repin]
- *   FILE is tools/h2_engine_render.mjs's FULL output (./verify renders it once for
- *   the parity check, its FMA control and both builds of this check). A cut file (no
- *   END record, or a count that disagrees with the header) is an infrastructure
- *   failure, exit 2. Run from the repo root (the references are repo-relative).
+ * KEYSELF (every run): the key's verdict on fabricated keys, the parity check's
+ * FLOORKEY idiom. A made-up platform must read unkeyed with no warning, its ULP
+ * control (judged against this run) must fire, and with every digest differing it
+ * must exit 0 (a SKIP); on this platform another Node major must read unkeyed, and
+ * warn wherever this platform has a reference. Nothing outside the binary (no
+ * environment variable, no flag) can make the real key unkeyed.
+ *
+ * Usage: h2_engine_selfdigest_check|h2_engine_selfdigest_product [--full-from FILE|-] [--repin]
+ *   With NO stream argument (tools/sanitize_oracles.sh runs every wired binary bare,
+ *   the B384 trap) it spawns `node tools/h2_engine_render.mjs` itself, as
+ *   h2_engine_parity_check does. --full-from FILE is that renderer's FULL output
+ *   (./verify renders it once for the parity check, its FMA control and both builds
+ *   of this check). A cut stream (no END record, a count that disagrees with the
+ *   header, a renderer that exited non-zero) is an infrastructure failure, exit 2.
+ *   Run from the repo root (the references are repo-relative).
  * Exit: 0 green (or an unkeyed SKIP), 1 red, 2 the run broke.
  */
 #include <cmath>
@@ -98,6 +108,8 @@
 #ifdef _WIN32
 #include <fcntl.h>
 #include <io.h>
+#define popen _popen
+#define pclose _pclose
 #endif
 
 #ifndef H2_SELFDIGEST_PRODUCT
@@ -208,10 +220,38 @@ void printDiff(const char* tag, const Diff& d) {
   for (const std::string& x : d.removed) std::printf("%s removed  %s  (pinned, not rendered)\n", tag, x.c_str());
 }
 
-std::string refKey(int nodeMajor) {
-  return std::string(kPlatform) + "." + compilerId() + ".node" + std::to_string(nodeMajor);
+std::string refKey(const std::string& platform, const std::string& compiler, int nodeMajor) {
+  return platform + "." + compiler + ".node" + std::to_string(nodeMajor);
 }
-std::string refPath(const char* build, int nodeMajor) { return std::string("h2/engine/selfdigest.") + build + "." + refKey(nodeMajor) + ".txt"; }
+std::string refPath(const char* build, const std::string& key) { return std::string("h2/engine/selfdigest.") + build + "." + key + ".txt"; }
+
+// The key's verdict, the one place the gate decides whether it judges. keyed: a
+// reference exists for this build and key. warn: unkeyed, but this build HAS a
+// reference on this platform under another compiler or Node major (`other` names
+// it), i.e. an upgrade quietly turned the gate into a SKIP. Main and the KEYSELF
+// self-test (which feeds it fabricated keys, as the parity check's FLOORKEY feeds
+// floorVerdict) both decide through it, so the unkeyed path a Linux CI lane takes
+// is exercised on every run here, never assumed.
+struct KeyVerdict { bool keyed = false, warn = false; std::string key, file, other; };
+KeyVerdict keyVerdict(const char* build, const std::string& platform, const std::string& compiler, int nodeMajor) {
+  KeyVerdict v;
+  v.key = refKey(platform, compiler, nodeMajor);
+  v.file = refPath(build, v.key);
+  v.keyed = std::filesystem::exists(v.file);
+  if (!v.keyed) {
+    std::error_code ec;
+    const std::string prefix = std::string("selfdigest.") + build + "." + platform + ".";
+    for (const auto& e : std::filesystem::directory_iterator("h2/engine", ec)) {
+      const std::string fn = e.path().filename().string();
+      if (fn.rfind(prefix, 0) == 0) v.other = fn;
+    }
+    v.warn = !v.other.empty();
+  }
+  return v;
+}
+// The exit a judged run ends with. Unkeyed, a differing digest cannot be red (it
+// is not compared); a control that did not fire is red everywhere.
+int exitFor(bool keyed, size_t differ, int red) { return red || (keyed && differ) ? 1 : 0; }
 
 // Reads a reference file: `<16 hex>  <name>` lines; `#` lines and TOTAL are context.
 // 0 absent, 1 read, -1 malformed.
@@ -240,15 +280,28 @@ int main(int argc, char** argv) {
     else if (std::strcmp(argv[i], "--repin") == 0) repin = true;
     else { std::fprintf(stderr, "%s: unknown argument '%s' (usage: --full-from FILE|- [--repin])\n", kTool, argv[i]); return 2; }
   }
-  if (path.empty()) { std::fprintf(stderr, "%s: --full-from FILE|- is required\n", kTool); return 2; }
   FILE* f = nullptr;
+  bool piped = false;
   if (path == "-") {
 #ifdef _WIN32
     _setmode(_fileno(stdin), _O_BINARY);
 #endif
     f = stdin;
-  } else {
+  } else if (!path.empty()) {
     f = std::fopen(path.c_str(), "rb");
+  } else {
+    // NO ARGUMENTS (tools/sanitize_oracles.sh runs every wired binary bare: the
+    // B384 trap): render the stream here, as h2_engine_parity_check does.
+    FILE* probe = std::fopen("tools/h2_engine_render.mjs", "rb");
+    if (!probe) { std::fprintf(stderr, "%s: run from the repo root (tools/h2_engine_render.mjs not found)\n", kTool); return 2; }
+    std::fclose(probe);
+#ifdef _WIN32
+    f = popen("node tools/h2_engine_render.mjs", "rb");
+#else
+    f = popen("node tools/h2_engine_render.mjs", "r");
+#endif
+    piped = true;
+    path = "node tools/h2_engine_render.mjs";
   }
   if (!f) { std::fprintf(stderr, "%s: cannot open '%s'\n", kTool, path.c_str()); return 2; }
 
@@ -294,7 +347,12 @@ int main(int argc, char** argv) {
     std::printf("%s  %s\n", hex(run.back().second).c_str(), sc.name.c_str());
     scripts.push_back(std::move(sc));
   }
-  if (f != stdin) std::fclose(f);
+  if (piped) {
+    const int st = pclose(f);
+    if (st != 0) { std::printf("FAIL  STREAM  the golden's renderer exited with status %d\n", st); infra = true; }
+  } else if (f != stdin) {
+    std::fclose(f);
+  }
   const int n = static_cast<int>(run.size());
   if (!ended || endN != headerN || n != headerN) {
     std::printf("FAIL  STREAM  not a full stream: header %ld, END %s, %d scenarios read\n", headerN, ended ? std::to_string(endN).c_str() : "ABSENT", n);
@@ -307,32 +365,62 @@ int main(int argc, char** argv) {
   if (infra) { std::printf("%s: INFRASTRUCTURE FAILURE — the stream is not a full render; nothing judged\n", kTool); return 2; }
 
   // The reference for this build and key, else this run's own digests (the controls still run).
-  const std::string key = refKey(nodeMajor), refFile = refPath(kBuild, nodeMajor);
+  const KeyVerdict kv = keyVerdict(kBuild, kPlatform, compilerId(), nodeMajor);
+  const std::string& key = kv.key;
+  const std::string& refFile = kv.file;
+  const bool keyed = kv.keyed;
   Ref ref, self;
   for (const auto& [name, v] : run) self[name] = v;
   std::vector<std::string> refOracles;
   uint64_t refTot = 0;
-  const int got = readRef(refFile, ref, refOracles, refTot);
-  if (got < 0) { std::printf("FAIL  the reference %s is malformed\n", refFile.c_str()); return 2; }
-  const bool keyed = got == 1;
-  const Ref& judgeBy = keyed ? ref : self;
+  if (keyed && readRef(refFile, ref, refOracles, refTot) != 1) { std::printf("FAIL  the reference %s is malformed\n", refFile.c_str()); return 2; }
   int red = 0;
 
-  // ULP: one sample one ULP up, mid-render; exactly that row red, by name.
-  {
+  // ULP: one sample one ULP up, mid-render; exactly that row red, by name. Judged
+  // as the CHANGE from this run's own verdict against `judgeBy`, so a red reference
+  // can neither hide nor fake it. KEYSELF reruns it the unkeyed way (against self).
+  const size_t ulpAt = ulpOut.size() / 2;
+  auto ulpControl = [&](const Ref& judgeBy, size_t& newly, std::string& first) {
     Digests nudged = run;
     std::vector<double> o = ulpOut;
-    const size_t at = o.size() / 2;
-    o[at] = std::nextafter(o[at], INFINITY);
+    o[ulpAt] = std::nextafter(o[ulpAt], INFINITY);
     for (auto& [name, v] : nudged) if (name == kUlpScenario) v = digest(o, ulpLog, ulpInfo);
-    // judged as the CHANGE from this run's own verdict, so a red reference cannot hide or fake it
     const Diff r = verdict(nudged, judgeBy), base = verdict(run, judgeBy);
     std::vector<std::string> added;
     for (const std::string& x : r.changed) { bool was = false; for (const std::string& y : base.changed) was = was || x == y; if (!was) added.push_back(x); }
-    const bool fired = added.size() == 1 && added[0] == kUlpScenario && r.added.size() == base.added.size() && r.removed.size() == base.removed.size();
+    newly = added.size();
+    first = added.empty() ? "" : added[0];
+    return added.size() == 1 && added[0] == kUlpScenario && r.added.size() == base.added.size() && r.removed.size() == base.removed.size();
+  };
+  {
+    size_t newly = 0;
+    std::string first;
+    const bool fired = ulpControl(keyed ? ref : self, newly, first);
     if (!fired) red++;
-    std::printf("%s  control ULP  sample %zu of '%s' nudged one ULP: %zu row(s) newly red%s%s\n", fired ? "PASS" : "FAIL", at, kUlpScenario,
-                added.size(), added.empty() ? "" : ", first: ", added.empty() ? "" : added[0].c_str());
+    std::printf("%s  control ULP  sample %zu of '%s' nudged one ULP: %zu row(s) newly red%s%s\n", fired ? "PASS" : "FAIL", ulpAt, kUlpScenario,
+                newly, first.empty() ? "" : ", first: ", first.c_str());
+  }
+  // KEYSELF: the key's verdict on fabricated keys (the parity check's FLOORKEY
+  // idiom), so the unkeyed path a Linux CI lane takes (digests printed, controls
+  // judged against this run, the comparison SKIPPED, exit 0) and the upgrade
+  // WARNING are exercised on every run, not assumed. No environment variable or
+  // flag reaches the real key: the gate cannot be switched off from outside.
+  {
+    const KeyVerdict unkeyed = keyVerdict(kBuild, "selftest-unkeyed", compilerId(), nodeMajor),
+                     otherNode = keyVerdict(kBuild, kPlatform, compilerId(), nodeMajor + 1);
+    size_t newly = 0;
+    std::string first;
+    const bool ulpUnkeyed = ulpControl(self, newly, first);   // the unkeyed path judges its controls against this run
+    const bool exits = exitFor(false, static_cast<size_t>(n), 0) == 0 && exitFor(false, 0, 1) == 1 && exitFor(true, 1, 0) == 1 && exitFor(true, 0, 0) == 0;
+    const bool warnOk = !keyed || otherNode.warn;   // a platform that has a reference must warn on a Node upgrade
+    const bool ok = !unkeyed.keyed && !unkeyed.warn && !otherNode.keyed && warnOk && ulpUnkeyed && exits;
+    if (!ok) red++;
+    std::printf("%s  KEYSELF  an unkeyed platform %s, its ULP control %s, and with every digest differing it exits %d (SKIP); "
+                "on %s another Node major %s; keyed, one differing row exits %d\n",
+                ok ? "PASS" : "FAIL", unkeyed.keyed ? "IS JUDGED" : (unkeyed.warn ? "prints and WARNS (wrong)" : "prints, no warning"),
+                ulpUnkeyed ? "fires" : "DOES NOT FIRE", exitFor(false, static_cast<size_t>(n), 0), kPlatform,
+                otherNode.keyed ? "IS JUDGED" : (otherNode.warn ? "prints and warns" : (keyed ? "DOES NOT WARN" : "prints (no reference on this platform)")),
+                exitFor(true, 1, 0));
   }
 #ifndef H2_SELFDIGEST_PRODUCT
   // FAULT: an engine constant changed (K1), every script re-rendered.
@@ -358,10 +446,10 @@ int main(int argc, char** argv) {
     Ref par;
     std::vector<std::string> po;
     uint64_t pt = 0;
-    if (readRef(refPath("parity", nodeMajor), par, po, pt) == 1) {
+    if (readRef(refPath("parity", key), par, po, pt) == 1) {
       const Diff d = verdict(run, par);
       std::printf("CONTEXT  product vs parity (not judged): %d of %d scenarios share their digest with %s; %zu differ%s%s\n",
-                  n - static_cast<int>(d.size()), n, refPath("parity", nodeMajor).c_str(), d.size(),
+                  n - static_cast<int>(d.size()), n, refPath("parity", key).c_str(), d.size(),
                   d.changed.empty() ? "" : ", first: ", d.changed.empty() ? "" : d.changed[0].c_str());
     } else {
       std::printf("CONTEXT  product vs parity (not judged): no parity reference for %s\n", key.c_str());
@@ -397,22 +485,16 @@ int main(int argc, char** argv) {
 
   if (!keyed) {
     // a reference for this build and platform under another compiler or Node major: warn loudly
-    std::string other;
-    std::error_code ec;
-    for (const auto& e : std::filesystem::directory_iterator("h2/engine", ec)) {
-      const std::string fn = e.path().filename().string();
-      if (fn.rfind(std::string("selfdigest.") + kBuild + "." + kPlatform + ".", 0) == 0) other = fn;
-    }
-    if (!other.empty()) {
+    if (kv.warn) {
       char w[320];
       std::snprintf(w, sizeof w, "WARNING: self-digest (%s) not judged — key %s has no reference, but this platform has h2/engine/%s; re-pin deliberately (L0072)\n",
-                    kBuild, key.c_str(), other.c_str());
+                    kBuild, key.c_str(), kv.other.c_str());
       std::printf("%s", w);
       std::fprintf(stderr, "%s", w);
     }
     std::printf("SKIP  SELFDIGEST  no %s reference for %s: %d digests printed, NOT judged (never a pass)\n", kBuild, key.c_str(), n);
     std::printf("%s: %s — unkeyed (%s), controls %s\n", kTool, red ? "RED" : "SKIP", key.c_str(), red ? "FAILED" : "fired");
-    return red ? 1 : 0;
+    return exitFor(false, static_cast<size_t>(n), red);
   }
   const Diff r = verdict(run, ref);
   printDiff("FAIL  SELFDIGEST", r);
@@ -423,5 +505,5 @@ int main(int argc, char** argv) {
   std::printf("%s  SELFDIGEST  %d of %d scenarios bit-identical to %s (TOTAL %s, reference %s)\n", r.size() ? "FAIL" : "PASS",
               n - static_cast<int>(r.changed.size() + r.added.size()), n, refFile.c_str(), hex(tot).c_str(), hex(refTot).c_str());
   std::printf("%s: %s — %s build, %d scenarios against %s; %zu differ; %d red\n", kTool, red ? "RED" : "GREEN", kBuild, n, key.c_str(), r.size(), red);
-  return red ? 1 : 0;
+  return exitFor(true, r.size(), red);
 }
