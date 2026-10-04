@@ -1,0 +1,311 @@
+<!doctype html>
+<!-- freeze-proposal — the one-page summary of the B440 pre-freeze pass. HYPERSAW, 2026-10-04.
+     ROADMAP B440 (records branch lead-records-181, PR #926), dispatched by the horde lead. The human:
+     "Should we do one more pass and then declare a feature freeze within the next couple days?"
+
+     WHAT THIS PAGE IS. A static, self-contained summary of docs/plans/2026-10-04-feature-freeze-proposal.md:
+     the IN / CONDITIONAL / OUT inventory, the decisions that block the freeze, the gap order, the CPU
+     picture and the proposed date. It is readable without the markdown, but the markdown carries the
+     full tables and every citation; ROADMAP.md outranks both. Nothing here is a ruling.
+
+     Static on purpose: no fetch, no storage, no clock. The CPU bars are arithmetic on the numbers
+     recorded in docs/port/h2-engine.md (checkpoint 4), not new measurements, and are labelled so.
+     URL: ?theme=dark | ?theme=light (default follows the system). -->
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="lab-review" content="B440 · 2026-10-04">
+<meta name="lab-part" content="Plan and decisions">
+<title>horde 1.0 — feature-freeze proposal</title>
+<style>
+  /* TOKENS: the plan map's (h2-plan-map.html), which carries the SCALPEL lab's */
+  :root {
+    --bg:#F2EDE2; --panel:#FCFAF4; --well:#FFFFFF; --panel2:#E9E3D4;
+    --line:#191521; --hair:#E5DFD0; --div:#D8D1C0;
+    --text:#191521; --t2:#494356; --dim:#9A93A3;
+    --value:#F5169C; --physics:#6431F0; --meter:#00D5C8; --celebrate:#4E7A00;
+    --caution:#F5A300; --caution-bg:#FBE9BD; --caution-tx:#6D570B; --alarm:#C2261A;
+    --cA:#FFD702; --r-card:10px; --stroke:1.5px; --shadow:1.5px 1.5px 0 var(--line);
+    --focus:0 0 0 2.5px rgba(245,22,156,.45);
+    --s-in:#4E7A00; --s-cond:#F5A300; --s-out:#9A93A3; --s-undec:#C2261A; }
+  body.dark {
+    --bg:#151220; --panel:#1F1B2E; --well:#0E0C16; --panel2:#2C2740;
+    --line:#EFE9FA; --hair:#312B47; --div:#3B3455;
+    --text:#EFE9FA; --t2:#BDB4D4; --dim:#8A82A3;
+    --value:#FF3DAD; --physics:#A07CFF; --meter:#2DF2E2; --celebrate:#C2F53E;
+    --caution:#FFB627; --caution-bg:#4A3A12; --caution-tx:#FFD98A; --alarm:#FF5A4D;
+    --focus:0 0 0 2.5px rgba(255,61,173,.45);
+    --s-in:#C2F53E; --s-cond:#FFB627; --s-out:#8A82A3; --s-undec:#FF5A4D; }
+  * { box-sizing:border-box; margin:0; }
+  body { background:var(--bg); color:var(--text); font:12px/1.5 ui-monospace,Menlo,monospace; padding:10px 16px 28px; }
+  .wrap { max-width:1180px; margin:0 auto; }
+  .hdr { display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; margin-bottom:12px; }
+  h1 { font-size:32px; line-height:1.05; letter-spacing:-1px; font-weight:800; }
+  .badges { display:flex; align-items:center; gap:8px; margin-top:6px; flex-wrap:wrap; }
+  .badge { font-size:9.5px; letter-spacing:.1em; padding:2px 7px; border:var(--stroke) solid var(--line);
+           border-radius:3px; background:var(--cA); color:#191521; }
+  .tagline { color:var(--t2); font-size:10.5px; letter-spacing:.12em; }
+  .hdrctl { margin-left:auto; }
+  .chip { padding:4px 10px; border:var(--stroke) solid var(--line); background:var(--panel); border-radius:999px; cursor:pointer;
+          font:inherit; font-size:10.5px; letter-spacing:.06em; color:var(--t2); min-height:28px; }
+  .chip:focus-visible { outline:none; box-shadow:var(--focus); }
+  .card { background:var(--panel); border:var(--stroke) solid var(--line); border-radius:var(--r-card);
+          box-shadow:var(--shadow); padding:12px 14px; margin-bottom:12px; }
+  .card h2 { font-size:14px; letter-spacing:.04em; margin-bottom:8px; }
+  .card p, .card li { color:var(--t2); max-width:120ch; }
+  .card p { margin-bottom:6px; }
+  .card p b, .card li b { color:var(--text); }
+  .card ul, .card ol { padding-left:18px; }
+  .card li { margin-bottom:3px; }
+  .verdict { display:grid; grid-template-columns:auto 1fr; gap:14px; align-items:center; }
+  .date { border:var(--stroke) solid var(--line); border-radius:var(--r-card); background:var(--cA); color:#191521;
+          padding:10px 14px; text-align:center; box-shadow:var(--shadow); }
+  .date .d { font-size:28px; font-weight:800; letter-spacing:-.5px; line-height:1; }
+  .date .w { font-size:10px; letter-spacing:.14em; margin-top:4px; }
+  .warn { border-left:4px solid var(--alarm); background:var(--caution-bg); color:var(--caution-tx); padding:6px 10px;
+          border-radius:0 6px 6px 0; margin-top:8px; }
+  .warn b { color:inherit; }
+  .stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:8px; margin-bottom:12px; }
+  .stat { background:var(--well); border:var(--stroke) solid var(--line); border-radius:8px; padding:8px 10px; }
+  .stat .n { font-size:26px; font-weight:800; line-height:1; }
+  .stat .l { font-size:9.5px; letter-spacing:.12em; color:var(--t2); margin-top:4px; }
+  .stat.in .n { color:var(--s-in); } .stat.cond .n { color:var(--s-cond); }
+  .stat.out .n { color:var(--s-out); } .stat.undec .n { color:var(--s-undec); }
+  .tw { overflow-x:auto; }
+  table { border-collapse:collapse; width:100%; font-size:11px; }
+  th { text-align:left; font-size:9.5px; letter-spacing:.1em; color:var(--dim); font-weight:600; padding:4px 8px; border-bottom:1.5px solid var(--line); white-space:nowrap; }
+  td { padding:4px 8px; border-bottom:1px solid var(--hair); vertical-align:top; color:var(--t2); }
+  td b { color:var(--text); }
+  tr.grp td { background:var(--panel2); color:var(--text); font-weight:700; font-size:10px; letter-spacing:.1em; }
+  .st { display:inline-block; font-weight:800; font-size:9.5px; letter-spacing:.06em; padding:1px 7px; border-radius:4px;
+        border:1px solid var(--line); color:#191521; white-space:nowrap; }
+  .st.in { background:var(--s-in); } .st.cond { background:var(--s-cond); } .st.out { background:var(--s-out); } .st.undec { background:var(--s-undec); color:#fff; }
+  body.dark .st.in { color:#151220; } body.dark .st.undec { color:#151220; }
+  .inf { color:var(--value); font-weight:800; }
+  .sc { font-size:9.5px; letter-spacing:.06em; }
+  .sc.y { color:var(--celebrate); font-weight:800; } .sc.p { color:var(--caution-tx); font-weight:700; } .sc.n { color:var(--alarm); font-weight:700; }
+  body.dark .sc.p { color:var(--caution); }
+  .two { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:12px; }
+  .bars { display:grid; gap:7px; margin:6px 0 4px; }
+  .bar { display:grid; grid-template-columns:150px 1fr 64px; gap:8px; align-items:center; font-size:10.5px; }
+  .track { position:relative; height:16px; background:var(--well); border:1px solid var(--div); border-radius:4px; }
+  .fill { position:absolute; left:0; top:0; bottom:0; border-radius:3px 0 0 3px; background:var(--meter); opacity:.85; }
+  .fill.over { background:var(--alarm); }
+  .band { position:absolute; top:3px; bottom:3px; background:repeating-linear-gradient(45deg, var(--line) 0 2px, transparent 2px 5px); opacity:.35; }
+  .slice { position:absolute; top:-4px; bottom:-4px; width:0; border-left:2.5px solid var(--value); }
+  .axis { display:grid; grid-template-columns:150px 1fr 64px; gap:8px; font-size:9.5px; color:var(--dim); }
+  .axis .ticks { display:flex; justify-content:space-between; }
+  .note { color:var(--dim); font-size:10px; }
+  ol.gaps li { margin-bottom:5px; }
+  .flag { color:var(--alarm); font-weight:800; }
+  details summary { cursor:pointer; color:var(--text); font-weight:700; margin:6px 0; }
+  details summary:focus-visible { outline:none; box-shadow:var(--focus); }
+  .timeline { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; }
+  .step { background:var(--well); border:1px solid var(--div); border-radius:8px; padding:8px 10px; }
+  .step .k { font-size:9.5px; letter-spacing:.12em; color:var(--dim); }
+  .step b { display:block; color:var(--text); margin:2px 0; }
+  .step.hot { border:var(--stroke) solid var(--value); }
+  @media (max-width:860px) { .two, .timeline { grid-template-columns:1fr; } .verdict { grid-template-columns:1fr; }
+    .bar, .axis { grid-template-columns:96px 1fr 52px; } h1 { font-size:26px; } }
+</style></head>
+<body>
+<div class="wrap">
+<div class="hdr">
+  <div>
+    <h1>horde 1.0 — the feature-freeze proposal</h1>
+    <div class="badges"><span class="badge">B440</span><span class="badge">PROPOSED</span>
+      <div class="tagline">THE PRE-FREEZE PASS: WHAT IS IN 1.0, WHAT THE HUMAN STILL DECIDES, THE GAP ORDER, THE CPU PLAN AND A DATE.</div></div>
+  </div>
+  <div class="hdrctl"><button class="chip" id="themeBtn" type="button">theme: <b id="themeLbl">LIGHT</b></button></div>
+</div>
+
+<div class="card">
+  <div class="verdict">
+    <div class="date"><div class="d">2026-10-07</div><div class="w">WEDNESDAY · ROSTER FREEZE</div></div>
+    <div>
+      <p><b>Declare the feature freeze on 2026-10-07, as a roster freeze.</b> On that date the list of what is in
+        1.0 locks, and new ideas go post-1.0. The 12 roster decisions are the human's own calls; none waits on a
+        sibling, a lab build or a measurement. The plan: day 1 this lands; day 2 one review session; day 3 the
+        lead records the rulings and the freeze goes into DECISIONS.</p>
+      <div class="warn"><b>First, amend one sentence of the bar (decision A1).</b> The module 1.0 bar (B439) says every MUST
+        row holds "by the feature freeze". horde 2 has no shell and no rack yet, so no module meets that in
+        three days. Read literally, a freeze would drop the Sub, which B327 puts in the 1.0 lineup. The proposal
+        is three dates: the roster locks on 10-07; each module's scope list freezes at its lab sync; the MUST
+        rows are judged at a module cutoff set later.</div>
+    </div>
+  </div>
+</div>
+
+<div class="stats">
+  <div class="stat in"><div class="n">17</div><div class="l">IN · 4 OF THEM INFERRED</div></div>
+  <div class="stat cond"><div class="n">1</div><div class="l">CONDITIONAL · OTT</div></div>
+  <div class="stat out"><div class="n">5</div><div class="l">OUT</div></div>
+  <div class="stat undec"><div class="n">3</div><div class="l">NO ROW DECIDES</div></div>
+  <div class="stat"><div class="n">52</div><div class="l">OPEN DECISIONS · 12 BLOCK THE FREEZE</div></div>
+  <div class="stat"><div class="n">5</div><div class="l">NEEDS WITH NO OWNER</div></div>
+</div>
+
+<div class="card">
+  <h2>1 · Module inventory</h2>
+  <p><span class="inf">*</span> means inferred: the status follows from rows, but no row states it (A8 asks the human to confirm).
+    The scope list is the bar's row 1: <span class="sc y">YES</span> it exists, <span class="sc p">PARTIAL</span> decisions
+    but no frozen list, <span class="sc n">NO</span> nothing yet.</p>
+  <div class="tw"><table>
+    <thead><tr><th>MODULE</th><th>OWNER</th><th>ROWS</th><th>SCOPE</th><th>1.0</th></tr></thead>
+    <tbody>
+      <tr class="grp"><td colspan="5">SOURCES</td></tr>
+      <tr><td><b>Composed engine</b>, swarm + SCALPEL blades, two oscillators</td><td>horde</td><td>B327 B385 B376 B386 B420</td><td><span class="sc p">PARTIAL</span></td><td><span class="st in">IN</span></td></tr>
+      <tr><td><b>The new Sub</b></td><td>horde</td><td>B327 B399</td><td><span class="sc n">NO</span> (workshop not started)</td><td><span class="st in">IN</span></td></tr>
+      <tr><td><b>Filters</b></td><td>horde</td><td>B327 B274 B290 B303</td><td><span class="sc p">PARTIAL</span></td><td><span class="st in">IN</span></td></tr>
+      <tr><td>Noise osc / sampler</td><td>—</td><td>B327 B409</td><td>—</td><td><span class="st out">OUT</span> (A6: a plain noise osc?)</td></tr>
+      <tr class="grp"><td colspan="5">FX</td></tr>
+      <tr><td><b>MAW</b></td><td>sibling Maw</td><td>B318 B393</td><td><span class="sc n">NO</span></td><td><span class="st in">IN</span></td></tr>
+      <tr><td><b>Sluice</b> (code enters horde at Sluice V1)</td><td>sibling Sluice</td><td>B328 B393 B436</td><td><span class="sc p">PARTIAL</span></td><td><span class="st in">IN</span></td></tr>
+      <tr><td><b>Scape</b> (reverb)</td><td>sibling Scape</td><td>B393 B421 B152</td><td><span class="sc n">NO</span></td><td><span class="st in">IN</span></td></tr>
+      <tr><td><b>ECHO</b> (standard delay)<span class="inf">*</span></td><td>horde</td><td>B425 B393</td><td><span class="sc p">PARTIAL</span></td><td><span class="st in">IN</span></td></tr>
+      <tr><td><b>Bulwark compressor</b><span class="inf">*</span></td><td>sibling Bulwark</td><td>B234 B393 B421</td><td><span class="sc n">NO</span></td><td><span class="st in">IN</span></td></tr>
+      <tr><td><b>OTT</b></td><td>sibling Bulwark</td><td>B400 B423 B439</td><td><span class="sc n">NO</span></td><td><span class="st cond">CONDITIONAL</span></td></tr>
+      <tr><td><b>Simple FX group</b>: Drive, FX Filter, EQ, Comb (Notch?)</td><td>horde</td><td>B393 B210 B336</td><td><span class="sc n">NO</span></td><td><span class="st in">IN</span> group; members undecided (A7)</td></tr>
+      <tr><td><b>Kuramoto chorus</b></td><td>horde</td><td>B393 B401</td><td><span class="sc n">NO</span></td><td><span class="st undec">UNDECIDED</span> (A3)</td></tr>
+      <tr><td>Granular · Sluice resonator and noise · legacy Gain · legacy Room</td><td>—</td><td>B393 · Sluice D-108 · B386 · B421</td><td>—</td><td><span class="st out">OUT</span> ×4</td></tr>
+      <tr class="grp"><td colspan="5">MASTER</td></tr>
+      <tr><td><b>Master limiter</b>, fixed last; its Volume is cut-only</td><td>sibling Bulwark + horde's strip</td><td>B438 B435 A1 B402</td><td><span class="sc y">YES</span></td><td><span class="st in">IN</span></td></tr>
+      <tr class="grp"><td colspan="5">MODULATION</td></tr>
+      <tr><td><b>Modulators</b> (LFO, Kuro-LFO, ORBITAL, trackers, randoms, follower, R)</td><td>horde</td><td>B208 B226 B264 B267</td><td><span class="sc n">NO</span></td><td><span class="st in">IN</span></td></tr>
+      <tr><td><b>Envelopes</b></td><td>horde</td><td>B366 B377 B370</td><td><span class="sc p">PARTIAL</span></td><td><span class="st in">IN</span></td></tr>
+      <tr><td><b>Mod matrix</b> · <b>modulator morph</b></td><td>horde</td><td>B392 · B396</td><td><span class="sc n">NO</span></td><td><span class="st in">IN</span> ×2</td></tr>
+      <tr><td><b>Macros and the intent bus</b><span class="inf">*</span></td><td>horde</td><td>B170 B354 ADR-169</td><td><span class="sc n">NO</span></td><td><span class="st in">IN</span></td></tr>
+      <tr><td><b>MPE</b> and channel aftertouch</td><td>horde</td><td>B388 B409</td><td><span class="sc n">NO</span></td><td><span class="st undec">UNDECIDED</span> (A4)</td></tr>
+      <tr><td><b>Arps, sequencers</b>, generative MIDI</td><td>horde</td><td>B391</td><td><span class="sc n">NO</span></td><td><span class="st undec">UNDECIDED</span> (A5)</td></tr>
+      <tr class="grp"><td colspan="5">MIXER AND ROUTING</td></tr>
+      <tr><td><b>Mixer and routing</b>, with the master strip · <b>FX rack</b> and the slot contract</td><td>horde</td><td>B402 B225 · B50 B281</td><td><span class="sc p">PARTIAL</span></td><td><span class="st in">IN</span> ×2</td></tr>
+    </tbody>
+  </table></div>
+  <p class="note">Scope lists: 1 YES, 7 PARTIAL, the rest NO. So the bar's row 1 is far from met, which is why A1 moves
+    the scope freeze to each module's lab sync.</p>
+</div>
+
+<div class="card">
+  <h2>2 · Decisions that block the freeze (group A, 12)</h2>
+  <div class="tw"><table>
+    <thead><tr><th>#</th><th>ROW</th><th>QUESTION</th></tr></thead>
+    <tbody>
+      <tr><td><b>A1</b></td><td>B439 B440</td><td><b>The bar's timing.</b> Roster freeze on 10-07; scope lists at each lab sync; MUST rows at a later module cutoff?</td></tr>
+      <tr><td><b>A2</b></td><td>B440</td><td>Does anything undecided on 10-07 go post-1.0 by default? (This keeps the date.)</td></tr>
+      <tr><td><b>A3</b></td><td>B401</td><td>Kuramoto chorus: IN, CONDITIONAL under the OTT rule, or post-1.0?</td></tr>
+      <tr><td><b>A4</b></td><td>B388 B409</td><td>MPE in 1.0? Channel aftertouch either way?</td></tr>
+      <tr><td><b>A5</b></td><td>B391</td><td>Arps and sequencers post-1.0? Confirm the shared quantizer is IN.</td></tr>
+      <tr><td><b>A6</b></td><td>B409</td><td>A plain noise oscillator in 1.0, separately from the sampler?</td></tr>
+      <tr><td><b>A7</b></td><td>B210 B336</td><td>Which simple FX ship: Drive (or a MAW preset), FX Filter, EQ, Comb, Notch? Ten glasses or six?</td></tr>
+      <tr><td><b>A8</b></td><td>B425 B421</td><td>Confirm the inferred INs: ECHO, Bulwark's compressor, macros with the intent bus.</td></tr>
+      <tr><td><b>A9</b></td><td>B408</td><td>True stereo: IN, with the B408 lab setting the width equation? Or CONDITIONAL?</td></tr>
+      <tr><td><b>A10</b></td><td>B410</td><td>AAX: in or out?</td></tr>
+      <tr><td><b>A11</b></td><td>B411</td><td>A standalone app: in or out?</td></tr>
+      <tr><td><b>A12</b></td><td>B424</td><td>Stepped morph glide: in 1.0, or after?</td></tr>
+    </tbody>
+  </table></div>
+  <details><summary>Group B: 40 design decisions inside 1.0 that do not block the freeze</summary>
+    <p>Re-checked from H2-PLAN's 41 decisions. <b>Closed since 10-01:</b> the B376 round 2, the B386 roundup, the
+      floor, Sluice's consumption (Sluice D-096), and OTT. <b>Left out:</b> WASM and Serum 2, which do not block 1.0.</p>
+    <ul>
+      <li><b>Engine and pitch:</b> the lab-sync order (B331); edge correction (B383, also the os default); the voice
+        limit and polyphony policy (B323); R2 and R3 (B357); envelope decision 1 and onset scatter (B366, B370); the
+        B420 by-ear picks; the JS demotion (ADR-187 §4); the cull fade (B406); the legacy Sub's faults (B399); the
+        filter tolerances (B290); the per-note filters (B303); the scale sidechain and MTS-ESP precedence (B260);
+        the ADR-189 defaults.</li>
+      <li><b>State, morph and modulation:</b> seams (B275); the counter-based draws (B308 H3); the patch model (B263);
+        the morph editor (B269); the FX algorithm morph (B265, B266); the modulator morph laws (B396); the
+        note-on random pair (B264); ORBITAL velocity (B267); the Kuro-LFO's scope (B236); the history scope (B389).</li>
+      <li><b>Mix and FX:</b> the meter taps (B225); the corner buses (B258); MAW as FX-C (B318); Sluice tails (B369);
+        the inverted-pair verdict (B436); Sluice against the budget (B439, Sluice Q-024).</li>
+      <li><b>Product:</b> min-spec hardware for the ×1.5 factor (B439); names and the knockout search (B336, B433);
+        screen styles (B322); the governing spec (B308 M2); the AU code (ADR-186 §3); the legacy freeze tag (ADR-186
+        §2); aliasDb (B350); corner auto-ingest and library size (B395); the commercial model, licence and
+        installers (B412); the verify-full budget (B406); the sluice_hold gate (B418).</li>
+    </ul>
+  </details>
+</div>
+
+<div class="two">
+  <div class="card">
+    <h2>3 · Critical gaps, in order</h2>
+    <p>B427–B433 each have an owner row. <b>None is dispatched, and none is yet in H2-PLAN's order.</b> Each is placed
+      at the point where it gets more expensive to do later.</p>
+    <ol class="gaps">
+      <li><b>Trademark knockout</b> on every user-visible name, now, before the names freeze (B433).</li>
+      <li><b>clap-wrapper v0.16+</b>, and a parameter fallback for every modulation destination (B429 (4), (6)), before the shell.</li>
+      <li><b>Frozen identities</b>: the lockfile diff, the AU parameter order, the VST3 class ID (B428), at the shell skeleton.</li>
+      <li><b>Output guard, FTZ/DAZ, nothrow-new probe</b> (B430), at the skeleton.</li>
+      <li><b>clap-validator in CI</b> on macOS and Windows (B427), from the first artefact.</li>
+      <li><b>Sustain pedal</b>, init patch, mono/legato, MTS-ESP (B431), with the bend-laws port.</li>
+      <li><b>Tails, SLEEP, latency</b> (B429 (1)–(3)), when the rack hosts a tailed module.</li>
+      <li><b>Concurrency, steals, fuzzing, cross-platform goldens</b> (B430), once state exists.</li>
+      <li><b>GUI on real platforms</b> (B432), with GUI 3.</li>
+      <li><b>Notarise, sign, notices, licence</b> (B433, B412), at the release candidate.</li>
+      <li><b>pluginval, real hosts, auval</b> (B427), at the release candidate.</li>
+    </ol>
+    <p><span class="flag">Order mismatch:</span> Bulwark builds the limiter (M3) after OTT (M2). For horde the limiter is
+      IN and OTT is only conditional. The lead should ask Bulwark to swap them (B438, B423).</p>
+    <p><span class="flag">No owner:</span> a Windows test machine (B427, B432) · min-spec hardware (B439) · the blade
+      inner-loop profile · CPU measured with two oscillators · counsel (B433, unfunded).</p>
+  </div>
+
+  <div class="card">
+    <h2>4 · CPU: the engine against its 34 % slice</h2>
+    <p>8 voices on min-spec = the recorded per-voice M3 figure × 8 × 1.5 (the assumed factor). Arithmetic on
+      <code>docs/port/h2-engine.md</code> checkpoint 4, not new measurements. The hatched band is the range if the
+      machine's recorded load inflated every figure uniformly (×0.54–0.68).</p>
+    <div class="bars" role="img" aria-label="Source cost for 8 voices on min-spec against the 34 percent slice: Quarter sync 5.4 percent, oracle defaults 23.4, Crushed bells 68.2, Glass horde pad 105.6">
+      <!-- scale: 0..120 % of a min-spec core; slice at 34 -->
+      <div class="bar"><span>Quarter sync</span><div class="track"><div class="fill" style="width:4.5%"></div><div class="slice" style="left:28.33%"></div></div><span>5.4 %</span></div>
+      <div class="bar"><span>Oracle defaults</span><div class="track"><div class="fill" style="width:19.5%"></div><div class="slice" style="left:28.33%"></div></div><span>23.4 %</span></div>
+      <div class="bar"><span>Crushed bells</span><div class="track"><div class="fill over" style="width:56.83%"></div><div class="band" style="left:30.67%;width:8%"></div><div class="slice" style="left:28.33%"></div></div><span>68.2 %</span></div>
+      <div class="bar"><span>Glass horde pad</span><div class="track"><div class="fill over" style="width:88%"></div><div class="band" style="left:47.5%;width:12.33%"></div><div class="slice" style="left:28.33%"></div></div><span>105.6 %</span></div>
+    </div>
+    <div class="axis"><span></span><div class="ticks"><span>0</span><span>30</span><span>60</span><span>90</span><span>120 %</span></div><span></span></div>
+    <p class="note">The pink line is the 34 % slice (B439). Heavy patches are over under every caveat; the size of the
+      gap (1.1×–3.1×) is not settled. One oscillator was timed; B327's voice has two.</p>
+    <p><b>The plan:</b></p>
+    <ol>
+      <li><b>Measure clean.</b> Commit auhost <code>--engine</code>, run unloaded at 44.1 kHz, time both oscillators,
+        and cover all 83 presets.</li>
+      <li><b>Profile the blade render</b>, the 80–89 % of the cost that is not swarm. Then do the output-neutral kernel
+        work: B378 F1, F7, F9, and whatever the profile finds. Parity digests stay unchanged.</li>
+      <li><b>Rule the edge correction (B383)</b>, then test os 1 against os 2 on each heavy preset, one ledgered
+        divergence at a time.</li>
+      <li><b>A polyphony and quality policy</b> (B323, B375). Factory presets fit the slice, or declare a deterministic
+        voice or member count. A user may exceed it; a preset never imposes it.</li>
+      <li><b>Measure ×1.5 once</b> on real min-spec hardware.</li>
+    </ol>
+    <p class="note">CPU stays Layer-E, never a verify gate (ADR-187 §8). It gates the bar, not the freeze.</p>
+  </div>
+</div>
+
+<div class="card">
+  <h2>5 · The way to the date</h2>
+  <div class="timeline">
+    <div class="step"><div class="k">SUN 10-04</div><b>This pass</b>The proposal and its PR; the records PR #926 is open.</div>
+    <div class="step"><div class="k">MON 10-05</div><b>Land</b>#926 and this PR merge. The lead files the Bulwark order notice.</div>
+    <div class="step"><div class="k">TUE 10-06</div><b>One review session</b>The human rules A1–A12. A1 first: without it, "freeze" is ambiguous.</div>
+    <div class="step hot"><div class="k">WED 10-07</div><b>Freeze declared</b>The rulings are recorded in DECISIONS. Undecided items go post-1.0 (A2).</div>
+  </div>
+  <p style="margin-top:8px"><b>Comfort check.</b> This pass hoped to find "freeze on 10-06 or 10-07", and that is what it
+    found, so it deserves the hardest look. The look turned up A1: read as written, the bar makes any near-term freeze
+    empty. The date is sound only if A1 is ruled as proposed. If the bar is meant literally, no date within weeks is
+    honest.</p>
+</div>
+
+<p class="note">Full tables, every citation and the 40 group-B questions:
+  <code>docs/plans/2026-10-04-feature-freeze-proposal.md</code>. ROADMAP.md outranks this page.</p>
+</div>
+<script>
+  // Theme: ?theme=dark|light wins; otherwise follow the system. No storage, no clock.
+  // A regex, not URLSearchParams: lab_load_check's sandbox has no URLSearchParams (the map does the same).
+  const m = /[?&]theme=([^&#]*)/.exec(String(location.search || ''));
+  const sysDark = !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  let dark = m ? m[1] === 'dark' : sysDark;
+  const lbl = document.getElementById('themeLbl');
+  function applyTheme() { document.body.classList.toggle('dark', dark); lbl.textContent = dark ? 'DARK' : 'LIGHT'; }
+  document.getElementById('themeBtn').addEventListener('click', () => { dark = !dark; applyTheme(); });
+  applyTheme();
+</script>
+</body></html>
