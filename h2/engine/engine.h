@@ -69,7 +69,7 @@ namespace horde2::engine {
 // run by each specialised kernel (Engine::pickKernel, in this order) since the caller
 // last zeroed them. Undefined elsewhere (the shipped, ledger and product builds), the
 // count compiles to nothing; it never touches the arithmetic.
-inline constexpr const char* kKernelNames[] = {"generic"};
+inline constexpr const char* kKernelNames[] = {"generic", "saw", "saw+b2"};
 inline uint64_t kernelSteps[sizeof kKernelNames / sizeof kKernelNames[0]] = {};
 #define H2E_KERNEL_HIT(id) (kernelSteps[id]++)
 #else
@@ -376,7 +376,9 @@ class Engine {
   // Anything else, or D1 on, or BLEPs off, runs the generic path (id 0).
   using BSaw = BK<0, 2, 0, kAny, kAny>;   // sync, saw carrier, no mirror
   using KGeneric = KK<0, BAny, kAny, BAny>;
-  static constexpr int kKernels = 1;
+  using KSaw = KK<1, BSaw, 0, BAny>;
+  using KSaw2 = KK<2, BSaw, 1, BAny>;
+  static constexpr int kKernels = 3;
 #ifdef H2_ENGINE_KERNELS
   static_assert(kKernels == static_cast<int>(sizeof kKernelNames / sizeof kKernelNames[0]), "one name per kernel");
 #endif
@@ -396,6 +398,8 @@ class Engine {
     return true;
   }
   int pickKernel() const {
+    if (fits<KSaw>()) return KSaw::id;
+    if (fits<KSaw2>()) return KSaw2::id;
     return KGeneric::id;
   }
 
@@ -1654,6 +1658,8 @@ inline void Engine::renderCall(double* L, double* R, int n) {
   // B441 C3: the kernel is picked once per call, from `d` (exactly what the call
   // copies into `s` below and what fillG2 derives blade 2's view from).
   switch (pickKernel()) {
+    case KSaw::id: renderCallK<KSaw>(L, R, n); return;
+    case KSaw2::id: renderCallK<KSaw2>(L, R, n); return;
     default: renderCallK<KGeneric>(L, R, n); return;
   }
 }
