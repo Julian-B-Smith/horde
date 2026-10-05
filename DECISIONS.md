@@ -6971,7 +6971,11 @@ edge/grit (which could as easily fit into tone). I ratify the swap", and answers
    name (the human: either is fine).
 
 **Not decided here.** Per-corner FX chains (B265: the human wants them per corner, not global);
-how two corners that use the same phrase in DIFFERENT slot numbers align; the phrase list itself.
+the phrase list itself.
+
+**Alignment (ruled the same day, "align by phrase").** When mixed corners use the same phrase in
+different slot numbers, the phrase takes one slot so it morphs continuously; a mixed-in corner's
+slot numbers may shift to make that so.
 
 **Consequences.** `specs/SPEC-INTENT-BUS.md` (protected) needs an amendment for §3.1 (names) and
 principle 2 (slots 5–8); it is drafted with a lab and brought to the human for approval.
