@@ -624,7 +624,9 @@ full() {
     echo "verify[full]: h2_engine_selfdigest_check FAILED" >&2; grep -vE '^[0-9a-f]{16}  ' "$h2e" >&2
     rm -f $h2tmp; return 1; }
   grep '^WARNING: self-digest' "$h2e" >&2
-  grep -E '^(TOTAL|SKIP|PASS  (control|KEYSELF|SELFDIGEST))' "$h2e"
+  # COVERAGE (B441 C3/C3b: every specialised kernel and serial order reached) was
+  # always judged by the exit code; it is echoed too (output only, ADR-180 §1).
+  grep -E '^(TOTAL|SKIP|PASS  (control|KEYSELF|SELFDIGEST|COVERAGE))' "$h2e"
   tail -1 "$h2e"
   "$build_dir/h2_engine_selfdigest_product" --full-from "$h2s" > "$h2e" 2>&1 || {
     echo "verify[full]: h2_engine_selfdigest_product FAILED" >&2; grep -vE '^[0-9a-f]{16}  ' "$h2e" >&2
