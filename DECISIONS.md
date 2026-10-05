@@ -6912,3 +6912,70 @@ post-1.0. It is built as its own sibling project, like Scape and Bulwark, and ho
 through the mailbox. Its name passes a B433 knockout screen before the project is created. Overlaps
 with Shriek and the drive module (saturation), ECHO (tape-delay character) and true stereo are
 settled at its scope sync.
+
+## ADR-191 — RULED by the human: oversampling becomes a quality option; os 1 is the default, os 2 is HQ (B445, 2026-10-05)
+
+**Ruling.** The human, 2026-10-05: "Oversampling rec ratified. I had always intended it as optional."
+This answers the lead's recommendation after C3 (B441): the composed engine's heavy class
+(Glass horde pad at 73.7 % of a min-spec core, ×2.17 over its slice after C1–C3) cannot reach the
+B439 budget by output-neutral work alone, and os 1 measured a 43–45 % saving (audit D1).
+
+**Decision.** The composed engine's oversampling (`os`, today `setOS(2)` in `h2/engine/engine.h`)
+is a user-facing quality option. The device default is **os 1**; **os 2 is the HQ setting**. This
+is the B439 oversampling exception applied as written: the costlier mode exists only alongside a
+cheaper default, and the budget is judged at the default.
+
+**What this changes, and what it does not.**
+- It is an output change at the default, so it is a ledgered divergence under ADR-187: JS lab and
+  C++ change together, and any digest re-pin is listed in the PR.
+- Preferred mechanism (to be confirmed by the implementing PR): the DEVICE parameter defaults to 1,
+  while the engine core's own `setOS(2)` and every pinned scenario stay as they are. Then no
+  self-digest or parity fixture changes, and only the product default moves. If that proves
+  impossible, the re-pin is listed and justified.
+- os 1 aliases where BLEPs do not cover (FM, ring and fold with sine carriers). Before the default
+  flips, the implementing PR measures aliasing at os 1 vs os 2 on the heavy class (B346's method)
+  and the human listens (a listening gate). Presets that need os 2 can save it.
+
+**Sequencing.** After C3b (B441), which owns the same file.
+
+## ADR-192 — RULED by the human: the intent slots — four fixed (Tone, Space, Time, Motion) and four named slots that flip as units (B443, 2026-10-05)
+
+**Rulings (the human, 2026-10-05, across three messages).** The discovery model: "every global
+preset [enters] the system as a unified global preset with its unique global attributes AND as
+four modular corners derived from it. Those users can mix and match, and then quantum morph can
+help them find unique sounds across the stochastic terrain between unrelated presets." Then: "four
+global macro slots with universal names … and then four more macro slots with editable names which
+each flip as units across the morph grid." Then, on the lead's follow-ups: "Motion is better than
+edge/grit (which could as easily fit into tone). I ratify the swap", and answers 1–5 below.
+
+**Decision.**
+1. **Fixed four: Tone, Space, Time, Motion** (macros 1–4). Same name and meaning in every global
+   preset. Their bindings belong to the parameters they target (SPEC-INTENT-BUS principle 2) and so
+   flip stochastically with those parameters under quantum morph, or blend continuously in blend
+   mode. Directions: Tone dark → bright; Space close/dry → far/wide; Time tight/short → long/slow
+   (envelope length and unfolding; tails belong to Space); Motion still → moving.
+2. **Named four (macros 5–8).** Each is a unit owned by a corner: a label plus its bindings. Each
+   slot flips independently at its own seeded flip point; Reshuffle redraws. Labels are chosen from
+   a pre-selected phrase list; where corners happen to use the SAME phrase, that slot morphs
+   continuously across them instead of flipping. A named macro's binding offsets a parameter from
+   the CURRENT owner's rest value, clamped to that owner's range (the spec's offset-from-rest rule),
+   so load-bearing values still hold. This deliberately departs from principle 2 for slots 5–8.
+3. **At a flip the knob stays where it is**; the incoming macro's bindings take over, smoothed by
+   the existing flip inertia. At rest nothing jumps.
+4. **Global attributes in a mixed set** come from the global preset the user started from;
+   swapped-in corners bring corner-level material only. The advanced morph page lists each corner's
+   global parameters with their import eligibility and what an import would override or destroy,
+   and an import button.
+5. **DAW surface:** macros 1–4 carry their fixed names; macros 5–8 appear as "Macro 5" … "Macro 8",
+   because their label moves with the morph position and a host cannot reliably follow a moving
+   name (the human: either is fine).
+
+**Not decided here.** Per-corner FX chains (B265: the human wants them per corner, not global);
+the phrase list itself.
+
+**Alignment (ruled the same day, "align by phrase").** When mixed corners use the same phrase in
+different slot numbers, the phrase takes one slot so it morphs continuously; a mixed-in corner's
+slot numbers may shift to make that so.
+
+**Consequences.** `specs/SPEC-INTENT-BUS.md` (protected) needs an amendment for §3.1 (names) and
+principle 2 (slots 5–8); it is drafted with a lab and brought to the human for approval.
