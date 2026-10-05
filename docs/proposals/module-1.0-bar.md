@@ -29,7 +29,7 @@ gaps, listed in the release notes.
 |---|---|---|
 | MUST | **The rack slot contract** (B50 / B281): admission, bypass, the "off" state, latency and tail reporting (B429). | a rack admission test |
 | MUST | **The I/O gain standard** (B435 + A1): `io.inGain` / `io.outGain` with the law, plus pre and post meter taps with clip latches. | the standard's acceptance tests 1–7 |
-| MUST | **The four-role face** (ADR-169): Amount, Tone, Motion, Regen, each mapped, with presets round-tripping through them. | a macro round-trip test |
+| MUST | **Macros, where the module offers them** (ADR-169 A4, 2026-10-05; replaces the retired four-role face): up to 8 macros, ordered, carrying the preset's own labels and optional curves (A3), round-tripping with presets. Nothing in the module is driven by horde's intents unless a preset's designer binds it. Modules with deep internals (Sluice, Shriek) are expected to offer macros so presets stay usable without the advanced controls. | a macro round-trip test |
 | MUST | **Morph and presets** (ADR-188): the module's state is per corner; patches transfer as horde FX-slot presets; Device-class controls never morph. | a corner-flip test, plus preset save and load |
 
 ## 3. It is correct
