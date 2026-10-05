@@ -6912,3 +6912,28 @@ post-1.0. It is built as its own sibling project, like Scape and Bulwark, and ho
 through the mailbox. Its name passes a B433 knockout screen before the project is created. Overlaps
 with Shriek and the drive module (saturation), ECHO (tape-delay character) and true stereo are
 settled at its scope sync.
+
+## ADR-191 — RULED by the human: oversampling becomes a quality option; os 1 is the default, os 2 is HQ (B445, 2026-10-05)
+
+**Ruling.** The human, 2026-10-05: "Oversampling rec ratified. I had always intended it as optional."
+This answers the lead's recommendation after C3 (B441): the composed engine's heavy class
+(Glass horde pad at 73.7 % of a min-spec core, ×2.17 over its slice after C1–C3) cannot reach the
+B439 budget by output-neutral work alone, and os 1 measured a 43–45 % saving (audit D1).
+
+**Decision.** The composed engine's oversampling (`os`, today `setOS(2)` in `h2/engine/engine.h`)
+is a user-facing quality option. The device default is **os 1**; **os 2 is the HQ setting**. This
+is the B439 oversampling exception applied as written: the costlier mode exists only alongside a
+cheaper default, and the budget is judged at the default.
+
+**What this changes, and what it does not.**
+- It is an output change at the default, so it is a ledgered divergence under ADR-187: JS lab and
+  C++ change together, and any digest re-pin is listed in the PR.
+- Preferred mechanism (to be confirmed by the implementing PR): the DEVICE parameter defaults to 1,
+  while the engine core's own `setOS(2)` and every pinned scenario stay as they are. Then no
+  self-digest or parity fixture changes, and only the product default moves. If that proves
+  impossible, the re-pin is listed and justified.
+- os 1 aliases where BLEPs do not cover (FM, ring and fold with sine carriers). Before the default
+  flips, the implementing PR measures aliasing at os 1 vs os 2 on the heavy class (B346's method)
+  and the human listens (a listening gate). Presets that need os 2 can save it.
+
+**Sequencing.** After C3b (B441), which owns the same file.
