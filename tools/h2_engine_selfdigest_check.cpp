@@ -86,6 +86,11 @@
  * RED, since its bit-identity would then rest on nothing. --kernel-rows also prints
  * `KROWS <kernel ids>  <name>` per scenario: the rows a kernel-local must-fail
  * control may move. The product build has no counter (it is the shipped engine).
+ * B441 C3b: a kernel may also specialise the serial path (outSerial) for one or both
+ * blade orders (its Ser mask, Engine::kKernelSer); one SERIAL line per such order
+ * gives the scenarios whose serial evaluations ran it, and an order no scenario
+ * reaches is RED by the same rule. --kernel-rows adds `SROWS <id>/<order>,...  <name>`
+ * for each scenario that ran a specialised serial order.
  *
  * KEYSELF (every run): the key's verdict on fabricated keys, the parity check's
  * FLOORKEY idiom. A made-up platform must read unkeyed with no warning, its ULP
@@ -296,6 +301,10 @@ int main(int argc, char** argv) {
   int covRows[kK] = {};
   uint64_t covSteps[kK] = {};
   std::string covFirst[kK];
+  // B441 C3b: the same per specialised serial order ([0] blade 2 over, [1] under)
+  int serRows[kK][2] = {};
+  uint64_t serEvals[kK][2] = {};
+  std::string serFirst[kK][2];
 #else
   (void)kernelRows;
 #endif
@@ -362,19 +371,28 @@ int main(int argc, char** argv) {
     ReplayInfo info;
 #ifdef H2_ENGINE_KERNELS
     for (uint64_t& c : horde2::engine::kernelSteps) c = 0;
+    for (auto& o : horde2::engine::kernelSerial) o[0] = o[1] = 0;
 #endif
     h2engine_stream::replay(sc, out, 0, &log, 0, &info);
     run.emplace_back(sc.name, digest(out, log, info));
 #ifdef H2_ENGINE_KERNELS
-    std::string ids;
+    std::string ids, sids;
     for (int k = 0; k < kK; k++) {
       const uint64_t c = horde2::engine::kernelSteps[k];
       if (!c) continue;
       if (!covRows[k]++) covFirst[k] = sc.name;
       covSteps[k] += c;
+      for (int o = 0; o < 2; o++) {
+        const uint64_t e = horde2::engine::kernelSerial[k][o];
+        if (!e) continue;
+        if (!serRows[k][o]++) serFirst[k][o] = sc.name;
+        serEvals[k][o] += e;
+        sids += (sids.empty() ? "" : ",") + std::to_string(k) + (o ? "/under" : "/over");
+      }
       ids += (ids.empty() ? "" : ",") + std::to_string(k);
     }
     if (kernelRows) std::printf("KROWS %s  %s\n", ids.empty() ? "-" : ids.c_str(), sc.name.c_str());
+    if (kernelRows && !sids.empty()) std::printf("SROWS %s  %s\n", sids.c_str(), sc.name.c_str());
 #endif
     if (sc.name == kUlpScenario) { ulpOut = out; ulpLog = log; ulpInfo = info; }
     std::printf("%s  %s\n", hex(run.back().second).c_str(), sc.name.c_str());
@@ -413,14 +431,25 @@ int main(int argc, char** argv) {
   // COVERAGE: every specialised kernel (id >= 1; 0 is the generic fallback) reached
   // by at least one scenario, or its bit-identity rests on nothing.
   {
-    int unhit = 0;
+    int unhit = 0, serN = 0, serUnhit = 0;
     for (int k = 0; k < kK; k++) {
       if (k > 0 && !covRows[k]) unhit++;
       std::printf("KERNEL %d %-12s %3d scenarios, %llu member-steps%s%s\n", k, horde2::engine::kKernelNames[k], covRows[k],
                   static_cast<unsigned long long>(covSteps[k]), covRows[k] ? ", first: " : "", covFirst[k].c_str());
+      // B441 C3b: each serial order the kernel specialises (Engine::kKernelSer), the
+      // same rule: reached by at least one scenario, or RED
+      for (int o = 0; o < 2; o++) {
+        if (!(horde2::engine::Engine::kKernelSer[k] & (1 << o))) continue;
+        serN++;
+        if (!serRows[k][o]) serUnhit++;
+        std::printf("SERIAL %d %-12s %-5s %3d scenarios, %llu serial evaluations%s%s\n", k, horde2::engine::kKernelNames[k],
+                    o ? "under" : "over", serRows[k][o], static_cast<unsigned long long>(serEvals[k][o]),
+                    serRows[k][o] ? ", first: " : "", serFirst[k][o].c_str());
+      }
     }
-    if (unhit) red++;
-    std::printf("%s  COVERAGE  %d of %d specialised kernels reached by at least one scenario\n", unhit ? "FAIL" : "PASS", kK - 1 - unhit, kK - 1);
+    if (unhit || serUnhit) red++;
+    std::printf("%s  COVERAGE  %d of %d specialised kernels and %d of %d specialised serial orders reached by at least one scenario\n",
+                unhit || serUnhit ? "FAIL" : "PASS", kK - 1 - unhit, kK - 1, serN - serUnhit, serN);
   }
 #endif
 

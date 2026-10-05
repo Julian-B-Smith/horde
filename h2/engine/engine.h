@@ -69,11 +69,17 @@ namespace horde2::engine {
 // run by each specialised kernel (Engine::pickKernel, in this order) since the caller
 // last zeroed them. Undefined elsewhere (the shipped, ledger and product builds), the
 // count compiles to nothing; it never touches the arithmetic.
-inline constexpr const char* kKernelNames[] = {"generic", "saw", "saw+b2", "ring", "ring+b2", "fm", "fm+b2", "crush", "crush+b2", "sync", "sync+b2"};
+inline constexpr const char* kKernelNames[] = {"generic", "saw", "saw+b2", "ring", "ring+b2", "fm", "fm+b2", "crush", "crush+b2", "sync", "sync+b2",
+                                                    "saw+fold", "saw+sync", "fm+sync", "ring+crush", "sync+noise", "crush+fm"};
 inline uint64_t kernelSteps[sizeof kKernelNames / sizeof kKernelNames[0]] = {};
+// B441 C3b: serial evaluations each kernel's specialised serial path ran, per order
+// ([0] blade 2 over blade 1, the default; [1] blade 1 over blade 2).
+inline uint64_t kernelSerial[sizeof kKernelNames / sizeof kKernelNames[0]][2] = {};
 #define H2E_KERNEL_HIT(id) (kernelSteps[id]++)
+#define H2E_SERIAL_HIT(id, under) (kernelSerial[id][under]++)
 #else
 #define H2E_KERNEL_HIT(id) ((void)0)
+#define H2E_SERIAL_HIT(id, under) ((void)0)
 #endif
 
 class Engine {
@@ -350,9 +356,12 @@ class Engine {
     // scan() returns before it reads or writes anything unless the carrier is a saw,
     // square or ramp (hot 2, 3, 4) on a carrier mode (0, 5, 1, 2), or the blade is a
     // crush (mode 6, whose hard edge is read at run time). So where Mode and Hot rule
-    // both out, the call is dead for the whole render call and is not made.
-    static constexpr bool scanDead = Mode != kAny && Hot != kAny && Mode != 6 &&
-                                     !((Mode == 0 || Mode == 5 || Mode == 1 || Mode == 2) && (Hot == 2 || Hot == 3 || Hot == 4));
+    // both out, the call is dead for the whole render call and is not made. A fixed
+    // non-carrier, non-crush mode (3 noise, 4 fold) rules it out whatever the carrier
+    // (B441 C3b; for every C3 kernel this reads exactly as before).
+    static constexpr bool carrierMode = Mode == 0 || Mode == 5 || Mode == 1 || Mode == 2;
+    static constexpr bool scanDead = Mode != kAny && Mode != 6 &&
+                                     !(carrierMode && (Hot == kAny || Hot == 2 || Hot == 3 || Hot == 4));
     static bool fits(double md, double ht, double mi, double ft, double ms) {
       return (Mode == kAny || md == Mode) && (Hot == kAny || ht == Hot) && (Mirror == kAny || mi == Mirror) &&
              (FmType == kAny || ft == FmType) && (Mshape == kAny || ms == Mshape);
@@ -362,11 +371,16 @@ class Engine {
   // A kernel: blade 1's fixed selectors, b2on (0, 1 or kAny), blade 2's. Every
   // specialised kernel also fixes BLEPs on (aa 1) and D1 off (aaCarrier 0), the bank's
   // setting everywhere. inl: inline wave/voicePlain (the generic path keeps its calls).
-  template <int Id, class B1_, int B2on, class B2_>
+  // Ser (B441 C3b): the serial orders this kernel specialises, a mask of kSerOver
+  // (b2order 0: blade 2 over blade 1) and kSerUnder (b2order 1); an order outside it
+  // calls the generic outSerial. Each bit is set only where a scenario reaches it
+  // (the COVERAGE check judges that), so no specialisation rests on nothing.
+  static constexpr int kSerOver = 1, kSerUnder = 2;
+  template <int Id, class B1_, int B2on, class B2_, int Ser = 0>
   struct KK {
     using B1 = B1_;
     using B2 = B2_;
-    static constexpr int id = Id, b2on = B2on;
+    static constexpr int id = Id, b2on = B2on, ser = Ser;
     static constexpr bool inl = Id != 0;
     static constexpr int aa = inl ? 1 : kAny, d1 = inl ? 0 : kAny;
   };
@@ -383,18 +397,44 @@ class Engine {
   using BSync = BK<0, kAny, 0, kAny, kAny>;   // sync, any carrier (after BSaw), no mirror
   using KGeneric = KK<0, BAny, kAny, BAny>;
   using KSaw = KK<1, BSaw, 0, BAny>;
-  using KSaw2 = KK<2, BSaw, 1, BAny>;
+  using KSaw2 = KK<2, BSaw, 1, BAny, kSerOver>;
   using KRing = KK<3, BRing, 0, BAny>;
-  using KRing2 = KK<4, BRing, 1, BAny>;
+  using KRing2 = KK<4, BRing, 1, BAny, kSerOver>;
   using KFm = KK<5, BFm, 0, BAny>;
-  using KFm2 = KK<6, BFm, 1, BAny>;
+  using KFm2 = KK<6, BFm, 1, BAny, kSerUnder>;
   using KCrush = KK<7, BCrush, 0, BAny>;
   using KCrush2 = KK<8, BCrush, 1, BAny>;
   using KSync = KK<9, BSync, 0, BAny>;
   using KSync2 = KK<10, BSync, 1, BAny>;
-  static constexpr int kKernels = 11;
+  // B441 C3b: the +b2 kernels with blade 2 fixed as well, for the blade-2 shapes the
+  // scenario set and the ledger presets render most (traces/2026-10-05-b441-c3b.md),
+  // named blade 1 + blade 2: Fold over sync (saw + fold), Glass horde pad (FM + a
+  // sine->saw sync), Crushed bells (ring + crush), Breathing pad (sync + noise), Crush
+  // vs FM (crush + FM), and saw + sync, the largest blade-2-generic share left.
+  // Blade 2's selectors are fillG2's view of `d`, which runs at every sample's first
+  // step before any member steps, so they hold for the whole call as blade 1's do.
+  // Each is checked before its blade-2-generic fallback (pickKernel). The Ser masks
+  // (here and on the C3 +b2 kernels above) are exactly the orders the scenario set's
+  // serial rows reach (the parity check's SERIAL lines).
+  using B2Fold = BK<4, kAny, 0, kAny, kAny>;    // fold, no mirror (scan and fmStep are dead)
+  using B2Sync = BK<0, kAny, 0, kAny, kAny>;    // sync, any carrier, no mirror
+  using B2Crush = BK<6, kAny, 0, kAny, kAny>;   // crush, no mirror
+  using B2Noise = BK<3, kAny, 0, kAny, kAny>;   // noise, no mirror (scan and fmStep are dead)
+  using KSawFold = KK<11, BSaw, 1, B2Fold, kSerOver | kSerUnder>;
+  using KSawSync = KK<12, BSaw, 1, B2Sync, kSerOver>;
+  using KFmSync = KK<13, BFm, 1, B2Sync, kSerOver>;
+  using KRingCrush = KK<14, BRing, 1, B2Crush>;
+  using KSyncNoise = KK<15, BSync, 1, B2Noise>;
+  using KCrushFm = KK<16, BCrush, 1, BFm>;
+  static constexpr int kKernels = 17;
 #ifdef H2_ENGINE_KERNELS
   static_assert(kKernels == static_cast<int>(sizeof kKernelNames / sizeof kKernelNames[0]), "one name per kernel");
+ public:   // each kernel's Ser mask, by id, for the COVERAGE check (the parity build only)
+  static constexpr int kKernelSer[kKernels] = {KGeneric::ser, KSaw::ser, KSaw2::ser, KRing::ser, KRing2::ser, KFm::ser,
+                                                KFm2::ser, KCrush::ser, KCrush2::ser, KSync::ser, KSync2::ser, KSawFold::ser,
+                                                KSawSync::ser, KFmSync::ser, KRingCrush::ser, KSyncNoise::ser, KCrushFm::ser};
+ private:
+  static_assert(KSync2::id == 10 && KSawFold::id == 11 && KCrushFm::id == 16, "kKernelSer is in id order");
 #endif
   // Does kernel K fit this render call? Blade 1's selectors are `d`'s own (renderCall
   // copies them into `s`); blade 2's are fillG2's derivations of them.
@@ -413,14 +453,20 @@ class Engine {
   }
   int pickKernel() const {
     if (fits<KSaw>()) return KSaw::id;
+    if (fits<KSawFold>()) return KSawFold::id;
+    if (fits<KSawSync>()) return KSawSync::id;
     if (fits<KSaw2>()) return KSaw2::id;
     if (fits<KRing>()) return KRing::id;
+    if (fits<KRingCrush>()) return KRingCrush::id;
     if (fits<KRing2>()) return KRing2::id;
     if (fits<KFm>()) return KFm::id;
+    if (fits<KFmSync>()) return KFmSync::id;
     if (fits<KFm2>()) return KFm2::id;
     if (fits<KCrush>()) return KCrush::id;
+    if (fits<KCrushFm>()) return KCrushFm::id;
     if (fits<KCrush2>()) return KCrush2::id;
     if (fits<KSync>()) return KSync::id;
+    if (fits<KSyncNoise>()) return KSyncNoise::id;
     if (fits<KSync2>()) return KSync2::id;
     return KGeneric::id;
   }
@@ -636,7 +682,11 @@ class Engine {
   [[gnu::always_inline]] double outK(const SP& p, double phi, double base, double c, double k, double modX, NS& ns, NS& ns2, BX* bx) {
     using B1 = typename K::B1;
     using B2 = typename K::B2;
-    if (bx && p.b2mix > 1e-6) return outSerial(p, phi, base, c, k, modX, ns, ns2, *bx);
+    if (bx && p.b2mix > 1e-6) {
+      if constexpr (K::inl && K::ser != 0)
+        if (K::ser & (js::truthy(p.b2order) ? kSerUnder : kSerOver)) return outSerialK<K>(p, phi, base, c, k, modX, ns, ns2, *bx);
+      return outSerial(p, phi, base, c, k, modX, ns, ns2, *bx);
+    }
     double y = voiceOutK<K, B1>(p, phi, base, c, k, modX, ns);
     double ph2 = -1, base2 = 0;   // base2: wave(p.base, ph2) under this gmr, set iff twin1
     const double mir1 = kv<B1::mirror>(p.mirror);
@@ -671,33 +721,59 @@ class Engine {
   // shared: the caller's base (blade 1's, under blade 1's gmr) is this blade's too
   struct Desc { const Blade* p; double c, k, modX; NS* st; NS* st2; double mr, mn; bool shared; };
   double ev(const Desc& D, double ph, double base, NS& st, bool hasInp = false, double inp = 0) {
+    return evK<KGeneric, BAny>(D, ph, base, st, hasInp, inp);
+  }
+  // B441 C3b: one serial evaluation of blade D, whose fixed selectors are B (K's B1 or
+  // B2); in a kernel its base wave and blade are inlined, as in outK.
+  template <class K, class B>
+  [[gnu::always_inline]] double evK(const Desc& D, double ph, double base, NS& st, bool hasInp = false, double inp = 0) {
     gmr = D.mr; gmn = D.mn;
-    const double b = D.shared ? base : wave(D.p->base, ph);
-    return voiceOut(*D.p, ph, b, D.c, D.k, D.modX, st, hasInp, inp);
+    const double b = D.shared ? base : waveAt<K::inl, kAny>(D.p->base, ph);
+    return voiceOutK<K, B>(*D.p, ph, b, D.c, D.k, D.modX, st, hasInp, inp);
   }
   // serial interplay: the upper blade transforms base + λ·(the lower blade's full
   // contribution, twins included). `base` as in out().
   double outSerial(const SP& p, double phi, double base, double c, double k, double modX, NS& ns, NS& ns2, BX& bx) {
+    return outSerialK<KGeneric>(p, phi, base, c, k, modX, ns, ns2, bx);
+  }
+  // B441 C3b: the serial path within a kernel. Which blade is lower (A) is b2order,
+  // read per evaluation as before (b2mix, which picks the serial path at all, glides
+  // per sample, so neither can be a kernel axis). In a kernel each order in K::ser
+  // gets its own body, whose A and B carry their fixed selectors (BA, BB); outK sends
+  // any other order to the generic outSerial. The generic path keeps its one body
+  // with A and B picked at run time. Either way serialK is the one serial
+  // evaluation: the same expressions in the same order.
+  template <class K>
+  [[gnu::always_inline]] double outSerialK(const SP& p, double phi, double base, double c, double k, double modX, NS& ns, NS& ns2,
+                                           BX& bx) {
     const Blade& g = *bx.g;
     const double lam = p.b2mix;
     const bool up2 = !js::truthy(p.b2order);   // default: blade 2 over blade 1
     double ph2 = phi - 0.5; if (ph2 < 0) ph2 += 1;
-    const double base2 = wave(p.base, ph2);
+    const double base2 = waveAt<K::inl, kAny>(p.base, ph2);
     const double mr0 = gmr, mn0 = gmn;
     const Desc d1{&p, c, k, modX, &ns, &ns2, mr0, mn0, true},
                d2{&g, bx.c, bx.k, bx.modX, &bx.ns3, &bx.ns4, bx.mr, bx.mn, sharesBase(g.base, p.base)};
-    const Desc& A = up2 ? d1 : d2;
-    const Desc& B = up2 ? d2 : d1;
-    const double sa = A.p->mirror == 2 ? -1 : A.p->mirror == 3 ? 1 : 0;
-    const double sb = B.p->mirror == 2 ? -1 : B.p->mirror == 3 ? 1 : 0;
-    const double dA = ev(A, phi, base, *A.st) - base;
-    double dA2 = 0;
-    if (js::truthy(sa) || js::truthy(sb)) { A.st2->acc = A.st->acc; A.st2->xin = A.st->xin; dA2 = ev(A, ph2, base2, *A.st2) - base2; }
-    const double Lw = dA + sa * dA2, L2 = dA2 + sa * dA;
-    const double x1 = base + lam * Lw, dB = ev(B, phi, base, *B.st, true, x1) - x1;
-    double dB2 = 0;
-    if (js::truthy(sb)) { B.st2->acc = B.st->acc; B.st2->xin = B.st->xin; const double x2 = base2 + lam * L2; dB2 = ev(B, ph2, base2, *B.st2, true, x2) - x2; }
+    double y = 0;
+    if constexpr (K::inl) {   // outK calls this only for an order in K::ser; the other's body is not built
+      if constexpr ((K::ser & kSerOver) != 0) if (up2) { H2E_SERIAL_HIT(K::id, 0); y = serialK<K, typename K::B1, typename K::B2>(d1, d2, lam, phi, ph2, base, base2); }
+      if constexpr ((K::ser & kSerUnder) != 0) if (!up2) { H2E_SERIAL_HIT(K::id, 1); y = serialK<K, typename K::B2, typename K::B1>(d2, d1, lam, phi, ph2, base, base2); }
+    } else y = serialK<K, BAny, BAny>(up2 ? d1 : d2, up2 ? d2 : d1, lam, phi, ph2, base, base2);
     gmr = mr0; gmn = mn0;
+    return y;
+  }
+  template <class K, class BA, class BB>
+  [[gnu::always_inline]] double serialK(const Desc& A, const Desc& B, double lam, double phi, double ph2, double base, double base2) {
+    const double ma = kv<BA::mirror>(A.p->mirror), mb = kv<BB::mirror>(B.p->mirror);
+    const double sa = ma == 2 ? -1 : ma == 3 ? 1 : 0;
+    const double sb = mb == 2 ? -1 : mb == 3 ? 1 : 0;
+    const double dA = evK<K, BA>(A, phi, base, *A.st) - base;
+    double dA2 = 0;
+    if (js::truthy(sa) || js::truthy(sb)) { A.st2->acc = A.st->acc; A.st2->xin = A.st->xin; dA2 = evK<K, BA>(A, ph2, base2, *A.st2) - base2; }
+    const double Lw = dA + sa * dA2, L2 = dA2 + sa * dA;
+    const double x1 = base + lam * Lw, dB = evK<K, BB>(B, phi, base, *B.st, true, x1) - x1;
+    double dB2 = 0;
+    if (js::truthy(sb)) { B.st2->acc = B.st->acc; B.st2->xin = B.st->xin; const double x2 = base2 + lam * L2; dB2 = evK<K, BB>(B, ph2, base2, *B.st2, true, x2) - x2; }
     return base + Lw + dB + sb * dB2;
   }
   // blade 2's settings: units and mirror follow blade 1 (-1) or are its own; its FM
@@ -1690,6 +1766,12 @@ inline void Engine::renderCall(double* L, double* R, int n) {
     case KCrush2::id: renderCallK<KCrush2>(L, R, n); return;
     case KSync::id: renderCallK<KSync>(L, R, n); return;
     case KSync2::id: renderCallK<KSync2>(L, R, n); return;
+    case KSawFold::id: renderCallK<KSawFold>(L, R, n); return;
+    case KSawSync::id: renderCallK<KSawSync>(L, R, n); return;
+    case KFmSync::id: renderCallK<KFmSync>(L, R, n); return;
+    case KRingCrush::id: renderCallK<KRingCrush>(L, R, n); return;
+    case KSyncNoise::id: renderCallK<KSyncNoise>(L, R, n); return;
+    case KCrushFm::id: renderCallK<KCrushFm>(L, R, n); return;
     default: renderCallK<KGeneric>(L, R, n); return;
   }
 }
@@ -1886,5 +1968,6 @@ inline void Engine::renderCallK(double* L, double* R, int n) {
 #undef H2E_EPS13
 #undef H2E_SKIP
 #undef H2E_KERNEL_HIT
+#undef H2E_SERIAL_HIT
 
 }  // namespace horde2::engine
