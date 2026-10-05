@@ -12,6 +12,7 @@
 #include "gui_html.h"      // generated: kGuiHtml_data / kGuiHtml_size
 #include "factory_bank.h"  // generated: kFactoryBank / _count / _version (B129)
 #include "preset_store.h"
+#include "../input_guards.h"   // B446: utf8Clean, behind bridgeStr
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -20,6 +21,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <string_view>
 
 namespace hypersaw::detail
 {
@@ -158,6 +160,17 @@ inline choc::value::Value vizToValue(const VizSnapshot &v, bool withOscPanes = t
   return obj;
 }
 
+/* B446: EVERY string a binding returns is built here and nowhere else, and is
+   made valid UTF-8 on the way: choc's JSON escaper requires well-formed UTF-8
+   (input_guards.h, utf8Clean). Names are already made valid at ingest; this
+   covers text that is not, such as hzPresetLoad's file contents.
+   Valid UTF-8 passes through byte-identical. tools/bridge_utf8_check holds the
+   rule that choc's createString is called in src/gui only inside this function. */
+inline choc::value::Value bridgeStr(std::string_view s)
+{
+  return choc::value::createString(hypersaw::utf8Clean(s));
+}
+
 /* Every binding and the page load run from installBridge, which choc calls
    through Options::webviewIsReady. On macOS that callback fires synchronously
    inside the WebView constructor, so this is the old straight-line code in a
@@ -178,7 +191,7 @@ inline void installBridge(choc::ui::WebView &web, GuiHost &host)
     return choc::value::createInt32(1);
   });
   web.bind("hzGetBuild", [&host](const choc::value::ValueView &) -> choc::value::Value {
-    return choc::value::createString(host.getBuildId ? host.getBuildId() : std::string("?"));
+    return bridgeStr(host.getBuildId ? host.getBuildId() : std::string("?"));
   });
   web.bind("hzReleaseKeyFocus", [&host](const choc::value::ValueView &) -> choc::value::Value {
     if (host.releaseKeyFocus) host.releaseKeyFocus();
@@ -187,13 +200,13 @@ inline void installBridge(choc::ui::WebView &web, GuiHost &host)
   web.bind("hzGetHostHint", [&host](const choc::value::ValueView &) -> choc::value::Value {
     // Empty, not "?": absent hint means NOTHING TO SAY. A placeholder here would
     // render as a permanent warning badge on every load.
-    return choc::value::createString(host.getHostHint ? host.getHostHint() : std::string());
+    return bridgeStr(host.getHostHint ? host.getHostHint() : std::string());
   });
   web.bind("hzGetParams", [&host](const choc::value::ValueView &) -> choc::value::Value {
-    return choc::value::createString(host.getParamsJson());
+    return bridgeStr(host.getParamsJson());
   });
   web.bind("hzGetBendCurve", [&host](const choc::value::ValueView &) -> choc::value::Value {
-    return choc::value::createString(host.getBendCurveJson ? host.getBendCurveJson()
+    return bridgeStr(host.getBendCurveJson ? host.getBendCurveJson()
                                                            : std::string("{}"));
   });
   /* DISK PRESET STORE (ADR-105 A2). localStorage was the quick win and it
@@ -236,7 +249,7 @@ inline void installBridge(choc::ui::WebView &web, GuiHost &host)
       first = false;
     }
     factory += "]";
-    return choc::value::createString(
+    return bridgeStr(
         "{\"presets\":" + listDir(hypersaw::kindDir(root, "presets")) +
         ",\"corners\":" + listDir(hypersaw::kindDir(root, "corners")) +
         ",\"factory\":" + factory + "}");
@@ -263,16 +276,16 @@ inline void installBridge(choc::ui::WebView &web, GuiHost &host)
     return choc::value::createBool(f.good());
   });
   web.bind("hzPresetLoad", [](const choc::value::ValueView &args) -> choc::value::Value {
-    if (!args.isArray() || args.size() < 2) return choc::value::createString("");
+    if (!args.isArray() || args.size() < 2) return bridgeStr("");
     const auto fp = hypersaw::storeFile(hypersaw::presetRoot(),
                                         args[0].getWithDefault<std::string>(""),
                                         args[1].getWithDefault<std::string>(""));
-    if (fp.empty()) return choc::value::createString("");
+    if (fp.empty()) return bridgeStr("");
     std::ifstream f(fp);
-    if (!f) return choc::value::createString("");
+    if (!f) return bridgeStr("");
     std::ostringstream ss;
     ss << f.rdbuf();
-    return choc::value::createString(ss.str());
+    return bridgeStr(ss.str());
   });
   web.bind("hzPresetDelete", [](const choc::value::ValueView &args) -> choc::value::Value {
     namespace fs = std::filesystem;
@@ -296,13 +309,13 @@ inline void installBridge(choc::ui::WebView &web, GuiHost &host)
   web.bind("hzMorphCornerVals", [&host](const choc::value::ValueView &args) -> choc::value::Value {
     int k = -1;
     if (args.isArray() && args.size() >= 1) k = (int)args[0].getWithDefault<int64_t>(-1);
-    return choc::value::createString(host.morphCornerValsJson ? host.morphCornerValsJson(k) : std::string("{}"));
+    return bridgeStr(host.morphCornerValsJson ? host.morphCornerValsJson(k) : std::string("{}"));
   });
   web.bind("hzModRoutes", [&host](const choc::value::ValueView &) -> choc::value::Value {
-    return choc::value::createString(host.modRoutesJson ? host.modRoutesJson() : std::string("[]"));
+    return bridgeStr(host.modRoutesJson ? host.modRoutesJson() : std::string("[]"));
   });
   web.bind("hzModLive", [&host](const choc::value::ValueView &) -> choc::value::Value {
-    return choc::value::createString(host.modLiveJson ? host.modLiveJson() : std::string("[]"));
+    return bridgeStr(host.modLiveJson ? host.modLiveJson() : std::string("[]"));
   });
   web.bind("hzModAdd", [&host](const choc::value::ValueView &args) -> choc::value::Value {
     bool ok = false;
@@ -345,18 +358,18 @@ inline void installBridge(choc::ui::WebView &web, GuiHost &host)
     return choc::value::createBool(true);
   });
   web.bind("hzMorphOwners", [&host](const choc::value::ValueView &) -> choc::value::Value {
-    return choc::value::createString(host.morphOwnersJson ? host.morphOwnersJson() : std::string("{}"));
+    return bridgeStr(host.morphOwnersJson ? host.morphOwnersJson() : std::string("{}"));
   });
   web.bind("hzMorphExemptJson", [&host](const choc::value::ValueView &) -> choc::value::Value {
-    return choc::value::createString(host.morphExemptJson ? host.morphExemptJson() : std::string("{}"));
+    return bridgeStr(host.morphExemptJson ? host.morphExemptJson() : std::string("{}"));
   });
   web.bind("hzMorphLiveJson", [&host](const choc::value::ValueView &) -> choc::value::Value {
-    return choc::value::createString(host.morphLiveJson ? host.morphLiveJson() : std::string("{}"));
+    return bridgeStr(host.morphLiveJson ? host.morphLiveJson() : std::string("{}"));
   });
   web.bind("hzMorphCornerJson", [&host](const choc::value::ValueView &args) -> choc::value::Value {
     if (host.morphCornerJson && args.isArray() && args.size() >= 1)
-      return choc::value::createString(host.morphCornerJson((uint32_t)args[0].getWithDefault<int64_t>(0)));
-    return choc::value::createString("{}");
+      return bridgeStr(host.morphCornerJson((uint32_t)args[0].getWithDefault<int64_t>(0)));
+    return bridgeStr("{}");
   });
   web.bind("hzMorphCornerApply", [&host](const choc::value::ValueView &args) -> choc::value::Value {
     bool ok = false;
@@ -366,7 +379,7 @@ inline void installBridge(choc::ui::WebView &web, GuiHost &host)
     return choc::value::createBool(ok);
   });
   web.bind("hzMorphCornerNames", [&host](const choc::value::ValueView &) -> choc::value::Value {
-    return choc::value::createString(host.morphCornerNamesJson ? host.morphCornerNamesJson() : "[\"\",\"\",\"\",\"\"]");
+    return bridgeStr(host.morphCornerNamesJson ? host.morphCornerNamesJson() : "[\"\",\"\",\"\",\"\"]");
   });
   web.bind("hzMorphCornerName", [&host](const choc::value::ValueView &args) -> choc::value::Value {
     if (host.morphCornerSetName && args.isArray() && args.size() >= 2)
@@ -384,19 +397,19 @@ inline void installBridge(choc::ui::WebView &web, GuiHost &host)
     return {};
   });
   web.bind("hzGetShapeWave", [&host](const choc::value::ValueView &) -> choc::value::Value {
-    return choc::value::createString(host.getShapeWaveJson ? host.getShapeWaveJson()
+    return bridgeStr(host.getShapeWaveJson ? host.getShapeWaveJson()
                                                            : std::string("{}"));
   });
   web.bind("hzGetSubWave", [&host](const choc::value::ValueView &) -> choc::value::Value {
-    return choc::value::createString(host.getSubWaveJson ? host.getSubWaveJson()
+    return bridgeStr(host.getSubWaveJson ? host.getSubWaveJson()
                                                          : std::string("{}"));
   });
   web.bind("hzGetLfoCycle", [&host](const choc::value::ValueView &) -> choc::value::Value {
-    return choc::value::createString(host.getLfoCycleJson ? host.getLfoCycleJson()
+    return bridgeStr(host.getLfoCycleJson ? host.getLfoCycleJson()
                                                           : std::string("{}"));
   });
   web.bind("hzGetDefaults", [&host](const choc::value::ValueView &) -> choc::value::Value {
-    return choc::value::createString(host.getDefaultsJson ? host.getDefaultsJson()
+    return bridgeStr(host.getDefaultsJson ? host.getDefaultsJson()
                                                           : std::string("{}"));
   });
   web.bind("hzSetParam", [&host](const choc::value::ValueView &args) -> choc::value::Value {
@@ -548,7 +561,7 @@ inline void installBridge(choc::ui::WebView &web, GuiHost &host)
     return obj;
   });
   web.bind("hzGetState", [&host](const choc::value::ValueView &) -> choc::value::Value {
-    return choc::value::createString(host.getStateJson());
+    return bridgeStr(host.getStateJson());
   });
   /* B174: the optional SECOND argument is the name of the preset being loaded.
      One call, so the shell knows what the patch is called by the time the
@@ -565,7 +578,7 @@ inline void installBridge(choc::ui::WebView &web, GuiHost &host)
     return choc::value::createBool(ok);
   });
   web.bind("hzPresetName", [&host](const choc::value::ValueView &) -> choc::value::Value {
-    return choc::value::createString(host.presetNameGet ? host.presetNameGet() : std::string());
+    return bridgeStr(host.presetNameGet ? host.presetNameGet() : std::string());
   });
   // The SAVE verb: this patch is now called `n`. Changes no values, so it
   // deliberately marks no history node.
@@ -583,7 +596,7 @@ inline void installBridge(choc::ui::WebView &web, GuiHost &host)
      std::function like the newer seams above: a GUI served outside the plugin
      (dev server, lab harness) has no shell behind it. */
   web.bind("hzUndoTree", [&host](const choc::value::ValueView &) -> choc::value::Value {
-    return choc::value::createString(host.undoTreeJson ? host.undoTreeJson()
+    return bridgeStr(host.undoTreeJson ? host.undoTreeJson()
                                                        : std::string("{\"cur\":-1,\"nodes\":[]}"));
   });
   web.bind("hzUndoRestore", [&host](const choc::value::ValueView &args) -> choc::value::Value {
