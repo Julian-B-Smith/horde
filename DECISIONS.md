@@ -6898,3 +6898,17 @@ keeps exact parity, and `exp`/`log` are judged by closed form to 1e-12 (§14).
 
 **Not yet built.** No C++ module-macro resolver exists yet (B136). The §14 curve row is the test the
 resolver must carry when it lands.
+
+### ADR-190 Amendment 1 — a vintage-textures FX module joins the roster as CONDITIONAL (2026-10-04, RULED)
+
+**Ruling.** The human, 2026-10-04: "Conditional for vintage textures" (B444), answering the lead's
+lean. Before the 2026-10-07 freeze, so it is a roster change, not a post-1.0 idea (A2).
+
+**Decision.** The roster's CONDITIONAL list becomes: the Kuramoto chorus; Bulwark's multiband mode
+with the ATM preset; and **a vintage-textures FX module** (tape warp, VCR noise artifacts). Like
+the other conditionals, it ships in 1.0 only if it meets the module 1.0 bar (B439) and its CPU
+slice (≤ 2 % of a min-spec core at defaults, ≤ 4 % worst) by the module cutoff; otherwise it is
+post-1.0. It is built as its own sibling project, like Scape and Bulwark, and horde consumes it
+through the mailbox. Its name passes a B433 knockout screen before the project is created. Overlaps
+with Shriek and the drive module (saturation), ECHO (tape-delay character) and true stereo are
+settled at its scope sync.
