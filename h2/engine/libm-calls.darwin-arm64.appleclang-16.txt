@@ -3,19 +3,19 @@
 # product: -O3 -DNDEBUG -ffp-contract=off
 # parity:  -O3 -DNDEBUG -O2 -ffp-contract=off -DH2_LIBM_PARITY (H2_ENGINE_FAULTS)
 fn               product  parity
-__sincos_stret        59      37
+__sincos_stret       104      70
 asin                   2       2
-atan2                 25      25
-cos                   44      42
-exp                  123     112
-exp2                  87      76
+atan2                 52      52
+cos                   84      81
+exp                  183     166
+exp2                 129     112
 fmod                  15       7
 ldexp                  1       1
-log                   23      21
+log                   29      27
 log2                  15       3
-nan                  390     378
+nan                  566     548
 pow                    9       9
-sin                   57      54
+sin                  123     119
 tan                    1       1
-tanh                  22      22
-TOTAL                873     790
+tanh                  34      34
+TOTAL               1347    1232
