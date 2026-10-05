@@ -15,11 +15,13 @@
  *       scripts (one voice held 4 s at 48 kHz: Crushed bells, Glass horde pad,
  *       Quarter sync); each is replayed best of five and divided by the audio
  *       duration, with its distance from the golden.
- *   build-release/measure_h2_engine --ledger [--sr 44100|48000] [--presets <file>] [--reps R] [--force]
+ *   build-release/measure_h2_engine --ledger [--sr 44100|48000] [--presets <file>] [--reps R] [--force] [--also <preset>]...
  *       B441's frozen protocol (docs/port/cpu-ledger.md, "Protocol"): the ledger
  *       presets x 1/8/16 voices, interleaved best of R (default 5), the calibration
  *       loop each repeat, the load guard before each repeat. One `LEDGER {json}` row
- *       per cell on stdout.
+ *       per cell on stdout. --also appends a bank preset's cells after the frozen
+ *       seven, measured in the same interleave under the same protocol (B441 C3:
+ *       one preset per specialised kernel); the frozen cells are unchanged by it.
  *   THE LOAD GUARD (B441-3): before every repeat, outside the timed region, the
  *       1-minute load average must be <= 3.0 AND no other process may use >= 50 % of
  *       a core (a `ps` snapshot). Either failing waits 20 s and re-checks, for up to
@@ -347,6 +349,12 @@ int ledger(int argc, char** argv) {
   for (const char* n : kLedger) {
     const Patch* p = findPatch(ps, n);
     if (!p) { std::fprintf(stderr, "measure_h2_engine: no preset '%s'\n", n); return 1; }
+    for (int v : kVoiceCounts) cells.push_back({p, v, 0, 0});
+  }
+  for (int i = 1; i + 1 < argc; i++) {
+    if (std::strcmp(argv[i], "--also") != 0) continue;
+    const Patch* p = findPatch(ps, argv[i + 1]);
+    if (!p) { std::fprintf(stderr, "measure_h2_engine: no preset '%s'\n", argv[i + 1]); return 1; }
     for (int v : kVoiceCounts) cells.push_back({p, v, 0, 0});
   }
   double cal, lo, hi;
