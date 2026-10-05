@@ -47,24 +47,14 @@ portability_gate() {
 # correspondents' names. Restored here, where it belongs — the misplacement is
 # what the migration usefully exposed.
 # The names live in .leakcheck-names, UNTRACKED, so this tracked gate never
-# contains the thing it forbids. CI has no such file and says SKIPPED rather than
-# pretending it ran (same idiom as conformance_check).
+# contains the thing it forbids. B446 W1b (2026-10-05): the inline version read
+# the file from the WORKING TREE, which agent worktrees never have, so it passed
+# silently in 45 of 49 of them. tools/private_name_check.py resolves the file
+# through the git common dir (the main checkout), prints an absent file as a
+# WARNING rather than a quiet SKIP (CI and clones still pass), and runs its own
+# must-fail controls every time.
 private_name_gate() {
-  if [ ! -f .leakcheck-names ]; then
-    echo "verify: .leakcheck-names absent — private-name leak check SKIPPED (expected off this Mac)" >&2
-    return 0
-  fi
-  local pat hits
-  pat=$(grep -vE '^[[:space:]]*(#|$)' .leakcheck-names | paste -sd'|' -)
-  [ -n "$pat" ] || return 0
-  # Case-SENSITIVE by design: a case-insensitive first draft tripped on ordinary
-  # prose ("re-strikes in place"). -P for alternation.
-  hits=$(git grep --untracked -nIP "($pat)" -- . \
-           ':(exclude)PRIVATE-NOTES.md' ':(exclude).leakcheck-names' 2>/dev/null || true)
-  [ -n "$hits" ] || return 0
-  echo "verify: LEAK — a private sibling's real name in a tracked file (alias it; map in PRIVATE-NOTES.md):" >&2
-  echo "$hits" | sed 's/^/    /' >&2
-  return 1
+  python3 tools/private_name_check.py
 }
 
 fast() {
@@ -134,6 +124,13 @@ fast() {
   # nobody wrote, a feature nobody tests — are silent by construction.
   python3 tools/test_table_check.py || ok=1
   portability_gate || ok=1   # MSVC-only breakage, caught locally not in CI
+
+  # BANNED C LIBRARY CALLS (B446 W1b): no strcpy/strcat/sprintf/vsprintf/gets/
+  # system/popen in src/ or h2/, code only (comments and strings are blanked
+  # first). The tree was clean when this landed, so this is a ratchet, not a
+  # cleanup. Self-calibrating (planted-line control in a scratch repo). Added under
+  # ADR-180 §1.
+  python3 tools/banned_api_check.py || ok=1
 
   # GUI REACHABILITY (L0023, third occurrence — the one that became a gate).
   # A param with no control anywhere ships fully implemented, fully tested,

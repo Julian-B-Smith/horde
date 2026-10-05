@@ -50,3 +50,15 @@ reference/scalpel/verify/goldens/
 # public repo: never tracked. The porter refuses an in-repo output directory
 # that this file does not ignore.
 local/
+
+# Secret-bearing file types (B446 W1b): credentials, signing keys and profiles never
+# belong in a public repo. Nothing tracked matched when this was added. A genuine
+# template stays committable through the explicit exception below.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.mobileprovision
+*.keychain*
