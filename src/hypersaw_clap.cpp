@@ -30,6 +30,7 @@
 #include "swarm_core.h"
 #include "gui/hypersaw_gui.h"
 #include "gui/preset_store.h"   // presetRoot(): the ONE store path (B129)
+#include "input_guards.h"   // B446: names cut at a character boundary; host values checked at the event boundary
 #include "spectra_core.h"
 #include "subosc_core.h"   // B172: the SUB OSC engine block's core, one per voice
 #include "glide_core.h"
@@ -6299,7 +6300,7 @@ struct Plugin
   void setCornerName(int k, const std::string &name)
   {
     if (k < 0 || k > 3) return;
-    cornerName[k] = name.substr(0, 60);
+    cornerName[k] = hypersaw::utf8Clean(name, 60);   // B446: a character boundary, never a byte count
     const std::string label =
         cornerName[k].empty()
             ? std::string("corner ") + cornerLetter(k) + " captured"
@@ -6485,7 +6486,7 @@ struct Plugin
           if (!q) break;
           std::string v;
           for (const char *e = q + 1; *e && *e != '"'; e++) { if (*e == '\\' && e[1]) { v += e[1]; e++; } else v += *e; }
-          cornerName[k] = v.substr(0, 60);
+          cornerName[k] = hypersaw::utf8Clean(v, 60);   // B446; `v` stays raw: the next line measures it
           c = std::strchr(q + 1 + v.size() + (v.size() ? 0 : 0), '"');   // the closing quote
           if (!c) break;
           const char *cl = std::strchr(c, ']');
@@ -6639,8 +6640,12 @@ struct Plugin
     /* The host chunk is LINE-based (state_save), so a newline inside a name
        would make the rest of it look like the next key=value line. Control
        characters are dropped rather than escaped — a preset name is a file
-       name, and none of them can appear in one. */
-    for (char c : n.substr(0, 60))
+       name, and none of them can appear in one.
+       B446: the 60-byte cut falls on a character boundary and the text is made
+       valid UTF-8 first (input_guards.h says why the GUI bridge needs both);
+       control characters are single bytes, so dropping them afterwards keeps it
+       valid. Valid names that fit are unchanged. */
+    for (char c : hypersaw::utf8Clean(n, 60))
       if ((unsigned char)c >= 0x20) presetName += c;
   }
 
@@ -8201,6 +8206,12 @@ struct Plugin
       {
         auto *n = reinterpret_cast<const clap_event_note_t *>(ev);
         recordNote(ev, n);
+        /* B446: a note-on must name a key in CLAP's 0..127 (-1 is a wildcard
+           only for events that match notes). Anything else is dropped HERE,
+           before it becomes a frequency: 440·2^((key-69)/12) is infinite for
+           large keys. Recorded first, so the forensic trace still shows what
+           the host sent. */
+        if (!hypersaw::noteKeyInRange(n->key, /*wildcardOk=*/false)) break;
         sawNotes.fetch_add(1, std::memory_order_relaxed);
         if (n->channel > 0) sawNonZeroChan.fetch_add(1, std::memory_order_relaxed);
         // MIDI 1.0: note-on velocity 0 IS a note-off, and the AU wrapper
@@ -8372,6 +8383,11 @@ struct Plugin
         // Single note-off path (spectra dispatch lives inside handleNoteOff;
         // the vel-0 NOTE_ON remap above routes through the same code).
         recordNote(ev, reinterpret_cast<const clap_event_note_t *>(ev));
+        // B446: 0..127, or the -1 wildcard (handleNoteOff's release-all). Any
+        // other key matches no note CLAP can have started, so it is dropped.
+        if (!hypersaw::noteKeyInRange(reinterpret_cast<const clap_event_note_t *>(ev)->key,
+                                      /*wildcardOk=*/true))
+          break;
         handleNoteOff(reinterpret_cast<const clap_event_note_t *>(ev));
         break;
       }
@@ -8382,23 +8398,32 @@ struct Plugin
         // TUNING expression in relative semitones; CLAP wildcard matching
         // (-1) applies. Reaches the core through the ADR-027 live-tune seam.
         auto *x = reinterpret_cast<const clap_event_note_expression_t *>(ev);
+        /* B446: the value is checked HERE, the one place it enters. A
+           non-finite value is dropped (the last good value stands); a finite
+           one is clamped to CLAP's documented range for its expression
+           (clap/events.h: PRESSURE 0..1, TUNING -120..+120 semitones).
+           Unclamped, an extreme TUNING made the voice frequency infinite. */
+        double xv = 0;
         // ADR-084: PRESSURE -> per-voice gain (default mapping the human asked
         // for). Same tag-matching as TUNING; fan out to every oscillator, since
         // note fan-out keeps slot indices aligned.
         if (x->expression_id == CLAP_NOTE_EXPRESSION_PRESSURE)
         {
+          if (!hypersaw::finiteClamp(x->value, 0.0, 1.0, xv)) break;
           for (int i = 0; i < hypersaw::kPoly; i++)
             if (tags[i].active &&
                 (x->note_id == -1 || tags[i].noteId == x->note_id) &&
                 (x->key == -1 || tags[i].key == x->key) &&
                 (x->channel == -1 || tags[i].channel == x->channel))
             {
-              setNotePressureAll(i, x->value);
+              setNotePressureAll(i, xv);
             }
-          srcPress = x->value;   // ADR-149: matrix source 16
+          srcPress = xv;   // ADR-149: matrix source 16
           break;
         }
         if (x->expression_id != CLAP_NOTE_EXPRESSION_TUNING) break;
+        if (!hypersaw::finiteClamp(x->value, -hypersaw::kTuningSemisMax, hypersaw::kTuningSemisMax, xv))
+          break;
         for (int i = 0; i < hypersaw::kPoly; i++)
         {
           if (!tags[i].active) continue;
@@ -8407,7 +8432,7 @@ struct Plugin
               (x->port_index == -1 || x->port_index == t.port) &&
               (x->channel == -1 || x->channel == t.channel) &&
               (x->key == -1 || x->key == t.key))
-            setNoteBendTarget(i, x->value);
+            setNoteBendTarget(i, xv);
         }
         break;
       }
@@ -8910,6 +8935,13 @@ struct Plugin
         }
       }
     }
+
+    /* B446: the last line before the host's bus — a non-finite sample becomes
+       0 (defence in depth behind the event-boundary guards). It writes only
+       non-finite samples, so finite output is bit-identical, and it runs
+       before the meters so they never read a NaN either. */
+    hypersaw::zeroNonFinite(outL, nframes);
+    hypersaw::zeroNonFinite(outR, nframes);
 
     publishViz();
     {

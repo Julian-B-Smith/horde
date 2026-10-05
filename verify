@@ -698,6 +698,24 @@ full() {
   # Statically linked like state_check; no goldens. (Was built but ungated.)
   "$build_dir/notefuzz_check" || return 1
 
+  # BOUNDARY GUARDS (B446 P1; src/input_guards.h). Added under ADR-180 §1.
+  # bridge_utf8_check: every name is cut at a character boundary and every string
+  # the GUI bridge returns is valid UTF-8 (one helper, bridgeStr, statically held);
+  # its CONTROL row must show the raw escaper mishandling malformed input, or it is
+  # red. hostile_events_check: out-of-range note keys and non-finite or
+  # out-of-range expression values are handled at the event boundary and the
+  # output stays finite; its CONTROL rows must show the unguarded core going
+  # non-finite. Both deterministic, both sub-second; quiet on green except their
+  # last line.
+  "$build_dir/bridge_utf8_check" src/gui > /tmp/bridgeutf8.$$ 2>&1 || {
+    echo "verify[full]: bridge_utf8_check FAILED" >&2; cat /tmp/bridgeutf8.$$ >&2
+    rm -f /tmp/bridgeutf8.$$; return 1; }
+  tail -1 /tmp/bridgeutf8.$$; rm -f /tmp/bridgeutf8.$$
+  "$build_dir/hostile_events_check" > /tmp/hostile.$$ 2>&1 || {
+    echo "verify[full]: hostile_events_check FAILED" >&2; cat /tmp/hostile.$$ >&2
+    rm -f /tmp/hostile.$$; return 1; }
+  tail -1 /tmp/hostile.$$; rm -f /tmp/hostile.$$
+
   # FORENSIC NOTE TRACE (FOUNDATIONS ask (c), 2026-08-11). The stuck-note bug
   # survived weeks because it could not be REPRODUCED — and a generator never
   # could have, since it emits the stream it imagines rather than the one the

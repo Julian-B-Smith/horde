@@ -701,6 +701,20 @@ if(NOT MSVC)
   target_compile_options(notefuzz_check PRIVATE -O2)
 endif()
 
+# B446 P1 boundary guards (src/input_guards.h), wired into ./verify full under
+# ADR-180 §1. Both link the impl so the rows drive the shipped shell paths.
+# bridge_utf8_check: names are valid UTF-8 and cut at a character boundary
+# before they cross the GUI bridge. hostile_events_check: out-of-range host note
+# keys and expression values are handled at the event boundary, output finite.
+add_executable(bridge_utf8_check tools/bridge_utf8_check.cpp)
+target_link_libraries(bridge_utf8_check PRIVATE ${PROJECT_NAME}-impl)
+add_executable(hostile_events_check tools/hostile_events_check.cpp)
+target_link_libraries(hostile_events_check PRIVATE ${PROJECT_NAME}-impl)
+if(NOT MSVC)
+  target_compile_options(bridge_utf8_check PRIVATE -O2)
+  target_compile_options(hostile_events_check PRIVATE -O2)
+endif()
+
 # trace_check: the forensic note trace (FOUNDATIONS ask (c)). Links the impl so
 # it can trigger the REAL dump path through the test hook rather than rebuilding
 # the ring in the test — a check that reimplements its own subject spans the
