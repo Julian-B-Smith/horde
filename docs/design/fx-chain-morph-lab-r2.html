@@ -1,0 +1,1858 @@
+<!doctype html>
+<!-- fx-chain-morph-lab-r2 — B265 round 2: per-corner FX chains on an XY pad, four corners,
+     one instance per module type. HYPERSAW, 2026-10-05.
+
+     PROVENANCE. Built for ROADMAP B265 from the round-2 design brief
+     docs/proposals/fx-chain-morph-round2.md and the human's rulings D1–D8 in ADR-193
+     (D1 on I3: "let's see it in action in the lab"; D2: "make whatever changes you make
+     a dev toggle so I can listen to the before/after"; D3: rules "as permissive as
+     reasonable, but guide people away from certain realms of sonic nonsense or
+     untenable CPU load"; D4: fine-tuning lives in the advanced settings; D5: "let the
+     tail ring out ... there may need to be an artificial cutoff for some Sluice
+     settings"; D8: p and K "will require hand-tuning in the lab"). Round 1
+     (fx-chain-morph-lab.html, PR #755) is untouched; its checker functions, frame
+     format, threshold law and self-check pattern are COPIED here, marked where they are.
+
+     THE PIPELINE (brief §2), at a pad position (x, y):
+       weights   bilinear corner weights, optionally sharpened w^γ (lane 4)
+       presence  p_m = the weighted vote of the corners that hold module m;
+                 QUANTUM flips it at a seeded threshold, BLEND uses it as the wet gain
+       order     lane 1 F1: each module scores the weighted mean of its rank across the
+                 corners (an absent module takes a ghost rank from the house order),
+                 plus seeded jitter that vanishes at the corners (the temperature)
+       snap      to the approved set V: lane 4 F1 (vote on membership and pair-order
+                 bits, then decode: the best chain in V) or lane 1 F2 (walk the approved
+                 graph from the heaviest corner toward the target, one hop at a time)
+       route     a control-rate state machine (lane 2): one atomic split group per
+                 change, weights u/‖u‖_p, inputs before outputs, at most K open changes
+                 per lane under a +3 dB headroom cap, tails ring out to a per-module cap.
+     The MAP (everything but route) is a pure function of position and seed; the ROUTER
+     is a deterministic sample-counter state machine (it runs in the audio callback and
+     in the headless sweeps alike; nothing reads a clock).
+
+     EVERY DRAW IS KEYED BY WHAT IT IS ABOUT — a module type, a type pair, a Sub entry —
+     never by a corner index or a slot (lane 4 §3.6, NEAT-style). That is what makes the
+     four-corner morph on a pad edge IDENTICAL to the two-corner morph of that edge's
+     corners (the edge-reduction test), and it is checked tick by tick.
+
+     STRUCTURE (round 1's): block 1 is the MODEL (no DOM, no clock, mulberry32 only; the
+     self-check calls the same functions the page draws with and POWER plays); block 2
+     is the page. TOKENS are copied from fx-chain-morph-lab.html (itself a copy of
+     src/gui/gui2.html via patch-model-lab.html): copy, therefore drift.
+
+     COLOUR ROLES (ADR-116): --value magenta = authored (corners, puck); --physics violet
+     = what the engine does (the chain at the puck, the pad's intermediate structures,
+     open changes); --meter cyan = analysers (scope, lane gain); --caution = a rule or
+     invariant broken, or a two-change jump (a finding); --alarm = CLIP only.
+
+     L0026: every const/let the setup path reads is declared above the wiring at the
+     bottom of block 2. -->
+<html><head><meta charset="utf-8">
+<meta name="lab-part" content="FX">
+<meta name="lab-review" content="B265 · 2026-10-05">
+<title>fx-chain morph lab, round 2 — four corners on an XY pad, one module per type</title>
+<style>
+  /* ============ TOKENS — round 1's copy of gui2's, verbatim ============ */
+  :root {
+    --bg:#F2EDE2; --panel:#FCFAF4; --well:#FFFFFF; --panel2:#E9E3D4;
+    --line:#191521; --hair:#E5DFD0; --div:#D8D1C0;
+    --text:#191521; --t2:#494356; --dim:#9A93A3; --dis:#B6AFA0;
+    --value:#F5169C; --pull:#F5169C; --physics:#6431F0; --meter:#00D5C8;
+    --marker:#FFD702; --celebrate:#A6F219;
+    --caution:#F5A300; --caution-bg:#FBE9BD; --caution-tx:#6D570B;
+    --amber:#F5A300; --alarm:#C2261A; --ghost:#C9C2FF;
+    --cA:#FFD702; --cAtx:#D4A900; --cB:#FF2E88; --cBtx:#FF2E88;
+    --cC:#00D5C8; --cCtx:#00B3A8; --cD:#A6F219; --cDtx:#6FB200;
+    --text-hi:#191521; --dim2:#494356; --grid:#E5DFD0; --grid2:#E5DFD0;
+    --hot:#F5169C; --bad:#C2261A; --badge-bg:rgba(245,163,0,.9);
+    --scr-tube:#1B0733; --scr-value:#FF5ECF; --scr-meter:#B8F227;
+    --scr-physics:#B48CFF; --scr-marker:#FFB86B; --scr-grid:#4FD8BE;
+    --scr-scan:0.22; --scr-alpha:1;
+    --r-card:10px; --r-well:var(--r-card); --r:var(--r-card); --stroke:1.5px;
+    --shadow:1.5px 1.5px 0 var(--line); --shadow-hover:2.5px 2.5px 0 var(--line);
+    --focus:0 0 0 2.5px rgba(245,22,156,.45); }
+  * { box-sizing:border-box; margin:0; }
+  canvas { border:var(--stroke) solid var(--line); border-radius:var(--r-well);
+           background:var(--scr-tube); display:block; }
+  body:not(.dark) { --scr-tube:#F3EBFF; --scr-value:#D6006B; --scr-meter:#007A73;
+    --scr-physics:#6E14E8; --scr-marker:#C43A00; --scr-grid:#5A3FA8;
+    --scr-scan:0.05; --scr-alpha:1.6;
+    --marker:#8A6A00; --celebrate:#4E7A00; }
+  body.dark {
+    --bg:#151220; --panel:#1F1B2E; --well:#0E0C16; --panel2:#2C2740;
+    --line:#EFE9FA; --hair:#312B47; --div:#3B3455;
+    --text:#EFE9FA; --t2:#BDB4D4; --dim:#8A82A3; --dis:#514A6B;
+    --value:#FF3DAD; --pull:#FF3DAD; --physics:#A07CFF; --meter:#2DF2E2;
+    --marker:#FFE04D; --celebrate:#C2F53E;
+    --caution:#FFB627; --caution-bg:#4A3A12; --caution-tx:#FFD98A;
+    --amber:#FFB627; --alarm:#FF5A4D; --ghost:#5B4E8F;
+    --cA:#FFD702; --cAtx:#FFE566; --cB:#FF2E88; --cBtx:#FF6FAE;
+    --cC:#00D5C8; --cCtx:#4DEDE3; --cD:#A6F219; --cDtx:#C6F86A;
+    --text-hi:#FFFFFF; --dim2:#9A93A8; --grid:#312B47; --grid2:#312B47;
+    --hot:#FF3DAD; --bad:#FF5A4D; --badge-bg:rgba(255,182,39,.9);
+    --focus:0 0 0 2.5px rgba(255,61,173,.45); }
+
+  /* ============ CHROME — round 1's declarations ============ */
+  body { background:var(--bg); color:var(--text);
+    font:12px/1.45 ui-monospace,Menlo,monospace; padding:10px 12px; }
+  .hdr { display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; margin-bottom:8px; }
+  h1 { font-size:34px; line-height:1; letter-spacing:-1px; font-weight:800; }
+  .badges { display:flex; align-items:center; gap:8px; margin-top:4px; }
+  .badge { font-size:9.5px; letter-spacing:.1em; padding:2px 7px;
+           border:var(--stroke) solid var(--line); border-radius:3px;
+           background:var(--cA); color:var(--line); }
+  body.dark .badge { color:var(--bg); }
+  .sub { color:var(--t2); font-size:10.5px; letter-spacing:.12em; }
+  .hdrctl { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-left:auto; }
+  .grp { display:flex; align-items:center; gap:7px; }
+  .lbl { font-size:10px; font-weight:700; letter-spacing:.1em; color:var(--t2); }
+  .pill { padding:3px 10px; border:var(--stroke) solid var(--line);
+    border-radius:999px; min-height:26px; cursor:pointer; color:var(--dim);
+    background:var(--panel); font:inherit; font-size:10px; letter-spacing:.06em; }
+  .pill:hover { box-shadow:var(--shadow); }
+  .pill.on { color:var(--bg); background:var(--line); font-weight:600; }
+  .pill.act { color:var(--text); }
+  .pills { display:flex; gap:4px; flex-wrap:wrap; margin:3px 0; }
+  .chip { padding:4px 8px; border:0; background:none; border-radius:var(--r);
+    cursor:pointer; font:inherit; font-size:10px; letter-spacing:.06em;
+    color:var(--dim); min-height:26px; }
+  .chip:hover { background:var(--panel2); }
+  .chip b { color:var(--t2); font-weight:600; letter-spacing:.1em; }
+  .tagline { color:var(--t2); font-size:11px; max-width:130ch; margin-bottom:6px; }
+  .tagline b { color:var(--text); }
+  .audit { font-size:10px; color:var(--t2); margin-bottom:10px;
+           border-left:3px solid var(--meter); padding-left:8px; }
+  .audit.bad { border-left-color:var(--caution); color:var(--caution-tx); }
+  .audit b { color:var(--text); }
+  .cluster { background:var(--panel); border:var(--stroke) solid var(--line);
+    border-radius:var(--r); padding:8px 10px; min-width:0; }
+  h2 { font-size:11px; color:var(--pull); letter-spacing:1px; margin-bottom:6px; }
+  h2 span { color:var(--t2); font-weight:400; letter-spacing:.04em; }
+  .note { color:var(--t2); font-size:10px; line-height:1.5; margin-top:6px; }
+  .note b { color:var(--text); }
+  .cap { font-size:9px; letter-spacing:.12em; color:var(--dim); margin:7px 0 2px; }
+  .ptxt { font-size:9.5px; color:var(--t2); margin-top:4px; line-height:1.5; }
+  .ptxt b { color:var(--text); font-weight:600; }
+
+  /* ============ PAGE SHAPE ============ */
+  .row { display:grid; gap:10px; margin-top:10px; align-items:start; }
+  .top { grid-template-columns:minmax(360px,1.05fr) minmax(0,1.15fr) minmax(0,1fr); }
+  .two { grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
+  @media (max-width:1300px) { .top { grid-template-columns:1fr 1fr; } }
+  @media (max-width:900px) { .top, .two { grid-template-columns:1fr; } }
+  #pad { width:100%; aspect-ratio:1/1; cursor:crosshair; touch-action:none; }
+  #chainC { width:100%; height:150px; }
+  #scopeC { width:100%; height:42px; margin-top:4px; }
+  .corners { display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:6px; }
+  .corner { border:1px solid var(--div); border-radius:var(--r); padding:5px 6px; background:var(--well); }
+  .corner h3 { font-size:10px; letter-spacing:.06em; color:var(--value); margin-bottom:2px; }
+  .corner h3 span { color:var(--t2); font-weight:400; }
+  .corner canvas { width:100%; height:46px; }
+  .clip { font-size:9px; font-weight:700; letter-spacing:.1em; color:var(--dis); }
+  .clip.on { color:var(--alarm); }
+  .legend { font-size:9px; color:var(--t2); margin-top:5px; line-height:1.6; }
+  .legend i { display:inline-block; width:12px; height:10px; vertical-align:-1px; margin:0 3px 0 8px; border:1px solid var(--line); }
+
+  /* dev toggles: the A/B surface */
+  .tg { display:grid; grid-template-columns:150px 1fr; gap:4px 10px; align-items:center; margin-top:4px; }
+  .tg .pill { min-width:140px; text-align:left; }
+  .tg .pill .st { float:right; font-weight:700; }
+  .tg .what { font-size:9.5px; color:var(--t2); line-height:1.45; }
+  .tg .what b { color:var(--text); }
+  details.adv { margin-top:2px; }
+  details.adv summary { cursor:pointer; font-size:11px; color:var(--pull); letter-spacing:1px; font-weight:700; }
+  .ctlrow { display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-top:6px; }
+  .rng { display:flex; align-items:center; gap:6px; font-size:10px; color:var(--t2); }
+  .rng input { width:110px; accent-color:var(--value); }
+  .rng b { color:var(--text); font-variant-numeric:tabular-nums; min-width:34px; display:inline-block; }
+  .sq { padding:0 7px; min-height:22px; }
+
+  /* tables */
+  table { width:100%; border-collapse:collapse; font-size:10px; }
+  th { font-size:9px; letter-spacing:.08em; color:var(--dim); font-weight:600; text-align:left; padding:3px 4px;
+       border-bottom:1px solid var(--div); vertical-align:bottom; }
+  td { padding:3px 4px; border-bottom:1px dashed var(--div); color:var(--t2); vertical-align:top;
+       font-variant-numeric:tabular-nums; }
+  td.a { color:var(--text); font-weight:700; white-space:nowrap; }
+  td .sub { display:block; color:var(--dim); font-size:9px; letter-spacing:0; }
+  .ok { color:var(--celebrate); font-weight:700; }
+  .no { color:var(--caution-tx); background:var(--caution-bg); font-weight:700; padding:0 3px; border-radius:3px; }
+  .wv { color:var(--dim); }
+  .big { font-size:15px; font-weight:800; color:var(--text); }
+  .chk td.claim { color:var(--text); }
+  .chk td div { color:var(--dim); font-size:9px; margin-top:2px; }
+  ol.rules { padding-left:18px; }
+  ol.rules li { font-size:10.5px; color:var(--t2); margin:0 0 7px; line-height:1.5; }
+  ol.rules li b { color:var(--text); }
+  ol.rules li .ex { display:block; color:var(--t2); margin-top:2px; padding-left:8px; border-left:2px solid var(--value); }
+  .pts { font-size:10px; color:var(--t2); margin-top:4px; }
+  .pts b { color:var(--text); }
+  ol.q { padding-left:18px; }
+  ol.q li { font-size:10px; color:var(--t2); margin:0 0 7px; line-height:1.5; }
+  ol.q li b { color:var(--text); }
+  ol.q li i { font-style:normal; color:var(--value); font-weight:600; }
+  .rec { font-size:10.5px; line-height:1.55; color:var(--t2); }
+  .rec b { color:var(--text); }
+  .rec p { margin-bottom:7px; }
+</style></head><body>
+
+<div class="hdr">
+  <div>
+    <h1>fx-chain morph · round 2</h1>
+    <div class="badges">
+      <span class="badge">B265 ROUND 2 LAB</span>
+      <span class="sub">FOUR CORNERS · ONE MODULE PER TYPE · ADR-193 RULINGS D1–D8</span>
+    </div>
+  </div>
+  <div class="hdrctl">
+    <button class="pill" id="pwr">POWER</button>
+    <button class="pill" id="pulseBtn">PULSE</button>
+    <div class="grp"><button class="pill" id="sweepBtn">SWEEP</button><div class="pills" id="pathPills"></div></div>
+    <button class="chip" id="themeBtn">theme <b>LIGHT</b></button>
+  </div>
+</div>
+
+<div class="tagline">Four FX chains from four different presets sit on the corners of an <b>XY pad</b>, with at most one module of each
+type (Drive, Filter, ECHO delay, Scape reverb, Shriek saturator, Bulwark dynamics, EQ, Sluice network). Drag the puck and the chain
+morphs through the round-2 brief's pipeline: <b>presence</b> votes, a lane-1 <b>order target</b>, a <b>snap</b> to a small approved
+rule set (lane 4's decode or lane 1's walk), <b>corner sharpening γ</b>, seeded <b>jitter</b> as temperature, and a <b>router</b>
+that changes one split group at a time under a +3 dB cap. Every new behaviour has a <b>dev toggle</b> for before/after
+listening; tails ring out to a per-module cap. It sounds, it measures itself live, and a self-check plants one fault per claim.</div>
+
+<div class="audit" id="audit">self-check: pending</div>
+
+<div class="row top">
+  <div class="cluster"><h2>The pad <span id="xyOut"></span></h2>
+    <canvas id="pad"></canvas>
+    <div class="legend"><i style="background:var(--value);opacity:.35"></i>a corner's own preset (pure-preset area)
+      <i style="background:var(--physics);opacity:.4"></i>an intermediate chain (shade = which one)
+      <i style="background:var(--caution)"></i>a two-or-more-change boundary, a rule broken (snap off), or an agreed order inverted.
+      Thin lines are one-change boundaries. The dashed path is the sweep.</div>
+  </div>
+  <div class="cluster"><h2>The chain at the puck <span id="chainHead"></span></h2>
+    <canvas id="chainC"></canvas>
+    <div class="ptxt" id="chainTxt"></div>
+    <div class="ctlrow"><span class="lbl">OUTPUT</span><span class="clip" id="clip">CLIP</span><span class="cap" id="audioStat" style="margin:0">AUDIO — OFF</span></div>
+    <canvas id="scopeC"></canvas>
+  </div>
+  <div class="cluster"><h2>Corners <span id="setWhy"></span></h2>
+    <div class="pills" id="setPills"></div>
+    <div class="corners" id="corners"></div>
+  </div>
+</div>
+
+<div class="row two">
+  <div class="cluster"><h2>Dev toggles — every new behaviour, A/B by ear (D2)</h2>
+    <div class="tg" id="toggles"></div>
+    <div class="ctlrow"><button class="pill" id="allOn">ALL ON (round 2)</button><button class="pill" id="allOff">ALL OFF (round-1 behaviour)</button>
+      <span class="ptxt" style="margin:0">Toggles act on the sound at once: the router walks to the new target with its own crossfades.</span></div>
+  </div>
+  <div class="cluster"><details class="adv" id="advBox"><summary>Advanced — fine-tuning (D4, D8)</summary>
+    <div class="ctlrow">
+      <label class="rng">γ SHARPEN <input type="range" id="gIn" min="1" max="4" step="0.1"><b id="gOut"></b></label>
+      <label class="rng">TEMPERATURE <input type="range" id="tIn" min="0" max="1.5" step="0.01"><b id="tOut"></b></label>
+    </div>
+    <div class="ctlrow"><span class="lbl">NORM p</span><div class="pills" id="pPills"></div>
+      <span class="lbl">OPEN CHANGES K</span><div class="pills" id="kPills"></div></div>
+    <div class="ctlrow"><span class="lbl">SEED</span><button class="pill sq" id="sDn">−</button><b id="sOut"></b><button class="pill sq" id="sUp">+</button>
+      <button class="pill" id="reshuffle">RESHUFFLE</button></div>
+    <div class="cap">TAIL CAP PER MODULE (D5) — how long a leaving module may ring before it is faded</div>
+    <div class="ctlrow" id="capRow"></div>
+    <div class="note" id="advNote"></div>
+  </details></div>
+</div>
+
+<div class="row two">
+  <div class="cluster"><h2>Metrics — the pad <span id="padHead"></span></h2>
+    <table id="padTab"></table>
+    <div class="note" id="padNote"></div>
+  </div>
+  <div class="cluster"><h2>Metrics — sweeps through the router <span id="swHead"></span></h2>
+    <table id="swTab"></table>
+    <div class="note" id="swNote"></div>
+  </div>
+</div>
+
+<div class="row two">
+  <div class="cluster"><h2>The approved set V, in plain words (D3)</h2>
+    <div id="rules"></div>
+  </div>
+  <div class="cluster"><h2>Edge reduction — each pad edge against its two corners alone</h2>
+    <table id="edgeTab"></table>
+    <div class="note" id="edgeNote"></div>
+  </div>
+</div>
+
+<div class="cluster" style="margin-top:10px"><h2>Self-check — run at load; every claim has a planted fault that must fail it</h2>
+  <table class="chk"><thead><tr><th>#</th><th>claim</th><th>holds</th><th>must-fail control (planted fault)</th><th>caught</th></tr></thead>
+    <tbody id="chkBody"><tr><td colspan="5">running…</td></tr></tbody></table>
+</div>
+
+<div class="cluster" style="margin-top:10px"><h2>What the lab shows, and what is open for the listening pass</h2>
+  <div class="rec" id="rec"></div>
+</div>
+
+<script>
+/* ======================================================================
+   BLOCK 1 — THE MODEL. Pure functions over plain data, plus the router (a
+   sample-counter state machine). No DOM, no clock, no Math.random. The page
+   (block 2) calls only what is defined here, and so does the self-check.
+   ====================================================================== */
+'use strict';
+
+/* ---------- seeded streams (round 1, verbatim) ---------- */
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function fnv(s) { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); } return h >>> 0; }
+function gumbel(u) { u = Math.min(1 - 1e-9, Math.max(1e-9, u)); return -Math.log(-Math.log(u)); }
+const sigm = z => 1 / (1 + Math.exp(-z));
+const clamp = (v, lo, hi) => v < lo ? lo : v > hi ? hi : v;
+const clamp01 = u => u <= 0 ? 0 : u >= 1 ? 1 : u;
+const rc = u => { u = clamp01(u); return 0.5 - 0.5 * Math.cos(Math.PI * u); };
+const ek = (u, v) => u + '>' + v;
+const isLane = n => n === 'BODY' || n === 'SUB';
+const EPS = 1e-6;
+/* ONE uniform per KEY. A draw is keyed by what it is about ('m:DRV', 'o:FLT|REV',
+   's:OUT'), never by a corner's index: the same module gets the same threshold on
+   every corner set and on a pad edge taken alone (edge reduction), and adding a
+   module never re-deals the others (the reason round 1 drew the shared draw first). */
+const uOf = (seed, key) => mulberry32((seed ^ fnv(key)) >>> 0)();
+const logistic = u => { u = clamp(u, 1e-9, 1 - 1e-9); return Math.log(u / (1 - u)); };
+const logitC = (q, L) => q <= 0 ? -L : q >= 1 ? L : clamp(Math.log(q / (1 - q)), -L, L);
+
+/* ---------- the world ---------- */
+/* TYPES IS ALSO THE HOUSE ORDER: dynamics and EQ first, filter, drive, saturation,
+   the network, then time. An absent module's ghost rank comes from it (lane 1 §3.4,
+   rule (a): deterministic and preset-independent), and so do ties. */
+const TYPES = ['DYN', 'EQ', 'FLT', 'DRV', 'SAT', 'NET', 'DLY', 'REV'];
+const HOUSE = {}; TYPES.forEach((t, i) => { HOUSE[t] = i; });
+const NAME = { DYN: 'Bulwark (dynamics)', EQ: 'EQ', FLT: 'Filter', DRV: 'Drive', SAT: 'Shriek (saturator)', NET: 'Sluice (network)',
+               DLY: 'ECHO (delay)', REV: 'Scape (reverb)', BODY: 'Body', SUB: 'Sub', OUT: 'Out' };
+const SHORT = { DYN: 'Dy', EQ: 'Eq', FLT: 'Fl', DRV: 'Dr', SAT: 'Sa', NET: 'Nw', DLY: 'Dl', REV: 'Rv', BODY: 'Bo', SUB: 'Su', OUT: 'Out', WIRE: '·' };
+const LANES = ['BODY', 'SUB'];
+/* THE CAP IS A NAMED CONSTANT (brief §2.1): one instance per type now; raising it
+   later needs rank-order correspondence (lane 5). Identity is the type, so the same
+   module in two corners is the same object and its parameters simply blend. */
+const INSTANCES_PER_TYPE = 1;
+const TAIL_TYPES = { DLY: 1, REV: 1, NET: 1 };     // modules with memory that rings (D5)
+
+/* THE APPROVED SET V (D3) — three house rules, one exception, nothing else.
+   Deliberately permissive: a rule is here only if it guards against CPU that
+   cannot be paid or a sound that is a known dead end. Corners are presets, so
+   every shipped corner must satisfy V (checked at load: inV on each corner). */
+const COST = { DYN: 1, EQ: 1, FLT: 1, DRV: 1, SAT: 2, DLY: 2, REV: 3, NET: 4 };
+const CPU_BUDGET = 10;
+const RULES = [
+  { id: 'R1', kind: 'cpu', title: 'CPU budget',
+    text: 'A chain costs at most ' + CPU_BUDGET + ' points. Sluice 4 · Scape 3 · ECHO 2 · Shriek 2 · everything else 1. Tails that are still ringing are extra and are shown live.' },
+  { id: 'R2', kind: 'never', a: 'DYN', b: 'REV', exc: 'E1', title: 'Bulwark never after Scape',
+    text: 'a compressor after the reverb pumps the tail and ducks the room.' },
+  { id: 'R3', kind: 'never', a: 'NET', b: 'REV', title: 'Sluice never after Scape',
+    text: 'a feedback network fed a dense reverb wash rings itself into a howl.' },
+];
+const EXCEPTIONS = [
+  { id: 'E1', rule: 'R2', title: 'The breathing bus',
+    text: 'Scape straight into Bulwark as the very LAST module is allowed: the pumping reverb bus, on purpose.' },
+];
+const chainCost = c => c.reduce((s, t) => s + COST[t], 0);
+/* null if the chain is in V, else the first rule it breaks */
+function vBreak(chain) {
+  if (chainCost(chain) > CPU_BUDGET) return 'R1';
+  for (const r of RULES) if (r.kind === 'never') {
+    const ia = chain.indexOf(r.a), ib = chain.indexOf(r.b);
+    if (ia < 0 || ib < 0 || ia < ib) continue;
+    if (r.exc === 'E1' && ia === ib + 1 && ia === chain.length - 1) continue;   // the breathing bus
+    return r.id;
+  }
+  return null;
+}
+const inV = chain => !vBreak(chain);
+
+/* CORNER SETS. A corner is a preset: a chain (Body always enters its head), the
+   module the Sub enters (or OUT, dry), and per-module parameters. */
+const SETS = [
+  { id: 'four', name: 'four presets', why: 'four unrelated presets; Filter, Drive and Scape sit in all four (Filter and Drive disagree on their order, both precede Scape everywhere); the union costs 15 points, so the middle of the pad must drop modules to stay in V',
+    corners: [
+      { name: 'acid lead', chain: ['FLT', 'DRV', 'DLY', 'REV'], sub: 'DRV',
+        p: { FLT: { cut: 900, res: 0.7 }, DRV: { drive: 6 }, DLY: { time: 0.21, fbk: 0.35, mix: 0.3 }, REV: { size: 0.45, mix: 0.2 } } },
+      { name: 'glue bus', chain: ['DRV', 'FLT', 'REV', 'DYN'], sub: 'OUT',
+        p: { DRV: { drive: 3 }, FLT: { cut: 2400, res: 0.3 }, REV: { size: 0.6, mix: 0.3 }, DYN: { thr: -20, ratio: 4, att: 0.005, rel: 0.12, mk: 5 } } },
+      { name: 'network grit', chain: ['FLT', 'DRV', 'NET', 'REV'], sub: 'FLT',
+        p: { FLT: { cut: 1400, res: 0.45 }, DRV: { drive: 8 }, NET: { size: 0.8, fbk: 0.9, tone: 2500, mix: 0.45 }, REV: { size: 0.5, mix: 0.25 } } },
+      { name: 'hyper wash', chain: ['EQ', 'DRV', 'SAT', 'FLT', 'REV'], sub: 'SAT',
+        p: { EQ: { f: 3000, gdb: 6, q: 0.8 }, DRV: { drive: 4 }, SAT: { gain: 5, bias: 0.3, tone: 5000 }, FLT: { cut: 3500, res: 0.2 }, REV: { size: 0.8, mix: 0.5 } } },
+    ] },
+  { id: 'close', name: 'four neighbours', why: 'four near-identical chains (one swap or one move apart): the quiet case, where most of the pad should sound like a corner',
+    corners: [
+      { name: 'base', chain: ['FLT', 'DRV', 'DLY', 'REV'], sub: 'DRV',
+        p: { FLT: { cut: 1200, res: 0.5 }, DRV: { drive: 5 }, DLY: { time: 0.25, fbk: 0.35, mix: 0.3 }, REV: { size: 0.5, mix: 0.25 } } },
+      { name: 'drive first', chain: ['DRV', 'FLT', 'DLY', 'REV'], sub: 'DRV',
+        p: { DRV: { drive: 7 }, FLT: { cut: 800, res: 0.65 }, DLY: { time: 0.25, fbk: 0.4, mix: 0.3 }, REV: { size: 0.55, mix: 0.25 } } },
+      { name: 'room into echo', chain: ['FLT', 'DRV', 'REV', 'DLY'], sub: 'FLT',
+        p: { FLT: { cut: 1800, res: 0.4 }, DRV: { drive: 4 }, REV: { size: 0.65, mix: 0.35 }, DLY: { time: 0.3, fbk: 0.4, mix: 0.35 } } },
+      { name: 'echoes driven', chain: ['FLT', 'DLY', 'DRV', 'REV'], sub: 'OUT',
+        p: { FLT: { cut: 1000, res: 0.55 }, DLY: { time: 0.2, fbk: 0.45, mix: 0.35 }, DRV: { drive: 6 }, REV: { size: 0.5, mix: 0.25 } } },
+    ] },
+  { id: 'round1', name: 'round 1 pairs on the edges', why: 'the bottom edge is round 1\'s "across the set" pair and the top edge its "two grow in" pair, so the edge-reduction table compares like with like; no pair is held by all four corners, so strict unanimity is vacuous here',
+    corners: [
+      { name: 'across · L', chain: ['FLT', 'DRV', 'DLY', 'REV'], sub: 'DRV',
+        p: { FLT: { cut: 900, res: 0.7 }, DRV: { drive: 7 }, DLY: { time: 0.21, fbk: 0.35, mix: 0.3 }, REV: { size: 0.45, mix: 0.2 } } },
+      { name: 'across · R', chain: ['REV', 'DRV', 'FLT', 'DLY'], sub: 'OUT',
+        p: { REV: { size: 0.8, mix: 0.6 }, DRV: { drive: 5 }, FLT: { cut: 3200, res: 0.2 }, DLY: { time: 0.33, fbk: 0.4, mix: 0.35 } } },
+      { name: 'grow · L', chain: ['DRV', 'FLT'], sub: 'OUT',
+        p: { DRV: { drive: 4 }, FLT: { cut: 1800, res: 0.35 } } },
+      { name: 'grow · R', chain: ['DLY', 'DRV', 'FLT', 'REV'], sub: 'FLT',
+        p: { DLY: { time: 0.24, fbk: 0.4, mix: 0.4 }, DRV: { drive: 6 }, FLT: { cut: 1200, res: 0.5 }, REV: { size: 0.65, mix: 0.35 } } },
+    ] },
+];
+const CORNER_XY = [[0, 0], [1, 0], [0, 1], [1, 1]];   // A bottom-left, B bottom-right, C top-left, D top-right
+const CORNER_ID = ['A', 'B', 'C', 'D'];
+
+/* ---------- constants of the pipeline ---------- */
+const H_JIT = 0.6;               // lane 1: jitter half-range; h·T < 2/3 keeps unanimity (derived bound)
+const XI_CLAMP = 6, LOGIT_L = 12; // lane 4 F1: L > the noise clamp, so every corner is the unique maximiser
+const BLEND_XI = -11;            // blend: a module is in the chain wherever its vote clears σ(−11) ≈ 1.7e-5
+const BLEND_THETA = sigm(BLEND_XI);
+const HOUSE_EPS = 1e-7;          // pair order no corner speaks to: a whisper toward the house order (a tie-break, not a vote)
+const AUDIBLE = 0.0316;          // −30 dB: a blended module quieter than this is not part of the audible chain
+const PURE_GAIN = 0.891;         // −1 dB: blend counts a point as its corner's preset only if every corner module is this loud
+
+/* ---------- a morph: the corners and the settings, with every keyed draw made once ---------- */
+/* ghost-extended ranks over ALL eight types (lane 1 F1 step 1). The universe is the
+   whole type list, not the corners' union, so a corner's ranks never depend on which
+   OTHER corners exist: a pad edge ranks exactly as its two corners do alone. */
+function ghostRanks(chain) {
+  const list = chain.slice();
+  for (const t of TYPES) if (!list.includes(t)) {
+    let at = 0; for (let i = 0; i < list.length; i++) if (HOUSE[list[i]] < HOUSE[t]) at = i + 1;
+    list.splice(at, 0, t);
+  }
+  const r = {}; list.forEach((t, i) => { r[t] = i; }); return r;
+}
+function makeMorph(corners, o) {
+  const n = corners.length, Teff = o.jitter ? o.T : 0;
+  const has = corners.map(c => new Set(c.chain)), at = corners.map(c => { const q = {}; c.chain.forEach((t, i) => { q[t] = i; }); return q; });
+  const U = TYPES.filter(t => has.some(h => h.has(t)));
+  const dr = { theta: {}, xim: {}, g: {}, xio: {}, subG: {} };
+  for (const t of TYPES) {
+    const d = logistic(uOf(o.seed, 'm:' + t));
+    dr.xim[t] = clamp(Teff * d, -XI_CLAMP, XI_CLAMP);
+    dr.theta[t] = sigm(dr.xim[t]);                       // the quantum threshold IS the decode's membership noise (lane 4 §2)
+    dr.g[t] = 2 * uOf(o.seed, 'g:' + t) - 1;
+  }
+  for (let i = 0; i < TYPES.length; i++) for (let j = i + 1; j < TYPES.length; j++)
+    dr.xio[TYPES[i] + '|' + TYPES[j]] = clamp(Teff * logistic(uOf(o.seed, 'o:' + TYPES[i] + '|' + TYPES[j])), -XI_CLAMP, XI_CLAMP);
+  for (const e of TYPES.concat(['OUT'])) dr.subG[e] = gumbel(uOf(o.seed, 's:' + e));
+  /* AGREED PAIRS. strict: every corner holds both and orders them alike (the brief's
+     "all four corners agree", asserted). supported: every corner that holds both
+     agrees, and one does (reported only: ghosts can break it, see the notes). */
+  const strict = [], supported = [];
+  for (const a of U) for (const b of U) if (a !== b) {
+    const hold = corners.map((c, k) => has[k].has(a) && has[k].has(b));
+    const nH = hold.filter(Boolean).length;
+    if (!nH) continue;
+    if (corners.every((c, k) => !hold[k] || at[k][a] < at[k][b])) { supported.push([a, b]); if (nH === n) strict.push([a, b]); }
+  }
+  const keys = corners.map(c => c.chain.join(' ') + '|' + c.sub);
+  return { corners, n, U, has, at, ranks: corners.map(c => ghostRanks(c.chain)), dr, Teff, strict, supported, keys, o };
+}
+
+/* ---------- weights ---------- */
+const bilinear = (x, y) => [(1 - x) * (1 - y), x * (1 - y), (1 - x) * y, x * y];
+/* PLANT (edge reduction must-fail): inverse-distance weights, a plausible pad law
+   under which the far corners still pull on an edge. */
+function radial(x, y) {
+  const d = CORNER_XY.map(([a, b]) => Math.hypot(x - a, y - b));
+  const z = d.findIndex(v => v < 1e-9);
+  if (z >= 0) return d.map((_, k) => k === z ? 1 : 0);
+  const w = d.map(v => 1 / (v * v)), s = w.reduce((a, b) => a + b, 0);
+  return w.map(v => v / s);
+}
+/* corner sharpening (lane 4 §5, D2): w_k^γ renormalised. Corners stay exact
+   (a one-hot vector is a fixed point), and the untouched presets own more pad. */
+function sharpen(w, o) {
+  if (!o.sharpen || o.gamma === 1 || o.plant === 'nosharp') return w;
+  const v = w.map(q => Math.pow(q, o.gamma)), s = v.reduce((a, b) => a + b, 0);
+  return v.map(q => q / s);
+}
+const weightsXY = (M, x, y) => sharpen(M.o.plant === 'radial' ? radial(x, y) : bilinear(x, y), M.o);
+const weightsT = (M, t) => sharpen([1 - t, t], M.o);   // a pad edge taken alone: two corners
+
+/* ---------- the map: (weights) → the target structure ---------- */
+function mapW(M, w) {
+  const o = M.o, C = M.corners, n = M.n, blend = o.mode === 'blend';
+  // 1. presence: each type's vote
+  const p = {};
+  for (const t of TYPES) { let s = 0; for (let k = 0; k < n; k++) if (M.has[k].has(t)) s += w[k]; p[t] = s; }
+  const theta = t => blend ? BLEND_THETA : M.dr.theta[t];
+  // 2. the order target (lane 1 F1): weighted mean rank + jitter that vanishes at the corners
+  let wmax = 0; for (let k = 0; k < n; k++) if (w[k] > wmax) wmax = w[k];
+  const J = M.Teff * (o.plant === 'jitbound' ? 12 : H_JIT) * (1 - wmax);
+  const score = {};
+  for (const t of TYPES) { let s = 0; for (let k = 0; k < n; k++) s += w[k] * M.ranks[k][t]; score[t] = s + J * M.dr.g[t]; }
+  const order = TYPES.slice().sort((a, b) => (Math.abs(score[a] - score[b]) > 1e-12 ? score[a] - score[b] : 0) || HOUSE[a] - HOUSE[b]);   // equal votes tie by house order, not by float noise
+  const target = order.filter(t => p[t] > theta(t));
+  // 3. the snap to V
+  let chain;
+  if (!o.snap) chain = target;
+  else if (o.method === 'walk') chain = walkV(M, w, p, target, score, theta);
+  else chain = decodeV(M, w, p);
+  // 4. the Sub's entry, the wet gains, the parameters
+  const sub = pickSub(M, w, chain);
+  const wet = {}, prm = {};
+  for (const t of chain) { wet[t] = blend ? p[t] : 1; prm[t] = paramsAt(M, w, t); }
+  return { w, p, target, chain, sub, wet, prm, score };
+}
+
+/* LANE 4 F1 — vote on bits, then DECODE to the best chain in V (perturb-and-MAP).
+   Bits are membership (is t in?) and pair order (does a precede b?), each with a
+   bilinear vote and one keyed seeded threshold. The argmax over V is EXACT: a
+   dynamic programme over (set placed so far, last module, closed), 2^n · n · 2
+   states for n ≤ 8, with V's rules applied as each module is appended and the CPU
+   budget on the finished set. Enumerating V instead would be 109 601 chains for
+   eight types (lane 4 §6): not affordable per point. Ties keep the first chain
+   found in type order, which is content-keyed, so a pad edge decodes as its two
+   corners do alone. */
+function decodeV(M, w, p) {
+  const o = M.o, n0 = M.n, L = o.plant === 'lowL' ? 2 : LOGIT_L, blend = o.mode === 'blend';
+  const Uz = TYPES.filter(t => p[t] > 0);           // a type no weighted corner holds can never win
+  const n = Uz.length;
+  if (!n) return [];
+  const um = Uz.map(t => logitC(p[t], L) - (blend ? BLEND_XI : M.dr.xim[t]));
+  const ps = Uz.map(() => new Float64Array(n));
+  for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
+    const a = Uz[i], b = Uz[j];
+    let sup = 0, vote = 0;
+    for (let k = 0; k < n0; k++) if (M.has[k].has(a) && M.has[k].has(b)) { sup += w[k]; if (M.at[k][a] < M.at[k][b]) vote += w[k]; }
+    const u = sup > 0 ? sup * (logitC(vote / sup, L) - M.dr.xio[a + '|' + b]) : HOUSE_EPS;   // Uz is in house order, so i<j is the house direction
+    ps[i][j] = u; ps[j][i] = -u;
+  }
+  const N = 1 << n;
+  const Sx = new Float64Array(N * n), mem = new Float64Array(N), cost = new Int32Array(N);
+  for (let Q = 1; Q < N; Q++) {
+    const i = 31 - Math.clz32(Q & -Q), Q0 = Q & (Q - 1);
+    for (let j = 0; j < n; j++) Sx[Q * n + j] = Sx[Q0 * n + j] + ps[i][j];
+    mem[Q] = mem[Q0] + 2 * um[i]; cost[Q] = cost[Q0] + COST[Uz[i]];
+  }
+  const never = RULES.filter(r => r.kind === 'never').map(r => ({ ia: Uz.indexOf(r.a), ib: Uz.indexOf(r.b), exc: r.exc })).filter(r => r.ia >= 0 && r.ib >= 0);
+  const S = N * n * 2, f = new Float64Array(S).fill(-Infinity), back = new Int32Array(S).fill(-1);
+  for (let i = 0; i < n; i++) f[((1 << i) * n + i) * 2] = 0;
+  for (let Q = 1; Q < N; Q++) for (let last = 0; last < n; last++) {
+    if (!(Q >> last & 1)) continue;
+    const s0 = (Q * n + last) * 2, v = f[s0];
+    if (v === -Infinity) continue;                    // closed states (…, Scape, Bulwark) are never extended
+    for (let j = 0; j < n; j++) {
+      if (Q >> j & 1) continue;
+      let ok = true, closed = 0;
+      for (const r of never) if (j === r.ia && (Q >> r.ib & 1)) {
+        if (r.exc === 'E1' && last === r.ib) closed = 1; else { ok = false; break; }
+      }
+      if (!ok) continue;
+      const Q2 = Q | 1 << j, s2 = (Q2 * n + j) * 2 + closed, v2 = v + Sx[Q * n + j];
+      if (v2 > f[s2] + 1e-12) { f[s2] = v2; back[s2] = s0; }   // within 1e-12 is a tie: the first found keeps it
+    }
+  }
+  let best = 0, bs = -1;                              // the empty chain scores 0 (all membership bits "absent")
+  for (let Q = 1; Q < N; Q++) {
+    if (cost[Q] > CPU_BUDGET) continue;
+    for (let last = 0; last < n; last++) for (let c = 0; c < 2; c++) {
+      const s = (Q * n + last) * 2 + c;
+      if (f[s] === -Infinity) continue;
+      const v = f[s] + mem[Q];
+      if (v > best + 1e-12) { best = v; bs = s; }
+    }
+  }
+  const out = [];
+  for (let s = bs; s >= 0; s = back[s]) out.unshift(Uz[((s >> 1) % n)]);
+  return out;
+}
+
+/* LANE 1 F2 — WALK the approved graph toward the target, made a pure function of
+   position: start at the heaviest corner's chain (in V: it is a preset) and take
+   lawful hops — drop a module the target lacks, swap an adjacent pair the target
+   orders the other way, insert a module the target has — each one keeping the chain
+   in V, until none is left. Drops go first (they free CPU), then swaps, then inserts;
+   within a kind, the biggest margin first. Where the target is in V the walk reaches
+   it exactly; where it is not, the walk stops at a nearby chain in V, and WHICH one
+   depends on the start corner (a finding the pad paints). The one-hop-per-slot pace
+   of lane 1's F2 is the router's job here, not the map's. */
+function walkV(M, w, p, target, score, theta) {
+  const C = M.corners;
+  let k0 = 0;
+  for (let k = 1; k < M.n; k++) if (w[k] > w[k0] + 1e-15 || (Math.abs(w[k] - w[k0]) <= 1e-15 && M.keys[k] < M.keys[k0])) k0 = k;
+  let cur = inV(C[k0].chain) ? C[k0].chain.slice() : [];
+  const tset = new Set(target), tpos = {}; target.forEach((t, i) => { tpos[t] = i; });
+  for (let guard = 0; guard < 64; guard++) {
+    const cand = [];
+    for (const t of cur) if (!tset.has(t)) cand.push({ k: 0, m: theta(t) - p[t], t, f: c => c.filter(q => q !== t) });
+    for (let i = 0; i + 1 < cur.length; i++) {
+      const a = cur[i], b = cur[i + 1];
+      if (tset.has(a) && tset.has(b) && tpos[a] > tpos[b]) cand.push({ k: 1, m: Math.abs(score[a] - score[b]), t: a, f: c => { const d = c.slice(); d[i] = b; d[i + 1] = a; return d; } });
+    }
+    for (const t of target) if (!cur.includes(t)) cand.push({ k: 2, m: p[t] - theta(t), t, f: c => insertAfterPred(c, t, target) });
+    // margins within 1e-12 are a TIE: on the B–C diagonal Delay's and Shriek's votes are
+    // equal in exact arithmetic, and float noise alone chose between them, so the walk
+    // chattered (74 structure changes on one sweep before this tolerance)
+    cand.sort((x, y) => x.k - y.k || (Math.abs(y.m - x.m) > 1e-12 ? y.m - x.m : 0) || HOUSE[x.t] - HOUSE[y.t]);
+    let moved = false;
+    for (const c of cand) { const nx = c.f(cur); if (inV(nx)) { cur = nx; moved = true; break; } }
+    if (!moved) break;
+  }
+  return cur;
+}
+function insertAfterPred(c, t, target) {
+  const ti = target.indexOf(t);
+  for (let k = ti - 1; k >= 0; k--) { const q = c.indexOf(target[k]); if (q >= 0) return c.slice(0, q + 1).concat([t], c.slice(q + 1)); }
+  return [t].concat(c);
+}
+/* THE SUB'S ENTRY: round 1's threshold law (morph_core pickCorner) over the entry
+   VALUES the corners name, each value's weight its vote, its Gumbel keyed by the
+   value. An entry whose module is not in the chain is not a candidate; none → dry. */
+function pickSub(M, w, chain) {
+  const vote = new Map();
+  for (let k = 0; k < M.n; k++) { const e = M.corners[k].sub; vote.set(e, (vote.get(e) || 0) + w[k]); }
+  let best = 'OUT', bv = -Infinity;
+  for (const e of [...vote.keys()].sort()) {
+    const v = vote.get(e);
+    if (v <= 0 || (e !== 'OUT' && !chain.includes(e))) continue;
+    const s = Math.log(v) + M.Teff * M.dr.subG[e];
+    if (s > bv + 1e-12) { bv = s; best = e; }
+  }
+  return best;
+}
+/* a module's parameters: the weighted mean over the corners that hold it (log for
+   frequencies and times), the round-1 lerpP rule extended to four corners */
+const LOG_KEYS = { cut: 1, time: 1, f: 1, tone: 1 };
+function paramsAt(M, w, t) {
+  let ws = 0; const acc = {}, ks = [];
+  for (let k = 0; k < M.n; k++) if (M.has[k].has(t)) { ws += w[k]; ks.push(k); }
+  const wk = k => ws > 0 ? w[k] / ws : 1 / ks.length;
+  for (const k of ks) for (const key in M.corners[k].p[t]) {
+    const v = M.corners[k].p[t][key];
+    acc[key] = (acc[key] || 0) + wk(k) * (LOG_KEYS[key] ? Math.log(v) : v);
+  }
+  for (const key in acc) if (LOG_KEYS[key]) acc[key] = Math.exp(acc[key]);
+  return acc;
+}
+
+/* ---------- structures: identity, distance, the audible view ---------- */
+/* In blend every module some corner holds is in the chain, most at a whisper; the
+   AUDIBLE chain keeps those at −30 dB or louder. Quantum gains are 1, so for quantum
+   the two are the same. Metrics read the audible chain. */
+const audibleChain = st => st.chain.filter(t => st.wet[t] >= AUDIBLE);
+const skey = st => audibleChain(st).join(' ') + '|' + st.sub;
+/* jump size between two structures: modules in one and not the other, plus pairs the
+   two order differently, plus one if the Sub moved. A "two-change jump" (D4) is 2. */
+function jumpD(a, b) {
+  const ca = audibleChain(a), cb = audibleChain(b);
+  let d = 0;
+  for (const t of ca) if (!cb.includes(t)) d++;
+  for (const t of cb) if (!ca.includes(t)) d++;
+  const sh = ca.filter(t => cb.includes(t)), ib = {}; cb.forEach((t, i) => { ib[t] = i; });
+  for (let i = 0; i < sh.length; i++) for (let j = i + 1; j < sh.length; j++) if (ib[sh[i]] > ib[sh[j]]) d++;
+  return d + (a.sub === b.sub ? 0 : 1);
+}
+function pureCorner(M, st) {
+  const k = M.keys.indexOf(skey(st));
+  if (k < 0) return -1;
+  if (M.o.mode === 'blend') for (const t of M.corners[k].chain) if (!(st.wet[t] >= PURE_GAIN)) return -1;
+  return k;
+}
+function inverted(chain, pairs) {
+  const ix = {}; chain.forEach((t, i) => { ix[t] = i; });
+  for (const [a, b] of pairs) if (ix[a] !== undefined && ix[b] !== undefined && ix[b] < ix[a]) return SHORT[b] + ' before ' + SHORT[a];
+  return '';
+}
+
+/* ---------- metrics over the pad: a GRID × GRID lattice ---------- */
+const GRID = 41;
+function gridMap(M, N) {
+  N = N || GRID;
+  const cells = new Array(N * N);
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+    const st = mapW(M, weightsXY(M, i / (N - 1), j / (N - 1)));
+    cells[j * N + i] = { st, key: skey(st), pure: pureCorner(M, st), outV: vBreak(st.chain), unan: inverted(audibleChain(st), M.strict),
+                         unanS: inverted(audibleChain(st), M.supported), cost: chainCost(st.chain) };
+  }
+  const keys = new Map(), hist = [0, 0, 0, 0];   // jump sizes 1, 2, 3+, (index 0 unused)
+  let pure = 0, outV = 0, unan = 0, unanS = 0, maxCost = 0, edges = 0;
+  for (let q = 0; q < N * N; q++) {
+    const c = cells[q];
+    if (c.pure >= 0) pure++;
+    else keys.set(c.key, (keys.get(c.key) || 0) + 1);
+    if (c.outV) outV++;
+    if (c.unan) unan++;
+    if (c.unanS) unanS++;
+    if (c.cost > maxCost) maxCost = c.cost;
+    const i = q % N, j = (q / N) | 0;
+    for (const r of [i + 1 < N ? q + 1 : -1, j + 1 < N ? q + N : -1]) if (r >= 0 && cells[r].key !== c.key) {
+      const d = jumpD(c.st, cells[r].st); hist[Math.min(3, d)]++; edges++; c.jump = Math.max(c.jump || 0, d);
+    }
+  }
+  const ids = new Map(); [...keys.keys()].sort().forEach((k, i) => ids.set(k, i));
+  for (const c of cells) c.id = c.pure >= 0 ? -1 - c.pure : ids.get(c.key);
+  return { N, cells, pureFrac: pure / (N * N), distinct: keys.size, hist, edges, outV, unan, unanS, maxCost,
+           firstUnan: (cells.find(c => c.unan) || {}).unan || '', firstOut: (cells.find(c => c.outV) || {}).outV || '' };
+}
+
+/* ======================================================================
+   THE ROUTER — lane 2's discipline as a control-rate state machine.
+   The signal graph is ONE SPINE (every module the corners hold, in an order) of
+   junctions: J:0 → [send] module [wet] → J:module, with a dry wire J:prev → J:module
+   beside it. Body enters J:0; the Sub enters the junction in front of its entry
+   module. A module PARKED in the spine is a dry wire (send 0, wet 0, dry 1), so its
+   place there is inaudible and it can be moved for free; a module is moved only
+   while bypassed. This is round 1's E encoding (junctions as WIRE nodes), so round
+   1's checkers read the frames unchanged.
+   Each change is ONE split group (lane 2 R1a): what it makes and what it breaks
+   share a ramp u, normalised u/‖u‖_p, so the lane's gain stays on the p-simplex.
+     arrive   input armed first (I7: inputs before outputs), then wet up / dry down
+     leave    wet down / dry up; a Delay, Reverb or Network instead drops its SEND
+              against the dry and keeps its wet open: its tail rings out (D5) for
+              min(its own decay, its cap), then fades
+     move     a wet dip: down, re-placed while bypassed, up (lane 3's duck-swap-unduck)
+     sub      the Sub's injection crossfades from one junction to another
+   At most K changes are open on a lane, and a new one starts only if the lane's
+   worst-case gain stays within +3 dB (lane 2's K budget; one may always start).
+   Changes are issued upstream first, leaves before moves before arrivals (lane 2
+   O3's one monotone direction); arrivals wait until no move is pending, so each
+   one is placed where the target wants it.
+   ====================================================================== */
+const XF_S = 0.08;               // one change's crossfade, seconds (the rack's fxXfade default, B117)
+const WET_TAU_S = 0.03;          // blend: wet gains follow the pad with this time constant
+const CEIL = Math.SQRT2;         // +3 dB: the equal-power sum of two coherent paths (20·log10 √2 = 3.01)
+const FLOOR = 0.5;               // round 1's I6 floor: −6 dB of the lane's settled gain
+const DEFAULT_CAPS = { DLY: 2.0, REV: 3.0, NET: 1.5 };
+/* a tail's own length (to −60 dB) from its parameters; Infinity when the loop gain reaches 1 */
+function tailSecs(t, p) {
+  if (!p) return 0;
+  if (t === 'DLY') return p.fbk <= 0 ? p.time : p.fbk >= 1 ? Infinity : p.time * Math.log(1e-3) / Math.log(p.fbk);
+  if (t === 'REV') { const f = 0.7 + 0.26 * p.size; return 0.028 * Math.log(1e-3) / Math.log(f); }
+  if (t === 'NET') { const L = 0.042 * (0.5 + p.size); return p.fbk >= 1 ? Infinity : L * Math.log(1e-3) / Math.log(p.fbk); }
+  return 0;
+}
+const COUNTED = { arr: 1, arrT: 1, lvN: 1, lvT: 1, mvA: 1, mvB: 1 };   // 'tc' (a tail's last fade) changes no lane gain
+
+function Router(M, sr, tick) {
+  this.sr = sr; this.tick = tick; this.dt = tick / sr;
+  this.setMorph(M);
+  this.spine = []; this.mods = {}; this.sub = [{ j: 'OUT' }]; this.subEv = null; this.n = 0; this.log = [];
+}
+Router.prototype.setMorph = function (M) {
+  this.M = M; this.o = M.o;
+  this.du = M.o.plant === 'hard' ? 1 : this.dt / XF_S;
+  this.kw = Math.exp(-this.dt / WET_TAU_S);
+  this.caps = Object.assign({}, DEFAULT_CAPS, M.o.caps || {});
+};
+Router.prototype.settle = function (st) {
+  const U = this.M.U;
+  this.spine = st.chain.concat(U.filter(t => !st.chain.includes(t)));
+  this.mods = {};
+  for (const t of U) this.mods[t] = { t, mode: st.chain.includes(t) ? 'live' : 'park', g: st.wet[t] || 0, gh: 0, ev: null, u: 0, gen: 0, hold: 0, prm: st.prm[t] || paramsAt(this.M, st.w, t) };
+  this.sub = [{ j: this.inJ(st.sub) }]; this.subEv = null;
+};
+Router.prototype.inJ = function (e) {
+  if (e === 'OUT') return 'OUT';
+  const i = this.spine.indexOf(e);
+  return i > 0 ? 'J:' + this.spine[i - 1] : 'J:0';
+};
+Router.prototype.active = function (t) { const m = this.mods[t]; return !!m && (m.mode !== 'park' || !!m.ev); };
+Router.prototype.fmax = function () { const o = this.o; return o.plant === 'bbm' ? 1 : !o.norm ? 2 : Math.pow(2, 1 - 1 / o.p); };
+/* (make, break) at ramp position u */
+Router.prototype.split = function (u) {
+  const o = this.o;
+  if (o.plant === 'bbm') return [rc(2 * u - 1), 1 - rc(2 * u)];      // PLANT: break before make
+  if (!o.norm) return [rc(2 * u), 1 - rc(2 * u - 1)];                 // round 1: make, then break, each on its own ramp
+  const a = clamp01(u), b = 1 - a, p = o.p;
+  const n = p === 1 ? 1 : p === 2 ? Math.sqrt(a * a + b * b) : Math.pow(Math.pow(a, p) + Math.pow(b, p), 1 / p);
+  return [a / n, b / n];
+};
+/* a module's [send, wet, dry] */
+Router.prototype.wts = function (m) {
+  const g = m.g;
+  if (!m.ev) return m.mode === 'live' ? [1, g, 1 - g] : m.mode === 'tail' ? [0, m.gh, 1] : [0, 0, 1];
+  const [A, B] = this.split(m.u);
+  switch (m.ev) {
+    case 'arr': return [this.o.plant === 'outfirst' ? (m.u >= 1 ? 1 : 0) : 1, g * A, 1 - g + g * B];
+    case 'arrT': return [A, m.gh + (g - m.gh) * rc(2 * m.u - 1), 1 - g + g * B];   // the wet moves only once the send is past half way
+    case 'lvN': case 'mvA': return [1, g * B, 1 - g + g * A];
+    case 'mvB': return [1, g * A, 1 - g + g * B];
+    case 'lvT': return [B, g, 1 - g + g * A];
+    case 'tc': return [0, m.gh * (1 - rc(m.u)), 1];
+  }
+  return [0, 0, 1];
+};
+/* the lanes a module's change can move: Body passes every junction; the Sub only
+   those downstream of where it enters. `subs` overrides the Sub's injection points:
+   a Sub crossfade about to start must be judged against BOTH its ends, or a mover
+   the new end reaches is missed (the first build let the Sub reach +4.7 dB so). */
+Router.prototype.lanesOf = function (t, subs) {
+  const i = this.spine.indexOf(t), out = ['BODY'];
+  subs = subs || (this.subEv ? [this.subEv.from, this.subEv.to] : this.sub.map(s => s.j));
+  for (const j of subs) { if (j === 'OUT') continue; const k = j === 'J:0' ? -1 : this.spine.indexOf(j.slice(2)); if (i > k) { out.push('SUB'); break; } }
+  return out;
+};
+Router.prototype.openOn = function (lane, subs) {
+  const f = [], fm = this.fmax();
+  for (const t of this.spine) { const m = this.mods[t]; if (m.ev && COUNTED[m.ev] && this.lanesOf(t, subs).includes(lane)) f.push(1 + m.g * (fm - 1)); }
+  if (lane === 'SUB' && this.subEv) f.push(fm);
+  return f;
+};
+Router.prototype.admit = function (lanes, g, subs) {
+  const o = this.o;
+  if (o.plant === 'noK') return true;                                     // PLANT: no budget at all
+  for (const l of lanes) {
+    const op = this.openOn(l, subs);
+    if (!op.length) continue;                                             // liveness: one change may always start
+    if (op.length >= o.K) return false;
+    if (op.reduce((a, b) => a * b, 1) * (1 + g * (this.fmax() - 1)) > CEIL + 1e-9) return false;
+  }
+  return true;
+};
+/* place t (bypassed) after its target predecessor among the active modules. The
+   junction after a bypassed module carries what the junction before it carries, so
+   a Sub injected there is re-keyed to the one before first (same signal, new name),
+   and a Sub that should enter AFTER t is re-keyed onto t's junction as t lands. */
+Router.prototype.reposition = function (t, st) {
+  const sp = this.spine, i = sp.indexOf(t), prevJ = i > 0 ? 'J:' + sp[i - 1] : 'J:0', tj = 'J:' + t;
+  for (const s of this.sub) if (s.j === tj) s.j = prevJ;
+  if (this.subEv) { if (this.subEv.from === tj) this.subEv.from = prevJ; if (this.subEv.to === tj) this.subEv.to = prevJ; }
+  sp.splice(i, 1);
+  const ti = st.chain.indexOf(t); let at = 0;
+  for (let k = ti - 1; k >= 0; k--) { const q = sp.indexOf(st.chain[k]); if (q >= 0 && this.active(st.chain[k])) { at = q + 1; break; } }
+  const landJ = at > 0 ? 'J:' + sp[at - 1] : 'J:0';
+  sp.splice(at, 0, t);
+  if (st.sub !== t && !this.subEv) for (const s of this.sub) if (s.j === landJ) s.j = tj;
+};
+Router.prototype.issue = function (kind, t, st) {
+  const m = this.mods[t];
+  if (kind === 'arr') { this.reposition(t, st); m.gen++; m.g = st.wet[t]; }
+  if (kind === 'arrT') m.g = st.wet[t];
+  if (kind === 'mvA' && this.o.plant === 'shadow') m.shadow = true;
+  m.ev = kind; m.u = 0;
+  this.log.push({ n: this.n, kind, t });
+};
+Router.prototype.finish = function (m, st) {
+  const ev = m.ev; m.ev = null; m.u = 0;
+  if (ev === 'arr' || ev === 'arrT' || ev === 'mvB') { m.mode = 'live'; m.shadow = false; }
+  else if (ev === 'lvN') m.mode = 'park';
+  else if (ev === 'lvT') { m.mode = 'tail'; m.gh = m.g; m.hold = Math.min(tailSecs(m.t, m.prm), this.o.plant === 'nocap' ? Infinity : this.caps[m.t]); }
+  else if (ev === 'tc') { m.mode = 'park'; m.gen++; }
+  else if (ev === 'mvA') { this.reposition(m.t, st); m.ev = 'mvB'; }
+};
+Router.prototype.downSeq = function (j) {
+  if (j === 'OUT') return '';
+  const i = j === 'J:0' ? -1 : this.spine.indexOf(j.slice(2));
+  return this.spine.slice(i + 1).filter(t => this.active(t)).join(' ');
+};
+/* one control tick: follow the wet targets, advance the open changes and the tails,
+   then plan new changes against the target structure st */
+Router.prototype.step = function (st) {
+  const o = this.o, mods = this.mods;
+  this.n++;
+  for (const t of this.M.U) {
+    const m = mods[t];
+    if (st.prm[t]) m.prm = st.prm[t];
+    const follow = m.mode === 'live' ? !(m.ev === 'lvN' || m.ev === 'lvT' || m.ev === 'mvA') : (m.ev === 'arr' || m.ev === 'arrT');
+    if (follow && st.wet[t] !== undefined) m.g = st.wet[t] + (m.g - st.wet[t]) * this.kw;
+  }
+  for (const t of this.spine) {
+    const m = mods[t];
+    if (!m.ev) { if (m.mode === 'tail' && (m.hold -= this.dt) <= 0) { m.ev = 'tc'; m.u = 0; this.log.push({ n: this.n, kind: 'tc', t }); } continue; }
+    m.u = Math.min(1, m.u + this.du);
+    if (m.u >= 1) this.finish(m, st);
+  }
+  if (this.subEv && (this.subEv.u = Math.min(1, this.subEv.u + this.du)) >= 1) { this.sub = [{ j: this.subEv.to }]; this.subEv = null; }
+  this.plan(st);
+};
+Router.prototype.plan = function (st) {
+  const o = this.o, mods = this.mods, want = new Set(st.chain), cands = [];
+  for (const t of this.spine) { const m = mods[t]; if (!m.ev && m.mode === 'live' && !want.has(t)) cands.push({ kind: o.tails && TAIL_TYPES[t] ? 'lvT' : 'lvN', t, c: 0 }); }
+  // movers: the fewest modules to re-place so the active order follows the target
+  // (the heaviest common subsequence stays; a module mid-change is never chosen)
+  const act = this.spine.filter(t => want.has(t) && (mods[t].mode === 'live' || mods[t].ev === 'arr' || mods[t].ev === 'arrT' || mods[t].ev === 'mvB'));
+  const keep = heaviestCommon(act, st.chain, t => mods[t].ev ? 1e6 : 1 + mods[t].g);
+  const movers = act.filter(t => !keep.has(t) && !mods[t].ev);
+  for (const t of movers) cands.push({ kind: 'mvA', t, c: 1 });
+  const moving = movers.length > 0 || this.spine.some(t => mods[t].ev === 'mvA' || mods[t].ev === 'mvB');
+  if (!moving) for (const t of st.chain) { const m = mods[t]; if (!m.ev && (m.mode === 'park' || m.mode === 'tail')) cands.push({ kind: m.mode === 'park' ? 'arr' : 'arrT', t, c: 2 }); }
+  const sp = t => this.spine.indexOf(t), tp = t => st.chain.indexOf(t);
+  cands.sort((a, b) => a.c - b.c || (a.c === 2 ? tp(a.t) - tp(b.t) : sp(a.t) - sp(b.t)));
+  for (const q of cands) {
+    const lanes = q.kind === 'arr' ? ['BODY', 'SUB'] : this.lanesOf(q.t);
+    const g = q.kind === 'arr' || q.kind === 'arrT' ? st.wet[q.t] : mods[q.t].g;
+    if (this.admit(lanes, g)) this.issue(q.kind, q.t, st);
+  }
+  // the Sub: wait until its entry module is in; a re-name between junctions that feed
+  // the same modules is silent; anything else is a crossfade
+  if (this.subEv || (st.sub !== 'OUT' && !this.active(st.sub))) return;
+  const want2 = this.inJ(st.sub), cur = this.sub[0].j;
+  if (cur === want2) return;
+  if (this.downSeq(cur) === this.downSeq(want2)) { this.sub[0].j = want2; return; }
+  if (this.admit(['SUB'], 1, [cur, want2])) { this.subEv = { from: cur, to: want2, u: 0 }; this.log.push({ n: this.n, kind: 'sub', t: st.sub }); }
+};
+/* the heaviest common subsequence of the current order and the target (both hold the same modules) */
+function heaviestCommon(cur, target, wt) {
+  const pos = {}; target.forEach((t, i) => { pos[t] = i; });
+  const c = cur.filter(t => pos[t] !== undefined), n = c.length, best = [], prev = [];
+  for (let i = 0; i < n; i++) {
+    best[i] = wt(c[i]); prev[i] = -1;
+    for (let j = 0; j < i; j++) if (pos[c[j]] < pos[c[i]] && best[j] + wt(c[i]) > best[i] + 1e-12) { best[i] = best[j] + wt(c[i]); prev[i] = j; }
+  }
+  let b = -1; for (let i = 0; i < n; i++) if (b < 0 || best[i] > best[b] + 1e-12) b = i;
+  const keep = new Set(); for (let i = b; i >= 0; i = prev[i]) keep.add(c[i]);
+  return keep;
+}
+/* THE FRAME: round 1's format (nodes, a processing order, weighted edges), so round
+   1's checkers, transmission and I7 read it as they read round 1's E architecture */
+Router.prototype.frame = function () {
+  const nodes = [{ id: 'J:0', type: 'WIRE' }], order = ['J:0'], edges = [{ u: 'BODY', v: 'J:0', w: 1 }];
+  let prev = 'J:0';
+  for (const t of this.spine) {
+    const m = this.mods[t], [s, w, d] = this.wts(m), J = 'J:' + t;
+    nodes.push({ id: t, type: t, p: m.prm, gen: m.gen }, { id: J, type: 'WIRE' }); order.push(t, J);
+    if (s > EPS) edges.push({ u: prev, v: t, w: s });
+    if (w > EPS) edges.push({ u: t, v: J, w });
+    if (d > EPS) edges.push({ u: prev, v: J, w: d });
+    if (m.shadow && (m.ev === 'mvA' || m.ev === 'mvB')) {
+      // PLANT (I1 must-fail): the move crossfaded through a SECOND instance of the mover
+      const id = t + '#2'; nodes.push({ id, type: t, p: m.prm, gen: m.gen }); order.splice(order.length - 1, 0, id);
+      edges.push({ u: prev, v: id, w: 1 }, { u: id, v: J, w: 0.5 });
+    }
+    prev = J;
+  }
+  edges.push({ u: prev, v: 'OUT', w: 1 });
+  const subs = this.subEv ? (() => { const [A, B] = this.split(this.subEv.u); return [[this.subEv.from, B], [this.subEv.to, A]]; })() : [[this.sub[0].j, 1]];
+  for (const [j, w] of subs) if (w > EPS) edges.push({ u: 'SUB', v: j, w });
+  return { order, nodes, edges, fb: [] };
+};
+/* THE AUDIBLE GRAPH, canonically: the active modules in order with their send, wet
+   and dry, and the Sub's injection named by the modules it feeds. A parked module
+   is a dry wire, identical to its absence, so it is left out; a junction's NAME is
+   left out too. Two routers with the same canon play the same graph. This is what
+   edge reduction compares: the pad's router carries parked modules the pair never
+   had (the first build compared raw frames and called identical sound different). */
+Router.prototype.canon = function () {
+  let c = '';
+  for (const t of this.spine) if (this.active(t)) { const [s, w, d] = this.wts(this.mods[t]); c += t + ':' + s.toPrecision(15) + ',' + w.toPrecision(15) + ',' + d.toPrecision(15) + ';'; }
+  const subs = this.subEv ? (() => { const [A, B] = this.split(this.subEv.u); return [[this.subEv.from, B], [this.subEv.to, A]]; })() : [[this.sub[0].j, 1]];
+  for (const [j, w] of subs) c += '|Su>' + this.downSeq(j) + ':' + w.toPrecision(15);
+  return c;
+};
+Router.prototype.liveCost = function () { let c = 0; for (const t of this.spine) { const m = this.mods[t]; if (m.mode !== 'park' || m.ev) c += COST[t]; } return c; };
+Router.prototype.openCount = function (lane) { return this.openOn(lane).length; };
+
+/* ---------- round 1's checkers, verbatim but for the dropped return edge ---------- */
+function nodeMap(f) { if (!f._n) { f._n = new Map(); for (const n of f.nodes) f._n.set(n.id, n); } return f._n; }
+function typeOf(f, id) { if (isLane(id) || id === 'OUT') return id; const n = nodeMap(f).get(id); return n ? n.type : id; }
+function liveEdges(f) { return f._le || (f._le = f.edges.filter(e => e.w > EPS)); }
+function checkI1(f) {
+  const seen = {}, bad = [];
+  const touched = new Set(); for (const e of liveEdges(f)) { touched.add(e.u); touched.add(e.v); }
+  for (const n of f.nodes) if (n.type !== 'WIRE' && touched.has(n.id)) {
+    if (seen[n.type] && seen[n.type] !== n.id) bad.push(n.type); else seen[n.type] = n.id;
+  }
+  return { ok: !bad.length, why: bad.length ? 'two ' + bad.map(t => NAME[t]).join(', ') + ' live' : '' };
+}
+function acyclic(f) {
+  const le = liveEdges(f), indeg = {}, adj = {}, ids = new Set();
+  for (const e of le) { ids.add(e.u); ids.add(e.v); (adj[e.u] = adj[e.u] || []).push(e.v); indeg[e.v] = (indeg[e.v] || 0) + 1; }
+  const q = [...ids].filter(i => !indeg[i]); let n = 0;
+  while (q.length) { const u = q.pop(); n++; for (const v of adj[u] || []) if (--indeg[v] === 0) q.push(v); }
+  return n === ids.size;
+}
+/* a lane's transmission to every node: the sum over forward paths of the product of
+   edge weights, module gains taken as 1 (round 1's I6 quantity) */
+function transAll(f, lane) {
+  const c = f._ta || (f._ta = {});
+  if (c[lane] !== undefined) return c[lane];
+  const le = liveEdges(f), indeg = {}, adj = {}, ids = new Set([lane]);
+  for (const e of le) { ids.add(e.u); ids.add(e.v); (adj[e.u] = adj[e.u] || []).push(e); indeg[e.v] = (indeg[e.v] || 0) + 1; }
+  const t = {}; t[lane] = 1;
+  const q = [...ids].filter(i => !indeg[i]); let n = 0;
+  while (q.length) { const u = q.pop(); n++; for (const e of adj[u] || []) { t[e.v] = (t[e.v] || 0) + (e.u === lane ? 1 : t[e.u] || 0) * e.w; if (--indeg[e.v] === 0) q.push(e.v); } }
+  return (c[lane] = n === ids.size ? t : null);
+}
+function transmission(f, lane) { const t = transAll(f, lane); return t ? t.OUT || 0 : NaN; }
+const I7_FLOOR = 0.5;
+function i7Nodes(f) {
+  const out = new Map();
+  for (const e of liveEdges(f)) if (!isLane(e.u) && typeOf(f, e.u) !== 'WIRE') out.set(e.u, Math.max(out.get(e.u) || 0, e.w));
+  const res = [];
+  for (const [id, o] of out) { let s = 0; for (const l of LANES) { const t = transAll(f, l); s += t ? t[id] || 0 : 0; } res.push({ id, type: typeOf(f, id), o, i: s }); }
+  return res;
+}
+/* the order of modules whose output is open (a dipped mover is not in it; a ringing tail is) */
+function liveOrder(f) {
+  const open = new Set(); for (const e of liveEdges(f)) if (!isLane(e.u) && typeOf(f, e.u) !== 'WIRE') open.add(e.u);
+  return f.order.filter(id => open.has(id)).map(id => typeOf(f, id));
+}
+const db = g => 20 * Math.log10(Math.max(1e-9, g));
+
+/* ---------- a sweep: the puck moved along a path, through the router ---------- */
+const RSR = 16000, TICK = 64;                 // headless control tick: 4 ms
+const SW_PRE = 0.2, SW_MOVE = 2.4, SW_POST = 1.2;
+const STEP_MAX = 0.25;                        // round 1's I5: a crossfade moves a weight ≤ 0.07 per dx; a hard switch moves 1
+const SWEEPS = [
+  { id: 'bottom', name: 'bottom edge A→B', xy: u => [u, 0], edge: [0, 1] },
+  { id: 'top', name: 'top edge C→D', xy: u => [u, 1], edge: [2, 3] },
+  { id: 'left', name: 'left edge A→C', xy: u => [0, u], edge: [0, 2] },
+  { id: 'right', name: 'right edge B→D', xy: u => [1, u], edge: [1, 3] },
+  { id: 'diag', name: 'diagonal A→D', xy: u => [u, u] },
+  { id: 'anti', name: 'diagonal B→C', xy: u => [1 - u, u] },
+  { id: 'loop', name: 'circle round the middle', xy: u => [0.5 + 0.38 * Math.cos(2 * Math.PI * u + Math.PI), 0.5 + 0.38 * Math.sin(2 * Math.PI * u + Math.PI)] },
+];
+/* wFn(u) → weights. Returns every metric the page and the self-check read. */
+function runSweep(M, wFn, opt) {
+  opt = opt || {};
+  const dt = TICK / RSR, nPre = Math.round(SW_PRE / dt), nMove = Math.round(SW_MOVE / dt), nPost = Math.round((opt.post || SW_POST) / dt);
+  const N = nPre + nMove + nPost, R = new Router(M, RSR, TICK);
+  let st = mapW(M, wFn(0)); R.settle(st);
+  const S = { min: { BODY: Infinity, SUB: Infinity }, max: { BODY: -Infinity, SUB: -Infinity }, I1: 0, I2: 0, I7: 0, I7t: 0, unan: 0, maxStep: 0,
+              maxOpen: { BODY: 0, SUB: 0 }, changes: 0, jumps: [0, 0, 0, 0], states: new Set(), maxCost: 0, ring: {}, why: {}, n: N, hash: 0x811c9dc5 };
+  let prevKey = skey(st), prevSt = st, prevW = null, u0 = -1;
+  const lastIn = {}, lastOut = {};
+  for (let i = 0; i < N; i++) {
+    const u = clamp01((i - nPre) / nMove);
+    if (u !== u0) { st = mapW(M, wFn(u)); u0 = u; }
+    const k = skey(st);
+    if (k !== prevKey) { S.changes++; S.jumps[Math.min(3, jumpD(prevSt, st))]++; prevKey = k; prevSt = st; }
+    if (M.keys.indexOf(k) < 0) S.states.add(k);
+    R.step(st);
+    const f = R.frame();
+    // invariants
+    const c1 = checkI1(f); if (!c1.ok) { S.I1++; S.why.I1 = S.why.I1 || c1.why; }
+    if (!acyclic(f)) S.I2++;
+    for (const l of LANES) { const g = transmission(f, l); if (g < S.min[l]) S.min[l] = g; if (g > S.max[l]) S.max[l] = g; S.maxOpen[l] = Math.max(S.maxOpen[l], R.openCount(l)); }
+    const un = inverted(liveOrder(f), M.strict); if (un) { S.unan++; S.why.unan = S.why.unan || un + ' at tick ' + i; }
+    /* I7, two readings (round 1's): STRICT — an open output needs input ≥ the floor;
+       TAIL-ALLOWED (D5) — a Delay, Reverb or Network may keep its output open after
+       its input last stood at the floor for at most its cap plus two crossfades
+       (the rest of the leave once the send crosses the floor, and the closing fade),
+       provided the output does not RISE meanwhile. Read off the frames alone. */
+    for (const q of i7Nodes(f)) {
+      if (q.i >= I7_FLOOR) { lastIn[q.id] = { i, o: q.o }; continue; }
+      if (q.o <= EPS) continue;
+      S.I7++; S.why.I7 = S.why.I7 || SHORT[q.type] + ' outputs ' + q.o.toFixed(3) + ' on input ' + q.i.toFixed(3);
+      const lo = lastIn[q.id], cap = (opt.capCheck || R.caps)[q.type];
+      const ringS = lo ? (i - lo.i) * dt : Infinity;
+      if (TAIL_TYPES[q.type]) S.ring[q.type] = Math.max(S.ring[q.type] || 0, ringS);
+      const prevO = lastOut[q.id] !== undefined ? lastOut[q.id] : q.o;
+      if (!(TAIL_TYPES[q.type] && lo && ringS <= (cap === undefined ? 0 : cap) + 2 * XF_S + 2 * dt && q.o <= prevO + 1e-9)) { S.I7t++; S.why.I7t = S.why.I7t || SHORT[q.type] + ' outputs ' + q.o.toFixed(3) + ' on input ' + q.i.toFixed(3) + (lo ? ', ' + ringS.toFixed(2) + ' s after its input' : ' before any input'); }
+    }
+    for (const q of i7Nodes(f)) lastOut[q.id] = q.o;
+    /* continuity (round 1's I5), read on quantities with a stable identity: each
+       module's send, wet and dry, and what each lane hears THROUGH each module
+       (its transmission to the module times the module's wet). Round 1 read edge
+       keys; here a junction is named after the module before it, so moving a
+       bypassed module renames edges between equal signals, which an edge-key read
+       mistakes for a hard switch (the first build reported a step of 1 on every
+       sweep). The bare SEND is left out: an arrival arms it at once while the wet
+       is still 0 (inputs before outputs), which no one hears; what is heard of it
+       is the lane-through-module term. A muted mover's input may jump while it is
+       re-placed: inaudible too, and excluded by the same wet factor. */
+    const wm = new Map();
+    for (const t of M.U) { const [, w, d] = R.wts(R.mods[t]); wm.set(t + '.w', w); wm.set(t + '.d', d); }
+    for (const l of LANES) { const ta = transAll(f, l) || {}; wm.set(l + '>OUT', ta.OUT || 0); for (const t of M.U) wm.set(l + '>' + t, (ta[t] || 0) * R.wts(R.mods[t])[1]); }
+    if (prevW) { for (const [kk, v] of wm) S.maxStep = Math.max(S.maxStep, Math.abs(v - (prevW.get(kk) || 0))); for (const [kk, v] of prevW) if (!wm.has(kk)) S.maxStep = Math.max(S.maxStep, v); }
+    prevW = wm;
+    S.hash = Math.imul(S.hash ^ fnv(R.canon()), 0x01000193) >>> 0;
+    const lc = R.liveCost(); if (lc > S.maxCost) S.maxCost = lc;
+  }
+  S.events = R.log.length; S.byKind = {}; for (const e of R.log) S.byKind[e.kind] = (S.byKind[e.kind] || 0) + 1;
+  S.distinct = S.states.size; S.minDb = Math.min(db(S.min.BODY), db(S.min.SUB)); S.maxDb = Math.max(db(S.max.BODY), db(S.max.SUB));
+  S.log = R.log;
+  return S;
+}
+const sweepW = (M, sw) => u => { const [x, y] = sw.xy(u); return weightsXY(M, x, y); };
+
+/* ---------- the sound: simple stand-ins for each module type ----------
+   Deliberately cheap: this lab races ROUTING, not modules. Drive tanh, Filter a TPT
+   lowpass, ECHO one line, Scape a Schroeder (all four round 1's); Shriek an
+   asymmetric clipper into a tone lowpass; Bulwark a feed-forward compressor; EQ one
+   peaking biquad; Sluice four delay lines through a Hadamard matrix with tanh in the
+   loop (feedback ≥ 1 rings for ever: the tail cap's first customer). Time constants
+   are stated in seconds and converted per sample (ADR-009). Buffers are sized at
+   construction, never on the sample path. */
+const BODY_HZ = [110, 130.81, 164.81], SUB_HZ = 55;
+const OUT_GAIN = 0.4;
+function mkInst(type, sr) {
+  if (type === 'DRV') { let k = 3, n = 1; return { set(p) { k = p.drive; n = 0.5 / Math.tanh(0.5 * k); }, run: x => n * Math.tanh(k * x) }; }
+  if (type === 'FLT') {
+    let a1 = 0, a2 = 0, a3 = 0, ic1 = 0, ic2 = 0;
+    return { set(p) { const g = Math.tan(Math.PI * Math.min(p.cut, 0.45 * sr) / sr), k = 2 - 2 * p.res; a1 = 1 / (1 + g * (g + k)); a2 = g * a1; a3 = g * a2; },
+             run(x) { const v3 = x - ic2, v1 = a1 * ic1 + a2 * v3, v2 = ic2 + a2 * ic1 + a3 * v3; ic1 = 2 * v1 - ic1; ic2 = 2 * v2 - ic2; return v2; } };
+  }
+  if (type === 'DLY') {
+    const N = Math.ceil(sr * 0.6) + 2, buf = new Float32Array(N); let w = 0, d = sr * 0.2, dt = d, fb = 0.3, mix = 0.3;
+    const sm = Math.exp(-1 / (0.05 * sr));
+    return { set(p) { dt = p.time * sr; fb = Math.min(p.fbk, 0.98); mix = p.mix; },
+             run(x) { d = dt + (d - dt) * sm; let r = w - d; if (r < 0) r += N; const i = Math.floor(r), f = r - i, j = (i + 1) % N;
+                      const y = buf[i] + (buf[j] - buf[i]) * f; buf[w] = x + fb * y; w = (w + 1) % N; return x + mix * y; } };
+  }
+  if (type === 'REV') {
+    const cl = [1116, 1188, 1277, 1356].map(n => Math.round(n * sr / 44100)), al = [556, 441].map(n => Math.round(n * sr / 44100));
+    const cb = cl.map(n => ({ b: new Float32Array(n), i: 0, lp: 0 })), ab = al.map(n => ({ b: new Float32Array(n), i: 0 }));
+    let f = 0.84, gi = 0.5, mix = 0.3;
+    return { set(p) { f = 0.7 + 0.26 * p.size; gi = Math.sqrt(1 - f * f); mix = p.mix; },
+             run(x) {
+               let s = 0;
+               for (const c of cb) { const y = c.b[c.i]; c.lp = y * 0.7 + c.lp * 0.3; c.b[c.i] = x * gi + c.lp * f; c.i = (c.i + 1) % c.b.length; s += y; }
+               s *= 0.5;
+               for (const a of ab) { const y = a.b[a.i]; const v = s + 0.5 * y; a.b[a.i] = v; a.i = (a.i + 1) % a.b.length; s = y - 0.5 * v; }
+               return x * (1 - 0.5 * mix) + s * mix; } };
+  }
+  if (type === 'SAT') {
+    let k = 4, b = 0.2, a = 0.5, lp = 0, n = 1, dc = 0;
+    const ad = 1 - Math.exp(-2 * Math.PI * 10 / sr);
+    return { set(p) { k = p.gain; b = p.bias; a = 1 - Math.exp(-2 * Math.PI * p.tone / sr); n = 0.6 / Math.tanh(0.5 * k); },
+             run(x) { const z = Math.tanh(k * x + b) - Math.tanh(b); lp += a * (z - lp); dc += ad * (lp - dc); return n * (lp - dc); } };
+  }
+  if (type === 'DYN') {
+    let env = 0, ca = 0, cr = 0, thr = -20, ratio = 4, mk = 1;
+    return { set(p) { ca = Math.exp(-1 / (p.att * sr)); cr = Math.exp(-1 / (p.rel * sr)); thr = p.thr; ratio = p.ratio; mk = Math.pow(10, p.mk / 20); },
+             run(x) { const r = Math.abs(x); env = r > env ? r + (env - r) * ca : r + (env - r) * cr;
+                      const over = 20 * Math.log10(env + 1e-9) - thr; const gr = over > 0 ? over * (1 - 1 / ratio) : 0;
+                      return x * mk * Math.pow(10, -gr / 20); } };
+  }
+  if (type === 'EQ') {
+    let b0 = 1, b1 = 0, b2 = 0, a1 = 0, a2 = 0, z1 = 0, z2 = 0;
+    return { set(p) { const A = Math.pow(10, p.gdb / 40), w0 = 2 * Math.PI * Math.min(p.f, 0.45 * sr) / sr, al = Math.sin(w0) / (2 * p.q), c = Math.cos(w0), a0 = 1 + al / A;
+                      b0 = (1 + al * A) / a0; b1 = -2 * c / a0; b2 = (1 - al * A) / a0; a1 = -2 * c / a0; a2 = (1 - al / A) / a0; },
+             run(x) { const y = b0 * x + z1; z1 = b1 * x - a1 * y + z2; z2 = b2 * x - a2 * y; return y; } };
+  }
+  if (type === 'NET') {
+    const base = [1301, 1709, 1999, 2381].map(n => n * sr / 44100), N = base.map(n => Math.ceil(n * 1.6) + 2);
+    const buf = N.map(n => new Float32Array(n)), wi = [0, 0, 0, 0], lp = [0, 0, 0, 0], L = [0, 0, 0, 0];
+    let fb = 0.9, a = 0.3, mix = 0.4;
+    return { set(p) { for (let i = 0; i < 4; i++) L[i] = Math.round(base[i] * (0.5 + p.size)); fb = p.fbk; a = 1 - Math.exp(-2 * Math.PI * p.tone / sr); mix = p.mix; },
+             run(x) {
+               const y = [0, 0, 0, 0];
+               for (let i = 0; i < 4; i++) { let r = wi[i] - L[i]; if (r < 0) r += N[i]; y[i] = buf[i][r]; }
+               const h = [y[0] + y[1] + y[2] + y[3], y[0] - y[1] + y[2] - y[3], y[0] + y[1] - y[2] - y[3], y[0] - y[1] - y[2] + y[3]];
+               for (let i = 0; i < 4; i++) { lp[i] += a * (0.5 * h[i] - lp[i]); buf[i][wi[i]] = Math.tanh(fb * lp[i] + 0.5 * x); wi[i] = (wi[i] + 1) % N[i]; }
+               return x * (1 - mix) + mix * 0.5 * (y[0] + y[1] + y[2] + y[3]); } };
+  }
+  return { set() {}, run: x => x };            // WIRE: a junction
+}
+/* round 1's Engine, with two changes: an instance is rebuilt when its node's GEN
+   changes (a module re-armed after it was parked starts clean, so a parked delay
+   never replays stale echoes), and a node no live edge touches is not run. */
+function Engine(sr) { this.sr = sr; this.inst = new Map(); this.prev = new Map(); this.ph = [0, 0, 0, 0]; this.n = 0; this.pulse = false; }
+Engine.prototype.block = function (f, out, off, n) {
+  const sr = this.sr, ids = ['BODY', 'SUB'], ix = { BODY: 0, SUB: 1 };
+  for (const nd of f.nodes) {
+    ix[nd.id] = ids.length; ids.push(nd.id);
+    let it = this.inst.get(nd.id);
+    if (!it || it.type !== nd.type || it.gen !== nd.gen) { it = mkInst(nd.type, sr); it.type = nd.type; it.gen = nd.gen; this.inst.set(nd.id, it); }
+    if (nd.p) it.set(nd.p);
+  }
+  const order = f.order.filter(id => ix[id] !== undefined).map(id => ix[id]);
+  const taps = ids.map(() => []), outT = [], next = new Map(), used = new Uint8Array(ids.length);
+  const tap = (u, v, w0, w1) => {
+    if (ix[u] === undefined) return;
+    used[ix[u]] = 1;
+    if (v === 'OUT') outT.push([ix[u], w0, w1]); else if (ix[v] !== undefined) { taps[ix[v]].push([ix[u], w0, w1]); used[ix[v]] = 1; }
+  };
+  for (const e of f.edges) next.set(ek(e.u, e.v), e.w);
+  for (const [k, w1] of next) { const [u, v] = k.split('>'); tap(u, v, this.prev.has(k) ? this.prev.get(k) : 0, w1); }
+  for (const [k, w0] of this.prev) if (!next.has(k)) { const [u, v] = k.split('>'); tap(u, v, w0, 0); }
+  this.prev = next;
+  const val = new Float64Array(ids.length), insts = ids.map(id => this.inst.get(id));
+  const inc = BODY_HZ.map(hz => hz / sr), sinc = SUB_HZ / sr, gate = Math.round(sr * 0.25);
+  for (let s = 0; s < n; s++) {
+    const a = s / n;
+    let body = 0;
+    for (let v = 0; v < 3; v++) {
+      let p = this.ph[v] + inc[v]; if (p >= 1) p -= 1; this.ph[v] = p;
+      let y = 2 * p - 1; const dt = inc[v];
+      if (p < dt) { const t = p / dt; y -= t + t - t * t - 1; } else if (p > 1 - dt) { const t = (p - 1) / dt; y -= t * t + t + t + 1; }
+      body += 0.16 * y;
+    }
+    if (this.pulse) { const c = (this.n % gate) / sr; body *= c < 0.004 ? c / 0.004 : c < 0.15 ? 1 : c < 0.158 ? (0.158 - c) / 0.008 : 0; }
+    this.ph[3] += sinc; if (this.ph[3] >= 1) this.ph[3] -= 1;
+    val[0] = body; val[1] = 0.35 * Math.sin(2 * Math.PI * this.ph[3]);
+    for (const i of order) {
+      if (!used[i]) { val[i] = 0; continue; }
+      let x = 0;
+      for (const [j, w0, w1] of taps[i]) x += (w0 + (w1 - w0) * a) * val[j];
+      val[i] = insts[i].run(x);
+    }
+    let y = 0; for (const [j, w0, w1] of outT) y += (w0 + (w1 - w0) * a) * val[j];
+    out[off + s] = OUT_GAIN * y; this.n++;
+  }
+};
+/* render a sweep through the router and the engine (the same objects POWER plays) */
+function renderSweep(M, wFn, secs) {
+  const sr = RSR, N = Math.round(secs * sr), y = new Float32Array(N), R = new Router(M, sr, TICK), E = new Engine(sr);
+  const nPre = Math.round(SW_PRE * sr), nMove = Math.round(SW_MOVE * sr);
+  let st = mapW(M, wFn(0)); R.settle(st);
+  const junk = new Float32Array(TICK);
+  for (let s = 0; s < Math.round(0.5 * sr); s += TICK) E.block(R.frame(), junk, 0, TICK);
+  let u0 = 0;
+  for (let s = 0; s < N; s += TICK) {
+    const u = clamp01((s - nPre) / nMove);
+    if (u !== u0) { st = mapW(M, wFn(u)); u0 = u; }
+    R.step(st); E.block(R.frame(), y, s, Math.min(TICK, N - s));
+  }
+  return y;
+}
+/* round 1's step metric: the worst level change between neighbouring 32 ms windows */
+function stepDb(y) {
+  const W = 512, d = [];
+  for (let s = 0; s + W <= y.length; s += W) { let e = 0; for (let i = s; i < s + W; i++) e += y[i] * y[i]; d.push(10 * Math.log10(Math.max(1e-8, e / W))); }
+  let worst = 0; for (let i = 1; i < d.length; i++) worst = Math.max(worst, Math.abs(d[i] - d[i - 1]));
+  return worst;
+}
+
+/* ---------- defaults, and the self-check ---------- */
+const DEFAULTS = { set: 'four', mode: 'quantum', snap: true, method: 'decode', sharpen: true, gamma: 2, jitter: true, T: 0.7,
+                   norm: true, p: 2, K: 2, tails: true, caps: Object.assign({}, DEFAULT_CAPS), seed: 265, plant: null };
+const setById = id => SETS.find(s => s.id === id) || SETS[0];
+const optsWith = extra => Object.assign({}, DEFAULTS, { caps: Object.assign({}, DEFAULTS.caps) }, extra || {});
+const morphOf = o => makeMorph(setById(o.set).corners, o);
+/* the edge's two corners alone, as a two-corner morph, against the pad edge */
+function edgePair(o, e) { const C = setById(o.set).corners; return makeMorph([C[e[0]], C[e[1]]], o); }
+function edgeMapsAgree(o, sw, n) {
+  const M4 = morphOf(o), M2 = edgePair(o, sw.edge);
+  for (let i = 0; i < n; i++) {
+    const t = i / (n - 1), [x, y] = sw.xy(t), a = mapW(M4, weightsXY(M4, x, y)), b = mapW(M2, weightsT(M2, t));
+    const what = a.chain.join() !== b.chain.join() || a.sub !== b.sub ? 'chain' : JSON.stringify(a.wet) !== JSON.stringify(b.wet) ? 'wet gains' : JSON.stringify(a.prm) !== JSON.stringify(b.prm) ? 'parameters' : '';
+    if (what) return `t = ${t.toFixed(3)}, the ${what} differ: pad ${a.chain.map(q => SHORT[q]).join(' ')} | Su→${SHORT[a.sub]} vs pair ${b.chain.map(q => SHORT[q]).join(' ')} | Su→${SHORT[b.sub]}`;
+  }
+  return '';
+}
+function edgeSweeps(o, sw) {
+  const M4 = morphOf(o), M2 = edgePair(o, sw.edge);
+  return { four: runSweep(M4, sweepW(M4, sw)), two: runSweep(M2, u => weightsT(M2, u)) };
+}
+const sameSweep = (a, b) => a.hash === b.hash && a.events === b.events && a.distinct === b.distinct && a.minDb === b.minDb && a.maxDb === b.maxDb;
+
+function selfCheckSteps() {
+  const rows = [], steps = [];
+  const add = (claim, res, control, cres) => rows.push({ claim, pass: res.ok, detail: res.detail, control, caught: !cres.ok, cdetail: cres.detail });
+  const step = f => steps.push(f);
+  const MODES = ['quantum', 'blend'], METHODS = ['decode', 'walk'];
+  const swCache = new Map();
+  const sweepOf = (o, sw, opt) => { const k = JSON.stringify([o, sw.id, opt || {}]); if (!swCache.has(k)) { const M = morphOf(o); swCache.set(k, runSweep(M, sweepW(M, sw), opt)); } return swCache.get(k); };
+  const allSweeps = (extra, pred) => {
+    let n = 0;
+    for (const mode of MODES) for (const sw of SWEEPS) { const r = pred(sweepOf(optsWith(Object.assign({ mode }, extra)), sw)); n++; if (r) return { ok: false, detail: `${mode}, ${sw.name}: ${r}` }; }
+    return { ok: true, detail: `${n} sweeps × ${Math.round((SW_PRE + SW_MOVE + SW_POST) * RSR / TICK)} ticks, both modes` };
+  };
+  const held = r => r ? { ok: false, detail: r } : { ok: true, detail: 'held — the plant was NOT caught' };
+
+  step(() => {
+    // 1. corners exact
+    const bad = [];
+    for (const set of SETS) for (const mode of MODES) for (const m of ['decode', 'walk', 'none']) for (const sh of [true, false]) {
+      const M = morphOf(optsWith({ set: set.id, mode, method: m === 'none' ? 'decode' : m, snap: m !== 'none', sharpen: sh }));
+      CORNER_XY.forEach(([x, y], k) => { const st = mapW(M, weightsXY(M, x, y)); if (st.chain.join() !== M.corners[k].chain.join() || st.sub !== M.corners[k].sub) bad.push(`${set.id} ${mode} ${m} corner ${CORNER_ID[k]}`); });
+    }
+    let plantBad = '';
+    for (const set of SETS) { const M = morphOf(optsWith({ set: set.id, T: 1.5, plant: 'lowL' }));
+      CORNER_XY.forEach(([x, y], k) => { const st = mapW(M, weightsXY(M, x, y)); if (!plantBad && st.chain.join() !== M.corners[k].chain.join()) plantBad = `${set.id} corner ${CORNER_ID[k]} decodes to ${st.chain.map(q => SHORT[q]).join(' ')}`; }); }
+    add('Corners are exact: every corner of every set is its own preset, in both modes, for the decode, the walk and the raw target, with sharpening on and off',
+        bad.length ? { ok: false, detail: bad.slice(0, 3).join('; ') } : { ok: true, detail: `${SETS.length} sets × 2 modes × 3 methods × 2 sharpening × 4 corners` },
+        'the decode with its logit clamp L = 2, below its noise clamp 6 (lane 4\'s corner proof needs L > clamp), at T = 1.5', held(plantBad));
+  });
+  step(() => {
+    // 2. edge reduction
+    let bad = '', n = 0;
+    for (const set of SETS) for (const mode of MODES) for (const method of METHODS) for (const sw of SWEEPS.filter(s => s.edge)) {
+      const r = edgeMapsAgree(optsWith({ set: set.id, mode, method }), sw, GRID); n++;
+      if (r && !bad) bad = `${set.id} ${mode} ${method} ${sw.name}: ${r}`;
+    }
+    let ticks = 0;
+    for (const mode of MODES) for (const method of METHODS) for (const sw of SWEEPS.filter(s => s.edge)) { const e = edgeSweeps(optsWith({ mode, method }), sw); ticks++; if (!sameSweep(e.four, e.two) && !bad) bad = `${mode} ${method} ${sw.name}: the routed sweeps differ`; }
+    let plant = '';
+    for (const sw of SWEEPS.filter(s => s.edge)) { const r = edgeMapsAgree(optsWith({ plant: 'radial' }), sw, GRID); if (r && !plant) plant = `${sw.name}, ${r}`; }
+    add('Edge reduction (lane 4): on each pad edge the four-corner morph IS the two-corner morph of that edge\'s corners — the map at every grid point, and the routed sweep tick for tick, so round 1\'s metrics on the pair are reproduced',
+        bad ? { ok: false, detail: bad } : { ok: true, detail: `${n} edge maps (3 sets × 2 modes × 2 snaps × 4 edges, ${GRID} points each) and ${ticks} routed edge sweeps identical (the audible graph, every weight to 15 digits, at every tick)` },
+        'radial (inverse-distance) corner weights: the far corners pull on the edge', held(plant));
+  });
+  step(() => {
+    // 3. unanimity
+    let bad = '', n = 0;
+    for (const set of SETS) for (const mode of MODES) for (const m of ['decode', 'walk', 'none']) {
+      const o = optsWith({ set: set.id, mode, method: m === 'none' ? 'decode' : m, snap: m !== 'none' }), G = gridMap(morphOf(o)); n++;
+      if (G.unan && !bad) bad = `${set.id} ${mode} ${m}: ${G.unan} cells, ${G.firstUnan}`;
+    }
+    const sw = allSweeps({}, s => s.unan ? s.why.unan : '');
+    if (!sw.ok && !bad) bad = sw.detail;
+    let plant = '';
+    for (let seed = 265; seed < 273 && !plant; seed++) { const G = gridMap(morphOf(optsWith({ snap: false, seed, plant: 'jitbound' }))); if (G.unan) plant = `seed ${seed}: ${G.unan}/${GRID * GRID} cells, ${G.firstUnan}`; }
+    add('Unanimity (lane 1, D1(a)): no pair order that all four corners agree on is ever inverted — on the pad (every set, mode and method) and in the live order of every routed sweep',
+        bad ? { ok: false, detail: bad } : { ok: true, detail: `${n} pad maps × ${GRID * GRID} points; ${sw.detail}` },
+        'the jitter bound broken (h = 12, so h·T ≫ 2/3), raw target, seeds 265–272', held(plant));
+  });
+  step(() => {
+    // 4. lane gain
+    const r = allSweeps({}, s => s.minDb < db(FLOOR) - 1e-9 ? `min ${s.minDb.toFixed(2)} dB` : s.maxDb > db(CEIL) + 1e-9 ? `max +${s.maxDb.toFixed(2)} dB` : '');
+    const bbm = sweepOf(optsWith({ plant: 'bbm' }), SWEEPS[0]), off = sweepOf(optsWith({ norm: false }), SWEEPS[0]);
+    const caught = bbm.minDb < db(FLOOR) && off.maxDb > db(CEIL);
+    add(`Lane gain stays inside [${db(FLOOR).toFixed(1)} dB, +${db(CEIL).toFixed(2)} dB] at every tick of every sweep (p = ${DEFAULTS.p}, K = ${DEFAULTS.K}), both lanes`,
+        r.ok ? { ok: true, detail: r.detail } : r,
+        'two plants on the bottom edge: break-before-make (old path out before the new one in), and normalisation off (round 1\'s make-before-break)',
+        caught ? { ok: false, detail: `break-before-make: min ${bbm.minDb === -Infinity ? '−∞' : bbm.minDb.toFixed(1)} dB · round 1's ramps: max +${off.maxDb.toFixed(2)} dB` }
+               : { ok: true, detail: `NOT caught: bbm min ${bbm.minDb.toFixed(2)}, round-1 max ${off.maxDb.toFixed(2)}` });
+  });
+  step(() => {
+    // 5. the snap keeps every point in V
+    let bad = '', n = 0;
+    for (const set of SETS) for (const mode of MODES) for (const method of METHODS) { const G = gridMap(morphOf(optsWith({ set: set.id, mode, method }))); n++; if (G.outV && !bad) bad = `${set.id} ${mode} ${method}: ${G.outV} cells break ${G.firstOut}`; }
+    const P = gridMap(morphOf(optsWith({ mode: 'blend', snap: false })));
+    add('The snap keeps every point of the pad inside V (all three rules, the CPU budget among them), for the decode and the walk, in both modes',
+        bad ? { ok: false, detail: bad } : { ok: true, detail: `${n} pad maps × ${GRID * GRID} points` },
+        'the snap switched off (blend, four presets): the raw target', P.outV ? { ok: false, detail: `${P.outV}/${GRID * GRID} cells outside V (first breaks ${P.firstOut}), up to ${P.maxCost} CPU points` } : { ok: true, detail: 'all in V — NOT caught' });
+  });
+  step(() => {
+    // 6. I1 and I2
+    const r = allSweeps({}, s => s.I1 ? `${s.I1} ticks: ${s.why.I1}` : s.I2 ? `${s.I2} ticks with a cycle` : '');
+    let plant = '';
+    for (const sw of SWEEPS) { const s = sweepOf(optsWith({ plant: 'shadow' }), sw); if (s.I1) { plant = `${sw.name}: ${s.I1} ticks, ${s.why.I1}`; break; } }
+    add('One instance per type (I1) and an acyclic graph (I2) at every tick: a move is a wet dip of the one instance, never a second copy',
+        r, 'a move crossfaded through a SECOND instance of the mover (a shadow)', held(plant));
+  });
+  step(() => {
+    // 7. I7 tail-allowed
+    const r = allSweeps({}, s => s.I7t ? `${s.I7t} ticks: ${s.why.I7t}` : '');
+    const strictN = SWEEPS.reduce((q, sw) => q + sweepOf(optsWith({}), sw).I7, 0);
+    let plant = '';
+    for (const sw of SWEEPS) { const s = sweepOf(optsWith({ plant: 'outfirst' }), sw); if (s.I7t) { plant = `${sw.name}: ${s.I7t} ticks, ${s.why.I7t}`; break; } }
+    add('I7, TAIL-ALLOWED (D5): a module outputs only while it has input, except a leaving ECHO, Scape or Sluice whose tail rings for at most its cap and never rises',
+        r.ok ? { ok: true, detail: r.detail + ` (STRICT, reported: ${strictN} tail ticks in the quantum sweeps — the tails D5 keeps)` } : r,
+        'an arrival wired outputs-first: the wet opens before the send', held(plant));
+  });
+  step(() => {
+    // 8. the tail cap
+    const top = SWEEPS.find(s => s.id === 'top'), post = 4;
+    const ok = sweepOf(optsWith({}), top, { post }), cap = DEFAULTS.caps.NET;
+    const hot = JSON.parse(JSON.stringify(setById('four'))); hot.id = 'hot';
+    hot.corners[2].p.NET.fbk = 1.02;
+    const Mh = makeMorph(hot.corners, optsWith({ plant: 'nocap' })), bad = runSweep(Mh, sweepW(Mh, top), { post, capCheck: DEFAULT_CAPS });
+    add(`The tail cap: a leaving Sluice rings for its own decay or its cap (${cap} s), whichever is shorter, then fades (top edge, where it leaves, ${post} s after the move)`,
+        ok.ring.NET !== undefined && ok.ring.NET <= cap + 2 * XF_S + 0.01 && !ok.I7t ? { ok: true, detail: `Sluice rang ${ok.ring.NET.toFixed(2)} s after its input fell below the floor (its own decay ${tailSecs('NET', setById('four').corners[2].p.NET).toFixed(1)} s)` }
+                                                              : { ok: false, detail: `Sluice rang ${ok.ring.NET === undefined ? 'never' : ok.ring.NET.toFixed(2) + ' s'}` },
+        'no cap, and the Sluice corner\'s feedback at 1.02 (a self-oscillating network)',
+        bad.ring.NET > cap + 2 * XF_S + 0.01 ? { ok: false, detail: `Sluice still ringing ${bad.ring.NET.toFixed(2)} s after its input left (${bad.I7t} ticks past its cap)` } : { ok: true, detail: 'NOT caught' });
+  });
+  step(() => {
+    // 9. K
+    const r = allSweeps({}, s => s.maxOpen.BODY > DEFAULTS.K || s.maxOpen.SUB > DEFAULTS.K ? `${Math.max(s.maxOpen.BODY, s.maxOpen.SUB)} open` : '');
+    const r1 = allSweeps({ p: 1, K: 2 }, s => s.maxOpen.BODY > 2 || s.maxOpen.SUB > 2 ? `${Math.max(s.maxOpen.BODY, s.maxOpen.SUB)} open` : '');
+    let plant = '';
+    for (const sw of SWEEPS) { const s = sweepOf(optsWith({ plant: 'noK', K: 2 }), sw); if (s.maxOpen.BODY > 2) { plant = `${sw.name}: ${s.maxOpen.BODY} changes open on Body at once`; break; } }
+    add('At most K changes are open on a lane at once, under the +3 dB headroom cap (at p = 2 the cap allows one; at p = 1 the K = 2 budget binds)',
+        r.ok && r1.ok ? { ok: true, detail: r.detail + ', at p = 2 and p = 1' } : (r.ok ? r1 : r),
+        'the budget switched off', held(plant));
+  });
+  step(() => {
+    // 10. continuity
+    const r = allSweeps({}, s => s.maxStep >= STEP_MAX ? `a weight stepped ${s.maxStep.toFixed(2)} in one tick` : '');
+    const h = sweepOf(optsWith({ plant: 'hard' }), SWEEPS[0]);
+    add(`Every change is a crossfade: no edge weight moves more than ${STEP_MAX} per ${1000 * TICK / RSR} ms tick (round 1's I5)`,
+        r, 'zero-length crossfades (a hard switch)', h.maxStep >= STEP_MAX ? { ok: false, detail: `a weight stepped ${h.maxStep.toFixed(2)} in one tick` } : { ok: true, detail: 'NOT caught' });
+  });
+  step(() => {
+    // 11. sharpening is wired and does what D2 asks
+    const a2 = gridMap(morphOf(optsWith({ gamma: 2 }))).pureFrac, a1 = gridMap(morphOf(optsWith({ gamma: 1 }))).pureFrac;
+    const ax = gridMap(morphOf(optsWith({ gamma: 2, plant: 'nosharp' }))).pureFrac;
+    add('Corner sharpening widens the pure-preset area (D2): γ = 2 owns more of the pad than γ = 1 (quantum, four presets), measured on the grid the pad paints',
+        a2 > a1 ? { ok: true, detail: `γ = 1: ${(100 * a1).toFixed(1)} % → γ = 2: ${(100 * a2).toFixed(1)} %` } : { ok: false, detail: `γ = 1 ${a1}, γ = 2 ${a2}` },
+        'the sharpening toggle disconnected from the weights', ax > a1 ? { ok: true, detail: 'still wider — NOT caught' } : { ok: false, detail: `γ = 2 reads ${(100 * ax).toFixed(1)} %, the γ = 1 area: the toggle does nothing` });
+  });
+  step(() => {
+    // 12. determinism
+    const o = optsWith({}), M1 = morphOf(o), M2 = morphOf(o), M3 = morphOf(optsWith({ seed: DEFAULTS.seed + 1 }));
+    const g1 = gridMap(M1), g2 = gridMap(M2), g3 = gridMap(M3);
+    const k = g => g.cells.map(c => c.key).join(',');
+    const r1 = renderSweep(M1, sweepW(M1, SWEEPS[4]), 1.2), r2 = renderSweep(M2, sweepW(M2, SWEEPS[4]), 1.2);
+    let same = r1.length === r2.length; for (let i = 0; same && i < r1.length; i++) if (r1[i] !== r2[i]) same = false;
+    const s1 = runSweep(M1, sweepW(M1, SWEEPS[4])), s2 = runSweep(M2, sweepW(M2, SWEEPS[4]));
+    add('Deterministic: the same seed gives the same pad, the same routed sweep and a bit-identical render',
+        same && k(g1) === k(g2) && s1.hash === s2.hash ? { ok: true, detail: `${GRID * GRID} cells, ${s1.n} ticks, ${r1.length} samples identical` } : { ok: false, detail: 'differs' },
+        'the next seed (Reshuffle), compared as if it were the same', k(g1) === k(g3) ? { ok: true, detail: 'identical — the seed does nothing' } : { ok: false, detail: `${g1.cells.filter((c, i) => c.key !== g3.cells[i].key).length} cells move: the seed decides` });
+  });
+  return { rows, steps };
+}
+function runSelfCheck() { const c = selfCheckSteps(); for (const f of c.steps) f(); return c.rows; }
+</script>
+
+<script>
+/* ======================================================================
+   BLOCK 2 — THE PAGE. State first, then derived data, renderers, painters,
+   audio, the deferred job queue, and the wiring at the very bottom (L0026:
+   nothing at setup reaches forward).
+   ====================================================================== */
+const $ = id => document.getElementById(id);
+const QS = (() => { try { const q = window.location && window.location.search; return typeof q === 'string' ? q : ''; } catch (_) { return ''; } })();
+const qv = (k, d) => { const m = QS.match(new RegExp('[?&]' + k + '=([^&]+)')); return m ? decodeURIComponent(m[1]) : d; };
+const qb = (k, d) => { const v = qv(k, null); return v === null ? d : v === '1'; };
+/* every setting the page owns; the query string can set any of them (screenshots, links in a review) */
+let o = optsWith({
+  set: setById(qv('set', DEFAULTS.set)).id, mode: qv('mode', DEFAULTS.mode) === 'blend' ? 'blend' : 'quantum',
+  method: qv('method', DEFAULTS.method) === 'walk' ? 'walk' : 'decode', snap: qb('snap', DEFAULTS.snap), sharpen: qb('sharpen', DEFAULTS.sharpen),
+  jitter: qb('jitter', DEFAULTS.jitter), norm: qb('norm', DEFAULTS.norm), tails: qb('tails', DEFAULTS.tails),
+  gamma: +qv('gamma', DEFAULTS.gamma), T: +qv('T', DEFAULTS.T), p: +qv('p', DEFAULTS.p), K: +qv('K', DEFAULTS.K), seed: +qv('seed', DEFAULTS.seed),
+});
+let PX = clamp01(+qv('x', '0.42')), PY = clamp01(+qv('y', '0.36'));
+let dark = /theme=dark/.test(QS), sweeping = false, sweepId = qv('sweep', 'loop'), sweepT = 0, dragPad = false, pulse = true, dirty = true;
+let M = null, G = null, G0 = null, STP = null, SWS = {}, EDG = {}, CHECK = null, CHECK_N = 0, PAL = {};
+let AC = null, SPN = null, AN = null, ENG = null, LR = null, scopeBuf = null, clipHold = 0, ax = PX, ay = PY, aKey = '', aSt = null;
+let jobs = [], jobGen = 0, checkJobs = [], pend = 0;
+const OFF = { sharpen: false, jitter: false, snap: false, norm: false, tails: false };
+const ON = { sharpen: true, jitter: true, snap: true, norm: true, tails: true };
+const P_CHOICES = [[1, '1'], [4 / 3, '4/3'], [2, '2']];
+const CAP_MAX = 6;                           // the cap slider's top position means "no cap" (∞)
+const pct = v => (100 * v).toFixed(1) + '%';
+const dbTxt = v => v === -Infinity ? '−∞' : (v > -0.005 ? '+' : '−') + Math.abs(v).toFixed(2);   // −0.00 is float dust, shown as +0.00
+const chainTxt = c => c.length ? c.map(t => SHORT[t]).join(' ') : '(dry)';
+/* the toggles, each with what it does and what OFF is — the A/B surface D2 asks for */
+const TOGGLES = [
+  { k: 'sharpen', name: 'SHARPEN γ', on: () => `corner weights raised to γ = ${o.gamma} and renormalised, so each preset owns a wider region round its corner (D2; lane 4).`, off: 'plain bilinear weights: the presets own a thin sliver of the pad.' },
+  { k: 'jitter', name: 'JITTER (T)', on: () => `seeded jitter at temperature ${o.T.toFixed(2)} spreads presence thresholds and order crossings over the pad, and vanishes at the corners (lane 1).`, off: 'temperature 0: every flip and every crossing lands on the mid-lines — round 1\'s hard cut at 50 %.' },
+  { k: 'snap', name: 'SNAP TO V', on: () => `every chain is pulled into the approved set below, by the ${o.method === 'walk' ? 'WALK (lane 1 F2)' : 'DECODE (lane 4 F1)'}.`, off: 'the raw target, rules or no rules: the pad marks every point that breaks one.' },
+  { k: 'norm', name: 'NORMALISE', on: () => `each change is one split group, weights u/‖u‖_p at p = ${pLabel(o.p)}, so a change adds at most ${dbTxt(db(Math.pow(2, 1 - 1 / o.p)))} dB (lane 2).`, off: 'round 1\'s make-before-break: the new path ramps in, then the old one out — up to +6 dB per change.' },
+  { k: 'tails', name: 'TAILS RING', on: () => 'a leaving ECHO, Scape or Sluice stops listening and rings out, up to its cap (D5).', off: 'every leaving module is faded out whole, tail and all (round 1\'s STRICT I7).' },
+];
+const pLabel = p => (P_CHOICES.find(q => Math.abs(q[0] - p) < 1e-9) || [0, String(p)])[1];
+
+/* ---------- derived data ---------- */
+const sweepById = id => SWEEPS.find(s => s.id === id) || SWEEPS[SWEEPS.length - 1];
+function stAt(x, y) { return mapW(M, weightsXY(M, x, y)); }
+/* the chain the panel shows: the audio router's live state while POWER runs, else a
+   router settled on the target (what the router would rest on if the puck stayed) */
+function viewRouter() {
+  if (AC && AC.state === 'running' && LR) return LR;
+  const R = new Router(M, RSR, TICK); R.settle(stAt(PX, PY)); return R;
+}
+
+/* ---------- recompute + the deferred queue ---------- */
+function recompute(resettle) {
+  M = morphOf(o);
+  G = gridMap(M);
+  G0 = gridMap(morphOf(Object.assign({}, o, OFF)));
+  STP = null; SWS = {}; EDG = {};
+  if (LR) { LR.setMorph(M); if (resettle) LR.settle(stAt(ax, ay)); aKey = ''; }   // a new corner set has new modules: re-settle in the same breath
+  renderAll();
+  jobGen++; jobs = [];
+  const gen = jobGen;
+  for (const sw of SWEEPS) jobs.push(() => {
+    const s = runSweep(M, sweepW(M, sw)), y = renderSweep(M, sweepW(M, sw), SW_PRE + SW_MOVE + SW_POST);
+    const y0 = renderSweep(M, () => sweepW(M, sw)(0), SW_PRE + SW_MOVE + SW_POST), y1 = renderSweep(M, () => sweepW(M, sw)(1), SW_PRE + SW_MOVE + SW_POST);
+    s.step = stepDb(y); s.still = Math.max(stepDb(y0), stepDb(y1));
+    SWS[sw.id] = s;
+  });
+  for (const sw of SWEEPS.filter(s => s.edge)) jobs.push(() => { const e = edgeSweeps(o, sw); e.map = edgeMapsAgree(o, sw, GRID); EDG[sw.id] = e; });
+  const tick = () => {
+    if (gen !== jobGen) return;
+    const f = jobs.shift(); if (f) f();
+    renderTables();
+    if (jobs.length) setTimeout(tick, 0);
+  };
+  setTimeout(tick, 0);
+}
+/* the self-check has its OWN queue: a settings change restarts the metric jobs, and
+   must not strand the check half-run (it always runs on DEFAULTS, not on the page) */
+function startCheck() {
+  const c = selfCheckSteps(); CHECK_N = c.steps.length;
+  checkJobs = c.steps.map(f => () => { f(); CHECK = c.rows; });
+  const tick = () => { const f = checkJobs.shift(); if (f) { f(); renderChecks(); } if (checkJobs.length) setTimeout(tick, 0); };
+  setTimeout(tick, 0);
+}
+
+/* ---------- renderers (DOM) ---------- */
+function renderControls() {
+  const pill = (k, label, on) => `<button class="pill${on ? ' on' : ' act'}" data-k="${k}">${label}</button>`;
+  $('setPills').innerHTML = SETS.map(s => pill(s.id, s.name.toUpperCase(), s.id === o.set)).join('');
+  $('setWhy').textContent = '· ' + setById(o.set).why;
+  $('pathPills').innerHTML = SWEEPS.map(s => pill(s.id, s.id.toUpperCase(), s.id === sweepId)).join('');
+  $('toggles').innerHTML =
+    `<span class="lbl">MODE</span><div class="pills" id="modePills">${pill('quantum', 'QUANTUM', o.mode === 'quantum')}${pill('blend', 'BLEND', o.mode === 'blend')}
+      <span class="what" style="margin-left:6px">${o.mode === 'blend' ? 'a module is in wherever a corner holds it, at a wet gain equal to its vote.' : 'a module is in or out, flipping at its own seeded threshold.'}</span></div>` +
+    TOGGLES.map(t => `<button class="pill${o[t.k] ? ' on' : ' act'}" data-tg="${t.k}">${t.name}<span class="st">${o[t.k] ? 'ON' : 'OFF'}</span></button>` +
+      `<div class="what"><b>${o[t.k] ? 'ON' : 'OFF'}:</b> ${o[t.k] ? t.on() : t.off}` +
+      (t.k === 'snap' ? ` <span class="pills" id="methPills" style="display:inline-flex;margin:0 0 0 6px">${pill('decode', 'DECODE', o.method === 'decode')}${pill('walk', 'WALK', o.method === 'walk')}</span>` : '') + `</div>`).join('');
+  $('gIn').value = o.gamma; $('gOut').textContent = o.gamma.toFixed(1);
+  $('tIn').value = o.T; $('tOut').textContent = o.T.toFixed(2);
+  $('pPills').innerHTML = P_CHOICES.map(([v, l]) => pill(String(v), l, Math.abs(v - o.p) < 1e-9)).join('');
+  $('kPills').innerHTML = [1, 2, 3, 4].map(k => pill(String(k), String(k), k === o.K)).join('');
+  $('sOut').textContent = o.seed;
+  $('capRow').innerHTML = Object.keys(DEFAULT_CAPS).map(t => {
+    const v = o.caps[t];
+    return `<label class="rng">${NAME[t].toUpperCase()} <input type="range" data-cap="${t}" min="0.1" max="${CAP_MAX}" step="0.1" value="${v === Infinity ? CAP_MAX : v}"><b>${v === Infinity ? '∞' : v.toFixed(1) + ' s'}</b></label>`;
+  }).join('');
+  const f = Math.pow(2, 1 - 1 / o.p), fit = f <= 1 + 1e-9 ? Infinity : Math.floor(Math.log(CEIL) / Math.log(f) + 1e-9);
+  $('advNote').innerHTML = `<b>γ</b> sharpens the corner weights (needs SHARPEN on). <b>Temperature</b> scales the seeded jitter (needs JITTER on). <b>p</b>: a change adds at most
+    ${dbTxt(db(f))} dB while it runs (p = 1: 0 dB, but uncorrelated material dips up to 3 dB; p = 2: +3 dB coherent, 0 dB uncorrelated — lane 2's table). <b>K</b> caps how
+    many changes run at once on a lane; the +3 dB headroom cap admits ${fit === Infinity ? 'any number' : fit} full-gain change${fit === 1 ? '' : 's'} at this p, so the effective
+    limit is <b>${Math.min(o.K, fit === Infinity ? o.K : fit)}</b>. <b>Reshuffle</b> deals a new seed: the same corners, new thresholds and crossings.
+    <b>Tail caps</b>: a leaving module rings for its own decay (from its parameters) or its cap, whichever is shorter; Sluice's network can ring for ever (feedback ≥ 1), which is why it needs one (D5). Top of the slider = no cap.`;
+  $('pulseBtn').className = 'pill' + (pulse ? ' on' : '');
+  $('sweepBtn').className = 'pill' + (sweeping ? ' on' : '');
+}
+function renderCorners() {
+  const C = setById(o.set).corners;
+  $('corners').innerHTML = [2, 3, 0, 1].map(k => `<div class="corner"><h3>${CORNER_ID[k]} <span>${C[k].name}</span></h3><canvas id="cc${k}"></canvas>
+    <div class="ptxt"><b>${chainTxt(C[k].chain)}</b> · Sub → ${SHORT[C[k].sub]} · ${chainCost(C[k].chain)} pts${vBreak(C[k].chain) ? ' <span class="no">breaks ' + vBreak(C[k].chain) + '</span>' : ''}</div></div>`).join('');
+}
+function renderRules() {
+  const r = RULES.map(q => `<li><b>${q.title}.</b> ${q.text}${EXCEPTIONS.filter(e => e.rule === q.id).map(e => `<span class="ex"><b>Exception — ${e.title}.</b> ${e.text}</span>`).join('')}</li>`).join('');
+  const C = setById(o.set).corners;
+  $('rules').innerHTML = `<div class="ptxt" style="margin:0 0 6px">Three house rules and one exception. <b>Everything else is allowed</b>: any order, any subset, one of each module.</div>
+    <ol class="rules">${r}</ol>
+    <div class="pts">Every corner preset of the ${setById(o.set).name} set is in V (${C.map((c, k) => CORNER_ID[k] + ' ' + chainCost(c.chain) + ' pts' + (vBreak(c.chain) ? ' ✗' : ' ✓')).join(' · ')}).
+      The corners' union costs <b>${chainCost(M.U)}</b> points${chainCost(M.U) > CPU_BUDGET ? ', over the budget: the middle of the pad must drop modules, and the snap decides which' : ''}.</div>
+    <div class="note">Why so few: D3 asks for rules "as permissive as reasonable", that guide away from "sonic nonsense or untenable CPU load" without a "Byzantine ruleset".
+      The CPU rule is the one the middle of a four-corner pad meets every time; R2 and R3 are proposals for the listening pass, each with a stated reason, and the
+      exception is the one sound R2 would forbid that people make on purpose. A new rule should earn its place the same way.</div>`;
+}
+function renderChainTxt() {
+  const st = stAt(PX, PY), R = viewRouter(), f = R.frame();
+  const live = R.spine.filter(t => R.active(t));
+  const open = R.spine.filter(t => R.mods[t].ev && COUNTED[R.mods[t].ev]).map(t => R.mods[t].ev.replace(/^(arr|arrT)$/, 'arrive').replace(/^lv[NT]$/, 'leave').replace(/^mv[AB]$/, 'move') + ' ' + SHORT[t]);
+  const tails = R.spine.filter(t => R.mods[t].mode === 'tail' || R.mods[t].ev === 'tc').map(t => SHORT[t]);
+  const raw = vBreak(st.target);
+  $('xyOut').textContent = `x ${PX.toFixed(2)} · y ${PY.toFixed(2)} · weights ${st.w.map((q, k) => CORNER_ID[k] + ' ' + q.toFixed(2)).join(' ')}`;
+  $('chainHead').textContent = AC && AC.state === 'running' ? '· live (POWER)' : '· at rest (the router settled on the target)';
+  $('chainTxt').innerHTML = `target <b>${chainTxt(st.chain)}</b> · Sub → <b>${SHORT[st.sub]}</b> · ${chainCost(st.chain)} pts` +
+    (o.mode === 'blend' ? ` · wet ${st.chain.map(t => SHORT[t] + ' ' + st.wet[t].toFixed(2)).join(' ')}` : '') +
+    `<br>raw order target ${chainTxt(st.target.filter(t => o.mode === 'quantum' || st.p[t] > 0))} ${raw ? `<span class="no">breaks ${raw}</span>${o.snap ? ' → snapped by the ' + o.method.toUpperCase() : ' (snap off)'}` : '<span class="ok">in V</span>'}` +
+    `<br>live <b>${chainTxt(live)}</b> · lane gain Body <b>${dbTxt(db(transmission(f, 'BODY')))}</b> Sub <b>${dbTxt(db(transmission(f, 'SUB')))}</b> dB · CPU <b>${R.liveCost()}</b>/${CPU_BUDGET}` +
+    (tails.length ? ` (tails ringing: ${tails.join(' ')})` : '') + (open.length ? ` · open: ${open.join(', ')}${R.subEv ? ', Sub reroute' : ''}` : R.subEv ? ' · open: Sub reroute' : '');
+}
+function renderPadTab() {
+  const row = (name, a, b, note) => `<tr><td class="a">${name}${note ? '<span class="sub">' + note + '</span>' : ''}</td><td>${a}</td><td class="wv">${b}</td></tr>`;
+  const per = g => [0, 1, 2, 3].map(k => CORNER_ID[k] + ' ' + pct(g.cells.filter(c => c.pure === k).length / g.cells.length)).join(' · ');
+  const J = g => `<b>${g.hist[1]}</b> one · <b class="${g.hist[2] ? 'no' : ''}">${g.hist[2]}</b> two · <b class="${g.hist[3] ? 'no' : ''}">${g.hist[3]}</b> three+`;
+  $('padHead').textContent = `· ${GRID}×${GRID} points, the grid the pad paints`;
+  $('padTab').innerHTML = '<tr><th></th><th>now</th><th>all toggles off</th></tr>' +
+    row('pure-preset area', `<span class="big">${pct(G.pureFrac)}</span><span class="sub">${per(G)}</span>`, `${pct(G0.pureFrac)}<span class="sub">${per(G0)}</span>`, 'points that ARE a corner\'s preset') +
+    row('distinct intermediate chains', `<span class="big">${G.distinct}</span>`, G0.distinct, 'audible chain + Sub entry, corners excluded') +
+    row('boundary jumps', J(G), J(G0), 'neighbour pairs that differ, by size; two = D4\'s two-change jump') +
+    row('outside V', G.outV ? `<span class="no">${G.outV} points (${G.firstOut})</span>` : '<span class="ok">0</span>', G0.outV ? `${G0.outV} (${G0.firstOut})` : '0', 'a rule broken') +
+    row('unanimity — all four agree', G.unan ? `<span class="no">${G.unan} inverted</span>` : `<span class="ok">0 inverted</span> of ${M.strict.length} agreed pair${M.strict.length === 1 ? '' : 's'}`, G0.unan || '0', 'asserted (D1 a)') +
+    row('unanimity — every corner holding both agrees', G.unanS ? `<span class="no">${G.unanS} points</span>` : '<span class="ok">0</span>', G0.unanS || '0', 'reported: lane 1\'s ghosts can break it, the decode does not') +
+    row('max CPU on the pad', `${G.maxCost} / ${CPU_BUDGET}`, `${G0.maxCost} / ${CPU_BUDGET}`, 'the target; ringing tails are in the sweep table');
+  $('padNote').innerHTML = `<b>Pure-preset area</b>: the share of the grid whose audible chain and Sub entry are exactly one corner's (in blend, also with every one of
+    that corner's modules within 1 dB of full wet). <b>Distinct</b>: different audible chains strictly inside. <b>Boundary jumps</b>: for every pair of neighbouring
+    points that differ, how many changes apart they are (modules in one and not the other, pairs ordered differently, a moved Sub). The right column is the
+    same corners with all five toggles off — the before/after in numbers.`;
+}
+function renderSweepTab() {
+  const done = SWEEPS.every(s => SWS[s.id]);
+  $('swHead').textContent = done ? `· ${SW_MOVE} s per sweep, ${1000 * TICK / RSR} ms control ticks` : '· computing…';
+  const kinds = s => ['arr', 'lvN', 'lvT', 'mvA', 'sub', 'arrT'].filter(k => s.byKind[k]).map(k => ({ arr: '+', arrT: '+t', lvN: '−', lvT: '−t', mvA: '↔', sub: 'Su' }[k] + s.byKind[k])).join(' ');
+  $('swTab').innerHTML = '<tr><th>sweep</th><th>chain changes · two+</th><th>router changes</th><th>distinct</th><th>lane gain min · max dB</th><th>open B/S</th><th>CPU</th><th>level step (still)</th><th>I1 I7t unan</th></tr>' +
+    SWEEPS.map(sw => {
+      const s = SWS[sw.id];
+      if (!s) return `<tr><td class="a">${sw.name}</td><td colspan="8">…</td></tr>`;
+      const bad = s.minDb < db(FLOOR) - 1e-9 || s.maxDb > db(CEIL) + 1e-9;
+      const inv = !s.I1 && !s.I7t && !s.unan;
+      return `<tr><td class="a">${sw.name}</td><td>${s.changes} · <span class="${s.jumps[2] + s.jumps[3] ? 'no' : ''}">${s.jumps[2] + s.jumps[3]}</span></td>` +
+        `<td>${s.events - (s.byKind.tc || 0)}<span class="sub">${kinds(s)}</span></td><td>${s.distinct}</td>` +
+        `<td class="${bad ? 'no' : ''}">${dbTxt(s.minDb)} · ${dbTxt(s.maxDb)}</td><td>${s.maxOpen.BODY}/${s.maxOpen.SUB}</td>` +
+        `<td class="${s.maxCost > CPU_BUDGET ? 'no' : ''}">${s.maxCost}</td><td>${s.step.toFixed(1)} <span class="wv">(${s.still.toFixed(1)})</span></td>` +
+        `<td>${inv ? '<span class="ok">✓ ✓ ✓</span>' : `<span class="no">${s.I1 ? 'I1 ' : ''}${s.I7t ? 'I7t ' : ''}${s.unan ? 'unan' : ''}</span>`}</td></tr>`;
+    }).join('');
+  $('swNote').innerHTML = `Each sweep: ${SW_PRE} s still, a ${SW_MOVE} s move along the path, ${SW_POST} s still, through the same router POWER plays.
+    <b>Chain changes</b>: how often the target changes along the path, and how many of those are two-or-more-change jumps (D4). <b>Router changes</b>:
+    + arrive, − leave, −t leave and ring, ↔ move (a wet dip), Su a Sub reroute. <b>Lane gain</b>: the static path gain (module gains taken as 1, round 1's I6
+    quantity) of the quieter and the louder moment over both lanes; the floor is ${dbTxt(db(FLOOR))} dB, the cap +${db(CEIL).toFixed(2)} dB. <b>CPU</b>: the most
+    points running at once, ringing tails included — the CPU rule governs the target, a tail is on top. <b>Level step</b>: the worst level change between
+    neighbouring 32 ms windows of a 16 kHz render, with the two ends held still in brackets (round 1's metric). Last column: one-per-type, I7 tail-allowed,
+    unanimity in the live order.`;
+}
+function renderEdgeTab() {
+  const C = setById(o.set).corners;
+  const cell = s => s ? `${s.events - (s.byKind.tc || 0)} ch · ${s.distinct} distinct · ${dbTxt(s.minDb)}…${dbTxt(s.maxDb)} dB · ${s.maxCost} pts` : '…';
+  $('edgeTab').innerHTML = '<tr><th>edge</th><th>four corners, on the edge</th><th>the two corners alone</th><th>identical?</th></tr>' +
+    SWEEPS.filter(s => s.edge).map(sw => {
+      const e = EDG[sw.id], pair = `${CORNER_ID[sw.edge[0]]} ${C[sw.edge[0]].name} → ${CORNER_ID[sw.edge[1]]} ${C[sw.edge[1]].name}`;
+      if (!e) return `<tr><td class="a">${sw.id}<span class="sub">${pair}</span></td><td colspan="3">…</td></tr>`;
+      const same = !e.map && sameSweep(e.four, e.two);
+      return `<tr><td class="a">${sw.id}<span class="sub">${pair}</span></td><td>${cell(e.four)}</td><td>${cell(e.two)}</td>` +
+        `<td>${same ? '<span class="ok">YES</span><span class="sub">map at ' + GRID + ' points; routed graph at every tick</span>' : '<span class="no">NO</span><span class="sub">' + (e.map || 'the routed sweeps differ') + '</span>'}</td></tr>`;
+    }).join('');
+  $('edgeNote').innerHTML = `Lane 4's acceptance test (brief §3): on a pad edge the other two corners weigh nothing, so the four-corner scheme must reduce to the
+    two-corner morph of that edge's own corners. Here the pair is run as a separate two-corner morph (weights 1 − t, t) and compared at every grid point and every
+    router tick, with round 1's metric functions (I1, I7, path gain, distinct chains). It holds because every draw is keyed by content (a module, a pair, a Sub entry),
+    ghost ranks range over all eight types rather than the corners' union, and ties break by content, never by a corner's index. Radial weights break it (self-check 2).`;
+}
+function renderTables() { renderSweepTab(); renderEdgeTab(); renderChecks(); }
+function renderChecks() {
+  if (!CHECK) return;
+  const pass = CHECK.filter(r => r.pass).length, caught = CHECK.filter(r => r.caught).length, n = CHECK.length, fin = n === CHECK_N;
+  $('chkBody').innerHTML = CHECK.map((r, i) => `<tr><td>${i + 1}</td><td class="claim">${r.claim}<div>${r.detail || ''}</div></td>` +
+    `<td>${r.pass ? '<span class="ok">HOLDS</span>' : '<span class="no">FAILS</span>'}</td><td>${r.control}<div>${r.cdetail || ''}</div></td>` +
+    `<td>${r.caught ? '<span class="ok">CAUGHT</span>' : '<span class="no">MISSED</span>'}</td></tr>`).join('') + (fin ? '' : `<tr><td colspan="5">running… ${n}/${CHECK_N}</td></tr>`);
+  const good = pass === n && caught === n;
+  $('audit').className = 'audit' + (good ? '' : ' bad');
+  $('audit').innerHTML = `self-check at load${fin ? '' : ' (running ' + n + '/' + CHECK_N + ')'}: <b>${pass}/${n}</b> claims hold · <b>${caught}/${n}</b> planted faults caught` +
+    (good ? ` — defaults: ${DEFAULTS.mode}, ${DEFAULTS.method}, γ ${DEFAULTS.gamma}, T ${DEFAULTS.T}, p ${DEFAULTS.p}, K ${DEFAULTS.K}, seed ${DEFAULTS.seed}; both modes and both snaps where stated.` : ' — SEE THE TABLE: a claim or a control failed.');
+}
+function renderRec() {
+  const g = G, g0 = G0;
+  $('rec').innerHTML = `
+  <p><b>How to listen.</b> Press <b>POWER</b> (a saw chord on Body, a sine an octave down on Sub; <b>PULSE</b> gates the chord so tails are audible), then drag the puck,
+    or press <b>SWEEP</b> to drive it round a path. Flip a dev toggle while it plays: the router walks to the new target with its own crossfades, so each toggle is
+    an A/B of that behaviour alone. <b>ALL OFF</b> is round 1's behaviour on four corners: hard mid-line cuts, round 1's louder make-before-break, tails cut, no rules.</p>
+  <p><b>What the numbers say now</b> (${setById(o.set).name}, ${o.mode}). The presets own <b>${pct(g.pureFrac)}</b> of the pad (all toggles off: ${pct(g0.pureFrac)});
+    <b>${g.distinct}</b> distinct chains live in between; of the ${g.edges} boundaries between neighbouring points, <b>${g.hist[2]}</b> are two-change jumps and
+    ${g.hist[3]} are bigger. The snap keeps every point in V; without it ${G0.outV ? G0.outV + ' points break a rule' : 'no point breaks one on this set and mode'}.</p>
+  <p><b>Findings the build surfaced</b> (each is in the self-check or a table, not a claim from the brief):</p>
+  <ol class="q">
+    <li><b>Edge reduction and strict unanimity both hold, but only with corner-blind ghosts.</b> Ghost ranks come from the house order over all eight types; any
+      ghost rule that looks at the other corners (lane 1's rule b, or "ghosts follow the corners") would make an edge depend on the far corners. The price is the
+      weaker reading of unanimity — "every corner that holds both agrees" — which lane 1's sort breaks on the four-presets pad and the decode does not
+      (pad table, last unanimity row). <i>Decide</i> whether that reading matters; if it does, the decode is the snap.</li>
+    <li><b>The CPU rule is the one that bites.</b> Four unrelated presets easily union past the budget, so BLEND without the snap is out of V over most of the pad.
+      QUANTUM mostly stays in V on its own, because the thresholds thin the middle. The decode drops the weakest-voted modules; the walk drops whatever its start
+      corner reaches last, so it paints a seam where the heaviest corner changes. <i>Listen</i> for which drop sounds right.</li>
+    <li><b>p decides concurrency, not K.</b> At p = 2 one full-gain change already uses the +3 dB headroom, so changes run one at a time whatever K says; at p = 4/3
+      two fit, at p = 1 the K budget binds. The lab shows the effective limit next to the controls. <i>Choose</i> p by ear first, then K (D8).</li>
+    <li><b>Tails ring on top of the CPU budget.</b> A Scape or Sluice ringing out still costs its points while the chain that replaced it runs: the sweep table's
+      CPU column passes ${CPU_BUDGET} on the paths where a heavy module leaves. The cap bounds how long; it does not make the overlap free.</li>
+    <li><b>Equal votes need a tie rule.</b> On the B–C diagonal two modules held by the A and D corners have equal votes in exact arithmetic; the first build let
+      float noise choose and the walk chattered (74 changes on one sweep). Every comparison now treats 1e-12 as a tie and breaks it by house order.</li>
+    <li><b>The decode's pair bits buy membership.</b> Lane 4's objective scores a pair's order only when both modules are in, and a pair the corners agree on
+      scores up to its support × 12, so the decode admits a module below its own presence threshold when it brings well-agreed pairs with it (at the default
+      puck the raw target is Fl Dr Rv, the decode Dr Fl Dl Rv Dy). The walk and the raw target flip presence exactly at the threshold. <i>Listen</i> for whether
+      the decode's fuller middle is welcome or crowded.</li>
+  </ol>
+  <p><b>Open for the listening pass.</b></p>
+  <ol class="q">
+    <li><b>D1:</b> the lab asserts order-level unanimity (no pair all four corners agree on is inverted) and measures, but does not enforce, "at most one switch
+      point per transient path"; changes are issued in one monotone direction (upstream first), which is lane 2's mechanism for it. <i>Confirm</i> this reads as
+      the rule you meant once you have heard it.</li>
+    <li><b>D2:</b> γ = 2 against γ = 1 by ear: does the wider pure region feel like presets with a morph between, or like dead zones?</li>
+    <li><b>D3:</b> R2 (Bulwark after Scape) and R3 (Sluice after Scape), their exception, and the CPU point costs are proposals. Keep, cut or add.</li>
+    <li><b>D4:</b> DECODE against WALK. The decode keeps the corners' pair orders better; the walk keeps more single-step boundaries in QUANTUM and is cheaper.
+      Which middle sounds better?</li>
+    <li><b>D5:</b> tail caps — is 1.5 s right for Sluice, and should a cap be per module type or per preset?</li>
+    <li><b>D8:</b> p (1, 4/3 or 2) and K, by ear, with real material: the gain bound is coherent-worst-case, so p = 2 may be quieter than it reads here on
+      decorrelated wet paths.</li>
+    <li><b>Not built here:</b> the parameter-class contract (blend / flip / flip-with-dip / dual-engine, brief §2.6), the shadow pool for stateful hand-over, and
+      the audio-thread allocation count (brief §3, a C++ test). The router reverses nothing mid-change: a change runs to its end, then the next tick re-plans.</li>
+  </ol>`;
+}
+function renderAll() { renderControls(); renderCorners(); renderRules(); renderChainTxt(); renderPadTab(); renderTables(); renderRec(); readPal(); dirty = true; }
+
+/* ---------- painters: the only code that reads theme colours ---------- */
+function readPal() {
+  const cs = getComputedStyle(document.body);
+  for (const k of ['scr-tube', 'scr-value', 'scr-meter', 'scr-physics', 'scr-grid', 'scr-marker', 'caution', 'line', 'bg', 'alarm', 'dim'])
+    PAL[k] = String(cs.getPropertyValue('--' + k)).trim();
+}
+function fit(c) {
+  const dpr = window.devicePixelRatio || 1;
+  const w = Math.max(1, Math.round(c.clientWidth * dpr)), h = Math.max(1, Math.round(c.clientHeight * dpr));
+  if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
+  return dpr;
+}
+/* THE PAD: the grid G the metrics read, painted cell by cell (L0064: the picture is
+   what was measured). y runs up, as on a synth's XY pad. */
+function paintPad() {
+  const c = $('pad'), dpr = fit(c), g = c.getContext('2d'), W = c.width, H = c.height, N = G.N;
+  g.clearRect(0, 0, W, H);
+  const m = 14 * dpr, cw = (W - 2 * m) / (N - 1), ch = (H - 2 * m) / (N - 1);
+  const X = i => m + i * cw, Y = j => H - m - j * ch;
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+    const cell = G.cells[j * N + i];
+    g.fillStyle = cell.pure >= 0 ? PAL['scr-value'] : PAL['scr-physics'];
+    g.globalAlpha = cell.pure >= 0 ? 0.28 : 0.1 + 0.42 * ((cell.id * 0.6180339887) % 1);
+    g.fillRect(X(i) - cw / 2, Y(j) - ch / 2, cw + 0.5, ch + 0.5);
+    if (cell.outV || cell.unan) { g.globalAlpha = 0.9; g.strokeStyle = PAL.caution; g.lineWidth = dpr; g.beginPath(); g.moveTo(X(i) - cw / 2, Y(j) + ch / 2); g.lineTo(X(i) + cw / 2, Y(j) - ch / 2); g.stroke(); }
+  }
+  // boundaries: thin for one change, caution for two or more (D4)
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+    const a = G.cells[j * N + i];
+    for (const [di, dj] of [[1, 0], [0, 1]]) {
+      if (i + di >= N || j + dj >= N) continue;
+      const b = G.cells[(j + dj) * N + i + di]; if (a.key === b.key) continue;
+      const d = jumpD(a.st, b.st);
+      g.globalAlpha = d >= 2 ? 1 : 0.55; g.strokeStyle = d >= 2 ? PAL.caution : PAL['scr-grid']; g.lineWidth = (d >= 2 ? 2.2 : 1) * dpr;
+      g.beginPath();
+      if (di) { const x = X(i) + cw / 2; g.moveTo(x, Y(j) - ch / 2); g.lineTo(x, Y(j) + ch / 2); }
+      else { const y = Y(j) - ch / 2; g.moveTo(X(i) - cw / 2, y); g.lineTo(X(i) + cw / 2, y); }
+      g.stroke();
+    }
+  }
+  g.globalAlpha = 1;
+  // the sweep path
+  const sw = sweepById(sweepId);
+  g.strokeStyle = PAL['scr-grid']; g.lineWidth = 1.2 * dpr; g.setLineDash([4 * dpr, 4 * dpr]); g.globalAlpha = 0.8; g.beginPath();
+  for (let k = 0; k <= 120; k++) { const [x, y] = sw.xy(k / 120), px = m + x * (W - 2 * m), py = H - m - y * (H - 2 * m); k ? g.lineTo(px, py) : g.moveTo(px, py); }
+  g.stroke(); g.setLineDash([]); g.globalAlpha = 1;
+  // corner labels
+  const C = setById(o.set).corners;
+  g.font = `bold ${10 * dpr}px ui-monospace,Menlo,monospace`; g.textBaseline = 'middle';
+  CORNER_XY.forEach(([x, y], k) => {
+    g.textAlign = x ? 'right' : 'left'; g.fillStyle = PAL['scr-value'];
+    g.fillText(CORNER_ID[k] + ' ' + C[k].name, x ? W - m - 4 * dpr : m + 4 * dpr, y ? m + 8 * dpr : H - m - 8 * dpr);
+  });
+  // the puck (authored) and, while it plays, where the audio is
+  const px = m + PX * (W - 2 * m), py = H - m - PY * (H - 2 * m);
+  g.fillStyle = PAL['scr-value']; g.beginPath(); g.arc(px, py, 7 * dpr, 0, 7); g.fill();
+  if (AC) { g.strokeStyle = PAL['scr-value']; g.globalAlpha = 0.5; g.lineWidth = 1.5 * dpr; g.beginPath(); g.arc(m + ax * (W - 2 * m), H - m - ay * (H - 2 * m), 11 * dpr, 0, 7); g.stroke(); g.globalAlpha = 1; }
+}
+/* THE CHAIN: the router's spine, active modules only (a parked module is a dry wire).
+   Box ink = the wet; the arc under a module is its dry wire; a dashed box rings out a
+   tail; a violet halo is a change in progress; the Sub's arrow lands where it enters. */
+function paintChain(c, R, ink, small) {
+  const dpr = fit(c), g = c.getContext('2d'), W = c.width, H = c.height;
+  g.clearRect(0, 0, W, H);
+  const act = R.spine.filter(t => R.active(t)), n = act.length;
+  const bw = (small ? 22 : 34) * dpr, bh = (small ? 14 : 20) * dpr, x0 = (small ? 18 : 30) * dpr, x1 = W - (small ? 18 : 30) * dpr, mid = H * (small ? 0.42 : 0.4);
+  const xs = act.map((_, i) => x0 + (x1 - x0) * (i + 1) / (n + 1));
+  g.font = `${(small ? 8 : 9.5) * dpr}px ui-monospace,Menlo,monospace`; g.textAlign = 'center'; g.textBaseline = 'middle';
+  // spine
+  g.strokeStyle = PAL['scr-grid']; g.globalAlpha = 0.6; g.lineWidth = dpr; g.beginPath(); g.moveTo(x0, mid); g.lineTo(x1, mid); g.stroke(); g.globalAlpha = 1;
+  act.forEach((t, i) => {
+    const m = R.mods[t], [s, w, d] = R.wts(m), x = xs[i];
+    // the dry wire, under the module
+    g.strokeStyle = PAL['scr-grid']; g.globalAlpha = 0.25 + 0.75 * d; g.lineWidth = (0.8 + 1.6 * d) * dpr;
+    g.beginPath(); g.moveTo(x - bw * 0.8, mid); g.quadraticCurveTo(x, mid + bh * 1.6, x + bw * 0.8, mid); g.stroke();
+    // the module
+    g.globalAlpha = 1; g.fillStyle = PAL['scr-tube']; g.fillRect(x - bw / 2, mid - bh / 2, bw, bh);
+    if (m.ev && COUNTED[m.ev]) { g.strokeStyle = PAL['scr-physics']; g.globalAlpha = 0.45; g.lineWidth = 5 * dpr; g.strokeRect(x - bw / 2, mid - bh / 2, bw, bh); }
+    g.globalAlpha = 0.25 + 0.75 * Math.max(w, s * 0.4); g.strokeStyle = ink; g.lineWidth = 1.5 * dpr;
+    if (m.mode === 'tail' || m.ev === 'tc' || m.ev === 'lvT') g.setLineDash([3 * dpr, 2 * dpr]);
+    g.strokeRect(x - bw / 2, mid - bh / 2, bw, bh); g.setLineDash([]);
+    g.fillStyle = ink; g.fillText(SHORT[t], x, mid + 0.5 * dpr); g.globalAlpha = 1;
+  });
+  // lanes and OUT
+  g.fillStyle = PAL['scr-value']; g.globalAlpha = 1;
+  g.fillText('Bo', x0 - 12 * dpr, mid); g.fillText('Out', x1 + 14 * dpr, mid);
+  const subs = R.subEv ? (() => { const [A, B] = R.split(R.subEv.u); return [[R.subEv.from, B], [R.subEv.to, A]]; })() : [[R.sub[0].j, 1]];
+  for (const [j, wt] of subs) {
+    if (wt <= EPS) continue;
+    let x;
+    if (j === 'OUT') x = x1;
+    else { const after = j === 'J:0' ? -1 : R.spine.indexOf(j.slice(2)); const nxt = act.findIndex(t => R.spine.indexOf(t) > after); x = nxt < 0 ? x1 : xs[nxt] - bw * 0.8; }
+    g.strokeStyle = PAL['scr-marker']; g.globalAlpha = 0.3 + 0.7 * wt; g.lineWidth = (1 + 1.5 * wt) * dpr;
+    g.beginPath(); g.moveTo(x0, H - 6 * dpr); g.quadraticCurveTo(x - 10 * dpr, H - 6 * dpr, x, mid + 2 * dpr); g.stroke();
+  }
+  g.globalAlpha = 1; g.fillStyle = PAL['scr-marker']; g.fillText('Su', x0 - 12 * dpr, H - 6 * dpr);
+}
+function paintCorners() {
+  const C = setById(o.set).corners, M1 = makeMorph(C, o);
+  C.forEach((c, k) => { const el = $('cc' + k); if (!el) return; const R = new Router(M1, RSR, TICK); R.settle(mapW(M1, weightsXY(M1, CORNER_XY[k][0], CORNER_XY[k][1]))); paintChain(el, R, PAL['scr-value'], true); });
+}
+function paintScope() {
+  const c = $('scopeC'), dpr = fit(c), g = c.getContext('2d'), W = c.width, H = c.height;
+  g.clearRect(0, 0, W, H);
+  g.strokeStyle = PAL['scr-grid']; g.globalAlpha = 0.3; g.lineWidth = dpr; g.beginPath(); g.moveTo(0, H / 2); g.lineTo(W, H / 2); g.stroke(); g.globalAlpha = 1;
+  if (!AN || !scopeBuf) return;
+  AN.getFloatTimeDomainData(scopeBuf);
+  let peak = 0; for (const v of scopeBuf) peak = Math.max(peak, Math.abs(v));
+  if (peak >= 1) clipHold = 45; else if (clipHold > 0) clipHold--;
+  $('clip').className = 'clip' + (clipHold ? ' on' : '');
+  g.strokeStyle = PAL['scr-meter']; g.lineWidth = 1.5 * dpr; g.beginPath();
+  for (let i = 0; i < scopeBuf.length; i++) { const x = i / (scopeBuf.length - 1) * W, y = H / 2 - scopeBuf[i] * H * 0.45; i ? g.lineTo(x, y) : g.moveTo(x, y); }
+  g.stroke();
+}
+function paintAt() { paintPad(); paintChain($('chainC'), viewRouter(), PAL['scr-physics'], false); renderChainTxt(); }
+
+/* ---------- audio adapter: the model's own Router and Engine in a ScriptProcessor ----------
+   The puck slews with a 40 ms time constant, stated in seconds and converted per
+   64-sample tick (ADR-009). The router steps once per tick; nothing reads a clock. */
+function startAudio() {
+  AC = new (window.AudioContext || window.webkitAudioContext)();
+  const sr = AC.sampleRate, k = Math.exp(-64 / (0.04 * sr));
+  ENG = new Engine(sr); ENG.pulse = pulse; ax = PX; ay = PY;
+  LR = new Router(M, sr, 64); aSt = stAt(ax, ay); LR.settle(aSt); aKey = '';
+  SPN = AC.createScriptProcessor(1024, 0, 1);
+  SPN.onaudioprocess = ev => {
+    const out = ev.outputBuffer.getChannelData(0);
+    for (let s = 0; s < out.length; s += 64) {
+      ax = PX + (ax - PX) * k; ay = PY + (ay - PY) * k;
+      const key = ax.toFixed(4) + ',' + ay.toFixed(4);
+      if (key !== aKey) { aSt = stAt(ax, ay); aKey = key; }
+      LR.step(aSt); ENG.block(LR.frame(), out, s, Math.min(64, out.length - s));
+    }
+  };
+  AN = AC.createAnalyser(); AN.fftSize = 1024; scopeBuf = new Float32Array(AN.fftSize);
+  SPN.connect(AN); AN.connect(AC.destination);
+}
+
+/* ---------- the frame ---------- */
+let frameN = 0;
+function frame() {
+  frameN++;
+  if (sweeping) { sweepT += 0.004; const [x, y] = sweepById(sweepId).xy(0.5 - 0.5 * Math.cos(sweepT)); PX = x; PY = y; dirty = true; }
+  if (dirty) { paintAt(); dirty = false; }
+  else if (AC && AC.state === 'running' && frameN % 3 === 0) { paintChain($('chainC'), LR, PAL['scr-physics'], false); renderChainTxt(); paintPad(); }
+  paintScope();
+  requestAnimationFrame(frame);
+}
+function applyTheme() {
+  document.body.classList.toggle('dark', dark);
+  $('themeBtn').innerHTML = 'theme <b>' + (dark ? 'DARK · TUBE' : 'LIGHT · ORCHID') + '</b>';
+  readPal(); paintCorners(); dirty = true; paintAt();
+}
+function setOpt(patch, resettle) { o = Object.assign({}, o, patch); recompute(resettle); paintCorners(); }
+/* sliders: coalesce a drag into one recompute per 40 ms (a pad map is ~0.1–0.3 s) */
+function setLater(patch) { o = Object.assign({}, o, patch); if (!pend) pend = setTimeout(() => { pend = 0; recompute(); paintCorners(); }, 40); }
+
+/* ======================================================================
+   WIRING — last, so nothing above reaches forward.
+   ====================================================================== */
+$('themeBtn').addEventListener('click', () => { dark = !dark; applyTheme(); });
+$('pwr').addEventListener('click', () => {
+  if (!AC) startAudio(); else if (AC.state === 'running') AC.suspend(); else AC.resume();
+  setTimeout(() => {
+    const on = AC && AC.state === 'running';
+    $('pwr').className = 'pill' + (on ? ' on' : '');
+    $('audioStat').textContent = on ? 'AUDIO — BODY + SUB THROUGH THE ROUTER' : 'AUDIO — OFF';
+    dirty = true;
+  }, 60);
+});
+$('pulseBtn').addEventListener('click', () => { pulse = !pulse; if (ENG) ENG.pulse = pulse; renderControls(); });
+$('sweepBtn').addEventListener('click', () => { sweeping = !sweeping; renderControls(); });
+$('allOn').addEventListener('click', () => setOpt(ON));
+$('allOff').addEventListener('click', () => setOpt(OFF));
+$('gIn').addEventListener('input', () => setLater({ gamma: +$('gIn').value }));
+$('tIn').addEventListener('input', () => setLater({ T: +$('tIn').value }));
+$('sDn').addEventListener('click', () => setOpt({ seed: Math.max(0, o.seed - 1) }));
+$('sUp').addEventListener('click', () => setOpt({ seed: o.seed + 1 }));
+$('reshuffle').addEventListener('click', () => setOpt({ seed: Math.floor(mulberry32(o.seed ^ 0x9E3779B9)() * 1e6) }));
+// 'change', not 'input': the cap row is re-rendered by every recompute, which would end a drag
+document.addEventListener('change', e => {
+  const t = e.target; if (!t || !t.dataset || !t.dataset.cap) return;
+  const v = +t.value; setOpt({ caps: Object.assign({}, o.caps, { [t.dataset.cap]: v >= CAP_MAX ? Infinity : v }) });
+});
+document.addEventListener('click', e => {
+  const t = e.target && e.target.closest ? e.target : null; if (!t) return;
+  const tg = t.closest('[data-tg]');
+  if (tg) { setOpt({ [tg.dataset.tg]: !o[tg.dataset.tg] }); return; }
+  const b = t.closest('button[data-k]'); if (!b) return;
+  const k = b.dataset.k, box = b.parentElement.id;
+  if (box === 'setPills') setOpt({ set: k }, true);
+  else if (box === 'modePills') setOpt({ mode: k });
+  else if (box === 'methPills') setOpt({ method: k });
+  else if (box === 'pPills') setOpt({ p: +k });
+  else if (box === 'kPills') setOpt({ K: +k });
+  else if (box === 'pathPills') { sweepId = k; renderControls(); dirty = true; }
+});
+function padAt(e) {
+  const r = $('pad').getBoundingClientRect(), m = 14;
+  PX = clamp01((e.clientX - r.left - m) / (r.width - 2 * m)); PY = clamp01(1 - (e.clientY - r.top - m) / (r.height - 2 * m)); dirty = true;
+}
+$('pad').addEventListener('pointerdown', e => { dragPad = true; sweeping = false; renderControls(); padAt(e); });
+window.addEventListener('pointermove', e => { if (dragPad) padAt(e); });
+window.addEventListener('pointerup', () => { dragPad = false; });
+window.addEventListener('resize', () => { paintCorners(); dirty = true; });
+if (qb('adv', false)) $('advBox').open = true;
+
+readPal(); recompute(); applyTheme(); startCheck();
+requestAnimationFrame(frame);
+</script>
+</body></html>
