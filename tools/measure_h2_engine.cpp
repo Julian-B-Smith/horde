@@ -15,13 +15,17 @@
  *       scripts (one voice held 4 s at 48 kHz: Crushed bells, Glass horde pad,
  *       Quarter sync); each is replayed best of five and divided by the audio
  *       duration, with its distance from the golden.
- *   build-release/measure_h2_engine --ledger [--sr 44100|48000] [--presets <file>] [--reps R] [--force] [--also <preset>]...
+ *   build-release/measure_h2_engine --ledger [--sr 44100|48000] [--os 1|2] [--presets <file>] [--reps R] [--force] [--also <preset>]...
  *       B441's frozen protocol (docs/port/cpu-ledger.md, "Protocol"): the ledger
  *       presets x 1/8/16 voices, interleaved best of R (default 5), the calibration
  *       loop each repeat, the load guard before each repeat. One `LEDGER {json}` row
  *       per cell on stdout. --also appends a bank preset's cells after the frozen
  *       seven, measured in the same interleave under the same protocol (B441 C3:
  *       one preset per specialised kernel); the frozen cells are unchanged by it.
+ *       --os N writes `os` N over EVERY cell after its preset (B445, ADR-191: os 1 becomes
+ *       the device default and os 2 the HQ setting, while the engine core keeps setOS(2) and
+ *       no bank preset sets os, so the default can only be timed by writing it). Each row's
+ *       "os" then reads N; without --os it reads "preset", the frozen cell.
  *   THE LOAD GUARD (B441-3): before every repeat, outside the timed region, the
  *       1-minute load average must be <= 3.0 AND no other process may use >= 50 % of
  *       a core (a `ps` snapshot). Either failing waits 20 s and re-checks, for up to
@@ -345,25 +349,29 @@ bool hasArg(int argc, char** argv, const char* key) {
 int ledger(int argc, char** argv) {
   std::vector<Patch> ps;
   if (!loadPresets(ps)) { std::fprintf(stderr, "measure_h2_engine: cannot read the presets (run from the repo root)\n"); return 1; }
+  // B445: 0 = the preset's own os (the frozen cell); the engine's set("os") takes 1 or 2 here
+  const int os = argInt(argc, argv, "--os", 0);
+  if (os != 0 && os != 1 && os != 2) { std::fprintf(stderr, "measure_h2_engine: --os wants 1 or 2\n"); return 1; }
+  const std::string osJson = os ? std::to_string(os) : std::string("\"preset\"");
   std::vector<Cell> cells;
   for (const char* n : kLedger) {
     const Patch* p = findPatch(ps, n);
     if (!p) { std::fprintf(stderr, "measure_h2_engine: no preset '%s'\n", n); return 1; }
-    for (int v : kVoiceCounts) cells.push_back({p, v, 0, 0});
+    for (int v : kVoiceCounts) cells.push_back({p, v, static_cast<double>(os), 0});
   }
   for (int i = 1; i + 1 < argc; i++) {
     if (std::strcmp(argv[i], "--also") != 0) continue;
     const Patch* p = findPatch(ps, argv[i + 1]);
     if (!p) { std::fprintf(stderr, "measure_h2_engine: no preset '%s'\n", argv[i + 1]); return 1; }
-    for (int v : kVoiceCounts) cells.push_back({p, v, 0, 0});
+    for (int v : kVoiceCounts) cells.push_back({p, v, static_cast<double>(os), 0});
   }
   double cal, lo, hi;
   int waits = 0;
   if (!measure(cells, argInt(argc, argv, "--reps", 5), hasArg(argc, argv, "--force"), cal, lo, hi, waits)) return 3;
   const std::string head = gitHead();
   const double audio = audioSeconds();
-  std::printf("calibration: best %.1f ms; load average %.2f..%.2f; guard waits %d; head %s; %.0f Hz\n", cal * 1000, lo, hi,
-              waits, head.c_str(), gSR);
+  std::printf("calibration: best %.1f ms; load average %.2f..%.2f; guard waits %d; head %s; %.0f Hz; os %s\n", cal * 1000, lo, hi,
+              waits, head.c_str(), gSR, osJson.c_str());
   std::printf("%-18s %3s  %9s  %9s  %8s  %13s  %s\n", "preset", "V", "% M3 core", "per voice", "ratio", "min-spec*", "vs 34 % slice (8 voices only)");
   for (const Cell& c : cells) {
     const double pct = 100 * c.best / audio, ratio = (c.best / audio) / cal, ms = pct * kMinSpecFactor;
@@ -372,11 +380,11 @@ int ledger(int argc, char** argv) {
   }
   for (const Cell& c : cells) {
     const double pct = 100 * c.best / audio, ratio = (c.best / audio) / cal, ms = pct * kMinSpecFactor;
-    std::printf("LEDGER {\"protocol\":\"B441-3\",\"head\":\"%s\",\"preset\":\"%s\",\"voices\":%d,\"os\":\"preset\",\"sr\":%.0f,"
+    std::printf("LEDGER {\"protocol\":\"B441-3\",\"head\":\"%s\",\"preset\":\"%s\",\"voices\":%d,\"os\":%s,\"sr\":%.0f,"
                 "\"block\":%d,\"timed_s\":%.4f,\"best_s\":%.6f,\"pct_m3\":%.4f,\"pct_m3_per_voice\":%.4f,\"cal_ms\":%.2f,"
                 "\"ratio\":%.6f,\"minspec_pct_assumed_x1.5\":%.3f,\"slice_pct\":%.0f,\"over_slice\":%s,\"load_lo\":%.2f,\"load_hi\":%.2f,"
                 "\"guard_waits\":%d,\"foreign_top3\":%s}\n",
-                head.c_str(), c.patch->name.c_str(), c.voices, gSR, kBlock, audio, c.best, pct, pct / c.voices, cal * 1000, ratio, ms,
+                head.c_str(), c.patch->name.c_str(), c.voices, osJson.c_str(), gSR, kBlock, audio, c.best, pct, pct / c.voices, cal * 1000, ratio, ms,
                 kSlice, c.voices == 8 ? (ms > kSlice ? "true" : "false") : "null", lo, hi, waits, topJson(c.atBest.top).c_str());
   }
   return 0;
