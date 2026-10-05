@@ -6979,3 +6979,64 @@ slot numbers may shift to make that so.
 
 **Consequences.** `specs/SPEC-INTENT-BUS.md` (protected) needs an amendment for §3.1 (names) and
 principle 2 (slots 5–8); it is drafted with a lab and brought to the human for approval.
+
+### ADR-169 Amendment 4 — RULED: roles are retired; module macros are ordered, labelled, optional, and never driven automatically (2026-10-05)
+
+**Ruling.** The lead found the fleet holding two models: Bulwark, Scape and Shriek building a
+four-role face (Amount / Tone / Motion / Regen, a MUST in the module 1.0 bar), and Sluice binding by
+order and label (A1). ADR-192's fixed horde intents are named Tone and Motion, which collide with the
+role names, inviting the reading that horde's intents drive module macros automatically. The human,
+on the lead's four-point model: "1. Correct 2. Also correct 3. Correct again; some modules we'll
+expect the macro behavior simply because it makes their surface user-friendly to anyone who doesn't
+have the patience to slog through the advanced controls (sluice and shriek are the biggest offenders
+here) - part of my design philosophy is: make the highest layer usable and expressive for people who
+only ever want to handle presets, but expose robust and exciting innards to advanced sound designers
+who want to push the limits. 4. Correct. There is no standard macro lable expectation across
+modules. Sluice has its own macro standard for its own reasons; shriek may come up with its own as
+well. And we can decide on a recommended default mapping for some of those (there could be a
+shortcut for mapping time to time, for instance), but nothing should be locked in." Then: "Yes,
+retire the roles; send the notice."
+
+**Decision.**
+1. The intent bus lives on horde's global mod matrix; FX modules need no analog of it.
+2. horde binds nothing automatically. Designers bind horde intents to module macros OR module
+   parameters, per corner, with a depth and a curve.
+3. A module may offer up to 8 macros, ordered and labelled by its presets. They are expected of
+   modules with deep internals, so presets stay usable without the advanced controls.
+4. There is no role vocabulary and no cross-module label standard. Recommended default mappings may
+   exist as editing shortcuts, and none is locked.
+
+`specs/SPEC-MODULE-MACROS.md` carries this as its Amendment 4, and the module 1.0 bar's macro row is
+replaced. A single notice goes to every FX sibling.
+
+## ADR-193 — RULED by the human: per-corner FX chains, round-2 rulings D1–D8 (B265, 2026-10-05)
+
+**Source.** `docs/proposals/fx-chain-morph-round2.md`, D1–D8. The human, verbatim per item:
+- **D1** (I3's reading: never invert an order all corners agree on, and at most one switch point per
+  transient path): "This proposal seems reasonable; let's see it in action in the lab."
+- **D2** (pure-preset area; corner sharpening γ = 2): "This proposal seems right; there should
+  generally be a fairly wide region around each corner in which only a few parameters flip per
+  position. Perhaps it's worth making whatever changes you make a dev toggle so I can listen to the
+  before/after. It will be hard to judge on until we have more parts strung together."
+- **D3** (approved set: a rule-based house partial order plus curated exceptions): "This also seems
+  reasonable, though we have to be careful about conveying it effectively so users don't get too
+  confused by a Byzantine ruleset. The rules should be as permissive as reasonable, but guide people
+  away from certain realms of sonic nonsense or untenable CPU load."
+- **D4** (two-change jumps accepted and shown): "This will be unavoidable in more complex patches, but
+  keeping the fine-tuning controls in the morph advanced settings will help mitigate the worst
+  consequences."
+- **D5** (TAIL-ALLOWED): "Let the tail ring out, yes. There may need to be an artificial cutoff for
+  some Sluice settings, so worth planning for that."
+- **D6** (zero-latency morphable modules in 1.0): "Works for me, though it would help if I better
+  understood the implications of this decision and what behavior it constrains." The lead's
+  explanation is in the session note of this date.
+- **D7** (horde 2 one-per-type; legacy import keeps the first instance): "We had already (poorly)
+  imposed a one-per-type rule at one point so I don't think this is going to be an issue."
+- **D8** (p and K by ear): "Yes, this will require hand-tuning in the lab."
+
+**Consequences for lab round 2.**
+- Every new behaviour (sharpening, jitter, the constraint snap, normalisation) gets a dev toggle for
+  before/after listening.
+- The rule set is minimal, permissive and explainable.
+- Fine-tuning controls live in the morph's advanced settings.
+- A per-module tail cap is planned (Sluice's long-feedback settings first).

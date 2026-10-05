@@ -5,6 +5,28 @@
 **Parity oracle:** `horde-module-macros.html` (browser prototype, 2026-09-15)
 **Scope:** applies to every modular FX module hosted in HORDE (the Roar-derived shaper, the allpass/delay rack) and is intended to be lifted unchanged into FOUNDATIONS later.
 
+> **Amendment 4 (2026-10-05, RULED by the human; ADR-169 A4). Roles are retired; read this spec
+> through it.**
+> 1. **No role vocabulary.** There is no `Amount` / `Tone` / `Motion` / `Regen` enum. A module's
+>    macros are **slots 1…8, bound by ORDER, carrying the module preset's own LABEL**. This is ADR-169
+>    A1's ruling for Sluice, generalised to every module. There is no standard label set across
+>    modules. A module may define its own macro conventions (Sluice has; Shriek may).
+> 2. **Macros are optional.** A module offers macros when they make its surface usable for people who
+>    only handle presets. The human expects them of modules with deep internals, Sluice and Shriek
+>    above all. There is no required count. "Exactly four, each mapped" is gone.
+> 3. **Nothing is driven automatically.** horde's intents (ADR-192: Tone, Space, Time, Motion, plus
+>    four named slots) drive a module's macro or parameter ONLY where a preset's designer bound it, per
+>    corner, with a depth and a curve (A3). horde may offer recommended default mappings as editing
+>    shortcuts (for example "Time → this module's time macro"), but nothing is locked in.
+> 4. **Module parameters are bindable.** A designer may bind horde's intents directly to a module's
+>    parameters, not only to its macros. This supersedes §2 rule 5's "never corner-bound". DAW
+>    exposure stays limited to the slots (§6), so the host-facing surface stays small.
+> 5. **DAW names.** Wherever this spec says a slot is keyed or named by role, read slot index. The CLAP
+>    name is `FX<n> Macro <k>`, and the label stays UI-only (§6's rule, with the index in place of
+>    the role). Reserved ids keep their numbers (ADR-169 A1: `300 + 8·host + slot`).
+> 6. **Retired outright:** §3's `role` row, §10 (role vocabulary), ADR-MM-2, and §14's "four-role
+>    vocabulary" criterion. The rest of the spec stands, with "role" read as "slot index".
+
 ---
 
 ## 1. Problem
