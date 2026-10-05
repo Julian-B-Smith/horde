@@ -6937,3 +6937,41 @@ cheaper default, and the budget is judged at the default.
   and the human listens (a listening gate). Presets that need os 2 can save it.
 
 **Sequencing.** After C3b (B441), which owns the same file.
+
+## ADR-192 — RULED by the human: the intent slots — four fixed (Tone, Space, Time, Motion) and four named slots that flip as units (B443, 2026-10-05)
+
+**Rulings (the human, 2026-10-05, across three messages).** The discovery model: "every global
+preset [enters] the system as a unified global preset with its unique global attributes AND as
+four modular corners derived from it. Those users can mix and match, and then quantum morph can
+help them find unique sounds across the stochastic terrain between unrelated presets." Then: "four
+global macro slots with universal names … and then four more macro slots with editable names which
+each flip as units across the morph grid." Then, on the lead's follow-ups: "Motion is better than
+edge/grit (which could as easily fit into tone). I ratify the swap", and answers 1–5 below.
+
+**Decision.**
+1. **Fixed four: Tone, Space, Time, Motion** (macros 1–4). Same name and meaning in every global
+   preset. Their bindings belong to the parameters they target (SPEC-INTENT-BUS principle 2) and so
+   flip stochastically with those parameters under quantum morph, or blend continuously in blend
+   mode. Directions: Tone dark → bright; Space close/dry → far/wide; Time tight/short → long/slow
+   (envelope length and unfolding; tails belong to Space); Motion still → moving.
+2. **Named four (macros 5–8).** Each is a unit owned by a corner: a label plus its bindings. Each
+   slot flips independently at its own seeded flip point; Reshuffle redraws. Labels are chosen from
+   a pre-selected phrase list; where corners happen to use the SAME phrase, that slot morphs
+   continuously across them instead of flipping. A named macro's binding offsets a parameter from
+   the CURRENT owner's rest value, clamped to that owner's range (the spec's offset-from-rest rule),
+   so load-bearing values still hold. This deliberately departs from principle 2 for slots 5–8.
+3. **At a flip the knob stays where it is**; the incoming macro's bindings take over, smoothed by
+   the existing flip inertia. At rest nothing jumps.
+4. **Global attributes in a mixed set** come from the global preset the user started from;
+   swapped-in corners bring corner-level material only. The advanced morph page lists each corner's
+   global parameters with their import eligibility and what an import would override or destroy,
+   and an import button.
+5. **DAW surface:** macros 1–4 carry their fixed names; macros 5–8 appear as "Macro 5" … "Macro 8",
+   because their label moves with the morph position and a host cannot reliably follow a moving
+   name (the human: either is fine).
+
+**Not decided here.** Per-corner FX chains (B265: the human wants them per corner, not global);
+how two corners that use the same phrase in DIFFERENT slot numbers align; the phrase list itself.
+
+**Consequences.** `specs/SPEC-INTENT-BUS.md` (protected) needs an amendment for §3.1 (names) and
+principle 2 (slots 5–8); it is drafted with a lab and brought to the human for approval.
