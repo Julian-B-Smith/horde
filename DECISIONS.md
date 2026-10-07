@@ -7091,3 +7091,10 @@ an ADR before code.
      module.
    - **Presence is flip-only in blend mode.** A multiband Bulwark's presence never sits at a
      partial blend, so the crossover notch is never sustained. Only a brief crossfade is allowed.
+
+### ADR-190 Amendment 2 — the vintage-textures FX module moves from CONDITIONAL to after 1.0 (2026-10-07, RULED)
+
+**Ruling.** The human, 2026-10-07: "Let's also postpone the vintage device until after 1.0."
+Amendment 1 had placed it on the CONDITIONAL list. It now joins the post-1.0 list. Its name screen
+and sibling project are deferred with it, and nothing was started. The CONDITIONAL list is back to
+the Kuramoto chorus plus Bulwark's multiband mode with the ATM preset.
