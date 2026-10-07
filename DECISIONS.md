@@ -7071,3 +7071,23 @@ handling credentials (the fine-grained token).
 
 **Tier C** (the thread-race fix, mailbox intake, any vendored patch) still takes a critic pass and
 an ADR before code.
+
+## ADR-195 — RULED by the human: master Ceiling defaults to −1.0 dBFS; multiband Bulwark flips, never blends (B438, B265, 2026-10-07)
+
+**Rulings.** The human, 2026-10-07: "Ceiling −1.0; accept the multiband recommendations."
+
+1. **Master Ceiling default −1.0 dBFS** (was −0.3, B438). Bulwark's limiter guarantees its ceiling
+   on samples, and inter-sample overs can reach ~3 dB near fs/4 (Bulwark brief seq 5). −1.0 is
+   EBU R128 delivery practice and costs no latency or CPU. Users may still set −0.3. True-peak
+   detection stays post-1.0.
+2. **Multiband Bulwark (allpass-phased, Bulwark brief seq 7):**
+   - **Band count is a FLIP-class parameter.** A morph between a multiband and a single-band
+     corner flips it, never crossfades it. Bulwark's own 20 ms internal switch is the flip.
+   - **Rule for parallel sums.** A multiband Bulwark is never summed in parallel with its own dry
+     or with any branch that has not been through the same phase. This becomes a house rule in
+     B265's approved set.
+   - **"Off" in multiband mode may be allpass-phased**, not bit-identical. B435 promises only that
+     "off" removes the processing. horde's router gives true bypass by routing around an absent
+     module.
+   - **Presence is flip-only in blend mode.** A multiband Bulwark's presence never sits at a
+     partial blend, so the crossover notch is never sustained. Only a brief crossfade is allowed.
