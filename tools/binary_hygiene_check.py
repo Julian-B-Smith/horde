@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """binary_hygiene_check -- no identity strings inside tracked binary files or archives (B446 W1b).
 
-UNWIRED: B446 -- a tracked bytecode file embeds a machine path and its removal awaits the human's approval, so wiring now would turn `verify fast` red
+WIRED: ./verify fast
 
-TO WIRE (one line, in the change that removes that file): add `python3 tools/` followed by this
-file's own name and ` || ok=1` to fast() in ./verify, after the private_name_gate line.
+Shipped unwired in W1b because the one tracked bytecode file it flagged needed the
+human's approval to untrack; that approval (ADR-194) and the wiring landed together
+in B446 Wave 2.
 
 WHY. The text leak gates read `git grep -I`, and `-I` SKIPS binary files. A
 compiled Python module records the path of the source it was built from, an image

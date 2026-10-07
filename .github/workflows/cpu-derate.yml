@@ -7,12 +7,14 @@ on:
   workflow_dispatch:
   push:
     branches: ['measure/**', 'env-viz-and-measurements']
+permissions:
+  contents: read
 jobs:
   derate-x86:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        with: { submodules: recursive }
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with: { submodules: recursive, persist-credentials: false }
       - name: cpu_bench (core only, single TU)
         run: |
           g++ -O3 -std=c++20 -o cpu_bench tools/cpu_bench.cpp
