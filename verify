@@ -131,6 +131,7 @@ fast() {
   # cleanup. Self-calibrating (planted-line control in a scratch repo). Added under
   # ADR-180 §1.
   python3 tools/banned_api_check.py || ok=1
+  python3 tools/deny_hook_check.py || ok=1   # B446 D-S6: the deny hook's verdict table
 
   # GUI REACHABILITY (L0023, third occurrence — the one that became a gate).
   # A param with no control anywhere ships fully implemented, fully tested,
