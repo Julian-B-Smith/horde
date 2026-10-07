@@ -30,6 +30,8 @@
  * Usage: node tools/labharness/fxlab_check.mjs [lab.html]   (exit 1 on any error;
  *        the argument exists so a scratch copy with a planted fault can be run)
  */
+// B446 W3b: runs this harness under Node's permission model (see sandbox_guard.mjs).
+import './sandbox_guard.mjs';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';

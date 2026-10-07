@@ -42,6 +42,8 @@
  * the wrong reason), and requires each copy to come back RED. The planting
  * mechanism is checked first with an anchor that must not be found.
  */
+// B446 W3b: runs this harness under Node's permission model (see sandbox_guard.mjs).
+import './sandbox_guard.mjs';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve, join } from 'node:path';

@@ -138,6 +138,16 @@ fast() {
   python3 tools/banned_api_check.py || ok=1
   python3 tools/deny_hook_check.py || ok=1   # B446 D-S6: the deny hook's verdict table
 
+  # DEV TOOLING (B446 W3b, ADR-194 W2-05/-06). The labs server serves only the lab
+  # trees, refuses a foreign Host header and any symlink out of them; labs_preview.sh
+  # runs nothing a lab branch supplied. Each check holds its own must-fail controls
+  # (the stock handler leaks; a planted marker script is shown to fire when run by
+  # hand). ~2 s each, no network. Added under ADR-180 §1.
+  python3 tools/serve_labs_check.py > /tmp/servelabs.$$ 2>&1 || {
+    echo "verify: labs server check FAILED" >&2; cat /tmp/servelabs.$$ >&2; ok=1; }
+  tail -1 /tmp/servelabs.$$; rm -f /tmp/servelabs.$$
+  python3 tools/labs_preview_check.py || ok=1
+
   # CI AND RELEASE PATH (B446 Wave 2, ADR-194). Workflows pin every action by
   # commit, declare a read-only top-level token, and keep event text out of
   # scripts; releases attach an explicit file list with checksums and an SBOM,
@@ -202,6 +212,19 @@ PY
     node tools/labharness/lab_load_check.mjs > /tmp/labload.$$ 2>&1 || {
       echo "verify: lab load check FAILED" >&2; cat /tmp/labload.$$ >&2; ok=1; }
     rm -f /tmp/labload.$$
+
+    # THE LAB HARNESSES RUN UNDER NODE'S PERMISSION MODEL (B446 W3b, L3-M6/L4-M6).
+    # lab_load_check and five sibling checks run lab and packet JS in node:vm, which
+    # is not a sandbox: a lab script reaches the host process from inside it.
+    # tools/labharness/sandboxed_node.mjs gives them read-only access to the lab
+    # trees and nothing else. This plants labs that make that climb and try to write,
+    # spawn, read outside the grant, call process.binding and start a worker; each
+    # must be refused, after the same payload is shown to fire outside the sandbox.
+    # It also pins that an untracked HTML in a lab tree is not executed. ~2 s.
+    node tools/labharness/sandbox_check.mjs > /tmp/sandboxchk.$$ 2>&1 || {
+      echo "verify: lab sandbox check FAILED" >&2; cat /tmp/sandboxchk.$$ >&2; ok=1; }
+    tail -1 /tmp/sandboxchk.$$
+    rm -f /tmp/sandboxchk.$$
 
     # THE FX LAB'S EQ AND COMP PICTURES ARE THE DSP'S (B234). The lab draws an
     # EQ curve and a compressor transfer curve and measures both at load with
@@ -530,7 +553,7 @@ full() {
   # reference/scalpel/prototype/razor-core.js, ~9 s, exit 0 only when all
   # pass. Wired at ingest so the reference is known-good BEFORE a port is measured
   # against it — the packet's last-run.txt is the author's claim; this is ours.
-  node reference/scalpel/verify/verify.js > /tmp/scalpel.$$ 2>&1 || {
+  node tools/labharness/sandboxed_node.mjs reference/scalpel/verify/verify.js > /tmp/scalpel.$$ 2>&1 || {
     echo "verify: SCALPEL oracle battery FAILED" >&2; cat /tmp/scalpel.$$ >&2; rm -f /tmp/scalpel.$$; return 1; }
   echo "scalpel oracle: $(grep -c '^PASS' /tmp/scalpel.$$) checks PASS ($(tail -1 /tmp/scalpel.$$))"; rm -f /tmp/scalpel.$$
   # horde 2's SCALPEL blade engine, h2/cores/scalpel/razor_core.h (B332 phase 1a;

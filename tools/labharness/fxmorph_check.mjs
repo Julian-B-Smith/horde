@@ -43,6 +43,8 @@
  * Provenance: ROADMAP B265 (I1-I7, the pared world) and B266 (this fuzzer);
  * traces/2026-09-25-b266-fxmorph-fuzz.md.
  */
+// B446 W3b: runs this harness under Node's permission model (see sandbox_guard.mjs).
+import './sandbox_guard.mjs';
 import { readFileSync, writeFileSync, readdirSync, mkdirSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
