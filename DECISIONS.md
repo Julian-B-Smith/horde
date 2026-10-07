@@ -7040,3 +7040,34 @@ replaced. A single notice goes to every FX sibling.
 - The rule set is minimal, permissive and explainable.
 - Fine-tuning controls live in the morph's advanced settings.
 - A per-module tail cap is planned (Sluice's long-feedback settings first).
+
+## ADR-194 — RULED by the human: the security plan follows the lead's recommendations (B446, 2026-10-07)
+
+**Ruling.** The human, 2026-10-07: "Security isn't my strong suit, so I'll have to follow
+recommendations." The lead takes that as approval of every recommendation in the B446 P1 plan
+(held privately under the disclosure rule), with two carve-outs that the doctrine reserves to an
+explicit per-action yes: publishing outside the fleet (the upstream choc report) and creating or
+handling credentials (the fine-grained token).
+
+**Decisions (D-S1 … D-S7, as recommended).**
+- **D-S1.** The Tier A settings proceed. The lead gives exact steps, and applies repository settings
+  through the GitHub API only on the human's explicit go.
+- **D-S2.** The `main` and `v*` rulesets bind the owner too: an empty bypass list. Every agent pushes
+  as the owner, so an owner bypass is an agent bypass.
+- **D-S3.** Agent sessions move to a fine-grained token limited to the fleet repositories the lead
+  files into, with Contents and Pull requests write and no Workflows or Administration permission.
+  The human creates it. **Sequencing:** after the CI workflow edits land, because pushing workflow
+  changes needs the Workflows permission the new token will not have.
+- **D-S4.** Wave 2 (CI and release hardening, SDK pins) is approved as a batch: workflow edits are a
+  human gate, and this is that gate's approval.
+- **D-S5.** choc: fix in our wrappers first (done for the UTF-8 case in #952); report upstream; carry
+  a minimal documented patch only where no wrapper fix works.
+- **D-S6.** The pre-tool deny hook is rewritten to parse push targets and fail CLOSED on malformed
+  input, with must-fail controls.
+- **D-S7.** No history rewrite. The `.pyc` and three old commits stay in history; the lanes judged a
+  rewrite of a public, already-cloned repo not worth its cost.
+- **Also approved:** untrack the `.pyc` that carries a machine path, and take `dist/cpu_bench` out of
+  the tree and the release path. File deletion is a human gate, and this is that gate's approval.
+
+**Tier C** (the thread-race fix, mailbox intake, any vendored patch) still takes a critic pass and
+an ADR before code.
