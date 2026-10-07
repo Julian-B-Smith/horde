@@ -136,6 +136,7 @@ fast() {
   # cleanup. Self-calibrating (planted-line control in a scratch repo). Added under
   # ADR-180 §1.
   python3 tools/banned_api_check.py || ok=1
+  python3 tools/deny_hook_check.py || ok=1   # B446 D-S6: the deny hook's verdict table
 
   # CI AND RELEASE PATH (B446 Wave 2, ADR-194). Workflows pin every action by
   # commit, declare a read-only top-level token, and keep event text out of
