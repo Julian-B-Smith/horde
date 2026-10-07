@@ -20,8 +20,37 @@ if(APPLE)
 endif()
 
 # Pinned SDKs live as submodules (libs/clap @ 1.2.10, libs/clap-wrapper @ v0.15.1).
-# The VST3 SDK is CPM-fetched at configure time by clap-wrapper (v3.8.0 pinned there).
-set(CLAP_WRAPPER_DOWNLOAD_DEPENDENCIES ON CACHE BOOL "" FORCE)
+#
+# The VST3 SDK and the AudioUnitSDK are fetched at configure time, pinned here by
+# COMMIT (B446 Wave 2). clap-wrapper's own download names them by git TAG, and a
+# tag is a pointer its owner can move, so those fetches are switched OFF and the
+# wrapper is handed the roots below instead (base_sdks.cmake honours a provided
+# *_SDK_ROOT before any download). OFF is also the fail-closed half: any SDK the
+# wrapper would still want to download now stops the configure instead of
+# fetching an unpinned copy. The VST3 SDK's own submodules are pinned by the
+# gitlinks of the commit below. Bumping an SDK = change the hash here (and the
+# tag comment), nothing else; tools/gen_sbom.py reads these two lines.
+# SOURCE_SUBDIR names a directory with no CMakeLists.txt on purpose: populate the
+# sources only, never add_subdirectory them (clap-wrapper compiles what it needs).
+include(FetchContent)
+set(HORDE_VST3_SDK_COMMIT 9fad9770f2ae8542ab1a548a68c1ad1ac690abe0)         # v3.8.0_build_66
+set(HORDE_AUDIOUNIT_SDK_COMMIT 53a9a2008aae7fb1b0a9f093dd523b9b12f6c0d9)    # AudioUnitSDK-1.1.0
+FetchContent_Declare(horde_vst3sdk
+  GIT_REPOSITORY https://github.com/steinbergmedia/vst3sdk.git
+  GIT_TAG ${HORDE_VST3_SDK_COMMIT}
+  GIT_SUBMODULES base public.sdk pluginterfaces cmake
+  SOURCE_SUBDIR populate-only)
+FetchContent_MakeAvailable(horde_vst3sdk)
+set(VST3_SDK_ROOT ${horde_vst3sdk_SOURCE_DIR})
+if(APPLE)
+  FetchContent_Declare(horde_audiounitsdk
+    GIT_REPOSITORY https://github.com/apple/AudioUnitSDK.git
+    GIT_TAG ${HORDE_AUDIOUNIT_SDK_COMMIT}
+    SOURCE_SUBDIR populate-only)
+  FetchContent_MakeAvailable(horde_audiounitsdk)
+  set(AUDIOUNIT_SDK_ROOT ${horde_audiounitsdk_SOURCE_DIR})
+endif()
+set(CLAP_WRAPPER_DOWNLOAD_DEPENDENCIES OFF CACHE BOOL "" FORCE)
 add_subdirectory(libs/clap EXCLUDE_FROM_ALL)
 add_subdirectory(libs/clap-wrapper EXCLUDE_FROM_ALL)
 

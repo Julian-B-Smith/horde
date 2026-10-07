@@ -22,7 +22,8 @@
 #include <cmath>
 #include "../src/swarm_core.h"
 
-/* This binary is COMMITTED (dist/cpu_bench) and handed to another Mac, while
+/* This binary is built by hand into dist/cpu_bench (gitignored; it was committed
+   until B446 Wave 2) and handed to another Mac, while
    the core it measures moves under it — so its staleness has to be visible in
    its own output, not inferred from a git log the tester does not have (repo
    audit 2026-09-19, H4). Same HYPERSAW_BUILD_STAMP name the CMake targets get

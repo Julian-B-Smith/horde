@@ -67,6 +67,11 @@ fast() {
   kit_integrity || ok=1   # kit-owned files match .kit/MANIFEST
   leak_gate || ok=1          # privacy gate: kit-core, keep it first
   private_name_gate || ok=1  # privacy gate: OURS (ADR-014 alias rule)
+  # IDENTITY STRINGS INSIDE BINARY FILES AND ARCHIVES (B446 W1b, wired in W2 with
+  # the approved untracking of the bytecode file it was red on, ADR-194). The two
+  # gates above read `git grep -I`, which skips binaries. Self-calibrating. Added
+  # under ADR-180 §1.
+  python3 tools/binary_hygiene_check.py || ok=1
   # SLUICE HOLD (B359, after the B358 incident): no private-sibling spec or
   # manifest text in any tracked file. The needles are read at runtime through
   # the gitignored local/sluice link and never written down; where the link is
@@ -131,6 +136,15 @@ fast() {
   # cleanup. Self-calibrating (planted-line control in a scratch repo). Added under
   # ADR-180 §1.
   python3 tools/banned_api_check.py || ok=1
+
+  # CI AND RELEASE PATH (B446 Wave 2, ADR-194). Workflows pin every action by
+  # commit, declare a read-only top-level token, and keep event text out of
+  # scripts; releases attach an explicit file list with checksums and an SBOM,
+  # and nothing is packaged under a tracked path. The second also runs the
+  # tag-only SBOM generator so it cannot rot until a release. Both
+  # self-calibrating. Added under ADR-180 §1.
+  python3 tools/workflow_pin_check.py || ok=1
+  python3 tools/release_path_check.py || ok=1
 
   # GUI REACHABILITY (L0023, third occurrence — the one that became a gate).
   # A param with no control anywhere ships fully implemented, fully tested,

@@ -6,7 +6,11 @@ that costs. Nothing is written, played, or installed.
 
 Universal binary: runs on Apple Silicon and Intel Macs alike.
 
-## Rebuilding it (and how to tell if it is stale)
+## Building it (and how to tell if it is stale)
+
+The binary is **not committed** (B446, ADR-194): a prebuilt executable in the
+tree is bytes no reviewer can read in a diff, and nothing in CI packages or
+ships it. Build it yourself on a Mac; the output path is gitignored.
 
 **The first line the program prints is the commit it was built from**, so a
 stale copy announces itself — no git log, and no access to this repo, required
@@ -26,11 +30,10 @@ The `-D` is load-bearing: without it the program compiles and runs but prints
 `codesign` re-seal is what lets the binary run after being copied to another
 Mac.
 
-**Built from commit `6585db9` on 2026-09-19.** The reference numbers at the
-bottom of this file were measured on 2026-08-06 with the binary this one
-replaces, so they describe an OLDER engine; they have not been re-measured
-against this build. Compare the stamp the program prints against the hash
-above before trusting either.
+The reference numbers at the bottom of this file were measured on 2026-08-06,
+so they describe an OLDER engine and have not been re-measured since. Compare
+the stamp the program prints against the commit you built before trusting
+either.
 
 ## Running it
 
