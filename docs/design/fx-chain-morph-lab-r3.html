@@ -1332,6 +1332,20 @@ Cables.prototype.step = function (st) {
       const why = this.guardBreak(c, live);
       if (why) { this.held[i] = why; this.tf[i] = this.tb[i] = 0; wait = true; continue; }
     }
+    /* A DIRECTION REVERSAL (u → v becoming v → u) is always an ordered fade, in (a) too:
+       the new direction waits until the old one has retreated, over the bypass. On (a)'s
+       backward part the two cables made a two-node loop one block long — Drive's output
+       back into Filter 1.3 ms late at 48 kHz — that rang as a comb burst on every saw edge:
+       the click the human heard on Filter ↔ Drive flips (12–13 dB live; with the bound off
+       10.6, so it was the loop itself, not the bound's scaling). (a)'s backward part is
+       kept for cycles of three nodes or more, and for a pair with a delay line in it (ECHO,
+       Scape, Sluice): its round trip is the module's own delay, an echo, not a 1.3 ms comb,
+       and there waiting measured worse (its bypass flash) than the loop. PLANT 'flipdelay':
+       the round-3-v1 behaviour. */
+    if (c.nn && !TAIL_TYPES[c.u] && !TAIL_TYPES[c.v] && this.f2[i] + this.b2[i] === 0 && o.plant !== 'flipdelay') {
+      const r = CIX[c.v + '>' + c.u];
+      if (this.f2[r] + this.b2[r] > 0) { this.held[i] = 'flip'; this.tf[i] = this.tb[i] = 0; wait = true; continue; }
+    }
     if (!isLane(c.u)) addAdj(live, c.u, c.v);
     if (!c.nn || this.f2[i] > 0 || !reaches(fadj, c.v, c.u)) { this.tf[i] = this.tgt[i]; this.tb[i] = 0; if (c.nn) addAdj(fadj, c.u, c.v); continue; }
     if (o.loop === 'a') { this.tf[i] = 0; this.tb[i] = this.tgt[i]; }
@@ -1784,6 +1798,52 @@ function clickSummary(rows) {
   }
   return s;
 }
+/* ---------- REVERSALS, measured as they are heard ----------
+   The human heard a click on Filter ↔ Drive flips that the step metric (16 kHz, sine
+   probe) read at only 4–6 dB: it lives on the SAW edges, at the browser's rate, where one
+   block is 1.3 ms. So a reversal is measured LIVE-LIKE — 48 kHz, 64-sample ticks, the saw
+   chord, the puck slewed over the boundary with the page's 40 ms time constant — and its
+   floor is the worst impulsiveness either steady chain makes held still over the same
+   render (a Drive after a Filter clips saw edges into spikes of its own; that is the
+   chain's sound, not the transition's). A REVERSAL is a transition where some node cable
+   u → v becomes v → u. */
+const LIVE_SR = 48000, LIVE_TICK = 64, PUCK_TAU_S = 0.04;
+/* THE STATED CEILING: no reversal clicks more than 8 dB above its chains' own floor. Ordinary
+   transitions on the same material reach 10.7 dB (round 1's pairs, a Drive-heavy chain);
+   round-3 v1's Filter ↔ Drive flips read 10.1–12.3 dB; after the fix reversals read ≤ 7.4. */
+const REV_CEIL_DB = 8;
+function reversalOf(a, b) {
+  const A = targetCables(a), B = targetCables(b);
+  for (let i = 0; i < NC; i++) { const c = CABLES[i]; if (c.nn && A[i] > 0 && B[CIX[c.v + '>' + c.u]] > 0) return c.u + '→' + c.v; }
+  return '';
+}
+function renderLive(o, w0, w1, N, pre, probe) {
+  const sr = LIVE_SR, tick = LIVE_TICK, M = morphOf(o), r2 = o.engine === 'r2';
+  const R = r2 ? new R2Router(M, sr, tick) : new Cables(M, sr, tick), E = r2 ? new R2Engine(sr) : new Rack(sr, tick);
+  E.probe = !!probe; let st = mapW(M, w0); R.settle(st);
+  const junk = new Float32Array(tick), y = new Float32Array(N), k = Math.exp(-tick / (PUCK_TAU_S * sr));
+  for (let s = 0; s < WARM_S * sr; s += tick) { if (r2) E.block(R.frame(), junk, 0, tick); else { R.step(st); E.block(R, junk, 0, tick); } }
+  let a = 0, key = '';
+  for (let s = 0; s < N; s += tick) {
+    const t = s < pre ? 0 : 1; a = t + (a - t) * k;
+    const w = w0.map((v, i) => v + (w1[i] - v) * a), kk = w.join(',');
+    if (kk !== key) { st = mapW(M, w); key = kk; }
+    R.step(st);
+    if (r2) E.block(R.frame(), y, s, Math.min(tick, N - s)); else E.block(R, y, s, Math.min(tick, N - s));
+  }
+  return y;
+}
+function reversalClick(o, tr) {
+  const sr = LIVE_SR, pre = Math.round(CLK_STEADY_S * sr / LIVE_TICK) * LIVE_TICK, N = pre + Math.round((CLK_SPAN_S + CLK_STEADY_S) * sr);
+  const c = clickOf(renderLive(o, tr.w0, tr.w1, N, pre), sr, pre);
+  let held = 0;
+  for (const w of [tr.w0, tr.w1]) { const r = impulsiveness(sliceRms(renderLive(o, w, w, N, pre), sr).e); for (const v of r) if (v > held) held = v; }
+  const peak = c.db + c.floor;
+  return { db: Math.max(0, peak - Math.max(c.floor, held)), at: c.at, floor: Math.max(c.floor, held) };
+}
+/* every reversal the sweep paths cross on a corner set and mode */
+const reversalsOf = M => transitionsOf(M).filter(e => reversalOf(e.from, e.to));
+
 /* ---------- THE SELF-CHECK: one claim per brief item, one planted fault per claim ---------- */
 const SLEEP_JUMP_X = 6;     // a sleep or wake may move a node's heard output by ≤ 6 × the threshold: a sub-threshold input through the loudest declared gain (×3), plus the kept state, through a cable ≤ 1.5
 const R2_HIGH_DB = 12;      // the round-2 control "reads high": a worst click at least this loud
@@ -1814,6 +1874,9 @@ function selfCheckSteps() {
   const sleepR = [], sleepP = [];
   for (const set of ['four', 'bait']) for (const sw of SWEEPS) step(() => { const M = morphOf(optsWith({ set })), q = sweepSchedule(M, sw), r = renderWith(M, q.wAt, q.N, { pulse: true }); sleepR.push({ set, sw, jump: r.jump, cpuAvg: r.cpuAvg, sleeps: r.sleeps }); });
   for (const sw of SWEEPS.slice(0, 3)) step(() => { const M = morphOf(optsWith({ plant: 'sleeptail' })), q = sweepSchedule(M, sw); sleepP.push(renderWith(M, q.wAt, q.N, { pulse: true }).jump); });
+  const revs = [], revPlant = [];
+  for (const set of SETS) { const M = morphOf(optsWith({ set: set.id })); for (const tr of reversalsOf(M)) for (const loop of ['a', 'b']) step(() => revs.push({ set: set.id, loop, tr, c: reversalClick(optsWith({ set: set.id, loop }), tr) })); }
+  step(() => { const M = morphOf(optsWith({})), tr = reversalsOf(M).find(e => /FLT→DRV|DRV→FLT/.test(reversalOf(e.from, e.to))); if (tr) revPlant.push({ tr, c: reversalClick(optsWith({ plant: 'flipdelay' }), tr) }); });
   const firstPlant = (extra, pred, sets) => { for (const set of sets || SETS.map(s => s.id)) for (const sw of SWEEPS) { const r = pred(sweepOf(Object.assign({ set }, extra), sw)); if (r) return `${set}, ${sw.name}: ${r}`; } return ''; };
 
   step(() => {
@@ -1894,7 +1957,18 @@ function selfCheckSteps() {
         same && s1.hash === s2.hash ? { ok: true, detail: `${s1.n} ticks, ${y1.length} samples identical` } : { ok: false, detail: 'differs' },
         'the next seed, compared as if it were the same', s1.hash === s3.hash ? { ok: true, detail: 'identical — the seed does nothing' } : { ok: false, detail: 'the cables differ: the seed decides' });
   });
-  return { rows, steps, claims: 8 };
+  step(() => {
+    // 9. direction reversals
+    let worst = null; for (const r of revs) if (!worst || r.c.db > worst.c.db) worst = r;
+    const fd = revs.filter(r => /FLT→DRV|DRV→FLT/.test(reversalOf(r.tr.from, r.tr.to))), fdw = Math.max(0, ...fd.map(r => r.c.db));
+    const ok = worst && worst.c.db <= REV_CEIL_DB, p = revPlant[0];
+    add(`Every direction reversal (a node cable u → v becoming v → u) stays under ${REV_CEIL_DB} dB of click, measured as heard: 48 kHz, the saw chord, the puck slewed over the boundary, floored at what either steady chain makes held still`,
+        ok ? { ok: true, detail: `${revs.length} reversal × strategy runs (4 sets, quantum); worst ${worst.c.db.toFixed(1)} dB (${worst.set} (${worst.loop}) ${worst.tr.sw}, ${reversalOf(worst.tr.from, worst.tr.to)}); Filter ↔ Drive worst ${fdw.toFixed(1)} dB` }
+           : { ok: false, detail: worst ? `${worst.c.db.toFixed(1)} dB: ${worst.set} (${worst.loop}) ${worst.tr.sw}, ${reversalOf(worst.tr.from, worst.tr.to)}` : 'no reversals found' },
+        'round-3 v1: the reversed cable emerges at once on (a)\'s one-block backward part, a two-node Filter ↔ Drive loop',
+        p && p.c.db > REV_CEIL_DB ? { ok: false, detail: `${p.c.db.toFixed(1)} dB on ${p.tr.sw} ${reversalOf(p.tr.from, p.tr.to)}` } : { ok: true, detail: p ? `only ${p.c.db.toFixed(1)} dB — NOT caught` : 'no Filter ↔ Drive reversal to plant on' });
+  });
+  return { rows, steps, claims: 9 };
 }
 function runSelfCheck() { const c = selfCheckSteps(); for (const f of c.steps) f(); return c.rows; }
 const dbTxtM = v => v === -Infinity ? '−∞' : v.toFixed(2);
