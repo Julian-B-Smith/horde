@@ -221,6 +221,15 @@
   .evt { max-height:340px; overflow:auto; }
   .bar { display:inline-block; height:8px; background:var(--caution); vertical-align:middle; border-radius:2px; }
   .bar.p { background:var(--physics); }
+  /* phone width: one column everywhere, nothing wider than the screen (the layouts scale their own type) */
+  @media (max-width:640px) {
+    body { padding:8px; } h1 { font-size:24px; }
+    .row, .top3, .two, .three { grid-template-columns:minmax(0,1fr) !important; }
+    .cluster { min-width:0; overflow-x:auto; }
+    .live { grid-template-columns:1fr 1fr; }
+    .tg { grid-template-columns:1fr; } .tg .pill { min-width:0; }
+    .hdrctl { margin-left:0; } .tagline { max-width:100%; }
+  }
 </style></head><body>
 
 <div class="hdr">
@@ -257,6 +266,7 @@ insert/remove behaviour, which an A/B toggle plays. It sounds, it measures itsel
       <i style="background:var(--caution)"></i>a two-or-more-change boundary. Thin lines are one-change boundaries. The dashed path is the sweep.</div>
   </div>
   <div class="cluster"><h2>The cables <span id="cableHead"></span></h2>
+    <div class="ctlrow" style="margin:0 0 4px"><span class="lbl">LAYOUT</span><div class="pills" id="layoutPills"></div></div>
     <canvas id="cableC"></canvas>
     <div class="legend" id="cableLegend"></div>
     <div class="live" id="liveBox"></div>
@@ -2335,84 +2345,270 @@ function readPal() {
   for (const k of ['scr-tube', 'scr-value', 'scr-meter', 'scr-physics', 'scr-grid', 'scr-marker', 'caution', 'line', 'bg', 'alarm', 'dim', 'text'])
     PAL[k] = String(cs.getPropertyValue('--' + k)).trim();
 }
-/* THE CABLE VIEW (the human: "I can imagine some elegant graphical ways to show the
-   cables between them"). Nodes sit at FIXED places — a ring in house order, clockwise
-   from the top — with the lanes on the left and OUT on the right, so a morph never moves
-   a box: only cables grow, glow and fade. A cable bows to the left of its direction, so
-   u → v and v → u are two separate arcs. Thickness and brightness follow the weight; a
-   slow dotted flow runs along it in the signal's direction (stopped under
-   prefers-reduced-motion). A backward part (one block of delay) is dashed and marked
-   z⁻¹; the cables of a live loop are drawn in caution; a waiting cable is a dotted
-   caution ghost; Scape → Sluice is shown crossed out and Scape → Bulwark as E1-only.
-   An asleep node is dimmed and dashed. It draws the object the audio plays (L0064). */
 const RING = (() => {
   const p = {};
   TYPES.forEach((t, i) => { const a = -Math.PI / 2 + 2 * Math.PI * i / TYPES.length; p[t] = [0.5 + 0.28 * Math.cos(a), 0.5 + 0.37 * Math.sin(a)]; });
   p.BODY = [0.07, 0.3]; p.SUB = [0.07, 0.7]; p.OUT = [0.93, 0.5];
   return p;
 })();
+/* ---------- THE CABLE VIEW: six layouts over one cable state ----------
+   The human, on round 3's first view: "I would like to see several alternative layouts for
+   the cables view though; this one isn't quite landing." Every layout draws the SAME data
+   (cableData: the object the audio plays, L0064) and shows, each in its own way, the
+   weights, the direction, a backward part (one block of delay), live loops, waiting cables,
+   sleep, and the rules' unavailable cables. None animates under prefers-reduced-motion
+   except by the cables' own change. The choice persists in localStorage. */
+const LAYOUTS = [
+  { id: 'ring', name: 'RING', aspect: '16/9', legend: 'nodes on a fixed ring in house order; a cable bows to the left of its direction, so u → v and v → u are two arcs; dots flow along it.' },
+  { id: 'rack', name: 'RACK', aspect: '2/1', legend: 'a signal-flow row: inputs left, OUT right, nodes in house order; cables that run left → right arc ABOVE the row, cables that run right → left arc BELOW it.' },
+  { id: 'matrix', name: 'MATRIX', aspect: '1/1', legend: 'a patchbay: rows are where a cable comes FROM, columns where it goes TO; a cell\'s fill is the weight; hatched cells are unavailable; amber outlines are live loops, dotted ones are waiting.' },
+  { id: 'flow', name: 'FLOW', aspect: '16/9', legend: 'each input lane\'s path to OUT, as a Sankey: ribbon width is how much of the lane runs along each cable; columns are signal depth.' },
+  { id: 'panel', name: 'PANEL', aspect: '16/9', legend: 'a Eurorack case: each module a panel with an IN and an OUT jack and a LED (lit = awake); patch cables sag between jacks, thick and opaque with weight.' },
+  { id: 'roll', name: 'ROLL', aspect: '16/9', legend: 'a cable roll: one row per cable that has been alive, time running left to right over the last few seconds; brightness is the weight — watch cables emerge and retreat.' },
+];
+const LAYOUT_KEY = 'hypersaw.fxmorph-r3.layout';
+let LAYOUT = (() => { try { const v = qv('layout', null) || (window.localStorage && window.localStorage.getItem(LAYOUT_KEY)); return LAYOUTS.some(l => l.id === v) ? v : 'ring'; } catch (_) { return 'ring'; } })();
+const ROLL_N = 240, ROLL = { cols: [], n: 0 };     // the roll's history: one column of weights per painted frame (page state)
+function setLayout(id) {
+  LAYOUT = id; try { window.localStorage && window.localStorage.setItem(LAYOUT_KEY, id); } catch (_) { /* private mode: the choice lasts the session */ }
+  renderLayoutCtl(); dirty = true;
+}
+function renderLayoutCtl() {
+  const L = LAYOUTS.find(l => l.id === LAYOUT);
+  $('layoutPills').innerHTML = LAYOUTS.map(l => `<button class="pill${l.id === LAYOUT ? ' on' : ' act'}" data-k="${l.id}">${l.name}</button>`).join('');
+  $('cableC').style.aspectRatio = L.aspect; $('cableC').style.maxWidth = L.id === 'matrix' ? '620px' : ''; $('cableC').style.margin = L.id === 'matrix' ? '0 auto' : '';
+  $('cableLegend').innerHTML = `<b>${L.name}</b>: ${L.legend} <span style="color:var(--caution-tx)">amber</span> = a live loop, a backward part (z⁻¹, one block late) or a waiting cable; dim and dashed = asleep; ✕ = unavailable (Scape → Sluice); E1 = Scape → Bulwark only as the last module.`;
+}
+/* the state every layout draws */
+function cableData(vs) {
+  const r3 = vs.R instanceof Cables, wf = r3 ? vs.R.wf : r2Cables(vs.R), wb = r3 ? vs.R.wb : new Float64Array(NC);
+  const loopC = new Set(); if (r3) for (const cy of vs.R.cycles()) for (const i of cy) loopC.add(i);
+  const order = r3 ? vs.R.order : topoOrder(wf, wf), fed = {};
+  for (const t of TYPES) { fed[t] = false; for (const i of INTO[t]) if (wf[i] + wb[i] > 0.003) { fed[t] = true; break; } }
+  const asleep = t => vs.E && vs.E.asleep ? vs.E.asleep[t] : !fed[t];
+  const trans = {}; for (const L of LANES) trans[L] = transOf(order, wf, wb, L);
+  return { r3, wf, wb, held: r3 ? vs.R.held : null, loopC, asleep, order, trans, mb: r3 && (vs.R.prm.DYN.bands || 1) > 1, live: vs.live };
+}
+/* shared drawing helpers */
+function inkOf(D, i) { const c = CABLES[i]; return D.loopC.has(i) ? PAL.caution : c.u === 'BODY' ? PAL['scr-value'] : c.u === 'SUB' ? PAL['scr-marker'] : PAL['scr-physics']; }
+const wid = (w, dpr, s) => (0.8 + 4.2 * Math.min(1.5, w)) * dpr * (s || 1);
+function quad(g, q) { g.beginPath(); g.moveTo(q[0], q[1]); g.quadraticCurveTo(q[2], q[3], q[4], q[5]); g.stroke(); }
+const qAt = (q, t) => [(1 - t) * (1 - t) * q[0] + 2 * t * (1 - t) * q[2] + t * t * q[4], (1 - t) * (1 - t) * q[1] + 2 * t * (1 - t) * q[3] + t * t * q[5]];
+function arrowAt(g, q, a, ink, dpr) {
+  const p1 = qAt(q, 0.8), p2 = qAt(q, 0.84), ang = Math.atan2(p2[1] - p1[1], p2[0] - p1[0]), s = (3 + 3 * a) * dpr;
+  g.fillStyle = ink; g.globalAlpha = 0.35 + 0.65 * a; g.beginPath();
+  g.moveTo(p2[0] + Math.cos(ang) * s, p2[1] + Math.sin(ang) * s); g.lineTo(p2[0] + Math.cos(ang + 2.5) * s, p2[1] + Math.sin(ang + 2.5) * s); g.lineTo(p2[0] + Math.cos(ang - 2.5) * s, p2[1] + Math.sin(ang - 2.5) * s); g.fill();
+}
+/* one cable along a quadratic: forward part solid, backward part dashed amber with z⁻¹, the flow dots, an arrowhead */
+function drawCable(g, D, i, q, dpr, s, flow) {
+  const w = D.wf[i] + D.wb[i]; if (w < 0.003) return;
+  const ink = inkOf(D, i), a = Math.min(1, w);
+  if (D.wf[i] >= 0.003) { g.strokeStyle = ink; g.globalAlpha = 0.18 + 0.72 * Math.min(1, D.wf[i]); g.lineWidth = wid(D.wf[i], dpr, s); quad(g, q); }
+  if (D.wb[i] >= 0.003) {
+    g.setLineDash([6 * dpr, 4 * dpr]); g.strokeStyle = PAL.caution; g.globalAlpha = 0.25 + 0.75 * Math.min(1, D.wb[i]); g.lineWidth = wid(D.wb[i], dpr, s); quad(g, q); g.setLineDash([]);
+    const m = qAt(q, 0.5); g.globalAlpha = 1; g.fillStyle = PAL.caution; g.fillText('z⁻¹', m[0], m[1] - 7 * dpr);
+  }
+  if (flow) {
+    g.setLineDash([1.2 * dpr, 10 * dpr]); g.lineDashOffset = REDUCED ? 0 : -(flowT * 0.35 * dpr) % (11.2 * dpr);
+    g.strokeStyle = PAL['scr-meter']; g.globalAlpha = 0.25 + 0.6 * a; g.lineWidth = Math.max(1.2 * dpr, 0.45 * wid(w, dpr, s)); quad(g, q);
+    g.setLineDash([]); g.lineDashOffset = 0;
+  }
+  arrowAt(g, q, a, ink, dpr); g.globalAlpha = 1;
+}
+function drawWaiting(g, D, i, q, dpr) {
+  if (!D.held || !D.held[i]) return;
+  const m = qAt(q, 0.5);
+  g.setLineDash([1.5 * dpr, 3 * dpr]); g.strokeStyle = PAL.caution; g.globalAlpha = 0.8; g.lineWidth = 1.5 * dpr; quad(g, q); g.setLineDash([]);
+  g.fillStyle = PAL.caution; g.fillText('waits (' + D.held[i] + ')', m[0], m[1] - 8 * dpr); g.globalAlpha = 1;
+}
+function drawRules(g, geo, dpr) {
+  for (const k of ['REV>NET', 'REV>DYN']) {
+    const q = geo(CIX[k]); if (!q) continue; const m = qAt(q, 0.5);
+    g.setLineDash([2 * dpr, 5 * dpr]); g.strokeStyle = BANNED[k] ? PAL.caution : PAL.dim; g.globalAlpha = 0.55; g.lineWidth = dpr; quad(g, q); g.setLineDash([]);
+    g.globalAlpha = 0.9; g.fillStyle = BANNED[k] ? PAL.caution : PAL.dim; g.fillText(BANNED[k] ? '✕ R3' : 'E1 only', m[0], m[1]); g.globalAlpha = 1;
+  }
+}
+function drawNodeBox(g, D, t, x, y, bw, bh, dpr, fs) {
+  const asleep = D.asleep(t);
+  g.fillStyle = PAL['scr-tube']; g.fillRect(x - bw / 2, y - bh / 2, bw, bh);
+  g.strokeStyle = asleep ? PAL.dim : PAL['scr-physics']; g.globalAlpha = asleep ? 0.6 : 1; g.lineWidth = (asleep ? 1 : 2) * dpr;
+  if (asleep) g.setLineDash([3 * dpr, 3 * dpr]);
+  g.strokeRect(x - bw / 2, y - bh / 2, bw, bh); g.setLineDash([]);
+  g.fillStyle = asleep ? PAL.dim : PAL['scr-physics']; g.font = `bold ${fs * dpr}px ui-monospace,Menlo,monospace`;
+  g.fillText((bw > 50 * dpr ? NAME[t].split(' ')[0] : SHORT[t]) + (t === 'DYN' && D.mb ? ' ‖2' : ''), x, y - 0.3 * fs * dpr);
+  g.font = `${(fs - 2) * dpr}px ui-monospace,Menlo,monospace`; g.fillText((asleep ? 'asleep' : 'awake') + ' · ' + COST[t] + 'pt', x, y + 0.7 * fs * dpr);
+  g.globalAlpha = 1;
+}
+const fsFor = (W, dpr) => Math.max(7, Math.min(10, W / dpr / 70));
+/* RING — round 3's first view */
+function paintRing(g, D, W, H, dpr) {
+  const P = k => [RING[k][0] * W, RING[k][1] * H], fs = fsFor(W, dpr);
+  const geo = i => { const cc = CABLES[i], [x0, y0] = P(cc.u), [x1, y1] = P(cc.v), dx = x1 - x0, dy = y1 - y0, L = Math.hypot(dx, dy) || 1, bow = 0.14 * L; return [x0, y0, (x0 + x1) / 2 + dy / L * bow, (y0 + y1) / 2 - dx / L * bow, x1, y1]; };
+  g.font = `${(fs - 1) * dpr}px ui-monospace,Menlo,monospace`; g.textAlign = 'center'; g.textBaseline = 'middle';
+  drawRules(g, geo, dpr);
+  for (let i = 0; i < NC; i++) drawWaiting(g, D, i, geo(i), dpr);
+  for (let i = 0; i < NC; i++) drawCable(g, D, i, geo(i), dpr, 1, true);
+  const bw = Math.min(62, W / dpr / 9) * dpr, bh = 2.6 * fs * dpr;
+  for (const t of TYPES) { const [x, y] = P(t); drawNodeBox(g, D, t, x, y, bw, bh, dpr, fs); }
+  g.font = `bold ${fs * dpr}px ui-monospace,Menlo,monospace`;
+  for (const [k, ink] of [['BODY', PAL['scr-value']], ['SUB', PAL['scr-marker']], ['OUT', PAL['scr-meter']]]) { const [x, y] = P(k); g.fillStyle = ink; g.fillText(NAME[k], x, y); }
+}
+/* RACK — a signal-flow row; left → right above, right → left below */
+function paintRack(g, D, W, H, dpr) {
+  const fs = fsFor(W, dpr), cols = ['IN'].concat(TYPES, ['OUT']), dx = W / (cols.length + 0.2), mid = H * 0.5;
+  const X = k => isLane(k) ? dx * 0.6 : k === 'OUT' ? dx * (cols.length - 0.4) : dx * (1.6 + HOUSE[k]);
+  const Y = k => k === 'BODY' ? mid - 0.09 * H : k === 'SUB' ? mid + 0.09 * H : mid;
+  const geo = i => { const c = CABLES[i], x0 = X(c.u), x1 = X(c.v), y0 = Y(c.u), y1 = Y(c.v), up = x1 > x0, span = Math.abs(x1 - x0) / W;
+    return [x0, y0, (x0 + x1) / 2, (up ? mid - 0.08 * H - 0.75 * H * span : mid + 0.08 * H + 0.75 * H * span), x1, y1]; };
+  g.font = `${(fs - 1) * dpr}px ui-monospace,Menlo,monospace`; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.strokeStyle = PAL['scr-grid']; g.globalAlpha = 0.35; g.lineWidth = dpr; g.beginPath(); g.moveTo(dx * 0.3, mid); g.lineTo(W - dx * 0.2, mid); g.stroke(); g.globalAlpha = 1;
+  drawRules(g, geo, dpr);
+  for (let i = 0; i < NC; i++) drawWaiting(g, D, i, geo(i), dpr);
+  for (let i = 0; i < NC; i++) drawCable(g, D, i, geo(i), dpr, 0.8, true);
+  const bw = dx * 0.86, bh = 2.6 * fs * dpr;
+  for (const t of TYPES) drawNodeBox(g, D, t, X(t), mid, bw, bh, dpr, fs);
+  g.font = `bold ${fs * dpr}px ui-monospace,Menlo,monospace`;
+  for (const [k, ink] of [['BODY', PAL['scr-value']], ['SUB', PAL['scr-marker']], ['OUT', PAL['scr-meter']]]) { g.fillStyle = ink; g.fillText(SHORT[k], X(k), Y(k)); }
+  g.fillStyle = PAL.dim; g.font = `${(fs - 1) * dpr}px ui-monospace,Menlo,monospace`;
+  g.fillText('left → right', W / 2, 0.05 * H); g.fillText('right → left', W / 2, 0.95 * H);
+}
+/* MATRIX — a patchbay grid, FROM rows × TO columns */
+function paintMatrix(g, D, W, H, dpr) {
+  const fs = fsFor(W, dpr), rows = SRC, cols = DST, m0 = 4.2 * fs * dpr, cw = (W - m0 - 4 * dpr) / cols.length, ch = (H - m0 - 4 * dpr) / rows.length;
+  g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = `bold ${(fs - 1) * dpr}px ui-monospace,Menlo,monospace`;
+  cols.forEach((v, j) => { g.fillStyle = v === 'OUT' ? PAL['scr-meter'] : D.asleep(v) ? PAL.dim : PAL['scr-physics']; g.fillText(SHORT[v], m0 + (j + 0.5) * cw, m0 * 0.55); });
+  rows.forEach((u, r) => { g.fillStyle = isLane(u) ? (u === 'BODY' ? PAL['scr-value'] : PAL['scr-marker']) : D.asleep(u) ? PAL.dim : PAL['scr-physics']; g.fillText(SHORT[u], m0 * 0.5, m0 + (r + 0.5) * ch); });
+  g.fillStyle = PAL.dim; g.font = `${(fs - 2) * dpr}px ui-monospace,Menlo,monospace`; g.fillText('from ↓ · to →', m0 * 0.5, m0 * 0.5);
+  rows.forEach((u, r) => cols.forEach((v, j) => {
+    const x = m0 + j * cw, y = m0 + r * ch, k = u + '>' + v, i = CIX[k];
+    g.strokeStyle = PAL['scr-grid']; g.globalAlpha = 0.35; g.lineWidth = dpr; g.strokeRect(x + 1, y + 1, cw - 2, ch - 2); g.globalAlpha = 1;
+    if (i === undefined) { g.fillStyle = PAL['scr-grid']; g.globalAlpha = 0.15; g.fillRect(x + 1, y + 1, cw - 2, ch - 2); g.globalAlpha = 1; return; }   // u → u: no such cable
+    if (BANNED[k] || k === 'REV>DYN') {   // hatched: unavailable (✕) or conditional (E1)
+      g.save(); g.beginPath(); g.rect(x + 1, y + 1, cw - 2, ch - 2); g.clip(); g.strokeStyle = BANNED[k] ? PAL.caution : PAL.dim; g.globalAlpha = 0.5; g.lineWidth = dpr;
+      for (let d = -ch; d < cw; d += 5 * dpr) { g.beginPath(); g.moveTo(x + d, y + ch); g.lineTo(x + d + ch, y); g.stroke(); } g.restore();
+    }
+    const wf = D.wf[i], wb = D.wb[i];
+    if (wf + wb > 0.003) {
+      g.fillStyle = inkOf(D, i); g.globalAlpha = 0.15 + 0.85 * Math.min(1, wf); g.fillRect(x + 2, y + 2, cw - 4, ch - 4);
+      if (wb > 0.003) { g.fillStyle = PAL.caution; g.globalAlpha = 0.25 + 0.75 * Math.min(1, wb); g.fillRect(x + 2, y + ch * 0.62, cw - 4, ch * 0.36); }
+      g.globalAlpha = 1; g.fillStyle = Math.min(1, wf + wb) > 0.55 ? PAL['scr-tube'] : PAL['scr-physics']; g.font = `${(fs - 2) * dpr}px ui-monospace,Menlo,monospace`;
+      g.fillText((wf + wb).toFixed(2), x + cw / 2, y + ch / 2);
+    }
+    if (D.loopC.has(i)) { g.strokeStyle = PAL.caution; g.lineWidth = 2.5 * dpr; g.strokeRect(x + 2, y + 2, cw - 4, ch - 4); }
+    if (D.held && D.held[i]) { g.setLineDash([2 * dpr, 2 * dpr]); g.strokeStyle = PAL.caution; g.lineWidth = 1.5 * dpr; g.strokeRect(x + 3, y + 3, cw - 6, ch - 6); g.setLineDash([]); }
+  }));
+}
+/* FLOW — a Sankey of each lane: columns are signal depth (longest live path from a lane),
+   a ribbon's width is the lane's transmission along that cable (t_L(u) × weight) */
+function paintFlow(g, D, W, H, dpr) {
+  const fs = fsFor(W, dpr), depth = {}, alive = c => D.wf[c] + D.wb[c] > 0.003;
+  for (const L of LANES) depth[L] = 0;
+  for (const t of D.order) { let d = 0; for (const i of INTO[t]) if (alive(i) && D.wf[i] > 0.003) d = Math.max(d, (depth[CABLES[i].u] || 0) + 1); depth[t] = d; }
+  const used = TYPES.filter(t => LANES.some(L => D.trans[L][t] > 1e-3)), maxD = Math.max(1, ...used.map(t => depth[t]));
+  depth.OUT = maxD + 1;
+  const colX = d => W * (0.07 + 0.86 * d / (maxD + 1)), byCol = {};
+  for (const k of LANES.concat(used, ['OUT'])) (byCol[depth[k]] = byCol[depth[k]] || []).push(k);
+  const Y = {}, scale = Math.min(0.1 * H, 22 * dpr);   // a transmission of 1 is this thick
+  for (const d in byCol) { const ks = byCol[d].sort((a, b) => (HOUSE[a] ?? -1) - (HOUSE[b] ?? -1)); ks.forEach((k, j) => { Y[k] = H * 0.08 + 0.8 * H * (j + 1) / (ks.length + 1); }); }
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  /* the ribbons: one per (lane, live cable), its flow f = what of the lane runs along it.
+     A pre-pass totals each node's outgoing and incoming flow, so each stack is centred. */
+  const rib = [], tot = {};
+  for (const k in Y) tot[k] = { in: 0, out: 0 };
+  for (const L of LANES) for (let i = 0; i < NC; i++) {
+    const c = CABLES[i]; if (!alive(i) || Y[c.u] === undefined || Y[c.v] === undefined) continue;
+    const f = (isLane(c.u) ? (c.u === L ? 1 : 0) : D.trans[L][c.u] || 0) * (D.wf[i] + D.wb[i]); if (f < 2e-3) continue;
+    const th = Math.max(dpr, f * scale); rib.push({ L, i, c, th }); tot[c.u].out += th; tot[c.v].in += th;
+  }
+  const off = {}; for (const k in Y) off[k] = { in: -tot[k].in / 2, out: -tot[k].out / 2 };
+  for (const r of rib) {
+    const { L, i, c, th } = r, x0 = colX(depth[c.u]) + 0.035 * W, x1 = colX(depth[c.v]) - 0.035 * W;
+    const y0 = Y[c.u] + off[c.u].out + th / 2, y1 = Y[c.v] + off[c.v].in + th / 2; off[c.u].out += th; off[c.v].in += th;
+    const back = x1 <= x0 || D.wb[i] > D.wf[i];
+    g.strokeStyle = D.loopC.has(i) || back ? PAL.caution : L === 'BODY' ? PAL['scr-value'] : PAL['scr-marker'];
+    g.globalAlpha = 0.5; g.lineWidth = th;
+    if (back) g.setLineDash([6 * dpr, 4 * dpr]);
+    g.beginPath(); g.moveTo(x0, y0); g.bezierCurveTo((x0 + x1) / 2, y0, (x0 + x1) / 2, y1, x1, y1); g.stroke(); g.setLineDash([]);
+  }
+  g.globalAlpha = 1;
+  // nodes (only those a lane reaches), lanes, OUT; asleep ones dashed
+  const bw = Math.min(56, W / dpr / 10) * dpr, bh = 2.4 * fs * dpr;
+  for (const t of used) drawNodeBox(g, D, t, colX(depth[t]), Y[t], bw, bh, dpr, fs);
+  g.font = `bold ${fs * dpr}px ui-monospace,Menlo,monospace`;
+  for (const [k, ink] of [['BODY', PAL['scr-value']], ['SUB', PAL['scr-marker']], ['OUT', PAL['scr-meter']]]) { g.fillStyle = ink; g.fillText(NAME[k], colX(depth[k]), Y[k]); }
+  // what the flow view cannot draw as a ribbon: waits and the rules, as notes along the foot
+  const notes = [];
+  if (D.held) D.held.forEach((h, i) => { if (h) notes.push('waiting ' + CABLES[i].k.replace('>', '→') + ' (' + h + ')'); });
+  if (D.loopC.size) notes.push('live loop: ' + [...D.loopC].map(i => CABLES[i].k.replace('>', '→')).join(' '));
+  notes.push('✕ Sc→Sl unavailable · Sc→Bw E1 only');
+  g.fillStyle = notes.length > 1 ? PAL.caution : PAL.dim; g.font = `${(fs - 1) * dpr}px ui-monospace,Menlo,monospace`; g.textAlign = 'left';
+  g.fillText(notes.join(' · '), 0.02 * W, 0.96 * H);
+}
+/* PANEL — a Eurorack case: panels with jacks, patch cables sagging under gravity */
+function paintPanel(g, D, W, H, dpr) {
+  const fs = fsFor(W, dpr), mods = ['IN'].concat(TYPES, ['OUT']), pw = W / mods.length, top = 0.1 * H, ph = 0.62 * H;
+  const px = j => j * pw + pw / 2;
+  const jack = (k, dir) => {   // dir 'out' (upper jack) or 'in' (lower jack)
+    if (k === 'BODY') return [px(0), top + ph * 0.3]; if (k === 'SUB') return [px(0), top + ph * 0.62]; if (k === 'OUT') return [px(mods.length - 1), top + ph * 0.62];
+    const j = 1 + HOUSE[k]; return [px(j), top + ph * (dir === 'out' ? 0.3 : 0.75)];
+  };
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  mods.forEach((m, j) => {
+    const x = j * pw + 2 * dpr, asleep = TYPES.includes(m) && D.asleep(m);
+    g.fillStyle = PAL['scr-tube']; g.fillRect(x, top, pw - 4 * dpr, ph);
+    g.strokeStyle = asleep ? PAL.dim : PAL['scr-grid']; g.globalAlpha = asleep ? 0.5 : 0.9; g.lineWidth = dpr; if (asleep) g.setLineDash([3 * dpr, 3 * dpr]); g.strokeRect(x, top, pw - 4 * dpr, ph); g.setLineDash([]); g.globalAlpha = 1;
+    g.font = `bold ${fs * dpr}px ui-monospace,Menlo,monospace`; g.fillStyle = TYPES.includes(m) ? (asleep ? PAL.dim : PAL['scr-physics']) : PAL['scr-meter'];
+    g.fillText(TYPES.includes(m) ? SHORT[m] + (m === 'DYN' && D.mb ? '‖2' : '') : m, px(j), top + 0.08 * ph);
+    if (TYPES.includes(m)) {   // the LED: lit = awake
+      g.fillStyle = asleep ? PAL.dim : PAL['scr-meter']; g.globalAlpha = asleep ? 0.4 : 1; g.beginPath(); g.arc(px(j), top + 0.17 * ph, 2.5 * dpr, 0, 7); g.fill(); g.globalAlpha = 1;
+      g.font = `${(fs - 2) * dpr}px ui-monospace,Menlo,monospace`; g.fillStyle = PAL.dim; g.fillText('OUT', px(j), top + 0.39 * ph); g.fillText('IN', px(j), top + 0.85 * ph); g.fillText(COST[m] + 'pt', px(j), top + 0.95 * ph);
+    }
+  });
+  // jacks
+  const jacks = [['BODY', 'out'], ['SUB', 'out'], ['OUT', 'in']].concat(TYPES.flatMap(t => [[t, 'out'], [t, 'in']]));
+  for (const [k, d] of jacks) { const [x, y] = jack(k, d); g.fillStyle = PAL.bg; g.strokeStyle = PAL['scr-grid']; g.lineWidth = 1.5 * dpr; g.beginPath(); g.arc(x, y, 4 * dpr, 0, 7); g.fill(); g.stroke(); }
+  // the rules, as notes under the case (cables there would hang through every panel)
+  g.font = `${(fs - 1) * dpr}px ui-monospace,Menlo,monospace`; g.fillStyle = PAL.caution; g.fillText('✕ Scape OUT → Sluice IN is unavailable · Scape → Bulwark only as E1 (Bulwark last)', W / 2, 0.97 * H);
+  // patch cables: sag grows with the span
+  const geo = i => { const c = CABLES[i], [x0, y0] = jack(c.u, 'out'), [x1, y1] = jack(c.v, 'in'), span = Math.hypot(x1 - x0, y1 - y0);
+    return [x0, y0, (x0 + x1) / 2, Math.max(y0, y1) + 0.35 * span, x1, y1]; };
+  for (let i = 0; i < NC; i++) drawWaiting(g, D, i, geo(i), dpr);
+  for (let i = 0; i < NC; i++) drawCable(g, D, i, geo(i), dpr, 0.9, false);
+}
+/* ROLL — the cable roll: rows = cables alive in the window, time left → right */
+function rollPush(D) {
+  if (REDUCED && ROLL.cols.length && !dirty) return;          // reduced motion: the roll moves only when the state does
+  const col = new Float32Array(NC * 2); for (let i = 0; i < NC; i++) { col[2 * i] = D.wf[i]; col[2 * i + 1] = D.wb[i]; }
+  const flags = { loop: new Set(D.loopC), held: D.held ? D.held.slice() : null, asleep: TYPES.filter(t => D.asleep(t)) };
+  ROLL.cols.push({ col, flags }); if (ROLL.cols.length > ROLL_N) ROLL.cols.shift();
+}
+function paintRoll(g, D, W, H, dpr) {
+  const fs = fsFor(W, dpr), rows = [];
+  for (let i = 0; i < NC; i++) if (ROLL.cols.some(c => c.col[2 * i] + c.col[2 * i + 1] > 0.003 || (c.flags.held && c.flags.held[i]))) rows.push(i);
+  const m0 = 7 * fs * dpr, rh = Math.min(16 * dpr, (H - 2.2 * fs * dpr) / Math.max(1, rows.length)), cw = (W - m0) / ROLL_N, x0 = W - ROLL.cols.length * cw;
+  g.textAlign = 'right'; g.textBaseline = 'middle'; g.font = `${(fs - 1) * dpr}px ui-monospace,Menlo,monospace`;
+  rows.forEach((i, r) => {
+    const y = r * rh, c = CABLES[i], sleepy = !isLane(c.u) && D.asleep(c.u);
+    g.fillStyle = BANNED[c.k] ? PAL.caution : sleepy ? PAL.dim : inkOf(D, i);
+    g.fillText(SHORT[c.u] + '→' + SHORT[c.v] + (c.k === 'REV>DYN' ? ' E1' : ''), m0 - 4 * dpr, y + rh / 2);
+    ROLL.cols.forEach((k, j) => {
+      const wf = k.col[2 * i], wb = k.col[2 * i + 1], x = x0 + j * cw;
+      if (wf > 0.003) { g.fillStyle = k.flags.loop.has(i) ? PAL.caution : inkOf(D, i); g.globalAlpha = 0.12 + 0.88 * Math.min(1, wf); g.fillRect(x, y + 1, cw + 0.6, rh - 2); }
+      if (wb > 0.003) { g.fillStyle = PAL.caution; g.globalAlpha = 0.2 + 0.8 * Math.min(1, wb); g.fillRect(x, y + rh * 0.55, cw + 0.6, rh * 0.4); }
+      if (k.flags.held && k.flags.held[i]) { g.fillStyle = PAL.caution; g.globalAlpha = 0.9; g.fillRect(x, y + rh / 2 - 0.5 * dpr, cw + 0.6, dpr); }
+    });
+    g.globalAlpha = 1;
+  });
+  g.textAlign = 'left'; g.fillStyle = PAL.dim;
+  g.fillText(`now → (right edge) · ${ROLL_N} frames · asleep now: ${TYPES.filter(t => D.asleep(t)).map(t => SHORT[t]).join(' ') || 'none'} · ✕ Sc→Sl never appears`, 2 * dpr, H - fs * dpr);
+}
 function paintCables(vs) {
   const c = $('cableC'), dpr = fit(c), g = c.getContext('2d'), W = c.width, H = c.height;
   g.clearRect(0, 0, W, H);
-  const r3 = vs.R instanceof Cables, wf = r3 ? vs.R.wf : r2Cables(vs.R), wb = r3 ? vs.R.wb : new Float64Array(NC);
-  const loopC = new Set(); if (r3) for (const cy of vs.R.cycles()) for (const i of cy) loopC.add(i);
-  const P = k => [RING[k][0] * W, RING[k][1] * H];
-  const geo = i => {
-    const cc = CABLES[i], [x0, y0] = P(cc.u), [x1, y1] = P(cc.v), dx = x1 - x0, dy = y1 - y0, L = Math.hypot(dx, dy) || 1, bow = 0.14 * L;
-    return [x0, y0, (x0 + x1) / 2 + dy / L * bow, (y0 + y1) / 2 - dx / L * bow, x1, y1];
-  };
-  const at = (q, t) => [(1 - t) * (1 - t) * q[0] + 2 * t * (1 - t) * q[2] + t * t * q[4], (1 - t) * (1 - t) * q[1] + 2 * t * (1 - t) * q[3] + t * t * q[5]];
-  const stroke = q => { g.beginPath(); g.moveTo(q[0], q[1]); g.quadraticCurveTo(q[2], q[3], q[4], q[5]); g.stroke(); };
-  g.font = `${9 * dpr}px ui-monospace,Menlo,monospace`; g.textAlign = 'center'; g.textBaseline = 'middle';
-  // the rules, always visible
-  for (const k of ['REV>NET', 'REV>DYN']) {
-    const q = geo(CIX[k]), m = at(q, 0.5);
-    g.setLineDash([2 * dpr, 5 * dpr]); g.strokeStyle = BANNED[k] ? PAL.caution : PAL.dim; g.globalAlpha = 0.55; g.lineWidth = dpr; stroke(q); g.setLineDash([]);
-    g.globalAlpha = 0.9; g.fillStyle = BANNED[k] ? PAL.caution : PAL.dim; g.fillText(BANNED[k] ? '✕ R3' : 'E1 only', m[0], m[1]);
-  }
-  // waiting cables
-  if (r3) for (let i = 0; i < NC; i++) if (vs.R.held[i]) {
-    const q = geo(i), m = at(q, 0.5);
-    g.setLineDash([1.5 * dpr, 3 * dpr]); g.strokeStyle = PAL.caution; g.globalAlpha = 0.8; g.lineWidth = 1.5 * dpr; stroke(q); g.setLineDash([]);
-    g.fillStyle = PAL.caution; g.fillText('waits (' + vs.R.held[i] + ')', m[0], m[1] - 8 * dpr);
-  }
-  // live cables
-  for (let i = 0; i < NC; i++) {
-    const w = wf[i] + wb[i]; if (w < 0.003) continue;
-    const cc = CABLES[i], q = geo(i), loop = loopC.has(i), a = Math.min(1, w);
-    const ink = loop ? PAL.caution : cc.u === 'BODY' ? PAL['scr-value'] : cc.u === 'SUB' ? PAL['scr-marker'] : PAL['scr-physics'];
-    if (wf[i] >= 0.003) { g.strokeStyle = ink; g.globalAlpha = 0.18 + 0.72 * Math.min(1, wf[i]); g.lineWidth = (0.8 + 4.2 * Math.min(1.5, wf[i])) * dpr; stroke(q); }
-    if (wb[i] >= 0.003) {
-      g.setLineDash([6 * dpr, 4 * dpr]); g.strokeStyle = PAL.caution; g.globalAlpha = 0.25 + 0.75 * Math.min(1, wb[i]); g.lineWidth = (0.8 + 4.2 * Math.min(1.5, wb[i])) * dpr; stroke(q); g.setLineDash([]);
-      const m = at(q, 0.5); g.globalAlpha = 1; g.fillStyle = PAL.caution; g.fillText('z⁻¹', m[0], m[1] - 7 * dpr);
-    }
-    // the flow: dots travelling u → v (a static dotting under reduced motion)
-    g.setLineDash([1.2 * dpr, 10 * dpr]); g.lineDashOffset = REDUCED ? 0 : -(flowT * 0.35 * dpr) % (11.2 * dpr);
-    g.strokeStyle = PAL['scr-meter']; g.globalAlpha = 0.25 + 0.6 * a; g.lineWidth = Math.max(1.2 * dpr, 0.45 * (0.8 + 4.2 * Math.min(1.5, w)) * dpr); stroke(q);
-    g.setLineDash([]); g.lineDashOffset = 0;
-    // an arrowhead near the destination
-    const p1 = at(q, 0.8), p2 = at(q, 0.84), ang = Math.atan2(p2[1] - p1[1], p2[0] - p1[0]), s = (3 + 3 * a) * dpr;
-    g.fillStyle = ink; g.globalAlpha = 0.35 + 0.65 * a; g.beginPath();
-    g.moveTo(p2[0] + Math.cos(ang) * s, p2[1] + Math.sin(ang) * s); g.lineTo(p2[0] + Math.cos(ang + 2.5) * s, p2[1] + Math.sin(ang + 2.5) * s); g.lineTo(p2[0] + Math.cos(ang - 2.5) * s, p2[1] + Math.sin(ang - 2.5) * s); g.fill();
-  }
-  g.globalAlpha = 1;
-  // nodes
-  const bw = 62 * dpr, bh = 26 * dpr, prm = r3 ? vs.R.prm : null;
-  for (const t of TYPES) {
-    const [x, y] = P(t);
-    let fed = false; for (const i of INTO[t]) if (wf[i] + wb[i] > 0.003) { fed = true; break; }
-    const asleep = vs.E && vs.E.asleep ? vs.E.asleep[t] : !fed;
-    g.fillStyle = PAL['scr-tube']; g.fillRect(x - bw / 2, y - bh / 2, bw, bh);
-    g.strokeStyle = asleep ? PAL.dim : PAL['scr-physics']; g.globalAlpha = asleep ? 0.6 : 1; g.lineWidth = (asleep ? 1 : 2) * dpr;
-    if (asleep) g.setLineDash([3 * dpr, 3 * dpr]);
-    g.strokeRect(x - bw / 2, y - bh / 2, bw, bh); g.setLineDash([]);
-    g.fillStyle = asleep ? PAL.dim : PAL['scr-physics']; g.font = `bold ${10 * dpr}px ui-monospace,Menlo,monospace`;
-    g.fillText(NAME[t].split(' ')[0] + (t === 'DYN' && prm && (prm.DYN.bands || 1) > 1 ? ' ‖2' : ''), x, y - 3 * dpr);
-    g.font = `${8 * dpr}px ui-monospace,Menlo,monospace`; g.fillText((asleep ? 'asleep' : 'awake') + ' · ' + COST[t] + ' pt', x, y + 7 * dpr);
-    g.globalAlpha = 1;
-  }
-  g.font = `bold ${10 * dpr}px ui-monospace,Menlo,monospace`;
-  for (const [k, ink] of [['BODY', PAL['scr-value']], ['SUB', PAL['scr-marker']], ['OUT', PAL['scr-meter']]]) { const [x, y] = P(k); g.fillStyle = ink; g.fillText(NAME[k], x, y); }
+  const D = cableData(vs);
+  if (LAYOUT === 'roll' || ROLL.cols.length) rollPush(D);
+  ({ ring: paintRing, rack: paintRack, matrix: paintMatrix, flow: paintFlow, panel: paintPanel, roll: paintRoll }[LAYOUT] || paintRing)(g, D, W, H, dpr);
+  g.globalAlpha = 1; g.setLineDash([]);
 }
 function paintAt() { VS = viewState(); paintPad(); paintCables(VS); renderLive(VS); }
 function renderRec() {
@@ -2498,7 +2694,7 @@ function frame() {
   if (dirty) { paintAt(); dirty = false; }
   else if (live && frameN % 3 === 0) paintAt();
   else if (live) { VS = viewState(); paintCables(VS); }
-  else if (!REDUCED && VS) paintCables(VS);
+  else if (VS && (!REDUCED || LAYOUT === 'roll')) paintCables(VS);
   paintScope(); paintMeter();
   requestAnimationFrame(frame);
 }
@@ -2555,6 +2751,7 @@ document.addEventListener('click', e => {
   else if (box === 'pPills') setOpt({ p: +k });
   else if (box === 'kPills') setOpt({ K: +k });
   else if (box === 'pathPills') { sweepId = k; renderControls(); dirty = true; }
+  else if (box === 'layoutPills') setLayout(k);
 });
 function padAt(e) {
   const r = $('pad').getBoundingClientRect(), m = 14;
@@ -2566,7 +2763,7 @@ window.addEventListener('pointerup', () => { dragPad = false; });
 window.addEventListener('resize', () => { dirty = true; });
 if (qb('adv', false)) $('advBox').open = true;
 
-readPal(); recompute(); applyTheme(); startCheck();
+readPal(); renderLayoutCtl(); recompute(); applyTheme(); startCheck();
 requestAnimationFrame(frame);
 </script>
 </body></html>
