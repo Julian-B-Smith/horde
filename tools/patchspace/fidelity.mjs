@@ -35,6 +35,7 @@
  *             logged with the slot's state before it (active, gated, env): a STEAL is a
  *             start on a slot that is still active. Voice ends are read between blocks.
  */
+import '../labharness/sandbox_guard.mjs';   // FIRST import: lab code runs under the permission model (B446 W3c)
 import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';

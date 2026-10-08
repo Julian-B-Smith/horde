@@ -8,6 +8,7 @@
 // core constants) to the first UI-layer line — `const $ =` (the DOM helper,
 // which precedes powerOn in all three labs) or `function powerOn()`.
 
+import '../labharness/sandbox_guard.mjs';   // FIRST import: lab code runs under the permission model (B446 W3c)
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';

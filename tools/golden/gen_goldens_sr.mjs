@@ -43,6 +43,7 @@
  *   node tools/golden/gen_goldens_sr.mjs --selfcheck   render every scenario twice, byte-compare
  * Deterministic: seeded streams only, no clock. Both references are read, never edited.
  */
+import '../labharness/sandbox_guard.mjs';   // FIRST import: lab code runs under the permission model (B446 W3c)
 import { mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';

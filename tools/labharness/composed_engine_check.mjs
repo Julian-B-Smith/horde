@@ -116,6 +116,7 @@
  * require. Math.random is replaced by a seeded mulberry32 around every oracle
  * instance (the lab's convention) and restored on exit.
  */
+import './sandbox_guard.mjs';   // FIRST import: lab code runs under the permission model (B446 W3c)
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';

@@ -7,6 +7,7 @@
 //
 // Usage: node gen_time_goldens.mjs [--selfcheck]
 
+import '../labharness/sandbox_guard.mjs';   // FIRST import: lab code runs under the permission model (B446 W3c)
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';

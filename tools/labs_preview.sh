@@ -16,11 +16,24 @@
 # read. Git runs inside the scratch tree with --no-verify, and the hooks it could run
 # are the shared repo's, never the branch's.
 #
-# Usage: tools/labs_preview.sh [branch ...]   (no args: every open PR touching docs/design/)
+# Usage: tools/labs_preview.sh [--allow-sluice] [branch ...]   (no branches: every open PR touching docs/design/)
 # Then serve it with the MAIN checkout's server, the scratch merge as its root argument;
 # the script prints the exact command when it finishes:
 #   python3 <main checkout>/tools/serve_labs.py 8146 <main checkout>/.claude/worktrees/labs-preview
+#
+# --allow-sluice (OFF by default; the human's per-run opt-in, ratified 2026-10-08, B446 W3c).
+# The Sluice lab (B329) reads a private sibling's spec in place through the gitignored link
+# local/sluice, which the labs server does not serve. With the flag this script links the
+# preview's local/sluice to the MAIN checkout's, AFTER the merges (so a branch that force-added
+# its own local/sluice cannot choose where the link points), and the printed serve command
+# carries --allow-sluice, which opens that one subtree on the server. Without the flag nothing
+# below changes: no link, and the plain serve command.
 set -u
+ALLOW_SLUICE=0; ARGS=()
+for a in "$@"; do
+  if [ "$a" = "--allow-sluice" ]; then ALLOW_SLUICE=1; else ARGS+=("$a"); fi
+done
+set -- ${ARGS[@]+"${ARGS[@]}"}
 ROOT=$(git rev-parse --show-toplevel) || exit 1
 PREVIEW="$ROOT/.claude/worktrees/labs-preview"
 # The main checkout is computed from git's common dir (this script may run from any
@@ -46,9 +59,9 @@ if [ -d "$PREVIEW" ]; then git worktree remove --force "$PREVIEW" >/dev/null 2>&
 git worktree prune
 git worktree add -q --detach "$PREVIEW" origin/main || exit 1
 
-# local/sluice is NOT linked into the preview any more (it was, for B329): the labs
-# server serves only the lab trees (W2-05), so the Sluice lab shows its no-spec state
-# here. A narrow, explicit opt-in is a ruling for the lead, not something to add quietly.
+# local/sluice is linked only under --allow-sluice (see the header), and then only after
+# the merges below. By default the labs server serves only the lab trees (W2-05), so the
+# Sluice lab shows its no-spec state.
 cd "$PREVIEW" || exit 1
 
 merged=""; skipped=""
@@ -67,8 +80,23 @@ done
 python3 -I "$MAIN/tools/gen_lab_index.py" "$PREVIEW" >/dev/null && git add docs/design/index.html && \
   git -c user.name=labs-preview -c user.email=labs-preview@localhost commit -q --no-verify -m "labs preview (local only)" >/dev/null 2>&1
 
+SLUICE_FLAG=""; sluice="not linked"
+if [ "$ALLOW_SLUICE" = 1 ]; then
+  # Our link, made now that no branch can touch the tree again. A merged branch may have
+  # force-added local/ or local/sluice (a symlink anywhere): remove whatever is there first.
+  # rm on a symlink removes the link, never its target.
+  if [ -e "$MAIN/local/sluice" ]; then
+    rm -rf "$PREVIEW/local/sluice"; [ -L "$PREVIEW/local" ] && rm -f "$PREVIEW/local"
+    mkdir -p "$PREVIEW/local" && ln -s "$MAIN/local/sluice" "$PREVIEW/local/sluice" \
+      && SLUICE_FLAG="--allow-sluice " && sluice="linked, and the serve command opens it"
+  else
+    sluice="requested, but $MAIN/local/sluice does not exist (the Sluice lab shows its no-spec state)"
+  fi
+fi
+
 echo "labs_preview: origin/main$( [ -n "$merged" ] && echo " +$merged" )"
 [ -n "$skipped" ] && echo "labs_preview: SKIPPED (conflicts with main or another lab):$skipped"
 echo "labs_preview: $(grep -o 'AWAITING YOUR REVIEW ([0-9]*)' docs/design/index.html || echo 'no labs awaiting review')"
-echo "labs_preview: serve with: python3 $MAIN/tools/serve_labs.py 8146 $PREVIEW"
+[ "$ALLOW_SLUICE" = 1 ] && echo "labs_preview: local/sluice $sluice"
+echo "labs_preview: serve with: python3 $MAIN/tools/serve_labs.py ${SLUICE_FLAG}8146 $PREVIEW"
 exit 0

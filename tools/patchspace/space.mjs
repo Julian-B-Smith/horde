@@ -29,6 +29,7 @@
  * own seeded streams) and restores it after. No clock is read here; the gauntlet's
  * CPU metric reads process.hrtime OUTSIDE the render calls, in gauntlet.mjs.
  */
+import '../labharness/sandbox_guard.mjs';   // FIRST import: lab code runs under the permission model (B446 W3c)
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';

@@ -65,6 +65,7 @@
  * Usage: node tools/labharness/filter_fidelity_check.mjs [--report] [lab.html]
  *        (exit 1 on any error; the argument lets a scratch copy be checked)
  */
+import './sandbox_guard.mjs';   // FIRST import: lab code runs under the permission model (B446 W3c)
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';

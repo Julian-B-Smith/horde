@@ -26,6 +26,7 @@
 //
 // Everything is located by CONTENT, never by line index: a magic number in an
 // extractor is a delayed break (the lesson extract_glide.mjs carries).
+import '../labharness/sandbox_guard.mjs';   // FIRST import: lab code runs under the permission model (B446 W3c)
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';

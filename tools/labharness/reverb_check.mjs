@@ -55,6 +55,7 @@
  * Provenance: docs/audits/2026-09-18-reverb-lab-audit.md (§0 detector
  * calibration, §3 the suite table V1-V14, §5.4 the fix order).
  */
+import './sandbox_guard.mjs';   // FIRST import: lab code runs under the permission model (B446 W3c)
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';

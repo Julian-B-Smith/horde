@@ -8,7 +8,14 @@ reach the port, with no Host check. It is now an allowlist. A guard nobody
 exercises rots, so this starts the REAL handler in-process on an ephemeral port
 on every `./verify fast` (about a second) and asserts the responses.
 
-THREE LAYERS.
+B446 W3c ADDS the Sluice opt-in (`--allow-sluice`, off by default, serves exactly the
+`local/sluice` subtree and follows exactly its one link). Rows below prove, on the
+same fixture and with the default server beside it as the control: without the flag
+`local/sluice` is 404; with it the subtree answers 200 while `local/` elsewhere,
+PRIVATE-NOTES.md and .git stay 404, a symlink planted INSIDE the subtree and a
+symlinked `local/` are still refused, and the flag really arrives through the CLI.
+
+FOUR LAYERS.
   1. A fixture tree holding the things that must never be served (a git dir, a
      local/ dir, a private notes file, symlinks that lead out of the allowed
      trees) beside the things that must be: each must-refuse row answers 404 (or
@@ -19,8 +26,9 @@ THREE LAYERS.
      problem and a green on layer 1 means nothing.
   3. The REAL tree: every tracked lab page, and every file those pages
      reference by relative path, answers 200 (except the one deliberate refusal,
-     local/sluice). A lab that starts loading something new fails here, loudly,
-     instead of silently going blank in the browser.
+     local/sluice, which is opt-in). A lab that starts loading something new fails
+     here, loudly, instead of silently going blank in the browser.
+  4. The Sluice opt-in (above).
 """
 import http.client
 import http.server
@@ -109,7 +117,18 @@ def build_fixture(base):
     os.symlink(os.path.join(outside, "secret.txt"), os.path.join(root, "docs/design/link.txt"))
     os.symlink(outside, os.path.join(root, "reference/linkdir"))
     os.symlink(os.path.join(base, "tree/local/sluice-real"), os.path.join(root, "local/sluice"))
-    w("tree/local/sluice-real/spec.md", "SECRET")
+    w("tree/local/sluice-real/spec.md", "SLUICE-SPEC")
+    w("tree/local/sluice-real/.hidden", "dotfile")
+    # Links planted INSIDE the Sluice subtree that lead out of it (a file and a directory),
+    # and a hardlink-free sibling file under local/ that the opt-in must not open.
+    os.symlink(os.path.join(outside, "secret.txt"), os.path.join(base, "tree/local/sluice-real/escape.txt"))
+    os.symlink(outside, os.path.join(base, "tree/local/sluice-real/escdir"))
+    # A second tree whose `local` ITSELF is a link: the opt-in must not follow that one.
+    os.makedirs(os.path.join(base, "outside2/sluice"))
+    w("outside2/sluice/spec.md", "SECRET")
+    os.makedirs(os.path.join(base, "tree2/docs/design"))
+    w("tree2/docs/design/index.html", "<title>nav</title>")
+    os.symlink(os.path.join(base, "outside2"), os.path.join(base, "tree2/local"))
     return root
 
 
@@ -147,17 +166,80 @@ ROWS = [
 ]
 
 
-def probe(port):
+# The same fixture served with --allow-sluice. Only the local/sluice subtree changes
+# answer; every other row of ROWS must read exactly as before.
+SLUICE_ROWS = [
+    ("/local/sluice/spec.md", "auto", 200),               # the opt-in: the one link, followed
+    ("/local/sluice/spec.md?x=1", "auto", 200),
+    ("/local/sluice/spec.md", "evil.example:{port}", 403),    # the Host rule still applies
+    ("/local/sluice/spec.md", None, 403),
+    ("/local/sluice/", "auto", 404),                      # never a listing
+    ("/local/sluice/.hidden", "auto", 404),               # dot-files, as everywhere
+    ("/local/sluice/missing.md", "auto", 404),
+    ("/local/sluice/escape.txt", "auto", 404),            # a file link planted inside the subtree
+    ("/local/sluice/escdir/secret.txt", "auto", 404),     # a directory link planted inside it
+    ("/local/sluice/../security/report.md", "auto", 404),
+    ("/local/sluice/%2e%2e/security/report.md", "auto", 404),
+    ("/local/sluice/..%2fsecurity%2freport.md", "auto", 404),
+    ("/local/sluice-real/spec.md", "auto", 404),          # the link's target by its own name: not the subtree
+    ("/local/security/report.md", "auto", 404),           # the rest of local/
+    ("/local/", "auto", 404),
+    ("/local", "auto", 404),
+    ("/local/sluicex/spec.md", "auto", 404),              # a prefix match is not a subtree match
+    ("/PRIVATE-NOTES.md", "auto", 404),
+    ("/.git/HEAD", "auto", 404),
+    ("/tools/serve_labs.py", "auto", 404),
+    ("/docs/design/link.txt", "auto", 404),               # the other trees' symlink rule is untouched
+    ("/reference/linkdir/secret.txt", "auto", 404),
+    ("/docs/design/index.html", "auto", 200),
+]
+# `tree2/local` is a symlink: even with the flag, nothing under it is served.
+SLUICE_ROWS_LINKED_LOCAL = [
+    ("/local/sluice/spec.md", "auto", 404),
+    ("/docs/design/index.html", "auto", 200),
+]
+
+
+def probe(port, rows=ROWS):
     out = []
-    for path, host, _ in ROWS:
+    for path, host, _ in rows:
         h = host.format(port=port) if isinstance(host, str) and host != "auto" else host
         out.append(request(port, path, h)[0])
     return out
 
 
+def free_port():
+    import socket
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+
+def cli_status(args, path, wait=10.0):
+    """Start tools/serve_labs.py itself with `args` (a port is appended in place of {port}), GET `path`, stop it."""
+    import time
+    port = free_port()
+    cmd = [sys.executable, os.path.join(ROOT, "tools/serve_labs.py")] + [a.format(port=port) for a in args]
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    try:
+        end = time.time() + wait
+        while time.time() < end:
+            try:
+                return request(port, path)[0]
+            except OSError:
+                if p.poll() is not None:
+                    return f"server exited {p.returncode}"
+                time.sleep(0.05)
+        return "no answer"
+    finally:
+        p.kill()
+        p.communicate()
+
+
 def main():
     with tempfile.TemporaryDirectory() as base:
         root = build_fixture(base)
+        root2 = os.path.join(base, "tree2")
 
         # Layer 1: the hardened handler.
         srv = serve_labs.make_server(root, 0)
@@ -181,6 +263,42 @@ def main():
                 check(got[(path, host)] == 200,
                       f"CONTROL: stock handler should leak {path} Host={host} (got {got[(path, host)]}); "
                       "the fixture no longer models the problem")
+
+        # Layer 4: the Sluice opt-in, on the SAME fixture. The default server beside it is the
+        # control: the opt-in row that answers 200 must answer 404 without the flag.
+        srv = serve_labs.make_server(root, 0, allow_sluice=True)
+        with Served(srv) as s:
+            got = probe(s.port, SLUICE_ROWS)
+            for (path, host, want), g in zip(SLUICE_ROWS, got):
+                check(g == want, f"--allow-sluice {path} Host={host}: want {want}, got {g}")
+            st, body = request(s.port, "/local/sluice/spec.md")
+            check(body == b"SLUICE-SPEC", f"--allow-sluice served the wrong bytes for local/sluice/spec.md: {body!r}")
+            # Every ROWS row that is not about the Sluice link reads the same under the flag.
+            same = [r for r in ROWS if not r[0].startswith("/local/sluice")]
+            for (path, host, want), g in zip(same, probe(s.port, same)):
+                check(g == want, f"--allow-sluice changed an unrelated row {path} Host={host}: want {want}, got {g}")
+        srv = serve_labs.make_server(root, 0)
+        with Served(srv) as s:
+            for path in ("/local/sluice/spec.md", "/local/sluice/spec.md?x=1"):
+                st, _ = request(s.port, path)
+                check(st == 404, f"CONTROL: without the flag {path} must be 404 (got {st}); the opt-in rows prove nothing")
+        srv = serve_labs.make_server(root2, 0, allow_sluice=True)
+        with Served(srv) as s:
+            for (path, host, want), g in zip(SLUICE_ROWS_LINKED_LOCAL, probe(s.port, SLUICE_ROWS_LINKED_LOCAL)):
+                check(g == want, f"--allow-sluice with a symlinked local/ {path}: want {want}, got {g}")
+        # The stock handler on the same fixture leaks the planted in-subtree links: the
+        # rows above are refusals of something real.
+        stock = http.server.ThreadingHTTPServer(
+            ("127.0.0.1", 0), functools.partial(QuietStock, directory=root))
+        with Served(stock) as s:
+            for path in ("/local/sluice/escape.txt", "/local/sluice/escdir/secret.txt"):
+                st, _ = request(s.port, path)
+                check(st == 200, f"CONTROL: stock handler should leak {path} (got {st}); the planted link is dead")
+        # The flag reaches the handler through the command line (any position), and is off without it.
+        for args, want in ((["{port}", root], 404), (["--allow-sluice", "{port}", root], 200),
+                           (["{port}", root, "--allow-sluice"], 200)):
+            got = cli_status(args, "/local/sluice/spec.md")
+            check(got == want, f"CLI serve_labs.py {' '.join(a for a in args if a != root)}: /local/sluice/spec.md want {want}, got {got}")
 
     # Layer 3: the real tree. Every tracked page and everything it loads by
     # relative path must still be served.
@@ -215,6 +333,7 @@ def main():
         print(f"\nRED -- serve_labs_check: {len(fails)} failure(s)")
         return 1
     print(f"serve_labs_check: GREEN -- {len(ROWS)} rows on the hardened handler, stock-handler control leaks, "
+          f"{len(SLUICE_ROWS)} --allow-sluice rows (off by default, CLI flag proven), "
           f"{len(pages)} lab pages and {checked} loaded files served")
     return 0
 

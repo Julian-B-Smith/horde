@@ -9,6 +9,7 @@
 // counter). Output: build-golden/spectra/<name>.f32 (interleaved LR) +
 // spectra-manifest.tsv. --selfcheck renders twice and compares.
 
+import '../labharness/sandbox_guard.mjs';   // FIRST import: lab code runs under the permission model (B446 W3c)
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';

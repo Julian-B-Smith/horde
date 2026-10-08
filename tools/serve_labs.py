@@ -24,11 +24,19 @@ Binds 127.0.0.1 only.
 
 ALLOWED_FILES was found by reading what the lab pages load (grep of relative
 `fetch(`/`import(`/`src=` in docs/design and reference), not guessed. When a lab
-starts loading something new, add it here deliberately. `local/sluice` (the
-Sluice lab's in-place spec link) is deliberately NOT served; that lab shows its
-no-spec state.
+starts loading something new, add it here deliberately.
 
-Usage: python3 tools/serve_labs.py [port] [root]
+`local/sluice` (the Sluice lab's in-place link to a private sibling's spec) is
+NOT served by default; that lab shows its no-spec state. `--allow-sluice` is the
+human's explicit, per-run opt-in (ratified 2026-10-08, B446 W3c): it serves
+exactly that one subtree and follows exactly one symlink, `local/sluice` itself.
+Under the flag the per-request rules become:
+  - `local` must be a real directory (not a link);
+  - the request must stay inside the link's resolved target, and nothing BELOW
+    `local/sluice` may be a symlink (a link planted in the subtree is refused);
+  - everything else under `local/`, and every other rule above, is unchanged.
+
+Usage: python3 tools/serve_labs.py [--allow-sluice] [port] [root]
   port  default 8146
   root  the tree to serve; default is the repo this script lives in. The root is
         DATA: labs_preview.sh runs the MAIN checkout's copy of this script against
@@ -49,7 +57,14 @@ ALLOWED_FILES = frozenset({
 })
 
 
-def allowed_relpath(url_path):
+SLUICE = "local/sluice"   # the one subtree --allow-sluice opens
+
+
+def in_sluice(rel):
+    return rel == SLUICE or rel.startswith(SLUICE + "/")
+
+
+def allowed_relpath(url_path, allow_sluice=False):
     """The repo-relative POSIX path a URL may read, or None. Pure: no filesystem."""
     # Split query/fragment by hand: urlsplit would read "//x/y" as host "x", which
     # is not how SimpleHTTPRequestHandler reads the same line.
@@ -66,10 +81,30 @@ def allowed_relpath(url_path):
     rel = "/".join(parts)
     if rel in ALLOWED_FILES or any(rel == d or rel.startswith(d + "/") for d in ALLOWED_DIRS):
         return rel
+    if allow_sluice and in_sluice(rel):
+        return rel
     return None
 
 
+def sluice_ok(root, rel):
+    """The --allow-sluice rule for a request inside local/sluice (root is already resolved).
+
+    `local` must be a real directory, and below the link nothing may be a symlink:
+    the link's own target is resolved once, and the requested path must equal its
+    own realpath when joined onto that target.
+    """
+    local = os.path.join(root, "local")
+    if os.path.realpath(local) != local:
+        return False
+    target = os.path.realpath(os.path.join(root, *SLUICE.split("/")))
+    rest = rel[len(SLUICE):].strip("/")
+    wanted = os.path.join(target, *rest.split("/")) if rest else target
+    return os.path.realpath(wanted) == wanted
+
+
 class LabHandler(http.server.SimpleHTTPRequestHandler):
+    allow_sluice = False   # per class, set by make_server: one flag per server, never per request
+
     def end_headers(self):
         self.send_header("Cache-Control", "no-store")
         super().end_headers()
@@ -80,11 +115,16 @@ class LabHandler(http.server.SimpleHTTPRequestHandler):
         if self.headers.get("Host") not in (f"localhost:{port}", f"127.0.0.1:{port}"):
             self.send_error(403, "Host not allowed")
             return False
-        rel = allowed_relpath(self.path)
+        rel = allowed_relpath(self.path, self.allow_sluice)
         if rel is None:
             self.send_error(404)
             return False
         root = os.path.realpath(self.directory)
+        if in_sluice(rel):
+            if not sluice_ok(root, rel):
+                self.send_error(404)
+                return False
+            return True
         # realpath resolves every symlink; the result equals the literal path only
         # when there was none (macOS /tmp -> /private/tmp is in `root`, which is
         # resolved first, so it is not mistaken for one).
@@ -106,17 +146,26 @@ class LabHandler(http.server.SimpleHTTPRequestHandler):
         return None
 
 
-def make_server(root, port):
-    handler = lambda *a, **k: LabHandler(*a, directory=str(root), **k)  # noqa: E731
+def make_server(root, port, allow_sluice=False):
+    # A subclass per server, so one server's opt-in can never leak into another's
+    # (the check runs a default and an opted-in server in one process).
+    cls = type("LabHandlerSluice" if allow_sluice else "LabHandlerDefault", (LabHandler,),
+               {"allow_sluice": bool(allow_sluice)})
+    handler = lambda *a, **k: cls(*a, directory=str(root), **k)  # noqa: E731
     return http.server.ThreadingHTTPServer(("127.0.0.1", port), handler)
 
 
 def main():
-    port = int(sys.argv[1]) if len(sys.argv) > 1 else 8146
-    root = pathlib.Path(sys.argv[2] if len(sys.argv) > 2
+    argv = sys.argv[1:]
+    allow_sluice = "--allow-sluice" in argv
+    argv = [a for a in argv if a != "--allow-sluice"]
+    port = int(argv[0]) if len(argv) > 0 else 8146
+    root = pathlib.Path(argv[1] if len(argv) > 1
                         else pathlib.Path(__file__).parent.parent).resolve()
-    with make_server(root, port) as srv:
+    with make_server(root, port, allow_sluice) as srv:
         print(f"serve_labs: {root.name} on http://localhost:{port}/docs/design/index.html (no-store)")
+        if allow_sluice:
+            print(f"serve_labs: --allow-sluice: also serving {SLUICE}/ (one subtree, the one link, nothing else of local/)")
         srv.serve_forever()
 
 

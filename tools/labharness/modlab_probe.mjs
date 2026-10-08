@@ -11,6 +11,7 @@
  *
  * Usage: node tools/labharness/modlab_probe.mjs
  */
+import './sandbox_guard.mjs';   // FIRST import: lab code runs under the permission model (B446 W3c)
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';

@@ -17,6 +17,7 @@
  * loop-made undertone, so if that row ever reports one, the DETECTOR is wrong and
  * nothing else in the table can be trusted.
  */
+import './labharness/sandbox_guard.mjs';   // FIRST import: lab code runs under the permission model (B446 W3c)
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';

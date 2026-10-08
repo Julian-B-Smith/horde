@@ -48,6 +48,7 @@
  * DETERMINISM: Math.random is a seeded mulberry32 around every instance (space.mjs's convention); the
  * only clock read is process.hrtime around render() in the cpu pass, outside the DSP.
  */
+import '../labharness/sandbox_guard.mjs';   // FIRST import: lab code runs under the permission model (B446 W3c)
 import { createRequire } from 'node:module';
 import { readFileSync, mkdirSync, existsSync, readdirSync, appendFileSync } from 'node:fs';
 import { join } from 'node:path';
