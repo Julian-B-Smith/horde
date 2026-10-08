@@ -14,7 +14,7 @@
 #include "gui_html.h"      // generated: kGuiHtml_data / kGuiHtml_size
 #include "factory_bank.h"  // generated: kFactoryBank / _count / _version (B129)
 #include "preset_store.h"
-#include "embedded_page_policy.h"   // B446: the page-only rule (Windows passes it to makeWebView)
+#include "embedded_page_policy.h"   // B446: the page-only and permission rules (Windows passes them to makeWebView)
 #include "../input_guards.h"   // B446: utf8Clean, behind bridgeStr
 #include <filesystem>
 #include <fstream>
@@ -612,16 +612,19 @@ inline void installBridge(choc::ui::WebView &web, GuiHost &host)
 
 }
 
-// allowNavigation: the platform's navigation policy, where choc implements the
-// hook (WebView2, through the patched option in libs/patches). macOS passes none
-// and applies the same policy in its own wrapper (hypersaw_gui.mm).
+// allowNavigation / allowPermission: the platform's navigation and permission
+// policies, where choc implements the hooks (WebView2, through the patched
+// options in libs/patches). macOS passes neither and applies the same policies
+// in its own wrapper (hypersaw_gui.mm).
 inline std::unique_ptr<choc::ui::WebView>
 makeWebView(GuiHost &host, std::function<void(choc::ui::WebView &)> platformBinds,
-            decltype(choc::ui::WebView::Options::allowNavigation) allowNavigation = {})
+            decltype(choc::ui::WebView::Options::allowNavigation) allowNavigation = {},
+            decltype(choc::ui::WebView::Options::allowPermission) allowPermission = {})
 {
   choc::ui::WebView::Options opts;
   opts.enableDebugMode = false;
   opts.allowNavigation = std::move(allowNavigation);
+  opts.allowPermission = std::move(allowPermission);
   opts.acceptsFirstMouseClick = true;  // click-through focus in hosts
   // Bindings before the page: they install document-created scripts, so the
   // page must be navigated to AFTER they exist (the order the old code had).

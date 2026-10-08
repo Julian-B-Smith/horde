@@ -23,8 +23,16 @@
  * exact-match messages (a #fragment change cuts the page off). A sequence a
  * faulty policy passes proves nothing, so a control that passes is RED.
  *
- * NOT SHOWN. That WebView2 obeys the answer at run time (see the trace,
- * traces/2026-10-08-b446-choc-win-nav.md).
+ * PERMISSIONS (ADR-196). Drives hypersaw::detail::webPermissionPolicy, the
+ * function the Windows GUI hands to choc's allowPermission, with every one of
+ * choc's seven PermissionKind names (a stand-in enum again; choc_patch_check
+ * verifies the names) and asserts each is refused, clipboard reads first. Two
+ * more must-fail controls: upstream choc's own rule (clipboard reads granted)
+ * and a deny-list of the known kinds (one WebView2 adds later is granted).
+ *
+ * NOT SHOWN. That WebView2 obeys the answer at run time (see the traces,
+ * traces/2026-10-08-b446-choc-win-nav.md and
+ * traces/2026-10-08-b446-choc-win-clipboard.md).
  */
 #include <cstdio>
 #include <functional>
@@ -146,6 +154,32 @@ bool exactMessage(EmbeddedPageState &s, Nav t, std::string_view uri)
   if (t == Nav::message) return s.pageAdmitted && uri == kEmbeddedPage;
   return hypersaw::detail::embeddedPagePolicy(s, t, uri);
 }
+// Permissions: choc's seven PermissionKind names, every one refused.
+enum class Perm { clipboardRead, microphone, camera, geolocation, notifications, otherSensors, other };
+using PermPolicy = bool (*)(Perm);
+const struct { Perm kind; const char *what; } kPermRows[] = {
+    {Perm::clipboardRead, "clipboard read"}, {Perm::microphone, "microphone"},
+    {Perm::camera, "camera"},                {Perm::geolocation, "geolocation"},
+    {Perm::notifications, "notifications"},  {Perm::otherSensors, "other sensors"},
+    {Perm::other, "a kind choc does not list"},
+};
+constexpr size_t kPermRowCount = sizeof(kPermRows) / sizeof(kPermRows[0]);
+
+int runPerm(PermPolicy policy, bool loud)
+{
+  int wrong = 0;
+  for (const auto &r : kPermRows)
+    if (policy(r.kind))
+    {
+      ++wrong;
+      if (loud) std::printf("  FAIL  permission %s: granted, want refused\n", r.what);
+    }
+  return wrong;
+}
+
+bool realPermPolicy(Perm k) { return hypersaw::detail::webPermissionPolicy(k); }
+bool upstreamChoc(Perm k) { return k == Perm::clipboardRead; }   // choc's handler, option unset
+bool denyListOnly(Perm k) { return k == Perm::other; }           // known kinds refused, new ones granted
 }  // namespace
 
 int main()
@@ -170,11 +204,27 @@ int main()
     std::printf("  %s  control %s: %d row(s) caught it\n", w ? "PASS" : "FAIL", c.name, w);
     if (w == 0) ++failures;
   }
+  const int permWrong = runPerm(realPermPolicy, true);
+  std::printf("  %s  the permission rule: %zu rows, %d wrong\n", permWrong ? "FAIL" : "PASS",
+              kPermRowCount, permWrong);
+  failures += permWrong;
+  const struct { const char *name; PermPolicy p; } permControls[] = {
+      {"upstream choc (clipboard reads granted)", upstreamChoc},
+      {"deny-list of known kinds", denyListOnly},
+  };
+  for (const auto &c : permControls)
+  {
+    const int w = runPerm(c.p, false);
+    std::printf("  %s  control %s: %d row(s) caught it\n", w ? "PASS" : "FAIL", c.name, w);
+    if (w == 0) ++failures;
+  }
+
   if (failures)
   {
     std::printf("embedded_page_policy_check: RED (%d)\n", failures);
     return 1;
   }
-  std::printf("embedded_page_policy_check: GREEN (%zu rows; 4 controls red as designed)\n", rowCount());
+  std::printf("embedded_page_policy_check: GREEN (%zu + %zu rows; 6 controls red as designed)\n", rowCount(),
+              kPermRowCount);
   return 0;
 }

@@ -23,6 +23,12 @@ RULES, over every .github/workflows/*.yml and *.yaml:
   4. THE SBOM GENERATOR STILL WORKS. tools/gen_sbom.py runs only on a tag, so it
      is exercised here on every `verify fast`: it must succeed on this tree and
      list every submodule, every FetchContent SDK pin and both pluginval pins.
+  5. A PATCHED COMPONENT SAYS SO (B446, ADR-196). Every libs/patches/*.patch is
+     named `<submodule>-<what>.patch`, and that submodule's SBOM component must
+     carry it in `pedigree.patches` (diff url = the file's path, diff text = its
+     bytes) with a `horde:patch` property `<path> sha256:<hex>` matching the
+     file. Read from the tree, not from the generator, so a generator that drops
+     the pedigree is caught.
 
 Parsing reuses workflow_pin_check's line-based run-block reader (stdlib only).
 
@@ -34,9 +40,13 @@ MUST-FAIL CONTROLS, in memory, every run: a glob attachment, a `$(...)` list, an
 array expansion, an attachment list missing SHA256SUMS, a release step with no
 ancestry check, an upload `path:` naming `dist/`, a download into the workspace,
 a `ditto -c` and a `Compress-Archive` writing into a tracked directory, and a
-third-party release action are each caught; the clean fixture passes. `--paths
+third-party release action are each caught; the clean fixture passes. Rule 5's
+own controls run on this tree's SBOM: the pedigree removed, one patch dropped
+from it, a wrong SHA-256, and altered patch text are each caught. `--paths
 FILE...` scans the given files instead of the tree (the pre-change control).
 """
+import copy
+import hashlib
 import pathlib
 import re
 import subprocess
@@ -198,11 +208,82 @@ def selftest():
     return None
 
 
+def tree_patches(root):
+    """{repo-relative path: bytes} for every libs/patches/*.patch."""
+    return {f.relative_to(root).as_posix(): f.read_bytes()
+            for f in sorted((pathlib.Path(root) / "libs/patches").glob("*.patch"))}
+
+
+def pedigree_problems(bom, patches):
+    """Rule 5, pure: each patch file is on its submodule's component, with its hash."""
+    problems = []
+    comps = {c["name"]: c for c in bom.get("components", [])}
+    for rel, data in patches.items():
+        owner = pathlib.PurePosixPath(rel).name.split("-", 1)[0]
+        comp = comps.get(owner)
+        if comp is None:
+            problems.append(f"{rel}: no SBOM component named {owner!r} (patch files are named <submodule>-<what>.patch) (rule 5)")
+            continue
+        listed = [p for p in comp.get("pedigree", {}).get("patches", []) if p.get("diff", {}).get("url") == rel]
+        if not listed:
+            problems.append(f"SBOM component {owner} has no pedigree.patches entry for {rel} (rule 5)")
+        elif listed[0]["diff"].get("text", {}).get("content", "").encode("utf-8") != data:
+            problems.append(f"SBOM pedigree text for {rel} is not the file's content (rule 5)")
+        want = f"{rel} sha256:{hashlib.sha256(data).hexdigest()}"
+        if not any(pr.get("name") == "horde:patch" and pr.get("value") == want for pr in comp.get("properties", [])):
+            problems.append(f"SBOM component {owner} lacks property horde:patch = {want} (rule 5)")
+    return problems
+
+
+def pedigree_controls(bom, patches):
+    """-> a miscalibration message, or None. Each planted fault must read RED."""
+    if not patches:
+        return "no libs/patches/*.patch to calibrate rule 5 on"
+    rel = next(iter(patches))
+    owner = pathlib.PurePosixPath(rel).name.split("-", 1)[0]
+
+    def planted(fn):
+        b = copy.deepcopy(bom)
+        fn(next(c for c in b["components"] if c["name"] == owner))
+        return b
+
+    def drop_one(c):
+        c["pedigree"]["patches"] = [p for p in c["pedigree"]["patches"] if p["diff"]["url"] != rel]
+
+    def wrong_hash(c):
+        for pr in c["properties"]:
+            if pr["name"] == "horde:patch" and pr["value"].startswith(rel + " "):
+                pr["value"] = f"{rel} sha256:{'0' * 64}"
+
+    def wrong_text(c):
+        for p in c["pedigree"]["patches"]:
+            if p["diff"]["url"] == rel:
+                p["diff"]["text"]["content"] += "+planted\n"
+
+    cases = [("pedigree removed", lambda c: c.pop("pedigree", None)), ("one patch dropped", drop_one),
+             ("wrong SHA-256", wrong_hash), ("altered patch text", wrong_text)]
+    for label, fn in cases:
+        try:
+            red = bool(pedigree_problems(planted(fn), patches))
+        except (KeyError, StopIteration):
+            red = True   # the fixture lacks the shape the fault needs: that, too, is a finding
+        if not red:
+            return f"rule 5 control '{label}' read green"
+    return None
+
+
 def sbom_problems():
     try:
         bom = gen_sbom.build_sbom(ROOT, "0.0.0-check")
     except Exception as e:  # any failure of the release-only path is the finding
         return [f"tools/gen_sbom.py fails on this tree: {e} (rule 4)"]
+    patches = tree_patches(ROOT)
+    pedigree = pedigree_problems(bom, patches)
+    if pedigree:
+        return pedigree
+    broken = pedigree_controls(bom, patches)
+    if broken:
+        return [f"detector miscalibrated: {broken} (rule 5)"]
     names = {c["name"] for c in bom["components"]}
     gitmodules = (ROOT / ".gitmodules").read_text(encoding="utf-8")
     want = {p.rsplit("/", 1)[-1] for p in re.findall(r"^\s*path\s*=\s*(\S+)", gitmodules, re.M)}

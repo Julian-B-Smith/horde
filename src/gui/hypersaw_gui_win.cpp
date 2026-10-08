@@ -11,6 +11,7 @@
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <cwchar>
 #include <memory>
 #include <string>
 #include <utility>
@@ -32,7 +33,45 @@ namespace hypersaw
    cancelled, and refused new windows are marked handled, so none opens.
    Runs on the message thread only, so pageState needs no lock.
    Runtime-unverified on Windows as of 2026-10-08; see
-   traces/2026-10-08-b446-choc-win-nav.md. */
+   traces/2026-10-08-b446-choc-win-nav.md.
+
+   B446 — NO CLIPBOARD READS FOR PAGE SCRIPT (ADR-196). Upstream choc grants
+   every clipboard read a page asks for. The allowPermission option that
+   libs/patches/choc-webview2-permissions.patch adds is handed
+   detail::webPermissionPolicy, which refuses every permission kind, so page
+   script cannot read the clipboard. PASTE reads it natively instead
+   (hzPasteState, below), the macOS rule (hypersaw_gui.mm): the text goes to
+   the state parser and never reaches the page. Runtime-unverified on Windows
+   as of 2026-10-08; see traces/2026-10-08-b446-choc-win-clipboard.md. */
+namespace
+{
+// The clipboard's text as UTF-8, or "" if it holds none or another process has
+// it open. The scan is bounded by the block's size, so text with no terminator
+// cannot be over-read.
+std::string clipboardTextUtf8(HWND owner)
+{
+  std::string out;
+  if (!OpenClipboard(owner)) return out;
+  if (HANDLE h = GetClipboardData(CF_UNICODETEXT))
+  {
+    if (const auto *w = static_cast<const wchar_t *>(GlobalLock(h)))
+    {
+      const size_t n = wcsnlen(w, GlobalSize(h) / sizeof(wchar_t));
+      const int wn = n <= 0x7fffffff ? (int)n : 0;
+      const int bytes = wn ? WideCharToMultiByte(CP_UTF8, 0, w, wn, nullptr, 0, nullptr, nullptr) : 0;
+      if (bytes > 0)
+      {
+        out.resize((size_t)bytes);
+        WideCharToMultiByte(CP_UTF8, 0, w, wn, out.data(), bytes, nullptr, nullptr);
+      }
+      GlobalUnlock(h);
+    }
+  }
+  CloseClipboard();
+  return out;
+}
+}  // namespace
+
 struct HypersawGui::Impl
 {
   GuiHost host;
@@ -48,6 +87,16 @@ struct HypersawGui::Impl
     web = detail::makeWebView(
         host,
         [this](choc::ui::WebView &w) {
+          /* B446: PASTE without giving the page the clipboard, as hzPasteState
+             does on macOS: the text goes straight to the shell's state parser
+             and only a status comes back: 1 applied, 0 nothing to paste, 2 not
+             a patch. */
+          w.bind("hzPasteState", [this](const choc::value::ValueView &) -> choc::value::Value {
+            const std::string text = clipboardTextUtf8((HWND)web->getViewHandle());
+            if (text.empty()) return choc::value::createInt32(0);
+            const bool ok = host.applyStateJson && host.applyStateJson(text, std::string());
+            return choc::value::createInt32(ok ? 1 : 2);
+          });
           w.bind("hzGrabKeys", [this](const choc::value::ValueView &) -> choc::value::Value {
             if (HWND h = (HWND)web->getViewHandle()) SetFocus(h);
             return {};
@@ -55,6 +104,9 @@ struct HypersawGui::Impl
         },
         [this](choc::ui::WebView::Options::NavigationType type, const std::string &uri) {
           return detail::embeddedPagePolicy(pageState, type, uri);
+        },
+        [](choc::ui::WebView::Options::PermissionKind kind) {
+          return detail::webPermissionPolicy(kind);
         });
   }
 };

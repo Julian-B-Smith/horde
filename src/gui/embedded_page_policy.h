@@ -27,6 +27,16 @@
  * choc::ui::WebView::Options::NavigationType (the patched option, libs/patches).
  * tools/choc_patch_check verifies those names and that kEmbeddedPage is where
  * choc serves the page on Windows.
+ *
+ * PERMISSIONS (ADR-196). webPermissionPolicy is the second rule, handed to choc's
+ * allowPermission (libs/patches/choc-webview2-permissions.patch): the page is
+ * granted NO permission of any kind. Upstream choc grants every clipboard read;
+ * here page script gets none, and PASTE reads the clipboard natively instead
+ * (hzPasteState in both backends), so clipboard text never reaches the page —
+ * the rule hypersaw_gui.mm applies on macOS. The page uses no microphone,
+ * camera, location, notification or sensor API, and a kind WebView2 adds later
+ * arrives as `other` and is refused until reviewed. Templated the same way, on
+ * choc's PermissionKind; the check's stand-in carries choc's seven names.
  */
 #pragma once
 
@@ -66,6 +76,12 @@ bool embeddedPagePolicy(EmbeddedPageState &state, NavigationType type, std::stri
       return false;
   }
   return false;   // a kind added upstream later is refused until reviewed
+}
+
+template <typename PermissionKind>
+constexpr bool webPermissionPolicy(PermissionKind)
+{
+  return false;   // every kind, clipboard reads included; see PERMISSIONS above
 }
 
 }  // namespace hypersaw::detail
