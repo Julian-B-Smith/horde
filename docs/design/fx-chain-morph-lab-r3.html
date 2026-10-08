@@ -261,7 +261,7 @@ insert/remove behaviour, which an A/B toggle plays. It sounds, it measures itsel
     <div class="legend" id="cableLegend"></div>
     <div class="live" id="liveBox"></div>
     <div class="ptxt" id="chainTxt"></div>
-    <div class="ctlrow"><span class="lbl">OUTPUT</span><span class="clip" id="clip">CLIP</span><span class="cap" id="audioStat" style="margin:0">AUDIO — OFF</span></div>
+    <div class="ctlrow"><span class="lbl">OUTPUT</span><span class="clip" id="clip">CLIP</span><span class="cap" id="meter" style="margin:0"></span><span class="cap" id="audioStat" style="margin:0">AUDIO — OFF</span></div>
     <canvas id="scopeC"></canvas>
   </div>
 </div>
@@ -402,39 +402,46 @@ const inV = chain => !vBreak(chain);
 
 /* CORNER SETS. A corner is a preset: a chain (Body always enters its head), the
    module the Sub enters (or OUT, dry), and per-module parameters. */
+/* ROUND 3 GAIN STAGING (human, 2026-10-08: "the specific example sound is kind of muddy and
+   blown out"). Round 2's corners drove every Drive at 3–8 on a chord already at its 0.5
+   reference, so the saws came out square; Shriek at 5, a +6 dB EQ and reverb mixes of 0.5–0.6
+   added to it. Here every drive is HALVED (1.5–4), Shriek's gain is 3, the EQ boost +4 dB,
+   the two most resonant filters open from 800/900 Hz to 1100/1300 Hz at resonance 0.5–0.55,
+   and no reverb mixes above 0.4. Chains, orders and Sub entries are unchanged, so every
+   structural result (edges, rules, loops) is the same; only the sound is cleaner. */
 const SETS = [
   { id: 'four', name: 'four presets', why: 'four unrelated presets; Filter, Drive and Scape sit in all four (Filter and Drive disagree on their order, both precede Scape everywhere); the union costs 15 points, so the middle of the pad must drop modules to stay in V',
     corners: [
       { name: 'acid lead', chain: ['FLT', 'DRV', 'DLY', 'REV'], sub: 'DRV',
-        p: { FLT: { cut: 900, res: 0.7 }, DRV: { drive: 6 }, DLY: { time: 0.21, fbk: 0.35, mix: 0.3 }, REV: { size: 0.45, mix: 0.2 } } },
+        p: { FLT: { cut: 1300, res: 0.55 }, DRV: { drive: 3 }, DLY: { time: 0.21, fbk: 0.35, mix: 0.3 }, REV: { size: 0.45, mix: 0.2 } } },
       { name: 'glue bus', chain: ['DRV', 'FLT', 'REV', 'DYN'], sub: 'OUT',   // round 3: Bulwark is MULTIBAND here (bands 2, ADR-195)
-        p: { DRV: { drive: 3 }, FLT: { cut: 2400, res: 0.3 }, REV: { size: 0.6, mix: 0.3 }, DYN: { thr: -20, ratio: 4, att: 0.005, rel: 0.12, mk: 5, bands: 2 } } },
+        p: { DRV: { drive: 1.5 }, FLT: { cut: 2400, res: 0.3 }, REV: { size: 0.6, mix: 0.3 }, DYN: { thr: -20, ratio: 4, att: 0.005, rel: 0.12, mk: 5, bands: 2 } } },
       { name: 'network grit', chain: ['FLT', 'DRV', 'NET', 'REV'], sub: 'FLT',
-        p: { FLT: { cut: 1400, res: 0.45 }, DRV: { drive: 8 }, NET: { size: 0.8, fbk: 0.9, tone: 2500, mix: 0.45 }, REV: { size: 0.5, mix: 0.25 } } },
+        p: { FLT: { cut: 1400, res: 0.45 }, DRV: { drive: 4 }, NET: { size: 0.8, fbk: 0.9, tone: 2500, mix: 0.45 }, REV: { size: 0.5, mix: 0.25 } } },
       { name: 'hyper wash', chain: ['EQ', 'DRV', 'SAT', 'FLT', 'REV'], sub: 'SAT',
-        p: { EQ: { f: 3000, gdb: 6, q: 0.8 }, DRV: { drive: 4 }, SAT: { gain: 5, bias: 0.3, tone: 5000 }, FLT: { cut: 3500, res: 0.2 }, REV: { size: 0.8, mix: 0.5 } } },
+        p: { EQ: { f: 3000, gdb: 4, q: 0.8 }, DRV: { drive: 2 }, SAT: { gain: 3, bias: 0.3, tone: 5000 }, FLT: { cut: 3500, res: 0.2 }, REV: { size: 0.8, mix: 0.35 } } },
     ] },
   { id: 'close', name: 'four neighbours', why: 'four near-identical chains (one swap or one move apart): the quiet case, where most of the pad should sound like a corner',
     corners: [
       { name: 'base', chain: ['FLT', 'DRV', 'DLY', 'REV'], sub: 'DRV',
-        p: { FLT: { cut: 1200, res: 0.5 }, DRV: { drive: 5 }, DLY: { time: 0.25, fbk: 0.35, mix: 0.3 }, REV: { size: 0.5, mix: 0.25 } } },
+        p: { FLT: { cut: 1200, res: 0.5 }, DRV: { drive: 2.5 }, DLY: { time: 0.25, fbk: 0.35, mix: 0.3 }, REV: { size: 0.5, mix: 0.25 } } },
       { name: 'drive first', chain: ['DRV', 'FLT', 'DLY', 'REV'], sub: 'DRV',
-        p: { DRV: { drive: 7 }, FLT: { cut: 800, res: 0.65 }, DLY: { time: 0.25, fbk: 0.4, mix: 0.3 }, REV: { size: 0.55, mix: 0.25 } } },
+        p: { DRV: { drive: 3.5 }, FLT: { cut: 1100, res: 0.5 }, DLY: { time: 0.25, fbk: 0.4, mix: 0.3 }, REV: { size: 0.55, mix: 0.25 } } },
       { name: 'room into echo', chain: ['FLT', 'DRV', 'REV', 'DLY'], sub: 'FLT',
-        p: { FLT: { cut: 1800, res: 0.4 }, DRV: { drive: 4 }, REV: { size: 0.65, mix: 0.35 }, DLY: { time: 0.3, fbk: 0.4, mix: 0.35 } } },
+        p: { FLT: { cut: 1800, res: 0.4 }, DRV: { drive: 2 }, REV: { size: 0.65, mix: 0.35 }, DLY: { time: 0.3, fbk: 0.4, mix: 0.35 } } },
       { name: 'echoes driven', chain: ['FLT', 'DLY', 'DRV', 'REV'], sub: 'OUT',
-        p: { FLT: { cut: 1000, res: 0.55 }, DLY: { time: 0.2, fbk: 0.45, mix: 0.35 }, DRV: { drive: 6 }, REV: { size: 0.5, mix: 0.25 } } },
+        p: { FLT: { cut: 1000, res: 0.55 }, DLY: { time: 0.2, fbk: 0.45, mix: 0.35 }, DRV: { drive: 3 }, REV: { size: 0.5, mix: 0.25 } } },
     ] },
   { id: 'round1', name: 'round 1 pairs on the edges', why: 'the bottom edge is round 1\'s "across the set" pair and the top edge its "two grow in" pair, so the edge-reduction table compares like with like; no pair is held by all four corners, so strict unanimity is vacuous here',
     corners: [
       { name: 'across · L', chain: ['FLT', 'DRV', 'DLY', 'REV'], sub: 'DRV',
-        p: { FLT: { cut: 900, res: 0.7 }, DRV: { drive: 7 }, DLY: { time: 0.21, fbk: 0.35, mix: 0.3 }, REV: { size: 0.45, mix: 0.2 } } },
+        p: { FLT: { cut: 1300, res: 0.55 }, DRV: { drive: 3.5 }, DLY: { time: 0.21, fbk: 0.35, mix: 0.3 }, REV: { size: 0.45, mix: 0.2 } } },
       { name: 'across · R', chain: ['REV', 'DRV', 'FLT', 'DLY'], sub: 'OUT',
-        p: { REV: { size: 0.8, mix: 0.6 }, DRV: { drive: 5 }, FLT: { cut: 3200, res: 0.2 }, DLY: { time: 0.33, fbk: 0.4, mix: 0.35 } } },
+        p: { REV: { size: 0.8, mix: 0.4 }, DRV: { drive: 2.5 }, FLT: { cut: 3200, res: 0.2 }, DLY: { time: 0.33, fbk: 0.4, mix: 0.35 } } },
       { name: 'grow · L', chain: ['DRV', 'FLT'], sub: 'OUT',
-        p: { DRV: { drive: 4 }, FLT: { cut: 1800, res: 0.35 } } },
+        p: { DRV: { drive: 2 }, FLT: { cut: 1800, res: 0.35 } } },
       { name: 'grow · R', chain: ['DLY', 'DRV', 'FLT', 'REV'], sub: 'FLT',
-        p: { DLY: { time: 0.24, fbk: 0.4, mix: 0.4 }, DRV: { drive: 6 }, FLT: { cut: 1200, res: 0.5 }, REV: { size: 0.65, mix: 0.35 } } },
+        p: { DLY: { time: 0.24, fbk: 0.4, mix: 0.4 }, DRV: { drive: 3 }, FLT: { cut: 1200, res: 0.5 }, REV: { size: 0.65, mix: 0.35 } } },
     ] },
   /* ROUND 3 — the BAIT set: every corner is in V, but the cables in between tempt the
      rules. Bottom edge: Scape → ECHO retreating while ECHO → Sluice emerges is a live
@@ -447,7 +454,7 @@ const SETS = [
       { name: 'echo network', chain: ['DLY', 'NET', 'DYN'], sub: 'NET',
         p: { DLY: { time: 0.18, fbk: 0.3, mix: 0.3 }, NET: { size: 0.7, fbk: 0.85, tone: 3000, mix: 0.4 }, DYN: { thr: -18, ratio: 3, att: 0.004, rel: 0.1, mk: 4, bands: 2 } } },
       { name: 'tight single', chain: ['DRV', 'FLT', 'DYN'], sub: 'OUT',
-        p: { DRV: { drive: 5 }, FLT: { cut: 1500, res: 0.4 }, DYN: { thr: -22, ratio: 4, att: 0.003, rel: 0.08, mk: 5, bands: 1 } } },
+        p: { DRV: { drive: 2.5 }, FLT: { cut: 1500, res: 0.4 }, DYN: { thr: -22, ratio: 4, att: 0.003, rel: 0.08, mk: 5, bands: 1 } } },
       { name: 'breathing bus', chain: ['FLT', 'REV', 'DYN'], sub: 'FLT',
         p: { FLT: { cut: 2200, res: 0.3 }, REV: { size: 0.7, mix: 0.4 }, DYN: { thr: -20, ratio: 5, att: 0.006, rel: 0.15, mk: 5, bands: 2 } } },
     ] },
@@ -1019,7 +1026,17 @@ R2Router.prototype.openCount = function (lane) { return this.openOn(lane).length
    are stated in seconds and converted per sample (ADR-009). Buffers are sized at
    construction, never on the sample path. */
 const BODY_HZ = [110, 130.81, 164.81], SUB_HZ = 55;
-const OUT_GAIN = 0.4;
+const OUT_GAIN = 0.5;   // round 3: was 0.4; with the quieter lanes and gentler corners the default sweeps peak at −7 to −11 dBFS (true peak the same within 0.4 dB), no limiter
+/* TRUE PEAK, for the honest meter: the largest of the samples and three interpolated
+   points between each pair (4× oversampling, a 32-tap Hann-windowed sinc). Deterministic. */
+function truePeak(y) {
+  const L = 4, H = 16, taps = [];
+  for (let p = 1; p < L; p++) { const t = []; for (let k = -H + 1; k <= H; k++) { const x = k - p / L, w = 0.5 + 0.5 * Math.cos(Math.PI * x / H); t.push(Math.sin(Math.PI * x) / (Math.PI * x) * w); } taps.push(t); }
+  let m = 0;
+  for (let n = 0; n < y.length; n++) { const a = Math.abs(y[n]); if (a > m) m = a; }
+  for (let n = H; n < y.length - H; n++) for (const t of taps) { let s = 0; for (let k = 0; k < t.length; k++) s += t[k] * y[n - H + 1 + k]; if (Math.abs(s) > m) m = Math.abs(s); }
+  return m;
+}
 /* ROUND 3: the loudest value written into a buffer of length len in the last len to 2·len
    samples — a bound on everything the buffer still holds, at one compare per write. A
    module with memory may sleep only when this is below the threshold (its output alone
@@ -1161,11 +1178,11 @@ function lanesNext(e, sr) {
     let y;
     if (e.probe) y = Math.sin(2 * Math.PI * p);
     else { y = 2 * p - 1; if (p < inc) { const t = p / inc; y -= t + t - t * t - 1; } else if (p > 1 - inc) { const t = (p - 1) / inc; y -= t * t + t + t + 1; } }
-    body += 0.16 * y;
+    body += 0.1 * y;            // round 3: was 0.16 (chord peak ≈ −6 dBFS into a Drive referenced at 0.5); now ≈ −10 dBFS
   }
   if (e.pulse) { const gate = Math.round(sr * 0.25), c = (e.n % gate) / sr; body *= c < 0.004 ? c / 0.004 : c < 0.15 ? 1 : c < 0.158 ? (0.158 - c) / 0.008 : 0; }
   e.ph[3] += SUB_HZ / sr; if (e.ph[3] >= 1) e.ph[3] -= 1;
-  e.lb = body; e.ls = 0.35 * Math.sin(2 * Math.PI * e.ph[3]);
+  e.lb = body; e.ls = 0.22 * Math.sin(2 * Math.PI * e.ph[3]);   // round 3: was 0.35; a −9 dBFS 55 Hz sine into a Drive is mud
 }
 
 /* ---------- the cable universe: fixed, 82 cables ---------- */
@@ -1262,7 +1279,7 @@ function Cables(M, sr, tick) {
   const F = () => new Float64Array(NC);
   Object.assign(this, { f1: F(), f2: F(), b1: F(), b2: F(), pf: F(), pb: F(), tgt: F(), tf: F(), tb: F(), T: F(), sc: F(), wf: F(), wb: F(), hold: F(), hv: F() });
   this.hs = new Uint8Array(NC); this.held = new Array(NC).fill('');
-  this.nL = { BODY: 1, SUB: 1 }; this.m1 = F(); this.m2 = F(); this.fresh = true; this.order = TYPES.slice(); this.prm = {}; this.wait = false; this.open = 0; this.log = [];
+  this.nL = { BODY: 1, SUB: 1 }; this.m1 = F(); this.m2 = F(); this.fresh = true; this.order = TYPES.slice(); this.prm = {}; this.wait = false; this.waitOther = false; this.flips = []; this.open = 0; this.log = [];
   this.setMorph(M);
 }
 Cables.prototype.setMorph = function (M) {
@@ -1273,7 +1290,7 @@ Cables.prototype.setMorph = function (M) {
   for (const t of TYPES) if (!this.prm[t]) this.prm[t] = DEF_P[t];
 };
 Cables.prototype.settle = function (st) {
-  this.adm = st; this.admKey = structKey(st); this.open = 0; this.wait = false;
+  this.adm = st; this.admKey = structKey(st); this.open = 0; this.wait = false; this.waitOther = false; this.flips = [];
   for (const t of TYPES) this.prm[t] = st.prm[t] || (this.M.U.includes(t) ? paramsAt(this.M, st.w, t) : DEF_P[t]);
   const T = targetCables(st);
   for (let i = 0; i < NC; i++) { this.T[i] = this.tgt[i] = this.tf[i] = this.f1[i] = this.f2[i] = this.pf[i] = T[i]; this.tb[i] = this.b1[i] = this.b2[i] = this.pb[i] = 0; this.hs[i] = 0; this.held[i] = ''; }
@@ -1320,17 +1337,28 @@ Cables.prototype.step = function (st) {
     if (this.hs[i] === 1 && (this.hold[i] -= this.dt) <= 0) this.hs[i] = 2;
     this.tgt[i] = this.hs[i] === 1 ? this.hv[i] : 0;
   }
-  if (this.wait && o.plant !== 'nobypass') for (const L of LANES) for (const k of this.bypassOf(A, L)) this.tgt[CIX[k]] += FLOOR;
+  /* WHILE A REVERSAL WAITS the pair runs in PARALLEL: for an old ... p → v → u → n becoming
+     ... p → u → v → n, every source feeding u in the target also feeds v at half, and every
+     cable leaving v also leaves u at half — the old outer cables, held — so the lane passes
+     series → parallel → series with no loop, no gap and no dry flash. Two failed first: a
+     full dry bypass on any wait (the bright dry saw flashed into a Drive ↔ Filter swap,
+     8.5 dB), and a bypass opened only as the reach fell (the lane sagged first and the
+     normaliser drove the Drive hot, 12 dB). The dry bypass stays for every other wait. */
+  for (const [u, v] of o.plant === 'nobypass' ? [] : this.flips) {      // PLANT 'nobypass' removes every carrier of a waiting lane
+    for (const i of INTO[u]) { const c = CABLES[i]; if (T[i] > 0 && c.u !== v) this.tgt[CIX[c.u + '>' + v]] += 0.5 * T[i]; }
+    for (const i of OUTOF[v]) { const c = CABLES[i]; if (T[i] > 0 && c.v !== u) this.tgt[CIX[u + '>' + c.v]] += 0.5 * T[i]; }
+  }
+  if (this.waitOther && o.plant !== 'nobypass') for (const L of LANES) for (const k of this.bypassOf(A, L)) this.tgt[CIX[k]] += FLOOR;
   // 3–4. guard and class, in a fixed cable order (deterministic)
   const fadj = new Map(), live = new Map();
   for (let i = 0; i < NC; i++) { const c = CABLES[i]; if (this.f2[i] > 0 && c.nn) addAdj(fadj, c.u, c.v); if (this.f2[i] + this.b2[i] > 0 && !isLane(c.u)) addAdj(live, c.u, c.v); }
-  let wait = false;
+  let wait = false, waitOther = false; const flips = [];
   for (let i = 0; i < NC; i++) {
     const c = CABLES[i]; this.held[i] = '';
     if (!(this.tgt[i] > 0)) { this.tf[i] = this.tb[i] = 0; continue; }
     if (this.f2[i] + this.b2[i] === 0 && o.plant !== 'noguard') {
       const why = this.guardBreak(c, live);
-      if (why) { this.held[i] = why; this.tf[i] = this.tb[i] = 0; wait = true; continue; }
+      if (why) { this.held[i] = why; this.tf[i] = this.tb[i] = 0; wait = waitOther = true; continue; }
     }
     /* A DIRECTION REVERSAL (u → v becoming v → u) is always an ordered fade, in (a) too:
        the new direction waits until the old one has retreated, over the bypass. On (a)'s
@@ -1344,17 +1372,17 @@ Cables.prototype.step = function (st) {
        the round-3-v1 behaviour. */
     if (c.nn && !TAIL_TYPES[c.u] && !TAIL_TYPES[c.v] && this.f2[i] + this.b2[i] === 0 && o.plant !== 'flipdelay') {
       const r = CIX[c.v + '>' + c.u];
-      if (this.f2[r] + this.b2[r] > 0) { this.held[i] = 'flip'; this.tf[i] = this.tb[i] = 0; wait = true; continue; }
+      if (this.f2[r] + this.b2[r] > 0) { this.held[i] = 'flip'; this.tf[i] = this.tb[i] = 0; wait = true; flips.push([c.u, c.v]); continue; }
     }
     if (!isLane(c.u)) addAdj(live, c.u, c.v);
     if (!c.nn || this.f2[i] > 0 || !reaches(fadj, c.v, c.u)) { this.tf[i] = this.tgt[i]; this.tb[i] = 0; if (c.nn) addAdj(fadj, c.u, c.v); continue; }
     if (o.loop === 'a') { this.tf[i] = 0; this.tb[i] = this.tgt[i]; }
-    else { this.held[i] = 'loop'; this.tf[i] = this.tb[i] = 0; wait = true; }
+    else { this.held[i] = 'loop'; this.tf[i] = this.tb[i] = 0; wait = waitOther = true; }
   }
   // a ringing tail never blocks a cable: if anything waits, every held tail is released
   if (wait) for (let i = 0; i < NC; i++) if (this.hs[i] === 1) { this.hs[i] = 2; this.log.push({ n: this.n, kind: 'tailcut', k: CABLES[i].k }); }
   if (wait && !this.wait) this.log.push({ n: this.n, kind: 'wait' });
-  this.wait = wait;
+  this.wait = wait; this.waitOther = waitOther; this.flips = flips;
   // 5. glide
   const a = this.ka;
   for (let i = 0; i < NC; i++) {
@@ -1808,10 +1836,12 @@ function clickSummary(rows) {
    chain's sound, not the transition's). A REVERSAL is a transition where some node cable
    u → v becomes v → u. */
 const LIVE_SR = 48000, LIVE_TICK = 64, PUCK_TAU_S = 0.04;
-/* THE STATED CEILING: no reversal clicks more than 8 dB above its chains' own floor. Ordinary
-   transitions on the same material reach 10.7 dB (round 1's pairs, a Drive-heavy chain);
-   round-3 v1's Filter ↔ Drive flips read 10.1–12.3 dB; after the fix reversals read ≤ 7.4. */
-const REV_CEIL_DB = 8;
+/* THE STATED CEILING: no reversal clicks more than 7 dB above its chains' own floor. At the
+   round-3 gain staging, round-3 v1's Filter ↔ Drive flips read up to 8.4 dB (10.1–12.3 at
+   round 2's hot levels, where the human heard them); with the parallel hand-over they read
+   ≤ 2.7. The worst reversal left, 6.2 dB, is close·right's Drive → Filter swap, which reads
+   5.8 under v1 and 6.6 under round 2: the timbre jump itself, which a slower glide softens. */
+const REV_CEIL_DB = 7;
 function reversalOf(a, b) {
   const A = targetCables(a), B = targetCables(b);
   for (let i = 0; i < NC; i++) { const c = CABLES[i]; if (c.nn && A[i] > 0 && B[CIX[c.v + '>' + c.u]] > 0) return c.u + '→' + c.v; }
@@ -1876,7 +1906,7 @@ function selfCheckSteps() {
   for (const sw of SWEEPS.slice(0, 3)) step(() => { const M = morphOf(optsWith({ plant: 'sleeptail' })), q = sweepSchedule(M, sw); sleepP.push(renderWith(M, q.wAt, q.N, { pulse: true }).jump); });
   const revs = [], revPlant = [];
   for (const set of SETS) { const M = morphOf(optsWith({ set: set.id })); for (const tr of reversalsOf(M)) for (const loop of ['a', 'b']) step(() => revs.push({ set: set.id, loop, tr, c: reversalClick(optsWith({ set: set.id, loop }), tr) })); }
-  step(() => { const M = morphOf(optsWith({})), tr = reversalsOf(M).find(e => /FLT→DRV|DRV→FLT/.test(reversalOf(e.from, e.to))); if (tr) revPlant.push({ tr, c: reversalClick(optsWith({ plant: 'flipdelay' }), tr) }); });
+  for (const set of SETS) { const M = morphOf(optsWith({ set: set.id })); for (const tr of reversalsOf(M).filter(e => /FLT→DRV|DRV→FLT/.test(reversalOf(e.from, e.to)))) step(() => revPlant.push({ set: set.id, tr, c: reversalClick(optsWith({ set: set.id, plant: 'flipdelay' }), tr) })); }
   const firstPlant = (extra, pred, sets) => { for (const set of sets || SETS.map(s => s.id)) for (const sw of SWEEPS) { const r = pred(sweepOf(Object.assign({ set }, extra), sw)); if (r) return `${set}, ${sw.name}: ${r}`; } return ''; };
 
   step(() => {
@@ -1925,7 +1955,7 @@ function selfCheckSteps() {
     const r = every(s => s.minDb < db(FLOOR) - 1e-9 ? `lane at ${dbTxtM(s.minDb)} dB` : s.maxDb > db(CEIL) + 1e-9 ? `lane at +${s.maxDb.toFixed(2)} dB` : '');
     const plant = firstPlant({ loop: 'b', plant: 'nobypass' }, s => s.minDb < db(FLOOR) - 1e-9 ? `a lane fell to ${dbTxtM(s.minDb)} dB` : '', ['four']);
     add(`Every lane stays above the reach floor (${db(FLOOR).toFixed(1)} dB) and under the +${db(CEIL).toFixed(2)} dB cap at every tick, both lanes, both strategies`,
-        r, '(b) with no bypass: the old cable retreats and the new one waits, with nothing carrying the lane', held(plant));
+        r, '(b) with nothing carrying a waiting lane — no bypass and no parallel hand-over: the old cable retreats and the new one waits', held(plant));
   });
   step(() => {
     // 6. sleep and wake without a step
@@ -1961,12 +1991,13 @@ function selfCheckSteps() {
     // 9. direction reversals
     let worst = null; for (const r of revs) if (!worst || r.c.db > worst.c.db) worst = r;
     const fd = revs.filter(r => /FLT→DRV|DRV→FLT/.test(reversalOf(r.tr.from, r.tr.to))), fdw = Math.max(0, ...fd.map(r => r.c.db));
-    const ok = worst && worst.c.db <= REV_CEIL_DB, p = revPlant[0];
+    let p = null; for (const r of revPlant) if (!p || r.c.db > p.c.db) p = r;
+    const ok = worst && worst.c.db <= REV_CEIL_DB;
     add(`Every direction reversal (a node cable u → v becoming v → u) stays under ${REV_CEIL_DB} dB of click, measured as heard: 48 kHz, the saw chord, the puck slewed over the boundary, floored at what either steady chain makes held still`,
         ok ? { ok: true, detail: `${revs.length} reversal × strategy runs (4 sets, quantum); worst ${worst.c.db.toFixed(1)} dB (${worst.set} (${worst.loop}) ${worst.tr.sw}, ${reversalOf(worst.tr.from, worst.tr.to)}); Filter ↔ Drive worst ${fdw.toFixed(1)} dB` }
            : { ok: false, detail: worst ? `${worst.c.db.toFixed(1)} dB: ${worst.set} (${worst.loop}) ${worst.tr.sw}, ${reversalOf(worst.tr.from, worst.tr.to)}` : 'no reversals found' },
-        'round-3 v1: the reversed cable emerges at once on (a)\'s one-block backward part, a two-node Filter ↔ Drive loop',
-        p && p.c.db > REV_CEIL_DB ? { ok: false, detail: `${p.c.db.toFixed(1)} dB on ${p.tr.sw} ${reversalOf(p.tr.from, p.tr.to)}` } : { ok: true, detail: p ? `only ${p.c.db.toFixed(1)} dB — NOT caught` : 'no Filter ↔ Drive reversal to plant on' });
+        'round-3 v1: the reversed cable emerges at once on (a)\'s one-block backward part, a two-node Filter ↔ Drive loop (worst Filter ↔ Drive reversal over the four sets)',
+        p && p.c.db > REV_CEIL_DB ? { ok: false, detail: `${p.c.db.toFixed(1)} dB on ${p.set} ${p.tr.sw} ${reversalOf(p.tr.from, p.tr.to)} (worst of ${revPlant.length} Filter ↔ Drive reversals)` } : { ok: true, detail: p ? `only ${p.c.db.toFixed(1)} dB — NOT caught` : 'no Filter ↔ Drive reversal to plant on' });
   });
   return { rows, steps, claims: 9 };
 }
@@ -2087,7 +2118,17 @@ function startCheck() {
   const tick = () => { const f = checkJobs.shift(); if (f) { f(); renderChecks(); } if (checkJobs.length) setTimeout(tick, 0); };
   setTimeout(tick, 0);
 }
-let VS = null;                 // the view state the cable painter draws (live objects while POWER runs)
+let VS = null;
+let meterPk = 0, meterTp = 0, meterHold = 0;   // the output meter's held peaks (page state: a display hold, not the model)
+/* THE OUTPUT METER: sample peak and true peak of what the analyser last saw, held 2 s,
+   in dBFS — so "blown out" is a number, and nothing hides it (no limiter anywhere). */
+function paintMeter() {
+  if (!AN || !scopeBuf) { $('meter').textContent = ''; return; }
+  let pk = 0; for (const v of scopeBuf) pk = Math.max(pk, Math.abs(v));
+  const tp = frameN % 4 === 0 ? truePeak(scopeBuf) : meterTp;
+  if (pk >= meterPk || tp >= meterTp || --meterHold <= 0) { meterPk = Math.max(pk, meterHold > 0 ? meterPk : 0); meterTp = Math.max(tp, meterHold > 0 ? meterTp : 0); meterHold = 120; }
+  $('meter').textContent = `PEAK ${db(meterPk).toFixed(1)} dBFS · TRUE PEAK ${db(meterTp).toFixed(1)} dBTP`;
+}                 // the view state the cable painter draws (live objects while POWER runs)
 
 /* ---------- renderers (DOM) ---------- */
 function renderControls() {
@@ -2458,7 +2499,7 @@ function frame() {
   else if (live && frameN % 3 === 0) paintAt();
   else if (live) { VS = viewState(); paintCables(VS); }
   else if (!REDUCED && VS) paintCables(VS);
-  paintScope();
+  paintScope(); paintMeter();
   requestAnimationFrame(frame);
 }
 function applyTheme() {
