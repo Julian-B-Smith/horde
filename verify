@@ -137,6 +137,12 @@ fast() {
   # ADR-180 §1.
   python3 tools/banned_api_check.py || ok=1
   python3 tools/deny_hook_check.py || ok=1   # B446 D-S6: the deny hook's verdict table
+  # GUI PAGE SINKS AND POLICY (B446 W3a). In src/gui/*.html every innerHTML /
+  # outerHTML / insertAdjacentHTML / document.write gets literals only (named
+  # exceptions carry a reason), and the content policy the build embeds is
+  # hash-only for scripts with default-src 'none'. Self-calibrating. Added under
+  # ADR-180 §1. Its run-time half is gui_webview_check in `full`.
+  python3 tools/gui_sink_check.py || ok=1
 
   # CI AND RELEASE PATH (B446 Wave 2, ADR-194). Workflows pin every action by
   # commit, declare a read-only top-level token, and keep event text out of
@@ -723,6 +729,19 @@ full() {
     echo "verify[full]: bridge_utf8_check FAILED" >&2; cat /tmp/bridgeutf8.$$ >&2
     rm -f /tmp/bridgeutf8.$$; return 1; }
   tail -1 /tmp/bridgeutf8.$$; rm -f /tmp/bridgeutf8.$$
+  # THE GUI'S WEB VIEW, RUN FOR REAL (B446 W3a; macOS, where the target is built).
+  # The shipped plugin GUI on a WKWebView: it shows only its embedded page, only
+  # that page's main frame reaches the bridge, run-time script injection does not
+  # run under the embedded policy while every binding still resolves, page script
+  # cannot paste, and hostile file names reach the dropdowns as text. Its CONTROL
+  # rows must see each defect on a plain choc view, or it is red. ~10 s. Added
+  # under ADR-180 §1.
+  if [ "$(uname)" = Darwin ]; then
+    "$build_dir/gui_webview_check" > /tmp/guiweb.$$ 2>&1 || {
+      echo "verify[full]: gui_webview_check FAILED" >&2; cat /tmp/guiweb.$$ >&2
+      rm -f /tmp/guiweb.$$; return 1; }
+    tail -1 /tmp/guiweb.$$; rm -f /tmp/guiweb.$$
+  fi
   "$build_dir/hostile_events_check" > /tmp/hostile.$$ 2>&1 || {
     echo "verify[full]: hostile_events_check FAILED" >&2; cat /tmp/hostile.$$ >&2
     rm -f /tmp/hostile.$$; return 1; }

@@ -2119,7 +2119,8 @@ document.addEventListener('pointerleave', hzMaybeRelease);
       const sc = SCHEMES[schemeIx];
       document.body.classList.remove(...SCHEMES.map(x => x.cls).filter(Boolean));
       if (sc.cls) document.body.classList.add(sc.cls);
-      scr.innerHTML = 'screen <b>' + sc.name + '</b>';
+      const scB = document.createElement('b'); scB.textContent = sc.name;
+      scr.replaceChildren('screen ', scB);
       /* The cache is keyed by token NAME, so a scheme change invalidates all of
          it, and the pad bakes its field once — both must be told. Trail-fade
          canvases converge on the new ground within a few frames by themselves. */
@@ -2180,7 +2181,8 @@ document.addEventListener('pointerleave', hzMaybeRelease);
       const m = MODES[modeIx];
       document.body.classList.remove(...MODES.map(x => x.cls).filter(Boolean));
       if (m.cls) document.body.classList.add(m.cls);
-      md.innerHTML = 'mode <b>' + m.name + '</b>';
+      const mdB = document.createElement('b'); mdB.textContent = m.name;
+      md.replaceChildren('mode ', mdB);
       const want = SCHEMES.findIndex(x => x.name === m.pairs);
       if (want >= 0) { schemeIx = want; applyScheme(repaint); }
       else { for (const k in _tok) delete _tok[k];
@@ -2259,6 +2261,18 @@ function paintArm(v) {
     pp.addEventListener('click', async () => {
       // prompt() does not exist in WKWebView (see the corner-save note); read
       // the clipboard directly, with a graceful failure label.
+      /* B446: in the macOS plugin the page cannot read the clipboard at all.
+         hzPasteState reads it natively and applies it as a patch, and the text
+         never reaches the page: 1 applied, 0 nothing to paste, 2 not a patch.
+         Elsewhere (Windows, the lab) the page reads it as before. */
+      if (window.hzPasteState) {
+        let r = -1;
+        try { r = await window.hzPasteState(); } catch (_) {}
+        pp.textContent = r === 1 ? 'APPLIED' : r === 0 ? 'CLIPBOARD?' : 'BAD JSON';
+        setTimeout(() => { pp.textContent = 'PASTE'; }, 1200);
+        pp.blur();
+        return;
+      }
       let j = '';
       try { j = await navigator.clipboard.readText(); } catch (_) {}
       if (!j) { pp.textContent = 'CLIPBOARD?'; setTimeout(() => { pp.textContent = 'PASTE'; }, 1200); pp.blur(); return; }
@@ -2628,10 +2642,13 @@ const presetStore = {
   async list(kind) {
     if (hostStore()) {
       try {
-        const raw = await window.hzPresetList();
-        const o = JSON.parse(raw);
+        /* B446: the host returns typed arrays, not JSON text it assembled by
+           hand: one quote in a file name used to make that unparseable, and
+           every dropdown then froze on "keep what you are showing". */
+        const o = await window.hzPresetList();
         if (!o || typeof o !== 'object') return null;
-        return o[kind] || [];
+        const v = o[kind] || [];
+        return Array.isArray(v) ? v.filter(n => typeof n === 'string') : null;
       } catch (_) { return null; }
     }
     /* No factory tier without the host store: the bank is installed on disk by
@@ -2705,7 +2722,6 @@ const presetJsonCache = new Map();
 {
   const list = document.getElementById('presetList');
   const name = document.getElementById('presetName');
-  const esc = (t) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
   const refresh = async () => {
     if (!list) return;
     const names = await presetStore.list('presets');
@@ -2717,13 +2733,20 @@ const presetJsonCache = new Map();
     /* The first real preset must not LOOK loaded when nothing is (human,
        2026-08-22). The placeholder is disabled so it can be departed from but
        never chosen; save/load re-select the real name explicitly. */
-    let html = '<option value="" disabled selected>Load\u2026</option>';
-    if (names.length) html += '<optgroup label="yours">' +
-      names.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('') + '</optgroup>';
-    if (factory.length) html += '<optgroup label="factory">' +
-      factory.map(n => `<option value="${esc(FACTORY_PREFIX + n)}">${esc(n)}</option>`).join('') +
-      '</optgroup>';
-    list.innerHTML = html;
+    /* B446: options are DOM nodes and a name is their TEXT. A name is a file
+       name on disk and may hold any character (tools/gui_sink_check.py). */
+    const placeholder = new Option('Load\u2026', '', true, true);
+    placeholder.disabled = true;
+    list.replaceChildren(placeholder);
+    const group = (label, items, valueOf) => {
+      if (!items.length) return;
+      const g = document.createElement('optgroup');
+      g.label = label;
+      for (const n of items) g.appendChild(new Option(n, valueOf(n)));
+      list.appendChild(g);
+    };
+    group('yours', names, n => n);
+    group('factory', factory, n => FACTORY_PREFIX + n);
   };
   refresh();
   const flash = (b, t) => { const o = b.textContent; b.textContent = t; setTimeout(() => { b.textContent = o; }, 900); };
@@ -2943,7 +2966,10 @@ function paintMorphField(fx, w, h) {
          1.34:1 on --panel and simply vanishes. The tx variants exist for
          exactly this and were going unused here. */
       const tx = ['--cAtx', '--cBtx', '--cCtx', '--cDtx'][k];
-      row.innerHTML = `<label><span style="color:${TOK(tx, MCOLORS[k])}">&#9632;</span> Corner ${names[k]}</label>`;
+      const lab = document.createElement('label'), sw = document.createElement('span');
+      sw.style.color = TOK(tx, MCOLORS[k]); sw.textContent = '\u25A0';
+      lab.append(sw, ' Corner ' + names[k]);
+      row.appendChild(lab);
       const b = document.createElement('button');
       b.textContent = 'CAPTURE';
       b.title = 'store the current patch into this corner';
@@ -2967,8 +2993,9 @@ function paintMorphField(fx, w, h) {
         // B125 (human 2026-09-14): a corner with no preset reads "custom", and a
         // global preset carries the corner names (B122), so the dropdown is a
         // statement of what the corner holds, not only a loader.
-        ld.innerHTML = '<option value="">custom</option>' +
-          names.map(n => `<option>${n}</option>`).join('');
+        // B446: a corner preset's name is its FILE name, so it is option text,
+        // never markup (tools/gui_sink_check.py).
+        ld.replaceChildren(new Option('custom', ''), ...names.map(n => new Option(n, n)));
         if (shown && names.includes(shown)) ld.value = shown; };
       fill();
       /* PUSH, not pull. `fill` is async, so refreshing on focus loses a race it
@@ -7034,8 +7061,7 @@ function buildScalePicker() {
   row.innerHTML = '<label>Scale</label><select id="scalePick"></select><output></output>';
   host.after(row);
   const sel = row.querySelector('select');
-  sel.innerHTML = '<option value="-1">custom</option>' +
-    SCALES.map(([n], i) => `<option value="${i}">${n}</option>`).join('');
+  sel.replaceChildren(new Option('custom', '-1'), ...SCALES.map(([n], i) => new Option(n, String(i))));
   sel.addEventListener('change', () => {
     const k = +sel.value; if (k < 0) return;
     const degs = SCALES[k][1];

@@ -223,36 +223,31 @@ inline void installBridge(choc::ui::WebView &web, GuiHost &host)
      exist. Every path below comes from hypersaw::storeFile/kindDir. */
   hypersaw::installFactoryBank(hypersaw::presetRoot(), kFactoryBank, kFactoryBank_count,
                                kFactoryBank_version);
+  /* B446: the listing is TYPED VALUES, {presets:[…], corners:[…], factory:[…]},
+     serialised by choc's escaper. It used to be JSON concatenated by hand from
+     raw file names, so a `"` in one name made the whole reply unparseable and
+     froze every dropdown. A file name can hold any character, and each one
+     passes through bridgeStr, so it cannot carry malformed UTF-8 either. */
   web.bind("hzPresetList", [](const choc::value::ValueView &) -> choc::value::Value {
     namespace fs = std::filesystem;
     // NON-recursive on purpose: presets/factory/ is a child of presets/, and
     // the two tiers must not merge into one flat list.
     auto listDir = [](const fs::path &d) {
-      std::string out = "[";
-      if (d.empty()) return out + "]";
-      bool first = true;
+      auto out = choc::value::createEmptyArray();
+      if (d.empty()) return out;
       std::error_code ec;
       for (auto &e : fs::directory_iterator(d, ec))
-        if (e.path().extension() == ".json")
-        {
-          out += (first ? "\"" : ",\"") + e.path().stem().string() + "\"";
-          first = false;
-        }
-      return out + "]";
+        if (e.path().extension() == ".json") out.addArrayElement(bridgeStr(e.path().stem().string()));
+      return out;
     };
     const fs::path root = hypersaw::presetRoot();
-    std::string factory = "[";
-    bool first = true;
-    for (const auto &rel : hypersaw::listFactory(root))
-    {
-      factory += (first ? "\"" : ",\"") + rel + "\"";
-      first = false;
-    }
-    factory += "]";
-    return bridgeStr(
-        "{\"presets\":" + listDir(hypersaw::kindDir(root, "presets")) +
-        ",\"corners\":" + listDir(hypersaw::kindDir(root, "corners")) +
-        ",\"factory\":" + factory + "}");
+    auto factory = choc::value::createEmptyArray();
+    for (const auto &rel : hypersaw::listFactory(root)) factory.addArrayElement(bridgeStr(rel));
+    auto out = choc::value::createObject("PresetList");
+    out.addMember("presets", listDir(hypersaw::kindDir(root, "presets")));
+    out.addMember("corners", listDir(hypersaw::kindDir(root, "corners")));
+    out.addMember("factory", factory);
+    return out;
   });
   web.bind("hzPresetSave", [](const choc::value::ValueView &args) -> choc::value::Value {
     namespace fs = std::filesystem;

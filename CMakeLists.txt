@@ -743,6 +743,14 @@ if(NOT MSVC)
   target_compile_options(bridge_utf8_check PRIVATE -O2)
   target_compile_options(hostile_events_check PRIVATE -O2)
 endif()
+# gui_webview_check (B446 W3a, wired into ./verify full on macOS): the shipped
+# GUI on a real WKWebView — one page only, its content policy, the bridge's
+# sender check, no script clipboard read, file names as text — each beside a
+# control that must see the defect on a plain choc view.
+if(APPLE)
+  add_executable(gui_webview_check tools/gui_webview_check.mm)
+  target_link_libraries(gui_webview_check PRIVATE ${PROJECT_NAME}-impl)
+endif()
 
 # trace_check: the forensic note trace (FOUNDATIONS ask (c)). Links the impl so
 # it can trigger the REAL dump path through the test hook rather than rebuilding

@@ -6,12 +6,96 @@
  */
 
 #import <Cocoa/Cocoa.h>
+#import <WebKit/WebKit.h>
+#include <objc/runtime.h>
 
 #include <memory>
+#include <string>
 #include "hypersaw_gui_common.h"
 
 namespace hypersaw
 {
+
+/* B446 — THE WEB VIEW SHOWS ONE PAGE, AND ONLY THAT PAGE TALKS TO THE PLUGIN.
+   The bridge's bindings are document-start user scripts, so they belong to
+   whatever document the view shows; the rule is therefore that it shows only
+   the embedded page. Applied here, in our wrapper, with libs/choc untouched
+   (ADR-194 D-S5):
+   - NAVIGATION. A navigation delegate that admits exactly one load, the
+     embedded page (loadHTMLString:baseURL:nil, which WebKit reports as
+     about:blank), and cancels every navigation after it in every frame. It
+     replaces choc's navigation delegate, whose only job was a failure page;
+     that page is retired with it. New windows stay refused as before: choc's
+     UI delegate does not implement createWebViewWithConfiguration:.
+   - SENDER. The "external" message handler is re-registered behind a check
+     that the message comes from the main frame of the admitted page, then
+     forwarded to choc's handler unchanged.
+   - CLIPBOARD. choc enables javaScriptCanAccessClipboard and DOMPasteAllowed
+     for every view; both go off, so page script has no clipboard read. PASTE
+     reads natively instead (hzPasteState, below) and the text never reaches
+     the page.
+   Installed from the ready callback, after choc has built the view and its
+   bindings and BEFORE setHTML, so the first navigation the policy sees is the
+   page's own. The guard is a runtime class with a unique name (choc's
+   createDelegateClass), because two builds of this plugin can share one host
+   process and a fixed Objective-C class name would collide. Its state lives in
+   associated objects, so it needs no C++ owner: the content controller holds
+   it, and choc's destructor releases it by removing the "external" handler.
+   tools/gui_webview_check drives all of this on a real WKWebView. */
+namespace
+{
+char kInnerHandlerKey;   // associated-object keys: only the ADDRESS matters (non-const,
+char kPageAdmittedKey;   // so the compiler can never fold the two into one)
+
+Class navGuardClass()
+{
+  static Class cls = [] {
+    Class c = choc::objc::createDelegateClass("NSObject", "HordeNavGuard_");
+    class_addMethod(c, @selector(webView:decidePolicyForNavigationAction:decisionHandler:),
+                    imp_implementationWithBlock(^(id self, WKWebView *, WKNavigationAction *action,
+                                                  void (^decide)(WKNavigationActionPolicy)) {
+                      const bool admit = !objc_getAssociatedObject(self, &kPageAdmittedKey)
+                                         && action.targetFrame && action.targetFrame.isMainFrame
+                                         && [action.request.URL.absoluteString isEqualToString:@"about:blank"];
+                      if (admit) objc_setAssociatedObject(self, &kPageAdmittedKey, @YES, OBJC_ASSOCIATION_RETAIN);
+                      decide(admit ? WKNavigationActionPolicyAllow : WKNavigationActionPolicyCancel);
+                    }),
+                    "v@:@@@?");
+    class_addMethod(c, @selector(userContentController:didReceiveScriptMessage:),
+                    imp_implementationWithBlock(^(id self, WKUserContentController *ucc, WKScriptMessage *msg) {
+                      if (!msg.frameInfo.isMainFrame || !objc_getAssociatedObject(self, &kPageAdmittedKey))
+                        return;   // dropped: the caller's promise simply never settles
+                      id inner = objc_getAssociatedObject(self, &kInnerHandlerKey);
+                      [inner userContentController:ucc didReceiveScriptMessage:msg];
+                    }),
+                    "v@:@@");
+    objc_registerClassPair(c);
+    return c;
+  }();
+  return cls;
+}
+
+void lockToEmbeddedPage(choc::ui::WebView &w)
+{
+  WKWebView *wk = (__bridge WKWebView *)w.getViewHandle();
+  if (!wk) return;
+  // `configuration` is a copy, but it shares the live controller and
+  // preferences objects with the view (B79's preference writes rely on the same).
+  WKWebViewConfiguration *config = wk.configuration;
+  id chocHandler = (id)wk.navigationDelegate;   // choc's one delegate object
+  id guard = [[navGuardClass() alloc] init];
+  objc_setAssociatedObject(guard, &kInnerHandlerKey, chocHandler, OBJC_ASSOCIATION_RETAIN);
+  [config.userContentController removeScriptMessageHandlerForName:@"external"];
+  [config.userContentController addScriptMessageHandler:guard name:@"external"];   // retains the guard
+  wk.navigationDelegate = guard;                                                 // weak
+  [guard release];
+  @try
+  {
+    [config.preferences setValue:@NO forKey:@"javaScriptCanAccessClipboard"];
+    [config.preferences setValue:@NO forKey:@"DOMPasteAllowed"];
+  } @catch (NSException *) {}
+}
+}  // namespace
 
 /* B79 — THE PLUGIN WEBVIEW WAS A DEGRADED SURFACE, MEASURED: the in-GUI
    health line inside Ableton read `frame 69ms · dpr 1` (≈14 fps rAF while
@@ -110,6 +194,18 @@ struct HypersawGui::Impl
     // which is why the bind uses `w` and only the BODY (invoked from JS later)
     // reads `web`.
     web = detail::makeWebView(host, [this](choc::ui::WebView &w) {
+      lockToEmbeddedPage(w);   // B446: before setHTML, which runs right after this callback
+      /* B446: PASTE without giving the page the clipboard. The text goes from
+         the pasteboard straight to the shell's state parser — exactly what
+         hzApplyState(text) did when the page read it — and only a status comes
+         back: 1 applied, 0 nothing to paste, 2 not a patch. */
+      w.bind("hzPasteState", [this](const choc::value::ValueView &) -> choc::value::Value {
+        NSString *s = [[NSPasteboard generalPasteboard] stringForType:NSPasteboardTypeString];
+        const char *utf8 = s.length ? s.UTF8String : nullptr;
+        if (!utf8) return choc::value::createInt32(0);
+        const bool ok = host.applyStateJson && host.applyStateJson(std::string(utf8), std::string());
+        return choc::value::createInt32(ok ? 1 : 2);
+      });
       w.bind("hzGrabKeys", [this](const choc::value::ValueView &) -> choc::value::Value {
         NSView *v = (__bridge NSView *)web->getViewHandle();
         if (v && v.window)
