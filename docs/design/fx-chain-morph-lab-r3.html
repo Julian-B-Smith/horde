@@ -208,7 +208,13 @@
   /* ============ ROUND 3 ============ */
   .top3 { grid-template-columns:minmax(340px,0.9fr) minmax(0,1.6fr); }
   @media (max-width:1100px) { .top3 { grid-template-columns:1fr; } }
-  #cableC { width:100%; aspect-ratio:16/9; }
+  /* round 3c: three views of one cable state, all visible — the rack across the top, the matrix and the panel side by side; stacked when narrow */
+  .views { display:grid; grid-template-columns:minmax(0,0.85fr) minmax(0,1.15fr); gap:8px; }
+  .view { min-width:0; } .vrack { grid-column:1 / -1; }
+  .vh { font-size:9.5px; font-weight:700; letter-spacing:.12em; color:var(--t2); margin:0 0 3px; } .vh span { font-weight:400; color:var(--dim); letter-spacing:.04em; }
+  #rackC { width:100%; aspect-ratio:3/1; } #matrixC { width:100%; aspect-ratio:1/1; } #panelC { width:100%; aspect-ratio:1.3/1; }
+  .vleg i { width:10px; height:8px; margin:0 3px 0 6px; border:0; border-radius:2px; }
+  @media (max-width:900px) { .views { grid-template-columns:minmax(0,1fr); } #rackC { aspect-ratio:2.2/1; } }
   .live { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px; margin-top:6px; }
   .live div { border:1px solid var(--div); border-radius:var(--r); padding:4px 6px; background:var(--well); }
   .live .k { font-size:9px; letter-spacing:.1em; color:var(--dim); }
@@ -266,9 +272,12 @@ insert/remove behaviour, which an A/B toggle plays. It sounds, it measures itsel
       <i style="background:var(--caution)"></i>a two-or-more-change boundary. Thin lines are one-change boundaries. The dashed path is the sweep.</div>
   </div>
   <div class="cluster"><h2>The cables <span id="cableHead"></span></h2>
-    <div class="ctlrow" style="margin:0 0 4px"><span class="lbl">LAYOUT</span><div class="pills" id="layoutPills"></div></div>
-    <canvas id="cableC"></canvas>
-    <div class="legend" id="cableLegend"></div>
+    <div class="views">
+      <div class="view vrack"><div class="vh">RACK <span>· signal flow</span></div><canvas id="rackC"></canvas></div>
+      <div class="view vmatrix"><div class="vh">MATRIX <span>· from × to</span></div><canvas id="matrixC"></canvas></div>
+      <div class="view vpanel"><div class="vh">PANEL <span>· the case</span></div><canvas id="panelC"></canvas></div>
+    </div>
+    <div class="legend vleg" id="cableLegend"></div>
     <div class="live" id="liveBox"></div>
     <div class="ptxt" id="chainTxt"></div>
     <div class="ctlrow"><span class="lbl">OUTPUT</span><span class="clip" id="clip">CLIP</span><span class="cap" id="meter" style="margin:0"></span><span class="cap" id="audioStat" style="margin:0">AUDIO — OFF</span></div>
@@ -1977,6 +1986,88 @@ function cyclicTransitions(limit) {
   return out;
 }
 
+/* ---------- THE THREE CABLE VIEWS, as pure scenes (round 3c) ----------
+   The human, on #982's six layouts: "I like the rack, the matrix, and the panel … I think
+   each should be visible." So RACK, MATRIX and PANEL are drawn side by side from ONE cable
+   state, every frame. Each view is a SCENE built here — normalised geometry plus the
+   engine's own numbers, no DOM — and a thin painter in block 2. Self-check 12 compares every
+   scene's cables with the engine's: same cables, same forward and backward weights, same
+   loop and wait flags. Shared encoding, all three views: a cable takes its SOURCE module's
+   colour; thickness and opacity follow the weight on one scale; a backward part (one sample
+   late) is dashed and marked z⁻¹; a live loop gets an amber halo; a waiting cable is an
+   amber dotted ghost; Scape → Sluice is shown crossed out (✕) and Scape → Bulwark marked E1. */
+const VIEW_MIN = 0.003;                    // below this a cable is not drawn (−50 dB)
+function viewDataOf(C, E) {
+  const loops = new Set(); for (const cy of C.cycles()) for (const i of cy) loops.add(i);
+  const fed = {}; for (const t of TYPES) fed[t] = INTO[t].some(i => C.wf[i] + C.wb[i] > VIEW_MIN);
+  return { wf: C.wf, wb: C.wb, held: C.held, loops, asleep: t => E && E.asleep ? E.asleep[t] : !fed[t], mb: (C.prm.DYN.bands || 1) > 1 };
+}
+/* what the engine has live: the yardstick every scene is checked against */
+function liveSet(D) {
+  const m = new Map();
+  for (let i = 0; i < NC; i++) { const w = D.wf[i] + D.wb[i]; if (w >= VIEW_MIN || (D.held && D.held[i])) m.set(CABLES[i].k, { wf: D.wf[i], wb: D.wb[i], loop: D.loops.has(i), held: (D.held && D.held[i]) || '' }); }
+  return m;
+}
+const cableEntry = (D, i, plant) => ({ k: CABLES[i].k, u: CABLES[i].u, v: CABLES[i].v, i, wf: D.wf[i], wb: plant === 'viewdrop' ? 0 : D.wb[i], loop: D.loops.has(i), held: (D.held && D.held[i]) || '' });
+const visible = (D, i) => D.wf[i] + D.wb[i] >= VIEW_MIN || (D.held && D.held[i]);
+const RULE_CABLES = [{ k: 'REV>NET', mark: '✕' }, { k: 'REV>DYN', mark: 'E1' }];
+/* RACK — one row in house order with the lanes first and OUT last. A cable running left to
+   right arcs ABOVE the row, right to left BELOW it; it leaves its source right of centre and
+   lands left of centre, so in- and outgoing arcs part at every box. Arcs are half-ellipses
+   whose height grows with the square root of the span (calm: long arcs do not tower). */
+const RACK_COLS = ['BODY', 'SUB'].concat(TYPES, ['OUT']);
+function rackScene(D, plant) {
+  const n = RACK_COLS.length, X = k => (RACK_COLS.indexOf(k) + 0.5) / n, port = 0.2 / n;
+  const arc = e => { const x0 = X(e.u) + port, x1 = X(e.v) - port * Math.sign(X(e.v) - X(e.u)), span = Math.abs(RACK_COLS.indexOf(e.v) - RACK_COLS.indexOf(e.u));
+    return Object.assign(e, { x0, x1, up: X(e.v) > X(e.u), h: Math.min(0.4, 0.07 + 0.085 * Math.sqrt(span)) }); };
+  const arcs = []; for (let i = 0; i < NC; i++) if (visible(D, i)) arcs.push(arc(cableEntry(D, i, plant)));
+  arcs.sort((a, b) => Math.abs(b.x1 - b.x0) - Math.abs(a.x1 - a.x0));     // long arcs first, so short ones lie on top
+  const rules = RULE_CABLES.map(r => arc(Object.assign({ u: CABLES[CIX[r.k]].u, v: CABLES[CIX[r.k]].v, mark: r.mark, k: r.k })));
+  return { kind: 'rack', nodes: RACK_COLS.map(k => ({ id: k, x: X(k), asleep: TYPES.includes(k) && D.asleep(k) })), arcs, rules, colW: 1 / n };
+}
+/* MATRIX — rows are where a cable comes FROM, columns where it goes TO */
+function matrixScene(D, plant) {
+  const cells = [];
+  SRC.forEach((u, r) => DST.forEach((v, c) => {
+    const k = u + '>' + v, i = CIX[k];
+    if (i === undefined) { cells.push({ r, c, self: true }); return; }
+    const e = cableEntry(D, i, plant); e.r = r; e.c = c; e.rule = BANNED[k] ? '✕' : k === 'REV>DYN' ? 'E1' : ''; e.live = !!visible(D, i);
+    cells.push(e);
+  }));
+  return { kind: 'matrix', rows: SRC, cols: DST, cells, asleep: Object.fromEntries(TYPES.map(t => [t, D.asleep(t)])) };
+}
+/* PANEL — a Eurorack case: an IN panel (Body and Sub jacks), the eight modules in house order,
+   an OUT panel. Every module has an OUT jack (upper) and an IN jack (lower); a patch cord runs
+   from an OUT jack down and across to an IN jack, sagging like a cable under gravity: the sag
+   grows with the span. Jack captions sit ABOVE their jacks; cords leave jacks downward, so a
+   cord never covers the caption of the jack it plugs into. */
+const PANEL_MODS = ['IN'].concat(TYPES, ['OUT']);
+function panelJack(k, dir) {
+  const n = PANEL_MODS.length, col = isLane(k) ? 0 : k === 'OUT' ? n - 1 : 1 + HOUSE[k], x = (col + 0.5) / n;
+  if (k === 'BODY') return [x, 0.34]; if (k === 'SUB') return [x, 0.56]; if (k === 'OUT') return [x, 0.56];
+  return [x, dir === 'out' ? 0.34 : 0.62];
+}
+function panelScene(D, plant) {
+  const n = PANEL_MODS.length, cord = e => { const a = panelJack(e.u, 'out'), b = panelJack(e.v, 'in'), span = Math.abs(b[0] - a[0]) * n;
+    return Object.assign(e, { a, b, sag: Math.min(0.3, 0.05 + 0.045 * span) }); };
+  const cords = []; for (let i = 0; i < NC; i++) if (visible(D, i)) cords.push(cord(cableEntry(D, i, plant)));
+  cords.sort((p, q) => q.sag - p.sag);
+  const rules = RULE_CABLES.map(r => cord(Object.assign({ u: CABLES[CIX[r.k]].u, v: CABLES[CIX[r.k]].v, mark: r.mark, k: r.k })));
+  return { kind: 'panel', mods: PANEL_MODS.map((m, j) => ({ id: m, x: (j + 0.5) / n, asleep: TYPES.includes(m) && D.asleep(m) })), cords, rules, colW: 1 / n };
+}
+/* what a scene draws, in the liveSet's terms */
+function sceneCables(sc) {
+  const m = new Map(), list = sc.kind === 'rack' ? sc.arcs : sc.kind === 'panel' ? sc.cords : sc.cells.filter(c => !c.self && c.live);
+  for (const e of list) m.set(e.k, { wf: e.wf, wb: e.wb, loop: e.loop, held: e.held });
+  return m;
+}
+function sceneMismatch(D, sc) {
+  const want = liveSet(D), got = sceneCables(sc);
+  for (const [k, w] of want) { const g = got.get(k); if (!g) return `${sc.kind} omits ${k}`; if (g.wf !== w.wf || g.wb !== w.wb) return `${sc.kind} draws ${k} at ${(g.wf + g.wb).toFixed(4)} (engine ${(w.wf + w.wb).toFixed(4)})`; if (g.loop !== w.loop || g.held !== w.held) return `${sc.kind} flags ${k} wrongly`; }
+  for (const k of got.keys()) if (!want.has(k)) return `${sc.kind} draws ${k}, which the engine does not have`;
+  return '';
+}
+
 /* ---------- THE SELF-CHECK: one claim per brief item, one planted fault per claim ---------- */
 const SLEEP_JUMP_X = 6;     // a sleep or wake may move a node's heard output by ≤ 6 × the threshold: a sub-threshold input through the loudest declared gain (×3), plus the kept state, through a cable ≤ 1.5
 const R2_HIGH_DB = 12;      // the round-2 control "reads high": a worst click at least this loud
@@ -2029,6 +2120,21 @@ function selfCheckSteps() {
   const invOf = (o, tr) => { const N = Math.round(1.2 * RSR), ys = HOST_BLOCKS.map(B => renderHost(o, tr, B, N)); let d = 0; for (const r of ys.slice(1)) for (let i = 0; i < N; i++) d = Math.max(d, Math.abs(r.y[i] - ys[0].y[i])); return { d, cyc: ys[0].cyc }; };
   for (let k = 0; k < 3; k++) step(() => { const c = cycT[k]; if (c) inv.push(invOf(optsWith({ set: c.set }), c.tr)); });
   step(() => { const c = cycT[0]; if (c) invP.push(invOf(optsWith({ set: c.set, plant: 'hostblock' }), c.tr)); });
+  /* warm-up for claim 12: every tick of every sweep, both strategies, each set — the three scenes against the engine */
+  const viewR = { n: 0, loops: 0, waits: 0, bad: '', plant: '' };
+  for (const set of SETS) for (const loop of ['a', 'b']) step(() => {
+    const M = morphOf(optsWith({ set: set.id, loop }));
+    for (const sw of SWEEPS) {
+      const f = sweepW(M, sw), C = new Cables(M, RSR, TICK); C.settle(mapW(M, f(0)));
+      const N = Math.round((SW_PRE + SW_MOVE + SW_POST) * RSR / TICK), nPre = Math.round(SW_PRE * RSR / TICK), nMove = Math.round(SW_MOVE * RSR / TICK);
+      for (let i = 0; i < N; i += 2) {
+        C.step(mapW(M, f(clamp01((i - nPre) / nMove)))); C.step(mapW(M, f(clamp01((i + 1 - nPre) / nMove))));
+        const D = viewDataOf(C); viewR.n++; if (D.loops.size) viewR.loops++; if (C.held.some(Boolean)) viewR.waits++;
+        for (const sc of [rackScene(D), matrixScene(D), panelScene(D)]) { const m = sceneMismatch(D, sc); if (m && !viewR.bad) viewR.bad = `${set.id} (${loop}) ${sw.name} tick ${i}: ${m}`; }
+        if (!viewR.plant && D.loops.size) { const m = sceneMismatch(D, rackScene(D, 'viewdrop')); if (m) viewR.plant = `${set.id} (${loop}) ${sw.name}: ${m}`; }
+      }
+    }
+  });
   const firstPlant = (extra, pred, sets) => { for (const set of sets || SETS.map(s => s.id)) for (const sw of SWEEPS) { const r = pred(sweepOf(Object.assign({ set }, extra), sw)); if (r) return `${set}, ${sw.name}: ${r}`; } return ''; };
 
   step(() => {
@@ -2141,7 +2247,13 @@ function selfCheckSteps() {
         'a naive host-block driver: the cables step once per host buffer and a backward cable is one host buffer late',
         pd > 1e-6 ? { ok: false, detail: `renders differ by up to ${pd.toFixed(3)} across buffer sizes` } : { ok: true, detail: 'identical — NOT caught' });
   });
-  return { rows, steps, claims: 11 };
+  step(() => {
+    // 12. the three views agree with the engine
+    add('The three cable views agree with the engine: at every other tick of every sweep (4 sets × 2 strategies × 7 paths), RACK, MATRIX and PANEL each draw exactly the engine\'s live cables — forward and backward weights to the last bit, and the same loop and wait flags',
+        !viewR.bad && viewR.loops && viewR.waits ? { ok: true, detail: `${viewR.n} states × 3 views; ${viewR.loops} with a live loop, ${viewR.waits} with a waiting cable` } : { ok: false, detail: viewR.bad || `untested: ${viewR.loops} loop states, ${viewR.waits} wait states` },
+        'a view that drops the backward part (draws only the forward weight)', viewR.plant ? { ok: false, detail: viewR.plant } : { ok: true, detail: 'agrees — NOT caught' });
+  });
+  return { rows, steps, claims: 12 };
 }
 function runSelfCheck() { const c = selfCheckSteps(); for (const f of c.steps) f(); return c.rows; }
 const dbTxtM = v => v === -Infinity ? '−∞' : v.toFixed(2);
@@ -2220,7 +2332,12 @@ function viewState() {
   if (AC && AC.state === 'running' && LR) return { R: LR, E: LE, live: true };
   const st = stAt(PX, PY);
   if (isR2()) { const R = new R2Router(M, RSR, TICK); R.settle(st); return { R, E: null, live: false }; }
-  const C = new Cables(M, RSR, TICK); C.settle(st); return { R: C, E: null, live: false };
+  /* no audio: a persistent VIEW router follows the puck at control rate (four 4 ms ticks a
+     frame), so the views glide through transitions — loops and waits included — without
+     POWER. It draws only; nothing listens to it. A new morph (a setting) re-settles it. */
+  if (!VR || VRM !== M) { VR = new Cables(M, RSR, TICK); VR.settle(st); VRM = M; }
+  for (let k = 0; k < 4; k++) { if (HOLD_AT >= 0 && VR.n - HOLD_AT >= +qv('hold', '0')) break; VR.step(st); }   // ?hold=N: a still N ticks into the transition
+  return { R: VR, E: null, live: false };
 }
 
 /* ---------- recompute + the deferred queue ---------- */
@@ -2261,7 +2378,7 @@ function startCheck() {
   const tick = () => { const f = checkJobs.shift(); if (f) { f(); renderChecks(); } if (checkJobs.length) setTimeout(tick, 0); };
   setTimeout(tick, 0);
 }
-let VS = null;
+let VS = null, VR = null, VRM = null, HOLD_AT = -1;     // VR: the view router while there is no audio (it draws, nothing listens)
 let meterPk = 0, meterTp = 0, meterHold = 0;   // the output meter's held peaks (page state: a display hold, not the model)
 /* THE OUTPUT METER: sample peak and true peak of what the analyser last saw, held 2 s,
    in dBFS — so "blown out" is a number, and nothing hides it (no limiter anywhere). */
@@ -2336,7 +2453,7 @@ function renderLive(vs) {
     box('CLICK LAST · WORST', lw ? lw.db.toFixed(1) + ' · ' + LM.worst.toFixed(1) + ' dB' : '—', lw && LM.worst > 6);
   const held = r3 ? R.held.map((h, i) => h ? CABLES[i].k.replace('>', '→') + ' (' + h + ')' : '').filter(Boolean) : [];
   $('xyOut').textContent = `x ${PX.toFixed(2)} · y ${PY.toFixed(2)} · weights ${st.w.map((q, k) => CORNER_ID[k] + ' ' + q.toFixed(2)).join(' ')}`;
-  $('cableHead').textContent = (vs.live ? '· live (POWER)' : '· at rest (settled at the puck)') + (isR2() ? ' · ROUND 2 A/B' : ' · round 3 ' + (o.loop === 'a' ? '(a)' : '(b)'));
+  $('cableHead').textContent = (vs.live ? '· live (POWER)' : '· following the puck (no audio: the view\'s own router)') + (isR2() ? ' · ROUND 2 A/B' : ' · round 3 ' + (o.loop === 'a' ? '(a)' : '(b)'));
   $('chainTxt').innerHTML = `target <b>${chainTxt(st.chain)}</b> · Sub → <b>${SHORT[st.sub]}</b>` + (st.prm.DYN ? ` · Bulwark ${(st.prm.DYN.bands || 1) > 1 ? 'multiband' : 'single-band'}` : '') +
     (o.mode === 'blend' ? ` · wet ${st.chain.map(t => SHORT[t] + ' ' + st.wet[t].toFixed(2)).join(' ')}` : '') +
     (r3 ? `<br>lane normaliser Body ×${R.nL.BODY.toFixed(2)} Sub ×${R.nL.SUB.toFixed(2)} · open transitions ${R.open}/${o.K}` + (held.length ? ` · <span class="no">waiting: ${held.join(', ')}</span>` : '') : '');
@@ -2478,278 +2595,163 @@ function readPal() {
   for (const k of ['scr-tube', 'scr-value', 'scr-meter', 'scr-physics', 'scr-grid', 'scr-marker', 'caution', 'line', 'bg', 'alarm', 'dim', 'text'])
     PAL[k] = String(cs.getPropertyValue('--' + k)).trim();
 }
-const RING = (() => {
-  const p = {};
-  TYPES.forEach((t, i) => { const a = -Math.PI / 2 + 2 * Math.PI * i / TYPES.length; p[t] = [0.5 + 0.28 * Math.cos(a), 0.5 + 0.37 * Math.sin(a)]; });
-  p.BODY = [0.07, 0.3]; p.SUB = [0.07, 0.7]; p.OUT = [0.93, 0.5];
-  return p;
-})();
-/* ---------- THE CABLE VIEW: six layouts over one cable state ----------
-   The human, on round 3's first view: "I would like to see several alternative layouts for
-   the cables view though; this one isn't quite landing." Every layout draws the SAME data
-   (cableData: the object the audio plays, L0064) and shows, each in its own way, the
-   weights, the direction, a backward part (one sample of delay), live loops, waiting cables,
-   sleep, and the rules' unavailable cables. None animates under prefers-reduced-motion
-   except by the cables' own change. The choice persists in localStorage. */
-const LAYOUTS = [
-  { id: 'ring', name: 'RING', aspect: '16/9', legend: 'nodes on a fixed ring in house order; a cable bows to the left of its direction, so u → v and v → u are two arcs; dots flow along it.' },
-  { id: 'rack', name: 'RACK', aspect: '2/1', legend: 'a signal-flow row: inputs left, OUT right, nodes in house order; cables that run left → right arc ABOVE the row, cables that run right → left arc BELOW it.' },
-  { id: 'matrix', name: 'MATRIX', aspect: '1/1', legend: 'a patchbay: rows are where a cable comes FROM, columns where it goes TO; a cell\'s fill is the weight; hatched cells are unavailable; amber outlines are live loops, dotted ones are waiting.' },
-  { id: 'flow', name: 'FLOW', aspect: '16/9', legend: 'each input lane\'s path to OUT, as a Sankey: ribbon width is how much of the lane runs along each cable; columns are signal depth.' },
-  { id: 'panel', name: 'PANEL', aspect: '16/9', legend: 'a Eurorack case: each module a panel with an IN and an OUT jack and a LED (lit = awake); patch cables sag between jacks, thick and opaque with weight.' },
-  { id: 'roll', name: 'ROLL', aspect: '16/9', legend: 'a cable roll: one row per cable that has been alive, time running left to right over the last few seconds; brightness is the weight — watch cables emerge and retreat.' },
-];
-const LAYOUT_KEY = 'hypersaw.fxmorph-r3.layout';
-let LAYOUT = (() => { try { const v = qv('layout', null) || (window.localStorage && window.localStorage.getItem(LAYOUT_KEY)); return LAYOUTS.some(l => l.id === v) ? v : 'ring'; } catch (_) { return 'ring'; } })();
-const ROLL_N = 240, ROLL = { cols: [], n: 0 };     // the roll's history: one column of weights per painted frame (page state)
-function setLayout(id) {
-  LAYOUT = id; try { window.localStorage && window.localStorage.setItem(LAYOUT_KEY, id); } catch (_) { /* private mode: the choice lasts the session */ }
-  renderLayoutCtl(); dirty = true;
-}
-function renderLayoutCtl() {
-  const L = LAYOUTS.find(l => l.id === LAYOUT);
-  $('layoutPills').innerHTML = LAYOUTS.map(l => `<button class="pill${l.id === LAYOUT ? ' on' : ' act'}" data-k="${l.id}">${l.name}</button>`).join('');
-  $('cableC').style.aspectRatio = L.aspect; $('cableC').style.maxWidth = L.id === 'matrix' ? '620px' : ''; $('cableC').style.margin = L.id === 'matrix' ? '0 auto' : '';
-  $('cableLegend').innerHTML = `<b>${L.name}</b>: ${L.legend} <span style="color:var(--caution-tx)">amber</span> = a live loop, a backward part (z⁻¹, one sample late) or a waiting cable; dim and dashed = asleep; ✕ = unavailable (Scape → Sluice); E1 = Scape → Bulwark only as the last module.`;
-}
-/* the state every layout draws */
-function cableData(vs) {
-  const r3 = vs.R instanceof Cables, wf = r3 ? vs.R.wf : r2Cables(vs.R), wb = r3 ? vs.R.wb : new Float64Array(NC);
-  const loopC = new Set(); if (r3) for (const cy of vs.R.cycles()) for (const i of cy) loopC.add(i);
-  const order = r3 ? vs.R.order : topoOrder(wf, wf), fed = {};
-  for (const t of TYPES) { fed[t] = false; for (const i of INTO[t]) if (wf[i] + wb[i] > 0.003) { fed[t] = true; break; } }
-  const asleep = t => vs.E && vs.E.asleep ? vs.E.asleep[t] : !fed[t];
-  const trans = {}; for (const L of LANES) trans[L] = transOf(order, wf, wb, L);
-  return { r3, wf, wb, held: r3 ? vs.R.held : null, loopC, asleep, order, trans, mb: r3 && (vs.R.prm.DYN.bands || 1) > 1, live: vs.live };
-}
-/* shared drawing helpers */
-function inkOf(D, i) { const c = CABLES[i]; return D.loopC.has(i) ? PAL.caution : c.u === 'BODY' ? PAL['scr-value'] : c.u === 'SUB' ? PAL['scr-marker'] : PAL['scr-physics']; }
-const wid = (w, dpr, s) => (0.8 + 4.2 * Math.min(1.5, w)) * dpr * (s || 1);
-function quad(g, q) { g.beginPath(); g.moveTo(q[0], q[1]); g.quadraticCurveTo(q[2], q[3], q[4], q[5]); g.stroke(); }
-const qAt = (q, t) => [(1 - t) * (1 - t) * q[0] + 2 * t * (1 - t) * q[2] + t * t * q[4], (1 - t) * (1 - t) * q[1] + 2 * t * (1 - t) * q[3] + t * t * q[5]];
-function arrowAt(g, q, a, ink, dpr) {
-  const p1 = qAt(q, 0.8), p2 = qAt(q, 0.84), ang = Math.atan2(p2[1] - p1[1], p2[0] - p1[0]), s = (3 + 3 * a) * dpr;
-  g.fillStyle = ink; g.globalAlpha = 0.35 + 0.65 * a; g.beginPath();
-  g.moveTo(p2[0] + Math.cos(ang) * s, p2[1] + Math.sin(ang) * s); g.lineTo(p2[0] + Math.cos(ang + 2.5) * s, p2[1] + Math.sin(ang + 2.5) * s); g.lineTo(p2[0] + Math.cos(ang - 2.5) * s, p2[1] + Math.sin(ang - 2.5) * s); g.fill();
-}
-/* one cable along a quadratic: forward part solid, backward part dashed amber with z⁻¹, the flow dots, an arrowhead */
-function drawCable(g, D, i, q, dpr, s, flow) {
-  const w = D.wf[i] + D.wb[i]; if (w < 0.003) return;
-  const ink = inkOf(D, i), a = Math.min(1, w);
-  if (D.wf[i] >= 0.003) { g.strokeStyle = ink; g.globalAlpha = 0.18 + 0.72 * Math.min(1, D.wf[i]); g.lineWidth = wid(D.wf[i], dpr, s); quad(g, q); }
-  if (D.wb[i] >= 0.003) {
-    g.setLineDash([6 * dpr, 4 * dpr]); g.strokeStyle = PAL.caution; g.globalAlpha = 0.25 + 0.75 * Math.min(1, D.wb[i]); g.lineWidth = wid(D.wb[i], dpr, s); quad(g, q); g.setLineDash([]);
-    const m = qAt(q, 0.5); g.globalAlpha = 1; g.fillStyle = PAL.caution; g.fillText('z⁻¹', m[0], m[1] - 7 * dpr);
-  }
-  if (flow) {
-    g.setLineDash([1.2 * dpr, 10 * dpr]); g.lineDashOffset = REDUCED ? 0 : -(flowT * 0.35 * dpr) % (11.2 * dpr);
-    g.strokeStyle = PAL['scr-meter']; g.globalAlpha = 0.25 + 0.6 * a; g.lineWidth = Math.max(1.2 * dpr, 0.45 * wid(w, dpr, s)); quad(g, q);
-    g.setLineDash([]); g.lineDashOffset = 0;
-  }
-  arrowAt(g, q, a, ink, dpr); g.globalAlpha = 1;
-}
-function drawWaiting(g, D, i, q, dpr) {
-  if (!D.held || !D.held[i]) return;
-  const m = qAt(q, 0.5);
-  g.setLineDash([1.5 * dpr, 3 * dpr]); g.strokeStyle = PAL.caution; g.globalAlpha = 0.8; g.lineWidth = 1.5 * dpr; quad(g, q); g.setLineDash([]);
-  g.fillStyle = PAL.caution; g.fillText('waits (' + D.held[i] + ')', m[0], m[1] - 8 * dpr); g.globalAlpha = 1;
-}
-function drawRules(g, geo, dpr) {
-  for (const k of ['REV>NET', 'REV>DYN']) {
-    const q = geo(CIX[k]); if (!q) continue; const m = qAt(q, 0.5);
-    g.setLineDash([2 * dpr, 5 * dpr]); g.strokeStyle = BANNED[k] ? PAL.caution : PAL.dim; g.globalAlpha = 0.55; g.lineWidth = dpr; quad(g, q); g.setLineDash([]);
-    g.globalAlpha = 0.9; g.fillStyle = BANNED[k] ? PAL.caution : PAL.dim; g.fillText(BANNED[k] ? '✕ R3' : 'E1 only', m[0], m[1]); g.globalAlpha = 1;
-  }
-}
-function drawNodeBox(g, D, t, x, y, bw, bh, dpr, fs) {
-  const asleep = D.asleep(t);
-  g.fillStyle = PAL['scr-tube']; g.fillRect(x - bw / 2, y - bh / 2, bw, bh);
-  g.strokeStyle = asleep ? PAL.dim : PAL['scr-physics']; g.globalAlpha = asleep ? 0.6 : 1; g.lineWidth = (asleep ? 1 : 2) * dpr;
-  if (asleep) g.setLineDash([3 * dpr, 3 * dpr]);
-  g.strokeRect(x - bw / 2, y - bh / 2, bw, bh); g.setLineDash([]);
-  g.fillStyle = asleep ? PAL.dim : PAL['scr-physics']; g.font = `bold ${fs * dpr}px ui-monospace,Menlo,monospace`;
-  g.fillText((bw > 50 * dpr ? NAME[t].split(' ')[0] : SHORT[t]) + (t === 'DYN' && D.mb ? ' ‖2' : ''), x, y - 0.3 * fs * dpr);
-  g.font = `${(fs - 2) * dpr}px ui-monospace,Menlo,monospace`; g.fillText((asleep ? 'asleep' : 'awake') + ' · ' + COST[t] + 'pt', x, y + 0.7 * fs * dpr);
+/* ---------- THE THREE VIEWS, painted (round 3c) ----------
+   One colour per module, the same in all three views and on both themes (a cable wears its
+   SOURCE's colour; Body and Sub keep the pad's magenta and marker; OUT the meter cyan). A
+   DEPARTURE from ADR-116's roles, marked as such: the human asked that the views read as one
+   language, and eight modules need eight hues. Amber stays reserved for findings (loops,
+   waits, rules). One weight scale everywhere: width 0.8–5.6 px and opacity 0.22–1. */
+const MOD_INK = {
+  light: { DYN: '#3949AB', EQ: '#2E7D32', FLT: '#0277BD', DRV: '#C2185B', SAT: '#8D5524', NET: '#7B1FA2', DLY: '#00796B', REV: '#546E7A' },
+  dark: { DYN: '#8C9EFF', EQ: '#7BD88F', FLT: '#4FC3F7', DRV: '#F48FB1', SAT: '#E0A272', NET: '#CE93D8', DLY: '#4DD0C1', REV: '#B0BEC5' },
+};
+const inkFor = k => isLane(k) ? (k === 'BODY' ? PAL['scr-value'] : PAL['scr-marker']) : k === 'OUT' ? PAL['scr-meter'] : MOD_INK[dark ? 'dark' : 'light'][k];
+const wW = (w, dpr) => (0.8 + 4.8 * Math.min(1, w)) * dpr, wA = w => 0.22 + 0.78 * Math.min(1, w);
+const vFont = (px, dpr, bold) => `${bold ? 'bold ' : ''}${px * dpr}px ui-monospace,Menlo,monospace`;
+/* stroke one path in the shared encoding: loop halo, forward part, backward part, wait ghost */
+function strokeCable(g, e, path, dpr) {
+  const w = e.wf + e.wb, ink = inkFor(e.u);
+  if (e.held) { g.setLineDash([1.5 * dpr, 3.5 * dpr]); g.strokeStyle = PAL.caution; g.globalAlpha = 0.9; g.lineWidth = 1.6 * dpr; path(); g.stroke(); g.setLineDash([]); }
+  if (w < VIEW_MIN) { g.globalAlpha = 1; return; }
+  if (e.loop) { g.strokeStyle = PAL.caution; g.globalAlpha = 0.35; g.lineWidth = wW(w, dpr) + 6 * dpr; path(); g.stroke(); }
+  if (e.wf >= VIEW_MIN) { g.strokeStyle = ink; g.globalAlpha = wA(e.wf); g.lineWidth = wW(e.wf, dpr); path(); g.stroke(); }
+  if (e.wb >= VIEW_MIN) { g.setLineDash([5 * dpr, 3.5 * dpr]); g.strokeStyle = ink; g.globalAlpha = wA(e.wb); g.lineWidth = wW(e.wb, dpr); path(); g.stroke(); g.setLineDash([]); }
   g.globalAlpha = 1;
 }
-const fsFor = (W, dpr) => Math.max(7, Math.min(10, W / dpr / 70));
-/* RING — round 3's first view */
-function paintRing(g, D, W, H, dpr) {
-  const P = k => [RING[k][0] * W, RING[k][1] * H], fs = fsFor(W, dpr);
-  const geo = i => { const cc = CABLES[i], [x0, y0] = P(cc.u), [x1, y1] = P(cc.v), dx = x1 - x0, dy = y1 - y0, L = Math.hypot(dx, dy) || 1, bow = 0.14 * L; return [x0, y0, (x0 + x1) / 2 + dy / L * bow, (y0 + y1) / 2 - dx / L * bow, x1, y1]; };
-  g.font = `${(fs - 1) * dpr}px ui-monospace,Menlo,monospace`; g.textAlign = 'center'; g.textBaseline = 'middle';
-  drawRules(g, geo, dpr);
-  for (let i = 0; i < NC; i++) drawWaiting(g, D, i, geo(i), dpr);
-  for (let i = 0; i < NC; i++) drawCable(g, D, i, geo(i), dpr, 1, true);
-  const bw = Math.min(62, W / dpr / 9) * dpr, bh = 2.6 * fs * dpr;
-  for (const t of TYPES) { const [x, y] = P(t); drawNodeBox(g, D, t, x, y, bw, bh, dpr, fs); }
-  g.font = `bold ${fs * dpr}px ui-monospace,Menlo,monospace`;
-  for (const [k, ink] of [['BODY', PAL['scr-value']], ['SUB', PAL['scr-marker']], ['OUT', PAL['scr-meter']]]) { const [x, y] = P(k); g.fillStyle = ink; g.fillText(NAME[k], x, y); }
+function strokeRule(g, r, path, at, dpr) {
+  g.setLineDash([1 * dpr, 4 * dpr]); g.strokeStyle = r.mark === '✕' ? PAL.caution : PAL.dim; g.globalAlpha = 0.6; g.lineWidth = dpr; path(); g.stroke(); g.setLineDash([]);
+  g.globalAlpha = 1; g.font = vFont(9, dpr, true); g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillStyle = r.mark === '✕' ? PAL.caution : PAL.dim; g.fillText(r.mark === '✕' ? '✕ Sc→Sl' : 'E1', at[0], at[1]);
 }
-/* RACK — a signal-flow row; left → right above, right → left below */
-function paintRack(g, D, W, H, dpr) {
-  const fs = fsFor(W, dpr), cols = ['IN'].concat(TYPES, ['OUT']), dx = W / (cols.length + 0.2), mid = H * 0.5;
-  const X = k => isLane(k) ? dx * 0.6 : k === 'OUT' ? dx * (cols.length - 0.4) : dx * (1.6 + HOUSE[k]);
-  const Y = k => k === 'BODY' ? mid - 0.09 * H : k === 'SUB' ? mid + 0.09 * H : mid;
-  const geo = i => { const c = CABLES[i], x0 = X(c.u), x1 = X(c.v), y0 = Y(c.u), y1 = Y(c.v), up = x1 > x0, span = Math.abs(x1 - x0) / W;
-    return [x0, y0, (x0 + x1) / 2, (up ? mid - 0.08 * H - 0.75 * H * span : mid + 0.08 * H + 0.75 * H * span), x1, y1]; };
-  g.font = `${(fs - 1) * dpr}px ui-monospace,Menlo,monospace`; g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.strokeStyle = PAL['scr-grid']; g.globalAlpha = 0.35; g.lineWidth = dpr; g.beginPath(); g.moveTo(dx * 0.3, mid); g.lineTo(W - dx * 0.2, mid); g.stroke(); g.globalAlpha = 1;
-  drawRules(g, geo, dpr);
-  for (let i = 0; i < NC; i++) drawWaiting(g, D, i, geo(i), dpr);
-  for (let i = 0; i < NC; i++) drawCable(g, D, i, geo(i), dpr, 0.8, true);
-  const bw = dx * 0.86, bh = 2.6 * fs * dpr;
-  for (const t of TYPES) drawNodeBox(g, D, t, X(t), mid, bw, bh, dpr, fs);
-  g.font = `bold ${fs * dpr}px ui-monospace,Menlo,monospace`;
-  for (const [k, ink] of [['BODY', PAL['scr-value']], ['SUB', PAL['scr-marker']], ['OUT', PAL['scr-meter']]]) { g.fillStyle = ink; g.fillText(SHORT[k], X(k), Y(k)); }
-  g.fillStyle = PAL.dim; g.font = `${(fs - 1) * dpr}px ui-monospace,Menlo,monospace`;
-  g.fillText('left → right', W / 2, 0.05 * H); g.fillText('right → left', W / 2, 0.95 * H);
+function labelChip(g, text, x, y, ink, dpr, px, dim) {
+  g.font = vFont(px, dpr, true); const tw = g.measureText(text).width + 6 * dpr, th = (px + 5) * dpr;
+  g.fillStyle = PAL['scr-tube']; g.globalAlpha = 0.92; g.fillRect(x - tw / 2, y - th / 2, tw, th); g.globalAlpha = dim ? 0.5 : 1;
+  g.fillStyle = ink; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, x, y + 0.5 * dpr); g.globalAlpha = 1;
 }
-/* MATRIX — a patchbay grid, FROM rows × TO columns */
-function paintMatrix(g, D, W, H, dpr) {
-  const fs = fsFor(W, dpr), rows = SRC, cols = DST, m0 = 4.2 * fs * dpr, cw = (W - m0 - 4 * dpr) / cols.length, ch = (H - m0 - 4 * dpr) / rows.length;
-  g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = `bold ${(fs - 1) * dpr}px ui-monospace,Menlo,monospace`;
-  cols.forEach((v, j) => { g.fillStyle = v === 'OUT' ? PAL['scr-meter'] : D.asleep(v) ? PAL.dim : PAL['scr-physics']; g.fillText(SHORT[v], m0 + (j + 0.5) * cw, m0 * 0.55); });
-  rows.forEach((u, r) => { g.fillStyle = isLane(u) ? (u === 'BODY' ? PAL['scr-value'] : PAL['scr-marker']) : D.asleep(u) ? PAL.dim : PAL['scr-physics']; g.fillText(SHORT[u], m0 * 0.5, m0 + (r + 0.5) * ch); });
-  g.fillStyle = PAL.dim; g.font = `${(fs - 2) * dpr}px ui-monospace,Menlo,monospace`; g.fillText('from ↓ · to →', m0 * 0.5, m0 * 0.5);
-  rows.forEach((u, r) => cols.forEach((v, j) => {
-    const x = m0 + j * cw, y = m0 + r * ch, k = u + '>' + v, i = CIX[k];
-    g.strokeStyle = PAL['scr-grid']; g.globalAlpha = 0.35; g.lineWidth = dpr; g.strokeRect(x + 1, y + 1, cw - 2, ch - 2); g.globalAlpha = 1;
-    if (i === undefined) { g.fillStyle = PAL['scr-grid']; g.globalAlpha = 0.15; g.fillRect(x + 1, y + 1, cw - 2, ch - 2); g.globalAlpha = 1; return; }   // u → u: no such cable
-    if (BANNED[k] || k === 'REV>DYN') {   // hatched: unavailable (✕) or conditional (E1)
-      g.save(); g.beginPath(); g.rect(x + 1, y + 1, cw - 2, ch - 2); g.clip(); g.strokeStyle = BANNED[k] ? PAL.caution : PAL.dim; g.globalAlpha = 0.5; g.lineWidth = dpr;
-      for (let d = -ch; d < cw; d += 5 * dpr) { g.beginPath(); g.moveTo(x + d, y + ch); g.lineTo(x + d + ch, y); g.stroke(); } g.restore();
-    }
-    const wf = D.wf[i], wb = D.wb[i];
-    if (wf + wb > 0.003) {
-      g.fillStyle = inkOf(D, i); g.globalAlpha = 0.15 + 0.85 * Math.min(1, wf); g.fillRect(x + 2, y + 2, cw - 4, ch - 4);
-      if (wb > 0.003) { g.fillStyle = PAL.caution; g.globalAlpha = 0.25 + 0.75 * Math.min(1, wb); g.fillRect(x + 2, y + ch * 0.62, cw - 4, ch * 0.36); }
-      g.globalAlpha = 1; g.fillStyle = Math.min(1, wf + wb) > 0.55 ? PAL['scr-tube'] : PAL['scr-physics']; g.font = `${(fs - 2) * dpr}px ui-monospace,Menlo,monospace`;
-      g.fillText((wf + wb).toFixed(2), x + cw / 2, y + ch / 2);
-    }
-    if (D.loopC.has(i)) { g.strokeStyle = PAL.caution; g.lineWidth = 2.5 * dpr; g.strokeRect(x + 2, y + 2, cw - 4, ch - 4); }
-    if (D.held && D.held[i]) { g.setLineDash([2 * dpr, 2 * dpr]); g.strokeStyle = PAL.caution; g.lineWidth = 1.5 * dpr; g.strokeRect(x + 3, y + 3, cw - 6, ch - 6); g.setLineDash([]); }
-  }));
-}
-/* FLOW — a Sankey of each lane: columns are signal depth (longest live path from a lane),
-   a ribbon's width is the lane's transmission along that cable (t_L(u) × weight) */
-function paintFlow(g, D, W, H, dpr) {
-  const fs = fsFor(W, dpr), depth = {}, alive = c => D.wf[c] + D.wb[c] > 0.003;
-  for (const L of LANES) depth[L] = 0;
-  for (const t of D.order) { let d = 0; for (const i of INTO[t]) if (alive(i) && D.wf[i] > 0.003) d = Math.max(d, (depth[CABLES[i].u] || 0) + 1); depth[t] = d; }
-  const used = TYPES.filter(t => LANES.some(L => D.trans[L][t] > 1e-3)), maxD = Math.max(1, ...used.map(t => depth[t]));
-  depth.OUT = maxD + 1;
-  const colX = d => W * (0.07 + 0.86 * d / (maxD + 1)), byCol = {};
-  for (const k of LANES.concat(used, ['OUT'])) (byCol[depth[k]] = byCol[depth[k]] || []).push(k);
-  const Y = {}, scale = Math.min(0.1 * H, 22 * dpr);   // a transmission of 1 is this thick
-  for (const d in byCol) { const ks = byCol[d].sort((a, b) => (HOUSE[a] ?? -1) - (HOUSE[b] ?? -1)); ks.forEach((k, j) => { Y[k] = H * 0.08 + 0.8 * H * (j + 1) / (ks.length + 1); }); }
-  g.textAlign = 'center'; g.textBaseline = 'middle';
-  /* the ribbons: one per (lane, live cable), its flow f = what of the lane runs along it.
-     A pre-pass totals each node's outgoing and incoming flow, so each stack is centred. */
-  const rib = [], tot = {};
-  for (const k in Y) tot[k] = { in: 0, out: 0 };
-  for (const L of LANES) for (let i = 0; i < NC; i++) {
-    const c = CABLES[i]; if (!alive(i) || Y[c.u] === undefined || Y[c.v] === undefined) continue;
-    const f = (isLane(c.u) ? (c.u === L ? 1 : 0) : D.trans[L][c.u] || 0) * (D.wf[i] + D.wb[i]); if (f < 2e-3) continue;
-    const th = Math.max(dpr, f * scale); rib.push({ L, i, c, th }); tot[c.u].out += th; tot[c.v].in += th;
-  }
-  const off = {}; for (const k in Y) off[k] = { in: -tot[k].in / 2, out: -tot[k].out / 2 };
-  for (const r of rib) {
-    const { L, i, c, th } = r, x0 = colX(depth[c.u]) + 0.035 * W, x1 = colX(depth[c.v]) - 0.035 * W;
-    const y0 = Y[c.u] + off[c.u].out + th / 2, y1 = Y[c.v] + off[c.v].in + th / 2; off[c.u].out += th; off[c.v].in += th;
-    const back = x1 <= x0 || D.wb[i] > D.wf[i];
-    g.strokeStyle = D.loopC.has(i) || back ? PAL.caution : L === 'BODY' ? PAL['scr-value'] : PAL['scr-marker'];
-    g.globalAlpha = 0.5; g.lineWidth = th;
-    if (back) g.setLineDash([6 * dpr, 4 * dpr]);
-    g.beginPath(); g.moveTo(x0, y0); g.bezierCurveTo((x0 + x1) / 2, y0, (x0 + x1) / 2, y1, x1, y1); g.stroke(); g.setLineDash([]);
-  }
-  g.globalAlpha = 1;
-  // nodes (only those a lane reaches), lanes, OUT; asleep ones dashed
-  const bw = Math.min(56, W / dpr / 10) * dpr, bh = 2.4 * fs * dpr;
-  for (const t of used) drawNodeBox(g, D, t, colX(depth[t]), Y[t], bw, bh, dpr, fs);
-  g.font = `bold ${fs * dpr}px ui-monospace,Menlo,monospace`;
-  for (const [k, ink] of [['BODY', PAL['scr-value']], ['SUB', PAL['scr-marker']], ['OUT', PAL['scr-meter']]]) { g.fillStyle = ink; g.fillText(NAME[k], colX(depth[k]), Y[k]); }
-  // what the flow view cannot draw as a ribbon: waits and the rules, as notes along the foot
-  const notes = [];
-  if (D.held) D.held.forEach((h, i) => { if (h) notes.push('waiting ' + CABLES[i].k.replace('>', '→') + ' (' + h + ')'); });
-  if (D.loopC.size) notes.push('live loop: ' + [...D.loopC].map(i => CABLES[i].k.replace('>', '→')).join(' '));
-  notes.push('✕ Sc→Sl unavailable · Sc→Bw E1 only');
-  g.fillStyle = notes.length > 1 ? PAL.caution : PAL.dim; g.font = `${(fs - 1) * dpr}px ui-monospace,Menlo,monospace`; g.textAlign = 'left';
-  g.fillText(notes.join(' · '), 0.02 * W, 0.96 * H);
-}
-/* PANEL — a Eurorack case: panels with jacks, patch cables sagging under gravity */
-function paintPanel(g, D, W, H, dpr) {
-  const fs = fsFor(W, dpr), mods = ['IN'].concat(TYPES, ['OUT']), pw = W / mods.length, top = 0.1 * H, ph = 0.62 * H;
-  const px = j => j * pw + pw / 2;
-  const jack = (k, dir) => {   // dir 'out' (upper jack) or 'in' (lower jack)
-    if (k === 'BODY') return [px(0), top + ph * 0.3]; if (k === 'SUB') return [px(0), top + ph * 0.62]; if (k === 'OUT') return [px(mods.length - 1), top + ph * 0.62];
-    const j = 1 + HOUSE[k]; return [px(j), top + ph * (dir === 'out' ? 0.3 : 0.75)];
-  };
-  g.textAlign = 'center'; g.textBaseline = 'middle';
-  mods.forEach((m, j) => {
-    const x = j * pw + 2 * dpr, asleep = TYPES.includes(m) && D.asleep(m);
-    g.fillStyle = PAL['scr-tube']; g.fillRect(x, top, pw - 4 * dpr, ph);
-    g.strokeStyle = asleep ? PAL.dim : PAL['scr-grid']; g.globalAlpha = asleep ? 0.5 : 0.9; g.lineWidth = dpr; if (asleep) g.setLineDash([3 * dpr, 3 * dpr]); g.strokeRect(x, top, pw - 4 * dpr, ph); g.setLineDash([]); g.globalAlpha = 1;
-    g.font = `bold ${fs * dpr}px ui-monospace,Menlo,monospace`; g.fillStyle = TYPES.includes(m) ? (asleep ? PAL.dim : PAL['scr-physics']) : PAL['scr-meter'];
-    g.fillText(TYPES.includes(m) ? SHORT[m] + (m === 'DYN' && D.mb ? '‖2' : '') : m, px(j), top + 0.08 * ph);
-    if (TYPES.includes(m)) {   // the LED: lit = awake
-      g.fillStyle = asleep ? PAL.dim : PAL['scr-meter']; g.globalAlpha = asleep ? 0.4 : 1; g.beginPath(); g.arc(px(j), top + 0.17 * ph, 2.5 * dpr, 0, 7); g.fill(); g.globalAlpha = 1;
-      g.font = `${(fs - 2) * dpr}px ui-monospace,Menlo,monospace`; g.fillStyle = PAL.dim; g.fillText('OUT', px(j), top + 0.39 * ph); g.fillText('IN', px(j), top + 0.85 * ph); g.fillText(COST[m] + 'pt', px(j), top + 0.95 * ph);
-    }
-  });
-  // jacks
-  const jacks = [['BODY', 'out'], ['SUB', 'out'], ['OUT', 'in']].concat(TYPES.flatMap(t => [[t, 'out'], [t, 'in']]));
-  for (const [k, d] of jacks) { const [x, y] = jack(k, d); g.fillStyle = PAL.bg; g.strokeStyle = PAL['scr-grid']; g.lineWidth = 1.5 * dpr; g.beginPath(); g.arc(x, y, 4 * dpr, 0, 7); g.fill(); g.stroke(); }
-  // the rules, as notes under the case (cables there would hang through every panel)
-  g.font = `${(fs - 1) * dpr}px ui-monospace,Menlo,monospace`; g.fillStyle = PAL.caution; g.fillText('✕ Scape OUT → Sluice IN is unavailable · Scape → Bulwark only as E1 (Bulwark last)', W / 2, 0.97 * H);
-  // patch cables: sag grows with the span
-  const geo = i => { const c = CABLES[i], [x0, y0] = jack(c.u, 'out'), [x1, y1] = jack(c.v, 'in'), span = Math.hypot(x1 - x0, y1 - y0);
-    return [x0, y0, (x0 + x1) / 2, Math.max(y0, y1) + 0.35 * span, x1, y1]; };
-  for (let i = 0; i < NC; i++) drawWaiting(g, D, i, geo(i), dpr);
-  for (let i = 0; i < NC; i++) drawCable(g, D, i, geo(i), dpr, 0.9, false);
-}
-/* ROLL — the cable roll: rows = cables alive in the window, time left → right */
-function rollPush(D) {
-  if (REDUCED && ROLL.cols.length && !dirty) return;          // reduced motion: the roll moves only when the state does
-  const col = new Float32Array(NC * 2); for (let i = 0; i < NC; i++) { col[2 * i] = D.wf[i]; col[2 * i + 1] = D.wb[i]; }
-  const flags = { loop: new Set(D.loopC), held: D.held ? D.held.slice() : null, asleep: TYPES.filter(t => D.asleep(t)) };
-  ROLL.cols.push({ col, flags }); if (ROLL.cols.length > ROLL_N) ROLL.cols.shift();
-}
-function paintRoll(g, D, W, H, dpr) {
-  const fs = fsFor(W, dpr), rows = [];
-  for (let i = 0; i < NC; i++) if (ROLL.cols.some(c => c.col[2 * i] + c.col[2 * i + 1] > 0.003 || (c.flags.held && c.flags.held[i]))) rows.push(i);
-  const m0 = 7 * fs * dpr, rh = Math.min(16 * dpr, (H - 2.2 * fs * dpr) / Math.max(1, rows.length)), cw = (W - m0) / ROLL_N, x0 = W - ROLL.cols.length * cw;
-  g.textAlign = 'right'; g.textBaseline = 'middle'; g.font = `${(fs - 1) * dpr}px ui-monospace,Menlo,monospace`;
-  rows.forEach((i, r) => {
-    const y = r * rh, c = CABLES[i], sleepy = !isLane(c.u) && D.asleep(c.u);
-    g.fillStyle = BANNED[c.k] ? PAL.caution : sleepy ? PAL.dim : inkOf(D, i);
-    g.fillText(SHORT[c.u] + '→' + SHORT[c.v] + (c.k === 'REV>DYN' ? ' E1' : ''), m0 - 4 * dpr, y + rh / 2);
-    ROLL.cols.forEach((k, j) => {
-      const wf = k.col[2 * i], wb = k.col[2 * i + 1], x = x0 + j * cw;
-      if (wf > 0.003) { g.fillStyle = k.flags.loop.has(i) ? PAL.caution : inkOf(D, i); g.globalAlpha = 0.12 + 0.88 * Math.min(1, wf); g.fillRect(x, y + 1, cw + 0.6, rh - 2); }
-      if (wb > 0.003) { g.fillStyle = PAL.caution; g.globalAlpha = 0.2 + 0.8 * Math.min(1, wb); g.fillRect(x, y + rh * 0.55, cw + 0.6, rh * 0.4); }
-      if (k.flags.held && k.flags.held[i]) { g.fillStyle = PAL.caution; g.globalAlpha = 0.9; g.fillRect(x, y + rh / 2 - 0.5 * dpr, cw + 0.6, dpr); }
-    });
-    g.globalAlpha = 1;
-  });
-  g.textAlign = 'left'; g.fillStyle = PAL.dim;
-  g.fillText(`now → (right edge) · ${ROLL_N} frames · asleep now: ${TYPES.filter(t => D.asleep(t)).map(t => SHORT[t]).join(' ') || 'none'} · ✕ Sc→Sl never appears`, 2 * dpr, H - fs * dpr);
-}
-function paintCables(vs) {
-  const c = $('cableC'), dpr = fit(c), g = c.getContext('2d'), W = c.width, H = c.height;
+const nodeLabel = (id, mb) => isLane(id) || id === 'OUT' || id === 'IN' ? (NAME[id] || id) : NAME[id].split(' ')[0] + (id === 'DYN' && mb ? ' ‖2' : '');
+/* RACK */
+function paintRack(sc, D, live) {
+  const c = $('rackC'), dpr = fit(c), g = c.getContext('2d'), W = c.width, H = c.height, mid = H / 2, bw = sc.colW * W * 0.82, bh = Math.min(22 * dpr, H * 0.12);
   g.clearRect(0, 0, W, H);
-  const D = cableData(vs);
-  if (LAYOUT === 'roll' || ROLL.cols.length) rollPush(D);
-  ({ ring: paintRing, rack: paintRack, matrix: paintMatrix, flow: paintFlow, panel: paintPanel, roll: paintRoll }[LAYOUT] || paintRing)(g, D, W, H, dpr);
-  g.globalAlpha = 1; g.setLineDash([]);
+  const half = (x0, x1, up, h) => () => { const cx = (x0 + x1) / 2 * W, rx = Math.abs(x1 - x0) / 2 * W, ry = h * H; g.beginPath(); g.ellipse(cx, mid + (up ? -bh / 2 : bh / 2), rx, ry, 0, Math.PI, up ? 2 * Math.PI : 0, !up); };
+  for (const r of sc.rules) strokeRule(g, r, half(r.x0, r.x1, r.up, r.h), [(r.x0 + r.x1) / 2 * W, mid + (r.up ? -1 : 1) * (bh / 2 + r.h * H)], dpr);
+  for (const e of sc.arcs) {
+    strokeCable(g, e, half(e.x0, e.x1, e.up, e.h), dpr);
+    const w = e.wf + e.wb; if (w < VIEW_MIN) continue;
+    // arrowhead where it lands, and the flow: a few dots along the arc (still under reduced motion)
+    const xe = e.x1 * W, ye = mid + (e.up ? -bh / 2 : bh / 2), s = (2.5 + 2.5 * Math.min(1, w)) * dpr, dirx = e.up ? 1 : -1;
+    g.fillStyle = inkFor(e.u); g.globalAlpha = wA(w); g.beginPath(); g.moveTo(xe, ye); g.lineTo(xe - s * 0.8 * dirx, ye + (e.up ? -1.6 : 1.6) * s); g.lineTo(xe + s * 0.8 * dirx, ye + (e.up ? -1.6 : 1.6) * s); g.fill();
+    if (e.wb >= VIEW_MIN) { g.globalAlpha = 1; labelChip(g, 'z⁻¹', (e.x0 + e.x1) / 2 * W, mid + (e.up ? -1 : 1) * (bh / 2 + e.h * H), PAL.caution, dpr, 8); }
+    if (live && !REDUCED) { const cx = (e.x0 + e.x1) / 2 * W, rx = Math.abs(e.x1 - e.x0) / 2 * W, ry = e.h * H, cyy = mid + (e.up ? -bh / 2 : bh / 2), ph = (flowT * 0.004) % 1;
+      g.fillStyle = PAL['scr-meter']; g.globalAlpha = 0.7 * wA(w);
+      for (let q = 0; q < 3; q++) { const t = (ph + q / 3) % 1, ang = e.up ? Math.PI + (e.x1 > e.x0 ? t : 1 - t) * Math.PI : (e.x1 > e.x0 ? 1 - t : t) * Math.PI; g.beginPath(); g.arc(cx + rx * Math.cos(ang), cyy + (e.up ? -1 : 1) * ry * Math.abs(Math.sin(ang)), 1.6 * dpr, 0, 7); g.fill(); } }
+    g.globalAlpha = 1;
+  }
+  g.strokeStyle = PAL['scr-grid']; g.globalAlpha = 0.25; g.lineWidth = dpr; g.beginPath(); g.moveTo(0, mid); g.lineTo(W, mid); g.stroke(); g.globalAlpha = 1;
+  const px = W / dpr < 560 ? 7.5 : 9;
+  for (const nd of sc.nodes) {
+    const x = nd.x * W, ink = inkFor(nd.id);
+    g.fillStyle = PAL['scr-tube']; g.fillRect(x - bw / 2, mid - bh / 2, bw, bh);
+    g.strokeStyle = ink; g.globalAlpha = nd.asleep ? 0.45 : 1; g.lineWidth = (nd.asleep ? 1 : 1.8) * dpr; if (nd.asleep) g.setLineDash([2.5 * dpr, 2.5 * dpr]);
+    g.strokeRect(x - bw / 2, mid - bh / 2, bw, bh); g.setLineDash([]);
+    g.fillStyle = ink; g.font = vFont(px, dpr, true); g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(W / dpr < 560 ? (SHORT[nd.id] || nd.id) : nodeLabel(nd.id, D.mb), x, mid + 0.5 * dpr); g.globalAlpha = 1;
+  }
+  g.fillStyle = PAL.dim; g.font = vFont(8, dpr); g.textAlign = 'left'; g.textBaseline = 'top'; g.fillText('left → right ↑', 4 * dpr, 4 * dpr); g.textBaseline = 'bottom'; g.fillText('right → left ↓', 4 * dpr, H - 3 * dpr);
 }
+/* MATRIX */
+function paintMatrix(sc, D) {
+  const c = $('matrixC'), dpr = fit(c), g = c.getContext('2d'), W = c.width, H = c.height;
+  g.clearRect(0, 0, W, H);
+  const nr = sc.rows.length, nc = sc.cols.length, hx = Math.min(30 * dpr, W * 0.12), hy = Math.min(22 * dpr, H * 0.09);
+  const cw = (W - hx - 2 * dpr) / nc, ch = (H - hy - 2 * dpr) / nr, gap = Math.max(1.5 * dpr, Math.min(cw, ch) * 0.07), px = Math.min(9, cw / dpr / 2.6);
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  sc.cols.forEach((v, j) => { const asl = sc.asleep[v]; g.font = vFont(px, dpr, true); g.fillStyle = inkFor(v); g.globalAlpha = asl ? 0.45 : 1; g.fillText(SHORT[v], hx + (j + 0.5) * cw, hy * 0.5); });
+  sc.rows.forEach((u, r) => { const asl = sc.asleep[u]; g.fillStyle = inkFor(u); g.globalAlpha = asl ? 0.45 : 1; g.fillText(SHORT[u], hx * 0.5, hy + (r + 0.5) * ch); });
+  g.globalAlpha = 1;
+  for (const e of sc.cells) {
+    const x = hx + e.c * cw + gap / 2, y = hy + e.r * ch + gap / 2, w = cw - gap, h = ch - gap, rr = Math.min(3 * dpr, w / 5);
+    const box = () => { g.beginPath(); if (g.roundRect) g.roundRect(x, y, w, h, rr); else g.rect(x, y, w, h); };
+    if (e.self) { g.fillStyle = PAL['scr-grid']; g.globalAlpha = 0.08; box(); g.fill(); g.globalAlpha = 1; continue; }
+    g.strokeStyle = PAL['scr-grid']; g.globalAlpha = 0.22; g.lineWidth = dpr; box(); g.stroke(); g.globalAlpha = 1;
+    if (e.rule) {   // the rules: fine diagonal hatching, amber for ✕ (unavailable), dim for E1 (conditional)
+      g.save(); box(); g.clip(); g.strokeStyle = e.rule === '✕' ? PAL.caution : PAL.dim; g.globalAlpha = 0.45; g.lineWidth = 0.8 * dpr;
+      for (let d = -h; d < w; d += 4 * dpr) { g.beginPath(); g.moveTo(x + d, y + h); g.lineTo(x + d + h, y); g.stroke(); } g.restore();
+      g.fillStyle = e.rule === '✕' ? PAL.caution : PAL.dim; g.font = vFont(px * 0.9, dpr, true); g.fillText(e.rule, x + w / 2, y + h / 2);
+    }
+    const tot = e.wf + e.wb;
+    if (tot >= VIEW_MIN) {
+      if (e.loop) { g.strokeStyle = PAL.caution; g.globalAlpha = 0.45; g.lineWidth = 4 * dpr; box(); g.stroke(); }
+      g.fillStyle = inkFor(e.u); g.globalAlpha = wA(e.wf) * (e.wf >= VIEW_MIN ? 1 : 0); box(); g.fill();
+      if (e.wb >= VIEW_MIN) {   // the backward part: a dashed band along the cell's foot
+        g.globalAlpha = wA(e.wb); g.setLineDash([3 * dpr, 2 * dpr]); g.strokeStyle = inkFor(e.u); g.lineWidth = Math.max(2 * dpr, h * 0.18); g.beginPath(); g.moveTo(x + 2 * dpr, y + h * 0.85); g.lineTo(x + w - 2 * dpr, y + h * 0.85); g.stroke(); g.setLineDash([]);
+      }
+      g.globalAlpha = 1;
+      if (w > 22 * dpr) { g.fillStyle = Math.min(1, e.wf) > 0.55 ? PAL['scr-tube'] : PAL.text; g.font = vFont(px * 0.85, dpr); g.fillText(tot >= 0.995 ? '1' : tot.toFixed(2).replace(/^0/, ''), x + w / 2, y + h / 2); }
+    }
+    if (e.held) { g.setLineDash([1.5 * dpr, 2.5 * dpr]); g.strokeStyle = PAL.caution; g.lineWidth = 1.6 * dpr; box(); g.stroke(); g.setLineDash([]); }
+  }
+  g.fillStyle = PAL.dim; g.font = vFont(Math.max(7, px - 1), dpr); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('↓→', hx * 0.5, hy * 0.5);   // row = from, column = to
+}
+/* PANEL */
+function paintPanel(sc, D) {
+  const c = $('panelC'), dpr = fit(c), g = c.getContext('2d'), W = c.width, H = c.height, top = 0.08 * H, bot = 0.86 * H, pw = sc.colW * W;
+  g.clearRect(0, 0, W, H);
+  const Y = y => top + (bot - top) * (y - 0.08) / 0.78, px = Math.min(9, pw / dpr / 3.2), jr = Math.min(4.5 * dpr, pw * 0.16);
+  // panels
+  for (const m of sc.mods) {
+    const x = m.x * W, ink = TYPES.includes(m.id) ? inkFor(m.id) : PAL['scr-meter'];
+    g.fillStyle = PAL['scr-tube']; g.fillRect(x - pw / 2 + 1.5 * dpr, top, pw - 3 * dpr, bot - top);
+    g.strokeStyle = PAL['scr-grid']; g.globalAlpha = 0.5; g.lineWidth = dpr; g.strokeRect(x - pw / 2 + 1.5 * dpr, top, pw - 3 * dpr, bot - top);
+    g.globalAlpha = m.asleep ? 0.35 : 1; g.fillStyle = ink; g.fillRect(x - pw / 2 + 1.5 * dpr, top, pw - 3 * dpr, 3 * dpr);        // the module's colour stripe
+    g.font = vFont(px, dpr, true); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(TYPES.includes(m.id) ? SHORT[m.id] + (m.id === 'DYN' && D.mb ? '‖2' : '') : m.id, x, top + 0.07 * (bot - top));
+    if (TYPES.includes(m.id)) {   // the LED: lit in the module's colour when awake, dark when asleep
+      const ly = top + 0.15 * (bot - top);
+      if (!m.asleep) { g.fillStyle = ink; g.globalAlpha = 0.3; g.beginPath(); g.arc(x, ly, 5 * dpr, 0, 7); g.fill(); }
+      g.globalAlpha = 1; g.fillStyle = m.asleep ? PAL['scr-grid'] : ink; g.beginPath(); g.arc(x, ly, 2.4 * dpr, 0, 7); g.fill();
+      g.fillStyle = PAL.dim; g.font = vFont(Math.max(6.5, px - 2), dpr); g.fillText(COST[m.id] + 'pt', x, bot - 0.04 * (bot - top));
+    }
+    g.globalAlpha = 1;
+  }
+  // cords: a sag curve (cubic, both handles dropped), plug ends; rules as faint dotted cords
+  const cordPath = e => () => { const [ax, ay] = [e.a[0] * W, Y(e.a[1])], [bx, by] = [e.b[0] * W, Y(e.b[1])], s = e.sag * H;
+    g.beginPath(); g.moveTo(ax, ay); g.bezierCurveTo(ax + (bx - ax) * 0.15, Math.max(ay, by) + s, bx - (bx - ax) * 0.15, Math.max(ay, by) + s, bx, by); };
+  for (const e of sc.cords) {
+    const w = e.wf + e.wb;
+    if (w >= VIEW_MIN) { g.strokeStyle = PAL.bg; g.globalAlpha = 0.6; g.lineWidth = wW(w, dpr) + 2 * dpr; cordPath(e)(); g.stroke(); g.globalAlpha = 1; }   // a dark sheath, so crossing cords read as cords
+    strokeCable(g, e, cordPath(e), dpr);
+  }
+  // the rules, then jacks and their captions, LAST: nothing covers them
+  for (const r of sc.rules) { const mx = (r.a[0] + r.b[0]) / 2 * W, my = Math.max(Y(r.a[1]), Y(r.b[1])) + 0.75 * r.sag * H; strokeRule(g, r, cordPath(r), [mx, my], dpr); }
+  const jacks = [['BODY', 'out', 'Body'], ['SUB', 'out', 'Sub'], ['OUT', 'in', 'in']].concat(TYPES.flatMap(t => [[t, 'out', 'out'], [t, 'in', 'in']]));
+  for (const [k, d, cap] of jacks) {
+    const [jx, jy0] = panelJack(k, d), x = jx * W, y = Y(jy0), plugged = sc.cords.some(e => (d === 'out' ? e.u : e.v) === k && e.wf + e.wb >= VIEW_MIN);
+    g.fillStyle = PAL.bg; g.strokeStyle = plugged ? inkFor(k === 'OUT' ? 'OUT' : k) : PAL['scr-grid']; g.lineWidth = 1.6 * dpr; g.beginPath(); g.arc(x, y, jr, 0, 7); g.fill(); g.stroke();
+    if (plugged) { g.fillStyle = inkFor(k); g.beginPath(); g.arc(x, y, jr * 0.45, 0, 7); g.fill(); }
+    g.fillStyle = PAL.dim; g.font = vFont(Math.max(6.5, px - 2), dpr); g.textAlign = 'center'; g.textBaseline = 'bottom'; g.fillText(cap, x, y - jr - 2 * dpr);
+  }
+}
+/* the three, every frame, from one state */
+function paintCables(vs) {
+  const r3 = vs.R instanceof Cables, wf = r3 ? vs.R.wf : r2Cables(vs.R), wb = r3 ? vs.R.wb : new Float64Array(NC);
+  const D = r3 ? viewDataOf(vs.R, vs.E) : (() => { const fed = {}; for (const t of TYPES) fed[t] = INTO[t].some(i => wf[i] > VIEW_MIN); return { wf, wb, held: null, loops: new Set(), asleep: t => vs.E && vs.E.asleep ? vs.E.asleep[t] : !fed[t], mb: false }; })();
+  paintRack(rackScene(D), D, vs.live); paintMatrix(matrixScene(D), D); paintPanel(panelScene(D), D);
+}
+function renderViewLegend() {
+  const sw = (ink, txt) => `<span style="white-space:nowrap"><i style="background:${ink}"></i>${txt}</span>`;
+  $('cableLegend').innerHTML = `<b>One state, three views.</b> A cable wears its source's colour: ` + TYPES.map(t => sw(MOD_INK[dark ? 'dark' : 'light'][t], SHORT[t])).join(' ') +
+    ` ${sw('var(--value)', 'Body')} ${sw('var(--marker)', 'Sub')}. <b>Thicker and more opaque</b> = more weight. <b>Dashed</b> = a backward part (one sample late, z⁻¹).
+    <span style="color:var(--caution-tx)"><b>Amber halo</b> = a live loop · <b>amber dots</b> = a waiting cable · <b>hatched / ✕</b> = Scape → Sluice, unavailable</span> · E1 = Scape → Bulwark only as the last module.
+    Dashed boxes and dark LEDs are asleep. RACK: left → right above, right → left below. MATRIX: row = from, column = to. PANEL: OUT jack (upper) to IN jack (lower).`;
+}
+
 function paintAt() { VS = viewState(); paintPad(); paintCables(VS); renderLive(VS); }
 function renderRec() {
   $('rec').innerHTML = `
   <p><b>How to listen.</b> Press <b>POWER</b> (a saw chord on Body, a sine an octave down on Sub; <b>PULSE</b> gates the chord so tails and sleep are audible;
     <b>SINE PROBE</b> swaps the lanes for sines, where a click has nothing to hide behind). Drag the puck, or press <b>SWEEP</b>. Flip <b>A/B</b> to round 2 and back,
-    and <b>LOOPS</b> between (a) and (b) on a reorder. Pick a <b>LAYOUT</b> for the cables (RING, RACK, MATRIX, FLOW, PANEL, ROLL; it is remembered). The output line
-    shows sample PEAK and TRUE PEAK, held 2 s; nothing limits it.</p>
+    and <b>LOOPS</b> between (a) and (b) on a reorder. The cables are drawn three ways at once — <b>RACK</b>, <b>MATRIX</b>, <b>PANEL</b> — from one state; with
+    POWER off they still glide as you move the puck (the view's own router). The output line shows sample PEAK and TRUE PEAK, held 2 s; nothing limits it.</p>
   <p><b>Round 3 follow-up (after the human's listening pass on #980)</b> — each is a self-check row or a measured figure:</p>
   <ol class="q">
     <li><b>The Filter ↔ Drive reversal click was a two-node loop.</b> In (a) the reversed cable came in at once on a backward part, so Drive fed Filter one tick late
@@ -2772,7 +2774,8 @@ function renderRec() {
   </ol>
   <p><b>Open for the listening pass.</b></p>
   <ol class="q">
-    <li><b>Which layout lands?</b> Six views of one cable state; the choice persists. Which to keep, which to drop, what to merge.</li>
+    <li><b>The three views (round 3c)</b>: RACK, MATRIX and PANEL, kept from #982's six on your verdict, now all visible and checked against the engine (self-check 12).
+      Each module has one colour in all three — a departure from ADR-116's colour roles, marked in the code. Is the palette right, and is the PANEL's cord sag convincing?</li>
     <li><b>p = 1</b> is a lab default changed on measurement; D8 leaves p to your ear, and a product default change would need an ADR and a migration (ADR-197).</li>
     <li><b>Is the demo still muddy?</b> The levels are clean by the numbers; the stand-ins are crude (one-pole tone, Schroeder reverb), and the four presets stack a
       lowpass, two delays and a reverb by design.</li>
@@ -2825,14 +2828,14 @@ function frame() {
   if (dirty) { paintAt(); dirty = false; }
   else if (live && frameN % 3 === 0) paintAt();
   else if (live) { VS = viewState(); paintCables(VS); }
-  else if (VS && (!REDUCED || LAYOUT === 'roll')) paintCables(VS);
+  else { VS = viewState(); paintCables(VS); if (frameN % 6 === 0) renderLive(VS); }
   paintScope(); paintMeter();
   requestAnimationFrame(frame);
 }
 function applyTheme() {
   document.body.classList.toggle('dark', dark);
   $('themeBtn').innerHTML = 'theme <b>' + (dark ? 'DARK · TUBE' : 'LIGHT · ORCHID') + '</b>';
-  readPal(); dirty = true; paintAt();
+  readPal(); renderViewLegend(); dirty = true; paintAt();
 }
 function setOpt(patch, resettle) { o = Object.assign({}, o, patch); recompute(resettle); }
 /* sliders: coalesce a drag into one recompute per 40 ms */
@@ -2882,7 +2885,6 @@ document.addEventListener('click', e => {
   else if (box === 'pPills') setOpt({ p: +k });
   else if (box === 'kPills') setOpt({ K: +k });
   else if (box === 'pathPills') { sweepId = k; renderControls(); dirty = true; }
-  else if (box === 'layoutPills') setLayout(k);
 });
 function padAt(e) {
   const r = $('pad').getBoundingClientRect(), m = 14;
@@ -2893,8 +2895,10 @@ window.addEventListener('pointermove', e => { if (dragPad) padAt(e); });
 window.addEventListener('pointerup', () => { dragPad = false; });
 window.addEventListener('resize', () => { dirty = true; });
 if (qb('adv', false)) $('advBox').open = true;
+/* review links: ?to=x,y moves the puck shortly after load, so a screenshot can catch the views mid-transition */
+if (qv('to', null)) { const [tx, ty] = qv('to', '').split(',').map(Number); if (isFinite(tx) && isFinite(ty)) setTimeout(() => { PX = clamp01(tx); PY = clamp01(ty); dirty = true; if (qv('hold', null) && VR) HOLD_AT = VR.n; }, +qv('after', '400')); }
 
-readPal(); renderLayoutCtl(); recompute(); applyTheme(); startCheck();
+readPal(); renderViewLegend(); recompute(); applyTheme(); startCheck();
 requestAnimationFrame(frame);
 </script>
 </body></html>
