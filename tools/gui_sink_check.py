@@ -28,6 +28,11 @@ page's inline scripts, and no 'unsafe-inline', 'unsafe-eval', scheme or remote
 origin anywhere. Whether the policy then HOLDS at run time is
 tools/gui_webview_check's business (a real WKWebView); this is its static half.
 
+URL CHANGES (B446 D-S5). In src/gui/gui*.html there is no pushState,
+replaceState, location.hash or href="#…": the Windows bridge admits messages by
+the sending document's URL, macOS by main frame, and the page must not move its
+own URL. Planted cases of each are flagged, and an ordinary href is not.
+
 MUST-FAIL CONTROLS, on in-memory text every run: a planted `el.innerHTML = name`,
 a planted concatenation and template with a variable, each other sink, and the
 pre-fix corner-dropdown line are all flagged; literal sinks (plain, joined
@@ -56,6 +61,22 @@ EXCEPTIONS = [
 
 _ASSIGN = re.compile(r"\.(innerHTML|outerHTML)\s*(\+?=)(?!=)")
 _CALL = re.compile(r"(\binsertAdjacentHTML|\bdocument\s*\.\s*write(?:ln)?)\s*\(")
+
+# SAME-DOCUMENT URL CHANGES (B446 D-S5). The bridge admits messages only from the
+# embedded page. On Windows that is a match on the sending document's URL
+# (src/gui/embedded_page_policy.h; a #fragment is tolerated, nothing else); macOS
+# checks the main frame (hypersaw_gui.mm). A page that rewrites its own URL with
+# pushState/replaceState, or moves it with location.hash or an href="#…" link,
+# would make the Windows check depend on margins it should not need. The pages
+# need none of these, so none may appear in src/gui/gui*.html, comments included
+# (fail closed: a mention is cheaper to reword than to argue about).
+_URL_CHANGE = re.compile(r"\b(?:pushState|replaceState)\b|\blocation\s*\.\s*hash\b|\bhref\s*=\s*[\"']#")
+
+
+def url_changes(name, src):
+    """['name:line: match'] for every same-document URL change in `src`."""
+    return [f"{name}:{src.count(chr(10), 0, m.start()) + 1}: {m.group(0)}"
+            for m in _URL_CHANGE.finditer(src)]
 
 
 def _skip_string(src, i):
@@ -242,6 +263,19 @@ def controls():
         ("comparison is not a sink", "if (el.innerHTML === name) x = 1;", False),
     ]
     out = [(f"sink: {label}", flagged(src) == want) for label, src, want in cases]
+    url_cases = [
+        ("history.pushState", "history.pushState({}, '', '/x');", True),
+        ("history.replaceState", "history.replaceState(null, '', '#a');", True),
+        ("location.hash assignment", "location.hash = 'tab2';", True),
+        ("window.location.hash read", "const t = window.location.hash;", True),
+        ("href=\"#…\" link", "<a href=\"#top\">top</a>", True),
+        ("href='#' link", "<a href='#'>x</a>", True),
+        ("an ordinary href", "<a href=\"https://example.invalid/\">x</a>", False),
+        ("a variable called hash", "const hash = sha(x); location.reload;", False),
+        ("a data-href attribute", "<b data-x=\"#fff\" style=\"color:#fff\">x</b>", False),
+    ]
+    out += [(f"url change: {label}", bool(url_changes("plant.html", src)) == want)
+            for label, src, want in url_cases]
     # an exception matches by statement and is reported when unused
     bad, used = findings("plant.html", "el.innerHTML = rt;", [("plant.html", "el.innerHTML = rt", "r")])
     out.append(("exception excuses its own statement", not bad and used == {"el.innerHTML = rt"}))
@@ -291,6 +325,12 @@ def main(argv):
         for p in policy_problems(f.name, src):
             print(f"gui_sink_check: POLICY {p}", file=sys.stderr)
             red = True
+        if f.name.startswith("gui"):
+            for u in url_changes(f.name, src):
+                print(f"gui_sink_check: same-document URL change {u}", file=sys.stderr)
+                print("    the bridge admits messages by document URL on Windows; keep the page's URL fixed",
+                      file=sys.stderr)
+                red = True
     if not argv:   # unused exceptions are judged only on the real tree
         for name, stmt, _ in EXCEPTIONS:
             if (name, stmt) not in used_all:

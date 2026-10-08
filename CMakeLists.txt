@@ -54,6 +54,36 @@ set(CLAP_WRAPPER_DOWNLOAD_DEPENDENCIES OFF CACHE BOOL "" FORCE)
 add_subdirectory(libs/clap EXCLUDE_FROM_ALL)
 add_subdirectory(libs/clap-wrapper EXCLUDE_FROM_ALL)
 
+# choc, PATCHED (B446, ADR-194 D-S5): the WebView2 backend gains an
+# allowNavigation option, which the Windows GUI uses to admit only its embedded
+# page. libs/choc stays the upstream pin; the patch is applied at configure time
+# to a copy in the build tree, and the configure STOPS if it no longer applies
+# (libs/patches/README.md). Every choc include in our code is therefore
+# `<choc/...>` through HS_CHOC_DIR, never a relative path into libs/choc, which
+# would compile the unpatched header; tools/choc_patch_check.py enforces that.
+set(HS_CHOC_DIR ${CMAKE_CURRENT_BINARY_DIR}/choc-patched)
+set(HS_CHOC_PATCH ${CMAKE_CURRENT_SOURCE_DIR}/libs/patches/choc-webview2-navigation.patch)
+execute_process(COMMAND ${CMAKE_COMMAND} -DSRC=${CMAKE_CURRENT_SOURCE_DIR}/libs/choc/choc
+                        -DOUT=${HS_CHOC_DIR} -DPATCH=${HS_CHOC_PATCH}
+                        -P ${CMAKE_CURRENT_SOURCE_DIR}/libs/patches/apply_patch.cmake
+                RESULT_VARIABLE HS_CHOC_RC)
+if(NOT HS_CHOC_RC EQUAL 0)
+  message(FATAL_ERROR "choc patch not applied (see the error above); refusing to configure")
+endif()
+# Re-run the copy-and-patch when anything it copies changes, not only the
+# patched header: a choc bump that leaves choc_WebView.h alone still changes the
+# copy. The submodule's HEAD file covers a bump that adds files the glob has not
+# seen yet (a detached submodule's HEAD holds the pinned commit).
+file(GLOB_RECURSE HS_CHOC_FILES ${CMAKE_CURRENT_SOURCE_DIR}/libs/choc/choc/*)
+execute_process(COMMAND git -C ${CMAKE_CURRENT_SOURCE_DIR}/libs/choc rev-parse --path-format=absolute --git-path HEAD
+                OUTPUT_VARIABLE HS_CHOC_HEAD OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+if(HS_CHOC_HEAD AND EXISTS "${HS_CHOC_HEAD}")
+  list(APPEND HS_CHOC_FILES ${HS_CHOC_HEAD})
+endif()
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+             ${HS_CHOC_PATCH} ${CMAKE_CURRENT_SOURCE_DIR}/libs/patches/apply_patch.cmake
+             ${HS_CHOC_FILES})
+
 # GUI HTML is embedded at build time (self-contained bundle, no file deps).
 # find_package resolves the interpreter portably — bare `python3` is absent
 # from Windows CI runners' PATH (same trap family as L0003).
@@ -137,6 +167,9 @@ add_dependencies(${PROJECT_NAME}-impl hypersaw_build_stamp)
 target_include_directories(${PROJECT_NAME}-impl PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/generated
                                                         ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(${PROJECT_NAME}-impl PUBLIC clap clap-wrapper-extensions)
+# PUBLIC: checks that link the impl and include choc must see the same patched
+# header, or one binary would hold two definitions of WebView::Options.
+target_include_directories(${PROJECT_NAME}-impl PUBLIC ${HS_CHOC_DIR})
 if(APPLE)
   target_sources(${PROJECT_NAME}-impl PRIVATE src/gui/hypersaw_gui.mm ${GUI_HTML_HEADER}
                                               ${FACTORY_BANK_HEADER})

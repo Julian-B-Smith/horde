@@ -56,7 +56,7 @@
 #include <vector>
 
 #include "../src/hypersaw_clap_entry.h"
-#include "../libs/choc/choc/gui/choc_WebView.h"
+#include <choc/gui/choc_WebView.h>   // the patched copy, via the impl's include path (libs/patches)
 
 namespace
 {

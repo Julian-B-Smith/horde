@@ -12,29 +12,50 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <memory>
+#include <string>
+#include <utility>
 
 #include "hypersaw_gui_common.h"
 
 namespace hypersaw
 {
 
+/* B446 — THE WEB VIEW SHOWS ONE PAGE, AND ONLY THAT PAGE TALKS TO THE PLUGIN.
+   The Windows half of the rule hypersaw_gui.mm applies on macOS (its
+   lockToEmbeddedPage carries the reasoning). choc keeps its WebView2 object
+   private, so the rule goes through the allowNavigation option that
+   libs/patches/choc-webview2-navigation.patch adds (ADR-194 D-S5). The rule
+   itself is detail::embeddedPagePolicy (embedded_page_policy.h): one load of
+   the embedded page, no frames, no new windows, messages only from that page.
+   It is a pure function so tools/embedded_page_policy_check can test its
+   behaviour; this file only hands it to the view. Refused navigations are
+   cancelled, and refused new windows are marked handled, so none opens.
+   Runs on the message thread only, so pageState needs no lock.
+   Runtime-unverified on Windows as of 2026-10-08; see
+   traces/2026-10-08-b446-choc-win-nav.md. */
 struct HypersawGui::Impl
 {
   GuiHost host;
   std::unique_ptr<choc::ui::WebView> web;
   HWND parent = nullptr;
+  detail::EmbeddedPageState pageState;
 
   explicit Impl(GuiHost h) : host(std::move(h))
   {
     // The bind lives inside the ready callback (see makeWebView): here it runs
     // on the message loop once the WebView2 controller exists, after `web` is
     // assigned, so the body may read it.
-    web = detail::makeWebView(host, [this](choc::ui::WebView &w) {
-      w.bind("hzGrabKeys", [this](const choc::value::ValueView &) -> choc::value::Value {
-        if (HWND h = (HWND)web->getViewHandle()) SetFocus(h);
-        return {};
-      });
-    });
+    web = detail::makeWebView(
+        host,
+        [this](choc::ui::WebView &w) {
+          w.bind("hzGrabKeys", [this](const choc::value::ValueView &) -> choc::value::Value {
+            if (HWND h = (HWND)web->getViewHandle()) SetFocus(h);
+            return {};
+          });
+        },
+        [this](choc::ui::WebView::Options::NavigationType type, const std::string &uri) {
+          return detail::embeddedPagePolicy(pageState, type, uri);
+        });
   }
 };
 
