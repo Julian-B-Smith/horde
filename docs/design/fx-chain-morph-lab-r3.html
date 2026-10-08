@@ -1220,7 +1220,7 @@ function transOf(order, wf, wb, lane, only, fix) {
     for (const v of order.concat(['OUT'])) {
       if (v === fix) continue;
       let x = 0;
-      for (const i of INTO[v]) { if (only && !only[i]) continue; const c = CABLES[i], src = isLane(c.u) ? (c.u === lane ? 1 : 0) : t[c.u]; x += (wf[i] + wb[i]) * src; }
+      for (const i of INTO[v]) { const m = only ? only[i] : 1; if (!m) continue; const c = CABLES[i], src = isLane(c.u) ? (c.u === lane ? 1 : 0) : t[c.u]; x += m * (wf[i] + wb[i]) * src; }
       ch = Math.max(ch, Math.abs(x - t[v])); t[v] = x;
     }
     if (ch < 1e-12) break;
@@ -1253,7 +1253,7 @@ function Cables(M, sr, tick) {
   const F = () => new Float64Array(NC);
   Object.assign(this, { f1: F(), f2: F(), b1: F(), b2: F(), pf: F(), pb: F(), tgt: F(), tf: F(), tb: F(), T: F(), sc: F(), wf: F(), wb: F(), hold: F(), hv: F() });
   this.hs = new Uint8Array(NC); this.held = new Array(NC).fill('');
-  this.nL = { BODY: 1, SUB: 1 }; this.order = TYPES.slice(); this.prm = {}; this.wait = false; this.open = 0; this.log = [];
+  this.nL = { BODY: 1, SUB: 1 }; this.m1 = F(); this.m2 = F(); this.fresh = true; this.order = TYPES.slice(); this.prm = {}; this.wait = false; this.open = 0; this.log = [];
   this.setMorph(M);
 }
 Cables.prototype.setMorph = function (M) {
@@ -1268,7 +1268,7 @@ Cables.prototype.settle = function (st) {
   for (const t of TYPES) this.prm[t] = st.prm[t] || (this.M.U.includes(t) ? paramsAt(this.M, st.w, t) : DEF_P[t]);
   const T = targetCables(st);
   for (let i = 0; i < NC; i++) { this.T[i] = this.tgt[i] = this.tf[i] = this.f1[i] = this.f2[i] = this.pf[i] = T[i]; this.tb[i] = this.b1[i] = this.b2[i] = this.pb[i] = 0; this.hs[i] = 0; this.held[i] = ''; }
-  this.finish();
+  this.fresh = true; this.finish(); this.fresh = false;
 };
 /* reach over a node adjacency (Map node → Set), identity included */
 function reaches(adj, a, b) {
@@ -1395,15 +1395,20 @@ Cables.prototype.finish = function () {
     const B = o.loop === 'a' && o.plant !== 'nobound' && o.bound < BOUND_OFF ? o.bound : Infinity;
     const gain = cy => { let g = 1; for (const i of cy) g *= (this.f2[i] + this.sc[i] * this.b2[i]) * GMAX[CABLES[i].u]; return g; };
     for (const cy of cyc) this.loopRaw = Math.max(this.loopRaw, gain(cy));
-    /* DETERMINISTIC SCALING: a cycle over the bound scales its purely-backward cables by
-       (B/g)^(1/m) — exactly onto the bound, since the gain is linear in each of them.
+    /* DETERMINISTIC SCALING: a cycle over the bound scales the BACKWARD part of every one
+       of its cables by one factor s, found by bisection so the cycle lands on the bound
+       (the gain rises monotonically in s, and is 0 at s = 0: some cable in any cycle has
+       no forward part, or the forward graph would hold the cycle). Every backward part,
+       not only the purely backward cables: the first build scaled only those, and a cable
+       starting its backward→forward crossfade left the set and stepped 0.27 in a tick.
        Cycles share cables, so the pass repeats (each pass only lowers gains). */
     if (B < Infinity) for (let pass = 0; pass < 8; pass++) {
       let ch = false;
       for (const cy of cyc) {
-        const g = gain(cy); if (g <= B * (1 + 1e-9)) continue;
-        const pure = cy.filter(i => this.f2[i] === 0 && this.b2[i] > 0); if (!pure.length) continue;
-        const s = Math.pow(B / g, 1 / pure.length); for (const i of pure) this.sc[i] *= s; ch = true;
+        if (gain(cy) <= B * (1 + 1e-9)) continue;
+        const at = s => { let g = 1; for (const i of cy) g *= (this.f2[i] + s * this.sc[i] * this.b2[i]) * GMAX[CABLES[i].u]; return g; };
+        let lo = 0, hi = 1; for (let it = 0; it < 40; it++) { const m = 0.5 * (lo + hi); if (at(m) > B) hi = m; else lo = m; }
+        for (const i of cy) if (this.b2[i] > 0) this.sc[i] *= lo; ch = true;
       }
       if (!ch) break;
     }
@@ -1415,7 +1420,17 @@ Cables.prototype.finish = function () {
      lane's source cables are scaled by 1/‖(T_tg, rest)‖_p — round 2's u/‖u‖_p over one
      split group — capped so the coherent sum never passes +3 dB, and at ×4. The target's
      own transmission is 1 (closed form), so at rest the factor is 1. */
-  const mask = new Uint8Array(NC); for (let i = 0; i < NC; i++) mask[i] = this.T[i] > 0 ? 1 : 0;
+  /* WHICH cables are "the target's" GLIDES too (a membership m in [0, 1], same τ): an
+     admission re-assigns them, and a binary mask moved 1/‖·‖_p in one tick (the first
+     build stepped a lane's source cables by 0.74 in 4 ms; gliding the factor instead
+     lagged, overshot and collided with the cap). */
+  const mask = this.m2;
+  for (let i = 0; i < NC; i++) {
+    const t = this.T[i] > 0 ? 1 : 0;
+    if (this.fresh) { this.m1[i] = this.m2[i] = t; continue; }
+    this.m1[i] += (t - this.m1[i]) * this.ka; this.m2[i] += (this.m1[i] - this.m2[i]) * this.ka;
+    if (Math.abs(this.m1[i] - t) < SNAP && Math.abs(this.m2[i] - t) < SNAP) this.m1[i] = this.m2[i] = t;
+  }
   for (const L of LANES) {
     let n = 1;
     if (o.norm) {
@@ -1520,6 +1535,67 @@ const DEFAULTS = { set: 'four', mode: 'quantum', snap: true, method: 'decode', s
 const setById = id => SETS.find(s => s.id === id) || SETS[0];
 const optsWith = extra => Object.assign({}, DEFAULTS, { caps: Object.assign({}, DEFAULTS.caps) }, extra || {});
 const morphOf = o => makeMorph(setById(o.set).corners, o);
+/* ---------- COPIED from round 2 (fx-chain-morph-lab-r2.html lines 998–1010; Router→R2Router, Engine→R2Engine) ---------- */
+/* ---------- a sweep: the puck moved along a path, through the router ---------- */
+const RSR = 16000, TICK = 64;                 // headless control tick: 4 ms
+const SW_PRE = 0.2, SW_MOVE = 2.4, SW_POST = 1.2;
+const STEP_MAX = 0.25;                        // round 1's I5: a crossfade moves a weight ≤ 0.07 per dx; a hard switch moves 1
+const SWEEPS = [
+  { id: 'bottom', name: 'bottom edge A→B', xy: u => [u, 0], edge: [0, 1] },
+  { id: 'top', name: 'top edge C→D', xy: u => [u, 1], edge: [2, 3] },
+  { id: 'left', name: 'left edge A→C', xy: u => [0, u], edge: [0, 2] },
+  { id: 'right', name: 'right edge B→D', xy: u => [1, u], edge: [1, 3] },
+  { id: 'diag', name: 'diagonal A→D', xy: u => [u, u] },
+  { id: 'anti', name: 'diagonal B→C', xy: u => [1 - u, u] },
+  { id: 'loop', name: 'circle round the middle', xy: u => [0.5 + 0.38 * Math.cos(2 * Math.PI * u + Math.PI), 0.5 + 0.38 * Math.sin(2 * Math.PI * u + Math.PI)] },
+];
+/* ---------- COPIED from round 2 (fx-chain-morph-lab-r2.html lines 1073–1073; Router→R2Router, Engine→R2Engine) ---------- */
+const sweepW = (M, sw) => u => { const [x, y] = sw.xy(u); return weightsXY(M, x, y); };
+
+/* ---------- a sweep through the cables (headless; the same Cables POWER plays) ---------- */
+/* ADR-195 allows a multiband Bulwark only a BRIEF parallel sum (Bulwark's own switch is a
+   20 ms crossfade). Here brief means: no longer than one glide takes to land, 10 τ (two
+   cascaded one-poles of τ/2 reach 1e-4 in ≈ 6.7 τ; the rest is the 1 % detector's margin). */
+const MB_BRIEF_TAU = 10;
+function runSweep3(M, wFn, opt) {
+  opt = opt || {};
+  const dt = TICK / RSR, nPre = Math.round(SW_PRE / dt), nMove = Math.round(SW_MOVE / dt), nPost = Math.round((opt.post || SW_POST) / dt);
+  const N = nPre + nMove + nPost, C = new Cables(M, RSR, TICK);
+  let st = mapW(M, wFn(0)); C.settle(st);
+  const S = { min: { BODY: Infinity, SUB: Infinity }, max: { BODY: -Infinity, SUB: -Infinity }, loop: 0, loopRaw: 0, banned: 0, path: 0, mixMax: 0, waitTicks: 0,
+              cycTicks: 0, maxStep: 0, changes: 0, why: {}, n: N, hash: 0x811c9dc5, maxOpen: 0 };
+  const pw = Float64Array.from(C.wf), pb = Float64Array.from(C.wb), pn = Object.assign({}, C.nL);
+  let u0 = -1, prevKey = structKey(st), run = 0;
+  S.nStep = 0; S.nMax = 0;
+  for (let i = 0; i < N; i++) {
+    const u = clamp01((i - nPre) / nMove);
+    if (u !== u0) { st = mapW(M, wFn(u)); u0 = u; }
+    const k = structKey(st); if (k !== prevKey) { S.changes++; prevKey = k; }
+    C.step(st);
+    const a = C.audit();
+    for (const L of LANES) { const g = a.gain[L]; if (g < S.min[L]) S.min[L] = g; if (g > S.max[L]) S.max[L] = g; }
+    if (a.loop > S.loop) S.loop = a.loop;
+    if (a.loopRaw > S.loopRaw) S.loopRaw = a.loopRaw;
+    if (a.banned > S.banned) S.banned = a.banned;
+    if (a.path) { S.path++; S.why.path = S.why.path || a.path + ' at tick ' + i; }
+    run = a.mixed ? run + 1 : 0; if (run * dt > S.mixMax) S.mixMax = run * dt;
+    if (a.wait) S.waitTicks++;
+    if (a.cyc) S.cycTicks++;
+    if (C.open > S.maxOpen) S.maxOpen = C.open;
+    /* continuity on the node-side cables (a lane's source cables carry the normaliser,
+       which moves as fast as the paths it compensates; its rate is reported apart) */
+    for (let j = 0; j < NC; j++) { const d = Math.max(Math.abs(C.wf[j] - pw[j]), Math.abs(C.wb[j] - pb[j])); if (!isLane(CABLES[j].u) && d > S.maxStep) { S.maxStep = d; S.why.step = CABLES[j].k + ' at tick ' + i; } pw[j] = C.wf[j]; pb[j] = C.wb[j]; }
+    for (const L of LANES) { S.nStep = Math.max(S.nStep, Math.abs(C.nL[L] - pn[L])); S.nMax = Math.max(S.nMax, C.nL[L]); pn[L] = C.nL[L]; }
+    let h = S.hash; for (let j = 0; j < NC; j++) if (C.wf[j] || C.wb[j]) h = Math.imul(h ^ fnv(j + ':' + C.wf[j].toPrecision(15) + ',' + C.wb[j].toPrecision(15)), 0x01000193) >>> 0;
+    S.hash = h;
+  }
+  S.byKind = {}; for (const e of C.log) S.byKind[e.kind] = (S.byKind[e.kind] || 0) + 1;
+  S.minDb = Math.min(db(S.min.BODY), db(S.min.SUB)); S.maxDb = Math.max(db(S.max.BODY), db(S.max.SUB));
+  S.mbBrief = MB_BRIEF_TAU * M.o.glide;
+  return S;
+}
+/* ---------- COPIED from round 2 (fx-chain-morph-lab-r2.html lines 996–996; Router→R2Router, Engine→R2Engine) ---------- */
+const db = g => 20 * Math.log10(Math.max(1e-9, g));
 </script>
 
 <script>
