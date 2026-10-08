@@ -1242,9 +1242,11 @@ function transOf(order, wf, wb, lane, only, fix) {
      5. glide      both parts toward their targets with time constant τ/2 each, in seconds
      6. loop bound (a only) the backward parts of every cycle over the bound are scaled
      7. normalise  each lane's source cables, round 2's p-norm with the +3 dB cap
+   GLIDE τ = 60 ms by default: on the four presets' 26 transitions the worst click read
+   7.2 dB at 40 ms and 5.1 dB at 80 ms (round 2: 33 dB); a slower glide is a slower morph.
    Nothing here reads the audio: the tail hold is the tail's own decay from its
    parameters (round 2's law), so a sweep is the same with or without the rack. */
-const GLIDE_S = 0.04, LOOP_BOUND = 0.5, SLEEP_DB = -80, BOUND_OFF = 4;   // the bound slider's top means "no bound"
+const GLIDE_S = 0.06, LOOP_BOUND = 0.5, SLEEP_DB = -80, BOUND_OFF = 4;   // the bound slider's top means "no bound"
 const DEF_P = { DYN: { thr: -20, ratio: 4, att: 0.005, rel: 0.1, mk: 0, bands: 1 }, EQ: { f: 1000, gdb: 0, q: 0.7 }, FLT: { cut: 2000, res: 0.3 },
                 DRV: { drive: 2 }, SAT: { gain: 3, bias: 0.2, tone: 4000 }, NET: { size: 0.5, fbk: 0.5, tone: 3000, mix: 0.3 },
                 DLY: { time: 0.25, fbk: 0.3, mix: 0.3 }, REV: { size: 0.5, mix: 0.3 } };   // a node no corner holds: never fed, asleep
@@ -1645,6 +1647,93 @@ function sweepSchedule(M, sw) {
   return { wAt: i => f(clamp01((i - nPre) / nMove)), N: Math.round((SW_PRE + SW_MOVE + SW_POST) * RSR) };
 }
 const RESIDENT_CPU = TYPES.reduce((s, t) => s + COST[t], 0);   // every node awake: 15 points
+
+/* ---------- THE CLICK METRIC ----------
+   DEFINITION. A click is a broadband transient: a step in a signal's value or slope. Its
+   energy lands in the second difference d2[n] = y[n] − 2y[n−1] + y[n−2] (a +12 dB/oct
+   emphasis: a step of h makes a d2 spike of h; a steady sine of frequency f has a d2 of
+   only (2πf/sr)² times its level). Cut d2 into 2 ms slices and take each slice's RMS e.
+   A slice's IMPULSIVENESS is e over the median e of its own ±32 ms neighbourhood, in dB:
+   a steady signal reads 0 dB, a smooth timbral or level change reads near 0 dB (the median
+   follows it), and a click stands out by its height. A TRANSITION's click is the worst
+   impulsiveness inside its span, less the worst in the steady 0.25 s before and after (the
+   measure's own floor on that material), floored at 0 dB.
+   WHY THIS ONE. It needs no reference render (round 2's step metric compared 32 ms levels,
+   which a 2 ms click barely moves, and an "ideal" transition between stateful nonlinear
+   chains does not exist to subtract). It is local, so it works on the live stream with the
+   same function. It is deterministic and level-independent. It is measured on a SINE PROBE
+   (the lanes as sines, no gating), where a click has nothing to hide behind; the saw chord
+   hides some of it, so by ear the saws click less than these numbers.
+   LIMIT. It is blind to clicks slower than 2 ms × the neighbourhood (a 30 ms bump is a
+   level change to it, not a click), and to anything after the span (a tail released 2 s
+   later is a separate event). */
+const CLK_SLICE_S = 0.002, CLK_HOOD = 16, CLK_STEADY_S = 0.25, CLK_SPAN_S = 1.0;
+function sliceRms(y, sr) {
+  const W = Math.max(4, Math.round(CLK_SLICE_S * sr)), n = Math.floor(y.length / W), e = new Float64Array(n);
+  for (let k = 0; k < n; k++) {
+    let s = 0;
+    for (let i = k * W; i < (k + 1) * W; i++) { if (i < 2) continue; const d = y[i] - 2 * y[i - 1] + y[i - 2]; s += d * d; }
+    e[k] = Math.sqrt(s / W);
+  }
+  return { e, W };
+}
+function impulsiveness(e) {
+  const n = e.length, r = new Float64Array(n);
+  let gmax = 0; for (const v of e) if (v > gmax) gmax = v;
+  const tiny = Math.max(1e-12, 1e-6 * gmax), buf = [];
+  for (let k = 0; k < n; k++) {
+    buf.length = 0;
+    for (let j = Math.max(0, k - CLK_HOOD); j <= Math.min(n - 1, k + CLK_HOOD); j++) if (j !== k) buf.push(e[j]);
+    buf.sort((a, b) => a - b);
+    const med = buf.length ? buf[buf.length >> 1] : e[k];
+    r[k] = 20 * Math.log10(Math.max(tiny, e[k]) / Math.max(tiny, med));
+  }
+  return r;
+}
+/* the click of one transition at sample t0 in y: { db, at } (at: seconds after t0) */
+function clickOf(y, sr, t0) {
+  const { e, W } = sliceRms(y, sr), r = impulsiveness(e), k0 = Math.floor(t0 / W);
+  const ks = Math.round(CLK_STEADY_S * sr / W), kspan = Math.round(CLK_SPAN_S * sr / W);
+  let pre = 0, post = 0, peak = -Infinity, at = 0;
+  for (let k = Math.max(0, k0 - ks); k < k0; k++) pre = Math.max(pre, r[k]);
+  for (let k = k0 + kspan; k < Math.min(r.length, k0 + kspan + ks); k++) post = Math.max(post, r[k]);
+  for (let k = k0; k < Math.min(r.length, k0 + kspan); k++) if (r[k] > peak) { peak = r[k]; at = (k - k0) * W / sr; }
+  return { db: Math.max(0, peak - Math.max(pre, post)), at, floor: Math.max(pre, post) };
+}
+/* THE TRANSITIONS: every structural change (chain, Sub entry, band count) a sweep path
+   crosses, found on 241 points along it; each becomes a STEP — the pad held just before
+   the change, then just after it — so every behaviour meets the same boundary from the
+   same steady state. Duplicates (same before → after structures) are measured once. */
+function transitionsOf(M) {
+  const ev = [], seen = new Set(), P = 240;
+  for (const sw of SWEEPS) {
+    const f = sweepW(M, sw); let prevU = 0, prevSt = mapW(M, f(0));
+    for (let q = 1; q <= P; q++) {
+      const u = q / P, st = mapW(M, f(u)), a = structKey(prevSt), b = structKey(st);
+      if (a !== b && !seen.has(a + '→' + b)) { seen.add(a + '→' + b); ev.push({ sw: sw.id, u0: prevU, u1: u, from: prevSt, to: st, w0: f(prevU), w1: f(u) }); }
+      prevU = u; prevSt = st;
+    }
+  }
+  return ev;
+}
+/* one transition through one behaviour: a render of steady + span + steady after the warm-up */
+function clickRun(M, tr) {
+  const pre = Math.round(CLK_STEADY_S * RSR / TICK) * TICK, N = pre + Math.round((CLK_SPAN_S + CLK_STEADY_S) * RSR);
+  const r = renderWith(M, i => i * TICK < pre ? tr.w0 : tr.w1, N, { probe: true });
+  const c = clickOf(r.y, RSR, pre);
+  c.cpuMax = r.cpuMax; c.cpuAvg = r.cpuAvg;
+  return c;
+}
+/* the three behaviours the A/B compares, from one option set */
+const BEHAVIOURS = [
+  { id: 'r3a', name: 'round 3 (a) loop bound', patch: { engine: 'r3', loop: 'a' } },
+  { id: 'r3b', name: 'round 3 (b) ordered fades', patch: { engine: 'r3', loop: 'b' } },
+  { id: 'r2', name: 'round 2 insert/remove', patch: { engine: 'r2' } },
+];
+function clickTable(o, limit) {
+  const M0 = morphOf(o), evs = transitionsOf(M0).slice(0, limit || Infinity), Ms = BEHAVIOURS.map(b => morphOf(Object.assign({}, o, b.patch)));
+  return evs.map(tr => { const row = { tr }; BEHAVIOURS.forEach((b, i) => { row[b.id] = clickRun(Ms[i], tr); }); return row; });
+}
 </script>
 
 <script>
