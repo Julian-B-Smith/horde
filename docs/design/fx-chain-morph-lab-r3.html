@@ -762,6 +762,764 @@ function gridMap(M, N) {
   return { N, cells, pureFrac: pure / (N * N), distinct: keys.size, hist, edges, outV, unan, unanS, maxCost,
            firstUnan: (cells.find(c => c.unan) || {}).unan || '', firstOut: (cells.find(c => c.outV) || {}).outV || '' };
 }
+/* ---------- COPIED from round 2 (fx-chain-morph-lab-r2.html lines 704–949; Router→R2Router, Engine→R2Engine) ---------- */
+/* ======================================================================
+   THE ROUTER — lane 2's discipline as a control-rate state machine.
+   The signal graph is ONE SPINE (every module the corners hold, in an order) of
+   junctions: J:0 → [send] module [wet] → J:module, with a dry wire J:prev → J:module
+   beside it. Body enters J:0; the Sub enters the junction in front of its entry
+   module. A module PARKED in the spine is a dry wire (send 0, wet 0, dry 1), so its
+   place there is inaudible and it can be moved for free; a module is moved only
+   while bypassed. This is round 1's E encoding (junctions as WIRE nodes), so round
+   1's checkers read the frames unchanged.
+   Each change is ONE split group (lane 2 R1a): what it makes and what it breaks
+   share a ramp u, normalised u/‖u‖_p, so the lane's gain stays on the p-simplex.
+     arrive   input armed first (I7: inputs before outputs), then wet up / dry down
+     leave    wet down / dry up; a Delay, Reverb or Network instead drops its SEND
+              against the dry and keeps its wet open: its tail rings out (D5) for
+              min(its own decay, its cap), then fades
+     move     a wet dip: down, re-placed while bypassed, up (lane 3's duck-swap-unduck)
+     sub      the Sub's injection crossfades from one junction to another
+   At most K changes are open on a lane, and a new one starts only if the lane's
+   worst-case gain stays within +3 dB (lane 2's K budget; one may always start).
+   Changes are issued upstream first, leaves before moves before arrivals (lane 2
+   O3's one monotone direction); arrivals wait until no move is pending, so each
+   one is placed where the target wants it.
+   ====================================================================== */
+const XF_S = 0.08;               // one change's crossfade, seconds (the rack's fxXfade default, B117)
+const WET_TAU_S = 0.03;          // blend: wet gains follow the pad with this time constant
+const CEIL = Math.SQRT2;         // +3 dB: the equal-power sum of two coherent paths (20·log10 √2 = 3.01)
+const FLOOR = 0.5;               // round 1's I6 floor: −6 dB of the lane's settled gain
+const DEFAULT_CAPS = { DLY: 2.0, REV: 3.0, NET: 1.5 };
+/* a tail's own length (to −60 dB) from its parameters; Infinity when the loop gain reaches 1 */
+function tailSecs(t, p) {
+  if (!p) return 0;
+  if (t === 'DLY') return p.fbk <= 0 ? p.time : p.fbk >= 1 ? Infinity : p.time * Math.log(1e-3) / Math.log(p.fbk);
+  if (t === 'REV') { const f = 0.7 + 0.26 * p.size; return 0.028 * Math.log(1e-3) / Math.log(f); }
+  if (t === 'NET') { const L = 0.042 * (0.5 + p.size); return p.fbk >= 1 ? Infinity : L * Math.log(1e-3) / Math.log(p.fbk); }
+  return 0;
+}
+const COUNTED = { arr: 1, arrT: 1, lvN: 1, lvT: 1, mvA: 1, mvB: 1 };   // 'tc' (a tail's last fade) changes no lane gain
+
+function R2Router(M, sr, tick) {
+  this.sr = sr; this.tick = tick; this.dt = tick / sr;
+  this.setMorph(M);
+  this.spine = []; this.mods = {}; this.sub = [{ j: 'OUT' }]; this.subEv = null; this.n = 0; this.log = [];
+}
+R2Router.prototype.setMorph = function (M) {
+  this.M = M; this.o = M.o;
+  this.du = M.o.plant === 'hard' ? 1 : this.dt / XF_S;
+  this.kw = Math.exp(-this.dt / WET_TAU_S);
+  this.caps = Object.assign({}, DEFAULT_CAPS, M.o.caps || {});
+};
+R2Router.prototype.settle = function (st) {
+  const U = this.M.U;
+  this.spine = st.chain.concat(U.filter(t => !st.chain.includes(t)));
+  this.mods = {};
+  for (const t of U) this.mods[t] = { t, mode: st.chain.includes(t) ? 'live' : 'park', g: st.wet[t] || 0, gh: 0, ev: null, u: 0, gen: 0, hold: 0, prm: st.prm[t] || paramsAt(this.M, st.w, t) };
+  this.sub = [{ j: this.inJ(st.sub) }]; this.subEv = null;
+};
+R2Router.prototype.inJ = function (e) {
+  if (e === 'OUT') return 'OUT';
+  const i = this.spine.indexOf(e);
+  return i > 0 ? 'J:' + this.spine[i - 1] : 'J:0';
+};
+R2Router.prototype.active = function (t) { const m = this.mods[t]; return !!m && (m.mode !== 'park' || !!m.ev); };
+R2Router.prototype.fmax = function () { const o = this.o; return o.plant === 'bbm' ? 1 : !o.norm ? 2 : Math.pow(2, 1 - 1 / o.p); };
+/* (make, break) at ramp position u */
+R2Router.prototype.split = function (u) {
+  const o = this.o;
+  if (o.plant === 'bbm') return [rc(2 * u - 1), 1 - rc(2 * u)];      // PLANT: break before make
+  if (!o.norm) return [rc(2 * u), 1 - rc(2 * u - 1)];                 // round 1: make, then break, each on its own ramp
+  const a = clamp01(u), b = 1 - a, p = o.p;
+  const n = p === 1 ? 1 : p === 2 ? Math.sqrt(a * a + b * b) : Math.pow(Math.pow(a, p) + Math.pow(b, p), 1 / p);
+  return [a / n, b / n];
+};
+/* a module's [send, wet, dry] */
+R2Router.prototype.wts = function (m) {
+  const g = m.g;
+  if (!m.ev) return m.mode === 'live' ? [1, g, 1 - g] : m.mode === 'tail' ? [0, m.gh, 1] : [0, 0, 1];
+  const [A, B] = this.split(m.u);
+  switch (m.ev) {
+    case 'arr': return [this.o.plant === 'outfirst' ? (m.u >= 1 ? 1 : 0) : 1, g * A, 1 - g + g * B];
+    case 'arrT': return [A, m.gh + (g - m.gh) * rc(2 * m.u - 1), 1 - g + g * B];   // the wet moves only once the send is past half way
+    case 'lvN': case 'mvA': return [1, g * B, 1 - g + g * A];
+    case 'mvB': return [1, g * A, 1 - g + g * B];
+    case 'lvT': return [B, g, 1 - g + g * A];
+    case 'tc': return [0, m.gh * (1 - rc(m.u)), 1];
+  }
+  return [0, 0, 1];
+};
+/* the lanes a module's change can move: Body passes every junction; the Sub only
+   those downstream of where it enters. `subs` overrides the Sub's injection points:
+   a Sub crossfade about to start must be judged against BOTH its ends, or a mover
+   the new end reaches is missed (the first build let the Sub reach +4.7 dB so). */
+R2Router.prototype.lanesOf = function (t, subs) {
+  const i = this.spine.indexOf(t), out = ['BODY'];
+  subs = subs || (this.subEv ? [this.subEv.from, this.subEv.to] : this.sub.map(s => s.j));
+  for (const j of subs) { if (j === 'OUT') continue; const k = j === 'J:0' ? -1 : this.spine.indexOf(j.slice(2)); if (i > k) { out.push('SUB'); break; } }
+  return out;
+};
+R2Router.prototype.openOn = function (lane, subs) {
+  const f = [], fm = this.fmax();
+  for (const t of this.spine) { const m = this.mods[t]; if (m.ev && COUNTED[m.ev] && this.lanesOf(t, subs).includes(lane)) f.push(1 + m.g * (fm - 1)); }
+  if (lane === 'SUB' && this.subEv) f.push(fm);
+  return f;
+};
+R2Router.prototype.admit = function (lanes, g, subs) {
+  const o = this.o;
+  if (o.plant === 'noK') return true;                                     // PLANT: no budget at all
+  for (const l of lanes) {
+    const op = this.openOn(l, subs);
+    if (!op.length) continue;                                             // liveness: one change may always start
+    if (op.length >= o.K) return false;
+    if (op.reduce((a, b) => a * b, 1) * (1 + g * (this.fmax() - 1)) > CEIL + 1e-9) return false;
+  }
+  return true;
+};
+/* place t (bypassed) after its target predecessor among the active modules. The
+   junction after a bypassed module carries what the junction before it carries, so
+   a Sub injected there is re-keyed to the one before first (same signal, new name),
+   and a Sub that should enter AFTER t is re-keyed onto t's junction as t lands. */
+R2Router.prototype.reposition = function (t, st) {
+  const sp = this.spine, i = sp.indexOf(t), prevJ = i > 0 ? 'J:' + sp[i - 1] : 'J:0', tj = 'J:' + t;
+  for (const s of this.sub) if (s.j === tj) s.j = prevJ;
+  if (this.subEv) { if (this.subEv.from === tj) this.subEv.from = prevJ; if (this.subEv.to === tj) this.subEv.to = prevJ; }
+  sp.splice(i, 1);
+  const ti = st.chain.indexOf(t); let at = 0;
+  for (let k = ti - 1; k >= 0; k--) { const q = sp.indexOf(st.chain[k]); if (q >= 0 && this.active(st.chain[k])) { at = q + 1; break; } }
+  const landJ = at > 0 ? 'J:' + sp[at - 1] : 'J:0';
+  sp.splice(at, 0, t);
+  if (st.sub !== t && !this.subEv) for (const s of this.sub) if (s.j === landJ) s.j = tj;
+};
+R2Router.prototype.issue = function (kind, t, st) {
+  const m = this.mods[t];
+  if (kind === 'arr') { this.reposition(t, st); m.gen++; m.g = st.wet[t]; }
+  if (kind === 'arrT') m.g = st.wet[t];
+  if (kind === 'mvA' && this.o.plant === 'shadow') m.shadow = true;
+  m.ev = kind; m.u = 0;
+  this.log.push({ n: this.n, kind, t });
+};
+R2Router.prototype.finish = function (m, st) {
+  const ev = m.ev; m.ev = null; m.u = 0;
+  if (ev === 'arr' || ev === 'arrT' || ev === 'mvB') { m.mode = 'live'; m.shadow = false; }
+  else if (ev === 'lvN') m.mode = 'park';
+  else if (ev === 'lvT') { m.mode = 'tail'; m.gh = m.g; m.hold = Math.min(tailSecs(m.t, m.prm), this.o.plant === 'nocap' ? Infinity : this.caps[m.t]); }
+  else if (ev === 'tc') { m.mode = 'park'; m.gen++; }
+  else if (ev === 'mvA') { this.reposition(m.t, st); m.ev = 'mvB'; }
+};
+R2Router.prototype.downSeq = function (j) {
+  if (j === 'OUT') return '';
+  const i = j === 'J:0' ? -1 : this.spine.indexOf(j.slice(2));
+  return this.spine.slice(i + 1).filter(t => this.active(t)).join(' ');
+};
+/* one control tick: follow the wet targets, advance the open changes and the tails,
+   then plan new changes against the target structure st */
+R2Router.prototype.step = function (st) {
+  const o = this.o, mods = this.mods;
+  this.n++;
+  for (const t of this.M.U) {
+    const m = mods[t];
+    if (st.prm[t]) m.prm = st.prm[t];
+    const follow = m.mode === 'live' ? !(m.ev === 'lvN' || m.ev === 'lvT' || m.ev === 'mvA') : (m.ev === 'arr' || m.ev === 'arrT');
+    if (follow && st.wet[t] !== undefined) m.g = st.wet[t] + (m.g - st.wet[t]) * this.kw;
+  }
+  for (const t of this.spine) {
+    const m = mods[t];
+    if (!m.ev) { if (m.mode === 'tail' && (m.hold -= this.dt) <= 0) { m.ev = 'tc'; m.u = 0; this.log.push({ n: this.n, kind: 'tc', t }); } continue; }
+    m.u = Math.min(1, m.u + this.du);
+    if (m.u >= 1) this.finish(m, st);
+  }
+  if (this.subEv && (this.subEv.u = Math.min(1, this.subEv.u + this.du)) >= 1) { this.sub = [{ j: this.subEv.to }]; this.subEv = null; }
+  this.plan(st);
+};
+R2Router.prototype.plan = function (st) {
+  const o = this.o, mods = this.mods, want = new Set(st.chain), cands = [];
+  for (const t of this.spine) { const m = mods[t]; if (!m.ev && m.mode === 'live' && !want.has(t)) cands.push({ kind: o.tails && TAIL_TYPES[t] ? 'lvT' : 'lvN', t, c: 0 }); }
+  // movers: the fewest modules to re-place so the active order follows the target
+  // (the heaviest common subsequence stays; a module mid-change is never chosen)
+  const act = this.spine.filter(t => want.has(t) && (mods[t].mode === 'live' || mods[t].ev === 'arr' || mods[t].ev === 'arrT' || mods[t].ev === 'mvB'));
+  const keep = heaviestCommon(act, st.chain, t => mods[t].ev ? 1e6 : 1 + mods[t].g);
+  const movers = act.filter(t => !keep.has(t) && !mods[t].ev);
+  for (const t of movers) cands.push({ kind: 'mvA', t, c: 1 });
+  const moving = movers.length > 0 || this.spine.some(t => mods[t].ev === 'mvA' || mods[t].ev === 'mvB');
+  if (!moving) for (const t of st.chain) { const m = mods[t]; if (!m.ev && (m.mode === 'park' || m.mode === 'tail')) cands.push({ kind: m.mode === 'park' ? 'arr' : 'arrT', t, c: 2 }); }
+  const sp = t => this.spine.indexOf(t), tp = t => st.chain.indexOf(t);
+  cands.sort((a, b) => a.c - b.c || (a.c === 2 ? tp(a.t) - tp(b.t) : sp(a.t) - sp(b.t)));
+  for (const q of cands) {
+    const lanes = q.kind === 'arr' ? ['BODY', 'SUB'] : this.lanesOf(q.t);
+    const g = q.kind === 'arr' || q.kind === 'arrT' ? st.wet[q.t] : mods[q.t].g;
+    if (this.admit(lanes, g)) this.issue(q.kind, q.t, st);
+  }
+  // the Sub: wait until its entry module is in; a re-name between junctions that feed
+  // the same modules is silent; anything else is a crossfade
+  if (this.subEv || (st.sub !== 'OUT' && !this.active(st.sub))) return;
+  const want2 = this.inJ(st.sub), cur = this.sub[0].j;
+  if (cur === want2) return;
+  if (this.downSeq(cur) === this.downSeq(want2)) { this.sub[0].j = want2; return; }
+  if (this.admit(['SUB'], 1, [cur, want2])) { this.subEv = { from: cur, to: want2, u: 0 }; this.log.push({ n: this.n, kind: 'sub', t: st.sub }); }
+};
+/* the heaviest common subsequence of the current order and the target (both hold the same modules) */
+function heaviestCommon(cur, target, wt) {
+  const pos = {}; target.forEach((t, i) => { pos[t] = i; });
+  const c = cur.filter(t => pos[t] !== undefined), n = c.length, best = [], prev = [];
+  for (let i = 0; i < n; i++) {
+    best[i] = wt(c[i]); prev[i] = -1;
+    for (let j = 0; j < i; j++) if (pos[c[j]] < pos[c[i]] && best[j] + wt(c[i]) > best[i] + 1e-12) { best[i] = best[j] + wt(c[i]); prev[i] = j; }
+  }
+  let b = -1; for (let i = 0; i < n; i++) if (b < 0 || best[i] > best[b] + 1e-12) b = i;
+  const keep = new Set(); for (let i = b; i >= 0; i = prev[i]) keep.add(c[i]);
+  return keep;
+}
+/* THE FRAME: round 1's format (nodes, a processing order, weighted edges), so round
+   1's checkers, transmission and I7 read it as they read round 1's E architecture */
+R2Router.prototype.frame = function () {
+  const nodes = [{ id: 'J:0', type: 'WIRE' }], order = ['J:0'], edges = [{ u: 'BODY', v: 'J:0', w: 1 }];
+  let prev = 'J:0';
+  for (const t of this.spine) {
+    const m = this.mods[t], [s, w, d] = this.wts(m), J = 'J:' + t;
+    nodes.push({ id: t, type: t, p: m.prm, gen: m.gen }, { id: J, type: 'WIRE' }); order.push(t, J);
+    if (s > EPS) edges.push({ u: prev, v: t, w: s });
+    if (w > EPS) edges.push({ u: t, v: J, w });
+    if (d > EPS) edges.push({ u: prev, v: J, w: d });
+    if (m.shadow && (m.ev === 'mvA' || m.ev === 'mvB')) {
+      // PLANT (I1 must-fail): the move crossfaded through a SECOND instance of the mover
+      const id = t + '#2'; nodes.push({ id, type: t, p: m.prm, gen: m.gen }); order.splice(order.length - 1, 0, id);
+      edges.push({ u: prev, v: id, w: 1 }, { u: id, v: J, w: 0.5 });
+    }
+    prev = J;
+  }
+  edges.push({ u: prev, v: 'OUT', w: 1 });
+  const subs = this.subEv ? (() => { const [A, B] = this.split(this.subEv.u); return [[this.subEv.from, B], [this.subEv.to, A]]; })() : [[this.sub[0].j, 1]];
+  for (const [j, w] of subs) if (w > EPS) edges.push({ u: 'SUB', v: j, w });
+  return { order, nodes, edges, fb: [] };
+};
+/* THE AUDIBLE GRAPH, canonically: the active modules in order with their send, wet
+   and dry, and the Sub's injection named by the modules it feeds. A parked module
+   is a dry wire, identical to its absence, so it is left out; a junction's NAME is
+   left out too. Two routers with the same canon play the same graph. This is what
+   edge reduction compares: the pad's router carries parked modules the pair never
+   had (the first build compared raw frames and called identical sound different). */
+R2Router.prototype.canon = function () {
+  let c = '';
+  for (const t of this.spine) if (this.active(t)) { const [s, w, d] = this.wts(this.mods[t]); c += t + ':' + s.toPrecision(15) + ',' + w.toPrecision(15) + ',' + d.toPrecision(15) + ';'; }
+  const subs = this.subEv ? (() => { const [A, B] = this.split(this.subEv.u); return [[this.subEv.from, B], [this.subEv.to, A]]; })() : [[this.sub[0].j, 1]];
+  for (const [j, w] of subs) c += '|Su>' + this.downSeq(j) + ':' + w.toPrecision(15);
+  return c;
+};
+R2Router.prototype.liveCost = function () { let c = 0; for (const t of this.spine) { const m = this.mods[t]; if (m.mode !== 'park' || m.ev) c += COST[t]; } return c; };
+R2Router.prototype.openCount = function (lane) { return this.openOn(lane).length; };
+/* ---------- COPIED from round 2 (fx-chain-morph-lab-r2.html lines 1075–1190; Router→R2Router, Engine→R2Engine) ---------- */
+/* ---------- the sound: simple stand-ins for each module type ----------
+   Deliberately cheap: this lab races ROUTING, not modules. Drive tanh, Filter a TPT
+   lowpass, ECHO one line, Scape a Schroeder (all four round 1's); Shriek an
+   asymmetric clipper into a tone lowpass; Bulwark a feed-forward compressor; EQ one
+   peaking biquad; Sluice four delay lines through a Hadamard matrix with tanh in the
+   loop (feedback ≥ 1 rings for ever: the tail cap's first customer). Time constants
+   are stated in seconds and converted per sample (ADR-009). Buffers are sized at
+   construction, never on the sample path. */
+const BODY_HZ = [110, 130.81, 164.81], SUB_HZ = 55;
+const OUT_GAIN = 0.4;
+/* ROUND 3: the loudest value written into a buffer of length len in the last len to 2·len
+   samples — a bound on everything the buffer still holds, at one compare per write. A
+   module with memory may sleep only when this is below the threshold (its output alone
+   says nothing about an echo still in flight). */
+function peakWin(len) {
+  let pk = 0, pp = 0, n = 0;
+  return { push(v) { const a = v < 0 ? -v : v; if (a > pk) pk = a; if (++n >= len) { pp = pk; pk = 0; n = 0; } }, get: () => pk > pp ? pk : pp };
+}
+function mkInst(type, sr) {
+  if (type === 'DRV') { let k = 3, n = 1; return { set(p) { k = p.drive; n = 0.5 / Math.tanh(0.5 * k); }, run: x => n * Math.tanh(k * x) }; }
+  if (type === 'FLT') {
+    let a1 = 0, a2 = 0, a3 = 0, ic1 = 0, ic2 = 0;
+    return { set(p) { const g = Math.tan(Math.PI * Math.min(p.cut, 0.45 * sr) / sr), k = 2 - 2 * p.res; a1 = 1 / (1 + g * (g + k)); a2 = g * a1; a3 = g * a2; },
+             run(x) { const v3 = x - ic2, v1 = a1 * ic1 + a2 * v3, v2 = ic2 + a2 * ic1 + a3 * v3; ic1 = 2 * v1 - ic1; ic2 = 2 * v2 - ic2; return v2; } };
+  }
+  if (type === 'DLY') {
+    const N = Math.ceil(sr * 0.6) + 2, buf = new Float32Array(N); let w = 0, d = sr * 0.2, dt = d, fb = 0.3, mix = 0.3;
+    const sm = Math.exp(-1 / (0.05 * sr));
+    const pw = peakWin(N);      // round 3: what the line holds, for sleep
+    return { set(p) { dt = p.time * sr; fb = Math.min(p.fbk, 0.98); mix = p.mix; }, tail: () => pw.get(),
+             run(x) { d = dt + (d - dt) * sm; let r = w - d; if (r < 0) r += N; const i = Math.floor(r), f = r - i, j = (i + 1) % N;
+                      const y = buf[i] + (buf[j] - buf[i]) * f; buf[w] = x + fb * y; pw.push(buf[w]); w = (w + 1) % N; return x + mix * y; } };
+  }
+  if (type === 'REV') {
+    const cl = [1116, 1188, 1277, 1356].map(n => Math.round(n * sr / 44100)), al = [556, 441].map(n => Math.round(n * sr / 44100));
+    const cb = cl.map(n => ({ b: new Float32Array(n), i: 0, lp: 0 })), ab = al.map(n => ({ b: new Float32Array(n), i: 0 }));
+    let f = 0.84, gi = 0.5, mix = 0.3;
+    const pw = peakWin(Math.max(...cl));      // round 3: what the combs and allpasses hold, for sleep
+    return { set(p) { f = 0.7 + 0.26 * p.size; gi = Math.sqrt(1 - f * f); mix = p.mix; }, tail: () => pw.get(),
+             run(x) {
+               let s = 0;
+               for (const c of cb) { const y = c.b[c.i]; c.lp = y * 0.7 + c.lp * 0.3; c.b[c.i] = x * gi + c.lp * f; pw.push(c.b[c.i]); c.i = (c.i + 1) % c.b.length; s += y; }
+               s *= 0.5;
+               for (const a of ab) { const y = a.b[a.i]; const v = s + 0.5 * y; a.b[a.i] = v; pw.push(v); a.i = (a.i + 1) % a.b.length; s = y - 0.5 * v; }
+               return x * (1 - 0.5 * mix) + s * mix; } };
+  }
+  if (type === 'SAT') {
+    let k = 4, b = 0.2, a = 0.5, lp = 0, n = 1, dc = 0;
+    const ad = 1 - Math.exp(-2 * Math.PI * 10 / sr);
+    return { set(p) { k = p.gain; b = p.bias; a = 1 - Math.exp(-2 * Math.PI * p.tone / sr); n = 0.6 / Math.tanh(0.5 * k); },
+             run(x) { const z = Math.tanh(k * x + b) - Math.tanh(b); lp += a * (z - lp); dc += ad * (lp - dc); return n * (lp - dc); } };
+  }
+  if (type === 'DYN') {
+    /* ROUND 3 (ADR-195): bands 2 is an ALLPASS-PHASED two-band split — A a first-order
+       allpass at 700 Hz, low = (x + A x)/2, high = (x − A x)/2, each band compressed, the
+       output low − high. With no gain reduction that is A x: flat in level, shifted in
+       phase. Summed with its own dry it is x + A x, a lowpass notch — the reason a multiband
+       Bulwark is never summed in parallel with an unphased branch. bands 1 is round 2's. */
+    let env = 0, envH = 0, ca = 0, cr = 0, thr = -20, ratio = 4, mk = 1, bands = 1, ac = 0, az = 0;
+    const gain = e => { const over = 20 * Math.log10(e + 1e-9) - thr; return over > 0 ? Math.pow(10, -over * (1 - 1 / ratio) / 20) : 1; };
+    const fol = (e, r) => r > e ? r + (e - r) * ca : r + (e - r) * cr;
+    return { set(p) { ca = Math.exp(-1 / (p.att * sr)); cr = Math.exp(-1 / (p.rel * sr)); thr = p.thr; ratio = p.ratio; mk = Math.pow(10, p.mk / 20);
+                      bands = p.bands || 1; const tn = Math.tan(Math.PI * 700 / sr); ac = (tn - 1) / (tn + 1); },
+             run(x) {
+               if (bands < 2) { env = fol(env, Math.abs(x)); return x * mk * gain(env); }
+               const a = ac * x + az; az = x - ac * a;
+               const lo = 0.5 * (x + a), hi = 0.5 * (x - a);
+               env = fol(env, Math.abs(lo)); envH = fol(envH, Math.abs(hi));
+               return mk * (lo * gain(env) - hi * gain(envH)); } };
+  }
+  if (type === 'EQ') {
+    let b0 = 1, b1 = 0, b2 = 0, a1 = 0, a2 = 0, z1 = 0, z2 = 0;
+    return { set(p) { const A = Math.pow(10, p.gdb / 40), w0 = 2 * Math.PI * Math.min(p.f, 0.45 * sr) / sr, al = Math.sin(w0) / (2 * p.q), c = Math.cos(w0), a0 = 1 + al / A;
+                      b0 = (1 + al * A) / a0; b1 = -2 * c / a0; b2 = (1 - al * A) / a0; a1 = -2 * c / a0; a2 = (1 - al / A) / a0; },
+             run(x) { const y = b0 * x + z1; z1 = b1 * x - a1 * y + z2; z2 = b2 * x - a2 * y; return y; } };
+  }
+  if (type === 'NET') {
+    const base = [1301, 1709, 1999, 2381].map(n => n * sr / 44100), N = base.map(n => Math.ceil(n * 1.6) + 2);
+    const buf = N.map(n => new Float32Array(n)), wi = [0, 0, 0, 0], lp = [0, 0, 0, 0], L = [0, 0, 0, 0];
+    let fb = 0.9, a = 0.3, mix = 0.4;
+    const pw = peakWin(Math.max(...N));      // round 3: what the network holds, for sleep
+    return { set(p) { for (let i = 0; i < 4; i++) L[i] = Math.round(base[i] * (0.5 + p.size)); fb = p.fbk; a = 1 - Math.exp(-2 * Math.PI * p.tone / sr); mix = p.mix; }, tail: () => pw.get(),
+             run(x) {
+               const y = [0, 0, 0, 0];
+               for (let i = 0; i < 4; i++) { let r = wi[i] - L[i]; if (r < 0) r += N[i]; y[i] = buf[i][r]; }
+               const h = [y[0] + y[1] + y[2] + y[3], y[0] - y[1] + y[2] - y[3], y[0] + y[1] - y[2] - y[3], y[0] - y[1] - y[2] + y[3]];
+               for (let i = 0; i < 4; i++) { lp[i] += a * (0.5 * h[i] - lp[i]); buf[i][wi[i]] = Math.tanh(fb * lp[i] + 0.5 * x); pw.push(buf[i][wi[i]]); wi[i] = (wi[i] + 1) % N[i]; }
+               return x * (1 - mix) + mix * 0.5 * (y[0] + y[1] + y[2] + y[3]); } };
+  }
+  return { set() {}, run: x => x };            // WIRE: a junction
+}
+/* round 1's Engine (R2Engine here), with two changes: an instance is rebuilt when its node's GEN
+   changes (a module re-armed after it was parked starts clean, so a parked delay
+   never replays stale echoes), and a node no live edge touches is not run. */
+function R2Engine(sr) { this.sr = sr; this.inst = new Map(); this.prev = new Map(); this.ph = [0, 0, 0, 0]; this.n = 0; this.pulse = false; }
+R2Engine.prototype.block = function (f, out, off, n) {
+  const sr = this.sr, ids = ['BODY', 'SUB'], ix = { BODY: 0, SUB: 1 };
+  for (const nd of f.nodes) {
+    ix[nd.id] = ids.length; ids.push(nd.id);
+    let it = this.inst.get(nd.id);
+    if (!it || it.type !== nd.type || it.gen !== nd.gen) { it = mkInst(nd.type, sr); it.type = nd.type; it.gen = nd.gen; this.inst.set(nd.id, it); }
+    if (nd.p) it.set(nd.p);
+  }
+  const order = f.order.filter(id => ix[id] !== undefined).map(id => ix[id]);
+  const taps = ids.map(() => []), outT = [], next = new Map(), used = new Uint8Array(ids.length);
+  const tap = (u, v, w0, w1) => {
+    if (ix[u] === undefined) return;
+    used[ix[u]] = 1;
+    if (v === 'OUT') outT.push([ix[u], w0, w1]); else if (ix[v] !== undefined) { taps[ix[v]].push([ix[u], w0, w1]); used[ix[v]] = 1; }
+  };
+  for (const e of f.edges) next.set(ek(e.u, e.v), e.w);
+  for (const [k, w1] of next) { const [u, v] = k.split('>'); tap(u, v, this.prev.has(k) ? this.prev.get(k) : 0, w1); }
+  for (const [k, w0] of this.prev) if (!next.has(k)) { const [u, v] = k.split('>'); tap(u, v, w0, 0); }
+  this.prev = next;
+  const val = new Float64Array(ids.length), insts = ids.map(id => this.inst.get(id));
+  for (let s = 0; s < n; s++) {
+    const a = s / n;
+    lanesNext(this, sr);                       // round 3: the lane sources moved into a function both engines share (adds the sine probe)
+    val[0] = this.lb; val[1] = this.ls;
+    for (const i of order) {
+      if (!used[i]) { val[i] = 0; continue; }
+      let x = 0;
+      for (const [j, w0, w1] of taps[i]) x += (w0 + (w1 - w0) * a) * val[j];
+      val[i] = insts[i].run(x);
+    }
+    let y = 0; for (const [j, w0, w1] of outT) y += (w0 + (w1 - w0) * a) * val[j];
+    out[off + s] = OUT_GAIN * y; this.n++;
+  }
+};
+
+/* ======================================================================
+   ROUND 3 — STATIC NODES. Everything below is new in this lab.
+   ====================================================================== */
+/* the lane sources both engines play: Body a three-voice chord, Sub a sine an octave
+   under its root. Round 2's polyBLEP saws, or (PROBE) sines — the click metric's probe:
+   a sine has almost no energy in the second difference, so a click stands out of it. */
+function lanesNext(e, sr) {
+  let body = 0;
+  for (let v = 0; v < 3; v++) {
+    const inc = BODY_HZ[v] / sr;
+    let p = e.ph[v] + inc; if (p >= 1) p -= 1; e.ph[v] = p;
+    let y;
+    if (e.probe) y = Math.sin(2 * Math.PI * p);
+    else { y = 2 * p - 1; if (p < inc) { const t = p / inc; y -= t + t - t * t - 1; } else if (p > 1 - inc) { const t = (p - 1) / inc; y -= t * t + t + t + 1; } }
+    body += 0.16 * y;
+  }
+  if (e.pulse) { const gate = Math.round(sr * 0.25), c = (e.n % gate) / sr; body *= c < 0.004 ? c / 0.004 : c < 0.15 ? 1 : c < 0.158 ? (0.158 - c) / 0.008 : 0; }
+  e.ph[3] += SUB_HZ / sr; if (e.ph[3] >= 1) e.ph[3] -= 1;
+  e.lb = body; e.ls = 0.35 * Math.sin(2 * Math.PI * e.ph[3]);
+}
+
+/* ---------- the cable universe: fixed, 82 cables ---------- */
+/* Sources are the two lanes and the eight nodes; sinks are the eight nodes and OUT. A
+   cable is 'u>v'. Every node is resident, so the universe never changes: what morphs is
+   only the weight on each cable. */
+const SRC = LANES.concat(TYPES), DST = TYPES.concat(['OUT']);
+const CABLES = [];
+for (const u of SRC) for (const v of DST) if (u !== v) CABLES.push({ k: u + '>' + v, u, v, nn: !isLane(u) && v !== 'OUT' });
+const CIX = {}; CABLES.forEach((c, i) => { CIX[c.k] = i; });
+const NC = CABLES.length;
+const INTO = {}; for (const d of DST) INTO[d] = []; CABLES.forEach((c, i) => INTO[c.v].push(i));
+const OUTOF = {}; for (const s of SRC) OUTOF[s] = []; CABLES.forEach((c, i) => OUTOF[c.u].push(i));
+/* a cable V forbids outright: Sluice straight after Scape (R3). Scape → Bulwark is legal
+   only as E1 (Bulwark last), so it is drawn conditional, and policed as a path (below). */
+const BANNED = { 'REV>NET': 'R3' };
+/* each node's DECLARED maximum small-signal gain, for the loop bound (strategy a): the
+   stand-ins' worst slope at the corners' settings, rounded up — Drive and Shriek up to
+   ×3 (tanh at drive 8 normalised), the resonant Filter and the EQ ×2 (+6 dB), Bulwark ×2
+   (its make-up), ECHO ×2 (dry plus a repeat), Sluice ×2, Scape ×1.5. A declaration, not
+   a measurement: a module that can exceed its declaration breaks the bound's promise. */
+const GMAX = { DYN: 2, EQ: 2, FLT: 2, DRV: 3, SAT: 3, NET: 2, DLY: 2, REV: 1.5 };
+const SNAP = 1e-5;          // a glide this close to its target lands on it (−100 dB: inaudible)
+const NMAX = 4;             // the lane normaliser's largest boost (+12 dB)
+
+/* THE TARGET, in closed form: round 2's chain at this pad point written as cables. The
+   chain's junction after module j is g_j·M_j(in) + (1 − g_j)·in (g the wet gain: 1 in
+   QUANTUM, the vote in BLEND), so a source s that enters the junction in front of chain
+   position i reaches position j through every dry in between: the cable s → chain[j]
+   weighs w_s·Π_{i ≤ m < j}(1 − g_m), and s → OUT the same product over the rest. A
+   module's own output enters the junction after it with weight g. In QUANTUM every g is
+   1, so this is the plain series chain. Each lane's static transmission is exactly 1. */
+function targetCables(st) {
+  const T = new Float64Array(NC), ch = st.chain, g = ch.map(t => st.wet[t]);
+  const add = (u, v, w) => { if (w > 0) T[CIX[u + '>' + v]] += w; };
+  const feed = (src, i0, w0) => {
+    let carry = w0;
+    for (let j = i0; j < ch.length; j++) { add(src, ch[j], carry); carry *= 1 - g[j]; if (carry <= 0) return; }
+    add(src, 'OUT', carry);
+  };
+  feed('BODY', 0, 1);
+  for (let i = 0; i < ch.length; i++) feed(ch[i], i + 1, g[i]);
+  if (st.sub === 'OUT' || !ch.includes(st.sub)) add('SUB', 'OUT', 1); else feed('SUB', ch.indexOf(st.sub), 1);
+  return T;
+}
+/* the structural identity of a target: what K counts (BLEND's wet gains move every
+   tick and pass straight through; a change of chain, Sub entry or band count is a transition) */
+const structKey = st => st.chain.join(' ') + '|' + st.sub + '|' + (st.prm.DYN ? st.prm.DYN.bands || 1 : 0);
+
+/* static transmission (module gains 1) from a lane to every node and OUT, over weights
+   wf (forward, this block) and wb (backward, the block before): an iteration in the
+   forward order, backward parts read the previous pass, so a cycle is summed as its
+   geometric series (truncated at 40 passes if it does not converge). */
+function transOf(order, wf, wb, lane, only, fix) {
+  const t = {}; for (const s of SRC) t[s] = 0; t.OUT = 0;
+  if (fix) t[fix] = 1; else t[lane] = 1;                 // fix: from a NODE's output instead (its own inputs ignored)
+  for (let pass = 0; pass < 40; pass++) {
+    let ch = 0;
+    for (const v of order.concat(['OUT'])) {
+      if (v === fix) continue;
+      let x = 0;
+      for (const i of INTO[v]) { if (only && !only[i]) continue; const c = CABLES[i], src = isLane(c.u) ? (c.u === lane ? 1 : 0) : t[c.u]; x += (wf[i] + wb[i]) * src; }
+      ch = Math.max(ch, Math.abs(x - t[v])); t[v] = x;
+    }
+    if (ch < 1e-12) break;
+  }
+  return t;
+}
+
+/* ---------- THE CABLES: a control-rate state machine (one step per tick) ----------
+   Per cable: a target, a FORWARD part (f1 → f2, two cascaded one-poles) and a BACKWARD
+   part (b1 → b2, one block of delay in the rack). Per tick:
+     1. admission  a change of STRUCTURE is admitted only while fewer than K transitions
+                   are open (a transition closes when every cable has landed)
+     2. targets    the admitted chain's cables (closed form), plus a leaving tail's held
+                   output cables, plus the bypass while anything waits
+     3. guard      a cable not yet alive that would open a path V forbids WAITS
+     4. class      a cable that would close a cycle in the forward graph: (a) emerges on
+                   its backward part; (b) WAITS until the cable it would loop with is gone.
+                   A backward part whose cycle has cleared crossfades into the forward part.
+     5. glide      both parts toward their targets with time constant τ/2 each, in seconds
+     6. loop bound (a only) the backward parts of every cycle over the bound are scaled
+     7. normalise  each lane's source cables, round 2's p-norm with the +3 dB cap
+   Nothing here reads the audio: the tail hold is the tail's own decay from its
+   parameters (round 2's law), so a sweep is the same with or without the rack. */
+const GLIDE_S = 0.04, LOOP_BOUND = 0.5, SLEEP_DB = -80, BOUND_OFF = 4;   // the bound slider's top means "no bound"
+const DEF_P = { DYN: { thr: -20, ratio: 4, att: 0.005, rel: 0.1, mk: 0, bands: 1 }, EQ: { f: 1000, gdb: 0, q: 0.7 }, FLT: { cut: 2000, res: 0.3 },
+                DRV: { drive: 2 }, SAT: { gain: 3, bias: 0.2, tone: 4000 }, NET: { size: 0.5, fbk: 0.5, tone: 3000, mix: 0.3 },
+                DLY: { time: 0.25, fbk: 0.3, mix: 0.3 }, REV: { size: 0.5, mix: 0.3 } };   // a node no corner holds: never fed, asleep
+function Cables(M, sr, tick) {
+  this.sr = sr; this.tick = tick; this.dt = tick / sr; this.n = 0;
+  const F = () => new Float64Array(NC);
+  Object.assign(this, { f1: F(), f2: F(), b1: F(), b2: F(), pf: F(), pb: F(), tgt: F(), tf: F(), tb: F(), T: F(), sc: F(), wf: F(), wb: F(), hold: F(), hv: F() });
+  this.hs = new Uint8Array(NC); this.held = new Array(NC).fill('');
+  this.nL = { BODY: 1, SUB: 1 }; this.order = TYPES.slice(); this.prm = {}; this.wait = false; this.open = 0; this.log = [];
+  this.setMorph(M);
+}
+Cables.prototype.setMorph = function (M) {
+  this.M = M; this.o = M.o;
+  const tau = M.o.plant === 'hard' ? 0 : M.o.glide;
+  this.ka = tau > 0 ? 1 - Math.exp(-this.dt / (tau / 2)) : 1;
+  this.caps = Object.assign({}, DEFAULT_CAPS, M.o.caps || {});
+  for (const t of TYPES) if (!this.prm[t]) this.prm[t] = DEF_P[t];
+};
+Cables.prototype.settle = function (st) {
+  this.adm = st; this.admKey = structKey(st); this.open = 0; this.wait = false;
+  for (const t of TYPES) this.prm[t] = st.prm[t] || (this.M.U.includes(t) ? paramsAt(this.M, st.w, t) : DEF_P[t]);
+  const T = targetCables(st);
+  for (let i = 0; i < NC; i++) { this.T[i] = this.tgt[i] = this.tf[i] = this.f1[i] = this.f2[i] = this.pf[i] = T[i]; this.tb[i] = this.b1[i] = this.b2[i] = this.pb[i] = 0; this.hs[i] = 0; this.held[i] = ''; }
+  this.finish();
+};
+/* reach over a node adjacency (Map node → Set), identity included */
+function reaches(adj, a, b) {
+  if (a === b) return true;
+  const seen = new Set([a]), st = [a];
+  while (st.length) { const u = st.pop(); for (const v of adj.get(u) || []) { if (v === b) return true; if (!seen.has(v)) { seen.add(v); st.push(v); } } }
+  return false;
+}
+const addAdj = (adj, u, v) => { if (!adj.has(u)) adj.set(u, new Set()); adj.get(u).add(v); };
+/* the prohibitions of V, read on PATHS of live cables (round 1's I3 path reading): may
+   cable c come alive, given the live graph? Returns the rule it would break, or ''. A
+   new forbidden path must run through c, so it is enough to look either side of c. */
+Cables.prototype.guardBreak = function (c, live) {
+  if (BANNED[c.k]) return BANNED[c.k];
+  if (isLane(c.u) || c.v === 'OUT') return '';
+  if (reaches(live, 'REV', c.u) && reaches(live, c.v, 'NET')) return 'R3';
+  if (c.k === 'REV>DYN') { for (const v of live.get('DYN') || []) if (v !== 'OUT') return 'R2'; return ''; }   // E1: Scape straight into a LAST Bulwark
+  if (reaches(live, 'REV', c.u) && reaches(live, c.v, 'DYN')) return 'R2';
+  if (c.u === 'DYN' && reaches(live, 'REV', 'DYN')) return 'R2';                                                   // Bulwark would stop being last
+  return '';
+};
+Cables.prototype.step = function (st) {
+  const o = this.o; this.n++;
+  // 1. admission
+  const key = structKey(st);
+  if (key === this.admKey) this.adm = st;
+  else if (this.open < o.K || o.plant === 'noK') { this.adm = st; this.admKey = key; this.open++; this.log.push({ n: this.n, kind: 'adm', key }); }
+  const A = this.adm, inChain = new Set(A.chain);
+  for (const t of A.chain) this.prm[t] = A.prm[t];
+  // 2. targets: the chain's cables; a leaving tail's held outputs; the bypass while anything waited last tick
+  const T = targetCables(A); this.T = T;
+  for (let i = 0; i < NC; i++) {
+    const c = CABLES[i];
+    if (!o.tails || isLane(c.u) || !TAIL_TYPES[c.u] || inChain.has(c.u)) { this.hs[i] = 0; this.tgt[i] = T[i]; continue; }
+    if (this.hs[i] === 0 && this.f2[i] + this.b2[i] > SNAP) {
+      this.hs[i] = 1; this.hv[i] = this.f2[i] + this.b2[i];
+      this.hold[i] = Math.min(tailSecs(c.u, this.prm[c.u]), o.plant === 'nocap' ? Infinity : this.caps[c.u]);
+      this.log.push({ n: this.n, kind: 'tail', t: c.u, k: c.k });
+    }
+    if (this.hs[i] === 1 && (this.hold[i] -= this.dt) <= 0) this.hs[i] = 2;
+    this.tgt[i] = this.hs[i] === 1 ? this.hv[i] : 0;
+  }
+  if (this.wait && o.plant !== 'nobypass') for (const L of LANES) for (const k of this.bypassOf(A, L)) this.tgt[CIX[k]] += FLOOR;
+  // 3–4. guard and class, in a fixed cable order (deterministic)
+  const fadj = new Map(), live = new Map();
+  for (let i = 0; i < NC; i++) { const c = CABLES[i]; if (this.f2[i] > 0 && c.nn) addAdj(fadj, c.u, c.v); if (this.f2[i] + this.b2[i] > 0 && !isLane(c.u)) addAdj(live, c.u, c.v); }
+  let wait = false;
+  for (let i = 0; i < NC; i++) {
+    const c = CABLES[i]; this.held[i] = '';
+    if (!(this.tgt[i] > 0)) { this.tf[i] = this.tb[i] = 0; continue; }
+    if (this.f2[i] + this.b2[i] === 0 && o.plant !== 'noguard') {
+      const why = this.guardBreak(c, live);
+      if (why) { this.held[i] = why; this.tf[i] = this.tb[i] = 0; wait = true; continue; }
+    }
+    if (!isLane(c.u)) addAdj(live, c.u, c.v);
+    if (!c.nn || this.f2[i] > 0 || !reaches(fadj, c.v, c.u)) { this.tf[i] = this.tgt[i]; this.tb[i] = 0; if (c.nn) addAdj(fadj, c.u, c.v); continue; }
+    if (o.loop === 'a') { this.tf[i] = 0; this.tb[i] = this.tgt[i]; }
+    else { this.held[i] = 'loop'; this.tf[i] = this.tb[i] = 0; wait = true; }
+  }
+  // a ringing tail never blocks a cable: if anything waits, every held tail is released
+  if (wait) for (let i = 0; i < NC; i++) if (this.hs[i] === 1) { this.hs[i] = 2; this.log.push({ n: this.n, kind: 'tailcut', k: CABLES[i].k }); }
+  if (wait && !this.wait) this.log.push({ n: this.n, kind: 'wait' });
+  this.wait = wait;
+  // 5. glide
+  const a = this.ka;
+  for (let i = 0; i < NC; i++) {
+    this.pf[i] = this.f2[i]; this.pb[i] = this.b2[i];
+    let t = this.tf[i]; this.f1[i] += (t - this.f1[i]) * a; this.f2[i] += (this.f1[i] - this.f2[i]) * a;
+    if (Math.abs(this.f1[i] - t) < SNAP && Math.abs(this.f2[i] - t) < SNAP) this.f1[i] = this.f2[i] = t;
+    t = this.tb[i]; this.b1[i] += (t - this.b1[i]) * a; this.b2[i] += (this.b1[i] - this.b2[i]) * a;
+    if (Math.abs(this.b1[i] - t) < SNAP && Math.abs(this.b2[i] - t) < SNAP) this.b1[i] = this.b2[i] = t;
+  }
+  // a transition closes when every cable has landed and nothing waits or rides backward
+  let landed = !wait;
+  for (let i = 0; landed && i < NC; i++) if (this.f2[i] !== this.tf[i] || this.b2[i] !== 0 || this.tb[i] !== 0) landed = false;
+  if (landed) this.open = 0;
+  this.finish();
+};
+/* the bypass for a lane while a cable waits (strategy b, or a guard): the lane's dry to
+   OUT — or, when the lane's target runs through a MULTIBAND Bulwark, into Bulwark and
+   from Bulwark to OUT, so nothing unphased is summed with it (ADR-195). */
+Cables.prototype.bypassOf = function (A, L) {
+  if (this.T[CIX[L + '>OUT']] >= 1) return [];                        // the lane already goes straight out
+  const i0 = L === 'BODY' ? 0 : A.chain.indexOf(A.sub), mb = A.chain.indexOf('DYN');
+  const ks = i0 >= 0 && mb >= i0 && (A.prm.DYN.bands || 1) > 1 && this.o.plant !== 'mbbypass' ? [L + '>DYN', 'DYN>OUT'] : [L + '>OUT'];
+  return ks.filter(k => this.T[CIX[k]] < 1);                            // a bypass cable the target already carries in full is not added again
+};
+/* the forward processing order: Kahn over the node cables whose forward part is alive in
+   this block or the last (the rack interpolates between the two), ties by house order */
+function topoOrder(pf, f2) {
+  const indeg = {}, adj = {};
+  for (const t of TYPES) { indeg[t] = 0; adj[t] = []; }
+  for (let i = 0; i < NC; i++) { const c = CABLES[i]; if (c.nn && (pf[i] > 0 || f2[i] > 0)) { adj[c.u].push(c.v); indeg[c.v]++; } }
+  const out = [], done = new Set();
+  while (out.length < TYPES.length) {
+    let pick = null;
+    for (const t of TYPES) if (!done.has(t) && indeg[t] === 0) { pick = t; break; }
+    if (!pick) { for (const t of TYPES) if (!done.has(t)) { pick = t; break; } }   // unreachable by construction; never loop forever
+    done.add(pick); out.push(pick); for (const v of adj[pick]) indeg[v]--;
+  }
+  return out;
+}
+/* every simple cycle of live node cables (each from its lowest house index). Only a
+   backward part can close one, so with none alive there is nothing to search. */
+Cables.prototype.cycles = function () {
+  let any = false; for (let i = 0; i < NC; i++) if (this.b2[i] > 0) { any = true; break; }
+  if (!any) return [];
+  const out = [], adj = TYPES.map(() => []);
+  for (let i = 0; i < NC; i++) { const c = CABLES[i]; if (c.nn && this.f2[i] + this.b2[i] > 0) adj[HOUSE[c.u]].push([HOUSE[c.v], i]); }
+  for (let s = 0; s < TYPES.length; s++) {
+    const path = [], on = new Uint8Array(TYPES.length);
+    const dfs = u => { for (const [v, i] of adj[u]) { if (out.length > 4000) return; if (v === s) out.push(path.concat([i])); else if (v > s && !on[v]) { on[v] = 1; path.push(i); dfs(v); path.pop(); on[v] = 0; } } };
+    on[s] = 1; dfs(s);
+  }
+  return out;
+};
+/* 6–7: the loop bound (a), the effective weights the rack plays, the lane normaliser */
+Cables.prototype.finish = function () {
+  const o = this.o;
+  this.order = topoOrder(this.pf, this.f2);
+  this.sc.fill(1); this.loopRaw = 0; this.loopMax = 0;
+  const cyc = this.cycles(); this.nCyc = cyc.length;
+  if (cyc.length) {
+    const B = o.loop === 'a' && o.plant !== 'nobound' && o.bound < BOUND_OFF ? o.bound : Infinity;
+    const gain = cy => { let g = 1; for (const i of cy) g *= (this.f2[i] + this.sc[i] * this.b2[i]) * GMAX[CABLES[i].u]; return g; };
+    for (const cy of cyc) this.loopRaw = Math.max(this.loopRaw, gain(cy));
+    /* DETERMINISTIC SCALING: a cycle over the bound scales its purely-backward cables by
+       (B/g)^(1/m) — exactly onto the bound, since the gain is linear in each of them.
+       Cycles share cables, so the pass repeats (each pass only lowers gains). */
+    if (B < Infinity) for (let pass = 0; pass < 8; pass++) {
+      let ch = false;
+      for (const cy of cyc) {
+        const g = gain(cy); if (g <= B * (1 + 1e-9)) continue;
+        const pure = cy.filter(i => this.f2[i] === 0 && this.b2[i] > 0); if (!pure.length) continue;
+        const s = Math.pow(B / g, 1 / pure.length); for (const i of pure) this.sc[i] *= s; ch = true;
+      }
+      if (!ch) break;
+    }
+    for (const cy of cyc) this.loopMax = Math.max(this.loopMax, gain(cy));
+  }
+  for (let i = 0; i < NC; i++) { this.wf[i] = this.f2[i]; this.wb[i] = this.sc[i] * this.b2[i]; }
+  /* ROUND 2'S NORMALISATION, on cables: a lane's transmission splits into what runs on the
+     target's own cables (T_tg) and the rest (old paths, held tails, the bypass); the
+     lane's source cables are scaled by 1/‖(T_tg, rest)‖_p — round 2's u/‖u‖_p over one
+     split group — capped so the coherent sum never passes +3 dB, and at ×4. The target's
+     own transmission is 1 (closed form), so at rest the factor is 1. */
+  const mask = new Uint8Array(NC); for (let i = 0; i < NC; i++) mask[i] = this.T[i] > 0 ? 1 : 0;
+  for (const L of LANES) {
+    let n = 1;
+    if (o.norm) {
+      const all = transOf(this.order, this.wf, this.wb, L).OUT, tg = transOf(this.order, this.wf, this.wb, L, mask).OUT, rest = Math.max(0, all - tg), p = o.p;
+      const Lp = p === 1 ? tg + rest : Math.pow(Math.pow(tg, p) + Math.pow(rest, p), 1 / p);
+      n = Math.min(NMAX, Lp > 1e-9 ? 1 / Lp : NMAX, all > 1e-9 ? CEIL / all : NMAX);
+    }
+    this.nL[L] = n;
+    for (const i of OUTOF[L]) { this.wf[i] *= n; this.wb[i] *= n; }
+  }
+};
+/* what a sweep and the self-check read each tick, on the weights the rack plays */
+Cables.prototype.audit = function () {
+  const r = { gain: {}, banned: 0, path: '', mixed: false, cyc: this.nCyc, loop: this.loopMax, loopRaw: this.loopRaw, wait: this.wait };
+  const t = {};
+  for (const L of LANES) { t[L] = transOf(this.order, this.wf, this.wb, L); r.gain[L] = t[L].OUT; }
+  for (const k in BANNED) r.banned = Math.max(r.banned, this.wf[CIX[k]] + this.wb[CIX[k]]);
+  const live = new Map(), noDirect = new Map();
+  for (let i = 0; i < NC; i++) { const c = CABLES[i]; if (c.nn && this.wf[i] + this.wb[i] > 0) { addAdj(live, c.u, c.v); if (c.k !== 'REV>DYN') addAdj(noDirect, c.u, c.v); } }
+  if (reaches(live, 'REV', 'NET')) r.path = 'R3: a live Scape ⇝ Sluice path';
+  else if (reaches(noDirect, 'REV', 'DYN')) r.path = 'R2: Scape ⇝ Bulwark other than straight in';
+  else if (live.has('REV') && live.get('REV').has('DYN') && live.has('DYN')) r.path = 'R2: Bulwark after Scape is not last';
+  /* ADR-195: a multiband Bulwark summed, at any node input or OUT, with a branch of the
+     SAME lane that did not pass through it (> 1 % of the sum each way). The Sub entering
+     after Bulwark is another source, not a branch, and is not counted. */
+  if ((this.prm.DYN.bands || 1) > 1) {
+    const tD = transOf(this.order, this.wf, this.wb, null, null, 'DYN');
+    for (const L of LANES) if (t[L].DYN > 1e-3) for (const v of DST) {
+      if (v === 'DYN' || !(t[L][v] > 1e-3)) continue;
+      const thru = t[L].DYN * tD[v], around = t[L][v] - thru;
+      if (thru > 0.01 * t[L][v] && around > 0.01 * t[L][v]) { r.mixed = true; break; }
+    }
+  }
+  return r;
+};
+
+/* ---------- THE RACK: eight resident nodes, block-wise in the forward order ----------
+   Every node owns one instance for the life of the rack: nothing is rebuilt, nothing is
+   reset. A block runs node by node in the cables' forward order; a node's input is the
+   sum of its cables, each weight interpolated across the block (as round 2's engine
+   does); a BACKWARD part reads its source's output from the block before — the one
+   block of delay. SLEEP: a node whose input peak is under the threshold and whose
+   output and held memory are too — or whose output cables all weigh 0 — stops running
+   and outputs zeros; its instance keeps every sample of its state. It wakes, state
+   intact, in the first block whose input clears the threshold. */
+function Rack(sr, tick) {
+  this.sr = sr; this.tick = tick; this.n = 0; this.ph = [0, 0, 0, 0]; this.pulse = false; this.probe = false; this.lb = 0; this.ls = 0;
+  this.inst = {}; this.cur = {}; this.last = {}; this.asleep = {};
+  for (const t of TYPES) { this.inst[t] = mkInst(t, sr); this.cur[t] = new Float64Array(tick); this.last[t] = new Float64Array(tick); this.asleep[t] = false; }
+  this.lane = { BODY: new Float64Array(tick), SUB: new Float64Array(tick) };
+  this.pwf = new Float64Array(NC); this.pwb = new Float64Array(NC); this.x = new Float64Array(tick); this.primed = false;
+  this.awake = TYPES.length; this.cpu = 0; this.jump = 0; this.sleeps = 0; this.wakes = 0; this.cpuSum = 0; this.blocks = 0;
+}
+Rack.prototype.mix = function (i, C, x, n) {
+  const w0 = this.pwf[i], w1 = C.wf[i], b0 = this.pwb[i], b1 = C.wb[i];
+  if (w0 === 0 && w1 === 0 && b0 === 0 && b1 === 0) return;
+  const c = CABLES[i], src = isLane(c.u) ? this.lane[c.u] : this.cur[c.u];
+  for (let s = 0; s < n; s++) x[s] += (w0 + (w1 - w0) * s / n) * src[s];
+  if (b0 === 0 && b1 === 0) return;
+  const old = this.last[c.u];
+  for (let s = 0; s < n; s++) x[s] += (b0 + (b1 - b0) * s / n) * old[s];
+};
+Rack.prototype.outW = function (t, C) {
+  let m = 0; for (const i of OUTOF[t]) m = Math.max(m, this.pwf[i], C.wf[i], this.pwb[i], C.wb[i]);
+  return m;
+};
+Rack.prototype.block = function (C, out, off, n) {
+  const sr = this.sr, o = C.o, thr = Math.pow(10, (o.sleepDb === undefined ? SLEEP_DB : o.sleepDb) / 20), x = this.x;
+  if (!this.primed) { this.pwf.set(C.wf); this.pwb.set(C.wb); this.primed = true; }
+  for (const t of TYPES) this.inst[t].set(C.prm[t]);
+  for (let s = 0; s < n; s++) { lanesNext(this, sr); this.lane.BODY[s] = this.lb; this.lane.SUB[s] = this.ls; this.n++; }
+  let awake = 0, cpu = 0;
+  for (const t of C.order) {
+    x.fill(0, 0, n);
+    for (const i of INTO[t]) this.mix(i, C, x, n);
+    const y = this.cur[t], it = this.inst[t], ow = this.outW(t, C);
+    let pin = 0; for (let s = 0; s < n; s++) { const a = x[s] < 0 ? -x[s] : x[s]; if (a > pin) pin = a; }
+    if (o.sleep && this.asleep[t] && pin < thr) { y.fill(0, 0, n); continue; }
+    const woke = this.asleep[t];
+    this.asleep[t] = false;
+    for (let s = 0; s < n; s++) y[s] = it.run(x[s]);
+    if (woke) { this.wakes++; this.jump = Math.max(this.jump, Math.abs(y[0]) * ow); }
+    awake++; cpu += COST[t];
+    if (!o.sleep) continue;
+    let pout = 0; for (let s = 0; s < n; s++) { const a = y[s] < 0 ? -y[s] : y[s]; if (a > pout) pout = a; }
+    const held = Math.max(pout, it.tail ? it.tail() : 0);
+    // PLANT 'sleeptail': sleep on silent input alone, ignoring the tail still ringing
+    if (pin < thr && (held < thr || ow === 0 || o.plant === 'sleeptail')) { this.asleep[t] = true; this.sleeps++; this.jump = Math.max(this.jump, Math.abs(y[n - 1]) * ow); }
+  }
+  x.fill(0, 0, n);
+  for (const i of INTO.OUT) this.mix(i, C, x, n);
+  for (let s = 0; s < n; s++) out[off + s] = OUT_GAIN * x[s];
+  for (const t of TYPES) { const q = this.last[t]; this.last[t] = this.cur[t]; this.cur[t] = q; }
+  this.pwf.set(C.wf); this.pwb.set(C.wb);
+  this.awake = awake; this.cpu = cpu; this.cpuSum += cpu; this.blocks++;
+};
+
+/* ---------- defaults (round 2's, plus round 3's) ---------- */
+const DEFAULTS = { set: 'four', mode: 'quantum', snap: true, method: 'decode', sharpen: true, gamma: 2, jitter: true, T: 0.7,
+                   norm: true, p: 2, K: 2, tails: true, caps: Object.assign({}, DEFAULT_CAPS), seed: 265, plant: null,
+                   engine: 'r3', loop: 'a', sleep: true, glide: GLIDE_S, bound: LOOP_BOUND, sleepDb: SLEEP_DB };
+const setById = id => SETS.find(s => s.id === id) || SETS[0];
+const optsWith = extra => Object.assign({}, DEFAULTS, { caps: Object.assign({}, DEFAULTS.caps) }, extra || {});
+const morphOf = o => makeMorph(setById(o.set).corners, o);
 </script>
 
 <script>
