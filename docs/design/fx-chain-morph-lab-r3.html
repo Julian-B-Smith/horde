@@ -1473,9 +1473,13 @@ Cables.prototype.audit = function () {
    sum of its cables, each weight interpolated across the block (as round 2's engine
    does); a BACKWARD part reads its source's output from the block before — the one
    block of delay. SLEEP: a node whose input peak is under the threshold and whose
-   output and held memory are too — or whose output cables all weigh 0 — stops running
-   and outputs zeros; its instance keeps every sample of its state. It wakes, state
-   intact, in the first block whose input clears the threshold. */
+   output and held memory are too stops running and outputs zeros; its instance keeps
+   every sample of its state. It wakes, state intact, in the first block whose input
+   clears the threshold. A node whose output goes nowhere still runs until its memory has
+   decayed: the first build slept it at once and an ECHO woke later replaying a frozen
+   echo (a 0.033 step). Only a memory that never decays (feedback ≥ 1) is put to sleep
+   loud, once its output has been disconnected for its tail cap; such a wake ramps the
+   node's output in over one glide, the one place a wake is shaped. */
 function Rack(sr, tick) {
   this.sr = sr; this.tick = tick; this.n = 0; this.ph = [0, 0, 0, 0]; this.pulse = false; this.probe = false; this.lb = 0; this.ls = 0;
   this.inst = {}; this.cur = {}; this.last = {}; this.asleep = {};
@@ -1483,6 +1487,7 @@ function Rack(sr, tick) {
   this.lane = { BODY: new Float64Array(tick), SUB: new Float64Array(tick) };
   this.pwf = new Float64Array(NC); this.pwb = new Float64Array(NC); this.x = new Float64Array(tick); this.primed = false;
   this.awake = TYPES.length; this.cpu = 0; this.jump = 0; this.sleeps = 0; this.wakes = 0; this.cpuSum = 0; this.blocks = 0;
+  this.cut = {}; this.loud = {}; this.ramp = {}; for (const t of TYPES) { this.cut[t] = 0; this.loud[t] = false; this.ramp[t] = 1; }
 }
 Rack.prototype.mix = function (i, C, x, n) {
   const w0 = this.pwf[i], w1 = C.wf[i], b0 = this.pwb[i], b1 = C.wb[i];
@@ -1512,13 +1517,18 @@ Rack.prototype.block = function (C, out, off, n) {
     const woke = this.asleep[t];
     this.asleep[t] = false;
     for (let s = 0; s < n; s++) y[s] = it.run(x[s]);
-    if (woke) { this.wakes++; this.jump = Math.max(this.jump, Math.abs(y[0]) * ow); }
+    if (woke && this.loud[t]) { this.ramp[t] = 0; this.loud[t] = false; }
+    if (this.ramp[t] < 1) { const dr = 1 / Math.max(1, (o.glide || GLIDE_S) * sr); for (let s = 0; s < n; s++) { this.ramp[t] = Math.min(1, this.ramp[t] + dr); y[s] *= this.ramp[t]; } }
+    if (woke) { this.wakes++; const j = Math.abs(y[0]) * ow; if (j > this.jump) { this.jump = j; this.jumpWhy = SHORT[t] + ' woke at block ' + this.blocks; } }
     awake++; cpu += COST[t];
     if (!o.sleep) continue;
     let pout = 0; for (let s = 0; s < n; s++) { const a = y[s] < 0 ? -y[s] : y[s]; if (a > pout) pout = a; }
     const held = Math.max(pout, it.tail ? it.tail() : 0);
+    this.cut[t] = ow === 0 && pin < thr ? this.cut[t] + n / sr : 0;
+    const stuck = this.cut[t] > (TAIL_TYPES[t] ? C.caps[t] : 0) && held >= thr;
+    if (stuck) this.loud[t] = true;
     // PLANT 'sleeptail': sleep on silent input alone, ignoring the tail still ringing
-    if (pin < thr && (held < thr || ow === 0 || o.plant === 'sleeptail')) { this.asleep[t] = true; this.sleeps++; this.jump = Math.max(this.jump, Math.abs(y[n - 1]) * ow); }
+    if (pin < thr && (held < thr || stuck || o.plant === 'sleeptail')) { this.asleep[t] = true; this.sleeps++; const j = Math.abs(y[n - 1]) * ow; if (j > this.jump) { this.jump = j; this.jumpWhy = SHORT[t] + ' slept at block ' + this.blocks; } }
   }
   x.fill(0, 0, n);
   for (const i of INTO.OUT) this.mix(i, C, x, n);
@@ -1596,6 +1606,45 @@ function runSweep3(M, wFn, opt) {
 }
 /* ---------- COPIED from round 2 (fx-chain-morph-lab-r2.html lines 996–996; Router→R2Router, Engine→R2Engine) ---------- */
 const db = g => 20 * Math.log10(Math.max(1e-9, g));
+
+/* ---------- rendering: either engine, the same lanes, a schedule of pad points ----------
+   wAt(i) gives the corner weights at control tick i. Round 2 plays its own router and
+   engine (insert/remove, wet dips, instances rebuilt on arrival); round 3 plays the
+   Cables and the Rack. Both warm up for 0.5 s on the first point (round 2's practice),
+   so every transition starts from a steady state. Returns the samples and the rack's
+   sleep figures (round 3 only). */
+const WARM_S = 0.5;
+function renderWith(M, wAt, N, opt) {
+  opt = opt || {};
+  const sr = RSR, y = new Float32Array(N), junk = new Float32Array(TICK), r2 = M.o.engine === 'r2';
+  let st = mapW(M, wAt(0)), key = '';
+  const R = r2 ? new R2Router(M, sr, TICK) : new Cables(M, sr, TICK), E = r2 ? new R2Engine(sr) : new Rack(sr, TICK);
+  E.probe = !!opt.probe; E.pulse = !!opt.pulse;
+  R.settle(st);
+  for (let s = 0; s < Math.round(WARM_S * sr); s += TICK) { if (r2) E.block(R.frame(), junk, 0, TICK); else { R.step(st); E.block(R, junk, 0, TICK); } }
+  const info = { awakeMin: TYPES.length, awakeMax: 0, cpuMax: 0, cpuSum: 0, blocks: 0 };
+  if (!r2) { E.jump = 0; E.sleeps = 0; E.wakes = 0; }
+  for (let s = 0, i = 0; s < N; s += TICK, i++) {
+    const w = wAt(i), k = w.join(',');
+    if (k !== key) { st = mapW(M, w); key = k; }
+    R.step(st);
+    if (r2) E.block(R.frame(), y, s, Math.min(TICK, N - s));
+    else {
+      E.block(R, y, s, Math.min(TICK, N - s));
+      info.awakeMin = Math.min(info.awakeMin, E.awake); info.awakeMax = Math.max(info.awakeMax, E.awake);
+      info.cpuMax = Math.max(info.cpuMax, E.cpu); info.cpuSum += E.cpu; info.blocks++;
+    }
+  }
+  if (!r2) { info.jump = E.jump; info.sleeps = E.sleeps; info.wakes = E.wakes; info.cpuAvg = info.cpuSum / Math.max(1, info.blocks); }
+  info.y = y;
+  return info;
+}
+/* a sweep as a schedule: still, move, still (the sweep table's timing) */
+function sweepSchedule(M, sw) {
+  const dt = TICK / RSR, nPre = Math.round(SW_PRE / dt), nMove = Math.round(SW_MOVE / dt), f = sweepW(M, sw);
+  return { wAt: i => f(clamp01((i - nPre) / nMove)), N: Math.round((SW_PRE + SW_MOVE + SW_POST) * RSR) };
+}
+const RESIDENT_CPU = TYPES.reduce((s, t) => s + COST[t], 0);   // every node awake: 15 points
 </script>
 
 <script>
