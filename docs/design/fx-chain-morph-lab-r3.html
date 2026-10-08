@@ -1,0 +1,770 @@
+<!doctype html>
+<!-- fx-chain-morph-lab-r3 — B265 round 3: static nodes, the morph moves only cables.
+     HYPERSAW, 2026-10-08.
+
+     PROVENANCE. Built for ROADMAP B265 round 3, on the human's listening note of
+     2026-10-08 about round 2 (verbatim): "I'm hearing a lot of clicks when devices enter
+     and leave the chain. Since there is now only one of each device, let's think about it
+     differently: no device has to click into or out of a slot. They all sit static, and
+     the connections between them gradually emerge and retreat according to the same logic
+     and prohibitions. I can imagine some elegant graphical ways to show the cables between
+     them." Then: "Start round 3". Rulings carried: ADR-193 D1–D8 (round 2) and ADR-195
+     (multiband Bulwark is never summed in parallel with an unphased branch; its presence
+     is flip-only in blend mode; band count is flip-class). Rounds 1 and 2
+     (fx-chain-morph-lab.html, fx-chain-morph-lab-r2.html) are untouched; round 2's map,
+     router, stand-ins and engine are COPIED here (by line range, not retyped), marked
+     where they are, so the A/B toggle plays round 2's real insert/remove behaviour.
+
+     THE MODEL. Every module type is RESIDENT and WARM at a fixed place: nothing is
+     inserted, removed or ducked for a reorder. The morph moves only CABLES — lane→node,
+     node→node, node→OUT. At a pad point round 2's map (presence, order target, snap to V,
+     Sub entry) names a chain; the chain's cables, in closed form, are the TARGET weights
+     (QUANTUM: 0 or 1, switched where round 2's seeded keyed thresholds put the chain
+     change; BLEND: the wet gains of the chain written as cables, continuous). Each cable
+     GLIDES toward its target through two cascaded one-poles of time constant τ/2 each,
+     stated in seconds (ADR-009), so a glide starts with zero slope.
+
+     TRANSIENT LOOPS. A reorder briefly keeps an old cable and its reverse alive at once:
+     a cycle. Each cable has two parts, a FORWARD part (no delay, allowed only while it keeps
+     the forward graph acyclic) and a BACKWARD part (one block of delay). Strategy toggle:
+       (a) LOOP BOUND — a cycle-closing cable emerges at once on its backward part, and the
+           product of cable weight × each node's declared max gain round every live cycle is
+           held ≤ a stated bound by deterministic scaling of the backward parts. When the
+           cycle clears, the backward part crossfades into the forward part.
+       (b) ORDERED FADES — a cycle-closing cable WAITS until the cable it would loop with
+           has retreated to zero; meanwhile a bypass keeps every lane above the reach floor.
+     In both, a cable that would open a path V forbids (Scape ⇝ Sluice; Scape ⇝ Bulwark
+     except E1) waits too, and while anything waits the bypass opens. A ringing tail never
+     blocks a cable: it is cut short instead (reported). Round 2's lane normalisation (p,
+     +3 dB cap) acts on each lane's source cables.
+
+     SLEEP. A node whose input is silent and whose output is below the threshold (or whose
+     output goes nowhere) stops processing and keeps its state; it wakes, state intact, the
+     block its input returns. CPU points count awake nodes only.
+
+     CLICK METRIC (stated in full above clickOf): per transition, the worst 2 ms RMS of the
+     signal's second difference inside the transition, over the worst of its steady
+     neighbours, in dB, on a sine probe. Round 3 (a), (b) and round 2 are measured on the
+     same transitions.
+
+     STRUCTURE (round 1's and 2's): block 1 is the MODEL (no DOM, no clock, mulberry32
+     only; the self-check calls the same functions the page draws with and POWER plays);
+     block 2 is the page. TOKENS are round 2's copy of gui2's: copy, therefore drift.
+
+     COLOUR ROLES (ADR-116): --value magenta = authored (corners, puck); --physics violet =
+     what the engine does (cables, awake nodes); --meter cyan = analysers and signal flow;
+     --caution = a live loop, a held cable, a rule broken, a click finding; --alarm = CLIP only.
+
+     L0026: every const/let the setup path reads is declared above the wiring at the
+     bottom of block 2. L0064: the cable view draws the Cables object the audio plays. -->
+<html><head><meta charset="utf-8">
+<meta name="lab-part" content="FX">
+<meta name="lab-review" content="B265 · 2026-10-08">
+<title>fx-chain morph lab, round 3 — static nodes, the morph moves only cables</title>
+<style>
+  /* ============ TOKENS — round 2's copy (round 1's copy of gui2's), verbatim ============ */
+  :root {
+    --bg:#F2EDE2; --panel:#FCFAF4; --well:#FFFFFF; --panel2:#E9E3D4;
+    --line:#191521; --hair:#E5DFD0; --div:#D8D1C0;
+    --text:#191521; --t2:#494356; --dim:#9A93A3; --dis:#B6AFA0;
+    --value:#F5169C; --pull:#F5169C; --physics:#6431F0; --meter:#00D5C8;
+    --marker:#FFD702; --celebrate:#A6F219;
+    --caution:#F5A300; --caution-bg:#FBE9BD; --caution-tx:#6D570B;
+    --amber:#F5A300; --alarm:#C2261A; --ghost:#C9C2FF;
+    --cA:#FFD702; --cAtx:#D4A900; --cB:#FF2E88; --cBtx:#FF2E88;
+    --cC:#00D5C8; --cCtx:#00B3A8; --cD:#A6F219; --cDtx:#6FB200;
+    --text-hi:#191521; --dim2:#494356; --grid:#E5DFD0; --grid2:#E5DFD0;
+    --hot:#F5169C; --bad:#C2261A; --badge-bg:rgba(245,163,0,.9);
+    --scr-tube:#1B0733; --scr-value:#FF5ECF; --scr-meter:#B8F227;
+    --scr-physics:#B48CFF; --scr-marker:#FFB86B; --scr-grid:#4FD8BE;
+    --scr-scan:0.22; --scr-alpha:1;
+    --r-card:10px; --r-well:var(--r-card); --r:var(--r-card); --stroke:1.5px;
+    --shadow:1.5px 1.5px 0 var(--line); --shadow-hover:2.5px 2.5px 0 var(--line);
+    --focus:0 0 0 2.5px rgba(245,22,156,.45); }
+  * { box-sizing:border-box; margin:0; }
+  canvas { border:var(--stroke) solid var(--line); border-radius:var(--r-well);
+           background:var(--scr-tube); display:block; }
+  body:not(.dark) { --scr-tube:#F3EBFF; --scr-value:#D6006B; --scr-meter:#007A73;
+    --scr-physics:#6E14E8; --scr-marker:#C43A00; --scr-grid:#5A3FA8;
+    --scr-scan:0.05; --scr-alpha:1.6;
+    --marker:#8A6A00; --celebrate:#4E7A00; }
+  body.dark {
+    --bg:#151220; --panel:#1F1B2E; --well:#0E0C16; --panel2:#2C2740;
+    --line:#EFE9FA; --hair:#312B47; --div:#3B3455;
+    --text:#EFE9FA; --t2:#BDB4D4; --dim:#8A82A3; --dis:#514A6B;
+    --value:#FF3DAD; --pull:#FF3DAD; --physics:#A07CFF; --meter:#2DF2E2;
+    --marker:#FFE04D; --celebrate:#C2F53E;
+    --caution:#FFB627; --caution-bg:#4A3A12; --caution-tx:#FFD98A;
+    --amber:#FFB627; --alarm:#FF5A4D; --ghost:#5B4E8F;
+    --cA:#FFD702; --cAtx:#FFE566; --cB:#FF2E88; --cBtx:#FF6FAE;
+    --cC:#00D5C8; --cCtx:#4DEDE3; --cD:#A6F219; --cDtx:#C6F86A;
+    --text-hi:#FFFFFF; --dim2:#9A93A8; --grid:#312B47; --grid2:#312B47;
+    --hot:#FF3DAD; --bad:#FF5A4D; --badge-bg:rgba(255,182,39,.9);
+    --focus:0 0 0 2.5px rgba(255,61,173,.45); }
+
+  /* ============ CHROME — round 1's declarations ============ */
+  body { background:var(--bg); color:var(--text);
+    font:12px/1.45 ui-monospace,Menlo,monospace; padding:10px 12px; }
+  .hdr { display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; margin-bottom:8px; }
+  h1 { font-size:34px; line-height:1; letter-spacing:-1px; font-weight:800; }
+  .badges { display:flex; align-items:center; gap:8px; margin-top:4px; }
+  .badge { font-size:9.5px; letter-spacing:.1em; padding:2px 7px;
+           border:var(--stroke) solid var(--line); border-radius:3px;
+           background:var(--cA); color:var(--line); }
+  body.dark .badge { color:var(--bg); }
+  .sub { color:var(--t2); font-size:10.5px; letter-spacing:.12em; }
+  .hdrctl { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-left:auto; }
+  .grp { display:flex; align-items:center; gap:7px; }
+  .lbl { font-size:10px; font-weight:700; letter-spacing:.1em; color:var(--t2); }
+  .pill { padding:3px 10px; border:var(--stroke) solid var(--line);
+    border-radius:999px; min-height:26px; cursor:pointer; color:var(--dim);
+    background:var(--panel); font:inherit; font-size:10px; letter-spacing:.06em; }
+  .pill:hover { box-shadow:var(--shadow); }
+  .pill.on { color:var(--bg); background:var(--line); font-weight:600; }
+  .pill.act { color:var(--text); }
+  .pills { display:flex; gap:4px; flex-wrap:wrap; margin:3px 0; }
+  .chip { padding:4px 8px; border:0; background:none; border-radius:var(--r);
+    cursor:pointer; font:inherit; font-size:10px; letter-spacing:.06em;
+    color:var(--dim); min-height:26px; }
+  .chip:hover { background:var(--panel2); }
+  .chip b { color:var(--t2); font-weight:600; letter-spacing:.1em; }
+  .tagline { color:var(--t2); font-size:11px; max-width:130ch; margin-bottom:6px; }
+  .tagline b { color:var(--text); }
+  .audit { font-size:10px; color:var(--t2); margin-bottom:10px;
+           border-left:3px solid var(--meter); padding-left:8px; }
+  .audit.bad { border-left-color:var(--caution); color:var(--caution-tx); }
+  .audit b { color:var(--text); }
+  .cluster { background:var(--panel); border:var(--stroke) solid var(--line);
+    border-radius:var(--r); padding:8px 10px; min-width:0; }
+  h2 { font-size:11px; color:var(--pull); letter-spacing:1px; margin-bottom:6px; }
+  h2 span { color:var(--t2); font-weight:400; letter-spacing:.04em; }
+  .note { color:var(--t2); font-size:10px; line-height:1.5; margin-top:6px; }
+  .note b { color:var(--text); }
+  .cap { font-size:9px; letter-spacing:.12em; color:var(--dim); margin:7px 0 2px; }
+  .ptxt { font-size:9.5px; color:var(--t2); margin-top:4px; line-height:1.5; }
+  .ptxt b { color:var(--text); font-weight:600; }
+
+  /* ============ PAGE SHAPE ============ */
+  .row { display:grid; gap:10px; margin-top:10px; align-items:start; }
+  .top { grid-template-columns:minmax(360px,1.05fr) minmax(0,1.15fr) minmax(0,1fr); }
+  .two { grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
+  @media (max-width:1300px) { .top { grid-template-columns:1fr 1fr; } }
+  @media (max-width:900px) { .top, .two { grid-template-columns:1fr; } }
+  #pad { width:100%; aspect-ratio:1/1; cursor:crosshair; touch-action:none; }
+  #chainC { width:100%; height:150px; }
+  #scopeC { width:100%; height:42px; margin-top:4px; }
+  .corners { display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:6px; }
+  .corner { border:1px solid var(--div); border-radius:var(--r); padding:5px 6px; background:var(--well); }
+  .corner h3 { font-size:10px; letter-spacing:.06em; color:var(--value); margin-bottom:2px; }
+  .corner h3 span { color:var(--t2); font-weight:400; }
+  .corner canvas { width:100%; height:46px; }
+  .clip { font-size:9px; font-weight:700; letter-spacing:.1em; color:var(--dis); }
+  .clip.on { color:var(--alarm); }
+  .legend { font-size:9px; color:var(--t2); margin-top:5px; line-height:1.6; }
+  .legend i { display:inline-block; width:12px; height:10px; vertical-align:-1px; margin:0 3px 0 8px; border:1px solid var(--line); }
+
+  /* dev toggles: the A/B surface */
+  .tg { display:grid; grid-template-columns:150px 1fr; gap:4px 10px; align-items:center; margin-top:4px; }
+  .tg .pill { min-width:140px; text-align:left; }
+  .tg .pill .st { float:right; font-weight:700; }
+  .tg .what { font-size:9.5px; color:var(--t2); line-height:1.45; }
+  .tg .what b { color:var(--text); }
+  details.adv { margin-top:2px; }
+  details.adv summary { cursor:pointer; font-size:11px; color:var(--pull); letter-spacing:1px; font-weight:700; }
+  .ctlrow { display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-top:6px; }
+  .rng { display:flex; align-items:center; gap:6px; font-size:10px; color:var(--t2); }
+  .rng input { width:110px; accent-color:var(--value); }
+  .rng b { color:var(--text); font-variant-numeric:tabular-nums; min-width:34px; display:inline-block; }
+  .sq { padding:0 7px; min-height:22px; }
+
+  /* tables */
+  table { width:100%; border-collapse:collapse; font-size:10px; }
+  th { font-size:9px; letter-spacing:.08em; color:var(--dim); font-weight:600; text-align:left; padding:3px 4px;
+       border-bottom:1px solid var(--div); vertical-align:bottom; }
+  td { padding:3px 4px; border-bottom:1px dashed var(--div); color:var(--t2); vertical-align:top;
+       font-variant-numeric:tabular-nums; }
+  td.a { color:var(--text); font-weight:700; white-space:nowrap; }
+  td .sub { display:block; color:var(--dim); font-size:9px; letter-spacing:0; }
+  .ok { color:var(--celebrate); font-weight:700; }
+  .no { color:var(--caution-tx); background:var(--caution-bg); font-weight:700; padding:0 3px; border-radius:3px; }
+  .wv { color:var(--dim); }
+  .big { font-size:15px; font-weight:800; color:var(--text); }
+  .chk td.claim { color:var(--text); }
+  .chk td div { color:var(--dim); font-size:9px; margin-top:2px; }
+  ol.rules { padding-left:18px; }
+  ol.rules li { font-size:10.5px; color:var(--t2); margin:0 0 7px; line-height:1.5; }
+  ol.rules li b { color:var(--text); }
+  ol.rules li .ex { display:block; color:var(--t2); margin-top:2px; padding-left:8px; border-left:2px solid var(--value); }
+  .pts { font-size:10px; color:var(--t2); margin-top:4px; }
+  .pts b { color:var(--text); }
+  ol.q { padding-left:18px; }
+  ol.q li { font-size:10px; color:var(--t2); margin:0 0 7px; line-height:1.5; }
+  ol.q li b { color:var(--text); }
+  ol.q li i { font-style:normal; color:var(--value); font-weight:600; }
+  .rec { font-size:10.5px; line-height:1.55; color:var(--t2); }
+  .rec b { color:var(--text); }
+  .rec p { margin-bottom:7px; }
+
+  /* ============ ROUND 3 ============ */
+  .top3 { grid-template-columns:minmax(340px,0.9fr) minmax(0,1.6fr); }
+  @media (max-width:1100px) { .top3 { grid-template-columns:1fr; } }
+  #cableC { width:100%; aspect-ratio:16/9; }
+  .live { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px; margin-top:6px; }
+  .live div { border:1px solid var(--div); border-radius:var(--r); padding:4px 6px; background:var(--well); }
+  .live .k { font-size:9px; letter-spacing:.1em; color:var(--dim); }
+  .live .v { font-size:15px; font-weight:800; color:var(--text); font-variant-numeric:tabular-nums; }
+  .live .v.cau { color:var(--caution-tx); }
+  .ab { display:flex; gap:4px; }
+  .three { grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) minmax(0,1fr); }
+  @media (max-width:1300px) { .three { grid-template-columns:1fr 1fr; } }
+  @media (max-width:900px) { .three { grid-template-columns:1fr; } }
+  .evt { max-height:340px; overflow:auto; }
+  .bar { display:inline-block; height:8px; background:var(--caution); vertical-align:middle; border-radius:2px; }
+  .bar.p { background:var(--physics); }
+</style></head><body>
+
+<div class="hdr">
+  <div>
+    <h1>fx-chain morph · round 3</h1>
+    <div class="badges">
+      <span class="badge">B265 ROUND 3 LAB</span>
+      <span class="sub">STATIC NODES · CABLES EMERGE AND RETREAT · ONE MODULE PER TYPE · ADR-193 · ADR-195</span>
+    </div>
+  </div>
+  <div class="hdrctl">
+    <button class="pill" id="pwr">POWER</button>
+    <button class="pill" id="pulseBtn">PULSE</button>
+    <button class="pill" id="probeBtn">SINE PROBE</button>
+    <div class="grp"><button class="pill" id="sweepBtn">SWEEP</button><div class="pills" id="pathPills"></div></div>
+    <button class="chip" id="themeBtn">theme <b>LIGHT</b></button>
+  </div>
+</div>
+
+<div class="tagline">Round 3 takes the human's redirection literally: <b>every module sits static and warm</b> at a fixed place (Drive, Filter,
+ECHO, Scape, Shriek, Bulwark, EQ and Sluice stand-ins, one of each), and the morph moves only the <b>cables</b> between them. Round 2's
+logic still decides which cables should exist and in what order at each pad point; the cables <b>glide</b> there. Reorders make
+transient loops, raced two ways: <b>(a)</b> a loop-gain bound with one block of delay on the backward cable, or <b>(b)</b> ordered
+fades over a bypass. Silent nodes <b>sleep</b> with their state kept. A <b>click metric</b> measures every transition against round 2's
+insert/remove behaviour, which an A/B toggle plays. It sounds, it measures itself, and a self-check plants one fault per claim.</div>
+
+<div class="audit" id="audit">self-check: pending</div>
+
+<div class="row top3">
+  <div class="cluster"><h2>The pad <span id="xyOut"></span></h2>
+    <canvas id="pad"></canvas>
+    <div class="legend"><i style="background:var(--value);opacity:.35"></i>a corner's own preset
+      <i style="background:var(--physics);opacity:.4"></i>an intermediate chain (shade = which one)
+      <i style="background:var(--caution)"></i>a two-or-more-change boundary. Thin lines are one-change boundaries. The dashed path is the sweep.</div>
+  </div>
+  <div class="cluster"><h2>The cables <span id="cableHead"></span></h2>
+    <canvas id="cableC"></canvas>
+    <div class="legend" id="cableLegend"></div>
+    <div class="live" id="liveBox"></div>
+    <div class="ptxt" id="chainTxt"></div>
+    <div class="ctlrow"><span class="lbl">OUTPUT</span><span class="clip" id="clip">CLIP</span><span class="cap" id="audioStat" style="margin:0">AUDIO — OFF</span></div>
+    <canvas id="scopeC"></canvas>
+  </div>
+</div>
+
+<div class="row two">
+  <div class="cluster"><h2>Dev toggles — A/B by ear</h2>
+    <div class="tg" id="toggles"></div>
+    <div class="ctlrow"><button class="pill" id="allOn">ALL ON (round 3)</button><button class="pill" id="allOff">ALL OFF</button>
+      <span class="ptxt" style="margin:0">Toggles act on the sound at once; the cables glide to the new target.</span></div>
+  </div>
+  <div class="cluster"><details class="adv" id="advBox"><summary>Advanced — fine-tuning</summary>
+    <div class="ctlrow" id="advRow"></div>
+    <div class="ctlrow"><span class="lbl">NORM p</span><div class="pills" id="pPills"></div>
+      <span class="lbl">OPEN TRANSITIONS K</span><div class="pills" id="kPills"></div></div>
+    <div class="ctlrow"><span class="lbl">SEED</span><button class="pill sq" id="sDn">−</button><b id="sOut"></b><button class="pill sq" id="sUp">+</button>
+      <button class="pill" id="reshuffle">RESHUFFLE</button></div>
+    <div class="note" id="advNote"></div>
+  </details>
+  <h2 style="margin-top:8px">Corners <span id="setWhy"></span></h2>
+  <div class="pills" id="setPills"></div>
+  <div class="ptxt" id="cornerTxt"></div>
+  </div>
+</div>
+
+<div class="row two">
+  <div class="cluster"><h2>Click metric — every transition, three behaviours <span id="clickHead"></span></h2>
+    <table id="clickSum"></table>
+    <div class="evt"><table id="clickTab"></table></div>
+    <div class="note" id="clickNote"></div>
+  </div>
+  <div class="cluster"><h2>Sweeps through the cables <span id="swHead"></span></h2>
+    <table id="swTab"></table>
+    <div class="note" id="swNote"></div>
+  </div>
+</div>
+
+<div class="row two">
+  <div class="cluster"><h2>House rules carried over, as cable rules</h2>
+    <div id="rules"></div>
+  </div>
+  <div class="cluster"><h2>Edge reduction — each pad edge against its two corners alone</h2>
+    <table id="edgeTab"></table>
+    <div class="note" id="edgeNote"></div>
+  </div>
+</div>
+
+<div class="cluster" style="margin-top:10px"><h2>Self-check — run at load; every claim has a planted fault that must fail it</h2>
+  <table class="chk"><thead><tr><th>#</th><th>claim</th><th>holds</th><th>must-fail control (planted fault)</th><th>caught</th></tr></thead>
+    <tbody id="chkBody"><tr><td colspan="5">running…</td></tr></tbody></table>
+</div>
+
+<div class="cluster" style="margin-top:10px"><h2>What the lab shows, and what is open for the listening pass</h2>
+  <div class="rec" id="rec"></div>
+</div>
+
+<script>
+/* ======================================================================
+   BLOCK 1 — THE MODEL. Pure functions over plain data, plus two control-rate
+   state machines (round 2's router, round 3's cables) and two engines. No DOM,
+   no clock, no Math.random. The page (block 2) and the self-check call only
+   what is defined here.
+   ====================================================================== */
+'use strict';
+/* ---------- COPIED from round 2 (fx-chain-morph-lab-r2.html lines 303–702): streams, the world, the map ---------- */
+/* ---------- seeded streams (round 1, verbatim) ---------- */
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function fnv(s) { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); } return h >>> 0; }
+function gumbel(u) { u = Math.min(1 - 1e-9, Math.max(1e-9, u)); return -Math.log(-Math.log(u)); }
+const sigm = z => 1 / (1 + Math.exp(-z));
+const clamp = (v, lo, hi) => v < lo ? lo : v > hi ? hi : v;
+const clamp01 = u => u <= 0 ? 0 : u >= 1 ? 1 : u;
+const rc = u => { u = clamp01(u); return 0.5 - 0.5 * Math.cos(Math.PI * u); };
+const ek = (u, v) => u + '>' + v;
+const isLane = n => n === 'BODY' || n === 'SUB';
+const EPS = 1e-6;
+/* ONE uniform per KEY. A draw is keyed by what it is about ('m:DRV', 'o:FLT|REV',
+   's:OUT'), never by a corner's index: the same module gets the same threshold on
+   every corner set and on a pad edge taken alone (edge reduction), and adding a
+   module never re-deals the others (the reason round 1 drew the shared draw first). */
+const uOf = (seed, key) => mulberry32((seed ^ fnv(key)) >>> 0)();
+const logistic = u => { u = clamp(u, 1e-9, 1 - 1e-9); return Math.log(u / (1 - u)); };
+const logitC = (q, L) => q <= 0 ? -L : q >= 1 ? L : clamp(Math.log(q / (1 - q)), -L, L);
+
+/* ---------- the world ---------- */
+/* TYPES IS ALSO THE HOUSE ORDER: dynamics and EQ first, filter, drive, saturation,
+   the network, then time. An absent module's ghost rank comes from it (lane 1 §3.4,
+   rule (a): deterministic and preset-independent), and so do ties. */
+const TYPES = ['DYN', 'EQ', 'FLT', 'DRV', 'SAT', 'NET', 'DLY', 'REV'];
+const HOUSE = {}; TYPES.forEach((t, i) => { HOUSE[t] = i; });
+const NAME = { DYN: 'Bulwark (dynamics)', EQ: 'EQ', FLT: 'Filter', DRV: 'Drive', SAT: 'Shriek (saturator)', NET: 'Sluice (network)',
+               DLY: 'ECHO (delay)', REV: 'Scape (reverb)', BODY: 'Body', SUB: 'Sub', OUT: 'Out' };
+const SHORT = { DYN: 'Dy', EQ: 'Eq', FLT: 'Fl', DRV: 'Dr', SAT: 'Sa', NET: 'Nw', DLY: 'Dl', REV: 'Rv', BODY: 'Bo', SUB: 'Su', OUT: 'Out', WIRE: '·' };
+const LANES = ['BODY', 'SUB'];
+/* THE CAP IS A NAMED CONSTANT (brief §2.1): one instance per type now; raising it
+   later needs rank-order correspondence (lane 5). Identity is the type, so the same
+   module in two corners is the same object and its parameters simply blend. */
+const INSTANCES_PER_TYPE = 1;
+const TAIL_TYPES = { DLY: 1, REV: 1, NET: 1 };     // modules with memory that rings (D5)
+
+/* THE APPROVED SET V (D3) — three house rules, one exception, nothing else.
+   Deliberately permissive: a rule is here only if it guards against CPU that
+   cannot be paid or a sound that is a known dead end. Corners are presets, so
+   every shipped corner must satisfy V (checked at load: inV on each corner). */
+const COST = { DYN: 1, EQ: 1, FLT: 1, DRV: 1, SAT: 2, DLY: 2, REV: 3, NET: 4 };
+const CPU_BUDGET = 10;
+const RULES = [
+  { id: 'R1', kind: 'cpu', title: 'CPU budget',
+    text: 'A chain costs at most ' + CPU_BUDGET + ' points. Sluice 4 · Scape 3 · ECHO 2 · Shriek 2 · everything else 1. Tails that are still ringing are extra and are shown live.' },
+  { id: 'R2', kind: 'never', a: 'DYN', b: 'REV', exc: 'E1', title: 'Bulwark never after Scape',
+    text: 'a compressor after the reverb pumps the tail and ducks the room.' },
+  { id: 'R3', kind: 'never', a: 'NET', b: 'REV', title: 'Sluice never after Scape',
+    text: 'a feedback network fed a dense reverb wash rings itself into a howl.' },
+];
+const EXCEPTIONS = [
+  { id: 'E1', rule: 'R2', title: 'The breathing bus',
+    text: 'Scape straight into Bulwark as the very LAST module is allowed: the pumping reverb bus, on purpose.' },
+];
+const chainCost = c => c.reduce((s, t) => s + COST[t], 0);
+/* null if the chain is in V, else the first rule it breaks */
+function vBreak(chain) {
+  if (chainCost(chain) > CPU_BUDGET) return 'R1';
+  for (const r of RULES) if (r.kind === 'never') {
+    const ia = chain.indexOf(r.a), ib = chain.indexOf(r.b);
+    if (ia < 0 || ib < 0 || ia < ib) continue;
+    if (r.exc === 'E1' && ia === ib + 1 && ia === chain.length - 1) continue;   // the breathing bus
+    return r.id;
+  }
+  return null;
+}
+const inV = chain => !vBreak(chain);
+
+/* CORNER SETS. A corner is a preset: a chain (Body always enters its head), the
+   module the Sub enters (or OUT, dry), and per-module parameters. */
+const SETS = [
+  { id: 'four', name: 'four presets', why: 'four unrelated presets; Filter, Drive and Scape sit in all four (Filter and Drive disagree on their order, both precede Scape everywhere); the union costs 15 points, so the middle of the pad must drop modules to stay in V',
+    corners: [
+      { name: 'acid lead', chain: ['FLT', 'DRV', 'DLY', 'REV'], sub: 'DRV',
+        p: { FLT: { cut: 900, res: 0.7 }, DRV: { drive: 6 }, DLY: { time: 0.21, fbk: 0.35, mix: 0.3 }, REV: { size: 0.45, mix: 0.2 } } },
+      { name: 'glue bus', chain: ['DRV', 'FLT', 'REV', 'DYN'], sub: 'OUT',   // round 3: Bulwark is MULTIBAND here (bands 2, ADR-195)
+        p: { DRV: { drive: 3 }, FLT: { cut: 2400, res: 0.3 }, REV: { size: 0.6, mix: 0.3 }, DYN: { thr: -20, ratio: 4, att: 0.005, rel: 0.12, mk: 5, bands: 2 } } },
+      { name: 'network grit', chain: ['FLT', 'DRV', 'NET', 'REV'], sub: 'FLT',
+        p: { FLT: { cut: 1400, res: 0.45 }, DRV: { drive: 8 }, NET: { size: 0.8, fbk: 0.9, tone: 2500, mix: 0.45 }, REV: { size: 0.5, mix: 0.25 } } },
+      { name: 'hyper wash', chain: ['EQ', 'DRV', 'SAT', 'FLT', 'REV'], sub: 'SAT',
+        p: { EQ: { f: 3000, gdb: 6, q: 0.8 }, DRV: { drive: 4 }, SAT: { gain: 5, bias: 0.3, tone: 5000 }, FLT: { cut: 3500, res: 0.2 }, REV: { size: 0.8, mix: 0.5 } } },
+    ] },
+  { id: 'close', name: 'four neighbours', why: 'four near-identical chains (one swap or one move apart): the quiet case, where most of the pad should sound like a corner',
+    corners: [
+      { name: 'base', chain: ['FLT', 'DRV', 'DLY', 'REV'], sub: 'DRV',
+        p: { FLT: { cut: 1200, res: 0.5 }, DRV: { drive: 5 }, DLY: { time: 0.25, fbk: 0.35, mix: 0.3 }, REV: { size: 0.5, mix: 0.25 } } },
+      { name: 'drive first', chain: ['DRV', 'FLT', 'DLY', 'REV'], sub: 'DRV',
+        p: { DRV: { drive: 7 }, FLT: { cut: 800, res: 0.65 }, DLY: { time: 0.25, fbk: 0.4, mix: 0.3 }, REV: { size: 0.55, mix: 0.25 } } },
+      { name: 'room into echo', chain: ['FLT', 'DRV', 'REV', 'DLY'], sub: 'FLT',
+        p: { FLT: { cut: 1800, res: 0.4 }, DRV: { drive: 4 }, REV: { size: 0.65, mix: 0.35 }, DLY: { time: 0.3, fbk: 0.4, mix: 0.35 } } },
+      { name: 'echoes driven', chain: ['FLT', 'DLY', 'DRV', 'REV'], sub: 'OUT',
+        p: { FLT: { cut: 1000, res: 0.55 }, DLY: { time: 0.2, fbk: 0.45, mix: 0.35 }, DRV: { drive: 6 }, REV: { size: 0.5, mix: 0.25 } } },
+    ] },
+  { id: 'round1', name: 'round 1 pairs on the edges', why: 'the bottom edge is round 1\'s "across the set" pair and the top edge its "two grow in" pair, so the edge-reduction table compares like with like; no pair is held by all four corners, so strict unanimity is vacuous here',
+    corners: [
+      { name: 'across · L', chain: ['FLT', 'DRV', 'DLY', 'REV'], sub: 'DRV',
+        p: { FLT: { cut: 900, res: 0.7 }, DRV: { drive: 7 }, DLY: { time: 0.21, fbk: 0.35, mix: 0.3 }, REV: { size: 0.45, mix: 0.2 } } },
+      { name: 'across · R', chain: ['REV', 'DRV', 'FLT', 'DLY'], sub: 'OUT',
+        p: { REV: { size: 0.8, mix: 0.6 }, DRV: { drive: 5 }, FLT: { cut: 3200, res: 0.2 }, DLY: { time: 0.33, fbk: 0.4, mix: 0.35 } } },
+      { name: 'grow · L', chain: ['DRV', 'FLT'], sub: 'OUT',
+        p: { DRV: { drive: 4 }, FLT: { cut: 1800, res: 0.35 } } },
+      { name: 'grow · R', chain: ['DLY', 'DRV', 'FLT', 'REV'], sub: 'FLT',
+        p: { DLY: { time: 0.24, fbk: 0.4, mix: 0.4 }, DRV: { drive: 6 }, FLT: { cut: 1200, res: 0.5 }, REV: { size: 0.65, mix: 0.35 } } },
+    ] },
+  /* ROUND 3 — the BAIT set: every corner is in V, but the cables in between tempt the
+     rules. Bottom edge: Scape → ECHO retreating while ECHO → Sluice emerges is a live
+     Scape ⇝ Sluice path (R3) and Scape ⇝ Bulwark (R2). Top edge: a single-band and a
+     multiband Bulwark (band count flips, ADR-195). D is E1, the breathing bus. */
+  { id: 'bait', name: 'bait for the rules', why: 'every corner is in V, but a naive cable crossfade between them opens Scape ⇝ Sluice and Scape ⇝ Bulwark paths, and Bulwark changes band count across the top edge (ADR-195)',
+    corners: [
+      { name: 'room into echo', chain: ['REV', 'DLY'], sub: 'REV',
+        p: { REV: { size: 0.6, mix: 0.35 }, DLY: { time: 0.23, fbk: 0.35, mix: 0.3 } } },
+      { name: 'echo network', chain: ['DLY', 'NET', 'DYN'], sub: 'NET',
+        p: { DLY: { time: 0.18, fbk: 0.3, mix: 0.3 }, NET: { size: 0.7, fbk: 0.85, tone: 3000, mix: 0.4 }, DYN: { thr: -18, ratio: 3, att: 0.004, rel: 0.1, mk: 4, bands: 2 } } },
+      { name: 'tight single', chain: ['DRV', 'FLT', 'DYN'], sub: 'OUT',
+        p: { DRV: { drive: 5 }, FLT: { cut: 1500, res: 0.4 }, DYN: { thr: -22, ratio: 4, att: 0.003, rel: 0.08, mk: 5, bands: 1 } } },
+      { name: 'breathing bus', chain: ['FLT', 'REV', 'DYN'], sub: 'FLT',
+        p: { FLT: { cut: 2200, res: 0.3 }, REV: { size: 0.7, mix: 0.4 }, DYN: { thr: -20, ratio: 5, att: 0.006, rel: 0.15, mk: 5, bands: 2 } } },
+    ] },
+];
+const CORNER_XY = [[0, 0], [1, 0], [0, 1], [1, 1]];   // A bottom-left, B bottom-right, C top-left, D top-right
+const CORNER_ID = ['A', 'B', 'C', 'D'];
+
+/* ---------- constants of the pipeline ---------- */
+const H_JIT = 0.6;               // lane 1: jitter half-range; h·T < 2/3 keeps unanimity (derived bound)
+const XI_CLAMP = 6, LOGIT_L = 12; // lane 4 F1: L > the noise clamp, so every corner is the unique maximiser
+const BLEND_XI = -11;            // blend: a module is in the chain wherever its vote clears σ(−11) ≈ 1.7e-5
+const BLEND_THETA = sigm(BLEND_XI);
+const HOUSE_EPS = 1e-7;          // pair order no corner speaks to: a whisper toward the house order (a tie-break, not a vote)
+const AUDIBLE = 0.0316;          // −30 dB: a blended module quieter than this is not part of the audible chain
+const PURE_GAIN = 0.891;         // −1 dB: blend counts a point as its corner's preset only if every corner module is this loud
+
+/* ---------- a morph: the corners and the settings, with every keyed draw made once ---------- */
+/* ghost-extended ranks over ALL eight types (lane 1 F1 step 1). The universe is the
+   whole type list, not the corners' union, so a corner's ranks never depend on which
+   OTHER corners exist: a pad edge ranks exactly as its two corners do alone. */
+function ghostRanks(chain) {
+  const list = chain.slice();
+  for (const t of TYPES) if (!list.includes(t)) {
+    let at = 0; for (let i = 0; i < list.length; i++) if (HOUSE[list[i]] < HOUSE[t]) at = i + 1;
+    list.splice(at, 0, t);
+  }
+  const r = {}; list.forEach((t, i) => { r[t] = i; }); return r;
+}
+function makeMorph(corners, o) {
+  const n = corners.length, Teff = o.jitter ? o.T : 0;
+  const has = corners.map(c => new Set(c.chain)), at = corners.map(c => { const q = {}; c.chain.forEach((t, i) => { q[t] = i; }); return q; });
+  const U = TYPES.filter(t => has.some(h => h.has(t)));
+  const dr = { theta: {}, xim: {}, g: {}, xio: {}, subG: {} };
+  for (const t of TYPES) {
+    const d = logistic(uOf(o.seed, 'm:' + t));
+    dr.xim[t] = clamp(Teff * d, -XI_CLAMP, XI_CLAMP);
+    dr.theta[t] = sigm(dr.xim[t]);                       // the quantum threshold IS the decode's membership noise (lane 4 §2)
+    dr.g[t] = 2 * uOf(o.seed, 'g:' + t) - 1;
+  }
+  for (let i = 0; i < TYPES.length; i++) for (let j = i + 1; j < TYPES.length; j++)
+    dr.xio[TYPES[i] + '|' + TYPES[j]] = clamp(Teff * logistic(uOf(o.seed, 'o:' + TYPES[i] + '|' + TYPES[j])), -XI_CLAMP, XI_CLAMP);
+  for (const e of TYPES.concat(['OUT'])) dr.subG[e] = gumbel(uOf(o.seed, 's:' + e));
+  /* AGREED PAIRS. strict: every corner holds both and orders them alike (the brief's
+     "all four corners agree", asserted). supported: every corner that holds both
+     agrees, and one does (reported only: ghosts can break it, see the notes). */
+  const strict = [], supported = [];
+  for (const a of U) for (const b of U) if (a !== b) {
+    const hold = corners.map((c, k) => has[k].has(a) && has[k].has(b));
+    const nH = hold.filter(Boolean).length;
+    if (!nH) continue;
+    if (corners.every((c, k) => !hold[k] || at[k][a] < at[k][b])) { supported.push([a, b]); if (nH === n) strict.push([a, b]); }
+  }
+  const keys = corners.map(c => c.chain.join(' ') + '|' + c.sub);
+  return { corners, n, U, has, at, ranks: corners.map(c => ghostRanks(c.chain)), dr, Teff, strict, supported, keys, o };
+}
+
+/* ---------- weights ---------- */
+const bilinear = (x, y) => [(1 - x) * (1 - y), x * (1 - y), (1 - x) * y, x * y];
+/* PLANT (edge reduction must-fail): inverse-distance weights, a plausible pad law
+   under which the far corners still pull on an edge. */
+function radial(x, y) {
+  const d = CORNER_XY.map(([a, b]) => Math.hypot(x - a, y - b));
+  const z = d.findIndex(v => v < 1e-9);
+  if (z >= 0) return d.map((_, k) => k === z ? 1 : 0);
+  const w = d.map(v => 1 / (v * v)), s = w.reduce((a, b) => a + b, 0);
+  return w.map(v => v / s);
+}
+/* corner sharpening (lane 4 §5, D2): w_k^γ renormalised. Corners stay exact
+   (a one-hot vector is a fixed point), and the untouched presets own more pad. */
+function sharpen(w, o) {
+  if (!o.sharpen || o.gamma === 1 || o.plant === 'nosharp') return w;
+  const v = w.map(q => Math.pow(q, o.gamma)), s = v.reduce((a, b) => a + b, 0);
+  return v.map(q => q / s);
+}
+const weightsXY = (M, x, y) => sharpen(M.o.plant === 'radial' ? radial(x, y) : bilinear(x, y), M.o);
+const weightsT = (M, t) => sharpen([1 - t, t], M.o);   // a pad edge taken alone: two corners
+
+/* ---------- the map: (weights) → the target structure ---------- */
+function mapW(M, w) {
+  const o = M.o, C = M.corners, n = M.n, blend = o.mode === 'blend';
+  // 1. presence: each type's vote
+  const p = {};
+  for (const t of TYPES) { let s = 0; for (let k = 0; k < n; k++) if (M.has[k].has(t)) s += w[k]; p[t] = s; }
+  const theta = t => blend ? BLEND_THETA : M.dr.theta[t];
+  // 2. the order target (lane 1 F1): weighted mean rank + jitter that vanishes at the corners
+  let wmax = 0; for (let k = 0; k < n; k++) if (w[k] > wmax) wmax = w[k];
+  const J = M.Teff * (o.plant === 'jitbound' ? 12 : H_JIT) * (1 - wmax);
+  const score = {};
+  for (const t of TYPES) { let s = 0; for (let k = 0; k < n; k++) s += w[k] * M.ranks[k][t]; score[t] = s + J * M.dr.g[t]; }
+  const order = TYPES.slice().sort((a, b) => (Math.abs(score[a] - score[b]) > 1e-12 ? score[a] - score[b] : 0) || HOUSE[a] - HOUSE[b]);   // equal votes tie by house order, not by float noise
+  const target = order.filter(t => p[t] > theta(t));
+  // 3. the snap to V
+  let chain;
+  if (!o.snap) chain = target;
+  else if (o.method === 'walk') chain = walkV(M, w, p, target, score, theta);
+  else chain = decodeV(M, w, p);
+  /* ROUND 3, ADR-195: a MULTIBAND Bulwark's presence is flip-only in blend mode — it is in
+     at full wet where its vote clears its own seeded (quantum) threshold, else out, so its
+     crossover notch is never sustained by a partial blend with its own dry. Dropping a
+     module never breaks V (every rule is about what comes AFTER Scape). */
+  if (blend && chain.includes('DYN') && o.plant !== 'mbblend' && (paramsAt(M, w, 'DYN').bands || 1) > 1 && !(p.DYN > M.dr.theta.DYN)) chain = chain.filter(t => t !== 'DYN');
+  // 4. the Sub's entry, the wet gains, the parameters
+  const sub = pickSub(M, w, chain);
+  const wet = {}, prm = {};
+  for (const t of chain) { prm[t] = paramsAt(M, w, t); wet[t] = !blend ? 1 : t === 'DYN' && (prm[t].bands || 1) > 1 && o.plant !== 'mbblend' ? 1 : p[t]; }
+  return { w, p, target, chain, sub, wet, prm, score };
+}
+
+/* LANE 4 F1 — vote on bits, then DECODE to the best chain in V (perturb-and-MAP).
+   Bits are membership (is t in?) and pair order (does a precede b?), each with a
+   bilinear vote and one keyed seeded threshold. The argmax over V is EXACT: a
+   dynamic programme over (set placed so far, last module, closed), 2^n · n · 2
+   states for n ≤ 8, with V's rules applied as each module is appended and the CPU
+   budget on the finished set. Enumerating V instead would be 109 601 chains for
+   eight types (lane 4 §6): not affordable per point. Ties keep the first chain
+   found in type order, which is content-keyed, so a pad edge decodes as its two
+   corners do alone. */
+function decodeV(M, w, p) {
+  const o = M.o, n0 = M.n, L = o.plant === 'lowL' ? 2 : LOGIT_L, blend = o.mode === 'blend';
+  const Uz = TYPES.filter(t => p[t] > 0);           // a type no weighted corner holds can never win
+  const n = Uz.length;
+  if (!n) return [];
+  const um = Uz.map(t => logitC(p[t], L) - (blend ? BLEND_XI : M.dr.xim[t]));
+  const ps = Uz.map(() => new Float64Array(n));
+  for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
+    const a = Uz[i], b = Uz[j];
+    let sup = 0, vote = 0;
+    for (let k = 0; k < n0; k++) if (M.has[k].has(a) && M.has[k].has(b)) { sup += w[k]; if (M.at[k][a] < M.at[k][b]) vote += w[k]; }
+    const u = sup > 0 ? sup * (logitC(vote / sup, L) - M.dr.xio[a + '|' + b]) : HOUSE_EPS;   // Uz is in house order, so i<j is the house direction
+    ps[i][j] = u; ps[j][i] = -u;
+  }
+  const N = 1 << n;
+  const Sx = new Float64Array(N * n), mem = new Float64Array(N), cost = new Int32Array(N);
+  for (let Q = 1; Q < N; Q++) {
+    const i = 31 - Math.clz32(Q & -Q), Q0 = Q & (Q - 1);
+    for (let j = 0; j < n; j++) Sx[Q * n + j] = Sx[Q0 * n + j] + ps[i][j];
+    mem[Q] = mem[Q0] + 2 * um[i]; cost[Q] = cost[Q0] + COST[Uz[i]];
+  }
+  const never = RULES.filter(r => r.kind === 'never').map(r => ({ ia: Uz.indexOf(r.a), ib: Uz.indexOf(r.b), exc: r.exc })).filter(r => r.ia >= 0 && r.ib >= 0);
+  const S = N * n * 2, f = new Float64Array(S).fill(-Infinity), back = new Int32Array(S).fill(-1);
+  for (let i = 0; i < n; i++) f[((1 << i) * n + i) * 2] = 0;
+  for (let Q = 1; Q < N; Q++) for (let last = 0; last < n; last++) {
+    if (!(Q >> last & 1)) continue;
+    const s0 = (Q * n + last) * 2, v = f[s0];
+    if (v === -Infinity) continue;                    // closed states (…, Scape, Bulwark) are never extended
+    for (let j = 0; j < n; j++) {
+      if (Q >> j & 1) continue;
+      let ok = true, closed = 0;
+      for (const r of never) if (j === r.ia && (Q >> r.ib & 1)) {
+        if (r.exc === 'E1' && last === r.ib) closed = 1; else { ok = false; break; }
+      }
+      if (!ok) continue;
+      const Q2 = Q | 1 << j, s2 = (Q2 * n + j) * 2 + closed, v2 = v + Sx[Q * n + j];
+      if (v2 > f[s2] + 1e-12) { f[s2] = v2; back[s2] = s0; }   // within 1e-12 is a tie: the first found keeps it
+    }
+  }
+  let best = 0, bs = -1;                              // the empty chain scores 0 (all membership bits "absent")
+  for (let Q = 1; Q < N; Q++) {
+    if (cost[Q] > CPU_BUDGET) continue;
+    for (let last = 0; last < n; last++) for (let c = 0; c < 2; c++) {
+      const s = (Q * n + last) * 2 + c;
+      if (f[s] === -Infinity) continue;
+      const v = f[s] + mem[Q];
+      if (v > best + 1e-12) { best = v; bs = s; }
+    }
+  }
+  const out = [];
+  for (let s = bs; s >= 0; s = back[s]) out.unshift(Uz[((s >> 1) % n)]);
+  return out;
+}
+
+/* LANE 1 F2 — WALK the approved graph toward the target, made a pure function of
+   position: start at the heaviest corner's chain (in V: it is a preset) and take
+   lawful hops — drop a module the target lacks, swap an adjacent pair the target
+   orders the other way, insert a module the target has — each one keeping the chain
+   in V, until none is left. Drops go first (they free CPU), then swaps, then inserts;
+   within a kind, the biggest margin first. Where the target is in V the walk reaches
+   it exactly; where it is not, the walk stops at a nearby chain in V, and WHICH one
+   depends on the start corner (a finding the pad paints). The one-hop-per-slot pace
+   of lane 1's F2 is the router's job here, not the map's. */
+function walkV(M, w, p, target, score, theta) {
+  const C = M.corners;
+  let k0 = 0;
+  for (let k = 1; k < M.n; k++) if (w[k] > w[k0] + 1e-15 || (Math.abs(w[k] - w[k0]) <= 1e-15 && M.keys[k] < M.keys[k0])) k0 = k;
+  let cur = inV(C[k0].chain) ? C[k0].chain.slice() : [];
+  const tset = new Set(target), tpos = {}; target.forEach((t, i) => { tpos[t] = i; });
+  for (let guard = 0; guard < 64; guard++) {
+    const cand = [];
+    for (const t of cur) if (!tset.has(t)) cand.push({ k: 0, m: theta(t) - p[t], t, f: c => c.filter(q => q !== t) });
+    for (let i = 0; i + 1 < cur.length; i++) {
+      const a = cur[i], b = cur[i + 1];
+      if (tset.has(a) && tset.has(b) && tpos[a] > tpos[b]) cand.push({ k: 1, m: Math.abs(score[a] - score[b]), t: a, f: c => { const d = c.slice(); d[i] = b; d[i + 1] = a; return d; } });
+    }
+    for (const t of target) if (!cur.includes(t)) cand.push({ k: 2, m: p[t] - theta(t), t, f: c => insertAfterPred(c, t, target) });
+    // margins within 1e-12 are a TIE: on the B–C diagonal Delay's and Shriek's votes are
+    // equal in exact arithmetic, and float noise alone chose between them, so the walk
+    // chattered (74 structure changes on one sweep before this tolerance)
+    cand.sort((x, y) => x.k - y.k || (Math.abs(y.m - x.m) > 1e-12 ? y.m - x.m : 0) || HOUSE[x.t] - HOUSE[y.t]);
+    let moved = false;
+    for (const c of cand) { const nx = c.f(cur); if (inV(nx)) { cur = nx; moved = true; break; } }
+    if (!moved) break;
+  }
+  return cur;
+}
+function insertAfterPred(c, t, target) {
+  const ti = target.indexOf(t);
+  for (let k = ti - 1; k >= 0; k--) { const q = c.indexOf(target[k]); if (q >= 0) return c.slice(0, q + 1).concat([t], c.slice(q + 1)); }
+  return [t].concat(c);
+}
+/* THE SUB'S ENTRY: round 1's threshold law (morph_core pickCorner) over the entry
+   VALUES the corners name, each value's weight its vote, its Gumbel keyed by the
+   value. An entry whose module is not in the chain is not a candidate; none → dry. */
+function pickSub(M, w, chain) {
+  const vote = new Map();
+  for (let k = 0; k < M.n; k++) { const e = M.corners[k].sub; vote.set(e, (vote.get(e) || 0) + w[k]); }
+  let best = 'OUT', bv = -Infinity;
+  for (const e of [...vote.keys()].sort()) {
+    const v = vote.get(e);
+    if (v <= 0 || (e !== 'OUT' && !chain.includes(e))) continue;
+    const s = Math.log(v) + M.Teff * M.dr.subG[e];
+    if (s > bv + 1e-12) { bv = s; best = e; }
+  }
+  return best;
+}
+/* a module's parameters: the weighted mean over the corners that hold it (log for
+   frequencies and times), the round-1 lerpP rule extended to four corners */
+const LOG_KEYS = { cut: 1, time: 1, f: 1, tone: 1 };
+function paramsAt(M, w, t) {
+  let ws = 0; const acc = {}, ks = [];
+  for (let k = 0; k < M.n; k++) if (M.has[k].has(t)) { ws += w[k]; ks.push(k); }
+  const wk = k => ws > 0 ? w[k] / ws : 1 / ks.length;
+  for (const k of ks) for (const key in M.corners[k].p[t]) {
+    const v = M.corners[k].p[t][key];
+    acc[key] = (acc[key] || 0) + wk(k) * (LOG_KEYS[key] ? Math.log(v) : v);
+  }
+  for (const key in acc) if (LOG_KEYS[key]) acc[key] = Math.exp(acc[key]);
+  /* ROUND 3: FLIP-CLASS parameters (ADR-195: Bulwark's band count) are never averaged.
+     Each value the holders name gets their summed weight as its vote; the value is chosen
+     by round 1's threshold law (as the Sub's entry is), its Gumbel keyed by the value, so
+     the flip sits at a seeded point and edge reduction holds. A holder that names no band
+     count is single-band. */
+  for (const key in FLIP_KEYS) if (acc[key] !== undefined || (t === 'DYN' && key === 'bands')) {
+    const vote = new Map();
+    for (const k of ks) { const v = M.corners[k].p[t][key] === undefined ? FLIP_KEYS[key] : M.corners[k].p[t][key]; vote.set(v, (vote.get(v) || 0) + wk(k)); }
+    let best = FLIP_KEYS[key], bv = -Infinity;
+    for (const v of [...vote.keys()].sort((a, b) => a - b)) {
+      const s = Math.log(Math.max(1e-300, vote.get(v))) + M.Teff * gumbel(uOf(M.o.seed, 'f:' + t + '.' + key + '=' + v));
+      if (vote.get(v) > 0 && s > bv + 1e-12) { bv = s; best = v; }
+    }
+    acc[key] = best;
+  }
+  return acc;
+}
+const FLIP_KEYS = { bands: 1 };    // key → the value a corner that does not name it has
+
+/* ---------- structures: identity, distance, the audible view ---------- */
+/* In blend every module some corner holds is in the chain, most at a whisper; the
+   AUDIBLE chain keeps those at −30 dB or louder. Quantum gains are 1, so for quantum
+   the two are the same. Metrics read the audible chain. */
+const audibleChain = st => st.chain.filter(t => st.wet[t] >= AUDIBLE);
+const skey = st => audibleChain(st).join(' ') + '|' + st.sub;
+/* jump size between two structures: modules in one and not the other, plus pairs the
+   two order differently, plus one if the Sub moved. A "two-change jump" (D4) is 2. */
+function jumpD(a, b) {
+  const ca = audibleChain(a), cb = audibleChain(b);
+  let d = 0;
+  for (const t of ca) if (!cb.includes(t)) d++;
+  for (const t of cb) if (!ca.includes(t)) d++;
+  const sh = ca.filter(t => cb.includes(t)), ib = {}; cb.forEach((t, i) => { ib[t] = i; });
+  for (let i = 0; i < sh.length; i++) for (let j = i + 1; j < sh.length; j++) if (ib[sh[i]] > ib[sh[j]]) d++;
+  return d + (a.sub === b.sub ? 0 : 1);
+}
+function pureCorner(M, st) {
+  const k = M.keys.indexOf(skey(st));
+  if (k < 0) return -1;
+  if (M.o.mode === 'blend') for (const t of M.corners[k].chain) if (!(st.wet[t] >= PURE_GAIN)) return -1;
+  return k;
+}
+function inverted(chain, pairs) {
+  const ix = {}; chain.forEach((t, i) => { ix[t] = i; });
+  for (const [a, b] of pairs) if (ix[a] !== undefined && ix[b] !== undefined && ix[b] < ix[a]) return SHORT[b] + ' before ' + SHORT[a];
+  return '';
+}
+
+/* ---------- metrics over the pad: a GRID × GRID lattice ---------- */
+const GRID = 41;
+function gridMap(M, N) {
+  N = N || GRID;
+  const cells = new Array(N * N);
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+    const st = mapW(M, weightsXY(M, i / (N - 1), j / (N - 1)));
+    cells[j * N + i] = { st, key: skey(st), pure: pureCorner(M, st), outV: vBreak(st.chain), unan: inverted(audibleChain(st), M.strict),
+                         unanS: inverted(audibleChain(st), M.supported), cost: chainCost(st.chain) };
+  }
+  const keys = new Map(), hist = [0, 0, 0, 0];   // jump sizes 1, 2, 3+, (index 0 unused)
+  let pure = 0, outV = 0, unan = 0, unanS = 0, maxCost = 0, edges = 0;
+  for (let q = 0; q < N * N; q++) {
+    const c = cells[q];
+    if (c.pure >= 0) pure++;
+    else keys.set(c.key, (keys.get(c.key) || 0) + 1);
+    if (c.outV) outV++;
+    if (c.unan) unan++;
+    if (c.unanS) unanS++;
+    if (c.cost > maxCost) maxCost = c.cost;
+    const i = q % N, j = (q / N) | 0;
+    for (const r of [i + 1 < N ? q + 1 : -1, j + 1 < N ? q + N : -1]) if (r >= 0 && cells[r].key !== c.key) {
+      const d = jumpD(c.st, cells[r].st); hist[Math.min(3, d)]++; edges++; c.jump = Math.max(c.jump || 0, d);
+    }
+  }
+  const ids = new Map(); [...keys.keys()].sort().forEach((k, i) => ids.set(k, i));
+  for (const c of cells) c.id = c.pure >= 0 ? -1 - c.pure : ids.get(c.key);
+  return { N, cells, pureFrac: pure / (N * N), distinct: keys.size, hist, edges, outV, unan, unanS, maxCost,
+           firstUnan: (cells.find(c => c.unan) || {}).unan || '', firstOut: (cells.find(c => c.outV) || {}).outV || '' };
+}
+</script>
+
+<script>
+/* BLOCK 2 — THE PAGE (scaffold) */
+</script>
+</body></html>
