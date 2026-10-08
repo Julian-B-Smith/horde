@@ -1,0 +1,174 @@
+{
+  "dsp_guard": {
+    "h2/cores/scalpel/razor_core.h": {
+      "approved": "baseline 2026-10-08",
+      "count": 9
+    },
+    "h2/cores/swarm/force_core.h": {
+      "approved": "baseline 2026-10-08",
+      "count": 1
+    },
+    "h2/engine/engine.h": {
+      "approved": "baseline 2026-10-08",
+      "count": 2
+    },
+    "h2/engine/js.h": {
+      "approved": "baseline 2026-10-08",
+      "count": 8
+    },
+    "src/delay_core.h": {
+      "approved": "baseline 2026-10-08",
+      "count": 1
+    },
+    "src/force_core.h": {
+      "approved": "baseline 2026-10-08",
+      "count": 1
+    },
+    "src/input_guards.h": {
+      "approved": "baseline 2026-10-08",
+      "count": 2
+    },
+    "src/notch_core.h": {
+      "approved": "baseline 2026-10-08",
+      "count": 2
+    },
+    "src/subosc_core.h": {
+      "approved": "baseline 2026-10-08",
+      "count": 3
+    },
+    "src/time_core.h": {
+      "approved": "baseline 2026-10-08",
+      "count": 1
+    }
+  },
+  "sanitizer_off": {
+    "tools/sanitize_oracles.sh": {
+      "approved": "baseline 2026-10-08",
+      "count": 2
+    }
+  },
+  "skip": {
+    "verify": {
+      "approved": "baseline 2026-10-08",
+      "count": 9
+    }
+  },
+  "soft_fail": {
+    ".github/workflows/ci.yml": {
+      "approved": "baseline 2026-10-08",
+      "count": 1
+    },
+    "verify": {
+      "approved": "baseline 2026-10-08",
+      "count": 1
+    }
+  },
+  "suppress": {
+    "src/hypersaw_clap_entry.cpp": {
+      "approved": "baseline 2026-10-08",
+      "count": 1
+    },
+    "src/swarmfx_entry.cpp": {
+      "approved": "baseline 2026-10-08",
+      "count": 1
+    },
+    "tools/choc_patch_check.py": {
+      "approved": "baseline 2026-10-08",
+      "count": 1
+    },
+    "tools/gui_sink_check.py": {
+      "approved": "baseline 2026-10-08",
+      "count": 1
+    },
+    "tools/h2_lift_check.py": {
+      "approved": "baseline 2026-10-08",
+      "count": 1
+    },
+    "tools/release_path_check.py": {
+      "approved": "baseline 2026-10-08",
+      "count": 2
+    },
+    "tools/serve_labs.py": {
+      "approved": "baseline 2026-10-08",
+      "count": 1
+    },
+    "tools/serve_labs_check.py": {
+      "approved": "baseline 2026-10-08",
+      "count": 2
+    }
+  },
+  "unwired": {
+    "CMakeLists.txt": {
+      "approved": "baseline 2026-10-08",
+      "count": 1
+    },
+    "tools/auhost/auhost.cpp": {
+      "approved": "baseline 2026-10-08",
+      "count": 1
+    },
+    "tools/h2_libm_count.py": {
+      "approved": "baseline 2026-10-08",
+      "count": 1
+    },
+    "tools/labharness/reverb_check.mjs": {
+      "approved": "baseline 2026-10-08",
+      "count": 1
+    },
+    "tools/labharness/subosc_check.mjs": {
+      "approved": "baseline 2026-10-08",
+      "count": 2
+    },
+    "tools/measure_cpu.cpp": {
+      "approved": "baseline 2026-10-08",
+      "count": 1
+    },
+    "tools/measure_fx.cpp": {
+      "approved": "baseline 2026-10-08",
+      "count": 1
+    },
+    "tools/measure_h2_engine.cpp": {
+      "approved": "baseline 2026-10-08",
+      "count": 1
+    },
+    "tools/measure_h2_scalpel.cpp": {
+      "approved": "baseline 2026-10-08",
+      "count": 1
+    },
+    "tools/measure_modsources.cpp": {
+      "approved": "baseline 2026-10-08",
+      "count": 1
+    },
+    "tools/patchspace/README.md": {
+      "approved": "baseline 2026-10-08",
+      "count": 1
+    },
+    "tools/patchspace/alias_sources.mjs": {
+      "approved": "baseline 2026-10-08",
+      "count": 1
+    },
+    "tools/patchspace/antialias_scope.mjs": {
+      "approved": "baseline 2026-10-08",
+      "count": 1
+    },
+    "tools/patchspace/fidelity_audit.mjs": {
+      "approved": "baseline 2026-10-08",
+      "count": 1
+    },
+    "tools/patchspace/os_quality.mjs": {
+      "approved": "baseline 2026-10-08",
+      "count": 1
+    },
+    "tools/test_table_check.py": {
+      "approved": "baseline 2026-10-08",
+      "count": 7
+    },
+    "tools/undo_check.cpp": {
+      "approved": "baseline 2026-10-08",
+      "count": 1
+    },
+    "verify": {
+      "approved": "baseline 2026-10-08",
+      "count": 1
+    }
+  }
+}

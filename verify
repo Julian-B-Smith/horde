@@ -145,6 +145,15 @@ fast() {
   # cleanup. Self-calibrating (planted-line control in a scratch repo). Added under
   # ADR-180 §1.
   python3 tools/banned_api_check.py || ok=1
+  # GATE-WEAKENING COUNTER (B448 A2, ADR-197 "Quiet disabling" and "Symptom
+  # clamping"). Skips, suppressions, disabled sanitizers, soft-failed steps,
+  # UNWIRED declarations and new isfinite/isnan/clamp guards in src/ and h2/ are
+  # counted per (category, file) against docs/armor/weakening-baseline.json; ANY
+  # increase is red until the human's approval is recorded as a ref in that
+  # entry. A ratchet, not a cleanup: the baseline is today's tree. Self-calibrating
+  # (a planted marker per category in a scratch repo must read red). Added under
+  # ADR-180 §1.
+  python3 tools/weakening_check.py || ok=1
   python3 tools/deny_hook_check.py || ok=1   # B446 D-S6: the deny hook's verdict table
   # GUI PAGE SINKS AND POLICY (B446 W3a). In src/gui/*.html every innerHTML /
   # outerHTML / insertAdjacentHTML / document.write gets literals only (named
@@ -180,6 +189,19 @@ fast() {
   # versions (copy-then-check, no cap) that must read red. ~1 s. Added under
   # ADR-180 §1.
   python3 tools/paste_cap_check.py || ok=1
+  # THE ARMOR CATALOGUE (B448 A1, ADR-197). docs/armor/catalogue.json holds one row
+  # per risk-register row, agent-signature rule and security category; each row is
+  # a gate this file or a workflow actually runs (parsed, never listed), or a hole
+  # with an owner and an expiry. Red on a gateless non-hole, an unowned or expired
+  # hole, a named gate nothing runs, a guarded row with gaps, the wrong id set, or
+  # a private name. Ten must-fail controls on planted catalogues every run. Prints
+  # the one-line armor score. Added under ADR-180 §1.
+  python3 tools/armor_coverage_check.py || ok=1
+  # The human's dashboard (docs/armor/dashboard.html) is generated from that
+  # catalogue plus, once they exist, docs/armor/{tolerances,weakening-baseline}.json
+  # (no timestamp, no git); red when the committed page differs from the generator's.
+  # Added under ADR-180 §1.
+  python3 tools/armor_dashboard.py --check || ok=1
 
   # DEV TOOLING (B446 W3b, ADR-194 W2-05/-06). The labs server serves only the lab
   # trees, refuses a foreign Host header and any symlink out of them; labs_preview.sh
