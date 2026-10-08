@@ -32,9 +32,10 @@ ROWS.
            copy on the impl's PUBLIC include path; no file in src/ or tools/
            includes choc_WebView.h through a path into libs/choc; the shared
            makeWebView assigns opts.allowNavigation from its parameter; the
-           Windows backend passes its policy to makeWebView, refuses every frame
-           and new-window request, and admits the page and its messages only
-           against kEmbeddedPage.
+           Windows backend passes detail::embeddedPagePolicy to makeWebView; and
+           kEmbeddedPage (embedded_page_policy.h) is where choc serves the page.
+           What the rule DOES is tools/embedded_page_policy_check's business, by
+           behaviour, not here by token.
   Where libs/choc is not checked out (CI's verify-fast job checks out no
   submodules) APPLY, UPSTREAM and controls C1-C2 print a WARNING instead, and
   kEmbeddedPage is checked for presence but not against choc's URI. Every CI
@@ -44,9 +45,9 @@ MUST-FAIL CONTROLS, every run: a choc header with one context line changed makes
 apply_patch.cmake exit nonzero; the unpatched header fails APPLY's content rules;
 a gitlink other than Base fails PIN; a patch with a removed line fails SHAPE; a
 planted relative include fails WIRING; the Windows backend without the policy
-argument, with a frame request allowed, with the page check removed, or with a
-different page URI fails WIRING; the shared header without the assignment fails
-WIRING. If any control reads green the check is red.
+argument, or passing another rule, fails WIRING; a different page URI fails
+WIRING; the shared header without the assignment fails WIRING. If any control
+reads green the check is red.
 
 WHAT THIS DOES NOT SHOW. That WebView2 at run time cancels what the policy
 refuses. No Windows runtime exists on this Mac; CI's build-windows job compiles
@@ -67,6 +68,7 @@ CHOC = ROOT / "libs/choc"
 TARGET = "choc/gui/choc_WebView.h"
 WIN = ROOT / "src/gui/hypersaw_gui_win.cpp"
 COMMON = ROOT / "src/gui/hypersaw_gui_common.h"
+POLICY = ROOT / "src/gui/embedded_page_policy.h"
 CMAKELISTS = ROOT / "CMakeLists.txt"
 KINDS = ("page", "frame", "newWindow", "message")
 
@@ -145,19 +147,6 @@ def call_span(text, start):
     return text[start:]
 
 
-def case_segment(code, name):
-    m = re.search(r"case\s+(?:\w+::)*" + name + r"\s*:", code)
-    if not m:
-        return None
-    nxt = re.search(r"\bcase\s+(?:\w+::)*\w+\s*:(?!:)|\bdefault\s*:|\n\s*\}", code[m.end():])
-    # a run of grouped labels (`case a: case b: return false;`) shares the next body
-    seg = code[m.end():]
-    while nxt and not seg[:nxt.start()].strip():
-        seg = seg[nxt.end():]
-        nxt = re.search(r"\bcase\s+(?:\w+::)*\w+\s*:(?!:)|\bdefault\s*:|\n\s*\}", seg)
-    return seg[:nxt.start()] if nxt else seg
-
-
 def strip_comments(t):
     """Blank // and /* */ comments, keeping string literals intact (a URI's `//`
     is not a comment) and newlines in place."""
@@ -165,7 +154,7 @@ def strip_comments(t):
     return tok.sub(lambda m: m.group(0) if m.group(0)[0] in "\"'" else re.sub(r"[^\n]", " ", m.group(0)), t)
 
 
-def rule_wiring(win_text, common_text, cmake_text, includers, page_uri):
+def rule_wiring(win_text, common_text, policy_text, cmake_text, includers, page_uri):
     errs = []
     if "apply_patch.cmake" not in cmake_text or "libs/patches/choc-webview2-navigation.patch" not in cmake_text:
         errs.append("CMakeLists.txt does not run libs/patches/apply_patch.cmake with the choc patch")
@@ -182,25 +171,16 @@ def rule_wiring(win_text, common_text, cmake_text, includers, page_uri):
         errs.append("hypersaw_gui_win.cpp: no detail::makeWebView( call")
     else:
         call = call_span(wc, at + len("detail::makeWebView"))
-        if not re.search(r"NavigationType\s+\w+\s*,\s*const std::string &?\s*\w+\)\s*\{\s*return\s+allowNavigation\(", call):
-            errs.append("hypersaw_gui_win.cpp: makeWebView is not passed the allowNavigation policy")
-    m = re.search(r'kEmbeddedPage\s*=\s*"([^"]*)"', wc)
+        # The rule's BEHAVIOUR is tools/embedded_page_policy_check's business; this
+        # only pins that the backend hands the view that one shared rule.
+        if not re.search(r"NavigationType\s+\w+\s*,\s*const std::string &?\s*\w+\)\s*\{\s*"
+                         r"return\s+detail::embeddedPagePolicy\(", call):
+            errs.append("hypersaw_gui_win.cpp: makeWebView is not passed detail::embeddedPagePolicy")
+    m = re.search(r'kEmbeddedPage\s*=\s*"([^"]*)"', strip_comments(policy_text))
     if not m:
-        errs.append("hypersaw_gui_win.cpp: no kEmbeddedPage")
+        errs.append("embedded_page_policy.h: no kEmbeddedPage")
     elif page_uri is not None and m.group(1) != page_uri:
-        errs.append(f"hypersaw_gui_win.cpp: kEmbeddedPage is {m.group(1)!r} but choc serves the page at {page_uri!r}")
-    for k in ("frame", "newWindow"):
-        seg = case_segment(wc, k)
-        if seg is None:
-            errs.append(f"hypersaw_gui_win.cpp: the policy has no `case ...{k}:`")
-        elif not re.match(r"\s*return\s+false\s*;", seg):
-            errs.append(f"hypersaw_gui_win.cpp: the {k} case does not simply `return false;`")
-    for k in ("page", "message"):
-        seg = case_segment(wc, k)
-        if seg is None:
-            errs.append(f"hypersaw_gui_win.cpp: the policy has no `case ...{k}:`")
-        elif "kEmbeddedPage" not in seg or "pageAdmitted" not in seg:
-            errs.append(f"hypersaw_gui_win.cpp: the {k} case does not check pageAdmitted and kEmbeddedPage")
+        errs.append(f"embedded_page_policy.h: kEmbeddedPage is {m.group(1)!r} but choc serves the page at {page_uri!r}")
     return errs
 
 
@@ -253,6 +233,7 @@ def main():
     patch_text = PATCH.read_text() if PATCH.exists() else ""
     readme_text = README.read_text() if README.exists() else ""
     win_text, common_text, cmake_text = WIN.read_text(), COMMON.read_text(), CMAKELISTS.read_text()
+    policy_text = POLICY.read_text()
     files = tree_files()
     link = gitlink()
 
@@ -291,7 +272,7 @@ def main():
             notes.append("WARNING: libs/choc is not checked out; APPLY, UPSTREAM and controls C1-C2 "
                          "not run here (every build job applies the patch at configure, with a hard stop)")
 
-    row("WIRING", rule_wiring(win_text, common_text, cmake_text, relative_includers(files), page_uri))
+    row("WIRING", rule_wiring(win_text, common_text, policy_text, cmake_text, relative_includers(files), page_uri))
 
     # Controls on in-memory text.
     other = "0" * 40 if link != "0" * 40 else "1" * 40
@@ -301,8 +282,8 @@ def main():
     control("C4 a removed upstream line fails SHAPE",
             planted_removal != patch_text and bool(rule_shape(planted_removal, readme_text)))
 
-    def wiring(win=win_text, common=common_text, inc=()):
-        return bool(rule_wiring(win, common, cmake_text, relative_includers(files) + list(inc),
+    def wiring(win=win_text, common=common_text, policy=policy_text, inc=()):
+        return bool(rule_wiring(win, common, policy, cmake_text, relative_includers(files) + list(inc),
                                 page_uri or "https://choc.localhost/getHTMLInternal"))
 
     plant = relative_includers([("src/gui/planted.h", '#include "../../libs/choc/choc/gui/choc_WebView.h"\n')])
@@ -310,14 +291,12 @@ def main():
     no_arg = re.sub(r",\s*\[this\]\(choc::ui::WebView::Options::NavigationType.*?\}\);", ");", win_text,
                     count=1, flags=re.S)
     control("C6 the backend without its policy argument fails WIRING", no_arg != win_text and wiring(win=no_arg))
-    frame_open = re.sub(r"(case T::frame:\s*case T::newWindow:\s*)return false;", r"\1return true;", win_text, count=1)
-    control("C7 a frame or new window allowed fails WIRING", frame_open != win_text and wiring(win=frame_open))
-    no_check = win_text.replace("if (pageAdmitted || uri != kEmbeddedPage) return false;", "", 1)
-    control("C8 the page admitted without its check fails WIRING", no_check != win_text and wiring(win=no_check))
-    other_uri = re.sub(r'(kEmbeddedPage\s*=\s*")[^"]*"', r'\1https://example.invalid/"', win_text, count=1)
-    control("C9 a different page URI fails WIRING", other_uri != win_text and wiring(win=other_uri))
+    other_rule = win_text.replace("detail::embeddedPagePolicy(", "detail::anyOtherPolicy(", 1)
+    control("C7 the backend passing another rule fails WIRING", other_rule != win_text and wiring(win=other_rule))
+    other_uri = re.sub(r'(kEmbeddedPage\s*=\s*")[^"]*"', r'\1https://example.invalid/"', policy_text, count=1)
+    control("C8 a different page URI fails WIRING", other_uri != policy_text and wiring(policy=other_uri))
     no_assign = common_text.replace("opts.allowNavigation = std::move(allowNavigation);", "", 1)
-    control("C10 makeWebView without the assignment fails WIRING", no_assign != common_text and wiring(common=no_assign))
+    control("C9 makeWebView without the assignment fails WIRING", no_assign != common_text and wiring(common=no_assign))
 
     for n in notes:
         print(f"  {n}")
@@ -327,7 +306,7 @@ def main():
             print(f"    {f}", file=sys.stderr)
         return 1
     print("choc_patch_check: OK (pin, shape, wiring" + (", apply, upstream" if have_choc else "")
-          + f"; {8 + (2 if have_choc else 0)} controls red as designed)")
+          + f"; {7 + (2 if have_choc else 0)} controls red as designed)")
     return 0
 
 

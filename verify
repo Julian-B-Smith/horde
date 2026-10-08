@@ -152,6 +152,13 @@ fast() {
   # print a WARNING; every build job applies the patch with a hard stop. Added
   # under ADR-180 §1.
   python3 tools/choc_patch_check.py || ok=1
+  # THE PAGE-ONLY RULE, BY BEHAVIOUR (B446 D-S5, critic round). The Windows GUI's
+  # navigation policy is a pure function (src/gui/embedded_page_policy.h); this
+  # compiles its check with the host compiler (no build tree, no choc) and drives
+  # it through fixed request sequences, beside four faulty policies (accept any
+  # source, dropped latch, prefix matching, exact-match messages) that must each
+  # read red. ~1 s. Added under ADR-180 §1.
+  python3 tools/embedded_page_policy_check.py || ok=1
 
   # DEV TOOLING (B446 W3b, ADR-194 W2-05/-06). The labs server serves only the lab
   # trees, refuses a foreign Host header and any symlink out of them; labs_preview.sh

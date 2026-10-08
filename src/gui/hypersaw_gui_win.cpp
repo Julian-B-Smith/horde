@@ -24,44 +24,21 @@ namespace hypersaw
    The Windows half of the rule hypersaw_gui.mm applies on macOS (its
    lockToEmbeddedPage carries the reasoning). choc keeps its WebView2 object
    private, so the rule goes through the allowNavigation option that
-   libs/patches/choc-webview2-navigation.patch adds (ADR-194 D-S5):
-   - PAGE: exactly one top-level load is admitted, the embedded page; every
-     later one is cancelled, a reload included.
-   - FRAME: every frame navigation is cancelled.
-   - NEW WINDOW: every request is marked handled, so no window opens.
-   - MESSAGE: a bridge call is delivered only once the page is admitted, and
-     only from that page.
-   kEmbeddedPage is where choc's setHTML serves the page on Windows:
-   getURIHome() ("https://choc.localhost/", no custom scheme is set) plus
-   "getHTMLInternal". tools/choc_patch_check.py fails if choc stops building
-   that URI, because this rule would then refuse the page itself.
-   Runs on the message thread only, so pageAdmitted needs no lock. */
-constexpr const char *kEmbeddedPage = "https://choc.localhost/getHTMLInternal";
-
+   libs/patches/choc-webview2-navigation.patch adds (ADR-194 D-S5). The rule
+   itself is detail::embeddedPagePolicy (embedded_page_policy.h): one load of
+   the embedded page, no frames, no new windows, messages only from that page.
+   It is a pure function so tools/embedded_page_policy_check can test its
+   behaviour; this file only hands it to the view. Refused navigations are
+   cancelled, and refused new windows are marked handled, so none opens.
+   Runs on the message thread only, so pageState needs no lock.
+   Runtime-unverified on Windows as of 2026-10-08; see
+   traces/2026-10-08-b446-choc-win-nav.md. */
 struct HypersawGui::Impl
 {
   GuiHost host;
   std::unique_ptr<choc::ui::WebView> web;
   HWND parent = nullptr;
-  bool pageAdmitted = false;
-
-  bool allowNavigation(choc::ui::WebView::Options::NavigationType type, const std::string &uri)
-  {
-    using T = choc::ui::WebView::Options::NavigationType;
-    switch (type)
-    {
-      case T::page:
-        if (pageAdmitted || uri != kEmbeddedPage) return false;
-        pageAdmitted = true;
-        return true;
-      case T::message:
-        return pageAdmitted && uri == kEmbeddedPage;
-      case T::frame:
-      case T::newWindow:
-        return false;
-    }
-    return false;   // a kind added upstream later is refused until reviewed
-  }
+  detail::EmbeddedPageState pageState;
 
   explicit Impl(GuiHost h) : host(std::move(h))
   {
@@ -77,7 +54,7 @@ struct HypersawGui::Impl
           });
         },
         [this](choc::ui::WebView::Options::NavigationType type, const std::string &uri) {
-          return allowNavigation(type, uri);
+          return detail::embeddedPagePolicy(pageState, type, uri);
         });
   }
 };

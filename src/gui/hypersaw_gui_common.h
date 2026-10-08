@@ -14,6 +14,7 @@
 #include "gui_html.h"      // generated: kGuiHtml_data / kGuiHtml_size
 #include "factory_bank.h"  // generated: kFactoryBank / _count / _version (B129)
 #include "preset_store.h"
+#include "embedded_page_policy.h"   // B446: the page-only rule (Windows passes it to makeWebView)
 #include "../input_guards.h"   // B446: utf8Clean, behind bridgeStr
 #include <filesystem>
 #include <fstream>

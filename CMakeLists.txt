@@ -70,9 +70,19 @@ execute_process(COMMAND ${CMAKE_COMMAND} -DSRC=${CMAKE_CURRENT_SOURCE_DIR}/libs/
 if(NOT HS_CHOC_RC EQUAL 0)
   message(FATAL_ERROR "choc patch not applied (see the error above); refusing to configure")
 endif()
+# Re-run the copy-and-patch when anything it copies changes, not only the
+# patched header: a choc bump that leaves choc_WebView.h alone still changes the
+# copy. The submodule's HEAD file covers a bump that adds files the glob has not
+# seen yet (a detached submodule's HEAD holds the pinned commit).
+file(GLOB_RECURSE HS_CHOC_FILES ${CMAKE_CURRENT_SOURCE_DIR}/libs/choc/choc/*)
+execute_process(COMMAND git -C ${CMAKE_CURRENT_SOURCE_DIR}/libs/choc rev-parse --path-format=absolute --git-path HEAD
+                OUTPUT_VARIABLE HS_CHOC_HEAD OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+if(HS_CHOC_HEAD AND EXISTS "${HS_CHOC_HEAD}")
+  list(APPEND HS_CHOC_FILES ${HS_CHOC_HEAD})
+endif()
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
              ${HS_CHOC_PATCH} ${CMAKE_CURRENT_SOURCE_DIR}/libs/patches/apply_patch.cmake
-             ${CMAKE_CURRENT_SOURCE_DIR}/libs/choc/choc/gui/choc_WebView.h)
+             ${HS_CHOC_FILES})
 
 # GUI HTML is embedded at build time (self-contained bundle, no file deps).
 # find_package resolves the interpreter portably — bare `python3` is absent
