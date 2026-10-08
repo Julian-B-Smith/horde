@@ -143,6 +143,15 @@ fast() {
   # hash-only for scripts with default-src 'none'. Self-calibrating. Added under
   # ADR-180 §1. Its run-time half is gui_webview_check in `full`.
   python3 tools/gui_sink_check.py || ok=1
+  # THE CHOC PATCH IS CARRIED, COMPILED AND USED (B446, ADR-194 D-S5). The Windows
+  # GUI admits only its embedded page through an option libs/patches adds to choc.
+  # Red if the patch's base is not the libs/choc pin, if it removes an upstream
+  # line, if the build's own apply step fails on it, if anything includes the
+  # unpatched header, or if the Windows backend stops passing its policy. Ten
+  # must-fail controls. Without a choc checkout (CI's fast job) the apply rows
+  # print a WARNING; every build job applies the patch with a hard stop. Added
+  # under ADR-180 §1.
+  python3 tools/choc_patch_check.py || ok=1
 
   # DEV TOOLING (B446 W3b, ADR-194 W2-05/-06). The labs server serves only the lab
   # trees, refuses a foreign Host header and any symlink out of them; labs_preview.sh

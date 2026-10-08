@@ -1,0 +1,215 @@
+choc-webview2-navigation.patch: the WebView2 backend asks the app before it
+navigates, opens a window, or delivers a page message (B446, ADR-194 D-S5).
+
+Base:     choc a08bfd84494921700703a8433b9d1a304edfafd2 (the libs/choc pin)
+Applied:  at configure time, to a build-tree copy of libs/choc/choc, by
+          libs/patches/apply_patch.cmake. The submodule is never edited.
+Checked:  tools/choc_patch_check.py (./verify fast).
+
+PURPOSE. choc keeps its ICoreWebView2 object private, so an app cannot
+register NavigationStarting, FrameNavigationStarting or NewWindowRequested,
+or read the source of a page message. This adds one option,
+WebView::Options::allowNavigation (type, uri), which the WebView2 backend
+consults from those three events and from WebMessageReceived. horde's
+Windows backend (src/gui/hypersaw_gui_win.cpp) uses it to admit only its
+embedded page, the rule the macOS backend applies in its own wrapper.
+
+DEFAULT UNCHANGED. The patch only adds lines. With the option left empty no
+new handler is registered, and the message path runs exactly as upstream.
+
+UPSTREAM STATUS. Not yet proposed. choc takes feature requests as issues,
+not pull requests (its CONTRIBUTING.md). A request is drafted for the
+human's review; filing it outside the fleet takes the human's explicit yes.
+
+REMOVAL CONDITION. Delete this patch and its wiring (libs/patches/README.md
+lists every piece) when the pinned choc provides an equivalent hook. If the
+upstream shape differs, port src/gui/hypersaw_gui_win.cpp to it in the same
+change. Any bump of libs/choc turns tools/choc_patch_check.py red until the
+Base line above is updated, so the question is asked at every bump.
+
+--- a/choc/gui/choc_WebView.h
++++ b/choc/gui/choc_WebView.h
+@@ -137,6 +137,23 @@
+         /// otherwise wouldn't work by default. This lets you turn that off if you
+         /// need to.
+         bool enableDefaultClipboardKeyShortcutsInSafari = true;
++
++        /// The kinds of request that allowNavigation is asked about.
++        enum class NavigationType
++        {
++            page,       ///< a navigation of the top-level document
++            frame,      ///< a navigation inside a frame
++            newWindow,  ///< a request to open a new window
++            message     ///< a message to a bound function; the URI is the sending document's
++        };
++
++        /// Optional. If set, this is called on the message thread with the URI of
++        /// each request of the kinds above, and the request goes ahead only if it
++        /// returns true. A refused navigation is cancelled, a refused new window
++        /// is not opened, and a refused message is dropped (its call never
++        /// resolves). Leave it empty for the default behaviour, which allows
++        /// everything. Currently implemented by the WebView2 (Windows) backend.
++        std::function<bool(NavigationType, const std::string& uri)> allowNavigation;
+     };
+ 
+     /// Creates a WebView with default options.
+@@ -1163,6 +1180,47 @@
+      virtual HRESULT STDMETHODCALLTYPE Invoke(ICoreWebView2*, ICoreWebView2PermissionRequestedEventArgs*) = 0;
+ };
+ 
++MIDL_INTERFACE("5b495469-e119-438a-9b18-7604f25f2e49")
++ICoreWebView2NavigationStartingEventArgs : public IUnknown
++{
++public:
++    virtual HRESULT STDMETHODCALLTYPE get_Uri(LPWSTR*) = 0;
++    virtual HRESULT STDMETHODCALLTYPE get_IsUserInitiated(BOOL*) = 0;
++    virtual HRESULT STDMETHODCALLTYPE get_IsRedirected(BOOL*) = 0;
++    virtual HRESULT STDMETHODCALLTYPE get_RequestHeaders(ICoreWebView2HttpRequestHeaders**) = 0;
++    virtual HRESULT STDMETHODCALLTYPE get_Cancel(BOOL*) = 0;
++    virtual HRESULT STDMETHODCALLTYPE put_Cancel(BOOL) = 0;
++    virtual HRESULT STDMETHODCALLTYPE get_NavigationId(UINT64*) = 0;
++};
++
++MIDL_INTERFACE("9adbe429-f36d-432b-9ddc-f8881fbd76e3")
++ICoreWebView2NavigationStartingEventHandler : public IUnknown
++{
++public:
++    virtual HRESULT STDMETHODCALLTYPE Invoke(ICoreWebView2*, ICoreWebView2NavigationStartingEventArgs*) = 0;
++};
++
++MIDL_INTERFACE("34acb11c-fc37-4418-9132-f9c21d1eafb9")
++ICoreWebView2NewWindowRequestedEventArgs : public IUnknown
++{
++public:
++    virtual HRESULT STDMETHODCALLTYPE get_Uri(LPWSTR*) = 0;
++    virtual HRESULT STDMETHODCALLTYPE put_NewWindow(ICoreWebView2*) = 0;
++    virtual HRESULT STDMETHODCALLTYPE get_NewWindow(ICoreWebView2**) = 0;
++    virtual HRESULT STDMETHODCALLTYPE put_Handled(BOOL) = 0;
++    virtual HRESULT STDMETHODCALLTYPE get_Handled(BOOL*) = 0;
++    virtual HRESULT STDMETHODCALLTYPE get_IsUserInitiated(BOOL*) = 0;
++    virtual HRESULT STDMETHODCALLTYPE GetDeferral(ICoreWebView2Deferral**) = 0;
++    virtual HRESULT STDMETHODCALLTYPE get_WindowFeatures(void**) = 0;
++};
++
++MIDL_INTERFACE("d4c185fe-c81c-4989-97af-2d3fa7ab5651")
++ICoreWebView2NewWindowRequestedEventHandler : public IUnknown
++{
++public:
++    virtual HRESULT STDMETHODCALLTYPE Invoke(ICoreWebView2*, ICoreWebView2NewWindowRequestedEventArgs*) = 0;
++};
++
+ MIDL_INTERFACE("76eceacb-0462-4d94-ac83-423a6793775e")
+ ICoreWebView2 : public IUnknown
+ {
+@@ -1714,6 +1772,10 @@
+             EventRegistrationToken token;
+             view->add_WebMessageReceived (this, std::addressof (token));
+             view->add_PermissionRequested (this, std::addressof (token));
++
++            if (ownerPimpl.options.allowNavigation)
++                ownerPimpl.addNavigationFilters (view);
++
+             ownerPimpl.webviewControllerCreationComplete (controller, view);
+             return S_OK;
+         }
+@@ -1725,6 +1787,19 @@
+ 
+             LPWSTR message = {};
+             args->TryGetWebMessageAsString (std::addressof (message));
++
++            if (ownerPimpl.options.allowNavigation)
++            {
++                LPWSTR source = {};
++                args->get_Source (std::addressof (source));
++
++                if (! ownerPimpl.options.allowNavigation (Options::NavigationType::message, takeUTF8 (source)))
++                {
++                    CoTaskMemFree (message);
++                    return S_OK;
++                }
++            }
++
+             ownerPimpl.owner.invokeBinding (createUTF8FromUTF16 (message));
+             sender->PostWebMessageAsString (message);
+             CoTaskMemFree (message);
+@@ -1756,6 +1831,80 @@
+     };
+ 
+     //==============================================================================
++    // Only registered when options.allowNavigation is set. Page and frame navigations
++    // arrive through the same handler interface, so each event gets its own filter,
++    // which knows the kind of request it reports.
++    struct NavigationFilter  : public ICoreWebView2NavigationStartingEventHandler,
++                               public ICoreWebView2NewWindowRequestedEventHandler
++    {
++        NavigationFilter (Pimpl& p, Options::NavigationType t)
++            : ownerPimpl (p), type (t), deletionCheckerRef (p.deletionChecker) {}
++
++        virtual ~NavigationFilter() {}
++
++        HRESULT STDMETHODCALLTYPE QueryInterface (REFIID, LPVOID*) override   { return E_NOINTERFACE; }
++        ULONG STDMETHODCALLTYPE AddRef() override     { return ++refCount; }
++        ULONG STDMETHODCALLTYPE Release() override    { auto newCount = --refCount; if (newCount == 0) delete this; return newCount; }
++
++        HRESULT STDMETHODCALLTYPE Invoke (ICoreWebView2*, ICoreWebView2NavigationStartingEventArgs* args) override
++        {
++            LPWSTR uri = {};
++            args->get_Uri (std::addressof (uri));
++
++            if (! allows (type, takeUTF8 (uri)))
++                args->put_Cancel (TRUE);
++
++            return S_OK;
++        }
++
++        HRESULT STDMETHODCALLTYPE Invoke (ICoreWebView2*, ICoreWebView2NewWindowRequestedEventArgs* args) override
++        {
++            LPWSTR uri = {};
++            args->get_Uri (std::addressof (uri));
++
++            if (! allows (Options::NavigationType::newWindow, takeUTF8 (uri)))
++                args->put_Handled (TRUE);  // handled, with no new window given: none opens
++
++            return S_OK;
++        }
++
++        bool allows (Options::NavigationType t, const std::string& uri) const
++        {
++            return ! deletionCheckerRef->deleted && ownerPimpl.options.allowNavigation (t, uri);
++        }
++
++        Pimpl& ownerPimpl;
++        const Options::NavigationType type;
++        std::atomic<ULONG> refCount { 0 };
++        std::shared_ptr<DeletionChecker> deletionCheckerRef;
++    };
++
++    void addNavigationFilters (ICoreWebView2* view)
++    {
++        COMPtr<NavigationFilter> pageFilter (new NavigationFilter (*this, Options::NavigationType::page));
++        COMPtr<NavigationFilter> frameFilter (new NavigationFilter (*this, Options::NavigationType::frame));
++        ICoreWebView2NavigationStartingEventHandler* pageHandler = pageFilter.object;
++        ICoreWebView2NavigationStartingEventHandler* frameHandler = frameFilter.object;
++        ICoreWebView2NewWindowRequestedEventHandler* newWindowHandler = pageFilter.object;
++
++        EventRegistrationToken token;
++        view->add_NavigationStarting (pageHandler, std::addressof (token));
++        view->add_FrameNavigationStarting (frameHandler, std::addressof (token));
++        view->add_NewWindowRequested (newWindowHandler, std::addressof (token));
++    }
++
++    // Converts a string that WebView2 allocated, and frees it.
++    static std::string takeUTF8 (LPWSTR s)
++    {
++        if (s == nullptr)
++            return {};
++
++        auto result = createUTF8FromUTF16 (s);
++        CoTaskMemFree (s);
++        return result;
++    }
++
++    //==============================================================================
+     struct ExecuteScriptCompletedCallback  : public ICoreWebView2ExecuteScriptCompletedHandler
+     {
+         ExecuteScriptCompletedCallback (CompletionHandler&& cb) : callback (std::move (cb)) {}

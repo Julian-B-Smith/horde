@@ -8,7 +8,9 @@
 
 #include "hypersaw_gui.h"
 
-#include "../../libs/choc/choc/gui/choc_WebView.h"
+// Through the include path, never a relative path into libs/choc: the build
+// compiles a PATCHED copy (libs/patches/README.md; CMakeLists.txt HS_CHOC_DIR).
+#include <choc/gui/choc_WebView.h>
 #include "gui_html.h"      // generated: kGuiHtml_data / kGuiHtml_size
 #include "factory_bank.h"  // generated: kFactoryBank / _count / _version (B129)
 #include "preset_store.h"
@@ -609,11 +611,16 @@ inline void installBridge(choc::ui::WebView &web, GuiHost &host)
 
 }
 
+// allowNavigation: the platform's navigation policy, where choc implements the
+// hook (WebView2, through the patched option in libs/patches). macOS passes none
+// and applies the same policy in its own wrapper (hypersaw_gui.mm).
 inline std::unique_ptr<choc::ui::WebView>
-makeWebView(GuiHost &host, std::function<void(choc::ui::WebView &)> platformBinds)
+makeWebView(GuiHost &host, std::function<void(choc::ui::WebView &)> platformBinds,
+            decltype(choc::ui::WebView::Options::allowNavigation) allowNavigation = {})
 {
   choc::ui::WebView::Options opts;
   opts.enableDebugMode = false;
+  opts.allowNavigation = std::move(allowNavigation);
   opts.acceptsFirstMouseClick = true;  // click-through focus in hosts
   // Bindings before the page: they install document-created scripts, so the
   // page must be navigated to AFTER they exist (the order the old code had).
