@@ -57,6 +57,7 @@ ALLOWED_FILES = frozenset({
 })
 
 
+NAVIGATOR = "/docs/design/index.html"   # where the bare root redirects
 SLUICE = "local/sluice"   # the one subtree --allow-sluice opens
 
 
@@ -114,6 +115,13 @@ class LabHandler(http.server.SimpleHTTPRequestHandler):
         port = self.server.server_address[1]
         if self.headers.get("Host") not in (f"localhost:{port}", f"127.0.0.1:{port}"):
             self.send_error(403, "Host not allowed")
+            return False
+        if self.path == "/":
+            # The preview pane always opens the bare root; send it to the navigator
+            # rather than a 404. A redirect to a fixed in-tree path serves nothing new.
+            self.send_response(302)
+            self.send_header("Location", NAVIGATOR)
+            self.end_headers()
             return False
         rel = allowed_relpath(self.path, self.allow_sluice)
         if rel is None:

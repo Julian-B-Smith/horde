@@ -156,7 +156,8 @@ ROWS = [
     ("/docs//design/index.html", "auto", 404),
     ("/docs/design/.hidden", "auto", 404),
     ("/reference/", "auto", 404),                      # no index.html: never a listing
-    ("/", "auto", 404),
+    ("/", "auto", 302),                                # the bare root redirects to the navigator
+    ("/", "evil.example:{port}", 403),                 # ...but only for a legitimate Host
     ("/docs/design/index.html", "evil.example:{port}", 403),   # DNS rebinding
     ("/docs/design/index.html", "localhost", 403),             # no port
     ("/docs/design/index.html", "localhost:1", 403),           # wrong port
