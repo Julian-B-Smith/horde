@@ -7170,3 +7170,47 @@ recommendation, and the human followed it ("will follow your recommendation").
 CRLF pair, so the CRLF normalisation in `apply_patch.cmake` never fired, and a CRLF checkout would
 have stopped the configure. Targets are now rewritten unconditionally; the critic measured that LF
 files round-trip byte-identical.
+
+## ADR-197 — RULED by the human: Blind-Spot Armor is law (B448, 2026-10-08)
+
+**Ruling.** The human wrote the brief "HORDE — Blind-Spot Armor Brief" (2026-10-08) and, on the
+lead's triage, said: "All suggested edits ratified." The open questions were answered the same day.
+- **Host matrix:** the human owns none of the target DAWs, so the matrix leans on validators and
+  automation, with trials before a public build.
+- **Soak:** a 4-hour soak, run nightly.
+- **Commercial release:** "becoming likelier", so the license audit moves to phase 1.
+- **Legacy sessions:** "I'm not worried about legacy sessions. They can stay on the old system", so
+  horde 2 makes a clean break for saved state.
+
+**Decision.** `docs/strategy/blind-spot-armor.md` is the ratified text, with edits A–H applied:
+- **A.** "the human" replaces the name.
+- **B.** Phase 1 is a retrofit, now.
+- **C.** Row 12 points at the B439 budget.
+- **D.** Boundary input validation is exempt from the symptom-clamping rule; output guards latch and
+  report.
+- **E.** Default changes need a migration.
+- **F.** Lane reports go in `docs/armor/`.
+- **G.** A tolerance registry check.
+- **H.** The dashboard carries the missing-gate list, and the lead's roundup carries one armor line.
+
+`CLAUDE.md` §Domain points at the document. Correctness armor and the B446 security method share one
+catalogue and one dashboard.
+
+**Consequences already identified.**
+- **The output guard owes a latch and a counter.** #952's `zeroNonFinite` output guard zeroes
+  silently. Under row 3 and rule D it must latch and report.
+- **B445 owes a migration.** State saved before the os 1 default flip must load at os 2, so old saved
+  sets keep their sound.
+- **Today's armor score.** 0 of 12 rows fully gated, 11 partial, 1 missing (row 5, soak).
+
+## ADR-198 — Scape and Bulwark are private for now; no aliasing (2026-10-08)
+
+**Ruling.** The human, 2026-10-08: "I just made Scape and Bulwark private for now. We don't need to
+be so concerned about their details leaking through this repo since I'll likely be making them
+public again soon."
+
+**Decision.** horde's tracked files keep naming Scape and Bulwark as they do today. This is an
+explicit exception to the ADR-014 alias rule for private siblings. Neither name is added to
+`.leakcheck-names`, which would turn the leak gate red on hundreds of existing lines. Mailbox
+exchanges continue as before. The fine-grained agent token, when created, must include both
+repositories. If either one stays private long-term, the human revisits this.
