@@ -133,8 +133,8 @@
       "id": "S3",
       "title": "Tolerance creep",
       "status": "partial",
-      "gates": [{"name": "tolerance_registry_check", "pending": true}],
-      "gaps": "The tolerance registry check is being built (B448 Wave A). Until it runs, a widened tolerance is caught only in review.",
+      "gates": ["tolerance_registry_check"],
+      "gaps": "tolerance_registry_check pins 138 tolerances (ACCEPTANCE.md and the C++ checks) and fails on any unapproved change or unregistered newcomer. Not yet: the JS labs and oracles (.mjs), integer thresholds written inline, tolerances computed from other names; 75 entries have no governing ADR yet; it cannot prove an `approved` reference came from the human.",
       "tracked_by": "B448",
       "tripwire": "Unapproved tolerance changes: 0"
     },
