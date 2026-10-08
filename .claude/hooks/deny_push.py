@@ -163,6 +163,11 @@ def judge_push(args, directory):
             continue
         positional.append(a)
         i += 1
+    # A remote or refspec built from a command substitution cannot be judged before
+    # bash expands it (`git push origin $(echo main)`), so it blocks. Name the
+    # branch literally instead.
+    if any("__SUBST__" in a for a in positional):
+        raise Block("git push with a target built from a command substitution cannot be judged")
     refspecs = positional[1:]
     if not refspecs:
         refspecs = ["HEAD"]

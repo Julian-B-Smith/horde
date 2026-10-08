@@ -116,6 +116,9 @@ BLOCK.append(f"echo \"live: `{G} {P} origin main`\"")
 # substitutions before tokenising. One row each way, so the fix cannot regress.
 ALLOW.append("for n in 964 965; do echo \"#$n: $(gh pr view $n -q '[.x[] | \"\\(.name)=\\(.c // .s)\"] | join(\" \")')\"; done")
 BLOCK.append(f"echo \"#1: $({G} {P} origin main -o 'a \"b\" c')\"")
+# A push target assembled by a substitution cannot be judged before expansion.
+BLOCK.append(f"{G} {P} origin $(echo main)")
+BLOCK.append(f"{G} {P} -u origin `{G} branch --show-current`")
 
 
 def run(hook, cmd, cwd, raw=None):
