@@ -7137,3 +7137,36 @@ the vtable order and the policy were judged sound, and the carriage fails closed
 
 **Not yet posted.** The upstream issues for Tracktion are drafted privately and wait on the human's
 explicit yes.
+
+### ADR-196 Amendment 1 — the second carried choc patch: Windows web-view permissions are refused; native PASTE; SBOM pedigree (2026-10-08)
+
+**Ruling.** Extending the carried patch to Windows clipboard permission was the lead's
+recommendation, and the human followed it ("will follow your recommendation").
+
+**Decision.**
+- **Second patch.** `libs/patches/choc-webview2-permissions.patch` adds
+  `WebView::Options::allowPermission(PermissionKind)`, which WebView2's `PermissionRequested` handler
+  consults before upstream's clipboard grant. It is additive only and carried by the ADR-196
+  mechanism as a second file in an ordered list, so the two upstream fates can be dropped
+  independently.
+- **Policy.** horde's Windows policy refuses every permission kind, because the GUI uses none.
+- **PASTE on both platforms.** Native code reads the clipboard and the page receives only a status.
+- **SBOM.** Each patch is listed in CycloneDX `pedigree.patches`, which `release_path_check`
+  verifies.
+
+**Critic verdict (Opus, 2026-10-08): APPROVE WITH CHANGES.** Being made before merge:
+- **HIGH-1.** Every choc plugin in a DAW shares one WebView2 profile and the origin
+  `https://choc.localhost/`. A saved permission grant from another choc page could therefore bypass
+  our hook, and our saved deny could reach other plugins. horde's Windows page moves to its own
+  origin, which sidesteps profile persistence rather than disabling it.
+- **MEDIUM-1.** The deletion flag is checked before reading the owner (a use-after-free order).
+- **MEDIUM-3.** One paste-size cap shared by every state-paste entry point, enforced before
+  allocating, with an RAII guard around the clipboard calls.
+- **MEDIUM-2.** This amendment and the B446/B447 rows.
+- **LOW.** Reverse-order and duplicate checks for the patch list; pedigree order and type checks;
+  a note in the upstream draft.
+
+**Also fixed in this PR, and live on main before it.** CMake's `file(READ)` drops the CR of each
+CRLF pair, so the CRLF normalisation in `apply_patch.cmake` never fired, and a CRLF checkout would
+have stopped the configure. Targets are now rewritten unconditionally; the critic measured that LF
+files round-trip byte-identical.
