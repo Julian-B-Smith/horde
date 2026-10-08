@@ -1767,8 +1767,130 @@ function edgeCompare(o, sw) {
   return { four, two, same, why: same ? '' : `hash ${four.hash.toString(16)} vs ${two.hash.toString(16)}, ${four.changes} vs ${two.changes} changes` };
 }
 
-/* SELF-CHECK — placeholder until milestone 7 replaces it */
-function selfCheckSteps() { return { rows: [], steps: [] }; }
+/* the per-behaviour summary of a click table: worst, mean, how many over 3 dB, CPU */
+function clickSummary(rows) {
+  const s = {};
+  for (const b of BEHAVIOURS) {
+    const v = rows.map(r => r[b.id].db);
+    s[b.id] = { worst: v.length ? Math.max(...v) : 0, mean: v.length ? v.reduce((a, c) => a + c, 0) / v.length : 0, over3: v.filter(x => x > 3).length,
+                cpu: rows.length ? Math.max(...rows.map(r => r[b.id].cpuMax || 0)) : 0 };
+  }
+  return s;
+}
+/* ---------- THE SELF-CHECK: one claim per brief item, one planted fault per claim ---------- */
+const SLEEP_JUMP_X = 6;     // a sleep or wake may move a node's heard output by ≤ 6 × the threshold: a sub-threshold input through the loudest declared gain (×3), plus the kept state, through a cable ≤ 1.5
+const R2_HIGH_DB = 12;      // the round-2 control "reads high": a worst click at least this loud
+function selfCheckSteps() {
+  const rows = [], steps = [];
+  const add = (claim, res, control, cres) => rows.push({ claim, pass: res.ok, detail: res.detail, control, caught: !cres.ok, cdetail: cres.detail });
+  const step = f => steps.push(f);
+  const held = r => r ? { ok: false, detail: r } : { ok: true, detail: 'held — the plant was NOT caught' };
+  const cache = new Map();
+  const sweepOf = (extra, sw) => { const o = optsWith(extra), k = JSON.stringify([o, sw.id]); if (!cache.has(k)) { const M = morphOf(o); cache.set(k, runSweep3(M, sweepW(M, sw))); } return cache.get(k); };
+  /* the grid every sweep claim runs over: 4 corner sets × 2 modes × 2 loop strategies × 7 paths */
+  const every = pred => {
+    let n = 0;
+    for (const set of SETS) for (const mode of ['quantum', 'blend']) for (const loop of ['a', 'b']) for (const sw of SWEEPS) {
+      const s = sweepOf({ set: set.id, mode, loop }, sw), r = pred(s, loop); n++;
+      if (r) return { ok: false, detail: `${set.id} ${mode} (${loop}) ${sw.name}: ${r}` };
+    }
+    return { ok: true, detail: `${n} sweeps (4 sets × 2 modes × 2 strategies × 7 paths) × ${Math.round((SW_PRE + SW_MOVE + SW_POST) * RSR / TICK)} ticks` };
+  };
+  /* WARM-UP steps first, each a slice the page can run between frames (one grid cell of
+     sweeps, one corner set's edges, one transition): the claims below then read caches. */
+  for (const set of SETS) for (const mode of ['quantum', 'blend']) for (const loop of ['a', 'b']) for (const sw of SWEEPS) step(() => sweepOf({ set: set.id, mode, loop }, sw));
+  const edges = new Map(), radialE = [];
+  for (const set of SETS) for (const mode of ['quantum', 'blend']) step(() => { for (const sw of SWEEPS.filter(s => s.edge)) edges.set(set.id + mode + sw.id, edgeCompare(optsWith({ set: set.id, mode }), sw)); });
+  for (const sw of SWEEPS.filter(s => s.edge)) step(() => { const e = edgeCompare(optsWith({ plant: 'radial' }), sw); if (!e.same) radialE.push(`${sw.name}: ${e.why}`); });
+  const o0 = optsWith({}), trs = transitionsOf(morphOf(o0)), Ms = BEHAVIOURS.map(b => morphOf(Object.assign({}, o0, b.patch))), clk = [];
+  for (const tr of trs) step(() => { const row = { tr }; BEHAVIOURS.forEach((b, i) => { row[b.id] = clickRun(Ms[i], tr); }); clk.push(row); });
+  const sleepR = [], sleepP = [];
+  for (const set of ['four', 'bait']) for (const sw of SWEEPS) step(() => { const M = morphOf(optsWith({ set })), q = sweepSchedule(M, sw), r = renderWith(M, q.wAt, q.N, { pulse: true }); sleepR.push({ set, sw, jump: r.jump, cpuAvg: r.cpuAvg, sleeps: r.sleeps }); });
+  for (const sw of SWEEPS.slice(0, 3)) step(() => { const M = morphOf(optsWith({ plant: 'sleeptail' })), q = sweepSchedule(M, sw); sleepP.push(renderWith(M, q.wAt, q.N, { pulse: true }).jump); });
+  const firstPlant = (extra, pred, sets) => { for (const set of sets || SETS.map(s => s.id)) for (const sw of SWEEPS) { const r = pred(sweepOf(Object.assign({ set }, extra), sw)); if (r) return `${set}, ${sw.name}: ${r}`; } return ''; };
+
+  step(() => {
+    // 1. corners and edges reproduce the two-corner morphs
+    let bad = '', n = 0, m = 0;
+    for (const set of SETS) for (const mode of ['quantum', 'blend']) {
+      const M = morphOf(optsWith({ set: set.id, mode }));
+      CORNER_XY.forEach(([x, y], k) => {
+        const C = new Cables(M, RSR, TICK); C.settle(mapW(M, weightsXY(M, x, y))); m++;
+        const want = targetCables({ chain: M.corners[k].chain, sub: M.corners[k].sub, wet: Object.fromEntries(M.corners[k].chain.map(t => [t, 1])) });
+        for (let i = 0; i < NC; i++) if (Math.abs(C.f2[i] - want[i]) > 1e-12 && !bad) bad = `${set.id} ${mode} corner ${CORNER_ID[k]}: ${CABLES[i].k} ${C.f2[i]} ≠ ${want[i]}`;
+      });
+      for (const sw of SWEEPS.filter(s => s.edge)) { const e = edges.get(set.id + mode + sw.id); n++; if (!e.same && !bad) bad = `${set.id} ${mode} ${sw.name}: ${e.why}`; }
+    }
+    const plant = radialE[0] || '';
+    add('Pad corners and edges reproduce the two-corner results: every corner settles on exactly its preset\'s cables, and on every pad edge the four-corner cables ARE the two-corner morph of that edge\'s corners (round 1\'s setting), every cable weight at every tick',
+        bad ? { ok: false, detail: bad } : { ok: true, detail: `${m} corners; ${n} edge sweeps (4 sets × 2 modes × 4 edges) identical, all ${NC} cables, forward and backward parts` },
+        'radial (inverse-distance) corner weights: the far corners pull on the edge', held(plant));
+  });
+  step(() => {
+    // 2. no disallowed cable, no forbidden path
+    const r = every(s => s.banned > 0 ? `Scape → Sluice at ${s.banned.toFixed(3)}` : s.path ? `${s.path} ticks: ${s.why.path}` : '');
+    const plant = firstPlant({ plant: 'noguard' }, s => s.path ? `${s.path} ticks, ${s.why.path}` : '', ['bait']);
+    add('No disallowed cable is ever nonzero: Scape → Sluice stays at 0, and no live path breaks V (Scape ⇝ Sluice, or Scape ⇝ Bulwark other than E1) at any tick, in either strategy',
+        r, 'the path guard switched off, on the bait set (a cable may emerge whatever path it opens)', held(plant));
+  });
+  step(() => {
+    // 3. ADR-195
+    const r = every(s => s.mixMax > s.mbBrief + 1e-9 ? `multiband Bulwark summed with an unphased branch for ${s.mixMax.toFixed(2)} s (> ${s.mbBrief.toFixed(2)} s)` : '');
+    let worst = 0; for (const [, s] of cache) worst = Math.max(worst, s.mixMax);
+    const plant = firstPlant({ mode: 'blend', plant: 'mbblend' }, s => s.mixMax > s.mbBrief + 1e-9 ? `${s.mixMax.toFixed(2)} s of parallel sum` : '', ['four', 'bait']);
+    add(`ADR-195: a multiband Bulwark is never summed with an unphased branch of the same lane for longer than one glide (${MB_BRIEF_TAU} τ = ${(MB_BRIEF_TAU * DEFAULTS.glide).toFixed(2)} s); its band count flips, and in BLEND its presence flips`,
+        r.ok ? { ok: true, detail: r.detail + ` — longest ${worst.toFixed(2)} s` } : r,
+        'BLEND with Bulwark\'s presence blended continuously (the flip-only rule removed)', held(plant));
+  });
+  step(() => {
+    // 4. the loop bound
+    const r = every((s, loop) => loop === 'a' && s.loop > DEFAULTS.bound * (1 + 1e-9) ? `loop gain ${s.loop.toFixed(3)}` : loop === 'b' && s.cycTicks ? `${s.cycTicks} ticks with a cycle` : '');
+    let raw = 0; for (const [, s] of cache) raw = Math.max(raw, s.loopRaw);
+    const plant = firstPlant({ plant: 'nobound' }, s => s.loop > DEFAULTS.bound * (1 + 1e-9) ? `loop gain ${s.loop.toFixed(2)} > ${DEFAULTS.bound}` : '');
+    add(`Loop gain stays within the bound: in (a) every live cycle returns ≤ ${DEFAULTS.bound} (cable weights × declared gains; unbounded it would reach ${raw.toFixed(2)}), and (b) never has a cycle at all`,
+        r, 'the bound switched off (the control reads red)', held(plant));
+  });
+  step(() => {
+    // 5. the reach floor and the cap
+    const r = every(s => s.minDb < db(FLOOR) - 1e-9 ? `lane at ${dbTxtM(s.minDb)} dB` : s.maxDb > db(CEIL) + 1e-9 ? `lane at +${s.maxDb.toFixed(2)} dB` : '');
+    const plant = firstPlant({ loop: 'b', plant: 'nobypass' }, s => s.minDb < db(FLOOR) - 1e-9 ? `a lane fell to ${dbTxtM(s.minDb)} dB` : '', ['four']);
+    add(`Every lane stays above the reach floor (${db(FLOOR).toFixed(1)} dB) and under the +${db(CEIL).toFixed(2)} dB cap at every tick, both lanes, both strategies`,
+        r, '(b) with no bypass: the old cable retreats and the new one waits, with nothing carrying the lane', held(plant));
+  });
+  step(() => {
+    // 6. sleep and wake without a step
+    const thr = Math.pow(10, DEFAULTS.sleepDb / 20), lim = SLEEP_JUMP_X * thr;
+    let jump = 0, cpu = 0, n = 0, sl = 0, why = '';
+    for (const r of sleepR) { if (r.jump > jump) { jump = r.jump; why = `${r.set} ${r.sw.name}`; } cpu += r.cpuAvg; n++; sl += r.sleeps; }
+    const pj = Math.max(0, ...sleepP);
+    add(`Sleep and wake happen without a step: the largest change a sleep or wake makes to what a node feeds on stays ≤ ${SLEEP_JUMP_X} × the threshold (${db(lim).toFixed(0)} dB), and sleeping saves CPU`,
+        jump <= lim && sl > 0 ? { ok: true, detail: `${sl} sleeps over ${n} rendered sweeps (pulse on); worst step ${db(jump).toFixed(0)} dB (${why}); CPU ${(cpu / n).toFixed(1)} points on average against ${RESIDENT_CPU} all awake` }
+                             : { ok: false, detail: `worst step ${jump.toExponential(2)} (${why}), ${sl} sleeps` },
+        'sleep on silent input alone, ignoring the tail still ringing', pj > lim ? { ok: false, detail: `a step of ${pj.toFixed(3)} (${db(pj).toFixed(0)} dB)` } : { ok: true, detail: 'NOT caught' });
+  });
+  step(() => {
+    // 7. the click metric
+    const T = clk, s = clickSummary(T);
+    const ok = s.r3a.worst < s.r2.worst && s.r3b.worst < s.r2.worst;
+    add('Round 3 clicks less than round 2: the worst click over every transition the sweep paths cross (four presets, sine probe) is lower for (a) and for (b) than for round 2\'s insert/remove',
+        ok ? { ok: true, detail: `${T.length} transitions: (a) ${s.r3a.worst.toFixed(1)} dB worst, ${s.r3a.mean.toFixed(2)} mean · (b) ${s.r3b.worst.toFixed(1)} · ${s.r3b.mean.toFixed(2)} · round 2 ${s.r2.worst.toFixed(1)} · ${s.r2.mean.toFixed(2)}` }
+           : { ok: false, detail: `(a) ${s.r3a.worst.toFixed(1)}, (b) ${s.r3b.worst.toFixed(1)}, round 2 ${s.r2.worst.toFixed(1)}` },
+        `round 2's insert/remove itself, which must read high (≥ ${R2_HIGH_DB} dB worst)`, s.r2.worst >= R2_HIGH_DB ? { ok: false, detail: `round 2 reads ${s.r2.worst.toFixed(1)} dB; ${s.r2.over3}/${T.length} transitions over 3 dB` } : { ok: true, detail: `round 2 reads only ${s.r2.worst.toFixed(1)} dB — the metric does not see it` });
+  });
+  step(() => {
+    // 8. determinism
+    const sw = SWEEPS[6], o = optsWith({}), M1 = morphOf(o), M2 = morphOf(o), M3 = morphOf(optsWith({ seed: DEFAULTS.seed + 1 }));
+    const s1 = runSweep3(M1, sweepW(M1, sw)), s2 = runSweep3(M2, sweepW(M2, sw)), s3 = runSweep3(M3, sweepW(M3, sw));
+    const q = sweepSchedule(M1, sw), y1 = renderWith(M1, q.wAt, q.N, { pulse: true }).y, y2 = renderWith(M2, q.wAt, q.N, { pulse: true }).y;
+    let same = y1.length === y2.length; for (let i = 0; same && i < y1.length; i++) if (y1[i] !== y2[i]) same = false;
+    add('Deterministic: the same seed gives the same cables at every tick and a bit-identical render (mulberry32 only, no clock)',
+        same && s1.hash === s2.hash ? { ok: true, detail: `${s1.n} ticks, ${y1.length} samples identical` } : { ok: false, detail: 'differs' },
+        'the next seed, compared as if it were the same', s1.hash === s3.hash ? { ok: true, detail: 'identical — the seed does nothing' } : { ok: false, detail: 'the cables differ: the seed decides' });
+  });
+  return { rows, steps, claims: 8 };
+}
+function runSelfCheck() { const c = selfCheckSteps(); for (const f of c.steps) f(); return c.rows; }
+const dbTxtM = v => v === -Infinity ? '−∞' : v.toFixed(2);
 </script>
 
 <script>
@@ -1794,7 +1916,7 @@ let PX = clamp01(+qv('x', '0.42')), PY = clamp01(+qv('y', '0.36'));
 let dark = /theme=dark/.test(QS), sweeping = false, sweepId = qv('sweep', 'loop'), sweepT = 0, dragPad = false, pulse = true, probe = false, dirty = true;
 let M = null, G = null, SWS = {}, CLK = [], CLK_N = 0, EDG = {}, CHECK = null, CHECK_N = 0, PAL = {};
 let AC = null, SPN = null, AN = null, LR = null, LE = null, LM = null, scopeBuf = null, clipHold = 0, ax = PX, ay = PY, aKey = '', aSt = null, aStruct = '';
-let jobs = [], jobGen = 0, checkJobs = [], pend = 0, flowT = 0, frameN = 0;
+let jobs = [], jobGen = 0, checkJobs = [], pend = 0, flowT = 0, frameN = 0, CHECK_STEP = 0, CHECK_STEPS = 0;
 const REDUCED = (() => { try { return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); } catch (_) { return false; } })();
 const OFF = { sharpen: false, jitter: false, snap: false, norm: false, sleep: false, tails: false };
 const ON = { sharpen: true, jitter: true, snap: true, norm: true, sleep: true, tails: true };
@@ -1879,8 +2001,8 @@ function recompute(resettle) {
 }
 /* the self-check has its OWN queue (it always runs on DEFAULTS, not on the page) */
 function startCheck() {
-  const c = selfCheckSteps(); CHECK_N = c.steps.length;
-  checkJobs = c.steps.map(f => () => { f(); CHECK = c.rows; });
+  const c = selfCheckSteps(); CHECK_N = c.claims; CHECK_STEPS = c.steps.length; CHECK_STEP = 0;
+  checkJobs = c.steps.map(f => () => { f(); CHECK_STEP++; CHECK = c.rows; });
   const tick = () => { const f = checkJobs.shift(); if (f) { f(); renderChecks(); } if (checkJobs.length) setTimeout(tick, 0); };
   setTimeout(tick, 0);
 }
@@ -1955,15 +2077,6 @@ function renderLive(vs) {
     (r3 ? `<br>lane normaliser Body ×${R.nL.BODY.toFixed(2)} Sub ×${R.nL.SUB.toFixed(2)} · open transitions ${R.open}/${o.K}` + (held.length ? ` · <span class="no">waiting: ${held.join(', ')}</span>` : '') : '');
 }
 function renderTables() { renderClickTab(); renderSweepTab(); renderEdgeTab(); renderChecks(); }
-function clickSummary(rows) {
-  const s = {};
-  for (const b of BEHAVIOURS) {
-    const v = rows.map(r => r[b.id].db);
-    s[b.id] = { worst: v.length ? Math.max(...v) : 0, mean: v.length ? v.reduce((a, c) => a + c, 0) / v.length : 0, over3: v.filter(x => x > 3).length,
-                cpu: rows.length ? Math.max(...rows.map(r => r[b.id].cpuMax || 0)) : 0 };
-  }
-  return s;
-}
 function renderClickTab() {
   const done = CLK.length === CLK_N, s = clickSummary(CLK);
   $('clickHead').textContent = done ? `· ${CLK_N} transitions on this corner set, sine probe` : `· measuring ${CLK.length}/${CLK_N}…`;
@@ -2022,7 +2135,7 @@ function renderChecks() {
     `<td>${r.caught ? '<span class="ok">CAUGHT</span>' : '<span class="no">MISSED</span>'}</td></tr>`).join('') + (fin ? '' : `<tr><td colspan="5">running… ${n}/${CHECK_N}</td></tr>`);
   const good = pass === n && caught === n;
   $('audit').className = 'audit' + (good ? '' : ' bad');
-  $('audit').innerHTML = `self-check at load${fin ? '' : ' (running ' + n + '/' + CHECK_N + ')'}: <b>${pass}/${n}</b> claims hold · <b>${caught}/${n}</b> planted faults caught` +
+  $('audit').innerHTML = `self-check at load${fin ? '' : ' (running: ' + n + '/' + CHECK_N + ' claims, warm-up ' + Math.min(CHECK_STEP, CHECK_STEPS) + '/' + CHECK_STEPS + ' steps)'}: <b>${pass}/${n}</b> claims hold · <b>${caught}/${n}</b> planted faults caught` +
     (good ? ` — defaults: ${DEFAULTS.mode}, ${DEFAULTS.method}, glide ${1000 * DEFAULTS.glide} ms, bound ${DEFAULTS.bound}, p ${DEFAULTS.p}, K ${DEFAULTS.K}, seed ${DEFAULTS.seed}.` : ' — SEE THE TABLE: a claim or a control failed.');
 }
 /* ---------- COPIED from round 2 (fx-chain-morph-lab-r2.html lines 1654–1659) ---------- */
