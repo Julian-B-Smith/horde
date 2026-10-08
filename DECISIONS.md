@@ -7098,3 +7098,42 @@ an ADR before code.
 Amendment 1 had placed it on the CONDITIONAL list. It now joins the post-1.0 list. Its name screen
 and sibling project are deferred with it, and nothing was started. The CONDITIONAL list is back to
 the Kuramoto chorus plus Bulwark's multiband mode with the ATM preset.
+
+## ADR-196 — a carried patch to vendored choc: the Windows web view admits only its embedded page (B446, 2026-10-08)
+
+**Ruling.** The human, 2026-10-08: "Approve the choc patch" (ADR-194 D-S5: wrappers first; a
+minimal documented vendored patch only where no wrapper fix works). This ADR is the record that
+ADR-194's Tier C asks for. Code came first, so the order could not be kept, but the record could.
+
+**Why no wrapper fix works.** choc keeps `ICoreWebView2` private, `getViewHandle` returns only the
+HWND, and choc keeps no message-handler token. Our Windows wrapper can therefore reach neither
+navigation events nor the source of a web message. macOS needed no patch (#965).
+
+**Decision.**
+- **The patch.** One additive choc option, `WebView::Options::allowNavigation(NavigationType, uri)`,
+  consulted from WebView2's NavigationStarting, FrameNavigationStarting, NewWindowRequested and
+  WebMessageReceived handlers. With the option unset, behaviour is upstream's.
+- **How it is carried (mechanism (a)).** The patch is a reviewable file,
+  `libs/patches/choc-webview2-navigation.patch`, applied at configure time to a build-tree copy;
+  `libs/choc` stays at its pinned commit and clean.
+- **How it fails.** Every way of losing the patch is loud: drift stops the configure; any pin bump
+  turns `choc_patch_check` red until the patch is re-affirmed; a build against the unpatched header
+  cannot compile.
+- **Removal condition.** The patch is dropped when upstream choc ships an equivalent navigation and
+  message-source hook, or when horde stops using choc's WebView2 backend.
+
+**Critic verdict (Opus, 2026-10-08): APPROVE WITH CHANGES.** COM reference counting, the upcasts,
+the vtable order and the policy were judged sound, and the carriage fails closed.
+- **Changes being made on the PR before merge:**
+  - **MEDIUM-1:** the policy becomes one pure shared function with a behavioural check, replacing
+    token-matching.
+  - **MEDIUM-2:** fragments are stripped from the message source, and a sink rule bans
+    same-document URL changes in the GUI.
+  - **MEDIUM-3:** this ADR.
+  - **LOW 1–5:** configure dependencies, the line count, a runtime caveat in the code and README,
+    the README noting that git is required at configure, and an upstream-draft note.
+- **HIGH-1:** nothing exercises the Windows behaviour, and a mismatch would ship a blank GUI. It is
+  recorded as a release gate (B447), not a code change.
+
+**Not yet posted.** The upstream issues for Tracktion are drafted privately and wait on the human's
+explicit yes.
