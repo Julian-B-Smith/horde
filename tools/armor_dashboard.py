@@ -35,7 +35,7 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "tools"))
-import armor_coverage_check as acc  # noqa: E402  (one loader, one set of counts)
+import armor_coverage_check as acc  # one loader, one set of counts
 
 OUT = ROOT / "docs/armor/dashboard.html"
 OPTIONAL = [("Tolerance registry", "docs/armor/tolerances.json"),
