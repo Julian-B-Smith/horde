@@ -58,7 +58,7 @@ import tempfile
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "tools"))
-import private_name_check as pnc  # noqa: E402  (shared names-file lookup, ADR-014)
+import private_name_check as pnc  # shared names-file lookup, ADR-014
 
 CATALOGUE = ROOT / "docs/armor/catalogue.json"
 VERIFY = ROOT / "verify"
