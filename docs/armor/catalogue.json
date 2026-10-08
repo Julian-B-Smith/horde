@@ -142,8 +142,8 @@
       "id": "S4",
       "title": "Quiet disabling",
       "status": "partial",
-      "gates": ["test_table_check", {"name": "weakening_check", "pending": true}],
-      "gaps": "test_table_check makes every check declare whether ./verify runs it, and cross-checks the claim. The counter of skips, suppressions and disabled sanitizers is being built (B448 Wave A).",
+      "gates": ["test_table_check", "weakening_check"],
+      "gaps": "test_table_check makes every check declare whether ./verify runs it, and cross-checks the claim. weakening_check counts skips, suppressions, disabled sanitizers, soft-fails, UNWIRED declarations and DSP guards against a baseline and fails on any increase. Not yet: markers assembled by macro, and proof that an `approved` reference was written by the human rather than an agent.",
       "tracked_by": "B448",
       "tripwire": "Skips, suppressions and disabled sanitizers: no increase"
     },
