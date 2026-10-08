@@ -1067,18 +1067,25 @@ function mkInst(type, sr) {
        allpass at 700 Hz, low = (x + A x)/2, high = (x − A x)/2, each band compressed, the
        output low − high. With no gain reduction that is A x: flat in level, shifted in
        phase. Summed with its own dry it is x + A x, a lowpass notch — the reason a multiband
-       Bulwark is never summed in parallel with an unphased branch. bands 1 is round 2's. */
-    let env = 0, envH = 0, ca = 0, cr = 0, thr = -20, ratio = 4, mk = 1, bands = 1, ac = 0, az = 0;
+       Bulwark is never summed in parallel with an unphased branch. bands 1 is round 2's.
+       A change of band count is Bulwark's own 20 ms internal crossfade (ADR-195: "Bulwark's
+       own 20 ms internal switch is the flip"); the first build switched in one sample and
+       the bait set's top edge read 33 dB on the click metric. */
+    let env = 0, envL = 0, envH = 0, ca = 0, cr = 0, thr = -20, ratio = 4, mk = 1, bands = 1, ac = 0, az = 0, xb = -1;
+    const dxb = 1 / (0.02 * sr);
     const gain = e => { const over = 20 * Math.log10(e + 1e-9) - thr; return over > 0 ? Math.pow(10, -over * (1 - 1 / ratio) / 20) : 1; };
     const fol = (e, r) => r > e ? r + (e - r) * ca : r + (e - r) * cr;
     return { set(p) { ca = Math.exp(-1 / (p.att * sr)); cr = Math.exp(-1 / (p.rel * sr)); thr = p.thr; ratio = p.ratio; mk = Math.pow(10, p.mk / 20);
                       bands = p.bands || 1; const tn = Math.tan(Math.PI * 700 / sr); ac = (tn - 1) / (tn + 1); },
              run(x) {
-               if (bands < 2) { env = fol(env, Math.abs(x)); return x * mk * gain(env); }
-               const a = ac * x + az; az = x - ac * a;
+               const tb = bands > 1 ? 1 : 0;
+               if (xb < 0) xb = tb; else if (xb < tb) xb = Math.min(tb, xb + dxb); else if (xb > tb) xb = Math.max(tb, xb - dxb);
+               env = fol(env, Math.abs(x));
+               const one = x * mk * gain(env);
+               const a = ac * x + az; az = x - ac * a;          // the split runs always, so a flip starts from a warm state
                const lo = 0.5 * (x + a), hi = 0.5 * (x - a);
-               env = fol(env, Math.abs(lo)); envH = fol(envH, Math.abs(hi));
-               return mk * (lo * gain(env) - hi * gain(envH)); } };
+               envL = fol(envL, Math.abs(lo)); envH = fol(envH, Math.abs(hi));
+               return xb <= 0 ? one : (1 - xb) * one + xb * mk * (lo * gain(envL) - hi * gain(envH)); } };
   }
   if (type === 'EQ') {
     let b0 = 1, b1 = 0, b2 = 0, a1 = 0, a2 = 0, z1 = 0, z2 = 0;
@@ -2293,7 +2300,47 @@ function paintCables(vs) {
   for (const [k, ink] of [['BODY', PAL['scr-value']], ['SUB', PAL['scr-marker']], ['OUT', PAL['scr-meter']]]) { const [x, y] = P(k); g.fillStyle = ink; g.fillText(NAME[k], x, y); }
 }
 function paintAt() { VS = viewState(); paintPad(); paintCables(VS); renderLive(VS); }
-function renderRec() { $('rec').innerHTML = ''; }
+function renderRec() {
+  $('rec').innerHTML = `
+  <p><b>How to listen.</b> Press <b>POWER</b> (a saw chord on Body, a sine an octave down on Sub; <b>PULSE</b> gates the chord so tails and sleep are audible;
+    <b>SINE PROBE</b> swaps the lanes for sines, where a click has nothing to hide behind). Drag the puck, or press <b>SWEEP</b> to drive it round a path. Then flip
+    <b>A/B</b> to <b>ROUND 2 — INSERT/REMOVE</b> and back: the same pad, the same map, round 2's router and engine. Flip <b>LOOPS</b> between (a) and (b) on a reorder.
+    The cable panel shows what you hear: boxes never move; cables grow, glow and fade; a dashed amber cable marked z⁻¹ is a backward cable on one block of delay; an
+    amber cable is part of a live loop; a dotted amber ghost is a cable waiting. The live meter there runs the click metric on the output.</p>
+  <p><b>What the build found</b> (each is a table or a self-check row, not a claim from the brief):</p>
+  <ol class="q">
+    <li><b>Static nodes remove round 2's clicks.</b> On the four presets' 26 transitions the worst click is <b>6.0 dB</b> for (a) and (b) against 33.2 dB for round 2,
+      and 14 of round 2's transitions pass 3 dB. Over all four corner sets and both modes (208 transitions, measured headless at build time) round 3's worst is 6.0 dB
+      and round 2's 33–43 dB. Round 2's peaks sit at 0 or 80 ms after a change: a module rebuilt cold, and junction renames that ramp in one block.</li>
+    <li><b>A band-count flip needs Bulwark's own crossfade.</b> The first build switched the stand-in's band count in one sample and the bait set's Bulwark flip read
+      33 dB in round 3 too; with ADR-195's 20 ms internal switch it reads 3.3 dB. The cables cannot smooth a discontinuity inside a module.</li>
+    <li><b>(a) and (b) differ only on reorders.</b> Most transitions add, drop or re-enter one module, which makes no cycle, so the two strategies play the same cables.
+      On a reorder (a) lets the new cable in at once on one block of delay and holds the loop at ${DEFAULTS.bound} (unbounded it reaches 1.5 on the four presets and 1.9 on round 1's pairs, at the default glide);
+      (b) holds the new cable until the old one is gone and opens a −6 dB bypass meanwhile. <i>Listen</i> for (a)'s brief delayed-loop colour against (b)'s brief dry flash.</li>
+    <li><b>What is left of the clicks is the lane normaliser.</b> A path is the product of its cables, so k cables gliding together sag like the k-th power; the normaliser
+      boosts the lane up to ×4 to hold the level, fast enough to read as a few dB of impulsiveness (normaliser off: the worst transition drops from 7.2 to 2.2 dB at τ 40 ms).
+      Gliding which cables count as "the target's" was needed: a binary choice stepped a lane's source cable by 0.74 in 4 ms.</li>
+    <li><b>Glide time trades clicks for speed.</b> Worst click 7.2 dB at τ = 40 ms, 6.0 at 60 ms (the default), 5.1 at 80 ms; a slower glide follows the puck more slowly.</li>
+    <li><b>Sleep must read memory, not output.</b> The first build slept a disconnected ECHO at once; it woke later replaying a frozen echo (a 0.033 step). Now a node sleeps
+      only when its input, its output and what its buffers hold are all under the threshold, and steps stay under −80 dB. CPU averages 8.6 points against 15 with every node awake.</li>
+    <li><b>The rules hold as cable rules.</b> On the bait set, without the path guard, a naive crossfade opens a live Scape ⇝ Sluice path for 416 ticks; with it, never.
+      A multiband Bulwark sits beside an unphased branch for at most 0.32 s (one glide is 0.6 s); blended continuously it would for 1.97 s.</li>
+  </ol>
+  <p><b>Open for the listening pass.</b></p>
+  <ol class="q">
+    <li><b>(a) or (b)</b>, by ear on reorders (the circle path crosses most of them).</li>
+    <li><b>Glide τ</b>: 60 ms is a compromise; <i>choose</i> by ear with the advanced slider.</li>
+    <li><b>QUANTUM's "per-cable thresholds"</b> are read here as round 2's keyed draws (one per module, one per ordered pair — the pair's draw decides which way the cable
+      between them runs); no separate per-cable draw was added. <i>Confirm</i> that reading.</li>
+    <li><b>The loop bound (${DEFAULTS.bound}) and the declared node gains</b> are declarations, not measurements; a module that exceeds its declaration breaks the bound's promise.</li>
+    <li><b>The normaliser</b> is now the main transient. A path-aware glide (cables on a long path move together as one) could remove the sag it compensates; not built.</li>
+    <li><b>A self-oscillating Sluice</b> (feedback ≥ 1) never decays: it is put to sleep loud after its tail cap and ramps back in over one glide when fed again, so its
+      old howl returns. <i>Decide</i> whether a resident module may keep that state.</li>
+    <li><b>ADR-195's "brief"</b> is read as one glide (${MB_BRIEF_TAU} τ). <i>Confirm</i>, or name a number.</li>
+    <li><b>The click metric</b> is on a sine probe, sees 2 ms slices against ±32 ms, and watches 1 s after a change: slower bumps and later tail releases are outside it.</li>
+    <li><b>Not wired into <code>./verify</code></b>: this self-check runs at load only (as round 2's did).</li>
+  </ol>`;
+}
 
 /* ---------- audio adapter: the model's own objects in a ScriptProcessor ----------
    The puck slews with a 40 ms time constant, stated in seconds and converted per
