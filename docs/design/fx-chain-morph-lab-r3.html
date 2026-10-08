@@ -2336,7 +2336,7 @@ function viewState() {
      frame), so the views glide through transitions — loops and waits included — without
      POWER. It draws only; nothing listens to it. A new morph (a setting) re-settles it. */
   if (!VR || VRM !== M) { VR = new Cables(M, RSR, TICK); VR.settle(st); VRM = M; }
-  for (let k = 0; k < 4; k++) VR.step(st);
+  for (let k = 0; k < 4; k++) { if (HOLD_AT >= 0 && VR.n - HOLD_AT >= +qv('hold', '0')) break; VR.step(st); }   // ?hold=N: a still N ticks into the transition
   return { R: VR, E: null, live: false };
 }
 
@@ -2378,7 +2378,7 @@ function startCheck() {
   const tick = () => { const f = checkJobs.shift(); if (f) { f(); renderChecks(); } if (checkJobs.length) setTimeout(tick, 0); };
   setTimeout(tick, 0);
 }
-let VS = null, VR = null, VRM = null;     // VR: the view router while there is no audio (it draws, nothing listens)
+let VS = null, VR = null, VRM = null, HOLD_AT = -1;     // VR: the view router while there is no audio (it draws, nothing listens)
 let meterPk = 0, meterTp = 0, meterHold = 0;   // the output meter's held peaks (page state: a display hold, not the model)
 /* THE OUTPUT METER: sample peak and true peak of what the analyser last saw, held 2 s,
    in dBFS — so "blown out" is a number, and nothing hides it (no limiter anywhere). */
@@ -2691,7 +2691,7 @@ function paintMatrix(sc, D) {
     }
     if (e.held) { g.setLineDash([1.5 * dpr, 2.5 * dpr]); g.strokeStyle = PAL.caution; g.lineWidth = 1.6 * dpr; box(); g.stroke(); g.setLineDash([]); }
   }
-  g.fillStyle = PAL.dim; g.font = vFont(Math.max(7, px - 1), dpr); g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText('from↓ to→', 2 * dpr, hy * 0.5);
+  g.fillStyle = PAL.dim; g.font = vFont(Math.max(7, px - 1), dpr); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('↓→', hx * 0.5, hy * 0.5);   // row = from, column = to
 }
 /* PANEL */
 function paintPanel(sc, D) {
@@ -2716,13 +2716,13 @@ function paintPanel(sc, D) {
   // cords: a sag curve (cubic, both handles dropped), plug ends; rules as faint dotted cords
   const cordPath = e => () => { const [ax, ay] = [e.a[0] * W, Y(e.a[1])], [bx, by] = [e.b[0] * W, Y(e.b[1])], s = e.sag * H;
     g.beginPath(); g.moveTo(ax, ay); g.bezierCurveTo(ax + (bx - ax) * 0.15, Math.max(ay, by) + s, bx - (bx - ax) * 0.15, Math.max(ay, by) + s, bx, by); };
-  for (const r of sc.rules) { const mx = (r.a[0] + r.b[0]) / 2 * W, my = Math.max(Y(r.a[1]), Y(r.b[1])) + 0.75 * r.sag * H; strokeRule(g, r, cordPath(r), [mx, my], dpr); }
   for (const e of sc.cords) {
     const w = e.wf + e.wb;
     if (w >= VIEW_MIN) { g.strokeStyle = PAL.bg; g.globalAlpha = 0.6; g.lineWidth = wW(w, dpr) + 2 * dpr; cordPath(e)(); g.stroke(); g.globalAlpha = 1; }   // a dark sheath, so crossing cords read as cords
     strokeCable(g, e, cordPath(e), dpr);
   }
-  // jacks and their captions, LAST: nothing covers them
+  // the rules, then jacks and their captions, LAST: nothing covers them
+  for (const r of sc.rules) { const mx = (r.a[0] + r.b[0]) / 2 * W, my = Math.max(Y(r.a[1]), Y(r.b[1])) + 0.75 * r.sag * H; strokeRule(g, r, cordPath(r), [mx, my], dpr); }
   const jacks = [['BODY', 'out', 'Body'], ['SUB', 'out', 'Sub'], ['OUT', 'in', 'in']].concat(TYPES.flatMap(t => [[t, 'out', 'out'], [t, 'in', 'in']]));
   for (const [k, d, cap] of jacks) {
     const [jx, jy0] = panelJack(k, d), x = jx * W, y = Y(jy0), plugged = sc.cords.some(e => (d === 'out' ? e.u : e.v) === k && e.wf + e.wb >= VIEW_MIN);
@@ -2750,8 +2750,8 @@ function renderRec() {
   $('rec').innerHTML = `
   <p><b>How to listen.</b> Press <b>POWER</b> (a saw chord on Body, a sine an octave down on Sub; <b>PULSE</b> gates the chord so tails and sleep are audible;
     <b>SINE PROBE</b> swaps the lanes for sines, where a click has nothing to hide behind). Drag the puck, or press <b>SWEEP</b>. Flip <b>A/B</b> to round 2 and back,
-    and <b>LOOPS</b> between (a) and (b) on a reorder. Pick a <b>LAYOUT</b> for the cables (RING, RACK, MATRIX, FLOW, PANEL, ROLL; it is remembered). The output line
-    shows sample PEAK and TRUE PEAK, held 2 s; nothing limits it.</p>
+    and <b>LOOPS</b> between (a) and (b) on a reorder. The cables are drawn three ways at once — <b>RACK</b>, <b>MATRIX</b>, <b>PANEL</b> — from one state; with
+    POWER off they still glide as you move the puck (the view's own router). The output line shows sample PEAK and TRUE PEAK, held 2 s; nothing limits it.</p>
   <p><b>Round 3 follow-up (after the human's listening pass on #980)</b> — each is a self-check row or a measured figure:</p>
   <ol class="q">
     <li><b>The Filter ↔ Drive reversal click was a two-node loop.</b> In (a) the reversed cable came in at once on a backward part, so Drive fed Filter one tick late
@@ -2774,7 +2774,8 @@ function renderRec() {
   </ol>
   <p><b>Open for the listening pass.</b></p>
   <ol class="q">
-    <li><b>Which layout lands?</b> Six views of one cable state; the choice persists. Which to keep, which to drop, what to merge.</li>
+    <li><b>The three views (round 3c)</b>: RACK, MATRIX and PANEL, kept from #982's six on your verdict, now all visible and checked against the engine (self-check 12).
+      Each module has one colour in all three — a departure from ADR-116's colour roles, marked in the code. Is the palette right, and is the PANEL's cord sag convincing?</li>
     <li><b>p = 1</b> is a lab default changed on measurement; D8 leaves p to your ear, and a product default change would need an ADR and a migration (ADR-197).</li>
     <li><b>Is the demo still muddy?</b> The levels are clean by the numbers; the stand-ins are crude (one-pole tone, Schroeder reverb), and the four presets stack a
       lowpass, two delays and a reverb by design.</li>
@@ -2895,7 +2896,7 @@ window.addEventListener('pointerup', () => { dragPad = false; });
 window.addEventListener('resize', () => { dirty = true; });
 if (qb('adv', false)) $('advBox').open = true;
 /* review links: ?to=x,y moves the puck shortly after load, so a screenshot can catch the views mid-transition */
-if (qv('to', null)) { const [tx, ty] = qv('to', '').split(',').map(Number); if (isFinite(tx) && isFinite(ty)) setTimeout(() => { PX = clamp01(tx); PY = clamp01(ty); dirty = true; }, +qv('after', '400')); }
+if (qv('to', null)) { const [tx, ty] = qv('to', '').split(',').map(Number); if (isFinite(tx) && isFinite(ty)) setTimeout(() => { PX = clamp01(tx); PY = clamp01(ty); dirty = true; if (qv('hold', null) && VR) HOLD_AT = VR.n; }, +qv('after', '400')); }
 
 readPal(); renderViewLegend(); recompute(); applyTheme(); startCheck();
 requestAnimationFrame(frame);
