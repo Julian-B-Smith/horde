@@ -111,6 +111,11 @@ ALLOW = [
     f"gh pr create --title t --body 'run `{G} {P} origin main` never'",
 ]
 BLOCK.append(f"echo \"live: `{G} {P} origin main`\"")
+# Quotes nested inside a $(...) inside double quotes are valid bash (the substitution
+# opens a fresh quoting context) but defeat a plain shlex pass; the hook replaces live
+# substitutions before tokenising. One row each way, so the fix cannot regress.
+ALLOW.append("for n in 964 965; do echo \"#$n: $(gh pr view $n -q '[.x[] | \"\\(.name)=\\(.c // .s)\"] | join(\" \")')\"; done")
+BLOCK.append(f"echo \"#1: $({G} {P} origin main -o 'a \"b\" c')\"")
 
 
 def run(hook, cmd, cwd, raw=None):
