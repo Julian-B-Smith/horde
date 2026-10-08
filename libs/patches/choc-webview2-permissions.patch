@@ -17,7 +17,9 @@ the clipboard; PASTE reads it natively instead (hzPasteState), as on macOS.
 
 DEFAULT UNCHANGED. The patch only adds lines. With the option left empty the
 handler runs exactly as upstream: clipboard reads are granted and every other
-kind is left to WebView2.
+kind is left to WebView2. The deletion check is made before the owner is read
+(critic MEDIUM-1, PR #973): once the owner is deleted the option is not
+consulted and the handler runs as upstream.
 
 SEPARATE FILE. It is carried apart from the navigation patch so that either
 can be dropped when upstream takes its half. Each is made against the pristine
@@ -67,10 +69,10 @@ until the Base line above is updated, so the question is asked at every bump.
              COREWEBVIEW2_PERMISSION_KIND permissionKind;
              args->get_PermissionKind (std::addressof (permissionKind));
  
-+            if (ownerPimpl.options.allowPermission)
++            // The deletion check comes first: ownerPimpl is not read once it is gone.
++            if (! deletionCheckerRef->deleted && ownerPimpl.options.allowPermission)
 +            {
-+                auto allowed = ! deletionCheckerRef->deleted
-+                                && ownerPimpl.options.allowPermission (getPermissionKind (permissionKind));
++                auto allowed = ownerPimpl.options.allowPermission (getPermissionKind (permissionKind));
 +
 +                args->put_State (allowed ? COREWEBVIEW2_PERMISSION_STATE_ALLOW
 +                                         : COREWEBVIEW2_PERMISSION_STATE_DENY);

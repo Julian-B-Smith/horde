@@ -42,33 +42,57 @@ namespace hypersaw
    script cannot read the clipboard. PASTE reads it natively instead
    (hzPasteState, below), the macOS rule (hypersaw_gui.mm): the text goes to
    the state parser and never reaches the page. Runtime-unverified on Windows
-   as of 2026-10-08; see traces/2026-10-08-b446-choc-win-clipboard.md. */
+   as of 2026-10-08; see traces/2026-10-08-b446-choc-win-clipboard.md.
+
+   B446 — ITS OWN ORIGIN (critic HIGH-1, PR #973). The page loads from
+   detail::kEmbeddedOrigin, passed to choc as customSchemeURI, not from choc's
+   shared default: embedded_page_policy.h ORIGIN says why. */
 namespace
 {
-// The clipboard's text as UTF-8, or "" if it holds none or another process has
-// it open. The scan is bounded by the block's size, so text with no terminator
-// cannot be over-read.
-std::string clipboardTextUtf8(HWND owner)
+// Closes the clipboard and unlocks its block on every path out, exceptions
+// included (the std::string below can throw).
+struct ClipboardOpen
 {
-  std::string out;
-  if (!OpenClipboard(owner)) return out;
-  if (HANDLE h = GetClipboardData(CF_UNICODETEXT))
-  {
-    if (const auto *w = static_cast<const wchar_t *>(GlobalLock(h)))
-    {
-      const size_t n = wcsnlen(w, GlobalSize(h) / sizeof(wchar_t));
-      const int wn = n <= 0x7fffffff ? (int)n : 0;
-      const int bytes = wn ? WideCharToMultiByte(CP_UTF8, 0, w, wn, nullptr, 0, nullptr, nullptr) : 0;
-      if (bytes > 0)
-      {
-        out.resize((size_t)bytes);
-        WideCharToMultiByte(CP_UTF8, 0, w, wn, out.data(), bytes, nullptr, nullptr);
-      }
-      GlobalUnlock(h);
-    }
-  }
-  CloseClipboard();
-  return out;
+  const bool open;
+  explicit ClipboardOpen(HWND owner) : open(OpenClipboard(owner) != FALSE) {}
+  ~ClipboardOpen() { if (open) CloseClipboard(); }
+  ClipboardOpen(const ClipboardOpen &) = delete;
+  ClipboardOpen &operator=(const ClipboardOpen &) = delete;
+};
+struct GlobalLocked
+{
+  HGLOBAL h;
+  const wchar_t *text;
+  explicit GlobalLocked(HGLOBAL g) : h(g), text(g ? static_cast<const wchar_t *>(GlobalLock(g)) : nullptr) {}
+  ~GlobalLocked() { if (text) GlobalUnlock(h); }
+  GlobalLocked(const GlobalLocked &) = delete;
+  GlobalLocked &operator=(const GlobalLocked &) = delete;
+};
+
+enum class ClipText { none, tooLarge, text };
+
+/* The clipboard's text as UTF-8 in `out`. The size cap (kMaxPastedStateBytes,
+   input_guards.h) is applied BEFORE anything is allocated: the scan stops one
+   UTF-16 unit past the cap (each unit is at least one UTF-8 byte, so more units
+   than the cap is over it), and the UTF-8 size is measured by a sizing call
+   before `out` is grown. The scan is also bounded by the block's size, so text
+   with no terminator cannot be over-read. */
+ClipText clipboardTextUtf8(HWND owner, std::string &out)
+{
+  ClipboardOpen clip(owner);
+  if (!clip.open) return ClipText::none;
+  GlobalLocked block(GetClipboardData(CF_UNICODETEXT));
+  if (!block.text) return ClipText::none;
+  const size_t units = GlobalSize(block.h) / sizeof(wchar_t);
+  const size_t n = wcsnlen(block.text, units < kMaxPastedStateBytes + 1 ? units : kMaxPastedStateBytes + 1);
+  if (n == 0) return ClipText::none;
+  if (!pastedStateFits(n)) return ClipText::tooLarge;
+  const int bytes = WideCharToMultiByte(CP_UTF8, 0, block.text, (int)n, nullptr, 0, nullptr, nullptr);
+  if (bytes <= 0) return ClipText::none;
+  if (!pastedStateFits((size_t)bytes)) return ClipText::tooLarge;
+  out.resize((size_t)bytes);
+  WideCharToMultiByte(CP_UTF8, 0, block.text, (int)n, out.data(), bytes, nullptr, nullptr);
+  return ClipText::text;
 }
 }  // namespace
 
@@ -92,10 +116,16 @@ struct HypersawGui::Impl
              and only a status comes back: 1 applied, 0 nothing to paste, 2 not
              a patch. */
           w.bind("hzPasteState", [this](const choc::value::ValueView &) -> choc::value::Value {
-            const std::string text = clipboardTextUtf8((HWND)web->getViewHandle());
-            if (text.empty()) return choc::value::createInt32(0);
-            const bool ok = host.applyStateJson && host.applyStateJson(text, std::string());
-            return choc::value::createInt32(ok ? 1 : 2);
+            std::string text;
+            switch (clipboardTextUtf8((HWND)web->getViewHandle(), text))
+            {
+              case ClipText::none: return choc::value::createInt32(0);
+              case ClipText::tooLarge: return choc::value::createInt32(2);
+              case ClipText::text: break;
+            }
+            return choc::value::createInt32(pasteStatus(text, [this](std::string_view t) {
+              return host.applyStateJson && host.applyStateJson(std::string(t), std::string());
+            }));
           });
           w.bind("hzGrabKeys", [this](const choc::value::ValueView &) -> choc::value::Value {
             if (HWND h = (HWND)web->getViewHandle()) SetFocus(h);
@@ -107,7 +137,8 @@ struct HypersawGui::Impl
         },
         [](choc::ui::WebView::Options::PermissionKind kind) {
           return detail::webPermissionPolicy(kind);
-        });
+        },
+        std::string(detail::kEmbeddedOrigin));
   }
 };
 

@@ -12,7 +12,10 @@
  *   - a message before admission is refused; a message from any other URI is
  *     refused, including a URI that merely STARTS with the embedded one;
  *   - a message whose source differs only by a #fragment is delivered;
- *   - every frame and new-window request is refused, at any URI.
+ *   - every frame and new-window request is refused, at any URI;
+ *   - the page at choc's SHARED default origin (https://choc.localhost/), where
+ *     every other choc plugin's page lives, is refused as a page and as a
+ *     message source (critic HIGH-1, PR #973: horde has its own origin).
  * The enum is a stand-in with choc's four enumerator names
  * (tools/choc_patch_check verifies choc has exactly those), so this runs with no
  * choc checkout and no build tree.
@@ -20,7 +23,8 @@
  * MUST-FAIL CONTROLS. The same sequences run against four faulty policies, and
  * each must FAIL at least one row: accept-any-source (messages not tied to the
  * page), dropped latch (the page admitted every time), prefix matching, and
- * exact-match messages (a #fragment change cuts the page off). A sequence a
+ * exact-match messages (a #fragment change cuts the page off), and the shared
+ * origin (the old kEmbeddedPage, choc's default, admitted too). A sequence a
  * faulty policy passes proves nothing, so a control that passes is RED.
  *
  * PERMISSIONS (ADR-196). Drives hypersaw::detail::webPermissionPolicy, the
@@ -59,6 +63,8 @@ struct Step
 
 const std::string E(kEmbeddedPage);
 const std::string kOther = "https://example.invalid/";
+// choc's default Windows page, which every choc plugin without its own origin uses.
+const std::string kShared = "https://choc.localhost/getHTMLInternal";
 
 // Each sequence starts from a fresh state.
 const std::vector<std::vector<Step>> kSequences = {
@@ -85,6 +91,12 @@ const std::vector<std::vector<Step>> kSequences = {
         {Nav::message, E, false, "a message after refused loads only"},
         {Nav::page, E, true, "the embedded page, after refused loads (no latch spent)"},
         {Nav::message, E, true, "a message once admitted"},
+    },
+    {
+        {Nav::page, kShared, false, "the page at choc's shared origin first"},
+        {Nav::page, E, true, "horde's page, after the shared one was refused"},
+        {Nav::message, kShared, false, "a message from choc's shared origin"},
+        {Nav::page, kShared, false, "the shared origin after admission"},
     },
     {
         {Nav::frame, E, false, "a frame before any page"},
@@ -154,6 +166,18 @@ bool exactMessage(EmbeddedPageState &s, Nav t, std::string_view uri)
   if (t == Nav::message) return s.pageAdmitted && uri == kEmbeddedPage;
   return hypersaw::detail::embeddedPagePolicy(s, t, uri);
 }
+// The pre-HIGH-1 rule: the page at choc's shared default origin admitted as ours.
+bool sharedOrigin(EmbeddedPageState &s, Nav t, std::string_view uri)
+{
+  if (t == Nav::page && uri == kShared)
+  {
+    if (s.pageAdmitted) return false;
+    s.pageAdmitted = true;
+    return true;
+  }
+  if (t == Nav::message && uri == kShared) return s.pageAdmitted;
+  return hypersaw::detail::embeddedPagePolicy(s, t, uri);
+}
 // Permissions: choc's seven PermissionKind names, every one refused.
 enum class Perm { clipboardRead, microphone, camera, geolocation, notifications, otherSensors, other };
 using PermPolicy = bool (*)(Perm);
@@ -197,6 +221,7 @@ int main()
       {"dropped latch", droppedLatch},
       {"prefix matching", prefixMatch},
       {"exact-match messages (fragment)", exactMessage},
+      {"choc's shared origin admitted", sharedOrigin},
   };
   for (const auto &c : controls)
   {
@@ -224,7 +249,7 @@ int main()
     std::printf("embedded_page_policy_check: RED (%d)\n", failures);
     return 1;
   }
-  std::printf("embedded_page_policy_check: GREEN (%zu + %zu rows; 6 controls red as designed)\n", rowCount(),
+  std::printf("embedded_page_policy_check: GREEN (%zu + %zu rows; 7 controls red as designed)\n", rowCount(),
               kPermRowCount);
   return 0;
 }

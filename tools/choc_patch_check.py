@@ -21,7 +21,7 @@ uses, so the two cannot disagree).
 
 ROWS.
   LIST     HS_CHOC_PATCHES names exactly the libs/patches/choc-*.patch files,
-           and the README names each one.
+           each once, and the README names each one.
   PIN      each patch's `Base:` line names the commit libs/choc is pinned to (the
            gitlink in the index, so it holds without a submodule checkout). A
            bump is red until a person re-checks the patch and its removal
@@ -37,12 +37,16 @@ ROWS.
                admits;
              - declares Options::allowPermission with choc's seven kinds,
                consults it in PermissionRequested ahead of upstream's clipboard
-               grant only when it is set, refuses with STATE_DENY, maps an
+               grant only when it is set AND the owner is not deleted (the
+               deletion check first, so a deleted owner is never read; critic
+               MEDIUM-1), refuses with STATE_DENY, maps an
                unknown kind to `other`, and keeps upstream's grant intact for
                the unset case.
   ALONE    each patch also applies by itself to the pristine header, so either
            can be dropped when upstream takes its half (each patch's header
            promises this).
+  ORDER    the list applied in REVERSE order gives the same bytes as in order,
+           so neither patch depends on the other having run first.
   CRLF     a CRLF copy of the header (Git for Windows' core.autocrlf checkout)
            patches, through the same list, to the same bytes as the LF one.
            Before 2026-10-08 it did not: file(READ) drops the CRs, so the
@@ -56,15 +60,21 @@ ROWS.
            makeWebView assigns opts.allowNavigation and opts.allowPermission
            from its parameters; the Windows backend passes
            detail::embeddedPagePolicy and detail::webPermissionPolicy to
-           makeWebView and binds hzPasteState; and kEmbeddedPage
-           (embedded_page_policy.h) is where choc serves the page. What the
+           makeWebView and binds hzPasteState; the Windows backend passes
+           detail::kEmbeddedOrigin as customSchemeURI and makeWebView assigns
+           it; kEmbeddedOrigin is not choc's shared default origin (critic
+           HIGH-1); kEmbeddedPage is where choc serves the page from that
+           origin (choc's getURIHome custom branch plus its setHTMLURI path,
+           read from the patched header); and hypersaw_gui.mm uses neither
+           constant nor customSchemeURI, so macOS does not depend on them. What the
            rules DO is tools/embedded_page_policy_check's business, by
            behaviour, not here by token.
   Where libs/choc is not checked out (CI's verify-fast job checks out no
-  submodules) APPLY, ALONE, CRLF, UPSTREAM and controls C1, C2, C10 and C11 print a
-  WARNING instead, and kEmbeddedPage is checked for presence but not against
-  choc's URI. Every CI build job configures, and so applies the patches with a
-  hard stop.
+  submodules) APPLY, ORDER, ALONE, CRLF, UPSTREAM and controls C1, C2, C10, C11
+  and C17 print a WARNING instead, and the origin rules are checked against
+  FALLBACK_SERVING (choc's default home and page path at the pin, recorded here)
+  rather than read from the header. Every CI build job configures, and so
+  applies the patches with a hard stop.
 
 MUST-FAIL CONTROLS, every run: a choc header with one context line changed makes
 apply_patch.cmake exit nonzero (C1); the unpatched header fails APPLY's content
@@ -77,7 +87,12 @@ permission rules (C10); a permission filter consulted whether or not the option
 is set fails them too (C11); the backend without its permission argument (C12)
 or without hzPasteState (C13), the shared header without the permission
 assignment (C14), an unquoted list (C15) and a list missing a patch file (C16)
-fail WIRING or LIST. If any control reads green the check is red.
+fail WIRING or LIST; a gate that reads the owner before checking deletion
+fails the permission rules (C17); kEmbeddedOrigin set to choc's shared default
+(C18), the backend not passing the origin (C19), makeWebView without the origin
+assignment (C20), and the macOS backend using the origin (C21) fail WIRING; a
+reverse-order result that differs fails ORDER (C22); a list naming a patch twice
+fails LIST (C23). If any control reads green the check is red.
 
 WHAT THIS DOES NOT SHOW. That WebView2 at run time cancels what the navigation
 rule refuses or denies what the permission rule refuses, or that native PASTE
@@ -105,6 +120,7 @@ TARGET = "choc/gui/choc_WebView.h"
 WIN = ROOT / "src/gui/hypersaw_gui_win.cpp"
 COMMON = ROOT / "src/gui/hypersaw_gui_common.h"
 POLICY = ROOT / "src/gui/embedded_page_policy.h"
+MM = ROOT / "src/gui/hypersaw_gui.mm"
 CMAKELISTS = ROOT / "CMakeLists.txt"
 KINDS = ("page", "frame", "newWindow", "message")
 PERM_KINDS = ("clipboardRead", "microphone", "camera", "geolocation", "notifications", "otherSensors", "other")
@@ -123,6 +139,8 @@ def rule_list(listed, on_disk, readme_text):
     errs = []
     if not listed:
         errs.append("CMakeLists.txt has no set(HS_CHOC_PATCHES ...) list")
+    for rel in sorted({r for r in listed if listed.count(r) > 1}):
+        errs.append(f"HS_CHOC_PATCHES names {rel} {listed.count(rel)} times; a second apply would stop the configure")
     for rel in sorted(set(on_disk) - set(listed)):
         errs.append(f"{rel} is not in HS_CHOC_PATCHES, so the build does not apply it")
     for rel in listed:
@@ -166,11 +184,30 @@ def rule_shape(patch_text):
     return errs
 
 
-def windows_page_uri(choc_text):
-    """The URI choc's setHTML serves the page at on Windows with no custom scheme."""
+CUSTOM_HOME = (r'if \(! options\.customSchemeURI\.empty\(\)\)\s*\{\s*'
+               r'if \(choc::text::endsWith \(options\.customSchemeURI, "/"\)\)\s*return options\.customSchemeURI;\s*'
+               r'return options\.customSchemeURI \+ "/";')
+FALLBACK_SERVING = {"shared": "https://choc.localhost/", "path": "getHTMLInternal"}
+
+
+def windows_serving(choc_text):
+    """How choc serves setHTML on Windows: {"shared": its default home, every choc
+    plugin's origin; "path": the page's path under the home}, or None. Requires the
+    getURIHome branch that returns customSchemeURI (a "/" appended), which is
+    what makes kEmbeddedOrigin the home."""
     home = re.search(r'#if CHOC_WINDOWS\s*\n\s*return "(https://[^"]+/)";', choc_text)
     page = re.search(r'setHTMLURI = defaultURI \+ "([^"]+)";', choc_text)
-    return home.group(1) + page.group(1) if home and page else None
+    if not (home and page and re.search(CUSTOM_HOME, choc_text)):
+        return None
+    return {"shared": home.group(1), "path": page.group(1)}
+
+
+def rule_order(rc_rev, rev_bytes, ok_bytes):
+    if rc_rev != 0:
+        return [f"the list applied in reverse order stops (exit {rc_rev})"]
+    if rev_bytes != ok_bytes:
+        return ["the list applied in reverse order gives different bytes from in order"]
+    return []
 
 
 def enum_names(text, enum):
@@ -192,8 +229,9 @@ def rule_navigation(text):
     if not re.search(r"if \(ownerPimpl\.options\.allowNavigation\)\s*\{\s*LPWSTR source = \{\};\s*"
                      r"args->get_Source", text):
         errs.append("the page-message filter does not sit under `if (ownerPimpl.options.allowNavigation)`")
-    if windows_page_uri(text) is None:
-        errs.append("cannot find where choc serves the page on Windows (getURIHome + setHTMLURI)")
+    if windows_serving(text) is None:
+        errs.append("cannot find how choc serves the page on Windows (getURIHome's customSchemeURI "
+                    "branch, its default home, setHTMLURI)")
     return errs
 
 
@@ -209,11 +247,14 @@ def rule_permission(text):
         errs.append(f"PermissionKind must be {PERM_KINDS}, found {enum_names(text, 'PermissionKind')}")
     # The filter: inside the PermissionRequested handler, after the kind is read,
     # gated on the option, refusing with DENY and returning before upstream's grant.
-    m = re.search(r"args->get_PermissionKind \(std::addressof \(permissionKind\)\);\s*"
-                  r"if \(ownerPimpl\.options\.allowPermission\)\s*\{(.*?)\}\s*" + UPSTREAM_GRANT, text, re.S)
+    # Deletion first: `! deleted && ...` short-circuits before ownerPimpl is read.
+    m = re.search(r"args->get_PermissionKind \(std::addressof \(permissionKind\)\);\s*(?://[^\n]*\n\s*)?"
+                  r"if \(! deletionCheckerRef->deleted && ownerPimpl\.options\.allowPermission\)\s*\{(.*?)\}\s*"
+                  + UPSTREAM_GRANT, text, re.S)
     if not m:
         errs.append("PermissionRequested does not consult allowPermission under "
-                    "`if (ownerPimpl.options.allowPermission)` ahead of upstream's clipboard grant")
+                    "`if (! deletionCheckerRef->deleted && ownerPimpl.options.allowPermission)` "
+                    "ahead of upstream's clipboard grant")
     else:
         block = m.group(1)
         if "COREWEBVIEW2_PERMISSION_STATE_DENY" not in block or "return S_OK;" not in block:
@@ -255,7 +296,7 @@ def strip_comments(t):
     return tok.sub(lambda m: m.group(0) if m.group(0)[0] in "\"'" else re.sub(r"[^\n]", " ", m.group(0)), t)
 
 
-def rule_wiring(win_text, common_text, policy_text, cmake_text, includers, page_uri):
+def rule_wiring(win_text, common_text, policy_text, cmake_text, includers, serving, mm_text):
     errs = []
     if "apply_patch.cmake" not in cmake_text or not re.search(r'"-DPATCH=\$\{HS_CHOC_PATCHES\}"', cmake_text):
         errs.append("CMakeLists.txt does not run libs/patches/apply_patch.cmake with \"-DPATCH=${HS_CHOC_PATCHES}\" "
@@ -265,7 +306,7 @@ def rule_wiring(win_text, common_text, policy_text, cmake_text, includers, page_
     for rel, line in includers:
         errs.append(f"{rel}: `{line.strip()}` compiles the UNPATCHED choc; use #include <choc/gui/choc_WebView.h>")
     cc = strip_comments(common_text)
-    for opt in ("allowNavigation", "allowPermission"):
+    for opt in ("allowNavigation", "allowPermission", "customSchemeURI"):
         if not re.search(r"opts\." + opt + r"\s*=\s*std::move\(" + opt + r"\);", cc):
             errs.append(f"hypersaw_gui_common.h: makeWebView does not assign opts.{opt} from its parameter")
     wc = strip_comments(win_text)
@@ -283,11 +324,30 @@ def rule_wiring(win_text, common_text, policy_text, cmake_text, includers, page_
             errs.append("hypersaw_gui_win.cpp: makeWebView is not passed detail::webPermissionPolicy")
         if not re.search(r'\.bind\("hzPasteState",', call):
             errs.append("hypersaw_gui_win.cpp: no hzPasteState binding, so PASTE has no native path")
-    m = re.search(r'kEmbeddedPage\s*=\s*"([^"]*)"', strip_comments(policy_text))
-    if not m:
-        errs.append("embedded_page_policy.h: no kEmbeddedPage")
-    elif page_uri is not None and m.group(1) != page_uri:
-        errs.append(f"embedded_page_policy.h: kEmbeddedPage is {m.group(1)!r} but choc serves the page at {page_uri!r}")
+        if not re.search(r",\s*std::string\(detail::kEmbeddedOrigin\)\s*\)$", call):
+            errs.append("hypersaw_gui_win.cpp: makeWebView is not passed std::string(detail::kEmbeddedOrigin) "
+                        "as its customSchemeURI, so the page shares choc's default origin")
+    pc = strip_comments(policy_text)
+    page = re.search(r'kEmbeddedPage\s*=\s*"([^"]*)"', pc)
+    origin = re.search(r'kEmbeddedOrigin\s*=\s*"([^"]*)"', pc)
+    if not page or not origin:
+        errs.append("embedded_page_policy.h: no kEmbeddedPage or no kEmbeddedOrigin")
+    else:
+        home = origin.group(1) if origin.group(1).endswith("/") else origin.group(1) + "/"
+        if not re.match(r"^https://[a-z0-9.-]+/$", home):
+            errs.append(f"embedded_page_policy.h: kEmbeddedOrigin {origin.group(1)!r} is not an https origin")
+        if serving is not None:
+            if home == serving["shared"]:
+                errs.append(f"embedded_page_policy.h: kEmbeddedOrigin is choc's shared default {home!r}: every "
+                            "choc plugin's page lives there (critic HIGH-1)")
+            if page.group(1) != home + serving["path"]:
+                errs.append(f"embedded_page_policy.h: kEmbeddedPage is {page.group(1)!r} but choc serves the "
+                            f"page at {home + serving['path']!r}")
+    mc = strip_comments(mm_text)
+    for name in ("kEmbeddedOrigin", "kEmbeddedPage", "customSchemeURI"):
+        if name in mc:
+            errs.append(f"hypersaw_gui.mm uses {name}: macOS must not depend on the Windows origin "
+                        "(its page is about:blank; WKWebView refuses an https scheme handler)")
     return errs
 
 
@@ -341,6 +401,7 @@ def main():
     readme_text = README.read_text() if README.exists() else ""
     win_text, common_text, cmake_text = WIN.read_text(), COMMON.read_text(), CMAKELISTS.read_text()
     policy_text = POLICY.read_text()
+    mm_text = MM.read_text()
     files = tree_files()
     link = gitlink()
     listed = listed_patches(cmake_text)
@@ -356,7 +417,8 @@ def main():
 
     pristine_path = CHOC / TARGET
     have_choc = pristine_path.exists()
-    page_uri = None
+    serving = None
+    patched = ""
     order = [r for r in listed if r in texts]
     with tempfile.TemporaryDirectory() as tmp:
         tmp = pathlib.Path(tmp)
@@ -367,7 +429,10 @@ def main():
                 rc, log = run_apply(CHOC / "choc", tmp / "ok", order)
                 patched = (tmp / "ok" / TARGET).read_text() if rc == 0 else ""
                 row("APPLY", [f"apply_patch.cmake exited {rc}:\n{log}"] if rc else rule_patched(patched))
-                page_uri = windows_page_uri(patched) if rc == 0 else None
+                serving = windows_serving(patched) if rc == 0 else None
+                rcr, _ = run_apply(CHOC / "choc", tmp / "rev", list(reversed(order)))
+                rev = (tmp / "rev" / TARGET).read_bytes() if rcr == 0 else b""
+                row("ORDER", rule_order(rcr, rev, (tmp / "ok" / TARGET).read_bytes() if rc == 0 else b"?"))
                 for i, rel in enumerate(order):
                     rc1, log1 = run_apply(CHOC / "choc", tmp / f"alone{i}", [rel])
                     row(f"ALONE {pathlib.PurePosixPath(rel).name}",
@@ -401,15 +466,23 @@ def main():
                 control("C10 navigation patch alone fails the permission rules",
                         rc3 == 0 and not rule_navigation(nav_only) and bool(rule_permission(nav_only)))
                 # C11: a filter consulted whether or not the option is set.
-                ungated = patched.replace("if (ownerPimpl.options.allowPermission)\n", "if (true)\n", 1)
+                ungated = patched.replace(
+                    "if (! deletionCheckerRef->deleted && ownerPimpl.options.allowPermission)\n", "if (true)\n", 1)
                 control("C11 an ungated permission filter fails the permission rules",
                         ungated != patched and bool(rule_permission(ungated)))
+                # C17: the owner read before the deletion check.
+                late = patched.replace("if (! deletionCheckerRef->deleted && ownerPimpl.options.allowPermission)",
+                                       "if (ownerPimpl.options.allowPermission && ! deletionCheckerRef->deleted)", 1)
+                control("C17 a gate that reads the owner before checking deletion fails the permission rules",
+                        late != patched and bool(rule_permission(late)))
         else:
-            notes.append("WARNING: libs/choc is not checked out; APPLY, ALONE, CRLF, UPSTREAM and controls C1, C2, "
-                         "C10 and C11 not run here (every build job applies the patches at configure, "
-                         "with a hard stop)")
+            notes.append("WARNING: libs/choc is not checked out; APPLY, ORDER, ALONE, CRLF, UPSTREAM and controls "
+                         "C1, C2, C10, C11 and C17 not run here, and the origin rules use FALLBACK_SERVING "
+                         "(every build job applies the patches at configure, with a hard stop)")
 
-    row("WIRING", rule_wiring(win_text, common_text, policy_text, cmake_text, relative_includers(files), page_uri))
+    row("WIRING", rule_wiring(win_text, common_text, policy_text, cmake_text, relative_includers(files),
+                              serving or FALLBACK_SERVING,
+                              mm_text))
 
     # Controls on in-memory text.
     nav_text = texts.get(NAV_PATCH, "")
@@ -420,9 +493,9 @@ def main():
     control("C4 a removed upstream line fails SHAPE",
             planted_removal != nav_text and bool(rule_shape(planted_removal)))
 
-    def wiring(win=win_text, common=common_text, policy=policy_text, cmake=cmake_text, inc=()):
+    def wiring(win=win_text, common=common_text, policy=policy_text, cmake=cmake_text, inc=(), mm=mm_text):
         return bool(rule_wiring(win, common, policy, cmake, relative_includers(files) + list(inc),
-                                page_uri or "https://choc.localhost/getHTMLInternal"))
+                                serving or FALLBACK_SERVING, mm))
 
     plant = relative_includers([("src/gui/planted.h", '#include "../../libs/choc/choc/gui/choc_WebView.h"\n')])
     control("C5 a relative include of the unpatched header fails WIRING", wiring(inc=plant))
@@ -436,7 +509,7 @@ def main():
     no_assign = common_text.replace("opts.allowNavigation = std::move(allowNavigation);", "", 1)
     control("C9 makeWebView without the navigation assignment fails WIRING",
             no_assign != common_text and wiring(common=no_assign))
-    no_perm = re.sub(r",\s*\[\]\(choc::ui::WebView::Options::PermissionKind.*?\}\);", ");", win_text,
+    no_perm = re.sub(r",\s*\[\]\(choc::ui::WebView::Options::PermissionKind.*?\},", ",", win_text,
                      count=1, flags=re.S)
     control("C12 the backend without its permission argument fails WIRING", no_perm != win_text and wiring(win=no_perm))
     no_paste = win_text.replace('w.bind("hzPasteState",', 'w.bind("hzSomethingElse",', 1)
@@ -449,6 +522,22 @@ def main():
     short = [r for r in listed if r != PERM_PATCH]
     control("C16 a list missing a patch file fails LIST",
             short != listed and bool(rule_list(short, on_disk, readme_text)))
+    shared = (serving or FALLBACK_SERVING)["shared"]
+    shared_policy = re.sub(r'(kEmbeddedOrigin\s*=\s*")[^"]*"', r'\g<1>' + shared + '"', policy_text, count=1)
+    shared_policy = re.sub(r'(kEmbeddedPage\s*=\s*")[^"]*"',
+                           r'\g<1>' + shared + (serving or FALLBACK_SERVING)["path"] + '"', shared_policy, count=1)
+    control("C18 kEmbeddedOrigin set to choc's shared default fails WIRING",
+            shared_policy != policy_text and wiring(policy=shared_policy))
+    no_origin = re.sub(r",\s*std::string\(detail::kEmbeddedOrigin\)\s*\)", ")", win_text, count=1)
+    control("C19 the backend not passing the origin fails WIRING", no_origin != win_text and wiring(win=no_origin))
+    no_origin_assign = common_text.replace("opts.customSchemeURI = std::move(customSchemeURI);", "", 1)
+    control("C20 makeWebView without the origin assignment fails WIRING",
+            no_origin_assign != common_text and wiring(common=no_origin_assign))
+    control("C21 the macOS backend using the origin fails WIRING",
+            wiring(mm=mm_text + "\nstatic auto planted = hypersaw::detail::kEmbeddedOrigin;\n"))
+    control("C22 a reverse-order result that differs fails ORDER", bool(rule_order(0, b"a", b"b")))
+    control("C23 a list naming a patch twice fails LIST",
+            bool(listed) and bool(rule_list(listed + listed[:1], on_disk, readme_text)))
 
     for n in notes:
         print(f"  {n}")
@@ -458,8 +547,8 @@ def main():
             print(f"    {f}", file=sys.stderr)
         return 1
     print(f"choc_patch_check: OK ({len(order)} patches; list, pin, shape, wiring"
-          + (", apply, alone, crlf, upstream" if have_choc else "")
-          + f"; {12 + (4 if have_choc else 0)} controls red as designed)")
+          + (", apply, order, alone, crlf, upstream" if have_choc else "")
+          + f"; {18 + (5 if have_choc else 0)} controls red as designed)")
     return 0
 
 

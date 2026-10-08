@@ -28,6 +28,18 @@
  * tools/choc_patch_check verifies those names and that kEmbeddedPage is where
  * choc serves the page on Windows.
  *
+ * ORIGIN (critic HIGH-1, PR #973). The Windows view loads the page from
+ * kEmbeddedOrigin, an origin only horde uses, passed to choc as customSchemeURI.
+ * Every choc plugin in a host shares one WebView2 profile, and choc's default
+ * origin (https://choc.localhost/) would put horde in the same origin as all of
+ * them: a permission decision WebView2 saved for another plugin's page could
+ * then answer for ours before our hook is asked, and ours could leak into
+ * theirs. WebView2 keeps such decisions in the profile (SavesInProfile); a
+ * unique origin sidesteps that persistence, it does not disable it. macOS does
+ * not use either constant: its page is loaded by loadHTMLString and admitted as
+ * about:blank in the main frame (hypersaw_gui.mm), and WKWebView refuses a
+ * handler for the https scheme, so the origin is set on Windows only.
+ *
  * PERMISSIONS (ADR-196). webPermissionPolicy is the second rule, handed to choc's
  * allowPermission (libs/patches/choc-webview2-permissions.patch): the page is
  * granted NO permission of any kind. Upstream choc grants every clipboard read;
@@ -45,9 +57,14 @@
 namespace hypersaw::detail
 {
 
-// Where choc's setHTML serves the page on Windows: getURIHome() with no custom
-// scheme ("https://choc.localhost/") plus "getHTMLInternal".
-constexpr std::string_view kEmbeddedPage = "https://choc.localhost/getHTMLInternal";
+// The Windows view's origin, choc's customSchemeURI (hypersaw_gui_win.cpp). With it
+// set, choc's getURIHome() returns it, and setHTML serves the page at it plus
+// "getHTMLInternal". tools/choc_patch_check derives that from the patched header.
+constexpr std::string_view kEmbeddedOrigin = "https://horde.localhost/";
+constexpr std::string_view kEmbeddedPage = "https://horde.localhost/getHTMLInternal";
+static_assert(kEmbeddedPage.substr(0, kEmbeddedOrigin.size()) == kEmbeddedOrigin
+                  && kEmbeddedPage.substr(kEmbeddedOrigin.size()) == "getHTMLInternal",
+              "kEmbeddedPage is kEmbeddedOrigin + choc's setHTML path");
 
 struct EmbeddedPageState
 {
