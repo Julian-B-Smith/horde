@@ -383,6 +383,29 @@
    "scope": "the random-patch sampler only",
    "evidence": [],
    "js_limit": null
+  },
+  {
+   "id": "D5",
+   "adr": "ADR-191, ADR-197",
+   "status": "planned",
+   "flag": null,
+   "owner": "B445",
+   "landed": "2026-10-08, in the lab only (LAB_DEF.os). `planned` is the ledger's only status for an entry with no engine flag (D4's shape); the divergence itself is in force.",
+   "ruled": "The human, 2026-10-05: \"Oversampling rec ratified. I had always intended it as optional.\" (ADR-191); and, on the listening gate of the os 1 / os 2 pairs, 2026-10-08: \"honestly, the difference is barely noticeable in most places ... enough to make a 2x oversampling option worth including, not enough to make it the default\".",
+   "description": "The DEVICE default oversampling is os 1, and os 2 is the HQ setting. The SCALPEL oracle constructs at setOS(2), and the composed engine inherits that, so the product default now differs from the oracle's. It is a patch-default change, not an engine one: the SCALPEL lab's `DEF` is the oracle's constructor values with `LAB_DEF` written over them, and `LAB_DEF.os = 1` is the whole divergence. The engine core's setOS(2) (h2/engine/engine.h), every parity scenario and both self-digests stay at os 2, so no digest moves. Saved state is protected by its own `os` field (ADR-197 rule E): a record that carries `os` plays at it; a record with none (the factory presets, which the listening gate covered) plays at the new default. tools/labharness/os_default_check.mjs holds that and its must-fail controls.",
+   "oracle": {
+    "file": "reference/scalpel/prototype/razor-core.js",
+    "blob": "0ce6a713410d89c65bf55f761f1dc791fae61b16",
+    "sites": "constructor :336 (this.os = 0; this.setOS(2)); the lab reads it through oracleDefaults() (scalpel-interface-lab.html, `{ os: REF.os }`)"
+   },
+   "target": "docs/design/scalpel-interface-lab.html LAB_DEF.os (the device default); the engine core is unchanged",
+   "scope": "the lab's boot, INIT, double-click reset and any preset that carries no `os` (0 of the 83 bench presets and the 12 envelope presets do); every preset that carries `os` is untouched",
+   "evidence": [
+    "traces/2026-10-05-b445-os1-default.md",
+    "traces/2026-10-08-b445-os1-flip.md",
+    "tools/labharness/os_default_check.mjs"
+   ],
+   "js_limit": null
   }
  ]
 }

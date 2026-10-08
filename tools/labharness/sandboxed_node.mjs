@@ -147,6 +147,13 @@ const PROFILES = {
     facts: ['registry', 'git-ignored'], gitIgnored: ['local/legacy-presets', 'tools'],
   },
 
+  // B445 (ADR-197): the os-default migration check. Fixtures only, through the porter, so the
+  // porter's grant (its source, ACCOUNTING, the registry and ignore facts) and nothing more.
+  'tools/labharness/os_default_check.mjs': {
+    read: ['tools/port_legacy_presets.mjs', 'docs/scalpel', 'tests/morph_order.txt'],
+    facts: ['registry', 'git-ignored'], gitIgnored: ['local/legacy-presets', 'tools'],
+  },
+
   // ---- W3c: manual tools (not in ./verify) ----
   // Each writes one report file; the file is the whole write grant.
   'tools/labharness/glide_roundup.mjs': { write: ['docs/reports/2026-08-06-glide-law-roundup.html'] },

@@ -38,7 +38,7 @@ pinned to.
 | `reference/scalpel/prototype/razor-core.js` | the blade oracle it extends | `0ce6a713410d89c65bf55f761f1dc791fae61b16` |
 | `reference/swarmsaw.html` | SwarmSynth, the swarm it drives (DSP section) | `e47da6c9e0b4a058e18d79f62d71ab31c3d3b1b0` |
 | `reference/scalpel/data/presets.json` | the 83 bench presets | `44b48d72a9bed4717edd0ac5cf9ef4b8d7b0de93` |
-| `docs/design/scalpel-interface-lab.html` | the 12 B366 envelope presets (`ENV_PRESETS`) | `6abf848e91065bc33275724a6967a7399ba40a07` |
+| `docs/design/scalpel-interface-lab.html` | the 12 B366 envelope presets (`ENV_PRESETS`); since B445 also the device default `os: 1` (`LAB_DEF`), which no scenario reads | `77ccee779baa09ce9fddb9d6527ecc0d68e77a8f` |
 
 The engine's flags at their ledgered defaults (`docs/port/divergences.json`):
 

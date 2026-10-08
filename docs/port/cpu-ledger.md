@@ -846,8 +846,9 @@ fold 1.53× / 1.53×. Every row is in the LEDGER lines below.
   24.5 %.
 - **The quality cost** (B346's estimator at 44.1 kHz; `tools/patchspace/os_quality.mjs conv`;
   `traces/2026-10-05-b445-os1-default.md`): os 1 reads over the −33.4 dB alias gate on 5 of the 6
-  heavy presets, and os 2 on 2 of them. The default does not flip until the human has listened
-  (ADR-191).
+  heavy presets, and os 2 on 2 of them. The default did not flip until the human had listened
+  (ADR-191); it flipped on 2026-10-08, after the listening gate (`traces/2026-10-08-b445-os1-flip.md`,
+  divergence D5).
 
 The `LEDGER` rows of the 44.1 kHz r1 pair, verbatim. os 2 (the frozen cell):
 
