@@ -16,25 +16,32 @@
  * is left is genuine JS: TDZ errors, typos, bad references. If it throws at
  * load, the page is broken in a browser too.
  *
+ * SANDBOX (ADR-194 / B446 W3b, L3-M6, L4-M6). `node:vm` is not a security
+ * boundary, and this context is built from host-realm objects, so a lab script
+ * can reach the host `process`. The sweep therefore only ever runs under Node's
+ * permission model, via tools/labharness/sandboxed_node.mjs: read-only on the
+ * lab trees, no writes, no child processes. Run bare, this file hands itself
+ * to that launcher; the launcher also builds the default file list from
+ * `git ls-files`, so an untracked HTML dropped into a lab tree is never executed.
+ *
  * Usage: node tools/labharness/lab_load_check.mjs [file.html ...]
  * Exit 1 if any lab throws.
  * WIRED: ./verify fast.
  */
-import { readFileSync, readdirSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { dirname, resolve, join, basename } from 'node:path';
+import './sandbox_guard.mjs';   // B446 W3b: re-runs this file under the permission model
+import { readFileSync } from 'node:fs';
+import { resolve, basename } from 'node:path';
 import vm from 'node:vm';
 
-const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-const labDir = join(root, 'docs/design');
+// The sweep's directories live in sandboxed_node.mjs (LAB_HTML_DIRS), which owns
+// the tracked-file list. History of why each is swept:
 // B138 (2026-09-16): the reference prototypes were never in the sweep — the
 // 2026-09-07 layout move put the spec-in-code labs under reference/ and this
 // gate kept reading only docs/design, so fifteen labs loaded unchecked while
 // it printed GREEN. reference/ and its one packet directory are swept now.
 // reference/scalpel/prototype joined 2026-09-24 with the SCALPEL ingest: its bench is
 // the spec-in-code for the blade engine, and a reference that cannot load is a spec
-// nobody can read.
-const refDirs = [join(root, 'reference'), join(root, 'reference/maw'), join(root, 'reference/scalpel/prototype')];
+// nobody can read. The shipping GUIs (src/gui) are swept too.
 
 // A value that can be called, constructed, indexed, iterated and coerced
 // without ever throwing — so the ONLY errors that surface are the lab's own.
@@ -108,14 +115,12 @@ function checkFile(file) {
   return { file, ok: true };
 }
 
+// The launcher always passes the list (explicit args, or `git ls-files`).
+// gui2.html is built up cluster-by-cluster on a branch and must never
+// load-fail silently, hence src/gui in the default sweep.
 const args = process.argv.slice(2);
-// Default sweep covers the design labs AND the shipping GUIs — gui2.html is
-// built up cluster-by-cluster on a branch and must never load-fail silently.
-const guiDir = join(root, 'src/gui');
-const files = args.length ? args.map(a => resolve(a))
-  : [...readdirSync(labDir).filter(f => f.endsWith('.html')).sort().map(f => join(labDir, f)),
-     ...refDirs.flatMap(d => readdirSync(d).filter(f => f.endsWith('.html')).sort().map(f => join(d, f))),
-     ...readdirSync(guiDir).filter(f => f.endsWith('.html')).sort().map(f => join(guiDir, f))];
+if (!args.length) { console.error('lab_load_check: no file list (run it through sandboxed_node.mjs)'); process.exit(2); }
+const files = args.map(a => resolve(a));
 
 let bad = 0, skipped = 0;
 for (const f of files) {

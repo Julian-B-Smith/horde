@@ -41,8 +41,13 @@ import html
 import pathlib
 import re
 import subprocess
+import sys
 
-ROOT = pathlib.Path(__file__).resolve().parent.parent
+# Optional first argument: the tree to read and write. tools/labs_preview.sh runs THIS
+# copy of the script (the main checkout's reviewed one) against its scratch merge, never
+# the merge's own copy — a lab branch must not get to choose the code that runs (W2-06).
+ROOT = (pathlib.Path(sys.argv[1]) if len(sys.argv) > 1
+        else pathlib.Path(__file__).parent.parent).resolve()
 D = ROOT / "docs/design"
 
 

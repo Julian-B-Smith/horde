@@ -54,6 +54,8 @@
  * runner that reports the real labs GREEN; a plant that does not fire fails
  * the run.
  */
+// B446 W3b: runs this harness under Node's permission model (see sandbox_guard.mjs).
+import './sandbox_guard.mjs';
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve, join, relative, basename } from 'node:path';

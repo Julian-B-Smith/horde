@@ -64,6 +64,8 @@
  * GREEN. A plant that fails to fire fails the run.
  *
  */
+// B446 W3b: runs this harness under Node's permission model (see sandbox_guard.mjs).
+import './sandbox_guard.mjs';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve, join } from 'node:path';
