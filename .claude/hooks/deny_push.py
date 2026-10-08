@@ -233,55 +233,67 @@ def judge_git(seg, directory):
             raise Block("git clean -f -d is not allowed")
 
 
-def inner_texts(text):
-    """The text of every LIVE command substitution -- $(...) or `...` that bash would
-    actually run -- for recursive judging. Inside single quotes, and when escaped
-    (\\` or \\$), they are literal text, e.g. markdown backticks in a PR body, and are
-    skipped; judging those would block prose that merely names a command."""
-    out = []
+def split_substitutions(text):
+    """Return (inners, outer): the text of every LIVE command substitution -- $(...) or
+    `...` that bash would actually run -- for recursive judging, and the command with
+    each one replaced by a placeholder word. Inside single quotes, and when escaped
+    (\\` or \\$), they are literal text (markdown backticks in a PR body) and are left
+    alone. Replacing them before tokenising is what lets `"$(cmd -q '...')"` parse:
+    shlex knows nothing of bash's fresh quoting context inside $(...), and failing
+    closed on every such command would block ordinary agent work."""
+    inners, out = [], []
     i, n = 0, len(text)
     squote = dquote = False
     while i < n:
         c = text[i]
         if c == "\\" and not squote:
+            out.append(text[i:i + 2])
             i += 2
             continue
         if c == "'" and not dquote:
             squote = not squote
-            i += 1
-            continue
-        if c == '"' and not squote:
+        elif c == '"' and not squote:
             dquote = not dquote
-            i += 1
-            continue
-        if squote:
-            i += 1
-            continue
-        if c == "`":
+        elif not squote and c == "`":
             j = i + 1
             while j < n and text[j] != "`":
                 j += 2 if text[j] == "\\" else 1
-            out.append(text[i + 1:j])
+            inners.append(text[i + 1:j])
+            out.append("__SUBST__")
             i = j + 1
             continue
-        if text.startswith("$(", i):
-            depth, j = 1, i + 2
+        elif not squote and text.startswith("$(", i):
+            depth, j, sq, dq = 1, i + 2, False, False
             while j < n and depth:
-                if text[j] == "\\":
+                ch = text[j]
+                if ch == "\\" and not sq:
                     j += 2
                     continue
-                if text.startswith("$(", j):
-                    depth += 1
-                    j += 2
-                    continue
-                if text[j] == ")":
-                    depth -= 1
+                if ch == "'" and not dq:
+                    sq = not sq
+                elif ch == '"' and not sq:
+                    dq = not dq
+                elif not sq and not dq:
+                    if text.startswith("$(", j):
+                        depth += 1
+                        j += 2
+                        continue
+                    if ch == "(":
+                        depth += 1
+                    elif ch == ")":
+                        depth -= 1
                 j += 1
-            out.append(text[i + 2:j - 1])
+            inners.append(text[i + 2:j - 1])
+            out.append("__SUBST__")
             i = j
             continue
+        out.append(c)
         i += 1
-    return out
+    return inners, "".join(out)
+
+
+def inner_texts(text):
+    return split_substitutions(text)[0]
 
 
 HEREDOC = re.compile(r"<<-?\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1[^\n]*\n.*?\n\s*\2(?=\s|$|\))", re.S)
@@ -304,10 +316,11 @@ def judge(cmd, cwd, level=0):
         raise Block("piping a download into a shell or interpreter is not allowed")
     if re.search(r">\s*/dev/sd", raw):
         raise Block("writing to a raw disk device is not allowed")
-    for text in inner_texts(raw):
+    inners, outer = split_substitutions(raw)
+    for text in inners:
         judge(text, cwd, level + 1)
     directory = cwd
-    for seg in segments(cmd):
+    for seg in segments(outer):
         # Leading env assignments and wrapper words.
         while seg and (re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", seg[0]) or seg[0] in WRAPPERS):
             seg = seg[1:]
