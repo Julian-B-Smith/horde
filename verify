@@ -117,6 +117,15 @@ fast() {
   # cheap half, in `fast`. Self-calibrating (blob, missing, zero-pin controls). Added under
   # ADR-180 §1.
   python3 tools/golden_pin_check.py || ok=1
+  # EVERY COMPARISON TOLERANCE IS PINNED (B448 A3, ADR-197 armor edit G, "tolerance
+  # creep"). Tolerances widen a little per PR until the test means nothing, and the
+  # widened test still passes, so no oracle sees it. docs/armor/tolerances.json pins
+  # the value of every one found in specs/ACCEPTANCE.md, tools/**/*.py, the C++ checks
+  # and this file; any change, deleted target or unregistered newcomer is red until the
+  # human's approval is recorded as `approved: <ref>`. Self-calibrating (five planted
+  # faults plus an empty-ref approval, all must go red/refused). ~1 s. Added under
+  # ADR-180 §1.
+  python3 tools/tolerance_registry_check.py || ok=1
 
   # GENERATED CONTROLS ARE CURRENT. gui2's controls are generated FROM the
   # presentation table, so an edited table with stale markup shows yesterday's
