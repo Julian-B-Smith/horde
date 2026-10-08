@@ -1,0 +1,2572 @@
+<!doctype html>
+<!-- fx-chain-morph-lab-r3 — B265 round 3: static nodes, the morph moves only cables.
+     HYPERSAW, 2026-10-08.
+
+     PROVENANCE. Built for ROADMAP B265 round 3, on the human's listening note of
+     2026-10-08 about round 2 (verbatim): "I'm hearing a lot of clicks when devices enter
+     and leave the chain. Since there is now only one of each device, let's think about it
+     differently: no device has to click into or out of a slot. They all sit static, and
+     the connections between them gradually emerge and retreat according to the same logic
+     and prohibitions. I can imagine some elegant graphical ways to show the cables between
+     them." Then: "Start round 3". Rulings carried: ADR-193 D1–D8 (round 2) and ADR-195
+     (multiband Bulwark is never summed in parallel with an unphased branch; its presence
+     is flip-only in blend mode; band count is flip-class). Rounds 1 and 2
+     (fx-chain-morph-lab.html, fx-chain-morph-lab-r2.html) are untouched; round 2's map,
+     router, stand-ins and engine are COPIED here (by line range, not retyped), marked
+     where they are, so the A/B toggle plays round 2's real insert/remove behaviour.
+
+     THE MODEL. Every module type is RESIDENT and WARM at a fixed place: nothing is
+     inserted, removed or ducked for a reorder. The morph moves only CABLES — lane→node,
+     node→node, node→OUT. At a pad point round 2's map (presence, order target, snap to V,
+     Sub entry) names a chain; the chain's cables, in closed form, are the TARGET weights
+     (QUANTUM: 0 or 1, switched where round 2's seeded keyed thresholds put the chain
+     change; BLEND: the wet gains of the chain written as cables, continuous). Each cable
+     GLIDES toward its target through two cascaded one-poles of time constant τ/2 each,
+     stated in seconds (ADR-009), so a glide starts with zero slope.
+
+     TRANSIENT LOOPS. A reorder briefly keeps an old cable and its reverse alive at once:
+     a cycle. Each cable has two parts, a FORWARD part (no delay, allowed only while it keeps
+     the forward graph acyclic) and a BACKWARD part (one block of delay). Strategy toggle:
+       (a) LOOP BOUND — a cycle-closing cable emerges at once on its backward part, and the
+           product of cable weight × each node's declared max gain round every live cycle is
+           held ≤ a stated bound by deterministic scaling of the backward parts. When the
+           cycle clears, the backward part crossfades into the forward part.
+       (b) ORDERED FADES — a cycle-closing cable WAITS until the cable it would loop with
+           has retreated to zero; meanwhile a bypass keeps every lane above the reach floor.
+     In both, a cable that would open a path V forbids (Scape ⇝ Sluice; Scape ⇝ Bulwark
+     except E1) waits too, and while anything waits the bypass opens. A ringing tail never
+     blocks a cable: it is cut short instead (reported). Round 2's lane normalisation (p,
+     +3 dB cap) acts on each lane's source cables.
+
+     SLEEP. A node whose input is silent and whose output is below the threshold (or whose
+     output goes nowhere) stops processing and keeps its state; it wakes, state intact, the
+     block its input returns. CPU points count awake nodes only.
+
+     CLICK METRIC (stated in full above clickOf): per transition, the worst 2 ms RMS of the
+     signal's second difference inside the transition, over the worst of its steady
+     neighbours, in dB, on a sine probe. Round 3 (a), (b) and round 2 are measured on the
+     same transitions.
+
+     STRUCTURE (round 1's and 2's): block 1 is the MODEL (no DOM, no clock, mulberry32
+     only; the self-check calls the same functions the page draws with and POWER plays);
+     block 2 is the page. TOKENS are round 2's copy of gui2's: copy, therefore drift.
+
+     COLOUR ROLES (ADR-116): --value magenta = authored (corners, puck); --physics violet =
+     what the engine does (cables, awake nodes); --meter cyan = analysers and signal flow;
+     --caution = a live loop, a held cable, a rule broken, a click finding; --alarm = CLIP only.
+
+     L0026: every const/let the setup path reads is declared above the wiring at the
+     bottom of block 2. L0064: the cable view draws the Cables object the audio plays. -->
+<html><head><meta charset="utf-8">
+<meta name="lab-part" content="FX">
+<meta name="lab-review" content="B265 · 2026-10-08">
+<title>fx-chain morph lab, round 3 — static nodes, the morph moves only cables</title>
+<style>
+  /* ============ TOKENS — round 2's copy (round 1's copy of gui2's), verbatim ============ */
+  :root {
+    --bg:#F2EDE2; --panel:#FCFAF4; --well:#FFFFFF; --panel2:#E9E3D4;
+    --line:#191521; --hair:#E5DFD0; --div:#D8D1C0;
+    --text:#191521; --t2:#494356; --dim:#9A93A3; --dis:#B6AFA0;
+    --value:#F5169C; --pull:#F5169C; --physics:#6431F0; --meter:#00D5C8;
+    --marker:#FFD702; --celebrate:#A6F219;
+    --caution:#F5A300; --caution-bg:#FBE9BD; --caution-tx:#6D570B;
+    --amber:#F5A300; --alarm:#C2261A; --ghost:#C9C2FF;
+    --cA:#FFD702; --cAtx:#D4A900; --cB:#FF2E88; --cBtx:#FF2E88;
+    --cC:#00D5C8; --cCtx:#00B3A8; --cD:#A6F219; --cDtx:#6FB200;
+    --text-hi:#191521; --dim2:#494356; --grid:#E5DFD0; --grid2:#E5DFD0;
+    --hot:#F5169C; --bad:#C2261A; --badge-bg:rgba(245,163,0,.9);
+    --scr-tube:#1B0733; --scr-value:#FF5ECF; --scr-meter:#B8F227;
+    --scr-physics:#B48CFF; --scr-marker:#FFB86B; --scr-grid:#4FD8BE;
+    --scr-scan:0.22; --scr-alpha:1;
+    --r-card:10px; --r-well:var(--r-card); --r:var(--r-card); --stroke:1.5px;
+    --shadow:1.5px 1.5px 0 var(--line); --shadow-hover:2.5px 2.5px 0 var(--line);
+    --focus:0 0 0 2.5px rgba(245,22,156,.45); }
+  * { box-sizing:border-box; margin:0; }
+  canvas { border:var(--stroke) solid var(--line); border-radius:var(--r-well);
+           background:var(--scr-tube); display:block; }
+  body:not(.dark) { --scr-tube:#F3EBFF; --scr-value:#D6006B; --scr-meter:#007A73;
+    --scr-physics:#6E14E8; --scr-marker:#C43A00; --scr-grid:#5A3FA8;
+    --scr-scan:0.05; --scr-alpha:1.6;
+    --marker:#8A6A00; --celebrate:#4E7A00; }
+  body.dark {
+    --bg:#151220; --panel:#1F1B2E; --well:#0E0C16; --panel2:#2C2740;
+    --line:#EFE9FA; --hair:#312B47; --div:#3B3455;
+    --text:#EFE9FA; --t2:#BDB4D4; --dim:#8A82A3; --dis:#514A6B;
+    --value:#FF3DAD; --pull:#FF3DAD; --physics:#A07CFF; --meter:#2DF2E2;
+    --marker:#FFE04D; --celebrate:#C2F53E;
+    --caution:#FFB627; --caution-bg:#4A3A12; --caution-tx:#FFD98A;
+    --amber:#FFB627; --alarm:#FF5A4D; --ghost:#5B4E8F;
+    --cA:#FFD702; --cAtx:#FFE566; --cB:#FF2E88; --cBtx:#FF6FAE;
+    --cC:#00D5C8; --cCtx:#4DEDE3; --cD:#A6F219; --cDtx:#C6F86A;
+    --text-hi:#FFFFFF; --dim2:#9A93A8; --grid:#312B47; --grid2:#312B47;
+    --hot:#FF3DAD; --bad:#FF5A4D; --badge-bg:rgba(255,182,39,.9);
+    --focus:0 0 0 2.5px rgba(255,61,173,.45); }
+
+  /* ============ CHROME — round 1's declarations ============ */
+  body { background:var(--bg); color:var(--text);
+    font:12px/1.45 ui-monospace,Menlo,monospace; padding:10px 12px; }
+  .hdr { display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; margin-bottom:8px; }
+  h1 { font-size:34px; line-height:1; letter-spacing:-1px; font-weight:800; }
+  .badges { display:flex; align-items:center; gap:8px; margin-top:4px; }
+  .badge { font-size:9.5px; letter-spacing:.1em; padding:2px 7px;
+           border:var(--stroke) solid var(--line); border-radius:3px;
+           background:var(--cA); color:var(--line); }
+  body.dark .badge { color:var(--bg); }
+  .sub { color:var(--t2); font-size:10.5px; letter-spacing:.12em; }
+  .hdrctl { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-left:auto; }
+  .grp { display:flex; align-items:center; gap:7px; }
+  .lbl { font-size:10px; font-weight:700; letter-spacing:.1em; color:var(--t2); }
+  .pill { padding:3px 10px; border:var(--stroke) solid var(--line);
+    border-radius:999px; min-height:26px; cursor:pointer; color:var(--dim);
+    background:var(--panel); font:inherit; font-size:10px; letter-spacing:.06em; }
+  .pill:hover { box-shadow:var(--shadow); }
+  .pill.on { color:var(--bg); background:var(--line); font-weight:600; }
+  .pill.act { color:var(--text); }
+  .pills { display:flex; gap:4px; flex-wrap:wrap; margin:3px 0; }
+  .chip { padding:4px 8px; border:0; background:none; border-radius:var(--r);
+    cursor:pointer; font:inherit; font-size:10px; letter-spacing:.06em;
+    color:var(--dim); min-height:26px; }
+  .chip:hover { background:var(--panel2); }
+  .chip b { color:var(--t2); font-weight:600; letter-spacing:.1em; }
+  .tagline { color:var(--t2); font-size:11px; max-width:130ch; margin-bottom:6px; }
+  .tagline b { color:var(--text); }
+  .audit { font-size:10px; color:var(--t2); margin-bottom:10px;
+           border-left:3px solid var(--meter); padding-left:8px; }
+  .audit.bad { border-left-color:var(--caution); color:var(--caution-tx); }
+  .audit b { color:var(--text); }
+  .cluster { background:var(--panel); border:var(--stroke) solid var(--line);
+    border-radius:var(--r); padding:8px 10px; min-width:0; }
+  h2 { font-size:11px; color:var(--pull); letter-spacing:1px; margin-bottom:6px; }
+  h2 span { color:var(--t2); font-weight:400; letter-spacing:.04em; }
+  .note { color:var(--t2); font-size:10px; line-height:1.5; margin-top:6px; }
+  .note b { color:var(--text); }
+  .cap { font-size:9px; letter-spacing:.12em; color:var(--dim); margin:7px 0 2px; }
+  .ptxt { font-size:9.5px; color:var(--t2); margin-top:4px; line-height:1.5; }
+  .ptxt b { color:var(--text); font-weight:600; }
+
+  /* ============ PAGE SHAPE ============ */
+  .row { display:grid; gap:10px; margin-top:10px; align-items:start; }
+  .top { grid-template-columns:minmax(360px,1.05fr) minmax(0,1.15fr) minmax(0,1fr); }
+  .two { grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
+  @media (max-width:1300px) { .top { grid-template-columns:1fr 1fr; } }
+  @media (max-width:900px) { .top, .two { grid-template-columns:1fr; } }
+  #pad { width:100%; aspect-ratio:1/1; cursor:crosshair; touch-action:none; }
+  #chainC { width:100%; height:150px; }
+  #scopeC { width:100%; height:42px; margin-top:4px; }
+  .corners { display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:6px; }
+  .corner { border:1px solid var(--div); border-radius:var(--r); padding:5px 6px; background:var(--well); }
+  .corner h3 { font-size:10px; letter-spacing:.06em; color:var(--value); margin-bottom:2px; }
+  .corner h3 span { color:var(--t2); font-weight:400; }
+  .corner canvas { width:100%; height:46px; }
+  .clip { font-size:9px; font-weight:700; letter-spacing:.1em; color:var(--dis); }
+  .clip.on { color:var(--alarm); }
+  .legend { font-size:9px; color:var(--t2); margin-top:5px; line-height:1.6; }
+  .legend i { display:inline-block; width:12px; height:10px; vertical-align:-1px; margin:0 3px 0 8px; border:1px solid var(--line); }
+
+  /* dev toggles: the A/B surface */
+  .tg { display:grid; grid-template-columns:150px 1fr; gap:4px 10px; align-items:center; margin-top:4px; }
+  .tg .pill { min-width:140px; text-align:left; }
+  .tg .pill .st { float:right; font-weight:700; }
+  .tg .what { font-size:9.5px; color:var(--t2); line-height:1.45; }
+  .tg .what b { color:var(--text); }
+  details.adv { margin-top:2px; }
+  details.adv summary { cursor:pointer; font-size:11px; color:var(--pull); letter-spacing:1px; font-weight:700; }
+  .ctlrow { display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-top:6px; }
+  .rng { display:flex; align-items:center; gap:6px; font-size:10px; color:var(--t2); }
+  .rng input { width:110px; accent-color:var(--value); }
+  .rng b { color:var(--text); font-variant-numeric:tabular-nums; min-width:34px; display:inline-block; }
+  .sq { padding:0 7px; min-height:22px; }
+
+  /* tables */
+  table { width:100%; border-collapse:collapse; font-size:10px; }
+  th { font-size:9px; letter-spacing:.08em; color:var(--dim); font-weight:600; text-align:left; padding:3px 4px;
+       border-bottom:1px solid var(--div); vertical-align:bottom; }
+  td { padding:3px 4px; border-bottom:1px dashed var(--div); color:var(--t2); vertical-align:top;
+       font-variant-numeric:tabular-nums; }
+  td.a { color:var(--text); font-weight:700; white-space:nowrap; }
+  td .sub { display:block; color:var(--dim); font-size:9px; letter-spacing:0; }
+  .ok { color:var(--celebrate); font-weight:700; }
+  .no { color:var(--caution-tx); background:var(--caution-bg); font-weight:700; padding:0 3px; border-radius:3px; }
+  .wv { color:var(--dim); }
+  .big { font-size:15px; font-weight:800; color:var(--text); }
+  .chk td.claim { color:var(--text); }
+  .chk td div { color:var(--dim); font-size:9px; margin-top:2px; }
+  ol.rules { padding-left:18px; }
+  ol.rules li { font-size:10.5px; color:var(--t2); margin:0 0 7px; line-height:1.5; }
+  ol.rules li b { color:var(--text); }
+  ol.rules li .ex { display:block; color:var(--t2); margin-top:2px; padding-left:8px; border-left:2px solid var(--value); }
+  .pts { font-size:10px; color:var(--t2); margin-top:4px; }
+  .pts b { color:var(--text); }
+  ol.q { padding-left:18px; }
+  ol.q li { font-size:10px; color:var(--t2); margin:0 0 7px; line-height:1.5; }
+  ol.q li b { color:var(--text); }
+  ol.q li i { font-style:normal; color:var(--value); font-weight:600; }
+  .rec { font-size:10.5px; line-height:1.55; color:var(--t2); }
+  .rec b { color:var(--text); }
+  .rec p { margin-bottom:7px; }
+
+  /* ============ ROUND 3 ============ */
+  .top3 { grid-template-columns:minmax(340px,0.9fr) minmax(0,1.6fr); }
+  @media (max-width:1100px) { .top3 { grid-template-columns:1fr; } }
+  #cableC { width:100%; aspect-ratio:16/9; }
+  .live { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px; margin-top:6px; }
+  .live div { border:1px solid var(--div); border-radius:var(--r); padding:4px 6px; background:var(--well); }
+  .live .k { font-size:9px; letter-spacing:.1em; color:var(--dim); }
+  .live .v { font-size:15px; font-weight:800; color:var(--text); font-variant-numeric:tabular-nums; }
+  .live .v.cau { color:var(--caution-tx); }
+  .ab { display:flex; gap:4px; }
+  .three { grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) minmax(0,1fr); }
+  @media (max-width:1300px) { .three { grid-template-columns:1fr 1fr; } }
+  @media (max-width:900px) { .three { grid-template-columns:1fr; } }
+  .evt { max-height:340px; overflow:auto; }
+  .bar { display:inline-block; height:8px; background:var(--caution); vertical-align:middle; border-radius:2px; }
+  .bar.p { background:var(--physics); }
+</style></head><body>
+
+<div class="hdr">
+  <div>
+    <h1>fx-chain morph · round 3</h1>
+    <div class="badges">
+      <span class="badge">B265 ROUND 3 LAB</span>
+      <span class="sub">STATIC NODES · CABLES EMERGE AND RETREAT · ONE MODULE PER TYPE · ADR-193 · ADR-195</span>
+    </div>
+  </div>
+  <div class="hdrctl">
+    <button class="pill" id="pwr">POWER</button>
+    <button class="pill" id="pulseBtn">PULSE</button>
+    <button class="pill" id="probeBtn">SINE PROBE</button>
+    <div class="grp"><button class="pill" id="sweepBtn">SWEEP</button><div class="pills" id="pathPills"></div></div>
+    <button class="chip" id="themeBtn">theme <b>LIGHT</b></button>
+  </div>
+</div>
+
+<div class="tagline">Round 3 takes the human's redirection literally: <b>every module sits static and warm</b> at a fixed place (Drive, Filter,
+ECHO, Scape, Shriek, Bulwark, EQ and Sluice stand-ins, one of each), and the morph moves only the <b>cables</b> between them. Round 2's
+logic still decides which cables should exist and in what order at each pad point; the cables <b>glide</b> there. Reorders make
+transient loops, raced two ways: <b>(a)</b> a loop-gain bound with one block of delay on the backward cable, or <b>(b)</b> ordered
+fades over a bypass. Silent nodes <b>sleep</b> with their state kept. A <b>click metric</b> measures every transition against round 2's
+insert/remove behaviour, which an A/B toggle plays. It sounds, it measures itself, and a self-check plants one fault per claim.</div>
+
+<div class="audit" id="audit">self-check: pending</div>
+
+<div class="row top3">
+  <div class="cluster"><h2>The pad <span id="xyOut"></span></h2>
+    <canvas id="pad"></canvas>
+    <div class="legend"><i style="background:var(--value);opacity:.35"></i>a corner's own preset
+      <i style="background:var(--physics);opacity:.4"></i>an intermediate chain (shade = which one)
+      <i style="background:var(--caution)"></i>a two-or-more-change boundary. Thin lines are one-change boundaries. The dashed path is the sweep.</div>
+  </div>
+  <div class="cluster"><h2>The cables <span id="cableHead"></span></h2>
+    <canvas id="cableC"></canvas>
+    <div class="legend" id="cableLegend"></div>
+    <div class="live" id="liveBox"></div>
+    <div class="ptxt" id="chainTxt"></div>
+    <div class="ctlrow"><span class="lbl">OUTPUT</span><span class="clip" id="clip">CLIP</span><span class="cap" id="meter" style="margin:0"></span><span class="cap" id="audioStat" style="margin:0">AUDIO — OFF</span></div>
+    <canvas id="scopeC"></canvas>
+  </div>
+</div>
+
+<div class="row two">
+  <div class="cluster"><h2>Dev toggles — A/B by ear</h2>
+    <div class="tg" id="toggles"></div>
+    <div class="ctlrow"><button class="pill" id="allOn">ALL ON (round 3)</button><button class="pill" id="allOff">ALL OFF</button>
+      <span class="ptxt" style="margin:0">Toggles act on the sound at once; the cables glide to the new target.</span></div>
+  </div>
+  <div class="cluster"><details class="adv" id="advBox"><summary>Advanced — fine-tuning</summary>
+    <div class="ctlrow" id="advRow"></div>
+    <div class="ctlrow"><span class="lbl">NORM p</span><div class="pills" id="pPills"></div>
+      <span class="lbl">OPEN TRANSITIONS K</span><div class="pills" id="kPills"></div></div>
+    <div class="ctlrow"><span class="lbl">SEED</span><button class="pill sq" id="sDn">−</button><b id="sOut"></b><button class="pill sq" id="sUp">+</button>
+      <button class="pill" id="reshuffle">RESHUFFLE</button></div>
+    <div class="note" id="advNote"></div>
+  </details>
+  <h2 style="margin-top:8px">Corners <span id="setWhy"></span></h2>
+  <div class="pills" id="setPills"></div>
+  <div class="ptxt" id="cornerTxt"></div>
+  </div>
+</div>
+
+<div class="row two">
+  <div class="cluster"><h2>Click metric — every transition, three behaviours <span id="clickHead"></span></h2>
+    <table id="clickSum"></table>
+    <div class="evt"><table id="clickTab"></table></div>
+    <div class="note" id="clickNote"></div>
+  </div>
+  <div class="cluster"><h2>Sweeps through the cables <span id="swHead"></span></h2>
+    <table id="swTab"></table>
+    <div class="note" id="swNote"></div>
+  </div>
+</div>
+
+<div class="row two">
+  <div class="cluster"><h2>House rules carried over, as cable rules</h2>
+    <div id="rules"></div>
+  </div>
+  <div class="cluster"><h2>Edge reduction — each pad edge against its two corners alone</h2>
+    <table id="edgeTab"></table>
+    <div class="note" id="edgeNote"></div>
+  </div>
+</div>
+
+<div class="cluster" style="margin-top:10px"><h2>Self-check — run at load; every claim has a planted fault that must fail it</h2>
+  <table class="chk"><thead><tr><th>#</th><th>claim</th><th>holds</th><th>must-fail control (planted fault)</th><th>caught</th></tr></thead>
+    <tbody id="chkBody"><tr><td colspan="5">running…</td></tr></tbody></table>
+</div>
+
+<div class="cluster" style="margin-top:10px"><h2>What the lab shows, and what is open for the listening pass</h2>
+  <div class="rec" id="rec"></div>
+</div>
+
+<script>
+/* ======================================================================
+   BLOCK 1 — THE MODEL. Pure functions over plain data, plus two control-rate
+   state machines (round 2's router, round 3's cables) and two engines. No DOM,
+   no clock, no Math.random. The page (block 2) and the self-check call only
+   what is defined here.
+   ====================================================================== */
+'use strict';
+/* ---------- COPIED from round 2 (fx-chain-morph-lab-r2.html lines 303–702): streams, the world, the map ---------- */
+/* ---------- seeded streams (round 1, verbatim) ---------- */
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function fnv(s) { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); } return h >>> 0; }
+function gumbel(u) { u = Math.min(1 - 1e-9, Math.max(1e-9, u)); return -Math.log(-Math.log(u)); }
+const sigm = z => 1 / (1 + Math.exp(-z));
+const clamp = (v, lo, hi) => v < lo ? lo : v > hi ? hi : v;
+const clamp01 = u => u <= 0 ? 0 : u >= 1 ? 1 : u;
+const rc = u => { u = clamp01(u); return 0.5 - 0.5 * Math.cos(Math.PI * u); };
+const ek = (u, v) => u + '>' + v;
+const isLane = n => n === 'BODY' || n === 'SUB';
+const EPS = 1e-6;
+/* ONE uniform per KEY. A draw is keyed by what it is about ('m:DRV', 'o:FLT|REV',
+   's:OUT'), never by a corner's index: the same module gets the same threshold on
+   every corner set and on a pad edge taken alone (edge reduction), and adding a
+   module never re-deals the others (the reason round 1 drew the shared draw first). */
+const uOf = (seed, key) => mulberry32((seed ^ fnv(key)) >>> 0)();
+const logistic = u => { u = clamp(u, 1e-9, 1 - 1e-9); return Math.log(u / (1 - u)); };
+const logitC = (q, L) => q <= 0 ? -L : q >= 1 ? L : clamp(Math.log(q / (1 - q)), -L, L);
+
+/* ---------- the world ---------- */
+/* TYPES IS ALSO THE HOUSE ORDER: dynamics and EQ first, filter, drive, saturation,
+   the network, then time. An absent module's ghost rank comes from it (lane 1 §3.4,
+   rule (a): deterministic and preset-independent), and so do ties. */
+const TYPES = ['DYN', 'EQ', 'FLT', 'DRV', 'SAT', 'NET', 'DLY', 'REV'];
+const HOUSE = {}; TYPES.forEach((t, i) => { HOUSE[t] = i; });
+const NAME = { DYN: 'Bulwark (dynamics)', EQ: 'EQ', FLT: 'Filter', DRV: 'Drive', SAT: 'Shriek (saturator)', NET: 'Sluice (network)',
+               DLY: 'ECHO (delay)', REV: 'Scape (reverb)', BODY: 'Body', SUB: 'Sub', OUT: 'Out' };
+const SHORT = { DYN: 'Dy', EQ: 'Eq', FLT: 'Fl', DRV: 'Dr', SAT: 'Sa', NET: 'Nw', DLY: 'Dl', REV: 'Rv', BODY: 'Bo', SUB: 'Su', OUT: 'Out', WIRE: '·' };
+const LANES = ['BODY', 'SUB'];
+/* THE CAP IS A NAMED CONSTANT (brief §2.1): one instance per type now; raising it
+   later needs rank-order correspondence (lane 5). Identity is the type, so the same
+   module in two corners is the same object and its parameters simply blend. */
+const INSTANCES_PER_TYPE = 1;
+const TAIL_TYPES = { DLY: 1, REV: 1, NET: 1 };     // modules with memory that rings (D5)
+
+/* THE APPROVED SET V (D3) — three house rules, one exception, nothing else.
+   Deliberately permissive: a rule is here only if it guards against CPU that
+   cannot be paid or a sound that is a known dead end. Corners are presets, so
+   every shipped corner must satisfy V (checked at load: inV on each corner). */
+const COST = { DYN: 1, EQ: 1, FLT: 1, DRV: 1, SAT: 2, DLY: 2, REV: 3, NET: 4 };
+const CPU_BUDGET = 10;
+const RULES = [
+  { id: 'R1', kind: 'cpu', title: 'CPU budget',
+    text: 'A chain costs at most ' + CPU_BUDGET + ' points. Sluice 4 · Scape 3 · ECHO 2 · Shriek 2 · everything else 1. Tails that are still ringing are extra and are shown live.' },
+  { id: 'R2', kind: 'never', a: 'DYN', b: 'REV', exc: 'E1', title: 'Bulwark never after Scape',
+    text: 'a compressor after the reverb pumps the tail and ducks the room.' },
+  { id: 'R3', kind: 'never', a: 'NET', b: 'REV', title: 'Sluice never after Scape',
+    text: 'a feedback network fed a dense reverb wash rings itself into a howl.' },
+];
+const EXCEPTIONS = [
+  { id: 'E1', rule: 'R2', title: 'The breathing bus',
+    text: 'Scape straight into Bulwark as the very LAST module is allowed: the pumping reverb bus, on purpose.' },
+];
+const chainCost = c => c.reduce((s, t) => s + COST[t], 0);
+/* null if the chain is in V, else the first rule it breaks */
+function vBreak(chain) {
+  if (chainCost(chain) > CPU_BUDGET) return 'R1';
+  for (const r of RULES) if (r.kind === 'never') {
+    const ia = chain.indexOf(r.a), ib = chain.indexOf(r.b);
+    if (ia < 0 || ib < 0 || ia < ib) continue;
+    if (r.exc === 'E1' && ia === ib + 1 && ia === chain.length - 1) continue;   // the breathing bus
+    return r.id;
+  }
+  return null;
+}
+const inV = chain => !vBreak(chain);
+
+/* CORNER SETS. A corner is a preset: a chain (Body always enters its head), the
+   module the Sub enters (or OUT, dry), and per-module parameters. */
+/* ROUND 3 GAIN STAGING (human, 2026-10-08: "the specific example sound is kind of muddy and
+   blown out"). Round 2's corners drove every Drive at 3–8 on a chord already at its 0.5
+   reference, so the saws came out square; Shriek at 5, a +6 dB EQ and reverb mixes of 0.5–0.6
+   added to it. Here every drive is HALVED (1.5–4), Shriek's gain is 3, the EQ boost +4 dB,
+   the two most resonant filters open from 800/900 Hz to 1100/1300 Hz at resonance 0.5–0.55,
+   and no reverb mixes above 0.4. Chains, orders and Sub entries are unchanged, so every
+   structural result (edges, rules, loops) is the same; only the sound is cleaner. */
+const SETS = [
+  { id: 'four', name: 'four presets', why: 'four unrelated presets; Filter, Drive and Scape sit in all four (Filter and Drive disagree on their order, both precede Scape everywhere); the union costs 15 points, so the middle of the pad must drop modules to stay in V',
+    corners: [
+      { name: 'acid lead', chain: ['FLT', 'DRV', 'DLY', 'REV'], sub: 'DRV',
+        p: { FLT: { cut: 1300, res: 0.55 }, DRV: { drive: 3 }, DLY: { time: 0.21, fbk: 0.35, mix: 0.3 }, REV: { size: 0.45, mix: 0.2 } } },
+      { name: 'glue bus', chain: ['DRV', 'FLT', 'REV', 'DYN'], sub: 'OUT',   // round 3: Bulwark is MULTIBAND here (bands 2, ADR-195)
+        p: { DRV: { drive: 1.5 }, FLT: { cut: 2400, res: 0.3 }, REV: { size: 0.6, mix: 0.3 }, DYN: { thr: -20, ratio: 4, att: 0.005, rel: 0.12, mk: 5, bands: 2 } } },
+      { name: 'network grit', chain: ['FLT', 'DRV', 'NET', 'REV'], sub: 'FLT',
+        p: { FLT: { cut: 1400, res: 0.45 }, DRV: { drive: 4 }, NET: { size: 0.8, fbk: 0.9, tone: 2500, mix: 0.45 }, REV: { size: 0.5, mix: 0.25 } } },
+      { name: 'hyper wash', chain: ['EQ', 'DRV', 'SAT', 'FLT', 'REV'], sub: 'SAT',
+        p: { EQ: { f: 3000, gdb: 4, q: 0.8 }, DRV: { drive: 2 }, SAT: { gain: 3, bias: 0.3, tone: 5000 }, FLT: { cut: 3500, res: 0.2 }, REV: { size: 0.8, mix: 0.35 } } },
+    ] },
+  { id: 'close', name: 'four neighbours', why: 'four near-identical chains (one swap or one move apart): the quiet case, where most of the pad should sound like a corner',
+    corners: [
+      { name: 'base', chain: ['FLT', 'DRV', 'DLY', 'REV'], sub: 'DRV',
+        p: { FLT: { cut: 1200, res: 0.5 }, DRV: { drive: 2.5 }, DLY: { time: 0.25, fbk: 0.35, mix: 0.3 }, REV: { size: 0.5, mix: 0.25 } } },
+      { name: 'drive first', chain: ['DRV', 'FLT', 'DLY', 'REV'], sub: 'DRV',
+        p: { DRV: { drive: 3.5 }, FLT: { cut: 1100, res: 0.5 }, DLY: { time: 0.25, fbk: 0.4, mix: 0.3 }, REV: { size: 0.55, mix: 0.25 } } },
+      { name: 'room into echo', chain: ['FLT', 'DRV', 'REV', 'DLY'], sub: 'FLT',
+        p: { FLT: { cut: 1800, res: 0.4 }, DRV: { drive: 2 }, REV: { size: 0.65, mix: 0.35 }, DLY: { time: 0.3, fbk: 0.4, mix: 0.35 } } },
+      { name: 'echoes driven', chain: ['FLT', 'DLY', 'DRV', 'REV'], sub: 'OUT',
+        p: { FLT: { cut: 1000, res: 0.55 }, DLY: { time: 0.2, fbk: 0.45, mix: 0.35 }, DRV: { drive: 3 }, REV: { size: 0.5, mix: 0.25 } } },
+    ] },
+  { id: 'round1', name: 'round 1 pairs on the edges', why: 'the bottom edge is round 1\'s "across the set" pair and the top edge its "two grow in" pair, so the edge-reduction table compares like with like; no pair is held by all four corners, so strict unanimity is vacuous here',
+    corners: [
+      { name: 'across · L', chain: ['FLT', 'DRV', 'DLY', 'REV'], sub: 'DRV',
+        p: { FLT: { cut: 1300, res: 0.55 }, DRV: { drive: 3.5 }, DLY: { time: 0.21, fbk: 0.35, mix: 0.3 }, REV: { size: 0.45, mix: 0.2 } } },
+      { name: 'across · R', chain: ['REV', 'DRV', 'FLT', 'DLY'], sub: 'OUT',
+        p: { REV: { size: 0.8, mix: 0.4 }, DRV: { drive: 2.5 }, FLT: { cut: 3200, res: 0.2 }, DLY: { time: 0.33, fbk: 0.4, mix: 0.35 } } },
+      { name: 'grow · L', chain: ['DRV', 'FLT'], sub: 'OUT',
+        p: { DRV: { drive: 2 }, FLT: { cut: 1800, res: 0.35 } } },
+      { name: 'grow · R', chain: ['DLY', 'DRV', 'FLT', 'REV'], sub: 'FLT',
+        p: { DLY: { time: 0.24, fbk: 0.4, mix: 0.4 }, DRV: { drive: 3 }, FLT: { cut: 1200, res: 0.5 }, REV: { size: 0.65, mix: 0.35 } } },
+    ] },
+  /* ROUND 3 — the BAIT set: every corner is in V, but the cables in between tempt the
+     rules. Bottom edge: Scape → ECHO retreating while ECHO → Sluice emerges is a live
+     Scape ⇝ Sluice path (R3) and Scape ⇝ Bulwark (R2). Top edge: a single-band and a
+     multiband Bulwark (band count flips, ADR-195). D is E1, the breathing bus. */
+  { id: 'bait', name: 'bait for the rules', why: 'every corner is in V, but a naive cable crossfade between them opens Scape ⇝ Sluice and Scape ⇝ Bulwark paths, and Bulwark changes band count across the top edge (ADR-195)',
+    corners: [
+      { name: 'room into echo', chain: ['REV', 'DLY'], sub: 'REV',
+        p: { REV: { size: 0.6, mix: 0.35 }, DLY: { time: 0.23, fbk: 0.35, mix: 0.3 } } },
+      { name: 'echo network', chain: ['DLY', 'NET', 'DYN'], sub: 'NET',
+        p: { DLY: { time: 0.18, fbk: 0.3, mix: 0.3 }, NET: { size: 0.7, fbk: 0.85, tone: 3000, mix: 0.4 }, DYN: { thr: -18, ratio: 3, att: 0.004, rel: 0.1, mk: 4, bands: 2 } } },
+      { name: 'tight single', chain: ['DRV', 'FLT', 'DYN'], sub: 'OUT',
+        p: { DRV: { drive: 2.5 }, FLT: { cut: 1500, res: 0.4 }, DYN: { thr: -22, ratio: 4, att: 0.003, rel: 0.08, mk: 5, bands: 1 } } },
+      { name: 'breathing bus', chain: ['FLT', 'REV', 'DYN'], sub: 'FLT',
+        p: { FLT: { cut: 2200, res: 0.3 }, REV: { size: 0.7, mix: 0.4 }, DYN: { thr: -20, ratio: 5, att: 0.006, rel: 0.15, mk: 5, bands: 2 } } },
+    ] },
+];
+const CORNER_XY = [[0, 0], [1, 0], [0, 1], [1, 1]];   // A bottom-left, B bottom-right, C top-left, D top-right
+const CORNER_ID = ['A', 'B', 'C', 'D'];
+
+/* ---------- constants of the pipeline ---------- */
+const H_JIT = 0.6;               // lane 1: jitter half-range; h·T < 2/3 keeps unanimity (derived bound)
+const XI_CLAMP = 6, LOGIT_L = 12; // lane 4 F1: L > the noise clamp, so every corner is the unique maximiser
+const BLEND_XI = -11;            // blend: a module is in the chain wherever its vote clears σ(−11) ≈ 1.7e-5
+const BLEND_THETA = sigm(BLEND_XI);
+const HOUSE_EPS = 1e-7;          // pair order no corner speaks to: a whisper toward the house order (a tie-break, not a vote)
+const AUDIBLE = 0.0316;          // −30 dB: a blended module quieter than this is not part of the audible chain
+const PURE_GAIN = 0.891;         // −1 dB: blend counts a point as its corner's preset only if every corner module is this loud
+
+/* ---------- a morph: the corners and the settings, with every keyed draw made once ---------- */
+/* ghost-extended ranks over ALL eight types (lane 1 F1 step 1). The universe is the
+   whole type list, not the corners' union, so a corner's ranks never depend on which
+   OTHER corners exist: a pad edge ranks exactly as its two corners do alone. */
+function ghostRanks(chain) {
+  const list = chain.slice();
+  for (const t of TYPES) if (!list.includes(t)) {
+    let at = 0; for (let i = 0; i < list.length; i++) if (HOUSE[list[i]] < HOUSE[t]) at = i + 1;
+    list.splice(at, 0, t);
+  }
+  const r = {}; list.forEach((t, i) => { r[t] = i; }); return r;
+}
+function makeMorph(corners, o) {
+  const n = corners.length, Teff = o.jitter ? o.T : 0;
+  const has = corners.map(c => new Set(c.chain)), at = corners.map(c => { const q = {}; c.chain.forEach((t, i) => { q[t] = i; }); return q; });
+  const U = TYPES.filter(t => has.some(h => h.has(t)));
+  const dr = { theta: {}, xim: {}, g: {}, xio: {}, subG: {} };
+  for (const t of TYPES) {
+    const d = logistic(uOf(o.seed, 'm:' + t));
+    dr.xim[t] = clamp(Teff * d, -XI_CLAMP, XI_CLAMP);
+    dr.theta[t] = sigm(dr.xim[t]);                       // the quantum threshold IS the decode's membership noise (lane 4 §2)
+    dr.g[t] = 2 * uOf(o.seed, 'g:' + t) - 1;
+  }
+  for (let i = 0; i < TYPES.length; i++) for (let j = i + 1; j < TYPES.length; j++)
+    dr.xio[TYPES[i] + '|' + TYPES[j]] = clamp(Teff * logistic(uOf(o.seed, 'o:' + TYPES[i] + '|' + TYPES[j])), -XI_CLAMP, XI_CLAMP);
+  for (const e of TYPES.concat(['OUT'])) dr.subG[e] = gumbel(uOf(o.seed, 's:' + e));
+  /* AGREED PAIRS. strict: every corner holds both and orders them alike (the brief's
+     "all four corners agree", asserted). supported: every corner that holds both
+     agrees, and one does (reported only: ghosts can break it, see the notes). */
+  const strict = [], supported = [];
+  for (const a of U) for (const b of U) if (a !== b) {
+    const hold = corners.map((c, k) => has[k].has(a) && has[k].has(b));
+    const nH = hold.filter(Boolean).length;
+    if (!nH) continue;
+    if (corners.every((c, k) => !hold[k] || at[k][a] < at[k][b])) { supported.push([a, b]); if (nH === n) strict.push([a, b]); }
+  }
+  const keys = corners.map(c => c.chain.join(' ') + '|' + c.sub);
+  return { corners, n, U, has, at, ranks: corners.map(c => ghostRanks(c.chain)), dr, Teff, strict, supported, keys, o };
+}
+
+/* ---------- weights ---------- */
+const bilinear = (x, y) => [(1 - x) * (1 - y), x * (1 - y), (1 - x) * y, x * y];
+/* PLANT (edge reduction must-fail): inverse-distance weights, a plausible pad law
+   under which the far corners still pull on an edge. */
+function radial(x, y) {
+  const d = CORNER_XY.map(([a, b]) => Math.hypot(x - a, y - b));
+  const z = d.findIndex(v => v < 1e-9);
+  if (z >= 0) return d.map((_, k) => k === z ? 1 : 0);
+  const w = d.map(v => 1 / (v * v)), s = w.reduce((a, b) => a + b, 0);
+  return w.map(v => v / s);
+}
+/* corner sharpening (lane 4 §5, D2): w_k^γ renormalised. Corners stay exact
+   (a one-hot vector is a fixed point), and the untouched presets own more pad. */
+function sharpen(w, o) {
+  if (!o.sharpen || o.gamma === 1 || o.plant === 'nosharp') return w;
+  const v = w.map(q => Math.pow(q, o.gamma)), s = v.reduce((a, b) => a + b, 0);
+  return v.map(q => q / s);
+}
+const weightsXY = (M, x, y) => sharpen(M.o.plant === 'radial' ? radial(x, y) : bilinear(x, y), M.o);
+const weightsT = (M, t) => sharpen([1 - t, t], M.o);   // a pad edge taken alone: two corners
+
+/* ---------- the map: (weights) → the target structure ---------- */
+function mapW(M, w) {
+  const o = M.o, C = M.corners, n = M.n, blend = o.mode === 'blend';
+  // 1. presence: each type's vote
+  const p = {};
+  for (const t of TYPES) { let s = 0; for (let k = 0; k < n; k++) if (M.has[k].has(t)) s += w[k]; p[t] = s; }
+  const theta = t => blend ? BLEND_THETA : M.dr.theta[t];
+  // 2. the order target (lane 1 F1): weighted mean rank + jitter that vanishes at the corners
+  let wmax = 0; for (let k = 0; k < n; k++) if (w[k] > wmax) wmax = w[k];
+  const J = M.Teff * (o.plant === 'jitbound' ? 12 : H_JIT) * (1 - wmax);
+  const score = {};
+  for (const t of TYPES) { let s = 0; for (let k = 0; k < n; k++) s += w[k] * M.ranks[k][t]; score[t] = s + J * M.dr.g[t]; }
+  const order = TYPES.slice().sort((a, b) => (Math.abs(score[a] - score[b]) > 1e-12 ? score[a] - score[b] : 0) || HOUSE[a] - HOUSE[b]);   // equal votes tie by house order, not by float noise
+  const target = order.filter(t => p[t] > theta(t));
+  // 3. the snap to V
+  let chain;
+  if (!o.snap) chain = target;
+  else if (o.method === 'walk') chain = walkV(M, w, p, target, score, theta);
+  else chain = decodeV(M, w, p);
+  /* ROUND 3, ADR-195: a MULTIBAND Bulwark's presence is flip-only in blend mode — it is in
+     at full wet where its vote clears its own seeded (quantum) threshold, else out, so its
+     crossover notch is never sustained by a partial blend with its own dry. Dropping a
+     module never breaks V (every rule is about what comes AFTER Scape). */
+  if (blend && chain.includes('DYN') && o.plant !== 'mbblend' && (paramsAt(M, w, 'DYN').bands || 1) > 1 && !(p.DYN > M.dr.theta.DYN)) chain = chain.filter(t => t !== 'DYN');
+  // 4. the Sub's entry, the wet gains, the parameters
+  const sub = pickSub(M, w, chain);
+  const wet = {}, prm = {};
+  for (const t of chain) { prm[t] = paramsAt(M, w, t); wet[t] = !blend ? 1 : t === 'DYN' && (prm[t].bands || 1) > 1 && o.plant !== 'mbblend' ? 1 : p[t]; }
+  return { w, p, target, chain, sub, wet, prm, score };
+}
+
+/* LANE 4 F1 — vote on bits, then DECODE to the best chain in V (perturb-and-MAP).
+   Bits are membership (is t in?) and pair order (does a precede b?), each with a
+   bilinear vote and one keyed seeded threshold. The argmax over V is EXACT: a
+   dynamic programme over (set placed so far, last module, closed), 2^n · n · 2
+   states for n ≤ 8, with V's rules applied as each module is appended and the CPU
+   budget on the finished set. Enumerating V instead would be 109 601 chains for
+   eight types (lane 4 §6): not affordable per point. Ties keep the first chain
+   found in type order, which is content-keyed, so a pad edge decodes as its two
+   corners do alone. */
+function decodeV(M, w, p) {
+  const o = M.o, n0 = M.n, L = o.plant === 'lowL' ? 2 : LOGIT_L, blend = o.mode === 'blend';
+  const Uz = TYPES.filter(t => p[t] > 0);           // a type no weighted corner holds can never win
+  const n = Uz.length;
+  if (!n) return [];
+  const um = Uz.map(t => logitC(p[t], L) - (blend ? BLEND_XI : M.dr.xim[t]));
+  const ps = Uz.map(() => new Float64Array(n));
+  for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
+    const a = Uz[i], b = Uz[j];
+    let sup = 0, vote = 0;
+    for (let k = 0; k < n0; k++) if (M.has[k].has(a) && M.has[k].has(b)) { sup += w[k]; if (M.at[k][a] < M.at[k][b]) vote += w[k]; }
+    const u = sup > 0 ? sup * (logitC(vote / sup, L) - M.dr.xio[a + '|' + b]) : HOUSE_EPS;   // Uz is in house order, so i<j is the house direction
+    ps[i][j] = u; ps[j][i] = -u;
+  }
+  const N = 1 << n;
+  const Sx = new Float64Array(N * n), mem = new Float64Array(N), cost = new Int32Array(N);
+  for (let Q = 1; Q < N; Q++) {
+    const i = 31 - Math.clz32(Q & -Q), Q0 = Q & (Q - 1);
+    for (let j = 0; j < n; j++) Sx[Q * n + j] = Sx[Q0 * n + j] + ps[i][j];
+    mem[Q] = mem[Q0] + 2 * um[i]; cost[Q] = cost[Q0] + COST[Uz[i]];
+  }
+  const never = RULES.filter(r => r.kind === 'never').map(r => ({ ia: Uz.indexOf(r.a), ib: Uz.indexOf(r.b), exc: r.exc })).filter(r => r.ia >= 0 && r.ib >= 0);
+  const S = N * n * 2, f = new Float64Array(S).fill(-Infinity), back = new Int32Array(S).fill(-1);
+  for (let i = 0; i < n; i++) f[((1 << i) * n + i) * 2] = 0;
+  for (let Q = 1; Q < N; Q++) for (let last = 0; last < n; last++) {
+    if (!(Q >> last & 1)) continue;
+    const s0 = (Q * n + last) * 2, v = f[s0];
+    if (v === -Infinity) continue;                    // closed states (…, Scape, Bulwark) are never extended
+    for (let j = 0; j < n; j++) {
+      if (Q >> j & 1) continue;
+      let ok = true, closed = 0;
+      for (const r of never) if (j === r.ia && (Q >> r.ib & 1)) {
+        if (r.exc === 'E1' && last === r.ib) closed = 1; else { ok = false; break; }
+      }
+      if (!ok) continue;
+      const Q2 = Q | 1 << j, s2 = (Q2 * n + j) * 2 + closed, v2 = v + Sx[Q * n + j];
+      if (v2 > f[s2] + 1e-12) { f[s2] = v2; back[s2] = s0; }   // within 1e-12 is a tie: the first found keeps it
+    }
+  }
+  let best = 0, bs = -1;                              // the empty chain scores 0 (all membership bits "absent")
+  for (let Q = 1; Q < N; Q++) {
+    if (cost[Q] > CPU_BUDGET) continue;
+    for (let last = 0; last < n; last++) for (let c = 0; c < 2; c++) {
+      const s = (Q * n + last) * 2 + c;
+      if (f[s] === -Infinity) continue;
+      const v = f[s] + mem[Q];
+      if (v > best + 1e-12) { best = v; bs = s; }
+    }
+  }
+  const out = [];
+  for (let s = bs; s >= 0; s = back[s]) out.unshift(Uz[((s >> 1) % n)]);
+  return out;
+}
+
+/* LANE 1 F2 — WALK the approved graph toward the target, made a pure function of
+   position: start at the heaviest corner's chain (in V: it is a preset) and take
+   lawful hops — drop a module the target lacks, swap an adjacent pair the target
+   orders the other way, insert a module the target has — each one keeping the chain
+   in V, until none is left. Drops go first (they free CPU), then swaps, then inserts;
+   within a kind, the biggest margin first. Where the target is in V the walk reaches
+   it exactly; where it is not, the walk stops at a nearby chain in V, and WHICH one
+   depends on the start corner (a finding the pad paints). The one-hop-per-slot pace
+   of lane 1's F2 is the router's job here, not the map's. */
+function walkV(M, w, p, target, score, theta) {
+  const C = M.corners;
+  let k0 = 0;
+  for (let k = 1; k < M.n; k++) if (w[k] > w[k0] + 1e-15 || (Math.abs(w[k] - w[k0]) <= 1e-15 && M.keys[k] < M.keys[k0])) k0 = k;
+  let cur = inV(C[k0].chain) ? C[k0].chain.slice() : [];
+  const tset = new Set(target), tpos = {}; target.forEach((t, i) => { tpos[t] = i; });
+  for (let guard = 0; guard < 64; guard++) {
+    const cand = [];
+    for (const t of cur) if (!tset.has(t)) cand.push({ k: 0, m: theta(t) - p[t], t, f: c => c.filter(q => q !== t) });
+    for (let i = 0; i + 1 < cur.length; i++) {
+      const a = cur[i], b = cur[i + 1];
+      if (tset.has(a) && tset.has(b) && tpos[a] > tpos[b]) cand.push({ k: 1, m: Math.abs(score[a] - score[b]), t: a, f: c => { const d = c.slice(); d[i] = b; d[i + 1] = a; return d; } });
+    }
+    for (const t of target) if (!cur.includes(t)) cand.push({ k: 2, m: p[t] - theta(t), t, f: c => insertAfterPred(c, t, target) });
+    // margins within 1e-12 are a TIE: on the B–C diagonal Delay's and Shriek's votes are
+    // equal in exact arithmetic, and float noise alone chose between them, so the walk
+    // chattered (74 structure changes on one sweep before this tolerance)
+    cand.sort((x, y) => x.k - y.k || (Math.abs(y.m - x.m) > 1e-12 ? y.m - x.m : 0) || HOUSE[x.t] - HOUSE[y.t]);
+    let moved = false;
+    for (const c of cand) { const nx = c.f(cur); if (inV(nx)) { cur = nx; moved = true; break; } }
+    if (!moved) break;
+  }
+  return cur;
+}
+function insertAfterPred(c, t, target) {
+  const ti = target.indexOf(t);
+  for (let k = ti - 1; k >= 0; k--) { const q = c.indexOf(target[k]); if (q >= 0) return c.slice(0, q + 1).concat([t], c.slice(q + 1)); }
+  return [t].concat(c);
+}
+/* THE SUB'S ENTRY: round 1's threshold law (morph_core pickCorner) over the entry
+   VALUES the corners name, each value's weight its vote, its Gumbel keyed by the
+   value. An entry whose module is not in the chain is not a candidate; none → dry. */
+function pickSub(M, w, chain) {
+  const vote = new Map();
+  for (let k = 0; k < M.n; k++) { const e = M.corners[k].sub; vote.set(e, (vote.get(e) || 0) + w[k]); }
+  let best = 'OUT', bv = -Infinity;
+  for (const e of [...vote.keys()].sort()) {
+    const v = vote.get(e);
+    if (v <= 0 || (e !== 'OUT' && !chain.includes(e))) continue;
+    const s = Math.log(v) + M.Teff * M.dr.subG[e];
+    if (s > bv + 1e-12) { bv = s; best = e; }
+  }
+  return best;
+}
+/* a module's parameters: the weighted mean over the corners that hold it (log for
+   frequencies and times), the round-1 lerpP rule extended to four corners */
+const LOG_KEYS = { cut: 1, time: 1, f: 1, tone: 1 };
+function paramsAt(M, w, t) {
+  let ws = 0; const acc = {}, ks = [];
+  for (let k = 0; k < M.n; k++) if (M.has[k].has(t)) { ws += w[k]; ks.push(k); }
+  const wk = k => ws > 0 ? w[k] / ws : 1 / ks.length;
+  for (const k of ks) for (const key in M.corners[k].p[t]) {
+    const v = M.corners[k].p[t][key];
+    acc[key] = (acc[key] || 0) + wk(k) * (LOG_KEYS[key] ? Math.log(v) : v);
+  }
+  for (const key in acc) if (LOG_KEYS[key]) acc[key] = Math.exp(acc[key]);
+  /* ROUND 3: FLIP-CLASS parameters (ADR-195: Bulwark's band count) are never averaged.
+     Each value the holders name gets their summed weight as its vote; the value is chosen
+     by round 1's threshold law (as the Sub's entry is), its Gumbel keyed by the value, so
+     the flip sits at a seeded point and edge reduction holds. A holder that names no band
+     count is single-band. */
+  for (const key in FLIP_KEYS) if (acc[key] !== undefined || (t === 'DYN' && key === 'bands')) {
+    const vote = new Map();
+    for (const k of ks) { const v = M.corners[k].p[t][key] === undefined ? FLIP_KEYS[key] : M.corners[k].p[t][key]; vote.set(v, (vote.get(v) || 0) + wk(k)); }
+    let best = FLIP_KEYS[key], bv = -Infinity;
+    for (const v of [...vote.keys()].sort((a, b) => a - b)) {
+      const s = Math.log(Math.max(1e-300, vote.get(v))) + M.Teff * gumbel(uOf(M.o.seed, 'f:' + t + '.' + key + '=' + v));
+      if (vote.get(v) > 0 && s > bv + 1e-12) { bv = s; best = v; }
+    }
+    acc[key] = best;
+  }
+  return acc;
+}
+const FLIP_KEYS = { bands: 1 };    // key → the value a corner that does not name it has
+
+/* ---------- structures: identity, distance, the audible view ---------- */
+/* In blend every module some corner holds is in the chain, most at a whisper; the
+   AUDIBLE chain keeps those at −30 dB or louder. Quantum gains are 1, so for quantum
+   the two are the same. Metrics read the audible chain. */
+const audibleChain = st => st.chain.filter(t => st.wet[t] >= AUDIBLE);
+const skey = st => audibleChain(st).join(' ') + '|' + st.sub;
+/* jump size between two structures: modules in one and not the other, plus pairs the
+   two order differently, plus one if the Sub moved. A "two-change jump" (D4) is 2. */
+function jumpD(a, b) {
+  const ca = audibleChain(a), cb = audibleChain(b);
+  let d = 0;
+  for (const t of ca) if (!cb.includes(t)) d++;
+  for (const t of cb) if (!ca.includes(t)) d++;
+  const sh = ca.filter(t => cb.includes(t)), ib = {}; cb.forEach((t, i) => { ib[t] = i; });
+  for (let i = 0; i < sh.length; i++) for (let j = i + 1; j < sh.length; j++) if (ib[sh[i]] > ib[sh[j]]) d++;
+  return d + (a.sub === b.sub ? 0 : 1);
+}
+function pureCorner(M, st) {
+  const k = M.keys.indexOf(skey(st));
+  if (k < 0) return -1;
+  if (M.o.mode === 'blend') for (const t of M.corners[k].chain) if (!(st.wet[t] >= PURE_GAIN)) return -1;
+  return k;
+}
+function inverted(chain, pairs) {
+  const ix = {}; chain.forEach((t, i) => { ix[t] = i; });
+  for (const [a, b] of pairs) if (ix[a] !== undefined && ix[b] !== undefined && ix[b] < ix[a]) return SHORT[b] + ' before ' + SHORT[a];
+  return '';
+}
+
+/* ---------- metrics over the pad: a GRID × GRID lattice ---------- */
+const GRID = 41;
+function gridMap(M, N) {
+  N = N || GRID;
+  const cells = new Array(N * N);
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+    const st = mapW(M, weightsXY(M, i / (N - 1), j / (N - 1)));
+    cells[j * N + i] = { st, key: skey(st), pure: pureCorner(M, st), outV: vBreak(st.chain), unan: inverted(audibleChain(st), M.strict),
+                         unanS: inverted(audibleChain(st), M.supported), cost: chainCost(st.chain) };
+  }
+  const keys = new Map(), hist = [0, 0, 0, 0];   // jump sizes 1, 2, 3+, (index 0 unused)
+  let pure = 0, outV = 0, unan = 0, unanS = 0, maxCost = 0, edges = 0;
+  for (let q = 0; q < N * N; q++) {
+    const c = cells[q];
+    if (c.pure >= 0) pure++;
+    else keys.set(c.key, (keys.get(c.key) || 0) + 1);
+    if (c.outV) outV++;
+    if (c.unan) unan++;
+    if (c.unanS) unanS++;
+    if (c.cost > maxCost) maxCost = c.cost;
+    const i = q % N, j = (q / N) | 0;
+    for (const r of [i + 1 < N ? q + 1 : -1, j + 1 < N ? q + N : -1]) if (r >= 0 && cells[r].key !== c.key) {
+      const d = jumpD(c.st, cells[r].st); hist[Math.min(3, d)]++; edges++; c.jump = Math.max(c.jump || 0, d);
+    }
+  }
+  const ids = new Map(); [...keys.keys()].sort().forEach((k, i) => ids.set(k, i));
+  for (const c of cells) c.id = c.pure >= 0 ? -1 - c.pure : ids.get(c.key);
+  return { N, cells, pureFrac: pure / (N * N), distinct: keys.size, hist, edges, outV, unan, unanS, maxCost,
+           firstUnan: (cells.find(c => c.unan) || {}).unan || '', firstOut: (cells.find(c => c.outV) || {}).outV || '' };
+}
+/* ---------- COPIED from round 2 (fx-chain-morph-lab-r2.html lines 704–949; Router→R2Router, Engine→R2Engine) ---------- */
+/* ======================================================================
+   THE ROUTER — lane 2's discipline as a control-rate state machine.
+   The signal graph is ONE SPINE (every module the corners hold, in an order) of
+   junctions: J:0 → [send] module [wet] → J:module, with a dry wire J:prev → J:module
+   beside it. Body enters J:0; the Sub enters the junction in front of its entry
+   module. A module PARKED in the spine is a dry wire (send 0, wet 0, dry 1), so its
+   place there is inaudible and it can be moved for free; a module is moved only
+   while bypassed. This is round 1's E encoding (junctions as WIRE nodes), so round
+   1's checkers read the frames unchanged.
+   Each change is ONE split group (lane 2 R1a): what it makes and what it breaks
+   share a ramp u, normalised u/‖u‖_p, so the lane's gain stays on the p-simplex.
+     arrive   input armed first (I7: inputs before outputs), then wet up / dry down
+     leave    wet down / dry up; a Delay, Reverb or Network instead drops its SEND
+              against the dry and keeps its wet open: its tail rings out (D5) for
+              min(its own decay, its cap), then fades
+     move     a wet dip: down, re-placed while bypassed, up (lane 3's duck-swap-unduck)
+     sub      the Sub's injection crossfades from one junction to another
+   At most K changes are open on a lane, and a new one starts only if the lane's
+   worst-case gain stays within +3 dB (lane 2's K budget; one may always start).
+   Changes are issued upstream first, leaves before moves before arrivals (lane 2
+   O3's one monotone direction); arrivals wait until no move is pending, so each
+   one is placed where the target wants it.
+   ====================================================================== */
+const XF_S = 0.08;               // one change's crossfade, seconds (the rack's fxXfade default, B117)
+const WET_TAU_S = 0.03;          // blend: wet gains follow the pad with this time constant
+const CEIL = Math.SQRT2;         // +3 dB: the equal-power sum of two coherent paths (20·log10 √2 = 3.01)
+const FLOOR = 0.5;               // round 1's I6 floor: −6 dB of the lane's settled gain
+const DEFAULT_CAPS = { DLY: 2.0, REV: 3.0, NET: 1.5 };
+/* a tail's own length (to −60 dB) from its parameters; Infinity when the loop gain reaches 1 */
+function tailSecs(t, p) {
+  if (!p) return 0;
+  if (t === 'DLY') return p.fbk <= 0 ? p.time : p.fbk >= 1 ? Infinity : p.time * Math.log(1e-3) / Math.log(p.fbk);
+  if (t === 'REV') { const f = 0.7 + 0.26 * p.size; return 0.028 * Math.log(1e-3) / Math.log(f); }
+  if (t === 'NET') { const L = 0.042 * (0.5 + p.size); return p.fbk >= 1 ? Infinity : L * Math.log(1e-3) / Math.log(p.fbk); }
+  return 0;
+}
+const COUNTED = { arr: 1, arrT: 1, lvN: 1, lvT: 1, mvA: 1, mvB: 1 };   // 'tc' (a tail's last fade) changes no lane gain
+
+function R2Router(M, sr, tick) {
+  this.sr = sr; this.tick = tick; this.dt = tick / sr;
+  this.setMorph(M);
+  this.spine = []; this.mods = {}; this.sub = [{ j: 'OUT' }]; this.subEv = null; this.n = 0; this.log = [];
+}
+R2Router.prototype.setMorph = function (M) {
+  this.M = M; this.o = M.o;
+  this.du = M.o.plant === 'hard' ? 1 : this.dt / XF_S;
+  this.kw = Math.exp(-this.dt / WET_TAU_S);
+  this.caps = Object.assign({}, DEFAULT_CAPS, M.o.caps || {});
+};
+R2Router.prototype.settle = function (st) {
+  const U = this.M.U;
+  this.spine = st.chain.concat(U.filter(t => !st.chain.includes(t)));
+  this.mods = {};
+  for (const t of U) this.mods[t] = { t, mode: st.chain.includes(t) ? 'live' : 'park', g: st.wet[t] || 0, gh: 0, ev: null, u: 0, gen: 0, hold: 0, prm: st.prm[t] || paramsAt(this.M, st.w, t) };
+  this.sub = [{ j: this.inJ(st.sub) }]; this.subEv = null;
+};
+R2Router.prototype.inJ = function (e) {
+  if (e === 'OUT') return 'OUT';
+  const i = this.spine.indexOf(e);
+  return i > 0 ? 'J:' + this.spine[i - 1] : 'J:0';
+};
+R2Router.prototype.active = function (t) { const m = this.mods[t]; return !!m && (m.mode !== 'park' || !!m.ev); };
+R2Router.prototype.fmax = function () { const o = this.o; return o.plant === 'bbm' ? 1 : !o.norm ? 2 : Math.pow(2, 1 - 1 / o.p); };
+/* (make, break) at ramp position u */
+R2Router.prototype.split = function (u) {
+  const o = this.o;
+  if (o.plant === 'bbm') return [rc(2 * u - 1), 1 - rc(2 * u)];      // PLANT: break before make
+  if (!o.norm) return [rc(2 * u), 1 - rc(2 * u - 1)];                 // round 1: make, then break, each on its own ramp
+  const a = clamp01(u), b = 1 - a, p = o.p;
+  const n = p === 1 ? 1 : p === 2 ? Math.sqrt(a * a + b * b) : Math.pow(Math.pow(a, p) + Math.pow(b, p), 1 / p);
+  return [a / n, b / n];
+};
+/* a module's [send, wet, dry] */
+R2Router.prototype.wts = function (m) {
+  const g = m.g;
+  if (!m.ev) return m.mode === 'live' ? [1, g, 1 - g] : m.mode === 'tail' ? [0, m.gh, 1] : [0, 0, 1];
+  const [A, B] = this.split(m.u);
+  switch (m.ev) {
+    case 'arr': return [this.o.plant === 'outfirst' ? (m.u >= 1 ? 1 : 0) : 1, g * A, 1 - g + g * B];
+    case 'arrT': return [A, m.gh + (g - m.gh) * rc(2 * m.u - 1), 1 - g + g * B];   // the wet moves only once the send is past half way
+    case 'lvN': case 'mvA': return [1, g * B, 1 - g + g * A];
+    case 'mvB': return [1, g * A, 1 - g + g * B];
+    case 'lvT': return [B, g, 1 - g + g * A];
+    case 'tc': return [0, m.gh * (1 - rc(m.u)), 1];
+  }
+  return [0, 0, 1];
+};
+/* the lanes a module's change can move: Body passes every junction; the Sub only
+   those downstream of where it enters. `subs` overrides the Sub's injection points:
+   a Sub crossfade about to start must be judged against BOTH its ends, or a mover
+   the new end reaches is missed (the first build let the Sub reach +4.7 dB so). */
+R2Router.prototype.lanesOf = function (t, subs) {
+  const i = this.spine.indexOf(t), out = ['BODY'];
+  subs = subs || (this.subEv ? [this.subEv.from, this.subEv.to] : this.sub.map(s => s.j));
+  for (const j of subs) { if (j === 'OUT') continue; const k = j === 'J:0' ? -1 : this.spine.indexOf(j.slice(2)); if (i > k) { out.push('SUB'); break; } }
+  return out;
+};
+R2Router.prototype.openOn = function (lane, subs) {
+  const f = [], fm = this.fmax();
+  for (const t of this.spine) { const m = this.mods[t]; if (m.ev && COUNTED[m.ev] && this.lanesOf(t, subs).includes(lane)) f.push(1 + m.g * (fm - 1)); }
+  if (lane === 'SUB' && this.subEv) f.push(fm);
+  return f;
+};
+R2Router.prototype.admit = function (lanes, g, subs) {
+  const o = this.o;
+  if (o.plant === 'noK') return true;                                     // PLANT: no budget at all
+  for (const l of lanes) {
+    const op = this.openOn(l, subs);
+    if (!op.length) continue;                                             // liveness: one change may always start
+    if (op.length >= o.K) return false;
+    if (op.reduce((a, b) => a * b, 1) * (1 + g * (this.fmax() - 1)) > CEIL + 1e-9) return false;
+  }
+  return true;
+};
+/* place t (bypassed) after its target predecessor among the active modules. The
+   junction after a bypassed module carries what the junction before it carries, so
+   a Sub injected there is re-keyed to the one before first (same signal, new name),
+   and a Sub that should enter AFTER t is re-keyed onto t's junction as t lands. */
+R2Router.prototype.reposition = function (t, st) {
+  const sp = this.spine, i = sp.indexOf(t), prevJ = i > 0 ? 'J:' + sp[i - 1] : 'J:0', tj = 'J:' + t;
+  for (const s of this.sub) if (s.j === tj) s.j = prevJ;
+  if (this.subEv) { if (this.subEv.from === tj) this.subEv.from = prevJ; if (this.subEv.to === tj) this.subEv.to = prevJ; }
+  sp.splice(i, 1);
+  const ti = st.chain.indexOf(t); let at = 0;
+  for (let k = ti - 1; k >= 0; k--) { const q = sp.indexOf(st.chain[k]); if (q >= 0 && this.active(st.chain[k])) { at = q + 1; break; } }
+  const landJ = at > 0 ? 'J:' + sp[at - 1] : 'J:0';
+  sp.splice(at, 0, t);
+  if (st.sub !== t && !this.subEv) for (const s of this.sub) if (s.j === landJ) s.j = tj;
+};
+R2Router.prototype.issue = function (kind, t, st) {
+  const m = this.mods[t];
+  if (kind === 'arr') { this.reposition(t, st); m.gen++; m.g = st.wet[t]; }
+  if (kind === 'arrT') m.g = st.wet[t];
+  if (kind === 'mvA' && this.o.plant === 'shadow') m.shadow = true;
+  m.ev = kind; m.u = 0;
+  this.log.push({ n: this.n, kind, t });
+};
+R2Router.prototype.finish = function (m, st) {
+  const ev = m.ev; m.ev = null; m.u = 0;
+  if (ev === 'arr' || ev === 'arrT' || ev === 'mvB') { m.mode = 'live'; m.shadow = false; }
+  else if (ev === 'lvN') m.mode = 'park';
+  else if (ev === 'lvT') { m.mode = 'tail'; m.gh = m.g; m.hold = Math.min(tailSecs(m.t, m.prm), this.o.plant === 'nocap' ? Infinity : this.caps[m.t]); }
+  else if (ev === 'tc') { m.mode = 'park'; m.gen++; }
+  else if (ev === 'mvA') { this.reposition(m.t, st); m.ev = 'mvB'; }
+};
+R2Router.prototype.downSeq = function (j) {
+  if (j === 'OUT') return '';
+  const i = j === 'J:0' ? -1 : this.spine.indexOf(j.slice(2));
+  return this.spine.slice(i + 1).filter(t => this.active(t)).join(' ');
+};
+/* one control tick: follow the wet targets, advance the open changes and the tails,
+   then plan new changes against the target structure st */
+R2Router.prototype.step = function (st) {
+  const o = this.o, mods = this.mods;
+  this.n++;
+  for (const t of this.M.U) {
+    const m = mods[t];
+    if (st.prm[t]) m.prm = st.prm[t];
+    const follow = m.mode === 'live' ? !(m.ev === 'lvN' || m.ev === 'lvT' || m.ev === 'mvA') : (m.ev === 'arr' || m.ev === 'arrT');
+    if (follow && st.wet[t] !== undefined) m.g = st.wet[t] + (m.g - st.wet[t]) * this.kw;
+  }
+  for (const t of this.spine) {
+    const m = mods[t];
+    if (!m.ev) { if (m.mode === 'tail' && (m.hold -= this.dt) <= 0) { m.ev = 'tc'; m.u = 0; this.log.push({ n: this.n, kind: 'tc', t }); } continue; }
+    m.u = Math.min(1, m.u + this.du);
+    if (m.u >= 1) this.finish(m, st);
+  }
+  if (this.subEv && (this.subEv.u = Math.min(1, this.subEv.u + this.du)) >= 1) { this.sub = [{ j: this.subEv.to }]; this.subEv = null; }
+  this.plan(st);
+};
+R2Router.prototype.plan = function (st) {
+  const o = this.o, mods = this.mods, want = new Set(st.chain), cands = [];
+  for (const t of this.spine) { const m = mods[t]; if (!m.ev && m.mode === 'live' && !want.has(t)) cands.push({ kind: o.tails && TAIL_TYPES[t] ? 'lvT' : 'lvN', t, c: 0 }); }
+  // movers: the fewest modules to re-place so the active order follows the target
+  // (the heaviest common subsequence stays; a module mid-change is never chosen)
+  const act = this.spine.filter(t => want.has(t) && (mods[t].mode === 'live' || mods[t].ev === 'arr' || mods[t].ev === 'arrT' || mods[t].ev === 'mvB'));
+  const keep = heaviestCommon(act, st.chain, t => mods[t].ev ? 1e6 : 1 + mods[t].g);
+  const movers = act.filter(t => !keep.has(t) && !mods[t].ev);
+  for (const t of movers) cands.push({ kind: 'mvA', t, c: 1 });
+  const moving = movers.length > 0 || this.spine.some(t => mods[t].ev === 'mvA' || mods[t].ev === 'mvB');
+  if (!moving) for (const t of st.chain) { const m = mods[t]; if (!m.ev && (m.mode === 'park' || m.mode === 'tail')) cands.push({ kind: m.mode === 'park' ? 'arr' : 'arrT', t, c: 2 }); }
+  const sp = t => this.spine.indexOf(t), tp = t => st.chain.indexOf(t);
+  cands.sort((a, b) => a.c - b.c || (a.c === 2 ? tp(a.t) - tp(b.t) : sp(a.t) - sp(b.t)));
+  for (const q of cands) {
+    const lanes = q.kind === 'arr' ? ['BODY', 'SUB'] : this.lanesOf(q.t);
+    const g = q.kind === 'arr' || q.kind === 'arrT' ? st.wet[q.t] : mods[q.t].g;
+    if (this.admit(lanes, g)) this.issue(q.kind, q.t, st);
+  }
+  // the Sub: wait until its entry module is in; a re-name between junctions that feed
+  // the same modules is silent; anything else is a crossfade
+  if (this.subEv || (st.sub !== 'OUT' && !this.active(st.sub))) return;
+  const want2 = this.inJ(st.sub), cur = this.sub[0].j;
+  if (cur === want2) return;
+  if (this.downSeq(cur) === this.downSeq(want2)) { this.sub[0].j = want2; return; }
+  if (this.admit(['SUB'], 1, [cur, want2])) { this.subEv = { from: cur, to: want2, u: 0 }; this.log.push({ n: this.n, kind: 'sub', t: st.sub }); }
+};
+/* the heaviest common subsequence of the current order and the target (both hold the same modules) */
+function heaviestCommon(cur, target, wt) {
+  const pos = {}; target.forEach((t, i) => { pos[t] = i; });
+  const c = cur.filter(t => pos[t] !== undefined), n = c.length, best = [], prev = [];
+  for (let i = 0; i < n; i++) {
+    best[i] = wt(c[i]); prev[i] = -1;
+    for (let j = 0; j < i; j++) if (pos[c[j]] < pos[c[i]] && best[j] + wt(c[i]) > best[i] + 1e-12) { best[i] = best[j] + wt(c[i]); prev[i] = j; }
+  }
+  let b = -1; for (let i = 0; i < n; i++) if (b < 0 || best[i] > best[b] + 1e-12) b = i;
+  const keep = new Set(); for (let i = b; i >= 0; i = prev[i]) keep.add(c[i]);
+  return keep;
+}
+/* THE FRAME: round 1's format (nodes, a processing order, weighted edges), so round
+   1's checkers, transmission and I7 read it as they read round 1's E architecture */
+R2Router.prototype.frame = function () {
+  const nodes = [{ id: 'J:0', type: 'WIRE' }], order = ['J:0'], edges = [{ u: 'BODY', v: 'J:0', w: 1 }];
+  let prev = 'J:0';
+  for (const t of this.spine) {
+    const m = this.mods[t], [s, w, d] = this.wts(m), J = 'J:' + t;
+    nodes.push({ id: t, type: t, p: m.prm, gen: m.gen }, { id: J, type: 'WIRE' }); order.push(t, J);
+    if (s > EPS) edges.push({ u: prev, v: t, w: s });
+    if (w > EPS) edges.push({ u: t, v: J, w });
+    if (d > EPS) edges.push({ u: prev, v: J, w: d });
+    if (m.shadow && (m.ev === 'mvA' || m.ev === 'mvB')) {
+      // PLANT (I1 must-fail): the move crossfaded through a SECOND instance of the mover
+      const id = t + '#2'; nodes.push({ id, type: t, p: m.prm, gen: m.gen }); order.splice(order.length - 1, 0, id);
+      edges.push({ u: prev, v: id, w: 1 }, { u: id, v: J, w: 0.5 });
+    }
+    prev = J;
+  }
+  edges.push({ u: prev, v: 'OUT', w: 1 });
+  const subs = this.subEv ? (() => { const [A, B] = this.split(this.subEv.u); return [[this.subEv.from, B], [this.subEv.to, A]]; })() : [[this.sub[0].j, 1]];
+  for (const [j, w] of subs) if (w > EPS) edges.push({ u: 'SUB', v: j, w });
+  return { order, nodes, edges, fb: [] };
+};
+/* THE AUDIBLE GRAPH, canonically: the active modules in order with their send, wet
+   and dry, and the Sub's injection named by the modules it feeds. A parked module
+   is a dry wire, identical to its absence, so it is left out; a junction's NAME is
+   left out too. Two routers with the same canon play the same graph. This is what
+   edge reduction compares: the pad's router carries parked modules the pair never
+   had (the first build compared raw frames and called identical sound different). */
+R2Router.prototype.canon = function () {
+  let c = '';
+  for (const t of this.spine) if (this.active(t)) { const [s, w, d] = this.wts(this.mods[t]); c += t + ':' + s.toPrecision(15) + ',' + w.toPrecision(15) + ',' + d.toPrecision(15) + ';'; }
+  const subs = this.subEv ? (() => { const [A, B] = this.split(this.subEv.u); return [[this.subEv.from, B], [this.subEv.to, A]]; })() : [[this.sub[0].j, 1]];
+  for (const [j, w] of subs) c += '|Su>' + this.downSeq(j) + ':' + w.toPrecision(15);
+  return c;
+};
+R2Router.prototype.liveCost = function () { let c = 0; for (const t of this.spine) { const m = this.mods[t]; if (m.mode !== 'park' || m.ev) c += COST[t]; } return c; };
+R2Router.prototype.openCount = function (lane) { return this.openOn(lane).length; };
+/* ---------- COPIED from round 2 (fx-chain-morph-lab-r2.html lines 1075–1190; Router→R2Router, Engine→R2Engine) ---------- */
+/* ---------- the sound: simple stand-ins for each module type ----------
+   Deliberately cheap: this lab races ROUTING, not modules. Drive tanh, Filter a TPT
+   lowpass, ECHO one line, Scape a Schroeder (all four round 1's); Shriek an
+   asymmetric clipper into a tone lowpass; Bulwark a feed-forward compressor; EQ one
+   peaking biquad; Sluice four delay lines through a Hadamard matrix with tanh in the
+   loop (feedback ≥ 1 rings for ever: the tail cap's first customer). Time constants
+   are stated in seconds and converted per sample (ADR-009). Buffers are sized at
+   construction, never on the sample path. */
+const BODY_HZ = [110, 130.81, 164.81], SUB_HZ = 55;
+const OUT_GAIN = 0.5;   // round 3: was 0.4; with the quieter lanes and gentler corners the default sweeps peak at −7 to −11 dBFS (true peak the same within 0.4 dB), no limiter
+/* TRUE PEAK, for the honest meter: the largest of the samples and three interpolated
+   points between each pair (4× oversampling, a 32-tap Hann-windowed sinc). Deterministic. */
+function truePeak(y) {
+  const L = 4, H = 16, taps = [];
+  for (let p = 1; p < L; p++) { const t = []; for (let k = -H + 1; k <= H; k++) { const x = k - p / L, w = 0.5 + 0.5 * Math.cos(Math.PI * x / H); t.push(Math.sin(Math.PI * x) / (Math.PI * x) * w); } taps.push(t); }
+  let m = 0;
+  for (let n = 0; n < y.length; n++) { const a = Math.abs(y[n]); if (a > m) m = a; }
+  for (let n = H; n < y.length - H; n++) for (const t of taps) { let s = 0; for (let k = 0; k < t.length; k++) s += t[k] * y[n - H + 1 + k]; if (Math.abs(s) > m) m = Math.abs(s); }
+  return m;
+}
+/* ROUND 3: the loudest value written into a buffer of length len in the last len to 2·len
+   samples — a bound on everything the buffer still holds, at one compare per write. A
+   module with memory may sleep only when this is below the threshold (its output alone
+   says nothing about an echo still in flight). */
+function peakWin(len) {
+  let pk = 0, pp = 0, n = 0;
+  return { push(v) { const a = v < 0 ? -v : v; if (a > pk) pk = a; if (++n >= len) { pp = pk; pk = 0; n = 0; } }, get: () => pk > pp ? pk : pp };
+}
+function mkInst(type, sr) {
+  if (type === 'DRV') { let k = 3, n = 1; return { set(p) { k = p.drive; n = 0.5 / Math.tanh(0.5 * k); }, run: x => n * Math.tanh(k * x) }; }
+  if (type === 'FLT') {
+    let a1 = 0, a2 = 0, a3 = 0, ic1 = 0, ic2 = 0;
+    return { set(p) { const g = Math.tan(Math.PI * Math.min(p.cut, 0.45 * sr) / sr), k = 2 - 2 * p.res; a1 = 1 / (1 + g * (g + k)); a2 = g * a1; a3 = g * a2; },
+             run(x) { const v3 = x - ic2, v1 = a1 * ic1 + a2 * v3, v2 = ic2 + a2 * ic1 + a3 * v3; ic1 = 2 * v1 - ic1; ic2 = 2 * v2 - ic2; return v2; } };
+  }
+  if (type === 'DLY') {
+    const N = Math.ceil(sr * 0.6) + 2, buf = new Float32Array(N); let w = 0, d = sr * 0.2, dt = d, fb = 0.3, mix = 0.3;
+    const sm = Math.exp(-1 / (0.05 * sr));
+    const pw = peakWin(N);      // round 3: what the line holds, for sleep
+    return { set(p) { dt = p.time * sr; fb = Math.min(p.fbk, 0.98); mix = p.mix; }, tail: () => pw.get(),
+             run(x) { d = dt + (d - dt) * sm; let r = w - d; if (r < 0) r += N; const i = Math.floor(r), f = r - i, j = (i + 1) % N;
+                      const y = buf[i] + (buf[j] - buf[i]) * f; buf[w] = x + fb * y; pw.push(buf[w]); w = (w + 1) % N; return x + mix * y; } };
+  }
+  if (type === 'REV') {
+    const cl = [1116, 1188, 1277, 1356].map(n => Math.round(n * sr / 44100)), al = [556, 441].map(n => Math.round(n * sr / 44100));
+    const cb = cl.map(n => ({ b: new Float32Array(n), i: 0, lp: 0 })), ab = al.map(n => ({ b: new Float32Array(n), i: 0 }));
+    let f = 0.84, gi = 0.5, mix = 0.3;
+    const pw = peakWin(Math.max(...cl));      // round 3: what the combs and allpasses hold, for sleep
+    return { set(p) { f = 0.7 + 0.26 * p.size; gi = Math.sqrt(1 - f * f); mix = p.mix; }, tail: () => pw.get(),
+             run(x) {
+               let s = 0;
+               for (const c of cb) { const y = c.b[c.i]; c.lp = y * 0.7 + c.lp * 0.3; c.b[c.i] = x * gi + c.lp * f; pw.push(c.b[c.i]); c.i = (c.i + 1) % c.b.length; s += y; }
+               s *= 0.5;
+               for (const a of ab) { const y = a.b[a.i]; const v = s + 0.5 * y; a.b[a.i] = v; pw.push(v); a.i = (a.i + 1) % a.b.length; s = y - 0.5 * v; }
+               return x * (1 - 0.5 * mix) + s * mix; } };
+  }
+  if (type === 'SAT') {
+    let k = 4, b = 0.2, a = 0.5, lp = 0, n = 1, dc = 0;
+    const ad = 1 - Math.exp(-2 * Math.PI * 10 / sr);
+    return { set(p) { k = p.gain; b = p.bias; a = 1 - Math.exp(-2 * Math.PI * p.tone / sr); n = 0.6 / Math.tanh(0.5 * k); },
+             run(x) { const z = Math.tanh(k * x + b) - Math.tanh(b); lp += a * (z - lp); dc += ad * (lp - dc); return n * (lp - dc); } };
+  }
+  if (type === 'DYN') {
+    /* ROUND 3 (ADR-195): bands 2 is an ALLPASS-PHASED two-band split — A a first-order
+       allpass at 700 Hz, low = (x + A x)/2, high = (x − A x)/2, each band compressed, the
+       output low − high. With no gain reduction that is A x: flat in level, shifted in
+       phase. Summed with its own dry it is x + A x, a lowpass notch — the reason a multiband
+       Bulwark is never summed in parallel with an unphased branch. bands 1 is round 2's.
+       A change of band count is Bulwark's own 20 ms internal crossfade (ADR-195: "Bulwark's
+       own 20 ms internal switch is the flip"); the first build switched in one sample and
+       the bait set's top edge read 33 dB on the click metric. */
+    let env = 0, envL = 0, envH = 0, ca = 0, cr = 0, thr = -20, ratio = 4, mk = 1, bands = 1, ac = 0, az = 0, xb = -1;
+    const dxb = 1 / (0.02 * sr);
+    const gain = e => { const over = 20 * Math.log10(e + 1e-9) - thr; return over > 0 ? Math.pow(10, -over * (1 - 1 / ratio) / 20) : 1; };
+    const fol = (e, r) => r > e ? r + (e - r) * ca : r + (e - r) * cr;
+    return { set(p) { ca = Math.exp(-1 / (p.att * sr)); cr = Math.exp(-1 / (p.rel * sr)); thr = p.thr; ratio = p.ratio; mk = Math.pow(10, p.mk / 20);
+                      bands = p.bands || 1; const tn = Math.tan(Math.PI * 700 / sr); ac = (tn - 1) / (tn + 1); },
+             run(x) {
+               const tb = bands > 1 ? 1 : 0;
+               if (xb < 0) xb = tb; else if (xb < tb) xb = Math.min(tb, xb + dxb); else if (xb > tb) xb = Math.max(tb, xb - dxb);
+               env = fol(env, Math.abs(x));
+               const one = x * mk * gain(env);
+               const a = ac * x + az; az = x - ac * a;          // the split runs always, so a flip starts from a warm state
+               const lo = 0.5 * (x + a), hi = 0.5 * (x - a);
+               envL = fol(envL, Math.abs(lo)); envH = fol(envH, Math.abs(hi));
+               return xb <= 0 ? one : (1 - xb) * one + xb * mk * (lo * gain(envL) - hi * gain(envH)); } };
+  }
+  if (type === 'EQ') {
+    let b0 = 1, b1 = 0, b2 = 0, a1 = 0, a2 = 0, z1 = 0, z2 = 0;
+    return { set(p) { const A = Math.pow(10, p.gdb / 40), w0 = 2 * Math.PI * Math.min(p.f, 0.45 * sr) / sr, al = Math.sin(w0) / (2 * p.q), c = Math.cos(w0), a0 = 1 + al / A;
+                      b0 = (1 + al * A) / a0; b1 = -2 * c / a0; b2 = (1 - al * A) / a0; a1 = -2 * c / a0; a2 = (1 - al / A) / a0; },
+             run(x) { const y = b0 * x + z1; z1 = b1 * x - a1 * y + z2; z2 = b2 * x - a2 * y; return y; } };
+  }
+  if (type === 'NET') {
+    const base = [1301, 1709, 1999, 2381].map(n => n * sr / 44100), N = base.map(n => Math.ceil(n * 1.6) + 2);
+    const buf = N.map(n => new Float32Array(n)), wi = [0, 0, 0, 0], lp = [0, 0, 0, 0], L = [0, 0, 0, 0];
+    let fb = 0.9, a = 0.3, mix = 0.4;
+    const pw = peakWin(Math.max(...N));      // round 3: what the network holds, for sleep
+    return { set(p) { for (let i = 0; i < 4; i++) L[i] = Math.round(base[i] * (0.5 + p.size)); fb = p.fbk; a = 1 - Math.exp(-2 * Math.PI * p.tone / sr); mix = p.mix; }, tail: () => pw.get(),
+             run(x) {
+               const y = [0, 0, 0, 0];
+               for (let i = 0; i < 4; i++) { let r = wi[i] - L[i]; if (r < 0) r += N[i]; y[i] = buf[i][r]; }
+               const h = [y[0] + y[1] + y[2] + y[3], y[0] - y[1] + y[2] - y[3], y[0] + y[1] - y[2] - y[3], y[0] - y[1] - y[2] + y[3]];
+               for (let i = 0; i < 4; i++) { lp[i] += a * (0.5 * h[i] - lp[i]); buf[i][wi[i]] = Math.tanh(fb * lp[i] + 0.5 * x); pw.push(buf[i][wi[i]]); wi[i] = (wi[i] + 1) % N[i]; }
+               return x * (1 - mix) + mix * 0.5 * (y[0] + y[1] + y[2] + y[3]); } };
+  }
+  return { set() {}, run: x => x };            // WIRE: a junction
+}
+/* round 1's Engine (R2Engine here), with two changes: an instance is rebuilt when its node's GEN
+   changes (a module re-armed after it was parked starts clean, so a parked delay
+   never replays stale echoes), and a node no live edge touches is not run. */
+function R2Engine(sr) { this.sr = sr; this.inst = new Map(); this.prev = new Map(); this.ph = [0, 0, 0, 0]; this.n = 0; this.pulse = false; }
+R2Engine.prototype.block = function (f, out, off, n) {
+  const sr = this.sr, ids = ['BODY', 'SUB'], ix = { BODY: 0, SUB: 1 };
+  for (const nd of f.nodes) {
+    ix[nd.id] = ids.length; ids.push(nd.id);
+    let it = this.inst.get(nd.id);
+    if (!it || it.type !== nd.type || it.gen !== nd.gen) { it = mkInst(nd.type, sr); it.type = nd.type; it.gen = nd.gen; this.inst.set(nd.id, it); }
+    if (nd.p) it.set(nd.p);
+  }
+  const order = f.order.filter(id => ix[id] !== undefined).map(id => ix[id]);
+  const taps = ids.map(() => []), outT = [], next = new Map(), used = new Uint8Array(ids.length);
+  const tap = (u, v, w0, w1) => {
+    if (ix[u] === undefined) return;
+    used[ix[u]] = 1;
+    if (v === 'OUT') outT.push([ix[u], w0, w1]); else if (ix[v] !== undefined) { taps[ix[v]].push([ix[u], w0, w1]); used[ix[v]] = 1; }
+  };
+  for (const e of f.edges) next.set(ek(e.u, e.v), e.w);
+  for (const [k, w1] of next) { const [u, v] = k.split('>'); tap(u, v, this.prev.has(k) ? this.prev.get(k) : 0, w1); }
+  for (const [k, w0] of this.prev) if (!next.has(k)) { const [u, v] = k.split('>'); tap(u, v, w0, 0); }
+  this.prev = next;
+  const val = new Float64Array(ids.length), insts = ids.map(id => this.inst.get(id));
+  for (let s = 0; s < n; s++) {
+    const a = s / n;
+    lanesNext(this, sr);                       // round 3: the lane sources moved into a function both engines share (adds the sine probe)
+    val[0] = this.lb; val[1] = this.ls;
+    for (const i of order) {
+      if (!used[i]) { val[i] = 0; continue; }
+      let x = 0;
+      for (const [j, w0, w1] of taps[i]) x += (w0 + (w1 - w0) * a) * val[j];
+      val[i] = insts[i].run(x);
+    }
+    let y = 0; for (const [j, w0, w1] of outT) y += (w0 + (w1 - w0) * a) * val[j];
+    out[off + s] = OUT_GAIN * y; this.n++;
+  }
+};
+
+/* ======================================================================
+   ROUND 3 — STATIC NODES. Everything below is new in this lab.
+   ====================================================================== */
+/* the lane sources both engines play: Body a three-voice chord, Sub a sine an octave
+   under its root. Round 2's polyBLEP saws, or (PROBE) sines — the click metric's probe:
+   a sine has almost no energy in the second difference, so a click stands out of it. */
+function lanesNext(e, sr) {
+  let body = 0;
+  for (let v = 0; v < 3; v++) {
+    const inc = BODY_HZ[v] / sr;
+    let p = e.ph[v] + inc; if (p >= 1) p -= 1; e.ph[v] = p;
+    let y;
+    if (e.probe) y = Math.sin(2 * Math.PI * p);
+    else { y = 2 * p - 1; if (p < inc) { const t = p / inc; y -= t + t - t * t - 1; } else if (p > 1 - inc) { const t = (p - 1) / inc; y -= t * t + t + t + 1; } }
+    body += 0.1 * y;            // round 3: was 0.16 (chord peak ≈ −6 dBFS into a Drive referenced at 0.5); now ≈ −10 dBFS
+  }
+  if (e.pulse) { const gate = Math.round(sr * 0.25), c = (e.n % gate) / sr; body *= c < 0.004 ? c / 0.004 : c < 0.15 ? 1 : c < 0.158 ? (0.158 - c) / 0.008 : 0; }
+  e.ph[3] += SUB_HZ / sr; if (e.ph[3] >= 1) e.ph[3] -= 1;
+  e.lb = body; e.ls = 0.22 * Math.sin(2 * Math.PI * e.ph[3]);   // round 3: was 0.35; a −9 dBFS 55 Hz sine into a Drive is mud
+}
+
+/* ---------- the cable universe: fixed, 82 cables ---------- */
+/* Sources are the two lanes and the eight nodes; sinks are the eight nodes and OUT. A
+   cable is 'u>v'. Every node is resident, so the universe never changes: what morphs is
+   only the weight on each cable. */
+const SRC = LANES.concat(TYPES), DST = TYPES.concat(['OUT']);
+const CABLES = [];
+for (const u of SRC) for (const v of DST) if (u !== v) CABLES.push({ k: u + '>' + v, u, v, nn: !isLane(u) && v !== 'OUT' });
+const CIX = {}; CABLES.forEach((c, i) => { CIX[c.k] = i; });
+const NC = CABLES.length;
+const INTO = {}; for (const d of DST) INTO[d] = []; CABLES.forEach((c, i) => INTO[c.v].push(i));
+const OUTOF = {}; for (const s of SRC) OUTOF[s] = []; CABLES.forEach((c, i) => OUTOF[c.u].push(i));
+/* a cable V forbids outright: Sluice straight after Scape (R3). Scape → Bulwark is legal
+   only as E1 (Bulwark last), so it is drawn conditional, and policed as a path (below). */
+const BANNED = { 'REV>NET': 'R3' };
+/* each node's DECLARED maximum small-signal gain, for the loop bound (strategy a): the
+   stand-ins' worst slope at the corners' settings, rounded up — Drive and Shriek up to
+   ×3 (tanh at drive 8 normalised), the resonant Filter and the EQ ×2 (+6 dB), Bulwark ×2
+   (its make-up), ECHO ×2 (dry plus a repeat), Sluice ×2, Scape ×1.5. A declaration, not
+   a measurement: a module that can exceed its declaration breaks the bound's promise. */
+const GMAX = { DYN: 2, EQ: 2, FLT: 2, DRV: 3, SAT: 3, NET: 2, DLY: 2, REV: 1.5 };
+const SNAP = 1e-5;          // a glide this close to its target lands on it (−100 dB: inaudible)
+const NMAX = 4;             // the lane normaliser's largest boost (+12 dB)
+
+/* THE TARGET, in closed form: round 2's chain at this pad point written as cables. The
+   chain's junction after module j is g_j·M_j(in) + (1 − g_j)·in (g the wet gain: 1 in
+   QUANTUM, the vote in BLEND), so a source s that enters the junction in front of chain
+   position i reaches position j through every dry in between: the cable s → chain[j]
+   weighs w_s·Π_{i ≤ m < j}(1 − g_m), and s → OUT the same product over the rest. A
+   module's own output enters the junction after it with weight g. In QUANTUM every g is
+   1, so this is the plain series chain. Each lane's static transmission is exactly 1. */
+function targetCables(st) {
+  const T = new Float64Array(NC), ch = st.chain, g = ch.map(t => st.wet[t]);
+  const add = (u, v, w) => { if (w > 0) T[CIX[u + '>' + v]] += w; };
+  const feed = (src, i0, w0) => {
+    let carry = w0;
+    for (let j = i0; j < ch.length; j++) { add(src, ch[j], carry); carry *= 1 - g[j]; if (carry <= 0) return; }
+    add(src, 'OUT', carry);
+  };
+  feed('BODY', 0, 1);
+  for (let i = 0; i < ch.length; i++) feed(ch[i], i + 1, g[i]);
+  if (st.sub === 'OUT' || !ch.includes(st.sub)) add('SUB', 'OUT', 1); else feed('SUB', ch.indexOf(st.sub), 1);
+  return T;
+}
+/* the structural identity of a target: what K counts (BLEND's wet gains move every
+   tick and pass straight through; a change of chain, Sub entry or band count is a transition) */
+const structKey = st => st.chain.join(' ') + '|' + st.sub + '|' + (st.prm.DYN ? st.prm.DYN.bands || 1 : 0);
+
+/* static transmission (module gains 1) from a lane to every node and OUT, over weights
+   wf (forward, this block) and wb (backward, the block before): an iteration in the
+   forward order, backward parts read the previous pass, so a cycle is summed as its
+   geometric series (truncated at 40 passes if it does not converge). */
+function transOf(order, wf, wb, lane, only, fix) {
+  const t = {}; for (const s of SRC) t[s] = 0; t.OUT = 0;
+  if (fix) t[fix] = 1; else t[lane] = 1;                 // fix: from a NODE's output instead (its own inputs ignored)
+  for (let pass = 0; pass < 40; pass++) {
+    let ch = 0;
+    for (const v of order.concat(['OUT'])) {
+      if (v === fix) continue;
+      let x = 0;
+      for (const i of INTO[v]) { const m = only ? only[i] : 1; if (!m) continue; const c = CABLES[i], src = isLane(c.u) ? (c.u === lane ? 1 : 0) : t[c.u]; x += m * (wf[i] + wb[i]) * src; }
+      ch = Math.max(ch, Math.abs(x - t[v])); t[v] = x;
+    }
+    if (ch < 1e-12) break;
+  }
+  return t;
+}
+
+/* ---------- THE CABLES: a control-rate state machine (one step per tick) ----------
+   Per cable: a target, a FORWARD part (f1 → f2, two cascaded one-poles) and a BACKWARD
+   part (b1 → b2, one block of delay in the rack). Per tick:
+     1. admission  a change of STRUCTURE is admitted only while fewer than K transitions
+                   are open (a transition closes when every cable has landed)
+     2. targets    the admitted chain's cables (closed form), plus a leaving tail's held
+                   output cables, plus the bypass while anything waits
+     3. guard      a cable not yet alive that would open a path V forbids WAITS
+     4. class      a cable that would close a cycle in the forward graph: (a) emerges on
+                   its backward part; (b) WAITS until the cable it would loop with is gone.
+                   A backward part whose cycle has cleared crossfades into the forward part.
+     5. glide      both parts toward their targets with time constant τ/2 each, in seconds
+     6. loop bound (a only) the backward parts of every cycle over the bound are scaled
+     7. normalise  each lane's source cables, round 2's p-norm with the +3 dB cap
+   GLIDE τ = 60 ms by default: on the four presets' 26 transitions the worst click read
+   7.2 dB at 40 ms and 5.1 dB at 80 ms (round 2: 33 dB); a slower glide is a slower morph.
+   Nothing here reads the audio: the tail hold is the tail's own decay from its
+   parameters (round 2's law), so a sweep is the same with or without the rack. */
+const GLIDE_S = 0.06, LOOP_BOUND = 0.5, SLEEP_DB = -80, BOUND_OFF = 4;   // the bound slider's top means "no bound"
+const DEF_P = { DYN: { thr: -20, ratio: 4, att: 0.005, rel: 0.1, mk: 0, bands: 1 }, EQ: { f: 1000, gdb: 0, q: 0.7 }, FLT: { cut: 2000, res: 0.3 },
+                DRV: { drive: 2 }, SAT: { gain: 3, bias: 0.2, tone: 4000 }, NET: { size: 0.5, fbk: 0.5, tone: 3000, mix: 0.3 },
+                DLY: { time: 0.25, fbk: 0.3, mix: 0.3 }, REV: { size: 0.5, mix: 0.3 } };   // a node no corner holds: never fed, asleep
+function Cables(M, sr, tick) {
+  this.sr = sr; this.tick = tick; this.dt = tick / sr; this.n = 0;
+  const F = () => new Float64Array(NC);
+  Object.assign(this, { f1: F(), f2: F(), b1: F(), b2: F(), pf: F(), pb: F(), tgt: F(), tf: F(), tb: F(), T: F(), sc: F(), wf: F(), wb: F(), hold: F(), hv: F() });
+  this.hs = new Uint8Array(NC); this.held = new Array(NC).fill('');
+  this.nL = { BODY: 1, SUB: 1 }; this.m1 = F(); this.m2 = F(); this.fresh = true; this.order = TYPES.slice(); this.prm = {}; this.wait = false; this.waitOther = false; this.flips = []; this.open = 0; this.log = [];
+  this.setMorph(M);
+}
+Cables.prototype.setMorph = function (M) {
+  this.M = M; this.o = M.o;
+  const tau = M.o.plant === 'hard' ? 0 : M.o.glide;
+  this.ka = tau > 0 ? 1 - Math.exp(-this.dt / (tau / 2)) : 1;
+  this.caps = Object.assign({}, DEFAULT_CAPS, M.o.caps || {});
+  for (const t of TYPES) if (!this.prm[t]) this.prm[t] = DEF_P[t];
+};
+Cables.prototype.settle = function (st) {
+  this.adm = st; this.admKey = structKey(st); this.open = 0; this.wait = false; this.waitOther = false; this.flips = [];
+  for (const t of TYPES) this.prm[t] = st.prm[t] || (this.M.U.includes(t) ? paramsAt(this.M, st.w, t) : DEF_P[t]);
+  const T = targetCables(st);
+  for (let i = 0; i < NC; i++) { this.T[i] = this.tgt[i] = this.tf[i] = this.f1[i] = this.f2[i] = this.pf[i] = T[i]; this.tb[i] = this.b1[i] = this.b2[i] = this.pb[i] = 0; this.hs[i] = 0; this.held[i] = ''; }
+  this.fresh = true; this.finish(); this.fresh = false;
+};
+/* reach over a node adjacency (Map node → Set), identity included */
+function reaches(adj, a, b) {
+  if (a === b) return true;
+  const seen = new Set([a]), st = [a];
+  while (st.length) { const u = st.pop(); for (const v of adj.get(u) || []) { if (v === b) return true; if (!seen.has(v)) { seen.add(v); st.push(v); } } }
+  return false;
+}
+const addAdj = (adj, u, v) => { if (!adj.has(u)) adj.set(u, new Set()); adj.get(u).add(v); };
+/* the prohibitions of V, read on PATHS of live cables (round 1's I3 path reading): may
+   cable c come alive, given the live graph? Returns the rule it would break, or ''. A
+   new forbidden path must run through c, so it is enough to look either side of c. */
+Cables.prototype.guardBreak = function (c, live) {
+  if (BANNED[c.k]) return BANNED[c.k];
+  if (isLane(c.u) || c.v === 'OUT') return '';
+  if (reaches(live, 'REV', c.u) && reaches(live, c.v, 'NET')) return 'R3';
+  if (c.k === 'REV>DYN') { for (const v of live.get('DYN') || []) if (v !== 'OUT') return 'R2'; return ''; }   // E1: Scape straight into a LAST Bulwark
+  if (reaches(live, 'REV', c.u) && reaches(live, c.v, 'DYN')) return 'R2';
+  if (c.u === 'DYN' && reaches(live, 'REV', 'DYN')) return 'R2';                                                   // Bulwark would stop being last
+  return '';
+};
+Cables.prototype.step = function (st) {
+  const o = this.o; this.n++;
+  // 1. admission
+  const key = structKey(st);
+  if (key === this.admKey) this.adm = st;
+  else if (this.open < o.K || o.plant === 'noK') { this.adm = st; this.admKey = key; this.open++; this.log.push({ n: this.n, kind: 'adm', key }); }
+  const A = this.adm, inChain = new Set(A.chain);
+  for (const t of A.chain) this.prm[t] = A.prm[t];
+  // 2. targets: the chain's cables; a leaving tail's held outputs; the bypass while anything waited last tick
+  const T = targetCables(A); this.T = T;
+  for (let i = 0; i < NC; i++) {
+    const c = CABLES[i];
+    if (!o.tails || isLane(c.u) || !TAIL_TYPES[c.u] || inChain.has(c.u)) { this.hs[i] = 0; this.tgt[i] = T[i]; continue; }
+    if (this.hs[i] === 0 && this.f2[i] + this.b2[i] > SNAP) {
+      this.hs[i] = 1; this.hv[i] = this.f2[i] + this.b2[i];
+      this.hold[i] = Math.min(tailSecs(c.u, this.prm[c.u]), o.plant === 'nocap' ? Infinity : this.caps[c.u]);
+      this.log.push({ n: this.n, kind: 'tail', t: c.u, k: c.k });
+    }
+    if (this.hs[i] === 1 && (this.hold[i] -= this.dt) <= 0) this.hs[i] = 2;
+    this.tgt[i] = this.hs[i] === 1 ? this.hv[i] : 0;
+  }
+  /* WHILE A REVERSAL WAITS the pair runs in PARALLEL: for an old ... p → v → u → n becoming
+     ... p → u → v → n, every source feeding u in the target also feeds v at half, and every
+     cable leaving v also leaves u at half — the old outer cables, held — so the lane passes
+     series → parallel → series with no loop, no gap and no dry flash. Two failed first: a
+     full dry bypass on any wait (the bright dry saw flashed into a Drive ↔ Filter swap,
+     8.5 dB), and a bypass opened only as the reach fell (the lane sagged first and the
+     normaliser drove the Drive hot, 12 dB). The dry bypass stays for every other wait. */
+  for (const [u, v] of o.plant === 'nobypass' ? [] : this.flips) {      // PLANT 'nobypass' removes every carrier of a waiting lane
+    for (const i of INTO[u]) { const c = CABLES[i]; if (T[i] > 0 && c.u !== v) this.tgt[CIX[c.u + '>' + v]] += 0.5 * T[i]; }
+    for (const i of OUTOF[v]) { const c = CABLES[i]; if (T[i] > 0 && c.v !== u) this.tgt[CIX[u + '>' + c.v]] += 0.5 * T[i]; }
+  }
+  if (this.waitOther && o.plant !== 'nobypass') for (const L of LANES) for (const k of this.bypassOf(A, L)) this.tgt[CIX[k]] += FLOOR;
+  // 3–4. guard and class, in a fixed cable order (deterministic)
+  const fadj = new Map(), live = new Map();
+  for (let i = 0; i < NC; i++) { const c = CABLES[i]; if (this.f2[i] > 0 && c.nn) addAdj(fadj, c.u, c.v); if (this.f2[i] + this.b2[i] > 0 && !isLane(c.u)) addAdj(live, c.u, c.v); }
+  let wait = false, waitOther = false; const flips = [];
+  for (let i = 0; i < NC; i++) {
+    const c = CABLES[i]; this.held[i] = '';
+    if (!(this.tgt[i] > 0)) { this.tf[i] = this.tb[i] = 0; continue; }
+    if (this.f2[i] + this.b2[i] === 0 && o.plant !== 'noguard') {
+      const why = this.guardBreak(c, live);
+      if (why) { this.held[i] = why; this.tf[i] = this.tb[i] = 0; wait = waitOther = true; continue; }
+    }
+    /* A DIRECTION REVERSAL (u → v becoming v → u) is always an ordered fade, in (a) too:
+       the new direction waits until the old one has retreated, over the bypass. On (a)'s
+       backward part the two cables made a two-node loop one block long — Drive's output
+       back into Filter 1.3 ms late at 48 kHz — that rang as a comb burst on every saw edge:
+       the click the human heard on Filter ↔ Drive flips (12–13 dB live; with the bound off
+       10.6, so it was the loop itself, not the bound's scaling). (a)'s backward part is
+       kept for cycles of three nodes or more, and for a pair with a delay line in it (ECHO,
+       Scape, Sluice): its round trip is the module's own delay, an echo, not a 1.3 ms comb,
+       and there waiting measured worse (its bypass flash) than the loop. PLANT 'flipdelay':
+       the round-3-v1 behaviour. */
+    if (c.nn && !TAIL_TYPES[c.u] && !TAIL_TYPES[c.v] && this.f2[i] + this.b2[i] === 0 && o.plant !== 'flipdelay') {
+      const r = CIX[c.v + '>' + c.u];
+      if (this.f2[r] + this.b2[r] > 0) { this.held[i] = 'flip'; this.tf[i] = this.tb[i] = 0; wait = true; flips.push([c.u, c.v]); continue; }
+    }
+    if (!isLane(c.u)) addAdj(live, c.u, c.v);
+    if (!c.nn || this.f2[i] > 0 || !reaches(fadj, c.v, c.u)) { this.tf[i] = this.tgt[i]; this.tb[i] = 0; if (c.nn) addAdj(fadj, c.u, c.v); continue; }
+    if (o.loop === 'a') { this.tf[i] = 0; this.tb[i] = this.tgt[i]; }
+    else { this.held[i] = 'loop'; this.tf[i] = this.tb[i] = 0; wait = waitOther = true; }
+  }
+  // a ringing tail never blocks a cable: if anything waits, every held tail is released
+  if (wait) for (let i = 0; i < NC; i++) if (this.hs[i] === 1) { this.hs[i] = 2; this.log.push({ n: this.n, kind: 'tailcut', k: CABLES[i].k }); }
+  if (wait && !this.wait) this.log.push({ n: this.n, kind: 'wait' });
+  this.wait = wait; this.waitOther = waitOther; this.flips = flips;
+  // 5. glide
+  const a = this.ka;
+  for (let i = 0; i < NC; i++) {
+    this.pf[i] = this.f2[i]; this.pb[i] = this.b2[i];
+    let t = this.tf[i]; this.f1[i] += (t - this.f1[i]) * a; this.f2[i] += (this.f1[i] - this.f2[i]) * a;
+    if (Math.abs(this.f1[i] - t) < SNAP && Math.abs(this.f2[i] - t) < SNAP) this.f1[i] = this.f2[i] = t;
+    t = this.tb[i]; this.b1[i] += (t - this.b1[i]) * a; this.b2[i] += (this.b1[i] - this.b2[i]) * a;
+    if (Math.abs(this.b1[i] - t) < SNAP && Math.abs(this.b2[i] - t) < SNAP) this.b1[i] = this.b2[i] = t;
+  }
+  // a transition closes when every cable has landed and nothing waits or rides backward
+  let landed = !wait;
+  for (let i = 0; landed && i < NC; i++) if (this.f2[i] !== this.tf[i] || this.b2[i] !== 0 || this.tb[i] !== 0) landed = false;
+  if (landed) this.open = 0;
+  this.finish();
+};
+/* the bypass for a lane while a cable waits (strategy b, or a guard): the lane's dry to
+   OUT — or, when the lane's target runs through a MULTIBAND Bulwark, into Bulwark and
+   from Bulwark to OUT, so nothing unphased is summed with it (ADR-195). */
+Cables.prototype.bypassOf = function (A, L) {
+  if (this.T[CIX[L + '>OUT']] >= 1) return [];                        // the lane already goes straight out
+  const i0 = L === 'BODY' ? 0 : A.chain.indexOf(A.sub), mb = A.chain.indexOf('DYN');
+  const ks = i0 >= 0 && mb >= i0 && (A.prm.DYN.bands || 1) > 1 && this.o.plant !== 'mbbypass' ? [L + '>DYN', 'DYN>OUT'] : [L + '>OUT'];
+  return ks.filter(k => this.T[CIX[k]] < 1);                            // a bypass cable the target already carries in full is not added again
+};
+/* the forward processing order: Kahn over the node cables whose forward part is alive in
+   this block or the last (the rack interpolates between the two), ties by house order */
+function topoOrder(pf, f2) {
+  const indeg = {}, adj = {};
+  for (const t of TYPES) { indeg[t] = 0; adj[t] = []; }
+  for (let i = 0; i < NC; i++) { const c = CABLES[i]; if (c.nn && (pf[i] > 0 || f2[i] > 0)) { adj[c.u].push(c.v); indeg[c.v]++; } }
+  const out = [], done = new Set();
+  while (out.length < TYPES.length) {
+    let pick = null;
+    for (const t of TYPES) if (!done.has(t) && indeg[t] === 0) { pick = t; break; }
+    if (!pick) { for (const t of TYPES) if (!done.has(t)) { pick = t; break; } }   // unreachable by construction; never loop forever
+    done.add(pick); out.push(pick); for (const v of adj[pick]) indeg[v]--;
+  }
+  return out;
+}
+/* every simple cycle of live node cables (each from its lowest house index). Only a
+   backward part can close one, so with none alive there is nothing to search. */
+Cables.prototype.cycles = function () {
+  let any = false; for (let i = 0; i < NC; i++) if (this.b2[i] > 0) { any = true; break; }
+  if (!any) return [];
+  const out = [], adj = TYPES.map(() => []);
+  for (let i = 0; i < NC; i++) { const c = CABLES[i]; if (c.nn && this.f2[i] + this.b2[i] > 0) adj[HOUSE[c.u]].push([HOUSE[c.v], i]); }
+  for (let s = 0; s < TYPES.length; s++) {
+    const path = [], on = new Uint8Array(TYPES.length);
+    const dfs = u => { for (const [v, i] of adj[u]) { if (out.length > 4000) return; if (v === s) out.push(path.concat([i])); else if (v > s && !on[v]) { on[v] = 1; path.push(i); dfs(v); path.pop(); on[v] = 0; } } };
+    on[s] = 1; dfs(s);
+  }
+  return out;
+};
+/* 6–7: the loop bound (a), the effective weights the rack plays, the lane normaliser */
+Cables.prototype.finish = function () {
+  const o = this.o;
+  this.order = topoOrder(this.pf, this.f2);
+  this.sc.fill(1); this.loopRaw = 0; this.loopMax = 0;
+  const cyc = this.cycles(); this.nCyc = cyc.length;
+  if (cyc.length) {
+    const B = o.loop === 'a' && o.plant !== 'nobound' && o.bound < BOUND_OFF ? o.bound : Infinity;
+    const gain = cy => { let g = 1; for (const i of cy) g *= (this.f2[i] + this.sc[i] * this.b2[i]) * GMAX[CABLES[i].u]; return g; };
+    for (const cy of cyc) this.loopRaw = Math.max(this.loopRaw, gain(cy));
+    /* DETERMINISTIC SCALING: a cycle over the bound scales the BACKWARD part of every one
+       of its cables by one factor s, found by bisection so the cycle lands on the bound
+       (the gain rises monotonically in s, and is 0 at s = 0: some cable in any cycle has
+       no forward part, or the forward graph would hold the cycle). Every backward part,
+       not only the purely backward cables: the first build scaled only those, and a cable
+       starting its backward→forward crossfade left the set and stepped 0.27 in a tick.
+       Cycles share cables, so the pass repeats (each pass only lowers gains). */
+    if (B < Infinity) for (let pass = 0; pass < 8; pass++) {
+      let ch = false;
+      for (const cy of cyc) {
+        if (gain(cy) <= B * (1 + 1e-9)) continue;
+        const at = s => { let g = 1; for (const i of cy) g *= (this.f2[i] + s * this.sc[i] * this.b2[i]) * GMAX[CABLES[i].u]; return g; };
+        let lo = 0, hi = 1; for (let it = 0; it < 40; it++) { const m = 0.5 * (lo + hi); if (at(m) > B) hi = m; else lo = m; }
+        for (const i of cy) if (this.b2[i] > 0) this.sc[i] *= lo; ch = true;
+      }
+      if (!ch) break;
+    }
+    for (const cy of cyc) this.loopMax = Math.max(this.loopMax, gain(cy));
+  }
+  for (let i = 0; i < NC; i++) { this.wf[i] = this.f2[i]; this.wb[i] = this.sc[i] * this.b2[i]; }
+  /* ROUND 2'S NORMALISATION, on cables: a lane's transmission splits into what runs on the
+     target's own cables (T_tg) and the rest (old paths, held tails, the bypass); the
+     lane's source cables are scaled by 1/‖(T_tg, rest)‖_p — round 2's u/‖u‖_p over one
+     split group — capped so the coherent sum never passes +3 dB, and at ×4. The target's
+     own transmission is 1 (closed form), so at rest the factor is 1. */
+  /* WHICH cables are "the target's" GLIDES too (a membership m in [0, 1], same τ): an
+     admission re-assigns them, and a binary mask moved 1/‖·‖_p in one tick (the first
+     build stepped a lane's source cables by 0.74 in 4 ms; gliding the factor instead
+     lagged, overshot and collided with the cap). */
+  const mask = this.m2;
+  for (let i = 0; i < NC; i++) {
+    const t = this.T[i] > 0 ? 1 : 0;
+    if (this.fresh) { this.m1[i] = this.m2[i] = t; continue; }
+    this.m1[i] += (t - this.m1[i]) * this.ka; this.m2[i] += (this.m1[i] - this.m2[i]) * this.ka;
+    if (Math.abs(this.m1[i] - t) < SNAP && Math.abs(this.m2[i] - t) < SNAP) this.m1[i] = this.m2[i] = t;
+  }
+  for (const L of LANES) {
+    let n = 1;
+    if (o.norm) {
+      const all = transOf(this.order, this.wf, this.wb, L).OUT, tg = transOf(this.order, this.wf, this.wb, L, mask).OUT, rest = Math.max(0, all - tg), p = o.p;
+      const Lp = p === 1 ? tg + rest : Math.pow(Math.pow(tg, p) + Math.pow(rest, p), 1 / p);
+      n = Math.min(NMAX, Lp > 1e-9 ? 1 / Lp : NMAX, all > 1e-9 ? CEIL / all : NMAX);
+    }
+    this.nL[L] = n;
+    for (const i of OUTOF[L]) { this.wf[i] *= n; this.wb[i] *= n; }
+  }
+};
+/* what a sweep and the self-check read each tick, on the weights the rack plays */
+Cables.prototype.audit = function () {
+  const r = { gain: {}, banned: 0, path: '', mixed: false, cyc: this.nCyc, loop: this.loopMax, loopRaw: this.loopRaw, wait: this.wait };
+  const t = {};
+  for (const L of LANES) { t[L] = transOf(this.order, this.wf, this.wb, L); r.gain[L] = t[L].OUT; }
+  for (const k in BANNED) r.banned = Math.max(r.banned, this.wf[CIX[k]] + this.wb[CIX[k]]);
+  const live = new Map(), noDirect = new Map();
+  for (let i = 0; i < NC; i++) { const c = CABLES[i]; if (c.nn && this.wf[i] + this.wb[i] > 0) { addAdj(live, c.u, c.v); if (c.k !== 'REV>DYN') addAdj(noDirect, c.u, c.v); } }
+  if (reaches(live, 'REV', 'NET')) r.path = 'R3: a live Scape ⇝ Sluice path';
+  else if (reaches(noDirect, 'REV', 'DYN')) r.path = 'R2: Scape ⇝ Bulwark other than straight in';
+  else if (live.has('REV') && live.get('REV').has('DYN') && live.has('DYN')) r.path = 'R2: Bulwark after Scape is not last';
+  /* ADR-195: a multiband Bulwark summed, at any node input or OUT, with a branch of the
+     SAME lane that did not pass through it (> 1 % of the sum each way). The Sub entering
+     after Bulwark is another source, not a branch, and is not counted. */
+  if ((this.prm.DYN.bands || 1) > 1) {
+    const tD = transOf(this.order, this.wf, this.wb, null, null, 'DYN');
+    for (const L of LANES) if (t[L].DYN > 1e-3) for (const v of DST) {
+      if (v === 'DYN' || !(t[L][v] > 1e-3)) continue;
+      const thru = t[L].DYN * tD[v], around = t[L][v] - thru;
+      if (thru > 0.01 * t[L][v] && around > 0.01 * t[L][v]) { r.mixed = true; break; }
+    }
+  }
+  return r;
+};
+
+/* ---------- THE RACK: eight resident nodes, block-wise in the forward order ----------
+   Every node owns one instance for the life of the rack: nothing is rebuilt, nothing is
+   reset. A block runs node by node in the cables' forward order; a node's input is the
+   sum of its cables, each weight interpolated across the block (as round 2's engine
+   does); a BACKWARD part reads its source's output from the block before — the one
+   block of delay. SLEEP: a node whose input peak is under the threshold and whose
+   output and held memory are too stops running and outputs zeros; its instance keeps
+   every sample of its state. It wakes, state intact, in the first block whose input
+   clears the threshold. A node whose output goes nowhere still runs until its memory has
+   decayed: the first build slept it at once and an ECHO woke later replaying a frozen
+   echo (a 0.033 step). Only a memory that never decays (feedback ≥ 1) is put to sleep
+   loud, once its output has been disconnected for its tail cap; such a wake ramps the
+   node's output in over one glide, the one place a wake is shaped. */
+function Rack(sr, tick) {
+  this.sr = sr; this.tick = tick; this.n = 0; this.ph = [0, 0, 0, 0]; this.pulse = false; this.probe = false; this.lb = 0; this.ls = 0;
+  this.inst = {}; this.cur = {}; this.last = {}; this.asleep = {};
+  for (const t of TYPES) { this.inst[t] = mkInst(t, sr); this.cur[t] = new Float64Array(tick); this.last[t] = new Float64Array(tick); this.asleep[t] = false; }
+  this.lane = { BODY: new Float64Array(tick), SUB: new Float64Array(tick) };
+  this.pwf = new Float64Array(NC); this.pwb = new Float64Array(NC); this.x = new Float64Array(tick); this.primed = false;
+  this.awake = TYPES.length; this.cpu = 0; this.jump = 0; this.sleeps = 0; this.wakes = 0; this.cpuSum = 0; this.blocks = 0;
+  this.cut = {}; this.loud = {}; this.ramp = {}; for (const t of TYPES) { this.cut[t] = 0; this.loud[t] = false; this.ramp[t] = 1; }
+}
+Rack.prototype.mix = function (i, C, x, n) {
+  const w0 = this.pwf[i], w1 = C.wf[i], b0 = this.pwb[i], b1 = C.wb[i];
+  if (w0 === 0 && w1 === 0 && b0 === 0 && b1 === 0) return;
+  const c = CABLES[i], src = isLane(c.u) ? this.lane[c.u] : this.cur[c.u];
+  for (let s = 0; s < n; s++) x[s] += (w0 + (w1 - w0) * s / n) * src[s];
+  if (b0 === 0 && b1 === 0) return;
+  const old = this.last[c.u];
+  for (let s = 0; s < n; s++) x[s] += (b0 + (b1 - b0) * s / n) * old[s];
+};
+Rack.prototype.outW = function (t, C) {
+  let m = 0; for (const i of OUTOF[t]) m = Math.max(m, this.pwf[i], C.wf[i], this.pwb[i], C.wb[i]);
+  return m;
+};
+Rack.prototype.block = function (C, out, off, n) {
+  const sr = this.sr, o = C.o, thr = Math.pow(10, (o.sleepDb === undefined ? SLEEP_DB : o.sleepDb) / 20), x = this.x;
+  if (!this.primed) { this.pwf.set(C.wf); this.pwb.set(C.wb); this.primed = true; }
+  for (const t of TYPES) this.inst[t].set(C.prm[t]);
+  for (let s = 0; s < n; s++) { lanesNext(this, sr); this.lane.BODY[s] = this.lb; this.lane.SUB[s] = this.ls; this.n++; }
+  let awake = 0, cpu = 0;
+  for (const t of C.order) {
+    x.fill(0, 0, n);
+    for (const i of INTO[t]) this.mix(i, C, x, n);
+    const y = this.cur[t], it = this.inst[t], ow = this.outW(t, C);
+    let pin = 0; for (let s = 0; s < n; s++) { const a = x[s] < 0 ? -x[s] : x[s]; if (a > pin) pin = a; }
+    if (o.sleep && this.asleep[t] && pin < thr) { y.fill(0, 0, n); continue; }
+    const woke = this.asleep[t];
+    this.asleep[t] = false;
+    for (let s = 0; s < n; s++) y[s] = it.run(x[s]);
+    if (woke && this.loud[t]) { this.ramp[t] = 0; this.loud[t] = false; }
+    if (this.ramp[t] < 1) { const dr = 1 / Math.max(1, (o.glide || GLIDE_S) * sr); for (let s = 0; s < n; s++) { this.ramp[t] = Math.min(1, this.ramp[t] + dr); y[s] *= this.ramp[t]; } }
+    if (woke) { this.wakes++; const j = Math.abs(y[0]) * ow; if (j > this.jump) { this.jump = j; this.jumpWhy = SHORT[t] + ' woke at block ' + this.blocks; } }
+    awake++; cpu += COST[t];
+    if (!o.sleep) continue;
+    let pout = 0; for (let s = 0; s < n; s++) { const a = y[s] < 0 ? -y[s] : y[s]; if (a > pout) pout = a; }
+    const held = Math.max(pout, it.tail ? it.tail() : 0);
+    this.cut[t] = ow === 0 && pin < thr ? this.cut[t] + n / sr : 0;
+    const stuck = this.cut[t] > (TAIL_TYPES[t] ? C.caps[t] : 0) && held >= thr;
+    if (stuck) this.loud[t] = true;
+    // PLANT 'sleeptail': sleep on silent input alone, ignoring the tail still ringing
+    if (pin < thr && (held < thr || stuck || o.plant === 'sleeptail')) { this.asleep[t] = true; this.sleeps++; const j = Math.abs(y[n - 1]) * ow; if (j > this.jump) { this.jump = j; this.jumpWhy = SHORT[t] + ' slept at block ' + this.blocks; } }
+  }
+  x.fill(0, 0, n);
+  for (const i of INTO.OUT) this.mix(i, C, x, n);
+  for (let s = 0; s < n; s++) out[off + s] = OUT_GAIN * x[s];
+  for (const t of TYPES) { const q = this.last[t]; this.last[t] = this.cur[t]; this.cur[t] = q; }
+  this.pwf.set(C.wf); this.pwb.set(C.wb);
+  this.awake = awake; this.cpu = cpu; this.cpuSum += cpu; this.blocks++;
+};
+
+/* ---------- defaults (round 2's, plus round 3's) ---------- */
+const DEFAULTS = { set: 'four', mode: 'quantum', snap: true, method: 'decode', sharpen: true, gamma: 2, jitter: true, T: 0.7,
+                   norm: true, p: 2, K: 2, tails: true, caps: Object.assign({}, DEFAULT_CAPS), seed: 265, plant: null,
+                   engine: 'r3', loop: 'a', sleep: true, glide: GLIDE_S, bound: LOOP_BOUND, sleepDb: SLEEP_DB };
+const setById = id => SETS.find(s => s.id === id) || SETS[0];
+const optsWith = extra => Object.assign({}, DEFAULTS, { caps: Object.assign({}, DEFAULTS.caps) }, extra || {});
+const morphOf = o => makeMorph(setById(o.set).corners, o);
+/* ---------- COPIED from round 2 (fx-chain-morph-lab-r2.html lines 998–1010; Router→R2Router, Engine→R2Engine) ---------- */
+/* ---------- a sweep: the puck moved along a path, through the router ---------- */
+const RSR = 16000, TICK = 64;                 // headless control tick: 4 ms
+const SW_PRE = 0.2, SW_MOVE = 2.4, SW_POST = 1.2;
+const STEP_MAX = 0.25;                        // round 1's I5: a crossfade moves a weight ≤ 0.07 per dx; a hard switch moves 1
+const SWEEPS = [
+  { id: 'bottom', name: 'bottom edge A→B', xy: u => [u, 0], edge: [0, 1] },
+  { id: 'top', name: 'top edge C→D', xy: u => [u, 1], edge: [2, 3] },
+  { id: 'left', name: 'left edge A→C', xy: u => [0, u], edge: [0, 2] },
+  { id: 'right', name: 'right edge B→D', xy: u => [1, u], edge: [1, 3] },
+  { id: 'diag', name: 'diagonal A→D', xy: u => [u, u] },
+  { id: 'anti', name: 'diagonal B→C', xy: u => [1 - u, u] },
+  { id: 'loop', name: 'circle round the middle', xy: u => [0.5 + 0.38 * Math.cos(2 * Math.PI * u + Math.PI), 0.5 + 0.38 * Math.sin(2 * Math.PI * u + Math.PI)] },
+];
+/* ---------- COPIED from round 2 (fx-chain-morph-lab-r2.html lines 1073–1073; Router→R2Router, Engine→R2Engine) ---------- */
+const sweepW = (M, sw) => u => { const [x, y] = sw.xy(u); return weightsXY(M, x, y); };
+
+/* ---------- a sweep through the cables (headless; the same Cables POWER plays) ---------- */
+/* ADR-195 allows a multiband Bulwark only a BRIEF parallel sum (Bulwark's own switch is a
+   20 ms crossfade). Here brief means: no longer than one glide takes to land, 10 τ (two
+   cascaded one-poles of τ/2 reach 1e-4 in ≈ 6.7 τ; the rest is the 1 % detector's margin). */
+const MB_BRIEF_TAU = 10;
+function runSweep3(M, wFn, opt) {
+  opt = opt || {};
+  const dt = TICK / RSR, nPre = Math.round(SW_PRE / dt), nMove = Math.round(SW_MOVE / dt), nPost = Math.round((opt.post || SW_POST) / dt);
+  const N = nPre + nMove + nPost, C = new Cables(M, RSR, TICK);
+  let st = mapW(M, wFn(0)); C.settle(st);
+  const S = { min: { BODY: Infinity, SUB: Infinity }, max: { BODY: -Infinity, SUB: -Infinity }, loop: 0, loopRaw: 0, banned: 0, path: 0, mixMax: 0, waitTicks: 0,
+              cycTicks: 0, maxStep: 0, changes: 0, why: {}, n: N, hash: 0x811c9dc5, maxOpen: 0 };
+  const pw = Float64Array.from(C.wf), pb = Float64Array.from(C.wb), pn = Object.assign({}, C.nL);
+  let u0 = -1, prevKey = structKey(st), run = 0;
+  S.nStep = 0; S.nMax = 0;
+  for (let i = 0; i < N; i++) {
+    const u = clamp01((i - nPre) / nMove);
+    if (u !== u0) { st = mapW(M, wFn(u)); u0 = u; }
+    const k = structKey(st); if (k !== prevKey) { S.changes++; prevKey = k; }
+    C.step(st);
+    const a = C.audit();
+    for (const L of LANES) { const g = a.gain[L]; if (g < S.min[L]) S.min[L] = g; if (g > S.max[L]) S.max[L] = g; }
+    if (a.loop > S.loop) S.loop = a.loop;
+    if (a.loopRaw > S.loopRaw) S.loopRaw = a.loopRaw;
+    if (a.banned > S.banned) S.banned = a.banned;
+    if (a.path) { S.path++; S.why.path = S.why.path || a.path + ' at tick ' + i; }
+    run = a.mixed ? run + 1 : 0; if (run * dt > S.mixMax) S.mixMax = run * dt;
+    if (a.wait) S.waitTicks++;
+    if (a.cyc) S.cycTicks++;
+    if (C.open > S.maxOpen) S.maxOpen = C.open;
+    /* continuity on the node-side cables (a lane's source cables carry the normaliser,
+       which moves as fast as the paths it compensates; its rate is reported apart) */
+    for (let j = 0; j < NC; j++) { const d = Math.max(Math.abs(C.wf[j] - pw[j]), Math.abs(C.wb[j] - pb[j])); if (!isLane(CABLES[j].u) && d > S.maxStep) { S.maxStep = d; S.why.step = CABLES[j].k + ' at tick ' + i; } pw[j] = C.wf[j]; pb[j] = C.wb[j]; }
+    for (const L of LANES) { S.nStep = Math.max(S.nStep, Math.abs(C.nL[L] - pn[L])); S.nMax = Math.max(S.nMax, C.nL[L]); pn[L] = C.nL[L]; }
+    let h = S.hash; for (let j = 0; j < NC; j++) if (C.wf[j] || C.wb[j]) h = Math.imul(h ^ fnv(j + ':' + C.wf[j].toPrecision(15) + ',' + C.wb[j].toPrecision(15)), 0x01000193) >>> 0;
+    S.hash = h;
+  }
+  S.byKind = {}; for (const e of C.log) S.byKind[e.kind] = (S.byKind[e.kind] || 0) + 1;
+  S.minDb = Math.min(db(S.min.BODY), db(S.min.SUB)); S.maxDb = Math.max(db(S.max.BODY), db(S.max.SUB));
+  S.mbBrief = MB_BRIEF_TAU * M.o.glide;
+  return S;
+}
+/* ---------- COPIED from round 2 (fx-chain-morph-lab-r2.html lines 996–996; Router→R2Router, Engine→R2Engine) ---------- */
+const db = g => 20 * Math.log10(Math.max(1e-9, g));
+
+/* ---------- rendering: either engine, the same lanes, a schedule of pad points ----------
+   wAt(i) gives the corner weights at control tick i. Round 2 plays its own router and
+   engine (insert/remove, wet dips, instances rebuilt on arrival); round 3 plays the
+   Cables and the Rack. Both warm up for 0.5 s on the first point (round 2's practice),
+   so every transition starts from a steady state. Returns the samples and the rack's
+   sleep figures (round 3 only). */
+const WARM_S = 0.5;
+function renderWith(M, wAt, N, opt) {
+  opt = opt || {};
+  const sr = RSR, y = new Float32Array(N), junk = new Float32Array(TICK), r2 = M.o.engine === 'r2';
+  let st = mapW(M, wAt(0)), key = '';
+  const R = r2 ? new R2Router(M, sr, TICK) : new Cables(M, sr, TICK), E = r2 ? new R2Engine(sr) : new Rack(sr, TICK);
+  E.probe = !!opt.probe; E.pulse = !!opt.pulse;
+  R.settle(st);
+  for (let s = 0; s < Math.round(WARM_S * sr); s += TICK) { if (r2) E.block(R.frame(), junk, 0, TICK); else { R.step(st); E.block(R, junk, 0, TICK); } }
+  const info = { awakeMin: TYPES.length, awakeMax: 0, cpuMax: 0, cpuSum: 0, blocks: 0 };
+  if (!r2) { E.jump = 0; E.sleeps = 0; E.wakes = 0; }
+  for (let s = 0, i = 0; s < N; s += TICK, i++) {
+    const w = wAt(i), k = w.join(',');
+    if (k !== key) { st = mapW(M, w); key = k; }
+    R.step(st);
+    if (r2) E.block(R.frame(), y, s, Math.min(TICK, N - s));
+    else {
+      E.block(R, y, s, Math.min(TICK, N - s));
+      info.awakeMin = Math.min(info.awakeMin, E.awake); info.awakeMax = Math.max(info.awakeMax, E.awake);
+      info.cpuMax = Math.max(info.cpuMax, E.cpu); info.cpuSum += E.cpu; info.blocks++;
+    }
+  }
+  if (!r2) { info.jump = E.jump; info.sleeps = E.sleeps; info.wakes = E.wakes; info.cpuAvg = info.cpuSum / Math.max(1, info.blocks); }
+  info.y = y;
+  return info;
+}
+/* a sweep as a schedule: still, move, still (the sweep table's timing) */
+function sweepSchedule(M, sw) {
+  const dt = TICK / RSR, nPre = Math.round(SW_PRE / dt), nMove = Math.round(SW_MOVE / dt), f = sweepW(M, sw);
+  return { wAt: i => f(clamp01((i - nPre) / nMove)), N: Math.round((SW_PRE + SW_MOVE + SW_POST) * RSR) };
+}
+const RESIDENT_CPU = TYPES.reduce((s, t) => s + COST[t], 0);   // every node awake: 15 points
+
+/* ---------- THE CLICK METRIC ----------
+   DEFINITION. A click is a broadband transient: a step in a signal's value or slope. Its
+   energy lands in the second difference d2[n] = y[n] − 2y[n−1] + y[n−2] (a +12 dB/oct
+   emphasis: a step of h makes a d2 spike of h; a steady sine of frequency f has a d2 of
+   only (2πf/sr)² times its level). Cut d2 into 2 ms slices and take each slice's RMS e.
+   A slice's IMPULSIVENESS is e over the median e of its own ±32 ms neighbourhood, in dB:
+   a steady signal reads 0 dB, a smooth timbral or level change reads near 0 dB (the median
+   follows it), and a click stands out by its height. A TRANSITION's click is the worst
+   impulsiveness inside its span, less the worst in the steady 0.25 s before and after (the
+   measure's own floor on that material), floored at 0 dB.
+   WHY THIS ONE. It needs no reference render (round 2's step metric compared 32 ms levels,
+   which a 2 ms click barely moves, and an "ideal" transition between stateful nonlinear
+   chains does not exist to subtract). It is local, so it works on the live stream with the
+   same function. It is deterministic and level-independent. It is measured on a SINE PROBE
+   (the lanes as sines, no gating), where a click has nothing to hide behind; the saw chord
+   hides some of it, so by ear the saws click less than these numbers.
+   LIMIT. It is blind to clicks slower than 2 ms × the neighbourhood (a 30 ms bump is a
+   level change to it, not a click), and to anything after the span (a tail released 2 s
+   later is a separate event). */
+const CLK_SLICE_S = 0.002, CLK_HOOD = 16, CLK_STEADY_S = 0.25, CLK_SPAN_S = 1.0;
+function sliceRms(y, sr) {
+  const W = Math.max(4, Math.round(CLK_SLICE_S * sr)), n = Math.floor(y.length / W), e = new Float64Array(n);
+  for (let k = 0; k < n; k++) {
+    let s = 0;
+    for (let i = k * W; i < (k + 1) * W; i++) { if (i < 2) continue; const d = y[i] - 2 * y[i - 1] + y[i - 2]; s += d * d; }
+    e[k] = Math.sqrt(s / W);
+  }
+  return { e, W };
+}
+function impulsiveness(e) {
+  const n = e.length, r = new Float64Array(n);
+  let gmax = 0; for (const v of e) if (v > gmax) gmax = v;
+  const tiny = Math.max(1e-12, 1e-6 * gmax), buf = [];
+  for (let k = 0; k < n; k++) {
+    buf.length = 0;
+    for (let j = Math.max(0, k - CLK_HOOD); j <= Math.min(n - 1, k + CLK_HOOD); j++) if (j !== k) buf.push(e[j]);
+    buf.sort((a, b) => a - b);
+    const med = buf.length ? buf[buf.length >> 1] : e[k];
+    r[k] = 20 * Math.log10(Math.max(tiny, e[k]) / Math.max(tiny, med));
+  }
+  return r;
+}
+/* the click of one transition at sample t0 in y: { db, at } (at: seconds after t0) */
+function clickOf(y, sr, t0) {
+  const { e, W } = sliceRms(y, sr), r = impulsiveness(e), k0 = Math.floor(t0 / W);
+  const ks = Math.round(CLK_STEADY_S * sr / W), kspan = Math.round(CLK_SPAN_S * sr / W);
+  let pre = 0, post = 0, peak = -Infinity, at = 0;
+  for (let k = Math.max(0, k0 - ks); k < k0; k++) pre = Math.max(pre, r[k]);
+  for (let k = k0 + kspan; k < Math.min(r.length, k0 + kspan + ks); k++) post = Math.max(post, r[k]);
+  for (let k = k0; k < Math.min(r.length, k0 + kspan); k++) if (r[k] > peak) { peak = r[k]; at = (k - k0) * W / sr; }
+  return { db: Math.max(0, peak - Math.max(pre, post)), at, floor: Math.max(pre, post) };
+}
+/* THE TRANSITIONS: every structural change (chain, Sub entry, band count) a sweep path
+   crosses, found on 241 points along it; each becomes a STEP — the pad held just before
+   the change, then just after it — so every behaviour meets the same boundary from the
+   same steady state. Duplicates (same before → after structures) are measured once. */
+function transitionsOf(M) {
+  const ev = [], seen = new Set(), P = 240;
+  for (const sw of SWEEPS) {
+    const f = sweepW(M, sw); let prevU = 0, prevSt = mapW(M, f(0));
+    for (let q = 1; q <= P; q++) {
+      const u = q / P, st = mapW(M, f(u)), a = structKey(prevSt), b = structKey(st);
+      if (a !== b && !seen.has(a + '→' + b)) { seen.add(a + '→' + b); ev.push({ sw: sw.id, u0: prevU, u1: u, from: prevSt, to: st, w0: f(prevU), w1: f(u) }); }
+      prevU = u; prevSt = st;
+    }
+  }
+  return ev;
+}
+/* one transition through one behaviour: a render of steady + span + steady after the warm-up */
+function clickRun(M, tr) {
+  const pre = Math.round(CLK_STEADY_S * RSR / TICK) * TICK, N = pre + Math.round((CLK_SPAN_S + CLK_STEADY_S) * RSR);
+  const r = renderWith(M, i => i * TICK < pre ? tr.w0 : tr.w1, N, { probe: true });
+  const c = clickOf(r.y, RSR, pre);
+  c.cpuMax = r.cpuMax; c.cpuAvg = r.cpuAvg;
+  return c;
+}
+/* the three behaviours the A/B compares, from one option set */
+const BEHAVIOURS = [
+  { id: 'r3a', name: 'round 3 (a) loop bound', patch: { engine: 'r3', loop: 'a' } },
+  { id: 'r3b', name: 'round 3 (b) ordered fades', patch: { engine: 'r3', loop: 'b' } },
+  { id: 'r2', name: 'round 2 insert/remove', patch: { engine: 'r2' } },
+];
+function clickTable(o, limit) {
+  const M0 = morphOf(o), evs = transitionsOf(M0).slice(0, limit || Infinity), Ms = BEHAVIOURS.map(b => morphOf(Object.assign({}, o, b.patch)));
+  return evs.map(tr => { const row = { tr }; BEHAVIOURS.forEach((b, i) => { row[b.id] = clickRun(Ms[i], tr); }); return row; });
+}
+
+/* the LIVE click meter: the same clickOf, on what the speakers get. It keeps the last
+   few seconds in a ring; a structural change marks the sample count, and once the span and
+   the steady stretch after it have been heard, that stretch is measured. Pure: it is fed
+   samples, it reads no clock. */
+function ClickMeter(sr) {
+  this.sr = sr; this.len = Math.ceil((2 * CLK_STEADY_S + CLK_SPAN_S + 0.2) * sr); this.buf = new Float32Array(this.len);
+  this.w = 0; this.n = 0; this.reset();
+}
+ClickMeter.prototype.reset = function () { this.marks = []; this.res = []; this.worst = 0; };
+ClickMeter.prototype.push = function (y) { for (let i = 0; i < y.length; i++) { this.buf[this.w] = y[i]; this.w = (this.w + 1) % this.len; } this.n += y.length; };
+ClickMeter.prototype.mark = function () { this.marks.push(this.n); };
+ClickMeter.prototype.poll = function () {
+  const sr = this.sr, pre = Math.round(CLK_STEADY_S * sr), need = Math.round((CLK_SPAN_S + CLK_STEADY_S) * sr);
+  while (this.marks.length && this.n >= this.marks[0] + need) {
+    const m = this.marks.shift(), a = m - pre, L = pre + need;
+    if (this.n - a > this.len || a < 0) continue;                       // fell out of the ring (or before the start): not measured
+    const y = new Float32Array(L), start = ((this.w - (this.n - a)) % this.len + this.len) % this.len;
+    for (let i = 0; i < L; i++) y[i] = this.buf[(start + i) % this.len];
+    const c = clickOf(y, sr, pre); this.res.push(c); if (this.res.length > 64) this.res.shift();
+    this.worst = Math.max(this.worst, c.db);
+  }
+};
+ClickMeter.prototype.last = function () { return this.res.length ? this.res[this.res.length - 1] : null; };
+
+/* ---------- edge reduction: a pad edge against its two corners alone ---------- */
+function edgeCompare(o, sw) {
+  const C = setById(o.set).corners, M4 = morphOf(o), M2 = makeMorph([C[sw.edge[0]], C[sw.edge[1]]], o);
+  const four = runSweep3(M4, sweepW(M4, sw)), two = runSweep3(M2, u => weightsT(M2, u));
+  const same = four.hash === two.hash && four.changes === two.changes;
+  return { four, two, same, why: same ? '' : `hash ${four.hash.toString(16)} vs ${two.hash.toString(16)}, ${four.changes} vs ${two.changes} changes` };
+}
+
+/* the per-behaviour summary of a click table: worst, mean, how many over 3 dB, CPU */
+function clickSummary(rows) {
+  const s = {};
+  for (const b of BEHAVIOURS) {
+    const v = rows.map(r => r[b.id].db);
+    s[b.id] = { worst: v.length ? Math.max(...v) : 0, mean: v.length ? v.reduce((a, c) => a + c, 0) / v.length : 0, over3: v.filter(x => x > 3).length,
+                cpu: rows.length ? Math.max(...rows.map(r => r[b.id].cpuMax || 0)) : 0 };
+  }
+  return s;
+}
+/* ---------- REVERSALS, measured as they are heard ----------
+   The human heard a click on Filter ↔ Drive flips that the step metric (16 kHz, sine
+   probe) read at only 4–6 dB: it lives on the SAW edges, at the browser's rate, where one
+   block is 1.3 ms. So a reversal is measured LIVE-LIKE — 48 kHz, 64-sample ticks, the saw
+   chord, the puck slewed over the boundary with the page's 40 ms time constant — and its
+   floor is the worst impulsiveness either steady chain makes held still over the same
+   render (a Drive after a Filter clips saw edges into spikes of its own; that is the
+   chain's sound, not the transition's). A REVERSAL is a transition where some node cable
+   u → v becomes v → u. */
+const LIVE_SR = 48000, LIVE_TICK = 64, PUCK_TAU_S = 0.04;
+/* THE STATED CEILING: no reversal clicks more than 7 dB above its chains' own floor. At the
+   round-3 gain staging, round-3 v1's Filter ↔ Drive flips read up to 8.4 dB (10.1–12.3 at
+   round 2's hot levels, where the human heard them); with the parallel hand-over they read
+   ≤ 2.7. The worst reversal left, 6.2 dB, is close·right's Drive → Filter swap, which reads
+   5.8 under v1 and 6.6 under round 2: the timbre jump itself, which a slower glide softens. */
+const REV_CEIL_DB = 7;
+function reversalOf(a, b) {
+  const A = targetCables(a), B = targetCables(b);
+  for (let i = 0; i < NC; i++) { const c = CABLES[i]; if (c.nn && A[i] > 0 && B[CIX[c.v + '>' + c.u]] > 0) return c.u + '→' + c.v; }
+  return '';
+}
+function renderLive(o, w0, w1, N, pre, probe) {
+  const sr = LIVE_SR, tick = LIVE_TICK, M = morphOf(o), r2 = o.engine === 'r2';
+  const R = r2 ? new R2Router(M, sr, tick) : new Cables(M, sr, tick), E = r2 ? new R2Engine(sr) : new Rack(sr, tick);
+  E.probe = !!probe; let st = mapW(M, w0); R.settle(st);
+  const junk = new Float32Array(tick), y = new Float32Array(N), k = Math.exp(-tick / (PUCK_TAU_S * sr));
+  for (let s = 0; s < WARM_S * sr; s += tick) { if (r2) E.block(R.frame(), junk, 0, tick); else { R.step(st); E.block(R, junk, 0, tick); } }
+  let a = 0, key = '';
+  for (let s = 0; s < N; s += tick) {
+    const t = s < pre ? 0 : 1; a = t + (a - t) * k;
+    const w = w0.map((v, i) => v + (w1[i] - v) * a), kk = w.join(',');
+    if (kk !== key) { st = mapW(M, w); key = kk; }
+    R.step(st);
+    if (r2) E.block(R.frame(), y, s, Math.min(tick, N - s)); else E.block(R, y, s, Math.min(tick, N - s));
+  }
+  return y;
+}
+function reversalClick(o, tr) {
+  const sr = LIVE_SR, pre = Math.round(CLK_STEADY_S * sr / LIVE_TICK) * LIVE_TICK, N = pre + Math.round((CLK_SPAN_S + CLK_STEADY_S) * sr);
+  const c = clickOf(renderLive(o, tr.w0, tr.w1, N, pre), sr, pre);
+  let held = 0;
+  for (const w of [tr.w0, tr.w1]) { const r = impulsiveness(sliceRms(renderLive(o, w, w, N, pre), sr).e); for (const v of r) if (v > held) held = v; }
+  const peak = c.db + c.floor;
+  return { db: Math.max(0, peak - Math.max(c.floor, held)), at: c.at, floor: Math.max(c.floor, held) };
+}
+/* every reversal the sweep paths cross on a corner set and mode */
+const reversalsOf = M => transitionsOf(M).filter(e => reversalOf(e.from, e.to));
+
+/* ---------- THE SELF-CHECK: one claim per brief item, one planted fault per claim ---------- */
+const SLEEP_JUMP_X = 6;     // a sleep or wake may move a node's heard output by ≤ 6 × the threshold: a sub-threshold input through the loudest declared gain (×3), plus the kept state, through a cable ≤ 1.5
+const R2_HIGH_DB = 12;      // the round-2 control "reads high": a worst click at least this loud
+function selfCheckSteps() {
+  const rows = [], steps = [];
+  const add = (claim, res, control, cres) => rows.push({ claim, pass: res.ok, detail: res.detail, control, caught: !cres.ok, cdetail: cres.detail });
+  const step = f => steps.push(f);
+  const held = r => r ? { ok: false, detail: r } : { ok: true, detail: 'held — the plant was NOT caught' };
+  const cache = new Map();
+  const sweepOf = (extra, sw) => { const o = optsWith(extra), k = JSON.stringify([o, sw.id]); if (!cache.has(k)) { const M = morphOf(o); cache.set(k, runSweep3(M, sweepW(M, sw))); } return cache.get(k); };
+  /* the grid every sweep claim runs over: 4 corner sets × 2 modes × 2 loop strategies × 7 paths */
+  const every = pred => {
+    let n = 0;
+    for (const set of SETS) for (const mode of ['quantum', 'blend']) for (const loop of ['a', 'b']) for (const sw of SWEEPS) {
+      const s = sweepOf({ set: set.id, mode, loop }, sw), r = pred(s, loop); n++;
+      if (r) return { ok: false, detail: `${set.id} ${mode} (${loop}) ${sw.name}: ${r}` };
+    }
+    return { ok: true, detail: `${n} sweeps (4 sets × 2 modes × 2 strategies × 7 paths) × ${Math.round((SW_PRE + SW_MOVE + SW_POST) * RSR / TICK)} ticks` };
+  };
+  /* WARM-UP steps first, each a slice the page can run between frames (one grid cell of
+     sweeps, one corner set's edges, one transition): the claims below then read caches. */
+  for (const set of SETS) for (const mode of ['quantum', 'blend']) for (const loop of ['a', 'b']) for (const sw of SWEEPS) step(() => sweepOf({ set: set.id, mode, loop }, sw));
+  const edges = new Map(), radialE = [];
+  for (const set of SETS) for (const mode of ['quantum', 'blend']) step(() => { for (const sw of SWEEPS.filter(s => s.edge)) edges.set(set.id + mode + sw.id, edgeCompare(optsWith({ set: set.id, mode }), sw)); });
+  for (const sw of SWEEPS.filter(s => s.edge)) step(() => { const e = edgeCompare(optsWith({ plant: 'radial' }), sw); if (!e.same) radialE.push(`${sw.name}: ${e.why}`); });
+  const o0 = optsWith({}), trs = transitionsOf(morphOf(o0)), Ms = BEHAVIOURS.map(b => morphOf(Object.assign({}, o0, b.patch))), clk = [];
+  for (const tr of trs) step(() => { const row = { tr }; BEHAVIOURS.forEach((b, i) => { row[b.id] = clickRun(Ms[i], tr); }); clk.push(row); });
+  const sleepR = [], sleepP = [];
+  for (const set of ['four', 'bait']) for (const sw of SWEEPS) step(() => { const M = morphOf(optsWith({ set })), q = sweepSchedule(M, sw), r = renderWith(M, q.wAt, q.N, { pulse: true }); sleepR.push({ set, sw, jump: r.jump, cpuAvg: r.cpuAvg, sleeps: r.sleeps }); });
+  for (const sw of SWEEPS.slice(0, 3)) step(() => { const M = morphOf(optsWith({ plant: 'sleeptail' })), q = sweepSchedule(M, sw); sleepP.push(renderWith(M, q.wAt, q.N, { pulse: true }).jump); });
+  const revs = [], revPlant = [];
+  for (const set of SETS) { const M = morphOf(optsWith({ set: set.id })); for (const tr of reversalsOf(M)) for (const loop of ['a', 'b']) step(() => revs.push({ set: set.id, loop, tr, c: reversalClick(optsWith({ set: set.id, loop }), tr) })); }
+  for (const set of SETS) { const M = morphOf(optsWith({ set: set.id })); for (const tr of reversalsOf(M).filter(e => /FLT→DRV|DRV→FLT/.test(reversalOf(e.from, e.to)))) step(() => revPlant.push({ set: set.id, tr, c: reversalClick(optsWith({ set: set.id, plant: 'flipdelay' }), tr) })); }
+  const firstPlant = (extra, pred, sets) => { for (const set of sets || SETS.map(s => s.id)) for (const sw of SWEEPS) { const r = pred(sweepOf(Object.assign({ set }, extra), sw)); if (r) return `${set}, ${sw.name}: ${r}`; } return ''; };
+
+  step(() => {
+    // 1. corners and edges reproduce the two-corner morphs
+    let bad = '', n = 0, m = 0;
+    for (const set of SETS) for (const mode of ['quantum', 'blend']) {
+      const M = morphOf(optsWith({ set: set.id, mode }));
+      CORNER_XY.forEach(([x, y], k) => {
+        const C = new Cables(M, RSR, TICK); C.settle(mapW(M, weightsXY(M, x, y))); m++;
+        const want = targetCables({ chain: M.corners[k].chain, sub: M.corners[k].sub, wet: Object.fromEntries(M.corners[k].chain.map(t => [t, 1])) });
+        for (let i = 0; i < NC; i++) if (Math.abs(C.f2[i] - want[i]) > 1e-12 && !bad) bad = `${set.id} ${mode} corner ${CORNER_ID[k]}: ${CABLES[i].k} ${C.f2[i]} ≠ ${want[i]}`;
+      });
+      for (const sw of SWEEPS.filter(s => s.edge)) { const e = edges.get(set.id + mode + sw.id); n++; if (!e.same && !bad) bad = `${set.id} ${mode} ${sw.name}: ${e.why}`; }
+    }
+    const plant = radialE[0] || '';
+    add('Pad corners and edges reproduce the two-corner results: every corner settles on exactly its preset\'s cables, and on every pad edge the four-corner cables ARE the two-corner morph of that edge\'s corners (round 1\'s setting), every cable weight at every tick',
+        bad ? { ok: false, detail: bad } : { ok: true, detail: `${m} corners; ${n} edge sweeps (4 sets × 2 modes × 4 edges) identical, all ${NC} cables, forward and backward parts` },
+        'radial (inverse-distance) corner weights: the far corners pull on the edge', held(plant));
+  });
+  step(() => {
+    // 2. no disallowed cable, no forbidden path
+    const r = every(s => s.banned > 0 ? `Scape → Sluice at ${s.banned.toFixed(3)}` : s.path ? `${s.path} ticks: ${s.why.path}` : '');
+    const plant = firstPlant({ plant: 'noguard' }, s => s.path ? `${s.path} ticks, ${s.why.path}` : '', ['bait']);
+    add('No disallowed cable is ever nonzero: Scape → Sluice stays at 0, and no live path breaks V (Scape ⇝ Sluice, or Scape ⇝ Bulwark other than E1) at any tick, in either strategy',
+        r, 'the path guard switched off, on the bait set (a cable may emerge whatever path it opens)', held(plant));
+  });
+  step(() => {
+    // 3. ADR-195
+    const r = every(s => s.mixMax > s.mbBrief + 1e-9 ? `multiband Bulwark summed with an unphased branch for ${s.mixMax.toFixed(2)} s (> ${s.mbBrief.toFixed(2)} s)` : '');
+    let worst = 0; for (const [, s] of cache) worst = Math.max(worst, s.mixMax);
+    const plant = firstPlant({ mode: 'blend', plant: 'mbblend' }, s => s.mixMax > s.mbBrief + 1e-9 ? `${s.mixMax.toFixed(2)} s of parallel sum` : '', ['four', 'bait']);
+    add(`ADR-195: a multiband Bulwark is never summed with an unphased branch of the same lane for longer than one glide (${MB_BRIEF_TAU} τ = ${(MB_BRIEF_TAU * DEFAULTS.glide).toFixed(2)} s); its band count flips, and in BLEND its presence flips`,
+        r.ok ? { ok: true, detail: r.detail + ` — longest ${worst.toFixed(2)} s` } : r,
+        'BLEND with Bulwark\'s presence blended continuously (the flip-only rule removed)', held(plant));
+  });
+  step(() => {
+    // 4. the loop bound
+    const r = every((s, loop) => loop === 'a' && s.loop > DEFAULTS.bound * (1 + 1e-9) ? `loop gain ${s.loop.toFixed(3)}` : loop === 'b' && s.cycTicks ? `${s.cycTicks} ticks with a cycle` : '');
+    let raw = 0; for (const [, s] of cache) raw = Math.max(raw, s.loopRaw);
+    const plant = firstPlant({ plant: 'nobound' }, s => s.loop > DEFAULTS.bound * (1 + 1e-9) ? `loop gain ${s.loop.toFixed(2)} > ${DEFAULTS.bound}` : '');
+    add(`Loop gain stays within the bound: in (a) every live cycle returns ≤ ${DEFAULTS.bound} (cable weights × declared gains; unbounded it would reach ${raw.toFixed(2)}), and (b) never has a cycle at all`,
+        r, 'the bound switched off (the control reads red)', held(plant));
+  });
+  step(() => {
+    // 5. the reach floor and the cap
+    const r = every(s => s.minDb < db(FLOOR) - 1e-9 ? `lane at ${dbTxtM(s.minDb)} dB` : s.maxDb > db(CEIL) + 1e-9 ? `lane at +${s.maxDb.toFixed(2)} dB` : '');
+    const plant = firstPlant({ loop: 'b', plant: 'nobypass' }, s => s.minDb < db(FLOOR) - 1e-9 ? `a lane fell to ${dbTxtM(s.minDb)} dB` : '', ['four']);
+    add(`Every lane stays above the reach floor (${db(FLOOR).toFixed(1)} dB) and under the +${db(CEIL).toFixed(2)} dB cap at every tick, both lanes, both strategies`,
+        r, '(b) with nothing carrying a waiting lane — no bypass and no parallel hand-over: the old cable retreats and the new one waits', held(plant));
+  });
+  step(() => {
+    // 6. sleep and wake without a step
+    const thr = Math.pow(10, DEFAULTS.sleepDb / 20), lim = SLEEP_JUMP_X * thr;
+    let jump = 0, cpu = 0, n = 0, sl = 0, why = '';
+    for (const r of sleepR) { if (r.jump > jump) { jump = r.jump; why = `${r.set} ${r.sw.name}`; } cpu += r.cpuAvg; n++; sl += r.sleeps; }
+    const pj = Math.max(0, ...sleepP);
+    add(`Sleep and wake happen without a step: the largest change a sleep or wake makes to what a node feeds on stays ≤ ${SLEEP_JUMP_X} × the threshold (${db(lim).toFixed(0)} dB), and sleeping saves CPU`,
+        jump <= lim && sl > 0 ? { ok: true, detail: `${sl} sleeps over ${n} rendered sweeps (pulse on); worst step ${db(jump).toFixed(0)} dB (${why}); CPU ${(cpu / n).toFixed(1)} points on average against ${RESIDENT_CPU} all awake` }
+                             : { ok: false, detail: `worst step ${jump.toExponential(2)} (${why}), ${sl} sleeps` },
+        'sleep on silent input alone, ignoring the tail still ringing', pj > lim ? { ok: false, detail: `a step of ${pj.toFixed(3)} (${db(pj).toFixed(0)} dB)` } : { ok: true, detail: 'NOT caught' });
+  });
+  step(() => {
+    // 7. the click metric
+    const T = clk, s = clickSummary(T);
+    const ok = s.r3a.worst < s.r2.worst && s.r3b.worst < s.r2.worst;
+    add('Round 3 clicks less than round 2: the worst click over every transition the sweep paths cross (four presets, sine probe) is lower for (a) and for (b) than for round 2\'s insert/remove',
+        ok ? { ok: true, detail: `${T.length} transitions: (a) ${s.r3a.worst.toFixed(1)} dB worst, ${s.r3a.mean.toFixed(2)} mean · (b) ${s.r3b.worst.toFixed(1)} · ${s.r3b.mean.toFixed(2)} · round 2 ${s.r2.worst.toFixed(1)} · ${s.r2.mean.toFixed(2)}` }
+           : { ok: false, detail: `(a) ${s.r3a.worst.toFixed(1)}, (b) ${s.r3b.worst.toFixed(1)}, round 2 ${s.r2.worst.toFixed(1)}` },
+        `round 2's insert/remove itself, which must read high (≥ ${R2_HIGH_DB} dB worst)`, s.r2.worst >= R2_HIGH_DB ? { ok: false, detail: `round 2 reads ${s.r2.worst.toFixed(1)} dB; ${s.r2.over3}/${T.length} transitions over 3 dB` } : { ok: true, detail: `round 2 reads only ${s.r2.worst.toFixed(1)} dB — the metric does not see it` });
+  });
+  step(() => {
+    // 8. determinism
+    const sw = SWEEPS[6], o = optsWith({}), M1 = morphOf(o), M2 = morphOf(o), M3 = morphOf(optsWith({ seed: DEFAULTS.seed + 1 }));
+    const s1 = runSweep3(M1, sweepW(M1, sw)), s2 = runSweep3(M2, sweepW(M2, sw)), s3 = runSweep3(M3, sweepW(M3, sw));
+    const q = sweepSchedule(M1, sw), y1 = renderWith(M1, q.wAt, q.N, { pulse: true }).y, y2 = renderWith(M2, q.wAt, q.N, { pulse: true }).y;
+    let same = y1.length === y2.length; for (let i = 0; same && i < y1.length; i++) if (y1[i] !== y2[i]) same = false;
+    add('Deterministic: the same seed gives the same cables at every tick and a bit-identical render (mulberry32 only, no clock)',
+        same && s1.hash === s2.hash ? { ok: true, detail: `${s1.n} ticks, ${y1.length} samples identical` } : { ok: false, detail: 'differs' },
+        'the next seed, compared as if it were the same', s1.hash === s3.hash ? { ok: true, detail: 'identical — the seed does nothing' } : { ok: false, detail: 'the cables differ: the seed decides' });
+  });
+  step(() => {
+    // 9. direction reversals
+    let worst = null; for (const r of revs) if (!worst || r.c.db > worst.c.db) worst = r;
+    const fd = revs.filter(r => /FLT→DRV|DRV→FLT/.test(reversalOf(r.tr.from, r.tr.to))), fdw = Math.max(0, ...fd.map(r => r.c.db));
+    let p = null; for (const r of revPlant) if (!p || r.c.db > p.c.db) p = r;
+    const ok = worst && worst.c.db <= REV_CEIL_DB;
+    add(`Every direction reversal (a node cable u → v becoming v → u) stays under ${REV_CEIL_DB} dB of click, measured as heard: 48 kHz, the saw chord, the puck slewed over the boundary, floored at what either steady chain makes held still`,
+        ok ? { ok: true, detail: `${revs.length} reversal × strategy runs (4 sets, quantum); worst ${worst.c.db.toFixed(1)} dB (${worst.set} (${worst.loop}) ${worst.tr.sw}, ${reversalOf(worst.tr.from, worst.tr.to)}); Filter ↔ Drive worst ${fdw.toFixed(1)} dB` }
+           : { ok: false, detail: worst ? `${worst.c.db.toFixed(1)} dB: ${worst.set} (${worst.loop}) ${worst.tr.sw}, ${reversalOf(worst.tr.from, worst.tr.to)}` : 'no reversals found' },
+        'round-3 v1: the reversed cable emerges at once on (a)\'s one-block backward part, a two-node Filter ↔ Drive loop (worst Filter ↔ Drive reversal over the four sets)',
+        p && p.c.db > REV_CEIL_DB ? { ok: false, detail: `${p.c.db.toFixed(1)} dB on ${p.set} ${p.tr.sw} ${reversalOf(p.tr.from, p.tr.to)} (worst of ${revPlant.length} Filter ↔ Drive reversals)` } : { ok: true, detail: p ? `only ${p.c.db.toFixed(1)} dB — NOT caught` : 'no Filter ↔ Drive reversal to plant on' });
+  });
+  return { rows, steps, claims: 9 };
+}
+function runSelfCheck() { const c = selfCheckSteps(); for (const f of c.steps) f(); return c.rows; }
+const dbTxtM = v => v === -Infinity ? '−∞' : v.toFixed(2);
+</script>
+
+<script>
+/* ======================================================================
+   BLOCK 2 — THE PAGE. State first, then derived data, renderers, painters,
+   audio, the deferred job queue, and the wiring at the very bottom (L0026:
+   nothing at setup reaches forward).
+   ====================================================================== */
+const $ = id => document.getElementById(id);
+const QS = (() => { try { const q = window.location && window.location.search; return typeof q === 'string' ? q : ''; } catch (_) { return ''; } })();
+const qv = (k, d) => { const m = QS.match(new RegExp('[?&]' + k + '=([^&]+)')); return m ? decodeURIComponent(m[1]) : d; };
+const qb = (k, d) => { const v = qv(k, null); return v === null ? d : v === '1'; };
+/* every setting the page owns; the query string can set any of them (screenshots, links in a review) */
+let o = optsWith({
+  set: setById(qv('set', DEFAULTS.set)).id, mode: qv('mode', DEFAULTS.mode) === 'blend' ? 'blend' : 'quantum',
+  method: qv('method', DEFAULTS.method) === 'walk' ? 'walk' : 'decode', snap: qb('snap', DEFAULTS.snap), sharpen: qb('sharpen', DEFAULTS.sharpen),
+  jitter: qb('jitter', DEFAULTS.jitter), norm: qb('norm', DEFAULTS.norm), tails: qb('tails', DEFAULTS.tails), sleep: qb('sleep', DEFAULTS.sleep),
+  engine: qv('engine', DEFAULTS.engine) === 'r2' ? 'r2' : 'r3', loop: qv('loop', DEFAULTS.loop) === 'b' ? 'b' : 'a',
+  gamma: +qv('gamma', DEFAULTS.gamma), T: +qv('T', DEFAULTS.T), p: +qv('p', DEFAULTS.p), K: +qv('K', DEFAULTS.K), seed: +qv('seed', DEFAULTS.seed),
+  glide: +qv('glide', DEFAULTS.glide), bound: +qv('bound', DEFAULTS.bound), sleepDb: +qv('sleepDb', DEFAULTS.sleepDb),
+});
+let PX = clamp01(+qv('x', '0.42')), PY = clamp01(+qv('y', '0.36'));
+let dark = /theme=dark/.test(QS), sweeping = false, sweepId = qv('sweep', 'loop'), sweepT = 0, dragPad = false, pulse = true, probe = false, dirty = true;
+let M = null, G = null, SWS = {}, CLK = [], CLK_N = 0, EDG = {}, CHECK = null, CHECK_N = 0, PAL = {};
+let AC = null, SPN = null, AN = null, LR = null, LE = null, LM = null, scopeBuf = null, clipHold = 0, ax = PX, ay = PY, aKey = '', aSt = null, aStruct = '';
+let jobs = [], jobGen = 0, checkJobs = [], pend = 0, flowT = 0, frameN = 0, CHECK_STEP = 0, CHECK_STEPS = 0;
+const REDUCED = (() => { try { return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); } catch (_) { return false; } })();
+const OFF = { sharpen: false, jitter: false, snap: false, norm: false, sleep: false, tails: false };
+const ON = { sharpen: true, jitter: true, snap: true, norm: true, sleep: true, tails: true };
+const P_CHOICES = [[1, '1'], [4 / 3, '4/3'], [2, '2']];
+const pct = v => (100 * v).toFixed(1) + '%';
+const dbTxt = v => v === -Infinity ? '−∞' : (v > -0.005 ? '+' : '−') + Math.abs(v).toFixed(2);
+const chainTxt = c => c.length ? c.map(t => SHORT[t]).join(' ') : '(dry)';
+const pLabel = p => (P_CHOICES.find(q => Math.abs(q[0] - p) < 1e-9) || [0, String(p)])[1];
+/* the toggles, each with what it does and what OFF is */
+const TOGGLES = [
+  { k: 'sleep', name: 'SLEEP', on: () => `a silent node stops running and keeps its state (threshold ${o.sleepDb} dB); CPU counts awake nodes only.`, off: 'every node runs every block: all eight resident, 15 points.' },
+  { k: 'sharpen', name: 'SHARPEN γ', on: () => `corner weights raised to γ = ${o.gamma}: each preset owns a wider region (round 2, D2).`, off: 'plain bilinear weights.' },
+  { k: 'jitter', name: 'JITTER (T)', on: () => `seeded jitter at temperature ${o.T.toFixed(2)} spreads where cables switch over the pad (round 2).`, off: 'temperature 0: every switch on the mid-lines.' },
+  { k: 'snap', name: 'SNAP TO V', on: () => `the target chain is pulled into V by the ${o.method === 'walk' ? 'WALK' : 'DECODE'} (round 2).`, off: 'the raw target, rules or no rules.' },
+  { k: 'norm', name: 'NORMALISE', on: () => `each lane's source cables scaled by 1/‖(target, rest)‖_p at p = ${pLabel(o.p)}, capped at +3 dB (round 2's law, on cables).`, off: 'no lane normalisation: a reorder sags while old and new cables are both part-way.' },
+  { k: 'tails', name: 'TAILS RING', on: () => 'a leaving ECHO, Scape or Sluice keeps its output cable while its tail rings, to its cap (D5).', off: 'a leaving node\'s output cable retreats with its input.' },
+];
+
+/* ---------- derived data ---------- */
+const sweepById = id => SWEEPS.find(s => s.id === id) || SWEEPS[SWEEPS.length - 1];
+function stAt(x, y) { return mapW(M, weightsXY(M, x, y)); }
+const isR2 = () => o.engine === 'r2';
+/* round 2's frame as CABLES on the same nodes: junctions (WIRE) are folded away, so each
+   real source's weight into each module input and OUT is the sum over junction-only
+   paths. The view then draws round 2 and round 3 in one language (L0064: still the
+   object the audio plays). */
+function r2Cables(R) {
+  const f = R.frame(), w = new Float64Array(NC), adj = new Map();
+  for (const e of f.edges) { if (!adj.has(e.u)) adj.set(e.u, []); adj.get(e.u).push(e); }
+  const real = id => isLane(id) || TYPES.includes(id) || id === 'OUT';
+  for (const s of SRC) {
+    const stack = [[s, 1]];
+    while (stack.length) {
+      const [u, g] = stack.pop();
+      for (const e of adj.get(u) || []) {
+        const v = e.v, gv = g * e.w;
+        if (real(v)) { if (v !== s && CIX[s + '>' + v] !== undefined) w[CIX[s + '>' + v]] += gv; }
+        else stack.push([v, gv]);
+      }
+    }
+  }
+  return w;
+}
+/* what the cable view draws: the live object while POWER runs, else one settled at the puck */
+function viewState() {
+  if (AC && AC.state === 'running' && LR) return { R: LR, E: LE, live: true };
+  const st = stAt(PX, PY);
+  if (isR2()) { const R = new R2Router(M, RSR, TICK); R.settle(st); return { R, E: null, live: false }; }
+  const C = new Cables(M, RSR, TICK); C.settle(st); return { R: C, E: null, live: false };
+}
+
+/* ---------- recompute + the deferred queue ---------- */
+function recompute(resettle) {
+  M = morphOf(o);
+  G = gridMap(M);
+  SWS = {}; CLK = []; EDG = {};
+  if (LR) {
+    const want = isR2() ? 'r2' : 'r3', have = LR instanceof Cables ? 'r3' : 'r2';
+    if (want !== have) startEngine(); else { LR.setMorph(M); if (resettle) LR.settle(stAt(ax, ay)); }
+    aKey = '';
+  }
+  renderAll();
+  jobGen++; jobs = [];
+  const gen = jobGen, M3 = M;
+  for (const sw of SWEEPS) jobs.push(() => {
+    const s = runSweep3(morphOf(Object.assign({}, o, { engine: 'r3' })), sweepW(M3, sw)), q = sweepSchedule(M3, sw);
+    const r = renderWith(morphOf(Object.assign({}, o, { engine: 'r3' })), q.wAt, q.N, { pulse: true });
+    s.cpuAvg = r.cpuAvg; s.cpuMax = r.cpuMax; s.awakeMin = r.awakeMin; s.jump = r.jump;
+    SWS[sw.id] = s;
+  });
+  const trs = transitionsOf(M), Ms = BEHAVIOURS.map(b => morphOf(Object.assign({}, o, b.patch)));
+  CLK_N = trs.length;
+  for (const tr of trs) jobs.push(() => { const row = { tr }; BEHAVIOURS.forEach((b, i) => { row[b.id] = clickRun(Ms[i], tr); }); CLK.push(row); });
+  for (const sw of SWEEPS.filter(s => s.edge)) jobs.push(() => { EDG[sw.id] = edgeCompare(o, sw); });
+  const tick = () => {
+    if (gen !== jobGen) return;
+    const f = jobs.shift(); if (f) f();
+    renderTables();
+    if (jobs.length) setTimeout(tick, 0);
+  };
+  setTimeout(tick, 0);
+}
+/* the self-check has its OWN queue (it always runs on DEFAULTS, not on the page) */
+function startCheck() {
+  const c = selfCheckSteps(); CHECK_N = c.claims; CHECK_STEPS = c.steps.length; CHECK_STEP = 0;
+  checkJobs = c.steps.map(f => () => { f(); CHECK_STEP++; CHECK = c.rows; });
+  const tick = () => { const f = checkJobs.shift(); if (f) { f(); renderChecks(); } if (checkJobs.length) setTimeout(tick, 0); };
+  setTimeout(tick, 0);
+}
+let VS = null;
+let meterPk = 0, meterTp = 0, meterHold = 0;   // the output meter's held peaks (page state: a display hold, not the model)
+/* THE OUTPUT METER: sample peak and true peak of what the analyser last saw, held 2 s,
+   in dBFS — so "blown out" is a number, and nothing hides it (no limiter anywhere). */
+function paintMeter() {
+  if (!AN || !scopeBuf) { $('meter').textContent = ''; return; }
+  let pk = 0; for (const v of scopeBuf) pk = Math.max(pk, Math.abs(v));
+  const tp = frameN % 4 === 0 ? truePeak(scopeBuf) : meterTp;
+  if (pk >= meterPk || tp >= meterTp || --meterHold <= 0) { meterPk = Math.max(pk, meterHold > 0 ? meterPk : 0); meterTp = Math.max(tp, meterHold > 0 ? meterTp : 0); meterHold = 120; }
+  $('meter').textContent = `PEAK ${db(meterPk).toFixed(1)} dBFS · TRUE PEAK ${db(meterTp).toFixed(1)} dBTP`;
+}                 // the view state the cable painter draws (live objects while POWER runs)
+
+/* ---------- renderers (DOM) ---------- */
+function renderControls() {
+  const pill = (k, label, on) => `<button class="pill${on ? ' on' : ' act'}" data-k="${k}">${label}</button>`;
+  $('setPills').innerHTML = SETS.map(s => pill(s.id, s.name.toUpperCase(), s.id === o.set)).join('');
+  $('setWhy').textContent = '· ' + setById(o.set).why;
+  $('pathPills').innerHTML = SWEEPS.map(s => pill(s.id, s.id.toUpperCase(), s.id === sweepId)).join('');
+  $('toggles').innerHTML =
+    `<span class="lbl">A/B</span><div class="pills" id="engPills">${pill('r3', 'ROUND 3 — STATIC NODES', !isR2())}${pill('r2', 'ROUND 2 — INSERT/REMOVE', isR2())}
+      <span class="what" style="margin-left:6px">${isR2() ? 'round 2\'s router and engine, copied: modules are inserted, removed and dipped; an arriving module is rebuilt cold.' : 'every module resident and warm; only cables move.'}</span></div>` +
+    `<span class="lbl">LOOPS</span><div class="pills" id="loopPills">${pill('a', '(a) LOOP BOUND', o.loop === 'a')}${pill('b', '(b) ORDERED FADES', o.loop === 'b')}
+      <span class="what" style="margin-left:6px">${o.loop === 'a' ? `a cycle-closing cable emerges at once on one block of delay; every live loop held to gain ≤ ${o.bound >= BOUND_OFF ? '∞ (bound OFF)' : o.bound.toFixed(2)}.` : 'a cycle-closing cable waits for the cable it would loop with to retreat; a bypass keeps each lane above −6 dB meanwhile.'}</span></div>` +
+    `<span class="lbl">MODE</span><div class="pills" id="modePills">${pill('quantum', 'QUANTUM', o.mode === 'quantum')}${pill('blend', 'BLEND', o.mode === 'blend')}
+      <span class="what" style="margin-left:6px">${o.mode === 'blend' ? 'cables carry the chain\'s wet gains, continuously (a multiband Bulwark still flips, ADR-195).' : 'cables are 0 or 1; where they switch is round 2\'s seeded keyed thresholds.'}</span></div>` +
+    TOGGLES.map(t => `<button class="pill${o[t.k] ? ' on' : ' act'}" data-tg="${t.k}">${t.name}<span class="st">${o[t.k] ? 'ON' : 'OFF'}</span></button>` +
+      `<div class="what"><b>${o[t.k] ? 'ON' : 'OFF'}:</b> ${o[t.k] ? t.on() : t.off}` +
+      (t.k === 'snap' ? ` <span class="pills" id="methPills" style="display:inline-flex;margin:0 0 0 6px">${pill('decode', 'DECODE', o.method === 'decode')}${pill('walk', 'WALK', o.method === 'walk')}</span>` : '') + `</div>`).join('');
+  const rng = (id, label, min, max, step, v, txt) => `<label class="rng">${label} <input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${v}"><b>${txt}</b></label>`;
+  $('advRow').innerHTML =
+    rng('glIn', 'GLIDE τ', 0.01, 0.3, 0.01, o.glide, (1000 * o.glide).toFixed(0) + ' ms') +
+    rng('bdIn', 'LOOP BOUND', 0.1, BOUND_OFF, 0.05, Math.min(o.bound, BOUND_OFF), o.bound >= BOUND_OFF ? 'OFF' : o.bound.toFixed(2)) +
+    rng('slIn', 'SLEEP THRESHOLD', -120, -40, 1, o.sleepDb, o.sleepDb + ' dB') +
+    rng('gIn', 'γ SHARPEN', 1, 4, 0.1, o.gamma, o.gamma.toFixed(1)) +
+    rng('tIn', 'TEMPERATURE', 0, 1.5, 0.01, o.T, o.T.toFixed(2));
+  $('pPills').innerHTML = P_CHOICES.map(([v, l]) => pill(String(v), l, Math.abs(v - o.p) < 1e-9)).join('');
+  $('kPills').innerHTML = [1, 2, 3, 4].map(k => pill(String(k), String(k), k === o.K)).join('');
+  $('sOut').textContent = o.seed;
+  $('advNote').innerHTML = `<b>Glide τ</b>: each cable reaches its target through two one-poles of τ/2 (lands in ≈ 7 τ); slower is smoother and slower to follow the puck.
+    <b>Loop bound</b> (strategy a): the most a live loop may return, cable weights × each node's declared gain (${TYPES.map(t => SHORT[t] + ' ' + GMAX[t]).join(' · ')}); top of the slider = OFF.
+    <b>Sleep threshold</b>: below it a node with nothing to say stops. <b>p</b> and <b>K</b> as in round 2: K is how many structural changes may be open before the cables land.
+    <b>Reshuffle</b> deals a new seed.`;
+  $('pulseBtn').className = 'pill' + (pulse ? ' on' : '');
+  $('probeBtn').className = 'pill' + (probe ? ' on' : '');
+  $('sweepBtn').className = 'pill' + (sweeping ? ' on' : '');
+}
+function renderCorners() {
+  const C = setById(o.set).corners;
+  $('cornerTxt').innerHTML = [2, 3, 0, 1].map(k => `<b style="color:var(--value)">${CORNER_ID[k]}</b> ${C[k].name}: <b>${chainTxt(C[k].chain)}</b> · Sub → ${SHORT[C[k].sub]}` +
+    (C[k].p.DYN ? ` · Bulwark ${C[k].p.DYN.bands > 1 ? 'MULTIBAND' : 'single-band'}` : '')).join('<br>');
+}
+function renderRules() {
+  const r = RULES.map(q => `<li><b>${q.title}.</b> ${q.text}${EXCEPTIONS.filter(e => e.rule === q.id).map(e => `<span class="ex"><b>Exception — ${e.title}.</b> ${e.text}</span>`).join('')}</li>`).join('');
+  $('rules').innerHTML = `<div class="ptxt" style="margin:0 0 6px">Round 2's approved set V and the ADR-195 rules, read on cables. <b>One of each</b> is now structural: eight resident nodes, one per type.</div>
+    <ol class="rules">${r}
+      <li><b>On cables.</b> Scape → Sluice is <b>unavailable</b> (drawn crossed out). Scape → Bulwark is <b>conditional</b> (E1 only: Bulwark last). Any other cable that would open a live Scape ⇝ Sluice or
+        Scape ⇝ Bulwark <i>path</i> waits until the old cables that would complete it have retreated (round 1's path reading of I3).</li>
+      <li><b>ADR-195, multiband Bulwark.</b> Band count flips at a seeded point, never blends. In BLEND its presence flips too (full wet or out). The bypass, when it opens, runs
+        <i>into</i> a multiband Bulwark rather than around it. A parallel sum with an unphased branch of the same lane is allowed only for one glide (≤ ${MB_BRIEF_TAU} τ).</li>
+      <li><b>Tails ring naturally.</b> A leaving ECHO, Scape or Sluice keeps its output cable for its own decay or its cap (D5); a ringing tail never blocks a cable — it is cut short.</li>
+    </ol>`;
+}
+function renderLive(vs) {
+  const R = vs.R, st = stAt(PX, PY), r3 = R instanceof Cables;
+  const box = (k, v, cau) => `<div><div class="k">${k}</div><div class="v${cau ? ' cau' : ''}">${v}</div></div>`;
+  const aw = vs.E && vs.E.asleep ? TYPES.filter(t => !vs.E.asleep[t]).length : null;
+  const loops = r3 ? R.nCyc : 0, waits = r3 ? R.held.filter(Boolean).length : 0;
+  const lw = LM ? LM.last() : null;
+  $('liveBox').innerHTML =
+    box('AWAKE · ASLEEP', aw === null ? (vs.live ? 'n/a' : '—') : aw + ' · ' + (TYPES.length - aw)) +
+    box('CPU POINTS', vs.E && vs.E.cpu !== undefined ? vs.E.cpu + ' / ' + RESIDENT_CPU : '—') +
+    box('LOOPS · GAIN', r3 ? (loops ? loops + ' · ' + R.loopMax.toFixed(2) : '0') : '—', r3 && loops) +
+    box('CLICK LAST · WORST', lw ? lw.db.toFixed(1) + ' · ' + LM.worst.toFixed(1) + ' dB' : '—', lw && LM.worst > 6);
+  const held = r3 ? R.held.map((h, i) => h ? CABLES[i].k.replace('>', '→') + ' (' + h + ')' : '').filter(Boolean) : [];
+  $('xyOut').textContent = `x ${PX.toFixed(2)} · y ${PY.toFixed(2)} · weights ${st.w.map((q, k) => CORNER_ID[k] + ' ' + q.toFixed(2)).join(' ')}`;
+  $('cableHead').textContent = (vs.live ? '· live (POWER)' : '· at rest (settled at the puck)') + (isR2() ? ' · ROUND 2 A/B' : ' · round 3 ' + (o.loop === 'a' ? '(a)' : '(b)'));
+  $('chainTxt').innerHTML = `target <b>${chainTxt(st.chain)}</b> · Sub → <b>${SHORT[st.sub]}</b>` + (st.prm.DYN ? ` · Bulwark ${(st.prm.DYN.bands || 1) > 1 ? 'multiband' : 'single-band'}` : '') +
+    (o.mode === 'blend' ? ` · wet ${st.chain.map(t => SHORT[t] + ' ' + st.wet[t].toFixed(2)).join(' ')}` : '') +
+    (r3 ? `<br>lane normaliser Body ×${R.nL.BODY.toFixed(2)} Sub ×${R.nL.SUB.toFixed(2)} · open transitions ${R.open}/${o.K}` + (held.length ? ` · <span class="no">waiting: ${held.join(', ')}</span>` : '') : '');
+}
+function renderTables() { renderClickTab(); renderSweepTab(); renderEdgeTab(); renderChecks(); }
+function renderClickTab() {
+  const done = CLK.length === CLK_N, s = clickSummary(CLK);
+  $('clickHead').textContent = done ? `· ${CLK_N} transitions on this corner set, sine probe` : `· measuring ${CLK.length}/${CLK_N}…`;
+  const cell = (v, w) => `<span class="${v > 6 ? 'no' : ''}">${v.toFixed(1)}</span> <span class="bar${v > 6 ? '' : ' p'}" style="width:${Math.min(60, 2 * v).toFixed(0)}px"></span>`;
+  $('clickSum').innerHTML = '<tr><th>behaviour</th><th>worst (running)</th><th>mean</th><th>over 3 dB</th><th>CPU max</th></tr>' +
+    BEHAVIOURS.map(b => `<tr><td class="a">${b.name}</td><td><span class="big">${s[b.id].worst.toFixed(1)} dB</span></td><td>${s[b.id].mean.toFixed(2)} dB</td>` +
+      `<td>${s[b.id].over3} / ${CLK.length}</td><td>${b.id === 'r2' ? '—' : s[b.id].cpu + ' / ' + RESIDENT_CPU}</td></tr>`).join('');
+  $('clickTab').innerHTML = '<tr><th>#</th><th>path · where</th><th>before → after</th><th>(a)</th><th>(b)</th><th>round 2</th></tr>' +
+    CLK.map((r, i) => `<tr><td>${i + 1}</td><td>${r.tr.sw} · ${r.tr.u1.toFixed(3)}</td><td>${chainTxt(r.tr.from.chain)}|${SHORT[r.tr.from.sub]} → ${chainTxt(r.tr.to.chain)}|${SHORT[r.tr.to.sub]}</td>` +
+      `<td>${cell(r.r3a.db)}</td><td>${cell(r.r3b.db)}</td><td>${cell(r.r2.db)}<span class="sub">at ${(1000 * r.r2.at).toFixed(0)} ms</span></td></tr>`).join('');
+  $('clickNote').innerHTML = `<b>The measure</b> (stated in full in the model, above <code>clickOf</code>): cut the output's second difference into 2 ms slices; a slice's
+    <b>impulsiveness</b> is its RMS over the median of its ±32 ms neighbours, in dB. A transition's click is the worst impulsiveness in the ${CLK_SPAN_S} s after the change,
+    less the worst in the steady ${CLK_STEADY_S} s before and after it. A steady signal and a smooth level or timbre change read ≈ 0 dB; a step stands out. Each row is a
+    <b>step</b> across one boundary a sweep path crosses (held just before, then just after), from the same steady state, on a <b>sine probe</b> — so a click has nothing
+    to hide behind. The <b>live</b> meter in the cable panel runs the same function on what you hear (saws hide some of it).`;
+}
+function renderSweepTab() {
+  const done = SWEEPS.every(s => SWS[s.id]);
+  $('swHead').textContent = done ? `· round 3 ${o.loop === 'a' ? '(a)' : '(b)'}, ${SW_MOVE} s per sweep` : '· computing…';
+  const mbOk = s => s.mixMax <= s.mbBrief + 1e-9;
+  $('swTab').innerHTML = '<tr><th>sweep</th><th>changes</th><th>lane gain min · max dB</th><th>loop raw → held</th><th>waiting</th><th>Bulwark ∥ (s)</th><th>CPU avg · max</th><th>rules</th></tr>' +
+    SWEEPS.map(sw => {
+      const s = SWS[sw.id];
+      if (!s) return `<tr><td class="a">${sw.name}</td><td colspan="7">…</td></tr>`;
+      const bad = s.minDb < db(FLOOR) - 1e-9 || s.maxDb > db(CEIL) + 1e-9, lbad = o.loop === 'a' && s.loop > o.bound + 1e-9;
+      return `<tr><td class="a">${sw.name}</td><td>${s.changes}</td><td class="${bad ? 'no' : ''}">${dbTxt(s.minDb)} · ${dbTxt(s.maxDb)}</td>` +
+        `<td class="${lbad ? 'no' : ''}">${s.loopRaw.toFixed(2)} → ${s.loop.toFixed(2)}</td><td>${(s.waitTicks * TICK / RSR).toFixed(2)} s</td>` +
+        `<td class="${mbOk(s) ? '' : 'no'}">${s.mixMax.toFixed(2)}</td><td>${s.cpuAvg.toFixed(1)} · ${s.cpuMax}</td>` +
+        `<td>${!s.path && !s.banned ? '<span class="ok">✓</span>' : `<span class="no">${s.why.path || 'banned cable'}</span>`}</td></tr>`;
+    }).join('');
+  $('swNote').innerHTML = `Each sweep: ${SW_PRE} s still, a ${SW_MOVE} s move, ${SW_POST} s still, through the same Cables POWER plays. <b>Lane gain</b>: each lane's static
+    transmission to OUT (module gains 1) on the weights the rack plays; floor ${dbTxt(db(FLOOR))} dB, cap +${db(CEIL).toFixed(2)} dB. <b>Loop</b>: the largest product of cable
+    weights × declared gains round a live cycle, before and after the bound (strategy b has none). <b>Waiting</b>: time some cable waited (b's ordered fades, or a V guard).
+    <b>Bulwark ∥</b>: the longest a multiband Bulwark sat summed with an unphased branch of the same lane (allowed: one glide, ${(MB_BRIEF_TAU * o.glide).toFixed(2)} s).
+    <b>CPU</b>: points of awake nodes, rendered with the pulse on (all resident and awake: ${RESIDENT_CPU}). <b>Rules</b>: no live forbidden path, no banned cable.`;
+}
+function renderEdgeTab() {
+  const C = setById(o.set).corners;
+  $('edgeTab').innerHTML = '<tr><th>edge</th><th>four corners, on the edge</th><th>the two corners alone</th><th>identical?</th></tr>' +
+    SWEEPS.filter(s => s.edge).map(sw => {
+      const e = EDG[sw.id], pair = `${CORNER_ID[sw.edge[0]]} ${C[sw.edge[0]].name} → ${CORNER_ID[sw.edge[1]]} ${C[sw.edge[1]].name}`;
+      if (!e) return `<tr><td class="a">${sw.id}<span class="sub">${pair}</span></td><td colspan="3">…</td></tr>`;
+      const cell = s => `${s.changes} changes · loop ${s.loop.toFixed(2)} · ${dbTxt(s.minDb)}…${dbTxt(s.maxDb)} dB`;
+      return `<tr><td class="a">${sw.id}<span class="sub">${pair}</span></td><td>${cell(e.four)}</td><td>${cell(e.two)}</td>` +
+        `<td>${e.same ? '<span class="ok">YES</span><span class="sub">every cable weight, every tick</span>' : '<span class="no">NO</span><span class="sub">' + e.why + '</span>'}</td></tr>`;
+    }).join('');
+  $('edgeNote').innerHTML = `Round 1's results were two-corner morphs. On a pad edge the far corners weigh nothing, so the four-corner morph must BE the two-corner morph of
+    that edge's corners: here every one of the ${NC} cable weights (forward and backward parts) is compared at every tick of the routed sweep. It holds because every draw is
+    keyed by content, the node set is fixed (no corner decides what is resident), and the cables' timing reads no index.`;
+}
+function renderChecks() {
+  if (!CHECK) return;
+  const pass = CHECK.filter(r => r.pass).length, caught = CHECK.filter(r => r.caught).length, n = CHECK.length, fin = n === CHECK_N;
+  $('chkBody').innerHTML = CHECK.map((r, i) => `<tr><td>${i + 1}</td><td class="claim">${r.claim}<div>${r.detail || ''}</div></td>` +
+    `<td>${r.pass ? '<span class="ok">HOLDS</span>' : '<span class="no">FAILS</span>'}</td><td>${r.control}<div>${r.cdetail || ''}</div></td>` +
+    `<td>${r.caught ? '<span class="ok">CAUGHT</span>' : '<span class="no">MISSED</span>'}</td></tr>`).join('') + (fin ? '' : `<tr><td colspan="5">running… ${n}/${CHECK_N}</td></tr>`);
+  const good = pass === n && caught === n;
+  $('audit').className = 'audit' + (good ? '' : ' bad');
+  $('audit').innerHTML = `self-check at load${fin ? '' : ' (running: ' + n + '/' + CHECK_N + ' claims, warm-up ' + Math.min(CHECK_STEP, CHECK_STEPS) + '/' + CHECK_STEPS + ' steps)'}: <b>${pass}/${n}</b> claims hold · <b>${caught}/${n}</b> planted faults caught` +
+    (good ? ` — defaults: ${DEFAULTS.mode}, ${DEFAULTS.method}, glide ${1000 * DEFAULTS.glide} ms, bound ${DEFAULTS.bound}, p ${DEFAULTS.p}, K ${DEFAULTS.K}, seed ${DEFAULTS.seed}.` : ' — SEE THE TABLE: a claim or a control failed.');
+}
+/* ---------- COPIED from round 2 (fx-chain-morph-lab-r2.html lines 1654–1659) ---------- */
+function fit(c) {
+  const dpr = window.devicePixelRatio || 1;
+  const w = Math.max(1, Math.round(c.clientWidth * dpr)), h = Math.max(1, Math.round(c.clientHeight * dpr));
+  if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
+  return dpr;
+}
+/* ---------- COPIED from round 2 (fx-chain-morph-lab-r2.html lines 1660–1705) ---------- */
+/* THE PAD: the grid G the metrics read, painted cell by cell (L0064: the picture is
+   what was measured). y runs up, as on a synth's XY pad. */
+function paintPad() {
+  const c = $('pad'), dpr = fit(c), g = c.getContext('2d'), W = c.width, H = c.height, N = G.N;
+  g.clearRect(0, 0, W, H);
+  const m = 14 * dpr, cw = (W - 2 * m) / (N - 1), ch = (H - 2 * m) / (N - 1);
+  const X = i => m + i * cw, Y = j => H - m - j * ch;
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+    const cell = G.cells[j * N + i];
+    g.fillStyle = cell.pure >= 0 ? PAL['scr-value'] : PAL['scr-physics'];
+    g.globalAlpha = cell.pure >= 0 ? 0.28 : 0.1 + 0.42 * ((cell.id * 0.6180339887) % 1);
+    g.fillRect(X(i) - cw / 2, Y(j) - ch / 2, cw + 0.5, ch + 0.5);
+    if (cell.outV || cell.unan) { g.globalAlpha = 0.9; g.strokeStyle = PAL.caution; g.lineWidth = dpr; g.beginPath(); g.moveTo(X(i) - cw / 2, Y(j) + ch / 2); g.lineTo(X(i) + cw / 2, Y(j) - ch / 2); g.stroke(); }
+  }
+  // boundaries: thin for one change, caution for two or more (D4)
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+    const a = G.cells[j * N + i];
+    for (const [di, dj] of [[1, 0], [0, 1]]) {
+      if (i + di >= N || j + dj >= N) continue;
+      const b = G.cells[(j + dj) * N + i + di]; if (a.key === b.key) continue;
+      const d = jumpD(a.st, b.st);
+      g.globalAlpha = d >= 2 ? 1 : 0.55; g.strokeStyle = d >= 2 ? PAL.caution : PAL['scr-grid']; g.lineWidth = (d >= 2 ? 2.2 : 1) * dpr;
+      g.beginPath();
+      if (di) { const x = X(i) + cw / 2; g.moveTo(x, Y(j) - ch / 2); g.lineTo(x, Y(j) + ch / 2); }
+      else { const y = Y(j) - ch / 2; g.moveTo(X(i) - cw / 2, y); g.lineTo(X(i) + cw / 2, y); }
+      g.stroke();
+    }
+  }
+  g.globalAlpha = 1;
+  // the sweep path
+  const sw = sweepById(sweepId);
+  g.strokeStyle = PAL['scr-grid']; g.lineWidth = 1.2 * dpr; g.setLineDash([4 * dpr, 4 * dpr]); g.globalAlpha = 0.8; g.beginPath();
+  for (let k = 0; k <= 120; k++) { const [x, y] = sw.xy(k / 120), px = m + x * (W - 2 * m), py = H - m - y * (H - 2 * m); k ? g.lineTo(px, py) : g.moveTo(px, py); }
+  g.stroke(); g.setLineDash([]); g.globalAlpha = 1;
+  // corner labels
+  const C = setById(o.set).corners;
+  g.font = `bold ${10 * dpr}px ui-monospace,Menlo,monospace`; g.textBaseline = 'middle';
+  CORNER_XY.forEach(([x, y], k) => {
+    g.textAlign = x ? 'right' : 'left'; g.fillStyle = PAL['scr-value'];
+    g.fillText(CORNER_ID[k] + ' ' + C[k].name, x ? W - m - 4 * dpr : m + 4 * dpr, y ? m + 8 * dpr : H - m - 8 * dpr);
+  });
+  // the puck (authored) and, while it plays, where the audio is
+  const px = m + PX * (W - 2 * m), py = H - m - PY * (H - 2 * m);
+  g.fillStyle = PAL['scr-value']; g.beginPath(); g.arc(px, py, 7 * dpr, 0, 7); g.fill();
+  if (AC) { g.strokeStyle = PAL['scr-value']; g.globalAlpha = 0.5; g.lineWidth = 1.5 * dpr; g.beginPath(); g.arc(m + ax * (W - 2 * m), H - m - ay * (H - 2 * m), 11 * dpr, 0, 7); g.stroke(); g.globalAlpha = 1; }
+}
+/* ---------- COPIED from round 2 (fx-chain-morph-lab-r2.html lines 1749–1761) ---------- */
+function paintScope() {
+  const c = $('scopeC'), dpr = fit(c), g = c.getContext('2d'), W = c.width, H = c.height;
+  g.clearRect(0, 0, W, H);
+  g.strokeStyle = PAL['scr-grid']; g.globalAlpha = 0.3; g.lineWidth = dpr; g.beginPath(); g.moveTo(0, H / 2); g.lineTo(W, H / 2); g.stroke(); g.globalAlpha = 1;
+  if (!AN || !scopeBuf) return;
+  AN.getFloatTimeDomainData(scopeBuf);
+  let peak = 0; for (const v of scopeBuf) peak = Math.max(peak, Math.abs(v));
+  if (peak >= 1) clipHold = 45; else if (clipHold > 0) clipHold--;
+  $('clip').className = 'clip' + (clipHold ? ' on' : '');
+  g.strokeStyle = PAL['scr-meter']; g.lineWidth = 1.5 * dpr; g.beginPath();
+  for (let i = 0; i < scopeBuf.length; i++) { const x = i / (scopeBuf.length - 1) * W, y = H / 2 - scopeBuf[i] * H * 0.45; i ? g.lineTo(x, y) : g.moveTo(x, y); }
+  g.stroke();
+}
+
+/* ---------- painters: the only code that reads theme colours ---------- */
+function readPal() {
+  const cs = getComputedStyle(document.body);
+  for (const k of ['scr-tube', 'scr-value', 'scr-meter', 'scr-physics', 'scr-grid', 'scr-marker', 'caution', 'line', 'bg', 'alarm', 'dim', 'text'])
+    PAL[k] = String(cs.getPropertyValue('--' + k)).trim();
+}
+/* THE CABLE VIEW (the human: "I can imagine some elegant graphical ways to show the
+   cables between them"). Nodes sit at FIXED places — a ring in house order, clockwise
+   from the top — with the lanes on the left and OUT on the right, so a morph never moves
+   a box: only cables grow, glow and fade. A cable bows to the left of its direction, so
+   u → v and v → u are two separate arcs. Thickness and brightness follow the weight; a
+   slow dotted flow runs along it in the signal's direction (stopped under
+   prefers-reduced-motion). A backward part (one block of delay) is dashed and marked
+   z⁻¹; the cables of a live loop are drawn in caution; a waiting cable is a dotted
+   caution ghost; Scape → Sluice is shown crossed out and Scape → Bulwark as E1-only.
+   An asleep node is dimmed and dashed. It draws the object the audio plays (L0064). */
+const RING = (() => {
+  const p = {};
+  TYPES.forEach((t, i) => { const a = -Math.PI / 2 + 2 * Math.PI * i / TYPES.length; p[t] = [0.5 + 0.28 * Math.cos(a), 0.5 + 0.37 * Math.sin(a)]; });
+  p.BODY = [0.07, 0.3]; p.SUB = [0.07, 0.7]; p.OUT = [0.93, 0.5];
+  return p;
+})();
+function paintCables(vs) {
+  const c = $('cableC'), dpr = fit(c), g = c.getContext('2d'), W = c.width, H = c.height;
+  g.clearRect(0, 0, W, H);
+  const r3 = vs.R instanceof Cables, wf = r3 ? vs.R.wf : r2Cables(vs.R), wb = r3 ? vs.R.wb : new Float64Array(NC);
+  const loopC = new Set(); if (r3) for (const cy of vs.R.cycles()) for (const i of cy) loopC.add(i);
+  const P = k => [RING[k][0] * W, RING[k][1] * H];
+  const geo = i => {
+    const cc = CABLES[i], [x0, y0] = P(cc.u), [x1, y1] = P(cc.v), dx = x1 - x0, dy = y1 - y0, L = Math.hypot(dx, dy) || 1, bow = 0.14 * L;
+    return [x0, y0, (x0 + x1) / 2 + dy / L * bow, (y0 + y1) / 2 - dx / L * bow, x1, y1];
+  };
+  const at = (q, t) => [(1 - t) * (1 - t) * q[0] + 2 * t * (1 - t) * q[2] + t * t * q[4], (1 - t) * (1 - t) * q[1] + 2 * t * (1 - t) * q[3] + t * t * q[5]];
+  const stroke = q => { g.beginPath(); g.moveTo(q[0], q[1]); g.quadraticCurveTo(q[2], q[3], q[4], q[5]); g.stroke(); };
+  g.font = `${9 * dpr}px ui-monospace,Menlo,monospace`; g.textAlign = 'center'; g.textBaseline = 'middle';
+  // the rules, always visible
+  for (const k of ['REV>NET', 'REV>DYN']) {
+    const q = geo(CIX[k]), m = at(q, 0.5);
+    g.setLineDash([2 * dpr, 5 * dpr]); g.strokeStyle = BANNED[k] ? PAL.caution : PAL.dim; g.globalAlpha = 0.55; g.lineWidth = dpr; stroke(q); g.setLineDash([]);
+    g.globalAlpha = 0.9; g.fillStyle = BANNED[k] ? PAL.caution : PAL.dim; g.fillText(BANNED[k] ? '✕ R3' : 'E1 only', m[0], m[1]);
+  }
+  // waiting cables
+  if (r3) for (let i = 0; i < NC; i++) if (vs.R.held[i]) {
+    const q = geo(i), m = at(q, 0.5);
+    g.setLineDash([1.5 * dpr, 3 * dpr]); g.strokeStyle = PAL.caution; g.globalAlpha = 0.8; g.lineWidth = 1.5 * dpr; stroke(q); g.setLineDash([]);
+    g.fillStyle = PAL.caution; g.fillText('waits (' + vs.R.held[i] + ')', m[0], m[1] - 8 * dpr);
+  }
+  // live cables
+  for (let i = 0; i < NC; i++) {
+    const w = wf[i] + wb[i]; if (w < 0.003) continue;
+    const cc = CABLES[i], q = geo(i), loop = loopC.has(i), a = Math.min(1, w);
+    const ink = loop ? PAL.caution : cc.u === 'BODY' ? PAL['scr-value'] : cc.u === 'SUB' ? PAL['scr-marker'] : PAL['scr-physics'];
+    if (wf[i] >= 0.003) { g.strokeStyle = ink; g.globalAlpha = 0.18 + 0.72 * Math.min(1, wf[i]); g.lineWidth = (0.8 + 4.2 * Math.min(1.5, wf[i])) * dpr; stroke(q); }
+    if (wb[i] >= 0.003) {
+      g.setLineDash([6 * dpr, 4 * dpr]); g.strokeStyle = PAL.caution; g.globalAlpha = 0.25 + 0.75 * Math.min(1, wb[i]); g.lineWidth = (0.8 + 4.2 * Math.min(1.5, wb[i])) * dpr; stroke(q); g.setLineDash([]);
+      const m = at(q, 0.5); g.globalAlpha = 1; g.fillStyle = PAL.caution; g.fillText('z⁻¹', m[0], m[1] - 7 * dpr);
+    }
+    // the flow: dots travelling u → v (a static dotting under reduced motion)
+    g.setLineDash([1.2 * dpr, 10 * dpr]); g.lineDashOffset = REDUCED ? 0 : -(flowT * 0.35 * dpr) % (11.2 * dpr);
+    g.strokeStyle = PAL['scr-meter']; g.globalAlpha = 0.25 + 0.6 * a; g.lineWidth = Math.max(1.2 * dpr, 0.45 * (0.8 + 4.2 * Math.min(1.5, w)) * dpr); stroke(q);
+    g.setLineDash([]); g.lineDashOffset = 0;
+    // an arrowhead near the destination
+    const p1 = at(q, 0.8), p2 = at(q, 0.84), ang = Math.atan2(p2[1] - p1[1], p2[0] - p1[0]), s = (3 + 3 * a) * dpr;
+    g.fillStyle = ink; g.globalAlpha = 0.35 + 0.65 * a; g.beginPath();
+    g.moveTo(p2[0] + Math.cos(ang) * s, p2[1] + Math.sin(ang) * s); g.lineTo(p2[0] + Math.cos(ang + 2.5) * s, p2[1] + Math.sin(ang + 2.5) * s); g.lineTo(p2[0] + Math.cos(ang - 2.5) * s, p2[1] + Math.sin(ang - 2.5) * s); g.fill();
+  }
+  g.globalAlpha = 1;
+  // nodes
+  const bw = 62 * dpr, bh = 26 * dpr, prm = r3 ? vs.R.prm : null;
+  for (const t of TYPES) {
+    const [x, y] = P(t);
+    let fed = false; for (const i of INTO[t]) if (wf[i] + wb[i] > 0.003) { fed = true; break; }
+    const asleep = vs.E && vs.E.asleep ? vs.E.asleep[t] : !fed;
+    g.fillStyle = PAL['scr-tube']; g.fillRect(x - bw / 2, y - bh / 2, bw, bh);
+    g.strokeStyle = asleep ? PAL.dim : PAL['scr-physics']; g.globalAlpha = asleep ? 0.6 : 1; g.lineWidth = (asleep ? 1 : 2) * dpr;
+    if (asleep) g.setLineDash([3 * dpr, 3 * dpr]);
+    g.strokeRect(x - bw / 2, y - bh / 2, bw, bh); g.setLineDash([]);
+    g.fillStyle = asleep ? PAL.dim : PAL['scr-physics']; g.font = `bold ${10 * dpr}px ui-monospace,Menlo,monospace`;
+    g.fillText(NAME[t].split(' ')[0] + (t === 'DYN' && prm && (prm.DYN.bands || 1) > 1 ? ' ‖2' : ''), x, y - 3 * dpr);
+    g.font = `${8 * dpr}px ui-monospace,Menlo,monospace`; g.fillText((asleep ? 'asleep' : 'awake') + ' · ' + COST[t] + ' pt', x, y + 7 * dpr);
+    g.globalAlpha = 1;
+  }
+  g.font = `bold ${10 * dpr}px ui-monospace,Menlo,monospace`;
+  for (const [k, ink] of [['BODY', PAL['scr-value']], ['SUB', PAL['scr-marker']], ['OUT', PAL['scr-meter']]]) { const [x, y] = P(k); g.fillStyle = ink; g.fillText(NAME[k], x, y); }
+}
+function paintAt() { VS = viewState(); paintPad(); paintCables(VS); renderLive(VS); }
+function renderRec() {
+  $('rec').innerHTML = `
+  <p><b>How to listen.</b> Press <b>POWER</b> (a saw chord on Body, a sine an octave down on Sub; <b>PULSE</b> gates the chord so tails and sleep are audible;
+    <b>SINE PROBE</b> swaps the lanes for sines, where a click has nothing to hide behind). Drag the puck, or press <b>SWEEP</b> to drive it round a path. Then flip
+    <b>A/B</b> to <b>ROUND 2 — INSERT/REMOVE</b> and back: the same pad, the same map, round 2's router and engine. Flip <b>LOOPS</b> between (a) and (b) on a reorder.
+    The cable panel shows what you hear: boxes never move; cables grow, glow and fade; a dashed amber cable marked z⁻¹ is a backward cable on one block of delay; an
+    amber cable is part of a live loop; a dotted amber ghost is a cable waiting. The live meter there runs the click metric on the output.</p>
+  <p><b>What the build found</b> (each is a table or a self-check row, not a claim from the brief):</p>
+  <ol class="q">
+    <li><b>Static nodes remove round 2's clicks.</b> On the four presets' 26 transitions the worst click is <b>6.0 dB</b> for (a) and (b) against 33.2 dB for round 2,
+      and 14 of round 2's transitions pass 3 dB. Over all four corner sets and both modes (208 transitions, measured headless at build time) round 3's worst is 6.0 dB
+      and round 2's 33–43 dB. Round 2's peaks sit at 0 or 80 ms after a change: a module rebuilt cold, and junction renames that ramp in one block.</li>
+    <li><b>A band-count flip needs Bulwark's own crossfade.</b> The first build switched the stand-in's band count in one sample and the bait set's Bulwark flip read
+      33 dB in round 3 too; with ADR-195's 20 ms internal switch it reads 3.3 dB. The cables cannot smooth a discontinuity inside a module.</li>
+    <li><b>(a) and (b) differ only on reorders.</b> Most transitions add, drop or re-enter one module, which makes no cycle, so the two strategies play the same cables.
+      On a reorder (a) lets the new cable in at once on one block of delay and holds the loop at ${DEFAULTS.bound} (unbounded it reaches 1.5 on the four presets and 1.9 on round 1's pairs, at the default glide);
+      (b) holds the new cable until the old one is gone and opens a −6 dB bypass meanwhile. <i>Listen</i> for (a)'s brief delayed-loop colour against (b)'s brief dry flash.</li>
+    <li><b>What is left of the clicks is the lane normaliser.</b> A path is the product of its cables, so k cables gliding together sag like the k-th power; the normaliser
+      boosts the lane up to ×4 to hold the level, fast enough to read as a few dB of impulsiveness (normaliser off: the worst transition drops from 7.2 to 2.2 dB at τ 40 ms).
+      Gliding which cables count as "the target's" was needed: a binary choice stepped a lane's source cable by 0.74 in 4 ms.</li>
+    <li><b>Glide time trades clicks for speed.</b> Worst click 7.2 dB at τ = 40 ms, 6.0 at 60 ms (the default), 5.1 at 80 ms; a slower glide follows the puck more slowly.</li>
+    <li><b>Sleep must read memory, not output.</b> The first build slept a disconnected ECHO at once; it woke later replaying a frozen echo (a 0.033 step). Now a node sleeps
+      only when its input, its output and what its buffers hold are all under the threshold, and steps stay under −80 dB. CPU averages 8.6 points against 15 with every node awake.</li>
+    <li><b>The rules hold as cable rules.</b> On the bait set, without the path guard, a naive crossfade opens a live Scape ⇝ Sluice path for 416 ticks; with it, never.
+      A multiband Bulwark sits beside an unphased branch for at most 0.32 s (one glide is 0.6 s); blended continuously it would for 1.97 s.</li>
+  </ol>
+  <p><b>Open for the listening pass.</b></p>
+  <ol class="q">
+    <li><b>(a) or (b)</b>, by ear on reorders (the circle path crosses most of them).</li>
+    <li><b>Glide τ</b>: 60 ms is a compromise; <i>choose</i> by ear with the advanced slider.</li>
+    <li><b>QUANTUM's "per-cable thresholds"</b> are read here as round 2's keyed draws (one per module, one per ordered pair — the pair's draw decides which way the cable
+      between them runs); no separate per-cable draw was added. <i>Confirm</i> that reading.</li>
+    <li><b>The loop bound (${DEFAULTS.bound}) and the declared node gains</b> are declarations, not measurements; a module that exceeds its declaration breaks the bound's promise.</li>
+    <li><b>The normaliser</b> is now the main transient. A path-aware glide (cables on a long path move together as one) could remove the sag it compensates; not built.</li>
+    <li><b>A self-oscillating Sluice</b> (feedback ≥ 1) never decays: it is put to sleep loud after its tail cap and ramps back in over one glide when fed again, so its
+      old howl returns. <i>Decide</i> whether a resident module may keep that state.</li>
+    <li><b>ADR-195's "brief"</b> is read as one glide (${MB_BRIEF_TAU} τ). <i>Confirm</i>, or name a number.</li>
+    <li><b>The click metric</b> is on a sine probe, sees 2 ms slices against ±32 ms, and watches 1 s after a change: slower bumps and later tail releases are outside it.</li>
+    <li><b>Not wired into <code>./verify</code></b>: this self-check runs at load only (as round 2's did).</li>
+  </ol>`;
+}
+
+/* ---------- audio adapter: the model's own objects in a ScriptProcessor ----------
+   The puck slews with a 40 ms time constant, stated in seconds and converted per
+   64-sample tick (ADR-009). The router or cables step once per tick; nothing reads a
+   clock. The A/B rebuilds the live pair (a deliberate cut, so the live click meter is
+   reset with it). */
+function startEngine() {
+  const sr = AC.sampleRate; aSt = stAt(ax, ay);
+  if (isR2()) { LR = new R2Router(M, sr, 64); LE = new R2Engine(sr); } else { LR = new Cables(M, sr, 64); LE = new Rack(sr, 64); }
+  LE.pulse = pulse; LE.probe = probe; LR.settle(aSt); aKey = ''; aStruct = structKey(aSt);
+  if (LM) LM.reset();
+}
+function startAudio() {
+  AC = new (window.AudioContext || window.webkitAudioContext)();
+  const sr = AC.sampleRate, k = Math.exp(-64 / (0.04 * sr));
+  ax = PX; ay = PY; LM = new ClickMeter(sr); startEngine();
+  SPN = AC.createScriptProcessor(1024, 0, 1);
+  SPN.onaudioprocess = ev => {
+    const out = ev.outputBuffer.getChannelData(0);
+    for (let s = 0; s < out.length; s += 64) {
+      ax = PX + (ax - PX) * k; ay = PY + (ay - PY) * k;
+      const key = ax.toFixed(4) + ',' + ay.toFixed(4);
+      if (key !== aKey) { aSt = stAt(ax, ay); aKey = key; const sk = structKey(aSt); if (sk !== aStruct) { aStruct = sk; LM.mark(); } }
+      const n = Math.min(64, out.length - s);
+      LR.step(aSt);
+      if (LR instanceof Cables) LE.block(LR, out, s, n); else LE.block(LR.frame(), out, s, n);
+    }
+    LM.push(out);
+  };
+  AN = AC.createAnalyser(); AN.fftSize = 1024; scopeBuf = new Float32Array(AN.fftSize);
+  SPN.connect(AN); AN.connect(AC.destination);
+}
+
+/* ---------- the frame ---------- */
+function frame() {
+  frameN++; if (!REDUCED) flowT++;
+  if (sweeping) { sweepT += 0.004; const [x, y] = sweepById(sweepId).xy(0.5 - 0.5 * Math.cos(sweepT)); PX = x; PY = y; dirty = true; }
+  if (LM) LM.poll();
+  const live = AC && AC.state === 'running';
+  if (dirty) { paintAt(); dirty = false; }
+  else if (live && frameN % 3 === 0) paintAt();
+  else if (live) { VS = viewState(); paintCables(VS); }
+  else if (!REDUCED && VS) paintCables(VS);
+  paintScope(); paintMeter();
+  requestAnimationFrame(frame);
+}
+function applyTheme() {
+  document.body.classList.toggle('dark', dark);
+  $('themeBtn').innerHTML = 'theme <b>' + (dark ? 'DARK · TUBE' : 'LIGHT · ORCHID') + '</b>';
+  readPal(); dirty = true; paintAt();
+}
+function setOpt(patch, resettle) { o = Object.assign({}, o, patch); recompute(resettle); }
+/* sliders: coalesce a drag into one recompute per 40 ms */
+function setLater(patch) { o = Object.assign({}, o, patch); if (!pend) pend = setTimeout(() => { pend = 0; recompute(); }, 40); }
+function renderAll() { renderControls(); renderCorners(); renderRules(); renderTables(); renderRec(); readPal(); dirty = true; }
+
+/* ======================================================================
+   WIRING — last, so nothing above reaches forward.
+   ====================================================================== */
+$('themeBtn').addEventListener('click', () => { dark = !dark; applyTheme(); });
+$('pwr').addEventListener('click', () => {
+  if (!AC) startAudio(); else if (AC.state === 'running') AC.suspend(); else AC.resume();
+  setTimeout(() => {
+    const on = AC && AC.state === 'running';
+    $('pwr').className = 'pill' + (on ? ' on' : '');
+    $('audioStat').textContent = on ? 'AUDIO — BODY + SUB THROUGH ' + (isR2() ? 'ROUND 2' : 'THE CABLES') : 'AUDIO — OFF';
+    dirty = true;
+  }, 60);
+});
+$('pulseBtn').addEventListener('click', () => { pulse = !pulse; if (LE) LE.pulse = pulse; renderControls(); });
+$('probeBtn').addEventListener('click', () => { probe = !probe; if (LE) LE.probe = probe; renderControls(); });
+$('sweepBtn').addEventListener('click', () => { sweeping = !sweeping; renderControls(); });
+$('allOn').addEventListener('click', () => setOpt(Object.assign({ engine: 'r3' }, ON)));
+$('allOff').addEventListener('click', () => setOpt(OFF));
+document.addEventListener('input', e => {
+  const t = e.target; if (!t || !t.id) return;
+  if (t.id === 'glIn') setLater({ glide: +t.value });
+  else if (t.id === 'bdIn') setLater({ bound: +t.value >= BOUND_OFF ? BOUND_OFF : +t.value });
+  else if (t.id === 'slIn') setLater({ sleepDb: +t.value });
+  else if (t.id === 'gIn') setLater({ gamma: +t.value });
+  else if (t.id === 'tIn') setLater({ T: +t.value });
+});
+$('sDn').addEventListener('click', () => setOpt({ seed: Math.max(0, o.seed - 1) }));
+$('sUp').addEventListener('click', () => setOpt({ seed: o.seed + 1 }));
+$('reshuffle').addEventListener('click', () => setOpt({ seed: Math.floor(mulberry32(o.seed ^ 0x9E3779B9)() * 1e6) }));
+document.addEventListener('click', e => {
+  const t = e.target && e.target.closest ? e.target : null; if (!t) return;
+  const tg = t.closest('[data-tg]');
+  if (tg) { setOpt({ [tg.dataset.tg]: !o[tg.dataset.tg] }); return; }
+  const b = t.closest('button[data-k]'); if (!b) return;
+  const k = b.dataset.k, box = b.parentElement.id;
+  if (box === 'setPills') setOpt({ set: k }, true);
+  else if (box === 'engPills') setOpt({ engine: k }, true);
+  else if (box === 'loopPills') setOpt({ loop: k });
+  else if (box === 'modePills') setOpt({ mode: k });
+  else if (box === 'methPills') setOpt({ method: k });
+  else if (box === 'pPills') setOpt({ p: +k });
+  else if (box === 'kPills') setOpt({ K: +k });
+  else if (box === 'pathPills') { sweepId = k; renderControls(); dirty = true; }
+});
+function padAt(e) {
+  const r = $('pad').getBoundingClientRect(), m = 14;
+  PX = clamp01((e.clientX - r.left - m) / (r.width - 2 * m)); PY = clamp01(1 - (e.clientY - r.top - m) / (r.height - 2 * m)); dirty = true;
+}
+$('pad').addEventListener('pointerdown', e => { dragPad = true; sweeping = false; renderControls(); padAt(e); });
+window.addEventListener('pointermove', e => { if (dragPad) padAt(e); });
+window.addEventListener('pointerup', () => { dragPad = false; });
+window.addEventListener('resize', () => { dirty = true; });
+if (qb('adv', false)) $('advBox').open = true;
+
+readPal(); recompute(); applyTheme(); startCheck();
+requestAnimationFrame(frame);
+</script>
+</body></html>
