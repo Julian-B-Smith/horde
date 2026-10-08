@@ -1,0 +1,217 @@
+{
+  "version": 1,
+  "rows": [
+    {
+      "id": "R1",
+      "title": "Realtime safety on the audio thread",
+      "status": "partial",
+      "gates": ["rtsafety_probe"],
+      "gaps": "rtsafety_probe counts allocations in process() while it sweeps parameter ids 1-99 only, and runs no planted fault of its own. No RealtimeSanitizer job (needs upstream clang on Linux CI, Wave B). No lint of the realtime ban list.",
+      "tracked_by": "B448",
+      "tripwire": "RT violations: 0"
+    },
+    {
+      "id": "R2",
+      "title": "Thread races between UI, host and audio threads",
+      "status": "partial",
+      "gates": ["sanitize"],
+      "gaps": "CI's sanitize job runs ThreadSanitizer over the compiled oracles, which are single-threaded by construction. No stress harness that hammers parameters, presets and save/load during render (Wave B).",
+      "tracked_by": "B448",
+      "tripwire": "TSan stress: clean"
+    },
+    {
+      "id": "R3",
+      "title": "NaN, Inf and denormals",
+      "status": "partial",
+      "gates": ["denormal_check", "hostile_events_check", "stability_check"],
+      "gaps": "Oracles count non-finite samples in test renders and at the event boundary, and check denormal silence in tails. The shipped output guard replaces non-finite samples with zero and its count is discarded, so nothing latches or reports at run time; the latch-and-report guard is Wave B. No flush-to-zero audit.",
+      "tracked_by": "B448",
+      "tripwire": "NaN events: 0, plus the guard's trip count"
+    },
+    {
+      "id": "R4",
+      "title": "Sample-rate and block-size dependence",
+      "status": "partial",
+      "gates": ["sr_check", "blocksize_check", "samplerate_check", "subdiv_check", "swarm48_check"],
+      "gaps": "Rate and block-size checks exist per mechanism. No full matrix rendering each reference patch at 44.1/48/96/192 kHz and blocks of 1, 7, 64, 512 and varying, compared on perceptual features.",
+      "tracked_by": "B448",
+      "tripwire": "Rate/block invariance: pass"
+    },
+    {
+      "id": "R5",
+      "title": "Long-run drift",
+      "status": "partial",
+      "gates": ["stability_check"],
+      "gaps": "stability_check holds RMS drift, f0 drift, peak and non-finite count over 60 simulated seconds of the legacy SAW core in verify full (the ten-minute run is by hand). No 4-hour nightly soak per engine with level, DC and spectral-centroid bounds.",
+      "tracked_by": "B448",
+      "tripwire": "Soak 4h: pass"
+    },
+    {
+      "id": "R6",
+      "title": "Numerical stability at the edges",
+      "status": "partial",
+      "gates": ["notefuzz_check", "hostile_events_check", "kstuck_probe"],
+      "gaps": "Note-stream fuzzing, hostile-event checks and a high-coupling lifecycle probe exist. No property-based fuzz of the full parameter space with automation sweeps, modulation stacking and output-bound assertions.",
+      "tracked_by": "B448",
+      "tripwire": "Param fuzz: N runs, 0 failures"
+    },
+    {
+      "id": "R7",
+      "title": "State and preset compatibility",
+      "status": "partial",
+      "gates": ["statefix_check", "state_check", "modreadback_check"],
+      "gaps": "Three state fixtures load bit-identically and parameter ids are reserved. No per-release saved-state corpus rendered in CI and no append-only parameter-id check (Wave C).",
+      "tracked_by": "B448",
+      "tripwire": "Old sets render unchanged: yes"
+    },
+    {
+      "id": "R8",
+      "title": "Host integration edge cases",
+      "status": "partial",
+      "gates": ["validate-windows", "validate-macos"],
+      "gaps": "pluginval runs at strictness 10 in CI (Windows on every PR, macOS on main pushes). auval is a manual step, not a gate. No clap-validator, scripted host matrix, or two-instance shared-state test.",
+      "tracked_by": "B448",
+      "tripwire": "Validators: all green, N hosts tested"
+    },
+    {
+      "id": "R9",
+      "title": "Perceptual quality not heard on monitors",
+      "status": "partial",
+      "gates": ["alias_check"],
+      "gaps": "A fitted aliasing metric across the keyboard. No per-patch suite for true peak, DC, sub-20 Hz energy or mono-sum loss with stored thresholds.",
+      "tracked_by": "B448",
+      "tripwire": "A spectrum report per engine, red flags only"
+    },
+    {
+      "id": "R10",
+      "title": "The parity-golden trap",
+      "status": "partial",
+      "gates": ["parity_check", "h2_engine_parity_check", "divergence_ledger_check", "twocluster_check", "svf_check"],
+      "gaps": "Parity with the prototypes is provisional under ADR-187. Few closed-form, conservation or metamorphic tests independent of the prototypes, and no count of goldens carrying an independent check.",
+      "tracked_by": "B448",
+      "tripwire": "Goldens with independent check: N of M"
+    },
+    {
+      "id": "R11",
+      "title": "Build and platform divergence",
+      "status": "partial",
+      "gates": ["h2_rules_check", "h2_engine_fma_control", "portability_gate", "sanitize", "build-windows", "sign-macos"],
+      "gaps": "horde 2 builds are pinned contraction-off with an FMA control, and signing is in the release pipeline. x86_64 is exercised only by CI's Linux sanitizer job and the Windows build and validation; no parity run on x86_64 at the shipped Release flags, and no audit of the full flag set.",
+      "tracked_by": "B448",
+      "tripwire": "Both archs green; release signed"
+    },
+    {
+      "id": "R12",
+      "title": "Worst-case CPU and licensing exposure",
+      "status": "partial",
+      "gates": ["release_path_check", "release"],
+      "gaps": "The B439 budget and the CPU ledger exist as documents, and the CPU measurement is run by hand; no per-release gate on the worst-case patch. Releases carry a generated SBOM, but there is no license allow-list audit (Wave C).",
+      "tracked_by": "B448",
+      "tripwire": "Worst-case CPU: X% of budget; Licenses: clear"
+    },
+    {
+      "id": "S1",
+      "title": "Symptom clamping",
+      "status": "hole",
+      "gates": [],
+      "gaps": "No check flags a new clamp, isfinite guard or limiter in DSP code that lacks a root-cause trace. Review only.",
+      "tracked_by": "B448",
+      "expires": "2027-01-31",
+      "tripwire": "New DSP clamps without a root-cause trace: 0"
+    },
+    {
+      "id": "S2",
+      "title": "Snapshot of the bug",
+      "status": "hole",
+      "gates": [],
+      "gaps": "No check that a new golden names its independent justification (closed form, prototype plus listening sign-off, or measurement).",
+      "tracked_by": "B448",
+      "expires": "2027-01-31",
+      "tripwire": "New goldens without a named justification: 0"
+    },
+    {
+      "id": "S3",
+      "title": "Tolerance creep",
+      "status": "partial",
+      "gates": [{"name": "tolerance_registry_check", "pending": true}],
+      "gaps": "The tolerance registry check is being built (B448 Wave A). Until it runs, a widened tolerance is caught only in review.",
+      "tracked_by": "B448",
+      "tripwire": "Unapproved tolerance changes: 0"
+    },
+    {
+      "id": "S4",
+      "title": "Quiet disabling",
+      "status": "partial",
+      "gates": ["test_table_check", {"name": "weakening_check", "pending": true}],
+      "gaps": "test_table_check makes every check declare whether ./verify runs it, and cross-checks the claim. The counter of skips, suppressions and disabled sanitizers is being built (B448 Wave A).",
+      "tracked_by": "B448",
+      "tripwire": "Skips, suppressions and disabled sanitizers: no increase"
+    },
+    {
+      "id": "S5",
+      "title": "Happy-path tests",
+      "status": "hole",
+      "gates": [],
+      "gaps": "No check that each engine test suite includes extreme-parameter and automation-sweep cases.",
+      "tracked_by": "B448",
+      "expires": "2027-01-31",
+      "tripwire": "Engine suites without extreme and sweep cases: 0"
+    },
+    {
+      "id": "S6",
+      "title": "Confident wrong explanations",
+      "status": "hole",
+      "gates": [],
+      "gaps": "No diff-only reviewer agent yet checks that a PR's stated cause is what the diff changes.",
+      "tracked_by": "B448",
+      "expires": "2027-01-31",
+      "tripwire": "PRs whose stated cause the diff does not change: 0"
+    },
+    {
+      "id": "S7",
+      "title": "Cross-agent contradiction",
+      "status": "hole",
+      "gates": [],
+      "gaps": "No seam-registry gate on shared-state and threading changes before merge.",
+      "tracked_by": "B448",
+      "expires": "2027-01-31",
+      "tripwire": "Shared-state changes outside the seam registry: 0"
+    },
+    {
+      "id": "SEC-input",
+      "title": "Security: C++ input and preset parsing",
+      "status": "partial",
+      "gates": ["banned_api_check", "paste_cap_check", "bridge_utf8_check", "hostile_events_check"],
+      "gaps": "Category under the B446 security method; details are held privately.",
+      "tracked_by": "B446",
+      "tripwire": "Category gates: all green"
+    },
+    {
+      "id": "SEC-webview",
+      "title": "Security: GUI page",
+      "status": "partial",
+      "gates": ["gui_sink_check", "choc_patch_check", "embedded_page_policy_check", "gui_webview_check"],
+      "gaps": "Category under the B446 security method; details are held privately.",
+      "tracked_by": "B446",
+      "tripwire": "Category gates: all green"
+    },
+    {
+      "id": "SEC-supply",
+      "title": "Security: supply chain and build",
+      "status": "partial",
+      "gates": ["workflow_pin_check", "release_path_check"],
+      "gaps": "Category under the B446 security method; details are held privately.",
+      "tracked_by": "B446",
+      "tripwire": "Category gates: all green"
+    },
+    {
+      "id": "SEC-hygiene",
+      "title": "Security: repo hygiene and agent tooling",
+      "status": "partial",
+      "gates": ["leak_gate", "private_name_gate", "binary_hygiene_check", "kit_integrity", "deny_hook_check", "serve_labs_check", "labs_preview_check", "sandbox_check"],
+      "gaps": "Category under the B446 security method; details are held privately.",
+      "tracked_by": "B446",
+      "tripwire": "Category gates: all green"
+    }
+  ]
+}
